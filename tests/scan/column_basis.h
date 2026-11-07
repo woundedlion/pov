@@ -171,6 +171,39 @@ inline void basis_flat_shader(const math::Vector &, Fragment &f) {
   f.color = Color4(Pixel(52000, 21000, 9000), 1.0f);
 }
 
+/** @brief Colors mesh faces by their stable face register. */
+inline void basis_face_shader(const math::Vector &, Fragment &f) {
+  const auto face = static_cast<uint16_t>(f.v2);
+  f.color = Color4(
+      Pixel(static_cast<uint16_t>(6000 + 7000 * face), 30000, 12000), 1.0f);
+}
+
+/** @brief Colors grouped rings by their ring index. */
+inline void basis_group_shader(int s, const math::Vector &, Fragment &f) {
+  f.color = Color4(Pixel(static_cast<uint16_t>(20000 + 15000 * s), 9000, 40000),
+                   0.8f);
+}
+
+/** @brief Colors stacked rings by index and arc coordinate. */
+inline void basis_stack_shader(int s, const math::Vector &, Fragment &f) {
+  f.color = Color4(Pixel(static_cast<uint16_t>(15000 * (s + 1)),
+                         static_cast<uint16_t>(f.v0 * 8000.0f), 7000),
+                   f.v2);
+}
+
+/** @brief Builds a distorted-ring stack with evenly spaced radii. */
+template <size_t N, int LUT_N>
+inline void fill_basis_stack(DistortedRingArray<N> &rings, int8_t (&slots)[N],
+                             const math::Basis &basis,
+                             float (&knots)[N][LUT_N + 1], float first,
+                             float step) {
+  for (size_t i = 0; i < N; ++i) {
+    rings.emplace(i, basis, first + step * i, 0.06f, knots[i], LUT_N, 0.0f,
+                  nullptr);
+    slots[i] = static_cast<int8_t>(i);
+  }
+}
+
 /**
  * @brief Builds a scannable octahedron, face offsets included.
  * @param mesh Destination mesh.
@@ -225,15 +258,8 @@ inline void test_column_basis_matches_rotated_shapes() {
                          const math::Quaternion &q) {
     for (size_t i = 0; i < base.size(); ++i)
       mesh.vertices[i] = math::rotate(base[i], q);
-    Scan::Mesh::draw<W, H>(
-        pipeline, canvas, mesh,
-        [](const math::Vector &, Fragment &f) {
-          const auto face = static_cast<uint16_t>(f.v2);
-          f.color = Color4(
-              Pixel(static_cast<uint16_t>(6000 + 7000 * face), 30000, 12000),
-              1.0f);
-        },
-        scratch_arena_b);
+    Scan::Mesh::draw<W, H>(pipeline, canvas, mesh, basis_face_shader,
+                           scratch_arena_b);
   };
   HS_EXPECT_GT(expect_factored_tolerance(
                    "mesh", render_column_basis<W, H>(motion, solid),
@@ -249,13 +275,8 @@ inline void test_column_basis_matches_rotated_shapes() {
           math::make_basis(q * math::make_rotation(math::X_AXIS, 0.15f * s),
                            math::Vector(0.77f, 0.0f, -0.6f).normalized()),
           0.35f, 0.05f);
-    Scan::RingGroup::draw<W, H>(
-        pipeline, canvas, shapes, N,
-        [](int s, const math::Vector &, Fragment &f) {
-          f.color = Color4(
-              Pixel(static_cast<uint16_t>(20000 + 15000 * s), 9000, 40000),
-              0.8f);
-        });
+    Scan::RingGroup::draw<W, H>(pipeline, canvas, shapes, N,
+                                basis_group_shader);
   };
   HS_EXPECT_GT(expect_factored_tolerance(
                    "ring group", render_column_basis<W, H>(motion, group),
@@ -271,19 +292,10 @@ inline void test_column_basis_matches_rotated_shapes() {
     DistortedRingArray<RINGS> rings;
     auto *shapes = rings.data();
     int8_t slots[RINGS];
-    for (int i = 0; i < RINGS; ++i) {
-      rings.emplace(i, basis, 0.2f + 0.1f * i, 0.06f, knots[i], LUT_N, 0.0f,
-                    nullptr);
-      slots[i] = static_cast<int8_t>(i);
-    }
+    fill_basis_stack<RINGS, LUT_N>(rings, slots, basis, knots, 0.2f, 0.1f);
     static Scan::DistortedRingStack::CandidateTable<W, H> table;
-    Scan::DistortedRingStack::draw<W, H>(
-        pipeline, canvas, RINGS, shapes, slots, RINGS, table,
-        [](int s, const math::Vector &, Fragment &f) {
-          f.color = Color4(Pixel(static_cast<uint16_t>(15000 * (s + 1)),
-                                 static_cast<uint16_t>(f.v0 * 8000.0f), 7000),
-                           f.v2);
-        });
+    Scan::DistortedRingStack::draw<W, H>(pipeline, canvas, RINGS, shapes, slots,
+                                         RINGS, table, basis_stack_shader);
   };
   const BasisMotion swing{math::Quaternion(),
                           math::make_rotation(math::X_AXIS, 0.8f)};
@@ -393,22 +405,15 @@ template <int W, int H> inline void check_column_basis_blocks() {
   const BasisMotion motion{previous, math::Quaternion()};
   ScratchScope scope(scratch_arena_a);
   MeshState mesh;
-  build_basis_fan(mesh, scratch_arena_a,
-                  math::Vector(0.05f, 1.0f, 0.08f).normalized(), 0.12f);
+  const math::Vector centre = math::Vector(0.05f, 1.0f, 0.08f).normalized();
+  build_basis_fan(mesh, scratch_arena_a, centre, 0.12f);
   std::vector<math::Vector> base(mesh.vertices.begin(), mesh.vertices.end());
   const auto fan = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
                        const math::Quaternion &q) {
     for (size_t i = 0; i < base.size(); ++i)
       mesh.vertices[i] = math::rotate(base[i], q);
-    Scan::Mesh::draw<W, H>(
-        pipeline, canvas, mesh,
-        [](const math::Vector &, Fragment &f) {
-          const auto face = static_cast<uint16_t>(f.v2);
-          f.color = Color4(
-              Pixel(static_cast<uint16_t>(6000 + 7000 * face), 30000, 12000),
-              1.0f);
-        },
-        scratch_arena_b);
+    Scan::Mesh::draw<W, H>(pipeline, canvas, mesh, basis_face_shader,
+                           scratch_arena_b);
   };
   const std::vector<Pixel> decimated = render_column_basis<W, H>(motion, fan);
   std::vector<Pixel> exact;
@@ -419,7 +424,6 @@ template <int W, int H> inline void check_column_basis_blocks() {
   HS_EXPECT_GT(expect_factored_tolerance("pole-LOD mesh", decimated, exact),
                100);
 
-  const math::Vector centre = math::Vector(0.05f, 1.0f, 0.08f).normalized();
   const math::Vector dot = math::Vector(-0.2f, 1.0f, 0.1f).normalized();
   const auto polar = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
                          const math::Quaternion &q) {
@@ -927,14 +931,8 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
       for (int s = 0; s < N; ++s)
         shapes[s] = SDF::Ring(math::make_basis(math::Quaternion(), axes[s]),
                               0.4f, 0.05f);
-      Scan::RingGroup::draw<W, H>(
-          pipeline, canvas, shapes, N,
-          [](int s, const math::Vector &, Fragment &f) {
-            f.color = Color4(
-                Pixel(static_cast<uint16_t>(20000 + 15000 * s), 9000, 40000),
-                0.8f);
-          },
-          false, before);
+      Scan::RingGroup::draw<W, H>(pipeline, canvas, shapes, N,
+                                  basis_group_shader, false, before);
     });
   };
   const std::vector<Pixel> swept = draw(current, previous);
@@ -1212,19 +1210,11 @@ inline void test_ring_stack_honours_render_window() {
       DistortedRingArray<RINGS> rings;
       auto *shapes = rings.data();
       int8_t slots[RINGS];
-      for (int i = 0; i < RINGS; ++i) {
-        rings.emplace(i, frame, 0.4f + 0.3f * i, 0.06f, knots[i], LUT_N, 0.0f,
-                      nullptr);
-        slots[i] = static_cast<int8_t>(i);
-      }
+      fill_basis_stack<RINGS, LUT_N>(rings, slots, frame, knots, 0.4f, 0.3f);
       static Scan::DistortedRingStack::CandidateTable<W, H> table;
-      Scan::DistortedRingStack::draw<W, H>(
-          pipeline, canvas, RINGS, shapes, slots, RINGS, table,
-          [](int s, const math::Vector &, Fragment &f) {
-            f.color = Color4(Pixel(static_cast<uint16_t>(15000 * (s + 1)),
-                                   static_cast<uint16_t>(f.v0 * 8000.0f), 7000),
-                             f.v2);
-          });
+      Scan::DistortedRingStack::draw<W, H>(pipeline, canvas, RINGS, shapes,
+                                           slots, RINGS, table,
+                                           basis_stack_shader);
     }
     fx.advance_display();
     std::vector<Pixel> out;
@@ -1297,486 +1287,36 @@ inline void test_cap_may_touch_window_covers_window_pixels() {
   HS_EXPECT_GT(rejected, 100);
 }
 
-// ============================================================================
-// Column-time state: shaders, drift and forced tables at each column's time
-// ============================================================================
-
-/**
- * @brief Colour of the oracle shaders at a frame fraction.
- * @param u Frame fraction.
- * @return Red rising with @p u, alpha from 0.4 to 1.
- */
-inline Color4 column_tint(float u) {
-  return Color4(
-      Pixel(static_cast<uint16_t>(2000.0f + 60000.0f * u), 18000, 9000),
-      0.4f + 0.6f * u);
-}
-
-/**
- * @brief Checks that Scan::rasterize runs a time-aware shader at each
- *        column's sweep time.
- * @tparam W Canvas width.
- * @tparam H Canvas height.
- * @param lod Pole-LOD aggressiveness held for the check.
- */
-template <int W, int H> inline void check_timed_shader(float lod) {
-  HS_CONTEXT("width", static_cast<long long>(W));
-  const ScopedPoleLod scoped(lod);
-  const math::Vector discs[] = {math::Vector(1.0f, 0.1f, 0.05f).normalized(),
-                                math::Vector(-1.0f, -0.2f, 0.05f).normalized(),
-                                math::Vector(0.1f, 1.0f, 0.1f).normalized()};
-  const auto antipode = math::get_antipode(
-      math::make_basis(math::Quaternion(), math::Vector(0.05f, -1.0f, 0.1f)),
-      0.2f);
-  const SDF::Star star(antipode.first, antipode.second, 5, 0.0f, false);
-  const auto timed = [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-    const auto shader = [](const math::Vector &, Fragment &f, float u) {
-      f.color = column_tint(u);
-    };
-    for (const math::Vector &centre : discs)
-      Scan::Point::draw<W, H>(pipeline, canvas, centre, 0.3f, shader);
-    Scan::rasterize<W, H>(pipeline, canvas, star, TimedShaderFn(shader));
-  };
-  const auto held = [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
-    const auto shader = [u](const math::Vector &, Fragment &f) {
-      f.color = column_tint(u);
-    };
-    for (const math::Vector &centre : discs)
-      Scan::Point::draw<W, H>(pipeline, canvas, centre, 0.3f, shader);
-    Scan::rasterize<W, H>(pipeline, canvas, star, FragmentShaderFn(shader));
-  };
-  const std::vector<Pixel> drawn = render_stub_frame<W, H>(timed);
-  const std::vector<Pixel> expected = render_state_oracle<W, H>(held);
-  int lit = 0, mismatched = 0;
-  for (size_t i = 0; i < expected.size(); ++i) {
-    lit += !is_black(expected[i]);
-    mismatched += !(drawn[i] == expected[i]);
-  }
-  HS_EXPECT_EQ(mismatched, 0);
-  HS_EXPECT_GT(lit, 300);
-  const size_t seam = static_cast<size_t>(H / 2) * W + W / 2;
-  HS_EXPECT_GT(drawn[seam - 1].r, drawn[seam].r);
-
-  const std::vector<Pixel> off = [&] {
-    const ScopedTemporalSampling sampling(false);
-    return render_stub_frame<W, H>(timed);
-  }();
-  const std::vector<Pixel> endpoint =
-      render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-        held(pipeline, canvas, 1.0f);
-      });
-  HS_EXPECT_TRUE(off == endpoint);
-}
-
-/**
- * @brief Scan::rasterize runs a time-aware shader at each column's sweep
- *        time, per column through pole-LOD blocks and across both arm
- *        boundaries, and at the current endpoint with temporal sampling off.
- */
-inline void test_timed_shader_reads_column_sweep_time() {
-  check_timed_shader<96, 48>(0.0f);
-  check_timed_shader<288, 144>(0.6f);
-}
-
-/**
- * @brief Checks a face palette shader's column-time motion against the
- *        shader held at each column's sweep time.
- * @tparam W Canvas width.
- * @tparam H Canvas height.
- * @param lod Pole-LOD aggressiveness held for the check.
- */
-template <int W, int H> inline void check_face_palette_motion(float lod) {
-  HS_CONTEXT("width", static_cast<long long>(W));
-  const ScopedPoleLod scoped(lod);
-  constexpr float BLEND_FROM = 0.15f, BLEND_TO = 0.85f;
-  constexpr float RIM_FROM = 0.35f, RIM_TO = 0.9f;
-  constexpr float ALPHA_FROM = 0.25f, ALPHA_TO = 1.0f;
-  ScratchScope scope(scratch_arena_a);
-  BakedPaletteStorage from, to, rim;
-  from.bake(scratch_arena_a, Palettes::UNDERSEA);
-  to.bake(scratch_arena_a, Palettes::MANGO_PEEL);
-  rim.bake(scratch_arena_a, Palettes::RICH_SUNSET);
-  MeshState mesh;
-  build_basis_octahedron(mesh, scratch_arena_a);
-  const auto lerp = [](float a, float b, float u) { return a + (b - a) * u; };
-  const auto draw = [&](Pipeline<W, H> &pipeline, Canvas &canvas, float blend,
-                        float previous_blend, float rim_weight,
-                        float previous_rim, float alpha, float previous_alpha) {
-    ScratchScope blends(scratch_arena_b);
-    const BakedPalette ramp =
-        bake_palette_blend(scratch_arena_b, from, to, blend);
-    FacePaletteShader shader;
-    auto setup = [&](size_t, float size) {
-      shader.set_palette(&ramp);
-      if (blend != previous_blend)
-        shader.set_blend(&from.view(), &to.view(), blend, previous_blend);
-      shader.set_counterpart(&rim.view(), rim_weight, previous_rim);
-      shader.set_alpha(alpha, previous_alpha);
-      shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
-    };
-    Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
-                                       scratch_arena_b, nullptr, setup);
-  };
-  const std::vector<Pixel> moving =
-      render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-        auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-        const Scan::ColumnBasis time =
-            basis->prepare(math::Quaternion(), math::Quaternion(), true);
-        Scan::ColumnBasisScope column_scope(canvas, time);
-        draw(pipeline, canvas, BLEND_TO, BLEND_FROM, RIM_TO, RIM_FROM, ALPHA_TO,
-             ALPHA_FROM);
-      });
-  const std::vector<Pixel> expected = render_state_oracle<W, H>(
-      [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
-        const float blend = lerp(BLEND_FROM, BLEND_TO, u);
-        const float rim_weight = lerp(RIM_FROM, RIM_TO, u);
-        const float alpha = lerp(ALPHA_FROM, ALPHA_TO, u);
-        draw(pipeline, canvas, blend, blend, rim_weight, rim_weight, alpha,
-             alpha);
-      });
-  HS_EXPECT_GT(expect_frames_within("face palette shader", moving, expected, 2),
-               1000);
-}
-
-/**
- * @brief A face palette shader under column time moves its alpha, crossfade
- *        and counterpart weight from their previous endpoints to the current
- *        ones across each arm, per column through pole-LOD blocks.
- */
-inline void test_face_palette_shader_moves_at_column_time() {
-  constexpr size_t SCRATCH_A = DEFAULT_SCRATCH_A_SIZE;
-  constexpr size_t SCRATCH_B = DEFAULT_SCRATCH_B_SIZE +
-                               sizeof(SDF::FaceStorage) -
-                               sizeof(SDF::FaceScratchBuffer);
-  hs_test::ScopedArenaSplit split(GLOBAL_ARENA_SIZE - SCRATCH_A - SCRATCH_B,
-                                  SCRATCH_A, SCRATCH_B);
-  check_face_palette_motion<96, 48>(0.0f);
-  check_face_palette_motion<288, 144>(0.6f);
-}
-
-/**
- * @brief A volume's time-aware shader receives each hit's column sweep time.
- */
-inline void test_volume_timed_shader_reads_column_sweep_time() {
-  constexpr int W = 96, H = 48;
-  const SDF::Torus torus{0.3f, 0.1f};
-  const math::Vector centre = math::Vector(-1.0f, 0.2f, 0.1f).normalized();
-  const math::Quaternion q =
-      math::make_rotation(math::Vector(0.3f, 1.0f, 0.2f).normalized(), 0.8f);
-  constexpr float BOUNDS = 0.42f;
+/** @brief Read-column bounds contain every placement consumed during a volume swing. */
+template <int W, int H> inline void test_volume_read_columns_cover_hits() {
+  HS_CONTEXT("grid", W, H);
+  const SDF::Torus torus{0.25f, 0.08f};
+  const math::Vector anchor = math::Vector(0.3f, 0.4f, 0.85f).normalized();
+  const auto rotation = math::make_rotation(math::Y_AXIS, 0.6f);
+  constexpr float BOUNDS = 0.36f;
   auto columns = std::make_unique<Scan::VolumeColumns<W>>();
-  for (int c = 0; c < W / 2; ++c)
-    columns->set(c, centre, q);
-  const std::vector<Pixel> drawn =
-      render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-        Scan::TransformedVolume volume(torus, centre, q);
-        Scan::Volume::draw<W, H>(
-            pipeline, canvas, centre, BOUNDS, volume,
-            [](const math::Vector &, Fragment &f, float u) {
-              f.color = Color4(column_tint(u).color, 1.0f);
-            },
-            24, 0.02f, *columns);
-      });
-  const std::vector<Pixel> expected = render_state_oracle<W, H>(
-      [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
-        Scan::TransformedVolume volume(torus, centre, q);
-        Scan::Volume::draw<W, H>(
-            pipeline, canvas, centre, BOUNDS, volume,
-            [u](const math::Vector &, Fragment &f) {
-              f.color = Color4(column_tint(u).color, 1.0f);
-            },
-            24, 0.02f, *columns);
-      });
-  HS_EXPECT_GT(expect_factored_tolerance("timed volume", drawn, expected), 50);
-}
-
-/**
- * @brief surface_column inverts surface_time on both arms.
- */
-inline void test_surface_column_inverts_surface_time() {
-  for (int width = 4; width <= 512; width += 2) {
-    HS_CONTEXT("width", static_cast<long long>(width));
-    for (int x = 0; x < width; ++x)
-      HS_EXPECT_EQ(
-          Spacetime::surface_column(Spacetime::surface_time(x, width), width),
-          x % (width / 2));
+  for (int c = 0; c < W / 2; ++c) {
+    const auto q = math::slerp(math::Quaternion(), rotation,
+                               Spacetime::SamplingSurface<W>::time(c))
+                       .normalized();
+    columns->set(c, math::rotate(anchor, q), q);
   }
-}
-
-/**
- * @brief Moving per-column state prepares a table without rotation, and only
- *        with temporal sampling on.
- */
-inline void test_column_basis_prepares_for_moving_state() {
-  constexpr int W = 96, H = 48;
-  const math::Quaternion q =
-      math::make_rotation(math::Vector(0.2f, 0.9f, 0.4f).normalized(), 0.6f);
-  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-  HS_EXPECT_TRUE(basis->prepare(q, q).azimuth == nullptr);
-  const Scan::ColumnBasis forced = basis->prepare(q, q, true);
-  HS_EXPECT_TRUE(forced.azimuth != nullptr);
-  HS_EXPECT_TRUE(forced.sweep_arc > 0.0f && forced.sweep_arc < 1e-3f);
-  {
-    const ScopedTemporalSampling sampling(false);
-    HS_EXPECT_TRUE(basis->prepare(q, q, true).azimuth == nullptr);
-  }
-  ScratchScope scope(scratch_arena_a);
-  const Scan::ColumnBasis still =
-      Scan::prepare_column_basis<W, H>(scratch_arena_a, q, q);
-  const Scan::ColumnBasis moving =
-      Scan::prepare_column_basis<W, H>(scratch_arena_a, q, q, true);
-  HS_EXPECT_TRUE(still.azimuth == nullptr);
-  HS_EXPECT_TRUE(moving.azimuth != nullptr);
-}
-
-/// Largest channel error between a column-time scan and its per-column
-/// oracle under a multi-interval pose history.
-inline constexpr int HISTORY_ORACLE_CHANNEL_ERROR = 64;
-
-/**
- * @brief Re-centred caps keep every pixel a per-column oracle lights under a
- *        pose history of unequal or reversing interval turns.
- * @tparam W Canvas width.
- * @tparam H Canvas height.
- * @param label History named in failure context.
- * @param turns Turn of each history pose about one tilted axis (radians),
- *        oldest first.
- */
-template <int W, int H>
-inline void check_history_lit_caps(const char *label,
-                                   const std::array<float, 4> &turns) {
-  HS_CONTEXT(label, W);
-  const ScopedPoleLod lod(0.0f);
-  const math::Vector axis = math::Vector(0.6f, -0.2f, 0.77f).normalized();
-  math::Orientation<> orientation(math::make_rotation(axis, turns[0]));
-  for (size_t i = 1; i < turns.size(); ++i)
-    orientation.push(math::make_rotation(axis, turns[i]));
-  ScratchScope scope(scratch_arena_a);
-  const Scan::ColumnBasis time =
-      Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
-  HS_EXPECT_TRUE(time.azimuth != nullptr);
-  if (!time.azimuth)
-    return;
-
-  constexpr int HALF = W / 2;
-  float travel = 0.0f;
-  for (int c = 0; c < HALF; ++c)
-    for (int m = 0; m < HALF; ++m) {
-      const math::Quaternion step =
-          orientation.sample(Spacetime::surface_time(c, W)) *
-          orientation.sample(Spacetime::surface_time(m, W)).conjugate();
-      const float turn =
-          2.0f * asinf(fminf(sqrtf(math::dot(step.v, step.v)), 1.0f));
-      travel =
-          fmaxf(travel, turn - time.sweep_rate *
-                                   static_cast<float>(std::abs(c - m)) / HALF);
-    }
-  HS_EXPECT_LE(travel, (Scan::ColumnBasisTable<W, H>::SWEEP_PAD));
-
-  constexpr int SHAPES = 160;
-  std::vector<math::Basis> bases;
-  int moved = 0;
-  for (int i = 0; i < SHAPES; ++i) {
-    bases.push_back(math::make_basis(math::Quaternion(),
-                                     math::fib_spiral(SHAPES, 0.5f, i)));
-    Scan::LitCap cap;
-    moved += Scan::lit_cap<W, H>(bases.back().v, 0.03f, time, cap);
-  }
-  HS_EXPECT_GT(moved, SHAPES / 2);
-  const auto draw = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
-                        const math::Quaternion &placement, bool lit) {
-    const auto place = [&](const math::Basis &b) {
-      return math::Basis{math::rotate(b.u, placement),
-                         math::rotate(b.v, placement),
-                         math::rotate(b.w, placement)};
-    };
-    for (int i = 0; i < SHAPES; ++i) {
-      const auto star_basis = math::get_antipode(place(bases[i]), 0.04f);
-      const SDF::Star star(star_basis.first, star_basis.second, 5, 0.0f);
-      const SDF::Ring disc(place(bases[(i * 7) % SHAPES]), 0.0f, 0.03f);
-      if (lit) {
-        Scan::rasterize<W, H, false>(pipeline, canvas, star, basis_flat_shader);
-        Scan::rasterize<W, H, false>(pipeline, canvas, disc, basis_flat_shader);
-      } else {
-        Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyStar(star),
-                                     basis_flat_shader);
-        Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyRing(disc),
-                                     basis_flat_shader);
-      }
-    }
-  };
-  const auto scanned = [&](bool lit) {
-    return render_stub_frame<W, H>(
-        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-          Scan::ColumnBasisScope column_scope(canvas, time);
-          draw(pipeline, canvas, math::Quaternion(), lit);
-        });
-  };
-  const std::vector<Pixel> actual = scanned(true);
-  const std::vector<Pixel> swept = scanned(false);
-  const std::vector<Pixel> expected = render_state_oracle<W, H>(
-      [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
-        draw(pipeline, canvas,
-             (orientation.sample(u) * orientation.get().conjugate())
-                 .normalized(),
-             true);
-      });
-  int differing = 0, lit = 0, worst = 0;
-  for (size_t i = 0; i < expected.size(); ++i) {
-    differing += !(actual[i] == swept[i]);
-    lit += !is_black(expected[i]);
-    const Pixel &a = actual[i];
-    const Pixel &b = expected[i];
-    worst = std::max<int>(worst, max_channel_gap(a, b));
-  }
-  HS_EXPECT_EQ(differing, 0);
-  HS_EXPECT_LE(worst, HISTORY_ORACLE_CHANNEL_ERROR);
-  HS_EXPECT_GT(lit, 4 * SHAPES);
-}
-
-/**
- * @brief Compact shapes keep their oracle pixels under pose histories whose
- *        interval turns differ or reverse; an endpoint pair's rate bound is
- *        its arc.
- */
-inline void test_lit_caps_follow_history_rate() {
-  const BasisMotion motion = tilted_motion();
-  auto basis = std::make_unique<Scan::ColumnBasisTable<96, 48>>();
-  const Scan::ColumnBasis endpoints =
-      basis->prepare(motion.previous, motion.current);
-  HS_EXPECT_EQ(endpoints.sweep_rate, endpoints.sweep_arc);
-  for (const auto &[label, turns] :
-       {std::pair{"variable rate", std::array{0.0f, 0.6f, 0.6f, 0.6f}},
-        std::pair{"reversing", std::array{0.0f, 0.9f, 0.9f, 0.3f}}}) {
-    check_history_lit_caps<96, 48>(label, turns);
-    check_history_lit_caps<288, 144>(label, turns);
-  }
-}
-
-/**
- * @brief Drifting discs and stars match the shapes rotated to where they
- *        stood at each column's sweep time, across the arm boundary, for
- *        short and long drifts.
- */
-inline void test_drift_matches_shape_at_column_centre() {
-  constexpr int W = 96, H = 48;
-  const ScopedPoleLod lod(0.0f);
-  const math::Vector centres[] = {
-      math::Vector(-1.0f, 0.15f, 0.1f).normalized(),
-      math::Vector(0.3f, -0.4f, 0.85f).normalized()};
-  const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
-  for (const float angle : {3.0f * math::RADIANS_PER_COLUMN<W>, 0.7f}) {
-    HS_CONTEXT("drift milliradians", static_cast<int>(angle * 1000.0f));
-    const auto drifting = [&](auto &&shape) {
-      return render_stub_frame<W, H>(
-          [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-            auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-            Scan::ColumnBasis time =
-                basis->prepare(math::Quaternion(), math::Quaternion(), true);
-            Scan::ColumnBasisScope column_scope(canvas, time);
-            time.drift = axis * angle;
-            for (const math::Vector &c : centres)
-              shape(pipeline, canvas, math::make_basis(math::Quaternion(), c));
-          });
-    };
-    const auto oracle = [&](auto &&shape) {
-      return render_state_oracle<W, H>(
-          [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
-            const math::Quaternion back =
-                math::make_rotation(axis, -angle * (1.0f - u));
-            for (const math::Vector &c : centres) {
-              const math::Basis basis = math::make_basis(math::Quaternion(), c);
-              shape(pipeline, canvas,
-                    math::Basis{math::rotate(basis.u, back),
-                                math::rotate(basis.v, back),
-                                math::rotate(basis.w, back)});
-            }
-          });
-    };
-    const auto disc = [](Pipeline<W, H> &pipeline, Canvas &canvas,
-                         const math::Basis &basis) {
-      Scan::Point::draw<W, H>(pipeline, canvas, basis.v, 0.2f,
-                              basis_flat_shader);
-    };
-    const auto star = [](Pipeline<W, H> &pipeline, Canvas &canvas,
-                         const math::Basis &basis) {
-      Scan::Star::draw<W, H, false>(pipeline, canvas, basis, 0.15f, 5,
-                                    basis_flat_shader);
-    };
-    HS_EXPECT_GT(expect_factored_tolerance("drifting disc", drifting(disc),
-                                           oracle(disc)),
-                 40);
-    HS_EXPECT_GT(expect_factored_tolerance("drifting star", drifting(star),
-                                           oracle(star)),
-                 40);
-  }
-  const float angle = 3.0f * math::RADIANS_PER_COLUMN<W>;
-  HS_EXPECT_NEAR(
-      math::dot(Spacetime::rotate_by(centres[1], axis * angle),
-                math::rotate(centres[1], math::make_rotation(axis, angle))),
-      1.0f, 1e-6f);
-}
-
-/**
- * @brief A star whose drift barely changes across the columns that see it
- *        settles to one turn that matches its per-column drift scan; one
- *        seen across an arm boundary does not settle.
- */
-inline void test_settled_drift_matches_column_drift() {
-  constexpr int W = 96, H = 48;
-  const auto settle_shape = &Scan::settle_drift<W, H>;
-  const ScopedPoleLod lod(0.0f);
-  const BasisMotion motion = tilted_motion(0.05f);
-  const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
-  const math::Vector drift = axis * (0.3f * math::RADIANS_PER_COLUMN<W>);
-  const math::Vector centre = math::Vector(0.3f, -0.4f, 0.85f).normalized();
-  const float RADIUS = 0.15f;
-  const auto star = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
-                        const math::Basis &basis) {
-    Scan::Star::draw<W, H, false>(pipeline, canvas, basis, RADIUS, 5,
-                                  basis_flat_shader);
-  };
-  const auto render = [&](bool settle) {
-    return render_stub_frame<W, H>(
-        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-          auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-          Scan::ColumnBasis time =
-              basis->prepare(motion.previous, motion.current, true);
-          Scan::ColumnBasisScope column_scope(canvas, time);
-          math::Basis shape = math::make_basis(math::Quaternion(), centre);
-          if (settle)
-            HS_EXPECT_TRUE(
-                settle_shape(time, drift, RADIUS * (math::PI_F / 2.0f), shape));
-          else
-            time.drift = drift;
-          star(pipeline, canvas, shape);
-        });
-  };
-  // Within DRIFT_SETTLE_ARC a star's edge moves under a tenth of a pixel, so
-  // its coverage, and each channel, by under a tenth of full scale.
-  const std::vector<Pixel> settled = render(true);
-  const std::vector<Pixel> drifting = render(false);
-  int lit = 0, worst = 0;
-  for (size_t i = 0; i < settled.size(); ++i) {
-    lit += !is_black(drifting[i]);
-    worst = std::max<int>(worst, max_channel_gap(settled[i], drifting[i]));
-  }
-  std::printf("  [settled drift] lit=%d worst channel error=%d\n", lit, worst);
-  HS_EXPECT_GT(lit, 20);
-  HS_EXPECT_LE(worst, 52000 / 10);
-
-  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-  const Scan::ColumnBasis time =
-      basis->prepare(motion.previous, motion.current, true);
-  math::Basis seam = math::make_basis(
-      math::Quaternion(), math::Vector(-1.0f, 0.1f, 0.02f).normalized());
-  const math::Basis held = seam;
-  HS_EXPECT_FALSE(
-      settle_shape(time, drift, RADIUS * (math::PI_F / 2.0f), seam));
-  HS_EXPECT_VEC(seam.u, held.u, 0.0f);
-  HS_EXPECT_VEC(seam.v, held.v, 0.0f);
-  HS_EXPECT_VEC(seam.w, held.w, 0.0f);
-  math::Basis fast = math::make_basis(math::Quaternion(), centre);
-  HS_EXPECT_FALSE(
-      settle_shape(time, drift * 20.0f, RADIUS * (math::PI_F / 2.0f), fast));
+  const auto centre = math::rotate(anchor, rotation);
+  const auto [first, last] = columns->read_columns(centre, BOUNDS);
+  int hits = 0;
+  render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
+    Scan::TransformedVolume volume(torus, centre, rotation);
+    Scan::Volume::draw<W, H>(
+        pipeline, canvas, centre, BOUNDS, volume,
+        [&](const math::Vector &, Fragment &f, float time) {
+          const int column = Spacetime::SamplingSurface<W>::index(
+              Spacetime::SamplingSurface<W>::first_column_at(time));
+          HS_EXPECT_GE(column, first);
+          HS_EXPECT_LE(column, last);
+          ++hits;
+          f.color = Color4(Pixel(41000, 23000, 7000), 1.0f);
+        },
+        24, 0.02f, *columns);
+  });
+  HS_EXPECT_GT(hits, 0);
 }

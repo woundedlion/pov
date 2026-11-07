@@ -1,5 +1,6 @@
 import os
 import sys
+from committed_boards import committed_board, committed_project
 import tempfile
 import unittest
 import unittest.mock
@@ -14,9 +15,10 @@ import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
-UNPLACED = GEN_DIR.parent / "1.2" / "phantasm.kicad_pcb"
-ROUTED = GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb"
-TEENSY_LIBRARY = GEN_DIR.parent / "1.1" / "phantasm.pretty" / "Teensy4.0.kicad_mod"
+UNPLACED = committed_board("1.2")
+PROTOTYPE = committed_board("1.3")
+ROUTED = committed_board()
+TEENSY_LIBRARY = committed_project() / "phantasm.pretty" / "Teensy4.0.kicad_mod"
 
 # Chip-passive references whose library lands embed must leave untouched.
 LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_D1", "R_D2",
@@ -143,15 +145,17 @@ class UnplacedBoardLandTests(unittest.TestCase):
     deviation would reach fabrication."""
 
     def test_one_land_per_footprint_library_id(self):
-        root = sexp.parse(UNPLACED.read_text(encoding="utf-8"))[0]
-        families = {}
-        for node in F(root, "footprint"):
-            ref = connectivity.footprint_reference(node)
-            self.assertNotEqual(ref, "?")
-            families.setdefault(str(node[1]), {})[ref] = pad_lands(node)
-        self.assertTrue(families)
-        for libid, lands in sorted(families.items()):
-            self.assertEqual(len(set(lands.values())), 1, f"{libid}: {lands}")
+        for path in (UNPLACED, PROTOTYPE):
+            with self.subTest(project=path.parent.name):
+                root = sexp.parse(path.read_text(encoding="utf-8"))[0]
+                families = {}
+                for node in F(root, "footprint"):
+                    ref = connectivity.footprint_reference(node)
+                    self.assertNotEqual(ref, "?")
+                    families.setdefault(str(node[1]), {})[ref] = pad_lands(node)
+                self.assertTrue(families)
+                for libid, lands in sorted(families.items()):
+                    self.assertEqual(len(set(lands.values())), 1, f"{libid}: {lands}")
 
 
 class RoutedBoardLandTests(unittest.TestCase):
@@ -211,7 +215,7 @@ class TeensyLibraryTests(unittest.TestCase):
 
     def test_committed_boards_embed_the_library_land(self):
         expected = self.library_lands()
-        for board in (ROUTED, UNPLACED):
+        for board in (ROUTED, UNPLACED, PROTOTYPE):
             with self.subTest(board=board.name):
                 self.assertEqual(board_lands(board, "U_MCU"), expected)
 

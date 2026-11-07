@@ -10,7 +10,7 @@
 /** @brief Verifies Union returns the min of member distances, picking the closest shape. */
 inline void test_union_picks_closest_shape() {
   SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.1f);
-  SDF::Line lb(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), 0.1f);
+  SDF::Line lb(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), 0.2f);
 
   SDF::Union<SDF::Line, SDF::Line> u(la, lb);
 
@@ -18,11 +18,15 @@ inline void test_union_picks_closest_shape() {
       ((math::Vector(1, 0, 0) + math::Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = SDF::distance_of(u, mid_a);
   HS_EXPECT_NEAR(r.dist, -0.1f, 5e-4f);
+  HS_EXPECT_NEAR(r.size, 0.1f, 1e-6f);
+  HS_EXPECT_NEAR(r.raw_dist, SDF::distance_of(la, mid_a).raw_dist, 1e-6f);
 
   math::Vector mid_b =
       ((math::Vector(-1, 0, 0) + math::Vector(0, 0, -1)) * 0.5f).normalized();
   auto r2 = SDF::distance_of(u, mid_b);
-  HS_EXPECT_NEAR(r2.dist, -0.1f, 5e-4f);
+  HS_EXPECT_NEAR(r2.dist, -0.2f, 5e-4f);
+  HS_EXPECT_NEAR(r2.size, 0.2f, 1e-6f);
+  HS_EXPECT_NEAR(r2.raw_dist, SDF::distance_of(lb, mid_b).raw_dist, 1e-6f);
 }
 
 // ============================================================================
@@ -104,6 +108,11 @@ struct MockIntervalShape {
  *   the whole row with distance()", NOT that the shape covers the row.
  */
 struct MockFullWidthShape {
+  static constexpr bool BLENDS_SMOOTHLY = true;
+  /** @brief Claims all rows for full-scan fallback. */
+  template <int H> SDF::Bounds get_vertical_bounds() const {
+    return {0, H - 1};
+  }
   static constexpr bool is_solid =
       true; /**< Marks the mock as a solid fill shape. */
   /**
@@ -124,6 +133,11 @@ struct MockFullWidthShape {
  * @details The protocol requires a false return to emit nothing.
  */
 struct MockEmitThenFullWidthShape {
+  static constexpr bool BLENDS_SMOOTHLY = true;
+  /** @brief Claims all rows for full-scan fallback. */
+  template <int H> SDF::Bounds get_vertical_bounds() const {
+    return {0, H - 1};
+  }
   static constexpr bool is_solid =
       true; /**< Marks the mock as a solid fill shape. */
   /**
@@ -140,6 +154,24 @@ struct MockEmitThenFullWidthShape {
     return false;
   }
 };
+/** @brief Checks interval endpoints independently under a caller label. */
+template <int W, int H, typename Shape>
+inline void expect_spans(const char *label, const Shape &shape, int row,
+                         std::span<const std::pair<float, float>> expected,
+                         float tolerance) {
+  HS_CONTEXT(label);
+  std::vector<std::pair<float, float>> actual;
+  const bool handled = shape.template get_horizontal_intervals<W, H>(
+      row, [&](float start, float end) { actual.emplace_back(start, end); });
+  HS_EXPECT_TRUE(handled);
+  HS_EXPECT_SIZE_OR_RETURN(actual, expected.size());
+  for (size_t i = 0; i < actual.size(); ++i) {
+    HS_CONTEXT("span", i);
+    HS_EXPECT_NEAR(actual[i].first, expected[i].first, tolerance);
+    HS_EXPECT_NEAR(actual[i].second, expected[i].second, tolerance);
+  }
+}
+
 } // namespace sdf_interval_detail
 
 /**
@@ -155,16 +187,9 @@ inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
 
-  std::vector<P> out;
-  bool ok = s.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-
-  HS_EXPECT_SIZE_OR_RETURN(out, 2);
-  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 40.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].first, 60.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].second, 100.0f, 1e-4f);
+  const std::pair<float, float> expected[] = {{0.0f, 40.0f}, {60.0f, 100.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("interval block 1", s, 0,
+                                              expected, 1e-4f);
 }
 
 /**
@@ -222,15 +247,9 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
 
-  std::vector<P> out;
-  const bool ok = s.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-  HS_EXPECT_SIZE_OR_RETURN(out, 2);
-  HS_EXPECT_NEAR(out[0].first, 50.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 60.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].first, 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].second, 10.0f, 1e-4f);
+  const std::pair<float, float> expected[] = {{50.0f, 60.0f}, {0.0f, 10.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("interval block 2", s, 0,
+                                              expected, 1e-4f);
 }
 
 /**
@@ -246,13 +265,9 @@ inline void test_subtract_full_width_b_still_emits_the_minuend() {
   MockB B;
   SDF::Subtract<MockA, MockB> s(A, B);
 
-  std::vector<P> out;
-  bool ok = s.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-  HS_EXPECT_SIZE_OR_RETURN(out, 1);
-  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 100.0f, 1e-4f);
+  const std::pair<float, float> expected[] = {{0.0f, 100.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("interval block 3", s, 0,
+                                              expected, 1e-4f);
 }
 
 /** @brief Verifies Subtract forwards an unwrapped minuend band. */
@@ -264,13 +279,9 @@ inline void test_subtract_seam_straddle_forwards_minuend() {
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
 
-  std::vector<P> out;
-  bool ok = s.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-  HS_EXPECT_SIZE_OR_RETURN(out, 1);
-  HS_EXPECT_NEAR(out[0].first, -10.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 10.0f, 1e-4f);
+  const std::pair<float, float> expected[] = {{-10.0f, 10.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("interval block 4", s, 0,
+                                              expected, 1e-4f);
 }
 
 /** @brief Verifies Subtract preserves all minuend spans. */
@@ -290,16 +301,8 @@ inline void test_subtract_many_arc_preserves_minuend() {
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
 
-  std::vector<P> out;
-  bool ok = s.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-
-  HS_EXPECT_SIZE_OR_RETURN(out, a_ivs.size());
-  for (size_t i = 0; i < out.size(); ++i) {
-    HS_EXPECT_NEAR(out[i].first, a_ivs[i].first, 1e-4f);
-    HS_EXPECT_NEAR(out[i].second, a_ivs[i].second, 1e-4f);
-  }
+  sdf_interval_detail::expect_spans<256, 128>("many minuend spans", s, 0, a_ivs,
+                                              1e-4f);
 }
 
 // ============================================================================
@@ -344,17 +347,9 @@ inline void test_intersection_unsorted_child_yields_sorted_result() {
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Intersection<Mock, Mock> s(A, B);
 
-  std::vector<P> out;
-  bool ok = s.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-
-  // [0,100] ∩ {[20,40],[60,80]} = [20,40],[60,80], start-sorted.
-  HS_EXPECT_SIZE_OR_RETURN(out, 2);
-  HS_EXPECT_NEAR(out[0].first, 20.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 40.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].first, 60.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].second, 80.0f, 1e-4f);
+  const std::pair<float, float> expected[] = {{20.0f, 40.0f}, {60.0f, 80.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("interval block 5", s, 0,
+                                              expected, 1e-4f);
 }
 
 /**
@@ -373,29 +368,17 @@ inline void test_intersection_full_width_child_replays_other() {
 
   {
     SDF::Intersection<MockF, MockI> s(full, shape);
-    std::vector<P> out;
-    bool ok = s.get_horizontal_intervals<256, 128>(
-        0, [&](float st, float en) { out.push_back({st, en}); });
-    HS_EXPECT_TRUE(ok);
-    HS_EXPECT_SIZE_OR_RETURN(out, 2);
-    HS_EXPECT_NEAR(out[0].first, 60.0f, 1e-4f);
-    HS_EXPECT_NEAR(out[0].second, 80.0f, 1e-4f);
-    HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
-    HS_EXPECT_NEAR(out[1].second, 40.0f, 1e-4f);
+    const std::pair<float, float> expected[] = {{60.0f, 80.0f}, {20.0f, 40.0f}};
+    sdf_interval_detail::expect_spans<256, 128>("interval block 6", s, 0,
+                                                expected, 1e-4f);
   }
 
   // Symmetric: A has intervals, B full-width.
   {
     SDF::Intersection<MockI, MockF> s(shape, full);
-    std::vector<P> out;
-    bool ok = s.get_horizontal_intervals<256, 128>(
-        0, [&](float st, float en) { out.push_back({st, en}); });
-    HS_EXPECT_TRUE(ok);
-    HS_EXPECT_SIZE_OR_RETURN(out, 2);
-    HS_EXPECT_NEAR(out[0].first, 60.0f, 1e-4f);
-    HS_EXPECT_NEAR(out[0].second, 80.0f, 1e-4f);
-    HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
-    HS_EXPECT_NEAR(out[1].second, 40.0f, 1e-4f);
+    const std::pair<float, float> expected[] = {{60.0f, 80.0f}, {20.0f, 40.0f}};
+    sdf_interval_detail::expect_spans<256, 128>("interval block 7", s, 0,
+                                                expected, 1e-4f);
   }
 
   // Both fall back -> full-scan fallback (return false).
@@ -454,15 +437,9 @@ inline void test_intersection_seam_straddle_overlaps_across_wrap_frames() {
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Intersection<Mock, Mock> s(A, B);
 
-  std::vector<P> out;
-  bool ok = s.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-  HS_EXPECT_SIZE_OR_RETURN(out, 2);
-  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(out[0].second, 10.0f, 1e-5f);
-  HS_EXPECT_NEAR(out[1].first, 246.0f, 1e-5f);
-  HS_EXPECT_NEAR(out[1].second, 256.0f, 1e-5f);
+  const std::pair<float, float> expected[] = {{0.0f, 10.0f}, {246.0f, 256.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("interval block 8", s, 0,
+                                              expected, 1e-5f);
 }
 
 // ============================================================================
@@ -610,13 +587,9 @@ inline void test_union_merges_overlapping_intervals() {
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Union<Mock, Mock> u(A, B);
 
-  std::vector<P> out;
-  bool ok = u.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-  HS_EXPECT_SIZE_OR_RETURN(out, 1);
-  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 70.0f, 1e-4f);
+  const std::pair<float, float> expected[] = {{0.0f, 70.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("interval block 9", u, 0,
+                                              expected, 1e-4f);
 }
 
 /**
@@ -631,13 +604,9 @@ inline void test_union_seam_straddle_merges_overlapping_intervals() {
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Union<Mock, Mock> u(A, B);
 
-  std::vector<P> out;
-  bool ok = u.get_horizontal_intervals<256, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(ok);
-  HS_EXPECT_SIZE_OR_RETURN(out, 1);
-  HS_EXPECT_NEAR(out[0].first, -10.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 12.0f, 1e-4f);
+  const std::pair<float, float> expected[] = {{-10.0f, 12.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("interval block 10", u, 0,
+                                              expected, 1e-4f);
 }
 
 /**
@@ -819,4 +788,24 @@ inline void test_angular_repeat_t_is_sector_local() {
   float t_rep_2 = SDF::distance_of(rep, p2).t;
   HS_EXPECT_NEAR(t_rep_1, t_rep_2, 1e-3f);
   HS_EXPECT_NEAR(t_rep_1, t_global_1, 1e-3f);
+}
+
+/** @brief Union and smooth union preserve either child's full-row request. */
+inline void test_union_preserves_full_width_fallback() {
+  using namespace sdf_interval_detail;
+  const std::vector<std::pair<float, float>> spans{{20, 40}};
+  const MockIntervalShape intervals{&spans};
+  const auto check = [&](const auto &full) {
+    const auto expect_fallback = [](const auto &shape) {
+      const bool handled = shape.template get_horizontal_intervals<256, 128>(
+          0, [](float, float) {});
+      HS_EXPECT_FALSE(handled);
+    };
+    expect_fallback(SDF::Union(intervals, full));
+    expect_fallback(SDF::Union(full, intervals));
+    expect_fallback(SDF::SmoothUnion(intervals, full, 0.1f));
+    expect_fallback(SDF::SmoothUnion(full, intervals, 0.1f));
+  };
+  check(MockFullWidthShape{});
+  check(MockEmitThenFullWidthShape{});
 }

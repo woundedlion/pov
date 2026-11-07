@@ -18,6 +18,9 @@
 #include "tests/pixel_test_util.h"
 
 namespace hs_test::pole_geometry {
+/** Longitude warp per feedback frame, in radians. */
+inline constexpr double LONGITUDE_STEP = 0.6;
+
 /** @brief Checks MeshFeedback's arena peaks against the device partitions.
  * @tparam W,H Canvas dimensions.
  * @tparam Inspect Post-smoke effect inspector.
@@ -69,7 +72,7 @@ template <int W, int H> inline int plot_stroke(float phi) {
 
 inline math::Vector rotate_longitude(const math::Vector &v,
                                      const ::Feedback::Style &) {
-  constexpr float ANGLE = 0.6f;
+  constexpr float ANGLE = static_cast<float>(LONGITUDE_STEP);
   return {std::cos(ANGLE) * v.x - std::sin(ANGLE) * v.z, v.y,
           std::sin(ANGLE) * v.x + std::cos(ANGLE) * v.z};
 }
@@ -79,7 +82,10 @@ template <int W, int H>
 inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
                                          int downsample = 4,
                                          float alpha = 1.0f) {
+  HS_CONTEXT("resolution", W, H);
+  HS_CONTEXT("row / alpha-milli", row, static_cast<int>(alpha * 1000));
   for (bool temporal : {false, true}) {
+    HS_CONTEXT("downsample / temporal", downsample, static_cast<int>(temporal));
     const ScopedTemporalSampling sampling(temporal);
     const size_t SCRATCH_B = scratch_arena_b.get_capacity();
     const size_t REQUIRED =
@@ -125,8 +131,9 @@ inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
     HS_EXPECT_GT(mass, BRIGHT.b * alpha * 0.5);
     HS_EXPECT_GT(lit, 0);
     HS_EXPECT_LT(lit, W);
-    constexpr double STEP = 0.6 * W / (2 * math::PI_F);
-    const double EXPECTED = temporal ? -STEP / (1.0 + 0.6 / math::PI_F) : -STEP;
+    constexpr double STEP = LONGITUDE_STEP * W / (2 * math::PI_F);
+    // A within-arm read solves dx = -STEP * (1 + 2 * dx / W).
+    const double EXPECTED = temporal ? -STEP / (1.0 + 2.0 * STEP / W) : -STEP;
     HS_EXPECT_NEAR(moment / mass, EXPECTED, 0.5);
   }
 }

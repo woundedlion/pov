@@ -187,22 +187,44 @@ inline void test_bonne_general_parallel_matches_snyder() {
         const double angle = longitude * std::cos(double(latitude)) / rho;
         HS_EXPECT_NEAR(actual.coords.re, rho * std::sin(angle), 1e-5);
         HS_EXPECT_NEAR(actual.coords.im, cot - rho * std::cos(angle), 1e-5);
-        HS_EXPECT_NEAR(actual.fade_edge_distance,
-                       std::cos(double(latitude)) *
-                           (math::PI_F - std::abs(double(longitude))),
-                       1e-5);
-        HS_EXPECT_EQ(actual.region_id, static_cast<uint32_t>(longitude < 0));
-        constexpr float MERIDIAN = .37f;
-        const auto shifted = bonne_projection(
-            direction(latitude, longitude + MERIDIAN), MERIDIAN, parallel);
-        HS_EXPECT_NEAR(shifted.coords.re, actual.coords.re, 1e-5);
-        HS_EXPECT_NEAR(shifted.coords.im, actual.coords.im, 1e-5);
       }
     const auto origin =
         bonne_projection(direction(parallel, 0.0f), 0.0f, parallel);
     HS_EXPECT_NEAR(origin.coords.re, 0.0f, 1e-5f);
     HS_EXPECT_NEAR(origin.coords.im, 0.0f, 1e-5f);
   }
+}
+
+/** @brief Bonne edge metadata measures the nearest longitude cut. */
+inline void test_bonne_general_parallel_edge_metadata() {
+  for (float parallel :
+       {.4f, -.4f, .7f, -.7f, 1.2f, -1.2f, math::PI_F * .5f, -math::PI_F * .5f})
+    for (float latitude : {-1.3f, -.6f, .2f, 1.1f})
+      for (float longitude : {-2.4f, -.7f, .4f, 2.2f}) {
+        const auto actual =
+            bonne_projection(direction(latitude, longitude), 0, parallel);
+        HS_EXPECT_NEAR(actual.fade_edge_distance,
+                       std::cos(double(latitude)) *
+                           (math::PI_F - std::abs(double(longitude))),
+                       1e-5);
+        HS_EXPECT_EQ(actual.region_id, static_cast<uint32_t>(longitude < 0));
+      }
+}
+
+/** @brief Bonne coordinates are invariant under a shared meridian rotation. */
+inline void test_bonne_general_parallel_meridian_invariance() {
+  for (float parallel :
+       {.4f, -.4f, .7f, -.7f, 1.2f, -1.2f, math::PI_F * .5f, -math::PI_F * .5f})
+    for (float latitude : {-1.3f, -.6f, .2f, 1.1f})
+      for (float longitude : {-2.4f, -.7f, .4f, 2.2f}) {
+        const auto actual =
+            bonne_projection(direction(latitude, longitude), 0, parallel);
+        constexpr float MERIDIAN = .37f;
+        const auto shifted = bonne_projection(
+            direction(latitude, longitude + MERIDIAN), MERIDIAN, parallel);
+        HS_EXPECT_NEAR(shifted.coords.re, actual.coords.re, 1e-5);
+        HS_EXPECT_NEAR(shifted.coords.im, actual.coords.im, 1e-5);
+      }
 }
 
 /** @brief Peirce meridians and strip scroll preserve direction and magnitude. */
@@ -279,6 +301,8 @@ inline void check_peirce_fast_square_matches_exact(const math::Vector &v) {
   HS_EXPECT_EQ(fast.edge_class, exact.edge_class);
   HS_EXPECT_EQ(fast.flags, exact.flags);
   HS_EXPECT_EQ(fast.traits, exact.traits);
+  HS_EXPECT_EQ(fast.boundary_flags, exact.boundary_flags);
+  HS_EXPECT_EQ(fast.component_id, exact.component_id);
   constexpr auto &METRICS = Pullback::Projection::PEIRCE_FAST_SQUARE_METRICS;
   static_assert(METRICS[0].domain ==
                     Pullback::ApproximationDomain::PROJECTED_COORDINATE &&
@@ -623,8 +647,8 @@ inline void test_airocean_unfold_sends_vertices_to_planar_vertices() {
   }
 }
 
-/** @brief Projected points lie inside their selected spherical and planar face with consistent edge metadata. */
-inline void test_airocean_projection_stays_inside_its_face() {
+/** @brief Samples spherical directions and their selected Airocean faces. */
+template <typename Check> inline void for_each_airocean_sample(Check check) {
   for (int latitude_step = 0; latitude_step <= 48; ++latitude_step) {
     const float y = -1.0f + 2.0f * latitude_step / 48.0f;
     const float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
@@ -634,59 +658,79 @@ inline void test_airocean_projection_stays_inside_its_face() {
       const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
       const ProjectionKernelResult net =
           airocean_projection_meridian(v, 0.0f, false);
-      const size_t face = net.region_id;
-      HS_EXPECT_LT(face, AIROCEAN_FACE_COUNT);
-      if (face >= AIROCEAN_FACE_COUNT)
-        return;
-      HS_EXPECT_TRUE(airocean_contains(airocean_axes(v), face));
-      HS_EXPECT_EQ(airocean_outside_score(airocean_axes(v), face), 0.0f);
-      const auto expected = airocean_unfold(face, airocean_axes(v));
-      HS_EXPECT_NEAR(net.coords.re, expected.x, 1e-5f);
-      HS_EXPECT_NEAR(net.coords.im, expected.y, 1e-5f);
-      const auto horizontal = airocean_projection_meridian(v, 0.0f, true);
-      HS_EXPECT_EQ(horizontal.region_id, net.region_id);
-      HS_EXPECT_NEAR(horizontal.coords.re, AIROCEAN_NET_HEIGHT - net.coords.im,
-                     1e-5f);
-      HS_EXPECT_NEAR(horizontal.coords.im, net.coords.re, 1e-5f);
-      constexpr float MERIDIAN = .37f;
-      const math::Vector rotated(v.x * cosf(MERIDIAN) - v.z * sinf(MERIDIAN),
-                                 v.y,
-                                 v.x * sinf(MERIDIAN) + v.z * cosf(MERIDIAN));
-      const auto shifted =
-          airocean_projection_meridian(rotated, MERIDIAN, false);
-      HS_EXPECT_EQ(shifted.region_id, net.region_id);
-      HS_EXPECT_NEAR(shifted.coords.re, net.coords.re, 1e-5f);
-      HS_EXPECT_NEAR(shifted.coords.im, net.coords.im, 1e-5f);
-      if (AIROCEAN_CUT_MASKS[face]) {
-        float cut_distance = INFINITY;
-        for (uint8_t edge = 0; edge < 3; ++edge)
-          if (AIROCEAN_CUT_MASKS[face] & (1u << edge)) {
-            const auto a = planar_vertex(face, edge);
-            const auto b = face == 14 && edge == 0
-                               ? AIROCEAN_PLANAR_FACES[18][1]
-                               : planar_vertex(face, edge + 1);
-            cut_distance = std::min(
-                cut_distance,
-                point_segment_distance({net.coords.re, net.coords.im}, a, b));
-          }
-        HS_EXPECT_NEAR(net.fade_edge_distance, cut_distance, 1e-5f);
-      }
-      const AiroceanPoint point{net.coords.re, net.coords.im};
-      for (size_t edge = 0; edge < 3; ++edge)
-        HS_EXPECT_LE(planar_cross(planar_vertex(face, edge),
-                                  planar_vertex(face, edge + 1), point),
-                     1e-5f);
-      HS_EXPECT_TRUE(
-          net.edge_class == airocean_edge_identity(uint8_t(face), 0) ||
-          net.edge_class == airocean_edge_identity(uint8_t(face), 1) ||
-          net.edge_class == airocean_edge_identity(uint8_t(face), 2) ||
-          (face == 14 && net.edge_class == airocean_edge_identity(18, 0)));
-      HS_EXPECT_EQ(net.boundary_flags,
-                   AIROCEAN_CUT_MASKS[face] != 0
-                       ? projection_boundary(ProjectionBoundary::CUT)
-                       : projection_boundary(ProjectionBoundary::NONE));
+      check(v, net);
     }
   }
+}
+
+/** @brief Projected points stay in their selected faces with consistent edge metadata. */
+inline void test_airocean_projection_stays_inside_its_face() {
+  for_each_airocean_sample(
+      [](const math::Vector &v, const ProjectionKernelResult &net) {
+        const size_t face = net.region_id;
+        HS_EXPECT_LT(face, AIROCEAN_FACE_COUNT);
+        if (face >= AIROCEAN_FACE_COUNT)
+          return;
+        HS_EXPECT_TRUE(airocean_contains(airocean_axes(v), face));
+        HS_EXPECT_EQ(airocean_outside_score(airocean_axes(v), face), 0.0f);
+        const auto expected = airocean_unfold(face, airocean_axes(v));
+        HS_EXPECT_NEAR(net.coords.re, expected.x, 1e-5f);
+        HS_EXPECT_NEAR(net.coords.im, expected.y, 1e-5f);
+        if (AIROCEAN_CUT_MASKS[face]) {
+          float cut_distance = INFINITY;
+          for (uint8_t edge = 0; edge < 3; ++edge)
+            if (AIROCEAN_CUT_MASKS[face] & (1u << edge)) {
+              const auto a = planar_vertex(face, edge);
+              const auto b = face == 14 && edge == 0
+                                 ? AIROCEAN_PLANAR_FACES[18][1]
+                                 : planar_vertex(face, edge + 1);
+              cut_distance = std::min(
+                  cut_distance,
+                  point_segment_distance({net.coords.re, net.coords.im}, a, b));
+            }
+          HS_EXPECT_NEAR(net.fade_edge_distance, cut_distance, 1e-5f);
+        }
+        const AiroceanPoint point{net.coords.re, net.coords.im};
+        for (size_t edge = 0; edge < 3; ++edge)
+          HS_EXPECT_LE(planar_cross(planar_vertex(face, edge),
+                                    planar_vertex(face, edge + 1), point),
+                       1e-5f);
+        HS_EXPECT_TRUE(
+            net.edge_class == airocean_edge_identity(uint8_t(face), 0) ||
+            net.edge_class == airocean_edge_identity(uint8_t(face), 1) ||
+            net.edge_class == airocean_edge_identity(uint8_t(face), 2) ||
+            (face == 14 && net.edge_class == airocean_edge_identity(18, 0)));
+        HS_EXPECT_EQ(net.boundary_flags,
+                     AIROCEAN_CUT_MASKS[face] != 0
+                         ? projection_boundary(ProjectionBoundary::CUT)
+                         : projection_boundary(ProjectionBoundary::NONE));
+      });
+}
+
+/** @brief Horizontal Airocean coordinates are a quarter-turn of the vertical net. */
+inline void test_airocean_horizontal_is_a_quarter_turn() {
+  for_each_airocean_sample(
+      [](const math::Vector &v, const ProjectionKernelResult &net) {
+        const auto horizontal = airocean_projection_meridian(v, 0.0f, true);
+        HS_EXPECT_EQ(horizontal.region_id, net.region_id);
+        HS_EXPECT_NEAR(horizontal.coords.re,
+                       AIROCEAN_NET_HEIGHT - net.coords.im, 1e-5f);
+        HS_EXPECT_NEAR(horizontal.coords.im, net.coords.re, 1e-5f);
+      });
+}
+
+/** @brief Rotating the direction and central meridian preserves the Airocean net. */
+inline void test_airocean_meridian_invariance() {
+  for_each_airocean_sample([](const math::Vector &v,
+                              const ProjectionKernelResult &net) {
+    constexpr float MERIDIAN = .37f;
+    const math::Vector rotated(v.x * cosf(MERIDIAN) - v.z * sinf(MERIDIAN), v.y,
+                               v.x * sinf(MERIDIAN) + v.z * cosf(MERIDIAN));
+    const auto shifted = airocean_projection_meridian(rotated, MERIDIAN, false);
+    HS_EXPECT_EQ(shifted.region_id, net.region_id);
+    HS_EXPECT_NEAR(shifted.coords.re, net.coords.re, 1e-5f);
+    HS_EXPECT_NEAR(shifted.coords.im, net.coords.im, 1e-5f);
+  });
 }
 
 /** @brief Face 14 selects cut or glued traits and edge identity on opposite edge halves. */
@@ -776,15 +820,16 @@ inline void test_projection_trait_packing() {
   const ProjectionKernelResult bonne =
       bonne_projection(math::Vector(1.0f, 0.0f, 0.0f), 0.0f, 0.4f);
   HS_EXPECT_EQ(bonne.traits, projection_traits(ProjectionTrait::CUT));
-  const ProjectionKernelResult peirce =
-      peirce_projection(math::Vector(1.0f, 0.0f, 0.0f), 0.0f,
-                        projections::PeirceLayout::SQUARE, 0.0f);
-  HS_EXPECT_EQ(peirce.traits & projection_traits(ProjectionTrait::GLUED,
-                                                 ProjectionTrait::FOLDED,
-                                                 ProjectionTrait::PERIODIC),
-               projection_traits(ProjectionTrait::GLUED,
-                                 ProjectionTrait::FOLDED,
-                                 ProjectionTrait::PERIODIC));
+  const math::Vector EQUATOR(1.0f, 0.0f, 0.0f);
+  const auto SQUARE =
+      peirce_projection(EQUATOR, 0.0f, projections::PeirceLayout::SQUARE, 0.0f);
+  const auto STRIP = peirce_projection(
+      EQUATOR, 0.0f, projections::PeirceLayout::HORIZONTAL, 0.0f);
+  const auto TRAITS =
+      projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
+                        ProjectionTrait::PERIODIC, ProjectionTrait::SINGULAR);
+  HS_EXPECT_EQ(SQUARE.traits, TRAITS);
+  HS_EXPECT_EQ(STRIP.traits, TRAITS | projection_traits(ProjectionTrait::CUT));
 }
 
 /** @brief Equirectangular and folded sinusoidal coordinates match longitude and latitude formulas. */
@@ -1025,8 +1070,74 @@ inline void test_polyhedral_atlas_tiles() {
   expect_polyhedral_atlas_tiles<Solids::Icosahedron>();
 }
 
+/** @brief Skipping edge measurements preserves projection coordinates and identity. */
+inline void test_projection_without_edge_distance() {
+  auto compare = [](const ProjectionKernelResult &measured,
+                    const ProjectionKernelResult &skipped) {
+    HS_EXPECT_EQ(skipped.coords.re, measured.coords.re);
+    HS_EXPECT_EQ(skipped.coords.im, measured.coords.im);
+    HS_EXPECT_EQ(skipped.region_id, measured.region_id);
+    HS_EXPECT_EQ(skipped.flags, measured.flags);
+    HS_EXPECT_EQ(skipped.traits, measured.traits);
+    HS_EXPECT_EQ(skipped.edge_class, measured.edge_class);
+    HS_EXPECT_EQ(skipped.fade_edge_distance, NO_EDGE_DISTANCE);
+    HS_EXPECT_EQ(skipped.boundary_flags,
+                 projection_boundary(ProjectionBoundary::NONE));
+  };
+  for (float latitude : {-1.4f, -.7f, -.1f, .1f, .7f, 1.4f})
+    for (float longitude : {-2.7f, -1.3f, -.4f, .2f, 1.1f, 2.6f}) {
+      const auto v = direction(latitude, longitude);
+      for (auto layout : {PeirceLayout::DIAMOND, PeirceLayout::SQUARE,
+                          PeirceLayout::HORIZONTAL, PeirceLayout::VERTICAL})
+        compare(peirce_projection(v, .17f, layout, .1f, true),
+                peirce_projection(v, .17f, layout, .1f, false));
+      for (bool horizontal : {false, true})
+        compare(airocean_projection_meridian(v, .17f, horizontal, true),
+                airocean_projection_meridian(v, .17f, horizontal, false));
+    }
+}
+
+/** @brief Longitudes immediately outside the tie band retain their angle. */
+inline void test_peirce_sector_outside_tie_band() {
+  for (float boundary : {-.75f * math::PI_F, -.25f * math::PI_F,
+                         .25f * math::PI_F, .75f * math::PI_F})
+    for (float offset : {-5e-6f, 5e-6f})
+      for (int index = -14; index <= 14; ++index) {
+        const float angle = boundary + offset;
+        const auto v = direction(index * .1f, angle);
+        const float actual = peirce_sector_longitude(v, 0.0f);
+        HS_EXPECT_NE(actual, boundary);
+        HS_EXPECT_NEAR(actual, angle, 1e-6f);
+        check_peirce_fast_square_matches_exact(v);
+      }
+}
+
+/** @brief Folded Peirce layouts glue the equator and center the north pole. */
+inline void test_peirce_folded_equator_gluing() {
+  for (auto layout : {PeirceLayout::DIAMOND, PeirceLayout::SQUARE}) {
+    const auto pole =
+        peirce_projection(direction(.5f * math::PI_F, 0), 0, layout, 0);
+    HS_EXPECT_NEAR(pole.coords.re, 0.0f, 1e-6f);
+    HS_EXPECT_NEAR(pole.coords.im, 0.0f, 1e-6f);
+    for (int index = 0; index < 64; ++index) {
+      const float longitude =
+          (index / 16) * (.5f * math::PI_F) + .25f * math::PI_F + .1f +
+          (index % 16 + .5f) / 16 * (.5f * math::PI_F - .2f);
+      const auto north =
+          peirce_projection(direction(1e-4f, longitude), 0, layout, 0);
+      const auto south =
+          peirce_projection(direction(-1e-4f, longitude), 0, layout, 0);
+      HS_EXPECT_NEAR(north.coords.re, south.coords.re, 2e-3f);
+      HS_EXPECT_NEAR(north.coords.im, south.coords.im, 2e-3f);
+    }
+  }
+}
+
 inline int run_projections_tests() {
   hs_test::ModuleFixture fixture("projections");
+  HS_RUN(test_projection_without_edge_distance);
+  HS_RUN(test_peirce_sector_outside_tie_band);
+  HS_RUN(test_peirce_folded_equator_gluing);
   HS_RUN(test_wrap_longitude_range);
   HS_RUN(test_wrap_longitude_fmod_contract);
   HS_RUN(test_cylindrical_coordinates);
@@ -1036,6 +1147,8 @@ inline int run_projections_tests() {
   HS_RUN(test_polyhedral_atlas_area_correction);
   HS_RUN(test_bonne_sinusoidal_limit);
   HS_RUN(test_bonne_general_parallel_matches_snyder);
+  HS_RUN(test_bonne_general_parallel_edge_metadata);
+  HS_RUN(test_bonne_general_parallel_meridian_invariance);
   HS_RUN(test_peirce_elliptic_integral_shape);
   HS_RUN(test_peirce_sector_longitude_snapping);
   HS_RUN(test_peirce_fast_square_matches_exact);
@@ -1052,6 +1165,8 @@ inline int run_projections_tests() {
   HS_RUN(test_airocean_face_planes);
   HS_RUN(test_airocean_unfold_sends_vertices_to_planar_vertices);
   HS_RUN(test_airocean_projection_stays_inside_its_face);
+  HS_RUN(test_airocean_horizontal_is_a_quarter_turn);
+  HS_RUN(test_airocean_meridian_invariance);
   HS_RUN(test_airocean_face14_half_cut_edge);
   HS_RUN(test_airocean_projection_face_index_stays_in_range);
   HS_RUN(test_point_segment_distance);

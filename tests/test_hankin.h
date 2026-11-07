@@ -50,7 +50,7 @@ inline void check_compile_hankin_invariants(size_t edges) {
   CompiledHankin compiled;
   MeshOps::compile_hankin(base, compiled, target, temp);
 
-  HS_EXPECT_EQ(compiled.base_vertices.size(), base.vertices.size());
+  HS_EXPECT_SIZE_OR_RETURN(compiled.base_vertices, base.vertices.size());
   for (size_t i = 0; i < base.vertices.size(); ++i) {
     HS_EXPECT_VEC(compiled.base_vertices[i], base.vertices[i], 1e-6f);
   }
@@ -293,8 +293,7 @@ inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
   HS_EXPECT_VEC(got, corner, 1e-4f);
 
   // Stays finite and unit-length — never NaN from normalising a zero.
-  HS_EXPECT_TRUE(std::isfinite(got.x) && std::isfinite(got.y) &&
-                 std::isfinite(got.z));
+  HS_EXPECT_TRUE(finite_vec(got));
   HS_EXPECT_NEAR(got.length(), 1.0f, 1e-4f);
 }
 
@@ -374,9 +373,7 @@ inline void test_hankin_one_shot_produces_valid_mesh() {
 
   PolyMesh out = MeshOps::hankin(cube, target, temp, /*angle*/ 0.3f);
 
-  HS_EXPECT_TRUE(out.vertices.size() > 0);
-  HS_EXPECT_TRUE(out.face_counts.size() > 0);
-  HS_EXPECT_TRUE(out.faces.size() > 0);
+  check_nonempty(out);
   check_face_counts_consistent(out);
   check_indices_in_range(out);
 
@@ -698,12 +695,12 @@ inline void test_compiled_hankin_clone_deep_copies() {
   CompiledHankin::clone(src, dst, dst_arena);
   HS_EXPECT_TRUE(dst.base_vertices.data() != old_vertices);
 
-  HS_EXPECT_EQ(dst.base_vertices.size(), src.base_vertices.size());
-  HS_EXPECT_EQ(dst.static_vertices.size(), src.static_vertices.size());
-  HS_EXPECT_EQ(dst.dynamic_instructions.size(),
-               src.dynamic_instructions.size());
-  HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
-  HS_EXPECT_EQ(dst.faces.size(), src.faces.size());
+  HS_EXPECT_SIZE_OR_RETURN(dst.base_vertices, src.base_vertices.size());
+  HS_EXPECT_SIZE_OR_RETURN(dst.static_vertices, src.static_vertices.size());
+  HS_EXPECT_SIZE_OR_RETURN(dst.dynamic_instructions,
+                           src.dynamic_instructions.size());
+  HS_EXPECT_SIZE_OR_RETURN(dst.face_counts, src.face_counts.size());
+  HS_EXPECT_SIZE_OR_RETURN(dst.faces, src.faces.size());
   HS_EXPECT_EQ(dst.static_offset, src.static_offset);
   HS_EXPECT_EQ(dst.topology_key, src.topology_key);
   HS_EXPECT_TRUE(dst.corner_src.data() == dst.base_vertices.data());
@@ -727,7 +724,7 @@ inline void test_compiled_hankin_clone_deep_copies() {
   std::fill_n(hankin_target_buf, sizeof(hankin_target_buf) / 2, uint8_t{0xA5});
   PolyMesh actual;
   MeshOps::update_hankin(dst, actual, temp, 0.4f);
-  HS_EXPECT_EQ(actual.vertices.size(), expected.vertices.size());
+  HS_EXPECT_SIZE_OR_RETURN(actual.vertices, expected.vertices.size());
   for (size_t i = 0; i < expected.vertices.size(); ++i) {
     HS_EXPECT_VEC(actual.vertices[i], expected.vertices[i], 1e-6f);
   }

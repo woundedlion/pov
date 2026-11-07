@@ -46,6 +46,13 @@ void run_effect_case_dreamballs_weave_topology() {
   HS_RUN(run_case, test_dreamballs_weave_topology);
 }
 
+void run_effect_case_dreamballs_weave_topology_schema() {
+  HS_RUN(run_case, test_dreamballs_weave_topology_schema);
+}
+
+void run_effect_case_dreamballs_under_gap_alpha_fades_edge_tail() {
+  HS_RUN(run_case, test_dreamballs_under_gap_alpha_fades_edge_tail);
+}
 void run_effect_case_dreamballs_defect_weave_renders() {
   HS_RUN(run_case, test_dreamballs_defect_weave_renders);
 }
@@ -80,6 +87,8 @@ int run_dreamballs_tests() {
   if (effects_full_suite()) {
     run_effect_case_dreamballs_base_mesh_selector();
     run_effect_case_dreamballs_weave_topology();
+    run_effect_case_dreamballs_weave_topology_schema();
+    run_effect_case_dreamballs_under_gap_alpha_fades_edge_tail();
     run_effect_case_dreamballs_defect_weave_renders();
     run_effect_case_dreamballs_respawn_fires_and_honors_pause();
     run_effect_case_dreamballs_select_mid_fade_in_finishes_fade();

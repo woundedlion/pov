@@ -467,6 +467,26 @@ inline void test_configure_arenas_repartition() {
   HS_EXPECT_EQ(scratch_arena_b.get_capacity(), DEFAULT_SCRATCH_B_SIZE);
 }
 
+/** @brief Unaligned partitions preserve capacities and align each arena base. */
+inline void test_configure_arenas_unaligned_sizes() {
+  constexpr size_t P = 60 * 1024 + 1;
+  constexpr size_t A = 8 * 1024 + 1;
+  constexpr size_t B = 4 * 1024;
+  constexpr size_t ALIGN = alignof(std::max_align_t);
+  configure_arenas(P, A, B);
+  HS_EXPECT_EQ(persistent_arena.get_capacity(), P);
+  HS_EXPECT_EQ(scratch_arena_a.get_capacity(), A);
+  HS_EXPECT_EQ(scratch_arena_b.get_capacity(), B);
+  auto *pbase = static_cast<uint8_t *>(persistent_arena.allocate(1, 1));
+  auto *abase = static_cast<uint8_t *>(scratch_arena_a.allocate(1, 1));
+  auto *bbase = static_cast<uint8_t *>(scratch_arena_b.allocate(1, 1));
+  HS_EXPECT_EQ(abase, pbase + ((P + ALIGN - 1) & ~(ALIGN - 1)));
+  HS_EXPECT_EQ(bbase, abase + ((A + ALIGN - 1) & ~(ALIGN - 1)));
+  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(abase) % ALIGN, size_t(0));
+  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(bbase) % ALIGN, size_t(0));
+  configure_arenas_default();
+}
+
 /**
  * @brief Verifies resplit_arenas() rebases the scratch arenas while the
  *        persistent arena keeps its base, offset, and live content.
@@ -994,6 +1014,18 @@ inline void test_arenaspan_source_rebind_generation() {
   HS_EXPECT_EQ(after_clear.debug_binding_generation(),
                source.debug_binding_generation());
   HS_EXPECT_EQ(after_clear[0], 47);
+  ArenaSpan<int> before_move(source);
+  const auto source_generation = source.debug_binding_generation();
+  ArenaVector<int> moved;
+  moved = std::move(source);
+  HS_EXPECT_EQ(before_move.debug_binding_generation(), source_generation);
+  HS_EXPECT_EQ(before_move.debug_binding_generation(),
+               source.debug_binding_generation());
+  HS_EXPECT_EQ(before_move[0], 47);
+  source.bind(arena, 2);
+  HS_EXPECT_NE(before_move.debug_binding_generation(),
+               source.debug_binding_generation());
+  HS_EXPECT_EQ(moved[0], 47);
   ArenaVector<int> unbound;
   unbound.clear();
   HS_EXPECT_TRUE(unbound.empty());
@@ -1415,6 +1447,7 @@ inline int run_memory_tests() {
             "requires debug arena tracking");
 #endif
   HS_RUN(test_configure_arenas_repartition);
+  HS_RUN(test_configure_arenas_unaligned_sizes);
   HS_RUN(test_resplit_arenas_preserves_persistent);
   HS_RUN(test_arena_reset_hook_dispatch_and_unlink);
   HS_RUN(test_arena_reset_hook_runs_on_configure);

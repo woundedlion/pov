@@ -13,6 +13,19 @@
 /** @brief MobiusWarpEvolving's per-channel modulation frequencies. */
 constexpr float MOBIUS_FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
                                         0.71f, 0.83f, 0.97f, 1.09f};
+/// Period of each independently wrapped channel clock.
+constexpr double MOBIUS_PERIOD = 6.283185307179586476925286766559;
+
+/** @brief Reference value of one modulated complex coefficient.
+ * @param baseline Original coefficient channels.
+ * @param channel Flattened coefficient index.
+ * @param angle Current channel angle.
+ * @param scale Modulation amplitude.
+ * @return Independently modulated channel value. */
+inline float mobius_expected_channel(const std::array<float, 8> &baseline,
+                                     size_t channel, float angle, float scale) {
+  return baseline[channel] + (channel % 2 ? cosf(angle) : sinf(angle)) * scale;
+}
 
 /**
  * @brief Flattens Mobius coefficients into channel order.
@@ -140,7 +153,7 @@ inline void test_mobiuswarp_circular_bind_scale_reads_live() {
  * never reports done().
  */
 inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
-  const auto saved_rng = hs::random();
+  const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   math::MobiusParams params(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 3.0f, 0.0f);
   const float scale = 0.5f;
@@ -163,12 +176,11 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
   // 50 frames at speed 0.05 sweeps even the slowest channel past half amplitude.
   for (int c = 0; c < 8; ++c)
     HS_EXPECT_GT(peak[c], 0.5f * scale);
-  hs::random() = saved_rng;
 }
 
 /** @brief Wrapped channels follow live speeds after large temporal advances. */
 inline void test_mobiuswarp_evolving_wrapped_live_channels() {
-  const auto saved_rng = hs::random();
+  const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   math::MobiusParams params;
   const math::MobiusParams base = params;
@@ -178,7 +190,6 @@ inline void test_mobiuswarp_evolving_wrapped_live_channels() {
   HS_EXPECT_GE(allocated, 8 * sizeof(double));
   HS_EXPECT_LE(allocated, 8 * sizeof(double) + alignof(double) - 1);
   const std::array<float, 8> baseline = mobius_channels(base);
-  constexpr double PERIOD = 6.283185307179586476925286766559;
   double phases[8] = {};
   float effective_speed = 0.05f;
   for (float speed :
@@ -194,17 +205,16 @@ inline void test_mobiuswarp_evolving_wrapped_live_channels() {
     for (int i = 0; i < 8; ++i) {
       const double increment = static_cast<double>(effective_speed) *
                                static_cast<double>(MOBIUS_FREQUENCIES[i]);
-      phases[i] = std::fmod(phases[i] + std::fmod(increment, PERIOD), PERIOD);
+      phases[i] = std::fmod(phases[i] + std::fmod(increment, MOBIUS_PERIOD),
+                            MOBIUS_PERIOD);
       if (phases[i] < 0.0)
-        phases[i] += PERIOD;
+        phases[i] += MOBIUS_PERIOD;
       const float angle = static_cast<float>(phases[i]) + warp.phase(i);
-      const float expected =
-          baseline[i] + (i % 2 ? cosf(angle) : sinf(angle)) * 0.5f;
+      const float expected = mobius_expected_channel(baseline, i, angle, 0.5f);
       HS_EXPECT_TRUE(std::isfinite(observed[i]));
       HS_EXPECT_NEAR(observed[i], expected, 1e-5f);
     }
   }
-  hs::random() = saved_rng;
 }
 
 /**
@@ -212,7 +222,7 @@ inline void test_mobiuswarp_evolving_wrapped_live_channels() {
  * copies of a moved-from warp start from zero phases.
  */
 inline void test_mobiuswarp_evolving_value_semantics() {
-  const auto saved_rng = hs::random();
+  const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   math::MobiusParams params;
   const math::MobiusParams base = params;
@@ -266,8 +276,7 @@ inline void test_mobiuswarp_evolving_value_semantics() {
                              static_cast<double>(MOBIUS_FREQUENCIES[i])) +
           from_moved.phase(i);
       HS_EXPECT_NEAR(observed[i],
-                     baseline[i] + (i % 2 ? cosf(angle) : sinf(angle)) * 0.5f,
-                     1e-5f);
+                     mobius_expected_channel(baseline, i, angle, 0.5f), 1e-5f);
     }
   }
   const math::MobiusParams expected_from_moved = params;
@@ -299,36 +308,35 @@ inline void test_mobiuswarp_evolving_value_semantics() {
   copied.post_callback();
   moved.post_callback();
   HS_EXPECT_EQ(completions, 2);
-  hs::random() = saved_rng;
 }
 
 /** @brief Default modulation still moves after the float clock's uptime limit. */
 inline void test_mobiuswarp_evolving_long_uptime() {
-  const auto saved_rng = hs::random();
+  const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   math::MobiusParams params;
   const math::MobiusParams base = params;
   Animation::MobiusWarpEvolving warp(params);
-  constexpr uint32_t FRAMES = (1u << 25) + 3;
+  constexpr uint32_t FRAMES = (1u << 18) + 3;
+  warp.set_speed(1.0f);
   for (uint32_t frame = 0; frame < FRAMES; ++frame)
     warp.step(fake_canvas());
   const math::MobiusParams aged = params;
+  warp.set_speed(0.01f);
   warp.step(fake_canvas());
   HS_EXPECT_TRUE(std::memcmp(&params, &aged, sizeof(params)) != 0);
   const std::array<float, 8> baseline = mobius_channels(base);
   const std::array<float, 8> observed = mobius_channels(params);
-  constexpr double PERIOD = 6.283185307179586476925286766559;
   for (int i = 0; i < 8; ++i) {
-    const double accumulated = static_cast<double>(FRAMES + 1) *
-                               static_cast<double>(0.01f) *
-                               static_cast<double>(MOBIUS_FREQUENCIES[i]);
+    const double accumulated =
+        (static_cast<double>(FRAMES) + static_cast<double>(0.01f)) *
+        static_cast<double>(MOBIUS_FREQUENCIES[i]);
     const float angle =
-        static_cast<float>(std::fmod(accumulated, PERIOD)) + warp.phase(i);
-    const float expected =
-        baseline[i] + (i % 2 ? cosf(angle) : sinf(angle)) * 0.5f;
+        static_cast<float>(std::fmod(accumulated, MOBIUS_PERIOD)) +
+        warp.phase(i);
+    const float expected = mobius_expected_channel(baseline, i, angle, 0.5f);
     HS_EXPECT_NEAR(observed[i], expected, 1e-5f);
   }
-  hs::random() = saved_rng;
 }
 
 /** @brief Verifies invalid ring and line counts keep MobiusFlow finite with a unit product. */

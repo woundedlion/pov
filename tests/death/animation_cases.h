@@ -145,8 +145,62 @@ inline void case_timeline_pinned_one_shot_timer() {
 inline void case_orientation_frame_index_oob() {
   math::Orientation<> orientation; // constructed with one frame
   const math::Quaternion &q = orientation.get(opaque(3));
-  if (q.r == opaque(42.0f))
-    std::printf("x");
+  (void)q;
+}
+
+/** @brief Invalid orientation upsample count below one traps. */
+inline void case_orientation_upsample_count_below_one() {
+  math::Orientation<> orientation;
+  orientation.upsample(opaque(0));
+}
+
+/** @brief Invalid orientation orient index oob traps. */
+inline void case_orientation_orient_index_oob() {
+  math::Orientation<> orientation;
+  (void)orientation.orient(math::X_AXIS, opaque(3));
+}
+
+/** @brief Invalid orientation unorient index oob traps. */
+inline void case_orientation_unorient_index_oob() {
+  math::Orientation<> orientation;
+  (void)orientation.unorient(math::X_AXIS, opaque(3));
+}
+
+/** @brief Invalid orientation set nonunit traps. */
+inline void case_orientation_set_nonunit() {
+  math::Orientation<> orientation;
+  orientation.set(math::Quaternion(opaque(2.0f), 0, 0, 0));
+}
+
+/** @brief Invalid orientation push nonunit traps. */
+inline void case_orientation_push_nonunit() {
+  math::Orientation<> orientation;
+  orientation.push(math::Quaternion(opaque(2.0f), 0, 0, 0));
+}
+
+/** @brief Invalid orientation history full traps. */
+inline void case_orientation_history_full() {
+  math::Orientation<> orientation;
+  orientation.upsample(4);
+  orientation.push(math::Quaternion());
+}
+
+/** @brief Invalid orientation set at index oob traps. */
+inline void case_orientation_set_at_index_oob() {
+  math::Orientation<> orientation;
+  orientation.set_at(opaque(3), math::Quaternion());
+}
+
+/** @brief Invalid orientation set at nonunit traps. */
+inline void case_orientation_set_at_nonunit() {
+  math::Orientation<> orientation;
+  orientation.set_at(0, math::Quaternion(opaque(2.0f), 0, 0, 0));
+}
+
+/** @brief Invalid orientation set at normalized index oob traps. */
+inline void case_orientation_set_at_normalized_index_oob() {
+  math::Orientation<> orientation;
+  orientation.set_at_normalized(opaque(3), math::Quaternion());
 }
 
 /** @brief Reclaiming a live phase block traps before its next write. */
@@ -223,8 +277,7 @@ inline void case_opleg_rewind_refill() {
 inline void case_next_edge_toward_unknown_node() {
   const int e = ConwayGraph::next_edge_toward(
       opaque<int>(ConwayGraph::NUM_NODES), ConwayGraph::TETRAHEDRON, 0u);
-  if (e == opaque<int>(-42))
-    std::printf("x");
+  (void)e;
 }
 
 /**
@@ -448,8 +501,7 @@ inline void case_opleg_shading_face_out_of_range() {
   static const uint8_t face_ramp[1] = {0};
   const Animation::OpLeg::Shading shading{
       .ramps = ramps, .face_ramp = face_ramp, .faces = opaque<size_t>(1)};
-  if (&shading.ramp_for(opaque<size_t>(3)) == ramps)
-    std::printf("x");
+  (void)&shading.ramp_for(opaque<size_t>(3));
 }
 
 /**
@@ -476,8 +528,7 @@ inline void case_driver_null_speed_src() {
   Animation::Driver d(mutant, opaque<const float *>(nullptr),
                       1.0f); // -> HS_CHECK
   (void)d;
-  if (mutant == 42.0f)
-    std::printf("x");
+  (void)mutant;
 }
 
 /**
@@ -546,8 +597,7 @@ inline void case_timeline_cancel_owner_during_step() {
 inline void case_finite_param_perpetual_duration() {
   float value = 0.0f;
   Animation::Transition transition(value, 1.0f, opaque(-1), math::ease_linear);
-  if (transition.done())
-    std::printf("x");
+  (void)transition.done();
 }
 
 /** @brief Death case: a Transition target must be finite. */
@@ -556,8 +606,7 @@ inline void case_transition_nonfinite_target() {
   Animation::Transition transition(
       value, opaque(std::numeric_limits<float>::quiet_NaN()), 1,
       math::ease_linear);
-  if (transition.done())
-    std::printf("x");
+  (void)transition.done();
 }
 
 /** @brief Death case: clear hooks must not mutate timeline event storage. */
@@ -610,8 +659,7 @@ inline void case_mesh_carousel_unclassified_face_phases() {
 inline void case_timeline_double_construct() {
   Timeline a;
   Timeline b; // second live ctor -> HS_CHECK(!global_timeline_live) -> trap
-  if (global_timeline_num_events == opaque(42))
-    std::printf("x");
+  (void)global_timeline_num_events;
 }
 
 /** @brief Traps on random walk nonfinite options. */

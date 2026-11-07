@@ -251,18 +251,29 @@ inline math::Vector face_area_vector(const PolyMesh &m, size_t face_idx_offset,
 }
 
 /**
- * @brief Computes the unweighted centroid of a face's vertex positions.
+ * @brief Sums a face's vertex positions.
  * @param m Mesh owning the vertices and face-index array.
  * @param face_idx_offset Offset into m.faces where this face's indices begin.
  * @param count Number of vertices (sides) in the face.
- * @return Arithmetic mean of the face's vertex positions.
+ * @return Sum in face-index order.
  */
-inline math::Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
-                                      int count) {
+inline math::Vector face_vertex_sum(const PolyMesh &m, size_t face_idx_offset,
+                                    int count) {
   math::Vector c(0, 0, 0);
   for (int k = 0; k < count; ++k)
     c = c + m.vertices[m.faces[face_idx_offset + k]];
-  return c * (1.0f / static_cast<float>(count));
+  return c;
+}
+
+/** @brief Computes the unweighted centroid of a face's vertex positions.
+ * @param m Mesh owning the vertices and face-index array.
+ * @param face_idx_offset Offset of the face's first index.
+ * @param count Number of face vertices.
+ * @return Arithmetic mean of the vertex positions. */
+inline math::Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
+                                      int count) {
+  return face_vertex_sum(m, face_idx_offset, count) *
+         (1.0f / static_cast<float>(count));
 }
 
 /**
@@ -274,10 +285,7 @@ inline math::Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
  */
 inline math::Vector face_centroid_unit(const PolyMesh &m,
                                        size_t face_idx_offset, int count) {
-  math::Vector c(0.0f, 0.0f, 0.0f);
-  for (int k = 0; k < count; ++k)
-    c = c + m.vertices[m.faces[face_idx_offset + k]];
-  return c.normalized();
+  return face_vertex_sum(m, face_idx_offset, count).normalized();
 }
 
 /** @brief Copies a fixed solid into mutable renderer storage, optionally omitting its last face. */
@@ -360,6 +368,16 @@ inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
 inline float poly_face_area(const PolyMesh &m, size_t fi) {
   return face_area_vector(m, poly_face_offset(m, fi), m.face_counts[fi])
       .length();
+}
+
+/**
+ * @brief Asserts the mesh has vertices, face counts, and face indices.
+ * @param m Mesh to validate.
+ */
+inline void check_nonempty(const PolyMesh &m) {
+  HS_EXPECT_TRUE(m.vertices.size() > 0);
+  HS_EXPECT_TRUE(m.face_counts.size() > 0);
+  HS_EXPECT_TRUE(m.faces.size() > 0);
 }
 
 namespace conway_tests {
@@ -452,17 +470,12 @@ inline void check_consistent_winding(const PolyMesh &m) {
   HS_EXPECT_EQ(dups, 0);
 }
 
-/**
- * @brief Asserts the structural invariants shared by every Conway-op test.
+/** @brief Checks the shared Conway mesh invariants.
  * @param m Mesh to validate.
- * @details Checks non-empty arrays, internally consistent face_counts/faces,
- *          in-range indices, vertices on the unit sphere, and consistent
- *          winding.
- */
+ * @details Checks nonempty arrays, consistent face counts, in-range indices,
+ * unit vertices, and consistent winding. */
 inline void check_basic_invariants(const PolyMesh &m) {
-  HS_EXPECT_TRUE(m.vertices.size() > 0);
-  HS_EXPECT_TRUE(m.face_counts.size() > 0);
-  HS_EXPECT_TRUE(m.faces.size() > 0);
+  check_nonempty(m);
   check_face_counts_consistent(m);
   check_indices_in_range(m);
   check_all_unit_vertices(m, 1e-3f);

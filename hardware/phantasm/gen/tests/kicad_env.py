@@ -4,10 +4,10 @@ import contextlib
 import io
 import os
 import sys
+from committed_boards import committed_board
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
-REPO_ROOT = GEN.parents[2]
 sys.path.insert(0, str(GEN))
 
 import board  # noqa: E402
@@ -85,7 +85,7 @@ def footprints_by_ref(root):
 
 
 def committed_board_nets(revision="1.1"):
-    path = REPO_ROOT / "hardware" / "phantasm" / revision / "phantasm.kicad_pcb"
+    path = committed_board(revision)
     root = sexp.parse(path.read_text(encoding="utf-8"))[0]
     nets = {}
     for reference, footprint in footprints_by_ref(root).items():

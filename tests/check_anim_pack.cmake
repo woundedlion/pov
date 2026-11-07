@@ -22,7 +22,8 @@ if(DEFINED FIXTURE_DIR)
       "class Missing : public AnimationBase<Missing>, public Other<int> {}"
       "class Missing final : public AnimationBase<Missing>, public Other<int> {}"
       "struct Missing : AnimationBase<Missing> {}"
-      "class Missing : public Mixin<int>, public AnimationBase<Missing> {}")
+      "class Missing : public Mixin<int>, public AnimationBase<Missing> {}"
+      "template <typename Derived, int N> class Root : public AnimationBase<Derived> {}\; class Missing : public Root<Missing, 3> {}")
     file(WRITE "${FIXTURE_DIR}/fixture.h"
       "class Present : public AnimationBase<Present> {};\n${_declaration};\nLARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<Present>();\n")
     execute_process(COMMAND "${CMAKE_COMMAND}" "-DCORE_DIR=${FIXTURE_DIR}"
@@ -88,6 +89,8 @@ while(_changed)
       endif()
       string(REGEX REPLACE "^[^<]*<(.*)>$" "\\1" _arg "${_base_decl}")
       string(STRIP "${_arg}" _arg)
+      string(REGEX REPLACE "^([A-Za-z0-9_]+([ \t\r\n]*<[^<>]*>)?)[ \t\r\n]*,.*$"
+        "\\1" _arg "${_arg}")
       if(_arg STREQUAL "${_name}")
         if(NOT _name IN_LIST _concrete)
           list(APPEND _concrete "${_name}")

@@ -169,9 +169,6 @@ inline void case_generated_palette_bank_unknown_mode() {
 }
 
 /** @brief Sphere field admission rejects an infinite direction. */
-inline void case_modulation_infinite_direction() {
-  (void)Pattern::SphereDirection::from(math::Vector(opaque(INFINITY), 0, 0));
-}
 
 /**
  * @brief Death case: cloning a BakedPalette from itself must trap.
@@ -240,81 +237,67 @@ inline void case_gradient_stops_unsorted() {
   (void)grad;
 }
 
+/** @brief Each modifier admits a live driver and rejects a null one.
+ * @tparam T Driver-backed modifier. */
+template <typename T> void reject_null_driver() {
+  float driver = 0.0f;
+  (void)T(&driver);
+  (void)T(opaque<const float *>(nullptr));
+}
+
 /** @brief BreatheModifier rejects a null driver. */
 inline void case_composition_breathemodifier_null() {
-  float driver = 0.0f;
-  (void)BreatheModifier(&driver);
-  (void)BreatheModifier(opaque<const float *>(nullptr));
+  reject_null_driver<BreatheModifier>();
 }
 
 /** @brief RippleModifier rejects a null driver. */
 inline void case_composition_ripplemodifier_null() {
-  float driver = 0.0f;
-  (void)RippleModifier(&driver);
-  (void)RippleModifier(opaque<const float *>(nullptr));
+  reject_null_driver<RippleModifier>();
 }
 
 /** @brief NoiseWarpModifier rejects a null driver. */
 inline void case_composition_noisewarpmodifier_null() {
-  float driver = 0.0f;
-  (void)NoiseWarpModifier(&driver);
-  (void)NoiseWarpModifier(opaque<const float *>(nullptr));
+  reject_null_driver<NoiseWarpModifier>();
 }
 
 /** @brief DriftModifier rejects a null driver. */
 inline void case_composition_driftmodifier_null() {
-  float driver = 0.0f;
-  (void)DriftModifier(&driver);
-  (void)DriftModifier(opaque<const float *>(nullptr));
+  reject_null_driver<DriftModifier>();
 }
 
 /** @brief ScaleModifier rejects a null driver. */
 inline void case_composition_scalemodifier_null() {
-  float driver = 0.0f;
-  (void)ScaleModifier(&driver);
-  (void)ScaleModifier(opaque<const float *>(nullptr));
+  reject_null_driver<ScaleModifier>();
 }
 
 /** @brief HueSpinShade rejects a null driver. */
 inline void case_composition_huespinshade_null() {
-  float driver = 0.0f;
-  (void)HueSpinShade(&driver);
-  (void)HueSpinShade(opaque<const float *>(nullptr));
+  reject_null_driver<HueSpinShade>();
 }
 
 /** @brief HueWobbleShade rejects a null driver. */
 inline void case_composition_huewobbleshade_null() {
-  float driver = 0.0f;
-  (void)HueWobbleShade(&driver);
-  (void)HueWobbleShade(opaque<const float *>(nullptr));
+  reject_null_driver<HueWobbleShade>();
 }
 
 /** @brief SparkleShade rejects a null driver. */
 inline void case_composition_sparkleshade_null() {
-  float driver = 0.0f;
-  (void)SparkleShade(&driver);
-  (void)SparkleShade(opaque<const float *>(nullptr));
+  reject_null_driver<SparkleShade>();
 }
 
 /** @brief ChromaPulseShade rejects a null driver. */
 inline void case_composition_chromapulseshade_null() {
-  float driver = 0.0f;
-  (void)ChromaPulseShade(&driver);
-  (void)ChromaPulseShade(opaque<const float *>(nullptr));
+  reject_null_driver<ChromaPulseShade>();
 }
 
 /** @brief LightnessGrainShade rejects a null driver. */
 inline void case_composition_lightnessgrainshade_null() {
-  float driver = 0.0f;
-  (void)LightnessGrainShade(&driver);
-  (void)LightnessGrainShade(opaque<const float *>(nullptr));
+  reject_null_driver<LightnessGrainShade>();
 }
 
 /** @brief IridescentShade rejects a null driver. */
 inline void case_composition_iridescentshade_null() {
-  float driver = 0.0f;
-  (void)IridescentShade(&driver);
-  (void)IridescentShade(opaque<const float *>(nullptr));
+  reject_null_driver<IridescentShade>();
 }
 
 /** @brief InsetModifier rejects an invalid range. */

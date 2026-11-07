@@ -20,13 +20,16 @@ class MainTests(unittest.TestCase):
          "net_settings": {"classes": [{"name": "Default"}]}},
         indent=2)
 
+    def write_project(self, root, text):
+        project = root / "phantasm.kicad_pro"
+        project.parent.mkdir(parents=True, exist_ok=True)
+        project.write_text(text, encoding="utf-8")
+        return project
+
     def test_routed_project_gets_the_routed_constraints(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            project = root / "1.2" / "phantasm.kicad_pro"
-            project.parent.mkdir()
-            data = json.loads(self.ZEROED)
-            project.write_text(json.dumps(data), encoding="utf-8")
+            project = self.write_project(root / "1.2", self.ZEROED)
             with mock.patch.object(heal_clearance, "OUT", directory):
                 self.assertEqual(heal_clearance.project_files(), [str(project)])
                 with contextlib.redirect_stdout(io.StringIO()):
@@ -48,9 +51,7 @@ class MainTests(unittest.TestCase):
 
     def test_malformed_project_fails_cleanly(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            project = Path(temp_dir) / "1.2" / "phantasm.kicad_pro"
-            project.parent.mkdir()
-            project.write_text("{", encoding="utf-8")
+            self.write_project(Path(temp_dir) / "1.2", "{")
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 stderr = io.StringIO()
                 with contextlib.redirect_stderr(stderr):
@@ -59,9 +60,7 @@ class MainTests(unittest.TestCase):
 
     def test_missing_default_net_class_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            project = Path(temp_dir) / "1.2" / "phantasm.kicad_pro"
-            project.parent.mkdir()
-            project.write_text("{}", encoding="utf-8")
+            self.write_project(Path(temp_dir) / "1.2", "{}")
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 stderr = io.StringIO()
                 with contextlib.redirect_stderr(stderr):
@@ -69,17 +68,11 @@ class MainTests(unittest.TestCase):
         self.assertIn("missing Default net class", stderr.getvalue())
 
     def test_manifested_snapshot_is_left_untouched(self):
-        zeroed = json.dumps({
-            "board": {"design_settings": {"rules": {"min_clearance": 0}}},
-            "net_settings": {"classes": [{"name": "Default"}]}})
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            (root / "1.2").mkdir()
-            (root / "1.2" / "phantasm.kicad_pro").write_text(zeroed, encoding="utf-8")
+            self.write_project(root / "1.2", self.ZEROED)
             snapshot = root / "1.1"
-            snapshot.mkdir()
-            protected = snapshot / "phantasm.kicad_pro"
-            protected.write_text(zeroed, encoding="utf-8")
+            protected = self.write_project(snapshot, self.ZEROED)
             (snapshot / "SHA256SUMS.txt").write_text("", encoding="utf-8")
 
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
@@ -88,7 +81,7 @@ class MainTests(unittest.TestCase):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(heal_clearance.main([]), 0)
 
-            self.assertEqual(protected.read_text(encoding="utf-8"), zeroed)
+            self.assertEqual(protected.read_text(encoding="utf-8"), self.ZEROED)
             healed = json.loads((root / "1.2" / "phantasm.kicad_pro").read_text(encoding="utf-8"))
             self.assertGreater(
                 healed["board"]["design_settings"]["rules"]["min_clearance"], 0)
@@ -120,16 +113,11 @@ class MainTests(unittest.TestCase):
         self.assertNotIn(b"\r", healed)
 
     def test_unplaced_project_gets_the_unplaced_constraints(self):
-        zeroed = json.dumps({
-            "board": {"design_settings": {"rules": {"min_clearance": 0}}},
-            "net_settings": {"classes": [{"name": "Default"}]}})
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            (root / "1.2").mkdir()
-            project = root / "1.2" / "phantasm.kicad_pro"
-            data = json.loads(zeroed)
+            data = json.loads(self.ZEROED)
             data["text_variables"] = {"PHANTASM_LAYOUT": "unplaced"}
-            project.write_text(json.dumps(data), encoding="utf-8")
+            project = self.write_project(root / "1.2", json.dumps(data))
 
             with mock.patch.object(heal_clearance, "OUT", temp_dir):
                 with contextlib.redirect_stdout(io.StringIO()):

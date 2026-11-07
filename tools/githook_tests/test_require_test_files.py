@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env, require_tool
+from git_test_env import git_run, isolated_env, require_tool
 
 REPO = Path(__file__).resolve().parents[2]
 CHECK = REPO / "tools" / "require_test_files.sh"
@@ -63,7 +63,7 @@ class RequireTestFiles(unittest.TestCase):
         self.assertIn("hidden.spec.js", done.stdout)
 
     def test_git_repository_scan_reports_tests_outside_the_script_glob(self):
-        subprocess.run(["git", "-C", str(self.tree), "init", "--quiet"], check=True, env=ENV)
+        git_run(self.tree, "init", "--quiet", env=ENV)
         scripts = self.tree / "scripts"
         scripts.mkdir()
         (scripts / "active.test.mjs").write_text("", encoding="utf-8")

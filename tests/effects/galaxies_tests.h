@@ -527,8 +527,11 @@ inline void test_galaxies_live_particle_count() {
   HS_EXPECT_EQ(count->min, 0.0f);
   HS_EXPECT_EQ(count->max, 12000.0f);
   HS_EXPECT_EQ(count->get(), 0.0f);
-  HS_EXPECT(fx.updateParameter("Particles", 100.0f) == ParamSetResult::READONLY,
-            "client writes cannot replace live particle count");
+  {
+    HS_CONTEXT("client writes cannot replace live particle count");
+    HS_EXPECT_EQ(fx.updateParameter("Particles", 100.0f),
+                 ParamSetResult::READONLY);
+  }
   WB::hide(fx);
   WB::set_emission_rate(fx, 4.0f);
   for (int g = 0; g < WB::NUM_GALAXIES; ++g)

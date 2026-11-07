@@ -24,19 +24,6 @@ using ReactionGraph::neighbors;
 using ReactionGraph::node;
 
 /**
- * @brief Squared chord (Euclidean) distance between two points.
- * @param a First point (unit-sphere coordinates).
- * @param b Second point (unit-sphere coordinates).
- * @return Squared chord distance |a - b|^2 (dimensionless).
- * @details Monotone in arc length for points on the unit sphere, so it orders
- *          neighbors without a sqrt.
- */
-static inline float chord2(const math::Vector &a, const math::Vector &b) {
-  float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-  return dx * dx + dy * dy + dz * dz;
-}
-
-/**
  * @brief Upper bound on chord^2 from a node to any listed neighbor.
  * @details About 2x the shipped table's worst edge; a row shifted three rings
  *          exceeds it.
@@ -97,7 +84,7 @@ inline void test_node_ordered_and_distinct() {
     HS_EXPECT_TRUE(finite_vec(next));
     // y = 1 - 2i/(RD_N-1): index order is the north-to-south sweep order.
     out_of_order += next.y >= prev.y;
-    coincident += chord2(prev, next) <= 0.0f;
+    coincident += math::distance_squared(prev, next) <= 0.0f;
     prev = next;
   }
   HS_EXPECT_EQ(out_of_order, 0);
@@ -207,7 +194,7 @@ inline void test_neighbors_are_local() {
       HS_EXPECT_TRUE(ni >= 0 && ni < RD_N);
       if (ni < 0 || ni >= RD_N)
         return;
-      const float distance = chord2(p, node(ni));
+      const float distance = math::distance_squared(p, node(ni));
       if ((!std::isfinite(distance) || distance > MAX_NEIGHBOR_CHORD2) &&
           first_far_slot < 0)
         first_far_slot = i * RD_K + k;
@@ -233,7 +220,7 @@ inline void test_neighbors_match_brute_force_knn() {
     for (int j = 0; j < RD_N; ++j) {
       if (j == i)
         continue;
-      const float d2 = chord2(p, node(j));
+      const float d2 = math::distance_squared(p, node(j));
       if (filled == RD_K && d2 >= best2[RD_K - 1])
         continue;
       int slot = filled < RD_K ? filled : RD_K - 1;
@@ -308,9 +295,11 @@ inline const ReactionGraph::CubemapLUT &built_cubemap_lut() {
 
 inline int nearest_node(const math::Vector &q) {
   int best = 0;
-  float best_distance = chord2(q, node(0));
+  float best_distance =
+      math::distance_squared(q, ReactionGraph::node_positions[0]);
   for (int i = 1; i < RD_N; ++i) {
-    const float distance = chord2(q, node(i));
+    const float distance =
+        math::distance_squared(q, ReactionGraph::node_positions[i]);
     if (distance < best_distance) {
       best_distance = distance;
       best = i;
@@ -471,12 +460,14 @@ inline void test_cubemap_coherent_seeds() {
         int baseline =
             static_cast<int>(hs::clamp((1.0f - q.y) * 0.5f * (RD_N - 1) + 0.5f,
                                        0.0f, static_cast<float>(RD_N - 1)));
-        float distance = chord2(q, ReactionGraph::node_positions[baseline]);
+        float distance =
+            math::distance_squared(q, ReactionGraph::node_positions[baseline]);
         for (int iter = 0; iter < 64; ++iter) {
           bool improved = false;
           for (int k = 0; k < RD_K; ++k) {
             const int NEIGHBOR = neighbors[baseline][k];
-            const float D = chord2(q, ReactionGraph::node_positions[NEIGHBOR]);
+            const float D = math::distance_squared(
+                q, ReactionGraph::node_positions[NEIGHBOR]);
             if (D < distance) {
               baseline = NEIGHBOR;
               distance = D;

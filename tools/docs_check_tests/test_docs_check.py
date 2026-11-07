@@ -474,11 +474,7 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_effect_roster_claim_requires_its_source(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            git_run(root, 'init', '-q')
-            (root / "README.md").write_text(
-                "effects/ 3 headers covering 2 effects\n",
-                encoding="utf-8")
-            git_run(root, 'add', 'README.md')
+            _git_repository(root, {"README.md": "effects/ 3 headers covering 2 effects\n"})
             with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
                 _, issues, _ = dc.check_repository(root)
         self.assertEqual(len(issues), 1)
@@ -537,14 +533,11 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_detached_required_tree_directive_is_reported(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            git_run(root, 'init', '-q')
-            (root / "README.md").write_text(
-                "<!-- docs-check: tree exhaustive -->\n"
+            _git_repository(root, {"README.md": "<!-- docs-check: tree exhaustive -->\n"
                 "Tree follows.\n"
                 "```\n"
                 "└── ghost/\n"
-                "```\n", encoding="utf-8")
-            git_run(root, 'add', 'README.md')
+                "```\n"})
             required = frozenset({(
                 PurePosixPath("README.md"), dc.TreeDirective("", True),
             )})
@@ -591,16 +584,13 @@ class TestDocumentationChecker(unittest.TestCase):
 
     @staticmethod
     def _checkout_fence_repository(root: Path) -> None:
-        git_run(root, 'init', '-q')
-        (root / "README.md").write_text(
-            "<!-- docs-check: tree exhaustive -->\n"
+        _git_repository(root, {"README.md": "<!-- docs-check: tree exhaustive -->\n"
             "```\n"
             "```\n"
             "<!-- docs-check: tree daydream exhaustive -->\n"
             "```\n"
             "└── ghost.js                    Stale row\n"
-            "```\n", encoding="utf-8")
-        git_run(root, 'add', 'README.md')
+            "```\n"})
 
     def test_unacknowledged_checkout_tree_fails(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -722,7 +712,7 @@ class TestDocumentationChecker(unittest.TestCase):
                   "  X(SphericalHarmonics)\n")
         self.assertEqual(dc.effect_roster(source), {"Comets", "SphericalHarmonics"})
 
-    def test_effect_roster_skips_commented_out_rows(self):
+    def test_effect_roster_line_comment_swallows_the_continued_rows(self):
         source = ("#define HS_EFFECT_LIST(X) \\\n"
                   "  // X(Retired)           \\\n"
                   "  /* X(AlsoRetired) */    \\\n"

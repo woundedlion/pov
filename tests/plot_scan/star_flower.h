@@ -54,7 +54,8 @@ constexpr float STAR_RECURRENCE_DRIFT =
  * @brief Star radius-trig reuse reproduces per-vertex evaluation, the two
  *        sampling entry points place the same vertices, and the ring registers
  *        carry vertex fraction, cumulative arc length and vertex index.
- * @details Cached and uncached sample_positions() are compared bit for bit.
+ * @details Cached positions match bit for bit under IEEE arithmetic and
+ * within recurrence drift under fast math.
  */
 inline void test_star_sample_radius_trig_parity() {
 #if defined(HS_TEST_FAST_MATH)
@@ -129,12 +130,17 @@ inline void test_star_sample_radius_trig_parity() {
           }
           // Recurrence positions omit per-vertex normalization.
           HS_EXPECT_VEC(actual[i].pos, positions[i].pos, STAR_RECURRENCE_DRIFT);
+#if defined(HS_TEST_FAST_MATH)
+          HS_EXPECT_VEC(positions[i].pos, cached_positions[i].pos,
+                        STAR_RECURRENCE_DRIFT);
+#else
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.x),
                        std::bit_cast<uint32_t>(cached_positions[i].pos.x));
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.y),
                        std::bit_cast<uint32_t>(cached_positions[i].pos.y));
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.z),
                        std::bit_cast<uint32_t>(cached_positions[i].pos.z));
+#endif
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v0), 0u);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v1), 0u);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v2), 0u);

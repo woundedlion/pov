@@ -21,6 +21,9 @@ void run_effect_case_hankinsolids_handoff_history() {
   HS_RUN(run_case, test_hankinsolids_handoff_history);
 }
 
+void run_effect_case_hankinsolids_strap_luts_allocate_only_while_blending() {
+  HS_RUN(run_case, test_hankinsolids_strap_luts_allocate_only_while_blending);
+}
 void run_effect_case_hankinsolids_interlace_motion_is_seam_free() {
   HS_RUN(run_case, test_hankinsolids_interlace_motion_is_seam_free);
 }
@@ -95,6 +98,7 @@ int run_mesh_effect_tests() {
   run_effect_case_hankinsolids_manual_pause_holds_morph();
   run_effect_case_hankinsolids_handoffs_shade_at_column_time();
   run_effect_case_hankinsolids_handoff_history();
+  run_effect_case_hankinsolids_strap_luts_allocate_only_while_blending();
   run_effect_case_hankinsolids_conway_crossfade_shades_at_column_time();
   run_effect_case_hankinsolids_interlace_motion_is_seam_free();
   run_effect_case_hankinsolids_seam_copies_are_one_polygon();

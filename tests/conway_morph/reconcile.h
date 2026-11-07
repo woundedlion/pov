@@ -45,8 +45,14 @@ inline void test_reconcile_bijection_wellposed() {
     Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
     Arena keep(morph_persist_buf, sizeof(morph_persist_buf));
 
-    Solids::OpStep lowered[8];
-    const size_t count = Solids::expand_to_primitives(*site.recipe, lowered, 8);
+    constexpr size_t CAPACITY = IslamicStarsDetail::MAX_BUILD_OPS;
+    const size_t LOWERED = Solids::lowered_step_count(*site.recipe);
+    HS_EXPECT_LE(LOWERED, CAPACITY);
+    if (LOWERED > CAPACITY)
+      continue;
+    Solids::OpStep lowered[CAPACITY];
+    const size_t count =
+        Solids::expand_to_primitives(*site.recipe, lowered, CAPACITY);
     // Locate the kis and its preceding dual (dt pair) or its standalone form.
     size_t kis = count;
     for (size_t k = 0; k < count; ++k)

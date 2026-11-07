@@ -615,6 +615,7 @@ inline void test_shader_chain_large_finite_path_length() {
   HS_EXPECT_EQ(expected.color.g, 0);
   HS_EXPECT_EQ(expected.color.b, 0);
   HS_EXPECT_NEAR(actual.color.r, expected.color.r, 2);
+  HS_EXPECT_EQ(actual.color.g, 0);
   HS_EXPECT_EQ(actual.color.b, 0);
 }
 

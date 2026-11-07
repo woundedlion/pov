@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from committed_boards import committed_project
 import tempfile
 import unittest
 import zipfile
@@ -103,7 +104,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_preflight_rejects_real_copper_open(self):
         project = self.root / "copper-open"
-        release.snapshot(Path(release.__file__).resolve().parents[1] / "1.1", project)
+        release.snapshot(committed_project(), project)
         release.preflight(project, "1.1")
         path = project / "phantasm.kicad_pcb"
         board = fab.read_board(path)
@@ -155,7 +156,7 @@ class ReleaseTests(unittest.TestCase):
     @unittest.skipUnless(GENERATES, GENERATES_REASON)
     def test_real_revision_11_release_exports_and_verifies_package(self):
         stage = self.root / "stage"
-        release.snapshot(Path(release.__file__).resolve().parents[1] / "1.1", stage)
+        release.snapshot(committed_project(), stage)
         package = self.root / "real-package"
         self.assertIsNone(release.main([
             "release", "--revision", "1.1", "--project", str(stage),
@@ -274,7 +275,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(self.destination.exists())
 
     def test_release_enforces_cross_arm_width(self):
-        shipped = Path(__file__).resolve().parents[2] / "1.1"
+        shipped = committed_project()
         for width, accepted in (("32", True), ("35", True), ("35.001", False), ("40", False)):
             with self.subTest(width=width), contextlib.ExitStack() as stack:
                 project = self.root / ("width-" + width)
@@ -378,22 +379,37 @@ class ReleaseTests(unittest.TestCase):
                           ["dielectric 2", "core", "1.065", "FR4"],
                           ["dielectric 3", "prepreg", "0.2104", "FR4"]])
 
-    def test_valid_finish_and_stackup_fixture(self):
-        source = release.CANDIDATE.parent
-        for path in source.glob("phantasm.kicad_pcb"):
-            shutil.copyfile(path, self.project / path.name)
-        self.assertEqual(release.fabrication_options(self.project, "1.2")["copper_finish"], "ENIG")
+    def fabrication_board(self):
         board = self.project / "phantasm.kicad_pcb"
-        original = board.read_text(encoding="utf-8")
-        board.write_text(original.replace('(net_name "GND")', ''), encoding="utf-8")
+        shutil.copyfile(release.CANDIDATE.parent / "phantasm.kicad_pcb", board)
+        return board
+
+    def test_valid_finish_and_stackup_fixture(self):
+        self.fabrication_board()
         self.assertEqual(release.fabrication_options(self.project, "1.2")["copper_finish"], "ENIG")
-        board.write_text(original.replace('(net_name "GND")', '(net_name "VCC")'), encoding="utf-8")
+
+    def test_ground_pours_without_net_name_are_accepted(self):
+        board = self.fabrication_board()
+        board.write_text(board.read_text(encoding="utf-8").replace('(net_name "GND")', ''), encoding="utf-8")
+        self.assertEqual(release.fabrication_options(self.project, "1.2")["copper_finish"], "ENIG")
+
+    def test_rejects_non_ground_pours(self):
+        board = self.fabrication_board()
+        board.write_text(board.read_text(encoding="utf-8").replace('(net_name "GND")', '(net_name "VCC")'),
+                         encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "GND pours"):
             release.fabrication_options(self.project, "1.2")
-        board.write_text(original.replace('(thickness 1.6)', '(thickness 0.8)'), encoding="utf-8")
+
+    def test_rejects_wrong_board_thickness(self):
+        board = self.fabrication_board()
+        board.write_text(board.read_text(encoding="utf-8").replace('(thickness 1.6)', '(thickness 0.8)'),
+                         encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "stackup"):
             release.fabrication_options(self.project, "1.2")
-        board.write_text(original.replace('(thickness 0.2104)', '(thickness 0.2105)', 1),
+
+    def test_rejects_wrong_dielectric(self):
+        board = self.fabrication_board()
+        board.write_text(board.read_text(encoding="utf-8").replace('(thickness 0.2104)', '(thickness 0.2105)', 1),
                          encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "dielectric stackup"):
             release.fabrication_options(self.project, "1.2")

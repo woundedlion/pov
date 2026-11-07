@@ -32,9 +32,10 @@ inline void case_petalflow_ring_pool_full() {
 
 /** @brief Death case: a GS stencil must fit the delayed-write history. */
 inline void case_gs_neighbor_exceeds_history() {
+  using WB = hs_test::effects_tests::GSWhiteBox;
   ReactionGraph::NeighborRun run{};
-  run.delta[0] = opaque<int16_t>(-145);
-  hs_test::effects_tests::GSWhiteBox::validate_physics_neighbors(&run, 1);
+  run.delta[0] = opaque<int16_t>(-(WB::PHYSICS_NEIGHBOR_REACH + 1));
+  WB::validate_physics_neighbors(&run, 1);
 }
 
 /** @brief Death case: GS rejects a zero color-noise scale. */
@@ -59,7 +60,8 @@ inline void case_gs_color_noise_nan_scale() {
 /** @brief Traps on lattice shells oob. */
 inline void case_lattice_shells_oob() {
   SDF::Lattice::Settings settings;
-  settings.shells = static_cast<SDF::Lattice::ShellCount>(3);
+  settings.shells =
+      static_cast<SDF::Lattice::ShellCount>(opaque(SDF::Lattice::MAX_SHELLS));
   (void)SDF::Lattice::prepare(settings, {}, math::Mat4::identity(), 4.0f,
                               0.01f);
 }
@@ -239,8 +241,7 @@ inline void case_dreamballs_woven_owner_edge_oob() {
   edges.bind(arena, 1);
   edges.push_back({0, 0});
   const std::vector<uint16_t> owners{0};
-  if (WB::owns_woven_start(edges, owners, opaque<size_t>(1)))
-    std::printf("x");
+  (void)WB::owns_woven_start(edges, owners, opaque<size_t>(1));
 }
 
 /** @brief Death case: a Raymarch placement-solid index past its table traps. */
@@ -298,8 +299,7 @@ inline void case_islamicstars_hankin_eager_endpoint() {
   Arena b(b_buf, sizeof(b_buf));
   const Solids::OpStep step{Solids::Op::HANKIN};
   PolyMesh out = WB::clean_endpoint(effect, step, a, b);
-  if (out.vertices.size() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  (void)out.vertices.size();
 }
 
 /** @brief Death case: an unsupported HyperLattice pattern ID must trap. */

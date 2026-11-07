@@ -2,8 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Replaces the global allocation functions to count every operator new call
-// made while a roster effect draws and presents its frames.
+// Counts operator new calls during effect construction, initialization, and rendering.
 #include "targets/effects.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -67,8 +66,13 @@ void draw_without_heap(const char *name) {
   HS_CONTEXT("width", W);
   hs_test::reset_globals();
   hs_test::pin_frame_clock(0);
-  auto effect = std::make_unique<E<W, H>>();
-  effect->init();
+  std::unique_ptr<E<W, H>> effect;
+  {
+    CountAllocations count;
+    effect = std::make_unique<E<W, H>>();
+    effect->init();
+    HS_EXPECT_EQ(g_allocations, 1);
+  }
   int allocations = 0;
   for (int frame = 0; frame < hs_test::smoke_frames(); ++frame) {
     hs_test::pin_frame_clock(frame);
@@ -137,7 +141,7 @@ void operator delete[](void *p, std::align_val_t,
 int main() {
   if (!hs_test::require_ci_smoke_frames())
     return 1;
-  hs_test::ModuleFixture fixture("frame_heap (no operator new while drawing)");
+  hs_test::ModuleFixture fixture("frame_heap (no extra effect allocations)");
   {
     CountAllocations count;
     void *probe = ::operator new(1);
@@ -147,6 +151,13 @@ int main() {
 #define HS_DRAW_WITHOUT_HEAP(name) draw_without_heap<name>(#name);
   HS_EFFECT_LIST(HS_DRAW_WITHOUT_HEAP)
 #undef HS_DRAW_WITHOUT_HEAP
-  draw_without_heap<ShapeShifter, 288, 144>("ShapeShifter");
+  if (hs_test::effects_full_suite()) {
+#define HS_DRAW_FULL_WITHOUT_HEAP(name)                                        \
+  draw_without_heap<name, CANVAS_W, CANVAS_H>(#name);
+    HS_EFFECT_LIST(HS_DRAW_FULL_WITHOUT_HEAP)
+#undef HS_DRAW_FULL_WITHOUT_HEAP
+  } else {
+    draw_without_heap<ShapeShifter, CANVAS_W, CANVAS_H>("ShapeShifter");
+  }
   return fixture.result() ? 1 : 0;
 }

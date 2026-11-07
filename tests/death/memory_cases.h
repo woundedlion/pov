@@ -12,8 +12,7 @@ inline void case_arena_oom() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
   void *p = a.allocate(opaque<size_t>(1024)); // > capacity -> HS_CHECK
-  if (p == reinterpret_cast<void *>(0x1))
-    std::printf("x"); // keep the call live
+  (void)p;                                    // keep the call live
 }
 
 /** @brief Death case: make() must preserve Arena's OOM trap contract. */
@@ -21,8 +20,7 @@ inline void case_arena_make_oom() {
   static uint8_t buf[sizeof(uint32_t) - 1];
   Arena a(buf, sizeof(buf));
   auto *p = a.make<uint32_t>(opaque<uint32_t>(7));
-  if (p == reinterpret_cast<uint32_t *>(0x1))
-    std::printf("x");
+  (void)p;
 }
 
 /**
@@ -33,8 +31,7 @@ inline void case_arena_zero_size_alloc() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
   void *p = a.allocate(opaque<size_t>(0)); // size == 0 -> HS_CHECK
-  if (p == reinterpret_cast<void *>(0x1))
-    std::printf("x");
+  (void)p;
 }
 
 /** @brief Death case: an overflowing typed allocation must trap. */
@@ -42,8 +39,7 @@ inline void case_arena_allocate_n_overflow() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
   auto *p = a.allocate_n<uint64_t>(opaque<size_t>(SIZE_MAX / 8 + 1));
-  if (p == reinterpret_cast<uint64_t *>(0x1))
-    std::printf("x");
+  (void)p;
 }
 
 /**
@@ -54,8 +50,7 @@ inline void case_arena_bad_alignment() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
   void *p = a.allocate(opaque<size_t>(8), opaque<size_t>(3)); // -> HS_CHECK
-  if (p == reinterpret_cast<void *>(0x1))
-    std::printf("x");
+  (void)p;
 }
 
 /**
@@ -167,8 +162,7 @@ inline void case_generate_target_is_scratch() {
   int r = hs::generate(scratch_arena_a, [](Arena &, Arena &, Arena &) {
     return 0;
   }); // target aliases scratch_arena_a -> HS_CHECK
-  if (r == 42)
-    std::printf("x");
+  (void)r;
 }
 
 /**
@@ -180,8 +174,7 @@ inline void case_generate_recursion_too_deep() {
   configure_arenas_default();
   int r = hs::generate(persistent_arena, nested_generate,
                        opaque(hs::MAX_GENERATE_DEPTH));
-  if (r == 42)
-    std::printf("x");
+  (void)r;
 }
 
 /** @brief Death case: a StaticCircularBuffer index past the live count must trap. */
@@ -190,8 +183,7 @@ inline void case_circular_buffer_oob() {
   cb.push_back(10);
   cb.push_back(20);
   int v = cb[opaque<size_t>(5)]; // index >= count -> HS_CHECK
-  if (v == 42)
-    std::printf("x");
+  (void)v;
 }
 
 /**
@@ -204,8 +196,7 @@ inline void case_circular_buffer_front_empty() {
   if (opaque(false))
     cb.push_back(1);
   int v = cb.front();
-  if (v == 42)
-    std::printf("x");
+  (void)v;
 }
 
 /** @brief Traps on circular buffer back empty. */
@@ -213,8 +204,7 @@ inline void case_circular_buffer_back_empty() {
   StaticCircularBuffer<int, 4> cb;
   if (opaque(false))
     cb.push_back(1);
-  if (cb.back() == 42)
-    std::printf("x");
+  (void)cb.back();
 }
 
 /** @brief Traps on circular buffer const back empty. */
@@ -223,8 +213,7 @@ inline void case_circular_buffer_const_back_empty() {
   if (opaque(false))
     cb.push_back(1);
   const auto &view = cb;
-  if (view.back() == 42)
-    std::printf("x");
+  (void)view.back();
 }
 
 /**
@@ -237,8 +226,7 @@ inline void case_arena_vector_append_bulk_overflow() {
   ArenaVector<int> v(a, 2); // exact capacity 2
   int src[4] = {1, 2, 3, 4};
   v.append_bulk(src, opaque<size_t>(4)); // 0 + 4 > 2 -> HS_CHECK
-  if (v.size() == 0x7fff)
-    std::printf("x");
+  (void)v.size();
 }
 
 /**
@@ -291,8 +279,7 @@ inline void case_persist_forgot_reset() {
     Persist<PersistProbe> p(target, scratch, persistent);
     // A correct scope calls persistent.reset() here.
   } // ~Persist restore -> offset past watermark -> HS_CHECK
-  if (target.storage == reinterpret_cast<uint8_t *>(0x1))
-    std::printf("x");
+  (void)target;
 }
 
 /**
@@ -306,8 +293,7 @@ inline void case_persist_same_arena() {
   FlatProbe target;
   target.value = opaque(7);
   Persist<FlatProbe> p(target, persistent, persistent); // -> HS_CHECK
-  if (target.value == 42)
-    std::printf("x");
+  (void)target;
 }
 
 /**
@@ -317,8 +303,7 @@ inline void case_persist_same_arena() {
 inline void case_triangular_bitset_unordered_pair() {
   TriangularBitset<128> bits;
   bool hit = bits.test(opaque(5), opaque(3)); // small > large -> HS_CHECK
-  if (hit)
-    std::printf("x");
+  (void)hit;
 }
 
 /** @brief Traps when an arena vector is reset. */

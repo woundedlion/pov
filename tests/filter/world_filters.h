@@ -242,7 +242,7 @@ inline void test_world_orient_rotates_and_keeps_static_age() {
 
   int n = 0;
   Tap3D got{};
-  orient.plot(math::X_AXIS, Pixel(1, 2, 3), 5.0f, 1.0f,
+  orient.plot(math::X_AXIS, Pixel(1000, 2000, 3000), 5.0f, 0.6f,
               [&](const math::Vector &v, const Pixel &c, float age, float a) {
                 got = {v, c, age, a};
                 ++n;
@@ -250,7 +250,9 @@ inline void test_world_orient_rotates_and_keeps_static_age() {
   HS_EXPECT_EQ(n, 1);
   math::Vector expected = math::rotate(math::X_AXIS, q);
   HS_EXPECT_VEC(got.v, expected, 1e-4f);
+  HS_EXPECT_PIXEL(got.c, 1000, 2000, 3000);
   HS_EXPECT_NEAR(got.age, 5.0f, 1e-4f);
+  HS_EXPECT_NEAR(got.alpha, 0.6f, 1e-6f);
 }
 
 /**
@@ -328,40 +330,54 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
 /**
  * @brief Verifies OrientSlice picks an orientation from a list by the point's
  *        projection onto an axis, then rotates by it.
- * @details With two distinct orientations a point near +axis selects the last,
- *          near -axis selects the first; disabled is a passthrough.
+ * @details Three orientations distinguish angular from linear selection.
+ * Disabled and empty stages pass through their input.
  */
 inline void test_world_orient_slice_selects_by_projection() {
-  math::Orientation<> oris[2];
+  math::Orientation<> oris[3];
   oris[0].set(math::make_rotation(math::X_AXIS, math::PI_F / 2)); // index 0
   oris[1].set(math::make_rotation(math::Z_AXIS, math::PI_F / 2)); // index 1
-  std::span<const math::Orientation<>> span(oris, 2);
+  oris[2].set(math::make_rotation(math::Y_AXIS, math::PI_F / 3));
+  std::span<const math::Orientation<>> span(oris, 3);
   Filter::World::OrientSlice slice(span, math::Y_AXIS);
 
-  auto first_tap = [&](const math::Vector &probe) {
-    math::Vector out{};
-    slice.plot(
-        probe, Pixel(1, 1, 1), 0.0f, 1.0f,
-        [&](const math::Vector &v, const Pixel &, float, float) { out = v; });
-    return out;
+  auto only_tap = [&](Filter::World::OrientSlice &stage,
+                      const math::Vector &probe) {
+    Tap3D out{};
+    int count = 0;
+    stage.plot(probe, Pixel(1000, 2000, 3000), 5.0f, 0.6f,
+               [&](const math::Vector &v, const Pixel &c, float age, float a) {
+                 out = {v, c, age, a};
+                 ++count;
+               });
+    HS_EXPECT_EQ(count, 1);
+    HS_EXPECT_PIXEL(out.c, 1000, 2000, 3000);
+    HS_EXPECT_NEAR(out.age, 5.0f, 1e-6f);
+    HS_EXPECT_NEAR(out.alpha, 0.6f, 1e-6f);
+    return out.v;
   };
 
-  // Probe near +Y (projection ~ +1 -> t ~ 1 -> last index 1 = Z rotation).
   math::Vector near_pos = math::Vector(0.15f, 0.98f, 0.0f).normalized();
-  math::Vector exp_pos = math::rotate(near_pos, oris[1].get());
-  math::Vector got_pos = first_tap(near_pos);
+  math::Vector exp_pos = math::rotate(near_pos, oris[2].get());
+  math::Vector got_pos = only_tap(slice, near_pos);
   HS_EXPECT_VEC(got_pos, exp_pos, 1e-3f);
 
-  // Probe near -Y (projection ~ -1 -> t ~ 0 -> first index 0 = X rotation).
   math::Vector near_neg = math::Vector(0.15f, -0.98f, 0.0f).normalized();
   math::Vector exp_neg = math::rotate(near_neg, oris[0].get());
-  math::Vector got_neg = first_tap(near_neg);
+  math::Vector got_neg = only_tap(slice, near_neg);
   HS_EXPECT_VEC(got_neg, exp_neg, 1e-3f);
 
-  // Disabled -> verbatim passthrough (no rotation).
+  const math::Vector mid = math::Vector(std::sqrt(0.84f), 0.4f, 0.0f);
+  HS_EXPECT_VEC(only_tap(slice, mid), math::rotate(mid, oris[1].get()), 1e-3f);
+  HS_EXPECT_VEC(only_tap(slice, math::Y_AXIS),
+                math::rotate(math::Y_AXIS, oris[2].get()), 1e-3f);
+
   slice.set_enabled(false);
-  math::Vector pass = first_tap(near_pos);
+  math::Vector pass = only_tap(slice, near_pos);
   HS_EXPECT_VEC(pass, near_pos, 1e-6f);
+  Filter::World::OrientSlice empty(std::span<const math::Orientation<>>{},
+                                   math::Y_AXIS);
+  HS_EXPECT_VEC(only_tap(empty, near_pos), near_pos, 1e-6f);
 }
 
 /**
@@ -481,7 +497,7 @@ inline void test_world_vertex_replicate_fanout_and_age() {
 
   Tap3D taps[N]{};
   int n = 0;
-  vr.plot(math::X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
+  vr.plot(math::X_AXIS, Pixel(1000, 2000, 3000), 5.0f, 0.6f,
           [&](const math::Vector &v, const Pixel &c, float age, float a) {
             if (n < N)
               taps[n] = {v, c, age, a};
@@ -492,21 +508,27 @@ inline void test_world_vertex_replicate_fanout_and_age() {
   for (int i = 0; i < N; ++i) {
     HS_EXPECT_VEC(taps[i].v, verts[i], 1e-4f);
     // Age is unchanged for every copy (no per-copy +i offset).
-    HS_EXPECT_NEAR(taps[i].age, 7.0f, 1e-6f);
+    HS_EXPECT_PIXEL(taps[i].c, 1000, 2000, 3000);
+    HS_EXPECT_NEAR(taps[i].age, 5.0f, 1e-6f);
+    HS_EXPECT_NEAR(taps[i].alpha, 0.6f, 1e-6f);
   }
 
   std::array<math::Vector, N> updated = {math::X_AXIS, -math::Y_AXIS,
                                          -math::Z_AXIS};
   vr.set_vertices(updated);
   n = 0;
-  vr.plot(math::X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
+  vr.plot(math::X_AXIS, Pixel(1000, 2000, 3000), 5.0f, 0.6f,
           [&](const math::Vector &v, const Pixel &c, float age, float a) {
             if (n < N)
               taps[n] = {v, c, age, a};
             ++n;
           });
+  HS_EXPECT_EQ(n, N);
   for (int i = 0; i < N; ++i) {
     HS_EXPECT_VEC(taps[i].v, updated[i], 1e-4f);
+    HS_EXPECT_PIXEL(taps[i].c, 1000, 2000, 3000);
+    HS_EXPECT_NEAR(taps[i].age, 5.0f, 1e-6f);
+    HS_EXPECT_NEAR(taps[i].alpha, 0.6f, 1e-6f);
   }
 }
 
@@ -788,7 +810,14 @@ inline void test_world_mobius_identity_and_transform() {
   HS_EXPECT_GT(math::distance_between(out2, v), 0.05f);
   const math::Vector want = math::mobius_transform(v, shift);
   HS_EXPECT_VEC(out2, want, 1e-6f);
+}
 
+/** @brief Mobius reads its bound parameters after they change. */
+inline void test_world_mobius_reads_bound_params() {
+  const math::Vector v = math::Vector(0.4f, 0.3f, 0.86f).normalized();
+  math::MobiusParams shift(1, 0, 1, 0, 0, 0, 1, 0);
+  Filter::World::Mobius mob2(shift);
+  const math::Vector want = math::mobius_transform(v, shift);
   // The filter reads its bound parameters live.
   shift.b.re = 2.0f;
   math::Vector out3{};
@@ -798,8 +827,17 @@ inline void test_world_mobius_identity_and_transform() {
   const math::Vector want3 = math::mobius_transform(v, shift);
   HS_EXPECT_GT(math::distance_between(want3, want), 0.05f);
   HS_EXPECT_VEC(out3, want3, 1e-6f);
-  shift.b.re = 1.0f;
+}
 
+/** @brief A Mobius pipeline matches plotting its transformed point. */
+inline void test_world_mobius_pipeline_parity() {
+  const math::Vector v = math::Vector(0.4f, 0.3f, 0.86f).normalized();
+  math::MobiusParams shift(1, 0, 1, 0, 0, 0, 1, 0);
+  Filter::World::Mobius mob2(shift);
+  math::Vector out2{};
+  mob2.plot(
+      v, Pixel(1, 1, 1), 0.0f, 1.0f,
+      [&](const math::Vector &o, const Pixel &, float, float) { out2 = o; });
   constexpr int W = 32, H = 16;
   std::array<Pixel, W * H> expected;
   {
@@ -830,7 +868,10 @@ inline void test_world_mobius_identity_and_transform() {
         HS_EXPECT_PIXEL(fx.get_pixel(x, y), pixel.r, pixel.g, pixel.b);
       }
   }
+}
 
+/** @brief A Mobius stage forces full-frame segment rendering. */
+inline void test_world_mobius_forces_full_frame() {
   // Mobius offers no cull_edge bound, so the pipeline fold forces a
   // full-canvas render.
   static_assert(!Filter::has_cull_edge<Filter::World::Mobius>);

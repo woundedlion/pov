@@ -178,9 +178,9 @@ struct BZWhiteBox {
       ++k;
     });
 
-    constexpr float INV_SAMPLES = 1.0f / 4.0f;
+    constexpr float INV_SAMPLES = 1.0f / Grid::SAMPLES;
     Pixel accum(0, 0, 0);
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < Grid::SAMPLES; ++i) {
       math::Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
       for (int j = 0; j < BZ::RD_K + 1; ++j)
@@ -307,6 +307,27 @@ inline void test_bz_advance_species_signs_and_clamp() {
       0);
 }
 
+/** @brief Checks the touched-node count, step multiples and total perturbation. */
+inline void expect_bz_nudge_census(std::span<const uint16_t> a,
+                                   std::span<const uint16_t> b,
+                                   std::span<const uint16_t> c, int step,
+                                   int64_t expected_total) {
+  int touched = 0, malformed = 0;
+  int64_t total = 0;
+  for (size_t i = 0; i < a.size(); ++i)
+    for (uint16_t value : {a[i], b[i], c[i]}) {
+      if (value == 0)
+        continue;
+      ++touched;
+      total += value;
+      if (value % step != 0)
+        ++malformed;
+    }
+  HS_EXPECT_GT(touched, 0);
+  HS_EXPECT_EQ(malformed, 0);
+  HS_EXPECT_EQ(total, expected_total);
+}
+
 /**
  * @brief Verifies perturb_state nudges nodes by a fixed Q16 amount and saturates
  *        at the 65535 rail without wrapping.
@@ -335,21 +356,9 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
     std::vector<uint16_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
         c(BZWhiteBox::N, 0);
     BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
-    int touched = 0, malformed = 0;
-    int64_t total = 0;
-    for (int i = 0; i < BZWhiteBox::N; ++i)
-      for (uint16_t v : {a[i], b[i], c[i]}) {
-        if (v == 0)
-          continue;
-        ++touched;
-        total += v;
-        if (v % step != 0) // accumulations stay multiples of the nudge step
-          ++malformed;
-      }
-    HS_EXPECT_GT(touched, 0);
-    HS_EXPECT_EQ(malformed, 0);
-    HS_EXPECT_EQ(total,
-                 static_cast<int64_t>(BZWhiteBox::num_perturbations()) * step);
+    expect_bz_nudge_census(
+        a, b, c, step,
+        static_cast<int64_t>(BZWhiteBox::num_perturbations()) * step);
   }
 }
 
@@ -415,21 +424,9 @@ inline void test_bz_perturb_scales_with_timestep() {
         c(BZWhiteBox::N, 0);
     for (int p = 0; p < PASSES; ++p)
       BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
-    int touched = 0, malformed = 0;
-    int64_t total = 0;
-    for (int i = 0; i < BZWhiteBox::N; ++i)
-      for (uint16_t v : {a[i], b[i], c[i]}) {
-        if (v == 0)
-          continue;
-        ++touched;
-        total += v;
-        if (v % STEP != 0)
-          ++malformed;
-      }
-    HS_EXPECT_GT(touched, 0);
-    HS_EXPECT_EQ(malformed, 0);
-    HS_EXPECT_EQ(total, static_cast<int64_t>(PASSES) *
-                            BZWhiteBox::num_perturbations() * STEP);
+    expect_bz_nudge_census(a, b, c, STEP,
+                           static_cast<int64_t>(PASSES) *
+                               BZWhiteBox::num_perturbations() * STEP);
   }
 }
 
@@ -609,11 +606,12 @@ inline void test_bz_render_center_matches_reference() {
 inline void test_bz_untimed_frames_are_pinned() {
   constexpr std::array<int, 4> BAND{3, 17, 39, 83};
   const PixelGolden FULL =
-      untimed_frame_golden<BZReactionDiffusion, SMALL_W, SMALL_H>(16);
+      pinned_clock_frame_golden<BZReactionDiffusion, SMALL_W, SMALL_H>(16);
   const PixelGolden CLIPPED =
-      untimed_frame_golden<BZReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
+      pinned_clock_frame_golden<BZReactionDiffusion, SMALL_W, SMALL_H>(16,
+                                                                       &BAND);
   const PixelGolden SHIPPED =
-      untimed_frame_golden<BZReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
+      pinned_clock_frame_golden<BZReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
   expect_pixel_golden("BZ FULL", FULL,
                       RecordedGolden{{0x8a10f2a047121f70ull,
                                       {{19517055ull, 9216199ull, 8087354ull},

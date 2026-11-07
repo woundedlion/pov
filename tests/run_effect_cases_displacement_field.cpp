@@ -46,10 +46,21 @@ void run_effect_case_displacement_field_default_cycle_frames() {
   HS_RUN(run_case, test_displacement_field_default_cycle_frames);
 }
 
-void run_effect_case_displacement_field_presets() {
-  HS_RUN(run_case, test_displacement_field_presets);
+void run_effect_case_displacement_field_preset_defaults() {
+  HS_RUN(run_case, test_displacement_field_preset_defaults);
 }
 
+void run_effect_case_displacement_field_manual_navigation() {
+  HS_RUN(run_case, test_displacement_field_manual_navigation);
+}
+
+void run_effect_case_displacement_field_ball_tuning() {
+  HS_RUN(run_case, test_displacement_field_ball_tuning);
+}
+
+void run_effect_case_displacement_field_automatic_cycle() {
+  HS_RUN(run_case, test_displacement_field_automatic_cycle);
+}
 void run_effect_case_displacement_field_edit_cancels_departure() {
   HS_RUN(run_case, test_displacement_field_edit_cancels_departure);
 }
@@ -110,10 +121,13 @@ void run_effect_case_displacement_field_clip_tiles_full() {
   HS_RUN(run_case, test_displacement_field_clip_tiles_full);
 }
 
-void run_effect_case_displacement_field_ball_spans_and_lifecycle() {
-  HS_RUN(run_case, test_displacement_field_ball_spans_and_lifecycle);
+void run_effect_case_displacement_field_ball_pool_drains_to_noise() {
+  HS_RUN(run_case, test_displacement_field_ball_pool_drains_to_noise);
 }
 
+void run_effect_case_displacement_field_ball_spans_match_field() {
+  HS_RUN(run_case, test_displacement_field_ball_spans_match_field);
+}
 } // namespace hs_test::effects_tests
 
 namespace hs_test::module_runners {
@@ -131,7 +145,10 @@ int run_displacement_field_tests() {
   run_effect_case_displacement_field_footprint_covers_init();
   run_effect_case_displacement_field_pause_holds_phase_only();
   run_effect_case_displacement_field_default_cycle_frames();
-  run_effect_case_displacement_field_presets();
+  run_effect_case_displacement_field_preset_defaults();
+  run_effect_case_displacement_field_manual_navigation();
+  run_effect_case_displacement_field_ball_tuning();
+  run_effect_case_displacement_field_automatic_cycle();
   run_effect_case_displacement_field_edit_cancels_departure();
   run_effect_case_displacement_field_startup_writes_preserve_entry();
   run_effect_case_displacement_field_paused_balls_deform_render();
@@ -148,7 +165,8 @@ int run_displacement_field_tests() {
     run_effect_case_displacement_field_hue_table_fidelity();
     run_effect_case_displacement_field_hue_table_frame_fidelity();
     run_effect_case_displacement_field_clip_tiles_full();
-    run_effect_case_displacement_field_ball_spans_and_lifecycle();
+    run_effect_case_displacement_field_ball_pool_drains_to_noise();
+    run_effect_case_displacement_field_ball_spans_match_field();
   }
   return fixture.result();
 }

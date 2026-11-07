@@ -269,11 +269,11 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
     const math::Vector current =
         sampler.unproject(static_cast<float>(i) / 32.0f);
     rendered += math::angle_between(previous, current);
-    independent_rendered += hs_test::small_angle_between(previous, current);
+    independent_rendered += hs_test::chord_angle_between(previous, current);
     previous = current;
   }
   const double bow = independent_rendered -
-                     hs_test::small_angle_between(mapped_start, previous);
+                     hs_test::chord_angle_between(mapped_start, previous);
   HS_EXPECT_GT(bow, 1e-3);
   HS_EXPECT_LT(bow, 5e-3);
   HS_EXPECT_NEAR(planar, rendered, 2e-3f);
@@ -679,6 +679,7 @@ inline void test_rasterize_sampling_follows_world_transforms() {
   const int ROTATED = draw(rotated);
   HS_EXPECT_GT(ROTATED, 300);
   HS_EXPECT_GT(ROTATED, 3 * EQUATOR);
+  HS_EXPECT_GT(rendered.size(), size_t{300});
   float max_gap = 0;
   for (size_t i = 0; i < rendered.size(); ++i) {
     const float A = math::vector_to_pixel<W, H>(rendered[i]).x;
@@ -715,6 +716,11 @@ inline void test_rasterize_sampling_follows_world_transforms() {
       Filter::World::Mobius(params), WorldSampleCapture(rendered)};
   HS_EXPECT_GE(draw(nonrigid), POLE);
   HS_EXPECT_EQ(draw(nonrigid, true), draw(nonrigid));
+}
+
+/** @brief Stationary pipeline sampling keeps the base screen step. */
+inline void test_pipeline_screen_step_stationary_returns_base_step() {
+  constexpr int W = 288, H = 144;
   Pipeline<W, H, Filter::World::Replicate<W>> replicated{
       Filter::World::Replicate<W>(2)};
   PipelineRef erased(replicated);

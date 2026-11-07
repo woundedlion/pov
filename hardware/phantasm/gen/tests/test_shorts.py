@@ -7,12 +7,12 @@ schematic.
 import contextlib
 import io
 import sys
+from committed_boards import committed_project
 import tempfile
 import unittest
 from pathlib import Path
 
 GEN_DIR = Path(__file__).resolve().parent.parent
-REPO_ROOT = GEN_DIR.parents[2]
 sys.path.insert(0, str(GEN_DIR))
 
 import sexp        # noqa: E402
@@ -290,7 +290,7 @@ class UnscannedConnectivityTests(unittest.TestCase):
 
 class CommittedSchematicTests(unittest.TestCase):
     def setUp(self):
-        path = REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_sch"
+        path = committed_project() / "phantasm.kicad_sch"
         self.root = sexp.parse(path.read_text(encoding="utf-8"))[0]
 
     def test_committed_schematic_scan_is_non_trivial(self):

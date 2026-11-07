@@ -36,24 +36,21 @@ inline void case_tangent_field_invalid_mode() {
 inline void case_normalize_zero() {
   math::Vector z{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
   math::Vector n = z.normalized(); // length < eps -> HS_CHECK
-  if (n.x == 42.0f)
-    std::printf("x");
+  (void)n;
 }
 
 /** @brief In-place normalization rejects a zero-length vector. */
 inline void case_vector_normalize_in_place_zero() {
   math::Vector v{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
   v.normalize();
-  if (v.x == 42.0f)
-    std::printf("x");
+  (void)v;
 }
 
 /** @brief Death case: rotating in a degenerate coordinate plane must trap. */
 inline void case_rotate_plane_degenerate() {
   math::Mat4 m = math::Mat4::identity();
   math::rotate_plane(m, opaque(1), opaque(1), 0.5f); // a == b -> HS_CHECK
-  if (m.m[0][0] == 42.0f)
-    std::printf("x");
+  (void)m.m[0][0];
 }
 
 /** @brief Death case: measuring an angle from a degenerate vector must trap. */
@@ -61,8 +58,7 @@ inline void case_angle_between_zero() {
   math::Vector zero{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
   math::Vector x{opaque(1.0f), opaque(0.0f), opaque(0.0f)};
   float angle = math::angle_between(zero, x);
-  if (angle == 42.0f)
-    std::printf("x");
+  (void)angle;
 }
 
 /**
@@ -74,8 +70,7 @@ inline void case_normalize_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   math::Vector bad{nan, opaque(0.0f), opaque(0.0f)};
   math::Vector n = bad.normalized(); // length is NaN -> HS_CHECK fails
-  if (n.x == 42.0f)
-    std::printf("x");
+  (void)n;
 }
 
 /**
@@ -93,8 +88,7 @@ inline void case_spatial_knn_over_max() {
   auto r =
       tree.nearest(math::Vector(1.0f, 0.0f, 0.0f),
                    opaque<size_t>(KDTree::MAX_K + 1)); // k > MAX_K -> HS_CHECK
-  if (r.size() == static_cast<size_t>(0x7fff))
-    std::printf("x");
+  (void)r.size();
 }
 
 /** @brief A non-finite source coordinate must trap before tree construction. */
@@ -124,8 +118,7 @@ inline void case_spatial_kdtree_too_many_points() {
  */
 inline void case_reaction_graph_node_index_out_of_range() {
   math::Vector v = ReactionGraph::node(opaque(ReactionGraph::RD_N));
-  if (v.x == 0x7fff)
-    std::printf("x");
+  (void)v;
 }
 
 /** @brief Mutable copy of the generated compact graph for guard cases. */
@@ -216,8 +209,7 @@ inline void case_flywheel_period_zero() {
 inline void case_y_to_phi_degenerate_height() {
   float phi =
       math::y_to_phi_virtual(opaque(0.0f), opaque(1)); // divisor 0 -> trap
-  if (phi == opaque(42.0f))
-    std::printf("x");
+  (void)phi;
 }
 
 /**
@@ -230,8 +222,7 @@ inline void case_make_basis_nonunit_quaternion() {
   math::Quaternion q(opaque(2.0f), opaque(0.0f), opaque(0.0f), opaque(0.0f));
   math::Vector normal{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
   math::Basis b = math::make_basis(q, normal); // |q| = 2 -> HS_CHECK
-  if (b.u.x == opaque(42.0f))
-    std::printf("x");
+  (void)b;
 }
 
 /**
@@ -246,8 +237,7 @@ inline void case_parallel_transport_antipodal() {
   math::Vector tangent{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
   math::Vector t =
       math::parallel_transport(from, to, tangent); // dot = -1 -> HS_CHECK
-  if (t.x == opaque(42.0f))
-    std::printf("x");
+  (void)t;
 }
 
 /** @brief A dodecahedral fold rejects a NaN direction. */
@@ -267,8 +257,7 @@ inline void case_polyhedral_kaleidoscope_no_converge() {
       math::Vector(0.0f, opaque(1.0f), 0.0f)};
   math::Vector v = lenses::polyhedral_kaleidoscope_lens(
       math::Vector(opaque(0.5f), opaque(0.5f), 0.0f), mirrors);
-  if (v.x == opaque(42.0f))
-    std::printf("x");
+  (void)v;
 }
 
 /**
@@ -278,8 +267,7 @@ inline void case_polyhedral_kaleidoscope_no_converge() {
  */
 inline void case_spherical_field_negative_equator_samples() {
   hs::SphericalFieldLayout<32, 16, 0> layout(4, 0, 0, opaque(-1));
-  if (layout.sample_count() == 42)
-    std::printf("x");
+  (void)layout.sample_count();
 }
 
 /**
@@ -293,8 +281,7 @@ inline void case_slerp_nan() {
   math::Vector dst{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
   math::Vector v =
       math::slerp(bad, dst, opaque(0.5f)); // NaN -> normalized() -> HS_CHECK
-  if (v.x == 42.0f)
-    std::printf("x");
+  (void)v;
 }
 
 /**
@@ -307,8 +294,7 @@ inline void case_make_rotation_vectors_nan() {
   math::Vector from{nan, opaque(0.0f), opaque(0.0f)};
   math::Vector to{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
   math::Quaternion q = math::make_rotation(from, to);
-  if (q.r == 42.0f)
-    std::printf("x");
+  (void)q;
 }
 
 /**
@@ -321,8 +307,7 @@ inline void case_make_rotation_angle_nan() {
   math::Vector axis{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
   math::Quaternion q =
       math::make_rotation(axis, nan); // NaN quat -> normalized() -> HS_CHECK
-  if (q.r == 42.0f)
-    std::printf("x");
+  (void)q;
 }
 
 /**
@@ -336,8 +321,7 @@ inline void case_make_basis_nan() {
   math::Vector normal{nan, opaque(0.0f), opaque(0.0f)};
   math::Basis b = math::make_basis(math::Quaternion(),
                                    normal); // NaN -> normalized() -> HS_CHECK
-  if (b.u.x == 42.0f)
-    std::printf("x");
+  (void)b;
 }
 
 /**
@@ -353,8 +337,7 @@ inline void case_noise_transform_nan() {
   p.time = opaque(1.0f);
   math::Vector v{nan, opaque(0.0f), opaque(0.0f)};
   math::Vector r = noise_transform(v, p);
-  if (r.x == 42.0f)
-    std::printf("x");
+  (void)r;
 }
 
 /**
@@ -367,8 +350,7 @@ inline void case_make_rotation_nonunit() {
   math::Vector from{opaque(2.0f), opaque(0.0f), opaque(0.0f)}; // |from| = 2
   math::Vector to{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
   math::Quaternion q = math::make_rotation(from, to); // |from| != 1 -> HS_CHECK
-  if (q.r == 42.0f)
-    std::printf("x");
+  (void)q;
 }
 
 /**
@@ -380,8 +362,7 @@ inline void case_make_rotation_nonunit() {
 inline void case_spherical_field_ring_index_oob() {
   hs::SphericalFieldLayout<32, 16, 0> layout(4);
   const auto ring = layout.ring(opaque(layout.ring_count()));
-  if (ring.offset == 42)
-    std::printf("x");
+  (void)ring;
 }
 
 /**
@@ -395,8 +376,7 @@ inline void case_spherical_field_populate_ring_end_oob() {
   hs::SphericalField<float, 32, 16, 0> field(values, layout);
   field.populate(0, opaque(layout.ring_count()),
                  [](const math::Vector &v, const auto &) { return v.y; });
-  if (values[0] == 42.0f)
-    std::printf("x");
+  (void)values[0];
 }
 
 /**
@@ -406,8 +386,7 @@ inline void case_spherical_field_populate_ring_end_oob() {
  */
 inline void case_spherical_harmonic_order_over_degree() {
   const float n = SHMath::normalization(opaque(2), 3);
-  if (n == 42.0f)
-    std::printf("x");
+  (void)n;
 }
 
 /**
@@ -416,8 +395,8 @@ inline void case_spherical_harmonic_order_over_degree() {
  */
 inline void case_spherical_harmonic_decode_negative_index() {
   auto [l, m] = SHMath::decode_lm(opaque(-1));
-  if (l == 42 && m == 42)
-    std::printf("x");
+  (void)l;
+  (void)m;
 }
 
 /**
@@ -426,22 +405,19 @@ inline void case_spherical_harmonic_decode_negative_index() {
  */
 inline void case_spherical_field_infill_over_domain() {
   hs::SphericalFieldLayout<32, 16, 0> layout(4, 0, opaque(17));
-  if (layout.sample_count() == 42)
-    std::printf("x");
+  (void)layout.sample_count();
 }
 
 /** @brief Traps on latitude geometry degenerate height. */
 inline void case_latitude_geometry_degenerate_height() {
   math::LatitudeGeometry geometry(opaque(1), 0.1f, 3.0f);
-  if (geometry.row_to_phi(0) == 42.0f)
-    std::printf("x");
+  (void)geometry.row_to_phi(0);
 }
 
 /** @brief Traps on latitude geometry reversed span. */
 inline void case_latitude_geometry_reversed_span() {
   math::LatitudeGeometry geometry(16, opaque(2.0f), 1.0f);
-  if (geometry.row_to_phi(0) == 42.0f)
-    std::printf("x");
+  (void)geometry.row_to_phi(0);
 }
 
 /** @brief Traps on peirce invalid layout. */

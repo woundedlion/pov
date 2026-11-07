@@ -533,6 +533,29 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
   HS_EXPECT_EQ(screen_emits, 0);
 }
 
+/** @brief Seeds with no whole frame remaining are counted without replay. */
+inline void test_world_trails_expired_seed_is_not_stored() {
+  hs_test::reset_globals();
+  Filter::World::Trails<4> trails(1);
+  trails.init_storage(persistent_arena);
+  int emitted = 0;
+  auto color = [](const math::Vector &, float) {
+    return Color4(Pixel(100, 200, 300), 1.0f);
+  };
+  auto collect = [&](const math::Vector &, const Pixel &, float, float) {
+    ++emitted;
+  };
+  uint32_t submitted = 0;
+  for (const float age : {1.0f, 0.75f}) {
+    trails.plot(math::Y_AXIS, Pixel{}, age, 1.0f, collect);
+    HS_EXPECT_EQ(trails.records(), ++submitted);
+    HS_EXPECT_EQ(trails.size(), size_t{0});
+  }
+  emitted = 0;
+  trails.flush(WorldTrailFn(color), 1.0f, collect);
+  HS_EXPECT_EQ(emitted, 0);
+}
+
 /** @brief Timed fan-out records its source once and ages each replay once. */
 inline void test_world_trails_timed_fanout_records_first_copy() {
   constexpr int W = 96, H = 20, CAPACITY = 16;

@@ -26,6 +26,7 @@ PIO_INI = REPO / "platformio.ini"
 sys.path.insert(0, str(TOOLS))
 
 import teensy_gate as tg   # noqa: E402
+import teensy_size_trail as size_trail  # noqa: E402
 from scons_hook_test_env import FakeEnv, load_hook  # noqa: E402
 
 GATE_SCRIPT = "post:tools/teensy_gate_extra.py"
@@ -95,6 +96,20 @@ def _option_lines(cfg, section, option, depth=0):
 
 
 class TestOptionInterpolation(unittest.TestCase):
+    def test_firmware_build_inputs_cover_every_image_changing_hook(self):
+        config = _pio_config()
+        excluded = {"tools/pio_ccache.py"}
+        inputs = set(size_trail.BUILD_INPUTS)
+        for environment in _pio_envs():
+            section = f"env:{environment}"
+            scripts = _option_lines(config, section, "extra_scripts")
+            linker = _option_lines(config, section, "board_build.ldscript")
+            paths = {item.split(":", 1)[-1] for item in scripts} | set(linker)
+            for path in paths - excluded:
+                if path.startswith("tools/"):
+                    with self.subTest(environment=environment, path=path):
+                        self.assertIn(path, inputs)
+
     def test_inline_source_references_include_shared_and_local_filters(self):
         cfg = configparser.RawConfigParser()
         cfg.read_dict({
@@ -220,8 +235,7 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
 
 
 class TestHooksRegisterNoBuildActions(unittest.TestCase):
-    """The non-gate hooks only mutate build flags, compile commands and sketch
-    handling."""
+    """Non-gate hooks set flags, compile and link commands, dependencies and sketch handling."""
 
     def test_firmware_hooks_register_no_build_actions(self):
         cfg = _pio_config()
@@ -235,6 +249,9 @@ class TestHooksRegisterNoBuildActions(unittest.TestCase):
                     PROJECT_PACKAGES_DIR=_abs("home", "runner", ".platformio", "packages"),
                     PROJECT_LIBDEPS_DIR=_abs("work", "Holosphere", ".pio", "libdeps"),
                     ENV={"PATH": ""}, **COMPILE_COMMANDS)
+                linker_scripts = _option_lines(cfg, f"env:{name}", "board_build.ldscript")
+                if linker_scripts:
+                    env["LDSCRIPT_PATH"] = linker_scripts[0]
                 hooks = [s.split(":", 1)[1]
                          for s in _option_lines(cfg, f"env:{name}", "extra_scripts")
                          if s != GATE_SCRIPT]

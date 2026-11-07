@@ -11,10 +11,10 @@
 #include "core/control/choreography_hooks.h"
 #include "core/memory.h"
 #include "core/platform/platform.h"
+#include "core/platform/rng.h"
 #include "core/render/canvas.h"
 #include "core/render/render_policy.h"
 #include "core/render/plot/chords.h"
-#include "hardware/hd107s_frame.h"
 #include "tests/test_harness.h"
 
 #include <algorithm>
@@ -27,6 +27,21 @@
 #include <string>
 
 namespace hs_test {
+
+/** @brief Restores the shared random generator on scope exit. */
+class ScopedRng {
+public:
+  ScopedRng() = default;
+  /** @brief Saves the generator and starts a seeded stream.
+   * @param seed Initial generator state. */
+  explicit ScopedRng(uint64_t seed) { hs::random().seed(seed); }
+  ScopedRng(const ScopedRng &) = delete;
+  ScopedRng &operator=(const ScopedRng &) = delete;
+  ~ScopedRng() { hs::random() = saved; }
+
+private:
+  hs::Pcg32 saved = hs::random(); ///< Generator state before construction.
+};
 
 /**
  * @brief Builds a regular polygon (or star) face ringed about @p basis.v.
@@ -362,20 +377,6 @@ inline std::string read_text_file(const std::string &path) {
     text.append(buffer, n);
   std::fclose(file);
   return text;
-}
-
-/**
- * @brief Restores HD107SFrame<S>'s shared static correction state to unity
- *        (255 = exact ×1.0).
- * @tparam S Pixel count of the frame instantiation to reset; the correction
- *           state is a static of HD107SFrame<S>, so each S carries its own.
- * @details Resets the per-channel correction, temperature, and brightness to an
- * identity color pipeline.
- */
-template <int S> inline void reset_correction() {
-  HD107SFrame<S>::set_correction(255, 255, 255);
-  HD107SFrame<S>::set_temperature(255, 255, 255);
-  HD107SFrame<S>::set_brightness(255);
 }
 
 namespace effects_tests {

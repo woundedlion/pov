@@ -63,6 +63,18 @@ struct AlphaCapturePipeline {
 /** @brief Identity fragment shader (leaves the fragment untouched). */
 inline void noop_shader(const math::Vector &, Fragment &) {}
 
+/** @brief Binds a fragment trail from positions in the caller's plot arena.
+ * @param out Destination trail.
+ * @param points Positions copied into the fragments. */
+inline void bind_trail(Fragments &out, std::span<const math::Vector> points) {
+  out.bind(plot_arena(), points.size());
+  for (const auto &point : points) {
+    Fragment fragment;
+    fragment.pos = point;
+    out.push_back(fragment);
+  }
+}
+
 /**
  * @brief Fragment shader painting full white at a fixed alpha.
  * @param alpha Alpha written to every fragment.

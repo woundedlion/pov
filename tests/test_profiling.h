@@ -16,10 +16,11 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace hs_test {
@@ -80,13 +81,26 @@ inline void test_profile_clock_pair_interrupt_mask() {
   }
 }
 
-/** @brief Captures the counter report into a NUL-terminated bounded buffer. */
-inline bool capture_log_all(char *out, size_t n) {
-  const auto text = capture_stdout([] { hs::CycleCounter::log_all(); });
-  if (!text || n == 0)
-    return false;
-  std::snprintf(out, n, "%s", text->c_str());
-  return true;
+/**
+ * @brief Captures the complete counter report.
+ * @return The report, or no value when capture setup fails.
+ */
+inline std::optional<std::string> capture_log_all() {
+  const auto report = capture_stdout([] { hs::CycleCounter::log_all(); });
+  HS_EXPECT(report.has_value(), "log_all capture set up");
+  return report;
+}
+
+/** @brief Finds the single report line containing a counter name. */
+inline std::string_view counter_report_line(const std::string &report,
+                                            std::string_view name) {
+  const size_t position = report.find(name);
+  if (position == std::string::npos)
+    return {};
+  const size_t newline = report.rfind('\n', position);
+  const size_t begin = newline == std::string::npos ? 0 : newline + 1;
+  const size_t end = report.find('\n', position);
+  return std::string_view(report).substr(begin, end - begin);
 }
 
 // --- u64_dec ----------------------------------------------------------------
@@ -325,14 +339,16 @@ inline void test_second_caller_flags_mixed_parent() {
   first.cycles = 600;
   second.cycles = 600;
   shared.cycles = 900; // more than any one parent spent: the tell-tale ratio
-  char report[4096];
-  if (!capture_log_all(report, sizeof(report))) {
-    HS_EXPECT(false, "log_all capture set up");
+  const auto report = capture_log_all();
+  if (!report)
     return;
-  }
-  HS_EXPECT_TRUE(std::strstr(report, "prof_mixed_shared") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(report, "MIXED-PARENT") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(report, "(150%)") != nullptr);
+  const auto shared_line = counter_report_line(*report, "prof_mixed_shared");
+  const auto first_line = counter_report_line(*report, "prof_mixed_first");
+  HS_EXPECT_FALSE(shared_line.empty());
+  HS_EXPECT_FALSE(first_line.empty());
+  HS_EXPECT_NE(shared_line.find("MIXED-PARENT"), std::string_view::npos);
+  HS_EXPECT_NE(shared_line.find("(150%)"), std::string_view::npos);
+  HS_EXPECT_EQ(first_line.find("MIXED-PARENT"), std::string_view::npos);
 }
 
 /** @brief Tags active duplicate-name counters and ignores idle namesakes. */
@@ -348,12 +364,10 @@ inline void test_duplicate_name_tags_active_counters() {
     hs::CycleScope scope(second);
   }
   HS_EXPECT_EQ(idle.count, 0u);
-  char report[4096];
-  if (!capture_log_all(report, sizeof(report))) {
-    HS_EXPECT(false, "log_all capture set up");
+  const auto report = capture_log_all();
+  if (!report)
     return;
-  }
-  const char *tag = std::strstr(report, "DUPLICATE-NAME");
+  const char *tag = std::strstr(report->c_str(), "DUPLICATE-NAME");
   HS_EXPECT_TRUE(tag != nullptr);
   if (tag != nullptr) {
     tag = std::strstr(tag + 1, "DUPLICATE-NAME");
@@ -362,12 +376,13 @@ inline void test_duplicate_name_tags_active_counters() {
       HS_EXPECT_TRUE(std::strstr(tag + 1, "DUPLICATE-NAME") == nullptr);
   }
   first.reset();
-  if (!capture_log_all(report, sizeof(report))) {
-    HS_EXPECT(false, "log_all capture set up");
+  const auto reset_report = capture_log_all();
+  if (!reset_report)
     return;
-  }
-  HS_EXPECT_TRUE(std::strstr(report, "prof_duplicate") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(report, "DUPLICATE-NAME") == nullptr);
+  HS_EXPECT_TRUE(std::strstr(reset_report->c_str(), "prof_duplicate") !=
+                 nullptr);
+  HS_EXPECT_TRUE(std::strstr(reset_report->c_str(), "DUPLICATE-NAME") ==
+                 nullptr);
 }
 
 /**
@@ -393,13 +408,12 @@ inline void test_parent_retirement_prevents_cycle() {
   HS_EXPECT_FALSE(child.mixed_parent);
   child.cycles = 100;
   descendant.cycles = 50;
-  char report[4096];
-  if (!capture_log_all(report, sizeof(report))) {
-    HS_EXPECT(false, "log_all capture set up");
+  const auto report = capture_log_all();
+  if (!report)
     return;
-  }
-  HS_EXPECT_TRUE(std::strstr(report, "prof_cycle_child") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(report, "prof_cycle_descendant") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report->c_str(), "prof_cycle_child") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report->c_str(), "prof_cycle_descendant") !=
+                 nullptr);
 }
 
 inline void test_mutual_nesting_keeps_a_root() {
@@ -422,13 +436,11 @@ inline void test_mutual_nesting_keeps_a_root() {
 
   left.cycles = 100;
   right.cycles = 50;
-  char report[4096];
-  if (!capture_log_all(report, sizeof(report))) {
-    HS_EXPECT(false, "log_all capture set up");
+  const auto report = capture_log_all();
+  if (!report)
     return;
-  }
-  HS_EXPECT_TRUE(std::strstr(report, "prof_mutual_left") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(report, "prof_mutual_right") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report->c_str(), "prof_mutual_left") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report->c_str(), "prof_mutual_right") != nullptr);
 }
 
 // --- log_node ---------------------------------------------------------------
@@ -452,28 +464,28 @@ inline void test_log_all_reports_tree() {
   child.cycles = 300000;
   child.count = 8;
 
-  char report[4096];
-  if (!capture_log_all(report, sizeof(report))) {
-    HS_EXPECT(false, "log_all capture set up");
+  const auto report = capture_log_all();
+  if (!report)
     return;
-  }
   HS_EXPECT_EQ(idle.count, 0u);
-  const char *root_line = std::strstr(report, "prof_report_root");
-  const char *child_line = std::strstr(report, "prof_report_child");
+  const char *root_line = std::strstr(report->c_str(), "prof_report_root");
+  const char *child_line = std::strstr(report->c_str(), "prof_report_child");
   HS_EXPECT_TRUE(root_line != nullptr);
   HS_EXPECT_TRUE(child_line != nullptr);
-  HS_EXPECT_TRUE(std::strstr(report, "prof_report_idle") == nullptr);
+  HS_EXPECT_TRUE(std::strstr(report->c_str(), "prof_report_idle") == nullptr);
   if (root_line == nullptr || child_line == nullptr)
     return;
   HS_EXPECT_TRUE(root_line < child_line);
-  HS_EXPECT_TRUE(child_line - report >= 2 && child_line[-1] == ' ' &&
+  HS_EXPECT_TRUE(child_line - report->c_str() >= 2 && child_line[-1] == ' ' &&
                  child_line[-2] == ' ');
-  HS_EXPECT_TRUE(
-      std::strstr(root_line, "2000 us (100%)  4 calls  1200000 cyc") !=
-      nullptr);
-  HS_EXPECT_TRUE(std::strstr(child_line, "500 us (25%)  8 calls  300000 cyc") !=
+  HS_EXPECT_NE(counter_report_line(*report, "prof_report_root")
+                   .find("2000 us (100%)  4 calls  1200000 cyc"),
+               std::string_view::npos);
+  HS_EXPECT_NE(counter_report_line(*report, "prof_report_child")
+                   .find("500 us (25%)  8 calls  300000 cyc"),
+               std::string_view::npos);
+  HS_EXPECT_TRUE(std::strstr(report->c_str(), "--- Cycle Counters ---") !=
                  nullptr);
-  HS_EXPECT_TRUE(std::strstr(report, "--- Cycle Counters ---") != nullptr);
 }
 
 /**
@@ -491,15 +503,13 @@ inline void test_reset_does_not_orphan_subtree() {
   kept.cycles = 600;
   kept.count = 1;
 
-  char report[4096];
-  if (!capture_log_all(report, sizeof(report))) {
-    HS_EXPECT(false, "log_all capture set up");
+  const auto report = capture_log_all();
+  if (!report)
     return;
-  }
   HS_EXPECT_EQ(kept.parent, &absent);
   HS_EXPECT_EQ(absent.count, 0u);
-  HS_EXPECT_TRUE(std::strstr(report, "prof_orphan_kept") != nullptr);
-  HS_EXPECT_TRUE(std::strstr(report, "prof_orphan_parent") == nullptr);
+  HS_EXPECT_TRUE(std::strstr(report->c_str(), "prof_orphan_kept") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report->c_str(), "prof_orphan_parent") == nullptr);
 }
 
 // --- IsrCycleStats ----------------------------------------------------------
@@ -691,6 +701,12 @@ inline void test_pc_histogram_bins_and_capacity() {
   HS_EXPECT_EQ(full.size(), 2u);
   const std::map<uint32_t, uint32_t> kept{{0x100u, 2u}, {0x200u, 1u}};
   HS_EXPECT_TRUE(pc_bins_of(full) == kept);
+
+  hs::PcHistogram<128, 4> clustered;
+  for (uint32_t index = 0; index < 64; ++index)
+    HS_EXPECT_TRUE(clustered.add(index * (4181u << 4)));
+  HS_EXPECT_FALSE(clustered.add(64u * (4181u << 4)));
+  HS_EXPECT_EQ(clustered.size(), 64u);
 }
 
 /**
@@ -752,6 +768,17 @@ inline void test_pc_sampler_dump_format() {
   HS_EXPECT_STREQ(lines[5].c_str(), "pc profile end");
 }
 
+/** @brief A sampler with no timer ticks reports zero service cost. */
+inline void test_pc_sampler_dump_without_ticks() {
+  hs::PcSampler<4, 4> sampler;
+  std::vector<std::string> lines;
+  sampler.dump([&](const char *line) { lines.emplace_back(line); }, 0);
+  HS_EXPECT_SIZE_OR_RETURN(lines, 4u);
+  HS_EXPECT_STREQ(lines[1].c_str(),
+                  "pc profile: ticks=0 idle=0 deferred=0 missed=0 handler=0 "
+                  "recorded=0 dropped=0 bins=0 service_avg=0 service_max=0");
+}
+
 /** @brief Verifies PcSampleGate sets the gate and restores it on nesting. */
 inline void test_pc_sample_gate_nests() {
   HS_EXPECT_EQ(static_cast<unsigned>(hs::pc_sample_gate()), 0u);
@@ -807,6 +834,35 @@ inline void test_sampled_cycle_scope_bounds_and_nesting() {
   HS_EXPECT_EQ(after.count, 1u);
 }
 
+/** @brief ISR scope destruction records the host clock interval. */
+inline void test_isr_cycle_scope_records_interval() {
+  hs::IsrCycleStats stats;
+  {
+    hs::IsrCycleScope scope(stats);
+    HS_EXPECT_EQ(stats.count, 0u);
+  }
+  HS_EXPECT_EQ(stats.count, 1u);
+  HS_EXPECT_EQ(stats.cycles, uint64_t(0));
+  HS_EXPECT_EQ(stats.min, 0u);
+  HS_EXPECT_EQ(stats.max, 0u);
+}
+
+/** @brief Retiring an active sampled counter clears the parent for new scopes. */
+inline void test_sampled_counter_retirement() {
+  std::optional<hs::CycleCounter> retiring(std::in_place,
+                                           "prof_retired_active");
+  hs::CycleCounter child("prof_retired_child");
+  {
+    hs::SampledCycleScope sampled(*retiring);
+    retiring.reset();
+    HS_EXPECT_TRUE(hs::CycleCounter::find_suffix("prof_retired_active") ==
+                   nullptr);
+    hs::CycleScope nested(child);
+    HS_EXPECT_TRUE(child.parent == nullptr);
+  }
+  HS_EXPECT_EQ(child.count, 1u);
+}
+
 /**
  * @brief Runs the profiling test cases.
  * @return The module's failure count.
@@ -815,6 +871,8 @@ inline int run_profiling_tests() {
   hs_test::ModuleFixture fixture("profiling");
 
   HS_RUN(test_sampled_cycle_scope_bounds_and_nesting);
+  HS_RUN(test_isr_cycle_scope_records_interval);
+  HS_RUN(test_sampled_counter_retirement);
   HS_RUN(test_profile_clock_pair_interrupt_mask);
   HS_RUN(test_u64_dec_boundaries);
   HS_RUN(test_u64_dec_powers_of_ten);
@@ -837,6 +895,7 @@ inline int run_profiling_tests() {
   HS_RUN(test_pc_histogram_bins_and_capacity);
   HS_RUN(test_pc_sampler_classifies_ticks);
   HS_RUN(test_pc_sampler_dump_format);
+  HS_RUN(test_pc_sampler_dump_without_ticks);
   HS_RUN(test_pc_sample_gate_nests);
 
   return fixture.result();

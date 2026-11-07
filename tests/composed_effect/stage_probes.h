@@ -931,6 +931,27 @@ inline void test_choreography_fade_departure() {
   HS_EXPECT_EQ(effect.level(), 0.25f);
 }
 
+/** @brief A paused fade resumes its opacity samples and adopts its target. */
+inline void test_choreography_fade_resumes_after_pause() {
+  using FX = FadeChoreoProbe<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  hs_test::run_frames(effect, FX::PRESET_DWELL_FRAMES + 2);
+  HS_EXPECT_LT(effect.last_opacity, 1.0f);
+  effect.setAnimationsPaused(true);
+  hs_test::run_frames(effect, 2 * FX::DEPARTURE.frames);
+  HS_EXPECT_EQ(effect.last_opacity, 1.0f);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  effect.setAnimationsPaused(false);
+  hs_test::run_frames(effect, 1);
+  HS_EXPECT_LT(effect.last_opacity, 1.0f);
+  hs_test::run_frames(effect, FX::DEPARTURE.frames);
+  HS_EXPECT_EQ(effect.last_opacity, 1.0f);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_EQ(effect.level(), 0.5f);
+}
+
 /**
  * @brief Pins the two Segue::Preset::Lerp transition hooks.
  * @details transition_armed fires once per automatic crossfade, with the

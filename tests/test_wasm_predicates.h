@@ -487,12 +487,8 @@ inline void probe_solid_growth(Arena &input, Arena &target, Arena &temp,
  * @brief Measures every roster operator's growth on solids of differing face
  *        degree and vertex valence.
  */
-inline void test_mesh_op_growth_factors() {
-  Arena input(mesh_op_input_buf, sizeof(mesh_op_input_buf));
-  Arena target(mesh_op_target_buf, sizeof(mesh_op_target_buf));
-  Arena temp(mesh_op_temp_buf, sizeof(mesh_op_temp_buf));
-  Arena finalized(mesh_op_finalized_buf, sizeof(mesh_op_finalized_buf));
-
+/** @brief Every registered mesh operator has one growth probe. */
+inline void test_mesh_op_probes_match_roster() {
   // Every roster operator has exactly one probe.
   HS_EXPECT_EQ(std::size(MESH_OP_PROBES), hs_wasm::MESHOP_BOUNDS_COUNT);
   for (const auto &entry : hs_wasm::MESHOP_BOUNDS) {
@@ -501,6 +497,13 @@ inline void test_mesh_op_growth_factors() {
       matches += std::strcmp(entry.name, probe.name) == 0;
     HS_EXPECT_EQ(matches, size_t{1});
   }
+}
+
+inline void test_mesh_op_growth_factors() {
+  Arena input(mesh_op_input_buf, sizeof(mesh_op_input_buf));
+  Arena target(mesh_op_target_buf, sizeof(mesh_op_target_buf));
+  Arena temp(mesh_op_temp_buf, sizeof(mesh_op_temp_buf));
+  Arena finalized(mesh_op_finalized_buf, sizeof(mesh_op_finalized_buf));
 
   // Face degree and vertex valence differ across these solids, so a factor
   // keyed to the wrong measurement cannot pass on all.
@@ -538,7 +541,10 @@ inline void test_mesh_op_growth_factors() {
   PolyMesh wide_faces = Solids::finalize_solid(prism, input);
   for (const MeshOpProbe &probe : MESH_OP_PROBES)
     check_mesh_op_growth(probe, wide_faces, target, temp, finalized);
+}
 
+/** @brief Mesh operator factor tables and their guard boundaries are pinned. */
+inline void test_mesh_op_declared_factor_boundaries() {
   struct Boundary {
     const char *name;
     size_t elements, degree, valence;
@@ -661,7 +667,9 @@ inline int run_wasm_predicates_tests() {
   HS_RUN(test_mesh_op_arena_room);
   HS_RUN(test_mesh_degree_measurements);
   HS_RUN(test_mesh_op_face_degree);
+  HS_RUN(test_mesh_op_probes_match_roster);
   HS_RUN(test_mesh_op_growth_factors);
+  HS_RUN(test_mesh_op_declared_factor_boundaries);
   HS_RUN(test_mesh_op_growth_near_capacity);
   HS_RUN(test_hankin_angle_domain);
   HS_RUN(test_finite_float_clamp);

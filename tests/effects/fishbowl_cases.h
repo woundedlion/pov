@@ -157,8 +157,8 @@ struct FishbowlWhiteBox {
   }
 };
 
-/** @brief Verifies Fishbowl's preset, snapshot admission, palette duty, phase and midpoint contracts. */
-inline void test_fishbowl_preset_and_fire_duty_cycle() {
+/** @brief Snapshots enforce finite values and schema identity. */
+inline void test_fishbowl_snapshot_admission() {
   reset_globals();
   using WB = FishbowlWhiteBox;
   WB::EffectType fx;
@@ -175,7 +175,16 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   ++edited.schema_version;
   HS_EXPECT_FALSE(fx.restore_parameters(edited));
   HS_EXPECT_TRUE(fx.restore_parameters(snapshot));
+}
 
+/** @brief Preset selection restores authored controls and pauses animation. */
+inline void test_fishbowl_preset_restores_params() {
+  reset_globals();
+  using WB = FishbowlWhiteBox;
+  WB::EffectType fx;
+  fx.init();
+
+  const auto snapshot = fx.serialize_parameters();
   auto value = [&](const char *name) {
     const auto *def = required_param(fx, name);
 
@@ -195,8 +204,22 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
 
   HS_EXPECT_EQ(value("Cycle Dur"), snapshot.params.cycle_duration);
   HS_EXPECT_EQ(value("Duty Cycle"), snapshot.params.duty_cycle);
-  HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.5f), ParamSetResult::APPLIED);
+}
 
+/** @brief The fire palette masks the dark portion of each duty cycle. */
+inline void test_fishbowl_fire_duty_cycle() {
+  reset_globals();
+  using WB = FishbowlWhiteBox;
+  WB::EffectType fx;
+  fx.init();
+
+  auto value = [&](const char *name) {
+    const auto *def = required_param(fx, name);
+
+    return def ? def->get() : -1.0f;
+  };
+
+  HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.5f), ParamSetResult::APPLIED);
   const Pixel black(0, 0, 0);
   const Color4 red = WB::sample_fire(fx, 0.20f);
   const Color4 yellow = WB::sample_fire(fx, 0.39f);
@@ -211,6 +234,20 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.25f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::sample_fire(fx, 0.30f).color, black);
+}
+
+/** @brief Palette phase compensates trail fill consistently. */
+inline void test_fishbowl_palette_phase_compensates_fill() {
+  reset_globals();
+  using WB = FishbowlWhiteBox;
+  WB::EffectType fx;
+  fx.init();
+
+  auto value = [&](const char *name) {
+    const auto *def = required_param(fx, name);
+
+    return def ? def->get() : -1.0f;
+  };
 
   HS_EXPECT_EQ(WB::palette_fill_scale(1), 1.0f / WB::EffectType::TRAIL_LENGTH);
   HS_EXPECT_EQ(WB::palette_fill_scale(WB::EffectType::TRAIL_LENGTH / 2),
@@ -231,6 +268,14 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
       cycle_speed, scale_factor, WB::EffectType::TRAIL_LENGTH);
   HS_EXPECT_NEAR(filling_speed, cycle_speed - coordinate_shift, 1e-7f);
   HS_EXPECT_NEAR(saturated_speed - coordinate_shift, filling_speed, 1e-7f);
+}
+
+/** @brief Adaptive midpoint detection accepts the spherical midpoint. */
+inline void test_fishbowl_adaptive_midpoint() {
+  reset_globals();
+  using WB = FishbowlWhiteBox;
+  WB::EffectType fx;
+  fx.init();
 
   const math::Vector a = math::X_AXIS;
   const math::Vector b = math::Y_AXIS;

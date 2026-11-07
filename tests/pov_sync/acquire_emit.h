@@ -214,16 +214,10 @@ inline void test_acquire_beacon_train_joins() {
 
 // ── Master emission self-censor (§5.2) ──────────────────────────────────────
 
-/**
- * @brief Verifies master symbol/beacon emission (§5.2): on-time bursts pulse
- *        at 2-column pitch on the oversampled grid, a late boundary is censored
- *        whole, a mid-burst mask past the budget aborts the remaining pulses,
- *        and the emitter→mailbox→parser loop round-trips a beacon frame.
- */
-inline void test_emitter() {
+/** @brief On-time boundary bursts retain their oversampled two-column pitch. */
+inline void test_emitter_on_time_pitch() {
   const Config cfg = test_config();
   bool aborted = false;
-
   // On-time ZERO burst: 3 pulses at exactly 2-column pitch, ticked on an
   // oversampled (⅛-column) grid.
   {
@@ -245,7 +239,12 @@ inline void test_emitter() {
       HS_EXPECT_LE(pulses[2] - (b + 4 * COL), COL / 8);
     }
   }
+}
 
+/** @brief Late boundaries are censored and future boundaries wait until due. */
+inline void test_emitter_boundary_censoring() {
+  const Config cfg = test_config();
+  bool aborted = false;
   // Late past the censor budget: the whole symbol is censored.
   {
     SymbolEmitter e;
@@ -265,7 +264,12 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(e.tick(at, cfg, &aborted)); // first pulse at the boundary
     HS_EXPECT_FALSE(aborted);
   }
+}
 
+/** @brief Mid-burst lateness aborts remaining pulses without emitting a valid symbol. */
+inline void test_emitter_mid_burst_abort() {
+  const Config cfg = test_config();
+  bool aborted = false;
   for (const Symbol symbol : {Symbol::ZERO, Symbol::ZERO_EPOCH}) {
     for (uint32_t sent = 1; sent < symbol_pulse_count(symbol); ++sent) {
       SymbolEmitter e;
@@ -301,7 +305,11 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(aborted);
     HS_EXPECT_TRUE(e.idle());
   }
+}
 
+/** @brief Dropping pending emissions reports boundary and beacon kinds. */
+inline void test_emitter_drop_reporting() {
+  const Config cfg = test_config();
   // Drop a stale burst before scheduling the boundary, reporting its kind.
   using Dropped = SymbolEmitter::DroppedBurst;
   {
@@ -336,7 +344,12 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(e.schedule_boundary(Symbol::HALF, 3000000u, 3000000u, cfg));
     HS_EXPECT_EQ(e.drop_pending_emission(), Dropped::BOUNDARY);
   }
+}
 
+/** @brief Emitted beacon digits round-trip through mailbox and parser. */
+inline void test_emitter_beacon_loopback() {
+  const Config cfg = test_config();
+  bool aborted = false;
   // Beacon: emitter → mailbox → parser closes the loop; inter-burst gaps
   // terminate digits; the decoded frame matches the encoded one.
   {
@@ -564,7 +577,7 @@ inline void test_beacon_tail_quiet() {
   // 7 — the widest frame index 63 of a full roster can encode.
   cfg.beacon_period_revs = 31;
   cfg.rejoin_budget_revs = cfg.rejoin_bound_revs();
-  HS_EXPECT_TRUE(cfg.valid() == nullptr);
+  HS_EXPECT_STREQ(cfg.valid(), nullptr);
   const uint32_t period = cfg.cycles_per_half_rev;
   const uint32_t step = COL / 8u;
 

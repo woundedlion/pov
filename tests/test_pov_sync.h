@@ -66,13 +66,18 @@ inline const Config &config(const SyncBoard &b) {
   return SyncBoardTestAccess::config(b);
 }
 
+/** @brief Builds the shipping Phantasm protocol configuration. */
+inline Config shipping_config(int effects = 4) {
+  return phantasm_config(600000000u, 480u, 288, effects);
+}
+
 /**
  * @brief Builds full-rate Phantasm timing with a shortened content cadence.
  * @param effects Number of effects in the test playlist.
  * @return A valid Config.
  */
 inline Config test_config(int effects = 4) {
-  Config c = phantasm_config(600000000u, 480u, 288, effects);
+  Config c = shipping_config(effects);
   c.revs_per_effect = 40;
   c.beacon_period_revs = 8;
   c.refractory_revs = 8;
@@ -114,6 +119,11 @@ inline uint32_t feed_beacon_train(SyncBoard &board, const Config &cfg,
 
 // ── Runner ──────────────────────────────────────────────────────────────────
 
+/** @brief The shipping cadence rejoins within 25 revolutions. */
+inline void test_shipping_rejoin_bound() {
+  HS_EXPECT_EQ(shipping_config().rejoin_bound_revs(), 25u);
+}
+
 /**
  * @brief Runs the pov_sync tests.
  * @return The module's failure count.
@@ -122,6 +132,7 @@ inline int run_pov_sync_tests() {
   hs_test::ModuleFixture fixture("pov_sync");
 
   HS_RUN(test_helpers);
+  HS_RUN(test_config_timing_bounds);
   HS_RUN(test_config_validation);
   HS_RUN(test_alphabet);
   HS_RUN(test_flip_gate);
@@ -144,7 +155,11 @@ inline int run_pov_sync_tests() {
   HS_RUN(test_isolated_noise_preserves_recent_boundary_lock);
   HS_RUN(test_acquire_isolation_guard);
   HS_RUN(test_acquire_beacon_train_joins);
-  HS_RUN(test_emitter);
+  HS_RUN(test_emitter_on_time_pitch);
+  HS_RUN(test_emitter_boundary_censoring);
+  HS_RUN(test_emitter_mid_burst_abort);
+  HS_RUN(test_emitter_drop_reporting);
+  HS_RUN(test_emitter_beacon_loopback);
   HS_RUN(test_master_beacon_busy_retry);
   HS_RUN(test_beacon_late_coast);
   HS_RUN(test_master_fold_stall_recovers);
@@ -164,9 +179,8 @@ inline int run_pov_sync_tests() {
   HS_RUN(test_sim_emi);
   HS_RUN(test_sim_drops_and_missed_epoch);
   HS_RUN(test_sim_reboot, test_config());
-  const Config shipping = phantasm_config(600000000u, 480u, 288, 4);
-  HS_EXPECT_EQ(shipping.rejoin_bound_revs(), 25u);
-  HS_RUN(test_sim_reboot, shipping);
+  HS_RUN(test_shipping_rejoin_bound);
+  HS_RUN(test_sim_reboot, shipping_config());
   HS_RUN(test_sim_forged_burst);
   HS_RUN(test_sim_epoch_repeat_lockstep);
   HS_RUN(test_sim_rev_resync);

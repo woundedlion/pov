@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cmath>
 
 #include "core/render/shading.h"
@@ -242,6 +244,10 @@ inline void test_blinn_phong_half() {
  */
 inline void test_shade_blinn_phong() {
   const math::Vector up(0, 0, 1);
+  HS_EXPECT_NEAR(shade_blinn_phong(up, up, math::Vector(0, 0, -1), 0, 1, 0),
+                 0.05f, 1e-6f);
+  HS_EXPECT_NEAR(shade_blinn_phong(up, math::Vector(0, 0, -1), up, 0, 0, 1),
+                 1.05f, 1e-6f);
 
   // All weights zero leaves only the 0.05 ambient base.
   HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 0.0f, 0.0f), 0.05f, 1e-6f);
@@ -417,48 +423,89 @@ inline void test_face_palette_shader_defaults() {
   HS_EXPECT_EQ(fragment.color.color.r, dark.r);
 }
 
+/** @brief Two distinct baked ramps for face shader motion checks. */
+struct FacePaletteTestFixture {
+  alignas(std::max_align_t)
+      uint8_t buffer[2 * BakedPalette::required_arena_bytes()];
+  Arena arena{buffer, sizeof(buffer)};
+  BakedPaletteStorage own;
+  BakedPaletteStorage other;
+
+  FacePaletteTestFixture() {
+    Gradient own_source(
+        {{0.0f, CPixel(0, 0, 0)}, {1.0f, CPixel(255, 255, 255)}});
+    Gradient other_source(
+        {{0.0f, CPixel(255, 0, 0)}, {1.0f, CPixel(0, 0, 255)}});
+    own.bake(arena, own_source);
+    other.bake(arena, other_source);
+  }
+};
+
 /**
  * @brief Verifies FacePaletteShader's counterpart blend matches Color4::lerp
  *        from the counterpart ramp onto the face's own ramp at the same depth,
  *        and that a weight of 1 or a null palette yields the unblended face ramp.
  */
 inline void test_face_palette_shader_counterpart() {
-  Gradient own_source({{0.0f, CPixel(0, 0, 0)}, {1.0f, CPixel(255, 255, 255)}});
-  Gradient other_source({{0.0f, CPixel(255, 0, 0)}, {1.0f, CPixel(0, 0, 255)}});
-  alignas(std::max_align_t) static uint8_t
-      buffer[2 * BakedPalette::required_arena_bytes()];
-  Arena arena(buffer, sizeof(buffer));
-  BakedPaletteStorage own;
-  BakedPaletteStorage other;
-  own.bake(arena, own_source);
-  other.bake(arena, other_source);
+  FacePaletteTestFixture fixture;
 
   FacePaletteShader shader;
-  shader.set_palette(&own.view());
-  shader.set_counterpart(&other.view(), 0.3f);
+  shader.set_palette(&fixture.own.view());
+  shader.set_counterpart(&fixture.other.view(), 0.3f);
   Fragment fragment;
   fragment.v1 = -0.4f;
   shader(math::Vector(), fragment);
-  const Color4 expected = Color4(other.get_color_unit(0.4f))
-                              .lerp(Color4(own.get_color_unit(0.4f)), 0.3f);
+  const Color4 expected =
+      Color4(fixture.other.get_color_unit(0.4f))
+          .lerp(Color4(fixture.own.get_color_unit(0.4f)), 0.3f);
   HS_EXPECT_EQ(fragment.color.color.r, expected.color.r);
   HS_EXPECT_EQ(fragment.color.color.g, expected.color.g);
   HS_EXPECT_EQ(fragment.color.color.b, expected.color.b);
   HS_EXPECT_NEAR(fragment.color.alpha, 1.0f, 1e-6f);
 
-  const Pixel plain = own.get_color_unit(0.4f);
-  shader.set_counterpart(&other.view(), 1.0f);
+  const Pixel plain = fixture.own.get_color_unit(0.4f);
+  shader.set_counterpart(&fixture.other.view(), 1.0f);
   shader(math::Vector(), fragment);
   HS_EXPECT_EQ(fragment.color.color.r, plain.r);
   HS_EXPECT_EQ(fragment.color.color.b, plain.b);
 
-  shader.set_counterpart(&other.view(), 0.3f);
+  shader.set_counterpart(&fixture.other.view(), 0.3f);
   shader(math::Vector(), fragment);
   HS_EXPECT_NE(fragment.color.color, plain);
   shader.set_counterpart(nullptr, 0.0f);
   shader(math::Vector(), fragment);
   HS_EXPECT_EQ(fragment.color.color.r, plain.r);
   HS_EXPECT_EQ(fragment.color.color.b, plain.b);
+}
+
+/** @brief Each face shader motion term acts independently and palette replacement clears blending. */
+inline void test_face_palette_shader_motion_and_palette_reset() {
+  FacePaletteTestFixture fixture;
+  FacePaletteShader plain;
+  plain.set_palette(&fixture.own.view());
+  HS_EXPECT_FALSE(plain.moves());
+
+  FacePaletteShader alpha = plain;
+  alpha.set_alpha(.5f, .75f);
+  HS_EXPECT_TRUE(alpha.moves());
+  FacePaletteShader counterpart = plain;
+  counterpart.set_counterpart(&fixture.other.view(), .25f, .75f);
+  HS_EXPECT_TRUE(counterpart.moves());
+  FacePaletteShader absent = plain;
+  absent.set_counterpart(nullptr, .25f, .75f);
+  HS_EXPECT_FALSE(absent.moves());
+  FacePaletteShader blend = plain;
+  blend.set_blend(&fixture.own.view(), &fixture.other.view(), .25f, .75f);
+  HS_EXPECT_TRUE(blend.moves());
+  blend.set_palette(&fixture.own.view());
+  HS_EXPECT_FALSE(blend.moves());
+  const Pixel expected = fixture.own.get_color_unit(.4f);
+  for (float fraction : {0.0f, .25f, .5f, 1.0f}) {
+    Fragment fragment;
+    fragment.v1 = -.4f;
+    blend(math::Vector(), fragment, fraction);
+    HS_EXPECT_EQ(fragment.color.color, expected);
+  }
 }
 
 /**
@@ -481,6 +528,7 @@ inline int run_shading_tests() {
   HS_RUN(test_shade_mesh_topology_direct);
   HS_RUN(test_face_palette_shader_defaults);
   HS_RUN(test_face_palette_shader_counterpart);
+  HS_RUN(test_face_palette_shader_motion_and_palette_reset);
 
   return fixture.result();
 }

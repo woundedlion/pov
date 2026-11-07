@@ -30,12 +30,19 @@ inline void test_clip_could_intersect_y() {
   HS_EXPECT_TRUE(cr.could_intersect_y(50.0f, 60.0f));
   HS_EXPECT_TRUE(cr.could_intersect_y(30.0f, 45.0f));
 
+  HS_EXPECT_TRUE(cr.could_intersect_y(0.0f, 40.0f));
   HS_EXPECT_FALSE(cr.could_intersect_y(0.0f, 39.0f));
   HS_EXPECT_FALSE(cr.could_intersect_y(80.0f, 120.0f));
 
   // Order independence: swapped arguments give the same answer.
   HS_EXPECT_TRUE(cr.could_intersect_y(60.0f, 50.0f));
   HS_EXPECT_FALSE(cr.could_intersect_y(120.0f, 80.0f));
+
+  cr.margin = 2;
+  HS_EXPECT_TRUE(cr.could_intersect_y(0.0f, 38.0f));
+  HS_EXPECT_FALSE(cr.could_intersect_y(0.0f, 37.0f));
+  HS_EXPECT_TRUE(cr.could_intersect_y(81.0f, 120.0f));
+  HS_EXPECT_FALSE(cr.could_intersect_y(82.0f, 120.0f));
 }
 
 /**

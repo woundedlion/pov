@@ -9,6 +9,7 @@
 
 #include "hardware/dma_led_controller.h"
 #include "tests/test_fixture.h"
+#include "tests/hd107s_test_util.h"
 #include "tests/test_harness.h"
 
 #include <cstddef>
@@ -190,15 +191,13 @@ inline void test_double_buffer_flip() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  const uint8_t *write0 =
-      reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
+  const uint8_t *write0 = ctl.back_frame().data();
   HS_EXPECT_TRUE(ctl.submit_frame(false));
   const uint8_t *dma1 = MockStrip::state().last_data;
   HS_EXPECT_EQ(dma1, write0); // the frame just written is the one DMA'd
 
   // Front buffer is in flight; the exposed back buffer must be the other one.
-  const uint8_t *write1 =
-      reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
+  const uint8_t *write1 = ctl.back_frame().data();
   HS_EXPECT_NE(write1, dma1);
 
   MockStrip::state().complete = true; // signal the prior transfer done
@@ -223,8 +222,7 @@ inline void test_overrun_drop() {
   DMALEDController<N, MockStrip> ctl;
 
   HS_EXPECT_TRUE(ctl.submit_frame(false)); // first transfer, now in flight
-  const uint8_t *back_before =
-      reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
+  const uint8_t *back_before = ctl.back_frame().data();
   Frame expected;
   pack_wire_pattern(expected);
   pack_wire_pattern(ctl.back_frame());
@@ -238,8 +236,7 @@ inline void test_overrun_drop() {
   HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
   HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1); // watchdog consulted
 
-  const uint8_t *back_after =
-      reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
+  const uint8_t *back_after = ctl.back_frame().data();
   HS_EXPECT_EQ(back_after, back_before); // no buffer flip on a drop
 
   MockStrip::state().complete = true;
@@ -295,7 +292,7 @@ inline void test_withbg_length() {
 
 /**
  * @brief Verifies the transmitted HD107S framing and BGR bytes against the
- * input colors, then pins corrected white's encoded channels.
+ * input colors.
  */
 inline void test_end_to_end_wire_bytes() {
   reset_correction<N>();
@@ -320,6 +317,15 @@ inline void test_end_to_end_wire_bytes() {
   }
   for (int byte = 4 + N * 4; byte < Frame::BUFFER_SIZE; ++byte)
     HS_EXPECT_EQ(capture[byte], 0);
+  reset_correction<N>();
+}
+
+/** @brief Correction, temperature and brightness reach the submitted pixels. */
+inline void test_correction_pass_throughs() {
+  reset_correction<N>();
+  MockStrip::reset();
+  DMALEDController<N, MockStrip> ctl;
+  const auto &capture = MockStrip::state().capture;
   MockStrip::state().complete = true;
   DMALEDController<N, MockStrip>::set_correction(127, 255, 255);
   DMALEDController<N, MockStrip>::set_temperature(255, 127, 255);
@@ -330,6 +336,17 @@ inline void test_end_to_end_wire_bytes() {
   HS_EXPECT_EQ(capture[5], 247);
   HS_EXPECT_EQ(capture[6], 124);
   HS_EXPECT_EQ(capture[7], 124);
+  reset_correction<N>();
+}
+
+/** @brief Default calibration applies the shipping channel factors. */
+inline void test_apply_default_calibration() {
+  reset_correction<N>();
+  MockStrip::reset();
+  DMALEDController<N, MockStrip> ctl;
+  DMALEDController<N, MockStrip>::set_correction(127, 255, 255);
+  DMALEDController<N, MockStrip>::set_temperature(255, 127, 255);
+  DMALEDController<N, MockStrip>::set_brightness(127);
   DMALEDController<N, MockStrip>::apply_default_calibration();
   uint32_t r = 65535, g = 65535, b = 65535;
   ctl.back_frame().correct(r, g, b);
@@ -353,6 +370,8 @@ inline int run_dma_controller_tests() {
   HS_RUN(test_transfer_idle_poll);
   HS_RUN(test_withbg_length);
   HS_RUN(test_end_to_end_wire_bytes);
+  HS_RUN(test_correction_pass_throughs);
+  HS_RUN(test_apply_default_calibration);
   // Leave the shared static state clean for any later module.
   reset_correction<N>();
   return fixture.result();

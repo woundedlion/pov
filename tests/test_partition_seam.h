@@ -493,101 +493,69 @@ inline std::vector<math::Vector> vertex_list(const PolyMesh &m) {
   return v;
 }
 
-/**
- * @brief Measures the flat-shaded delta of `kis` on one seed.
- * @tparam Solid Seed solid descriptor.
- * @param name Tag for the report and PNG names.
- * @param measured_changed_frac This swap's calibrated changed fraction.
- * @param measured_max_band This swap's calibrated deepest changed band.
- */
-template <typename Solid>
-inline void measure_kis(const char *name, double measured_changed_frac,
-                        int measured_max_band) {
+/** @brief Measures a topology swap against its calibrated framebuffer envelope. */
+template <typename Solid, typename Op>
+inline SeamStats measure_swap(const char *name, const char *op_name, Op op,
+                              double measured_frac, int measured_band,
+                              bool include_degree = false) {
   Arena geom(ps_geom_buf, sizeof(ps_geom_buf));
   Arena temp(ps_temp_buf, sizeof(ps_temp_buf));
   Arena aux(ps_aux_buf, sizeof(ps_aux_buf));
-
   PolyMesh base;
   build_solid<Solid>(base, geom);
-  PolyMesh kis = MeshOps::kis(base, geom, temp);
-
-  MeshState base_ms, kis_ms;
+  PolyMesh changed = op(base, geom, temp);
+  MeshState base_ms, changed_ms;
   MeshOps::compile(base, base_ms, aux, temp);
-  MeshOps::compile(kis, kis_ms, aux, temp);
-
+  MeshOps::compile(changed, changed_ms, aux, temp);
   std::vector<Pixel> a, b;
   render_flat(a, base_ms);
-  render_flat(b, kis_ms);
-
-  char tag[128];
-  std::snprintf(tag, sizeof(tag), "kis %s deg=%d F %zu->%zu", name,
-                base.face_counts[0], base.face_counts.size(),
-                kis.face_counts.size());
+  render_flat(b, changed_ms);
+  char tag[128], degree[32] = {};
+  if (include_degree)
+    std::snprintf(degree, sizeof(degree), " deg=%d", base.face_counts[0]);
+  std::snprintf(tag, sizeof(tag), "%s %s%s F %zu->%zu", op_name, name, degree,
+                base.face_counts.size(), changed.face_counts.size());
   HS_CONTEXT(tag);
   const SeamStats st = compare(a, b, vertex_list(base));
   if (seam_dump_dir())
     report(tag, st);
-
   char png[128];
   std::snprintf(png, sizeof(png), "%s_base_flat", name);
   dump_png(png, a);
-  std::snprintf(png, sizeof(png), "%s_kis_flat", name);
+  std::snprintf(png, sizeof(png), "%s_%s_flat", name, op_name);
   dump_png(png, b);
-  std::snprintf(png, sizeof(png), "%s_kis_diff", name);
+  std::snprintf(png, sizeof(png), "%s_%s_diff", name, op_name);
   dump_png(png, diff_image(a, b));
-
-  // The fan partitions the parent's patches, so total coverage is unchanged;
-  // the delta is dominated by darkening on the new spokes.
   HS_EXPECT_EQ(st.lit_a, st.lit_b);
-  HS_EXPECT_GT(st.energy, 0.0);
-  HS_EXPECT_GT(st.max_dark, st.max_bright);
-  expect_within_envelope(st, measured_changed_frac, measured_max_band);
+  expect_within_envelope(st, measured_frac, measured_band);
+  return st;
 }
 
-/**
- * @brief Measures the flat-shaded delta of `dual` on one seed.
- * @tparam Solid Seed solid descriptor.
- * @param name Tag for the report and PNG names.
- * @param measured_changed_frac This swap's calibrated changed fraction.
- * @param measured_max_band This swap's calibrated deepest changed band.
- */
+/** @brief Kis swaps retain coverage and darken their new spokes. */
 template <typename Solid>
-inline void measure_dual(const char *name, double measured_changed_frac,
-                         int measured_max_band) {
-  Arena geom(ps_geom_buf, sizeof(ps_geom_buf));
-  Arena temp(ps_temp_buf, sizeof(ps_temp_buf));
-  Arena aux(ps_aux_buf, sizeof(ps_aux_buf));
+inline void measure_kis(const char *name, double measured_frac,
+                        int measured_band) {
+  const auto st = measure_swap<Solid>(
+      name, "kis",
+      [](auto &base, auto &geom, auto &temp) {
+        return MeshOps::kis(base, geom, temp);
+      },
+      measured_frac, measured_band, true);
+  HS_CONTEXT(name);
+  HS_EXPECT_GT(st.energy, 0.0);
+  HS_EXPECT_GT(st.max_dark, st.max_bright);
+}
 
-  PolyMesh base;
-  build_solid<Solid>(base, geom);
-  PolyMesh dual = MeshOps::dual(base, geom, temp);
-
-  MeshState base_ms, dual_ms;
-  MeshOps::compile(base, base_ms, aux, temp);
-  MeshOps::compile(dual, dual_ms, aux, temp);
-
-  std::vector<Pixel> a, b;
-  render_flat(a, base_ms);
-  render_flat(b, dual_ms);
-
-  char tag[128];
-  std::snprintf(tag, sizeof(tag), "dual %s F %zu->%zu", name,
-                base.face_counts.size(), dual.face_counts.size());
-  HS_CONTEXT(tag);
-  const SeamStats st = compare(a, b, vertex_list(base));
-  if (seam_dump_dir())
-    report(tag, st);
-
-  char png[128];
-  std::snprintf(png, sizeof(png), "%s_dual_flat", name);
-  dump_png(png, b);
-  std::snprintf(png, sizeof(png), "%s_dual_diff", name);
-  dump_png(png, diff_image(a, b));
-
-  // The dual partitions the sphere like the seed, so total coverage is
-  // unchanged; the delta has no fixed sign.
-  HS_EXPECT_EQ(st.lit_a, st.lit_b);
-  expect_within_envelope(st, measured_changed_frac, measured_max_band);
+/** @brief Dual swaps retain coverage within their calibrated envelope. */
+template <typename Solid>
+inline void measure_dual(const char *name, double measured_frac,
+                         int measured_band) {
+  measure_swap<Solid>(
+      name, "dual",
+      [](auto &base, auto &geom, auto &temp) {
+        return MeshOps::dual(base, geom, temp);
+      },
+      measured_frac, measured_band);
 }
 
 /**

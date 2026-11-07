@@ -104,6 +104,12 @@ inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
   return out;
 }
 
+/** @brief Applies the common partial scan clip without a margin. */
+inline void apply_partial_clip(StubEffect &effect) {
+  effect.set_clip(9, 53, 17, 81);
+  effect.set_margin(0);
+}
+
 #include "tests/scan/shader_draw.h"
 #include "tests/scan/ring_raster.h"
 #include "tests/scan/region_pole_lod.h"
@@ -112,6 +118,7 @@ inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
 #include "tests/scan/volume_march.h"
 #include "tests/scan/circle_point.h"
 #include "tests/scan/column_basis.h"
+#include "tests/scan/column_time_state.h"
 #include "tests/scan/mesh_capture.h"
 
 // ============================================================================
@@ -160,6 +167,7 @@ inline int run_scan_tests() {
   HS_RUN(test_pole_lod_shading_matches_undecimated);
   HS_RUN(test_pole_lod_concave_face_matches_undecimated);
   HS_RUN(test_report_stretch_forwards_through_csg);
+  HS_RUN(test_pole_lod_settle_block_respects_reject_margin);
   HS_RUN(test_face_cull_sentinel_respects_static_margin);
   HS_RUN(test_prepared_face_reports_match_unprepared);
   HS_RUN(test_convex_face_pole_fringe_matches_undecimated);
@@ -190,6 +198,8 @@ inline int run_scan_tests() {
   HS_RUN(test_moved_proxy_intervals_follow_centre);
   HS_RUN(test_swept_cap_clip_keeps_lit_clips);
   HS_RUN(test_volume_columns_match_rotated_placements);
+  HS_RUN((test_volume_read_columns_cover_hits<96, 48>));
+  HS_RUN((test_volume_read_columns_cover_hits<288, 144>));
   HS_RUN(test_ring_group_previous_axes_match_column_rings);
   HS_RUN(test_normalized_chord_error_bounds_the_turn);
   HS_RUN(test_ring_group_column_rows_cover_band);
@@ -209,10 +219,13 @@ inline int run_scan_tests() {
   HS_RUN(test_capture_window_faces);
   HS_RUN(test_mesh_capture_vertex);
   HS_RUN(test_vertex_arc_and_reach_flags);
+  HS_RUN(test_vertex_reach_levels_and_demotion);
+  HS_RUN(test_face_capture_interval_polar_reach);
   HS_RUN(test_mesh_capture_reuse);
   HS_RUN(test_mesh_seam_face_copies);
   HS_RUN(test_mesh_wide_face_copies);
   HS_RUN(test_mesh_deformation_shared_edges);
+  HS_RUN(test_swept_face_rows_cover_near_pole_fringe);
   HS_RUN(test_mesh_polar_face_sweep);
   HS_RUN(test_mesh_polar_face_windows);
   HS_RUN(test_mesh_motion_activation);

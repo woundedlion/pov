@@ -5,6 +5,7 @@
 #pragma once
 #include "core/render/spacetime.h"
 #include "tests/test_harness.h"
+#include "tests/probe_test_util.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -117,7 +118,17 @@ inline void test_reference_row_displacement_is_analytic() {
         HS_EXPECT_NEAR(math::dot(shifted, shifted), 1.0f, 1e-6f);
       }
     }
+  for (float rows : {-0.2f, -0.001f, 0.001f, 0.2f}) {
+    const auto shifted = displace_reference_rows<H>({0, 1, 0}, rows);
+    const double angle = double(rows) * math::RADIANS_PER_ROW<H>;
+    HS_EXPECT_NEAR(shifted.x, std::sin(angle), 2e-6);
+    HS_EXPECT_NEAR(shifted.y, std::cos(angle), 2e-6);
+    HS_EXPECT_EQ(shifted.z, 0.0f);
+  }
 }
+
+inline constexpr float DISPLACEMENT = 0.2f;
+inline constexpr float ERROR_FLOOR = 1e-5f;
 
 /** @brief Tests the whole-frame temporal error against the endpoint budget.
  * @param error Summed luminance error over the frame.
@@ -127,7 +138,7 @@ inline void test_reference_row_displacement_is_analytic() {
 inline bool temporal_frame_error_within_budget(float error,
                                                float endpoint_error,
                                                float share = 1.0f) {
-  return error <= share * endpoint_error / 20.0f + 1e-5f;
+  return error <= share * endpoint_error / 20.0f + ERROR_FLOOR;
 }
 
 /** @brief Controls frozen-column displacement and frame budgets. */
@@ -163,10 +174,10 @@ SeamCompareResult seam_compare_render(Render render, const char *name,
   for (int column = 0; column < W / 2; ++column) {
     const float fraction = Spacetime::SamplingSurface<W>::time(column);
     const auto frozen = render(false, fraction, 0.0f);
-    const auto shifted = render(false, fraction, 0.2f);
+    const auto shifted = render(false, fraction, DISPLACEMENT);
     std::optional<std::remove_cvref_t<decltype(shifted)>> opposite;
     if (options.bidirectional)
-      opposite.emplace(render(false, fraction, -0.2f));
+      opposite.emplace(render(false, fraction, -DISPLACEMENT));
     for (int x : {column, column + W / 2}) {
       float error = 0.0f, endpoint_error = 0.0f, displaced_error = 0.0f;
       float opposite_error = 0.0f;
@@ -180,17 +191,18 @@ SeamCompareResult seam_compare_render(Render render, const char *name,
           opposite_error += fabsf((*opposite)[index] - frozen[index]);
       }
       displaced_error = std::max(displaced_error, opposite_error);
-      if (error > displaced_error + 1e-5f && options.widen_budget)
+      if (error > displaced_error + ERROR_FLOOR && options.widen_budget)
         displaced_error =
             options.widen_budget(x, fraction, frozen, displaced_error);
       total += error;
       endpoint_total += endpoint_error;
       displaced_total += displaced_error;
       worst = std::max(worst, error);
-      if (error > displaced_error + 1e-5f)
+      if (error > displaced_error + ERROR_FLOOR) {
         std::printf("  frozen %s column %d: error=%.9f displaced=%.9f\n", name,
                     x, error, displaced_error);
-      displacement_failures += error > displaced_error + 1e-5f;
+        ++displacement_failures;
+      }
     }
   }
   std::printf("  frozen %s: error=%.6f endpoint=%.6f displaced=%.6f "
@@ -227,6 +239,26 @@ inline void test_temporal_oracle_uses_whole_frame_endpoint_budget() {
     return pixels;
   };
   seam_compare_render<4, 1>(render, "distributed endpoint budget");
+}
+
+/** @brief Frozen-column oracle detects violations and honors optional budgets. */
+inline void test_temporal_oracle_displacement_branches() {
+  const auto violating = [](bool timed, float, float displacement) {
+    std::array<float, 4> pixels{};
+    pixels[0] = timed ? 0.05f : displacement < 0 ? 0.1f : 0.0f;
+    return pixels;
+  };
+  const auto check = [&](const SeamCompareOptions &options, int failures) {
+    expect_probe_failures(
+        [&] { seam_compare_render<4, 1>(violating, "oracle probe", options); },
+        failures, failures ? "frozen oracle probe column 0" : nullptr);
+  };
+  check({.require_motion = false}, 1);
+  check({.bidirectional = true, .require_motion = false}, 0);
+  check({.require_motion = false,
+         .widen_budget = [](int, float, std::span<const float>,
+                            float) { return 0.1f; }},
+        0);
 }
 
 } // namespace hs_test

@@ -59,6 +59,16 @@ inline void test_single_group_capacity() {
   HS_EXPECT_EQ(result.counters.candidates, 2);
   HS_EXPECT_EQ(count, 1);
   streams.live.fill(true);
+  count = 0;
+  result = Raycast::trace_events(streams, {0, 2}, {}, [&](const auto &) {
+    ++count;
+    return false;
+  });
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SATURATED);
+  HS_EXPECT_EQ(result.counters.candidates, 2);
+  HS_EXPECT_EQ(result.counters.layers, 1);
+  HS_EXPECT_EQ(count, 1);
+  streams.live.fill(true);
   streams.heads[1].merge_identity = 0;
   Raycast::TraceLimits limits;
   limits.max_candidates = 3;
@@ -244,13 +254,35 @@ inline void test_verified_filter_contracts() {
     return trace;
   });
   HS_EXPECT_EQ(invalid.trace.status, Raycast::TraceStatus::INVALID_QUERY);
+  const std::array weighted_directions{math::X_AXIS, math::Y_AXIS};
+  int hit = 0;
+  const auto weighted =
+      Raycast::verified_filter(weighted_directions, [&](const auto &) {
+        Raycast::ShadedTrace trace;
+        trace.trace.status = Raycast::TraceStatus::SURFACE;
+        trace.trace.has_surface = true;
+        trace.trace.contribution.verified = true;
+        trace.color = hit++ == 0 ? Color4(Pixel(1000, 0, 0), .25f)
+                                 : Color4(Pixel(3000, 0, 0), .75f);
+        return trace;
+      });
+  HS_EXPECT_EQ(weighted.color.color.r, 2500);
+  HS_EXPECT_EQ(weighted.color.alpha, .5f);
 }
 
 #include "tests/ray_events/lattice_trace.h"
 
 inline int run_ray_event_tests() {
   hs_test::ModuleFixture fixture("ray_events");
-  HS_RUN(run_lattice_trace_cases);
+  HS_RUN(test_octet_prepared_projection);
+  HS_RUN(test_octet_4d_canonical_trace);
+  HS_RUN(test_octet_4d_canonical_boundary_directions);
+  HS_RUN(test_octet_trace_sorted_matches_events);
+  HS_RUN(test_lattice_view_directions_are_unit_length);
+  HS_RUN(test_lattice_prepare_validates_wire_radius_per_geometry);
+  HS_RUN(test_cubic_compositor_matches_event_shading);
+  HS_RUN(test_octet_preparation_matches_world_events);
+  HS_RUN(test_octet_distant_center_periodicity);
   HS_RUN(test_single_group_capacity);
   HS_RUN(test_failure_status_survives_flush);
   HS_RUN(test_event_stream_contracts);

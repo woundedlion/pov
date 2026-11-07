@@ -19,23 +19,30 @@ namespace styles_tests {
 // --- Named presets ----------------------------------------------------------
 
 struct PresetCase {
+  const char *name;
   Feedback::Style style;
   Feedback::SpaceFn space;
   float frame_shift;
 };
 inline const PresetCase PRESETS[] = {
-    {Feedback::Style::ArcingLightning(), &Feedback::noise_warp, 0.1f},
-    {Feedback::Style::SlowFire(), &Feedback::noise_warp, 0.0167f},
-    {Feedback::Style::EnergeticFire(), &Feedback::noise_warp, 0.0167f},
-    {Feedback::Style::SlowDust(), &Feedback::noise_warp, 0.0167f},
-    {Feedback::Style::WavyTrails(), &Feedback::noise_warp, 0.0722f},
-    {Feedback::Style::MeltingHi(), &Feedback::melt_warp, 0.1f},
-    {Feedback::Style::MeltingLo(), &Feedback::melt_warp, 0.1f},
-    {Feedback::Style::Miasma(), &Feedback::noise_warp, 0.05050779f},
-    {Feedback::Style::LooseWormhole(), &Feedback::noise_warp, 0.07220009f},
-    {Feedback::Style::TightWormhole(), &Feedback::noise_warp, 0.07220009f},
-    {Feedback::Style::WigglingWormhole(), &Feedback::noise_warp, 0.07220009f},
-    {Feedback::Style::Smoke(), &Feedback::noise_warp, 0.01f},
+    {"ArcingLightning", Feedback::Style::ArcingLightning(),
+     &Feedback::noise_warp, 0.1f},
+    {"SlowFire", Feedback::Style::SlowFire(), &Feedback::noise_warp, 0.0167f},
+    {"EnergeticFire", Feedback::Style::EnergeticFire(), &Feedback::noise_warp,
+     0.0167f},
+    {"SlowDust", Feedback::Style::SlowDust(), &Feedback::noise_warp, 0.0167f},
+    {"WavyTrails", Feedback::Style::WavyTrails(), &Feedback::noise_warp,
+     0.0722f},
+    {"MeltingHi", Feedback::Style::MeltingHi(), &Feedback::melt_warp, 0.1f},
+    {"MeltingLo", Feedback::Style::MeltingLo(), &Feedback::melt_warp, 0.1f},
+    {"Miasma", Feedback::Style::Miasma(), &Feedback::noise_warp, 0.05050779f},
+    {"LooseWormhole", Feedback::Style::LooseWormhole(), &Feedback::noise_warp,
+     0.07220009f},
+    {"TightWormhole", Feedback::Style::TightWormhole(), &Feedback::noise_warp,
+     0.07220009f},
+    {"WigglingWormhole", Feedback::Style::WigglingWormhole(),
+     &Feedback::noise_warp, 0.07220009f},
+    {"Smoke", Feedback::Style::Smoke(), &Feedback::noise_warp, 0.01f},
 };
 
 /**
@@ -44,6 +51,7 @@ inline const PresetCase PRESETS[] = {
 inline void test_named_presets() {
   for (size_t index = 0; index < std::size(PRESETS); ++index) {
     const auto &style = PRESETS[index].style;
+    HS_CONTEXT(PRESETS[index].name);
     HS_CONTEXT("style", static_cast<long long>(index));
     HS_EXPECT_TRUE(std::isfinite(style.fade) && style.fade >= 0.0f &&
                    style.fade <= 1.0f);
@@ -63,6 +71,7 @@ inline void test_named_presets() {
  */
 inline void test_named_presets_preserve_frame_hue() {
   for (const PresetCase &c : PRESETS) {
+    HS_CONTEXT(c.name);
     Feedback::Style s = c.style;
     s.sync_hue();
     // The cached angle comes from fast trig.
@@ -78,7 +87,7 @@ inline void test_named_presets_preserve_frame_hue() {
  *          half-turn multiples, where a sign flip is unobservable.
  */
 inline void test_sync_hue_rotates_per_efold() {
-  constexpr float TURN_TOL = 2e-3f;
+  constexpr float UNIT_CIRCLE_TOL = 2e-3f;
   const float efolds[] = {0.5f, 1.0f, 2.0f, 3.0f};
   const float shifts[] = {0.05f, 0.2f, 0.33f};
   for (float efold : efolds)
@@ -88,8 +97,8 @@ inline void test_sync_hue_rotates_per_efold() {
       s.hue_shift = shift;
       s.sync_hue();
       const float radians = 2.0f * math::PI_F * efold * shift;
-      HS_EXPECT_NEAR(s.hue_ca, std::cos(radians), TURN_TOL);
-      HS_EXPECT_NEAR(s.hue_sa, std::sin(radians), TURN_TOL);
+      HS_EXPECT_NEAR(s.hue_ca, std::cos(radians), UNIT_CIRCLE_TOL);
+      HS_EXPECT_NEAR(s.hue_sa, std::sin(radians), UNIT_CIRCLE_TOL);
     }
 }
 
@@ -144,7 +153,13 @@ inline void test_lerp_scalars_and_snapping() {
   Animation::NoiseParams subj;
   Feedback::Style mid{};
   mid.noise = &subj;
+  mid.hue_ca = .25f;
+  mid.hue_sa = -.75f;
+  mid.hue_k[0] = .625f;
   mid.lerp(a, b, 0.5f);
+  HS_EXPECT_EQ(mid.hue_ca, .25f);
+  HS_EXPECT_EQ(mid.hue_sa, -.75f);
+  HS_EXPECT_EQ(mid.hue_k[0], .625f);
   HS_EXPECT_NEAR(mid.fade, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(mid.hue_shift, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(mid.amplitude, 1.5f, 1e-6f);
@@ -194,8 +209,8 @@ inline void test_melt_warp_drifts_toward_north() {
   math::Vector v(1.0f, 0.0f, 0.0f); // on the equator (y = 0)
   math::Vector out = Feedback::melt_warp(v, s);
   // speed=1 slerps part of the way toward the pole.
-  HS_EXPECT_TRUE(out.y > 0.05f);
-  HS_EXPECT_TRUE(out.x < 0.999f);
+  HS_EXPECT_GT(out.y, 0.05f);
+  HS_EXPECT_LT(out.x, 0.999f);
   HS_EXPECT_NEAR(out.length(), 1.0f, 1e-4f);
   s.speed = 0.0f;
   HS_EXPECT_VEC(Feedback::melt_warp(v, s), v, 1e-6f);
@@ -276,11 +291,11 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
   s.hue_shift = 0.0f;
   s.sync_hue();
   Pixel out = Feedback::hue_fade(gray, 0.5f, s);
-  HS_EXPECT_TRUE(out.r < gray.r);
-  HS_EXPECT_TRUE(out.r > 0);
+  HS_EXPECT_LT(out.r, gray.r);
+  HS_EXPECT_GT(out.r, 0);
   // Stays gray within the OKLCH round-trip tolerance.
-  HS_EXPECT_TRUE(std::abs((int)out.r - (int)out.g) < 64);
-  HS_EXPECT_TRUE(std::abs((int)out.g - (int)out.b) < 64);
+  HS_EXPECT_LT(std::abs((int)out.r - (int)out.g), 64);
+  HS_EXPECT_LT(std::abs((int)out.g - (int)out.b), 64);
 }
 
 /**
@@ -343,7 +358,7 @@ inline void test_hue_fade_nonzero_shift_rotates_saturated() {
   const int delta = std::abs((int)rotated.r - (int)plain.r) +
                     std::abs((int)rotated.g - (int)plain.g) +
                     std::abs((int)rotated.b - (int)plain.b);
-  HS_EXPECT_TRUE(delta > 1000);
+  HS_EXPECT_GT(delta, 1000);
 }
 
 /**
@@ -358,12 +373,17 @@ inline void test_hue_rotate_lms_matrix_identity() {
     HS_EXPECT_NEAR(k[i], (i % 4 == 0) ? 1.0f : 0.0f, 1e-5f);
 }
 
+/** @brief One-unit rounding floor and proportional output-channel tolerance. */
+inline float hue_parity_tolerance(const Pixel &reference) {
+  return std::max(1.0f,
+                  .0005f * std::max({reference.r, reference.g, reference.b}));
+}
+
 /**
  * @brief Parity sweep: hue_fade's folded cbrt-LMS path vs the reference
  *        fade-then-rotate composition through the tabulated gamut clip.
  */
 inline void test_hue_fade_matches_rotate_reference() {
-  constexpr float HUE_FADE_TOL = 64.0f;
   const auto rotate_reference = [](const Pixel &faded, float ca, float sa) {
     const LinRGB in = pixel_to_linrgb(faded);
     const OKLab lab = linear_rgb_to_oklab(in.r, in.g, in.b);
@@ -393,9 +413,10 @@ inline void test_hue_fade_matches_rotate_reference() {
         s.sync_hue();
         Pixel got = Feedback::hue_fade(c, fade, s);
         Pixel ref = rotate_reference(c * fade, s.hue_ca, s.hue_sa);
-        HS_EXPECT_NEAR((float)got.r, (float)ref.r, HUE_FADE_TOL);
-        HS_EXPECT_NEAR((float)got.g, (float)ref.g, HUE_FADE_TOL);
-        HS_EXPECT_NEAR((float)got.b, (float)ref.b, HUE_FADE_TOL);
+        const float tolerance = hue_parity_tolerance(ref);
+        HS_EXPECT_NEAR((float)got.r, (float)ref.r, tolerance);
+        HS_EXPECT_NEAR((float)got.g, (float)ref.g, tolerance);
+        HS_EXPECT_NEAR((float)got.b, (float)ref.b, tolerance);
       }
   release_gamut_lut();
 }
@@ -405,7 +426,6 @@ inline void test_hue_fade_matches_rotate_reference() {
  *        quantized output, the level the display observes.
  */
 inline void test_hue_fade_apply2_tracks_scalar() {
-  constexpr int PAIR_TOL = 128;
   const float channels[][3] = {{0.0f, 0.0f, 0.0f},
                                {1.0f, 0.0f, 0.0f},
                                {0.5f, 0.25f, 0.125f},
@@ -431,11 +451,8 @@ inline void test_hue_fade_apply2_tracks_scalar() {
       s.fade = fade;
       s.hue_shift = shift;
       s.sync_hue();
-      // The composite folds the fade and the u16 normalization into k.
       float k[9];
-      const float sc = math::fast_cbrt(fade * (1.0f / 65535.0f));
-      for (int i = 0; i < 9; ++i)
-        k[i] = s.hue_k[i] * sc;
+      Feedback::scale_hue_matrix(s.hue_k, fade, k);
 
       for (int a = 0; a < n; ++a)
         for (int b = 0; b < n; ++b) {
@@ -448,8 +465,8 @@ inline void test_hue_fade_apply2_tracks_scalar() {
           Feedback::hue_fade_apply2(k, channels[a][0], channels[a][1],
                                     channels[a][2], channels[b][0],
                                     channels[b][1], channels[b][2], p0, p1);
-          HS_EXPECT_LE(max_channel_gap(p0, s0), PAIR_TOL);
-          HS_EXPECT_LE(max_channel_gap(p1, s1), PAIR_TOL);
+          HS_EXPECT_LE(max_channel_gap(p0, s0), hue_parity_tolerance(s0));
+          HS_EXPECT_LE(max_channel_gap(p1, s1), hue_parity_tolerance(s1));
         }
     }
 
@@ -458,13 +475,11 @@ inline void test_hue_fade_apply2_tracks_scalar() {
   s.hue_shift = 0.2f;
   s.sync_hue();
   float k[9];
-  const float sc = math::fast_cbrt(0.9f * (1.0f / 65535.0f));
-  for (int i = 0; i < 9; ++i)
-    k[i] = s.hue_k[i] * sc;
+  Feedback::scale_hue_matrix(s.hue_k, .9f, k);
   Pixel p0, p1;
   Feedback::hue_fade_apply2(k, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, p0, p1);
-  HS_EXPECT_TRUE(p0.r == 0 && p0.g == 0 && p0.b == 0);
-  HS_EXPECT_TRUE(p1.r == 0 && p1.g == 0 && p1.b == 0);
+  HS_EXPECT_PIXEL(p0, 0, 0, 0);
+  HS_EXPECT_PIXEL(p1, 0, 0, 0);
 }
 
 // --- sync_noise -------------------------------------------------------------

@@ -17,6 +17,24 @@
 
 namespace hs_test {
 
+/** @brief Steps a morph leg and advances its effect's display per frame.
+ * @tparam Leg Morph animation.
+ * @tparam Effect Effect owning the canvas.
+ * @param leg Animation to step.
+ * @param effect Canvas and display owner.
+ * @param frames Number of frames. */
+template <typename Leg, typename Effect>
+void drive_leg(Leg &leg, Effect &effect, int frames) {
+  for (int frame = 0; frame < frames; ++frame) {
+    HS_CONTEXT("f", frame);
+    {
+      Canvas canvas(effect);
+      leg.step(canvas);
+    }
+    effect.advance_display();
+  }
+}
+
 /** @brief Topology fingerprint of one sweep sample. */
 struct SweepFingerprint {
   size_t v = 0;        /**< Raw vertex count. */

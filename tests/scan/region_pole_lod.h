@@ -526,12 +526,11 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
     uint16_t indices[8];
     build_regular_face(basis, 4, fc.rho, fc.rho_inner, vertices, indices,
                        fc.phase);
+    HS_CONTEXT("concave face rho milliradians",
+               static_cast<int>(fc.rho * 1000));
     auto draw = [&](float lod) {
       Render::pole_lod_aggressiveness = lod;
-      hs_test::StubEffect fx(W, H);
-      Pipeline<W, H> pipe;
-      {
-        Canvas canvas(fx);
+      return render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
         SDF::FaceScratchBuffer scratch;
         SDF::PreparedFace face(std::span<const math::Vector>(vertices, 8),
                                std::span<const uint16_t>(indices, 8), scratch,
@@ -543,21 +542,12 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
           f.color = Color4(Pixel(60000, 45000, 30000), 1.0f);
         };
         Scan::rasterize_face<W, H>(pipe, canvas, face, shade);
-      }
-      fx.advance_display();
-      std::vector<Pixel> pixels(W * H);
-      capture_frame<W, H>(fx, pixels);
-      return pixels;
+      });
     };
     const auto plain = draw(0.0f);
-    HS_EXPECT_GT(count_lit(plain), size_t(40));
-    for (float lod : {1.0f, 4.0f}) {
-      const auto decimated = draw(lod);
-      for (size_t i = 0; i < plain.size(); ++i) {
-        HS_CONTEXT("concave face", static_cast<int>(fc.rho * 100.0f), i);
-        HS_EXPECT_EQ(plain[i], decimated[i]);
-      }
-    }
+    for (float lod : {1.0f, 4.0f})
+      HS_EXPECT_GT(expect_frames_within("concave face", draw(lod), plain, 0),
+                   40);
   }
 }
 

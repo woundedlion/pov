@@ -15,10 +15,25 @@ namespace hs_test::effects_tests {
 #include "tests/effects/fishbowl_cases.h"
 #include "tests/effects/fishbowl_oracle.h"
 
-void run_effect_case_fishbowl_preset_and_fire_duty_cycle() {
-  HS_RUN(run_case, test_fishbowl_preset_and_fire_duty_cycle);
+void run_effect_case_fishbowl_snapshot_admission() {
+  HS_RUN(run_case, test_fishbowl_snapshot_admission);
 }
 
+void run_effect_case_fishbowl_preset_restores_params() {
+  HS_RUN(run_case, test_fishbowl_preset_restores_params);
+}
+
+void run_effect_case_fishbowl_fire_duty_cycle() {
+  HS_RUN(run_case, test_fishbowl_fire_duty_cycle);
+}
+
+void run_effect_case_fishbowl_palette_phase_compensates_fill() {
+  HS_RUN(run_case, test_fishbowl_palette_phase_compensates_fill);
+}
+
+void run_effect_case_fishbowl_adaptive_midpoint() {
+  HS_RUN(run_case, test_fishbowl_adaptive_midpoint);
+}
 void run_effect_case_fishbowl_temporal_trail_oracle() {
   HS_RUN(run_case, test_fishbowl_temporal_trail_oracle);
 }
@@ -36,7 +51,11 @@ namespace hs_test::module_runners {
 int run_fishbowl_tests() {
   using namespace effects_tests;
   ModuleFixture fixture("effects");
-  run_effect_case_fishbowl_preset_and_fire_duty_cycle();
+  run_effect_case_fishbowl_snapshot_admission();
+  run_effect_case_fishbowl_preset_restores_params();
+  run_effect_case_fishbowl_fire_duty_cycle();
+  run_effect_case_fishbowl_palette_phase_compensates_fill();
+  run_effect_case_fishbowl_adaptive_midpoint();
   run_effect_case_fishbowl_temporal_trail_oracle();
   run_effect_case_fishbowl_scratch_estimate_covers_peak();
   return fixture.result();

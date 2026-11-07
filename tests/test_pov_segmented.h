@@ -475,7 +475,7 @@ inline void test_full_handoff_cycle() {
 /**
  * @brief The display window defaults to arm-A-left and follows setter updates.
  */
-inline void test_window_alternation() {
+inline void test_window_left_default_and_setter() {
   EffectHandoff<FakeEffect> h;
   HS_EXPECT_EQ(h.window_left(), 1u);
   h.set_window_left(false);
@@ -1312,15 +1312,32 @@ struct SyncPinTrace {
   std::vector<bool> writes; /**< Pin writes in order; true = HIGH. */
   bool high = false;        /**< Pin level after the last write. */
 
-  void wake(bool pulse, bool did_render) {
-    SubmitGate submit_gate;
-    EffectHandoff<WakeEffect> handoff;
+  SubmitGate submit_gate;
+  EffectHandoff<WakeEffect> handoff;
+  std::vector<WakeStep> steps;
+  WakeEffect effect{&steps};
+
+  explicit SyncPinTrace(bool adopt = true) {
+    if (adopt) {
+      handoff.publish(&effect, 1u);
+      handoff.apply_wake({.commit = true, .wire_gen = 1u});
+    }
+  }
+
+  void wake(bool pulse, bool accepted,
+            SubmitAction expected = SubmitAction::COLUMN) {
+    int submits = 0;
     pov::run_wake_sequence(
         gate, submit_gate, handoff,
         [=] { return WakeActions{.pulse = pulse, .render_column = 0}; },
-        [] { return 0u; }, [this](bool level) { drive(level); }, [] {},
+        [] { return 1u; }, [this](bool level) { drive(level); }, [] {},
         [](WakeEffect *, int32_t) {},
-        [=](SubmitAction, WakeEffect *, int32_t) { return did_render; });
+        [&](SubmitAction action, WakeEffect *, int32_t) {
+          ++submits;
+          HS_EXPECT_EQ(action, expected);
+          return accepted;
+        });
+    HS_EXPECT_EQ(submits, expected == SubmitAction::NONE ? 0 : 1);
   }
 
   void drive(bool level) {
@@ -1418,6 +1435,33 @@ inline void test_sync_pulse_render_without_pulse_is_silent() {
   HS_EXPECT_FALSE(g.take_deferred_low());
 }
 
+/** @brief A rejected column keeps a pulse high until the next wake. */
+inline void test_sync_pulse_rejected_column_defers_low() {
+  SyncPinTrace trace;
+  trace.wake(true, false, SubmitAction::COLUMN);
+  HS_EXPECT_TRUE(trace.submit_gate.resubmit_pending());
+  HS_EXPECT_TRUE(trace.high);
+  HS_EXPECT_TRUE(trace.gate.low_deferred());
+  trace.wake(false, true, SubmitAction::COLUMN);
+  HS_EXPECT_FALSE(trace.high);
+  HS_EXPECT_FALSE(trace.gate.low_deferred());
+  HS_EXPECT_EQ(trace.writes.size(), size_t{2});
+}
+
+/** @brief A latched-dark wake defers its pulse without submitting a frame. */
+inline void test_sync_pulse_latched_dark_none_defers_low() {
+  SyncPinTrace trace(false);
+  trace.wake(false, true, SubmitAction::BLACK);
+  HS_EXPECT_TRUE(trace.submit_gate.dark_latched());
+  trace.wake(true, false, SubmitAction::NONE);
+  HS_EXPECT_TRUE(trace.high);
+  HS_EXPECT_TRUE(trace.gate.low_deferred());
+  trace.wake(false, false, SubmitAction::NONE);
+  HS_EXPECT_FALSE(trace.high);
+  HS_EXPECT_FALSE(trace.gate.low_deferred());
+  HS_EXPECT_EQ(trace.writes.size(), size_t{2});
+}
+
 /**
  * @brief A RESUBMIT wake leaves a same-wake sync pulse drop for the next wake.
  */
@@ -1466,7 +1510,7 @@ inline int run_pov_segmented_tests() {
   HS_RUN(test_commit_guard_rejects_empty_and_stale);
   HS_RUN(test_join_adopt_and_gen_gating);
   HS_RUN(test_full_handoff_cycle);
-  HS_RUN(test_window_alternation);
+  HS_RUN(test_window_left_default_and_setter);
   HS_RUN(test_apply_wake_sequence);
   HS_RUN(test_composed_wake_sequence);
   HS_RUN(test_commit_failure_settles_sync_pulse);
@@ -1487,6 +1531,8 @@ inline int run_pov_segmented_tests() {
   HS_RUN(test_sync_pulse_deferred_across_wake_boundary);
   HS_RUN(test_sync_pulse_deferred_drop_precedes_next_pulse);
   HS_RUN(test_sync_pulse_render_without_pulse_is_silent);
+  HS_RUN(test_sync_pulse_rejected_column_defers_low);
+  HS_RUN(test_sync_pulse_latched_dark_none_defers_low);
   HS_RUN(test_sync_pulse_resubmit_defers_low);
 
   // Full-canvas tiling across representative rotation columns, including the

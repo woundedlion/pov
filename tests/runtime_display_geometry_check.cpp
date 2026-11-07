@@ -13,6 +13,9 @@
 
 namespace {
 template <int W, int H> void check_geometry(float north, float south) {
+  HS_CONTEXT("resolution", W, H);
+  HS_CONTEXT("caps-milliradians", static_cast<int>(north * 1000),
+             static_cast<int>(south * 1000));
   using Geometry = math::DisplayGeometry<H>;
   using Field = hs::SphericalFieldLayout<W, H>;
   math::init_geometry_luts<W, H>();

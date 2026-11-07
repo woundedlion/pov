@@ -122,13 +122,8 @@ struct CsgStretchFixture {
   }
 };
 
-/**
- * @brief CSG forwards report stretch and supported reject bands.
- * @details SDF::PreparedFace reports gnomonic-plane distance, whose stretch over an
- * angular step is 1 + max_dist_sq. A Union of two differently sized faces
- * reports the larger factor either way round.
- */
-inline void test_report_stretch_forwards_through_csg() {
+/** @brief Supplies differently sized prepared faces for stretch and settle probes. */
+template <typename Check> inline void with_stretch_faces(Check check) {
   constexpr int H = 144, HV = H + hs::H_OFFSET;
   const math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
@@ -156,73 +151,87 @@ inline void test_report_stretch_forwards_through_csg() {
                                 large_scratch, HV, H, nullptr, nullptr,
                                 SDF::BOUNDS_MARGIN);
 
-  HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .06f,
-                                                      2, 1.0f, small)),
-               Scan::BlockSettle::CLEAR);
-  HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .02f,
-                                                      2, 1.0f, small)),
-               Scan::BlockSettle::CLEAR);
-  HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .11f,
-                                                      2, 1.0f, small)),
-               Scan::BlockSettle::PER_COLUMN);
-  HS_EXPECT_EQ(
-      (Scan::pole_lod_settle_block<96, true>(.07f, .06f, 2, 1.0f, small)),
-      Scan::BlockSettle::CLEAR);
-  HS_EXPECT_EQ(
-      (Scan::pole_lod_settle_block<96, true>(-.07f, .06f, 2, 1.0f, small)),
-      Scan::BlockSettle::INTERIOR);
-  const SDF::Union<SDF::PreparedFace, SDF::PreparedFace> combined{small, large};
-  HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .06f,
-                                                      2, 1.0f, combined)),
-               Scan::BlockSettle::CLEAR);
-  HS_EXPECT_EQ(
-      (Scan::pole_lod_settle_block<96, true>(.07f, .06f, 2, 1.0f, combined)),
-      Scan::BlockSettle::CLEAR);
-  HS_EXPECT_EQ(
-      (Scan::pole_lod_settle_block<96, true>(-.07f, .06f, 2, 1.0f, combined)),
-      Scan::BlockSettle::INTERIOR);
+  check(small, large);
+}
 
-  const float small_stretch = Scan::report_stretch(small);
-  const float large_stretch = Scan::report_stretch(large);
-  HS_EXPECT_GT(large_stretch, small_stretch);
+/** @brief Settle-block classification respects the prepared-face reject margin. */
+inline void test_pole_lod_settle_block_respects_reject_margin() {
+  with_stretch_faces([](const auto &small, const auto &large) {
+    constexpr float MARGIN = SDF::reject_margin<SDF::PreparedFace>;
+    HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(
+                     SDF::FAR_SENTINEL, (0.6f * MARGIN), 2, 1.0f, small)),
+                 Scan::BlockSettle::CLEAR);
+    HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(
+                     SDF::FAR_SENTINEL, (0.2f * MARGIN), 2, 1.0f, small)),
+                 Scan::BlockSettle::CLEAR);
+    HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(
+                     SDF::FAR_SENTINEL, (1.1f * MARGIN), 2, 1.0f, small)),
+                 Scan::BlockSettle::PER_COLUMN);
+    HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(
+                     (0.7f * MARGIN), (0.6f * MARGIN), 2, 1.0f, small)),
+                 Scan::BlockSettle::CLEAR);
+    HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(
+                     -(0.7f * MARGIN), (0.6f * MARGIN), 2, 1.0f, small)),
+                 Scan::BlockSettle::INTERIOR);
+    const SDF::Union<SDF::PreparedFace, SDF::PreparedFace> combined{small,
+                                                                    large};
+    HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(
+                     SDF::FAR_SENTINEL, (0.6f * MARGIN), 2, 1.0f, combined)),
+                 Scan::BlockSettle::CLEAR);
+    HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(
+                     (0.7f * MARGIN), (0.6f * MARGIN), 2, 1.0f, combined)),
+                 Scan::BlockSettle::CLEAR);
+    HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(
+                     -(0.7f * MARGIN), (0.6f * MARGIN), 2, 1.0f, combined)),
+                 Scan::BlockSettle::INTERIOR);
+  });
+}
 
-  HS_EXPECT_EQ(
-      Scan::report_stretch(
-          SDF::Union<SDF::PreparedFace, SDF::PreparedFace>{small, large}),
-      large_stretch);
-  HS_EXPECT_EQ(
-      Scan::report_stretch(
-          SDF::Union<SDF::PreparedFace, SDF::PreparedFace>{large, small}),
-      large_stretch);
-  HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::Intersection<SDF::PreparedFace, SDF::PreparedFace>{
-                       small, large}),
-               large_stretch);
-  HS_EXPECT_EQ(
-      Scan::report_stretch(
-          SDF::Subtract<SDF::PreparedFace, SDF::PreparedFace>{small, large}),
-      large_stretch);
-  HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::Intersection<SDF::PreparedFace, SDF::PreparedFace>{
-                       large, small}),
-               large_stretch);
-  HS_EXPECT_EQ(
-      Scan::report_stretch(
-          SDF::Subtract<SDF::PreparedFace, SDF::PreparedFace>{large, small}),
-      large_stretch);
-  const CsgStretchFixture smooth_small{small_stretch},
-      smooth_large{large_stretch};
-  HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::SmoothUnion<CsgStretchFixture, CsgStretchFixture>{
-                       smooth_small, smooth_large, 0.1f}),
-               large_stretch);
-  HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::SmoothUnion<CsgStretchFixture, CsgStretchFixture>{
-                       smooth_large, smooth_small, 0.1f}),
-               large_stretch);
-  HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::AngularRepeat<SDF::PreparedFace>(large, 3, basis.v)),
-               large_stretch);
+/** @brief CSG forwards the larger child distance-report stretch. */
+inline void test_report_stretch_forwards_through_csg() {
+  with_stretch_faces([](const auto &small, const auto &large) {
+    const float small_stretch = Scan::report_stretch(small);
+    const float large_stretch = Scan::report_stretch(large);
+    HS_EXPECT_GT(large_stretch, small_stretch);
+
+    HS_EXPECT_EQ(
+        Scan::report_stretch(
+            SDF::Union<SDF::PreparedFace, SDF::PreparedFace>{small, large}),
+        large_stretch);
+    HS_EXPECT_EQ(
+        Scan::report_stretch(
+            SDF::Union<SDF::PreparedFace, SDF::PreparedFace>{large, small}),
+        large_stretch);
+    HS_EXPECT_EQ(Scan::report_stretch(
+                     SDF::Intersection<SDF::PreparedFace, SDF::PreparedFace>{
+                         small, large}),
+                 large_stretch);
+    HS_EXPECT_EQ(
+        Scan::report_stretch(
+            SDF::Subtract<SDF::PreparedFace, SDF::PreparedFace>{small, large}),
+        large_stretch);
+    HS_EXPECT_EQ(Scan::report_stretch(
+                     SDF::Intersection<SDF::PreparedFace, SDF::PreparedFace>{
+                         large, small}),
+                 large_stretch);
+    HS_EXPECT_EQ(
+        Scan::report_stretch(
+            SDF::Subtract<SDF::PreparedFace, SDF::PreparedFace>{large, small}),
+        large_stretch);
+    const CsgStretchFixture smooth_small{small_stretch},
+        smooth_large{large_stretch};
+    HS_EXPECT_EQ(Scan::report_stretch(
+                     SDF::SmoothUnion<CsgStretchFixture, CsgStretchFixture>{
+                         smooth_small, smooth_large, 0.1f}),
+                 large_stretch);
+    HS_EXPECT_EQ(Scan::report_stretch(
+                     SDF::SmoothUnion<CsgStretchFixture, CsgStretchFixture>{
+                         smooth_large, smooth_small, 0.1f}),
+                 large_stretch);
+    HS_EXPECT_EQ(Scan::report_stretch(SDF::AngularRepeat<SDF::PreparedFace>(
+                     large, 3, math::Y_AXIS)),
+                 large_stretch);
+  });
 }
 
 /**

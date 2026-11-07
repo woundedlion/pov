@@ -237,7 +237,6 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
 inline void test_warped_volume_bounding_distance_never_over_estimates() {
   constexpr TwistedTorusCase EXTRA_CASES[] = {{"fat tube", 0.5, 0.45, 0.1, 1}};
 
-  int violations = 0;
   hs::Pcg32 rng(0x5eed1337u);
   const auto next = [&rng]() {
     return static_cast<double>(rand_uniform(rng, 0.0f, 1.0f));
@@ -278,17 +277,15 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
                            static_cast<float>(pz));
         }
 
+        HS_CONTEXT("kind / k", kind, k);
         const double bd = wv.bounding_distance(p);
         const double truth =
             twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
-        if (!std::isfinite(bd) || bd - truth > 1e-4)
-          ++violations;
-        // The bound must also never exceed the slow path's raw warped distance.
-        if (bd - static_cast<double>(wv.raw_distance(p)) > 1e-4)
-          ++violations;
+        HS_EXPECT_TRUE(std::isfinite(bd));
+        HS_EXPECT_LE(bd, truth + 1e-4);
+        HS_EXPECT_LE(bd, static_cast<double>(wv.raw_distance(p)) + 1e-4);
       }
     }
-  HS_EXPECT_EQ(violations, 0);
 }
 
 /**

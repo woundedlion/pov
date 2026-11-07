@@ -6,7 +6,7 @@
  * @brief Runtime-owned dodecahedral matrix parity and lifetime tests. */
 
 /** @brief Owned matrices retain their exact bytes through history and interval copies. */
-void test_dodecahedral_matrix_cache_lifetime() {
+inline void test_dodecahedral_matrix_cache_lifetime() {
   static_assert(!Pullback::Spec::CACHE_DODECAHEDRAL_MATRICES);
   static_assert(sizeof(Pullback::OptionalDodecahedralMatrices<false>) == 1);
   static_assert(sizeof(Pullback::OptionalDodecahedralMatrices<true>) == 4320);
@@ -41,36 +41,42 @@ void test_dodecahedral_matrix_cache_lifetime() {
                0);
 }
 
-/** @brief One million folded directions match the flash-backed outputs byte for byte. */
-void test_dodecahedral_matrix_cache_fold_parity() {
-  std::array<lenses::DodecahedralTable::Matrix, 120> matrices;
-  std::memcpy(matrices.data(), lenses::DodecahedralTable::GROUP.values.data(),
-              sizeof(matrices));
-  uint32_t random = 0x218bf41;
+/** @brief Checks a seeded million-direction sweep against flash folding. */
+inline void expect_fold_parity(uint32_t seed, auto cached_fold) {
+  uint32_t random = seed;
   const auto next = [&]() {
     random ^= random << 13;
     random ^= random >> 17;
     random ^= random << 5;
     return float(random & 0xffffff) * (2.0f / 0xffffff) - 1.0f;
   };
-  bool identical = true;
   for (int sample = 0; sample < 1000000; ++sample) {
     const float X = next();
     const float Y = next();
     const float Z = next();
     const auto input = math::Vector(X, Y, Z).normalized();
     const auto flash = lenses::dodecahedral_table_lens(input);
-    const auto cached = lenses::dodecahedral_table_lens(input, matrices.data());
+    const auto cached = cached_fold(input);
     if (std::memcmp(&flash, &cached, sizeof(flash)) != 0) {
-      identical = false;
+      HS_CONTEXT("sample", sample);
+      HS_EXPECT_EQ(std::memcmp(&flash, &cached, sizeof(flash)), 0);
       break;
     }
   }
-  HS_EXPECT_TRUE(identical);
+}
+
+/** @brief One million folded directions match the flash-backed outputs byte for byte. */
+inline void test_dodecahedral_matrix_cache_fold_parity() {
+  std::array<lenses::DodecahedralTable::Matrix, 120> matrices;
+  std::memcpy(matrices.data(), lenses::DodecahedralTable::GROUP.values.data(),
+              sizeof(matrices));
+  expect_fold_parity(0x218bf41, [&](const math::Vector &input) {
+    return lenses::dodecahedral_table_lens(input, matrices.data());
+  });
 }
 
 /** @brief Interior lens samples use the supplied matrices and literal endpoints stay canonical. */
-void test_dodecahedral_matrix_cache_lens_binding() {
+inline void test_dodecahedral_matrix_cache_lens_binding() {
   std::array<lenses::DodecahedralTable::Matrix, 120> doubled =
       lenses::DodecahedralTable::GROUP.values;
   for (auto &matrix : doubled)
@@ -101,7 +107,7 @@ void test_dodecahedral_matrix_cache_lens_binding() {
 }
 
 /** @brief Face maps retain exact classifier bytes through frame history. */
-void test_dodecahedral_face_cache_lifetime() {
+inline void test_dodecahedral_face_cache_lifetime() {
   static_assert(!Pullback::Spec::CACHE_DODECAHEDRAL_FACES);
   static_assert(sizeof(Pullback::OptionalDodecahedralFaces<false>) == 1);
   static_assert(sizeof(Pullback::OptionalDodecahedralFaces<true>) == 24576);
@@ -137,38 +143,20 @@ void test_dodecahedral_face_cache_lifetime() {
 }
 
 /** @brief One million full-RAM folds match the original flash outputs byte for byte. */
-void test_dodecahedral_face_cache_fold_parity() {
+inline void test_dodecahedral_face_cache_fold_parity() {
   const auto matrices = lenses::DodecahedralTable::GROUP.values;
   std::array<uint8_t, 24576> faces;
   for (int face = 0; face < 6; ++face)
     std::copy_n(lenses::DodecahedralTable::FACES[face], 4096,
                 faces.data() + face * 4096);
-  uint32_t random = 0x72fab315;
-  const auto next = [&]() {
-    random ^= random << 13;
-    random ^= random >> 17;
-    random ^= random << 5;
-    return float(random & 0xffffff) * (2.0f / 0xffffff) - 1.0f;
-  };
-  bool identical = true;
-  for (int sample = 0; sample < 1000000; ++sample) {
-    const float X = next();
-    const float Y = next();
-    const float Z = next();
-    const auto input = math::Vector(X, Y, Z).normalized();
-    const auto flash = lenses::dodecahedral_table_lens(input);
-    const auto cached =
-        lenses::dodecahedral_table_lens(input, matrices.data(), faces.data());
-    if (std::memcmp(&flash, &cached, sizeof(flash))) {
-      identical = false;
-      break;
-    }
-  }
-  HS_EXPECT_TRUE(identical);
+  expect_fold_parity(0x72fab315, [&](const math::Vector &input) {
+    return lenses::dodecahedral_table_lens(input, matrices.data(),
+                                           faces.data());
+  });
 }
 
 /** @brief Face views select the RAM classifiers while null views retain flash lookup. */
-void test_dodecahedral_face_cache_lens_binding() {
+inline void test_dodecahedral_face_cache_lens_binding() {
   auto doubled = lenses::DodecahedralTable::GROUP.values;
   for (auto &matrix : doubled)
     for (auto &row : matrix)

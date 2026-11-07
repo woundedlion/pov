@@ -252,6 +252,12 @@ inline void record_document_reach(std::vector<DocumentReachValue> &observed) {
     HS_EXPECT_TRUE(op != nullptr);
     if (op == nullptr)
       continue;
+    const bool UNUSED = std::any_of(
+        std::begin(DERIVATION_REACH), std::end(DERIVATION_REACH),
+        [&](const DerivationReach &row) {
+          return row.topology_id == nullptr && row.operator_id == id->text;
+        });
+    HS_EXPECT(!UNUSED, "shipped operator is marked reachable");
     for (const auto &preset : presets->items) {
       const auto *values = preset.find("values");
       HS_EXPECT_TRUE(values != nullptr);
@@ -644,6 +650,7 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
   if (value.kind != JsonValue::Kind::STRING)
     return false;
   const std::string_view text = value.text;
+  HS_EXPECT_TRUE(derivation_value_reachable(slot.operator_id, field_id, text));
   if (slot.role != SlotRole::COLORIZE) {
     bool assigned = false;
     built.visit([&]<typename Resource>(auto &family) {
@@ -680,9 +687,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       }
     });
     if (assigned)
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
-    if (assigned)
       return true;
   }
   switch (slot.role) {
@@ -707,9 +711,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
         }
       }
     });
-    if (assigned)
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
     return assigned;
   }
   case SlotRole::COLORIZE:
@@ -718,8 +719,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       const auto assign = [&](uint8_t &member, const auto &ids) {
         for (uint8_t index = 0; index < std::size(ids); ++index)
           if (text == ids[index]) {
-            HS_EXPECT_TRUE(
-                derivation_value_reachable(slot.operator_id, field_id, text));
             member = index;
             return true;
           }
@@ -749,8 +748,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     }
     if (field_id == "palette-type") {
       HS_EXPECT_TRUE(text == "cycling-generated");
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "palette-mapping") {
@@ -759,8 +756,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
         if (text == ChainOp::PALETTE_MAPPING_IDS[index]) {
           built.template get<"color">().palette_mapping =
               static_cast<Pullback::Color::PaletteMapping>(index);
-          HS_EXPECT_TRUE(
-              derivation_value_reachable(slot.operator_id, field_id, text));
           return true;
         }
       return false;
@@ -768,16 +763,12 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     if (field_id == "palette-mode") {
       const char *expected = palette_mode_id(Traits::HARMONY);
       HS_EXPECT_TRUE(expected != nullptr && text == expected);
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "brightness-envelope") {
       HS_EXPECT_TRUE(text ==
                      ChainOp::BRIGHTNESS_ENVELOPE_IDS[static_cast<uint8_t>(
                          Traits::BRIGHTNESS)]);
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
@@ -789,14 +780,10 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
                                    FX::Metadata::COVERAGE)]);
       else
         return false;
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "weight-mode") {
       HS_EXPECT_TRUE(text == "projection");
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "kind" || field_id == "fill") {
@@ -811,8 +798,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
                                Source::KIND)]
                          : ChainOp::TESSELLATION_FILL_IDS[static_cast<uint8_t>(
                                Source::FILL)]));
-        HS_EXPECT_TRUE(
-            derivation_value_reachable(slot.operator_id, field_id, text));
         return true;
       }
       return false;
@@ -822,16 +807,12 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     if (field_id == "frame") {
       HS_EXPECT_TRUE(text ==
                      (FX::ANIMATED_PROJECTION ? "spin-wander" : "identity"));
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "hemisphere") {
       HS_EXPECT_TRUE(FX::Metadata::PROJECTION ==
                          Pullback::ProjectionKind::GNOMONIC_FOLDED &&
                      text == "folded");
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
@@ -852,15 +833,11 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
             ...);
       }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
       HS_EXPECT_TRUE(found);
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
   case SlotRole::SURFACE:
     if (field_id == "burst-size" || field_id == "random-center") {
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return text == (field_id == "burst-size" ? "four" : "on");
     }
     [[fallthrough]];
@@ -885,15 +862,11 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       HS_EXPECT(tracked >= 0, "path-length names a compiled affine stage");
       HS_EXPECT(text == (tracked == 1 ? "on" : "off"),
                 "path-length matches the compiled affine TrackPath");
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return tracked >= 0;
     }
     if (field_id == "basis" || field_id == "integrator" ||
         field_id == "limit" || field_id == "mode" || field_id == "envelope" ||
         field_id == "harmonic") {
-      HS_EXPECT_TRUE(
-          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
@@ -971,6 +944,10 @@ inline void check_document_values(const char *name) {
       slot.resource_key = resource->text;
     slot.operator_id = operator_id->text;
     slot.role = classify_operator(operator_id->text);
+    const auto *op = In::find_operator(operator_id->text.c_str());
+    HS_EXPECT(op != nullptr, "chain operator is in the catalog");
+    if (op == nullptr)
+      return;
     if constexpr (AUTHORED)
       if (slot.role == SlotRole::CAMERA && slot.resource_key.empty())
         slot.resource_key = slot.label;
@@ -1254,4 +1231,113 @@ inline void check_document_values(const char *name) {
         ...);
   }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
   HS_EXPECT_EQ(compiled_affine, affine_forms.size());
+}
+
+/** @brief Document modulation edits preserve admission and field ownership. */
+inline void test_composed_document_modulation_members() {
+  namespace Document = hs_wasm::document_parameters;
+  for (const auto &field : Document::Params::EXTRA_SCHEMA) {
+    for (uint8_t index = 0; index < field.enum_count; ++index)
+      HS_EXPECT_TRUE(std::string_view(Document::enum_id(field, index)) ==
+                     field.enum_ids[index]);
+  }
+  reset_globals();
+  Millefiori<SMALL_W, SMALL_H> effect;
+  effect.init();
+  const auto read = [&] {
+    ColorModulation::Config config;
+    size_t matches = 0;
+    effect.visit_document_modulations(
+        [&](std::string_view resource, const auto &current) {
+          if (resource == "field") {
+            config = current;
+            ++matches;
+          }
+        });
+    HS_EXPECT_EQ(matches, size_t{1});
+    return config;
+  };
+  const auto initial = read();
+  HS_EXPECT_EQ(initial.source, Pattern::SourceKind::SPHERE_SMOOTH_GRID);
+  const auto write = [&](std::string_view resource, std::string_view id,
+                         float value) {
+    return effect.edit_document_modulation(resource, [&](auto &candidate) {
+      return Document::write(candidate, id, value);
+    });
+  };
+  HS_EXPECT_EQ(write("field", "grid-speed", 0.03f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(read().grid.speed, 0.03f);
+  HS_EXPECT_EQ(read().noise.speed, initial.noise.speed);
+  HS_EXPECT_TRUE(effect.animations_paused());
+  HS_EXPECT_EQ(write("field", "pattern-speed", 0.04f),
+               ParamSetResult::READONLY);
+  HS_EXPECT_EQ(write("field", "modulation-source", 0.0f),
+               ParamSetResult::READONLY);
+  HS_EXPECT_EQ(write("modulate", "grid-speed", 0.04f),
+               ParamSetResult::READONLY);
+  HS_EXPECT_EQ(write("missing", "grid-speed", 0.04f),
+               ParamSetResult::UNKNOWN_PARAM);
+  HS_EXPECT_EQ(write("field", "missing", 0.04f), ParamSetResult::UNKNOWN_PARAM);
+  const auto before = read();
+  HS_EXPECT_EQ(
+      write("field", "grid-speed", std::numeric_limits<float>::quiet_NaN()),
+      ParamSetResult::NON_FINITE);
+  HS_EXPECT_EQ(write("field", "grid-frequency", -1.0f),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(read() == before);
+  HS_EXPECT_EQ(effect.edit_document_modulation("field",
+                                               [](auto &candidate) {
+                                                 candidate.source =
+                                                     Pattern::SourceKind::NOISE;
+                                                 return ParamSetResult::APPLIED;
+                                               }),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(read() == before);
+
+  const auto reason_for = [](const auto &config, std::string_view id) {
+    for (size_t i = 0; i < Document::Params::EXTRA_SCHEMA.size(); ++i)
+      if (id == Document::Params::EXTRA_SCHEMA[i].id)
+        return std::string_view(Document::reason(config, i));
+    return std::string_view{};
+  };
+  ColorModulation::Config noise_config;
+  noise_config.source = Pattern::SourceKind::NOISE;
+  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-contrast") ==
+                 "inactive-variant");
+  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-speed") == "active-source");
+  HS_EXPECT_TRUE(reason_for(noise_config, "grid-speed") == "inactive-source");
+  HS_EXPECT_TRUE(reason_for(noise_config, "modulation-source") ==
+                 "fixed-topology");
+  HS_EXPECT_EQ(Document::write(noise_config, "pattern-contrast", 1.0f),
+               ParamSetResult::READONLY);
+  noise_config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-contrast") ==
+                 "active-source");
+  HS_EXPECT_EQ(Document::write(noise_config, "pattern-contrast", 1.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(noise_config.noise.contrast, 1.0f);
+
+  auto config = initial;
+  config.grid.axis = math::Vector(1, 0, 0);
+  const auto valid = config;
+  HS_EXPECT_EQ(Document::write(config, "grid-axis-x", 0.0f),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(config == valid);
+  for (const auto source :
+       {Pattern::SourceKind::NOISE, Pattern::SourceKind::DIRECTIONAL_SINE,
+        Pattern::SourceKind::SPHERE_INTERFERENCE}) {
+    config = ColorModulation::Config{};
+    config.source = source;
+    config.evaluation = Pattern::Evaluation::DIRECT;
+    const char *id = source == Pattern::SourceKind::NOISE ? "pattern-speed"
+                     : source == Pattern::SourceKind::DIRECTIONAL_SINE
+                         ? "sine-speed"
+                         : "interference-speed";
+    HS_EXPECT_EQ(Document::write(config, id, 0.0005f), ParamSetResult::APPLIED);
+    if (source == Pattern::SourceKind::NOISE)
+      HS_EXPECT_EQ(Document::write(config, id, 0.01f),
+                   ParamSetResult::INADMISSIBLE);
+    HS_EXPECT_EQ(Document::write(config, "grid-speed", 0.01f),
+                 ParamSetResult::READONLY);
+  }
 }

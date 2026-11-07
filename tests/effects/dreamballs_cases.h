@@ -491,23 +491,6 @@ inline void test_dreamballs_weave_topology() {
   WB::DB db;
   db.init();
 
-  const auto *topology = required_param(db, "Weave Topology");
-  const auto *gap = required_param(db, "Weave Gap");
-
-  if (!topology || !gap)
-    return;
-
-  HS_EXPECT_EQ(topology->option_count, 3);
-  HS_EXPECT_EQ(std::string_view(topology->options[0]), "Automatic");
-  HS_EXPECT_EQ(std::string_view(topology->options[1]), "Original with defects");
-  HS_EXPECT_EQ(std::string_view(topology->options[2]), "Medial");
-  HS_EXPECT_EQ(std::string_view(topology->export_options[1]),
-               "WeaveTopology::ORIGINAL_WITH_DEFECTS");
-  HS_EXPECT_EQ(std::string_view(topology->export_options[2]),
-               "WeaveTopology::MEDIAL");
-  HS_EXPECT_TRUE(topology->animated);
-  HS_EXPECT_TRUE(gap->animated);
-
   constexpr int EXPECTED_SOLIDS =
       static_cast<int>(Solids::PLATONIC_COUNT + Solids::ARCHIMEDEAN_COUNT +
                        Solids::CATALAN_COUNT);
@@ -601,11 +584,6 @@ inline void test_dreamballs_weave_topology() {
   }
   HS_EXPECT_EQ(four_regular_count, 5);
 
-  HS_EXPECT_NEAR(WB::under_gap_alpha(0.0f, 0.2f), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(WB::under_gap_alpha(0.8f, 0.2f), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(WB::under_gap_alpha(0.9f, 0.2f), 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(WB::under_gap_alpha(1.0f, 0.2f), 0.0f, 1e-6f);
-
   HS_EXPECT_EQ(db.updateParameter("Base Mesh", 0.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(db.updateParameter("Weave Topology", 1.0f),
                ParamSetResult::APPLIED);
@@ -626,6 +604,39 @@ inline void test_dreamballs_weave_topology() {
   hs_test::run_frames(db, 20);
   const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(db);
   HS_EXPECT_GT(energy, 0u);
+}
+
+/** @brief Weave controls publish the authored enum schema. */
+inline void test_dreamballs_weave_topology_schema() {
+  using WB = DreamBallsWhiteBox;
+  reset_globals();
+  WB::DB db;
+  db.init();
+  const auto *topology = required_param(db, "Weave Topology");
+  const auto *gap = required_param(db, "Weave Gap");
+
+  if (!topology || !gap)
+    return;
+
+  HS_EXPECT_EQ(topology->option_count, 3);
+  HS_EXPECT_EQ(std::string_view(topology->options[0]), "Automatic");
+  HS_EXPECT_EQ(std::string_view(topology->options[1]), "Original with defects");
+  HS_EXPECT_EQ(std::string_view(topology->options[2]), "Medial");
+  HS_EXPECT_EQ(std::string_view(topology->export_options[1]),
+               "WeaveTopology::ORIGINAL_WITH_DEFECTS");
+  HS_EXPECT_EQ(std::string_view(topology->export_options[2]),
+               "WeaveTopology::MEDIAL");
+  HS_EXPECT_TRUE(topology->animated);
+  HS_EXPECT_TRUE(gap->animated);
+}
+
+/** @brief Under-gap alpha fades the woven edge tail. */
+inline void test_dreamballs_under_gap_alpha_fades_edge_tail() {
+  using WB = DreamBallsWhiteBox;
+  HS_EXPECT_NEAR(WB::under_gap_alpha(0.0f, 0.2f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(WB::under_gap_alpha(0.8f, 0.2f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(WB::under_gap_alpha(0.9f, 0.2f), 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(WB::under_gap_alpha(1.0f, 0.2f), 0.0f, 1e-6f);
 }
 
 /** @brief Renders the defect weave topology and its gap fade. */
@@ -766,7 +777,20 @@ inline void test_dreamballs_column_work_is_bounded() {
   HS_EXPECT_GT(spun.column_path_evaluations, 0u);
   HS_EXPECT_GT(spun.endpoint_evaluations, 0u);
   HS_EXPECT_LE(spun.midpoint_evaluations, spun.endpoint_evaluations);
-  for (size_t preset : {size_t(8), size_t(0), size_t(2)}) {
+  constexpr size_t DISDYAKIS_TRIACONTAHEDRON_PRESET = 8;
+  constexpr size_t RHOMBICUBTRUNCATED_CUBOCTAHEDRON_PRESET = 0;
+  constexpr size_t TRUNCATED_CUBOCTAHEDRON_PRESET = 2;
+  using WB = DreamBallsWhiteBox;
+  using BaseMesh = WB::DB::BaseMesh;
+  HS_EXPECT_EQ(WB::preset_mesh(DISDYAKIS_TRIACONTAHEDRON_PRESET),
+               BaseMesh::DISDYAKIS_TRIACONTAHEDRON);
+  HS_EXPECT_EQ(WB::preset_mesh(RHOMBICUBTRUNCATED_CUBOCTAHEDRON_PRESET),
+               BaseMesh::RHOMBICUBOCTAHEDRON);
+  HS_EXPECT_EQ(WB::preset_mesh(TRUNCATED_CUBOCTAHEDRON_PRESET),
+               BaseMesh::TRUNCATED_CUBOCTAHEDRON);
+  for (size_t preset : {DISDYAKIS_TRIACONTAHEDRON_PRESET,
+                        RHOMBICUBTRUNCATED_CUBOCTAHEDRON_PRESET,
+                        TRUNCATED_CUBOCTAHEDRON_PRESET}) {
     reset_globals();
     DreamBalls<DEFAULT_W, DEFAULT_H> fx;
     fx.init();
@@ -784,11 +808,9 @@ inline void test_dreamballs_column_work_is_bounded() {
         HS_EXPECT_EQ(counts.midpoint_evaluations, 0u);
       } else {
         HS_EXPECT_GT(counts.column_crossings, 0u);
-        if (preset == 2) {
-          HS_EXPECT_GT(counts.endpoint_evaluations, 0u);
-          HS_EXPECT_LT(counts.midpoint_evaluations * 4,
-                       counts.endpoint_evaluations);
-        }
+        HS_EXPECT_GT(counts.endpoint_evaluations, 0u);
+        HS_EXPECT_LT(counts.midpoint_evaluations * 4,
+                     counts.endpoint_evaluations);
       }
     }
   }

@@ -350,6 +350,5 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
                                             POLE_ROWS, 0.005);
     }
   }
-  fx.set_clip(0, H, 0, W);
   HS_EXPECT_GT(split_changed, size_t{0});
 }

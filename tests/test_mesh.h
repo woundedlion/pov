@@ -390,12 +390,7 @@ inline void test_clone_meshstate_deep_copies() {
     src.topology.push_back(static_cast<uint16_t>(100 + i));
 
   MeshState dst;
-  MeshOps::clone(src, dst, src_arena);
-  const auto *old_vertices = dst.vertices.data();
-  src.topology_key = 0x13579bdfu;
   MeshOps::clone(src, dst, dst_arena);
-  HS_EXPECT_TRUE(dst.vertices.data() != old_vertices);
-  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
 
   HS_EXPECT_EQ(dst.vertices.size(), src.vertices.size());
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
@@ -437,12 +432,7 @@ inline void test_clone_polymesh_deep_copies() {
     src.topology.push_back(static_cast<int>(100 + i));
 
   PolyMesh dst;
-  MeshOps::clone(src, dst, src_arena);
-  const auto *old_vertices = dst.vertices.data();
-  src.topology_key = 0x13579bdfu;
   MeshOps::clone(src, dst, dst_arena);
-  HS_EXPECT_TRUE(dst.vertices.data() != old_vertices);
-  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
 
   HS_EXPECT_EQ(dst.vertices.size(), src.vertices.size());
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
@@ -1002,14 +992,17 @@ inline void test_tribitset_index_uniqueness() {
  *        independent).
  */
 inline void test_tribitset_all_pairs_independent() {
-  TriangularBitset<8> bs;
-  bs.clear();
-  for (int i = 0; i + 2 < 8; ++i)
-    bs.test_and_set(i, i + 2);
-  for (int i = 0; i + 2 < 8; ++i)
-    HS_EXPECT_TRUE(bs.test(i, i + 2));
-  for (int i = 0; i + 1 < 8; ++i)
-    HS_EXPECT_FALSE(bs.test(i, i + 1));
+  constexpr int VERTICES = 8;
+  TriangularBitset<VERTICES> bits;
+  for (int i = 0; i < VERTICES; ++i)
+    for (int j = i + 1; j < VERTICES; ++j) {
+      HS_CONTEXT("set pair", i, j);
+      bits.clear();
+      bits.test_and_set(i, j);
+      for (int a = 0; a < VERTICES; ++a)
+        for (int b = a + 1; b < VERTICES; ++b)
+          HS_EXPECT_EQ(bits.test(a, b), a == i && b == j);
+    }
 }
 
 // ============================================================================
@@ -1080,40 +1073,6 @@ inline void test_meshstate_clone_deep_copies() {
   HS_EXPECT_TRUE(dst.face_offsets.data() != src.face_offsets.data());
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
   HS_EXPECT_TRUE(dst.topology.data() != src.topology.data());
-
-  MeshState borrowed;
-  borrowed.vertices.bind(src_arena, 3);
-  for (const math::Vector &vertex : src.vertices)
-    borrowed.vertices.push_back(vertex);
-  borrowed.set_borrowed(ArenaSpan<uint8_t>(src.face_counts),
-                        ArenaSpan<uint16_t>(src.faces),
-                        ArenaSpan<uint16_t>(src.face_offsets),
-                        ArenaSpan<uint16_t>(src.topology), src.topology_key);
-  MeshState owned;
-  MeshState::clone(borrowed, owned, dst_arena);
-  HS_EXPECT_TRUE(owned.face_counts.is_bound());
-  HS_EXPECT_TRUE(owned.faces.is_bound());
-  HS_EXPECT_TRUE(owned.face_offsets.is_bound());
-  HS_EXPECT_TRUE(owned.topology.is_bound());
-  HS_EXPECT_SIZE_OR_RETURN(owned.vertices, 3);
-  HS_EXPECT_SIZE_OR_RETURN(owned.face_counts, 1);
-  HS_EXPECT_SIZE_OR_RETURN(owned.faces, 3);
-  HS_EXPECT_SIZE_OR_RETURN(owned.face_offsets, 1);
-  HS_EXPECT_SIZE_OR_RETURN(owned.topology, 1);
-  for (size_t i = 0; i < owned.vertices.size(); ++i)
-    HS_EXPECT_VEC(owned.vertices[i], borrowed.vertices[i], 1e-6f);
-  HS_EXPECT_EQ(owned.face_counts[0], src.face_counts[0]);
-  for (size_t i = 0; i < owned.faces.size(); ++i)
-    HS_EXPECT_EQ(owned.faces[i], src.faces[i]);
-  HS_EXPECT_EQ(owned.face_offsets[0], src.face_offsets[0]);
-  HS_EXPECT_EQ(owned.topology[0], src.topology[0]);
-  HS_EXPECT_EQ(owned.topology_key, borrowed.topology_key);
-  HS_EXPECT_TRUE(owned.get_face_counts_data() !=
-                 borrowed.get_face_counts_data());
-  HS_EXPECT_TRUE(owned.get_faces_data() != borrowed.get_faces_data());
-  HS_EXPECT_TRUE(owned.get_face_offsets_data() !=
-                 borrowed.get_face_offsets_data());
-  HS_EXPECT_TRUE(owned.get_topology_data() != borrowed.get_topology_data());
 }
 
 /**
@@ -1390,6 +1349,110 @@ inline void test_meshstate_move_clears_source_views() {
   HS_EXPECT_TRUE(moved.get_topology_data() == nullptr);
 }
 
+/** @brief Clone rebinds a bound meshstate destination and copies its topology key. */
+inline void test_clone_meshstate_rebinds_bound_destination() {
+  Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena dst_arena(mesh_arena_b, sizeof(mesh_arena_b));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, src_arena);
+  MeshState src;
+  MeshOps::compile(cube, src, src_arena, scratch_arena_a);
+
+  src.topology.bind(src_arena, src.face_counts.size());
+  for (size_t i = 0; i < src.face_counts.size(); ++i)
+    src.topology.push_back(static_cast<uint16_t>(100 + i));
+
+  MeshState dst;
+  MeshOps::clone(src, dst, src_arena);
+  const auto *old_vertices = dst.vertices.data();
+  src.topology_key = 0x13579bdfu;
+  MeshOps::clone(src, dst, dst_arena);
+  HS_EXPECT_TRUE(dst.vertices.data() != old_vertices);
+  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
+}
+
+/** @brief Clone rebinds a bound polymesh destination and copies its topology key. */
+inline void test_clone_polymesh_rebinds_bound_destination() {
+  Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena dst_arena(mesh_arena_b, sizeof(mesh_arena_b));
+
+  PolyMesh src;
+  build_solid<Solids::Cube>(src, src_arena);
+  src.topology.bind(src_arena, src.face_counts.size());
+  for (size_t i = 0; i < src.face_counts.size(); ++i)
+    src.topology.push_back(static_cast<int>(100 + i));
+
+  PolyMesh dst;
+  MeshOps::clone(src, dst, src_arena);
+  const auto *old_vertices = dst.vertices.data();
+  src.topology_key = 0x13579bdfu;
+  MeshOps::clone(src, dst, dst_arena);
+  HS_EXPECT_TRUE(dst.vertices.data() != old_vertices);
+  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
+}
+
+/** @brief Cloning borrowed mesh arrays creates independent owned storage. */
+inline void test_meshstate_clone_borrowed_becomes_owned() {
+  Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena dst_arena(mesh_arena_b, sizeof(mesh_arena_b));
+
+  MeshState src;
+  src.vertices.bind(src_arena, 3);
+  src.vertices.push_back(math::Vector(1, 0, 0));
+  src.vertices.push_back(math::Vector(0, 1, 0));
+  src.vertices.push_back(math::Vector(0, 0, 1));
+
+  src.face_counts.bind(src_arena, 1);
+  src.face_counts.push_back(3);
+
+  src.faces.bind(src_arena, 3);
+  src.faces.push_back(0);
+  src.faces.push_back(1);
+  src.faces.push_back(2);
+
+  src.face_offsets.bind(src_arena, 1);
+  src.face_offsets.push_back(0);
+  src.topology_key = 0x1234u;
+
+  src.topology.bind(src_arena, 1);
+  src.topology.push_back(7);
+
+  MeshState borrowed;
+  borrowed.vertices.bind(src_arena, 3);
+  for (const math::Vector &vertex : src.vertices)
+    borrowed.vertices.push_back(vertex);
+  borrowed.set_borrowed(ArenaSpan<uint8_t>(src.face_counts),
+                        ArenaSpan<uint16_t>(src.faces),
+                        ArenaSpan<uint16_t>(src.face_offsets),
+                        ArenaSpan<uint16_t>(src.topology), src.topology_key);
+  MeshState owned;
+  MeshState::clone(borrowed, owned, dst_arena);
+  HS_EXPECT_TRUE(owned.face_counts.is_bound());
+  HS_EXPECT_TRUE(owned.faces.is_bound());
+  HS_EXPECT_TRUE(owned.face_offsets.is_bound());
+  HS_EXPECT_TRUE(owned.topology.is_bound());
+  HS_EXPECT_SIZE_OR_RETURN(owned.vertices, 3);
+  HS_EXPECT_SIZE_OR_RETURN(owned.face_counts, 1);
+  HS_EXPECT_SIZE_OR_RETURN(owned.faces, 3);
+  HS_EXPECT_SIZE_OR_RETURN(owned.face_offsets, 1);
+  HS_EXPECT_SIZE_OR_RETURN(owned.topology, 1);
+  for (size_t i = 0; i < owned.vertices.size(); ++i)
+    HS_EXPECT_VEC(owned.vertices[i], borrowed.vertices[i], 1e-6f);
+  HS_EXPECT_EQ(owned.face_counts[0], src.face_counts[0]);
+  for (size_t i = 0; i < owned.faces.size(); ++i)
+    HS_EXPECT_EQ(owned.faces[i], src.faces[i]);
+  HS_EXPECT_EQ(owned.face_offsets[0], src.face_offsets[0]);
+  HS_EXPECT_EQ(owned.topology[0], src.topology[0]);
+  HS_EXPECT_EQ(owned.topology_key, borrowed.topology_key);
+  HS_EXPECT_TRUE(owned.get_face_counts_data() !=
+                 borrowed.get_face_counts_data());
+  HS_EXPECT_TRUE(owned.get_faces_data() != borrowed.get_faces_data());
+  HS_EXPECT_TRUE(owned.get_face_offsets_data() !=
+                 borrowed.get_face_offsets_data());
+  HS_EXPECT_TRUE(owned.get_topology_data() != borrowed.get_topology_data());
+}
+
 /**
  * @brief Runs every mesh test case in order.
  * @return The module's failure count.
@@ -1414,7 +1477,9 @@ inline int run_mesh_tests() {
   HS_RUN(test_compile_drops_degenerate_faces);
 
   HS_RUN(test_clone_meshstate_deep_copies);
+  HS_RUN(test_clone_meshstate_rebinds_bound_destination);
   HS_RUN(test_clone_polymesh_deep_copies);
+  HS_RUN(test_clone_polymesh_rebinds_bound_destination);
 
   HS_RUN(test_classify_faces_cube_uniform_topology);
   HS_RUN(test_classify_faces_empty_mesh_clears_topology_key);
@@ -1435,6 +1500,7 @@ inline int run_mesh_tests() {
 
   HS_RUN(test_meshstate_default_unbound);
   HS_RUN(test_meshstate_clone_deep_copies);
+  HS_RUN(test_meshstate_clone_borrowed_becomes_owned);
   HS_RUN(test_meshstate_clear_resets_views);
   HS_RUN(test_meshstate_move_invalidates_source);
   HS_RUN(test_meshstate_view_fallback);

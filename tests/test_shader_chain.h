@@ -795,7 +795,13 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_table_integrity);
   HS_RUN(test_shader_chain_state_restore_values);
   HS_RUN(test_shader_chain_table_behavior);
-  HS_RUN(test_shader_chain_schema_and_field_ids);
+  HS_RUN(test_shader_chain_schema_invariants);
+  HS_RUN(test_shader_chain_schema_color);
+  HS_RUN(test_shader_chain_schema_sphere);
+  HS_RUN(test_shader_chain_schema_warp);
+  HS_RUN(test_shader_chain_schema_sample);
+  HS_RUN(test_shader_chain_schema_projection);
+  HS_RUN(test_shader_chain_schema_field);
   HS_RUN(test_shader_chain_schema_defaults_match_params);
   HS_RUN(test_shader_chain_instance_id_wellformed);
   HS_RUN(test_shader_chain_slot_and_hash_contract);
@@ -831,6 +837,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_twist_animation);
   HS_RUN(test_shader_chain_twist_axis_short_arc);
   HS_RUN(test_shader_chain_parity_lens_ops);
+  HS_RUN(test_shader_chain_twist_closed_form);
   HS_RUN(test_shader_chain_lens_controls);
   HS_RUN(test_lens_displacement_metric);
   HS_RUN(test_twist_displacement_paths);

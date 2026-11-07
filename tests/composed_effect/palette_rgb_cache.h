@@ -7,7 +7,7 @@
  * ownership tests. */
 
 /** @brief Palette, periodic hue and time axes interpolate independently. */
-void test_palette_rgb_cache_axes_and_wrap() {
+inline void test_palette_rgb_cache_axes_and_wrap() {
   PaletteLabLut base;
   base.active = true;
   PaletteRgbHueLut cache;
@@ -32,7 +32,7 @@ void test_palette_rgb_cache_axes_and_wrap() {
                  cache.nodes.data() + 2 * HueRotationLutView::SIZE);
 }
 /** @brief Column views omit only an identical upper gamut mask. */
-void test_palette_rgb_cache_guard_mask_aliasing() {
+inline void test_palette_rgb_cache_guard_mask_aliasing() {
   PaletteLabLut base;
   PaletteRgbHueLut cache;
   base.active = true;
@@ -61,7 +61,7 @@ void test_palette_rgb_cache_guard_mask_aliasing() {
                Pixel(1111, 2222, 3333));
 }
 /** @brief Replay caches retain their original canonical palette endpoints. */
-void test_palette_lab_reference_endpoint_lifetime() {
+inline void test_palette_lab_reference_endpoint_lifetime() {
   reset_globals();
   struct Source {
     Pixel color;
@@ -92,7 +92,7 @@ void test_palette_lab_reference_endpoint_lifetime() {
 }
 
 /** @brief Final hue nodes equal the hue-rotation table of a full-chroma palette. */
-void test_palette_rgb_cache_matches_hue_rotation_table() {
+inline void test_palette_rgb_cache_matches_hue_rotation_table() {
   const GenerativePalette source(
       PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
                               AxisCurve::BELL, .37f, 1.0f));
@@ -133,7 +133,7 @@ void test_palette_rgb_cache_matches_hue_rotation_table() {
   HS_EXPECT_EQ(cache.masks[1].bits, reference.bits);
 }
 /** @brief Lift and brightness resolve the deferred Lab base through the ordinary finalizer. */
-void test_palette_rgb_cache_lazy_guards() {
+inline void test_palette_rgb_cache_lazy_guards() {
   PaletteLabLut base;
   base.active = true;
   for (auto &lab : base.nodes)
@@ -170,7 +170,7 @@ void test_palette_rgb_cache_lazy_guards() {
   }
 }
 /** @brief Runtime ownership retains the preceding interval and rejects lift recipes. */
-void test_palette_rgb_cache_runtime_lifetime() {
+inline void test_palette_rgb_cache_runtime_lifetime() {
   reset_globals();
   pin_frame_clock(0);
   AshCloud<96, 20> effect;
@@ -215,7 +215,7 @@ void test_palette_rgb_cache_runtime_lifetime() {
   HS_EXPECT_TRUE(lift_base->rgb_nodes == nullptr);
 }
 /** @brief Exact retained rows match fresh bakes; changed identities take the full bake. */
-void test_palette_rgb_cache_bake_reuse() {
+inline void test_palette_rgb_cache_bake_reuse() {
   PaletteLabLut previous;
   previous.active = true;
   for (int time = 0; time < 3; ++time)
@@ -237,6 +237,8 @@ void test_palette_rgb_cache_bake_reuse() {
   HS_EXPECT_EQ(std::memcmp(reference.nodes.data(), reused.nodes.data(),
                            sizeof(reference.nodes)),
                0);
+  for (size_t row = 0; row < reference.masks.size(); ++row)
+    HS_EXPECT_EQ(reference.masks[row].bits, reused.masks[row].bits);
   for (int time : {0, 1, 2})
     for (int value : {0, 31, 63})
       for (int hue : {0, 1, 7, 15}) {
@@ -250,6 +252,18 @@ void test_palette_rgb_cache_bake_reuse() {
         HS_EXPECT_EQ(actual.g, expected.g);
         HS_EXPECT_EQ(actual.b, expected.b);
       }
+  constexpr size_t RETAINED_ROW = 2 * HueRotationLutView::SIZE;
+  const Pixel SAVED_PIXEL = old_rgb.nodes[RETAINED_ROW];
+  const auto SAVED_MASK = old_rgb.masks[2];
+  old_rgb.nodes[RETAINED_ROW] = Pixel(123, 456, 789);
+  old_rgb.masks[2].mark_cell(0, 0);
+  reused.bake(current, &previous, &old_rgb);
+  HS_EXPECT_EQ(reused.nodes[0].r, old_rgb.nodes[RETAINED_ROW].r);
+  HS_EXPECT_EQ(reused.nodes[0].g, old_rgb.nodes[RETAINED_ROW].g);
+  HS_EXPECT_EQ(reused.nodes[0].b, old_rgb.nodes[RETAINED_ROW].b);
+  HS_EXPECT_EQ(reused.masks[0].bits, old_rgb.masks[2].bits);
+  old_rgb.nodes[RETAINED_ROW] = SAVED_PIXEL;
+  old_rgb.masks[2] = SAVED_MASK;
   current.nodes[0].L += .03f;
   reference_base = current;
   reference.bake(reference_base);
@@ -275,7 +289,7 @@ void test_palette_rgb_cache_bake_reuse() {
   HS_EXPECT_TRUE(current.rgb_nodes == nullptr);
 }
 /** @brief Literal endpoints and missing RGB views retain the ordinary palette paths. */
-void test_palette_rgb_cache_shared_base_endpoints() {
+inline void test_palette_rgb_cache_shared_base_endpoints() {
   using FX = AshCloud<96, 20>;
   using Policy = Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
       typename FX::Binding, Pullback::Color::BrightnessEnvelope::NONE, true>>;
@@ -310,7 +324,7 @@ void test_palette_rgb_cache_shared_base_endpoints() {
 }
 
 /** @brief Midpoint reuse preserves its original baked key and rejects accumulated drift. */
-void test_palette_rgb_cache_midpoint_reuse() {
+inline void test_palette_rgb_cache_midpoint_reuse() {
   const auto make_base = [](float shift, float step) {
     PaletteLabLut base;
     base.active = true;
@@ -360,7 +374,7 @@ void test_palette_rgb_cache_midpoint_reuse() {
 }
 
 /** @brief Every palette chroma bakes the final RGB cache. */
-void test_palette_rgb_cache_any_chroma() {
+inline void test_palette_rgb_cache_any_chroma() {
   reset_globals();
   pin_frame_clock(0);
   AshCloud<96, 20> effect;
@@ -383,7 +397,7 @@ void test_palette_rgb_cache_any_chroma() {
 }
 
 /** @brief Linear table interpolation stays within one RGB16 code of Q16 interpolation. */
-void test_palette_rgb_cache_q16_compatibility() {
+inline void test_palette_rgb_cache_q16_compatibility() {
   uint32_t random = 0x728f1ab5;
   const auto next = [&]() {
     random ^= random << 13;
@@ -447,14 +461,13 @@ inline void test_palette_lab_cache_color_padding() {
   const size_t END =
       reinterpret_cast<const unsigned char *>(&previous.palette_mapping) -
       bytes + sizeof(previous.palette_mapping);
-  HS_EXPECT_LE(END, sizeof(previous));
-  if (END > sizeof(previous))
+  HS_EXPECT_LT(END, sizeof(previous));
+  if (END >= sizeof(previous))
     return;
   for (size_t byte = END; byte < sizeof(previous); ++byte)
     bytes[byte] = current_bytes[byte] ^ 0xff;
   HS_EXPECT_TRUE(previous == current);
-  if (END < sizeof(previous))
-    HS_EXPECT_TRUE(std::memcmp(&previous, &current, sizeof(previous)) != 0);
+  HS_EXPECT_TRUE(std::memcmp(&previous, &current, sizeof(previous)) != 0);
   pin_frame_clock(1);
   effect.draw_frame();
   effect.advance_display();
@@ -632,7 +645,7 @@ inline void test_palette_lab_cache_palette_control_step() {
 }
 
 /** @brief Compact midpoint rows and retained keys match the generic owner exactly. */
-void test_palette_rgb_midpoint_only_storage() {
+inline void test_palette_rgb_midpoint_only_storage() {
   static_assert(!Pullback::Spec::PALETTE_RGB_MIDPOINT_ONLY);
   static_assert(AshCloudSpec::PALETTE_RGB_MIDPOINT_ONLY);
   static_assert(sizeof(Pullback::OptionalPaletteRgbLut<true>) -
@@ -675,7 +688,7 @@ void test_palette_rgb_midpoint_only_storage() {
 }
 
 /** @brief Unqualified compact intervals publish no RGB view and retain their old samples. */
-void test_palette_rgb_midpoint_only_fallback() {
+inline void test_palette_rgb_midpoint_only_fallback() {
   PaletteLabLut base;
   base.active = true;
   for (auto &lab : base.nodes)

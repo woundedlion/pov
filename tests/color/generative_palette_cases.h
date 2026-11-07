@@ -319,13 +319,6 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
 
   recipe.hue.harmony = PaletteHarmony::SQUARE;
   const auto square = GenerativePalette(recipe).snapshot();
-  auto oversized = square;
-  oversized.key_count = 255;
-  const auto bounded_last = GenerativePalette::snapshot_key(square, 3);
-  const auto oversized_last = GenerativePalette::snapshot_key(oversized, 254);
-  HS_EXPECT_EQ(oversized_last.L, bounded_last.L);
-  HS_EXPECT_EQ(oversized_last.chroma, bounded_last.chroma);
-  HS_EXPECT_EQ(oversized_last.h, bounded_last.h);
   for (int i = 1; i < 4; ++i)
     HS_EXPECT_NEAR(GenerativePalette::snapshot_key(square, i).h -
                        GenerativePalette::snapshot_key(square, i - 1).h,
@@ -675,13 +668,6 @@ inline void test_generative_palette_rejects_unavailable_path_minimum() {
 
 /** @brief Generative palette absolute basis canonicalizes headroom. */
 inline void test_generative_palette_absolute_basis_canonicalizes_headroom() {
-  const PaletteRecipe GRAY_BLUE =
-      PaletteRecipes::from_colors(PaletteDomain::STRAIGHT, CPixel(0, 0, 0),
-                                  CPixel(0, 0, 255), CPixel(255, 255, 255));
-  HS_EXPECT_NEAR(GRAY_BLUE.hue.custom_turns[0], GRAY_BLUE.hue.custom_turns[1],
-                 1e-6f);
-  HS_EXPECT_NEAR(GRAY_BLUE.hue.custom_turns[2], GRAY_BLUE.hue.custom_turns[1],
-                 1e-6f);
   PaletteRecipe input = PaletteRecipes::from_oklch_keys(
       PaletteDomain::STRAIGHT, OKLCH{0.5f, 0.10f, 0.0f},
       OKLCH{0.6f, 0.12f, 1.0f}, OKLCH{0.7f, 0.08f, 2.0f});
@@ -869,4 +855,29 @@ inline void test_generative_palette_lerp_interpolates_loop_seam() {
     HS_EXPECT_EQ(seam.g, start.g);
     HS_EXPECT_EQ(seam.b, start.b);
   }
+}
+
+/** @brief Gray keys inherit their chromatic neighbor hue. */
+inline void test_generative_palette_gray_keys_use_neighbor_hue() {
+  const PaletteRecipe GRAY_BLUE =
+      PaletteRecipes::from_colors(PaletteDomain::STRAIGHT, CPixel(0, 0, 0),
+                                  CPixel(0, 0, 255), CPixel(255, 255, 255));
+  HS_EXPECT_NEAR(GRAY_BLUE.hue.custom_turns[0], GRAY_BLUE.hue.custom_turns[1],
+                 1e-6f);
+  HS_EXPECT_NEAR(GRAY_BLUE.hue.custom_turns[2], GRAY_BLUE.hue.custom_turns[1],
+                 1e-6f);
+}
+
+/** @brief Snapshot lookup clamps an oversized key count. */
+inline void test_generative_palette_snapshot_key_clamps_count() {
+  PaletteRecipe recipe = PaletteRecipes::balanced_analogous(0.2f);
+  recipe.hue.harmony = PaletteHarmony::SQUARE;
+  const auto square = GenerativePalette(recipe).snapshot();
+  auto oversized = square;
+  oversized.key_count = 255;
+  const auto bounded_last = GenerativePalette::snapshot_key(square, 3);
+  const auto oversized_last = GenerativePalette::snapshot_key(oversized, 254);
+  HS_EXPECT_EQ(oversized_last.L, bounded_last.L);
+  HS_EXPECT_EQ(oversized_last.chroma, bounded_last.chroma);
+  HS_EXPECT_EQ(oversized_last.h, bounded_last.h);
 }

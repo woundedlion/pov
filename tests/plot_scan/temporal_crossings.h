@@ -181,6 +181,26 @@ inline void test_piecewise_arm_passes_match_brute_force() {
   PassList knot;
   Spacetime::piecewise_crossings<W>(through, 3, false, false, knot);
   HS_EXPECT_EQ(static_cast<int>(knot.passes.size()), 1);
+  PassList frame_end;
+  Spacetime::piecewise_crossings<W>(through, 3, false, true, frame_end);
+  HS_EXPECT_SIZE_OR_RETURN(frame_end.passes, 1);
+  const float starting[] = {71.0f, 71.5f, 72.0f};
+  PassList frame_start;
+  Spacetime::piecewise_crossings<W>(starting, 3, true, false, frame_start);
+  HS_EXPECT_SIZE_OR_RETURN(frame_start.passes, 1);
+  const float later_knots[] = {100.0f, 110.0f, 130.0f};
+  PassList later;
+  Spacetime::piecewise_crossings<W>(later_knots, 3, false, false, later);
+  const auto later_truth = brute_force_passes<W>(
+      [](double t) {
+        return t < 0.5 ? 100.0 + 20.0 * t : 110.0 + 40.0 * (t - 0.5);
+      },
+      0.0, 1.0);
+  HS_EXPECT_SIZE_OR_RETURN(later.passes, 1);
+  HS_EXPECT_SIZE_OR_RETURN(later_truth, 1);
+  HS_EXPECT_NEAR(later.passes[0].time, float(later_truth[0].time), 2e-6f);
+  HS_EXPECT_NEAR(later.passes[0].along, 0.730769f, 2e-6f);
+  HS_EXPECT_EQ(later.passes[0].arm, 0);
 }
 
 /**

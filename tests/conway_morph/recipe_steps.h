@@ -185,6 +185,42 @@ inline void test_relax_recipe_seeds_preserve_vertex_order() {
 /** Paused redraws check_step_leg_smoke issues at its pause frame. */
 inline constexpr int PAUSED_REDRAWS = 2;
 
+/** @brief Arena-owned seed, endpoint and palette handoff for leg smoke checks. */
+struct LegFixture {
+  ScopedArenaSplit split =
+      islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
+  Arena leg_arena{morph_target_buf, sizeof(morph_target_buf)};
+  Arena bank_arena{morph_bank_buf, sizeof(morph_bank_buf)};
+  ScratchScope a_guard{scratch_arena_a};
+  ScratchScope b_guard{scratch_arena_b};
+  MeshPaletteBank bank;
+  PolyMesh seed, endpoint;
+  std::array<int, Animation::OpLeg::PALETTES> slots;
+  size_t prev_faces = 0;
+  uint8_t *prev_pal = nullptr;
+
+  template <typename BuildEndpoint>
+  LegFixture(const StepLegSite &site, BuildEndpoint build_endpoint) {
+    hs::random().seed(2026u);
+    bank.bake_all(bank_arena);
+    seed = build_step_leg_seed(site, leg_arena);
+    constexpr size_t HALF = sizeof(morph_temp_buf) / 2;
+    Arena ea(morph_temp_buf, HALF);
+    Arena eb(morph_temp_buf + HALF, HALF);
+    endpoint = Solids::finalize_solid(build_endpoint(seed, ea, eb), leg_arena);
+    MeshOps::classify_faces_by_topology(seed, scratch_arena_a, scratch_arena_b,
+                                        leg_arena);
+    MeshOps::classify_faces_by_topology(endpoint, scratch_arena_a,
+                                        scratch_arena_b, leg_arena);
+    MeshPaletteBank::shuffle_indices(slots);
+    prev_faces = seed.face_counts.size();
+    prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
+    for (size_t face = 0; face < prev_faces; ++face)
+      prev_pal[face] = static_cast<uint8_t>(
+          slots[MeshPaletteBank::slot_of(seed.topology[face])]);
+  }
+};
+
 /**
  * @brief Drives one recipe-step leg to completion through OpLeg, gating
  *        compiled-face-count constancy, ramp indices and per-frame motion.
@@ -203,56 +239,30 @@ inline void check_step_leg_smoke(
     StepLegKind kind, const StepLegSite &site, int frames, float max_step_chord,
     EasingFn easing = math::ease_in_out_sin,
     std::vector<std::vector<math::Vector>> *frames_out = nullptr,
-    int pause_after = 0) {
+    int pause_after = 0, std::vector<float> *weights_out = nullptr) {
   using Animation::OpLeg;
   const int failed_before = hs_test::stats().failed;
 
-  const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
-  hs::random().seed(2026u);
-
-  Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
-  MeshPaletteBank bank;
-  bank.bake_all(bank_arena);
-
-  PolyMesh seed = build_step_leg_seed(site, leg_arena);
-  PolyMesh endpoint;
-  {
-    constexpr size_t HALF = sizeof(morph_temp_buf) / 2;
-    Arena ea(morph_temp_buf, HALF);
-    Arena eb(morph_temp_buf + HALF, HALF);
-    PolyMesh raw;
+  LegFixture fixture(site, [&](const PolyMesh &seed, Arena &ea, Arena &eb) {
     switch (kind) {
     case StepLegKind::TRUNCATE:
-      raw = MeshOps::truncate(seed, ea, eb, site.param);
-      break;
+      return MeshOps::truncate(seed, ea, eb, site.param);
     case StepLegKind::SNUB:
-      raw = MeshOps::snub(seed, ea, eb, site.param, 0.0f);
-      break;
+      return MeshOps::snub(seed, ea, eb, site.param, 0.0f);
     case StepLegKind::RELAX:
-      raw = MeshOps::relax_baked(seed, ea, *site.bake);
-      break;
+      return MeshOps::relax_baked(seed, ea, *site.bake);
     }
-    endpoint = Solids::finalize_solid(raw, leg_arena);
-  }
-
-  ScratchScope a_guard(scratch_arena_a);
-  ScratchScope b_guard(scratch_arena_b);
-  MeshOps::classify_faces_by_topology(seed, scratch_arena_a, scratch_arena_b,
-                                      leg_arena);
-  MeshOps::classify_faces_by_topology(endpoint, scratch_arena_a,
-                                      scratch_arena_b, leg_arena);
-
-  std::array<int, OpLeg::PALETTES> slots;
-  MeshPaletteBank::shuffle_indices(slots);
-
-  const size_t prev_faces = seed.face_counts.size();
-  uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
+    return PolyMesh{};
+  });
+  auto &leg_arena = fixture.leg_arena;
+  auto &bank = fixture.bank;
+  const auto &seed = fixture.seed;
+  const auto &endpoint = fixture.endpoint;
+  const size_t prev_faces = fixture.prev_faces;
+  const auto *prev_pal = fixture.prev_pal;
   math::Vector *prev_centroid = leg_arena.allocate_n<math::Vector>(prev_faces);
   size_t off = 0;
   for (size_t f = 0; f < prev_faces; ++f) {
-    prev_pal[f] =
-        static_cast<uint8_t>(slots[MeshPaletteBank::slot_of(seed.topology[f])]);
     const int n = seed.face_counts[f];
     prev_centroid[f] = face_centroid_unit(seed, off, n);
     off += n;
@@ -270,6 +280,8 @@ inline void check_step_leg_smoke(
     probe.observe(m, sh);
     if (frames_out)
       frames_out->push_back(probe.prev_v);
+    if (weights_out)
+      weights_out->push_back(sh.weight);
   };
 
   hs_test::StubEffect fx(288, 144);
@@ -357,40 +369,15 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   const int failed_before = hs_test::stats().failed;
   const bool is_kis = op == OpLeg::SwapOp::KIS;
 
-  const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
-  hs::random().seed(2026u);
-
-  Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
-  MeshPaletteBank bank;
-  bank.bake_all(bank_arena);
-
-  PolyMesh seed = build_step_leg_seed(site, leg_arena);
-  PolyMesh endpoint;
-  {
-    constexpr size_t HALF = sizeof(morph_temp_buf) / 2;
-    Arena ea(morph_temp_buf, HALF);
-    Arena eb(morph_temp_buf + HALF, HALF);
-    endpoint = Solids::finalize_solid(is_kis ? MeshOps::kis(seed, ea, eb)
-                                             : MeshOps::dual(seed, ea, eb),
-                                      leg_arena);
-  }
-
-  ScratchScope a_guard(scratch_arena_a);
-  ScratchScope b_guard(scratch_arena_b);
-  MeshOps::classify_faces_by_topology(seed, scratch_arena_a, scratch_arena_b,
-                                      leg_arena);
-  MeshOps::classify_faces_by_topology(endpoint, scratch_arena_a,
-                                      scratch_arena_b, leg_arena);
-
-  std::array<int, OpLeg::PALETTES> slots;
-  MeshPaletteBank::shuffle_indices(slots);
-
-  const size_t prev_faces = seed.face_counts.size();
-  uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
-  for (size_t f = 0; f < prev_faces; ++f)
-    prev_pal[f] =
-        static_cast<uint8_t>(slots[MeshPaletteBank::slot_of(seed.topology[f])]);
+  LegFixture fixture(site, [&](const PolyMesh &seed, Arena &ea, Arena &eb) {
+    return is_kis ? MeshOps::kis(seed, ea, eb) : MeshOps::dual(seed, ea, eb);
+  });
+  auto &leg_arena = fixture.leg_arena;
+  auto &bank = fixture.bank;
+  const auto &seed = fixture.seed;
+  const auto &endpoint = fixture.endpoint;
+  const size_t prev_faces = fixture.prev_faces;
+  const auto *prev_pal = fixture.prev_pal;
 
   OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                 .prev_face_palette = prev_pal,
@@ -437,13 +424,7 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
             leg_arena, cb, handoff, bookend);
   const OpLeg::Landing &landing = leg.landing();
   target_ramps = landing.blend_pairs;
-  for (int f = 0; f < frames; ++f) {
-    {
-      Canvas c(fx);
-      leg.step(c);
-    }
-    fx.advance_display();
-  }
+  hs_test::drive_leg(leg, fx, frames);
 
   HS_EXPECT_EQ(drawn, frames);
   // Topology changes exactly once, at the swap frame, and the leg lands on the
@@ -503,14 +484,19 @@ inline void test_opleg_step_paused_holds_frame() {
   // Loose chord bound: motion is not under test.
   constexpr float CHORD_MAX = 1.0f;
   std::vector<std::vector<math::Vector>> unpaused, held;
+  std::vector<float> unpaused_weights, held_weights;
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
-                       CHORD_MAX, math::ease_in_out_sin, &unpaused);
+                       CHORD_MAX, math::ease_in_out_sin, &unpaused, 0,
+                       &unpaused_weights);
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
-                       CHORD_MAX, math::ease_in_out_sin, &held, PAUSE_AFTER);
+                       CHORD_MAX, math::ease_in_out_sin, &held, PAUSE_AFTER,
+                       &held_weights);
   HS_EXPECT_SIZE_OR_RETURN(unpaused, (size_t)FRAMES);
   HS_EXPECT_EQ(held.size(), (size_t)(FRAMES + PAUSED_REDRAWS));
   if (held.size() != (size_t)(FRAMES + PAUSED_REDRAWS))
     return;
+  HS_EXPECT_SIZE_OR_RETURN(unpaused_weights, unpaused.size());
+  HS_EXPECT_SIZE_OR_RETURN(held_weights, held.size());
 
   auto identical = [](const std::vector<math::Vector> &a,
                       const std::vector<math::Vector> &b) {
@@ -523,8 +509,10 @@ inline void test_opleg_step_paused_holds_frame() {
   };
 
   // Every paused draw repeats the frame the leg was holding.
-  for (int p = 0; p < PAUSED_REDRAWS; ++p)
+  for (int p = 0; p < PAUSED_REDRAWS; ++p) {
     HS_EXPECT_TRUE(identical(held[PAUSE_AFTER - 1], held[PAUSE_AFTER + p]));
+    HS_EXPECT_EQ(held_weights[PAUSE_AFTER + p], held_weights[PAUSE_AFTER - 1]);
+  }
 
   // The clock never moved: the resumed frames are the unpaused run's.
   size_t drifted = 0;
@@ -532,6 +520,7 @@ inline void test_opleg_step_paused_holds_frame() {
     const size_t k = f < PAUSE_AFTER ? (size_t)f : (size_t)(f + PAUSED_REDRAWS);
     if (!identical(unpaused[f], held[k]))
       ++drifted;
+    HS_EXPECT_EQ(unpaused_weights[f], held_weights[k]);
   }
   HS_EXPECT_EQ(drifted, (size_t)0);
   std::printf("  [opleg paused] truncate: %d frames, %d paused redraws at "
@@ -619,64 +608,48 @@ inline void test_opleg_edge_leg_crossfade() {
     all_from.push_back(from_ok);
     all_to.push_back(to_ok);
   };
-  auto divergent_faces = [&]() {
-    int n = 0;
-    for (size_t f = 0; f < lp->faces; ++f)
-      if (lp->from_palette[f] != lp->landed_palette(f))
-        ++n;
-    return n;
-  };
-  auto run_frames = [&](OpLeg &leg, int frames) {
-    all_from.clear();
-    all_to.clear();
-    lp = &leg.landing();
-    for (int f = 0; f < frames; ++f) {
-      {
-        Canvas c(fx);
-        leg.step(c);
-      }
-      fx.advance_display();
-    }
-    HS_EXPECT_EQ(all_from.size(), (size_t)frames);
-  };
-  {
-    const int failed_before = hs_test::stats().failed;
-    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-    PolyMesh cube;
-    build_solid<Solids::Cube>(cube, leg_arena);
-    uint8_t pal[16];
-    for (size_t f = 0; f < cube.face_counts.size(); ++f)
-      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-    const int edge = find_directed_edge(ConwayGraph::EDGES, ConwayGraph::CUBE,
-                                        ConwayGraph::TRUNCATED_CUBE);
-    HS_EXPECT_GE(edge, 0);
-    if (edge < 0)
-      return;
-    OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
-                                  .prev_face_palette = pal,
-                                  .prev_faces = cube.face_counts.size()};
-    constexpr int EDGE_FRAMES = 24;
-    OpLeg leg(cube,
-              OpLeg::EdgeSweepSpec{.edge = &ConwayGraph::EDGES[edge],
-                                   .sweep_frames = EDGE_FRAMES},
-              leg_arena, cb, handoff);
-    run_frames(leg, EDGE_FRAMES);
-    HS_EXPECT_SIZE_OR_RETURN(all_from, EDGE_FRAMES);
-    HS_EXPECT_SIZE_OR_RETURN(all_to, EDGE_FRAMES);
-    HS_EXPECT_GT(divergent_faces(), 0);
-    HS_EXPECT_TRUE(all_from[0]);
-    HS_EXPECT_TRUE(!all_from[EDGE_FRAMES / 2 - 1]);
-    HS_EXPECT_TRUE(all_to[EDGE_FRAMES - 1]);
-    std::printf("  [crossfade] edge leg: F=%zu mid-leg blend intact%s\n",
-                lp->faces,
-                hs_test::stats().failed != failed_before ? " FAILED" : "");
-  }
+  const int failed_before = hs_test::stats().failed;
+  Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, leg_arena);
+  uint8_t pal[16];
+  for (size_t f = 0; f < cube.face_counts.size(); ++f)
+    pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+  const int edge = find_directed_edge(ConwayGraph::EDGES, ConwayGraph::CUBE,
+                                      ConwayGraph::TRUNCATED_CUBE);
+  HS_EXPECT_GE(edge, 0);
+  if (edge < 0)
+    return;
+  OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                .prev_face_palette = pal,
+                                .prev_faces = cube.face_counts.size()};
+  constexpr int EDGE_FRAMES = 24;
+  OpLeg leg(cube,
+            OpLeg::EdgeSweepSpec{.edge = &ConwayGraph::EDGES[edge],
+                                 .sweep_frames = EDGE_FRAMES},
+            leg_arena, cb, handoff);
+  all_from.clear();
+  all_to.clear();
+  lp = &leg.landing();
+  hs_test::drive_leg(leg, fx, EDGE_FRAMES);
+  HS_EXPECT_SIZE_OR_RETURN(all_from, EDGE_FRAMES);
+  HS_EXPECT_SIZE_OR_RETURN(all_to, EDGE_FRAMES);
+  int divergent_faces = 0;
+  for (size_t face = 0; face < lp->faces; ++face)
+    divergent_faces += lp->from_palette[face] != lp->landed_palette(face);
+  HS_EXPECT_GT(divergent_faces, 0);
+  HS_EXPECT_TRUE(all_from[0]);
+  HS_EXPECT_TRUE(!all_from[EDGE_FRAMES / 2 - 1]);
+  HS_EXPECT_TRUE(all_to[EDGE_FRAMES - 1]);
+  std::printf("  [crossfade] edge leg: F=%zu mid-leg blend intact%s\n",
+              lp->faces,
+              hs_test::stats().failed != failed_before ? " FAILED" : "");
 }
 
 /**
  * @brief Pins recipe-step acceptance at the supported sweep boundaries.
  */
-inline void test_unsweepable_recipe_steps_are_gated() {
+inline void test_recipe_step_morphable_boundaries() {
   using Solids::Op;
   using Solids::IslamicStarPatterns::D2R;
   using ConwayGraph::T_TRUNCATE_ARRIVAL_MIN;

@@ -115,24 +115,6 @@ inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
   return capture;
 }
 
-/** @brief Captures the control-point fragments passed through the vertex stage.
- */
-inline std::vector<Fragment>
-capture_particle_vertices(const StubParticle &particle) {
-  constexpr int W = 96, H = 48;
-  hs_test::StubEffect fx(W, H);
-  StubSystem sys = single_particle_system(particle);
-
-  std::vector<Fragment> vertices;
-  CapturePipeline pipe;
-  auto vertex_shader = [&](Fragment &f) { vertices.push_back(f); };
-  {
-    Canvas c(fx);
-    Plot::ParticleSystem::draw<W, H>(pipe, c, sys, noop_shader, vertex_shader);
-  }
-  return vertices;
-}
-
 /** @brief Captures control points emitted by an initialized particle system. */
 template <typename SystemT>
 inline std::vector<Fragment>
@@ -148,6 +130,13 @@ capture_particle_system_vertices(const SystemT &system) {
                                      vertex_shader);
   }
   return vertices;
+}
+
+/** @brief Captures the control-point fragments passed through the vertex stage.
+ */
+inline std::vector<Fragment>
+capture_particle_vertices(const StubParticle &particle) {
+  return capture_particle_system_vertices(single_particle_system(particle));
 }
 
 /** @brief Builds a quantized particle trail with deterministic spherical

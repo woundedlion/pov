@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end tests for the staged pre-commit gates."""
 
+import shlex
 import shutil
 import subprocess
 import sys
@@ -17,7 +18,8 @@ HOOK = REPO / ".githooks" / "pre-commit"
 
 class PreCommitHook(unittest.TestCase):
     def setUp(self):
-        require_tool(self, "sh")
+        self.shell = require_tool(self, "sh")
+        git = require_tool(self, "git")
         tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(tmp.cleanup)
         self.repo = Path(tmp.name)
@@ -30,7 +32,7 @@ class PreCommitHook(unittest.TestCase):
         (tools / "docs_check.py").write_text(
             "import pathlib, subprocess, sys\n"
             "root = pathlib.Path(sys.argv[sys.argv.index('--root') + 1])\n"
-            "tracked = subprocess.run(['git', '-C', str(root), 'ls-files'],\n"
+            f"tracked = subprocess.run([{git!r}, '-C', str(root), 'ls-files'],\n"
             "                         check=True, capture_output=True, text=True)\n"
             "print('TRACKED', tracked.stdout.split())\n"
             "raise SystemExit('BROKEN' in (root / 'README.md').read_text())\n",
@@ -56,7 +58,7 @@ class PreCommitHook(unittest.TestCase):
         env = dict(self.env, GIT_DIR=str(self.repo / ".git"),
                    GIT_WORK_TREE=str(self.repo), **extra)
         return subprocess.run(
-            ["sh", HOOK.as_posix()], cwd=self.repo, env=env,
+            [self.shell, HOOK.as_posix()], cwd=self.repo, env=env,
             capture_output=True, text=True, check=False)
 
     def formatter(self):
@@ -316,6 +318,42 @@ class PreCommitHook(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("hs-absent-clang-format not found",
                       done.stdout + done.stderr)
+
+    def check_missing_linter(self, tool, name, content):
+        directory = self.repo / "linter-bin"
+        directory.mkdir()
+        for command in ("sh", "git", "dirname", "mktemp", "rm", "mkdir",
+                        "cp", "mv", "grep", "sed"):
+            resolved = subprocess.run(
+                [self.shell, "-c", 'command -v "$1"', "fixture", command],
+                env=self.env, capture_output=True, text=True, check=True).stdout.strip()
+            proxy = directory / command
+            proxy.write_text(f'#!/bin/sh\nexec {shlex.quote(resolved)} "$@"\n',
+                             encoding="utf-8", newline="\n")
+            proxy.chmod(0o755)
+        (self.repo / name).write_text(content, encoding="utf-8", newline="\n")
+        self.git("add", name)
+        result = self.run_hook(PATH=str(directory))
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"{tool} not found", result.stdout + result.stderr)
+
+        linter = directory / tool
+        linter.write_text('#!/bin/sh\necho FIXTURE_LINTER_RAN\n'
+                          'exit "${FIXTURE_LINTER_EXIT:-0}"\n',
+                          encoding="utf-8", newline="\n")
+        linter.chmod(0o755)
+        present = self.run_hook(PATH=str(directory))
+        self.assertEqual(present.returncode, 0, present.stdout + present.stderr)
+        self.assertIn("FIXTURE_LINTER_RAN", present.stdout)
+        failed = self.run_hook(PATH=str(directory), FIXTURE_LINTER_EXIT="7")
+        self.assertEqual(failed.returncode, 7, failed.stdout + failed.stderr)
+        self.assertIn("FIXTURE_LINTER_RAN", failed.stdout)
+
+    def test_missing_ruff_fails_the_commit(self):
+        self.check_missing_linter("ruff", "sample.py", "value = 1\n")
+
+    def test_missing_shellcheck_fails_the_commit(self):
+        self.check_missing_linter("shellcheck", "sample.sh", "#!/bin/sh\necho ok\n")
 
     def test_a_missing_javascript_linter_fails_the_commit(self):
         # The fixture repository has no node_modules, so the eslint probe is the

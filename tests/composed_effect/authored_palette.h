@@ -148,6 +148,11 @@ inline void test_composed_authored_palette_harmony_clock() {
       HS_EXPECT_EQ(actual.b, expected.b);
     }
   }
+}
+
+/** @brief Authored palettes reject unknown palette types and brightness envelopes. */
+inline void test_composed_authored_palette_admission() {
+  AuthoredPaletteProbe::Params params{};
   auto invalid = params;
   invalid.template get<"color">().palette_type = 255;
   HS_EXPECT_FALSE(AuthoredPaletteProbe::valid_params(invalid));

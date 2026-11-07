@@ -11,7 +11,7 @@
  * @details Pins |lens(v)| == 1 across a spread of directions, its doubled-
  *          latitude topology, and matching one-sided derivatives at the fold.
  */
-inline void test_glitch_lens_unit_norm() {
+inline void test_glitch_lens_doubles_latitude_and_stays_smooth_at_fold() {
   for (float polar : {0.4f, 0.9f, 2.0f}) {
     for (float azimuth : {-2.1f, -0.4f, 0.7f, 1.8f}) {
       const math::Vector input(sinf(polar) * cosf(azimuth), cosf(polar),

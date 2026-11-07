@@ -9,28 +9,23 @@
 // (== ambo(dual(P))); the medial leg slerps a_e -> b_e.
 // ---------------------------------------------------------------------------
 
-inline PolyMesh probe_icosa_kis_snub(Arena &a, Arena &b) {
-  return recipe_step_seed<Solids::ICOSAHEDRON_KIS_GYRO_RECIPE, Solids::Op::DUAL,
-                          0>(a, b);
-}
-inline PolyMesh probe_toct_snub(Arena &a, Arena &b) {
-  return recipe_step_seed<Solids::TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE,
-                          Solids::Op::DUAL, 0>(a, b);
-}
-inline PolyMesh probe_dodeca_hk72_ambo(Arena &a, Arena &b) {
-  return recipe_step_seed<Solids::DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE,
-                          Solids::Op::DUAL, 0>(a, b);
-}
-inline PolyMesh probe_icosidodeca_trunc5_ambo(Arena &a, Arena &b) {
-  return recipe_step_seed<Solids::ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE,
-                          Solids::Op::DUAL, 0>(a, b);
-}
 /** @brief Smooth-dual bridge seeds, including the dt macro's truncate prefix. */
 inline constexpr StepLegSite DUAL_LEG_SITES[] = {
-    {"icosahedron_kis_gyro", probe_icosa_kis_snub, 0.0f},
-    {"truncatedOctahedron_gyro", probe_toct_snub, 0.0f, nullptr, true},
-    {"dodecahedron_hk72_ambo_dual", probe_dodeca_hk72_ambo, 0.0f},
-    {"icosidodecahedron_truncate5d_ambo_dual", probe_icosidodeca_trunc5_ambo,
+    {"icosahedron_kis_gyro",
+     recipe_step_seed<Solids::ICOSAHEDRON_KIS_GYRO_RECIPE, Solids::Op::DUAL, 0>,
+     0.0f},
+    {.name = "truncatedOctahedron_gyro",
+     .seed = recipe_step_seed<Solids::TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE,
+                              Solids::Op::DUAL, 0>,
+     .param = 0.0f,
+     .via_dt_macro = true},
+    {"dodecahedron_hk72_ambo_dual",
+     recipe_step_seed<Solids::DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE,
+                      Solids::Op::DUAL, 0>,
+     0.0f},
+    {"icosidodecahedron_truncate5d_ambo_dual",
+     recipe_step_seed<Solids::ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE,
+                      Solids::Op::DUAL, 0>,
      0.0f},
     {.name = "truncatedIcosahedron_ambo_relax100_hk54_needle",
      .seed = build_ticosa_ambo_relax100_hk54,
@@ -67,6 +62,11 @@ inline constexpr StepLegSite DUAL_LEG_SITES[] = {
      .opening_retraced_faces = 36},
 };
 
+/// Prepared-bridge seed for the wide truncated-icosidodecahedron bridge.
+inline constexpr const StepLegSite &WIDE_TRUNCATED_BRIDGE = DUAL_LEG_SITES[7];
+static_assert(std::string_view(WIDE_TRUNCATED_BRIDGE.name) ==
+              "truncatedIcosidodecahedron_truncate50d_ambo_dual");
+
 /** @brief Partial bookends preserve landing data without classifying discarded faces. */
 inline void test_partial_bookend_classification() {
   using Animation::OpLeg;
@@ -77,7 +77,7 @@ inline void test_partial_bookend_classification() {
   Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
   Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
   Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-  const PolyMesh seed = build_step_leg_seed(DUAL_LEG_SITES[7], persist);
+  const PolyMesh seed = build_step_leg_seed(WIDE_TRUNCATED_BRIDGE, persist);
   PolyMesh dual =
       Solids::finalize_solid(MeshOps::dual(seed, aux, temp), persist);
   MeshOps::classify_faces_by_topology(dual, scratch_arena_a, scratch_arena_b,
@@ -142,7 +142,7 @@ inline void test_prepared_bridge() {
   MeshPaletteBank bank;
   bank.bake_all(bank_arena);
   Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
-  const PolyMesh seed = build_step_leg_seed(DUAL_LEG_SITES[7], persist);
+  const PolyMesh seed = build_step_leg_seed(WIDE_TRUNCATED_BRIDGE, persist);
   const auto prepared = OpLeg::prepare_bridge(seed, persist);
   std::vector<uint8_t> palettes(seed.face_counts.size());
   std::vector<math::Vector> centroids(seed.face_counts.size());
@@ -238,7 +238,7 @@ inline double medial_min_face_area(const PolyMesh &m) {
 }
 
 /** @brief Collapsed spherical chords have zero face area. */
-inline void test_medial_face_area_rejects_collapsed_faces() {
+inline void test_medial_face_area_is_zero_on_collapsed_faces() {
   ScratchScope scope(scratch_arena_a);
   PolyMesh mesh;
   mesh.vertices.bind(scratch_arena_a, 3);
@@ -504,14 +504,7 @@ inline void test_opleg_medial_leg_smoke() {
     HS_EXPECT_EQ(landing.primary_faces, prev_faces);
 
     hs_test::StubEffect fx(288, 144);
-    for (int f = 0; f < SWEEP; ++f) {
-      HS_CONTEXT("f", f);
-      {
-        Canvas c(fx);
-        anim.step(c);
-      }
-      fx.advance_display();
-    }
+    hs_test::drive_leg(anim, fx, SWEEP);
     HS_EXPECT_EQ(probe.drawn, (size_t)SWEEP);
     HS_EXPECT_EQ(landing.faces, probe.faces);
     HS_EXPECT_LT(probe.worst_step, MAX_STEP_CHORD);
@@ -633,13 +626,7 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
         HS_EXPECT_EQ(landing2.landed_palette(f), pal2[f]);
     }
     rasterize_at = SWEEP;
-    for (int f = 0; f < SWEEP; ++f) {
-      {
-        Canvas c(fx);
-        leg2.step(c);
-      }
-      fx.advance_display();
-    }
+    hs_test::drive_leg(leg2, fx, SWEEP);
     snap(snaps[0]);
 
     // Leg 3 departs from leg 2's landed palettes; centroids derive the seam permutation.
@@ -829,13 +816,7 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
 
     if (preserve_palettes) {
       rasterize_at = -1;
-      for (int f = 2; f < SWEEP; ++f) {
-        {
-          Canvas c(fx);
-          leg3.step(c);
-        }
-        fx.advance_display();
-      }
+      hs_test::drive_leg(leg3, fx, SWEEP - 2);
       HS_EXPECT_EQ(drawn, SWEEP);
     }
     std::printf("  [opleg seam] %s: F=%zu blocks %zu/%zu, seam diff "

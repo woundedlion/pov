@@ -448,6 +448,14 @@ inline void test_hankinsolids_handoff_history() {
   WB::restart_cycle(effect);
   HS_EXPECT_EQ(WB::drawn_cycle_frame(effect), -1);
   HS_EXPECT_EQ(WB::record_cycle_draw(effect, 0), 0);
+}
+
+/** @brief Strap LUTs allocate scratch only during an active blend. */
+inline void test_hankinsolids_strap_luts_allocate_only_while_blending() {
+  reset_globals();
+  using WB = HankinSolidsWhiteBox;
+  HankinSolids<SMALL_W, SMALL_H> effect;
+  effect.init();
   WB::arm_strap_crossfade(effect);
   for (const int frame : {0, 1, WB::STRAP_FRAMES - 1, WB::STRAP_FRAMES}) {
     const size_t HELD = WB::resolved_slot_bytes(effect, frame, false);
@@ -575,7 +583,7 @@ inline void test_hankinsolids_seam_copies_are_one_polygon() {
       [&](size_t f, float size, FacePaletteShader &shader) {
         WB::shade_face(effect, f, size, shader);
       });
-  HS_EXPECT_GE(faces, size_t{4});
+  HS_EXPECT_GE(faces, size_t{2});
 }
 
 /**

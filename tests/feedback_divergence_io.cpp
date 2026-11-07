@@ -45,14 +45,16 @@ int fault_fclose(FILE *stream) {
 int main(int argc, char **argv) {
   if (argc != 2)
     return 2;
-  for (int failure = 1; failure <= 6; ++failure) {
+  constexpr int WRITES = 3 + NPRESET;
+  for (int failure = 1; failure <= WRITES + 1; ++failure) {
     write_count = 0;
     close_count = 0;
-    failed_write = failure <= 5 ? failure : 0;
-    failed_close = failure == 6;
+    failed_write = failure <= WRITES ? failure : 0;
+    failed_close = failure == WRITES + 1;
     const int status = dump(argv[1], 1);
     if (status == 0 || std::filesystem::exists(argv[1]) ||
-        write_count != (failed_write ? failed_write : 5) || close_count != 1) {
+        write_count != (failed_write ? failed_write : WRITES) ||
+        close_count != 1) {
       std::fprintf(stderr,
                    "failure %d: status=%d, partial dump retained=%d, "
                    "writes=%d, closes=%d\n",

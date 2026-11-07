@@ -7,10 +7,12 @@
 /** @file test_radial_surface.h
  * @brief First-arrival queries against independent swept-edge intersections. */
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cfloat>
 #include <cmath>
+#include <vector>
 #include "core/render/scan/radial_surface.h"
 #include "core/render/scan/radial_surface_edge_aa.h"
 #include "core/render/scan/radial_surface_math.h"
@@ -22,6 +24,15 @@
 namespace hs_test::radial_surface_tests {
 
 using Surface = Scan::RadialSurface<64, 9>;
+
+/** @brief First-arrival grayscale ramp for a configured interval count. */
+inline auto arrival_ramp(int intervals, bool inverted = false) {
+  return [intervals, inverted](const auto &hit) {
+    const float q = (hit.interval + hit.fraction) / intervals;
+    const float value = inverted ? 1 - q : q;
+    return Scan::SurfaceColor{value, value, value};
+  };
+}
 
 /** @brief Double-precision chart point for the independent intersection oracle. */
 struct ReferencePoint {
@@ -210,7 +221,61 @@ inline void test_radial_surface_descending_root_cancellation() {
   HS_EXPECT_GT(descending, 0);
 }
 
-/** @brief Static and zero-scale intervals retain their solid membership. */
+/** @brief Rotating contour gradients match central differences of arrival fraction. */
+inline void test_radial_surface_fraction_gradient() {
+  ScratchScope scope(scratch_arena_a);
+  Surface surface;
+  std::array<Surface::Knot, 9> knots;
+  for (int i = 0; i <= 8; ++i) {
+    const float radius = i / 8.0f;
+    const float phase = sinf(math::PI_F * radius + .4f);
+    knots[i] = {radius * cosf(phase), radius * sinf(phase), phase};
+  }
+  surface.prepare(scratch_arena_a, 7, .382f, knots);
+  constexpr float STEP = .002f;
+  std::vector<double> errors;
+  auto sample = [&](Surface::Point point) {
+    return surface.sample(point, atan2f(point.y, point.x));
+  };
+  for (int y = -40; y <= 40; ++y)
+    for (int x = -40; x <= 40; ++x) {
+      const Surface::Point point{x * .025f, y * .025f};
+      const auto hit = sample(point);
+      if (!hit.found() || hit.fraction < .1f || hit.fraction > .9f ||
+          fabsf(hit.derivative) < 1e-5f)
+        continue;
+      const std::array adjacent{
+          sample({point.x - STEP, point.y}), sample({point.x + STEP, point.y}),
+          sample({point.x, point.y - STEP}), sample({point.x, point.y + STEP})};
+      if (!std::all_of(adjacent.begin(), adjacent.end(),
+                       [&](const auto &neighbor) {
+                         return neighbor.interval == hit.interval &&
+                                neighbor.edge == hit.edge;
+                       }))
+        continue;
+      const double gx =
+          (adjacent[1].fraction - adjacent[0].fraction) / (2 * STEP);
+      const double gy =
+          (adjacent[3].fraction - adjacent[2].fraction) / (2 * STEP);
+      const double magnitude = std::max(1e-6, std::hypot(gx, gy));
+      errors.push_back(std::hypot(hit.gradient.x - gx, hit.gradient.y - gy) /
+                       magnitude);
+      HS_EXPECT_NEAR(hit.gradient.x, -hit.normal.x / hit.derivative,
+                     1e-5f * std::max(1.0f, fabsf(hit.gradient.x)));
+      HS_EXPECT_NEAR(hit.gradient.y, -hit.normal.y / hit.derivative,
+                     1e-5f * std::max(1.0f, fabsf(hit.gradient.y)));
+    }
+  HS_EXPECT_GT(errors.size(), size_t{100});
+  if (errors.empty())
+    return;
+  std::sort(errors.begin(), errors.end());
+  std::printf("  fraction gradient median %.8g p99 %.8g samples %zu\n",
+              errors[errors.size() / 2], errors[errors.size() * 99 / 100],
+              errors.size());
+  HS_EXPECT_LT(errors[errors.size() / 2], .001);
+}
+
+/** @brief Degenerate intervals retain membership and finite first arrivals. */
 inline void test_radial_surface_degenerate_intervals() {
   ScratchScope scope(scratch_arena_a);
   Surface surface;
@@ -240,6 +305,18 @@ inline void test_radial_surface_degenerate_intervals() {
     HS_EXPECT_GE(hit.fraction, 0.0f);
     HS_EXPECT_LE(hit.fraction, 1.0f);
   }
+  Surface near_corner;
+  constexpr float RADIUS = 1e-13f, PHASE = 1e-20f;
+  const std::array CORNER_KNOTS{
+      Surface::Knot{RADIUS, 0, 0},
+      Surface::Knot{2 * RADIUS, 2 * RADIUS * PHASE, PHASE}};
+  near_corner.prepare(scratch_arena_a, 7, .382f, CORNER_KNOTS);
+  const auto corner_hit =
+      near_corner.sample<false, true, false>({1.5f * RADIUS, 0}, 0);
+  HS_EXPECT_TRUE(corner_hit.found());
+  HS_EXPECT_TRUE(std::isfinite(corner_hit.fraction));
+  HS_EXPECT_GE(corner_hit.fraction, 0.0f);
+  HS_EXPECT_LE(corner_hit.fraction, 1.0f);
 }
 
 /** @brief Coarse rejection retains fine radial bulges and intersecting disks. */
@@ -343,7 +420,8 @@ inline void test_radial_surface_matches_all_edges() {
               static_cast<unsigned long long>(bounded_checks),
               static_cast<unsigned long long>(bounded_skipped),
               static_cast<unsigned long long>(bounded_fine));
-  HS_EXPECT_GT(skipped, 0u);
+  HS_EXPECT_GE(skipped, uint64_t{93000});
+  HS_EXPECT_LT(bounded_fine, fine_visits);
 }
 
 /** @brief Chart-angle error across the float range and octant boundaries. */
@@ -491,10 +569,7 @@ inline void test_radial_surface_edge_aa() {
   double aa_error = 0, point_error = 0;
   float worst_error = 0, worst_x = 0, worst_y = 0;
   uint32_t worse = 0;
-  auto shade = [](const Surface::Hit &hit) {
-    const float Q = (hit.interval + hit.fraction) / N;
-    return Scan::SurfaceColor{Q, Q, Q};
-  };
+  const auto shade = arrival_ramp(N);
   for (int x = -20; x <= 20; ++x)
     for (int y = -20; y <= 20; ++y) {
       const Surface::Point P{x * .05f, y * .05f};
@@ -548,14 +623,18 @@ inline void test_radial_surface_fold_visibility() {
   Surface surface;
   surface.bind(scratch_arena_a, 7, .382f, N);
   auto *knots = scratch_arena_a.allocate_n<Surface::Knot>(N + 1);
+  constexpr float DENSITY_FLOOR = .5f;
+  constexpr float BREAK_ANGLE = math::PI_F / 6;
+  constexpr float DENSITY_INTEGRAL = 1.1278247916f;
+  constexpr float BREAK_QUANTILE =
+      DENSITY_FLOOR * BREAK_ANGLE / DENSITY_INTEGRAL;
   uint32_t segments = 0, visible = 0;
   float longest = 0, max_gap = 0;
   for (int phase = 0; phase < 64; ++phase) {
     for (int i = 0; i <= N; ++i) {
       const float U = float(i) / N;
-      const float R = U < (.5f * math::PI_F / 6 / 1.1278247916f)
-                          ? 2 * U * 1.1278247916f
-                          : acosf(1.1278247916f * (1 - U));
+      const float R = U < BREAK_QUANTILE ? U * DENSITY_INTEGRAL / DENSITY_FLOOR
+                                         : acosf(DENSITY_INTEGRAL * (1 - U));
       const float P = sinf(math::PI_F * U + phase * math::TWO_PI_F / 64);
       knots[i] = {R * cosf(P), R * sinf(P), P};
     }
@@ -610,124 +689,77 @@ inline void test_radial_surface_fold_visibility() {
 inline void test_radial_surface_fixture_edge_trace() {
   ScratchScope scope(scratch_arena_a);
   const std::array KNOTS{
-      Surface::Knot{float(0), float(0), float(0.72896862)},
-      Surface::Knot{float(0.0270809401), float(0.0225565769), float(0.6945014)},
-      Surface::Knot{float(0.0557565615), float(0.0431266911),
-                    float(0.658361077)},
-      Surface::Knot{float(0.0860152766), float(0.0614895262),
-                    float(0.620634735)},
-      Surface::Knot{float(0.117813617), float(0.0774259195), float(0.58141315)},
-      Surface::Knot{float(0.151075974), float(0.0907218978),
-                    float(0.540790915)},
-      Surface::Knot{float(0.185694739), float(0.101172216), float(0.498865962)},
-      Surface::Knot{float(0.221531272), float(0.108584233), float(0.455739081)},
-      Surface::Knot{float(0.258417428), float(0.1127818), float(0.411514282)},
-      Surface::Knot{float(0.296157509), float(0.113609128), float(0.366298229)},
-      Surface::Knot{float(0.334531397), float(0.110934265), float(0.320199609)},
-      Surface::Knot{float(0.373297751), float(0.104652569), float(0.273329675)},
-      Surface::Knot{float(0.412198186), float(0.0946896374), float(0.2258012)},
-      Surface::Knot{float(0.45096156), float(0.0810035169), float(0.177728802)},
-      Surface::Knot{float(0.489308983), float(0.0635868534),
-                    float(0.129228204)},
-      Surface::Knot{float(0.526937485), float(0.0424659103),
-                    float(0.0804163814)},
-      Surface::Knot{float(0.562327325), float(0.0176688246),
-                    float(0.0314107239)},
-      Surface::Knot{float(0.594732523), float(-0.0105103729),
-                    float(-0.0176706016)},
-      Surface::Knot{float(0.624187768), float(-0.0417007692),
-                    float(-0.0667092502)},
-      Surface::Knot{float(0.650704622), float(-0.0755498782),
-                    float(-0.115587324)},
-      Surface::Knot{float(0.67428875), float(-0.111715004),
-                    float(-0.164186954)},
-      Surface::Knot{float(0.694952309), float(-0.149861753),
-                    float(-0.212390959)},
-      Surface::Knot{float(0.712721169), float(-0.189662695),
-                    float(-0.260083288)},
-      Surface::Knot{float(0.72764045), float(-0.230797902),
-                    float(-0.307149023)},
-      Surface::Knot{float(0.739777207), float(-0.272956789),
-                    float(-0.353474855)},
-      Surface::Knot{float(0.749223769), float(-0.315839022),
-                    float(-0.398949146)},
-      Surface::Knot{float(0.756096363), float(-0.359158784),
-                    float(-0.443462372)},
-      Surface::Knot{float(0.760536909), float(-0.402644694),
-                    float(-0.486907214)},
-      Surface::Knot{float(0.762710333), float(-0.446044207),
-                    float(-0.529179096)},
-      Surface::Knot{float(0.762804151), float(-0.489122957),
-                    float(-0.570176005)},
-      Surface::Knot{float(0.761025906), float(-0.531668007),
-                    float(-0.609799385)},
-      Surface::Knot{float(0.757600129), float(-0.573488235),
-                    float(-0.647953749)},
-      Surface::Knot{float(0.75276643), float(-0.61441505), float(-0.684547186)},
-      Surface::Knot{float(0.746776521), float(-0.654302001),
-                    float(-0.719491422)},
-      Surface::Knot{float(0.739891231), float(-0.69302398),
-                    float(-0.752702296)},
-      Surface::Knot{float(0.732377052), float(-0.730477929),
-                    float(-0.784099877)},
-      Surface::Knot{float(0.724504232), float(-0.766579449),
-                    float(-0.813608468)},
-      Surface::Knot{float(0.716543794), float(-0.801262558),
-                    float(-0.841157019)},
-      Surface::Knot{float(0.708764195), float(-0.834477246),
-                    float(-0.866679192)},
-      Surface::Knot{float(0.7014305), float(-0.86618638), float(-0.890113413)},
-      Surface::Knot{float(0.69480139), float(-0.896364093),
-                    float(-0.911403358)},
-      Surface::Knot{float(0.689127088), float(-0.924992561),
-                    float(-0.930497527)},
-      Surface::Knot{float(0.684648991), float(-0.952058792),
-                    float(-0.947350144)},
-      Surface::Knot{float(0.681596339), float(-0.977553189),
-                    float(-0.961920381)},
-      Surface::Knot{float(0.680185676), float(-1.00146544),
-                    float(-0.974173427)},
-      Surface::Knot{float(0.68062067), float(-1.0237813), float(-0.984079599)},
-      Surface::Knot{float(0.68309021), float(-1.04448164), float(-0.991614938)},
-      Surface::Knot{float(0.687765598), float(-1.06353951),
-                    float(-0.996761382)},
-      Surface::Knot{float(0.694802642), float(-1.08091712),
-                    float(-0.999506593)},
-      Surface::Knot{float(0.704337895), float(-1.09656513),
-                    float(-0.999843895)},
-      Surface::Knot{float(0.716490448), float(-1.11041999),
-                    float(-0.997772455)},
-      Surface::Knot{float(0.731357992), float(-1.12240326),
-                    float(-0.993297338)},
-      Surface::Knot{float(0.749015927), float(-1.13242221),
-                    float(-0.986429214)},
-      Surface::Knot{float(0.769518554), float(-1.14036703),
-                    float(-0.977184832)},
-      Surface::Knot{float(0.792895377), float(-1.14611232),
-                    float(-0.965586185)},
-      Surface::Knot{float(0.819150507), float(-1.14951777),
-                    float(-0.951661408)},
-      Surface::Knot{float(0.848262131), float(-1.15042794),
-                    float(-0.935443997)},
-      Surface::Knot{float(0.880178809), float(-1.1486764), float(-0.916973054)},
-      Surface::Knot{float(0.914821804), float(-1.14408469),
-                    float(-0.896293044)},
-      Surface::Knot{float(0.95208174), float(-1.1364665), float(-0.873453617)},
-      Surface::Knot{float(0.991816998), float(-1.12563121),
-                    float(-0.848510206)},
-      Surface::Knot{float(1.03385639), float(-1.11138487), float(-0.821522474)},
-      Surface::Knot{float(1.07799459), float(-1.09353769), float(-0.792555749)},
-      Surface::Knot{float(1.12399709), float(-1.07190359), float(-0.76167953)},
-      Surface::Knot{float(1.171597), float(-1.0463084), float(-0.728968561)}};
+      Surface::Knot{float(0), float(0), 0.72896862f},
+      Surface::Knot{0.0270809401f, 0.0225565769f, 0.6945014f},
+      Surface::Knot{0.0557565615f, 0.0431266911f, 0.658361077f},
+      Surface::Knot{0.0860152766f, 0.0614895262f, 0.620634735f},
+      Surface::Knot{0.117813617f, 0.0774259195f, 0.58141315f},
+      Surface::Knot{0.151075974f, 0.0907218978f, 0.540790915f},
+      Surface::Knot{0.185694739f, 0.101172216f, 0.498865962f},
+      Surface::Knot{0.221531272f, 0.108584233f, 0.455739081f},
+      Surface::Knot{0.258417428f, 0.1127818f, 0.411514282f},
+      Surface::Knot{0.296157509f, 0.113609128f, 0.366298229f},
+      Surface::Knot{0.334531397f, 0.110934265f, 0.320199609f},
+      Surface::Knot{0.373297751f, 0.104652569f, 0.273329675f},
+      Surface::Knot{0.412198186f, 0.0946896374f, 0.2258012f},
+      Surface::Knot{0.45096156f, 0.0810035169f, 0.177728802f},
+      Surface::Knot{0.489308983f, 0.0635868534f, 0.129228204f},
+      Surface::Knot{0.526937485f, 0.0424659103f, 0.0804163814f},
+      Surface::Knot{0.562327325f, 0.0176688246f, 0.0314107239f},
+      Surface::Knot{0.594732523f, -0.0105103729f, -0.0176706016f},
+      Surface::Knot{0.624187768f, -0.0417007692f, -0.0667092502f},
+      Surface::Knot{0.650704622f, -0.0755498782f, -0.115587324f},
+      Surface::Knot{0.67428875f, -0.111715004f, -0.164186954f},
+      Surface::Knot{0.694952309f, -0.149861753f, -0.212390959f},
+      Surface::Knot{0.712721169f, -0.189662695f, -0.260083288f},
+      Surface::Knot{0.72764045f, -0.230797902f, -0.307149023f},
+      Surface::Knot{0.739777207f, -0.272956789f, -0.353474855f},
+      Surface::Knot{0.749223769f, -0.315839022f, -0.398949146f},
+      Surface::Knot{0.756096363f, -0.359158784f, -0.443462372f},
+      Surface::Knot{0.760536909f, -0.402644694f, -0.486907214f},
+      Surface::Knot{0.762710333f, -0.446044207f, -0.529179096f},
+      Surface::Knot{0.762804151f, -0.489122957f, -0.570176005f},
+      Surface::Knot{0.761025906f, -0.531668007f, -0.609799385f},
+      Surface::Knot{0.757600129f, -0.573488235f, -0.647953749f},
+      Surface::Knot{0.75276643f, -0.61441505f, -0.684547186f},
+      Surface::Knot{0.746776521f, -0.654302001f, -0.719491422f},
+      Surface::Knot{0.739891231f, -0.69302398f, -0.752702296f},
+      Surface::Knot{0.732377052f, -0.730477929f, -0.784099877f},
+      Surface::Knot{0.724504232f, -0.766579449f, -0.813608468f},
+      Surface::Knot{0.716543794f, -0.801262558f, -0.841157019f},
+      Surface::Knot{0.708764195f, -0.834477246f, -0.866679192f},
+      Surface::Knot{0.7014305f, -0.86618638f, -0.890113413f},
+      Surface::Knot{0.69480139f, -0.896364093f, -0.911403358f},
+      Surface::Knot{0.689127088f, -0.924992561f, -0.930497527f},
+      Surface::Knot{0.684648991f, -0.952058792f, -0.947350144f},
+      Surface::Knot{0.681596339f, -0.977553189f, -0.961920381f},
+      Surface::Knot{0.680185676f, -1.00146544f, -0.974173427f},
+      Surface::Knot{0.68062067f, -1.0237813f, -0.984079599f},
+      Surface::Knot{0.68309021f, -1.04448164f, -0.991614938f},
+      Surface::Knot{0.687765598f, -1.06353951f, -0.996761382f},
+      Surface::Knot{0.694802642f, -1.08091712f, -0.999506593f},
+      Surface::Knot{0.704337895f, -1.09656513f, -0.999843895f},
+      Surface::Knot{0.716490448f, -1.11041999f, -0.997772455f},
+      Surface::Knot{0.731357992f, -1.12240326f, -0.993297338f},
+      Surface::Knot{0.749015927f, -1.13242221f, -0.986429214f},
+      Surface::Knot{0.769518554f, -1.14036703f, -0.977184832f},
+      Surface::Knot{0.792895377f, -1.14611232f, -0.965586185f},
+      Surface::Knot{0.819150507f, -1.14951777f, -0.951661408f},
+      Surface::Knot{0.848262131f, -1.15042794f, -0.935443997f},
+      Surface::Knot{0.880178809f, -1.1486764f, -0.916973054f},
+      Surface::Knot{0.914821804f, -1.14408469f, -0.896293044f},
+      Surface::Knot{0.95208174f, -1.1364665f, -0.873453617f},
+      Surface::Knot{0.991816998f, -1.12563121f, -0.848510206f},
+      Surface::Knot{1.03385639f, -1.11138487f, -0.821522474f},
+      Surface::Knot{1.07799459f, -1.09353769f, -0.792555749f},
+      Surface::Knot{1.12399709f, -1.07190359f, -0.76167953f},
+      Surface::Knot{1.171597f, -1.0463084f, -0.728968561f}};
   Surface surface;
   surface.prepare(scratch_arena_a, 7, .382f, KNOTS);
   const Surface::Point P{-.435921282f, -.661391735f},
       DX{.0171549805f, -.00341231585f}, DY{.00249151839f, .0213687979f};
   Scan::RadialSurfaceEdgeAA<Surface> aa;
-  auto shade = [](const Surface::Hit &h) {
-    const float Q = (h.interval + h.fraction) / 64;
-    return Scan::SurfaceColor{Q, Q, Q};
-  };
+  const auto shade = arrival_ramp(64);
   const auto result = aa.sample(surface, P, DX, DY, -2.15354013f, 23, shade);
   const auto zero = aa.sample(surface, P, DX, DY, -2.15354013f, 0, shade);
   const float RADIUS = sqrtf(P.x * P.x + P.y * P.y);
@@ -764,7 +796,12 @@ inline void test_radial_surface_edge_pair_corner() {
   const float INNER = .382f * sqrtf(.5f);
   const float HALF_PLANE = .5f + .02f * INNER / (.1f * (1 - INNER));
   HS_EXPECT_EQ(stats.clips, 1u);
-  HS_EXPECT_NEAR(color.r, HALF_PLANE * HALF_PLANE, 2e-6);
+  const auto shade = [](const auto &) { return Scan::SurfaceColor{1, 1, 1}; };
+  const double reference =
+      area_reference(surface, {.98f, 0}, {.1f, 0}, {0, .1f}, 128, shade);
+  std::printf("  terminal corner coverage %.6f area %.6f\n", color.r,
+              reference);
+  HS_EXPECT_NEAR(color.r, reference, .16);
   HS_EXPECT_LT(color.r, HALF_PLANE - .1f);
 }
 
@@ -786,10 +823,7 @@ inline void check_terminal_overlap(std::span<const Surface::Knot> knots,
   Surface surface;
   surface.prepare(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, knots);
   Scan::RadialSurfaceEdgeAA<Surface> aa;
-  const auto shade = [&](const Surface::Hit &h) {
-    const float Q = (h.interval + h.fraction) / (knots.size() - 1);
-    return Scan::SurfaceColor{Q, Q, Q};
-  };
+  const auto shade = arrival_ramp(static_cast<int>(knots.size() - 1));
   Scan::SurfaceAreaStats stats;
   const auto result =
       aa.sample(surface, p, dx, dy, theta, lower_bound, shade, &stats);
@@ -804,172 +838,102 @@ inline void check_terminal_overlap(std::span<const Surface::Knot> knots,
 inline void test_radial_surface_terminal_background() {
   {
     const std::array KNOTS{
-        Surface::Knot{float(0), float(0), float(0.72896862)},
-        Surface::Knot{float(0.075755164), float(0.0556274317),
-                      float(0.63338083)},
-        Surface::Knot{float(0.162471071), float(0.0945313275),
-                      float(0.526955783)},
-        Surface::Knot{float(0.258417428), float(0.1127818), float(0.411514282)},
-        Surface::Knot{float(0.360347688), float(0.107152462),
-                      float(0.289031774)},
-        Surface::Knot{float(0.463804126), float(0.075611867),
-                      float(0.161603808)},
-        Surface::Knot{float(0.562327325), float(0.0176688246),
-                      float(0.0314107239)},
-        Surface::Knot{float(0.642191768), float(-0.0639929622),
-                      float(-0.099319756)},
-        Surface::Knot{float(0.70119518), float(-0.162961051),
-                      float(-0.228350967)},
-        Surface::Knot{float(0.739777207), float(-0.272956789),
-                      float(-0.353474855)},
-        Surface::Knot{float(0.75931716), float(-0.388147056),
-                      float(-0.47255075)},
-        Surface::Knot{float(0.762408674), float(-0.503373921),
-                      float(-0.583541274)},
-        Surface::Knot{float(0.75276643), float(-0.61441505),
-                      float(-0.684547186)},
-        Surface::Knot{float(0.734934986), float(-0.718139827),
-                      float(-0.773840308)},
-        Surface::Knot{float(0.713917315), float(-0.812499404),
-                      float(-0.849892735)},
-        Surface::Knot{float(0.69480139), float(-0.896364093),
-                      float(-0.911403358)},
-        Surface::Knot{float(0.682441533), float(-0.969230711),
-                      float(-0.957319498)},
-        Surface::Knot{float(0.681209445), float(-1.03086174),
-                      float(-0.986855686)},
-        Surface::Knot{float(0.694802642), float(-1.08091712),
-                      float(-0.999506593)},
-        Surface::Knot{float(0.7260952), float(-1.11862218),
-                      float(-0.995055556)},
-        Surface::Knot{float(0.776990771), float(-1.14253318),
-                      float(-0.97357893)},
-        Surface::Knot{float(0.848262131), float(-1.15042794),
-                      float(-0.935443997)},
-        Surface::Knot{float(0.939379215), float(-1.13935375),
-                      float(-0.88130337)},
-        Surface::Knot{float(1.04834688), float(-1.10584521),
-                      float(-0.812083423)},
-        Surface::Knot{float(1.171597), float(-1.0463084), float(-0.728968561)}};
-    const Surface::Point P{float(0.126707062), float(-0.879523873)};
-    const Surface::Point DX{float(0.0154463407), float(-0.00674017007)};
-    const Surface::Point DY{float(0.0113697099), float(0.0190199912)};
-    check_terminal_overlap(KNOTS, P, DX, DY, float(-1.42771757), 10, 0.08,
-                           "20,34");
+        Surface::Knot{float(0), float(0), 0.72896862f},
+        Surface::Knot{0.075755164f, 0.0556274317f, 0.63338083f},
+        Surface::Knot{0.162471071f, 0.0945313275f, 0.526955783f},
+        Surface::Knot{0.258417428f, 0.1127818f, 0.411514282f},
+        Surface::Knot{0.360347688f, 0.107152462f, 0.289031774f},
+        Surface::Knot{0.463804126f, 0.075611867f, 0.161603808f},
+        Surface::Knot{0.562327325f, 0.0176688246f, 0.0314107239f},
+        Surface::Knot{0.642191768f, -0.0639929622f, -0.099319756f},
+        Surface::Knot{0.70119518f, -0.162961051f, -0.228350967f},
+        Surface::Knot{0.739777207f, -0.272956789f, -0.353474855f},
+        Surface::Knot{0.75931716f, -0.388147056f, -0.47255075f},
+        Surface::Knot{0.762408674f, -0.503373921f, -0.583541274f},
+        Surface::Knot{0.75276643f, -0.61441505f, -0.684547186f},
+        Surface::Knot{0.734934986f, -0.718139827f, -0.773840308f},
+        Surface::Knot{0.713917315f, -0.812499404f, -0.849892735f},
+        Surface::Knot{0.69480139f, -0.896364093f, -0.911403358f},
+        Surface::Knot{0.682441533f, -0.969230711f, -0.957319498f},
+        Surface::Knot{0.681209445f, -1.03086174f, -0.986855686f},
+        Surface::Knot{0.694802642f, -1.08091712f, -0.999506593f},
+        Surface::Knot{0.7260952f, -1.11862218f, -0.995055556f},
+        Surface::Knot{0.776990771f, -1.14253318f, -0.97357893f},
+        Surface::Knot{0.848262131f, -1.15042794f, -0.935443997f},
+        Surface::Knot{0.939379215f, -1.13935375f, -0.88130337f},
+        Surface::Knot{1.04834688f, -1.10584521f, -0.812083423f},
+        Surface::Knot{1.171597f, -1.0463084f, -0.728968561f}};
+    const Surface::Point P{0.126707062f, -0.879523873f};
+    const Surface::Point DX{0.0154463407f, -0.00674017007f};
+    const Surface::Point DY{0.0113697099f, 0.0190199912f};
+    check_terminal_overlap(KNOTS, P, DX, DY, -1.42771757f, 10, 0.08,
+                           "folded terminal overlap");
   }
   {
     const std::array KNOTS{
-        Surface::Knot{float(0), float(0), float(0.368096858)},
-        Surface::Knot{float(0.0912108868), float(0.0226678196),
-                      float(0.243586123)},
-        Surface::Knot{float(0.186731219), float(0.0215517394),
-                      float(0.114907548)},
-        Surface::Knot{float(0.281921297), float(-0.00443695905),
-                      float(-0.0157371461)},
-        Surface::Knot{float(0.371935785), float(-0.0547344834),
-                      float(-0.146112502)},
-        Surface::Knot{float(0.452398509), float(-0.127149373),
-                      float(-0.273987889)},
-        Surface::Knot{float(0.518810213), float(-0.217624038),
-                      float(-0.397175252)},
-        Surface::Knot{float(0.562117755), float(-0.317063063),
-                      float(-0.513566792)},
-        Surface::Knot{float(0.58540678), float(-0.418962836),
-                      float(-0.621171176)},
-        Surface::Knot{float(0.593782067), float(-0.518843412),
-                      float(-0.718147039)},
-        Surface::Knot{float(0.592395544), float(-0.613423228),
-                      float(-0.802835226)},
-        Surface::Knot{float(0.586460471), float(-0.700511515),
-                      float(-0.873786807)},
-        Surface::Knot{float(0.581069171), float(-0.778795123),
-                      float(-0.929787457)},
-        Surface::Knot{float(0.580974758), float(-0.847539246),
-                      float(-0.969879329)},
-        Surface::Knot{float(0.590400279), float(-0.906234384),
-                      float(-0.993376136)},
-        Surface::Knot{float(0.612883449), float(-0.954249144),
-                      float(-0.999876201)},
-        Surface::Knot{float(0.651133478), float(-0.99053508),
-                      float(-0.989267945)},
-        Surface::Knot{float(0.706889272), float(-1.01342487),
-                      float(-0.961733162)},
-        Surface::Knot{float(0.780762732), float(-1.02055955),
-                      float(-0.917742789)},
-        Surface::Knot{float(0.872070372), float(-1.00897121),
-                      float(-0.858049512)},
-        Surface::Knot{float(0.978691936), float(-0.975324929),
-                      float(-0.783675015)},
-        Surface::Knot{float(1.09699905), float(-0.916311085),
-                      float(-0.695891261)},
-        Surface::Knot{float(1.22190893), float(-0.829155505),
-                      float(-0.596200883)},
-        Surface::Knot{float(1.34712458), float(-0.712165892),
-                      float(-0.48630923)},
-        Surface::Knot{float(1.46557486), float(-0.565235972),
-                      float(-0.368096769)}};
-    const Surface::Point P{float(-0.349607706), float(-0.830267727)};
-    const Surface::Point DX{float(0.0242360439), float(0.00149365724)};
-    const Surface::Point DY{float(-0.00394339021), float(0.0215454288)};
-    check_terminal_overlap(KNOTS, P, DX, DY, float(-1.96934056), 10, 0.13,
-                           "53,74");
+        Surface::Knot{float(0), float(0), 0.368096858f},
+        Surface::Knot{0.0912108868f, 0.0226678196f, 0.243586123f},
+        Surface::Knot{0.186731219f, 0.0215517394f, 0.114907548f},
+        Surface::Knot{0.281921297f, -0.00443695905f, -0.0157371461f},
+        Surface::Knot{0.371935785f, -0.0547344834f, -0.146112502f},
+        Surface::Knot{0.452398509f, -0.127149373f, -0.273987889f},
+        Surface::Knot{0.518810213f, -0.217624038f, -0.397175252f},
+        Surface::Knot{0.562117755f, -0.317063063f, -0.513566792f},
+        Surface::Knot{0.58540678f, -0.418962836f, -0.621171176f},
+        Surface::Knot{0.593782067f, -0.518843412f, -0.718147039f},
+        Surface::Knot{0.592395544f, -0.613423228f, -0.802835226f},
+        Surface::Knot{0.586460471f, -0.700511515f, -0.873786807f},
+        Surface::Knot{0.581069171f, -0.778795123f, -0.929787457f},
+        Surface::Knot{0.580974758f, -0.847539246f, -0.969879329f},
+        Surface::Knot{0.590400279f, -0.906234384f, -0.993376136f},
+        Surface::Knot{0.612883449f, -0.954249144f, -0.999876201f},
+        Surface::Knot{0.651133478f, -0.99053508f, -0.989267945f},
+        Surface::Knot{0.706889272f, -1.01342487f, -0.961733162f},
+        Surface::Knot{0.780762732f, -1.02055955f, -0.917742789f},
+        Surface::Knot{0.872070372f, -1.00897121f, -0.858049512f},
+        Surface::Knot{0.978691936f, -0.975324929f, -0.783675015f},
+        Surface::Knot{1.09699905f, -0.916311085f, -0.695891261f},
+        Surface::Knot{1.22190893f, -0.829155505f, -0.596200883f},
+        Surface::Knot{1.34712458f, -0.712165892f, -0.48630923f},
+        Surface::Knot{1.46557486f, -0.565235972f, -0.368096769f}};
+    const Surface::Point P{-0.349607706f, -0.830267727f};
+    const Surface::Point DX{0.0242360439f, 0.00149365724f};
+    const Surface::Point DY{-0.00394339021f, 0.0215454288f};
+    check_terminal_overlap(KNOTS, P, DX, DY, -1.96934056f, 10, 0.13,
+                           "rotated terminal overlap");
   }
   {
-    const std::array KNOTS{Surface::Knot{float(0), float(0), float(0.99361074)},
-                           Surface::Knot{float(0.0507930592),
-                                         float(0.0790779442),
-                                         float(0.99984163)},
-                           Surface::Knot{float(0.103300296), float(0.157041624),
-                                         float(0.988964915)},
-                           Surface::Knot{float(0.161437929), float(0.231164649),
-                                         float(0.961166739)},
-                           Surface::Knot{float(0.228672355), float(0.298397481),
-                                         float(0.916922748)},
-                           Surface::Knot{float(0.307668567), float(0.355206162),
-                                         float(0.85698998)},
-                           Surface::Knot{float(0.399015129), float(0.396624714),
-                                         float(0.782393813)},
-                           Surface::Knot{float(0.495923966), float(0.412994742),
-                                         float(0.694410741)},
-                           Surface::Knot{float(0.596352816), float(0.403229833),
-                                         float(0.59454608)},
-                           Surface::Knot{float(0.697771132), float(0.367275268),
-                                         float(0.484508574)},
-                           Surface::Knot{float(0.796234846), float(0.305336982),
-                                         float(0.366181046)},
-                           Surface::Knot{float(0.887061715), float(0.218572244),
-                                         float(0.241587907)},
-                           Surface::Knot{float(0.965498745), float(0.109432288),
-                                         float(0.112861246)},
-                           Surface::Knot{float(1.027385), float(-0.0182857905),
-                                         float(-0.0177966207)},
-                           Surface::Knot{float(1.06974053), float(-0.159651712),
-                                         float(-0.148149729)},
-                           Surface::Knot{float(1.09120262), float(-0.309022009),
-                                         float(-0.275968194)},
-                           Surface::Knot{float(1.09224212), float(-0.460588574),
-                                         float(-0.39906469)},
-                           Surface::Knot{float(1.07513607), float(-0.608937204),
-                                         float(-0.515332997)},
-                           Surface::Knot{float(1.04372191), float(-0.749517918),
-                                         float(-0.622783899)},
-                           Surface::Knot{float(1.00298965), float(-0.878943443),
-                                         float(-0.719578981)},
-                           Surface::Knot{float(0.95860666), float(-0.995072722),
-                                         float(-0.804061472)},
-                           Surface::Knot{float(0.916440845), float(-1.09689069),
-                                         float(-0.874786615)},
-                           Surface::Knot{float(0.882160842), float(-1.1842097),
-                                         float(-0.930543721)},
-                           Surface::Knot{float(0.860919476), float(-1.25727582),
-                                         float(-0.970378935)},
-                           Surface::Knot{float(0.857132673), float(-1.31633019),
-                                         float(-0.99361074)}};
-    const Surface::Point P{float(0.851393998), float(0.705435812)};
-    const Surface::Point DX{float(0.0215828046), float(-0.0114967246)};
-    const Surface::Point DY{float(0.0069451537), float(0.0210930854)};
-    check_terminal_overlap(KNOTS, P, DX, DY, float(0.691918015), 13, 0.04,
-                           "89,88");
+    const std::array KNOTS{
+        Surface::Knot{float(0), float(0), 0.99361074f},
+        Surface::Knot{0.0507930592f, 0.0790779442f, 0.99984163f},
+        Surface::Knot{0.103300296f, 0.157041624f, 0.988964915f},
+        Surface::Knot{0.161437929f, 0.231164649f, 0.961166739f},
+        Surface::Knot{0.228672355f, 0.298397481f, 0.916922748f},
+        Surface::Knot{0.307668567f, 0.355206162f, 0.85698998f},
+        Surface::Knot{0.399015129f, 0.396624714f, 0.782393813f},
+        Surface::Knot{0.495923966f, 0.412994742f, 0.694410741f},
+        Surface::Knot{0.596352816f, 0.403229833f, 0.59454608f},
+        Surface::Knot{0.697771132f, 0.367275268f, 0.484508574f},
+        Surface::Knot{0.796234846f, 0.305336982f, 0.366181046f},
+        Surface::Knot{0.887061715f, 0.218572244f, 0.241587907f},
+        Surface::Knot{0.965498745f, 0.109432288f, 0.112861246f},
+        Surface::Knot{1.027385f, -0.0182857905f, -0.0177966207f},
+        Surface::Knot{1.06974053f, -0.159651712f, -0.148149729f},
+        Surface::Knot{1.09120262f, -0.309022009f, -0.275968194f},
+        Surface::Knot{1.09224212f, -0.460588574f, -0.39906469f},
+        Surface::Knot{1.07513607f, -0.608937204f, -0.515332997f},
+        Surface::Knot{1.04372191f, -0.749517918f, -0.622783899f},
+        Surface::Knot{1.00298965f, -0.878943443f, -0.719578981f},
+        Surface::Knot{0.95860666f, -0.995072722f, -0.804061472f},
+        Surface::Knot{0.916440845f, -1.09689069f, -0.874786615f},
+        Surface::Knot{0.882160842f, -1.1842097f, -0.930543721f},
+        Surface::Knot{0.860919476f, -1.25727582f, -0.970378935f},
+        Surface::Knot{0.857132673f, -1.31633019f, -0.99361074f}};
+    const Surface::Point P{0.851393998f, 0.705435812f};
+    const Surface::Point DX{0.0215828046f, -0.0114967246f};
+    const Surface::Point DY{0.0069451537f, 0.0210930854f};
+    check_terminal_overlap(KNOTS, P, DX, DY, 0.691918015f, 13, 0.04,
+                           "offset terminal overlap");
   }
 }
 
@@ -1026,10 +990,7 @@ inline void test_radial_surface_hidden_terminal() {
         reference += 1 - HIT / 24;
       }
     reference /= 256;
-    auto shade = [](const Surface::Hit &hit) {
-      const float C = 1 - (hit.interval + hit.fraction) / 24;
-      return Scan::SurfaceColor{C, C, C};
-    };
+    const auto shade = arrival_ramp(24, true);
     Scan::SurfaceAreaStats stats;
     int calls = 0;
     const float THETA = Scan::radial_atan2(P.y, P.x);
@@ -1091,10 +1052,7 @@ inline void test_radial_surface_footprint_colours() {
   const Surface::Point P{-.700527012f, -.636006296f};
   const Surface::Point DX{.00336223631f, .00599108543f};
   const Surface::Point DY{-.0201944206f, .0136090377f};
-  auto shade = [](const Surface::Hit &hit) {
-    const float C = 1 - (hit.interval + hit.fraction) / 24;
-    return Scan::SurfaceColor{C, C, C};
-  };
+  const auto shade = arrival_ramp(24, true);
   double minimum = 1;
   for (int y = 0; y <= 64; ++y)
     for (int x = 0; x <= 64; ++x) {
@@ -1118,6 +1076,7 @@ inline void test_radial_surface_footprint_colours() {
 inline void run_radial_surface_checks() {
   HS_RUN(test_radial_surface_tip_sweep);
   HS_RUN(test_radial_surface_descending_root_cancellation);
+  HS_RUN(test_radial_surface_fraction_gradient);
   HS_RUN(test_radial_surface_degenerate_intervals);
   HS_RUN(test_radial_surface_block_bounds);
   HS_RUN(test_radial_surface_matches_all_edges);

@@ -261,13 +261,14 @@ inline void check_affine_lattice_windings() {
     for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
       const auto sampled = interval.at(fraction);
       const auto &sampled_clock = sampled.resources.template get<"probe">();
-      HS_EXPECT_NEAR(math::wrap_t(sampled_clock.phase),
-                     math::wrap_t(start.phase + direction * 0.002f * fraction),
+      const float PHASE = start.phase + direction * 0.002f * fraction;
+      HS_EXPECT_NEAR(remainderf(sampled_clock.phase - PHASE, 1.0f), 0.0f,
                      2e-7f);
-      const auto expected =
-          math::wrap_t((start.rotation + 0.002f * fraction) / math::TWO_PI_F);
-      HS_EXPECT_NEAR(math::wrap_t(sampled_clock.rotation / math::TWO_PI_F),
-                     expected, 2e-7f);
+      const float ROTATION = start.rotation + 0.002f * fraction;
+      HS_EXPECT_NEAR(
+          remainderf((sampled_clock.rotation - ROTATION) / math::TWO_PI_F,
+                     1.0f),
+          0.0f, 2e-7f);
       HS_EXPECT_NEAR(sampled.params.template get<"probe">().translation_x,
                      fraction < 1.0f ? 1.0f : -2.0f, 0.0f);
     }
@@ -513,9 +514,6 @@ inline void test_authored_sample_crossing() {
   HS_EXPECT_FALSE(Pullback::valid(params));
   params.coverage_mode = 4;
   HS_EXPECT_TRUE(Pullback::valid(params));
-  Pullback::Source::AuthoredTwinWaveSampleParams waves{};
-  waves.secondary_rate = 1.8f;
-  HS_EXPECT_TRUE(Pullback::valid(waves));
 }
 
 /** @brief Static squared edge fade squares coverage without changing source weights. */
@@ -563,6 +561,13 @@ inline void test_authored_transfer_catalog_parity() {
                        Op::TransferRidge::run(input, {}, {}, {}).value, 1e-6f);
       }
     }
+}
+
+/** @brief Authored twin-wave samples admit the supported secondary rate. */
+inline void test_authored_twin_wave_sample_admission() {
+  Pullback::Source::AuthoredTwinWaveSampleParams waves{};
+  waves.secondary_rate = 1.8f;
+  HS_EXPECT_TRUE(Pullback::valid(waves));
 }
 
 } // namespace hs_test::catalog_policy_tests

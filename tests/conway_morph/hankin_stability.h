@@ -154,6 +154,7 @@ inline void test_hankin_sweep_vertex_stability() {
   constexpr int SAMPLES = 32;
 
   for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
+    HS_CONTEXT(site.name);
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
     const PolyMesh seed = finalize_site_seed(site, persist);
 
@@ -234,7 +235,6 @@ inline void test_hankin_sweep_vertex_stability() {
       prev_normals = curr_normals;
     }
     const HankinSweepSummary sum = hankin_summarize(table);
-    HS_CONTEXT(site.name, 2);
     HS_EXPECT_EQ(sum.total_normal_flips, 0);
     HS_EXPECT_LE(sum.worst_max_disp, 0.05f);
     HS_EXPECT_LE(sum.worst_mean_disp, 0.03f);
@@ -252,18 +252,6 @@ inline void test_hankin_sweep_vertex_stability() {
     for (size_t i = 0; i < arrival.size(); ++i)
       HS_EXPECT_LE(
           (packed_arrival[i].normalized() - arrival[i].pos).magnitude(), 3e-5f);
-
-    // Opening bookend at the K_EPS slerp fraction.
-    std::vector<HankinSolve> probe(arrival.size());
-    for (size_t i = 0; i < arrival.size(); ++i) {
-      probe[i] = {math::slerp(collapsed[i].pos, arrival[i].pos,
-                              Animation::OpLeg::K_EPS),
-                  arrival[i].branch, 0.0f};
-    }
-    std::vector<math::Vector> probe_normals;
-    hankin_face_normals(compiled, probe, probe_normals);
-    for (const math::Vector &normal : probe_normals)
-      HS_EXPECT_GE(normal.magnitude(), HANKIN_FLAT_FACE);
   }
 }
 

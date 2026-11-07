@@ -567,12 +567,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
           Filter::Screen::AntiAlias<W, H>()};
       ScratchScope sc(plot_arena());
       Fragments pts;
-      pts.bind(plot_arena(), WALK);
-      for (const math::Vector &v : walk) {
-        Fragment f;
-        f.pos = v;
-        pts.push_back(f);
-      }
+      bind_trail(pts, walk);
       Canvas c(fx);
       initialize_parity_frame<W, H>(c);
       Plot::rasterize<W, H>(
@@ -622,12 +617,8 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
   size_t excluding_bands = 0;
   ScratchScope sc(plot_arena());
   Fragments trail;
-  trail.bind(plot_arena(), 2);
-  for (const math::Vector &v : {a, b}) {
-    Fragment f;
-    f.pos = v;
-    trail.push_back(f);
-  }
+  const math::Vector ends[] = {a, b};
+  bind_trail(trail, ends);
 
   for (int x0 = 0; x0 < TW; x0 += 24) {
     const ClipRegion cr{0, TH, x0, std::min(x0 + 96, TW), 1, TW, TH};
@@ -919,11 +910,8 @@ inline void test_cartesian_latitude_gate_covers_row_map_error() {
   }
 }
 
-/**
- * @brief Checks Cartesian rejections against per-edge bounds and dense arc taps.
- * @details A rejected trail has no bilinear tap in the render region.
- */
-inline void test_cartesian_quadrant_gate_is_conservative() {
+/** @brief A full-row margin falls back to the exact Cartesian gate. */
+inline void test_cartesian_quadrant_gate_full_row_margin_falls_back() {
   for (int north : {0, 1}) {
     const ClipRegion cr{north ? 0 : 10, north ? 10 : 20, 0, 48, 10, 96, 20};
     const auto clip = Plot::make_cartesian_quadrant_clip<96, 20>(cr);
@@ -941,6 +929,13 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
     HS_EXPECT_EQ(Plot::cartesian_quadrant_trail_gate(clip, trail),
                  Plot::CartesianTrailGateResult::EXACT_FALLBACK);
   }
+}
+
+/**
+ * @brief Checks Cartesian rejections against per-edge bounds and dense arc taps.
+ * @details A rejected trail has no bilinear tap in the render region.
+ */
+inline void test_cartesian_quadrant_gate_is_conservative() {
   constexpr int W = 288, H = 144;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline{
       Filter::Screen::AntiAlias<W, H>()};
@@ -997,8 +992,8 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
           const auto tangent = math::cross(span.axis, a);
           for (int sample = 0; sample <= 4096; ++sample) {
             const float angle = span.total * (sample / 4096.0f);
-            const auto p = a * cosf(angle) + tangent * sinf(angle);
-            HS_EXPECT_FALSE((taps_in_clip<W, H>(cr, p)));
+            const auto sample_pos = a * cosf(angle) + tangent * sinf(angle);
+            HS_EXPECT_FALSE((taps_in_clip<W, H>(cr, sample_pos)));
           }
         }
       }
@@ -1168,12 +1163,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
             Filter::Screen::AntiAlias<W, H>()};
         ScratchScope sc(plot_arena());
         Fragments pts;
-        pts.bind(plot_arena(), WALK);
-        for (const math::Vector &v : walk) {
-          Fragment f;
-          f.pos = v;
-          pts.push_back(f);
-        }
+        bind_trail(pts, walk);
         Canvas c(fx);
         uint8_t bits[WALK - 1];
         std::span<const uint8_t> vis;
@@ -1268,4 +1258,33 @@ inline void test_visible_chunk_mask_covers_sampled_ring() {
   }
   HS_EXPECT_GT(covered, size_t{0});
   HS_EXPECT_GT(culled_quadrants, size_t{0});
+}
+
+/** @brief Chunk padding wraps both seams and expands to the full pole mask. */
+inline void test_chunk_mask_padding_exact_masks() {
+  constexpr int CHUNKS = 8;
+  std::array<float, CHUNKS> cosines{}, sines{};
+  for (int chunk = 0; chunk < CHUNKS; ++chunk) {
+    const float angle = (chunk + 0.5f) * math::TWO_PI_F / CHUNKS;
+    cosines[chunk] = cosf(angle);
+    sines[chunk] = sinf(angle);
+  }
+  const auto basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  const auto mask = [&](int accepted, float theta, float thickness) {
+    int midpoint = 0;
+    return Plot::chunk_mask_where<CHUNKS>(
+        [&](const math::Vector &, float, float) {
+          return midpoint++ == accepted;
+        },
+        basis, theta, cosf(theta), sinf(theta), 0.0f, thickness, cosines.data(),
+        sines.data());
+  };
+  const float equator = 0.5f * math::PI_F;
+  HS_EXPECT_EQ(mask(0, equator, 0.0f), 0x83u);
+  HS_EXPECT_EQ(mask(7, equator, 0.0f), 0xc1u);
+  HS_EXPECT_EQ(mask(0, equator, 0.01f), 0xc7u);
+  HS_EXPECT_EQ(mask(7, equator, 0.01f), 0xe3u);
+  HS_EXPECT_EQ(mask(0, equator, 2.0f), 0xffu);
+  HS_EXPECT_EQ(mask(7, 0.0f, 0.0f), 0xffu);
+  HS_EXPECT_EQ(mask(-1, equator, 2.0f), 0u);
 }

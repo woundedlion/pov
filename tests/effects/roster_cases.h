@@ -5,25 +5,6 @@
 /** @file
  * @brief Cross-effect control cases. */
 
-/** @brief Captures a probe's failures and diagnostics, restoring harness state. */
-inline void expect_probe_failures(auto &&probe, int expected,
-                                  const char *diagnostic) {
-  const auto saved = stats();
-  const auto saved_budget = fail_print_budget();
-  fail_print_budget() = {};
-  int failures = 0;
-  const auto output = capture_stdout([&] {
-    probe();
-    failures = stats().failed - saved.failed;
-  });
-  stats() = saved;
-  fail_print_budget() = saved_budget;
-  HS_EXPECT_TRUE(output.has_value());
-  HS_EXPECT_EQ(failures, expected);
-  if (output && diagnostic)
-    HS_EXPECT_NE(output->find(diagnostic), std::string::npos);
-}
-
 /** @brief Seam guards reject dark coverage and retain measured-frame ratios. */
 inline void test_mesh_seam_dark_sample_guards() {
   constexpr int W = 16, H = 2;
@@ -176,6 +157,8 @@ template <typename EffectT> inline void check_manual_preset_navigation() {
   HS_EXPECT_FALSE(effect.animations_paused());
   HS_EXPECT_TRUE(effect.previousPreset());
   HS_EXPECT_EQ(effect.getPresetIndex(), EXPECTED_COUNT - 1);
+  HS_EXPECT_TRUE(effect.animations_paused());
+  effect.setAnimationsPaused(false);
   HS_EXPECT_TRUE(effect.nextPreset());
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(effect.animations_paused());

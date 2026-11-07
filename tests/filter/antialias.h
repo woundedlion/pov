@@ -24,8 +24,9 @@ inline void test_antialias_weights_partition() {
     float x, y, a;
   };
   std::vector<Tap> taps;
-  aa.plot(x, y, Pixel(1, 2, 3), 0.0f, in_alpha,
-          [&](float tx, float ty, const Pixel &, float, float a) {
+  aa.plot(x, y, Pixel(1, 2, 3), 2.75f, in_alpha,
+          [&](float tx, float ty, const Pixel &, float age, float a) {
+            HS_EXPECT_EQ(age, 2.75f);
             taps.push_back({tx, ty, a});
           });
   HS_EXPECT_EQ(taps.size(), size_t{4});

@@ -21,7 +21,7 @@ class DeathPinUniqueness(unittest.TestCase):
             (root / "tests/guard_directories.txt").write_text("core\n", encoding="utf-8")
             (root / "tests/test_death.h").write_text(
                 table if table is not None else
-                '{"ordinary_case", case_fixture, "core/guard.h", "' + pin + '"}',
+                '{"ordinary_case", case_ordinary_case, "core/guard.h", "' + pin + '"}',
                 encoding="utf-8")
             (root / "core/guard.h").write_text(source, encoding="utf-8")
             for name, text in (extra_sources or {}).items():
@@ -69,7 +69,7 @@ class DeathPinUniqueness(unittest.TestCase):
     def test_same_named_guard_in_another_directory_is_rejected(self):
         source = 'HS_CHECK(value > 0, "probe: positive");'
         pin = "(value > 0) probe: positive"
-        table = '{"ordinary_case", case_fixture, "core/a/guard.h", "' + pin + '"}'
+        table = '{"ordinary_case", case_ordinary_case, "core/a/guard.h", "' + pin + '"}'
         self.check_fixture("", pin, table=table, extra_sources={"core/a/guard.h": source})
         with self.assertRaisesRegex(SystemExit, "also matches core/b/guard.h"):
             self.check_fixture("", pin, table=table, extra_sources={
@@ -80,7 +80,7 @@ class DeathPinUniqueness(unittest.TestCase):
         pin = "(value > 0) probe: positive"
         self.check_fixture(source, pin)
         with self.assertRaisesRegex(ValueError, "parsed 0 of 1 death-case rows"):
-            self.check_fixture(source, pin, table='{"ordinary_case", case_fixture, "core/guard.h", nullptr}')
+            self.check_fixture(source, pin, table='{"ordinary_case", case_ordinary_case, "core/guard.h", nullptr}')
 
     def test_empty_table_is_rejected(self):
         source = 'HS_CHECK(value > 0, "probe: positive");'

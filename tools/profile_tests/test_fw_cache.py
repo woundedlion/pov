@@ -3,6 +3,7 @@
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,7 @@ esac
 out=${PLATFORMIO_BUILD_DIR:-.pio/build}/$env
 mkdir -p "$out"
 printf 'elf %s %s %s\n' "$env" "$PLATFORMIO_BUILD_FLAGS" "$(cat source.txt)" > "$out/firmware.elf"
+[ -z "${FAKE_PIO_TOKEN:-}" ] || printf 'retry %s\n' "$FAKE_PIO_TOKEN" >> "$out/firmware.elf"
 printf 'hex %s\n' "$env" > "$out/firmware.hex"
 printf 'map %s\n' "$env" > "$out/firmware.map"
 echo "PLATFORM: Teensy (5.2.0)"
@@ -305,6 +307,33 @@ class CacheStore(FirmwareCacheFixture):
 
 
 class ProfileOneCache(FirmwareCacheFixture):
+    def test_retry_replaces_the_cached_firmware_image(self):
+        source = PROFILE_ONE.read_text(encoding="utf-8")
+        functions = "\n".join(
+            re.search(rf"(?ms)^{name}\(\) \{{\n.*?^\}}\n", source).group(0)
+            for name in ("build_image", "envdump", "obtain_image"))
+        script = (
+            f'. "{(REPO / "tools" / "device_lock.sh").as_posix()}"\n'
+            + functions
+            + '\nset -euo pipefail; _hs_resolve_python\n'
+            'ENV=profile; FW_REBUILD=; export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=Fx"\n'
+            'mkdir -p build; obtain_image profile build/envdump.txt build/build.log\n'
+            'cp "$IMAGE_DIR/firmware.elf" build/before.elf\n'
+            'export FAKE_PIO_TOKEN=new-build; FW_REBUILD=1\n'
+            'obtain_image profile build/envdump.txt build/build.log\n'
+            'cp "$IMAGE_DIR/firmware.elf" build/after.elf\n'
+            'printf "SOURCE=%s\\n" "$IMAGE_SOURCE"\n')
+        result = self.fw(script)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        before = (self.repo / "build" / "before.elf").read_bytes()
+        after = (self.repo / "build" / "after.elf").read_bytes()
+        self.assertNotEqual(after, before)
+        self.assertIn(b"retry new-build", after)
+        self.assertEqual(len(self.entries()), 1)
+        self.assertIn(f"SOURCE=built:{self.entries()[0]}", result.stdout)
+        self.assertEqual((self.cache / self.entries()[0] / "firmware.elf").read_bytes(),
+                         after)
+
     def profile(self, *options, window="16"):
         return subprocess.run(
             ["bash", PROFILE_ONE.as_posix(), *options, "fx", "profile", "20", window],

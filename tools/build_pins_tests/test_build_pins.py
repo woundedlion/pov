@@ -4,6 +4,8 @@
 Run:  python -m unittest discover -s tools/build_pins_tests
 """
 
+import contextlib
+import io
 import json
 import os
 import re
@@ -14,11 +16,12 @@ import tempfile
 import unittest
 import unittest.mock
 from pathlib import Path
+from types import SimpleNamespace
 
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
-from git_test_env import git_run  # noqa: E402
+from git_test_env import git_run, isolated_env  # noqa: E402
 import build_pins as bp  # noqa: E402
 
 
@@ -225,14 +228,10 @@ class EngineRanges(unittest.TestCase):
             manifest = root / "package.json"
             manifest.write_text(json.dumps({"engines": engines}),
                                 encoding="utf-8")
-            saved = (bp.ROOT, bp.ENGINE_RANGES, bp.PINS)
-            bp.ROOT = root
-            bp.ENGINE_RANGES = ((manifest, ("engines", "node"), "node"),)
-            bp.PINS = dict(bp.PINS, node=pin)
-            try:
+            with unittest.mock.patch.object(bp, "ROOT", root), \
+                    unittest.mock.patch.object(bp, "ENGINE_RANGES", ((manifest, ("engines", "node"), "node"),)), \
+                    unittest.mock.patch.object(bp, "PINS", dict(bp.PINS, node=pin)):
                 return bp.check_engine_ranges()
-            finally:
-                bp.ROOT, bp.ENGINE_RANGES, bp.PINS = saved
 
     def test_pin_above_the_floor_passes(self):
         self.assertEqual(self._check({"node": ">=22"}, "24.13.0"), [])
@@ -281,7 +280,7 @@ class SharedLiterals(unittest.TestCase):
         self.assertEqual(bp.check_shared_literals(), [])
 
     def test_every_scanned_file_the_check_counts_is_tracked(self):
-        tracked = set(bp.subprocess.check_output(
+        tracked = set(subprocess.check_output(
             ["git", "-C", str(bp.ROOT), "ls-files", "-z"], text=True).split("\0"))
         for path in bp.INLINE_SCAN:
             self.assertIn(path.relative_to(bp.ROOT).as_posix(), tracked)
@@ -378,8 +377,6 @@ class UnreadableScannedFile(unittest.TestCase):
         self.assertTrue(any("no-such-build-file.yml" in e for e in shared))
 
     def test_a_missing_consumer_is_reported(self):
-        import contextlib
-        import io
         missing = bp.ROOT / "no-such-consumer.yml"
         out = io.StringIO()
         with unittest.mock.patch.object(bp, "CONSUMERS", {missing: ("x",)}), \
@@ -431,9 +428,6 @@ class CheckTool(unittest.TestCase):
     """--check-tool holds PATH to the pin, so it must be able to reach it."""
 
     def _check(self, name, stdout):
-        import contextlib
-        import io
-        import subprocess
 
         def run(command, **kwargs):
             if stdout is None:
@@ -535,7 +529,6 @@ class CheckTool(unittest.TestCase):
         self.assertIn(f"apt install clang-{bp.INLINE_PINS['clang']}", message)
 
     def test_clang_format_honors_the_binary_override(self):
-        from types import SimpleNamespace
 
         with unittest.mock.patch.dict(bp.os.environ, CLANG_FORMAT="/custom/clang-format"), \
                 unittest.mock.patch.object(bp.subprocess, "run") as run:
@@ -648,7 +641,8 @@ class InstallSet(unittest.TestCase):
             attributes.write_text(
                 "* text=auto eol=lf\nunpinned/file.txt !eol !binary\n",
                 encoding="utf-8", newline="\n")
-            with unittest.mock.patch.object(bp, "ROOT", root):
+            with unittest.mock.patch.object(bp, "ROOT", root), \
+                    unittest.mock.patch.dict(os.environ, isolated_env(), clear=True):
                 self.assertEqual(bp.check_install_eol(["pinned/file.txt"]), [])
                 self.assertEqual(len(bp.check_install_eol(["unpinned/file.txt"])), 1)
                 attributes.write_text("* text=auto eol=lf\n", encoding="utf-8", newline="\n")

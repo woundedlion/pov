@@ -15,8 +15,7 @@ inline void case_empty_fn_call() {
   if (opaque(false))
     f = [](int x) { return x; };
   int v = f(opaque(7)); // empty invoke -> check_fail -> trap
-  if (v == 42)
-    std::printf("x");
+  (void)v;
 }
 
 /**
@@ -30,6 +29,5 @@ inline void case_empty_function_ref_call() {
   if (opaque(false))
     f = [](int x) { return x; };
   int v = f(opaque(7)); // empty invoke -> check_fail -> trap
-  if (v == 42)
-    std::printf("x");
+  (void)v;
 }

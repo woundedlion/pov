@@ -17,63 +17,85 @@ struct RetainedHueField
   }
 };
 
+/** @brief Owned palette history and direct endpoints for hue retention checks. */
+struct RetainedHueFixture {
+  using FX = GridWorms<SMALL_W, SMALL_H>;
+  using Palette = Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+      typename FX::Binding, Pullback::Color::BrightnessEnvelope::NONE>>;
+  using Provider =
+      Pullback::ModulationProvider<typename FX::Binding, "modulation",
+                                   Pattern::SourceKind::DIRECTIONAL_SINE,
+                                   Pattern::Evaluation::DIRECT>;
+  using Layer = Pullback::Color::Modulate<Provider>;
+  using Tail = Pullback::Pipeline<typename FX::Binding, RetainedHueField,
+                                  Pullback::Stage::Colorize<Palette>,
+                                  Pullback::Stage::Modulate<Layer>>;
+  FX effect = make_effect();
+  FX::FrameState current{}, previous{};
+  Spacetime::FrameHistory<FX::FrameState, true, true> history;
+  Pullback::Modulation::Config before{}, after{};
+  Pullback::Modulation::Resources<false> old_source, new_source;
+
+  static FX make_effect() {
+    reset_globals();
+    return FX{};
+  }
+  RetainedHueFixture() {
+    using namespace Pullback;
+    effect.init();
+    effect.draw_frame();
+    effect.advance_display();
+    current = effect.frame_for_test();
+    history.capture(current, persistent_arena);
+    previous = history.previous;
+    HS_EXPECT_TRUE(previous.palette != current.palette);
+    HS_EXPECT_TRUE(previous.hue_rotation_lut != current.hue_rotation_lut);
+    HS_EXPECT_TRUE(previous.hue_rotation_gamut != current.hue_rotation_gamut);
+    HS_EXPECT_TRUE(previous.palette->same_entries(*current.palette));
+    for (auto *frame : {&previous, &current}) {
+      auto &color = frame->params.template get<"color">();
+      color.mapping_frequency = 1.0f;
+      color.mapping_phase = 0.0f;
+      color.phase_oscillation_depth = 0.0f;
+      color.opacity_low = color.opacity_high = 0.37f;
+      frame->palette_mapping =
+          Color::PaletteMappingWeights::single(Color::PaletteMapping::LINEAR);
+    }
+    before = previous.params.template get<"modulation">().modulation;
+    before.enabled = true;
+    before.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
+    before.sine.axis = math::Z_AXIS;
+    before.sine.frequency = 2.0f;
+    before.sine.offset = 0.17f;
+    before.sine.speed = 0.0f;
+    after = before;
+    after.sine.frequency = 3.25f;
+    after.sine.offset = 0.31f;
+    auto clock = Modulation::init(before);
+    clock.phase.phase_turns = 0.125f;
+    old_source.prepare(before, clock);
+    clock.phase.phase_turns = 0.375f;
+    new_source.prepare(after, clock);
+    previous.params.template get<"modulation">().modulation = before;
+    current.params.template get<"modulation">().modulation = after;
+    previous.resources.template get<"modulation">().modulation =
+        &old_source.prepared;
+    current.resources.template get<"modulation">().modulation =
+        &new_source.prepared;
+  }
+};
+
 /** @brief Held palettes retain the current hue view through recipe fallback. */
 inline void test_retained_equal_palette_hue_view() {
   using namespace Pullback;
-  using FX = GridWorms<SMALL_W, SMALL_H>;
-  using Palette = Color::GeneratedPalette<
-      ColorProvider<typename FX::Binding, Color::BrightnessEnvelope::NONE>>;
-  using Provider = ModulationProvider<typename FX::Binding, "modulation",
-                                      Pattern::SourceKind::DIRECTIONAL_SINE,
-                                      Pattern::Evaluation::DIRECT>;
-  using Layer = Color::Modulate<Provider>;
-  using Tail =
-      Pullback::Pipeline<typename FX::Binding, RetainedHueField,
-                         Stage::Colorize<Palette>, Stage::Modulate<Layer>>;
-  reset_globals();
-  FX effect;
-  effect.init();
-  effect.draw_frame();
-  effect.advance_display();
-  auto current = effect.frame_for_test();
-  Spacetime::FrameHistory<typename FX::FrameState, true, true> history;
-  history.capture(current, persistent_arena);
-  auto previous = history.previous;
-  HS_EXPECT_TRUE(previous.palette != current.palette);
-  HS_EXPECT_TRUE(previous.hue_rotation_lut != current.hue_rotation_lut);
-  HS_EXPECT_TRUE(previous.hue_rotation_gamut != current.hue_rotation_gamut);
-  HS_EXPECT_TRUE(previous.palette->same_entries(*current.palette));
-  for (auto *frame : {&previous, &current}) {
-    auto &color = frame->params.template get<"color">();
-    color.mapping_frequency = 1.0f;
-    color.mapping_phase = 0.0f;
-    color.phase_oscillation_depth = 0.0f;
-    color.opacity_low = color.opacity_high = 0.37f;
-    frame->palette_mapping =
-        Color::PaletteMappingWeights::single(Color::PaletteMapping::LINEAR);
-  }
-  auto before = previous.params.template get<"modulation">().modulation;
-  before.enabled = true;
-  before.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
-  before.sine.axis = math::Z_AXIS;
-  before.sine.frequency = 2.0f;
-  before.sine.offset = 0.17f;
-  before.sine.speed = 0.0f;
-  auto after = before;
-  after.sine.frequency = 3.25f;
-  after.sine.offset = 0.31f;
-  Modulation::Resources<false> old_source, new_source;
-  auto clock = Modulation::init(before);
-  clock.phase.phase_turns = 0.125f;
-  old_source.prepare(before, clock);
-  clock.phase.phase_turns = 0.375f;
-  new_source.prepare(after, clock);
-  previous.params.template get<"modulation">().modulation = before;
-  current.params.template get<"modulation">().modulation = after;
-  previous.resources.template get<"modulation">().modulation =
-      &old_source.prepared;
-  current.resources.template get<"modulation">().modulation =
-      &new_source.prepared;
+  RetainedHueFixture fixture;
+  using FX = RetainedHueFixture::FX;
+  using Palette = RetainedHueFixture::Palette;
+  using Layer = RetainedHueFixture::Layer;
+  using Tail = RetainedHueFixture::Tail;
+  auto &current = fixture.current;
+  auto &previous = fixture.previous;
+  const auto &before = fixture.before;
   const FrameInterval INTERVAL(previous, current);
   const auto START = INTERVAL.at(0.0f);
   const auto END = INTERVAL.at(1.0f);
@@ -168,6 +190,15 @@ inline void test_retained_equal_palette_hue_view() {
   HS_EXPECT_LE(double(total) / channels, Layer::METRICS[1].limit);
   std::printf("  retained hue max=%u mean=%.6f changed=%zu\n", maximum,
               double(total) / channels, different);
+}
+
+/** @brief Palette identity rejects altered tables, masks and live palette state. */
+inline void test_retained_palette_identity_rejects_changes() {
+  using namespace Pullback;
+  RetainedHueFixture fixture;
+  auto &current = fixture.current;
+  auto &previous = fixture.previous;
+  auto &history = fixture.history;
   auto altered = current;
   HueRotationGamutMask other_mask = *current.hue_rotation_gamut;
   bool marked = false;

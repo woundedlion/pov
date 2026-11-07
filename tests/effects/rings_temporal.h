@@ -168,14 +168,20 @@ struct RingTemporalOracle {
     HS_EXPECT_GT(result.energy, 0.01f);
     for (int segment = 0; segment < 8; ++segment) {
       const auto clipped = render(true, 1.0f, 0.0f, segment);
-      const auto map = pov::segment_map(segment % 4, DEFAULT_H * 2, 4);
-      const auto bounds =
-          pov::segment_clip(map, segment < 4, DEFAULT_H * 2, 4, DEFAULT_W);
+      const auto bounds = segment_bounds(segment);
       for (int y = bounds.y0; y < bounds.y1; ++y)
         for (int x = bounds.x0; x < bounds.x1; ++x)
           HS_EXPECT_NEAR(clipped[y * DEFAULT_W + x], actual[y * DEFAULT_W + x],
                          1e-5f);
     }
+  }
+
+  /** @brief Computes one device segment's pixel bounds.
+   * @param segment Segment number.
+   * @return Half-open row and column bounds. */
+  static pov::SegmentClip segment_bounds(int segment) {
+    const auto map = pov::segment_map(segment % 4, DEFAULT_H * 2, 4);
+    return pov::segment_clip(map, segment < 4, DEFAULT_H * 2, 4, DEFAULT_W);
   }
 
   /** @brief Applies the device's segment clip.
@@ -184,9 +190,7 @@ struct RingTemporalOracle {
   template <typename FX> static void clip(FX &effect, int segment) {
     if (segment < 0)
       return;
-    const auto map = pov::segment_map(segment % 4, DEFAULT_H * 2, 4);
-    const auto bounds =
-        pov::segment_clip(map, segment < 4, DEFAULT_H * 2, 4, DEFAULT_W);
+    const auto bounds = segment_bounds(segment);
     effect.set_clip(bounds.y0, bounds.y1, bounds.x0, bounds.x1);
   }
 
@@ -333,7 +337,7 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
     THRUSTER_BIRTH = 5,
   };
   const ScopedTemporalSampling temporal_sampling(true);
-  for (bool main : {false, true}) {
+  for (bool main_ring : {false, true}) {
     reset_globals();
     FX effect;
     effect.init();
@@ -348,7 +352,7 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
     slot.has_history = true;
     {
       Canvas canvas(effect);
-      if (main)
+      if (main_ring)
         effect.draw_ring(canvas, 1.0f);
       else
         effect.draw_thruster(canvas, slot, slot.radius_at(), 0.5f);

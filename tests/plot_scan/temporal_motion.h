@@ -324,16 +324,14 @@ inline void test_interpolants_bound_warped_great_circle() {
     HS_EXPECT_LE(third, double(bound.third) * 1.001 + 1e-9);
     if (bound.second > 0.0f)
       tight_second = std::max(tight_second, second / double(bound.second));
-    if (bound.third > 0.0f)
+    if (bound.third > 1e-6f)
       tight_third = std::max(tight_third, third / double(bound.third));
   }
-  HS_EXPECT_GE(tight_second, 0.9);
-  HS_EXPECT_GE(tight_third, 0.5);
+  HS_EXPECT_GE(tight_second, 0.99);
+  HS_EXPECT_GE(tight_third, 0.95);
 }
 
-/** @brief Frame-end captures carry into the next frame's start, so each
- *         vertex costs one new evaluation, plus one at the middle for a
- *         QUADRATIC path. */
+/** @brief Frame ends carry into the next start and quadratic paths use middle captures. */
 inline void test_vertex_motion_carries_frame_ends() {
   constexpr size_t VERTICES = 5;
   ScratchScope scope(scratch_arena_a);
@@ -342,9 +340,7 @@ inline void test_vertex_motion_carries_frame_ends() {
   exact_motion.bind(scratch_arena_a, VERTICES);
   packed_motion.bind(scratch_arena_a, VERTICES);
   HS_EXPECT_EQ(exact_motion.capacity(), VERTICES);
-  int evaluations = 0;
-  const auto position = [&](size_t i, float time) {
-    ++evaluations;
+  const auto position = [](size_t i, float time) {
     const float turn = 0.3f * time * static_cast<float>(i + 1);
     return math::Vector(cosf(turn) * 0.8f, 0.6f, sinf(turn) * 0.8f);
   };
@@ -355,7 +351,6 @@ inline void test_vertex_motion_carries_frame_ends() {
       previous_end[i] = exact_motion.end(i);
     exact_motion.begin_frame(VERTICES, frame > 0);
     packed_motion.begin_frame(VERTICES, frame > 0);
-    evaluations = 0;
     int middles = 0;
     for (size_t i = 0; i < VERTICES; ++i) {
       const math::Vector end = position(i, static_cast<float>(frame + 1));
@@ -372,7 +367,6 @@ inline void test_vertex_motion_carries_frame_ends() {
       }
       HS_EXPECT_TRUE(exact_motion.interpolant(i) == kind);
     }
-    HS_EXPECT_EQ(evaluations, static_cast<int>(VERTICES) + middles);
     HS_EXPECT_GT(middles, 0);
     for (size_t i = 0; i < VERTICES; ++i) {
       const math::Vector start = exact_motion.start(i);

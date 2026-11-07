@@ -23,6 +23,12 @@ void run_effect_case_thrusters_white_box_check_temporal_rings();
 /** @brief Runs MobiusRingsWhiteBox check_column_time_oracle with its case context. */
 void run_effect_case_mobius_rings_white_box_check_column_time_oracle();
 
+/** @brief Runs the Mobius device clip work case. */
+void run_effect_case_mobius_rings_white_box_check_device_clip_work();
+
+/** @brief Runs the Mobius first frame hold case. */
+void run_effect_case_mobius_rings_white_box_check_first_frame_hold();
+
 /** @brief Runs test_dynamo_column_time_oracle with its case context. */
 void run_effect_case_dynamo_column_time_oracle();
 
@@ -37,6 +43,8 @@ void run_effect_case_dynamo_trail_ceiling_bounds_the_ring();
 
 /** @brief Runs test_hankinsolids_handoff_history with its case context. */
 void run_effect_case_hankinsolids_handoff_history();
+/** @brief Runs test_hankinsolids_strap_luts_allocate_only_while_blending with its case context. */
+void run_effect_case_hankinsolids_strap_luts_allocate_only_while_blending();
 
 /** @brief Runs test_hankinsolids_interlace_motion_is_seam_free with its case context. */
 void run_effect_case_hankinsolids_interlace_motion_is_seam_free();
@@ -145,6 +153,8 @@ void run_effect_case_gs_support_certificate_matches_display_geometry();
 
 /** @brief Runs test_gs_nearest_pigment_shader_fidelity with its case context. */
 void run_effect_case_gs_nearest_pigment_shader_fidelity();
+/** @brief Runs test_gs_exact_color_path_boundaries with its case context. */
+void run_effect_case_gs_exact_color_path_boundaries();
 
 /** @brief Runs test_gs_partial_color_palette_rows with its case context. */
 void run_effect_case_gs_partial_color_palette_rows();
@@ -161,8 +171,16 @@ void run_effect_case_gs_substep_matches_scalar_reference();
 /** @brief Runs test_gs_inplace_frame_matches_jacobi with its case context. */
 void run_effect_case_gs_inplace_frame_matches_jacobi();
 
-/** @brief Runs test_fishbowl_preset_and_fire_duty_cycle with its case context. */
-void run_effect_case_fishbowl_preset_and_fire_duty_cycle();
+/** @brief Runs test_fishbowl_snapshot_admission with its case context. */
+void run_effect_case_fishbowl_snapshot_admission();
+/** @brief Runs test_fishbowl_preset_restores_params with its case context. */
+void run_effect_case_fishbowl_preset_restores_params();
+/** @brief Runs test_fishbowl_fire_duty_cycle with its case context. */
+void run_effect_case_fishbowl_fire_duty_cycle();
+/** @brief Runs test_fishbowl_palette_phase_compensates_fill with its case context. */
+void run_effect_case_fishbowl_palette_phase_compensates_fill();
+/** @brief Runs test_fishbowl_adaptive_midpoint with its case context. */
+void run_effect_case_fishbowl_adaptive_midpoint();
 
 /** @brief Runs test_fishbowl_temporal_trail_oracle with its case context. */
 void run_effect_case_fishbowl_temporal_trail_oracle();
@@ -473,8 +491,14 @@ void run_effect_case_displacement_field_pause_holds_phase_only();
 /** @brief Runs test_displacement_field_default_cycle_frames with its case context. */
 void run_effect_case_displacement_field_default_cycle_frames();
 
-/** @brief Runs test_displacement_field_presets with its case context. */
-void run_effect_case_displacement_field_presets();
+/** @brief Runs test_displacement_field_preset_defaults with its case context. */
+void run_effect_case_displacement_field_preset_defaults();
+/** @brief Runs test_displacement_field_manual_navigation with its case context. */
+void run_effect_case_displacement_field_manual_navigation();
+/** @brief Runs test_displacement_field_ball_tuning with its case context. */
+void run_effect_case_displacement_field_ball_tuning();
+/** @brief Runs test_displacement_field_automatic_cycle with its case context. */
+void run_effect_case_displacement_field_automatic_cycle();
 
 /** @brief Runs test_displacement_field_edit_cancels_departure with its case context. */
 void run_effect_case_displacement_field_edit_cancels_departure();
@@ -512,8 +536,8 @@ void run_effect_case_displacement_field_turn_follows_large_steps();
 /** @brief Runs test_displacement_field_alternate_groups_match_windows with its case context. */
 void run_effect_case_displacement_field_alternate_groups_match_windows();
 
-/** @brief Runs test_glitch_lens_unit_norm with its case context. */
-void run_effect_case_glitch_lens_unit_norm();
+/** @brief Runs test_glitch_lens_doubles_latitude_and_stays_smooth_at_fold with its case context. */
+void run_effect_case_glitch_lens_doubles_latitude_and_stays_smooth_at_fold();
 
 /** @brief Runs test_mobius_rings_conformal_and_counter_rotation with its case context. */
 void run_effect_case_mobius_rings_conformal_and_counter_rotation();
@@ -541,6 +565,10 @@ void run_effect_case_dreamballs_base_mesh_selector();
 
 /** @brief Runs test_dreamballs_weave_topology with its case context. */
 void run_effect_case_dreamballs_weave_topology();
+/** @brief Runs test_dreamballs_weave_topology_schema with its case context. */
+void run_effect_case_dreamballs_weave_topology_schema();
+/** @brief Runs test_dreamballs_under_gap_alpha_fades_edge_tail with its case context. */
+void run_effect_case_dreamballs_under_gap_alpha_fades_edge_tail();
 
 /** @brief Runs test_dreamballs_defect_weave_renders with its case context. */
 void run_effect_case_dreamballs_defect_weave_renders();
@@ -584,8 +612,10 @@ void run_effect_case_displacement_field_hue_table_frame_fidelity();
 /** @brief Runs test_displacement_field_clip_tiles_full with its case context. */
 void run_effect_case_displacement_field_clip_tiles_full();
 
-/** @brief Runs test_displacement_field_ball_spans_and_lifecycle with its case context. */
-void run_effect_case_displacement_field_ball_spans_and_lifecycle();
+/** @brief Runs test_displacement_field_ball_pool_drains_to_noise with its case context. */
+void run_effect_case_displacement_field_ball_pool_drains_to_noise();
+/** @brief Runs test_displacement_field_ball_spans_match_field with its case context. */
+void run_effect_case_displacement_field_ball_spans_match_field();
 
 /** @brief Runs test_islamicstars_recipe_build_smoke with its case context. */
 void run_effect_case_islamicstars_recipe_build_smoke();

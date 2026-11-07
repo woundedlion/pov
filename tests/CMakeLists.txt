@@ -511,6 +511,11 @@ add_test(NAME unit_linker_patches COMMAND ${CMAKE_COMMAND}
     -DSCRIPT=${HS_ROOT}/tools/phantasm.ld
     -DPLATFORMIO_INI=${HS_ROOT}/platformio.ini
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_linker_patches.cmake)
+add_test(NAME unit_linker_patches_controls COMMAND ${CMAKE_COMMAND}
+    -DSCRIPT=${HS_ROOT}/tools/phantasm.ld
+    -DPLATFORMIO_INI=${HS_ROOT}/platformio.ini
+    -DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/linker_patches_controls
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_linker_patches_selftest.cmake)
 
 add_test(NAME unit_mirrored_prune COMMAND ${CMAKE_COMMAND}
     -DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/mirrored_prune_fixture
@@ -667,31 +672,27 @@ add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
     -DDUMP=${CMAKE_CURRENT_BINARY_DIR}/relax_bakes.dump
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_relax_bakes.cmake)
 
+function(_hs_engine_check name source)
+  cmake_parse_arguments(PARSE_ARGV 2 check "" "" "LIBS;DEFINES")
+  add_executable(${name} ${CMAKE_CURRENT_SOURCE_DIR}/${source} ${HS_ENGINE_SOURCES})
+  target_compile_definitions(${name} PRIVATE ${check_DEFINES})
+  target_link_libraries(${name} PRIVATE ${check_LIBS})
+  target_include_directories(${name} PRIVATE ${HS_ENGINE_INCLUDES})
+  _hs_warnings(${name})
+  _hs_sanitize(${name})
+  string(REGEX REPLACE "_check$" "" test_suffix "${name}")
+  add_test(NAME unit_${test_suffix} COMMAND ${name})
+endfunction()
+
 # Legacy offset mapping needs a separate TU: offset-3 and offset-0
 # PhiLUT/TrigLUT instantiations have incompatible definitions.
-add_executable(h_offset_renorm_check
-  ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
-  ${HS_ENGINE_SOURCES})
-target_compile_definitions(h_offset_renorm_check PRIVATE
-  HS_TEST_H_OFFSET=3 HS_ENABLE_TEST_HOOKS=1)
-# hs_host_storage, not hs_host_abi: the Scan and Plot cases draw through the
-# global scratch arena.
-target_link_libraries(h_offset_renorm_check PRIVATE hs_host_storage)
-target_include_directories(h_offset_renorm_check PRIVATE ${HS_ENGINE_INCLUDES})
-_hs_warnings(h_offset_renorm_check)
-_hs_sanitize(h_offset_renorm_check)
-add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
+_hs_engine_check(h_offset_renorm_check h_offset_renorm_check.cpp
+  LIBS hs_host_storage
+  DEFINES HS_TEST_H_OFFSET=3 HS_ENABLE_TEST_HOOKS=1)
 
-add_executable(h_offset_full_resolution_check
-  ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
-  ${HS_ENGINE_SOURCES})
-target_compile_definitions(h_offset_full_resolution_check PRIVATE
-  HS_TEST_H_OFFSET=3 HS_OFFSET_FULL_RESOLUTION=1 HS_ENABLE_TEST_HOOKS=1)
-target_link_libraries(h_offset_full_resolution_check PRIVATE hs_host_storage)
-target_include_directories(h_offset_full_resolution_check PRIVATE ${HS_ENGINE_INCLUDES})
-_hs_warnings(h_offset_full_resolution_check)
-_hs_sanitize(h_offset_full_resolution_check)
-add_test(NAME unit_h_offset_full_resolution COMMAND h_offset_full_resolution_check)
+_hs_engine_check(h_offset_full_resolution_check h_offset_renorm_check.cpp
+  LIBS hs_host_storage
+  DEFINES HS_TEST_H_OFFSET=3 HS_OFFSET_FULL_RESOLUTION=1 HS_ENABLE_TEST_HOOKS=1)
 
 # Global operator new replacement conflicts with the sanitizer runtimes'.
 if(NOT HS_SANITIZE AND NOT HS_TSAN)
@@ -705,38 +706,17 @@ if(NOT HS_SANITIZE AND NOT HS_TSAN)
 endif()
 
 
-add_executable(display_geometry_check
-  ${CMAKE_CURRENT_SOURCE_DIR}/display_geometry_check.cpp
-  ${HS_ENGINE_SOURCES})
-target_compile_definitions(display_geometry_check PRIVATE
-  HS_DISPLAY_PROFILE=1 HS_ENABLE_TEST_HOOKS=1)
-target_link_libraries(display_geometry_check PRIVATE hs_host_storage)
-target_include_directories(display_geometry_check PRIVATE ${HS_ENGINE_INCLUDES})
-_hs_warnings(display_geometry_check)
-_hs_sanitize(display_geometry_check)
-add_test(NAME unit_display_geometry COMMAND display_geometry_check)
+_hs_engine_check(display_geometry_check display_geometry_check.cpp
+  LIBS hs_host_storage
+  DEFINES HS_DISPLAY_PROFILE=1 HS_ENABLE_TEST_HOOKS=1)
 
-add_executable(runtime_display_geometry_check
-  ${CMAKE_CURRENT_SOURCE_DIR}/runtime_display_geometry_check.cpp
-  ${HS_ENGINE_SOURCES})
-target_compile_definitions(runtime_display_geometry_check PRIVATE
-  HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1)
-target_link_libraries(runtime_display_geometry_check PRIVATE hs_host_storage)
-target_include_directories(runtime_display_geometry_check PRIVATE ${HS_ENGINE_INCLUDES})
-_hs_warnings(runtime_display_geometry_check)
-_hs_sanitize(runtime_display_geometry_check)
-add_test(NAME unit_runtime_display_geometry COMMAND runtime_display_geometry_check)
+_hs_engine_check(runtime_display_geometry_check runtime_display_geometry_check.cpp
+  LIBS hs_host_storage
+  DEFINES HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1)
 
-add_executable(ashcloud_camera_check
-  ${CMAKE_CURRENT_SOURCE_DIR}/ashcloud_camera_check.cpp
-  ${HS_ENGINE_SOURCES})
-target_compile_definitions(ashcloud_camera_check PRIVATE
-  HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1)
-target_link_libraries(ashcloud_camera_check PRIVATE hs_host_effect_runtime)
-target_include_directories(ashcloud_camera_check PRIVATE ${HS_ENGINE_INCLUDES})
-_hs_warnings(ashcloud_camera_check)
-_hs_sanitize(ashcloud_camera_check)
-add_test(NAME unit_ashcloud_camera COMMAND ashcloud_camera_check)
+_hs_engine_check(ashcloud_camera_check ashcloud_camera_check.cpp
+  LIBS hs_host_effect_runtime
+  DEFINES HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1)
 
 # Host stack high-water-mark gate across every effect, built -Os + the device
 # math flags to track device frame sizes. Fails if the worst effect exceeds the
@@ -910,25 +890,20 @@ add_test(NAME unit_excluded_targets COMMAND ${CMAKE_COMMAND}
   "-DCOVERED_TARGETS=$<TARGET_PROPERTY:excluded_targets,MANUALLY_ADDED_DEPENDENCIES>"
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_excluded_targets.cmake)
 
-add_test(NAME unit_composed_edge_fade_controls COMMAND ${CMAKE_COMMAND}
-  "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
-  "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_composed_edge_fade.cmake)
+function(_hs_compile_contract_test name script)
+  add_test(NAME ${name} COMMAND ${CMAKE_COMMAND}
+    "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
+    "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/${script})
+endfunction()
 
-add_test(NAME unit_choreography_hooks COMMAND ${CMAKE_COMMAND}
-  "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
-  "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_choreography_hooks.cmake)
+_hs_compile_contract_test(unit_composed_edge_fade_controls check_composed_edge_fade.cmake)
 
-add_test(NAME unit_composed_metadata COMMAND ${CMAKE_COMMAND}
-  "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
-  "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_composed_metadata.cmake)
+_hs_compile_contract_test(unit_choreography_hooks check_choreography_hooks.cmake)
 
-add_test(NAME unit_ring_column_pipeline COMMAND ${CMAKE_COMMAND}
-  "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
-  "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_ring_column_pipeline.cmake)
+_hs_compile_contract_test(unit_composed_metadata check_composed_metadata.cmake)
+
+_hs_compile_contract_test(unit_ring_column_pipeline check_ring_column_pipeline.cmake)
 
 # Backstop TIMEOUT for every registered test without an explicit one. Applied
 # last, over the directory's final test list.

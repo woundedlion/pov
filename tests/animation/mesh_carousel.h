@@ -28,8 +28,10 @@ inline void test_crossfade_segue_schedules_overlapping_sprite() {
 
   HS_EXPECT_SIZE_OR_RETURN(ops, dur);
   // Fade-in ramp, full-opacity plateau, transparent on the final frame.
-  HS_EXPECT_LT(ops[0], 1.0f);
-  HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
+  HS_EXPECT_LT(ops[window - 2], 1.0f);
+  HS_EXPECT_NEAR(ops[window - 1], 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(ops[dur - window - 1], 1.0f, 1e-3f);
+  HS_EXPECT_LT(ops[dur - window], 1.0f);
   HS_EXPECT_NEAR(ops[dur - 1], 0.0f, 1e-3f);
   HS_EXPECT_EQ(tl.event_count(), 0);
 }
@@ -90,8 +92,10 @@ inline void test_sequential_segue_never_overlaps_sprites() {
 
   HS_EXPECT_SIZE_OR_RETURN(ops, dur);
   // Phase ramps up, plateaus at 1, and returns to 0 on the final frame.
-  HS_EXPECT_LT(ops[0], 1.0f);
-  HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
+  HS_EXPECT_LT(ops[window - 2], 1.0f);
+  HS_EXPECT_NEAR(ops[window - 1], 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(ops[dur - window - 1], 1.0f, 1e-3f);
+  HS_EXPECT_LT(ops[dur - window], 1.0f);
   HS_EXPECT_NEAR(ops[dur - 1], 0.0f, 1e-3f);
 }
 
@@ -186,7 +190,7 @@ inline void test_dissolve_segue_overlaps_the_full_fade_window() {
  * face_phase saturates outside a class's window.
  */
 inline void test_breakdown_guards_degenerate_class_inputs() {
-  const auto saved_rng = hs::random();
+  const hs_test::ScopedRng saved_rng;
   Segue::Breakdown bd; // default: one class, no reorder() yet
   const math::Vector any(0.0f, 1.0f, 0.0f);
   HS_EXPECT_EQ(bd.num_classes, 1);
@@ -207,7 +211,6 @@ inline void test_breakdown_guards_degenerate_class_inputs() {
     HS_EXPECT_NEAR(bd.face_phase(0.0f, o), 0.0f, 1e-6f);
     HS_EXPECT_EQ(bd.face_phase(1.0f, o), 1.0f);
   }
-  hs::random() = saved_rng;
 }
 
 /**
@@ -590,7 +593,7 @@ inline void test_terminator_sweep_fade_sliders_apply_without_reschedule() {
  * length.
  */
 inline void test_terminator_sweep_per_face_fade_random_in_range() {
-  const auto saved_rng = hs::random();
+  const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   Timeline tl;
   const int dur = 400, window = 64;
@@ -613,7 +616,6 @@ inline void test_terminator_sweep_per_face_fade_random_in_range() {
       varied = true;
   }
   HS_EXPECT_TRUE(varied);
-  hs::random() = saved_rng;
 }
 
 /**
@@ -819,7 +821,7 @@ inline void test_segue_policies_forward_pause_gate() {
  * before the next class starts.
  */
 inline void test_breakdown_fades_classes_sequentially() {
-  const auto saved_rng = hs::random();
+  const hs_test::ScopedRng saved_rng;
   hs::random().seed(7u);
   Segue::Breakdown bd;
   constexpr int n = 5;
@@ -876,7 +878,6 @@ inline void test_breakdown_fades_classes_sequentially() {
       prev_phase = ph;
     }
   }
-  hs::random() = saved_rng;
 }
 
 /**

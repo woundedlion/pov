@@ -12,6 +12,7 @@
 
 namespace hs_test::effects_tests {
 
+#include "tests/effects/reaction_diffusion_gs_whitebox.h"
 #include "tests/effects/reaction_diffusion_gs.h"
 
 void run_effect_case_gs_palette_is_opaque() {
@@ -74,6 +75,9 @@ void run_effect_case_gs_nearest_pigment_shader_fidelity() {
   HS_RUN(run_case, test_gs_nearest_pigment_shader_fidelity);
 }
 
+void run_effect_case_gs_exact_color_path_boundaries() {
+  HS_RUN(run_case, test_gs_exact_color_path_boundaries);
+}
 void run_effect_case_gs_partial_color_palette_rows() {
   HS_RUN(run_case, test_gs_partial_color_palette_rows);
 }
@@ -186,6 +190,7 @@ int run_reaction_diffusion_gs_tests() {
   run_effect_case_gs_signed_coverage_and_concentration();
   run_effect_case_gs_support_certificate_matches_display_geometry();
   run_effect_case_gs_nearest_pigment_shader_fidelity();
+  run_effect_case_gs_exact_color_path_boundaries();
   run_effect_case_gs_partial_color_palette_rows();
   run_effect_case_gs_reseed_invalidates_shimmer_cache();
   run_effect_case_gs_dissolve_frontier_fades_before_clear();

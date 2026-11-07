@@ -37,8 +37,7 @@ inline void case_transformer_pool_spawn_before_init() {
   RippleTransformer<2> rt(tl);
   Animation::Ripple *p =
       rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
-  if (p == reinterpret_cast<Animation::Ripple *>(0x1))
-    std::printf("x");
+  (void)p;
 }
 
 /** @brief Death case: preparing frame state before init_storage() must trap. */
@@ -56,8 +55,7 @@ inline void case_transformer_pool_spawn_pausable_null_flag() {
   rt.init_storage(persistent_arena);
   Animation::Ripple *p = rt.spawn_pausable(nullptr, 0, math::Vector(0, 1, 0),
                                            0.2f, 4); // -> HS_CHECK
-  if (p == reinterpret_cast<Animation::Ripple *>(0x1))
-    std::printf("x");
+  (void)p;
 }
 
 /**
@@ -71,8 +69,7 @@ inline void case_transformer_pool_active_index_oob() {
   RippleTransformer<2> rt(tl);
   rt.init_storage(persistent_arena);
   const Animation::RippleParams &p = rt.active_params(opaque(0)); // -> HS_CHECK
-  if (p.amplitude == 42.0f)
-    std::printf("x");
+  (void)p;
 }
 
 /**
@@ -101,8 +98,7 @@ inline void case_transformer_pool_arena_reclaimed() {
   configure_arenas_default(); // rebinds under the live pool
   Animation::Ripple *p =
       rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
-  if (p == reinterpret_cast<Animation::Ripple *>(0x1))
-    std::printf("x");
+  (void)p;
 }
 
 /** @brief Traps on transformer pinned owner order. */

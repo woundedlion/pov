@@ -478,7 +478,7 @@ class PendingCapture(unittest.TestCase):
                 self.assertFalse(self.pending.exists())
                 self.assertEqual(self.trail.exists(), matches)
 
-    def test_untracked_scratch_does_not_invalidate_build_inputs(self):
+    def prepare_scratch_index(self):
         self.enterContext(git_fixture(self.dir))
         (self.dir / "platformio.ini").write_text("[platformio]\n", encoding="utf-8")
         tests = self.dir / "tools" / "example_tests"
@@ -492,12 +492,19 @@ class PendingCapture(unittest.TestCase):
         (pcb / "backup.kicad_pcb").write_text("scratch", encoding="utf-8")
         (self.dir / "scratch.txt").write_text("scratch", encoding="utf-8")
         tst._git(["add", "tools/example_tests/test_example.py"], self.dir)
+
+    def test_working_tree_leaves_the_real_index_unchanged(self):
+        self.prepare_scratch_index()
         index = self.dir / ".git" / "index"
         staged = index.read_bytes()
-        tree = tst.working_tree(self.dir)
+        tst.working_tree(self.dir)
         self.assertEqual(index.read_bytes(), staged)
         self.assertEqual(tst._git(["diff", "--cached", "--name-only"], self.dir),
                          "tools/example_tests/test_example.py")
+
+    def test_untracked_scratch_does_not_invalidate_build_inputs(self):
+        self.prepare_scratch_index()
+        tree = tst.working_tree(self.dir)
         self.assertEqual(tree, tst._git(["rev-parse", "HEAD^{tree}"], self.dir))
         self.pending.write_text(json.dumps({"tree": tree,
             "envs": {"phantasm": {"itcm": 1}}}), encoding="utf-8")

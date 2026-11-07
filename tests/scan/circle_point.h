@@ -154,7 +154,6 @@ inline void test_circle_and_point_keep_exact_pixel_centers() {
  */
 inline void test_circle_and_point_match_their_rings() {
   constexpr int W = 96, H = 64;
-  Pipeline<W, H> pipe;
   auto shader = [](const math::Vector &p, Fragment &f) {
     // Position-dependent so a mismatched basis or phase shows up as color, not
     // only as coverage.
@@ -166,65 +165,28 @@ inline void test_circle_and_point_match_their_rings() {
 
   const math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0.2f, 0.8f, -0.5f));
-  std::vector<Pixel> circle_frame, ring_frame;
-  {
-    hs_test::StubEffect fx(W, H);
-    {
-      Canvas c(fx);
-      Scan::Circle::draw<W, H>(pipe, c, basis, 0.4f, shader);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, circle_frame);
-  }
-  {
-    hs_test::StubEffect fx(W, H);
-    {
-      Canvas c(fx);
-      Scan::Ring::draw<W, H>(pipe, c, basis, 0.0f, 0.4f * (math::PI_F / 2.0f),
-                             shader);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, ring_frame);
-  }
-  const size_t circle_lit = count_lit(circle_frame);
-  size_t circle_diff = 0;
-  for (size_t i = 0; i < circle_frame.size(); ++i) {
-    if (!(circle_frame[i] == ring_frame[i]))
-      ++circle_diff;
-  }
-  HS_EXPECT_GT(circle_lit, (size_t)0);
-  HS_EXPECT_EQ(circle_diff, (size_t)0);
-
+  const auto circle_frame =
+      render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
+        Scan::Circle::draw<W, H>(pipe, canvas, basis, 0.4f, shader);
+      });
+  const auto ring_frame =
+      render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
+        Scan::Ring::draw<W, H>(pipe, canvas, basis, 0.0f, 0.4f * math::PI_F / 2,
+                               shader);
+      });
+  HS_EXPECT_GT(expect_frames_within("circle", circle_frame, ring_frame, 0), 0);
   const math::Vector center(-0.4f, 0.5f, 0.766f);
-  std::vector<Pixel> point_frame, point_ring_frame;
-  {
-    hs_test::StubEffect fx(W, H);
-    {
-      Canvas c(fx);
-      Scan::Point::draw<W, H>(pipe, c, center, 0.3f, shader);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, point_frame);
-  }
-  {
-    hs_test::StubEffect fx(W, H);
-    const math::Basis point_basis =
-        math::make_basis(math::Quaternion(), center);
-    {
-      Canvas c(fx);
-      Scan::Ring::draw<W, H>(pipe, c, point_basis, 0.0f, 0.3f, shader);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, point_ring_frame);
-  }
-  const size_t point_lit = count_lit(point_frame);
-  size_t point_diff = 0;
-  for (size_t i = 0; i < point_frame.size(); ++i) {
-    if (!(point_frame[i] == point_ring_frame[i]))
-      ++point_diff;
-  }
-  HS_EXPECT_GT(point_lit, (size_t)0);
-  HS_EXPECT_EQ(point_diff, (size_t)0);
+  const auto point_frame =
+      render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
+        Scan::Point::draw<W, H>(pipe, canvas, center, 0.3f, shader);
+      });
+  const auto point_ring_frame =
+      render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
+        const auto point_basis = math::make_basis(math::Quaternion(), center);
+        Scan::Ring::draw<W, H>(pipe, canvas, point_basis, 0.0f, 0.3f, shader);
+      });
+  HS_EXPECT_GT(expect_frames_within("point", point_frame, point_ring_frame, 0),
+               0);
 }
 
 /**
@@ -399,43 +361,41 @@ inline void test_replicated_clip_matches_full_frame() {
   const math::Vector NORMAL(0, 0, -1);
   const math::Basis BASIS = math::make_basis(math::Quaternion(), NORMAL);
   for (int count : {2, 3}) {
-    {
-      std::vector<Pixel> expected(W * H);
-      for (int band = -1; band < 5; ++band) {
-        StubEffect effect(W, H);
-        effect.set_margin(0);
-        const int X0 = band < 0   ? 0
-                       : band < 2 ? band * W / 2
-                                  : (band - 2) * W / 3;
-        const int X1 = band < 0   ? W
-                       : band < 2 ? (band + 1) * W / 2
-                                  : (band - 1) * W / 3;
-        effect.set_clip(0, H, X0, X1);
-        Pipeline<W, H, Filter::World::Replicate<W>> pipeline(count);
-        {
-          Canvas canvas(effect);
-          SDF::PlanarPolygon shape(BASIS, 0.2f, 5, 0.0f);
-          Scan::rasterize_solid<W, H>(pipeline, canvas, shape, COLOR);
-        }
-        effect.advance_display();
-        int lit = 0;
-        for (int y = 0; y < H; ++y) {
-          for (int x = 0; x < W; ++x) {
-            const Pixel actual = effect.get_pixel(x, y);
-            if (band < 0) {
-              expected[y * W + x] = actual;
-              if (x < W / 2 && (actual.r || actual.g || actual.b))
-                ++lit;
-            } else {
-              const Pixel want =
-                  x >= X0 && x < X1 ? expected[y * W + x] : Pixel(0, 0, 0);
-              HS_EXPECT_PIXEL(actual, want.r, want.g, want.b);
-            }
+    std::vector<Pixel> expected(W * H);
+    for (int band = -1; band < 5; ++band) {
+      StubEffect effect(W, H);
+      effect.set_margin(0);
+      const int X0 = band < 0   ? 0
+                     : band < 2 ? band * W / 2
+                                : (band - 2) * W / 3;
+      const int X1 = band < 0   ? W
+                     : band < 2 ? (band + 1) * W / 2
+                                : (band - 1) * W / 3;
+      effect.set_clip(0, H, X0, X1);
+      Pipeline<W, H, Filter::World::Replicate<W>> pipeline(count);
+      {
+        Canvas canvas(effect);
+        SDF::PlanarPolygon shape(BASIS, 0.2f, 5, 0.0f);
+        Scan::rasterize_solid<W, H>(pipeline, canvas, shape, COLOR);
+      }
+      effect.advance_display();
+      int lit = 0;
+      for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+          const Pixel actual = effect.get_pixel(x, y);
+          if (band < 0) {
+            expected[y * W + x] = actual;
+            if (x < W / 2 && (actual.r || actual.g || actual.b))
+              ++lit;
+          } else {
+            const Pixel want =
+                x >= X0 && x < X1 ? expected[y * W + x] : Pixel(0, 0, 0);
+            HS_EXPECT_PIXEL(actual, want.r, want.g, want.b);
           }
         }
-        if (band < 0)
-          HS_EXPECT_GT(lit, 0);
       }
+      if (band < 0)
+        HS_EXPECT_GT(lit, 0);
     }
   }
 }

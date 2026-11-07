@@ -271,22 +271,12 @@ inline void test_shader_chain_projection_plane_bound() {
     every admission path; ordinary extreme compositions still admit. */
 inline void test_shader_chain_plane_growth_admission() {
   using WB = ShaderChainWhiteBox;
-  constexpr int WARPS = 18;
-  constexpr float MIN_SCALE = 1.0f / 64.0f;
-  std::array<std::string, WARPS> ids;
-  std::array<std::string, WARPS> scale_x;
-  std::array<std::string, WARPS> scale_y;
-  std::array<In::ChainEntryRequest, WARPS + 3> chain{};
-  chain[0] = {"project", In::Op::ProjectStereographic::ID};
-  for (int index = 0; index < WARPS; ++index) {
-    ids[index] = "warp" + std::to_string(index);
-    scale_x[index] = ids[index] + ".scale-x";
-    scale_y[index] = ids[index] + ".scale-y";
-    chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
-  }
-  chain[WARPS + 1] = {"sample", In::Op::SampleGridV4::ID};
-  chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
-
+  AffineWarpChain fixture;
+  constexpr int WARPS = AffineWarpChain::WARPS;
+  constexpr float MIN_SCALE = AffineWarpChain::MIN_SCALE;
+  const auto &chain = fixture.chain;
+  const auto &scale_x = fixture.scale_x;
+  const auto &scale_y = fixture.scale_y;
   reset_globals();
   WB::FX effect;
   effect.init();
@@ -309,7 +299,7 @@ inline void test_shader_chain_plane_growth_admission() {
     if (effect.update_parameters(step) != ParamSetResult::APPLIED)
       break;
   }
-  HS_EXPECT_EQ(admitted, 4);
+  HS_EXPECT_EQ(admitted, AffineWarpChain::ADMITTED);
   HS_EXPECT_TRUE(effect.parameter_warning(scale_x[4].c_str()) ==
                  In::PLANE_GROWTH_WARNING);
   HS_EXPECT_EQ(effect.updateParameter(scale_y[4].c_str(), MIN_SCALE),
@@ -688,7 +678,7 @@ inline void test_shader_chain_fidelity_toggle_keeps_history() {
   int draw = 0;
   for (const bool enabled : {true, true, false, false, true}) {
     HS_CONTEXT("draw", draw);
-    Spacetime::set_flat_surface(!enabled);
+    const ScopedTemporalSampling sampling(enabled);
     pin_frame_clock(draw);
     chain.draw_frame();
     chain.advance_display();
@@ -700,7 +690,6 @@ inline void test_shader_chain_fidelity_toggle_keeps_history() {
     }
     ++draw;
   }
-  Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
   HS_EXPECT_LE(worst, CHAIN_TIME_TOLERANCE);
 }
@@ -785,7 +774,6 @@ inline void test_shader_chain_column_params_interpolate() {
   const auto &prepared =
       prepared_as<PB::Color::GeneratedPaletteState>(program, 3);
   HS_EXPECT_NEAR(prepared.mapping_offset, 0.5f, 1e-6f);
-  program.prepare(ctx);
 }
 
 /** @brief Stateful operators sample clocks or retain complete color endpoints. */

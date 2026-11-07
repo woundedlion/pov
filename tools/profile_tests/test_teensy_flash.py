@@ -108,3 +108,7 @@ class TeensyFlashTests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("no Teensy at COM4", result.stderr)
         self.assertIn("SLEEPS=3", result.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -101,6 +101,36 @@ inline bool same_pose(const math::RotationMatrix &entry,
          math::dot(third, third) <= 1e-12f;
 }
 
+/** @brief History bounds follow interval turns while stationary poses require matching components. */
+inline void test_history_turn_bounds_and_stationary_components() {
+  const math::Quaternion history[] = {math::make_rotation(math::X_AXIS, 0.0f),
+                                      math::make_rotation(math::X_AXIS, 0.6f),
+                                      math::make_rotation(math::X_AXIS, 0.6f),
+                                      math::make_rotation(math::X_AXIS, 0.9f)};
+  const auto turn = Spacetime::history_turn(history, 4);
+  HS_EXPECT_NEAR(turn.arc, .9f, 1e-5f);
+  HS_EXPECT_NEAR(turn.rate, 1.8f, 1e-5f);
+  const auto held = Spacetime::history_turn(history, 1);
+  HS_EXPECT_EQ(held.arc, 0.0f);
+  HS_EXPECT_EQ(held.rate, 0.0f);
+
+  const math::Quaternion opposite[] = {history[1], -1.0f * history[1]};
+  const auto same_rotation = Spacetime::history_turn(opposite, 2);
+  HS_EXPECT_NEAR(same_rotation.arc, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(same_rotation.rate, 0.0f, 1e-6f);
+  HS_EXPECT_FALSE(Spacetime::history_stationary(opposite, 2));
+
+  const auto q = math::Quaternion(.7f, .2f, .3f, .6f).normalized();
+  for (int component = 0; component < 4; ++component) {
+    HS_CONTEXT("component", component);
+    auto changed = q;
+    float *values[] = {&changed.r, &changed.v.x, &changed.v.y, &changed.v.z};
+    *values[component] = -*values[component];
+    const math::Quaternion pair[] = {q, changed};
+    HS_EXPECT_FALSE(Spacetime::history_stationary(pair, 2));
+  }
+}
+
 /** @brief The pose table follows the sub-frame history at every column time
  *         and starts each frame where the last ended. */
 inline void test_pose_table_follows_history_path() {

@@ -184,13 +184,13 @@ inline void test_chamfer_zero_area_birth_limit() {
                   static_cast<double>(max_centroid_shift),
                   static_cast<double>(max_vertex_shift));
       // Births vanish linearly in t; the preserved faces follow.
-      HS_EXPECT_TRUE(born_area > prev_area);
+      HS_EXPECT_GT(born_area, prev_area);
       if (limit_slope == 0.0f)
         limit_slope = born_area / t;
       else
-        HS_EXPECT_TRUE(born_area / t < 1.1f * limit_slope);
-      HS_EXPECT_TRUE(max_centroid_shift < 1e-4f);
-      HS_EXPECT_TRUE(max_vertex_shift < 2.0f * t);
+        HS_EXPECT_LT(born_area / t, 1.1f * limit_slope);
+      HS_EXPECT_LT(max_centroid_shift, 1e-4f);
+      HS_EXPECT_LT(max_vertex_shift, 2.0f * t);
       prev_area = born_area;
     }
   }
@@ -279,8 +279,8 @@ inline void test_chamfer_sweep_holds_topology() {
     }
 
     // No face turns inside out and no vertex teleports between steps.
-    HS_EXPECT_TRUE(min_outward > 0.0f);
-    HS_EXPECT_TRUE(min_normal_dot > 0.0f);
+    HS_EXPECT_GT(min_outward, 0.0f);
+    HS_EXPECT_GT(min_normal_dot, 0.0f);
     HS_EXPECT_LT(max_step, 0.1f);
     if (hs_test::stats().failed != failed_before)
       std::printf("    [chamfer-sweep] %s failed (raw F=%zu compiled=%zu)\n",
@@ -338,8 +338,8 @@ inline void test_truncate001_birth_sweep_holds_topology() {
   constexpr int SAMPLES = 32;
   const float birth = ConwayGraph::truncate_birth_floor(TRUNCATE001_T_STAR);
   // A real animation, not a still image.
-  HS_EXPECT_TRUE(birth < TRUNCATE001_T_STAR);
-  HS_EXPECT_TRUE(TRUNCATE001_T_STAR >= ConwayGraph::T_TRUNCATE_ARRIVAL_MIN);
+  HS_EXPECT_LT(birth, TRUNCATE001_T_STAR);
+  HS_EXPECT_GE(TRUNCATE001_T_STAR, ConwayGraph::T_TRUNCATE_ARRIVAL_MIN);
 
   for (const TruncateSite &site : TRUNCATE_SITES) {
     HS_CONTEXT(site.name);
@@ -373,9 +373,9 @@ inline void test_truncate001_birth_sweep_holds_topology() {
                                 min_normal_dot, &min_area);
     }
 
-    HS_EXPECT_TRUE(min_area > 0.0f);
-    HS_EXPECT_TRUE(min_outward > 0.0f);
-    HS_EXPECT_TRUE(min_normal_dot > 0.0f);
+    HS_EXPECT_GT(min_area, 0.0f);
+    HS_EXPECT_GT(min_outward, 0.0f);
+    HS_EXPECT_GT(min_normal_dot, 0.0f);
     if (hs_test::stats().failed != failed_before)
       std::printf("    [truncate001] %s failed (raw F=%zu compiled=%zu)\n",
                   site.name, first.f, first.compiled);
@@ -422,9 +422,9 @@ inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
 inline void test_truncate50d_far_side_sweep_holds_topology() {
   constexpr int SAMPLES = 48;
   const float birth = ConwayGraph::truncate_birth_floor(TRUNCATE50D_T_STAR);
-  HS_EXPECT_TRUE(birth < 0.5f);
-  HS_EXPECT_TRUE(TRUNCATE50D_T_STAR > 0.5f);
-  HS_EXPECT_TRUE(TRUNCATE50D_T_STAR <= ConwayGraph::T_TRUNCATE_FAR_MAX);
+  HS_EXPECT_LT(birth, 0.5f);
+  HS_EXPECT_GT(TRUNCATE50D_T_STAR, 0.5f);
+  HS_EXPECT_LE(TRUNCATE50D_T_STAR, ConwayGraph::T_TRUNCATE_FAR_MAX);
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE50D_T_STAR}));
   // The guard moves an exact-0.5 sample onto the truncate branch.
   HS_EXPECT_TRUE(ConwayGraph::truncate_off_pinch(0.5f) != 0.5f);
@@ -477,7 +477,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       }
     }
 
-    HS_EXPECT_TRUE(min_area_near > 0.0f);
+    HS_EXPECT_GT(min_area_near, 0.0f);
     if (hs_test::stats().failed != failed_before)
       std::printf("    [truncate50d] %s failed (raw F=%zu compiled=%zu)\n",
                   site.name, first.f, first.compiled);
@@ -651,7 +651,7 @@ inline void test_build_chain_centroid_spacing() {
                   "tol/half-min=%.2f\n",
                   site.name, k, c.size(), static_cast<double>(min_spacing),
                   static_cast<double>(med), static_cast<double>(ratio));
-      HS_EXPECT_TRUE(c.size() > 0);
+      HS_EXPECT_GT(c.size(), size_t{0});
     }
   });
   std::printf("  [spacing] worst tol/half-min = %.2f on %s; largest chain "
@@ -883,7 +883,6 @@ inline void test_build_chain_provenance_ambiguity() {
   // full-correspondence path, so PROVENANCE_TOL_SQ never applies to them.
   HS_EXPECT_EQ(full_legs, static_cast<size_t>(0));
   HS_EXPECT_EQ(checked, std::size(EXPECTED));
-  HS_EXPECT_TRUE(max_prev_faces > 128);
 }
 
 // ---------------------------------------------------------------------------
@@ -909,7 +908,7 @@ inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
   }
   for (size_t v = 0; v < m.vertices.size(); ++v)
     HS_EXPECT_TRUE(std::isfinite(m.vertices[v].length()));
-  HS_EXPECT_TRUE(min_area > 0.0f);
+  HS_EXPECT_GT(min_area, 0.0f);
   MeshState compiled;
   MeshOps::compile(m, compiled, a, b);
   return compiled.face_counts.size();

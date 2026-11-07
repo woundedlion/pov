@@ -9,6 +9,7 @@
 
 #include "hardware/hd107s_frame.h"
 #include "tests/test_fixture.h"
+#include "tests/hd107s_test_util.h"
 #include "tests/test_harness.h"
 
 #include <algorithm>
@@ -42,6 +43,7 @@ inline const uint8_t *pixel(const Frame &f, int i) {
  * size_with_bg() agree with the compile-time layout constants.
  */
 inline void test_layout_constants() {
+  static_assert(Frame::COMPOSITE_SIZE == 336);
   static_assert(HD107SFrame<1>::END_FRAME_BYTES == 4);
   static_assert(HD107SFrame<64>::END_FRAME_BYTES == 4);
   static_assert(HD107SFrame<65>::END_FRAME_BYTES == 8);
@@ -62,6 +64,7 @@ inline void test_layout_constants() {
  * @details 72 pixels is past the N=64 boundary, so the end frame is 8 bytes.
  */
 inline void test_layout_constants_phantasm() {
+  static_assert(PhantasmFrame::COMPOSITE_SIZE == 600);
   HS_EXPECT_EQ(PhantasmFrame::END_FRAME_BYTES, 8);
   HS_EXPECT_EQ(PhantasmFrame::BUFFER_SIZE,
                4 + PHANTASM_PPS * 4 + PhantasmFrame::END_FRAME_BYTES);
@@ -235,6 +238,15 @@ inline void test_packpixel_wire_order() {
       HS_EXPECT_EQ(f.data()[i], before[i]);
 }
 
+/** @brief Applies the shipping correction and temperature factors. */
+inline void apply_shipped_gains() {
+  Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
+                        hd107s::LINEAR_STRIP_GAIN.g,
+                        hd107s::LINEAR_STRIP_GAIN.b);
+  Frame::set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
+                         hd107s::LINEAR_WARM_GAIN.b);
+}
+
 /**
  * @brief Verifies pack_pixel()'s wire bytes under the shipped factor set at
  * non-unity brightness.
@@ -243,11 +255,7 @@ inline void test_packpixel_wire_order() {
  * packs at brightness 16 to R=249, G=100, B=38.
  */
 inline void test_packpixel_shipped_gains_half_brightness() {
-  Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
-                        hd107s::LINEAR_STRIP_GAIN.g,
-                        hd107s::LINEAR_STRIP_GAIN.b);
-  Frame::set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
-                         hd107s::LINEAR_WARM_GAIN.b);
+  apply_shipped_gains();
   Frame::set_brightness(128);
   Frame f;
 
@@ -258,6 +266,14 @@ inline void test_packpixel_shipped_gains_half_brightness() {
   HS_EXPECT_EQ(pixel(f, 3)[2], 100);
   HS_EXPECT_EQ(pixel(f, 3)[3], 249);
 
+  reset_correction<N>();
+}
+
+/** @brief Shipped gains encode full-brightness white with the expected bytes. */
+inline void test_packpixel_shipped_gains_full_brightness() {
+  apply_shipped_gains();
+  Frame f;
+  const Pixel white(CRGB(255, 255, 255));
   Frame::set_brightness(255);
   f.pack_pixel(3, white);
   HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
@@ -360,6 +376,7 @@ inline int run_hd107s_tests() {
   HS_RUN(test_correct_multifactor);
   HS_RUN(test_packpixel_wire_order);
   HS_RUN(test_packpixel_shipped_gains_half_brightness);
+  HS_RUN(test_packpixel_shipped_gains_full_brightness);
   reset_correction<N>(); // leave shared static state clean for any later module
   return fixture.result();
 }

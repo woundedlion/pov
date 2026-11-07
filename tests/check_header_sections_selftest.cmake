@@ -226,4 +226,90 @@ file(WRITE "${WORK}/tests/test_color.h" "${_color}")
 check_gate("${INCLUDE_GATE}" TRUE "includes match the roster")
 check_gate("${CALL_GATE}" TRUE "all 3 case definitions")
 
+hs_gate_workspace("${CALL_GATE}")
+file(MAKE_DIRECTORY "${WORK}/tests/effects")
+set(_nested_module [=[#include "tests/effects/fixture.h"
+inline int run_effects_tests() {
+  test_mesh_seam();
+  return 0;
+}
+]=])
+set(_nested_fixture "#include \"tests/effects/mesh_seam_oracle.h\"\n")
+set(_nested_oracle "inline void test_mesh_seam() {\n  HS_EXPECT_TRUE(true);\n}\n")
+file(WRITE "${WORK}/tests/test_effects.h" "${_nested_module}")
+file(WRITE "${WORK}/tests/effects/fixture.h" "${_nested_fixture}")
+file(WRITE "${WORK}/tests/effects/mesh_seam_oracle.h" "${_nested_oracle}")
+file(WRITE "${WORK}/run_tests.cpp" [=[#include "tests/test_effects.h"
+#define HS_TEST_MODULE_LIST(X)
+X("effects", run_effects_tests, false)
+#define HS_TEST_MODULE_ENTRY
+]=])
+check_gate("${INCLUDE_GATE}" TRUE "includes match the roster")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+file(WRITE "${WORK}/tests/effects/fixture.h" "")
+check_gate("${INCLUDE_GATE}" FALSE "owner must include its section once")
+check_gate("${CALL_GATE}" FALSE "owner must include its section once")
+file(WRITE "${WORK}/tests/effects/fixture.h" "${_nested_fixture}${_nested_fixture}")
+check_gate("${INCLUDE_GATE}" FALSE "owner must include its section once")
+check_gate("${CALL_GATE}" FALSE "owner must include its section once")
+file(WRITE "${WORK}/tests/effects/fixture.h" "${_nested_fixture}")
+file(APPEND "${WORK}/tests/test_effects.h" "${_nested_fixture}")
+check_gate("${CALL_GATE}" FALSE "section header belongs to another module")
+file(WRITE "${WORK}/tests/test_effects.h" "${_nested_module}")
+string(REPLACE "  test_mesh_seam();\n" "" _unreached "${_nested_module}")
+file(WRITE "${WORK}/tests/test_effects.h" "${_unreached}")
+check_gate("${CALL_GATE}" FALSE "test case defined but never reached")
+file(WRITE "${WORK}/tests/test_effects.h" "${_nested_module}")
+file(WRITE "${WORK}/tests/effects/mesh_seam_oracle.h" "inline void test_mesh_seam() {\n}\n")
+check_gate("${CALL_GATE}" FALSE "test cases reach no assertion")
+file(WRITE "${WORK}/tests/effects/mesh_seam_oracle.h" "${_nested_oracle}")
+file(WRITE "${WORK}/tests/effects/unapproved_helper.h" "#pragma once\n")
+file(APPEND "${WORK}/tests/effects/fixture.h" "#include \"tests/effects/unapproved_helper.h\"\n")
+check_gate("${INCLUDE_GATE}" FALSE "owner must include its section once")
+check_gate("${CALL_GATE}" FALSE "owner must include its section once")
+file(REMOVE "${WORK}/tests/effects/unapproved_helper.h")
+file(WRITE "${WORK}/tests/effects/fixture.h" "${_nested_fixture}")
+check_gate("${INCLUDE_GATE}" TRUE "includes match the roster")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+
+hs_gate_workspace("${CALL_GATE}")
+set(_member_helper [=[struct WhiteBox {
+  static void capture_frame() {
+    HS_EXPECT_TRUE(true);
+  }
+  static void sibling() {
+    HS_EXPECT_TRUE(true);
+  }
+};
+inline void test_guard() {
+  Frame frame(1);
+  static Frame cached_frame(1);
+  struct LocalFrame {
+    static int size() { return 1; }
+  };
+  WhiteBox::capture_frame();
+}
+inline int run_alpha_tests() {
+  test_guard();
+  return 0;
+}
+]=])
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_member_helper}")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+string(REPLACE "  static void capture_frame() {\n    HS_EXPECT_TRUE(true);\n  }"
+  "  static void capture_frame() {\n  }" _empty_member "${_member_helper}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_empty_member}")
+check_gate("${CALL_GATE}" FALSE "test cases reach no assertion")
+string(REPLACE "  static void capture_frame() {\n  }"
+  "  static void capture_frame() {}" _inline_empty_member "${_empty_member}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_inline_empty_member}")
+check_gate("${CALL_GATE}" FALSE "test cases reach no assertion")
+string(REPLACE "  static void capture_frame() {\n    HS_EXPECT_TRUE(true);\n  }"
+  "  static void capture_frame();" _declared_member "${_member_helper}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_declared_member}")
+check_gate("${CALL_GATE}" FALSE "test cases reach no assertion")
+string(REPLACE "  test_guard();\n" "" _unreached_member "${_member_helper}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_unreached_member}")
+check_gate("${CALL_GATE}" FALSE "test case defined but never reached")
+
 message(STATUS "test section controls passed")

@@ -129,7 +129,7 @@ inline int run_conway_morph_tests() {
   HS_RUN(test_snub_leg_on_recipe_seeds_holds_topology);
   HS_RUN(test_relax_recipe_seeds_preserve_vertex_order);
   HS_RUN(test_medial_dual_bridge_wellformed);
-  HS_RUN(test_medial_face_area_rejects_collapsed_faces);
+  HS_RUN(test_medial_face_area_is_zero_on_collapsed_faces);
   HS_RUN(test_opleg_medial_leg_smoke);
   HS_RUN(test_opleg_dual_bridge_seam_correspondence);
   HS_RUN(test_opleg_step_leg_smoke);
@@ -137,7 +137,7 @@ inline int run_conway_morph_tests() {
   HS_RUN(test_opleg_step_leg_overshooting_easing);
   HS_RUN(test_opleg_gated_swap_smoke);
   HS_RUN(test_opleg_edge_leg_crossfade);
-  HS_RUN(test_unsweepable_recipe_steps_are_gated);
+  HS_RUN(test_recipe_step_morphable_boundaries);
 
   HS_RUN(test_relax_source_hash_separates_bevel_inputs);
   HS_RUN(test_recipe_chain_build_replay);

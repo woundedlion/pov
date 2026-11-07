@@ -1,6 +1,5 @@
 """Regression tests for the tracked-text encoding gate."""
 
-import importlib.util
 from pathlib import Path
 import subprocess
 import sys
@@ -9,12 +8,15 @@ import unittest
 
 
 TOOL = Path(__file__).resolve().parents[1] / "encoding_check.py"
-SPEC = importlib.util.spec_from_file_location("encoding_check", TOOL)
 sys.path.insert(0, str(TOOL.parent))
 from git_test_env import git_run, isolated_env  # noqa: E402
 
-encoding_check = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(encoding_check)
+import encoding_check  # noqa: E402
+
+
+def run_gate(root):
+    return subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
+                          capture_output=True, env=isolated_env())
 
 
 class EncodingCheckTests(unittest.TestCase):
@@ -43,8 +45,7 @@ class EncodingCheckTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             git_run(root, "init", "-q")
-            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
-                                    capture_output=True, env=isolated_env())
+            result = run_gate(root)
             self.assertEqual(result.returncode, 2, result.stderr)
             self.assertIn(b"tooling error: no tracked files", result.stderr)
 
@@ -56,8 +57,7 @@ class EncodingCheckTests(unittest.TestCase):
             path.write_text("clean\n", encoding="utf-8")
             git_run(root, "add", "--", "deleted.txt")
             path.unlink()
-            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
-                                    capture_output=True, env=isolated_env())
+            result = run_gate(root)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, b"")
 
@@ -68,13 +68,11 @@ class EncodingCheckTests(unittest.TestCase):
             (root / "tracked.json").write_bytes(b'{"name": "caf\xe9"}\n')
             (root / "binary.bin").write_bytes(b"\0\xff")
             git_run(root, "add", "--", "tracked.json", "binary.bin")
-            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
-                                    capture_output=True, env=isolated_env())
+            result = run_gate(root)
             self.assertEqual(result.returncode, 1, result.stderr)
             self.assertEqual(result.stderr.splitlines(), [b"tracked.json:1: not valid UTF-8"])
             (root / "tracked.json").write_text('{"name": "caf\u00e9"}\n', encoding="utf-8")
-            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
-                                    capture_output=True, env=isolated_env())
+            result = run_gate(root)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stderr, b"")
 

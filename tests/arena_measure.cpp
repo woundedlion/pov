@@ -35,14 +35,14 @@ size_t g_max_p = 0, g_max_a = 0, g_max_b = 0, g_worst_total = 0;
 const char *g_worst_name = "";
 static_assert(HS_EFFECT_COUNT > 0);
 
-template <typename Effect> void measure(const char *name) {
+template <typename EffectT> void measure(const char *name) {
   hs_test::reset_globals();
   hs_test::pin_frame_clock(0);
   persistent_arena.reset_peak_tracking();
   scratch_arena_a.reset_peak_tracking();
   scratch_arena_b.reset_peak_tracking();
 
-  Effect effect;
+  EffectT effect;
   effect.init();
   size_t charged_peak = 0;
   const char *worst_partition = "";

@@ -4,9 +4,6 @@
  */
 // Modulation configuration and prepared-resource admission traps.
 
-inline void case_pattern_direction_invalid() {
-  (void)Pattern::SphereDirection::from(math::Vector(opaque(0.0f), 0.0f, 0.0f));
-}
 inline void case_modulation_hue_nonfinite() {
   (void)ColorModulation::HueRotation::prepare({0.5f});
   (void)ColorModulation::HueRotation::prepare(
@@ -52,17 +49,14 @@ inline void case_modulation_missing_cube_capacity() {
   (void)resources.prepare(config, STATE);
 }
 
-inline void case_pattern_cube_invalid_direction() {
-  (void)Pattern::prepare_sphere_lut_sample(
-      math::Vector(opaque(0.0f), 0.0f, 0.0f));
-}
 inline void case_modulation_unknown_kernel() {
   (void)ColorModulation::kernel(
       static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255})));
 }
 inline void case_modulation_control_index_invalid() {
   Pullback::Interp::Op::ModulationParams params;
-  (void)params.extra_address(opaque(size_t{38}));
+  (void)params.extra_address(
+      opaque(Pullback::Interp::Op::ModulationParams::EXTRA_SCHEMA.size()));
 }
 
 /** @brief Active spatial modulation requires its instance's prepared endpoint. */

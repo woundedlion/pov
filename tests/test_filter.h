@@ -100,7 +100,13 @@ inline int run_filter_tests() {
 
   HS_RUN(test_trait_member_values);
   HS_RUN(test_filter_trait_inheritance);
+  HS_RUN(test_filter_domain_rank);
+  HS_RUN(test_is_pipeline_trait);
+  HS_RUN(test_filter_cull_edge_traits);
   HS_RUN(test_crosses_segments_trait_and_fold);
+  HS_RUN(test_reads_outside_band_trait_and_fold);
+  HS_RUN(test_segment_margin_sums);
+  HS_RUN(test_ordering_trait_folds);
   HS_RUN(test_pipeline_config_widens_requirements);
   HS_RUN(test_history_domain_folds);
 
@@ -157,6 +163,9 @@ inline int run_filter_tests() {
   HS_RUN(test_pipeline_could_intersect_clip_forwards_through_stages);
   HS_RUN(test_pipeline_sampling_edge_preserves_fallback_and_visitor);
   HS_RUN(test_world_mobius_identity_and_transform);
+  HS_RUN(test_world_mobius_reads_bound_params);
+  HS_RUN(test_world_mobius_pipeline_parity);
+  HS_RUN(test_world_mobius_forces_full_frame);
 
   HS_RUN(test_pipeline_sink_2d_plot_writes_wraps_clips);
   HS_RUN(test_pipeline_composition_alpha_and_draw_order);
@@ -193,6 +202,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_warp_cache_keys_column_time);
   HS_RUN(test_feedback_column_time_oracle);
 
+  HS_RUN(test_world_trails_expired_seed_is_not_stored);
   HS_RUN(test_world_trails_timed_fanout_records_first_copy);
   HS_RUN(test_world_trails_int16_quantization_roundtrip);
   HS_RUN(test_world_trails_clamps_out_of_range);

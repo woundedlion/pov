@@ -124,7 +124,7 @@ inline void test_vertex_arc_and_reach_flags() {
       HS_CONTEXT("angle milliradians", static_cast<int>(angle * 1000.0f));
       const math::Vector a(2 * scale, 0, 0),
           b(scale * cosf(angle), scale * sinf(angle), 0);
-      const double ANGLE = hs_test::small_angle_between(a, b);
+      const double ANGLE = hs_test::chord_angle_between(a, b);
       const float arc = Scan::vertex_arc(a, b);
       HS_EXPECT_GE(arc, ANGLE - 1e-6);
       const double UPPER =
@@ -138,7 +138,7 @@ inline void test_vertex_arc_and_reach_flags() {
   for (int i = 0; i < 4; ++i) {
     still_current[i] = still_previous[i] * 0.5f;
     HS_EXPECT_EQ(
-        hs_test::small_angle_between(still_previous[i], still_current[i]), 0.0);
+        hs_test::chord_angle_between(still_previous[i], still_current[i]), 0.0);
     HS_EXPECT_LT(Scan::vertex_arc(still_previous[i], still_current[i]) *
                      PIXELS_PER_RADIAN,
                  Scan::HELD_VERTEX_PIXELS);
@@ -153,6 +153,10 @@ inline void test_vertex_arc_and_reach_flags() {
     HS_EXPECT_EQ(still_reach[i], 0);
     HS_EXPECT_EQ(Scan::vertex_reach(still_reach[i]), 0.0f);
   }
+}
+
+/** @brief Reach levels conservatively quantize motion and demote held vertices. */
+inline void test_vertex_reach_levels_and_demotion() {
   // A reach level stands for at least the reach, and at most a third of an
   // octave more.
   for (const float reach : {1e-6f, 1e-3f, 0.003f, 0.02f, 0.4f, 1.0f}) {
@@ -166,6 +170,21 @@ inline void test_vertex_arc_and_reach_flags() {
   HS_EXPECT_EQ(Scan::vertex_reach(0), 0.0f);
   // A reach past the levels stands as unbounded.
   HS_EXPECT_GE(Scan::vertex_reach(Scan::vertex_flags(2.0f)), 1e30f);
+  const math::Vector placed = math::Vector(0.1f, 1.0f, 0.0f).normalized();
+  const math::Vector current[2] = {placed, placed};
+  const math::Vector previous[2] = {
+      math::rotate(placed, math::make_rotation(math::Vector(0, 0, 1), 0.2f)),
+      placed};
+  // The second vertex, picked but still, holds.
+  uint8_t moving[2] = {Scan::VERTEX_MOVES, Scan::VERTEX_MOVES};
+  Scan::flag_vertex_reaches<288>(previous, current, 2, moving);
+  HS_EXPECT_GE(Scan::vertex_reach(moving[0]), 0.2f);
+  HS_EXPECT_LE(Scan::vertex_reach(moving[0]), 0.26f);
+  HS_EXPECT_EQ(moving[1], 0);
+}
+
+/** @brief Face capture includes a pole reached by vertex or basis motion. */
+inline void test_face_capture_interval_polar_reach() {
   // A face reaches the pole by its fastest vertex from its nearest one.
   {
     const auto at = [](float horizontal, float azimuth) {
@@ -194,17 +213,6 @@ inline void test_vertex_arc_and_reach_flags() {
     // The basis's own sweep counts toward the reach.
     HS_EXPECT_LT(interval(0.01f).lo, 0.0f);
   }
-  const math::Vector placed = math::Vector(0.1f, 1.0f, 0.0f).normalized();
-  const math::Vector current[2] = {placed, placed};
-  const math::Vector previous[2] = {
-      math::rotate(placed, math::make_rotation(math::Vector(0, 0, 1), 0.2f)),
-      placed};
-  // The second vertex, picked but still, holds.
-  uint8_t moving[2] = {Scan::VERTEX_MOVES, Scan::VERTEX_MOVES};
-  Scan::flag_vertex_reaches<288>(previous, current, 2, moving);
-  HS_EXPECT_GE(Scan::vertex_reach(moving[0]), 0.2f);
-  HS_EXPECT_LE(Scan::vertex_reach(moving[0]), 0.26f);
-  HS_EXPECT_EQ(moving[1], 0);
 }
 
 /** @brief Captures wrap at the arm seam and follow the equator. */
@@ -859,7 +867,6 @@ inline void test_swept_face_rows_cover_near_pole_fringe() {
  *  own time: convex, starred, turning convex during the frame, growing from a
  *  point or tipped off the pole, under a still or a turning camera. */
 inline void test_mesh_polar_face_sweep() {
-  test_swept_face_rows_cover_near_pole_fringe();
   check_polar_face_sweep(6, 0.12f, true, 0.0f);
   check_polar_face_sweep(6, 0.12f, false, 0.02f);
   check_polar_face_sweep(3, 0.05f, true, 0.02f);

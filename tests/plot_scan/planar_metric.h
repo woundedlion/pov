@@ -24,7 +24,7 @@ inline math::Vector az_unproject_exact(float Px, float Py,
  * @brief Great-circle angle between two unit vectors, accurate for tiny angles.
  */
 inline float az_arc_exact(const math::Vector &p, const math::Vector &q) {
-  return static_cast<float>(hs_test::small_angle_between(p, q));
+  return static_cast<float>(hs_test::chord_angle_between(p, q));
 }
 
 /**

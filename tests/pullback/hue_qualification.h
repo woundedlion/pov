@@ -2,21 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-#pragma once
+/** @file @brief Cached hue modulation qualification over cycling palettes. */
 
 /** @brief Cached hue modulation meets channel bounds across reachable palette intervals. */
 inline void test_pullback_cached_hue_qualification() {
   using namespace Pullback;
   using Policy = Color::GeneratedPalette<LabPaletteProvider>;
-  struct Provider : PaletteLayerProvider {
-    static Color::ModulationState prepare(const PaletteFrame &frame) {
-      auto s = PaletteLayerProvider::prepare(frame);
-      s.source = Pattern::SourceKind::DISPLACEMENT;
-      return s;
-    }
-  };
-  using Layer = Color::Modulate<Provider>;
-  enum class Cycle { TRIADIC, COMPLEMENTARY, ANALOGOUS };
+  using Layer = Color::Modulate<DisplacementLayerProvider>;
   for (uint32_t offset : {0u, 17u, 83u})
     for (float chroma : {.314f, .718f, .788f, 1.f})
       for (auto mode :
@@ -70,7 +62,9 @@ inline void test_pullback_cached_hue_qualification() {
           for (float fraction : {.17f, .5f, .83f}) {
             frame.temporal.fraction = fraction;
             const auto prepared = Policy::prepare(frame);
-            const int LOW_ROW = std::min(int(fraction * 2), 1);
+            const int LOW_ROW =
+                std::min(int(fraction * (PaletteLabLut::TIMES - 1)),
+                         int(PaletteLabLut::TIMES) - 2);
             const auto *const LOW_MASK =
                 &rgb[slot].masks[cache.rgb_midpoint ? cache.rgb_midpoint_row
                                                     : LOW_ROW];
@@ -97,9 +91,9 @@ inline void test_pullback_cached_hue_qualification() {
                     Layer::apply(direct, frame, prepared_layer));
                 HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-7f);
                 for (auto error :
-                     {abs(int(actual.color.r) - expected.color.r),
-                      abs(int(actual.color.g) - expected.color.g),
-                      abs(int(actual.color.b) - expected.color.b)}) {
+                     {channel_gap(actual.color.r, expected.color.r),
+                      channel_gap(actual.color.g, expected.color.g),
+                      channel_gap(actual.color.b, expected.color.b)}) {
                   maximum = std::max(maximum, uint32_t(error));
                   sum += error;
                   ++channels;
@@ -111,9 +105,10 @@ inline void test_pullback_cached_hue_qualification() {
           last = slot;
         }
         const double mean = double(sum) / channels;
-        std::printf("cached mode%d max%u mean%.9f channels%llu samples%zu\n",
-                    int(mode), maximum, mean, (unsigned long long)channels,
-                    samples);
+        std::printf(
+            "  cached hue offset=%u chroma=%.3f mode=%d max=%u mean=%.9f channels=%llu samples=%zu\n",
+            offset, double(chroma), int(mode), maximum, mean,
+            (unsigned long long)channels, samples);
         HS_EXPECT_LE(float(maximum), Layer::METRICS[0].limit);
         HS_EXPECT_LE(mean, Layer::METRICS[1].limit);
       }

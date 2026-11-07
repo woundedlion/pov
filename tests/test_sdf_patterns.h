@@ -7,6 +7,10 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cmath>
+
 #include <limits>
 
 #include "core/render/sdf/framework.h"
@@ -602,30 +606,105 @@ inline void test_octet4_scalar_distance_matches_offset() {
   }
 }
 
+using StrutVector = std::array<double, 4>;
+
+/** @brief Dot product for the double-precision strut oracle. */
+inline double strut_dot(const StrutVector &a, const StrutVector &b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+}
+
+/** @brief Signed diagonal normal of one D4 family. */
+inline StrutVector strut_normal(size_t family) {
+  return {1.0, (family & 1) ? -1.0 : 1.0, (family & 2) ? -1.0 : 1.0,
+          (family & 4) ? -1.0 : 1.0};
+}
+
+struct OracleStrut {
+  StrutVector u;
+  uint32_t feature;
+};
+
+/** @brief Assigns each strut to the fastest orthogonal family. */
+inline std::array<int, 12>
+strut_owners(const StrutVector &direction,
+             const std::array<OracleStrut, 12> &classes) {
+  std::array<int, 12> owner;
+  for (size_t c = 0; c < classes.size(); ++c) {
+    double best = -1.0;
+    for (size_t family = 0; family < 8; ++family) {
+      if (fabs(strut_dot(strut_normal(family), classes[c].u)) > 1e-9)
+        continue;
+      const double SPEED = fabs(strut_dot(strut_normal(family), direction));
+      if (SPEED > best) {
+        best = SPEED;
+        owner[c] = static_cast<int>(family);
+      }
+    }
+  }
+  return owner;
+}
+
+/** @brief Squared distance between a ray and the nearest eligible lattice strut. */
+inline double ray_strut_distance_squared(const StrutVector &q,
+                                         const StrutVector &direction,
+                                         const StrutVector &normal,
+                                         double plane,
+                                         const StrutVector &strut) {
+  double nearest = INFINITY;
+  StrutVector vertex{};
+  for (int a = -2; a <= 2; ++a)
+    for (int b = -2; b <= 2; ++b)
+      for (int e = -2; e <= 2; ++e)
+        for (int g = -2; g <= 2; ++g) {
+          const StrutVector V{std::floor(q[0]) + a, std::floor(q[1]) + b,
+                              std::floor(q[2]) + e, std::floor(q[3]) + g};
+          const double SUM = V[0] + V[1] + V[2] + V[3];
+          if (std::fmod(fabs(SUM), 2.0) != 0.0 ||
+              fabs(strut_dot(normal, V) - plane) > 0.5)
+            continue;
+          StrutVector w;
+          for (int k = 0; k < 4; ++k)
+            w[k] = q[k] - V[k];
+          const double ALONG = strut_dot(w, strut);
+          double squared = 0.0;
+          for (int k = 0; k < 4; ++k)
+            squared += (w[k] - ALONG * strut[k]) * (w[k] - ALONG * strut[k]);
+          if (squared < nearest) {
+            nearest = squared;
+            vertex = V;
+          }
+        }
+  StrutVector w, across;
+  const double UD = strut_dot(strut, direction);
+  for (int k = 0; k < 4; ++k) {
+    w[k] = q[k] - vertex[k];
+    across[k] = strut[k] - UD * direction[k];
+  }
+  const double ACROSS = sqrt(strut_dot(across, across));
+  for (int k = 0; k < 4; ++k)
+    across[k] /= ACROSS;
+  const double WD = strut_dot(w, direction);
+  const double WA = strut_dot(w, across);
+  double distance2 = 0.0;
+  for (int k = 0; k < 4; ++k) {
+    const double R = w[k] - WD * direction[k] - WA * across[k];
+    distance2 += R * R;
+  }
+  return distance2;
+}
+
 /**
  * @brief Owned D4 strut coverage matches an independent ray/line oracle.
  * @details The oracle assigns each strut class to the family with the largest
  * |normal . direction|.
  */
 inline void test_octet4_owned_struts_match_ray_line_oracle() {
-  using Vec = std::array<double, 4>;
-  const auto dot = [](const Vec &a, const Vec &b) {
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
-  };
-  const auto sigma = [](size_t family) {
-    return Vec{1.0, (family & 1) ? -1.0 : 1.0, (family & 2) ? -1.0 : 1.0,
-               (family & 4) ? -1.0 : 1.0};
-  };
-  struct StrutClass {
-    Vec u;
-    uint32_t feature;
-  };
-  std::array<StrutClass, 12> classes;
+  std::array<OracleStrut, 12> classes;
   uint32_t pair = 0;
   for (int i = 0; i < 4; ++i)
     for (int j = i + 1; j < 4; ++j, ++pair)
       for (int s : {-1, 1}) {
-        Vec u{};
+        StrutVector u{};
         u[i] = 0.70710678118654752;
         u[j] = s * 0.70710678118654752;
         classes[2 * pair + (s > 0)] = {u, 2 * pair + (s > 0)};
@@ -659,23 +738,12 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
                                          cell_size};
       SDF::OctetEvents4 events(geometry, origin, direction, INTERVAL,
                                FOOTPRINT);
-      const Vec D{direction[0], direction[1], direction[2], direction[3]};
+      const StrutVector D{direction[0], direction[1], direction[2],
+                          direction[3]};
       const double SCALE =
           static_cast<double>(SDF::OctetFramework4::HALF_CUBE) * cell_size;
 
-      std::array<int, 12> owner;
-      for (size_t c = 0; c < classes.size(); ++c) {
-        double best = -1.0;
-        for (size_t family = 0; family < 8; ++family) {
-          if (fabs(dot(sigma(family), classes[c].u)) > 1e-9)
-            continue;
-          const double SPEED = fabs(dot(sigma(family), D));
-          if (SPEED > best) {
-            best = SPEED;
-            owner[c] = static_cast<int>(family);
-          }
-        }
-      }
+      const auto owner = strut_owners(D, classes);
       size_t active = 0;
       for (size_t family = 0; family < 8; ++family) {
         bool owns = false;
@@ -691,60 +759,21 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
                                events.distance(family) <= INTERVAL.far;
              ++crossing) {
           const float T = events.distance(family);
-          Vec q;
+          StrutVector q;
           for (int k = 0; k < 4; ++k)
             q[k] = (static_cast<double>(origin[k]) + D[k] * T -
                     geometry.origin[k]) /
                    SCALE;
-          const Vec NORMAL = sigma(family);
-          const double PLANE = dot(NORMAL, q);
+          const StrutVector NORMAL = strut_normal(family);
+          const double PLANE = strut_dot(NORMAL, q);
           HS_EXPECT_NEAR(0.5 * PLANE, std::round(0.5 * PLANE), 1e-3);
           double best = INFINITY;
           uint32_t feature = 0;
           for (size_t c = 0; c < classes.size(); ++c) {
             if (owner[c] != static_cast<int>(family))
               continue;
-            const Vec &U = classes[c].u;
-            double nearest = INFINITY;
-            Vec vertex{};
-            for (int a = -2; a <= 2; ++a)
-              for (int b = -2; b <= 2; ++b)
-                for (int e = -2; e <= 2; ++e)
-                  for (int g = -2; g <= 2; ++g) {
-                    const Vec V{std::floor(q[0]) + a, std::floor(q[1]) + b,
-                                std::floor(q[2]) + e, std::floor(q[3]) + g};
-                    const double SUM = V[0] + V[1] + V[2] + V[3];
-                    if (std::fmod(fabs(SUM), 2.0) != 0.0 ||
-                        fabs(dot(NORMAL, V) - PLANE) > 0.5)
-                      continue;
-                    Vec w;
-                    for (int k = 0; k < 4; ++k)
-                      w[k] = q[k] - V[k];
-                    const double ALONG = dot(w, U);
-                    double squared = 0.0;
-                    for (int k = 0; k < 4; ++k)
-                      squared += (w[k] - ALONG * U[k]) * (w[k] - ALONG * U[k]);
-                    if (squared < nearest) {
-                      nearest = squared;
-                      vertex = V;
-                    }
-                  }
-            Vec w, across;
-            const double UD = dot(U, D);
-            for (int k = 0; k < 4; ++k) {
-              w[k] = q[k] - vertex[k];
-              across[k] = U[k] - UD * D[k];
-            }
-            const double ACROSS = sqrt(dot(across, across));
-            for (int k = 0; k < 4; ++k)
-              across[k] /= ACROSS;
-            const double WD = dot(w, D);
-            const double WA = dot(w, across);
-            double distance2 = 0.0;
-            for (int k = 0; k < 4; ++k) {
-              const double R = w[k] - WD * D[k] - WA * across[k];
-              distance2 += R * R;
-            }
+            const double distance2 =
+                ray_strut_distance_squared(q, D, NORMAL, PLANE, classes[c].u);
             if (distance2 < best) {
               best = distance2;
               feature = classes[c].feature;
@@ -774,6 +803,10 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
   HS_EXPECT_GT(odd, size_t{0});
   for (size_t count : by_class)
     HS_EXPECT_GT(count, size_t{0});
+  std::printf("  octet4 extracted covered=%zu odd=%zu classes", covered, odd);
+  for (size_t count : by_class)
+    std::printf(" %zu", count);
+  std::printf("\n");
 }
 
 /** @brief Ambient octet events remain ordered and within capacity. */

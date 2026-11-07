@@ -391,10 +391,7 @@ inline void test_bookend_swaps_per_family() {
 }
 
 /**
- * @brief Verifies palette multiplicities across real leg arrivals.
- * @details On each arrival the displayed per-face palettes are compared with
- *          the landed ones over the base-face emission prefix, as per-palette
- *          multisets; per-face provenance is not pinned.
+ * @brief Each base face retains its landed palette across real leg arrivals.
  */
 inline void test_palette_carry_across_arrivals() {
   reset_globals();
@@ -438,8 +435,6 @@ inline void test_palette_carry_across_arrivals() {
     HS_EXPECT_LE(nf, arrived_topo.size());
     if (nf > arrived_topo.size())
       continue;
-    int landed[PALETTES] = {};
-    int shown[PALETTES] = {};
     for (size_t f = 0; f < nf; ++f) {
       const auto landed_palette =
           arrived_palette[MeshPaletteBank::slot_of(arrived_topo[f])];
@@ -448,16 +443,8 @@ inline void test_palette_carry_across_arrivals() {
       HS_EXPECT_LT(shown_palette, PALETTES);
       if (landed_palette >= PALETTES || shown_palette >= PALETTES)
         continue;
-      ++landed[landed_palette];
-      ++shown[shown_palette];
+      HS_EXPECT_EQ(shown_palette, landed_palette);
     }
-    const int failed_before = hs_test::stats().failed;
-    for (int p = 0; p < PALETTES; ++p)
-      HS_EXPECT_EQ(shown[p], landed[p]);
-    if (hs_test::stats().failed != failed_before)
-      std::printf("    [palette-carry] arrival %d at '%s': displayed palettes "
-                  "do not carry the landing\n",
-                  arrivals, Solids::simple_registry[node].name);
   }
   HS_EXPECT_EQ(arrivals, TARGET_ARRIVALS);
 }
@@ -526,29 +513,31 @@ inline DiffStats swap_diff(const PolyMesh &seed, const PolyMesh &swept,
  */
 inline void test_swap_in_framebuffer() {
   using conway_morph_tests::run_edge_op;
-  const ConwayGraph::MorphOp OPS[] = {ConwayGraph::MorphOp::TRUNCATE,
-                                      ConwayGraph::MorphOp::EXPAND,
-                                      ConwayGraph::MorphOp::SNUB};
-  const char *names[] = {"truncate", "expand", "snub"};
-
-  for (int oi = 0; oi < 3; ++oi) {
+  const struct {
+    ConwayGraph::MorphOp op;
+    const char *name;
+  } cases[] = {{ConwayGraph::MorphOp::TRUNCATE, "truncate"},
+               {ConwayGraph::MorphOp::EXPAND, "expand"},
+               {ConwayGraph::MorphOp::SNUB, "snub"},
+               {ConwayGraph::MorphOp::CHAMFER, "chamfer"}};
+  for (const auto &entry : cases) {
     Arena geom(cc_geom_buf, sizeof(cc_geom_buf));
     Arena temp(cc_temp_buf, sizeof(cc_temp_buf));
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, geom);
 
     ConwayGraph::EdgeSpec e{};
-    e.op = OPS[oi];
+    e.op = entry.op;
     PolyMesh swept = run_edge_op(e, cube, geom, temp, T_EPS, 0.0f);
 
     const DiffStats st = swap_diff(cube, swept);
     std::printf("  [swap-in] %s: flat=%zu newborn=%zu blend=%zu px\n",
-                names[oi], st.flat, st.newborn, st.blend);
+                entry.name, st.flat, st.newborn, st.blend);
     HS_EXPECT_LE(st.flat, SWAP_FLAT_BUDGET);
     HS_EXPECT_LE(st.newborn, SWAP_NEWBORN_BUDGET);
     HS_EXPECT_LE(st.blend, SWAP_BLEND_BUDGET);
 
-    if (oi == 0) {
+    if (entry.op == ConwayGraph::MorphOp::TRUNCATE) {
       // Budget discrimination: rotating the primary mapping by one face must
       // recolor whole face interiors and blow far past the flat budget.
       const DiffStats wrong = swap_diff(cube, swept, /*rotate_primaries*/ true);
@@ -583,13 +572,15 @@ inline void test_derive_ambo_departure_swap_framebuffer() {
   HS_EXPECT_LE(st.blend, SWAP_BLEND_BUDGET);
 }
 
-/**
- * @brief Verifies the ADOPT bridge arrival swap geometry: the leg's last frame
- *        truncate(tetra, 0.5 - T_EPS_AMBO) and the adopted octahedron base
- *        (ambo(tetra)) cover the same pixels — under one shared fill, so the
- *        residual is pure T_EPS_AMBO geometry, not emission order (the ambo
- *        short-circuit reorders emission; palettes carry over per class).
- */
+/** @brief Unit-sphere vertex-average centroid of a compiled face. */
+inline math::Vector poly_face_centroid(const MeshState &m, size_t fi) {
+  math::Vector c(0, 0, 0);
+  for (size_t k = 0; k < m.face_counts[fi]; ++k)
+    c = c + m.vertices[m.faces[m.face_offsets[fi] + k]];
+  return c.normalized();
+}
+
+/** @brief The ADOPT bridge preserves octant-colored face interiors at arrival. */
 inline void test_adopt_bridge_arrival_geometry() {
   Arena geom(cc_geom_buf, sizeof(cc_geom_buf));
   Arena temp(cc_temp_buf, sizeof(cc_temp_buf));
@@ -601,20 +592,30 @@ inline void test_adopt_bridge_arrival_geometry() {
   PolyMesh arrived = MeshOps::ambo(tetra, geom, temp);
   HS_EXPECT_EQ(swept.face_counts.size(), arrived.face_counts.size());
 
-  const std::vector<Color4> fill = {face_color(0)};
-  MeshState a_ms, b_ms;
-  MeshOps::compile(arrived, a_ms, aux, temp);
-  MeshOps::compile(swept, b_ms, aux, temp);
-  std::vector<Pixel> a_px, b_px;
-  render_faces(a_px, a_ms, [](int) { return face_color(0); });
-  render_faces(b_px, b_ms, [](int) { return face_color(0); });
-
-  const DiffStats st = diff_stats(a_px, fill, b_px, fill);
+  const auto capture = [&](const PolyMesh &mesh) {
+    ScratchScope compiled(aux);
+    MeshState state;
+    MeshOps::compile(mesh, state, aux, temp);
+    std::vector<Pixel> pixels;
+    render_faces(pixels, state, [&](int f) {
+      const math::Vector center = poly_face_centroid(state, f);
+      const int octant = (center.x > 0.0f) | ((center.y > 0.0f) << 1) |
+                         ((center.z > 0.0f) << 2);
+      return face_color(octant);
+    });
+    return pixels;
+  };
+  const std::vector<Color4> fill = face_palette(8);
+  const auto arrived_px = capture(arrived);
+  const DiffStats st = diff_stats(arrived_px, fill, capture(swept), fill);
   std::printf("  [adopt-arrival] ambo(tetra) vs truncate(tetra, .5-eps): "
               "flat=%zu blend=%zu px\n",
               st.flat, st.blend);
   HS_EXPECT_LE(st.flat, SWAP_FLAT_BUDGET);
   HS_EXPECT_LE(st.blend, SWAP_BLEND_BUDGET);
+  const PolyMesh early = MeshOps::truncate(tetra, geom, temp, 0.25f);
+  HS_EXPECT_GT(diff_stats(arrived_px, fill, capture(early), fill).flat,
+               WRONG_MAPPING_FLAT_FLOOR);
 }
 
 /**
@@ -696,17 +697,17 @@ struct ShadingSnapshot {
       colors; /**< Per-face sampled colors. */
 };
 
-/** Captures face ramps and sampled colors, optionally checking ramp bounds. */
-inline auto shading_capture(ShadingSnapshot &snap,
-                            const int *ramp_count = nullptr) {
+/** @brief Captures face colors after checking their ramp indices. */
+inline auto shading_capture(ShadingSnapshot &snap, const int *ramp_count) {
   return [&snap, ramp_count](Canvas &, const MeshState &mesh,
                              const Animation::OpLeg::Shading &sh) {
     HS_EXPECT_EQ(mesh.face_counts.size(), sh.faces);
     snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
     snap.colors.resize(sh.faces);
     for (size_t f = 0; f < sh.faces; ++f) {
-      if (ramp_count)
-        HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), *ramp_count);
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), *ramp_count);
+      if (static_cast<int>(sh.face_ramp[f]) >= *ramp_count)
+        continue;
       for (int sample = 0; sample < NUM_RAMP_SAMPLES; ++sample)
         snap.colors[f][sample] =
             sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[sample]);
@@ -763,14 +764,6 @@ constexpr float HOST_TIE_SQ = 1e-4f;
 inline math::Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
   const size_t off = poly_face_offset(m, fi);
   return face_centroid_unit(m, off, m.face_counts[fi]);
-}
-
-/** @brief Unit-sphere vertex-average centroid of a compiled face. */
-inline math::Vector poly_face_centroid(const MeshState &m, size_t fi) {
-  math::Vector c(0, 0, 0);
-  for (size_t k = 0; k < m.face_counts[fi]; ++k)
-    c = c + m.vertices[m.faces[m.face_offsets[fi] + k]];
-  return c.normalized();
 }
 
 /**
@@ -1107,7 +1100,8 @@ inline void test_palette_mapping_deterministic() {
                                                  cube.face_counts.size()};
 
     ShadingSnapshot &snap = snaps[run];
-    auto cb = shading_capture(snap);
+    int ramp_count = 0;
+    auto cb = shading_capture(snap, &ramp_count);
 
     hs::random().seed(31337u);
     Animation::OpLeg anim(cube,
@@ -1117,6 +1111,7 @@ inline void test_palette_mapping_deterministic() {
                               .settle_frames = ConwayGraph::SETTLE_FRAMES},
                           leg, cb, handoff);
     const Animation::OpLeg::Landing &landing = anim.landing();
+    ramp_count = landing.blend_pairs;
     to_palette[run] = landing.to_palette;
     topo[run].assign(landing.topology, landing.topology + landing.faces);
     step_and_snapshot(anim, fx, snap);
@@ -1269,7 +1264,8 @@ inline void test_leg_start_seed_frame_continuity() {
     // Shading pin: the first frame's w = 0 colors are the departed faces'.
     ShadingSnapshot snap;
     std::vector<math::Vector> drawn_centroids;
-    auto capture = shading_capture(snap);
+    int ramp_count = 0;
+    auto capture = shading_capture(snap, &ramp_count);
     auto cb = [&](Canvas &canvas, const MeshState &mesh,
                   const Animation::OpLeg::Shading &sh) {
       drawn_centroids.resize(mesh.face_counts.size());
@@ -1286,6 +1282,7 @@ inline void test_leg_start_seed_frame_continuity() {
                                 .sweep_frames = SWEEP_FRAMES,
                                 .settle_frames = e.settle ? SETTLE_FRAMES : 0},
                             leg_arena, cb, handoff);
+      ramp_count = anim.landing().blend_pairs;
       step_and_snapshot(anim, fx, snap);
       const size_t total = drawn_centroids.size();
       // Geometric pin: every start face overlies a departed face (full legs:
@@ -1648,14 +1645,6 @@ inline void test_strap_crossfade_seed_swept() {
  * boundary shimmer), in 16-bit channel counts. */
 constexpr int STRAP_OPEN_HARD = 8000;
 
-/** Interlace angle the hankin sweep drives at `cycle_frame`: the production
- * Mutation's wave sampled at that frame's normalized progress over the sweep.
- */
-template <int W, int H>
-inline float sweep_angle(const HankinSolids<W, H> &fx, int cycle_frame) {
-  return conway_soak_tests::HankinWalkProbe::sweep_angle(fx, cycle_frame);
-}
-
 /** Hard-recolor pixel count between two captured frames. */
 inline int hard_recolor_count(const std::vector<Pixel> &a,
                               const std::vector<Pixel> &b) {
@@ -1701,7 +1690,7 @@ inline void test_strap_open_fade() {
   constexpr int MAX_ARRIVALS = 12;
   constexpr int MIN_POP_FULL = 400;
   // First frame the sweep draws: the straps are born as thin slivers here.
-  const float open_angle = sweep_angle(fx, 1);
+  const float open_angle = Probe::sweep_angle(fx, 1);
   float fade = 0.0f;
   int pop_full = 0, pop_faded = 0;
   std::vector<Pixel> bookend, full, faded;
@@ -1756,7 +1745,7 @@ inline void test_strap_close_dissolve() {
   HS_EXPECT_LT(close_blend, 0.2f);
   HS_EXPECT_LT(term, 1.0f);
 
-  const float close_angle = sweep_angle(fx, cf);
+  const float close_angle = Probe::sweep_angle(fx, cf);
   std::vector<Pixel> last_plain, rim, blended, transparent, faded;
   capture_opening(fx, close_angle, 1.0f, last_plain, 1.0f, 1.0f, cf);
   capture_opening(fx, close_angle, 1.0f, rim, 0.0f, 1.0f, cf);
@@ -1824,7 +1813,7 @@ inline void test_star_midpoint_dissolve() {
 
   // The sweep is symmetric about its midpoint, so the frame either side of it
   // draws this same angle, with the star closed to a last sliver.
-  const float star_angle = sweep_angle(fx, cf);
+  const float star_angle = Probe::sweep_angle(fx, cf);
   std::vector<Pixel> sliver_plain, sliver_shaped, sliver_target;
   capture_opening(fx, star_angle, 1.0f, sliver_plain, 1.0f, 1.0f, cf, 1.0f);
   capture_opening(fx, star_angle, 1.0f, sliver_shaped, 1.0f, 1.0f, cf,
@@ -1859,7 +1848,7 @@ inline void test_star_midpoint_dissolve() {
   // Symmetric on the far side: the star comes back out of the rosette ramp as
   // it reopens rather than snapping to its own color.
   const int reopen_cf = mid + 1;
-  const float reopen_angle = sweep_angle(fx, reopen_cf);
+  const float reopen_angle = Probe::sweep_angle(fx, reopen_cf);
   const float reopen_blend = Probe::shape_weights(fx, reopen_cf).star_close;
   HS_EXPECT_NEAR(reopen_angle, star_angle, 1e-6f);
   HS_EXPECT_EQ(reopen_blend, star_blend);

@@ -337,29 +337,6 @@ inline void test_shader_chain_parity_lens_ops() {
     run_lens_parity<PB::Lens::AnimatedTwist<TwistMirrorProvider>,
                     In::Op::TwistChainParams>(In::Op::LensTwist::ID, set);
   });
-  for (const float distribution : {0.0f, 0.85f, 1.0f}) {
-    for (const float total_angle : {-96.0f, 0.0f, 96.0f}) {
-      const PB::SphereSample input{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
-      In::Op::TwistChainParams params;
-      params.twist_angle = total_angle;
-      params.distribution = distribution;
-      const auto ctx = shared_resources().context();
-      const auto prepared = In::Op::LensTwist::prepare(ctx, params, {});
-      const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
-      const double a = distribution * 0.999;
-      const double angle =
-          0.5 * total_angle *
-          (a == 0.0 ? input.dir.y : atanh(a * input.dir.y) / atanh(a));
-      HS_EXPECT_NEAR(result.dir.x,
-                     input.dir.x * cos(angle) - input.dir.z * sin(angle),
-                     2.5e-3);
-      HS_EXPECT_EQ(result.dir.y, input.dir.y);
-      HS_EXPECT_NEAR(result.dir.z,
-                     input.dir.x * sin(angle) + input.dir.z * cos(angle),
-                     2.5e-3);
-    }
-  }
-
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
   if (!arm_sphere_op_chain<In::Op::KaleidoscopeChainParams>(
@@ -543,4 +520,30 @@ inline void test_shader_chain_twist_animation() {
       In::RuntimeStateCodec<Twist::State>::restore(restored, invalid));
   HS_EXPECT_EQ(restored.phi, end.phi);
   HS_EXPECT_EQ(restored.lambda, end.lambda);
+}
+
+/** @brief Analytic twist follows its closed-form angular distribution. */
+inline void test_shader_chain_twist_closed_form() {
+  for (const float distribution : {0.0f, 0.85f, 1.0f}) {
+    for (const float total_angle : {-96.0f, 0.0f, 96.0f}) {
+      const PB::SphereSample input{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
+      In::Op::TwistChainParams params;
+      params.twist_angle = total_angle;
+      params.distribution = distribution;
+      const auto ctx = shared_resources().context();
+      const auto prepared = In::Op::LensTwist::prepare(ctx, params, {});
+      const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
+      const double a = distribution * 0.999;
+      const double angle =
+          0.5 * total_angle *
+          (a == 0.0 ? input.dir.y : atanh(a * input.dir.y) / atanh(a));
+      HS_EXPECT_NEAR(result.dir.x,
+                     input.dir.x * cos(angle) - input.dir.z * sin(angle),
+                     2.5e-3);
+      HS_EXPECT_EQ(result.dir.y, input.dir.y);
+      HS_EXPECT_NEAR(result.dir.z,
+                     input.dir.x * sin(angle) + input.dir.z * cos(angle),
+                     2.5e-3);
+    }
+  }
 }

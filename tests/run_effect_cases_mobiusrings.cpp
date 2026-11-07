@@ -18,6 +18,13 @@ void run_effect_case_mobius_rings_white_box_check_column_time_oracle() {
   HS_RUN(MobiusRingsWhiteBox::check_column_time_oracle);
 }
 
+void run_effect_case_mobius_rings_white_box_check_device_clip_work() {
+  HS_RUN(MobiusRingsWhiteBox::check_device_clip_work);
+}
+
+void run_effect_case_mobius_rings_white_box_check_first_frame_hold() {
+  HS_RUN(MobiusRingsWhiteBox::check_first_frame_hold);
+}
 void run_effect_case_mobius_rings_conformal_and_counter_rotation() {
   HS_RUN(run_case, test_mobius_rings_conformal_and_counter_rotation);
 }
@@ -33,6 +40,8 @@ int run_mobiusrings_tests() {
   ModuleFixture fixture("effects");
   run_effect_case_mobius_rings_conformal_and_counter_rotation();
   run_effect_case_mobius_rings_white_box_check_column_time_oracle();
+  run_effect_case_mobius_rings_white_box_check_device_clip_work();
+  run_effect_case_mobius_rings_white_box_check_first_frame_hold();
   return fixture.result();
 }
 

@@ -502,6 +502,15 @@ inline void test_pipeline_ref_timed_stages() {
   HS_EXPECT_EQ(sink.column, 3);
   expect_timed_ref_registers(sink, canvas, color, 4.5f, 0.75f);
   HS_EXPECT_EQ(sink.time, 0.625f);
+}
+
+/** @brief World samples forward for an unset or matching once-wrapped column. */
+inline void test_pipeline_ref_world_sample_column_filter() {
+  StubEffect effect(8, 4);
+  Canvas canvas(effect);
+  TimedRefStages sink;
+  PipelineRef copy(sink, Spacetime::Timed{});
+  const math::Vector point(0.25f, -0.5f, 0.75f);
   copy.record_world_sample(canvas, point, 0.0f, 0.5f);
   HS_EXPECT_EQ(sink.recorded, 1);
   copy.record_world_sample(canvas, point, 0.0f, 0.5f, 3, 3.25f);
@@ -640,6 +649,7 @@ inline int run_concepts_tests() {
   HS_RUN(test_fn_copy_move_empty);
   HS_RUN(test_pipeline_ref_timed_defaults);
   HS_RUN(test_pipeline_ref_timed_stages);
+  HS_RUN(test_pipeline_ref_world_sample_column_filter);
   HS_RUN(test_tweenable_concept);
   HS_RUN(test_dissolve_mask_partition);
 

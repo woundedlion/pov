@@ -17,6 +17,7 @@ constexpr int H = 144;
 using Geometry = math::DisplayGeometry<H>;
 
 void test_coordinates() {
+  HS_CONTEXT("resolution", W, H);
   const math::LatitudeGeometry latitude(H);
   for (int y = 0; y < H; ++y)
     HS_EXPECT_EQ(latitude.row_to_phi(y), Geometry::row_to_phi(y));
@@ -137,6 +138,7 @@ void test_render_caps() {
 }
 
 void test_feedback_endpoint_rings() {
+  HS_CONTEXT("resolution", W, H);
   static_assert(hs::SphericalFieldLayout<W, H>::POLE_COUNT == 0);
   for (int row : {0, H - 1}) {
     hs_test::pole_geometry::check_feedback_ring_centroid<W, H>(row);

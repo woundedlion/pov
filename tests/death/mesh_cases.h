@@ -7,6 +7,19 @@
 
 // Mesh death cases.
 
+/** @brief Death case: a face loop exceeding its side limit must trap. */
+inline void case_mesh_face_loop_side_limit() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3};
+  const uint16_t indices[] = {0, 1, 2};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 3, counts, 1, indices, 3);
+  HalfEdgeMesh half_edges(arena, mesh);
+  MeshOps::face_loop(half_edges, half_edges.faces[0].half_edge, opaque(2),
+                     [](uint16_t) {});
+}
+
 /**
  * @brief Death case: CompiledHankin::clone rejects a self-aliased destination.
  * @details Each vector is rebound from the arena before the copy, so a
@@ -69,8 +82,7 @@ inline void case_half_edge_zero_side_face() {
   PolyMesh mesh;
   build_polymesh(mesh, arena, 3, counts, 2, indices, 3);
   HalfEdgeMesh half_edges(arena, mesh); // face 0 has zero sides -> HS_CHECK
-  if (half_edges.faces.size() == opaque<size_t>(99))
-    std::printf("x");
+  (void)half_edges.faces.size();
 }
 
 /**
@@ -86,8 +98,7 @@ inline void case_half_edge_non_manifold_edge() {
   PolyMesh mesh;
   build_polymesh(mesh, arena, 5, counts, 3, indices, 9);
   HalfEdgeMesh half_edges(arena, mesh); // 3 half-edges on (0,1) -> HS_CHECK
-  if (half_edges.faces.size() == opaque<size_t>(99))
-    std::printf("x");
+  (void)half_edges.faces.size();
 }
 
 /**
@@ -104,8 +115,7 @@ inline void case_half_edge_inconsistent_winding() {
   PolyMesh mesh;
   build_polymesh(mesh, arena, 4, counts, 2, indices, 6);
   HalfEdgeMesh half_edges(arena, mesh); // both edges run 0->1 -> HS_CHECK
-  if (half_edges.faces.size() == opaque<size_t>(99))
-    std::printf("x");
+  (void)half_edges.faces.size();
 }
 
 /**
@@ -114,8 +124,7 @@ inline void case_half_edge_inconsistent_winding() {
  */
 inline void case_mesh_narrow_face_count() {
   uint8_t c = MeshOps::narrow_face_count(opaque(UINT8_MAX + 1)); // -> HS_CHECK
-  if (c == 0xEE)
-    std::printf("x");
+  (void)c;
 }
 
 /** @brief Death case: an open mesh must trap the closed-manifold requirement. */
@@ -252,8 +261,7 @@ inline void case_reconcile_vertices_empty() {
 inline void case_mesh_narrow_index() {
   size_t over = static_cast<size_t>(INT16_MAX) + 1;
   uint16_t i = MeshOps::narrow_index(opaque(over)); // > INT16_MAX -> HS_CHECK
-  if (i == 0xBEEF)
-    std::printf("x");
+  (void)i;
 }
 
 /** @brief Medial rejects aliased target and scratch arenas. */
@@ -432,11 +440,10 @@ inline void case_conway_target_exhausted() {
   MeshOps::truncate(mesh, target, temp, opaque(0.25f));
 }
 
-/**
- * @brief Death case: relax_baked rejects a bake whose vertex count differs from
- *        the source mesh.
- */
-inline void case_relax_baked_dimension_mismatch() {
+/** @brief Perturbs a matching mesh and bake before guarded replay.
+ * @tparam Perturb Callable editing the bake or mesh.
+ * @param perturb Invalidating edit. */
+template <typename Perturb> void relax_baked_rejects(Perturb perturb) {
   static uint8_t source_buf[4096];
   static uint8_t target_buf[4096];
   Arena source(source_buf, sizeof(source_buf));
@@ -444,10 +451,18 @@ inline void case_relax_baked_dimension_mismatch() {
   uint32_t bits[TETRAHEDRON_BAKE_WORDS];
   PolyMesh mesh;
   MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
-  bake.vertex_count = opaque<uint16_t>(bake.vertex_count + 1);
-  PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
-  if (out.vertices.size() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  perturb(bake, mesh);
+  (void)MeshOps::relax_baked(mesh, target, bake);
+}
+
+/**
+ * @brief Death case: relax_baked rejects a bake whose vertex count differs from
+ *        the source mesh.
+ */
+inline void case_relax_baked_dimension_mismatch() {
+  relax_baked_rejects([](MeshOps::RelaxBake &bake, PolyMesh &) {
+    bake.vertex_count = opaque<uint16_t>(bake.vertex_count + 1);
+  });
 }
 
 /**
@@ -455,17 +470,9 @@ inline void case_relax_baked_dimension_mismatch() {
  * @details Dimensions alone do not pin connectivity.
  */
 inline void case_relax_baked_topology_mismatch() {
-  static uint8_t source_buf[4096];
-  static uint8_t target_buf[4096];
-  Arena source(source_buf, sizeof(source_buf));
-  Arena target(target_buf, sizeof(target_buf));
-  uint32_t bits[TETRAHEDRON_BAKE_WORDS];
-  PolyMesh mesh;
-  MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
-  bake.topology_hash = opaque(bake.topology_hash ^ 1u);
-  PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
-  if (out.vertices.size() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  relax_baked_rejects([](MeshOps::RelaxBake &bake, PolyMesh &) {
+    bake.topology_hash = opaque(bake.topology_hash ^ 1u);
+  });
 }
 
 /**
@@ -474,17 +481,9 @@ inline void case_relax_baked_topology_mismatch() {
  *          connectivity is invariant across parameter values.
  */
 inline void case_relax_baked_source_mismatch() {
-  static uint8_t source_buf[4096];
-  static uint8_t target_buf[4096];
-  Arena source(source_buf, sizeof(source_buf));
-  Arena target(target_buf, sizeof(target_buf));
-  uint32_t bits[TETRAHEDRON_BAKE_WORDS];
-  PolyMesh mesh;
-  MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
-  mesh.vertices[0].x += opaque(4.0f / MeshOps::RELAX_SOURCE_SCALE);
-  PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
-  if (out.vertices.size() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  relax_baked_rejects([](MeshOps::RelaxBake &, PolyMesh &mesh) {
+    mesh.vertices[0].x += opaque(4.0f / MeshOps::RELAX_SOURCE_SCALE);
+  });
 }
 
 /**
@@ -493,17 +492,9 @@ inline void case_relax_baked_source_mismatch() {
  * @details Covers the baked vertex words themselves.
  */
 inline void case_relax_baked_output_hash_mismatch() {
-  static uint8_t source_buf[4096];
-  static uint8_t target_buf[4096];
-  Arena source(source_buf, sizeof(source_buf));
-  Arena target(target_buf, sizeof(target_buf));
-  uint32_t bits[TETRAHEDRON_BAKE_WORDS];
-  PolyMesh mesh;
-  MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
-  bake.output_hash = opaque(bake.output_hash ^ 1u);
-  PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
-  if (out.vertices.size() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  relax_baked_rejects([](MeshOps::RelaxBake &bake, PolyMesh &) {
+    bake.output_hash = opaque(bake.output_hash ^ 1u);
+  });
 }
 
 /**
@@ -516,8 +507,7 @@ inline void case_half_edge_face_counts_short() {
   PolyMesh mesh;
   build_mismatched_polymesh(mesh, arena, 3, opaque<size_t>(4));
   HalfEdgeMesh half_edges(arena, mesh);
-  if (half_edges.faces.size() == opaque<size_t>(99))
-    std::printf("x");
+  (void)half_edges.faces.size();
 }
 
 /**
@@ -530,8 +520,7 @@ inline void case_half_edge_face_counts_long() {
   PolyMesh mesh;
   build_mismatched_polymesh(mesh, arena, 4, opaque<size_t>(3));
   HalfEdgeMesh half_edges(arena, mesh);
-  if (half_edges.faces.size() == opaque<size_t>(99))
-    std::printf("x");
+  (void)half_edges.faces.size();
 }
 
 /**
@@ -619,8 +608,7 @@ inline void case_update_hankin_stale_topology() {
   for (size_t i = 0; i < compiled.face_counts.size(); ++i)
     mesh.topology.push_back(opaque<uint16_t>(0));
   MeshOps::update_hankin(compiled, mesh, geom, opaque(0.0f));
-  if (mesh.num_faces() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  (void)mesh.num_faces();
 }
 
 /**
@@ -649,8 +637,7 @@ inline void case_update_hankin_dual_seed_topology() {
   CompiledHankin octa_pattern;
   MeshOps::compile_hankin(octa, octa_pattern, geom, scratch);
   MeshOps::update_hankin(octa_pattern, mesh, geom, opaque(0.0f));
-  if (mesh.num_faces() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  (void)mesh.num_faces();
 }
 
 /**
@@ -685,8 +672,7 @@ inline void case_update_hankin_borrowed_stale_topology() {
   CompiledHankin octa_pattern;
   MeshOps::compile_hankin(octa, octa_pattern, geom, scratch);
   MeshOps::update_hankin(octa_pattern, mesh, geom, opaque(0.0f));
-  if (mesh.num_faces() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  (void)mesh.num_faces();
 }
 
 /**

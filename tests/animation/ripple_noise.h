@@ -96,7 +96,7 @@ template <typename Params> float noise_loop_sample(const Params &params) {
 }
 
 /** @brief Noise samplers follow the loop's linear, turning, and seam coordinates. */
-template <typename Params, typename Driver>
+template <typename Params, typename NoiseAnimation>
 void test_noise_loop_coordinates_and_samples() {
   struct Fixture {
     float phase;
@@ -114,7 +114,7 @@ void test_noise_loop_coordinates_and_samples() {
       params.amplitude = 0.5f;
       if constexpr (std::is_same_v<Params, Animation::NoiseParams>)
         params.sync();
-      Driver animation(params);
+      NoiseAnimation animation(params);
       params.speed = sign * fixture.phase;
       animation.step(fake_canvas());
       HS_EXPECT_NEAR(params.time, sign * fixture.coordinate, 1e-5f);
@@ -130,7 +130,7 @@ void test_noise_loop_coordinates_and_samples() {
 
   auto coordinate = [](float phase) {
     Params params;
-    Driver animation(params);
+    NoiseAnimation animation(params);
     params.speed = phase;
     animation.step(fake_canvas());
     return params.time;
@@ -140,20 +140,24 @@ void test_noise_loop_coordinates_and_samples() {
     params.amplitude = 0.5f;
     if constexpr (std::is_same_v<Params, Animation::NoiseParams>)
       params.sync();
-    Driver animation(params);
+    NoiseAnimation animation(params);
     params.speed = phase;
     animation.step(fake_canvas());
     return noise_loop_sample(params);
   };
+  struct SlopeFixture {
+    float phase;
+    float slope;
+  };
   for (float sign : {-1.0f, 1.0f}) {
     for (const auto &fixture :
-         {Fixture{960.0f, 1.0f}, Fixture{1024.0f, 0.0f},
-          Fixture{1088.0f, -1.0f}, Fixture{2048.0f, -1.0f}}) {
+         {SlopeFixture{960.0f, 1.0f}, SlopeFixture{1024.0f, 0.0f},
+          SlopeFixture{1088.0f, -1.0f}, SlopeFixture{2048.0f, -1.0f}}) {
       const float phase = sign * fixture.phase;
       const float before = coordinate(phase - 1.0f);
       const float current = coordinate(phase);
       const float after = coordinate(phase + 1.0f);
-      HS_EXPECT_NEAR((after - before) * 0.5f, fixture.coordinate, 0.001f);
+      HS_EXPECT_NEAR((after - before) * 0.5f, fixture.slope, 0.001f);
       if (fixture.phase != 1024.0f)
         HS_EXPECT_NEAR(after - 2.0f * current + before, 0.0f, 0.001f);
       else
@@ -173,18 +177,31 @@ void test_noise_loop_coordinates_and_samples() {
   }
 }
 
-/** @brief Live controls and held publications do not reseed the noise clock. */
-template <typename Params, typename Driver>
-void test_noise_loop_live_controls_and_value_semantics() {
+/** @brief Live speed edits advance the retained noise clock. */
+template <typename Params, typename NoiseAnimation>
+void test_noise_loop_live_speed() {
   Params params;
   params.time = 7.25f;
   params.speed = 0.25f;
-  Driver animation(params);
+  NoiseAnimation animation(params);
   animation.step(fake_canvas());
   HS_EXPECT_EQ(params.time, 7.5f);
   params.speed = 0.0f;
   animation.step(fake_canvas());
   HS_EXPECT_EQ(params.time, 7.5f);
+  params.speed = -0.125f;
+  animation.step(fake_canvas());
+  HS_EXPECT_EQ(params.time, 7.375f);
+}
+
+/** @brief Non-finite speeds hold the last noise publication. */
+template <typename Params, typename NoiseAnimation>
+void test_noise_loop_nonfinite_speed_holds() {
+  Params params;
+  params.time = 7.25f;
+  params.speed = 0.25f;
+  NoiseAnimation animation(params);
+  animation.step(fake_canvas());
   for (float speed : {std::numeric_limits<float>::quiet_NaN(),
                       std::numeric_limits<float>::infinity(),
                       -std::numeric_limits<float>::infinity()}) {
@@ -192,9 +209,18 @@ void test_noise_loop_live_controls_and_value_semantics() {
     animation.step(fake_canvas());
     HS_EXPECT_EQ(params.time, 7.5f);
   }
+}
+
+/** @brief Publication writes and refreshed parameters preserve the noise clock. */
+template <typename Params, typename NoiseAnimation>
+void test_noise_loop_published_time_and_refresh() {
+  Params params;
+  params.time = 7.25f;
+  params.speed = 0.25f;
+  NoiseAnimation animation(params);
+  animation.step(fake_canvas());
   params.speed = -0.125f;
   animation.step(fake_canvas());
-  HS_EXPECT_EQ(params.time, 7.375f);
   params.time = 123.0f;
   params.speed = 0.0f;
   animation.step(fake_canvas());
@@ -214,28 +240,41 @@ void test_noise_loop_live_controls_and_value_semantics() {
   animation.rewind();
   animation.step(fake_canvas());
   HS_EXPECT_EQ(params.time, 8.625f);
+}
 
+/** @brief Noise copies and assignments preserve the clock without allocation. */
+template <typename Params, typename NoiseAnimation>
+void test_noise_loop_copy_and_assignment() {
+  Params params;
+  params.time = 7.25f;
+  params.speed = 0.25f;
+  NoiseAnimation animation(params);
+  animation.step(fake_canvas());
   const size_t before_copy = persistent_arena.get_offset();
-  Driver copied(animation);
+  NoiseAnimation copied(animation);
   animation.step(fake_canvas());
   const float expected_copy = params.time;
   copied.step(fake_canvas());
   HS_EXPECT_EQ(params.time, expected_copy);
-  Driver assigned(params);
+  NoiseAnimation assigned(params);
   assigned = animation;
   animation.step(fake_canvas());
   const float expected_assignment = params.time;
   assigned.step(fake_canvas());
   HS_EXPECT_EQ(params.time, expected_assignment);
   HS_EXPECT_EQ(persistent_arena.get_offset(), before_copy);
+}
 
+/** @brief Non-finite and extreme seeds recover to a finite noise clock. */
+template <typename Params, typename NoiseAnimation>
+void test_noise_loop_seed_recovery() {
   for (float seed : {std::numeric_limits<float>::quiet_NaN(),
                      std::numeric_limits<float>::infinity(),
                      -std::numeric_limits<float>::infinity()}) {
     Params seeded;
     seeded.time = seed;
     seeded.speed = 0.0f;
-    Driver seeded_animation(seeded);
+    NoiseAnimation seeded_animation(seeded);
     seeded_animation.step(fake_canvas());
     if (std::isnan(seed))
       HS_EXPECT_TRUE(std::isnan(seeded.time));
@@ -250,7 +289,7 @@ void test_noise_loop_live_controls_and_value_semantics() {
     Params seeded;
     seeded.time = seed;
     seeded.speed = 0.0f;
-    Driver seeded_animation(seeded);
+    NoiseAnimation seeded_animation(seeded);
     seeded_animation.step(fake_canvas());
     HS_EXPECT_EQ(seeded.time, seed);
     seeded.speed = 0.125f;
@@ -263,10 +302,11 @@ void test_noise_loop_live_controls_and_value_semantics() {
 }
 
 /** @brief Default noise clocks continue moving after long continuous uptime. */
-template <typename Params, typename Driver> void test_noise_loop_long_uptime() {
+template <typename Params, typename NoiseAnimation>
+void test_noise_loop_long_uptime() {
   Params params;
   const float speed = params.speed;
-  Driver animation(params);
+  NoiseAnimation animation(params);
   constexpr uint32_t FRAMES = (1u << 24) + 2;
   for (uint32_t frame = 0; frame < FRAMES; ++frame)
     animation.step(fake_canvas());
@@ -316,7 +356,7 @@ inline void test_random_walk_stays_unit_and_travels() {
     Walk walk(o, math::Y_AXIS, noise, options, seed);
     const math::Vector probe = math::X_AXIS, companion = math::Z_AXIS;
     const float rest =
-        static_cast<float>(small_angle_between(probe, companion));
+        static_cast<float>(chord_angle_between(probe, companion));
     math::Vector prev = o.orient(probe);
     float travel = 0.0f;
     for (int fr = 0; fr < RANDOM_WALK_FRAMES; ++fr) {
@@ -328,8 +368,8 @@ inline void test_random_walk_stays_unit_and_travels() {
       HS_EXPECT_NEAR(cur.length(), 1.0f, 1e-4f);
       HS_EXPECT_NEAR(other.length(), 1.0f, 1e-4f);
       // Rigid: the probe pair keeps its opening angle.
-      HS_EXPECT_NEAR(small_angle_between(cur, other), rest, 1e-4f);
-      const float step = static_cast<float>(small_angle_between(prev, cur));
+      HS_EXPECT_NEAR(chord_angle_between(cur, other), rest, 1e-4f);
+      const float step = static_cast<float>(chord_angle_between(prev, cur));
       HS_EXPECT_LE(step, options.speed + 1e-4f);
       travel += step;
       prev = cur;
@@ -352,7 +392,7 @@ inline void test_random_walk_stays_unit_and_travels() {
     HS_EXPECT_EQ(replay[i].x, trace[i].x);
     HS_EXPECT_EQ(replay[i].y, trace[i].y);
     HS_EXPECT_EQ(replay[i].z, trace[i].z);
-    parted = std::max(parted, small_angle_between(divergent[i], trace[i]));
+    parted = std::max(parted, chord_angle_between(divergent[i], trace[i]));
   }
   HS_EXPECT_GT(parted, 0.01);
 }

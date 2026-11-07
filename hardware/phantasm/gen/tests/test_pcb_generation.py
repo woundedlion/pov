@@ -11,6 +11,7 @@ import math
 import os
 import subprocess
 import sys
+from committed_boards import committed_board
 import tempfile
 import unittest
 import unittest.mock as mock
@@ -32,7 +33,7 @@ from kicad_env import GENERATES, GENERATES_REASON, generate, read, footprints_by
 from courtyard_bounds import courtyard_box  # noqa: E402
 from kicad_common import F, export_netlist, is_copper_pour, kicad_cli, rotate_point  # noqa: E402
 
-COMMITTED_PCB = GEN.parent / "1.1" / pcb.PCB_FILE
+COMMITTED_PCB = committed_board()
 
 def assembly_exclusions(root):
     """{ref: sorted attr flags} for every footprint kept off the assembly."""
@@ -160,6 +161,16 @@ class TerminalFootprintTests(unittest.TestCase):
 class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
     """The placed draft `pcb.py --force` emits."""
 
+    @classmethod
+    def setUpClass(cls):
+        cls.out = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.out.cleanup)
+        cls.path = generate(cls.out.name)
+        cls.root = read(cls.path)
+        cls.metadata = board_metadata.load_board(Path(cls.path))
+        cls.length = float(cls.metadata.width_mm)
+
+
     def test_placed_draft_preserves_the_quilter_board_and_rules(self):
         with tempfile.TemporaryDirectory() as directory:
             upload = Path(generate(directory, unplaced=True))
@@ -227,14 +238,6 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
             self.assertEqual(board.read_bytes(), before)
             self.assertEqual(library.read_bytes(), b"hand-maintained footprint\n")
 
-    @classmethod
-    def setUpClass(cls):
-        cls.out = tempfile.TemporaryDirectory()
-        cls.addClassCleanup(cls.out.cleanup)
-        cls.path = generate(cls.out.name)
-        cls.root = read(cls.path)
-        cls.metadata = board_metadata.load_board(Path(cls.path))
-        cls.length = float(cls.metadata.width_mm)
 
     def test_writes_the_board_and_the_teensy_library(self):
         for name in (pcb.DRAFT_FILE, "fp-lib-table",
@@ -352,16 +355,6 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
                  if str(sexp.val(node, "layer")[0]) == "B.SilkS"]
         self.assertIn(pcb.silk_revision(builder.REVISION), texts)
 
-    def test_rev13_board_id_has_large_legible_digits(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = read(generate(directory, unplaced=True, revision="1.3"))
-        labels = [node for node in F(root, "gr_text") if str(node[1]) == "BOARD ID: ____"]
-        self.assertEqual(len(labels), 1)
-        label = labels[0]
-        self.assertEqual(str(sexp.val(label, "layer")[0]), "B.SilkS")
-        font = F(F(label, "effects")[0], "font")[0]
-        self.assertEqual([float(v) for v in sexp.val(font, "size")], [2.0, 2.0])
-        self.assertEqual([float(v) for v in sexp.val(label, "at")[:2]], [20.0, 14.8])
 
     def test_board_id_has_large_legible_digits(self):
         labels = [node for node in F(self.root, "gr_text")
@@ -527,11 +520,11 @@ class TerminalEdgePlacementChecks:
 class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = read(GEN.parent / "1.2" / "phantasm.kicad_pcb")
+        cls.root = read(committed_board("1.2"))
 
     def test_front_silk_anchors_clear_mounting_reservations(self):
         for revision in ('1.2', '1.3'):
-            board_path = GEN.parent / revision / pcb.PCB_FILE
+            board_path = committed_board(revision)
             root = sexp.parse(board_path.read_text(encoding='utf-8'))[0]
             for node in F(root, 'gr_text'):
                 if str(sexp.val(node, 'layer')[0]) != 'F.SilkS':
@@ -545,8 +538,10 @@ class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase)
     def test_terminal_pin_legends_are_visible_and_readable(self):
         layers = {"1.2": {"J1": "B.SilkS", "J2": "B.SilkS", "J3A": "F.SilkS", "J3B": "B.SilkS"},
                   "1.3": dict.fromkeys(("J1", "J2", "J3A", "J3B"), "B.SilkS")}
+        offsets = {"1.2": {"J1": 2.0, "J2": 2.5, "J3A": 4.5, "J3B": 2.5},
+                   "1.3": dict.fromkeys(("J1", "J2", "J3A", "J3B"), 2.2)}
         for revision in ("1.2", "1.3"):
-            root = read(GEN.parent / revision / pcb.PCB_FILE)
+            root = read(committed_board(revision))
             footprints = footprints_by_ref(root)
             marks = [(str(node[1]), node) for node in F(root, "gr_text")]
             for ref, labels in (("J1", "+-"), ("J2", "DGC"),
@@ -554,7 +549,7 @@ class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase)
                                 ("J3B", "SGH" if revision == "1.2" else "ABGH")):
                 x, y, rotation = map(float, sexp.val(footprints[ref], "at"))
                 layer = layers[revision][ref]
-                offset = 2.2 if revision == "1.3" else (2 if ref == "J1" else (2.5 if layer == "B.SilkS" else 4.5))
+                offset = offsets[revision][ref]
                 for pin, label in enumerate(labels):
                     dx, dy = rotate_point((offset, pin * 2.54), rotation)
                     hits = [node for text, node in marks if text == label
@@ -566,7 +561,7 @@ class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase)
                         self.assertEqual(float(sexp.val(node, "at")[2]), 0)
                         self.assertEqual(sexp.val(F(node, "effects")[0], "justify"),
                                          ["mirror"] if layer == "B.SilkS" else None)
-                        for hole, (x0, y0, x1, y1) in pcb.mounting_reserve_rects(58.28).items():
+                        for hole, (x0, y0, x1, y1) in pcb.mounting_reserve_rects(pcb.QUILTER_LENGTH).items():
                             self.assertFalse(x0 <= x + dx <= x1 and y0 <= y + dy <= y1,
                                              f"{ref} {label} inside {hole} reservation")
 
@@ -608,7 +603,6 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
         self.assertTrue({"ID0", "ID1", "ID2", "SHLD"}
                         <= set(texts), sorted(texts))
         self.assertTrue({"SYNC IN", "SYNC OUT", "LED OUT"}.isdisjoint(texts))
-
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)

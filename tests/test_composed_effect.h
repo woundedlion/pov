@@ -1319,6 +1319,15 @@ inline void test_ash_cloud_document_pipeline() {
 inline void test_promoted_document_pipelines() {
   static_assert(Involution<SMALL_W, SMALL_H>::authored_instance("source") ==
                 "sample");
+  composed_chain_tests::verify_export<
+      KaleidoscopeStainedGlass<SMALL_W, SMALL_H>>(0,
+                                                  DOCUMENT_CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<KaleidoscopeHexBright<SMALL_W, SMALL_H>>(
+      0, DOCUMENT_CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<MobiusGrid<SMALL_W, SMALL_H>>(
+      0, DOCUMENT_CHANNEL_TOLERANCE);
+  composed_chain_tests::verify_export<AlienCore<SMALL_W, SMALL_H>>(
+      0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<Involution<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<GridWarp<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<LiquidWindows<SMALL_W, SMALL_H>>(0);
@@ -1373,11 +1382,17 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_millefiori_column_color_phase);
   HS_RUN(test_grid_worms_sine_column_phase);
   HS_RUN(test_retained_equal_palette_hue_view);
+  HS_RUN(test_retained_palette_identity_rejects_changes);
   HS_RUN(test_ash_cloud_noise_column_phase);
   HS_RUN(test_baked_cube_column_phase);
   HS_RUN(test_chamber_noise_cache_bake_lifetime);
   HS_RUN(test_chamber_noise_cache_admission);
   HS_RUN(test_chamber_noise_cache_phase_and_fallback);
+  HS_RUN(test_chamber_noise_cache_endpoint_admission);
+  HS_RUN(test_chamber_noise_cache_equal_clock_fraction);
+  HS_RUN(test_chamber_noise_cache_far_endpoint_falls_back);
+  HS_RUN(test_chamber_noise_cache_rotated_endpoint_falls_back);
+  HS_RUN(test_chamber_noise_cache_source_phase_invalidates_patch);
   HS_RUN(test_chamber_noise_cache_runtime_history);
   HS_RUN(test_dodecahedral_matrix_cache_lifetime);
   HS_RUN(test_dodecahedral_matrix_cache_fold_parity);
@@ -1408,6 +1423,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_analytic_modulation_sliders);
   HS_RUN(test_composed_authored_palette_sources);
   HS_RUN(test_composed_authored_palette_harmony_clock);
+  HS_RUN(test_composed_authored_palette_admission);
   HS_RUN(test_composed_analytic_modulation_admission);
   HS_RUN(test_composed_path_modulation_admission);
   HS_RUN(test_temporal_clock_sampling);
@@ -1420,6 +1436,9 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_temporal_moving_families_interpolate);
   HS_RUN(test_composed_modulation_blends_axes);
   HS_RUN(test_temporal_owned_resources);
+  HS_RUN(test_temporal_topology_interval_selects_current_endpoint);
+  HS_RUN(test_modulation_interpolate_retains_target_topology);
+  HS_RUN(test_composed_factored_columns_match_pixels);
   HS_RUN(test_temporal_modulation_admission);
   HS_RUN(test_temporal_modulation_bake_generation);
   HS_RUN(test_temporal_stacked_modulation_resources);
@@ -1436,6 +1455,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_hand_registered_families);
   HS_RUN(test_composed_direct_surface_placement);
   HS_RUN(test_composed_slider_registration);
+  HS_RUN(test_composed_modulation_is_device_qualified);
   HS_RUN(test_composed_noise_modulation_scale_limits);
   HS_RUN(check_slider_registration<NoHueProbe>, "NoHueProbe");
   HS_RUN(test_mobius_frame_admission);
@@ -1468,9 +1488,12 @@ inline int run_composed_effect_tests() {
   HS_RUN(hs_test::catalog_policy_tests::test_authored_source_catalog_parity);
   HS_RUN(hs_test::catalog_policy_tests::test_authored_transfer_catalog_parity);
   HS_RUN(hs_test::catalog_policy_tests::test_authored_sample_crossing);
+  HS_RUN(
+      hs_test::catalog_policy_tests::test_authored_twin_wave_sample_admission);
   HS_RUN(hs_test::catalog_policy_tests::test_edge_fade_squared_curve);
   HS_RUN(hs_test::keyed_rotation_tests::test_keyed_rotation_runtime_parity);
   HS_RUN(test_choreography_fade_departure);
+  HS_RUN(test_choreography_fade_resumes_after_pause);
   HS_RUN(test_choreography_lerp_transition_hooks);
   HS_RUN(test_choreography_lerp_pause_policy);
   return fixture.result();

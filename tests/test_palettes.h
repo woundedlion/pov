@@ -149,11 +149,10 @@ inline void test_mesh_palette_bank_lookup() {
  * @details The global generator is saved and restored around the shuffle.
  */
 inline void test_mesh_palette_bank_shuffle_is_permutation() {
-  auto saved = hs::random();
+  const hs_test::ScopedRng saved;
   hs::random().seed(1337);
   std::array<int, MeshPaletteBank::N> idx{};
   MeshPaletteBank::shuffle_indices(idx);
-  hs::random() = saved;
   std::array<int, MeshPaletteBank::N> seen{};
   for (int v : idx) {
     HS_EXPECT_GE(v, 0);

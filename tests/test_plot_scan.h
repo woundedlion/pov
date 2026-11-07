@@ -102,6 +102,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 #include "tests/plot_scan/planar_chords.h"
 #include "tests/plot_scan/temporal_seam.h"
 #include "tests/plot_scan/timed_mesh.h"
+#include "tests/plot_scan/column_cull.h"
 #include "tests/plot_scan/temporal_poses.h"
 #include "tests/plot_scan/temporal_motion.h"
 #include "tests/plot_scan/temporal_crossings.h"
@@ -116,6 +117,7 @@ inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
 
   HS_RUN(hs_test::test_reference_row_displacement_is_analytic);
+  HS_RUN(hs_test::test_temporal_oracle_displacement_branches);
   HS_RUN(hs_test::test_temporal_oracle_uses_whole_frame_endpoint_budget);
   HS_RUN(test_column_chunk_capacity_boundary);
   HS_RUN(test_retained_endpoint_lifecycle);
@@ -136,6 +138,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_column_physical_north_cap);
   HS_RUN(test_column_directional_spacing_certificate);
   HS_RUN(test_column_steady_lattice);
+  HS_RUN(test_plot_steady_edge_matches_point_route);
   HS_RUN(test_column_source_basis_transport);
   HS_RUN(test_column_uniform_color_preserves_age);
   HS_RUN(test_column_uniform_color_seam_registers);
@@ -164,6 +167,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_steady_edge_plots_lattice_points);
   HS_RUN(test_steady_edge_untimed_shading_reuses_color);
 
+  HS_RUN(test_history_turn_bounds_and_stationary_components);
   HS_RUN(test_pose_table_follows_history_path);
   HS_RUN(test_pose_table_holds_a_still_history);
   HS_RUN(test_pose_table_rotates_between_column_times);
@@ -198,6 +202,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_row_span_covers_arc_bulge);
   HS_RUN(test_cap_may_touch_clip_is_conservative);
   HS_RUN(test_visible_chunk_mask_covers_sampled_ring);
+  HS_RUN(test_chunk_mask_padding_exact_masks);
   HS_RUN(test_for_each_chunk_span_tiles_columns);
   HS_RUN(test_clip_arcs_overlap);
   HS_RUN(test_col_span_rejects_ill_conditioned_pole);
@@ -217,6 +222,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_cartesian_quadrant_gate_classification);
   HS_RUN(test_cartesian_latitude_gate_covers_row_map_error);
   HS_RUN(test_cartesian_quadrant_gate_is_conservative);
+  HS_RUN(test_cartesian_quadrant_gate_full_row_margin_falls_back);
   HS_RUN(test_gate_trail_edges_matches_edge_visible);
   HS_RUN(test_mesh_clip_cut_separates_band);
   HS_RUN(test_rasterize_gate_bits_pixel_parity);
@@ -227,6 +233,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_antialiased_dot_gate_matches_antialias_taps);
 
   HS_RUN(test_ring_sample_unit_length_and_progress);
+  HS_RUN(test_ring_count_sampling_matches_phase_and_arc);
   HS_RUN(test_ring_sample_lut_matches_direct);
   HS_RUN(test_ring_draw_stride_tracks_full_grid);
   HS_RUN(test_ring_draw_accepts_direct_sink);
@@ -258,6 +265,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_rasterize_register_copy_follows_interpolate_registers);
   HS_RUN(test_rasterize_planar_arc_registers_skip_culled_segments);
   HS_RUN(test_rasterize_sampling_follows_world_transforms);
+  HS_RUN(test_pipeline_screen_step_stationary_returns_base_step);
   HS_RUN(test_screen_step_axes_match_stage_walk);
   HS_RUN(test_rasterize_cull_follows_filter_orientation);
 
@@ -293,6 +301,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_rasterize_single_pass_closed_loop_matches_two_pass);
   HS_RUN(test_rasterize_single_pass_balances_terminal_interval);
   HS_RUN(test_rasterize_step_budget_backstop_finishes_segment);
+  HS_RUN(test_rasterize_second_backstop_stops_and_plots_terminal);
   HS_RUN(test_rasterize_default_sampling_policy_parity);
   HS_RUN(test_rasterize_balanced_sampling_scope);
   HS_RUN(test_polar_stroke_alpha_is_bounded);

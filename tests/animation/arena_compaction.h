@@ -40,6 +40,36 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
                reinterpret_cast<uintptr_t>(bake_ptr));
 }
 
+/** @brief Compaction keeps slot one when it is the front. */
+inline void test_meshcarousel_compact_keep_front_slot_one() {
+  reset_persistent_arena();
+  alignas(std::max_align_t) static uint8_t polybuf[1 << 14];
+  Arena polyarena(polybuf, sizeof(polybuf));
+  PolyMesh octahedron, tetrahedron;
+  build_solid<Solids::Octahedron>(octahedron, polyarena);
+  build_solid<Solids::Tetrahedron>(tetrahedron, polyarena);
+
+  MeshCarousel<Segue::Crossfade> carousel;
+  MeshOps::compile(octahedron, carousel.slot(0), persistent_arena,
+                   scratch_arena_a);
+  MeshOps::compile(tetrahedron, carousel.slot(1), persistent_arena,
+                   scratch_arena_a);
+  carousel.set_front(1);
+  const auto &front = carousel.current();
+  HS_EXPECT_SIZE_OR_RETURN(front.vertices, tetrahedron.vertices.size());
+  const size_t FACE_COUNT = front.face_counts.size();
+  const math::Vector FIRST = front.vertices[0];
+
+  carousel.compact_keep_front(0, [](Arena &) {});
+
+  HS_EXPECT_FALSE(carousel.slot(0).is_bound());
+  HS_EXPECT_TRUE(carousel.slot(1).is_bound());
+  HS_EXPECT_EQ(carousel.front_index(), 1);
+  HS_EXPECT_SIZE_OR_RETURN(front.vertices, tetrahedron.vertices.size());
+  HS_EXPECT_EQ(front.face_counts.size(), FACE_COUNT);
+  HS_EXPECT_VEC(front.vertices[0], FIRST, 1e-5f);
+}
+
 /**
  * @brief Verifies compact_drop_all() frees both slots and evacuates nothing:
  * after_reset sees an empty persistent arena and its bake is the only thing

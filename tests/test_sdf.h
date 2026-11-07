@@ -6,6 +6,10 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cstdio>
+
 #include "core/render/sdf.h"
 #include "core/mesh/solids.h"
 #include "core/render/sdf/volume.h"
@@ -134,6 +138,8 @@ inline int run_sdf_tests() {
   HS_RUN(test_twist_correct_normal_matches_field_gradient);
 
   HS_RUN(test_union_picks_closest_shape);
+  HS_RUN(test_union_preserves_full_width_fallback);
+  HS_RUN(test_union_noncoaxial_fringe);
 
   HS_RUN(test_subtract_inside_a_outside_b_remains_inside);
   HS_RUN(test_subtract_inside_both_becomes_outside);
@@ -170,7 +176,8 @@ inline int run_sdf_tests() {
   HS_RUN(test_warped_volume_bounding_distance_never_over_estimates);
 
   HS_RUN(test_annular_angles_bound_reference);
-  HS_RUN(test_cull_covers_interior_over_orientation_grid);
+  HS_RUN((test_cull_covers_interior_over_orientation_grid<96, 48>));
+  HS_RUN((test_cull_covers_interior_over_orientation_grid<96, 20>));
   HS_RUN(test_pole_axis_ring_bounds_skip_pole_rows);
   HS_RUN(test_linearized_ring_bounds_cover_visible_rows);
   HS_RUN(test_intersection_cull_covers_interior_over_polygon_pairs);

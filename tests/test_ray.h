@@ -53,6 +53,12 @@ inline void test_camera() {
   camera.radial_start = 2.0f;
   camera.interval = {1.0f, 8.0f};
   HS_EXPECT_TRUE(camera.valid());
+  auto invalid_spatial = camera;
+  invalid_spatial.center[3] = 1.0f;
+  HS_EXPECT_FALSE(invalid_spatial.valid());
+  invalid_spatial = camera;
+  math::rotate_plane(invalid_spatial.embedding, 0, 3, 0.6f);
+  HS_EXPECT_FALSE(invalid_spatial.valid());
   const auto RAY = camera.ray(math::Vector(1, 0, 0));
   const auto POINT = camera.point3(RAY.at(3.0f));
   HS_EXPECT_NEAR(POINT.x, 9.0f, 1e-6f);
@@ -153,8 +159,13 @@ inline void test_bounded_failures() {
 /** @brief An off-slice ball produces no surface while an intersecting slice matches its analytic root. */
 inline void test_slice_no_phantom() {
   Raycast::PreparedCamera camera;
-  camera.domain = Raycast::SamplingDomain::SLICE_4D;
   const SliceBall BALL;
+  const Raycast::DomainQuery4<SliceBall> INVALID_QUERY{BALL, camera};
+  const Raycast::Ray SPATIAL_RAY{
+      math::Vector(-2, 0, 0), math::Vector(1, 0, 0), {0, 4}};
+  HS_EXPECT_EQ(Raycast::surface_search(INVALID_QUERY, SPATIAL_RAY, {}).status,
+               Raycast::TraceStatus::INVALID_QUERY);
+  camera.domain = Raycast::SamplingDomain::SLICE_4D;
   const Raycast::DomainQuery4<SliceBall> QUERY{BALL, camera};
   const Raycast::Ray RAY{math::Vector(-2, 0, 0), math::Vector(1, 0, 0), {0, 4}};
   Raycast::TraceLimits limits;
@@ -312,9 +323,33 @@ inline void test_uncertain_clearance_progress() {
   HS_EXPECT_LT(RESULT.counters.refinements, limits.max_refinements);
 }
 
+/** @brief Invalid clearance and unresolved zero-width signs never produce a surface. */
+inline void test_unverified_boundaries_remain_unresolved() {
+  struct OverstatedClearance {
+    Raycast::QueryCapabilities capabilities() const {
+      return {true, true, true};
+    }
+    Raycast::QuerySample sample(const math::Vector &p) const {
+      return {p.x < 0.5f ? 1.0f : -1.0f, 1.0f, false};
+    }
+  };
+  const Raycast::Ray ray{math::Vector(), math::Vector(1, 0, 0), {0, 6}};
+  auto result = Raycast::surface_search(OverstatedClearance{}, ray, {});
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_FALSE(result.has_surface);
+  Raycast::TraceLimits limits;
+  limits.position_tolerance = 0.0002f;
+  const Raycast::Ray short_ray{
+      math::Vector(), math::Vector(1, 0, 0), {0, 0.001f}};
+  result = Raycast::surface_search(ConstantQuery{0, 0}, short_ray, {}, limits);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::UNRESOLVED);
+  HS_EXPECT_FALSE(result.has_surface);
+}
+
 inline int run_ray_tests() {
   hs_test::ModuleFixture fixture("ray");
   HS_RUN(test_camera);
+  HS_RUN(test_unverified_boundaries_remain_unresolved);
   HS_RUN(test_surface_boundaries);
   HS_RUN(test_bounded_failures);
   HS_RUN(test_slice_no_phantom);

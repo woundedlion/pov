@@ -42,12 +42,7 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
 
   ScratchScope sc(plot_arena());
   Fragments verts;
-  verts.bind(plot_arena(), control.size());
-  for (const math::Vector &v : control) {
-    Fragment f;
-    f.pos = v;
-    verts.push_back(f);
-  }
+  bind_trail(verts, control);
 
   hs_test::StubEffect fx(W, H);
   CapturePipeline pipe;
@@ -103,12 +98,7 @@ inline void test_multiline_draw_closed_adds_the_seam_edge() {
   auto draw_path = [&](bool closed) {
     ScratchScope sc(plot_arena());
     Fragments verts;
-    verts.bind(plot_arena(), control.size());
-    for (const math::Vector &v : control) {
-      Fragment f;
-      f.pos = v;
-      verts.push_back(f);
-    }
+    bind_trail(verts, control);
     hs_test::StubEffect fx(W, H);
     CapturePipeline pipe;
     {

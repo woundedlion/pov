@@ -41,7 +41,9 @@ GENERATED_PROJECT_FILES = (
     "sym-lib-table",
 )
 
-
+REV13_GENERATED_PROJECT_FILES = GENERATED_PROJECT_FILES + (
+    "phantasm.pretty/TerminalBlock_GCT_TBC05-04-1-G-G.kicad_mod",
+)
 
 
 class PrototypeContractTests(unittest.TestCase):
@@ -134,7 +136,7 @@ class PrototypeContractTests(unittest.TestCase):
                 px, py = self.pad_position(footprint, str(pin))
                 self.assertAlmostEqual((min(xs) + max(xs)) / 2, px)
                 self.assertAlmostEqual(max(ys), py - 3.25)
-        pcb.validate_front_access(list(footprints.values()), 58.28)
+        pcb.validate_front_access(list(footprints.values()), pcb.QUILTER_LENGTH)
 
     def test_ground_and_shield_approaches_reject_off_center_obstruction(self):
         for pin in ("3", "4"):
@@ -146,7 +148,7 @@ class PrototypeContractTests(unittest.TestCase):
                 '(fp_rect (start -0.025 -0.025) (end 0.025 0.025) '
                 '(stroke (width 0.01) (type solid)) (fill none) (layer "F.CrtYd")))')
             with self.assertRaisesRegex(ValueError, f"J3B Terminal wire access pin {pin} obstructed"):
-                pcb.validate_front_access([*footprints.values(), probe], 58.28)
+                pcb.validate_front_access([*footprints.values(), probe], pcb.QUILTER_LENGTH)
 
     def test_usb_mating_volume_rejects_front_obstruction(self):
         footprints = footprints_by_ref(copy.deepcopy(self.board))
@@ -156,7 +158,7 @@ class PrototypeContractTests(unittest.TestCase):
             '(fp_rect (start -0.1 -0.1) (end 0.1 0.1) '
             '(stroke (width 0.01) (type solid)) (fill none) (layer "F.CrtYd")))')
         with self.assertRaisesRegex(ValueError, "U_MCU USB mating plug obstructed by R_PROBE"):
-            pcb.validate_front_access([*footprints.values(), probe], 58.28)
+            pcb.validate_front_access([*footprints.values(), probe], pcb.QUILTER_LENGTH)
 
     def test_bypass_pads_remain_within_three_mm_of_supply_pins(self):
         footprints = footprints_by_ref(self.board)
@@ -275,9 +277,21 @@ class PrototypeContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no validated differential-bus scoring model"):
             analyze_candidates.analyze(str(PROTOTYPE / "phantasm.kicad_pcb"))
 
+    def test_board_id_has_large_legible_digits(self):
+        root = self.board
+        labels = [node for node in F(root, "gr_text") if str(node[1]) == "BOARD ID: ____"]
+        self.assertEqual(len(labels), 1)
+        label = labels[0]
+        self.assertEqual(str(sexp.val(label, "layer")[0]), "B.SilkS")
+        font = F(F(label, "effects")[0], "font")[0]
+        self.assertEqual([float(v) for v in sexp.val(font, "size")], [2.0, 2.0])
+        self.assertEqual([float(v) for v in sexp.val(label, "at")[:2]], [20.0, 14.8])
+
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class RevisionGenerationTests(unittest.TestCase):
+    PARITY_WARNINGS = {("lib_footprint_mismatch", "C_IN"): 1}
+
     @classmethod
     def setUpClass(cls):
         cls.directory = tempfile.TemporaryDirectory()
@@ -306,6 +320,23 @@ class RevisionGenerationTests(unittest.TestCase):
         output = Path("phantasm.pretty") / self.terminal_source.name
         self.assertEqual((self.prototype / output).read_bytes(),
                          (PROTOTYPE / output).read_bytes())
+
+    def test_prototype_passes_schematic_parity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "1.3"
+            shutil.copytree(self.prototype, project)
+            board_path = project / "phantasm.kicad_pcb"
+            subprocess.run(
+                [kicad_cli(), "pcb", "drc", "--refill-zones", "--save-board",
+                 "-o", str(project / "refill.rpt"), str(board_path)],
+                capture_output=True, text=True, check=True)
+            with mock.patch.object(fab, "PCB", str(board_path)), \
+                    mock.patch.object(fab, "SCH", str(project / "phantasm.kicad_sch")), \
+                    mock.patch.object(fab, "KNOWN_PARITY_WARNING_COUNTS", self.PARITY_WARNINGS), \
+                    mock.patch.object(fab, "OPTIONAL_PARITY_WARNING_MAX", {}):
+                self.assertEqual(fab.run_parity(str(project / "parity.json")),
+                                 len(fab.KNOWN_PARITY_ITEMS))
+
 
     def test_current_schematics_pass_real_erc(self):
         for revision in ("1.2", "1.3"):
@@ -349,7 +380,7 @@ class RevisionGenerationTests(unittest.TestCase):
         self.assertTrue(check.check(check.netlist_nets(root), "1.3"))
 
     def test_rev_13_generation_reproduces_committed_project(self):
-        for path in GENERATED_PROJECT_FILES:
+        for path in REV13_GENERATED_PROJECT_FILES:
             self.assertEqual((self.prototype / path).read_bytes(),
                              (PROTOTYPE / path).read_bytes(), path)
 

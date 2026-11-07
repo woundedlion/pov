@@ -96,7 +96,7 @@ inline void test_shader_chain_state_restore_values() {
         *static_cast<float *>(op.runtime.param_address(params.data(), index)) =
             field.min + 0.37f * (field.max - field.min);
     }
-    if (std::string_view(op.operator_id) == "color.modulate.v1") {
+    if (std::string_view(op.operator_id) == In::Op::ModulateColorV1::ID) {
       static_cast<In::Op::ModulationParams *>(
           static_cast<void *>(params.data()))
           ->modulation.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
@@ -213,7 +213,8 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_EQ(approximate_count, 2u);
 }
 
-inline void test_shader_chain_schema_and_field_ids() {
+/** @brief Pins invariants operator schema fields and identities. */
+inline void test_shader_chain_schema_invariants() {
   static_assert(std::is_same_v<In::Op::ProjectionCoverageMode,
                                PB::ProjectionCoverageMode>);
   static_assert(!In::topology_defaults_match<MismatchedTopologyDefaults>());
@@ -239,32 +240,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::DisplaceRipple>));
   static_assert(In::topology_wellformed(In::SCHEMA<In::Op::DisplaceCurl>));
   static_assert(In::topology_wellformed(In::SCHEMA<In::Op::LensKaleidoscope>));
+}
 
-  // Schema order is the family table then the topology enum8s; defaults come
-  // from the default-constructed family.
-  const auto *sample_found = require_operator("sample.grid.v4");
-  if (!sample_found)
-    return;
-  const In::OperatorDescriptor &sample = *sample_found;
-  constexpr size_t GRID_FIELDS = In::Op::GridSampleParams::FIELDS.size();
-  HS_EXPECT_SIZE_OR_RETURN(sample.schema_span(), GRID_FIELDS + 2);
-  HS_EXPECT_STREQ(sample.schema[0].id, "pattern-freq");
-  HS_EXPECT_EQ(sample.schema[0].min, 0.01f);
-  HS_EXPECT_EQ(sample.schema[0].max, 64.0f);
-  HS_EXPECT_STREQ(sample.schema[GRID_FIELDS - 1].id, "edge-width");
-  const In::ParamFieldInfo &weight = sample.schema[GRID_FIELDS];
-  HS_EXPECT_STREQ(weight.id, "weight-mode");
-  HS_EXPECT_TRUE(weight.topology);
-  HS_EXPECT_EQ(weight.enum_count, 2);
-  HS_EXPECT_EQ(weight.enum_def, 1);
-  HS_EXPECT_STREQ(weight.enum_ids[1], "projection");
-  const In::ParamFieldInfo &coverage = sample.schema[GRID_FIELDS + 1];
-  HS_EXPECT_EQ(coverage.enum_count, 5);
-  HS_EXPECT_STREQ(coverage.enum_ids[1], "weight");
-  HS_EXPECT_STREQ(coverage.enum_ids[2], "weight-squared");
-  HS_EXPECT_STREQ(coverage.enum_ids[3], "edge-fade");
-  HS_EXPECT_STREQ(coverage.enum_ids[4], "edge-fade-squared");
-
+/** @brief Pins color operator schema fields and identities. */
+inline void test_shader_chain_schema_color() {
   const auto *colorize_found =
       require_operator("colorize.generated-palette.v4");
   if (!colorize_found)
@@ -292,7 +271,10 @@ inline void test_shader_chain_schema_and_field_ids() {
       HS_EXPECT_STREQ(source->enum_ids[4], "displacement");
     }
   }
+}
 
+/** @brief Pins sphere operator schema fields and identities. */
+inline void test_shader_chain_schema_sphere() {
   const auto *rotate_found = require_operator("sphere.rotate.v2");
   if (!rotate_found)
     return;
@@ -401,6 +383,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(ripple.schema[3].min, 0.7f);
   HS_EXPECT_EQ(ripple.schema[3].def, 0.7f);
   HS_EXPECT_STREQ(ripple.schema[5].id, "center-polar");
+}
+
+/** @brief Pins warp operator schema fields and identities. */
+inline void test_shader_chain_schema_warp() {
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
   // carries the harmonic list; curl-flow exposes basis and integrator.
   for (const char *id :
@@ -468,6 +454,34 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_SIZE_OR_RETURN(vortex.schema_span(),
                            In::Op::VortexWarpParams::FIELDS.size());
   HS_EXPECT_STREQ(vortex.schema[1].id, "center-x");
+}
+
+/** @brief Pins sample operator schema fields and identities. */
+inline void test_shader_chain_schema_sample() {
+  // Schema order is the family table then the topology enum8s; defaults come
+  // from the default-constructed family.
+  const auto *sample_found = require_operator("sample.grid.v4");
+  if (!sample_found)
+    return;
+  const In::OperatorDescriptor &sample = *sample_found;
+  constexpr size_t GRID_FIELDS = In::Op::GridSampleParams::FIELDS.size();
+  HS_EXPECT_SIZE_OR_RETURN(sample.schema_span(), GRID_FIELDS + 2);
+  HS_EXPECT_STREQ(sample.schema[0].id, "pattern-freq");
+  HS_EXPECT_EQ(sample.schema[0].min, 0.01f);
+  HS_EXPECT_EQ(sample.schema[0].max, 64.0f);
+  HS_EXPECT_STREQ(sample.schema[GRID_FIELDS - 1].id, "edge-width");
+  const In::ParamFieldInfo &weight = sample.schema[GRID_FIELDS];
+  HS_EXPECT_STREQ(weight.id, "weight-mode");
+  HS_EXPECT_TRUE(weight.topology);
+  HS_EXPECT_EQ(weight.enum_count, 2);
+  HS_EXPECT_EQ(weight.enum_def, 1);
+  HS_EXPECT_STREQ(weight.enum_ids[1], "projection");
+  const In::ParamFieldInfo &coverage = sample.schema[GRID_FIELDS + 1];
+  HS_EXPECT_EQ(coverage.enum_count, 5);
+  HS_EXPECT_STREQ(coverage.enum_ids[1], "weight");
+  HS_EXPECT_STREQ(coverage.enum_ids[2], "weight-squared");
+  HS_EXPECT_STREQ(coverage.enum_ids[3], "edge-fade");
+  HS_EXPECT_STREQ(coverage.enum_ids[4], "edge-fade-squared");
 
   // Projected sample batch: every crossing carries the union edge-width field
   // and the weight/coverage topology pair; only projected-noise adds a basis.
@@ -524,7 +538,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(projected_basis != nullptr);
   if (projected_basis != nullptr)
     HS_EXPECT_EQ(projected_basis->enum_count, 3);
+}
 
+/** @brief Pins projection operator schema fields and identities. */
+inline void test_shader_chain_schema_projection() {
   // Projection batch: the meridian-consuming projections extend the shared
   // family with central-meridian; stereographic, gnomonic, and the fast square
   // Peirce do not.
@@ -577,7 +594,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_STREQ(bonne_hemisphere.id, "hemisphere");
   HS_EXPECT_EQ(bonne_hemisphere.enum_count, 2);
   HS_EXPECT_STREQ(bonne_hemisphere.enum_ids[0], "north");
+}
 
+/** @brief Pins field operator schema fields and identities. */
+inline void test_shader_chain_schema_field() {
   // Field batch: ridge is schema-free; iso-contour, smooth-bands and the value
   // cutout carry their own families.
   const auto *ridge_operator = require_operator("field.transfer.ridge.v2");

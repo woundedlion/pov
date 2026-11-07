@@ -21,6 +21,10 @@ public:
   /** @brief Planar chart point. */
   using Point = typename Surface::Point;
 #if HS_ENABLE_TEST_HOOKS
+  static constexpr int TIP_PATH = 1;      ///< Increasing-radius tip path.
+  static constexpr int CORNER_PATH = 2;   ///< Paired corner path.
+  static constexpr int OFFSET_PATH = 4;   ///< Offset boundary path.
+  static constexpr int TERMINAL_PATH = 8; ///< Terminal boundary flag.
   /** @brief An AA result and its exact first-arrival shader. */
   struct Observation {
     const Surface &surface; ///< Prepared family.
@@ -144,11 +148,12 @@ public:
 #if HS_ENABLE_TEST_HOOKS
     int sample_path =
         (!center_front && detector.tip && surface.strictly_increasing_radius())
-            ? 1
-        : (detector.paired && !detector.terminal_back && !center_front) ? 2
-                                                                        : 4;
+            ? TIP_PATH
+        : (detector.paired && !detector.terminal_back && !center_front)
+            ? CORNER_PATH
+            : OFFSET_PATH;
     if (detector.terminal_back)
-      sample_path |= 8;
+      sample_path |= TERMINAL_PATH;
 #endif
     SurfaceColor front, back;
     int back_interval = hit.interval;

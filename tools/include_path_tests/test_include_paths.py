@@ -37,6 +37,7 @@ class IncludePathsTests(unittest.TestCase):
         self.assertEqual(self.check('#include <./core/math/vector.h>\n'), [
             'effects/sample.h:1: include "core/math/vector.h" instead of "./core/math/vector.h"'])
         (self.root / "effects/local.h").write_text("#pragma once\n", encoding="utf-8")
+        self.files.append("effects/local.h")
         self.assertEqual(self.check('#include <local.h>\n'), [])
 
     def test_angle_first_party_include_cannot_bypass_layering(self):

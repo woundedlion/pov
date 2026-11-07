@@ -207,7 +207,7 @@ inline void test_ssaa_grid_sample_positions() {
   constexpr int W = 32, H = 16;
   math::TrigLUT<W, H>::init();
   Scan::Shader::SsaaGrid<W, H> grid;
-  for (int y = 1; y < H - 1; ++y) {
+  for (int y = 0; y < H; ++y) {
     grid.set_row(y);
     for (int x = 0; x < W; ++x)
       for (int i = 0; i < 4; ++i) {
@@ -237,141 +237,147 @@ inline void test_shader_clip_arc_matches_predicate() {
                   1.0f);
   };
 
-  auto draw_variant = [&](Canvas &c, int variant) {
-    switch (variant) {
-    case 0:
-      Scan::Shader::draw<W, H, 1>(c, positional);
-      break;
-    case 1:
-      Scan::Shader::draw<W, H, 4>(c, positional);
-      break;
-    case 2:
-      Scan::Shader::draw<W, H, 1>(
-          c,
-          [&](const math::Vector &v, Fragment &f) { f.color = positional(v); },
-          [](Fragment &f) { f.v0 = 1.0f; });
-      break;
-    case 3:
-      Scan::Shader::draw<W, H, 4>(
-          c,
-          [&](const math::Vector &v, Fragment &f) { f.color = positional(v); },
-          [](Fragment &f) { f.v0 = 1.0f; });
-      break;
-    case 5:
-      Scan::Shader::draw_cached<W, H>(
-          c,
-          [&](const math::Vector &v, int x, int y) {
-            const auto EXPECTED = math::pixel_to_vector<W, H>(x, y);
-            HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
-            HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
-            HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
-            return positional(v);
-          },
-          [](int) {});
-      break;
-    case 6: {
-      int row = -1;
-      Scan::Shader::draw_cached<W, H>(
-          c,
-          [&](const math::Vector &v, int, int y) {
-            HS_EXPECT_EQ(row, y);
-            const Color4 COLOR = positional(v);
-            return COLOR.color * COLOR.alpha;
-          },
-          [&](int y) {
-            HS_EXPECT_EQ(y, row + 1);
-            row = y;
-          });
-      HS_EXPECT_EQ(row, H - 1);
-      break;
-    }
-    case 7:
-      Scan::Shader::walk_grid<W, H>(
-          c, [&](const math::Vector &center, const auto &grid, int x) {
-            const Color4 COLOR = positional(grid.at(x, 0));
-            HS_EXPECT_NEAR(center.magnitude(), 1.0f, 1e-6f);
-            return COLOR.color * COLOR.alpha;
-          });
-      break;
-    case 4:
-      Scan::Shader::draw_grid<W, H>(
-          c, [](Fragment &) {},
-          [&](Fragment &, const Scan::Shader::SsaaGrid<W, H> &grid, int x) {
-            Color4 s = positional(grid.at(x, 0));
-            return s.color * s.alpha;
-          });
-      break;
-    case 8: {
-      std::array<int, W> prepared{};
-      std::array<int, W> shaded{};
-      Scan::Shader::draw_columns<W, H>(c, [&](int x) {
-        ++prepared[x];
-        return [&, x, row = 0](const math::Vector &v) mutable {
-          const auto EXPECTED = math::pixel_to_vector<W, H>(x, row++);
-          HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
-          HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
-          HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
-          ++shaded[x];
-          return positional(v);
-        };
-      });
-      for (int x = 0; x < W; ++x) {
-        const bool VISIBLE = !c.clip().x_clip().clipped(x);
-        HS_EXPECT_EQ(prepared[x], VISIBLE ? 1 : 0);
-        HS_EXPECT_EQ(shaded[x], VISIBLE ? H : 0);
-      }
-      break;
-    }
-    case 9:
-      Scan::Shader::draw_columns<W, H>(c, [&](int) {
-        return [&](const math::Vector &v) {
-          const Color4 COLOR = positional(v);
-          return COLOR.color * COLOR.alpha;
-        };
-      });
-      break;
-    case 10: {
-      std::array<int, W / 2> prepared{};
-      std::array<int, W> shaded{};
-      Scan::Shader::draw_column_times<W, H>(
-          c,
-          [&](int t) {
-            ++prepared[t];
-            return t;
-          },
-          [&](int t, int x) {
-            HS_EXPECT_EQ(t, x % (W / 2));
-            return [&, x, row = 0](const math::Vector &v) mutable {
-              const auto EXPECTED = math::pixel_to_vector<W, H>(x, row++);
-              HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
-              HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
-              HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
-              ++shaded[x];
-              return positional(v);
-            };
-          });
-      const auto xc = c.clip().x_clip();
-      for (int x = 0; x < W; ++x)
-        HS_EXPECT_EQ(shaded[x], xc.clipped(x) ? 0 : H);
-      for (int t = 0; t < W / 2; ++t)
-        HS_EXPECT_EQ(prepared[t],
-                     xc.clipped(t) && xc.clipped(t + W / 2) ? 0 : 1);
-      break;
-    }
-    default:
-      HS_EXPECT(false, "unknown shader clip-arc variant");
-      break;
-    }
+  const struct Variant {
+    const char *name;
+    std::function<void(Canvas &)> draw;
+  } variants[] = {
+      {"scalar one tap",
+       [&](Canvas &c) { Scan::Shader::draw<W, H, 1>(c, positional); }},
+      {"scalar four taps",
+       [&](Canvas &c) { Scan::Shader::draw<W, H, 4>(c, positional); }},
+      {"fragment one tap",
+       [&](Canvas &c) {
+         Scan::Shader::draw<W, H, 1>(
+             c,
+             [&](const math::Vector &v, Fragment &f) {
+               f.color = positional(v);
+             },
+             [](Fragment &f) { f.v0 = 1.0f; });
+       }},
+      {"fragment four taps",
+       [&](Canvas &c) {
+         Scan::Shader::draw<W, H, 4>(
+             c,
+             [&](const math::Vector &v, Fragment &f) {
+               f.color = positional(v);
+             },
+             [](Fragment &f) { f.v0 = 1.0f; });
+       }},
+      {"cached coordinates",
+       [&](Canvas &c) {
+         Scan::Shader::draw_cached<W, H>(
+             c,
+             [&](const math::Vector &v, int x, int y) {
+               const auto EXPECTED = math::pixel_to_vector<W, H>(x, y);
+               HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
+               HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
+               HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
+               return positional(v);
+             },
+             [](int) {});
+       }},
+      {"cached row preparation",
+       [&](Canvas &c) {
+         int row = -1;
+         Scan::Shader::draw_cached<W, H>(
+             c,
+             [&](const math::Vector &v, int, int y) {
+               HS_EXPECT_EQ(row, y);
+               const Color4 COLOR = positional(v);
+               return COLOR.color * COLOR.alpha;
+             },
+             [&](int y) {
+               HS_EXPECT_EQ(y, row + 1);
+               row = y;
+             });
+         HS_EXPECT_EQ(row, H - 1);
+       }},
+      {"grid walk",
+       [&](Canvas &c) {
+         Scan::Shader::walk_grid<W, H>(
+             c, [&](const math::Vector &center, const auto &grid, int x) {
+               const Color4 COLOR = positional(grid.at(x, 0));
+               HS_EXPECT_NEAR(center.magnitude(), 1.0f, 1e-6f);
+               return COLOR.color * COLOR.alpha;
+             });
+       }},
+      {"grid draw",
+       [&](Canvas &c) {
+         Scan::Shader::draw_grid<W, H>(
+             c, [](Fragment &) {},
+             [&](Fragment &, const Scan::Shader::SsaaGrid<W, H> &grid, int x) {
+               Color4 s = positional(grid.at(x, 0));
+               return s.color * s.alpha;
+             });
+       }},
+      {"column coordinates",
+       [&](Canvas &c) {
+         std::array<int, W> prepared{};
+         std::array<int, W> shaded{};
+         Scan::Shader::draw_columns<W, H>(c, [&](int x) {
+           ++prepared[x];
+           return [&, x, row = 0](const math::Vector &v) mutable {
+             const auto EXPECTED = math::pixel_to_vector<W, H>(x, row++);
+             HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
+             HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
+             HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
+             ++shaded[x];
+             return positional(v);
+           };
+         });
+         for (int x = 0; x < W; ++x) {
+           const bool VISIBLE = !c.clip().x_clip().clipped(x);
+           HS_EXPECT_EQ(prepared[x], VISIBLE ? 1 : 0);
+           HS_EXPECT_EQ(shaded[x], VISIBLE ? H : 0);
+         }
+       }},
+      {"column pixels",
+       [&](Canvas &c) {
+         Scan::Shader::draw_columns<W, H>(c, [&](int) {
+           return [&](const math::Vector &v) {
+             const Color4 COLOR = positional(v);
+             return COLOR.color * COLOR.alpha;
+           };
+         });
+       }},
+      {"column times",
+       [&](Canvas &c) {
+         std::array<int, W / 2> prepared{};
+         std::array<int, W> shaded{};
+         Scan::Shader::draw_column_times<W, H>(
+             c,
+             [&](int t) {
+               ++prepared[t];
+               return t;
+             },
+             [&](int t, int x) {
+               HS_EXPECT_EQ(t, x % (W / 2));
+               return [&, x, row = 0](const math::Vector &v) mutable {
+                 const auto EXPECTED = math::pixel_to_vector<W, H>(x, row++);
+                 HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
+                 HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
+                 HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
+                 ++shaded[x];
+                 return positional(v);
+               };
+             });
+         const auto xc = c.clip().x_clip();
+         for (int x = 0; x < W; ++x)
+           HS_EXPECT_EQ(shaded[x], xc.clipped(x) ? 0 : H);
+         for (int t = 0; t < W / 2; ++t)
+           HS_EXPECT_EQ(prepared[t],
+                        xc.clipped(t) && xc.clipped(t + W / 2) ? 0 : 1);
+       }},
   };
 
-  auto render = [&](int variant, int x0, int x1, int margin,
+  auto render = [&](const Variant &variant, int x0, int x1, int margin,
                     std::vector<Pixel> &out) {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(0, H, x0, x1);
     fx.set_margin(margin);
     {
       Canvas c(fx);
-      draw_variant(c, variant);
+      variant.draw(c);
     }
     fx.advance_display();
     capture_frame<W, H>(fx, out);
@@ -383,8 +389,8 @@ inline void test_shader_clip_arc_matches_predicate() {
   // A plain arc, and one whose margin underflows column 0 into a wrapped band.
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}, {3, 4, 0}, {W - 3, W, 0}};
 
-  for (int variant = 0; variant < 11; ++variant) {
-    HS_CONTEXT("variant", variant);
+  for (const auto &variant : variants) {
+    HS_CONTEXT(variant.name);
     // One live Effect at a time: read the unclipped render back before the
     // clipped fixture exists.
     std::vector<Pixel> reference;

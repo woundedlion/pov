@@ -1,4 +1,5 @@
 import sys
+from committed_boards import committed_board
 import unittest
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from rev11_placements import QUILTER_FIXED  # noqa: E402
 import sexp  # noqa: E402
 from kicad_env import footprints_by_ref  # noqa: E402
 
-ROUTED = GEN_DIR.parent / "1.1" / pcb.PCB_FILE
+ROUTED = committed_board()
 
 
 def placements(path):

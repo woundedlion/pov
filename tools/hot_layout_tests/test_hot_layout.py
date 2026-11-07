@@ -377,6 +377,90 @@ class Planner(unittest.TestCase):
                          0x60008180)
 
 
+class PlannerFallbacks(unittest.TestCase):
+    def synthetic_program(self, sizes, groups=None, cold_sizes=()):
+        functions = [(f"f{i}", 0x60010000 + i * 0x10000, size, f".text.hot.f{i}", PHANTASM)
+                     for i, size in enumerate(sizes)]
+        functions += [(f"cold{i}", 0x60800000 + i * 0x10000, size,
+                       f".text.unlikely.cold{i}", PHANTASM)
+                      for i, size in enumerate(cold_sizes)]
+        program = _program(functions, [])
+        keys = [section.key for section in program.sections[:len(sizes)]]
+        groups = groups or [list(range(len(keys)))]
+        hot_sets = {}
+        for index, members in enumerate(groups):
+            selected = [keys[member] for member in members]
+            name = str(index)
+            hot_sets[name] = hl.EffectHotSet(
+                name, list(enumerate(selected)), selected, [],
+                {key: order for order, key in enumerate(selected)})
+        return program, keys, hot_sets, {section.key: 4 for section in program.sections}
+
+    def test_cold_filler_fits_the_gap_without_overrunning_it(self):
+        program, keys, hot_sets, alignments = self.synthetic_program([32, 32], cold_sizes=[64, 32])
+        planner = hl._Planner(program, hot_sets, alignments, 0x60008000, {})
+        planner.lines["0"][0] = 2
+        order = planner.run()
+        cold = [section.key for section in program.sections if section.name.startswith(".text.unlikely")]
+        self.assertEqual(order, [cold[1], *keys])
+        self.assertNotIn(cold[0], order)
+        self.assertEqual(planner.placed[cold[1]], (0x60008000, 0x60008020))
+        self.assertEqual(planner.placed[keys[0]][0], 0x60008020)
+
+    def test_constrained_unit_splits_into_single_section_placements(self):
+        program, keys, hot_sets, alignments = self.synthetic_program([32, 32])
+        planner = hl._Planner(program, hot_sets, alignments, 0x60008000, {})
+        planner.lines["0"] = [2] * hl.CACHE_SETS
+        planner.lines["0"][1] = 0
+        self.assertIsNone(planner._shift(keys))
+        with mock.patch.object(planner, "_place", wraps=planner._place) as place:
+            self.assertEqual(planner.run(), keys)
+        self.assertEqual([len(call.args[0]) for call in place.call_args_list], [1, 1])
+
+    def test_overconstrained_plan_retains_the_lowest_violation_order(self):
+        sizes = [7924, 7972, 4392, 3452, 4980, 4040, 1316, 7284, 6440, 3640, 1104, 7192]
+        groups = [[0, 1, 11, 5, 6, 4, 3, 8], [2, 0, 7, 11, 3, 10, 9],
+                  [1, 8, 10, 2, 6], [9, 1, 3, 8, 2]]
+        program, _, hot_sets, alignments = self.synthetic_program(sizes, groups)
+        rounds = []
+        base = hl._Planner
+
+        class RecordingPlanner(base):
+            def violations(self):
+                over, units = super().violations()
+                rounds.append((over, list(self.order)))
+                return over, units
+
+        with mock.patch.object(hl, "_Planner", RecordingPlanner):
+            order = hl.plan(program, hot_sets, alignments, 0x60008010)
+        self.assertGreater(min(over for over, _ in rounds), 0)
+        self.assertGreater(rounds[-1][0], rounds[0][0])
+        self.assertEqual(order, min(rounds, key=lambda result: result[0])[1])
+
+    def test_missing_input_section_alignment_is_reported(self):
+        program, keys, _, _ = self.synthetic_program([32])
+        tools = mock.Mock(objdump="objdump")
+        tools.run.return_value = ""
+        with self.assertRaisesRegex(hl.LayoutError, "no section alignment for .text.hot.f0"):
+            hl.load_alignments(tools, set(keys), ".")
+        tools.run.assert_called_once()
+
+    def test_write_plan_requires_the_probe_start_symbol(self):
+        program, _, _, _ = self.synthetic_program([32])
+        with mock.patch.object(hl, "load_program", return_value=(program, {})):
+            with self.assertRaisesRegex(hl.LayoutError, "probe map defines no"):
+                hl.write_plan(mock.Mock(), "fixture.elf", "fixture.map", [], "unused.ld", ".")
+
+    def test_write_plan_reports_an_unwritable_fragment(self):
+        program, keys, _, alignments = self.synthetic_program([32])
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(hl, "load_program", return_value=(program, {hl.START_SYMBOL: 0x60008000})), \
+                mock.patch.object(hl, "load_alignments", return_value=alignments), \
+                mock.patch.object(hl, "plan", return_value=keys):
+            with self.assertRaises(OSError):
+                hl.write_plan(mock.Mock(), "fixture.elf", "fixture.map", [], directory, ".")
+
+
 class CheckVerdict(unittest.TestCase):
     def test_unreadable_map_is_a_tooling_error(self):
         with tempfile.TemporaryDirectory() as directory, \

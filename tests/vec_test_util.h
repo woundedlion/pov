@@ -58,13 +58,13 @@ inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
 }
 
 /**
- * @brief Angle between non-zero vectors, accurate through the full angular range.
+ * @brief Angle between non-zero vectors using double-precision endpoint chords.
  * @param a First vector (non-zero).
  * @param b Second vector (non-zero).
  * @return The angle in radians.
- * @details Differences the normalized endpoints in double.
+ * @details Double arithmetic preserves small-angle precision; asin loses conditioning approaching pi.
  */
-inline double small_angle_between(const math::Vector &a,
+inline double chord_angle_between(const math::Vector &a,
                                   const math::Vector &b) {
   const double ax = a.x, ay = a.y, az = a.z;
   const double bx = b.x, by = b.y, bz = b.z;

@@ -51,6 +51,26 @@ inline void test_composed_modulation_blends_axes() {
   check(Pattern::SourceKind::SPHERE_SMOOTH_GRID, &Config::grid);
 }
 
+/** @brief Every shipped default and preset uses a qualified modulation configuration. */
+inline void test_composed_modulation_is_device_qualified() {
+  const auto check = []<template <int, int> class E>() {
+    using FX = E<SMALL_W, SMALL_H>;
+    const auto params_qualified = [](const auto &params) {
+      params.visit([]<typename Resource>(const auto &family) {
+        if constexpr (requires { family.modulation; })
+          HS_EXPECT_TRUE(
+              Pullback::Modulation::device_qualified(family.modulation));
+      });
+    };
+    params_qualified(FX::initial_params());
+    for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index)
+      params_qualified(preset_params<FX>(index));
+  };
+#define HS_COMPOSED_MODULATION(name) check.template operator()<name>();
+  HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_MODULATION)
+#undef HS_COMPOSED_MODULATION
+}
+
 struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::params;
   using MobiusGrid<SMALL_W, SMALL_H>::run_transition;

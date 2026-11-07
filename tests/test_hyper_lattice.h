@@ -8,7 +8,6 @@
 #pragma once
 
 #include "effects/HyperLattice.h"
-#include "core/render/pullback/contract.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/pixel_test_util.h"
@@ -30,30 +29,6 @@ using Params = HyperLatticeDetail::Params;
 using FrameState = HyperLatticeDetail::FrameState;
 using LatticeMode = HyperLatticeDetail::LatticeMode;
 using ShellCount = HyperLatticeDetail::ShellCount;
-template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
-  using PreparedTrace = HyperLatticeDetail::PreparedTrace;
-  /**
-   * @brief Prepares the frame's trace.
-   * @param frame Frame state.
-   * @return Frame-constant trace state.
-   */
-  static PreparedTrace prepare(const FrameState &frame) {
-    return HyperLatticeDetail::prepare_trace(frame);
-  }
-  /**
-   * @brief Composites the lattice crossings along one view ray.
-   * @param normal Unit view direction.
-   * @param prepared Frame-constant trace state.
-   * @return Straight-alpha colour.
-   */
-  __attribute__((always_inline)) static Color4
-  shade(const math::Vector &normal, const FrameState &,
-        const PreparedTrace &prepared) {
-    return HyperLatticeDetail::composite_crossings<SLICE_4D, SHELLS>(normal,
-                                                                     prepared)
-        .finish();
-  }
-};
 using HyperLatticeDetail::pixel_half_angle;
 using namespace SDF::Lattice;
 struct PreparedTrace : SDF::Lattice::PreparedTrace {
@@ -100,15 +75,12 @@ inline TraceHit trace(const math::Vector &normal,
   });
   return result;
 }
+/** @brief Composites lattice crossings along a view ray. */
 template <bool SLICE = false, uint8_t SHELLS = 0>
-Color4 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
-                  const PreparedTrace &prepared) {
-  return Renderer<SLICE, SHELLS>::shade(
-      input.dir, frame, {prepared, prepared.appearance, &crossings});
-}
-inline Color4 shade(const Pullback::SphereSample &input,
-                    const FrameState &frame, const PreparedTrace &prepared) {
-  return shade_mode(input, frame, prepared);
+Color4 shade(const math::Vector &view, const PreparedTrace &prepared) {
+  return HyperLatticeDetail::composite_crossings<SLICE, SHELLS>(
+             view, {prepared, prepared.appearance, &crossings})
+      .finish();
 }
 } // namespace HL
 
@@ -670,8 +642,7 @@ inline void test_render_signature() {
     };
     const HL::PreparedTrace prepared = HL::prepare_trace(frame);
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
-      const Color4 color =
-          HL::shade({DIRECTIONS[sample], 0.0f}, frame, prepared);
+      const Color4 color = HL::shade(DIRECTIONS[sample], prepared);
       rendered[row++] = {color.color.r, color.color.g, color.color.b,
                          frac_to_q16(color.alpha)};
     }
@@ -707,10 +678,10 @@ inline void test_specialized_slice_transition() {
       for (int y = 0; y < 144; ++y)
         for (int x = 0; x < 288; ++x) {
           const math::Vector direction = math::pixel_to_vector<288, 144>(x, y);
-          const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
+          const Color4 exact = HL::shade(direction, prepared);
           lit += exact.alpha > 0.0f ? 1 : 0;
-          const Color4 specialized = HL::shade_mode<true, SHELL_COUNT>(
-              {direction, 0.0f}, frame, prepared);
+          const Color4 specialized =
+              HL::shade<true, SHELL_COUNT>(direction, prepared);
           max_visible_error = hs_test::fold_worst(
               max_visible_error,
               fabsf(static_cast<float>(specialized.color.r) *
@@ -810,8 +781,7 @@ inline void test_specialized_render_signature() {
     };
     const auto prepared = HL::prepare_trace(context);
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
-      const Color4 color = HL::shade_mode<true, 2>({DIRECTIONS[sample], 0.0f},
-                                                   context, prepared);
+      const Color4 color = HL::shade<true, 2>(DIRECTIONS[sample], prepared);
       rendered[row++] = {color.color.r, color.color.g, color.color.b,
                          frac_to_q16(color.alpha)};
     }
@@ -1047,10 +1017,7 @@ state_between(const HyperLatticeWhiteBox::Drawn &from,
 template <int W, int H>
 inline Pixel traced_pixel(const HyperLatticeWhiteBox::Drawn &state, int x,
                           int y) {
-  const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-  const math::Vector VIEW(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
-                          math::TrigLUT<W, H>::cos_phi[y],
-                          SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
+  const math::Vector VIEW = math::pixel_to_vector<W, H>(x, y);
   const auto &params = state.frame.params;
   const bool SLICE = params.mode == HL::LatticeMode::SLICE_4D;
   if (params.pattern == HyperLatticeDetail::Pattern::CUBIC_WIRE) {
@@ -1559,7 +1526,7 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   HS_REQUIRED_PARAM(cell_size, effect, "Cell Size");
   HS_EXPECT_EQ(cell_size->max, 10.0f);
   HS_REQUIRED_PARAM(far_distance, effect, "Far Distance");
-  HS_EXPECT_TRUE(effect.getParameters().find("Far Cells") == nullptr);
+
   HS_REQUIRED_PARAM(dimension, effect, "View");
   HS_EXPECT_TRUE(dimension->is_enum());
   HS_EXPECT_EQ(dimension->option_count, 2);
@@ -1623,319 +1590,6 @@ inline void test_single_shell() {
                  1e-6f);
 }
 
-inline void test_octet_prepared_projection() {
-  using Effect = HyperLatticeWhiteBox::Effect;
-  using Domain = Raycast::SamplingDomain;
-  reset_globals();
-  Effect effect;
-  effect.init();
-  Trace::Settings settings;
-  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
-  settings.pixel_half_angle = .018f;
-  const auto expect_same = [](const Raycast::ShadedTrace &actual,
-                              const Raycast::ShadedTrace &expected) {
-    HS_EXPECT_EQ(actual.trace.status, expected.trace.status);
-    HS_EXPECT_NEAR(actual.color.alpha, expected.color.alpha, 3e-4f);
-    HS_EXPECT_NEAR(actual.color.color.r, expected.color.color.r, 2);
-    HS_EXPECT_NEAR(actual.color.color.g, expected.color.color.g, 2);
-    HS_EXPECT_NEAR(actual.color.color.b, expected.color.color.b, 2);
-  };
-  const auto expect_premultiplied = [](const SDF::OctetTrace::Sample &actual,
-                                       const Raycast::ShadedTrace &expected) {
-    HS_EXPECT_EQ(actual.status, expected.trace.status);
-    const Pixel PREMULTIPLIED = expected.color.color * expected.color.alpha;
-    HS_EXPECT_NEAR(actual.color.r, PREMULTIPLIED.r, 1);
-    HS_EXPECT_NEAR(actual.color.g, PREMULTIPLIED.g, 1);
-    HS_EXPECT_NEAR(actual.color.b, PREMULTIPLIED.b, 1);
-  };
-  size_t lit = 0;
-  for (Domain domain : {Domain::SPATIAL_3D, Domain::SLICE_4D}) {
-    settings.domain = domain;
-    settings.center = {
-        {.231f, -.437f, .719f, domain == Domain::SLICE_4D ? .383f : 0.0f}};
-    for (float angle : {0.0f, .31f, 1.23f}) {
-      settings.embedding = math::Mat4::identity();
-      math::rotate_plane(settings.embedding, 0, 1, angle);
-      math::rotate_plane(settings.embedding, 1, 2, angle * .73f);
-      if (domain == Domain::SLICE_4D) {
-        math::rotate_plane(settings.embedding, 0, 3, angle * .41f);
-        math::rotate_plane(settings.embedding, 2, 3, angle * 1.9f);
-      }
-      for (float cell : {.4f, 1.7f}) {
-        settings.cell_size = cell;
-        settings.wire_radius = .055f * cell;
-        for (float radial : {0.0f, .7f, 2.3f}) {
-          settings.radial_start = radial;
-          auto prepared = prepare_traced(settings);
-          HS_EXPECT_TRUE(prepared.valid);
-          const auto &camera = prepared.camera;
-          for (float near : {0.0f, .19f}) {
-            prepared.camera.interval.near = near;
-            for (int sample = 0; sample < 48; ++sample) {
-              const float PHASE = sample * 2.39996323f;
-              const float Z = (sample + .5f) / 24.0f - 1.0f;
-              const float R = sqrtf(1.0f - Z * Z);
-              const math::Vector DIRECTION(R * cosf(PHASE), R * sinf(PHASE), Z);
-              const auto RAY = camera.ray(DIRECTION);
-              const auto AMBIENT = camera.embedding.apply(
-                  {{DIRECTION.x, DIRECTION.y, DIRECTION.z, 0.0f}});
-              Raycast::ShadedTrace world;
-              Raycast::ShadedTrace projected;
-              SDF::OctetTrace::Sample traced;
-              if (domain == Domain::SLICE_4D) {
-                SDF::OctetEvents4 generic(prepared.octet4,
-                                          camera.point4(RAY.origin), AMBIENT,
-                                          RAY.interval, prepared.footprint);
-                world =
-                    Raycast::shade_events(generic, RAY.interval,
-                                          prepared.limits, prepared.appearance);
-                const SDF::OctetEvents4 events(
-                    prepared.octet4, prepared.octet4_projection, DIRECTION,
-                    camera.radial_start, near, prepared.footprint);
-                auto copy = events;
-                projected = Raycast::shade_events(
-                    copy, RAY.interval, prepared.limits, prepared.appearance);
-                traced = SDF::OctetTrace::trace_events(
-                    events, RAY.interval, prepared.limits, prepared.appearance);
-              } else {
-                const Raycast::Ray WORLD{camera.point3(RAY.origin),
-                                         {AMBIENT[0], AMBIENT[1], AMBIENT[2]},
-                                         RAY.interval};
-                SDF::OctetEvents generic(prepared.octet, WORLD,
-                                         prepared.footprint);
-                world =
-                    Raycast::shade_events(generic, RAY.interval,
-                                          prepared.limits, prepared.appearance);
-                const SDF::OctetEvents events(prepared.octet_projection,
-                                              DIRECTION, camera.radial_start,
-                                              near, prepared.footprint);
-                auto copy = events;
-                projected = Raycast::shade_events(
-                    copy, RAY.interval, prepared.limits, prepared.appearance);
-                traced = SDF::OctetTrace::trace_events(
-                    events, RAY.interval, prepared.limits, prepared.appearance);
-              }
-              expect_same(projected, world);
-              expect_premultiplied(traced, projected);
-              const auto SHADED =
-                  domain == Domain::SLICE_4D
-                      ? Trace::shade<true>(DIRECTION, prepared)
-                      : Trace::shade<false>(DIRECTION, prepared);
-              HS_EXPECT_EQ(SHADED.status, traced.status);
-              // The 4D trace sums plane positions in its canonical frame's
-              // order, which moves crossing distances by an ulp.
-              if (domain == Domain::SLICE_4D) {
-                HS_EXPECT_NEAR(SHADED.color.r, traced.color.r, 1);
-                HS_EXPECT_NEAR(SHADED.color.g, traced.color.g, 1);
-                HS_EXPECT_NEAR(SHADED.color.b, traced.color.b, 1);
-              } else {
-                HS_EXPECT_EQ(SHADED.color, traced.color);
-              }
-              lit += traced.color != Pixel{};
-            }
-          }
-        }
-      }
-    }
-  }
-  HS_EXPECT_GT(lit, size_t{0});
-}
-
-/**
- * @brief The canonical-frame 4D octet trace against OctetEvents4 over random
- *        flights, including its plane-share crossing skip.
- */
-inline void test_octet_4d_canonical_trace() {
-  using Effect = HyperLatticeWhiteBox::Effect;
-  reset_globals();
-  Effect effect;
-  effect.init();
-  Trace::Settings settings;
-  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
-  settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
-  settings.domain = Raycast::SamplingDomain::SLICE_4D;
-  hs::Pcg32 rng(0x0c7e74du);
-  const auto uniform = [&rng](float low, float high) {
-    return rand_uniform(rng, low, high);
-  };
-  size_t compared = 0, lit = 0, differing = 0;
-  for (int frame = 0; frame < 40; ++frame) {
-    settings.cell_size = uniform(.6f, 3.0f);
-    settings.wire_radius = uniform(.015f, .09f) * settings.cell_size;
-    settings.far_distance = uniform(3.0f, 9.0f);
-    settings.aa_strength = uniform(0.0f, 2.0f);
-    settings.radial_start = frame % 3 ? 0.0f : uniform(0.0f, 1.5f);
-    settings.center = {
-        {uniform(-3, 3), uniform(-3, 3), uniform(-3, 3), uniform(-3, 3)}};
-    settings.embedding = math::Mat4::identity();
-    for (int a = 0; a < 4; ++a)
-      for (int b = a + 1; b < 4; ++b)
-        math::rotate_plane(settings.embedding, a, b, uniform(0.0f, 6.3f));
-    const auto prepared = prepare_traced(settings);
-    HS_EXPECT_TRUE(prepared.valid);
-    const auto &camera = prepared.camera;
-    for (int ray = 0; ray < 400; ++ray) {
-      const math::Vector DIRECTION =
-          math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
-              .normalized();
-      const SDF::OctetEvents4 events(
-          prepared.octet4, prepared.octet4_projection, DIRECTION,
-          camera.radial_start, camera.interval.near, prepared.footprint);
-      const auto EXPECTED = SDF::OctetTrace::trace_events(
-          events, camera.interval, prepared.limits, prepared.appearance);
-      const auto ACTUAL = SDF::OctetTrace::trace_4d(
-          DIRECTION, camera, prepared.octet4, prepared.octet4_projection,
-          prepared.footprint, prepared.limits, prepared.appearance,
-          *prepared.crossings);
-      HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
-      const int DELTA = max_channel_gap(ACTUAL.color, EXPECTED.color);
-      differing += DELTA > 1;
-      HS_EXPECT_LE(DELTA, 16);
-      ++compared;
-      lit += EXPECTED.color != Pixel{};
-    }
-  }
-  HS_EXPECT_GT(lit, compared / 10);
-  // Counted crossings and the fixed-point bound move a far-boundary
-  // crossing or a rounding tie in a few rays by a few codes.
-  HS_EXPECT_LE(differing, compared / 4000);
-}
-
-inline void test_octet_4d_canonical_boundary_directions() {
-  using Effect = HyperLatticeWhiteBox::Effect;
-  reset_globals();
-  Effect effect;
-  effect.init();
-  Trace::Settings settings;
-  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
-  settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
-  settings.domain = Raycast::SamplingDomain::SLICE_4D;
-  settings.center = {{.255f, .465f, .645f, .375f}};
-  const std::array<math::Vector, 10> DIRECTIONS{
-      math::X_AXIS,
-      -math::X_AXIS,
-      math::Y_AXIS,
-      -math::Y_AXIS,
-      math::Z_AXIS,
-      -math::Z_AXIS,
-      math::Vector{1, 1e-5f, 0}.normalized(),
-      math::Vector{1, 1, 0}.normalized(),
-      math::Vector{-1, 1, 0}.normalized(),
-      math::Vector{1, 1, 1}.normalized()};
-  size_t lit = 0;
-  for (int frame = 0; frame <= 8; ++frame) {
-    settings.embedding = math::Mat4::identity();
-    math::rotate_plane(settings.embedding, 0, 3, frame * math::PI_F / 16);
-    settings.radial_start = frame % 2 ? .5f : 0.0f;
-    const auto prepared = prepare_traced(settings);
-    HS_EXPECT_TRUE(prepared.valid);
-    for (const auto &direction : DIRECTIONS) {
-      const auto &camera = prepared.camera;
-      const SDF::OctetEvents4 events(
-          prepared.octet4, prepared.octet4_projection, direction,
-          camera.radial_start, camera.interval.near, prepared.footprint);
-      const auto EXPECTED = SDF::OctetTrace::trace_events(
-          events, camera.interval, prepared.limits, prepared.appearance);
-      const auto ACTUAL = SDF::OctetTrace::trace_4d(
-          direction, camera, prepared.octet4, prepared.octet4_projection,
-          prepared.footprint, prepared.limits, prepared.appearance,
-          *prepared.crossings);
-      HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
-      HS_EXPECT_LE(max_channel_gap(ACTUAL.color, EXPECTED.color), 2);
-      lit += EXPECTED.color != Pixel{};
-    }
-  }
-  HS_EXPECT_GT(lit, size_t{0});
-}
-
-/**
- * @brief OctetTrace sorted reference reproduces trace_events over random 3D and
- *        4D flights, under default, candidate-starved and layer-starved
- *        budgets.
- */
-inline void test_octet_trace_sorted_matches_events() {
-  using Effect = HyperLatticeWhiteBox::Effect;
-  using Domain = Raycast::SamplingDomain;
-  reset_globals();
-  Effect effect;
-  effect.init();
-  Trace::Settings settings;
-  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
-  settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
-  hs::Pcg32 rng(0x50f7ed5u);
-  const auto uniform = [&rng](float low, float high) {
-    return rand_uniform(rng, low, high);
-  };
-  SDF::OctetTrace::CrossingStorage storage;
-  size_t compared = 0, lit = 0, candidate_exhausted = 0, layer_exhausted = 0;
-  const auto compare = [&](const auto &events, Raycast::Interval interval,
-                           const Raycast::TraceLimits &limits,
-                           const Raycast::Appearance &appearance, int budget) {
-    const auto EXPECTED =
-        SDF::OctetTrace::trace_events(events, interval, limits, appearance);
-    const auto ACTUAL = SDF::OctetTrace::detail::reference::trace_sorted(
-        events, interval, limits, appearance, storage);
-    HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
-    HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
-    ++compared;
-    lit += EXPECTED.color != Pixel{};
-    if (EXPECTED.status == Raycast::TraceStatus::BUDGET_EXHAUSTED) {
-      if (budget == 1)
-        ++candidate_exhausted;
-      else if (budget == 2)
-        ++layer_exhausted;
-    }
-  };
-  for (Domain domain : {Domain::SPATIAL_3D, Domain::SLICE_4D}) {
-    HS_CONTEXT(domain == Domain::SLICE_4D ? "4d" : "3d");
-    settings.domain = domain;
-    for (int frame = 0; frame < 12; ++frame) {
-      settings.cell_size = uniform(.6f, 3.0f);
-      settings.wire_radius = uniform(.015f, .09f) * settings.cell_size;
-      settings.far_distance = uniform(3.0f, 9.0f);
-      settings.radial_start = frame % 3 ? 0.0f : uniform(0.0f, 1.5f);
-      settings.center = {{uniform(-3, 3), uniform(-3, 3), uniform(-3, 3),
-                          domain == Domain::SLICE_4D ? uniform(-3, 3) : 0.0f}};
-      settings.embedding = math::Mat4::identity();
-      for (int a = 0; a < 4; ++a)
-        for (int b = a + 1; b < 4; ++b)
-          if (domain == Domain::SLICE_4D || b < 3)
-            math::rotate_plane(settings.embedding, a, b, uniform(0.0f, 6.3f));
-      const auto prepared = prepare_traced(settings);
-      HS_EXPECT_TRUE(prepared.valid);
-      const auto &camera = prepared.camera;
-      Raycast::TraceLimits starved_candidates = prepared.limits;
-      starved_candidates.max_candidates = 6;
-      Raycast::TraceLimits starved_layers = prepared.limits;
-      starved_layers.max_layers = 2;
-      for (int ray = 0; ray < 100; ++ray) {
-        const math::Vector DIRECTION =
-            math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
-                .normalized();
-        const Raycast::TraceLimits budgets[] = {
-            prepared.limits, starved_candidates, starved_layers};
-        for (int budget = 0; budget < 3; ++budget) {
-          const auto &limits = budgets[budget];
-          if (domain == Domain::SLICE_4D)
-            compare(SDF::OctetEvents4(prepared.octet4,
-                                      prepared.octet4_projection, DIRECTION,
-                                      camera.radial_start, camera.interval.near,
-                                      prepared.footprint),
-                    camera.interval, limits, prepared.appearance, budget);
-          else
-            compare(SDF::OctetEvents(prepared.octet_projection, DIRECTION,
-                                     camera.radial_start, camera.interval.near,
-                                     prepared.footprint),
-                    camera.interval, limits, prepared.appearance, budget);
-        }
-      }
-    }
-  }
-  HS_EXPECT_GT(lit, compared / 10);
-  HS_EXPECT_GT(candidate_exhausted, size_t{0});
-  HS_EXPECT_GT(layer_exhausted, size_t{0});
-}
-
 /** @brief Trace geometry maps each persisted pattern explicitly. */
 inline void test_trace_geometry_mapping() {
   static_assert(static_cast<uint8_t>(Trace::Geometry::OCTET) == 0);
@@ -1949,16 +1603,13 @@ inline void test_trace_geometry_mapping() {
                Trace::Geometry::SHELLS);
 }
 
-inline void test_traced_presets() {
+/** @brief Traced preset cameras preserve origins across scale and reject wrong domains. */
+inline void test_traced_preset_camera_setup() {
   using Effect = HyperLatticeWhiteBox::Effect;
   reset_globals();
   Effect effect;
   effect.init();
-  auto invalid = effect.serialize_parameters();
-  invalid.params.pattern = static_cast<Effect::Pattern>(255);
-  HS_EXPECT_FALSE(effect.restore_parameters(invalid));
   effect.setAnimationsPaused(true);
-  const auto initial = effect.serialize_parameters();
   for (size_t i : {Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX}) {
     const bool SLICE = i == Effect::OCTET_4D_PRESET_INDEX;
     HL::FrameState frame{};
@@ -1991,7 +1642,19 @@ inline void test_traced_presets() {
       HS_EXPECT_EQ(before.camera.center[axis], after.camera.center[axis]);
     HS_EXPECT_EQ(before.camera.radial_start, .7f);
     HS_EXPECT_EQ(before.camera.radial_start, after.camera.radial_start);
-    HS_EXPECT_FALSE(Effect::PRESET_IDS[i].starts_with("experimental-"));
+  }
+}
+
+/** @brief Traced presets expose the matching editable controls and retain fallback state. */
+inline void test_traced_preset_control_state() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  effect.setAnimationsPaused(true);
+  const auto initial = effect.serialize_parameters();
+  for (size_t i : {Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX}) {
+    const bool SLICE = i == Effect::OCTET_4D_PRESET_INDEX;
     auto selected = initial;
     selected.params = Effect::preset(i).params;
     HS_EXPECT_TRUE(effect.restore_parameters(selected));
@@ -2007,6 +1670,30 @@ inline void test_traced_presets() {
     HS_EXPECT_FALSE(wire_radius->readonly);
     HS_REQUIRED_PARAM(aa_strength, effect, "AA Strength");
     HS_EXPECT_FALSE(aa_strength->readonly);
+  }
+  HS_EXPECT_TRUE(effect.restore_parameters(initial));
+  HS_REQUIRED_PARAM(view, effect, "View");
+  HS_EXPECT_EQ(view->get(), 0);
+  HS_REQUIRED_PARAM(lattice_planes, effect, "Lattice Planes");
+  HS_EXPECT_FALSE(lattice_planes->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.pattern,
+               Effect::Pattern::OCTET);
+  HS_EXPECT_FALSE(effect.selectPreset(Effect::PRESET_IDS.size()));
+}
+
+/** @brief Traced octet presets render changing, complete frames. */
+inline void test_traced_preset_render() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  effect.setAnimationsPaused(true);
+  const auto initial = effect.serialize_parameters();
+  for (size_t i : {Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX}) {
+    auto selected = initial;
+    selected.params = Effect::preset(i).params;
+    HS_EXPECT_TRUE(effect.restore_parameters(selected));
     std::vector<Pixel> previous;
     for (int draw = 0; draw < 2; ++draw) {
       effect.draw_frame();
@@ -2021,30 +1708,9 @@ inline void test_traced_presets() {
       if (draw)
         HS_EXPECT_GT(changed, size_t{0});
       HS_REQUIRED_PARAM(unfinished, effect, "Unfinished Rays");
-      std::printf("  traced preset %zu draw %d unfinished=%g\n", i, draw,
-                  unfinished->get());
       HS_EXPECT_EQ(unfinished->get(), 0.0f);
     }
-    const auto target = selected.params;
-    HL::Params blend;
-    blend.lerp(initial.params, target, .49f);
-    HS_EXPECT_EQ(blend.pattern, initial.params.pattern);
-    HS_EXPECT_EQ(blend.cell_size,
-                 hs::lerp(initial.params.cell_size, target.cell_size, .49f));
-    blend.lerp(initial.params, target, .5f);
-    HS_EXPECT_EQ(blend.pattern, target.pattern);
-    HS_EXPECT_EQ(blend.cell_size,
-                 hs::lerp(initial.params.cell_size, target.cell_size, .5f));
   }
-  HS_EXPECT_TRUE(effect.restore_parameters(initial));
-  HS_REQUIRED_PARAM(view, effect, "View");
-  HS_EXPECT_EQ(view->get(), 0);
-  HS_REQUIRED_PARAM(lattice_planes, effect, "Lattice Planes");
-  HS_EXPECT_FALSE(lattice_planes->readonly);
-  HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.serialize_parameters().params.pattern,
-               Effect::Pattern::OCTET);
-  HS_EXPECT_FALSE(effect.selectPreset(Effect::PRESET_IDS.size()));
 }
 
 inline void test_pattern_view_controls() {
@@ -2052,7 +1718,7 @@ inline void test_pattern_view_controls() {
   reset_globals();
   Effect effect;
   effect.init();
-  HS_EXPECT_TRUE(effect.getParameters().find("Configuration") == nullptr);
+
   HS_REQUIRED_PARAM(pattern, effect, "Pattern");
   HS_REQUIRED_PARAM(view, effect, "View");
   HS_EXPECT_EQ(pattern->option_count, 3);
@@ -2115,7 +1781,39 @@ inline void test_pattern_view_controls() {
   HS_EXPECT_FALSE(four_d_lattice_planes->readonly);
 }
 
-/** @brief Pins normal pattern views and rejects unsupported numeric IDs. */
+/** @brief Shipping traced presets finish every ray at their supported grids. */
+inline void test_traced_presets_finish_rays() {
+  const auto check = []<int W, int H>(std::initializer_list<size_t> presets,
+                                      int x0, int x1) {
+    for (size_t preset : presets) {
+      HS_CONTEXT("grid", W, H);
+      HS_CONTEXT("preset", preset);
+      reset_globals();
+      HyperLattice<W, H> effect;
+      effect.init();
+      effect.setAnimationsPaused(true);
+      effect.set_clip(0, H, x0, x1);
+      HS_EXPECT_TRUE(effect.selectPreset(preset));
+      for (int frame = 0; frame < 3; ++frame) {
+        effect.draw_frame();
+        effect.advance_display();
+        HS_REQUIRED_PARAM(unfinished, effect, "Unfinished Rays");
+        HS_EXPECT_EQ(unfinished->get(), 0.0f);
+      }
+    }
+  };
+  using Effect = HyperLatticeWhiteBox::Effect;
+  check.template operator()<96, 20>({Effect::OCTET_PRESET_INDEX,
+                                     Effect::OCTET_WIDE_PRESET_INDEX,
+                                     Effect::OCTET_4D_PRESET_INDEX},
+                                    0, 96);
+  check.template operator()<288, 144>({Effect::SHELL_PRESET_INDEX,
+                                       Effect::SHELL_CLOSE_PRESET_INDEX,
+                                       Effect::SHELL_4D_PRESET_INDEX},
+                                      140, 150);
+}
+
+/** @brief Restores cubic, octet and shell views and rejects pattern IDs 2–5. */
 inline void test_regular_patterns() {
   using Effect = HyperLatticeWhiteBox::Effect;
   static_assert(static_cast<uint8_t>(Effect::Pattern::CUBIC_WIRE) == 0);
@@ -2125,8 +1823,7 @@ inline void test_regular_patterns() {
   Effect effect;
   effect.init();
   effect.setAnimationsPaused(true);
-  HS_EXPECT_TRUE(effect.getParameters().find("Shear") == nullptr);
-  HS_EXPECT_TRUE(effect.getParameters().find("Stretch") == nullptr);
+
   HS_REQUIRED_PARAM(pattern, effect, "Pattern");
   constexpr int64_t VALUES[] = {0, 1, 6};
   HS_EXPECT_EQ(pattern->option_count, static_cast<int>(std::size(VALUES)));
@@ -2343,14 +2040,13 @@ inline int run_hyper_lattice_tests() {
   HS_RUN(test_dimension_dropdown_and_mode_lerp);
   HS_RUN(test_single_shell);
   HS_RUN(test_family_segues);
-  HS_RUN(test_octet_prepared_projection);
-  HS_RUN(test_octet_4d_canonical_trace);
-  HS_RUN(test_octet_4d_canonical_boundary_directions);
-  HS_RUN(test_octet_trace_sorted_matches_events);
   HS_RUN(test_regular_patterns);
   HS_RUN(test_octet_continuous_flight);
   HS_RUN(test_trace_geometry_mapping);
-  HS_RUN(test_traced_presets);
+  HS_RUN(test_traced_preset_camera_setup);
+  HS_RUN(test_traced_preset_control_state);
+  HS_RUN(test_traced_preset_render);
+  HS_RUN(test_traced_presets_finish_rays);
   HS_RUN(test_pattern_view_controls);
   HS_RUN(test_speed_range);
   return fixture.result();

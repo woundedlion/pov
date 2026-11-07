@@ -8,6 +8,7 @@
 
 #include "targets/effects.h"
 #include "tests/effects/fixture.h"
+#include "tests/probe_test_util.h"
 #include "tests/effects/case_runners.h"
 
 namespace hs_test {
@@ -15,6 +16,7 @@ namespace effects_tests {
 
 #include "tests/effects/parameter_probe.h"
 #include "tests/effects/spherical_harmonics.h"
+#include "tests/effects/reaction_diffusion_gs_whitebox.h"
 #include "tests/effects/reaction_diffusion_gs.h"
 #include "tests/effects/reaction_diffusion_bz.h"
 #include "tests/effects/hankin.h"
@@ -41,7 +43,7 @@ namespace effects_tests {
 #include "tests/effects/displacement_field.h"
 #include "tests/effects/shape_shifter.h"
 #include "tests/effects/islamic_stars.h"
-#include "tests/effects/column_time_parity.h"
+#include "tests/effects/column_time_fidelity.h"
 #include "tests/effects/mesh_capture_cases.h"
 
 /**
@@ -68,6 +70,7 @@ inline int run_effects_tests() {
   }
   if (mesh_only && std::atoi(mesh_only) == 2) {
     run_effect_case_hankinsolids_handoff_history();
+    run_effect_case_hankinsolids_strap_luts_allocate_only_while_blending();
     measure_mesh_capture_work();
     return fixture.result();
   }
@@ -117,12 +120,17 @@ inline int run_effects_tests() {
   run_effect_case_gs_signed_coverage_and_concentration();
   run_effect_case_gs_support_certificate_matches_display_geometry();
   run_effect_case_gs_nearest_pigment_shader_fidelity();
+  run_effect_case_gs_exact_color_path_boundaries();
   run_effect_case_gs_partial_color_palette_rows();
   run_effect_case_gs_reseed_invalidates_shimmer_cache();
   run_effect_case_gs_dissolve_frontier_fades_before_clear();
   run_effect_case_gs_substep_matches_scalar_reference();
   run_effect_case_gs_inplace_frame_matches_jacobi();
-  run_effect_case_fishbowl_preset_and_fire_duty_cycle();
+  run_effect_case_fishbowl_snapshot_admission();
+  run_effect_case_fishbowl_preset_restores_params();
+  run_effect_case_fishbowl_fire_duty_cycle();
+  run_effect_case_fishbowl_palette_phase_compensates_fill();
+  run_effect_case_fishbowl_adaptive_midpoint();
   run_effect_case_fishbowl_temporal_trail_oracle();
   run_effect_case_sh_preset_mode_mapping();
   run_effect_case_sh_manual_preset_replaces_inflight_morph();
@@ -132,6 +140,7 @@ inline int run_effects_tests() {
   run_effect_case_hankinsolids_manual_pause_holds_morph();
   run_effect_case_hankinsolids_handoffs_shade_at_column_time();
   run_effect_case_hankinsolids_handoff_history();
+  run_effect_case_hankinsolids_strap_luts_allocate_only_while_blending();
   run_effect_case_hankinsolids_conway_crossfade_shades_at_column_time();
   run_effect_case_hankinsolids_interlace_motion_is_seam_free();
   run_effect_case_hankinsolids_seam_copies_are_one_polygon();
@@ -233,7 +242,10 @@ inline int run_effects_tests() {
   run_effect_case_displacement_field_footprint_covers_init();
   run_effect_case_displacement_field_pause_holds_phase_only();
   run_effect_case_displacement_field_default_cycle_frames();
-  run_effect_case_displacement_field_presets();
+  run_effect_case_displacement_field_preset_defaults();
+  run_effect_case_displacement_field_manual_navigation();
+  run_effect_case_displacement_field_ball_tuning();
+  run_effect_case_displacement_field_automatic_cycle();
   run_effect_case_displacement_field_edit_cancels_departure();
   run_effect_case_displacement_field_startup_writes_preserve_entry();
   run_effect_case_displacement_field_paused_balls_deform_render();
@@ -246,9 +258,11 @@ inline int run_effects_tests() {
   run_effect_case_displacement_field_boundary_stencil();
   run_effect_case_displacement_field_turn_follows_large_steps();
   run_effect_case_displacement_field_alternate_groups_match_windows();
-  run_effect_case_glitch_lens_unit_norm();
+  run_effect_case_glitch_lens_doubles_latitude_and_stays_smooth_at_fold();
   run_effect_case_mobius_rings_conformal_and_counter_rotation();
   run_effect_case_mobius_rings_white_box_check_column_time_oracle();
+  run_effect_case_mobius_rings_white_box_check_device_clip_work();
+  run_effect_case_mobius_rings_white_box_check_first_frame_hold();
   run_effect_case_islamicstars_cases();
   run_effect_case_ash_cloud_value_cutout_gates_the_frame();
 
@@ -262,6 +276,8 @@ inline int run_effects_tests() {
     run_effect_case_gs_staged_reseed_matches_synchronous();
     run_effect_case_dreamballs_base_mesh_selector();
     run_effect_case_dreamballs_weave_topology();
+    run_effect_case_dreamballs_weave_topology_schema();
+    run_effect_case_dreamballs_under_gap_alpha_fades_edge_tail();
     run_effect_case_dreamballs_defect_weave_renders();
     run_effect_case_dreamballs_respawn_fires_and_honors_pause();
     run_effect_case_dreamballs_select_mid_fade_in_finishes_fade();
@@ -276,7 +292,8 @@ inline int run_effects_tests() {
     run_effect_case_displacement_field_hue_table_fidelity();
     run_effect_case_displacement_field_hue_table_frame_fidelity();
     run_effect_case_displacement_field_clip_tiles_full();
-    run_effect_case_displacement_field_ball_spans_and_lifecycle();
+    run_effect_case_displacement_field_ball_pool_drains_to_noise();
+    run_effect_case_displacement_field_ball_spans_match_field();
     run_effect_case_islamicstars_recipe_build_smoke();
     run_effect_case_islamicstars_roster_cycle_fits_budget();
     run_effect_case_islamicstars_dual_bridge_fits_budget();

@@ -26,8 +26,7 @@ inline void case_param_def_unknown_get_target_type() {
   ParamDef def;
   def.target = &storage;
   def.target_type = static_cast<ParamDef::TargetType>(opaque<uint8_t>(9));
-  if (def.get_from(&storage) == opaque(42.0f))
-    std::printf("x");
+  (void)def.get_from(&storage);
 }
 
 /**
@@ -44,8 +43,7 @@ inline void case_param_def_unknown_set_target_type() {
     using ParamHost::write_parameter_unchecked;
   };
   InternalWriter::write_parameter_unchecked(def, opaque(1.0f));
-  if (storage == opaque(42.0f))
-    std::printf("x");
+  (void)storage;
 }
 
 /**
@@ -56,8 +54,7 @@ inline void case_param_def_unknown_set_target_type() {
 inline void case_effect_double_construct() {
   DeathEffect a;
   DeathEffect b; // second live Effect ctor -> HS_CHECK(!s_alive) -> trap
-  if (opaque(a.strobe_columns()))
-    std::printf("x");
+  (void)opaque(a.strobe_columns());
 }
 
 /** @brief Death case: a zero Effect width must trap. */
@@ -84,8 +81,7 @@ inline void case_effect_height_over_max() {
 inline void case_correction_guard_double_construct() {
   NoColorCorrection a;
   NoColorCorrection b; // second live guard -> liveness HS_CHECK -> trap
-  if (correction_guard_live() == opaque(true))
-    std::printf("x");
+  (void)correction_guard_live();
 }
 
 /**
@@ -95,8 +91,7 @@ inline void case_correction_guard_double_construct() {
 inline void case_correction_guard_cross_type() {
   NoColorCorrection a;
   NoTempCorrection b; // second live guard of a different type -> trap
-  if (correction_guard_live() == opaque(true))
-    std::printf("x");
+  (void)correction_guard_live();
 }
 
 /** @brief Traps on float options missing labels. */
@@ -200,7 +195,7 @@ inline void case_register_param_default_outside_range() {
 }
 
 /** @brief Rejects replay of an unknown parameter name. */
-inline void case_restore_parameters_unknown_name() {
+inline void case_replay_parameter_writes_unknown_name() {
   DeathEffect effect;
   const std::array values{
       std::pair<std::string, float>{"unknown", opaque(0.5f)}};
@@ -208,7 +203,7 @@ inline void case_restore_parameters_unknown_name() {
 }
 
 /** @brief Rejects replay of a read-only parameter. */
-inline void case_restore_parameters_readonly_name() {
+inline void case_replay_parameter_writes_readonly_name() {
   DeathEffect effect;
   float value = 0.0f;
   effect.register_param("readonly", &value, ParamSpec<float>{.readonly = true});
@@ -218,7 +213,7 @@ inline void case_restore_parameters_readonly_name() {
 }
 
 /** @brief Rejects replay of a harmonic order above its degree. */
-inline void case_restore_parameters_inadmissible_field() {
+inline void case_replay_parameter_writes_inadmissible_field() {
   reset_globals();
   ShaderChain<32, 16> effect;
   effect.init();
@@ -432,8 +427,7 @@ inline void case_render_x_window_bad_arm() {
 inline void case_arcs_overlap_start_out_of_range() {
   bool hit = ClipRegion::arcs_overlap(opaque(-1), opaque(2), opaque(0),
                                       opaque(2), opaque(8));
-  if (hit)
-    std::printf("x");
+  (void)hit;
 }
 
 /** @brief Rejects a margin equal to the canvas width. */

@@ -13,7 +13,7 @@
 namespace hs_test::effects_tests {
 
 #include "tests/effects/roster_cases.h"
-#include "tests/effects/column_time_parity.h"
+#include "tests/effects/column_time_fidelity.h"
 #include "tests/effects/lens_cases.h"
 
 void run_effect_case_mesh_seam_dark_sample_guards() {
@@ -48,8 +48,8 @@ void run_effect_case_column_time_scans_engage_with_fidelity_on() {
   HS_RUN(run_case, test_column_time_scans_engage_with_fidelity_on);
 }
 
-void run_effect_case_glitch_lens_unit_norm() {
-  HS_RUN(run_case, test_glitch_lens_unit_norm);
+void run_effect_case_glitch_lens_doubles_latitude_and_stays_smooth_at_fold() {
+  HS_RUN(run_case, test_glitch_lens_doubles_latitude_and_stays_smooth_at_fold);
 }
 
 } // namespace hs_test::effects_tests
@@ -69,7 +69,7 @@ int run_roster_tests() {
   run_effect_case_needs_full_frame_gate();
   run_effect_case_column_time_scans_keep_fidelity_off_frames();
   run_effect_case_column_time_scans_engage_with_fidelity_on();
-  run_effect_case_glitch_lens_unit_norm();
+  run_effect_case_glitch_lens_doubles_latitude_and_stays_smooth_at_fold();
   return fixture.result();
 }
 

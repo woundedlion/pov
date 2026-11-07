@@ -734,7 +734,7 @@ inline void test_repeating_timer_fires_then_each_cycle() {
  * consuming another random delay draw.
  */
 inline void test_repeating_timer_canceled_in_callback_fires_then_once() {
-  const auto SAVED_RNG = hs::random();
+  const hs_test::ScopedRng SAVED_RNG;
   hs::random().seed(1337);
   Timeline tl;
   int thens = 0;
@@ -758,7 +758,6 @@ inline void test_repeating_timer_canceled_in_callback_fires_then_once() {
   HS_EXPECT_EQ(thens, 1);
   HS_EXPECT_EQ(global_timeline_num_events, 0);
   HS_EXPECT_EQ(hs::random()(), expected_rng());
-  hs::random() = SAVED_RNG;
 }
 
 /** @brief Verifies cancellation within a timer's completion callback does not re-enter it. */
@@ -1003,7 +1002,7 @@ inline void test_timeline_remove_clear_hook_unregisters_by_ctx() {
  * within the requested inclusive [min, max] delay window.
  */
 inline void test_random_timer_fires_within_range() {
-  const auto saved_rng = hs::random();
+  const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   Timeline tl;
   struct {
@@ -1041,7 +1040,6 @@ inline void test_random_timer_fires_within_range() {
   }
   HS_EXPECT_TRUE(saw_minimum);
   HS_EXPECT_TRUE(saw_maximum);
-  hs::random() = saved_rng;
 }
 
 /**

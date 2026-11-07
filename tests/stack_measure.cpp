@@ -102,12 +102,12 @@ template <typename EffectT> __attribute__((noinline)) void run_effect() {
   delete effect;
 }
 
-template <typename Effect> size_t measure(const char *name) {
+template <typename EffectT> size_t measure(const char *name) {
   g_lo = nullptr;
   paint(220);
   volatile uint8_t topmark;
   uint8_t *top = const_cast<uint8_t *>(&topmark);
-  run_effect<Effect>();
+  run_effect<EffectT>();
   uint8_t *lo = const_cast<uint8_t *>(g_lo);
   // Worst untouched window in the control band = the paint-gap noise floor.
   size_t floor_mismatch = 0;

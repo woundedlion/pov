@@ -12,7 +12,7 @@ TOOLS = Path(__file__).resolve().parents[1]
 
 class UploadDispatchTests(unittest.TestCase):
     def dispatch(self, backend="auto", available=True, explicit=False, upload_result=0,
-                 token="owned", lock_dir="fixture-claim", resolve_result=None):
+                 token="owned", lock_dir="fixture-claim", resolve_result=None, extra_env=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name, content in {
@@ -27,6 +27,7 @@ class UploadDispatchTests(unittest.TestCase):
                                HS_UPLOAD_BACKEND=backend,
                                FIXTURE_AVAILABLE=str(resolve_result if resolve_result is not None else 0 if available else 2),
                                FIXTURE_UPLOAD_RESULT=str(upload_result), FIXTURE_CLAIM=lock_dir)
+            environment.update(extra_env or {})
             if explicit:
                 environment["HS_TYCMD"] = "fixture-tycmd.exe"
             return subprocess.run([
@@ -48,6 +49,16 @@ class UploadDispatchTests(unittest.TestCase):
         self.assertIn("--lock-dir\nfixture-claim\n--lock-token\nowned\n", result.stdout)
         self.assertIn("fixture-image/firmware.hex\n", result.stdout)
         self.assertNotIn("VENDOR", result.stdout)
+
+    def test_headless_dispatch_preserves_absence_budget(self):
+        result = self.dispatch(extra_env={"HS_DEVICE_WAIT": "3600", "HS_DEVICE_ABSENT_GRACE": "15"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--absent-seconds\n15\n", result.stdout)
+
+    def test_headless_dispatch_defaults_to_no_absence_grace(self):
+        result = self.dispatch()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--absent-seconds\n0\n", result.stdout)
 
     def test_missing_headless_tool_keeps_vendor_default(self):
         result = self.dispatch(available=False)

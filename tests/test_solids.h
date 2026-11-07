@@ -100,16 +100,6 @@ inline void check_all_finite(const PolyMesh &m) {
 }
 
 /**
- * @brief Asserts the mesh has at least one vertex, face count, and face index.
- * @param m Mesh to check for non-emptiness.
- */
-inline void check_nonempty(const PolyMesh &m) {
-  HS_EXPECT_TRUE(m.vertices.size() > 0);
-  HS_EXPECT_TRUE(m.face_counts.size() > 0);
-  HS_EXPECT_TRUE(m.faces.size() > 0);
-}
-
-/**
  * @brief Structural validity bundle applied to every registered solid.
  * @param m Mesh to validate.
  * @details Asserts non-empty, consistent face_counts/faces, in-range face
@@ -174,8 +164,8 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies every Islamic-pattern entry builds to a structurally valid
- *        mesh.
+ * @brief Verifies every Islamic-pattern entry builds a structurally valid mesh
+ *        with unit-sphere vertices.
  * @details Islamic indices follow the simple + Catalan blocks in the registry.
  */
 inline void test_islamic_registry_solids_are_valid() {
@@ -185,6 +175,7 @@ inline void test_islamic_registry_solids_are_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(base + k, geom);
     check_basic(m);
+    check_all_unit_vertices(m, 1e-3f);
   }
 }
 

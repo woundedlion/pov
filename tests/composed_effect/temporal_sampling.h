@@ -7,6 +7,14 @@
  * @brief Column-time interpolation and retained-resource tests.
  */
 
+/** @brief View direction of one display pixel. */
+template <int W, int H> inline math::Vector column_view(int x, int y) {
+  const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
+  return math::Vector(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
+                      math::TrigLUT<W, H>::cos_phi[y],
+                      SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
+}
+
 /** @brief Samples spatial state and clocks between consecutive frame endpoints.
  * @tparam Frame Composed temporal frame context.
  * @param from Previous frame, with retained palette and hue tables.
@@ -131,6 +139,8 @@ inline std::vector<Pixel> prepared_frame_pixels(bool sampling) {
     if constexpr (Persistent) {
       const auto *prepared = ComposedFrameWhiteBox::prepared_frame(effect);
       HS_EXPECT_TRUE(prepared != nullptr);
+      if (!prepared)
+        break;
       if (retained)
         HS_EXPECT_TRUE(prepared == retained);
       retained = prepared;
@@ -184,114 +194,6 @@ inline void test_composed_persistent_prepared_frame() {
   }
 }
 
-inline void test_composed_document_modulation_members() {
-  namespace Document = hs_wasm::document_parameters;
-  for (const auto &field : Document::Params::EXTRA_SCHEMA) {
-    for (uint8_t index = 0; index < field.enum_count; ++index)
-      HS_EXPECT_TRUE(std::string_view(Document::enum_id(field, index)) ==
-                     field.enum_ids[index]);
-  }
-  reset_globals();
-  Millefiori<SMALL_W, SMALL_H> effect;
-  effect.init();
-  const auto read = [&] {
-    ColorModulation::Config config;
-    size_t matches = 0;
-    effect.visit_document_modulations(
-        [&](std::string_view resource, const auto &current) {
-          if (resource == "field") {
-            config = current;
-            ++matches;
-          }
-        });
-    HS_EXPECT_EQ(matches, size_t{1});
-    return config;
-  };
-  const auto initial = read();
-  HS_EXPECT_EQ(initial.source, Pattern::SourceKind::SPHERE_SMOOTH_GRID);
-  const auto write = [&](std::string_view resource, std::string_view id,
-                         float value) {
-    return effect.edit_document_modulation(resource, [&](auto &candidate) {
-      return Document::write(candidate, id, value);
-    });
-  };
-  HS_EXPECT_EQ(write("field", "grid-speed", 0.03f), ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(read().grid.speed, 0.03f);
-  HS_EXPECT_EQ(read().noise.speed, initial.noise.speed);
-  HS_EXPECT_TRUE(effect.animations_paused());
-  HS_EXPECT_EQ(write("field", "pattern-speed", 0.04f),
-               ParamSetResult::READONLY);
-  HS_EXPECT_EQ(write("field", "modulation-source", 0.0f),
-               ParamSetResult::READONLY);
-  HS_EXPECT_EQ(write("modulate", "grid-speed", 0.04f),
-               ParamSetResult::READONLY);
-  HS_EXPECT_EQ(write("missing", "grid-speed", 0.04f),
-               ParamSetResult::UNKNOWN_PARAM);
-  HS_EXPECT_EQ(write("field", "missing", 0.04f), ParamSetResult::UNKNOWN_PARAM);
-  const auto before = read();
-  HS_EXPECT_EQ(
-      write("field", "grid-speed", std::numeric_limits<float>::quiet_NaN()),
-      ParamSetResult::NON_FINITE);
-  HS_EXPECT_EQ(write("field", "grid-frequency", -1.0f),
-               ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_TRUE(read() == before);
-  HS_EXPECT_EQ(effect.edit_document_modulation("field",
-                                               [](auto &candidate) {
-                                                 candidate.source =
-                                                     Pattern::SourceKind::NOISE;
-                                                 return ParamSetResult::APPLIED;
-                                               }),
-               ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_TRUE(read() == before);
-
-  const auto reason_for = [](const auto &config, std::string_view id) {
-    for (size_t i = 0; i < Document::Params::EXTRA_SCHEMA.size(); ++i)
-      if (id == Document::Params::EXTRA_SCHEMA[i].id)
-        return std::string_view(Document::reason(config, i));
-    return std::string_view{};
-  };
-  ColorModulation::Config noise_config;
-  noise_config.source = Pattern::SourceKind::NOISE;
-  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-contrast") ==
-                 "inactive-variant");
-  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-speed") == "active-source");
-  HS_EXPECT_TRUE(reason_for(noise_config, "grid-speed") == "inactive-source");
-  HS_EXPECT_TRUE(reason_for(noise_config, "modulation-source") ==
-                 "fixed-topology");
-  HS_EXPECT_EQ(Document::write(noise_config, "pattern-contrast", 1.0f),
-               ParamSetResult::READONLY);
-  noise_config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
-  HS_EXPECT_TRUE(reason_for(noise_config, "pattern-contrast") ==
-                 "active-source");
-  HS_EXPECT_EQ(Document::write(noise_config, "pattern-contrast", 1.0f),
-               ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(noise_config.noise.contrast, 1.0f);
-
-  auto config = initial;
-  config.grid.axis = math::Vector(1, 0, 0);
-  const auto valid = config;
-  HS_EXPECT_EQ(Document::write(config, "grid-axis-x", 0.0f),
-               ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_TRUE(config == valid);
-  for (const auto source :
-       {Pattern::SourceKind::NOISE, Pattern::SourceKind::DIRECTIONAL_SINE,
-        Pattern::SourceKind::SPHERE_INTERFERENCE}) {
-    config = ColorModulation::Config{};
-    config.source = source;
-    config.evaluation = Pattern::Evaluation::DIRECT;
-    const char *id = source == Pattern::SourceKind::NOISE ? "pattern-speed"
-                     : source == Pattern::SourceKind::DIRECTIONAL_SINE
-                         ? "sine-speed"
-                         : "interference-speed";
-    HS_EXPECT_EQ(Document::write(config, id, 0.0005f), ParamSetResult::APPLIED);
-    if (source == Pattern::SourceKind::NOISE)
-      HS_EXPECT_EQ(Document::write(config, id, 0.01f),
-                   ParamSetResult::INADMISSIBLE);
-    HS_EXPECT_EQ(Document::write(config, "grid-speed", 0.01f),
-                 ParamSetResult::READONLY);
-  }
-}
-
 struct TemporalShadeProbeSpec : GridSpaceSpec {
   static constexpr bool FACTORED_COLUMNS = true;
 };
@@ -324,6 +226,63 @@ public:
 static_assert(TemporalShadeProbeSpec::FACTORED_COLUMNS &&
               TemporalShadeProbe::RenderPipeline::LINEAR_COLUMNS);
 static_assert(!TemporalShadeProbe::factored_columns());
+
+struct FactoredColumnProbeSpec : GridSpaceSpec {
+  static constexpr bool FACTORED_COLUMNS = true;
+};
+
+/** @brief Custom shading remains authoritative with column factoring enabled. */
+class FactoredColumnProbe
+    : public Pullback::ComposedEffect<96, 20, FactoredColumnProbe,
+                                      FactoredColumnProbeSpec> {
+public:
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{
+      "factored-columns"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr Params initial_params() {
+    return GridSpace<96, 20>::initial_params();
+  }
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<
+               96, 20, FactoredColumnProbe,
+               FactoredColumnProbeSpec>::choreography_hooks()
+        .template extend<
+            FactoredColumnProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &FactoredColumnProbe::initial_params>>();
+  }
+};
+
+static_assert(FactoredColumnProbe::factored_columns());
+
+/** @brief Factored columns match the ordinary GridSpace renderer. */
+inline void test_composed_factored_columns_match_pixels() {
+  constexpr int W = 96, H = 20, FRAMES = 5;
+  const auto render = []<typename FX>() {
+    reset_globals();
+    const ScopedTemporalSampling sampling(false);
+    FX effect;
+    effect.init();
+    std::vector<Pixel> pixels;
+    for (int frame = 0; frame < FRAMES; ++frame) {
+      pin_frame_clock(frame);
+      effect.draw_frame();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          pixels.push_back(effect.get_pixel(x, y));
+      effect.advance_display();
+    }
+    return pixels;
+  };
+  const auto reference = render.template operator()<GridSpace<W, H>>();
+  const auto factored = render.template operator()<FactoredColumnProbe>();
+  HS_EXPECT_SIZE_OR_RETURN(factored, reference.size());
+  for (size_t pixel = 0; pixel < factored.size(); ++pixel) {
+    HS_CONTEXT("pixel", pixel);
+    HS_EXPECT_LE(max_channel_gap(factored[pixel], reference[pixel]), 1);
+  }
+}
 
 /** @brief Both arms use absolute column timing through clock rollover. */
 inline void test_temporal_clock_sampling() {
@@ -626,6 +585,29 @@ inline void test_temporal_moving_families_interpolate() {
   HS_EXPECT_NEAR(MIDPOINT.template get<"modulation">().modulation.noise.speed,
                  0.0f, 1e-8f);
 
+  const Pullback::FrameInterval SAMPLER(history.previous, moved);
+  for (const float fraction : {0.1f, 0.37f, 0.5f, 0.9f}) {
+    HS_CONTEXT("fraction per mille", static_cast<int>(fraction * 1000.0f));
+    const auto sampled = SAMPLER.at(fraction).params;
+    const auto expected =
+        Pullback::interpolate(history.previous.params, moved.params, fraction);
+    sampled.visit([&]<typename Resource>(const auto &family) {
+      using Family = typename Resource::Family;
+      const auto &expected_family = expected.template get<Resource::KEY>();
+      for (const auto &field : Family::FIELDS)
+        HS_EXPECT_NEAR(family.*field.member, expected_family.*field.member,
+                       0.0f);
+      if constexpr (requires { Family::TOPOLOGY; })
+        for (const auto &field : Family::TOPOLOGY)
+          HS_EXPECT_EQ(family.*field.member, expected_family.*field.member);
+      if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION)
+        HS_EXPECT_TRUE(family.modulation == expected_family.modulation);
+    });
+  }
+}
+
+/** @brief Modulation interpolation retains discrete target topology. */
+inline void test_modulation_interpolate_retains_target_topology() {
   for (bool variant_mismatch : {false, true}) {
     Pullback::Modulation::Config start, end;
     start.noise.basis = Pattern::NoiseBasis::FBM3;
@@ -651,30 +633,11 @@ inline void test_temporal_moving_families_interpolate() {
       HS_EXPECT_EQ(sampled.noise.contrast, end.noise.contrast);
     }
   }
-  const Pullback::FrameInterval SAMPLER(history.previous, moved);
-  for (const float fraction : {0.1f, 0.37f, 0.5f, 0.9f}) {
-    HS_CONTEXT("fraction per mille", static_cast<int>(fraction * 1000.0f));
-    const auto sampled = SAMPLER.at(fraction).params;
-    const auto expected =
-        Pullback::interpolate(history.previous.params, moved.params, fraction);
-    sampled.visit([&]<typename Resource>(const auto &family) {
-      using Family = typename Resource::Family;
-      const auto &expected_family = expected.template get<Resource::KEY>();
-      for (const auto &field : Family::FIELDS)
-        HS_EXPECT_NEAR(family.*field.member, expected_family.*field.member,
-                       0.0f);
-      if constexpr (requires { Family::TOPOLOGY; })
-        for (const auto &field : Family::TOPOLOGY)
-          HS_EXPECT_EQ(family.*field.member, expected_family.*field.member);
-      if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION)
-        HS_EXPECT_TRUE(family.modulation == expected_family.modulation);
-    });
-  }
 }
 
-/** @brief Retained resources survive bakes and topology intervals select current endpoints. */
+/** @brief Retained resources survive subsequent live bakes. */
 inline void test_temporal_owned_resources() {
-  HS_CONTEXT("temporal owned resources and interval endpoints");
+  HS_CONTEXT("temporal owned resources");
   reset_globals();
   using FX = GridSpace<96, 20>;
   FX effect;
@@ -735,7 +698,17 @@ inline void test_temporal_owned_resources() {
       history.resources.template get<"modulation">().modulation.config ==
       RECIPE);
   HS_EXPECT_TRUE(history.previous.palette->get(0.4f).color == PALETTE);
+}
 
+/** @brief Topology intervals select the current prepared endpoint. */
+inline void test_temporal_topology_interval_selects_current_endpoint() {
+  reset_globals();
+  using FX = GridSpace<96, 20>;
+  FX effect;
+  effect.init();
+  effect.draw_frame();
+  effect.advance_display();
+  const auto current = effect.frame_for_test();
   using namespace Pullback;
   Modulation::Config config;
   config.enabled = true;
@@ -813,6 +786,7 @@ inline void test_temporal_modulation_admission() {
   }
   config.evaluation = Pattern::Evaluation::BAKED_CUBE;
   HS_EXPECT_TRUE(Modulation::valid(config));
+  HS_EXPECT_TRUE(Modulation::device_qualified(config));
   config.mechanic.kind = ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
   HS_EXPECT_TRUE(Modulation::valid(config));
   HS_EXPECT_TRUE(Modulation::admitted(config));
@@ -821,6 +795,7 @@ inline void test_temporal_modulation_admission() {
   config.mechanic.kind = ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
   config.evaluation = Pattern::Evaluation::DIRECT;
   HS_EXPECT_TRUE(Modulation::valid(config));
+  HS_EXPECT_TRUE(Modulation::device_qualified(config));
   config.enabled = false;
   HS_EXPECT_TRUE(Modulation::valid(config));
   config.evaluation = Pattern::Evaluation::BAKED_CUBE;
@@ -892,7 +867,7 @@ inline void test_gridspace_column_basis_geometry() {
     for (int x = 0; x < 288; ++x) {
       const float TIME = step == 0   ? 0.0f
                          : step == 1 ? 1.0f
-                                     : static_cast<float>(x % 144) / 144;
+                                     : Spacetime::SamplingSurface<288>::time(x);
       const auto frame = Pipeline::prepare(
           Spacetime::sample_frame(history.previous, current, TIME));
       const float COSINE = math::TrigLUT<288, 144>::cos_theta(x);
@@ -901,7 +876,7 @@ inline void test_gridspace_column_basis_geometry() {
       for (int y = 0; y < 144; ++y) {
         const float SIN_PHI = math::TrigLUT<288, 144>::sin_phi[y];
         const float COS_PHI = math::TrigLUT<288, 144>::cos_phi[y];
-        const math::Vector VIEW(SIN_PHI * COSINE, COS_PHI, SIN_PHI * SINE);
+        const math::Vector VIEW = column_view<288, 144>(x, y);
         const auto ROTATED =
             Pipeline::NodeAt<0>::run(Pullback::SphereSample{VIEW, 0.0f},
                                      frame.ctx, std::get<0>(frame.prepared));
@@ -926,6 +901,19 @@ template <typename FX> typename FX::FrameState drawn_frame(FX &effect) {
   return frame;
 }
 
+/** @brief Binds a caller-owned palette cache to the retained interval. */
+template <typename Frame, typename Cache>
+inline void bind_retained_lab_reference(Frame &current, const Frame &previous,
+                                        std::optional<Cache> &reference_cache) {
+  if (current.palette_lab_lut) {
+    reference_cache.emplace(
+        *static_cast<const Cache *>(current.palette_lab_lut));
+    reference_cache->palette_from = previous.palette;
+    reference_cache->palette_to = current.palette;
+    current.palette_lab_lut = &*reference_cache;
+  }
+}
+
 /** @brief Product columns preserve canonical colors through gamut boundaries. */
 inline void test_gridspace_canonical_columns() {
   HS_CONTEXT("GridSpace canonical columns");
@@ -940,8 +928,6 @@ inline void test_gridspace_canonical_columns() {
   Spacetime::FrameHistory<FX::FrameState, true, true> history;
   int maximum_error = 0;
   int worst_step = 0, worst_x = 0, worst_y = 0;
-  uint64_t error_sum = 0;
-  uint64_t channels = 0;
   for (int step = 0; step <= 46; ++step) {
     history.capture(effect.frame_for_test(), persistent_arena);
     effect.draw_frame();
@@ -951,23 +937,13 @@ inline void test_gridspace_canonical_columns() {
     auto current = drawn_frame(effect);
     using Cache = PaletteLabLutStorage<FX::Spec::PALETTE_LAB_VALUES>;
     std::optional<Cache> reference_cache;
-    if (current.palette_lab_lut) {
-      reference_cache.emplace(
-          *static_cast<const Cache *>(current.palette_lab_lut));
-      reference_cache->palette_from = history.previous.palette;
-      reference_cache->palette_to = current.palette;
-      current.palette_lab_lut = &*reference_cache;
-    }
+    bind_retained_lab_reference(current, history.previous, reference_cache);
     for (int x = 0; x < 288; ++x) {
-      const float TIME = static_cast<float>(x % 144) / 144;
+      const float TIME = Spacetime::SamplingSurface<288>::time(x);
       const auto frame = Pipeline::prepare(
           Spacetime::sample_frame(history.previous, current, TIME));
       for (int y = 0; y < 144; ++y) {
-        const float SIN_PHI = math::TrigLUT<288, 144>::sin_phi[y];
-        const math::Vector VIEW(SIN_PHI * math::TrigLUT<288, 144>::cos_theta(x),
-                                math::TrigLUT<288, 144>::cos_phi[y],
-                                SIN_PHI *
-                                    math::TrigLUT<288, 144>::sin_theta[x]);
+        const math::Vector VIEW = column_view<288, 144>(x, y);
         const Color4 EXPECTED = Pipeline::shade(VIEW, frame);
         const Pixel A = effect.get_pixel(x, y);
         const Pixel B = EXPECTED.color * EXPECTED.alpha;
@@ -979,8 +955,6 @@ inline void test_gridspace_canonical_columns() {
             worst_x = x;
             worst_y = y;
           }
-          error_sum += error;
-          ++channels;
         }
       }
     }
@@ -990,7 +964,6 @@ inline void test_gridspace_canonical_columns() {
                 worst_x, worst_y);
   HS_CONTEXT(location);
   HS_EXPECT_EQ(maximum_error, 0);
-  HS_EXPECT_LT(static_cast<double>(error_sum) / channels, 0.05);
 }
 /** @brief GridSpace shades each clipped column at its own sweep time. */
 inline void test_gridspace_temporal_pixels() {
@@ -1017,14 +990,11 @@ inline void test_gridspace_temporal_pixels() {
     HS_EXPECT_NEAR(actual.b, expected.b, 2);
   };
   for (int x = 39; x < 83; ++x) {
-    const float TIME = static_cast<float>(x % (W / 2)) / (W / 2);
+    const float TIME = Spacetime::SamplingSurface<W>::time(x);
     const auto frame = FX::RenderPipeline::prepare(
         Spacetime::sample_frame(history.previous, current, TIME));
     for (int y = 3; y < 17; ++y) {
-      const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-      const math::Vector VIEW(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
-                              math::TrigLUT<W, H>::cos_phi[y],
-                              SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
+      const math::Vector VIEW = column_view<W, H>(x, y);
       const Color4 EXPECTED = FX::shade(VIEW, frame);
       const Pixel PIXEL = EXPECTED.color * EXPECTED.alpha;
       expect_pixel(effect.get_pixel(x, y), PIXEL);
@@ -1042,10 +1012,7 @@ inline void test_gridspace_temporal_pixels() {
       FX::RenderPipeline::prepare(effect.frame_for_test());
   for (int x = 39; x < 83; ++x) {
     for (int y = 3; y < 17; ++y) {
-      const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-      const math::Vector VIEW(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
-                              math::TrigLUT<W, H>::cos_phi[y],
-                              SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
+      const math::Vector VIEW = column_view<W, H>(x, y);
       const Color4 EXPECTED = FX::shade(VIEW, instantaneous);
       expect_pixel(effect.get_pixel(x, y), EXPECTED.color * EXPECTED.alpha);
     }
@@ -1060,15 +1027,18 @@ inline void test_gridspace_temporal_pixels() {
     const auto frame = FX::RenderPipeline::prepare(Spacetime::sample_frame(
         history.previous, resumed, Spacetime::SamplingSurface<W>::time(x)));
     for (int y = 3; y < 17; ++y) {
-      const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-      const math::Vector VIEW(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
-                              math::TrigLUT<W, H>::cos_phi[y],
-                              SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
+      const math::Vector VIEW = column_view<W, H>(x, y);
       const Color4 EXPECTED = FX::shade(VIEW, frame);
       expect_pixel(effect.get_pixel(x, y), EXPECTED.color * EXPECTED.alpha);
     }
   }
 }
+
+/** @brief Composed history type of an effect.
+ * @tparam FX Composed effect specialization. */
+template <typename FX>
+using ComposedHistory = Spacetime::FrameHistory<typename FX::FrameState, true,
+                                                FX::HUE_ROTATION_LUT>;
 
 /**
  * @brief Authored effects retain endpoints across clipped draws and runtime toggles.
@@ -1085,14 +1055,7 @@ inline void check_temporal_roster_pixels(const char *name) {
   constexpr int TOLERANCE = 2;
   FX effect;
   effect.init();
-  Spacetime::FrameHistory<typename FX::FrameState, true, FX::HUE_ROTATION_LUT>
-      history;
-  const auto view = [](int x, int y) {
-    const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-    return math::Vector(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
-                        math::TrigLUT<W, H>::cos_phi[y],
-                        SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
-  };
+  ComposedHistory<FX> history;
   const auto expect_pixel = [](const Pixel &actual, const Color4 &expected) {
     const Pixel PIXEL = expected.color * expected.alpha;
     HS_EXPECT_NEAR(actual.r, PIXEL.r, TOLERANCE);
@@ -1105,9 +1068,10 @@ inline void check_temporal_roster_pixels(const char *name) {
   const auto initial = ComposedFrameWhiteBox::current_frame(effect);
   for (int x : {0, 1, 47, 48, 49, 95}) {
     const auto FIRST = FX::RenderPipeline::prepare(Spacetime::sample_frame(
-        initial, initial, static_cast<float>(x % (W / 2)) / (W / 2)));
+        initial, initial, Spacetime::SamplingSurface<W>::time(x)));
     for (int y : {1, 7, 18})
-      expect_pixel(effect.get_pixel(x, y), FX::shade(view(x, y), FIRST));
+      expect_pixel(effect.get_pixel(x, y),
+                   FX::shade(column_view<W, H>(x, y), FIRST));
   }
   history.capture(initial, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != initial.palette);
@@ -1128,13 +1092,7 @@ inline void check_temporal_roster_pixels(const char *name) {
     auto current = ComposedFrameWhiteBox::current_frame(effect);
     using Cache = PaletteLabLutStorage<FX::Spec::PALETTE_LAB_VALUES>;
     std::optional<Cache> reference_cache;
-    if (current.palette_lab_lut) {
-      reference_cache.emplace(
-          *static_cast<const Cache *>(current.palette_lab_lut));
-      reference_cache->palette_from = history.previous.palette;
-      reference_cache->palette_to = current.palette;
-      current.palette_lab_lut = &*reference_cache;
-    }
+    bind_retained_lab_reference(current, history.previous, reference_cache);
     const auto instantaneous = FX::RenderPipeline::prepare(current);
     const auto previous = FX::RenderPipeline::prepare(history.previous);
     const auto start = FX::RenderPipeline::prepare(
@@ -1142,7 +1100,7 @@ inline void check_temporal_roster_pixels(const char *name) {
     const auto end = FX::RenderPipeline::prepare(
         Spacetime::sample_frame(history.previous, current, 1.0f));
     for (int x : {0, 47, 48, 95}) {
-      const auto direction = view(x, 7);
+      const auto direction = column_view<W, H>(x, 7);
       const Color4 BEFORE = FX::shade(direction, previous);
       const Color4 AFTER = FX::shade(direction, instantaneous);
       expect_pixel(BEFORE.color * BEFORE.alpha, FX::shade(direction, start));
@@ -1150,11 +1108,11 @@ inline void check_temporal_roster_pixels(const char *name) {
     }
     int changed = 0;
     for (int x = 39; x < 83; ++x) {
-      const float FRACTION = static_cast<float>(x % (W / 2)) / (W / 2);
+      const float FRACTION = Spacetime::SamplingSurface<W>::time(x);
       const auto frame = FX::RenderPipeline::prepare(
           Spacetime::sample_frame(history.previous, current, FRACTION));
       for (int y = 3; y < 17; ++y) {
-        const auto direction = view(x, y);
+        const auto direction = column_view<W, H>(x, y);
         const Color4 TEMPORAL = FX::shade(direction, frame);
         const Color4 CURRENT = FX::shade(direction, instantaneous);
         expect_pixel(effect.get_pixel(x, y), enabled ? TEMPORAL : CURRENT);
@@ -1230,12 +1188,6 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
                        176979319400ull,
                        916116406782ull}}});
 }
-
-/** @brief Composed history type of an effect.
- * @tparam FX Composed effect specialization. */
-template <typename FX>
-using ComposedHistory = Spacetime::FrameHistory<typename FX::FrameState, true,
-                                                FX::HUE_ROTATION_LUT>;
 
 /** @brief MobiusGrid's lens b at a continuous frame time.
  * @param time Frames since init; draw k spans [k, k + 1].
@@ -1782,6 +1734,8 @@ inline void test_millefiori_palette_lab_lifetime() {
   effect.draw_frame();
   const auto FIRST = ComposedFrameWhiteBox::current_frame(effect);
   HS_EXPECT_TRUE(FIRST.palette_lab_lut && FIRST.palette_lab_lut->active);
+  if (!FIRST.palette_lab_lut)
+    return;
   const auto *FIRST_CACHE =
       static_cast<const PaletteLabLut *>(FIRST.palette_lab_lut);
   const auto FIRST_NODES = FIRST_CACHE->nodes;
@@ -1901,6 +1855,8 @@ inline void test_millefiori_radial_table_interval() {
   const auto *TABLE =
       CURRENT.resources.template get<"displace">().radial_tables;
   HS_EXPECT_TRUE(TABLE != nullptr);
+  if (!TABLE)
+    return;
   HS_EXPECT_TRUE(TABLE->enabled);
   HS_EXPECT_LT(CURRENT.resources.template get<"displace">().radial_fraction,
                0.0f);

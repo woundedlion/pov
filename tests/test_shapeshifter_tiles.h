@@ -42,7 +42,6 @@ inline constexpr OracleClip QUADRANTS[] = {
 
 /** @brief Timed shipping contours agree across segment clips. */
 inline void test_timed_tiles_match_full_frame() {
-  ScopedPoleRunSplit split(false);
   for (size_t i = 1; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
     HS_CONTEXT("preset", static_cast<int>(i + 1));
     OracleState state = preset_state(i);
@@ -80,12 +79,16 @@ inline void expect_mosaic_matches(OracleState state, Render render,
                      ENERGY,
                  0.035);
     size_t uncovered = 0;
+    size_t ghosts = 0;
     for (int y = 0; y < ORACLE_H; ++y)
       for (int x = 0; x < ORACLE_W; ++x) {
         if (pixel_is_bright(full.at(x, y)))
           uncovered += !candidate_covers_neighborhood(tiled, x, y);
+        if (pixel_is_bright(tiled.at(x, y)))
+          ghosts += !candidate_covers_neighborhood(full, x, y);
       }
     HS_EXPECT_EQ(uncovered, size_t{0});
+    HS_EXPECT_EQ(ghosts, size_t{0});
     return;
   }
   const FrameErrorStats error = compare_buffers(full.pixels, tiled.pixels);

@@ -7,6 +7,8 @@
 // IslamicStars build chain, recipes and arena budgets.
 // ---------------------------------------------------------------------------
 
+inline constexpr float RIPPLE_STEEPEST_REACH = .37f;
+
 /**
  * @brief White-box accessor for IslamicStars' private build-chain state.
  * @details Build bookkeeping is resolution-independent.
@@ -1025,9 +1027,6 @@ inline void test_islamicstars_opacity_history() {
 /**
  * @brief The columns of a held shape show its ripple at their sweep time,
  *        across both arm boundaries.
- * @details One ripple steps once at the shipping speed and amplitude, its
- * wavefront at the steepest slope of the wavelet on the shape's vertices, so
- * they move about two pixels of arc over the frame.
  */
 inline void test_islamicstars_ripple_motion_is_seam_free() {
   using P = IslamicBuildProbe;
@@ -1038,8 +1037,7 @@ inline void test_islamicstars_ripple_motion_is_seam_free() {
   HS_EXPECT_GT(P::fire_ripple(effect), 0);
   Animation::RippleParams &ripple = P::ripple(effect, 0);
   const auto &vertices = P::front_vertices(effect);
-  // The wavelet is steepest 0.37 of its half-width ahead of a vertex.
-  const float reach = 0.37f * ripple.half_width();
+  const float reach = RIPPLE_STEEPEST_REACH * ripple.half_width();
   const float distance = math::fast_acos(hs::clamp(
       math::dot(vertices[0].normalized(), ripple.center), -1.0f, 1.0f));
   ripple.amplitude = RIPPLE_SMALL_ANGLE_MAX;
@@ -1093,7 +1091,8 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
   ripple.center =
       math::rotate(math::Vector(0.0f, 0.0f, 1.0f), cameras[1].conjugate());
   constexpr float STEP = math::PI_F / 40.0f;
-  const float steepest = math::PI_F / 2.0f - 0.37f * ripple.half_width();
+  const float steepest =
+      math::PI_F / 2.0f - RIPPLE_STEEPEST_REACH * ripple.half_width();
   const float phases[3] = {steepest - STEP, steepest, steepest + STEP};
   const float amplitudes[3] = {RIPPLE_SMALL_ANGLE_MAX,
                                0.97f * RIPPLE_SMALL_ANGLE_MAX,
@@ -1131,7 +1130,7 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
       [&](size_t f, float size, FacePaletteShader &shader) {
         P::shade_face(effect, f, size, shader);
       });
-  HS_EXPECT_GE(faces, size_t{4});
+  HS_EXPECT_GE(faces, size_t{10});
 }
 
 /**

@@ -17,30 +17,42 @@ import fab   # noqa: E402
 
 
 class BoardMetadataTests(unittest.TestCase):
-    def test_cli_checks_and_updates_readme_and_rejects_missing_board(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            board = Path(tmp) / "board.kicad_pcb"
-            board.write_bytes((GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb").read_bytes())
-            readme = Path(tmp) / "README.md"
-            stale = f"before\n{board_metadata.FACTS_START}\nstale\n{board_metadata.FACTS_END}\nafter\n"
-            readme.write_text(stale, encoding="utf-8")
-            args = ["--board", str(board), "--readme", str(readme)]
-            with contextlib.redirect_stderr(io.StringIO()) as errors:
-                self.assertEqual(board_metadata.main([*args, "--check"]), 1)
-            self.assertIn("facts are stale", errors.getvalue())
-            self.assertEqual(readme.read_text(encoding="utf-8"), stale)
-            self.assertEqual(board_metadata.main([*args, "--write-readme"]), 0)
-            updated = readme.read_text(encoding="utf-8")
-            self.assertNotIn("stale", updated)
-            self.assertIn("| Track segments | 339 |", updated)
-            self.assertTrue(updated.startswith("before\n"))
-            self.assertTrue(updated.endswith("\nafter\n"))
-            self.assertEqual(board_metadata.main([*args, "--check"]), 0)
-            board.unlink()
-            with contextlib.redirect_stderr(io.StringIO()) as errors:
-                self.assertEqual(board_metadata.main([*args, "--check"]), 1)
-            self.assertIn(str(board), errors.getvalue())
+    def cli_fixture(self):
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        board = root / "board.kicad_pcb"
+        board.write_bytes((GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb").read_bytes())
+        readme = root / "README.md"
+        stale = f"before\n{board_metadata.FACTS_START}\nstale\n{board_metadata.FACTS_END}\nafter\n"
+        readme.write_text(stale, encoding="utf-8")
+        return board, readme, stale, ["--board", str(board), "--readme", str(readme)]
 
+    def test_stale_check_fails_without_writing(self):
+        _, readme, stale, args = self.cli_fixture()
+        with contextlib.redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(board_metadata.main([*args, "--check"]), 1)
+        self.assertIn("facts are stale", errors.getvalue())
+        self.assertEqual(readme.read_text(encoding="utf-8"), stale)
+
+    def test_write_readme_updates_only_the_facts_block(self):
+        _, readme, _, args = self.cli_fixture()
+        self.assertEqual(board_metadata.main([*args, "--write-readme"]), 0)
+        updated = readme.read_text(encoding="utf-8")
+        self.assertNotIn("stale", updated)
+        self.assertIn("| Track segments | 339 |", updated)
+        self.assertTrue(updated.startswith("before\n"))
+        self.assertTrue(updated.endswith("\nafter\n"))
+
+    def test_fresh_facts_pass_the_check(self):
+        _, _, _, args = self.cli_fixture()
+        self.assertEqual(board_metadata.main([*args, "--write-readme"]), 0)
+        self.assertEqual(board_metadata.main([*args, "--check"]), 0)
+
+    def test_missing_board_reports_the_path(self):
+        board, _, _, args = self.cli_fixture()
+        board.unlink()
+        with contextlib.redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(board_metadata.main([*args, "--check"]), 1)
+        self.assertIn(str(board), errors.getvalue())
     def test_copper_layer_names_use_the_shared_stack_reader(self):
         source = '''(kicad_pcb
             (gr_rect (start 0 0) (end 10 10) (layer "Edge.Cuts"))

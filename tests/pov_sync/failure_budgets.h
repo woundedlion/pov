@@ -69,8 +69,7 @@ inline void test_budget_lost_symbol() {
   const int32_t ppm[4] = {0, 40, -40, 25}; // worst-case datasheet spread
   Sim sim(cfg, 4, ppm);
   sim.run_revs(6.0);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 40));
 
   // Deafen board 1 for one half-rev, aligned mid-half: it misses exactly one
   // boundary symbol.
@@ -101,8 +100,7 @@ inline void test_budget_emi_accepted_seam() {
   Sim sim(cfg, 2, ppm);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 40));
 
   // Censor board 1's next real HALF symbol and forge an edge 3 columns early.
   const uint64_t h = sim.g + 104ull * COL;
@@ -154,7 +152,7 @@ inline void test_budget_corrupted_timebase() {
   flywheel_mut(b2.board).force_lock();
   HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
 
-  constexpr uint64_t RECOVERY_COLUMNS = 750 + 144;
+  constexpr uint64_t RECOVERY_COLUMNS = MIS_SNAP_RECOVERY_COLUMNS + 144;
   const uint32_t rej_before =
       b2.board.telemetry_snapshot().symbols_rejected_gate;
   bool saw_acquire = false;
@@ -172,7 +170,7 @@ inline void test_budget_corrupted_timebase() {
   HS_EXPECT_TRUE(saw_acquire);
   HS_EXPECT_FALSE(lit_in_acquire);
   const uint64_t recovery_cols = (sim.g - corrupt_g) / COL;
-  HS_EXPECT_LE(recovery_cols, 750u);
+  HS_EXPECT_LE(recovery_cols, MIS_SNAP_RECOVERY_COLUMNS);
   HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate - rej_before,
                static_cast<uint32_t>(cfg.reject_fallback));
   HS_EXPECT_EQ(
@@ -182,14 +180,7 @@ inline void test_budget_corrupted_timebase() {
   // the next epoch, so the commit is lockstep.
   HS_EXPECT_TRUE(
       sim.run_until(all_boards_on(1), double(cfg.revs_per_effect) + 12));
-  expect_swaps_aligned(sim);
-  for (int i = 1; i < 4; ++i) {
-    HS_EXPECT_FALSE(sim.boards[i].trapped);
-  }
-  sim.run_revs(2.0);
-  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
-  for (int i = 1; i < 4; ++i)
-    HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+  expect_lockstep(sim);
 }
 
 /**
@@ -359,8 +350,7 @@ inline void test_budget_wire_dead() {
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
   // Cut the wire mid-half so no burst is in flight.
-  HS_EXPECT_TRUE(
-      sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
+  HS_EXPECT_TRUE(run_to_master_column(sim, 40));
 
   for (int i = 1; i < 3; ++i) {
     sim.boards[i].drop_from = sim.g;

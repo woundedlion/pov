@@ -3,8 +3,13 @@
 # Reset WORK to an empty tests/ and tools/ tree carrying gate's section
 # expander and an empty off-roster list.
 function(hs_gate_workspace gate)
+  get_filename_component(scratch "${WORK}" REALPATH)
+  if(NOT IS_ABSOLUTE "${WORK}" OR
+     NOT scratch MATCHES "/(module_entry_controls|header_sections_fixture)$")
+    message(FATAL_ERROR "Invalid gate self-test workspace: ${WORK}")
+  endif()
   get_filename_component(_gate_dir "${gate}" DIRECTORY)
-  file(REMOVE_RECURSE "${WORK}")
+  file(REMOVE_RECURSE "${scratch}")
   file(MAKE_DIRECTORY "${WORK}/tests" "${WORK}/tools")
   file(COPY "${_gate_dir}/header_sections.cmake" DESTINATION "${WORK}/tests")
   file(WRITE "${WORK}/tests/off_roster_headers.cmake" "set(HS_OFF_ROSTER_HEADER_NAMES)\n")

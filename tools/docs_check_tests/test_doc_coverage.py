@@ -1,6 +1,7 @@
 import contextlib
 import io
 import html
+import os
 import re
 import subprocess
 from unittest import mock
@@ -12,7 +13,7 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
-from git_test_env import git_run  # noqa: E402
+from git_test_env import git_run, isolated_env  # noqa: E402
 import doc_coverage as cov  # noqa: E402
 
 ROOT = Path(tempfile.gettempdir()).resolve() / "repo"
@@ -258,6 +259,7 @@ class TestRunDoxygen(unittest.TestCase):
         for platform, prefix in (("nt", "call "), ("posix", "")):
             with self.subTest(platform=platform), \
                  mock.patch.object(cov.sys, "executable", "C:/Python With Spaces/python.exe"), \
+                 mock.patch.object(cov, "Path", type(Path())), \
                  mock.patch.object(cov.os, "name", platform):
                 expected = (f'FILTER_PATTERNS = "*.ld={prefix}\\"C:/Python With Spaces/python.exe\\" '
                             'tools/doc_coverage.py --linker-source"')
@@ -340,7 +342,8 @@ class TestFileBlocks(unittest.TestCase):
             for name in ("src/a.h", "src/b.md", "src/gen/c.h"):
                 (root / name).write_text("x\n", encoding="utf-8")
             git_run(root, 'add', '.')
-            self.assertEqual(cov.source_files(root, []), ["src/a.h"])
+            with mock.patch.dict(os.environ, isolated_env(), clear=True):
+                self.assertEqual(cov.source_files(root, []), ["src/a.h"])
 
 
 def silent(text):

@@ -130,7 +130,55 @@ inline void test_chamber_noise_cache_admission() {
       0.0f, math::Quaternion(), 0.01f, math::Quaternion()));
 }
 
-/** @brief Cached noise interpolates both endpoints and falls back outside its chart. */
+/** @brief Owned prepared noise endpoints and rewritten chart patches. */
+struct ChamberNoiseEndpointFixture {
+  using FX = AshCloud<96, 20>;
+  using Provider = Pullback::ModulationProvider<FX::Binding, "modulation",
+                                                Pattern::SourceKind::NOISE,
+                                                Pattern::Evaluation::DIRECT>;
+  FX effect = make_effect();
+  FX::FrameState from{}, to{};
+  Pullback::Modulation::Config config;
+  Pullback::Modulation::Resources<false> previous, current;
+  Pullback::Modulation::ChamberNoiseCache cache;
+  Pullback::Modulation::ChamberNoiseView a{}, b{};
+  static FX make_effect() {
+    reset_globals();
+    return FX{};
+  }
+  ChamberNoiseEndpointFixture() {
+    using namespace Pullback;
+    effect.init();
+    from = ComposedFrameWhiteBox::frame(effect);
+    to = from;
+    config = from.params.template get<"modulation">().modulation;
+    config.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, .25f};
+    from.params.template get<"modulation">().modulation = config;
+    to.params.template get<"modulation">().modulation = config;
+    from.projection_conjugate = math::Quaternion();
+    to.projection_conjugate = math::Quaternion(cosf(.001f), 0, sinf(.001f), 0);
+    auto clock = Modulation::init(config);
+    clock.phase.phase_turns = .9999f;
+    previous.prepare(config, clock);
+    clock.phase.phase_turns = .0001f;
+    current.prepare(config, clock);
+    a = cache.prepare(previous.prepared, from.projection_conjugate);
+    b = cache.prepare(current.prepared, to.projection_conjugate);
+    from.resources.template get<"modulation">().modulation = &previous.prepared;
+    to.resources.template get<"modulation">().modulation = &current.prepared;
+    from.resources.template get<"modulation">().phase_noise_current = a;
+    to.resources.template get<"modulation">().phase_noise_current = b;
+    auto *ap = const_cast<Modulation::ChamberNoisePatch *>(a.patch);
+    auto *bp = const_cast<Modulation::ChamberNoisePatch *>(b.patch);
+    for (int y = 0; y < 24; ++y)
+      for (int x = 0; x < 16; ++x) {
+        ap->values[y * 16 + x] = .01f * x + .02f * y - .3f;
+        bp->values[y * 16 + x] = .01f * x + .02f * y - .2f;
+      }
+  }
+};
+
+/** @brief Cached noise interpolates endpoints and falls back outside its chart. */
 inline void test_chamber_noise_cache_phase_and_fallback() {
   using namespace Pullback;
   using FX = AshCloud<96, 20>;
@@ -152,37 +200,14 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
   static_assert(std::is_same_v<Grid::Prepared, Color::PhaseModulationState>);
   static_assert(Color::Modulate<Provider>::PHASE_NOISE_APPROXIMATION);
   static_assert(!Color::Modulate<Grid>::PHASE_NOISE_APPROXIMATION);
-  reset_globals();
-  FX effect;
-  effect.init();
-  auto from = ComposedFrameWhiteBox::frame(effect);
-  auto to = from;
-  auto config = from.params.template get<"modulation">().modulation;
-  config.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, .25f};
-  from.params.template get<"modulation">().modulation = config;
-  to.params.template get<"modulation">().modulation = config;
-  from.projection_conjugate = math::Quaternion();
-  to.projection_conjugate = math::Quaternion(cosf(.001f), 0, sinf(.001f), 0);
-  Modulation::Resources<false> previous, current;
-  auto clock = Modulation::init(config);
-  clock.phase.phase_turns = .9999f;
-  previous.prepare(config, clock);
-  clock.phase.phase_turns = .0001f;
-  current.prepare(config, clock);
-  Modulation::ChamberNoiseCache cache;
-  const auto a = cache.prepare(previous.prepared, from.projection_conjugate);
-  const auto b = cache.prepare(current.prepared, to.projection_conjugate);
-  from.resources.template get<"modulation">().modulation = &previous.prepared;
-  to.resources.template get<"modulation">().modulation = &current.prepared;
-  from.resources.template get<"modulation">().phase_noise_current = a;
-  to.resources.template get<"modulation">().phase_noise_current = b;
-  auto *ap = const_cast<Modulation::ChamberNoisePatch *>(a.patch);
-  auto *bp = const_cast<Modulation::ChamberNoisePatch *>(b.patch);
-  for (int y = 0; y < 24; ++y)
-    for (int x = 0; x < 16; ++x) {
-      ap->values[y * 16 + x] = .01f * x + .02f * y - .3f;
-      bp->values[y * 16 + x] = .01f * x + .02f * y - .2f;
-    }
+  ChamberNoiseEndpointFixture fixture;
+  auto &from = fixture.from;
+  auto &to = fixture.to;
+  auto &config = fixture.config;
+  auto &previous = fixture.previous;
+  auto &current = fixture.current;
+  const auto &a = fixture.a;
+  const auto &b = fixture.b;
   for (float fraction : {0.0f, .25f, .5f, .75f, 1.0f}) {
     auto column = FrameInterval(from, to).at(fraction);
     auto prepared = Provider::prepare(column);
@@ -299,7 +324,16 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
   Color::Modulate<Provider>::apply_phase_in_place(eager_outside, column,
                                                   eager_separate);
   HS_EXPECT_NEAR(outside.pending_hue, eager_outside.pending_hue, 1e-7f);
-  column = FrameInterval(from, to).at(.5f);
+}
+
+/** @brief Endpoint admission rejects missing patches and changed projections or recipes. */
+inline void test_chamber_noise_cache_endpoint_admission() {
+  using namespace Pullback;
+  using Provider = ChamberNoiseEndpointFixture::Provider;
+  ChamberNoiseEndpointFixture fixture;
+  auto &from = fixture.from;
+  auto &to = fixture.to;
+  auto column = FrameInterval(from, to).at(.5f);
   column.resources.template get<"modulation">().phase_noise_current = {};
   HS_EXPECT_TRUE(Provider::prepare(column).noise_current == nullptr);
   HS_EXPECT_TRUE(Provider::prepare(column).ready);
@@ -318,6 +352,16 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
   changed.params.template get<"modulation">().modulation.seed += 1;
   HS_EXPECT_FALSE(
       Provider::prepare(FrameInterval(from, changed).at(.5f)).ready);
+}
+
+/** @brief Equal-clock frames retain the independent noise interval fraction. */
+inline void test_chamber_noise_cache_equal_clock_fraction() {
+  using namespace Pullback;
+  using Provider = ChamberNoiseEndpointFixture::Provider;
+  ChamberNoiseEndpointFixture fixture;
+  auto &from = fixture.from;
+  auto &to = fixture.to;
+  auto &config = fixture.config;
   Modulation::Resources<false> equal_clock_source;
   Modulation::ChamberNoiseCache equal_clock_cache;
   auto equal_clock = Modulation::init(config);
@@ -333,6 +377,16 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
   const auto equal_prepared = Provider::prepare(equal_column);
   HS_EXPECT_TRUE(equal_prepared.noise_current != nullptr);
   HS_EXPECT_EQ(equal_prepared.noise_fraction, 0.5f);
+}
+
+/** @brief Distant noise endpoints select the direct fallback. */
+inline void test_chamber_noise_cache_far_endpoint_falls_back() {
+  using namespace Pullback;
+  using Provider = ChamberNoiseEndpointFixture::Provider;
+  ChamberNoiseEndpointFixture fixture;
+  auto &from = fixture.from;
+  auto &to = fixture.to;
+  auto &config = fixture.config;
   Modulation::Resources<false> far_source;
   auto far_clock = Modulation::init(config);
   far_clock.phase.phase_turns = 0.1f;
@@ -347,6 +401,19 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
   auto far_column = FrameInterval(from, far_frame).at(0.5f);
   HS_EXPECT_TRUE(Provider::prepare(far_column).ready);
   HS_EXPECT_TRUE(Provider::prepare(far_column).noise_current == nullptr);
+}
+
+/** @brief Rotated endpoints select the direct fallback. */
+inline void test_chamber_noise_cache_rotated_endpoint_falls_back() {
+  using namespace Pullback;
+  using Provider = ChamberNoiseEndpointFixture::Provider;
+  ChamberNoiseEndpointFixture fixture;
+  auto &from = fixture.from;
+  auto &to = fixture.to;
+  auto &config = fixture.config;
+  Modulation::Resources<false> far_source;
+  auto far_clock = Modulation::init(config);
+  auto far_frame = to;
   far_clock.phase.phase_turns = 0.0001f;
   Modulation::ChamberNoiseCache rotated_cache;
   far_frame.projection_conjugate =
@@ -360,6 +427,16 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
                      .phase_noise_current.patch != nullptr);
   HS_EXPECT_TRUE(Provider::prepare(FrameInterval(from, far_frame).at(0.5f))
                      .noise_current == nullptr);
+}
+
+/** @brief A live source phase edit invalidates its cached patch. */
+inline void test_chamber_noise_cache_source_phase_invalidates_patch() {
+  using namespace Pullback;
+  using Provider = ChamberNoiseEndpointFixture::Provider;
+  ChamberNoiseEndpointFixture fixture;
+  auto &from = fixture.from;
+  auto &to = fixture.to;
+  auto &current = fixture.current;
   const float saved = current.prepared.state.phase.phase_turns;
   current.prepared.state.phase.phase_turns = .1f;
   HS_EXPECT_TRUE(
@@ -367,6 +444,7 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
       nullptr);
   current.prepared.state.phase.phase_turns = saved;
 }
+
 /** @brief Consecutive draws preserve the retained patch without activating a source cube. */
 inline void test_chamber_noise_cache_runtime_history() {
   using FX = AshCloud<96, 20>;

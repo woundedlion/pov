@@ -1636,7 +1636,10 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── dynamo_cases.h Dynamo cases
 │   │   ├── fishbowl_cases.h Fishbowl cases
 │   │   ├── fishbowl_oracle.h Fishbowl oracle cases
-│   │   ├── fixture.h Shared engine-only effect rendering and seam fixtures
+│   │   ├── fixture.h Shared engine-only effect rendering fixtures
+│   │   ├── mesh_seam_oracle.h Mesh seam geometry and colour comparisons
+│   │   ├── column_time_fidelity.h Recorded fidelity modes and engagement checks
+│   │   ├── reaction_diffusion_gs_whitebox.h Gray-Scott accessors and reference shaders
 │   │   ├── gnomonic_stars.h Gnomonic stars cases
 │   │   ├── hopf.h Hopf cases
 │   │   ├── lens_cases.h Glitch lens numeric invariants

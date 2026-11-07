@@ -541,7 +541,8 @@ inline void test_shader_chain_affine_reads_next_lattice() {
       {"sample", In::Op::SampleTessellation::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
-  expect_compiled(program.compile(chain));
+  if (!expect_compiled(program.compile(chain)))
+    return;
   HS_EXPECT_TRUE(program.ops()[3].op->runtime.translation_lattice != nullptr);
   HS_EXPECT_TRUE(program.ops()[2].op->runtime.translation_lattice == nullptr);
   param_as<In::Op::SampleTessellation::Params>(program, 3).cell_scale = 4.0f;
@@ -584,7 +585,8 @@ inline void test_shader_chain_affine_column_lattice() {
       {"sample", In::Op::SampleTessellation::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
-  expect_compiled(program.compile(chain));
+  if (!expect_compiled(program.compile(chain)))
+    return;
   auto &params = param_as<In::Op::AffineWarpParams>(program, 1);
   params.translation_x = 1.0f;
   state_as<In::Op::AffineClockState>(program, 1).phase = 0.5f;
@@ -599,7 +601,6 @@ inline void test_shader_chain_affine_column_lattice() {
   program.prepare_column(ctx, ctx, 0.5f);
   const auto &prepared = prepared_as<PB::Warp::PreparedAffineSlot>(program, 1);
   HS_EXPECT_NEAR(prepared.affine.translation_x, 0.125f, 1e-6f);
-  program.prepare(ctx);
 }
 
 template <typename Envelope>

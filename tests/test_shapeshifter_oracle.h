@@ -830,6 +830,7 @@ inline void test_timed_dense_star_stroke_stays_within_visual_budget() {
   HS_EXPECT_LT(drift, 0.014);
   const auto pole_reference = row_energy(comparison.reference, 0);
   const auto pole_candidate = row_energy(comparison.candidate, 0);
+  HS_EXPECT_GT(pole_reference, uint64_t{0});
   HS_EXPECT_GE(pole_candidate * 10, pole_reference * 9);
   std::printf(
       "  frozen star stroke row-zero energy: reference=%llu candidate=%llu\n",
@@ -1317,8 +1318,12 @@ inline void test_timed_contours_match_frozen_columns() {
     const bool geodesic = test.shape == ShapeType::SPHERICAL_POLYGON ||
                           test.shape == ShapeType::SPHERICAL_STAR;
     HS_CONTEXT("shape", static_cast<int>(test.shape));
-    if (geodesic)
+    if (geodesic) {
       HS_EXPECT_GT(walked, 0u);
+    } else {
+      HS_EXPECT_GT(Spacetime::geometry_counters.chord_intervals, 0u);
+      HS_EXPECT_EQ(walked, 0u);
+    }
     hs_test::seam_compare_render<ORACLE_W, ORACLE_H>(
         [&](bool timed, float fraction, float displacement) {
           return render_timed_contours(state, test.step, timed, fraction,
@@ -1395,6 +1400,13 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
       "  flower solves: anchors=%u point_pieces=%u candidates=%u\n",
       clipped_counts.chord_capture_solves, clipped_counts.point_capture_solves,
       clipped_counts.chord_fast_samples + clipped_counts.chord_screen_samples);
+}
+
+/** @brief A clipped timed dense star samples its polar columns. */
+inline void test_timed_dense_star_clip_samples_polar_columns() {
+  OracleState state;
+  state.clip = {0, 72, 0, 144};
+  state.phase = .37f;
   state.preset_index = 1;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.count = 288;
@@ -1403,19 +1415,6 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
   render_timed_contours(state, 0.016f, true, 1.0f, 0.0f);
   const auto star_counts = Spacetime::geometry_counters;
   HS_EXPECT_GT(star_counts.polar_column_samples, 0u);
-  std::printf(
-      "  polar visits/captures: flower=%u/%u full=%u/%u star=%u/%u\n",
-      clipped_counts.polar_column_visits, clipped_counts.polar_geometry_samples,
-      full_counts.polar_column_visits, full_counts.polar_geometry_samples,
-      star_counts.polar_column_visits, star_counts.polar_geometry_samples);
-  std::printf("  polar geometry captures: flower=%u full=%u star=%u\n",
-              clipped_counts.polar_geometry_samples,
-              full_counts.polar_geometry_samples,
-              star_counts.polar_geometry_samples);
-  std::printf("  polar clip samples: flower=%u full=%u star=%u\n",
-              clipped_counts.polar_column_samples,
-              full_counts.polar_column_samples,
-              star_counts.polar_column_samples);
   std::printf("  dense star clip: intervals=%u culled=%u coherent=%u screen=%u "
               "projections=%u column_samples=%u\n",
               star_counts.chord_intervals, star_counts.chord_intervals_culled,
@@ -1526,8 +1525,7 @@ inline int run_shapeshifter_oracle_tests() {
     return fixture.result();
   }
   HS_RUN(radial_surface_tests::run_radial_surface_checks);
-  HS_RUN(radial_surface_mask_tests::test_radial_surface_mask);
-  HS_RUN(radial_surface_mask_tests::test_radial_surface_area);
+  HS_RUN(radial_surface_mask_tests::run_radial_surface_mask_checks);
   HS_RUN(test_surface_seams);
   HS_RUN(test_surface_clips);
   HS_RUN(test_surface_mask_parity);
@@ -1538,6 +1536,7 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_timed_contours_match_frozen_columns);
   HS_RUN(test_timed_presets_match_frozen_columns);
   HS_RUN(test_timed_flower_clip_culls_anchor_intervals);
+  HS_RUN(test_timed_dense_star_clip_samples_polar_columns);
   HS_RUN(test_count_slider_matches_draw_limit);
   HS_RUN(test_buffer_comparator_statistics);
   HS_RUN(test_reference_matrix_is_deterministic_and_nonblack);

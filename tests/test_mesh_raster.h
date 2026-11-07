@@ -553,6 +553,15 @@ inline void test_clip_band_matches_full() {
     // The band carries geometry, so agreeing with it is not agreeing on black.
     HS_EXPECT_GT(error.lit_reference_pixels, (size_t)0);
     HS_EXPECT_EQ(error.different_pixels, (size_t)0);
+
+    const ClipRegion &clip = fx.clip();
+    size_t outside = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        if (!(clip.contains_y(y) && clip.contains_x(x)) &&
+            banded[static_cast<size_t>(y) * W + x] != Pixel{})
+          ++outside;
+    HS_EXPECT_EQ(outside, size_t{0});
   }
 }
 
@@ -648,7 +657,7 @@ inline void check_class_bake_census(size_t islamic_idx) {
   build_islamic_bake(islamic_idx, seed_a, seed_b, geom, mesh, bake);
 
   const size_t F = mesh.num_faces();
-  HS_EXPECT_EQ(bake.face_recs.size(), F);
+  HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, F);
   HS_EXPECT_GT(bake.classes.size(), (size_t)0);
 
   // Every face lands in a class, and every class is shared (>= 2 members).
@@ -1216,7 +1225,20 @@ inline void test_empty_and_single_face_meshes() {
       fx.advance_display();
       const size_t LIT = count_lit_region<W, H>(fx);
       HS_EXPECT_EQ(LIT > 0, populated);
-      HS_EXPECT_LT(LIT, size_t(W * H / 2));
+      if (populated) {
+        constexpr float MARGIN = -math::RADIANS_PER_COLUMN<W>;
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            if (is_black(fx.get_pixel(x, y)))
+              continue;
+            HS_CONTEXT("mode", mode);
+            HS_CONTEXT("pixel", x, y);
+            const auto direction = math::pixel_to_vector<W, H>(x, y);
+            HS_EXPECT_GE(direction.x, MARGIN);
+            HS_EXPECT_GE(direction.y, MARGIN);
+            HS_EXPECT_GE(direction.z, MARGIN);
+          }
+      }
       if (populated && mode >= 2) {
         const auto CENTER =
             math::vector_to_pixel<W, H>(math::Vector(1, 1, 1).normalized());

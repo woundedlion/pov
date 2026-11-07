@@ -97,8 +97,7 @@ inline void authored_sample_apply(Corrupt corrupt) {
     (void)Policy<Provider>::prepare(frame);
   else {
     const float RESULT = Policy<Provider>::apply(provenance, frame);
-    if (RESULT != 0.0f)
-      std::printf("x");
+    (void)RESULT;
   }
 }
 

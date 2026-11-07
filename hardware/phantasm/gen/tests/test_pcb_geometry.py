@@ -1,6 +1,7 @@
 import os
 import math
 import sys
+from committed_boards import committed_board
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,20 +12,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pcb
 import sexp
 from kicad_env import footprints_by_ref
+from kicad_common import F
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-ROUTED = REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
-UNPLACED = (REPO_ROOT / "hardware" / "phantasm" / "1.2" /
-            "phantasm.kicad_pcb")
-
-
-def _child(node, key):
-    return next(
-        child[1:]
-        for child in node
-        if isinstance(child, list) and child and child[0] == key
-    )
+ROUTED = committed_board()
+UNPLACED = committed_board("1.2")
 
 
 def _without_uuids(node):
@@ -43,7 +35,7 @@ def _silk_outline(footprint):
         for node in footprint
         if isinstance(node, list) and node
         and node[0] in ("fp_line", "fp_arc")
-        and _child(node, "layer")[0] == "F.SilkS"
+        and sexp.val(node, "layer")[0] == "F.SilkS"
     ]
 
 
@@ -83,23 +75,20 @@ class RoutedTraceTests(unittest.TestCase):
         expected_corner = (23.544, 23.506)
         segments = [
             node
-            for node in board
-            if isinstance(node, list)
-            and node
-            and node[0] == "segment"
-            and _child(node, "net") == ["/MASTER_EN"]
-            and _child(node, "layer") == ["B.Cu"]
+            for node in F(board, "segment")
+            if sexp.val(node, "net") == ["/MASTER_EN"]
+            and sexp.val(node, "layer") == ["B.Cu"]
             and expected_corner in {
-                tuple(map(float, _child(node, "start")[:2])),
-                tuple(map(float, _child(node, "end")[:2])),
+                tuple(map(float, sexp.val(node, "start")[:2])),
+                tuple(map(float, sexp.val(node, "end")[:2])),
             }
         ]
         self.assertEqual(len(segments), 2)
 
         endpoints = [
             {
-                tuple(map(float, _child(segment, "start")[:2])),
-                tuple(map(float, _child(segment, "end")[:2])),
+                tuple(map(float, sexp.val(segment, "start")[:2])),
+                tuple(map(float, sexp.val(segment, "end")[:2])),
             }
             for segment in segments
         ]
@@ -123,18 +112,16 @@ class CathodeMarkTests(unittest.TestCase):
         board = sexp.parse(board_path.read_text(encoding="utf-8"))[0]
         footprint = footprints_by_ref(board)["D_BUS"]
         cathode_x, = [
-            float(_child(pad, "at")[0])
-            for pad in footprint
-            if isinstance(pad, list) and pad and pad[0] == "pad"
-            and str(pad[1]) == "1"
+            float(sexp.val(pad, "at")[0])
+            for pad in F(footprint, "pad")
+            if str(pad[1]) == "1"
         ]
         bars = [
             node
-            for node in footprint
-            if isinstance(node, list) and node and node[0] == "fp_line"
-            and _child(node, "layer")[0] == "F.SilkS"
-            and max(float(_child(node, "start")[0]),
-                    float(_child(node, "end")[0])) <= cathode_x
+            for node in F(footprint, "fp_line")
+            if sexp.val(node, "layer")[0] == "F.SilkS"
+            and max(float(sexp.val(node, "start")[0]),
+                    float(sexp.val(node, "end")[0])) <= cathode_x
         ]
         self.assertEqual(len(bars), 1)
 
@@ -174,10 +161,8 @@ class IdStrapSilkscreenTests(unittest.TestCase):
     def test_boards_describe_the_id2_half_of_the_truth_table(self):
         expected = "N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M"
         for path, board in self.boards.items():
-            texts = [str(node[1]) for node in board
-                     if isinstance(node, list) and node
-                     and node[0] == "gr_text"
-                     and _child(node, "layer")[0] == "B.SilkS"]
+            texts = [str(node[1]) for node in F(board, "gr_text")
+                     if sexp.val(node, "layer")[0] == "B.SilkS"]
             with self.subTest(board=path.name):
                 self.assertIn(expected, texts)
                 if path != ROUTED:

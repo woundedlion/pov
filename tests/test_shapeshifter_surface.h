@@ -7,6 +7,9 @@
 /** @file test_shapeshifter_surface.h
  * @brief Column-time and edge-mask parity for the continuous star preset. */
 
+inline constexpr int RESET_POSE_FRAME = 77;
+inline constexpr int SHIPPING_POSE_FRAME = 410;
+
 /** @brief Seeds the natural ShapeShifter replay and its clock. */
 inline void replay_seed() {
   reset_globals();
@@ -147,7 +150,7 @@ inline std::vector<float> surface_kernel_motion(const SurfaceMotionCase &pose,
 }
 
 inline void test_surface_clips() {
-  const auto pose = surface_replay_pose(true, 77);
+  const auto pose = surface_replay_pose(true, RESET_POSE_FRAME);
   for (bool timed : {false, true}) {
     const auto full = surface_kernel_motion(pose, timed, 1, 0);
     std::vector<float> stitched(full.size());
@@ -173,7 +176,7 @@ inline void test_surface_seams() {
   zero.step = 0;
   zero.amplitude = 0;
   zero.name = "surface zero twist";
-  auto reset = surface_replay_pose(true, 77);
+  auto reset = surface_replay_pose(true, RESET_POSE_FRAME);
   reset.name = "surface reset";
   auto reversed = fixture;
   reversed.start = fixture.end;
@@ -266,11 +269,11 @@ inline void surface_mask_cases() {
       effect.init();
       if (reset)
         effect.profile_select_preset(0);
-      const int last = reset ? 77 : 410;
+      const int last = reset ? RESET_POSE_FRAME : SHIPPING_POSE_FRAME;
       for (int frame = 1; frame <= last; ++frame) {
         replay_frame(effect, frame);
       }
-      surface_mask_case(effect, reset ? "reset-77" : "shipping-410");
+      surface_mask_case(effect, reset ? "reset pose" : "shipping pose");
     }
     Timeline().clear();
   }
@@ -283,7 +286,7 @@ inline void test_surface_mask_parity() { surface_mask_cases(); }
 /** @brief P1 dispatch reaches the continuous surface renderer. */
 inline void test_surface_preset_dispatch() {
   auto state = surface_state();
-  const auto pose = surface_replay_pose(true, 77);
+  const auto pose = surface_replay_pose(true, RESET_POSE_FRAME);
   const auto moving = [pose](OracleEffect &effect) {
     auto &orientation = ShapeShifterWhiteBox::orientation(effect);
     orientation.set(pose.start);
@@ -430,6 +433,7 @@ struct SurfaceFootprintAudit {
 
 /** @brief Checks production AA across the full natural P1 visit. */
 inline void test_surface_footprint_darkening() {
+  using AA = SurfaceFootprintAudit::AA;
   replay_seed();
   size_t total = 0;
   {
@@ -438,15 +442,6 @@ inline void test_surface_footprint_darkening() {
     for (int frame = 1; frame <= NATURAL_P1_FRAMES; ++frame) {
       effect.set_clip(0, 72, 0, 144);
       replay_frame(effect, frame);
-      if (frame == 273) {
-        const auto a = ShapeShifterWhiteBox::orientation(effect).sample(0.0f);
-        const auto b = ShapeShifterWhiteBox::orientation(effect).get();
-        std::printf(
-            "DARK_POSE frame=273 start={%.9g,%.9g,%.9g,%.9g} end={%.9g,%.9g,%.9g,%.9g} phase=%.9g step=%.9g\n",
-            a.r, a.v.x, a.v.y, a.v.z, b.r, b.v.x, b.v.y, b.v.z,
-            ShapeShifterWhiteBox::phase(effect),
-            ShapeShifterWhiteBox::twist_step(effect));
-      }
       HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
       effect.set_clip(0, 144, 0, 288);
       SurfaceFootprintAudit audit;
@@ -462,8 +457,11 @@ inline void test_surface_footprint_darkening() {
       effect.advance_display();
       std::printf(
           "DARK_FRAME %d %zu tip=%zu corner=%zu offset=%zu terminal=%zu\n",
-          frame, audit.count, audit.paths[1], audit.paths[2], audit.paths[4],
-          audit.paths[9] + audit.paths[10] + audit.paths[12]);
+          frame, audit.count, audit.paths[AA::TIP_PATH],
+          audit.paths[AA::CORNER_PATH], audit.paths[AA::OFFSET_PATH],
+          audit.paths[AA::TERMINAL_PATH | AA::TIP_PATH] +
+              audit.paths[AA::TERMINAL_PATH | AA::CORNER_PATH] +
+              audit.paths[AA::TERMINAL_PATH | AA::OFFSET_PATH]);
       std::fflush(stdout);
       total += audit.count;
     }

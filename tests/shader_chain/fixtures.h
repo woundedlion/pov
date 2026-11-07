@@ -119,6 +119,27 @@ inline const ColorResources &shared_resources() {
   return RESOURCES;
 }
 
+/** @brief Owned request labels for the eighteen-affine-warp growth boundary. */
+struct AffineWarpChain {
+  static constexpr int WARPS = 18;
+  static constexpr int ADMITTED = 4;
+  static constexpr float MIN_SCALE = 1.0f / 64.0f;
+  std::array<std::string, WARPS> ids, scale_x, scale_y;
+  std::array<In::ChainEntryRequest, WARPS + 3> chain{};
+
+  AffineWarpChain() {
+    chain[0] = {"project", In::Op::ProjectStereographic::ID};
+    for (int index = 0; index < WARPS; ++index) {
+      ids[index] = "warp" + std::to_string(index);
+      scale_x[index] = ids[index] + ".scale-x";
+      scale_y[index] = ids[index] + ".scale-y";
+      chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
+    }
+    chain[WARPS + 1] = {"sample", In::Op::SampleGridV4::ID};
+    chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
+  }
+};
+
 inline constexpr auto &DEFAULT_CHAIN = SHADER_CHAIN_DEFAULT_CHAIN;
 
 static_assert(DEFAULT_CHAIN[0].operator_id == "sphere.rotate.v2");
@@ -156,7 +177,22 @@ template <typename T> T &param_as(In::ChainProgram &program, size_t index) {
   return *reinterpret_cast<T *>(program.param_block(index));
 }
 
+/** @brief Requires the requested state type to match its erased block.
+ * @tparam T State type.
+ * @param program Compiled chain.
+ * @param index Operator index. */
+template <typename T>
+void check_state_layout(const In::ChainProgram &program, size_t index) {
+  const auto &layout = program.ops()[index].op->runtime.state;
+  const void *state = program.state_block(index);
+  const bool MATCHES = layout.size == sizeof(T) && layout.align == alignof(T) &&
+                       reinterpret_cast<uintptr_t>(state) % alignof(T) == 0;
+  HS_EXPECT_TRUE(MATCHES);
+  HS_CHECK(MATCHES, "shader-chain fixture state type mismatch");
+}
+
 template <typename T> T &state_as(In::ChainProgram &program, size_t index) {
+  check_state_layout<T>(program, index);
   return *static_cast<T *>(program.state_block(index));
 }
 
@@ -171,6 +207,7 @@ template <typename T> T &prepared_as(In::ChainProgram &program, size_t index) {
 
 template <typename T>
 const T &state_as(const In::ChainProgram &program, size_t index) {
+  check_state_layout<T>(program, index);
   return *static_cast<const T *>(program.state_block(index));
 }
 
@@ -194,20 +231,19 @@ inline bool sphere_identical(const PB::SphereSample &a,
 /** @brief Compares plane carriers exactly. */
 inline bool plane_identical(const PB::PlaneSample &a,
                             const PB::PlaneSample &b) {
+  const auto &[region_id, component_id, boundary_flags, fade_edge_distance,
+               value_weight, flags, traits, edge_class, domain_coverage] =
+      a.provenance;
   return float_identical(a.coords.re, b.coords.re) &&
          float_identical(a.coords.im, b.coords.im) &&
-         a.provenance.region_id == b.provenance.region_id &&
-         a.provenance.component_id == b.provenance.component_id &&
-         a.provenance.boundary_flags == b.provenance.boundary_flags &&
-         float_identical(a.provenance.fade_edge_distance,
-                         b.provenance.fade_edge_distance) &&
-         float_identical(a.provenance.value_weight,
-                         b.provenance.value_weight) &&
-         a.provenance.flags == b.provenance.flags &&
-         a.provenance.traits == b.provenance.traits &&
-         a.provenance.edge_class == b.provenance.edge_class &&
-         float_identical(a.provenance.domain_coverage,
-                         b.provenance.domain_coverage) &&
+         region_id == b.provenance.region_id &&
+         component_id == b.provenance.component_id &&
+         boundary_flags == b.provenance.boundary_flags &&
+         float_identical(fade_edge_distance, b.provenance.fade_edge_distance) &&
+         float_identical(value_weight, b.provenance.value_weight) &&
+         flags == b.provenance.flags && traits == b.provenance.traits &&
+         edge_class == b.provenance.edge_class &&
+         float_identical(domain_coverage, b.provenance.domain_coverage) &&
          float_identical(a.sphere.x, b.sphere.x) &&
          float_identical(a.sphere.y, b.sphere.y) &&
          float_identical(a.sphere.z, b.sphere.z) &&
@@ -315,6 +351,7 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           const auto &[source, version, phase, initialized] = v.modulation;
           put(static_cast<uint32_t>(source));
           put(static_cast<uint32_t>(version));
+          static_assert(sizeof(phase) == sizeof(uint32_t));
           put(phase.phase_turns);
           put(static_cast<uint32_t>(initialized));
         } else {

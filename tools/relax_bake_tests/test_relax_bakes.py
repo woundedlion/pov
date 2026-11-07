@@ -124,14 +124,14 @@ class ParseDump(unittest.TestCase):
         # Harness died mid-block: the partial bake must not be dropped.
         dump, _ = make_dump("foo", 8, [(1, 1, 1), (2, 2, 2)], 0x1)
         truncated = dump.split("RELAX_BAKE_DATA 00000002")[0].rstrip()
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "unterminated block"):
             relax_bakes.parse_dump(truncated)
 
     def test_rejects_unterminated_block_after_a_complete_one(self):
         good, _ = make_dump("a", 8, [(1, 1, 1)], 0x1)
         bad, _ = make_dump("b", 8, [(2, 2, 2)], 0x2)
         head = bad.split("RELAX_BAKE_END")[0].rstrip()
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "unterminated block"):
             relax_bakes.parse_dump(good + "\n" + head)
 
     def test_rejects_unterminated_block_before_the_next_begin(self):
@@ -243,14 +243,16 @@ class Check(unittest.TestCase):
     def test_rejects_a_drifted_form(self):
         header = relax_bakes.emit_header(relax_bakes.parse_dump(self.dump))
         self.write_asset(header.replace("// clang-format off\n", ""))
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit) as raised:
             relax_bakes.check(self.args)
+        self.assertNotIn(raised.exception.code, (0, None))
 
     def test_rejects_drifted_bits(self):
         header = relax_bakes.emit_header(relax_bakes.parse_dump(self.dump))
         self.write_asset(header.replace("0x00000001u", "0x00000009u"))
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit) as raised:
             relax_bakes.check(self.args)
+        self.assertNotIn(raised.exception.code, (0, None))
 
 
 if __name__ == "__main__":

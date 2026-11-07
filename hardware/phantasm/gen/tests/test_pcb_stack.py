@@ -1,4 +1,5 @@
 import sys
+from committed_boards import committed_board
 import unittest
 from pathlib import Path
 
@@ -12,8 +13,9 @@ from kicad_common import F  # noqa: E402
 
 
 BOARDS = {
-    "routed": GEN.parent / "1.1" / "phantasm.kicad_pcb",
-    "unplaced": GEN.parent / "1.2" / "phantasm.kicad_pcb",
+    "routed": committed_board(),
+    "unplaced": committed_board("1.2"),
+    "prototype": committed_board("1.3"),
 }
 
 

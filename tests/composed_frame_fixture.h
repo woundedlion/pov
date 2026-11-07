@@ -58,9 +58,9 @@ struct ComposedFrameWhiteBox {
    * @return Retained frame until its next capture. */
   template <typename FX>
   static const typename FX::FrameState &previous_frame(const FX &effect) {
-    using History = Spacetime::FrameHistory<typename FX::FrameState,
-                                            FX::Spec::TEMPORAL_SAMPLING,
-                                            FX::Metadata::MODULATION>;
+    using History =
+        Spacetime::FrameHistory<typename FX::FrameState, FX::TEMPORAL_SAMPLING,
+                                FX::HUE_ROTATION_LUT>;
     return static_cast<const History &>(*effect.state).previous;
   }
 

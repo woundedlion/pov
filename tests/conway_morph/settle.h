@@ -88,13 +88,7 @@ inline void test_position_legs_preserve_face_palettes() {
     HS_EXPECT_TRUE(same_class_different_palette);
 
     hs_test::StubEffect fx(288, 144);
-    for (int frame = 0; frame < FRAMES; ++frame) {
-      {
-        Canvas c(fx);
-        leg.step(c);
-      }
-      fx.advance_display();
-    }
+    hs_test::drive_leg(leg, fx, FRAMES);
     HS_EXPECT_EQ(drawn, FRAMES);
   };
   run(OpLeg(seed, OpLeg::RelaxSpec{.iterations = 50, .sweep_frames = FRAMES},

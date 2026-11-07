@@ -165,7 +165,7 @@ class RepositorySync(unittest.TestCase):
             ds.sync_repository(self.root, {}, {})
         self.assertEqual(readme.read_text(encoding="utf-8"), "The playlist contains 1 effects today.\n")
 
-    def test_a_correct_spelled_out_count_is_left_alone(self):
+    def check_spelled_out_count(self, before, after):
         header = self.root / dc.EFFECT_ROSTER_SOURCE
         header.parent.mkdir(parents=True)
         header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n"
@@ -177,15 +177,20 @@ class RepositorySync(unittest.TestCase):
         effects = self.root / "docs" / "effects.md"
         effects.parent.mkdir(parents=True)
         self.git("add", str(dc.EFFECT_ROSTER_SOURCE), str(dc.PHANTASM_PLAYLIST_SOURCE))
-        for before, after in (("two", "two"), ("three", "2")):
-            with self.subTest(claim=before):
-                effects.write_text(f"These {before} effects form the product-only group.\n",
-                                   encoding="utf-8")
-                self.git("add", "docs/effects.md")
-                with contextlib.redirect_stdout(io.StringIO()):
-                    ds.sync_repository(self.root, {}, {})
-                self.assertEqual(effects.read_text(encoding="utf-8"),
-                                 f"These {after} effects form the product-only group.\n")
+        effects.write_text(f"These {before} effects form the product-only group.\n",
+                           encoding="utf-8")
+        self.git("add", "docs/effects.md")
+        with contextlib.redirect_stdout(io.StringIO()):
+            ds.sync_repository(self.root, {}, {})
+        self.assertEqual(effects.read_text(encoding="utf-8"),
+                         f"These {after} effects form the product-only group.\n")
+
+    def test_a_correct_spelled_out_count_is_left_alone(self):
+        self.check_spelled_out_count("two", "two")
+
+    def test_an_incorrect_spelled_out_count_is_rewritten(self):
+        self.check_spelled_out_count("three", "2")
+
 
 
 class DiscoveryAndCounts(unittest.TestCase):

@@ -239,6 +239,8 @@ inline int run_color_tests() {
   HS_RUN(test_generative_palette_cartesian_path_neutralizes_midpoint);
   HS_RUN(test_generative_palette_rejects_unavailable_path_minimum);
   HS_RUN(test_generative_palette_absolute_basis_canonicalizes_headroom);
+  HS_RUN(test_generative_palette_gray_keys_use_neighbor_hue);
+  HS_RUN(test_generative_palette_snapshot_key_clamps_count);
   HS_RUN(test_generative_palette_morph_compatible);
   HS_RUN(test_generative_palette_harmony_loop_closure);
   HS_RUN(test_generative_palette_lerp_mixed_curves_continuous);
@@ -272,6 +274,9 @@ inline int run_color_tests() {
   HS_RUN(test_palette_wrappers);
   HS_RUN(test_palette_shade_coord_policy);
   HS_RUN(test_color_modulation_mechanics);
+  HS_RUN(test_color_modulation_lift_accuracy);
+  HS_RUN(test_color_modulation_hue_rotation_accuracy);
+  HS_RUN(test_color_modulation_whole_turn_identity);
   HS_RUN(test_color_modulation_amount_domains);
   HS_RUN(test_pattern_modulated_palette);
   HS_RUN(test_sphere_lut_seamless_across_faces);

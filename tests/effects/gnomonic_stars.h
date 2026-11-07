@@ -18,7 +18,7 @@ struct GnomonicStarsWhiteBox {
   }
   template <int W, int H>
   static void set_points(GnomonicStars<W, H> &fx, float n) {
-    HS_EXPECT_TRUE(fx.updateParameter("Points", n) == ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(fx.updateParameter("Points", n), ParamSetResult::APPLIED);
   }
   template <int W, int H>
   static int cached_points(const GnomonicStars<W, H> &fx) {
@@ -135,8 +135,7 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
     HS_EXPECT_VEC(Spacetime::rotate_by(before, drift), now, 1e-5f);
   }
 
-  HS_EXPECT_TRUE(fx.updateParameter("Points", 300.0f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Points", 300.0f), ParamSetResult::APPLIED);
   WB::refresh_spiral(fx);
   HS_EXPECT_FALSE(WB::warp_drawn(fx));
 }

@@ -78,6 +78,28 @@ void check_timed_spatial_copies(Stage &stage, Reference reference) {
   }
 }
 
+/** @brief Checks the selected copy against an independent transform. */
+template <typename Stage, typename Reference>
+void expect_timed_selected_copy(Stage &stage, Reference reference, int copy) {
+  StubEffect effect(288, 144);
+  Canvas canvas(effect);
+  const math::Vector SOURCE = math::Vector(0.3f, 0.5f, 0.7f).normalized();
+  const auto EXPECTED = reference(SOURCE, copy);
+  const auto ACTUAL = stage.at_time(canvas, SOURCE, 0.25f);
+  HS_EXPECT_NEAR(ACTUAL.x, EXPECTED[0], 2e-6);
+  HS_EXPECT_NEAR(ACTUAL.y, EXPECTED[1], 2e-6);
+  HS_EXPECT_NEAR(ACTUAL.z, EXPECTED[2], 2e-6);
+}
+
+/** @brief Checks selected-copy index saturation at both bounds. */
+template <typename Stage, typename Reference>
+void expect_timed_copy_clamps(Stage &stage, Reference reference) {
+  stage.select_copy(-1);
+  expect_timed_selected_copy(stage, reference, 0);
+  stage.select_copy(stage.copy_count());
+  expect_timed_selected_copy(stage, reference, stage.copy_count() - 1);
+}
+
 /** @brief Timed Y-axis copies select the analytic spatial rotation. */
 inline void test_timed_replicate_selected_copy() {
   Filter::World::Replicate<288> stage(288);
@@ -89,7 +111,9 @@ inline void test_timed_replicate_selected_copy() {
   };
   check_timed_spatial_copies(stage, reference);
   stage.set_count(3);
+  expect_timed_selected_copy(stage, reference, 2);
   check_timed_spatial_copies(stage, reference);
+  expect_timed_copy_clamps(stage, reference);
 }
 
 /** @brief Timed vertex copies use the selected stored rotation. */
@@ -97,11 +121,13 @@ inline void test_timed_vertex_replicate_selected_copy() {
   const std::array<math::Vector, 4> vertices{math::X_AXIS, math::Y_AXIS,
                                              math::Z_AXIS, -math::X_AXIS};
   Filter::World::VertexReplicate<4> stage(vertices);
-  check_timed_spatial_copies(stage, [](const math::Vector &v, int copy) {
+  const auto reference = [](const math::Vector &v, int copy) {
     const std::array<std::array<double, 3>, 4> copies{{{v.x, v.y, v.z},
                                                        {-v.y, v.x, v.z},
                                                        {-v.z, v.y, v.x},
                                                        {-v.x, -v.y, v.z}}};
     return copies[copy];
-  });
+  };
+  check_timed_spatial_copies(stage, reference);
+  expect_timed_copy_clamps(stage, reference);
 }

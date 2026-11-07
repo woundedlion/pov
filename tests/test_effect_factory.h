@@ -450,7 +450,7 @@ inline void test_effect_stream_restarts() {
  */
 inline void test_factory_lifecycle() {
   constexpr int SMALL_PIXELS = effects_tests::SMALL_W * effects_tests::SMALL_H;
-  const bool full = effects_tests::effects_full_suite();
+  const bool full = hs_test::effects_full_suite();
   for (const hs_wasm::WasmResolution &row : hs_wasm::WASM_RESOLUTIONS) {
     if (row.w * row.h > SMALL_PIXELS && !full) {
       std::printf("  [TIER] factory %dx%d omitted; set HS_EFFECTS_FULL=1\n",

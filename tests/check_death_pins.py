@@ -19,12 +19,17 @@ def literals(text):
 
 def pins(text):
     """Read the literal fields of the death-case table."""
-    pattern = (r'\{\s*"([^"\n]+)"\s*,\s*case_\w+\s*,\s*'
+    pattern = (r'\{\s*"([^"\n]+)"\s*,\s*(\w+)\s*,\s*'
                r'"([^"\n]+)"\s*,\s*((?:' + STRING + r'\s*)+)'
                r'(?:,\s*(?:true|false)\s*)?'
                r'(?:,\s*(?:' + STRING + r'|nullptr)\s*)?\}')
-    rows = [(m[1], m[2], literals(m[3])) for m in re.finditer(pattern, text)]
-    heads = re.findall(r'\{\s*"[^"\n]+"\s*,\s*case_\w+\s*,', text)
+    rows = []
+    for match in re.finditer(pattern, text):
+        name, function, file, message = match.groups()
+        if function != "case_" + name:
+            raise ValueError(f"{name}: expected case_{name}, found {function}")
+        rows.append((name, file, literals(message)))
+    heads = re.findall(r'\{\s*"[^"\n]+"\s*,\s*\w+\s*,', text)
     if len(rows) != len(heads):
         raise ValueError(f"parsed {len(rows)} of {len(heads)} death-case rows")
     return rows

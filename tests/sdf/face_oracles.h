@@ -480,6 +480,7 @@ template <int W, int H> struct FaceOraclePipeline {
 /** @brief Shipping recipe probes preserve distance, sign and palette depth. */
 template <int W, int H>
 inline void check_face_shipping_recipes_match_oracle(const PolyMesh &mesh) {
+  HS_CONTEXT("grid", W, H);
   size_t interior = 0, exterior = 0;
   double max_distance_error = 0.0, max_depth_error = 0.0;
   size_t sign_errors = 0, admission_errors = 0, missing_interior = 0;
@@ -552,6 +553,7 @@ inline void test_face_shipping_recipes_match_oracle() {
   static uint8_t recipe_a[2 * 1024 * 1024];
   static uint8_t recipe_b[2 * 1024 * 1024];
   for (const auto &entry : Solids::islamic_registry) {
+    HS_CONTEXT(entry.name);
     Arena a(recipe_a, sizeof(recipe_a)), b(recipe_b, sizeof(recipe_b));
     const PolyMesh mesh = entry.generate(a, b);
     check_face_shipping_recipes_match_oracle<288, 144>(mesh);

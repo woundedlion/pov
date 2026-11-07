@@ -9,6 +9,9 @@
  */
 #pragma once
 
+#include <cmath>
+#include <tuple>
+#include <type_traits>
 #include <atomic>
 #include <array>
 #include <cstring>
@@ -572,9 +575,8 @@ inline void test_double_buffer_handoff_no_aliasing() {
     fx.advance_display();
 
     HS_EXPECT_TRUE(fx.buffer_free());
-    HS_EXPECT_TRUE(
-        pix_eq(fx.get_pixel(0, 0), colors[f].r, colors[f].g, colors[f].b));
-    HS_EXPECT_TRUE(fx.display_buffer() != display_before);
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), colors[f].r, colors[f].g, colors[f].b);
+    HS_EXPECT_NE(fx.display_buffer(), display_before);
     record_ptr(fx.display_buffer());
   }
 
@@ -599,7 +601,7 @@ inline void test_double_buffer_handoff_concurrent() {
   std::atomic<bool> producer_done{false};
   std::atomic<bool> torn_read{false};
   std::atomic<bool> out_of_order{false};
-  std::atomic<int> distinct_displayed{0};
+  std::atomic<int> promoted_frames{0};
 
   std::thread producer([&] {
     for (int f = 0; f < FRAMES; ++f) {
@@ -636,7 +638,7 @@ inline void test_double_buffer_handoff_concurrent() {
       if (s <= last_sentinel)
         out_of_order.store(true, std::memory_order_relaxed);
       last_sentinel = s;
-      distinct_displayed.store(promoted, std::memory_order_relaxed);
+      promoted_frames.store(promoted, std::memory_order_relaxed);
     }
   });
 
@@ -646,7 +648,7 @@ inline void test_double_buffer_handoff_concurrent() {
   HS_EXPECT_FALSE(torn_read.load(std::memory_order_relaxed));
   HS_EXPECT_FALSE(out_of_order.load(std::memory_order_relaxed));
   // The gate admits no coalescing, so every queued frame is displayed once.
-  HS_EXPECT_EQ(distinct_displayed.load(std::memory_order_relaxed), FRAMES);
+  HS_EXPECT_EQ(promoted_frames.load(std::memory_order_relaxed), FRAMES);
 }
 
 /**
@@ -989,9 +991,7 @@ inline void test_typed_parameter_specs() {
 
   HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), generation + 7);
   const auto &parameters = fx.getParameters();
-  HS_EXPECT_EQ(parameters.size(), size_t(7));
-  if (parameters.size() != 7)
-    return;
+  HS_EXPECT_SIZE_OR_RETURN(parameters, size_t(7));
   HS_REQUIRED_PARAM(COUNT_PARAM, fx, "Count");
   HS_REQUIRED_PARAM(MODE_PARAM, fx, "Mode");
   HS_REQUIRED_PARAM(MODE8_PARAM, fx, "Mode8");
@@ -1219,11 +1219,15 @@ inline void test_canvas_cached_render_clip_matches_region() {
 
 /**
  * @brief Verifies EffectConfig::margin reaches ClipRegion::margin, floored at
- *        the ClipRegion default.
+ *        the ClipRegion default, with zero required_margin at one column.
  * @details A pipeline whose total_segment_margin folds to 0 must not shrink the
  *          coverage a plain effect already has.
  */
 inline void test_effect_config_margin() {
+  {
+    TestEffect fx(1, 20, {.required_margin = 3});
+    HS_EXPECT_EQ(fx.clip().margin, 0);
+  }
   const int base = ClipRegion{}.margin;
   {
     TestEffect fx(96, 20, {.required_margin = 3});
@@ -1283,8 +1287,8 @@ inline void test_pipeline_ref_routes_screen_coordinate_overloads() {
   pipeline.plot(canvas, 1.25f, -2.5f, Pixel(0, 0, 0), 0.0f, 0.0f);
   HS_EXPECT_EQ(pipe.integer_hits, 1);
   HS_EXPECT_EQ(pipe.float_hits, 1);
-  HS_EXPECT_NEAR(pipe.float_x, 1.25f, 0.0f);
-  HS_EXPECT_NEAR(pipe.float_y, -2.5f, 0.0f);
+  HS_EXPECT_EQ(pipe.float_x, 1.25f);
+  HS_EXPECT_EQ(pipe.float_y, -2.5f);
 }
 
 /**
@@ -1359,6 +1363,7 @@ inline int run_canvas_tests() {
   HS_RUN(test_effect_transition_fenced_commit);
   HS_RUN(test_effect_transition_fences_hold);
   HS_RUN(test_effect_transition_replacement_pause_and_restore);
+  HS_RUN(test_effect_transition_restore_none_enters_failsafe);
   HS_RUN(test_effect_transition_shorter_replacement_preserves_progress);
   HS_RUN(test_effect_transition_failsafe_retry);
   HS_RUN(test_effect_transition_refusal_branches);
@@ -1389,7 +1394,10 @@ inline int run_canvas_tests() {
   HS_RUN(test_typed_enum_and_global_param_metadata);
   HS_RUN(test_typed_enum_storage_widths);
   HS_RUN(test_typed_parameter_specs);
-  HS_RUN(test_sparse_parameter_specs);
+  HS_RUN(test_sparse_parameter_fields);
+  HS_RUN(test_sparse_parameter_schema_rejections);
+  HS_RUN(test_sparse_parameter_factory_and_float_fields);
+  HS_RUN(test_sparse_parameter_updates);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   HS_RUN(test_parameter_spec_preserves_requested_float);
 #endif

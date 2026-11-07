@@ -319,12 +319,11 @@ inline void test_lissajous_phase_is_radians() {
  *        direction.
  */
 inline void test_random_vector_unit_length() {
-  const auto saved = hs::random();
+  const hs_test::ScopedRng saved;
   for (int i = 0; i < 32; ++i) {
     math::Vector v = math::random_vector();
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
   }
-  hs::random() = saved;
 }
 
 /**
@@ -333,7 +332,7 @@ inline void test_random_vector_unit_length() {
  * @details The global generator is saved and restored.
  */
 inline void test_random_vector_deterministic() {
-  auto saved = hs::random();
+  const hs_test::ScopedRng saved;
   constexpr int N = 16;
   math::Vector first[N];
   hs::random().seed(1337);
@@ -344,7 +343,6 @@ inline void test_random_vector_deterministic() {
     math::Vector v = math::random_vector();
     HS_EXPECT_VEC(v, first[i], 0.0f);
   }
-  hs::random() = saved;
 }
 
 /**
@@ -354,7 +352,7 @@ inline void test_random_vector_deterministic() {
  *          sign, and pooled absolute components occupy [0,1] uniformly.
  */
 inline void test_random_vector_distribution() {
-  auto saved = hs::random();
+  const hs_test::ScopedRng saved;
   hs::random().seed(0xC0FFEEu);
   constexpr int N = 4000;
   constexpr int BIN_COUNT = 10;
@@ -391,7 +389,6 @@ inline void test_random_vector_distribution() {
     HS_EXPECT_GE(count, MIN_BIN_SIZE);
     HS_EXPECT_LE(count, MAX_BIN_SIZE);
   }
-  hs::random() = saved;
 }
 
 // ============================================================================

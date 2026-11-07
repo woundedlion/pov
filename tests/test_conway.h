@@ -161,6 +161,14 @@ inline void test_normalize_pushes_to_unit_sphere() {
 
   MeshOps::normalize(m);
   check_all_unit_vertices(m, 1e-3f);
+  const float DIAGONAL = 1.0f / std::sqrt(3.0f);
+  const math::Vector EXPECTED[] = {
+      {0.6f, 0.8f, 0.0f}, {0.0f, 0.0f, 1.0f}, {DIAGONAL, DIAGONAL, DIAGONAL}};
+  for (size_t i = 0; i < m.vertices.size(); ++i) {
+    HS_EXPECT_NEAR(m.vertices[i].x, EXPECTED[i].x, 1e-3f);
+    HS_EXPECT_NEAR(m.vertices[i].y, EXPECTED[i].y, 1e-3f);
+    HS_EXPECT_NEAR(m.vertices[i].z, EXPECTED[i].z, 1e-3f);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -992,24 +1000,13 @@ inline void test_face_centroid_for_cube_face_zero() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Asserts every face in the mesh has at least 3 sides.
- * @param m Mesh to validate.
- */
-inline void check_no_degenerate_faces(const PolyMesh &m) {
-  for (size_t i = 0; i < m.face_counts.size(); ++i)
-    HS_EXPECT_TRUE(m.face_counts[i] >= 3);
-}
-
-/**
  * @brief Asserts the mesh's face sizes equal @p want, in order.
  * @param m Mesh to validate.
  * @param want Expected side count of each face.
  */
 inline void check_face_census(const PolyMesh &m,
                               std::initializer_list<int> want) {
-  HS_EXPECT_EQ(m.face_counts.size(), want.size());
-  if (m.face_counts.size() != want.size())
-    return;
+  HS_EXPECT_SIZE_OR_RETURN(m.face_counts, want.size());
   size_t i = 0;
   for (int sides : want)
     HS_EXPECT_EQ(static_cast<int>(m.face_counts[i++]), sides);
@@ -1046,7 +1043,7 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
     PolyMesh m;
     build_degenerate_digon(m, temp);
     const PolyMesh out = MeshOps::expand(m, target, temp);
-    check_no_degenerate_faces(out);
+
     check_face_census(out, {4});
   }
   {
@@ -1055,7 +1052,7 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
     PolyMesh m;
     build_degenerate_digon(m, temp);
     const PolyMesh out = MeshOps::chamfer(m, target, temp, 0.5f);
-    check_no_degenerate_faces(out);
+
     check_face_census(out, {6});
   }
   {
@@ -1064,7 +1061,7 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
     PolyMesh m;
     build_degenerate_digon(m, temp);
     const PolyMesh out = MeshOps::snub(m, target, temp);
-    check_no_degenerate_faces(out);
+
     check_face_census(out, {3, 3});
   }
 }

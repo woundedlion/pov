@@ -27,50 +27,30 @@ static_assert(!registration_names_unique(std::array{
  *        trap.
  */
 inline void case_effect_registry_name_matches_stable_id() {
-  EffectRegistration first{};
-  first.identity.display_name = "DeathFirst";
-  first.identity.machine_id = "DeathPersistedAlias";
-
-  EffectRegistration second{};
-  second.identity.display_name = "DeathPersistedAlias";
-  second.identity.machine_id = "death-second";
-  validate_effect_registrations(std::array{first, second});
+  validate_effect_registrations(
+      std::array{named_registration("DeathFirst", "DeathPersistedAlias"),
+                 named_registration("DeathPersistedAlias", "death-second")});
 }
 
 /**
  * @brief Death case: registering two effects under one name must trap.
  */
 inline void case_effect_registry_duplicate_name() {
-  EffectRegistration first{};
-  first.identity.display_name = "DeathDuplicate";
-  first.identity.machine_id = "death-dup-a";
-
-  EffectRegistration second{};
-  second.identity.display_name = "DeathDuplicate";
-  second.identity.machine_id = "death-dup-b";
-  validate_effect_registrations(std::array{first, second});
+  validate_effect_registrations(
+      std::array{named_registration("DeathDuplicate", "death-dup-a"),
+                 named_registration("DeathDuplicate", "death-dup-b")});
 }
 
 /** @brief Death case: two effects declaring the same stable ID must trap. */
 inline void case_effect_registry_duplicate_stable_id() {
-  EffectRegistration first{};
-  first.identity.display_name = "DeathStableA";
-  first.identity.machine_id = "death-stable";
-
-  EffectRegistration second{};
-  second.identity.display_name = "DeathStableB";
-  second.identity.machine_id = "death-stable";
-  validate_effect_registrations(std::array{first, second});
+  validate_effect_registrations(
+      std::array{named_registration("DeathStableA", "death-stable"),
+                 named_registration("DeathStableB", "death-stable")});
 }
 
 /** @brief Death case: a stable ID equal to another effect's name must trap. */
 inline void case_effect_registry_stable_id_matches_name() {
-  EffectRegistration first{};
-  first.identity.display_name = "DeathClassAlias";
-  first.identity.machine_id = "death-first";
-
-  EffectRegistration second{};
-  second.identity.display_name = "DeathOther";
-  second.identity.machine_id = "DeathClassAlias";
-  validate_effect_registrations(std::array{first, second});
+  validate_effect_registrations(
+      std::array{named_registration("DeathClassAlias", "death-first"),
+                 named_registration("DeathOther", "DeathClassAlias")});
 }

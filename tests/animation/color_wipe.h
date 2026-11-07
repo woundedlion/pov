@@ -100,7 +100,7 @@ inline void test_colorwipe_slow_fade_resolves_every_frame() {
       ++advanced;
     prev = cur;
   }
-  HS_EXPECT_GT(advanced, 400);
+  HS_EXPECT_GE(advanced, duration - 2);
 }
 
 /**

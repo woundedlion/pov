@@ -7,6 +7,10 @@
 
 /** Maximum post-recovery board phase error, in columns. */
 inline constexpr double RECOVERY_PHASE_ERROR = 0.08;
+/** Maximum locked-hold board phase error, in columns. */
+inline constexpr double LOCKED_PHASE_ERROR = 0.13;
+/** Protocol §9.1 mis-snap recovery bound, in columns. */
+inline constexpr uint64_t MIS_SNAP_RECOVERY_COLUMNS = 750;
 
 struct SimEffect {
   uint64_t frames = 0;
@@ -41,8 +45,6 @@ struct SimBoard {
   uint64_t phase0 = 0;  /**< Local cycle-counter offset at g = 0. */
   double next_tick = 0; /**< Next flywheel wake, in global cycles. */
   double tick_step = 0; /**< Wake period in global cycles. */
-  /** Flywheel phase this board was seeded at, columns ahead of the master. */
-  int32_t birth_cols = 0;
   /** Masked edges latch into one delayed delivery per pin. */
   bool edge_latched = false;
   std::vector<std::pair<uint64_t, uint64_t>> masks; /**< [from, to) global. */
@@ -134,10 +136,10 @@ public:
       b.master = (i == 0);
       b.ppm = ppm[i];
       b.phase0 = phase0;
-      b.birth_cols = i * c.W / n;
+      const int32_t birth_cols = i * c.W / n;
       b.tick_step = step0 * 1e6 / (1e6 + ppm[i]);
       b.next_tick = double(7 * (i + 1)) + (0.5 + 0.1 * (i % 5)) * b.tick_step;
-      b.board.seed(local_now(b, 0) - static_cast<uint32_t>(b.birth_cols) *
+      b.board.seed(local_now(b, 0) - static_cast<uint32_t>(birth_cols) *
                                          c.cycles_per_column(),
                    b.master);
     }
@@ -433,6 +435,17 @@ inline void expect_swaps_aligned(const Sim &sim, uint64_t tol = 3 * COL) {
   }
 }
 
+/** @brief Advances two revolutions and checks untrapped, aligned frame counters. */
+inline void expect_lockstep(Sim &sim) {
+  expect_swaps_aligned(sim);
+  for (const auto &board : sim.boards)
+    HS_EXPECT_FALSE(board.trapped);
+  sim.run_revs(2.0);
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
+  for (size_t i = 1; i < sim.boards.size(); ++i)
+    HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+}
+
 /**
  * @brief Runs the sim until every board has gone live (boot join complete).
  * @param sim The simulation to advance.
@@ -501,7 +514,7 @@ inline void test_sim_boot_and_phase() {
     // Sample at a stable point: master mid-first-half (~x=72), where every
     // board's ZERO flip for this rev has long settled.
     HS_EXPECT_TRUE(run_to_master_column(sim, 72));
-    HS_EXPECT_LE(sim.max_phase_err(), 0.13);
+    HS_EXPECT_LE(sim.max_phase_err(), LOCKED_PHASE_ERROR);
     for (int i = 0; i < 4; ++i) {
       const uint64_t df = sim.boards[i].flips - flips_before[i];
       HS_EXPECT_GE(df, 8u); // ~2 flips/rev over the ≥4-rev slice
@@ -531,7 +544,7 @@ inline void test_sim_eight_board_boot_and_phase() {
 
   sim.run_revs(8.0);
   HS_EXPECT_TRUE(run_to_master_column(sim, 72));
-  HS_EXPECT_LE(sim.max_phase_err(), 0.13);
+  HS_EXPECT_LE(sim.max_phase_err(), LOCKED_PHASE_ERROR);
   for (size_t i = 1; i < sim.boards.size(); ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
@@ -664,7 +677,7 @@ inline Config beacon_gap_config() {
   cfg.beacon_period_revs = 16;
   cfg.set_effect_revolutions(BEACON_GAP_REVOLUTIONS);
   cfg.rejoin_budget_revs = cfg.rejoin_bound_revs();
-  HS_EXPECT_TRUE(cfg.valid() == nullptr);
+  HS_EXPECT_STREQ(cfg.valid(), nullptr);
   return cfg;
 }
 
@@ -1009,16 +1022,17 @@ inline void test_sim_forged_burst() {
   sim.emi_pos = 0;
   std::sort(sim.emi.begin(), sim.emi.end());
 
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   const uint64_t flips_before = sim.boards[1].flips;
   const uint32_t rejected_before =
       sim.boards[1].board.telemetry_snapshot().symbols_rejected_gate;
   sim.run_revs(4.0);
+  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_GT(sim.boards[1].board.telemetry_snapshot().symbols_rejected_gate,
                rejected_before);
   // Flip cadence unbroken: 2 per revolution, no extra content advance.
   const uint64_t df = sim.boards[1].flips - flips_before;
   HS_EXPECT_EQ(df, 8u);
-  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
@@ -1051,20 +1065,6 @@ inline void test_sim_epoch_repeat_lockstep() {
   const Config cfg = test_config();
   const uint64_t rev = 2ull * PERIOD;
 
-  /**
-   * @brief Checks aligned commits without traps and equal frame counters.
-   * @param sim The simulation to inspect (advanced two revs while checking).
-   */
-  auto expect_lockstep = [&](Sim &sim) {
-    expect_swaps_aligned(sim);
-    for (int i = 1; i < 4; ++i) {
-      HS_EXPECT_FALSE(sim.boards[i].trapped);
-    }
-    sim.run_revs(2.0);
-    HS_EXPECT_TRUE(run_to_master_column(sim, 72));
-    for (int i = 1; i < 4; ++i)
-      HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
-  };
   const double commit_revs_max =
       double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8;
 
@@ -1140,14 +1140,7 @@ inline void test_sim_rev_resync() {
       all_boards_on(1),
       double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8));
   expect_refractory_ignored(sim, 3);
-  expect_swaps_aligned(sim);
-  for (int i = 1; i < 4; ++i) {
-    HS_EXPECT_FALSE(sim.boards[i].trapped);
-  }
-  sim.run_revs(2.0);
-  HS_EXPECT_TRUE(run_to_master_column(sim, 72));
-  for (int i = 1; i < 4; ++i)
-    HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+  expect_lockstep(sim);
 }
 
 // ── Scenario: 6-bit rev counter wraps WITHIN one effect (§6.4 mod-64) ────────
@@ -1178,7 +1171,7 @@ inline void test_sim_rev_wrap_within_effect() {
   for (int sample = 0; sample < 40; ++sample) {
     HS_EXPECT_TRUE(run_to_master_column(sim, 72));
     const uint32_t rev = content(sim.boards[0].board).rev_in_effect;
-    HS_EXPECT_LE(sim.max_phase_err(), 0.13);
+    HS_EXPECT_LE(sim.max_phase_err(), LOCKED_PHASE_ERROR);
     for (int i = 0; i < 4; ++i) {
       HS_EXPECT_EQ(sim.boards[i].live_index, 0);
       HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);

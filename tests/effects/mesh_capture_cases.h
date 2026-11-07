@@ -143,8 +143,8 @@ inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
   IslamicBuildProbe::set_trans_speed(effect, trans_speed);
   effect.init();
   effect.profile_select_preset(preset);
-  HS_EXPECT_TRUE(effect.updateParameter("Trans Speed", trans_speed) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Trans Speed", trans_speed),
+               ParamSetResult::APPLIED);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   const char *audit_path =

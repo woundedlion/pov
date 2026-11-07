@@ -12,17 +12,6 @@
 
 namespace hs_test::composed_chain_tests {
 
-template <typename T>
-T &mutable_state(Pullback::Interp::ChainProgram &program, size_t index) {
-  const auto &layout = program.ops()[index].op->runtime.state;
-  void *state = const_cast<void *>(program.state_block(index));
-  const bool MATCHES = layout.size == sizeof(T) && layout.align == alignof(T) &&
-                       reinterpret_cast<uintptr_t>(state) % alignof(T) == 0;
-  HS_EXPECT_TRUE(MATCHES);
-  HS_CHECK(MATCHES, "composed parity fixture state type mismatch");
-  return *static_cast<T *>(state);
-}
-
 template <typename FX>
 void verify_export(size_t preset, int channel_tolerance,
                    float alpha_tolerance) {
@@ -99,7 +88,8 @@ void verify_export(size_t preset, int channel_tolerance,
     const auto &op = program.ops()[index];
     const std::string_view id = op.op->operator_id;
     if (id == "sphere.rotate.v2" || id.starts_with("project.")) {
-      auto &state = mutable_state<In::Op::SpatialWalkState>(program, index);
+      auto &state = shader_chain_tests::state_as<In::Op::SpatialWalkState>(
+          program, index);
       state.wander = (id == "sphere.rotate.v2" ? own.outer_conjugate
                                                : own.projection_conjugate)
                          .conjugate();
@@ -118,8 +108,8 @@ void verify_export(size_t preset, int channel_tolerance,
         if constexpr (Resource::KIND == Pullback::ResourceKind::TWIST)
           if (Resource::KEY.view() == op.instance) {
             const auto &phase = own.resources.template get<Resource::KEY>();
-            mutable_state<In::Op::TwistOrbitState>(program, index) = {
-                phase.phi, phase.lambda};
+            shader_chain_tests::state_as<In::Op::TwistOrbitState>(
+                program, index) = {phase.phi, phase.lambda};
           }
       });
     } else if (id == "sphere.displace.ripple.v2") {
@@ -130,7 +120,8 @@ void verify_export(size_t preset, int channel_tolerance,
                           Pullback::SphereAnimation::BurstRippleParams>)
           if (Resource::KEY.view() == op.instance)
             static_cast<In::RippleClockSnapshot &>(
-                mutable_state<In::Op::RipplePhaseState>(program, index)) =
+                shader_chain_tests::state_as<In::Op::RipplePhaseState>(program,
+                                                                       index)) =
                 own.resources.template get<Resource::KEY>();
       });
     } else if (id == "sphere.displace.symmetric.v2" ||
@@ -139,11 +130,13 @@ void verify_export(size_t preset, int channel_tolerance,
       own.params.visit([&]<typename Resource>(const auto &) {
         if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE)
           if (Resource::KEY.view() == op.instance)
-            mutable_state<In::Op::FieldPhaseState>(program, index).phase =
-                own.resources.template get<Resource::KEY>().phase;
+            shader_chain_tests::state_as<In::Op::FieldPhaseState>(program,
+                                                                  index)
+                .phase = own.resources.template get<Resource::KEY>().phase;
       });
     } else if (id == "warp.affine.v4" || id == "warp.wave-shear.v2" ||
-               id == "warp.vortex.v2" || id == "warp.mirror-tile.v2") {
+               id == "warp.vortex.v2" || id == "warp.mirror-tile.v2" ||
+               id == "warp.vector-noise.v2") {
       const auto key = std::string_view(op.instance) == "warp2" ? "inner_warp"
                        : std::string_view(op.instance) == "warp1" ||
                                std::string_view(op.instance) == "warp"
@@ -156,29 +149,39 @@ void verify_export(size_t preset, int channel_tolerance,
           const auto &clock = own.resources.template get<Resource::KEY>();
           if (id == "warp.affine.v4") {
             if constexpr (requires { clock.rotation; })
-              mutable_state<In::Op::AffineClockState>(program, index) = {
-                  clock.phase, clock.rotation};
+              shader_chain_tests::state_as<In::Op::AffineClockState>(
+                  program, index) = {clock.phase, clock.rotation};
+          } else if (id == "warp.vector-noise.v2") {
+            if constexpr (requires { clock.noise; }) {
+              auto &state =
+                  shader_chain_tests::state_as<In::Op::NoisePhaseState>(program,
+                                                                        index);
+              state.phase = clock.phase;
+              state.noise = *clock.noise;
+            }
           } else
-            mutable_state<In::Op::WarpPhaseState>(program, index).phase =
-                clock.phase;
+            shader_chain_tests::state_as<In::Op::WarpPhaseState>(program, index)
+                .phase = clock.phase;
         }
       });
     } else if (id == "sphere.displace.curl.v2" ||
                id == "sphere.displace.direct.v2") {
       if constexpr (!std::is_void_v<
                         typename FX::Params::template Family<"surface">>) {
-        auto &state = mutable_state<In::Op::NoisePhaseState>(program, index);
+        auto &state = shader_chain_tests::state_as<In::Op::NoisePhaseState>(
+            program, index);
         const auto &resource = own.resources.template get<"surface">();
         state.phase = resource.phase;
         state.noise = *resource.noise;
       }
-    } else if (id == "sample.grid.v4") {
-      auto &state = mutable_state<In::Op::SourceClockState>(program, index);
+    } else if (id == "sample.grid.v4" || id == "sample.twin-wave.v3") {
+      auto &state = shader_chain_tests::state_as<In::Op::SourceClockState>(
+          program, index);
       const auto &resource = own.resources.template get<"source">();
       state = {resource.primary, resource.secondary, resource.angle};
     } else if (id == "colorize.generated-palette.v4") {
-      mutable_state<In::Op::ColorClockState>(program, index).oscillation_phase =
-          own.palette_oscillation_phase;
+      shader_chain_tests::state_as<In::Op::ColorClockState>(program, index)
+          .oscillation_phase = own.palette_oscillation_phase;
     }
   }
   In::FrameContext context;
@@ -192,7 +195,9 @@ void verify_export(size_t preset, int channel_tolerance,
         if (std::string_view(program.ops()[index].instance) ==
             Resource::KEY.view()) {
           const auto key =
-              mutable_state<In::Op::ModulationClockState>(program, index).key;
+              shader_chain_tests::state_as<In::Op::ModulationClockState>(
+                  program, index)
+                  .key;
           endpoints.push_back(
               {key, own.resources.template get<Resource::KEY>().modulation});
         }
@@ -215,10 +220,10 @@ void verify_export(size_t preset, int channel_tolerance,
     program.bind_temporal_storage(blocks->history, blocks->column);
     program.prepare(context);
     program.capture_history();
-    auto &twist = mutable_state<In::Op::TwistOrbitState>(program, 0);
+    auto &twist =
+        shader_chain_tests::state_as<In::Op::TwistOrbitState>(program, 0);
     const auto &twist_params =
-        *reinterpret_cast<const In::Op::TwistChainParams *>(
-            program.param_block(0));
+        shader_chain_tests::param_as<In::Op::TwistChainParams>(program, 0);
     In::Op::LensTwist::advance(twist, twist_params);
     ComposedFrameWhiteBox::advance(effect);
     auto next = ComposedFrameWhiteBox::frame(effect);

@@ -184,7 +184,7 @@ inline void test_ring_outside_band_returns_sentinel() {
   SDF::Ring ring(b, 1.0f, 0.1f);
 
   auto r = SDF::distance_of(ring, math::Vector(0, 1, 0));
-  HS_EXPECT_TRUE(r.dist > 50.0f);
+  HS_EXPECT_EQ(r.dist, SDF::FAR_SENTINEL);
 }
 
 /** @brief Verifies a point just past the band edge trips the sentinel. */
@@ -196,7 +196,7 @@ inline void test_ring_just_outside_band() {
   float off = 0.07f;
   math::Vector p(std::cos(off), std::sin(off), 0.0f);
   auto r = SDF::distance_of(ring, p);
-  HS_EXPECT_TRUE(r.dist > 50.0f);
+  HS_EXPECT_EQ(r.dist, SDF::FAR_SENTINEL);
 }
 
 /**
@@ -275,7 +275,6 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
       b, 1.0f, thickness, [shift](float) { return shift; },
       /*max_distortion=*/shift, /*phase=*/0.0f);
   auto rs = SDF::distance_of(shifted, p);
-  HS_EXPECT_TRUE(rs.dist < 50.0f);
   HS_EXPECT_NEAR(rs.raw_dist, 0.0f, 5e-4f);
   HS_EXPECT_NEAR(rs.dist, -thickness, 5e-4f);
   HS_EXPECT_NEAR(rs.t, 0.0f, 5e-4f);
@@ -504,12 +503,12 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
 
   float below = TARGET - 0.03f - THICKNESS - 1e-3f;
   float above = TARGET + 0.18f + THICKNESS + 1e-3f;
-  HS_EXPECT_GT(
+  HS_EXPECT_GE(
       SDF::distance_of(ring, math::Vector(sinf(below), cosf(below), 0.0f)).dist,
-      50.0f);
-  HS_EXPECT_GT(
+      SDF::FAR_SENTINEL - THICKNESS);
+  HS_EXPECT_GE(
       SDF::distance_of(ring, math::Vector(sinf(above), cosf(above), 0.0f)).dist,
-      50.0f);
+      SDF::FAR_SENTINEL - THICKNESS);
 }
 
 /**
@@ -537,7 +536,7 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
   const float polar = TARGET + SPIKE - 0.05f;
   math::Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
                  sinf(azimuth) * sinf(polar));
-  HS_EXPECT_GT(SDF::distance_of(ring, p).dist, 50.0f);
+  HS_EXPECT_GE(SDF::distance_of(ring, p).dist, SDF::FAR_SENTINEL - THICKNESS);
 
   math::Basis poly_basis = math::make_basis(math::Quaternion(), p);
   SDF::PlanarPolygon poly(poly_basis, /*radius=*/0.3f / (math::PI_F / 2.0f),
@@ -976,25 +975,6 @@ inline void test_inverted_fill_stays_centered() {
   math::Vector near_center(std::sin(0.1f), std::cos(0.1f), 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(fl, near_far).dist < 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(fl, near_center).dist > 0.0f);
-}
-
-/**
- * @brief Verifies an inverted shape scans the whole sphere: full row bounds and
- *        a full-row (unbounded) interval request per scanline.
- */
-inline void test_inverted_fill_scans_full_sphere() {
-  math::Basis b = equator_basis();
-  auto res = math::get_antipode(b, 1.5f);
-
-  SDF::SphericalPolygon sp(res.first, res.second, 5, 0.0f, /*invert=*/true);
-  auto bounds = sp.get_vertical_bounds<144>();
-  HS_EXPECT_EQ(bounds.y_min, 0);
-  HS_EXPECT_EQ(bounds.y_max, 143);
-  int spans = 0;
-  bool handled =
-      sp.get_horizontal_intervals<288, 144>(72, [&](float, float) { ++spans; });
-  HS_EXPECT_TRUE(!handled);
-  HS_EXPECT_EQ(spans, 0);
 }
 
 // ============================================================================

@@ -71,8 +71,7 @@ death_construct_opleg(const Spec &spec,
   Arena arena(buffer, sizeof(buffer));
   PolyMesh seed;
   Animation::OpLeg leg(seed, spec, arena, death_opleg_draw, handoff);
-  if (leg.landing().faces == opaque<size_t>(42))
-    std::printf("x");
+  (void)leg.landing();
 }
 
 /**
@@ -158,8 +157,7 @@ inline void death_set_borrowed(std::initializer_list<uint8_t> counts,
   MeshState m;
   m.set_borrowed(ArenaSpan<uint8_t>(count_list), ArenaSpan<uint16_t>(faces),
                  offset_span, {}, opaque(topology_key));
-  if (m.num_faces() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  (void)m.num_faces();
 }
 
 inline void run_invalid_recipe_step(const Solids::OpStep &step) {

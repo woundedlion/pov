@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @brief Optional device clipping and endpoint scenarios. */
+struct MobiusRingsRenderOptions {
+  int segment = -1;
+  bool hold = false;
+  bool wrap = false;
+  int count_change = 0;
+};
+
 /** @file
  * @brief MobiusRings white-box cases. */
 
@@ -36,16 +44,12 @@ struct MobiusRingsWhiteBox {
    * @param t Frozen frame fraction.
    * @param displacement Reference shift in pixels.
    * @param direction Signed motion direction.
-   * @param clipped Whether to use the device segment clip.
-   * @param hold Whether history starts at the current endpoint.
-   * @param wrap Whether latitude scrolling crosses its periodic cut.
-   * @param count_change Positive births or negative retires latitude curves.
+   * @param options Device clipping and endpoint scenario.
    * @return Linear framebuffer luminance. */
   template <int W, int H>
   static std::vector<float> render(bool timed, float t, float displacement,
-                                   float direction, bool clipped = false,
-                                   bool hold = false, bool wrap = false,
-                                   int count_change = 0) {
+                                   float direction,
+                                   MobiusRingsRenderOptions options = {}) {
     reset_globals();
     Spacetime::geometry_counters = {};
     pin_frame_clock(0);
@@ -64,26 +68,28 @@ struct MobiusRingsWhiteBox {
         math::make_rotation(math::Z_AXIS, -0.13f + direction * 0.025f);
     start.rings = end.rings = 2.5f;
     start.lines = end.lines = 2.5f;
-    start.phase = wrap ? (direction > 0 ? 0.995f : 0.005f) : 0.13f;
-    end.phase = wrap ? (direction > 0 ? 0.005f : 0.995f) : 0.14f;
+    start.phase = options.wrap ? (direction > 0 ? 0.995f : 0.005f) : 0.13f;
+    end.phase = options.wrap ? (direction > 0 ? 0.005f : 0.995f) : 0.14f;
     start.alpha = 0.4f;
     end.alpha = 0.45f;
-    if (count_change != 0) {
+    if (options.count_change != 0) {
       start.phase = end.phase;
-      if (count_change > 0)
+      if (options.count_change > 0)
         start.rings = 0.0f;
       else
         end.rings = 0.0f;
     }
-    if (hold)
+    if (options.hold)
       start = end;
     const auto first_pose = math::make_rotation(math::Y_AXIS, 0.017f);
     const auto last_pose =
-        hold ? first_pose
-             : math::make_rotation(math::Y_AXIS, 0.017f + direction * 0.02f);
-    if (clipped) {
-      const auto map = pov::segment_map(1, H * 2, 4);
-      const auto clip = pov::segment_clip(map, true, H * 2, 4, W);
+        options.hold
+            ? first_pose
+            : math::make_rotation(math::Y_AXIS, 0.017f + direction * 0.02f);
+    if (options.segment >= 0) {
+      const auto map = pov::segment_map(options.segment % 4, H * 2, 4);
+      const auto clip =
+          pov::segment_clip(map, options.segment < 4, H * 2, 4, W);
       fx.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
     }
     if (timed) {
@@ -162,8 +168,8 @@ struct MobiusRingsWhiteBox {
             f.color.alpha *= std::min(1.0f, 2.5f - i) *
                              hs::lerp(start.alpha, end.alpha, t) *
                              mask(v, north) * mask(v, south);
-            if (axis == 0 && count_change != 0)
-              f.color.alpha *= count_change > 0 ? t : 1.0f - t;
+            if (axis == 0 && options.count_change != 0)
+              f.color.alpha *= options.count_change > 0 ? t : 1.0f - t;
           };
           Plot::GeometryCallback geometry;
           geometry.chained = true;
@@ -197,14 +203,12 @@ struct MobiusRingsWhiteBox {
       HS_CONTEXT("direction", static_cast<long long>(direction));
       seam_compare_render<96, 20>(
           [&](bool timed, float t, float shift) {
-            return render<96, 20>(timed, t, shift, direction, false, false,
-                                  true);
+            return render<96, 20>(timed, t, shift, direction, {.wrap = true});
           },
           "MobiusRings wrap 96x20");
       seam_compare_render<288, 144>(
           [&](bool timed, float t, float shift) {
-            return render<288, 144>(timed, t, shift, direction, false, false,
-                                    true);
+            return render<288, 144>(timed, t, shift, direction, {.wrap = true});
           },
           "MobiusRings wrap 288x144");
     }
@@ -212,38 +216,52 @@ struct MobiusRingsWhiteBox {
       HS_CONTEXT("count_change", count_change);
       seam_compare_render<96, 20>(
           [&](bool timed, float t, float shift) {
-            return render<96, 20>(timed, t, shift, 1.0f, false, false, false,
-                                  count_change);
+            return render<96, 20>(timed, t, shift, 1.0f,
+                                  {.count_change = count_change});
           },
           "MobiusRings count change 96x20");
       seam_compare_render<288, 144>(
           [&](bool timed, float t, float shift) {
-            return render<288, 144>(timed, t, shift, 1.0f, false, false, false,
-                                    count_change);
+            return render<288, 144>(timed, t, shift, 1.0f,
+                                    {.count_change = count_change});
           },
           "MobiusRings count change 288x144");
     }
+  }
+
+  /** @brief Device clips preserve displayed pixels within the work budget. */
+  static void check_device_clip_work() {
     const auto full = render<288, 144>(true, 1.0f, 0.0f, 1.0f);
-    const auto clipped = render<288, 144>(true, 1.0f, 0.0f, 1.0f, true);
-    const auto work = Spacetime::geometry_counters;
-    constexpr unsigned VERTICES = 6 * MobiusRings<288, 144>::CURVE_SIDES;
-    std::printf(
-        "  MobiusRings device clip: callback evaluations=%u vertices=%u ratio=%.3f columns=%u culled=%u\n",
-        VERTICES + work.endpoint_evaluations + work.midpoint_evaluations,
-        VERTICES,
-        float(VERTICES + work.endpoint_evaluations +
-              work.midpoint_evaluations) /
+    for (int segment = 0; segment < 8; ++segment) {
+      HS_CONTEXT("segment", segment);
+      const auto clipped =
+          render<288, 144>(true, 1.0f, 0.0f, 1.0f, {.segment = segment});
+      if (segment == 1) {
+        const auto work = Spacetime::geometry_counters;
+        constexpr unsigned VERTICES = 6 * MobiusRings<288, 144>::CURVE_SIDES;
+        std::printf(
+            "  MobiusRings device clip: callback evaluations=%u vertices=%u ratio=%.3f columns=%u culled=%u\n",
+            VERTICES + work.endpoint_evaluations + work.midpoint_evaluations,
             VERTICES,
-        work.columns_visited, work.column_edges_culled);
-    HS_EXPECT_LE(work.endpoint_evaluations + work.midpoint_evaluations,
-                 2 * VERTICES);
-    const auto map = pov::segment_map(1, 288, 4);
-    const auto clip = pov::segment_clip(map, true, 288, 4, 288);
-    for (int y = clip.y0; y < clip.y1; ++y)
-      for (int x = clip.x0; x < clip.x1; ++x)
-        HS_EXPECT_NEAR(full[y * 288 + x], clipped[y * 288 + x], 1e-5f);
-    const auto first = render<96, 20>(true, 1.0f, 0.0f, 1.0f, false, true);
-    const auto frozen = render<96, 20>(false, 0.0f, 0.0f, 1.0f, false, true);
+            float(VERTICES + work.endpoint_evaluations +
+                  work.midpoint_evaluations) /
+                VERTICES,
+            work.columns_visited, work.column_edges_culled);
+        HS_EXPECT_LE(work.endpoint_evaluations + work.midpoint_evaluations,
+                     2 * VERTICES);
+      }
+      const auto map = pov::segment_map(segment % 4, 288, 4);
+      const auto clip = pov::segment_clip(map, segment < 4, 288, 4, 288);
+      for (int y = clip.y0; y < clip.y1; ++y)
+        for (int x = clip.x0; x < clip.x1; ++x)
+          HS_EXPECT_NEAR(full[y * 288 + x], clipped[y * 288 + x], 1e-5f);
+    }
+  }
+
+  /** @brief The first frame holds the current endpoint. */
+  static void check_first_frame_hold() {
+    const auto first = render<96, 20>(true, 1.0f, 0.0f, 1.0f, {.hold = true});
+    const auto frozen = render<96, 20>(false, 0.0f, 0.0f, 1.0f, {.hold = true});
     float error = 0;
     int lit = 0;
     for (size_t i = 0; i < first.size(); ++i) {

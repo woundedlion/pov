@@ -6,6 +6,38 @@
  * @brief Pullback palette, Lab cache and modulation finishing tests.
  */
 
+/** @brief Owns temporal palette endpoints and optional extra arena storage. */
+template <size_t Extra = 0> struct TemporalPalettes {
+  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes() + Extra>
+      storage{};
+  Arena arena{storage.data(), storage.size()};
+  BakedPaletteStorage a, b;
+
+  template <typename A, typename B> void bake(const A &from, const B &to) {
+    a.bake(arena, from);
+    b.bake(arena, to);
+  }
+  template <typename Frame> void bind(Frame &frame) const {
+    frame.palette = &b.view();
+    frame.temporal.palette = &a.view();
+  }
+};
+
+/** @brief Prepares sine modulation endpoints at three-quarter and quarter turns. */
+inline void
+prepare_sine_clock_pair(Pullback::Modulation::Resources<false> &previous,
+                        Pullback::Modulation::Resources<false> &current) {
+  Pullback::Modulation::Config config;
+  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.sine.frequency = 0.0f;
+  auto clock = Pullback::Modulation::init(config);
+  clock.phase.phase_turns = 0.75f;
+  previous.prepare(config, clock);
+  clock.phase.phase_turns = 0.25f;
+  current.prepare(config, clock);
+}
+
 /** @brief Palette and modulation endpoints for color-stage tests. */
 struct PaletteFrame {
   const BakedPalette *palette = nullptr;
@@ -145,11 +177,13 @@ inline void test_pullback_palette_lab_nodes() {
   translucent.bake(arena, ConstantPalette{Color4(Pixel(123, 456, 789), 0.6f)});
   next.bake(ramp.view(), b.view());
   for (float value : {0.183f, 0.677f}) {
-    const float POSITION = value * 63.0f;
+    const float POSITION =
+        value * static_cast<float>(PaletteLabLut::VALUES - 1);
     const int INDEX = static_cast<int>(POSITION);
     const float WEIGHT = POSITION - INDEX;
     const auto node = [&](int index, float fraction) {
-      const float COORDINATE = float(index) / 63.0f;
+      const float COORDINATE =
+          float(index) / static_cast<float>(PaletteLabLut::VALUES - 1);
       const Pixel RGB =
           ramp.view()
               .get_color(COORDINATE)
@@ -160,18 +194,21 @@ inline void test_pullback_palette_lab_nodes() {
     const auto A = node(INDEX, 0.0f), B = node(INDEX + 1, 0.0f);
     const auto C = node(INDEX, 0.5f), D = node(INDEX + 1, 0.5f);
     const auto ACTUAL = PaletteLabLut::sample(next.view(0.17f), value);
-    HS_EXPECT_NEAR(
-        ACTUAL.L,
-        hs::lerp(hs::lerp(A.L, B.L, WEIGHT), hs::lerp(C.L, D.L, WEIGHT), 0.34f),
-        1e-7f);
-    HS_EXPECT_NEAR(
-        ACTUAL.a,
-        hs::lerp(hs::lerp(A.a, B.a, WEIGHT), hs::lerp(C.a, D.a, WEIGHT), 0.34f),
-        1e-7f);
-    HS_EXPECT_NEAR(
-        ACTUAL.b,
-        hs::lerp(hs::lerp(A.b, B.b, WEIGHT), hs::lerp(C.b, D.b, WEIGHT), 0.34f),
-        1e-7f);
+    HS_EXPECT_NEAR(ACTUAL.L,
+                   hs::lerp(hs::lerp(A.L, B.L, WEIGHT),
+                            hs::lerp(C.L, D.L, WEIGHT),
+                            (0.17f * (PaletteLabLut::TIMES - 1))),
+                   1e-7f);
+    HS_EXPECT_NEAR(ACTUAL.a,
+                   hs::lerp(hs::lerp(A.a, B.a, WEIGHT),
+                            hs::lerp(C.a, D.a, WEIGHT),
+                            (0.17f * (PaletteLabLut::TIMES - 1))),
+                   1e-7f);
+    HS_EXPECT_NEAR(ACTUAL.b,
+                   hs::lerp(hs::lerp(A.b, B.b, WEIGHT),
+                            hs::lerp(C.b, D.b, WEIGHT),
+                            (0.17f * (PaletteLabLut::TIMES - 1))),
+                   1e-7f);
   }
   next.bake(ramp.view(), translucent.view());
   HS_EXPECT_FALSE(next.active);
@@ -337,18 +374,17 @@ inline void test_pullback_fused_rgb_carrier_finish() {
   using Pipeline = Pullback::Pipeline<
       PaletteBinding, PaletteSampleStage, Stage::Colorize<Policy>,
       Stage::Modulate<Color::Modulate<PaletteLayerProvider>>>;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
-  Arena arena(bytes.data(), bytes.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, ConstantPalette{Color4(Pixel(12000, 13000, 14000), 1.0f)});
-  b.bake(arena, ConstantPalette{Color4(Pixel(22000, 23000, 24000), 1.0f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{Color4(Pixel(12000, 13000, 14000), 1.0f)},
+                ConstantPalette{Color4(Pixel(22000, 23000, 24000), 1.0f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   PaletteLabLut cache;
   cache.bake(a.view(), b.view());
   PaletteRgbHueLut rgb;
   rgb.bake(cache);
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   frame.lab = &cache;
   Modulation::Prepared previous{}, current{};
   const auto SOURCE = [](const Modulation::Prepared &p,
@@ -417,18 +453,17 @@ inline void test_pullback_cached_phase_finish() {
   using Core =
       Detail::PipelineCore<true, PaletteBinding, typename Pipeline::NodeList>;
   static_assert(Core::has_direct_final_color());
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
-  Arena arena(bytes.data(), bytes.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, ConstantPalette{Color4(Pixel(12000, 8000, 4000), 1.0f)});
-  b.bake(arena, ConstantPalette{Color4(Pixel(7000, 15000, 19000), 1.0f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{Color4(Pixel(12000, 8000, 4000), 1.0f)},
+                ConstantPalette{Color4(Pixel(7000, 15000, 19000), 1.0f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   PaletteLabLut cache;
   cache.bake(a.view(), b.view());
   PaletteRgbHueLut rgb;
   rgb.bake(cache);
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   frame.lab = &cache;
   Color::PhaseModulationState modulation;
   modulation.source = Pattern::SourceKind::DISPLACEMENT;
@@ -562,22 +597,25 @@ inline void test_pullback_palette_lab_qualification() {
   HS_EXPECT_LE(MEAN, Policy::METRICS[1].limit);
 }
 
+/** @brief Displacement source selection for modulation qualification. */
+struct DisplacementLayerProvider : PaletteLayerProvider {
+  static Pullback::Color::ModulationState prepare(const PaletteFrame &frame) {
+    auto prepared = PaletteLayerProvider::prepare(frame);
+    prepared.source = Pattern::SourceKind::DISPLACEMENT;
+    return prepared;
+  }
+};
+
+enum class Cycle { TRIADIC, COMPLEMENTARY, ANALOGOUS };
+
 /** @brief Prepared hue modulation meets channel limits across cycling palettes. */
 inline void test_pullback_modulation_lut_qualification() {
   using namespace Pullback;
-  struct Provider : PaletteLayerProvider {
-    static Color::ModulationState prepare(const PaletteFrame &frame) {
-      auto prepared = PaletteLayerProvider::prepare(frame);
-      prepared.source = Pattern::SourceKind::DISPLACEMENT;
-      return prepared;
-    }
-  };
-  using Layer = Color::Modulate<Provider>;
+  using Layer = Color::Modulate<DisplacementLayerProvider>;
   std::array<uint8_t, GeneratedPaletteBank::required_arena_bytes()> buffer{};
   Arena arena(buffer.data(), buffer.size());
   GeneratedPaletteBank bank;
   bank.init(arena, 0.788f, math::ease_in_out_sin);
-  enum class Cycle { TRIADIC, COMPLEMENTARY, ANALOGOUS };
   std::array<Pixel, HueRotationLutView::SIZE> table;
   HueRotationGamutMask mask;
   PaletteFrame frame;
@@ -647,11 +685,11 @@ inline void test_pullback_shared_lab_dispatch() {
                                     Stage::Modulate<CountingPhasePolicy>>;
   using CustomCore =
       Detail::PipelineCore<true, PaletteBinding, typename Custom::NodeList>;
-  std::array<uint8_t, 3 * BakedPalette::required_arena_bytes()> buffer{};
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 1.0f)});
-  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 1.0f)});
+  TemporalPalettes<BakedPalette::required_arena_bytes()> palettes;
+  palettes.bake(ConstantPalette{Color4(Pixel(1000, 2000, 3000), 1.0f)},
+                ConstantPalette{Color4(Pixel(9000, 6000, 1000), 1.0f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   PaletteLabLut cache;
   cache.bake(a.view(), b.view());
   Color::PhaseModulationState layer;
@@ -660,8 +698,7 @@ inline void test_pullback_shared_lab_dispatch() {
   layer.enabled = true;
   layer.ready = true;
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   frame.phase = &layer;
   frame.lab = &cache;
   frame.temporal.fraction = 0.37f;
@@ -676,6 +713,8 @@ inline void test_pullback_shared_lab_dispatch() {
                     0.7f,
                     {0.8f, 0.9f, 1.0f},
                     false};
+  const auto STALE_RGB = cache.view(0.0f);
+  dirty.cached_rgb = &STALE_RGB;
   HS_EXPECT_TRUE(CountingLabPalette::Base::apply_shared_base(
       DIRECT_FIELD, frame, DIRECT_PREPARED, dirty));
   HS_EXPECT_EQ(dirty.color.color, Pixel(0, 0, 0));
@@ -687,6 +726,7 @@ inline void test_pullback_shared_lab_dispatch() {
   HS_EXPECT_EQ(dirty.field.sphere, DIRECT_FIELD.sphere);
   HS_EXPECT_EQ(dirty.field.path_length, DIRECT_FIELD.path_length);
   HS_EXPECT_TRUE(dirty.hue_rotation == nullptr);
+  HS_EXPECT_TRUE(dirty.cached_rgb == nullptr);
   HS_EXPECT_EQ(dirty.palette_coordinate, 0.5f);
   HS_EXPECT_EQ(dirty.pending_hue, 0.0f);
   HS_EXPECT_EQ(dirty.brightness_gain, 1.0f);
@@ -740,7 +780,7 @@ inline void test_pullback_shared_lab_dispatch() {
   HS_EXPECT_EQ(CountingLabPalette::pair_calls, 1);
   HS_EXPECT_EQ(CUSTOM.color.color.r, 5123);
   BakedPaletteStorage translucent;
-  translucent.bake(arena,
+  translucent.bake(palettes.arena,
                    ConstantPalette{Color4(Pixel(4000, 5000, 6000), 0.6f)});
   cache.bake(a.view(), translucent.view());
   frame.palette = &translucent.view();
@@ -773,18 +813,17 @@ inline void test_pullback_phase_tail_dispatch() {
       Detail::PipelineCore<true, PaletteBinding, typename Phase::NodeList>;
   using FallbackCore =
       Detail::PipelineCore<true, PaletteBinding, typename Fallback::NodeList>;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)});
-  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)},
+                ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   Color::PhaseModulationState layer;
   layer.source = Pattern::SourceKind::DISPLACEMENT;
   layer.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.2f};
   layer.enabled = true;
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   frame.phase = &layer;
   frame.mechanic.amount = 0.0f;
   for (bool ready : {false, true})
@@ -847,14 +886,13 @@ inline void test_pullback_paired_color_dispatch() {
                                     Stage::Colorize<CountingPairedPalette>>;
   using Fallback = Pullback::Pipeline<PaletteBinding, PaletteSampleStage,
                                       Stage::Colorize<CountingEndpointPalette>>;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)});
-  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)},
+                ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   for (float fraction : {0.0f, 0.25f, 1.0f}) {
     frame.temporal.fraction = fraction;
     CountingPairedPalette::pairs = 0;
@@ -886,15 +924,13 @@ struct CoordinatePalette {
 inline void test_pullback_paired_palette_controls() {
   using namespace Pullback;
   using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, CoordinatePalette{0.2f});
-  b.bake(arena, CoordinatePalette{0.6f});
+  TemporalPalettes<> palettes;
+  palettes.bake(CoordinatePalette{0.2f}, CoordinatePalette{0.6f});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   std::array<Pixel, 2> hue{};
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   auto prepared = Policy::prepare(frame);
   prepared.current.mapping_frequency = 2.0f;
   prepared.current.mapping_offset = 0.13f;
@@ -927,14 +963,13 @@ inline void test_pullback_paired_palette_controls() {
 /** @brief The complete color suffix interpolates immutable palette endpoints. */
 inline void test_pullback_temporal_palette() {
   using namespace Pullback;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)});
-  b.bake(arena, ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)},
+                ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   frame.mechanic.amount = 0.0f;
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
@@ -950,25 +985,16 @@ inline void test_pullback_temporal_palette() {
 /** @brief Opacity modulates each endpoint before final color interpolation. */
 inline void test_pullback_modulation_temporal_alpha() {
   using namespace Pullback;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage a, b;
   const Pixel RGB(1234, 4567, 8910);
-  a.bake(arena, ConstantPalette{Color4(RGB, 0.2f)});
-  b.bake(arena, ConstantPalette{Color4(RGB, 0.6f)});
-  Modulation::Config config;
-  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
-  config.evaluation = Pattern::Evaluation::DIRECT;
-  config.sine.frequency = 0.0f;
-  auto clock = Modulation::init(config);
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{Color4(RGB, 0.2f)},
+                ConstantPalette{Color4(RGB, 0.6f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   Modulation::Resources<false> previous, current;
-  clock.phase.phase_turns = 0.75f;
-  previous.prepare(config, clock);
-  clock.phase.phase_turns = 0.25f;
-  current.prepare(config, clock);
+  prepare_sine_clock_pair(previous, current);
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   frame.modulation = &current.prepared;
   frame.previous_modulation = &previous.prepared;
   frame.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
@@ -1198,26 +1224,16 @@ inline void test_pullback_temporal_composed_modulations() {
       Stage::Colorize<Color::GeneratedPalette<TemporalPaletteProvider>>,
       Stage::Modulate<Color::Modulate<PaletteLayerProvider>>,
       Stage::Modulate<Color::Modulate<PaletteHueLayerProvider>>>;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> buffer{};
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage a, b;
   const Color4 START(Pixel(65535, 0, 0), 0.2f);
   const Color4 END(Pixel(0, 0, 65535), 0.6f);
-  a.bake(arena, ConstantPalette{START});
-  b.bake(arena, ConstantPalette{END});
-  Modulation::Config config;
-  config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
-  config.evaluation = Pattern::Evaluation::DIRECT;
-  config.sine.frequency = 0.0f;
-  auto clock = Modulation::init(config);
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{START}, ConstantPalette{END});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   Modulation::Resources<false> previous, current;
-  clock.phase.phase_turns = 0.75f;
-  previous.prepare(config, clock);
-  clock.phase.phase_turns = 0.25f;
-  current.prepare(config, clock);
+  prepare_sine_clock_pair(previous, current);
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   frame.modulation = &current.prepared;
   frame.previous_modulation = &previous.prepared;
   frame.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 0.4f};
@@ -1331,14 +1347,13 @@ inline void test_pullback_fused_modulation_endpoints() {
     HS_EXPECT_EQ(actual, expected);
 #endif
   };
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
-  Arena arena(bytes.data(), bytes.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, CoordinatePalette{0.2f});
-  b.bake(arena, ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(CoordinatePalette{0.2f},
+                ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
   struct CanonicalPalette : Policy {};
   using Actual = TemporalPalettePipeline;
@@ -1485,18 +1500,19 @@ inline void test_pullback_unit_hue_blending() {
 inline void test_pullback_fused_cached_modulation() {
   using namespace Pullback;
   using Policy = Color::GeneratedPalette<LabPaletteProvider>;
-  std::array<uint8_t, 3 * BakedPalette::required_arena_bytes()> buffer{};
-  Arena arena(buffer.data(), buffer.size());
-  BakedPaletteStorage a, b, translucent;
-  a.bake(arena, CoordinatePalette{1.0f});
-  b.bake(arena, ConstantPalette{Color4(Pixel(32000, 44000, 13000), 1.0f)});
+  TemporalPalettes<BakedPalette::required_arena_bytes()> palettes;
+  palettes.bake(CoordinatePalette{1.0f},
+                ConstantPalette{Color4(Pixel(32000, 44000, 13000), 1.0f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
+  auto &arena = palettes.arena;
+  BakedPaletteStorage translucent;
   translucent.bake(arena,
                    ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.6f)});
   PaletteLabLut cache;
   cache.bake(a.view(), b.view());
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   Color::ModulationState modulation{
       nullptr,
       nullptr,
@@ -1558,11 +1574,11 @@ inline void test_pullback_fused_cached_modulation() {
 inline void test_pullback_fused_lab_direct_fallback() {
   using namespace Pullback;
   using Policy = Color::GeneratedPalette<LabPaletteProvider>;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
-  Arena arena(bytes.data(), bytes.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, ConstantPalette{Color4(Pixel(1626, 1306, 43097), 1.0f)});
-  b.bake(arena, ConstantPalette{Color4(Pixel(1451, 1516, 42130), 1.0f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{Color4(Pixel(1626, 1306, 43097), 1.0f)},
+                ConstantPalette{Color4(Pixel(1451, 1516, 42130), 1.0f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   PaletteLabLut cache;
   cache.active = true;
   std::array<Pixel, HueRotationLutView::SIZE> hue;
@@ -1617,15 +1633,14 @@ inline void test_pullback_fused_lab_current_endpoint() {
   using Pipeline = Pullback::Pipeline<
       PaletteBinding, PaletteSampleStage, Stage::Colorize<Policy>,
       Stage::Modulate<Color::Modulate<PaletteLayerProvider>>>;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
-  Arena arena(bytes.data(), bytes.size());
-  BakedPaletteStorage a, b;
-  a.bake(arena, ConstantPalette{Color4(Pixel(10000, 40000, 20000), 1.0f)});
-  b.bake(arena, ConstantPalette{Color4(Pixel(1451, 1516, 42130), 1.0f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(ConstantPalette{Color4(Pixel(10000, 40000, 20000), 1.0f)},
+                ConstantPalette{Color4(Pixel(1451, 1516, 42130), 1.0f)});
+  [[maybe_unused]] auto &a = palettes.a;
+  [[maybe_unused]] auto &b = palettes.b;
   PaletteLabLut cache;
   PaletteFrame frame;
-  frame.palette = &b.view();
-  frame.temporal.palette = &a.view();
+  palettes.bind(frame);
   frame.temporal.fraction = 1.0f;
   frame.lab = &cache;
   frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
@@ -1799,14 +1814,13 @@ inline void test_pullback_prepared_cube_pair() {
   a.cube = {ac.data(), true};
   b.cube = {bc.data(), true};
   a.evaluate = b.evaluate = Modulation::sample_cube;
-  std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()> bytes{};
-  Arena arena(bytes.data(), bytes.size());
-  BakedPaletteStorage from, to;
-  from.bake(arena, CoordinatePalette{0.2f});
-  to.bake(arena, ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
+  TemporalPalettes<> palettes;
+  palettes.bake(CoordinatePalette{0.2f},
+                ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
+  [[maybe_unused]] auto &from = palettes.a;
+  [[maybe_unused]] auto &to = palettes.b;
   PaletteFrame frame;
-  frame.palette = &to.view();
-  frame.temporal.palette = &from.view();
+  palettes.bind(frame);
   frame.previous_modulation = &a;
   frame.modulation = &b;
   frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.5958333f};

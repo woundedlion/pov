@@ -3,15 +3,21 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-inline void test_sparse_parameter_specs() {
-  static constexpr const char *LABELS[] = {"Zero", "One", "Six"};
-  static constexpr const int64_t IDS[] = {0, 1, 6};
-  enum class SparseMode : uint8_t { ZERO = 0, ONE = 1, SIX = 6 };
-  ParamSpec<SparseMode> spec{.min = 0,
-                             .max = 6,
-                             .options = LABELS,
-                             .option_count = 3,
-                             .option_values = IDS};
+namespace sparse_parameter_tests {
+inline constexpr const char *LABELS[] = {"Zero", "One", "Six"};
+inline constexpr const int64_t IDS[] = {0, 1, 6};
+enum class SparseMode : uint8_t { ZERO = 0, ONE = 1, SIX = 6 };
+inline constexpr ParamSpec<SparseMode> SPARSE_SPEC{.min = 0,
+                                                   .max = 6,
+                                                   .options = LABELS,
+                                                   .option_count = 3,
+                                                   .option_values = IDS};
+} // namespace sparse_parameter_tests
+
+/** @brief Sparse fields admit only the enumerated IDs. */
+inline void test_sparse_parameter_fields() {
+  using namespace sparse_parameter_tests;
+  const auto spec = SPARSE_SPEC;
   struct SparseParams {
     SparseMode mode;
   };
@@ -23,21 +29,37 @@ inline void test_sparse_parameter_specs() {
   for (int64_t id : {2, 3, 4, 5, 7})
     HS_EXPECT_FALSE(Control::valid_fields(
         SparseParams{static_cast<SparseMode>(id)}, fields));
+}
+
+/** @brief Malformed sparse schemas reject their option values. */
+inline void test_sparse_parameter_schema_rejections() {
+  using namespace sparse_parameter_tests;
+  const auto spec = SPARSE_SPEC;
   HS_EXPECT_TRUE(spec.valid_option_values(SparseMode::SIX));
   HS_EXPECT_FALSE(spec.valid_option_values(static_cast<SparseMode>(2)));
-  auto invalid = spec;
-  invalid.option_count = 2;
-  HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
-  invalid = spec;
-  invalid.options = nullptr;
-  HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
   static constexpr const int64_t DUPLICATE[] = {0, 6, 6};
-  invalid = spec;
-  invalid.option_values = DUPLICATE;
-  HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
   static constexpr const int64_t OUTSIDE[] = {0, 6, 7};
-  invalid.option_values = OUTSIDE;
-  HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
+  static constexpr const int64_t MISSING_MAX[] = {0, 1, 5};
+  {
+    auto invalid = spec;
+    invalid.option_count = 2;
+    HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
+  }
+  {
+    auto invalid = spec;
+    invalid.options = nullptr;
+    HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
+  }
+  {
+    auto invalid = spec;
+    invalid.option_values = DUPLICATE;
+    HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
+  }
+  {
+    auto invalid = spec;
+    invalid.option_values = OUTSIDE;
+    HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
+  }
   static constexpr const int64_t BELOW[] = {-1, 0, 6};
   ParamSpec<int8_t> signed_spec{.min = 0,
                                 .max = 6,
@@ -45,14 +67,23 @@ inline void test_sparse_parameter_specs() {
                                 .option_count = 3,
                                 .option_values = IDS};
   HS_EXPECT_TRUE(signed_spec.valid_option_values(0));
-  signed_spec.option_values = BELOW;
-  HS_EXPECT_FALSE(signed_spec.valid_option_values(0));
+  const ParamSpec<int8_t> below{.min = 0,
+                                .max = 6,
+                                .options = LABELS,
+                                .option_count = 3,
+                                .option_values = BELOW};
+  HS_EXPECT_FALSE(below.valid_option_values(0));
   static constexpr const int64_t MISSING_MIN[] = {1, 2, 6};
-  invalid.option_values = MISSING_MIN;
-  HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ONE));
-  static constexpr const int64_t MISSING_MAX[] = {0, 1, 5};
-  invalid.option_values = MISSING_MAX;
-  HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
+  {
+    auto invalid = spec;
+    invalid.option_values = MISSING_MIN;
+    HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ONE));
+  }
+  {
+    auto invalid = spec;
+    invalid.option_values = MISSING_MAX;
+    HS_EXPECT_FALSE(invalid.valid_option_values(SparseMode::ZERO));
+  }
   static constexpr const int64_t INEXACT[] = {0, 16777217, 33554432};
   ParamSpec<uint32_t> wide{.min = 0,
                            .max = 33554432,
@@ -61,12 +92,19 @@ inline void test_sparse_parameter_specs() {
                            .option_values = INEXACT};
   HS_EXPECT_FALSE(wide.valid_option_values(0));
   static constexpr const int64_t WIDE_VALID[] = {0, 1, 33554432};
-  wide.option_values = WIDE_VALID;
-  HS_EXPECT_TRUE(wide.valid_option_values(0));
+  const ParamSpec<uint32_t> valid_wide{.min = 0,
+                                       .max = 33554432,
+                                       .options = LABELS,
+                                       .option_count = 3,
+                                       .option_values = WIDE_VALID};
+  HS_EXPECT_TRUE(valid_wide.valid_option_values(0));
   static constexpr const int64_t TOO_WIDE[] = {0, 1, 4294967296LL};
-  wide.max = 4294967296LL;
-  wide.option_values = TOO_WIDE;
-  HS_EXPECT_FALSE(wide.valid_option_values(0));
+  const ParamSpec<uint32_t> too_wide{.min = 0,
+                                     .max = 4294967296LL,
+                                     .options = LABELS,
+                                     .option_count = 3,
+                                     .option_values = TOO_WIDE};
+  HS_EXPECT_FALSE(too_wide.valid_option_values(0));
   static constexpr const int64_t SIGNED_MIN_VALID[] = {INT32_MIN, 0, 6};
   ParamSpec<int32_t> signed_wide{.min = INT32_MIN,
                                  .max = 6,
@@ -75,9 +113,17 @@ inline void test_sparse_parameter_specs() {
                                  .option_values = SIGNED_MIN_VALID};
   HS_EXPECT_TRUE(signed_wide.valid_option_values(0));
   static constexpr const int64_t TOO_LOW[] = {INT32_MIN - 256LL, 0, 6};
-  signed_wide.min = INT32_MIN - 256LL;
-  signed_wide.option_values = TOO_LOW;
-  HS_EXPECT_FALSE(signed_wide.valid_option_values(0));
+  const ParamSpec<int32_t> too_low{.min = INT32_MIN - 256LL,
+                                   .max = 6,
+                                   .options = LABELS,
+                                   .option_count = 3,
+                                   .option_values = TOO_LOW};
+  HS_EXPECT_FALSE(too_low.valid_option_values(0));
+}
+
+/** @brief Dense factories and float fields enforce integral option IDs. */
+inline void test_sparse_parameter_factory_and_float_fields() {
+  using namespace sparse_parameter_tests;
   const auto dense = ParamSpec<uint8_t>::enumerated(LABELS, 3);
   HS_EXPECT_TRUE(dense.option_values.empty());
   HS_EXPECT_EQ(dense.min, 0);
@@ -103,7 +149,12 @@ inline void test_sparse_parameter_specs() {
   dense_float_field.spec.option_values = {};
   HS_EXPECT_TRUE(dense_float_field.valid(FloatParams{2.0f}));
   HS_EXPECT_FALSE(dense_float_field.valid(FloatParams{0.5f}));
+}
 
+/** @brief Sparse updates reject gaps and apply rounded, clamped IDs. */
+inline void test_sparse_parameter_updates() {
+  using namespace sparse_parameter_tests;
+  const auto spec = SPARSE_SPEC;
   TestEffect fx(4, 4);
   SparseMode mode = SparseMode::SIX;
   float float_mode = 6;

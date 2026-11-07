@@ -31,6 +31,10 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int wx, int y, const math::Vector &, int run) {
+        HS_EXPECT_GE(wx, 0);
+        HS_EXPECT_LE(wx + run, W);
+        HS_EXPECT_GE(y, 0);
+        HS_EXPECT_LT(y, H);
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W && y >= 0 && y < H)
             visited[static_cast<size_t>(y) * W + wx + i] = 1;
@@ -203,8 +207,9 @@ inline void test_annular_angles_bound_reference() {
 }
 
 /** @brief Verifies interval cull coverage over the sampled orientation/radius grid. */
+template <int W, int H>
 inline void test_cull_covers_interior_over_orientation_grid() {
-  constexpr int W = 96, H = 48;
+  HS_CONTEXT("grid", W, H);
 
   const math::Vector axes[] = {
       math::Vector(0, 1, 0),          math::Vector(0, -1, 0),
@@ -938,6 +943,10 @@ inline void face_fixed_pad_visited(const SDF::PreparedFace &face,
         return true;
       },
       [&](int wx, int y, const math::Vector &, int run) {
+        HS_EXPECT_GE(wx, 0);
+        HS_EXPECT_LE(wx + run, W);
+        HS_EXPECT_GE(y, 0);
+        HS_EXPECT_LT(y, H);
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W)
             visited[static_cast<size_t>(y) * W + wx + i] = 1;
@@ -1090,4 +1099,40 @@ inline void test_face_pole_vertex_matches_full_scan() {
   const int south = expect_pole_vertex_face_matches_full_scan<W, H>(-1.0f);
   HS_EXPECT_GT(north, 100);
   HS_EXPECT_GT(south, 100);
+}
+
+/** @brief Inverted fills scan every row and retain their entire AA fringe. */
+inline void test_inverted_fill_scans_full_sphere() {
+  const auto [basis, radius] = math::get_antipode(equator_basis(), 1.5f);
+  const auto check = [&](const auto &shape, const char *label) {
+    HS_CONTEXT(label);
+    const auto bounds = shape.template get_vertical_bounds<144>();
+    HS_EXPECT_EQ(bounds.y_min, 0);
+    HS_EXPECT_EQ(bounds.y_max, 143);
+    int spans = 0;
+    const bool handled = shape.template get_horizontal_intervals<288, 144>(
+        72, [&](float, float) { ++spans; });
+    HS_EXPECT_FALSE(handled);
+    HS_EXPECT_EQ(spans, 0);
+    expect_cull_covers_fringe<288, 144>(shape, label, false);
+  };
+  check(SDF::SphericalPolygon(basis, radius, 5, 0.0f, true),
+        "spherical polygon");
+  check(SDF::Star(basis, radius, 5, 0.0f, true), "star");
+  check(SDF::PlanarPolygon(basis, radius, 6, 0.0f, true), "planar polygon");
+  check(SDF::Flower(basis, radius, 6, 0.0f, true), "flower");
+}
+
+/** @brief Non-coaxial union intervals retain painted fringe across the seam. */
+inline void test_union_noncoaxial_fringe() {
+  for (const math::Vector axis :
+       {math::X_AXIS, math::Z_AXIS, math::Vector(1, 0.2f, 0.1f).normalized()}) {
+    const auto basis = math::make_basis(math::Quaternion(), axis);
+    const auto other =
+        math::make_basis(math::make_rotation(math::Y_AXIS, 0.4f), axis);
+    const SDF::SphericalPolygon polygon(basis, 0.5f, 5, 0.0f);
+    const SDF::Star star(other, 0.6f, 5, 0.0f);
+    expect_cull_covers_fringe<96, 48>(SDF::Union(polygon, star),
+                                      "non-coaxial union");
+  }
 }

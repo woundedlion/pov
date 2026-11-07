@@ -566,7 +566,8 @@ inline void test_sh_instantaneous_pixel_golden() {
 /** @brief Spin and morph chain of SphericalHarmonics as functions of
  *  continuous frame time, independent of the effect's sampler. */
 struct ShTimeEvaluator {
-  int seed_mode = 6; ///< Mode the chain starts from at time zero.
+  int seed_mode =
+      SH_PRESET_MODES[0]; ///< Mode the chain starts from at time zero.
 
   /** @brief Spin at a frame time.
    * @param time Frames since init; draw k spans [k, k + 1].

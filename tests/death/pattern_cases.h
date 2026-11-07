@@ -105,3 +105,16 @@ inline void case_pattern_plane_noise_invalid_prepare() {
   (void)Pattern::PlaneNoise::prepare(params, {}, GENERATOR,
                                      static_cast<math::NoiseBasis>(3));
 }
+
+inline void case_pattern_direction_infinite() {
+  (void)Pattern::SphereDirection::from(math::Vector(opaque(INFINITY), 0, 0));
+}
+
+inline void case_pattern_direction_invalid() {
+  (void)Pattern::SphereDirection::from(math::Vector(opaque(0.0f), 0.0f, 0.0f));
+}
+
+inline void case_pattern_cube_invalid_direction() {
+  (void)Pattern::prepare_sphere_lut_sample(
+      math::Vector(opaque(0.0f), 0.0f, 0.0f));
+}

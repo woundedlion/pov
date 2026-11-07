@@ -207,8 +207,7 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
     {
       hs_test::StubEffect reference(W, H);
       if (partial_clip) {
-        reference.set_clip(9, 53, 17, 81);
-        reference.set_margin(0);
+        apply_partial_clip(reference);
       }
       Pipeline<W, H> pipeline;
       {
@@ -222,8 +221,7 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
 
     hs_test::StubEffect flat(W, H);
     if (partial_clip) {
-      flat.set_clip(9, 53, 17, 81);
-      flat.set_margin(0);
+      apply_partial_clip(flat);
     }
     Pipeline<W, H> pipeline;
     {
@@ -287,8 +285,7 @@ inline void test_ring_group_matches_sequential() {
     {
       hs_test::StubEffect seq(W, H);
       if (partial_clip) {
-        seq.set_clip(9, 53, 17, 81);
-        seq.set_margin(0);
+        apply_partial_clip(seq);
       }
       Pipeline<W, H> pipeline;
       {
@@ -306,8 +303,7 @@ inline void test_ring_group_matches_sequential() {
 
     hs_test::StubEffect fused(W, H);
     if (partial_clip) {
-      fused.set_clip(9, 53, 17, 81);
-      fused.set_margin(0);
+      apply_partial_clip(fused);
     }
     Pipeline<W, H> pipeline;
     {
@@ -428,8 +424,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
     {
       hs_test::StubEffect seq(W, H);
       if (partial_clip) {
-        seq.set_clip(9, 53, 17, 81);
-        seq.set_margin(0);
+        apply_partial_clip(seq);
       }
       Pipeline<W, H> pipeline;
       {
@@ -450,8 +445,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
 
     hs_test::StubEffect fused(W, H);
     if (partial_clip) {
-      fused.set_clip(9, 53, 17, 81);
-      fused.set_margin(0);
+      apply_partial_clip(fused);
     }
     Pipeline<W, H> pipeline;
     Scan::DistortedRingStack::CandidateTable<W, H> table;
@@ -552,14 +546,9 @@ inline void test_fused_walks_ignore_pole_lod() {
               normal),
           1.0f, ths[s]);
     }
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
+    out = render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
       Scan::RingGroup::draw<W, H>(pipeline, canvas, shapes, N, shader);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, out);
+    });
   };
 
   auto draw_stack = [&](std::vector<Pixel> &out) {
@@ -573,16 +562,11 @@ inline void test_fused_walks_ignore_pole_lod() {
                     0.0f, nullptr);
       slot_by_ring[i] = static_cast<int8_t>(i);
     }
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
     Scan::DistortedRingStack::CandidateTable<W, H> table;
-    {
-      Canvas canvas(fx);
+    out = render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
       Scan::DistortedRingStack::draw<W, H>(pipeline, canvas, N, shapes,
                                            slot_by_ring, N, table, shader);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, out);
+    });
   };
 
   auto expect_knob_independent = [&](const char *label, auto &&draw) {
@@ -629,16 +613,12 @@ inline void test_scalar_ring_draw_options() {
     return pixels;
   };
   const auto DEFAULT = RENDER({});
-  size_t lit = 0;
-  for (const Pixel &pixel : DEFAULT)
-    lit += !is_black(pixel);
+  const size_t lit = count_lit(DEFAULT);
   HS_EXPECT_GT(lit, size_t{0});
   HS_EXPECT_FALSE(compare_buffers(DEFAULT, RENDER({.phase = .7f})).exact());
   HS_EXPECT_FALSE(compare_buffers(DEFAULT, RENDER({.debug_bb = true})).exact());
   const auto SUPPRESSED = RENDER({.suppress_pole_fill = true});
-  size_t suppressed_lit = 0;
-  for (const Pixel &pixel : SUPPRESSED)
-    suppressed_lit += !is_black(pixel);
+  const size_t suppressed_lit = count_lit(SUPPRESSED);
   if (fabsf(math::TrigLUT<W, H>::sin_phi[0]) < 1e-8f) {
     HS_EXPECT_LT(suppressed_lit, lit);
     for (int x = 0; x < W; ++x) {

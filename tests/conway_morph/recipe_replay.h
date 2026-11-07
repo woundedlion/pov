@@ -39,6 +39,102 @@ struct ChainPeaks {
       true; /**< No approximated DUAL/KIS bridge scheduling. */
 };
 
+inline constexpr int REPLAY_GATE_HALF_FRAMES = 6;
+
+/** @brief Builds one replay step's raw endpoint in its scratch arenas. */
+inline PolyMesh replay_endpoint(const Solids::OpStep &step,
+                                const PolyMesh &current, Arena &a, Arena &b) {
+  PolyMesh nx;
+  switch (step.op) {
+  case Solids::Op::AMBO:
+    nx = MeshOps::ambo(current, a, b);
+    break;
+  case Solids::Op::TRUNCATE:
+    nx = MeshOps::truncate(current, a, b, step.param);
+    break;
+  case Solids::Op::SNUB:
+    nx = MeshOps::snub(current, a, b, step.param, step.twist);
+    break;
+  case Solids::Op::KIS:
+    nx = MeshOps::kis(current, a, b);
+    break;
+  case Solids::Op::DUAL:
+    nx = MeshOps::dual(current, a, b);
+    break;
+  case Solids::Op::CHAMFER:
+    nx = MeshOps::chamfer(current, a, b, step.param);
+    break;
+  default:
+    nx = step.bake
+             ? MeshOps::relax_baked(current, a, *step.bake)
+             : MeshOps::relax(current, a, b, static_cast<int>(step.param));
+    break;
+  }
+  return nx;
+}
+
+/** @brief Constructs the production or gated approximation for a replay step. */
+inline Animation::OpLeg
+make_replay_leg(const Solids::OpStep &step, const PolyMesh &cur, int frames,
+                Arena &arena, Animation::OpLeg::MorphDrawFn cb,
+                Animation::OpLeg::PaletteHandoff handoff,
+                Animation::OpLeg::BookendClasses bookend) {
+  using Animation::OpLeg;
+  switch (step.op) {
+  case Solids::Op::KIS:
+    return OpLeg(cur,
+                 OpLeg::GatedSwapSpec{.op = OpLeg::SwapOp::KIS,
+                                      .gate_frames = REPLAY_GATE_HALF_FRAMES},
+                 arena, cb, handoff, bookend);
+  case Solids::Op::DUAL:
+    return OpLeg(cur,
+                 OpLeg::GatedSwapSpec{.op = OpLeg::SwapOp::DUAL,
+                                      .gate_frames = REPLAY_GATE_HALF_FRAMES},
+                 arena, cb, handoff, bookend);
+  case Solids::Op::HANKIN:
+    return OpLeg(cur,
+                 OpLeg::HankinSweepSpec{.theta_start = 0.0f,
+                                        .theta_end = step.param,
+                                        .sweep_frames = frames},
+                 arena, cb, handoff, bookend);
+  case Solids::Op::AMBO:
+    return OpLeg(cur,
+                 OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                       .t_start = 0.0f,
+                                       .t_end = 0.5f,
+                                       .sweep_frames = frames},
+                 arena, cb, handoff, bookend);
+  case Solids::Op::TRUNCATE:
+    return OpLeg(cur,
+                 OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                       .t_start = 0.0f,
+                                       .t_end = step.param,
+                                       .sweep_frames = frames},
+                 arena, cb, handoff, bookend);
+  case Solids::Op::SNUB:
+    return OpLeg(cur,
+                 OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::SNUB,
+                                       .t_start = 0.0f,
+                                       .t_end = step.param,
+                                       .twist_end = step.twist,
+                                       .sweep_frames = frames},
+                 arena, cb, handoff, bookend);
+  case Solids::Op::CHAMFER:
+    return OpLeg(cur,
+                 OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::CHAMFER,
+                                       .t_start = 0.0f,
+                                       .t_end = step.param,
+                                       .sweep_frames = frames},
+                 arena, cb, handoff, bookend);
+  default:
+    return OpLeg(cur,
+                 OpLeg::RelaxSpec{.iterations = static_cast<int>(step.param),
+                                  .bake = step.bake,
+                                  .sweep_frames = frames},
+                 arena, cb, handoff, bookend);
+  }
+}
+
 /**
  * @brief Replays recipe legs and gates continuity and classification.
  * @details DUAL/KIS are gated-swap approximations of production bridges/macros;
@@ -51,478 +147,380 @@ inline ChainPeaks replay_build_chain(const char *name,
                                      const Solids::Recipe &recipe) {
   ChainPeaks peaks;
   using Animation::OpLeg;
-  constexpr int GATE_HALF_FRAMES = 6;
   constexpr size_t MAX_FACES = IslamicStarsDetail::MAX_BUILD_FACES;
   constexpr size_t MAX_STEPS = IslamicStarsDetail::MAX_BUILD_OPS;
 
+  const int failed_before = hs_test::stats().failed;
+
+  reset_globals();
+  // Host capacities, so an over-budget chain reports its high-water instead
+  // of OOM-trapping.
+  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 2 * REPLAY_SCRATCH_CAPACITY,
+                               REPLAY_SCRATCH_CAPACITY,
+                               REPLAY_SCRATCH_CAPACITY);
+  hs::random().seed(2026u);
+
+  MeshPaletteBank bank;
+  bank.bake_all(persistent_arena);
+
+  // Seed solid: persistent PolyMesh plus the compiled/classified carousel
+  // slot, exactly as spawn_shape prepares them.
+  PolyMesh cur;
+  MeshState seed_slot;
+  hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    cur = Solids::finalize_solid(
+        Solids::simple_registry[recipe.seed].generate(a, b), target);
+    MeshOps::compile(cur, seed_slot, target, a);
+  });
   {
-    const int failed_before = hs_test::stats().failed;
-
-    reset_globals();
-    // Host capacities, so an over-budget chain reports its high-water instead
-    // of OOM-trapping.
-    const ScopedArenaSplit split(
-        GLOBAL_ARENA_SIZE - 2 * REPLAY_SCRATCH_CAPACITY,
-        REPLAY_SCRATCH_CAPACITY, REPLAY_SCRATCH_CAPACITY);
-    hs::random().seed(2026u);
-
-    MeshPaletteBank bank;
-    bank.bake_all(persistent_arena);
-
-    // Seed solid: persistent PolyMesh plus the compiled/classified carousel
-    // slot, exactly as spawn_shape prepares them.
-    PolyMesh cur;
-    MeshState seed_slot;
-    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      cur = Solids::finalize_solid(
-          Solids::simple_registry[recipe.seed].generate(a, b), target);
-      MeshOps::compile(cur, seed_slot, target, a);
-    });
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(seed_slot, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-
-    // The spawned seed's shuffled palette order, consumed by class ordinal.
-    std::array<int, OpLeg::PALETTES> slots;
-    MeshPaletteBank::shuffle_indices(slots);
-    std::array<uint8_t, OpLeg::PALETTES> order;
-    for (int i = 0; i < OpLeg::PALETTES; ++i)
-      order[i] = static_cast<uint8_t>(slots[i]);
-
-    Solids::OpStep steps[MAX_STEPS];
-    const size_t count = Solids::expand_to_primitives(recipe, steps, MAX_STEPS);
-    HS_EXPECT_GT(count, (size_t)0);
-    if (count == 0)
-      return peaks;
-    bool supported = true;
-    int leg_frames[MAX_STEPS] = {};
-    bool gated[MAX_STEPS] = {};
-    for (size_t k = 0; k < count; ++k) {
-      if (!Solids::is_morphable_step(steps[k]))
-        supported = false;
-      gated[k] =
-          steps[k].op == Solids::Op::KIS || steps[k].op == Solids::Op::DUAL;
-      peaks.production_schedule &= !gated[k];
-      leg_frames[k] = gated[k] ? 2 * GATE_HALF_FRAMES + 1
-                      : steps[k].op == Solids::Op::HANKIN
-                          ? RecipeLegLengths::HANKIN_LEG_FRAMES
-                      : steps[k].op == Solids::Op::RELAX
-                          ? RecipeLegLengths::RELAX_LEG_FRAMES
-                          : RecipeLegLengths::SWEEP_LEG_FRAMES;
-    }
-    peaks.legs = count;
-    peaks.supported = supported;
-    HS_EXPECT_TRUE(supported);
-    if (!supported) {
-      std::printf("    [chain] %s: unsupported lowered op\n", name);
-      return peaks;
-    }
-
-    hs_test::StubEffect fx(288, 144);
-    uint8_t prev_pal_buf[MAX_FACES];
-    math::Vector prev_centroid[MAX_FACES];
-    uint8_t carried_to[MAX_FACES] = {};
-    std::vector<int> full_topo;
-    const OpLeg::Landing *prev_landing = nullptr;
-    PolyMesh next;
-    // A hankin leg's endpoint lives in scratch_a until the boundary evacuates
-    // it, as finish_build_leg does; each rebuild rewinds to this mark.
-    const size_t endpoint_mark = scratch_arena_a.get_offset();
-
-    for (size_t k = 0; k < count; ++k) {
-      const size_t prev_faces = cur.face_counts.size();
-      HS_EXPECT_LE(prev_faces, MAX_FACES);
-      // The replay threads state leg to leg, so an over-cap leg cannot be
-      // skipped: abandon the chain instead of writing past the handoff arrays.
-      if (prev_faces > MAX_FACES)
-        return peaks;
-      {
-        size_t off = 0;
-        for (size_t f = 0; f < prev_faces; ++f) {
-          const int n = cur.face_counts[f];
-          prev_centroid[f] = face_centroid_unit(cur, off, n);
-          off += n;
-        }
-      }
-      const uint8_t *prev_pal;
-      if (k == 0) {
-        MeshPaletteBank::assign_by_class(seed_slot.topology.data(), prev_faces,
-                                         slots, prev_pal_buf);
-        prev_pal = prev_pal_buf;
-      } else {
-        for (size_t f = 0; f < prev_faces; ++f)
-          prev_pal_buf[f] = carried_to[f];
-        prev_pal = prev_pal_buf;
-      }
-
-      // Eager clean endpoint, exactly as start_build_leg derives it (for the
-      // ambo leg: the AMBO mesh, never the swept truncate form). A hankin step
-      // builds none: its leg rebuilds its own arrival once it has run.
-      const bool hankin_step = steps[k].op == Solids::Op::HANKIN;
-      OpLeg::BookendClasses bookend;
-      if (!hankin_step) {
-        hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-          PolyMesh nx;
-          switch (steps[k].op) {
-          case Solids::Op::AMBO:
-            nx = MeshOps::ambo(cur, a, b);
-            break;
-          case Solids::Op::TRUNCATE:
-            nx = MeshOps::truncate(cur, a, b, steps[k].param);
-            break;
-          case Solids::Op::SNUB:
-            nx = MeshOps::snub(cur, a, b, steps[k].param, steps[k].twist);
-            break;
-          case Solids::Op::KIS:
-            nx = MeshOps::kis(cur, a, b);
-            break;
-          case Solids::Op::DUAL:
-            nx = MeshOps::dual(cur, a, b);
-            break;
-          case Solids::Op::CHAMFER:
-            nx = MeshOps::chamfer(cur, a, b, steps[k].param);
-            break;
-          default:
-            nx = steps[k].bake
-                     ? MeshOps::relax_baked(cur, a, *steps[k].bake)
-                     : MeshOps::relax(cur, a, b,
-                                      static_cast<int>(steps[k].param));
-            break;
-          }
-          next = Solids::finalize_solid(nx, target);
-        });
-        {
-          ScratchScope a_guard(scratch_arena_a);
-          ScratchScope b_guard(scratch_arena_b);
-          MeshOps::classify_faces_by_topology(
-              next, scratch_arena_a, scratch_arena_b, persistent_arena);
-        }
-        const size_t bookend_faces = next.face_counts.size();
-        HS_EXPECT_LE(bookend_faces, MAX_FACES);
-        bookend = {.topology = next.topology.data(), .faces = bookend_faces};
-      }
-
-      OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
-                                    .prev_face_palette = prev_pal,
-                                    .prev_faces = prev_faces,
-                                    .prev_face_centroid = prev_centroid};
-
-      size_t drawn = 0;
-      size_t leg_faces = 0;
-      int off_palette_frames = 0;
-      const OpLeg::Landing *lp = nullptr;
-      // Ramp sample coordinates; both sides sample through BakedPalette, so the
-      // comparison is exact.
-      constexpr float PROBE_T[] = {0.0f, 0.5f, 1.0f};
-      Arena blend_arena(morph_temp_buf, sizeof(morph_temp_buf));
-      // Every frame must draw every face's (from, to) ramp bit-exact at the
-      // frame's blend weight.
-      auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
-        HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
-        const bool side_start =
-            drawn == 0 ||
-            (gated[k] && drawn == static_cast<size_t>(GATE_HALF_FRAMES));
-        if (side_start)
-          leg_faces = sh.faces;
-        else
-          HS_EXPECT_EQ(sh.faces, leg_faces);
-        const bool seed_side =
-            gated[k] && drawn < static_cast<size_t>(GATE_HALF_FRAMES);
-        const int frame = static_cast<int>(drawn) + 1;
-        const float w = gated[k] ? OpLeg::trailing_blend(frame, leg_frames[k])
-                                 : OpLeg::classic_blend(frame, leg_frames[k]);
-        blend_arena.reset();
-        BakedPalette expected[OpLeg::PALETTES][OpLeg::PALETTES];
-        bool baked[OpLeg::PALETTES][OpLeg::PALETTES] = {};
-        bool frame_ok = true;
-        HS_EXPECT_LE(sh.faces, MAX_FACES);
-        for (size_t f = 0; f < std::min(sh.faces, MAX_FACES) && lp; ++f) {
-          const uint8_t from =
-              seed_side ? prev_pal_buf[f] : lp->from_palette[f];
-          const uint8_t to = seed_side ? from : lp->landed_palette(f);
-          if (from >= OpLeg::PALETTES || to >= OpLeg::PALETTES) {
-            HS_EXPECT_LT(from, OpLeg::PALETTES);
-            HS_EXPECT_LT(to, OpLeg::PALETTES);
-            frame_ok = false;
-            continue;
-          }
-          const BakedPalette *want = &bank.bank.entries[to].view();
-          if (from != to) {
-            if (!baked[from][to]) {
-              expected[from][to] =
-                  bake_palette_blend(blend_arena, bank.bank.entries[from],
-                                     bank.bank.entries[to], w);
-              baked[from][to] = true;
-            }
-            want = &expected[from][to];
-          }
-          for (float t : PROBE_T) {
-            const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
-            const Color4 exp = want->get(t);
-            if (got.color.r != exp.color.r || got.color.g != exp.color.g ||
-                got.color.b != exp.color.b)
-              frame_ok = false;
-          }
-        }
-        if (!frame_ok)
-          ++off_palette_frames;
-        ++drawn;
-      };
-
-      auto make_leg = [&]() {
-        switch (steps[k].op) {
-        case Solids::Op::KIS:
-          return OpLeg(cur,
-                       OpLeg::GatedSwapSpec{.op = OpLeg::SwapOp::KIS,
-                                            .gate_frames = GATE_HALF_FRAMES},
-                       persistent_arena, cb, handoff, bookend);
-        case Solids::Op::DUAL:
-          return OpLeg(cur,
-                       OpLeg::GatedSwapSpec{.op = OpLeg::SwapOp::DUAL,
-                                            .gate_frames = GATE_HALF_FRAMES},
-                       persistent_arena, cb, handoff, bookend);
-        case Solids::Op::HANKIN:
-          return OpLeg(cur,
-                       OpLeg::HankinSweepSpec{.theta_start = 0.0f,
-                                              .theta_end = steps[k].param,
-                                              .sweep_frames = leg_frames[k]},
-                       persistent_arena, cb, handoff, bookend);
-        case Solids::Op::AMBO:
-          return OpLeg(
-              cur,
-              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                    .t_start = 0.0f,
-                                    .t_end = 0.5f,
-                                    .sweep_frames = leg_frames[k]},
-              persistent_arena, cb, handoff, bookend);
-        case Solids::Op::TRUNCATE:
-          return OpLeg(
-              cur,
-              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                    .t_start = 0.0f,
-                                    .t_end = steps[k].param,
-                                    .sweep_frames = leg_frames[k]},
-              persistent_arena, cb, handoff, bookend);
-        case Solids::Op::SNUB:
-          return OpLeg(cur,
-                       OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::SNUB,
-                                             .t_start = 0.0f,
-                                             .t_end = steps[k].param,
-                                             .twist_end = steps[k].twist,
-                                             .sweep_frames = leg_frames[k]},
-                       persistent_arena, cb, handoff, bookend);
-        case Solids::Op::CHAMFER:
-          return OpLeg(
-              cur,
-              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::CHAMFER,
-                                    .t_start = 0.0f,
-                                    .t_end = steps[k].param,
-                                    .sweep_frames = leg_frames[k]},
-              persistent_arena, cb, handoff, bookend);
-        default:
-          return OpLeg(
-              cur,
-              OpLeg::RelaxSpec{.iterations = static_cast<int>(steps[k].param),
-                               .bake = steps[k].bake,
-                               .sweep_frames = leg_frames[k]},
-              persistent_arena, cb, handoff, bookend);
-        }
-      };
-      OpLeg leg = make_leg();
-      const OpLeg::Landing &landing = leg.landing();
-      lp = &landing;
-
-      for (int f = 0; f < leg_frames[k]; ++f) {
-        {
-          Canvas c(fx);
-          leg.step(c);
-        }
-        fx.advance_display();
-      }
-      HS_EXPECT_EQ(drawn, (size_t)leg_frames[k]);
-      HS_EXPECT_EQ(landing.faces, leg_faces);
-      HS_EXPECT_TRUE(landing.from_palette != nullptr);
-      if (!landing.from_palette)
-        return peaks;
-      // Every frame drew every face's (from, to) ramp bit-exact.
-      HS_EXPECT_EQ(off_palette_frames, 0);
-
-      // The landed carry: a surviving face departs the next leg from the
-      // palette this leg landed it on. A partition op keeps no emission-order
-      // correspondence to its seed, so its from-palettes are the leg's own
-      // geometric provenance.
-      HS_EXPECT_LE(landing.faces, MAX_FACES);
-      if (landing.faces > MAX_FACES)
-        return peaks;
-      if (k > 0 && !gated[k]) {
-        // Report the first offending face across the replay's full face sweep.
-        int first_broken_carry = -1;
-        for (size_t f = 0; f < prev_faces; ++f)
-          if ((int)landing.from_palette[f] != (int)carried_to[f] &&
-              first_broken_carry < 0)
-            first_broken_carry = (int)f;
-        HS_EXPECT_EQ(first_broken_carry, -1);
-      }
-      {
-        // The leg's fresh target set is a permutation of the bank.
-        bool seen_to[OpLeg::PALETTES] = {};
-        for (int i = 0; i < OpLeg::PALETTES; ++i) {
-          HS_EXPECT_LE((int)landing.to_palette[i], OpLeg::PALETTES - 1);
-          if (landing.to_palette[i] < OpLeg::PALETTES)
-            seen_to[landing.to_palette[i]] = true;
-        }
-        for (bool s : seen_to)
-          HS_EXPECT_TRUE(s);
-        // Final-leg birth grain: distinct newborn classes (the perceptual
-        // grouping report).
-        if (k + 1 == count) {
-          const size_t births_from = gated[k] ? 0 : prev_faces;
-          int classes = 0;
-          int prev_cls = -1;
-          for (;;) {
-            int cls = -1;
-            for (size_t f = births_from; f < landing.faces; ++f) {
-              const int c = landing.topology[f];
-              if (c > prev_cls && (cls < 0 || c < cls))
-                cls = c;
-            }
-            if (cls < 0)
-              break;
-            ++classes;
-            prev_cls = cls;
-          }
-          peaks.final_classes = classes;
-        }
-      }
-      peaks.blend_pairs = std::max(peaks.blend_pairs, landing.blend_pairs);
-      for (size_t f = 0; f < landing.faces; ++f)
-        carried_to[f] = landing.landed_palette(f);
-
-      // Landing lives in the leg's arena-backed Transients; outlives `leg`.
-      prev_landing = &landing;
-
-      if (hankin_step) {
-        next = PolyMesh();
-        scratch_arena_a.set_offset(endpoint_mark);
-        OpLeg::arrival_mesh(landing, next, scratch_arena_a);
-      }
-
-      // Full-precision final classification for the symmetry pin, rebuilt in
-      // test-local arenas as the leg's constructor builds its arrival (before
-      // the snorm16 pack). A non-hankin final leg lands on the clean endpoint.
-      if (k + 1 == count && hankin_step) {
-        Arena pa(morph_target_buf, sizeof(morph_target_buf));
-        Arena pb(morph_temp_buf, sizeof(morph_temp_buf));
-        Arena pc(morph_aux_buf, sizeof(morph_aux_buf));
-        CompiledHankin hk;
-        MeshOps::compile_hankin(cur, hk, pa, pb);
-        PolyMesh full;
-        MeshOps::update_hankin(hk, full, pa,
-                               std::max(steps[k].param, OpLeg::THETA_EPS));
-        MeshOps::classify_faces_by_topology(full, pb, pc, pa);
-        full_topo.assign(full.topology.begin(), full.topology.end());
-      }
-
-      // Mirror finish_build_leg's boundary compaction: only the endpoint the
-      // next leg sweeps from crosses the reset. The last leg's landing is left
-      // standing for the final swap.
-      if (k + 1 < count) {
-        Persist<PolyMesh> pn(next, scratch_arena_b, persistent_arena);
-        cur = PolyMesh();
-        seed_slot = MeshState();
-        prev_landing = nullptr;
-        persistent_arena.reset();
-        bank.bake_all(persistent_arena);
-      }
-      cur = std::move(next);
-    }
-
-    // Final sprite handoff matches the compiled face count.
-    const size_t landed_faces = cur.face_counts.size();
-    HS_EXPECT_LE(landed_faces, prev_landing->faces);
-    HS_EXPECT_LE(landed_faces, MAX_FACES);
-    if (landed_faces > prev_landing->faces || landed_faces > MAX_FACES)
-      return peaks;
-    uint8_t sprite_pal[MAX_FACES];
-    for (size_t f = 0; f < landed_faces; ++f)
-      sprite_pal[f] = prev_landing->landed_palette(f);
-    prev_landing = nullptr;
-    MeshState final_slot;
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      {
-        ScratchScope seed_guard(scratch_arena_b);
-        PolyMesh built;
-        MeshOps::clone(cur, built, scratch_arena_b);
-        cur = PolyMesh();
-        seed_slot = MeshState();
-        persistent_arena.reset();
-        bank.bake_all(persistent_arena);
-        MeshOps::compile(built, final_slot, persistent_arena, scratch_arena_a);
-      }
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(final_slot, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-    {
-      HS_EXPECT_EQ(landed_faces, final_slot.topology.size());
-    }
-    if (full_topo.empty())
-      full_topo.assign(final_slot.topology.begin(), final_slot.topology.end());
-
-    // Variety: distinct palettes on the finished shape.
-    peaks.palettes = 0;
-    {
-      bool seen[OpLeg::PALETTES] = {};
-      for (size_t f = 0; f < landed_faces; ++f)
-        if (sprite_pal[f] < OpLeg::PALETTES)
-          seen[sprite_pal[f]] = true;
-      for (bool s : seen)
-        peaks.palettes += s;
-    }
-
-    // Symmetry pin: on the finished shape any two faces with the same
-    // full-precision final class wear the same palette — the landed palette
-    // is a function of the final classification alone.
-    {
-      HS_EXPECT_EQ(full_topo.size(), landed_faces);
-      int asymmetric = 0;
-      if (full_topo.size() == landed_faces) {
-        for (size_t f = 0; f < landed_faces; ++f)
-          for (size_t g = f + 1; g < landed_faces; ++g)
-            if (full_topo[f] == full_topo[g] && sprite_pal[f] != sprite_pal[g])
-              ++asymmetric;
-      }
-      HS_EXPECT_EQ(asymmetric, 0);
-    }
-
-    peaks.persistent = persistent_arena.get_high_water_mark();
-    peaks.scratch_a = scratch_arena_a.get_high_water_mark();
-    peaks.scratch_b = scratch_arena_b.get_high_water_mark();
-    peaks.faces = final_slot.face_counts.size();
-    std::printf("  [chain] %s: %zu legs, %d/%d palettes, final leg %d "
-                "classes, %d/%d blend pairs, persistent=%zu B / %zu B, "
-                "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
-                name, count, peaks.palettes, OpLeg::PALETTES,
-                peaks.final_classes, peaks.blend_pairs, OpLeg::MAX_BLEND_PAIRS,
-                peaks.persistent, (size_t)ISLAMIC_PERSISTENT_BUDGET,
-                peaks.scratch_a, (size_t)ISLAMIC_SCRATCH_A_BUDGET,
-                peaks.scratch_b, (size_t)ISLAMIC_SCRATCH_B_BUDGET);
-    if (peaks.production_schedule) {
-      HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
-      HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
-      HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
-    } else {
-      std::printf(
-          "    [chain] gated-swap approximation; production bridge budget excluded\n");
-    }
-
-    if (hs_test::stats().failed != failed_before)
-      std::printf("    [chain] %s FAILED\n", name);
+    ScratchScope a_guard(scratch_arena_a);
+    ScratchScope b_guard(scratch_arena_b);
+    MeshOps::classify_faces_by_topology(seed_slot, scratch_arena_a,
+                                        scratch_arena_b, persistent_arena);
   }
+
+  // The spawned seed's shuffled palette order, consumed by class ordinal.
+  std::array<int, OpLeg::PALETTES> slots;
+  MeshPaletteBank::shuffle_indices(slots);
+  std::array<uint8_t, OpLeg::PALETTES> order;
+  for (int i = 0; i < OpLeg::PALETTES; ++i)
+    order[i] = static_cast<uint8_t>(slots[i]);
+
+  Solids::OpStep steps[MAX_STEPS];
+  const size_t count = Solids::expand_to_primitives(recipe, steps, MAX_STEPS);
+  HS_EXPECT_GT(count, (size_t)0);
+  if (count == 0)
+    return peaks;
+  bool supported = true;
+  int leg_frames[MAX_STEPS] = {};
+  bool gated[MAX_STEPS] = {};
+  for (size_t k = 0; k < count; ++k) {
+    if (!Solids::is_morphable_step(steps[k]))
+      supported = false;
+    gated[k] =
+        steps[k].op == Solids::Op::KIS || steps[k].op == Solids::Op::DUAL;
+    peaks.production_schedule &= !gated[k];
+    leg_frames[k] = gated[k] ? 2 * REPLAY_GATE_HALF_FRAMES + 1
+                    : steps[k].op == Solids::Op::HANKIN
+                        ? RecipeLegLengths::HANKIN_LEG_FRAMES
+                    : steps[k].op == Solids::Op::RELAX
+                        ? RecipeLegLengths::RELAX_LEG_FRAMES
+                        : RecipeLegLengths::SWEEP_LEG_FRAMES;
+  }
+  peaks.legs = count;
+  peaks.supported = supported;
+  HS_EXPECT_TRUE(supported);
+  if (!supported) {
+    std::printf("    [chain] %s: unsupported lowered op\n", name);
+    return peaks;
+  }
+
+  hs_test::StubEffect fx(288, 144);
+  uint8_t prev_pal_buf[MAX_FACES];
+  math::Vector prev_centroid[MAX_FACES];
+  uint8_t carried_to[MAX_FACES] = {};
+  std::vector<int> full_topo;
+  const OpLeg::Landing *prev_landing = nullptr;
+  PolyMesh next;
+  // A hankin leg's endpoint lives in scratch_a until the boundary evacuates
+  // it, as finish_build_leg does; each rebuild rewinds to this mark.
+  const size_t endpoint_mark = scratch_arena_a.get_offset();
+
+  for (size_t k = 0; k < count; ++k) {
+    const size_t prev_faces = cur.face_counts.size();
+    HS_EXPECT_LE(prev_faces, MAX_FACES);
+    // The replay threads state leg to leg, so an over-cap leg cannot be
+    // skipped: abandon the chain instead of writing past the handoff arrays.
+    if (prev_faces > MAX_FACES)
+      return peaks;
+    {
+      size_t off = 0;
+      for (size_t f = 0; f < prev_faces; ++f) {
+        const int n = cur.face_counts[f];
+        prev_centroid[f] = face_centroid_unit(cur, off, n);
+        off += n;
+      }
+    }
+    if (k == 0) {
+      MeshPaletteBank::assign_by_class(seed_slot.topology.data(), prev_faces,
+                                       slots, prev_pal_buf);
+    } else {
+      for (size_t f = 0; f < prev_faces; ++f)
+        prev_pal_buf[f] = carried_to[f];
+    }
+
+    // Eager clean endpoint, exactly as start_build_leg derives it (for the
+    // ambo leg: the AMBO mesh, never the swept truncate form). A hankin step
+    // builds none: its leg rebuilds its own arrival once it has run.
+    const bool hankin_step = steps[k].op == Solids::Op::HANKIN;
+    OpLeg::BookendClasses bookend;
+    if (!hankin_step) {
+      hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        const PolyMesh nx = replay_endpoint(steps[k], cur, a, b);
+        next = Solids::finalize_solid(nx, target);
+      });
+      {
+        ScratchScope a_guard(scratch_arena_a);
+        ScratchScope b_guard(scratch_arena_b);
+        MeshOps::classify_faces_by_topology(next, scratch_arena_a,
+                                            scratch_arena_b, persistent_arena);
+      }
+      const size_t bookend_faces = next.face_counts.size();
+      HS_EXPECT_LE(bookend_faces, MAX_FACES);
+      bookend = {.topology = next.topology.data(), .faces = bookend_faces};
+    }
+
+    OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                  .prev_face_palette = prev_pal_buf,
+                                  .prev_faces = prev_faces,
+                                  .prev_face_centroid = prev_centroid};
+
+    size_t drawn = 0;
+    size_t leg_faces = 0;
+    int off_palette_frames = 0;
+    const OpLeg::Landing *lp = nullptr;
+    // Ramp sample coordinates; both sides sample through BakedPalette, so the
+    // comparison is exact.
+    constexpr float PROBE_T[] = {0.0f, 0.5f, 1.0f};
+    Arena blend_arena(morph_temp_buf, sizeof(morph_temp_buf));
+    // Every frame must draw every face's (from, to) ramp bit-exact at the
+    // frame's blend weight.
+    auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
+      HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+      const bool side_start =
+          drawn == 0 ||
+          (gated[k] && drawn == static_cast<size_t>(REPLAY_GATE_HALF_FRAMES));
+      if (side_start)
+        leg_faces = sh.faces;
+      else
+        HS_EXPECT_EQ(sh.faces, leg_faces);
+      const bool seed_side =
+          gated[k] && drawn < static_cast<size_t>(REPLAY_GATE_HALF_FRAMES);
+      const int frame = static_cast<int>(drawn) + 1;
+      const float w = gated[k] ? OpLeg::trailing_blend(frame, leg_frames[k])
+                               : OpLeg::classic_blend(frame, leg_frames[k]);
+      blend_arena.reset();
+      BakedPalette expected[OpLeg::PALETTES][OpLeg::PALETTES];
+      bool baked[OpLeg::PALETTES][OpLeg::PALETTES] = {};
+      bool frame_ok = true;
+      HS_EXPECT_LE(sh.faces, MAX_FACES);
+      for (size_t f = 0; f < std::min(sh.faces, MAX_FACES) && lp; ++f) {
+        const uint8_t from = seed_side ? prev_pal_buf[f] : lp->from_palette[f];
+        const uint8_t to = seed_side ? from : lp->landed_palette(f);
+        if (from >= OpLeg::PALETTES || to >= OpLeg::PALETTES) {
+          HS_EXPECT_LT(from, OpLeg::PALETTES);
+          HS_EXPECT_LT(to, OpLeg::PALETTES);
+          frame_ok = false;
+          continue;
+        }
+        const BakedPalette *want = &bank.bank.entries[to].view();
+        if (from != to) {
+          if (!baked[from][to]) {
+            expected[from][to] = bake_palette_blend(
+                blend_arena, bank.bank.entries[from], bank.bank.entries[to], w);
+            baked[from][to] = true;
+          }
+          want = &expected[from][to];
+        }
+        for (float t : PROBE_T) {
+          const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
+          const Color4 exp = want->get(t);
+          if (got.color.r != exp.color.r || got.color.g != exp.color.g ||
+              got.color.b != exp.color.b)
+            frame_ok = false;
+        }
+      }
+      if (!frame_ok)
+        ++off_palette_frames;
+      ++drawn;
+    };
+
+    OpLeg leg = make_replay_leg(steps[k], cur, leg_frames[k], persistent_arena,
+                                cb, handoff, bookend);
+    const OpLeg::Landing &landing = leg.landing();
+    lp = &landing;
+
+    hs_test::drive_leg(leg, fx, leg_frames[k]);
+    HS_EXPECT_EQ(drawn, (size_t)leg_frames[k]);
+    HS_EXPECT_EQ(landing.faces, leg_faces);
+    HS_EXPECT_TRUE(landing.from_palette != nullptr);
+    if (!landing.from_palette)
+      return peaks;
+    // Every frame drew every face's (from, to) ramp bit-exact.
+    HS_EXPECT_EQ(off_palette_frames, 0);
+
+    // The landed carry: a surviving face departs the next leg from the
+    // palette this leg landed it on. A partition op keeps no emission-order
+    // correspondence to its seed, so its from-palettes are the leg's own
+    // geometric provenance.
+    HS_EXPECT_LE(landing.faces, MAX_FACES);
+    if (landing.faces > MAX_FACES)
+      return peaks;
+    if (k > 0 && !gated[k]) {
+      // Report the first offending face across the replay's full face sweep.
+      int first_broken_carry = -1;
+      for (size_t f = 0; f < prev_faces; ++f)
+        if ((int)landing.from_palette[f] != (int)carried_to[f] &&
+            first_broken_carry < 0)
+          first_broken_carry = (int)f;
+      HS_EXPECT_EQ(first_broken_carry, -1);
+    }
+    {
+      // The leg's fresh target set is a permutation of the bank.
+      bool seen_to[OpLeg::PALETTES] = {};
+      for (int i = 0; i < OpLeg::PALETTES; ++i) {
+        HS_EXPECT_LE((int)landing.to_palette[i], OpLeg::PALETTES - 1);
+        if (landing.to_palette[i] < OpLeg::PALETTES)
+          seen_to[landing.to_palette[i]] = true;
+      }
+      for (bool s : seen_to)
+        HS_EXPECT_TRUE(s);
+      // Final-leg birth grain: distinct newborn classes (the perceptual
+      // grouping report).
+      if (k + 1 == count) {
+        const size_t births_from = gated[k] ? 0 : prev_faces;
+        int classes = 0;
+        int prev_cls = -1;
+        for (;;) {
+          int cls = -1;
+          for (size_t f = births_from; f < landing.faces; ++f) {
+            const int c = landing.topology[f];
+            if (c > prev_cls && (cls < 0 || c < cls))
+              cls = c;
+          }
+          if (cls < 0)
+            break;
+          ++classes;
+          prev_cls = cls;
+        }
+        peaks.final_classes = classes;
+      }
+    }
+    peaks.blend_pairs = std::max(peaks.blend_pairs, landing.blend_pairs);
+    for (size_t f = 0; f < landing.faces; ++f)
+      carried_to[f] = landing.landed_palette(f);
+
+    // Landing lives in the leg's arena-backed Transients; outlives `leg`.
+    prev_landing = &landing;
+
+    if (hankin_step) {
+      next = PolyMesh();
+      scratch_arena_a.set_offset(endpoint_mark);
+      OpLeg::arrival_mesh(landing, next, scratch_arena_a);
+    }
+
+    // Full-precision final classification for the symmetry pin, rebuilt in
+    // test-local arenas as the leg's constructor builds its arrival (before
+    // the snorm16 pack). A non-hankin final leg lands on the clean endpoint.
+    if (k + 1 == count && hankin_step) {
+      Arena pa(morph_target_buf, sizeof(morph_target_buf));
+      Arena pb(morph_temp_buf, sizeof(morph_temp_buf));
+      Arena pc(morph_aux_buf, sizeof(morph_aux_buf));
+      CompiledHankin hk;
+      MeshOps::compile_hankin(cur, hk, pa, pb);
+      PolyMesh full;
+      MeshOps::update_hankin(hk, full, pa,
+                             std::max(steps[k].param, OpLeg::THETA_EPS));
+      MeshOps::classify_faces_by_topology(full, pb, pc, pa);
+      full_topo.assign(full.topology.begin(), full.topology.end());
+    }
+
+    // Mirror finish_build_leg's boundary compaction: only the endpoint the
+    // next leg sweeps from crosses the reset. The last leg's landing is left
+    // standing for the final swap.
+    if (k + 1 < count) {
+      Persist<PolyMesh> pn(next, scratch_arena_b, persistent_arena);
+      cur = PolyMesh();
+      seed_slot = MeshState();
+      prev_landing = nullptr;
+      persistent_arena.reset();
+      bank.bake_all(persistent_arena);
+    }
+    cur = std::move(next);
+  }
+
+  // Final sprite handoff matches the compiled face count.
+  const size_t landed_faces = cur.face_counts.size();
+  HS_EXPECT_LE(landed_faces, prev_landing->faces);
+  HS_EXPECT_LE(landed_faces, MAX_FACES);
+  if (landed_faces > prev_landing->faces || landed_faces > MAX_FACES)
+    return peaks;
+  uint8_t sprite_pal[MAX_FACES];
+  for (size_t f = 0; f < landed_faces; ++f)
+    sprite_pal[f] = prev_landing->landed_palette(f);
+  prev_landing = nullptr;
+  MeshState final_slot;
+  {
+    ScratchScope a_guard(scratch_arena_a);
+    {
+      ScratchScope seed_guard(scratch_arena_b);
+      PolyMesh built;
+      MeshOps::clone(cur, built, scratch_arena_b);
+      cur = PolyMesh();
+      seed_slot = MeshState();
+      persistent_arena.reset();
+      bank.bake_all(persistent_arena);
+      MeshOps::compile(built, final_slot, persistent_arena, scratch_arena_a);
+    }
+    ScratchScope b_guard(scratch_arena_b);
+    MeshOps::classify_faces_by_topology(final_slot, scratch_arena_a,
+                                        scratch_arena_b, persistent_arena);
+  }
+  {
+    HS_EXPECT_EQ(landed_faces, final_slot.topology.size());
+  }
+  if (full_topo.empty())
+    full_topo.assign(final_slot.topology.begin(), final_slot.topology.end());
+
+  // Variety: distinct palettes on the finished shape.
+  peaks.palettes = 0;
+  {
+    bool seen[OpLeg::PALETTES] = {};
+    for (size_t f = 0; f < landed_faces; ++f)
+      if (sprite_pal[f] < OpLeg::PALETTES)
+        seen[sprite_pal[f]] = true;
+    for (bool s : seen)
+      peaks.palettes += s;
+  }
+
+  // Symmetry pin: on the finished shape any two faces with the same
+  // full-precision final class wear the same palette — the landed palette
+  // is a function of the final classification alone.
+  {
+    HS_EXPECT_EQ(full_topo.size(), landed_faces);
+    int asymmetric = 0;
+    if (full_topo.size() == landed_faces) {
+      for (size_t f = 0; f < landed_faces; ++f)
+        for (size_t g = f + 1; g < landed_faces; ++g)
+          if (full_topo[f] == full_topo[g] && sprite_pal[f] != sprite_pal[g])
+            ++asymmetric;
+    }
+    HS_EXPECT_EQ(asymmetric, 0);
+  }
+
+  peaks.persistent = persistent_arena.get_high_water_mark();
+  peaks.scratch_a = scratch_arena_a.get_high_water_mark();
+  peaks.scratch_b = scratch_arena_b.get_high_water_mark();
+  peaks.faces = final_slot.face_counts.size();
+  std::printf("  [chain] %s: %zu legs, %d/%d palettes, final leg %d "
+              "classes, %d/%d blend pairs, persistent=%zu B / %zu B, "
+              "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
+              name, count, peaks.palettes, OpLeg::PALETTES, peaks.final_classes,
+              peaks.blend_pairs, OpLeg::MAX_BLEND_PAIRS, peaks.persistent,
+              (size_t)ISLAMIC_PERSISTENT_BUDGET, peaks.scratch_a,
+              (size_t)ISLAMIC_SCRATCH_A_BUDGET, peaks.scratch_b,
+              (size_t)ISLAMIC_SCRATCH_B_BUDGET);
+  if (peaks.production_schedule) {
+    HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
+    HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
+    HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
+  } else {
+    std::printf(
+        "    [chain] gated-swap approximation; production bridge budget excluded\n");
+  }
+
+  if (hs_test::stats().failed != failed_before)
+    std::printf("    [chain] %s FAILED\n", name);
   return peaks;
 }
 

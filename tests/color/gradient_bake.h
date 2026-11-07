@@ -590,6 +590,11 @@ inline void test_step_wipe_rebake_skips_arming_then_decrements() {
  */
 inline void test_palette_wipe_arm_step_cadence() {
   const GenerativePalette palette;
+  GenerativePalette target;
+  target.set_constant_chroma(0.0f);
+  const auto START = palette.snapshot();
+  const auto TARGET = target.snapshot();
+  HS_EXPECT_NE(std::memcmp(&START, &TARGET, sizeof(START)), 0);
   SolidColorPalette initial(Color4(Pixel(1000, 2000, 3000), 1.0f));
   SolidColorPalette source(Color4(Pixel(4000, 5000, 6000), 1.0f));
   SolidColorPalette after(Color4(Pixel(7000, 8000, 9000), 1.0f));
@@ -605,7 +610,9 @@ inline void test_palette_wipe_arm_step_cadence() {
   HS_EXPECT_FALSE(wipe.pending);
 
   constexpr int FRAMES = 3;
-  wipe.arm(palette, palette.snapshot(), FRAMES);
+  wipe.arm(palette, TARGET, FRAMES);
+  HS_EXPECT_EQ(std::memcmp(&wipe.start, &START, sizeof(START)), 0);
+  HS_EXPECT_EQ(std::memcmp(&wipe.target, &TARGET, sizeof(TARGET)), 0);
   HS_EXPECT_TRUE(wipe.pending);
   HS_EXPECT_TRUE(wipe.in_flight());
   HS_EXPECT_EQ(wipe.frames_remaining, FRAMES);

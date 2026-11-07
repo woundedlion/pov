@@ -27,9 +27,6 @@ inline void test_filter_trait_inheritance() {
   // Pixel-space feedback is 2D *with* history.
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::is_2d));
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::has_history));
-  HS_EXPECT_EQ((Filter::World::Replicate<W>::domain_rank), 0);
-  HS_EXPECT_EQ((Filter::Screen::AntiAlias<W, H>::domain_rank), 1);
-  HS_EXPECT_EQ((Filter::Pixel::ChromaticShift<W>::domain_rank), 2);
 
   // 3D world-space, stateless.
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::is_2d));
@@ -43,21 +40,19 @@ inline void test_filter_trait_inheritance() {
   HS_EXPECT_TRUE((Filter::Screen::Trails<>::is_2d));
   HS_EXPECT_TRUE((Filter::Screen::Trails<>::has_history));
 
-  // is_pipeline separates a stage from a whole pipeline.
-  HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::is_pipeline));
-  HS_EXPECT_FALSE((Filter::World::Replicate<W>::is_pipeline));
-  HS_EXPECT_TRUE((Filter::Screen::DirectAntiAliasSink<W, H>::is_pipeline));
-  HS_EXPECT_TRUE((Pipeline<W, H>::is_pipeline));
-  HS_EXPECT_TRUE(
-      (Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>::is_pipeline));
-
   // Static-assert form (compile-time).
   static_assert(Filter::Screen::AntiAlias<W, H>::is_2d, "AntiAlias is 2D");
   static_assert(!Filter::World::Replicate<W>::is_2d, "Replicate is 3D");
   static_assert(Filter::Pixel::Feedback<W, H>::has_history,
                 "Feedback keeps history");
-  static_assert(Filter::has_cull_edge<Filter::World::Orient>);
-  static_assert(Filter::has_cull_edge<Filter::World::Replicate<W>>);
+}
+
+/** @brief World, screen and pixel stages have increasing domain ranks. */
+inline void test_filter_domain_rank() {
+  constexpr int W = 32, H = 32;
+  HS_EXPECT_EQ((Filter::World::Replicate<W>::domain_rank), 0);
+  HS_EXPECT_EQ((Filter::Screen::AntiAlias<W, H>::domain_rank), 1);
+  HS_EXPECT_EQ((Filter::Pixel::ChromaticShift<W>::domain_rank), 2);
   using Ordered = Pipeline<W, H, Filter::World::Replicate<W>,
                            Filter::Screen::AntiAlias<W, H>,
                            Filter::Pixel::ChromaticShift<W>>;
@@ -65,6 +60,24 @@ inline void test_filter_trait_inheritance() {
                 "World/Screen/Pixel domain order must compile");
 }
 
+/** @brief Only complete pipelines advertise the pipeline trait. */
+inline void test_is_pipeline_trait() {
+  constexpr int W = 32, H = 32;
+  // is_pipeline separates a stage from a whole pipeline.
+  HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::is_pipeline));
+  HS_EXPECT_FALSE((Filter::World::Replicate<W>::is_pipeline));
+  HS_EXPECT_TRUE((Filter::Screen::DirectAntiAliasSink<W, H>::is_pipeline));
+  HS_EXPECT_TRUE((Pipeline<W, H>::is_pipeline));
+  HS_EXPECT_TRUE(
+      (Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>::is_pipeline));
+}
+
+/** @brief Bounded world transforms expose edge culling. */
+inline void test_filter_cull_edge_traits() {
+  constexpr int W = 32;
+  static_assert(Filter::has_cull_edge<Filter::World::Orient>);
+  static_assert(Filter::has_cull_edge<Filter::World::Replicate<W>>);
+}
 /**
  * @brief Verifies the `crosses_segments` per-filter trait and the Pipeline
  *        `any_crosses_segments` OR-fold the segment driver gates on.
@@ -78,31 +91,22 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::crosses_segments));
   HS_EXPECT_TRUE((Filter::World::Trails<16>::crosses_segments));
   HS_EXPECT_TRUE((Filter::Screen::Trails<>::crosses_segments));
-  HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::reads_outside_band));
-  HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::reads_outside_band));
-  HS_EXPECT_FALSE((Filter::World::Trails<16>::reads_outside_band));
-  HS_EXPECT_FALSE((Filter::Screen::Trails<>::reads_outside_band));
 
   // Pipeline OR-fold.
   HS_EXPECT_FALSE((Pipeline<W, H>::any_crosses_segments));
-  HS_EXPECT_FALSE((Pipeline<W, H>::any_reads_outside_band));
 
   using MeshStack =
       Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
                Filter::Pixel::Feedback<W, H>>;
   HS_EXPECT_TRUE(MeshStack::any_crosses_segments);
-  HS_EXPECT_TRUE(MeshStack::any_reads_outside_band);
 
   // A non-stateful stack does not.
   using PlainStack =
       Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>;
   HS_EXPECT_FALSE(PlainStack::any_crosses_segments);
-  HS_EXPECT_FALSE(PlainStack::any_reads_outside_band);
 
   HS_EXPECT_TRUE(
       (Pipeline<W, H, Filter::Screen::Trails<>>::any_crosses_segments));
-  HS_EXPECT_FALSE(
-      (Pipeline<W, H, Filter::World::Trails<16>>::any_reads_outside_band));
 
   // The pipeline spelling exposes the fold. MeshStack's head (World::Orient)
   // is false while the composed pipeline is true.
@@ -117,7 +121,35 @@ inline void test_crosses_segments_trait_and_fold() {
       "Pipeline::crosses_segments must answer the fold, not the head");
   static_assert(!PlainStack::any_crosses_segments,
                 "non-stateful pipeline must keep the segment clipping win");
+}
 
+/** @brief Feedback and pipeline folds identify reads outside the segment band. */
+inline void test_reads_outside_band_trait_and_fold() {
+  constexpr int W = 32, H = 16;
+  using MeshStack =
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
+               Filter::Pixel::Feedback<W, H>>;
+  using PlainStack =
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>;
+  HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::reads_outside_band));
+  HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::reads_outside_band));
+  HS_EXPECT_FALSE((Filter::World::Trails<16>::reads_outside_band));
+  HS_EXPECT_FALSE((Filter::Screen::Trails<>::reads_outside_band));
+  HS_EXPECT_FALSE((Pipeline<W, H>::any_reads_outside_band));
+  HS_EXPECT_TRUE(MeshStack::any_reads_outside_band);
+  HS_EXPECT_FALSE(PlainStack::any_reads_outside_band);
+  HS_EXPECT_FALSE(
+      (Pipeline<W, H, Filter::World::Trails<16>>::any_reads_outside_band));
+}
+
+/** @brief A pipeline sums the segment margins of its spreading stages. */
+inline void test_segment_margin_sums() {
+  constexpr int W = 32, H = 16;
+  using MeshStack =
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
+               Filter::Pixel::Feedback<W, H>>;
+  using PlainStack =
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>;
   // segment_margin: the render-bound padding a stage's off-position taps need.
   HS_EXPECT_EQ((Filter::Pixel::ChromaticShift<W>::segment_margin), 3);
   HS_EXPECT_EQ((Filter::Screen::AntiAlias<W, H>::segment_margin), 1);
@@ -144,7 +176,14 @@ inline void test_crosses_segments_trait_and_fold() {
                 "ChromaticShift must stay band-clippable");
   static_assert(!ShiftStack::any_crosses_segments,
                 "a ChromaticShift stack must keep the segment clipping win");
+}
 
+/** @brief Pipeline folds preserve the stages’ ordering contracts. */
+inline void test_ordering_trait_folds() {
+  constexpr int W = 32, H = 16;
+  using MeshStack =
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
+               Filter::Pixel::Feedback<W, H>>;
   // Ordering traits: a misspelled override silently inherits the FilterTraits
   // default, so pin both the stage value and the pipeline fold.
   HS_EXPECT_TRUE((Filter::Screen::AntiAlias<W, H>::emits_pixel_centers));
@@ -188,7 +227,6 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE(MeshStack::emits_nonunit_world);
   HS_EXPECT_FALSE(MeshStack::world_transform_is_identity);
 }
-
 /**
  * @brief Verifies the `any_2d_history` / `any_3d_history` folds that gate the
  *        flush() overloads against a wrong-domain (silently empty) call.
@@ -241,6 +279,10 @@ inline void test_pipeline_config_widens_requirements() {
   constexpr auto WIDENED = pipeline_config<Plain>();
   static_assert(WIDENED.margin == Plain::total_segment_margin);
   static_assert(WIDENED.required_margin == Plain::total_segment_margin);
+  constexpr auto UNDER =
+      pipeline_config<Plain>({.margin = 1, .required_margin = 2});
+  static_assert(UNDER.margin == Plain::total_segment_margin);
+  static_assert(UNDER.required_margin == Plain::total_segment_margin);
   constexpr auto HISTORY = pipeline_config<Stateful>();
   static_assert(HISTORY.full_frame && HISTORY.reads_outside_band);
   constexpr auto RETAINED = pipeline_config<Plain>({.strobe = false,

@@ -674,6 +674,7 @@ inline void check_described_snapshot_ranges(const char *name) {
   HS_EXPECT_TRUE(effect.restore_parameters(original));
 }
 
+/** @brief Authored fields reject snapshots outside their described ranges. */
 inline void test_authored_field_snapshot_validation() {
   size_t described = 0;
   auto check = [&]<template <int, int> class E>(const char *name) {
@@ -686,7 +687,10 @@ inline void test_authored_field_snapshot_validation() {
   HS_EFFECT_LIST(HS_CHECK_DESCRIBED_SNAPSHOT)
 #undef HS_CHECK_DESCRIBED_SNAPSHOT
   HS_EXPECT_GE(described, size_t{8});
+}
 
+/** @brief MindSplatter interpolates described fields and preserves other members. */
+inline void test_mind_splatter_fields_interpolate_described_members() {
   MindSplatterParams from;
   MindSplatterParams to;
   from.friction = .6f;
@@ -749,6 +753,7 @@ inline int run_param_marshal_tests() {
   HS_RUN(test_typed_field_invalid_metadata);
   HS_RUN(test_typed_field_domains_and_exclusions);
   HS_RUN(test_authored_field_snapshot_validation);
+  HS_RUN(test_mind_splatter_fields_interpolate_described_members);
   HS_RUN(test_sparse_option_metadata);
   HS_RUN(check_roster_order_pinned);
   HS_RUN(check_generation_tracker);

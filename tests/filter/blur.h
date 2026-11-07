@@ -20,7 +20,11 @@ inline void test_blur_factor_zero_is_identity() {
   float kept_alpha = 0.0f;
   float kept_x = -1.0f, kept_y = -1.0f;
   blur.plot(8.0f, 16.0f, Pixel(4, 5, 6), 2.0f, 1.0f,
-            [&](float x, float y, const Pixel &, float, float a) {
+            [&](float x, float y, const Pixel &color, float age, float a) {
+              HS_EXPECT_EQ(color.r, uint16_t{4});
+              HS_EXPECT_EQ(color.g, uint16_t{5});
+              HS_EXPECT_EQ(color.b, uint16_t{6});
+              HS_EXPECT_EQ(age, 2.0f);
               ++count;
               kept_alpha = a;
               kept_x = x;
@@ -78,8 +82,12 @@ inline void test_blur_full_kernel_sums_to_alpha() {
   float sum = 0.0f;
   int count = 0;
   const float in_alpha = 0.6f;
-  blur.plot(15.0f, 16.0f, Pixel(1, 1, 1), 0.0f, in_alpha,
-            [&](float, float, const Pixel &, float, float a) {
+  blur.plot(15.0f, 16.0f, Pixel(1, 2, 3), 3.25f, in_alpha,
+            [&](float, float, const Pixel &color, float age, float a) {
+              HS_EXPECT_EQ(color.r, uint16_t{1});
+              HS_EXPECT_EQ(color.g, uint16_t{2});
+              HS_EXPECT_EQ(color.b, uint16_t{3});
+              HS_EXPECT_EQ(age, 3.25f);
               sum += a;
               ++count;
             });

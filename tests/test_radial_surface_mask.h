@@ -14,14 +14,28 @@
 #include "core/render/scan/radial_surface_edge_aa.h"
 #include "core/render/scan/radial_surface_renderer.h"
 #include "tests/test_harness.h"
+#include "tests/test_radial_surface.h"
 
 namespace hs_test::radial_surface_mask_tests {
 
+using AreaTestSurface = Scan::RadialSurface<4, 7>;
+inline constexpr std::array NEAR_AREA_KNOTS{
+    AreaTestSurface::Knot{0, 0, 0}, AreaTestSurface::Knot{.2f, 0, 0},
+    AreaTestSurface::Knot{.5f, .1f, .2f}, AreaTestSurface::Knot{.6f, .3f, .5f},
+    AreaTestSurface::Knot{.8f, .1f, .1f}};
+inline constexpr std::array FAR_AREA_KNOTS{
+    AreaTestSurface::Knot{0, 0, 0}, AreaTestSurface::Knot{.1f, 0, 0},
+    AreaTestSurface::Knot{.3f, -.1f, -.3f},
+    AreaTestSurface::Knot{.5f, -.2f, -.4f}, AreaTestSurface::Knot{.6f, 0, 0}};
+
 /** @brief Checks padded segment coverage independently of mask rectangles. */
-template <int RADIAL, int ANGULAR, int INTERVALS = 24>
+enum class MaskProfile { EXPANDING, FOLDED };
+
+template <int RADIAL, int ANGULAR, int INTERVALS = 24,
+          MaskProfile PROFILE = MaskProfile::EXPANDING>
 inline void check_radial_surface_mask(float padding) {
   using Surface = Scan::RadialSurface<INTERVALS, 9>;
-  constexpr int SIDES = INTERVALS == 24 ? 7 : 9;
+  constexpr int SIDES = PROFILE == MaskProfile::EXPANDING ? 7 : 9;
   using Mask = Scan::RadialSurfaceCandidateMask<RADIAL, ANGULAR>;
   using Boundary = Scan::RadialSurfaceBoundaryCandidates;
   using Point = Boundary::Point;
@@ -34,14 +48,20 @@ inline void check_radial_surface_mask(float padding) {
     std::array<typename Surface::Knot, INTERVALS + 1> knots;
     for (int i = 0; i <= INTERVALS; ++i) {
       const float Q = float(i) / INTERVALS;
-      const float R = INTERVALS == 24
+      const float R = PROFILE == MaskProfile::EXPANDING
                           ? math::PI_F * .5f * (1.44f * Q - .44f * Q * Q)
                           : .7f + .25f * sinf(math::TWO_PI_F * Q);
-      const float P = (INTERVALS == 24 ? 1 : 3) *
-                      sinf((INTERVALS == 24 ? math::PI_F : math::TWO_PI_F) * Q +
-                           phase * math::PI_F / 3);
+      const float P =
+          (PROFILE == MaskProfile::EXPANDING ? 1 : 3) *
+          sinf((PROFILE == MaskProfile::EXPANDING ? math::PI_F
+                                                  : math::TWO_PI_F) *
+                   Q +
+               phase * math::PI_F / 3);
       knots[i] = {R * cosf(P), R * sinf(P), P};
     }
+    float maximum_radius = 0;
+    for (const auto &knot : knots)
+      maximum_radius = std::max(maximum_radius, hypotf(knot.real, knot.imag));
     Surface surface;
     surface.prepare(scratch_arena_a, SIDES, .382f, knots);
     Mask mask;
@@ -73,7 +93,7 @@ inline void check_radial_surface_mask(float padding) {
     });
     for (int r = 0; r < 100; ++r)
       for (int a = 0; a < 100; ++a) {
-        const float R = (r + .5f) * (math::PI_F * .5f + PAD) / 100;
+        const float R = (r + .5f) * (maximum_radius + PAD) / 100;
         const float THETA = (a + .5f) * math::TWO_PI_F / (SIDES * 100);
         const uint32_t bits = mask.interval_bits(R, THETA);
         marked += bits != 0;
@@ -82,7 +102,10 @@ inline void check_radial_surface_mask(float padding) {
       }
   }
   HS_EXPECT_EQ(misses, 0u);
-  HS_EXPECT_LT(marked, total * 3 / 5);
+  if constexpr (PROFILE == MaskProfile::EXPANDING)
+    HS_EXPECT_LT(marked, total * 3 / 5);
+  else
+    HS_EXPECT_LT(marked, total * 7 / 8);
   HS_EXPECT_GT(probes, 0u);
   HS_EXPECT_GT(candidates, 0u);
   HS_EXPECT_LT(interval_bits, static_cast<uint64_t>(marked) * 4u);
@@ -145,8 +168,11 @@ inline void test_radial_surface_mask_motion() {
                                   U * (candidate.b.y - candidate.a.y) +
                                   PIXEL * sinf(A);
                   ++probes;
-                  misses +=
-                      !mask.near_boundary(sqrtf(X * X + Y * Y), atan2f(Y, X));
+                  const auto bits =
+                      mask.interval_bits(sqrtf(X * X + Y * Y), atan2f(Y, X));
+                  misses += ((bits >> (candidate.origin_interval >>
+                                       mask.interval_shift())) &
+                             1u) == 0;
                 }
             });
       }
@@ -184,11 +210,7 @@ inline void test_radial_surface_candidate_parity() {
       surface.set_knots(knots);
     }
     Scan::RadialSurfaceEdgeAA<Surface> aa;
-    auto shade = [](const auto &hit) {
-      const float Q = (hit.interval + hit.fraction) / 24;
-      return Scan::SurfaceColor{Q, Q, Q};
-    };
-    float worst = 0;
+    const auto shade = radial_surface_tests::arrival_ramp(24);
     for (int y = -30; y <= 30; ++y)
       for (int x = -30; x <= 30; ++x) {
         const Surface::Point P{x * .05f, y * .05f}, DX{.025f, .001f},
@@ -200,13 +222,10 @@ inline void test_radial_surface_candidate_parity() {
         const auto masked = aa.template sample<false>(
             surface, P, DX, DY, A, 0, shade, nullptr, -1, -1,
             mask.interval_bits(R, A), mask.interval_shift());
-        const float ERROR = fabsf(reference.r - masked.r);
-        worst = fmaxf(worst, ERROR);
         different += std::bit_cast<uint32_t>(reference.r) !=
                      std::bit_cast<uint32_t>(masked.r);
         ++tested;
       }
-    HS_EXPECT_LT(worst, 1e-6f);
   }
   HS_EXPECT_EQ(different, 0u);
   std::printf("  candidate mask parity: pixels=%u differences=%u\n", tested,
@@ -252,17 +271,9 @@ inline void test_radial_surface_area() {
   using Surface = Scan::RadialSurface<4, 7>;
   using Mask = Scan::RadialSurfaceCandidateMask<64, 16>;
   ScratchScope scope(scratch_arena_a);
-  const std::array NEAR_KNOTS{Surface::Knot{0, 0, 0}, Surface::Knot{.2f, 0, 0},
-                              Surface::Knot{.5f, .1f, .2f},
-                              Surface::Knot{.6f, .3f, .5f},
-                              Surface::Knot{.8f, .1f, .1f}};
-  const std::array FAR_KNOTS{Surface::Knot{0, 0, 0}, Surface::Knot{.1f, 0, 0},
-                             Surface::Knot{.3f, -.1f, -.3f},
-                             Surface::Knot{.5f, -.2f, -.4f},
-                             Surface::Knot{.6f, 0, 0}};
   Surface near, far;
-  near.prepare(scratch_arena_a, 7, .382f, NEAR_KNOTS);
-  far.prepare(scratch_arena_a, 7, .382f, FAR_KNOTS);
+  near.prepare(scratch_arena_a, 7, .382f, NEAR_AREA_KNOTS);
+  far.prepare(scratch_arena_a, 7, .382f, FAR_AREA_KNOTS);
   Mask near_mask, far_mask;
   near_mask.bind(scratch_arena_a);
   far_mask.bind(scratch_arena_a);
@@ -350,16 +361,83 @@ inline void test_radial_surface_area() {
   HS_EXPECT_EQ(hemispheres, 2u);
 }
 
+/** @brief Radius-based first intervals preserve all boundaries touching a wide footprint. */
+inline void test_radial_surface_area_footprint_first_interval() {
+  using Surface = AreaTestSurface;
+  using Mask = Scan::RadialSurfaceCandidateMask<64, 16>;
+  ScratchScope scope(scratch_arena_a);
+  size_t positive = 0;
+  for (const auto &knots : {NEAR_AREA_KNOTS, FAR_AREA_KNOTS}) {
+    Surface surface;
+    surface.prepare(scratch_arena_a, 7, .382f, knots);
+    Mask mask;
+    Scan::RadialSurfaceArea<Surface, false, false, Mask> area(surface, mask,
+                                                              mask);
+    auto first_interval = [&](float radius) {
+      int first = 0;
+      for (int index = 1; index < static_cast<int>(knots.size()); ++index)
+        if (hypotf(knots[index].real, knots[index].imag) <= radius)
+          first = index;
+      return first;
+    };
+    auto zero_bound = [](float) { return 0; };
+    const auto shade = [](const auto &hit) {
+      const float value = hit.interval + hit.fraction;
+      return Scan::SurfaceColor{value, value * 2, value * 3};
+    };
+    for (int radial = 1; radial <= 100; ++radial)
+      for (int angular = 0; angular < 16; ++angular) {
+        const float radius = radial * .01f;
+        const float theta = angular * math::TWO_PI_F / 112;
+        const Surface::Point point{radius * cosf(theta), radius * sinf(theta)};
+        const auto footprint = [&] {
+          return Scan::radial_chart_footprint<Surface::Point>(
+              {sinf(radius) * cosf(theta), cosf(radius),
+               sinf(radius) * sinf(theta)},
+              {.06f, 0, 0}, {0, 0, .06f});
+        };
+        const auto bounded = area(surface, point, theta, radius, footprint,
+                                  first_interval, shade, nullptr);
+        const auto reference = area(surface, point, theta, radius, footprint,
+                                    zero_bound, shade, nullptr);
+        HS_EXPECT_EQ(bounded.r > 0, reference.r > 0);
+#if HS_TEST_FAST_MATH
+        const auto expect_channel = [](float actual, float expected) {
+          constexpr float UNIT = std::numeric_limits<float>::epsilon() * .5f;
+          constexpr float ROUNDS = 8;
+          constexpr float GAMMA = ROUNDS * UNIT / (1 - ROUNDS * UNIT);
+          const float SCALE = std::max(fabsf(actual), fabsf(expected));
+          HS_EXPECT_NEAR(actual, expected, 2 * GAMMA * SCALE);
+        };
+        expect_channel(bounded.r, reference.r);
+        expect_channel(bounded.g, reference.g);
+        expect_channel(bounded.b, reference.b);
+#else
+        HS_EXPECT_EQ(std::bit_cast<uint32_t>(bounded.r),
+                     std::bit_cast<uint32_t>(reference.r));
+        HS_EXPECT_EQ(std::bit_cast<uint32_t>(bounded.g),
+                     std::bit_cast<uint32_t>(reference.g));
+        HS_EXPECT_EQ(std::bit_cast<uint32_t>(bounded.b),
+                     std::bit_cast<uint32_t>(reference.b));
+#endif
+        positive += reference.r > 0;
+      }
+  }
+  HS_EXPECT_GT(positive, size_t{0});
+}
+
 /** @brief Checks conservative interval masks and temporal candidate parity. */
-inline void test_radial_surface_mask() {
-  check_radial_surface_mask<64, 32>(.035f);
-  check_radial_surface_mask<64, 32>(.02425f);
-  check_radial_surface_mask<64, 32, 96>(.02425f);
-  check_radial_surface_mask<64, 16, 24>(.02425f);
-  check_radial_surface_mask<64, 16, 96>(.02425f);
-  test_radial_surface_mask_motion();
-  test_radial_surface_candidate_parity();
-  test_radial_surface_mask_degenerate_motion();
+inline void run_radial_surface_mask_checks() {
+  HS_RUN((check_radial_surface_mask<64, 32>), .035f);
+  HS_RUN((check_radial_surface_mask<64, 32>), .02425f);
+  HS_RUN((check_radial_surface_mask<64, 32, 96, MaskProfile::FOLDED>), .02425f);
+  HS_RUN((check_radial_surface_mask<64, 16, 24>), .02425f);
+  HS_RUN((check_radial_surface_mask<64, 16, 96, MaskProfile::FOLDED>), .02425f);
+  HS_RUN(test_radial_surface_mask_motion);
+  HS_RUN(test_radial_surface_candidate_parity);
+  HS_RUN(test_radial_surface_mask_degenerate_motion);
+  HS_RUN(test_radial_surface_area);
+  HS_RUN(test_radial_surface_area_footprint_first_interval);
 }
 
 } // namespace hs_test::radial_surface_mask_tests

@@ -155,6 +155,8 @@ inline void test_volume_dense_reference() {
   const math::Vector DIRECTION(0, 0, -1);
   const float AA = 0.01f;
   const float THRESHOLD = AA * 0.1f;
+  int band_entries = 0;
+  int soft_entries = 0;
   auto compare = [&](const auto &shape, const math::Vector &origin,
                      float radius) {
     auto expected =
@@ -165,12 +167,14 @@ inline void test_volume_dense_reference() {
     HS_EXPECT_NEAR(VolumeReference::coverage(expected.distance, THRESHOLD, AA),
                    Scan::volume_edge_coverage(distance, THRESHOLD, AA), 0.015f);
     if (expected.distance > THRESHOLD && expected.distance < AA) {
+      ++band_entries;
       HS_EXPECT_NEAR(distance, expected.distance, 0.0003f);
       auto background =
           VolumeReference::behind(shape, expected.position, DIRECTION, radius);
       auto occluder = Scan::Volume::probe_occluder(shape, expected.position,
                                                    DIRECTION, radius, THRESHOLD,
                                                    AA, expected.distance);
+      soft_entries += occluder.soft > 0.0f;
       HS_EXPECT_EQ(occluder.solid, background.distance < THRESHOLD);
       if (!occluder.solid)
         HS_EXPECT_NEAR(
@@ -187,6 +191,10 @@ inline void test_volume_dense_reference() {
                       math::Vector(0.28f, 0, -0.2f), 0.3f};
     compare(pair, math::Vector(0.0357f + offset, 0.1797f, 1), 0.6f);
   }
+  std::printf("  dense volume oracle band=%d soft=%d\n", band_entries,
+              soft_entries);
+  HS_EXPECT_GE(band_entries, 50);
+  HS_EXPECT_GE(soft_entries, 10);
 }
 
 /** @brief Pins closest-sample ownership at a nearly tied silhouette minimum. */
@@ -234,7 +242,7 @@ struct VolumeSink {
 
 /**
  * @brief Verifies TransformedVolume's world<->local contract: the round trip is
- *        the identity, the mapped ray direction stays unit length, and distance()
+ *        the identity, the direction maps through the inverse rotation, and distance()
  *        delegates to the wrapped SDF.
  */
 inline void test_transformed_volume_world_local_roundtrip() {
@@ -263,14 +271,14 @@ inline void test_transformed_volume_world_local_roundtrip() {
   HS_EXPECT_NEAR(back.y, lp.y, 1e-5f);
   HS_EXPECT_NEAR(back.z, lp.z, 1e-5f);
 
-  // ray_to_local maps the origin like origin_to_local and keeps a unit direction
-  // unit (rigid map, no scale) — the |local_vd| == 1 precondition.
+  // The ray direction maps through the inverse rotation.
   const math::Vector vd(0.0f, 0.0f, -1.0f);
   auto [lro, lvd] = vol.ray_to_local(world, vd);
   HS_EXPECT_NEAR(lro.x, lp.x, 1e-5f);
   HS_EXPECT_NEAR(lro.y, lp.y, 1e-5f);
   HS_EXPECT_NEAR(lro.z, lp.z, 1e-5f);
   HS_EXPECT_NEAR(lvd.length(), 1.0f, 1e-5f);
+  HS_EXPECT_VEC(lvd, math::rotate(vd, q.conjugate()), 1e-5f);
 
   // distance() forwards straight to the wrapped SDF.
   HS_EXPECT_NEAR(vol.distance(lp), sphere.distance(lp), 1e-6f);
@@ -321,6 +329,16 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   HS_EXPECT_LT((size_t)hits, (size_t)(W * H));
   HS_EXPECT_GT(sink.plotted.size(), (size_t)0);
   HS_EXPECT_LE(sink.plotted.size(), (size_t)hits);
+  const float projected_disc_pixels =
+      math::PI_F * SPHERE_R * SPHERE_R /
+      ((math::TWO_PI_F / W) * (math::PI_F / (H - 1)));
+  HS_EXPECT_GT(sink.plotted.size(),
+               static_cast<size_t>(projected_disc_pixels * 0.5f));
+  for (const auto &[x, y] : sink.plotted) {
+    const math::Vector point = math::pixel_to_vector<W, H>(x, y);
+    HS_EXPECT_GT(point.z, 0.0f);
+    HS_EXPECT_LT(std::hypot(point.x, point.y), SPHERE_R + AA_WIDTH + 1e-5f);
+  }
 
   // Every shaded fragment is a genuine surface hit inside the AA band.
   HS_EXPECT_LE(max_surf_err, AA_WIDTH + 1e-3f);

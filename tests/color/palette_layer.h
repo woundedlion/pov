@@ -38,9 +38,8 @@ inline void test_mutating_palette_blends_endpoints() {
   m.mutate(1.0f);
   HS_EXPECT_EQ(m.get(0.0f).color.r, 0);
   m.mutate(0.5f); // a=.25, b=.25 -> 0.25 + 0.25*cos(0) = 0.5 sRGB
-  uint16_t mid = m.get(0.0f).color.r;
-  HS_EXPECT_GT(mid, 0);
-  HS_EXPECT_LT(mid, 65535);
+  const uint16_t MID = m.get(0.0f).color.r;
+  HS_EXPECT_NEAR(static_cast<float>(MID), srgb_to_linear_interp(0.5f), 2.0f);
 }
 
 /**
@@ -379,7 +378,8 @@ inline void test_sparkle_shade() {
 /**
  * @brief Verifies ChromaPulseShade scales chroma while holding L, hue, and alpha.
  * @details Positive sine lobes boost measured OKLCH chroma, negative lobes cut
- *          it, a zero lobe is a near-identity, and grays stay achromatic.
+ *          it, a zero lobe is a near-identity, phase edits refresh the memo,
+ *          and grays stay achromatic.
  */
 inline void test_chroma_pulse_shade() {
   Color4 mid(Pixel(30000, 12000, 6000), 0.7f);
@@ -403,19 +403,19 @@ inline void test_chroma_pulse_shade() {
   HS_EXPECT_NEAR(wrap_hue_delta(CUT.h - before.h), 0.0f, .01f);
 
   // sin(0) = 0: pass-through within the OKLab round-trip budget.
-  float zero = 0.0f;
-  ChromaPulseShade flat(&zero, 0.3f);
+  float phase_driver = 0.0f;
+  ChromaPulseShade flat(&phase_driver, 0.3f);
   Color4 same = flat.shade(mid, 0.2f);
-  // ChromaPulseShade refreshes its memo when phase changes.
-  zero = math::PI_F * .5f;
-  HS_EXPECT_EQ(flat.shade(mid, .2f).color,
-               ChromaPulseShade(&zero, .3f).shade(mid, .2f).color);
   HS_EXPECT_NEAR(static_cast<float>(same.color.r),
                  static_cast<float>(mid.color.r), OKLAB_ROUND_TRIP_TOL);
   HS_EXPECT_NEAR(static_cast<float>(same.color.g),
                  static_cast<float>(mid.color.g), OKLAB_ROUND_TRIP_TOL);
   HS_EXPECT_NEAR(static_cast<float>(same.color.b),
                  static_cast<float>(mid.color.b), OKLAB_ROUND_TRIP_TOL);
+
+  phase_driver = math::PI_F * .5f;
+  HS_EXPECT_EQ(flat.shade(mid, .2f).color,
+               ChromaPulseShade(&phase_driver, .3f).shade(mid, .2f).color);
 
   // Gray has no chroma to scale.
   Color4 gray(Pixel(20000, 20000, 20000), 1.0f);
@@ -489,9 +489,9 @@ inline void test_iridescent_shade() {
   // The overlay saturates instead of wrapping on a near-white input.
   Color4 bright(Pixel(65000, 65000, 65000), 1.0f);
   Color4 sat = sheen.shade(bright, 0.1f);
-  HS_EXPECT_GE(sat.color.r, bright.color.r);
-  HS_EXPECT_GE(sat.color.g, bright.color.g);
-  HS_EXPECT_GE(sat.color.b, bright.color.b);
+  HS_EXPECT_EQ(sat.color.r, 65535);
+  HS_EXPECT_EQ(sat.color.g, 65535);
+  HS_EXPECT_EQ(sat.color.b, 65535);
 
   // Zero weight adds nothing.
   IridescentShade off(&phase, 2.0f, 0.0f);
@@ -658,11 +658,13 @@ inline void test_palette_wrappers() {
   StaticPalette<Gradient, Coords<InsetModifier>, Colors<EdgeFadeShade>,
                 /*Wrap=*/false>
       vig;
-  vig.bind(&grad, &inset, &fade);
-  HS_EXPECT_LT(vig.get(0.0f).color.r, 1000); // edge -> ~black
-  uint16_t vmid = vig.get(0.5f).color.r;     // middle -> source.get(0.5)
-  HS_EXPECT_GT(vmid, 1000);
-  HS_EXPECT_LT(vmid, 64000);
+  Gradient white{{0.0f, CPixel(255u, 255u, 255u)},
+                 {1.0f, CPixel(255u, 255u, 255u)}};
+  vig.bind(&white, &inset, &fade);
+  HS_EXPECT_EQ(vig.get(0.0f).color.r, 0);
+  HS_EXPECT_EQ(vig.get(1.0f).color.r, 0);
+  HS_EXPECT_NEAR(vig.get(0.1f).color.r, 32768, 2);
+  HS_EXPECT_EQ(vig.get(0.5f).color.r, white.get(0.5f).color.r);
 
   // Transparent vignette = InsetModifier + EdgeAlphaShade: alpha (not color)
   // fades at the edges.

@@ -197,6 +197,7 @@ inline int run_animation_tests() {
   HS_RUN(test_quantized_vector_trail_roundtrip_and_ring);
 
   HS_RUN(test_meshcarousel_compact_keep_front_drops_back);
+  HS_RUN(test_meshcarousel_compact_keep_front_slot_one);
   HS_RUN(test_meshcarousel_compact_drop_all_frees_both_slots);
 
   HS_RUN(test_colorwipe_reaches_target_keys);
@@ -221,10 +222,26 @@ inline int run_animation_tests() {
   HS_RUN((test_noise_loop_coordinates_and_samples<Animation::NoiseProductParams,
                                                   Animation::NoiseProduct>));
   HS_RUN(
-      (test_noise_loop_live_controls_and_value_semantics<Animation::NoiseParams,
-                                                         Animation::Noise>));
-  HS_RUN((test_noise_loop_live_controls_and_value_semantics<
-          Animation::NoiseProductParams, Animation::NoiseProduct>));
+      (test_noise_loop_live_speed<Animation::NoiseParams, Animation::Noise>));
+  HS_RUN((test_noise_loop_live_speed<Animation::NoiseProductParams,
+                                     Animation::NoiseProduct>));
+  HS_RUN((test_noise_loop_nonfinite_speed_holds<Animation::NoiseParams,
+                                                Animation::Noise>));
+  HS_RUN((test_noise_loop_nonfinite_speed_holds<Animation::NoiseProductParams,
+                                                Animation::NoiseProduct>));
+  HS_RUN((test_noise_loop_published_time_and_refresh<Animation::NoiseParams,
+                                                     Animation::Noise>));
+  HS_RUN(
+      (test_noise_loop_published_time_and_refresh<Animation::NoiseProductParams,
+                                                  Animation::NoiseProduct>));
+  HS_RUN((test_noise_loop_copy_and_assignment<Animation::NoiseParams,
+                                              Animation::Noise>));
+  HS_RUN((test_noise_loop_copy_and_assignment<Animation::NoiseProductParams,
+                                              Animation::NoiseProduct>));
+  HS_RUN((
+      test_noise_loop_seed_recovery<Animation::NoiseParams, Animation::Noise>));
+  HS_RUN((test_noise_loop_seed_recovery<Animation::NoiseProductParams,
+                                        Animation::NoiseProduct>));
   HS_RUN(
       (test_noise_loop_long_uptime<Animation::NoiseParams, Animation::Noise>));
   HS_RUN((test_noise_loop_long_uptime<Animation::NoiseProductParams,

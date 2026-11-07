@@ -6,15 +6,29 @@
 
 struct HookParams {
   float value = 0.0f;
+#ifdef HS_HOOK_DISCRETE_LERP
+  uint8_t mode = 0;
+  static constexpr auto FIELDS = std::tuple{
+      Control::Field<HookParams, uint8_t>{.id = "mode",
+                                          .member = &HookParams::mode,
+                                          .spec = {.min = 0, .max = 1},
+                                          .curve = Control::FieldCurve::LERP}};
+#endif
 };
 struct HookFixture : ChoreographedEffect<HookFixture, HookParams> {
   using Base = ChoreographedEffect<HookFixture, HookParams>;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+#ifdef HS_HOOK_DEPARTURE_OUTLASTS
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 1;
+#else
   static constexpr uint16_t PRESET_DWELL_FRAMES = 8;
+#endif
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS{
       {{{0.0f}, Segue::Preset::Lerp{2, math::ease_linear}},
        {{1.0f}, Segue::Preset::Fade{2}}}};
-#if defined(HS_HOOK_PRESET_ROW) && !defined(HS_HOOK_PRESET_ROW_NO_IDS)
+#ifdef HS_HOOK_IDS_SIZE_MISMATCH
+  static constexpr std::array<const char *, 1> PRESET_IDS{"a"};
+#elif defined(HS_HOOK_PRESET_ROW) && !defined(HS_HOOK_PRESET_ROW_NO_IDS)
   static constexpr std::array<const char *, 2> PRESET_IDS{"a", "b"};
 #endif
   static constexpr auto preset(size_t index) { return PRESETS[index]; }
@@ -22,7 +36,9 @@ struct HookFixture : ChoreographedEffect<HookFixture, HookParams> {
   static bool valid_params(const Params &) { return true; }
   static constexpr Params initial_params() { return {}; }
   Params preset_params(size_t index) const { return PRESETS[index].params; }
+#ifndef HS_HOOK_INHERITED_DEFAULT
   void adopt_params(const Params &value) { params = value; }
+#endif
   void blend_params(float) {}
   void transition_armed(const Params &) {}
 #ifdef HS_HOOK_BAD_RETURN
@@ -52,12 +68,10 @@ struct HookFixture : ChoreographedEffect<HookFixture, HookParams> {
         Control::HookBinding<Hook::INITIAL_PARAMS,
                              &HookFixture::initial_params>,
         Control::HookBinding<Hook::PRESET_PARAMS, &HookFixture::preset_params>,
-#ifdef HS_HOOK_INHERITED_DEFAULT
-        Control::HookBinding<Hook::ADOPT_PARAMS, &Base::adopt_params>,
-#else
         Control::HookBinding<Hook::ADOPT_PARAMS, &HookFixture::adopt_params>,
-#endif
+#ifndef HS_HOOK_LERP_NO_BLEND
         Control::HookBinding<Hook::BLEND_PARAMS, &HookFixture::blend_params>,
+#endif
         Control::HookBinding<Hook::TRANSITION_ARMED,
                              &HookFixture::transition_armed>,
 #ifdef HS_HOOK_BOUND_TYPO
@@ -68,8 +82,10 @@ struct HookFixture : ChoreographedEffect<HookFixture, HookParams> {
 #ifdef HS_HOOK_DUPLICATE
         Control::HookBinding<Hook::FINISH_BLEND, &HookFixture::finish_blend>,
 #endif
+#ifndef HS_HOOK_FADE_NO_OPACITY
         Control::HookBinding<Hook::PRESET_OPACITY,
                              &HookFixture::set_preset_opacity>,
+#endif
         Control::HookBinding<Hook::AFTER_PROFILE_PRESET,
                              &HookFixture::after_profile_preset>,
         Control::HookBinding<Hook::AFTER_COMPOSED_INIT,

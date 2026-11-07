@@ -38,9 +38,23 @@ inline void test_pattern_direction_admission() {
   HS_EXPECT_NEAR(A.value().x, B.value().x, 1.0e-7f);
   HS_EXPECT_NEAR(A.value().y, B.value().y, 1.0e-7f);
   HS_EXPECT_NEAR(A.value().z, B.value().z, 1.0e-7f);
+  for (const math::Vector &input :
+       {math::Vector(0.3f, -0.6f, 0.9f), math::Vector(3.0f, -6.0f, 9.0f),
+        math::Vector(1.0e-6f, 0.0f, 0.0f)}) {
+    const auto expected = SphereDirection::from(input).value();
+    const auto actual = SphereDirection::admit(input).value();
+    HS_EXPECT_NEAR(actual.x, expected.x, 1.0e-7f);
+    HS_EXPECT_NEAR(actual.y, expected.y, 1.0e-7f);
+    HS_EXPECT_NEAR(actual.z, expected.z, 1.0e-7f);
+  }
+  const math::Vector unit(0.6f, 0.8f, 0.0f);
+  const auto preserved = SphereDirection::from_unit(unit).value();
+  HS_EXPECT_EQ(preserved.x, unit.x);
+  HS_EXPECT_EQ(preserved.y, unit.y);
+  HS_EXPECT_EQ(preserved.z, unit.z);
 }
 
-/** @brief Sphere sources use independent admitted axes and shared turn phases. */
+/** @brief Sphere sources match their independent wave formulas. */
 inline void test_pattern_sphere_formulas() {
   using namespace Pattern;
   SineParams params;
@@ -78,18 +92,33 @@ inline void test_pattern_sphere_formulas() {
     HS_EXPECT_NEAR(SphereSmoothGrid::sample(D, GRID), EXPECTED_A * EXPECTED_B,
                    0.0035f);
     HS_EXPECT_TRUE(std::abs(SphereSmoothGrid::sample(D, GRID)) <= 1.0f);
+  }
+}
+
+/** @brief Sphere interference shares phase across a complete turn. */
+inline void test_pattern_sphere_shared_phase() {
+  using namespace Pattern;
+  InterferenceParams waves;
+  waves.frequency = 0.25f;
+  waves.frequency_b = 0.5f;
+  waves.offset_b = 0.25f;
+  const auto PAIR = SphereInterference::prepare(waves, {});
+  for (int i = -64; i <= 64; ++i) {
+    const auto D = SphereDirection::from({0.37f, i * 0.125f, -0.91f});
     HS_EXPECT_NEAR(SphereInterference::sample(D, PAIR),
                    SphereInterference::sample(
                        D, SphereInterference::prepare(waves, {1.0f})),
                    1.0e-6f);
   }
-  params.frequency = MAX_AXIAL_FREQUENCY + 1.0f;
-  HS_EXPECT_TRUE(!DirectionalSine::valid(params));
-  params.frequency = -1.0f;
-  HS_EXPECT_TRUE(!DirectionalSine::valid(params));
-  params.frequency = 1.0f;
-  params.axis = math::Vector(0.0f, 0.0f, 0.0f);
-  HS_EXPECT_TRUE(!DirectionalSine::valid(params));
+}
+
+/** @brief Sphere grid axes are normalized independently, including parallel axes. */
+inline void test_pattern_sphere_skewed_axes() {
+  using namespace Pattern;
+  GridParams grid;
+  grid.frequency = 0.25f;
+  grid.frequency_b = 0.5f;
+  grid.offset_b = 0.25f;
   grid.axis = math::Vector(0.0f, 2.0f, 0.0f);
   grid.offset = -0.17f;
   grid.offset_b = 0.23f;
@@ -118,6 +147,27 @@ inline void test_pattern_sphere_formulas() {
       HS_EXPECT_TRUE(std::abs(ACTUAL) <= 1.0f);
     }
   }
+}
+
+/** @brief Sphere source admission rejects invalid axes and frequencies. */
+inline void test_pattern_sphere_admission() {
+  using namespace Pattern;
+  SineParams params;
+  params.frequency = MAX_AXIAL_FREQUENCY + 1.0f;
+  HS_EXPECT_TRUE(!DirectionalSine::valid(params));
+  params.frequency = -1.0f;
+  HS_EXPECT_TRUE(!DirectionalSine::valid(params));
+  params.frequency = 1.0f;
+  params.axis = math::Vector(0.0f, 0.0f, 0.0f);
+  HS_EXPECT_TRUE(!DirectionalSine::valid(params));
+  GridParams grid;
+  grid.frequency = 0.25f;
+  grid.frequency_b = 0.5f;
+  grid.offset_b = 0.25f;
+  grid.axis = math::Vector(0.0f, 2.0f, 0.0f);
+  grid.axis_b = math::Vector(0.0f, -4.0f, 0.0f);
+  grid.offset = -0.17f;
+  grid.offset_b = 0.23f;
   const GridParams VALID_GRID = grid;
   for (bool second : {false, true}) {
     for (const math::Vector INVALID_AXIS :
@@ -228,11 +278,11 @@ inline void test_pattern_turn_clock_reduction() {
     const float PHASE = static_cast<float>(step) / 4096.0f;
     for (const float RATE :
          {-0.999f, -0.25f, -1.0e-7f, 0.0f, 1.0e-7f, 0.25f, 0.999f}) {
-      const float LEGACY = math::wrap_t(PHASE + RATE);
-      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, RATE), LEGACY);
+      const float SINGLE_WRAP = math::wrap_t(PHASE + RATE);
+      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, RATE), SINGLE_WRAP);
       Pattern::NoiseSourceParams params;
       params.noise_time_rate = RATE;
-      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), LEGACY);
+      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), SINGLE_WRAP);
     }
   }
 }
@@ -304,7 +354,7 @@ inline void test_pattern_plane_bands() {
   HS_EXPECT_TRUE(!Source::valid(params));
 }
 
-/** @brief Sources expose pure clocks and immutable prepared controls. */
+/** @brief Pins plane source protocols values. */
 inline void test_pattern_plane_source_protocols() {
   using namespace Pattern;
   PlaneInterference::Params waves;
@@ -326,6 +376,12 @@ inline void test_pattern_plane_source_protocols() {
   const float RETAINED = PlaneInterference::sample(POINT, PREPARED);
   waves.pattern_freq = 13.0f;
   HS_EXPECT_EQ(PlaneInterference::sample(POINT, PREPARED), RETAINED);
+}
+
+/** @brief Pins plane source spiral samples values. */
+inline void test_pattern_plane_source_spiral_samples() {
+  using namespace Pattern;
+  const PlanePosition POINT{{0.6f, 0.25f}};
   static_assert(std::is_empty_v<PlaneSpiral::State>);
   PlaneSpiral::Params spiral_params;
   spiral_params.arms = 2.6f;
@@ -337,11 +393,22 @@ inline void test_pattern_plane_source_protocols() {
   HS_EXPECT_NEAR(
       PlaneSpiral::sample(POINT, PlaneSpiral::prepare(spiral_params, {})),
       std::sin(0.65f), 0.0018f);
+}
+
+/** @brief Pins plane source grid samples values. */
+inline void test_pattern_plane_source_grid_samples() {
+  using namespace Pattern;
+  const PlanePosition POINT{{0.6f, 0.25f}};
   PlaneCoupledGrid::Params grid_params;
   grid_params.pattern_mix = 1.0f;
   HS_EXPECT_NEAR(PlaneCoupledGrid::sample(
                      POINT, PlaneCoupledGrid::prepare(grid_params, {})),
                  std::sin(0.6f) * std::cos(0.25f), 0.0035f);
+}
+
+/** @brief Pins plane source tessellation samples values. */
+inline void test_pattern_plane_source_tessellation_samples() {
+  using namespace Pattern;
   using Cells =
       PlaneTessellation<TessellationKind::SQUARE, TessellationFill::CELLS>;
   static_assert(std::is_empty_v<Cells::State>);
@@ -360,6 +427,12 @@ inline void test_pattern_plane_source_protocols() {
   using Edges =
       PlaneTessellation<TessellationKind::SQUARE, TessellationFill::EDGES>;
   HS_EXPECT_EQ(Edges::sample({{}}, Edges::prepare({}, {})), -1.0f);
+}
+
+/** @brief Pins plane source noise samples values. */
+inline void test_pattern_plane_source_noise_samples() {
+  using namespace Pattern;
+  const PlanePosition POINT{{0.6f, 0.25f}};
   const FastNoiseLite GENERATOR;
   PlaneNoise::Params noise;
   noise.noise_time_rate = -0.01f;

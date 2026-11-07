@@ -34,15 +34,12 @@ struct MeshFeedbackWhiteBox {
       auto shader = [&](const math::Vector &, Fragment &f) {
         f.color = fx.mesh_shade;
       };
-      if (timed) {
-        Pipeline<DEFAULT_W, DEFAULT_H, Filter::World::Orient,
-                 Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>>
-            pipeline(Filter::World::Orient(fx.orientation),
-                     Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
-        pipeline.init_storage(persistent_arena);
-        Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(
-            pipeline, canvas, fx.mesh, fx.edges, shader, MF::MESH_GEOMETRY);
-      } else {
+      Pipeline<DEFAULT_W, DEFAULT_H, Filter::World::Orient,
+               Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>>
+          pipeline(Filter::World::Orient(fx.orientation),
+                   Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
+      pipeline.init_storage(persistent_arena);
+      if (!timed) {
         const auto pose = fx.orientation.sample(fraction);
         fx.orientation.set(pose);
         if (displacement != 0.0f) {
@@ -53,18 +50,13 @@ struct MeshFeedbackWhiteBox {
                              pose.conjugate());
           }
         }
-        Pipeline<DEFAULT_W, DEFAULT_H, Filter::World::Orient,
-                 Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>>
-            pipeline(Filter::World::Orient(fx.orientation),
-                     Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
-        pipeline.init_storage(persistent_arena);
-        if (still_route)
-          Plot::Mesh::draw<DEFAULT_W, DEFAULT_H>(
-              pipeline, canvas, fx.mesh, fx.edges, FragmentShaderFn(shader));
-        else
-          Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(
-              pipeline, canvas, fx.mesh, fx.edges, shader, MF::MESH_GEOMETRY);
       }
+      if (!timed && still_route)
+        Plot::Mesh::draw<DEFAULT_W, DEFAULT_H>(
+            pipeline, canvas, fx.mesh, fx.edges, FragmentShaderFn(shader));
+      else
+        Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(
+            pipeline, canvas, fx.mesh, fx.edges, shader, MF::MESH_GEOMETRY);
     }
     fx.advance_display();
     if (pixels)

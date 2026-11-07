@@ -11,7 +11,7 @@ function(effect_runner_cases path output)
   string(FIND "${text}" "${signature}" start)
   string(SUBSTRING "${text}" ${start} -1 text)
   string(REGEX MATCHALL
-    "if[ \t\r\n]*\\([^{}]*\\)[ \t\r\n]*\\{|[{}]|run_effect_case_[A-Za-z0-9_]+[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*;"
+    "if[ \t\r\n]*\\([^{};]*\\)[ \t\r\n]*\\{|[{}]|run_effect_case_[A-Za-z0-9_]+[ \t\r\n]*\\([ \t\r\n]*\\)[ \t\r\n]*;"
     tokens "${text}")
   set(depth 0)
   set(skip_depth 0)

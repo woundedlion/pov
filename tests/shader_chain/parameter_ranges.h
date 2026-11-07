@@ -26,22 +26,15 @@ inline std::array<float, 2> parameter_range(ShaderChainWhiteBox::FX &effect,
 
 /** @brief Slider limits follow whole-chain growth without changing live state. */
 inline void test_shader_chain_parameter_ranges() {
-  constexpr int WARPS = 18;
-  constexpr float MIN_SCALE = 1.0f / 64.0f;
-  std::array<std::string, WARPS> ids;
-  std::array<In::ChainEntryRequest, WARPS + 3> chain{};
-  chain[0] = {"project", In::Op::ProjectStereographic::ID};
-  for (int index = 0; index < WARPS; ++index) {
-    ids[index] = "warp" + std::to_string(index);
-    chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
-  }
-  chain[WARPS + 1] = {"sample", In::Op::SampleGridV4::ID};
-  chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
+  AffineWarpChain fixture;
+  constexpr float MIN_SCALE = AffineWarpChain::MIN_SCALE;
+  const auto &ids = fixture.ids;
+  const auto &chain = fixture.chain;
   reset_globals();
   ShaderChainWhiteBox::FX effect;
   effect.init();
   HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
-  for (int index = 0; index < 4; ++index) {
+  for (int index = 0; index < AffineWarpChain::ADMITTED; ++index) {
     const std::string x = ids[index] + ".scale-x";
     const std::string y = ids[index] + ".scale-y";
     const ShaderChainParameterWrite writes[] = {{x.c_str(), MIN_SCALE},

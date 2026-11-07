@@ -6,7 +6,6 @@ from pathlib import Path
 GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
-import builder  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
@@ -54,9 +53,6 @@ class RevisionTests(unittest.TestCase):
                 self.assertEqual(silk_revisions(board), [revision])
                 self.assertEqual(title_block_rev(board), revision)
                 self.assertEqual(title_block_rev(project / "phantasm.kicad_sch"), revision)
-
-    def test_generator_targets_revision_1_2(self):
-        self.assertEqual(builder.REVISION, "1.2")
 
 if __name__ == "__main__":
     unittest.main()

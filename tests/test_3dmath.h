@@ -142,6 +142,8 @@ inline void test_unit_cup_and_bell() {
  *        sweep against std::atan2.
  */
 inline void test_fast_atan2() {
+  HS_EXPECT_NEAR(math::fast_atan2(0.0f, 0.0f), math::PI_F * 0.5f, 4e-3f);
+  HS_EXPECT_NEAR(math::fast_atan2(-0.0f, -1.0f), math::PI_F, 4e-3f);
   HS_EXPECT_NEAR(math::fast_atan2(0.0f, 1.0f), 0.0f, 4e-3f);
   HS_EXPECT_NEAR(math::fast_atan2(1.0f, 0.0f), math::PI_F * 0.5f, 4e-3f);
   HS_EXPECT_NEAR(math::fast_atan2(0.0f, -1.0f), math::PI_F, 4e-3f);
@@ -300,7 +302,7 @@ inline void test_precise_atan2() {
 
 /**
  * @brief Verifies fast_cbrt anchors, the x<=0 -> 0 clamp, and the documented
- *        ~2.3e-5 peak relative error over sampled positive inputs up to 1000.
+ *        ~2.3e-5 peak relative error across the documented positive domain.
  */
 inline void test_fast_cbrt() {
   HS_EXPECT_NEAR(math::fast_cbrt(-1.0f), 0.0f, 1e-7f);
@@ -314,11 +316,16 @@ inline void test_fast_cbrt() {
     HS_EXPECT_LE(rel, 2.3e-5f);
   }
 
-  // Larger samples remain inside the documented positive domain.
-  for (float x : {27.0f, 100.0f, 1000.0f}) {
-    float rel = std::abs(math::fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
-    HS_EXPECT_LE(rel, 2.3e-5f);
+  for (int exponent = -96; exponent <= 94; ++exponent) {
+    for (const float mantissa : {1.0f, 1.25f, 1.5f}) {
+      const float X = std::ldexp(mantissa, exponent);
+      const float EXPECTED = std::cbrt(X);
+      const float RELATIVE_ERROR =
+          std::abs(math::fast_cbrt(X) - EXPECTED) / EXPECTED;
+      HS_EXPECT_LE(RELATIVE_ERROR, 2.3e-5f);
+    }
   }
+  HS_EXPECT_EQ(math::fast_cbrt(1e-35f), 0.0f);
 }
 
 /**
@@ -418,15 +425,15 @@ inline void test_fast_cbrt6() {
  */
 inline void test_fast_expf() {
   HS_EXPECT_NEAR(math::fast_expf(0.0f), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(math::fast_expf(-1.0f), std::exp(-1.0f), 6e-6f);
+  HS_EXPECT_NEAR(math::fast_expf(-1.0f), std::exp(-1.0f), 5.2e-6f);
   HS_EXPECT_NEAR(math::fast_expf(-10.0f), std::exp(-10.0f),
-                 6e-6f * std::exp(-10.0f));
+                 5.2e-6f * std::exp(-10.0f));
 
   for (int i = 0; i <= 512; ++i) {
     float x = -30.0f + (30.0f * i) / 512.0f;
     float ref = std::exp(x);
     float rel = std::abs(math::fast_expf(x) - ref) / ref;
-    HS_EXPECT_LE(rel, 6e-6f);
+    HS_EXPECT_LE(rel, 5.2e-6f);
   }
 
   const float BOUNDARY = -std::log(2.0f);
@@ -445,19 +452,19 @@ inline void test_fast_expf() {
  * @details The periodicity check exercises range reduction beyond ±2π.
  */
 inline void test_fast_sinf_cosf() {
-  HS_EXPECT_NEAR(math::fast_sinf(0.0f), 0.0f, 1.8e-3f);
-  HS_EXPECT_NEAR(math::fast_sinf(math::PI_F * 0.5f), 1.0f, 1.8e-3f);
-  HS_EXPECT_NEAR(math::fast_sinf(math::PI_F), 0.0f, 1.8e-3f);
-  HS_EXPECT_NEAR(math::fast_sinf(-math::PI_F * 0.5f), -1.0f, 1.8e-3f);
+  HS_EXPECT_NEAR(math::fast_sinf(0.0f), 0.0f, 1.7e-3f);
+  HS_EXPECT_NEAR(math::fast_sinf(math::PI_F * 0.5f), 1.0f, 1.7e-3f);
+  HS_EXPECT_NEAR(math::fast_sinf(math::PI_F), 0.0f, 1.7e-3f);
+  HS_EXPECT_NEAR(math::fast_sinf(-math::PI_F * 0.5f), -1.0f, 1.7e-3f);
 
-  HS_EXPECT_NEAR(math::fast_cosf(0.0f), 1.0f, 1.8e-3f);
-  HS_EXPECT_NEAR(math::fast_cosf(math::PI_F * 0.5f), 0.0f, 1.8e-3f);
-  HS_EXPECT_NEAR(math::fast_cosf(math::PI_F), -1.0f, 1.8e-3f);
+  HS_EXPECT_NEAR(math::fast_cosf(0.0f), 1.0f, 1.7e-3f);
+  HS_EXPECT_NEAR(math::fast_cosf(math::PI_F * 0.5f), 0.0f, 1.7e-3f);
+  HS_EXPECT_NEAR(math::fast_cosf(math::PI_F), -1.0f, 1.7e-3f);
 
   for (int i = 0; i <= 256; ++i) {
     float a = -3.0f * math::PI_F + (i * 6.0f * math::PI_F) / 256.0f;
-    HS_EXPECT_NEAR(math::fast_sinf(a), std::sin(a), 1.8e-3f);
-    HS_EXPECT_NEAR(math::fast_cosf(a), std::cos(a), 1.8e-3f);
+    HS_EXPECT_NEAR(math::fast_sinf(a), std::sin(a), 1.7e-3f);
+    HS_EXPECT_NEAR(math::fast_cosf(a), std::cos(a), 1.7e-3f);
   }
 
   for (int i = 0; i < 32; ++i) {
@@ -1170,6 +1177,11 @@ inline void test_vector_slerp() {
   HS_EXPECT_NEAR(mid.x, std::sqrt(2.0f) * 0.5f, 5e-3f);
   HS_EXPECT_NEAR(mid.y, std::sqrt(2.0f) * 0.5f, 5e-3f);
   HS_EXPECT_NEAR(mid.z, 0.0f, 5e-3f);
+  for (const float t : {0.25f, 0.75f}) {
+    const float ANGLE = t * math::PI_F * 0.5f;
+    HS_EXPECT_VEC(math::slerp(a, b, t),
+                  math::Vector(std::cos(ANGLE), std::sin(ANGLE), 0.0f), 2e-3f);
+  }
 
   // Nearly-identical vectors take the normalized-lerp fallback.
   math::Vector v1(1, 0, 0);
@@ -1396,7 +1408,13 @@ inline void test_stereo_roundtrip() {
   for (const math::Vector &v : samples) {
     math::Complex z = projections::stereo(v);
     math::Vector back = projections::inv_stereo(z);
-    HS_EXPECT_VEC(back, v, 5e-3f);
+    HS_EXPECT_VEC(back, v, 1e-5f);
+  }
+  for (const math::Vector &v :
+       {samples[0], samples[1], samples[3], samples[4]}) {
+    const auto Z = projections::stereo(v);
+    HS_EXPECT_EQ(Z.re, v.x);
+    HS_EXPECT_EQ(Z.im, v.z);
   }
 
   // North pole maps to the infinity sentinel (azimuth undefined → +real axis).
@@ -1438,10 +1456,7 @@ inline void test_stereo_roundtrip() {
 // ============================================================================
 
 /**
- * @brief Verifies Complex +, -, *, / (ordinary complex division) and
- *        project_div's projection conventions (0/0 -> 0, a saturating
- *        quotient -> large magnitude in the quotient's direction, the
- *        numerator's when the divisor is zero).
+ * @brief Verifies ordinary complex arithmetic and finite underflow division.
  */
 inline void test_complex_arithmetic() {
   constexpr math::Complex VALUE(3.0f, -4.0f);
@@ -1471,9 +1486,6 @@ inline void test_complex_arithmetic() {
         math::Complex(1, 0) / math::Complex(divisor, 0);
     HS_EXPECT_NEAR(quotient.re * divisor, 1.0f, 2e-6f);
     HS_EXPECT_EQ(quotient.im, 0.0f);
-    HS_EXPECT_COMPLEX(math::project_div(math::Complex(divisor, divisor),
-                                        math::Complex(divisor, 0)),
-                      math::Complex(1, 1), 2e-6f);
   }
   math::Complex a(1, 2), b(3, 4);
 
@@ -1487,7 +1499,16 @@ inline void test_complex_arithmetic() {
   HS_EXPECT_COMPLEX(q * b, a, 1e-4f);
 
   HS_EXPECT_COMPLEX(a * math::Complex(1, 0), a, 1e-6f);
+}
 
+/** @brief Projection division preserves finite ratios and singular directions. */
+inline void test_project_div_conventions() {
+  const math::Complex a(1, 2), b(3, 4);
+  for (const float divisor : {3e-23f, 1e-21f}) {
+    HS_EXPECT_COMPLEX(math::project_div(math::Complex(divisor, divisor),
+                                        math::Complex(divisor, 0)),
+                      math::Complex(1, 1), 2e-6f);
+  }
   // project_div matches ordinary division away from the singularity.
   HS_EXPECT_COMPLEX(math::project_div(a, b), a / b, 1e-6f);
 
@@ -2432,6 +2453,7 @@ inline int run_3dmath_tests() {
 
   HS_RUN(test_stereo_roundtrip);
   HS_RUN(test_complex_arithmetic);
+  HS_RUN(test_project_div_conventions);
   HS_RUN(test_mobius_params_accessors);
   HS_RUN(test_mobius_transform);
   HS_RUN(test_gnomonic_roundtrip);

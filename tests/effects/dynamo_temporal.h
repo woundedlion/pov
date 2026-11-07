@@ -220,10 +220,7 @@ inline void test_dynamo_column_time_oracle() {
           {.timed = timed,
            .fraction = fraction,
            .displacement = displacement,
-           .start = 0.0f,
-           .spin = 0.018f,
            .replay = replay,
-           .fresh = false,
            .clipped = true});
     };
     hs_test::seam_compare_render<288, 144>(render,
@@ -231,14 +228,8 @@ inline void test_dynamo_column_time_oracle() {
                                                   : "Dynamo forced-clip live");
   }
   Spacetime::geometry_counters = {};
-  DynamoTemporalOracle::render<288, 144>({.timed = true,
-                                          .fraction = 1.0f,
-                                          .displacement = 0.0f,
-                                          .start = 0.0f,
-                                          .spin = 0.018f,
-                                          .replay = false,
-                                          .fresh = false,
-                                          .clipped = true});
+  DynamoTemporalOracle::render<288, 144>(
+      {.timed = true, .fraction = 1.0f, .replay = false, .clipped = true});
   const auto &work = Spacetime::geometry_counters;
   HS_EXPECT_GT(work.column_history_visits, 0u);
   std::printf("  [Dynamo forced clip] callback evaluations=%u samples=%u "
@@ -267,41 +258,15 @@ inline void expect_frozen_dynamo_frame(std::span<const float> actual,
 /** @brief Initialization and orientation reset hold the strand at the current endpoint. */
 inline void test_dynamo_column_time_first_frame_and_reset() {
   for (bool replay : {false, true}) {
-    const auto expected =
-        DynamoTemporalOracle::render<96, 20>({.timed = false,
-                                              .fraction = 0.0f,
-                                              .displacement = 0.0f,
-                                              .start = 0.0f,
-                                              .spin = 0.018f,
-                                              .replay = replay,
-                                              .fresh = true});
-    const auto actual =
-        DynamoTemporalOracle::render<96, 20>({.timed = true,
-                                              .fraction = 0.0f,
-                                              .displacement = 0.0f,
-                                              .start = 0.0f,
-                                              .spin = 0.018f,
-                                              .replay = replay,
-                                              .fresh = true});
+    const auto expected = DynamoTemporalOracle::render<96, 20>(
+        {.timed = false, .replay = replay, .fresh = true});
+    const auto actual = DynamoTemporalOracle::render<96, 20>(
+        {.timed = true, .replay = replay, .fresh = true});
     expect_frozen_dynamo_frame(actual, expected);
+    if (!replay) {
+      const auto reset = DynamoTemporalOracle::render<96, 20>(
+          {.timed = true, .replay = false, .fresh = true, .reset = true});
+      expect_frozen_dynamo_frame(reset, expected);
+    }
   }
-  const auto expected =
-      DynamoTemporalOracle::render<96, 20>({.timed = false,
-                                            .fraction = 0.0f,
-                                            .displacement = 0.0f,
-                                            .start = 0.0f,
-                                            .spin = 0.018f,
-                                            .replay = false,
-                                            .fresh = true});
-  const auto actual =
-      DynamoTemporalOracle::render<96, 20>({.timed = true,
-                                            .fraction = 0.0f,
-                                            .displacement = 0.0f,
-                                            .start = 0.0f,
-                                            .spin = 0.018f,
-                                            .replay = false,
-                                            .fresh = true,
-                                            .clipped = false,
-                                            .reset = true});
-  expect_frozen_dynamo_frame(actual, expected);
 }

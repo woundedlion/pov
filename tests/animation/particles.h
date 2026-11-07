@@ -276,7 +276,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
     specialized.attractors[i].strength = STRENGTHS[i];
   }
 
-  const auto saved = hs::random();
+  const hs_test::ScopedRng saved;
   hs::random().seed(0x61786973);
   for (int i = 0; i < COUNT; ++i) {
     const math::Vector pos = rand_unit();
@@ -287,7 +287,6 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
     reference.spawn(pos, velocity, static_cast<uint16_t>(i));
     specialized.spawn(pos, velocity, static_cast<uint16_t>(i));
   }
-  hs::random() = saved;
 
   reference.step(fake_canvas());
   specialized.step(fake_canvas());
@@ -309,7 +308,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
     max_velocity_error = hs_test::fold_worst(
         max_velocity_error, max_component_delta(a.velocity, b.velocity));
     max_angle_error = hs_test::fold_worst(
-        max_angle_error, small_angle_between(a.position, b.position));
+        max_angle_error, chord_angle_between(a.position, b.position));
     max_norm_drift = hs_test::fold_worst(
         max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
     max_norm_drift = hs_test::fold_worst(
@@ -466,7 +465,7 @@ inline void test_particle_system_signed_axis_trajectory() {
       max_velocity_error = hs_test::fold_worst(
           max_velocity_error, max_component_delta(a.velocity, b.velocity));
       max_angle_error = hs_test::fold_worst(
-          max_angle_error, small_angle_between(a.position, b.position));
+          max_angle_error, chord_angle_between(a.position, b.position));
       max_norm_drift = hs_test::fold_worst(
           max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
       max_norm_drift = hs_test::fold_worst(

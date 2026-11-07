@@ -63,7 +63,7 @@ inline void test_planar_one_pass_matches_forward_difference() {
           (fwd ? (step - fd_pos) : (fd_pos - step)).normalized();
       worst_len = fold_worst(worst_len, std::abs(one.pos.length() - 1.0f));
       worst_pos = fold_worst(
-          worst_pos, static_cast<float>(small_angle_between(one.pos, fd_pos)));
+          worst_pos, static_cast<float>(chord_angle_between(one.pos, fd_pos)));
       worst_tan_len =
           fold_worst(worst_tan_len, std::abs(one.tan.length() - 1.0f));
       worst_tan_dot = -fold_worst(-worst_tan_dot, -math::dot(one.tan, fd_tan));
@@ -342,6 +342,38 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
   HS_EXPECT_GT(single.plotted.size(), BUDGET);
 }
 
+/** @brief A second single-pass backstop stops and still plots the terminal. */
+inline void test_rasterize_second_backstop_stops_and_plots_terminal() {
+  constexpr int W = 128, H = 64;
+  constexpr size_t BUDGET = 8;
+  const math::Vector mid(sinf(0.05f), cosf(0.05f), 0.0f);
+  const math::Vector a =
+      (mid * cosf(1.0f) - math::Z_AXIS * sinf(1.0f)).normalized();
+  const math::Vector b =
+      (mid * cosf(0.05f) + math::Z_AXIS * sinf(0.05f)).normalized();
+  ScratchScope scope(plot_arena());
+  const math::Vector endpoints[] = {a, b};
+  Fragments points;
+  bind_trail(points, endpoints);
+  struct RestoreBudget {
+    decltype(Plot::g_step_budget_override) saved = Plot::g_step_budget_override;
+    ~RestoreBudget() { Plot::g_step_budget_override = saved; }
+  } restore_budget;
+  Plot::g_step_budget_override = BUDGET;
+  hs_test::StubEffect effect(W, H);
+  CapturePipeline pipeline;
+  hs::g_scan_metrics.reset();
+  {
+    Canvas canvas(effect);
+    Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+        pipeline, canvas, points, noop_shader);
+  }
+  HS_EXPECT_SIZE_OR_RETURN(pipeline.plotted, 2 * BUDGET + 1);
+  HS_EXPECT_EQ(hs::g_scan_metrics.plot_backstop_hits, 1u);
+  HS_EXPECT_VEC(pipeline.plotted.front(), a, 1e-6f);
+  HS_EXPECT_VEC(pipeline.plotted.back(), b, 1e-6f);
+}
+
 /** @brief SELECTABLE with balanced sampling off matches DEFAULT within floating-point tolerance. */
 inline void test_rasterize_default_sampling_policy_parity() {
   static_assert(
@@ -366,38 +398,26 @@ inline void test_rasterize_default_sampling_policy_parity() {
   const math::Basis planar_basis =
       Plot::planar_chart_basis(math::get_antipode(shape_basis, RADIUS).first.v);
 
-  auto capture = [&]() {
+  auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
     hs_test::StubEffect fx(W, H);
     AlphaCapturePipeline pipeline;
     Canvas canvas(fx);
     auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
     };
-    Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+    Plot::rasterize<W, H,
+                    Plot::RasterConfig{.single_pass = true,
+                                       .sampling_policy = Policy}>(
         pipeline, canvas, points, shader,
         {.projection = Plot::RasterProjection::planar(planar_basis),
-         .omit_end = true});
+         .omit_end = true,
+         .balanced_sampling = Policy == Plot::RasterSamplingPolicy::BALANCED});
     return pipeline;
   };
-
-  const AlphaCapturePipeline implicit_default = capture();
-  hs_test::StubEffect selectable_fx(W, H);
-  AlphaCapturePipeline selectable_default;
-  {
-    Canvas canvas(selectable_fx);
-    auto shader = [](const math::Vector &, Fragment &f) {
-      f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
-    };
-    Plot::rasterize<W, H,
-                    Plot::RasterConfig{
-                        .single_pass = true,
-                        .sampling_policy =
-                            Plot::RasterSamplingPolicy::SELECTABLE}>(
-        selectable_default, canvas, points, shader,
-        {.projection = Plot::RasterProjection::planar(planar_basis),
-         .omit_end = true,
-         .balanced_sampling = false});
-  }
+  const auto implicit_default =
+      capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
+  const auto selectable_default =
+      capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
   HS_EXPECT_SIZE_OR_RETURN(implicit_default.plotted,
                            selectable_default.plotted.size());
   HS_EXPECT_SIZE_OR_RETURN(implicit_default.alphas,
@@ -513,35 +533,25 @@ inline void test_rasterize_balanced_pole_guard() {
 
   constexpr float POLICY_TOL = 1e-4f;
   auto shader = white_shader(0.4f);
-  AlphaCapturePipeline pipeline;
-  {
+  auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
+    AlphaCapturePipeline result;
     hs_test::StubEffect fx(W, H);
     Canvas canvas(fx);
     Plot::rasterize<W, H,
-                    Plot::RasterConfig{
-                        .single_pass = true,
-                        .derive_planar_arc_registers = false,
-                        .interpolate_registers = false,
-                        .sampling_policy =
-                            Plot::RasterSamplingPolicy::SELECTABLE}>(
-        pipeline, canvas, points, shader,
+                    Plot::RasterConfig{.single_pass = true,
+                                       .derive_planar_arc_registers = false,
+                                       .interpolate_registers = false,
+                                       .sampling_policy = Policy}>(
+        result, canvas, points, shader,
         {.projection = Plot::RasterProjection::planar(basis),
-         .balanced_sampling = true});
-  }
-  AlphaCapturePipeline standard;
-  {
-    hs_test::StubEffect fx(W, H);
-    Canvas canvas(fx);
-    Plot::rasterize<W, H,
-                    Plot::RasterConfig{
-                        .single_pass = true,
-                        .derive_planar_arc_registers = false,
-                        .interpolate_registers = false,
-                        .sampling_policy =
-                            Plot::RasterSamplingPolicy::DEFAULT}>(
-        standard, canvas, points, shader,
-        {.projection = Plot::RasterProjection::planar(basis)});
-  }
+         .balanced_sampling =
+             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
+    return result;
+  };
+  const auto pipeline =
+      capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
+  const auto standard =
+      capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
   HS_EXPECT_GT(standard.plotted.size(), size_t{2});
   HS_EXPECT_SIZE_OR_RETURN(pipeline.plotted, standard.plotted.size());
   for (size_t i = 0; i < standard.plotted.size(); ++i) {

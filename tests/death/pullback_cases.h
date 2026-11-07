@@ -38,9 +38,9 @@ inline void case_catalog_curve_unknown() {
       static_cast<Control::FieldCurve>(opaque<uint8_t>(0xff)));
 }
 
-/** @brief Death case: the generated-palette operator rejects an unknown
-    brightness envelope. */
-inline void case_pullback_operator_invalid_brightness_envelope() {
+/** @brief Prepares a valid palette before rejecting one selector.
+ * @tparam Field Palette selector member. */
+template <auto Field> void prepare_palette_with_invalid() {
   using Op = Pullback::Interp::Op::ColorizeGeneratedPaletteV4;
   Op::Params params;
   Op::State state;
@@ -48,8 +48,15 @@ inline void case_pullback_operator_invalid_brightness_envelope() {
   Pullback::Interp::FrameContext context;
   context.palettes.fill(&palette);
   (void)Op::prepare(context, params, state);
-  params.envelope_mode = opaque<uint8_t>(0xff);
+  params.*Field = opaque<uint8_t>(0xff);
   (void)Op::prepare(context, params, state);
+}
+
+/** @brief Death case: the generated-palette operator rejects an unknown
+    brightness envelope. */
+inline void case_pullback_operator_invalid_brightness_envelope() {
+  prepare_palette_with_invalid<
+      &Pullback::Interp::Op::GeneratedPaletteParams::envelope_mode>();
 }
 
 /**
@@ -110,8 +117,7 @@ inline void case_pullback_project_nonunit_direction() {
   const Pullback::SphereSample input{math::Vector(opaque(2.0f), 0.0f, 0.0f),
                                      0.0f};
   const auto result = Project::run(input, frame, Project::prepare(frame));
-  if (result.coords.re != 0.0f)
-    std::printf("x");
+  (void)result;
 }
 
 /** @brief Traps when a factored column basis produces a nonunit direction. */
@@ -125,8 +131,7 @@ inline void case_pullback_column_nonunit_direction() {
   const Pipeline::ColumnBasis basis{math::Vector(opaque(2.0f), 0, 0),
                                     math::Vector(0, 1, 0)};
   const auto result = Pipeline::shade_column(1.0f, 0.0f, frame, basis);
-  if (result.alpha != 0.0f)
-    std::printf("x");
+  (void)result;
 }
 
 /** @brief Death case: a Sample operator rejects an unknown coverage mode. */
@@ -135,9 +140,7 @@ inline void case_pullback_operator_invalid_coverage_mode() {
   params.coverage_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::SourceClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::SampleGridV4::prepare(context, params, state)
-          .primary != 0.0f)
-    std::printf("x");
+  (void)Pullback::Interp::Op::SampleGridV4::prepare(context, params, state);
 }
 
 /** @brief Death case: a Sample operator rejects an unknown weight mode. */
@@ -146,9 +149,7 @@ inline void case_pullback_operator_invalid_weight_mode() {
   params.weight_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::SourceClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::SampleGridV4::prepare(context, params, state)
-          .primary != 0.0f)
-    std::printf("x");
+  (void)Pullback::Interp::Op::SampleGridV4::prepare(context, params, state);
 }
 
 /** @brief Death case: a warp operator rejects an unknown envelope. */
@@ -157,9 +158,7 @@ inline void case_pullback_operator_invalid_warp_envelope() {
   params.envelope = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::WarpPhaseState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::WarpWaveShear::prepare(context, params, state)
-          .phase != 0.0f)
-    std::printf("x");
+  (void)Pullback::Interp::Op::WarpWaveShear::prepare(context, params, state);
 }
 
 /** @brief Death case: the polar chart rejects an unknown polar mode. */
@@ -168,9 +167,7 @@ inline void case_pullback_operator_invalid_polar_mode() {
   params.mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::WarpPhaseState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::WarpPolarChart::prepare(context, params, state)
-          .phase != 0.0f)
-    std::printf("x");
+  (void)Pullback::Interp::Op::WarpPolarChart::prepare(context, params, state);
 }
 
 /** @brief Death case: the polar chart rejects an out-of-range harmonic. */
@@ -179,9 +176,7 @@ inline void case_pullback_operator_invalid_polar_harmonic() {
   params.harmonic = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::WarpPhaseState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::WarpPolarChart::prepare(context, params, state)
-          .phase != 0.0f)
-    std::printf("x");
+  (void)Pullback::Interp::Op::WarpPolarChart::prepare(context, params, state);
 }
 
 /** @brief Death case: the curl-flow operator rejects an unknown integrator. */
@@ -190,9 +185,7 @@ inline void case_pullback_operator_invalid_curl_integrator() {
   params.integrator = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::NoisePhaseState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::WarpCurlFlow::prepare(context, params, state)
-          .intervals != 0)
-    std::printf("x");
+  (void)Pullback::Interp::Op::WarpCurlFlow::prepare(context, params, state);
 }
 
 /** @brief Death case: the curl displacement rejects an unknown integrator. */
@@ -201,9 +194,7 @@ inline void case_pullback_operator_invalid_surface_integrator() {
   params.integrator = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::NoisePhaseState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state)
-          .noise != nullptr)
-    std::printf("x");
+  (void)Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state);
 }
 
 /** @brief Death case: the curl displacement rejects an unknown tangent limit. */
@@ -212,9 +203,7 @@ inline void case_pullback_operator_invalid_tangent_limit() {
   params.limit = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::NoisePhaseState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state)
-          .noise != nullptr)
-    std::printf("x");
+  (void)Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state);
 }
 
 /** @brief Ripple advance rejects an oversized burst. */
@@ -293,9 +282,7 @@ inline void case_pullback_operator_invalid_noise_basis() {
   params.basis = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::NoisePhaseState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state)
-          .noise != nullptr)
-    std::printf("x");
+  (void)Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state);
 }
 
 /** @brief Death case: the tessellation source rejects an unknown kind. */
@@ -306,7 +293,6 @@ inline void case_pullback_operator_invalid_tessellation_kind() {
   Pullback::Interp::FrameContext context{};
   (void)Pullback::Interp::Op::SampleTessellation::prepare(context, params,
                                                           state);
-  std::printf("x");
 }
 
 /** @brief Death case: the tessellation source rejects an unknown fill. */
@@ -317,7 +303,6 @@ inline void case_pullback_operator_invalid_tessellation_fill() {
   Pullback::Interp::FrameContext context{};
   (void)Pullback::Interp::Op::SampleTessellation::prepare(context, params,
                                                           state);
-  std::printf("x");
 }
 
 /** @brief Death case: the kaleidoscope lens rejects an unknown symmetry. */
@@ -347,29 +332,15 @@ inline void case_pullback_operator_invalid_modulation_source() {
 /** @brief Death case: the generated-palette operator rejects an unknown palette
     mode. */
 inline void case_pullback_operator_invalid_palette_mode() {
-  using Op = Pullback::Interp::Op::ColorizeGeneratedPaletteV4;
-  Op::Params params;
-  Op::State state;
-  BakedPalette palette;
-  Pullback::Interp::FrameContext context;
-  context.palettes.fill(&palette);
-  (void)Op::prepare(context, params, state);
-  params.palette_mode = opaque<uint8_t>(0xff);
-  (void)Op::prepare(context, params, state);
+  prepare_palette_with_invalid<
+      &Pullback::Interp::Op::GeneratedPaletteParams::palette_mode>();
 }
 
 /** @brief Death case: the generated-palette operator rejects an unknown palette
     mapping. */
 inline void case_pullback_operator_invalid_palette_mapping() {
-  using Op = Pullback::Interp::Op::ColorizeGeneratedPaletteV4;
-  Op::Params params;
-  Op::State state;
-  BakedPalette palette;
-  Pullback::Interp::FrameContext context;
-  context.palettes.fill(&palette);
-  (void)Op::prepare(context, params, state);
-  params.mapping_mode = opaque<uint8_t>(0xff);
-  (void)Op::prepare(context, params, state);
+  prepare_palette_with_invalid<
+      &Pullback::Interp::Op::GeneratedPaletteParams::mapping_mode>();
 }
 
 /** @brief A field transfer must preserve the normalized value domain. */
@@ -533,7 +504,10 @@ inline void case_chain_column_without_history() {
 }
 
 /** @brief Frame lifecycle changes invalidate cached column continuity. */
-template <int Reset> inline void chain_column_rechecks_history() {
+/** @brief Lifecycle event invalidating sampled history. */
+enum class ColumnReset { ADVANCE, PREPARE, CLEAR_HISTORY };
+
+template <ColumnReset Reset> inline void chain_column_rechecks_history() {
   static ChainTemporalBlocks blocks;
   static Pullback::Interp::ChainProgram program;
   compile_temporal_chain(program, blocks, true);
@@ -543,7 +517,7 @@ template <int Reset> inline void chain_column_rechecks_history() {
   program.prepare(ctx);
   program.capture_history();
   program.prepare_column(ctx, ctx, 0.5f);
-  if constexpr (Reset == 2) {
+  if constexpr (Reset == ColumnReset::CLEAR_HISTORY) {
     program.clear_history();
   } else {
     bool changed = false;
@@ -565,7 +539,7 @@ template <int Reset> inline void chain_column_rechecks_history() {
     }
     if (!changed)
       std::exit(0);
-    if constexpr (Reset == 0)
+    if constexpr (Reset == ColumnReset::ADVANCE)
       program.advance();
     else
       program.prepare(ctx);
@@ -574,15 +548,15 @@ template <int Reset> inline void chain_column_rechecks_history() {
 }
 
 inline void case_chain_column_after_advance() {
-  chain_column_rechecks_history<0>();
+  chain_column_rechecks_history<ColumnReset::ADVANCE>();
 }
 
 inline void case_chain_column_after_prepare() {
-  chain_column_rechecks_history<1>();
+  chain_column_rechecks_history<ColumnReset::PREPARE>();
 }
 
 inline void case_chain_column_after_clear_history() {
-  chain_column_rechecks_history<2>();
+  chain_column_rechecks_history<ColumnReset::CLEAR_HISTORY>();
 }
 
 /** @brief Readiness requires a committed chain. */
@@ -593,17 +567,8 @@ inline void case_chain_ready_without_program() {
 
 /** @brief A committed chain requires preparation before evaluation. */
 inline void case_chain_ready_before_prepare() {
-  namespace In = Pullback::Interp;
-  alignas(std::max_align_t) uint8_t block_a[In::CHAIN_ARENA_BYTES];
-  alignas(std::max_align_t) uint8_t block_b[In::CHAIN_ARENA_BYTES];
-  In::ChainProgram program;
-  program.bind_storage(block_a, block_b);
-  const In::ChainEntryRequest request[] = {
-      {"project", "project.stereographic.v2"},
-      {"sample", "sample.grid.v4"},
-      {"color", "colorize.generated-palette.v4"}};
-  const auto result = program.compile(request);
-  if (result.code != In::ChainStatus::OK)
-    std::exit(0);
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  compile_temporal_chain(program, blocks, false);
   program.check_ready();
 }

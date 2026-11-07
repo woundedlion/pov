@@ -39,6 +39,27 @@ inline float ring_arc_scale(const math::Basis &b, float radius) {
   return sinf(math::get_antipode(b, radius).second * (math::PI_F / 2.0f));
 }
 
+/** @brief Explicit-count ring sampling preserves phase and arc registers. */
+inline void test_ring_count_sampling_matches_phase_and_arc() {
+  constexpr int N = 32;
+  const auto basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  const float PHASE = 0.7f;
+  const float STEP = math::TWO_PI_F / N;
+  for (float radius : {0.5f, 1.3f}) {
+    ScratchScope scope(plot_arena());
+    Fragments points;
+    points.bind(plot_arena(), N + 2);
+    Plot::Ring::sample(points, basis, radius, N, PHASE);
+    HS_EXPECT_SIZE_OR_RETURN(points, size_t{N + 1});
+    const auto expected = ring_vertices_direct(basis, radius, PHASE, N);
+    for (int i = 0; i < N; ++i) {
+      HS_EXPECT_VEC(points[i].pos, expected[i], 1e-5f);
+      HS_EXPECT_NEAR(points[i].v1, i * STEP * ring_arc_scale(basis, radius),
+                     1e-5f);
+    }
+  }
+}
+
 /**
  * @brief Verifies Ring::sample<W,H> built from the TrigLUT angle-addition
  *        identity matches a direct cos/sin(theta+phase) construction of the same

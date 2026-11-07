@@ -17,10 +17,14 @@
 #include "tests/test_harness.h"
 
 #include <cstdint>
-#include <cstring>
 
 namespace hs_test {
 namespace transformers_tests {
+
+/** @brief Manhattan distance between two transformed points. */
+inline float displacement(const math::Vector &a, const math::Vector &b) {
+  return std::abs(a.x - b.x) + std::abs(a.y - b.y) + std::abs(a.z - b.z);
+}
 
 using RipplePool =
     TransformerPool<Animation::RippleParams, Animation::Ripple, 8>;
@@ -82,7 +86,7 @@ inline void test_orient_transformer_known_rotation() {
 }
 
 // ============================================================================
-// mobius_transform / gnomonic_mobius_transform — identity round-trips
+// mobius_transform / gnomonic_mobius_transform — rotations and reference parity
 // ============================================================================
 
 /**
@@ -351,7 +355,7 @@ inline void test_ripple_active_rotates_on_sphere() {
 
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.length(), 1.0f, 1e-4f);
-  float moved = std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
+  float moved = displacement(r, v);
   HS_EXPECT_GT(moved, 1e-2f);
 }
 
@@ -378,9 +382,7 @@ inline void test_ripple_threshold_reject_path() {
   const math::Vector r_in = ripple_transform(in_band, p);
   HS_EXPECT_TRUE(finite_vec(r_in));
   HS_EXPECT_NEAR(r_in.length(), 1.0f, 1e-4f);
-  const float moved_in = std::abs(r_in.x - in_band.x) +
-                         std::abs(r_in.y - in_band.y) +
-                         std::abs(r_in.z - in_band.z);
+  const float moved_in = displacement(r_in, in_band);
   HS_EXPECT_GT(moved_in, 1e-2f);
 
   // Out-of-band toward the center (d < d_min): cos_d > cos_threshold_min leg.
@@ -422,7 +424,7 @@ inline void test_ripple_decay_attenuates() {
     Animation::RippleParams p = base;
     p.decay = decay;
     math::Vector r = ripple_transform(v, p);
-    return std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
+    return displacement(r, v);
   };
 
   const float m0 = moved(0.0f);
@@ -461,8 +463,7 @@ inline void test_ripple_threshold_boundary() {
   };
   auto moved = [&](const math::Vector &src) {
     math::Vector r = ripple_transform(src, p);
-    return std::abs(r.x - src.x) + std::abs(r.y - src.y) +
-           std::abs(r.z - src.z);
+    return displacement(r, src);
   };
 
   // Just inside each edge: wavelet tail is small but nonzero.
@@ -518,8 +519,8 @@ inline void test_ripple_kernel_endpoint_order() {
   HS_EXPECT_LT(visited_waves, size_t{19 * 23 * 4});
 }
 
-/** @brief Neutral support bands include both cutoffs and form a union. */
-inline void test_ripple_kernel_support_and_transfer() {
+/** @brief Support bands include both cutoffs and form a union. */
+inline void test_ripple_kernel_support_bands() {
   using namespace RippleKernel;
   Wave a, b;
   a.cos_threshold_min = 0.2f;
@@ -535,12 +536,25 @@ inline void test_ripple_kernel_support_and_transfer() {
   include_support(near, far, b);
   HS_EXPECT_EQ(near, 0.8f);
   HS_EXPECT_EQ(far, -0.6f);
+}
+
+/** @brief Ripple angle follows its amplitude, decay and thickness. */
+inline void test_ripple_kernel_angle_at_distance() {
+  using namespace RippleKernel;
+  Wave a;
+  a.cos_threshold_min = .2f;
+  a.cos_threshold_max = -.3f;
   a.amplitude = 0.13f;
   a.decay = 0.4f;
   HS_EXPECT_NEAR(angle_at_distance(a, 1.25f, 1.25f), 0.13f * std::exp(-0.5f),
                  2e-6f);
   a.thickness = 1.0f;
   HS_EXPECT_EQ(angle_at_distance(a, 1.25f, 1.0f), 0.0f);
+}
+
+/** @brief Transfer sampling accepts covered paths and rejects invalid nodes. */
+inline void test_ripple_kernel_sample_transfer() {
+  using namespace RippleKernel;
   const std::array<RadialTransfer, 3> PREVIOUS{
       {{0.1f, 0.2f}, {0.2f, 0.4f}, {0.3f, 0.6f}}};
   auto current = PREVIOUS;
@@ -583,10 +597,6 @@ inline void test_ripple_small_angle_series_matches_exact() {
   auto exact = [&](float theta) {
     return math::rotate(v, math::make_rotation(axis, theta));
   };
-  auto err = [](const math::Vector &a, const math::Vector &b) {
-    return std::max(std::max(std::fabs(a.x - b.x), std::fabs(a.y - b.y)),
-                    std::fabs(a.z - b.z));
-  };
 
   // Calibrate theta/amplitude from the exact branch, in libm acos rather than
   // the fast_acos angle_between uses.
@@ -598,7 +608,8 @@ inline void test_ripple_small_angle_series_matches_exact() {
   const float envelope = turned(anchor) / anchor_amplitude;
   // The peak of a zero-decay Ricker wavelet is unit gain.
   HS_EXPECT_NEAR(envelope, 1.0f, 2e-3f);
-  HS_EXPECT_LE(err(anchor, exact(anchor_amplitude * envelope)), 1e-6f);
+  HS_EXPECT_LE(max_component_delta(anchor, exact(anchor_amplitude * envelope)),
+               1e-6f);
 
   // Series branch, from just above the amplitude short-circuit up to the
   // switchover.
@@ -611,7 +622,8 @@ inline void test_ripple_small_angle_series_matches_exact() {
     const float amplitude =
         amp_lo + (amp_hi - amp_lo) * (float)i / (float)steps;
     const math::Vector got = at(amplitude);
-    worst_err = fold_worst(worst_err, err(got, exact(amplitude * envelope)));
+    worst_err = fold_worst(
+        worst_err, max_component_delta(got, exact(amplitude * envelope)));
     worst_unit_err = fold_worst(worst_unit_err, std::fabs(got.length() - 1.0f));
   }
   HS_EXPECT_LE(worst_err, 5e-7f);
@@ -619,7 +631,8 @@ inline void test_ripple_small_angle_series_matches_exact() {
 
   // The two branches meet: a hair either side of the switchover agrees.
   const float seam = RIPPLE_SMALL_ANGLE_MAX / envelope;
-  HS_EXPECT_LE(err(at(seam * 0.999f), at(seam * 1.001f)), 1e-3f);
+  HS_EXPECT_LE(max_component_delta(at(seam * 0.999f), at(seam * 1.001f)),
+               1e-3f);
 }
 
 /**
@@ -716,8 +729,7 @@ inline void test_noise_active_stays_on_sphere() {
     math::Vector r = noise_transform(v, p);
     HS_EXPECT_TRUE(finite_vec(r));
     HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
-    total_moved +=
-        std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
+    total_moved += displacement(r, v);
   }
   HS_EXPECT_GT(total_moved, 1e-2f);
 }
@@ -766,7 +778,7 @@ inline void test_noise_cross_hemisphere_cap() {
 }
 
 // ============================================================================
-// Transformer<> manager — no active entities is the identity
+// Transformer<> manager — composition, live edits and pinned repeats
 // ============================================================================
 
 /**
@@ -784,7 +796,7 @@ inline void test_transformer_no_entities_is_identity() {
 }
 
 // ============================================================================
-// Transformer<> active-slot list — spawn applies; multiple entities compose
+// Transformer<> active slots — composition, live edits and pinned repeats
 // ============================================================================
 
 /**
@@ -792,8 +804,7 @@ inline void test_transformer_no_entities_is_identity() {
  *        transform(), and two active entities compose while staying on the unit
  *        sphere.
  * @details A spawned Noise entity displaces immediately, with no timeline
- *          stepping. The local Timeline's destructor clears the global event
- *          buffer on scope exit.
+ *          stepping.
  */
 inline void test_transformer_spawn_applies_and_composes() {
   Timeline tl;
@@ -823,8 +834,7 @@ inline void test_transformer_spawn_applies_and_composes() {
     single[i] = nt.transform(v);
     HS_EXPECT_TRUE(finite_vec(single[i]));
     HS_EXPECT_NEAR(single[i].length(), 1.0f, 1e-3f);
-    total_moved += std::abs(single[i].x - v.x) + std::abs(single[i].y - v.y) +
-                   std::abs(single[i].z - v.z);
+    total_moved += displacement(single[i], v);
   }
   HS_EXPECT_GT(total_moved, 1e-2f);
 
@@ -835,11 +845,27 @@ inline void test_transformer_spawn_applies_and_composes() {
     math::Vector r = nt.transform(v);
     HS_EXPECT_TRUE(finite_vec(r));
     HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
-    total_divergence += std::abs(r.x - single[i].x) +
-                        std::abs(r.y - single[i].y) +
-                        std::abs(r.z - single[i].z);
+    total_divergence += displacement(r, single[i]);
   }
   HS_EXPECT_GT(total_divergence, 1e-3f);
+}
+
+/** @brief Spawning noise synchronizes the template frequency before any frame preparation. */
+inline void test_noise_transformer_spawn_synchronizes_frequency() {
+  Timeline timeline;
+  NoiseTransformer<1> transformer(timeline);
+  transformer.init_storage(persistent_arena);
+  transformer.template_params.frequency = .4f;
+  transformer.template_params.set_seed(42);
+  HS_EXPECT_TRUE(transformer.spawn_pinned(0) != nullptr);
+  const auto &active = transformer.active_params(0);
+  Animation::NoiseParams expected;
+  expected.frequency = .4f;
+  expected.set_seed(42);
+  expected.sync();
+  for (float coordinate : {.13f, .3f, .7f, 1.2f})
+    HS_EXPECT_EQ(active.noise.GetNoise(coordinate, .7f, 1.2f),
+                 expected.noise.GetNoise(coordinate, .7f, 1.2f));
 }
 
 /** @brief Pins transformer live edit preserves instance phase and seed. */
@@ -925,6 +951,64 @@ inline void test_transformer_pinned_repeat_retains_slot() {
   HS_EXPECT_TRUE(
       transformer.spawn_pinned(
           0, 0.4f, 4, Animation::MobiusWarpOptions{.repeat = true}) != nullptr);
+}
+
+/** @brief The circular Mobius alias applies the authored Mobius kernel. */
+inline void test_mobius_circular_alias_kernel() {
+  Timeline timeline;
+  StubEffect effect(8, 8);
+  Canvas canvas(effect);
+  MobiusWarpCircularTransformer<1> transformer(timeline);
+  transformer.init_storage(persistent_arena);
+  HS_EXPECT_TRUE(transformer.spawn_pinned(0, 1.0f, 160) != nullptr);
+  timeline.step(canvas);
+  HS_EXPECT_EQ(transformer.active_count(), 1);
+  const math::Vector input = math::Vector(0.3f, 0.5f, 0.7f).normalized();
+  HS_EXPECT_TRUE(vec_identical(
+      transformer.transform(input),
+      math::mobius_transform(input, transformer.active_params(0))));
+}
+
+/** @brief The gnomonic Mobius alias applies the authored gnomonic kernel. */
+inline void test_mobius_gnomonic_alias_kernel() {
+  static_assert(std::is_same_v<
+                MobiusWarpGnomonicTransformer<1>,
+                Transformer<math::MobiusParams, Animation::MobiusWarpEvolving,
+                            math::gnomonic_mobius_transform, 1>>);
+  Timeline timeline;
+  StubEffect effect(8, 8);
+  Canvas canvas(effect);
+  MobiusWarpGnomonicTransformer<1> transformer(timeline);
+  transformer.init_storage(persistent_arena);
+  HS_EXPECT_TRUE(transformer.spawn_pinned(0, 0.5f, 0.0f) != nullptr);
+  timeline.step(canvas);
+  HS_EXPECT_EQ(transformer.active_count(), 1);
+  const math::Vector input = math::Vector(0.3f, 0.5f, 0.7f).normalized();
+  const auto actual = transformer.transform(input);
+  const auto expected =
+      math::gnomonic_mobius_transform(input, transformer.active_params(0));
+  const auto wrong =
+      math::mobius_transform(input, transformer.active_params(0));
+#if defined(HS_TEST_FAST_MATH)
+  const auto adjacent = [](float a, float b) {
+    return std::isfinite(a) && std::isfinite(b) &&
+           (a == b || a == std::nextafter(b, a));
+  };
+  HS_EXPECT_TRUE(finite_vec(actual));
+  HS_EXPECT_TRUE(finite_vec(expected));
+  HS_EXPECT_NEAR(actual.x, expected.x,
+                 std::abs(std::nextafter(expected.x, actual.x) - expected.x));
+  HS_EXPECT_NEAR(actual.y, expected.y,
+                 std::abs(std::nextafter(expected.y, actual.y) - expected.y));
+  HS_EXPECT_NEAR(actual.z, expected.z,
+                 std::abs(std::nextafter(expected.z, actual.z) - expected.z));
+  HS_EXPECT_FALSE(adjacent(wrong.x, expected.x) &&
+                  adjacent(wrong.y, expected.y) &&
+                  adjacent(wrong.z, expected.z));
+#else
+  HS_EXPECT_TRUE(vec_identical(actual, expected));
+  HS_EXPECT_FALSE(vec_identical(wrong, expected));
+#endif
 }
 
 // ============================================================================
@@ -1029,16 +1113,20 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   HS_EXPECT_TRUE(reclaimed != nullptr);
 }
 
+// ============================================================================
+// Ripple step endpoints and substitute params
+// ============================================================================
+
 /**
  * @brief Angle between two transformed unit directions.
  * @param a First direction.
  * @param b Second direction.
  * @return Angle in radians; NaN when either direction is nonfinite.
  */
-inline float transformed_angle(const math::Vector &a, const math::Vector &b) {
+inline double transformed_angle(const math::Vector &a, const math::Vector &b) {
   if (!finite_vec(a) || !finite_vec(b))
-    return std::numeric_limits<float>::quiet_NaN();
-  return acosf(hs::clamp(math::dot(a, b), -1.0f, 1.0f));
+    return std::numeric_limits<double>::quiet_NaN();
+  return chord_angle_between(a, b);
 }
 
 /** @brief A nonfinite transformed direction yields no finite movement. */
@@ -1053,7 +1141,7 @@ inline void test_transformed_angle_rejects_nonfinite_directions() {
                                   math::Vector(0.0f, INF_VALUE, 0.0f)}) {
     HS_EXPECT_TRUE(std::isnan(transformed_angle(unit, bad)));
     HS_EXPECT_TRUE(std::isnan(transformed_angle(bad, unit)));
-    HS_EXPECT_TRUE(std::isnan(fold_worst(0.0f, transformed_angle(bad, bad))));
+    HS_EXPECT_TRUE(std::isnan(fold_worst(0.0, transformed_angle(bad, bad))));
   }
 }
 
@@ -1071,6 +1159,7 @@ inline void test_ripple_step_keeps_its_previous_endpoint() {
   Animation::Ripple ripple(params, math::Vector(0.2f, 1.0f, 0.1f), 0.04f, 40);
   HS_EXPECT_EQ(params.previous_phase, params.phase);
   HS_EXPECT_EQ(params.previous_amplitude, params.amplitude);
+  double worst_ratio = 0.0;
   for (int step = 0; step < 12; ++step) {
     HS_CONTEXT("step", step);
     const Animation::RippleParams before = params;
@@ -1085,7 +1174,7 @@ inline void test_ripple_step_keeps_its_previous_endpoint() {
     const Animation::RippleParams end = params.during_step(1.0f);
     HS_EXPECT_EQ(end.phase, params.phase);
     HS_EXPECT_EQ(end.amplitude, params.amplitude);
-    float moved = 0.0f;
+    double moved = 0.0;
     for (int i = 0; i < 400; ++i) {
       const math::Vector v = math::fib_spiral(400, 0.5f, i);
       for (const float u : {0.5f, 1.0f}) {
@@ -1096,7 +1185,10 @@ inline void test_ripple_step_keeps_its_previous_endpoint() {
       }
     }
     HS_EXPECT_LE(moved, params.step_arc() + 1e-4f);
+    worst_ratio = fold_worst(worst_ratio, moved / params.step_arc());
   }
+  std::printf("  ripple step maximum bound ratio %.6f\n", worst_ratio);
+  HS_EXPECT_GT(worst_ratio, .8);
 }
 
 /**
@@ -1312,7 +1404,7 @@ inline void test_field_transformer_no_entities_is_zero() {
   TestFieldTransformer ft(tl);
   HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(ft.field_bound(), 0.0f, 1e-6f);
-  HS_EXPECT_TRUE(ft.active_count() == 0);
+  HS_EXPECT_EQ(ft.active_count(), 0);
 }
 
 /**
@@ -1329,7 +1421,7 @@ inline void test_field_transformer_sums_and_bounds() {
   HS_EXPECT_NEAR(ft.field(math::Vector(-0.5f, 0, 0)), -1.0f, 1e-5f);
 
   HS_EXPECT_TRUE(ft.spawn(0, -3.0f, 100) != nullptr);
-  HS_EXPECT_TRUE(ft.active_count() == 2);
+  HS_EXPECT_EQ(ft.active_count(), 2);
   HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), -1.0f, 1e-5f);
   HS_EXPECT_NEAR(ft.operator()(math::Vector(1, 0, 0)), -1.0f, 1e-5f);
   HS_EXPECT_NEAR(ft.field_bound(), 5.0f, 1e-5f);
@@ -1369,7 +1461,7 @@ inline void test_field_transformer_slot_reclaimed() {
   for (int i = 0; i < 6; ++i)
     tl.step(cv);
 
-  HS_EXPECT_TRUE(ft.active_count() == 1);
+  HS_EXPECT_EQ(ft.active_count(), 1);
   HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 5.0f, 1e-5f);
   HS_EXPECT_TRUE(ft.spawn(0, 1.0f, 100) != nullptr);
   HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 6.0f, 1e-5f);
@@ -1390,7 +1482,7 @@ inline void test_field_transformer_storage_survives_arena_rewind() {
 
   persistent_arena.set_offset(mark);
   ft.reclaim_storage(persistent_arena);
-  HS_EXPECT_TRUE(ft.active_count() == 1);
+  HS_EXPECT_EQ(ft.active_count(), 1);
   HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 2.0f, 1e-5f);
 }
 
@@ -1404,7 +1496,7 @@ inline void test_field_transformer_storage_survives_arena_rewind() {
  *        stack nor shift.
  */
 inline void test_dominant_field_identities() {
-  HS_EXPECT_NEAR(DominantFieldAccumulator().value(), 0.0f, 0.0f);
+  HS_EXPECT_EQ(DominantFieldAccumulator().value(), 0.0f);
 
   const float singles[] = {0.7f, -0.7f, 4.5f, -0.013f, 1.0f};
   for (float s : singles) {
@@ -1423,7 +1515,7 @@ inline void test_dominant_field_identities() {
 
   DominantFieldAccumulator tiny;
   tiny.add(1e-5f);
-  HS_EXPECT_NEAR(tiny.value(), 0.0f, 0.0f);
+  HS_EXPECT_EQ(tiny.value(), 0.0f);
   DominantFieldAccumulator above_floor;
   above_floor.add(1e-3f);
   HS_EXPECT_NEAR(above_floor.value(), 1e-3f, 1e-9f);
@@ -1438,6 +1530,7 @@ inline void test_dominant_field_strongest_wins_without_stacking() {
   acc.add(3.0f);
   acc.add(1.0f);
   const float blended = acc.value();
+  HS_EXPECT_NEAR(blended, 2.8f, 1e-5f);
   HS_EXPECT_LT(blended, 3.0f); // not the plain max
   HS_EXPECT_GT(blended, 2.0f); // but far nearer the strong field
 
@@ -1589,6 +1682,19 @@ inline void test_bump_field_precomputed_y_parity() {
       HS_EXPECT_NEAR(bump_field_with_y(v, p, y), bump_field(v, p), 2e-3f);
     }
   }
+}
+
+/** @brief A bump with precomputed y stays finite and bounded near its center. */
+inline void test_bump_field_with_y_near_center_stays_bounded() {
+  const float c_lat = 1.1f;
+  Animation::BumpParams p;
+  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = math::Vector(0, 1, 0);
+  p.radius = 0.55f;
+  p.amplitude = 0.8f;
+  p.envelope = 0.7f;
+  p.sync();
+
   p.center = math::Y_AXIS;
   p.axis = math::Y_AXIS;
   for (float angle : {0.0001f, 0.0005f, 0.001f}) {
@@ -1638,8 +1744,8 @@ inline void test_bump_field_bound_is_conservative() {
     p.axis = rand_unit();
     p.radius = hs::rand_f(0.0f, 1.2f);
     p.envelope = hs::rand_f(0.0f, 1.0f);
-    // Ball Amp tops out at 0.8 * 4 = 3.2 drape gain.
-    p.amplitude = hs::rand_f(0.0f, 2.0f * 0.8f * 4.0f);
+    constexpr float MAX_AMPLITUDE = 6.4f;
+    p.amplitude = hs::rand_f(0.0f, MAX_AMPLITUDE);
     p.sync();
     const float bound = p.field_bound();
 
@@ -1866,7 +1972,7 @@ inline void test_ball_drop_traverses_and_reclaims() {
     tl.step(cv);
   balls.prepare_frame();
   HS_EXPECT_EQ(balls.field_bound(), 0.0f);
-  HS_EXPECT_TRUE(balls.active_count() == 0);
+  HS_EXPECT_EQ(balls.active_count(), 0);
   HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 1.0f, duration) != nullptr);
 }
 
@@ -1916,7 +2022,9 @@ inline int run_transformers_tests() {
   HS_RUN(test_ripple_decay_attenuates);
   HS_RUN(test_ripple_threshold_boundary);
   HS_RUN(test_ripple_kernel_endpoint_order);
-  HS_RUN(test_ripple_kernel_support_and_transfer);
+  HS_RUN(test_ripple_kernel_support_bands);
+  HS_RUN(test_ripple_kernel_angle_at_distance);
+  HS_RUN(test_ripple_kernel_sample_transfer);
   HS_RUN(test_ripple_small_angle_series_matches_exact);
   HS_RUN(test_ripple_threshold_collapses_past_pi);
   HS_RUN(test_transforms_nonfinite_passes_through_identity);
@@ -1925,8 +2033,11 @@ inline int run_transformers_tests() {
   HS_RUN(test_noise_cross_hemisphere_cap);
   HS_RUN(test_transformer_no_entities_is_identity);
   HS_RUN(test_transformer_spawn_applies_and_composes);
+  HS_RUN(test_noise_transformer_spawn_synchronizes_frequency);
   HS_RUN(test_transformer_live_edit_preserves_instance_phase_and_seed);
   HS_RUN(test_transformer_pinned_repeat_retains_slot);
+  HS_RUN(test_mobius_circular_alias_kernel);
+  HS_RUN(test_mobius_gnomonic_alias_kernel);
   HS_RUN(test_transformer_spawn_pausable_freezes_start_delay);
   HS_RUN(test_transformer_nonpinned_slot_reclaimed_after_compaction);
   HS_RUN(test_transformer_full_timeline_releases_slot);
@@ -1948,6 +2059,7 @@ inline int run_transformers_tests() {
   HS_RUN(test_bump_field_drapes_over_ball);
   HS_RUN(test_bump_field_round_bulge_along_ring);
   HS_RUN(test_bump_field_precomputed_y_parity);
+  HS_RUN(test_bump_field_with_y_near_center_stays_bounded);
   HS_RUN(test_bump_field_envelope_gates);
   HS_RUN(test_bump_field_bound_is_conservative);
   HS_RUN(test_noise_params_seed_mirrors_generator);

@@ -69,6 +69,20 @@ class MindSplatterReplayForm(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("refresh changed the captured state", result.stderr)
 
+    def test_refresh_rejects_invalid_generated_form(self):
+        for generated, diagnostic in (
+            (FORM[:250], "generator emitted only"),
+            (FORM.replace("HEAVY_SEARCH_V1_FRAMEBUFFER", "OTHER_FRAMEBUFFER"),
+             "omitted HEAVY_SEARCH_V1_FRAMEBUFFER"),
+            (FORM.replace("Corpus HEAVY_SEARCH_V1", "Corpus OTHER"),
+             "omitted Corpus HEAVY_SEARCH_V1"),
+            (FORM.replace("seed=1337", "origin=1337"), "omits search provenance"),
+        ):
+            with self.subTest(diagnostic=diagnostic):
+                result = self.run_checker(generated=generated, refresh=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(diagnostic, result.stderr)
+
     def test_required_unsupported_compiler_is_rejected(self):
         result = self.run_checker(compiler="GNU", version="14.2.0")
         self.assertNotEqual(result.returncode, 0)

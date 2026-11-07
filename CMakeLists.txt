@@ -157,6 +157,7 @@ if(EMSCRIPTEN)
   endif()
   set_target_properties(pullback_capture_wasm PROPERTIES SUFFIX ".cjs")
 
+  include(cmake/test_capabilities.cmake)
   add_executable(render_goldens_wasm EXCLUDE_FROM_ALL
     tests/run_render_goldens.cpp
     ${HS_ENGINE_SOURCES})
