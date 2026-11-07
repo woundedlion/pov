@@ -833,7 +833,7 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_unreferenced_predefined_finds_dead_macro_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "live.h").write_text("#if HS_LIVE\n#endif\n",
+            (root / "live.h").write_text("#if HS_LIVE\n#endif\n// HS_DEAD\n",
                                           encoding="utf-8")
             dead = dc.unreferenced_predefined(
                 root, [PurePosixPath("live.h")],

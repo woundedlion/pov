@@ -921,7 +921,7 @@ def doxyfile_predefined(text: str) -> list[tuple[int, str]]:
 
 def unreferenced_predefined(root: Path, sources: list[PurePosixPath],
                             names: set[str]) -> set[str]:
-    """Subset of names no supplied repository source mentions."""
+    """Subset of names absent from code in the supplied sources."""
     pending = set(names) - _PREDEFINED_UNREFERENCED_ALLOWED
     if not pending:
         return pending
@@ -933,8 +933,9 @@ def unreferenced_predefined(root: Path, sources: list[PurePosixPath],
                 encoding="utf-8", errors="replace")
         except OSError:
             continue
+        code, _ = split_source(text, script=False)
         pending.difference_update(
-            match.group(1) for match in pattern.finditer(text))
+            match.group(1) for match in pattern.finditer(code))
         if not pending:
             break
     return pending
