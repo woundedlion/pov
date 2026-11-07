@@ -313,7 +313,7 @@ public:
           table.colors[i] = sample.color;
           table.alpha_q16[i] = frac_to_q16(sample.alpha);
         },
-        [&](int destination, int source_index) {
+        [&](int destination, int source_index) HS_FLASH_MEMBER {
           table.colors[destination] = table.colors[source_index];
           table.alpha_q16[destination] = table.alpha_q16[source_index];
         });

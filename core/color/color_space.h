@@ -578,7 +578,7 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
   constexpr float STEP2_COS = STEP_COS * STEP_COS - STEP_SIN * STEP_SIN;
   const float sin_h = sinf(h);
   const float cos_h = cosf(h);
-  const auto tap = [&](float ds, float dc) {
+  const auto tap = [&](float ds, float dc) HS_FLASH_MEMBER {
     return gamut_continuous_chroma_sample(L, cos_h * dc - sin_h * ds,
                                           sin_h * dc + cos_h * ds);
   };
