@@ -347,13 +347,13 @@ public:
   /**
    * @brief Whether @p clock is a reachable state for the given timing.
    * @param clock Clock to check.
-   * @param fade_frames Frames each fade spans.
    * @param dwell_frames Hold frames between fades; minimum 1 is applied.
+   * @param fade_frames Frames each fade spans.
    * @return True when `next_sequence` >= 2 and `frame` is inside its phase.
    */
   static bool valid_generated_clock(const GeneratedClock &clock,
-                                    uint32_t fade_frames,
-                                    uint32_t dwell_frames) {
+                                    uint32_t dwell_frames,
+                                    uint32_t fade_frames) {
     return clock.next_sequence >= 2 &&
            clock.frame < (clock.fade_active
                               ? fade_frames
@@ -565,8 +565,8 @@ public:
       return false;
     for (size_t index = 0; index < snapshot.cycles.size(); ++index) {
       const auto &clock = snapshot.cycles[index];
-      if (!PaletteCycler::valid_generated_clock(clock, FADE_FRAMES,
-                                                DWELL_FRAMES) ||
+      if (!PaletteCycler::valid_generated_clock(clock, DWELL_FRAMES,
+                                                FADE_FRAMES) ||
           snapshot.hues[index] != (clock.next_sequence - 1) * HUE_STEP)
         return false;
     }

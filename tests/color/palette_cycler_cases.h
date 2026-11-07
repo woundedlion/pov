@@ -549,6 +549,11 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
 
 /** @brief Restored clocks and endpoint recipes are independent of bank snapshots. */
 inline void test_generated_palette_restore_cycler_clock_and_endpoints() {
+  HS_EXPECT_TRUE(PaletteCycler::valid_generated_clock({.frame = 4}, 5, 2));
+  HS_EXPECT_FALSE(PaletteCycler::valid_generated_clock(
+      {.frame = 4, .fade_active = true}, 5, 2));
+  HS_EXPECT_TRUE(PaletteCycler::valid_generated_clock(
+      {.frame = 1, .fade_active = true}, 5, 2));
   alignas(std::max_align_t) static uint8_t
       storage[PaletteCycler::generated_arena_bytes() +
               BakedPalette::required_arena_bytes()];
