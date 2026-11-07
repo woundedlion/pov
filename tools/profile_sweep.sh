@@ -9,6 +9,8 @@ P="$(dirname "$0")/profile_one.sh"
 PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
 FAILED=()
 GROUP=${1:-}
+CAPTURE_BOOT_MARGIN_S=2
+SHOW_FRAMES_PER_S=16
 
 case "$GROUP" in
 check|g[1-6]_ship) ;;
@@ -66,9 +68,12 @@ run() {
     printf '%s\n' "$1"
     return 0
   fi
-  if ! bash "$P" "$@"; then
-    echo ">>> FAILED: $1 [$2] — continuing with the rest of the group" >&2
-    FAILED+=("$1/$2")
+  local effect=$1 env=$2 seconds=$3 window=$4
+  shift 4
+  local duration=$((seconds + CAPTURE_BOOT_MARGIN_S + (window + SHOW_FRAMES_PER_S - 1) / SHOW_FRAMES_PER_S))
+  if ! bash "$P" "$effect" "$env" "$duration" "$window" "$@"; then
+    echo ">>> FAILED: $effect [$env] — continuing with the rest of the group" >&2
+    FAILED+=("$effect/$env")
   fi
 }
 

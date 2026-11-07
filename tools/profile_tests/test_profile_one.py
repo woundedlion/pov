@@ -23,6 +23,25 @@ EFFECTS = REPO / "effects"
 
 
 class ProfileSweepTests(unittest.TestCase):
+    def test_capture_budget_covers_boot_and_a_complete_trailing_window(self):
+        source = (REPO / "tools" / "profile_sweep.sh").read_text(encoding="utf-8")
+        constants = "\n".join(re.findall(
+            r"(?m)^(?:CAPTURE_BOOT_MARGIN_S|SHOW_FRAMES_PER_S)=\d+$", source))
+        run = re.search(r"(?ms)^run\(\) \{\n.*?^\}\n", source).group(0)
+        script = ("set -euo pipefail\n" + constants + "\n" + run
+                  + '\nP=profile_one.sh; FAILED=(); bash() { printf "%s\\n" "$@"; }; run "$@"\n')
+        for seconds, window, expected in ((121, 32, 125), (300, 16, 303),
+                                          (170, 16, 173), (1, 1, 4)):
+            with self.subTest(seconds=seconds, window=window):
+                result = subprocess.run(
+                    ["bash", "-c", script, "sweep-test", "Effect", "profile",
+                     str(seconds), str(window), "-D HS_SCAN_METRICS"],
+                    capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.splitlines(),
+                                 ["profile_one.sh", "Effect", "profile", str(expected),
+                                  str(window), "-D HS_SCAN_METRICS"])
+
     def test_missing_and_invalid_groups_report_usage_on_stderr(self):
         sweep = (REPO / "tools" / "profile_sweep.sh").as_posix()
         for args in ([], ["invalid"]):
