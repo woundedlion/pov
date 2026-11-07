@@ -2128,6 +2128,10 @@ inline const Case *all_cases(int &n) {
        "(params.symmetry <= "
        "static_cast<uint8_t>(KaleidoscopeSymmetry::OCTAGONAL_PRISM)) "
        "sphere.lens.kaleidoscope: invalid symmetry"},
+      {"authored_kaleidoscope_invalid_symmetry",
+       case_authored_kaleidoscope_invalid_symmetry,
+       "core/render/pullback/authored_lens.h",
+       "(false) configured_kaleidoscope: invalid symmetry"},
       {"pullback_operator_invalid_modulation_source",
        case_pullback_operator_invalid_modulation_source,
        "core/render/pullback/modulation.h",

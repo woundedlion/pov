@@ -47,6 +47,8 @@ struct KaleidoscopeParams {
       "azimuthal",        "tetrahedral",      "octahedral",
       "dodecahedral",     "triangular-prism", "square-prism",
       "pentagonal-prism", "hexagonal-prism",  "octagonal-prism"};
+  static_assert(std::size(SYMMETRY_IDS) ==
+                static_cast<size_t>(KaleidoscopeSymmetry::OCTAGONAL_PRISM) + 1);
   /// Symmetry selector.
   static constexpr auto TOPOLOGY = std::array{TopologyField<KaleidoscopeParams>{
       "symmetry", &KaleidoscopeParams::symmetry, SYMMETRY_IDS, 0}};
@@ -76,9 +78,10 @@ inline math::Vector configured_kaleidoscope(const math::Vector &input,
   case KaleidoscopeSymmetry::OCTAGONAL_PRISM:
     return OctagonalPrismKaleidoscope::apply(input, 0);
   case KaleidoscopeSymmetry::AZIMUTHAL:
-  default:
     return lenses::kaleidoscope_lens(input);
   }
+  HS_CHECK(false, "configured_kaleidoscope: invalid symmetry");
+  return input;
 }
 
 /** @brief Folds a direction by authored angular multipliers.

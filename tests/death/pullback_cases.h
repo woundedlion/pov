@@ -296,6 +296,12 @@ inline void case_pullback_operator_invalid_kaleidoscope_symmetry() {
   Pullback::Interp::Op::LensKaleidoscope::prepare(context, params, state);
 }
 
+/** @brief Authored kaleidoscope dispatch rejects an unknown symmetry. */
+inline void case_authored_kaleidoscope_invalid_symmetry() {
+  (void)Pullback::Lens::configured_kaleidoscope(math::Y_AXIS,
+                                                opaque<uint8_t>(0xff));
+}
+
 /** @brief A modulation operator rejects an unknown source. */
 inline void case_pullback_operator_invalid_modulation_source() {
   Pullback::Interp::Op::ModulationParams params;
