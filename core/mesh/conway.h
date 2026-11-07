@@ -28,30 +28,20 @@ HS_O3_BEGIN
  * @param mesh Source mesh supplying the vertex positions.
  * @param face_index Index of the face whose centroid is computed.
  * @param out_count Out-param set to the number of vertices walked (sides).
- * @return Average of the face's vertex positions, or origin for an empty face.
+ * @return Average of the face's vertex positions.
  */
 template <typename MeshT>
 inline math::Vector face_centroid(const HalfEdgeMesh &he_mesh,
                                   const MeshT &mesh, size_t face_index,
                                   int &out_count) {
-  const HEFace &face = he_mesh.faces[face_index];
   math::Vector c(0, 0, 0);
   out_count = 0;
-  uint16_t he_idx = face.half_edge;
-  uint16_t start = he_idx;
-  if (he_idx != HE_NONE) {
-    // Anti-hang guard: a corrupt .next chain would otherwise spin forever.
-    const int max_sides = static_cast<int>(he_mesh.half_edges.size());
-    do {
-      HS_CHECK(out_count < max_sides, "face_centroid: corrupt face loop");
-      c = c + mesh.vertices[he_mesh.half_edges[he_idx].vertex];
-      out_count++;
-      he_idx = he_mesh.half_edges[he_idx].next;
-    } while (he_idx != HE_NONE && he_idx != start);
-  }
-  if (out_count > 0)
-    c = c / static_cast<float>(out_count);
-  return c;
+  face_loop(he_mesh, he_mesh.faces[face_index].half_edge,
+            static_cast<int>(he_mesh.half_edges.size()), [&](uint16_t index) {
+              c = c + mesh.vertices[he_mesh.half_edges[index].vertex];
+              ++out_count;
+            });
+  return c / static_cast<float>(out_count);
 }
 
 /**
@@ -65,7 +55,6 @@ HS_FLASH_MEMBER inline math::Vector
 dual_vertex(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh, size_t face) {
   int count;
   const math::Vector centroid = face_centroid(he_mesh, mesh, face, count);
-  HS_CHECK(he_mesh.faces[face].half_edge != HE_NONE, "dual vertex: empty face");
   const math::Vector first =
       mesh.vertices[he_mesh.half_edges[he_mesh.faces[face].half_edge].vertex];
   return math::normalized_or(centroid,
@@ -79,35 +68,23 @@ dual_vertex(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh, size_t face) {
  * @param he_mesh Half-edge connectivity describing the face loops.
  * @param mesh Source mesh supplying the vertex positions.
  * @param face_index Index of the face whose normal is computed.
- * @return Unnormalized Newell normal (the caller normalizes if needed); the
- *   origin vector for an empty face.
+ * @return Unnormalized Newell normal; the caller normalizes if needed.
  */
 template <typename MeshT>
 inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
                                 size_t face_index) {
-  const HEFace &face = he_mesh.faces[face_index];
-  math::Vector n(0, 0, 0);
-  uint16_t he_idx = face.half_edge;
-  if (he_idx == HE_NONE)
-    return n;
-  uint16_t start = he_idx;
-  // A corrupt .next chain could spin or index HE_NONE.
-  const int max_sides = static_cast<int>(he_mesh.half_edges.size());
-  int sides = 0;
-  do {
-    HS_CHECK(sides < max_sides, "face_normal: corrupt face loop");
-    ++sides;
-    const HalfEdge &he = he_mesh.half_edges[he_idx];
-    HS_CHECK(he.next != HE_NONE, "face_normal: HE_NONE in face loop");
-    const math::Vector &curr = mesh.vertices[he.vertex];
-    const math::Vector &next =
-        mesh.vertices[he_mesh.half_edges[he.next].vertex];
-    n.x += (curr.y - next.y) * (curr.z + next.z);
-    n.y += (curr.z - next.z) * (curr.x + next.x);
-    n.z += (curr.x - next.x) * (curr.y + next.y);
-    he_idx = he.next;
-  } while (he_idx != HE_NONE && he_idx != start);
-  return n;
+  math::Vector normal(0, 0, 0);
+  face_loop(he_mesh, he_mesh.faces[face_index].half_edge,
+            static_cast<int>(he_mesh.half_edges.size()), [&](uint16_t index) {
+              const HalfEdge &edge = he_mesh.half_edges[index];
+              const math::Vector &current = mesh.vertices[edge.vertex];
+              const math::Vector &next =
+                  mesh.vertices[he_mesh.half_edges[edge.next].vertex];
+              normal.x += (current.y - next.y) * (current.z + next.z);
+              normal.y += (current.z - next.z) * (current.x + next.x);
+              normal.z += (current.x - next.x) * (current.y + next.y);
+            });
+  return normal;
 }
 
 /**
@@ -174,7 +151,7 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
  * @tparam MapFn Callable (uint16_t he_idx, uint16_t out_idx) recording the map.
  * @param he_mesh Half-edge connectivity to walk.
  * @param out_mesh Destination mesh receiving the new vertices and face.
- * @param start First half-edge of the face, or HE_NONE for an empty face.
+ * @param start First half-edge of the face.
  * @param count Side count of the face (from face_centroid).
  * @param pos_fn Maps a corner half-edge to its shrunk output vertex.
  * @param map_fn Records the new vertex index for a corner half-edge.
@@ -185,23 +162,16 @@ template <typename PosFn, typename MapFn>
 inline void emit_shrunk_face(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
                              uint16_t start, int count, PosFn &&pos_fn,
                              MapFn &&map_fn) {
-  if (start == HE_NONE)
-    return;
   const bool well_formed = count >= 3;
   if (well_formed)
     out_mesh.face_counts.push_back(narrow_face_count(count));
-  uint16_t he_idx = start;
-  int walked = 0; // anti-hang guard: face has `count` half-edges
-  do {
-    HS_CHECK(walked < count, "face re-walk overran side count");
-    ++walked;
-    out_mesh.vertices.push_back(pos_fn(he_idx));
-    uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
-    map_fn(he_idx, idx);
+  face_loop(he_mesh, start, count, [&](uint16_t index) {
+    out_mesh.vertices.push_back(pos_fn(index));
+    const uint16_t output = narrow_index(out_mesh.vertices.size() - 1);
+    map_fn(index, output);
     if (well_formed)
-      out_mesh.faces.push_back(idx);
-    he_idx = he_mesh.half_edges[he_idx].next;
-  } while (he_idx != HE_NONE && he_idx != start);
+      out_mesh.faces.push_back(output);
+  });
 }
 
 /**
@@ -229,14 +199,7 @@ inline void emit_primary_faces(const HalfEdgeMesh &he_mesh,
     if (count < 3)
       continue;
     out_mesh.face_counts.push_back(narrow_face_count(count * verts_per_side));
-    uint16_t he_idx = start;
-    int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
-    do {
-      HS_CHECK(emitted < count, "face re-walk overran side count");
-      ++emitted;
-      emit_fn(he_idx);
-      he_idx = he_mesh.half_edges[he_idx].next;
-    } while (he_idx != HE_NONE && he_idx != start);
+    face_loop(he_mesh, start, count, emit_fn);
   }
 }
 

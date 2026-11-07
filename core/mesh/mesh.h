@@ -467,6 +467,25 @@ enum class OrbitDir : uint8_t {
   PAIR_NEXT, /**< Step pair->next. */
 };
 
+/** @brief Walks a closed face loop within its traversal limit.
+ * @tparam VisitorFn Callable accepting the current half-edge index.
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param start First half-edge of the face.
+ * @param limit Maximum number of visited half-edges.
+ * @param visitor Invoked once for each half-edge index. */
+template <typename VisitorFn>
+HS_HOT_INLINE inline void face_loop(const HalfEdgeMesh &he_mesh, uint16_t start,
+                                    int limit, VisitorFn &&visitor) {
+  uint16_t current = start;
+  int visited = 0;
+  do {
+    HS_CHECK(visited < limit, "face_loop: traversal exceeded side limit");
+    visitor(current);
+    ++visited;
+    current = he_mesh.half_edges[current].next;
+  } while (current != start);
+}
+
 /**
  * @brief Walk all half-edges orbiting a vertex, invoking visitor(curr_idx) for
  *   each.

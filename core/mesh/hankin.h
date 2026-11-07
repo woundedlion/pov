@@ -191,43 +191,35 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
     // Star faces
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       HEFace &face = he_mesh.faces[i];
-      uint16_t he_idx = face.half_edge;
-      HS_CHECK(he_idx != HE_NONE, "compile_hankin: empty face");
-      uint16_t start_he = he_idx;
       int count = 0;
-      int walked = 0;
+      face_loop(he_mesh, face.half_edge,
+                static_cast<int>(he_mesh.half_edges.size()),
+                [&](uint16_t he_idx) {
+                  count += 2;
+                  HalfEdge &curr_he = he_mesh.half_edges[he_idx];
+                  uint16_t prev_idx = curr_he.prev;
 
-      do {
-        HS_CHECK(walked < (int)he_mesh.half_edges.size(),
-                 "hankin star-face walk exceeded half-edge count");
-        ++walked;
-        count += 2;
-        HalfEdge &curr_he = he_mesh.half_edges[he_idx];
-        uint16_t prev_idx = curr_he.prev;
+                  int idx_m1 = he_to_midpoint_idx[prev_idx];
+                  int idx_m2 = he_to_midpoint_idx[he_idx];
 
-        int idx_m1 = he_to_midpoint_idx[prev_idx];
-        int idx_m2 = he_to_midpoint_idx[he_idx];
+                  HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
 
-        HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
+                  uint16_t i_corner = prev_he.vertex;
+                  uint16_t i_prev = he_mesh.half_edges[prev_he.prev].vertex;
+                  uint16_t i_next = curr_he.vertex;
 
-        uint16_t i_corner = prev_he.vertex;
-        uint16_t i_prev = he_mesh.half_edges[prev_he.prev].vertex;
-        uint16_t i_next = curr_he.vertex;
+                  compiled.dynamic_instructions.push_back(
+                      {i_corner, i_prev, i_next, narrow_index(idx_m1),
+                       narrow_index(idx_m2)});
 
-        compiled.dynamic_instructions.push_back({i_corner, i_prev, i_next,
-                                                 narrow_index(idx_m1),
-                                                 narrow_index(idx_m2)});
+                  uint16_t dyn_idx =
+                      narrow_index(compiled.dynamic_instructions.size() - 1);
+                  he_to_dynamic_idx[he_idx] = dyn_idx;
 
-        uint16_t dyn_idx =
-            narrow_index(compiled.dynamic_instructions.size() - 1);
-        he_to_dynamic_idx[he_idx] = dyn_idx;
-
-        compiled.faces.push_back(narrow_index(idx_m1));
-        compiled.faces.push_back(
-            narrow_index(compiled.static_offset + dyn_idx));
-
-        he_idx = curr_he.next;
-      } while (he_idx != HE_NONE && he_idx != start_he);
+                  compiled.faces.push_back(narrow_index(idx_m1));
+                  compiled.faces.push_back(
+                      narrow_index(compiled.static_offset + dyn_idx));
+                });
 
       compiled.face_counts.push_back(narrow_face_count(count));
     }
