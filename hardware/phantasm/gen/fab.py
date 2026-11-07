@@ -1401,10 +1401,10 @@ def output_lock(directory):
         os.remove(path)
 
 
-def main():
+def main(revision="1.1"):
     os.makedirs(OUT, exist_ok=True)
     with output_lock(OUT):
-        fabricate()
+        fabricate(revision)
 
 
 def fabricate(revision="1.1", validate_only=False, refill_zones=True):
@@ -1626,4 +1626,4 @@ if __name__ == "__main__":
     if args.verify:
         verify_main()
     else:
-        main()
+        main(args.revision)

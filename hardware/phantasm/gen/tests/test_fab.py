@@ -963,6 +963,13 @@ class CommandRunTests(unittest.TestCase):
 
 
 class CommandLineTests(unittest.TestCase):
+    def test_fabrication_uses_the_requested_revision(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(fab, "OUT", directory), \
+                mock.patch.object(fab, "fabricate") as fabricate:
+            fab.main("1.2")
+        fabricate.assert_called_once_with("1.2")
+
     def parse(self, argv):
         stdout, stderr = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(stdout), \
