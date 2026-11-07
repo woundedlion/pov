@@ -15,6 +15,13 @@
 
 namespace mindsplatter_replay {
 
+/** @brief Deterministic replay and corpus-search random seed. */
+inline constexpr uint32_t REPLAY_SEED = 1337u;
+/** @brief Replay canvas width in pixels. */
+inline constexpr int REPLAY_WIDTH = 288;
+/** @brief Replay canvas height in pixels. */
+inline constexpr int REPLAY_HEIGHT = 144;
+
 inline constexpr uint64_t HASH_SEED = hs_test::HASH_SEED64;
 
 inline constexpr const char *SOURCE_REVISION = "msp-heavy-search-v5";

@@ -15,10 +15,11 @@
 
 namespace {
 
-constexpr int WIDTH = 288;
-constexpr int HEIGHT = 144;
+using mindsplatter_replay::REPLAY_WIDTH;
+using mindsplatter_replay::REPLAY_HEIGHT;
+using mindsplatter_replay::REPLAY_SEED;
 constexpr int REPLAY_FRAMES = 3;
-using ReplayEffect = MindSplatter<WIDTH, HEIGHT>;
+using ReplayEffect = MindSplatter<REPLAY_WIDTH, REPLAY_HEIGHT>;
 using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
 
 struct PassResult {
@@ -33,7 +34,7 @@ struct PassResult {
  * codegen drift. Area bounds are whole-frame budgets, clipped passes included.
  */
 struct VisualGate {
-  static constexpr uint32_t PIXELS = WIDTH * HEIGHT;
+  static constexpr uint32_t PIXELS = REPLAY_WIDTH * REPLAY_HEIGHT;
   static constexpr uint32_t MAX_CHANGED_PIXELS = PIXELS * 25 / 100;
   static constexpr uint32_t MAX_CHANGED_CHANNELS = PIXELS * 3 * 11 / 100;
   static constexpr uint16_t MAX_CHANNEL_ERROR = 5000;
@@ -76,7 +77,8 @@ uint64_t rehash_corpus(const mindsplatter_replay::Corpus &corpus) {
   for (size_t i = 0; i < corpus.state_size; ++i)
     hash = mindsplatter_replay::hash_byte(hash, corpus.state[i]);
   size_t entry = 0;
-  for (size_t index = 0; index < static_cast<size_t>(WIDTH) * HEIGHT; ++index) {
+  for (size_t index = 0;
+       index < static_cast<size_t>(REPLAY_WIDTH) * REPLAY_HEIGHT; ++index) {
     while (entry < corpus.framebuffer_entries &&
            corpus.framebuffer[entry].index < index)
       ++entry;
@@ -97,7 +99,7 @@ uint64_t rehash_corpus(const mindsplatter_replay::Corpus &corpus) {
  *        and gates the difference metrics.
  * @param effect Restored replay effect; its clip selects the compared region.
  * @param corpus Golden corpus the candidate is also measured against.
- * @param reference Scratch buffer holding the reference frame, WIDTH*HEIGHT.
+ * @param reference Scratch buffer holding the reference frame, REPLAY_WIDTH*REPLAY_HEIGHT.
  * @param label Pass label for the emitted line.
  * @param whole_frame True when the clip covers the whole frame; only then are
  *        the expanded corpus pixels checked against the recorded hash.
@@ -114,13 +116,14 @@ PassResult run_pass(ReplayEffect &effect,
     Canvas canvas(effect);
     clip = canvas.clip();
     WhiteBox::draw_particles_replay_reference(effect, canvas);
-    const size_t reference_count = mindsplatter_replay::capture_frame<WIDTH>(
-        canvas.data(), clip, reference.data(), reference.size());
+    const size_t reference_count =
+        mindsplatter_replay::capture_frame<REPLAY_WIDTH>(
+            canvas.data(), clip, reference.data(), reference.size());
     mindsplatter_replay::clear_frame(canvas, clip);
     WhiteBox::draw_particles_candidate(effect, canvas);
-    stats = mindsplatter_replay::compare_frame_reference<WIDTH>(
+    stats = mindsplatter_replay::compare_frame_reference<REPLAY_WIDTH>(
         canvas, clip, reference.data(), reference_count);
-    host_stats = mindsplatter_replay::compare_frame<WIDTH>(
+    host_stats = mindsplatter_replay::compare_frame<REPLAY_WIDTH>(
         canvas, clip, corpus.framebuffer, corpus.framebuffer_entries);
   }
   effect.advance_display();
@@ -186,7 +189,7 @@ PassResult run_pass(ReplayEffect &effect,
 
 int main() {
   const auto &corpus = mindsplatter_replay::HEAVY_SEARCH_V1;
-  hs::random().seed(1337u);
+  hs::random().seed(REPLAY_SEED);
   configure_arenas_default();
   ReplayEffect effect;
   effect.init();
@@ -224,7 +227,8 @@ int main() {
                 static_cast<unsigned long long>(corpus.corpus_hash));
     accepted = false;
   }
-  std::vector<Pixel> reference(static_cast<size_t>(WIDTH) * HEIGHT);
+  std::vector<Pixel> reference(static_cast<size_t>(REPLAY_WIDTH) *
+                               REPLAY_HEIGHT);
   uint64_t first_hash = 0;
   for (int frame = 0; frame < REPLAY_FRAMES; ++frame) {
     char label[16];
@@ -246,11 +250,12 @@ int main() {
 
   // Replay the corpus's peak quadrant clip to render the clip-boundary splats.
   const ClipRegion peak =
-      mindsplatter_replay::search_clip<WIDTH, HEIGHT>(corpus.peak_clip);
+      mindsplatter_replay::search_clip<REPLAY_WIDTH, REPLAY_HEIGHT>(
+          corpus.peak_clip);
   effect.set_clip(peak.y_start, peak.y_end, peak.x_start, peak.x_end);
   accepted = run_pass(effect, corpus, reference, "peak_clip", false).accepted &&
              accepted;
-  effect.set_clip(0, HEIGHT, 0, WIDTH);
+  effect.set_clip(0, REPLAY_HEIGHT, 0, REPLAY_WIDTH);
 
   return accepted ? 0 : 1;
 }

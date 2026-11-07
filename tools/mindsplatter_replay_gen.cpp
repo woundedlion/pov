@@ -19,21 +19,21 @@
 
 namespace {
 
-constexpr int WIDTH = 288;
-constexpr int HEIGHT = 144;
+using mindsplatter_replay::REPLAY_WIDTH;
+using mindsplatter_replay::REPLAY_HEIGHT;
+using mindsplatter_replay::REPLAY_SEED;
 constexpr int FIRST_SEARCH_FRAME = 136;
 constexpr int LAST_SEARCH_FRAME = 384;
 constexpr int SEARCH_FRAME_STRIDE = 8;
 constexpr unsigned long FRAME_MS = 16;
 constexpr unsigned long FRAME_US = 16000;
-constexpr uint32_t SEARCH_SEED = 1337;
 constexpr uint64_t ADAPTIVE_SCORE_WEIGHT = 64;
 constexpr uint64_t LONG_EDGE_SCORE_WEIGHT = 512;
 constexpr uint64_t SHADER_SCORE_WEIGHT = 8;
 
-using ReplayEffect = MindSplatter<WIDTH, HEIGHT>;
+using ReplayEffect = MindSplatter<REPLAY_WIDTH, REPLAY_HEIGHT>;
 using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
-using Snapshot = WhiteBox::ReplaySnapshot<WIDTH, HEIGHT>;
+using Snapshot = WhiteBox::ReplaySnapshot<REPLAY_WIDTH, REPLAY_HEIGHT>;
 
 struct Workload {
   uint64_t score = 0;
@@ -62,7 +62,7 @@ struct SearchResult {
 };
 
 using mindsplatter_replay::GoldenPixel;
-static_assert(static_cast<size_t>(WIDTH) * HEIGHT <= 65536,
+static_assert(static_cast<size_t>(REPLAY_WIDTH) * REPLAY_HEIGHT <= 65536,
               "GoldenPixel::index is uint16_t");
 
 Workload read_workload() {
@@ -82,12 +82,13 @@ Workload read_workload() {
 
 std::optional<SearchResult> search_corpus() {
   std::optional<SearchResult> best;
-  for (uint8_t preset = 0; preset < WhiteBox::preset_count<WIDTH, HEIGHT>();
+  for (uint8_t preset = 0;
+       preset < WhiteBox::preset_count<REPLAY_WIDTH, REPLAY_HEIGHT>();
        ++preset) {
     Workload preset_peak;
     uint16_t preset_peak_frame = 0;
     uint8_t preset_peak_clip = 0;
-    hs::random().seed(SEARCH_SEED);
+    hs::random().seed(REPLAY_SEED);
     hs::set_mock_time(0, 0);
     configure_arenas_default();
     ReplayEffect effect;
@@ -111,7 +112,8 @@ std::optional<SearchResult> search_corpus() {
       for (uint8_t clip_index = 0;
            clip_index < mindsplatter_replay::SEARCH_CLIP_COUNT; ++clip_index) {
         const ClipRegion clip =
-            mindsplatter_replay::search_clip<WIDTH, HEIGHT>(clip_index);
+            mindsplatter_replay::search_clip<REPLAY_WIDTH, REPLAY_HEIGHT>(
+                clip_index);
         effect.set_clip(clip.y_start, clip.y_end, clip.x_start, clip.x_end);
         hs::g_plot_render_counts.reset();
         {
@@ -126,7 +128,7 @@ std::optional<SearchResult> search_corpus() {
           peak_clip = clip_index;
         }
       }
-      effect.set_clip(0, HEIGHT, 0, WIDTH);
+      effect.set_clip(0, REPLAY_HEIGHT, 0, REPLAY_WIDTH);
 
       if (!best || aggregate.score > best->aggregate.score) {
         SearchResult result;
@@ -215,7 +217,7 @@ int main(int argc, char **argv) {
       refresh ? std::vector<unsigned char>(frozen.state,
                                            frozen.state + frozen.state_size)
               : WhiteBox::serialize_render(selected->snapshot);
-  hs::random().seed(SEARCH_SEED);
+  hs::random().seed(REPLAY_SEED);
   configure_arenas_default();
   ReplayEffect effect;
   effect.init();
@@ -223,16 +225,16 @@ int main(int argc, char **argv) {
   selected->snapshot = WhiteBox::capture(effect);
   const std::vector<unsigned char> emitted_state =
       refresh ? WhiteBox::serialize_render(selected->snapshot) : state;
-  effect.set_clip(0, HEIGHT, 0, WIDTH);
+  effect.set_clip(0, REPLAY_HEIGHT, 0, REPLAY_WIDTH);
   WhiteBox::draw_particles(effect);
   effect.advance_display();
 
   const Pixel *pixels = effect.display_buffer();
   std::vector<uint16_t> framebuffer;
-  framebuffer.reserve(static_cast<size_t>(WIDTH) * HEIGHT * 3);
+  framebuffer.reserve(static_cast<size_t>(REPLAY_WIDTH) * REPLAY_HEIGHT * 3);
   std::vector<GoldenPixel> golden;
   uint64_t framebuffer_hash = mindsplatter_replay::HASH_SEED;
-  for (int i = 0; i < WIDTH * HEIGHT; ++i) {
+  for (int i = 0; i < REPLAY_WIDTH * REPLAY_HEIGHT; ++i) {
     if (pixels[i].r | pixels[i].g | pixels[i].b)
       golden.push_back(
           {static_cast<uint16_t>(i), pixels[i].r, pixels[i].g, pixels[i].b});
@@ -249,7 +251,8 @@ int main(int argc, char **argv) {
     corpus_hash = mindsplatter_replay::hash_channel(corpus_hash, channel);
 
   const ClipRegion peak_clip =
-      mindsplatter_replay::search_clip<WIDTH, HEIGHT>(selected->peak_clip);
+      mindsplatter_replay::search_clip<REPLAY_WIDTH, REPLAY_HEIGHT>(
+          selected->peak_clip);
   const std::string corpus_id =
       refresh ? frozen.id
               : "heavy_search_v1_p" + std::to_string(selected->preset) + "_f" +
@@ -257,8 +260,9 @@ int main(int argc, char **argv) {
   const std::string source =
       refresh
           ? frozen.source
-          : "seed=" + std::to_string(SEARCH_SEED) + " presets=0.." +
-                std::to_string(WhiteBox::preset_count<WIDTH, HEIGHT>() - 1) +
+          : "seed=" + std::to_string(REPLAY_SEED) + " presets=0.." +
+                std::to_string(
+                    WhiteBox::preset_count<REPLAY_WIDTH, REPLAY_HEIGHT>() - 1) +
                 " frames=" + std::to_string(FIRST_SEARCH_FRAME) + ".." +
                 std::to_string(LAST_SEARCH_FRAME) + "/" +
                 std::to_string(SEARCH_FRAME_STRIDE) +
