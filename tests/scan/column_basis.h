@@ -7,6 +7,27 @@
 // Column-time rotated basis: scans against shapes rebuilt at column time
 // ============================================================================
 
+template <typename P, typename Shader>
+concept VolumeColumnPipeline =
+    requires(P &pipeline, Canvas &canvas, const math::Vector &center,
+             const Scan::TransformedVolume<SDF::Torus> &shape, Shader shader,
+             const Scan::VolumeColumns<96> &columns) {
+      Scan::Volume::draw<96, 48>(pipeline, canvas, center, 1.0f, shape, shader,
+                                 15, 0.01f, columns);
+    };
+
+using MovingVolumePipeline = Pipeline<96, 48, Filter::World::Replicate<96>>;
+static_assert(VolumeColumnPipeline<Pipeline<96, 48>, FragmentShaderFn>);
+static_assert(VolumeColumnPipeline<Pipeline<96, 48>, TimedShaderFn>);
+static_assert(!VolumeColumnPipeline<MovingVolumePipeline, FragmentShaderFn>);
+static_assert(!VolumeColumnPipeline<MovingVolumePipeline, TimedShaderFn>);
+static_assert(requires(MovingVolumePipeline &pipeline, Canvas &canvas,
+                       const math::Vector &center,
+                       const Scan::TransformedVolume<SDF::Torus> &shape,
+                       FragmentShaderFn shader) {
+  Scan::Volume::draw<96, 48>(pipeline, canvas, center, 1.0f, shape, shader);
+});
+
 /** @brief Orientation endpoints of one oracle frame. */
 struct BasisMotion {
   math::Quaternion previous; /**< Orientation at the previous endpoint. */
@@ -863,7 +884,7 @@ inline void test_volume_columns_match_rotated_placements() {
       render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
         Scan::TransformedVolume volume(torus, centre, q);
         Scan::Volume::draw<W, H>(pipeline, canvas, centre, BOUNDS, volume,
-                                 shade, 24, 0.02f, columns.get());
+                                 shade, 24, 0.02f, *columns);
       });
 
   const auto expected =
@@ -1464,7 +1485,7 @@ inline void test_volume_timed_shader_reads_column_sweep_time() {
             [u](const math::Vector &, Fragment &f) {
               f.color = Color4(column_tint(u).color, 1.0f);
             },
-            24, 0.02f, columns.get());
+            24, 0.02f, *columns);
       });
   HS_EXPECT_GT(expect_factored_tolerance("timed volume", drawn, expected), 50);
 }

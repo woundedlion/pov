@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <type_traits>
 #include <utility>
 #include "core/render/sdf.h"
 #include "core/render/ray/march.h"
@@ -13,6 +14,7 @@
 #include "core/render/filter/pipeline.h"
 #include "core/render/canvas.h"
 #include "core/platform/platform.h"
+#include "core/render/scan/column_basis.h"
 #include "core/render/scan/raster.h"
 
 /**
@@ -184,8 +186,9 @@ volume_edge_coverage(float dist, float hit_threshold, float aa_width) {
  *   - Rays travel radially along `-bounds_center`, a unit vector in LED space.
  *   - Pixel positions project onto the plane perpendicular to that direction,
  *     then move backward along it to form the ray origins.
- *   - Filter::World::Orient rotates the *output* position passed to the
- *     canvas, not the ray.
+ *   - In a fixed draw, Filter::World::Orient rotates the output position
+ *     passed to the canvas. Rays still follow the volume's placement.
+ *   - Per-column draws require a pipeline that leaves world positions unmoved.
  */
 struct Volume {
   /** Sphere-trace step overrelaxation; 1 is the conservative march. */
@@ -360,10 +363,6 @@ struct Volume {
    * @param frag_fn Fragment shader invoked once per hit.
    * @param max_steps Maximum sphere-tracing steps per ray.
    * @param aa_width Anti-aliasing band half-width in world units.
-   * @param columns Optional per-column placement; each column then marches
-   *        the shape from its own centre and rotation, the scanned cap grows
-   *        to cover every column's centre, and the shape's own transform
-   *        supplies only distances.
    * @details Fragment age is not forwarded; plots carry age 0.
    *
    * Shape concept:
@@ -378,15 +377,31 @@ struct Volume {
   static void draw(PipelineRef pipeline, Canvas &canvas,
                    const math::Vector &bounds_center, float bounds_radius,
                    const Shape &shape, FragmentShaderFn frag_fn,
-                   int max_steps = 15, float aa_width = 0.01f,
-                   const VolumeColumns<W> *columns = nullptr) {
-    if (columns) {
-      draw_columns<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
-                         frag_fn, max_steps, aa_width, *columns);
-      return;
-    }
+                   int max_steps = 15, float aa_width = 0.01f) {
     draw_fixed<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
                      frag_fn, max_steps, aa_width);
+  }
+
+  /** @brief Draws per-column placements with a time-independent shader.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam Shape Volume shape.
+   * @param pipeline Plotting pipeline that leaves world positions unmoved.
+   * @param canvas Destination canvas.
+   * @param bounds_center Bounding sphere centre at the current endpoint.
+   * @param bounds_radius Bounding sphere radius.
+   * @param shape Volume shape at the current endpoint.
+   * @param frag_fn Fragment shader invoked once per hit.
+   * @param max_steps Maximum sphere-tracing steps per ray.
+   * @param aa_width Anti-aliasing band half-width.
+   * @param columns Per-column placement. */
+  template <int W, int H, typename Shape>
+  static void draw(ScanRef pipeline, Canvas &canvas,
+                   const math::Vector &bounds_center, float bounds_radius,
+                   const Shape &shape, FragmentShaderFn frag_fn, int max_steps,
+                   float aa_width, const VolumeColumns<W> &columns) {
+    draw_columns<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
+                       frag_fn, max_steps, aa_width, columns);
   }
 
   /**
@@ -419,7 +434,7 @@ struct Volume {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam Shape Volume shape.
-   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param pipeline Plotting pipeline that leaves world positions unmoved.
    * @param canvas Destination canvas.
    * @param bounds_center Bounding sphere centre at the current endpoint.
    * @param bounds_radius Bounding sphere radius.
@@ -431,7 +446,7 @@ struct Volume {
    * @param columns Per-column placement.
    */
   template <int W, int H, typename Shape>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
+  static void draw(ScanRef pipeline, Canvas &canvas,
                    const math::Vector &bounds_center, float bounds_radius,
                    const Shape &shape, TimedShaderFn frag_fn, int max_steps,
                    float aa_width, const VolumeColumns<W> &columns) {
@@ -446,7 +461,7 @@ struct Volume {
    * @tparam Shape Volume shape.
    * @tparam ShaderFn FragmentShaderFn, or TimedShaderFn, which also
    *         receives the hit's column sweep fraction.
-   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param pipeline Plotting pipeline that leaves world positions unmoved.
    * @param canvas Destination canvas.
    * @param bounds_center Bounding sphere centre at the current endpoint.
    * @param bounds_radius Bounding sphere radius.
@@ -458,7 +473,7 @@ struct Volume {
    */
   template <int W, int H, typename Shape, typename ShaderFn>
   HS_NOINLINE_NOCLONE static void
-  draw_columns(PipelineRef pipeline, Canvas &canvas,
+  draw_columns(ScanRef pipeline, Canvas &canvas,
                const math::Vector &bounds_center, float bounds_radius,
                const Shape &shape, ShaderFn frag_fn, int max_steps,
                float aa_width, const VolumeColumns<W> &columns) {
@@ -487,9 +502,10 @@ struct Volume {
   template <int W, int H, bool COLUMNS, typename Shape,
             typename ShaderFn = FragmentShaderFn>
   HS_HOT_INLINE static void
-  march(PipelineRef pipeline, Canvas &canvas, const math::Vector &bounds_center,
-        float bounds_radius, const Shape &shape, ShaderFn frag_fn,
-        int max_steps, float aa_width, const VolumeColumns<W> *columns) {
+  march(std::conditional_t<COLUMNS, ScanRef, PipelineRef> pipeline,
+        Canvas &canvas, const math::Vector &bounds_center, float bounds_radius,
+        const Shape &shape, ShaderFn frag_fn, int max_steps, float aa_width,
+        const VolumeColumns<W> *columns) {
     check_canvas_dims<W, H>(canvas);
     check_fragment_shader(frag_fn);
     if constexpr (requires { shape.check_trace_preconditions(); })
