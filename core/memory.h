@@ -31,6 +31,10 @@ constexpr size_t DEFAULT_SCRATCH_B_SIZE = 16 * 1024;
 static_assert(GLOBAL_ARENA_SIZE >
                   DEFAULT_SCRATCH_A_SIZE + DEFAULT_SCRATCH_B_SIZE,
               "HS_GLOBAL_ARENA_BYTES must exceed the default scratch split");
+static_assert(GLOBAL_ARENA_SIZE % alignof(std::max_align_t) == 0 &&
+                  DEFAULT_SCRATCH_A_SIZE % alignof(std::max_align_t) == 0 &&
+                  DEFAULT_SCRATCH_B_SIZE % alignof(std::max_align_t) == 0,
+              "arena sizes must be max_align_t multiples");
 /// Persistent arena capacity on this build's default split, bytes.
 constexpr size_t DEFAULT_PERSISTENT_SIZE =
     GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
