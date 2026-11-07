@@ -26,6 +26,12 @@ fi
 
 tr '\n' '\0' < "$tmp" | xargs -0 shellcheck -x
 
+git ls-files -- '.github/actions/*/action.yml' '.github/actions/*/action.yaml' > "$scratch/actions"
+if [ ! -s "$scratch/actions" ]; then
+  echo "no composite actions selected -- the action path list is broken" >&2
+  exit 1
+fi
+
 while IFS= read -r action; do
   awk -v directory="$scratch" -v action="$action" '
     function finish() {
@@ -74,4 +80,4 @@ while IFS= read -r action; do
   while read -r shell body; do
     shellcheck -s "$shell" - < "$body"
   done < "$tmp"
-done < <(git ls-files -- '.github/actions/*/action.yml' '.github/actions/*/action.yaml')
+done < "$scratch/actions"

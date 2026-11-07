@@ -195,6 +195,14 @@ class ShellGateTests(unittest.TestCase):
         self.assertNotEqual(bad.returncode, 0)
         self.assertIn("selected.sh", bad.stdout)
 
+    def test_shellcheck_refuses_empty_action_selection(self):
+        (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
+        self.git("add", "--", "selected.sh")
+        self.stub("shellcheck", "exit 0")
+        result = self.gate("shellcheck_gate.sh")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("no composite actions selected", result.stderr)
+
     def test_composite_steps_are_isolated_and_unsupported_scalars_fail(self):
         require_tool(self, "shellcheck")
         (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
