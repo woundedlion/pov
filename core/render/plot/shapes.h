@@ -504,15 +504,19 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
   }
   PointRoute<W, H> route;
   route.prepare(canvas, motion_bound + spin);
+  const auto world = [&](size_t vertex, float t) HS_HOT_INLINE {
+    const auto p = motion.worldline(vertex).at(t).normalized();
+    return poses ? poses->rotate(p, t) : p;
+  };
+  const math::Vector first_start = world(0, 0.0f);
+  const math::Vector first_end = world(0, 1.0f);
+  math::Vector starts[2] = {first_start, {}};
+  math::Vector ends[2] = {first_end, {}};
   size_t edge_count = 0;
   for (size_t i = 0; i < count; ++i) {
     const size_t next = (i + 1) % count;
-    const auto world = [&](size_t vertex, float t) HS_HOT_INLINE {
-      const auto p = motion.worldline(vertex).at(t).normalized();
-      return poses ? poses->rotate(p, t) : p;
-    };
-    const math::Vector starts[2] = {world(i, 0.0f), world(next, 0.0f)};
-    const math::Vector ends[2] = {world(i, 1.0f), world(next, 1.0f)};
+    starts[1] = next == 0 ? first_start : world(next, 0.0f);
+    ends[1] = next == 0 ? first_end : world(next, 1.0f);
     GeodesicEdgeSampler arcs[2];
     if (EdgeWorldsheet::steady_lattice<W, H>(starts, ends, 1, arcs) == 1 &&
         EdgeWorldsheet::pieces_of<W, H>(arcs[0]) <= 0.5f &&
@@ -537,6 +541,8 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
     } else {
       edges[edge_count++] = edges[i];
     }
+    starts[0] = starts[1];
+    ends[0] = ends[1];
   }
   ScratchScope registers(scratch_arena_a);
   Fragments points;
