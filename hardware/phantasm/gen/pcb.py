@@ -760,8 +760,32 @@ REVISION_LAYOUTS = {
     "1.2": {
         "edge_placements": TERMINAL_EDGE_PLACEMENTS,
         "fixed_refs": frozenset(TERMINAL_FIXED),
-        "local_route_count": 4,
-        "ground_route_count": 3,
+        "local_routes": (
+            (("C_DEC1", "1"), ("U_MCU", "VIN"), ()),
+            (("U_MCU", "3"), ("C_SYNC", "1"), ((19.15, 21.225),)),
+            (("R1", "2"), ("C_SYNC", "1"), ()),
+            (("R2", "1"), ("C_SYNC", "1"),
+             ((20.7875, 21.2), (19.175, 21.2))),
+        ),
+        "ground_routes": ((("C_DEC1", "2"), (11.55, 1.35)),
+                          (("C_SYNC", "2"), (19.925, 23.0)),
+                          (("R2", "2"), (24.4125, 22.0))),
+        "jumper_marks": (("ID0", 54.3, 8.9, 90, "F.SilkS"),
+                         ("ID1", 54.3, 11.9, 90, "F.SilkS"),
+                         ("ID2", 54.3, 15.3, 90, "F.SilkS"),
+                         ("SHLD", 54.3, 19.0, 90, "F.SilkS")),
+        "back_silk": [
+            ("ID  ID0   ID1   ROLE(N4)", 7.0, 0.9),
+            ("0   OPEN  OPEN  MASTER", 9.0, 0.9),
+            ("1   GND   OPEN  A-SOUTH", 11.0, 0.9),
+            ("2   OPEN  GND   B-NORTH", 13.0, 0.9),
+            ("3   GND   GND   B-SOUTH", 15.0, 0.9),
+            ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 17.0, 0.8),
+            ("CUT TEENSY VIN-VUSB", 21.3, 0.8),
+            ("BOARD ID: ____", 23.5, 2.0),
+            (silk_revision("1.2"), 29.5, 1.0),
+        ],
+        "back_silk_x": {"BOARD ID: ____": 25.5},
         "sync_marks": "SGH",
         "terminal_libids": TERMINAL_LIBIDS[:2],
         "terminal_by_ref": {
@@ -769,15 +793,31 @@ REVISION_LAYOUTS = {
             **dict.fromkeys(("J2", "J3A", "J3B"), TERMINAL_LIBIDS[1]),
         },
         "part_properties": {},
-        "board_id_x": 25.5,
     },
     "1.3": {
         "edge_placements": TERMINAL_EDGE_PLACEMENTS_1_3,
         "fixed_overrides": TERMINAL_FIXED_1_3,
         "fixed_refs": frozenset(TERMINAL_FIXED_1_3),
-        "vin_ground_via": (12.275, 10.95),
-        "local_route_count": 1,
-        "ground_route_count": 1,
+        "local_routes": ((("C_DEC1", "1"), ("U_MCU", "VIN"), ()),),
+        "ground_routes": ((("C_DEC1", "2"), (12.275, 10.95)),),
+        "jumper_marks": (("ID0", "JP_ID0", 8.93, 0, "B.SilkS"),
+                         ("ID1", "JP_ID1", 8.93, 0, "B.SilkS"),
+                         ("ID2", "JP_ID2", 8.93, 0, "B.SilkS"),
+                         ("SHLD", "JP_SHLD", 8.93, 0, "B.SilkS")),
+        "back_silk": [
+            ("TERM=CABLE ENDS", 7.0, 0.8),
+            ("ID  ID0   ID1   ROLE(N4)", 17.0, 0.9),
+            ("0   OPEN  OPEN  MASTER", 19.0, 0.9),
+            ("1   GND   OPEN  A-SOUTH", 21.0, 0.9),
+            ("2   OPEN  GND   B-NORTH", 23.0, 0.9),
+            ("3   GND   GND   B-SOUTH", 25.0, 0.9),
+            ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 29.5, 0.8),
+            ("CUT TEENSY VIN-VUSB", 10.6, 0.8),
+            ("BOARD ID: ____", 14.8, 2.0),
+            (silk_revision("1.3"), 31.0, 0.8),
+            ("TERM", 8.93, 0.8),
+        ],
+        "back_silk_x": {"BOARD ID: ____": 20.0, "TERM": "JP_TERM"},
         "sync_marks": "ABGH",
         "terminal_libids": TERMINAL_LIBIDS,
         "terminal_by_ref": {
@@ -786,7 +826,6 @@ REVISION_LAYOUTS = {
             **dict.fromkeys(("J3A", "J3B"), TERMINAL_LIBIDS[2]),
         },
         "part_properties": REV13_PARTS,
-        "board_id_x": 20.0,
     },
 }
 
@@ -800,6 +839,26 @@ def fixed_placements(comps):
     fixed.update({ref: placement for ref, placement in layout["edge_placements"].items()
                   if ref in comps and comps[ref][1] == layout["terminal_by_ref"][ref]})
     return fixed
+
+
+def pin_silk_marks(layout, fixed, length, revision):
+    """Resolve jumper and terminal-pin silkscreen labels."""
+    silk_marks = [(label, fixed[x][0] if isinstance(x, str) else x, y, angle, layer)
+                  for label, x, y, angle, layer in layout["jumper_marks"]]
+    for ref, pin_marks in (("J1", "+-"), ("J2", "DGC"),
+                           ("J3A", layout["sync_marks"]), ("J3B", layout["sync_marks"])):
+        if fixed.get(ref) != layout["edge_placements"][ref]:
+            continue
+        x, y, rot = fixed[ref]
+        back = ref == "J1" or revision == "1.3" or any(
+            x0 <= x + 4.5 <= x1 and y0 <= y + pin * 2.54 <= y1
+            for pin in range(len(pin_marks))
+            for x0, y0, x1, y1 in mounting_reserve_rects(length).values())
+        offset = 2.2 if revision == "1.3" else (2 if ref == "J1" else (2.5 if back else 4.5))
+        for pin, mark in enumerate(pin_marks):
+            dx, dy = rotate_point((offset, pin * 2.54), rot)
+            silk_marks.append((mark, x + dx, y + dy, 0, "B.SilkS" if back else "F.SilkS"))
+    return silk_marks
 
 
 def local_routes(footprints):
@@ -816,17 +875,9 @@ def local_routes(footprints):
         dx, dy = rotate_point(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
         return (x + dx, y + dy), sexp.val(pad, "net")
 
-    routes = (
-        (("C_DEC1", "1"), ("U_MCU", "VIN"), ()),
-        (("U_MCU", "3"), ("C_SYNC", "1"), ((19.15, 21.225),)),
-        (("R1", "2"), ("C_SYNC", "1"), ()),
-        (("R2", "1"), ("C_SYNC", "1"),
-         ((20.7875, 21.2), (19.175, 21.2))),
-    )
     layout = REVISION_LAYOUTS[_GENERATION.get()[0]]
-    routes = routes[:layout["local_route_count"]]
     lines = []
-    for source, destination, bends in routes:
+    for source, destination, bends in layout["local_routes"]:
         start, net = terminal(*source)
         end, other_net = terminal(*destination)
         if not net or net != other_net:
@@ -837,11 +888,7 @@ def local_routes(footprints):
                          f'(end {fmt(b[0])} {fmt(b[1])}) (width 0.2) '
                          f'(layer "F.Cu") (net {net[0]}) '
                          f'(uuid "{uid()}") (locked yes))')
-    ground_routes = ((("C_DEC1", "2"), layout.get("vin_ground_via", (11.55, 1.35))),
-                     (("C_SYNC", "2"), (19.925, 23.0)),
-                     (("R2", "2"), (24.4125, 22.0)))
-    ground_routes = ground_routes[:layout["ground_route_count"]]
-    for source, end in ground_routes:
+    for source, end in layout["ground_routes"]:
         start, net = terminal(*source)
         if str(net[-1]).lstrip("/") != GROUND_NET:
             raise ValueError(f"local ground via net mismatch: {source}")
@@ -1181,31 +1228,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 {usb_label_y} 90)'
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
-        if selected == "1.3":
-            silk_marks = [(label, fixed[ref][0], 8.93, 0, "B.SilkS")
-                          for ref, label in (("JP_ID0", "ID0"), ("JP_ID1", "ID1"),
-                                             ("JP_ID2", "ID2"), ("JP_SHLD", "SHLD"))]
-        else:
-            silk_marks = [
-                ("ID0", 54.3, 8.9, 90, "F.SilkS"),
-                ("ID1", 54.3, 11.9, 90, "F.SilkS"),
-                ("ID2", 54.3, 15.3, 90, "F.SilkS"),
-                ("SHLD", 54.3, 19.0, 90, "F.SilkS"),
-            ]
         edge_placements = layout["edge_placements"]
-        for ref, pin_marks in (("J1", "+-"), ("J2", "DGC"),
-                               ("J3A", layout["sync_marks"]), ("J3B", layout["sync_marks"])):
-            if fixed.get(ref) != edge_placements[ref]:
-                continue
-            x, y, rot = fixed[ref]
-            back = ref == "J1" or selected == "1.3" or any(
-                x0 <= x + 4.5 <= x1 and y0 <= y + pin * 2.54 <= y1
-                for pin in range(len(pin_marks))
-                for x0, y0, x1, y1 in mounting_reserve_rects(L).values())
-            offset = 2.2 if selected == "1.3" else (2 if ref == "J1" else (2.5 if back else 4.5))
-            for pin, mark in enumerate(pin_marks):
-                dx, dy = rotate_point((offset, pin * 2.54), rot)
-                silk_marks.append((mark, x + dx, y + dy, 0, "B.SilkS" if back else "F.SilkS"))
+        silk_marks = pin_silk_marks(layout, fixed, L, selected)
         for text, x, y, angle, layer in silk_marks:
             justify = " (justify mirror)" if layer == "B.SilkS" else ""
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
@@ -1228,36 +1252,11 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                          f'(at {fmt(label_x)} {fmt(label_y)} {angle}) '
                          f'(layer "B.SilkS") (uuid "{uid()}") '
                          '(effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))')
-    back_silk = [
-        ("ID  ID0   ID1   ROLE(N4)", 7.0, 0.9),
-        ("0   OPEN  OPEN  MASTER", 9.0, 0.9),
-        ("1   GND   OPEN  A-SOUTH", 11.0, 0.9),
-        ("2   OPEN  GND   B-NORTH", 13.0, 0.9),
-        ("3   GND   GND   B-SOUTH", 15.0, 0.9),
-        ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 17.0, 0.8),
-        ("CUT TEENSY VIN-VUSB", 21.3, 0.8),
-        ("BOARD ID: ____", 23.5, 2.0),
-        (silk_revision(selected), 29.5, 1.0),
-    ]
-    silk_x = {"BOARD ID: ____": layout["board_id_x"]}
-    if selected == "1.3":
-        back_silk = [
-            ("TERM=CABLE ENDS", 7.0, 0.8),
-            ("ID  ID0   ID1   ROLE(N4)", 17.0, 0.9),
-            ("0   OPEN  OPEN  MASTER", 19.0, 0.9),
-            ("1   GND   OPEN  A-SOUTH", 21.0, 0.9),
-            ("2   OPEN  GND   B-NORTH", 23.0, 0.9),
-            ("3   GND   GND   B-SOUTH", 25.0, 0.9),
-            ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 29.5, 0.8),
-            ("CUT TEENSY VIN-VUSB", 10.6, 0.8),
-            ("BOARD ID: ____", 14.8, 2.0),
-            (silk_revision(selected), 31.0, 0.8),
-            ("TERM", 8.93, 0.8),
-        ]
-        silk_x["TERM"] = fixed["JP_TERM"][0]
     legend_x = PLACE["U_MCU"][0]
-    for text, y, size in back_silk:
-        text_x = silk_x.get(text, legend_x)
+    for text, y, size in layout["back_silk"]:
+        text_x = layout["back_silk_x"].get(text, legend_x)
+        if isinstance(text_x, str):
+            text_x = fixed[text_x][0]
         lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(text_x)} {fmt(y)} 0)'
                      f' (layer "B.SilkS") (uuid "{uid()}") '
                      f'(effects (font (size {fmt(size)} {fmt(size)})'
