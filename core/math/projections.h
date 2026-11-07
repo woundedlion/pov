@@ -721,6 +721,20 @@ inline constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
     {-0.7405621474f, 0.6673299565f, 0.07898376463f},
     {-0.7405621474f, 0.6673299565f, 0.07898376463f},
     {-0.7405621474f, 0.6673299565f, 0.07898376463f}};
+
+/** @brief Distance of each face's plane along its unit normal. */
+inline constexpr auto AIROCEAN_PLANE_OFFSETS = [] {
+  static_assert(std::size(AIROCEAN_CENTERS) == std::size(AIROCEAN_NORMALS));
+  std::array<float, std::size(AIROCEAN_CENTERS)> offsets{};
+  for (size_t face = 0; face < offsets.size(); ++face) {
+    const AiroceanVector &center = AIROCEAN_CENTERS[face];
+    const AiroceanVector &normal = AIROCEAN_NORMALS[face];
+    offsets[face] =
+        center.x * normal.x + center.y * normal.y + center.z * normal.z;
+  }
+  return offsets;
+}();
+
 /**
  * @brief Each face's vertices once unfolded into the plane, in AIROCEAN_FACES
  *        vertex order.
@@ -1025,16 +1039,13 @@ airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
       }
     }
   }
-  const AiroceanVector &center = AIROCEAN_CENTERS[face];
   const AiroceanVector &normal = AIROCEAN_NORMALS[face];
-  const float plane =
-      center.x * normal.x + center.y * normal.y + center.z * normal.z;
   const float ray = p.x * normal.x + p.y * normal.y + p.z * normal.z;
   // The outside-score fallback can settle on a face the ray does not cross, so
   // floor the divisor; copysignf keys on the sign bit, so -0.0f floors negative.
   const float divisor =
       fabsf(ray) < AIROCEAN_RAY_EPS ? copysignf(AIROCEAN_RAY_EPS, ray) : ray;
-  const float scale = plane / divisor;
+  const float scale = AIROCEAN_PLANE_OFFSETS[face] / divisor;
   const AiroceanVector q{p.x * scale, p.y * scale, p.z * scale};
   const float (&transform)[2][4] = AIROCEAN_TRANSFORMS[face];
   AiroceanPoint output{transform[0][0] * q.x + transform[0][1] * q.y +
