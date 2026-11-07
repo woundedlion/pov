@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
-
 // Mesh death cases.
 
 /** @brief Death case: a face loop exceeding its side limit must trap. */

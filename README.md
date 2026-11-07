@@ -42,7 +42,7 @@ For local development:
    just install
    ```
 
-4. In daydream, run `npm ci`, then `python -m http.server 8000`, and open <http://localhost:8000>.
+4. In daydream, run `npm ci`, then `python -m http.server 8000 --bind 127.0.0.1`, and open <http://localhost:8000>.
 
 **Troubleshooting.** The WASM recipes load the Emscripten environment automatically; check `EMSDK` if your SDK lives outside `../emsdk`. If daydream's provenance test reports a bundle mismatch, rerun `just install` to refresh the engine and its provenance together. Documentation checks need the daydream checkout at the revision pinned in `tools/build_pins.py`.
 
@@ -120,7 +120,8 @@ C++ codebase
   effects/ (46 visual algorithms) + workbench/
               |
   core/                       Rendering engine
-    scan / plot / pullback / raycast -> filter pipeline -> Canvas pixel buffer
+    scan / plot -> filter pipeline -> Canvas pixel buffer
+    pullback / raycast -> Scan::Shader -> Canvas pixel buffer
               |
   targets/                    Build entry points
     Holosphere/ + Phantasm/ -> hardware/ POV and DMA drivers -> Teensy LEDs
@@ -173,7 +174,7 @@ The few places where engine behaviour forks on a device-only constant are invent
 - All geometry LUTs (`PhiLUT<H>`, `TrigLUT<W,H>`) are pre-computed eagerly via `init_geometry_luts()` at engine setup
 
 ```
-   Side view (looking down −Z):          Top view (looking down −Y):
+   Side view (looking down −Z):          Bottom view (looking toward +Y):
 
          +Y (φ=0, north pole)                   +Z (θ=π/2)
           │                                      │
@@ -717,7 +718,7 @@ The compile-time roster and tests carry 46 firmware-capable effects. Native and 
 
 **Reserved surface — no shipping consumer.** `EffectTransitionController` sequences one effect out and the next one in behind a display fence, so no frame ever shows a half-built effect: fade the output to dark, publish and wait out a clear frame, destroy the outgoing effect, construct the incoming one and render its first frame while the envelope is still 0, wait out that hidden frame, commit the identity, then fade back in. Any failure while constructing or preparing the incoming effect destroys it and rolls back through the outgoing effect's restore token; a rollback that itself fails, or one whose token declares no restorable state, lands in `CLEAR_FAILSAFE` — dark output, nothing installed — which only a fresh `request()` leaves. The controller holds no effect and renders nothing: `request()` arms a destination and each `tick()` advances at most one state edge; the host must keep ticking through intermediate states as well as external waits.
 
-Every host-side operation the graph needs is a pure virtual on `EffectTransitionAdapter` — envelope, presentation fence, construct/destroy, handoff import, frame prepare/publish, identity commit, restore and fail-safe. The engine ships no implementation of it: today's effect swaps are unfenced, and the only adapter in the tree is the recording fixture in `tests/canvas/effect_transition.h` that drives every edge and failure branch. The header is kept as the design of record for a fenced swap, not as live machinery.
+Every host-side operation the graph needs is a pure virtual on `EffectTransitionAdapter` — envelope, presentation fence, construct/destroy, handoff import, frame prepare/publish, identity commit, restore and fail-safe. The recording fixture in `tests/canvas/effect_transition.h` is the sole adapter. `POVSegmented` fades through clear on the sync timeline (`hardware/pov_handoff.h`, frame-sync spec §6.1.1). Other hosts swap without a fence.
 
 ---
 
@@ -755,7 +756,7 @@ index.html → vendor-importmap.js           segment_worker.js × N
                    └─ VideoRecorder (MediaRecorder)
 ```
 
-`index.html` loads exactly one module, `src/app/main.js`, whose whole body is a call to `src/app/bootstrap.js`'s exported `bootstrap()`. Keeping the side effect in the entry module rather than in `src/app/bootstrap.js` itself is what lets `src/app/daydream.js` import the failure overlay without standing up a second simulator. `bootstrap()` dynamically imports `src/app/daydream.js` inside a `try`/`catch` that handles the rest of the module graph; the entry script's inline `onerror` covers load failures of `main.js` or `bootstrap.js`. On failure it renders the error into the page's `loading-overlay` (as `role="alert"`, with a focused **Reload** button) and falls back to the shared fatal-error banner when no overlay exists. The Reload handler first runs `refreshModuleCache()`, which attempts to re-fetch every same-origin `.js`, `.mjs`, `.wasm`, `.css`, and `.json` resource the page has already loaded with `cache: 'reload'`. Failed refreshes are ignored before reloading. Successful refreshes reduce the deploy-skew hazard: a plain browser reload only revalidates the top-level document, so modules cached from an earlier deploy stay stale and keep failing to link against freshly fetched importers — and the WASM binary is bound to its glue by content hash, so a stale binary against fresh glue is the canonical form of the skew.
+`index.html` loads exactly one module, `src/app/main.js`, whose whole body is a call to `src/app/bootstrap.js`'s exported `bootstrap()`. Keeping the side effect in the entry module rather than in `src/app/bootstrap.js` itself is what lets `src/app/daydream.js` import the failure overlay without standing up a second simulator. `bootstrap()` dynamically imports `src/app/daydream.js` inside a `try`/`catch` that handles the rest of the module graph; `src/shared/module_load_guard.js` covers load failures of `main.js` or `bootstrap.js`. On failure it renders the error into the page's `loading-overlay` (as `role="alert"`, with a focused **Reload** button) and falls back to the shared fatal-error banner when no overlay exists. The Reload handler first runs `refreshModuleCache()`, which attempts to re-fetch every same-origin `.js`, `.mjs`, `.wasm`, `.css`, and `.json` resource the page has already loaded with `cache: 'reload'`. Failed refreshes are ignored before reloading. Successful refreshes reduce the deploy-skew hazard: a plain browser reload only revalidates the top-level document, so modules cached from an earlier deploy stay stale and keep failing to link against freshly fetched importers — and the WASM binary is bound to its glue by content hash, so a stale binary against fresh glue is the canonical form of the skew.
 
 A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§7.7), `src/segments/segment_controller.js` spawns N Web Workers, each holding its own WASM instance — its own linear memory, arenas and effect state — so the four-Teensy Phantasm layout can be exercised in software. When shared compilation is available, the pool spawn hands each worker a `WebAssembly.Module` compiled on the main thread (§7.7), and a `WebAssembly.Module` carries no state, so instances stay isolated. Only a worker that is handed no module fetches and compiles the binary itself.
 
@@ -780,7 +781,7 @@ conversion.
 | Method | Description |
 |---|---|
 | `setResolution(w, h)` → `ResolutionSetResult` | Switch active resolution (96×20 or 288×144). Returns `Module.ResolutionSetResult.RESIZED` when the switch took — tearing down the current effect, so `setEffect` and any clip must be re-applied — `ALREADY_ACTIVE` for a request matching the active resolution (a pure no-op; nothing is torn down), or `UNSUPPORTED` for a size the build cannot render (ignored, prior state kept). Compare against the enum values — never by truthiness |
-| `setEffect(name)` → `EffectSetResult` | Instantiate a new effect by canonical machine ID or C++ class/browser name. A successful installation resets the engine arenas before initializing the new effect. Returns `Module.EffectSetResult.INSTALLED` on success, else `UNKNOWN_EFFECT`; a rejection keeps the prior effect alive. Retired names `Shader`, `ShaderBall` and `ShaderWorkbench` return `UNKNOWN_EFFECT`; the current authoring effect is `ShaderChain`. Compare against the enum values — never by truthiness |
+| `setEffect(name)` → `EffectSetResult` | Instantiate a new effect by canonical machine ID or C++ class/browser name. A successful installation resets the engine arenas before initializing the new effect. Returns `Module.EffectSetResult.INSTALLED` on success, else `UNKNOWN_EFFECT`; a rejection keeps the prior effect alive. Compare against the enum values — never by truthiness |
 | `drawFrame()` | Advance one frame and copy pixels to the output buffer |
 | `setTemporalSampling(enabled)` | Select column-time temporal sampling when enabled, or a flat frame surface when disabled. Sets module-wide sampling state; the engine defaults to enabled |
 | `ShaderChainBindings.setShaderChain(entries)` → `{status, code, entryIndex}` | Program the loaded `ShaderChain` effect with an ordered `[{instance, operator}]` array — the chain's shape and nothing else, no values and no family tags. The result is a plain JS object whose primary `status` is a `Module.ChainStatus` enum member (`OK` on commit). `code` is its compatibility string (`"APPLIED"` on commit, otherwise the refusal name), with `entryIndex` naming the offending entry and `-1` a whole-chain refusal. `APPLIED` has already rebuilt the parameter definitions (named `instance.field-id`) and bumped `getParamGeneration()` by the time it returns, so the caller applies preset values by name straight after. A refusal commits no program, definition, generation, or instance-state changes; side effects of caller accessors during payload cloning are not rolled back |
@@ -882,7 +883,7 @@ The `Daydream` class owns the entire render side. Features:
 
 | Feature | Details |
 |---|---|
-| **Instanced dot mesh** | One `InstancedMesh` of `W × H` small **hemi**spheres — `THREE.SphereGeometry` with `phiLength = π`, covering only the outward-facing half. `setupDots()` builds that geometry, the material, and the mesh; `precomputeMatrices()` fills each instance matrix from `pixelToSpherical(x, y)` (a `THREE.Spherical`, applied via `setFromSpherical`) and turns the dot radially outward with a `lookAt`, so the missing half never faces the camera and `THREE.FrontSide` suffices. `precomputeMatrices()` also allocates the shared `instanceColor` buffer that per-frame colors are written into. All `W × H` dots cost one draw call per render pass — two passes per frame while the PiP view below is up. |
+| **Instanced dot mesh** | One `InstancedMesh` of `W × H` small **hemi**spheres — `THREE.SphereGeometry` with `phiLength = π`, covering only the outward-facing half. `setupDots()` builds that geometry, the material, and the mesh; `precomputeMatrices()` fills each instance matrix from `pixelToSpherical(x, y)` (a `THREE.Spherical`, applied via `setFromSpherical`) and turns the dot radially outward with a `lookAt`, so the missing half never faces the camera and `THREE.FrontSide` suffices. `precomputeMatrices()` also allocates a zeroed `instanceColor` placeholder when resetting colors. The engine host replaces its array with the WASM pixel view. All `W × H` dots cost one draw call per render pass — two passes per frame while the PiP view below is up. |
 | **Linear color pipeline** | `THREE.ColorManagement.enabled = true` and `setPixelRatio(min(devicePixelRatio, 1))`. Colors arriving from WASM are already linear, so no extra conversion. |
 | **OrbitControls camera** | A normal `PerspectiveCamera` plus `OrbitControls` for mouse/touch navigation. |
 | **Keyboard orbit** | A keyboard-focused canvas uses the arrow keys to orbit and `+`/`-` to dolly. While paused, plain ArrowRight steps a frame; Shift+ArrowRight orbits right. Pointer focus does not claim those keys, preserving the paused-frame shortcut on the global handler. |
@@ -993,13 +994,11 @@ is Chromium-only — Firefox and Safari ignore the key entirely, so SRI is no
 coverage at all there. A `Content-Security-Policy` meta tag, carried by
 `index.html` and each tool page, bounds this on every browser
 by origin: script loads are restricted to `'self'` plus the CDN origins that
-page actually uses. Every page except `palettes.html` carries `'unsafe-inline'`,
-required by the `<script type="importmap">` that `vendor-importmap.js` injects
-on the pages that load it, by the inline classic `<script>` on `index.html`
-that registers the module SyntaxError overlay, and by the entry script's
-inline `onerror` fallback. These pages enforce an origin boundary, rather
-than an XSS boundary; `palettes.html` loads no import map or inline script.
-No page carries an inline module block. Pages that load the WASM engine need `'wasm-unsafe-eval'`
+page actually uses. The only script use of `'unsafe-inline'` is the
+`<script type="importmap">` that `vendor-importmap.js` injects on pages that
+load it. `palettes.html` uses only relative imports. The external
+`src/shared/module_load_guard.js` script reports entry-module failures.
+The CSP enforces an origin boundary. Pages that load the WASM engine need `'wasm-unsafe-eval'`
 for the module instantiation itself, but not the far broader `'unsafe-eval'`:
 the module is linked `-sDYNAMIC_EXECUTION=0 -sEMBIND_AOT=1`, so embind's
 per-binding invokers are emitted into the glue at link time instead of being
@@ -1031,12 +1030,12 @@ Each tool is a standalone HTML page. All but `palettes.html`, which draws on 2D 
 | Tool | What it does |
 |---|---|
 | `lissajous.html` | Designs spherical Lissajous curves with live frequency / phase sliders; outputs a C++ `LissajousParams` initializer for the engine's Lissajous effects (`Fishbowl`, `Comets`). |
-| `mobius.html` | Visualizes Möbius transformations on the sphere via the engine's stereographic projection; lets you sweep the four complex coefficients, see the warp on a latitude-longitude grid, and copy a C++ `MobiusParams` initializer. |
+| `mobius.html` | Visualizes Möbius transformations on the sphere through a stereographic projection that follows the engine's convention; lets you sweep the four complex coefficients, see the warp on a latitude-longitude grid, and copy a C++ `MobiusParams` initializer. |
 | `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and versioned `GenerativePalette` recipes, exports complete canonical C++ recipes, renders engine-returned LUTs on 2D canvas contexts, and reports compile status and normalization adjustments inline. |
 | `shader.html` | Authors pullback shaders against the complete stage vocabulary with the live sphere preview. The chain is a pipeline strip of stage chips banded by carrier family, each stage tuned by parameters inline on its own chip; a band's `+` inserts the operator directly when its gap admits only one, otherwise opens a popup listing the operators the gap accepts. It opens current shader documents and is absent from the normal effect-card roster. |
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas, separate from the engine arena. |
 
-The Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` drops the `https://cdn.jsdelivr.net` origin the other pages allow, keeping `'self' 'wasm-unsafe-eval'`; its `style-src` and `font-src` name the Google Fonts origins used directly by the tool pages.
+The Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` drops the `https://cdn.jsdelivr.net` origin the other pages allow, keeping `'self' 'wasm-unsafe-eval'`.
 
 ---
 
@@ -1057,7 +1056,7 @@ The tested tool versions are pinned in `tools/build_pins.py`; the `just` recipes
 The simulator is a static web app. Serve the daydream directory from any HTTP server:
 
 ```bash
-python -m http.server 8000
+python -m http.server 8000 --bind 127.0.0.1
 # open http://localhost:8000
 ```
 
@@ -1109,7 +1108,7 @@ The unit suite is a native (non-WASM) Clang build with asserts enabled, also dri
 ```bash
 cmake --preset tests          # configure (cmake/toolchain-native-clang.cmake)
 cmake --build --preset tests  # build all native test runners and helper tools
-cmake --build --preset tests --target excluded_targets
+cmake --build --preset tests --target excluded_targets  # compile-only coverage of EXCLUDE_FROM_ALL targets
 ctest --preset tests          # run the suite at the short default window
 just test                     # the same suite at CI's deeper window
 ```
@@ -1164,7 +1163,15 @@ Unit coverage spans the math, geometry and memory core, color, easing and waves,
 `tests/run_tests.cpp` owns the complete module roster; `tests/test_targets.cmake` selects the dependency-local runners. Adding a `tests/test_<module>.h` takes three edits, each pinned by its own CTest case:
 
 1. `#include` the header in the appropriate grouped runner under `tests/` and add its forwarding entry point in `hs_test::module_runners`. The `unit_module_includes` test balances the compiled groups' module includes against the dispatcher roster and requires every header outside the non-module list to be included by name.
-2. Add an `X(name, entry_point, effects_tier)` row to `HS_TEST_MODULE_LIST`, the X-macro that expands into `MODULES[]`. Set `effects_tier` true for a module that reads `effects_full_suite()`, false otherwise. `end_module()` rejects a module that runs no assertions, while the `unit_case_calls` CTest scans column-0 void/bool/int/size_t `test_*(` / `check_*` / `case_*` / `verify_*` / `expect_*` free-function definition and the `run_*_cases` drivers and named cross-file sweep drivers (`smoke_one`, `determinism_one`, `clip_clear_parity_one`) in the `tests/*.h` and `tests/*.hpp` headers and requires it to be reachable from its module's `run_*_tests()` — through a call chain or a file-scope reference such as a dispatch table — and requires each such case to reach an `HS_EXPECT*` or `static_assert`, directly or through helpers; `case_*` definitions in `test_death.h` remain subject to reachability but are exempt from assertion reach because the death harness verifies their traps at runtime; off-roster helpers and the named cross-file sweep drivers resolve against the shared corpus instead. An indented member case, such as a WhiteBox `check_*` static, is outside the scan and is reached only by its hand-written call. There are no measured assertion floors or exact case-count pins to update when a test changes.
+2. Add an `X(name, entry_point, effects_tier)` row to `HS_TEST_MODULE_LIST`, the X-macro that expands into `MODULES[]`. Set `effects_tier` true for a module that reads `effects_full_suite()`, false otherwise. `end_module()` rejects a module that runs no assertions.
+
+   The `unit_case_calls` CTest checks the following rules.
+
+   - The scan covers column-0 void, bool, int and size_t definitions named `test_*`, `check_*`, `case_*`, `verify_*` and `expect_*` in `tests/*.h` and `tests/*.hpp`. It also covers `run_*_cases` and the named sweep drivers `smoke_one`, `determinism_one` and `clip_clear_parity_one`. Indented member definitions are outside the scan.
+   - Every scanned case must be reachable from its module's `run_*_tests()` through a call chain or a file-scope reference. Off-roster headers and the named sweep drivers resolve against the shared test and tools corpus.
+   - Every case must reach an `HS_EXPECT*` or `static_assert` directly or through helpers. The death harness verifies `case_*` in `test_death.h` at runtime, so those cases only need to be reachable.
+
+   There are no measured assertion floors or exact case-count pins to update when a test changes.
 3. Add the module name to `_hs_test_modules` in [`tests/CMakeLists.txt`](https://github.com/woundedlion/pov/blob/master/tests/CMakeLists.txt), which generates the one-CTest-test-per-module the CI shards target (`death` becomes its shards and census instead). `run_tests --check-modules` (the `unit_module_roster` test) fails if the CMake list and the roster diverge either way, so a module added to one but not the other can never run silently.
 
 ### 8.4 Firmware (Teensy 4.x)
@@ -1239,7 +1246,9 @@ them and `HS_FW_CACHE=0` disables reuse. A checkout with uncommitted or
 untracked changes is rebuilt every time and never cached.
 `bash tools/fw_cache.sh build phantasm` replaces `pio run -e phantasm`: it
 builds and stores the image, or reuses the one any worktree built from the same
-tree and prints the tail of its stored build log. `tools/upload_one.sh` and
+tree and prints the tail of its stored build log. On reuse, the printed cache
+entry holds the image and `.pio/build` retains its previous contents.
+`tools/upload_one.sh` and
 `tools/profile_one.sh` flash from the same cache. `profile_one.sh --build-only`
 builds, attests and caches a capture's images without the board; `--dry-run`
 prints their keys and cache state; `--elf <entry>/firmware.elf` flashes a cached
@@ -1454,7 +1463,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── radial_surface_boundary.h  Canonical first-arrival boundary candidates
 │   │   │   ├── radial_surface_candidate_mask.h  Candidate interval groups per chart cell
 │   │   │   ├── radial_surface_edge_aa.h  Local edge area coverage
-│   │   │   ├── radial_surface_math.h  Chart argument approximation
+│   │   │   ├── radial_surface_math.h  Chart arithmetic and bounded angle evaluation
 │   │   │   ├── radial_surface_renderer.h  Column-time hemisphere surface shader
 │   │   │   └── radial_surface_types.h  Surface colors and optional work counters
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
@@ -1678,6 +1687,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_effect_cases_shapeshifter_cases.cpp ShapeShifter case wrappers and focused runner
 │   ├── run_effect_cases_spherical_harmonics.cpp Spherical harmonics case wrappers and focused runner
 │   ├── run_render_goldens.cpp  Render regression runner, built native (render_goldens) and as Node-hosted WASM (render_goldens_wasm)
+│   ├── hd107s_test_util.h Shared HD107S calibration reset helper
+│   ├── probe_test_util.h  Captured-failure probes that restore harness state
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── pattern/           Source and cube cases owned by test_pullback.h and test_color.h
 │   ├── plot_scan/         Sections included by test_plot_scan.h
@@ -1807,7 +1818,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── teensy_upload.py      Verifies the pinned headless tool and selects the claimed serial/USB identity
 │   ├── setup_teensy_uploader.py  Installs the hash-pinned Windows uploader and release provenance
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
-├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the design specs (indexed in docs/specs/README.md), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
+├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the DreamBalls orbit-bound derivation (dreamballs_orbit_bound.md), the hue lookup qualification record (hue_lut_qualification.md and .json), the design specs (indexed in docs/specs/README.md), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22.15, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
@@ -1852,7 +1863,8 @@ for module ownership and local validation commands.
 │   │   ├── bootstrap.js        Boot sequence, stale-module and offline-CDN remedies, and the boot-failure banner
 │   │   ├── daydream.js         Composition root: driver, engine host, state, GUI, sidebar, apply pipeline, recording
 │   │   ├── main.js             index.html entry module; runs bootstrap()
-│   │   └── state.js            AppState store, URL-param parsing and rounding, and the debounced URL writer
+│   │   ├── state.js            AppState store, URL-param parsing and rounding, and the debounced URL writer
+│   │   └── view_display_controls.js Fidelity, column-layout, pole LOD, and display-cap controls with startup replay
 │   ├── engine/                 WASM engine ownership and display-buffer aliases
 │   │   ├── display_aliases.js  Re-points the Three.js instance colours and driver.pixels at the live WASM view
 │   │   ├── engine_host.js      EngineHost — main-thread engine, its pixel view, and late-bound adapter and recorder
@@ -1942,14 +1954,16 @@ for module ownership and local validation commands.
 │       │   ├── chain_apply.js  Applies a compiled chain document and its preset to the chain engine
 │       │   ├── chain_document_store.js Chain document store: validated atomic edits, selection, bypass, and undo
 │       │   ├── chain_palette.js Operator palette gestures, placement, and anchor state
+│       │   ├── chain_param_rows.js Inline stage controls, parameter ranges, and pending slider edits
 │       │   ├── chain_presentation.js Carrier bands, replacement offers, and field formatting for the chain strip
 │       │   ├── chain_strip.js  Chain strip UI: operator chips in carrier bands, socket chips, inline parameter controls, bypass toggles
 │       │   ├── shader_deeplink.js Encodes and decodes the #shader= URL hash state
 │       │   └── shader_documents.js Shader document import, validation, preview selection, editing, and export
 │       └── solids/             Solids tool
 │           ├── solid_build.js  WASM MeshOps orchestration: base and op-chain builds, face classes, readback
-│           ├── solid_codegen.js Op dispatch, C++ generation, and drag-slot math
+│           ├── solid_codegen.js Op dispatch and C++ generation
 │           ├── solid_geometry.js Face normals, convexity, fan and geodesic tessellation, and unique edges
+│           ├── solid_op_order.js Op-chain drag slots, preview positions, and committed order
 │           ├── solid_op_rows.js DOM construction for one op-chain row
 │           ├── solid_registry_codegen.js Generates the solids.h registry entry, OpStep table, and authored Recipe
 │           ├── solid_render.js Builds face, vertex, edge, normal, and index-label scene objects from a mesh
@@ -1959,7 +1973,7 @@ for module ownership and local validation commands.
 │           └── solid_validation.js Sacrificial-module chain validation, add-op gate, and commit queue
 ├── generated/                  Installed engine outputs
 ├── tools/                      Stable public HTML entry points and tool stylesheets
-├── styles/                     Simulator CSS and Tailwind source
+├── styles/                     Simulator CSS, Tailwind source and self-hosted fonts
 ├── scripts/                    Development, validation, browser probes, and deployment
 ├── tests/                      Node test suites, reusable helpers, and fixtures
 ├── docs/                       Deployment and development guides, and mirrored screenshots
@@ -1980,7 +1994,7 @@ for module ownership and local validation commands.
 ├── .gitignore                  Local dependency and installed-output exclusions
 ├── node_modules/               Ignored npm dependencies
 ├── three.js/                   Optional ignored Three.js checkout
-└── vendor/                     Optional ignored fonts and vendor assets
+└── vendor/                     Optional ignored vendor assets
 ```
 
 [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) resolves libraries from jsdelivr, which is the committed default the Pages deploy and a fresh checkout serve; `npm run importmap:local` switches it to the vendored copies for offline dev. See [§7.8](#78-vendor-importmap-cdn-by-default--local-opt-in).
@@ -2001,4 +2015,4 @@ exceptions. `tools/license_check.py` gates these headers. Other files may carry
 a notice but are ungated.
 Scope is decided by the terms above and the file's location, banner or not.
 
-**Third-party.** The engine vendors [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) as `core/vendor/FastNoiseLite.h` under the MIT License (Auburn / Jordan Peck), patched in tree as recorded in `core/vendor/FastNoiseLite_config.h` (first-party). `core/math/projections.h` carries map projections derived from [PROJ](https://proj.org) under the MIT License (Frank Warmerdam, Gerald I. Evenden, Kristian Evers, Toby C Wilkinson and the PROJ contributors); it sits outside `core/vendor/` because the engine's own projections are developed alongside them in the same header, and `LICENSE` names it as an exception. The simulator generates `daydream/tools/tailwind.css` locally with its pinned Tailwind dependency, a [Tailwind CSS](https://tailwindcss.com) utility sheet (MIT, Tailwind Labs) served same-origin to the tool pages, carrying its upstream MIT banner; its preflight reset derives from [modern-normalize](https://github.com/sindresorhus/modern-normalize) (MIT, Sindre Sorhus), itself derived from normalize.css (MIT, Nicolas Gallagher and Jonathan Neal). Everything else the simulator uses loads at runtime: [three.js](https://github.com/mrdoob/three.js) (MIT, three.js authors) and [lil-gui](https://github.com/georgealways/lil-gui) (MIT, George Michael Brower) come from the jsdelivr CDN at the versions pinned in `daydream/package.json`. The optional self-hosted fonts under `daydream/vendor/fonts/` (Inter and JetBrains Mono, both SIL OFL 1.1) are gitignored and distributed by neither repo.
+**Third-party.** The engine vendors [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) as `core/vendor/FastNoiseLite.h` under the MIT License (Auburn / Jordan Peck), patched in tree as recorded in `core/vendor/FastNoiseLite_config.h` (first-party). `core/math/projections.h` carries map projections derived from [PROJ](https://proj.org) under the MIT License (Frank Warmerdam, Gerald I. Evenden, Kristian Evers, Toby C Wilkinson and the PROJ contributors); it sits outside `core/vendor/` because the engine's own projections are developed alongside them in the same header, and `LICENSE` names it as an exception. The simulator generates `daydream/tools/tailwind.css` locally with its pinned Tailwind dependency, a [Tailwind CSS](https://tailwindcss.com) utility sheet (MIT, Tailwind Labs) served same-origin to the tool pages, carrying its upstream MIT banner; its preflight reset derives from [modern-normalize](https://github.com/sindresorhus/modern-normalize) (MIT, Sindre Sorhus), itself derived from normalize.css (MIT, Nicolas Gallagher and Jonathan Neal). The simulator loads the JavaScript libraries at runtime: [three.js](https://github.com/mrdoob/three.js) (MIT, three.js authors) and [lil-gui](https://github.com/georgealways/lil-gui) (MIT, George Michael Brower) come from the jsdelivr CDN at the versions pinned in `daydream/package.json`. The simulator serves Inter and JetBrains Mono (both SIL OFL 1.1) from `daydream/styles/fonts/`. See `daydream/styles/fonts.css` and `daydream/LICENSE.txt` for licensing.

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "Selected accurate renderer and work-elimination implementation qualified on snapshot 492885884; numerical budgets unchanged. Final canonical CI remains required.",
+  "status": "Qualified the accurate renderer and work-elimination implementation on snapshot 492885884, landed as 0ae65ab2b. Numerical budgets are unchanged. Canonical CI passed on descendant de2fed2a5.",
   "performance_criteria": {
     "primary": [
       "observed peak frame time",
@@ -84,12 +84,12 @@
     },
     "device": {
       "compiler": "Arm GNU Toolchain15.2.Rel1 GCC15.2.1 20251203",
-      "setup": "Teensy4.0 600MHz, segmented288x144, foursegments,480RPM, segment0 synchronized, Profile selectiveO3 shipping flags, fixed preset0,70s/window32",
+      "setup": "Teensy 4.0 at 600 MHz, segmented 288x144, four segments, 480 RPM, segment 0 synchronized, Profile selective O3 shipping flags, fixed preset 0, 70 s with 32-frame windows",
       "effects": {
         "AlienBrain": {
           "frames_per_image": 1088,
           "board_serial": 6362410,
-          "canonical_validator": "Exit0 and finalVALID for eachimage; richest-window5ppm rule unchanged.",
+          "canonical_validator": "Exit 0 and final VALID for each image. Richest-window 5 ppm rule unchanged.",
           "measurements": {
             "baseline": {
               "frames": 1088,
@@ -137,7 +137,7 @@
         "AshCloud": {
           "frames_per_image": 1088,
           "board_serial": 6362390,
-          "canonical_validator": "Exit0 and finalVALID for eachimage; richest-window5ppm rule unchanged.",
+          "canonical_validator": "Exit 0 and final VALID for each image. Richest-window 5 ppm rule unchanged.",
           "measurements": {
             "baseline": {
               "frames": 1088,
@@ -194,7 +194,7 @@
         "JewelMelt": {
           "frames_per_image": 1088,
           "board_serial": 6362390,
-          "canonical_validator": "Exit0 and finalVALID for eachimage; richest-window5ppm rule unchanged.",
+          "canonical_validator": "Exit 0 and final VALID for each image. Richest-window 5 ppm rule unchanged.",
           "measurements": {
             "baseline": {
               "frames": 1088,
@@ -360,18 +360,18 @@
       "current_commit": "bff455775a525ead45dbceda2345d8a088ad9e30",
       "best_commit": "0afb0a264056787674e0cb43ab332fdce8872975",
       "compiler": "clang version 23.0.0git (https:/github.com/llvm/llvm-project 358db292cc6a9a8a5448a296f643312289f328d7)",
-      "flags": "-std=gnu++20 -O2 strict IEEE; no fastmath; hostdiagnostic. Same probe, best adds HS_VISUAL_BEST to supply matchingmasks.",
+      "flags": "-std=gnu++20 -O2, strict IEEE host diagnostic. The best variant adds HS_VISUAL_BEST to supply matching masks.",
       "integrity_assertions_per_variant": 110,
       "failures": 0,
-      "reproduce": "python build.py current; run the emitted executable with current_selected.json and selected_ids.txt; python build.py best --run. This uses the local pinned Clang/support-object paths captured in native_probe.py; no runtime files are edited."
+      "reproduce": "This diagnostic used an external probe and local Clang and support objects. The probe sources and inputs are outside this repository."
     },
     "corpus": {
-      "ordinary": "72cases:3restorable sequence offsets0/17/83 x8chroma0/.05/.15/.314/.5/.718/.788/1 x3harmonies;17targets0/1/17/75/150/225/300/450/600/750/899/900/901/1050/1200/1500/1800;512valuecenters x128huecenters.",
-      "cached": "36cases:3offsets x4chroma.314/.718/.788/1 x3harmonies;11targets0/1/150/300/600/899/900/901/902/1200/1800;3fractions.17/.5/.83;256valuecenters x128huecenters.",
-      "snapshot": "For eachbankcycle snapshot.next_sequence=2+offset; snapshot.hue=(1+offset)*GeneratedPaletteBank::HUE_STEP; valid_snapshotasserted before restore. ease_in_out_sin. Palette state is valid/restorable; exact forward-float trajectory oractualpreset pixelnot claimed.",
-      "mechanic": "HUE_ROTATION amount1; syntheticDISPLACEMENTsource; field axisY,coverage.75; ordinary directColorModulation::apply; cached endpointpair blending then same proceduralmodulation.",
-      "frequency_warning": "Uniform test axes. Percentages are frequencies within this corpus, NOT fractionof actualrenderedframes/pixels or userperceptualimpact.",
-      "narrow_original_11040": "Earlier11040was initial-bank .788 TRIADIC8target512x128ordinaryqualification. That scope doesnot bound this broader restoredsequence/multi-harmony/highchroma corpus."
+      "ordinary": "72 cases: 3 restorable sequence offsets 0/17/83 × 8 chroma values 0/.05/.15/.314/.5/.718/.788/1 × 3 harmonies. 17 targets 0/1/17/75/150/225/300/450/600/750/899/900/901/1050/1200/1500/1800. 512 value centers × 128 hue centers.",
+      "cached": "36 cases: 3 offsets × 4 chroma values .314/.718/.788/1 × 3 harmonies. 11 targets 0/1/150/300/600/899/900/901/902/1200/1800. 3 fractions .17/.5/.83. 256 value centers × 128 hue centers.",
+      "snapshot": "For each bank cycle, snapshot.next_sequence = 2 + offset and snapshot.hue = (1 + offset) * GeneratedPaletteBank::HUE_STEP. The probe asserts valid_snapshot before restore and uses ease_in_out_sin. The corpus measures valid, restorable palette states.",
+      "mechanic": "HUE_ROTATION at amount 1 with a synthetic DISPLACEMENT source, field axis Y and coverage .75. Ordinary samples call ColorModulation::apply directly. Cached samples blend endpoint pairs before the same procedural modulation.",
+      "frequency_warning": "Percentages are frequencies within the uniformly sampled test corpus.",
+      "narrow_original_11040": "The earlier 11040 maximum covered the initial bank at chroma .788 with TRIADIC harmony, 8 targets and the ordinary 512×128 grid. This corpus adds restored sequences, multiple harmonies and higher chroma."
     },
     "measurements": {
       "pre_fix_bff455775": {
@@ -582,7 +582,7 @@
     "control_commit": "0afb0a264056787674e0cb43ab332fdce8872975",
     "candidate_commit": "5fa946f9539a4cb6916b8a5a12aee80c56d8bbb9",
     "compiler": "GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203",
-    "setup": "All six fresh captures on same COM3/serial6362410/usb-2-1,70seconds/window32/P0; supported profile_one.sh, synchronized real segmented driver, default epoch960. Actual canonical subprocess exit0+finalVALID for every log. All1088 frame owners match per pair.",
+    "setup": "All six captures used COM3 / serial 6362410 / usb-2-1, 70 seconds, 32-frame windows and preset 0. Captured through profile_one.sh on the synchronized segmented driver with default epoch 960. The canonical validator exited 0 with final VALID for each log. All 1088 frame owners match per pair.",
     "effects": {
       "AlienBrain": {
         "frames": {
@@ -1002,7 +1002,6 @@
       "RAM1_variables": 0,
       "FLASH_code": 1840,
       "FLASH_data": 0,
-      "DTCM_free": 13920,
       "RAM2_variables": 0,
       "FLASH_headers": 208,
       "FLASH_free_for_files": -2048,
@@ -1138,9 +1137,9 @@
     "source_route": {
       "HankinSolids": "Effect subclass; draw_hankin/draw_morph configureFacePaletteShader using MeshPaletteBank BakedPalette endpoints.",
       "IslamicStars": "Choreography subclass; draw_shape/OpLeg shading use perface BakedPalette ramps.",
-      "FacePaletteShader": "core/render/shading.h operatorssampleBakedPalette::get_color_unit andQ16blend, withoutPullbackhue-lut/cachedPaletteRgb paths."
+      "FacePaletteShader": "The operators in core/render/shading.h sample BakedPalette::get_color_unit and use Q16 blending."
     },
-    "limits": "Neither priorityeffect invokes the hue-LUT/cached-palette runtime paths in these compilednative fullsequences or targetprofile captures. This doesnot prove zero timingcost from a global #134 integration: globalcodeplacement,cache/state/memory changes can affectother functions; finalmergedHankin/Islamic devicequalification remainsrequired.",
+    "limits": "The native full sequences and target Profile captures observed zero hue-table or cached-palette samples in HankinSolids and IslamicStars. Code placement, cache, state and memory changes can still affect other functions.",
     "evidence": [
       {
         "artifact": "hue134-visual/reach-build.log",
@@ -1155,8 +1154,8 @@
   },
   "exact_node_controls": {
     "compiler": "Windows emsdk Clang23",
-    "CI_comparison": "Canonical fast CI LinuxClang22 -Os -g -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1. These controls match optimization/math/define but not compiler/platform/whole CMake driver. No final CI pass claim.",
-    "outcome": "Exact O2 three failures and Os seven failures reproduce in original pre-review0ba and exact current503; accurate0afb/dedup add no Os failure. No tolerance or assertion changed.",
+    "CI_comparison": "Canonical fast CI uses Linux Clang 22 with -Os -g -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1. These Windows controls match optimization and math settings and the define. Canonical CI is recorded separately.",
+    "outcome": "The exact control reproduces three -O2 failures and seven -Os failures on pre-review 0ba616d4fe71 and pre-fix 503de9323. The accurate 0afb0a264 and deduplicated variants add no -Os failures. Tolerances and assertions are unchanged.",
     "source_verification": {
       "0ba616d4fe71": {
         "source": "C:\\work\\temp\\reviewfix-20261105\\build225-evidence\\original0ba-source",
@@ -1399,7 +1398,7 @@
         "test": "test_palette_rgb_cache_matches_hue_rotation_table"
       }
     ],
-    "Linux_Clang22_CI": "Pending final canonical run; no local Windows pass or tolerance change inferred.",
+    "Linux_Clang22_CI": "Canonical CI passed on de2fed2a5. The Windows Clang baseline limitation is recorded separately.",
     "evidence": {
       "artifact": "hue134-dedup/exact-node-provenance/report.json",
       "sha256": "5b63864373fa236b33f4dfbf2449fc37152cc7014adf6a0a3ea4d42bdac71735"
@@ -1407,10 +1406,10 @@
   },
   "merged_integration": {
     "runtime_patch_sha256": "625d7a28b37bca6d5d670ad6a0ff88f63d6ab813250f1891dac771a4e64fcd5f",
-    "runtime_patch_hash_status": "SHA256 of LF git diff against the pre-color production paths; excludes Profile instrumentation and finding 78.",
+    "runtime_patch_hash_status": "SHA256 of LF git diff against the pre-color production paths; excludes Profile instrumentation and retained-view sharing.",
     "source_compatibility": "Preserves current HS_FLASH_MEMBER spelling and peer changes.",
     "catalog_generation": {
-      "status": "Regenerated from merged source; paired module/catalog qualification still pending.",
+      "status": "Regenerated from merged source and passed paired module/catalog qualification.",
       "operator": "colorize.generated-palette.v4",
       "only_prepared_ABI_size_change": {
         "native": {
@@ -1423,9 +1422,10 @@
         }
       }
     },
-    "pending": [
-      "Exact-tip canonical CI platform, math-mode, cold-build, coverage and deployment checks"
-    ],
+    "canonical_CI": {
+      "head": "de2fed2a514febeaa29e6bfccf0cfca51e692a8b",
+      "status": "Passed on this descendant of the landed implementation 0ae65ab2b."
+    },
     "limits": "No subtraction across historical and causal studies, no cross-board cost estimate, and no addition of isolated memory deltas to infer current headroom.",
     "runtime_source_sha256": {
       "core/color/hue_rotation_lut.h": "ff7218a4eb223ac409d7f27b02fa2555ae3213fbc868a0dc7ffbd397d1225eb4",
@@ -1449,12 +1449,12 @@
       },
       "wasm_release": "All 47 effects at both resolutions for 120 frames pass smoke; render goldens 166/0. Stack ceiling remains 2048 bytes.",
       "catalog": "Paired module/catalog passes; generated-palette prepared state is native 96 and WASM32 68 bytes.",
-      "simulator": "Types, browser and local immutable staging qualify unchanged frontend; reader and logarithmic-drag probe corrections pass focused checks. Canonical CI coverage remains pending."
+      "simulator": "Types, browser and local immutable staging checks passed for the frontend. Reader and logarithmic-drag probe corrections passed focused checks."
     },
     "qualified_snapshot": "49288588489b7483285d6ff1f8f09d272e64ead4",
     "baseline_snapshot": "8dca144c604c66883defe4c818370707bb76659e"
   },
-  "artifact_archive_note": "External qualification artifact names and SHA256 digests identify preserved source/capture evidence; Profile sampler and reach instrumentation are excluded from the production runtime patch.",
+  "artifact_archive_note": "Artifact paths and unpublished snapshot commits refer to the local qualification workspace. SHA256 digests identify those artifacts. The production runtime patch excludes Profile sampler and reach instrumentation.",
   "final_integrated_stock_study": {
     "baseline_sha": "8dca144c604c66883defe4c818370707bb76659e",
     "candidate_sha": "49288588489b7483285d6ff1f8f09d272e64ead4",

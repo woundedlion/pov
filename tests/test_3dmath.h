@@ -29,6 +29,10 @@ namespace math3d_tests {
 // Projection patterns
 // ============================================================================
 
+/**
+ * @brief Projection patterns stay finite and bounded across the sampled
+ * domain.
+ */
 inline void test_projection_pattern_bounds() {
   constexpr float LIMIT = projections::STEREO_PATTERN_ARG_LIMIT;
   for (const math::Complex input :
@@ -1348,6 +1352,10 @@ inline void test_quaternion_slerp() {
                  3e-4f);
 }
 
+/**
+ * @brief Scaling a rotation delta preserves its axis and scales its angular
+ * travel.
+ */
 inline void test_scaled_rotation_delta() {
   const math::Quaternion id;
   const math::Quaternion q =
@@ -1811,6 +1819,10 @@ inline void test_value_noise() {
 // Lenses
 // ============================================================================
 
+/**
+ * @brief The twist lens preserves colatitude and maps longitude by the
+ * selected warp.
+ */
 inline void test_twist_lens() {
   for (const float distribution : {0.0f, 1e-7f, 1e-4f, 0.25f, 0.85f, 1.0f}) {
     for (const float total_angle :
@@ -1864,6 +1876,7 @@ inline void test_twist_lens() {
 
 /** @brief Lookup twist angles preserve winding while redistributing interior spacing. */
 inline void test_twist_lens_lookup_error() {
+  // The volatile function pointer forces the constexpr builder to run here.
   auto *volatile build_mantissa = &lenses::TwistTable::make_log_mantissa;
   const auto mantissa = build_mantissa();
   for (size_t index = 0; index < mantissa.size(); ++index)
@@ -1933,6 +1946,7 @@ template <typename Visit> inline void for_each_sphere_direction(Visit visit) {
   }
 }
 
+/** @brief Azimuthal kaleidoscope sectors fold onto the same spherical wedge. */
 inline void test_kaleidoscope_lens() {
   for_each_sphere_direction([](const math::Vector &input) {
     const math::Vector folded = lenses::kaleidoscope_lens(input);
@@ -2069,6 +2083,10 @@ inline void test_dodecahedral_classifier_generation() {
     }
 }
 
+/**
+ * @brief The specialized dodecahedral fold agrees with generic mirror
+ * folding.
+ */
 inline void test_dodecahedral_kaleidoscope_specialization() {
   for_each_sphere_direction([](const math::Vector &input) {
     const math::Vector generic = lenses::polyhedral_kaleidoscope_lens(
@@ -2335,6 +2353,10 @@ inline void test_rotate_plane_inverse_composition() {
     }
 }
 
+/**
+ * @brief Successive 4D plane rotations compose in the pinned application
+ * order.
+ */
 inline void test_rotate_plane_composition_order() {
   math::Mat4 rotation = math::Mat4::identity();
   math::rotate_plane(rotation, 0, 1, math::PI_F * 0.5f);

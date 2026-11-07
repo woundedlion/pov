@@ -417,11 +417,7 @@ private:
   Plot::PointRoute<W, H> stars; ///< Star clip gate and column-time splat.
   ParticleSystem particle_system;
   std::array<Galaxy, NUM_GALAXIES> galaxies;
-  /**
-   * @brief Animation timeline for the orientation drift.
-   * @details Declared after `orientation` so ~Timeline clears the RandomWalk
-   *          that points at it first.
-   */
+  /// Animation timeline for the orientation drift.
   Timeline timeline;
 
   /**

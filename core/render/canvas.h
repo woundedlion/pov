@@ -640,8 +640,7 @@ private:
   /**
    * @brief Spins until the effect has a free back buffer.
    * @details Only the main loop writes cur/next; the ISR only sets
-   * prev = next. Traps via the watchdog if the display ISR stalls. Profiling
-   * reports match the counter's `_buffer_wait` suffix.
+   * prev = next. Traps via the watchdog if the display ISR stalls.
    */
   void wait_for_free_buffer() {
     HS_PROFILE(canvas_buffer_wait);

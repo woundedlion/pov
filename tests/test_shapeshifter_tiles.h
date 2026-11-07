@@ -61,6 +61,9 @@ inline void test_timed_tiles_match_full_frame() {
   }
 }
 
+/** @brief Compares stitched tiles with a full render.
+ * @param approximate Applies energy and coverage budgets instead of exact parity.
+ */
 template <typename Render>
 inline void expect_mosaic_matches(OracleState state, Render render,
                                   std::span<const OracleClip> clips,
@@ -112,6 +115,7 @@ expect_segment_tiles_reconstruct_full_frame(Render render,
   }
 }
 
+/** @brief Segment tile mosaics reproduce the full-frame surface render. */
 inline void test_segment_tiles_reconstruct_full_frame() {
   ScopedPoleRunSplit scope(false);
   expect_segment_tiles_reconstruct_full_frame(reference_renderer(), false);
@@ -175,6 +179,7 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
   }
 }
 
+/** @brief Split pole runs keep tiled energy and coverage within budget. */
 inline void test_split_pole_runs_tiles_within_energy_budget() {
   ScopedPoleRunSplit scope(true);
   OracleState state;

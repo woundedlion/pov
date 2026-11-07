@@ -48,6 +48,7 @@ inline float phi_to_y_virtual(float phi, int h_virt) {
 
 /**
  * @brief Polar angle to fractional display row.
+ * @tparam H Display height in rows.
  * @param phi Polar angle, radians.
  * @return Fractional row.
  */
@@ -78,6 +79,8 @@ inline constexpr float RADIANS_PER_COLUMN = TWO_PI_F / static_cast<float>(W);
 
 /**
  * @brief Larger angular pitch of a logical canvas's rows and columns.
+ * @tparam W Canvas width in columns.
+ * @tparam H Display height in rows.
  * @return The larger of `RADIANS_PER_COLUMN` and `RADIANS_PER_ROW`, radians.
  */
 template <int W, int H> constexpr float coarse_pixel_pitch() {
@@ -135,6 +138,7 @@ template <int H> inline float y_to_phi(int y) {
 /**
  * @brief Fractional display row to polar angle, including extrapolated cap
  *        rows.
+ * @tparam H Display height in rows.
  * @param y Fractional row.
  * @return Polar angle, radians.
  */
@@ -263,8 +267,8 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
  * @param x Fractional X coordinate (column).
  * @param y Fractional display row; may extrapolate into either cap.
  * @return Unit vector on the sphere.
- * @details Snaps to the integer LUT path when both coordinates are near-integer
- * AND in LUT range; otherwise builds the vector analytically from spherical
+ * @details Uses the integer LUT when both coordinates are in range and
+ * each lies less than TOLERANCE above its floor. Otherwise uses spherical
  * angles. An out-of-range `x` (e.g. an unwrapped `W`) is exact on the analytic
  * branch, since theta = 2*pi*x/W is periodic.
  */
@@ -320,6 +324,9 @@ template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
 /**
  * @brief Reflects fractional coordinates across the true poles, preserving
  *        missing caps.
+ * @tparam W Canvas width in columns.
+ * @tparam H Display height in rows.
+ * @tparam HOffset Virtual row offset. A value of -1 uses the configured offset.
  * @param col Column; rewritten to the reflected column.
  * @param row Row; rewritten to the reflected row.
  * @return False when the reflected row is outside the displayed rows.
@@ -340,6 +347,9 @@ HS_O3_FN bool pole_wrap(float &col, float &row) {
 
 /** @brief Resolves a lattice tap only when reflection lands on the lattice.
  * @pre The column is already in [0, W).
+ * @tparam W Canvas width in columns.
+ * @tparam H Display height in rows.
+ * @tparam HOffset Virtual row offset. A value of -1 uses the configured offset.
  * @param col Column in [0, W); rewritten to the reflected column.
  * @param row Row; rewritten to the reflected row.
  * @return False when the tap has no lattice sample.

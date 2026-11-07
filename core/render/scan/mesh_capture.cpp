@@ -336,7 +336,7 @@ HS_HOT_FLASH_MEMBER FaceKind classify_face(const SweptMesh &d, size_t face,
     return polar_kind(d, face, interval.hi, motion_cache);
   if (d.pad >= horizontal)
     return CROSS_FACE;
-  // asin(x) / pi, as a half turn less acos(x) / pi.
+  // asin(x) / pi, as 0.5 minus acos(x) / pi.
   const float pad = 0.5f - math::fast_acos(d.pad / horizontal) / math::PI_F;
   if (interval.hi - interval.lo + 2.0f * pad >= 1.0f)
     return polar_kind(d, face, interval.hi - interval.lo + 2.0f * pad,

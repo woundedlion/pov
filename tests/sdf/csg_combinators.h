@@ -73,7 +73,7 @@ namespace sdf_interval_detail {
  * @brief Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list.
  */
 struct MockIntervalShape {
-  static constexpr bool BLENDS_SMOOTHLY = true;
+  static constexpr bool BLENDS_SMOOTHLY = true; ///< Enables smooth CSG bounds.
   const std::vector<std::pair<float, float>>
       *ivs; /**< Interval list this mock replays. */
   static constexpr bool is_solid =

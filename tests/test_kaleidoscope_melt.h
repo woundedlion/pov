@@ -19,6 +19,10 @@ using effects_tests::SMALL_W;
 using KaleidoscopeMeltWhiteBox =
     ComposedWhiteBox<KaleidoscopeMelt<SMALL_W, SMALL_H>>;
 
+/**
+ * @brief The Melt identity, preset and exposed resources match the authored
+ * chain.
+ */
 inline void test_kaleidoscope_melt_identity_and_controls() {
   using WB = KaleidoscopeMeltWhiteBox;
   using FX = WB::FX;
@@ -74,6 +78,7 @@ inline void test_kaleidoscope_melt_identity_and_controls() {
     HS_EXPECT_TRUE(effect.getParameters().find(name) != nullptr);
 }
 
+/** @brief The exported chain renders the Melt preset equivalently. */
 inline void test_kaleidoscope_melt_chain_equivalence() {
 #if HS_TEST_FAST_MATH
   composed_chain_tests::verify_export<KaleidoscopeMeltWhiteBox::FX>(0, 2,
@@ -83,6 +88,10 @@ inline void test_kaleidoscope_melt_chain_equivalence() {
 #endif
 }
 
+/**
+ * @brief The palette cache follows admission as authored color controls
+ * change.
+ */
 inline void test_kaleidoscope_melt_cache_controls() {
   using FX = KaleidoscopeMeltWhiteBox::FX;
   reset_globals();

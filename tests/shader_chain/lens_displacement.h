@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-/** @brief Deforming-lens displacement and fold invariance. */
+// Deforming-lens displacement and fold invariance.
 
 template <typename Policy, bool Track = true>
 inline PB::SphereSample lens_path_stage(const PB::SphereSample &input,

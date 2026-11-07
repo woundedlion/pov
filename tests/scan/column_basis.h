@@ -720,8 +720,8 @@ inline void test_rotate_by_matches_exact_rotation() {
 }
 
 /**
- * @brief A cap that the swept clip test rules out lights no pixel of
- *        it under the frame's rotation.
+ * @brief A cap ruled out by the swept clip test lights no pixel of that clip
+ * under the frame's rotation.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
  */

@@ -149,6 +149,7 @@ inline std::vector<float> surface_kernel_motion(const SurfaceMotionCase &pose,
   return out;
 }
 
+/** @brief Stitched clip tiles equal the full frame in both sampling modes. */
 inline void test_surface_clips() {
   const auto pose = surface_replay_pose(true, RESET_POSE_FRAME);
   for (bool timed : {false, true}) {
@@ -166,6 +167,10 @@ inline void test_surface_clips() {
   }
 }
 
+/**
+ * @brief Timed surface output stays within bidirectional frozen-column seam
+ * budgets.
+ */
 inline void test_surface_seams() {
   SurfaceMotionCase fixture;
   fixture.start = math::make_rotation(math::X_AXIS, .27f);
@@ -318,7 +323,7 @@ inline void test_surface_preset_dispatch() {
                size_t{0});
 }
 
-/** @brief Locates isolated dark pixels throughout the natural P1 visit. */
+/** @brief P1 shows zero isolated dark pixels and exact tile parity. */
 inline void test_surface_lobe_outliers() {
   size_t outliers = 0;
   replay_seed();

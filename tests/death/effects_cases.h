@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
-
 // Effects death fixtures and guard cases.
 
 inline void check_shader_chain_colorize_companion() {
@@ -57,7 +55,6 @@ inline void case_gs_color_noise_nan_scale() {
   WB::advance_color_noise(gs);
 }
 
-/** @brief Traps on lattice shells oob. */
 inline void case_lattice_shells_oob() {
   SDF::Lattice::Settings settings;
   settings.shells =
@@ -134,13 +131,11 @@ inline void case_hyperlattice_invalid_trace_settings() {
   (void)WB::prepare_traced(effect, frame);
 }
 
-/** @brief Traps on mindsplatter profile preset oob. */
 inline void case_mindsplatter_profile_preset_oob() {
   MindSplatter<96, 20> effect;
   effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
 }
 
-/** @brief Traps on mindsplatter profile preset uninitialized. */
 inline void case_mindsplatter_profile_preset_uninitialized() {
   MindSplatter<96, 20> effect;
   effect.profile_select_preset(opaque<size_t>(0));
@@ -265,7 +260,6 @@ inline void case_spherical_harmonics_invalid_morph_mode() {
     WB::step_timeline(effect, canvas);
 }
 
-/** @brief Traps on hankinsolids missing topology. */
 inline void case_hankinsolids_missing_topology() {
   using WB = effects_tests::HankinSolidsWhiteBox;
   hs_test::reset_globals();
@@ -274,7 +268,6 @@ inline void case_hankinsolids_missing_topology() {
   WB::draw_without_topology(effect);
 }
 
-/** @brief Traps on islamicstars build budget. */
 inline void case_islamicstars_build_budget() {
   configure_arenas_default();
   persistent_arena.allocate_n<uint8_t>(1);
@@ -282,7 +275,6 @@ inline void case_islamicstars_build_budget() {
   effects_tests::IslamicBuildProbe::check_build_budget(effect, 0);
 }
 
-/** @brief Traps on islamicstars bridge continuation. */
 inline void case_islamicstars_bridge_continuation() {
   effects_tests::IslamicBuildProbe::IS effect;
   effects_tests::IslamicBuildProbe::invalid_bridge_continuation(effect);
@@ -316,7 +308,6 @@ struct UninitializedReactionLattice
   using ReactionDiffusionBase::orient_lattice;
 };
 
-/** @brief Traps on reaction lattice uninitialized. */
 inline void case_reaction_lattice_uninitialized() {
   UninitializedReactionLattice effect;
   auto lattice = effect.orient_lattice();

@@ -129,6 +129,7 @@ inline void test_kdtree_k_nearest_sorted() {
   HS_EXPECT_VEC(r[2].point, math::Vector(2, 0, 0), 1e-6f);
 }
 
+/** @brief Equidistant KD-tree results prefer the lower input index. */
 inline void test_kdtree_ties_prefer_source_index() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   math::Vector pts[] = {math::Vector(1, 0, 0), math::Vector(-1, 0, 0),

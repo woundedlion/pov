@@ -21,4 +21,6 @@ Low-resolution-only (96×20) effects:
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [MobiusRings Hole A/B](profile_mobiusrings_teensy_2026-10-13.md) | `mr_draw_grid` | 🟢 12.30 | 🟢 0/1088 (0.00%) | 2026-10-13 |
+| [MobiusRings Hole A/B](profile_mobiusrings_teensy_2026-10-13.md) ● | `mr_draw_grid` | 🟢 12.30 | 🟢 0/1088 (0.00%) | 2026-10-13 |
+
+Dynamo and Thrusters are also low-resolution only and have no report here.

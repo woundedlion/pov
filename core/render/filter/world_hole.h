@@ -30,7 +30,7 @@ public:
    * @brief Constructs a hole centered at @p origin with angular @p radius.
    * @param origin Center of the hole; squared length must be finite and at least
    *        math::EPS_NORMALIZE_SQ. Renormalized internally.
-   * @param radius Angular radius of the hole in radians.
+   * @param radius Angular radius in radians. Values <= 0 disable the hole.
    */
   Hole(const math::Vector &origin, float radius)
       : origin(origin.normalized()), radius(radius),

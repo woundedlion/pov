@@ -280,6 +280,9 @@ struct MobiusRingsWhiteBox {
   }
 };
 
+/** @brief
+ * The projected rings stay conformal while their orientations counter-rotate.
+ */
 inline void test_mobius_rings_conformal_and_counter_rotation() {
   using WB = MobiusRingsWhiteBox;
 

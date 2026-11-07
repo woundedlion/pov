@@ -164,6 +164,9 @@ template <typename EffectT> inline void check_manual_preset_navigation() {
   HS_EXPECT_TRUE(effect.animations_paused());
 }
 
+/** @brief
+ * Manual navigation selects and wraps presets according to each roster entry.
+ */
 inline void test_manual_preset_navigation() {
   check_manual_preset_navigation<MindSplatter<SMALL_W, SMALL_H>>();
   check_manual_preset_navigation<DreamBalls<SMALL_W, SMALL_H>>();

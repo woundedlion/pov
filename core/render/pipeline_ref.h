@@ -579,7 +579,7 @@ public:
    * @param age Age register.
    * @param alpha Source opacity.
    * @param t Frame fraction.
-   * @return Projected column. */
+   * @return Projected column, or NaN when a world stage drops the sample. */
   float plot_at(Canvas &cv, const math::Vector &v, const Pixel &c, float age,
                 float alpha, float t) const {
     assert(timed_entries);

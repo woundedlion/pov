@@ -19,7 +19,7 @@ namespace SDF {
 /**
  * @brief Footprint coverage of a signed field value or interior depth.
  * @tparam POSITIVE_INSIDE Whether positive values lie inside the surface.
- * @param width Footprint width in world units; nonpositive is a hard step.
+ * @param width Full ramp span in world units. Nonpositive values select a hard step.
  * @param field Signed value in world units; negative inside by default.
  * @return Coverage in [0, 1].
  */

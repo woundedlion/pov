@@ -54,6 +54,7 @@ struct TestEffect : public Effect {
    * @brief Constructs the test effect with the given canvas dimensions.
    * @param W Canvas width in pixels.
    * @param H Canvas height in pixels.
+   * @param cfg Effect configuration forwarded to the base.
    */
   TestEffect(int W, int H, EffectConfig cfg = {}) : Effect(W, H, cfg) {}
   /**
@@ -223,6 +224,7 @@ inline void test_construction_dimension_boundaries() {
   }
 }
 
+/** @brief Output envelope scales RGB at zero, half and full brightness. */
 inline void test_output_envelope_endpoints() {
   TestEffect fx(8, 8);
   const Pixel source{65535, 32768, 1};
@@ -237,6 +239,10 @@ inline void test_output_envelope_endpoints() {
 
 #include "tests/canvas/effect_transition.h"
 
+/**
+ * @brief Preset advance, pause, synchronization and refusal preserve the
+ * expected state.
+ */
 inline void test_preset_state_machine() {
   PresetTestEffect fx;
   HS_EXPECT_EQ(fx.getPresetCount(), size_t(3));

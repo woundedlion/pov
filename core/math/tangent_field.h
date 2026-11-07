@@ -92,10 +92,10 @@ enum class Kind : uint8_t {
 struct PotentialTerm {
   TermType type = TermType::MODE; ///< Polynomial family.
   Kind kind = Kind::TOROIDAL;     ///< Tangent assembly.
-  uint8_t l = 1;                  ///< Harmonic degree in [0, 8].
-  uint8_t m = 0;                  ///< Nonnegative harmonic order.
+  uint8_t l = 1;                  ///< MODE harmonic degree in [0, 8].
+  uint8_t m = 0;                  ///< MODE harmonic order in [0, l].
   float amplitude = 0.0f;         ///< Signed peak-speed amplitude.
-  float phase = 0.0f; ///< Harmonic azimuthal phase, radians; ignored for m = 0.
+  float phase = 0.0f; ///< Azimuthal phase in radians for MODE with m != 0.
 };
 
 /** @brief Extracts unnormalised half-turn axes from the tetrahedral mirrors.

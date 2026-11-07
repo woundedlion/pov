@@ -16,6 +16,10 @@ constexpr int W = 96;
 constexpr int H = 144;
 using Geometry = math::DisplayGeometry<H>;
 
+/**
+ * @brief Calibrated and ideal latitude profiles preserve their endpoint
+ * mapping.
+ */
 void test_coordinates() {
   HS_CONTEXT("resolution", W, H);
   const math::LatitudeGeometry latitude(H);
@@ -46,6 +50,10 @@ void test_coordinates() {
     HS_EXPECT_NEAR(asymmetric.phi_to_row(asymmetric.row_to_phi(y)), y, 2e-5f);
 }
 
+/**
+ * @brief Pole crossing reflects the row and advances longitude by a half
+ * turn.
+ */
 void test_pole_crossing() {
   for (float y : {-0.25f, H - 0.75f}) {
     float x = 7.0f;
@@ -62,6 +70,7 @@ void test_pole_crossing() {
   }
 }
 
+/** @brief Pole-adjacent splats retain coverage across the cap profiles. */
 void test_splat_coverage() {
   Filter::Screen::AntiAlias<W, H> aa;
   for (float y : {-1.25f, -0.75f, -0.5f, -0.25f, 0.0f, H - 1.0f, H - 0.75f,
@@ -84,6 +93,7 @@ void test_splat_coverage() {
   }
 }
 
+/** @brief The blur follows calibrated and ideal latitude coverage. */
 void test_blur_coverage() {
   for (float factor : {0.0f, 0.5f, 1.0f}) {
     Filter::Screen::Blur<W, H> blur(factor);
@@ -107,6 +117,7 @@ void test_blur_coverage() {
   }
 }
 
+/** @brief Rendering honours the requested polar endpoints. */
 void test_render_caps() {
   {
     constexpr int DEVICE_H = 20;
@@ -137,6 +148,10 @@ void test_render_caps() {
   HS_EXPECT_EQ(band.y_max, 13);
 }
 
+/**
+ * @brief Feedback distinguishes true pole rows from calibrated endpoint
+ * rings.
+ */
 void test_feedback_endpoint_rings() {
   HS_CONTEXT("resolution", W, H);
   static_assert(hs::SphericalFieldLayout<W, H>::POLE_COUNT == 0);

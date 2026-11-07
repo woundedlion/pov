@@ -15,7 +15,7 @@
 // FastLED builds.
 
 /**
- * @brief Analog pin used for seeding the random number generator.
+ * @brief Analog pin read to seed Arduino random() in the legacy effects.
  */
 inline constexpr int PIN_RANDOM = 15;
 /**

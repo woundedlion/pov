@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check repository-root spelling of first-party C++ includes."""
+"""Check first-party C++ include spelling and layer dependency direction."""
 
 from __future__ import annotations
 

@@ -113,8 +113,9 @@ struct Contribution {
 /** @brief Trace completion status and optional verified single-surface result. */
 struct TraceResult {
   TraceStatus status = TraceStatus::RANGE_COMPLETE; ///< Completion reason.
-  TraceCounters counters;    ///< Work spent by the trace.
-  Contribution contribution; ///< The surface hit when `has_surface`.
+  TraceCounters counters; ///< Work spent by the trace.
+  /// Verified surface hit when `has_surface`, or the last layer of a layered trace.
+  Contribution contribution;
   bool has_surface =
       false; /**< A verified single surface, not layered coverage. */
 };
@@ -127,7 +128,7 @@ struct QueryCapabilities {
       false; /**< Safe interior distance bound available. */
   bool surface_verification = true; /**< Boundary membership can be verified. */
   float error =
-      0.0f; /**< World-distance uncertainty of surface verification. */
+      0.0f; /**< World-distance uncertainty of clearance and surface verification. */
 };
 
 /** @brief Signed field sample with an independent safe stepping distance. */

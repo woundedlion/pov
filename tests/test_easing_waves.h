@@ -279,7 +279,7 @@ inline void test_square_wave_binary() {
 inline void test_square_wave_negative_phase() {
   auto w = math::square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   HS_EXPECT_NEAR(w(-0.25f), 0.0f,
-                 1e-5f); // wrap_t(-0.25)=0.75 -> low, not latched
+                 1e-5f);                 // wrap_t(-0.25)=0.75 -> low
   HS_EXPECT_NEAR(w(-0.9f), 1.0f, 1e-5f); // wrap_t(-0.9)=0.1 -> high
   for (int i = 0; i < N; ++i) {
     float ft = frac(i); // [0,1)

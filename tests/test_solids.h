@@ -19,6 +19,7 @@
 #include "tests/test_harness.h"
 
 namespace solid_table_fixtures {
+/** @brief Fixture with same-direction uses of shared edges. */
 struct FlippedWinding : Solids::Tetrahedron {
   static constexpr auto faces = [] {
     auto result = Solids::Tetrahedron::faces;
@@ -28,6 +29,7 @@ struct FlippedWinding : Solids::Tetrahedron {
     return result;
   }();
 };
+/** @brief Fixture with edges lacking a second incident face. */
 struct OpenEdges : Solids::Tetrahedron {
   static constexpr auto vertices = [] {
     std::array<math::Vector, 5> result{};
@@ -40,6 +42,7 @@ struct OpenEdges : Solids::Tetrahedron {
   static constexpr std::array<int, 12> faces{0, 1, 2, 3, 0, 2,
                                              4, 1, 0, 3, 4, 2};
 };
+/** @brief Fixture with an unused vertex that violates Euler characteristic. */
 struct EulerViolation : Solids::Tetrahedron {
   static constexpr auto vertices = [] {
     std::array<math::Vector, 5> result{};
@@ -49,6 +52,7 @@ struct EulerViolation : Solids::Tetrahedron {
     return result;
   }();
 };
+/** @brief Fixture with a vertex outside the unit sphere surface. */
 struct OffSphere : Solids::Tetrahedron {
   static constexpr auto vertices = [] {
     auto result = Solids::Tetrahedron::vertices;
@@ -56,6 +60,7 @@ struct OffSphere : Solids::Tetrahedron {
     return result;
   }();
 };
+/** @brief Fixture with a face index past the vertex table. */
 struct OutOfRange : Solids::Tetrahedron {
   static constexpr auto faces = [] {
     auto result = Solids::Tetrahedron::faces;
@@ -72,6 +77,7 @@ static_assert(!Solids::solid_tables_consistent<OutOfRange>());
 
 namespace hs_test {
 namespace solids_tests {
+/** @brief First Islamic registry offset after the simple and Catalan entries. */
 inline size_t islamic_base() {
   return Solids::Collections::get_simple_solids().size() +
          Solids::Collections::get_catalan_solids().size();
@@ -587,6 +593,7 @@ inline void check_lowered_replay(const Solids::Recipe &recipe) {
   check_bitwise_equal_meshes(authored, low);
 }
 
+/** @brief Checks an authored composite operation against its lowered replay. */
 inline void check_composite_lowering(const Solids::OpStep &step) {
   const Solids::Recipe recipe = {0, &step, 1};
   check_lowered_replay(recipe);

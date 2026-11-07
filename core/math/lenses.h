@@ -226,6 +226,7 @@ HS_FLASH_MEMBER inline math::Vector kaleidoscope_lens(const math::Vector &v) {
 
 /**
  * @brief Folds a direction into a spherical reflection-group chamber.
+ * @tparam N Number of mirrors.
  * @param v Unit direction on the sphere.
  * @param mirrors Inward unit normals of the chamber's simple mirrors.
  * @return A symmetry-equivalent direction inside the chamber.

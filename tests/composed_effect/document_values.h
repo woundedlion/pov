@@ -197,6 +197,7 @@ struct JsonParser {
   }
 };
 
+/** @brief Reads and parses the promoted document for an effect identity. */
 template <typename FX>
 inline std::optional<JsonValue> load_promoted_document() {
   std::string name(FX::EFFECT_ID);
@@ -333,6 +334,9 @@ inline void test_modulation_schema_defaults_match_controls() {
   }
 }
 
+/** @brief
+ * Exported catalog JSON agrees with the engine operator table and schemas.
+ */
 inline void test_catalog_semantic_export() {
   namespace Catalog = Pullback::Interp;
   std::string text;
@@ -440,6 +444,7 @@ inline std::string_view document_resource_key(const DocumentSlot &slot) {
   }
 }
 
+/** @brief Maps a catalog operator ID prefix to its slot role. */
 inline SlotRole classify_operator(std::string_view operator_id) {
   if (operator_id.starts_with("sphere.rotate."))
     return SlotRole::CAMERA;
@@ -549,6 +554,7 @@ constexpr const char *palette_mode_id(PaletteHarmony harmony) {
   }
 }
 
+/** @brief Maps a typed lens policy to its authored symmetry ID. */
 template <typename Lens> constexpr std::string_view lens_symmetry_id() {
   if constexpr (std::is_same_v<Lens, Pullback::Lens::Kaleidoscope>)
     return "azimuthal";

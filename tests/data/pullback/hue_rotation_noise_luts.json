@@ -72,7 +72,7 @@
       "accepted_limit": 7000,
       "unit": "channel code",
       "limit_provenance": "Color::MODULATION_LUT_METRICS channel budget, unchanged",
-      "measurement_provenance": "registered unit_pullback test_pullback_modulation_lut_qualification and test_pullback_cached_hue_qualification at0afb0a264056787674e0cb43ab332fdce8872975: maximum over samples and maximum per-case mean respectively; full corpus/configuration in docs/hue_lut_qualification.json registered_channel_corpus"
+      "measurement_provenance": "registered unit_pullback test_pullback_modulation_lut_qualification and test_pullback_cached_hue_qualification at 0afb0a264056787674e0cb43ab332fdce8872975: maximum over samples and maximum per-case mean respectively; full corpus/configuration in docs/hue_lut_qualification.json registered_channel_corpus"
     },
     {
       "domain": "COLOR_CHANNEL",
@@ -81,7 +81,7 @@
       "accepted_limit": 256,
       "unit": "channel code",
       "limit_provenance": "Color::MODULATION_LUT_METRICS channel budget, unchanged",
-      "measurement_provenance": "registered unit_pullback test_pullback_modulation_lut_qualification and test_pullback_cached_hue_qualification at0afb0a264056787674e0cb43ab332fdce8872975: maximum over samples and maximum per-case mean respectively; full corpus/configuration in docs/hue_lut_qualification.json registered_channel_corpus"
+      "measurement_provenance": "registered unit_pullback test_pullback_modulation_lut_qualification and test_pullback_cached_hue_qualification at 0afb0a264056787674e0cb43ab332fdce8872975: maximum over samples and maximum per-case mean respectively; full corpus/configuration in docs/hue_lut_qualification.json registered_channel_corpus"
     },
     {
       "domain": "FRAMEBUFFER",

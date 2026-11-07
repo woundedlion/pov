@@ -336,7 +336,7 @@ public:
     return result;
   }
 
-  /** @brief Admitted numeric slider intervals for the current chain.
+  /** @brief Admitted scalar intervals and potential-field topology index bounds.
    * @return Parameter names and inclusive ranges, empty for a stale handle. */
   ParameterRangesValue getShaderChainParameterRanges() {
     emscripten::val result = emscripten::val::array();
@@ -356,7 +356,11 @@ public:
 
 private:
   bool decoding = false;
-  /** @brief Result with ChainStatus, commit or refusal code, and entry index. */
+  /** @brief Builds the JavaScript result for a chain operation.
+   * @param code Engine operation status.
+   * @param entry_index Entry index to report.
+   * @return Object with code, status and entryIndex fields.
+   */
   static emscripten::val chain_result(Pullback::Interp::ChainStatus code,
                                       int entry_index) {
     emscripten::val result = emscripten::val::object();

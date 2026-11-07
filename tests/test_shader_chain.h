@@ -125,7 +125,8 @@ inline void test_shader_chain_modulation_bake_cache() {
   effect.advance_display();
 }
 
-/** @brief Reorder preserves each layer's phase and disabled clocks advance. */
+/** @brief Reordering preserves layer phase, disabled clocks advance, and
+ * changing sources while paused still refreshes the binding and resets phase. */
 inline void test_shader_chain_modulation_clock_lifecycle() {
   using WB = ShaderChainWhiteBox;
   reset_globals();
@@ -378,6 +379,7 @@ inline const char *expected_chain_status_name(In::ChainStatus status) {
   return nullptr;
 }
 
+/** @brief Every status byte maps to the pinned label or UNKNOWN. */
 inline void test_shader_chain_status_names() {
   for (unsigned raw = 0; raw <= UINT8_MAX; ++raw) {
     const auto status = static_cast<In::ChainStatus>(raw);
@@ -408,6 +410,7 @@ inline void test_shader_chain_modulation_accessor_keeps_parameters() {
   HS_EXPECT_EQ(second->modulation.mechanic.amount, 0.61f);
 }
 
+/** @brief Restoring the chain snapshot reproduces subsequent rendered frames. */
 inline void test_shader_chain_snapshot_roundtrip() {
   using WB = ShaderChainWhiteBox;
   ChainSnapshot saved;
@@ -490,6 +493,10 @@ inline void test_shader_chain_snapshot_roundtrip() {
   }
 }
 
+/** @brief
+ * Each refused restore preserves parameters, palette clock, walk state and
+ * schema generation.
+ */
 inline void test_shader_chain_snapshot_refusals() {
   using WB = ShaderChainWhiteBox;
   reset_globals();

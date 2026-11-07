@@ -166,7 +166,8 @@ struct ShellLayerStorage {
 /**
  * @brief 3D shell composite by a march over the lattice layers across the
  *        ray's dominant axis.
- * @details Requires PreparedPeriodicShells::single_owner. Each layer crossing
+ * @details Both max_candidates and max_layers cap composited layers.
+ * Requires PreparedPeriodicShells::single_owner. Each layer crossing
  * then has one candidate sphere, centered at the crossing's rounded lattice
  * point, and a sphere's roots and filtered closest approach both lie inside its
  * own cell, so a crossing whose ray-to-center clearance exceeds the widest
@@ -307,7 +308,8 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
  * @tparam DIMENSIONS 3 for a spatial camera, 4 for a slice.
  * @tparam WIDE Whether filtered spheres may reach past half a cell.
  * @tparam SHADED Darkens shell color by the squared sphere-chord incidence.
- * @details Without WIDE, requires PreparedPeriodicShells::march: candidates
+ * @details Both max_candidates and max_layers cap composited layers.
+ * Without WIDE, requires PreparedPeriodicShells::march: candidates
  * are the ray's layer crossing's rounded lattice point and its neighbors one
  * step to either side within reach, composited in distance order per layer,
  * matching shade_periodic_shells_dimension<DIMENSIONS>. WIDE serves any

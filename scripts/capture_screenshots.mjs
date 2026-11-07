@@ -3,7 +3,7 @@
 // Effects can be overridden via CLI args; otherwise the full EFFECTS list runs.
 //
 // Usage (from the Holosphere repo root):
-//   Serve daydream: cd ../daydream && python -m http.server 8000
+//   Serve daydream: cd ../daydream && python -m http.server 8000 --bind 127.0.0.1
 //   Install Chromium: npx playwright install chromium
 //   Capture the gallery: npm run screenshots
 //   Capture selected effects: node scripts/capture_screenshots.mjs [Effect ...]

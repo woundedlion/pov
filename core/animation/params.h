@@ -1323,7 +1323,7 @@ struct NoiseProductParams {
   float amplitude = 0.0f;      /**< Field output amplitude. */
   float scale1 = 1.5f;         /**< Spatial frequency of the envelope octave. */
   float scale2 = 3.0f;         /**< Spatial frequency of the detail octave. */
-  float speed = 0.03f;         /**< Time advance per frame. */
+  float speed = 0.03f;         /**< Loop phase advance per frame. */
   float time = 0.0f;           /**< Published noise sampling coordinate. */
   mutable FastNoiseLite noise; /**< Backing generator. */
 
@@ -1397,7 +1397,7 @@ public:
       : AnimationBase(-1, false), params(params), clock(params.time) {}
 
   /**
-   * @brief Steps the animation, integrating the field time.
+   * @brief Steps the animation and advances the noise clock.
    * @param canvas The canvas buffer (forwarded to the base step).
    * @details `speed` is re-read from the live params every step, so a
    * non-finite one is ignored and the time axis held rather than poisoned.

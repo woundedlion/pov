@@ -70,6 +70,10 @@ inline void test_lerp16_bounded() {
   }
 }
 
+/** @brief
+ * Straight-alpha interpolation blends color and alpha separately and clamps
+ * endpoints.
+ */
 inline void test_color4_lerp_straight_alpha() {
   const Color4 transparent_red(Pixel(65535, 0, 0), 0.0f);
   const Color4 opaque_blue(Pixel(0, 0, 65535), 1.0f);
@@ -88,6 +92,7 @@ inline void test_color4_lerp_straight_alpha() {
   HS_EXPECT_NEAR(after.alpha, opaque_blue.alpha, 1e-6f);
 }
 
+/** @brief Denormal alpha preserves the expected straight-color mixture. */
 inline void test_blend_outputs_denormal_alpha() {
 #if defined(HS_TEST_FAST_MATH)
   hs_test::skip_case(
@@ -136,6 +141,7 @@ inline void test_blend_outputs_endpoints_verbatim() {
   }
 }
 
+/** @brief Tiny normal alpha preserves the expected straight-color mixture. */
 inline void test_blend_outputs_tiny_normal_alpha() {
   const float alpha = 4.0f * std::numeric_limits<float>::min();
   const Color4 from(Pixel(1000, 2000, 3000), alpha);

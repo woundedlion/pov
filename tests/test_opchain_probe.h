@@ -117,8 +117,8 @@ inline constexpr ChamferSite CHAMFER_SITES[] = {
 inline constexpr float CHAMFER_T_STAR = Solids::CHAMFER_T_MAX;
 
 /**
- * @brief Measures chamfer's zero-area birth limit: newborn hexagon area and
- *        preserved-face displacement against t, on every chamfer seed.
+ * @brief New chamfer hexagons approach zero area and primary faces converge
+ * to their seed positions as t approaches zero.
  * @details Chamfer emits F shrunk primaries then E hexagons, so the split is
  * exact in emission order.
  */
@@ -491,8 +491,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
 }
 
 /**
- * @brief Finds the smallest chamfer t at which no newborn hexagon is rejected
- *        by SDF::PreparedFace's collapsed-area cull, per seed.
+ * @brief Every chamfer seed clears the collapsed-area cull by T_EPS.
  * @details Bisects the SDF::PreparedFace COLLAPSED_AREA_RATIO boundary and bounds it
  * against T_EPS, which must clear the cull outright.
  */

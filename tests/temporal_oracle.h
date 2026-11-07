@@ -145,8 +145,9 @@ inline bool temporal_frame_error_within_budget(float error,
 struct SeamCompareOptions {
   float share = 1.0f;         ///< Share of the frame error budget.
   bool bidirectional = false; ///< Compare both displacement directions.
-  bool require_motion = true; ///< Require a nonzero endpoint error.
-  /// Optional larger displacement budget for one column.
+  /// Requires nonzero endpoint error and applies the whole-frame budget.
+  bool require_motion = true;
+  /// Optional wider budget for (column, fraction, frozen luminance, budget).
   std::function<float(int, float, std::span<const float>, float)>
       widen_budget{};
 };
@@ -159,7 +160,11 @@ struct SeamCompareResult {
 };
 
 /** @brief Compares columns and whole-frame error with frozen geometry.
- * @param render Timed or frozen render callback.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Render Render callable returning frame pixels.
+ * @param render Callable (timed, fraction, displacement). Displacement is
+ *        zero or a signed 0.2 in the callable's own units.
  * @param name Diagnostic label.
  * @param options Displacement and whole-frame budget controls.
  * @return Summed temporal error, endpoint error and reference energy. */

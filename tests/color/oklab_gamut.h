@@ -509,6 +509,9 @@ inline void test_gamut_master_clip_lands_on_first_exit() {
   expect_clip_lands_on_first_exit("flash master");
 }
 
+/** @brief
+ * The continuous chroma cap stays in gamut across the lightness and hue grid.
+ */
 inline void test_gamut_continuous_chroma_is_smooth_and_in_gamut() {
   for (int il = 1; il < 100; ++il) {
     const float L = il / 100.0f;
@@ -631,6 +634,7 @@ inline void test_gamut_boundary_scale_cache_matches_master() {
   release_gamut_lut();
 }
 
+/** @brief Non-finite gamut coordinates saturate to bounded cell indices. */
 inline void test_gamut_cell_nonfinite_coordinates() {
   const auto cell = gamut_cell(g_gamut_lut, NAN, NAN, NAN);
   HS_EXPECT_EQ(cell.angle_index, g_gamut_lut.angle_steps - 1);

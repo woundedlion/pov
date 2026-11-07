@@ -34,6 +34,7 @@
 namespace hs_test {
 namespace sdf_tests {
 
+/** @brief Fixture with a double rejection margin for the SDF trait check. */
 struct RejectMarginShape {
   static constexpr double REJECT_MARGIN = 0.125;
 };

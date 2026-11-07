@@ -110,6 +110,7 @@ inline PolyMesh finalize_site_seed(const Site &site, Arena &persist, Arena &a,
   return Solids::finalize_solid(site.seed(a, b), persist);
 }
 
+/** @brief Builds the lowered recipe prefix before zero-based OCCURRENCE of OP. */
 template <const Solids::Recipe &RECIPE, Solids::Op OP, size_t OCCURRENCE = 0>
 inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
   constexpr size_t CAPACITY = Solids::lowered_step_count(RECIPE);

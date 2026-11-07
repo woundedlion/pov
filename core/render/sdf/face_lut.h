@@ -27,7 +27,7 @@ inline constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
  *        spawned mesh.
  * @details Distances are in canonical gnomonic plane units, quantized to int16
  * over the LUT box diameter. The domain (bounding box + BOUNDS_MARGIN_WIDE) is
- * not a superset of the max_dist_sq cull disk, so Face::distance's grid clamp
+ * not a superset of the max_dist_sq cull disk, so the grid clamp in PreparedFace::distance_projected
  * is required to keep the fetch in bounds.
  */
 struct ClassLut {

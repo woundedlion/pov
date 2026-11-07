@@ -416,6 +416,10 @@ inline void test_parent_retirement_prevents_cycle() {
                  nullptr);
 }
 
+/**
+ * @brief Reverse nesting flags both counters and preserves their parent
+ * edges.
+ */
 inline void test_mutual_nesting_keeps_a_root() {
   static hs::CycleCounter left("prof_mutual_left");
   static hs::CycleCounter right("prof_mutual_right");

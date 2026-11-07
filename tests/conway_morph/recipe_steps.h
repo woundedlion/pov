@@ -353,15 +353,11 @@ inline constexpr StepLegSite GATE_LEG_SITES[] = {
 };
 
 /**
- * @brief Drives one gated-swap leg to completion through OpLeg, gating the
- *        per-side compiled-face-count constancy, the single swap, the ramp
- *        indices.
+ * @brief A gated leg preserves each side's face count, swaps once and emits
+ * the expected ramp indices.
  * @param op Partition operator the leg swaps to.
  * @param site Seed site.
  * @param gate Half-gate length in frames.
- * @details Derives this test-local handoff and bookend: the
- * departed palettes from the seed's own classification, the bookend from the
- * op's clean endpoint.
  */
 inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
                                   const StepLegSite &site, int gate) {

@@ -30,8 +30,8 @@ if(NOT _compare_rc EQUAL 0)
     "hardware/pov_segment_map.h.\n"
     "Diff it against the regenerated golden: ${GENERATED}\n"
     "Regenerate with: cmake -E copy \"${GENERATED}\" \"${COMMITTED}\"\n"
-    "Then re-run the WASM install so the daydream checkout's copy travels with "
-    "the module, and commit both.")
+    "Commit the header and hardware/pov_segment_map.json, then re-run the WASM "
+    "install to refresh daydream's generated copy.")
 endif()
 
 message(STATUS "pov_segment_map pin: golden JSON matches the header")

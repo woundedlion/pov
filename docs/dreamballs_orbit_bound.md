@@ -29,9 +29,9 @@ The exact rational certificate below proves these conservative inequalities:
 | absolute `h = g·g'` | at most `0.005` |
 | absolute `k = g'·g' + g·g''` | at most `0.025` |
 
-Since `N² >= 0.996(1+r²)`, put `rho = r / sqrt(1+r²)`. Projection onto the
+For `r <= 1`, `N² >= 1 + 0.996 r² >= 0.998 (1+r²)`. Put `rho = r / sqrt(1+r²)`. Projection onto the
 plane perpendicular to `p` gives `|p'| <= r |g'| / N`, so
-`|p'| <= 1.02 rho / sqrt(0.996) < 1.025 rho`.
+`|p'| <= 1.02 rho / sqrt(0.998) < 1.025 rho`.
 
 Differentiating the normalization twice gives
 
@@ -46,8 +46,9 @@ Consequently,
          + r² |k|/N² + 3 r⁴ h²/N⁴.
 ```
 
-Set `a = r/N` and `A = a/rho`. For `r <= 1`, the preceding norm bound
-implies `A <= 1.002`, `a² <= 0.502`, and `a <= 0.708`. Dividing the four
+Set `a = r/N` and `A = a/rho`. The norm bound gives `A² <= 500/499` and
+`a² <= 250/499` for `r <= 1`, so `A <= 1.002`, `a² <= 0.502`, and
+`a <= 0.708`. Dividing the four
 terms by `rho` bounds their sum by
 
 ```text

@@ -1,17 +1,18 @@
 # PHANTASM revision 1.1 - routed project and technical reference
 
 This directory contains the routed rev 1.1 project. For the current rev 1.2
-Quilter upload and regeneration commands, see the [project index](../README.md).
+Quilter upload and regeneration commands, see the [rev 1.2 project](../1.2/README.md).
 Paths below are relative to this directory unless a command explicitly runs
 from the repository root.
 
 **Routed review candidate: rev 1.1 sync circuit.** Rev 1.2
 separates sync transmit from the filtered receive node; see
-[Revision 1.2](../README.md#revision-12). The routed candidate includes corrected drill
+[Revision 1.2](../1.2/README.md). The routed candidate includes corrected drill
 spacing, thermal reliefs, an 8 V TVS, and J2 pin order **DATA / GND / CLK**.
-Its cable pinout differs from the earlier DATA / CLK / GND board; repin the
-harness before using this candidate. These edited files are not a record of
-the previously ordered package; retain that package and its original digests.
+Earlier boards use DATA / CLK / GND. The repository has no pinout record
+for the exhibited boards. Before fitting a harness, disconnect power and
+check J2 pin 2 for continuity to board ground. Continuity identifies the
+DATA / GND / CLK pinout. Retain the ordered package and its original digests.
 
 KiCad 10 schematic for the per-segment carrier board specified in
 [../../../docs/specs/phantasm_pcb_spec.md](../../../docs/specs/phantasm_pcb_spec.md). One identical
@@ -237,7 +238,6 @@ the netlist is what's verified.
 | `R1/R2` | `Device:R` (10k/15k) | `Resistor_SMD:R_0603_1608Metric`, pads widened to 1.20 mm | sync divider; widened land (see the lands note below) |
 | `C_SYNC` | `Device:C` (220pF) | `C_0603` | populated (noise filter) |
 | `R_PD` | `Device:R` (10k) | `Resistor_SMD:R_0603_1608Metric`, pads widened to 1.20 mm | master-only bus idle pull-down, widened land; ground-side switched automatically by U1 channel D |
-| `R_TX` | `Device:R` (10k) | `Resistor_SMD:R_0603_1608Metric` | rev 1.2 SYNC_TX pull-down |
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
 | `D_BUS` | `Device:D_Zener` (Bourns CDSOD323-T08L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated unidirectional 8 V, 1 pF sync-bus TVS; pin 1/cathode on SYNC_BUS, pin 2/anode on GND; exact Bourns land pattern; silkscreen bar marks the cathode end; JLCPCB C1973344 |
 | `J1` | `Connector_Generic:Conn_01x02` | `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical` | +5 V/GND light logic feed, ~1 A; **unkeyed** 0.1″ header — R-PWR-7's keying is unmet on the shipped board (see the deviations note below) |
@@ -443,7 +443,7 @@ dimension within that width. Narrowing the width lengthens the board (less room 
 pack beside the Teensy). The committed routed dimensions are reported in the generated
 facts block above.
 
-Rev 1.2 hardware and firmware requirements are in the [current revision notes](../README.md#revision-12).
+Rev 1.2 hardware and firmware requirements are in the [current revision notes](../1.2/README.md).
 
 ## Regenerating
 

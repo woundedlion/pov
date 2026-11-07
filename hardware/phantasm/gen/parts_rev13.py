@@ -1,4 +1,4 @@
-"""Manufacturer selections for the rev 1.3 differential interface."""
+"""Manufacturer selections applied to rev 1.3 schematic symbols, by reference."""
 
 
 def part(manufacturer, mpn, datasheet):

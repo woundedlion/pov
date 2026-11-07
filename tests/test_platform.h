@@ -307,8 +307,9 @@ inline void test_stdout_formatting() {
 }
 
 /**
- * @brief Verifies failing expects are counted, past the print cap included,
- *        and that an assertion-free module fails.
+ * @brief Checks harness failure counts, including after the print cap.
+ * @details Covers empty modules, context push/pop and output, approved skips,
+ * size-check early return, and NaN, infinity and null expectations.
  */
 inline void test_harness_counts_failures() {
   const Stats saved = stats();

@@ -956,8 +956,8 @@ inline void test_for_each_empty_and_const() {
 }
 
 /**
- * @brief Verifies is_linear tracks head, the precondition for reading the
- *        backing slots in array order.
+ * @brief Checks linearity and slot order through head shifts, clear, and
+ * repopulation after popping to empty.
  * @details Only an eviction or a pop_front advances head; a push_front wraps it
  *          to the array end. clear() re-bases head to 0.
  */

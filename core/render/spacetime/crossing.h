@@ -70,16 +70,16 @@ HS_HOT_INLINE void crossings(int width, float x0, float x1, float t0, float t1,
  * @tparam Emit Callable `(const Crossing &)`.
  * @param x0,x1 Unwrapped columns at fractions @p t0 and @p t1.
  * @param t0,t1 Frame fractions the track spans, `t0 < t1`.
- * @param frame_start Whether @p t0 starts the frame: a pass whose column
- *        lies within @p reach columns before the frame's first is emitted at
- *        @p t0.
- * @param frame_end Whether @p t1 ends the frame: a pass whose column lies
- *        within @p reach columns after the frame's last is emitted at @p t1.
- *        Otherwise a pass at @p t1 belongs to the following span.
+ * @param frame_start Emits at @p t0 a pass within @p reach columns before
+ *        the span's first column. True at the frame start or when the caller
+ *        confines each pass to the span's columns.
+ * @param frame_end Emits at @p t1 a pass within @p reach columns after the
+ *        span's last column. True at the frame end or when the caller confines
+ *        each pass to the span's columns. Otherwise a pass at @p t1 belongs
+ *        to the following span.
  * @param emit Receives each pass: none, one, or two on either side of an arm
  *        cut.
- * @param reach Columns beyond the frame's ends whose passes are emitted at
- *        them.
+ * @param reach Extra columns whose passes can be emitted at the span ends.
  * @details Arm `n` lights unwrapped column `W / 2 * (n + t)` at fraction `t`,
  * so with `s = (t - t0) / (t1 - t0)` the pass is
  * `s = (x0 - (n + t0) W / 2) / ((t1 - t0) W / 2 - (x1 - x0))`, one division
@@ -124,8 +124,9 @@ HS_HOT_INLINE void piecewise_crossings(const float *columns, int knots,
  * @param velocity Frame-end minus frame-start column.
  * @param curve Coefficient of t(t-1).
  * @param arm_start Unwrapped first column of the arm pass.
- * @return The crossing fraction; the trajectory stays inside this arm and
- * its column velocity stays below W/2 throughout the frame. */
+ * @pre The trajectory stays inside this arm and its column velocity stays
+ * below W/2 throughout the frame.
+ * @return The crossing fraction. */
 template <int W>
 HS_HOT_INLINE float quadratic_screen_time(float origin, float velocity,
                                           float curve, float arm_start) {

@@ -1323,7 +1323,7 @@ template <typename State> struct MirrorTile : PrepareFromState<State> {
  * @brief PolarChart warp policy.
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), phase(frame) accessors.
- * @tparam PolarMode Radial, angular or combined polar mapping.
+ * @tparam PolarMode LinearPolar or LogarithmicPolar radius mapping.
  * @tparam Harmonic Positive angular harmonic.
  */
 template <typename State, typename PolarMode, uint8_t Harmonic>

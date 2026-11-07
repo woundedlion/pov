@@ -19,7 +19,8 @@ Column views retain one mask when both RGB rows share it; distinct masks
 remain independently guarded. These changes remove duplicate work while
 preserving cell classification, canonical-base restoration and allocation
 sizes. Accuracy remains the selected contract. Final integrated checks and stock
-peak/spill measurements are recorded below; canonical CI remains required.
+peak and spill measurements appear below. Canonical CI passed on `de2fed2a5`,
+a descendant of the landed implementation `0ae65ab2b`.
 
 Palette-cache views borrow their canonical endpoint palettes as well as Lab
 and RGB rows and gamut masks. Sampling must finish before those resources
@@ -94,8 +95,8 @@ not a perceptual color-distance metric. High-chroma custom states are included.
 
 ## Final integrated stock comparisons
 
-The qualified snapshot `492885884` includes the retained-view optimization.
-Its control is the current pre-color renderer `8dca144c6`. Each stock preset-0
+The pre-landing snapshot `492885884` includes the retained-view optimization
+that landed as `0ae65ab2b`. Its control is the pre-color renderer `8dca144c6`. Each stock preset-0
 pair uses the same board, flags, 70-second duration and 32-frame windows. All
 six canonical validators pass. Frame 1 is setup; every subsequent captured
 frame is retained in the live statistics.
@@ -201,7 +202,7 @@ unchanged. Capture artifacts retain the exact source diffs and ELF hashes.
 The restoration-removal negative companion fails two assertions. Focused Release
 WASM draw peaks are 432/812/432 bytes for AlienBrain/AshCloud/JewelMelt at both
 supported resolutions over 120 frames each; initialization peaks at 1120 bytes.
-All stay below the unchanged 2048-byte budget. Canonical CI remains required.
+All stay below the unchanged 2048-byte budget. Canonical CI passed on `de2fed2a5`.
 
 ## Rejected mixed-cell admission screens
 
@@ -258,7 +259,7 @@ has 1112 bytes below the 196608-byte, six-bank ITCM ceiling. All 46 native
 footprint rows pass with unchanged optimized allocation sizes. The accurate
 control's smallest native margin is 45986 bytes. Its focused Release WASM
 draw peaks for AlienBrain/AshCloud/JewelMelt are 464/964/464 bytes; initialization
-peaks at 1120 bytes, below 2048. These are source-specific results. The final integrated study above records current memory, smoke, stack and
+peaks at 1120 bytes, below 2048. These are source-specific results. The final integrated study above records memory, smoke, stack and
 device results; canonical CI supplies the remaining math-mode matrix. Isolated
 deltas cannot establish merged headroom or performance.
 
@@ -270,9 +271,9 @@ Windows Clang 23 exact-node probes retain a separate known limitation:
 `test_palette_rgb_cache_matches_hue_rotation_table` has three one-code equality
 failures at `-O2` and seven at `-Os`, with fast-math and finite-math-only disabled.
 The same failures reproduce in the original pre-review `0ba616d4fe71` and
-current pre-fix source. The accurate and optimized `-Os` controls add none.
-Assertions and tolerances remain unchanged. These controls do not establish
-the result of canonical Linux Clang 22 fast-math CI, which remains required.
+pre-fix source `503de9323`. The accurate and optimized `-Os` controls add none.
+Assertions and tolerances remain unchanged. The canonical Linux Clang 22
+fast-math CI run passed separately on `de2fed2a5`.
 
 HankinSolids and IslamicStars do not call the affected hue-table or cached-RGB
 palette paths in the tested full sequences. Native counters observe zero
@@ -282,7 +283,7 @@ and 3760 RGB-cache samples. Actual target full-cycle captures independently
 show no composed prepare/bake/draw scope calls, while their own timeline scopes
 execute for all 3648 Hankin and 3328 Islamic frames. This does not exclude
 indirect costs from global code placement, caches or memory. The final merged
-peak/spill comparisons above cover AlienBrain, JewelMelt and AshCloud; no additional Hankin/Islamic capture is scheduled for this change.
+peak/spill comparisons above cover AlienBrain, JewelMelt and AshCloud.
 
 [Machine-readable qualification and artifact hashes](hue_lut_qualification.json)
 preserve each study's source and capture provenance. Profile clock annotation

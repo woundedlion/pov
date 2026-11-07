@@ -202,6 +202,10 @@ static_assert(std::is_nothrow_move_constructible_v<BakedPaletteStorage>);
 static_assert(std::is_trivially_destructible_v<BakedPaletteStorage>);
 static_assert(sizeof(BakedPaletteStorage) == 2 * sizeof(void *));
 
+/** @brief
+ * Views observe rebakes after an ownership move, while a clone stays
+ * independent.
+ */
 inline void test_baked_palette_storage_and_views() {
   alignas(std::max_align_t)
       uint8_t buffer[3 * BakedPalette::required_arena_bytes()];
@@ -357,6 +361,7 @@ __attribute__((noinline)) inline float palette_sample_coord(int i) {
   return static_cast<float>(i) / 65535.0f;
 }
 
+/** @brief Split color and alpha samplers agree with the combined sample. */
 inline void test_baked_palette_samplers_match_get() {
   struct Source {
     Color4 get(float t) const {
@@ -680,6 +685,9 @@ inline int expect_baked_near(const BakedPalette &a, const BakedPalette &b,
   return worst;
 }
 
+/** @brief
+ * In-place crossfades match both endpoints and a fresh intermediate bake.
+ */
 inline void test_baked_palette_rebake_crossfade() {
   Gradient ramp{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
   Gradient warm{{0.0f, CPixel(200u, 40u, 10u)}, {1.0f, CPixel(20u, 80u, 220u)}};

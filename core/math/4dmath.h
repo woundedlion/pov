@@ -23,6 +23,8 @@ inline constexpr int VEC4_DIMENSIONS = 4;
 struct Vec4 {
   float v[VEC4_DIMENSIONS]{}; ///< Components x, y, z, w.
 
+  /** @brief Compares components exactly.
+   * @return True when all corresponding components are equal. NaNs compare unequal. */
   bool operator==(const Vec4 &) const = default;
 
   /**

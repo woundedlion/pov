@@ -48,7 +48,7 @@ public:
                 "interned pair indices are uint8_t; every index below "
                 "MAX_BLEND_PAIRS must fit in it");
 
-  /** Leg kind, dispatched once at construction by the chosen constructor. */
+  /** Leg kind selected by the constructor. */
   enum class LegKind : uint8_t {
     CONWAY_SWEEP,
     HANKIN_SWEEP,

@@ -12,8 +12,8 @@
 
 /** @brief Authored controls accompanying an explicit typed stage pipeline.
  * @details Derived specs supply `template <typename B> using Pipeline`.
- * Stage topology is exposed by `MetadataFor`. Proven performance paths are on
- * by default; an effect sets one false only for a constraint it names. */
+ * `MetadataFor` exposes the stage topology. Optimizations restricted to
+ * specific pipeline shapes and `RIPPLE_RADIAL_TABLE` are opt-in. */
 struct Spec {
   static constexpr bool AUTHORED_TOPOLOGY =
       false; ///< Uses canonical authored node identities.

@@ -12,8 +12,7 @@
 
 /**
  * @file clip.h
- * @brief ClipRegion: the segment clip rectangle plus its cylindrical
- * render-band topology (wrap, containment, arc overlap).
+ * @brief Render admission by cylindrical segment band and half-turn column window.
  */
 
 namespace Spacetime {

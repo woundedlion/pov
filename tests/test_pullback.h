@@ -1897,7 +1897,8 @@ struct FieldSnapParams {
 };
 
 /**
- * @brief Pins the periodic field curves against the linear one.
+ * @brief Pins periodic and linear field curves, unregistered field snapping,
+ * and field validation.
  * @details A turns-valued field takes the short arc over a unit period, a
  *          radian-valued one over 2*pi; both wrap where a lerp would sweep
  *          the long way round.

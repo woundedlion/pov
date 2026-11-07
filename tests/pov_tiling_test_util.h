@@ -12,7 +12,7 @@
 
 namespace hs_test {
 
-/** @brief Requires exactly one write per row in each sampled arm column. */
+/** @brief Requires one write per row in the two arm columns and none elsewhere. */
 inline void check_arm_column_coverage(const std::vector<int> &cover, int width,
                                       int rows, int column_a, int column_b) {
   HS_EXPECT_SIZE_OR_RETURN(cover, static_cast<size_t>(width) * rows);

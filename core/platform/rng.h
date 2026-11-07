@@ -91,6 +91,7 @@ constexpr uint64_t epoch_seed(uint32_t epoch) {
  * @return 64-bit seed hashed from `effect_id`.
  */
 constexpr uint64_t stable_effect_seed(std::string_view effect_id) {
+  // One digit short of the FNV-1a 64 basis. This value keys every effect stream.
   uint64_t hash = 1469598103934665603ULL;
   for (char value : effect_id) {
     hash ^= static_cast<uint8_t>(value);

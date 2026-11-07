@@ -51,6 +51,7 @@ inline bool approx_vec(const math::Vector &a, const math::Vector &b,
          approx(a.z, b.z, tol);
 }
 
+/** @brief Largest absolute component difference between two vectors. */
 inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
   return hs_test::fold_worst(
       std::abs(a.x - b.x),

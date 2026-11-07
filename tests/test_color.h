@@ -44,6 +44,9 @@ namespace color_tests {
 #include "tests/color/modulation.h"
 #include "tests/pattern/sphere_lut.h"
 
+/** @brief
+ * Large positive and negative angles match the remainder-based signed wrap.
+ */
 inline void test_wrap_angle_pi_large_arguments() {
   for (float angle : {25700.0f, -25700.0f, 1000.0f * math::TWO_PI_F + 0.25f}) {
     const float wrapped = wrap_angle_pi(angle);
@@ -70,6 +73,9 @@ inline void test_wrap_angle_pi_half_turn_keeps_sign() {
   HS_EXPECT_TRUE(past_minus_pi > 0.0f && past_minus_pi <= math::PI_F);
 }
 
+/** @brief
+ * Finite bounds match the built-in min/max backend for NaN and infinities.
+ */
 inline void test_clamp_finite_bounds_backend_parity() {
   for (float lo : {-2.0f, 0.0f, 0.5f})
     for (float hi : {1.0f, 2.0f})
@@ -91,6 +97,10 @@ inline void test_clamp_finite_bounds_backend_parity() {
   X(test_hue_rotation_lut_clamps_out_of_range_value)                           \
   X(test_generative_palette_get_nan_saturates_to_endpoint)
 
+/** @brief
+ * Paired LMS transforms exactly match scalar results, including the LUT
+ * variant.
+ */
 inline void test_lms_transform_pair_matches_scalar() {
   const float matrices[][9] = {
       {1, 0, 0, 0, 1, 0, 0, 0, 1},

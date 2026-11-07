@@ -664,7 +664,15 @@ private:
         palette);
   }
 
-  /** @brief Draws the continuous radial star family at each column time. */
+  /** @brief Draws the continuous radial star family.
+   * @tparam COUNT Whether to collect coverage statistics.
+   * @tparam MASK Whether to use a conservative candidate mask.
+   * @param canvas Destination canvas.
+   * @param palette Bound contour palette.
+   * @param timed Whether to evaluate geometry at each column time.
+   * @param stats Optional coverage counters.
+   * @param row_displacement Vertical scan offset in rows.
+   */
   template <bool COUNT = false, bool MASK = true>
   HS_HOT_FLASH_MEMBER void
   draw_surface_all(Canvas &canvas, const BakedPalette &palette, bool timed,

@@ -21,6 +21,7 @@ inline float parameter_probe_target(const ParamDef &def, float current) {
              : def.min + 0.75f * (def.max - def.min);
 }
 
+/** @brief Registered probe targets expose their expected parameters. */
 inline void test_parameter_probe_targets() {
   static constexpr const int64_t IDS[] = {0, 1, 6};
   ParamDef sparse;
@@ -50,6 +51,7 @@ inline void test_parameter_probe_targets() {
   HS_EXPECT_EQ(parameter_probe_target(slider, 1.0f), -2.0f);
 }
 
+/** @brief Float-backed dropdowns report values outside their option sets. */
 inline void test_float_dropdown_lint() {
   class DropdownEffect : public Effect {
   public:

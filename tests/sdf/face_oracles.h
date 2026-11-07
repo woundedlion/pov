@@ -464,6 +464,7 @@ inline void test_face_tied_rows_match_oracle() {
   HS_EXPECT_LT(stats.max_error, 1e-5);
 }
 
+/** @brief Records covered face pixels and checks each offered coordinate. */
 template <int W, int H> struct FaceOraclePipeline {
   std::vector<bool> covered = std::vector<bool>(W * H);
   void plot_in_bounds(Canvas &, int x, int y, const Pixel &, uint16_t, float) {

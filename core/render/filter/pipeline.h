@@ -89,6 +89,9 @@ template <int H> __attribute__((always_inline)) inline int round_row(float y) {
  * `world_transform_is_identity`: world points pass unmoved (masking or
  * recoloring allowed), so the clip cull may use source geometry; a moving world
  * stage must define `cull_edge` or set `crosses_segments`.
+ * `rigid_world_transform`: preserves geodesics without per-sample color or
+ * alpha changes, so the transform can run at edge controls.
+ * `has_temporal_motion`: the world transform varies within a frame.
  */
 template <bool Is2d, bool HasHistory> struct FilterTraits {
   static constexpr int domain_rank =
@@ -326,7 +329,7 @@ public:
    * @param age Age register.
    * @param alpha Source opacity.
    * @param t Frame fraction.
-   * @return Projected column. */
+   * @return Projected column, or NaN when a world stage drops the sample. */
   float plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
                 float alpha, float t) {
     return pipeline().plot_at_prepared(cv, v, c, age, alpha, t);
@@ -1051,7 +1054,7 @@ struct Pipeline<W, H, Head, Tail...>
    * @param v Source point.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @return Projected column. */
+   * @return Projected column, or NaN when a world stage drops the sample. */
   HS_HOT_INLINE float plot_at(Canvas &cv, const math::Vector &v,
                               const ::Pixel &c, float age, float alpha, float t)
     requires(!terminal_replaces)
@@ -1109,7 +1112,7 @@ private:
    * @param age Age register.
    * @param alpha Source opacity.
    * @param t Frame fraction.
-   * @return Projected column. */
+   * @return Projected column, or NaN when a world stage drops the sample. */
   HS_HOT_INLINE float plot_at_prepared(Canvas &cv, const math::Vector &v,
                                        const ::Pixel &c, float age, float alpha,
                                        float t) {

@@ -983,7 +983,7 @@ inline void test_arenaspan_from_vector() {
 }
 
 #ifndef NDEBUG
-/** @brief Both allocation growth and capacity reuse invalidate existing spans. */
+/** @brief Growth, reuse and clear invalidate spans. Clearing unbound storage is safe. */
 inline void test_arenaspan_source_rebind_generation() {
   Arena arena(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> source(arena, 4);
@@ -1228,7 +1228,8 @@ inline void test_persist_compaction_relocates_survivor() {
 alignas(std::max_align_t) inline uint8_t gen_target_buf[8 * 1024];
 
 /**
- * @brief Verifies the full generate() contract in one pass.
+ * @brief Forwards arenas, arguments and results, begins with empty scratch,
+ * restores scratch offsets and retains target allocations.
  */
 inline void test_generate_lifecycle_and_forwarding() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));

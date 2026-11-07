@@ -164,6 +164,10 @@ inline void test_periodic_distance() {
   HS_EXPECT_NEAR(HL::periodic_distance(3.5f), 0.5f, 1e-6f);
 }
 
+/**
+ * @brief Cubic and bounded 4D metrics report the expected clearance and free
+ * axis.
+ */
 inline void test_edge_metrics() {
   const math::Vec4 origin{{0.0f, 0.0f, 0.0f, 0.0f}};
   const math::Vec4 direction{{0.0f, 0.02f, 0.4f, 0.1f}};
@@ -322,6 +326,7 @@ inline void test_near_field_fade() {
   HS_EXPECT_EQ(surface.appearance.opacity(0.0f), 0.0f);
 }
 
+/** @brief The final shell layer fades linearly to zero at the horizon. */
 inline void test_far_shell_fade() {
   HS_EXPECT_EQ(HL::shell_horizon_coverage(0, 2, 0.75f, 1.0f), 1.0f);
   HS_EXPECT_EQ(HL::shell_horizon_coverage(1, 2, 1.0f, 1.0f), 1.0f);
@@ -476,6 +481,10 @@ inline void test_layer_composite_reveals_background() {
   HS_EXPECT_EQ(result.color.b, 0);
 }
 
+/**
+ * @brief Cell size scales hit distance, and the surface origin advances the
+ * ray.
+ */
 inline void test_surface_origin_parallax() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset(0).params;
@@ -499,6 +508,10 @@ inline void test_surface_origin_parallax() {
   HS_EXPECT_NEAR(surfaced.distance, 0.35f, 1e-6f);
 }
 
+/**
+ * @brief A rotated slice reaches the expected hyperplane distance and free
+ * axis.
+ */
 inline void test_hyperplane_event() {
   HL::FrameState frame{};
   frame.params =
@@ -1916,6 +1929,10 @@ inline void test_regular_patterns() {
   HS_EXPECT_STREQ(pattern->export_options[2], "Pattern::SHELLS");
 }
 
+/**
+ * @brief The speed ceiling is accepted and a higher restored speed is
+ * rejected.
+ */
 inline void test_speed_range() {
   using Effect = HyperLatticeWhiteBox::Effect;
   reset_globals();

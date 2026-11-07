@@ -350,6 +350,7 @@ private:
         math::make_basis(math::Quaternion(), ring_vec);
     const auto local_frame = Plot::ring_frame(local_basis, params.radius);
     auto vertex = [&](size_t i, float t) {
+      // ring_fn has period 1/2 in t, so antipodal vertices share a shift.
       const float coordinate = float(i % (W / 2)) / W;
       auto distortion = [&] {
         if (t == 1.0f)

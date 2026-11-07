@@ -28,7 +28,7 @@
 #   HS_PIO_JOBS=<n>         `pio run -j` for the builds (tools/fw_cache.sh)
 #   HS_PROFILE_TREE=<path>  checkout to build (default: the one holding this script)
 #   HS_PROFILE_OUT=<path>   capture log path; all per-run artifacts share its stem
-#   HS_PROFILE_ARTIFACTS_KEEP=<n> retain this capture and the newest artifact directories (100)
+#   HS_PROFILE_ARTIFACTS_KEEP=<n> artifact directories kept, including this capture's (100)
 #   HS_PROFILE_EXPECT_SHAPE=<name> require "Spawning Shape: <name>" in the capture
 #                           (used by profile_islamic_big.sh for IslamicStars)
 #   HS_PROFILE_MINDSPLATTER=counts|stalls  MindSplatter instrumentation image with

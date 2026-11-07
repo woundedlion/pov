@@ -80,7 +80,7 @@ struct RippleWave {
 };
 /** @brief Ripple burst scheduler state. */
 struct RippleState {
-  float phase = 0;          ///< Fraction of the interval until the next burst.
+  float phase = 0;          ///< Elapsed burst interval fraction. Fires at 1.
   uint32_t seed = 0;        ///< Instance seed for burst origins.
   uint32_t burst_count = 0; ///< Bursts launched.
   uint32_t frames = 0;      ///< Frames advanced.

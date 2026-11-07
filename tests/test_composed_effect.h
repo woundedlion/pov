@@ -1141,6 +1141,10 @@ inline void check_preset_interpolation(const char *name) {
 #include "tests/composed_effect/authored_palette.h"
 #include "tests/composed_effect/parameter_schema.h"
 
+/** @brief
+ * KaleidoscopeFlowers mirror coordinates meet at the longitude seam across
+ * presets and phases.
+ */
 inline void test_flowers_longitude_seam() {
   using FX = KaleidoscopeFlowers<SMALL_W, SMALL_H>;
   for (size_t preset = 0; preset < FX::PRESET_IDS.size(); ++preset) {
@@ -1184,6 +1188,10 @@ inline void test_alien_brain_preset_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t(1));
 }
 
+/** @brief
+ * Möbius lens angle advances at constant magnitude, pauses, and preserves
+ * authored values.
+ */
 inline void test_mobius_grid_circular_animation() {
   using FX = MobiusGrid<SMALL_W, SMALL_H>;
   reset_globals();

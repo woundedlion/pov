@@ -74,6 +74,7 @@ inline void test_face_bounds_use_virtual_height() {
   HS_EXPECT_GT(static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b, 0U);
 }
 
+/** @brief The face clips virtual south rows while retaining physical rows. */
 inline void test_face_rejects_only_the_virtual_south_rows() {
   const auto point = [](float row, float theta) {
     const float phi = row * math::PI_F / (H + hs::H_OFFSET - 1);

@@ -8,9 +8,9 @@
  * @file animation.h
  * @brief Animation umbrella header: the IAnimation interface, the AnimationBase
  * CRTP base, and the fragment includes.
- * @details Non-finite input rule: a constructor argument traps (HS_CHECK). A
- * value re-read from a live source each frame, or written through a
- * live-tunable setter, is ignored on non-finite and the last good value kept.
+ * @details Non-finite constructor arguments trap via HS_CHECK, except a
+ * non-finite noise clock seed starts at zero. A non-finite live input or
+ * setter value leaves the last good value in place.
  */
 
 #include "core/animation/orientation.h"

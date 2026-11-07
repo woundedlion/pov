@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
-
 // Transformers death cases.
 
 /**
@@ -101,7 +99,6 @@ inline void case_transformer_pool_arena_reclaimed() {
   (void)p;
 }
 
-/** @brief Traps on transformer pinned owner order. */
 inline void case_transformer_pinned_owner_order() {
   configure_arenas_default();
   Timeline timeline;

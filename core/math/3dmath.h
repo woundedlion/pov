@@ -652,10 +652,9 @@ HS_O3_FN inline float fast_cbrt(float x) {
  * @param o1 Cube root of `x1`.
  * @param o2 Cube root of `x2`.
  * @param o3 Cube root of `x3`.
- * @details fast_cbrt's seed and Halley step through one shared reciprocal;
- * accuracy matches fast_cbrt. Results overflow once all three inputs exceed
- * ~1.3e11, and the shared reciprocal degrades below ~3e-13 and then goes
- * infinite (result NaN).
+ * @details Uses fast_cbrt's seed and Halley step. The shared denominator
+ * product can overflow or underflow, including for unequal inputs. For equal
+ * inputs, overflow begins near 1.3e11 and accuracy degrades below about 3e-13.
  */
 HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
                                 float &o2, float &o3) {
@@ -673,10 +672,9 @@ HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
  * @brief Fast cube roots of six values sharing a single division.
  * @param x Six inputs; same domain as fast_cbrt (x <= 0 yields 0).
  * @param o Six outputs, the cube roots of the corresponding inputs.
- * @details fast_cbrt's seed and Halley step through one shared reciprocal;
- * accuracy matches fast_cbrt. Results overflow once all six inputs exceed
- * ~4.2e5, and go Inf/NaN when all six inputs are tiny enough for the
- * denominator product to underflow.
+ * @details Uses fast_cbrt's seed and Halley step. The shared denominator
+ * product can overflow or underflow, including for unequal inputs. For equal
+ * inputs, overflow begins near 4.2e5.
  */
 HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
   float n[6], d[6];

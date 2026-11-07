@@ -44,7 +44,7 @@ using LatticeMode = SDF::Lattice::Domain;         ///< 3D or 4D-slice view.
 using ShellCount = SDF::Lattice::ShellCount;
 /// Lattice geometry; values are persisted.
 enum class Pattern : uint8_t { CUBIC_WIRE = 0, OCTET = 1, SHELLS = 6 };
-/// Supported pattern and view pairs; values are persisted.
+/// Supported pattern and view pairs.
 enum class ConfigurationId : uint8_t {
   CUBIC_3D = 0,
   CUBIC_4D = 1,
@@ -715,7 +715,7 @@ public:
 
   /** @brief A supported pattern and view pair. */
   struct Configuration {
-    ConfigurationId id; ///< Persisted identity.
+    ConfigurationId id; ///< Configuration identity.
     Pattern pattern;    ///< Lattice geometry.
     LatticeMode domain; ///< 3D or 4D-slice view.
   };
@@ -785,6 +785,7 @@ public:
             value.shells == ShellCount::THREE);
   }
 
+  /// Constructs the effect with the POV column strobe enabled.
   HS_FLASH_MEMBER HyperLattice() : Choreography(W, H, {.strobe = true}) {}
 
   /// Parameter descriptors `init` registers, including the GUI bridge's.

@@ -50,6 +50,9 @@ inline void test_pipeline_sink_2d_plot_writes_wraps_clips() {
   HS_EXPECT_PIXEL(fx2.get_pixel(8, 3), 0, 500, 0);
 }
 
+/** @brief
+ * Pipeline composition applies opacity and stages in the expected order.
+ */
 inline void test_pipeline_composition_alpha_and_draw_order() {
   constexpr int W = 16, H = 8;
   for (bool reverse : {false, true}) {
@@ -251,6 +254,9 @@ render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
   return frame;
 }
 
+/** @brief
+ * The direct antialias sink honors the current clip after a clip change.
+ */
 inline void test_direct_antialias_sink_stale_clip() {
   constexpr int W = 17, H = 9;
   hs_test::StubEffect fx(W, H);

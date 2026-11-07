@@ -272,7 +272,7 @@ inline void test_pullback_palette_lab_owned_copy() {
   check.template operator()<256>();
 }
 
-/** @brief Cached neutral adjustments materialize their base with exact alpha. */
+/** @brief Cached neutral adjustments preserve alpha and endpoint blends keep the cached Lab. */
 inline void test_pullback_cached_lab_finish() {
   using namespace Pullback;
   ColorSample sample{Color4(Pixel(0, 0, 0), 0.37f),
@@ -982,7 +982,7 @@ inline void test_pullback_temporal_palette() {
   }
 }
 
-/** @brief Opacity modulates each endpoint before final color interpolation. */
+/** @brief Opacity modulates each endpoint before interpolation, and midpoint lightness lifts. */
 inline void test_pullback_modulation_temporal_alpha() {
   using namespace Pullback;
   const Pixel RGB(1234, 4567, 8910);

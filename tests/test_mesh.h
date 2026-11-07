@@ -473,6 +473,7 @@ inline void test_classify_faces_cube_uniform_topology() {
     HS_EXPECT_EQ(cube.topology[i], 0);
 }
 
+/** @brief An empty mesh clears the prior topology key and emits no classes. */
 inline void test_classify_faces_empty_mesh_clears_topology_key() {
   Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
   Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
@@ -487,6 +488,9 @@ inline void test_classify_faces_empty_mesh_clears_topology_key() {
   HS_EXPECT_EQ(mesh.topology_key, 0u);
 }
 
+/**
+ * @brief Zero-sided faces share class zero and a nonempty classification key.
+ */
 inline void test_classify_faces_zero_sided_faces_share_class() {
   Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
   Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);

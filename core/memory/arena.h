@@ -562,6 +562,8 @@ HS_FLASH_INLINE inline void reset_persistent_arena() {
  * @param persistent Bytes to assign to the persistent arena.
  * @param scratch_a Bytes to assign to scratch arena A.
  * @param scratch_b Bytes to assign to scratch arena B.
+ * @details Runs the ArenaResetHook list before discarding all three arenas.
+ * Traps if the aligned split exceeds GLOBAL_ARENA_SIZE.
  */
 FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
                                size_t scratch_b);
@@ -613,13 +615,14 @@ struct ArenaSplit {
 FLASHMEM void configure_arenas_default();
 
 /**
- * @brief Re-partitions the arenas mid-run WITHOUT disturbing persistent content.
- * @param persistent New persistent capacity; must be >= its current live offset.
+ * @brief Repartitions the arenas mid-run while preserving persistent content.
+ * @param persistent New persistent capacity, at least the current live offset.
  * @param scratch_a New scratch-A capacity.
  * @param scratch_b New scratch-B capacity.
- * @details Unlike configure_arenas(), the persistent arena keeps its base,
- * offset, live content, and generation; only its capacity boundary moves. Both
- * scratch arenas MUST be empty; they rebind to fresh bases.
+ * @details The persistent arena keeps its base, offset, content and generation.
+ * Its windowed high-water restarts at the live offset. Both scratch arenas
+ * must be empty before rebinding. Traps if the aligned split exceeds
+ * GLOBAL_ARENA_SIZE.
  */
 FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
                              size_t scratch_b);

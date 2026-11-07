@@ -26,7 +26,8 @@
 /**
  * @brief The Scan namespace contains area-filling scanline drawing primitives.
  * @details Template entry points deduce the concrete sink type. Explicit
- * PipelineRef parameters erase the sink; template defaults do not erase it.
+ * ScanRef or PipelineRef parameters erase the sink. Column-time scans use
+ * ScanRef when erasing the sink.
  */
 namespace Scan {
 
@@ -691,7 +692,7 @@ prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
- * @tparam PipelineT Plotting pipeline type (deduced; pass PipelineRef to erase the sink).
+ * @tparam PipelineT Plotting pipeline type. Pass Scan::ScanRef to erase the sink.
  * @tparam Probe Prepared distance evaluator.
  * @tparam ShaderFn Erased shader form: FragmentShaderRef, or ColumnShader,
  *         whose time-aware form runs once per offered column at that

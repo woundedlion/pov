@@ -4,7 +4,7 @@
  */
 // Scalar cube storage and source-reference tests.
 
-/** @brief Compares paired cube-face bakes with independent scalar face walks. */
+/** @brief Compares cube bakes with direct noise over the same face directions. */
 inline void test_sphere_bakes_match_reference() {
   static std::array<int8_t, Pattern::SphereLutView::SIZE> actual, reference;
 #if defined(HS_TEST_FAST_MATH)

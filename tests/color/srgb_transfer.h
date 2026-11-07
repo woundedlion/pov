@@ -15,7 +15,7 @@ inline void test_srgb_to_linear_endpoints() {
   HS_EXPECT_EQ(srgb_to_linear(255), 65535);
 }
 
-// The split-decode must reproduce linear_to_srgb_lut for every input.
+/** @brief Split-table encoding matches the full LUT for every linear input. */
 inline void test_linear_to_srgb8_decode_matches_lut() {
   long mismatches = 0;
   for (int v = 0; v <= 65535; ++v)

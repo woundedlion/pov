@@ -166,9 +166,10 @@ protected:
   virtual void parameter_written() {}
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Returns false to reject a write; called before anything is
-      stored.
-   * @return False to reject the write.
+  /** @brief Checks whether a parameter value is admissible.
+   * @details Called before the store in updateParameter() and with the final
+   * stored values during replay_parameter_writes().
+   * @return False to reject the value.
    */
   virtual bool parameter_write_admitted(const ParamDef &, float) {
     return true;

@@ -51,7 +51,10 @@ include directory; generated build headers use their build directory.
 `effects/`, `targets/`, `workbench/`, `hardware/`, `tests/` and `tools/`;
 `hardware/` excludes `effects/`, `targets/`, `workbench/` and `tests/`;
 `effects/` excludes `targets/`, `workbench/`, `hardware/` and `tests/`;
-`workbench/` excludes `effects/` and `targets/`. Vendored core code and
+`workbench/` excludes `effects/` and `targets/`. `core/pattern/` excludes
+`core/color/`, `core/render/`, `core/control/` and `core/animation/`.
+`FORBIDDEN_PREFIXES` in `tools/include_paths.py` also defines file-specific
+layers for pattern and color modulation headers. Vendored core code and
 `core/engine/effects_legacy.h` are exempt from direction checks. The first-party
 `core/vendor/FastNoiseLite_config.h` follows the `core/` direction rules.
 The profiling headers `tools/pc_sampler.h`, `tools/profile_isr_window.h` and
@@ -143,12 +146,14 @@ protected branch's `CI green` status is the authoritative correctness gate.
   the behavior being tested. Exercise that mutation when practical, restore the
   production code, and record the mutation and observed result in the change's
   validation notes. A test that stays green needs a stronger assertion.
-- **Native suite:** `cmake --preset tests && cmake --build --preset tests`,
+- **Native suite.** `just test` sets CI's `HS_SMOKE_FRAMES=120`,
+  `HS_SKIPS_ARE_ERRORS=1` and `HS_BUFFER_FREE_WATCHDOG_US=30000000`.
+  Set `HS_EFFECTS_FULL=1` to run the full-resolution leg locally. For a
+  targeted run with the defaults, use
+  `cmake --preset tests && cmake --build --preset tests`,
   `cmake --build --preset tests --target excluded_targets`, then
-  `ctest --preset tests --output-on-failure --no-tests=error`. Every CI leg
-  drives `HS_SMOKE_FRAMES=120`; at the 8-frame default no preset transition
-  arms. Set `HS_EFFECTS_FULL=1` to reproduce the full-resolution leg (also run on pull requests)
-  locally.
+  `ctest --preset tests`. The 8-frame smoke default runs too briefly for a
+  preset transition to arm.
 - **Render goldens:** Native golden cases compare per-channel totals and
   brightness-weighted row/column centroids on every floating-point mode. The
   recording environment additionally requires exact hashes. Strict and fast

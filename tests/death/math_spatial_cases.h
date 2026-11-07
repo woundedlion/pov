@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
-
 // Math spatial death cases.
 
 /** @brief Harmonic derivatives reject unsupported degrees. */
@@ -408,19 +406,16 @@ inline void case_spherical_field_infill_over_domain() {
   (void)layout.sample_count();
 }
 
-/** @brief Traps on latitude geometry degenerate height. */
 inline void case_latitude_geometry_degenerate_height() {
   math::LatitudeGeometry geometry(opaque(1), 0.1f, 3.0f);
   (void)geometry.row_to_phi(0);
 }
 
-/** @brief Traps on latitude geometry reversed span. */
 inline void case_latitude_geometry_reversed_span() {
   math::LatitudeGeometry geometry(16, opaque(2.0f), 1.0f);
   (void)geometry.row_to_phi(0);
 }
 
-/** @brief Traps on peirce invalid layout. */
 inline void case_peirce_invalid_layout() {
   (void)projections::peirce_projection(
       math::Vector(0, 1, 0), 0,

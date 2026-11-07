@@ -7,6 +7,9 @@
 // Parameter layout hash and schema pins
 // ============================================================================
 
+/** @brief
+ * FNV-1a accumulator over parameter family and member layout metadata.
+ */
 struct ParameterLayoutHash {
   uint64_t value = 14695981039346656037ULL;
 
@@ -181,6 +184,9 @@ struct SchemaModulationHeaderBA {
   bool enabled;
 };
 
+/** @brief
+ * Field reorders and type changes affect the hash even at equal layout size.
+ */
 inline void test_parameter_layout_reorder() {
   const SchemaFieldsAB original{};
   const SchemaFieldsBA reordered{};

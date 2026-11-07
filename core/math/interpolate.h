@@ -68,7 +68,10 @@ inline float log_positive(float a, float b, float progress) {
 
 namespace detail {
 
-/** @brief Folds a displacement into [-period / 2, period / 2). */
+/** @brief Folds a displacement into [-period / 2, period / 2).
+ * @param raw_delta Unwrapped displacement.
+ * @param period Positive domain period.
+ * @return Folded displacement. */
 inline float shortest_periodic_delta(float raw_delta, float period) {
   const float half = period * 0.5f;
   float delta =
@@ -82,7 +85,13 @@ inline float shortest_periodic_delta(float raw_delta, float period) {
   return delta;
 }
 
-/** @brief Interior interpolation with binary32 rounding at each step. */
+/** @brief Interior interpolation with binary32 rounding at each step.
+ * @param a Value at progress 0.
+ * @param b Value at progress 1.
+ * @param progress Interior fraction in (0, 1).
+ * @param period Positive domain period.
+ * @param minimum Domain origin.
+ * @return Interpolated value in [minimum, minimum + period]. */
 #if defined(__GNUC__) && !defined(__clang__)
 __attribute__((optimize("no-associative-math", "fp-contract=off")))
 #endif
@@ -124,6 +133,11 @@ inline float shortest_periodic(float a, float b, float progress, float period) {
 
 /**
  * @brief Shorter-arc interpolation in a domain beginning at @p minimum.
+ * @param a Value at progress 0.
+ * @param b Value at progress 1.
+ * @param progress Fraction; outside [0, 1] it snaps to the nearer endpoint.
+ * @param period Domain period; non-positive values use linear interpolation.
+ * @param minimum Domain origin.
  * @return An interior value in [minimum, minimum + period] for a nonzero
  *         minimum, with the same endpoint and fallback rules as the
  *         zero-origin overload.

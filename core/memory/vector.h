@@ -186,8 +186,9 @@ public:
    * @param min_capacity Minimum element count to reserve.
    * @details If already bound with at least that capacity, resets size for reuse
    * and keeps the larger prior capacity. A grow reallocates a fresh block and
-   * abandons the old one until the next reset; a stale binding (arena reset or
-   * a different arena) trips a debug-only assert.
+   * abandons the old one until the next reset. Debug builds trap on stale
+   * bindings from an arena reset, a different arena, or a rewind below the
+   * block.
    */
   void bind(Arena &arena, size_t min_capacity) {
     static_assert(

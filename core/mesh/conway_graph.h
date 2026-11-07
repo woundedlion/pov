@@ -121,8 +121,8 @@ constexpr float truncate_birth_floor(float arrival) {
 /** Smallest truncate arrival a recipe-step leg sweeps to. */
 inline constexpr float T_TRUNCATE_ARRIVAL_MIN = 0.002f;
 /** Upper truncate clamp for a far-side leg (arrival > 0.5): stops just below
- * t = 1, where the cut faces collapse. A far-side leg sweeps through the ambo
- * pinch on the constant-topology truncate branch. */
+ * t = 1, where the edge cut points coincide at each source vertex. A far-side
+ * leg sweeps through the ambo pinch on the constant-topology truncate branch. */
 inline constexpr float T_TRUNCATE_FAR_MAX = 1.0f - T_EPS_AMBO;
 /** Nudge off the exact t = 0.5 truncate short-circuit, where truncate returns
  * ambo (E vertices, not 2E). */

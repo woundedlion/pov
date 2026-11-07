@@ -61,8 +61,9 @@
  *         .constprop/.isra clones, which drop the section attribute and land
  *         in ITCM. */
 /** @def HS_FLASH_MEMBER
- *  @brief Inline/template member variant of `HS_COLD`; `cold` emits a unique
- *         .text.unlikely.* section that tools/phantasm.ld routes to FLASH. */
+ *  @brief Non-inlined variant of `HS_COLD` for inline or template functions.
+ *  @details `cold` emits a .text.unlikely.* section that tools/phantasm.ld
+ *           routes to FLASH. */
 /** @def HS_FLASH_INLINE
  *  @brief `HS_FLASH_MEMBER` without noinline, so free functions stay
  *         inlinable. */

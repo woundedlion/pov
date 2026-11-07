@@ -355,8 +355,10 @@ struct MeshOpProbe {
   PolyMesh (*run)(const PolyMesh &, Arena &, Arena &); /**< Operator call. */
 };
 
-// Fraction arguments avoid the topology-degenerate ends of each domain:
-// truncate at 0.5 aliases to ambo, and the [0,1) operators trap at 1.
+/**
+ * @brief Mesh operation probes with nondegenerate fractional arguments.
+ * @details Truncate at 0.5 aliases to ambo. Operators on [0, 1) trap at 1.
+ */
 inline const MeshOpProbe MESH_OP_PROBES[] = {
     {"kis", [](const PolyMesh &m, Arena &a,
                Arena &b) { return MeshOps::kis(m, a, b); }},
@@ -388,9 +390,11 @@ inline const MeshOpProbe MESH_OP_PROBES[] = {
        return MeshOps::snub(m, a, b, 0.5f, 0.0f);
      }}};
 
-// Widest face an operator emits at a side count fixed by its construction
-// rather than by the input (kis triangles, gyro pentagons, chamfer hexagons).
-// Those cannot scale into the 8-bit side count, so no growth factor covers them.
+/**
+ * @brief Widest face whose side count is fixed by the operator construction.
+ * @param name Mesh operator roster name.
+ * @return Fixed degree, or zero when no fixed-degree output is registered.
+ */
 inline size_t fixed_emitter_degree(const char *name) {
   if (std::strcmp(name, "chamfer") == 0)
     return 6;

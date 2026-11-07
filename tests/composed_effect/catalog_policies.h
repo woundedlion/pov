@@ -59,7 +59,8 @@ void copy_numeric(To &to, const From &from) {
 
 /** @brief Frame binding for one independently keyed authored stage.
  * @tparam Family Parameter family.
- * @tparam Kind Resource kind. */
+ * @tparam Kind Resource kind.
+ * @tparam Key Authored resource key. */
 template <typename Family, Pullback::ResourceKind Kind,
           Pullback::ResourceKey Key = "probe">
 struct StageFrame {

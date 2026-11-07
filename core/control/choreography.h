@@ -59,6 +59,7 @@
  * - `preset_params(index)`: computes a preset's parameters at runtime instead
  *   of taking them from its row.
  * - `initial_params()`: startup parameters, instead of the first preset's.
+ * - `after_profile_preset()`: runs after `profile_select_preset()` selects a preset.
  * @tparam Derived The effect class deriving from this base.
  * @tparam ParamsT The effect's parameter struct.
  * @tparam HookOwner Type declaring the hook list; defaults to Derived.

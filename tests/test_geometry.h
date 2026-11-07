@@ -811,6 +811,10 @@ inline void test_shortest_distance() {
   }
 }
 
+/**
+ * @brief Cubic smoothing saturates outside its range and gives the pinned
+ * interior ramp.
+ */
 inline void test_cubic_kernel_and_smooth_ramp() {
   HS_EXPECT_EQ(math::cubic_kernel(-1.0f), 0.0f);
   HS_EXPECT_EQ(math::cubic_kernel(0.0f), 0.0f);

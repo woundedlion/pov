@@ -66,6 +66,10 @@ inline void test_mindsplatter_warp_history() {
   }
 }
 
+/**
+ * @brief Profile selection installs the requested preset, pauses it, and
+ * prints its index.
+ */
 inline void test_mindsplatter_profile_selects_initialized_preset() {
   reset_globals();
   using MS = MindSplatter<96, 20>;
@@ -536,6 +540,7 @@ inline void test_mindsplatter_show_window_covers_final_dwell() {
   HS_EXPECT_TRUE(final_departure_armed);
 }
 
+/** @brief A full timeline postpones transition and retries once per dwell. */
 inline void test_mindsplatter_full_timeline_retries_transition() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;

@@ -64,7 +64,7 @@ The engine subsystem reference for the [Holosphere README](https://github.com/wo
 
 ## The Shader Interface
 
-All rasterizers — SDF scanline, curve plotting, mesh, volumetric, and full-screen shader — share a common shading model based on the `Fragment` struct and two function signatures.
+All rasterizers — SDF scanline, curve plotting, mesh, volumetric, and full-screen shader — share a common shading model based on the `Fragment` struct and the shader signatures below.
 
 ### The Fragment
 
@@ -87,12 +87,14 @@ The registers are *inputs* — populated by the rasterizer before the shader run
 
 ### Shader Signatures
 
-Two shader types are defined as zero-allocation `FunctionRef` callables (`concepts.h`):
+`concepts.h` defines the shader types as zero-allocation `FunctionRef` callables.
 
 | Signature | Type | Role |
 |---|---|---|
 | `FragmentShaderRef` | `void(const math::Vector &, Fragment &)` | Per-pixel/per-sample shader. Receives the world position and a pre-populated Fragment; writes `color`. Called for every rasterized point. |
 | `VertexShaderRef` | `void(Fragment &)` | Per-vertex or per-pixel-center shader. Runs once before sub-sampling to set up expensive shared state in the Fragment registers. Optional on the `Plot::` primitives (a null callable is skipped); required by `Scan::Shader::draw`'s split vertex/fragment overload, which traps on a null one. |
+| `TimedShaderRef` | `void(const math::Vector &, Fragment &, float)` | Fragment shader with a column-time fraction. |
+| `DeferredShaderRef` | `void(FragmentRegisters, const math::Vector &)` | Deferred vertex callback with fragment registers and world position. |
 
 `FunctionRef` is a non-owning, non-allocating type-erased callable (similar to `std::function_ref` from C++26). It captures a pointer to any lambda, functor, or function pointer with zero heap allocation — critical for ISR-safe code on Teensy.
 
@@ -938,7 +940,7 @@ timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * math::PI_F
 
 ### `tween` and `deep_tween`
 
-Two traversal helpers linearize multi-level orientation history into a single callback loop:
+Three traversal helpers walk multi-level orientation history.
 
 | Function | Input | Description |
 |---|---|---|
@@ -1069,10 +1071,10 @@ A single contiguous memory block (`GLOBAL_ARENA_SIZE`) is partitioned into three
 | Arena | Default Size (Teensy) | Purpose |
 |---|---|---|
 | `persistent_arena` | 266 KiB | Long-lived compiled mesh data, persists across frames |
-| `scratch_arena_a` | 16 KB | Short-lived intermediate geometry (RAII scoped) |
-| `scratch_arena_b` | 16 KB | Secondary scratch for ping-pong subdivision passes |
+| `scratch_arena_a` | 16 KiB | Short-lived intermediate geometry (RAII scoped) |
+| `scratch_arena_b` | 16 KiB | Secondary scratch for ping-pong subdivision passes |
 
-The native effect harnesses use `HS_GLOBAL_ARENA_BYTES=8388608` — and with it the persistent default, which is whatever the two 16 KB scratch arenas leave — so they can render every effect without OOMing. The device budget stays reachable as `DEVICE_GLOBAL_ARENA_SIZE` / `DEVICE_PERSISTENT_BUDGET`, which the per-effect footprint `static_assert`s check against instead, so an effect that outgrows the device still fails in the host suite.
+The native effect harnesses use `HS_GLOBAL_ARENA_BYTES=8388608` — and with it the persistent default, which is whatever the two 16 KiB scratch arenas leave — so they can render every effect without OOMing. The device budget stays reachable as `DEVICE_GLOBAL_ARENA_SIZE` / `DEVICE_PERSISTENT_BUDGET`, which the per-effect footprint `static_assert`s check against instead, so an effect that outgrows the device still fails in the host suite.
 
 Effects that need more scratch memory can repartition at init time:
 
@@ -1399,7 +1401,7 @@ The mesh system uses these headers in `core/mesh/` and `core/render/sdf/`:
 - **`relax_bake.h`** — Relax payload and source identity checks
 - **`core/mesh/mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
-- **`conway_graph.h`** — Constexpr 23-edge morph graph over the 18 simple-registry solids: per-edge operator/seed/reseed specs, shortest-path routing to uniformly random destinations, and the closed `ORDERED_TOUR`
+- **`conway_graph.h`** — Constexpr 23-edge morph graph over the 18 simple-registry solids: per-edge operator/seed/reseed specs, shortest-path routing, the `pick_destination` random-destination helper, and the closed `ORDERED_TOUR`
 - **`recipe_types.h`** — The authored op-chain model: the `Op` operator set, one `OpStep`, and the `Recipe` chain that generates a registry solid, split out so the model is not read out of the registry tables written in it
 - **`recipe.h`** — Lowers an authored recipe to primitive steps (`expand_to_primitives`), sizes that lowering at compile time (`lowered_step_count`, `max_lowered_step_count`), replays either form through `SolidBuilder` (`build_recipe`, `build_steps`), and decides which lowered steps a morph leg can sweep (`is_morphable_step`)
 - **`core/mesh/hankin.h`** — Hankin pattern compilation and dynamic update
@@ -1754,10 +1756,10 @@ All bursts are ≪ the 62.5 ms half-rev, so consecutive symbols never overlap. T
                │             │              │              │              │
  SYNC wire   ██ZERO     ░░░BEACON░░░      ██HALF                       ██ZERO
              (3 edges)  (5 digits, data)  (1 edge)                     (3 edges)
-               │←─────────── half-rev = 62.5 ms ──────────→│
+               │←── half-rev = 62.5 ms ────→│
  display     flip A                       flip B                       flip A
  layer 1     snap φ                       snap φ                       snap φ
-               │←──────────────────── revolution = 125 ms ────────────────────→│
+               │←───────────────── revolution = 125 ms ──────────────────→│
 ```
 
 Boundary symbols (`ZERO`/`HALF`) serve **two** layers at once: they snap the flywheel's column phase (Layer 1) *and* act as the exactly-once flip backstop (Layer 2).  The beacon rides the otherwise-quiet stretch at `x ≈ W/4`, separating the timing channel and the data channel **in time** on the same wire.

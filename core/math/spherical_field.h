@@ -259,6 +259,8 @@ public:
    * @brief Reconstructs one equirectangular row at its spherical width.
    * @tparam Accumulator Default-constructible rolling accumulator with
    *   add(), remove(), and average().
+   * @tparam Value Source sample type accepted by Accumulator.
+   * @tparam Emit Callable receiving a destination column and averaged sample.
    * @param source Dense row containing W values.
    * @param y Latitude row controlling the longitude footprint.
    * @param emit Receives each destination column and filtered value.
@@ -314,6 +316,9 @@ public:
   /**
    * @brief Bilinearly samples a dense equirectangular field across seams and
    * poles.
+   * @tparam Value Lattice sample type.
+   * @tparam Load Callable receiving a column and row and returning a sample.
+   * @tparam Combine Callable receiving four samples and two blend fractions.
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row.
    * @param poles Shared values for true pole rows, north then south when present.
@@ -347,6 +352,7 @@ public:
 
   /**
    * @brief Bilinearly samples a row-major three-channel field.
+   * @tparam Pixel Type exposing r, g and b channels.
    * @param source Dense W-by-H source field.
    * @param poles Shared values for true pole rows, north then south when present.
    *   The south pole uses slot [0] when no north pole is present.

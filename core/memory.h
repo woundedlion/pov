@@ -42,7 +42,7 @@ constexpr size_t DEVICE_PERSISTENT_BUDGET =
     DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 
 // Browser budget for footprint checks, independent of the native harness arena.
-// Mirror of CMakeLists.txt's WASM arena configuration.
+// Mirror of HS_WASM_ARENA_BYTES in cmake/engine_sources.cmake.
 /// Browser (WASM) global arena budget, bytes.
 constexpr size_t WASM_GLOBAL_ARENA_SIZE = 512 * 1024;
 #if defined(__EMSCRIPTEN__)

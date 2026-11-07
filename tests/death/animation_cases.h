@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
-
 // Animation death cases.
 
 /** @brief Lens clocks reject nonfinite multipliers. */
@@ -95,7 +93,6 @@ inline void case_timeline_pinned_after_destroyed_predecessor() {
   tl.step(canvas);
 }
 
-/** @brief Traps on timeline pinned after cancelled perpetual. */
 inline void case_timeline_pinned_after_cancelled_perpetual() {
   Timeline tl;
   auto *predecessor = tl.add_get(
@@ -249,7 +246,6 @@ inline void case_mobiuswarp_evolving_copy_rewind_refill() {
   assigned.step(canvas);
 }
 
-/** @brief Traps on opleg rewind refill. */
 inline void case_opleg_rewind_refill() {
   static uint8_t seed_storage[64 * 1024], leg_storage[128 * 1024];
   Arena seed_arena(seed_storage, sizeof(seed_storage));
@@ -662,7 +658,6 @@ inline void case_timeline_double_construct() {
   (void)global_timeline_num_events;
 }
 
-/** @brief Traps on random walk nonfinite options. */
 inline void case_random_walk_nonfinite_options() {
   math::Orientation<> orientation;
   FastNoiseLite noise;
@@ -718,7 +713,6 @@ inline void case_bump_offset_outside_cap_distance() {
   (void)bump_field_with_y(math::Y_AXIS, params, opaque(0.25f));
 }
 
-/** @brief Traps on timeline add into live slot. */
 inline void case_timeline_add_into_live_slot() {
   Timeline timeline;
   float value = 0;

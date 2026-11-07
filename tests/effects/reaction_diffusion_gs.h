@@ -72,6 +72,9 @@ inline void test_gs_shared_cube_projection() {
   }
 }
 
+/** @brief
+ * Seed palettes share the same spatial noise modifiers for hue and shimmer.
+ */
 inline void test_gs_shared_noise_palette_modifiers() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -123,6 +126,7 @@ inline void test_gs_shared_noise_palette_modifiers() {
   HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
 }
 
+/** @brief The baked color noise samples match the direct reference. */
 inline void test_gs_noise_bake_matches_reference() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -135,6 +139,10 @@ inline void test_gs_noise_bake_matches_reference() {
   }
 }
 
+/** @brief
+ * Pigment travels between seeded regions while preserving distinct seed
+ * palettes.
+ */
 inline void test_gs_seed_palettes_and_pigment_transport() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -184,6 +192,7 @@ inline void test_gs_seed_palettes_and_pigment_transport() {
   }
 }
 
+/** @brief The unit-vector dot kernel agrees with squared-distance evaluation. */
 inline void test_gs_dot_kernel_matches_squared_distance() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -193,6 +202,7 @@ inline void test_gs_dot_kernel_matches_squared_distance() {
   HS_EXPECT_GT(GSWhiteBox::check_render_kernel(gs), 0);
 }
 
+/** @brief The direct Gray-Scott draw matches the grid reference. */
 inline void test_gs_direct_draw_matches_grid() {
   hs_test::reset_globals();
   GSReactionDiffusion<DEFAULT_W, DEFAULT_H> gs;
@@ -202,6 +212,7 @@ inline void test_gs_direct_draw_matches_grid() {
   HS_EXPECT_GT(GSWhiteBox::check_direct_draw(gs), size_t{0});
 }
 
+/** @brief Sparse pigment transport agrees with the dense reference. */
 inline void test_gs_sparse_pigment_matches_dense() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -462,6 +473,9 @@ inline void test_gs_shared_stencil_error_is_bounded() {
   }
 }
 
+/** @brief
+ * Partial color bakes update the requested rows and retain other rows.
+ */
 inline void test_gs_partial_color_palette_rows() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -732,6 +746,7 @@ inline void test_gs_nearest_pigment_shader_matches_scalar_reference() {
   HS_EXPECT_LE(error.max_channel, 2048);
 }
 
+/** @brief The dissolve frontier fades before clearing its underlying state. */
 inline void test_gs_dissolve_frontier_fades_before_clear() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;

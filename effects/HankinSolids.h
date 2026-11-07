@@ -956,8 +956,6 @@ private:
     float hankin_angle = 0.0f; /**< Interlace angle in radians. */
   } params;
 
-  // orientation, noise, and the angle the sweep Mutation points at are borrowed
-  // by timeline-resident animations, so they outlive the Timeline.
   math::Orientation<> orientation; /**< Current camera orientation. */
   FastNoiseLite noise;    /**< Noise source driving the orientation walk. */
   Timeline timeline;      /**< Schedules sweeps, sprites, and morphs. */

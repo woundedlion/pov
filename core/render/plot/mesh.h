@@ -232,6 +232,7 @@ struct Mesh {
    * @brief Draws a mesh (wireframe).
    * @tparam W,H Rasterization resolution.
    * @tparam MeshT Mesh type.
+   * @tparam PipelineT Render pipeline type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param mesh The mesh to draw.

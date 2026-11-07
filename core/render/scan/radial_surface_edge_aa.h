@@ -73,7 +73,8 @@ public:
    * @param candidate_shift Shift mapping source intervals, including the terminal
    * endpoint, to bit indices below 32. Ignored when candidate_bits is all bits.
    * @param point_first Optional center-only first radial interval.
-   * @return Pixel color with straight-line area coverage. */
+   * @return Pixel color with straight-line edge coverage. A paired corner uses
+   * the product of its two edge coverages. */
   template <bool COUNT = true, class Shade>
   HS_HOT_FLASH_MEMBER SurfaceColor
   sample(const Surface &surface, Point p, Point dx, Point dy, float theta,

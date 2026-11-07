@@ -792,12 +792,12 @@ HS_HOT_INLINE math::Vector capture_vertex(uint16_t start, uint16_t end,
 /** @brief Contiguous arm-time interval of a face. */
 struct FaceCaptureInterval {
   float lo; ///< First vertex fraction; negative for polar faces.
-  float hi; ///< Last unwrapped vertex fraction; a polar face's azimuth span
-            ///< in half turns, 2 for one winding about the pole.
+  /// Last unwrapped vertex fraction, or an upper bound on a polar face's span.
+  float hi;
 };
 
 /**
- * @brief Finds the complement of a face's largest periodic vertex gap.
+ * @brief Bounds a face after unwrapping azimuths about its first vertex.
  * @param angles Signed vertex azimuths in half turns, one per face vertex.
  * @param count Number of face vertices.
  * @param reach Its fastest vertex's reach (vertex_reach()); 0 when none
@@ -808,7 +808,7 @@ struct FaceCaptureInterval {
  *         winds about a pole, spans a half turn or reaches the pole: its
  *         fastest vertex's reach, with the basis's sweep, reaches half
  *         a right angle about the polar axis from one of its vertices.
- *         A polar face's upper bound is its azimuth span in half turns.
+ *         For polar faces the upper value bounds the azimuth span in half turns.
  */
 HS_HOT_FLASH_MEMBER FaceCaptureInterval face_capture_interval(
     const float *angles, size_t count, float reach, float nearest, float sweep);
@@ -1304,6 +1304,8 @@ struct Mesh {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam PipelineT Plotting pipeline type (deduced; pass a Scan::ScanRef to erase the sink).
+   * @tparam FragmentShaderT Per-pixel shader type.
+   * @tparam FaceShaderSetupT Optional per-face shader setup callable.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param mesh Mesh providing vertices, face counts, indices, and offsets.

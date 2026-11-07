@@ -194,7 +194,7 @@ struct RingTemporalOracle {
     effect.set_clip(bounds.y0, bounds.y1, bounds.x0, bounds.x1);
   }
 
-  /** @brief Evaluates a ring vertex independently in double precision.
+  /** @brief Evaluates a ring vertex independently of the production draw.
    * @param basis Ring basis.
    * @param i Material vertex index.
    * @param polar Colatitude in radians.

@@ -47,6 +47,10 @@ inline void paused_render_one(const char *name) {
   HS_EXPECT(acc > 0, "effect must produce non-black output while paused");
 }
 
+/**
+ * @brief Each roster effect produces visible output while its presets are
+ * paused.
+ */
 inline void test_every_effect_renders_while_paused() {
   std::printf("  -- paused render, %d frames --\n", PAUSED_FRAMES);
 #define HS_PAUSED_ONE(name) paused_render_one<name>(#name);

@@ -48,7 +48,7 @@ explicitly select rev 1.1. Before building for rev 1.2, change the selected envi
 builds must declare the same flag. Rev 1.2 keeps D3 as an input with hysteresis on every
 board, parks D4 LOW before enabling the master, and transmits master pulses on D4.
 The committed routed fabrication artifacts remain rev 1.1; see
-[the hardware revision notes](../../hardware/phantasm/README.md#revision-12).
+[the hardware revision notes](../../hardware/phantasm/1.2/README.md).
 
 **Status: SPECIFIED; the routed board is committed, with two recorded deviations.** The
 schematic and layout this document specifies ship in `hardware/phantasm/` and pass the gates
@@ -401,7 +401,7 @@ electrical contracts remain independently usable.
   for the loaded transceiver and budget 0.25 A for the logic card until measured.
   Revalidate the inherited fuse/filter voltage drop and input overshoot protection;
   the 0.15 A power calculation above does not qualify the rev 1.3 master.
-- **R-SYNC-13-PLACEMENT ? Front-only access.** Preserve the 58.28 x 32 mm
+- **R-SYNC-13-PLACEMENT — Front-only access.** Preserve the 58.28 x 32 mm
   outline, four mounting centers and selected parts. Place all components
   on the front, with the USB connector facing left. J1/J2/J3A/J3B form a
   top-edge bank whose north-facing entries are tangential to the hub axis.

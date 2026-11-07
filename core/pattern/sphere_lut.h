@@ -24,8 +24,8 @@ struct SphereLutView {
   /// Borrowed face-major, row-major table of signed scalars in [-1, 1] times 127.
   const int8_t *data;
   bool active; ///< Whether `data` holds a baked table to sample.
-  const float *linear_data =
-      nullptr; ///< Exact float copies of quantized samples.
+  /// Float table on the same [-127, 127] scale. Takes precedence when set.
+  const float *linear_data = nullptr;
 };
 
 /**

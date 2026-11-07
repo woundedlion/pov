@@ -281,6 +281,7 @@ inline void test_edge_reciprocity_high() {
 // CubemapLUT round-trip
 // ---------------------------------------------------------------------------
 
+/** @brief Returns the cubemap fixture retained for the test process. */
 inline const ReactionGraph::CubemapLUT &built_cubemap_lut() {
   struct Fixture {
     uint8_t buffer[ReactionGraph::CubemapLUT::BYTES +
@@ -293,6 +294,7 @@ inline const ReactionGraph::CubemapLUT &built_cubemap_lut() {
   return fixture.lut;
 }
 
+/** @brief Brute-force nearest reaction node by squared chord distance. */
 inline int nearest_node(const math::Vector &q) {
   int best = 0;
   float best_distance =
@@ -307,6 +309,7 @@ inline int nearest_node(const math::Vector &q) {
   }
   return best;
 }
+/** @brief Checks directed membership in a node's neighbor list. */
 inline bool is_adjacent(int from, int to) {
   for (int k = 0; k < RD_K; ++k)
     if (neighbors[from][k] == to)
@@ -314,8 +317,10 @@ inline bool is_adjacent(int from, int to) {
   return false;
 }
 
+/** @brief Match class against the exact nearest node. */
 enum class LookupClass { EXACT, NEIGHBOR, MISS };
 
+/** @brief Compares a cubemap hit with the brute-force node and its neighbors. */
 inline LookupClass classify_lookup(const ReactionGraph::CubemapLUT &lut,
                                    const math::Vector &q) {
   const int best = nearest_node(q);

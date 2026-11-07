@@ -136,6 +136,7 @@ inline void test_pattern_modulated_palette() {
   HS_EXPECT_EQ(calls, 1);
 }
 
+/** @brief Out-of-range values sample the nearest hue-rotation table endpoint. */
 inline void test_hue_rotation_lut_clamps_out_of_range_value() {
   static std::array<Pixel, 3 * HueRotationLutView::SIZE> storage;
   storage.fill(Pixel(0, 0, 65535));

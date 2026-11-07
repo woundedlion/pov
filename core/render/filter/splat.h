@@ -36,19 +36,36 @@ struct SplatTaps {
 /** @brief Splat weight below which a tap contributes nothing worth emitting. */
 inline constexpr float SPLAT_TAP_CUTOFF = 1e-8f;
 
-/** @brief Whether off-display taps fold onto each pole row. */
 #if HS_RUNTIME_DISPLAY_GEOMETRY
+/** @brief Whether off-display taps fold onto the north pole row.
+ * @tparam H Display height in rows.
+ * @return True when north-edge coverage folds onto the pole row. */
 template <int H> HS_HOT_INLINE bool folds_north_row() {
   return math::DisplayGeometry<H>::HAS_NORTH_POLE;
 }
+/** @brief Whether off-display taps fold onto the south pole row.
+ * @tparam H Display height in rows.
+ * @return True when south-edge coverage folds onto the pole row. */
 template <int H> HS_HOT_INLINE bool folds_south_row() {
   return math::DisplayGeometry<H>::HAS_SOUTH_POLE;
 }
 #elif HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
+/** @brief Whether off-display taps fold onto the north pole row.
+ * @tparam H Display height in rows.
+ * @return True when north-edge coverage folds onto the pole row. */
 template <int H> constexpr bool folds_north_row() { return true; }
+/** @brief Whether off-display taps fold onto the south pole row.
+ * @tparam H Display height in rows.
+ * @return True when south-edge coverage folds onto the pole row. */
 template <int H> constexpr bool folds_south_row() { return true; }
 #else
+/** @brief Whether off-display taps fold onto the north pole row.
+ * @tparam H Display height in rows.
+ * @return True when north-edge coverage folds onto the pole row. */
 template <int H> constexpr bool folds_north_row() { return false; }
+/** @brief Whether off-display taps fold onto the south pole row.
+ * @tparam H Display height in rows.
+ * @return True when south-edge coverage folds onto the pole row. */
 template <int H> constexpr bool folds_south_row() { return false; }
 #endif
 

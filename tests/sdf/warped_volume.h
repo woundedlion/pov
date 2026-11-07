@@ -170,12 +170,14 @@ inline double twisted_torus_distance(const math::Vector &p, double R, double r,
   return best;
 }
 
+/** @brief Twisted-torus dimensions and warp controls for the oracle cases. */
 struct TwistedTorusCase {
   const char *label;
   double R, r, A;
   int n;
 };
 
+/** @brief Shared nominal and boundary torus fixtures for distance checks. */
 inline constexpr TwistedTorusCase TWISTED_TORUS_COMMON_CASES[] = {
     {"nominal", 1.0, 0.3, 0.2, 3},
     {"zero amplitude", 1.0, 0.3, 0.0, 3},

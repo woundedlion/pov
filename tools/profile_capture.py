@@ -93,8 +93,7 @@ def main():
         sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seconds", type=float, default=150.0,
-                    help="capture duration (default 150 s: covers a full "
-                         "DisplacementField noise+balls phase cycle)")
+                    help="capture duration in seconds (default 150)")
     ap.add_argument("--out", default="build/profile_capture.log",
                     help="file the captured lines are written to")
     ap.add_argument("--connect-timeout", type=float, default=30.0,

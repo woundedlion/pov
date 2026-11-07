@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
-
 // Memory death cases.
 
 /** @brief Death case: arena over-allocation must trap. */
@@ -109,7 +107,6 @@ inline void case_scratch_scope_non_lifo() {
   inner.reset();    // offset 0 < saved 8 -> HS_CHECK
 }
 
-/** @brief Traps on scratch scope reset. */
 inline void case_scratch_scope_reset() {
   static uint8_t storage[64];
   Arena arena(storage, sizeof(storage));
@@ -199,7 +196,6 @@ inline void case_circular_buffer_front_empty() {
   (void)v;
 }
 
-/** @brief Traps on circular buffer back empty. */
 inline void case_circular_buffer_back_empty() {
   StaticCircularBuffer<int, 4> cb;
   if (opaque(false))
@@ -207,7 +203,6 @@ inline void case_circular_buffer_back_empty() {
   (void)cb.back();
 }
 
-/** @brief Traps on circular buffer const back empty. */
 inline void case_circular_buffer_const_back_empty() {
   StaticCircularBuffer<int, 4> cb;
   if (opaque(false))

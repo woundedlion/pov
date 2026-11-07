@@ -50,7 +50,7 @@ namespace Interp {
  *   `dst`; returns Status.
  * - `advance(State &, const Params &)` — steps per-frame clocks.
  * - `modulation_key(const State &)` — optional source instance label.
- * - `fold_strength(const Params &)` — optional current fold gain.
+ * - `fold_strength(const Params &)` — optional conservative fold advisory strength, or infinity.
  * - Free `temporal_interval(const State &, const State &)` and
  *   `temporal_sample` overloads — optional retained clock intervals and
  *   column-time state sampling.

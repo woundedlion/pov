@@ -479,6 +479,9 @@ inline math::Vector midpoint_test_warp(const math::Vector &v,
                                       S.phi + 0.02f * sinf(S.theta)));
 }
 
+/** @brief
+ * Half-resolution feedback samples warp at the paired-column midpoint.
+ */
 inline void test_feedback_half_res_warp_uses_pair_midpoint() {
   constexpr int W = 64, H = 34;
   std::array<Pixel, W> full{};

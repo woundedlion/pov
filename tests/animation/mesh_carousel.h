@@ -338,8 +338,7 @@ inline void test_sweep_phase_front_ordering() {
     HS_EXPECT_NEAR(Segue::sweep_phase(1.0f, o, band), 1.0f, 1e-3f);
     HS_EXPECT_NEAR(Segue::sweep_phase(0.0f, o, band), 0.0f, 1e-3f);
   }
-  // Monotone in phase at fixed offset, sampled inside the front's ramp
-  // (phase 0.14..0.39 for this offset/band under the sqrt ease).
+  // Monotone in phase at fixed offset inside the front's ramp.
   HS_EXPECT_GT(Segue::sweep_phase(0.3f, 0.5f, band),
                Segue::sweep_phase(0.2f, 0.5f, band));
   // At a fixed phase, a higher offset is further extinguished.

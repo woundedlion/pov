@@ -44,8 +44,8 @@ public:
     const uint8_t *last_data =
         nullptr;         /**< Pointer handed to the last transmit. */
     size_t last_len = 0; /**< Length handed to the last transmit. */
-    const void *flushed_data = nullptr;
-    uint32_t flushed_bytes = 0;
+    const void *flushed_data = nullptr; ///< Last flushed pointer at transmit.
+    uint32_t flushed_bytes = 0; ///< Last flushed byte count at transmit.
     uint8_t capture[CAPTURE_CAP] =
         {}; /**< Snapshot of the last transmit's bytes. */
   };

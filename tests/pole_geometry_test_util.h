@@ -70,6 +70,7 @@ template <int W, int H> inline int plot_stroke(float phi) {
   return static_cast<int>(count_lit_region<W, H>(effect));
 }
 
+/** @brief Applies the test longitude warp as a rotation about the polar axis. */
 inline math::Vector rotate_longitude(const math::Vector &v,
                                      const ::Feedback::Style &) {
   constexpr float ANGLE = static_cast<float>(LONGITUDE_STEP);

@@ -18,6 +18,7 @@ struct ReplacingTerminalWithoutHistory : Filter::Is2D {
   }
 };
 
+/** @brief A replacing terminal flushes even with no history-bearing stage. */
 inline void test_replacing_terminal_without_history_flushes() {
   StubEffect effect(32, 16);
   Canvas canvas(effect);

@@ -225,7 +225,7 @@ inline void test_ssaa_grid_sample_positions() {
  * @brief Verifies the `draw*` and `walk_grid` entry points paint the columns the
  *        clip arc admits, with the values an unclipped draw produced.
  * @details Compared against the unclipped render filtered by XClip::clipped,
- * under a plain arc and one whose margin wraps the band across the seam.
+ * for the bands below.
  */
 inline void test_shader_clip_arc_matches_predicate() {
   constexpr int W = 32, H = 16;
@@ -386,7 +386,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   struct Band {
     int x0, x1, margin;
   };
-  // A plain arc, and one whose margin underflows column 0 into a wrapped band.
+  // Plain arc, wrapping margin, single column, arc ending at the seam.
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}, {3, 4, 0}, {W - 3, W, 0}};
 
   for (const auto &variant : variants) {

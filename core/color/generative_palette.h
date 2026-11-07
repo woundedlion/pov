@@ -65,10 +65,10 @@ public:
 
   /** @brief Authoring readout of one evaluated coordinate. */
   struct Diagnostic {
-    float L; /**< Realized OKLab lightness. */
-    float C; /**< Realized OKLCh chroma. */
+    float L; /**< Requested OKLab lightness before gamut clipping. */
+    float C; /**< Requested OKLCh chroma before gamut clipping. */
     /** Gamut-relative chroma: the headroom-limited control under a gamut-relative
-     *  basis, otherwise the realized C / C_max. Same meaning on every color
+     *  basis, otherwise the requested C / C_max. Same meaning on every color
      *  path. */
     float q;
     float C_max;  /**< Gamut chroma envelope at (L, h_final). */
@@ -212,8 +212,8 @@ public:
   /**
    * @brief Reports what one coordinate resolved to, for authoring tools.
    * @param t Palette coordinate; clamped to [0, 1].
-   * @return The realized OKLCh values, the gamut envelope there and whether the
-   * color needed clipping.
+   * @return Requested OKLCh values before gamut clipping, the gamut envelope,
+   * and a flag indicating whether clipping was needed.
    */
   Diagnostic diagnose(float t) const {
     const Evaluated value =
@@ -280,8 +280,9 @@ public:
    * @param from Source palette (amount = 0).
    * @param to Target palette (amount = 1).
    * @param amount Blend amount; clamped to [0, 1].
-   * @details Adopts @p from's evaluation policy, snapshot-lerps the keys, and
-   * interpolates the loop-closing hue delta, which snapshots do not carry.
+   * @details Amounts 0 and 1 copy the respective endpoint, including its
+   * policy and analytic axes. Interior amounts adopt @p from's policy and
+   * interpolate the snapshot keys and the loop-closing hue delta.
    * @p from and @p to need the same key count; a LOOP pair also needs the same
    * integer closing travel. Mismatched axis curves morph through CUSTOM (see
    * morph_snapshots()). PaletteCycler additionally requires morph_compatible().

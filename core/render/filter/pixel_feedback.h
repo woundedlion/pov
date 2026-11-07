@@ -1275,8 +1275,7 @@ private:
    * @brief Tests whether the previous frame has any non-black pixel.
    * @param cv Canvas whose previous-frame buffer is scanned.
    * @return True on the first lit pixel found, false if the frame is all black.
-   * @details Scans only this segment's clip band so another board's lit pixels
-   * do not gate this board's flush.
+   * @details Scans the clip band, which covers the canvas for this full-frame stage.
    */
   static bool any_pixel_lit(const Canvas &cv) {
     const auto &clip = cv.clip();

@@ -303,6 +303,7 @@ inline void test_fn_copy_move_empty() {
   HS_EXPECT_FALSE((bool)q); // move leaves the source empty
 }
 
+/** @brief Records which timed pipeline routes and arguments are used. */
 struct TimedRefRecorder {
   Canvas *canvas = nullptr;
   math::Vector point;
@@ -403,6 +404,7 @@ inline void test_pipeline_ref_timed_defaults() {
   expect_timed_ref_registers(sink, canvas, projected_color, 2.5f, 0.5f);
 }
 
+/** @brief Timed pipeline fixture exposing stage-specific entry points. */
 struct TimedRefStages : TimedRefRecorder {
   static constexpr bool any_3d_history = true;
   int recorded = 0;
@@ -557,10 +559,12 @@ struct FlatTweenableModel {
   int get(size_t) const { return 0; }
 };
 
+/** @brief Fixture with a signed outer length that Tweenable rejects. */
 struct SignedTrailModel : TweenableModel {
   int length() const { return 0; }
 };
 
+/** @brief Fixture with an unsigned inner length that Tweenable rejects. */
 struct UnsignedFrameModel : TweenableModel {
   struct Frame : TweenableModel::Frame {
     size_t length() const { return 0; }
@@ -569,6 +573,7 @@ struct UnsignedFrameModel : TweenableModel {
   Frame frame;
 };
 
+/** @brief Fixture without the compile-time inner frame capacity. */
 struct MissingCapacityModel : TweenableModel {
   struct Frame {
     int length() const { return 0; }
@@ -580,8 +585,8 @@ struct MissingCapacityModel : TweenableModel {
 };
 
 /**
- * @brief Pins the Tweenable concept: only a two-level frame container satisfies
- *        it — a flat container and a scalar do not.
+ * @brief Tweenable requires two levels, an unsigned trail length, a signed
+ * frame length, and a static frame capacity.
  */
 inline void test_tweenable_concept() {
   static_assert(!Tweenable<SignedTrailModel>);

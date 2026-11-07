@@ -465,7 +465,7 @@ public:
    * @brief Static helper to apply a rotation immediately (duration = 1 frame).
    * @param canvas The canvas buffer.
    * @param orientation The Orientation object to update.
-   * @param axis The rotation axis (unit vector).
+   * @param axis The rotation axis. The helper normalizes it and traps on zero.
    * @param angle The rotation angle in radians.
    * @param easing_fn The easing function to use.
    * @param space The coordinate space for rotation.

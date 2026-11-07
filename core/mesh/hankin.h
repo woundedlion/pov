@@ -133,9 +133,8 @@ enum class BaseVertices : uint8_t {
  * @param compiled Output topology, allocated from @p target_arena.
  * @param target_arena Arena that backs the persistent compiled vectors.
  * @param temp_arena Arena holding the transient half-edge structures.
- * @param base How corner reads source @p mesh's vertices; BORROW requires the
- * caller to keep @p mesh alive for every update_hankin/hankin_at call that
- * reads the compiled topology.
+ * @param base How corner reads source vertices. BORROW requires @p mesh to
+ * remain alive whenever the compiled topology is read.
  * @details Builds a half-edge mesh, emits one shared midpoint per edge into
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
  * records the star and rosette faces.

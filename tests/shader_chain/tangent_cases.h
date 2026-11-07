@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-/** @brief Fixed-step field admission, clocks and advisories. */
+// Fixed-step field admission, clocks and advisories.
 
 /** @brief Gated integer modes require an ungated selector and a partial mask. */
 inline void test_tangent_integer_gates() {

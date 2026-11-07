@@ -52,7 +52,7 @@ phi_band_rejects(std::span<const math::Vector> vertices,
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices.
    * @param scratch Scratch storage receiving poly_2d and verts_3d.
-   * @details Sets basis_u/v/w, poly_2d (with circumradius), and the local 3D
+   * @details Sets basis_u/w, poly_2d (with circumradius), and the local 3D
    * vertex array.
    */
 __attribute__((always_inline)) void

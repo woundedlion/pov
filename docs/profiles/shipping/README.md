@@ -49,6 +49,8 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 Per-effect reports retain preset coverage and strict validator diagnostics. Per-frame render telemetry supports cadence figures without a claim of an unobserved wrap or fully validated cycle-counter exactness.
 
+● marks shipping captures updated in the 2026-11-05 sweep.
+
 § Cyclers carry one aligned line per parser ownership colour bucket, red first;
 (N) counts observed ownership entries. Buckets include transitions and exclude setup frame 1.
 Show duration covers the authored show segment; a segment can end before its
@@ -104,8 +106,6 @@ Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter
 ## Temporal sampling comparison
 
 [GridSpace matched A/B](profile_gridspace_teensy_2026-10-17.md) preserves the historical same-source temporal-on/off measurements. Current shipping timing is in the canonical report above.
-
-● shipping captures updated in the 2026-11-05 sweep.
 
 ## Palette-pattern recipe qualification
 

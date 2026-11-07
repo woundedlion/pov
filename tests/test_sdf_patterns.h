@@ -855,6 +855,7 @@ inline void test_octet4_ambient_events_and_limits() {
     HS_EXPECT_EQ(edge.active(i), i == 0 || i == 2 || i == 4);
 }
 
+/** @brief Checks periodic field gradients, clearance and lattice repetition. */
 template <typename Surface> void check_periodic_surface() {
   Surface surface;
   surface.period = 2.3f;

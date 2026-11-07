@@ -21,7 +21,7 @@ cd "$(git rev-parse --show-toplevel)"
 tmp=$(mktemp)
 trap 'rm -f -- "$tmp"' EXIT
 
-# --show-files reports the selection; emptiness is the gate, not its status.
+# --show-files lists the selection. The set difference below is the gate.
 ruff check --no-cache --show-files . > "$tmp" || true
 
 ruff_python="$(hs_find_python)" || ruff_python=

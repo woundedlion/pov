@@ -9,7 +9,7 @@
 <rect x="70" y="200" width="240" height="120" fill="#fff" stroke="#2b3a55" stroke-width="2" rx="6"/>
 <text x="190.0" y="226" font-size="15" text-anchor="middle" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">AC–DC PSU</text>
 <text x="190.0" y="248" font-size="13" text-anchor="middle" fill="#d11" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5 V  ·  ≥30 A  (150 W)</text>
-<text x="190.0" y="270" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Meanwell LRS-150-5 or sim.</text>
+<text x="190.0" y="270" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Mean Well LRS-200-5 (40 A) or equivalent</text>
 <text x="190.0" y="292" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">sized for 288×60 mA peak</text>
 <text x="190.0" y="308" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">(POV avg draw far lower)</text>
 <circle cx="154.0" cy="320" r="4" fill="#d11"/>

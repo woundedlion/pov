@@ -22,7 +22,8 @@ public:
    * @param arena Persistent table allocation arena.
    * @param params Current color operator parameters.
    * @param chroma Common perceptual chroma control.
-   * @return Palette view, valid until the next source change. */
+   * @pre The palette type is not cycling-generated.
+   * @return View of the owned table. Rebakes update it in place. */
   HS_SIZE_FLASH_MEMBER __attribute__((flatten)) const BakedPalette &
   prepare(Arena &arena, const AuthoredPaletteSelection &params, float chroma) {
     if (!initialized || !(params == previous) || chroma != previous_chroma) {

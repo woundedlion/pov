@@ -26,7 +26,9 @@ namespace Scan {
  * canvas rather than plotting it: alpha < 1 darkens the pixel instead of
  * blending, and no plot-time filter stage (Filter::World / Filter::Screen /
  * Filter::Pixel) sees it. Entry points take no pipeline and do not read
- * canvas.debug().
+ * canvas.debug(). An open TimeWindowScope limits walk_grid, walk_object_grid,
+ * draw_grid and the vertex/fragment draw overload to its render-x window.
+ * The other entry points draw across the clip.
  */
 struct Shader {
   // --- Shared SSAA helpers ---------------------------------------------------

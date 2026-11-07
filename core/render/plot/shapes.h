@@ -1410,7 +1410,8 @@ public:
   }
 
   /**
-   * @brief Samples Star levels that remain continuous across the equator.
+   * @brief Samples only positions of Star levels that continue to the opposite
+   * pole. Fragment registers keep their defaults.
    * @param points Output fragment list; num_sides*2+1 fragments are appended.
    * @param basis Orientation basis.
    * @param radius Outer radius in [0, 2].

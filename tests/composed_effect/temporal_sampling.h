@@ -90,12 +90,19 @@ inline Frame sample_frame_reference(const Frame &from, const Frame &to,
   return frame;
 }
 
+/** @brief
+ * GridSpace spec with independently selectable persistence and temporal
+ * sampling.
+ */
 template <bool Persistent, bool Temporal>
 struct PreparedFrameProbeSpec : GridSpaceSpec {
   static constexpr bool PERSISTENT_PREPARED_FRAME = Persistent;
   static constexpr bool TEMPORAL_SAMPLING = Temporal;
 };
 
+/** @brief
+ * GridSpace-derived probe for comparing prepared-frame storage choices.
+ */
 template <bool Persistent, bool Temporal>
 class PreparedFrameProbe
     : public Pullback::ComposedEffect<
@@ -123,6 +130,9 @@ public:
   }
 };
 
+/** @brief
+ * Renders probe pixels with the requested frame storage and sampling mode.
+ */
 template <bool Persistent, bool Temporal>
 inline std::vector<Pixel> prepared_frame_pixels(bool sampling) {
   reset_globals();
@@ -184,6 +194,10 @@ inline void test_composed_spec_default_color_paths() {
   HS_EXPECT_TRUE(Temporal::COLOR_PHASE);
 }
 
+/** @brief
+ * Persistent and transient preparation render identical pixels with either
+ * sampling mode.
+ */
 inline void test_composed_persistent_prepared_frame() {
   static_assert(Pullback::Spec::PERSISTENT_PREPARED_FRAME);
   for (bool sampling : {false, true}) {

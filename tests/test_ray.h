@@ -306,6 +306,10 @@ inline void test_nested_query_validation_once() {
   HS_EXPECT_EQ(query.validations, 1);
 }
 
+/**
+ * @brief Clearance within query error reaches the interval end through
+ * bounded refinement.
+ */
 inline void test_uncertain_clearance_progress() {
   struct UncertainQuery : ConstantQuery {
     Raycast::QueryCapabilities capabilities() const {

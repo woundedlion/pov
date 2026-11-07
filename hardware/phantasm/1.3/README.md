@@ -3,15 +3,16 @@
 Rev 1.3 uses RS-485 for the existing count-coded sync protocol. The electrical
 review selects the components below for four boards with at most 1 m between
 adjacent boards, entirely on the rotor (3 m total for three inter-board cables).
-**This is a schematic and placement input, not a fabrication release.**
-Placement, routing, power/harness qualification and matching firmware remain
-required. Rev 1.2 remains the generator default.
+**This unrouted project has locked placement.** Mechanical review, routing,
+power and harness qualification, and matching firmware are required before
+fabrication. Rev 1.2 remains the generator default.
 
 ## Selected components
 
-The schematic carries Manufacturer, MPN and Datasheet fields for the differential
-interface, decouplers and control resistors. These identify actual parts;
-assembly-house stock, substitutions and CPL rotations still require verification.
+The schematic carries Manufacturer, MPN and Datasheet fields for the
+transceiver, TVS, bus resistors, input and bulk capacitors, decouplers and
+control resistors. Hand-assembled J3A and J3B carry their order code in
+Value. Verify assembly-house stock, substitutions and CPL rotations.
 
 | Reference | Manufacturer / orderable part | Selection |
 |---|---|---|
@@ -57,9 +58,9 @@ Open or upload this directory's matching
 [schematic](phantasm.kicad_sch), [board](phantasm.kicad_pcb), and
 [project](phantasm.kicad_pro), with the accompanying libraries. These are
 placement inputs, not routed fabrication artifacts. Keep downloads in the
-gitignored candidates/ directory. Commit routed projects in <rev>/routed/
-with a candidate.json recording Quilter provenance and source hashes; never
-use a final/ directory.
+gitignored `candidates/` directory. Commit routed projects in `<rev>/routed/`
+with `candidate.json` recording Quilter provenance and source hashes.
+The candidate check rejects a `final/` directory.
 
 To regenerate rev 1.2, pass `--revision 1.2` to both commands, or omit the
 selector. Generating one revision does not replace the other revision's files.
@@ -115,11 +116,15 @@ leave the bus usable; unplugging its cable interrupts downstream connectivity.
 The cable may follow the rotor circumference, but ends at the last board:
 do not connect the last board back to the master.
 
-Enable the 120-ohm termination across A/B at the two physical ends only.
-Leave intermediate termination jumpers open. Termination follows physical
-cable position rather than the firmware segment ID. Carry shield continuity
-through every board and close the shield-to-ground jumper only at the master.
-The shield is separate from the reference-ground conductor.
+JP_TERM connects the 120-ohm termination across A/B at the two physical
+ends. Termination follows the cable position. JP_SHLD connects the shield
+to ground at the master. Carry shield continuity through every board and
+keep it separate from the reference-ground conductor.
+
+| Strap | Master | Intermediate board | Last board |
+|---|---|---|---|
+| JP_TERM | Closed | Open | Closed |
+| JP_SHLD | Closed | Open | Open |
 
 The local transceiver branch has a 10 Ω, 1% pulse-proof resistor in
 each conductor and a CDSOT23-SM712 protection array on the cable side.
@@ -128,9 +133,9 @@ of those resistors. Preserve pair symmetry and short protection return paths.
 
 ## Electrical margins
 
-THVD1410's ±18 V bus absolute limits do not cover the SM712's positive clamp
-voltage. SM712 specifies +26 V/-14 V maximum clamp at 17 A; THVD2410's ±70 V
-bus limits provide headroom. Trace inductance, pulse energy and protection-return
+SM712 specifies +26 V/-14 V maximum clamp at 17 A. THVD2410's ±70 V bus
+limits provide headroom. Any transceiver substitute must tolerate the
+clamp voltage. Trace inductance, pulse energy and protection-return
 impedance still need qualification. The assembled board is **not** a ±70 V
 continuous-fault interface: the TVS conducts earlier. Its usable ground-offset
 envelope is constrained by the TVS's -7 V/+12 V standoff despite the IC's wider
@@ -163,9 +168,10 @@ and regulator thermal behavior need separate testing. The inherited 0.15 A
 input-drop calculation is insufficient for this master.
 At the inherited worst-case hot/post-trip series resistance,
 `4.75 V - 0.25 A × (0.75 + 0.20 + 0.12) Ω = 4.4825 V`, below U1's
-4.5 V minimum before harness drop. At 0.25 A, J1 must supply at least
-4.77 V; at 4.75 V, the current must stay below about 0.234 A, with further
-margin for the harness. A lower-resistance PTC needs a separate component review.
+4.5 V minimum. At 0.25 A, the estimated J1 floor is 4.77 V before board
+copper and harness losses. A 62 mm, 0.3 mm wide path on 35 µm outer copper
+adds about 25 mV at 0.25 A before temperature rise. Recompute the drop from
+the routed copper and budget the harness separately.
 
 ## Board layout
 
@@ -180,7 +186,7 @@ J3B at (45.55, 3.43), in millimeters. Their openings face north, tangential
 to the board's hub-to-tip axis. Each pin has a front-component keepout for
 a 2.4 mm-wide, 10 mm-long straight insertion approach outside the board.
 This includes both GND reference pins and both SHIELD pins. Terminal GND
-is separate from Teensy D3; no connection is omitted to gain clearance.
+is separate from Teensy D3.
 The Teensy courtyard, header pins, J2 body and mounting reserves are outside
 these approaches, so access does not depend on fitting a taller socket or
 passing wires beneath the module.
@@ -211,11 +217,11 @@ R_D1/R_D2 sit immediately beside their actual DATA/CLK output pads.
 The three bypass supply-pad distances are below 3 mm; C_DEC1's VIN trace
 and dedicated ground via are pre-routed. The other supply/ground loops,
 reset pull-down connections, filtered rail and signal paths still need
-routing over the preserved inner ground planes. The removed receive divider
-and C_SYNC require no local filter traces.
-The back silkscreen carries the ID truth table, N=8 line, revision stamp
-and writable board-ID field. Each top-bank connector has its complete pin
-legend and title on the back, with labels aligned to the rotated physical pads.
+routing over the preserved inner ground planes.
+The back silkscreen carries the ID truth table, N=8 line, revision stamp,
+writable board-ID field, and the TERM=CABLE ENDS, SHLD=M and CUT TEENSY
+VIN-VUSB legends. Each top-bank connector has its complete pin legend and
+title on the back, aligned to the rotated physical pads.
 The Teensy module outline is on the fab layer. Component graphics that cross
 the board-edge silk margin are retained on the fab layer rather than printed
 off-board; their pads and courtyards are unchanged.
@@ -229,16 +235,16 @@ choke or bus capacitors without measurements showing a need. Specify the
 fabricator's stackup before selecting trace width/gap for 120 Ω differential
 impedance; no universal geometry is implied by these files.
 
-Keep U1's 33 Ω DATA/CLK resistors immediately at its outputs, and place
-R_DATA_PD/R_CLK_PD at its inputs to define the reset state. Separate SPI traces
-and LED/power-return paths from the sync branch. Place C_DEC3 within 3 mm
-of U_SYNC pin 8 with a short ground return; place C_BULK3 nearby.
+The locked placement puts U1's 33 Ω DATA/CLK resistors next to its outputs
+and R_DATA_PD/R_CLK_PD at its inputs to define the reset state. Route SPI
+traces and LED/power returns away from the sync branch. Keep the ground
+return short for C_DEC3, placed within 3 mm of U_SYNC pin 8 beside C_BULK3.
 
 For Quilter, set bypass assignments to C_DEC1 at U_MCU VIN, C_DEC2 at U1
 pin 14, and C_DEC3 at U_SYNC pin 8. Their direct schematic wires identify
-the parent supplies. C_BULK3 is bulk decoupling; place it near U_SYNC without
-a bypass assignment. Preserve the locked bypass placements and route their
-short supply connections with dedicated ground vias.
+the parent supplies. C_BULK3 is bulk decoupling near U_SYNC and has no
+bypass assignment. Preserve the locked placements and route the short
+supply connections with dedicated ground vias.
 
 ## Firmware contract
 

@@ -138,7 +138,8 @@ template <typename FrameT, typename SpecT = Pullback::Spec> struct Binding {
 };
 
 /** @brief Supplies the camera orientation to Pullback::Stage::Rotate.
- * @tparam BindingT Frame binding of the effect. */
+ * @tparam BindingT Frame binding of the effect.
+ * @tparam Family Parameter family declared by the projection resource. */
 template <typename BindingT, typename Family = ProjectionParams>
 struct OuterCameraProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
@@ -170,6 +171,7 @@ template <typename BindingT, ResourceKey Key> struct RotationProvider {
  * @brief Supplies the projection frame and its parameters to the
  *        Pullback::Projection policies.
  * @tparam BindingT Frame binding of the effect.
+ * @tparam Family Parameter family declared by the projection resource.
  */
 template <typename BindingT, typename Family = ProjectionParams>
 struct ProjectionProvider {

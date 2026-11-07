@@ -304,7 +304,7 @@ public:
     return ParamSetResult::APPLIED;
   }
 
-  /** @brief Reads admitted numeric intervals with other parameters held fixed.
+  /** @brief Reads admitted scalar and topology index bounds with other parameters fixed.
    * @tparam Visitor Callable receiving name, minimum and maximum.
    * @param visit Receives scalar intervals and potential-field topology indices. */
   template <typename Visitor> void parameter_ranges(Visitor &&visit) {

@@ -749,8 +749,7 @@ inline constexpr bool all_recipe_seeds_in_range() {
   return true;
 }
 static_assert(all_recipe_seeds_in_range(),
-              "Recipe::seed must index simple_registry; the replay sites index "
-              "it without a runtime bound");
+              "Recipe::seed must index simple_registry");
 
 /**
  * @brief Tests whether every entry's Category matches the registry it sits in.

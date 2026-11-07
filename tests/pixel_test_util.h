@@ -193,7 +193,7 @@ struct PixelGolden {
 struct RecordedGolden {
   PixelGolden ieee;
   PixelGolden fastmath;
-  double channel_band = 1e-3;
+  double channel_band = 1e-3;   ///< Relative tolerance on each RGB total.
   double centroid_band = 0.01;  ///< Brightness-centroid tolerance in pixels.
   PixelGolden wasm_fastmath{};  ///< Empty selects the native fast reference.
   PixelGolden linux_fastmath{}; ///< Empty selects the native fast reference.

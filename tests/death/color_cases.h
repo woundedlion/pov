@@ -3,8 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
-
 // Color death cases.
 
 /** @brief Authored named palettes reject either out-of-range roster index. */
@@ -47,13 +45,11 @@ inline void case_shader_palette_invalid_type() {
   (void)resources.prepare(persistent_arena, params);
 }
 
-/** @brief Traps on gamut lut scratch a. */
 inline void case_gamut_lut_scratch_a() {
   init_gamut_lut(scratch_arena_a, GAMUT_LUT_MIN_ANGLE_STEPS,
                  GAMUT_LUT_MIN_L_STEPS);
 }
 
-/** @brief Traps on gamut lut scratch b. */
 inline void case_gamut_lut_scratch_b() {
   init_gamut_lut(scratch_arena_b, GAMUT_LUT_MIN_ANGLE_STEPS,
                  GAMUT_LUT_MIN_L_STEPS);
@@ -116,7 +112,6 @@ inline void case_palette_cadence_past_storage() {
   reject_palette_display_interval(256, 600);
 }
 
-/** @brief Traps on palette cycler mutated policy. */
 inline void case_palette_cycler_mutated_policy() {
   static uint8_t storage[8192];
   Arena arena(storage, sizeof(storage));
@@ -131,7 +126,6 @@ inline void case_palette_cycler_mutated_policy() {
   cycler.step();
 }
 
-/** @brief Traps on palette cycler restore without generated init. */
 inline void case_palette_cycler_restore_without_generated_init() {
   PaletteCycler cycler;
   GenerativePalette palette;
@@ -372,7 +366,7 @@ inline void case_composition_null_color() {
   palette.bind(&source, &coord, nullptr);
 }
 
-/** @brief PaletteFacade rejects a null composition. */
+/** @brief PaletteFacade construction rejects a null composition. */
 inline void case_composition_facade_construct() {
   using Composition =
       StaticPalette<GenerativePalette, Coords<>, Colors<>, false>;
@@ -381,7 +375,7 @@ inline void case_composition_facade_construct() {
   (void)PaletteFacade<Composition>(opaque<const Composition *>(nullptr));
 }
 
-/** @brief PaletteFacade rejects a null composition. */
+/** @brief PaletteFacade::bind rejects a null composition. */
 inline void case_composition_facade_bind() {
   using Composition =
       StaticPalette<GenerativePalette, Coords<>, Colors<>, false>;

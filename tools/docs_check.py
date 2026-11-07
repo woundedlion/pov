@@ -843,9 +843,9 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
 
 
 def effect_roster(source: str) -> set[str]:
-    """Names HS_EFFECT_LIST expands over, given the roster header's text.
+    """Reads literal X(Name) rows from the roster header.
 
-    The optional chain-interpreter row is absent from firmware and gallery.
+    The optional HS_CHAIN_INTERPRETER_EFFECT(X) row is outside that form.
     """
     return set(_EFFECT_ROSTER_ENTRY_RE.findall(
         (macro_body(source, _EFFECT_ROSTER_MACRO) or "")))

@@ -114,6 +114,7 @@ public:
    * @brief Constructs an element in place at the front.
    * @tparam Args Constructor argument types for T.
    * @param args Arguments forwarded to T's constructor.
+   * @pre Constructor arguments do not reference an element of this buffer.
    * @return Reference to the newly constructed front element.
    * @details Evicts the back element when full. The slot's old object is
    * destroyed before construction, so a throwing T is unsupported.
@@ -185,6 +186,7 @@ public:
    * @brief Constructs an element in place at the back.
    * @tparam Args Constructor argument types for T.
    * @param args Arguments forwarded to T's constructor.
+   * @pre Constructor arguments do not reference an element of this buffer.
    * @return Reference to the newly constructed back element.
    * @details Evicts the front element when full. The slot's old object is
    * destroyed before construction, so a throwing T is unsupported.

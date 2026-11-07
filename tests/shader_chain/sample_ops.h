@@ -430,6 +430,9 @@ inline void test_shader_chain_turn_clock_reduction() {
   }
 }
 
+/**
+ * @brief Noise operators return finite values for extreme planar coordinates.
+ */
 inline void test_shader_chain_noise_operator_domain() {
   const auto ctx = shared_resources().context();
   In::Op::NoisePhaseState state;
@@ -510,6 +513,10 @@ inline void test_shader_chain_noise_operator_domain() {
   }
 }
 
+/**
+ * @brief Out-of-domain composed noise samples resolve to the neutral field
+ * value 0.5.
+ */
 inline void test_shader_chain_composed_noise_domain() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
@@ -549,6 +556,10 @@ inline void test_shader_chain_composed_noise_domain() {
   }
 }
 
+/**
+ * @brief Lattice reduction keeps path length finite at large finite
+ * coordinates.
+ */
 inline void test_shader_chain_large_finite_path_length() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;

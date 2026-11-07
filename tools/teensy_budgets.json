@@ -25,13 +25,12 @@
       // tracked by tools/teensy_size_trail.py instead.
       "flash": { "max_bytes": 1900000 },
       "ram1":  { "max_bytes": 490000 },
-      // OCRAM: 44,160 B used, 480,128 B free. max_bytes is the hardware wall;
-      // free_min_bytes reserves 4 KiB for the heap-allocated effect object plus
-      // allocator and boot overhead.
+      // max_bytes is the hardware wall. free_min_bytes reserves space for
+      // the heap-allocated effect object, allocator and boot overhead.
       "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },
     "symbols": {
-      "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 294912, "max_bytes": 327680 }, // 305,152 B (298 KiB)
+      "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 294912, "max_bytes": 327680 }, // HS_DEVICE_ARENA_BYTES
       "framebuffer_a": { "name": "_ZN6Effect8buffer_aE",    "region": "OCRAM" },
       "framebuffer_b": { "name": "_ZN6Effect8buffer_bE",    "region": "OCRAM" }
       // ReactionGraph's neighbor runs are GC'd out of Holosphere
@@ -42,9 +41,9 @@
 
   "phantasm": {
     "regions": {
-      // -Os + nano + flash routing and a 298 KiB arena. The shipping
-      // image may use all padding within its six ITCM banks; allocating a
-      // seventh bank fails the stack-floor-derived ceiling.
+      // -Os + nano + flash routing and HS_DEVICE_ARENA_BYTES. The shipping
+      // image may use padding within its allocated ITCM banks. Another bank
+      // exceeds the stack-floor-derived ceiling.
       // FLASH retains 32 KiB below the 1984 KiB program-flash wall.
       "flash": { "max_bytes": 1998848 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting

@@ -36,7 +36,7 @@ namespace Scan {
 inline void (*face_audit_candidate)(size_t, int, int, float, bool) = nullptr;
 /** @brief Face currently visited by the candidate observer. */
 inline size_t face_audit_index = 0;
-/** @brief Selected faces and vertices in the replayed frame. */
+/** @brief Total faces, selected faces, total vertices and selected vertices, in order. */
 inline size_t visibility_counts[4] = {};
 /** @brief Deformation reach used by the last visibility pre-pass. */
 inline float visibility_audit_reach = 0.0f;
@@ -206,6 +206,7 @@ HS_O3_BEGIN
  * @tparam COLUMN_TIME Whether pixels follow @p time's rotated basis.
  * @tparam INLINE_RUNS Whether the run builder inlines into the body, so a
  *         FLASH variant takes it along.
+ * @tparam FragmentShaderT Per-pixel shader type.
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
  * @param shape Face to rasterize.

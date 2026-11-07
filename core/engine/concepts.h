@@ -243,9 +243,9 @@ struct DissolveMask {
 
 #include "core/render/pipeline_ref.h"
 
+// 16 B aliases hold two pointers on the 64-bit host, four on device.
 /// Owned path function mapping a parameter to a sphere point.
 using PlotFn = Fn<math::Vector(float), 16>;
-// 16 B: holds two pointers on the 64-bit host, four on device.
 /// Owned sprite draw callback: (canvas, opacity in [0, 1]).
 using SpriteFn = Fn<void(Canvas &, float), 16>;
 /// Owned timer callback, invoked with the frame's canvas.

@@ -45,8 +45,8 @@ static_assert(all_presets_in_ranges(CONST_ENTRIES, id_below_four));
 static_assert(!all_presets_in_ranges(CONST_ENTRIES, id_below_three));
 
 /**
- * @brief Verifies all_presets_in_ranges() reports a failure at the table's
- *        first entry.
+ * @brief all_presets_in_ranges() passes only if every entry satisfies the
+ * predicate.
  */
 inline void test_all_presets_in_ranges_folds_predicate() {
   auto entries = CONST_ENTRIES;
@@ -55,7 +55,7 @@ inline void test_all_presets_in_ranges_folds_predicate() {
   HS_EXPECT_FALSE(all_presets_in_ranges(entries, id_above_one));
 }
 
-/** @brief Field groups accept midpoint and snap for discrete parameters. */
+/** @brief Discrete fields accept midpoint and snap. Midpoint switches at 0.5. */
 inline void test_discrete_field_curves() {
   struct Knobs {
     bool enabled;

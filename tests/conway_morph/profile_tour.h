@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Simulates the walk state machine over two ordered-tour cycles.
+ * @brief Each ordered-tour cycle covers every node and returns to its start.
  */
 inline void test_ordered_tour_full_coverage_and_wrap() {
   using namespace ConwayGraph;

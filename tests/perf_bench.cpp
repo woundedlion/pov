@@ -45,7 +45,7 @@ constexpr size_t BENCH_SCRATCH_BYTES = 64 * 1024;
 
 /** @brief Frames run before timing an effect. */
 template <typename Effect> constexpr int WARM_FRAMES = WARM;
-/** @brief Galaxies fills its particle pool over its 800-frame lifetime. */
+/** @brief Galaxies fills its particle pool over its particle lifetime. */
 template <> constexpr int WARM_FRAMES<Galaxies<W, H>> = 900;
 
 /** @brief Measures one effect after a fixed warmup.

@@ -46,7 +46,7 @@ static bool runs_effects(int argc, char **argv) {
 /**
  * @brief Watchdog bound every CI leg has to set, in microseconds.
  * @details A buffer_free() timeout traps the process instead of failing a
- * test, so CI raises the shipping 2 s bound.
+ * test, so CI raises the shipping bound.
  */
 constexpr unsigned long CI_MIN_BUFFER_FREE_WATCHDOG_US = 30000000UL;
 

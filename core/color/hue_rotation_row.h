@@ -44,7 +44,7 @@ template <int CELLS> struct HueRotationRow {
   }
 
   /**
-   * @brief Counts the knots a sample at or below @p max_amount can read.
+   * @brief Counts the knots a sample in [0, @p max_amount] can read.
    * @param max_amount Largest hue offset (turns) any sample asks for.
    * @return Knots 0..count - 1 are the only ones sample() reads.
    * @details A wrapping lookup that can reach a full turn, or a domain that

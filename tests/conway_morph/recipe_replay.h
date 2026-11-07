@@ -582,6 +582,10 @@ inline void test_relax_source_hash_separates_bevel_inputs() {
   HS_EXPECT_GE(bevel20.quantization_margin, MeshOps::RELAX_SOURCE_MIN_MARGIN);
 }
 
+/**
+ * @brief Replays representative recipes and verifies the production build
+ * schedule.
+ */
 inline void test_recipe_chain_build_replay() {
   replay_build_chain("dodecahedron_kis", DODECAHEDRON_KIS_RECIPE);
   replay_build_chain("cube_kis_dual", CUBE_KIS_DUAL_RECIPE);

@@ -183,7 +183,7 @@ private:
   /**
    * @brief Reports whether another counter with entries shares @p node's name.
    * @param node Counter being logged.
-   * @return True when a second registered counter carries the same label.
+   * @return True when another counter with entries shares the same label.
    * @details A HS_PROFILE scope inside a function template registers one counter
    *          per instantiation under the same label.
    */

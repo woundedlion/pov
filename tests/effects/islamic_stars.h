@@ -405,6 +405,7 @@ inline void test_islamicstars_seed_sprite_fade_in() {
   HS_EXPECT_TRUE(IslamicBuildProbe::build_active(effect));
 }
 
+/** @brief A Burst edit takes effect at the next spawn. */
 inline void test_islamicstars_burst_size_is_snapshotted_per_spawn() {
   reset_globals();
   IslamicBuildProbe::IS effect;

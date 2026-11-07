@@ -44,8 +44,8 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
 
 /** @brief Selected and visited pixel counts for a cull coverage check. */
 struct CullCoverage {
-  int selected;
-  int visited;
+  int selected; ///< Pixels selected by the coverage predicate.
+  int visited;  ///< Pixels visited by the cull walk.
 };
 
 /** @brief Checks culled visits for every pixel selected by a distance predicate. */
@@ -85,8 +85,8 @@ inline CullCoverage expect_cull_covers(const Shape &shape, const char *label,
  * @tparam Shape SDF shape type providing the cull and distance interface.
  * @param shape Shape under test.
  * @param label Caller-identifying label reported with each failing pixel.
- * @return Count of visited pixels.
  * @param require_cull Require fewer visits than a full canvas.
+ * @return Count of visited pixels.
  * @details Asserts at least one interior pixel.
  */
 template <int W, int H, typename Shape>
@@ -112,8 +112,8 @@ inline constexpr float PAINTED_ALPHA = Scan::MIN_ALPHA;
  * @tparam Shape SDF shape type providing the cull and distance interface.
  * @param shape Shape under test.
  * @param label Caller-identifying label reported with each failing pixel.
- * @return Count of visited pixels.
  * @param require_cull Require fewer visits than a full canvas.
+ * @return Count of visited pixels.
  * @details A pixel counts as painted when its rasterizer coverage (solid or
  *   stroke ramp) exceeds `PAINTED_ALPHA`.
  */
@@ -143,8 +143,8 @@ inline int expect_cull_covers_painted(const Shape &shape, const char *label,
  * @tparam Shape SDF shape type providing the cull and distance interface.
  * @param shape Shape under test.
  * @param label Caller-identifying label reported with each failing pixel.
- * @return Count of visited pixels.
  * @param require_cull Require fewer visits than a full canvas.
+ * @return Count of visited pixels.
  * @details Every pixel under pixel_width carries non-zero coverage.
  */
 template <int W, int H, typename Shape>
@@ -954,7 +954,7 @@ inline void face_fixed_pad_visited(const SDF::PreparedFace &face,
       });
 }
 
-/** @brief Counts paintable pixels missed before and after latitude widening. */
+/** @brief Counts paintable pixels missed by fixed and per-row azimuth pads. */
 template <int W, int H>
 inline std::pair<int, int> face_fringe_misses(const SDF::PreparedFace &face) {
   if (!math::TrigLUT<W, H>::initialized)
@@ -981,8 +981,8 @@ inline std::pair<int, int> face_fringe_misses(const SDF::PreparedFace &face) {
 }
 
 /**
- * @brief Pins the reduction from converting Face's AA reach to azimuth by row.
- * @details Latitude widening covers every paintable fringe sample.
+ * @brief The per-row azimuth pad covers every paintable fringe sample.
+ * @details A fixed equatorial pad misses at least 64 across these poses.
  */
 inline void test_face_latitude_pad_reduces_fringe_drops() {
   constexpr int W = 288, H = 144;

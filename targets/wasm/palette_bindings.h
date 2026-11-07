@@ -102,6 +102,13 @@ private:
    *        INVALID_SCHEMA and anything the underlying type cannot hold as
    *        INVALID_ENUM. Each enum's own bound belongs to
    *        GenerativePalette::try_compile().
+   * @tparam Enum Enum with an unsigned underlying type.
+   * @param object Recipe object.
+   * @param name Key to decode.
+   * @param output Decoded enumerator. Written on success.
+   * @param field Identifier to report on rejection.
+   * @param status Rejection code and field. Written on rejection.
+   * @return True on successful decode.
    * @details A missing key reads as undefined, which converts to enumerator 0,
    *          so the numeric test comes first. The range test runs in double: an
    *          int read would ToInt32-wrap an out-of-range field. NaN is rejected.

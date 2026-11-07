@@ -815,7 +815,8 @@ HS_HOT_INLINE inline bool edge_spans_one_dot(const uint8_t *edge_flags,
  * @param edge_flags Optional precomputed edge visibility.
  * @param i Segment index.
  * @param opts Raster options including the sampler rebuild oracle.
- * @param planar_cull_span,planar_cull_end,reuse_planar_cull_samples Retained cull outputs. */
+ * @param planar_cull_span,planar_cull_end,reuse_planar_cull_samples Retained cull outputs.
+ * @return Whether the rendered edge can touch the active clip. */
 template <int W, int H, bool ReusePlanarSamples, typename PipelineT,
           typename Columns>
 HS_HOT_INLINE inline bool select_edge_visibility(

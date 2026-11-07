@@ -7,6 +7,7 @@
 #
 # usage: fw_cache.sh build <env>...   reuse each image or `pio run -e <env>`
 #                                     under the checkout lock and store it
+# Reused images stay in the printed entry. .pio/build retains its contents.
 #        fw_cache.sh key <env>        print the key; 3 = uncommitted changes
 #        fw_cache.sh get <env>        print the entry; 1 = miss, 3 = uncommitted
 #        fw_cache.sh tree             print the clean checkout's tree hash

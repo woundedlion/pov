@@ -358,9 +358,14 @@ struct ParticleSystem {
    * @brief Draws particle trails while applying a typed vertex shader during
    *        trail materialization.
    * @details Fuses point materialization and transformation into one traversal.
+   * @tparam W,H Rasterization resolution.
    * @tparam SinglePassRaster Emit adaptive geodesic samples without a replay
    *         cache. Applies only to a direct raster pipeline with sample stride 1.
+   * @tparam PipelineT Render pipeline type.
+   * @tparam FragmentShaderT Fragment shader type.
+   * @tparam VertexShaderFn Typed vertex shader.
    * @tparam DeferredShaderT Deferred vertex shader type.
+   * @tparam ParticleV2Fn Optional particle-to-v2 callable.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param system Particle system supplying the active pool and trail history.

@@ -489,9 +489,6 @@ public:
   }
 
 private:
-  /// Size, in plane units, below which a face reports plane distances, as
-  /// SDF::PreparedFace does.
-
   /** @brief A quadratic in time through values at t = 0, 1/2 and 1. */
   struct Quadratic {
     float c0 = 0.0f, c1 = 0.0f, c2 = 0.0f; ///< Coefficients, or samples.

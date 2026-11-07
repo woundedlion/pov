@@ -548,9 +548,12 @@ private:
    * stop.
    */
   struct DutyCycleModifier {
+    /// Returns a coordinate in [0, 1].
     static constexpr bool bounded_output = true;
+    /// Wraps the input coordinate.
     static constexpr bool rebounds_input = true;
 
+    /// Borrowed active fraction of each palette cycle.
     const float *duty_cycle;
 
     float modify(float t) const {
@@ -662,6 +665,7 @@ private:
       &params.scale_factor}; /**< Palette scale coordinate modifier. */
   CycleModifier cycle_mod{
       &cycle_phase}; /**< Palette cycle coordinate modifier. */
+  /// Palette coordinate modifier that reserves the inactive fraction at black.
   DutyCycleModifier duty_mod{&params.duty_cycle};
   Gradient fire_palette;
   StaticPalette<Gradient,

@@ -102,12 +102,6 @@ HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
 }
 } // namespace
 
-/**
- * @brief Re-partitions the single global block into persistent plus two scratch
- * arenas of the requested byte sizes.
- * @details Runs the ArenaResetHook list first, since the storage under a
- * persistent-arena-resident global is handed out again.
- */
 FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
                                size_t scratch_b) {
   ArenaResetHook::run_all();
@@ -133,8 +127,6 @@ FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
            "resplit_arenas: both scratch arenas must be empty");
   const ScratchBases bases =
       split_bases("resplit_arenas", persistent, scratch_a, scratch_b);
-  // Rebinding preserves persistent content and generation; high-water resets
-  // to the live offset for this shape's split.
   persistent_arena.rebind_capacity(persistent);
   persistent_arena.reset_high_water_mark();
   scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);

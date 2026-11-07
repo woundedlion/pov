@@ -40,7 +40,8 @@ public:
    * @brief Binds the slice selector to an orientation list and a slicing axis.
    * @param orientations Candidate orientations, indexed by axis projection.
    *        Borrowed, not copied: the backing array must outlive the filter.
-   * @param axis Unit axis the point is projected onto to pick an orientation.
+   * @param axis Slicing axis. Squared length must be finite and at least
+   *        math::EPS_NORMALIZE_SQ. The constructor normalizes it.
    */
   OrientSlice(std::span<const math::Orientation<>> orientations,
               const math::Vector &axis)

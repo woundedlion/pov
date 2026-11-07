@@ -16,7 +16,8 @@ public:
   /** @brief Resolves the current source controls.
    * @param arena Persistent table allocation arena.
    * @param params Current color operator parameters.
-   * @return Owned table, valid until the next source change. */
+   * @pre The palette type is not cycling-generated.
+   * @return View of the owned table. Rebakes update it in place. */
   const BakedPalette &
   prepare(Arena &arena,
           const Pullback::Interp::Op::GeneratedPaletteParams &params) {
