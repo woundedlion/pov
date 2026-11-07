@@ -46,6 +46,14 @@ def _window(renders=(), wall_sum=None, frames=None):
 
 
 class PresetAttribution(unittest.TestCase):
+    def test_windows_refuses_an_unknown_scope(self):
+        with mock.patch.object(sys, "argv",
+                               ["parse_profile", "capture", "windows", "--scope", "typo"]), \
+                mock.patch.object(pp, "parse_capture", return_value=([_window([1000])], "Fx")), \
+                contextlib.redirect_stderr(io.StringIO()) as error:
+            self.assertEqual(pp.main(), 2)
+        self.assertIn("no window carries the counter 'typo'", error.getvalue())
+
     def test_requested_gate_must_exist_for_presets_and_buckets(self):
         for command in (pp.cmd_presets, pp.cmd_buckets):
             for gate, expected in ((None, 0), ("fx_buffer_wait", 0), ("typo_gate", 2)):

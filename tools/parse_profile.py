@@ -366,6 +366,9 @@ def spilled_frames(w):
 
 
 def cmd_windows(windows, scope):
+    if not any(scope in window.counters for window in windows):
+        print(f"no window carries the counter '{scope}'", file=sys.stderr)
+        return 2
     print(f"# window  frames        {scope} ms/f  calls/f  wall_ms  "
           f"peak_ms  spill  marker")
     # peak_ms is the worst frame's RENDER: exact from the per-frame telemetry,
@@ -394,13 +397,14 @@ def cmd_windows(windows, scope):
     if worst_peak_w is None:
         print(f"# aggregate: peak render n/a, "
               f"spilled {agg_spill}/{agg_frames} frames")
-        return
+        return 0
     kind = ("peak frame render" if exact_run else
             "peak WINDOW MEAN render (~placeholder, no per-frame telemetry)")
     print(f"# aggregate: {kind} {worst_peak:.2f} ms "
           f"(frames {worst_peak_w.f_start}-{worst_peak_w.f_end}), "
           f"spilled {agg_spill}/{agg_frames} frames"
           f"{'' if exact_run else ' (wall-derived, +-1)'}")
+    return 0
 
 
 def initial_preset_key(windows):
@@ -926,7 +930,7 @@ def main():
     scope = args.scope or dominant_scope(windows)
 
     if args.mode == "windows":
-        cmd_windows(windows, scope)
+        return cmd_windows(windows, scope)
     elif args.mode == "frames":
         print("# frame  wall_us  render_us  spill")
         for w in windows:
