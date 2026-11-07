@@ -211,6 +211,15 @@ HS_HOT_ITCM_MEMBER inline ColorSample blend_color_samples(const ColorSample &a,
   return result;
 }
 
+/** @brief Clamps linear RGB channels before applying final brightness.
+ * @param color Channels updated in place.
+ * @param gain Final brightness multiplier. */
+HS_HOT_INLINE inline void apply_brightness_gain(LinRGB &color, float gain) {
+  color.r = hs::clamp(color.r, 0.0f, 1.0f) * gain;
+  color.g = hs::clamp(color.g, 0.0f, 1.0f) * gain;
+  color.b = hs::clamp(color.b, 0.0f, 1.0f) * gain;
+}
+
 /** @brief Completes composed perceptual adjustments and final RGB brightness.
  * @param sample Color sample to finish.
  * @return Final straight-alpha color. */
@@ -244,9 +253,7 @@ finish_color_sample(const ColorSample &sample) {
     lab.L += (1.0f - lab.L) * sample.pending_lift;
     LinRGB output = hue_rotate_lut_gamut_rgb(lab, sample.pending_hue);
     if (sample.brightness_gain != 1.0f) {
-      output.r = hs::clamp(output.r, 0.0f, 1.0f) * sample.brightness_gain;
-      output.g = hs::clamp(output.g, 0.0f, 1.0f) * sample.brightness_gain;
-      output.b = hs::clamp(output.b, 0.0f, 1.0f) * sample.brightness_gain;
+      apply_brightness_gain(output, sample.brightness_gain);
     }
     return Color4(linrgb_to_pixel(output), color.alpha);
   } else if (sample.pending_hue != 0.0f) {

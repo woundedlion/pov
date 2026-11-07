@@ -846,9 +846,7 @@ HS_HOT_INLINE inline Color4 finish_palette_lab(OKLab lab, float hue, float lift,
     output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(LAB));
   }
   if (gain != 1.0f) {
-    output.r = hs::clamp(output.r, 0.0f, 1.0f) * gain;
-    output.g = hs::clamp(output.g, 0.0f, 1.0f) * gain;
-    output.b = hs::clamp(output.b, 0.0f, 1.0f) * gain;
+    apply_brightness_gain(output, gain);
   }
   return Color4(linrgb_to_pixel(output), alpha);
 }
