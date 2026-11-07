@@ -852,7 +852,9 @@ public:
         rotation_phase, HyperLatticeDetail::pixel_half_angle<W, H>(),
         frame_palette,  preset_gain,
         crossing_list};
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     unfinished_rays = 0;
+#endif
     const HyperLatticeDetail::FrameEndpoint endpoint{context, trace_center};
     if (!history.initialized ||
         configuration_id(history.previous.state.params) !=
@@ -1103,7 +1105,9 @@ private:
    */
   template <TracePath PATH, bool SLICE_4D> struct TracedRay {
     const HyperLatticeDetail::Trace::Prepared *prepared; ///< Trace state.
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     HyperLattice *effect; ///< Counts the rays left unfinished.
+#endif
 
     /** @brief Traces one ray.
      *  @param view Unit view direction.
@@ -1113,11 +1117,13 @@ private:
       if constexpr (PATH == TracePath::GENERIC) {
         const auto result =
             HyperLatticeDetail::Trace::shade<SLICE_4D>(view, frame);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
         const auto STATUS = result.status;
         if (STATUS != Raycast::TraceStatus::SURFACE &&
             STATUS != Raycast::TraceStatus::RANGE_COMPLETE &&
             STATUS != Raycast::TraceStatus::SATURATED)
           effect->unfinished_rays += 1;
+#endif
         return result.color;
       } else {
         const auto result = [&]() HS_HOT_INLINE {
@@ -1134,8 +1140,10 @@ private:
             return HyperLatticeDetail::Trace::shade_octet<SLICE_4D>(view,
                                                                     frame);
         }();
+#if HS_ENABLE_PARAM_GUI_BRIDGE
         if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
           effect->unfinished_rays += 1;
+#endif
         return result.color;
       }
     }
@@ -1206,11 +1214,19 @@ private:
           path = TracePath::GENERIC;
     dispatch_traced(path, params.mode == LatticeMode::SLICE_4D,
                     [&]<TracePath PATH, bool SLICE_4D>() HS_HOT_INLINE {
-                      Scan::Shader::draw_columns<W, H>(
-                          canvas, [states, this](int x) HS_HOT_INLINE {
-                            return TracedRay<PATH, SLICE_4D>{
-                                states + x % COLUMN_TIMES, this};
-                          });
+                      Scan::Shader::draw_columns<W, H>(canvas, [states
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+                                                                ,
+                                                                this
+#endif
+                      ](int x) HS_HOT_INLINE {
+                        return TracedRay<PATH, SLICE_4D>{
+                            .prepared = states + x % COLUMN_TIMES,
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+                            .effect = this,
+#endif
+                        };
+                      });
                     });
   }
 
@@ -1220,12 +1236,19 @@ private:
     dispatch_traced(trace_path(prepared), params.mode == LatticeMode::SLICE_4D,
                     [&]<TracePath PATH, bool SLICE_4D>() HS_HOT_INLINE {
                       Scan::Shader::draw_cached<W, H, 1>(
-                          canvas, TracedRay<PATH, SLICE_4D>{&prepared, this});
+                          canvas, TracedRay<PATH, SLICE_4D>{
+                                      .prepared = &prepared,
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+                                      .effect = this,
+#endif
+                                  });
                     });
   }
 
   math::Vec4 trace_center{{.255f, .465f, .645f, .375f}};
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   float unfinished_rays = 0;
+#endif
 
   static void next_depth_palette(void *, uint32_t sequence,
                                  GenerativePalette &out) {
