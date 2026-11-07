@@ -187,63 +187,30 @@ inline float report_stretch(const SDF::Face &shape) {
   return report_stretch(shape.prepared());
 }
 // Forward-declared so a nested composite's recursive call sees every overload.
-template <typename A, typename B>
-inline float report_stretch(const SDF::Union<A, B> &shape);
-template <typename A, typename B>
-inline float report_stretch(const SDF::SmoothUnion<A, B> &shape);
-template <typename A, typename B>
-inline float report_stretch(const SDF::Intersection<A, B> &shape);
-template <typename A, typename B>
-inline float report_stretch(const SDF::Subtract<A, B> &shape);
+template <template <typename, typename> class Csg, typename A, typename B>
+  requires(std::is_same_v<Csg<A, B>, SDF::Union<A, B>> ||
+           std::is_same_v<Csg<A, B>, SDF::SmoothUnion<A, B>> ||
+           std::is_same_v<Csg<A, B>, SDF::Intersection<A, B>> ||
+           std::is_same_v<Csg<A, B>, SDF::Subtract<A, B>>)
+inline float report_stretch(const Csg<A, B> &shape);
 template <typename Shape>
 inline float report_stretch(const SDF::AngularRepeat<Shape> &shape);
 
 /**
- * @brief Report stretch of an SDF::Union: the larger of its operands'.
+ * @brief Report stretch of a binary CSG shape: the larger operand stretch.
+ * @tparam Csg Union, SmoothUnion, Intersection or Subtract.
  * @tparam A First operand shape.
  * @tparam B Second operand shape.
  * @param shape Composite whose operands are queried.
  * @return max(report_stretch(shape.a), report_stretch(shape.b)).
  */
-template <typename A, typename B>
+template <template <typename, typename> class Csg, typename A, typename B>
+  requires(std::is_same_v<Csg<A, B>, SDF::Union<A, B>> ||
+           std::is_same_v<Csg<A, B>, SDF::SmoothUnion<A, B>> ||
+           std::is_same_v<Csg<A, B>, SDF::Intersection<A, B>> ||
+           std::is_same_v<Csg<A, B>, SDF::Subtract<A, B>>)
 __attribute__((always_inline)) inline float
-report_stretch(const SDF::Union<A, B> &shape) {
-  return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
-}
-/**
- * @brief Report stretch of an SDF::SmoothUnion: the larger of its operands'.
- * @tparam A First operand shape.
- * @tparam B Second operand shape.
- * @param shape Composite whose operands are queried.
- * @return max(report_stretch(shape.a), report_stretch(shape.b)).
- */
-template <typename A, typename B>
-__attribute__((always_inline)) inline float
-report_stretch(const SDF::SmoothUnion<A, B> &shape) {
-  return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
-}
-/**
- * @brief Report stretch of an SDF::Intersection: the larger of its operands'.
- * @tparam A First operand shape.
- * @tparam B Second operand shape.
- * @param shape Composite whose operands are queried.
- * @return max(report_stretch(shape.a), report_stretch(shape.b)).
- */
-template <typename A, typename B>
-__attribute__((always_inline)) inline float
-report_stretch(const SDF::Intersection<A, B> &shape) {
-  return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
-}
-/**
- * @brief Report stretch of an SDF::Subtract: the larger of its operands'.
- * @tparam A First operand shape.
- * @tparam B Second operand shape.
- * @param shape Composite whose operands are queried.
- * @return max(report_stretch(shape.a), report_stretch(shape.b)).
- */
-template <typename A, typename B>
-__attribute__((always_inline)) inline float
-report_stretch(const SDF::Subtract<A, B> &shape) {
+report_stretch(const Csg<A, B> &shape) {
   return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
 /**
