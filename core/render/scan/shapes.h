@@ -1120,15 +1120,21 @@ struct RingGroup {
     // Covering ring: the middle member inflated by the worst centerline
     // deviation plus thickness. The 1e-3 absorbs fast_acos error.
     const int mid = n / 2;
+    auto member_reach = [&](const math::Vector &mid_axis,
+                            const math::Vector &member_axis,
+                            int s) HS_HOT_INLINE {
+      const float DEV =
+          math::fast_acos(
+              hs::clamp(math::dot(mid_axis, member_axis), -1.0f, 1.0f)) +
+          std::abs(shapes[s].target_angle - shapes[mid].target_angle) + 1e-3f;
+      return shapes[s].thickness + DEV;
+    };
     float pad_th = shapes[mid].thickness;
     for (int s = 0; s < n; ++s) {
       if (s == mid)
         continue;
-      float dev =
-          math::fast_acos(hs::clamp(
-              math::dot(shapes[mid].normal, shapes[s].normal), -1.0f, 1.0f)) +
-          std::abs(shapes[s].target_angle - shapes[mid].target_angle) + 1e-3f;
-      pad_th = std::max(pad_th, shapes[s].thickness + dev);
+      pad_th = std::max(pad_th,
+                        member_reach(shapes[mid].normal, shapes[s].normal, s));
     }
     SDF::Ring cover(
         math::Basis{shapes[mid].u, shapes[mid].normal, shapes[mid].w},
@@ -1144,13 +1150,8 @@ struct RingGroup {
         for (int s = 0; s < n; ++s) {
           if (s == mid)
             continue;
-          const float dev =
-              math::fast_acos(hs::clamp(
-                  math::dot(previous_normals[mid], previous_normals[s]), -1.0f,
-                  1.0f)) +
-              std::abs(shapes[s].target_angle - shapes[mid].target_angle) +
-              1e-3f;
-          pad = std::max(pad, shapes[s].thickness + dev);
+          pad = std::max(
+              pad, member_reach(previous_normals[mid], previous_normals[s], s));
         }
         pad = pad * (1.0f + max_slot_sweep * max_slot_sweep) + 1e-3f;
       }
