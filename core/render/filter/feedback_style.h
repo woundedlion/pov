@@ -12,6 +12,7 @@
 
 #include "core/animation/transformer.h"
 #include "core/color/color.h"
+#include <type_traits>
 
 /**
  * @brief Feedback presets that bundle spatial/color transforms with scalar

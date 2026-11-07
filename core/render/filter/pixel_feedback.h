@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <bitset>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include "core/math/spherical_field.h"
 #include "core/memory.h"
 #include "core/render/filter/feedback_cap_plane.h"
