@@ -555,17 +555,12 @@ moving_face_columns(const Canvas &canvas, const MeshState &mesh, float reach,
       face[1] = 0;
       continue;
     }
-    math::Vector axis;
-    float radius = UNBOUNDED_FACE_CAP;
-    if (!radii)
-      radius = detail::face_cap(mesh.vertices.data(), indices + offsets[f],
-                                counts[f], axis);
-    else if (face_cap_axis(mesh.vertices.data(), indices + offsets[f],
-                           counts[f], axis))
-      radius = radii[f];
-    face[0] = 0;
-    face[1] = W - 1;
-    cap_lit_columns<W>(axis, radius, sweep + reach, face);
+    if (radii)
+      face_cap_columns<W>(mesh.vertices.data(), indices + offsets[f], counts[f],
+                          radii[f], sweep + reach, face);
+    else
+      detail::face_lit_columns<W>(mesh.vertices.data(), indices + offsets[f],
+                                  counts[f], sweep + reach, face);
   }
 }
 
@@ -624,14 +619,9 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
          !mesh_visible(canvas.column_basis()->mesh.visible_faces, f)) ||
         !rows.meet(mesh.vertices.data(), indices + offsets[f], counts[f]))
       continue;
-    math::Vector axis;
-    const float cap = detail::face_cap(mesh.vertices.data(),
-                                       indices + offsets[f], counts[f], axis);
-    if (radii)
-      radii[f] = cap;
-    face[0] = 0;
-    face[1] = W - 1;
-    cap_lit_columns<W>(axis, cap, sweep + reach, face);
+    detail::face_lit_columns<W>(mesh.vertices.data(), indices + offsets[f],
+                                counts[f], sweep + reach, face,
+                                radii ? radii + f : nullptr);
   }
   std::fill_n(moving_vertices, mesh.vertices.size(), uint8_t(0));
   size_t picked = 0;
