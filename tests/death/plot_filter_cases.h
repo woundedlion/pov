@@ -806,6 +806,16 @@ inline void case_scan_mesh_missing_offsets() {
   scan_mesh_invalid_fixture(true);
 }
 
+/** @brief Visibility selection rejects a mesh without face offsets. */
+inline void case_scan_visibility_missing_offsets() {
+  scan_selector_index_fixture(true, 2, true);
+}
+
+/** @brief Moving-face selection rejects a mesh without face offsets. */
+inline void case_scan_moving_missing_offsets() {
+  scan_selector_index_fixture(false, 2, true);
+}
+
 /** @brief Death case: a face index past the vertex pool must trap. */
 inline void case_scan_mesh_face_index_out_of_range() {
   scan_mesh_invalid_fixture(false);

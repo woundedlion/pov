@@ -81,6 +81,13 @@ HS_HOT_INLINE void cap_lit_columns(const math::Vector &axis, float radius,
 }
 
 namespace detail {
+/** @brief Checks the offsets required by the solid mesh scan.
+ * @param mesh Mesh to scan. */
+HS_HOT_INLINE inline void check_face_offsets(const MeshState &mesh) {
+  HS_CHECK(mesh.get_face_offsets_size() == mesh.num_faces(),
+           "solid mesh scan requires one face offset per face");
+}
+
 /**
  * @brief Cap about a face's vertex mean that holds every vertex.
  * @param vertices Mesh vertex pool.
@@ -115,6 +122,7 @@ HS_HOT_FLASH_MEMBER void
 select_mesh_visibility(const ClipRegion &clip, const MeshState &mesh,
                        const Camera &camera, float reach, Arena &arena,
                        ColumnBasis &time) {
+  detail::check_face_offsets(mesh);
   check_face_index_domain(mesh.get_faces_data(), mesh.get_faces_size(),
                           mesh.vertices.size());
   HS_PROFILE(mesh_visibility);
@@ -521,6 +529,7 @@ template <int W>
 HS_FLASH_MEMBER void
 moving_face_columns(const Canvas &canvas, const MeshState &mesh, float reach,
                     uint16_t *columns, const float *radii = nullptr) {
+  detail::check_face_offsets(mesh);
   const float sweep =
       canvas.column_basis() ? canvas.column_basis()->sweep_arc : 0.0f;
   if (canvas.column_basis())
@@ -583,6 +592,7 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
                                          uint8_t *moving_vertices, float reach,
                                          uint16_t *columns,
                                          float *radii = nullptr) {
+  detail::check_face_offsets(mesh);
   check_face_index_domain(mesh.get_faces_data(), mesh.get_faces_size(),
                           mesh.vertices.size());
   if (canvas.column_basis())
@@ -645,6 +655,7 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
 HS_FLASH_MEMBER inline size_t drop_held_faces(const MeshState &mesh,
                                               const uint8_t *moving,
                                               uint16_t *columns) {
+  detail::check_face_offsets(mesh);
   const uint8_t *counts = mesh.get_face_counts_data();
   const uint16_t *indices = mesh.get_faces_data();
   const uint16_t *offsets = mesh.get_face_offsets_data();
@@ -1488,8 +1499,7 @@ struct Mesh {
     const uint16_t *fo = mesh.get_face_offsets_data();
     size_t fi_size = mesh.get_faces_size();
 
-    HS_CHECK(mesh.get_face_offsets_size() == num_f,
-             "solid mesh scan requires one face offset per face");
+    detail::check_face_offsets(mesh);
 
     check_face_index_domain(fi, fi_size, mesh.vertices.size());
 

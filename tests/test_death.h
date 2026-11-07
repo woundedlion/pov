@@ -1510,7 +1510,15 @@ inline const Case *all_cases(int &n) {
        "column-time state installed"},
       {"scan_mesh_missing_offsets", case_scan_mesh_missing_offsets,
        "core/render/scan/mesh.h",
-       "(mesh.get_face_offsets_size() == num_f) solid mesh scan requires one "
+       "(mesh.get_face_offsets_size() == mesh.num_faces()) solid mesh scan requires one "
+       "face offset per face"},
+      {"scan_visibility_missing_offsets", case_scan_visibility_missing_offsets,
+       "core/render/scan/mesh.h",
+       "(mesh.get_face_offsets_size() == mesh.num_faces()) solid mesh scan requires one "
+       "face offset per face"},
+      {"scan_moving_missing_offsets", case_scan_moving_missing_offsets,
+       "core/render/scan/mesh.h",
+       "(mesh.get_face_offsets_size() == mesh.num_faces()) solid mesh scan requires one "
        "face offset per face"},
       {"scan_mesh_class_id_out_of_range", case_scan_mesh_class_id_out_of_range,
        "core/render/scan/mesh.h",
@@ -2051,8 +2059,7 @@ inline const Case *all_cases(int &n) {
        case_authored_vector_noise_invalid_basis,
        "core/render/pullback/authored_warp.h",
        "(params.basis <= static_cast<uint8_t>(math::NoiseBasis::RIDGED3) && params.envelope <= static_cast<uint8_t>(Envelope::EDGE_FADE)) invalid vector-noise topology"},
-      {"authored_polar_chart_invalid_mode",
-       case_authored_polar_chart_invalid_mode, "core/render/pullback/authored_warp.h", "(params.mode < std::size(AuthoredPolarParams::MODE_IDS) && params.harmonic < std::size(AuthoredPolarParams::HARMONIC_IDS)) invalid polar-chart topology"},
+      {"authored_polar_chart_invalid_mode", case_authored_polar_chart_invalid_mode, "core/render/pullback/authored_warp.h", "(params.mode < std::size(AuthoredPolarParams::MODE_IDS) && params.harmonic < std::size(AuthoredPolarParams::HARMONIC_IDS)) invalid polar-chart topology"},
       {"authored_curl_flow_invalid_integrator",
        case_authored_curl_flow_invalid_integrator,
        "core/render/pullback/authored_warp.h",

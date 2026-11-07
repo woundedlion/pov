@@ -358,8 +358,9 @@ inline void scan_mesh_invalid_fixture(bool omit_offsets) {
       pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch);
 }
 
-/** @brief Selects a valid mesh before rejecting an invalid face vertex. */
-inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index) {
+/** @brief Selects a valid mesh before rejecting malformed face data. */
+inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index,
+                                        bool omit_offsets = false) {
   constexpr int W = 32, H = 16;
   uint8_t geometry_storage[1024], frame_storage[4096];
   Arena geometry(geometry_storage, sizeof(geometry_storage));
@@ -390,7 +391,10 @@ inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index) {
       Scan::pick_moving_faces<W>(canvas, mesh, moving, 0.0f, columns);
   };
   select();
-  mesh.faces[2] = opaque<uint16_t>(bad_index);
+  if (omit_offsets)
+    mesh.face_offsets.clear();
+  else
+    mesh.faces[2] = opaque<uint16_t>(bad_index);
   select();
 }
 
