@@ -28,7 +28,7 @@
 #include "core/render/spacetime/field.h"
 #include "core/render/spacetime.h"
 #include "workbench/shader/chain_snapshot.h"
-#include "workbench/shader/palette_selection.h"
+#include "core/color/authored_palette.h"
 
 namespace hs_test {
 namespace shader_chain_tests {
@@ -628,7 +628,7 @@ private:
         previous_endpoints;
     Spacetime::FrameHistory<Pullback::Interp::FrameContext> context;
     std::array<BakedPaletteStorage, 3> previous_palettes;
-    ShaderPaletteResources palette_selection;
+    AuthoredPaletteResources palette_selection;
     std::array<Pixel, HueRotationLutView::SIZE> previous_hue_rotation{};
     HueRotationGamutMask previous_hue_rotation_gamut;
   };
@@ -883,7 +883,8 @@ private:
         static_cast<uint8_t>(
             Pullback::Interp::Op::PaletteType::CYCLING_GENERATED))
       ctx.palettes[tap.params->palette_mode] =
-          &resources->palette_selection.prepare(persistent_arena, *tap.params);
+          &resources->palette_selection.prepare(persistent_arena, *tap.params,
+                                                tap.params->palette_chroma);
     size_t count = 0;
     bool hue_active = false;
     const auto ops = program.ops();
