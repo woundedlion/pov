@@ -87,12 +87,12 @@ HS_O3_BEGIN
  * limit near the polar axis.
  */
 struct Twist {
-  int twist;           /**< Number of oscillations around the ring. */
-  float amplitude;     /**< Vertical displacement magnitude. */
-  float R;             /**< Major radius (needed for the Lipschitz bound). */
-  float twist_amp;     /**< twist * amplitude, the warp's angular gradient. */
-  float twist_amp_abs; /**< |twist * amplitude|, the Lipschitz numerator. */
-  float two_over_r;    /**< 2/R, the Lipschitz reciprocal clamp. */
+  int twist;       /**< Number of oscillations around the ring. */
+  float amplitude; /**< Vertical displacement magnitude. */
+  float R;         /**< Major radius (needed for the Lipschitz bound). */
+  float
+      twist_amp; /**< Nonnegative twist * amplitude for gradient and Lipschitz bounds. */
+  float two_over_r; /**< 2/R, the Lipschitz reciprocal clamp. */
 
   /**
    * @brief Constructs a twist warp around a torus of major radius R.
@@ -103,7 +103,7 @@ struct Twist {
   Twist(int oscillations, float displacement, float major_radius)
       : twist(oscillations), amplitude(displacement), R(major_radius),
         twist_amp(static_cast<float>(oscillations) * displacement),
-        twist_amp_abs(fabsf(twist_amp)), two_over_r(2.0f / major_radius) {
+        two_over_r(2.0f / major_radius) {
     HS_CHECK(R > 0.0f, "SDF Volume: radius must be positive");
     HS_CHECK(twist >= 0, "SDF Volume: twist must be nonnegative");
     HS_CHECK(amplitude >= 0.0f, "SDF Volume: amplitude must be nonnegative");
@@ -252,7 +252,7 @@ struct Twist {
   float lipschitz(float inv_s) const {
     if (twist == 0)
       return 1.0f;
-    const float gamma = twist_amp_abs * fminf(inv_s, two_over_r);
+    const float gamma = twist_amp * fminf(inv_s, two_over_r);
     return 0.5f * gamma + sqrtf(1.0f + 0.25f * gamma * gamma);
   }
 
@@ -267,7 +267,7 @@ struct Twist {
   float lipschitz_inv(float inv_s) const {
     if (twist == 0)
       return 1.0f;
-    const float gamma = twist_amp_abs * fminf(inv_s, two_over_r);
+    const float gamma = twist_amp * fminf(inv_s, two_over_r);
     return sqrtf(1.0f + 0.25f * gamma * gamma) - 0.5f * gamma;
   }
 
