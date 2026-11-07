@@ -466,18 +466,11 @@ apply_generated_palette(const FieldSample &sample,
   const float VALUE =
       palette_mapping_coordinate(sample.value, state.mapping,
                                  state.mapping_frequency, state.mapping_offset);
-  Color4 color = state.palette->get(VALUE);
-  color.alpha *= palette_opacity(sample, state);
-  ColorSample result{
-      color,
-      sample,
-      state.hue_rotation.active ? state.hue_rotation.data : nullptr,
-      VALUE,
-      0.0f,
+  const float OPACITY = palette_opacity(sample, state);
+  const float GAIN =
       brightness_envelope_gain(sample.value, state.brightness_envelope,
-                               state.brightness_bottom, state.brightness_top)};
-  result.hue_rotation_gamut = state.hue_rotation.gamut_mask;
-  return result;
+                               state.brightness_bottom, state.brightness_top);
+  return apply_palette_endpoint_impl(sample, state, VALUE, OPACITY, GAIN);
 }
 /** @brief Completes deferred color adjustments.
  * @param sample Color carrier.
