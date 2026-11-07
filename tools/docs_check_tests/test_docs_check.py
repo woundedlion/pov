@@ -1119,6 +1119,13 @@ class TestCommentSymbols(unittest.TestCase):
         self.assertNotIn("alpha_name", code)
         self.assertNotIn("gamma_name", code)
         code, comments = dc.split_source(
+            'const char *s = R"tag(\n'
+            '  "// raw_literal"\n'
+            ')tag";\n'
+            '// actual_comment\n', script=False)
+        self.assertIn("raw_literal", code)
+        self.assertEqual(comments, [(4, "// actual_comment")])
+        code, comments = dc.split_source(
             "const t = `// in_template`; const r = /\\/\\/x/; "
             "// `delta_name`\n", script=True)
         self.assertEqual(len(comments), 1)

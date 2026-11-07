@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 
+from doc_coverage import CPP_LEXEMES
 from git_files import git_nul_list
 
 SOURCE_SUFFIXES = {".h", ".hpp", ".cpp", ".cc", ".inl", ".ino"}
@@ -44,7 +45,6 @@ FORBIDDEN_PREFIXES = {
     "tools/profile_clock.h": ("effects/", "targets/", "workbench/", "tests/"),
     "tools/phantasm.ld": ("effects/", "targets/", "workbench/", "tests/"),
 }
-COMMENTS = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 
 
 def check_includes(root: Path, files: list[str]) -> list[str]:
@@ -63,7 +63,9 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
         except (OSError, UnicodeError) as exc:
             diagnostics.append(f"{name}:1: cannot read source ({exc})")
             continue
-        text = COMMENTS.sub(lambda match: "\n" * match.group().count("\n"), text)
+        text = CPP_LEXEMES.sub(
+            lambda m: re.sub(r"[^\n]", " ", m[0])
+            if m["comment"] is not None or "\n" in m[0] else m[0], text)
         linker = name in LINKER_SCRIPTS
         for match in (LINKER_INCLUDE if linker else INCLUDE).finditer(text):
             include = match.group(1) or match.group(2)

@@ -205,10 +205,12 @@ def source_files(root: Path, paths: list[str]) -> list[str]:
 
 
 _FILE_COMMAND_RE = re.compile(r"[@\\]file\b")
-_SOURCE_TOKEN_RE = re.compile(
+CPP_LEXEMES = re.compile(
     r'R"(?P<delimiter>[^ ()\\\t\r\n]{0,16})\(.*?\)(?P=delimiter)"'
-    r'|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\\n])*\''
-    r'|(?P<doc>/\*[*!].*?\*/|//[/!][^\n]*)|/\*.*?\*/|//[^\n]*', re.S)
+    r'|"(?:\\.|[^"\\\n])*"'
+    r"|(?<![0-9A-Fa-f])'(?:\\.|[^'\\\n])*'"
+    r'|(?P<comment>(?P<doc>/\*[*!].*?\*/|//[/!][^\n]*)|/\*.*?\*/|//[^\n]*)',
+    re.S)
 
 
 def read_source(root: Path, path: str) -> str:
@@ -223,10 +225,9 @@ def missing_file_blocks(root: Path, files: list[str]) -> list[str]:
     """Return the files without an `@file` documentation block."""
     return [path for path in files if not any(
         _FILE_COMMAND_RE.search(match["doc"] or "")
-        for match in _SOURCE_TOKEN_RE.finditer(read_source(root, path)))]
+        for match in CPP_LEXEMES.finditer(read_source(root, path)))]
 
 
-_COMMENT_RE = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 _SILENT_DECL_RE = re.compile(
     r"(?:template\s*<[^;{}]*?>\s*)?(?:"
     r"(?:struct|class)\s+(?P<struct>\w+)\s*(?:final\s*)?(?::[^{};]*)?"
@@ -242,7 +243,7 @@ def silent_declarations(path: str, text: str) -> list[Undocumented]:
     `///<`. An empty operator-contract member in a file that opens an `Op`
     namespace is exempt.
     """
-    masked = _COMMENT_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), text)
+    masked = CPP_LEXEMES.sub(lambda m: re.sub(r"[^\n]", " ", m[0]), text)
     in_op = bool(_OP_NAMESPACE_RE.search(masked))
     found: list[Undocumented] = []
     for match in _SILENT_DECL_RE.finditer(masked):

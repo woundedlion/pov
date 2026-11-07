@@ -24,7 +24,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
 from cpp_roster import macro_body
-from doc_coverage import doxyfile_entries
+from doc_coverage import CPP_LEXEMES, doxyfile_entries
 from git_files import git_nul_list
 
 
@@ -1110,11 +1110,6 @@ EXTERNAL_SYMBOLS = frozenset({
     "seconds16",  # FastLED
 })
 
-_C_LEXEME_RE = re.compile(
-    r"(?P<comment>//[^\n]*|/\*.*?\*/)"
-    r"|\"(?:\\.|[^\"\\\n])*\""
-    # A quote after a hex digit is a C++14 digit separator, not a character.
-    r"|(?<![0-9A-Fa-f])'(?:\\.|[^'\\\n])*'", re.DOTALL)
 _SCRIPT_LEXEME_RE = re.compile(
     r"(?P<comment>//[^\n]*|/\*.*?\*/)"
     r"|\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'"
@@ -1138,7 +1133,7 @@ _COMMENT_PATH_RE = re.compile(r"^[\w.\-]+(?:/[\w.\-]+)+/?$")
 def split_source(text: str, script: bool) -> tuple[str, list[tuple[int, str]]]:
     """Separates code from comments: the code text with every comment
     removed, and each comment's text with the line it starts on."""
-    lexemes = _SCRIPT_LEXEME_RE if script else _C_LEXEME_RE
+    lexemes = _SCRIPT_LEXEME_RE if script else CPP_LEXEMES
     code = []
     comments = []
     position = 0

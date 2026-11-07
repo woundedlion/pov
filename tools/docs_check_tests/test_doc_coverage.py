@@ -349,6 +349,15 @@ def silent(text):
 
 
 class TestSilentDeclarations(unittest.TestCase):
+    def test_string_literals_do_not_hide_or_add_declarations(self):
+        self.assertEqual(silent(
+            'const char *glob = "/*";\n'
+            'struct Real {};\n'
+            '// end */\n'
+            'const char *raw = R"tag(\n'
+            'struct Fake {};\n'
+            ')tag";\n'), [(2, "Real", "empty struct")])
+
     def test_blank_line_detaches_documentation_from_empty_declarations(self):
         for comment in ("/** @file x.h */", "/** @brief A. */", "/*! @brief A. */",
                         "/// @brief A.", "//! @brief A."):
