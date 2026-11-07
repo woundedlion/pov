@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from cpp_roster import macro_body
-from teensy_gate import parse_readelf_symbols
+from teensy_gate import parse_readelf_symbols, sibling_tool
 
 #: Instruction-cache line size in bytes.
 CACHE_LINE_BYTES = 32
@@ -889,10 +889,8 @@ class Toolchain:
     @classmethod
     def beside(cls, compiler: str, search_path: str | None = None) -> Toolchain:
         """Binutils next to an `arm-none-eabi-gcc`/`g++` named by path or PATH."""
-        resolved = shutil.which(compiler, path=search_path) or compiler
-        stem = re.sub(r"-(gcc|g\+\+|c\+\+)(\.exe)?$", "", resolved, flags=re.IGNORECASE)
-        suffix = ".exe" if resolved.lower().endswith(".exe") else ""
-        tools = cls(stem + "-objdump" + suffix, stem + "-readelf" + suffix)
+        tools = cls(sibling_tool(compiler, "objdump", search_path),
+                    sibling_tool(compiler, "readelf", search_path))
         for tool in (tools.objdump, tools.readelf):
             if not Path(tool).is_file() and not shutil.which(tool, path=search_path):
                 raise LayoutError(f"no binutils tool at {tool}")

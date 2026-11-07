@@ -24,16 +24,6 @@ GATE_SOURCES = [BUDGETS,
                 os.path.join(_TOOLS_DIR, "phantasm.ld")]
 
 
-def _tool(cc_path, suffix):
-    """Derive a sibling ARM tool path from the C compiler (…-gcc -> …-<suffix>)."""
-    base = cc_path
-    for end in ("-gcc", "-gcc.exe"):
-        if base.endswith(end):
-            return base[: -len(end)] + "-" + suffix + (".exe" if end.endswith(".exe") else "")
-    # Fall back to PATH lookup.
-    return "arm-none-eabi-" + suffix
-
-
 def _run(args, check=True):
     # teensy_size prints to STDERR (and exits non-zero on overflow, which we still
     # want to parse), so combine both streams and let the caller relax `check`.
@@ -90,8 +80,8 @@ def run_gate(source, target, env):
     elf = str(target[0])
     pioenv = env["PIOENV"]
     cc = env.subst("$CC")
-    size_tool = _tool(cc, "size")
-    readelf = _tool(cc, "readelf")
+    size_tool = teensy_gate.sibling_tool(cc, "size")
+    readelf = teensy_gate.sibling_tool(cc, "readelf")
 
     try:
         teensy_size = _find_teensy_size(env)

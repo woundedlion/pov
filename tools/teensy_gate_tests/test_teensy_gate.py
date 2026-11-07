@@ -1405,13 +1405,25 @@ class TestGateExtra(unittest.TestCase):
         self.assertEqual(out, "out|err")
 
     def test_tool_derives_sibling_arm_tools(self):
-        self.assertEqual(self.ge._tool("/opt/arm/bin/arm-none-eabi-gcc", "size"),
+        self.assertEqual(tg.sibling_tool("/opt/arm/bin/arm-none-eabi-gcc", "size"),
                          "/opt/arm/bin/arm-none-eabi-size")
-        self.assertEqual(self.ge._tool("C:/x/arm-none-eabi-gcc.exe", "readelf"),
+        self.assertEqual(tg.sibling_tool("C:/x/arm-none-eabi-gcc.exe", "readelf"),
                          "C:/x/arm-none-eabi-readelf.exe")
 
     def test_tool_falls_back_to_path_lookup(self):
-        self.assertEqual(self.ge._tool("clang", "size"), "arm-none-eabi-size")
+        self.assertEqual(tg.sibling_tool("clang", "size"), "arm-none-eabi-size")
+
+    def test_tool_derives_cpp_and_case_insensitive_windows_siblings(self):
+        for compiler in ("g++", "c++", "GCC"):
+            with self.subTest(compiler=compiler):
+                self.assertEqual(tg.sibling_tool(f"C:/x/arm-none-eabi-{compiler}.EXE", "objdump"),
+                                 "C:/x/arm-none-eabi-objdump.exe")
+
+    def test_tool_resolves_compiler_on_the_supplied_path(self):
+        with mock.patch.object(tg.shutil, "which", return_value="/sdk/bin/arm-none-eabi-g++") as which:
+            self.assertEqual(tg.sibling_tool("arm-none-eabi-g++", "readelf", "/sdk/bin"),
+                             "/sdk/bin/arm-none-eabi-readelf")
+        which.assert_called_once_with("arm-none-eabi-g++", path="/sdk/bin")
 
     def test_candidates_probe_the_tool_package_before_path(self):
         # teensy_size is not on PATH; it ships in the tool-teensy package, so the

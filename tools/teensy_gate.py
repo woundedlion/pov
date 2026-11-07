@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,6 +40,17 @@ FLASH_PROGRAM_BYTES = 0x1F0000
 #: FlexRAM allocation granule. The 512 KiB of RAM1 is split ITCM/DTCM in whole
 #: banks of this size, so ITCM code always occupies a bank-rounded footprint.
 FLEXRAM_BANK_BYTES = 0x8000
+
+
+def sibling_tool(compiler: str, suffix: str, search_path: str | None = None) -> str:
+    """Resolve a GCC sibling tool, or an ARM binutils name on PATH."""
+    resolved = shutil.which(compiler, path=search_path) or compiler
+    stem, matched = re.subn(r"-(gcc|g\+\+|c\+\+)(\.exe)?$", "", resolved,
+                            flags=re.IGNORECASE)
+    if not matched:
+        return "arm-none-eabi-" + suffix
+    extension = ".exe" if resolved.lower().endswith(".exe") else ""
+    return stem + "-" + suffix + extension
 
 
 def region_for_address(addr: int) -> str:
