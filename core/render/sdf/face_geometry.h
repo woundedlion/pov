@@ -905,17 +905,24 @@ HS_O3_FN float plane_dist_convex(float px, float py,
                                  float reject_distance = FLT_MAX) const {
   HS_SCAN_METRIC(hs::g_scan_metrics.convex_hits++);
   float d = -FLT_MAX;
-  int winning = 0;
   for (int i = 0; i < count; ++i) {
     const auto &hp = half_planes[i];
     const float di = hp.nx * px + hp.ny * py + hp.off;
     if (di >= reject_distance)
       return di;
-    if (di > d)
-      winning = i;
     d = fmaxf(di, d);
   }
   if (d > 0.0f) {
+    float winning_distance = -FLT_MAX;
+    int winning = 0;
+    for (int i = 0; i < count; ++i) {
+      const auto &hp = half_planes[i];
+      const float di = hp.nx * px + hp.ny * py + hp.off;
+      if (di > winning_distance) {
+        winning_distance = di;
+        winning = i;
+      }
+    }
     const auto &edge = packed_edges[winning];
     const float wx = px - edge.vx, wy = py - edge.vy;
     const float foot = (wx * edge.ex + wy * edge.ey) * edge.inv_len_sq;

@@ -662,6 +662,17 @@ inline void test_face_convex_rejection_cutoff() {
       }
   HS_EXPECT_GT(retained, 100);
   HS_EXPECT_GT(rejected, 100);
+  for (int i = 0; i < COUNT; ++i) {
+    const auto &edge = face.packed_edges[i];
+    const auto &plane = face.half_planes[i];
+    for (const float fraction : {-0.001f, 0.0f, 0.5f, 1.0f, 1.001f})
+      for (const float offset : {-0.02f, -0.0001f, 0.0001f, 0.02f, 0.1f}) {
+        const float px = edge.vx + fraction * edge.ex + offset * plane.nx;
+        const float py = edge.vy + fraction * edge.ey + offset * plane.ny;
+        HS_EXPECT_NEAR(face.plane_dist_convex(px, py),
+                       double_polygon_distance(face, px, py), 1e-5f);
+      }
+  }
 }
 
 // ============================================================================
