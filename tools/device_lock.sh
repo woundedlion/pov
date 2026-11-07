@@ -14,6 +14,8 @@
 #   HS_DEVICE_FORCE  1 = break someone else's live lock
 #   HS_DEVICE_STALE_GRACE  seconds an incomplete claim survives past its
 #                    creation or deadline before it is stale (default 120)
+#   HS_DEVICE_START_GRACE  seconds a dead holder's complete claim survives
+#                    after its start (default 60)
 #   HS_DEVICE_ABSENT_GRACE  seconds a pinned board may stay off the port list
 #                    (flash, re-enumeration, HalfKay) while HS_DEVICE_WAIT is
 #                    set before it counts as unplugged (default 120)
@@ -23,6 +25,7 @@
 #   HS_TEENSY_TOOLS  tool-teensy dir holding teensy_ports.exe (board enumeration)
 
 HS_DEVICE_STALE_GRACE=${HS_DEVICE_STALE_GRACE:-120}
+HS_DEVICE_START_GRACE=${HS_DEVICE_START_GRACE:-60}
 HS_DEVICE_ABSENT_GRACE=${HS_DEVICE_ABSENT_GRACE:-120}
 _hs_lock_base() {
   echo "${HS_DEVICE_LOCK:-${TMPDIR:-${TMP:-/tmp}}/holosphere-teensy-device}"
@@ -151,7 +154,7 @@ _hs_lock_is_stale() {  # <dir>
     return 1                                        # mid-write, not abandoned
   fi
   [ "$now" -gt $((deadline + HS_DEVICE_STALE_GRACE)) ] && return 0
-  if [ -n "$pid" ] && [ -n "$started" ] && [ "$now" -gt $((started + 60)) ]; then
+  if [ -n "$pid" ] && [ -n "$started" ] && [ "$now" -gt $((started + HS_DEVICE_START_GRACE)) ]; then
     return 0
   fi
   return 1

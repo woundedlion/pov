@@ -121,11 +121,11 @@ def clean_device_env():
             if not key.startswith(("HS_DEVICE_", "HS_TEENSY_"))}
 
 
-def is_stale(lock_dir):
+def is_stale(lock_dir, **overrides):
     """Run _hs_lock_is_stale against lock_dir; True = breakable."""
     script = f'. "{LOCK_SH}"; _hs_lock_is_stale "{lock_dir}"'
     r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
-                       env=clean_device_env())
+                       env={**clean_device_env(), **overrides})
     return r.returncode == 0
 
 
@@ -224,6 +224,11 @@ class LockStaleness(unittest.TestCase):
         now = int(time.time())
         self._write_info(_dead_pid(), now, now + 600)
         self.assertFalse(is_stale(self.d))
+
+    def test_dead_holder_respects_a_start_grace_override(self):
+        now = int(time.time())
+        self._write_info(_dead_pid(), now - 120, now + 600)
+        self.assertFalse(is_stale(self.d, HS_DEVICE_START_GRACE="600"))
 
 
 class LockBreak(unittest.TestCase):
