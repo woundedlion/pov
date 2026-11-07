@@ -442,15 +442,16 @@ def clean_hold_rows(windows, scope, gate):
 
     rows = []
     for key, ws in groups.items():
-        clean = [w for w in ws if not straddles_advance(w)] or ws
-        gate_counts = [w.counters[gate]["calls"] for w in clean
+        clean = [w for w in ws if not straddles_advance(w)]
+        selected = clean or ws
+        gate_counts = [w.counters[gate]["calls"] for w in selected
                        if gate in w.counters]
         if gate_counts:
             modal = Counter(gate_counts).most_common(1)[0][0]
-            clean = [w for w in clean
-                     if gate in w.counters
-                     and w.counters[gate]["calls"] == modal]
-        vals = [(w.per_frame_ms(scope), w) for w in clean
+            selected = [w for w in selected
+                        if gate in w.counters
+                        and w.counters[gate]["calls"] == modal]
+        vals = [(w.per_frame_ms(scope), w) for w in selected
                 if w.per_frame_ms(scope) is not None]
         if not vals:
             continue
@@ -462,7 +463,8 @@ def clean_hold_rows(windows, scope, gate):
             meta = f"V={mk['V']} E={mk['E']} F={mk['F']} I={mk['I']}"
         elif mk and mk["key"] == "hankin":
             meta = mk["name"]
-        rows.append((key[1], len(ws), len(clean), best_ms, cf, meta))
+        rows.append((key[1], len(ws), len(selected) if clean else 0,
+                     best_ms, cf, meta))
     return rows
 
 
@@ -540,14 +542,16 @@ def cmd_buckets(windows, scope, gate):
         colour = "green" if spill == 0 else "red"
         rows.append((key[1], colour, peak, spill, frames))
 
-    clean = {r[0]: r[3] for r in clean_hold_rows(windows, scope, gate)}
+    holds = {name: (count, ms) for name, _, count, ms, _, _ in
+             clean_hold_rows(windows, scope, gate)}
     mark = "" if exact_run else "~"
     print(f"# preset  cadence  peak_render_ms{mark}  spilled/frames  "
           f"clean {scope} ms/f")
     for name, colour, peak, spill, frames in sorted(
             rows, key=lambda r: (-r[3], -r[2])):
-        held = clean.get(name)
-        held_s = "    n/a" if held is None else f"{held:7.2f}"
+        count, held = holds.get(name, (0, None))
+        held_s = ("    n/a" if held is None else
+                  f"{held:7.2f}" if count else f"{held:7.2f}~")
         print(f"{name:>8}  {colour:>7}  {peak:11.2f}{mark}  "
               f"{spill:5d}/{frames}  {held_s}")
     print("# buckets: " + " ".join(
@@ -563,9 +567,12 @@ def cmd_buckets(windows, scope, gate):
     if not exact_run:
         print("#   ~ = window-mean placeholder (understates the true peak); "
               "spilled is wall-derived, +-1. Re-capture for exact peaks.")
+    if any(count == 0 for count, _ in holds.values()):
+        print("#   ~ after a scope time = window shared by multiple presets.")
     # 0.01 ms absorbs the printed rounding, nothing more.
-    inverted = [(name, peak, clean[name]) for name, _, peak, _, _ in rows
-                if name in clean and clean[name] > peak + 0.01]
+    inverted = [(name, peak, holds[name][1]) for name, _, peak, _, _ in rows
+                if name in holds and holds[name][0] and
+                holds[name][1] > peak + 0.01]
     for name, peak, held in inverted:
         print(f"preset {name}: clean-hold {scope} {held:.2f} ms/f exceeds peak "
               f"render {peak:.2f} ms, which its own frames are a subset of",

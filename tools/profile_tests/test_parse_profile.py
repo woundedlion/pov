@@ -327,6 +327,23 @@ class StraddleWindowAttribution(unittest.TestCase):
         self.assertEqual(rows["cheap"][1], 2)
         self.assertEqual(rows["cheap"][2], 1)
 
+    def test_straddling_fallback_is_excluded_from_clean_hold_ordering(self):
+        window = _window([20_000, 20_000, 60_000, 60_000])
+        window.render = (40_000, 60_000)
+        cheap = {"key": "preset", "name": "cheap"}
+        expensive = {"key": "preset", "name": "expensive"}
+        window.marker = cheap
+        window.frame_rows = [
+            (number, wall, render, cheap if number <= 2 else expensive)
+            for number, wall, render, _ in window.frame_rows]
+        window.counters["shader"] = {"us": 140_000, "calls": 4}
+        windows = [window]
+        self.assertEqual(pp.clean_hold_rows(windows, "shader", None)[0][2:4],
+                         (0, 35.0))
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(pp.cmd_buckets(windows, "shader", None), 0)
+        self.assertIn("35.00~", output.getvalue())
+
 
 class ScanMetricsLines(unittest.TestCase):
     """The HS_SCAN_METRICS 'scan totals' window line (Profile.ino)."""
