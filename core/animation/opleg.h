@@ -972,12 +972,12 @@ private:
       else
         drawn = nullptr;
     }
-    const int drawn_frame = tr.drawn_frame;
+    const int previous_frame = tr.drawn_frame;
     tr.drawn_frame = frame;
     tr.drawn_vertices = swept.vertices.size();
 
     finish_frame(canvas, swept, tr.blend_fn(frame, duration), false, drawn,
-                 moved && per_vertex ? drawn_frame : -1);
+                 moved && per_vertex ? previous_frame : -1, frame);
   }
 
   /// Bytes an arena keeps free beyond a sweep's own share for alignment.
@@ -1815,14 +1815,16 @@ private:
    * @param drawn @p swept's vertices at the leg frame drawn last, index for
    * index, or null when the draw does not move; they reach the draw as
    * `Shading::previous_vertices` when compiling keeps every vertex in place.
-   * @param drawn_frame The leg frame drawn last when the leg moves vertex by
+   * @param previous_frame The leg frame drawn last when the leg moves vertex by
    * vertex from it, or -1; it reaches the draw through `Shading::leg` when
    * compiling keeps every vertex in place.
+   * @param current_frame The leg frame being drawn, or -1 for a gated draw.
    */
   HS_FLASH_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
                                     float w, bool seed_side = false,
                                     math::Vector *drawn = nullptr,
-                                    int drawn_frame = -1) {
+                                    int previous_frame = -1,
+                                    int current_frame = -1) {
     Transients &tr = *buf;
     const ArenaVector<uint16_t> &topo = seed_side ? tr.seed_topo : tr.topo;
     const ArenaVector<uint8_t> &face_ramp =
@@ -1850,10 +1852,10 @@ private:
     sh.previous_weight = previous_w;
     if (compiled.vertices.size() == swept.vertices.size()) {
       sh.previous_vertices = drawn;
-      if (drawn_frame >= 0) {
+      if (previous_frame >= 0) {
         sh.leg = this;
-        sh.drawn_frame = static_cast<float>(drawn_frame);
-        sh.frame = static_cast<float>(tr.drawn_frame);
+        sh.drawn_frame = static_cast<float>(previous_frame);
+        sh.frame = static_cast<float>(current_frame);
       }
     }
     draw_fn(canvas, compiled, sh);
