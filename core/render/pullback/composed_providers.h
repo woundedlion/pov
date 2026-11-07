@@ -854,74 +854,14 @@ struct ModulationProvider {
           result.ready = true;
         else if constexpr (CUBE_PHASE) {
           if (SOURCE == Pattern::SourceKind::NOISE && !DIRECT) {
-            if (!resource.modulation || !resource.previous_modulation ||
-                !resource.previous_modulation->cube.active ||
-                !resource.modulation->cube.active)
-              return result;
-            result.cube_previous = &resource.previous_modulation->cube;
-            result.cube_current = &resource.modulation->cube;
-            result.cube_fraction = frame.temporal.fraction;
-            result.ready = true;
+            prepare_cube_phase(result, resource, frame.temporal.fraction);
             return result;
           }
         }
-        if (SOURCE == Pattern::SourceKind::NOISE && DIRECT) {
-          if (!resource.modulation || !resource.previous_modulation)
-            return result;
-          if (!Modulation::phase_compatible(
-                  resource.previous_modulation->config,
-                  resource.modulation->config))
-            return result;
-          result.noise = &std::get<0>(resource.modulation->source);
-          if constexpr (CACHED_NOISE) {
-            const auto &a = resource.phase_noise_previous;
-            const auto &b = resource.phase_noise_current;
-            if (a.patch && b.patch && resource.phase_noise_fraction > 0.0f &&
-                resource.phase_noise_fraction < 1.0f &&
-                a.patch->matches(*resource.previous_modulation, a.projection) &&
-                b.patch->matches(*resource.modulation, b.projection) &&
-                Modulation::ChamberNoisePatch::continuous(
-                    a.patch->phase, a.projection, b.patch->phase,
-                    b.projection)) {
-              result.noise_previous = a.patch;
-              result.noise_current = b.patch;
-              result.noise_fraction = resource.phase_noise_fraction;
-              result.noise_to_chamber = frame.projection_conjugate.conjugate();
-            }
-          }
-          const float PHASE =
-              Spacetime::ClockInterval(
-                  resource.previous_modulation->state.phase.phase_turns,
-                  resource.modulation->state.phase.phase_turns, 1.0f)
-                  .sample(frame.temporal.fraction);
-          if constexpr (CACHED_NOISE)
-            if (result.noise_previous && result.noise_current) {
-              result.noise_phase = PHASE;
-              result.lazy_noise_offset = true;
-              result.ready = true;
-              return result;
-            }
-          result.noise_offset = math::noise_sphere_loop_offset(PHASE);
-          result.ready = true;
-        } else if (SOURCE == Pattern::SourceKind::SPHERE_SMOOTH_GRID &&
-                   DIRECT) {
-          if (!resource.modulation || !resource.previous_modulation)
-            return result;
-          if (!Modulation::phase_compatible(
-                  resource.previous_modulation->config,
-                  resource.modulation->config))
-            return result;
-          const auto &a = std::get<3>(resource.previous_modulation->source);
-          const auto &b = std::get<3>(resource.modulation->source);
-          result.grid = b;
-          result.grid.a.phase_turns =
-              Spacetime::ClockInterval(a.a.phase_turns, b.a.phase_turns, 1.0f)
-                  .sample(frame.temporal.fraction);
-          result.grid.b.phase_turns =
-              Spacetime::ClockInterval(a.b.phase_turns, b.b.phase_turns, 1.0f)
-                  .sample(frame.temporal.fraction);
-          result.ready = true;
-        }
+        if (SOURCE == Pattern::SourceKind::NOISE && DIRECT)
+          prepare_noise_phase(result, resource, frame);
+        else if (SOURCE == Pattern::SourceKind::SPHERE_SMOOTH_GRID && DIRECT)
+          prepare_grid_phase(result, resource, frame.temporal.fraction);
         if constexpr (SINE_PHASE)
           if (SOURCE == Pattern::SourceKind::DIRECTIONAL_SINE && DIRECT)
             prepare_sine_phase(result, resource, frame.temporal.fraction);
@@ -931,6 +871,104 @@ struct ModulationProvider {
   }
 
 private:
+  /** @brief Whether both resource endpoints share phase semantics.
+   * @tparam Resource Endpoint modulation views.
+   * @param resource Retained and current sources.
+   * @return Whether both sources exist and have compatible configurations. */
+  template <typename Resource>
+  HS_HOT_INLINE static bool phase_endpoints_ready(const Resource &resource) {
+    return resource.modulation && resource.previous_modulation &&
+           Modulation::phase_compatible(resource.previous_modulation->config,
+                                        resource.modulation->config);
+  }
+
+  /** @brief Prepares an eligible pair of noise cubes.
+   * @tparam Resource Endpoint modulation views.
+   * @param result Column state receiving the cubes.
+   * @param resource Retained and current sources.
+   * @param fraction Column frame fraction. */
+  template <typename Resource>
+  HS_HOT_INLINE static void prepare_cube_phase(PhasePrepared &result,
+                                               const Resource &resource,
+                                               float fraction)
+    requires CUBE_PHASE
+  {
+    if (!resource.modulation || !resource.previous_modulation ||
+        !resource.previous_modulation->cube.active ||
+        !resource.modulation->cube.active)
+      return;
+    result.cube_previous = &resource.previous_modulation->cube;
+    result.cube_current = &resource.modulation->cube;
+    result.cube_fraction = fraction;
+    result.ready = true;
+  }
+
+  /** @brief Prepares direct noise and optional chamber-cache endpoints.
+   * @tparam Resource Endpoint modulation views.
+   * @param result Column state receiving the noise phase.
+   * @param resource Retained and current sources.
+   * @param frame Column context. */
+  template <typename Resource>
+  HS_HOT_INLINE static void prepare_noise_phase(PhasePrepared &result,
+                                                const Resource &resource,
+                                                const FrameState &frame) {
+    if (!phase_endpoints_ready(resource))
+      return;
+    result.noise = &std::get<0>(resource.modulation->source);
+    if constexpr (CACHED_NOISE) {
+      const auto &a = resource.phase_noise_previous;
+      const auto &b = resource.phase_noise_current;
+      if (a.patch && b.patch && resource.phase_noise_fraction > 0.0f &&
+          resource.phase_noise_fraction < 1.0f &&
+          a.patch->matches(*resource.previous_modulation, a.projection) &&
+          b.patch->matches(*resource.modulation, b.projection) &&
+          Modulation::ChamberNoisePatch::continuous(
+              a.patch->phase, a.projection, b.patch->phase, b.projection)) {
+        result.noise_previous = a.patch;
+        result.noise_current = b.patch;
+        result.noise_fraction = resource.phase_noise_fraction;
+        result.noise_to_chamber = frame.projection_conjugate.conjugate();
+      }
+    }
+    const float PHASE =
+        Spacetime::ClockInterval(
+            resource.previous_modulation->state.phase.phase_turns,
+            resource.modulation->state.phase.phase_turns, 1.0f)
+            .sample(frame.temporal.fraction);
+    if constexpr (CACHED_NOISE)
+      if (result.noise_previous && result.noise_current) {
+        result.noise_phase = PHASE;
+        result.lazy_noise_offset = true;
+        result.ready = true;
+        return;
+      }
+    result.noise_offset = math::noise_sphere_loop_offset(PHASE);
+    result.ready = true;
+  }
+
+  /** @brief Prepares an interpolated smooth-grid phase.
+   * @tparam Resource Endpoint modulation views.
+   * @param result Column state receiving the grid.
+   * @param resource Retained and current sources.
+   * @param fraction Column frame fraction. */
+  template <typename Resource>
+  HS_HOT_INLINE static void prepare_grid_phase(PhasePrepared &result,
+                                               const Resource &resource,
+                                               float fraction) {
+    if (!phase_endpoints_ready(resource))
+      return;
+    const auto &a = std::get<3>(resource.previous_modulation->source);
+    const auto &b = std::get<3>(resource.modulation->source);
+    result.grid = b;
+    result.grid.a.phase_turns =
+        Spacetime::ClockInterval(a.a.phase_turns, b.a.phase_turns, 1.0f)
+            .sample(fraction);
+    result.grid.b.phase_turns =
+        Spacetime::ClockInterval(a.b.phase_turns, b.b.phase_turns, 1.0f)
+            .sample(fraction);
+    result.ready = true;
+  }
+
   /** @brief Interpolates an unchanged directional sine at the column phase.
    * @tparam Resource Endpoint modulation views.
    * @param result Column state receiving the wave.
@@ -942,9 +980,7 @@ private:
                                                  float fraction)
     requires SINE_PHASE
   {
-    if (!resource.modulation || !resource.previous_modulation ||
-        !Modulation::phase_compatible(resource.previous_modulation->config,
-                                      resource.modulation->config))
+    if (!phase_endpoints_ready(resource))
       return;
     const auto &a = std::get<1>(resource.previous_modulation->source);
     const auto &b = std::get<1>(resource.modulation->source);
