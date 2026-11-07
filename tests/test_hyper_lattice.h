@@ -1616,6 +1616,84 @@ inline void test_trace_geometry_mapping() {
                Trace::Geometry::SHELLS);
 }
 
+/** @brief Shared trace paths preserve specialization, domain guards and fallback. */
+inline void test_shared_trace_path_dispatch() {
+  reset_globals();
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  SDF::ShellLayerStorage layers;
+  Trace::Settings settings;
+  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
+  settings.shell_layers = &layers;
+  settings.far_distance = 3.0f;
+  const auto same = [](const Trace::Sample &actual,
+                       const Trace::Sample &expected) {
+    HS_EXPECT_EQ(actual.status, expected.status);
+    HS_EXPECT_EQ(actual.color, expected.color);
+  };
+  const auto check = [&]<bool SLICE_4D>() {
+    settings.domain = SLICE_4D ? Raycast::SamplingDomain::SLICE_4D
+                               : Raycast::SamplingDomain::SPATIAL_3D;
+    settings.geometry = Trace::Geometry::OCTET;
+    auto prepared = prepare_traced(settings);
+    HS_EXPECT_TRUE(prepared.valid);
+    HS_EXPECT_EQ(Trace::trace_path(prepared), Trace::TracePath::OCTET);
+    same(Trace::shade_path<Trace::TracePath::OCTET, SLICE_4D>(math::X_AXIS,
+                                                              prepared),
+         Trace::shade<SLICE_4D>(math::X_AXIS, prepared));
+    settings.geometry = Trace::Geometry::SHELLS;
+    for (const float radius : {.1f, .35f, .48f}) {
+      settings.shell_radius = radius;
+      settings.pixel_half_angle = radius == .48f ? .1f : 0.0f;
+      prepared = prepare_traced(settings);
+      HS_EXPECT_TRUE(prepared.valid);
+      const auto expected_path = radius == .48f ? Trace::TracePath::GENERIC
+                                 : !SLICE_4D && radius == .1f
+                                     ? Trace::TracePath::SINGLE_SHELLS
+                                     : Trace::TracePath::MARCHED_SHELLS;
+      HS_EXPECT_EQ(Trace::trace_path(prepared), expected_path);
+      if constexpr (SLICE_4D) {
+        prepared.periodic_shells.single_owner = true;
+        HS_EXPECT_NE(Trace::trace_path(prepared),
+                     Trace::TracePath::SINGLE_SHELLS);
+        prepared.periodic_shells.single_owner = false;
+      }
+      for (const auto &view : {math::X_AXIS, math::Y_AXIS,
+                               math::Vector(.2f, .3f, 1).normalized()}) {
+        const auto actual = Trace::shade<SLICE_4D>(view, prepared);
+        same(Trace::shade_path<Trace::TracePath::GENERIC, SLICE_4D>(view,
+                                                                    prepared),
+             actual);
+        if constexpr (!SLICE_4D)
+          if (radius == .1f)
+            same(Trace::shade_path<Trace::TracePath::SINGLE_SHELLS, false>(
+                     view, prepared),
+                 actual);
+        if (expected_path == Trace::TracePath::MARCHED_SHELLS)
+          same(Trace::shade_path<Trace::TracePath::MARCHED_SHELLS, SLICE_4D>(
+                   view, prepared),
+               actual);
+        if (expected_path == Trace::TracePath::GENERIC)
+          same(actual,
+               (SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3, true, true>(
+                   prepared.periodic_shells, prepared.camera, view,
+                   prepared.limits, prepared.appearance, layers)));
+      }
+      const auto wrong_domain =
+          Trace::shade_path<Trace::TracePath::GENERIC, !SLICE_4D>(math::X_AXIS,
+                                                                  prepared);
+      HS_EXPECT_EQ(wrong_domain.status, Raycast::TraceStatus::INVALID_QUERY);
+    }
+    prepared.valid = false;
+    HS_EXPECT_EQ(Trace::trace_path(prepared), Trace::TracePath::GENERIC);
+    const auto invalid = Trace::shade_path<Trace::TracePath::GENERIC, SLICE_4D>(
+        math::X_AXIS, prepared);
+    HS_EXPECT_EQ(invalid.status, Raycast::TraceStatus::INVALID_QUERY);
+  };
+  check.template operator()<false>();
+  check.template operator()<true>();
+}
+
 /** @brief Traced preset cameras preserve origins across scale and reject wrong domains. */
 inline void test_traced_preset_camera_setup() {
   using Effect = HyperLatticeWhiteBox::Effect;
@@ -2060,6 +2138,7 @@ inline int run_hyper_lattice_tests() {
   HS_RUN(test_regular_patterns);
   HS_RUN(test_octet_continuous_flight);
   HS_RUN(test_trace_geometry_mapping);
+  HS_RUN(test_shared_trace_path_dispatch);
   HS_RUN(test_traced_preset_camera_setup);
   HS_RUN(test_traced_preset_control_state);
   HS_RUN(test_traced_preset_render);

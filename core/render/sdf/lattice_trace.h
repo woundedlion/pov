@@ -19,6 +19,14 @@ using SDF::OctetTrace::Sample;
 /** @brief Geometry selected by a lattice trace. */
 enum class Geometry : uint8_t { OCTET, SHELLS };
 
+/** @brief Execution path for a prepared lattice trace. */
+enum class TracePath : uint8_t {
+  SINGLE_SHELLS,  ///< 3D shells, one candidate sphere per layer.
+  MARCHED_SHELLS, ///< Shells by a layer march.
+  OCTET,          ///< Octet truss events.
+  GENERIC         ///< Per-ray dispatch on the prepared frame.
+};
+
 /** @brief Frame settings; camera distances and near fading use world units. */
 struct Settings {
   /// 3D space or a 3D slice of 4D space.
@@ -61,6 +69,36 @@ struct Prepared {
   CrossingStorage *crossings = nullptr; ///< Octet crossing scratch.
   SDF::ShellLayerStorage *shell_layers = nullptr; ///< Shell layer scratch.
 };
+
+/**
+ * @brief Selects a prepared frame's specialized trace.
+ * @param prepared Trace state.
+ * @return Specialized path, or GENERIC for invalid or analytic-fallback frames.
+ */
+HS_FLASH_INLINE inline TracePath trace_path(const Prepared &prepared) {
+  if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
+      prepared.camera.domain != Raycast::SamplingDomain::SLICE_4D &&
+      prepared.periodic_shells.single_owner)
+    return TracePath::SINGLE_SHELLS;
+  if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
+      prepared.periodic_shells.march)
+    return TracePath::MARCHED_SHELLS;
+  if (prepared.valid && prepared.geometry == Geometry::OCTET)
+    return TracePath::OCTET;
+  return TracePath::GENERIC;
+}
+
+/**
+ * @brief Traces a ray using a frame-selected path.
+ * @tparam PATH Specialized path, or GENERIC for guarded per-ray dispatch.
+ * @tparam SLICE_4D Whether the camera samples a 4D slice.
+ * @param direction Unit view direction.
+ * @param prepared Trace state; specialized paths require a matching valid frame.
+ * @return Premultiplied color and trace status.
+ */
+template <TracePath PATH, bool SLICE_4D>
+HS_HOT_INLINE Sample shade_path(const math::Vector &direction,
+                                const Prepared &prepared);
 
 /**
  * @brief Validates settings and precomputes the frame's trace state.
@@ -179,21 +217,15 @@ template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade_shells(const math::Vector &direction,
                                         const Prepared &prepared) {
   constexpr int DIMENSIONS = SLICE_4D ? 4 : 3;
-  const auto &shells = prepared.periodic_shells;
-  SDF::ShellSample sample;
-  if (!SLICE_4D && shells.single_owner)
-    sample = SDF::trace_periodic_shells_3d<true>(shells, prepared.camera,
-                                                 direction, prepared.limits,
-                                                 prepared.appearance);
-  else if (shells.march)
-    sample = SDF::trace_periodic_shells_march<DIMENSIONS, false, true>(
-        shells, prepared.camera, direction, prepared.limits,
-        prepared.appearance, *prepared.shell_layers);
-  else
-    sample = SDF::trace_periodic_shells_march<DIMENSIONS, true, true>(
-        shells, prepared.camera, direction, prepared.limits,
-        prepared.appearance, *prepared.shell_layers);
-  return sample;
+  const auto path = trace_path(prepared);
+  if constexpr (!SLICE_4D)
+    if (path == TracePath::SINGLE_SHELLS)
+      return shade_path<TracePath::SINGLE_SHELLS, false>(direction, prepared);
+  if (path == TracePath::MARCHED_SHELLS)
+    return shade_path<TracePath::MARCHED_SHELLS, SLICE_4D>(direction, prepared);
+  return SDF::trace_periodic_shells_march<DIMENSIONS, true, true>(
+      prepared.periodic_shells, prepared.camera, direction, prepared.limits,
+      prepared.appearance, *prepared.shell_layers);
 }
 
 /**
@@ -213,7 +245,26 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
     return {{}, Raycast::TraceStatus::INVALID_QUERY};
   if (prepared.geometry != Geometry::OCTET)
     return shade_shells<SLICE_4D>(direction, prepared);
-  return shade_octet<SLICE_4D>(direction, prepared);
+  return shade_path<TracePath::OCTET, SLICE_4D>(direction, prepared);
+}
+
+template <TracePath PATH, bool SLICE_4D>
+HS_HOT_INLINE Sample shade_path(const math::Vector &direction,
+                                const Prepared &prepared) {
+  if constexpr (PATH == TracePath::SINGLE_SHELLS) {
+    static_assert(!SLICE_4D);
+    return SDF::trace_periodic_shells_3d<true>(
+        prepared.periodic_shells, prepared.camera, direction, prepared.limits,
+        prepared.appearance);
+  } else if constexpr (PATH == TracePath::MARCHED_SHELLS) {
+    return SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3, false, true>(
+        prepared.periodic_shells, prepared.camera, direction, prepared.limits,
+        prepared.appearance, *prepared.shell_layers);
+  } else if constexpr (PATH == TracePath::OCTET) {
+    return shade_octet<SLICE_4D>(direction, prepared);
+  } else {
+    return shade<SLICE_4D>(direction, prepared);
+  }
 }
 
 } // namespace SDF::LatticeTrace

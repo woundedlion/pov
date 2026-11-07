@@ -1050,13 +1050,7 @@ private:
           rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], math::TWO_PI_F);
   }
 
-  /** @brief Trace a prepared traced frame selects. */
-  enum class TracePath : uint8_t {
-    SINGLE_SHELLS,  ///< 3D shells, one candidate sphere per layer.
-    MARCHED_SHELLS, ///< Shells by a layer march.
-    OCTET,          ///< Octet truss events.
-    GENERIC         ///< Per-ray dispatch on the prepared frame.
-  };
+  using TracePath = HyperLatticeDetail::Trace::TracePath;
 
   /**
    * @brief Prepares a traced frame over the effect's trace scratch.
@@ -1080,25 +1074,6 @@ private:
   }
 
   /**
-   * @brief Trace a prepared frame selects.
-   * @param prepared Trace state.
-   * @return The specialized trace, or GENERIC.
-   */
-  HS_FLASH_INLINE static TracePath
-  trace_path(const HyperLatticeDetail::Trace::Prepared &prepared) {
-    using HyperLatticeDetail::Trace::Geometry;
-    if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
-        prepared.periodic_shells.single_owner)
-      return TracePath::SINGLE_SHELLS;
-    if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
-        prepared.periodic_shells.march)
-      return TracePath::MARCHED_SHELLS;
-    if (prepared.valid && prepared.geometry == Geometry::OCTET)
-      return TracePath::OCTET;
-    return TracePath::GENERIC;
-  }
-
-  /**
    * @brief One traced ray, shared by whole-frame and column draws.
    * @tparam PATH Trace the frame selects.
    * @tparam SLICE_4D Whether the camera samples a 4D slice.
@@ -1114,38 +1089,20 @@ private:
      *  @return Premultiplied colour. */
     HS_HOT_FLASH_MEMBER Pixel operator()(const math::Vector &view) const {
       const auto &frame = *prepared;
-      if constexpr (PATH == TracePath::GENERIC) {
-        const auto result =
-            HyperLatticeDetail::Trace::shade<SLICE_4D>(view, frame);
+      const auto result =
+          HyperLatticeDetail::Trace::shade_path<PATH, SLICE_4D>(view, frame);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+      if constexpr (PATH == TracePath::GENERIC) {
         const auto STATUS = result.status;
         if (STATUS != Raycast::TraceStatus::SURFACE &&
             STATUS != Raycast::TraceStatus::RANGE_COMPLETE &&
             STATUS != Raycast::TraceStatus::SATURATED)
           effect->unfinished_rays += 1;
-#endif
-        return result.color;
-      } else {
-        const auto result = [&]() HS_HOT_INLINE {
-          if constexpr (PATH == TracePath::SINGLE_SHELLS)
-            return SDF::trace_periodic_shells_3d<true>(
-                frame.periodic_shells, frame.camera, view, frame.limits,
-                frame.appearance);
-          else if constexpr (PATH == TracePath::MARCHED_SHELLS)
-            return SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3, false,
-                                                    true>(
-                frame.periodic_shells, frame.camera, view, frame.limits,
-                frame.appearance, *frame.shell_layers);
-          else
-            return HyperLatticeDetail::Trace::shade_octet<SLICE_4D>(view,
-                                                                    frame);
-        }();
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-        if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
-          effect->unfinished_rays += 1;
-#endif
-        return result.color;
+      } else if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED) {
+        effect->unfinished_rays += 1;
       }
+#endif
+      return result.color;
     }
   };
 
@@ -1207,10 +1164,10 @@ private:
                                          interval.center(FRACTION)));
       }
     }
-    TracePath path = trace_path(states[0]);
+    TracePath path = HyperLatticeDetail::Trace::trace_path(states[0]);
     if (!interval.params_constant())
       for (int x = 0; x < COLUMN_TIMES && path != TracePath::GENERIC; ++x)
-        if (trace_path(states[x]) != path)
+        if (HyperLatticeDetail::Trace::trace_path(states[x]) != path)
           path = TracePath::GENERIC;
     dispatch_traced(path, params.mode == LatticeMode::SLICE_4D,
                     [&]<TracePath PATH, bool SLICE_4D>() HS_HOT_INLINE {
@@ -1233,7 +1190,8 @@ private:
   HS_FLASH_MEMBER void
   draw_traced(Canvas &canvas, const HyperLatticeDetail::FrameState &context) {
     const auto prepared = prepare_traced(context, trace_center);
-    dispatch_traced(trace_path(prepared), params.mode == LatticeMode::SLICE_4D,
+    dispatch_traced(HyperLatticeDetail::Trace::trace_path(prepared),
+                    params.mode == LatticeMode::SLICE_4D,
                     [&]<TracePath PATH, bool SLICE_4D>() HS_HOT_INLINE {
                       Scan::Shader::draw_cached<W, H, 1>(
                           canvas, TracedRay<PATH, SLICE_4D>{
