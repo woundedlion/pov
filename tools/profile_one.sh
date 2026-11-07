@@ -304,14 +304,19 @@ obtain_image() {
 }
 
 # Adopts the --elf cache entry; sets IMAGE_DIR and IMAGE_SOURCE.
+elf_matches_checkout() {
+  [ "$(basename "$PREBUILT")" = firmware.elf ] &&
+    hs_fw_cache_key "$ENV" &&
+    hs_fw_cache_check_entry "$(dirname "$PREBUILT")" "$HS_FW_KEY"
+}
+
 prebuilt_image() {
   local entry
-  entry=$(dirname "$PREBUILT")
-  if [ "$(basename "$PREBUILT")" != firmware.elf ] || ! hs_fw_cache_key "$ENV" ||
-     ! hs_fw_cache_check_entry "$entry" "$HS_FW_KEY"; then
+  if ! elf_matches_checkout; then
     echo "PROFILE PROVENANCE FAIL: $PREBUILT is not a cached $ENV image of this committed checkout with flags '$PLATFORMIO_BUILD_FLAGS'"
     return 1
   fi
+  entry=$(dirname "$PREBUILT")
   cp "$entry/build.log" "$PROFILE_BUILD_LOG"
   if [ -f "$entry/envdump.txt" ]; then
     cp "$entry/envdump.txt" "$PROFILE_ENVDUMP"
@@ -504,8 +509,7 @@ dry_run() {
     esac
   done
   if [ -n "$PREBUILT" ]; then
-    if [ "$(basename "$PREBUILT")" = firmware.elf ] && hs_fw_cache_key "$ENV" &&
-       hs_fw_cache_check_entry "$(dirname "$PREBUILT")" "$HS_FW_KEY"; then
+    if elf_matches_checkout; then
       echo "dry-run: --elf accepted $PREBUILT"
     else
       echo "dry-run: --elf refused $PREBUILT"
