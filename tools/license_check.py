@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
-from git_files import git_nul_list
+from git_files import git_nul_list, staged_blobs
 
 NOTICE = "Required Notice: Copyright 2025 Gabriel Levy. All rights reserved."
 POLYFORM = "Licensed under the PolyForm Noncommercial License 1.0.0"
@@ -133,11 +133,37 @@ def header_issue(path: str, head: str) -> str | None:
     return None
 
 
+def check_staged(root: Path) -> int:
+    """Check the staged headers of the paths read from stdin; return the exit code."""
+    paths = [path for path in sys.stdin.read().splitlines()
+             if PurePosixPath(path).suffix in SOURCE_SUFFIXES]
+    try:
+        blobs = staged_blobs(root, paths)
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f"[license-check] tooling error: cannot run git: {error}", file=sys.stderr)
+        return 2
+    issues = [f"{path}:1: {issue}" for path, data in sorted(blobs.items())
+              if (issue := header_issue(
+                  path, data[:HEAD_BYTES].decode("utf-8", errors="replace")))]
+    for issue in issues:
+        print(issue)
+    if issues:
+        print(f"[license-check] FAIL - {len(issues)} issue(s)", file=sys.stderr)
+        return 1
+    print(f"[license-check] PASS - {len(blobs)} staged source(s)")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("."),
                         help="repository root to check")
+    parser.add_argument("--staged", action="store_true",
+                        help="check only the staged headers of the paths read from stdin")
     args = parser.parse_args(argv)
+
+    if args.staged:
+        return check_staged(args.root)
 
     try:
         sources = tracked_sources(args.root)

@@ -95,6 +95,30 @@ class EncodingCheckTests(unittest.TestCase):
             self.assertIn(b"tracked.txt:2:", result.stderr)
             self.assertNotIn(b"untracked.txt", result.stderr)
 
+    def test_staged_mode_reads_the_index_content_of_listed_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git_run(root, "init", "-q")
+            corrupt = "—".encode("utf-8").decode("cp1252")
+            listed, unlisted = root / "listed.txt", root / "unlisted.txt"
+            listed.write_text(corrupt, encoding="utf-8")
+            unlisted.write_text(corrupt, encoding="utf-8")
+            git_run(root, "add", "--", "listed.txt", "unlisted.txt")
+            listed.write_text("clean\n", encoding="utf-8")
+
+            def staged(paths):
+                return subprocess.run([sys.executable, str(TOOL), "--root", str(root), "--staged"],
+                                      input=paths, capture_output=True, env=isolated_env())
+
+            result = staged(b"listed.txt\n")
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn(b"listed.txt:1:", result.stderr)
+            self.assertNotIn(b"unlisted.txt", result.stderr)
+            git_run(root, "add", "--", "listed.txt")
+            listed.write_text(corrupt, encoding="utf-8")
+            self.assertEqual(staged(b"listed.txt\n").returncode, 0)
+            self.assertEqual(staged(b"").returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

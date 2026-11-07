@@ -1,8 +1,9 @@
 #!/bin/sh
 # Format, lint and documentation checks that predict the fast, deterministic CI
-# gates, run on the index (the pre-commit hook) or on a commit range.
+# gates. The index mode (the pre-commit hook) checks only the staged files; a
+# commit range also runs the whole-tree checks.
 #
-# usage: commit_checks.sh                 the index against HEAD
+# usage: commit_checks.sh                 the staged files against HEAD
 #        commit_checks.sh <base>..<tip>   <tip>'s tree against its merge base
 #                                         with <base>: the range's net change
 set -eu
@@ -97,24 +98,43 @@ fi
 SNAPSHOT_ROOT="$(mktemp -d "$PWD/.hs-pre-commit.XXXXXX")"
 SNAPSHOT="$SNAPSHOT_ROOT/repo"
 mkdir "$SNAPSHOT"
-if ! git checkout-index --all --force --prefix="$SNAPSHOT/"; then
-  echo "[$LABEL] cannot materialize staged snapshot."
-  exit 1
-fi
-LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
 INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
-# Fold a split index's shared index in while the source git dir resolves it.
-SNAPSHOT_INDEX="$SNAPSHOT_ROOT/index"
-cp "$INDEX_PATH" "$SNAPSHOT_INDEX"
-if ! GIT_INDEX_FILE="$SNAPSHOT_INDEX" git -c core.splitIndex=false update-index --no-split-index; then
-  echo "[$LABEL] cannot build a standalone snapshot index."
-  exit 1
+if [ -n "$DIFF_BASE" ]; then
+  # A range checks the whole tree as of its tip.
+  if ! git checkout-index --all --force --prefix="$SNAPSHOT/"; then
+    echo "[$LABEL] cannot materialize staged snapshot."
+    exit 1
+  fi
+  TOOLS="$SNAPSHOT/tools"
+  LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
+  # Fold a split index's shared index in while the source git dir resolves it.
+  SNAPSHOT_INDEX="$SNAPSHOT_ROOT/index"
+  cp "$INDEX_PATH" "$SNAPSHOT_INDEX"
+  if ! GIT_INDEX_FILE="$SNAPSHOT_INDEX" git -c core.splitIndex=false update-index --no-split-index; then
+    echo "[$LABEL] cannot build a standalone snapshot index."
+    exit 1
+  fi
+else
+  # A commit checks only its staged files, against the staged lint configuration.
+  TOOLS="$PWD/tools"
+  SHELL_SOURCES=
+  if printf '%s\n' "$PRESENT" | grep -Eq '\.sh$|^\.githooks/'; then
+    SHELL_SOURCES="$(git -c core.quotePath=false ls-files -- '*.sh' '.githooks/*')"
+  fi
+  CONFIGS="$(git -c core.quotePath=false ls-files -- .clang-format ruff.toml eslint.config.mjs)"
+  if ! printf '%s\n' "$CONFIGS" "$PRESENT" "$SHELL_SOURCES" | sed '/^$/d' | sort -u \
+      | git checkout-index --stdin --force --prefix="$SNAPSHOT/"; then
+    echo "[$LABEL] cannot materialize staged snapshot."
+    exit 1
+  fi
 fi
 
 (
-  for name in $LOCAL_GIT_ENV; do unset "$name"; done
-  git -C "$SNAPSHOT" init --quiet
-  mv "$SNAPSHOT_INDEX" "$SNAPSHOT/.git/index"
+  if [ -n "$DIFF_BASE" ]; then
+    for name in $LOCAL_GIT_ENV; do unset "$name"; done
+    git -C "$SNAPSHOT" init --quiet
+    mv "$SNAPSHOT_INDEX" "$SNAPSHOT/.git/index"
+  fi
 
   require_clang_format() {
     CF="${CLANG_FORMAT:-clang-format}"
@@ -123,7 +143,7 @@ fi
       exit 1
     fi
     # Install clang-format 22 through the pinned requirements.
-    "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool clang-format
+    "$PYTHON_BIN" "$TOOLS/build_pins.py" --check-tool clang-format
   }
 
   require_ruff() {
@@ -131,7 +151,7 @@ fi
       echo "[$LABEL] ruff not found; pip install -r requirements/ruff.txt"
       exit 1
     fi
-    "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool ruff
+    "$PYTHON_BIN" "$TOOLS/build_pins.py" --check-tool ruff
   }
 
   require_eslint() {
@@ -186,6 +206,27 @@ $JAVASCRIPT_FILES
 EOF
   fi
 
+  SHELL_FILES="$(printf '%s\n' "$PRESENT" | grep -E '\.sh$|^\.githooks/' || true)"
+  if [ -n "$SHELL_FILES" ]; then
+    if ! command -v shellcheck >/dev/null 2>&1; then
+      echo "[$LABEL] shellcheck not found; pip install -r requirements/shellcheck.txt"
+      exit 1
+    fi
+    "$PYTHON_BIN" "$TOOLS/build_pins.py" --check-tool shellcheck
+    while IFS= read -r file; do
+      (cd "$SNAPSHOT" && shellcheck -x "$file")
+    done <<EOF
+$SHELL_FILES
+EOF
+  fi
+
+  if [ -z "$DIFF_BASE" ]; then
+    for tool in license_check include_paths encoding_check; do
+      printf '%s\n' "$PRESENT" | "$PYTHON_BIN" "$TOOLS/$tool.py" --root . --staged
+    done
+    exit 0
+  fi
+
   if printf '%s\n' "$CHANGED" | grep -qx '.clang-format'; then
     require_clang_format
     (cd "$SNAPSHOT" && bash tools/clang_format_gate.sh)
@@ -198,20 +239,6 @@ EOF
     require_eslint
     ESLINT="$PWD/node_modules/.bin/eslint"
     (cd "$SNAPSHOT" && "$ESLINT" .)
-  fi
-
-  SHELL_FILES="$(printf '%s\n' "$PRESENT" | grep -E '\.sh$|^\.githooks/' || true)"
-  if [ -n "$SHELL_FILES" ]; then
-    if ! command -v shellcheck >/dev/null 2>&1; then
-      echo "[$LABEL] shellcheck not found; pip install -r requirements/shellcheck.txt"
-      exit 1
-    fi
-    "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool shellcheck
-    while IFS= read -r file; do
-      (cd "$SNAPSHOT" && shellcheck -x "$file")
-    done <<EOF
-$SHELL_FILES
-EOF
   fi
 
   # No --sync: a repair would land in the snapshot, not the index.
@@ -227,9 +254,13 @@ EOF
       echo "[$LABEL] node not found; profile archive checks need the pinned Node version."
       exit 1
     fi
-    "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool node
+    "$PYTHON_BIN" "$TOOLS/build_pins.py" --check-tool node
     node "$SNAPSHOT/scripts/check_profiles.mjs"
   fi
 )
 
-echo "[$LABEL] $SUBJECT formatting, lint, and documentation checks passed."
+if [ -n "$DIFF_BASE" ]; then
+  echo "[$LABEL] $SUBJECT formatting, lint, and documentation checks passed."
+else
+  echo "[$LABEL] staged formatting, lint, license, include, and encoding checks passed."
+fi

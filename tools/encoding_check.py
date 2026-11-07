@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 
-from git_files import git_nul_list
+from git_files import git_nul_list, staged_blobs
 
 
 def mojibake_lines(text: str) -> list[int]:
@@ -42,23 +42,26 @@ def mojibake_lines(text: str) -> list[int]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--staged", action="store_true",
+                        help="check the staged content of the paths read from stdin")
     args = parser.parse_args()
     root = args.root.resolve()
     try:
-        files = git_nul_list(root, "ls-files", "-z")
+        if args.staged:
+            contents = staged_blobs(root, sys.stdin.read().splitlines())
+        else:
+            files = git_nul_list(root, "ls-files", "-z")
+            if not files:
+                print("[encoding-check] tooling error: no tracked files", file=sys.stderr)
+                return 2
+            contents = {name: (root / name).read_bytes()
+                        for name in files if (root / name).is_file()}
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
-        print(f"[encoding-check] tooling error: cannot list tracked files ({error})",
+        print(f"[encoding-check] tooling error: cannot read tracked files ({error})",
               file=sys.stderr)
         return 2
-    if not files:
-        print("[encoding-check] tooling error: no tracked files", file=sys.stderr)
-        return 2
     failed = False
-    for name in files:
-        path = root / name
-        if not path.is_file():
-            continue
-        data = path.read_bytes()
+    for name, data in contents.items():
         if b"\0" in data:
             continue
         try:

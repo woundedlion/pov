@@ -234,6 +234,31 @@ class TestMain(unittest.TestCase):
                 self.assertEqual(lc.main(["--root", str(root)]), 1)
             self.assertIn("EXCEPTIONS names paths with no tracked C/C++ source: retired.h", out.getvalue())
 
+    def test_staged_mode_checks_the_staged_headers_of_listed_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git_run(root, "init", "-q")
+            source = root / "sample.h"
+            source.write_text("#pragma once\n", encoding="utf-8")
+            (root / "other.h").write_text("#pragma once\n", encoding="utf-8")
+            git_run(root, "add", "sample.h", "other.h")
+            source.write_text(POLYFORM_HEADER, encoding="utf-8")
+
+            def staged(paths):
+                with mock.patch.object(sys, "stdin", io.StringIO(paths)), \
+                        contextlib.redirect_stdout(io.StringIO()) as out, \
+                        contextlib.redirect_stderr(io.StringIO()):
+                    return lc.main(["--root", str(root), "--staged"]), out.getvalue()
+
+            result, out = staged("sample.h\nREADME.md\n")
+            self.assertEqual(result, 1)
+            self.assertIn("sample.h:1: no copyright notice", out)
+            self.assertNotIn("other.h", out)
+            git_run(root, "add", "sample.h")
+            source.write_text("#pragma once\n", encoding="utf-8")
+            self.assertEqual(staged("sample.h\n")[0], 0)
+            self.assertEqual(staged("")[0], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

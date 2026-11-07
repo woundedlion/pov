@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end tests for the staged pre-commit gates."""
+"""End-to-end tests for the staged pre-commit gates and the range-only whole-tree gates."""
 
 import shlex
 import shutil
@@ -39,8 +39,9 @@ class PreCommitHook(unittest.TestCase):
             encoding="utf-8")
         for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py", "encoding_check.py"]:
             (tools / name).write_text(
-                "import os\n"
-                f"print('GATE {name}')\n"
+                "import os, sys\n"
+                "staged = sys.stdin.read().split() if '--staged' in sys.argv else None\n"
+                f"print('GATE {name}', staged)\n"
                 f"raise SystemExit(int(os.environ.get('FAIL_{name.removesuffix('.py').upper()}', '0')))\n",
                 encoding="utf-8")
         requirements = self.repo / "requirements"
@@ -61,6 +62,15 @@ class PreCommitHook(unittest.TestCase):
             [self.shell, HOOK.as_posix()], cwd=self.repo, env=env,
             capture_output=True, text=True, check=False)
 
+    def run_range(self, spec="HEAD~1..HEAD", **extra: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [self.shell, (REPO / "tools" / "commit_checks.sh").as_posix(), spec],
+            cwd=self.repo, env=dict(self.env, **extra),
+            capture_output=True, text=True, check=False)
+
+    def commit_all(self, message: str):
+        self.git("commit", "--quiet", "-m", message)
+
     def formatter(self):
         formatter = self.repo / "clang-format"
         formatter.write_text(
@@ -71,17 +81,37 @@ class PreCommitHook(unittest.TestCase):
         formatter.chmod(0o755)
         return formatter
 
-    def test_gate_failures_propagate(self):
+    def test_staged_gates_get_the_staged_paths_and_failures_propagate(self):
         (self.repo / "README.md").write_bytes(b"valid updated\n")
+        (self.repo / "unstaged.md").write_bytes(b"unstaged\n")
         self.git("add", "README.md")
-        for gate in ("docs_images", "build_pins", "license_check", "include_paths", "encoding_check"):
+        for gate in ("license_check", "include_paths", "encoding_check"):
             with self.subTest(gate=gate):
                 clean = self.run_hook()
                 self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
-                self.assertIn(f"GATE {gate}.py", clean.stdout + clean.stderr)
+                self.assertIn(f"GATE {gate}.py ['README.md']", clean.stdout)
                 failed = self.run_hook(**{f"FAIL_{gate.upper()}": "7"})
                 self.assertNotEqual(failed.returncode, 0)
-                self.assertIn(f"GATE {gate}.py", failed.stdout + failed.stderr)
+
+    def test_whole_tree_gates_run_over_a_range_not_per_commit(self):
+        (self.repo / "README.md").write_bytes(b"BROKEN\n")
+        self.git("add", "README.md")
+        staged = self.run_hook()
+        self.assertEqual(staged.returncode, 0, staged.stdout + staged.stderr)
+        for gate in ("TRACKED", "GATE docs_images.py", "GATE build_pins.py"):
+            self.assertNotIn(gate, staged.stdout)
+        self.commit_all("broken docs")
+        self.assertNotEqual(self.run_range().returncode, 0)
+
+        (self.repo / "README.md").write_bytes(b"valid\n")
+        self.git("add", "README.md")
+        self.commit_all("fixed docs")
+        for gate in ("docs_images", "build_pins", "license_check", "include_paths", "encoding_check"):
+            with self.subTest(gate=gate):
+                clean = self.run_range()
+                self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+                self.assertIn(f"GATE {gate}.py None", clean.stdout)
+                self.assertNotEqual(self.run_range(**{f"FAIL_{gate.upper()}": "7"}).returncode, 0)
 
     def test_python_uses_staged_lint_configuration(self):
         require_tool(self, "ruff")
@@ -96,24 +126,22 @@ class PreCommitHook(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("F401", done.stdout + done.stderr)
 
-    def test_clang_config_change_runs_snapshot_whole_tree_gate(self):
+    def test_clang_config_change_runs_the_whole_tree_gate_over_a_range(self):
+        formatter = self.formatter().as_posix()
         gate = self.repo / "tools" / "clang_format_gate.sh"
         gate.write_text('#!/bin/sh\necho SNAPSHOT_FORMAT_GATE\nexit 1\n', encoding="utf-8", newline="\n")
         self.git("add", "tools/clang_format_gate.sh")
-        self.git("commit", "--quiet", "-m", "format gate fixture")
+        self.commit_all("format gate fixture")
         config = self.repo / ".clang-format"
         config.write_text(config.read_text() + "\n# updated\n", encoding="utf-8", newline="\n")
         self.git("add", ".clang-format")
+        staged = self.run_hook(CLANG_FORMAT=formatter)
+        self.assertEqual(staged.returncode, 0, staged.stdout + staged.stderr)
+        self.assertNotIn("SNAPSHOT_FORMAT_GATE", staged.stdout)
+        self.commit_all("format config")
         gate.write_text("exit 0\n", encoding="utf-8", newline="\n")
-        done = self.run_hook(CLANG_FORMAT=self.formatter().as_posix())
+        done = self.run_range(CLANG_FORMAT=formatter)
         self.assertNotEqual(done.returncode, 0)
-        self.assertIn("SNAPSHOT_FORMAT_GATE", done.stdout + done.stderr)
-
-        gate.write_text('#!/bin/sh\necho SNAPSHOT_FORMAT_GATE\nexit 0\n',
-                        encoding="utf-8", newline="\n")
-        self.git("add", "tools/clang_format_gate.sh")
-        done = self.run_hook(CLANG_FORMAT=self.formatter().as_posix())
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn("SNAPSHOT_FORMAT_GATE", done.stdout + done.stderr)
 
     def test_python_lints_temporary_commit_indexes(self):
@@ -132,37 +160,19 @@ class PreCommitHook(unittest.TestCase):
                 self.assertNotEqual(done.returncode, 0)
                 self.assertIn("F401", done.stdout + done.stderr)
 
-    def test_documentation_reads_the_index(self):
-        readme = self.repo / "README.md"
-        readme.write_bytes(b"BROKEN\n")
-        self.git("add", "README.md")
-        readme.write_bytes(b"valid working tree\n")
-        self.assertNotEqual(self.run_hook().returncode, 0)
-
-        self.git("add", "README.md")
-        readme.write_bytes(b"BROKEN working tree\n")
-        done = self.run_hook()
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-
-    def test_split_index_snapshot_holds_only_staged_entries(self):
+    def test_split_index_staged_gates_see_only_staged_entries(self):
         self.git("config", "core.splitIndex", "true")
         (self.repo / "staged.md").write_bytes(b"staged\n")
         self.git("add", "staged.md")
         self.git("update-index", "--split-index")
         (self.repo / "unstaged.md").write_bytes(b"unstaged\n")
-        readme = self.repo / "README.md"
-        readme.write_bytes(b"BROKEN working tree\n")
         index = self.repo / ".git" / "index"
         before = index.read_bytes()
         done = self.run_hook()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn("'staged.md'", done.stdout)
+        self.assertIn("GATE encoding_check.py ['staged.md']", done.stdout)
         self.assertNotIn("unstaged.md", done.stdout)
         self.assertEqual(index.read_bytes(), before)
-
-        self.git("add", "README.md")
-        readme.write_bytes(b"valid working tree\n")
-        self.assertNotEqual(self.run_hook().returncode, 0)
 
     def test_linked_worktree_split_index_commits(self):
         worktree = self.repo.parent / f"{self.repo.name}-linked"
@@ -234,22 +244,27 @@ class PreCommitHook(unittest.TestCase):
         self.git("commit", "--quiet", "-m", "profile fixture")
         return profiles
 
-    def test_profile_archive_reads_the_index(self):
+    def test_profile_archive_is_validated_as_of_the_range_tip(self):
         profiles = self.profile_fixture()
         index = profiles / "README.md"
         valid = index.read_bytes()
         broken = valid.replace(b"shipping/profile_", b"shipping/missing_")
         index.write_bytes(broken)
         self.git("add", "docs/profiles/README.md")
+        staged = self.run_hook()
+        self.assertEqual(staged.returncode, 0, staged.stdout + staged.stderr)
+        self.assertNotIn("Profile archive structure", staged.stdout)
+        self.commit_all("broken profile index")
         index.write_bytes(valid)
-        done = self.run_hook()
+        done = self.run_range()
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("main shipping index is missing", done.stdout + done.stderr)
 
         index.write_bytes(valid + b"\nCapture notes.\n")
         self.git("add", "docs/profiles/README.md")
+        self.commit_all("profile notes")
         index.write_bytes(broken)
-        done = self.run_hook()
+        done = self.run_range()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn("Profile archive structure checks all 2", done.stdout)
 
@@ -265,18 +280,21 @@ class PreCommitHook(unittest.TestCase):
             ("scripts/check_profiles.mjs", "MODULE_NOT_FOUND"),
         ]:
             with self.subTest(filename=filename):
-                self.git("rm", "--cached", "--", filename)
-                done = self.run_hook()
+                self.git("rm", "--cached", "--quiet", "--", filename)
+                self.commit_all(f"delete {filename}")
+                done = self.run_range()
                 self.assertNotEqual(done.returncode, 0)
                 self.assertIn(diagnostic, done.stdout + done.stderr)
                 self.git("add", "--", filename)
+                self.commit_all(f"restore {filename}")
 
     def test_unrelated_changes_do_not_run_profile_validation(self):
         profiles = self.profile_fixture()
-        (profiles / "README.md").write_bytes(b"broken unstaged index\n")
+        (profiles / "README.md").write_bytes(b"broken uncommitted index\n")
         (self.repo / "README.md").write_bytes(b"unrelated change\n")
         self.git("add", "README.md")
-        done = self.run_hook()
+        self.commit_all("unrelated")
+        done = self.run_range()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertNotIn("Profile archive structure", done.stdout)
 
@@ -284,17 +302,18 @@ class PreCommitHook(unittest.TestCase):
         self.profile_fixture()
         self.git("mv", "docs/profiles/shipping/profile_example_teensy_2026-09-28.md",
                  "moved-report.md")
-        done = self.run_hook()
+        self.commit_all("move a profile")
+        done = self.run_range()
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("shipping profiles is missing: example", done.stdout + done.stderr)
 
-    def test_whitespace_errors_fail_before_documentation(self):
+    def test_whitespace_errors_fail_before_the_staged_gates(self):
         (self.repo / "README.md").write_bytes(b"trailing  \n")
         self.git("add", "README.md")
         done = self.run_hook()
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("staged whitespace errors", done.stdout + done.stderr)
-        self.assertNotIn("TRACKED", done.stdout)
+        self.assertNotIn("GATE", done.stdout)
 
     def test_clang_format_reads_the_index(self):
         formatter = self.formatter()
@@ -387,27 +406,31 @@ class PreCommitHook(unittest.TestCase):
         done = self.run_hook(ESLINT_LOG=log.as_posix())
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
 
-    def test_eslint_configuration_change_lints_the_whole_snapshot(self):
+    def test_eslint_configuration_change_lints_the_whole_tree_over_a_range(self):
         log = self.eslint_stub()
         (self.repo / "eslint.config.mjs").write_text("export default [];\n", encoding="utf-8", newline="\n")
         self.git("add", "eslint.config.mjs")
-        failed = self.run_hook(ESLINT_LOG=log.as_posix(), ESLINT_TREE_FAIL="7")
+        staged = self.run_hook(ESLINT_LOG=log.as_posix(), ESLINT_TREE_FAIL="7")
+        self.assertEqual(staged.returncode, 0, staged.stdout + staged.stderr)
+        self.commit_all("eslint config")
+        failed = self.run_range(ESLINT_LOG=log.as_posix(), ESLINT_TREE_FAIL="7")
         self.assertNotEqual(failed.returncode, 0)
         self.assertTrue(any(line == "." for line in log.read_text().splitlines()))
-        passed = self.run_hook(ESLINT_LOG=log.as_posix())
+        passed = self.run_range(ESLINT_LOG=log.as_posix())
         self.assertEqual(passed.returncode, 0, passed.stdout + passed.stderr)
 
-    def test_ruff_configuration_change_lints_an_unchanged_source(self):
+    def test_ruff_configuration_change_lints_an_unchanged_source_over_a_range(self):
         require_tool(self, "ruff")
         config = self.repo / "ruff.toml"
         config.write_text('lint.ignore = ["F401"]\n', encoding="utf-8", newline="\n")
         (self.repo / "sample.py").write_text("import os\n", encoding="utf-8", newline="\n")
         self.git("add", "ruff.toml", "sample.py")
-        self.git("commit", "--quiet", "-m", "source and permissive config")
+        self.commit_all("source and permissive config")
         config.write_text('lint.select = ["F401"]\n', encoding="utf-8", newline="\n")
         self.git("add", "ruff.toml")
+        self.commit_all("strict config")
         config.write_text('lint.ignore = ["F401"]\n', encoding="utf-8", newline="\n")
-        failed = self.run_hook()
+        failed = self.run_range()
         self.assertNotEqual(failed.returncode, 0)
         self.assertIn("F401", failed.stdout + failed.stderr)
 

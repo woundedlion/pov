@@ -349,7 +349,7 @@ class InlinePins(unittest.TestCase):
     def test_the_hook_delegates_format_and_ruff_versions_to_build_pins(self):
         source = (bp.ROOT / "tools/commit_checks.sh").read_text(encoding="utf-8")
         for tool in ("clang-format", "ruff"):
-            self.assertIn(f'"$SNAPSHOT/tools/build_pins.py" --check-tool {tool}', source)
+            self.assertIn(f'"$TOOLS/build_pins.py" --check-tool {tool}', source)
         self.assertNotIn("HS_CLANG_FORMAT_MAJOR", source)
         self.assertNotIn("expected_ruff=", source)
 

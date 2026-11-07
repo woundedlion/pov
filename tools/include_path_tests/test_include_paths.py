@@ -188,6 +188,17 @@ class IncludePathsTests(unittest.TestCase):
         self.assertEqual(self.check('#include "../core/math/vector.h"\n'), [
             'effects/sample.h:1: include "core/math/vector.h" instead of "../core/math/vector.h"'])
 
+    def test_includes_resolve_only_to_tracked_paths(self):
+        (self.root / "core/untracked.h").write_text("#pragma once\n", encoding="utf-8")
+        self.assertEqual(self.check('#include "untracked.h"\n#include "../core/untracked.h"\n'), [])
+
+    def test_given_sources_are_checked_instead_of_the_tree(self):
+        self.check('#include "core/math/vector.h"\n')
+        sources = {"effects/sample.h": b'#include "math/vector.h"\n', "README.md": b""}
+        self.assertEqual(include_paths.check_includes(self.root, self.files, sources), [
+            'effects/sample.h:1: include "core/math/vector.h" instead of "math/vector.h"'])
+        self.assertEqual(include_paths.check_includes(self.root, self.files, {}), [])
+
     def test_comments_do_not_count_as_includes(self):
         self.assertEqual(self.check('/*\n#include "math/vector.h"\n*/\n'
                                     '// #include "math/vector.h"\n'), [])
