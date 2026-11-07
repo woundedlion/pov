@@ -10,6 +10,7 @@
 #if HS_ENABLE_CHAIN_INTERPRETER
 
 #include <bit>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -151,13 +152,8 @@ public:
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
         if (modulated)
           continue;
-        const auto &info = op.op->schema[field];
-        const void *address = op.op->runtime.param_address(
-            const_cast<uint8_t *>(program.param_block(index)), field);
         const float value =
-            info.enum_count > 0
-                ? static_cast<float>(*static_cast<const uint8_t *>(address))
-                : *static_cast<const float *>(address);
+            read_field_value(*op.op, program.param_block(index), field);
         out.parameters.push_back({program.param_name(index, field), value});
       }
       auto state = op.op->runtime.capture_state(program.state_block(index));
@@ -357,15 +353,8 @@ public:
         const ParamSetResult result = parameter->normalize(value);
         if (result != ParamSetResult::APPLIED)
           return result;
-        for (size_t index = 0; index < ops.size(); ++index)
-          for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-            if (std::strcmp(write.name, program.param_name(index, field)) ==
-                0) {
-              ParamDef proposed = *parameter;
-              proposed.target = ops[index].op->runtime.param_address(
-                  candidates[index], field);
-              write_parameter_unchecked(proposed, value);
-            }
+        if (const auto field = find_named_field(write.name))
+          write_candidate(*parameter, field->index, field->field, value);
         animated |= parameter->animated;
       }
       return ParamSetResult::APPLIED;
@@ -406,10 +395,7 @@ public:
           continue;
         const auto admitted = [&](float value) {
           return stage_candidates(index, index + 1, [&] {
-                   ParamDef proposed = *parameter;
-                   proposed.target = ops[index].op->runtime.param_address(
-                       candidates[index], field);
-                   write_parameter_unchecked(proposed, value);
+                   write_candidate(*parameter, index, field, value);
                    return ParamSetResult::APPLIED;
                  }).result == ParamSetResult::APPLIED;
         };
@@ -459,17 +445,15 @@ public:
    * @return Whether the parameter has a finite advisory. */
   bool parameter_fold_strength(const char *name,
                                float &strength) const override {
-    const auto ops = program.ops();
-    for (size_t index = 0; index < ops.size(); ++index)
-      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-        if (std::strcmp(ops[index].op->schema[field].id, "strength") == 0 &&
-            std::strcmp(name, program.param_name(index, field)) == 0 &&
-            ops[index].op->runtime.fold_strength != nullptr) {
-          strength =
-              ops[index].op->runtime.fold_strength(program.param_block(index));
-          return std::isfinite(strength);
-        }
-    return false;
+    const auto field = find_named_field(name);
+    if (!field)
+      return false;
+    const auto &op = *program.ops()[field->index].op;
+    if (std::strcmp(op.schema[field->field].id, "strength") != 0 ||
+        op.runtime.fold_strength == nullptr)
+      return false;
+    strength = op.runtime.fold_strength(program.param_block(field->index));
+    return std::isfinite(strength);
   }
 
   /**
@@ -498,6 +482,15 @@ private:
   const ModulationParams &modulation_params(size_t index) const {
     return *reinterpret_cast<const ModulationParams *>(
         program.param_block(index));
+  }
+
+  static float read_field_value(const Pullback::Interp::OperatorDescriptor &op,
+                                const void *params, uint16_t field) {
+    const void *address =
+        op.runtime.param_address(const_cast<void *>(params), field);
+    return op.schema[field].enum_count > 0
+               ? static_cast<float>(*static_cast<const uint8_t *>(address))
+               : *static_cast<const float *>(address);
   }
 
   static bool field_in_schema(const Pullback::Interp::ParamFieldInfo &info,
@@ -715,10 +708,7 @@ private:
     const auto &op = *ops[index].op;
     for (uint16_t field = 0; field < op.schema_count; ++field) {
       const auto &info = op.schema[field];
-      const void *address = op.runtime.param_address(params, field);
-      const float value = info.enum_count > 0
-                              ? *static_cast<const uint8_t *>(address)
-                              : *static_cast<const float *>(address);
+      const float value = read_field_value(op, params, field);
       if (!field_in_schema(info, value))
         return "Parameter is outside its schema range";
     }
@@ -738,6 +728,28 @@ private:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+  struct NamedField {
+    size_t index;
+    uint16_t field;
+  };
+
+  std::optional<NamedField> find_named_field(const char *name) const {
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index)
+      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+        if (std::strcmp(name, program.param_name(index, field)) == 0)
+          return NamedField{index, field};
+    return std::nullopt;
+  }
+
+  void write_candidate(const ParamDef &parameter, size_t index, uint16_t field,
+                       float value) {
+    ParamDef proposed = parameter;
+    proposed.target = program.ops()[index].op->runtime.param_address(
+        candidates[index], field);
+    write_parameter_unchecked(proposed, value);
+  }
+
   static uint32_t ordered_float(float value) {
     const uint32_t bits = std::bit_cast<uint32_t>(value);
     return bits & 0x80000000u ? ~bits : bits ^ 0x80000000u;
@@ -756,12 +768,10 @@ private:
       [@p first, @p last], or null. */
   const char *written_name(std::span<const ShaderChainParameterWrite> writes,
                            size_t first, size_t last) const {
-    const auto ops = program.ops();
     for (const auto &write : writes)
-      for (size_t index = first; index <= last; ++index)
-        for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-          if (std::strcmp(write.name, program.param_name(index, field)) == 0)
-            return program.param_name(index, field);
+      if (const auto field = find_named_field(write.name);
+          field && field->index >= first && field->index <= last)
+        return program.param_name(field->index, field->field);
     return nullptr;
   }
 
@@ -830,23 +840,16 @@ private:
    */
   bool parameter_write_admitted(const ParamDef &parameter,
                                 float value) override {
-    const auto ops = program.ops();
-    for (size_t index = 0; index < ops.size(); ++index)
-      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-        if (std::strcmp(parameter.name, program.param_name(index, field)) ==
-            0) {
-          const auto refusal = stage_candidates(index, index + 1, [&] {
-            ParamDef proposed = parameter;
-            proposed.target =
-                ops[index].op->runtime.param_address(candidates[index], field);
-            write_parameter_unchecked(proposed, value);
-            return ParamSetResult::APPLIED;
-          });
-          refusal_warning = refusal.warning;
-          refused_name = refusal_warning != nullptr ? parameter.name : nullptr;
-          return refusal_warning == nullptr;
-        }
-    return true;
+    const auto field = find_named_field(parameter.name);
+    if (!field)
+      return true;
+    const auto refusal = stage_candidates(field->index, field->index + 1, [&] {
+      write_candidate(parameter, field->index, field->field, value);
+      return ParamSetResult::APPLIED;
+    });
+    refusal_warning = refusal.warning;
+    refused_name = refusal_warning != nullptr ? parameter.name : nullptr;
+    return refusal_warning == nullptr;
   }
 
   const char *refused_name = nullptr;
