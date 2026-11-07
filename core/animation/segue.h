@@ -671,6 +671,7 @@ private:
  * echo redraws the new one.
  */
 struct Shockwave : Base {
+  static constexpr bool UNIFORM_FACE_ENDPOINTS = true; ///< Exact endpoints.
   static constexpr float BAND =
       0.3f; /**< Wave-front softness, in phase units. */
   math::Vector origin = math::Y_AXIS; /**< Unit-length world-space wave origin;
@@ -727,7 +728,8 @@ struct Shockwave : Base {
  * the swap is held fully black.
  */
 struct Breakdown : Base {
-  static constexpr int MAX_CLASSES = 16; /**< rank[] capacity. */
+  static constexpr bool UNIFORM_FACE_ENDPOINTS = true; ///< Exact endpoints.
+  static constexpr int MAX_CLASSES = 16;               /**< rank[] capacity. */
   static constexpr float BLACK_DWELL =
       0.1f;            /**< Phase slice held all-black at the swap end. */
   int num_classes = 1; /**< Live class count, derived by reorder(). */
@@ -776,7 +778,8 @@ struct Breakdown : Base {
    * @param offset Face ordering from face_offset().
    */
   float face_phase(float phase, float offset, float = 0.0f) const {
-    // Class windows tile [BLACK_DWELL, 1]; phase 1 stays the identity plateau.
+    if (phase == 1.0f)
+      return 1.0f;
     float band = (1.0f - BLACK_DWELL) / static_cast<float>(num_classes);
     return hs::clamp(
         (phase - BLACK_DWELL - offset * (1.0f - BLACK_DWELL - band)) / band,

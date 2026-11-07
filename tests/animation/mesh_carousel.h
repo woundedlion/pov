@@ -193,7 +193,7 @@ inline void test_breakdown_guards_degenerate_class_inputs() {
   HS_EXPECT_NEAR(bd.face_offset(any, 0, 0), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(bd.face_offset(any, 0, 5), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(bd.face_phase(0.0f, 0.0f), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(bd.face_phase(1.0f, 0.0f), 1.0f, 1e-6f);
+  HS_EXPECT_EQ(bd.face_phase(1.0f, 0.0f), 1.0f);
 
   hs::random().seed(11u);
   const std::vector<uint8_t> face_classes{0, 1, 2};
@@ -205,7 +205,7 @@ inline void test_breakdown_guards_degenerate_class_inputs() {
   for (int c = 0; c < bd.num_classes; ++c) {
     const float o = bd.face_offset(any, 0, c);
     HS_EXPECT_NEAR(bd.face_phase(0.0f, o), 0.0f, 1e-6f);
-    HS_EXPECT_NEAR(bd.face_phase(1.0f, o), 1.0f, 1e-6f);
+    HS_EXPECT_EQ(bd.face_phase(1.0f, o), 1.0f);
   }
   hs::random() = saved_rng;
 }
