@@ -36,6 +36,22 @@ struct SplatTaps {
 /** @brief Splat weight below which a tap contributes nothing worth emitting. */
 inline constexpr float SPLAT_TAP_CUTOFF = 1e-8f;
 
+/** @brief Whether off-display taps fold onto each pole row. */
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+template <int H> HS_HOT_INLINE bool folds_north_row() {
+  return math::DisplayGeometry<H>::HAS_NORTH_POLE;
+}
+template <int H> HS_HOT_INLINE bool folds_south_row() {
+  return math::DisplayGeometry<H>::HAS_SOUTH_POLE;
+}
+#elif HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
+template <int H> constexpr bool folds_north_row() { return true; }
+template <int H> constexpr bool folds_south_row() { return true; }
+#else
+template <int H> constexpr bool folds_north_row() { return false; }
+template <int H> constexpr bool folds_south_row() { return false; }
+#endif
+
 /**
  * @brief Resolves a sub-pixel sample into its four nearest-neighbor taps.
  * @tparam W Framebuffer width in pixels.
@@ -72,36 +88,21 @@ __attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
 
   float wy0 = 1.0f - ys;
   float wy1 = ys;
-#if HS_RUNTIME_DISPLAY_GEOMETRY
-  if (t.y0_physical && !t.y1_physical &&
-      math::DisplayGeometry<H>::HAS_SOUTH_POLE) {
+  if (t.y0_physical && !t.y1_physical && folds_south_row<H>()) {
     wy0 = 1.0f;
     wy1 = 0.0f;
-  } else if (!t.y0_physical && t.y1_physical &&
-             math::DisplayGeometry<H>::HAS_NORTH_POLE) {
+  } else if (!t.y0_physical && t.y1_physical && folds_north_row<H>()) {
     wy0 = 0.0f;
     wy1 = 1.0f;
   } else {
-    if (!t.y0_physical)
-      wy0 = 0.0f;
-    if (!t.y1_physical)
-      wy1 = 0.0f;
+    if constexpr (HS_RUNTIME_DISPLAY_GEOMETRY || !folds_north_row<H>() ||
+                  !folds_south_row<H>()) {
+      if (!t.y0_physical)
+        wy0 = 0.0f;
+      if (!t.y1_physical)
+        wy1 = 0.0f;
+    }
   }
-#elif HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
-  if (t.y0_physical && !t.y1_physical) {
-    wy0 = 1.0f;
-    wy1 = 0.0f;
-  } else if (!t.y0_physical && t.y1_physical) {
-    wy0 = 0.0f;
-    wy1 = 1.0f;
-  }
-
-#else
-  if (!t.y0_physical)
-    wy0 = 0.0f;
-  if (!t.y1_physical)
-    wy1 = 0.0f;
-#endif
 
   t.v00 = (1.0f - xs) * wy0;
   t.v10 = xs * wy0;

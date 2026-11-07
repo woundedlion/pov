@@ -64,26 +64,14 @@ public:
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
-#if HS_RUNTIME_DISPLAY_GEOMETRY
-    if ((math::DisplayGeometry<H>::HAS_NORTH_POLE && y < -1.0f) ||
-        (math::DisplayGeometry<H>::HAS_SOUTH_POLE && y >= H))
+    if ((folds_north_row<H>() && y < -1.0f) || (folds_south_row<H>() && y >= H))
       return;
-#elif HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
-    if (y < -1.0f || y >= H)
-      return;
-#endif
     int cx = round_wrap_column<W>(x);
     int cy = round_row<H>(y);
 
     float inv = 1.0f;
-#if HS_RUNTIME_DISPLAY_GEOMETRY || HS_DISPLAY_PROFILE == 0 ||                  \
-    defined(HS_TEST_H_OFFSET)
-#if HS_RUNTIME_DISPLAY_GEOMETRY
-    if ((cy - 1 < 0 && math::DisplayGeometry<H>::HAS_NORTH_POLE) ||
-        (cy + 1 >= H && math::DisplayGeometry<H>::HAS_SOUTH_POLE)) {
-#else
-    if (cy - 1 < 0 || cy + 1 >= H) {
-#endif
+    if ((cy - 1 < 0 && folds_north_row<H>()) ||
+        (cy + 1 >= H && folds_south_row<H>())) {
       float wsum = 0.0f;
       for (int dy = -1; dy <= 1; dy++) {
         int ny = cy + dy;
@@ -99,8 +87,6 @@ public:
       }
       inv = 1.0f / wsum;
     }
-
-#endif
 
     int k = 0;
     for (int dy = -1; dy <= 1; dy++) {
