@@ -533,9 +533,10 @@ private:
   // Persistent allocations: nodes, the Trails ring, the baked palette LUTs
   // and the Orient pose table.
   static constexpr size_t FOOTPRINT_BYTES =
-      NODE_CAPACITY * sizeof(Node) +
+      NODE_CAPACITY * sizeof(Node) + alignof(Node) +
       TRAIL_CAPACITY *
           sizeof(typename Filter::World::Trails<TRAIL_CAPACITY>::Item) +
+      alignof(typename Filter::World::Trails<TRAIL_CAPACITY>::Item) +
       MAX_PALETTES * BakedPalette::required_arena_bytes() +
       Filter::World::Orient::storage_bytes(W);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
