@@ -656,7 +656,7 @@ private:
                     shaded_color, i, dense_contours);
     }
     if (planar_star)
-      draw_pole_caps_at_columns(canvas, count, sides, palette);
+      draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
   }
 
   /** @brief Draws planar-star pole caps at their column orientations.
