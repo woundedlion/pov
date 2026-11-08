@@ -37,8 +37,11 @@ class PreCommitHook(unittest.TestCase):
             "print('TRACKED', tracked.stdout.split())\n"
             "raise SystemExit('BROKEN' in (root / 'README.md').read_text())\n",
             encoding="utf-8")
-        for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py", "encoding_check.py"]:
-            (tools / name).write_text(
+        (self.repo / "tests").mkdir()
+        gates = [(tools, name) for name in ["docs_images.py", "build_pins.py", "license_check.py",
+                                            "include_paths.py", "encoding_check.py"]]
+        for directory, name in gates + [(self.repo / "tests", "check_death_pins.py")]:
+            (directory / name).write_text(
                 "import os, sys\n"
                 "staged = sys.stdin.read().split() if '--staged' in sys.argv else None\n"
                 f"print('GATE {name}', staged)\n"
@@ -49,7 +52,7 @@ class PreCommitHook(unittest.TestCase):
         shutil.copyfile(REPO / "requirements" / "ruff.txt", requirements / "ruff.txt")
         shutil.copyfile(REPO / "ruff.toml", self.repo / "ruff.toml")
         shutil.copyfile(REPO / ".clang-format", self.repo / ".clang-format")
-        self.git("add", "README.md", "tools", "requirements", "ruff.toml", ".clang-format")
+        self.git("add", "README.md", "tools", "tests", "requirements", "ruff.toml", ".clang-format")
         self.git("commit", "--quiet", "-m", "base")
 
     def git(self, *args: str) -> subprocess.CompletedProcess[str]:
@@ -106,7 +109,8 @@ class PreCommitHook(unittest.TestCase):
         (self.repo / "README.md").write_bytes(b"valid\n")
         self.git("add", "README.md")
         self.commit_all("fixed docs")
-        for gate in ("docs_images", "build_pins", "license_check", "include_paths", "encoding_check"):
+        for gate in ("docs_images", "build_pins", "license_check", "include_paths", "encoding_check",
+                     "check_death_pins"):
             with self.subTest(gate=gate):
                 clean = self.run_range()
                 self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)

@@ -2762,138 +2762,6 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file,
   return pinned;
 }
 
-/** @brief One file's approved count of guard sites no case pins. */
-struct GuardGapAllowance {
-  const char *file; /**< Repo-relative source path from the census. */
-  int gap;          /**< Unpinned HS_CHECK sites tolerated in that file. */
-};
-
-/**
- * @brief Per-file allowances for the sites the case table leaves unpinned.
- * @details Every census file's gap is gated against its row here, and a file
- *          with no row must be fully pinned. Each row is exact in both
- *          directions, so pinning or deleting a guard forces the row down.
- */
-inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
-    {"core/animation/animation.h", 2},
-    {"core/animation/carousel.h", 4},
-    {"core/animation/motion.h", 5},
-    {"core/animation/opleg.h", 40},
-    {"core/animation/orientation.h", 3},
-    {"core/animation/params.h", 8},
-    {"core/animation/recipe_build.h", 21},
-    {"core/animation/segue.h", 1},
-    {"core/animation/sprites.h", 10},
-    {"core/animation/timeline.h", 7},
-    {"core/animation/transformer.h", 3},
-    {"core/color/baked_palette.h", 9},
-    {"core/color/color_space.h", 1},
-    {"core/color/generative_palette.h", 4},
-    {"core/color/palette_cycler.h", 8},
-    // Device-only pure-virtual and alternative terminate handlers.
-    {"core/engine/static_storage.cpp", 3},
-    {"core/containers/static_circular_buffer.h", 2},
-    {"core/control/param_host.h", 15},
-    {"core/control/preset_host.h", 2},
-    {"core/memory/arena.h", 1},
-    {"core/math/3dmath.h", 2},
-    {"core/math/pixel_mapping.h", 2},
-    {"core/math/spherical_field.h", 2},
-    {"core/mesh/conway.h", 20},
-    {"core/mesh/conway_graph.h", 1},
-    {"core/mesh/hankin.h", 6},
-    {"core/mesh/mesh.h", 10},
-    {"core/mesh/mesh_state.h", 2},
-    {"core/mesh/recipe.h", 2},
-    {"core/mesh/solid_builder.h", 5},
-    {"core/mesh/solids.h", 7},
-    {"core/render/canvas.h", 4},
-    {"core/render/filter/pixel_feedback.h", 7},
-    {"core/render/filter/screen_trails.h", 2},
-    {"core/render/filter/world_trails.h", 2},
-    {"core/render/plot/cull/spans.h", 1},
-    {"core/render/plot/cull/visibility.h", 1},
-    {"core/render/plot/mesh.h", 4},
-    {"core/render/plot/raster.h", 3},
-    {"core/render/plot/shapes.h", 13},
-    // Palette mode reaches the harmony table only through its admitted enum.
-    {"core/render/pullback/composed_runtime.h", 1},
-    {"core/render/pullback/interpreter.h", 12},
-    {"core/render/pullback/operators/model.h", 1},
-    {"core/render/pullback/operators.h", 1},
-    {"core/render/scan/face_raster.h", 2},
-    {"core/render/scan/mesh.h", 3},
-    {"core/render/scan/raster.h", 1},
-    {"core/render/scan/shader.h", 2},
-    {"core/render/scan/shapes.h", 7},
-    {"core/render/scan/volume.h", 4},
-    {"core/render/sdf/common.h", 4},
-    {"core/render/sdf/face.h", 1},
-    {"core/render/sdf/face_geometry.h", 2},
-    {"core/render/sdf/face_class_bake.h", 6},
-    {"core/render/sdf/shapes.h", 8},
-    {"core/render/sdf/volume.h", 2},
-    {"core/render/shading.h", 1},
-    {"core/spatial/reaction_graph.h", 1},
-    {"effects/Comets.h", 1},
-    {"effects/DisplacementField.h", 1},
-    {"effects/DreamBalls.h", 9},
-    {"effects/Dynamo.h", 1},
-    {"effects/Fishbowl.h", 1},
-    {"effects/GnomonicStars.h", 1},
-    {"effects/HankinSolids.h", 13},
-    {"effects/IslamicStars.h", 5},
-    {"effects/MeshFeedback.h", 1},
-    {"effects/MindSplatter.h", 4},
-    {"effects/MobiusRings.h", 1},
-    {"effects/RingShower.h", 1},
-    {"effects/common/reaction_diffusion.h", 1},
-    {"hardware/dma_led.h", 4},
-    // Arduino-only segment-override boot guard and GPIO, DMA, timer invariants.
-    {"hardware/pov_segmented.h", 10},
-    {"hardware/pov_single.h", 9},
-    {"hardware/device_effect.h", 1},
-    {"targets/Profile/Profile.ino", 5},
-    // WASM-only bootstrap and reconstruction invariants, including modulation restore.
-    {"targets/wasm/engine_bindings.h", 11},
-    {"targets/wasm/mesh_ops_bindings.h", 2},
-    {"targets/wasm/workbench_bindings.h", 2},
-    // Capture-only dispatch receives a validated snapshot recipe.
-    {"tools/pullback_capture_native.cpp", 1},
-    // Resource and endpoint ceilings follow the admitted parameter budget.
-    {"workbench/shader/chain_host.h", 3},
-};
-
-/**
- * @brief Looks up a file's approved unpinned-site count; debug-only guards
- *        must have unique guard text within each file.
- * @param file Repo-relative source path from the census.
- * @return The approved gap (0 for a file with no allowance row), plus under
- *         NDEBUG one per distinct debug-only case guard in @p file.
- */
-inline int allowed_guard_gap(const char *file) {
-  int debug_gap = 0;
-#ifdef NDEBUG
-  int n;
-  const Case *cs = all_cases(n);
-  for (int i = 0; i < n; ++i) {
-    if (!cs[i].debug_only || std::strcmp(cs[i].guard_file, file) != 0)
-      continue;
-    bool duplicate = false;
-    for (int j = 0; j < i; ++j)
-      duplicate |= cs[j].debug_only &&
-                   std::strcmp(cs[j].guard_file, file) == 0 &&
-                   std::strcmp(cs[j].guard_text, cs[i].guard_text) == 0;
-    if (!duplicate)
-      ++debug_gap;
-  }
-#endif
-  for (const GuardGapAllowance &a : GUARD_GAP_ALLOW)
-    if (std::strcmp(a.file, file) == 0)
-      return a.gap + debug_gap;
-  return debug_gap;
-}
-
 /**
  * @brief Prints what fraction of the engine's fail-fast surface is pinned.
  * @param cs The case table.
@@ -2902,14 +2770,11 @@ inline int allowed_guard_gap(const char *file) {
  * @details The denominator is the generated HS_CHECK census
  *          (death_guard_sites.h); the numerator is the distinct source lines
  *          observed in trapped cases. A case naming a file outside the census
- *          fails the module. Per-file gaps are gated against GUARD_GAP_ALLOW;
- *          the ratio is not gated.
+ *          fails the module; the ratio and per-file gaps are not gated.
  */
 inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
   int covered = 0;
   int off_census = 0;
-  int unapproved_gaps = 0;
-  int stale_allowances = 0;
   constexpr int GAPS = 5;
   const GuardSiteCount *worst[GAPS] = {};
   int worst_gap[GAPS] = {};
@@ -2917,20 +2782,7 @@ inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
     int pinned = pinned_guards_in(cs, n, f.file, lines);
     HS_EXPECT_LE(pinned, f.sites);
     covered += pinned;
-    int gap = f.sites - pinned;
-    const int allowed = allowed_guard_gap(f.file);
-    if (gap > allowed) {
-      std::printf("  [FAIL] %s leaves %d HS_CHECK site(s) unpinned, %d "
-                  "approved — add a death case, or write the gap down as "
-                  "{\"%s\", %d} in GUARD_GAP_ALLOW\n",
-                  f.file, gap, allowed, f.file, gap);
-      ++unapproved_gaps;
-    } else if (gap < allowed) {
-      std::printf("  [FAIL] {\"%s\", %d} over-approves — the file's gap is %d; "
-                  "lower the GUARD_GAP_ALLOW row to {\"%s\", %d}\n",
-                  f.file, allowed, gap, f.file, gap);
-      ++stale_allowances;
-    }
+    const int gap = f.sites - pinned;
     for (int slot = 0; slot < GAPS; ++slot) {
       if (gap <= worst_gap[slot])
         continue;
@@ -2963,31 +2815,16 @@ inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
     std::printf(" %s %d/%d", worst[slot]->file,
                 worst[slot]->sites - worst_gap[slot], worst[slot]->sites);
   std::printf("\n");
-  for (const GuardGapAllowance &a : GUARD_GAP_ALLOW) {
-    bool in_census = false;
-    for (const GuardSiteCount &f : GUARD_SITE_COUNTS)
-      if (std::strcmp(a.file, f.file) == 0) {
-        in_census = true;
-        break;
-      }
-    if (!in_census) {
-      std::printf("  [FAIL] allowance \"%s\" names no guard-bearing file\n",
-                  a.file);
-      ++stale_allowances;
-    }
-  }
   HS_EXPECT_EQ(off_census, 0);
-  HS_EXPECT_EQ(unapproved_gaps, 0);
-  HS_EXPECT_EQ(stale_allowances, 0);
 }
 
 /** @brief The slice of the death module one process runs. */
 struct ShardSpec {
   /** @brief What the process does with the case table. */
   enum class Role {
-    WHOLE,  /**< Every case, then the coverage gate. */
+    WHOLE,  /**< Every case, then the coverage report. */
     SHARD,  /**< Cases with table index % count == index, then a record. */
-    CENSUS, /**< No cases; merges the count records, then the coverage gate. */
+    CENSUS, /**< No cases; merges the count records, then the coverage report. */
   };
   Role role = Role::WHOLE;   /**< This process's role. */
   int index = 0;             /**< This shard's index, in [0, count). */
@@ -3209,8 +3046,8 @@ inline void compare_determinism_folds() {
  * @details Spawn-checks the harness, then runs each case of its slice in a
  *          child and asserts each died by the exact trap status. The whole
  *          module and shard 0 also run compare_determinism_folds(). A shard
- *          writes a record instead of gating coverage; the census merges the
- *          records and gates coverage without spawning children.
+ *          writes a record instead of reporting coverage; the census merges the
+ *          records and reports coverage without spawning children.
  */
 inline int run_death_tests() {
   hs_test::ModuleFixture fixture("death");

@@ -82,7 +82,12 @@ class PrePushHook(unittest.TestCase):
                          f"(delete) {zero} refs/heads/z {b}\n"
                          f"refs/heads/w {b} refs/heads/w {a}\n")
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertEqual(done.stdout.strip(), f"LOCAL_CI --commit {a} {b}")
+        self.assertEqual(done.stdout.strip().splitlines(), [
+            f"LOCAL_CI --new-guards {a} {zero}",
+            f"LOCAL_CI --new-guards {a} {b}",
+            f"LOCAL_CI --new-guards {b} {a}",
+            f"LOCAL_CI --commit {a} {b}",
+        ])
 
     def test_a_push_of_only_deletions_runs_nothing(self):
         done = self.push(f"(delete) {'0' * 40} refs/heads/z {'b' * 40}\n")

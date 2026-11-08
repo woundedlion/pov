@@ -245,6 +245,7 @@ EOF
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" --skip-checkout daydream
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
+  "$PYTHON_BIN" "$SNAPSHOT/tests/check_death_pins.py" . --new-guards "$DIFF_BASE" "$tip"
   "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/include_paths.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/encoding_check.py" --root "$SNAPSHOT"

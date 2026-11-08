@@ -3,6 +3,7 @@
 import contextlib
 import io
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -88,6 +89,70 @@ class DeathPinUniqueness(unittest.TestCase):
         self.check_fixture(source, pin)
         with self.assertRaisesRegex(SystemExit, "no literal death pins found"):
             self.check_fixture(source, pin, table="")
+
+
+class NewGuardsNeedACase(unittest.TestCase):
+    GUARD = 'HS_CHECK(value > 0, "probe: positive");\n'
+    PIN = '{"probe_case", case_probe_case, "core/guard.h", "(value > 0) probe: positive"}'
+    OTHER = '{"other_case", case_other_case, "core/other.h", "(true) other"}'
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.addCleanup(tmp.cleanup)
+        self.repo = Path(tmp.name)
+        self.git("init", "--quiet")
+        self.commit({"tests/guard_directories.txt": "core\n",
+                     "tests/test_death.h": self.OTHER,
+                     "core/other.h": 'HS_CHECK(true, "other");\n'})
+        self.base = self.git("rev-parse", "HEAD")
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                               *args], check=True, capture_output=True, text=True).stdout.strip()
+
+    def commit(self, files):
+        for name, text in files.items():
+            path = self.repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8", newline="\n")
+        self.git("add", "-A")
+        self.git("commit", "--quiet", "-m", "change")
+        return self.git("rev-parse", "HEAD")
+
+    def missing(self, files):
+        return checker.new_guards(self.repo, self.base, self.commit(files))
+
+    def test_added_guard_without_a_case_is_reported(self):
+        self.assertEqual(self.missing({"core/guard.h": self.GUARD}),
+                         ["core/guard.h:1: (value > 0) probe: positive"])
+
+    def test_added_guard_with_a_case_passes(self):
+        self.assertEqual(self.missing({"core/guard.h": self.GUARD,
+                                       "tests/test_death.h": self.OTHER + "\n" + self.PIN}), [])
+
+    def test_guard_text_already_in_the_base_passes_when_moved(self):
+        self.base = self.commit({"core/old.h": self.GUARD})
+        (self.repo / "core/old.h").unlink()
+        self.assertEqual(self.missing({"core/guard.h": self.GUARD}), [])
+
+    def test_waiver_needs_a_reason(self):
+        self.assertEqual(self.missing({"core/guard.h": "// no death case: device-only\n" + self.GUARD}), [])
+        self.assertEqual(len(self.missing({"core/guard.h": "// no death case:\n" + self.GUARD})), 1)
+
+    def test_audit_check_needs_no_case(self):
+        self.assertEqual(self.missing({"core/guard.h": self.GUARD.replace("HS_CHECK", "HS_AUDIT_CHECK")}), [])
+
+    def test_reworded_guard_counts_as_new(self):
+        self.base = self.commit({"core/guard.h": self.GUARD})
+        self.assertEqual(len(self.missing({"core/guard.h": self.GUARD.replace("positive", "above zero")})), 1)
+
+    def test_command_line_fails_on_a_missing_case(self):
+        tip = self.commit({"core/guard.h": self.GUARD})
+        with mock.patch.object(sys, "argv", ["check", str(self.repo), "--new-guards", self.base, tip]), \
+                contextlib.redirect_stdout(io.StringIO()) as out, \
+                self.assertRaisesRegex(SystemExit, "1 new guard"):
+            checker.main()
+        self.assertIn("core/guard.h:1:", out.getvalue())
 
 
 if __name__ == "__main__":

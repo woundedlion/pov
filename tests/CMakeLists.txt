@@ -421,7 +421,7 @@ set_tests_properties(unit_canvas PROPERTIES
 # The death module runs as unit_death_<k> shards, each spawning the cases whose
 # table index % _hs_death_shards is k and writing a record, plus
 # unit_death_census, which merges the records, requires every enabled case to
-# have run exactly once, and gates guard coverage. `run_tests death` with no
+# have run exactly once, and reports guard coverage. `run_tests death` with no
 # HS_DEATH_SHARD runs the whole module in one process.
 set(_hs_death_shards 8)
 math(EXPR _hs_death_last_shard "${_hs_death_shards} - 1")

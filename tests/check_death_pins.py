@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 # Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0
-"""Check literal death-pin uniqueness and cross-directory breadcrumb aliases."""
+"""Check literal death-pin uniqueness and cross-directory breadcrumb aliases.
 
+With --new-guards BASE TIP, instead fail when TIP adds an always-on guard whose
+text BASE contains nowhere and no death case pins.
+"""
+
+import argparse
 import ast
 from pathlib import Path
 import re
-import sys
+import subprocess
 
 STRING = r'"(?:[^"\\]|\\.)*"'
 TOKEN = re.compile(STRING + r"|//[^\n]*|/\*.*?\*/|[(),]|[^(),\"/]+|/", re.S)
@@ -37,9 +42,16 @@ def pins(text):
 
 def guard_texts(text):
     """Read macro condition/message pairs with balanced parentheses."""
+    for _, guard in guard_sites(text):
+        yield guard
+
+
+def guard_sites(text):
+    """Yield (offset into text, condition/message pair) for each guard."""
+    # Blank comments in place so match offsets still index the original text.
     text = re.sub(STRING + r"|//[^\n]*|/\*.*?\*/",
-                  lambda m: m[0] if m[0].startswith('"') else " ", text,
-                  flags=re.S)
+                  lambda m: m[0] if m[0].startswith('"') else re.sub(r"[^\n]", " ", m[0]),
+                  text, flags=re.S)
     for match in re.finditer(r"HS_(?:AUDIT_)?CHECK\s*\(", text):
         depth = 1
         condition = []
@@ -59,10 +71,10 @@ def guard_texts(text):
                 field = message
                 continue
             field.append(value)
-        yield "(" + "".join(condition).strip() + ") " + literals("".join(message))
+        yield match.start(), "(" + "".join(condition).strip() + ") " + literals("".join(message))
     direct = r"(?:hs::)?check_fail\s*\(\s*HS_CHECK_SITE\s*\(\s*(" + STRING + r")\s*\)\s*,\s*((?:" + STRING + r"\s*)+)"
     for match in re.finditer(direct, text):
-        yield "(" + literals(match[1]) + ") " + literals(match[2])
+        yield match.start(), "(" + literals(match[1]) + ") " + literals(match[2])
 
 
 def compact(text):
@@ -97,8 +109,90 @@ def guard_matches(guard, pin):
     return re.match("".join(pieces), pin) is not None
 
 
+SOURCE_SUFFIXES = (".h", ".cpp", ".ino")
+WAIVER = re.compile(r"//[ \t]*no death case:[ \t]*\S")
+
+
+def git(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], check=True,
+                          capture_output=True, text=True, encoding="utf-8").stdout
+
+
+def blobs(repo, commit, paths):
+    """Read paths as of commit in one batch; missing paths are omitted."""
+    if not paths:
+        return {}
+    request = "".join(f"{commit}:{path}\n" for path in paths).encode("utf-8")
+    out = subprocess.run(["git", "-C", str(repo), "cat-file", "--batch"],
+                         input=request, check=True, capture_output=True).stdout
+    found = {}
+    offset = 0
+    for path in paths:
+        end = out.index(b"\n", offset)
+        header = out[offset:end].split()
+        offset = end + 1
+        if header[-1] == b"missing":
+            continue
+        size = int(header[2])
+        found[path] = out[offset:offset + size].decode("utf-8")
+        offset += size + 1
+    return found
+
+
+def waived(text, offset):
+    """True when a `// no death case: <reason>` comment sits on the guard's line or the line above."""
+    start = text.rfind("\n", 0, offset) + 1
+    above = text.rfind("\n", 0, max(start - 1, 0)) + 1
+    end = text.find("\n", offset)
+    return WAIVER.search(text[above:end if end >= 0 else len(text)]) is not None
+
+
+def new_guards(repo, base, tip):
+    """List "path:line: guard" for each guard tip adds over base that no case pins."""
+    directories = blobs(repo, tip, ["tests/guard_directories.txt"])[
+        "tests/guard_directories.txt"].split()
+    changed = [path for path in git(repo, "diff", "--name-only", "--no-renames", "--diff-filter=AM",
+                                    base, tip, "--", *directories).splitlines()
+               if path.endswith(SOURCE_SUFFIXES)]
+    if not changed:
+        return []
+    bearing = [hit.split(":", 1)[1] for hit in git(
+        repo, "grep", "-l", "-E", r"HS_(AUDIT_)?CHECK|check_fail", base, "--",
+        *directories).splitlines()]
+    existing = {compact(guard)
+                for text in blobs(repo, base, [p for p in bearing if p.endswith(SOURCE_SUFFIXES)]).values()
+                for guard in guard_texts(text)}
+    case_pins = pins(blobs(repo, tip, ["tests/test_death.h"])["tests/test_death.h"])
+    missing = []
+    for path, text in blobs(repo, tip, changed).items():
+        for offset, guard in guard_sites(text):
+            if text.startswith("HS_AUDIT_CHECK", offset) or compact(guard) in existing or waived(text, offset):
+                continue
+            if any(file == path and guard_matches(guard, pin) for _, file, pin in case_pins):
+                continue
+            missing.append(f"{path}:{text.count(chr(10), 0, offset) + 1}: {guard}")
+    return missing
+
+
+def check_new_guards(repo, base, tip):
+    missing = new_guards(repo, base, tip)
+    for site in missing:
+        print(f"new guard without a death case: {site}")
+    if missing:
+        raise SystemExit(f"{len(missing)} new guard(s) need a death case in tests/test_death.h "
+                         "or a `// no death case: <reason>` comment")
+    print("death pins: every new guard has a death case")
+
+
 def main():
-    root = Path(sys.argv[1])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("root", type=Path)
+    parser.add_argument("--new-guards", nargs=2, metavar=("BASE", "TIP"))
+    args = parser.parse_args()
+    if args.new_guards:
+        check_new_guards(args.root, *args.new_guards)
+        return
+    root = args.root
     case_pins = pins((root / "tests/test_death.h").read_text(encoding="utf-8"))
     pinned_names = {Path(file).name for _, file, _ in case_pins}
     sources = {}

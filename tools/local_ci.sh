@@ -6,6 +6,9 @@
 #        local_ci.sh <job>...         the named jobs in this clean checkout
 #        local_ci.sh --commit <sha>...  every local job on each commit, in the
 #                                     dedicated local-CI worktree (pre-push)
+#        local_ci.sh --new-guards <tip> <remote-sha>
+#                                     new guards in the pushed range need a
+#                                     death case (pre-push)
 #        local_ci.sh --list           the job table
 #        local_ci.sh --check          verify the table names every ci.yml job
 set -euo pipefail
@@ -210,12 +213,24 @@ run_commits() {
   done
 }
 
+# Fails when <tip> adds a guard with no death case over the remote's <base>; a
+# new branch, or a base this clone lacks, is measured from origin/master.
+check_new_guards() {
+  local tip=$1 base=$2
+  case $base in *[!0]*) ;; *) base= ;; esac
+  if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+    base="$(git merge-base "$tip" origin/master 2>/dev/null)" || return 0
+  fi
+  python tests/check_death_pins.py . --new-guards "$base" "$tip"
+}
+
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 cd "$(git rev-parse --show-toplevel)"
 
 case "${1:-}" in
   --run-one) "$2" ;;
+  --new-guards) check_new_guards "$2" "$3" ;;
   --list) table ;;
   --check) check_table ;;
   --commit) shift; run_commits "$@" ;;
