@@ -41,22 +41,14 @@ template <> struct ComposedFamily<In::Op::WarpAffineV4> {
 template <> struct ComposedFamily<In::Op::SampleProjectedNoise> {
   using Type = Pullback::ProjectedNoiseSourceParams; ///< The family.
 };
-/** @brief Curl noise with the simplex basis, Euler steps and smooth limit. */
-template <> struct ComposedFamily<In::Op::DisplaceCurl> {
-  using Type = Pullback::SurfaceNoiseParams; ///< The family.
-};
-/** @brief Directed noise with the simplex basis. */
-template <> struct ComposedFamily<In::Op::DisplaceDirect> {
-  using Type = Pullback::DirectSurfaceParams; ///< The family.
+/** @brief Ripple bursts; the chain family adds burst topology selectors. */
+template <> struct ComposedFamily<In::Op::DisplaceRipple> {
+  using Type = Pullback::SphereAnimation::BurstRippleParams; ///< The family.
 };
 
 /** @brief Lens operators whose composed policies a Spec names directly; no
  * family-keyed selector derives them. */
 constexpr std::string_view SPEC_NAMED_LENSES[] = {
-    "sphere.displace.ripple.v2",
-    "sphere.displace.potential.v1",
-    "sphere.displace.rossby-haurwitz.v1",
-    "sphere.displace.symmetric.v2",
     "sphere.lens.glitch.v2",
     "sphere.lens.twist.v2",
     "sphere.lens.mobius.v3",
@@ -78,7 +70,7 @@ consteval bool tessellations_derivable(std::index_sequence<Kinds...>) {
 }
 
 /** @brief Whether the composed layer derives a policy for an operator's
- * family: a source, warp or displacement lens, or a Spec-named lens.
+ * family: a source, warp or displacement, or a Spec-named lens.
  * @tparam Model Operator model.
  * @return True when derivable, or when the operator is not a source, warp or
  *         lens. */
@@ -164,3 +156,9 @@ static_assert(
                            ReachBinding, Pullback::SurfaceNoiseParams, false>,
                        math::NoiseBasis::SIMPLEX, Pullback::Surface::Euler,
                        math::TangentLimit::SMOOTH>>);
+static_assert(
+    std::is_same_v<
+        typename Pullback::SurfacePolicyFor<
+            Pullback::AuthoredSurfaceNoiseParams, ReachBinding, false>::Type,
+        Pullback::Surface::ConfiguredCurl<Pullback::SurfaceProvider<
+            ReachBinding, Pullback::AuthoredSurfaceNoiseParams, false>>>);

@@ -45,16 +45,15 @@ struct MillefioriSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Displace<
-              Pullback::Surface::BurstRipple<Pullback::SurfaceProvider<
-                  B, Pullback::SphereAnimation::BurstRippleParams, true,
-                  "displace">>>,
+          Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+              Pullback::SphereAnimation::BurstRippleParams, B, true,
+              "displace">::Type>,
           Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
           Pullback::Stage::Lens<MillefioriTetrahedralLens>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>>,
-      Pullback::Stage::Warp<Pullback::Warp::Vortex<Pullback::WarpProvider<
-          B, "outer_warp", Pullback::Warp::VortexParams, true>>>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::Warp::VortexParams, B, "outer_warp", true>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::SquareCellsParams, B>::Type,
                               Pullback::Weight::Projection,

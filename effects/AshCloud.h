@@ -47,10 +47,9 @@ struct AshCloudSpec : Pullback::Spec {
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
-      Pullback::Stage::Displace<
-          Pullback::Surface::BurstRipple<Pullback::SurfaceProvider<
-              B, Pullback::SphereAnimation::BurstRippleParams, true,
-              "displace">>>,
+      Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+          Pullback::SphereAnimation::BurstRippleParams, B, true,
+          "displace">::Type>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
           Pullback::Stage::Displace<Pullback::Surface::CurlNoise<

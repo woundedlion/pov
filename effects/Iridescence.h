@@ -31,9 +31,8 @@ struct IridescenceSpec : Pullback::Spec {
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
-      Pullback::Stage::Displace<
-          Pullback::Surface::Potential<Pullback::SurfaceProvider<
-              B, Pullback::PotentialParams, false, "displace">>>,
+      Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+          Pullback::PotentialParams, B, false, "displace">::Type>,
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::EQUIRECTANGULAR, B>::Type>,
       Pullback::Stage::Sample<

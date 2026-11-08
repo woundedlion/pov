@@ -31,9 +31,8 @@ struct GridWarpSpec : Pullback::Spec {
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
-      Pullback::Stage::Displace<
-          Pullback::Surface::Potential<Pullback::SurfaceProvider<
-              B, Pullback::PotentialParams, true, "displace">>>,
+      Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
+          Pullback::PotentialParams, B, true, "displace">::Type>,
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::EQUIRECTANGULAR, B>::Type>,
       Pullback::Stage::Sample<

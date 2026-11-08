@@ -333,40 +333,110 @@ struct WarpPolicyFor<Warp::AuthoredCurlFlowParams, B, K, T> {
  * @tparam Family Surface parameter family.
  * @tparam Binding Frame binding of the effect.
  * @tparam TrackPath Whether the surface accumulates path length for hue.
+ * @tparam Key Parameter resource key of this surface instance.
  */
-template <typename Family, typename Binding, bool TrackPath>
+template <typename Family, typename Binding, bool TrackPath,
+          ResourceKey Key = "surface">
 struct SurfacePolicyFor;
 /**
  * @brief Euler-integrated simplex curl-noise flow.
  * @tparam B Frame binding.
  * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
  */
-template <typename B, bool T>
-struct SurfacePolicyFor<SurfaceNoiseParams, B, T> {
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<SurfaceNoiseParams, B, T, K> {
   using Type = Pullback::Surface::CurlNoise<
-      SurfaceProvider<B, SurfaceNoiseParams, T>, math::NoiseBasis::SIMPLEX,
+      SurfaceProvider<B, SurfaceNoiseParams, T, K>, math::NoiseBasis::SIMPLEX,
       Pullback::Surface::Euler, math::TangentLimit::SMOOTH>;
 };
 /**
  * @brief Direct simplex-noise displacement.
  * @tparam B Frame binding.
  * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
  */
-template <typename B, bool T>
-struct SurfacePolicyFor<DirectSurfaceParams, B, T> {
-  using Type =
-      Pullback::Surface::DirectNoise<SurfaceProvider<B, DirectSurfaceParams, T>,
-                                     math::NoiseBasis::SIMPLEX>;
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<DirectSurfaceParams, B, T, K> {
+  using Type = Pullback::Surface::DirectNoise<
+      SurfaceProvider<B, DirectSurfaceParams, T, K>, math::NoiseBasis::SIMPLEX>;
 };
 /**
  * @brief Periodic ripple surface.
  * @tparam B Frame binding.
  * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
  */
-template <typename B, bool T>
-struct SurfacePolicyFor<PeriodicRippleParams, B, T> {
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<PeriodicRippleParams, B, T, K> {
   using Type = Pullback::Surface::PeriodicRipple<
-      SurfaceProvider<B, PeriodicRippleParams, T>>;
+      SurfaceProvider<B, PeriodicRippleParams, T, K>>;
+};
+/**
+ * @brief Staggered spherical ripple bursts.
+ * @tparam B Frame binding.
+ * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<SphereAnimation::BurstRippleParams, B, T, K> {
+  using Type = Pullback::Surface::BurstRipple<
+      SurfaceProvider<B, SphereAnimation::BurstRippleParams, T, K>>;
+};
+/**
+ * @brief Scalar-potential tangent-field displacement.
+ * @tparam B Frame binding.
+ * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<PotentialParams, B, T, K> {
+  using Type =
+      Pullback::Surface::Potential<SurfaceProvider<B, PotentialParams, T, K>>;
+};
+/**
+ * @brief Rossby-Haurwitz tangent-field displacement.
+ * @tparam B Frame binding.
+ * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<RossbyHaurwitzParams, B, T, K> {
+  using Type = Pullback::Surface::RossbyHaurwitz<
+      SurfaceProvider<B, RossbyHaurwitzParams, T, K>>;
+};
+/**
+ * @brief Rotating symmetry-invariant tangent-field displacement.
+ * @tparam B Frame binding.
+ * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<SymmetricParams, B, T, K> {
+  using Type =
+      Pullback::Surface::Symmetric<SurfaceProvider<B, SymmetricParams, T, K>>;
+};
+/**
+ * @brief Authored surface topology.
+ * @tparam B Frame binding.
+ * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<AuthoredSurfaceNoiseParams, B, T, K> {
+  using Type = Pullback::Surface::ConfiguredCurl<
+      SurfaceProvider<B, AuthoredSurfaceNoiseParams, T, K>>;
+};
+/**
+ * @brief Authored surface topology.
+ * @tparam B Frame binding.
+ * @tparam T Whether path length is tracked.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, bool T, ResourceKey K>
+struct SurfacePolicyFor<AuthoredDirectSurfaceParams, B, T, K> {
+  using Type = Pullback::Surface::ConfiguredDirect<
+      SurfaceProvider<B, AuthoredDirectSurfaceParams, T, K>>;
 };
 
 /**
