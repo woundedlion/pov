@@ -51,8 +51,9 @@ LOCAL_ONLY=(windows-tests)
 # every build), and ci.yml runs them on every push.
 MANUAL=(optimized-tests wasm teensy-warnings)
 
-# Lanes that run beside the other jobs, each one's jobs in order.
-LANES=('windows-tests thread-sanitizer' 'python-tests' 'pcb-tests')
+# Lanes that run beside the other jobs, each one's jobs in order; jobs that
+# share a build tree share a lane.
+LANES=('windows-tests srgb-decode-provenance thread-sanitizer' 'python-tests' 'pcb-tests')
 
 # Live processes, not cores or memory, exhaust the Windows desktop heap, after
 # which new processes fail with 0xc0000142; the lanes cap their fan-out.
