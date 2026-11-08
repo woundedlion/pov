@@ -147,13 +147,13 @@ inline int run_sdf_tests() {
   HS_RUN(test_subtract_keeps_minuend_size_when_b_wins);
   HS_RUN(test_subtract_solid_b_leaves_the_minuend_uncarved);
   HS_RUN(test_subtract_star_notch_columns_survive_the_carve);
-  HS_RUN(test_subtract_empty_b_passes_a_through_verbatim);
+  HS_RUN(test_subtract_empty_b_emits_every_a_span);
   HS_RUN(test_subtract_full_width_b_still_emits_the_minuend);
   HS_RUN(test_subtract_seam_straddle_forwards_minuend);
   HS_RUN(test_subtract_many_arc_preserves_minuend);
 
   HS_RUN(test_intersection_requires_both_inside);
-  HS_RUN(test_intersection_unsorted_child_yields_sorted_result);
+  HS_RUN(test_intersection_unsorted_child_yields_every_overlap);
   HS_RUN(test_intersection_full_width_child_replays_other);
   HS_RUN(test_intersection_full_scan_emits_no_spans);
   HS_RUN(test_intersection_seam_straddle_overlaps_across_wrap_frames);

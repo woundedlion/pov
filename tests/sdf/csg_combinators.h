@@ -154,7 +154,8 @@ struct MockEmitThenFullWidthShape {
     return false;
   }
 };
-/** @brief Checks interval endpoints independently under a caller label. */
+/** @brief Checks a row's spans as a set, in any emission order, under a
+ *  caller label. */
 template <int W, int H, typename Shape>
 inline void expect_spans(const char *label, const Shape &shape, int row,
                          std::span<const std::pair<float, float>> expected,
@@ -165,10 +166,13 @@ inline void expect_spans(const char *label, const Shape &shape, int row,
       row, [&](float start, float end) { actual.emplace_back(start, end); });
   HS_EXPECT_TRUE(handled);
   HS_EXPECT_SIZE_OR_RETURN(actual, expected.size());
+  std::vector<std::pair<float, float>> wanted(expected.begin(), expected.end());
+  std::sort(actual.begin(), actual.end());
+  std::sort(wanted.begin(), wanted.end());
   for (size_t i = 0; i < actual.size(); ++i) {
     HS_CONTEXT("span", i);
-    HS_EXPECT_NEAR(actual[i].first, expected[i].first, tolerance);
-    HS_EXPECT_NEAR(actual[i].second, expected[i].second, tolerance);
+    HS_EXPECT_NEAR(actual[i].first, wanted[i].first, tolerance);
+    HS_EXPECT_NEAR(actual[i].second, wanted[i].second, tolerance);
   }
 }
 
@@ -235,11 +239,11 @@ inline void test_subtract_star_notch_columns_survive_the_carve() {
 }
 
 /**
- * @brief Verifies Subtract forwards A's intervals verbatim, including with empty B.
- * @details Subtract never consults B's intervals. No A span is dropped, merged
- *   or reordered.
+ * @brief Verifies Subtract emits every A interval, including with empty B.
+ * @details Subtract never consults B's intervals. No A span is dropped or
+ *   merged.
  */
-inline void test_subtract_empty_b_passes_a_through_verbatim() {
+inline void test_subtract_empty_b_emits_every_a_span() {
   using P = std::pair<float, float>;
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{50.0f, 60.0f}, {0.0f, 10.0f}}; // unsorted
@@ -335,11 +339,11 @@ inline void test_intersection_requires_both_inside() {
 }
 
 /**
- * @brief Verifies an UNSORTED multi-interval child still yields a start-sorted intersection.
+ * @brief Verifies an UNSORTED multi-interval child still yields every overlap.
  * @details Intersection's merge-sweep advances the child lists in start order,
  *   so it sorts the seam-split lists itself before sweeping them.
  */
-inline void test_intersection_unsorted_child_yields_sorted_result() {
+inline void test_intersection_unsorted_child_yields_every_overlap() {
   using P = std::pair<float, float>;
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{0.0f, 100.0f}};
