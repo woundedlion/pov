@@ -176,6 +176,11 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `cmake --build --preset tests --target excluded_targets`, then
   `ctest --preset tests`. The 8-frame smoke default runs too briefly for a
   preset transition to arm.
+- **Render no-op proof:** a refactor or performance change that should not
+  move any pixel runs `bash tools/render_diff.sh <base>`, which builds `<base>`
+  in a dedicated worktree and compares its render hashes with the working
+  tree's build. Nothing is committed; the filter-pipeline effects assert
+  properties instead of recorded hashes.
 - **Render goldens:** Native golden cases compare per-channel totals and
   brightness-weighted row/column centroids on every floating-point mode. The
   recording environment additionally requires exact hashes. Strict and fast

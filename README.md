@@ -1140,7 +1140,7 @@ On Windows, the executables have an `.exe` suffix. With no module arguments, a l
 | Target | Tests |
 | --- | --- |
 | `test_engine` | Foundation, geometry, render core and hardware; no effect headers |
-| `test_all_effects` | Roster sweeps, effect factory and parameter marshaling, composed effects, parity hashes and death cases |
+| `test_all_effects` | Roster sweeps, effect factory and parameter marshaling, composed effects, render properties and death cases |
 | `test_shapeshifter` | ShapeShifter oracle, tiles and effect cases |
 | `test_mindsplatter` | MindSplatter cases and oracles |
 | `test_dreamballs`, `test_hopf`, `test_dynamo`, `test_mobiusrings` | Each effect's white-box cases and temporal oracles |
@@ -1625,7 +1625,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_conway_effect_tests.cpp Conway effect integration cases for Hankin and Islamic meshes
 │   ├── run_hyper_lattice_tests.cpp HyperLattice effect tests
 │   ├── run_mindsplatter_tests.cpp MindSplatter effect cases and oracles
-│   ├── run_plot_parity_tests.cpp Plot and scan effect render fingerprint tests
+│   ├── run_plot_parity_tests.cpp Plot and scan effect render property tests
 │   ├── run_registry_tests.cpp Roster, composed effects and marshaling tests
 │   ├── run_shader_chain_tests.cpp ShaderChain and AlienCore cases
 │   ├── run_shapeshifter_tests.cpp ShapeShifter oracle and tile modules
@@ -1663,7 +1663,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   └── rings_temporal.h Frozen-column oracles for growing and warped rings
 │   ├── filter/            Sections included by test_filter.h
 │   │   └── temporal_copies.h Selected-copy timed transform parity
-│   ├── test_plot_parity.h Spacetime, frame-end and segment render fingerprints
+│   ├── test_plot_parity.h Filter-pipeline effect render properties: lit, clipped equals full, temporal near frame-end
 │   ├── run_effect_cases_ash_cloud.cpp Ash cloud case wrappers and focused runner
 │   ├── run_effect_cases_comets.cpp Comets case wrappers and focused runner
 │   ├── run_effect_cases_displacement_field.cpp Displacement field case wrappers and focused runner
@@ -1766,6 +1766,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── commit_checks.sh        The pre-commit hook's staged-file checks, or a commit range's net change plus the whole-tree checks
 │   ├── ci/                     Per-job command scripts ci.yml and the local CI both run, so the two stay one implementation
 │   ├── local_ci.sh             Local CI: every ci.yml job this machine can run, stop-at-first-failure; the pre-push hook runs it in a clean worktree of each pushed commit
+│   ├── render_diff.sh          Compares render hashes between a base commit and the working tree; the pixel no-op proof for refactors
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate when a budgeted env relinks
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
