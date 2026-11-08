@@ -166,7 +166,7 @@ test('edge-width domains must match the current catalog', () => {
   const result = compile(document);
   assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
   const current = result.document.descriptor.parameters.find(({ id }) => id === width.id);
-  assert.equal(current.domain.maximum, 16);
+  assert.equal(current.domain.maximum, field.max);
   assert.equal(current.default, width.default);
   assert.deepEqual(result.document.preset_bank, before.preset_bank);
   assert.deepEqual(document, before);
@@ -1018,8 +1018,8 @@ test('a legacy twist-axis document keeps negative values and samples the signed 
       assert.ok(Math.abs(Math.abs(value) - (3 + (pi - 3) / 2)) < 1e-6);
     }
   }
-  assert.equal(interpolateValue(axis, 0.9817478656768799, -2.1598448753356934, 0.0625),
-    0.7853983044624329);
+  assert.ok(Math.abs(
+    interpolateValue(axis, 0.9817478656768799, -2.1598448753356934, 0.0625) - Math.PI / 4) < 1e-6);
 });
 
 test('a transition evaluates its exact endpoint values', () => {

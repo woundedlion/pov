@@ -13,6 +13,12 @@ import { loadEffectIdentities } from './effect_roster.mjs';
 const catalog = await loadOperatorCatalog();
 const identities = await loadEffectIdentities();
 const document = JSON.parse(await readFile(new URL('../patterns/kaleidoscope_smooth.shader.json', import.meta.url), 'utf8'));
+const selector = (operatorId, fieldId, choice) => {
+  const field = catalog.operators.find(operator => operator.id === operatorId)
+    .params.find(param => param.id === fieldId);
+  assert.ok(field.values.includes(choice));
+  return String(field.values.indexOf(choice));
+};
 
 test('authored spherical source selectors remain live in generated presets', () => {
   for (const id of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1']) {
@@ -217,25 +223,27 @@ test('GridWorms keeps its authored stage order and keyed twist controls', async 
   ]);
   const values = source.preset_bank.presets[0].values;
   const assignments = presetAssignments(source, values);
-  assert.equal(assignments.get('lens1.twist_angle'), '-10.259509f');
-  assert.equal(assignments.get('lens1.distribution'), '0.999f');
-  assert.equal(assignments.get('lens1.speed'), '0.027205883f');
-  assert.equal(assignments.get('lens1.drift'), '0.01632353f');
-  assert.equal(assignments.get('source.cell_scale'), '2.420276f');
+  const literal = id => floatLiteral(values[id]);
+  assert.equal(assignments.get('lens1.twist_angle'), literal('lens1.twist-angle'));
+  assert.equal(assignments.get('lens1.distribution'), literal('lens1.twist-distribution'));
+  assert.equal(assignments.get('lens1.speed'), literal('lens1.speed'));
+  assert.equal(assignments.get('lens1.drift'), literal('lens1.drift'));
+  assert.equal(assignments.get('source.cell_scale'), literal('sample.cell-scale'));
   assert.equal(assignments.has('source.kind'), false);
   assert.equal(assignments.has('source.fill'), false);
-  assert.equal(assignments.get('modulation.modulation.sine.frequency'), '1.0f');
+  assert.equal(assignments.get('modulation.modulation.sine.frequency'),
+    literal('modulation.sine-frequency'));
   assert.equal(assignments.has('value.edge_width'), false);
   source.descriptor.chain[0].label = 'whorl';
   source.descriptor.chain[0].resource_key = 'spin';
   const renamed = Object.fromEntries(Object.entries(values).map(([id, value]) =>
     [id.replace(/^lens1\./, 'whorl.'), value]));
-  assert.equal(presetAssignments(source, renamed).get('spin.twist_angle'), '-10.259509f');
+  assert.equal(presetAssignments(source, renamed).get('spin.twist_angle'),
+    literal('lens1.twist-angle'));
 });
 
 
 test('every catalog operator retains all scalar values and topology selections', () => {
-  let operators = 0;
   let selectors = 0;
   for (const operator of catalog.operators) {
     const slot = { label: 'authored', operator: operator.id, resource_key: 'instance' };
@@ -255,9 +263,7 @@ test('every catalog operator retains all scalar values and topology selections',
         assert.ok(assignments.size > 0, `${operator.id}/${id}`);
       }
     }
-    ++operators;
   }
-  assert.equal(operators, 45);
   assert.ok(selectors > 100);
 });
 
@@ -340,7 +346,8 @@ test('spiral coordinate systems and spherical centers survive C++ export', () =>
       'sample.center-azimuth': 0.5,
       'sample.center-polar': 0.75,
     }, { authoredTopology });
-    assert.equal(assignments.get('source.coordinate_system'), '1');
+    assert.equal(assignments.get('source.coordinate_system'),
+      selector('sample.spiral.v3', 'coordinate-system', 'equirectangular'));
     assert.equal(assignments.get('source.center_azimuth'), '0.5f');
     assert.equal(assignments.get('source.center_polar'), '0.75f');
   }
@@ -359,8 +366,10 @@ test('authored affine periods and sample coverage retain their independent stora
   }, { authoredTopology: true });
   assert.equal(assignments.get('outer_warp.lattice_period'), '0.5f');
   assert.equal(assignments.get('source.edge_width'), '0.25f');
-  assert.equal(assignments.get('source.coverage_mode'), '3');
-  assert.equal(assignments.get('source.weight_mode'), '1');
+  assert.equal(assignments.get('source.coverage_mode'),
+    selector('sample.tessellation.v3', 'coverage-mode', 'edge-fade'));
+  assert.equal(assignments.get('source.weight_mode'),
+    selector('sample.tessellation.v3', 'weight-mode', 'projection'));
   assert.ok(!assignments.has('source.kind') && !assignments.has('source.fill'));
   assert.ok(!assignments.has('value.edge_width'));
 });

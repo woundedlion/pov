@@ -41,7 +41,10 @@ test('every exported enum binds each C++ enumerator under its own name', () => {
       ++checked;
     }
   }
-  assert.equal(checked, 9);
+  const declared = headers.slice(0, 4)
+    .reduce((count, header) => count + header.split('emscripten::enum_<').length - 1, 0);
+  assert.ok(checked > 0);
+  assert.equal(checked, declared);
 });
 
 test('engine bindings export their implementation names without duplicates', () => {
