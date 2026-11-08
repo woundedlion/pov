@@ -10,7 +10,7 @@ _hs_sanitize(hs_test_main)
 
 set(_hs_engine_groups foundation geometry render hardware)
 set(_hs_roster_groups effects registry plot_parity death)
-set(_hs_effect_groups color conway_effect hyper_lattice shader_chain mindsplatter shapeshifter)
+set(_hs_effect_groups color conway_effect hyper_lattice shader_chain mindsplatter shapeshifter render_hashes)
 set(_hs_case_targets)
 set(_hs_test_group_sources)
 get_target_property(_hs_module_definitions run_tests COMPILE_DEFINITIONS)

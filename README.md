@@ -1141,6 +1141,7 @@ On Windows, the executables have an `.exe` suffix. With no module arguments, a l
 | `test_all_effects` | Roster sweeps, effect factory and parameter marshaling, composed effects, render properties and death cases |
 | `test_shapeshifter` | ShapeShifter oracle, tiles and effect cases |
 | `test_mindsplatter` | MindSplatter cases and oracles |
+| `test_render_hashes` | Render hashes of every roster effect at every preset, printed for `tools/render_diff.sh` |
 | `test_dreamballs`, `test_hopf`, `test_dynamo`, `test_mobiusrings` | Each effect's white-box cases and temporal oracles |
 | Other `test_<family>` targets | Effect cases split by dependency; Hankin/Islamic mesh cases share `test_mesh_effect`; Conway morph and op-chain modules build as `test_conway_effect` |
 | `run_tests` | Complete compatibility umbrella used by existing CTest and CI entry points |
@@ -1625,6 +1626,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_mindsplatter_tests.cpp MindSplatter effect cases and oracles
 │   ├── run_plot_parity_tests.cpp Plot and scan effect render property tests
 │   ├── run_registry_tests.cpp Roster, composed effects and marshaling tests
+│   ├── run_render_hashes_tests.cpp Render hashes of every roster effect at every preset
 │   ├── run_shader_chain_tests.cpp ShaderChain and AlienCore cases
 │   ├── run_shapeshifter_tests.cpp ShapeShifter oracle and tile modules
 │   ├── engine_libraries.cmake Shared native engine objects by compatible compile context
@@ -1662,6 +1664,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── filter/            Sections included by test_filter.h
 │   │   └── temporal_copies.h Selected-copy timed transform parity
 │   ├── test_plot_parity.h Filter-pipeline effect render properties: lit, clipped equals full, temporal near frame-end
+│   ├── test_render_hashes.h Per-preset roster render hashes for `tools/render_diff.sh`
 │   ├── run_effect_cases_ash_cloud.cpp Ash cloud case wrappers and focused runner
 │   ├── run_effect_cases_comets.cpp Comets case wrappers and focused runner
 │   ├── run_effect_cases_displacement_field.cpp Displacement field case wrappers and focused runner

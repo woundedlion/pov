@@ -318,7 +318,7 @@ set(_hs_test_modules
     scan mesh_raster transformers noise noise_field projections
     animation effects mindsplatter
     effects_smoke effect_factory kaleidoscope_melt kaleidoscope_smooth
-    composed_effect
+    composed_effect render_hashes
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
     dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates led
