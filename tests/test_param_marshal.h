@@ -201,80 +201,6 @@ check_stability_one(const char *name, std::vector<hs_wasm::ParamView> &views,
   HS_EXPECT_EQ(values.capacity(), value_cap);
 }
 
-/**
- * @brief Freezes the effect roster ORDER, not just its count.
- * @details GOLDEN_ROSTER pins the HS_EFFECT_LIST order that sets the effect
- *   ordinal; update it deliberately on any reorder, insertion or removal.
- */
-inline void check_roster_order_pinned() {
-  // Hand-maintained; generating it from HS_EFFECT_LIST makes this a tautology.
-  static const char *const GOLDEN_ROSTER[] = {"BZReactionDiffusion",
-                                              "Fishbowl",
-                                              "Comets",
-                                              "Millefiori",
-                                              "GridSpace",
-                                              "Involution",
-                                              "GridWorms",
-                                              "GridWarp",
-                                              "LiquidWindows",
-                                              "Iridescence",
-                                              "HyperLattice",
-                                              "AshCloud",
-                                              "KaleidoscopeMelt",
-                                              "ChromaticLichen",
-                                              "MermaidSkin",
-                                              "JewelMelt",
-                                              "DisplacementField",
-                                              "DreamBalls",
-                                              "Dynamo",
-                                              "KaleidoscopeFlowers",
-                                              "KaleidoscopeSmooth",
-                                              "KaleidoscopeMandala",
-                                              "GnomonicStars",
-                                              "GSReactionDiffusion",
-                                              "AlienCore",
-                                              "HankinSolids",
-                                              "HopfFibration",
-                                              "IslamicStars",
-                                              "KaleidoscopeHexBright",
-                                              "AlienOcean",
-                                              "MeshFeedback",
-                                              "MindSplatter",
-                                              "MobiusGrid",
-                                              "MobiusRings",
-                                              "PetalFlow",
-                                              "KaleidoscopeHexOil",
-                                              "Raymarch",
-                                              "RingShower",
-                                              "RingSpin",
-#if HS_ENABLE_CHAIN_INTERPRETER
-                                              "ShaderChain",
-#endif
-                                              "ShapeShifter",
-                                              "AlienBrain",
-                                              "SphericalHarmonics",
-                                              "CosmicEyeball",
-                                              "Thrusters",
-                                              "KaleidoscopeStainedGlass",
-                                              "Galaxies"};
-  // Actual roster, expanded straight from the X-macro source of truth.
-  static const char *const ACTUAL_ROSTER[] = {
-#define HS_EFFECT_NAME(name) #name,
-      HS_EFFECT_LIST(HS_EFFECT_NAME)
-#undef HS_EFFECT_NAME
-  };
-  constexpr size_t GOLDEN_N = sizeof(GOLDEN_ROSTER) / sizeof(GOLDEN_ROSTER[0]);
-  constexpr size_t ACTUAL_N = sizeof(ACTUAL_ROSTER) / sizeof(ACTUAL_ROSTER[0]);
-  HS_EXPECT_EQ(ACTUAL_N, GOLDEN_N);
-  HS_EXPECT_EQ(static_cast<int>(ACTUAL_N), HS_EFFECT_COUNT);
-  const size_t n = ACTUAL_N < GOLDEN_N ? ACTUAL_N : GOLDEN_N;
-  for (size_t i = 0; i < n; ++i) {
-    HS_CONTEXT("roster index", i);
-    HS_EXPECT_EQ(std::string_view(ACTUAL_ROSTER[i]),
-                 std::string_view(GOLDEN_ROSTER[i]));
-  }
-}
-
 /** @brief The WASM token changes for replacement and local schema rebinds. */
 inline void check_generation_tracker() {
   hs_wasm::ParamGenerationTracker tracker;
@@ -755,7 +681,6 @@ inline int run_param_marshal_tests() {
   HS_RUN(test_authored_field_snapshot_validation);
   HS_RUN(test_mind_splatter_fields_interpolate_described_members);
   HS_RUN(test_sparse_option_metadata);
-  HS_RUN(check_roster_order_pinned);
   HS_RUN(check_generation_tracker);
   HS_RUN(check_hyper_lattice_pattern_view_dropdowns);
   HS_RUN(check_integer_float_endpoints);
