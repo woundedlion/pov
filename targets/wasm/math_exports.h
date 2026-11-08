@@ -129,8 +129,8 @@ static void bind_math_exports() {
                                              static_cast<int>(col.color.b));
                            }));
 
-  // The named procedural palettes (palette_math.js NAMED_PROCEDURAL_PALETTES),
-  // in declaration order, from HS_PROCEDURAL_PALETTE_LIST.
+  // The named procedural palettes in declaration order, from
+  // HS_PROCEDURAL_PALETTE_LIST.
   emscripten::function(
       "named_procedural_palettes",
       emscripten::optional_override([]() -> ProceduralPalettesValue {
