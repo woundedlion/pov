@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 
@@ -97,33 +98,21 @@ inline void test_named_palette_hue_short_arc() {
 }
 
 /**
- * @brief Verifies MeshPaletteBank bakes its sources and indexes them distinctly.
- * @details Slot 0's baked endpoints match the first source, and every slot
- *          produces a distinct LUT.
+ * @brief Verifies MeshPaletteBank holds its source set once each, bakes each
+ *        slot's endpoints from its source, and indexes them distinctly.
  */
 inline void test_mesh_palette_bank_lookup() {
   constexpr auto SOURCES = MeshPaletteBank::sources();
-  HS_EXPECT_TRUE(SOURCES[0] == &Palettes::EMBERS);
-  HS_EXPECT_TRUE(SOURCES[1] == &Palettes::RICH_SUNSET);
-  HS_EXPECT_TRUE(SOURCES[2] == &Palettes::BRIGHT_SUNRISE);
-  HS_EXPECT_TRUE(SOURCES[3] == &Palettes::BRUISED_MOSS);
-  HS_EXPECT_TRUE(SOURCES[4] == &Palettes::LAVENDER_LAKE);
-  HS_EXPECT_TRUE(SOURCES[5] == &Palettes::TIDAL_JADE);
+  for (const auto *expected :
+       {&Palettes::EMBERS, &Palettes::RICH_SUNSET, &Palettes::BRIGHT_SUNRISE,
+        &Palettes::BRUISED_MOSS, &Palettes::LAVENDER_LAKE,
+        &Palettes::TIDAL_JADE})
+    HS_EXPECT_EQ(std::count(SOURCES.begin(), SOURCES.end(), expected), 1);
   alignas(std::max_align_t) static uint8_t
       buf[MeshPaletteBank::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
   MeshPaletteBank bank;
   bank.bake_all(arena);
-
-  // Slot 0 == embers baked: pinned golden endpoints.
-  Color4 s0 = bank[0].get(0.0f);
-  Color4 s1 = bank[0].get(1.0f);
-  HS_EXPECT_EQ(s0.color.r, 307);
-  HS_EXPECT_EQ(s0.color.g, 180);
-  HS_EXPECT_EQ(s0.color.b, 1906);
-  HS_EXPECT_EQ(s1.color.r, 36642);
-  HS_EXPECT_EQ(s1.color.g, 9703);
-  HS_EXPECT_EQ(s1.color.b, 157);
 
   for (int i = 0; i < MeshPaletteBank::N; ++i) {
     for (float t : {0.0f, 1.0f}) {
@@ -168,45 +157,104 @@ inline void test_mesh_palette_bank_shuffle_is_permutation() {
     HS_EXPECT_EQ(count, 1);
 }
 
+/** @brief Expects each baked LUT entry within one code of its source sample. */
+inline void expect_bake_matches_source(const Palette &palette) {
+  alignas(std::max_align_t) static uint8_t
+      buf[BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+  BakedPaletteStorage baked;
+  baked.bake(arena, palette);
+  for (int index = 0; index < BakedPalette::LUT_SIZE; ++index) {
+    const float t = static_cast<float>(index) / (BakedPalette::LUT_SIZE - 1);
+    const Pixel source = palette.get(t).color;
+    const Pixel lut = baked.get(t).color;
+    HS_EXPECT_NEAR(lut.r, source.r, 1);
+    HS_EXPECT_NEAR(lut.g, source.g, 1);
+    HS_EXPECT_NEAR(lut.b, source.b, 1);
+  }
+}
+
 /**
- * @brief Pins upper-byte color samples across the procedural roster.
- * @details Captured by printing this loop's hashes under the native clang
- * toolchain (cmake/toolchain-native-clang.cmake). Re-derive the per-palette
- * hashes the same way after an intentional palette retune.
+ * @brief Procedural palettes evaluate the clamped cosine formula in sRGB and
+ *        bake to within one code of their samples.
  */
-inline void test_named_procedural_palette_roster() {
+inline void test_procedural_palette_matches_cosine_oracle() {
+  struct Coefficients {
+    std::array<float, 3> a, b, c, d;
+  };
+  constexpr Coefficients CASES[] = {
+      // Clamp: channels overshoot 1 and undershoot 0.
+      {{0.9f, 0.1f, 0.5f}, {0.5f, 0.5f, 0.8f}, {1, 1, 1}, {0, 0.25f, 0.6f}},
+      // Phase wrap: phases outside [0, 1) turn.
+      {{0.5f, 0.5f, 0.5f},
+       {0.4f, 0.3f, 0.45f},
+       {1, 1, 1},
+       {1.25f, -0.75f, 2.4f}},
+      // Negative amplitude.
+      {{0.5f, 0.4f, 0.6f},
+       {-0.5f, -0.3f, -0.45f},
+       {1, 0.5f, 2},
+       {0, 0.1f, 0.3f}},
+      // High frequency.
+      {{0.5f, 0.5f, 0.5f},
+       {0.5f, 0.4f, 0.3f},
+       {7, 11.5f, 16},
+       {0.1f, 0.2f, 0.3f}},
+  };
+  // Bhaskara cosine error, plus argument rounding at high frequency.
+  constexpr double COS_ERROR = 1.7e-3 + 1e-4;
+  // srgb_to_linear_interp's LUT and secant slack, in codes.
+  constexpr double LUT_SLACK = 2.0;
+  constexpr double TWO_PI = 6.283185307179586;
+  const auto linear = [](double s) {
+    return 65535.0 *
+           srgb_to_linear_float(static_cast<float>(std::clamp(s, 0.0, 1.0)));
+  };
+  for (size_t index = 0; index < std::size(CASES); ++index) {
+    HS_CONTEXT("case", index);
+    const Coefficients &k = CASES[index];
+    const ProceduralPalette palette(k.a, k.b, k.c, k.d);
+    for (int sample = 0; sample <= 256; ++sample) {
+      const float t = sample / 256.0f;
+      const Color4 actual = palette.get(t);
+      HS_EXPECT_EQ(actual.alpha, 1.0f);
+      const uint16_t channels[] = {actual.color.r, actual.color.g,
+                                   actual.color.b};
+      for (int ch = 0; ch < 3; ++ch) {
+        const double exact =
+            k.a[ch] +
+            k.b[ch] * std::cos(TWO_PI * (double(k.c[ch]) * t + k.d[ch]));
+        const double spread = std::fabs(k.b[ch]) * COS_ERROR;
+        if (exact - spread >= 1.0)
+          HS_EXPECT_EQ(channels[ch], 65535);
+        else if (exact + spread <= 0.0)
+          HS_EXPECT_EQ(channels[ch], 0);
+        HS_EXPECT_GE(channels[ch], linear(exact - spread) - LUT_SLACK);
+        HS_EXPECT_LE(channels[ch], linear(exact + spread) + LUT_SLACK);
+      }
+    }
+    expect_bake_matches_source(palette);
+  }
+}
+
+/** @brief Every shipping procedural palette is opaque, lit, and bakes faithfully. */
+inline void test_named_procedural_palettes_bake() {
   const Palette *palettes[] = {
 #define HS_PALETTE_ENTRY(name, A, B, C, D) &Palettes::name,
       HS_PROCEDURAL_PALETTE_LIST(HS_PALETTE_ENTRY)
 #undef HS_PALETTE_ENTRY
   };
-  constexpr uint64_t PALETTE_HASHES[] = {
-      2886858739051273591ull,  12000220049008470606ull,
-      13336441504933032662ull, 7882225716504084908ull,
-      18404027224185952013ull, 11759190715424212606ull,
-      12081953290500887235ull, 6518849557875476664ull,
-      8968209609131571649ull,  15181736134788936411ull,
-      10913766975351473374ull, 13329204743012588901ull,
-      14302435841029644024ull, 11989053834225940204ull,
-      17532158822806458534ull, 13333059190711347450ull,
-      1983164980008296279ull,  17191927165933662661ull,
-      11014468141546408976ull, 15566500396385584882ull,
-      7646521029703227679ull,  10063136414861090927ull,
-      11972795300560289134ull, 206858551135936371ull,
-      7425003234454588729ull,  51388825653918428ull,
-      15037618790413056646ull};
-  static_assert(std::size(palettes) == std::size(PALETTE_HASHES));
   for (size_t index = 0; index < std::size(palettes); ++index) {
     HS_CONTEXT("palette index", index);
-    uint64_t palette_hash = HASH_SEED64;
+    uint16_t brightest = 0;
     for (int sample = 0; sample <= 16; ++sample) {
-      const Pixel pixel = palettes[index]->get(sample / 16.0f).color;
-      for (uint16_t channel : {pixel.r, pixel.g, pixel.b}) {
-        const auto upper = static_cast<uint8_t>(channel >> 8);
-        palette_hash = fnv1a64_byte(palette_hash, upper);
-      }
+      const Color4 color = palettes[index]->get(sample / 16.0f);
+      HS_EXPECT_EQ(color.alpha, 1.0f);
+      brightest =
+          std::max({brightest, color.color.r, color.color.g, color.color.b});
     }
-    HS_EXPECT_EQ(palette_hash, PALETTE_HASHES[index]);
+    HS_EXPECT_GT(brightest, 0);
+    expect_bake_matches_source(*palettes[index]);
   }
 }
 
@@ -217,7 +265,8 @@ inline void test_named_procedural_palette_roster() {
 inline int run_palettes_tests() {
   hs_test::ModuleFixture fixture("palettes");
 
-  HS_RUN(test_named_procedural_palette_roster);
+  HS_RUN(test_procedural_palette_matches_cosine_oracle);
+  HS_RUN(test_named_procedural_palettes_bake);
   HS_RUN(test_named_procedural_palette_endpoints_and_reversal);
   HS_RUN(test_named_palette_hue_short_arc);
   HS_RUN(test_mesh_palette_bank_lookup);
