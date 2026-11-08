@@ -1404,6 +1404,7 @@ walk_uniform_edge_columns(const ColumnWalk<W> &state) {
  * @param radians Maximum world displacement over the frame.
  * @param source_positions Whether shaders read source-space positions.
  * @param spin Rotation bound of the shared poses, radians.
+ * @param setup The canvas's column-walk constants.
  * @details Each arm pass walks, in the edge's travel order, the render-band
  * columns its plan bounds, each with the edge's endpoints evaluated on their
  * paths at the column's time and rotated by its pose, and stops where the lit
