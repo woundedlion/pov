@@ -864,11 +864,32 @@ jobs:
         with:
           persist-credentials: false
 
+      # The job still reports, so ci-green does not wait on a skipped check.
+      - name: Detect PCB input changes
+        id: pcb
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          run=true
+          if [ "$EVENT" != workflow_dispatch ] && [ -n "$BASE" ] &&
+             [ "$BASE" != 0000000000000000000000000000000000000000 ] &&
+             git fetch --quiet --depth=1 origin "$BASE" &&
+             ! git diff --name-only "$BASE" HEAD |
+               grep -qE '^(hardware/phantasm/|tools/ci/kicad_config\.py$|tools/run_python_tests\.py$|\.github/workflows/ci\.yml$)'; then
+            run=false
+            echo "No PCB inputs changed since $BASE; skipping the PCB suite."
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: steps.pcb.outputs.run == 'true'
         with:
           python-version: '3.12'
 
       - name: Install pinned KiCad and stock libraries
+        if: steps.pcb.outputs.run == 'true'
         shell: pwsh
         run: |
           $installer = Join-Path $env:RUNNER_TEMP 'kicad-10.0.4-x86_64.exe'
@@ -884,6 +905,7 @@ jobs:
           }
 
       - name: Configure pinned KiCad and stock libraries
+        if: steps.pcb.outputs.run == 'true'
         shell: pwsh
         run: |
           $env:KICAD_CONFIG_HOME = Join-Path $env:RUNNER_TEMP 'kicad-config'
@@ -891,6 +913,7 @@ jobs:
           python tools/ci/kicad_config.py $env:KICAD_CONFIG_HOME
 
       - name: Run PCB generation, DRC, parity and fabrication tests
+        if: steps.pcb.outputs.run == 'true'
         run: python tools/run_python_tests.py --suite hardware/phantasm/gen/tests
 
   python-tests:
