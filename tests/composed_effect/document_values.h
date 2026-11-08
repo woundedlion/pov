@@ -39,76 +39,6 @@ inline const JsonValue *document_presets(const JsonValue &document) {
   return bank != nullptr ? bank->find("presets") : nullptr;
 }
 
-using DocumentReachValue = std::array<std::string, 3>;
-
-/** @brief Records shipped topology values, including omitted schema defaults. */
-template <template <int, int> class E>
-inline void record_document_reach(std::vector<DocumentReachValue> &observed) {
-  using FX = E<SMALL_W, SMALL_H>;
-  const auto loaded = load_promoted_document<FX>();
-  if (!loaded)
-    return;
-  const auto *chain = document_chain(*loaded);
-  const auto *presets = document_presets(*loaded);
-  HS_EXPECT_TRUE(chain != nullptr && presets != nullptr);
-  if (chain == nullptr || presets == nullptr)
-    return;
-  for (const auto &entry : chain->items) {
-    const auto *label = entry.find("label");
-    const auto *id = entry.find("operator");
-    HS_EXPECT_TRUE(label != nullptr && id != nullptr);
-    if (label == nullptr || id == nullptr)
-      continue;
-    const auto *op = In::find_operator(id->text.c_str());
-    HS_EXPECT_TRUE(op != nullptr);
-    if (op == nullptr)
-      continue;
-    const bool UNUSED = std::any_of(
-        std::begin(DERIVATION_REACH), std::end(DERIVATION_REACH),
-        [&](const DerivationReach &row) {
-          return row.topology_id == nullptr && row.operator_id == id->text;
-        });
-    HS_EXPECT(!UNUSED, "shipped operator is marked reachable");
-    for (const auto &preset : presets->items) {
-      const auto *values = preset.find("values");
-      HS_EXPECT_TRUE(values != nullptr);
-      if (values == nullptr)
-        continue;
-      for (const auto &field : op->schema_span()) {
-        if (!field.topology)
-          continue;
-        const auto *value = values->find(label->text + "." + field.id);
-        const char *selected = field.enum_ids[field.enum_def];
-        observed.push_back(
-            {id->text, field.id, value != nullptr ? value->text : selected});
-      }
-    }
-  }
-}
-
-/** @brief Every reachable table value is emitted by a shipped document. */
-inline void test_composed_derivation_values_are_emitted() {
-  std::vector<DocumentReachValue> observed;
-#define HS_COMPOSED_REACH(name) record_document_reach<name>(observed);
-  HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_REACH)
-#undef HS_COMPOSED_REACH
-  for (const auto &row : DERIVATION_REACH) {
-    if (row.topology_id == nullptr)
-      continue;
-    HS_CONTEXT(row.operator_id);
-    HS_CONTEXT(row.topology_id);
-    for (const char *value : row.reachable) {
-      if (value == nullptr)
-        break;
-      HS_CONTEXT(value);
-      HS_EXPECT_TRUE(std::find(observed.begin(), observed.end(),
-                               DocumentReachValue{row.operator_id,
-                                                  row.topology_id, value}) !=
-                     observed.end());
-    }
-  }
-}
-
 /**
  * @brief Finds the values object of the last preset entry named @p preset_id.
  * @param presets The `preset_bank.presets` array.
@@ -400,7 +330,7 @@ template <typename Lens> constexpr std::string_view lens_symmetry_id() {
  * @details Numeric entries write through the owning family's field table, so a
  * document key the engine does not table fails loudly. String entries
  * are chain topology: the ones with a composed-effect equivalent are checked
- * against the derived topology and DERIVATION_REACH.
+ * against the derived topology.
  */
 template <typename FX>
 inline bool
@@ -466,7 +396,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
   if (value.kind != JsonValue::Kind::STRING)
     return false;
   const std::string_view text = value.text;
-  HS_EXPECT_TRUE(derivation_value_reachable(slot.operator_id, field_id, text));
   if (slot.role != SlotRole::COLORIZE) {
     bool assigned = false;
     built.visit([&]<typename Resource>(auto &family) {

@@ -16,14 +16,109 @@ concept DerivableSource = requires {
   typename Pullback::SourcePolicyFor<Family, ReachBinding>::Type;
 };
 
-// Derivation-side half of the reach table.
-static_assert(DerivableSource<Pullback::GridSourceParams>);
+template <typename Family>
+concept DerivableWarp = requires {
+  typename Pullback::WarpPolicyFor<Family, ReachBinding, "warp", false>::Type;
+};
+
+template <typename Family>
+concept DerivableSurface = requires {
+  typename Pullback::SurfacePolicyFor<Family, ReachBinding, false>::Type;
+};
+
+/** @brief The composed family an operator model's chain family extends.
+ * @details The chain family adds catalog-only topology to it; the composed
+ * layer fixes that topology in the derived policy.
+ * @tparam Model Operator model. */
+template <typename Model> struct ComposedFamily {
+  using Type = typename Model::Params; ///< The family.
+};
+/** @brief Affine controls; the path-length flag is a policy argument. */
+template <> struct ComposedFamily<In::Op::WarpAffineV4> {
+  using Type = Pullback::AffineParams; ///< The family.
+};
+/** @brief Planar noise with the simplex basis. */
+template <> struct ComposedFamily<In::Op::SampleProjectedNoise> {
+  using Type = Pullback::ProjectedNoiseSourceParams; ///< The family.
+};
+/** @brief Curl noise with the simplex basis, Euler steps and smooth limit. */
+template <> struct ComposedFamily<In::Op::DisplaceCurl> {
+  using Type = Pullback::SurfaceNoiseParams; ///< The family.
+};
+/** @brief Directed noise with the simplex basis. */
+template <> struct ComposedFamily<In::Op::DisplaceDirect> {
+  using Type = Pullback::DirectSurfaceParams; ///< The family.
+};
+
+/** @brief Lens operators whose composed policies a Spec names directly; no
+ * family-keyed selector derives them. */
+constexpr std::string_view SPEC_NAMED_LENSES[] = {
+    "sphere.displace.ripple.v2",
+    "sphere.displace.potential.v1",
+    "sphere.displace.rossby-haurwitz.v1",
+    "sphere.displace.symmetric.v2",
+    "sphere.lens.glitch.v2",
+    "sphere.lens.twist.v2",
+    "sphere.lens.mobius.v3",
+    "sphere.lens.kaleidoscope.v2",
+};
+
+/** @brief Whether every fixed tessellation kind and fill derives a source.
+ * @tparam Kinds Kind values.
+ * @return True when each kind derives under both fills. */
+template <size_t... Kinds>
+consteval bool tessellations_derivable(std::index_sequence<Kinds...>) {
+  using Kind = Pattern::TessellationKind;
+  using Fill = Pattern::TessellationFill;
+  return ((DerivableSource<Pullback::FixedTessellationParams<
+               static_cast<Kind>(Kinds), Fill::CELLS>> &&
+           DerivableSource<Pullback::FixedTessellationParams<
+               static_cast<Kind>(Kinds), Fill::EDGES>>) &&
+          ...);
+}
+
+/** @brief Whether the composed layer derives a policy for an operator's
+ * family: a source, warp or displacement lens, or a Spec-named lens.
+ * @tparam Model Operator model.
+ * @return True when derivable, or when the operator is not a source, warp or
+ *         lens. */
+template <typename Model> consteval bool family_derivable() {
+  using Family = typename ComposedFamily<Model>::Type;
+  constexpr In::CarrierId INPUT = In::carrier_id_of<typename Model::Input>();
+  constexpr In::CarrierId OUTPUT = In::carrier_id_of<typename Model::Output>();
+  if constexpr (std::is_same_v<Model, In::Op::SampleTessellation>)
+    return tessellations_derivable(
+        std::make_index_sequence<std::size(In::Op::TESSELLATION_KIND_IDS)>{});
+  else if constexpr (OUTPUT == In::CarrierId::FIELD &&
+                     INPUT != In::CarrierId::FIELD)
+    return DerivableSource<Family>;
+  else if constexpr (INPUT == In::CarrierId::PLANE &&
+                     OUTPUT == In::CarrierId::PLANE)
+    return DerivableWarp<Family>;
+  else if constexpr (INPUT == In::CarrierId::SPHERE &&
+                     OUTPUT == In::CarrierId::SPHERE &&
+                     !std::is_same_v<Model, In::Op::Rotate>)
+    return DerivableSurface<Family> ||
+           std::ranges::find(SPEC_NAMED_LENSES, std::string_view(Model::ID)) !=
+               std::end(SPEC_NAMED_LENSES);
+  else
+    return true;
+}
+
+/** @brief Whether every operator family derives a composed policy.
+ * @tparam Models Operator models.
+ * @return True when each model's family derives. */
+template <typename... Models>
+consteval bool families_derivable(Pullback::Detail::TypeList<Models...>) {
+  return (family_derivable<Models>() && ...);
+}
+
+static_assert(families_derivable(In::OperatorModels{}));
+
 // The shared noise field group is not itself a family, so it names no single
 // policy.
 static_assert(!DerivableSource<Pullback::Source::NoiseSourceParams>);
-static_assert(DerivableSource<Pullback::ProjectedNoiseSourceParams>);
-static_assert(DerivableSource<Pullback::Source::SphericalNoiseSourceParams>);
-static_assert(DerivableSource<Pullback::Source::SphericalCellsSourceParams>);
+
 static_assert(
     std::is_same_v<
         typename Pullback::SourcePolicyFor<Pullback::ProjectedNoiseSourceParams,
@@ -32,6 +127,19 @@ static_assert(
             Pullback::SourceProvider<ReachBinding,
                                      Pullback::ProjectedNoiseSourceParams>,
             math::NoiseBasis::SIMPLEX>>);
+static_assert(std::is_same_v<
+              typename Pullback::SourcePolicyFor<
+                  Pullback::FixedTessellationParams<
+                      Pattern::TessellationKind::HEXAGONAL,
+                      Pattern::TessellationFill::EDGES>,
+                  ReachBinding>::Type,
+              Pullback::Source::Tessellation<
+                  Pullback::SourceProvider<
+                      ReachBinding, Pullback::FixedTessellationParams<
+                                        Pattern::TessellationKind::HEXAGONAL,
+                                        Pattern::TessellationFill::EDGES>>,
+                  Pattern::TessellationKind::HEXAGONAL,
+                  Pattern::TessellationFill::EDGES>>);
 static_assert(
     std::is_same_v<
         typename Pullback::WarpPolicyFor<Pullback::PolarParams, ReachBinding,
@@ -48,228 +156,11 @@ static_assert(std::is_same_v<
                   Pullback::WarpProvider<ReachBinding, "inner_warp",
                                          Pullback::VectorNoiseParams, false>,
                   math::NoiseBasis::SIMPLEX, Pullback::Warp::FlatEnvelope>>);
-
-/**
- * @brief Catalog vocabulary emitted by shipped ComposedEffect specializations.
- * @details A null `topology_id` marks an operator no shipped Spec selects,
- * so none of its topology values are reachable either. Otherwise
- * `reachable` lists values emitted by a shipped specialization through a
- * policy pin, Spec choice or authored preset. Selecting another value extends
- * its row and updates the unreachable-count pin.
- */
-struct DerivationReach {
-  const char *operator_id;
-  const char *topology_id;
-  std::array<const char *, 9>
-      reachable; /**< Reachable IDs with nullable unused slots. */
-};
-
-constexpr DerivationReach DERIVATION_REACH[] = {
-    {"project.peirce.v3", nullptr, {}},
-    {"project.peirce-square-fast.v3", nullptr, {}},
-    {"project.bonne.v3", nullptr, {}},
-    {"project.airocean.v3", nullptr, {}},
-    {"project.tetrahedral.v1", nullptr, {}},
-    {"project.cubic.v1", "frame", {{"spin-wander"}}},
-    {"project.octahedral.v1", nullptr, {}},
-    {"project.dodecahedral.v1", nullptr, {}},
-    {"project.icosahedral.v1", nullptr, {}},
-    {"warp.curl-flow.v2", nullptr, {}},
-    {"sphere.displace.potential.v1", "integrator", {{"euler"}}},
-    {"sphere.displace.potential.v1", "term-1-type", {{"mode", "dodecahedral"}}},
-    {"sphere.displace.potential.v1", "term-1-kind", {{"toroidal", "poloidal"}}},
-    {"sphere.displace.potential.v1", "term-1-l", {{"one", "eight"}}},
-    {"sphere.displace.potential.v1", "term-1-m", {{"one", "four"}}},
-    {"sphere.displace.potential.v1", "term-2-type", {{"mode"}}},
-    {"sphere.displace.potential.v1", "term-2-kind", {{"toroidal"}}},
-    {"sphere.displace.potential.v1", "term-2-l", {{"one"}}},
-    {"sphere.displace.potential.v1", "term-2-m", {{"zero"}}},
-    {"sphere.displace.potential.v1", "term-3-type", {{"mode"}}},
-    {"sphere.displace.potential.v1", "term-3-kind", {{"toroidal"}}},
-    {"sphere.displace.potential.v1", "term-3-l", {{"one"}}},
-    {"sphere.displace.potential.v1", "term-3-m", {{"zero"}}},
-    {"sphere.displace.potential.v1", "term-4-type", {{"mode"}}},
-    {"sphere.displace.potential.v1", "term-4-kind", {{"toroidal"}}},
-    {"sphere.displace.potential.v1", "term-4-l", {{"one"}}},
-    {"sphere.displace.potential.v1", "term-4-m", {{"zero"}}},
-    {"sphere.displace.rossby-haurwitz.v1", nullptr, {}},
-    {"sphere.displace.symmetric.v2", nullptr, {}},
-    {"field.transfer.ridge.v2", nullptr, {}},
-    {"field.transfer.smooth-bands.v2", nullptr, {}},
-    // Shipped Specs select the folded gnomonic alone.
-    {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
-    {"project.stereographic.v2", "frame", {{"identity", "spin-wander"}}},
-    {"project.folded-sinusoidal.v2", "frame", {{"spin-wander"}}},
-    {"project.equirectangular.v2", "frame", {{"identity", "spin-wander"}}},
-    {"project.gnomonic.v2", "frame", {{"identity", "spin-wander"}}},
-    // The displacement policies pin the basis and the integrator.
-    {"sphere.displace.curl.v2", "basis", {{"simplex"}}},
-    {"sphere.displace.curl.v2", "integrator", {{"euler"}}},
-    {"sphere.displace.curl.v2", "limit", {{"smooth"}}},
-    {"sphere.displace.direct.v2", "basis", {{"simplex"}}},
-    {"sphere.displace.ripple.v2", "burst-size", {{"four"}}},
-    {"sphere.displace.ripple.v2", "random-center", {{"on"}}},
-    {"sphere.lens.kaleidoscope.v2",
-     "symmetry",
-     {{"azimuthal", "tetrahedral", "octahedral", "dodecahedral",
-       "hexagonal-prism"}}},
-    // The affine TrackPath flag pins its path length.
-    {"warp.affine.v4", "path-length", {{"off", "on"}}},
-    // WarpPolicyFor pins the flat envelope and simplex basis.
-    {"warp.wave-shear.v2", "envelope", {{"flat"}}},
-    {"warp.vector-noise.v2", "basis", {{"simplex"}}},
-    {"warp.vector-noise.v2", "envelope", {{"flat"}}},
-    {"warp.polar-chart.v2", nullptr, {}},
-    // SampleStage pins Weight::Projection; no shipped Spec selects the
-    // none coverage.
-    {"sample.grid.v4", "weight-mode", {{"projection"}}},
-    {"sample.grid.v4",
-     "coverage-mode",
-     {{"weight", "weight-squared", "edge-fade"}}},
-    {"sample.twin-wave.v3", "weight-mode", {{"projection"}}},
-    {"sample.twin-wave.v3", "coverage-mode", {{"weight-squared"}}},
-    {"sample.bands.v1", nullptr, {}},
-    {"sample.spiral.v3", "weight-mode", {{"projection"}}},
-    {"sample.spiral.v3", "coverage-mode", {{"weight-squared"}}},
-    {"sample.spiral.v3", "coordinate-system", {{"plane"}}},
-    {"sample.projected-noise.v2", nullptr, {}},
-    {"sample.spherical-noise.v1", nullptr, {}},
-    {"sample.spherical-cells.v1", nullptr, {}},
-    {"sample.tessellation.v3", "weight-mode", {{"projection"}}},
-    {"sample.tessellation.v3", "coverage-mode", {{"weight", "edge-fade"}}},
-    // Shipped Specs pin square cells.
-    {"sample.tessellation.v3", "kind", {{"square"}}},
-    {"sample.tessellation.v3", "fill", {{"cells"}}},
-    {"colorize.generated-palette.v4",
-     "palette-mode",
-     {{"triadic", "complementary", "analogous"}}},
-    {"colorize.generated-palette.v4",
-     "palette-type",
-     {{"cycling-generated", "generated", "procedural"}}},
-    {"colorize.generated-palette.v4", "palette-harmony", {{"triadic"}}},
-    {"colorize.generated-palette.v4",
-     "palette-lightness-curve",
-     {{"cup", "constant"}}},
-    {"colorize.generated-palette.v4", "palette-name", {{"embers"}}},
-    {"colorize.generated-palette.v4", "palette-name-b", {{"fire-and-ice"}}},
-    {"colorize.generated-palette.v4",
-     "palette-mapping",
-     {{"cup", "bell", "linear"}}},
-    {"color.modulate.v1", "modulation-enabled", {{"enabled"}}},
-    {"color.modulate.v1",
-     "modulation-source",
-     {{"noise", "displacement", "sphere-smooth-grid", "directional-sine"}}},
-    {"color.modulate.v1", "modulation-evaluation", {{"direct", "baked-cube"}}},
-    {"color.modulate.v1",
-     "modulation-mechanic",
-     {{"hue-rotation", "positive-lightness-lift"}}},
-    {"color.modulate.v1", "pattern-noise-basis", {{"simplex"}}},
-    {"color.modulate.v1", "pattern-noise-variant", {{"configured-single"}}},
-    // Shipped Specs select the none, cup and bell brightness envelopes.
-    {"colorize.generated-palette.v4",
-     "brightness-envelope",
-     {{"none", "cup", "bell"}}},
-};
-
-/** @brief The topology enum8 @p topology_id of @p op, or null. */
-inline const In::ParamFieldInfo *find_topology(const In::OperatorDescriptor &op,
-                                               const char *topology_id) {
-  for (const In::ParamFieldInfo &field : op.schema_span())
-    if (field.topology && std::string_view(field.id) == topology_id)
-      return &field;
-  return nullptr;
-}
-
-/** @brief Rows of DERIVATION_REACH naming @p topology_id of @p operator_id. */
-inline size_t reach_rows(const char *operator_id, const char *topology_id) {
-  size_t rows = 0;
-  for (const DerivationReach &row : DERIVATION_REACH)
-    if (std::string_view(row.operator_id) == operator_id &&
-        row.topology_id != nullptr &&
-        std::string_view(row.topology_id) == topology_id)
-      ++rows;
-  return rows;
-}
-
-/** @brief Reports whether derivation emits an operator topology value. */
-inline bool derivation_value_reachable(std::string_view operator_id,
-                                       std::string_view field_id,
-                                       std::string_view value) {
-  for (const auto &row : DERIVATION_REACH) {
-    if (row.operator_id != operator_id || row.topology_id == nullptr ||
-        row.topology_id != field_id)
-      continue;
-    for (const char *reachable : row.reachable)
-      if (reachable != nullptr && reachable == value)
-        return true;
-  }
-  return false;
-}
-
-/**
- * @brief Pins the catalog vocabulary no ComposedEffect specialization emits.
- * @details DERIVATION_REACH classifies shipped policy pins and Spec choices
- * against the live catalog. A Spec selecting another value extends its row
- * and updates the unreachable-count pin.
- */
-inline void test_composed_derivation_reach() {
-  static_assert(Pullback::MetadataFor<AshCloudSpec>::FIELD_COVERAGE ==
-                Pullback::FieldCoverageKind::VALUE_CUTOUT);
-  size_t unreachable_operators = 0;
-  size_t unreachable_values = 0;
-  for (const DerivationReach &row : DERIVATION_REACH) {
-    HS_CONTEXT(row.operator_id);
-    const In::OperatorDescriptor *op = In::find_operator(row.operator_id);
-    HS_EXPECT_TRUE(op != nullptr);
-    if (op == nullptr)
-      continue;
-    if (row.topology_id == nullptr) {
-      ++unreachable_operators;
-      for (const In::ParamFieldInfo &field : op->schema_span())
-        if (field.topology)
-          unreachable_values += field.enum_count;
-      continue;
-    }
-    HS_CONTEXT(row.topology_id);
-    const In::ParamFieldInfo *field = find_topology(*op, row.topology_id);
-    HS_EXPECT_TRUE(field != nullptr);
-    if (field == nullptr)
-      continue;
-    size_t reachable = 0;
-    for (const char *value : row.reachable) {
-      if (value == nullptr)
-        break;
-      HS_CONTEXT(value);
-      bool found = false;
-      for (uint8_t index = 0; index < field->enum_count; ++index)
-        found = found || std::string_view(field->enum_ids[index]) == value;
-      HS_EXPECT_TRUE(found);
-      reachable += found ? 1 : 0;
-    }
-    HS_EXPECT_LE(reachable, static_cast<size_t>(field->enum_count));
-    unreachable_values += field->enum_count - reachable;
-  }
-
-  size_t catalog_values = 0;
-  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
-    HS_CONTEXT(op.operator_id);
-    bool whole_operator = false;
-    for (const DerivationReach &row : DERIVATION_REACH)
-      whole_operator = whole_operator ||
-                       (std::string_view(row.operator_id) == op.operator_id &&
-                        row.topology_id == nullptr);
-    for (const In::ParamFieldInfo &field : op.schema_span()) {
-      if (!field.topology)
-        continue;
-      HS_CONTEXT(field.id);
-      catalog_values += field.enum_count;
-      HS_EXPECT_EQ(reach_rows(op.operator_id, field.id),
-                   whole_operator ? 0u : 1u);
-    }
-  }
-
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 45u);
-  HS_EXPECT_EQ(unreachable_operators, 18u);
-  HS_EXPECT_EQ(catalog_values, 387u);
-  HS_EXPECT_EQ(unreachable_values, 299u);
-}
+static_assert(
+    std::is_same_v<typename Pullback::SurfacePolicyFor<
+                       Pullback::SurfaceNoiseParams, ReachBinding, false>::Type,
+                   Pullback::Surface::CurlNoise<
+                       Pullback::SurfaceProvider<
+                           ReachBinding, Pullback::SurfaceNoiseParams, false>,
+                       math::NoiseBasis::SIMPLEX, Pullback::Surface::Euler,
+                       math::TangentLimit::SMOOTH>>);

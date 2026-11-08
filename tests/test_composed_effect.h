@@ -1480,8 +1480,6 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_document_values);
   HS_RUN(test_document_numeric_resource_selection);
   HS_RUN(test_flowers_longitude_seam);
-  HS_RUN(test_composed_derivation_reach);
-  HS_RUN(test_composed_derivation_values_are_emitted);
   HS_RUN(test_composed_keyed_parameters);
   HS_RUN(test_composed_keyed_value_providers);
   HS_RUN(test_composed_affine_named_source);
