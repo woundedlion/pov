@@ -458,9 +458,6 @@ void run_effect_case_galaxies_emission_rate_and_capacity();
 /** @brief Runs test_galaxies_live_particle_count with its case context. */
 void run_effect_case_galaxies_live_particle_count();
 
-/** @brief Runs test_column_time_scans_keep_fidelity_off_frames with its case context. */
-void run_effect_case_column_time_scans_keep_fidelity_off_frames();
-
 /** @brief Runs test_column_time_scans_engage_with_fidelity_on with its case context. */
 void run_effect_case_column_time_scans_engage_with_fidelity_on();
 

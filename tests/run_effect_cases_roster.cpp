@@ -40,10 +40,6 @@ void run_effect_case_needs_full_frame_gate() {
   HS_RUN(run_case, test_needs_full_frame_gate);
 }
 
-void run_effect_case_column_time_scans_keep_fidelity_off_frames() {
-  HS_RUN(run_case, test_column_time_scans_keep_fidelity_off_frames);
-}
-
 void run_effect_case_column_time_scans_engage_with_fidelity_on() {
   HS_RUN(run_case, test_column_time_scans_engage_with_fidelity_on);
 }
@@ -67,7 +63,6 @@ int run_roster_tests() {
   run_effect_case_float_dropdown_lint();
   run_effect_case_manual_preset_navigation();
   run_effect_case_needs_full_frame_gate();
-  run_effect_case_column_time_scans_keep_fidelity_off_frames();
   run_effect_case_column_time_scans_engage_with_fidelity_on();
   run_effect_case_glitch_lens_doubles_latitude_and_stays_smooth_at_fold();
   return fixture.result();

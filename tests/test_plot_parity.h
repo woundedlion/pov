@@ -213,6 +213,7 @@ inline void test_filter_pipeline_effect_properties() {
   check_parity_properties<MindSplatter>("MindSplatter", true);
   check_parity_properties<MobiusRings>("MobiusRings");
   check_parity_properties<PetalFlow>("PetalFlow");
+  check_parity_properties<Raymarch>("Raymarch");
   check_parity_properties<RingShower>("RingShower");
   check_parity_properties<RingSpin>("RingSpin");
   check_parity_properties<ShapeShifter>("ShapeShifter");
