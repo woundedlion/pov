@@ -162,8 +162,6 @@ The compiler specializes these templates for each supported resolution: `<96, 20
 
 The host-side mocks — the `CRGB`/`CHSV` structs plus the rest of the emulated Arduino/FastLED surface (`random8`, `beatsin8`, `SerialMock`, …) — live in `platform/arduino_mocks.h`, included from `platform.h`'s non-Arduino branch.
 
-The few places where engine behaviour forks on a device-only constant are inventoried in [`docs/ledgers/device_host_divergence_ledger.md`](https://github.com/woundedlion/pov/blob/master/docs/ledgers/device_host_divergence_ledger.md), together with the device-value test build that reaches each fork.
-
 ### 2.4 Coordinate Conventions
 
 - **Y-up Cartesian**: `Vector(x, y, z)` — `y` is the vertical axis
@@ -1816,7 +1814,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── teensy_upload.py      Verifies the pinned headless tool and selects the claimed serial/USB identity
 │   ├── setup_teensy_uploader.py  Installs the hash-pinned Windows uploader and release provenance
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
-├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the DreamBalls orbit-bound derivation (dreamballs_orbit_bound.md), the hue lookup qualification record (hue_lut_qualification.md and .json), the design specs (indexed in docs/specs/README.md), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
+├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the DreamBalls orbit-bound derivation (dreamballs_orbit_bound.md), the hue lookup qualification record (hue_lut_qualification.md and .json), the design specs (indexed in docs/specs/README.md), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22.15, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points

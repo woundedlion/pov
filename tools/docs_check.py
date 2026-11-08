@@ -62,7 +62,7 @@ _SOURCE_SUFFIXES = frozenset({
     ".py", ".sh", ".svg", ".toml", ".ts", ".txt", ".wasm", ".wrl", ".yaml",
     ".yml",
 })
-# Optional trailing :line or :line-line, as the ledgers cite source spans.
+# Optional trailing :line or :line-line, citing a source span.
 _PATH_SPAN_RE = re.compile(r"^([A-Za-z0-9_.][\w.\-/]*)(?::\d+(?:-\d+)?)?$")
 
 # Fenced directory trees are path claims. An HTML-comment directive
