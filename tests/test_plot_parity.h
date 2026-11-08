@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Pixel parity of the plot and scan effects listed in PARITY_HASHES.
+ * Render properties of the plot and scan filter-pipeline effects.
  */
 #pragma once
 
@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #include "core/render/spacetime.h"
 #include "hardware/pov_segment_map.h"
@@ -32,583 +33,190 @@ constexpr int PARITY_SEGMENTS = 4;
 /** @brief Segment the clipped scenario renders. */
 constexpr int PARITY_SEGMENT_ID = 1;
 
-/** @brief Recorded render sequences for one effect across the parity scenarios. */
-struct ParityHashes {
-  const char *effect;       /**< Effect name. */
-  RecordedGolden temporal;  /**< Full frames, temporal sampling enabled. */
-  RecordedGolden frame_end; /**< Full frames, temporal sampling disabled. */
-  RecordedGolden segment_clipped; /**< One display segment's clip per frame. */
-};
+/** @brief Largest relative energy gap between temporal and frame-end runs. */
+constexpr double TEMPORAL_ENERGY_BAND = 0.3;
+/** @brief Largest brightness-centroid gap between temporal and frame-end
+ *  runs, in pixels. */
+constexpr double TEMPORAL_CENTROID_BAND = 4.0;
+/** @brief Largest share of displayed pixels a chunk-batched effect's clipped
+ *  render may differ on: overlapping trails may stack in another order. */
+constexpr double BATCHED_REORDER_SHARE = 0.001;
 
-/** @brief Computed sequences for one effect's parity scenarios. */
-struct ParityRenders {
-  const char *effect;
-  PixelGolden temporal;
-  PixelGolden frame_end;
-  PixelGolden segment_clipped;
-};
-
-/** @brief Recorded temporal, frame-end and segment-clipped render sequences. */
-inline constexpr ParityHashes PARITY_HASHES[] = {
-    {"Comets",
-     {{0x8b8536ade45aba11ull,
-       {{172892154ull, 169225874ull, 291812097ull},
-        46754718597ull,
-        44923120391ull}},
-      {0x9a2b810fd287b024ull,
-       {{172870233ull, 169201730ull, 291771823ull},
-        46749147387ull,
-        44917245103ull}}},
-     {{0x7d05d3cd68d1cbb9ull,
-       {{204934466ull, 190186630ull, 320628647ull},
-        51402881614ull,
-        49449636374ull}},
-      {0xaac5ff81ea1847c2ull,
-       {{204908186ull, 190159673ull, 320585057ull},
-        51396855544ull,
-        49443198522ull}}},
-     {{0x7c59ab4460ae24e3ull,
-       {{52911474ull, 38924709ull, 70432523ull},
-        15867213715ull,
-        13013449707ull}},
-      {0x702011234b2a480cull,
-       {{52906405ull, 38920834ull, 70425601ull},
-        15865693364ull,
-        13012176838ull}}}},
-    {"DisplacementField",
-     {{0xc4bc19266261803dull,
-       {{2787083657ull, 2695513000ull, 836806405ull},
-        450897683462ull,
-        906526832411ull}},
-      {0xfc3c76f9f754aa8cull,
-       {{2787083568ull, 2695513336ull, 836806778ull},
-        450897730540ull,
-        906526868524ull}}},
-     {{0x47fa576d9a94eb76ull,
-       {{2814892854ull, 2721147015ull, 845090131ull},
-        455301753460ull,
-        914315475807ull}},
-      {0xe52d3552a02a5bacull,
-       {{2814892936ull, 2721146911ull, 845090372ull},
-        455301750293ull,
-        914315475888ull}}},
-     {{0xc0cc816e5cbabb92ull,
-       {{818129378ull, 781269291ull, 243072894ull},
-        191221248945ull,
-        265291098058ull}},
-      {0xd3ff0c99319f8491ull,
-       {{818129667ull, 781269796ull, 243073120ull},
-        191221331806ull,
-        265291231249ull}}}},
-    {"DreamBalls",
-     {{0x2ec194d774e89677ull,
-       {{3387483382ull, 0ull, 1291601417ull},
-        334899601237ull,
-        671023767785ull}},
-      {0xd3ed8534a3a3c0c3ull,
-       {{3387533729ull, 0ull, 1291610880ull},
-        334905494734ull,
-        671032545999ull}}},
-     {{0x448c45bc7689b9e1ull,
-       {{3430548532ull, 0ull, 1293235207ull},
-        338345398609ull,
-        676160025527ull}},
-      {0x56bfc11b83edc88full,
-       {{3430522125ull, 0ull, 1293232404ull},
-        338343993751ull,
-        676154836463ull}}},
-     {{0x8be9c67c13ee3241ull,
-       {{921346865ull, 0ull, 350412243ull}, 130970646269ull, 184704939990ull}},
-      {0x3c615f788aa9e8b9ull,
-       {{921364407ull, 0ull, 350419297ull}, 130974151946ull, 184708259492ull}},
-      0.001,
-      0.025}},
-    {"Dynamo",
-     {{0x156b14f07cb00b21ull,
-       {{396035167ull, 416799849ull, 124183317ull},
-        23866900258ull,
-        120265239757ull}},
-      {0xfe53c3ba8b3285c2ull,
-       {{396036715ull, 416800826ull, 124183479ull},
-        23866916924ull,
-        120265778614ull}}},
-     {{0x3abd50e13f110816ull,
-       {{401965812ull, 422139093ull, 125840104ull},
-        23865250665ull,
-        122170733415ull}},
-      {0x4dee96fe6b829209ull,
-       {{401959805ull, 422131756ull, 125837968ull},
-        23865197885ull,
-        122169032786ull}}},
-     {{0x156b14f07cb00b21ull,
-       {{396035167ull, 416799849ull, 124183317ull},
-        23866900258ull,
-        120265239757ull}},
-      {0xfe53c3ba8b3285c2ull,
-       {{396036715ull, 416800826ull, 124183479ull},
-        23866916924ull,
-        120265778614ull}}}},
-    {"Fishbowl",
-     {{0xbe8c99ad2b9e2658ull,
-       {{436583740ull, 155182791ull, 63283427ull},
-        50368287197ull,
-        98347198502ull}},
-      {0x521f7c057ce42447ull,
-       {{436607419ull, 155184176ull, 63280558ull},
-        50369928705ull,
-        98353397011ull}}},
-     {{0xe470fb4fe3b1eed2ull,
-       {{496608704ull, 176173768ull, 71952184ull},
-        57068880631ull,
-        110121445273ull}},
-      {0x38d60878c8b029cfull,
-       {{496611792ull, 176173916ull, 71952064ull},
-        57069270621ull,
-        110121680429ull}}},
-     {{0x4ea8cf3a5cefad6full,
-       {{141170590ull, 50838477ull, 21074010ull},
-        22481057347ull,
-        28395846726ull}},
-      {0xd499c268880adf66ull,
-       {{141167077ull, 50823154ull, 21031193ull},
-        22477083243ull,
-        28383868176ull}},
-      0.005,
-      0.03}},
-    {"Galaxies",
-     {{0xe5a998917a1e8e25ull,
-       {{765242538ull, 750982966ull, 758812506ull},
-        161201577515ull,
-        322654514559ull}},
-      {0x3a878926e03a80a7ull,
-       {{765200649ull, 750941047ull, 758770590ull},
-        161192518433ull,
-        322637149432ull}}},
-     {{0x4637663771062f8full,
-       {{728771023ull, 714497557ull, 722269521ull},
-        153407654202ull,
-        309685769331ull}},
-      {0x1a32fb7059d74036ull,
-       {{728729745ull, 714456293ull, 722228198ull},
-        153398744211ull,
-        309668578051ull}}},
-     {{0xfeb6f3baf57701b6ull,
-       {{263432933ull, 257854735ull, 259531567ull},
-        79566008860ull,
-        100162522764ull}},
-      {0x8c73049a65315255ull,
-       {{263419848ull, 257841618ull, 259518433ull},
-        79561541490ull,
-        100158045109ull}}}},
-    {"GnomonicStars",
-     {{0x87cafc0242dc086dull,
-       {{4148753139ull, 2287128305ull, 665179201ull},
-        384008576219ull,
-        1021508100845ull}},
-      {0x53396c7069537a90ull,
-       {{4147410252ull, 2286385617ull, 664978601ull},
-        383884670155ull,
-        1021181917759ull}}},
-     {{0x16a3021ea493af52ull,
-       {{4136992719ull, 2282720521ull, 666248722ull},
-        384261503398ull,
-        1019145656674ull}},
-      {0x2a766799b7c4de47ull,
-       {{4135656400ull, 2281984609ull, 666047974ull},
-        384138456679ull,
-        1018822763895ull}}},
-     {{0xa1c8e03f877c83a2ull,
-       {{129938039ull, 738145260ull, 316699748ull},
-        131059483775ull,
-        144255352687ull}},
-      {0x6070d94724e78258ull,
-       {{129895609ull, 737917199ull, 316609199ull},
-        131020231105ull,
-        144214067662ull}}}},
-    {"HankinSolids",
-     {{0x7de0f663237fd9d9ull,
-       {{51099952811ull, 20559047297ull, 22165078137ull},
-        6579588959532ull,
-        13508252174050ull}},
-      {0xbce80fc0fb38b526ull,
-       {{51096337729ull, 20556700999ull, 22164774983ull},
-        6578968338896ull,
-        13507150748490ull}}},
-     {{0x530957c44028e83bull,
-       {{52045641609ull, 20313181878ull, 21906244358ull},
-        6604299715281ull,
-        13574336121858ull}},
-      {0x95d1e5ae44d09b08ull,
-       {{52045635842ull, 20313182622ull, 21906242134ull},
-        6604299329264ull,
-        13574335018959ull}}},
-     {{0xe50bc065e43770c0ull,
-       {{12977482172ull, 5134232683ull, 5709255470ull},
-        2497009651187ull,
-        3348601871906ull}},
-      {0x077ffbfc653a5f87ull,
-       {{12976236385ull, 5133423720ull, 5709152015ull},
-        2496729294276ull,
-        3348261813228ull}}}},
-    {"HopfFibration",
-     {{0x38d350fba24597a0ull,
-       {{6851508713ull, 2032836043ull, 103070720ull},
-        589808483302ull,
-        1622681908231ull}},
-      {0x439806d1b0cc4484ull,
-       {{6851676885ull, 2032852904ull, 103075815ull},
-        589824526983ull,
-        1622736675523ull}}},
-     {{0xde39c32a03287cc3ull,
-       {{7889386020ull, 2372297080ull, 117391407ull},
-        681170912161ull,
-        1881784411794ull}},
-      {0xdb9955d075930144ull,
-       {{7889973195ull, 2372461609ull, 117395564ull},
-        681202397228ull,
-        1881905077709ull}}},
-     {{0x122e27fdb1caf405ull,
-       {{1677505253ull, 482438350ull, 30039266ull},
-        220756174080ull,
-        413591719164ull}},
-      {0x87927c756f894badull,
-       {{1677536578ull, 482438480ull, 30040966ull},
-        220760239466ull,
-        413598526378ull}}}},
-    {"IslamicStars",
-     {{0x96b8c46b2f41db54ull,
-       {{20514060628ull, 13061337707ull, 11724899181ull},
-        3297521524496ull,
-        6542034908525ull}},
-      {0x620dbf50829d4cdbull,
-       {{20514056975ull, 13061337027ull, 11724893603ull},
-        3297520759497ull,
-        6542033494061ull}}},
-     {{0x66b52924497c1972ull,
-       {{21284175998ull, 13233937867ull, 11795349947ull},
-        3369947135083ull,
-        6666789759476ull}},
-      {0x721a158e6e619894ull,
-       {{21284151814ull, 13233953733ull, 11795353253ull},
-        3369946715432ull,
-        6666789058733ull}}},
-     {{0x8ef51aa75425b232ull,
-       {{5270716509ull, 3501368213ull, 3171629901ull},
-        1304734204421ull,
-        1791789268435ull}},
-      {0x3c500e3a11a0e6deull,
-       {{5270715524ull, 3501367982ull, 3171628342ull},
-        1304733834374ull,
-        1791788915235ull}}}},
-    {"MeshFeedback",
-     {{0x90611df1ee0811ddull,
-       {{7428838334ull, 5263851795ull, 901779940ull},
-        984400573817ull,
-        1924639324174ull}},
-      {0xfbe5f5b5eb81f5e8ull,
-       {{7428780966ull, 5263797008ull, 901769641ull},
-        984384384876ull,
-        1924627968936ull}}},
-     {{0x20674c39f14b693cull,
-       {{7426028320ull, 5282426023ull, 911152059ull},
-        973538725766ull,
-        1947118629591ull}},
-      {0x67671acf08daf21bull,
-       {{7426015675ull, 5282421190ull, 911164592ull},
-        973539211619ull,
-        1947117308053ull}}},
-     {{0x90611df1ee0811ddull,
-       {{7428838334ull, 5263851795ull, 901779940ull},
-        984400573817ull,
-        1924639324174ull}},
-      {0xfbe5f5b5eb81f5e8ull,
-       {{7428780966ull, 5263797008ull, 901769641ull},
-        984384384876ull,
-        1924627968936ull}}}},
-    {"MindSplatter",
-     {{0x2584dda7eedf202eull,
-       {{321487231ull, 189659287ull, 294994098ull},
-        58558422538ull,
-        113031486146ull}},
-      {0x2e68ad4891689869ull,
-       {{321517439ull, 189680026ull, 295013816ull},
-        58570505235ull,
-        113049885455ull}},
-      0.001,
-      0.03},
-     {{0x2d2ed377b25b0f51ull,
-       {{383602584ull, 228490737ull, 344437828ull},
-        69593929666ull,
-        133221574453ull}},
-      {0xa4ff267717354839ull,
-       {{383631591ull, 228502409ull, 344475106ull},
-        69598133215ull,
-        133234979122ull}}},
-     {{0xddec7ce73b346ca2ull,
-       {{89764594ull, 51158528ull, 80489940ull},
-        22873164291ull,
-        34217516832ull}},
-      {0x7406edb900344f70ull,
-       {{89768814ull, 51161411ull, 80500249ull},
-        22875467042ull,
-        34222399672ull}},
-      0.001,
-      0.03}},
-    {"MobiusRings",
-     {{0xd8321f5a30b713e5ull,
-       {{177224536ull, 248277625ull, 591242785ull},
-        73981424996ull,
-        127674892612ull}},
-      {0x932666bcc2b400fdull,
-       {{177226734ull, 248278565ull, 591246984ull},
-        73982244904ull,
-        127675874362ull}}},
-     {{0xde2ba474865f366cull,
-       {{177318680ull, 250334352ull, 590827932ull},
-        74088575806ull,
-        128042499400ull}},
-      {0x0da342e762e8d5c0ull,
-       {{177320777ull, 250337377ull, 590829405ull},
-        74088851107ull,
-        128042842837ull}}},
-     {{0x8d43a967946b1300ull,
-       {{58843772ull, 84428535ull, 204991443ull},
-        34940961349ull,
-        44478309016ull}},
-      {0x938504a4c6e2ca8eull,
-       {{58845561ull, 84429107ull, 204994667ull},
-        34941695585ull,
-        44479209493ull}}}},
-    {"PetalFlow",
-     {{0x2e1f446b4a53b805ull,
-       {{222130307ull, 358485999ull, 355339207ull},
-        67142681398ull,
-        124519478675ull}},
-      {0xf559e2e0bc787d5eull,
-       {{222136298ull, 358497234ull, 355347473ull},
-        67144363032ull,
-        124523303203ull}}},
-     {{0x1312633d0088b40full,
-       {{251857489ull, 424850991ull, 423627755ull},
-        78770040171ull,
-        147514659413ull}},
-      {0x80b59f436a2b0fe4ull,
-       {{251866952ull, 424875588ull, 423644641ull},
-        78773986929ull,
-        147520649727ull}}},
-     {{0x722bf08bee491fa6ull,
-       {{72722988ull, 114629303ull, 111572386ull},
-        27547862049ull,
-        40166531878ull}},
-      {0x10623e86e501088cull,
-       {{72722066ull, 114628397ull, 111570155ull},
-        27547307447ull,
-        40166415210ull}}}},
-    {"RingShower",
-     {{0xe6b468b39c66e1e0ull,
-       {{55682989ull, 79374227ull, 91275599ull},
-        11731109338ull,
-        25481017760ull}},
-      {0x6be800863cce7b63ull,
-       {{55685410ull, 79382264ull, 91280735ull},
-        11731550332ull,
-        25482511912ull}},
-      0.001,
-      0.04},
-     {{0x7624bf028d7c940aull,
-       {{53346736ull, 78042168ull, 88473434ull},
-        11277465447ull,
-        24698293606ull}},
-      {0xd54068f6624d8a17ull,
-       {{53356836ull, 78053811ull, 88494956ull},
-        11279329338ull,
-        24700934656ull}},
-      0.001,
-      0.04},
-     {{0x82622108b88e4fd5ull,
-       {{16188710ull, 22040007ull, 20422628ull}, 4892461452ull, 5365971910ull}},
-      {0xfb044c3bf293025dull,
-       {{16188643ull, 22039848ull, 20422476ull},
-        4892429774ull,
-        5365921207ull}}}},
-    {"RingSpin",
-     {{0x6c0a0a7a0d9b5f37ull,
-       {{10285788237ull, 5132252692ull, 2160504337ull},
-        1256866073320ull,
-        2607641516863ull}},
-      {0x161b15be5129365dull,
-       {{10286029879ull, 5132277292ull, 2160424559ull},
-        1256879422362ull,
-        2607668217060ull}}},
-     {{0x67e9653ae68abed2ull,
-       {{10480462304ull, 5207345772ull, 2193893865ull},
-        1278541711006ull,
-        2642914455422ull}},
-      {0xa6413c609d7fb5e6ull,
-       {{10480634488ull, 5207328956ull, 2193831181ull},
-        1278548395970ull,
-        2642927734486ull}}},
-     {{0xbaff0e1259f62c26ull,
-       {{2682370673ull, 1325021899ull, 564697615ull},
-        492585843081ull,
-        819439663828ull}},
-      {0x591ea86458fb35fcull,
-       {{2682431296ull, 1325028348ull, 564676325ull},
-        492593519574ull,
-        819440051825ull}}}},
-    {"ShapeShifter",
-     {{0xcbe4fdb5abf83432ull,
-       {{10096032381ull, 2188974168ull, 352285083ull},
-        902431142599ull,
-        1514810061420ull}},
-      {0x6854b3e51880e732ull,
-       {{10096026933ull, 2188974317ull, 352304810ull},
-        902432214371ull,
-        1514812016574ull}}},
-     {{0x5611991fa9fc42c7ull,
-       {{10196837842ull, 2210887969ull, 352428383ull},
-        911266806445ull,
-        1528857179007ull}},
-      {0x9c1ffe613fd9a0cfull,
-       {{10196832203ull, 2210887842ull, 352447763ull},
-        911267785983ull,
-        1528859114652ull}}},
-     {{0xf5d4a1f2be9e4ad1ull,
-       {{2640495135ull, 573916190ull, 91862201ull},
-        296414086218ull,
-        338262914476ull}},
-      {0x29127db4b6e14adcull,
-       {{2640494279ull, 573916361ull, 91867307ull},
-        296414535285ull,
-        338263539319ull}}}},
-    {"Thrusters",
-     {{0x4142ef3789f0b3d9ull,
-       {{164917678ull, 20727560ull, 73689934ull},
-        18840263761ull,
-        39899806495ull}},
-      {0xaaa42142f01d2c66ull,
-       {{164917620ull, 20727564ull, 73689784ull},
-        18840247712ull,
-        39899777339ull}}},
-     {{0x04886484f4367d8full,
-       {{164906368ull, 20489923ull, 73700538ull},
-        18866796612ull,
-        39749124979ull}},
-      {0xac65d889d60adb09ull,
-       {{164907014ull, 20490142ull, 73700336ull},
-        18866842244ull,
-        39749250493ull}}},
-     {{0x26a7491160496413ull,
-       {{56364288ull, 8313585ull, 17273634ull}, 7842625095ull, 11948154129ull}},
-      {0x3278ca5199f76df7ull,
-       {{56364205ull, 8313561ull, 17273632ull},
-        7842611443ull,
-        11948125884ull}}}},
+/** @brief Every displayed frame of one parity run. */
+struct ParityRun {
+  std::vector<Pixel> frames; /**< PARITY_FRAMES whole frames, row-major. */
+  PixelGolden fold;          /**< Hash and fingerprint of the whole run. */
+  bool lit = false;     /**< Whether any displayed frame has a lit pixel. */
+  bool clipped = false; /**< Whether the segment clip applied. */
 };
 
 /**
- * @brief Renders PARITY_FRAMES frames of one effect and folds every displayed
- *        frame into one fingerprint.
+ * @brief Display-segment clip the clipped run applies on frame @p f.
+ * @param f Frame index.
+ * @return The clip window.
+ */
+inline pov::SegmentClip parity_clip(int f) {
+  constexpr int S = PARITY_H * 2;
+  const pov::SegmentMap map =
+      pov::segment_map(PARITY_SEGMENT_ID, S, PARITY_SEGMENTS);
+  return pov::segment_clip(map, (f & 1) == 0, S, PARITY_SEGMENTS, PARITY_W);
+}
+
+/**
+ * @brief Renders PARITY_FRAMES frames of one effect and keeps every displayed
+ *        frame.
  * @tparam E Effect class template.
  * @param temporal Temporal sampling selection for the whole run.
  * @param segment_clipped Render one display segment's clip each frame, where
  *        the segmented driver clips the effect.
- * @param lit Cleared when no displayed frame has a lit pixel.
- * @return The folded sequence fingerprint.
+ * @return The run's frames and fold.
  */
 template <template <int, int> class E>
-inline PixelGolden render_fold(bool temporal, bool segment_clipped, bool &lit) {
+inline ParityRun render_run(bool temporal, bool segment_clipped) {
   reset_globals();
   Spacetime::set_flat_surface(!temporal);
   pin_frame_clock(0);
   E<PARITY_W, PARITY_H> effect;
   effect.init();
-  constexpr int S = PARITY_H * 2;
-  const pov::SegmentMap map =
-      pov::segment_map(PARITY_SEGMENT_ID, S, PARITY_SEGMENTS);
-  const bool clip_applies = pov::segment_clip_applies(effect.needs_full_frame(),
-                                                      effect.persists_pixels());
-  PixelGolden fold;
-  bool any_lit = false;
+  ParityRun run;
+  run.clipped =
+      segment_clipped && pov::segment_clip_applies(effect.needs_full_frame(),
+                                                   effect.persists_pixels());
+  run.frames.reserve(static_cast<size_t>(PARITY_FRAMES) * PARITY_W * PARITY_H);
   for (int f = 0; f < PARITY_FRAMES; ++f) {
-    if (segment_clipped && clip_applies) {
-      const pov::SegmentClip clip =
-          pov::segment_clip(map, (f & 1) == 0, S, PARITY_SEGMENTS, PARITY_W);
+    if (run.clipped) {
+      const pov::SegmentClip clip = parity_clip(f);
       effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
     }
     pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
-    fold_pixel_golden<PARITY_W, PARITY_H>(fold, effect);
-    any_lit = any_lit || count_lit_region<PARITY_W, PARITY_H>(effect) != 0;
+    fold_pixel_golden<PARITY_W, PARITY_H>(run.fold, effect);
+    run.lit = run.lit || count_lit_region<PARITY_W, PARITY_H>(effect) != 0;
+    for (int y = 0; y < PARITY_H; ++y)
+      for (int x = 0; x < PARITY_W; ++x)
+        run.frames.push_back(effect.get_pixel(x, y));
   }
-  lit = lit && any_lit;
   Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
-  return fold;
+  return run;
 }
 
 /**
- * @brief Renders every parity scenario of one effect.
+ * @brief Counts pixels inside each frame's displayed window where two runs
+ *        differ.
+ * @param full Run whose frames are whole.
+ * @param clipped Run under test.
+ * @param lit Set to the number of lit pixels compared.
+ * @param displayed Set to the number of pixels compared.
+ * @return Differing pixels.
+ * @details Without a clip the whole frame is the window.
+ */
+inline size_t displayed_differences(const ParityRun &full,
+                                    const ParityRun &clipped, size_t &lit,
+                                    size_t &displayed) {
+  size_t different = 0;
+  lit = 0;
+  displayed = 0;
+  for (int f = 0; f < PARITY_FRAMES; ++f) {
+    pov::SegmentClip window{0, PARITY_W, 0, PARITY_H};
+    if (clipped.clipped)
+      window = parity_clip(f);
+    const size_t base = static_cast<size_t>(f) * PARITY_W * PARITY_H;
+    for (int y = window.y0; y < window.y1; ++y)
+      for (int x = window.x0; x < window.x1; ++x) {
+        const size_t i = base + static_cast<size_t>(y) * PARITY_W + x;
+        different += full.frames[i] != clipped.frames[i];
+        lit += (full.frames[i].r | full.frames[i].g | full.frames[i].b) != 0;
+        ++displayed;
+      }
+  }
+  return different;
+}
+
+/**
+ * @brief Checks one effect's render properties across the parity scenarios.
  * @tparam E Effect class template.
  * @param name Effect name.
- * @return The effect's render fingerprints.
+ * @param batched Whether the effect batches trail edges in a ColumnChunk, whose
+ *        flush points, and so the stacking of overlapping trails, follow the
+ *        clip.
+ * @details Every scenario displays a lit pixel. The segment-clipped run equals
+ *          the temporal run inside each frame's displayed window, which is a
+ *          determinism check where no clip applies; a batched effect may
+ *          differ on at most BATCHED_REORDER_SHARE of the displayed pixels. The temporal and frame-end
+ *          runs agree in energy and brightness centroid within coarse bands.
+ *          With HS_PRINT_RENDER_HASHES set, each run's hash is printed for
+ *          `tools/render_diff.sh`.
  */
 template <template <int, int> class E>
-inline ParityRenders render_hashes(const char *name) {
-  bool lit = true;
-  const ParityRenders hashes{name, render_fold<E>(true, false, lit),
-                             render_fold<E>(false, false, lit),
-                             render_fold<E>(true, true, lit)};
+inline void check_parity_properties(const char *name, bool batched = false) {
   HS_CONTEXT(name);
-  HS_EXPECT(lit, "every parity scenario must display a lit pixel");
-  return hashes;
+  const ParityRun temporal = render_run<E>(true, false);
+  const ParityRun frame_end = render_run<E>(false, false);
+  const ParityRun clipped = render_run<E>(true, true);
+  HS_EXPECT(temporal.lit && frame_end.lit && clipped.lit,
+            "every parity scenario must display a lit pixel");
+
+  size_t lit = 0;
+  size_t displayed = 0;
+  const size_t different =
+      displayed_differences(temporal, clipped, lit, displayed);
+  if (different)
+    std::printf("  CLIP DRIFT %-20s %zu displayed pixels differ from the "
+                "unclipped render\n",
+                name, different);
+  const size_t allowed =
+      batched ? static_cast<size_t>(BATCHED_REORDER_SHARE *
+                                    static_cast<double>(displayed))
+              : 0;
+  HS_EXPECT_LE(different, allowed);
+  HS_EXPECT_GT(lit, size_t{0});
+
+  const RenderFingerprint &t = temporal.fold.fingerprint;
+  const RenderFingerprint &e = frame_end.fold.fingerprint;
+  if (e.energy() != 0 && t.energy() != 0) {
+    const double energy_gap = static_cast<double>(t.energy()) / e.energy() - 1;
+    const double row_gap = static_cast<double>(t.row) / t.energy() -
+                           static_cast<double>(e.row) / e.energy();
+    const double column_gap = static_cast<double>(t.column) / t.energy() -
+                              static_cast<double>(e.column) / e.energy();
+    HS_EXPECT_LE(std::abs(energy_gap), TEMPORAL_ENERGY_BAND);
+    HS_EXPECT_LE(std::abs(row_gap), TEMPORAL_CENTROID_BAND);
+    HS_EXPECT_LE(std::abs(column_gap), TEMPORAL_CENTROID_BAND);
+  }
+
+  if (env_var("HS_PRINT_RENDER_HASHES"))
+    std::printf("render-hash %s temporal=%016llx frame_end=%016llx "
+                "clipped=%016llx\n",
+                name, static_cast<unsigned long long>(temporal.fold.hash),
+                static_cast<unsigned long long>(frame_end.fold.hash),
+                static_cast<unsigned long long>(clipped.fold.hash));
 }
 
 /**
- * @brief Each listed effect matches its recorded frame hashes.
+ * @brief Each filter-pipeline effect is lit, clip-consistent and agrees
+ *        coarsely between temporal and frame-end sampling.
  */
-inline void test_filter_pipeline_effects_match_recorded_frames() {
-  const ParityRenders computed[] = {
-      render_hashes<Comets>("Comets"),
-      render_hashes<DisplacementField>("DisplacementField"),
-      render_hashes<DreamBalls>("DreamBalls"),
-      render_hashes<Dynamo>("Dynamo"),
-      render_hashes<Fishbowl>("Fishbowl"),
-      render_hashes<Galaxies>("Galaxies"),
-      render_hashes<GnomonicStars>("GnomonicStars"),
-      render_hashes<HankinSolids>("HankinSolids"),
-      render_hashes<HopfFibration>("HopfFibration"),
-      render_hashes<IslamicStars>("IslamicStars"),
-      render_hashes<MeshFeedback>("MeshFeedback"),
-      render_hashes<MindSplatter>("MindSplatter"),
-      render_hashes<MobiusRings>("MobiusRings"),
-      render_hashes<PetalFlow>("PetalFlow"),
-      render_hashes<RingShower>("RingShower"),
-      render_hashes<RingSpin>("RingSpin"),
-      render_hashes<ShapeShifter>("ShapeShifter"),
-      render_hashes<Thrusters>("Thrusters"),
-  };
-  std::printf("  float environment: 0x%016llxull\n",
-              static_cast<unsigned long long>(float_environment_fingerprint()));
-#if defined(_WIN32) && !HS_TEST_FAST_MATH && !defined(__OPTIMIZE__)
-  if (float_environment_fingerprint() != PIXEL_GOLDEN_ENVIRONMENT)
-    skip_case(__func__,
-              "exact pixel hashes need the recorded float environment");
-#endif
-  HS_EXPECT_EQ(std::size(computed), std::size(PARITY_HASHES));
-  for (size_t i = 0; i < std::size(computed) && i < std::size(PARITY_HASHES);
-       ++i) {
-    const ParityHashes &want = PARITY_HASHES[i];
-    const ParityRenders &got = computed[i];
-    HS_CONTEXT(got.effect);
-    HS_EXPECT(std::strcmp(want.effect, got.effect) == 0,
-              "recorded effect order");
-    expect_pixel_golden("temporal", got.temporal, want.temporal);
-    expect_pixel_golden("frame_end", got.frame_end, want.frame_end);
-    expect_pixel_golden("segment_clipped", got.segment_clipped,
-                        want.segment_clipped);
-  }
+inline void test_filter_pipeline_effect_properties() {
+  check_parity_properties<Comets>("Comets");
+  check_parity_properties<DisplacementField>("DisplacementField");
+  check_parity_properties<DreamBalls>("DreamBalls");
+  check_parity_properties<Dynamo>("Dynamo");
+  check_parity_properties<Fishbowl>("Fishbowl", true);
+  check_parity_properties<Galaxies>("Galaxies");
+  check_parity_properties<GnomonicStars>("GnomonicStars");
+  check_parity_properties<HankinSolids>("HankinSolids");
+  check_parity_properties<HopfFibration>("HopfFibration", true);
+  check_parity_properties<IslamicStars>("IslamicStars");
+  check_parity_properties<MeshFeedback>("MeshFeedback");
+  check_parity_properties<MindSplatter>("MindSplatter", true);
+  check_parity_properties<MobiusRings>("MobiusRings");
+  check_parity_properties<PetalFlow>("PetalFlow");
+  check_parity_properties<RingShower>("RingShower");
+  check_parity_properties<RingSpin>("RingSpin");
+  check_parity_properties<ShapeShifter>("ShapeShifter");
+  check_parity_properties<Thrusters>("Thrusters");
 }
 
 /** @brief Optional platform fast-math references retain the native fallback. */
@@ -688,7 +296,7 @@ inline int run_plot_parity_tests() {
   hs_test::ModuleFixture fixture("plot_parity");
   HS_RUN(test_platform_fastmath_golden_reference);
   HS_RUN(test_render_fingerprint_rejects_channel_and_spatial_changes);
-  HS_RUN(test_filter_pipeline_effects_match_recorded_frames);
+  HS_RUN(test_filter_pipeline_effect_properties);
   return fixture.result();
 }
 

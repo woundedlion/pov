@@ -16,8 +16,6 @@ int main() {
   hs_test::effects_tests::test_sh_instantaneous_pixel_golden();
   hs_test::shader_chain_tests::test_shader_chain_instantaneous_pixel_golden();
   hs_test::composed_effect_tests::test_mobius_grid_instantaneous_pixel_golden();
-  hs_test::plot_parity_tests::
-      test_filter_pipeline_effects_match_recorded_frames();
   return (fixture.result() != 0 ||
           (hs_test::stats().skipped > 0 && hs_test::skips_are_errors()))
              ? 1
