@@ -179,7 +179,7 @@ struct PatternModulatedPalette {
    * @param coordinate Typed field coordinate.
    * @return Modulated straight-alpha color. */
   Color4 get(float value, const typename Field::Coordinate &coordinate) const {
-    assert(palette != nullptr);
+    HS_AUDIT_CHECK(palette != nullptr);
     const Color4 color = palette->get(value);
     if constexpr (requires { ColorOp::is_identity(mechanic); }) {
       if (ColorOp::is_identity(mechanic))

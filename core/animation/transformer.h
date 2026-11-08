@@ -217,9 +217,10 @@ public:
              "TransformerPool: reclaimed storage moved");
     storage_end = arena.get_offset();
 #ifndef NDEBUG
-    assert(stamp.source_arena == &arena &&
-           "TransformerPool::reclaim_storage() on a different arena than "
-           "init_storage() allocated from");
+    HS_AUDIT_CHECK(
+        stamp.source_arena == &arena,
+        "TransformerPool::reclaim_storage() on a different arena than "
+        "init_storage() allocated from");
     stamp.record(arena);
 #endif
   }

@@ -13,7 +13,6 @@
 #include <limits>
 #include <type_traits>
 #include "core/platform/platform.h"
-#include <cassert>
 
 namespace math {
 
@@ -41,7 +40,7 @@ template <typename T> inline T wrap_positive(T value, T period) {
 
 /**
  * @brief Wraps a floating-point value around a modulo base (m).
- * @details Requires m > 0 (debug assert); under NDEBUG a non-positive or NaN
+ * @details Requires m > 0 (audit check); without audits a non-positive or NaN
  *   base takes the same floor. An all-integral call is rejected; use the exact
  *   `wrap(int, int)` overload.
  * @tparam T The type of the value being wrapped (e.g., float).
@@ -57,7 +56,7 @@ inline std::common_type_t<T, U> wrap(T x, U m) {
                 "wrap(integral, integral) loses precision past 2^53 via the "
                 "double fmod path; use the exact wrap(int, int) overload");
   using R = std::common_type_t<T, U>;
-  assert(m > 0);
+  HS_AUDIT_CHECK(m > 0);
   // fmax(NaN, y) == y also floors a NaN base.
   const R mm = std::fmax(static_cast<R>(m), std::numeric_limits<R>::min());
   return wrap_positive(static_cast<R>(x), mm);
@@ -95,7 +94,7 @@ inline int wrap(int x, int m) {
  * @return The wrapped value in the range [0, W).
  */
 inline int fast_wrap(int x, int W) {
-  assert(x >= -W && x < 2 * W);
+  HS_AUDIT_CHECK(x >= -W && x < 2 * W);
   if (x >= W)
     return x - W;
   if (x < 0)
@@ -114,7 +113,7 @@ inline int fast_wrap(int x, int W) {
  */
 inline float fast_wrap(float x, int W) {
   const float period = static_cast<float>(W);
-  assert(x >= -period && x < 2.0f * period);
+  HS_AUDIT_CHECK(x >= -period && x < 2.0f * period);
   if (x >= period)
     return x - period;
   if (x < 0.0f) {
@@ -133,7 +132,7 @@ inline float fast_wrap(float x, int W) {
  * @return The shortest distance in [0, effective domain length / 2].
  */
 inline float shortest_distance(float a, float b, float m) {
-  assert(m > 0.0f);
+  HS_AUDIT_CHECK(m > 0.0f);
   m = std::fmax(m, std::numeric_limits<float>::min());
   // Double-fmod for full range reduction of an arbitrary a - b into [0, m).
   float d = std::fmod(std::fmod(a - b, m) + m, m);

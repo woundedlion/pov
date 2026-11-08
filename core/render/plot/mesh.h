@@ -762,7 +762,7 @@ struct Mesh {
      * @param flush Chunk draw operation. */
     template <typename Flush>
     HS_HOT_INLINE void begin_chain(size_t vertices, const Flush &flush) {
-      assert(vertices <= Capacity);
+      HS_AUDIT_CHECK(vertices <= Capacity);
       if (count + vertices > Capacity)
         flush();
       tail_source = -1;

@@ -213,8 +213,9 @@ private:
    * @param v Source point.
    * @param age Incoming age in frames. */
   void record(const math::Vector &v, float age) {
-    assert(age >= 0.0f &&
-           "World::Trails: a negative age narrows ttl past the uint8_t range");
+    HS_AUDIT_CHECK(
+        age >= 0.0f,
+        "World::Trails: a negative age narrows ttl past the uint8_t range");
     ++recorded_samples;
     // round, not truncate (ttl is an integer byte)
     int ttl = lifetime - static_cast<int>(age + 0.5f);

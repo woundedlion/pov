@@ -124,7 +124,7 @@ public:
    */
   const T &operator[](size_t i) const {
     check_alive();
-    assert(i < element_count);
+    HS_AUDIT_CHECK(i < element_count);
     return elements[i];
   }
   /**

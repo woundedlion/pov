@@ -5,7 +5,6 @@
 #pragma once
 
 #include "core/color/pixel.h"
-#include <cassert>
 
 /**
  * @file layer_composite.h
@@ -31,7 +30,7 @@ struct LayerComposite {
    *        in [0, 1].
    */
   void add(const Pixel &color, float coverage) {
-    assert(coverage >= 0.0f && coverage <= 1.0f);
+    HS_AUDIT_CHECK(coverage >= 0.0f && coverage <= 1.0f);
     const float weight = remaining * coverage;
     red += static_cast<float>(color.r) * weight;
     green += static_cast<float>(color.g) * weight;
@@ -46,7 +45,7 @@ struct LayerComposite {
    *        in [0, 1].
    */
   void add(const float (&rgb)[3], float coverage) {
-    assert(coverage >= 0.0f && coverage <= 1.0f);
+    HS_AUDIT_CHECK(coverage >= 0.0f && coverage <= 1.0f);
     const float weight = remaining * coverage;
     red += rgb[0] * weight;
     green += rgb[1] * weight;

@@ -661,6 +661,14 @@ inline const Case *all_cases(int &n) {
            case_modulation_missing_cube_capacity,
            "core/render/pullback/modulation.h",
            "(Baked) modulation owner has no baked cube capacity"},
+          {"modulation_retain_table_size", case_modulation_retain_table_size,
+           "core/render/pullback/modulation_temporal.h",
+           "(table.size() == Pattern::SphereLutView::SIZE) modulation retain: "
+           "table is not one sphere cube"},
+          {"modulation_retain_linear_cube", case_modulation_retain_linear_cube,
+           "core/render/pullback/modulation_temporal.h",
+           "(destination.cube.linear_data == nullptr) modulation retain: a "
+           "linear cube cannot be retained"},
           {"modulation_missing_endpoint", case_modulation_missing_endpoint,
            "core/render/pullback/operators.h",
            "(source || params.modulation.source == Pattern::SourceKind::DISPLACEMENT || "

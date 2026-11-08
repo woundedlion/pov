@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0
-"""Check literal death-pin uniqueness and cross-directory breadcrumb aliases.
+"""Check literal death-pin uniqueness and cross-directory breadcrumb aliases,
+and reject raw assert() in guard sources.
 
 With --new-guards BASE TIP, instead fail when TIP adds an always-on guard whose
 text BASE contains nowhere and no death case pins.
@@ -75,6 +76,16 @@ def guard_sites(text):
     direct = r"(?:hs::)?check_fail\s*\(\s*HS_CHECK_SITE\s*\(\s*(" + STRING + r")\s*\)\s*,\s*((?:" + STRING + r"\s*)+)"
     for match in re.finditer(direct, text):
         yield match.start(), "(" + literals(match[1]) + ") " + literals(match[2])
+
+
+RAW_ASSERT = re.compile(r"(?<!\w)assert\s*\(|#\s*include\s*<(?:cassert|assert\.h)>")
+
+
+def raw_assert_lines(text):
+    """Line numbers of raw assert() calls and <cassert> includes outside comments and strings."""
+    code = re.sub(STRING + r"|//[^\n]*|/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m[0]), text,
+                  flags=re.S)
+    return [code.count("\n", 0, m.start()) + 1 for m in RAW_ASSERT.finditer(code)]
 
 
 def compact(text):
@@ -196,12 +207,20 @@ def main():
     case_pins = pins((root / "tests/test_death.h").read_text(encoding="utf-8"))
     pinned_names = {Path(file).name for _, file, _ in case_pins}
     sources = {}
+    asserts = []
     directories = (root / "tests/guard_directories.txt").read_text(encoding="utf-8").splitlines()
     for directory in directories:
         for path in (root / directory).rglob("*"):
-            if path.is_file() and path.name in pinned_names:
-                sources[path.relative_to(root).as_posix()] = list(
-                    guard_texts(path.read_text(encoding="utf-8")))
+            if not path.is_file() or not path.name.endswith(SOURCE_SUFFIXES):
+                continue
+            text = path.read_text(encoding="utf-8")
+            name = path.relative_to(root).as_posix()
+            asserts += [f"{name}:{line}" for line in raw_assert_lines(text)]
+            if path.name in pinned_names:
+                sources[name] = list(guard_texts(text))
+    if asserts:
+        raise SystemExit("raw assert vanishes under NDEBUG on device; use HS_CHECK, or HS_AUDIT_CHECK "
+                         "on hot paths:\n  " + "\n  ".join(asserts))
     for name, file, text in case_pins:
         for other, candidates in sources.items():
             if other == file or Path(other).name != Path(file).name:

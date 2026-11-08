@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include <cassert>
 #include <utility>
 #include <algorithm>
 #include <cmath>

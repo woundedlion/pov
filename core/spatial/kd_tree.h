@@ -9,7 +9,6 @@
  * @brief KDTree and its nearest-point query structures.
  */
 
-#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -69,7 +68,7 @@ public:
      *  @param i Rank in [0, count).
      *  @return The i-th nearest neighbor. */
     const Neighbor &operator[](size_t i) const {
-      assert(i < count && "KDTree::Neighbors index out of range");
+      HS_AUDIT_CHECK(i < count, "KDTree::Neighbors index out of range");
       return values[i];
     }
     /** @brief Iterator to the nearest neighbor.
@@ -270,7 +269,7 @@ private:
                                                    : (target.z - node.point.z);
         const int far = axis_dist < 0 ? node.right : node.left;
         if (far != -1) {
-          assert(waiting < MAX_DEPTH);
+          HS_AUDIT_CHECK(waiting < MAX_DEPTH);
           pending[waiting++] = {far, axis_dist};
         }
         node_idx = axis_dist < 0 ? node.left : node.right;

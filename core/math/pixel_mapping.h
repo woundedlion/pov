@@ -174,7 +174,7 @@ template <int W, int H> struct TrigLUT {
    * @return cos(2 pi x / W).
    */
   static float cos_theta(int x) {
-    assert(x >= 0 && x < W);
+    HS_AUDIT_CHECK(x >= 0 && x < W);
     return cos_theta_data()[x];
   }
   /**
@@ -252,9 +252,9 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
   if (!TrigLUT<W, H>::initialized) {
     TrigLUT<W, H>::init();
   }
-  // Local avoids the comma in TrigLUT<W, H> inside the assert macro.
+  // Local avoids the comma in TrigLUT<W, H> inside the check macro.
   [[maybe_unused]] constexpr int H_VIRT = TrigLUT<W, H>::H_VIRT;
-  assert(x >= 0 && x < W && y >= 0 && y < H_VIRT);
+  HS_AUDIT_CHECK(x >= 0 && x < W && y >= 0 && y < H_VIRT);
   float sp = TrigLUT<W, H>::sin_phi[y];
   return Vector(sp * TrigLUT<W, H>::cos_theta(x), TrigLUT<W, H>::cos_phi[y],
                 sp * TrigLUT<W, H>::sin_theta[x]);
@@ -310,12 +310,12 @@ __attribute__((always_inline)) inline float vector_to_column(const Vector &v) {
  *   bit-exactly invert the exact-trig `pixel_to_vector`.
  * @tparam W The width.
  * @tparam H The height.
- * @param v Unit input vector, checked in debug builds. Callers normalize first:
+ * @param v Unit input vector, checked in audit builds. Callers normalize first:
  *   `phi = acos(v.y)` gives the true latitude only for a unit vector.
  * @return Pixel coordinates; rows in missing caps lie outside [0, H-1].
  */
 template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
-  assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
+  HS_AUDIT_CHECK(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
   PixelCoords p({vector_to_column<W>(v), phi_to_y<H>(phi)});
   return p;

@@ -7,7 +7,6 @@
 /** @file authored_sample.h
  * @brief Authored planar source crossing and material selectors. */
 
-#include <cassert>
 #include <tuple>
 
 #include "core/render/pullback/authored_source.h"
@@ -113,7 +112,7 @@ template <typename Provider> struct Authored : ApproximationDefaults {
                      const Frame &frame, const NoPrepared &) {
     const auto &params = Provider::params(frame);
     const uint8_t mode = params.weight_mode;
-    assert(mode < std::size(params.WEIGHT_IDS));
+    HS_AUDIT_CHECK(mode < std::size(params.WEIGHT_IDS));
     return mode == 0 ? field : field * provenance.value_weight;
   }
 };

@@ -490,8 +490,8 @@ HS_HOT_INLINE inline float blend_unit_hue(float previous, float current,
     return previous;
   if (fraction >= 1.0f)
     return current;
-  assert(previous >= 0.0f && previous < 1.0f && current >= 0.0f &&
-         current < 1.0f);
+  HS_AUDIT_CHECK(previous >= 0.0f && previous < 1.0f && current >= 0.0f &&
+                 current < 1.0f);
   float delta = current - previous;
   if (delta < -0.5f)
     delta += 1.0f;
@@ -694,7 +694,7 @@ accumulate_lift(float lift, float scalar,
 HS_HOT_INLINE inline void
 apply_perceptual_scalar(ColorSample &sample, float scalar,
                         const ColorModulation::Params &mechanic) {
-  assert(mechanic.kind != ColorModulation::Mechanic::OPACITY);
+  HS_AUDIT_CHECK(mechanic.kind != ColorModulation::Mechanic::OPACITY);
   if (mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
     sample.pending_hue = accumulate_hue(sample.pending_hue, scalar, mechanic);
   else
@@ -716,7 +716,7 @@ apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
     scalar = sample.field.path_length;
   else {
     const auto *source = previous ? state.previous : state.current;
-    assert(source);
+    HS_AUDIT_CHECK(source);
     scalar = Modulation::sample(
         *source, Pattern::SphereDirection::admit(sample.field.sphere));
   }
@@ -747,7 +747,7 @@ apply_modulation_pair_in_place(ColorSample &previous, ColorSample &current,
     apply_modulation_in_place(current, state, false);
     return;
   }
-  assert(state.previous && state.current);
+  HS_AUDIT_CHECK(state.previous && state.current);
   const auto DIRECTION = Pattern::SphereDirection::admit(current.field.sphere);
   const auto SCALARS =
       Modulation::sample_pair(*state.previous, *state.current, DIRECTION);
@@ -1133,7 +1133,7 @@ private:
                        const ModulationState &modulation) {
     if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
       return {sample.path_length, sample.path_length};
-    assert(modulation.previous && modulation.current);
+    HS_AUDIT_CHECK(modulation.previous && modulation.current);
     const auto DIRECTION = Pattern::SphereDirection::admit(sample.sphere);
     if (modulation.paired_cube_ready) {
       const auto TAP = Pattern::prepare_sphere_lut_sample(DIRECTION);
@@ -1345,7 +1345,7 @@ public:
           const float SCALAR = [&] {
             if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
               return sample.path_length;
-            assert(modulation.current);
+            HS_AUDIT_CHECK(modulation.current);
             return Modulation::sample(
                 *modulation.current,
                 Pattern::SphereDirection::admit(sample.sphere));

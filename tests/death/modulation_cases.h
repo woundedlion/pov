@@ -49,6 +49,28 @@ inline void case_modulation_missing_cube_capacity() {
   (void)resources.prepare(config, STATE);
 }
 
+inline void case_modulation_retain_table_size() {
+  static int8_t cube[Pattern::SphereLutView::SIZE] = {};
+  static int8_t table[Pattern::SphereLutView::SIZE] = {};
+  static Pullback::Modulation::Prepared source;
+  static Pullback::Modulation::Prepared destination;
+  source.cube = {cube, true};
+  (void)Pullback::Modulation::retain(&source, destination, table);
+  (void)Pullback::Modulation::retain(
+      &source, destination, std::span<int8_t>(table, opaque(size_t{1})));
+}
+inline void case_modulation_retain_linear_cube() {
+  static int8_t cube[Pattern::SphereLutView::SIZE] = {};
+  static int8_t table[Pattern::SphereLutView::SIZE] = {};
+  static float linear[1] = {};
+  static Pullback::Modulation::Prepared source;
+  static Pullback::Modulation::Prepared destination;
+  source.cube = {cube, true};
+  (void)Pullback::Modulation::retain(&source, destination, table);
+  source.cube.linear_data = opaque(static_cast<const float *>(linear));
+  (void)Pullback::Modulation::retain(&source, destination, table);
+}
+
 inline void case_modulation_unknown_kernel() {
   (void)ColorModulation::kernel(
       static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255})));

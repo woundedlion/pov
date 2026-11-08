@@ -84,7 +84,7 @@ public:
    * alpha.
    */
   __attribute__((always_inline)) Pixel get_color(float t) const {
-    assert(colors != nullptr && "BakedPalette::get_color before bake()");
+    HS_AUDIT_CHECK(colors != nullptr, "BakedPalette::get_color before bake()");
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     return sample_color_index(idx);
@@ -96,7 +96,8 @@ public:
    * @return The alpha get() gives for the same index.
    */
   __attribute__((always_inline)) float get_alpha(float t) const {
-    assert(alpha_q16 != nullptr && "BakedPalette::get_alpha before bake()");
+    HS_AUDIT_CHECK(alpha_q16 != nullptr,
+                   "BakedPalette::get_alpha before bake()");
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     const int lo = lut_index_lo(idx);
@@ -110,8 +111,8 @@ public:
   /** @brief Checks whether every baked entry has the same alpha.
    * @return The shared alpha, or no value when the table varies. */
   std::optional<float> constant_alpha() const {
-    assert(alpha_q16 != nullptr &&
-           "BakedPalette::constant_alpha before bake()");
+    HS_AUDIT_CHECK(alpha_q16 != nullptr,
+                   "BakedPalette::constant_alpha before bake()");
     const uint16_t ALPHA = alpha_q16[0];
     for (int index = 1; index < LUT_SIZE; ++index)
       if (alpha_q16[index] != ALPHA)
@@ -125,9 +126,10 @@ public:
    * @return The pixel get() gives for the same index.
    */
   __attribute__((always_inline)) Pixel get_color_unit(float t) const {
-    assert(colors != nullptr && "BakedPalette::get_color_unit before bake()");
+    HS_AUDIT_CHECK(colors != nullptr,
+                   "BakedPalette::get_color_unit before bake()");
     // Also traps NaN: both comparisons fail.
-    assert(t >= 0.0f && t <= 1.0f);
+    HS_AUDIT_CHECK(t >= 0.0f && t <= 1.0f);
     return sample_color_index(t * (LUT_SIZE - 1));
   }
 
@@ -139,9 +141,9 @@ public:
    */
   __attribute__((always_inline)) void
   get_color_unit_scaled(float t, float scale, float (&rgb)[3]) const {
-    assert(colors != nullptr &&
-           "BakedPalette::get_color_unit_scaled before bake()");
-    assert(t >= 0.0f && t <= 1.0f);
+    HS_AUDIT_CHECK(colors != nullptr,
+                   "BakedPalette::get_color_unit_scaled before bake()");
+    HS_AUDIT_CHECK(t >= 0.0f && t <= 1.0f);
     const float IDX = t * (LUT_SIZE - 1);
     const int LO = std::min(lut_index_lo(IDX), LUT_SIZE - 2);
     const float FRAC = (IDX - static_cast<float>(LO)) * scale;
@@ -162,8 +164,8 @@ public:
    */
   __attribute__((always_inline)) bool
   same_entries(const BakedPalette &other) const {
-    assert(colors != nullptr && other.colors != nullptr &&
-           "BakedPalette::same_entries before bake()");
+    HS_AUDIT_CHECK(colors != nullptr && other.colors != nullptr,
+                   "BakedPalette::same_entries before bake()");
     return std::memcmp(colors, other.colors, LUT_SIZE * sizeof(Pixel)) == 0 &&
            std::memcmp(alpha_q16, other.alpha_q16,
                        LUT_SIZE * sizeof(uint16_t)) == 0;
@@ -185,8 +187,8 @@ private:
   }
 
   __attribute__((always_inline)) void sample_into(float t, Color4 &out) const {
-    assert(colors != nullptr && alpha_q16 != nullptr &&
-           "BakedPalette::get before bake()");
+    HS_AUDIT_CHECK(colors != nullptr && alpha_q16 != nullptr,
+                   "BakedPalette::get before bake()");
     // Clamp before the int cast: static_cast<int>(NaN) is UB. hs::clamp maps NaN
     // to the hi bound (last entry) and guarantees idx >= 0.
     float idx =

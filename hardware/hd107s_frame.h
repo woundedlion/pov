@@ -14,7 +14,6 @@
  */
 
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -157,7 +156,7 @@ public:
    *          Black uses brightness 31 with all channels zero.
    */
   HS_O3_FN inline void pack_pixel(int index, const Pixel &p) {
-    assert(index >= 0 && index < N);
+    HS_AUDIT_CHECK(index >= 0 && index < N);
     uint8_t *dest = buffer + 4 + index * 4;
 
     uint32_t r = p.r;

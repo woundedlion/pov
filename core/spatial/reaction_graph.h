@@ -17,7 +17,6 @@
 #include "core/platform/platform.h"
 #include "core/math/3dmath.h"
 #include "core/memory.h"
-#include <cassert>
 #include <cmath>
 
 namespace ReactionGraph {
@@ -208,7 +207,7 @@ public:
    */
   static __attribute__((always_inline)) Projection
   project(const math::Vector &p) {
-    assert(std::fabs(p.x * p.x + p.y * p.y + p.z * p.z - 1.0f) < 1e-3f);
+    HS_AUDIT_CHECK(std::fabs(p.x * p.x + p.y * p.y + p.z * p.z - 1.0f) < 1e-3f);
     float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);
     int face = 0;
     float u = 0, v = 0;

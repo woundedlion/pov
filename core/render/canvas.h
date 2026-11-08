@@ -4,12 +4,9 @@
  */
 #pragma once
 
-// platform.h defines NDEBUG on device; include before <cassert> so assert
-// stripping does not depend on include order.
 #include "core/platform/platform.h"
 #include <cstring>
 #include <cmath>
-#include <cassert>
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
@@ -217,8 +214,7 @@ public:
    *       overrides_get_pixel() to return true.
    */
   virtual const Pixel &get_pixel(int x, int y) const {
-    // Stripped under NDEBUG.
-    assert(x >= 0 && x < frame_width && y >= 0 && y < frame_height);
+    HS_AUDIT_CHECK(x >= 0 && x < frame_width && y >= 0 && y < frame_height);
     return bufs[prev.load(std::memory_order_relaxed)][y * frame_width + x];
   }
 
@@ -486,9 +482,9 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int x, int y) {
-    // Bounds assertions are stripped on device.
-    assert(x >= 0 && x < effect.frame_width && y >= 0 &&
-           y < effect.frame_height);
+    // Bounds checks are audits, compiled out on device.
+    HS_AUDIT_CHECK(x >= 0 && x < effect.frame_width && y >= 0 &&
+                   y < effect.frame_height);
     return effect.bufs[effect.cur.load(std::memory_order_relaxed)]
                       [y * effect.frame_width + x];
   }
@@ -500,8 +496,8 @@ public:
    * @return Copy of the Pixel from the previous frame.
    */
   inline Pixel prev(int x, int y) const {
-    assert(x >= 0 && x < effect.frame_width && y >= 0 &&
-           y < effect.frame_height);
+    HS_AUDIT_CHECK(x >= 0 && x < effect.frame_width && y >= 0 &&
+                   y < effect.frame_height);
     return effect.bufs[effect.prev.load(std::memory_order_relaxed)]
                       [y * effect.frame_width + x];
   }
@@ -532,7 +528,7 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int xy) {
-    assert(xy >= 0 && xy < effect.frame_width * effect.frame_height);
+    HS_AUDIT_CHECK(xy >= 0 && xy < effect.frame_width * effect.frame_height);
     return effect.bufs[effect.cur.load(std::memory_order_relaxed)][xy];
   }
 

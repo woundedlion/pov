@@ -11,7 +11,6 @@
  */
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <type_traits>
@@ -459,7 +458,7 @@ public:
    * @return The bracketing samples and the weight of the right one.
    */
   constexpr Longitude longitude_bounded(const Ring &ring, int x) const {
-    assert(x >= 0 && x < W);
+    HS_AUDIT_CHECK(x >= 0 && x < W);
     const int position = x * ring.samples;
     const int left = position / W;
     const int phase = position - left * W;
@@ -525,8 +524,9 @@ private:
    * out-of-range rows are resolved by `pole_tap`.
    */
   HS_HOT_INLINE static Footprint bilinear_footprint(float x, float y) {
-    assert(x >= -static_cast<float>(W) && x < 2.0f * static_cast<float>(W));
-    assert(std::fabs(y) < ROW_LIMIT);
+    HS_AUDIT_CHECK(x >= -static_cast<float>(W) &&
+                   x < 2.0f * static_cast<float>(W));
+    HS_AUDIT_CHECK(std::fabs(y) < ROW_LIMIT);
     if (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
       if (y < Geometry::NORTH_POLE_ROW || y > Geometry::SOUTH_POLE_ROW)
         math::pole_wrap<W, H, HOffset>(x, y);

@@ -191,7 +191,7 @@ public:
    */
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha) {
-    assert(age >= 0.0f && alpha >= 0.0f);
+    HS_AUDIT_CHECK(age >= 0.0f && alpha >= 0.0f);
     HS_AUDIT_CHECK(
         prepared_for(cv),
         "DirectAntiAliasSink: prepare current canvas before plotting");
@@ -249,8 +249,8 @@ public:
       plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
       return;
     }
-    assert(age >= 0.0f && alpha >= 0.0f);
-    assert(x >= -W && x < 2 * W);
+    HS_AUDIT_CHECK(age >= 0.0f && alpha >= 0.0f);
+    HS_AUDIT_CHECK(x >= -W && x < 2 * W);
     HS_AUDIT_CHECK(
         prepared_for(cv),
         "DirectAntiAliasSink: prepare current canvas before integer plotting");

@@ -7,7 +7,6 @@
 /** @file field.h
  * @brief Typed, immutable scalar-field adapters. */
 
-#include <cassert>
 #include <cmath>
 #include <utility>
 #include "core/pattern/types.h"
@@ -35,7 +34,7 @@ HS_HOT_INLINE inline float advance_turn_phase(float phase, float turns) {
  * @param value Raw source sample.
  * @return Sample in [-1, 1]. */
 HS_HOT_INLINE inline float bounded_scalar(float value) {
-  assert(finite(value));
+  HS_AUDIT_CHECK(finite(value));
   return hs::clamp(value, -1.0f, 1.0f);
 }
 

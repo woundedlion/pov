@@ -5,7 +5,6 @@
 #pragma once
 
 #include <array>
-#include <cassert>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
@@ -175,7 +174,7 @@ blend_color_samples_in_place(const ColorSample &a, ColorSample &b,
   }
   if (fraction >= 1.0f)
     return;
-  assert(!a.has_cached_lab && !b.has_cached_lab);
+  HS_AUDIT_CHECK(!a.has_cached_lab && !b.has_cached_lab);
   const bool SAME_BASE = a.color.color == b.color.color &&
                          a.hue_rotation == b.hue_rotation &&
                          a.hue_rotation_gamut == b.hue_rotation_gamut &&

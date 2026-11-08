@@ -127,7 +127,7 @@ struct SphereCells {
    * @param prepared Immutable cell pattern.
    * @return Scalar in [-1, 1]. */
   static float sample(const Coordinate &coordinate, const Prepared &prepared) {
-    assert(prepared.count >= 4 && prepared.count <= MAX_CELLS);
+    HS_AUDIT_CHECK(prepared.count >= 4 && prepared.count <= MAX_CELLS);
     const auto &point = coordinate.value();
     size_t nearest = 0;
     float nearest_distance = math::distance_squared(point, prepared.centers[0]);

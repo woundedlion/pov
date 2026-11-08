@@ -11,7 +11,6 @@
  */
 
 #include <cmath>
-#include <cassert>
 #include <array>
 #include <cstdlib>
 #include <utility>
@@ -227,7 +226,7 @@ inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
 HS_HOT_FLASH_MEMBER inline math::Vector
 spherical_harmonic_gradient_unchecked(int l, int m, const math::Vector &p,
                                       float N, math::Complex phase) {
-  assert(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l);
+  HS_AUDIT_CHECK(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l);
   math::Complex power(1.0f, 0.0f), previous;
   const math::Complex W(p.x, p.z);
   for (int i = 0; i < m; ++i) {

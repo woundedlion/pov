@@ -10,7 +10,6 @@
 #include "core/color/color_space.h"
 #include "core/math/periodic.h"
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
 
@@ -100,7 +99,7 @@ private:
    */
   template <typename Ensure>
   Pixel sample_with(float amount, Ensure ensure) const {
-    assert(base && "HueRotationRow sampled before bind()");
+    HS_AUDIT_CHECK(base, "HueRotationRow sampled before bind()");
     float t = amount / domain;
     t = cyclic ? math::wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
     float x = t * CELLS;

@@ -269,7 +269,7 @@ inline float sample_cube(const Prepared &prepared,
  * @return Signed scalar in [-1, 1]. */
 inline float sample(const Prepared &prepared,
                     const Pattern::SphereDirection &direction) {
-  assert(prepared.evaluate);
+  HS_AUDIT_CHECK(prepared.evaluate);
   return Pattern::bounded_scalar(prepared.evaluate(prepared, direction));
 }
 /** @brief Samples two immutable endpoints at one admitted direction.

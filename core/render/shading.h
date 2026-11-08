@@ -4,10 +4,7 @@
  */
 #pragma once
 
-// platform.h defines NDEBUG on device; include before <cassert> so assert
-// stripping does not depend on include order.
 #include "core/platform/platform.h"
-#include <cassert>
 
 #include <array>
 #include <limits>
@@ -290,7 +287,7 @@ struct FacePaletteShader {
    * @param frag Fragment whose `v1` is read and whose colour is written.
    */
   void operator()(const math::Vector &, Fragment &frag) const {
-    assert(palette != nullptr);
+    HS_AUDIT_CHECK(palette != nullptr);
     float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
     Pixel c = palette->get_color_unit(t);
     if (counterpart != nullptr)
@@ -318,7 +315,7 @@ struct FacePaletteShader {
    */
   HS_HOT_INLINE void operator()(const math::Vector &, Fragment &frag,
                                 float u) const {
-    assert(palette != nullptr);
+    HS_AUDIT_CHECK(palette != nullptr);
     const float back = 1.0f - u;
     const float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
     Pixel c = blend_to == nullptr

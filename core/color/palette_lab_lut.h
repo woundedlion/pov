@@ -9,7 +9,6 @@
 #include "core/color/hue_rotation_lut.h"
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cstring>
 
 /** @file palette_lab_lut.h
@@ -130,7 +129,7 @@ struct PaletteLabLutBase {
    * @return Bilinearly interpolated base OKLab. */
   __attribute__((always_inline)) static OKLab
   sample(const PaletteLabTimeView &time, float value) {
-    assert(time.low && time.high && time.value_steps >= 2);
+    HS_AUDIT_CHECK(time.low && time.high && time.value_steps >= 2);
     const float POSITION =
         hs::clamp(value, 0.0f, 1.0f) * (time.value_steps - 1);
     const int LOW_INDEX = std::min(int(POSITION), time.value_steps - 2);

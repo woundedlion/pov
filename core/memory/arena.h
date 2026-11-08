@@ -480,7 +480,7 @@ struct ArenaBlockStamp {
  * @details Expands to nothing under NDEBUG, where the stamp does not exist.
  */
 #define HS_ASSERT_BLOCK_ALIVE(stamp, ptr, bytes, owner)                        \
-  assert((stamp).block_alive(ptr, bytes) && owner " use-after-free!")
+  HS_AUDIT_CHECK((stamp).block_alive(ptr, bytes), owner " use-after-free!")
 #else
 #define HS_ASSERT_BLOCK_ALIVE(stamp, ptr, bytes, owner) ((void)0)
 #endif

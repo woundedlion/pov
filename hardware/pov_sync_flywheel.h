@@ -12,7 +12,6 @@
 
 #include "hardware/pov_sync_protocol.h"
 
-#include <cassert>
 #include <cstdint>
 
 #include "core/platform/platform.h"
@@ -90,9 +89,9 @@ public:
     // `at` must lie within MIN_SAFE_HALF_REVS half-revs either side of the
     // epoch. Test the unsigned magnitude: a forward elapsed past the window
     // wraps to a small-negative int32 that slips under a signed bound.
-    assert(
+    HS_AUDIT_CHECK(
         (elapsed < static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period ||
-         elapsed >= 0u - static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period) &&
+         elapsed >= 0u - static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period),
         "Flywheel::position: timestamp outside the signed-safe coast window");
     const uint32_t HALF_W = static_cast<uint32_t>(w / 2);
     const uint32_t U = elapsed + MIN_SAFE_HALF_REVS * period;

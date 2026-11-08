@@ -50,7 +50,7 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
             PassFnT &&pass) {
-    assert(age >= 0.0f && alpha >= 0.0f);
+    HS_AUDIT_CHECK(age >= 0.0f && alpha >= 0.0f);
     const int xi = round_wrap_column<W>(x);
     pass(x, y, c, age, alpha);
 

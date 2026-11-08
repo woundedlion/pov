@@ -16,10 +16,7 @@
 #include <cstring>
 #include <limits>
 #include <algorithm>
-// platform.h defines NDEBUG on device; include before <cassert> so assert
-// stripping does not depend on include order.
 #include "core/platform/platform.h"
-#include <cassert>
 
 namespace math {
 
@@ -167,7 +164,7 @@ inline float hash01(uint32_t i, uint32_t seed) {
 /**
  * @brief 1D value noise: quintic-smoothed hash lattice.
  * @param x Sample coordinate; lattice points sit on the integers.
- * @pre floorf(x) is strictly between -2^31 and 2^31, checked only in debug builds.
+ * @pre floorf(x) is strictly between -2^31 and 2^31, checked only in audit builds.
  * @param seed Stream selector forwarded to the lattice hash.
  * @return Noise value in [0, 1), C1-continuous in x.
  */
@@ -175,7 +172,7 @@ inline float value_noise_1d(float x, uint32_t seed = 0) {
   float fx = floorf(x);
   // int32_t first: float -> unsigned is UB for negatives. Direct compare so a
   // NaN coordinate fails it too.
-  assert(std::fabs(fx) < 2147483648.0f);
+  HS_AUDIT_CHECK(std::fabs(fx) < 2147483648.0f);
   uint32_t ix = static_cast<uint32_t>(static_cast<int32_t>(fx));
   float f = quintic_kernel(x - fx);
   float a = hash01(ix, seed);
@@ -188,14 +185,14 @@ inline float value_noise_1d(float x, uint32_t seed = 0) {
  * @param x First sample coordinate; lattice points sit on the integers.
  * @param y Second sample coordinate.
  * @pre floorf(x) and floorf(y) are strictly between -2^31 and 2^31, checked only
- *      in debug builds.
+ *      in audit builds.
  * @param seed Stream selector forwarded to the lattice hash.
  * @return Noise value in [0, 1), C1-continuous in x and y.
  */
 inline float value_noise_2d(float x, float y, uint32_t seed = 0) {
   float fx = floorf(x), fy = floorf(y);
-  assert(std::fabs(fx) < 2147483648.0f);
-  assert(std::fabs(fy) < 2147483648.0f);
+  HS_AUDIT_CHECK(std::fabs(fx) < 2147483648.0f);
+  HS_AUDIT_CHECK(std::fabs(fy) < 2147483648.0f);
   uint32_t ix = static_cast<uint32_t>(static_cast<int32_t>(fx));
   uint32_t iy = static_cast<uint32_t>(static_cast<int32_t>(fy));
   float u = quintic_kernel(x - fx);
@@ -352,7 +349,7 @@ struct Vector {
    * @return Reference to this vector.
    */
   Vector &operator/=(float s) {
-    assert(s != 0.0f);
+    HS_AUDIT_CHECK(s != 0.0f);
     x /= s;
     y /= s;
     z /= s;
@@ -1080,9 +1077,9 @@ __attribute__((always_inline)) constexpr Vector operator*(const Vector &v,
  */
 constexpr Vector operator*(float s, const Vector &v) { return v * s; }
 
-// No release-build s == 0 trap (yields ±Inf/NaN); only a debug assert.
+// No release-build s == 0 trap (yields ±Inf/NaN); only an audit check.
 constexpr Vector operator/(const Vector &v, float s) {
-  assert(s != 0.0f);
+  HS_AUDIT_CHECK(s != 0.0f);
   return Vector(v.x / s, v.y / s, v.z / s);
 }
 
@@ -1131,7 +1128,8 @@ struct RotationMatrix {
    *      baked into every vector the cached object goes on to rotate.
    */
   explicit RotationMatrix(const Quaternion &q) {
-    assert(!(std::fabs(q.squared_magnitude() - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+    HS_AUDIT_CHECK(
+        !(std::fabs(q.squared_magnitude() - 1.0f) > math::EPS_UNIT_QUAT_SQ));
     const float qr = q.r, qx = q.v.x, qy = q.v.y, qz = q.v.z;
     const float x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
     const float xx = qx * x2, yy = qy * y2, zz = qz * z2;
@@ -1274,7 +1272,7 @@ constexpr Quaternion operator*(float s, const Quaternion &q) { return q * s; }
  * @details No release-build s == 0 trap; only a debug assert.
  */
 constexpr Quaternion operator/(const Quaternion &q, float s) {
-  assert(s != 0.0f);
+  HS_AUDIT_CHECK(s != 0.0f);
   return Quaternion(q.r / s, q.v / s);
 }
 
@@ -1433,7 +1431,7 @@ __attribute__((always_inline)) inline float fast_acos(float x) {
  * saturates to +Inf above it, and a NaN returns 0.
  */
 inline float fast_expf(float x) {
-  assert(x <= 0.0f);
+  HS_AUDIT_CHECK(x <= 0.0f);
   float y = x * 1.442695041f; // log2(e)
   float fi = floorf(y);
   float f = y - fi; // [0, 1)
@@ -1519,7 +1517,7 @@ __attribute__((always_inline)) inline float fast_cosf(float x) {
  */
 __attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
                                                              float &c) {
-  assert(x >= 0.0f && x <= PI_F);
+  HS_AUDIT_CHECK(x >= 0.0f && x <= PI_F);
   s = bhaskara_sinf(x, 1.0f);
   c = sinf_0_2pi(x + PI_F * 0.5f);
 }
@@ -1537,7 +1535,7 @@ __attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
  */
 __attribute__((always_inline)) inline void poly_sincosf_0_pi(float x, float &s,
                                                              float &c) {
-  assert(x >= 0.0f && x <= PI_F);
+  HS_AUDIT_CHECK(x >= 0.0f && x <= PI_F);
   const float r = x - PI_F * 0.5f;
   const float r2 = r * r;
   s = 0.99999995329f +
@@ -1577,14 +1575,14 @@ inline Vector nlerp_unit(const Vector &a, const Vector &b, float t) {
  * @param v1 Starting vector.
  * @param v2 Ending vector.
  * @param t Interpolation factor (0.0 to 1.0).
- * @pre Both endpoints are unit length, checked in debug builds.
+ * @pre Both endpoints are unit length, checked in audit builds.
  * @return The interpolated unit vector.
  */
 inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   // Negated compare: a NaN endpoint passes and traps in normalized() below with
   // its own diagnostic instead of aborting on a unit-length report.
-  assert(!(std::fabs(dot(v1, v1) - 1.0f) > math::EPS_UNIT_VEC_SQ));
-  assert(!(std::fabs(dot(v2, v2) - 1.0f) > math::EPS_UNIT_VEC_SQ));
+  HS_AUDIT_CHECK(!(std::fabs(dot(v1, v1) - 1.0f) > math::EPS_UNIT_VEC_SQ));
+  HS_AUDIT_CHECK(!(std::fabs(dot(v2, v2) - 1.0f) > math::EPS_UNIT_VEC_SQ));
   float d = hs::clamp(dot(v1, v2), -1.0f, 1.0f);
   // Near-parallel: lerp to avoid NaN. Branch thresholds are TOLERANCE-scale.
   if (d > 1.0f - math::TOLERANCE) {
@@ -1621,8 +1619,8 @@ struct SlerpArc {
   __attribute__((always_inline)) SlerpArc(const Quaternion &a,
                                           const Quaternion &b)
       : from(a), to(b) {
-    assert(!(std::fabs(dot(a, a) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
-    assert(!(std::fabs(dot(b, b) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+    HS_AUDIT_CHECK(!(std::fabs(dot(a, a) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+    HS_AUDIT_CHECK(!(std::fabs(dot(b, b) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
     float d = dot(a, b);
     if (d < 0.0f) {
       from = -from;
@@ -1679,8 +1677,8 @@ private:
  */
 inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
                         bool long_way = false) {
-  assert(!(std::fabs(dot(q1, q1) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
-  assert(!(std::fabs(dot(q2, q2) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+  HS_AUDIT_CHECK(!(std::fabs(dot(q1, q1) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+  HS_AUDIT_CHECK(!(std::fabs(dot(q2, q2) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
   float d = dot(q1, q2);
   Quaternion p(q1);
 

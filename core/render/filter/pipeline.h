@@ -7,7 +7,6 @@
 #include <utility>
 #include <type_traits>
 #include <cmath>
-#include <cassert>
 #include <limits>
 
 #include <algorithm>
@@ -45,11 +44,11 @@ using PassFn3D =
 template <int W>
 __attribute__((always_inline)) inline int round_wrap_column(float x) {
   // Non-finite x makes the int cast below UB and bypasses the wrap.
-  assert(std::isfinite(x));
-  assert(x > -W - 0.5f && x < 2 * W - 0.5f);
+  HS_AUDIT_CHECK(std::isfinite(x));
+  HS_AUDIT_CHECK(x > -W - 0.5f && x < 2 * W - 0.5f);
   const float xr = std::round(x);
   // fast_wrap corrects only a single +/-W offset, so xr must land in [-W, 2W).
-  assert(xr >= -W && xr < 2 * W);
+  HS_AUDIT_CHECK(xr >= -W && xr < 2 * W);
   return math::fast_wrap(static_cast<int>(xr), W);
 }
 
@@ -61,9 +60,9 @@ __attribute__((always_inline)) inline int round_wrap_column(float x) {
  */
 template <int H> __attribute__((always_inline)) inline int round_row(float y) {
   // Non-finite y makes the int cast below UB.
-  assert(std::isfinite(y));
+  HS_AUDIT_CHECK(std::isfinite(y));
   // Bounded only so the cast below stays in range.
-  assert(y >= -H && y < 2 * H);
+  HS_AUDIT_CHECK(y >= -H && y < 2 * H);
   return static_cast<int>(std::round(y));
 }
 
@@ -539,7 +538,7 @@ template <int W, int H> struct Pipeline<W, H> {
    */
   void plot(Canvas &cv, int x, int y, const ::Pixel &c, float, float alpha) {
     // Producer must keep x in [-W, 2W); fast_wrap corrects only a single ±W offset.
-    assert(x >= -W && x < 2 * W);
+    HS_AUDIT_CHECK(x >= -W && x < 2 * W);
     if (!cv.clip_contains_y(y))
       return;
     int xi = math::fast_wrap(x, W);
@@ -559,8 +558,8 @@ template <int W, int H> struct Pipeline<W, H> {
   void plot_in_bounds(Canvas &cv, int x, int y, const ::Pixel &c, float,
                       float alpha) {
     HS_PROFILE_DEEP(filter_blend);
-    assert(x >= 0 && x < W && cv.clip_contains_x(x));
-    assert(cv.clip_contains_y(y));
+    HS_AUDIT_CHECK(x >= 0 && x < W && cv.clip_contains_x(x));
+    HS_AUDIT_CHECK(cv.clip_contains_y(y));
     ::Pixel &dst = cv(x, y);
     if (alpha >= 1.0f) {
       dst = c;

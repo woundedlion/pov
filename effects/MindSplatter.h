@@ -658,6 +658,8 @@ private:
     ScratchScope chunk_scope(scratch_arena_a);
     Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, TrailVertex> chunk(
         scratch_arena_a);
+    static_assert(TRAIL_POINTS <= COLUMN_CHUNK_VERTICES,
+                  "a whole trail must fit one begin_chain");
     auto *trail = scratch_arena_a.allocate_n<TrailVertex>(TRAIL_POINTS);
     auto *starts = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
     auto *warped = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
@@ -817,8 +819,8 @@ private:
     };
 
     auto fragment_shader = [&](const math::Vector &, Fragment &f) {
-      assert(trail_palette != nullptr &&
-             "particle palette must precede shading");
+      HS_AUDIT_CHECK(trail_palette != nullptr,
+                     "particle palette must precede shading");
       const float alpha = fmaxf(0.0f, fminf(fmaxf(0.0f, f.v0), f.v3));
       const float palette_t = 1.0f - f.v0;
       if (f.v0 <= 0.0f || f.v0 >= 1.0f)

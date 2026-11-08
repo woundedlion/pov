@@ -123,7 +123,7 @@ public:
   HS_HOT_INLINE static void column_taps(float x, float y, const ::Pixel &c,
                                         float age, float alpha, int column,
                                         PassFnT &pass) {
-    assert(age >= 0.0f && alpha >= 0.0f);
+    HS_AUDIT_CHECK(age >= 0.0f && alpha >= 0.0f);
     const SplatTaps t = splat_taps<W, H>(x, y);
     if (column != t.x0 && column != t.x1)
       return;
@@ -191,7 +191,7 @@ public:
   template <typename PassFnT>
   HS_HOT_INLINE void plot(float x, float y, const ::Pixel &c, float age,
                           float alpha, PassFnT &&pass) {
-    assert(age >= 0.0f && alpha >= 0.0f);
+    HS_AUDIT_CHECK(age >= 0.0f && alpha >= 0.0f);
     const SplatTaps t = splat_taps<W, H>(x, y);
 
     if (t.y0_physical && t.v00 > SPLAT_TAP_CUTOFF)
@@ -219,7 +219,7 @@ public:
   HS_HOT_INLINE static void splat(TerminalT &terminal, Canvas &cv, float x,
                                   float y, const ::Pixel &c, float age,
                                   float alpha) {
-    assert(age >= 0.0f && alpha >= 0.0f);
+    HS_AUDIT_CHECK(age >= 0.0f && alpha >= 0.0f);
     (void)age;
     terminal.plot_taps(cv, splat_taps<W, H>(x, y), c, alpha, SPLAT_TAP_CUTOFF);
   }

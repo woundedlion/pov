@@ -176,7 +176,7 @@ struct MeshPaletteBank {
    * @return Const reference to the baked palette.
    */
   const BakedPalette &operator[](int i) const {
-    assert(i >= 0 && i < N && "MeshPaletteBank index out of range");
+    HS_AUDIT_CHECK(i >= 0 && i < N, "MeshPaletteBank index out of range");
     return bank.entries[i];
   }
   /**
@@ -185,7 +185,7 @@ struct MeshPaletteBank {
    * @return Mutable reference to the baked palette.
    */
   BakedPaletteStorage &operator[](int i) {
-    assert(i >= 0 && i < N && "MeshPaletteBank index out of range");
+    HS_AUDIT_CHECK(i >= 0 && i < N, "MeshPaletteBank index out of range");
     return bank.entries[i];
   }
 

@@ -1770,7 +1770,6 @@ private:
     template <typename... RingArgs>
     HS_HOT_FLASH_MEMBER void commit(int ring, float frag_alpha, int lut_n,
                                     RingArgs &&...ring_args) {
-      assert(count < SLOTS && "DisplacementField: ring pool is full");
       const int s = count;
       ::new (static_cast<void *>(&(*storage)[s].ring))
           SDF::DistortedRing(std::forward<RingArgs>(ring_args)...);

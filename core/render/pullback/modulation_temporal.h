@@ -20,8 +20,10 @@ inline const Prepared *retain(const Prepared *source, Prepared &destination,
     return nullptr;
   destination = *source;
   if (destination.cube.active) {
-    assert(table.size() == Pattern::SphereLutView::SIZE);
-    assert(destination.cube.linear_data == nullptr);
+    HS_CHECK(table.size() == Pattern::SphereLutView::SIZE,
+             "modulation retain: table is not one sphere cube");
+    HS_CHECK(destination.cube.linear_data == nullptr,
+             "modulation retain: a linear cube cannot be retained");
     std::memcpy(table.data(), destination.cube.data, table.size_bytes());
     destination.cube.data = table.data();
   }

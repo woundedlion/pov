@@ -441,6 +441,8 @@ private:
     Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, float, uint8_t> chunk(
         scratch_arena_a);
     constexpr int TRAIL_POINTS = TRAIL_LEN + 1;
+    static_assert(TRAIL_POINTS <= COLUMN_CHUNK_VERTICES,
+                  "a whole trail must fit one begin_chain");
     auto *sources = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
     auto *starts = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
     auto *world = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);

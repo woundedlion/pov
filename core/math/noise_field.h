@@ -10,7 +10,6 @@
  */
 
 #include <array>
-#include <cassert>
 
 #include "core/math/geometry.h"
 #include "core/math/noise_basis.h"
@@ -513,8 +512,8 @@ inline constexpr float EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT = 0.250001f;
 HS_O3_FN HS_HOT_INLINE inline math::Vector
 sphere_exp_map_half_radian(const math::Vector &v, const math::Vector &tangent) {
   const float distance_sq = math::dot(tangent, tangent);
-  assert(distance_sq <= EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT &&
-         "sphere_exp_map_half_radian arc past its half-radian domain");
+  HS_AUDIT_CHECK(distance_sq <= EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT,
+                 "sphere_exp_map_half_radian arc past its half-radian domain");
   const float cosine =
       1.0f + distance_sq *
                  (-0.5f + distance_sq *

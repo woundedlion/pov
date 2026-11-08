@@ -4,8 +4,6 @@
  */
 #pragma once
 
-#include <cassert>
-
 #include "core/render/render_policy.h"
 #include <algorithm>
 #include <concepts>
@@ -402,7 +400,7 @@ template <int W, int H>
 static inline math::Vector ring_tangent(int i, const math::Vector &u,
                                         const math::Vector &w, float cos_phase,
                                         float sin_phase) {
-  assert(i >= 0 && i < W);
+  HS_AUDIT_CHECK(i >= 0 && i < W);
   float cos_t = math::TrigLUT<W, H>::cos_theta(i) * cos_phase -
                 math::TrigLUT<W, H>::sin_theta[i] * sin_phase;
   float sin_t = math::TrigLUT<W, H>::sin_theta[i] * cos_phase +

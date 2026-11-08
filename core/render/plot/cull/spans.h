@@ -164,7 +164,7 @@ static inline void finish_col_span_one_period(float start, float length,
  * guard folds that back to 0, as wrap's own half-open guard does.
  */
 template <int W> static HS_HOT_INLINE inline float wrap_one_period(float d) {
-  assert(d > -W && d < W);
+  HS_AUDIT_CHECK(d > -W && d < W);
   if (d < 0.0f)
     d += W;
   return (d >= W) ? 0.0f : d;
@@ -647,7 +647,7 @@ static inline bool planar_edge_visible_in_clip(
     const ClipRegion &cr, const ClipRegion::XClip &xc, const math::Vector &a,
     const math::Vector &b, const math::Basis &planar_basis,
     const PlanarEdgeSpan &span, math::Vector *end_sample = nullptr) {
-  assert(end_sample == nullptr || xc.active);
+  HS_AUDIT_CHECK(end_sample == nullptr || xc.active);
   float row_lo, row_hi;
   int col_s, col_len;
   planar_row_span<H>(a, b, span, row_lo, row_hi);

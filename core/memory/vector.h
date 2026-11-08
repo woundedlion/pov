@@ -87,7 +87,7 @@ private:
    * @brief Asserts that the vector has been bound to an arena.
    */
   void check_bound() const {
-    assert(bound && "Attempted to access unbound ArenaVector!");
+    HS_AUDIT_CHECK(bound, "Attempted to access unbound ArenaVector!");
   }
 
   /**
@@ -197,12 +197,13 @@ public:
         "state outside the arena buffer: store a trivially-destructible "
         "type or a sanctioned Fn<> (no std::function/std::string).");
 #ifndef NDEBUG
-    assert((!bound || element_capacity == 0 ||
-            (stamp.source_arena == &arena &&
-             stamp.birth_generation == arena.get_generation())) &&
-           "ArenaVector::bind() on a stale binding: move-assign a "
-           "default-constructed ArenaVector before resetting or changing "
-           "its arena");
+    HS_AUDIT_CHECK(
+        (!bound || element_capacity == 0 ||
+         (stamp.source_arena == &arena &&
+          stamp.birth_generation == arena.get_generation())),
+        "ArenaVector::bind() on a stale binding: move-assign a "
+        "default-constructed ArenaVector before resetting or changing "
+        "its arena");
 #endif
     // Catches a rewind, which the generation check misses.
     check_alive();
@@ -309,7 +310,7 @@ public:
   T &operator[](size_t i) {
     check_alive();
     check_bound();
-    assert(i < element_count);
+    HS_AUDIT_CHECK(i < element_count);
     return elements[i];
   }
   /**
@@ -320,7 +321,7 @@ public:
   const T &operator[](size_t i) const {
     check_alive();
     check_bound();
-    assert(i < element_count);
+    HS_AUDIT_CHECK(i < element_count);
     return elements[i];
   }
 
@@ -353,7 +354,7 @@ public:
   T &back() {
     check_alive();
     check_bound();
-    assert(element_count > 0);
+    HS_AUDIT_CHECK(element_count > 0);
     return elements[element_count - 1];
   }
   /**
@@ -363,7 +364,7 @@ public:
   const T &back() const {
     check_alive();
     check_bound();
-    assert(element_count > 0);
+    HS_AUDIT_CHECK(element_count > 0);
     return elements[element_count - 1];
   }
 

@@ -14,7 +14,6 @@
 #include <cstddef>
 #include <cstring>
 #include <new>
-#include <cassert>
 #include <utility>
 #include <concepts>
 

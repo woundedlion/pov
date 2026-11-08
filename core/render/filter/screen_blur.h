@@ -63,7 +63,7 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    assert(age >= 0.0f && alpha >= 0.0f);
+    HS_AUDIT_CHECK(age >= 0.0f && alpha >= 0.0f);
     if ((folds_north_row<H>() && y < -1.0f) || (folds_south_row<H>() && y >= H))
       return;
     int cx = round_wrap_column<W>(x);

@@ -92,7 +92,7 @@ struct BreatheModifier {
    * @return t plus the memoized oscillation term.
    */
   float modify(float t) const {
-    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
+    HS_AUDIT_CHECK(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *phase != cached_phase) {
       cached_phase = *phase;
       cached_sin = math::fast_sinf(*phase);
@@ -136,7 +136,7 @@ struct RippleModifier {
    */
   float modify(float t) const {
     const float arg = t * frequency * math::PI_F * 2.0f + *phase;
-    assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
+    HS_AUDIT_CHECK(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
     return t + math::fast_sinf(arg) * amplitude;
   }
 };
@@ -516,7 +516,8 @@ struct HueSpinShade {
    */
   Color4 shade(Color4 c, float t) const {
     (void)t;
-    assert(fabsf(*amount) * (2.0f * math::PI_F) < PALETTE_PHASE_ARG_LIMIT);
+    HS_AUDIT_CHECK(fabsf(*amount) * (2.0f * math::PI_F) <
+                   PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *amount != cached_amount) {
       cached_amount = *amount;
       float ca, sa;
@@ -571,7 +572,7 @@ struct HueWobbleShade {
    */
   Color4 shade(Color4 c, float t) const {
     const float arg = t * frequency * math::PI_F * 2.0f + *phase;
-    assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
+    HS_AUDIT_CHECK(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
     return hue_rotate(c, depth * math::fast_sinf(arg));
   }
 };
@@ -659,7 +660,7 @@ struct ChromaPulseShade {
    */
   Color4 shade(Color4 c, float t) const {
     (void)t;
-    assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
+    HS_AUDIT_CHECK(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *phase != cached_phase) {
       cached_phase = *phase;
       cached_sin = math::fast_sinf(cached_phase);
@@ -751,7 +752,7 @@ struct IridescentShade {
    */
   Color4 shade(Color4 c, float t) const {
     const float arg = t * frequency * math::PI_F * 2.0f + *phase;
-    assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
+    HS_AUDIT_CHECK(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
     constexpr float THIRD = 2.0f * math::PI_F / 3.0f;
     Pixel sheen(
         srgb_to_linear_interp(0.5f + 0.5f * math::fast_cosf(arg)),
@@ -1047,7 +1048,7 @@ public:
    * the coordinate Shade selects.
    */
   Color4 get(float t) const {
-    assert(source != nullptr && "StaticPalette used before bind()!");
+    HS_AUDIT_CHECK(source != nullptr, "StaticPalette used before bind()!");
 
     float ft = t;
     std::apply([&](const auto *...m) { ((ft = m->modify(ft)), ...); }, coords);
@@ -1115,7 +1116,7 @@ public:
    * @return The composition's color at t.
    */
   Color4 get(float t) const override {
-    assert(composition != nullptr && "PaletteFacade used before bind()!");
+    HS_AUDIT_CHECK(composition != nullptr, "PaletteFacade used before bind()!");
     return composition->get(t);
   }
 

@@ -83,6 +83,14 @@ class DeathPinUniqueness(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "parsed 0 of 1 death-case rows"):
             self.check_fixture(source, pin, table='{"ordinary_case", case_ordinary_case, "core/guard.h", nullptr}')
 
+    def test_raw_assert_is_rejected(self):
+        pin = "(value > 0) probe: positive"
+        guard = 'HS_CHECK(value > 0, "probe: positive");\n'
+        self.check_fixture(guard + '// assert(x)\nstatic_assert(true);\nauto s = "assert(x)";\n', pin)
+        for raw in ("assert(value);\n", "#include <cassert>\n", "#include <assert.h>\n"):
+            with self.subTest(raw=raw), self.assertRaisesRegex(SystemExit, r"core/guard.h:2"):
+                self.check_fixture(guard + raw, pin)
+
     def test_empty_table_is_rejected(self):
         source = 'HS_CHECK(value > 0, "probe: positive");'
         pin = "(value > 0) probe: positive"
