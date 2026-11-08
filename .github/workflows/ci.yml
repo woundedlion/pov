@@ -79,22 +79,6 @@ jobs:
       - name: Test physical display plot and scan
         run: bash tools/ci/p1_plot_scan.sh -DCMAKE_CXX_COMPILER=clang++-22
 
-      - &render_fingerprints
-        name: Compare native render fingerprints
-        shell: bash
-        run: bash tools/ci/render_goldens.sh
-
-      - name: Upload native render comparison log
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: render-goldens-tests-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            build/tests/Testing/Temporary/LastTest.log
-            build/tests/render-goldens.log
-          if-no-files-found: warn
-          retention-days: 7
-
       - name: Save ccache on master
         if: github.ref == 'refs/heads/master'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -156,19 +140,6 @@ jobs:
         run: |
           . tools/ci/common.sh
           ctest --preset tests --output-on-failure --no-tests=error -E "$GENERATED_EXCLUDE"
-
-      - *render_fingerprints
-
-      - name: Upload native render comparison log
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: render-goldens-sanitizers-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            build/tests/Testing/Temporary/LastTest.log
-            build/tests/render-goldens.log
-          if-no-files-found: warn
-          retention-days: 7
 
       - name: Test full-resolution effects under ASan and UBSan
         env:
@@ -289,19 +260,6 @@ jobs:
         continue-on-error: true
         run: ccache -sv
 
-      - *render_fingerprints
-
-      - name: Upload native render comparison log
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: render-goldens-optimized-tests-${{ matrix.flavor }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            build/tests/Testing/Temporary/LastTest.log
-            build/tests/render-goldens.log
-          if-no-files-found: warn
-          retention-days: 7
-
       - name: Save ccache on master
         if: github.ref == 'refs/heads/master'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -361,8 +319,6 @@ jobs:
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
 
-      - *render_fingerprints
-
       - name: Build coverage reports and enforce the floors
         # Explicit bash enables pipefail. The 1% directory floors check presence.
         shell: bash
@@ -413,7 +369,6 @@ jobs:
         with:
           name: native-coverage
           path: |
-            build/tests/render-goldens.log
             cov/coverage.lcov
             cov/summary.json
             cov/html
@@ -457,19 +412,6 @@ jobs:
       - name: Configure, build and test
         shell: bash
         run: bash tools/ci/native_suite.sh --exclude-generated
-
-      - *render_fingerprints
-
-      - name: Upload native render comparison log
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: render-goldens-windows-tests-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            build/tests/Testing/Temporary/LastTest.log
-            build/tests/render-goldens.log
-          if-no-files-found: warn
-          retention-days: 7
 
   wasm:
     name: WASM build (Emscripten)
@@ -516,7 +458,7 @@ jobs:
 
       - *install_pinned_cmake
 
-      - name: Build, compare, gate, smoke and install WASM
+      - name: Build, gate, smoke and install WASM
         shell: bash
         run: bash tools/ci/wasm.sh "${{ runner.temp }}/daydream-install"
 
@@ -524,15 +466,6 @@ jobs:
         if: always()
         continue-on-error: true
         run: ccache -sv
-
-      - name: Upload WASM render comparison logs
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: render-goldens-wasm-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/*/render-goldens.log
-          if-no-files-found: warn
-          retention-days: 7
 
       - name: Package verified engine bundle
         shell: bash

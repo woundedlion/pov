@@ -183,64 +183,41 @@ struct RenderFingerprint {
 };
 
 /** @brief Exact channel hash and spatial fingerprint of a render sequence. */
-struct PixelGolden {
+struct RenderFold {
   uint64_t hash = HASH_SEED64;
   RenderFingerprint fingerprint{};
 };
 
-/** @brief References for strict and fast floating-point modes.
- * @details Fast-math hashes are diagnostic only; channel totals and brightness
- * centroids are the checked fast-math references. */
-struct RecordedGolden {
-  PixelGolden ieee;
-  PixelGolden fastmath;
-  double channel_band = 1e-3;   ///< Relative tolerance on each RGB total.
-  double centroid_band = 0.01;  ///< Brightness-centroid tolerance in pixels.
-  PixelGolden wasm_fastmath{};  ///< Empty selects the native fast reference.
-  PixelGolden linux_fastmath{}; ///< Empty selects the native fast reference.
-};
-
-/** @brief Selects a platform fast-math reference or the shared native reference.
- * @param recorded Recorded sequence references.
- * @param platform Optional reference for the current platform.
- * @return Nonempty platform reference, otherwise the native fast reference. */
-inline const PixelGolden &
-fastmath_golden_reference(const RecordedGolden &recorded,
-                          const PixelGolden &platform) {
-  return platform.fingerprint.energy() != 0 ? platform : recorded.fastmath;
-}
-
-/** @brief Extends a golden with one row-major frame.
- * @param golden Running sequence fingerprint.
+/** @brief Extends a render fold with one row-major frame.
+ * @param fold Running sequence fingerprint.
  * @param frame Frame pixels, row-major.
  * @param width Frame width. */
-inline void fold_frame(PixelGolden &golden, std::span<const Pixel> frame,
+inline void fold_frame(RenderFold &fold, std::span<const Pixel> frame,
                        int width) {
   for (size_t i = 0; i < frame.size(); ++i) {
     const Pixel &pixel = frame[i];
-    golden.hash = fnv1a64_channel(
-        fnv1a64_channel(fnv1a64_channel(golden.hash, pixel.r), pixel.g),
-        pixel.b);
-    golden.fingerprint.channels[0] += pixel.r;
-    golden.fingerprint.channels[1] += pixel.g;
-    golden.fingerprint.channels[2] += pixel.b;
+    fold.hash = fnv1a64_channel(
+        fnv1a64_channel(fnv1a64_channel(fold.hash, pixel.r), pixel.g), pixel.b);
+    fold.fingerprint.channels[0] += pixel.r;
+    fold.fingerprint.channels[1] += pixel.g;
+    fold.fingerprint.channels[2] += pixel.b;
     const uint64_t energy = uint64_t{pixel.r} + pixel.g + pixel.b;
-    golden.fingerprint.row += energy * (i / static_cast<size_t>(width));
-    golden.fingerprint.column += energy * (i % static_cast<size_t>(width));
+    fold.fingerprint.row += energy * (i / static_cast<size_t>(width));
+    fold.fingerprint.column += energy * (i % static_cast<size_t>(width));
   }
 }
 
-/** @brief Extends a golden with one displayed frame.
+/** @brief Extends a render fold with one displayed frame.
  * @tparam W Frame width.
  * @tparam H Frame height.
  * @tparam Fx Effect exposing get_pixel(x, y).
- * @param golden Running sequence fingerprint.
+ * @param fold Running sequence fingerprint.
  * @param fx Displayed effect. */
 template <int W, int H, typename Fx>
-inline void fold_pixel_golden(PixelGolden &golden, const Fx &fx) {
+inline void fold_displayed_frame(RenderFold &fold, const Fx &fx) {
   std::vector<Pixel> frame;
   capture_frame<W, H>(fx, frame);
-  fold_frame(golden, frame, W);
+  fold_frame(fold, frame, W);
 }
 
 /** @brief Prints one render's hash, for a base-versus-tip render diff, when
@@ -258,7 +235,7 @@ inline void print_render_hash(const char *label, const char *scenario,
 /** @brief Recorded displayed frames of one render run. */
 struct RenderRun {
   std::vector<Pixel> frames; /**< Recorded frames, each row-major. */
-  PixelGolden fold;          /**< Hash and fingerprint of the frames. */
+  RenderFold fold;           /**< Hash and fingerprint of the frames. */
   int recorded = 0;          /**< Frames recorded. */
   int dark = 0;              /**< Recorded frames without a lit pixel. */
 };
@@ -397,117 +374,6 @@ template <int W, int H> struct ClipSchedule {
     }
   }
 };
-
-/** @brief Fingerprint of the libm probes and native optimization mode.
- * @return FNV fold of transcendental results and build-mode flags. */
-inline uint64_t float_environment_fingerprint() {
-  uint64_t hash = HASH_SEED64;
-  auto fold = [&](float value) {
-    uint32_t bits;
-    std::memcpy(&bits, &value, sizeof(bits));
-    hash = fnv1a64_channel(hash, static_cast<uint16_t>(bits));
-    hash = fnv1a64_channel(hash, static_cast<uint16_t>(bits >> 16));
-  };
-  for (int i = 0; i < 4096; ++i) {
-    const float t = static_cast<float>(i) / 4096.0f;
-    const float angle = (t * 2.0f - 1.0f) * 12.0f;
-    fold(sinf(angle));
-    fold(cosf(angle));
-    fold(tanf(angle * 0.1f));
-    fold(acosf(t * 2.0f - 1.0f));
-    fold(asinf(t * 2.0f - 1.0f));
-    fold(atan2f(sinf(angle), cosf(angle) + 0.5f));
-    fold(expf(angle * 0.5f));
-    fold(logf(t + 0.001f));
-    fold(powf(t + 0.001f, 2.2f));
-    fold(static_cast<float>(std::sin(static_cast<double>(angle))));
-    fold(static_cast<float>(std::cos(static_cast<double>(angle))));
-    fold(static_cast<float>(std::log(static_cast<double>(t) + 0.001)));
-  }
-#if HS_TEST_FAST_MATH
-  hash = fnv1a64_channel(hash, 1);
-#endif
-#if defined(__OPTIMIZE__)
-  hash = fnv1a64_channel(hash, 2);
-#endif
-  return hash;
-}
-
-/** @brief Floating-point environment that recorded exact pixel hashes. */
-inline constexpr uint64_t PIXEL_GOLDEN_ENVIRONMENT = 0xa4066a8d264bc108ull;
-
-/** @brief Whether channel totals and brightness centroids agree.
- * @param actual Computed sequence fingerprint.
- * @param expected Recorded sequence fingerprint.
- * @param relative_band Relative tolerance for each RGB channel total.
- * @param centroid_band Absolute row/column tolerance in pixels.
- * @return False for empty sequences or any out-of-band metric. */
-inline bool render_fingerprint_matches(const RenderFingerprint &actual,
-                                       const RenderFingerprint &expected,
-                                       double relative_band,
-                                       double centroid_band) {
-  if (actual.energy() == 0 || expected.energy() == 0)
-    return false;
-  for (size_t i = 0; i < actual.channels.size(); ++i)
-    if (std::abs(static_cast<double>(actual.channels[i]) -
-                 expected.channels[i]) >
-        std::max(1.0, relative_band * expected.channels[i]))
-      return false;
-  return std::abs(static_cast<double>(actual.row) / actual.energy() -
-                  static_cast<double>(expected.row) / expected.energy()) <=
-             centroid_band &&
-         std::abs(static_cast<double>(actual.column) / actual.energy() -
-                  static_cast<double>(expected.column) / expected.energy()) <=
-             centroid_band;
-}
-
-/** @brief Prints a copyable render golden.
- * @param name Scenario label.
- * @param golden Computed render sequence. */
-inline void print_pixel_golden(const char *name, const PixelGolden &golden) {
-  const auto &f = golden.fingerprint;
-  std::printf("  pixel golden %s: {0x%016llxull, {{%lluull, %lluull, %lluull}, "
-              "%lluull, %lluull}}\n",
-              name, static_cast<unsigned long long>(golden.hash),
-              static_cast<unsigned long long>(f.channels[0]),
-              static_cast<unsigned long long>(f.channels[1]),
-              static_cast<unsigned long long>(f.channels[2]),
-              static_cast<unsigned long long>(f.row),
-              static_cast<unsigned long long>(f.column));
-}
-
-/** @brief Checks fingerprints, plus exact hashes in the recording environment.
- * @param name Scenario label.
- * @param actual Computed sequence.
- * @param recorded References for the supported floating-point modes.
- */
-inline void expect_pixel_golden(const char *name, const PixelGolden &actual,
-                                const RecordedGolden &recorded) {
-  HS_CONTEXT(name);
-#if defined(__EMSCRIPTEN__) && HS_TEST_FAST_MATH
-  const PixelGolden &expected =
-      fastmath_golden_reference(recorded, recorded.wasm_fastmath);
-#elif defined(__linux__) && HS_TEST_FAST_MATH
-  const PixelGolden &expected =
-      fastmath_golden_reference(recorded, recorded.linux_fastmath);
-#elif HS_TEST_FAST_MATH
-  const PixelGolden &expected = recorded.fastmath;
-#else
-  const PixelGolden &expected = recorded.ieee;
-#endif
-  print_pixel_golden(name, actual);
-  static const uint64_t ENVIRONMENT = float_environment_fingerprint();
-  if (ENVIRONMENT == PIXEL_GOLDEN_ENVIRONMENT)
-    HS_EXPECT_EQ(actual.hash, expected.hash);
-  if (!render_fingerprint_matches(actual.fingerprint, expected.fingerprint,
-                                  recorded.channel_band,
-                                  recorded.centroid_band))
-    print_pixel_golden("expected", expected);
-  HS_EXPECT(render_fingerprint_matches(actual.fingerprint, expected.fingerprint,
-                                       recorded.channel_band,
-                                       recorded.centroid_band),
-            "RGB totals and brightness centroids must match");
-}
 
 #if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_HOOKS
 /** @brief Selects column-time sampling for a scope, then restores it. */

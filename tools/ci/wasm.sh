@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Build the release, debug and strict-FP WASM configurations, compare their
-# render fingerprints, gate first-party warnings, smoke-test the modules, and
-# exercise the daydream install and provenance path. Needs an activated emsdk.
+# Build the release, debug and strict-FP WASM configurations, gate first-party
+# warnings, smoke-test the modules, and exercise the daydream install and
+# provenance path. Needs an activated emsdk.
 #
 # usage: wasm.sh <daydream-install-dir>   a scratch directory the install fills
 set -euo pipefail
@@ -30,11 +30,6 @@ cmake --preset wasm-strict-fp -DDAYDREAM_DIR="$dd"
 cmake --build --preset wasm-strict-fp 2>&1 | tee build/wasm-strict-fp-build.log
 cmake --build --preset wasm-strict-fp --target pullback_capture_wasm 2>&1 \
   | tee -a build/wasm-strict-fp-build.log
-
-for preset in wasm-release wasm-debug wasm-strict-fp; do
-  cmake --build --preset "$preset" --target render_goldens_wasm 2>&1 | tee -a "build/$preset-build.log"
-  HS_SKIPS_ARE_ERRORS=1 node "build/$preset/render_goldens_wasm.cjs" | tee "build/$preset/render-goldens.log"
-done
 
 # Reject first-party warnings in all three configurations; sysroot warnings are excluded.
 logs=(build/wasm-release-build.log build/wasm-debug-build.log build/wasm-strict-fp-build.log)

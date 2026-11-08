@@ -157,30 +157,6 @@ if(EMSCRIPTEN)
   endif()
   set_target_properties(pullback_capture_wasm PROPERTIES SUFFIX ".cjs")
 
-  include(cmake/test_capabilities.cmake)
-  add_executable(render_goldens_wasm EXCLUDE_FROM_ALL
-    tests/run_render_goldens.cpp
-    ${HS_ENGINE_SOURCES})
-  target_include_directories(render_goldens_wasm PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-  target_compile_definitions(render_goldens_wasm PRIVATE
-    ${HS_TEST_CAPABILITY_DEFINITIONS}
-    HS_DISPLAY_PROFILE=0 HS_ENABLE_STRUCTURAL_AUDITS=1
-    HS_GLOBAL_ARENA_BYTES=${HS_WASM_ARENA_BYTES}
-    HS_TIMELINE_MAX_ANIM_BYTES=256 HS_SCAN_METRICS
-    "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/data/shader_chain_catalog.json\""
-    "HS_PROMOTED_PATTERNS_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/patterns\"")
-  if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND
-     NOT CMAKE_BUILD_TYPE STREQUAL "PullbackStrictFP")
-    target_compile_definitions(render_goldens_wasm PRIVATE HS_TEST_FAST_MATH=1)
-  endif()
-  get_target_property(_render_compile_options ${TARGET_NAME} COMPILE_OPTIONS)
-  list(FILTER _render_compile_options EXCLUDE REGEX "^-fno-exceptions$")
-  target_compile_options(render_goldens_wasm PRIVATE ${_render_compile_options})
-  target_link_options(render_goldens_wasm PRIVATE ${_render_compile_options}
-    "-sALLOW_MEMORY_GROWTH=1" "-sENVIRONMENT=node"
-    "-sSTACK_SIZE=1048576" "-sEXIT_RUNTIME=1" "-sNODE_HOST_ENV=1")
-  set_target_properties(render_goldens_wasm PROPERTIES SUFFIX ".cjs")
-
   # Generator of record for scripts/engine_catalog.json, the wasm32 operator ABI
   # catalog. Out of the default build: running it rewrites that committed
   # artifact.

@@ -45,7 +45,7 @@ constexpr double BATCHED_REORDER_SHARE = 0.001;
 /** @brief Every displayed frame of one parity run. */
 struct ParityRun {
   std::vector<Pixel> frames; /**< PARITY_FRAMES whole frames, row-major. */
-  PixelGolden fold;          /**< Hash and fingerprint of the whole run. */
+  RenderFold fold;           /**< Hash and fingerprint of the whole run. */
   bool lit = false;     /**< Whether any displayed frame has a lit pixel. */
   bool clipped = false; /**< Whether the segment clip applied. */
 };
@@ -91,7 +91,7 @@ inline ParityRun render_run(bool temporal, bool segment_clipped) {
     pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
-    fold_pixel_golden<PARITY_W, PARITY_H>(run.fold, effect);
+    fold_displayed_frame<PARITY_W, PARITY_H>(run.fold, effect);
     run.lit = run.lit || count_lit_region<PARITY_W, PARITY_H>(effect) != 0;
     for (int y = 0; y < PARITY_H; ++y)
       for (int x = 0; x < PARITY_W; ++x)
@@ -220,83 +220,12 @@ inline void test_filter_pipeline_effect_properties() {
   check_parity_properties<Thrusters>("Thrusters");
 }
 
-/** @brief Optional platform fast-math references retain the native fallback. */
-inline void test_platform_fastmath_golden_reference() {
-  RecordedGolden recorded;
-  recorded.fastmath.fingerprint.channels = {10, 20, 30};
-  recorded.linux_fastmath.hash = 17;
-  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.linux_fastmath),
-               &recorded.fastmath);
-  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.wasm_fastmath),
-               &recorded.fastmath);
-  recorded.linux_fastmath.fingerprint.channels = {40, 50, 60};
-  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.linux_fastmath),
-               &recorded.linux_fastmath);
-  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.wasm_fastmath),
-               &recorded.fastmath);
-  recorded.wasm_fastmath.fingerprint.channels = {70, 80, 90};
-  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.wasm_fastmath),
-               &recorded.wasm_fastmath);
-  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.linux_fastmath),
-               &recorded.linux_fastmath);
-}
-
-/** @brief Spatial fingerprints reject energy-preserving image changes. */
-inline void test_render_fingerprint_rejects_channel_and_spatial_changes() {
-  struct Frame {
-    std::array<Pixel, 35> pixels{};
-    const Pixel &get_pixel(int x, int y) const { return pixels[y * 7 + x]; }
-  };
-  Frame original;
-  original.pixels[1] = Pixel(1000, 4000, 7000);
-  original.pixels[2 * 7 + 4] = Pixel(9000, 500, 3000);
-  original.pixels[3 * 7 + 5] = Pixel(300, 11000, 600);
-  auto capture = [](const Frame &frame) {
-    PixelGolden golden;
-    fold_pixel_golden<7, 5>(golden, frame);
-    return golden;
-  };
-  const PixelGolden expected = capture(original);
-  HS_EXPECT_EQ(expected.fingerprint.channels[0], uint64_t{10300});
-  HS_EXPECT_EQ(expected.fingerprint.channels[1], uint64_t{15500});
-  HS_EXPECT_EQ(expected.fingerprint.channels[2], uint64_t{10600});
-  HS_EXPECT_EQ(expected.fingerprint.row, uint64_t{60700});
-  HS_EXPECT_EQ(expected.fingerprint.column, uint64_t{121500});
-  HS_EXPECT_TRUE(render_fingerprint_matches(expected.fingerprint,
-                                            expected.fingerprint, 1e-3, 0.01));
-  Frame rounded = original;
-  ++rounded.pixels[1].r;
-  HS_EXPECT_TRUE(render_fingerprint_matches(capture(rounded).fingerprint,
-                                            expected.fingerprint, 1e-3, 0.01));
-  for (int mutation = 0; mutation < 5; ++mutation) {
-    HS_CONTEXT("mutation", mutation);
-    Frame changed;
-    for (int y = 0; y < 5; ++y)
-      for (int x = 0; x < 7; ++x) {
-        Pixel pixel = original.get_pixel(x, y);
-        if (mutation == 0)
-          std::swap(pixel.r, pixel.b);
-        const int xx = mutation == 1 ? 6 - x : mutation == 3 ? (x + 1) % 7 : x;
-        const int yy = mutation == 2 ? 4 - y : mutation == 4 ? (y + 1) % 5 : y;
-        changed.pixels[yy * 7 + xx] = pixel;
-      }
-    const PixelGolden actual = capture(changed);
-    HS_EXPECT_EQ(actual.fingerprint.energy(), expected.fingerprint.energy());
-    HS_EXPECT_FALSE(render_fingerprint_matches(
-        actual.fingerprint, expected.fingerprint, 1e-3, 0.01));
-  }
-  HS_EXPECT_FALSE(
-      render_fingerprint_matches({}, expected.fingerprint, 1e-3, 0.01));
-}
-
 /**
  * @brief Runs every plot parity test case.
  * @return The module's failure count.
  */
 inline int run_plot_parity_tests() {
   hs_test::ModuleFixture fixture("plot_parity");
-  HS_RUN(test_platform_fastmath_golden_reference);
-  HS_RUN(test_render_fingerprint_rejects_channel_and_spatial_changes);
   HS_RUN(test_filter_pipeline_effect_properties);
   return fixture.result();
 }

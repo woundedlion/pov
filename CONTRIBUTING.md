@@ -181,16 +181,6 @@ protected branch's `CI green` status is the authoritative correctness gate.
   in a dedicated worktree and compares its render hashes with the working
   tree's build. Nothing is committed; the filter-pipeline effects assert
   properties instead of recorded hashes.
-- **Render goldens:** Native golden cases compare per-channel totals and
-  brightness-weighted row/column centroids on every floating-point mode. The
-  recording environment additionally requires exact hashes. Strict and fast
-  modes have separate references; long chaotic sequences may carry a separate
-  platform fast reference. Re-record only after reviewing the render change, measure
-  toolchain drift before changing a scenario's tolerances, and retain asymmetric
-  channel-swap, mirror and shift companions. Aggregate moments do not distinguish
-  all images. CI uploads native and WASM comparison logs. The explicit
-  `render_goldens` and `render_goldens_wasm` targets reuse these cases under the
-  native and WASM presets without entering their default builds.
 - **Approximation captures:** the fast Peirce framebuffer oracle keeps preset 4's
   restored projection, field and palette path, with hue-modulation amounts set to
   zero before preparation. Its 256-code ceiling isolates projection error; it

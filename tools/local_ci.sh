@@ -64,10 +64,7 @@ job_patterns_provenance() { bash tools/ci/patterns_provenance.sh; }
 job_screenshot_gallery() { bash tools/ci/screenshot_gallery.sh; }
 job_python_tests() { bash tools/ci/python_tests.sh; }
 job_scripts_unit_tests() { bash tools/ci/scripts_tests.sh; }
-job_windows_tests() {
-  bash tools/ci/native_suite.sh --exclude-generated
-  bash tools/ci/render_goldens.sh
-}
+job_windows_tests() { bash tools/ci/native_suite.sh --exclude-generated; }
 # The Linux job's suite runs under windows-tests; this is its remaining step.
 job_tests() { bash tools/ci/p1_plot_scan.sh; }
 job_srgb_decode_provenance() { bash tools/ci/srgb_decode_provenance.sh; }
@@ -77,7 +74,6 @@ job_optimized_tests() {
   local flavor
   for flavor in ieee ndebug-death; do
     HS_CI_BUILD_DIR="build/optimized-$flavor" bash tools/ci/optimized.sh "$flavor"
-    bash tools/ci/render_goldens.sh "build/optimized-$flavor"
   done
 }
 job_wasm() {

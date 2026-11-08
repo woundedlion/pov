@@ -464,9 +464,9 @@ inline RenderRun pinned_clock_run(int frames, const ClipWindow *clip = nullptr,
  * @return Hash, RGB totals and brightness moments of the sequence.
  */
 template <template <int, int> class E, int W, int H>
-inline PixelGolden pinned_clock_frame_golden(int frames,
-                                             const ClipWindow *clip = nullptr,
-                                             bool temporal = false) {
+inline RenderFold pinned_clock_frame_fold(int frames,
+                                          const ClipWindow *clip = nullptr,
+                                          bool temporal = false) {
   return pinned_clock_run<E, W, H>(frames, clip, temporal).fold;
 }
 

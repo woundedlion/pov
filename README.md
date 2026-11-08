@@ -1145,7 +1145,7 @@ On Windows, the executables have an `.exe` suffix. With no module arguments, a l
 | Other `test_<family>` targets | Effect cases split by dependency; Hankin/Islamic mesh cases share `test_mesh_effect`; Conway morph and op-chain modules build as `test_conway_effect` |
 | `run_tests` | Complete compatibility umbrella used by existing CTest and CI entry points |
 
-The umbrella and local runners link the same compiled case objects. `tests/test_main.cpp` supplies the module CLI and CI depth checks, and `tests/process_setup.cpp` suppresses Windows error dialogs in every native executable. `tests/engine_libraries.cmake` shares engine objects across compatible compile contexts; separate objects retain helper tools' different ABI, scan metrics, display/offset, math and sanitizer settings. The build's engine_compile_contexts.txt report records those variants. `cmake/engine_sources.cmake` supplies the shared translation-unit list for native and WASM targets and the WASM arena budget; capture producers use the same list. Native `render_goldens` inherits the module compile definitions from `run_tests`. Coverage instruments the shared case and engine objects as well as the umbrella.
+The umbrella and local runners link the same compiled case objects. `tests/test_main.cpp` supplies the module CLI and CI depth checks, and `tests/process_setup.cpp` suppresses Windows error dialogs in every native executable. `tests/engine_libraries.cmake` shares engine objects across compatible compile contexts; separate objects retain helper tools' different ABI, scan metrics, display/offset, math and sanitizer settings. The build's engine_compile_contexts.txt report records those variants. `cmake/engine_sources.cmake` supplies the shared translation-unit list for native and WASM targets and the WASM arena budget; capture producers use the same list. Coverage instruments the shared case and engine objects as well as the umbrella.
 
 The per-effect smoke and determinism window is `HS_SMOKE_FRAMES`. Its local default is short enough that no preset transition arms, so the pause, slot-reuse and FIFO-expiry paths never execute; `just test` and every CI leg raise it, and `run_tests` refuses a shallower window when `CI` is set. Case lists invoke `HS_RUN(test_case)` or `HS_RUN(test_case, arguments...)` so failure context retains the case name inside lambdas and shared helpers.
 
@@ -1683,7 +1683,6 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_effect_cases_roster.cpp Roster case wrappers and focused runner
 │   ├── run_effect_cases_shapeshifter_cases.cpp ShapeShifter case wrappers and focused runner
 │   ├── run_effect_cases_spherical_harmonics.cpp Spherical harmonics case wrappers and focused runner
-│   ├── run_render_goldens.cpp  Render regression runner, built native (render_goldens) and as Node-hosted WASM (render_goldens_wasm)
 │   ├── hd107s_test_util.h Shared HD107S calibration reset helper
 │   ├── probe_test_util.h  Captured-failure probes that restore harness state
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
