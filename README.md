@@ -1631,7 +1631,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── animation/         Sections included by test_animation.h
 │   ├── canvas/            Sections included by test_canvas.h
 │   ├── color/             Sections included by test_color.h
-│   ├── data/              Pullback manifests and schema, catalog golden, frozen chain-capture corpus, and workbench fixture
+│   ├── data/              Pullback manifests and schema, frozen chain-capture corpus, and workbench fixture
 │   ├── composed_effect/   Sections included by test_composed_effect.h
 │   ├── conway_morph/      Sections included by test_conway_morph.h
 │   ├── death/             Sections included by test_death.h

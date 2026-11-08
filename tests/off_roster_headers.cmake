@@ -9,6 +9,7 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "conway_test_util.h"
   "fd_capture_util.h"
   "hd107s_test_util.h"
+  "json_test_util.h"
   "probe_test_util.h"
   "mesh_test_util.h"
   "mindsplatter_whitebox.h"

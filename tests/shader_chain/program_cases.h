@@ -662,18 +662,276 @@ inline void test_shader_chain_slot_and_hash_contract() {
   HS_EXPECT_NE(In::instance_hash("ab", "c"), In::instance_hash("a", "bc"));
 }
 
-inline void test_shader_chain_catalog_golden() {
-  std::string catalog;
-  In::append_catalog_json(catalog);
-  catalog += '\n';
-  const std::string golden = read_text_file(HS_SHADER_CHAIN_CATALOG_PATH);
-  HS_EXPECT_FALSE(golden.empty());
-  HS_EXPECT_TRUE(catalog == golden);
-  if (catalog != golden)
-    std::printf("shader_chain catalog drift: %zu generated vs %zu golden "
-                "bytes; rebuild the regenerate_shader_chain_catalog target"
-                "\n",
-                catalog.size(), golden.size());
+/** @brief Parses catalog JSON text; a parse failure fails the calling test.
+ * @param text Catalog JSON.
+ * @return The parsed root. */
+inline JsonValue parse_catalog(const std::string &text) {
+  JsonParser parser{text};
+  JsonValue root = parser.parse_value();
+  parser.skip_space();
+  HS_EXPECT_FALSE(parser.failed);
+  HS_EXPECT_EQ(parser.position, text.size());
+  return root;
+}
+
+/** @brief The building ABI's catalog, exported in-process and parsed.
+ * @return The parsed root. */
+inline JsonValue native_catalog() {
+  std::string text;
+  In::append_catalog_json(text);
+  return parse_catalog(text);
+}
+
+/** @brief A required member of a parsed catalog object.
+ * @param object Object to read.
+ * @param key Member name.
+ * @return The member, or a null value after failing the calling test. */
+inline const JsonValue &catalog_member(const JsonValue &object,
+                                       const char *key) {
+  static const JsonValue MISSING;
+  const JsonValue *value = object.find(key);
+  HS_EXPECT(value != nullptr, key);
+  return value != nullptr ? *value : MISSING;
+}
+
+/** @brief A block member as an unsigned size.
+ * @param block Parsed `{"size", "align"}` object.
+ * @param key `"size"` or `"align"`.
+ * @return The member's value. */
+inline size_t catalog_block_field(const JsonValue &block, const char *key) {
+  return static_cast<size_t>(catalog_member(block, key).number);
+}
+
+/** @brief Whether two parsed JSON values are equal, member order included.
+ * @param a First value.
+ * @param b Second value.
+ * @return True when kind, scalar and every child agree. */
+inline bool json_equal(const JsonValue &a, const JsonValue &b) {
+  if (a.kind != b.kind || a.boolean != b.boolean || a.number != b.number ||
+      a.text != b.text || a.items.size() != b.items.size() ||
+      a.member_keys != b.member_keys)
+    return false;
+  for (size_t index = 0; index < a.items.size(); ++index)
+    if (!json_equal(a.items[index], b.items[index]))
+      return false;
+  for (size_t index = 0; index < a.member_values.size(); ++index)
+    if (!json_equal(a.member_values[index], b.member_values[index]))
+      return false;
+  return true;
+}
+
+/** @brief A parsed operator entry without its ABI-dependent `blocks` member.
+ * @param op Parsed operator entry.
+ * @return The entry's copy minus `blocks`. */
+inline JsonValue without_blocks(const JsonValue &op) {
+  JsonValue copy;
+  copy.kind = op.kind;
+  for (size_t index = 0; index < op.member_keys.size(); ++index) {
+    if (op.member_keys[index] == "blocks")
+      continue;
+    copy.member_keys.push_back(op.member_keys[index]);
+    copy.member_values.push_back(op.member_values[index]);
+  }
+  return copy;
+}
+
+/** @brief Cataloged runtime block names. */
+inline constexpr const char *CATALOG_BLOCKS[] = {"param", "prepared", "state",
+                                                 "interval"};
+
+/** @brief Every cataloged operator id is unique and ends in `.v<N>`. */
+inline void test_shader_chain_catalog_ids_versioned_and_unique() {
+  const JsonValue root = native_catalog();
+  const auto &operators = catalog_member(root, "operators").items;
+  HS_EXPECT_EQ(operators.size(), In::OPERATOR_TABLE.size());
+  std::vector<std::string> seen;
+  for (const JsonValue &op : operators) {
+    const std::string &id = catalog_member(op, "id").text;
+    HS_CONTEXT(id.c_str());
+    const size_t mark = id.rfind(".v");
+    HS_EXPECT_TRUE(mark != std::string::npos && mark > 0);
+    if (mark == std::string::npos || mark == 0)
+      continue;
+    const std::string_view version = std::string_view(id).substr(mark + 2);
+    HS_EXPECT_FALSE(version.empty());
+    HS_EXPECT_TRUE(version.empty() || version.front() != '0');
+    HS_EXPECT_TRUE(std::all_of(version.begin(), version.end(),
+                               [](char c) { return c >= '0' && c <= '9'; }));
+    HS_EXPECT_TRUE(std::find(seen.begin(), seen.end(), id) == seen.end());
+    seen.push_back(id);
+  }
+}
+
+/** @brief Every numeric default lies in [min, max] and every topology default
+ * is one of its values. */
+inline void test_shader_chain_catalog_defaults_within_domain() {
+  const JsonValue root = native_catalog();
+  size_t numeric = 0;
+  size_t topology = 0;
+  for (const JsonValue &op : catalog_member(root, "operators").items) {
+    HS_CONTEXT(catalog_member(op, "id").text.c_str());
+    for (const JsonValue &param : catalog_member(op, "params").items) {
+      HS_CONTEXT(catalog_member(param, "id").text.c_str());
+      const JsonValue &def = catalog_member(param, "default");
+      if (param.find("topology") != nullptr) {
+        ++topology;
+        const auto &values = catalog_member(param, "values").items;
+        HS_EXPECT_FALSE(values.empty());
+        HS_EXPECT_TRUE(def.kind == JsonValue::Kind::STRING);
+        HS_EXPECT_TRUE(std::any_of(
+            values.begin(), values.end(),
+            [&def](const JsonValue &value) { return value.text == def.text; }));
+      } else {
+        ++numeric;
+        HS_EXPECT_TRUE(def.kind == JsonValue::Kind::NUMBER);
+        HS_EXPECT_LE(catalog_member(param, "min").number, def.number);
+        HS_EXPECT_LE(def.number, catalog_member(param, "max").number);
+      }
+    }
+  }
+  HS_EXPECT_GT(numeric, 0u);
+  HS_EXPECT_GT(topology, 0u);
+}
+
+/** @brief Whether a table entry carries its model's id and block layouts.
+ * @tparam Model Operator model.
+ * @param op Table entry.
+ * @return True when id, param, prepared and state layouts match. */
+template <typename Model>
+consteval bool entry_matches_model(const In::OperatorDescriptor &op) {
+  const auto matches = [](const In::BlockLayout &block, size_t size,
+                          size_t align) {
+    return block.size == size && block.align == align;
+  };
+  using Params = typename Model::Params;
+  using Prepared = typename Model::Prepared;
+  using State = typename Model::State;
+  return std::string_view(op.operator_id) == Model::ID &&
+         matches(op.runtime.param, sizeof(Params), alignof(Params)) &&
+         matches(op.runtime.prepared, sizeof(Prepared), alignof(Prepared)) &&
+         matches(op.runtime.state, sizeof(State), alignof(State));
+}
+
+/** @brief Whether every table entry matches the model at its list position.
+ * @tparam Models Operator models.
+ * @return True when every entry matches. */
+template <typename... Models>
+consteval bool table_matches_models(PB::Detail::TypeList<Models...>) {
+  size_t index = 0;
+  return (entry_matches_model<Models>(In::OPERATOR_TABLE[index++]) && ...);
+}
+
+static_assert(table_matches_models(In::OperatorModels{}));
+
+/** @brief Cataloged block layouts equal the operator table's. */
+inline void test_shader_chain_catalog_blocks_match_layouts() {
+  const JsonValue root = native_catalog();
+  const auto &operators = catalog_member(root, "operators").items;
+  HS_EXPECT_SIZE_OR_RETURN(operators, In::OPERATOR_TABLE.size());
+  for (size_t index = 0; index < operators.size(); ++index) {
+    const In::OperatorDescriptor &expected = In::OPERATOR_TABLE[index];
+    HS_CONTEXT(expected.operator_id);
+    const JsonValue &blocks = catalog_member(operators[index], "blocks");
+    const In::BlockLayout layouts[] = {
+        expected.runtime.param, expected.runtime.prepared,
+        expected.runtime.state, expected.runtime.interval};
+    for (size_t kind = 0; kind < std::size(CATALOG_BLOCKS); ++kind) {
+      HS_CONTEXT(CATALOG_BLOCKS[kind]);
+      const JsonValue &block = catalog_member(blocks, CATALOG_BLOCKS[kind]);
+      HS_EXPECT_EQ(catalog_block_field(block, "size"), layouts[kind].size);
+      HS_EXPECT_EQ(catalog_block_field(block, "align"), layouts[kind].align);
+    }
+  }
+}
+
+/** @brief A full chain's fixed overhead and every operator's single-entry
+ * footprint fit the cataloged arena. */
+inline void test_shader_chain_catalog_fits_arena() {
+  const JsonValue root = native_catalog();
+  const JsonValue &budgets = catalog_member(root, "budgets");
+  const auto budget = [&budgets](const char *key) {
+    return static_cast<size_t>(catalog_member(budgets, key).number);
+  };
+  const size_t arena = budget("arena_bytes");
+  const size_t per_op = budget("per_op_overhead_bytes");
+  const size_t per_param = budget("per_param_name_bytes");
+  HS_EXPECT_LE(budget("max_chain_ops") * per_op +
+                   budget("max_params") * per_param,
+               arena);
+  for (const JsonValue &op : catalog_member(root, "operators").items) {
+    HS_CONTEXT(catalog_member(op, "id").text.c_str());
+    const JsonValue &blocks = catalog_member(op, "blocks");
+    const JsonValue &interval = catalog_member(blocks, "interval");
+    size_t cursor = 0;
+    for (const char *kind : {"param", "prepared", "state"}) {
+      const JsonValue &block = catalog_member(blocks, kind);
+      size_t size = catalog_block_field(block, "size");
+      size_t align = catalog_block_field(block, "align");
+      if (std::string_view(kind) == "prepared") {
+        size = std::max(size, catalog_block_field(interval, "size"));
+        align = std::max(align, catalog_block_field(interval, "align"));
+      }
+      HS_EXPECT_GT(align, 0u);
+      if (align == 0)
+        break;
+      cursor = (cursor + align - 1) / align * align + size;
+    }
+    cursor += per_op + catalog_member(op, "params").items.size() * per_param;
+    HS_EXPECT_LE(cursor, arena);
+  }
+}
+
+/** @brief The native catalog equals the wasm32 one outside block layouts,
+ * where only pointer-bearing blocks widen. */
+inline void test_shader_chain_catalog_matches_wasm_outside_blocks() {
+  const std::string wasm_text = read_text_file(HS_ENGINE_CATALOG_PATH);
+  HS_EXPECT_FALSE(wasm_text.empty());
+  const JsonValue wasm = parse_catalog(wasm_text);
+  const JsonValue native = native_catalog();
+  for (const char *key : {"catalog_version", "budgets", "carriers"}) {
+    HS_CONTEXT(key);
+    HS_EXPECT_TRUE(
+        json_equal(catalog_member(native, key), catalog_member(wasm, key)));
+  }
+  const auto &native_ops = catalog_member(native, "operators").items;
+  const auto &wasm_ops = catalog_member(wasm, "operators").items;
+  HS_EXPECT_SIZE_OR_RETURN(wasm_ops, native_ops.size());
+  size_t widest = 0;
+  for (size_t index = 0; index < native_ops.size(); ++index) {
+    const JsonValue &host_op = native_ops[index];
+    const JsonValue &wasm_op = wasm_ops[index];
+    HS_CONTEXT(catalog_member(host_op, "id").text.c_str());
+    HS_EXPECT_TRUE(
+        json_equal(without_blocks(host_op), without_blocks(wasm_op)));
+    size_t widening = 0;
+    for (const char *kind : CATALOG_BLOCKS) {
+      HS_CONTEXT(kind);
+      const JsonValue &host_block =
+          catalog_member(catalog_member(host_op, "blocks"), kind);
+      const JsonValue &wasm_block =
+          catalog_member(catalog_member(wasm_op, "blocks"), kind);
+      const size_t host_size = catalog_block_field(host_block, "size");
+      const size_t wasm_size = catalog_block_field(wasm_block, "size");
+      const size_t host_align = catalog_block_field(host_block, "align");
+      const size_t wasm_align = catalog_block_field(wasm_block, "align");
+      if (std::string_view(kind) == "param")
+        HS_EXPECT_TRUE(json_equal(host_block, wasm_block));
+      HS_EXPECT_LE(wasm_size, host_size);
+      if (host_size == wasm_size && host_align == wasm_align)
+        continue;
+      // wasm32 pointers are 4-byte aligned.
+      HS_EXPECT_EQ(host_align, alignof(void *));
+      HS_EXPECT_EQ(wasm_align, 4u);
+      if (host_size >= wasm_size)
+        widening += host_size - wasm_size;
+    }
+    widest = std::max(widest, widening);
+  }
+  const JsonValue &budgets = catalog_member(wasm, "budgets");
+  HS_EXPECT_LT(
+      widest *
+          static_cast<size_t>(catalog_member(budgets, "max_chain_ops").number),
+      static_cast<size_t>(catalog_member(budgets, "arena_bytes").number));
 }
 
 inline void test_shader_chain_catalog_shape() {

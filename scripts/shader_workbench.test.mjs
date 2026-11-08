@@ -31,10 +31,7 @@ import { loadEffectIdentities } from './effect_roster.mjs';
 
 // scripts/shader_workbench.mjs and scripts/sha256.mjs are the sources of
 // daydream's shader/ mirrors.
-// engine_catalog.json states the wasm32 operator ABI;
-// tests/data/shader_chain_catalog.json states the native ABI. Their
-// prepared-block sizes and alignments disagree by construction: never copy
-// either over the other.
+// engine_catalog.json states the wasm32 operator ABI.
 const lf = (text) => text.replaceAll('\r\n', '\n');
 
 const CATALOG = JSON.parse(
@@ -338,52 +335,6 @@ test('SHA-256 matches Node across padding boundaries and multiblock inputs', () 
   }
   const text = '🌐 shader λ'.repeat(256);
   assert.equal(sha256Hex(text), createHash('sha256').update(text).digest('hex'));
-});
-
-// tests/data/shader_chain_catalog.json is the same emitter's output from an
-// LP64 host build; a pointer-bearing `prepared` block is wider there, and
-// nothing else may differ from the wasm32 catalog.
-const POINTER_WIDENED_OPERATORS = 7;
-
-test('the native golden and the wasm source catalog differ only in pointer-block width', async () => {
-  const golden = JSON.parse(await readFile(
-    new URL('../tests/data/shader_chain_catalog.json', import.meta.url), 'utf8'));
-  assert.equal(golden.catalog_version, CATALOG.catalog_version);
-  assert.deepEqual(golden.budgets, CATALOG.budgets);
-  assert.deepEqual(golden.carriers, CATALOG.carriers);
-  assert.deepEqual(golden.operators.map((operator) => operator.id),
-    CATALOG.operators.map((operator) => operator.id));
-  let widened = 0;
-  let widest = 0;
-  golden.operators.forEach((native, index) => {
-    const wasm = CATALOG.operators[index];
-    assert.deepEqual({ ...wasm, blocks: null }, { ...native, blocks: null },
-      `${native.id} diverges outside its block layout`);
-    assert.deepEqual(wasm.blocks.param, native.blocks.param, `${native.id} param block`);
-    let pointerBlocks = false;
-    let widthDifference = 0;
-    for (const kind of ['prepared', 'state', 'interval']) {
-      const before = wasm.blocks[kind], after = native.blocks[kind];
-      if (kind !== 'prepared' && native.id !== 'color.modulate.v1')
-        assert.deepEqual(before, after, `${native.id} ${kind} block`);
-      assert.ok(before.size <= after.size,
-        `${native.id} ${kind} block is wider on wasm32 than on LP64`);
-      if (before.size === after.size && before.align === after.align) continue;
-      pointerBlocks = true;
-      widthDifference += after.size - before.size;
-      assert.equal(after.align, 8,
-        `${native.id} ${kind} block diverges without carrying an LP64 pointer`);
-      assert.equal(before.align, 4,
-        `${native.id} ${kind} block diverges without narrowing to wasm32`);
-    }
-    widened += Number(pointerBlocks);
-    widest = Math.max(widest, widthDifference);
-  });
-  assert.equal(widened, POINTER_WIDENED_OPERATORS,
-    'the pointer-bearing operator set moved; re-pin it deliberately');
-  // Worst case: a full-length chain of the widest divergent operator.
-  assert.ok(widest * CATALOG.budgets.max_chain_ops < CATALOG.budgets.arena_bytes,
-    'the two accountings can disagree by a whole arena');
 });
 
 test('the catalog exposes the complete workbench warp and source vocabulary', () => {

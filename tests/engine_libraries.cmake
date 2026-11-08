@@ -77,7 +77,7 @@ function(hs_share_test_engines)
     set(definitions ${context_COMPILE_DEFINITIONS})
     # These knobs are consumed only by test drivers, outside the engine.
     list(FILTER definitions EXCLUDE REGEX
-      "^(HS_SHADER_CHAIN_CATALOG_PATH|HS_PROMOTED_PATTERNS_DIR|HS_DEVICE_STACK_FLOOR_BYTES)(=|$)")
+      "^(HS_ENGINE_CATALOG_PATH|HS_PROMOTED_PATTERNS_DIR|HS_DEVICE_STACK_FLOOR_BYTES)(=|$)")
     list(REMOVE_DUPLICATES definitions)
     list(SORT definitions)
     set(includes)

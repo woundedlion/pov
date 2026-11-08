@@ -33,6 +33,7 @@
 #include "tests/test_harness.h"
 #include "tests/composed_effect/catalog_policies.h"
 #include "tests/composed_effect/keyed_rotations.h"
+#include "tests/json_test_util.h"
 #include "tests/vec_test_util.h"
 #include "targets/wasm/document_parameters.h"
 

@@ -20,54 +20,35 @@ namespace Pullback {
 
 namespace Interp {
 
+/** @brief Every chain operator model, in catalog order. */
+using OperatorModels = ::Pullback::Detail::TypeList<
+    Op::Rotate, Op::DisplaceCurl, Op::DisplaceDirect, Op::DisplaceRipple,
+    Op::DisplacePotential, Op::DisplaceRossbyHaurwitz, Op::DisplaceSymmetric,
+    Op::LensGlitch, Op::LensTwist, Op::LensMobius, Op::LensKaleidoscope,
+    Op::ProjectStereographic, Op::ProjectFoldedSinusoidal,
+    Op::ProjectEquirectangular, Op::ProjectGnomonic, Op::ProjectPeirceV3,
+    Op::ProjectPeirceSquareFastV3, Op::ProjectBonneV3, Op::ProjectAiroceanV3,
+    Op::ProjectTetrahedral, Op::ProjectCubic, Op::ProjectOctahedral,
+    Op::ProjectDodecahedral, Op::ProjectIcosahedral, Op::WarpAffineV4,
+    Op::WarpWaveShear, Op::WarpVortex, Op::WarpVectorNoise, Op::WarpMirrorTile,
+    Op::WarpPolarChart, Op::WarpCurlFlow, Op::SampleGridV4,
+    Op::SampleTwinWaveV3, Op::SampleBands, Op::SampleSpiralV3,
+    Op::SampleTessellation, Op::SampleProjectedNoise, Op::SampleSphericalNoise,
+    Op::SampleSphericalCells, Op::TransferRidge, Op::TransferIsoContour,
+    Op::TransferSmoothBands, Op::CoverageValueCutout,
+    Op::ColorizeGeneratedPaletteV4, Op::ModulateColorV1>;
+
+/** @brief One descriptor per model of @p Models.
+ *  @tparam Models Operator models.
+ *  @return The models' descriptors, in list order. */
+template <typename... Models>
+consteval std::array<OperatorDescriptor, sizeof...(Models)>
+make_operator_table(::Pullback::Detail::TypeList<Models...>) {
+  return {make_operator_descriptor<Models>()...};
+}
+
 /** @brief Every chain operator's descriptor, one per operator model. */
-inline constexpr std::array<OperatorDescriptor, 45> OPERATOR_TABLE{
-    make_operator_descriptor<Op::Rotate>(),
-    make_operator_descriptor<Op::DisplaceCurl>(),
-    make_operator_descriptor<Op::DisplaceDirect>(),
-    make_operator_descriptor<Op::DisplaceRipple>(),
-    make_operator_descriptor<Op::DisplacePotential>(),
-    make_operator_descriptor<Op::DisplaceRossbyHaurwitz>(),
-    make_operator_descriptor<Op::DisplaceSymmetric>(),
-    make_operator_descriptor<Op::LensGlitch>(),
-    make_operator_descriptor<Op::LensTwist>(),
-    make_operator_descriptor<Op::LensMobius>(),
-    make_operator_descriptor<Op::LensKaleidoscope>(),
-    make_operator_descriptor<Op::ProjectStereographic>(),
-    make_operator_descriptor<Op::ProjectFoldedSinusoidal>(),
-    make_operator_descriptor<Op::ProjectEquirectangular>(),
-    make_operator_descriptor<Op::ProjectGnomonic>(),
-    make_operator_descriptor<Op::ProjectPeirceV3>(),
-    make_operator_descriptor<Op::ProjectPeirceSquareFastV3>(),
-    make_operator_descriptor<Op::ProjectBonneV3>(),
-    make_operator_descriptor<Op::ProjectAiroceanV3>(),
-    make_operator_descriptor<Op::ProjectTetrahedral>(),
-    make_operator_descriptor<Op::ProjectCubic>(),
-    make_operator_descriptor<Op::ProjectOctahedral>(),
-    make_operator_descriptor<Op::ProjectDodecahedral>(),
-    make_operator_descriptor<Op::ProjectIcosahedral>(),
-    make_operator_descriptor<Op::WarpAffineV4>(),
-    make_operator_descriptor<Op::WarpWaveShear>(),
-    make_operator_descriptor<Op::WarpVortex>(),
-    make_operator_descriptor<Op::WarpVectorNoise>(),
-    make_operator_descriptor<Op::WarpMirrorTile>(),
-    make_operator_descriptor<Op::WarpPolarChart>(),
-    make_operator_descriptor<Op::WarpCurlFlow>(),
-    make_operator_descriptor<Op::SampleGridV4>(),
-    make_operator_descriptor<Op::SampleTwinWaveV3>(),
-    make_operator_descriptor<Op::SampleBands>(),
-    make_operator_descriptor<Op::SampleSpiralV3>(),
-    make_operator_descriptor<Op::SampleTessellation>(),
-    make_operator_descriptor<Op::SampleProjectedNoise>(),
-    make_operator_descriptor<Op::SampleSphericalNoise>(),
-    make_operator_descriptor<Op::SampleSphericalCells>(),
-    make_operator_descriptor<Op::TransferRidge>(),
-    make_operator_descriptor<Op::TransferIsoContour>(),
-    make_operator_descriptor<Op::TransferSmoothBands>(),
-    make_operator_descriptor<Op::CoverageValueCutout>(),
-    make_operator_descriptor<Op::ColorizeGeneratedPaletteV4>(),
-    make_operator_descriptor<Op::ModulateColorV1>(),
-};
+inline constexpr auto OPERATOR_TABLE = make_operator_table(OperatorModels{});
 
 /**
  * @brief Whether every table operator id is unique.

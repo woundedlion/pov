@@ -89,7 +89,7 @@ add_executable(run_tests
 # HS_SCAN_METRICS compiles in the per-pixel g_scan_metrics counters
 # (HS_SCAN_METRIC, core/platform/profiling.h).
 target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS
-  "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json\""
+  "HS_ENGINE_CATALOG_PATH=\"${HS_ROOT}/scripts/engine_catalog.json\""
   "HS_PROMOTED_PATTERNS_DIR=\"${HS_ROOT}/patterns\"")
 target_link_libraries(run_tests PRIVATE hs_test_support)
 
@@ -755,22 +755,6 @@ add_executable(srgb_decode_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/scripts/generate_srgb_decode.cpp)
 target_include_directories(srgb_decode_gen PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(srgb_decode_gen)
-
-
-# Generator of record for tests/data/shader_chain_catalog.json; excluded from
-# the default build.
-add_executable(shader_chain_catalog_gen EXCLUDE_FROM_ALL
-  ${CMAKE_CURRENT_SOURCE_DIR}/shader_chain_catalog_gen.cpp
-  ${HS_ENGINE_SOURCES})
-target_include_directories(shader_chain_catalog_gen PRIVATE ${HS_ENGINE_INCLUDES})
-target_link_libraries(shader_chain_catalog_gen PRIVATE hs_test_support)
-_hs_warnings(shader_chain_catalog_gen)
-
-add_custom_target(regenerate_shader_chain_catalog
-  COMMAND $<TARGET_FILE:shader_chain_catalog_gen>
-          ${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json
-  DEPENDS shader_chain_catalog_gen
-  VERBATIM)
 
 add_executable(noise_golden_gen ${HS_ROOT}/tools/noise_golden_export.cpp)
 target_include_directories(noise_golden_gen PRIVATE ${HS_ENGINE_INCLUDES})

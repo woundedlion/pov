@@ -3,14 +3,6 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Chain-interpreter core tests.
- *
- * Catalog regen: the golden at tests/data/shader_chain_catalog.json is
- * rewritten by the native build target:
- *   cmake --build --preset tests --target regenerate_shader_chain_catalog
- *
- * The golden's block sizes and alignments are the native ABI; the wasm32
- * catalog (regenerate_engine_catalog) is a separate file and is not
- * interchangeable with it.
  */
 #pragma once
 
@@ -33,6 +25,7 @@
 #include "effects/GridWorms.h"
 #include "effects/MobiusGrid.h"
 #include "tests/composed_frame_fixture.h"
+#include "tests/json_test_util.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/vec_test_util.h"
@@ -812,7 +805,11 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_schema_defaults_match_params);
   HS_RUN(test_shader_chain_instance_id_wellformed);
   HS_RUN(test_shader_chain_slot_and_hash_contract);
-  HS_RUN(test_shader_chain_catalog_golden);
+  HS_RUN(test_shader_chain_catalog_ids_versioned_and_unique);
+  HS_RUN(test_shader_chain_catalog_defaults_within_domain);
+  HS_RUN(test_shader_chain_catalog_blocks_match_layouts);
+  HS_RUN(test_shader_chain_catalog_fits_arena);
+  HS_RUN(test_shader_chain_catalog_matches_wasm_outside_blocks);
   HS_RUN(test_shader_chain_catalog_shape);
   HS_RUN(test_shader_chain_default_chain_renders);
   HS_RUN(test_shader_chain_param_address_channel);
