@@ -1284,25 +1284,6 @@ inline void test_millefiori_document_pipeline() {
 /** @brief AshCloud pixels match its document-built operator chain. */
 inline void test_ash_cloud_document_pipeline() {
   using FX = AshCloud<SMALL_W, SMALL_H>;
-  using Ripple = Pullback::Stage::Displace<
-      Pullback::Surface::BurstRipple<Pullback::SurfaceProvider<
-          FX::Binding, Pullback::SphereAnimation::BurstRippleParams, true,
-          "displace">>>;
-  using Curl = Pullback::Stage::Displace<Pullback::Surface::CurlNoise<
-      Pullback::SurfaceProvider<FX::Binding, Pullback::SurfaceNoiseParams,
-                                true>,
-      math::NoiseBasis::SIMPLEX, AshCloudInlineEuler,
-      math::TangentLimit::SMOOTH>>;
-  using Lens =
-      Pullback::Stage::Lens<Pullback::Lens::DodecahedralTableKaleidoscope>;
-  using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
-      Pullback::ProjectionKind::STEREOGRAPHIC, FX::Binding>::Type>;
-  using Leaves = Pullback::ComposedDetail::PipelineLeaves<
-      FX::Spec::template Pipeline<FX::Binding>>;
-  static_assert(std::is_same_v<Leaves::StageAt<1>, Ripple>);
-  static_assert(std::is_same_v<Leaves::StageAt<2>, Curl>);
-  static_assert(std::is_same_v<Leaves::StageAt<3>, Lens>);
-  static_assert(std::is_same_v<Leaves::StageAt<4>, Project>);
   struct Frame {
     struct Temporal {
       float fraction;

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdio>
+#include <initializer_list>
 #include <limits>
 #include <vector>
 #include <memory>
@@ -324,27 +325,37 @@ inline void test_bootstrap_rows() {
       }));
 }
 
+/**
+ * @brief Expects an entry's preset ids to be non-empty and distinct, to end at
+ * `preset_count`, and to begin with @p leading.
+ */
+inline void expect_preset_ids(const FactoryEntry *entry,
+                              std::initializer_list<std::string_view> leading) {
+  HS_EXPECT_TRUE(entry != nullptr);
+  HS_EXPECT_TRUE(entry && entry->preset_id != nullptr);
+  if (!entry || !entry->preset_id)
+    return;
+  HS_EXPECT_GE(entry->preset_count, leading.size());
+  size_t index = 0;
+  for (std::string_view id : leading) {
+    if (index < entry->preset_count)
+      HS_EXPECT_EQ(entry->preset_id(index), id);
+    ++index;
+  }
+  for (size_t i = 0; i < entry->preset_count; ++i) {
+    HS_EXPECT_FALSE(entry->preset_id(i).empty());
+    for (size_t j = 0; j < i; ++j)
+      HS_EXPECT_NE(entry->preset_id(i), entry->preset_id(j));
+  }
+  HS_EXPECT_TRUE(entry->preset_id(entry->preset_count).empty());
+}
+
 /** @brief Checks registry-owned stable preset identities without Effect vtable cost. */
 inline void test_fixed_preset_ids() {
-  const FactoryEntry *melt =
-      hs_wasm::find_factory_entry<96, 20>("kaleidoscope-melt");
-  HS_EXPECT_TRUE(melt != nullptr);
-  HS_EXPECT_TRUE(melt && melt->preset_id != nullptr);
-  if (melt && melt->preset_id) {
-    HS_EXPECT_EQ(melt->preset_count, 1u);
-    HS_EXPECT_EQ(melt->preset_id(0), "kaleidoscope-melt");
-    HS_EXPECT_TRUE(melt->preset_id(1).empty());
-  }
-
-  const FactoryEntry *mobius =
-      hs_wasm::find_factory_entry<96, 20>("mobius-grid");
-  HS_EXPECT_TRUE(mobius != nullptr);
-  HS_EXPECT_TRUE(mobius && mobius->preset_id != nullptr);
-  if (mobius && mobius->preset_id) {
-    HS_EXPECT_EQ(mobius->preset_count, 2u);
-    HS_EXPECT_EQ(mobius->preset_id(0), "mobius-grid");
-    HS_EXPECT_EQ(mobius->preset_id(1), "mobius-grid-2");
-  }
+  expect_preset_ids(hs_wasm::find_factory_entry<96, 20>("kaleidoscope-melt"),
+                    {"kaleidoscope-melt"});
+  expect_preset_ids(hs_wasm::find_factory_entry<96, 20>("mobius-grid"),
+                    {"mobius-grid", "mobius-grid-2"});
 
   const FactoryEntry *harmonics =
       hs_wasm::find_factory_entry<96, 20>("SphericalHarmonics");
@@ -368,25 +379,10 @@ inline void test_fixed_preset_ids() {
             .empty());
   }
 
-  const FactoryEntry *displacement =
-      hs_wasm::find_factory_entry<96, 20>("DisplacementField");
-  HS_EXPECT_TRUE(displacement && displacement->preset_id != nullptr);
-  if (displacement && displacement->preset_id) {
-    HS_EXPECT_EQ(displacement->preset_count, size_t{2});
-    HS_EXPECT_EQ(displacement->preset_id(0), "noise");
-    HS_EXPECT_EQ(displacement->preset_id(1), "balls");
-    HS_EXPECT_TRUE(displacement->preset_id(2).empty());
-  }
-
-  const FactoryEntry *fishbowl =
-      hs_wasm::find_factory_entry<96, 20>("Fishbowl");
-  HS_EXPECT_TRUE(fishbowl != nullptr);
-  HS_EXPECT_TRUE(fishbowl && fishbowl->preset_id != nullptr);
-  if (fishbowl && fishbowl->preset_id) {
-    HS_EXPECT_EQ(fishbowl->preset_count, 1u);
-    HS_EXPECT_EQ(fishbowl->preset_id(0), "fire-trail");
-    HS_EXPECT_TRUE(fishbowl->preset_id(1).empty());
-  }
+  expect_preset_ids(hs_wasm::find_factory_entry<96, 20>("DisplacementField"),
+                    {"noise", "balls"});
+  expect_preset_ids(hs_wasm::find_factory_entry<96, 20>("Fishbowl"),
+                    {"fire-trail"});
 }
 
 /**

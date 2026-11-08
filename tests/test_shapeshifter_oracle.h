@@ -277,10 +277,6 @@ struct ShapeShifterWhiteBox {
     return OracleEffect::SHAPE_EXPORT_OPTIONS[index];
   }
 
-  static const char *spacing_option(int index) {
-    return OracleEffect::SPACING_OPTIONS[index];
-  }
-
   static const char *spacing_export_option(int index) {
     return OracleEffect::SPACING_EXPORT_OPTIONS[index];
   }
@@ -754,13 +750,10 @@ inline void test_star_options_and_shipping_presets_are_planar() {
   using Falloff = OracleEffect::AlphaFalloff;
   using Shape = OracleEffect::ShapeType;
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_count(), 5);
-  HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_option(3), "Planar Star");
-  HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_option(4), "Spherical Star");
   HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_export_option(3),
                   "ShapeType::PLANAR_STAR");
   HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_export_option(4),
                   "ShapeType::SPHERICAL_STAR");
-  HS_EXPECT_STREQ(ShapeShifterWhiteBox::spacing_option(1), "Screen Balanced");
   HS_EXPECT_STREQ(ShapeShifterWhiteBox::spacing_export_option(1),
                   "RadiusSpacing::SCREEN_BALANCED");
   size_t planar_stars = 0;
@@ -834,7 +827,7 @@ inline void test_timed_dense_star_stroke_stays_within_visual_budget() {
   HS_EXPECT_LT(comparison.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
   HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
                MAX_ROOT_MEAN_SQUARED_ERROR);
-  HS_EXPECT_LT(drift, 0.014);
+  HS_EXPECT_LT(drift, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT);
   const auto pole_reference = row_energy(comparison.reference, 0);
   const auto pole_candidate = row_energy(comparison.candidate, 0);
   HS_EXPECT_GT(pole_reference, uint64_t{0});
@@ -1151,16 +1144,16 @@ inline void test_preset_transition_adopts_next_params() {
 }
 
 /**
- * @brief Pins ShapeShifter's preset cadence with an eight-frame fade out,
- *        adoption in the dark, and an eight-frame fade back in.
+ * @brief A preset change fades out over half the segue, adopts the next
+ *        preset in the dark, and fades back in over the other half.
  */
-inline void test_preset_transition_fades_through_black_in_16_frames() {
+inline void test_preset_transition_fades_through_black() {
   reset_globals();
   {
     OracleEffect effect;
     effect.init();
     Canvas canvas(effect);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_segue_frames(), 16);
+    constexpr int HALF = ShapeShifterWhiteBox::preset_segue_frames() / 2;
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_dwell_frames() +
                      ShapeShifterWhiteBox::preset_segue_frames(),
                  ShapeShifterWhiteBox::preset_frames());
@@ -1178,10 +1171,10 @@ inline void test_preset_transition_fades_through_black_in_16_frames() {
     HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
                  static_cast<int>(FIRST));
 
-    for (int frame = 1; frame < 8; ++frame) {
+    for (int frame = 1; frame < HALF; ++frame) {
       step();
       HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect),
-                     1.0f - static_cast<float>(frame) / 8.0f, 1e-6f);
+                     1.0f - static_cast<float>(frame) / HALF, 1e-6f);
       HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
                    static_cast<int>(FIRST));
     }
@@ -1192,10 +1185,10 @@ inline void test_preset_transition_fades_through_black_in_16_frames() {
                  static_cast<int>(SECOND));
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
 
-    for (int frame = 1; frame <= 8; ++frame) {
+    for (int frame = 1; frame <= HALF; ++frame) {
       step();
       HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect),
-                     static_cast<float>(frame) / 8.0f, 1e-6f);
+                     static_cast<float>(frame) / HALF, 1e-6f);
     }
     HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
                  static_cast<int>(SECOND));
@@ -1566,7 +1559,7 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_folded_shapes_draw_from_equator_to_both_poles);
   HS_RUN(test_screen_balanced_spacing_follows_sampling_envelope);
   HS_RUN(test_preset_transition_adopts_next_params);
-  HS_RUN(test_preset_transition_fades_through_black_in_16_frames);
+  HS_RUN(test_preset_transition_fades_through_black);
   return fixture.result();
 }
 

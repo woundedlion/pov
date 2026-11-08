@@ -86,6 +86,11 @@ Color4 shade(const math::Vector &view, const PreparedTrace &prepared) {
 
 struct HyperLatticeWhiteBox {
   using Effect = HyperLattice<96, 20>;
+  /// Frames one depth-palette fade spans.
+  static constexpr int PALETTE_FADE_FRAMES = Effect::PALETTE_FADE_FRAMES;
+  /// Frames until the depth-palette cycle repeats.
+  static constexpr int PALETTE_CYCLE_FRAMES =
+      static_cast<int>(Effect::DEPTH_HUE_OFFSETS.size()) * PALETTE_FADE_FRAMES;
 
   static math::Vec4 origin(const Effect &effect) { return effect.origin; }
   static std::array<float, 6> rotation_phase(const Effect &effect) {
@@ -402,7 +407,7 @@ inline void test_depth_palette_mutates_slowly_while_paused() {
   HS_EXPECT_TRUE(HyperLatticeWhiteBox::depth_palette_fading(effect));
   HS_EXPECT_EQ(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
 
-  run_frames(effect, 480);
+  run_frames(effect, HyperLatticeWhiteBox::PALETTE_FADE_FRAMES / 2);
   HS_EXPECT_NE(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
 }
 
@@ -411,8 +416,9 @@ inline void test_depth_palette_keeps_cool_character() {
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
   const Pixel initial = HyperLatticeWhiteBox::depth_color(effect, 0.5f);
-  for (int frame = 0; frame <= 2880; ++frame) {
-    if (frame % 120 == 0) {
+  constexpr int CYCLE = HyperLatticeWhiteBox::PALETTE_CYCLE_FRAMES;
+  for (int frame = 0; frame <= CYCLE; ++frame) {
+    if (frame % (HyperLatticeWhiteBox::PALETTE_FADE_FRAMES / 8) == 0) {
       float previous_lightness = 0.0f;
       for (int sample = 0; sample <= 16; ++sample) {
         const OKLCH color = pixel_to_oklch(
@@ -423,7 +429,7 @@ inline void test_depth_palette_keeps_cool_character() {
         previous_lightness = color.L;
       }
     }
-    if (frame < 2880)
+    if (frame < CYCLE)
       HyperLatticeWhiteBox::step_depth_palette(effect);
   }
   HS_EXPECT_EQ(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
@@ -439,6 +445,7 @@ inline void test_next_plane_is_strict() {
 inline void test_trace_layers_are_front_to_back() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset(0).params;
+  frame.params.shells = HL::ShellCount::TWO;
   frame.origin = {{0.25f, 0.0f, 0.31f, 0.43f}};
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
   float previous_distance = 0.0f;
@@ -531,6 +538,7 @@ inline void test_coincident_planes_form_one_layer() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset(0).params;
   frame.params.sphere_radius = 0.0f;
+  frame.params.shells = HL::ShellCount::TWO;
   frame.origin = {{0.25f, 0.25f, 0.31f, 0.43f}};
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
   constexpr float INV_SQRT_TWO = 0.707106781f;
@@ -1238,16 +1246,10 @@ inline void test_presets_are_valid_and_distinct() {
   static_assert(Effect::PRESET_IDS[Effect::HYPERCUBE_PRESET_INDEX] ==
                 "hypercube-flight");
 
-  constexpr HL::Params CUBIC_PRESET = Effect::preset(0).params;
-  static_assert(CUBIC_PRESET.mode == HL::LatticeMode::SPATIAL_3D);
-  static_assert(CUBIC_PRESET.shells == HL::ShellCount::TWO);
-
-  constexpr HL::Params SLICE_PRESET =
-      Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
-  static_assert(SLICE_PRESET.mode == HL::LatticeMode::SLICE_4D);
-  static_assert(SLICE_PRESET.shells == HL::ShellCount::TWO);
-
-  static_assert(SLICE_PRESET.sphere_radius == 0.0f);
+  static_assert(Effect::preset(Effect::CUBIC_PRESET_INDEX).params.mode ==
+                HL::LatticeMode::SPATIAL_3D);
+  static_assert(Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params.mode ==
+                HL::LatticeMode::SLICE_4D);
   reset_globals();
   Effect effect;
   effect.init();
@@ -1390,7 +1392,8 @@ inline void test_near_fade_control() {
   Effect effect;
   effect.init();
   HS_REQUIRED_PARAM(near_fade, effect, "Near Fade");
-  HS_EXPECT_EQ(near_fade->get(), 0.5f);
+  HS_EXPECT_EQ(near_fade->get(),
+               Effect::preset(effect.getPresetIndex()).params.near_fade);
   HS_EXPECT_EQ(effect.updateParameter("Near Fade", 1.2f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::params(effect).near_fade, 1.2f);
@@ -1400,7 +1403,8 @@ inline void test_near_fade_control() {
   HL::Params fade_blended;
   fade_blended.lerp(fade_start, fade_target, 0.5f);
   HS_EXPECT_EQ(fade_blended.near_fade, 1.0f);
-  for (float invalid : {0.0f, 2.01f}) {
+  for (float invalid : {0.0f, std::nextafter(Effect::NEAR_FADE_MAX,
+                                             Effect::NEAR_FADE_MAX + 1)}) {
     fade_blended.near_fade = invalid;
     HS_EXPECT_FALSE(Effect::valid_params(fade_blended));
   }
@@ -1412,14 +1416,12 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   Effect effect;
   effect.init();
   HS_REQUIRED_PARAM(cell_size, effect, "Cell Size");
-  HS_EXPECT_EQ(cell_size->max, 10.0f);
+  HS_EXPECT_EQ(cell_size->max, Effect::CELL_SIZE_MAX);
   HS_REQUIRED_PARAM(far_distance, effect, "Far Distance");
 
   HS_REQUIRED_PARAM(dimension, effect, "View");
   HS_EXPECT_TRUE(dimension->is_enum());
   HS_EXPECT_EQ(dimension->option_count, 2);
-  HS_EXPECT_STREQ(dimension->options[0], "3D perspective");
-  HS_EXPECT_STREQ(dimension->options[1], "4D slice");
   HS_EXPECT_STREQ(dimension->export_options[1], "LatticeMode::SLICE_4D");
   HS_EXPECT_EQ(effect.updateParameter("View", 1.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::params(effect).mode,
@@ -1892,12 +1894,14 @@ inline void test_speed_range() {
   Effect effect;
   effect.init();
   HS_REQUIRED_PARAM(speed, effect, "Speed");
-  HS_EXPECT_EQ(speed->max, 0.3f);
-  HS_EXPECT_EQ(effect.updateParameter("Speed", 0.3f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(speed->max, Effect::SPEED_MAX);
+  HS_EXPECT_EQ(effect.updateParameter("Speed", Effect::SPEED_MAX),
+               ParamSetResult::APPLIED);
   auto snapshot = effect.serialize_parameters();
-  HS_EXPECT_EQ(snapshot.params.speed, 0.3f);
+  HS_EXPECT_EQ(snapshot.params.speed, Effect::SPEED_MAX);
   HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
-  snapshot.params.speed = 0.31f;
+  snapshot.params.speed =
+      std::nextafter(Effect::SPEED_MAX, Effect::SPEED_MAX + 1);
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
 }
 

@@ -432,8 +432,15 @@ inline void test_shader_chain_snapshot_roundtrip() {
     color.palette_chroma = 0.43f;
     color.phase_oscillation_speed = 0.004f;
     layer.noise.speed = -0.0007f;
-    for (int frame = 0; frame < 713; ++frame)
+    // Advance to a fade whose display bake is still pending, past the first
+    // generated palettes.
+    const auto mid_fade = [&] {
+      const auto bank = WB::palette_bank(effect);
+      return bank.cycles[0].next_sequence > 2 && bank.cycles[1].display_dirty;
+    };
+    for (int frame = 0; frame < 100000 && !mid_fade(); ++frame)
       WB::advance_without_render(effect);
+    HS_EXPECT_TRUE(mid_fade());
     effect.setAnimationsPaused(true);
     saved = effect.snapshot();
     HS_EXPECT_TRUE(GeneratedPaletteBank::valid_snapshot(*saved.palette_bank));

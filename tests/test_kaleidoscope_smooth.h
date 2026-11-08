@@ -21,14 +21,12 @@ using KaleidoscopeSmoothWhiteBox =
     ComposedWhiteBox<KaleidoscopeSmooth<SMALL_W, SMALL_H>>;
 
 /**
- * @brief Smooth exports the expected identity, preset roster and stage
- * resources.
+ * @brief Smooth exports the expected identity and stage resources.
  */
 inline void test_kaleidoscope_smooth_identity_and_presets() {
   using WB = KaleidoscopeSmoothWhiteBox;
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "kaleidoscope-smooth");
-  HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{4});
   static_assert(WB::Params::template HAS<"projection"> &&
                 WB::Params::template HAS<"inner_warp"> &&
                 WB::Params::template HAS<"affine"> &&

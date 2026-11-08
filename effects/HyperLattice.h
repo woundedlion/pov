@@ -1208,12 +1208,14 @@ private:
   float unfinished_rays = 0;
 #endif
 
+  /// Hue offsets, in turns, the depth palette cycles through.
+  static constexpr std::array<float, 3> DEPTH_HUE_OFFSETS{0.0f, -8.0f / 360.0f,
+                                                          8.0f / 360.0f};
+
   static void next_depth_palette(void *, uint32_t sequence,
                                  GenerativePalette &out) {
-    static constexpr std::array<float, 3> HUE_OFFSETS{0.0f, -8.0f / 360.0f,
-                                                      8.0f / 360.0f};
     out = GenerativePalette{EffectPaletteRecipes::hyper_lattice(
-        HUE_OFFSETS[sequence % HUE_OFFSETS.size()])};
+        DEPTH_HUE_OFFSETS[sequence % DEPTH_HUE_OFFSETS.size()])};
   }
 
   static constexpr int PALETTE_FADE_FRAMES = 960;

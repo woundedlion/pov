@@ -17,6 +17,10 @@ struct ShaderChainWhiteBox {
     return effect.find_colorize_tap().index;
   }
   static void advance_without_render(FX &effect) { effect.advance_clocks(); }
+  /** The generated palette bank's current state. */
+  static GeneratedPaletteBank::Snapshot palette_bank(const FX &effect) {
+    return effect.generated_palettes.snapshot();
+  }
   static Pixel palette_color(const FX &effect, float value) {
     return effect.generated_palettes.palette(In::Op::PaletteMode::TRIADIC)
         .get(value)

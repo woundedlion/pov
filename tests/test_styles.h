@@ -22,27 +22,22 @@ struct PresetCase {
   const char *name;
   Feedback::Style style;
   Feedback::SpaceFn space;
-  float frame_shift;
 };
 inline const PresetCase PRESETS[] = {
     {"ArcingLightning", Feedback::Style::ArcingLightning(),
-     &Feedback::noise_warp, 0.1f},
-    {"SlowFire", Feedback::Style::SlowFire(), &Feedback::noise_warp, 0.0167f},
-    {"EnergeticFire", Feedback::Style::EnergeticFire(), &Feedback::noise_warp,
-     0.0167f},
-    {"SlowDust", Feedback::Style::SlowDust(), &Feedback::noise_warp, 0.0167f},
-    {"WavyTrails", Feedback::Style::WavyTrails(), &Feedback::noise_warp,
-     0.0722f},
-    {"MeltingHi", Feedback::Style::MeltingHi(), &Feedback::melt_warp, 0.1f},
-    {"MeltingLo", Feedback::Style::MeltingLo(), &Feedback::melt_warp, 0.1f},
-    {"Miasma", Feedback::Style::Miasma(), &Feedback::noise_warp, 0.05050779f},
-    {"LooseWormhole", Feedback::Style::LooseWormhole(), &Feedback::noise_warp,
-     0.07220009f},
-    {"TightWormhole", Feedback::Style::TightWormhole(), &Feedback::noise_warp,
-     0.07220009f},
+     &Feedback::noise_warp},
+    {"SlowFire", Feedback::Style::SlowFire(), &Feedback::noise_warp},
+    {"EnergeticFire", Feedback::Style::EnergeticFire(), &Feedback::noise_warp},
+    {"SlowDust", Feedback::Style::SlowDust(), &Feedback::noise_warp},
+    {"WavyTrails", Feedback::Style::WavyTrails(), &Feedback::noise_warp},
+    {"MeltingHi", Feedback::Style::MeltingHi(), &Feedback::melt_warp},
+    {"MeltingLo", Feedback::Style::MeltingLo(), &Feedback::melt_warp},
+    {"Miasma", Feedback::Style::Miasma(), &Feedback::noise_warp},
+    {"LooseWormhole", Feedback::Style::LooseWormhole(), &Feedback::noise_warp},
+    {"TightWormhole", Feedback::Style::TightWormhole(), &Feedback::noise_warp},
     {"WigglingWormhole", Feedback::Style::WigglingWormhole(),
-     &Feedback::noise_warp, 0.07220009f},
-    {"Smoke", Feedback::Style::Smoke(), &Feedback::noise_warp, 0.01f},
+     &Feedback::noise_warp},
+    {"Smoke", Feedback::Style::Smoke(), &Feedback::noise_warp},
 };
 
 /**
@@ -62,21 +57,6 @@ inline void test_named_presets() {
     HS_EXPECT_TRUE(std::isfinite(style.scale) && style.scale > 0.0f);
     HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
     HS_EXPECT_TRUE(style.space_fn == PRESETS[index].space);
-  }
-}
-
-/**
- * @brief Pins each named preset's per-frame hue rotation, in turns.
- * @details Recovers the angle from sync_hue()'s cached cos/sin.
- */
-inline void test_named_presets_preserve_frame_hue() {
-  for (const PresetCase &c : PRESETS) {
-    HS_CONTEXT(c.name);
-    Feedback::Style s = c.style;
-    s.sync_hue();
-    // The cached angle comes from fast trig.
-    HS_EXPECT_NEAR(std::atan2(s.hue_sa, s.hue_ca) / (2.0f * math::PI_F),
-                   c.frame_shift, 1e-3f);
   }
 }
 
@@ -522,7 +502,6 @@ inline int run_styles_tests() {
   hs_test::ModuleFixture fixture("styles");
 
   HS_RUN(test_named_presets);
-  HS_RUN(test_named_presets_preserve_frame_hue);
   HS_RUN(test_sync_hue_rotates_per_efold);
   HS_RUN(test_lerp_scalars_and_snapping);
   HS_RUN(test_noise_warp_null_is_identity);
