@@ -33,13 +33,15 @@ class CommitRangeChecks(unittest.TestCase):
             encoding="utf-8")
         for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py", "encoding_check.py"]:
             (tools / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
+        (self.repo / "tests").mkdir()
+        (self.repo / "tests" / "check_death_pins.py").write_text("raise SystemExit(0)\n", encoding="utf-8")
         (self.repo / ".clang-format").write_bytes(b"BasedOnStyle: LLVM\n")
         self.formatter = Path(tmp.name) / "clang-format"
         self.formatter.write_text(
             "#!/bin/sh\ngrep -q UNFORMATTED && exit 1\nexit 0\n",
             encoding="utf-8", newline="\n")
         self.formatter.chmod(0o755)
-        self.commit("base", "README.md", "tools", ".clang-format")
+        self.commit("base", "README.md", "tools", "tests", ".clang-format")
 
     def git(self, *args: str) -> subprocess.CompletedProcess[str]:
         return git_run(self.repo, *args, env=self.env)
