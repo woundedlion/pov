@@ -236,6 +236,45 @@ inline void test_feedback_infill_rows_filter_within_arms() {
 }
 
 /**
+ * @brief Verifies column-time half-resolution rows interpolate across the
+ *        arm cuts from the time-adjacent pairs.
+ * @details A static longitude sine under an identity warp passes through at
+ *          every column, the columns beside the cuts included.
+ */
+inline void test_feedback_half_res_rows_interpolate_across_cuts() {
+  constexpr int W = 64, H = 34;
+  const ScopedTemporalSampling column_time(true);
+  hs_test::StubEffect fx(W, H);
+
+  ::Feedback::Style style{};
+  style.noise = nullptr; // unbound noise_warp is the identity
+  style.fade = 1.0f;
+  style.downsample = 4;
+  style.pole_half_res = 1.0f;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+
+  constexpr int ROWS[] = {4, H - 5};
+  auto field = [](int x) {
+    return 30000.0f + 20000.0f * std::sin(2.0f * math::PI_F * x / W);
+  };
+  for (int frame = 0; frame < 2; ++frame) {
+    {
+      Canvas c(fx);
+      for (int y : ROWS)
+        for (int x = 0; x < W; ++x)
+          c(x, y) = Pixel(static_cast<uint16_t>(field(x)), 0, 0);
+    }
+    fx.advance_display();
+  }
+  flush_once(fx, pipe);
+
+  for (int y : ROWS)
+    for (int x = 0; x < W; ++x)
+      HS_EXPECT_NEAR(fx.get_pixel(x, y).r, field(x), 200.0f);
+}
+
+/**
  * @brief Verifies flush() honors the segment clip like every other rasterizer.
  * @details The prev frame is bright at every row but the clip restricts
  *          rendering to a sub-band; rows outside the margin-expanded render band
@@ -591,6 +630,7 @@ inline void test_feedback_spherical_ring_control_rows() {
   style.space_fn = &metric_row_test_warp;
   style.fade = 1.0f;
   style.downsample = DOWNSAMPLE;
+  style.pole_half_res = 0.0f; // every column holds its own sample
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};

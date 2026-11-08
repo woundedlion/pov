@@ -374,7 +374,8 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
  * @details Azimuthal rotations carry content across both cuts in both
  * directions, through the reads past the forward cut and the slide behind
  * the backward one; a rotation about a horizontal axis carries it through
- * the cap-plane rows; a tilted one through every row. A one-frame warp holds
+ * the cap-plane rows; a tilted one through every row. Polar rows composite
+ * column pairs, and the pairs beside a cut must not step. A one-frame warp holds
  * content at its previous frame's time, a sweep's worth of error that steps
  * at the cuts.
  */
@@ -387,15 +388,16 @@ inline void test_feedback_column_time_oracle() {
     float omega;
     int first_row;
     int end_row;
-    bool seam;
+    float seam_bound; ///< Largest seam ratio; 0 leaves it unchecked.
   };
   const Case cases[] = {
-      {"azimuthal forward", math::Y_AXIS, 0.1f, 24, H - 24, true},
-      {"azimuthal backward", math::Y_AXIS, -0.1f, 24, H - 24, true},
-      {"cap-plane rows", math::X_AXIS, 0.1f, 4, 24, false},
-      {"north infill rows", math::Y_AXIS, 0.1f, 1, 6, true},
-      {"south infill rows", math::Y_AXIS, -0.1f, H - 6, H - 1, true},
-      {"tilted", math::Vector(0.6f, 0.0f, 0.8f), 0.08f, 4, H - 4, false},
+      {"azimuthal forward", math::Y_AXIS, 0.1f, 24, H - 24, 1.5f},
+      {"azimuthal backward", math::Y_AXIS, -0.1f, 24, H - 24, 1.5f},
+      {"cap-plane rows", math::X_AXIS, 0.1f, 4, 24, 1.2f},
+      {"north infill rows", math::Y_AXIS, 0.1f, 1, 6, 1.5f},
+      {"south infill rows", math::Y_AXIS, -0.1f, H - 6, H - 1, 1.5f},
+      {"half-resolution polar rows", math::Y_AXIS, 0.1f, 6, 24, 1.2f},
+      {"tilted", math::Vector(0.6f, 0.0f, 0.8f), 0.08f, 4, H - 4, 0.0f},
   };
   for (const Case &c : cases) {
     const RotatingFeedbackScene<W, H> scene{c.axis, c.omega, 0.85f};
@@ -405,7 +407,7 @@ inline void test_feedback_column_time_oracle() {
                 c.name, error.bulk, error.cut, error.seam);
     HS_EXPECT_LT(error.bulk, 0.002f);
     HS_EXPECT_LT(error.cut, 0.0015f);
-    if (c.seam)
-      HS_EXPECT_LT(error.seam, 1.5f);
+    if (c.seam_bound > 0.0f)
+      HS_EXPECT_LT(error.seam, c.seam_bound);
   }
 }

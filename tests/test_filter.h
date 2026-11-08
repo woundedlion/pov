@@ -181,6 +181,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_south_pole_uses_single_physical_sample);
   HS_RUN(test_feedback_polar_rows_use_spherical_footprint);
   HS_RUN(test_feedback_infill_rows_filter_within_arms);
+  HS_RUN(test_feedback_half_res_rows_interpolate_across_cuts);
   HS_RUN(test_feedback_flush_respects_clip);
   HS_RUN(test_feedback_flush_melt_warp_displaces_south);
   HS_RUN(test_feedback_north_cap_uses_exact_control_rows);

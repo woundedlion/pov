@@ -924,9 +924,39 @@ private:
       }
       if (half_res) {
         HS_PROFILE_DEEP(fb_comp_fill);
-        for (int r = 0; r < runs.count; ++r)
-          reconstruct_half_res_run(output, runs.items[r].begin,
-                                   runs.items[r].end);
+        // Every column of a pole row is one point.
+        const bool pole_row = (SphereField::HAS_NORTH_POLE && y == 0) ||
+                              (SphereField::HAS_SOUTH_POLE && y == H - 1);
+        if (column_time && !pole_row && runs.count == 2 &&
+            runs.items[0].begin == 0 && runs.items[1].end == W) {
+          constexpr int HALF = ColumnTime::HALF;
+          // Beside a cut, the pair lit just before an arm's first column is
+          // the other arm's last pair of the previous frame; the pair lit
+          // just after its last column is the other arm's first pair a frame
+          // on, aged one frame from this one.
+          const ::Pixel *previous_row = previous + row;
+          auto aged = [&](const ::Pixel &p) {
+            if constexpr (PAIR_PIXELS)
+              return transform_pixel_call(transform_pixel, p.r, p.g, p.b,
+                                          unit_level);
+            else
+              return transform_pixel(p.r, p.g, p.b, unit_level);
+          };
+          const ::Pixel after_first = aged(output[HALF]);
+          const ::Pixel after_second = aged(output[0]);
+          const ::Pixel before_first =
+              pair_average(previous_row[W - 2], previous_row[W - 1]);
+          const ::Pixel before_second =
+              pair_average(previous_row[HALF - 2], previous_row[HALF - 1]);
+          reconstruct_half_res_run(output, 0, HALF, &before_first,
+                                   &after_first);
+          reconstruct_half_res_run(output, HALF, W, &before_second,
+                                   &after_second);
+        } else {
+          for (int r = 0; r < runs.count; ++r)
+            reconstruct_half_res_run(output, runs.items[r].begin,
+                                     runs.items[r].end);
+        }
       }
       if (filter_output) {
         HS_PROFILE_DEEP(fb_comp_filter);
@@ -1182,19 +1212,30 @@ private:
   /** @brief Column offsets in WARP_SCALE units, one full turn apart. */
   static constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
 
+  /** @brief Rounded mean of two pixels. */
+  static ::Pixel pair_average(const ::Pixel &a, const ::Pixel &b) {
+    return ::Pixel(static_cast<uint16_t>((a.r + b.r + 1u) >> 1),
+                   static_cast<uint16_t>((a.g + b.g + 1u) >> 1),
+                   static_cast<uint16_t>((a.b + b.b + 1u) >> 1));
+  }
+
   /**
    * @brief Expands a half-resolution run's pair samples back to every column.
    * @param output Row whose even columns in [begin, end) hold their pair's
    *        box average, sampled at the pair's midpoint.
    * @param begin First column of the run.
    * @param end One past the run's last column.
+   * @param before The pair sample beside @p begin, or null.
+   * @param after The pair sample beside @p end, or null.
    * @details Each column takes three quarters of its own pair's sample and a
-   * quarter of the neighbouring pair's on its side. A full row wraps across
-   * the seam; a clipped run, or an arm's run under column time, repeats its
-   * end pairs.
+   * quarter of the neighbouring pair's on its side. Given neighbours stand in
+   * at the run's ends; otherwise a full row wraps across the seam and a
+   * clipped run repeats its end pairs.
    */
-  HS_HOT_FLASH_MEMBER static void reconstruct_half_res_run(::Pixel *output,
-                                                           int begin, int end) {
+  HS_HOT_FLASH_MEMBER static void
+  reconstruct_half_res_run(::Pixel *output, int begin, int end,
+                           const ::Pixel *before = nullptr,
+                           const ::Pixel *after = nullptr) {
     const bool full_row = begin == 0 && end == W;
     auto blend = [](const ::Pixel &own, const ::Pixel &other) {
       return ::Pixel(static_cast<uint16_t>((3u * own.r + other.r + 2u) >> 2),
@@ -1204,10 +1245,13 @@ private:
     // The last pair's right neighbour wraps onto the first sample, which the
     // loop overwrites first.
     const ::Pixel first = output[begin];
-    ::Pixel previous = full_row ? output[W - 2] : first;
+    ::Pixel previous = before ? *before : full_row ? output[W - 2] : first;
     for (int x = begin; x < end; x += 2) {
       const ::Pixel own = output[x];
-      const ::Pixel next = x + 2 < end ? output[x + 2] : full_row ? first : own;
+      const ::Pixel next = x + 2 < end ? output[x + 2]
+                           : after     ? *after
+                           : full_row  ? first
+                                       : own;
       output[x] = blend(own, previous);
       if (x + 1 < end)
         output[x + 1] = blend(own, next);
