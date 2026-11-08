@@ -106,7 +106,6 @@ public:
     knot_pos = persistent_arena.allocate_n<math::Vector>(W + 1);
     knot_near = persistent_arena.allocate_n<uint8_t>(W + 1);
     drawn_colors = persistent_arena.allocate_n<Color4>(RING_SLOTS);
-    drawn_color_ready = persistent_arena.make_n<uint8_t>(RING_SLOTS);
     chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
@@ -226,8 +225,8 @@ public:
 #endif
 
 private:
-  static int noise_lut_samples(float feature_scale, float sin_theta,
-                               bool octave_path) {
+  HS_NOINLINE_NOCLONE static int
+  noise_lut_samples(float feature_scale, float sin_theta, bool octave_path) {
     const int samples =
         hs::clamp(static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * math::TWO_PI_F *
                                          feature_scale * sin_theta)),
@@ -579,9 +578,8 @@ private:
     ball_paths = scratch_arena_a.allocate_n<BallPath>(MAX_BALLS);
     knot_times = scratch_arena_a.allocate_n<float>(W + 1);
     ring_colors = scratch_arena_a.allocate_n<Color4>(RING_SLOTS);
-    ring_color_ready = scratch_arena_a.allocate_n<uint8_t>(RING_SLOTS);
-    for (int i = 0; i < RING_SLOTS; ++i)
-      ring_color_ready[i] = 0;
+    for (int i = 0; i < params.num_rings; ++i)
+      ring_colors[i] = ring_color(i, params.num_rings);
     if (drawn_ring_count != params.num_rings)
       drawn_colors_valid = false;
     for (int b = 0; b < n_balls; ++b) {
@@ -643,33 +641,23 @@ private:
 #endif
     active_cache = nullptr;
     sweep.cache = nullptr;
-    for (int i = 0; i < RING_SLOTS; ++i) {
-      if (ring_color_ready[i])
-        drawn_colors[i] = ring_colors[i];
-      drawn_color_ready[i] = ring_color_ready[i];
-    }
+    for (int i = 0; i < params.num_rings; ++i)
+      drawn_colors[i] = ring_colors[i];
     drawn_colors_valid = true;
     drawn_ring_count = params.num_rings;
     ball_paths = nullptr;
     knot_times = nullptr;
     ring_colors = nullptr;
-    ring_color_ready = nullptr;
   }
 
   /**
-   * @brief A ring's color at the current endpoint, from the palette once per
-   * frame.
+   * @brief A ring's palette color at the current endpoint.
    * @param i Ring index.
    * @param n_rings Stack size.
    * @return The ring's color.
    */
-  HS_FLASH_MEMBER Color4 current_ring_color(int i, int n_rings) {
-    if (!ring_color_ready[i]) {
-      ring_colors[i] =
-          palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
-      ring_color_ready[i] = 1;
-    }
-    return ring_colors[i];
+  HS_FLASH_MEMBER Color4 ring_color(int i, int n_rings) const {
+    return palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
   }
 
   /**
@@ -723,15 +711,14 @@ private:
                                                        params.thickness + pad))
         continue;
 
-      Color4 ring_color;
+      Color4 color;
       float ring_opacity = opacity;
       if constexpr (SWEPT) {
-        const Color4 now = current_ring_color(i, n_rings);
-        const Color4 before =
-            drawn_colors_valid && drawn_color_ready[i] ? drawn_colors[i] : now;
+        const Color4 now = ring_colors[i];
+        const Color4 before = drawn_colors_valid ? drawn_colors[i] : now;
         const float middle =
             sweep->uses_cache() ? SWEEP_QUARTER : sweep->middle;
-        ring_color = before.lerp(now, middle);
+        color = before.lerp(now, middle);
         if (sweep->uses_cache()) {
           sweep->cache->colors[i] = before.lerp(now, 1.0f - SWEEP_QUARTER);
           sweep->cache->alphas[i] =
@@ -746,10 +733,9 @@ private:
         ring_opacity = sweep->opacity[0] +
                        (sweep->opacity[1] - sweep->opacity[0]) * middle;
       } else {
-        ring_color =
-            palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
+        color = ring_color(i, n_rings);
       }
-      HueRotateBase hue_base = make_hue_rotate_base(ring_color);
+      HueRotateBase hue_base = make_hue_rotate_base(color);
 
       const typename RingPool::Pending rows = rings.next();
       float *slut = rows.shift_row;
@@ -914,8 +900,8 @@ private:
           }
         }
       }
-      rings.commit(i, ring_color.alpha * ring_opacity * params.alpha, lut_n,
-                   basis, radius, params.thickness, slut, lut_n, 0.0f, nullptr);
+      rings.commit(i, color.alpha * ring_opacity * params.alpha, lut_n, basis,
+                   radius, params.thickness, slut, lut_n, 0.0f, nullptr);
     }
 
     if (rings.size() == 0)
@@ -1580,16 +1566,12 @@ private:
   Spacetime::Retained<DrawEndpoint> draw_history; ///< Last ring-stack draw.
   Color4 *drawn_colors =
       nullptr; ///< RING_SLOTS ring colors of the last swept draw.
-  uint8_t *drawn_color_ready =
-      nullptr; ///< RING_SLOTS flags: the last swept draw colored the ring.
   bool drawn_colors_valid = false; ///< The last draw was swept.
   int drawn_ring_count = 0;        ///< Stack size of the last swept draw.
   // Frame scratch of a swept draw, null outside it.
   BallPath *ball_paths = nullptr; ///< MAX_BALLS active-ball paths.
   float *knot_times = nullptr;    ///< W + 1 frame fractions of baked knots.
   Color4 *ring_colors = nullptr;  ///< RING_SLOTS current ring colors.
-  uint8_t *ring_color_ready =
-      nullptr; ///< RING_SLOTS flags: ring_colors holds the ring's color.
 
   /** Noise row in PRESETS and PRESET_IDS. */
   static constexpr size_t NOISE_PRESET = 0;
@@ -1745,7 +1727,7 @@ private:
     }
 
     /** @brief Starts a frame with every ring culled; the pool must be empty. */
-    void begin_frame(SweepCache *frame_cache = nullptr) {
+    HS_NOINLINE_NOCLONE void begin_frame(SweepCache *frame_cache = nullptr) {
       cache = frame_cache;
       HS_CHECK(size() == 0,
                "DisplacementField: ring pool begins a frame with live rings");
@@ -1981,8 +1963,7 @@ private:
       alignof(const Animation::BumpParams *);
   /** @brief Persistent bytes of the last swept draw's ring colors. */
   static constexpr size_t COLOR_HISTORY_BYTES =
-      RING_SLOTS * (sizeof(Color4) + sizeof(uint8_t)) + alignof(Color4) +
-      alignof(uint8_t);
+      RING_SLOTS * sizeof(Color4) + alignof(Color4);
   /** @brief Persistent bytes of the chunk mid-azimuth trig tables. */
   static constexpr size_t CHUNK_TRIG_BYTES =
       2 * BAKE_CHUNKS * sizeof(float) + 2 * alignof(float);
@@ -2025,7 +2006,6 @@ private:
     peak.template add<BallPath>(MAX_BALLS);
     peak.template add<float>(W + 1);
     peak.template add<Color4>(RING_SLOTS);
-    peak.template add<uint8_t>(RING_SLOTS);
     peak.template add<uint32_t>(RING_SLOTS * SweepCache::WORDS);
     peak.template add<uint16_t>(RING_SLOTS * SweepCache::WORDS);
     peak.template add<HueMode>(RING_SLOTS);

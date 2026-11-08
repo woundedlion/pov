@@ -9,6 +9,7 @@
 
 #include "core/color/color_space.h"
 #include "core/math/periodic.h"
+#include "core/platform/attributes.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -49,7 +50,7 @@ template <int CELLS> struct HueRotationRow {
    * @details A wrapping lookup that can reach a full turn, or a domain that
    * is not positive, reads anywhere.
    */
-  int knots_through(float max_amount) const {
+  HS_NOINLINE_NOCLONE int knots_through(float max_amount) const {
     if (!(domain > 0.0f) || (cyclic && max_amount >= domain))
       return KNOTS;
     const float x = hs::clamp(max_amount / domain, 0.0f, 1.0f) * CELLS;
@@ -69,14 +70,14 @@ template <int CELLS> struct HueRotationRow {
   /** @brief Samples knots already baked by prepare().
    * @param amount Hue offset in turns.
    * @return Interpolated color. */
-  HS_O3_FN Pixel sample(float amount) const {
+  HS_O3_FN HS_NOINLINE_NOCLONE Pixel sample(float amount) const {
     return sample_with(amount, [](int) {});
   }
 
   /** @brief Samples the table, baking each knot it reads on first use.
    * @param amount Hue offset in turns.
    * @return Interpolated color. */
-  HS_O3_FN Pixel sample_lazy(float amount) {
+  HS_O3_FN HS_NOINLINE_NOCLONE Pixel sample_lazy(float amount) {
     return sample_with(amount, [&](int index) HS_HOT_INLINE {
       const uint64_t bit = uint64_t{1} << (index & 63);
       uint64_t &word = valid[index >> 6];
