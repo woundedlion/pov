@@ -153,13 +153,17 @@ def _live_bash():
 def _stop_bash(process, pid):
     """Terminate and reap the fixture's reported MSYS/POSIX owner."""
     subprocess.run(["bash", "-c", 'kill -TERM "$1" 2>/dev/null || :',
-                    "fixture-stop", str(pid)], check=True, timeout=5)
-    process.communicate(timeout=5)
+                    "fixture-stop", str(pid)], check=True, timeout=30)
+    try:
+        process.communicate(timeout=30)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate()
     subprocess.run([
         "bash", "-c",
-        'for ((i=0; i<100; ++i)); do '
+        'for ((i=0; i<3000; ++i)); do '
         'kill -0 "$1" 2>/dev/null || exit 0; sleep 0.01; done; exit 1',
-        "fixture-wait", str(pid)], check=True, timeout=5)
+        "fixture-wait", str(pid)], check=True, timeout=60)
 
 
 def _live_pid(test_case):
