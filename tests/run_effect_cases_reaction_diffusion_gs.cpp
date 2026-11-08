@@ -130,8 +130,8 @@ void run_effect_case_gs_dissolve_absorbs_edits_and_stages_reseed() {
   HS_RUN(run_case, test_gs_dissolve_absorbs_edits_and_stages_reseed);
 }
 
-void run_effect_case_gs_untimed_frames_are_pinned() {
-  HS_RUN(run_case, test_gs_untimed_frames_are_pinned);
+void run_effect_case_gs_untimed_band_matches_full_render() {
+  HS_RUN(run_case, test_gs_untimed_band_matches_full_render);
 }
 
 void run_effect_case_gs_lattice_basis_matches_rotated_lattice() {
@@ -204,7 +204,7 @@ int run_reaction_diffusion_gs_tests() {
   run_effect_case_gs_stall_hold_starts_dissolve();
   run_effect_case_gs_preset_pause_does_not_hold_lifecycle();
   run_effect_case_gs_dissolve_absorbs_edits_and_stages_reseed();
-  run_effect_case_gs_untimed_frames_are_pinned();
+  run_effect_case_gs_untimed_band_matches_full_render();
   run_effect_case_gs_lattice_basis_matches_rotated_lattice();
   run_effect_case_gs_slabs_shade_the_field_after_their_substep();
   run_effect_case_gs_slab_noise_keeps_the_previous_bake();

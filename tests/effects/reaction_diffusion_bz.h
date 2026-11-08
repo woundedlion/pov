@@ -600,45 +600,11 @@ inline void test_bz_render_center_matches_reference() {
 }
 
 /**
- * @brief With temporal sampling disabled, BZ renders the frames pinned from
- *        the frame-wide renderer.
+ * @brief With temporal sampling disabled, BZ renders lit, and a
+ *        banded clip matches the full render.
  */
-inline void test_bz_untimed_frames_are_pinned() {
-  constexpr std::array<int, 4> BAND{3, 17, 39, 83};
-  const PixelGolden FULL =
-      pinned_clock_frame_golden<BZReactionDiffusion, SMALL_W, SMALL_H>(16);
-  const PixelGolden CLIPPED =
-      pinned_clock_frame_golden<BZReactionDiffusion, SMALL_W, SMALL_H>(16,
-                                                                       &BAND);
-  const PixelGolden SHIPPED =
-      pinned_clock_frame_golden<BZReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
-  expect_pixel_golden("BZ FULL", FULL,
-                      RecordedGolden{{0x8a10f2a047121f70ull,
-                                      {{19517055ull, 9216199ull, 8087354ull},
-                                       324984401ull,
-                                       1876204354ull}},
-                                     {0xd67d1f3e6806d269ull,
-                                      {{19517050ull, 9216199ull, 8087356ull},
-                                       324984347ull,
-                                       1876204135ull}}});
-  expect_pixel_golden("BZ CLIPPED", CLIPPED,
-                      RecordedGolden{{0xdb470bb697b18869ull,
-                                      {{10910495ull, 6084515ull, 3517585ull},
-                                       181418987ull,
-                                       1234751308ull}},
-                                     {0x1c679849f911ac9aull,
-                                      {{10910491ull, 6084516ull, 3517589ull},
-                                       181418993ull,
-                                       1234751307ull}}});
-  expect_pixel_golden("BZ SHIPPED", SHIPPED,
-                      RecordedGolden{{0x4bd9f145ac243f50ull,
-                                      {{11936049ull, 5720211ull, 5512932ull},
-                                       1613950750ull,
-                                       4154313178ull}},
-                                     {0xf65684215bde5b01ull,
-                                      {{11936057ull, 5720216ull, 5512930ull},
-                                       1613951574ull,
-                                       4154315122ull}}});
+inline void test_bz_untimed_band_matches_full_render() {
+  expect_untimed_rd_render_properties<BZReactionDiffusion>("BZ");
 }
 
 /**

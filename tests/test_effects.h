@@ -189,11 +189,11 @@ inline int run_effects_tests() {
   run_effect_case_bz_substep_predator_wiring();
   run_effect_case_bz_raster_matches_reference();
   run_effect_case_bz_render_center_matches_reference();
-  run_effect_case_bz_untimed_frames_are_pinned();
+  run_effect_case_bz_untimed_band_matches_full_render();
   run_effect_case_bz_slabs_shade_the_field_after_their_substep();
   run_effect_case_bz_segmented_slabs_match_full_frame();
   run_effect_case_bz_lattice_basis_matches_rotated_lattice();
-  run_effect_case_gs_untimed_frames_are_pinned();
+  run_effect_case_gs_untimed_band_matches_full_render();
   run_effect_case_gs_lattice_basis_matches_rotated_lattice();
   run_effect_case_gs_slabs_shade_the_field_after_their_substep();
   run_effect_case_gs_slab_noise_keeps_the_previous_bake();

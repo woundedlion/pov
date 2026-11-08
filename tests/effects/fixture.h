@@ -418,39 +418,85 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
 }
 
 /**
+ * @brief Records every displayed frame at the selected temporal sampling mode.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @tparam W Render width in pixels.
+ * @tparam H Render height in pixels.
+ * @param frames Frames to render.
+ * @param clip Display band set before the first frame, or null for the full
+ *        canvas.
+ * @param temporal Whether to sample columns at their emission times.
+ * @return The recorded frames.
+ */
+template <template <int, int> class E, int W, int H>
+inline RenderRun pinned_clock_run(int frames, const ClipWindow *clip = nullptr,
+                                  bool temporal = false) {
+  reset_globals();
+  pin_frame_clock(0);
+  Spacetime::set_flat_surface(!temporal);
+  RenderRun run;
+  {
+    E<W, H> effect;
+    effect.init();
+    if (clip)
+      effect.set_clip(clip->y0, clip->y1, clip->x0, clip->x1);
+    for (int f = 0; f < frames; ++f) {
+      pin_frame_clock(f);
+      effect.draw_frame();
+      effect.advance_display();
+      record_frame<W, H>(run, effect);
+    }
+  }
+  Spacetime::set_flat_surface(false);
+  hs::clear_mock_time();
+  return run;
+}
+
+/**
  * @brief Folds every displayed frame at the selected temporal sampling mode.
  * @tparam E Effect class template, instantiated as E<W, H>.
  * @tparam W Render width in pixels.
  * @tparam H Render height in pixels.
  * @param frames Frames to render.
- * @param clip Display band {y0, y1, x0, x1} set before the first frame, or
- *        null for the full canvas.
+ * @param clip Display band set before the first frame, or null for the full
+ *        canvas.
  * @param temporal Whether to sample columns at their emission times.
  * @return Hash, RGB totals and brightness moments of the sequence.
  */
 template <template <int, int> class E, int W, int H>
-inline PixelGolden
-pinned_clock_frame_golden(int frames, const std::array<int, 4> *clip = nullptr,
-                          bool temporal = false) {
-  reset_globals();
-  pin_frame_clock(0);
-  Spacetime::set_flat_surface(!temporal);
-  PixelGolden golden;
-  {
-    E<W, H> effect;
-    effect.init();
-    if (clip)
-      effect.set_clip((*clip)[0], (*clip)[1], (*clip)[2], (*clip)[3]);
-    for (int f = 0; f < frames; ++f) {
-      pin_frame_clock(f);
-      effect.draw_frame();
-      effect.advance_display();
-      fold_pixel_golden<W, H>(golden, effect);
-    }
-  }
-  Spacetime::set_flat_surface(false);
-  hs::clear_mock_time();
-  return golden;
+inline PixelGolden pinned_clock_frame_golden(int frames,
+                                             const ClipWindow *clip = nullptr,
+                                             bool temporal = false) {
+  return pinned_clock_run<E, W, H>(frames, clip, temporal).fold;
+}
+
+/**
+ * @brief Checks a reaction-diffusion effect's renders with temporal sampling
+ *        disabled: lit at the test and shipped sizes, and a banded clip
+ *        equal to the full render inside the band.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @param name Effect label without spaces.
+ */
+template <template <int, int> class E>
+inline void expect_untimed_rd_render_properties(const char *name) {
+  constexpr ClipWindow BAND{3, 17, 39, 83};
+  constexpr int FRAMES = 16, SHIPPED_FRAMES = 3;
+  HS_CONTEXT(name);
+  const RenderRun full = pinned_clock_run<E, SMALL_W, SMALL_H>(FRAMES);
+  expect_lit("small", full);
+  const RenderRun clipped =
+      pinned_clock_run<E, SMALL_W, SMALL_H>(FRAMES, &BAND);
+  expect_clip_matches_full<SMALL_W, SMALL_H>(name, full, clipped,
+                                             [&](int) { return BAND; });
+  const RenderRun shipped =
+      pinned_clock_run<E, DEFAULT_W, DEFAULT_H>(SHIPPED_FRAMES);
+  expect_lit("shipped", shipped);
+  char label[32];
+  std::snprintf(label, sizeof label, "%s-small", name);
+  print_render_hash(label, "full", full.fold.hash);
+  print_render_hash(label, "clipped", clipped.fold.hash);
+  std::snprintf(label, sizeof label, "%s-shipped", name);
+  print_render_hash(label, "full", shipped.fold.hash);
 }
 
 /**

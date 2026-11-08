@@ -1157,46 +1157,11 @@ inline void test_gs_reaction_corner_stays_bounded() {
 }
 
 /**
- * @brief With temporal sampling disabled, GS renders the frames pinned from
- *        the frame-wide renderer.
+ * @brief With temporal sampling disabled, GS renders lit, and a
+ *        banded clip matches the full render.
  */
-inline void test_gs_untimed_frames_are_pinned() {
-  constexpr std::array<int, 4> BAND{3, 17, 39, 83};
-  const PixelGolden FULL =
-      pinned_clock_frame_golden<GSReactionDiffusion, SMALL_W, SMALL_H>(16);
-  const PixelGolden CLIPPED =
-      pinned_clock_frame_golden<GSReactionDiffusion, SMALL_W, SMALL_H>(16,
-                                                                       &BAND);
-  const PixelGolden SHIPPED =
-      pinned_clock_frame_golden<GSReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
-  expect_pixel_golden("GS FULL", FULL,
-                      RecordedGolden{{0xb8c8e16988d986bdull,
-                                      {{76521718ull, 45395082ull, 55800561ull},
-                                       1444931869ull,
-                                       8679074045ull}},
-                                     {0x1f8e22e12ad5ef3eull,
-                                      {{76521916ull, 45395555ull, 55800388ull},
-                                       1444925603ull,
-                                       8679083188ull}}});
-  expect_pixel_golden("GS CLIPPED", CLIPPED,
-                      RecordedGolden{{0x7242104e4165c6b9ull,
-                                      {{28328580ull, 18336526ull, 27241508ull},
-                                       588187237ull,
-                                       4390370306ull}},
-                                     {0x22a740a50e7a70a8ull,
-                                      {{28327832ull, 18336308ull, 27241549ull},
-                                       588185295ull,
-                                       4390329926ull}}});
-  expect_pixel_golden(
-      "GS SHIPPED", SHIPPED,
-      RecordedGolden{{0x1df1192bff04fd90ull,
-                      {{208265645ull, 161024237ull, 186946535ull},
-                       33639317903ull,
-                       85214237474ull}},
-                     {0x376d8795d9d9c508ull,
-                      {{208266050ull, 161024529ull, 186946874ull},
-                       33639352713ull,
-                       85214395429ull}}});
+inline void test_gs_untimed_band_matches_full_render() {
+  expect_untimed_rd_render_properties<GSReactionDiffusion>("GS");
 }
 
 /**

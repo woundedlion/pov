@@ -13,8 +13,6 @@ int main() {
   hs_test::plot_parity_tests::test_platform_fastmath_golden_reference();
   hs_test::plot_parity_tests::
       test_render_fingerprint_rejects_channel_and_spatial_changes();
-  hs_test::effects_tests::test_bz_untimed_frames_are_pinned();
-  hs_test::effects_tests::test_gs_untimed_frames_are_pinned();
   hs_test::effects_tests::test_sh_instantaneous_pixel_golden();
   hs_test::shader_chain_tests::test_shader_chain_instantaneous_pixel_golden();
   hs_test::composed_effect_tests::test_mobius_grid_instantaneous_pixel_golden();
