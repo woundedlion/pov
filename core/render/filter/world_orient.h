@@ -58,6 +58,10 @@ cull_oriented_edge(const math::Orientation<> &orientation,
   return forward_rotated_edge(a, b, pb, orientation.get(), forward);
 }
 
+/** @brief Radians added per sub-frame angle so the fast_acos bound stays
+ *  conservative. */
+inline constexpr float ORIENTATION_ARC_ERROR_PAD = 1.02e-4f;
+
 /** @brief Angular bound on a frame orientation path.
  * @param orientation Frame orientation history.
  * @return Sum of sub-frame angles, radians; zero on a flat surface. */
@@ -65,13 +69,12 @@ HS_HOT_FLASH_MEMBER inline float
 orientation_sweep_arc(const math::Orientation<> &orientation) {
   if (Spacetime::flat_surface())
     return 0.0f;
-  constexpr float ARC_ERROR_PAD = 1.02e-4f;
   float bound = 0.0f;
   for (int i = 1; i < orientation.length(); ++i) {
     const float cosine =
         fabsf(math::dot(orientation.get(i - 1), orientation.get(i)));
     if (cosine < 1.0f)
-      bound += 2.0f * math::fast_acos(cosine) + ARC_ERROR_PAD;
+      bound += 2.0f * math::fast_acos(cosine) + ORIENTATION_ARC_ERROR_PAD;
   }
   return bound;
 }

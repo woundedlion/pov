@@ -572,15 +572,18 @@ inline void test_generated_palette_restore_cycler_clock_and_endpoints() {
   BakedPaletteStorage expected;
   expected.bake(arena,
                 GenerativePalette(PaletteRecipes::balanced_analogous(0.0f)));
-  constexpr PaletteCycler::GeneratedClock CLOCKS[] = {{0, 2, false, false},
-                                                      {0, 2, true, false},
-                                                      {237, 3, true, true},
-                                                      {599, 7, true, false}};
+  constexpr int FADE = GeneratedPaletteBank::FADE_FRAMES;
+  constexpr uint32_t STEP = GeneratedPaletteBank::HUE_STEP;
+  constexpr PaletteCycler::GeneratedClock CLOCKS[] = {
+      {0, 2, false, false},
+      {0, 2, true, false},
+      {FADE / 2 + 1, 3, true, true},
+      {FADE - 1, 7, true, false}};
   for (const auto harmony :
        {PaletteHarmony::TRIADIC, PaletteHarmony::COMPLEMENTARY,
         PaletteHarmony::ANALOGOUS})
     for (const float chroma : {0.3f, 0.8f})
-      for (const uint32_t hue : {0u, 159u, 318u, UINT32_MAX - 10u})
+      for (const uint32_t hue : {0u, STEP, 2 * STEP, UINT32_MAX - 10u})
         for (const auto &clock : CLOCKS) {
           provider_hue = hue;
           GeneratedPaletteBank::restore_cycler(cycler, clock, hue, harmony,
@@ -593,13 +596,13 @@ inline void test_generated_palette_restore_cycler_clock_and_endpoints() {
           HS_EXPECT_EQ(provider_hue, hue);
           const GenerativePalette from(PaletteRecipes::profile(
               PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
-              PaletteRecipes::hue_turns(hue - 159u), chroma));
+              PaletteRecipes::hue_turns(hue - STEP), chroma));
           const GenerativePalette to(PaletteRecipes::profile(
               PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
               PaletteRecipes::hue_turns(hue), chroma));
           if (clock.fade_active) {
             const float progress =
-                float(clock.frame - clock.frame % 2) / 600.0f;
+                float(clock.frame - clock.frame % 2) / float(FADE);
             GenerativePalette morph;
             morph.morph_palettes(from, to, math::ease_in_out_sin(progress));
             expected.rebake(morph);
@@ -621,14 +624,16 @@ inline void test_generated_palette_bank_routes_and_rechromas() {
   BakedPaletteStorage expected;
   expected.bake(arena,
                 GenerativePalette(PaletteRecipes::balanced_analogous(0.0f)));
+  constexpr int FADE = GeneratedPaletteBank::FADE_FRAMES;
+  constexpr uint32_t STEP = GeneratedPaletteBank::HUE_STEP;
   auto compare = [&](Mode mode, PaletteHarmony harmony, int from_index,
                      float progress, float chroma, bool rechromed) {
     GenerativePalette from(PaletteRecipes::profile(
         PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
-        math::wrap_t(from_index * 159.0f / 256.0f), chroma));
+        math::wrap_t(from_index * float(STEP) / 256.0f), chroma));
     GenerativePalette to(PaletteRecipes::profile(
         PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
-        math::wrap_t((from_index + 1) * 159.0f / 256.0f), chroma));
+        math::wrap_t((from_index + 1) * float(STEP) / 256.0f), chroma));
     if (rechromed) {
       from.set_constant_chroma(chroma);
       to.set_constant_chroma(chroma);
@@ -639,12 +644,15 @@ inline void test_generated_palette_bank_routes_and_rechromas() {
     expected.rebake(morph);
     hs_test::color_tests::expect_baked_equal(bank.palette(mode), expected);
   };
-  for (int i = 0; i < 151; ++i)
+  // Step n of a fade sits at progress (n - 1) / FADE.
+  constexpr int QUARTER_STEPS = FADE / 4 + 1;
+  for (int i = 0; i < QUARTER_STEPS; ++i)
     bank.step(Mode::TRIADIC);
-  compare(Mode::TRIADIC, PaletteHarmony::TRIADIC, 0, 0.25f, 0.62f, false);
+  compare(Mode::TRIADIC, PaletteHarmony::TRIADIC, 0,
+          float(QUARTER_STEPS - 1) / FADE, 0.62f, false);
   bank.step(Mode::ANALOGOUS);
-  compare(Mode::ANALOGOUS, PaletteHarmony::ANALOGOUS, 0, 151.0f / 600.0f, 0.62f,
-          false);
+  compare(Mode::ANALOGOUS, PaletteHarmony::ANALOGOUS, 0,
+          float(QUARTER_STEPS) / FADE, 0.62f, false);
   bank.set_chroma(0.4f);
   constexpr Mode modes[] = {Mode::TRIADIC, Mode::COMPLEMENTARY,
                             Mode::ANALOGOUS};
@@ -653,12 +661,15 @@ inline void test_generated_palette_bank_routes_and_rechromas() {
                                           PaletteHarmony::ANALOGOUS};
   for (int i = 0; i < 3; ++i) {
     bank.step(modes[i]);
-    compare(modes[i], harmonies[i], 0, (152.0f + i) / 600.0f, 0.4f, true);
+    compare(modes[i], harmonies[i], 0, float(QUARTER_STEPS + 1 + i) / FADE,
+            0.4f, true);
   }
-  for (int i = 155; i < 602; ++i)
+  // The next fade starts after FADE_FRAMES + DWELL_FRAMES + 1 steps.
+  for (int i = QUARTER_STEPS + 4;
+       i < FADE + GeneratedPaletteBank::DWELL_FRAMES + 2; ++i)
     bank.step(Mode::TRIADIC);
   bank.step(Mode::COMPLEMENTARY);
-  compare(Mode::COMPLEMENTARY, PaletteHarmony::COMPLEMENTARY, 1, 1.0f / 600.0f,
+  compare(Mode::COMPLEMENTARY, PaletteHarmony::COMPLEMENTARY, 1, 1.0f / FADE,
           0.4f, true);
   uint32_t hue = 0;
   GenerativePalette previous;
@@ -666,10 +677,11 @@ inline void test_generated_palette_bank_routes_and_rechromas() {
     GenerativePalette generated;
     GeneratedPaletteBank::next_palette(hue, sequence, PaletteHarmony::ANALOGOUS,
                                        0.4f, generated);
-    HS_EXPECT_EQ(hue, sequence * 159u);
+    HS_EXPECT_EQ(hue, sequence * STEP);
     const GenerativePalette reference(PaletteRecipes::profile(
         PaletteDomain::STRAIGHT, PaletteHarmony::ANALOGOUS,
-        AxisCurve::ASCENDING, math::wrap_t(sequence * 159.0f / 256.0f), 0.4f));
+        AxisCurve::ASCENDING, math::wrap_t(sequence * float(STEP) / 256.0f),
+        0.4f));
     for (int i = 0; i <= 8; ++i)
       HS_EXPECT_EQ(generated.get(i / 8.0f).color,
                    reference.get(i / 8.0f).color);

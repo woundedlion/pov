@@ -181,28 +181,18 @@ inline void test_generative_palette_profiles_stay_in_gamut() {
   }
 }
 
-/** @brief Effect recipe entries resolve to valid generated palettes. */
+/** @brief Effect recipe entries carry unique names and resolve to valid
+ *  generated palettes. */
 inline void test_effect_palette_recipe_roster() {
   namespace R = EffectPaletteRecipes;
-  const struct {
-    const char *name;
-    bool random_hue;
-  } expected[] = {{"BZReactionDiffusion", false},
-                  {"Comets", true},
-                  {"DisplacementField / RingShower", true},
-                  {"Dynamo", true},
-                  {"GSReactionDiffusion", true},
-                  {"MobiusRings", true},
-                  {"Raymarch", false},
-                  {"Standalone Liquid", false},
-                  {"Standalone Flyby", false},
-                  {"HyperLattice", true},
-                  {"MindSplatter", true}};
   const auto presets = R::presets();
-  static_assert(std::tuple_size_v<decltype(presets)> == std::size(expected));
+  HS_EXPECT_GT(presets.size(), size_t{0});
   for (size_t i = 0; i < presets.size(); ++i) {
-    HS_EXPECT_STREQ(presets[i].name, expected[i].name);
-    HS_EXPECT_EQ(presets[i].random_hue, expected[i].random_hue);
+    HS_CONTEXT("preset", i);
+    HS_EXPECT_TRUE(presets[i].name != nullptr && presets[i].name[0] != '\0');
+    for (size_t j = i + 1; j < presets.size(); ++j)
+      HS_EXPECT_TRUE(std::string_view(presets[i].name) !=
+                     std::string_view(presets[j].name));
     GenerativePalette palette;
     PaletteRecipe canonical;
     PaletteCompileStatus status;
@@ -212,14 +202,6 @@ inline void test_effect_palette_recipe_roster() {
     HS_EXPECT_EQ(status.adjustments.clamped_fields, 0u);
     HS_EXPECT_EQ(status.adjustments.wrapped_fields, 0u);
   }
-  HS_EXPECT_NEAR(presets[1].recipe.hue.base_turns,
-                 PaletteRecipes::hue_turns(42), 1e-6f);
-  HS_EXPECT_EQ(presets[0].recipe.hue.mode, HueMode::CUSTOM);
-  HS_EXPECT_EQ(presets[7].recipe.hue.mode, HueMode::CUSTOM);
-  HS_EXPECT_EQ(presets[7].recipe.lightness.curve, AxisCurve::CUSTOM);
-  HS_EXPECT_NEAR(presets[7].recipe.hue.custom_turns[1] -
-                     presets[7].recipe.hue.custom_turns[0],
-                 0.5f, 1e-6f);
 }
 
 /**

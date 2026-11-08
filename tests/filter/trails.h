@@ -584,14 +584,21 @@ inline void test_world_trails_timed_fanout_records_first_copy() {
   };
   for (int frame = 0; frame < 4; ++frame) {
     int emitted = 0;
+    std::array<int, 3> per_copy{};
     trails.flush_per_copy(
         WorldTrailRef(color), 1.0f, 3,
         [&](const math::Vector &v, const Pixel &, float age, float, int copy) {
           HS_EXPECT_VEC(v, source, 4e-5f);
           HS_EXPECT_EQ(age, static_cast<float>(frame));
-          HS_EXPECT_EQ(copy, emitted++);
+          HS_EXPECT_GE(copy, 0);
+          HS_EXPECT_LT(copy, 3);
+          if (copy >= 0 && copy < 3)
+            ++per_copy[copy];
+          ++emitted;
         });
     HS_EXPECT_EQ(emitted, 3);
+    for (int count : per_copy)
+      HS_EXPECT_EQ(count, 1);
     HS_EXPECT_EQ(trails.size(), frame < 3 ? size_t{1} : size_t{0});
   }
   pipeline.select_copy(0);

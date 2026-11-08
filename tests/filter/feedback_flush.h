@@ -132,6 +132,7 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   style.noise = nullptr; // unbound noise_warp is the identity
   style.fade = 1.0f;
   style.downsample = 4;
+  style.pole_half_res = 1.0f;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
 
@@ -576,15 +577,16 @@ inline void test_feedback_init_storage_matches_storage_bytes() {
   style.space_fn = &metric_row_test_warp;
   style.downsample = 4;
 
-  // init_storage makes six allocations, each padded by less than alignof.
   constexpr size_t STORAGE = Filter::Pixel::Feedback<W, H>::STORAGE_BYTES;
+  constexpr size_t ALLOCATIONS =
+      Filter::Pixel::Feedback<W, H>::STORAGE_ALLOCATIONS;
   ScratchScope persistent_scope(persistent_arena);
   Filter::Pixel::Feedback<W, H> storage_probe(style);
   const size_t before = persistent_arena.get_offset();
   storage_probe.init_storage(persistent_arena);
   const size_t allocated = persistent_arena.get_offset() - before;
   HS_EXPECT_GE(allocated, STORAGE);
-  HS_EXPECT_LT(allocated, STORAGE + 6 * alignof(std::max_align_t));
+  HS_EXPECT_LT(allocated, STORAGE + ALLOCATIONS * alignof(std::max_align_t));
 }
 
 /**

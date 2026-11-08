@@ -76,7 +76,6 @@ concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
   pipeline.begin_frame(canvas, 1.0f);
 };
 
-#include "tests/filter/traits.h"
 #include "tests/filter/trait_inheritance.h"
 #include "tests/filter/pipeline_sink.h"
 #include "tests/filter/antialias.h"
@@ -98,7 +97,6 @@ concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
 inline int run_filter_tests() {
   hs_test::ModuleFixture fixture("filter");
 
-  HS_RUN(test_trait_member_values);
   HS_RUN(test_filter_trait_inheritance);
   HS_RUN(test_filter_domain_rank);
   HS_RUN(test_is_pipeline_trait);

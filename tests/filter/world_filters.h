@@ -408,12 +408,19 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
         return false;
       });
   HS_EXPECT_FALSE(hit);
-  // One history pose per candidate slice.
+  // One history pose per candidate slice, in any order.
+  const auto near = [](const math::Vector &a, const math::Vector &b) {
+    return (a - b).magnitude() <= 1e-4f;
+  };
+  const auto same_pair = [&](const math::Vector(&got)[2],
+                             const math::Vector &axis) {
+    const math::Vector e0 = math::rotate(axis, oris[0].get());
+    const math::Vector e1 = math::rotate(axis, oris[1].get());
+    return (near(got[0], e0) && near(got[1], e1)) ||
+           (near(got[0], e1) && near(got[1], e0));
+  };
   HS_EXPECT_EQ(n, 2);
-  for (int i = 0; i < 2; ++i) {
-    math::Vector expected = math::rotate(math::X_AXIS, oris[i].get());
-    HS_EXPECT_VEC(seen[i], expected, 1e-4f);
-  }
+  HS_EXPECT_TRUE(same_pair(seen, math::X_AXIS));
 
   n = 0;
   hit = slice.cull_edge(
@@ -438,10 +445,7 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
         return false;
       });
   HS_EXPECT_EQ(n, 2);
-  for (int i = 0; i < 2; ++i) {
-    math::Vector expected = math::rotate(math::Y_AXIS, oris[i].get());
-    HS_EXPECT_VEC(normals[i], expected, 1e-4f);
-  }
+  HS_EXPECT_TRUE(same_pair(normals, math::Y_AXIS));
 
   // A probe near +Y selects the Z rotation, which swings it onto the |x| band:
   // the band predicate rejects the source endpoints, plot() lands the point

@@ -1418,6 +1418,9 @@ public:
       CACHE_CELLS * 2 * sizeof(int16_t) +
       CACHE_ORIGIN_SAMPLES * sizeof(typename SphereField::Coordinates) +
       CACHE_CAP_CELLS * 2 * sizeof(int16_t) + FadeTable::BYTES;
+  /** @brief Arena allocations init_storage() makes; each pads its share of
+   *  STORAGE_BYTES by less than alignof(std::max_align_t). */
+  static constexpr size_t STORAGE_ALLOCATIONS = 6;
 };
 
 } // namespace Pixel

@@ -22,7 +22,7 @@ inline void test_feedback_style_binding() {
   HS_EXPECT_TRUE(&cfb.style() == &style);
 
   HS_EXPECT_NEAR(fb.style().fade, ::Feedback::Style::Smoke().fade, 1e-6f);
-  HS_EXPECT_EQ(fb.style().downsample, 4);
+  HS_EXPECT_EQ(fb.style().downsample, ::Feedback::Style::Smoke().downsample);
 
   // Mutating through the accessor is visible on the original Style.
   fb.style().fade = 0.5f;

@@ -223,6 +223,12 @@ inline void test_timed_boundary_tap_ownership() {
   }
 }
 
+/** @brief Largest overestimate of one history step's sweep arc: the pad plus
+ *  twice the fast_acos error. */
+inline constexpr float ORIENT_ARC_STEP_SLACK =
+    Filter::World::ORIENTATION_ARC_ERROR_PAD +
+    2.0f * static_cast<float>(math::FAST_ACOS_MAX_ERROR);
+
 /** @brief Motion padding admits an entering edge while preserving the clip. */
 inline void test_timed_cull_region() {
   const auto history = spin_history(0.0f, 0.10f, 3);
@@ -233,7 +239,8 @@ inline void test_timed_cull_region() {
   PipelineRef ref(pipeline, Spacetime::Timed{});
   constexpr float ANGLE = 0.10f * math::PI_F;
   HS_EXPECT_GE(ref.sweep_arc(), ANGLE);
-  HS_EXPECT_LE(ref.sweep_arc(), ANGLE + (history.length() - 1) * 0.000203f);
+  HS_EXPECT_LE(ref.sweep_arc(),
+               ANGLE + (history.length() - 1) * ORIENT_ARC_STEP_SLACK);
   StubEffect effect(288, 144);
   effect.set_margin(0);
   effect.set_clip(36, 72, 0, 144);
@@ -448,7 +455,7 @@ inline void test_temporal_orientation_bound_is_conservative() {
                       1.0f));
       const float actual = orient.sweep_arc();
       HS_EXPECT_GE(actual, expected);
-      HS_EXPECT_LE(actual - expected, 0.000203f);
+      HS_EXPECT_LE(actual - expected, ORIENT_ARC_STEP_SLACK);
       if (index == 1024)
         HS_EXPECT_NEAR(actual, 0.0f, 0.0f);
     }

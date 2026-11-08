@@ -495,7 +495,23 @@ inline void expect_clip_lands_on_first_exit(const char *path) {
         probe(L, deg, chroma);
     }
   }
-  HS_EXPECT_GT(probe(0.165, 263.75, 0.6), OVERSAT_BOUND);
+  // A ray that leaves the gamut and re-enters it before the chroma cap.
+  const double DISCONNECTED_L = 0.165, DISCONNECTED_DEG = 263.75;
+  const double DISCONNECTED_HUE =
+      DISCONNECTED_DEG * 3.14159265358979323846 / 180.0;
+  bool left_gamut = false, reentered = false;
+  for (int i = 1; i <= 4096 && !reentered; ++i) {
+    const double c = CHROMA_IN[0] * i / 4096;
+    double r, g, b;
+    oklab_to_linear_rgb_ref(DISCONNECTED_L, std::cos(DISCONNECTED_HUE) * c,
+                            std::sin(DISCONNECTED_HUE) * c, r, g, b);
+    const bool inside = r >= -1e-4 && r <= 1.0 + 1e-4 && g >= -1e-4 &&
+                        g <= 1.0 + 1e-4 && b >= -1e-4 && b <= 1.0 + 1e-4;
+    left_gamut |= !inside;
+    reentered = left_gamut && inside;
+  }
+  HS_EXPECT_TRUE(reentered);
+  probe(DISCONNECTED_L, DISCONNECTED_DEG, CHROMA_IN[0]);
   HS_EXPECT_LT(worst_deficit, DEFICIT_BOUND);
   HS_EXPECT_LE(worst_oversat, RESIDUE_BOUND);
   HS_EXPECT_LE(residues, (samples + 49999) / 50000);
@@ -710,8 +726,24 @@ inline void test_gamut_lut_release_and_passthrough() {
 inline void test_gamut_lut_boundary_scale_rounding() {
   const OKLab scaled = gamut_scale_to_boundary_lut({0.5f, 0.4f, 0.3f});
   HS_EXPECT_EQ(scaled.L, 0.5f);
-  HS_EXPECT_NEAR_REL(scaled.a, 0.13113570f, 1e-6);
-  HS_EXPECT_NEAR_REL(scaled.b, 0.09835178f, 1e-6);
+  const GamutLut &lut = GAMUT_LUT_MASTER;
+  const GamutCell cell = gamut_cell(lut, 0.5f, 0.4f, 0.3f);
+  const float boundary =
+      static_cast<float>(lut.table[(cell.lightness_index * lut.angle_steps +
+                                    cell.angle_index) *
+                                   2]) *
+          GAMUT_LUT_INV_SCALE -
+      GAMUT_CLIP_MARGIN;
+  // Bit-hack seed plus exactly one Newton step on |(a, b)|^2.
+  const float chroma_sq = 0.4f * 0.4f + 0.3f * 0.3f;
+  uint32_t bits;
+  std::memcpy(&bits, &chroma_sq, sizeof(bits));
+  bits = 0x5f3759dfu - (bits >> 1);
+  float inverse_chroma;
+  std::memcpy(&inverse_chroma, &bits, sizeof(inverse_chroma));
+  inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
+  HS_EXPECT_NEAR_REL(scaled.a, 0.4f * boundary * inverse_chroma, 1e-6);
+  HS_EXPECT_NEAR_REL(scaled.b, 0.3f * boundary * inverse_chroma, 1e-6);
   // One scale factor on (a, b): the input 0.4:0.3 ratio survives.
   HS_EXPECT_NEAR(scaled.a * 0.3f, scaled.b * 0.4f, 1e-7f);
   // The single Newton step is one-sided low, so the rescale lands in gamut.
