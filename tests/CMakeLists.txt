@@ -227,7 +227,7 @@ endif()
 function(_hs_sanitize target)
   if(HS_TSAN)
     target_compile_options(${target} PRIVATE
-      -fsanitize=thread -fno-omit-frame-pointer -g)
+      -fsanitize=thread -fno-omit-frame-pointer ${HS_DEBUG_INFO_FLAG})
     target_link_options(${target} PRIVATE -fsanitize=thread)
     return()
   endif()
@@ -240,11 +240,11 @@ function(_hs_sanitize target)
   if(WIN32)
     target_compile_options(${target} PRIVATE
       -fsanitize=undefined -fsanitize-trap=undefined ${_ignore}
-      -fno-omit-frame-pointer -g)
+      -fno-omit-frame-pointer ${HS_DEBUG_INFO_FLAG})
   else()
     target_compile_options(${target} PRIVATE
       -fsanitize=address,undefined -fno-sanitize-recover=all ${_ignore}
-      -fno-omit-frame-pointer -g)
+      -fno-omit-frame-pointer ${HS_DEBUG_INFO_FLAG})
     target_link_options(${target} PRIVATE -fsanitize=address,undefined)
   endif()
 endfunction()

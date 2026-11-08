@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+# Native builds emit line-table debug info; see HS_LINE_TABLES_ONLY.
+env:
+  HS_LINE_TABLES_ONLY: 'ON'
+
 # PRs share a group; each push SHA gets an independent verdict and bundle.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
@@ -23,7 +27,7 @@ jobs:
     timeout-minutes: 45
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
-      CCACHE_MAXSIZE: &ccache_maxsize 400M
+      CCACHE_MAXSIZE: &ccache_maxsize 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,6 +65,10 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-tests-${{ github.run_id }}
           restore-keys: ccache-tests-
+
+      - &ccache_zero
+        name: Zero ccache statistics
+        run: ccache -z
 
       - &install_pinned_cmake
         name: Install pinned CMake
@@ -112,6 +120,8 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-sanitizers-${{ github.run_id }}
           restore-keys: ccache-sanitizers-
+
+      - *ccache_zero
 
       - *install_pinned_cmake
 
@@ -165,7 +175,7 @@ jobs:
     timeout-minutes: 60
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
-      CCACHE_MAXSIZE: *ccache_maxsize
+      CCACHE_MAXSIZE: 400M
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -185,6 +195,8 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-tsan-${{ github.run_id }}
           restore-keys: ccache-tsan-
+
+      - *ccache_zero
 
       - *install_pinned_cmake
 
@@ -250,6 +262,8 @@ jobs:
           key: ccache-optimized-${{ matrix.flavor }}-${{ github.run_id }}
           restore-keys: ccache-optimized-${{ matrix.flavor }}-
 
+      - *ccache_zero
+
       - *install_pinned_cmake
 
       - name: Configure, build and test
@@ -297,6 +311,8 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-coverage-${{ github.run_id }}
           restore-keys: ccache-coverage-
+
+      - *ccache_zero
 
       - *install_pinned_cmake
 
@@ -419,7 +435,7 @@ jobs:
     timeout-minutes: 45
     env:
       CCACHE_DIR: ${{ github.workspace }}/build/ccache
-      CCACHE_MAXSIZE: *ccache_maxsize
+      CCACHE_MAXSIZE: 400M
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

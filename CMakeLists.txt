@@ -330,6 +330,16 @@ else()
   if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
   endif()
+  # Line tables keep file:line in sanitizer and crash reports in far smaller
+  # objects than full debug info, so a CI job's ccache holds a whole build.
+  option(HS_LINE_TABLES_ONLY "Emit line-table debug info instead of full debug info"
+         "$ENV{HS_LINE_TABLES_ONLY}")
+  set(HS_DEBUG_INFO_FLAG -g)
+  if(HS_LINE_TABLES_ONLY)
+    set(HS_DEBUG_INFO_FLAG -gline-tables-only)
+    # Compile options follow CMAKE_CXX_FLAGS_<CONFIG>, and clang keeps the last -g.
+    add_compile_options(${HS_DEBUG_INFO_FLAG})
+  endif()
   enable_testing()
   add_subdirectory(tests)
 
