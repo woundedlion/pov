@@ -924,39 +924,8 @@ private:
       }
       if (half_res) {
         HS_PROFILE_DEEP(fb_comp_fill);
-        // Every column of a pole row is one point.
-        const bool pole_row = (SphereField::HAS_NORTH_POLE && y == 0) ||
-                              (SphereField::HAS_SOUTH_POLE && y == H - 1);
-        if (column_time && !pole_row && runs.count == 2 &&
-            runs.items[0].begin == 0 && runs.items[1].end == W) {
-          constexpr int HALF = ColumnTime::HALF;
-          // Beside a cut, the pair lit just before an arm's first column is
-          // the other arm's last pair of the previous frame; the pair lit
-          // just after its last column is the other arm's first pair a frame
-          // on, aged one frame from this one.
-          const ::Pixel *previous_row = previous + row;
-          auto aged = [&](const ::Pixel &p) {
-            if constexpr (PAIR_PIXELS)
-              return transform_pixel_call(transform_pixel, p.r, p.g, p.b,
-                                          unit_level);
-            else
-              return transform_pixel(p.r, p.g, p.b, unit_level);
-          };
-          const ::Pixel after_first = aged(output[HALF]);
-          const ::Pixel after_second = aged(output[0]);
-          const ::Pixel before_first =
-              pair_average(previous_row[W - 2], previous_row[W - 1]);
-          const ::Pixel before_second =
-              pair_average(previous_row[HALF - 2], previous_row[HALF - 1]);
-          reconstruct_half_res_run(output, 0, HALF, &before_first,
-                                   &after_first);
-          reconstruct_half_res_run(output, HALF, W, &before_second,
-                                   &after_second);
-        } else {
-          for (int r = 0; r < runs.count; ++r)
-            reconstruct_half_res_run(output, runs.items[r].begin,
-                                     runs.items[r].end);
-        }
+        expand_half_res_row<PAIR_PIXELS>(output, previous + row, y, runs,
+                                         column_time, transform_pixel);
       }
       if (filter_output) {
         HS_PROFILE_DEEP(fb_comp_filter);
@@ -1257,6 +1226,56 @@ private:
         output[x + 1] = blend(own, next);
       previous = own;
     }
+  }
+
+  /**
+   * @brief Expands a half-resolution row's pair samples back to every column.
+   * @tparam PAIR_PIXELS Whether the composite pairs pixels, and so keeps its
+   *         colour transform out of line.
+   * @tparam TransformPixelT Callable (r, g, b, level) -> ::Pixel.
+   * @param output Row of pair samples, as for reconstruct_half_res_run().
+   * @param previous_row The same row of the previous frame.
+   * @param y Row index.
+   * @param runs The row's column runs.
+   * @param column_time Whether the row's halves are lit a frame apart.
+   * @param transform_pixel Ages a sample by one frame at the unit level.
+   * @details Under column time, a full non-pole row expands arm by arm.
+   * Beside a cut, the pair lit just before an arm's first column is the other
+   * arm's last pair of the previous frame; the pair lit just after its last
+   * column is the other arm's first pair a frame on, aged one frame from this
+   * one. Other rows expand run by run.
+   */
+  template <bool PAIR_PIXELS, typename TransformPixelT>
+  HS_HOT_FLASH_MEMBER static void
+  expand_half_res_row(::Pixel *output, const ::Pixel *previous_row, int y,
+                      const ColumnRuns &runs, bool column_time,
+                      TransformPixelT &transform_pixel) {
+    // Every column of a pole row is one point.
+    const bool pole_row = (SphereField::HAS_NORTH_POLE && y == 0) ||
+                          (SphereField::HAS_SOUTH_POLE && y == H - 1);
+    if (!column_time || pole_row || runs.count != 2 ||
+        runs.items[0].begin != 0 || runs.items[1].end != W) {
+      for (int r = 0; r < runs.count; ++r)
+        reconstruct_half_res_run(output, runs.items[r].begin,
+                                 runs.items[r].end);
+      return;
+    }
+    constexpr int HALF = ColumnTime::HALF;
+    constexpr int LEVEL = FadeTable::UNIT_LEVEL;
+    auto aged = [&](const ::Pixel &p) {
+      if constexpr (PAIR_PIXELS)
+        return transform_pixel_call(transform_pixel, p.r, p.g, p.b, LEVEL);
+      else
+        return transform_pixel(p.r, p.g, p.b, LEVEL);
+    };
+    const ::Pixel after_first = aged(output[HALF]);
+    const ::Pixel after_second = aged(output[0]);
+    const ::Pixel before_first =
+        pair_average(previous_row[W - 2], previous_row[W - 1]);
+    const ::Pixel before_second =
+        pair_average(previous_row[HALF - 2], previous_row[HALF - 1]);
+    reconstruct_half_res_run(output, 0, HALF, &before_first, &after_first);
+    reconstruct_half_res_run(output, HALF, W, &before_second, &after_second);
   }
 
   /**
