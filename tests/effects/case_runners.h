@@ -287,8 +287,8 @@ void run_effect_case_sh_polarity_split_and_ao_shaping();
 /** @brief Runs test_sh_cycle_covers_every_mode with its case context. */
 void run_effect_case_sh_cycle_covers_every_mode();
 
-/** @brief Runs test_sh_instantaneous_pixel_golden with its case context. */
-void run_effect_case_sh_instantaneous_pixel_golden();
+/** @brief Runs test_sh_instantaneous_clips_match_full_render with its case context. */
+void run_effect_case_sh_instantaneous_clips_match_full_render();
 
 /** @brief Runs test_sh_columns_follow_sweep_time with its case context. */
 void run_effect_case_sh_columns_follow_sweep_time();

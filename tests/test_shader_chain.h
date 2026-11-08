@@ -913,7 +913,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_determinism);
   HS_RUN(test_shader_chain_param_names_and_budget);
   HS_RUN(test_shader_chain_composed_frame_parity);
-  HS_RUN(test_shader_chain_instantaneous_pixel_golden);
+  HS_RUN(test_shader_chain_instantaneous_clips_match_full_render);
   HS_RUN(test_shader_chain_columns_follow_sweep_time);
   HS_RUN(test_shader_chain_segmented_matches_single_engine);
   HS_RUN(test_shader_chain_discrete_changes_reset_history);

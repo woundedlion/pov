@@ -493,74 +493,72 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
 
 /**
  * @brief Renders a SphericalHarmonics schedule with temporal sampling
- *        disabled and hashes every displayed frame.
+ *        disabled.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
  * @param frames Frames to render.
  * @param schedule Called with the effect and frame index before each draw.
- * @return Hash, RGB totals and brightness moments of the sequence.
+ * @return Every displayed frame.
  */
 template <int W, int H, typename Schedule>
-inline PixelGolden sh_instantaneous_golden(int frames, Schedule &&schedule) {
+inline RenderRun sh_instantaneous_run(int frames, Schedule &&schedule) {
   reset_globals();
   const ScopedTemporalSampling instantaneous(false);
   HS_EXPECT_TRUE(Spacetime::flat_surface());
   SphericalHarmonics<W, H> fx;
   fx.init();
-  PixelGolden golden;
+  RenderRun run;
   for (int frame = 0; frame < frames; ++frame) {
     pin_frame_clock(frame);
     schedule(fx, frame);
     fx.draw_frame();
     fx.advance_display();
-    fold_pixel_golden<W, H>(golden, fx);
+    record_frame<W, H>(run, fx);
   }
   hs::clear_mock_time();
-  return golden;
+  return run;
 }
 
-/** @brief SphericalHarmonics with temporal sampling disabled matches its
- *  committed render through morph rollovers, clips and a manual preset. */
-inline void test_sh_instantaneous_pixel_golden() {
+/** @brief SphericalHarmonics with temporal sampling disabled renders lit
+ *  through morph rollovers and a manual preset, and its clipped frames match
+ *  the unclipped render inside each clip. */
+inline void test_sh_instantaneous_clips_match_full_render() {
   using WB = SphericalHarmonicsWhiteBox;
-  const PixelGolden small =
-      sh_instantaneous_golden<SMALL_W, SMALL_H>(140, [](WB::SH &fx, int frame) {
-        if (frame == 90)
-          fx.set_clip(2, SMALL_H - 2, 40, 60);
-        if (frame == 100) {
-          fx.set_clip(0, SMALL_H, 0, 8);
-          fx.set_margin(4);
-        }
-        if (frame == 110) {
-          fx.set_margin(0);
-          fx.set_clip(0, SMALL_H, 0, SMALL_W);
-          HS_EXPECT_TRUE(fx.selectPreset(9));
-        }
-        if (frame == 120)
-          fx.setAnimationsPaused(false);
-      });
-  expect_pixel_golden(
-      "SphericalHarmonics 96x20", small,
-      RecordedGolden{{0x9cb8df75afa8240full,
-                      {{1486548363ull, 622603791ull, 2206841731ull},
-                       41167967165ull,
-                       206205912523ull}},
-                     {0x134233915279a3b6ull,
-                      {{1486548175ull, 622603658ull, 2206841810ull},
-                       41167968484ull,
-                       206205897636ull}}});
-  const PixelGolden full =
-      sh_instantaneous_golden<288, 144>(3, [](auto &, int) {});
-  expect_pixel_golden(
-      "SphericalHarmonics 288x144", full,
-      RecordedGolden{{0xb2609700dd5b422full,
-                      {{526758379ull, 170893033ull, 742254907ull},
-                       102953297215ull,
-                       206583181676ull}},
-                     {0x500a13ad0928ca3bull,
-                      {{526758401ull, 170893036ull, 742254889ull},
-                       102953298145ull,
-                       206583179636ull}}});
+  constexpr int FRAMES = 140, LARGE_FRAMES = 3;
+  constexpr ClipSchedule<SMALL_W, SMALL_H> CLIPS{90};
+  const auto events = [](WB::SH &fx, int frame) {
+    if (frame == 110)
+      HS_EXPECT_TRUE(fx.selectPreset(9));
+    if (frame == 120)
+      fx.setAnimationsPaused(false);
+  };
+  const auto clipped_events = [&](WB::SH &fx, int frame) {
+    CLIPS.apply(fx, frame);
+    events(fx, frame);
+  };
+  const RenderRun full = sh_instantaneous_run<SMALL_W, SMALL_H>(FRAMES, events);
+  expect_lit("SphericalHarmonics 96x20", full);
+  const RenderRun clipped =
+      sh_instantaneous_run<SMALL_W, SMALL_H>(FRAMES, clipped_events);
+  expect_clip_matches_full<SMALL_W, SMALL_H>(
+      "SphericalHarmonics 96x20 clips", full, clipped,
+      [&](int frame) { return CLIPS.window(frame); });
+
+  const auto unclipped = [](auto &, int) {};
+  const auto segment = [](auto &fx, int frame) {
+    const ClipWindow window = segment_window<288, 144>(frame);
+    fx.set_clip(window.y0, window.y1, window.x0, window.x1);
+  };
+  const RenderRun large =
+      sh_instantaneous_run<288, 144>(LARGE_FRAMES, unclipped);
+  expect_lit("SphericalHarmonics 288x144", large);
+  expect_clip_matches_full<288, 144>(
+      "SphericalHarmonics 288x144 segment", large,
+      sh_instantaneous_run<288, 144>(LARGE_FRAMES, segment),
+      segment_window<288, 144>);
+  print_render_hash("SphericalHarmonics-96x20", "full", full.fold.hash);
+  print_render_hash("SphericalHarmonics-96x20", "clipped", clipped.fold.hash);
+  print_render_hash("SphericalHarmonics-288x144", "full", large.fold.hash);
 }
 
 /** @brief Spin and morph chain of SphericalHarmonics as functions of

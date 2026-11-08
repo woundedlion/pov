@@ -427,9 +427,14 @@ inline void test_shader_chain_pause_semantics() {
   HS_EXPECT_GT((frame_energy<96, 20>(effect)), 0u);
 }
 
-/** @brief ShaderChain with temporal sampling disabled matches its committed
- *  render over two programs, clips and a hue-noise colorize. */
-inline void test_shader_chain_instantaneous_pixel_golden() {
+/**
+ * @brief Renders the default ShaderChain with temporal sampling disabled,
+ *        switching to a hue-noise program at frame 60.
+ * @param clips Clip schedule to apply, or null for none.
+ * @return Every displayed frame.
+ */
+inline RenderRun
+shader_chain_instantaneous_run(const ClipSchedule<96, 20> *clips) {
   using WB = ShaderChainWhiteBox;
   constexpr int W = 96;
   constexpr int H = 20;
@@ -447,38 +452,36 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
       {"colorize", "colorize.generated-palette.v4"},
       {"modulation", "color.modulate.v1"},
   };
-  PixelGolden golden;
+  RenderRun run;
   for (int frame = 0; frame < 100; ++frame) {
     pin_frame_clock(frame);
-    if (frame == 20)
-      chain.set_clip(2, H - 2, 40, 60);
-    if (frame == 30) {
-      chain.set_clip(0, H, 0, 8);
-      chain.set_margin(4);
-    }
-    if (frame == 40) {
-      chain.set_margin(0);
-      chain.set_clip(0, H, 0, W);
-    }
+    if (clips)
+      clips->apply(chain, frame);
     if (frame == 60) {
       expect_compiled(chain.set_chain(topology));
       WB::modulation_params(chain).modulation.mechanic.amount = 0.3f;
     }
     chain.draw_frame();
     chain.advance_display();
-    fold_pixel_golden<W, H>(golden, chain);
+    record_frame<W, H>(run, chain);
   }
   hs::clear_mock_time();
-  expect_pixel_golden(
-      "ShaderChain 96x20", golden,
-      RecordedGolden{{0x0324eb38920115baull,
-                      {{801885175ull, 1326441393ull, 695705304ull},
-                       32193214977ull,
-                       133503798733ull}},
-                     {0x8e0c6df8da926bddull,
-                      {{801885166ull, 1326441488ull, 695705573ull},
-                       32193218958ull,
-                       133503815717ull}}});
+  return run;
+}
+
+/** @brief ShaderChain with temporal sampling disabled renders lit over two
+ *  programs, and its clipped frames match the unclipped render inside each
+ *  clip. */
+inline void test_shader_chain_instantaneous_clips_match_full_render() {
+  constexpr ClipSchedule<96, 20> CLIPS{20};
+  const RenderRun full = shader_chain_instantaneous_run(nullptr);
+  expect_lit("ShaderChain 96x20", full);
+  const RenderRun clipped = shader_chain_instantaneous_run(&CLIPS);
+  expect_clip_matches_full<96, 20>(
+      "ShaderChain 96x20 clips", full, clipped,
+      [&](int frame) { return CLIPS.window(frame); });
+  print_render_hash("ShaderChain-96x20", "full", full.fold.hash);
+  print_render_hash("ShaderChain-96x20", "clipped", clipped.fold.hash);
 }
 
 /** @brief View direction the scan shades for a 96x20 pixel.

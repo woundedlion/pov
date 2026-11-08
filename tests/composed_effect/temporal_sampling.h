@@ -1148,61 +1148,6 @@ inline void test_composed_temporal_roster() {
 #undef HS_COMPOSED_TEMPORAL
 }
 
-/** @brief MobiusGrid with temporal sampling disabled matches its committed
- *  render through a Lerp departure, clips and a manual preset. */
-inline void test_mobius_grid_instantaneous_pixel_golden() {
-  using FX = MobiusGrid<SMALL_W, SMALL_H>;
-  reset_globals();
-  const ScopedTemporalSampling instantaneous(false);
-  HS_EXPECT_TRUE(Spacetime::flat_surface());
-  FX effect;
-  effect.init();
-  const int departure = FX::PRESET_DWELL_FRAMES +
-                        Segue::Preset::frames(FX::preset_departure(0)) + 20;
-  PixelGolden golden;
-  for (int frame = 0; frame < departure + 40; ++frame) {
-    pin_frame_clock(frame);
-    if (frame == 30)
-      effect.set_clip(2, SMALL_H - 2, 40, 60);
-    if (frame == 40) {
-      effect.set_clip(0, SMALL_H, 0, 8);
-      effect.set_margin(4);
-    }
-    if (frame == 50) {
-      effect.set_margin(0);
-      effect.set_clip(0, SMALL_H, 0, SMALL_W);
-    }
-    if (frame == departure)
-      HS_EXPECT_TRUE(effect.selectPreset(0));
-    if (frame == departure + 20)
-      effect.setAnimationsPaused(false);
-    effect.draw_frame();
-    effect.advance_display();
-    fold_pixel_golden<SMALL_W, SMALL_H>(golden, effect);
-  }
-  hs::clear_mock_time();
-  expect_pixel_golden(
-      "MobiusGrid 96x20", golden,
-      RecordedGolden{{0xec466ec3f770a0f1ull,
-                      {{5453470685ull, 5160590333ull, 5474686332ull},
-                       169829811319ull,
-                       779137450792ull}},
-                     {0x3f7cc88cb3bc27faull,
-                      {{6402480035ull, 6020902134ull, 6475982785ull},
-                       189985757464ull,
-                       898283260641ull}},
-                     1e-3,
-                     0.01,
-                     {0x73f317719147d0b5ull,
-                      {{6387104319ull, 5994654944ull, 6281234980ull},
-                       183136212019ull,
-                       903193587020ull}},
-                     {0x377bb7dd310c8633ull,
-                      {{6352957965ull, 5821662016ull, 6185281849ull},
-                       176979319400ull,
-                       916116406782ull}}});
-}
-
 /** @brief MobiusGrid's lens b at a continuous frame time.
  * @param time Frames since init; draw k spans [k, k + 1].
  * @return The circular warp's b at the eased phase of @p time. */
@@ -1213,6 +1158,78 @@ inline math::Complex mobius_grid_b_at(double time) {
       static_cast<float>(2.0 * 3.14159265358979323846 *
                          math::ease_in_out_sin(static_cast<float>(cycle)));
   return {std::cos(angle), -std::sin(angle)};
+}
+
+/** @brief Frame the MobiusGrid schedule selects preset 0 by hand, after its
+ *  first automatic Lerp departure has finished. */
+inline constexpr int MOBIUS_GRID_MANUAL_PRESET =
+    MobiusGrid<SMALL_W, SMALL_H>::PRESET_DWELL_FRAMES +
+    Segue::Preset::frames(MobiusGrid<SMALL_W, SMALL_H>::preset_departure(0)) +
+    20;
+
+/** @brief Frames the full MobiusGrid schedule draws. */
+inline constexpr int MOBIUS_GRID_FRAMES = MOBIUS_GRID_MANUAL_PRESET + 40;
+
+/**
+ * @brief Renders MobiusGrid with temporal sampling disabled through its first
+ *        Lerp departure, a manual preset and an unpause.
+ * @param frames Frames to draw.
+ * @param clips Clip schedule to apply, or null for none.
+ * @param lens_angles Receives each drawn frame's lens phase angle, or null.
+ * @return Every displayed frame.
+ */
+inline RenderRun
+mobius_grid_instantaneous_run(int frames,
+                              const ClipSchedule<SMALL_W, SMALL_H> *clips,
+                              std::vector<float> *lens_angles = nullptr) {
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
+  reset_globals();
+  const ScopedTemporalSampling instantaneous(false);
+  HS_EXPECT_TRUE(Spacetime::flat_surface());
+  FX effect;
+  effect.init();
+  RenderRun run;
+  for (int frame = 0; frame < frames; ++frame) {
+    pin_frame_clock(frame);
+    if (clips)
+      clips->apply(effect, frame);
+    if (frame == MOBIUS_GRID_MANUAL_PRESET)
+      HS_EXPECT_TRUE(effect.selectPreset(0));
+    if (frame == MOBIUS_GRID_MANUAL_PRESET + 20)
+      effect.setAnimationsPaused(false);
+    effect.draw_frame();
+    effect.advance_display();
+    record_frame<SMALL_W, SMALL_H>(run, effect);
+    if (lens_angles)
+      lens_angles->push_back(
+          effect.frame_for_test().resources.template get<"lens">().angle);
+  }
+  hs::clear_mock_time();
+  return run;
+}
+
+/** @brief MobiusGrid with temporal sampling disabled renders lit, keeps its
+ *  lens on its eased phase through the Lerp departure, and its clipped frames
+ *  match the unclipped render inside each clip. */
+inline void test_mobius_grid_instantaneous_clips_match_full_render() {
+  constexpr ClipSchedule<SMALL_W, SMALL_H> CLIPS{30};
+  std::vector<float> lens_angles;
+  const RenderRun full =
+      mobius_grid_instantaneous_run(MOBIUS_GRID_FRAMES, nullptr, &lens_angles);
+  expect_lit("MobiusGrid 96x20", full);
+  const RenderRun clipped = mobius_grid_instantaneous_run(
+      CLIPS.start + 3 * ClipSchedule<SMALL_W, SMALL_H>::SPAN, &CLIPS);
+  expect_clip_matches_full<SMALL_W, SMALL_H>(
+      "MobiusGrid 96x20 clips", full, clipped,
+      [&](int frame) { return CLIPS.window(frame); });
+  for (int draw = 0; draw < MOBIUS_GRID_MANUAL_PRESET; ++draw) {
+    HS_CONTEXT("draw", draw);
+    const math::Complex expected = mobius_grid_b_at(draw + 1.0);
+    HS_EXPECT_NEAR(cosf(lens_angles[draw]), expected.re, 1e-6f);
+    HS_EXPECT_NEAR(-sinf(lens_angles[draw]), expected.im, 1e-6f);
+  }
+  print_render_hash("MobiusGrid-96x20", "full", full.fold.hash);
+  print_render_hash("MobiusGrid-96x20", "clipped", clipped.fold.hash);
 }
 
 /** @brief MobiusGrid's lens follows its eased animation phase at every

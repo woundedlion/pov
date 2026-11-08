@@ -171,7 +171,7 @@ inline int run_effects_tests() {
   run_effect_case_sh_field_stays_inside_unit_range();
   run_effect_case_sh_polarity_split_and_ao_shaping();
   run_effect_case_sh_cycle_covers_every_mode();
-  run_effect_case_sh_instantaneous_pixel_golden();
+  run_effect_case_sh_instantaneous_clips_match_full_render();
   run_effect_case_sh_columns_follow_sweep_time();
   run_effect_case_sh_segmented_columns_match_single_engine();
   run_effect_case_sh_manual_preset_resets_morph_history();

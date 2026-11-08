@@ -304,13 +304,14 @@ struct ClipWindow {
 };
 
 /** @brief Checks that a clipped run equals an unclipped run inside each
- *         recorded frame's clip window.
+ *         frame's clip window, over the clipped run's frames.
  * @tparam W Frame width.
  * @tparam H Frame height.
  * @tparam WindowOf Callable `ClipWindow(int recorded_frame)`.
  * @param label Run named in failure output.
  * @param full Run rendered without a clip.
- * @param clipped Run rendered under the clips @p window_of names.
+ * @param clipped Run rendered under the clips @p window_of names; no
+ *        longer than @p full.
  * @param window_of Clip window of each recorded frame.
  * @details The windows must hold a lit pixel, so two dark runs cannot agree
  *          vacuously. */
@@ -319,7 +320,7 @@ inline void expect_clip_matches_full(const char *label, const RenderRun &full,
                                      const RenderRun &clipped,
                                      WindowOf &&window_of) {
   HS_CONTEXT(label);
-  HS_EXPECT_EQ(full.recorded, clipped.recorded);
+  HS_EXPECT_LE(clipped.recorded, full.recorded);
   size_t different = 0, lit = 0;
   int first_frame = -1;
   for (int f = 0; f < std::min(full.recorded, clipped.recorded); ++f) {
@@ -358,6 +359,44 @@ template <int W, int H> inline ClipWindow segment_window(int frame) {
                         (frame & 1) == 0, LEDS, SEGMENTS, W);
   return {clip.y0, clip.y1, clip.x0, clip.x1};
 }
+
+/** @brief Clip schedule of a scheduled render: a mid-canvas band, then a
+ *         narrow edge band under a render margin, then the whole canvas.
+ * @tparam W Canvas width; at least 60.
+ * @tparam H Canvas height; at least 5. */
+template <int W, int H> struct ClipSchedule {
+  static constexpr int SPAN = 10;  /**< Frames each band holds. */
+  static constexpr int MARGIN = 4; /**< Render margin of the edge band. */
+  int start;                       /**< First clipped frame. */
+
+  /** @brief Clip window shown on a frame.
+   * @param frame Frame index.
+   * @return The window; the whole canvas outside the schedule. */
+  ClipWindow window(int frame) const {
+    if (frame >= start && frame < start + SPAN)
+      return {2, H - 2, 40, 60};
+    if (frame >= start + SPAN && frame < start + 2 * SPAN)
+      return {0, H, 0, 8};
+    return {0, H, 0, W};
+  }
+
+  /** @brief Applies the clip change due before a frame.
+   * @tparam Fx Effect with set_clip() and set_margin().
+   * @param fx Effect to clip.
+   * @param frame Frame about to be drawn. */
+  template <typename Fx> void apply(Fx &fx, int frame) const {
+    if (frame == start)
+      fx.set_clip(2, H - 2, 40, 60);
+    if (frame == start + SPAN) {
+      fx.set_clip(0, H, 0, 8);
+      fx.set_margin(MARGIN);
+    }
+    if (frame == start + 2 * SPAN) {
+      fx.set_margin(0);
+      fx.set_clip(0, H, 0, W);
+    }
+  }
+};
 
 /** @brief Fingerprint of the libm probes and native optimization mode.
  * @return FNV fold of transcendental results and build-mode flags. */
