@@ -183,8 +183,8 @@ are in units of the solid's edge length.
 The shader tool exposes each Platonic solid as an atlas operator:
 **Tetrahedral**, **Cubic**, **Octahedral**, **Dodecahedral** and **Icosahedral
 Atlas** (`project.tetrahedral.v1` through `project.icosahedral.v1`). Each has
-central meridian, coordinate scale, area correction, and identity or
-spin/wander framing, and matching `Pullback::Projection` aliases and
+central meridian, coordinate scale, area correction, and identity,
+spin/wander or tilted spin/wander framing, and matching `Pullback::Projection` aliases and
 `ProjectionKind` values serve authored effects.
 
 Central projection magnifies a tile toward its corners, more strongly for

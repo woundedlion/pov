@@ -23,6 +23,7 @@ struct KaleidoscopeFlowersSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr bool TILTED_PROJECTION_FRAME = true;
   /**
    * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens,
    *  projection, mirror warp, affine warp, grid source, generated palette,
@@ -82,9 +83,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "af321167672782acda45e55c1c22cb5121efb2748dc7075ea0198653db01399d";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "3ce08bde4b1de7589ee14a19e5fadf18c3ab16b943ee98ad18c4e0557e0a988e";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "5a87c2f5975321622d977cdb7b6819e8a50aed06e92422aceec7a97d780b1a2a";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "daa02852162afa1f630f04ca2c91860eda332e13ba27dbb585c047413457c763";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "double-map",

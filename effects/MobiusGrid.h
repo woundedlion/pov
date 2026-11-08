@@ -21,6 +21,7 @@
 struct MobiusGridSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::COMPLEMENTARY;
   static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr bool TILTED_PROJECTION_FRAME = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   /**
@@ -74,9 +75,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "2d76d677a794afd79332ec4e98b5e0530898dc4e45aecbe7a3a51ab8d93df24a";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "c3b396548a63283d6739c939c0f5c522237e72ce0416ec3b12456c32dc69596f";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "1b88e3bfdbeeccb9173557e535019fa17a2f67625a522d5a3bec892ce98c5dc3";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "6d334df29c4942c995486e95c11a1ecea007e2fb6efc2c6c0d15602e148cde6e";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "mobius-grid",

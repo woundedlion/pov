@@ -23,6 +23,7 @@ struct AlienBrainSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr bool TILTED_PROJECTION_FRAME = true;
   /**
    * @brief Stage chain: camera rotation, glitch lens, projection, wave-shear warp,
    *  affine warp, grid source, generated palette,
@@ -79,9 +80,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "1991ee11d6baf8aa816fc5a6726b50178ec42f79d72a3b8d77b54dc10dcf0efd";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "58074ddc5ce5f45ab0a1c0fa48faa6d63cc5666e114de9ea9db26c601b5b2474";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "4fcf68065487dd0f25fe756ca850ef144277b69d69637bb4c1b45b272c8b9015";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "7ac5b0d5bbe831edbb2f297da87d52cae024cd8f1b83957a5ebc34d928017ae8";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "alien-brain",

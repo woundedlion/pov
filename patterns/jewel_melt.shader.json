@@ -348,11 +348,12 @@
       },
       {
         "classification": "preset",
-        "default": "spin-wander",
+        "default": "spin-wander-tilted",
         "domain": {
           "values": [
             "identity",
-            "spin-wander"
+            "spin-wander",
+            "spin-wander-tilted"
           ]
         },
         "id": "project.frame",
@@ -719,7 +720,7 @@
           "modulation.pattern-scale": 0.6304218769073486,
           "modulation.pattern-speed": 0.00004999999873689376,
           "project.central-meridian": 1.2566369771957397,
-          "project.frame": "spin-wander",
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 0.10000000149011612,
           "project.singularity-fade": 1,

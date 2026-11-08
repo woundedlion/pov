@@ -394,6 +394,23 @@
       },
       {
         "classification": "preset",
+        "default": "spin-wander-tilted",
+        "domain": {
+          "values": [
+            "identity",
+            "spin-wander",
+            "spin-wander-tilted"
+          ]
+        },
+        "id": "project.frame",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
         "default": 0,
         "domain": {
           "maximum": 0.05000000074505806,
@@ -643,6 +660,7 @@
         "lens.spin-x",
         "lens.spin-y",
         "lens.spin-z",
+        "project.frame",
         "project.projection-spin-speed",
         "project.projection-wander",
         "project.singularity-fade",
@@ -731,6 +749,7 @@
           "lens.spin-x": 0.6686195135116577,
           "lens.spin-y": -2.865265369415283,
           "lens.spin-z": 0.007910898886620998,
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 1,
           "project.singularity-fade": 2.1019999980926514,
@@ -776,6 +795,7 @@
           "lens.spin-x": 0.6686195135116577,
           "lens.spin-y": -2.865265369415283,
           "lens.spin-z": 0.007910898886620998,
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 1,
           "project.singularity-fade": 2.1019999980926514,

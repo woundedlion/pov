@@ -93,6 +93,15 @@ void verify_export(size_t preset, int channel_tolerance,
       state.wander = (id == "sphere.rotate.v2" ? own.outer_conjugate
                                                : own.projection_conjugate)
                          .conjugate();
+      // The composed conjugate already carries the tilted base.
+      if (id.starts_with("project.")) {
+        auto &frame = shader_chain_tests::param_as<In::Op::ProjectChainParams>(
+                          program, index)
+                          .frame;
+        if (frame ==
+            static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER_TILTED))
+          frame = static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER);
+      }
       state.spin_phase = 0.0f;
       if (id == "sphere.rotate.v2")
         own.params.visit([&]<typename Resource>(const auto &) {

@@ -798,11 +798,15 @@ Ripple Duration sets each wave's expansion time. Random Center selects a new
 shared center for each burst and hides Center Azimuth and Center Polar; turning
 it off uses those manual coordinates.
 
-Projection **Frame** selects Identity or Spin/Wander. Both start aligned with
-the sphere axes, with +Y at the north pole. Identity stays fixed; Spin/Wander
-advances from that alignment at Projection Spin Speed and Projection Wander.
-With both rates zero from startup, Spin/Wander matches Identity. Setting both
-rates back to zero holds the accumulated orientation.
+Projection **Frame** selects Identity, Spin/Wander or Spin/Wander Tilted.
+Identity and Spin/Wander start aligned with the sphere axes, with +Y at the
+north pole. Identity stays fixed; Spin/Wander advances from that alignment at
+Projection Spin Speed and Projection Wander. With both rates zero from startup,
+Spin/Wander matches Identity. Setting both rates back to zero holds the
+accumulated orientation. Spin/Wander Tilted (`spin-wander-tilted`) advances the
+same way from a quarter-turn about X that takes -Z onto -Y, which puts the
+chart pole on the sphere's -Z axis. A composed Spec without an authored frame
+parameter selects it with `TILTED_PROJECTION_FRAME`.
 
 Planar-warp **Speed** advances its wrapped phase in cycles per frame.
 
@@ -891,7 +895,7 @@ Airocean. Admission checks carrier agreement, field domains, budgets and
 declared dependencies; there is no blanket cut-topology exclusion for noise.
 
 Controls use their parameter declarations and catalog `gated_by` conditions.
-For example, projection spin/wander require the spin-wander frame, edge width
+For example, projection spin/wander require a spin-wander frame, edge width
 requires edge-fade or edge-fade-squared coverage, or an edge-fade warp envelope, and brightness
 endpoints require a brightness envelope. Deactivation dims the controls without removing their stored values.
 The exact fields and ranges come from the selected operator instances.

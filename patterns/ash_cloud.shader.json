@@ -1069,6 +1069,23 @@
       },
       {
         "classification": "preset",
+        "default": "spin-wander-tilted",
+        "domain": {
+          "values": [
+            "identity",
+            "spin-wander",
+            "spin-wander-tilted"
+          ]
+        },
+        "id": "project.frame",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
         "default": 0,
         "domain": {
           "maximum": 0.05000000074505806,
@@ -1403,6 +1420,7 @@
         "modulation.modulation-source",
         "modulation.pattern-scale",
         "modulation.pattern-speed",
+        "project.frame",
         "project.projection-spin-speed",
         "project.projection-wander",
         "project.singularity-fade",
@@ -1521,6 +1539,7 @@
           "modulation.modulation-source": "noise",
           "modulation.pattern-scale": 2.4029531478881836,
           "modulation.pattern-speed": 0.0001500000071246177,
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0.0017500000540167093,
           "project.projection-wander": 0.008999999612569809,
           "project.singularity-fade": 1,

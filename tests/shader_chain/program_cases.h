@@ -563,10 +563,11 @@ inline void test_shader_chain_schema_projection() {
     HS_EXPECT_TRUE(frame_policy != nullptr);
     if (frame_policy != nullptr) {
       HS_EXPECT_TRUE(frame_policy->topology);
-      HS_EXPECT_EQ(frame_policy->enum_count, 2);
+      HS_EXPECT_EQ(frame_policy->enum_count, 3);
       HS_EXPECT_EQ(frame_policy->enum_def, 1);
       HS_EXPECT_STREQ(frame_policy->enum_ids[0], "identity");
       HS_EXPECT_STREQ(frame_policy->enum_ids[1], "spin-wander");
+      HS_EXPECT_STREQ(frame_policy->enum_ids[2], "spin-wander-tilted");
     }
     for (uint16_t field = 0; field < projection.schema_count; ++field)
       has_meridian |=

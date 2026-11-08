@@ -16,10 +16,15 @@
 
 namespace Pullback {
 
-/** @brief Canonical base orientation of a projection.
-    @return Identity rotation; spin and wander start in the sphere frame. */
-inline math::Quaternion projection_base_orientation() {
-  return math::Quaternion();
+/** @brief Base orientation that a projection frame's spin and wander
+    compose onto.
+    @param tilted Whether the frame is the tilted spin-wander frame.
+    @return The quarter-turn about X taking -Z onto -Y when @p tilted, which
+    puts the chart pole on the sphere's -Z axis; otherwise the identity. */
+inline math::Quaternion projection_frame_base(bool tilted) {
+  return tilted ? math::make_rotation(math::Vector(0, 0, -1),
+                                      math::Vector(0, -1, 0))
+                : math::Quaternion();
 }
 
 namespace Projection {

@@ -109,6 +109,13 @@ public:
   /// Whether the projection orientation follows a random walk and spin.
   static constexpr bool ANIMATED_PROJECTION =
       SpecT::ANIMATED_PROJECTION && HAS_FRAME_PARAMS;
+  static_assert(!SpecT::TILTED_PROJECTION_FRAME ||
+                    (ANIMATED_PROJECTION &&
+                     !requires(ParamsT p) {
+                       p.template get<"projection">().frame;
+                     }),
+                "TILTED_PROJECTION_FRAME needs an animated projection without "
+                "an authored frame parameter");
   /// Whether the effect retains palette hue tables.
   static constexpr bool HUE_ROTATION_LUT =
       Metadata::MODULATION && SpecT::HUE_ROTATION_LUT;
@@ -1103,6 +1110,15 @@ private:
     return true;
   }
 
+  /** @brief Whether the projection frame is the tilted spin-wander frame.
+   * @return The authored frame value 2 when the frame is a parameter, else
+   *         `TILTED_PROJECTION_FRAME`. */
+  bool projection_frame_tilted() const {
+    if constexpr (requires { params.template get<"projection">().frame; })
+      return params.template get<"projection">().frame == 2;
+    return SpecT::TILTED_PROJECTION_FRAME;
+  }
+
   /**
    * @brief Steps every phase clock the effect's parameter families define.
    * @details Each clock is compiled in only when its field exists. Affine
@@ -1184,7 +1200,8 @@ private:
             this->projection_wander);
         this->projection_conjugate =
             (math::make_rotation(math::Y_AXIS, this->projection_spin) *
-             this->base_orientation * this->projection_wander)
+             projection_frame_base(projection_frame_tilted()) *
+             this->projection_wander)
                 .conjugate();
       }
     }

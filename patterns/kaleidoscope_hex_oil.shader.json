@@ -451,6 +451,23 @@
       },
       {
         "classification": "preset",
+        "default": "spin-wander-tilted",
+        "domain": {
+          "values": [
+            "identity",
+            "spin-wander",
+            "spin-wander-tilted"
+          ]
+        },
+        "id": "project.frame",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
         "default": 0,
         "domain": {
           "maximum": 0.05000000074505806,
@@ -664,6 +681,7 @@
         "displacement.modulation-mechanic",
         "displacement.modulation-source",
         "lens.symmetry",
+        "project.frame",
         "project.projection-spin-speed",
         "project.projection-wander",
         "project.singularity-fade",
@@ -752,6 +770,7 @@
           "displacement.modulation-mechanic": "hue-rotation",
           "displacement.modulation-source": "displacement",
           "lens.symmetry": "hexagonal-prism",
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 1,
           "project.singularity-fade": 1.6269999742507935,
@@ -797,6 +816,7 @@
           "displacement.modulation-mechanic": "hue-rotation",
           "displacement.modulation-source": "displacement",
           "lens.symmetry": "hexagonal-prism",
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 1,
           "project.singularity-fade": 1.6269999742507935,

@@ -23,6 +23,7 @@ struct JewelMeltSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr bool TILTED_PROJECTION_FRAME = true;
   /**
    * @brief Stage chain: camera rotation, octahedral kaleidoscope lens,
    *  surface-noise displacement, projection, square-cell source, generated
@@ -79,9 +80,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "54e1d66840ecdc3e6b6ae0f0e1c255b7745aa438e32d5d1cb30c192482c918f0";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "d24c6d6942014852782c25f8130031381c56e4e0dc66627e50fab476cd474337";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "cc232fb7f40888b32d05c2b92ee735a1d06bd8bf05eacc97e80b17ea153fb4d7";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "8c4def865c0cf30c998bf17fcc08bac0c855be9cdf1600cc8d3d140cb3828436";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"

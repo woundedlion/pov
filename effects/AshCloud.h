@@ -38,6 +38,7 @@ struct AshCloudSpec : Pullback::Spec {
       true; ///< Cached ripple transfers.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr bool TILTED_PROJECTION_FRAME = true;
   /**
    * @brief Stage chain: camera rotation, burst ripples, surface curl,
    * dodecahedral kaleidoscope lens, projection, square-cell source, value cutout,
@@ -107,9 +108,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "e6e6b685618334425a75a685d33c613de4dcbddc3aa2cf63309e9b774fb8e38c";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "d7767a12ffd9fb1a16034c3f3ccc56b9ebd2753f25f8b6d7eae02c256ad7ae7f";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "5b142303eb2c244f8af61ddb3d2e5b40ebe69b95260e45739e046ba321a083eb";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "303e5c05d81f78193cf0a66ad45fc1945b12722ca64cc0bba90e9a2588da60b2";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "ash-cloud"

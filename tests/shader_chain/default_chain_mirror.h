@@ -130,7 +130,7 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
           .conjugate();
   frame.projection_conjugate =
       (math::make_rotation(math::Y_AXIS, projection.spin_phase) *
-       ctx.projection_base * projection.wander)
+       PB::projection_frame_base(false) * projection.wander)
           .conjugate();
   frame.projection = param_as<In::Op::ProjectChainParams>(program, 1);
   frame.sample = param_as<In::Op::GridSampleParams>(program, 2);

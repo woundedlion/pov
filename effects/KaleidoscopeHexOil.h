@@ -27,6 +27,7 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr bool TILTED_PROJECTION_FRAME = true;
   /**
    * @brief Stage chain: camera rotation, hexagonal-prism kaleidoscope lens, direct surface displacement, stereographic projection, affine warp, spiral source, generated palette,
    *  displacement hue modulation.
@@ -85,9 +86,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "7ca7e9353ebe5839cff28dc3b0b1a9eb983796597f1ffea0fc11fae401a065b4";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "9923202ac3abf24c5f033529974a78399c0b56f9c0757eb12af1b1169f389f23";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "dc361a30b43c64c564bbba03ad989618636b5cb476aef0a3d9613ede7d1c76f6";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "4a622ff214af83b36e7de5563b97070829b869681eb520f12b1fbc05888072d3";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "kaleidoscope-hex-oil",

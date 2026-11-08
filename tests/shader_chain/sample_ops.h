@@ -585,7 +585,6 @@ inline void test_shader_chain_large_finite_path_length() {
   modulation.evaluation = Pattern::Evaluation::DIRECT;
   modulation.mechanic.amount = 1e-18f;
   auto ctx = shared_resources().context();
-  ctx.projection_base = math::Quaternion();
   std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue;
   for (size_t index = 0; index < hue.size(); ++index)
     hue[index] = Pixel(static_cast<uint16_t>((index % 16) * 4000), 0, 0);

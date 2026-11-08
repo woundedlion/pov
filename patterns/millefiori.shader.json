@@ -1050,11 +1050,12 @@
       },
       {
         "classification": "preset",
-        "default": "spin-wander",
+        "default": "spin-wander-tilted",
         "domain": {
           "values": [
             "identity",
-            "spin-wander"
+            "spin-wander",
+            "spin-wander-tilted"
           ]
         },
         "id": "project.frame",
@@ -1525,7 +1526,7 @@
           "modulate.modulation-evaluation": "direct",
           "modulate.modulation-mechanic": "hue-rotation",
           "modulate.modulation-source": "displacement",
-          "project.frame": "spin-wander",
+          "project.frame": "spin-wander-tilted",
           "project.hemisphere": "folded",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 0,

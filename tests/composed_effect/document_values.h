@@ -550,8 +550,10 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return false;
   case SlotRole::PROJECT:
     if (field_id == "frame") {
-      HS_EXPECT_TRUE(text ==
-                     (FX::ANIMATED_PROJECTION ? "spin-wander" : "identity"));
+      HS_EXPECT_TRUE(text == (!FX::ANIMATED_PROJECTION ? "identity"
+                              : FX::Spec::TILTED_PROJECTION_FRAME
+                                  ? "spin-wander-tilted"
+                                  : "spin-wander"));
       return true;
     }
     if (field_id == "hemisphere") {

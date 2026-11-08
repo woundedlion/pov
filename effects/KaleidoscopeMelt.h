@@ -35,6 +35,7 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   static constexpr bool INITIAL_CACHE_CONTROLS_ONLY = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr bool TILTED_PROJECTION_FRAME = true;
   /**
    * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens,
    *  surface-noise displacement, projection, square-cell source, generated
@@ -93,9 +94,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "01674cf6198cdda3016e9071b0e2711247d376041365aae48cda3a0bfadaabd6";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "40561e978ac8e3fd5564ead3cdb0647d016673fa82fe99225de5789188aa7dd7";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "45d0c285d6ad31ddeb67cb830fe7fbc3a4a01afa6479de7f05843f752b02bd2b";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "e34895b00a10739b3862fe7eaadc62354cba2b4e085de81421f0ff2d24db3dd6";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "kaleidoscope-melt"

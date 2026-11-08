@@ -1109,7 +1109,7 @@ export function migrateLegacyShaderDocument(document, catalog) {
     if (separator < 0) continue;
     const label = parameter.id.slice(0, separator);
     const id = parameter.id.slice(separator + 1);
-    if (id !== 'coverage-mode' && id !== 'axis-lambda') continue;
+    if (id !== 'coverage-mode' && id !== 'axis-lambda' && id !== 'frame') continue;
     const slot = document.descriptor.chain.find((entry) => entry?.label === label);
     const operator = catalog.operators.find((entry) => entry && entry.id === slot?.operator);
     if (!Array.isArray(operator?.params)) continue;
@@ -1119,6 +1119,11 @@ export function migrateLegacyShaderDocument(document, catalog) {
           JSON.stringify(['none', 'weight', 'weight-squared', 'edge-fade']) &&
         JSON.stringify(field?.values) ===
           JSON.stringify(['none', 'weight', 'weight-squared', 'edge-fade', 'edge-fade-squared']))
+      updates.push({ index, domain: { ...parameter.domain, values: [...field.values] } });
+    if (id === 'frame' &&
+        JSON.stringify(parameter.domain?.values) === JSON.stringify(['identity', 'spin-wander']) &&
+        JSON.stringify(field?.values) ===
+          JSON.stringify(['identity', 'spin-wander', 'spin-wander-tilted']))
       updates.push({ index, domain: { ...parameter.domain, values: [...field.values] } });
     if (id === 'axis-lambda' && operator?.id === 'sphere.lens.twist.v2' &&
         field?.curve === 'shortest-periodic' && parameter.interpolation?.kind === 'LINEAR' &&

@@ -23,19 +23,25 @@ namespace Interp {
 
 namespace Op {
 
-/** @brief Projection orientation policy. */
-enum class ProjectionFrame : uint8_t { IDENTITY, SPIN_WANDER };
+/** @brief Projection orientation policy. SPIN_WANDER_TILTED composes spin
+    and wander onto projection_frame_base(true). */
+enum class ProjectionFrame : uint8_t {
+  IDENTITY,
+  SPIN_WANDER,
+  SPIN_WANDER_TILTED
+};
 
 /** @brief Frame topology values, in ProjectionFrame order. */
-inline constexpr const char *PROJECTION_FRAME_IDS[] = {"identity",
-                                                       "spin-wander"};
+inline constexpr const char *PROJECTION_FRAME_IDS[] = {
+    "identity", "spin-wander", "spin-wander-tilted"};
 static_assert(std::size(PROJECTION_FRAME_IDS) ==
-              static_cast<size_t>(ProjectionFrame::SPIN_WANDER) + 1);
+              static_cast<size_t>(ProjectionFrame::SPIN_WANDER_TILTED) + 1);
 
 /** @brief Activation relation of the spin and wander rates, which the
     identity frame neither advances nor reads. */
 inline constexpr TopologyGate SPIN_WANDER_FRAME_GATE{
-    "frame", live_values(ProjectionFrame::SPIN_WANDER)};
+    "frame", live_values(ProjectionFrame::SPIN_WANDER,
+                         ProjectionFrame::SPIN_WANDER_TILTED)};
 
 /** @brief Shared projection frame topology followed by family-specific fields.
  *  @tparam Params Projection parameter family.
@@ -162,17 +168,16 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
     return 2.0f * projections::STEREO_INF;
   }
   static void validate_frame(const Params &params) {
-    HS_CHECK(params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY) ||
-                 params.frame ==
-                     static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER),
+    HS_CHECK(params.frame <=
+                 static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER_TILTED),
              "projection operator: invalid frame policy");
   }
   static void advance(State &state, const Params &params) {
     validate_frame(params);
-    if (params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER))
+    if (params.frame != static_cast<uint8_t>(ProjectionFrame::IDENTITY))
       advance_walk(state, params.wander, params.spin_rate);
   }
-  static Prepared prepare(const FrameContext &ctx, const Params &params,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     validate_frame(params);
     Prepared prepared{};
@@ -181,7 +186,10 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
     else
       prepared.conjugate =
           (math::make_rotation(math::Y_AXIS, state.spin_phase) *
-           ctx.projection_base * state.wander)
+           projection_frame_base(
+               params.frame ==
+               static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER_TILTED)) *
+           state.wander)
               .conjugate();
     if constexpr (CacheMeridian) {
       prepared.meridian_cos = cosf(params.central_meridian);

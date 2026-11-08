@@ -275,6 +275,30 @@ test('legacy coverage domains expand without changing authored selections', () =
   assert.deepEqual(result.document, expected);
 });
 
+test('legacy projection frame domains expand without changing authored selections', () => {
+  const document = example();
+  const project = document.descriptor.chain.find((entry) => entry.label === 'project');
+  const operator = CATALOG.operators.find((entry) => entry.id === project.operator);
+  const field = operator.params.find((entry) => entry.id === 'frame');
+  const id = 'project.frame';
+  document.descriptor.parameters = document.descriptor.parameters.filter((parameter) => parameter.id !== id);
+  document.descriptor.parameters.push({
+    ...declarationFromCatalogField('project', field, operator.id),
+    default: 'spin-wander',
+    domain: { values: ['identity', 'spin-wander'] },
+  });
+  if (!document.descriptor.serialization.fields.includes(id)) document.descriptor.serialization.fields.push(id);
+  for (const preset of document.preset_bank.presets) preset.values[id] = 'identity';
+  const before = structuredClone(document);
+  const result = compile(document);
+  assert.equal(result.status, 'VALID');
+  const upgraded = result.document.descriptor.parameters.find((parameter) => parameter.id === id);
+  assert.deepEqual(upgraded.domain.values, ['identity', 'spin-wander', 'spin-wander-tilted']);
+  assert.equal(upgraded.default, 'spin-wander');
+  assert.deepEqual(result.document.preset_bank, before.preset_bank);
+  assert.deepEqual(document, before);
+});
+
 test('sparse imports enforce the runtime parameter budget at its exact boundary', () => {
   const budget = CATALOG.budgets.max_params;
   const base = example();

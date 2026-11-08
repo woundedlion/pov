@@ -172,12 +172,11 @@ inline void test_shader_chain_atlas_full_face_edge_fade() {
   program.clear();
 }
 
-inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
-                                      const In::FrameContext &ctx) {
+inline ProjMirrorFrame project_mirror(In::ChainProgram &program) {
   ProjMirrorFrame mirror;
   const auto &state = state_as<In::Op::SpatialWalkState>(program, 1);
   mirror.conjugate = (math::make_rotation(math::Y_AXIS, state.spin_phase) *
-                      ctx.projection_base * state.wander)
+                      PB::projection_frame_base(false) * state.wander)
                          .conjugate();
   const In::OperatorDescriptor &op = *program.ops()[1].op;
   const std::string_view id{op.operator_id};
@@ -212,7 +211,6 @@ template <typename Model> inline void expect_project_frame_policy() {
   program.prepare(ctx);
   const auto &prepared = prepared_as<typename Model::Prepared>(program, 1);
   const math::Quaternion base;
-  HS_EXPECT_TRUE(ctx.projection_base == base);
   HS_EXPECT_TRUE(prepared.conjugate == base);
   for (const auto &axis : {math::X_AXIS, math::Y_AXIS, math::Z_AXIS}) {
     const auto actual = math::rotate(axis, prepared.conjugate);
@@ -255,11 +253,27 @@ template <typename Model> inline void expect_project_frame_policy() {
   program.prepare(ctx);
   const math::Quaternion expected =
       (math::make_rotation(math::Y_AXIS, state.spin_phase) *
-       ctx.projection_base * state.wander)
+       PB::projection_frame_base(false) * state.wander)
           .conjugate();
   HS_EXPECT_NE(std::memcmp(&expected, &base, sizeof(math::Quaternion)), 0);
   HS_EXPECT_EQ(
       std::memcmp(&prepared.conjugate, &expected, sizeof(math::Quaternion)), 0);
+  params.frame =
+      static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER_TILTED);
+  program.advance();
+  HS_EXPECT_EQ(state.walk_time, walk_time + 2);
+  program.prepare(ctx);
+  const math::Quaternion tilted =
+      (math::make_rotation(math::Y_AXIS, state.spin_phase) *
+       PB::projection_frame_base(true) * state.wander)
+          .conjugate();
+  HS_EXPECT_EQ(
+      std::memcmp(&prepared.conjugate, &tilted, sizeof(math::Quaternion)), 0);
+  const math::Vector pole =
+      math::rotate(math::Vector(0, 0, -1), PB::projection_frame_base(true));
+  HS_EXPECT_NEAR(pole.x, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(pole.y, -1.0f, 1e-6f);
+  HS_EXPECT_NEAR(pole.z, 0.0f, 1e-6f);
   program.clear();
 }
 
@@ -285,7 +299,7 @@ inline void expect_project_op_parity(In::ChainProgram &program,
                                      const In::FrameContext &ctx) {
   program.prepare(ctx);
   expect_op_parity<BoundStage>(
-      program, ctx, 1, project_mirror(program, ctx),
+      program, ctx, 1, project_mirror(program),
       [](const math::Vector &view) { return PB::SphereSample{view, 0.25f}; },
       plane_identical);
 }
@@ -295,7 +309,7 @@ inline void expect_project_parameter_control(In::ChainProgram &program,
                                              const In::FrameContext &ctx,
                                              const ProjMirrorFrame &changed) {
   program.prepare(ctx);
-  const ProjMirrorFrame mirror = project_mirror(program, ctx);
+  const ProjMirrorFrame mirror = project_mirror(program);
   const auto prepared = BoundStage::prepare(mirror);
   const auto changed_prepared = BoundStage::prepare(changed);
   int differences = 0;
@@ -323,7 +337,7 @@ inline void run_project_parity(const char *op_id, ValueSet set) {
     auto &params = param_as<OpParams>(program, 1);
     params = OpParams{};
     params.coordinate_scale = 0.5f;
-    auto changed = project_mirror(program, ctx);
+    auto changed = project_mirror(program);
     changed.peirce_fast.coordinate_scale = 1.0f;
     changed.airocean.coordinate_scale = 1.0f;
     changed.atlas.coordinate_scale = 1.0f;
@@ -356,13 +370,13 @@ inline void run_peirce_variant(ValueSet set) {
   params = {};
   params.layout = static_cast<uint8_t>(Layout);
   params.coordinate_scale = 0.5f;
-  auto changed = project_mirror(program, ctx);
+  auto changed = project_mirror(program);
   changed.peirce.coordinate_scale = 1.0f;
   expect_project_parameter_control<Bound>(program, ctx, changed);
   if constexpr (Layout == projections::PeirceLayout::HORIZONTAL ||
                 Layout == projections::PeirceLayout::VERTICAL) {
     params.layout_scroll = 0.375f;
-    changed = project_mirror(program, ctx);
+    changed = project_mirror(program);
     changed.peirce.layout_scroll = 0.0f;
     expect_project_parameter_control<Bound>(program, ctx, changed);
   }
@@ -475,7 +489,7 @@ inline void run_bonne_variant(In::ChainProgram &program,
   params = {};
   params.hemisphere = North ? 0 : 1;
   params.coordinate_scale = 0.5f;
-  auto changed = project_mirror(program, ctx);
+  auto changed = project_mirror(program);
   changed.bonne.coordinate_scale = 1.0f;
   expect_project_parameter_control<Bound>(program, ctx, changed);
 }

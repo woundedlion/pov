@@ -115,8 +115,6 @@ using Pullback::instance_hash;
  * draw_frame() that built the context.
  */
 struct FrameContext {
-  /** Base orientation composed under the projection spin/wander frame. */
-  math::Quaternion projection_base;
   /** Generated palette bakes, indexed by the colorize palette-mode value. */
   std::array<const BakedPalette *, 3> palettes{};
   const Pixel *hue_rotation_lut = nullptr; ///< Hue-rotation lookup table.

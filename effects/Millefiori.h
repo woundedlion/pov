@@ -21,6 +21,7 @@
 struct MillefioriSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr bool TILTED_PROJECTION_FRAME = true;
   static constexpr bool TEMPORAL_SAMPLING = true; ///< Sample column endpoints.
   static constexpr bool RIPPLE_RADIAL_TABLE = true; ///< Cache radial transfers.
   /** @brief Authored ripple, kaleidoscope and lattice stage chain.
@@ -85,9 +86,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "d27cfcbab21d7f5bbf265de65c7daba139c7ed02cbeb9b901ce40b0cb1e9d9ee";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "d7367ed321589438106b662f3b861b94dfe6bebad1e64d3bc7983edc37e0351b";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "35001c3569e0a3d1197febf007c98652028fe60ca1d0e72c8d247519dfb67331";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "4a857e3ed4725666c542dd95f0df64a6e56b5a7b6ac199133e90d51f8b92ed18";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "millefiori"

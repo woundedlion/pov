@@ -253,10 +253,8 @@ template <> struct ProjectionWalkState<true> {
   math::Quaternion projection_walk_previous;
   /** Accumulated walk deltas, each scaled by the wander parameter. */
   math::Quaternion projection_wander;
-  /** Inverse of spin * `base_orientation` * `projection_wander`. */
+  /** Inverse of spin * frame base * `projection_wander`. */
   math::Quaternion projection_conjugate;
-  /** Fixed orientation the spin and wander compose onto. */
-  math::Quaternion base_orientation = Pullback::projection_base_orientation();
   float projection_spin = 0.0f; ///< Spin about Y, radians, |value| < 2 pi.
 
   /** @brief Inverse projection frame rotation.
@@ -332,7 +330,7 @@ struct AtlasProjectionParams : ProjectionParams {
   float area_correction = 0.0f; ///< Polyhedral atlas blend toward equal area.
   uint8_t layout = 1;           ///< Peirce or Airocean layout.
   uint8_t hemisphere = 0;       ///< Gnomonic or Bonne hemisphere.
-  uint8_t frame = 1;            ///< Identity or animated projection frame.
+  uint8_t frame = 1; ///< Identity, spin-wander or tilted spin-wander frame.
   /// Projection fields and atlas-specific controls.
   static constexpr auto FIELDS = concat_fields<AtlasProjectionParams>(
       ProjectionParams::FIELDS,
@@ -354,7 +352,8 @@ struct AtlasProjectionParams : ProjectionParams {
               "Area Correction", 0.0f, 1.0f, FieldCurve::LERP,
               FieldGate::AREA_CORRECTION}});
   /// Catalog ids of the camera frame modes.
-  static constexpr const char *FRAME_IDS[] = {"identity", "spin-wander"};
+  static constexpr const char *FRAME_IDS[] = {"identity", "spin-wander",
+                                              "spin-wander-tilted"};
   /// Catalog ids of the atlas layouts.
   static constexpr const char *LAYOUT_IDS[] = {"diamond", "square",
                                                "horizontal", "vertical"};

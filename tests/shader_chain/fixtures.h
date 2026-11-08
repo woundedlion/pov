@@ -104,7 +104,6 @@ struct ColorResources {
 
   In::FrameContext context() const {
     In::FrameContext ctx;
-    ctx.projection_base = Pullback::projection_base_orientation();
     ctx.palettes = {&palettes[0].view(), &palettes[1].view(),
                     &palettes[2].view()};
     ctx.hue_rotation_lut = hue_rotation.data();

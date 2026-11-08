@@ -432,7 +432,8 @@
         "domain": {
           "values": [
             "identity",
-            "spin-wander"
+            "spin-wander",
+            "spin-wander-tilted"
           ]
         },
         "id": "project.frame",

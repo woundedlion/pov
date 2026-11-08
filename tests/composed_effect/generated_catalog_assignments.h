@@ -299,6 +299,7 @@ inline void catalog_assignments_project_stereographic_v2() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 
@@ -310,6 +311,7 @@ inline void catalog_assignments_project_folded_sinusoidal_v2() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 
@@ -322,6 +324,7 @@ inline void catalog_assignments_project_equirectangular_v2() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 
@@ -334,6 +337,7 @@ inline void catalog_assignments_project_gnomonic_v2() {
   params.hemisphere = 0;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   params.hemisphere = 0;
   params.hemisphere = 1;
   params.hemisphere = 2;
@@ -352,6 +356,7 @@ inline void catalog_assignments_project_peirce_v3() {
   params.layout = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   params.layout = 0;
   params.layout = 1;
   params.layout = 2;
@@ -368,6 +373,7 @@ inline void catalog_assignments_project_peirce_square_fast_v3() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 
@@ -382,6 +388,7 @@ inline void catalog_assignments_project_bonne_v3() {
   params.hemisphere = 0;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   params.hemisphere = 0;
   params.hemisphere = 1;
   (void)params;
@@ -397,6 +404,7 @@ inline void catalog_assignments_project_airocean_v3() {
   params.layout = 0;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   params.layout = 0;
   params.layout = 1;
   (void)params;
@@ -412,6 +420,7 @@ inline void catalog_assignments_project_tetrahedral_v1() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 
@@ -425,6 +434,7 @@ inline void catalog_assignments_project_cubic_v1() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 
@@ -438,6 +448,7 @@ inline void catalog_assignments_project_octahedral_v1() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 
@@ -451,6 +462,7 @@ inline void catalog_assignments_project_dodecahedral_v1() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 
@@ -464,6 +476,7 @@ inline void catalog_assignments_project_icosahedral_v1() {
   params.frame = 1;
   params.frame = 0;
   params.frame = 1;
+  params.frame = 2;
   (void)params;
 }
 

@@ -494,6 +494,23 @@
       },
       {
         "classification": "preset",
+        "default": "spin-wander-tilted",
+        "domain": {
+          "values": [
+            "identity",
+            "spin-wander",
+            "spin-wander-tilted"
+          ]
+        },
+        "id": "project.frame",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
         "default": 0,
         "domain": {
           "maximum": 0.05000000074505806,
@@ -749,6 +766,7 @@
         "modulation.pattern-scale",
         "modulation.pattern-speed",
         "project.central-meridian",
+        "project.frame",
         "project.projection-spin-speed",
         "project.projection-wander",
         "project.singularity-fade",
@@ -852,6 +870,7 @@
           "modulation.pattern-scale": 1.472156286239624,
           "modulation.pattern-speed": 0,
           "project.central-meridian": 0,
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 0.16500000655651093,
           "project.singularity-fade": 2.140000104904175,
@@ -903,6 +922,7 @@
           "modulation.pattern-scale": 1.472156286239624,
           "modulation.pattern-speed": 0,
           "project.central-meridian": 0,
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 0.16500000655651093,
           "project.singularity-fade": 2.140000104904175,
@@ -954,6 +974,7 @@
           "modulation.pattern-scale": 1.472156286239624,
           "modulation.pattern-speed": 0,
           "project.central-meridian": 0,
+          "project.frame": "spin-wander-tilted",
           "project.projection-spin-speed": 0,
           "project.projection-wander": 0.16500000655651093,
           "project.singularity-fade": 2.140000104904175,
