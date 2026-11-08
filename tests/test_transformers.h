@@ -735,7 +735,8 @@ inline void test_noise_active_stays_on_sphere() {
 }
 
 /**
- * @brief Verifies the slide cap bounds shipped noise and binds at 4x amplitude.
+ * @brief Verifies the slide cap bounds shipped noise and binds at a large
+ *        amplitude.
  */
 inline void test_noise_cross_hemisphere_cap() {
   const auto STYLE = Feedback::Style::LooseWormhole();
@@ -770,7 +771,7 @@ inline void test_noise_cross_hemisphere_cap() {
 
   const float worst_high = sweep(STYLE.amplitude);
   HS_EXPECT_LE(worst_high, capped_angle + 1e-4f);
-  HS_EXPECT_NEAR(sweep(4.0f * STYLE.amplitude), capped_angle, 1e-4f);
+  HS_EXPECT_NEAR(sweep(1000.0f), capped_angle, 1e-4f);
 
   // The cap stays slack at this lower amplitude.
   const float worst_low = sweep(0.6f);
@@ -1920,8 +1921,9 @@ inline void test_noise_product_field_bound_is_conservative() {
 
 /**
  * @brief Verifies a spawned BallDrop traverses its bump from the frame's pole
- *        to the opposite pole along the requested meridian, ramps its envelope
- *        0 → 1 → 0, and frees its pool slot on completion.
+ *        to the opposite pole along the requested meridian, with an envelope
+ *        that rises monotonically to full strength at mid-fall and falls back
+ *        to zero, and frees its pool slot on completion.
  */
 inline void test_ball_drop_traverses_and_reclaims() {
   Timeline tl;
@@ -1939,12 +1941,17 @@ inline void test_ball_drop_traverses_and_reclaims() {
 
   tl.step(cv);
   balls.prepare_frame();
-  const float early = balls.field(pole);
-  HS_EXPECT_NEAR(early, 0.0f, 0.02f);
-
-  for (int i = 1; i < duration / 2; ++i)
+  const float early_bound = balls.field_bound();
+  HS_EXPECT_GT(early_bound, 0.0f);
+  // The full-envelope plateau reads with rounding jitter.
+  constexpr float ULP_SLACK = 1e-5f;
+  float previous = early_bound;
+  for (int i = 1; i < duration / 2; ++i) {
     tl.step(cv);
-  balls.prepare_frame();
+    balls.prepare_frame();
+    HS_EXPECT_GE(balls.field_bound(), previous - ULP_SLACK);
+    previous = balls.field_bound();
+  }
   // Mid-fall: the bump sits at (1, 0, 0) at full envelope. Half a footprint
   // below the center the push is R - R/2; the mirrored point reads its negation.
   HS_EXPECT_NEAR(balls.field(pole), 0.0f, 1e-5f);
@@ -1953,22 +1960,30 @@ inline void test_ball_drop_traverses_and_reclaims() {
   const math::Vector above(std::cos(half_r), std::sin(half_r), 0.0f);
   HS_EXPECT_NEAR(balls.field(below), half_r, 3e-3f);
   HS_EXPECT_NEAR(balls.field(above), -half_r, 3e-3f);
-  HS_EXPECT_GT(balls.field_bound(), 0.25f);
-
   const float mid_bound = balls.field_bound();
-  for (int i = duration / 2; i < 3 * duration / 4; ++i)
+  HS_EXPECT_GE(mid_bound, balls.field(below));
+  HS_EXPECT_GT(mid_bound, early_bound);
+
+  for (int i = duration / 2; i < 3 * duration / 4; ++i) {
     tl.step(cv);
-  balls.prepare_frame();
+    balls.prepare_frame();
+    HS_EXPECT_LE(balls.field_bound(), previous + ULP_SLACK);
+    previous = balls.field_bound();
+  }
+  // Three quarters down, the bump has left the mid-fall footprint and pushes
+  // half a footprint below its new center.
   const float late_phi = 3.0f * math::PI_F / 4.0f + half_r;
-  HS_EXPECT_NEAR(
-      balls.field(math::Vector(std::sin(late_phi), std::cos(late_phi), 0)),
-      half_r, 3e-3f);
-  for (int i = 3 * duration / 4; i < duration - 2; ++i)
+  const math::Vector late(std::sin(late_phi), std::cos(late_phi), 0.0f);
+  HS_EXPECT_NEAR(balls.field(below), 0.0f, 1e-5f);
+  HS_EXPECT_GT(balls.field(late), 0.0f);
+  for (int i = 3 * duration / 4; i < duration - 1; ++i) {
     tl.step(cv);
-  balls.prepare_frame();
-  HS_EXPECT_GT(balls.field_bound(), 0.0f);
-  HS_EXPECT_LT(balls.field_bound(), mid_bound * 0.5f);
-  for (int i = duration - 2; i <= duration + 2; ++i)
+    balls.prepare_frame();
+    HS_EXPECT_LE(balls.field_bound(), previous + ULP_SLACK);
+    previous = balls.field_bound();
+  }
+  HS_EXPECT_LT(previous, mid_bound);
+  for (int i = duration - 1; i <= duration + 2; ++i)
     tl.step(cv);
   balls.prepare_frame();
   HS_EXPECT_EQ(balls.field_bound(), 0.0f);

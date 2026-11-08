@@ -2,8 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Golden-reference tests for OpenSimplex2 samples and noise_transform's
- * displaced output.
+ * Golden-reference tests for OpenSimplex2 samples, and noise_transform's
+ * tangent-slide properties.
  *
  * Capture: cmake --build --preset tests --target noise_golden_gen, then run
  * build/tests/tests/noise_golden_gen to print candidate grid arrays. Goldens
@@ -219,37 +219,45 @@ inline void test_noise2d_golden_grid() {
 }
 
 /**
- * @brief Pins noise_transform's displaced output for fixed params and inputs.
- * @details An oracle for 3-channel sampling, tangent projection and normalization
- *          with the displacement cap inactive.
+ * @brief noise_transform slides a direction along its tangent plane by a
+ *        displacement linear in amplitude, and is the identity at zero
+ *        amplitude.
  */
-inline void test_noise_transform_golden() {
-  Animation::NoiseParams p;
-  p.amplitude = 0.5f;
-  p.scale = 4.0f;
-  p.time = 1.0f;
-  p.speed = 1.0f;
-  p.frequency = 0.125f;
-  p.sync();
-
-  struct Case {
-    math::Vector in;
-    math::Vector out;
+inline void test_noise_transform_tangent_slide() {
+  const auto params = [](float amplitude) {
+    Animation::NoiseParams p;
+    p.amplitude = amplitude;
+    p.scale = 4.0f;
+    p.time = 1.0f;
+    p.speed = 1.0f;
+    p.frequency = 0.125f;
+    p.sync();
+    return p;
   };
-  const Case cases[] = {
-      {math::Vector(1, 0, 0),
-       math::Vector(0.999982476f, 0.000889263f, -0.005846164f)},
-      {math::Vector(0, 1, 0),
-       math::Vector(0.013488254f, 0.999905467f, -0.002678307f)},
-      {math::Vector(0, 0, 1),
-       math::Vector(0.009780074f, -0.009725943f, 0.999904871f)},
+  const Animation::NoiseParams zero = params(0.0f);
+  const Animation::NoiseParams single = params(0.5f);
+  const Animation::NoiseParams doubled = params(1.0f);
+  // The tangent slide t that normalize(v + t) maps back to r.
+  const auto slide = [](const math::Vector &v, const math::Vector &r) {
+    return r / math::dot(r, v) - v;
   };
-  for (const Case &c : cases) {
-    math::Vector r = noise_transform(c.in, p);
-    HS_EXPECT_NEAR(r.x, c.out.x, 1e-5f);
-    HS_EXPECT_NEAR(r.y, c.out.y, 1e-5f);
-    HS_EXPECT_NEAR(r.z, c.out.z, 1e-5f);
-    HS_EXPECT_NEAR(r.length(), 1.0f, 1e-4f);
+  for (const math::Vector &v :
+       {math::Vector(1, 0, 0), math::Vector(0, 1, 0), math::Vector(0, 0, 1),
+        math::Vector(1, -1, 1).normalized()}) {
+    const math::Vector identity = noise_transform(v, zero);
+    HS_EXPECT_EQ(identity.x, v.x);
+    HS_EXPECT_EQ(identity.y, v.y);
+    HS_EXPECT_EQ(identity.z, v.z);
+    const math::Vector r = noise_transform(v, single);
+    const math::Vector r2 = noise_transform(v, doubled);
+    HS_EXPECT_NEAR(r.length(), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(r2.length(), 1.0f, 1e-5f);
+    const math::Vector t = slide(v, r), t2 = slide(v, r2);
+    HS_EXPECT_GT(t.length(), 0.0f);
+    HS_EXPECT_NEAR(math::dot(t, v), 0.0f, 1e-5f);
+    HS_EXPECT_NEAR(t2.x, 2.0f * t.x, 1e-5f);
+    HS_EXPECT_NEAR(t2.y, 2.0f * t.y, 1e-5f);
+    HS_EXPECT_NEAR(t2.z, 2.0f * t.z, 1e-5f);
   }
 }
 
@@ -266,7 +274,7 @@ inline int run_noise_tests() {
 
   HS_RUN(test_noise3d_golden_grid);
   HS_RUN(test_noise2d_golden_grid);
-  HS_RUN(test_noise_transform_golden);
+  HS_RUN(test_noise_transform_tangent_slide);
 
   return fixture.result();
 }

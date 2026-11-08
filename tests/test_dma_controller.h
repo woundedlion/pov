@@ -350,9 +350,16 @@ inline void test_apply_default_calibration() {
   DMALEDController<N, MockStrip>::apply_default_calibration();
   uint32_t r = 65535, g = 65535, b = 65535;
   ctl.back_frame().correct(r, g, b);
-  HS_EXPECT_EQ(r, 65535u);
-  HS_EXPECT_EQ(g, 26195u);
-  HS_EXPECT_EQ(b, 10121u);
+  // An 8-bit factor f scales by (f + 1) / 256; 255 is unity.
+  const auto calibrated = [](uint8_t strip, uint8_t warm) {
+    return ((65535u * (strip + 1u) >> 8) * (warm + 1u)) >> 8;
+  };
+  HS_EXPECT_EQ(
+      r, calibrated(hd107s::LINEAR_STRIP_GAIN.r, hd107s::LINEAR_WARM_GAIN.r));
+  HS_EXPECT_EQ(
+      g, calibrated(hd107s::LINEAR_STRIP_GAIN.g, hd107s::LINEAR_WARM_GAIN.g));
+  HS_EXPECT_EQ(
+      b, calibrated(hd107s::LINEAR_STRIP_GAIN.b, hd107s::LINEAR_WARM_GAIN.b));
   reset_correction<N>();
 }
 

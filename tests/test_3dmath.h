@@ -1824,7 +1824,8 @@ inline void test_value_noise() {
  * selected warp.
  */
 inline void test_twist_lens() {
-  for (const float distribution : {0.0f, 1e-7f, 1e-4f, 0.25f, 0.85f, 1.0f}) {
+  for (const float distribution :
+       {0.0f, 1e-7f, 1e-4f, 0.25f, lenses::TWIST_DISTRIBUTION, 1.0f}) {
     for (const float total_angle :
          {-96.0f, -math::TWO_PI_F, 0.0f, math::TWO_PI_F, 96.0f}) {
       const auto profile =
@@ -1832,7 +1833,7 @@ inline void test_twist_lens() {
       for (const float height :
            {-1.0f, -0.99999f, -0.5f, 0.0f, 0.5f, 0.99999f, 1.0f}) {
         const double h = height;
-        const double a = distribution * 0.999;
+        const double a = distribution * lenses::TWIST_PROFILE_MAX;
         const double angle =
             0.5 * total_angle * (a == 0.0 ? h : atanh(a * h) / atanh(a));
         HS_EXPECT_NEAR(lenses::twist_angle(height, profile), angle, 6e-4);
@@ -1860,8 +1861,10 @@ inline void test_twist_lens() {
   }
   const math::Vector input(0.6f, 0.5f, 0.6244998f);
   const auto output = lenses::twist_lens(input);
-  const double A = 0.85 * 0.999;
-  const double angle = 0.5 * math::TWO_PI_F * atanh(A * input.y) / atanh(A);
+  const double A = static_cast<double>(lenses::TWIST_DISTRIBUTION) *
+                   lenses::TWIST_PROFILE_MAX;
+  const double angle =
+      0.5 * lenses::TWIST_ANGLE * atanh(A * input.y) / atanh(A);
   HS_EXPECT_NEAR(output.x, input.x * cos(angle) - input.z * sin(angle), 2e-3);
   HS_EXPECT_NEAR(output.z, input.x * sin(angle) + input.z * cos(angle), 2e-3);
   const auto linear = lenses::prepare_twist_profile(math::TWO_PI_F, 0.0f);
@@ -1871,7 +1874,7 @@ inline void test_twist_lens() {
   HS_EXPECT_LT(lenses::twist_angle(0.5f, distributed),
                0.5f * lenses::twist_angle(0.5f, linear));
   HS_EXPECT_NEAR(lenses::twist_angle(1.0f, lenses::prepare_twist_profile()),
-                 math::PI_F, 1e-6);
+                 0.5f * lenses::TWIST_ANGLE, 1e-6);
 }
 
 /** @brief Lookup twist angles preserve winding while redistributing interior spacing. */
@@ -1890,7 +1893,7 @@ inline void test_twist_lens_lookup_error() {
     float previous = 0.0f;
     for (int height_step = 0; height_step <= 4096; ++height_step) {
       const float height = height_step / 4096.0f;
-      const double a = distribution * 0.999;
+      const double a = distribution * lenses::TWIST_PROFILE_MAX;
       const double h = height;
       const double expected = 48.0 * (a == 0.0 ? h : atanh(a * h) / atanh(a));
       const float actual = lenses::twist_angle(height, profile);
@@ -1912,7 +1915,7 @@ inline void test_twist_lens_lookup_error() {
                       : static_cast<float>((power - 1.0) / (power + 1.0));
     for (const float offset : {-1e-6f, 0.0f, 1e-6f}) {
       const float x = boundary + offset;
-      if (x > 0.999f)
+      if (x > lenses::TWIST_PROFILE_MAX)
         continue;
       HS_EXPECT_NEAR(lenses::twist_atanh(x), atanh(static_cast<double>(x)),
                      5e-6);

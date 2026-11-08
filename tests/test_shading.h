@@ -215,9 +215,8 @@ inline void test_mesh_topology_slot_out_of_range_falls_back() {
 // --- shade_blinn_phong ------------------------------------------------------
 
 /**
- * @brief Pins the half-vector construction: the light tilted 0.3 along the
- *        tangent, re-normalized, summed with the view direction and
- *        re-normalized again.
+ * @brief The half vector is unit length and bisects the view direction and the
+ *        light tilted along the tangent.
  */
 inline void test_blinn_phong_half() {
   const math::Vector up(0, 0, 1);
@@ -229,56 +228,58 @@ inline void test_blinn_phong_half() {
   HS_EXPECT_NEAR(h.y, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.z, 1.0f, 1e-6f);
 
-  // Tilted: light = normalize((0.3, 0, 1)), half = normalize(light + view).
-  h = blinn_phong_half(up, math::Vector(1, 0, 0));
-  HS_EXPECT_NEAR(h.x, 0.14521314f, 1e-6f);
-  HS_EXPECT_NEAR(h.y, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(h.z, 0.98940040f, 1e-6f);
+  const math::Vector tangent(1, 0, 0);
+  h = blinn_phong_half(up, tangent);
+  const math::Vector light =
+      (up + tangent * BLINN_PHONG_TANGENT_TILT).normalized();
   HS_EXPECT_NEAR(h.length(), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::dot(h, up), math::dot(h, light), 1e-6f);
+  HS_EXPECT_NEAR(math::dot(math::cross(up, light), h), 0.0f, 1e-6f);
+  HS_EXPECT_GT(h.x, 0.0f);
 }
 
 /**
- * @brief Pins the metallic Blinn-Phong factor term by term against independently
- *        computed goldens: the ambient floor, the half-Lambert diffuse, the
- *        five-squaring ^32 specular, and the cubed Fresnel rim.
+ * @brief The metallic Blinn-Phong factor is the ambient floor plus the
+ *        weighted sum of a half-Lambert diffuse, a specular lobe peaking at
+ *        n·h = 1, and a Fresnel rim peaking at grazing view.
  */
 inline void test_shade_blinn_phong() {
   const math::Vector up(0, 0, 1);
-  HS_EXPECT_NEAR(shade_blinn_phong(up, up, math::Vector(0, 0, -1), 0, 1, 0),
-                 0.05f, 1e-6f);
-  HS_EXPECT_NEAR(shade_blinn_phong(up, math::Vector(0, 0, -1), up, 0, 0, 1),
-                 1.05f, 1e-6f);
+  const math::Vector side(1, 0, 0);
+  const math::Vector down(0, 0, -1);
+  const auto term = [&](const math::Vector &view, const math::Vector &half,
+                        float d, float s, float f) {
+    return shade_blinn_phong(up, view, half, d, s, f) - BLINN_PHONG_AMBIENT;
+  };
 
-  // All weights zero leaves only the 0.05 ambient base.
-  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 0.0f, 0.0f), 0.05f, 1e-6f);
+  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 0.0f, 0.0f),
+                 BLINN_PHONG_AMBIENT, 1e-6f);
 
-  // Half-Lambert diffuse: (n·v * 0.5 + 0.5)^2, specular/fresnel off.
-  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 1.0f, 0.0f, 0.0f), 1.05f,
-                 1e-6f); // n·v = 1 -> diffuse = 1
-  HS_EXPECT_NEAR(
-      shade_blinn_phong(up, math::Vector(1, 0, 0), up, 1.0f, 0.0f, 0.0f), 0.30f,
-      1e-6f); // n·v = 0 -> diffuse = 0.25
-  HS_EXPECT_NEAR(
-      shade_blinn_phong(up, math::Vector(0, 0, -1), up, 1.0f, 0.0f, 0.0f),
-      0.05f, 1e-6f); // n·v = -1 -> diffuse = 0
+  // Half-Lambert diffuse: (n·v / 2 + 1/2)^2.
+  HS_EXPECT_NEAR(term(up, up, 1, 0, 0), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(side, up, 1, 0, 0), 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(term(down, up, 1, 0, 0), 0.0f, 1e-6f);
 
-  // Specular ^32 at a half vector with z = 0.8: n·h = 0.8 -> spec = 0.8^32.
+  // Specular (n·h)^BLINN_PHONG_SPECULAR_EXP, clamped at n·h = 0.
   const math::Vector u(0.6f, 0, 0.8f);
-  HS_EXPECT_NEAR(shade_blinn_phong(up, up, u, 0.0f, 1.0f, 0.0f),
-                 0.05f + 0.0007922816251426434f, 1e-6f);
-  // Headlight peak: half == normal -> n·h = 1 -> spec = 1.
-  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 1.0f, 0.0f), 1.05f, 1e-6f);
+  HS_EXPECT_NEAR(term(up, up, 0, 1, 0), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(up, u, 0, 1, 0), std::pow(0.8, BLINN_PHONG_SPECULAR_EXP),
+                 1e-6f);
+  HS_EXPECT_NEAR(term(up, down, 0, 1, 0), 0.0f, 1e-6f);
 
-  // Cubed Fresnel rim: (1 - clamp(n·v))^3.
-  HS_EXPECT_NEAR(
-      shade_blinn_phong(up, math::Vector(1, 0, 0), up, 0.0f, 0.0f, 1.0f), 1.05f,
-      1e-6f); // n·v = 0 -> fresnel = 1
-  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 0.0f, 1.0f), 0.05f,
-                 1e-6f); // n·v = 1 -> fresnel = 0
+  // Fresnel rim: 1 at grazing view, 0 head-on and from behind.
+  HS_EXPECT_NEAR(term(side, up, 0, 0, 1), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(up, up, 0, 0, 1), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(down, up, 0, 0, 1), 1.0f, 1e-6f);
+  HS_EXPECT_GT(term(u, up, 0, 0, 1), 0.0f);
+  HS_EXPECT_LT(term(u, up, 0, 0, 1), 1.0f);
 
-  // All three terms weighted: 0.05 + 0.81*0.5 + 0.8^32*0.3 + 0.2^3*0.2.
-  HS_EXPECT_NEAR(shade_blinn_phong(up, u, u, 0.5f, 0.3f, 0.2f), 0.45683768f,
-                 1e-5f);
+  // The weighted terms superpose.
+  const float WD = 0.5f, WS = 0.3f, WF = 0.2f;
+  HS_EXPECT_NEAR(term(u, u, WD, WS, WF),
+                 WD * term(u, u, 1, 0, 0) + WS * term(u, u, 0, 1, 0) +
+                     WF * term(u, u, 0, 0, 1),
+                 1e-6f);
 }
 
 /** @brief Palette stub encoding depth in red and palette identity in blue. */

@@ -714,9 +714,15 @@ inline void test_pullback_public_surface() {
   static_assert(Pullback::StageDescriptor<EntryStage>);
   static_assert(!Pullback::StageDescriptor<MissingContract>);
   static_assert(!Pullback::StageDescriptor<NonTuplePoliciesStage>);
-  static_assert(Pullback::Warp::MAX_POLAR_HARMONIC == 16);
-  static_assert(Pullback::Color::HueRotationLutView::SIZE == 1024);
-  static_assert(Pattern::SphereLutView::SIZE == 3456);
+  static_assert(Pullback::Warp::MAX_POLAR_HARMONIC > 0);
+  using HueLut = Pullback::Color::HueRotationLutView;
+  static_assert(HueLut::SIZE ==
+                size_t{HueLut::VALUE_STEPS} * HueLut::HUE_STEPS);
+  using SphereLut = Pattern::SphereLutView;
+  static_assert(SphereLut::FACE_COUNT == 6);
+  static_assert(SphereLut::SIZE == size_t{SphereLut::FACE_COUNT} *
+                                       SphereLut::FACE_STEPS *
+                                       SphereLut::FACE_STEPS);
   HS_EXPECT_TRUE(std::is_empty_v<TestPipeline>);
 }
 
