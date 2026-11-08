@@ -3,7 +3,8 @@
 # job calls the same commands as its .github/workflows/ci.yml job; a local-only
 # job has no ci.yml job, so this run is its only gate.
 #
-# usage: local_ci.sh                  every local job in this clean checkout
+# usage: local_ci.sh                  every local job but the manual ones, in
+#                                     this clean checkout
 #        local_ci.sh <job>...         the named jobs in this clean checkout
 #        local_ci.sh --commit <sha>...  every local job on each commit, in the
 #                                     dedicated local-CI worktree (pre-push)
@@ -43,7 +44,12 @@ render-hash-report|skip: report only; render_diff.sh --report compares a commit 
 '
 
 # Table jobs with no ci.yml job.
-LOCAL_ONLY='windows-tests'
+LOCAL_ONLY=(windows-tests)
+
+# Jobs a default run skips; name them to run them. Their failures are rare and
+# almost always shared with a job the default run keeps (warnings are errors in
+# every build), and ci.yml runs them on every push.
+MANUAL=(optimized-tests wasm teensy-warnings)
 
 job_lint() { just lint; }
 job_clang_format() { clang-format --version && bash tools/clang_format_gate.sh; }
@@ -89,7 +95,17 @@ job_wasm() {
 }
 job_teensy_size() { bash tools/ci/teensy_size.sh "$PWD/build/local-ci/pio"; }
 job_teensy_warnings() { bash tools/ci/teensy_warnings.sh; }
+# Mirrors ci.yml: the suite runs only when the commit changes a PCB input
+# since it left origin/master.
 job_pcb_tests() {
+  local base
+  # shellcheck source=tools/ci/common.sh
+  . tools/ci/common.sh
+  if base="$(git merge-base HEAD origin/master 2>/dev/null)" &&
+     ! git diff --name-only "$base" HEAD | grep -qE "$PCB_INPUTS"; then
+    echo "No PCB inputs changed since $base; skipping the PCB suite."
+    return 0
+  fi
   export KICAD_CONFIG_HOME="$PWD/build/local-ci/kicad-config"
   python tools/ci/kicad_config.py "$KICAD_CONFIG_HOME"
   python tools/run_python_tests.py --suite hardware/phantasm/gen/tests
@@ -119,7 +135,7 @@ check_table() {
   table | cut -d'|' -f1 | sort > "$scratch/table-jobs"
   missing="$(comm -23 "$scratch/workflow-jobs" "$scratch/table-jobs")"
   extra="$(comm -13 "$scratch/workflow-jobs" "$scratch/table-jobs" \
-    | grep -vxF -f <(printf '%s\n' $LOCAL_ONLY) || true)"
+    | grep -vxF -f <(printf '%s\n' "${LOCAL_ONLY[@]}") || true)"
   [ -z "$missing" ] || echo "local_ci: ci.yml jobs with no local runner or skip reason: $missing" >&2
   [ -z "$extra" ] || echo "local_ci: table jobs absent from ci.yml: $extra" >&2
   [ -z "$missing$extra" ]
@@ -235,6 +251,9 @@ case "${1:-}" in
   --list) table ;;
   --check) check_table ;;
   --commit) shift; run_commits "$@" ;;
-  '') mapfile -t all < <(table | cut -d'|' -f1); run_jobs "${all[@]}" ;;
+  '')
+    for job in "${MANUAL[@]}"; do echo "$job manual: run with local_ci.sh $job"; done
+    mapfile -t all < <(table | cut -d'|' -f1 | grep -vxF -f <(printf '%s\n' "${MANUAL[@]}"))
+    run_jobs "${all[@]}" ;;
   *) run_jobs "$@" ;;
 esac

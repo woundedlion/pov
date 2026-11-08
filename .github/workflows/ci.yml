@@ -752,12 +752,13 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           EVENT: ${{ github.event_name }}
         run: |
+          . tools/ci/common.sh
           run=true
           if [ "$EVENT" != workflow_dispatch ] && [ -n "$BASE" ] &&
              [ "$BASE" != 0000000000000000000000000000000000000000 ] &&
              git fetch --quiet --depth=1 origin "$BASE" &&
              ! git diff --name-only "$BASE" HEAD |
-               grep -qE '^(hardware/phantasm/|tools/ci/kicad_config\.py$|tools/run_python_tests\.py$|\.github/workflows/ci\.yml$)'; then
+               grep -qE "$PCB_INPUTS"; then
             run=false
             echo "No PCB inputs changed since $BASE; skipping the PCB suite."
           fi
