@@ -1766,7 +1766,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── commit_checks.sh        The pre-commit hook's staged-file checks, or a commit range's net change plus the whole-tree checks
 │   ├── ci/                     Per-job command scripts ci.yml and the local CI both run, so the two stay one implementation
 │   ├── local_ci.sh             Local CI: every ci.yml job this machine can run, stop-at-first-failure; the pre-push hook runs it in a clean worktree of each pushed commit
-│   ├── render_diff.sh          Compares render hashes between a base commit and the working tree; the pixel no-op proof for refactors
+│   ├── render_diff.sh          Compares render hashes between a base commit and the working tree; the pixel no-op proof for refactors and the per-effect report CI publishes
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate when a budgeted env relinks
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces

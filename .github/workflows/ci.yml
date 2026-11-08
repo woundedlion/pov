@@ -961,6 +961,57 @@ jobs:
       - name: Generate docs and enforce documentation coverage
         run: bash tools/ci/docs_doxygen.sh
 
+  render-hash-report:
+    name: Render-hash report (non-blocking)
+    # Report only: the report and cache steps continue on error, so a failed
+    # report never fails the job ci-green needs.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: *ccache_maxsize
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - *llvm_apt
+
+      - *install_clang_tools
+
+      - name: Restore ccache
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-render-hashes-${{ github.run_id }}
+          restore-keys: ccache-render-hashes-
+
+      - *install_pinned_cmake
+
+      - name: Compare render hashes with the parent
+        id: report
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: bash tools/ci/render_hash_report.sh "$BASE_SHA" -DCMAKE_CXX_COMPILER=clang++-22
+
+      - name: Note an incomplete report
+        if: steps.report.outcome != 'success'
+        run: printf '## Render-hash report\n\nThe report step did not complete.\n' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save ccache on master
+        if: github.ref == 'refs/heads/master'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-render-hashes-${{ github.run_id }}
+
   ci-green:
     name: CI green
     # Branch protection requires ci-green; always() prevents failed dependencies from skipping it.
@@ -989,6 +1040,7 @@ jobs:
       - pcb-tests
       - teensy-size
       - teensy-warnings
+      - render-hash-report
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 10

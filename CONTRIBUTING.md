@@ -180,7 +180,13 @@ protected branch's `CI green` status is the authoritative correctness gate.
   move any pixel runs `bash tools/render_diff.sh <base>`, which builds `<base>`
   in a dedicated worktree and compares its render hashes with the working
   tree's build. Nothing is committed; the filter-pipeline effects assert
-  properties instead of recorded hashes.
+  properties instead of recorded hashes. The `render_hashes` module hashes
+  every roster effect at every preset at 96×20 with the simulator's load
+  settings; `bash tools/render_diff.sh --report <base>` builds only that
+  module (`test_render_hashes`) and lists the changed renders per effect
+  (`AlienBrain p0-p3`). The non-blocking `render-hash-report` CI job runs that
+  report against the push's previous tip or the pull request's base and
+  writes it to the job summary.
 - **Approximation captures:** the fast Peirce framebuffer oracle keeps preset 4's
   restored projection, field and palette path, with hue-modulation amounts set to
   zero before preparation. Its 256-code ceiling isolates projection error; it

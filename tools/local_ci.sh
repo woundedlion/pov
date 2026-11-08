@@ -39,6 +39,7 @@ docs-doxygen|job_docs_doxygen
 sanitizers|skip: the ASan and UBSan runtimes are Linux-only here
 thread-sanitizer|skip: TSan is Linux-only here
 code-coverage|skip: the emsdk LLVM has no Windows profile runtime
+render-hash-report|skip: report only; render_diff.sh --report compares a commit with its parent
 '
 
 job_lint() { just lint; }
