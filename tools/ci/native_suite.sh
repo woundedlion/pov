@@ -9,7 +9,7 @@ set -euo pipefail
 
 exclude=()
 if [ "${1:-}" = --exclude-generated ]; then
-  exclude=(-E "$GENERATED_EXCLUDE")
+  exclude=(-E "$GENERATED_TESTS")
   shift
 fi
 

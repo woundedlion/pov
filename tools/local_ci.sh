@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run every CI job this machine can run, stopping at the first failure. Each
-# job calls the same commands as its .github/workflows/ci.yml job.
+# job calls the same commands as its .github/workflows/ci.yml job; a local-only
+# job has no ci.yml job, so this run is its only gate.
 #
 # usage: local_ci.sh                  every local job in this clean checkout
 #        local_ci.sh <job>...         the named jobs in this clean checkout
@@ -28,7 +29,6 @@ screenshot-gallery|job_screenshot_gallery
 python-tests|job_python_tests
 scripts-unit-tests|job_scripts_unit_tests
 windows-tests|job_windows_tests
-tests|job_tests
 srgb-decode-provenance|job_srgb_decode_provenance
 optimized-tests|job_optimized_tests
 wasm|job_wasm
@@ -37,10 +37,13 @@ teensy-warnings|job_teensy_warnings
 pcb-tests|job_pcb_tests
 docs-doxygen|job_docs_doxygen
 sanitizers|skip: the ASan and UBSan runtimes are Linux-only here
-thread-sanitizer|skip: TSan is Linux-only here
+thread-sanitizer|job_thread_sanitizer
 code-coverage|skip: the emsdk LLVM has no Windows profile runtime
 render-hash-report|skip: report only; render_diff.sh --report compares a commit with its parent
 '
+
+# Table jobs with no ci.yml job.
+LOCAL_ONLY='windows-tests'
 
 job_lint() { just lint; }
 job_clang_format() { clang-format --version && bash tools/clang_format_gate.sh; }
@@ -66,8 +69,9 @@ job_screenshot_gallery() { bash tools/ci/screenshot_gallery.sh; }
 job_python_tests() { bash tools/ci/python_tests.sh; }
 job_scripts_unit_tests() { bash tools/ci/scripts_tests.sh; }
 job_windows_tests() { bash tools/ci/native_suite.sh --exclude-generated; }
-# The Linux job's suite runs under windows-tests; this is its remaining step.
-job_tests() { bash tools/ci/p1_plot_scan.sh; }
+# TSan is Linux-only here; windows-tests compiles the excluded targets, so the
+# physical display plot/scan run is the job's remaining step.
+job_thread_sanitizer() { bash tools/ci/p1_plot_scan.sh; }
 job_srgb_decode_provenance() { bash tools/ci/srgb_decode_provenance.sh; }
 # fastmath stays in CI: fast-math codegen differs between this toolchain and
 # Linux clang, so its bit-exact results here do not predict CI's.
@@ -114,7 +118,8 @@ check_table() {
   [ -s "$scratch/workflow-jobs" ] || { echo "local_ci: no jobs parsed from $workflow" >&2; return 1; }
   table | cut -d'|' -f1 | sort > "$scratch/table-jobs"
   missing="$(comm -23 "$scratch/workflow-jobs" "$scratch/table-jobs")"
-  extra="$(comm -13 "$scratch/workflow-jobs" "$scratch/table-jobs")"
+  extra="$(comm -13 "$scratch/workflow-jobs" "$scratch/table-jobs" \
+    | grep -vxF -f <(printf '%s\n' $LOCAL_ONLY) || true)"
   [ -z "$missing" ] || echo "local_ci: ci.yml jobs with no local runner or skip reason: $missing" >&2
   [ -z "$extra" ] || echo "local_ci: table jobs absent from ci.yml: $extra" >&2
   [ -z "$missing$extra" ]

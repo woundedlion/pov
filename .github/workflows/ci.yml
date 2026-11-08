@@ -21,10 +21,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  tests:
-    name: Native unit tests (Clang)
+  sanitizers:
+    name: Native unit tests (Clang, ASan + UBSan)
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_MAXSIZE: &ccache_maxsize 1G
@@ -32,6 +32,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
 
       - &llvm_apt
         name: Add the apt.llvm.org repository
@@ -49,22 +53,12 @@ jobs:
         run: |
           sudo apt-get install -y clang-22 ninja-build ccache
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-
-      - name: Install numpy
-        run: pip install --require-hashes -r requirements/numpy.txt
-
-      - name: Install the LUT generator formatter
-        run: pip install --require-hashes -r requirements/clang-format.txt
-
       - name: Restore ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-tests-${{ github.run_id }}
-          restore-keys: ccache-tests-
+          key: ccache-sanitizers-${{ github.run_id }}
+          restore-keys: ccache-sanitizers-
 
       - &ccache_zero
         name: Zero ccache statistics
@@ -75,55 +69,6 @@ jobs:
         run: |
           pip install --require-hashes -r requirements/cmake.txt
           python tools/build_pins.py --check-tool cmake
-
-      - name: Configure, build and test
-        run: bash tools/ci/native_suite.sh -DCMAKE_CXX_COMPILER=clang++-22
-
-      - name: ccache stats
-        if: always()
-        continue-on-error: true
-        run: ccache -sv
-
-      - name: Test physical display plot and scan
-        run: bash tools/ci/p1_plot_scan.sh -DCMAKE_CXX_COMPILER=clang++-22
-
-      - name: Save ccache on master
-        if: github.ref == 'refs/heads/master'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ccache-tests-${{ github.run_id }}
-
-  sanitizers:
-    name: Native unit tests (Clang, ASan + UBSan)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      CCACHE_DIR: ${{ github.workspace }}/.ccache
-      CCACHE_MAXSIZE: *ccache_maxsize
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-
-      - *llvm_apt
-
-      - *install_clang_tools
-
-      - name: Restore ccache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ccache-sanitizers-${{ github.run_id }}
-          restore-keys: ccache-sanitizers-
-
-      - *ccache_zero
-
-      - *install_pinned_cmake
 
       - name: Configure
         run: >
@@ -149,7 +94,7 @@ jobs:
           HS_BUFFER_FREE_WATCHDOG_US: &deep_smoke_watchdog 30000000
         run: |
           . tools/ci/common.sh
-          ctest --preset tests --output-on-failure --no-tests=error -E "$GENERATED_EXCLUDE"
+          ctest --preset tests --output-on-failure --no-tests=error -E "$GENERATED_TESTS"
 
       - name: Test full-resolution effects under ASan and UBSan
         env:
@@ -170,12 +115,12 @@ jobs:
           key: ccache-sanitizers-${{ github.run_id }}
 
   thread-sanitizer:
-    name: Native unit tests (Clang, TSan) / concurrency modules
+    name: Native unit tests (Clang, TSan) / concurrency modules + physical display
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
-      CCACHE_MAXSIZE: 400M
+      CCACHE_MAXSIZE: *ccache_maxsize
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -222,6 +167,12 @@ jobs:
         run: |
           ctest --preset tests --output-on-failure --no-tests=error -R "^unit_canvas$"
           ctest --preset tests --output-on-failure --no-tests=error -R "^unit_pov_segmented$"
+
+      - name: Compile the EXCLUDE_FROM_ALL targets
+        run: cmake --build --preset tests --target excluded_targets
+
+      - name: Test physical display plot and scan
+        run: bash tools/ci/p1_plot_scan.sh -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Save ccache on master
         if: github.ref == 'refs/heads/master'
@@ -379,6 +330,17 @@ jobs:
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Install the generated-table pins' numpy and formatter
+        run: |
+          pip install --require-hashes -r requirements/numpy.txt
+          pip install --require-hashes -r requirements/clang-format.txt
+
+      - name: Test generated-table pins
+        shell: bash
+        run: |
+          . tools/ci/common.sh
+          ctest --preset tests --output-on-failure --no-tests=error -R "$GENERATED_TESTS"
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -397,37 +359,6 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-coverage-${{ github.run_id }}
-
-  windows-tests:
-    name: Native unit tests (Windows / Clang)
-    # Exercises Windows toolchain discovery without a VS Developer Prompt.
-    runs-on: windows-2025
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-
-      - name: Load build pins
-        id: pins
-        run: python tools/build_pins.py --github-output
-
-      # emsdk exercises the lld-link alias-copy branch.
-      - name: Set up Emscripten
-        uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
-        with:
-          version: ${{ steps.pins.outputs.emsdk }}
-          actions-cache-folder: emsdk-cache-${{ steps.pins.outputs.emsdk }}
-
-      - *install_pinned_cmake
-
-      - name: Configure, build and test
-        shell: bash
-        run: bash tools/ci/native_suite.sh --exclude-generated
 
   wasm:
     name: WASM build (Emscripten)
@@ -1032,12 +963,10 @@ jobs:
     name: CI green
     # Branch protection requires ci-green; always() prevents failed dependencies from skipping it.
     needs:
-      - tests
       - sanitizers
       - thread-sanitizer
       - optimized-tests
       - code-coverage
-      - windows-tests
       - wasm
       - lut-provenance
       - reaction-graph-provenance

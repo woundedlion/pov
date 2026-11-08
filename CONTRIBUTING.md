@@ -201,10 +201,13 @@ protected branch's `CI green` status is the authoritative correctness gate.
   its own `scripts-unit-tests` job. Set `HS_BROWSER_TESTS=1` when running
   `node --test scripts/screenshot_resolution.test.mjs scripts/png_probe.test.mjs`
   to include the Chromium capture-descent and PNG-decoder parity tests; first run `npm ci` and `npx playwright install chromium`.
-- **Native variants and coverage:** `sanitizers`, `thread-sanitizer`,
-  `optimized-tests` and `windows-tests` exercise distinct runtime and platform
-  configurations. `optimized-tests` also runs the death harness with `NDEBUG`.
-  `code-coverage` enforces aggregate and directory coverage.
+- **Native variants and coverage:** `sanitizers` runs the whole suite under
+  ASan and UBSan. `thread-sanitizer` runs the concurrency modules under TSan,
+  compiles the targets excluded from the default build and runs plot/scan at
+  the physical display profile. `optimized-tests` runs the optimized flavours,
+  including the death harness with `NDEBUG`. `code-coverage` enforces aggregate
+  and directory coverage and runs the generated-table pins. The Windows suite
+  runs only in the pre-push local CI (`tools/local_ci.sh`).
 - **Generated-source provenance:** `lut-provenance`, `reaction-graph-provenance`,
   `gamut-lut-provenance`, `srgb-decode-provenance` and `patterns-provenance`
   regenerate their artifacts and compare them with committed bytes. Change the

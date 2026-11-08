@@ -10,7 +10,7 @@ set -euo pipefail
 flavor="${1:?usage: optimized.sh <ieee|fastmath|ndebug-death> [cmake args...]}"
 shift
 include=".*"
-exclude="$GENERATED_EXCLUDE"
+exclude="$GENERATED_TESTS"
 skips_are_errors=1
 float_flags=""
 case "$flavor" in

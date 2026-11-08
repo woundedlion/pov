@@ -40,6 +40,18 @@ class JobTable(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("brand-new-job", done.stderr)
 
+    def test_only_local_only_table_jobs_may_be_absent_from_the_workflow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workflow = Path(directory) / "ci.yml"
+            workflow.write_text(
+                (REPO / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+                .replace("\n  lint:\n", "\n  renamed-lint:\n"),
+                encoding="utf-8")
+            done = self.local_ci("--check", HS_CI_WORKFLOW=str(workflow))
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("table jobs absent from ci.yml: lint", done.stderr)
+        self.assertNotIn("windows-tests", done.stderr)
+
 
 class PrePushHook(unittest.TestCase):
     def setUp(self):
