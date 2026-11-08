@@ -54,7 +54,10 @@ struct KaleidoscopeSmoothSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
+          Pullback::Stage::Lens<typename Pullback::LensPolicyFor<
+              Pullback::FixedKaleidoscopeParams<
+                  Pullback::KaleidoscopeSymmetry::DODECAHEDRAL>,
+              B>::Type>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<

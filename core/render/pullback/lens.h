@@ -354,6 +354,22 @@ struct DodecahedralTableKaleidoscope : DodecahedralKaleidoscope {
   }
 };
 
+/** @brief Tetrahedral folding of a direction already in the dodecahedral
+ * chamber: `lenses::tetrahedral_from_dodecahedral_chamber`. */
+struct TetrahedralFromDodecahedralKaleidoscope : TetrahedralKaleidoscope {
+  /**
+   * @brief Folds a dodecahedral chamber direction into the tetrahedral chamber.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction in the dodecahedral chamber.
+   * @return Direction in the tetrahedral chamber.
+   */
+  template <typename FrameState>
+  HS_HOT_INLINE static math::Vector apply(const math::Vector &input,
+                                          const FrameState &) {
+    return lenses::tetrahedral_from_dodecahedral_chamber(input);
+  }
+};
+
 /** @brief Triangular-prism chamber folding. */
 using TriangularPrismKaleidoscope =
     PolyhedralKaleidoscope<lenses::TRIANGULAR_PRISM_MIRRORS>;

@@ -26,6 +26,10 @@ concept DerivableSurface = requires {
   typename Pullback::SurfacePolicyFor<Family, ReachBinding, false>::Type;
 };
 
+template <typename Family>
+concept DerivableLens =
+    requires { typename Pullback::LensPolicyFor<Family, ReachBinding>::Type; };
+
 /** @brief The composed family an operator model's chain family extends.
  * @details The chain family adds catalog-only topology to it; the composed
  * layer fixes that topology in the derived policy.
@@ -46,15 +50,6 @@ template <> struct ComposedFamily<In::Op::DisplaceRipple> {
   using Type = Pullback::SphereAnimation::BurstRippleParams; ///< The family.
 };
 
-/** @brief Lens operators whose composed policies a Spec names directly; no
- * family-keyed selector derives them. */
-constexpr std::string_view SPEC_NAMED_LENSES[] = {
-    "sphere.lens.glitch.v2",
-    "sphere.lens.twist.v2",
-    "sphere.lens.mobius.v3",
-    "sphere.lens.kaleidoscope.v2",
-};
-
 /** @brief Whether every fixed tessellation kind and fill derives a source.
  * @tparam Kinds Kind values.
  * @return True when each kind derives under both fills. */
@@ -69,11 +64,27 @@ consteval bool tessellations_derivable(std::index_sequence<Kinds...>) {
           ...);
 }
 
+/** @brief Whether every fixed kaleidoscope symmetry and fold derives a lens.
+ * @tparam Symmetries Symmetry values.
+ * @return True when each symmetry and each specialized fold derives. */
+template <size_t... Symmetries>
+consteval bool kaleidoscopes_derivable(std::index_sequence<Symmetries...>) {
+  using Symmetry = Pullback::KaleidoscopeSymmetry;
+  using Fold = Pullback::KaleidoscopeFold;
+  return (DerivableLens<Pullback::FixedKaleidoscopeParams<static_cast<Symmetry>(
+              Symmetries)>> &&
+          ...) &&
+         DerivableLens<Pullback::FixedKaleidoscopeParams<Symmetry::DODECAHEDRAL,
+                                                         Fold::TABLE>> &&
+         DerivableLens<Pullback::FixedKaleidoscopeParams<
+             Symmetry::TETRAHEDRAL, Fold::FROM_DODECAHEDRAL_CHAMBER>>;
+}
+
 /** @brief Whether the composed layer derives a policy for an operator's
- * family: a source, warp or displacement, or a Spec-named lens.
+ * family: a source, warp, displacement or lens.
  * @tparam Model Operator model.
- * @return True when derivable, or when the operator is not a source, warp or
- *         lens. */
+ * @return True when derivable, or when the operator is not a source, warp,
+ *         displacement or lens. */
 template <typename Model> consteval bool family_derivable() {
   using Family = typename ComposedFamily<Model>::Type;
   constexpr In::CarrierId INPUT = In::carrier_id_of<typename Model::Input>();
@@ -81,6 +92,12 @@ template <typename Model> consteval bool family_derivable() {
   if constexpr (std::is_same_v<Model, In::Op::SampleTessellation>)
     return tessellations_derivable(
         std::make_index_sequence<std::size(In::Op::TESSELLATION_KIND_IDS)>{});
+  else if constexpr (std::is_same_v<Model, In::Op::LensKaleidoscope>)
+    return DerivableLens<Family> &&
+           kaleidoscopes_derivable(std::make_index_sequence<std::size(
+                                       In::Op::KALEIDOSCOPE_SYMMETRY_IDS)>{});
+  else if constexpr (std::is_same_v<Model, In::Op::LensGlitch>)
+    return DerivableLens<Family> && DerivableLens<Pullback::FixedGlitchParams>;
   else if constexpr (OUTPUT == In::CarrierId::FIELD &&
                      INPUT != In::CarrierId::FIELD)
     return DerivableSource<Family>;
@@ -90,9 +107,9 @@ template <typename Model> consteval bool family_derivable() {
   else if constexpr (INPUT == In::CarrierId::SPHERE &&
                      OUTPUT == In::CarrierId::SPHERE &&
                      !std::is_same_v<Model, In::Op::Rotate>)
-    return DerivableSurface<Family> ||
-           std::ranges::find(SPEC_NAMED_LENSES, std::string_view(Model::ID)) !=
-               std::end(SPEC_NAMED_LENSES);
+    return std::string_view(Model::ID).starts_with("sphere.lens.")
+               ? DerivableLens<Family>
+               : DerivableSurface<Family>;
   else
     return true;
 }
@@ -162,3 +179,15 @@ static_assert(
             Pullback::AuthoredSurfaceNoiseParams, ReachBinding, false>::Type,
         Pullback::Surface::ConfiguredCurl<Pullback::SurfaceProvider<
             ReachBinding, Pullback::AuthoredSurfaceNoiseParams, false>>>);
+static_assert(
+    std::is_same_v<typename Pullback::LensPolicyFor<
+                       Pullback::FixedKaleidoscopeParams<
+                           Pullback::KaleidoscopeSymmetry::DODECAHEDRAL,
+                           Pullback::KaleidoscopeFold::TABLE>,
+                       ReachBinding>::Type,
+                   Pullback::Lens::DodecahedralTableKaleidoscope>);
+static_assert(
+    std::is_same_v<typename Pullback::LensPolicyFor<
+                       Pullback::GlitchParams, ReachBinding, "lens2">::Type,
+                   Pullback::Lens::ConfiguredGlitch<Pullback::KeyedLensProvider<
+                       ReachBinding, Pullback::GlitchParams, "lens2">>>);

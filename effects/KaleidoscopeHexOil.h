@@ -37,7 +37,10 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>,
+          Pullback::Stage::Lens<typename Pullback::LensPolicyFor<
+              Pullback::FixedKaleidoscopeParams<
+                  Pullback::KaleidoscopeSymmetry::HEXAGONAL_PRISM>,
+              B>::Type>,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
               Pullback::DirectSurfaceParams, B, true>::Type>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<

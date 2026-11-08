@@ -30,9 +30,9 @@ struct GridWormsSpec : Pullback::Spec {
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
-      Pullback::Stage::Lens<
-          Pullback::Lens::AnimatedTwist<Pullback::TwistProvider<B, "lens1">>,
-          false>,
+      Pullback::Stage::Lens<typename Pullback::LensPolicyFor<
+                                Pullback::TwistLensParams, B, "lens1">::Type,
+                            false>,
       Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>,

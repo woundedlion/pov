@@ -440,6 +440,99 @@ struct SurfacePolicyFor<AuthoredDirectSurfaceParams, B, T, K> {
 };
 
 /**
+ * @brief Maps a lens parameter family to its `Pullback::Lens` policy, exposed
+ *        as `Type`.
+ * @tparam Family Lens parameter family.
+ * @tparam Binding Frame binding of the effect.
+ * @tparam Key Parameter resource key of this lens instance; fixed families
+ *         read none.
+ */
+template <typename Family, typename Binding, ResourceKey Key = "lens">
+struct LensPolicyFor;
+/**
+ * @brief Glitch lens at its default multipliers.
+ * @tparam B Frame binding.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, ResourceKey K>
+struct LensPolicyFor<FixedGlitchParams, B, K> {
+  using Type = Pullback::Lens::Glitch;
+};
+/**
+ * @brief Fixed-symmetry kaleidoscope.
+ * @tparam S Symmetry group.
+ * @tparam F Fold evaluation.
+ * @tparam B Frame binding.
+ * @tparam K Parameter resource key.
+ */
+template <KaleidoscopeSymmetry S, KaleidoscopeFold F, typename B, ResourceKey K>
+struct LensPolicyFor<FixedKaleidoscopeParams<S, F>, B, K> {
+  using Type = typename decltype([] {
+    using enum KaleidoscopeSymmetry;
+    if constexpr (F == KaleidoscopeFold::TABLE)
+      return std::type_identity<Lens::DodecahedralTableKaleidoscope>{};
+    else if constexpr (F == KaleidoscopeFold::FROM_DODECAHEDRAL_CHAMBER)
+      return std::type_identity<
+          Lens::TetrahedralFromDodecahedralKaleidoscope>{};
+    else if constexpr (S == AZIMUTHAL)
+      return std::type_identity<Lens::Kaleidoscope>{};
+    else if constexpr (S == TETRAHEDRAL)
+      return std::type_identity<Lens::TetrahedralKaleidoscope>{};
+    else if constexpr (S == OCTAHEDRAL)
+      return std::type_identity<Lens::OctahedralKaleidoscope>{};
+    else if constexpr (S == DODECAHEDRAL)
+      return std::type_identity<Lens::DodecahedralKaleidoscope>{};
+    else if constexpr (S == TRIANGULAR_PRISM)
+      return std::type_identity<Lens::TriangularPrismKaleidoscope>{};
+    else if constexpr (S == SQUARE_PRISM)
+      return std::type_identity<Lens::SquarePrismKaleidoscope>{};
+    else if constexpr (S == PENTAGONAL_PRISM)
+      return std::type_identity<Lens::PentagonalPrismKaleidoscope>{};
+    else if constexpr (S == HEXAGONAL_PRISM)
+      return std::type_identity<Lens::HexagonalPrismKaleidoscope>{};
+    else
+      return std::type_identity<Lens::OctagonalPrismKaleidoscope>{};
+  }())::type;
+};
+/**
+ * @brief Glitch lens with authored multipliers.
+ * @tparam B Frame binding.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, ResourceKey K> struct LensPolicyFor<GlitchParams, B, K> {
+  using Type =
+      Pullback::Lens::ConfiguredGlitch<KeyedLensProvider<B, GlitchParams, K>>;
+};
+/**
+ * @brief Kaleidoscope with authored symmetry.
+ * @tparam B Frame binding.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, ResourceKey K>
+struct LensPolicyFor<KaleidoscopeParams, B, K> {
+  using Type = Pullback::Lens::ConfiguredKaleidoscope<
+      KeyedLensProvider<B, KaleidoscopeParams, K>>;
+};
+/**
+ * @brief Animated axial twist.
+ * @tparam B Frame binding.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, ResourceKey K>
+struct LensPolicyFor<TwistLensParams, B, K> {
+  using Type = Pullback::Lens::AnimatedTwist<TwistProvider<B, K>>;
+};
+/**
+ * @brief Animated Mobius generator.
+ * @tparam B Frame binding.
+ * @tparam K Parameter resource key.
+ */
+template <typename B, ResourceKey K>
+struct LensPolicyFor<MobiusGeneratorParams, B, K> {
+  using Type = Pullback::Lens::MobiusGenerator<LensProvider<B, K>>;
+};
+
+/**
  * @brief Maps a `ProjectionKind` to its `Pullback::Projection` policy, exposed
  *        as `Type`.
  * @tparam ProjectionV Projection kind.

@@ -34,7 +34,8 @@ struct ChromaticLichenSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Lens<Pullback::Lens::Glitch>,
+          Pullback::Stage::Lens<typename Pullback::LensPolicyFor<
+              Pullback::FixedGlitchParams, B>::Type>,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
               Pullback::SurfaceNoiseParams, B, false>::Type>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<

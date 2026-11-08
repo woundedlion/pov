@@ -56,7 +56,11 @@ struct AshCloudSpec : Pullback::Spec {
               Pullback::SurfaceProvider<B, Pullback::SurfaceNoiseParams, true>,
               math::NoiseBasis::SIMPLEX, AshCloudInlineEuler,
               math::TangentLimit::SMOOTH>>,
-          Pullback::Stage::Lens<Pullback::Lens::DodecahedralTableKaleidoscope>,
+          Pullback::Stage::Lens<typename Pullback::LensPolicyFor<
+              Pullback::FixedKaleidoscopeParams<
+                  Pullback::KaleidoscopeSymmetry::DODECAHEDRAL,
+                  Pullback::KaleidoscopeFold::TABLE>,
+              B>::Type>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
               Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<

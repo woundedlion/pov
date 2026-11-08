@@ -7,7 +7,8 @@
 #include "core/render/pullback/lens.h"
 
 /** @file authored_lens.h
- * @brief Parameterized glitch and kaleidoscope policies. */
+ * @brief Glitch and kaleidoscope parameter families and their parameterized
+ * policies. */
 
 namespace Pullback::Lens {
 
@@ -35,6 +36,31 @@ enum class KaleidoscopeSymmetry : uint8_t {
   PENTAGONAL_PRISM = 6, ///< 5-fold prism group.
   HEXAGONAL_PRISM = 7,  ///< 6-fold prism group.
   OCTAGONAL_PRISM = 8   ///< 8-fold prism group.
+};
+
+/** @brief Evaluation of a fixed-symmetry kaleidoscope fold. */
+enum class KaleidoscopeFold : uint8_t {
+  DIRECT,                   ///< Folds any direction.
+  TABLE,                    ///< Dodecahedral, by validated matrix lookup.
+  FROM_DODECAHEDRAL_CHAMBER ///< Tetrahedral, from the dodecahedral chamber.
+};
+
+/** @brief Glitch family with the fixed default angular multipliers. */
+struct FixedGlitchParams {};
+
+/** @brief Kaleidoscope family with a compile-time symmetry and fold.
+ * @tparam Symmetry Symmetry group.
+ * @tparam Fold Fold evaluation. */
+template <KaleidoscopeSymmetry Symmetry,
+          KaleidoscopeFold Fold = KaleidoscopeFold::DIRECT>
+  requires(Fold == KaleidoscopeFold::DIRECT ||
+           (Fold == KaleidoscopeFold::TABLE &&
+            Symmetry == KaleidoscopeSymmetry::DODECAHEDRAL) ||
+           (Fold == KaleidoscopeFold::FROM_DODECAHEDRAL_CHAMBER &&
+            Symmetry == KaleidoscopeSymmetry::TETRAHEDRAL))
+struct FixedKaleidoscopeParams {
+  static constexpr KaleidoscopeSymmetry SYMMETRY = Symmetry; ///< Symmetry.
+  static constexpr KaleidoscopeFold FOLD = Fold;             ///< Fold.
 };
 
 /** @brief Authored kaleidoscope symmetry. */
