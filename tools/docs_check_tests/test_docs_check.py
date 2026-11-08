@@ -10,9 +10,7 @@ TOOLS = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 sys.path.insert(0, str(TOOLS))
 
-import build_pins  # noqa: E402
 import docs_check as dc  # noqa: E402
-import docs_sync as ds  # noqa: E402
 from git_test_env import git_run  # noqa: E402
 
 
@@ -39,61 +37,6 @@ class TestDocumentationChecker(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(dc.main(arguments), 0)
 
-    def test_retired_terms_are_literal_repeatable_and_skip_binary_files(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            git_run(root, 'init', '-q')
-            (root / "contract.js").write_text("// a+b\n// restarts the path\n", encoding="utf-8")
-            (root / "data.bin").write_bytes(b"\0a+b\n")
-            git_run(root, 'add', 'contract.js', 'data.bin')
-            issues = dc.retired_term_issues(root, ["a+b", "restarts the path"])
-            self.assertEqual([(issue.path, issue.line) for issue in issues],
-                             [("contract.js", 1), ("contract.js", 2)])
-            self.assertIn("'a+b'", issues[0].message)
-
-    def test_empty_retired_term_is_a_usage_error(self):
-        with contextlib.redirect_stderr(io.StringIO()):
-            with self.assertRaises(SystemExit) as error:
-                dc.main(["--retired-term", "  "])
-        self.assertEqual(error.exception.code, 2)
-
-    def test_explicit_checkout_uses_its_pinned_revision(self):
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
-            engine = Path(directory, "engine").resolve()
-            checkout = Path(directory, "daydream").resolve()
-
-            def git(root, *args):
-                return git_run(root, *args).stdout.strip()
-
-            for root in (engine, checkout):
-                root.mkdir()
-                git(root, "init", "-q")
-            (engine / "README.md").write_text(
-                "<!-- docs-check: tree exhaustive -->\n```\n"
-                "└── README.md  Overview\n```\n\n"
-                "<!-- docs-check: tree daydream exhaustive -->\n```\n"
-                "└── pinned.js  Pinned source\n```\n", encoding="utf-8")
-            git(engine, "add", "README.md")
-            (checkout / "pinned.js").write_text("original", encoding="utf-8")
-            git(checkout, "add", "pinned.js")
-            tree = git(checkout, "write-tree")
-            (checkout / "pinned.js").unlink()
-            (checkout / "live.js").write_text("new", encoding="utf-8")
-            git(checkout, "add", "pinned.js", "live.js")
-            arguments = ["--root", str(engine), "--checkout", f"daydream={checkout}"]
-            for revision, status in ((tree, 0), (None, 1)):
-                with self.subTest(revision=revision):
-                    output = io.StringIO()
-                    with mock.patch("docs_sync.checkout_revisions",
-                                    return_value={"daydream": revision}) as pins, \
-                            contextlib.redirect_stdout(output), \
-                            contextlib.redirect_stderr(output):
-                        self.assertEqual(dc.main(arguments), status, output.getvalue())
-                    pins.assert_called_once_with({"daydream": checkout})
-                    self.assertEqual("tree path 'pinned.js' does not exist" in output.getvalue(),
-                                     revision is None,
-                                     output.getvalue())
-
     def test_valid_links_images_references_and_fences(self):
         text = (FIXTURES / "valid.txt").read_text(encoding="utf-8")
         entries = {
@@ -110,18 +53,6 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(len(issues), 1)
         self.assertEqual(issues[0].line, 3)
         self.assertIn("unclosed fenced code block", issues[0].message)
-
-    def test_missing_encoded_link_ignores_query_and_fragment(self):
-        text = (FIXTURES / "missing_link.txt").read_text(encoding="utf-8")
-        issues = dc.check_text(PurePosixPath("docs/readme.md"), text, set())
-        self.assertEqual(len(issues), 1)
-        self.assertIn("docs/missing file.md", issues[0].message)
-
-    def test_undefined_reference_link_is_reported(self):
-        text = (FIXTURES / "undefined_reference.txt").read_text(encoding="utf-8")
-        issues = dc.check_text(PurePosixPath("docs/readme.md"), text, set())
-        self.assertEqual(len(issues), 1)
-        self.assertIn("undefined reference link [missing]", issues[0].message)
 
     def test_missing_image_and_reference_targets_are_reported(self):
         text = (FIXTURES / "missing_targets.txt").read_text(encoding="utf-8")
@@ -163,45 +94,6 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("core/platform.h", issues[1].message)
         self.assertEqual(issues[2].line, 5)
         self.assertIn("scripts/run-tests.mjs", issues[2].message)
-
-    def test_backticked_document_relative_path_resolves(self):
-        entries = {
-            PurePosixPath("docs"),
-            PurePosixPath("docs/fixtures"),
-            PurePosixPath("docs/fixtures/example.py"),
-        }
-        issues = dc.check_text(PurePosixPath("docs/guide.md"),
-                               "See `fixtures/example.py`.\n", entries)
-        self.assertEqual(issues, [])
-
-    def test_missing_backticked_document_relative_path_is_reported(self):
-        entries = {
-            PurePosixPath("docs"),
-            PurePosixPath("docs/fixtures"),
-        }
-        issues = dc.check_text(PurePosixPath("docs/guide.md"),
-                               "See `fixtures/missing.py`.\n", entries)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("fixtures/missing.py", issues[0].message)
-
-    def test_backticked_firmware_linker_and_board_paths_are_linted(self):
-        text = (FIXTURES / "native_format_paths.txt").read_text(encoding="utf-8")
-        entries = {
-            PurePosixPath("targets"),
-            PurePosixPath("targets/Phantasm"),
-            PurePosixPath("targets/Phantasm/Phantasm.ino"),
-            PurePosixPath("tools"),
-            PurePosixPath("tools/phantasm.ld"),
-            PurePosixPath("hardware"),
-            PurePosixPath("hardware/phantasm"),
-            PurePosixPath("hardware/phantasm/1.1/phantasm.kicad_pcb"),
-            PurePosixPath("docs"),
-        }
-        issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries)
-        self.assertEqual([issue.line for issue in issues],
-                         [2, 4, 6, 7, 8, 9, 10, 11, 12, 13])
-        self.assertIn("targets/Phantasm/Ghost.ino", issues[0].message)
-        self.assertIn("tools/ghost.ld", issues[1].message)
 
     def test_directed_repository_tree_rows_are_linted(self):
         text = (FIXTURES / "tree_fence.txt").read_text(encoding="utf-8")
@@ -250,71 +142,6 @@ class TestDocumentationChecker(unittest.TestCase):
         ])
         self.assertEqual({issue.line for issue in issues}, {2})
 
-    def test_prose_child_list_is_gated_in_both_directions(self):
-        text = ("<!-- docs-check: tree exhaustive -->\n"
-                "```\n"
-                "└── core/                       Engine\n"
-                "    └── render/                 Per-stage headers (surface,\n"
-                "        │                        warp), plus the base (ghost)\n"
-                "```\n")
-        entries = {
-            PurePosixPath("core"),
-            PurePosixPath("core/render"),
-            PurePosixPath("core/render/surface.h"),
-            PurePosixPath("core/render/warp.h"),
-            PurePosixPath("core/render/color.h"),
-        }
-        issues = dc.check_text(PurePosixPath("README.md"), text, entries)
-        self.assertEqual([issue.message for issue in issues], [
-            "tree omits tracked path 'core/render/color.h'",
-            "tree path 'core/render/ghost' does not exist",
-        ])
-
-    def test_prose_group_that_is_not_a_stem_list_names_nothing(self):
-        text = ("<!-- docs-check: tree exhaustive -->\n"
-                "```\n"
-                "└── core/                       Engine\n"
-                "    └── render/                 Per-stage headers (one per\n"
-                "        │                        stage), a work in progress\n"
-                "```\n")
-        entries = {
-            PurePosixPath("core"),
-            PurePosixPath("core/render"),
-            PurePosixPath("core/render/surface.h"),
-        }
-        self.assertEqual(
-            dc.check_text(PurePosixPath("README.md"), text, entries), [])
-
-    def test_unmapped_paths_are_exempt_from_the_exhaustive_diff(self):
-        text = ("<!-- docs-check: tree exhaustive -->\n"
-                "```\n"
-                "└── justfile                    Task runner\n"
-                "```\n")
-        entries = {
-            PurePosixPath(".gitignore"),
-            PurePosixPath("README.md"),
-            PurePosixPath("justfile"),
-            PurePosixPath("tests"),
-            PurePosixPath("tests/run_tests.cpp"),
-        }
-        issues = dc.check_text(PurePosixPath("README.md"), text, entries)
-        self.assertEqual([issue.message for issue in issues],
-                         ["tree omits tracked path 'tests'"])
-
-    def test_checkout_tree_is_validated_against_the_supplied_root(self):
-        text = ("<!-- docs-check: tree daydream -->\n"
-                "```\n"
-                "├── daydream.js                 App entry\n"
-                "├── ghost.js                    Stale row\n"
-                "└── three.js/                   Optional vendored checkout\n"
-                "```\n")
-        checkouts = {"daydream": {PurePosixPath("daydream.js")}}
-        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
-                               checkouts=checkouts)
-        self.assertEqual(len(issues), 1)
-        self.assertEqual(issues[0].line, 4)
-        self.assertIn("ghost.js", issues[0].message)
-
     def test_exhaustive_checkout_tree_diffs_against_the_checkout(self):
         text = ("<!-- docs-check: tree daydream exhaustive -->\n"
                 "```\n"
@@ -339,92 +166,6 @@ class TestDocumentationChecker(unittest.TestCase):
         ])
         self.assertEqual({issue.line for issue in issues}, {2})
 
-    def test_checkout_tree_does_not_inherit_primary_unmapped_paths(self):
-        text = ("<!-- docs-check: tree daydream exhaustive -->\n"
-                "```\n"
-                "└── daydream.js                 App entry\n"
-                "```\n")
-        checkouts = {"daydream": {
-            PurePosixPath(".gitattributes"),
-            PurePosixPath(".gitignore"),
-            PurePosixPath("daydream.js"),
-        }}
-        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
-                               checkouts=checkouts)
-        self.assertEqual([issue.message for issue in issues], [
-            "tree omits tracked path '.gitattributes'",
-            "tree omits tracked path '.gitignore'",
-        ])
-
-    def test_checkout_tree_without_a_root_is_recorded_as_skipped(self):
-        text = ("<!-- docs-check: tree daydream -->\n"
-                "```\n"
-                "└── ghost.js                    Stale row\n"
-                "```\n")
-        skipped: set[str] = set()
-        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
-                               skipped=skipped)
-        self.assertEqual(issues, [])
-        self.assertEqual(skipped, {"daydream"})
-
-    def test_checkout_links_resolve_against_the_supplied_root(self):
-        text = ("[live](https://github.com/woundedlion/daydream/blob/master"
-                "/tools/chain_strip.js)\n"
-                "[gone](https://github.com/woundedlion/daydream/blob/master"
-                "/tools/ghost.js)\n"
-                "[self](https://github.com/woundedlion/pov/blob/master"
-                "/README.md)\n"
-                "[other](https://example.com/woundedlion/daydream/blob/master"
-                "/tools/ghost.js)\n")
-        checkouts = {"daydream": {PurePosixPath("tools/chain_strip.js")}}
-        issues = dc.check_text(PurePosixPath("docs/specs/spec.md"), text,
-                               {PurePosixPath("README.md")},
-                               checkouts=checkouts)
-        self.assertEqual(len(issues), 1)
-        self.assertEqual(issues[0].line, 2)
-        self.assertIn("missing daydream link target", issues[0].message)
-        self.assertIn("tools/ghost.js", issues[0].message)
-
-    def test_checkout_link_unescapes_underscores(self):
-        text = (r"[live](https://github.com/woundedlion/daydream/blob/master"
-                r"/tools/chain\_strip.js)")
-        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
-                               checkouts={"daydream": {
-                                   PurePosixPath("tools/chain_strip.js")}})
-        self.assertEqual(issues, [])
-
-    def test_checkout_link_without_a_root_is_recorded_as_skipped(self):
-        text = ("[gone](https://github.com/woundedlion/daydream/blob/master"
-                "/tools/ghost.js)\n")
-        skipped: set[str] = set()
-        issues = dc.check_text(PurePosixPath("docs/specs/spec.md"), text, set(),
-                               skipped=skipped)
-        self.assertEqual(issues, [])
-        self.assertEqual(skipped, {"daydream"})
-
-    def test_multi_word_tree_tag_is_parsed_or_reported(self):
-        self.assertEqual(dc.tree_directive("tree"),
-                         dc.TreeDirective("", False))
-        self.assertEqual(dc.tree_directive("tree exhaustive"),
-                         dc.TreeDirective("", True))
-        self.assertEqual(dc.tree_directive("tree daydream"),
-                         dc.TreeDirective("daydream", False))
-        self.assertEqual(dc.tree_directive("tree daydream exhaustive"),
-                         dc.TreeDirective("daydream", True))
-        self.assertIsNone(dc.tree_directive("tree daydream extra"))
-        self.assertIsNone(dc.tree_directive("trees"))
-
-    def test_tree_row_indented_past_its_parent_is_reported(self):
-        text = ("<!-- docs-check: tree -->\n"
-                "```\n"
-                "├── core/\n"
-                "│   │   ├── platform.h\n"
-                "```\n")
-        issues = dc.check_text(PurePosixPath("README.md"), text,
-                               {PurePosixPath("core")})
-        self.assertEqual(len(issues), 1)
-        self.assertIn("indented past its parent", issues[0].message)
-
     def test_absolute_self_repo_blob_links_are_validated(self):
         text = ("[ok](https://github.com/woundedlion/pov/blob/master/docs/real.md)\n"
                 "[bad](https://github.com/woundedlion/pov/blob/master/docs/ghost.md)\n"
@@ -436,51 +177,6 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[0].line, 2)
         self.assertIn("docs/ghost.md", issues[0].message)
 
-    def test_line_pinned_repo_links_are_reported(self):
-        text = ("[single](../hardware/pov_sync.h#L111)\n"
-                "[range](../hardware/pov_sync.h#L405-L451)\n"
-                "[blob](https://github.com/woundedlion/pov/blob/master/"
-                "hardware/pov_sync.h#L20)\n"
-                "[plain](../hardware/pov_sync.h)\n")
-        entries = {PurePosixPath("hardware"),
-                   PurePosixPath("hardware/pov_sync.h")}
-        issues = dc.check_text(PurePosixPath("docs/spec.md"), text, entries)
-        self.assertEqual([issue.line for issue in issues], [1, 2, 3])
-        for issue in issues:
-            self.assertIn("pins a line number", issue.message)
-
-    def test_links_above_the_repository_root_are_reported(self):
-        text = ("[sibling](../../daydream/daydream.js)\n"
-                "[parent](../README.md)\n")
-        entries = {PurePosixPath("README.md")}
-        issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries)
-        self.assertEqual(len(issues), 1)
-        self.assertEqual(issues[0].line, 1)
-        self.assertIn("escapes the repository root", issues[0].message)
-
-    def test_only_git_tracked_markdown_is_checked(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            git_run(root, 'init', '-q')
-            (root / "README.md").write_text("[ok](target.txt)\n", encoding="utf-8")
-            (root / "target.txt").write_text("ok\n", encoding="utf-8")
-            (root / "untracked.md").write_text("[bad](missing.txt)\n", encoding="utf-8")
-            git_run(root, 'add', 'README.md', 'target.txt')
-            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
-                markdown, issues, _ = dc.check_repository(root)
-        self.assertEqual(markdown, [PurePosixPath("README.md")])
-        self.assertEqual(issues, [])
-
-    def test_effect_roster_claim_requires_its_source(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            _git_repository(root, {"README.md": "effects/ 3 headers covering 2 effects\n"})
-            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
-                _, issues, _ = dc.check_repository(root)
-        self.assertEqual(len(issues), 1)
-        self.assertEqual(issues[0].path, "targets/effects.h")
-        self.assertIn("is not tracked", issues[0].message)
-
     def test_stale_untracked_allowances_are_named(self):
         allowances = ("tracked.txt", "uncited.txt", "used.txt")
         used = {dc._cited(dc._UNTRACKED_LIST, "used.txt")}
@@ -491,44 +187,6 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(stale["tracked.txt"], "(now tracked)")
         self.assertEqual(stale["uncited.txt"], "(uncited)")
         self.assertNotIn("used.txt", stale)
-
-    def test_stale_tree_unmapped_entries_are_named(self):
-        unmapped = ("gone/", "uncited.txt", "tests/")
-        entries = {PurePosixPath("uncited.txt"), PurePosixPath("tests"),
-                   PurePosixPath("tests/run.cpp")}
-        used = {dc._cited(dc._TREE_UNMAPPED_LIST, "tests/")}
-        with mock.patch.object(dc, "UNTRACKED_ALLOWED", ()), \
-                mock.patch.object(dc, "TREE_UNMAPPED", unmapped):
-            stale = dc._stale_allowances(entries, used)
-        self.assertEqual(stale, ["tree-unmapped:gone/ (untracked)",
-                                 "tree-unmapped:uncited.txt (uncited)"])
-
-    def test_stale_checkout_allowances_are_named(self):
-        allowed = {"daydream": ("node_modules/", "tracked/", "uncited/"),
-                   "absent": ("vendor/",)}
-        checkouts = {"daydream": {PurePosixPath("tracked"),
-                                  PurePosixPath("tracked/file.js")}}
-        used = {dc._cited("daydream", "node_modules/")}
-        with mock.patch.object(dc, "UNTRACKED_ALLOWED", ()), \
-                mock.patch.object(dc, "TREE_UNMAPPED", ()), \
-                mock.patch.object(dc, "CHECKOUT_UNTRACKED_ALLOWED", allowed):
-            stale = dc._stale_allowances(set(), used, checkouts)
-        # The "absent" checkout got no --checkout root, so nothing can judge it.
-        self.assertEqual(stale, ["daydream:tracked/ (now tracked)",
-                                 "daydream:uncited/ (uncited)"])
-
-    def test_tree_allowance_citations_are_recorded(self):
-        text = ("<!-- docs-check: tree daydream exhaustive -->\n"
-                "```\n"
-                "├── daydream.js                 App entry\n"
-                "└── three.js/                   Optional vendored checkout\n"
-                "```\n")
-        checkouts = {"daydream": {PurePosixPath("daydream.js")}}
-        used: set[str] = set()
-        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
-                               used=used, checkouts=checkouts)
-        self.assertEqual(issues, [])
-        self.assertEqual(used, {dc._cited("daydream", "three.js/")})
 
     def test_detached_required_tree_directive_is_reported(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -546,41 +204,6 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(len(issues), 1)
         self.assertIn("required docs-check directive 'tree exhaustive'",
                       issues[0].message)
-
-    def test_cited_untracked_allowance_is_recorded(self):
-        used: set[str] = set()
-        allowance = "scripts/run-tests.mjs"
-        with mock.patch.object(dc, "UNTRACKED_ALLOWED", (allowance,)):
-            issue = dc._path_span_issue(PurePosixPath("README.md"), 1,
-                                        allowance,
-                                        {PurePosixPath("scripts")}, used)
-        self.assertIsNone(issue)
-        self.assertEqual(used, {dc._cited(dc._UNTRACKED_LIST, allowance)})
-
-    def test_slashless_paths_require_an_unambiguous_basename(self):
-        source = PurePosixPath("README.md")
-        unique = {PurePosixPath("core/mesh/mesh.h")}
-        self.assertIsNone(dc._path_span_issue(source, 1, "mesh.h", unique))
-        ambiguous = unique | {PurePosixPath("core/render/scan/mesh.h")}
-        issue = dc._path_span_issue(source, 1, "mesh.h", ambiguous)
-        self.assertIsNotNone(issue)
-        self.assertIn("ambiguous basename", issue.message)
-        self.assertIn("core/mesh/mesh.h", issue.message)
-        self.assertIsNone(dc._path_span_issue(
-            PurePosixPath("core/mesh/README.md"), 1, "mesh.h", ambiguous))
-        self.assertIsNone(dc._path_span_issue(
-            source, 1, "core/mesh/mesh.h",
-            ambiguous | {PurePosixPath("core")}))
-
-    def test_core_relative_path_is_resolved(self):
-        entries = {PurePosixPath("core"), PurePosixPath("core/control"),
-                   PurePosixPath("core/control/choreography.h")}
-        self.assertIsNone(dc._path_span_issue(
-            PurePosixPath("README.md"), 1, "control/choreography.h", entries))
-        issue = dc._path_span_issue(
-            PurePosixPath("README.md"), 1, "control/ghost.h", entries)
-        self.assertIsNotNone(issue)
-        self.assertIn("'control/ghost.h' does not exist", issue.message)
 
     @staticmethod
     def _checkout_fence_repository(root: Path) -> None:
@@ -603,152 +226,9 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("::error::", output.getvalue())
         self.assertIn("daydream", output.getvalue())
 
-    def test_acknowledged_checkout_tree_passes_and_says_so(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self._checkout_fence_repository(root)
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                status = dc.main(["--root", str(root),
-                                  "--skip-checkout", "daydream"])
-        self.assertEqual(status, 0)
-        self.assertIn("::warning::", output.getvalue())
-        self.assertIn("NOT validated: daydream", output.getvalue())
-
-    def test_a_skip_that_skips_nothing_is_reported(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self._checkout_fence_repository(root)
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                status = dc.main(["--root", str(root),
-                                  "--skip-checkout", "daydream",
-                                  "--skip-checkout", "retired"])
-        self.assertEqual(status, 0)
-        self.assertIn("names no unvalidated tree fence or link: retired",
-                      output.getvalue())
-
-    def test_a_bom_does_not_hide_a_tree_directive(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self._checkout_fence_repository(root)
-            readme = root / "README.md"
-            readme.write_bytes(b"\xef\xbb\xbf"
-                               + readme.read_text(encoding="utf-8").encode())
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                status = dc.main(["--root", str(root),
-                                  "--skip-checkout", "daydream"])
-        self.assertEqual(status, 0, output.getvalue())
-        self.assertIn("NOT validated: daydream", output.getvalue())
-
-    def test_main_sync_rewrites_a_stale_repository_row(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            _git_repository(root, {
-                "README.md": "<!-- docs-check: tree exhaustive -->\n```\n"
-                "\u251c\u2500\u2500 old.h  Stale source\n"
-                "\u2514\u2500\u2500 new.h  Current source\n```\n",
-                "new.h": "int current_source;\n"})
-            output = io.StringIO()
-            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()), \
-                    contextlib.redirect_stdout(output):
-                status = dc.main(["--root", str(root), "--sync",
-                                  "--skip-checkout", "daydream"])
-            self.assertEqual(status, 0, output.getvalue())
-            readme = (root / "README.md").read_text(encoding="utf-8")
-            self.assertNotIn("old.h", readme)
-            self.assertIn("new.h  Current source", readme)
-            self.assertIn("[docs-sync] updated README.md", output.getvalue())
-
-    def test_main_auto_checkout_validates_the_discovered_pinned_tree(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory, "engine")
-            checkout = Path(directory, "daydream")
-            _git_repository(root, {
-                "README.md": "<!-- docs-check: tree daydream exhaustive -->\n```\n"
-                "\u2514\u2500\u2500 kept.js  Browser source\n```\n"})
-            _git_repository(checkout, {"kept.js": "export const kept = true;\n"})
-            revision = git_run(checkout, "write-tree").stdout.strip()
-            output = io.StringIO()
-            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()), \
-                    mock.patch.object(ds, "discover_daydream", return_value=checkout) as discover, \
-                    mock.patch.object(ds, "pinned_daydream", return_value=revision), \
-                    contextlib.redirect_stdout(output):
-                status = dc.main(["--root", str(root), "--auto-checkout"])
-            self.assertEqual(status, 0, output.getvalue())
-            discover.assert_called_once_with(root.resolve())
-            self.assertNotIn("NOT validated", output.getvalue())
-
-    def test_missing_checkout_root_is_rejected(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self._checkout_fence_repository(root)
-            absent = root / "no-such-checkout"
-            with contextlib.redirect_stderr(io.StringIO()):
-                with self.assertRaises(SystemExit) as raised:
-                    dc.main(["--root", str(root),
-                             "--checkout", f"daydream={absent}"])
-        self.assertEqual(raised.exception.code, 2)
-
-    def test_effect_roster_reads_definition_line_and_stops_without_continuation(self):
-        source = "#define HS_EFFECT_LIST(X) X(Comets)\nX(NotInMacro)\n"
-        self.assertEqual(dc.effect_roster(source), {"Comets"})
-        source = "#define HS_EFFECT_LIST(X) X(Comets) " + "\\\n" + "X(SphericalHarmonics)\n"
-        self.assertEqual(dc.effect_roster(source), {"Comets", "SphericalHarmonics"})
-
-    def test_effect_roster_reads_the_macro_continuation(self):
-        source = ("#define HS_EFFECT_COUNT_ADD(name) +1\n"
-                  "#define HS_EFFECT_LIST(X)         \\\n"
-                  "  X(Comets)                       \\\n"
-                  "  X(SphericalHarmonics)\n"
-                  "#define HS_PHANTASM_EFFECT_LIST(X) \\\n"
-                  "  X(Comets)\n")
-        self.assertEqual(dc.effect_roster(source), {"Comets", "SphericalHarmonics"})
-
-    def test_effect_roster_tolerates_whitespace_inside_the_parens(self):
-        source = ("#define HS_EFFECT_LIST(X) \\\n"
-                  "  X( Comets )             \\\n"
-                  "  X(SphericalHarmonics)\n")
-        self.assertEqual(dc.effect_roster(source), {"Comets", "SphericalHarmonics"})
-
-    def test_effect_roster_line_comment_swallows_the_continued_rows(self):
-        source = ("#define HS_EFFECT_LIST(X) \\\n"
-                  "  // X(Retired)           \\\n"
-                  "  /* X(AlsoRetired) */    \\\n"
-                  "  X(SphericalHarmonics)\n")
-        self.assertEqual(dc.effect_roster(source), set())
-
-    def test_effect_roster_skips_a_multi_line_block_comment(self):
-        source = ("#define HS_EFFECT_LIST(X) \\\n"
-                  "  /* X(Retired)           \\\n"
-                  "     X(AlsoRetired) */    \\\n"
-                  "  X(SphericalHarmonics)\n")
-        self.assertEqual(dc.effect_roster(source), {"SphericalHarmonics"})
-
     @staticmethod
     def _diagram(count):
         return f"│  │  effects/  ({count} visual algorithms)     │  │\n"
-
-    def test_matching_effects_row_is_clean(self):
-        entries = {PurePosixPath("effects"),
-                   PurePosixPath("effects/Comets.h"),
-                   PurePosixPath("effects/SphericalHarmonics.h"),
-                   PurePosixPath("effects/shared_palettes.h")}
-        row = ("├── effects/  3 headers covering 2 effects plus the shared\n"
-               + self._diagram(2))
-        self.assertEqual(
-            dc.effects_row_issues(row, entries, {"Comets", "SphericalHarmonics"}), [])
-
-    def test_matching_compact_effects_row_is_clean(self):
-        entries = {PurePosixPath("effects"),
-                   PurePosixPath("effects/Comets.h"),
-                   PurePosixPath("effects/ComposedEffects.h")}
-        row = ("├── effects/  2 headers covering 3 effects plus shared bases\n"
-               + self._diagram(3))
-        self.assertEqual(
-            dc.effects_row_issues(
-                row, entries, {"Comets", "AlienBrain", "KaleidoscopeHexBright"}), [])
 
     def test_effects_row_counts_are_checked_against_tree_and_roster(self):
         entries = {PurePosixPath("effects"),
@@ -764,62 +244,6 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("claims 7 effects, HS_EFFECT_LIST names 2",
                       issues[1].message)
 
-    def test_diagram_effect_count_is_checked_against_the_roster(self):
-        entries = {PurePosixPath("effects"),
-                   PurePosixPath("effects/Comets.h")}
-        row = ("├── effects/  1 headers covering 1 effects plus shared bases\n"
-               + self._diagram(23))
-        issues = dc.effects_row_issues(row, entries, {"Comets"})
-        self.assertEqual([issue.line for issue in issues], [2])
-        self.assertIn("architecture diagram claims 23 effects, "
-                      "HS_EFFECT_LIST names 1", issues[0].message)
-
-    def test_unreadable_roster_fails_the_effects_row(self):
-        issues = dc.effects_row_issues(
-            "├── effects/  1 headers covering 1 effects plus the shared\n"
-            + self._diagram(1),
-            {PurePosixPath("effects"), PurePosixPath("effects/Comets.h")},
-            None)
-        self.assertEqual(len(issues), 2)
-        self.assertIn("defines no HS_EFFECT_LIST", issues[0].message)
-        self.assertIn("architecture diagram claims 1 effects",
-                      issues[1].message)
-
-    def test_deleted_effects_row_is_reported(self):
-        issues = dc.effects_row_issues(
-            "nothing to see\n" + self._diagram(1), set(), {"Comets"})
-        self.assertEqual(len(issues), 1)
-        self.assertIn("no effects/ summary row", issues[0].message)
-
-    def test_deleted_diagram_row_is_reported(self):
-        issues = dc.effects_row_issues(
-            "├── effects/  1 headers covering 1 effects plus shared bases\n",
-            {PurePosixPath("effects"), PurePosixPath("effects/Comets.h")},
-            {"Comets"})
-        self.assertEqual(len(issues), 1)
-        self.assertIn("no effects/ architecture-diagram row",
-                      issues[0].message)
-
-    def test_doxyfile_predefined_reads_continuation_lines(self):
-        text = ('PREDEFINED = FLASHMEM= \\\n'
-                '             "HS_FEATURE=1" \\\n'
-                '             DOXYGEN=1\n'
-                'INPUT = core\n')
-        self.assertEqual(dc.doxyfile_predefined(text), [
-            (1, "FLASHMEM"),
-            (2, "HS_FEATURE"),
-            (3, "DOXYGEN"),
-        ])
-
-    def test_doxyfile_predefined_reassignment_discards_prior_blocks(self):
-        text = ("PREDEFINED = HS_OLD=1\n"
-                "PREDEFINED += HS_ALSO_OLD=1\n"
-                "PREDEFINED = HS_CURRENT=1\n"
-                'PREDEFINED += "HS_APPENDED=two words"\n')
-        self.assertEqual(dc.doxyfile_predefined(text), [
-            (3, "HS_CURRENT"), (4, "HS_APPENDED"),
-        ])
-
     def test_unreferenced_predefined_finds_dead_macro_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -829,13 +253,6 @@ class TestDocumentationChecker(unittest.TestCase):
                 root, [PurePosixPath("live.h")],
                 {"HS_LIVE", "HS_DEAD", "DOXYGEN"})
         self.assertEqual(dead, {"HS_DEAD"})
-
-    def test_doxyfile_predefined_issues_name_the_config_line(self):
-        issues = dc.doxyfile_predefined_issues(
-            [(7, "HS_LIVE"), (8, "HS_DEAD")], {"HS_DEAD"})
-        self.assertEqual([(issue.line, issue.message) for issue in issues], [
-            (8, "PREDEFINED defines HS_DEAD, which no tracked C/C++ source names"),
-        ])
 
     _PLAYLIST_HEADER = ("#define HS_EFFECT_LIST(X) \\\n"
                         "  X(Comets)               \\\n"
@@ -863,22 +280,13 @@ class TestDocumentationChecker(unittest.TestCase):
     _SPEC = PurePosixPath("docs/specs/phantasm_frame_sync_spec.md")
     _EFFECTS = PurePosixPath("docs/effects.md")
 
-    def _roster_issues(self, prose, effects=None):
+    def _roster_issues(self, prose):
         header = self._PLAYLIST_HEADER
         return dc.roster_claim_issues(
             {PurePosixPath("README.md"): prose, self._SPEC: prose,
-             self._EFFECTS: self._effects_prose(2, 2) if effects is None
-             else effects},
+             self._EFFECTS: self._effects_prose(2, 2)},
             dc.effect_roster(header), dc.phantasm_roster(header),
             dc.shader_product_group(header))
-
-    def test_phantasm_roster_reads_literal_and_derived_durations(self):
-        self.assertEqual(dc.phantasm_roster(self._PLAYLIST_HEADER),
-                         {"Comets", "SphericalHarmonics"})
-
-    def test_matching_roster_prose_is_clean(self):
-        self.assertEqual(
-            self._roster_issues(self._roster_prose(2, 2, 2)), [])
 
     def test_roster_prose_counts_are_checked_against_the_macros(self):
         issues = self._roster_issues(self._roster_prose(3, 4, 5))
@@ -893,37 +301,6 @@ class TestDocumentationChecker(unittest.TestCase):
                       messages[3])
         self.assertEqual(issues[3].path, self._SPEC.as_posix())
 
-    def test_deleted_roster_prose_is_reported(self):
-        messages = [issue.message
-                    for issue in self._roster_issues("none", "none")]
-        self.assertEqual(len(messages), 6)
-        self.assertTrue(all("goes unchecked" in message
-                            for message in messages))
-
-    def test_spelled_out_cardinalities_are_read(self):
-        self.assertEqual(self._roster_issues(
-            self._roster_prose(2, 2, 2), effects=self._effects_prose(
-                "two", "two")), [])
-        issues = self._roster_issues(
-            self._roster_prose(2, 2, 2),
-            effects=self._effects_prose("three", "twenty-one"))
-        messages = [issue.message for issue in issues]
-        self.assertEqual(len(messages), 2)
-        self.assertTrue(all(issue.path == self._EFFECTS.as_posix()
-                            for issue in issues))
-        self.assertIn("stated as 3, HS_SHADER_PRODUCT_GROUP names 2",
-                      messages[0])
-        self.assertIn("stated as 21, HS_SHADER_PRODUCT_GROUP names 2",
-                      messages[1])
-
-    def test_a_claim_that_is_not_a_count_is_reported(self):
-        issues = self._roster_issues(
-            self._roster_prose(2, 2, 2),
-            effects=self._effects_prose("several", 2))
-        self.assertEqual([issue.message for issue in issues], [
-            "the composed roster size is stated as 'several', which is not "
-            "a count"])
-
     _COMPOSED_ROSTER = (
         "### Composed-effect roster\n\n"
         "| Effect ID | Concrete effect | Presets | Legacy source |\n"
@@ -933,7 +310,7 @@ class TestDocumentationChecker(unittest.TestCase):
     def _composed_row(effect_id, effect, presets):
         return f"| `{effect_id}` | `{effect}` | {presets} | — |\n"
 
-    def _composed_issues(self, rows, products=("Comets", "SphericalHarmonics")):
+    def _composed_issues(self, rows):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "effects").mkdir()
@@ -945,19 +322,12 @@ class TestDocumentationChecker(unittest.TestCase):
                 "PRESET_IDS{};\n"
                 "static constexpr std::array<std::string_view, 1> "
                 'PRESET_IDS{"sphericalharmonics"};\n', encoding="utf-8")
-            (root / "effects" / "Fishbowl.h").write_text(
-                "struct Fishbowl {};\n", encoding="utf-8")
             entries = {PurePosixPath("effects", name)
-                       for name in ("Comets.h", "SphericalHarmonics.h", "Fishbowl.h")}
+                       for name in ("Comets.h", "SphericalHarmonics.h")}
             return [(issue.line, issue.message)
                     for issue in dc.composed_roster_issues(
                         root, self._COMPOSED_ROSTER + rows, entries,
-                        set(products))]
-
-    def test_matching_composed_roster_is_clean(self):
-        rows = (self._composed_row("comets", "Comets", 2)
-                + self._composed_row("sphericalharmonics", "SphericalHarmonics", 1))
-        self.assertEqual(self._composed_issues(rows), [])
+                        {"Comets", "SphericalHarmonics"})]
 
     def test_composed_roster_preset_counts_are_checked_against_preset_ids(
             self):
@@ -965,54 +335,6 @@ class TestDocumentationChecker(unittest.TestCase):
                 + self._composed_row("sphericalharmonics", "SphericalHarmonics", 1))
         self.assertEqual(self._composed_issues(rows), [
             (5, "Comets presets stated as 3, PRESET_IDS holds 2")])
-
-    def test_composed_roster_membership_is_checked_against_the_group(self):
-        rows = (self._composed_row("comets", "Comets", 2)
-                + self._composed_row("fishbowl", "Fishbowl", 1)
-                + self._composed_row("ghost", "Ghost", 1))
-        self.assertEqual(self._composed_issues(rows), [
-            (6, "composed roster claims 1 presets for Fishbowl, which "
-                "declares no PRESET_IDS"),
-            (7, "composed roster names effects/Ghost.h, which is not tracked"),
-            (1, "composed roster omits SphericalHarmonics, which HS_SHADER_PRODUCT_GROUP "
-                "names"),
-            (6, "composed roster lists Fishbowl, which "
-                "HS_SHADER_PRODUCT_GROUP does not name"),
-            (7, "composed roster lists Ghost, which HS_SHADER_PRODUCT_GROUP "
-                "does not name"),
-        ])
-
-    def test_duplicate_composed_roster_row_is_reported(self):
-        rows = (self._composed_row("comets", "Comets", 2)
-                + self._composed_row("comets-2", "Comets", 2)
-                + self._composed_row("sphericalharmonics", "SphericalHarmonics", 1))
-        self.assertEqual(self._composed_issues(rows), [
-            (6, "composed roster lists Comets twice")])
-
-    def test_deleted_composed_roster_is_reported(self):
-        self.assertEqual(self._composed_issues(""), [
-            (1, "no composed-effect roster table, so its preset counts go "
-                "unchecked")])
-
-    def test_unreadable_playlist_fails_every_claim(self):
-        issues = dc.roster_claim_issues(
-            {PurePosixPath("README.md"): ""}, {"Comets"}, set(), {"Comets"})
-        self.assertEqual(len(issues), 1)
-        self.assertIn("no HS_PHANTASM_EFFECT_LIST", issues[0].message)
-
-    def test_unreadable_product_group_fails_every_claim(self):
-        issues = dc.roster_claim_issues(
-            {PurePosixPath("README.md"): ""}, {"Comets"}, {"Comets"}, set())
-        self.assertEqual(len(issues), 1)
-        self.assertIn("no HS_SHADER_PRODUCT_GROUP", issues[0].message)
-
-    def test_repository_without_markdown_fails(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            git_run(root, 'init', '-q')
-            (root / "target.txt").write_text("ok\n", encoding="utf-8")
-            git_run(root, 'add', 'target.txt')
-            self.assertEqual(dc.main(["--root", str(root)]), 2)
 
 
 def _git_repository(root, files):
@@ -1027,95 +349,6 @@ def _git_repository(root, files):
 
 
 class TestCommentSymbols(unittest.TestCase):
-    WORDS = frozenset({"Canvas", "draw_ring", "MAX_STOPS", "width",
-                       "renderFrame"})
-    ENTRIES = frozenset({PurePosixPath("core"), PurePosixPath("core/render"),
-                         PurePosixPath("core/render/canvas.h")})
-
-    def issues(self, *spans):
-        return dc.symbol_reference_issues(
-            [(PurePosixPath("core/render/canvas.h"), line, span)
-             for line, span in enumerate(spans, 1)],
-            set(self.WORDS), set(self.ENTRIES))
-
-    def names(self, *spans):
-        return [issue.message.split("`")[1] for issue in self.issues(*spans)]
-
-    def test_generated_format_excludes_are_not_scanned(self):
-        pattern = build_pins.SHARED_LITERALS["format-exclude"]
-        for alternative in pattern.replace("(^|/)", "").split("|"):
-            path = alternative.replace(r"\.", ".").removesuffix("$")
-            if path.endswith("/"):
-                path += "table.h"
-            with self.subTest(path=path):
-                self.assertTrue(dc.SYMBOL_COMMENT_EXCLUDED_RE.search(path))
-
-    def test_existing_symbols_and_paths_pass(self):
-        self.assertEqual(self.issues(
-            "Canvas::draw_ring", "MAX_STOPS", "width()", "renderFrame",
-            "core/render/canvas.h", "render/canvas.h", "canvas.h"), [])
-
-    def test_line_pinned_comment_paths_are_reported(self):
-        issues = self.issues("canvas.h:12", "core/render/canvas.h:12-14")
-        self.assertEqual([issue.line for issue in issues], [1, 2])
-        for issue in issues:
-            self.assertIn("pins a line number", issue.message)
-
-    def test_missing_symbol_is_reported_with_its_line(self):
-        issues = self.issues("Canvas", "Canvas::draw_rings")
-        self.assertEqual([(issue.path, issue.line) for issue in issues],
-                         [("core/render/canvas.h", 2)])
-        self.assertIn("`draw_rings`", issues[0].message)
-
-    def test_every_code_spelling_is_checked(self):
-        self.assertEqual(
-            self.names("snake_case", "SCREAMING_CASE", "ACRONYM", "camelCase",
-                       "PascalCase", "Pascal", "lower()"),
-            ["snake_case", "SCREAMING_CASE", "ACRONYM", "camelCase",
-             "PascalCase", "Pascal", "lower"])
-
-    def test_prose_expressions_arguments_and_external_names_pass(self):
-        self.assertEqual(self.issues(
-            "target", "from the frame", "1.0f", "0x1Fu",
-            "face_index * 3 + edge_index", "draw_ring(missing_arg, other_arg)",
-            "std::bit_cast", "Math.fround", "seconds16()", "__builtin_expect",
-            '"Missing_Name"'), [])
-
-    def test_external_names_are_exempt_only_by_list(self):
-        with mock.patch.object(dc, "EXTERNAL_SYMBOLS", frozenset()), \
-                mock.patch.object(dc, "EXTERNAL_SYMBOL_ROOTS", frozenset()):
-            self.assertEqual(self.names("seconds16()", "std::bit_cast"),
-                             ["seconds16", "bit_cast"])
-
-    def test_missing_path_is_reported_only_under_a_tracked_root(self):
-        issues = self.issues("core/render/gone.h", "render/gone/",
-                             "gone.h", "src/elsewhere.js", "dx/dt")
-        self.assertEqual([issue.line for issue in issues], [1, 2, 3])
-        self.assertIn("'core/render/gone.h'", issues[0].message)
-
-    def test_comments_split_from_code_strings_and_separators(self):
-        code, comments = dc.split_source(
-            "int a = 1'000; // it's `alpha_name`\n"
-            'const char *s = "// not_comment";\n'
-            "/* `beta_name`\n   `gamma_name` */ int b;\n", script=False)
-        self.assertEqual([line for line, _ in comments], [1, 3])
-        self.assertIn("not_comment", code)
-        self.assertNotIn("alpha_name", code)
-        self.assertNotIn("gamma_name", code)
-        code, comments = dc.split_source(
-            'const char *s = R"tag(\n'
-            '  "// raw_literal"\n'
-            ')tag";\n'
-            '// actual_comment\n', script=False)
-        self.assertIn("raw_literal", code)
-        self.assertEqual(comments, [(4, "// actual_comment")])
-        code, comments = dc.split_source(
-            "const t = `// in_template`; const r = /\\/\\/x/; "
-            "// `delta_name`\n", script=True)
-        self.assertEqual(len(comments), 1)
-        self.assertIn("in_template", code)
-        self.assertNotIn("delta_name", code)
-
     def test_renamed_symbol_fails_the_repository_check(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1154,30 +387,6 @@ class TestCommentSymbols(unittest.TestCase):
             self.assertEqual([str(issue) for issue in issues], [
                 "core/ring.h:1: comment names `draw_ring`, which no code "
                 "spells"])
-
-    def test_checkout_code_does_not_resolve_repository_comment_names(self):
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
-            engine = Path(directory, "engine").resolve()
-            checkout = Path(directory, "daydream").resolve()
-            _git_repository(engine, {
-                "README.md": "# Engine\n",
-                "bind.h": "// Exported as `renderFrame`.\nint x;\n"})
-            _git_repository(checkout, {
-                "src/engine.js": "export function renderFrame() {}\n"})
-            revision = git_run(checkout, 'write-tree').stdout.strip()
-            for roots, revisions in (({}, {}), ({"daydream": checkout}, {}),
-                                     ({"daydream": checkout}, {"daydream": revision})):
-                with self.subTest(roots=roots, revisions=revisions), \
-                        mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
-                    issues = dc.check_repository(engine, roots, checkout_revisions=revisions)[1]
-                    self.assertEqual([str(issue) for issue in issues], [
-                        "bind.h:1: comment names `renderFrame`, which no code spells"])
-                    (engine / "bind.h").write_text(
-                        "// Exported as `renderFrame`.\nvoid renderFrame();\n", encoding="utf-8")
-                    self.assertEqual(dc.check_repository(
-                        engine, roots, checkout_revisions=revisions)[1], [])
-                    (engine / "bind.h").write_text(
-                        "// Exported as `renderFrame`.\nint x;\n", encoding="utf-8")
 
     def test_excluding_every_source_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:

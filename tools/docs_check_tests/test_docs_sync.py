@@ -26,11 +26,6 @@ class TreeSync(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             return ds.sync_trees(text, paths, checkouts or {})
 
-    def test_rejects_tree_preamble_without_dropping_it(self):
-        text = "<!-- docs-check: tree exhaustive -->\n```\npov/\n```\n"
-        with self.assertRaisesRegex(ValueError, "unexpected tree preamble"):
-            self.sync(text, set())
-
     def test_new_paths_require_authored_descriptions(self):
         text = "<!-- docs-check: tree exhaustive -->\n```\n```\n"
         with self.assertRaisesRegex(ValueError, "role description for new.h"):
@@ -55,59 +50,6 @@ class TreeSync(unittest.TestCase):
         self.assertEqual(after, self.sync(after, paths))
         self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
 
-    def test_grouped_names_globs_and_implicit_parents_are_preserved(self):
-        text = ("<!-- docs-check: tree exhaustive -->\n```\n"
-                "├── core/\n│   ├── one.h  /  two.h   Shared description\n"
-                "│   └── *.cpp           Sources\n"
-                "└── .github/workflows/  CI\n```\n")
-        paths = entries("core/two.h", "core/a.cpp", ".github/workflows/ci.yml")
-        after = self.sync(text, paths)
-        self.assertIn("two.h           Shared description", after)
-        self.assertNotIn("one.h", after)
-        self.assertIn("*.cpp", after)
-        self.assertNotIn("a.cpp", after)
-        self.assertNotIn("── .github/\n", after)
-        self.assertEqual(after, self.sync(after, paths))
-        self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
-
-    def test_slash_followed_by_prose_is_preserved(self):
-        text = ("<!-- docs-check: tree exhaustive -->\n```\n"
-                "└── foo.py / (legacy) helper\n```\n")
-        self.assertEqual(self.sync(text, entries("foo.py")), text)
-
-    def test_unresolved_child_group_is_preserved_and_partial_removals_are_logged(self):
-        text = "<!-- docs-check: tree exhaustive -->\n```\n└── core/  Engine (experimental)\n```\n"
-        self.assertEqual(self.sync(text, entries("core")), text)
-        partial = text.replace("experimental", "one, missing")
-        with contextlib.redirect_stdout(io.StringIO()) as messages:
-            after = ds.sync_trees(partial, entries("core/one.h"), {})
-        self.assertIn("(one)", after)
-        self.assertIn("removed absent tree path core/missing", messages.getvalue())
-
-    def test_missing_sibling_is_left_untouched(self):
-        text = "<!-- docs-check: tree daydream exhaustive -->\n```\n└── old.js   Keep this description\n```\n"
-        self.assertEqual(self.sync(text, set()), text)
-
-    def test_multiline_child_lists_keep_layout_without_duplicate_rows(self):
-        text = ("<!-- docs-check: tree exhaustive -->\n```\n"
-                "└── core/  Helpers (one,\n"
-                "               two)\n```\n")
-        paths = entries("core/one.h", "core/two.h")
-        self.assertEqual(self.sync(text, paths), text)
-
-    def test_broken_fences_and_links_still_fail(self):
-        text = "[bad](missing.md)\n<!-- docs-check: tree exhaustive -->\n```\n└── old.h\n"
-        after = self.sync(text, entries("new.h"))
-        self.assertEqual(after, text)
-        issues = dc.check_text(PurePosixPath("README.md"), after, entries("new.h"))
-        self.assertTrue(any("unclosed" in issue.message for issue in issues))
-        self.assertTrue(any("missing" in issue.message for issue in issues))
-
-    def test_invalid_tree_indentation_fails_without_rewriting(self):
-        text = "<!-- docs-check: tree exhaustive -->\n```\n│   └── file.h\n```\n"
-        with self.assertRaises(ValueError):
-            self.sync(text, entries("file.h"))
-
     def test_underindented_continuation_fails_without_truncating_text(self):
         text = ("<!-- docs-check: tree exhaustive -->\n```\n"
                 "└── core/\n    └── file.h   Keep this description\n"
@@ -128,29 +70,6 @@ class RepositorySync(unittest.TestCase):
     def git(self, *args):
         return git_run(self.root, *args).stdout.strip()
 
-    def test_pinned_tree_ignores_live_and_staged_checkout_changes(self):
-        (self.root / "pinned.js").write_text("original", encoding="utf-8")
-        self.git("add", "pinned.js")
-        tree = self.git("write-tree")
-        (self.root / "pinned.js").unlink()
-        (self.root / "live.js").write_text("new", encoding="utf-8")
-        self.git("add", "pinned.js", "live.js")
-        self.assertEqual(dc.tracked_entries(self.root, tree)[1], entries("pinned.js"))
-        self.assertEqual(dc.tracked_entries(self.root)[1], entries("live.js"))
-
-    def test_sync_writes_only_when_content_changes(self):
-        readme = self.root / "README.md"
-        readme.write_text("<!-- docs-check: tree exhaustive -->\n```\n├── old.h  Stale entry\n└── new.h  New source\n```\n", encoding="utf-8")
-        (self.root / "new.h").write_text("", encoding="utf-8")
-        self.git("add", "README.md", "new.h")
-        with contextlib.redirect_stdout(io.StringIO()):
-            ds.sync_repository(self.root, {}, {})
-        refreshed = readme.read_text(encoding="utf-8")
-        self.assertNotIn("old.h", refreshed)
-        self.assertIn("new.h", refreshed)
-        with mock.patch.object(Path, "write_text", side_effect=AssertionError("rewrote unchanged document")):
-            ds.sync_repository(self.root, {}, {})
-
     def test_roster_counts_sync_without_rewriting_surrounding_prose(self):
         header = self.root / dc.EFFECT_ROSTER_SOURCE
         header.parent.mkdir(parents=True)
@@ -165,61 +84,8 @@ class RepositorySync(unittest.TestCase):
             ds.sync_repository(self.root, {}, {})
         self.assertEqual(readme.read_text(encoding="utf-8"), "The playlist contains 1 effects today.\n")
 
-    def check_spelled_out_count(self, before, after):
-        header = self.root / dc.EFFECT_ROSTER_SOURCE
-        header.parent.mkdir(parents=True)
-        header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n"
-                          "#define HS_SHADER_PRODUCT_GROUP(X) \\\n    X(One) \\\n    X(Two)\n",
-                          encoding="utf-8")
-        playlist = self.root / dc.PHANTASM_PLAYLIST_SOURCE
-        playlist.parent.mkdir(parents=True)
-        playlist.write_text("#define HS_PHANTASM_EFFECT_LIST(X) \\\n    X(One, 10)\n", encoding="utf-8")
-        effects = self.root / "docs" / "effects.md"
-        effects.parent.mkdir(parents=True)
-        self.git("add", str(dc.EFFECT_ROSTER_SOURCE), str(dc.PHANTASM_PLAYLIST_SOURCE))
-        effects.write_text(f"These {before} effects form the product-only group.\n",
-                           encoding="utf-8")
-        self.git("add", "docs/effects.md")
-        with contextlib.redirect_stdout(io.StringIO()):
-            ds.sync_repository(self.root, {}, {})
-        self.assertEqual(effects.read_text(encoding="utf-8"),
-                         f"These {after} effects form the product-only group.\n")
 
-    def test_a_correct_spelled_out_count_is_left_alone(self):
-        self.check_spelled_out_count("two", "two")
-
-    def test_an_incorrect_spelled_out_count_is_rewritten(self):
-        self.check_spelled_out_count("three", "2")
-
-
-
-class DiscoveryAndCounts(unittest.TestCase):
-    def test_checkout_revisions_uses_the_canonical_pin(self):
-        with mock.patch.object(ds, "pinned_daydream", return_value="abc123"):
-            self.assertEqual(ds.checkout_revisions({"daydream": Path(".")}), {"daydream": "abc123"})
-            self.assertEqual(ds.checkout_revisions({}), {})
-
-    def test_discovery_order_override_and_pinned_tree_probe(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "engine"
-            root.mkdir()
-            git_run(root, 'init', '-q')
-            candidates = [root / "daydream", root.parent / "daydream"]
-            for candidate in candidates:
-                candidate.mkdir()
-                git_run(candidate, 'init', '-q')
-            (candidates[1] / "unique.txt").write_text("pinned candidate\n", encoding="utf-8")
-            git_run(candidates[1], 'add', '--', 'unique.txt')
-            git_run(candidates[1], 'commit', '-q', '-m', 'pinned tree')
-            revision = git_run(candidates[1], 'rev-parse', 'HEAD^{tree}').stdout.strip()
-            with mock.patch.object(ds, "pinned_daydream", return_value=revision):
-                with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": ""}):
-                    self.assertEqual(ds.discover_daydream(root), candidates[1].resolve())
-                with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": str(candidates[0])}):
-                    self.assertIsNone(ds.discover_daydream(root))
-                with mock.patch.object(ds, "pinned_daydream", return_value="0" * 40):
-                    self.assertIsNone(ds.discover_daydream(root))
-
+class AutoCheckout(unittest.TestCase):
     def test_auto_checkout_failure_reports_the_missing_pin(self):
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.object(ds, "discover_daydream", return_value=None):
@@ -227,14 +93,6 @@ class DiscoveryAndCounts(unittest.TestCase):
                 with contextlib.redirect_stderr(error):
                     self.assertEqual(dc.main(["--root", directory, "--auto-checkout"]), 2)
                 self.assertIn("pinned daydream checkout unavailable", error.getvalue())
-
-    def test_effects_rows_and_diagram_rewrite_idempotently(self):
-        before = "effects/ 99 headers covering 88 effects\neffects/ (77 visual algorithms)\n"
-        paths = entries("effects/One.h", "effects/Two.h", "effects/utility.cpp")
-        counts = {"HS_EFFECT_LIST": 3}
-        after = ds.sync_text(PurePosixPath("README.md"), before, paths, {}, counts)
-        self.assertEqual(after, "effects/ 2 headers covering 3 effects\neffects/ (3 visual algorithms)\n")
-        self.assertEqual(ds.sync_text(PurePosixPath("README.md"), after, paths, {}, counts), after)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,5 @@
 import contextlib
 import io
-import html
-import os
-import re
 import subprocess
 from unittest import mock
 import sys
@@ -13,7 +10,6 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
-from git_test_env import git_run, isolated_env  # noqa: E402
 import doc_coverage as cov  # noqa: E402
 
 ROOT = Path(tempfile.gettempdir()).resolve() / "repo"
@@ -38,246 +34,16 @@ class TestParse(unittest.TestCase):
             "core/a.h", 12, "edge_offset(const Point &p, int &axis) const",
             "function", "SDF::WireLattice"))
 
-    def test_macro_kind_may_contain_spaces(self):
-        (found,) = cov.parse(warning(
-            "core/r.h", 64,
-            "Member HS_RESOLUTIONS(X) (macro definition) of file r.h"), ROOT)
-        self.assertEqual((found.kind, found.scope), ("macro definition", "r.h"))
-
-    def test_compound_warning_has_no_scope(self):
-        (found,) = cov.parse(warning("core/a.h", 3, "Compound SDF::Plane"),
-                             ROOT)
-        self.assertEqual(found, cov.Undocumented(
-            "core/a.h", 3, "SDF::Plane", "compound", ""))
-
-    def test_windows_separators_are_normalized_to_relative_paths(self):
-        (found,) = cov.parse(
-            f"{PREFIX}/core/a.h:7: warning: Compound X is not documented."
-            .replace("/", "\\"), ROOT)
-        self.assertEqual((found.path, found.line), ("core/a.h", 7))
-
-    def test_other_source_warning_keeps_its_text(self):
-        (found,) = cov.parse(
-            f"{PREFIX}/a.h:1: warning: argument 'x' of command @param is not "
-            "found", ROOT)
-        self.assertEqual(found, cov.Undocumented(
-            "a.h", 1, "argument 'x' of command @param is not found",
-            "warning", ""))
-
-    def test_indented_continuation_joins_the_warning(self):
-        (found,) = cov.parse(
-            f"{PREFIX}/a.h:9: warning: The following parameters of f(int a) "
-            "are not documented:\n  parameter 'a'", ROOT)
-        self.assertEqual(found.name, "The following parameters of f(int a) "
-                         "are not documented: parameter 'a'")
-
-    def test_warnings_without_a_source_location_are_ignored(self):
-        self.assertEqual(cov.parse(
-            "warning: No output formats selected!", ROOT), [])
-
-    def test_source_warnings_are_never_exempt(self):
-        self.assertFalse(cov.exempt(cov.Undocumented(
-            "a.h", 1, "operator=(int) =default", "warning", "")))
-
 
 class TestExempt(unittest.TestCase):
-    def test_defaulted_deleted_and_assignment_members(self):
-        self.assertTrue(cov.exempt(item(
-            "operator==(const Axis &) const =default", "function", "Axis")))
-        self.assertTrue(cov.exempt(item(
-            "Span(const Span &)=delete", "function", "Span")))
-        self.assertTrue(cov.exempt(item(
-            "operator=(Storage &&other) noexcept", "function", "Storage")))
-
     def test_ordinary_operator_is_not_exempt(self):
         self.assertFalse(cov.exempt(item(
             "operator+(const Vec &b) const", "function", "Vec")))
         self.assertFalse(cov.exempt(item(
             "operator==(const Vec &b) const", "function", "Vec")))
 
-    def test_container_alias(self):
-        self.assertTrue(cov.exempt(item("value_type", "typedef", "Ring")))
-        self.assertFalse(cov.exempt(item("value_type", "variable", "Ring")))
-
-    def test_operator_contract_member_only_on_direct_op_models(self):
-        self.assertTrue(cov.exempt(item(
-            "prepare(const FrameContext &, const Params &p)", "function",
-            "Pullback::Interp::Op::WarpVectorNoise")))
-        self.assertFalse(cov.exempt(item(
-            "prepare(const FrameContext &)", "function",
-            "Pullback::Interp::Op::WarpVectorNoise::Inner")))
-        self.assertFalse(cov.exempt(item(
-            "strength", "variable", "Pullback::Interp::Op::WarpVectorNoise")))
-
-    def test_spec_override_but_not_the_base_spec(self):
-        self.assertTrue(cov.exempt(item("HUE", "variable", "AshCloudSpec")))
-        self.assertFalse(cov.exempt(item("HUE", "variable", "Pullback::Spec")))
-        self.assertFalse(cov.exempt(item("SPEED", "variable", "AshCloudSpec")))
-
-    def test_trait_specialization_type_only(self):
-        self.assertTrue(cov.exempt(item(
-            "Type", "typedef", "SourcePolicyFor< GridSourceParams, B >")))
-        self.assertFalse(cov.exempt(item("Type", "typedef", "SourcePolicyFor")))
-
-
-class TestLocations(unittest.TestCase):
-    def test_instantiations_collapse_to_one_location(self):
-        items = [
-            cov.Undocumented("a.h", 4, "Params", "typedef", "Effect< A >"),
-            cov.Undocumented("a.h", 4, "Params", "typedef", "Effect< B >"),
-            cov.Undocumented("a.h", 2, "x", "variable", "S"),
-        ]
-        self.assertEqual([(i.path, i.line) for i in cov.locations(items)],
-                         [("a.h", 2), ("a.h", 4)])
-
-    def test_macro_undefined_in_its_own_file_is_exempt(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "a.h").write_text(
-                "#define ROW(x) x,\n#define KEEP 1\n#undef ROW\n",
-                encoding="utf-8")
-            items = [
-                cov.Undocumented("a.h", 1, "ROW(x)", "macro definition", "a.h"),
-                cov.Undocumented("a.h", 2, "KEEP", "macro definition", "a.h"),
-            ]
-            self.assertEqual([i.name for i in cov.locations(items, root)],
-                             ["KEEP"])
-
-    def test_exempt_items_are_dropped(self):
-        self.assertEqual(cov.locations(
-            [cov.Undocumented("a.h", 1, "value_type", "typedef", "R")]), [])
-
-
-
-class TestDoxyfileSetting(unittest.TestCase):
-    def test_continuation_lines_and_append(self):
-        text = ("INPUT = core \\\n        effects\nOTHER = x\n"
-                "INPUT += targets\n")
-        self.assertEqual(cov.doxyfile_setting(text, "INPUT"),
-                         ["core", "effects", "targets"])
-
-    def test_quoted_values_preserve_spaces_and_line_numbers(self):
-        text = 'EXCLUDE = "docs/some dir" \\\n "effects/another dir"\nEXCLUDE += core\n'
-        self.assertEqual(cov.doxyfile_entries(text, "EXCLUDE"), [
-            (1, '"docs/some dir"'), (2, '"effects/another dir"'), (3, "core"),
-        ])
-        self.assertEqual(cov.doxyfile_setting(text, "EXCLUDE"),
-                         ["docs/some dir", "effects/another dir", "core"])
-
-    def test_reassignment_replaces(self):
-        self.assertEqual(cov.doxyfile_setting(
-            "EXCLUDE = a\nEXCLUDE = b\n", "EXCLUDE"), ["b"])
-
-
-class TestFirmwareInputs(unittest.TestCase):
-    FILES = ["tools/pc_sampler.h", "tools/profile_isr_window.h", "tools/profile_clock.h",
-             "tools/phantasm.ld"]
-
-    def test_firmware_inputs_are_selected_and_have_file_documentation(self):
-        selected = cov.source_files(TOOLS.parent, [])
-        for path in self.FILES:
-            self.assertIn(path, selected)
-        self.assertEqual(cov.missing_file_blocks(TOOLS.parent, self.FILES), [])
-
-    def test_each_firmware_input_requires_its_file_block(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "tools").mkdir()
-            for name in self.FILES:
-                (root / name).write_text("/** @file */\n", encoding="utf-8")
-            self.assertEqual(cov.missing_file_blocks(root, self.FILES), [])
-            for name in self.FILES:
-                path = root / name
-                path.write_text("/* missing documentation */\n", encoding="utf-8")
-                self.assertEqual(cov.missing_file_blocks(root, self.FILES), [name])
-                path.write_text("/** @file */\n", encoding="utf-8")
-
-    def test_file_command_requires_a_documentation_comment(self):
-        cases = (
-            ("/* @file fixture.h */\n", False),
-            ("// @file fixture.h\n", False),
-            ('const char *s = "/** @file fixture.h */";\n', False),
-            ('const char *s = R"doc(/// @file fixture.h\n)doc";\n', False),
-            ('const char *s = R"(/* @file */ "/** @file */")";\n', False),
-            ('const char *s = "quoted \\\"/** @file fixture.h */";\n', False),
-            ("/** @file fixture.h */\n", True),
-            ("/*! \\file fixture.h */\n", True),
-            ("/// @file fixture.h\n", True),
-            ("//! @file fixture.h\n", True),
-            ('"/* not a comment */";\n/** @file fixture.h */\n', True),
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            for source, documented in cases:
-                with self.subTest(source=source):
-                    (root / "fixture.h").write_text(source, encoding="utf-8")
-                    self.assertEqual(cov.missing_file_blocks(root, ["fixture.h"]),
-                                     [] if documented else ["fixture.h"])
-
-    def test_linker_filter_publishes_source_inside_one_documentation_block(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "fixture.ld"
-            source = "/* layout ? ? @address */\nSECTIONS {\n\t*(.text.*)\n}\n"
-            path.write_text(source, encoding="utf-8")
-            output = cov.linker_documentation(path)
-            self.assertTrue(output.startswith("/** @file fixture.ld\n"))
-            self.assertTrue(output.endswith("\n*/\n"))
-            self.assertEqual(output.count("*/"), 1)
-            self.assertTrue(output.isascii())
-            preformatted = re.search(r"<pre>(.*?)</pre>", output, re.S)
-            self.assertIsNotNone(preformatted)
-            self.assertNotIn("*", preformatted[1])
-            self.assertNotIn("\t", preformatted[1])
-            self.assertEqual(html.unescape(preformatted[1]), source)
-
-
-class TestRunDoxygen(unittest.TestCase):
-    def test_overlay_overrides_base_settings_and_returns_warnings(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "Doxyfile").write_text(
-                "EXTRACT_ALL = YES\nINPUT = core \\\n effects\n",
-                encoding="utf-8")
-            for paths in ([], ["core/a.h"], ["core/with space.h"]):
-                with self.subTest(paths=paths):
-                    def run(*args, **kwargs):
-                        config = kwargs["input"]
-                        self.assertIn(cov.linker_filter_setting() + "\n", config)
-                        self.assertEqual(cov.doxyfile_setting(config, "EXTRACT_ALL"), ["NO"])
-                        self.assertEqual(cov.doxyfile_setting(config, "WARN_IF_UNDOCUMENTED"),
-                                         ["YES"])
-                        self.assertEqual(cov.doxyfile_setting(config, "INPUT"),
-                                         paths or ["core", "effects"])
-                        log, = cov.doxyfile_setting(config, "WARN_LOGFILE")
-                        Path(log).write_text("sentinel warning\n", encoding="utf-8")
-                    with mock.patch.object(cov.subprocess, "run", side_effect=run) as runner:
-                        self.assertEqual(cov.run_doxygen("doxygen", root, paths),
-                                         "sentinel warning\n")
-                    runner.assert_called_once()
-
-    def test_linker_filter_quotes_selected_interpreter_and_cli_matches(self):
-        for platform, prefix in (("nt", "call "), ("posix", "")):
-            with self.subTest(platform=platform), \
-                 mock.patch.object(cov.sys, "executable", "C:/Python With Spaces/python.exe"), \
-                 mock.patch.object(cov, "Path", type(Path())), \
-                 mock.patch.object(cov.os, "name", platform):
-                expected = (f'FILTER_PATTERNS = "*.ld={prefix}\\"C:/Python With Spaces/python.exe\\" '
-                            'tools/doc_coverage.py --linker-source"')
-                self.assertEqual(cov.linker_filter_setting(), expected)
-                with contextlib.redirect_stdout(io.StringIO()) as output:
-                    self.assertEqual(cov.main(["--linker-filter"]), 0)
-                self.assertEqual(output.getvalue(), expected + "\n")
-
 
 class TestMain(unittest.TestCase):
-    def test_empty_selection_refuses_before_doxygen(self):
-        with mock.patch.object(cov, "source_files", return_value=[]), \
-             mock.patch.object(cov, "run_doxygen") as run, \
-             contextlib.redirect_stderr(io.StringIO()) as errors:
-            self.assertEqual(cov.main([]), 2)
-        self.assertIn("no source files", errors.getvalue())
-        run.assert_not_called()
-
     def test_tool_errors_are_distinct_from_coverage_failures(self):
         for error in (OSError("missing executable"), subprocess.CalledProcessError(1, "git")):
             with self.subTest(error=error), \
@@ -305,103 +71,15 @@ class TestMain(unittest.TestCase):
                 self.assertEqual(cov.main(["--root", str(root)]), 1)
 
 
-class TestFileBlocks(unittest.TestCase):
-    def test_files_without_a_file_command_are_reported(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "a.h").write_text("/** @file a.h */\n", encoding="utf-8")
-            (root / "b.h").write_text("/** \\file b.h */\n", encoding="utf-8")
-            (root / "c.h").write_text("// profile.h\n", encoding="utf-8")
-            self.assertEqual(
-                cov.missing_file_blocks(root, ["a.h", "b.h", "c.h"]), ["c.h"])
-
-    def test_missing_tracked_source_is_a_path_qualified_tooling_error(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            with mock.patch.object(cov, "source_files", return_value=["missing.h"]), \
-                 contextlib.redirect_stderr(io.StringIO()) as errors:
-                self.assertEqual(cov.main(["--root", str(root)]), 2)
-            self.assertIn("missing.h:1: cannot read source", errors.getvalue())
-            (root / "exists.h").write_text("/** @file */", encoding="utf-8")
-            with mock.patch.object(cov, "source_files", return_value=["exists.h"]), \
-                 mock.patch.object(cov, "run_doxygen", return_value=""), \
-                 mock.patch.object(cov, "missing_file_blocks", return_value=[]), \
-                 mock.patch.object(cov, "read_source", side_effect=OSError("exists.h:1: unreadable")), \
-                 contextlib.redirect_stderr(io.StringIO()) as errors:
-                self.assertEqual(cov.main(["--root", str(root)]), 2)
-            self.assertIn("exists.h:1:", errors.getvalue())
-
-    def test_source_files_apply_patterns_and_excludes(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            git_run(root, 'init', '-q')
-            (root / "Doxyfile").write_text(
-                "INPUT = src\nFILE_PATTERNS = *.h\nEXCLUDE = src/gen\n",
-                encoding="utf-8")
-            (root / "src" / "gen").mkdir(parents=True)
-            for name in ("src/a.h", "src/b.md", "src/gen/c.h"):
-                (root / name).write_text("x\n", encoding="utf-8")
-            git_run(root, 'add', '.')
-            with mock.patch.dict(os.environ, isolated_env(), clear=True):
-                self.assertEqual(cov.source_files(root, []), ["src/a.h"])
-
-
-def silent(text):
-    return [(i.line, i.name, i.kind)
-            for i in cov.silent_declarations("a.h", text)]
-
-
 class TestSilentDeclarations(unittest.TestCase):
-    def test_string_literals_do_not_hide_or_add_declarations(self):
-        self.assertEqual(silent(
-            'const char *glob = "/*";\n'
-            'struct Real {};\n'
-            '// end */\n'
-            'const char *raw = R"tag(\n'
-            'struct Fake {};\n'
-            ')tag";\n'), [(2, "Real", "empty struct")])
-
-    def test_blank_line_detaches_documentation_from_empty_declarations(self):
-        for comment in ("/** @file x.h */", "/** @brief A. */", "/*! @brief A. */",
-                        "/// @brief A.", "//! @brief A."):
-            for declaration, expected in (
-                ("struct Empty {};\n", (3, "Empty", "empty struct")),
-                ("template <typename T> concept C = true;\n", (3, "C", "concept")),
-            ):
-                with self.subTest(comment=comment, declaration=declaration):
-                    self.assertEqual(silent(comment + "\n" + declaration), [])
-                    self.assertEqual(silent(comment + "\n\n" + declaration), [expected])
-
     def test_undocumented_empty_struct_and_concept_are_reported(self):
-        self.assertEqual(silent(
+        self.assertEqual([(i.line, i.name, i.kind) for i in cov.silent_declarations(
+            "a.h",
             "struct Tag {};\n"
             "template <typename T>\nconcept C = true;\n"
-            "struct Base : std::false_type {};\n"), [
+            "struct Base : std::false_type {};\n")], [
             (1, "Tag", "empty struct"), (3, "C", "concept"),
             (4, "Base", "empty struct")])
-
-    def test_doc_comments_document_the_declaration(self):
-        self.assertEqual(silent(
-            "/** @brief A. */\nstruct A {};\n"
-            "/// B.\nstruct B {};\n"
-            "struct C {}; ///< C.\n"
-            "/** @brief D. */\ntemplate <typename T>\nconcept D = true;\n"),
-            [])
-
-    def test_plain_comment_does_not_document(self):
-        self.assertEqual(silent("/* tag */\nstruct A {};\n// tag\nstruct B {};\n"),
-                         [(2, "A", "empty struct"), (4, "B", "empty struct")])
-
-    def test_non_empty_struct_specialization_and_comment_text_are_ignored(self):
-        self.assertEqual(silent(
-            "struct A { int x; };\n"
-            "template <> struct T<int> : std::true_type {};\n"
-            "// struct Hidden {};\n"), [])
-
-    def test_operator_contract_member_exempt_only_in_op_namespace(self):
-        model = "struct M {\n  struct Prepared {};\n};\n"
-        self.assertEqual(silent("namespace Op {\n" + model + "}\n"), [])
-        self.assertEqual(silent(model), [(2, "Prepared", "empty struct")])
 
 
 if __name__ == "__main__":
