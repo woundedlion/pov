@@ -623,12 +623,7 @@ template <RasterConfig Cfg> struct SinglePassWalk {
         requires { std::remove_cvref_t<SampleT>::NEWTON_UNIT; };
     if constexpr (Cfg.open_geodesic || NEWTON_UNIT_SAMPLER) {
       HS_PLOT_COUNT(normalizations);
-#if HS_REFERENCE_SCREEN_STEP_HOOK
-      if (g_reference_screen_step) {
-        p = smp.pos.normalized();
-      } else
-#endif
-        p = newton_unit(smp.pos);
+      p = newton_unit(smp.pos);
     } else if constexpr (NON_DEFAULT_POLICY &&
                          requires { sample.one_pass(current_t); }) {
       // Balanced walks use the Newton step, default-density walks the
@@ -1005,21 +1000,14 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // Equatorial step 2π/W: screen_step cap and balanced-threshold reference.
     const float base_step = (2.0f * math::PI_F) / W;
     auto adaptive_step = [&](const SamplePT &value) {
-#if HS_REFERENCE_SCREEN_STEP_HOOK
-      if (!g_reference_screen_step)
-#endif
-        if (!world_identity && step_axes.usable())
-          return screen_step_from_axes<W, H>(value, step_axes);
+      if (!world_identity && step_axes.usable())
+        return screen_step_from_axes<W, H>(value, step_axes);
       if constexpr (std::same_as<std::decay_t<PipelineT>, PipelineRef>) {
         return pipeline_screen_step<W, H>(pipeline, value, world_identity,
                                           &step_axes);
       } else {
         if (!world_identity)
           return pipeline_screen_step<W, H>(pipeline, value, false, &step_axes);
-#if HS_REFERENCE_SCREEN_STEP_HOOK
-        if (g_reference_screen_step)
-          return screen_step_reference<W, H>(value.pos, value.tan, base_step);
-#endif
         return screen_step<W, H>(value.pos, value.tan, base_step);
       }
     };

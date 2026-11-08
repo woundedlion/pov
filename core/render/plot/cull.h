@@ -227,8 +227,6 @@ private:
 };
 
 #include "core/render/plot/cull/samplers.h"
-/** @def HS_REFERENCE_SCREEN_STEP_HOOK
- * @brief Compiles the exact screen-step selection hook. */
 #include "core/render/plot/cull/spans.h"
 #include "core/render/plot/cull/pipeline.h"
 #include "core/render/plot/cull/visibility.h"

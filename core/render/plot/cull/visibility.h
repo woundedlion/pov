@@ -174,33 +174,19 @@ pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
                      const ScreenStepAxes *axes = nullptr) {
   constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   if (world_identity) {
-#if HS_REFERENCE_SCREEN_STEP_HOOK
-    if (g_reference_screen_step)
-      return screen_step_reference<W, H>(sample.pos, sample.tan, BASE_STEP);
-#endif
     return screen_step<W, H>(sample.pos, sample.tan, BASE_STEP);
   }
   if (math::dot(sample.tan, sample.tan) < math::EPS_NORMALIZE_SQ)
     return BASE_STEP;
   float step = BASE_STEP;
-#if HS_REFERENCE_SCREEN_STEP_HOOK
-  if (!g_reference_screen_step)
-#endif
-    if (axes && axes->usable())
-      return screen_step_from_axes<W, H>(sample, *axes);
+  if (axes && axes->usable())
+    return screen_step_from_axes<W, H>(sample, *axes);
   // False visits every still-sampling pose.
   const bool nonrigid = pipeline_sampling_edge(
       pipeline, sample.pos, sample.tan, nullptr,
       [&](const math::Vector &pos, const math::Vector &tan, const math::Basis *)
           HS_HOT_FLASH_MEMBER {
-            float candidate;
-#if HS_REFERENCE_SCREEN_STEP_HOOK
-            if (g_reference_screen_step)
-              candidate = screen_step_reference<W, H>(pos, tan, BASE_STEP);
-            else
-#endif
-              candidate = screen_step<W, H>(pos, tan, BASE_STEP);
-            step = fminf(step, candidate);
+            step = fminf(step, screen_step<W, H>(pos, tan, BASE_STEP));
             return false;
           });
   return nonrigid ? BASE_STEP * MIN_POLE_SCALE : step;
