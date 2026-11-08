@@ -18,6 +18,7 @@
 
 #include <emscripten/bind.h>
 #include "core/platform/platform.h"
+#include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
 #include "targets/wasm/arena_metrics.h"
 #include "targets/wasm/mesh_op_bounds.h"
@@ -694,6 +695,26 @@ public:
   }
 
   /**
+   * @brief Lists the authored primitive ops recipe-morph coverage never admits.
+   * @return JS array of editor op names; composites are omitted because they
+   *         lower to primitives before the coverage check.
+   */
+  static OpNamesValue getUnsweptOps() {
+    emscripten::val names = emscripten::val::array();
+    for (size_t i = 0; i < Solids::OP_COUNT; ++i) {
+      const Solids::OpStep step{static_cast<Solids::Op>(i)};
+      const Solids::Recipe recipe{0, &step, 1};
+      if (Solids::op_morphs(step.op) || Solids::lowered_step_count(recipe) != 1)
+        continue;
+      Solids::OpStep lowered;
+      Solids::expand_to_primitives(recipe, &lowered, 1);
+      if (lowered.op == step.op)
+        names.call<void>("push", emscripten::val(op_name(step.op)));
+    }
+    return names;
+  }
+
+  /**
    * @brief Returns a solid's authored recipe chain for the editor.
    * @param name Registry name to look up.
    * @return JS object {seed: string, ops: [{op: string, param, twist}]}, or
@@ -824,8 +845,19 @@ public:
   static bool getLastAdjusted() { return last_mesh_op_adjusted; }
 };
 
-/** @brief Registers the mesh editor bridge's enum and class with Embind. */
+/** @brief Registers the mesh editor bridge's enum, constants and class with
+ *         Embind. */
 static void bind_mesh_ops() {
+  // Recipe-morph sweep bands read by Solids::is_morphable_step.
+  emscripten::constant("MORPH_TRUNCATE_MIN",
+                       ConwayGraph::T_TRUNCATE_ARRIVAL_MIN);
+  emscripten::constant("MORPH_TRUNCATE_MAX", ConwayGraph::T_TRUNCATE_FAR_MAX);
+  emscripten::constant("MORPH_TRUNCATE_PINCH_LOWER",
+                       ConwayGraph::T_TRUNCATE_PINCH_LOWER);
+  emscripten::constant("MORPH_TRUNCATE_PINCH_UPPER",
+                       ConwayGraph::T_TRUNCATE_PINCH_UPPER);
+  emscripten::constant("MORPH_CHAMFER_MIN", ConwayGraph::T_EPS);
+  emscripten::constant("MORPH_CHAMFER_MAX", Solids::CHAMFER_T_MAX);
   emscripten::enum_<MeshOpResult>("MeshOpResult")
       .value("OK", MeshOpResult::OK)
       .value("UNKNOWN_NAME", MeshOpResult::UNKNOWN_NAME)
@@ -845,6 +877,7 @@ static void bind_mesh_ops() {
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
       .class_function("getRecipe", &MeshOpsWrapper::getRecipe)
+      .class_function("getUnsweptOps", &MeshOpsWrapper::getUnsweptOps)
 #ifdef HS_WASM_DEV_BINDINGS
       .class_function("getMaxBounds", &MeshOpsWrapper::getMaxBounds)
 #endif

@@ -21,6 +21,40 @@ for (const [name, value] of Object.entries(module)) {
 }
 if (!(module.SHOW_FRAMES_PER_SECOND > 0) || !classMethods.HolosphereEngine)
   throw new Error('engine contract is incomplete');
+
+/**
+ * Shortest decimal that rounds to the same float32 as a bound engine float.
+ * @param {string} name - Bound constant name.
+ * @returns {number} The decimal value.
+ */
+const engineFloat = (name) => {
+  const value = module[name];
+  if (!Number.isFinite(value)) throw new Error(`engine contract is missing ${name}`);
+  for (let digits = 1; digits <= 9; digits++) {
+    const decimal = Number(value.toPrecision(digits));
+    if (Math.fround(decimal) === value) return decimal;
+  }
+  return value;
+};
+const unswept = module.MeshOps?.getUnsweptOps?.();
+if (!Array.isArray(unswept) || !unswept.every((op) => typeof op === 'string'))
+  throw new Error('engine contract is missing MeshOps.getUnsweptOps');
+const morphSweep = {
+  bands: {
+    truncate: {
+      t: {
+        min: engineFloat('MORPH_TRUNCATE_MIN'),
+        max: engineFloat('MORPH_TRUNCATE_MAX'),
+        excluded: {
+          lower: engineFloat('MORPH_TRUNCATE_PINCH_LOWER'),
+          upper: engineFloat('MORPH_TRUNCATE_PINCH_UPPER'),
+        },
+      },
+    },
+    chamfer: { t: { min: engineFloat('MORPH_CHAMFER_MIN'), max: engineFloat('MORPH_CHAMFER_MAX') } },
+  },
+  unswept: [...unswept].sort(),
+};
 const engine = new module.HolosphereEngine();
 let effectIdentities;
 try { effectIdentities = engine.getEffectIdentities(); }
@@ -36,6 +70,14 @@ export const NUMERIC_ENUMS = ${JSON.stringify(numericEnums, null, 2)};
 export const CLASS_METHODS = ${JSON.stringify(classMethods, null, 2)};
 /** @type {Array<{id: string, display_name: string}>} */
 export const EFFECT_IDENTITIES = ${JSON.stringify(effectIdentities, null, 2)};
+/**
+ * Recipe-morph sweep coverage of the authored primitive ops. A band entry is
+ * the inclusive parameter range a leg covers, less any excluded interval
+ * (above the lower bound through the upper bound); an unswept op never sweeps;
+ * any other primitive sweeps at every parameter it accepts.
+ * @type {{bands: Record<string, Record<string, {min: number, max: number, excluded?: {lower: number, upper: number}}>>, unswept: string[]}}
+ */
+export const MORPH_SWEEP = ${JSON.stringify(morphSweep, null, 2)};
 `);
 
 let declarations = await readFile(resolve(directory, 'holosphere_bindings.d.ts'), 'utf8');

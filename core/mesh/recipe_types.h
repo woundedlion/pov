@@ -41,6 +41,9 @@ enum class Op : uint8_t {
   ZIP
 };
 
+/** Number of Op enumerators; ZIP is the last. */
+inline constexpr size_t OP_COUNT = static_cast<size_t>(Op::ZIP) + 1;
+
 /**
  * @brief One authored step in a recipe's op chain.
  */

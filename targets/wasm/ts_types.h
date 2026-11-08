@@ -32,6 +32,7 @@ HS_TS_PAYLOAD(MeshFacesValue)
 HS_TS_PAYLOAD(MeshClassificationValue)
 HS_TS_PAYLOAD(SolidRegistryValue)
 HS_TS_PAYLOAD(SolidRecipeValue)
+HS_TS_PAYLOAD(OpNamesValue)
 HS_TS_PAYLOAD(MeshBoundsValue)
 HS_TS_PAYLOAD(MeshArenaMetricsValue)
 HS_TS_PAYLOAD(PaletteResultValue)
@@ -83,6 +84,7 @@ inline void bind_ts_types() {
       R"(import("./engine_types.js").SolidRegistryEntry[])");
   emscripten::register_type<SolidRecipeValue>(
       "SolidRecipeValue", R"(import("./engine_types.js").SolidRecipe | null)");
+  emscripten::register_type<OpNamesValue>("OpNamesValue", R"(string[])");
   emscripten::register_type<MeshBoundsValue>(
       "MeshBoundsValue",
       R"({max_v: number; v_name: string; max_f: number; f_name: string; max_i: number; i_name: string} | null)");
