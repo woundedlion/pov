@@ -70,7 +70,8 @@ def main():
     unskipped = {directory: False for directory, _ in files}
     # One process per file; more workers than this oversubscribe the
     # subprocess-heavy suites until their timeouts trip.
-    with ThreadPoolExecutor(max_workers=min(8, os.cpu_count() or 1)) as pool:
+    workers = int(os.environ.get("HS_PYTHON_TEST_WORKERS", min(8, os.cpu_count() or 1)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
         for (directory, _name), result in pool.map(run_file, files):
             sys.stdout.write(result.stdout)
             sys.stderr.write(result.stderr)

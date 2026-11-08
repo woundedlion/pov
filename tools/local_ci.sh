@@ -54,6 +54,10 @@ MANUAL=(optimized-tests wasm teensy-warnings)
 # Lanes that run beside the other jobs, each one's jobs in order.
 LANES=('windows-tests thread-sanitizer' 'python-tests' 'pcb-tests')
 
+# Live processes, not cores or memory, exhaust the Windows desktop heap, after
+# which new processes fail with 0xc0000142; the lanes cap their fan-out.
+export CMAKE_BUILD_PARALLEL_LEVEL=8 HS_PYTHON_TEST_WORKERS=4
+
 # Paths whose change runs the local Python suites; ci.yml runs them always.
 PYTHON_INPUTS='[.]py$|^tools/|^hardware/|^[.]githooks/|^[.]github/|^requirements/|^justfile$|^platformio[.]ini$'
 
