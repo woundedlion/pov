@@ -475,7 +475,7 @@ inline void report_near_rel(double a, double b, double rel_tol,
 
 /** Approved skipped cases under fast-math. */
 inline constexpr const char *FAST_MATH_APPROVED_SKIPS[]{
-    "test_specialized_render_signature", "test_blend_outputs_denormal_alpha"};
+    "test_blend_outputs_denormal_alpha"};
 
 /**
  * @brief Records one skipped sub-case and names what retired it.

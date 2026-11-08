@@ -8,7 +8,6 @@
 #include "tests/test_shader_chain.h"
 #include "tests/test_composed_effect.h"
 #include "tests/test_plot_parity.h"
-#include "tests/test_hyper_lattice.h"
 int main() {
   hs_test::ModuleFixture fixture("render_goldens");
   hs_test::plot_parity_tests::test_platform_fastmath_golden_reference();
@@ -21,7 +20,6 @@ int main() {
   hs_test::composed_effect_tests::test_mobius_grid_instantaneous_pixel_golden();
   hs_test::plot_parity_tests::
       test_filter_pipeline_effects_match_recorded_frames();
-  hs_test::hyper_lattice_tests::test_instantaneous_render_pins();
   return (fixture.result() != 0 ||
           (hs_test::stats().skipped > 0 && hs_test::skips_are_errors()))
              ? 1

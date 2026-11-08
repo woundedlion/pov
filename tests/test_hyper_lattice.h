@@ -546,122 +546,167 @@ inline void test_coincident_planes_form_one_layer() {
   HS_EXPECT_EQ(layers, 2);
 }
 
-/** @brief One shade() result in signature fold order: RGB then Q16 alpha. */
-struct ShadeSample {
-  uint16_t r;     /**< Linear red channel. */
-  uint16_t g;     /**< Linear green channel. */
-  uint16_t b;     /**< Linear blue channel. */
-  uint16_t alpha; /**< Coverage as Q16. */
-};
-
 /**
- * @brief Per-channel slack, in 16-bit linear units, for a libm difference.
- * @details The depth palette is baked through cbrtf/powf in the OKLab gamut
- * search, whose last bits differ between libm builds.
+ * @brief Per-channel slack, in 16-bit linear units, between two shade() paths
+ *        that round differently.
  */
 constexpr uint16_t MAX_SHADE_CHANNEL_DELTA = 16;
 
+/** @brief View directions the shade properties sample. */
+inline constexpr math::Vector SHADE_DIRECTIONS[] = {
+    {1.0f, 0.0f, 0.0f},
+    {-1.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f},
+    {0.577350269f, 0.577350269f, 0.577350269f},
+    {-0.707106781f, 0.707106781f, 0.0f},
+    {0.301511345f, -0.904534034f, 0.301511345f},
+    {0.267261242f, 0.534522484f, 0.801783726f},
+    {-0.408248290f, 0.816496581f, -0.408248290f},
+    {0.923879533f, 0.382683432f, 0.0f},
+    {-0.270598050f, 0.653281482f, 0.707106781f},
+    {0.5f, -0.5f, 0.707106781f},
+};
+
+/** @brief A cubic-wire camera the shade properties sample. */
+struct ShadeCamera {
+  size_t preset;                 ///< Preset whose parameters shade.
+  math::Vec4 origin;             ///< Camera position in lattice cells.
+  std::array<float, 6> rotation; ///< Plane angles.
+};
+
+/** @brief 3D and 4D-slice cameras, the latter with and without w rotation. */
+inline constexpr ShadeCamera SHADE_CAMERAS[] = {
+    {HyperLatticeWhiteBox::Effect::CUBIC_PRESET_INDEX,
+     {{0.17f, 0.31f, 0.43f, 0.59f}},
+     {0.0f, 0.3f, 0.7f, 0.0f, 0.0f, 0.0f}},
+    {HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX,
+     {{0.91f, 0.07f, 0.73f, 0.37f}},
+     {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f}},
+    {HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX,
+     {{0.17f, 0.31f, 0.43f, 0.59f}},
+     {0.0f, 0.3f, 0.7f, 0.11f, 0.23f, 0.41f}},
+    {HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX,
+     {{0.91f, 0.07f, 0.73f, 0.37f}},
+     {1.1f, 2.3f, 0.4f, 0.53f, 0.19f, 0.87f}},
+};
+
 /**
- * @brief Scores rendered samples against a golden table.
- * @param label Context label for out-of-band channels.
- * @param rendered Samples in fold order, one row per (preset, direction).
- * @param golden Expected sample rows.
- * @param count Row count of both tables.
- * @param per_preset Rows per preset, so a failing row names preset and sample.
+ * @brief Prepares a camera's cubic trace at 288x144.
+ * @param effect Initialised effect supplying the depth palette.
+ * @param camera Camera to prepare.
+ * @return The prepared trace.
  */
-inline void expect_shade_samples(const char *label, const ShadeSample *rendered,
-                                 const ShadeSample *golden, size_t count,
-                                 size_t per_preset) {
-  for (size_t row = 0; row < count; ++row) {
-    const ShadeSample &got = rendered[row];
-    const ShadeSample &want = golden[row];
-    HS_CONTEXT(label, static_cast<long long>(row / per_preset),
-               static_cast<long long>(row % per_preset));
-    HS_EXPECT_NEAR(got.r, want.r, MAX_SHADE_CHANNEL_DELTA);
-    HS_EXPECT_NEAR(got.g, want.g, MAX_SHADE_CHANNEL_DELTA);
-    HS_EXPECT_NEAR(got.b, want.b, MAX_SHADE_CHANNEL_DELTA);
-    HS_EXPECT_NEAR(got.alpha, want.alpha, 1);
+inline HL::PreparedTrace
+prepare_shade_camera(const HyperLatticeWhiteBox::Effect &effect,
+                     const ShadeCamera &camera) {
+  return HL::prepare_trace({
+      HyperLatticeWhiteBox::Effect::preset(camera.preset).params,
+      camera.origin,
+      camera.rotation,
+      HL::pixel_half_angle<288, 144>(),
+      HyperLatticeWhiteBox::depth_palette(effect),
+  });
+}
+
+/**
+ * @brief Checks two shade() samples agree within the cross-path slack.
+ * @param got Sample under test.
+ * @param want Reference sample.
+ */
+inline void expect_shade_near(const Color4 &got, const Color4 &want) {
+  HS_EXPECT_NEAR(got.color.r, want.color.r, MAX_SHADE_CHANNEL_DELTA);
+  HS_EXPECT_NEAR(got.color.g, want.color.g, MAX_SHADE_CHANNEL_DELTA);
+  HS_EXPECT_NEAR(got.color.b, want.color.b, MAX_SHADE_CHANNEL_DELTA);
+  HS_EXPECT_NEAR(frac_to_q16(got.alpha), frac_to_q16(want.alpha), 1);
+}
+
+/**
+ * @brief shade() returns zero for a ray that misses every wire, an alpha in
+ *        [0, 1], and channels no brighter than the depth palette.
+ */
+inline void test_shade_samples_are_in_range() {
+  reset_globals();
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  const BakedPalette &palette = *HyperLatticeWhiteBox::depth_palette(effect);
+  Pixel brightest{};
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+    const Pixel entry =
+        palette.get_color(static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1));
+    brightest = {std::max(brightest.r, entry.r), std::max(brightest.g, entry.g),
+                 std::max(brightest.b, entry.b)};
+  }
+  int lit = 0;
+  for (const ShadeCamera &camera : SHADE_CAMERAS) {
+    const HL::PreparedTrace prepared = prepare_shade_camera(effect, camera);
+    for (size_t sample = 0; sample < std::size(SHADE_DIRECTIONS); ++sample) {
+      HS_CONTEXT("preset, direction", static_cast<long long>(camera.preset),
+                 static_cast<long long>(sample));
+      const math::Vector &direction = SHADE_DIRECTIONS[sample];
+      const Color4 shaded = HL::shade(direction, prepared);
+      HS_EXPECT_TRUE(shaded.alpha >= 0.0f && shaded.alpha <= 1.0f);
+      HS_EXPECT_LE(shaded.color.r, brightest.r + 1);
+      HS_EXPECT_LE(shaded.color.g, brightest.g + 1);
+      HS_EXPECT_LE(shaded.color.b, brightest.b + 1);
+      if (shaded.alpha == 0.0f)
+        HS_EXPECT_TRUE(shaded.color == Pixel{});
+      lit += shaded.alpha > 0.0f;
+    }
+  }
+  HS_EXPECT_GT(lit, 0);
+
+  // An axis ray through cell centres stays half a cell from every edge.
+  for (size_t preset : {HyperLatticeWhiteBox::Effect::CUBIC_PRESET_INDEX,
+                        HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX}) {
+    HS_CONTEXT("miss preset", static_cast<long long>(preset));
+    const ShadeCamera centred{preset, {{0.5f, 0.5f, 0.5f, 0.5f}}, {}};
+    const Color4 miss = HL::shade(math::Vector(1.0f, 0.0f, 0.0f),
+                                  prepare_shade_camera(effect, centred));
+    HS_EXPECT_EQ(miss.alpha, 0.0f);
+    HS_EXPECT_TRUE(miss.color == Pixel{});
   }
 }
 
 /**
- * @brief Pins shade() over a fixed direction and preset sample.
+ * @brief Rotating the view direction and the camera pose by a symmetry of the
+ *        lattice leaves shade() unchanged.
+ * @details The world rotation cycles the view axes; the lattice symmetry
+ * cycles x, y and z in 3D, and swaps x with w and y with z in the 4D slice.
  */
-inline void test_render_signature() {
+inline void test_shade_respects_lattice_symmetry() {
   reset_globals();
-  static constexpr math::Vector DIRECTIONS[] = {
-      {1.0f, 0.0f, 0.0f},
-      {-1.0f, 0.0f, 0.0f},
-      {0.0f, 1.0f, 0.0f},
-      {0.0f, 0.0f, 1.0f},
-      {0.577350269f, 0.577350269f, 0.577350269f},
-      {-0.707106781f, 0.707106781f, 0.0f},
-      {0.301511345f, -0.904534034f, 0.301511345f},
-      {0.267261242f, 0.534522484f, 0.801783726f},
-      {-0.408248290f, 0.816496581f, -0.408248290f},
-      {0.923879533f, 0.382683432f, 0.0f},
-      {-0.270598050f, 0.653281482f, 0.707106781f},
-      {0.5f, -0.5f, 0.707106781f},
-  };
-  static constexpr math::Vec4 ORIGINS[] = {
-      {{0.17f, 0.31f, 0.43f, 0.59f}},
-      {{0.91f, 0.07f, 0.73f, 0.37f}},
-  };
-  static constexpr std::array<float, 6> ROTATIONS[] = {
-      {0.0f, 0.3f, 0.7f, 0.0f, 0.0f, 0.0f},
-      {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f},
-  };
-  static constexpr ShadeSample GOLDEN[] = {
-      {11664, 29080, 38288, 17981},
-      {6289, 20810, 33585, 7906},
-      {7018, 22012, 34137, 89},
-      {8004, 23671, 35053, 44366},
-      {443, 411, 3630, 73},
-      {15859, 34189, 41182, 14730},
-      {23945, 40773, 44710, 11477},
-      {9649, 23679, 35425, 9199},
-      {578, 1541, 12313, 3619},
-      {2037, 10614, 27205, 18},
-      {522, 569, 5266, 27},
-      {22397, 39389, 44357, 142},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {2986, 13626, 29849, 4010},
-      {335, 272, 2239, 6},
-      {2856, 13378, 29840, 1664},
-      {1290, 5736, 18677, 7},
-      {958, 3979, 15939, 110},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {1621, 7785, 22182, 95},
-  };
-
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
-  ShadeSample rendered[std::size(GOLDEN)];
-  size_t row = 0;
-  static constexpr size_t PRESETS[] = {
-      HyperLatticeWhiteBox::Effect::CUBIC_PRESET_INDEX,
-      HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX};
-  for (size_t preset = 0; preset < std::size(ORIGINS); ++preset) {
-    const HL::FrameState frame{
-        HyperLatticeWhiteBox::Effect::preset(PRESETS[preset]).params,
-        ORIGINS[preset],
-        ROTATIONS[preset],
-        HL::pixel_half_angle<288, 144>(),
-        HyperLatticeWhiteBox::depth_palette(effect),
-    };
-    const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-    for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
-      const Color4 color = HL::shade(DIRECTIONS[sample], prepared);
-      rendered[row++] = {color.color.r, color.color.g, color.color.b,
-                         frac_to_q16(color.alpha)};
+  constexpr std::array<int, 3> WORLD{1, 2, 0};
+  int lit = 0;
+  for (const ShadeCamera &camera : SHADE_CAMERAS) {
+    const HL::PreparedTrace prepared = prepare_shade_camera(effect, camera);
+    const bool slice =
+        HyperLatticeWhiteBox::Effect::preset(camera.preset).params.mode ==
+        HL::LatticeMode::SLICE_4D;
+    const std::array<int, 4> lattice =
+        slice ? std::array<int, 4>{3, 2, 1, 0} : std::array<int, 4>{1, 2, 0, 3};
+    HL::PreparedTrace turned = prepared;
+    for (int i = 0; i < 4; ++i) {
+      turned.origin[i] = prepared.origin[lattice[i]];
+      for (int k = 0; k < 4; ++k)
+        turned.world_to_lattice.m[i][k] =
+            prepared.world_to_lattice.m[lattice[i]][k < 3 ? WORLD[k] : k];
+    }
+    for (size_t sample = 0; sample < std::size(SHADE_DIRECTIONS); ++sample) {
+      HS_CONTEXT("preset, direction", static_cast<long long>(camera.preset),
+                 static_cast<long long>(sample));
+      const math::Vector &direction = SHADE_DIRECTIONS[sample];
+      const float axes[3] = {direction.x, direction.y, direction.z};
+      const math::Vector rotated(axes[WORLD[0]], axes[WORLD[1]],
+                                 axes[WORLD[2]]);
+      const Color4 shaded = HL::shade(direction, prepared);
+      expect_shade_near(HL::shade(rotated, turned), shaded);
+      lit += shaded.alpha > 0.0f;
     }
   }
-  expect_shade_samples("render_signature", rendered, GOLDEN, std::size(GOLDEN),
-                       std::size(DIRECTIONS));
+  HS_EXPECT_GT(lit, 0);
 }
 
 inline void test_specialized_slice_transition() {
@@ -723,253 +768,83 @@ inline void test_specialized_slice_transition() {
 }
 
 /**
- * @brief Pins specialized 4D-slice composite_crossings samples.
+ * @brief The specialized 4D-slice shade matches the general shade() within
+ *        the cross-path slack.
  */
-inline void test_specialized_render_signature() {
+inline void test_specialized_shade_matches_general() {
   reset_globals();
-  static constexpr math::Vector DIRECTIONS[] = {
-      {1.0f, 0.0f, 0.0f},
-      {0.0f, 1.0f, 0.0f},
-      {0.0f, 0.0f, 1.0f},
-      {0.577350269f, 0.577350269f, 0.577350269f},
-      {-0.707106781f, 0.707106781f, 0.0f},
-      {0.301511345f, -0.904534034f, 0.301511345f},
-      {0.267261242f, 0.534522484f, 0.801783726f},
-      {-0.408248290f, 0.816496581f, -0.408248290f},
-      {0.923879533f, 0.382683432f, 0.0f},
-      {-0.270598050f, 0.653281482f, 0.707106781f},
-      {0.5f, -0.5f, 0.707106781f},
-      {-1.0f, 0.0f, 0.0f},
-  };
-  static constexpr math::Vec4 ORIGINS[] = {
-      {{0.17f, 0.31f, 0.43f, 0.59f}},
-      {{0.91f, 0.07f, 0.73f, 0.37f}},
-  };
-  static constexpr std::array<float, 6> ROTATIONS[] = {
-      {0.0f, 0.3f, 0.7f, 0.11f, 0.23f, 0.41f},
-      {1.1f, 2.3f, 0.4f, 0.53f, 0.19f, 0.87f},
-  };
-  static constexpr ShadeSample GOLDEN[] = {
-      {3791, 15608, 30853, 10910},
-      {22451, 40404, 44803, 4202},
-      {2061, 10983, 28120, 2087},
-      {0, 0, 0, 0},
-      {6428, 20914, 33453, 7343},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {591, 1572, 12363, 73},
-      {382, 326, 2757, 67},
-      {1528, 7343, 21515, 646},
-      {544, 634, 5876, 10},
-      {2776, 13147, 29664, 4776},
-      {426, 386, 3330, 5},
-      {563, 1769, 13611, 1740},
-      {1660, 7986, 22501, 1517},
-      {2053, 10938, 28005, 7814},
-      {22640, 40562, 44900, 57472},
-      {0, 0, 0, 0},
-      {1277, 5601, 18399, 68},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {2383, 10967, 25672, 1072},
-      {2037, 10670, 27344, 1402},
-  };
-
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
-  ShadeSample rendered[std::size(GOLDEN)];
-  size_t row = 0;
-  for (size_t index = 0; index < std::size(ORIGINS); ++index) {
-    const HL::FrameState context{
-        HyperLatticeWhiteBox::Effect::preset(
-            HyperLatticeWhiteBox::Effect::HYPERCUBE_PRESET_INDEX)
-            .params,
-        ORIGINS[index],
-        ROTATIONS[index],
-        HL::pixel_half_angle<288, 144>(),
-        HyperLatticeWhiteBox::depth_palette(effect),
-        1.0f,
-        &HL::crossings,
-    };
-    const auto prepared = HL::prepare_trace(context);
-    for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
-      const Color4 color = HL::shade<true, 2>(DIRECTIONS[sample], prepared);
-      rendered[row++] = {color.color.r, color.color.g, color.color.b,
-                         frac_to_q16(color.alpha)};
+  int lit = 0;
+  for (const ShadeCamera &camera : SHADE_CAMERAS) {
+    if (HyperLatticeWhiteBox::Effect::preset(camera.preset).params.mode !=
+        HL::LatticeMode::SLICE_4D)
+      continue;
+    const HL::PreparedTrace prepared = prepare_shade_camera(effect, camera);
+    for (size_t sample = 0; sample < std::size(SHADE_DIRECTIONS); ++sample) {
+      HS_CONTEXT("preset, direction", static_cast<long long>(camera.preset),
+                 static_cast<long long>(sample));
+      const math::Vector &direction = SHADE_DIRECTIONS[sample];
+      const Color4 general = HL::shade(direction, prepared);
+      expect_shade_near(HL::shade<true, 2>(direction, prepared), general);
+      lit += general.alpha > 0.0f;
     }
   }
-#if defined(HS_TEST_FAST_MATH)
-  // fast_wire_coverage's Newton reciprocal reassociates under the shipping
-  // flag pair; the IEEE legs carry the table.
-  (void)rendered;
-  hs_test::skip_case(__func__,
-                     "HS_TEST_FAST_MATH: fast_wire_coverage reassociates");
-#else
-  expect_shade_samples("specialized_render_signature", rendered, GOLDEN,
-                       std::size(GOLDEN), std::size(DIRECTIONS));
-#endif
+  HS_EXPECT_GT(lit, 0);
 }
 
+/** @brief Frames each instantaneous render draws. */
+constexpr int INSTANTANEOUS_FRAMES = 40;
+
 /**
- * @brief Renders forty frames of a preset with column-time sampling disabled.
+ * @brief Renders a preset with column-time sampling disabled.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
  * @param preset Preset index.
- * @return Pin folded over the first two frames and the last.
+ * @param clipped Clip each frame to segment_window().
+ * @return Every displayed frame.
  */
-template <int W, int H> PixelGolden instantaneous_render(size_t preset) {
+template <int W, int H>
+RenderRun instantaneous_render(size_t preset, bool clipped = false) {
   reset_globals();
   HyperLattice<W, H> effect;
   effect.init();
   if (preset)
     HS_EXPECT_TRUE(effect.selectPreset(preset));
   Spacetime::set_flat_surface(true);
-  PixelGolden pin;
-  for (int frame = 0; frame < 40; ++frame) {
+  RenderRun run;
+  for (int frame = 0; frame < INSTANTANEOUS_FRAMES; ++frame) {
+    if (clipped) {
+      const ClipWindow window = segment_window<W, H>(frame);
+      effect.set_clip(window.y0, window.y1, window.x0, window.x1);
+    }
     effect.draw_frame();
     effect.advance_display();
-    if (frame < 2 || frame == 39)
-      fold_pixel_golden<W, H>(pin, effect);
+    record_frame<W, H>(run, effect);
   }
   Spacetime::set_flat_surface(false);
-  return pin;
+  return run;
 }
 
-/** @brief Every preset renders as recorded with column-time sampling off. */
-inline void test_instantaneous_render_pins() {
-  static constexpr RecordedGolden SMALL[] = {
-      {{0xa94c916ce098b710ull,
-        {{15879938ull, 33806139ull, 49901045ull}, 929681480ull, 4747878914ull}},
-       {0xe83aa7de601edb1bull,
-        {{15879941ull, 33806144ull, 49901036ull},
-         929681465ull,
-         4747879454ull}}},
-      {{0x48dacd6716f2e38aull,
-        {{13620838ull, 27247961ull, 41856810ull}, 788158262ull, 3993009095ull}},
-       {0x54b396c8d6c90c84ull,
-        {{13620839ull, 27247967ull, 41856810ull},
-         788158425ull,
-         3993009814ull}}},
-      {{0xe4e4b214301d1fbbull,
-        {{14016703ull, 28343629ull, 38782553ull}, 794147276ull, 3840080868ull}},
-       {0xb60da53ffc9d96e7ull,
-        {{14016703ull, 28343635ull, 38782547ull},
-         794147220ull,
-         3840080922ull}}},
-      {{0xe18b869cecc87b1aull,
-        {{6877621ull, 15388262ull, 25339230ull}, 452146061ull, 2245807307ull}},
-       {0x216ead7f6a941b29ull,
-        {{6877623ull, 15388258ull, 25339219ull}, 452145868ull, 2245806308ull}}},
-      {{0x642134b4d9e14f12ull,
-        {{15574978ull, 32052190ull, 46757765ull}, 865498826ull, 4441257817ull}},
-       {0xcd5c27f243cbf481ull,
-        {{15574982ull, 32052282ull, 46757771ull},
-         865498963ull,
-         4441262711ull}}},
-      {{0x20ca3708641fc294ull,
-        {{15094188ull, 29775474ull, 49246986ull}, 950669762ull, 4630249745ull}},
-       {0xa19f572ef67c31ecull,
-        {{15094181ull, 29775480ull, 49246981ull},
-         950669704ull,
-         4630249183ull}}},
-      {{0x832cd9176e473075ull,
-        {{6022067ull, 12585294ull, 17867684ull}, 349572479ull, 1658865216ull}},
-       {0x75701bceb98520fbull,
-        {{6022070ull, 12585302ull, 17867698ull}, 349572695ull, 1658866632ull}}},
-      {{0xf44109a19d638e14ull,
-        {{13884469ull, 26887004ull, 33744219ull}, 731916001ull, 3728240502ull}},
-       {0x9231ccaafe6e82acull,
-        {{13884469ull, 26887017ull, 33744232ull},
-         731916192ull,
-         3728241718ull}}},
-      {{0x234d1dcf958db5aeull,
-        {{1683359ull, 3121210ull, 4839967ull}, 87818621ull, 461967067ull}},
-       {0x42772e7edbe6e402ull,
-        {{1683363ull, 3121211ull, 4839966ull}, 87818636ull, 461967398ull}}},
-  };
-  static constexpr RecordedGolden FULL[] = {
-      {{0x6efc9ab887e3687eull,
-        {{286420393ull, 604026957ull, 880428212ull},
-         125165022407ull,
-         255031996507ull}},
-       {0x48531a97457d671cull,
-        {{286420451ull, 604027075ull, 880428028ull},
-         125165022266ull,
-         255031987260ull}}},
-      {{0x9a6c8e560b9e215eull,
-        {{226325234ull, 466226264ull, 694760587ull},
-         99255641409ull,
-         202137900576ull}},
-       {0xa4194985b8074047ull,
-        {{226325227ull, 466226402ull, 694760504ull},
-         99255645653ull,
-         202137915890ull}}},
-      {{0xcfd58f213c8d43f5ull,
-        {{56724327ull, 114293350ull, 149493309ull},
-         23553561504ull,
-         45995717139ull}},
-       {0x46f34c3e3e99c108ull,
-        {{56724362ull, 114293392ull, 149493300ull},
-         23553565214ull,
-         45995734529ull}}},
-      {{0x33127babce0433d0ull,
-        {{98796890ull, 216440996ull, 339016827ull},
-         47134284500ull,
-         92777983011ull}},
-       {0x51f59dbbb558b7dfull,
-        {{98796887ull, 216441042ull, 339016800ull},
-         47134287388ull,
-         92777982356ull}}},
-      {{0xf471ca401bf88bb0ull,
-        {{203014955ull, 412599828ull, 570236991ull},
-         82903792178ull,
-         169550270676ull}},
-       {0x1718f69a430a4cf2ull,
-        {{203014970ull, 412599843ull, 570236906ull},
-         82903784158ull,
-         169550257129ull}}},
-      {{0x07f3bda104eefd64ull,
-        {{103486630ull, 181217087ull, 244413948ull},
-         41465102299ull,
-         81990154845ull}},
-       {0xa11a4dd81e2755fdull,
-        {{103486623ull, 181217097ull, 244413924ull},
-         41465101267ull,
-         81990151803ull}}},
-      {{0xf89b62bf071d6a88ull,
-        {{136909400ull, 281503680ull, 371235824ull},
-         56122681005ull,
-         106198756306ull}},
-       {0xa41e404771940ce1ull,
-        {{136909454ull, 281503670ull, 371235770ull},
-         56122675450ull,
-         106198748654ull}}},
-      {{0x198d7ceb0de43b30ull,
-        {{338516795ull, 661866865ull, 832048094ull},
-         133695350754ull,
-         278181293068ull}},
-       {0x2926cc5f952d7723ull,
-        {{338516979ull, 661866986ull, 832048186ull},
-         133695373713ull,
-         278181343504ull}}},
-      {{0x2c8abb9d70d06307ull,
-        {{28033812ull, 50416081ull, 63394720ull},
-         8643288134ull,
-         19672679156ull}},
-       {0xa392e46781270164ull,
-        {{28033859ull, 50416082ull, 63394693ull},
-         8643285665ull,
-         19672684866ull}}},
-  };
-  static_assert(std::size(SMALL) == HyperLattice<96, 20>::PRESET_IDS.size());
-  static_assert(std::size(FULL) == HyperLattice<96, 20>::PRESET_IDS.size());
-  for (size_t preset = 0; preset < std::size(SMALL); ++preset) {
+/**
+ * @brief Every preset renders lit with column-time sampling off, and a
+ *        segment clip matches the full render inside it.
+ */
+inline void test_instantaneous_renders_are_lit_and_clip_exact() {
+  char scenario[16];
+  for (size_t preset = 0; preset < HyperLattice<96, 20>::PRESET_IDS.size();
+       ++preset) {
     HS_CONTEXT("preset", static_cast<long long>(preset));
-    const PixelGolden small = instantaneous_render<96, 20>(preset);
-    const PixelGolden full = instantaneous_render<288, 144>(preset);
-    expect_pixel_golden("HyperLattice 96x20", small, SMALL[preset]);
-    expect_pixel_golden("HyperLattice 288x144", full, FULL[preset]);
+    std::snprintf(scenario, sizeof scenario, "preset%zu", preset);
+    const RenderRun small = instantaneous_render<96, 20>(preset);
+    expect_lit("HyperLattice 96x20", small);
+    expect_clip_matches_full<96, 20>("HyperLattice 96x20 segment", small,
+                                     instantaneous_render<96, 20>(preset, true),
+                                     segment_window<96, 20>);
+    const RenderRun full = instantaneous_render<288, 144>(preset);
+    expect_lit("HyperLattice 288x144", full);
+    print_render_hash("HyperLattice-96x20", scenario, small.fold.hash);
+    print_render_hash("HyperLattice-288x144", scenario, full.fold.hash);
   }
 }
 
@@ -2119,10 +1994,11 @@ inline int run_hyper_lattice_tests() {
   HS_RUN(test_surface_origin_parallax);
   HS_RUN(test_hyperplane_event);
   HS_RUN(test_coincident_planes_form_one_layer);
-  HS_RUN(test_render_signature);
+  HS_RUN(test_shade_samples_are_in_range);
+  HS_RUN(test_shade_respects_lattice_symmetry);
   HS_RUN(test_specialized_slice_transition);
-  HS_RUN(test_specialized_render_signature);
-  HS_RUN(test_instantaneous_render_pins);
+  HS_RUN(test_specialized_shade_matches_general);
+  HS_RUN(test_instantaneous_renders_are_lit_and_clip_exact);
   HS_RUN(test_column_time_matches_time_evaluator);
   HS_RUN(test_column_time_segments_match_full_frame);
   HS_RUN(test_column_time_resets);

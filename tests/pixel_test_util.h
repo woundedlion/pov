@@ -9,6 +9,7 @@
 #include "core/color/color.h"
 #include "core/render/canvas.h"
 #include "core/render/spacetime.h"
+#include "hardware/pov_segment_map.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -209,6 +210,26 @@ fastmath_golden_reference(const RecordedGolden &recorded,
   return platform.fingerprint.energy() != 0 ? platform : recorded.fastmath;
 }
 
+/** @brief Extends a golden with one row-major frame.
+ * @param golden Running sequence fingerprint.
+ * @param frame Frame pixels, row-major.
+ * @param width Frame width. */
+inline void fold_frame(PixelGolden &golden, std::span<const Pixel> frame,
+                       int width) {
+  for (size_t i = 0; i < frame.size(); ++i) {
+    const Pixel &pixel = frame[i];
+    golden.hash = fnv1a64_channel(
+        fnv1a64_channel(fnv1a64_channel(golden.hash, pixel.r), pixel.g),
+        pixel.b);
+    golden.fingerprint.channels[0] += pixel.r;
+    golden.fingerprint.channels[1] += pixel.g;
+    golden.fingerprint.channels[2] += pixel.b;
+    const uint64_t energy = uint64_t{pixel.r} + pixel.g + pixel.b;
+    golden.fingerprint.row += energy * (i / static_cast<size_t>(width));
+    golden.fingerprint.column += energy * (i % static_cast<size_t>(width));
+  }
+}
+
 /** @brief Extends a golden with one displayed frame.
  * @tparam W Frame width.
  * @tparam H Frame height.
@@ -217,18 +238,125 @@ fastmath_golden_reference(const RecordedGolden &recorded,
  * @param fx Displayed effect. */
 template <int W, int H, typename Fx>
 inline void fold_pixel_golden(PixelGolden &golden, const Fx &fx) {
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      const Pixel &pixel = fx.get_pixel(x, y);
-      const std::array<uint16_t, 3> channels{pixel.r, pixel.g, pixel.b};
-      for (size_t i = 0; i < channels.size(); ++i) {
-        golden.hash = fnv1a64_channel(golden.hash, channels[i]);
-        golden.fingerprint.channels[i] += channels[i];
+  std::vector<Pixel> frame;
+  capture_frame<W, H>(fx, frame);
+  fold_frame(golden, frame, W);
+}
+
+/** @brief Prints one render's hash, for a base-versus-tip render diff, when
+ *         HS_PRINT_RENDER_HASHES is set.
+ * @param label Render label without spaces.
+ * @param scenario Scenario name without spaces.
+ * @param hash Folded hash of the render. */
+inline void print_render_hash(const char *label, const char *scenario,
+                              uint64_t hash) {
+  if (env_var("HS_PRINT_RENDER_HASHES"))
+    std::printf("render-hash %s %s=%016llx\n", label, scenario,
+                static_cast<unsigned long long>(hash));
+}
+
+/** @brief Recorded displayed frames of one render run. */
+struct RenderRun {
+  std::vector<Pixel> frames; /**< Recorded frames, each row-major. */
+  PixelGolden fold;          /**< Hash and fingerprint of the frames. */
+  int recorded = 0;          /**< Frames recorded. */
+  int dark = 0;              /**< Recorded frames without a lit pixel. */
+};
+
+/** @brief Appends an effect's displayed frame to a run.
+ * @tparam W Frame width.
+ * @tparam H Frame height.
+ * @tparam Fx Effect exposing get_pixel(x, y).
+ * @param run Run to extend.
+ * @param fx Displayed effect. */
+template <int W, int H, typename Fx>
+inline void record_frame(RenderRun &run, const Fx &fx) {
+  constexpr size_t PIXELS = static_cast<size_t>(W) * H;
+  const size_t start = run.frames.size();
+  run.frames.resize(start + PIXELS);
+  const std::span<Pixel> frame(run.frames.data() + start, PIXELS);
+  if (fx.overrides_get_pixel() || fx.width() != W) {
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        frame[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  } else {
+    std::memcpy(frame.data(), fx.display_buffer(), PIXELS * sizeof(Pixel));
+  }
+  fold_frame(run.fold, frame, W);
+  ++run.recorded;
+  run.dark += count_lit(frame) == 0;
+}
+
+/** @brief Checks that a run displays a lit frame.
+ * @param label Scenario named in failure context.
+ * @param run Run to check. */
+inline void expect_lit(const char *label, const RenderRun &run) {
+  HS_CONTEXT(label);
+  HS_EXPECT_LT(run.dark, run.recorded);
+}
+
+/** @brief Displayed window of a clipped frame, in set_clip() order. */
+struct ClipWindow {
+  int y0; /**< Inclusive top row. */
+  int y1; /**< Exclusive bottom row. */
+  int x0; /**< Inclusive left column. */
+  int x1; /**< Exclusive right column. */
+};
+
+/** @brief Checks that a clipped run equals an unclipped run inside each
+ *         recorded frame's clip window.
+ * @tparam W Frame width.
+ * @tparam H Frame height.
+ * @tparam WindowOf Callable `ClipWindow(int recorded_frame)`.
+ * @param label Run named in failure output.
+ * @param full Run rendered without a clip.
+ * @param clipped Run rendered under the clips @p window_of names.
+ * @param window_of Clip window of each recorded frame.
+ * @details The windows must hold a lit pixel, so two dark runs cannot agree
+ *          vacuously. */
+template <int W, int H, typename WindowOf>
+inline void expect_clip_matches_full(const char *label, const RenderRun &full,
+                                     const RenderRun &clipped,
+                                     WindowOf &&window_of) {
+  HS_CONTEXT(label);
+  HS_EXPECT_EQ(full.recorded, clipped.recorded);
+  size_t different = 0, lit = 0;
+  int first_frame = -1;
+  for (int f = 0; f < std::min(full.recorded, clipped.recorded); ++f) {
+    const ClipWindow window = window_of(f);
+    const size_t base = static_cast<size_t>(f) * W * H;
+    for (int y = window.y0; y < window.y1; ++y)
+      for (int x = window.x0; x < window.x1; ++x) {
+        const size_t i = base + static_cast<size_t>(y) * W + x;
+        if (full.frames[i] != clipped.frames[i]) {
+          ++different;
+          if (first_frame < 0)
+            first_frame = f;
+        }
+        lit += !is_black(full.frames[i]);
       }
-      const uint64_t energy = uint64_t{pixel.r} + pixel.g + pixel.b;
-      golden.fingerprint.row += energy * static_cast<uint64_t>(y);
-      golden.fingerprint.column += energy * static_cast<uint64_t>(x);
-    }
+  }
+  if (different)
+    std::printf("  CLIP DRIFT %s: %zu displayed pixels differ from the "
+                "unclipped render, first on recorded frame %d\n",
+                label, different, first_frame);
+  HS_EXPECT(different == 0,
+            "the clipped render must equal the full render inside the clip");
+  HS_EXPECT_GT(lit, size_t{0});
+}
+
+/** @brief Display window one segment of a four-segment display paints on a
+ *         frame, alternating column halves frame by frame.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param frame Frame index.
+ * @return The clip window. */
+template <int W, int H> inline ClipWindow segment_window(int frame) {
+  constexpr int SEGMENTS = 4, SEGMENT = 1, LEDS = 2 * H;
+  const pov::SegmentClip clip =
+      pov::segment_clip(pov::segment_map(SEGMENT, LEDS, SEGMENTS),
+                        (frame & 1) == 0, LEDS, SEGMENTS, W);
+  return {clip.y0, clip.y1, clip.x0, clip.x1};
 }
 
 /** @brief Fingerprint of the libm probes and native optimization mode.
