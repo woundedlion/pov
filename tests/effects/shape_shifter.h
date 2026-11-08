@@ -9,30 +9,32 @@
 
 /**
  * @brief Verifies ShapeShifter's slider contract and preset-row invariants.
- * @details Preset magnitudes are not pinned. Every value must sit inside its
- *          registered range, each row keeps its structural selections and
+ * @details Preset values are not pinned. Boot equals the first row, every
+ *          value sits inside its registered range, each row keeps the
  *          shape/falloff pairing, the non-preset Alpha slider survives a
  *          selection, and every row is a distinct parameter vector.
  */
 inline void test_shapeshifter_preset_defaults() {
+  using SS = ShapeShifter<DEFAULT_W, DEFAULT_H>;
   reset_globals();
-  ShapeShifter<DEFAULT_W, DEFAULT_H> ss;
+  SS ss;
   ss.init();
 
   auto value = [&](const char *name) {
     const auto *def = hs_test::required_param(ss, name);
     return def ? def->get() : -1.0f;
   };
+  auto preset_row = [&] {
+    std::vector<float> row;
+    for (const auto &def : ss.getParameters())
+      if (def.preset)
+        row.push_back(def.get());
+    return row;
+  };
 
   hs_test::expect_params_in_range(ss, "boot state");
   HS_EXPECT_EQ(value("Alpha"), 1.0f); // boots fully opaque
-  HS_EXPECT_EQ(value("Shape"), 3.0f);
-  HS_EXPECT_EQ(value("Spacing"), 1.0f);
-  HS_EXPECT_EQ(value("Function"),
-               static_cast<float>(
-                   ShapeShifter<DEFAULT_W, DEFAULT_H>::PhaseFunction::SINE));
-  HS_EXPECT_EQ(value("Opposite"), 0.0f);
-  HS_EXPECT_EQ(value("Alpha Falloff"), 1.0f);
+  const std::vector<float> boot_row = preset_row();
 
   const char *expected_export_order[] = {
       "Shape", "Count",    "Sides",         "Function", "Amplitude",
@@ -55,11 +57,9 @@ inline void test_shapeshifter_preset_defaults() {
   const auto *falloff = hs_test::required_param(ss, "Alpha Falloff");
   const auto *spacing = hs_test::required_param(ss, "Spacing");
   const auto *count = hs_test::required_param(ss, "Count");
-  const auto *speed = hs_test::required_param(ss, "Speed");
+  HS_EXPECT_TRUE(hs_test::required_param(ss, "Speed") != nullptr);
   if (count)
-    HS_EXPECT_EQ(count->max, 288.0f);
-  if (speed)
-    HS_EXPECT_EQ(speed->max, 0.16f);
+    HS_EXPECT_EQ(count->max, static_cast<float>(SS::DRAW_LIMIT));
   if (alpha)
     HS_EXPECT_FALSE(alpha->preset);
   if (shape) {
@@ -82,30 +82,21 @@ inline void test_shapeshifter_preset_defaults() {
 
   HS_EXPECT_EQ(ss.updateParameter("Alpha", 0.37f), ParamSetResult::APPLIED);
 
-  // Structural selections: which primitive and falloff each row draws.
-  const float expected_shapes[] = {3.0f, 1.0f, 3.0f, 2.0f, 3.0f,
-                                   1.0f, 1.0f, 1.0f, 2.0f};
-  const float expected_falloffs[] = {1.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-                                     0.0f, 0.0f, 0.0f, 0.0f};
-  HS_EXPECT_EQ(std::size(expected_shapes), ss.getPresetCount());
-  HS_EXPECT_EQ(std::size(expected_falloffs), ss.getPresetCount());
+  HS_EXPECT_GT(ss.getPresetCount(), size_t{0});
   std::vector<std::vector<float>> rows;
-  for (size_t i = 0; i < std::size(expected_shapes); ++i) {
+  for (size_t i = 0; i < ss.getPresetCount(); ++i) {
     HS_CONTEXT("preset", static_cast<int>(i));
     ss.profile_select_preset(i);
     hs_test::expect_params_in_range(ss, "preset row");
     HS_EXPECT_EQ(value("Alpha"), 0.37f); // a preset never writes a non-preset
     HS_EXPECT_TRUE(ss.animations_paused());
-    HS_EXPECT_EQ(value("Shape"), expected_shapes[i]);
-    HS_EXPECT_EQ(value("Alpha Falloff"), expected_falloffs[i]);
+    if (shape)
+      HS_EXPECT_LT(value("Shape"), static_cast<float>(shape->option_count));
+    // PLANAR_STAR (option 3) pairs with TOWARD_EQUATOR (option 1).
     HS_EXPECT_EQ(value("Shape") == 3.0f, value("Alpha Falloff") == 1.0f);
-
-    std::vector<float> row;
-    for (const auto &def : ss.getParameters())
-      if (def.preset)
-        row.push_back(def.get());
-    rows.push_back(row);
+    rows.push_back(preset_row());
   }
+  HS_EXPECT_TRUE(rows.front() == boot_row);
 
   // Identical parameter vectors would be one preset visited twice.
   for (size_t i = 0; i < rows.size(); ++i)

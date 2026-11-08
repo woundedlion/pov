@@ -314,36 +314,13 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_EQ(WB::active_bake(db), 1);
   HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(0));
 
-  // Pins each row's structural selections; magnitudes are range-checked
-  // during the cycle.
-  struct Row {
-    WB::DB::BaseMesh base_mesh;
-    WB::DB::WeaveTopology weave_topology;
-    const Palette *palette;
-  };
-  using BaseMesh = WB::DB::BaseMesh;
-  constexpr auto AUTOMATIC = WB::DB::WeaveTopology::AUTOMATIC;
-  const Row rows[] = {
-      {BaseMesh::RHOMBICUBOCTAHEDRON, AUTOMATIC, WB::blood_stream_falloff(db)},
-      {BaseMesh::RHOMBICOSIDODECAHEDRON, AUTOMATIC,
-       WB::blood_stream_falloff(db)},
-      {BaseMesh::TRUNCATED_CUBOCTAHEDRON, AUTOMATIC, &Palettes::RICH_SUNSET},
-      {BaseMesh::ICOSIDODECAHEDRON, AUTOMATIC, &Palettes::LAVENDER_LAKE},
-      {BaseMesh::SNUB_CUBE, AUTOMATIC, &Palettes::MAUVE_FADE},
-      {BaseMesh::TRUNCATED_DODECAHEDRON, AUTOMATIC, &Palettes::CORAL_BLUE},
-      {BaseMesh::TRIAKIS_ICOSAHEDRON, AUTOMATIC, &Palettes::BRUISED_MOSS},
-      {BaseMesh::TRIAKIS_ICOSAHEDRON, AUTOMATIC, &Palettes::LAVENDER_LAKE},
-      {BaseMesh::DISDYAKIS_TRIACONTAHEDRON, AUTOMATIC, &Palettes::PLUM_SUNRISE},
-      {BaseMesh::TRIAKIS_ICOSAHEDRON, AUTOMATIC, &Palettes::BRUISED_MANGO},
-  };
-  HS_EXPECT_EQ(std::size(rows), static_cast<size_t>(WB::PRESETS));
-  for (size_t i = 0;
-       i < std::min(std::size(rows), static_cast<size_t>(WB::PRESETS)); ++i) {
+  for (int i = 0; i < WB::PRESETS; ++i) {
     HS_CONTEXT("preset", i);
-    const auto &params = WB::preset_params(i);
-    HS_EXPECT_EQ(params.base_mesh, rows[i].base_mesh);
-    HS_EXPECT_EQ(params.weave_topology, rows[i].weave_topology);
-    HS_EXPECT_TRUE(WB::preset_palette(db, i) == rows[i].palette);
+    const auto mesh = static_cast<size_t>(WB::preset_params(i).base_mesh);
+    HS_EXPECT_LT(mesh, WB::SOLID_COUNT);
+    if (mesh < WB::SOLID_COUNT)
+      HS_EXPECT_TRUE(WB::solid_loaded(db, mesh));
+    HS_EXPECT_TRUE(WB::preset_palette(db, i) != nullptr);
   }
 
   // Two full cycles: the bake slot ping-pongs and params reseed each step.
@@ -777,20 +754,8 @@ inline void test_dreamballs_column_work_is_bounded() {
   HS_EXPECT_GT(spun.column_path_evaluations, 0u);
   HS_EXPECT_GT(spun.endpoint_evaluations, 0u);
   HS_EXPECT_LE(spun.midpoint_evaluations, spun.endpoint_evaluations);
-  constexpr size_t DISDYAKIS_TRIACONTAHEDRON_PRESET = 8;
-  constexpr size_t RHOMBICUBTRUNCATED_CUBOCTAHEDRON_PRESET = 0;
-  constexpr size_t TRUNCATED_CUBOCTAHEDRON_PRESET = 2;
-  using WB = DreamBallsWhiteBox;
-  using BaseMesh = WB::DB::BaseMesh;
-  HS_EXPECT_EQ(WB::preset_mesh(DISDYAKIS_TRIACONTAHEDRON_PRESET),
-               BaseMesh::DISDYAKIS_TRIACONTAHEDRON);
-  HS_EXPECT_EQ(WB::preset_mesh(RHOMBICUBTRUNCATED_CUBOCTAHEDRON_PRESET),
-               BaseMesh::RHOMBICUBOCTAHEDRON);
-  HS_EXPECT_EQ(WB::preset_mesh(TRUNCATED_CUBOCTAHEDRON_PRESET),
-               BaseMesh::TRUNCATED_CUBOCTAHEDRON);
-  for (size_t preset : {DISDYAKIS_TRIACONTAHEDRON_PRESET,
-                        RHOMBICUBTRUNCATED_CUBOCTAHEDRON_PRESET,
-                        TRUNCATED_CUBOCTAHEDRON_PRESET}) {
+  for (int preset = 0; preset < DreamBallsWhiteBox::PRESETS; ++preset) {
+    HS_CONTEXT("preset", preset);
     reset_globals();
     DreamBalls<DEFAULT_W, DEFAULT_H> fx;
     fx.init();

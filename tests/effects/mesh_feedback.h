@@ -229,10 +229,13 @@ inline void test_meshfeedback_base_mesh_selector() {
   HS_EXPECT_EQ(base_mesh->option_count,
                static_cast<int>(Solids::BASE_MESH_COUNT));
   HS_EXPECT_TRUE(base_mesh->animated);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 0), MF::BaseMesh::ICOSAHEDRON);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 1), MF::BaseMesh::DODECAHEDRON);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 11),
-               MF::BaseMesh::PENTAGONAL_HEXECONTAHEDRON);
+  for (size_t i = 0; i < MF::PRESETS.size(); ++i) {
+    HS_CONTEXT("preset", i);
+    HS_EXPECT_EQ(WB::preset_base_mesh(effect, i),
+                 MF::PRESETS[i].params.base_mesh);
+    HS_EXPECT_LT(static_cast<size_t>(WB::preset_base_mesh(effect, i)),
+                 Solids::BASE_MESH_COUNT);
+  }
 
   const auto selected = MF::BaseMesh::PENTAGONAL_HEXECONTAHEDRON;
   HS_EXPECT_EQ(

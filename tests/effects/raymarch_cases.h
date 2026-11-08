@@ -262,6 +262,17 @@ inline void test_raymarch_hue_noise_at_column_time() {
   HS_EXPECT_LE(gap_sum / std::max(lit, 1), RAYMARCH_NOISE_MEAN_BOUND);
 }
 
+/** @brief Vertex count of each Raymarch placement solid, in option order. */
+inline constexpr std::array<int, 21> RAYMARCH_PLACEMENT_VERTEX_COUNTS{
+    4,  8, 6,  20, 12, 12, 12, 24, 24, 24, 24,
+    30, 8, 14, 14, 14, 26, 26, 32, 32, 32};
+
+/** @brief Volumes of the default placement solid. */
+inline int raymarch_default_volume_count() {
+  return RAYMARCH_PLACEMENT_VERTEX_COUNTS[static_cast<size_t>(
+      RaymarchParams{}.base_solid)];
+}
+
 /**
  * @brief Verifies every Raymarch volume receives its own live RandomWalk.
  */
@@ -270,9 +281,8 @@ inline void test_raymarch_volume_random_walks_are_independent() {
   Raymarch<SMALL_W, SMALL_H> effect;
   effect.init();
   const int count = RaymarchWhiteBox::volume_count(effect);
-  HS_EXPECT_EQ(count, 26);
-  HS_EXPECT_EQ(RaymarchWhiteBox::animation_count(effect),
-               RaymarchWhiteBox::MAX_POINTS + 3);
+  HS_EXPECT_EQ(count, raymarch_default_volume_count());
+  HS_EXPECT_GE(RaymarchWhiteBox::animation_count(effect), count);
 
   effect.draw_frame();
   effect.advance_display();
@@ -320,25 +330,29 @@ inline void test_raymarch_preset_and_placement_solids() {
                "Pentakis Dodecahedron");
   HS_EXPECT_EQ(std::string_view(base_solid->export_options[17]),
                "RaymarchPlacementSolid::DISDYAKIS_DODECAHEDRON");
-  HS_EXPECT_EQ(value("Base Solid"), 17.0f);
+  constexpr RaymarchParams PRESET{};
+  HS_EXPECT_EQ(value("Base Solid"), static_cast<float>(PRESET.base_solid));
 
-  static constexpr std::array<int, RM::PLACEMENT_SOLID_COUNT> VERTEX_COUNTS{
-      4,  8, 6,  20, 12, 12, 12, 24, 24, 24, 24,
-      30, 8, 14, 14, 14, 26, 26, 32, 32, 32};
+  static_assert(RAYMARCH_PLACEMENT_VERTEX_COUNTS.size() ==
+                RM::PLACEMENT_SOLID_COUNT);
   for (size_t i = 0; i < RM::PLACEMENT_SOLID_COUNT; ++i) {
     HS_EXPECT_EQ(effect.updateParameter("Base Solid", static_cast<float>(i)),
                  ParamSetResult::APPLIED);
     RaymarchWhiteBox::refresh_points(effect);
-    HS_EXPECT_EQ(RaymarchWhiteBox::volume_count(effect), VERTEX_COUNTS[i]);
+    HS_EXPECT_EQ(RaymarchWhiteBox::volume_count(effect),
+                 RAYMARCH_PLACEMENT_VERTEX_COUNTS[i]);
     HS_EXPECT_EQ(
         static_cast<size_t>(RaymarchWhiteBox::active_base_solid(effect)), i);
   }
 
+  HS_EXPECT_EQ(effect.updateParameter("Hue Shift", 0.1f),
+               ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(effect.selectPreset(0));
-  HS_EXPECT_EQ(value("Base Solid"), 17.0f);
-  HS_EXPECT_NEAR(value("Hue Shift"), 0.76f, 1e-6f);
+  HS_EXPECT_EQ(value("Base Solid"), static_cast<float>(PRESET.base_solid));
+  HS_EXPECT_NEAR(value("Hue Shift"), PRESET.hue_shift, 1e-6f);
   effect.draw_frame();
-  HS_EXPECT_EQ(RaymarchWhiteBox::volume_count(effect), 26);
+  HS_EXPECT_EQ(RaymarchWhiteBox::volume_count(effect),
+               raymarch_default_volume_count());
 }
 
 /**

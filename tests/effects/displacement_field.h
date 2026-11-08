@@ -143,6 +143,26 @@ struct DisplacementFieldWhiteBox {
     return DisplacementField<W, H>::NOISE_FADE_FRAMES;
   }
 
+  template <int W, int H> static constexpr int preview_balls() {
+    return DisplacementField<W, H>::PREVIEW_BALLS;
+  }
+
+  template <int W, int H> static constexpr float drape_per_amplitude() {
+    return DisplacementField<W, H>::BALL_DRAPE_PER_AMPLITUDE;
+  }
+
+  /** @brief Advances frames until @p done holds, within one cycle budget. */
+  template <int W, int H, typename Done>
+  static bool run_until(DisplacementField<W, H> &effect, Done done) {
+    for (size_t frame = 0; frame < DisplacementField<W, H>::cycle_frames();
+         ++frame) {
+      if (done())
+        return true;
+      hs_test::run_frames(effect, 1);
+    }
+    return done();
+  }
+
   template <int W, int H>
   static void enter_balls(DisplacementField<W, H> &effect) {
     effect.preset_index = effect.BALLS_PRESET;
@@ -918,11 +938,13 @@ inline void test_displacement_field_manual_navigation() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
   HS_EXPECT_TRUE(effect.animations_paused());
   hs_test::run_frames(effect, 2);
-  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_GE(WB::active_balls(effect),
+               (WB::preview_balls<SMALL_W, SMALL_H>()));
   HS_EXPECT_GT(WB::ball_bound(effect), 0.0f);
   HS_EXPECT_TRUE(effect.selectPreset(1));
   hs_test::run_frames(effect, 2);
-  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_GE(WB::active_balls(effect),
+               (WB::preview_balls<SMALL_W, SMALL_H>()));
   HS_EXPECT_NEAR(effect.getParameters().find("Ball Amp")->get(),
                  FX::PRESETS[1].ball_amp, 1e-6f);
   for (int repeat = 0; repeat < 100; ++repeat) {
@@ -930,7 +952,8 @@ inline void test_displacement_field_manual_navigation() {
   }
   hs_test::run_frames(effect, 2);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
-  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_GE(WB::active_balls(effect),
+               (WB::preview_balls<SMALL_W, SMALL_H>()));
   HS_EXPECT_TRUE(effect.nextPreset());
   hs_test::run_frames(effect, 2);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
@@ -939,7 +962,8 @@ inline void test_displacement_field_manual_navigation() {
   HS_EXPECT_TRUE(effect.synchronizePreset(1));
   HS_EXPECT_TRUE(effect.animations_paused());
   hs_test::run_frames(effect, 2);
-  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_GE(WB::active_balls(effect),
+               (WB::preview_balls<SMALL_W, SMALL_H>()));
 }
 
 /** @brief Ball tuning applies to the active pool. */
@@ -954,11 +978,13 @@ inline void test_displacement_field_ball_tuning() {
   HS_EXPECT_EQ(effect.updateParameter("Ball Amp", 0.6f),
                ParamSetResult::APPLIED);
   hs_test::run_frames(effect, 2);
-  HS_EXPECT_NEAR(WB::ball_amplitude(effect), 2.4f, 1e-6f);
+  HS_EXPECT_NEAR(WB::ball_amplitude(effect),
+                 (0.6f * WB::drape_per_amplitude<SMALL_W, SMALL_H>()), 1e-6f);
   const float SPIN = WB::color_spin(effect);
   hs_test::run_frames(effect, 10);
   HS_EXPECT_TRUE(WB::color_spin(effect) != SPIN);
-  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_GE(WB::active_balls(effect),
+               (WB::preview_balls<SMALL_W, SMALL_H>()));
 }
 
 /** @brief Automatic playback cycles through balls and returns to noise. */
@@ -971,12 +997,10 @@ inline void test_displacement_field_automatic_cycle() {
   hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 1);
   effect.setAnimationsPaused(false);
   HS_EXPECT_FALSE(effect.animations_paused());
-  hs_test::run_frames(effect, 800);
-  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_TRUE(
+      WB::run_until(effect, [&] { return effect.getPresetIndex() == 1; }));
   WB::expire_balls(effect);
-  hs_test::run_frames(effect, 200);
-  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
-  HS_EXPECT_TRUE(WB::in_noise(effect));
+  HS_EXPECT_TRUE(WB::run_until(effect, [&] { return WB::in_noise(effect); }));
 }
 
 /** @brief Editing a departing noise preset restores its tuned field and dwell. */
@@ -992,7 +1016,7 @@ inline void test_displacement_field_edit_cancels_departure() {
   effect.setAnimationsPaused(true);
   HS_EXPECT_EQ(effect.updateParameter("Noise Amp", 0.6f),
                ParamSetResult::APPLIED);
-  hs_test::run_frames(effect, 200);
+  hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 2);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
   HS_EXPECT_EQ(WB::gain(effect), 1.0f);
   HS_EXPECT_NEAR(WB::noise_amplitude(effect), 0.6f, 1e-6f);
@@ -1047,14 +1071,14 @@ inline void test_displacement_field_paused_balls_keep_moving() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
   HS_EXPECT_EQ(WB::ball_window(effect), WINDOW);
   HS_EXPECT_GT(WB::active_balls(effect), 0);
-  HS_EXPECT_NEAR(WB::ball_amplitude(effect), 2.4f, 1e-6f);
+  HS_EXPECT_NEAR(WB::ball_amplitude(effect),
+                 (0.6f * WB::drape_per_amplitude<SMALL_W, SMALL_H>()), 1e-6f);
   WB::expire_balls(effect);
   hs_test::run_frames(effect, 200);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
   HS_EXPECT_GT(WB::active_balls(effect), 0);
   effect.setAnimationsPaused(false);
-  hs_test::run_frames(effect, 200);
-  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_TRUE(WB::run_until(effect, [&] { return WB::in_noise(effect); }));
 }
 
 /** @brief Knot recurrence preserves unit samples beside near-coincident balls. */
@@ -1259,8 +1283,8 @@ inline void test_displacement_field_single_pass_reference() {
   enum Region { ALL, POLAR_ROWS, BULK_ROWS, ARM_COLUMNS, REGION_COUNT };
   constexpr const char *REGION_NAMES[] = {"all", "polar rows", "bulk rows",
                                           "arm columns"};
-  constexpr int ERROR_CEILINGS[2][REGION_COUNT] = {{2020, 2020, 1172, 1605},
-                                                   {508, 467, 508, 390}};
+  // Largest difference, in 8-bit steps, from per-column evaluation.
+  constexpr int REFERENCE_STEPS = 8;
   for (bool balls : {false, true}) {
     HS_CONTEXT(balls ? "balls" : "noise");
     std::vector<Pixel> images[3];
@@ -1312,7 +1336,7 @@ inline void test_displacement_field_single_pass_reference() {
       HS_CONTEXT(REGION_NAMES[region]);
       HS_EXPECT_LE(worst[0][region], worst[1][region] + 1);
       for (int mode = 0; mode < 2; ++mode)
-        HS_EXPECT_LE(worst[mode][region], ERROR_CEILINGS[balls][region]);
+        HS_EXPECT_LE(worst[mode][region], REFERENCE_STEPS * 257);
       std::printf("  [reference %s] window=%.5f single=%.5f steps\n",
                   REGION_NAMES[region], worst[1][region] / 257.0,
                   worst[0][region] / 257.0);

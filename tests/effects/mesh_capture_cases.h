@@ -263,10 +263,14 @@ inline void check_islamicstars_motion_fits_scratch(size_t preset, int frames) {
       scratch_arena_b.get_lifetime_high_water_mark());
 }
 
-/** @brief A quick preset replay reaches the scratch-heavy build. */
+/** @brief The longest recipe build reaches the top quarter of its scratch_a
+ *  split and fits. */
 inline void test_islamicstars_peak_fits_scratch() {
-  check_islamicstars_motion_fits_scratch(6, 160);
-  HS_EXPECT_GT(scratch_arena_a.get_lifetime_high_water_mark(), 100u * 1024u);
+  const size_t preset = IslamicBuildProbe::longest_recipe_preset();
+  check_islamicstars_motion_fits_scratch(
+      preset, IslamicBuildProbe::build_window(preset, 4.0f));
+  HS_EXPECT_GT(scratch_arena_a.get_lifetime_high_water_mark() * 4,
+               IslamicBuildProbe::recipe_scratch_a() * 3);
 }
 
 /**

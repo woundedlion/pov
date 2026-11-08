@@ -290,9 +290,10 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
                                 ? float(ring.age)
                                 : float(ring.previous_age);
         const float age = start + (float(ring.age) - start) * t;
+        constexpr float RADIUS_MAX = FX::Ring::RADIUS_MAX;
         const int stride = Plot::Ring::timed_stride<DEFAULT_W>(
-            2.0f * (start + 1.0f) / ring.life,
-            2.0f * (ring.age + 1.0f) / ring.life);
+            RADIUS_MAX * (start + 1.0f) / ring.life,
+            RADIUS_MAX * (ring.age + 1.0f) / ring.life);
         const auto basis = math::make_basis(math::Quaternion(), ring.normal);
         {
           Canvas canvas(effect);
@@ -304,12 +305,15 @@ inline void RingShowerWhiteBox::check_temporal_rings() {
             auto vertex = [&](int i, float time) {
               const float at = start + (float(ring.age) - start) * time;
               return RingTemporalOracle::vertex(
-                  basis, i, double(math::PI_F) * (at + 1.0) / ring.life);
+                  basis, i,
+                  RADIUS_MAX * (at + 1.0) / ring.life * double(math::PI_F) / 2);
             };
             auto shade = [&](const math::Vector &v, Fragment &f) {
               f.color = ring.palette.get(dot_key(v.x));
               f.color.alpha *=
-                  hs::clamp((age + 1.0f) / 4, 0.0f, 1.0f) * effect.params.alpha;
+                  hs::clamp((age + 1.0f) / FX::Ring::FADE_IN_FRAMES, 0.0f,
+                            1.0f) *
+                  effect.params.alpha;
             };
             RingTemporalOracle::frozen(canvas, vertex, shade, rows, t, stride);
           }
@@ -428,10 +432,11 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
             main_ring
                 ? 1
                 : Plot::Ring::timed_stride<DEFAULT_W>(
-                      0.3f *
+                      Slot::RADIUS_MAX *
                           (scenario == Scenario::THRUSTER_BIRTH ? 1.0f : 2.0f) /
-                          8.0f,
-                      0.3f * (slot.age + 1.0f) / 8.0f);
+                          Slot::RADIUS_GROW_FRAMES,
+                      Slot::RADIUS_MAX * (slot.age + 1.0f) /
+                          Slot::RADIUS_GROW_FRAMES);
         {
           Canvas canvas(effect);
           if (timed) {
@@ -451,10 +456,12 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
             }
             auto warp = [](int i, const auto &state) {
               const double spatial =
-                  std::sin(4.0 * double(math::PI_F) * i / DEFAULT_W -
+                  std::sin(2.0 * FX::WARP_SPATIAL_CYCLES * double(math::PI_F) *
+                               i / DEFAULT_W -
                            double(math::PI_F) / 2 + state.phase);
               const double temporal =
-                  std::sin(6.0 * double(math::PI_F) * state.frame / 32 -
+                  std::sin(2.0 * FX::WARP_TEMPORAL_CYCLES * double(math::PI_F) *
+                               state.frame / FX::WARP_PERIOD_FRAMES -
                            double(math::PI_F) / 2);
               return spatial * temporal * state.amplitude;
             };
@@ -478,11 +485,14 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
             auto vertex = [&](int i, float time) {
               const float at =
                   scenario == Scenario::THRUSTER_BIRTH ? 0.0f : 1.0f + time;
-              return RingTemporalOracle::vertex(
-                  basis, i, 0.3 * (at + 1.0) / 8 * double(math::PI_F) / 2);
+              return RingTemporalOracle::vertex(basis, i,
+                                                Slot::RADIUS_MAX * (at + 1.0) /
+                                                    Slot::RADIUS_GROW_FRAMES *
+                                                    double(math::PI_F) / 2);
             };
             auto shade = [&](const math::Vector &, Fragment &f) {
-              const float opacity = 1.0f - math::ease_out_expo(age / 16);
+              const float opacity =
+                  1.0f - math::ease_out_expo(age / Slot::LIFE);
               f.color = Color4(CRGB(255, 255, 255));
               f.color.color = f.color.color * opacity;
               f.color.alpha = opacity * effect.params.alpha;

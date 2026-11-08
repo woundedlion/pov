@@ -25,6 +25,10 @@ struct SphericalHarmonicsWhiteBox {
   static float amplitude(const SH &fx) { return fx.params.amplitude; }
   static constexpr int max_mode_idx() { return SH::MAX_MODE_IDX; }
   static constexpr float spin_turns() { return SH::SPIN_TURNS; }
+  static constexpr math::Vector spin_axis() { return SH::SPIN_AXIS; }
+  static constexpr float AO_FALLOFF = SH::AO_FALLOFF;
+  static constexpr float AO_AMBIENT = SH::AO_AMBIENT;
+  static constexpr float AO_RANGE = SH::AO_RANGE;
   static constexpr int spin_frames() { return SH::SPIN_FRAMES; }
   using FrameState = SH::HarmonicFrameState;
   static void step_timeline(SH &fx) {
@@ -300,14 +304,26 @@ inline void test_sh_polarity_split_and_ao_shaping() {
         HS_EXPECT_TRUE(neg_green * 10 < pos_green * 9);
       });
 
-  // Amplitude 0.6 keeps every pixel below the AO falloff, so the whole frame
-  // must read as a dimmed copy of the palette rather than the palette itself.
+  // An amplitude holding the dipole's peak at half the AO falloff keeps every
+  // pixel dimmed to at most its closed-form occlusion factor.
+  float peak = 0.0f;
+  {
+    const WB::Field dipole(1, 0, 1, 0, 0.0f, math::Quaternion());
+    for (int y = 0; y < 4 * SMALL_H; ++y)
+      for (int x = 0; x < 4 * SMALL_W; ++x)
+        peak = std::max(
+            peak, std::fabs(dipole.sample(
+                      math::pixel_to_vector<4 * SMALL_W, 4 * SMALL_H>(x, y))));
+  }
+  HS_EXPECT_GT(peak, 0.0f);
   sh_render_pinned_mode(
-      DIPOLE_IDX, 0.6f,
+      DIPOLE_IDX, WB::AO_FALLOFF / (2.0f * peak),
       [](const WB::SH &fx, const WB::Field &field, float amp) {
         // Only sample where the palette entry is bright enough that a missing
         // occlusion factor would be unambiguous.
         constexpr uint32_t PALETTE_FLOOR = 4096;
+        // Per-channel rounding of the shaded and palette colours.
+        constexpr float ROUNDING = 6.0f;
         int probed = 0, undimmed = 0;
         for (int y = 0; y < SMALL_H; ++y)
           for (int x = 0; x < SMALL_W; ++x) {
@@ -322,9 +338,11 @@ inline void test_sh_polarity_split_and_ao_shaping() {
             const Pixel &px = fx.get_pixel(x, y);
             const uint32_t got_energy =
                 static_cast<uint32_t>(px.r) + px.g + px.b;
+            const float occlusion =
+                WB::AO_AMBIENT + WB::AO_RANGE * mag / WB::AO_FALLOFF;
             ++probed;
-            // The occlusion factor cannot reach 0.8 at this amplitude.
-            if (got_energy * 5 >= want_energy * 4)
+            if (static_cast<float>(got_energy) >
+                static_cast<float>(want_energy) * occlusion + ROUNDING)
               ++undimmed;
           }
         std::printf("  SH ambient occlusion: probed=%d undimmed=%d\n", probed,
@@ -352,7 +370,7 @@ inline void test_sh_morph_chain_rearms() {
   HS_EXPECT_GT(seed, 0); // never the constant harmonic
   HS_EXPECT_TRUE(WB::next_idx(fx) != seed);
 
-  constexpr int FRAMES = 260;
+  constexpr int FRAMES = 4 * WB::SH::MORPH_FRAMES + 4;
   int commits = 0, held = seed, alpha_out_of_range = 0, self_blend = 0;
   int rearmed_at_zero = 0;
   float alpha_peak = 0.0f;
@@ -572,8 +590,7 @@ struct ShTimeEvaluator {
    * @return Shape orientation. */
   static math::Quaternion spin(double time) {
     using WB = SphericalHarmonicsWhiteBox;
-    // mirror of the spin axis SphericalHarmonics::init passes the timeline
-    const math::Vector AXIS = math::Vector(0.5f, 1.0f, 0.2f).normalized();
+    const math::Vector AXIS = WB::spin_axis().normalized();
     const double rate =
         2.0 * 3.14159265358979323846 * WB::spin_turns() / WB::spin_frames();
     return math::make_rotation(AXIS, static_cast<float>(rate * time));
@@ -586,8 +603,7 @@ struct ShTimeEvaluator {
    * @param amplitude Amplitude at that time.
    * @return Expected premultiplied pixel. */
   Pixel shade(const SphericalHarmonicsWhiteBox::SH &fx,
-              const math::Vector &view, double time,
-              float amplitude = 3.2f) const {
+              const math::Vector &view, double time, float amplitude) const {
     using WB = SphericalHarmonicsWhiteBox;
     const double chain = time / WB::SH::MORPH_FRAMES;
     const int leg = static_cast<int>(std::floor(chain));
@@ -663,24 +679,27 @@ inline void test_sh_columns_follow_sweep_time() {
   WB::pin_mode(fx, WB::max_mode_idx());
   WB::set_next_idx(fx, 1);
   const ShTimeEvaluator evaluator{WB::max_mode_idx()};
+  const float AMPLITUDE = WB::amplitude(fx);
+  constexpr int MORPH_FRAMES = WB::SH::MORPH_FRAMES;
   int worst = 0;
   int held_gap = 0;
-  for (int draw = 0; draw <= 66; ++draw) {
+  for (int draw = 0; draw <= MORPH_FRAMES + 2; ++draw) {
     pin_frame_clock(draw);
     fx.draw_frame();
     fx.advance_display();
-    if (draw > 2 && draw < 61)
+    if (draw > 2 && draw < MORPH_FRAMES - 3)
       continue;
     HS_CONTEXT("draw", draw);
     for (int x = 0; x < SMALL_W; ++x) {
       const double time =
           draw == 0 ? 1.0 : draw + Spacetime::SamplingSurface<SMALL_W>::time(x);
       worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
-                         return evaluator.shade(fx, view, time);
+                         return evaluator.shade(fx, view, time, AMPLITUDE);
                        }));
-      held_gap = std::max(held_gap, sh_column_gap(fx, x, [&](const auto &view) {
-                            return evaluator.shade(fx, view, draw + 1.0);
-                          }));
+      held_gap =
+          std::max(held_gap, sh_column_gap(fx, x, [&](const auto &view) {
+                     return evaluator.shade(fx, view, draw + 1.0, AMPLITUDE);
+                   }));
     }
   }
   hs::clear_mock_time();
@@ -756,12 +775,13 @@ inline void test_sh_manual_preset_resets_morph_history() {
   pin_frame_clock(20);
   fx.draw_frame();
   fx.advance_display();
+  const float A0 = WB::amplitude(fx);
   int worst = 0;
   for (int x = 0; x < SMALL_W; ++x) {
     const double time = 20 + Spacetime::SamplingSurface<SMALL_W>::time(x);
     worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
                        return ShTimeEvaluator::shade_modes(fx, view, time, mode,
-                                                           mode, 0.0f, 3.2f);
+                                                           mode, 0.0f, A0);
                      }));
   }
   HS_EXPECT_LE(worst, SH_TIME_TOLERANCE);
@@ -776,7 +796,7 @@ inline void test_sh_manual_preset_resets_morph_history() {
     worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
                        return ShTimeEvaluator::shade_modes(
                            fx, view, 21 + fraction, mode, mode, 0.0f,
-                           3.2f + (7.0f - 3.2f) * fraction);
+                           A0 + (7.0f - A0) * fraction);
                      }));
   }
   hs::clear_mock_time();
@@ -791,6 +811,7 @@ inline void test_sh_fidelity_toggle_keeps_history() {
   WB::SH fx;
   fx.init();
   const ShTimeEvaluator evaluator;
+  const float AMPLITUDE = WB::amplitude(fx);
   int worst = 0;
   int draw = 0;
   for (const bool enabled : {true, false, false, true, true}) {
@@ -805,7 +826,7 @@ inline void test_sh_fidelity_toggle_keeps_history() {
               ? draw + 1.0
               : draw + Spacetime::SamplingSurface<SMALL_W>::time(x);
       worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
-                         return evaluator.shade(fx, view, time);
+                         return evaluator.shade(fx, view, time, AMPLITUDE);
                        }));
     }
     ++draw;

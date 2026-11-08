@@ -138,6 +138,9 @@ struct FishbowlWhiteBox {
   static Color4 sample_fire(const EffectType &fx, float t) {
     return fx.fire_palette.get(fx.duty_mod.modify(t));
   }
+  static Color4 fire_gradient(const EffectType &fx, float u) {
+    return fx.fire_palette.get(u);
+  }
   static float palette_fill_scale(size_t trail_length) {
     return EffectType::palette_fill_scale(trail_length);
   }
@@ -206,7 +209,7 @@ inline void test_fishbowl_preset_restores_params() {
   HS_EXPECT_EQ(value("Duty Cycle"), snapshot.params.duty_cycle);
 }
 
-/** @brief The fire palette masks the dark portion of each duty cycle. */
+/** @brief The fire gradient fills the lit duty fraction and is black after it. */
 inline void test_fishbowl_fire_duty_cycle() {
   reset_globals();
   using WB = FishbowlWhiteBox;
@@ -221,11 +224,12 @@ inline void test_fishbowl_fire_duty_cycle() {
 
   HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.5f), ParamSetResult::APPLIED);
   const Pixel black(0, 0, 0);
-  const Color4 red = WB::sample_fire(fx, 0.20f);
-  const Color4 yellow = WB::sample_fire(fx, 0.39f);
-  HS_EXPECT_GT(red.color.r, red.color.g);
-  HS_EXPECT_GT(red.color.r, red.color.b);
-  HS_EXPECT_GT(yellow.color.g, red.color.g);
+  for (float t : {0.20f, 0.39f}) {
+    HS_CONTEXT(t < 0.3f ? "early lit" : "late lit");
+    const Color4 lit = WB::sample_fire(fx, t);
+    HS_EXPECT_EQ(lit.color, WB::fire_gradient(fx, t / 0.5f).color);
+    HS_EXPECT_TRUE(lit.color != black);
+  }
   HS_EXPECT_EQ(WB::sample_fire(fx, 0.50f).color, black);
   HS_EXPECT_EQ(WB::sample_fire(fx, 0.75f).color, black);
   const float dark_palette_t = 0.75f / value("Scale Factor");

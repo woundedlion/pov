@@ -107,6 +107,9 @@ struct IslamicBuildProbe {
   static constexpr size_t bridge_scratch_a() {
     return IS::BRIDGE_BUDGET.scratch_a;
   }
+  static constexpr size_t recipe_scratch_a() {
+    return IS::RECIPE_BUDGET.scratch_a;
+  }
   static constexpr size_t bridge_scratch_b() {
     return IS::BRIDGE_BUDGET.scratch_b;
   }
@@ -130,6 +133,57 @@ struct IslamicBuildProbe {
     return frames;
   }
   static constexpr int sprite_fade_frames() { return IS::SPRITE_FADE_FRAMES; }
+  /**
+   * @return The first playback preset whose lowered recipe has a standalone
+   *         DUAL step after a non-DUAL, non-HANKIN step: a dual bridge.
+   */
+  static size_t first_dual_bridge_preset() {
+    IS effect;
+    for (size_t i = 0; i < presets().size(); ++i) {
+      const auto *recipe = presets()[i].params->recipe;
+      if (!recipe)
+        continue;
+      effect.build_step_count = Solids::expand_to_primitives(
+          *recipe, effect.build_step_chain, IS::MAX_BUILD_STEPS);
+      for (size_t k = 1; k < effect.build_step_count; ++k) {
+        const Solids::Op before = effect.build_step_chain[k - 1].op;
+        if (effect.build_step_chain[k].op == Solids::Op::DUAL &&
+            !effect.dt_pair_at(k) && before != Solids::Op::DUAL &&
+            before != Solids::Op::HANKIN)
+          return i;
+      }
+    }
+    HS_CHECK(false, "no Islamic solid builds a dual bridge");
+    return 0;
+  }
+  /** @return The playback preset with the longest lowered recipe chain. */
+  static size_t longest_recipe_preset() {
+    IS effect;
+    size_t longest = 0, steps = 0;
+    for (size_t i = 0; i < presets().size(); ++i) {
+      const auto *recipe = presets()[i].params->recipe;
+      const size_t count =
+          recipe ? Solids::expand_to_primitives(
+                       *recipe, effect.build_step_chain, IS::MAX_BUILD_STEPS)
+                 : 0;
+      if (count > steps) {
+        longest = i;
+        steps = count;
+      }
+    }
+    return longest;
+  }
+  /**
+   * @return Frames from a spawn through the end of its recipe build, an upper
+   *         bound covering the sprite fade and still holds.
+   * @param preset Playback preset index.
+   * @param trans_speed Trans Speed divisor the build runs at.
+   */
+  static int build_window(size_t preset, float trans_speed) {
+    return 2 * IS::SPRITE_FADE_FRAMES + 2 * IS::STILL_FRAMES +
+           IS::recipe_frame_budget(presets()[preset].params->recipe,
+                                   trans_speed);
+  }
   /**
    * @brief Spawns @p entry out of band, whatever the registry cycle is on.
    * @details Clears the timeline first: the pending scheduled spawn and the
@@ -384,8 +438,8 @@ inline constexpr Solids::Entry NEEDLE_ENTRY = {
     &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE};
 
 /**
- * @brief Verifies the first recipe seed uses the Sprite envelope's 16-frame
- *        fade-in and starts its build at the full-opacity boundary.
+ * @brief Verifies the first recipe seed uses the Sprite envelope's fade-in
+ *        and starts its build at the full-opacity boundary.
  */
 inline void test_islamicstars_seed_sprite_fade_in() {
   reset_globals();
@@ -393,7 +447,6 @@ inline void test_islamicstars_seed_sprite_fade_in() {
   effect.init();
 
   constexpr int FADE_FRAMES = IslamicBuildProbe::sprite_fade_frames();
-  HS_EXPECT_EQ(FADE_FRAMES, 16);
   for (int frame = 1; frame < FADE_FRAMES; ++frame) {
     effect.draw_frame();
     effect.advance_display();
@@ -497,35 +550,18 @@ inline size_t first_recipe_entry() {
 inline void test_islamicstars_default_cycle_frames() {
   reset_globals();
   using IS = IslamicBuildProbe::IS;
-  HS_EXPECT_EQ(IS::cycle_frames(), 4896u);
   HS_EXPECT_EQ(IslamicBuildProbe::runtime_cycle_frames(), IS::cycle_frames());
 }
 
 /**
- * @brief Pins the playback roster order, the boot preset and selection
- *        mapping, and which controls are preset-scoped versus global.
+ * @brief Selection maps onto the unique roster names in order, boots on the
+ *        first recipe, and scopes controls per preset or globally.
  */
 inline void test_islamicstars_presets_cover_roster() {
   reset_globals();
   IslamicBuildProbe::IS effect;
   effect.init();
-  constexpr std::string_view EXPECTED_NAMES[] = {
-      "dodecahedron_hk62_ambo_hk62",
-      "truncatedIcosahedron_hk58_chamfer63",
-      "dodecahedron_bevel2_relax_gyro",
-      "truncatedCube_hk90_meta",
-      "truncatedIcosahedron_ambo_relax_truncate001_hankin59",
-      "icosahedron_ambo_truncate033_hankin59",
-      "dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
-      "octahedron_hk17_ambo_hk73",
-      "truncatedIcosidodecahedron_truncate50d_ambo_dual",
-      "icosidodecahedron_truncate5d_ambo_dual",
-      "snubDodecahedron_truncate5d_ambo_dual",
-      "rhombicuboctahedron_hk63_ambo_hk63",
-      "dodecahedron_hk54_ambo_hk72",
-      "dodecahedron_hk72_ambo_dual_hk20",
-      "icosahedron_snub_relax_truncate033_hankin62",
-      "icosahedron_truncate25_hk60_ambo_relax100_hk60"};
+  const auto &EXPECTED_NAMES = IslamicStarsDetail::SHAPE_NAMES;
   HS_EXPECT_EQ(effect.getPresetCount(), std::size(EXPECTED_NAMES));
   HS_EXPECT_EQ(effect.getPresetIndex(), first_recipe_entry());
   for (size_t i = 0; i < std::size(EXPECTED_NAMES); ++i) {
@@ -533,6 +569,8 @@ inline void test_islamicstars_presets_cover_roster() {
     HS_EXPECT_EQ(
         std::string_view(IslamicBuildProbe::selected_entry(effect)->name),
         EXPECTED_NAMES[i]);
+    for (size_t j = i + 1; j < std::size(EXPECTED_NAMES); ++j)
+      HS_EXPECT_TRUE(EXPECTED_NAMES[i] != EXPECTED_NAMES[j]);
   }
   HS_EXPECT_FALSE(effect.selectPreset(std::size(EXPECTED_NAMES)));
   for (const char *name :
@@ -818,25 +856,28 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
               DEVICE_GLOBAL_ARENA_SIZE - IslamicBuildProbe::bridge_scratch_a() -
                   IslamicBuildProbe::bridge_scratch_b());
   HS_EXPECT_TRUE(needle_built);
-  // The needle reached its scratch_a-heavy split.
-  HS_EXPECT_GT(na_peak, 120u * 1024u);
+  // The needle needed more scratch_a than a non-bridge recipe split holds.
+  HS_EXPECT_GT(na_peak, IslamicBuildProbe::recipe_scratch_a());
 }
+
+/** @brief Trans Speed of the reference frame comparisons. */
+inline constexpr float ISLAMIC_REFERENCE_TRANS_SPEED = 4.0f;
 
 /** @brief Compares two configurations over the same preset frame sequence. */
 template <typename Setup, typename Inspect>
-inline void islamic_frames_match_reference(size_t preset, Setup &&setup,
-                                           Inspect &&inspect) {
+inline void islamic_frames_match_reference(size_t preset, int frames,
+                                           Setup &&setup, Inspect &&inspect) {
   using P = IslamicBuildProbe;
   std::vector<uint64_t> reference;
   for (int mode = 0; mode < 2; ++mode) {
     reset_globals();
     pin_frame_clock(0);
     P::IS effect;
-    P::set_trans_speed(effect, 4.0f);
+    P::set_trans_speed(effect, ISLAMIC_REFERENCE_TRANS_SPEED);
     effect.init();
     setup(effect, mode);
     P::spawn_entry(effect, *P::presets()[preset].params);
-    for (int frame = 0; frame < 120; ++frame) {
+    for (int frame = 0; frame < frames; ++frame) {
       pin_frame_clock(frame);
       effect.draw_frame();
       inspect(effect, mode, frame);
@@ -851,12 +892,14 @@ inline void islamic_frames_match_reference(size_t preset, Setup &&setup,
   hs::clear_mock_time();
 }
 
-/** @brief Early shape-8 preparation preserves every build frame and fits its arena. */
+/** @brief Early dual-bridge preparation preserves every build frame and fits its arena. */
 inline void test_islamicstars_prepared_build() {
   using P = IslamicBuildProbe;
   bool saw_build = false, completed = false;
+  const size_t preset = P::first_dual_bridge_preset();
+  const int frames = P::build_window(preset, ISLAMIC_REFERENCE_TRANS_SPEED);
   islamic_frames_match_reference(
-      8,
+      preset, frames,
       [&](auto &effect, int mode) {
         saw_build = completed = false;
         P::preparation(effect, mode != 0);
@@ -866,7 +909,7 @@ inline void test_islamicstars_prepared_build() {
         completed = completed || (saw_build && !P::build_active(effect));
         HS_EXPECT_LE(persistent_arena.get_offset(),
                      P::persistent_budget(effect));
-        if (frame == 119) {
+        if (frame == frames - 1) {
           if (mode == 0) {
             HS_EXPECT_TRUE(saw_build);
             HS_EXPECT_TRUE(completed);
@@ -877,18 +920,20 @@ inline void test_islamicstars_prepared_build() {
       });
 }
 
-/** @brief Prepared shape-6 ripples preserve frames while rejecting interpolation work. */
+/** @brief Prepared ripples preserve frames while rejecting interpolation work. */
 inline void test_islamicstars_prepared_ripples() {
   using P = IslamicBuildProbe;
   std::array<size_t, 3> counts[2];
+  const size_t preset = first_recipe_entry();
+  const int frames = P::build_window(preset, ISLAMIC_REFERENCE_TRANS_SPEED);
   islamic_frames_match_reference(
-      6,
+      preset, frames,
       [](auto &effect, int mode) {
         P::set_burst_size(effect, 8);
         P::reference_ripples(mode == 0);
       },
       [&](auto &, int mode, int frame) {
-        if (frame == 119)
+        if (frame == frames - 1)
           counts[mode] = P::ripple_counts();
       });
   HS_EXPECT_GT(counts[0][0], size_t{0});
@@ -898,25 +943,27 @@ inline void test_islamicstars_prepared_ripples() {
   P::reference_ripples(false);
 }
 
-/** @brief Group rejection preserves shape-6 and shape-8 frames. */
+/** @brief Group rejection preserves the boot and dual-bridge shapes' frames. */
 inline void test_islamicstars_endpoint_groups() {
   using P = IslamicBuildProbe;
-  for (const int shape : {6, 8}) {
+  for (const size_t shape :
+       {first_recipe_entry(), P::first_dual_bridge_preset()}) {
     std::array<size_t, 2> counts[2];
+    const int frames = P::build_window(shape, ISLAMIC_REFERENCE_TRANS_SPEED);
     islamic_frames_match_reference(
-        shape,
+        shape, frames,
         [](auto &effect, int mode) {
           P::set_burst_size(effect, 8);
           P::reference_endpoints(mode == 0);
         },
         [&](auto &, int mode, int frame) {
-          if (frame == 119)
+          if (frame == frames - 1)
             counts[mode] = P::endpoint_counts();
         });
     HS_EXPECT_GT(counts[1][0], size_t{0});
     HS_EXPECT_LT(counts[1][1], counts[0][1]);
     std::printf(
-        "  [shape %d endpoint groups] individual bands %zu -> %zu, group checks %zu\n",
+        "  [shape %zu endpoint groups] individual bands %zu -> %zu, group checks %zu\n",
         shape, counts[0][1], counts[1][1], counts[1][0]);
   }
   P::reference_endpoints(false);

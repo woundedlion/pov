@@ -129,7 +129,7 @@ public:
 
     current_idx = SEED_MODE_IDX;
 
-    math::Vector axis = math::Vector(0.5f, 1.0f, 0.2f).normalized();
+    math::Vector axis = SPIN_AXIS.normalized();
     timeline.add(0, Animation::Rotation<W>(
                         orientation, axis, 2 * math::PI_F * SPIN_TURNS,
                         SPIN_FRAMES, math::ease_linear, {.repeat = true}));
@@ -439,6 +439,8 @@ private:
   // Looped continuous spin: SPIN_TURNS revolutions over SPIN_FRAMES frames.
   static constexpr float SPIN_TURNS = 100.0f;
   static constexpr int SPIN_FRAMES = 10000;
+  /// Spin axis, normalized at use.
+  static constexpr math::Vector SPIN_AXIS{0.5f, 1.0f, 0.2f};
 
   int current_idx = 0; /**< Flat index of the currently displayed mode. */
   int next_idx = 0;    /**< Flat index of the mode being morphed toward. */

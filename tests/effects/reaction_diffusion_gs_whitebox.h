@@ -425,7 +425,8 @@ struct GSWhiteBox {
       gs.render(canvas);
     }
     gs.advance_display();
-    HS_EXPECT_EQ(gs.transition.next_seed, GS::NUM_SEED_CLUSTERS / 2);
+    HS_EXPECT_GT(gs.transition.next_seed, 0);
+    HS_EXPECT_LT(gs.transition.next_seed, GS::NUM_SEED_CLUSTERS);
     for (int y = 0; y < SMALL_H; ++y)
       for (int x = 0; x < SMALL_W; ++x)
         HS_EXPECT_EQ(gs.get_pixel(x, y), Pixel(0, 0, 0));
@@ -522,6 +523,8 @@ struct GSWhiteBox {
   static constexpr int SEEDS = GS::NUM_SEED_CLUSTERS;
   static constexpr int COLOR_NOISE_STEPS = GS::COLOR_NOISE_STEPS;
   static constexpr int COLOR_VALUE_STEPS = GS::COLOR_VALUE_STEPS;
+  static constexpr float CACHED_HUE_LIMIT = GS::CACHED_HUE_LIMIT;
+  static constexpr float CACHED_SHIMMER_LIMIT = GS::CACHED_SHIMMER_LIMIT;
   static void set_pigment(GS &gs, int node, int seed) {
     gs.state.pigment[node] = Pigment::pack(seed, 0, Pigment::FULL_MASS);
   }

@@ -38,6 +38,9 @@ struct CometsWhiteBox {
 
   using C = Comets<SMALL_W, SMALL_H>;
   static constexpr int wipe_frames() { return C::WIPE_FRAMES; }
+  static constexpr int palette_period_frames() {
+    return C::PALETTE_PERIOD_FRAMES;
+  }
   static void roll_palette_over(C &c) { c.update_palette(); }
   static int wipe_frames_remaining(const C &c) {
     return c.wipe.frames_remaining;
@@ -174,7 +177,7 @@ inline void test_comets_wipe_shades_at_column_time() {
   effect.init();
   hs_test::run_frames(effect, 24);
   WB::roll_palette_over(effect);
-  hs_test::run_frames(effect, 12);
+  hs_test::run_frames(effect, WB::wipe_frames() / 4);
   WB::hold_camera(effect);
   HS_EXPECT_FALSE(same_palette_entries(WB::drawn_palette(effect),
                                        WB::baked_palette(effect)));
@@ -316,7 +319,9 @@ inline void test_comets_palette_rolls_while_presets_paused() {
   ScratchScope scope(scratch_arena_b);
   BakedPaletteStorage initial;
   initial.clone_from(WB::baked_palette(effect), scratch_arena_b);
-  hs_test::run_frames(effect, WB::dwell_frames() + WB::wipe_frames() + 2);
+  hs_test::run_frames(
+      effect, std::max<int>(WB::dwell_frames(), WB::palette_period_frames()) +
+                  WB::wipe_frames() + 2);
   HS_EXPECT_EQ(effect.getPresetIndex(), PRESET);
   HS_EXPECT_FALSE(same_palette_entries(WB::baked_palette(effect), initial));
 }

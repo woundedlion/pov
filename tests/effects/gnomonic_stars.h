@@ -182,8 +182,10 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
 
   // Out-of-range slider values clamp before they reach the cache.
   step(0.0f);
-  HS_EXPECT_EQ(WB::cached_points(fx), 100);
-  expect_lattice(100);
+  if (const auto *points = required_param(fx, "Points")) {
+    HS_EXPECT_EQ(WB::cached_points(fx), static_cast<int>(points->min));
+    expect_lattice(static_cast<int>(points->min));
+  }
   step(static_cast<float>(WB::max_points(fx)) + 500.0f);
   HS_EXPECT_EQ(WB::cached_points(fx), WB::max_points(fx));
 }

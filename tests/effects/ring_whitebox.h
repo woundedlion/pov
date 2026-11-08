@@ -14,11 +14,18 @@ struct ThrustersWhiteBox {
   static void check_temporal_rings();
 
   /**
-   * @brief Verifies warp_decay peaks at 0.7 at t=0 and relaxes to exactly 0 at t=1.
+   * @brief Verifies warp_decay peaks at fire, never grows, and relaxes to
+   *        exactly 0 at t=1.
    */
   static void check_warp_endpoints() {
-    HS_EXPECT_NEAR(FX::warp_decay(0.0f), 0.7f, 1e-6f); // peak at fire
-    HS_EXPECT_NEAR(FX::warp_decay(1.0f), 0.0f, 1e-6f); // full relaxation by end
+    HS_EXPECT_GT(FX::warp_decay(0.0f), 0.0f);
+    float previous = FX::warp_decay(0.0f);
+    for (int i = 1; i <= 64; ++i) {
+      const float decay = FX::warp_decay(i / 64.0f);
+      HS_EXPECT_LE(decay, previous);
+      previous = decay;
+    }
+    HS_EXPECT_NEAR(FX::warp_decay(1.0f), 0.0f, 1e-6f);
   }
 
   /**

@@ -86,8 +86,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // ring_fn completes three temporal cycles per 32 frames.
-    t_global = (t_global + 1) % 32;
+    t_global = (t_global + 1) % WARP_PERIOD_FRAMES;
 
     {
       HS_PROFILE(th_timeline_step);
@@ -116,6 +115,13 @@ public:
   }
 
 private:
+  /// Warp waves per ring turn.
+  static constexpr int WARP_SPATIAL_CYCLES = 2;
+  /// Warp waves per WARP_PERIOD_FRAMES.
+  static constexpr int WARP_TEMPORAL_CYCLES = 3;
+  /// Period of the warp's frame counter.
+  static constexpr int WARP_PERIOD_FRAMES = 32;
+
   /**
    * @brief One spawned thruster ring aged frame-by-frame to drive growth/fade.
    * @details A point on the unit sphere with its own orientation snapshot.
@@ -254,8 +260,11 @@ private:
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
     // phase is radians; sin_wave's phase is cycles.
-    return math::sin_wave(-1, 1, 2, phase / (2 * math::PI_F))(t) *
-           math::sin_wave(-1, 1, 3, 0)(static_cast<float>(frame) / 32.0f) * amp;
+    return math::sin_wave(-1, 1, WARP_SPATIAL_CYCLES,
+                          phase / (2 * math::PI_F))(t) *
+           math::sin_wave(-1, 1, WARP_TEMPORAL_CYCLES,
+                          0)(static_cast<float>(frame) / WARP_PERIOD_FRAMES) *
+           amp;
   }
 
   /**

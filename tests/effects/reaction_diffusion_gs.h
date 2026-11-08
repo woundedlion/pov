@@ -481,6 +481,14 @@ inline void test_gs_partial_color_palette_rows() {
   GSWhiteBox::GS gs;
   gs.init();
   constexpr uint16_t ALL_ROWS = (1u << 15) - 1;
+  // A non-empty run of adjacent rows.
+  const auto contiguous = [](uint16_t mask) {
+    if (mask == 0)
+      return false;
+    while (!(mask & 1u))
+      mask >>= 1;
+    return (mask & (mask + 1u)) == 0;
+  };
   HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs), ALL_ROWS);
   const size_t OFFSET = persistent_arena.get_offset();
   for (int generation = 0; generation < 3; ++generation) {
@@ -489,8 +497,10 @@ inline void test_gs_partial_color_palette_rows() {
     else
       GSWhiteBox::start_reaction(gs);
     GSWhiteBox::refresh_color_palettes(gs);
-    HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs),
-                 static_cast<uint16_t>(31u << 5));
+    uint16_t rows = GSWhiteBox::color_palette_rows(gs);
+    HS_EXPECT_TRUE(rows != ALL_ROWS);
+    HS_EXPECT_TRUE((rows >> (GSWhiteBox::COLOR_NOISE_STEPS / 2)) & 1u);
+    HS_EXPECT_TRUE(contiguous(rows));
     HS_EXPECT_TRUE(GSWhiteBox::exact_color_sample(gs, -1.0f));
     HS_EXPECT_TRUE(GSWhiteBox::exact_color_sample(gs, 1.0f));
     float hue = generation == 0 ? 0.2f : -0.2f;
@@ -518,8 +528,12 @@ inline void test_gs_partial_color_palette_rows() {
                                              std::max(noise, 0.0f) * shimmer));
       }
       GSWhiteBox::refresh_color_palettes(gs);
+      const uint16_t grown = GSWhiteBox::color_palette_rows(gs);
+      HS_EXPECT_EQ(grown & rows, rows);
+      HS_EXPECT_TRUE(contiguous(grown));
+      rows = grown;
     }
-    HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs), ALL_ROWS);
+    HS_EXPECT_EQ(rows, ALL_ROWS);
     HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
   }
 }
@@ -698,19 +712,24 @@ inline void test_gs_exact_color_path_boundaries() {
             GSWhiteBox::modified_palette(gs, 0, value, hue * noise,
                                          std::max(noise, 0.0f) * SHIMMER));
   }
-  for (float shimmer : {0.0f, 0.4f, 0.4001f, 1.0f}) {
-    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, 0.2f, shimmer);
-    HS_EXPECT_EQ(GSWhiteBox::exact_color_path(gs), shimmer > 0.4f);
-    if (shimmer > 0.4f)
+  constexpr float SHIMMER_LIMIT = GSWhiteBox::CACHED_SHIMMER_LIMIT;
+  constexpr float HUE_LIMIT = GSWhiteBox::CACHED_HUE_LIMIT;
+  const float INSIDE_HUE = 0.8f * HUE_LIMIT;
+  for (float shimmer :
+       {0.0f, SHIMMER_LIMIT, std::nextafter(SHIMMER_LIMIT, 2.0f), 1.0f}) {
+    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, INSIDE_HUE, shimmer);
+    HS_EXPECT_EQ(GSWhiteBox::exact_color_path(gs), shimmer > SHIMMER_LIMIT);
+    if (shimmer > SHIMMER_LIMIT)
       for (float noise : {-1.0f, 0.0f, 0.31f, 1.0f})
         HS_EXPECT_EQ(
             GSWhiteBox::cached_palette(gs, 0, 0.37f, noise),
-            GSWhiteBox::modified_palette(gs, 0, 0.37f, 0.2f * noise,
+            GSWhiteBox::modified_palette(gs, 0, 0.37f, INSIDE_HUE * noise,
                                          std::max(noise, 0.0f) * shimmer));
   }
-  for (float hue : {-0.2501f, -0.25f, 0.25f, 0.2501f}) {
-    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, hue, 0.4f);
-    HS_EXPECT_EQ(GSWhiteBox::exact_color_path(gs), fabsf(hue) > 0.25f);
+  const float PAST_HUE = std::nextafter(HUE_LIMIT, 2.0f);
+  for (float hue : {-PAST_HUE, -HUE_LIMIT, HUE_LIMIT, PAST_HUE}) {
+    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, hue, SHIMMER_LIMIT);
+    HS_EXPECT_EQ(GSWhiteBox::exact_color_path(gs), fabsf(hue) > HUE_LIMIT);
   }
 }
 

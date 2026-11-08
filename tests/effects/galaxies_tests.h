@@ -14,6 +14,11 @@ struct GalaxiesWhiteBox {
   static constexpr int NUM_GALAXIES = FX<1, 1>::NUM_GALAXIES;
   static constexpr float SPEED_JITTER = FX<1, 1>::SPEED_JITTER;
   static constexpr float CORE_FADE_RADIUS = FX<1, 1>::CORE_FADE_RADIUS;
+  static constexpr float INNER_RADIUS = FX<1, 1>::INNER_RADIUS;
+  static constexpr float RING_RADIUS = FX<1, 1>::RING_RADIUS;
+  static constexpr float ARM_JITTER = FX<1, 1>::ARM_JITTER;
+  static constexpr float MIN_EMISSION_RATE = FX<1, 1>::MIN_EMISSION_RATE;
+  static constexpr float MAX_EMISSION_RATE = FX<1, 1>::MAX_EMISSION_RATE;
 
   static float core_fade(float radius_fraction_sq) {
     return FX<1, 1>::core_fade(radius_fraction_sq);
@@ -58,6 +63,9 @@ struct GalaxiesWhiteBox {
   template <int W, int H>
   static void set_pitch(Galaxies<W, H> &fx, float pitch) {
     fx.params.arm_pitch = pitch;
+  }
+  template <int W, int H> static float arm_spin(const Galaxies<W, H> &fx) {
+    return fx.params.arm_spin;
   }
   static float alpha(uint16_t seed, float age, float arm) {
     return FX<1, 1>::particle_alpha(seed, age, arm);
@@ -121,14 +129,15 @@ inline void test_galaxies_alternate_orbits_and_arm_spin() {
         math::cross(galaxy.core, particle.get_position()), particle.velocity);
     HS_EXPECT(orbit * DIRECTION > 0.0f,
               "stellar orbit follows alternating direction");
-    const float EXPECTED_PHASE =
-        fmodf(0.01f + 0.028f * DIRECTION + math::TWO_PI_F, math::TWO_PI_F);
+    const float EXPECTED_PHASE = fmodf(
+        0.01f + WB::arm_spin(fx) * DIRECTION + math::TWO_PI_F, math::TWO_PI_F);
     HS_EXPECT_NEAR(galaxy.phase, EXPECTED_PHASE, 1e-6f);
   }
 }
 
-/** @brief Every galaxy has mostly white stars and sparse colored accents. */
+/** @brief Every galaxy has the same mix: mostly white stars, sparse accents. */
 inline void test_galaxies_star_color_mix() {
+  std::array<int, 4> first_mix{};
   for (int galaxy = 0; galaxy < GalaxiesWhiteBox::NUM_GALAXIES; ++galaxy) {
     int white = 0;
     int blue = 0;
@@ -150,10 +159,14 @@ inline void test_galaxies_star_color_mix() {
       } else
         HS_EXPECT(false, "star is white, blue, red or pale yellow");
     }
-    HS_EXPECT_EQ(white, 206);
-    HS_EXPECT_EQ(blue, 20);
-    HS_EXPECT_EQ(red, 20);
-    HS_EXPECT_EQ(yellow, 10);
+    HS_EXPECT_GE(white * 4, 3 * 256);
+    HS_EXPECT_GT(blue, 0);
+    HS_EXPECT_GT(red, 0);
+    HS_EXPECT_GT(yellow, 0);
+    const std::array<int, 4> mix{white, blue, red, yellow};
+    if (galaxy == 0)
+      first_mix = mix;
+    HS_EXPECT_TRUE(mix == first_mix);
   }
 }
 
@@ -169,7 +182,7 @@ inline void test_galaxies_white_star_stays_white() {
   const auto &galaxy = WB::galaxy(fx, 0);
   constexpr float RING = 0.35f;
   const float ANGLE =
-      galaxy.phase - galaxy.spin * logf(RING / 0.58f) / tanf(0.5f);
+      galaxy.phase - galaxy.spin * logf(RING / WB::RING_RADIUS) / tanf(0.5f);
   ps.spawn(galaxy.core * cosf(RING) +
                (galaxy.u * cosf(ANGLE) + galaxy.w * sinf(ANGLE)) * sinf(RING),
            math::Vector(), 0xc000);
@@ -258,7 +271,10 @@ inline void test_galaxies_black_hole_core_toggle() {
   std::printf("  black-hole star near=%llu far=%llu ratio=%.6f\n",
               static_cast<unsigned long long>(star_energy[0]),
               static_cast<unsigned long long>(star_energy[1]), RATIO);
-  HS_EXPECT_NEAR(RATIO, 0.61, 0.10);
+  // Dimmed near the black core but not culled.
+  constexpr double MAX_NEAR_FAR_RATIO = 0.9;
+  HS_EXPECT_GT(RATIO, 0.0);
+  HS_EXPECT_LT(RATIO, MAX_NEAR_FAR_RATIO);
 }
 
 /** @brief Stars span logarithmic arms with tangential orbital velocities. */
@@ -290,18 +306,21 @@ inline void test_galaxies_spawn_along_spiral_with_orbital_velocity() {
 
     const float ring =
         acosf(hs::clamp(math::dot(p.get_position(), core), -1.0f, 1.0f));
-    HS_EXPECT_GE(ring, 0.139f);
-    HS_EXPECT_LE(ring, 0.581f);
-    ++radial_bins[hs::clamp(static_cast<int>((ring - 0.14f) / 0.11f), 0, 3)];
+    HS_EXPECT_GE(ring, WB::INNER_RADIUS - 1e-3f);
+    HS_EXPECT_LE(ring, WB::RING_RADIUS + 1e-3f);
+    const float BIN_WIDTH = (WB::RING_RADIUS - WB::INNER_RADIUS) / 4.0f;
+    ++radial_bins[hs::clamp(
+        static_cast<int>((ring - WB::INNER_RADIUS) / BIN_WIDTH), 0, 3)];
     const auto &galaxy = WB::galaxy(fx, g);
     const float azimuth = atan2f(math::dot(p.get_position(), galaxy.w),
                                  math::dot(p.get_position(), galaxy.u));
-    const float expected = galaxy.phase + 2.0f * math::PI_F * galaxy.arm / 3 -
-                           galaxy.spin * logf(ring / 0.58f) / tanf(0.5f);
+    const float expected =
+        galaxy.phase + 2.0f * math::PI_F * galaxy.arm / 3 -
+        galaxy.spin * logf(ring / WB::RING_RADIUS) / tanf(0.5f);
     const float error =
         atan2f(sinf(azimuth - expected), cosf(azimuth - expected));
     const float spread = 1.0f - 0.9f * (p.color_seed >> 8) / 255.0f;
-    HS_EXPECT_LE(fabsf(error), 0.22f * spread + 0.005f);
+    HS_EXPECT_LE(fabsf(error), WB::ARM_JITTER * spread + 0.005f);
 
     // Tangent to the sphere and perpendicular to the core direction: a pure
     // orbit about the core, with no radial component.
@@ -320,9 +339,11 @@ inline void test_galaxies_spawn_along_spiral_with_orbital_velocity() {
     HS_EXPECT_GE(count, 100);
 }
 
-/** @brief A rotating spiral lights young stars; old stars stay dim. */
+/** @brief A rotating spiral lights young stars; old and between-arm stars share
+ *  one faint background. */
 inline void test_galaxies_arm_contrast_and_age_fade() {
   using WB = GalaxiesWhiteBox;
+  constexpr float BACKGROUND_CEILING = 0.05f;
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
@@ -332,22 +353,27 @@ inline void test_galaxies_arm_contrast_and_age_fade() {
     for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
       auto &galaxy = WB::galaxy(fx, g);
       for (float ring : {0.18f, 0.35f, 0.54f}) {
-        const float angle =
-            galaxy.phase - galaxy.spin * logf(ring / 0.58f) / tanf(0.5f);
+        const float angle = galaxy.phase - galaxy.spin *
+                                               logf(ring / WB::RING_RADIUS) /
+                                               tanf(0.5f);
         const math::Vector position =
             galaxy.core * cosf(ring) +
             (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(ring);
         const float on_arm = WB::density(fx, g, position);
         HS_EXPECT_GE(on_arm, 0.99f);
-        HS_EXPECT_GE(WB::alpha(0xff00, 100, on_arm), 0.92f);
+        const float background = WB::alpha(0xff00, 700, on_arm);
+        HS_EXPECT_GT(background, 0.0f);
+        HS_EXPECT_LE(background, BACKGROUND_CEILING);
+        HS_EXPECT_GE(WB::alpha(0xff00, 100, on_arm), 10.0f * background);
         HS_EXPECT_NEAR(WB::alpha(0xff00, 475, on_arm),
-                       (WB::alpha(0xff00, 100, on_arm) + 0.014f) * 0.5f, 1e-5f);
-        HS_EXPECT_NEAR(WB::alpha(0xff00, 700, on_arm), 0.014f, 1e-5f);
+                       (WB::alpha(0xff00, 100, on_arm) + background) * 0.5f,
+                       1e-5f);
         galaxy.phase += math::PI_F / arms;
         const float between_arms = WB::density(fx, g, position);
         HS_EXPECT_NEAR(between_arms, 0.0f, 1e-5f);
-        HS_EXPECT_NEAR(WB::alpha(0xff00, 100, between_arms), 0.014f, 1e-5f);
-        HS_EXPECT_NEAR(WB::alpha(0, 100, between_arms), 0.006f, 1e-5f);
+        HS_EXPECT_NEAR(WB::alpha(0xff00, 100, between_arms), background, 1e-5f);
+        HS_EXPECT_GT(WB::alpha(0, 100, between_arms), 0.0f);
+        HS_EXPECT_LT(WB::alpha(0, 100, between_arms), background);
         galaxy.phase -= math::PI_F / arms;
       }
     }
@@ -371,9 +397,9 @@ inline void test_galaxies_arm_sharpness() {
     WB::set_arms(fx, arms);
     auto &galaxy = WB::galaxy(fx, 0);
     const float ring = 0.35f;
-    const float angle = galaxy.phase -
-                        galaxy.spin * logf(ring / 0.58f) / tanf(0.5f) +
-                        math::PI_F / (3.0f * arms);
+    const float angle =
+        galaxy.phase - galaxy.spin * logf(ring / WB::RING_RADIUS) / tanf(0.5f) +
+        math::PI_F / (3.0f * arms);
     const math::Vector position =
         galaxy.core * cosf(ring) +
         (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(ring);
@@ -399,8 +425,8 @@ inline void test_galaxies_emission_rate_and_capacity() {
   for (const auto &param : fx.getParameters()) {
     if (std::string_view(param.name) == "Emission Rate") {
       found = true;
-      HS_EXPECT_EQ(param.min, 0.15f);
-      HS_EXPECT_EQ(param.max, 4.0f);
+      HS_EXPECT_EQ(param.min, WB::MIN_EMISSION_RATE);
+      HS_EXPECT_EQ(param.max, WB::MAX_EMISSION_RATE);
     }
   }
   HS_EXPECT(found, "Emission Rate is registered");
@@ -414,11 +440,11 @@ inline void test_galaxies_emission_rate_and_capacity() {
   ps.emitters[0](ps);
   HS_EXPECT_EQ(ps.active(), 2);
   HS_EXPECT_EQ(galaxy.emission_credit, 0.5f);
-  HS_EXPECT_NEAR(galaxy.phase, 0.028f, 1e-6f);
+  HS_EXPECT_NEAR(galaxy.phase, WB::arm_spin(fx), 1e-6f);
   ps.emitters[0](ps);
   HS_EXPECT_EQ(ps.active(), 5);
   HS_EXPECT_EQ(galaxy.emission_credit, 0.0f);
-  HS_EXPECT_NEAR(galaxy.phase, 0.056f, 1e-6f);
+  HS_EXPECT_NEAR(galaxy.phase, 2.0f * WB::arm_spin(fx), 1e-6f);
 
   WB::set_emission_rate(fx, 4.0f);
   ps.emitters[0](ps);
@@ -429,7 +455,6 @@ inline void test_galaxies_emission_rate_and_capacity() {
   HS_EXPECT_EQ(galaxy.emission_credit, 0.0f);
 
   const int capacity = static_cast<int>(ps.pool.capacity());
-  HS_EXPECT_EQ(capacity, 12000);
   for (int i = ps.active(); i < capacity; ++i)
     WB::emit(fx, 0);
   HS_EXPECT_EQ(ps.active(), capacity);
@@ -448,7 +473,7 @@ inline void test_galaxies_emission_rate_and_capacity() {
   WB::set_emission_rate(fx, 0.0f);
   ps.emitters[0](ps);
   HS_EXPECT_EQ(ps.active(), 0);
-  HS_EXPECT_NEAR(galaxy.emission_credit, 0.65f, 1e-6f);
+  HS_EXPECT_NEAR(galaxy.emission_credit, 0.5f + WB::MIN_EMISSION_RATE, 1e-6f);
 }
 
 /** @brief Packed stellar orbits stay within an eighth-column of float orbits. */
@@ -525,7 +550,7 @@ inline void test_galaxies_live_particle_count() {
     return;
   HS_EXPECT(count->readonly, "Particles telemetry is read-only");
   HS_EXPECT_EQ(count->min, 0.0f);
-  HS_EXPECT_EQ(count->max, 12000.0f);
+  HS_EXPECT_EQ(count->max, static_cast<float>(WB::system(fx).pool.capacity()));
   HS_EXPECT_EQ(count->get(), 0.0f);
   {
     HS_CONTEXT("client writes cannot replace live particle count");

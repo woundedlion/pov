@@ -514,10 +514,6 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
                100);
 }
 
-/** @brief Hankin sweep frame the seam test draws: handoffs settled at both
- *  endpoints, the interlace angle near its fastest. */
-inline constexpr int HANKIN_SEAM_FRAME = 25;
-
 /**
  * @brief The tetrahedron sweep and following morph leg have no excess seam step.
  */
@@ -536,19 +532,42 @@ inline void test_hankinsolids_interlace_motion_is_seam_free() {
 inline void test_hankinsolids_seam_copies_are_one_polygon() {
   using WB = HankinSolidsWhiteBox;
   constexpr int W = 288, H = 144;
+  constexpr int SWEEP = HankinSolids<W, H>::HANKIN_SWEEP_FRAMES;
+  // The first sweep's frame whose neighbours span the largest angle change.
+  int seam_frame = 1;
+  {
+    reset_globals();
+    pin_frame_clock(0);
+    HankinSolids<W, H> probe;
+    probe.init();
+    std::array<float, SWEEP> sweep{};
+    for (int f = 0; f < SWEEP; ++f) {
+      pin_frame_clock(f);
+      probe.draw_frame();
+      probe.advance_display();
+      sweep[f] = WB::angle(probe);
+    }
+    float fastest = 0.0f;
+    for (int f = 1; f + 1 < SWEEP; ++f)
+      if (fabsf(sweep[f + 1] - sweep[f - 1]) > fastest) {
+        fastest = fabsf(sweep[f + 1] - sweep[f - 1]);
+        seam_frame = f;
+      }
+    HS_EXPECT_GT(fastest, 0.0f);
+  }
   reset_globals();
   pin_frame_clock(0);
   HankinSolids<W, H> effect;
   effect.init();
   std::array<float, 3> angles{};
   std::array<math::Quaternion, 3> cameras{};
-  for (int f = 0; f <= HANKIN_SEAM_FRAME + 1; ++f) {
+  for (int f = 0; f <= seam_frame + 1; ++f) {
     pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
-    if (f >= HANKIN_SEAM_FRAME - 1) {
-      angles[f - HANKIN_SEAM_FRAME + 1] = WB::angle(effect);
-      cameras[f - HANKIN_SEAM_FRAME + 1] = WB::camera(effect);
+    if (f >= seam_frame - 1) {
+      angles[f - seam_frame + 1] = WB::angle(effect);
+      cameras[f - seam_frame + 1] = WB::camera(effect);
     }
   }
   hs::clear_mock_time();
