@@ -8,6 +8,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -408,6 +409,9 @@ inline size_t fixed_emitter_degree(const char *name) {
   return 0;
 }
 
+/** @brief Peak measured element growth per MESHOP_BOUNDS row. */
+inline std::array<double, hs_wasm::MESHOP_BOUNDS_COUNT> mesh_op_peak_growth{};
+
 /**
  * @brief Runs one operator and checks its real growth against its declared
  *        factors.
@@ -450,6 +454,8 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
 
   HS_EXPECT_GT(out_elements, 0u);
   HS_EXPECT_LE(out_elements, row->bounds.elements * in_elements);
+  double &peak = mesh_op_peak_growth[size_t(row - hs_wasm::MESHOP_BOUNDS)];
+  peak = std::max(peak, double(out_elements) / double(in_elements));
   HS_EXPECT_LE(out_degree, std::max({fixed_emitter_degree(probe.name),
                                      row->bounds.face_degree * in_degree,
                                      row->bounds.valence * in_valence}));
@@ -503,7 +509,10 @@ inline void test_mesh_op_probes_match_roster() {
   }
 }
 
+/** @brief Measured element growth reaches each operator's declared factor and
+ *  stays within its degree and byte budgets. */
 inline void test_mesh_op_growth_factors() {
+  mesh_op_peak_growth = {};
   Arena input(mesh_op_input_buf, sizeof(mesh_op_input_buf));
   Arena target(mesh_op_target_buf, sizeof(mesh_op_target_buf));
   Arena temp(mesh_op_temp_buf, sizeof(mesh_op_temp_buf));
@@ -545,40 +554,34 @@ inline void test_mesh_op_growth_factors() {
   PolyMesh wide_faces = Solids::finalize_solid(prism, input);
   for (const MeshOpProbe &probe : MESH_OP_PROBES)
     check_mesh_op_growth(probe, wide_faces, target, temp, finalized);
+
+  // Each declared element factor is the least integer covering measured growth.
+  for (size_t index = 0; index < hs_wasm::MESHOP_BOUNDS_COUNT; ++index) {
+    HS_CONTEXT(hs_wasm::MESHOP_BOUNDS[index].name);
+    std::printf("  %s peak growth %.3f\n", hs_wasm::MESHOP_BOUNDS[index].name,
+                mesh_op_peak_growth[index]);
+    HS_EXPECT_EQ(size_t(std::ceil(mesh_op_peak_growth[index])),
+                 hs_wasm::MESHOP_BOUNDS[index].bounds.elements);
+  }
 }
 
-/** @brief Mesh operator factor tables and their guard boundaries are pinned. */
+/** @brief Each nonzero degree or valence factor overflows the guard exactly
+ *  past its integer limit. */
 inline void test_mesh_op_declared_factor_boundaries() {
-  struct Boundary {
-    const char *name;
-    size_t elements, degree, valence;
-  };
-  constexpr Boundary BOUNDARIES[] = {
-      {"kis", 3, 0, 0},     {"dual", 1, 0, 1},     {"ambo", 2, 1, 1},
-      {"needle", 3, 0, 1},  {"meta", 6, 1, 1},     {"gyro", 5, 1, 1},
-      {"chamfer", 4, 1, 0}, {"expand", 4, 1, 1},   {"snub", 5, 1, 1},
-      {"relax", 1, 1, 0},   {"truncate", 3, 2, 1}, {"bevel", 6, 2, 2},
-      {"zip", 3, 1, 2},     {"hankin", 4, 2, 2}};
-  for (const auto &expected : BOUNDARIES) {
-    const auto *row = hs_wasm::find_mesh_op_bounds(expected.name);
-    HS_EXPECT_TRUE(row != nullptr);
-    if (!row)
-      continue;
-    HS_EXPECT_EQ(row->bounds.elements, expected.elements);
+  for (const auto &row : hs_wasm::MESHOP_BOUNDS) {
+    HS_CONTEXT(row.name);
     for (bool degree : {true, false}) {
-      const size_t FACTOR = degree ? expected.degree : expected.valence;
-      if (!FACTOR) {
-        HS_EXPECT_EQ(degree ? row->bounds.face_degree : row->bounds.valence,
-                     0u);
+      const size_t FACTOR =
+          degree ? row.bounds.face_degree : row.bounds.valence;
+      if (!FACTOR)
         continue;
-      }
       const size_t LIMIT = 255 / FACTOR;
       HS_EXPECT_FALSE(hs_wasm::mesh_op_face_degree_overflows(
-          degree ? LIMIT : 0, degree ? 0 : LIMIT, row->bounds.face_degree,
-          row->bounds.valence, 255));
+          degree ? LIMIT : 0, degree ? 0 : LIMIT, row.bounds.face_degree,
+          row.bounds.valence, 255));
       HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(
           degree ? LIMIT + 1 : 0, degree ? 0 : LIMIT + 1,
-          row->bounds.face_degree, row->bounds.valence, 255));
+          row.bounds.face_degree, row.bounds.valence, 255));
     }
   }
 }

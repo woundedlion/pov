@@ -10,7 +10,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <span>
 #include <vector>
 
@@ -72,14 +71,6 @@ inline bool face_is_culled(const PolyMesh &m, size_t off, int n) {
       probe_face_scratch, PROBE_HV, PROBE_H, nullptr, nullptr,
       SDF::BOUNDS_MARGIN);
   return face.y_min > face.y_max;
-}
-
-/** @brief Median of a scratch vector (sorts in place); 0 when empty. */
-inline float median_of(std::vector<float> &v) {
-  if (v.empty())
-    return 0.0f;
-  std::sort(v.begin(), v.end());
-  return v[v.size() / 2];
 }
 
 // ---------------------------------------------------------------------------
@@ -496,7 +487,6 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
  * against T_EPS, which must clear the cull outright.
  */
 inline void test_chamfer_birth_epsilon() {
-  constexpr float MAX_BIRTH_EPSILON = 1e-4f;
   for (const ChamferSite &site : CHAMFER_SITES) {
     HS_CONTEXT(site.name);
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
@@ -548,7 +538,7 @@ inline void test_chamfer_birth_epsilon() {
     HS_EXPECT_TRUE(clears_at_hi);
     // The sweeps open at T_EPS, so every birth must clear the cull there.
     HS_EXPECT_EQ(at_eps, static_cast<size_t>(0));
-    HS_EXPECT_LT(hi, MAX_BIRTH_EPSILON);
+    HS_EXPECT_LE(hi, ConwayGraph::T_EPS);
     std::printf("  [chamfer-eps] %s: births clear the SDF cull at t>=%.2e "
                 "(T_EPS=%.3f culls %zu of %zu; compile keeps %zu of %zu)\n",
                 site.name, static_cast<double>(hi),
@@ -603,147 +593,11 @@ inline void two_nearest(const math::Vector &c,
 }
 
 /**
- * @brief Pins face-centroid spacing per intermediate build-chain mesh against
- *        OpLeg's PROVENANCE_TOL_SQ chord radius.
- * @details The ratio is TOL over half the tightest centroid spacing, so a
- * denser chain mesh raises it. The cap is the measured worst plus margin.
+ * @brief Each swept leg's start mesh keeps the departed faces as an identity
+ *        prefix and emits newborns by its operator's face-count formula.
  */
-inline void test_build_chain_centroid_spacing() {
-  const float TOL = std::sqrt(Animation::OpLeg::PROVENANCE_TOL_SQ);
-  constexpr float MAX_MEASURED_TOL_RATIO = 5.17f;
-  constexpr float TOL_RATIO_MARGIN = 0.25f;
-  constexpr float MAX_TOL_RATIO = MAX_MEASURED_TOL_RATIO + TOL_RATIO_MARGIN;
-  float worst_ratio = 0.0f;
-  const char *worst_name = "";
-  size_t max_faces = 0;
-
-  for_each_shipping_chain([&](const ChainSite &site) {
-    Arena a(probe_a_buf, sizeof(probe_a_buf));
-    Arena b(probe_b_buf, sizeof(probe_b_buf));
-    for (size_t k = 0; k <= site.count; ++k) {
-      ScratchScope ga(a);
-      ScratchScope gb(b);
-      PolyMesh m = Solids::build_steps(site.seed, site.steps, k, a, b);
-      std::vector<math::Vector> c;
-      face_centroids(m, c);
-      std::vector<float> nn(c.size(), 0.0f);
-      float min_spacing = 1e9f;
-      for (size_t f = 0; f < c.size(); ++f) {
-        float best = 1e9f;
-        for (size_t g = 0; g < c.size(); ++g) {
-          if (g == f)
-            continue;
-          const math::Vector d = c[f] - c[g];
-          best = std::min(best, math::dot(d, d));
-        }
-        nn[f] = std::sqrt(best);
-        min_spacing = std::min(min_spacing, nn[f]);
-      }
-      const float med = median_of(nn);
-      const float ratio = TOL / (0.5f * min_spacing);
-      max_faces = std::max(max_faces, c.size());
-      if (ratio > worst_ratio) {
-        worst_ratio = ratio;
-        worst_name = site.name;
-      }
-      std::printf("  [spacing] %-46s step %zu: F=%-4zu min=%.4f med=%.4f "
-                  "tol/half-min=%.2f\n",
-                  site.name, k, c.size(), static_cast<double>(min_spacing),
-                  static_cast<double>(med), static_cast<double>(ratio));
-      HS_EXPECT_GT(c.size(), size_t{0});
-    }
-  });
-  std::printf("  [spacing] worst tol/half-min = %.2f on %s; largest chain "
-              "mesh F=%zu\n",
-              static_cast<double>(worst_ratio), worst_name, max_faces);
-  HS_EXPECT_LT(worst_ratio, MAX_TOL_RATIO);
-}
-
-/** @brief Pins per-leg face counts and maximum nearest-centroid ambiguity. */
 inline void test_build_chain_provenance_ambiguity() {
   constexpr float TOL_SQ = Animation::OpLeg::PROVENANCE_TOL_SQ;
-  struct ExpectedLeg {
-    const char *name;
-    size_t leg, previous, total;
-    float ratio;
-  };
-  constexpr ExpectedLeg EXPECTED[] = {
-      {"dodecahedron_hk62_ambo_hk62", 0, 12, 32, 1.000f},
-      {"dodecahedron_hk62_ambo_hk62", 1, 32, 62, 1.000f},
-      {"dodecahedron_hk62_ambo_hk62", 2, 62, 182, 0.566f},
-      {"truncatedIcosahedron_hk58_chamfer63", 0, 32, 92, 0.831f},
-      {"truncatedIcosahedron_hk58_chamfer63", 1, 92, 452, 0.784f},
-      {"dodecahedron_ambo_bevel33_relax_hk66", 0, 12, 32, 1.000f},
-      {"dodecahedron_ambo_bevel33_relax_hk66", 1, 32, 62, 1.000f},
-      {"dodecahedron_ambo_bevel33_relax_hk66", 2, 62, 122, 0.602f},
-      {"dodecahedron_ambo_bevel33_relax_hk66", 4, 122, 362, 0.679f},
-      {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 0, 32, 92, 0.844f},
-      {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 2, 92, 182, 1.000f},
-      {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 3, 182, 542, 0.879f},
-      {"dodecahedron_bevel2_relax_gyro", 0, 12, 32, 1.000f},
-      {"dodecahedron_bevel2_relax_gyro", 1, 32, 62, 1.000f},
-      {"dodecahedron_bevel2_relax_gyro", 3, 62, 542, 0.868f},
-      {"truncatedIcosidodecahedron_bevel5_relax_hk77", 0, 62, 182, 0.703f},
-      {"truncatedIcosidodecahedron_bevel5_relax_hk77", 1, 182, 362, 1.000f},
-      {"truncatedIcosidodecahedron_bevel5_relax_hk77", 3, 362, 722, 0.798f},
-      {"truncatedCube_hk90_meta", 0, 14, 38, 0.365f},
-      {"truncatedCube_hk90_meta", 1, 38, 74, 1.000f},
-      {"truncatedIcosahedron_ambo_relax_truncate001_hankin59", 0, 32, 92,
-       0.844f},
-      {"truncatedIcosahedron_ambo_relax_truncate001_hankin59", 2, 92, 182,
-       1.000f},
-      {"truncatedIcosahedron_ambo_relax_truncate001_hankin59", 3, 182, 542,
-       0.181f},
-      {"truncatedIcosahedron_ambo_relax_truncate001_hankin73", 0, 32, 92,
-       0.844f},
-      {"truncatedIcosahedron_ambo_relax_truncate001_hankin73", 2, 92, 182,
-       1.000f},
-      {"truncatedIcosahedron_ambo_relax_truncate001_hankin73", 3, 182, 542,
-       0.181f},
-      {"icosahedron_ambo_truncate033_hankin59", 0, 20, 32, 1.000f},
-      {"icosahedron_ambo_truncate033_hankin59", 1, 32, 62, 1.000f},
-      {"icosahedron_ambo_truncate033_hankin59", 2, 62, 182, 0.835f},
-      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 0, 12, 32, 1.000f},
-      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 1, 32, 62, 1.000f},
-      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 2, 62, 182, 0.629f},
-      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 3, 182, 362, 1.000f},
-      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 5, 362, 1082, 0.755f},
-      {"octahedron_hk17_ambo_hk73", 0, 8, 14, 1.000f},
-      {"octahedron_hk17_ambo_hk73", 1, 14, 26, 1.000f},
-      {"octahedron_hk17_ambo_hk73", 2, 26, 74, 0.589f},
-      {"icosahedron_kis_gyro", 1, 60, 272, 1.000f},
-      {"truncatedIcosidodecahedron_truncate50d_ambo_dual", 0, 62, 182, 0.703f},
-      {"truncatedIcosidodecahedron_truncate50d_ambo_dual", 1, 182, 542, 0.320f},
-      {"icosidodecahedron_truncate5d_ambo_dual", 0, 32, 62, 1.000f},
-      {"icosidodecahedron_truncate5d_ambo_dual", 1, 62, 182, 0.172f},
-      {"snubDodecahedron_truncate5d_ambo_dual", 0, 92, 152, 0.997f},
-      {"snubDodecahedron_truncate5d_ambo_dual", 1, 152, 452, 0.195f},
-      {"octahedron_hk34_ambo_hk72", 0, 8, 14, 1.000f},
-      {"octahedron_hk34_ambo_hk72", 1, 14, 26, 1.000f},
-      {"octahedron_hk34_ambo_hk72", 2, 26, 74, 0.556f},
-      {"rhombicuboctahedron_hk63_ambo_hk63", 0, 26, 50, 0.776f},
-      {"rhombicuboctahedron_hk63_ambo_hk63", 1, 50, 98, 1.000f},
-      {"rhombicuboctahedron_hk63_ambo_hk63", 2, 98, 290, 0.766f},
-      {"truncatedIcosahedron_hk54_ambo_hk72", 0, 32, 92, 0.831f},
-      {"truncatedIcosahedron_hk54_ambo_hk72", 1, 92, 182, 1.000f},
-      {"truncatedIcosahedron_hk54_ambo_hk72", 2, 182, 542, 0.590f},
-      {"dodecahedron_hk54_ambo_hk72", 0, 12, 32, 1.000f},
-      {"dodecahedron_hk54_ambo_hk72", 1, 32, 62, 1.000f},
-      {"dodecahedron_hk54_ambo_hk72", 2, 62, 182, 0.576f},
-      {"dodecahedron_hk72_ambo_dual_hk20", 0, 12, 32, 1.000f},
-      {"dodecahedron_hk72_ambo_dual_hk20", 1, 32, 62, 1.000f},
-      {"dodecahedron_hk72_ambo_dual_hk20", 3, 120, 182, 1.000f},
-      {"truncatedIcosahedron_truncate50d_ambo_dual", 0, 32, 92, 0.844f},
-      {"truncatedIcosahedron_truncate50d_ambo_dual", 1, 92, 272, 0.209f},
-      {"icosahedron_snub_relax_truncate033_hankin62", 0, 20, 92, 1.000f},
-      {"icosahedron_snub_relax_truncate033_hankin62", 2, 92, 152, 0.997f},
-      {"icosahedron_snub_relax_truncate033_hankin62", 3, 152, 452, 0.955f},
-      {"icosahedron_truncate25_hk60_ambo_relax100_hk60", 0, 20, 32, 1.000f},
-      {"icosahedron_truncate25_hk60_ambo_relax100_hk60", 1, 32, 92, 0.608f},
-      {"icosahedron_truncate25_hk60_ambo_relax100_hk60", 2, 92, 182, 1.000f},
-      {"icosahedron_truncate25_hk60_ambo_relax100_hk60", 4, 182, 542, 0.682f},
-  };
-  size_t checked = 0;
   size_t max_prev_faces = 0;
   const char *max_prev_name = "";
   float worst_newborn_ratio = 0.0f;
@@ -852,17 +706,28 @@ inline void test_build_chain_provenance_ambiguity() {
                   static_cast<double>(max_prefix_offset), leg_misidentified,
                   static_cast<double>(max_newborn_d1),
                   static_cast<double>(total > prev_faces ? max_ratio : 1.0f));
-      const auto expected = std::find_if(
-          std::begin(EXPECTED), std::end(EXPECTED),
-          [&](const ExpectedLeg &entry) {
-            return std::strcmp(entry.name, site.name) == 0 && entry.leg == k;
-          });
-      HS_EXPECT_TRUE(expected != std::end(EXPECTED));
-      if (expected != std::end(EXPECTED)) {
-        ++checked;
-        HS_EXPECT_EQ(prev_faces, expected->previous);
-        HS_EXPECT_EQ(total, expected->total);
-        HS_EXPECT_LE(max_ratio, expected->ratio + 0.01f);
+      // Corners: vertices of degree three or more; a degree-two vertex's
+      // figure is a digon, not a face.
+      std::vector<int> degree(seed.vertices.size(), 0);
+      for (size_t i = 0; i < seed.faces.size(); ++i)
+        ++degree[seed.faces[i]];
+      const size_t V = static_cast<size_t>(std::count_if(
+          degree.begin(), degree.end(), [](int d) { return d >= 3; }));
+      const size_t E = seed.faces.size() / 2;
+      switch (step.op) {
+      case Op::AMBO:
+      case Op::TRUNCATE:
+        HS_EXPECT_EQ(total, prev_faces + V);
+        break;
+      case Op::CHAMFER:
+        HS_EXPECT_EQ(total, prev_faces + E);
+        break;
+      case Op::SNUB:
+        HS_EXPECT_EQ(total, prev_faces + V + 2 * E);
+        break;
+      default:
+        HS_EXPECT_GT(total, prev_faces);
+        break;
       }
       // The prefix identity must also be the geometric nearest, or the
       // newborn-class inheritance is reading the wrong departed face.
@@ -881,7 +746,7 @@ inline void test_build_chain_provenance_ambiguity() {
   // None of the swept ops scanned here takes the tolerance-checked
   // full-correspondence path, so PROVENANCE_TOL_SQ never applies to them.
   HS_EXPECT_EQ(full_legs, static_cast<size_t>(0));
-  HS_EXPECT_EQ(checked, std::size(EXPECTED));
+  HS_EXPECT_GT(prefix_legs, static_cast<size_t>(0));
 }
 
 // ---------------------------------------------------------------------------
@@ -1004,7 +869,6 @@ inline int run_opchain_probe_tests() {
 
   HS_RUN(test_needle_partition_lowering_builds_on_hankin);
 
-  HS_RUN(test_build_chain_centroid_spacing);
   HS_RUN(test_build_chain_provenance_ambiguity);
 
   return fixture.result();

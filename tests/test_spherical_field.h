@@ -45,20 +45,31 @@ struct Rgb {
   constexpr Rgb(int r = 0, int g = 0, int b = 0) : r(r), g(g), b(b) {}
 };
 
-/** @brief Compile-time ring and sample counts match the declared field layouts. */
+/**
+ * @brief Rings sit on every spacing-th row plus both endpoints, and infill
+ * bands add one full-resolution ring per row.
+ */
 inline void test_constexpr_layout_counts() {
-  constexpr hs::SphericalFieldLayout<288, 144, 0> HOST(4);
-  constexpr hs::SphericalFieldLayout<288, 144, 3> DEVICE(4);
-  constexpr hs::SphericalFieldLayout<288, 144, 3> FEEDBACK(4, 4, 1, 72);
-  static_assert(HOST.ring_count() == 37);
-  static_assert(HOST.sample_count() == 1640);
-  static_assert(DEVICE.sample_count() == 1699);
-  static_assert(FEEDBACK.ring_count() == 40);
-  static_assert(FEEDBACK.sample_count() == 2028);
-  HS_EXPECT_EQ(HOST.ring(HOST.ring_count() - 1).y, 143);
-  HS_EXPECT_EQ(DEVICE.ring(DEVICE.ring_count() - 1).samples, 5);
-  HS_EXPECT_EQ(FEEDBACK.ring(0).samples, 72);
-  HS_EXPECT_EQ(FEEDBACK.ring(FEEDBACK.ring_count() - 1).samples, 72);
+  constexpr int H = 144, SPACING = 4, NORTH = 4, SOUTH = 1, EQUATOR = 72;
+  constexpr hs::SphericalFieldLayout<288, H, 0> HOST(SPACING);
+  constexpr hs::SphericalFieldLayout<288, H, 3> FEEDBACK(SPACING, NORTH, SOUTH,
+                                                         EQUATOR);
+  static_assert(HOST.ring_count() == (H - 1 + SPACING - 1) / SPACING + 1);
+  HS_EXPECT_EQ(HOST.ring(HOST.ring_count() - 1).y, H - 1);
+  int count = 0;
+  for (auto ring = FEEDBACK.ring(0);; ring = FEEDBACK.next_ring(ring)) {
+    ++count;
+    const bool infill = ring.y < NORTH || ring.y >= H - SOUTH;
+    HS_EXPECT_TRUE(infill || ring.y % SPACING == 0);
+    if (infill)
+      HS_EXPECT_EQ(ring.samples, EQUATOR);
+    else
+      HS_EXPECT_LE(ring.samples, EQUATOR);
+    if (ring.y == H - 1)
+      break;
+  }
+  HS_EXPECT_EQ(count, FEEDBACK.ring_count());
+  HS_EXPECT_EQ(count, NORTH + (H - SOUTH - 1) / SPACING + SOUTH);
 
   // A spacing past 4*(H+HOffset-1) rounds the derived longitude count to zero.
   constexpr hs::SphericalFieldLayout<288, 144, 3> SPARSE(4096);
@@ -198,12 +209,13 @@ inline void test_longitude_filter_tracks_spherical_width() {
   // Every longitude of the pole row lands on one point, so it saturates at the
   // widest odd footprint 288 columns admit.
   HS_EXPECT_EQ(layout.longitude_filter_width(0), 287);
-  HS_EXPECT_EQ(layout.longitude_filter_width(1), 47);
-  HS_EXPECT_EQ(layout.longitude_filter_width(2), 25);
-  HS_EXPECT_EQ(layout.longitude_filter_width(3), 17);
-  HS_EXPECT_EQ(layout.longitude_filter_width(4), 13);
-  HS_EXPECT_EQ(layout.longitude_filter_width(72), 3);
-  HS_EXPECT_EQ(layout.longitude_filter_width(143), 17);
+  for (int y = 1; y < 144; ++y) {
+    const int width = layout.longitude_filter_width(y);
+    const float equatorial_pixels = 1.0f / layout.latitude_sine(y);
+    HS_EXPECT_EQ(width % 2, 1);
+    HS_EXPECT_GE(float(width), equatorial_pixels);
+    HS_EXPECT_LT(float(width - 2), equatorial_pixels);
+  }
 }
 
 /** @brief Longitude filter and sampler wrap poles. */

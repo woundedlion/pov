@@ -461,8 +461,12 @@ inline void test_peirce_square_is_the_rotated_diamond() {
   }
 }
 
-/** @brief A full scroll turn preserves strip coordinates and periodic edge metadata. */
+/** @brief A full scroll turn preserves strip coordinates and periodic edge
+ *  metadata; each strip layout reports one edge class of its own, outside the
+ *  square net's four edge classes. */
 inline void test_peirce_strip_scroll_is_periodic() {
+  constexpr uint8_t SQUARE_EDGE_CLASSES = 4;
+  int strip_class[2] = {-1, -1};
   for (PeirceLayout layout : {PeirceLayout::HORIZONTAL, PeirceLayout::VERTICAL})
     for (int latitude_step = -6; latitude_step <= 6; ++latitude_step) {
       const float latitude = latitude_step * (0.5f * math::PI_F / 6.0f);
@@ -484,13 +488,14 @@ inline void test_peirce_strip_scroll_is_periodic() {
         HS_EXPECT_EQ(wrapped.flags, base.flags);
         HS_EXPECT_EQ(wrapped.traits, base.traits);
         HS_EXPECT_EQ(wrapped.edge_class, base.edge_class);
-        constexpr uint8_t HORIZONTAL_EDGE_CLASS = 4;
-        constexpr uint8_t VERTICAL_EDGE_CLASS = 5;
-        HS_EXPECT_EQ(wrapped.edge_class, layout == PeirceLayout::HORIZONTAL
-                                             ? HORIZONTAL_EDGE_CLASS
-                                             : VERTICAL_EDGE_CLASS);
+        HS_EXPECT_GE(base.edge_class, SQUARE_EDGE_CLASSES);
+        int &expected = strip_class[layout == PeirceLayout::VERTICAL];
+        if (expected < 0)
+          expected = base.edge_class;
+        HS_EXPECT_EQ(int(base.edge_class), expected);
       }
     }
+  HS_EXPECT_NE(strip_class[0], strip_class[1]);
 }
 
 /** @brief A Peirce strip layout reports the equator tear its reflection leaves
@@ -812,11 +817,15 @@ inline void test_point_segment_distance() {
 /** @brief Projection trait bits compose and match Bonne and Peirce kernel metadata. */
 inline void test_projection_trait_packing() {
   HS_EXPECT_EQ(projection_traits(ProjectionTrait::NONE), 0);
+  constexpr auto bit = [](ProjectionTrait trait) {
+    return static_cast<uint8_t>(trait);
+  };
   HS_EXPECT_EQ(projection_traits(ProjectionTrait::CUT, ProjectionTrait::GLUED),
-               3);
+               bit(ProjectionTrait::CUT) | bit(ProjectionTrait::GLUED));
   HS_EXPECT_EQ(projection_traits(ProjectionTrait::CUT, ProjectionTrait::GLUED,
                                  ProjectionTrait::SINGULAR),
-               19);
+               bit(ProjectionTrait::CUT) | bit(ProjectionTrait::GLUED) |
+                   bit(ProjectionTrait::SINGULAR));
   const ProjectionKernelResult bonne =
       bonne_projection(math::Vector(1.0f, 0.0f, 0.0f), 0.0f, 0.4f);
   HS_EXPECT_EQ(bonne.traits, projection_traits(ProjectionTrait::CUT));

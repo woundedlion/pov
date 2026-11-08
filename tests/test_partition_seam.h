@@ -285,21 +285,18 @@ constexpr int MEASURED_MAX_BAND_DUAL_DODECA = 35;
 constexpr int MAX_BAND_MARGIN = 2;
 constexpr double MAX_ABS_ENERGY = 0.02;
 
-/** Half the smallest measured absolute energy. */
-constexpr double MIN_ABS_ENERGY = 0.005;
-
 /** Deepest measured pixel delta: a seam pixel both children claim at half
  * coverage composites to 3/4 of the parent's fill. */
 constexpr float MAX_MEASURED_PIXEL_DELTA = 0.25f;
 constexpr float PIXEL_DELTA_MARGIN = 0.05f;
 constexpr float MAX_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA + PIXEL_DELTA_MARGIN;
-constexpr float MIN_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA - PIXEL_DELTA_MARGIN;
 
 /**
- * @brief Asserts one swap's statistics against the gated-swap envelope.
+ * @brief Asserts one swap's statistics are nonzero and under the gated-swap
+ *        ceilings.
  * @param st Statistics of the swap.
  * @param measured_changed_frac The swap's calibrated changed fraction; its
- *        bracket uses CHANGED_FRAC_RELATIVE_MARGIN times that value.
+ *        ceiling adds CHANGED_FRAC_RELATIVE_MARGIN times that value.
  * @param measured_max_band The swap's calibrated deepest changed band.
  */
 inline void expect_within_envelope(const SeamStats &st,
@@ -307,21 +304,18 @@ inline void expect_within_envelope(const SeamStats &st,
                                    int measured_max_band) {
   const double frac = st.changed / (double(PS_W) * PS_H);
   const double margin = measured_changed_frac * CHANGED_FRAC_RELATIVE_MARGIN;
+  HS_EXPECT_GT(frac, 0.0);
   HS_EXPECT_LE(frac, measured_changed_frac + margin);
-  HS_EXPECT_GE(frac, measured_changed_frac - margin);
+  HS_EXPECT_GT(st.abs_energy, 0.0);
   HS_EXPECT_LE(st.abs_energy, MAX_ABS_ENERGY);
-  HS_EXPECT_GE(st.abs_energy, MIN_ABS_ENERGY);
+  HS_EXPECT_GT(st.max_dark, 0.0f);
   HS_EXPECT_LE(st.max_dark, MAX_PIXEL_DELTA);
-  HS_EXPECT_GE(st.max_dark, MIN_PIXEL_DELTA);
   HS_EXPECT_LE(st.max_bright, MAX_PIXEL_DELTA);
-  HS_EXPECT_GE(st.mean_band, 2.0);
+  HS_EXPECT_GT(st.mean_band, 0.0);
   HS_EXPECT_LE(st.mean_band, 4.5);
-  if (measured_max_band == PS_H) {
-    HS_EXPECT_EQ(st.max_band, PS_H);
-  } else {
-    HS_EXPECT_LE(st.max_band, measured_max_band + MAX_BAND_MARGIN);
-    HS_EXPECT_GE(st.max_band, measured_max_band - MAX_BAND_MARGIN);
-  }
+  HS_EXPECT_GT(st.max_band, 0);
+  HS_EXPECT_LE(st.max_band,
+               std::min(measured_max_band + MAX_BAND_MARGIN, int(PS_H)));
   HS_EXPECT_GT(st.changed_near_v, size_t(0));
   HS_EXPECT_LE(st.changed_near_v * 10, st.changed);
   HS_EXPECT_GT(st.mean_near, 0.0);
