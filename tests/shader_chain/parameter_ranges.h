@@ -118,9 +118,14 @@ inline void test_shader_chain_axis_ranges() {
       {"modulation.sine-axis-y", 0.0f},
       {"modulation.sine-axis-z", 0.0f}};
   HS_EXPECT_EQ(effect.update_parameters(direction), ParamSetResult::APPLIED);
+  const ParamDef *axis = effect.getParameters().find("modulation.sine-axis-x");
+  HS_EXPECT_TRUE(axis != nullptr);
+  if (!axis)
+    return;
+  const float AXIS_MIN = axis->min, AXIS_MAX = axis->max;
   const auto positive = parameter_range(effect, "modulation.sine-axis-x");
   HS_EXPECT_GT(positive[0], 0.0f);
-  HS_EXPECT_EQ(positive[1], 64.0f);
+  HS_EXPECT_EQ(positive[1], AXIS_MAX);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", positive[0]),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x",
@@ -129,7 +134,7 @@ inline void test_shader_chain_axis_ranges() {
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", -1.0f),
                ParamSetResult::APPLIED);
   const auto negative = parameter_range(effect, "modulation.sine-axis-x");
-  HS_EXPECT_EQ(negative[0], -64.0f);
+  HS_EXPECT_EQ(negative[0], AXIS_MIN);
   HS_EXPECT_LT(negative[1], 0.0f);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", negative[1]),
                ParamSetResult::APPLIED);
@@ -139,8 +144,8 @@ inline void test_shader_chain_axis_ranges() {
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-y", 1.0f),
                ParamSetResult::APPLIED);
   const auto crossing = parameter_range(effect, "modulation.sine-axis-x");
-  HS_EXPECT_EQ(crossing[0], -64.0f);
-  HS_EXPECT_EQ(crossing[1], 64.0f);
+  HS_EXPECT_EQ(crossing[0], AXIS_MIN);
+  HS_EXPECT_EQ(crossing[1], AXIS_MAX);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", 0.0f),
                ParamSetResult::APPLIED);
 }

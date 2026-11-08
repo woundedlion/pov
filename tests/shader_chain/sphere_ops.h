@@ -228,30 +228,49 @@ inline void test_shader_chain_parity_displace_ripple() {
 /** @brief Ripple bursts retain their stagger, cadence and shared centers. */
 inline void test_shader_chain_ripple_bursts() {
   using Ripple = In::Op::DisplaceRipple;
-  Ripple::State default_state;
-  Ripple::Params default_params;
-  for (int frame = 0; frame < 40; ++frame)
-    Ripple::advance(default_state, default_params);
-  HS_EXPECT_EQ(default_state.waves[0].age, 40.0f);
-  for (int frame = 0; frame < 40; ++frame)
-    Ripple::advance(default_state, default_params);
-  HS_EXPECT_EQ(default_state.waves[0].age, 80.0f);
-  HS_EXPECT_EQ(default_state.burst_count, 1U);
-
+  using PB::SphereAnimation::RIPPLE_STAGGER_FRAMES;
   Ripple::Params params;
   params.burst_rate = 1.0f / 64.0f;
+  params.period = 80.0f;
+  params.burst_size = 3;
+  const int NEXT_BURST = static_cast<int>(1.0f / params.burst_rate);
+  const auto launch_age = [&](int frames, int burst) {
+    return burst == 0 ? float(frames) : float(frames - burst * NEXT_BURST);
+  };
+  const auto active_waves = [&](int frames) {
+    int count = 0;
+    for (int burst = 0; burst * NEXT_BURST <= frames; ++burst)
+      for (int i = 0; i <= params.burst_size; ++i) {
+        const float age = launch_age(frames, burst) - RIPPLE_STAGGER_FRAMES * i;
+        count += age >= 0.0f && age < params.period;
+      }
+    return count;
+  };
+
+  Ripple::State aging;
+  for (int frame = 0; frame < 40; ++frame)
+    Ripple::advance(aging, params);
+  HS_EXPECT_EQ(aging.waves[0].age, 40.0f);
+  for (int frame = 0; frame < 40; ++frame)
+    Ripple::advance(aging, params);
+  HS_EXPECT_EQ(aging.waves[0].age, 80.0f);
+  HS_EXPECT_EQ(aging.burst_count, uint32_t(1 + 80 / NEXT_BURST));
+
   Ripple::State state;
   Ripple::init(state,
                {"ripple", Ripple::ID, In::instance_hash("ripple", Ripple::ID)});
   const auto ctx = shared_resources().context();
-  for (int frame = 0; frame < 17; ++frame)
+  constexpr int EARLY = 17;
+  for (int frame = 0; frame < EARLY; ++frame)
     Ripple::advance(state, params);
   auto prepared = Ripple::prepare(ctx, params, state);
-  HS_EXPECT_EQ(prepared.count, 2);
-  HS_EXPECT_NEAR(prepared.waves[0].ripple.phase, 17.0f / 80.0f * math::PI_F,
-                 1e-6f);
-  HS_EXPECT_NEAR(prepared.waves[1].ripple.phase, 1.0f / 80.0f * math::PI_F,
-                 1e-6f);
+  HS_EXPECT_EQ(prepared.count, active_waves(EARLY));
+  HS_EXPECT_GE(prepared.count, 2);
+  for (int i = 0; i < 2; ++i)
+    HS_EXPECT_NEAR(prepared.waves[i].ripple.phase,
+                   (launch_age(EARLY, 0) - RIPPLE_STAGGER_FRAMES * i) /
+                       params.period * math::PI_F,
+                   1e-6f);
   const auto center = prepared.waves[0].ripple.center;
   HS_EXPECT_EQ(prepared.waves[1].ripple.center.x, center.x);
   HS_EXPECT_EQ(prepared.waves[1].ripple.center.y, center.y);
@@ -260,7 +279,7 @@ inline void test_shader_chain_ripple_bursts() {
   Ripple::State restored;
   HS_EXPECT_TRUE(
       In::RuntimeStateCodec<Ripple::State>::restore(restored, snapshot));
-  for (int frame = 17; frame < 63; ++frame) {
+  for (int frame = EARLY; frame < NEXT_BURST - 1; ++frame) {
     Ripple::advance(state, params);
     Ripple::advance(restored, params);
   }
@@ -272,8 +291,8 @@ inline void test_shader_chain_ripple_bursts() {
       snapshot_words(In::RuntimeStateCodec<Ripple::State>::capture(state)) ==
       snapshot_words(In::RuntimeStateCodec<Ripple::State>::capture(restored)));
   prepared = Ripple::prepare(ctx, params, state);
-  HS_EXPECT_EQ(prepared.count, 5);
-  const auto next_center = prepared.waves[4].ripple.center;
+  HS_EXPECT_EQ(prepared.count, active_waves(NEXT_BURST));
+  const auto next_center = prepared.waves[prepared.count - 1].ripple.center;
   HS_EXPECT_TRUE((next_center - center).magnitude() > 0.01f);
   params.random_center = 0;
   params.center_azimuth = 0.7f;

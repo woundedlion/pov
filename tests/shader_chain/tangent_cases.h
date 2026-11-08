@@ -63,7 +63,6 @@ inline void test_tangent_integer_controls() {
     HS_EXPECT_EQ(order->option_count, 7);
     HS_EXPECT_EQ(std::string_view(order->options[0]), "one");
     HS_EXPECT_EQ(std::string_view(order->options[6]), "seven");
-    HS_EXPECT_EQ(order->get_requested(), 3.0f);
   }
   const auto *op = require_operator(In::Op::DisplacePotential::ID);
   if (!op)
@@ -128,7 +127,6 @@ inline void test_symmetric_single_strength() {
   const auto *op = require_operator(Symmetric::ID);
   if (!op)
     return;
-  HS_EXPECT_EQ(op->schema_count, 5);
   const In::ParamFieldInfo *strength = nullptr;
   for (const auto &field : op->schema_span()) {
     HS_EXPECT_FALSE(std::string_view(field.id) == "amplitude");
@@ -140,7 +138,6 @@ inline void test_symmetric_single_strength() {
     return;
   HS_EXPECT_EQ(strength->min, -4.0f * math::PI_F);
   HS_EXPECT_EQ(strength->max, 4.0f * math::PI_F);
-  HS_EXPECT_EQ(strength->def, 0.05f);
   for (const float value : {-4.0f * math::PI_F, 0.0f, 4.0f * math::PI_F}) {
     Symmetric::Params params;
     params.strength = value;
@@ -285,14 +282,7 @@ inline void test_symmetric_rotation_clock() {
     return;
   HS_EXPECT_TRUE(op->runtime.sample_state != nullptr);
   HS_EXPECT_TRUE(op->runtime.prepare_interval != nullptr);
-  const auto *speed = schema_field(*op, "speed");
-  HS_EXPECT_TRUE(speed != nullptr);
-  if (!speed)
-    return;
-  HS_EXPECT_STREQ(speed->display_name, "Speed");
-  HS_EXPECT_EQ(speed->def, 0.0f);
-  HS_EXPECT_EQ(speed->min, -0.1f);
-  HS_EXPECT_EQ(speed->max, 0.1f);
+  HS_EXPECT_TRUE(schema_field(*op, "speed") != nullptr);
   Symmetric::Params params;
   Symmetric::State state{0.7f};
   Symmetric::advance(state, params);

@@ -57,17 +57,32 @@ inline void test_shader_chain_palette_selection() {
   HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color,
                Palettes::DARK_RAINBOW.get(COORDINATE).color);
   params.palette_type = static_cast<uint8_t>(Type::MUTATING);
+  params.palette_name_b = static_cast<uint8_t>(std::size(SOURCES) - 1);
   params.palette_mutation = .5f;
   ctx = WB::frame_context(effect);
-  const ProceduralPalette MIXED({.4335f, .4335f, .4335f}, {.5f, .5f, .5f},
-                                {.9775f, 1.002f, .955f}, {.0835f, .174f, .8f});
+  using Coefficients = std::array<std::array<float, 3>, 4>;
+#define HS_TEST_TRIPLE(x, y, z) std::array<float, 3>{x, y, z}
+#define HS_TEST_COEFFICIENTS(name, A, B, C, D)                                 \
+  Coefficients{HS_TEST_TRIPLE A, HS_TEST_TRIPLE B, HS_TEST_TRIPLE C,           \
+               HS_TEST_TRIPLE D},
+  const Coefficients COEFFICIENTS[] = {
+      HS_PROCEDURAL_PALETTE_LIST(HS_TEST_COEFFICIENTS)};
+#undef HS_TEST_COEFFICIENTS
+#undef HS_TEST_TRIPLE
+  Coefficients mixed{};
+  for (size_t term = 0; term < 4; ++term)
+    for (size_t channel = 0; channel < 3; ++channel)
+      mixed[term][channel] =
+          .5f * (COEFFICIENTS[params.palette_name][term][channel] +
+                 COEFFICIENTS[params.palette_name_b][term][channel]);
+  const ProceduralPalette MIXED(mixed[0], mixed[1], mixed[2], mixed[3]);
   HS_EXPECT_LE(max_channel_gap(ctx.palettes[0]->get(COORDINATE).color,
                                MIXED.get(COORDINATE).color),
                2);
   params.palette_mutation = 1;
   ctx = WB::frame_context(effect);
   HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color,
-               Palettes::FIRE_AND_ICE.get(COORDINATE).color);
+               SOURCES[params.palette_name_b]->get(COORDINATE).color);
   params.palette_type = static_cast<uint8_t>(Type::GRADIENT);
   params.gradient_start_r = .2f;
   params.gradient_start_g = .4f;

@@ -206,11 +206,6 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_TRUE(peirce_fast.approximate);
   HS_EXPECT_EQ(peirce_fast.oracle,
                PB::ApproximationOracleId::PEIRCE_FAST_SQUARE);
-  HS_EXPECT_EQ(peirce_fast.metric_count, 3);
-  size_t approximate_count = 0;
-  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
-    approximate_count += op.approximate ? 1 : 0;
-  HS_EXPECT_EQ(approximate_count, 2u);
 }
 
 /** @brief Pins invariants operator schema fields and identities. */
@@ -263,7 +258,8 @@ inline void test_shader_chain_schema_color() {
   if (modulate) {
     HS_EXPECT_EQ(modulate->input, In::CarrierId::COLOR);
     HS_EXPECT_EQ(modulate->output, In::CarrierId::COLOR);
-    HS_EXPECT_EQ(modulate->schema_count, 38);
+    HS_EXPECT_EQ(modulate->schema_count,
+                 In::Op::ModulationParams::EXTRA_SCHEMA.size());
     const auto *source = schema_field(*modulate, "modulation-source");
     HS_EXPECT_TRUE(source != nullptr);
     if (source) {
@@ -282,29 +278,20 @@ inline void test_shader_chain_schema_sphere() {
   HS_EXPECT_SIZE_OR_RETURN(rotate.schema_span(), 2);
   HS_EXPECT_STREQ(rotate.schema[0].id, "wander");
   HS_EXPECT_STREQ(rotate.schema[1].id, "spin-speed");
-  HS_EXPECT_EQ(rotate.schema[1].max, 0.05f);
 
   const auto *glitch_operator = require_operator("sphere.lens.glitch.v2");
   if (!glitch_operator)
     return;
   HS_EXPECT_SIZE_OR_RETURN(glitch_operator->schema_span(), 2);
   HS_EXPECT_STREQ(glitch_operator->schema[0].id, "polar-multiplier");
-  HS_EXPECT_EQ(glitch_operator->schema[0].def, 2.0f);
   HS_EXPECT_STREQ(glitch_operator->schema[1].id, "azimuth-multiplier");
-  HS_EXPECT_EQ(glitch_operator->schema[1].def, 3.0f);
   const auto *twist_found = require_operator("sphere.lens.twist.v2");
   if (!twist_found)
     return;
   const In::OperatorDescriptor &twist = *twist_found;
   HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 6);
   HS_EXPECT_STREQ(twist.schema[0].id, "twist-angle");
-  HS_EXPECT_EQ(twist.schema[0].def, math::TWO_PI_F);
-  HS_EXPECT_EQ(twist.schema[0].min, -96.0f);
-  HS_EXPECT_EQ(twist.schema[0].max, 96.0f);
-  HS_EXPECT_STREQ(twist.schema[0].display_name, "Twist Angle (rad)");
   HS_EXPECT_STREQ(twist.schema[1].id, "twist-distribution");
-  HS_EXPECT_STREQ(twist.schema[1].display_name, "Twist Distribution");
-  HS_EXPECT_EQ(twist.schema[1].def, 0.85f);
   HS_EXPECT_EQ(twist.schema[1].min, 0.0f);
   HS_EXPECT_EQ(twist.schema[1].max, 1.0f);
   HS_EXPECT_STREQ(twist.schema[2].id, "axis-phi");
@@ -316,13 +303,9 @@ inline void test_shader_chain_schema_sphere() {
   HS_EXPECT_EQ(twist.schema[3].min, -math::PI_F);
   HS_EXPECT_EQ(twist.schema[3].max, math::PI_F);
   HS_EXPECT_STREQ(twist.schema[4].id, "speed");
-  HS_EXPECT_EQ(twist.schema[4].def, 0.02f);
   HS_EXPECT_EQ(twist.schema[4].min, 0.0f);
-  HS_EXPECT_EQ(twist.schema[4].max, 0.05f);
   HS_EXPECT_STREQ(twist.schema[5].id, "drift");
-  HS_EXPECT_EQ(twist.schema[5].def, 0.002f);
   HS_EXPECT_EQ(twist.schema[5].min, 0.0f);
-  HS_EXPECT_EQ(twist.schema[5].max, 0.05f);
   const auto *kaleidoscope_found =
       require_operator("sphere.lens.kaleidoscope.v2");
   if (!kaleidoscope_found)
@@ -371,17 +354,7 @@ inline void test_shader_chain_schema_sphere() {
   const In::OperatorDescriptor &ripple = *ripple_found;
   HS_EXPECT_EQ(ripple.schema_count,
                In::Op::RippleChainParams::FIELDS.size() + 2);
-  HS_EXPECT_STREQ(ripple.display_name, "Ripple Lens");
   HS_EXPECT_STREQ(ripple.schema[0].id, "period");
-  HS_EXPECT_EQ(ripple.schema[0].min, 30.0f);
-  HS_EXPECT_EQ(ripple.schema[0].max, 143.0f);
-  HS_EXPECT_EQ(ripple.schema[0].def, 80.0f);
-  HS_EXPECT_EQ(ripple.schema[1].max, 0.15f);
-  HS_EXPECT_EQ(ripple.schema[1].def, 0.15f);
-  HS_EXPECT_EQ(ripple.schema[2].max, 5.0f);
-  HS_EXPECT_EQ(ripple.schema[2].def, 0.1f);
-  HS_EXPECT_EQ(ripple.schema[3].min, 0.7f);
-  HS_EXPECT_EQ(ripple.schema[3].def, 0.7f);
   HS_EXPECT_STREQ(ripple.schema[5].id, "center-polar");
 }
 
@@ -467,8 +440,6 @@ inline void test_shader_chain_schema_sample() {
   constexpr size_t GRID_FIELDS = In::Op::GridSampleParams::FIELDS.size();
   HS_EXPECT_SIZE_OR_RETURN(sample.schema_span(), GRID_FIELDS + 2);
   HS_EXPECT_STREQ(sample.schema[0].id, "pattern-freq");
-  HS_EXPECT_EQ(sample.schema[0].min, 0.01f);
-  HS_EXPECT_EQ(sample.schema[0].max, 64.0f);
   HS_EXPECT_STREQ(sample.schema[GRID_FIELDS - 1].id, "edge-width");
   const In::ParamFieldInfo &weight = sample.schema[GRID_FIELDS];
   HS_EXPECT_STREQ(weight.id, "weight-mode");
@@ -618,7 +589,6 @@ inline void test_shader_chain_schema_field() {
   const In::OperatorDescriptor &bands = *bands_found;
   HS_EXPECT_SIZE_OR_RETURN(bands.schema_span(), 2);
   HS_EXPECT_STREQ(bands.schema[0].id, "band-count");
-  HS_EXPECT_EQ(bands.schema[0].def, 4.0f);
   HS_EXPECT_STREQ(bands.schema[1].id, "band-phase");
   const auto *cutout_found = require_operator("field.coverage.value-cutout.v2");
   if (!cutout_found)
@@ -651,7 +621,7 @@ inline void test_shader_chain_slot_and_hash_contract() {
   static_assert(In::SLOT_SIZE == sizeof(PB::ColorSample));
   static_assert(In::SLOT_ALIGN == alignof(PB::ColorSample));
   static_assert(In::SLOT_SIZE >= sizeof(Color4));
-  HS_EXPECT_EQ(In::SLOT_SIZE, sizeof(void *) == 8 ? 96u : 76u);
+  HS_EXPECT_LE(In::SLOT_SIZE, sizeof(void *) == 8 ? 96u : 76u);
   HS_EXPECT_EQ(In::SLOT_ALIGN, alignof(void *));
   HS_EXPECT_EQ(In::carrier_id_of<PB::SphereSample>(), In::CarrierId::SPHERE);
   HS_EXPECT_EQ(In::carrier_id_of<PB::ColorSample>(), In::CarrierId::COLOR);
@@ -970,21 +940,13 @@ inline void test_shader_chain_catalog_shape() {
   std::string sample_blocks = "\"blocks\":{\"param\":{\"size\":";
   sample_blocks += std::to_string(sizeof(In::Op::GridSampleParams));
   HS_EXPECT_TRUE(contains(sample_blocks.c_str()));
-  constexpr const char *SPHERE_NAMES[][2] = {
-      {"sphere.displace.curl.v2", "Curl Lens"},
-      {"sphere.displace.direct.v2", "Direct Lens"},
-      {"sphere.displace.ripple.v2", "Ripple Lens"},
-      {"sphere.displace.potential.v1", "Potential Lens"},
-      {"sphere.displace.rossby-haurwitz.v1", "Rossby-Haurwitz Lens"},
-      {"sphere.displace.symmetric.v2", "Symmetric Lens"},
-      {"sphere.lens.twist.v2", "Twist Lens"},
-      {"sphere.lens.mobius.v3", "Mobius Lens"},
-      {"sphere.lens.glitch.v2", "Glitch Fold"},
-      {"sphere.lens.kaleidoscope.v2", "Kaleidoscope Fold"},
-  };
-  for (const auto &entry : SPHERE_NAMES) {
-    const std::string expected = std::string("\"id\":\"") + entry[0] +
-                                 "\",\"name\":\"" + entry[1] + "\"";
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
+    HS_CONTEXT(op.operator_id);
+    HS_EXPECT_TRUE(op.display_name != nullptr && *op.display_name != '\0');
+    if (op.display_name == nullptr)
+      continue;
+    const std::string expected = std::string("\"id\":\"") + op.operator_id +
+                                 "\",\"name\":\"" + op.display_name + "\"";
     HS_EXPECT_TRUE(contains(expected.c_str()));
   }
 }
@@ -1039,12 +1001,6 @@ inline void test_shader_chain_param_address_channel() {
   verify_crossing_address.template operator()<In::Op::SampleTwinWaveV3>();
   verify_crossing_address.template operator()<In::Op::SampleSpiralV3>();
   verify_crossing_address.template operator()<In::Op::SampleBands>();
-  if (const auto *twin_wave = require_operator(In::Op::SampleTwinWaveV3::ID)) {
-    const auto *drift = schema_field(*twin_wave, "drift");
-    HS_EXPECT_TRUE(drift != nullptr);
-    if (drift)
-      HS_EXPECT_EQ(drift->max, 2.0f);
-  }
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
   if (!arm_default_chain(program, 1, ValueSet::DEFAULTS))

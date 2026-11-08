@@ -341,6 +341,7 @@ inline void test_shader_chain_spiral_spherical_center() {
   In::Op::SpiralSampleParams params;
   params.coordinate_system = 1;
   params.pattern_freq = 2.0f;
+  params.arms = 3.0f;
   params.weight_mode = static_cast<uint8_t>(In::Op::WeightMode::NONE);
   params.coverage_mode =
       static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
@@ -348,7 +349,7 @@ inline void test_shader_chain_spiral_spherical_center() {
   input.coords = {0.4f, 0.7f};
   auto prepared = In::Op::SampleSpiralV3::prepare(ctx, params, {});
   const float expected =
-      std::sin(2.0f * (math::PI_F / 2.0f - 0.7f) - 3.0f * 0.4f);
+      std::sin(2.0f * (math::PI_F / 2.0f - 0.7f) - params.arms * 0.4f);
   HS_EXPECT_NEAR(
       In::Op::SampleSpiralV3::run(input, ctx, params, prepared).value,
       0.5f + 0.5f * expected, 0.008f);

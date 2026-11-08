@@ -196,6 +196,8 @@ inline void test_shader_chain_edge_distance_admission() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   expect_compiled(effect.set_chain(chain));
+  const float ACCEPTED_COVERAGE =
+      requested_param(effect, "sample.coverage-mode");
   HS_EXPECT_EQ(effect.updateParameter("sample.coverage-mode", 3),
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_TRUE(effect.parameter_warning("sample.coverage-mode") != nullptr);
@@ -210,7 +212,8 @@ inline void test_shader_chain_edge_distance_admission() {
   HS_EXPECT_EQ(effect.update_parameters(writes), ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(requested_param(effect, "warp.envelope"), ACCEPTED_ENVELOPE);
   HS_EXPECT_TRUE(effect.parameter_warning("warp.envelope") != nullptr);
-  HS_EXPECT_EQ(requested_param(effect, "sample.coverage-mode"), 1.0f);
+  HS_EXPECT_EQ(requested_param(effect, "sample.coverage-mode"),
+               ACCEPTED_COVERAGE);
 }
 
 /** @brief Projections stay within their declared plane bound. */

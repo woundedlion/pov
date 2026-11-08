@@ -573,9 +573,14 @@ inline void test_shader_chain_param_names_and_budget() {
       HS_EXPECT_TRUE(expected == program.param_name(index, field));
     }
   }
-  HS_EXPECT_TRUE(std::string_view(program.param_name(0, 0)) == "camera.wander");
-  HS_EXPECT_TRUE(std::string_view(program.param_name(3, 0)) ==
-                 "colorize.palette-chroma");
+  const auto names_field = [&](size_t index, std::string_view name) {
+    for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+      if (name == program.param_name(index, field))
+        return true;
+    return false;
+  };
+  HS_EXPECT_TRUE(names_field(0, "camera.wander"));
+  HS_EXPECT_TRUE(names_field(3, "colorize.palette-chroma"));
 
   // The committed footprint equals the accounted layout: operator blocks,
   // the per-op overhead, and the fixed per-field name reservation.
