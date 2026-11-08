@@ -694,8 +694,10 @@ private:
     geometry.vertex_path = vertex_path;
     geometry.source_positions = false;
     geometry.chained = true;
+    const auto setup =
+        Plot::Mesh::column_draw_setup<W, H>(timed_filters, canvas);
     auto flush = [&]() HS_HOT_INLINE {
-      chunk.template flush<W, H>(timed_filters, canvas, color, geometry,
+      chunk.template flush<W, H>(timed_filters, canvas, setup, color, geometry,
                                  chunk_motion);
       chunk_motion = 0.0f;
     };

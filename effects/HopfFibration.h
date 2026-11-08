@@ -455,9 +455,11 @@ private:
     Plot::GeometryCallback geometry;
     geometry.source_positions = false;
     geometry.chained = true;
+    const auto setup =
+        Plot::Mesh::column_draw_setup<W, H>(timed_pipeline, canvas);
     auto flush = [&]() HS_HOT_INLINE {
-      chunk.template flush<W, H>(timed_pipeline, canvas, coordinate, color,
-                                 geometry, 0.0f);
+      chunk.template flush<W, H>(timed_pipeline, canvas, setup, coordinate,
+                                 color, geometry, 0.0f);
     };
 
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {

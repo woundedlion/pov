@@ -979,7 +979,7 @@ inline void test_column_uniform_color_preserves_age() {
         PipelineRef erased(pipeline, Spacetime::Timed{});
         Plot::rasterize_column_edges<W, H, {.timed = true}>(
             erased, canvas, points, TimedShaderRef(shader), batch, &poses, 0.0f,
-            false, 0.0f);
+            false, 0.0f, Plot::ColumnWalkFrame<W, H>::of(canvas));
       }
       effect.advance_display();
       std::vector<Pixel> pixels;

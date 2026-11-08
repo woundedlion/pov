@@ -22,11 +22,12 @@ inline void test_column_chunk_capacity_boundary() {
     const auto at = [&](size_t slot, float) { return chunk.position(slot); };
     const Plot::GeometryCallback geometry{at, {}, true};
     const auto shade = [](float) { return Color4(Pixel(65535, 0, 0), 1.0f); };
+    const auto setup = Plot::Mesh::column_draw_setup<W, H>(pipeline, canvas);
     const auto flush = [&] {
       ++flushes;
       if (!overflow)
         chunk.flush<W, H>(
-            pipeline, canvas,
+            pipeline, canvas, setup,
             [&](size_t slot) { return chunk.attribute<0>(slot); },
             [](size_t, float, float) {
               return Color4(Pixel(65535, 0, 0), 1.0f);

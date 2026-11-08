@@ -627,6 +627,46 @@ struct Mesh {
     return Spacetime::Worldlines<>::storage_bytes(vertices);
   }
 
+  /** @brief A draw's column-walk inputs that stay fixed within a frame.
+   * @tparam W,H Canvas dimensions. */
+  template <int W, int H> struct ColumnDrawSetup {
+    const Spacetime::PoseTable *poses; /**< World poses by column time, or
+                                            null without world stages. */
+    float sweep;        /**< Rotation bound of the poses, radians. */
+    float raster_sweep; /**< Rotation bound the walk pads with, radians. */
+    ColumnWalkFrame<W, H> walk; /**< Column window and clip constants. */
+  };
+
+  /** @brief Computes a draw's frame-fixed column-walk inputs.
+   * @tparam W,H Canvas dimensions.
+   * @tparam PipelineT Timed world pipeline type.
+   * @param pipeline Timed world pipeline.
+   * @param canvas Destination canvas.
+   * @param prepared_poses Shared column-time poses for a screen sink.
+   * @param prepared_sweep Rotation bound of the shared poses, radians.
+   * @return The inputs draw_column_edges() would compute for this draw. */
+  template <int W, int H, typename PipelineT>
+  HS_HOT_FLASH_MEMBER static ColumnDrawSetup<W, H>
+  column_draw_setup(PipelineT &pipeline, Canvas &canvas,
+                    const Spacetime::PoseTable *prepared_poses = nullptr,
+                    float prepared_sweep = 0.0f) {
+    const Spacetime::PoseTable *poses = prepared_poses;
+    float sweep = prepared_sweep;
+    if constexpr (requires {
+                    pipeline.pose_table(canvas);
+                    pipeline.sweep_arc();
+                  }) {
+      if (!poses) {
+        poses = pipeline.pose_table(canvas);
+        sweep = pipeline.sweep_arc();
+      }
+    }
+    const float raster_sweep =
+        prepared_poses ? prepared_sweep
+                       : timed_pipeline_ref(pipeline, canvas).sweep_arc();
+    return {poses, sweep, raster_sweep, ColumnWalkFrame<W, H>::of(canvas)};
+  }
+
   /** @brief Draws a wireframe through the column-time walk.
    * @tparam W,H Canvas dimensions.
    * @tparam MeshT Mesh storage type.
@@ -651,25 +691,44 @@ struct Mesh {
                     const Spacetime::PoseTable *prepared_poses = nullptr,
                     float prepared_sweep = 0.0f, int copy = 0,
                     float age = 0.0f) {
+    draw_column_edges<W, H>(
+        pipeline, canvas, mesh, edges, shader, geometry, callback_bound,
+        column_draw_setup<W, H>(pipeline, canvas, prepared_poses,
+                                prepared_sweep),
+        copy, age);
+  }
+
+  /** @brief draw_column_edges() with its frame-fixed inputs computed.
+   * @tparam W,H Canvas dimensions.
+   * @tparam MeshT Mesh storage type.
+   * @tparam PipelineT Pipeline whose world stages keep a pose table.
+   * @tparam ShaderT Fragment shader type.
+   * @param pipeline Timed world pipeline.
+   * @param canvas Destination canvas.
+   * @param mesh Mesh endpoint positions.
+   * @param edges Precomputed unique edges.
+   * @param shader Fragment shader.
+   * @param geometry Vertex evaluator and path bound.
+   * @param callback_bound Maximum callback displacement in radians.
+   * @param setup column_draw_setup() of this pipeline and canvas.
+   * @param copy Spatial copy whose source history is recorded.
+   * @param age Incoming age shared by the batch samples. */
+  template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_column_edges(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
+                    const ArenaVector<Edge> &edges, ShaderT shader,
+                    const GeometryCallback &geometry, float callback_bound,
+                    const ColumnDrawSetup<W, H> &setup, int copy = 0,
+                    float age = 0.0f) {
     static_assert(PipelineT::column_taps_ready,
                   "the column walk splats end columns through an "
                   "anti-aliasing first screen stage");
     ScratchScope motion_scope(scratch_arena_b);
     Spacetime::Worldlines<> motion;
     motion.bind(scratch_arena_b, mesh.vertices.size());
-    const Spacetime::PoseTable *poses = prepared_poses;
-    float sweep = prepared_sweep;
-    if constexpr (requires {
-                    pipeline.pose_table(canvas);
-                    pipeline.sweep_arc();
-                  }) {
-      if (!poses) {
-        poses = pipeline.pose_table(canvas);
-        sweep = pipeline.sweep_arc();
-      }
-    }
+    const Spacetime::PoseTable *poses = setup.poses;
     capture_vertices<W>(motion, false, mesh, geometry, poses, callback_bound,
-                        sweep);
+                        setup.sweep);
     ScratchScope edge_storage(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 2);
@@ -688,18 +747,17 @@ struct Mesh {
                           .rigid_lattice = geometry.rigid_lattice,
                           .uniform_color = geometry.uniform_color,
                           .age = age};
-    const float raster_sweep =
-        prepared_poses ? prepared_sweep : erased.sweep_arc();
+    const float raster_sweep = setup.raster_sweep;
     if constexpr (requires { requires PipelineT::any_3d_history; })
       rasterize_recording_column_edges<W, H, {.timed = true}>(
           erased, canvas, points, TimedShaderRef(timed_shader), batch, poses,
           callback_bound + raster_sweep, geometry.source_positions,
-          raster_sweep);
+          raster_sweep, setup.walk);
     else
       rasterize_column_edges<W, H, {.timed = true}>(
           erased, canvas, points, TimedShaderRef(timed_shader), batch, poses,
           callback_bound + raster_sweep, geometry.source_positions,
-          raster_sweep);
+          raster_sweep, setup.walk);
   }
 
   /**
@@ -806,6 +864,7 @@ struct Mesh {
      * @tparam Shade Callable `(size_t head, float coordinate, float time) -> Color4`.
      * @param pipeline Column-walk pipeline.
      * @param canvas Destination canvas.
+     * @param setup column_draw_setup() of @p pipeline and @p canvas.
      * @param coordinate Vertex palette coordinate.
      * @param shade Interpolated edge sample color.
      * @param geometry Vertex motion callback and chain flags.
@@ -813,10 +872,11 @@ struct Mesh {
     template <int W, int H, typename PipelineT, typename Coordinate,
               typename Shade>
     HS_HOT_INLINE void flush(PipelineT &pipeline, Canvas &canvas,
+                             const ColumnDrawSetup<W, H> &setup,
                              const Coordinate &coordinate, const Shade &shade,
                              const GeometryCallback &geometry, float bound) {
       flush<W, H>(
-          pipeline, canvas,
+          pipeline, canvas, setup,
           [coordinate, shade](size_t head_slot, size_t tail_slot, float s,
                               float time) HS_HOT_INLINE {
             const float head = coordinate(head_slot),
@@ -832,11 +892,13 @@ struct Mesh {
      * @tparam Shade Callable `(size_t head, size_t tail, float s, float time) -> Color4`.
      * @param pipeline Column-walk pipeline.
      * @param canvas Destination canvas.
+     * @param setup column_draw_setup() of @p pipeline and @p canvas.
      * @param shade Edge sample color from endpoint slots and interpolation.
      * @param geometry Vertex motion callback and chain flags.
      * @param bound Callback motion bound in radians. */
     template <int W, int H, typename PipelineT, typename Shade>
     HS_HOT_INLINE void flush(PipelineT &pipeline, Canvas &canvas,
+                             const ColumnDrawSetup<W, H> &setup,
                              const Shade &shade,
                              const GeometryCallback &geometry, float bound) {
       if (count == 0)
@@ -847,7 +909,7 @@ struct Mesh {
                           f.color = shade(edge.u, edge.v, f.v0, time);
                         };
       draw_column_edges<W, H>(pipeline, canvas, VertexSpan{{positions, count}},
-                              edges, shader, geometry, bound);
+                              edges, shader, geometry, bound, setup);
       count = 0;
       tail_source = -1;
       edges.clear();

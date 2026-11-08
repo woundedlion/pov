@@ -295,6 +295,38 @@ private:
   }
 };
 
+/** @brief A draw's column-walk constants: column window trigonometry and the
+ *         canvas clip's row and column bounds.
+ * @tparam W,H Display dimensions. */
+template <int W, int H> struct ColumnWalkFrame {
+  float half_sine;       /**< Sine of half a column. */
+  float half_cosine;     /**< Cosine of half a column. */
+  float full_sine;       /**< Sine of one column. */
+  float full_cosine;     /**< Cosine of one column. */
+  float top_y;           /**< Highest unit-sphere y the walk emits. */
+  float bottom_y;        /**< Lowest unit-sphere y the walk emits. */
+  float physical_top_y;  /**< Highest y lighting a physical row without tap
+                             motion. */
+  SweptEdgeCull<W> cull; /**< The clip's swept-edge bounds. */
+
+  /** @brief Computes the constants of draws into a canvas.
+   * @param canvas Frame whose clip bounds the walk.
+   * @return The constants. */
+  HS_HOT_FLASH_MEMBER static ColumnWalkFrame of(const Canvas &canvas) {
+    const float top = SweptEdgeCull<W>::template top_of<H>(canvas);
+    const float bottom = SweptEdgeCull<W>::template bottom_of<H>(canvas);
+    return {sinf(0.5f * math::RADIANS_PER_COLUMN<W>),
+            cosf(0.5f * math::RADIANS_PER_COLUMN<W>),
+            sinf(math::RADIANS_PER_COLUMN<W>),
+            cosf(math::RADIANS_PER_COLUMN<W>),
+            top,
+            bottom,
+            SweptEdgeCull<W>::physical_top(
+                math::DisplayGeometry<H>::row_to_phi(-1.0f)),
+            SweptEdgeCull<W>(canvas.render_x_clip(), top, bottom)};
+  }
+};
+
 namespace detail {
 /** @brief One arm pass's walk over the columns an edge can light. */
 struct ColumnSegment {
@@ -1390,30 +1422,23 @@ walk_uniform_edge_columns(const ColumnWalk<W> &state) {
  * edge whose plan cannot bound it, such as one that can pass near a pole, is
  * walked as the two sides of its closest approach to the pole, out of line. */
 template <int W, int H, RasterConfig Cfg, bool RECORD_WORLD>
-HS_HOT_INLINE void
-rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
-                            Fragments &points, TimedShaderRef shader,
-                            const EdgeBatch &batch,
-                            const Spacetime::PoseTable *poses, float radians,
-                            bool source_positions, float spin) {
-  const float half_sine = sinf(0.5f * math::RADIANS_PER_COLUMN<W>);
-  const float half_cosine = cosf(0.5f * math::RADIANS_PER_COLUMN<W>);
-  const float full_sine = sinf(math::RADIANS_PER_COLUMN<W>);
-  const float full_cosine = cosf(math::RADIANS_PER_COLUMN<W>);
+HS_HOT_INLINE void rasterize_column_edges_impl(
+    PipelineRef &pipeline, Canvas &canvas, Fragments &points,
+    TimedShaderRef shader, const EdgeBatch &batch,
+    const Spacetime::PoseTable *poses, float radians, bool source_positions,
+    float spin, const ColumnWalkFrame<W, H> &setup) {
+  const float half_sine = setup.half_sine;
+  const float half_cosine = setup.half_cosine;
+  const float full_sine = setup.full_sine;
+  const float full_cosine = setup.full_cosine;
 
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  const float top_y = SweptEdgeCull<W>::template top_of<H>(canvas);
-  const float bottom_y = SweptEdgeCull<W>::template bottom_of<H>(canvas);
-  const float physical_top_y = [&]() HS_HOT_INLINE {
-    if constexpr (!RECORD_WORLD)
-      return SweptEdgeCull<W>::physical_top(
-          math::DisplayGeometry<H>::row_to_phi(-1.0f));
-    else
-      return top_y;
-  }();
+  const float top_y = setup.top_y;
+  const float bottom_y = setup.bottom_y;
+  const float physical_top_y = RECORD_WORLD ? top_y : setup.physical_top_y;
   Spacetime::count_geometry<&Spacetime::GeometryCounters::column_draw_setups>();
-  const SweptEdgeCull<W> cull(canvas.render_x_clip(), top_y, bottom_y);
+  const SweptEdgeCull<W> &cull = setup.cull;
   const auto &band = canvas.render_x_clip();
   ScratchScope draw_scope(scratch_arena_a);
   source_positions = source_positions && poses;
@@ -1546,16 +1571,18 @@ rasterize_column_edges_impl(PipelineRef &pipeline, Canvas &canvas,
  * @param poses World poses by column time.
  * @param radians Maximum world displacement.
  * @param source_positions Whether shaders read source positions.
- * @param spin World rotation bound. */
+ * @param spin World rotation bound.
+ * @param setup The canvas's column-walk constants. */
 template <int W, int H, RasterConfig Cfg>
 FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void
 rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
                        TimedShaderRef shader, const EdgeBatch &batch,
                        const Spacetime::PoseTable *poses, float radians,
-                       bool source_positions, float spin) {
+                       bool source_positions, float spin,
+                       const ColumnWalkFrame<W, H> &setup) {
   rasterize_column_edges_impl<W, H, Cfg, false>(pipeline, canvas, points,
                                                 shader, batch, poses, radians,
-                                                source_positions, spin);
+                                                source_positions, spin, setup);
 }
 
 /** @brief Walks edges while recording source history.
@@ -1567,16 +1594,17 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
  * @param poses World poses by column time.
  * @param radians Maximum world displacement.
  * @param source_positions Whether shaders read source positions.
- * @param spin World rotation bound. */
+ * @param spin World rotation bound.
+ * @param setup The canvas's column-walk constants. */
 template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER void rasterize_recording_column_edges(
     PipelineRef &pipeline, Canvas &canvas, Fragments &points,
     TimedShaderRef shader, const EdgeBatch &batch,
     const Spacetime::PoseTable *poses, float radians, bool source_positions,
-    float spin) {
+    float spin, const ColumnWalkFrame<W, H> &setup) {
   rasterize_column_edges_impl<W, H, Cfg, true>(pipeline, canvas, points, shader,
                                                batch, poses, radians,
-                                               source_positions, spin);
+                                               source_positions, spin, setup);
 }
 
 HS_O3_END

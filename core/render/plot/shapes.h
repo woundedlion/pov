@@ -577,7 +577,7 @@ draw_ring_columns(PipelineT &pipeline, Canvas &canvas,
                         .rigid_lattice = true};
   rasterize_column_edges<W, H, {.timed = true, .column_edge_lengths = true}>(
       erased, canvas, points, TimedShaderRef(timed_shader), batch, poses,
-      motion_bound + spin, false, spin);
+      motion_bound + spin, false, spin, ColumnWalkFrame<W, H>::of(canvas));
 }
 
 /**

@@ -514,9 +514,10 @@ private:
     geometry.evaluate = chord_position;
     geometry.source_positions = false;
     geometry.chained = true;
+    const auto setup = Plot::Mesh::column_draw_setup<W, H>(filters, canvas);
     auto flush = [&]() HS_HOT_INLINE {
-      chunk.template flush<W, H>(filters, canvas, coordinate, color, geometry,
-                                 bound);
+      chunk.template flush<W, H>(filters, canvas, setup, coordinate, color,
+                                 geometry, bound);
     };
 
     for (size_t k = kept_count - 1; k > 0; --k) {
