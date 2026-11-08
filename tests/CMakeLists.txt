@@ -831,20 +831,22 @@ add_test(NAME unit_excluded_targets COMMAND ${CMAKE_COMMAND}
   "-DCOVERED_TARGETS=$<TARGET_PROPERTY:excluded_targets,MANUALLY_ADDED_DEPENDENCIES>"
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_excluded_targets.cmake)
 
-function(_hs_compile_contract_test name script)
+function(_hs_compile_contract_test name group)
   add_test(NAME ${name} COMMAND ${CMAKE_COMMAND}
-    "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
+    "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}" "-DGROUP=${group}"
     "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/${script})
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compile_contracts.cmake)
 endfunction()
 
-_hs_compile_contract_test(unit_composed_edge_fade_controls check_composed_edge_fade.cmake)
+_hs_compile_contract_test(unit_compile_contract_companions companions)
 
-_hs_compile_contract_test(unit_choreography_hooks check_choreography_hooks.cmake)
+_hs_compile_contract_test(unit_composed_edge_fade_controls edge-fade)
 
-_hs_compile_contract_test(unit_composed_metadata check_composed_metadata.cmake)
+_hs_compile_contract_test(unit_choreography_hooks hooks)
 
-_hs_compile_contract_test(unit_ring_column_pipeline check_ring_column_pipeline.cmake)
+_hs_compile_contract_test(unit_composed_metadata metadata)
+
+_hs_compile_contract_test(unit_ring_column_pipeline ring-columns)
 
 # Backstop TIMEOUT for every registered test without an explicit one. Applied
 # last, over the directory's final test list.
