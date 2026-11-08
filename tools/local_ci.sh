@@ -51,8 +51,8 @@ LOCAL_ONLY=(windows-tests)
 # every build), and ci.yml runs them on every push.
 MANUAL=(optimized-tests wasm teensy-warnings)
 
-# Jobs that run beside the others, in order, as one lane: the native builds.
-NATIVE_LANE=(windows-tests thread-sanitizer)
+# Lanes that run beside the other jobs, each one's jobs in order.
+LANES=('windows-tests thread-sanitizer' 'python-tests' 'pcb-tests')
 
 # Paths whose change runs the local Python suites; ci.yml runs them always.
 PYTHON_INPUTS='[.]py$|^tools/|^hardware/|^[.]githooks/|^[.]github/|^requirements/|^justfile$|^platformio[.]ini$'
@@ -83,7 +83,8 @@ job_python_tests() {
     echo "No Python suite inputs changed since origin/master; skipping."
     return 0
   fi
-  bash tools/ci/python_tests.sh
+  # The PCB suite runs as its own job.
+  bash tools/ci/python_tests.sh --exclude hardware/phantasm/gen/tests
 }
 job_scripts_unit_tests() { bash tools/ci/scripts_tests.sh; }
 job_windows_tests() { bash tools/ci/native_suite.sh --exclude-generated; }
@@ -170,21 +171,24 @@ run_jobs() {
   check_table
   mkdir -p "$logs"
   table | grep '|skip:' | sed 's/|skip: */ skipped: /' || true
-  local lane=() rest=() lane_pid status=0
-  for job in "$@"; do
-    case " ${NATIVE_LANE[*]} " in
-      *" $job "*) lane+=("$job") ;;
-      *) rest+=("$job") ;;
-    esac
+  local lane laned=" " jobs pids=() pid rest=() status=0
+  for lane in "${LANES[@]}"; do
+    jobs=()
+    for job in $lane; do
+      case " $* " in *" $job "*) jobs+=("$job"); laned+="$job " ;; esac
+    done
+    if [ "${#jobs[@]}" -gt 0 ]; then
+      run_lane "$logs" "${jobs[@]}" &
+      pids+=("$!")
+    fi
   done
-  if [ "${#lane[@]}" -gt 0 ]; then
-    run_lane "$logs" "${lane[@]}" &
-    lane_pid=$!
-  fi
+  for job in "$@"; do
+    case "$laned" in *" $job "*) ;; *) rest+=("$job") ;; esac
+  done
   run_lane "$logs" "${rest[@]}" || status=1
-  if [ -n "${lane_pid:-}" ]; then
-    wait "$lane_pid" || status=1
-  fi
+  for pid in "${pids[@]}"; do
+    wait "$pid" || status=1
+  done
   [ "$status" = 0 ] || return 1
   echo "local CI passed at $(git rev-parse --short HEAD)."
 }

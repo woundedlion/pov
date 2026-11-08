@@ -44,14 +44,18 @@ def main():
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--suite", type=Path, help="Run only the test*.py files directly in this directory, relative to --root.")
     parser.add_argument("--only", help="With --suite, run only this test file of the directory.")
+    parser.add_argument("--exclude", action="append", default=[], type=Path,
+                        help="Skip this suite directory, relative to --root; repeatable.")
     args = parser.parse_args()
     root = args.root.resolve()
     if args.suite is not None:
         return run_suite(parser, root, args.suite, args.only)
 
     paths = git_nul_list(root, "ls-files", "-z", "--", "*/test*.py", timeout=None)
+    excluded = {str(directory) for directory in args.exclude}
     files = sorted({(str(Path(path).parent), Path(path).name) for path in paths
-                    if Path(path).name.startswith("test")})
+                    if Path(path).name.startswith("test")
+                    and str(Path(path).parent) not in excluded})
     if not files:
         parser.error("no tracked Python test suites discovered")
 

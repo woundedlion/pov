@@ -145,7 +145,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
   plus the local-only Windows suite. The optimized, WASM and firmware-warning
   jobs are manual (`bash tools/local_ci.sh <job>` runs one); the PCB and
   Python suites run only when the commit changes one of their inputs; and the
-  native builds run as one lane beside the other jobs. `bash tools/local_ci.sh
+  native, Python and PCB jobs run as lanes beside the others. `bash tools/local_ci.sh
   --list` prints each job's local runner or the reason it cannot run locally,
   and `--check` fails when a `ci.yml` job has neither.
   It runs in a dedicated worktree beside the checkout

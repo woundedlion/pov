@@ -17,7 +17,7 @@ RUNNER = Path(__file__).resolve().parents[1] / "run_python_tests.py"
 
 
 class PythonRunner(unittest.TestCase):
-    def run_fixture(self, source=None, extra=None, helper=False):
+    def run_fixture(self, source=None, extra=None, helper=False, excluded=None, args=()):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             git_run(root, "init", "--quiet")
@@ -33,7 +33,9 @@ class PythonRunner(unittest.TestCase):
                 track("new_suite/test_extra.py", extra)
             if helper:
                 track("new_suite/tests/data/helper.py", "# fixture helper\n")
-            return subprocess.run([sys.executable, str(RUNNER), "--root", str(root)],
+            if excluded is not None:
+                track("excluded_suite/test_excluded.py", excluded)
+            return subprocess.run([sys.executable, str(RUNNER), "--root", str(root), *args],
                                   capture_output=True, text=True, check=False, env=isolated_env())
 
     def test_empty_suite_fails(self):
@@ -50,6 +52,13 @@ class PythonRunner(unittest.TestCase):
         result = self.run_fixture(skipped, extra=skipped)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no unskipped test cases in new_suite", result.stderr)
+
+    def test_an_excluded_suite_does_not_run(self):
+        failing = ("import unittest\nclass Failing(unittest.TestCase):\n"
+                   "    def test_fails(self): self.fail('ran')\n")
+        self.assertNotEqual(self.run_fixture(LIVE, excluded=failing).returncode, 0)
+        result = self.run_fixture(LIVE, excluded=failing, args=("--exclude", "excluded_suite"))
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_new_suite_is_discovered_and_failure_propagates(self):
         source = ("import unittest\nclass Sample(unittest.TestCase):\n"
