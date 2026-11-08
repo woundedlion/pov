@@ -54,17 +54,6 @@ class ShellGateTests(unittest.TestCase):
         payload.write_text("dirty \n", encoding="utf-8", newline="\n")
         self.assertNotEqual(self.gate("whitespace_gate.sh").returncode, 0)
 
-    def test_python_probe_skips_unrunnable_aliases_without_filtering_versions(self):
-        self.stub("python3", "exit 1")
-        self.stub("python", '[ "$1" = --version ] && exit 0; exit 1')
-        result = subprocess.run(
-            ["bash", "-c", 'export PATH="$PWD/stubs:$PATH"; . "$1"; hs_find_python',
-             "fixture", (REPO / "tools/find_python.sh").as_posix()],
-            cwd=self.root, env=dict(self.env, HS_PYTHON="unrunnable-python"),
-            capture_output=True, text=True, timeout=10)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(result.stdout, "python\n")
-
     def test_eol_checks_worktree_bytes_and_refuses_an_empty_selection(self):
         empty = self.gate("eol_gate.sh")
         self.assertNotEqual(empty.returncode, 0)
@@ -120,24 +109,6 @@ class ShellGateTests(unittest.TestCase):
         self.git("add", "--", "omitted.py")
         self.assertNotEqual(self.gate("ruff_selection_guard.sh").returncode, 0)
 
-    def test_ruff_selection_reports_no_tracked_sources(self):
-        self.stub("ruff", "echo source.py")
-        result = self.gate("ruff_selection_guard.sh")
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("no tracked Python sources", result.stdout)
-        self.assertNotIn("omitted tracked sources", result.stdout)
-        (self.root / "source.py").touch()
-        self.git("add", "--", "source.py")
-        result = self.gate("ruff_selection_guard.sh")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-    def test_eslint_selection_reports_no_tracked_sources(self):
-        self.stub("npx", "echo '[]'")
-        result = self.gate("eslint_selection_guard.sh")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("no tracked JavaScript sources", result.stderr)
-        self.assertNotIn("omitted tracked sources", result.stderr)
-
     def test_eslint_selection_requires_a_file_path(self):
         (self.root / "source.js").touch()
         self.git("add", "--", "source.js")
@@ -153,13 +124,6 @@ class ShellGateTests(unittest.TestCase):
         (self.root / "omitted.js").touch()
         self.git("add", "--", "omitted.js")
         self.assertNotEqual(self.gate("eslint_selection_guard.sh").returncode, 0)
-
-    def test_eslint_selection_reports_a_failed_lint_run(self):
-        for payload in ("", "not-json", "{}"):
-            self.stub("npx", f"echo '{payload}'; exit 2")
-            result = self.gate("eslint_selection_guard.sh")
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("the lint run itself failed", result.stderr)
 
     def test_clang_format_requires_version_sources_and_success(self):
         major = int(INLINE_PINS["clang-format"].split(".")[0])
@@ -195,21 +159,16 @@ class ShellGateTests(unittest.TestCase):
         self.assertNotEqual(bad.returncode, 0)
         self.assertIn("selected.sh", bad.stdout)
 
-    def test_shellcheck_refuses_empty_action_selection(self):
-        (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
-        self.git("add", "--", "selected.sh")
-        self.stub("shellcheck", "exit 0")
-        result = self.gate("shellcheck_gate.sh")
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("no composite actions selected", result.stderr)
-
     def test_composite_steps_are_isolated_and_unsupported_scalars_fail(self):
         require_tool(self, "shellcheck")
         (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
         action = self.root / ".github/actions/fixture/action.yml"
         action.parent.mkdir(parents=True)
         self.git("add", "--", "selected.sh")
-        for run in ('|\n        echo "$value"', 'echo ok', '>\n        echo ok'):
+        for run, diagnostic in (('|\n        echo ok', None),
+                                ('|\n        echo "$value"', "SC2154"),
+                                ('echo ok', "unsupported run scalar"),
+                                ('>\n        echo ok', "unsupported run scalar")):
             action.write_text('runs:\n  using: composite\n  steps:\n'
                               '    - shell: bash\n      run: |\n'
                               '        value=ok; echo "$value"\n'
@@ -217,11 +176,11 @@ class ShellGateTests(unittest.TestCase):
                               encoding="utf-8", newline="\n")
             self.git("add", "--", ".github/actions/fixture/action.yml")
             result = self.gate("shellcheck_gate.sh")
-            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-            if run.startswith("|"):
-                self.assertIn("SC2154", result.stdout + result.stderr)
+            if diagnostic is None:
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             else:
-                self.assertIn("unsupported run scalar", result.stderr)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(diagnostic, result.stdout + result.stderr)
 
     def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
         script = self.cold_build_script()

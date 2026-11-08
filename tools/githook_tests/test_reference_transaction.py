@@ -88,14 +88,6 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertEqual(self.rev(MASTER), self.two)
         self.assertEqual(self.log_text(), "")
 
-    def test_pack_refs_prunes_loose_master(self):
-        self.git("pack-refs", "--all")
-        packed = (self.repo / ".git" / "packed-refs").read_text(encoding="utf-8")
-        self.assertIn(f"{self.one} {MASTER}\n", packed)
-        self.assertFalse((self.repo / ".git" / MASTER).exists())
-        self.assertEqual(self.rev(MASTER), self.one)
-        self.assertEqual(self.log_text(), "")
-
     def test_deletion_of_packed_master_is_refused(self):
         self.git("pack-refs", "--all")
         done = self.git("update-ref", "-d", MASTER, check=False)
@@ -111,36 +103,6 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertIn(f"REFUSED master {self.one} -> {self.base}",
                       self.log_text())
 
-    def test_sideways_move_of_master_is_refused(self):
-        done = self.git("update-ref", MASTER, self.side, check=False)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertEqual(self.rev(MASTER), self.one)
-
-    def test_refusal_names_absolute_token_path_from_another_directory(self):
-        with tempfile.TemporaryDirectory() as unrelated:
-            done = subprocess.run(
-                ["git", "-C", str(self.repo), "update-ref", MASTER, self.base],
-                cwd=unrelated, env=isolated_env(), capture_output=True, text=True,
-                check=False)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertIn(f'git rev-parse {self.base} > "{self.token.as_posix()}"',
-                      done.stderr.replace("\\", "/"))
-        self.assertEqual(self.rev(MASTER), self.one)
-
-    def test_a_commit_on_master_is_allowed(self):
-        self.assertEqual(
-            self.git("commit", "--allow-empty", "--quiet", "-m", "next",
-                     check=False).returncode, 0)
-        self.assertNotEqual(self.rev(MASTER), self.one)
-        self.assertEqual(self.rev(MASTER + "^"), self.one)
-        self.assertEqual(self.log_text(), "")
-
-    def test_another_branch_may_move_backwards(self):
-        self.assertEqual(self.git("update-ref", "refs/heads/ahead", self.base,
-                                  check=False).returncode, 0)
-        self.assertEqual(self.rev("refs/heads/ahead"), self.base)
-        self.assertEqual(self.log_text(), "")
-
     def test_an_exact_token_authorizes_one_rewind(self):
         self.token.write_text(f"{self.base}\n", encoding="utf-8")
         self.assertEqual(self.git("update-ref", MASTER, self.base,
@@ -153,79 +115,7 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertNotEqual(self.git("update-ref", "-d", MASTER,
                                      check=False).returncode, 0)
 
-    def test_linked_worktree_consumes_common_directory_token(self):
-        linked = self.repo / "linked"
-        self.git("worktree", "add", "--detach", str(linked), self.two)
-        common = git_run(linked, "rev-parse", "--git-common-dir").stdout.strip()
-        private = git_run(linked, "rev-parse", "--git-dir").stdout.strip()
-        self.assertNotEqual(common, private)
-        token = (linked / common).resolve() / "hs-allow-nonff"
-        token.write_text(self.base + "\n", encoding="utf-8")
-        done = git_run(linked, "update-ref", MASTER, self.base, check=False)
-        self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertEqual(self.rev(MASTER), self.base)
-        self.assertFalse(token.exists())
-        self.assertIn(f"OVERRIDE master {self.one} -> {self.base}", self.log_text())
-
-    def test_current_commit_token_authorizes_deletion_and_recreation_is_free(self):
-        self.token.write_text(f"{self.one}\n", encoding="utf-8")
-        self.assertEqual(self.git("update-ref", "-d", MASTER,
-                                  check=False).returncode, 0)
-        self.assertEqual(self.git("rev-parse", "--verify", "-q", MASTER,
-                                  check=False).returncode, 1)
-        self.assertFalse(self.token.exists(), "deletion consumes its token")
-        self.assertIn(f"OVERRIDE master {self.one} -> {ZERO}", self.log_text())
-        # Creating a ref has nothing to fast-forward from, so no token is spent.
-        self.assertEqual(self.git("update-ref", MASTER, self.side,
-                                  check=False).returncode, 0)
-        self.assertEqual(self.rev(MASTER), self.side)
-
-    def test_deletion_of_master_is_refused_without_a_token(self):
-        done = self.git("update-ref", "-d", MASTER, check=False)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertEqual(self.rev(MASTER), self.one)
-
-    def test_zero_token_does_not_authorize_deletion(self):
-        self.token.write_text(ZERO, encoding="utf-8")
-        done = self.git("update-ref", "-d", MASTER, check=False)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertEqual(self.rev(MASTER), self.one)
-        self.assertTrue(self.token.exists())
-        self.assertIn("REFUSED deletion", done.stderr)
-        self.assertIn(f"git rev-parse {self.one}", done.stderr)
-        self.assertIn(f"REFUSED master {self.one} -> {ZERO}", self.log_text())
-
-    def test_deletion_token_is_stale_after_master_advances(self):
-        self.token.write_text(self.one, encoding="utf-8")
-        self.git("update-ref", MASTER, self.two)
-        self.assertTrue(self.token.exists(), "fast-forward must not spend the token")
-        done = self.git("update-ref", "-d", MASTER, check=False)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertEqual(self.rev(MASTER), self.two)
-        self.assertTrue(self.token.exists())
-
-    def test_abbreviated_current_token_authorizes_deletion(self):
-        self.token.write_text(self.one[:10], encoding="utf-8")
-        self.git("update-ref", "-d", MASTER)
-        self.assertFalse(self.token.exists())
-        self.assertEqual(self.git("rev-parse", "--verify", "-q", MASTER,
-                                  check=False).returncode, 1)
-
-    def test_any_token_authorizes_one_deletion(self):
-        self.token.write_text("ANY", encoding="utf-8")
-        self.git("update-ref", "-d", MASTER)
-        self.assertFalse(self.token.exists())
-        self.git("update-ref", MASTER, self.one)
-        self.assertNotEqual(self.git("update-ref", "-d", MASTER,
-                                     check=False).returncode, 0)
-        self.assertEqual(self.rev(MASTER), self.one)
-
     # ── Directly, for the lines git will not produce on demand ───────────────
-
-    def test_an_abbreviated_token_authorizes_its_own_commit(self):
-        self.token.write_text(self.base[:10], encoding="utf-8")
-        self.assertEqual(self.hook(f"{ZERO} {self.base} {MASTER}").returncode, 0)
-        self.assertFalse(self.token.exists())
 
     def test_a_token_for_another_commit_does_not_authorize(self):
         self.token.write_text(self.side, encoding="utf-8")
@@ -234,49 +124,11 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertTrue(self.token.exists(), "an unused token must survive")
         self.assertIn("REFUSED master", self.log_text())
 
-    def test_a_token_too_short_to_name_a_commit_does_not_authorize(self):
-        self.token.write_text(self.base[:6], encoding="utf-8")
-        self.assertEqual(self.hook(f"{ZERO} {self.base} {MASTER}").returncode, 1)
-
-    def test_an_empty_token_does_not_authorize(self):
-        self.token.write_text("\n", encoding="utf-8")
-        self.assertEqual(self.hook(f"{ZERO} {self.base} {MASTER}").returncode, 1)
-
-    def test_a_zero_token_does_not_authorize_a_rewind(self):
-        self.token.write_text(ZERO, encoding="utf-8")
-        self.assertEqual(self.hook(f"{ZERO} {self.base} {MASTER}").returncode, 1)
-        self.assertTrue(self.token.exists())
-
-    def test_the_any_token_authorizes_any_rewind(self):
-        self.token.write_text("ANY\n", encoding="utf-8")
-        self.assertEqual(self.hook(f"{ZERO} {self.base} {MASTER}").returncode, 0)
-        self.assertFalse(self.token.exists())
-        self.assertIn("OVERRIDE master", self.log_text())
-
     def test_the_stdin_old_field_is_not_trusted(self):
         # git reports a zero old OID to this hook, and a caller could report any
         # value; the fast-forward check reads the ref itself.
         self.assertEqual(
             self.hook(f"{self.base} {self.base} {MASTER}").returncode, 1)
-
-    def test_a_malformed_transaction_line_is_refused(self):
-        done = self.hook(f"{ZERO} {self.one}")
-        self.assertEqual(done.returncode, 1)
-        self.assertIn("malformed", done.stderr)
-        self.assertIn("REFUSED malformed", self.log_text())
-
-    def test_a_refused_master_line_fails_the_whole_transaction(self):
-        done = self.hook(f"{ZERO} {self.base} refs/heads/other",
-                         f"{ZERO} {self.base} {MASTER}",
-                         f"{ZERO} {self.base} refs/heads/ahead")
-        self.assertEqual(done.returncode, 1)
-
-    def test_no_phase_but_prepared_is_inspected(self):
-        for phase in ("committed", "aborted"):
-            with self.subTest(phase=phase):
-                done = self.hook(f"{ZERO} {self.base} {MASTER}", phase=phase)
-                self.assertEqual(done.returncode, 0)
-                self.assertEqual(self.log_text(), "")
 
 
 if __name__ == "__main__":

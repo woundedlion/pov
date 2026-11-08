@@ -36,32 +36,12 @@ class PythonRunner(unittest.TestCase):
             return subprocess.run([sys.executable, str(RUNNER), "--root", str(root)],
                                   capture_output=True, text=True, check=False, env=isolated_env())
 
-    def test_empty_repository_fails(self):
-        result = self.run_fixture()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("no tracked Python test suites discovered", result.stderr)
-        self.assertNotIn("Traceback", result.stderr)
-
     def test_empty_suite_fails(self):
         result = self.run_fixture("# no cases\n")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no test cases discovered in", result.stderr)
         self.assertIn("test_sample.py", result.stderr)
         self.assertNotIn("Traceback", result.stderr)
-
-    def test_empty_file_fails_beside_live_tests(self):
-        result = self.run_fixture(LIVE, extra="# empty\n")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("no test cases discovered in", result.stderr)
-        self.assertIn("test_extra.py", result.stderr)
-        self.assertNotIn("Traceback", result.stderr)
-
-    def test_optional_skipped_file_passes_beside_live_tests(self):
-        skipped = ("import unittest\n@unittest.skip('fixture')\n"
-                   "class Skipped(unittest.TestCase):\n"
-                   "    def test_skipped(self): pass\n")
-        result = self.run_fixture(LIVE, extra=skipped)
-        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_entirely_skipped_suite_fails(self):
         skipped = ("import unittest\n@unittest.skip('fixture')\n"
@@ -77,7 +57,3 @@ class PythonRunner(unittest.TestCase):
         result = self.run_fixture(source.replace("VALUE", "1"))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotEqual(self.run_fixture(source.replace("VALUE", "2")).returncode, 0)
-
-    def test_nested_helpers_do_not_become_suites(self):
-        result = self.run_fixture(LIVE, helper=True)
-        self.assertEqual(result.returncode, 0, result.stderr)

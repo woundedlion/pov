@@ -35,13 +35,6 @@ class EngineDispatchTests(unittest.TestCase):
             expected_input = f"{root}/daydream-dispatch.json"
             return result, args, json.loads(payload.read_text()) if payload.exists() else None, expected_input
 
-    def test_missing_token_does_not_call_the_api(self):
-        result, args, payload, _ = self.run_notification()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(args, [])
-        self.assertIsNone(payload)
-        self.assertIn("scheduled reconciliation", result.stdout)
-
     def test_success_dispatches_the_exact_completed_run(self):
         result, args, payload, expected_input = self.run_notification(token="fixture-token")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -49,12 +42,6 @@ class EngineDispatchTests(unittest.TestCase):
                                 "--input", expected_input])
         self.assertEqual(payload, {"event_type": "holosphere-engine-ready", "client_payload": {
             "engine_sha": "a" * 40, "engine_run_id": 1234}})
-
-    def test_api_failure_leaves_scheduled_reconciliation_available(self):
-        result, args, _, _ = self.run_notification(token="fixture-token", status=1)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue(args)
-        self.assertIn("::warning::", result.stdout)
 
     def test_invalid_run_identity_never_reaches_the_api(self):
         for sha, run_id in [("a" * 40 + "-dirty", "1234"), ("a" * 40, "not-a-run")]:

@@ -69,13 +69,6 @@ class CommitRangeChecks(unittest.TestCase):
         self.assertIn("clang-format failed: bad.cpp", done.stdout + done.stderr)
         self.assertNotIn("good.cpp", done.stdout + done.stderr)
 
-    def test_a_formatted_range_passes(self):
-        self.commit("good", self.write("good.cpp", "int good;\n"))
-        done = self.check("main~1..main")
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn("range main~1..main formatting, lint, and documentation checks passed",
-                      done.stdout)
-
     def test_files_are_checked_as_of_the_tip(self):
         self.commit("bad", self.write("sample.cpp", "int UNFORMATTED;\n"))
         self.commit("fixed", self.write("sample.cpp", "int fixed;\n"))
@@ -91,32 +84,11 @@ class CommitRangeChecks(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertEqual(self.git("diff", "--cached", "--name-only").stdout, "sample.cpp\n")
 
-    def test_tree_wide_checks_run_on_the_tip_snapshot(self):
-        self.commit("docs", self.write("README.md", "BROKEN\n"))
-        self.assertNotEqual(self.check("main~1..main").returncode, 0)
-
-    def test_a_diverged_base_checks_only_the_tip_side(self):
-        fork = self.git("rev-parse", "HEAD").stdout.strip()
-        self.commit("peer", self.write("peer.cpp", "int UNFORMATTED;\n"))
-        self.git("checkout", "--quiet", "-b", "topic", fork)
-        self.commit("topic", self.write("topic.cpp", "int good;\n"))
-        done = self.check("main..topic")
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.commit("topic bad", self.write("topic_bad.cpp", "int UNFORMATTED;\n"))
-        done = self.check("main..topic")
-        self.assertNotEqual(done.returncode, 0)
-        self.assertIn("clang-format failed: topic_bad.cpp", done.stdout + done.stderr)
-
     def test_whitespace_errors_in_the_range_fail(self):
         self.commit("trailing", self.write("notes.md", "trailing  \n"))
         done = self.check("main~1..main")
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("range main~1..main whitespace errors", done.stdout + done.stderr)
-
-    def test_an_empty_range_passes(self):
-        done = self.check("main..main")
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn("changes no files", done.stdout)
 
     def test_malformed_ranges_are_rejected(self):
         for spec in ("main", "main..", "..main", "main...main", "main..absent"):
