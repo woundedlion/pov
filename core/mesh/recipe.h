@@ -23,30 +23,19 @@ namespace Solids {
 inline constexpr float CHAMFER_T_MAX = 0.63f;
 
 /**
- * @brief Whether a lowered primitive step is admitted by recipe-morph coverage.
- * @param step Lowered primitive step.
- * @return True when the recipe-morph path supports the step; false leaves the whole
- *   recipe to the caller's whole-generate fallback.
- * @details A sub-T_EPS TRUNCATE arrival births at min(T_EPS, arrival *
- * TRUNCATE_BIRTH_FRAC); an arrival above 0.5 is a far-side leg that sweeps
- * through the ambo pinch on the constant-topology truncate branch. SNUB and
- * HANKIN require a positive parameter; RELAX requires a bake or at least one
- * live iteration. apply_step validates the replay parameters separately.
+ * @brief Whether recipe-morph coverage admits any lowered step of an op.
+ * @param op Authored operator.
+ * @return False for an op whose every step leaves the whole recipe to the
+ *   caller's whole-generate fallback; composites are false because they lower
+ *   to primitives before the check.
  */
-inline constexpr bool is_morphable_step(const OpStep &step) {
-  switch (step.op) {
+inline constexpr bool op_morphs(Op op) {
+  switch (op) {
   case Op::TRUNCATE:
-    return step.param >= ConwayGraph::T_TRUNCATE_ARRIVAL_MIN &&
-           step.param <= ConwayGraph::T_TRUNCATE_FAR_MAX &&
-           (step.param <= 0.5f - ConwayGraph::T_EPS_AMBO || step.param > 0.5f);
   case Op::CHAMFER:
-    return step.param >= ConwayGraph::T_EPS && step.param <= CHAMFER_T_MAX;
   case Op::SNUB:
-    return step.param > 0.0f;
   case Op::RELAX:
-    return step.bake || step.param >= 1.0f;
   case Op::HANKIN:
-    return step.param > 0.0f;
   case Op::AMBO:
   case Op::KIS:
   case Op::DUAL:
@@ -60,6 +49,37 @@ inline constexpr bool is_morphable_step(const OpStep &step) {
     return false;
   }
   return false;
+}
+
+/**
+ * @brief Whether a lowered primitive step is admitted by recipe-morph coverage.
+ * @param step Lowered primitive step.
+ * @return True when the recipe-morph path supports the step; false leaves the whole
+ *   recipe to the caller's whole-generate fallback.
+ * @details A sub-T_EPS TRUNCATE arrival births at min(T_EPS, arrival *
+ * TRUNCATE_BIRTH_FRAC); an arrival above 0.5 is a far-side leg that sweeps
+ * through the ambo pinch on the constant-topology truncate branch. SNUB and
+ * HANKIN require a positive parameter; RELAX requires a bake or at least one
+ * live iteration. Other ops follow op_morphs(). apply_step validates the
+ * replay parameters separately.
+ */
+inline constexpr bool is_morphable_step(const OpStep &step) {
+  switch (step.op) {
+  case Op::TRUNCATE:
+    return step.param >= ConwayGraph::T_TRUNCATE_ARRIVAL_MIN &&
+           step.param <= ConwayGraph::T_TRUNCATE_FAR_MAX &&
+           (step.param <= ConwayGraph::T_TRUNCATE_PINCH_LOWER ||
+            step.param > ConwayGraph::T_TRUNCATE_PINCH_UPPER);
+  case Op::CHAMFER:
+    return step.param >= ConwayGraph::T_EPS && step.param <= CHAMFER_T_MAX;
+  case Op::SNUB:
+  case Op::HANKIN:
+    return step.param > 0.0f;
+  case Op::RELAX:
+    return step.bake || step.param >= 1.0f;
+  default:
+    return op_morphs(step.op);
+  }
 }
 
 // Shipping steps on the coverage bounds; each assert also pins the step's op.

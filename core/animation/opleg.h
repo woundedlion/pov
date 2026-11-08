@@ -102,7 +102,7 @@ public:
     ScratchScope a(scratch_arena_a);
     ScratchScope b(scratch_arena_b);
     PolyMesh arrival = MeshOps::truncate(seed, scratch_arena_a, scratch_arena_b,
-                                         0.5f - ConwayGraph::T_EPS_AMBO);
+                                         ConwayGraph::T_TRUNCATE_PINCH_LOWER);
     MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                         scratch_arena_b, arena);
     BridgePreparation prepared;
@@ -1292,7 +1292,7 @@ private:
     t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
     if (truncate)
       t = std::min(t, far_side ? ConwayGraph::T_TRUNCATE_FAR_MAX
-                               : 0.5f - ConwayGraph::T_EPS_AMBO);
+                               : ConwayGraph::T_TRUNCATE_PINCH_LOWER);
     return t;
   }
 

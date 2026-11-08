@@ -120,6 +120,12 @@ constexpr float truncate_birth_floor(float arrival) {
 }
 /** Smallest truncate arrival a recipe-step leg sweeps to. */
 inline constexpr float T_TRUNCATE_ARRIVAL_MIN = 0.002f;
+/** Lower bound of the truncate ambo pinch; a near-side leg stops here. */
+inline constexpr float T_TRUNCATE_PINCH_LOWER = 0.5f - T_EPS_AMBO;
+/** Upper bound of the truncate ambo pinch: t = 0.5, where truncate returns
+ * ambo. Recipe-morph coverage excludes (T_TRUNCATE_PINCH_LOWER,
+ * T_TRUNCATE_PINCH_UPPER]. */
+inline constexpr float T_TRUNCATE_PINCH_UPPER = 0.5f;
 /** Upper truncate clamp for a far-side leg (arrival > 0.5): stops just below
  * t = 1, where the edge cut points coincide at each source vertex. A far-side
  * leg sweeps through the ambo pinch on the constant-topology truncate branch. */
@@ -264,7 +270,7 @@ HS_FLASH_MEMBER constexpr float clamp_edge_endpoint(const EdgeSpec &edge,
                                                     float t) {
   t = std::max(t, T_EPS);
   if (edge.op == MorphOp::TRUNCATE)
-    t = std::min(t, .5f - T_EPS_AMBO);
+    t = std::min(t, T_TRUNCATE_PINCH_LOWER);
   if (is_jitterbug_edge(edge))
     t = std::max(t, T_JITTERBUG_OCTA_MIN);
   return t;
