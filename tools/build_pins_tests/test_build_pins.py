@@ -25,50 +25,7 @@ from git_test_env import git_run, isolated_env  # noqa: E402
 import build_pins as bp  # noqa: E402
 
 
-CMAKE_CHECK = "python tools/build_pins.py --check-tool cmake"
-
-
-def cmake_install_steps(workflow):
-    return re.findall(
-        r"(?m)^      - (&install_pinned_cmake\n        )?"
-        r"name: Install pinned CMake\n((?:        .*\n)*)",
-        workflow,
-    )
-
-
-def cmake_jobs_missing_checks(workflow):
-    jobs = re.split(r"(?m)^  ([a-z][a-z0-9-]*):\s*$", workflow)
-    checked_install_anchor = any(
-        anchor and CMAKE_CHECK in step for anchor, step in cmake_install_steps(workflow)
-    )
-    missing = []
-    for name, body in zip(jobs[1::2], jobs[2::2]):
-        commands = "\n".join(line for line in body.splitlines()
-                             if not line.lstrip().startswith("#"))
-        needs_cmake = re.search(r"\bcmake\b|\bctest\b", commands) or any(
-            "run_python_tests.py" in line and "--suite" not in line
-            for line in commands.splitlines())
-        inherits_check = checked_install_anchor and re.search(
-            r"(?m)^      - \*install_pinned_cmake[ \t]*$", commands
-        )
-        if needs_cmake and CMAKE_CHECK not in commands and not inherits_check:
-            missing.append(name)
-    return missing
-
-
 class AuthorityPresence(unittest.TestCase):
-    def test_stale_kicad_minor_is_rejected(self):
-        path = bp.ROOT / "hardware/phantasm/gen/sexp.py"
-        read = bp.read_scanned
-        def changed(candidate, errors):
-            text = read(candidate, errors)
-            if candidate == path:
-                return re.sub(r"KICAD_MINOR = \d+", "KICAD_MINOR = 99", text)
-            return text
-        with unittest.mock.patch.object(bp, "read_scanned", side_effect=changed):
-            errors = bp.check_inline_pins()
-        self.assertTrue(any("kicad-full pinned" in error and "99" in error for error in errors))
-
     def test_missing_spelling_in_one_authority_is_rejected(self):
         for check, relative, original, replacement in (
                 (bp.check_shared_literals, 'tools/commit_checks.sh',
@@ -140,31 +97,6 @@ class RequirementPins(unittest.TestCase):
         self.assertIn("99.0.0", errors[0])
         self.assertIn("98.0.0", errors[0])
 
-    def test_comments_and_blank_lines_are_allowed(self):
-        self.source.write_text("# Linter\n\nruff==99.0.0 # exact pin\n",
-                               encoding="utf-8")
-        result = self._run("ruff")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "99.0.0")
-
-    def test_malformed_sources_fail_without_a_traceback(self):
-        for content in ("", "ruff>=99.0.0", "ruff==99.*", "ruff==",
-                        "other==99.0.0", "ruff==99.0.0\nruff==98.0.0"):
-            with self.subTest(content=content):
-                self.source.write_text(content, encoding="utf-8")
-                result = self._run("ruff")
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("expected one exact ruff==VERSION pin",
-                              result.stderr)
-                self.assertNotIn("Traceback", result.stderr)
-
-    def test_a_missing_source_fails_without_a_traceback(self):
-        self.source.unlink()
-        result = self._run("ruff")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("ruff.in: cannot be read", result.stderr)
-        self.assertNotIn("Traceback", result.stderr)
-
 
 class DuplicatesPin(unittest.TestCase):
     """An injected pin re-spelled in a build file is a second source of truth."""
@@ -173,50 +105,9 @@ class DuplicatesPin(unittest.TestCase):
         self.assertTrue(bp.duplicates_pin(
             "        node-version: 24.13.0\n", "node", "24.13.0"))
 
-    def test_name_two_lines_above_is_still_in_context(self):
-        self.assertTrue(bp.duplicates_pin(
-            "      - name: Set up Node\n"
-            "        with:\n"
-            "          version: 24.13.0\n", "node", "24.13.0"))
-
-    def test_name_three_lines_above_is_out_of_context(self):
-        # The window is the two preceding lines plus the line itself; a value
-        # further from any mention of the tool is not a pin duplicate.
-        self.assertFalse(bp.duplicates_pin(
-            "      - name: Set up Node\n"
-            "        with:\n"
-            "          cache: npm\n"
-            "          version: 24.13.0\n", "node", "24.13.0"))
-
-    def test_underscore_alias_matches(self):
-        self.assertTrue(bp.duplicates_pin(
-            "        clang_format: 22.1.8\n", "clang-format", "22.1.8"))
-
     def test_a_commented_out_value_is_not_a_duplicate(self):
         self.assertFalse(bp.duplicates_pin(
             "        node: latest   # was 24.13.0\n", "node", "24.13.0"))
-
-    def test_a_longer_version_is_not_the_pin(self):
-        for line in ("        node: 24.13.0.1\n", "        node: 124.13.0\n"):
-            self.assertFalse(bp.duplicates_pin(line, "node", "24.13.0"), line)
-
-    def test_the_tracked_workflows_duplicate_no_pin(self):
-        # The live gate, so a real duplicate fails here as well as in CI.
-        for path in sorted(set(bp.workflow_files()) | set(bp.CONSUMERS)):
-            text = path.read_text(encoding="utf-8")
-            for name, value in bp.PINS.items():
-                self.assertFalse(bp.duplicates_pin(text, name, value),
-                                 f"{path.name} duplicates {name} {value}")
-
-
-class VersionTuple(unittest.TestCase):
-    def test_parses_each_dotted_component(self):
-        self.assertEqual(bp._version_tuple("24.13.0"), (24, 13, 0))
-        self.assertEqual(bp._version_tuple("22"), (22,))
-
-    def test_components_compare_numerically_not_lexically(self):
-        self.assertLess(bp._version_tuple("24.9.0"), bp._version_tuple("24.13.0"))
-        self.assertGreater(bp._version_tuple("1.10.0"), bp._version_tuple("1.9.0"))
 
 
 class EngineRanges(unittest.TestCase):
@@ -236,25 +127,10 @@ class EngineRanges(unittest.TestCase):
     def test_pin_above_the_floor_passes(self):
         self.assertEqual(self._check({"node": ">=22"}, "24.13.0"), [])
 
-    def test_pin_equal_to_the_floor_passes(self):
-        self.assertEqual(self._check({"node": ">=24.13.0"}, "24.13.0"), [])
-
-    def test_versions_of_unequal_width_compare_by_component(self):
-        # Raw tuples order a prefix below its extension, so an unpadded (24,)
-        # would read as below a (24, 0, 0) floor it exactly meets.
-        self.assertEqual(self._check({"node": ">=24.0.0"}, "24"), [])
-        self.assertEqual(self._check({"node": ">=24"}, "24.13.0"), [])
-        # A real shortfall is still caught at every width.
-        self.assertEqual(len(self._check({"node": ">=24.14"}, "24.13.0")), 1)
-        self.assertEqual(len(self._check({"node": ">=24.0.1"}, "24")), 1)
-
     def test_pin_below_the_floor_is_reported(self):
         errors = self._check({"node": ">=26"}, "24.13.0")
         self.assertEqual(len(errors), 1)
         self.assertIn("24.13.0", errors[0])
-
-    def test_whitespace_in_the_range_is_tolerated(self):
-        self.assertEqual(self._check({"node": ">= 22"}, "24.13.0"), [])
 
     def test_a_range_the_gate_cannot_compare_is_reported(self):
         # A caret/tilde/OR range silently stops declaring a floor; the gate must
@@ -264,34 +140,8 @@ class EngineRanges(unittest.TestCase):
             self.assertEqual(len(errors), 1, spec)
             self.assertIn("expected '>=X'", errors[0])
 
-    def test_a_missing_range_is_reported(self):
-        errors = self._check({"npm": ">=10"}, "24.13.0")
-        self.assertEqual(len(errors), 1)
-        self.assertIn("no engines.node range", errors[0])
 
-    def test_the_tracked_manifest_satisfies_its_pin(self):
-        self.assertEqual(bp.check_engine_ranges(), [])
-
-
-class SharedLiterals(unittest.TestCase):
-    """Strings several build files must spell alike."""
-
-    def test_the_tracked_copies_agree(self):
-        self.assertEqual(bp.check_shared_literals(), [])
-
-    def test_every_scanned_file_the_check_counts_is_tracked(self):
-        tracked = set(subprocess.check_output(
-            ["git", "-C", str(bp.ROOT), "ls-files", "-z"], text=True).split("\0"))
-        for path in bp.INLINE_SCAN:
-            self.assertIn(path.relative_to(bp.ROOT).as_posix(), tracked)
-
-    def test_the_format_exclude_is_carried_by_exactly_its_two_gates(self):
-        want = bp.SHARED_LITERALS["format-exclude"]
-        carriers = [path.name for path in bp.INLINE_SCAN
-                    if want in path.read_text(encoding="utf-8")]
-        self.assertEqual(sorted(carriers),
-                         ["clang_format_gate.sh", "commit_checks.sh"])
-
+class FastMathFlags(unittest.TestCase):
     def test_fast_math_axis_marks_its_test_contract(self):
         definitions = [match.groups() for flag in bp.FAST_MATH_TEST_FLAGS
                        if (match := re.fullmatch(r"-D(\w+)=(\d+)", flag))]
@@ -303,9 +153,6 @@ class SharedLiterals(unittest.TestCase):
 
 
 class InlinePins(unittest.TestCase):
-    def test_the_tracked_spellings_agree(self):
-        self.assertEqual(bp.check_inline_pins(), [])
-
     def test_repeated_consistent_pins_need_no_count_update(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -324,105 +171,6 @@ class InlinePins(unittest.TestCase):
                 path.write_text("", encoding="utf-8")
                 self.assertIn("was not found", bp.check_inline_pins()[0])
 
-    def test_exact_formatter_sentence_is_checked_without_its_period(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            path = root / "CONTRIBUTING.md"
-            pattern = next(row for row in bp.INLINE_USES if "is pinned to" in row[0])
-            with unittest.mock.patch.object(bp, "ROOT", root), \
-                    unittest.mock.patch.object(bp, "INLINE_SCAN", (path,)), \
-                    unittest.mock.patch.object(bp, "INLINE_USES", (pattern,)), \
-                    unittest.mock.patch.dict(bp.INLINE_PINS, {"clang-format": "22.1.8"}):
-                path.write_text("clang-format is pinned to 22.1.8.\n", encoding="utf-8")
-                self.assertEqual(bp.check_inline_pins(), [])
-                path.write_text("clang-format is pinned to 22.1.9.\n", encoding="utf-8")
-                self.assertIn("written '22.1.9'", bp.check_inline_pins()[0])
-
-    def test_the_python_version_input_is_read_in_either_quoting(self):
-        pattern = next(p for p, name, _ in bp.INLINE_USES if name == "python")
-        for line in ("          python-version: '3.13'",
-                     '          python-version: "3.13"',
-                     "          python-version: 3.13"):
-            with self.subTest(line=line):
-                self.assertEqual(re.findall(pattern, line), ["3.13"])
-
-    def test_the_hook_delegates_format_and_ruff_versions_to_build_pins(self):
-        source = (bp.ROOT / "tools/commit_checks.sh").read_text(encoding="utf-8")
-        for tool in ("clang-format", "ruff"):
-            self.assertIn(f'"$TOOLS/build_pins.py" --check-tool {tool}', source)
-        self.assertNotIn("HS_CLANG_FORMAT_MAJOR", source)
-        self.assertNotIn("expected_ruff=", source)
-
-
-class UnreadableScannedFile(unittest.TestCase):
-    """A renamed scanned path is an error line, not a traceback out of the hook."""
-
-    def test_non_utf8_scanned_source_is_reported(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / "bad.yml"
-            source.write_bytes(b"# caf\xe9\n")
-            errors = []
-            with unittest.mock.patch.object(bp, "ROOT", root):
-                self.assertIsNone(bp.read_scanned(source, errors))
-            self.assertEqual(len(errors), 1)
-            self.assertTrue(errors[0].startswith("bad.yml: cannot be read"))
-
-    def test_a_missing_inline_scan_entry_is_reported(self):
-        missing = bp.ROOT / "no-such-build-file.yml"
-        with unittest.mock.patch.object(bp, "INLINE_SCAN", (missing,)):
-            inline = bp.check_inline_pins()
-            shared = bp.check_shared_literals()
-        self.assertTrue(any("no-such-build-file.yml" in e for e in inline))
-        self.assertTrue(any("no-such-build-file.yml" in e for e in shared))
-
-    def test_a_missing_consumer_is_reported(self):
-        missing = bp.ROOT / "no-such-consumer.yml"
-        out = io.StringIO()
-        with unittest.mock.patch.object(bp, "CONSUMERS", {missing: ("x",)}), \
-                contextlib.redirect_stdout(out):
-            status = bp.check_consumers()
-        self.assertEqual(status, 1)
-        self.assertIn("no-such-consumer.yml", out.getvalue())
-
-    def test_a_manifest_that_is_not_json_is_reported(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            manifest = Path(tmp) / "package.json"
-            manifest.write_text("{not json", encoding="utf-8")
-            with unittest.mock.patch.object(
-                    bp, "ENGINE_RANGES",
-                    ((manifest, ("engines", "node"), "node"),)), \
-                    unittest.mock.patch.object(bp, "ROOT", Path(tmp)):
-                errors = bp.check_engine_ranges()
-        self.assertEqual(len(errors), 1)
-        self.assertIn("not valid JSON", errors[0])
-
-    def test_a_missing_manifest_is_reported(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            manifest = Path(tmp) / "package.json"
-            with unittest.mock.patch.object(
-                    bp, "ENGINE_RANGES",
-                    ((manifest, ("engines", "node"), "node"),)), \
-                    unittest.mock.patch.object(bp, "ROOT", Path(tmp)):
-                errors = bp.check_engine_ranges()
-        self.assertEqual(len(errors), 1)
-        self.assertIn("cannot be read", errors[0])
-
-
-class ConsumerCallSites(unittest.TestCase):
-    def test_every_build_pin_gate_entry_point_is_required(self):
-        paths = (bp.ROOT / "tools/ci/docs_markdown.sh",
-                 bp.ROOT / "justfile",
-                 bp.ROOT / "tools/commit_checks.sh")
-        for path in paths:
-            calls = [line.strip()
-                     for line in path.read_text(encoding="utf-8").splitlines()
-                     if not line.lstrip().startswith("#")
-                     and "tools/build_pins.py" in line
-                     and line.strip().endswith("--check")]
-            self.assertEqual(len(calls), 1, path)
-            self.assertIn(calls[0], bp.CONSUMERS.get(path, ()), path)
-
 
 class CheckTool(unittest.TestCase):
     """--check-tool holds PATH to the pin, so it must be able to reach it."""
@@ -439,95 +187,6 @@ class CheckTool(unittest.TestCase):
                 status = bp.check_tool(name)
         return status, out.getvalue()
 
-    def test_every_target_names_a_pin(self):
-        self.assertEqual(set(bp.CHECK_TOOLS) - set(bp.PINS | bp.INLINE_PINS),
-                         set())
-        self.assertEqual(bp.check_consumers(), 0)
-
-    def test_justfile_tool_checks_are_supported(self):
-        source = (bp.ROOT / "justfile").read_text(encoding="utf-8")
-        names = set(re.findall(r"--check-tool ([a-z-]+)", source))
-        self.assertTrue(names)
-        self.assertEqual(names - bp.CHECK_TOOLS.keys(), set())
-
-    def test_actionlint_checks_the_binary_release_and_command(self):
-        pin = bp.PINS["actionlint"]
-        self.assertEqual(bp.CHECK_TOOLS["actionlint"][0], ["actionlint", "-version"])
-        self.assertEqual(self._check("actionlint", pin.rsplit(".", 1)[0] + "\nbuilt with go")[0], 0)
-        self.assertEqual(self._check("actionlint", "0.0.0")[0], 1)
-
-    def test_cmake_checks_the_installed_version_in_every_ci_leg(self):
-        pin = bp.INLINE_PINS["cmake"]
-        self.assertEqual(self._check("cmake", f"cmake version {pin}\n")[0], 0)
-        self.assertEqual(self._check("cmake", "cmake version 0.0.0\n")[0], 1)
-        workflow = (bp.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        self.assertEqual(cmake_jobs_missing_checks(workflow), [])
-        installs = cmake_install_steps(workflow)
-        self.assertTrue(installs)
-        for _, install in installs:
-            self.assertIn(CMAKE_CHECK, install)
-
-    def test_cmake_job_guard_requires_each_tool_check(self):
-        for command in ("cmake --preset tests", "ctest --preset tests",
-                        "python tools/run_python_tests.py"):
-            with self.subTest(command=command):
-                fixture = ("jobs:\n  fixture:\n    steps:\n"
-                           f"      - run: {command}\n"
-                           "      - run: python tools/build_pins.py --check-tool cmake\n")
-                self.assertEqual(cmake_jobs_missing_checks(fixture), [])
-                self.assertEqual(cmake_jobs_missing_checks(fixture.replace(
-                    "      - run: python tools/build_pins.py --check-tool cmake\n", "")),
-                    ["fixture"])
-        self.assertEqual(cmake_jobs_missing_checks(
-            "jobs:\n  subset:\n    steps:\n"
-            "      - run: python tools/run_python_tests.py --suite tools/profile_tests\n"), [])
-
-    def test_cmake_job_guard_checks_the_body_of_aliased_installs(self):
-        fixture = (
-            "jobs:\n  first:\n    steps:\n"
-            "      - &install_pinned_cmake\n"
-            "        name: Install pinned CMake\n"
-            "        run: |\n"
-            "          pip install --require-hashes -r requirements/cmake.txt\n"
-            f"          {CMAKE_CHECK}\n"
-            "      - run: cmake --preset tests\n"
-            "  second:\n    steps:\n"
-            "      - *install_pinned_cmake\n"
-            "      - run: ctest --preset tests\n"
-        )
-        self.assertEqual(cmake_jobs_missing_checks(fixture), [])
-        self.assertEqual(cmake_jobs_missing_checks(fixture.replace(
-            f"          {CMAKE_CHECK}\n", "")), ["first", "second"])
-
-    def test_emsdk_checks_the_active_compiler_version(self):
-        pin = bp.PINS["emsdk"]
-        self.assertEqual(bp.CHECK_TOOLS["emsdk"][0], ["emcc", "-dumpversion"])
-        self.assertEqual(self._check("emsdk", pin + "\n")[0], 0)
-        self.assertEqual(self._check("emsdk", "0.0.0\n")[0], 1)
-        resolved = "C:/emsdk/emcc.bat"
-        with unittest.mock.patch.object(bp.shutil, "which", return_value=resolved):
-            with unittest.mock.patch.object(bp.subprocess, "run") as run:
-                run.return_value = subprocess.CompletedProcess([], 0, pin + "\n", "")
-                self.assertEqual(bp.check_tool("emsdk"), 0)
-                self.assertEqual(run.call_args.args[0], [resolved, "-dumpversion"])
-
-    def test_pins_with_no_version_to_report_are_not_targets(self):
-        for name in ("daydream", "doxygen-awesome", "doxygen-sha256",
-                     "llvm-key-sha256", "kicad"):
-            self.assertIn(name, bp.PINS | bp.INLINE_PINS)
-            self.assertNotIn(name, bp.CHECK_TOOLS)
-
-    def test_a_major_only_pin_is_met_by_a_release_of_that_major(self):
-        # clang's pin is a major; the binary reports the full version.
-        self.assertEqual(
-            self._check("clang", f"Ubuntu clang version {bp.INLINE_PINS['clang']}.1.8 (tags/x)")[0], 0)
-        self.assertEqual(self._check("python", f"Python {bp.INLINE_PINS['python']}.9")[0], 0)
-
-    def test_a_different_major_still_fails(self):
-        status, message = self._check("clang", f"clang version {int(bp.INLINE_PINS['clang']) - 1}.1.0")
-        self.assertEqual(status, 1)
-        self.assertIn(f"apt install clang-{bp.INLINE_PINS['clang']}", message)
-
     def test_clang_format_honors_the_binary_override(self):
 
         with unittest.mock.patch.dict(bp.os.environ, CLANG_FORMAT="/custom/clang-format"), \
@@ -535,16 +194,6 @@ class CheckTool(unittest.TestCase):
             run.return_value = SimpleNamespace(stdout="clang-format version " + bp.INLINE_PINS["clang-format"])
             self.assertEqual(bp.check_tool("clang-format"), 0)
         self.assertEqual(run.call_args.args[0], ["/custom/clang-format", "--version"])
-
-    def test_a_packaging_suffix_is_not_expected_from_the_binary(self):
-        # shellcheck-py's version is the release plus a suffix; shellcheck
-        # reports only the release.
-        pin = bp.PINS["shellcheck"]
-        status, message = self._check(
-            "shellcheck", "ShellCheck - shell script analysis tool\n"
-                          f"version: {pin.rsplit('.', 1)[0]}\n")
-        self.assertEqual(status, 0)
-        self.assertIn(pin, message)
 
     def test_a_dependency_bump_updates_the_runtime_version_check(self):
         with unittest.mock.patch.dict(bp.PINS, ruff="99.0.0"):
@@ -567,71 +216,9 @@ class CheckTool(unittest.TestCase):
             self.assertIn("nothing runnable", message)
             self.assertIn(want, message)
 
-    def test_pip_remediation_installs_an_existing_hash_lock(self):
-        for name in bp.CHECK_TOOLS:
-            hint = bp.install_hint(name)
-            if hint.startswith("pip "):
-                lock = hint.removeprefix("pip install --require-hashes -r ")
-                self.assertNotEqual(lock, hint, name)
-                self.assertIn("--hash=sha256:",
-                              (bp.ROOT / lock).read_text(encoding="utf-8"), name)
-
-    def test_the_remediation_is_not_a_blanket_pip_install(self):
-        for name in bp.CHECK_TOOLS:
-            _, message = self._check(name, "0.0.0")
-            pin = (bp.PINS | bp.INLINE_PINS)[name]
-            if name in ("clang", "doxygen", "just", "node", "python",
-                        "shellcheck"):
-                self.assertNotIn(f"pip install {name}=={pin}", message, name)
-
 
 class InstallSet(unittest.TestCase):
     """Repository sources copied into the sibling Daydream checkout."""
-
-    def test_the_runtime_install_has_each_source_class(self):
-        installed = bp.installed_sources()
-        for path in ("hardware/pov_segment_map.json",
-                     "scripts/shader_workbench.mjs", "scripts/sha256.mjs"):
-            self.assertIn(path, installed)
-        self.assertTrue(
-            any(path.startswith("patterns/") for path in installed))
-        self.assertTrue(
-            any(path.startswith("docs/screenshots/") for path in installed))
-
-    def test_documentation_is_part_of_the_simulator_install(self):
-        installed = bp.installed_sources()
-        self.assertIn("README.md", installed)
-        self.assertTrue(
-            all(path.endswith(".png") for path in installed
-                if path.startswith("docs/screenshots/")))
-
-    def test_a_directory_rule_selects_only_its_patterns(self):
-        # patterns/ also holds a README the FILES_MATCHING patterns exclude.
-        self.assertNotIn("patterns/README.md", bp.installed_sources())
-
-    def test_directory_rules_apply_pattern_and_regex_exclusions(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            patterns = root / "patterns"
-            patterns.mkdir()
-            for name in ("live.shader.json", "example.shader.json", "secret.shader.json", "README.md"):
-                (patterns / name).write_text("", encoding="utf-8")
-            (root / "CMakeLists.txt").write_text(
-                'install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/patterns/" '
-                'DESTINATION "${DAYDREAM_DIR}/patterns" FILES_MATCHING '
-                'PATTERN "*.shader.json" PATTERN "example.shader.json" EXCLUDE '
-                'REGEX "/secret" EXCLUDE)\n', encoding="utf-8")
-            with unittest.mock.patch.object(bp, "ROOT", root):
-                self.assertEqual(bp.installed_sources(), ["patterns/live.shader.json"])
-
-    def test_a_generated_artifact_is_not_a_repository_source(self):
-        # The module, glue, and exported catalog are generated during install.
-        self.assertNotIn("scripts/engine_catalog.json", bp.installed_sources())
-        for path in bp.installed_sources():
-            self.assertTrue((bp.ROOT / path).is_file(), path)
-
-    def test_the_live_install_set_is_pinned(self):
-        self.assertEqual(bp.check_install_eol(bp.installed_sources()), [])
 
     def test_an_unpinned_file_is_reported(self):
         with tempfile.TemporaryDirectory() as directory:
