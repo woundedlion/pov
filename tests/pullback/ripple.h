@@ -709,10 +709,12 @@ inline void test_pullback_radial_ripple_crest() {
   auto prepared = prepare_ripples(params, state);
   const auto RESULT =
       radial_ripples(math::X_AXIS, prepared, true, &tables, 1.0f);
-  HS_EXPECT_NEAR(RESULT.sphere.x, cosf(0.075f), 1e-6f);
-  HS_EXPECT_NEAR(RESULT.sphere.y, -sinf(0.075f), 1e-6f);
+  // Half-way through its period the wave carries half its strength.
+  const float CREST = 0.5f * params.strength;
+  HS_EXPECT_NEAR(RESULT.sphere.x, cosf(CREST), 1e-6f);
+  HS_EXPECT_NEAR(RESULT.sphere.y, -sinf(CREST), 1e-6f);
   HS_EXPECT_NEAR(RESULT.sphere.z, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(RESULT.path_length, 0.075f, 1e-6f);
+  HS_EXPECT_NEAR(RESULT.path_length, CREST, 1e-6f);
   const auto UNTRACKED =
       radial_ripples(math::X_AXIS, prepared, false, &tables, 1.0f);
   HS_EXPECT_EQ(UNTRACKED.sphere.x, RESULT.sphere.x);

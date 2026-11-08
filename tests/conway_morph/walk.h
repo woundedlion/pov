@@ -18,7 +18,7 @@ inline void reconcile_seed(int edge, int node, int &held) {
 }
 
 /**
- * @brief Pins hop distances: zero on the diagonal, symmetric, one per edge.
+ * @brief Hop distances equal breadth-first distances over EDGES.
  */
 inline void test_walk_hops_metric() {
   using namespace ConwayGraph;
@@ -31,8 +31,27 @@ inline void test_walk_hops_metric() {
   }
   for (const auto &edge : EDGES)
     HS_EXPECT_EQ(hops(edge.from_node, edge.to_node), 1);
-  HS_EXPECT_EQ(hops(SNUB_CUBE, SNUB_DODECAHEDRON), 7);
-  HS_EXPECT_EQ(hops(TRUNCATED_CUBOCTAHEDRON, TRUNCATED_ICOSIDODECAHEDRON), 5);
+  for (int source = 0; source < NUM_NODES; ++source) {
+    std::vector<int> distance(NUM_NODES, -1);
+    std::vector<int> frontier{source};
+    distance[source] = 0;
+    for (size_t head = 0; head < frontier.size(); ++head) {
+      const int node = frontier[head];
+      for (const auto &edge : EDGES) {
+        const int next = edge.from_node == node ? edge.to_node
+                         : edge.to_node == node ? edge.from_node
+                                                : -1;
+        if (next >= 0 && distance[next] < 0) {
+          distance[next] = distance[node] + 1;
+          frontier.push_back(next);
+        }
+      }
+    }
+    for (int target = 0; target < NUM_NODES; ++target) {
+      HS_CONTEXT("route", source, target);
+      HS_EXPECT_EQ(hops(source, target), distance[target]);
+    }
+  }
 }
 
 /**

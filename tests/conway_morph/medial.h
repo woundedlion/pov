@@ -530,8 +530,8 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
   constexpr int SWEEP = 24;
   constexpr int RW = 288, RH = 144;
   constexpr float SEAM_MATCH_TOL = 0.02f;
-  constexpr long long SEAM_SUMABS_MAX = 1100000ll;
-  constexpr long long PRESERVED_SEAM_SUMABS_MAX = 1300000ll;
+  // The seam step's summed difference, in control-step units.
+  constexpr long long SEAM_CONTROL_RATIO_MAX = 10;
 
   static Pipeline<RW, RH> filters;
 
@@ -811,8 +811,7 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
     const float quiet_ratio =
         static_cast<float>(seam_quiet) / static_cast<float>(ctrl_quiet);
     HS_EXPECT_GT(quiet_ratio, site.seam_quiet_ratio);
-    HS_EXPECT_LT(seam_sum, preserve_palettes ? PRESERVED_SEAM_SUMABS_MAX
-                                             : SEAM_SUMABS_MAX);
+    HS_EXPECT_LT(seam_sum, SEAM_CONTROL_RATIO_MAX * ctrl_sum);
 
     if (preserve_palettes) {
       rasterize_at = -1;

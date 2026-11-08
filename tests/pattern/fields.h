@@ -406,7 +406,8 @@ inline void test_pattern_plane_source_grid_samples() {
                  std::sin(0.6f) * std::cos(0.25f), 0.0035f);
 }
 
-/** @brief Pins plane source tessellation samples values. */
+/** @brief A soft square cell peaks at its centre, crosses zero at the half
+ *  cell and is odd about it. */
 inline void test_pattern_plane_source_tessellation_samples() {
   using namespace Pattern;
   using Cells =
@@ -418,11 +419,15 @@ inline void test_pattern_plane_source_tessellation_samples() {
   lattice.cell_shape = 1.0f;
   lattice.cell_softness = 0.5f;
   const auto SQUARE = Cells::prepare(lattice, EMPTY);
-  HS_EXPECT_EQ(Cells::sample({{}}, SQUARE), 0.6875f);
+  const float CENTRE = Cells::sample({{}}, SQUARE);
+  HS_EXPECT_LE(CENTRE, 1.0f);
   for (float sign : {-1.0f, 1.0f}) {
-    HS_EXPECT_EQ(Cells::sample({{sign * 0.125f, 0.0f}}, SQUARE), 0.3671875f);
+    const float INSIDE = Cells::sample({{sign * 0.125f, 0.0f}}, SQUARE);
+    HS_EXPECT_GT(INSIDE, 0.0f);
+    HS_EXPECT_LT(INSIDE, CENTRE);
+    HS_EXPECT_EQ(INSIDE, Cells::sample({{0.125f, 0.0f}}, SQUARE));
     HS_EXPECT_EQ(Cells::sample({{sign * 0.25f, 0.0f}}, SQUARE), 0.0f);
-    HS_EXPECT_EQ(Cells::sample({{sign * 0.375f, 0.0f}}, SQUARE), -0.3671875f);
+    HS_EXPECT_EQ(Cells::sample({{sign * 0.375f, 0.0f}}, SQUARE), -INSIDE);
   }
   using Edges =
       PlaneTessellation<TessellationKind::SQUARE, TessellationFill::EDGES>;

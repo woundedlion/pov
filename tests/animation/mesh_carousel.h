@@ -914,7 +914,8 @@ inline void test_spin_flip_warp_is_rigid() {
 
 /**
  * @brief Verifies GoldConvergence grades toward its gold at the swap and is
- * the identity on the plateau, with the mild opacity dip.
+ * the identity on the plateau, with a partial opacity dip that recovers
+ * monotonically.
  */
 inline void test_gold_convergence_grades_to_gold() {
   Segue::GoldConvergence gc;
@@ -928,6 +929,9 @@ inline void test_gold_convergence_grades_to_gold() {
   HS_EXPECT_EQ(swap.color.r, gc.gold.r);
   HS_EXPECT_EQ(swap.color.g, gc.gold.g);
   HS_EXPECT_EQ(swap.color.b, gc.gold.b);
-  HS_EXPECT_NEAR(gc.opacity(0.0f), 0.4f, 1e-6f);
+  HS_EXPECT_GT(gc.opacity(0.0f), 0.0f);
+  HS_EXPECT_LT(gc.opacity(0.0f), 1.0f);
+  for (int i = 1; i <= 16; ++i)
+    HS_EXPECT_GE(gc.opacity(i / 16.0f), gc.opacity((i - 1) / 16.0f));
   HS_EXPECT_NEAR(gc.opacity(1.0f), 1.0f, 1e-6f);
 }

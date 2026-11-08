@@ -724,6 +724,9 @@ public:
 class MobiusWarpEvolving : public AnimationBase<MobiusWarpEvolving> {
 public:
   static constexpr int CHANNEL_COUNT = 8; ///< Animated complex components.
+  /// Per-channel phase rate multipliers on `speed`.
+  static constexpr float FREQUENCIES[CHANNEL_COUNT] = {
+      1.0f, 1.13f, 1.27f, 1.39f, 0.71f, 0.83f, 0.97f, 1.09f};
 
   /**
    * @brief Constructs a MobiusWarpEvolving animation.
@@ -847,8 +850,6 @@ public:
     check_alive();
     AnimationBase::step(canvas);
     HS_PROFILE(animation_mobius_step);
-    constexpr float FREQUENCIES[CHANNEL_COUNT] = {1.0f,  1.13f, 1.27f, 1.39f,
-                                                  0.71f, 0.83f, 0.97f, 1.09f};
     constexpr double PERIOD = 6.283185307179586476925286766559;
     for (int i = 0; i < CHANNEL_COUNT; ++i) {
       const double increment =

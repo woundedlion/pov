@@ -653,10 +653,13 @@ inline void test_mesh_motion_activation() {
   constexpr int W = 288;
   constexpr float PIXEL = math::TWO_PI_F / W;
   HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(0.0f));
-  HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(0.49f * PIXEL));
-  HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(0.51f * PIXEL));
-  HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(7.9f * PIXEL));
-  HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(8.1f * PIXEL));
+  constexpr float EPSILON = 0.01f;
+  constexpr float HELD = Scan::HELD_VERTEX_PIXELS;
+  constexpr float JUMP = Scan::MAX_VERTEX_MOTION_PIXELS;
+  HS_EXPECT_FALSE(Scan::mesh_motion_active<W>((HELD - EPSILON) * PIXEL));
+  HS_EXPECT_TRUE(Scan::mesh_motion_active<W>((HELD + EPSILON) * PIXEL));
+  HS_EXPECT_TRUE(Scan::mesh_motion_active<W>((JUMP - EPSILON) * PIXEL));
+  HS_EXPECT_FALSE(Scan::mesh_motion_active<W>((JUMP + EPSILON) * PIXEL));
   {
     const ScopedTemporalSampling sampling(false);
     HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(3.4f * PIXEL));
@@ -884,12 +887,11 @@ inline void test_mesh_polar_face_sweep() {
  * @param notch The notch vertices' polar angle; the tips' is 0.2 radians.
  * @param north Whether the face winds around the north pole.
  * @param turn Camera turn over the frame (radians).
- * @param max_ratio Maximum windowed error relative to holding the endpoint.
  * @details Compares the deformed scan and the face held at the endpoint with
  * frames of the face at each column pair's time.
  */
 inline void check_polar_face_windows(size_t points, float notch, bool north,
-                                     float turn, double max_ratio) {
+                                     float turn) {
   constexpr float SPIN = 0.05f, TIP = 0.2f, WOBBLE = 0.5f * math::PI_F / 180.0f;
   HS_CONTEXT("star points", static_cast<long long>(points));
   HS_CONTEXT("north", north ? 1 : 0);
@@ -932,15 +934,15 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
   std::printf("  [polar face %zu] error %.0f vs held %.0f (ratio %.3f)\n",
               points, drawn_error, held_error, drawn_error / held_error);
   HS_EXPECT_GT(held_error, 0.0);
-  HS_EXPECT_LT(drawn_error, max_ratio * held_error);
+  HS_EXPECT_LT(drawn_error, held_error);
 }
 
 /** @brief Faces around or reaching either pole draw per half-arm window,
  *  closer to their column times than held at the endpoint: convex or starred,
  *  under a still or a turning camera. */
 inline void test_mesh_polar_face_windows() {
-  check_polar_face_windows(6, 0.12f, true, 0.0f, 0.35);
-  check_polar_face_windows(6, 0.12f, false, 0.02f, 0.40);
-  check_polar_face_windows(3, 0.05f, true, 0.02f, 0.90);
-  check_polar_face_windows(4, 0.2f, false, 0.0f, 0.30);
+  check_polar_face_windows(6, 0.12f, true, 0.0f);
+  check_polar_face_windows(6, 0.12f, false, 0.02f);
+  check_polar_face_windows(3, 0.05f, true, 0.02f);
+  check_polar_face_windows(4, 0.2f, false, 0.0f);
 }

@@ -854,8 +854,7 @@ template <typename Fn> int count_timeline_drop_logs(Fn &&fn) {
     return -1;
   int lines = 0;
   for (size_t pos = 0;
-       (pos = text->find("Timeline full, failed to add animation!", pos)) !=
-       std::string::npos;
+       (pos = text->find("failed to add animation", pos)) != std::string::npos;
        ++pos)
     ++lines;
   return lines;

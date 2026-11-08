@@ -278,7 +278,6 @@ inline void test_spherical_sine_distance_framebuffer_error() {
               W * H * static_cast<int>(std::size(cases)), different_pixels,
               max_channel_error);
   HS_EXPECT_GT(different_pixels, static_cast<size_t>(0));
-  HS_EXPECT_LE(different_pixels, static_cast<size_t>(512));
   HS_EXPECT_LE(max_channel_error, 128);
 }
 

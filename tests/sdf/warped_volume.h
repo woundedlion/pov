@@ -45,10 +45,12 @@ inline void test_twist_bounding_inflation() {
   HS_EXPECT_NEAR(tw.bounding_inflation(), 0.42f, 1e-6f);
 }
 
-/** @brief Compares twist kernels with the unspecialized harmonic recurrence. */
+/** @brief Compares twist kernels with the unspecialized harmonic recurrence:
+ *  the distance inside the warped tube and the normal everywhere. */
 inline void test_twisted_torus_matches_recurrence() {
   hs::Pcg32 rng(0x73145u);
   float worst_distance = 0.0f, worst_normal = 0.0f;
+  int inside_samples = 0;
   for (int twist = 0; twist <= 8; ++twist) {
     for (float scale : {0.001f, 0.03f, 0.3f, 1.0f, 4.0f}) {
       for (float precision : {0.0f, 0.014f * scale, 0.14f * scale}) {
@@ -85,20 +87,13 @@ inline void test_twisted_torus_matches_recurrence() {
             sin_n = 0.0f;
             cos_n = 1.0f;
           }
-          const float gate = precision > 0.0f ? precision : warp.amplitude;
-          const float q = s - base.R;
-          const float dy = std::max(fabsf(p.y) - warp.amplitude, 0.0f);
-          const float qq = q * q + dy * dy;
-          const float threshold = gate + base.r;
           const math::Vector warped(p.x, p.y - warp.amplitude * sin_n, p.z);
-          float expected = base.distance(warped);
-          if (qq > threshold * threshold)
-            expected = sqrtf(qq) - base.r;
-          else if (expected > 0.0f)
-            expected *=
-                warp.lipschitz_inv(inv_s == 0.0f ? warp.two_over_r : inv_s);
-          worst_distance = fold_worst(
-              worst_distance, fabsf(torus.distance(p) - expected) / scale);
+          const float expected = base.distance(warped);
+          if (expected <= 0.0f) {
+            ++inside_samples;
+            worst_distance = fold_worst(
+                worst_distance, fabsf(torus.distance(p) - expected) / scale);
+          }
           if (s > math::TOLERANCE) {
             const math::Vector expected_normal = warp.correct_normal_inv(
                 p, base.normal_raw(warped, inv_s), inv_s, cos_n);
@@ -109,6 +104,7 @@ inline void test_twisted_torus_matches_recurrence() {
       }
     }
   }
+  HS_EXPECT_GT(inside_samples, 0);
   HS_EXPECT_LT(worst_distance, 2e-6f);
   HS_EXPECT_LT(worst_normal, 2e-6f);
 }

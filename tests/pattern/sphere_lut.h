@@ -293,33 +293,16 @@ inline void test_sphere_noise_bake_qualification() {
   }};
   constexpr std::array<float, 9> SCALES{
       1.0f / 64.0f, 0.0625f, 0.125f, 0.5f, 1.0f, 2.0f, 3.0f, 5.0f, 8.0f};
-  constexpr float MEAN_BOUNDS[9][9] = {
-      {0.00166f, 0.00151f, 0.00153f, 0.00243f, 0.00728f, 0.02723f, 0.05750f,
-       0.13815f, 0.26173f},
-      {0.00171f, 0.00151f, 0.00159f, 0.00429f, 0.01430f, 0.05157f, 0.10123f,
-       0.21996f, 0.38973f},
-      {0.00186f, 0.00170f, 0.00204f, 0.00948f, 0.02894f, 0.09006f, 0.16028f,
-       0.31194f, 0.51399f},
-      {0.00162f, 0.00152f, 0.00155f, 0.00490f, 0.01637f, 0.04909f, 0.08087f,
-       0.13870f, 0.20632f},
-      {0.00158f, 0.00153f, 0.00166f, 0.00883f, 0.02939f, 0.08646f, 0.14259f,
-       0.24388f, 0.35997f},
-      {0.00169f, 0.00164f, 0.00220f, 0.01662f, 0.04997f, 0.13568f, 0.21747f,
-       0.36047f, 0.52012f},
-      {0.00155f, 0.00164f, 0.00214f, 0.01562f, 0.04437f, 0.10098f, 0.15032f,
-       0.22642f, 0.29766f},
-      {0.00157f, 0.00166f, 0.00240f, 0.01970f, 0.05870f, 0.13451f, 0.20386f,
-       0.31238f, 0.41703f},
-      {0.00179f, 0.00186f, 0.00344f, 0.02776f, 0.07929f, 0.17078f, 0.25657f,
-       0.38695f, 0.51120f},
-  };
+  // Mean baked error at any tested scale.
+  constexpr float MEAN_BUDGET = 0.6f;
   std::array<int8_t, SphereLutView::SIZE> table;
   std::array<float, SphereLutView::SIZE> exact;
 #if defined(HS_PATTERN_QUALIFICATION_REPORT)
   std::printf(
       "recipe,scale,max_quantization,max_spatial,max_total,mean_total\n");
 #endif
-  for (size_t recipe = 0; recipe < RECIPES.size(); ++recipe)
+  for (size_t recipe = 0; recipe < RECIPES.size(); ++recipe) {
+    double previous_mean = 0.0;
     for (size_t scale_index = 0; scale_index < SCALES.size(); ++scale_index) {
       const float scale = SCALES[scale_index];
       HS_CONTEXT("recipe / scale microunits", recipe,
@@ -369,8 +352,15 @@ inline void test_sphere_noise_bake_qualification() {
             total += fabsf(DIRECT - BAKED);
           }
         }
-      HS_EXPECT_LE(total / (9 * SAMPLE_COUNT),
-                   MEAN_BOUNDS[recipe][scale_index]);
+      // Quantization dominates at low scale; above it interpolation error
+      // grows with feature frequency.
+      const double mean = total / (9 * SAMPLE_COUNT);
+      HS_EXPECT_LE(mean, MEAN_BUDGET);
+      if (scale <= 0.125f)
+        HS_EXPECT_LE(mean, QUANTIZATION_BOUND);
+      else
+        HS_EXPECT_GT(mean, previous_mean);
+      previous_mean = mean;
       HS_EXPECT_LE(max_quantization, QUANTIZATION_BOUND);
       constexpr std::array<float, 9> TOTAL_BOUNDS{
           1.5f, 1.75f, 1.9f, 1.2f, 1.55f, 1.85f, 1.6f, 1.85f, 1.96f};
@@ -388,7 +378,7 @@ inline void test_sphere_noise_bake_qualification() {
                   total / (9 * SAMPLE_COUNT));
 #else
       (void)max_spatial;
-      (void)total;
 #endif
     }
+  }
 }

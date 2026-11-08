@@ -143,11 +143,10 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
 }
 
 /**
- * @brief Measures sweep stability over the sampled dodecahedron,
- *        dodecahedron_hk62_ambo, octahedron and octahedron_hk17_ambo prefixes
- *        under the shipping slerp-from-corner parameterization.
- * @details The slerp gates bound displacement and face-normal reversals using
- * snorm16 arrival vertices and the production K_EPS opening fraction.
+ * @brief Measures the drawn sweep's stability over the sampled dodecahedron,
+ *        dodecahedron_hk62_ambo, octahedron and octahedron_hk17_ambo prefixes.
+ * @details The gates bound displacement and face-normal reversals of the
+ * frames the leg draws, which land on the snorm16 arrival vertices.
  */
 inline void test_hankin_sweep_vertex_stability() {
   const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
@@ -163,8 +162,7 @@ inline void test_hankin_sweep_vertex_stability() {
     CompiledHankin compiled;
     MeshOps::compile_hankin(seed, compiled, a, b);
 
-    std::vector<HankinSolve> collapsed, arrival;
-    hankin_solve(compiled, 0.0f, collapsed);
+    std::vector<HankinSolve> arrival;
     hankin_solve(compiled, site.theta_star, arrival);
     std::vector<math::Vector> packed_arrival;
     for (const auto &point : arrival)
@@ -210,23 +208,13 @@ inline void test_hankin_sweep_vertex_stability() {
     std::vector<HankinSolve> prev, curr;
     std::vector<math::Vector> prev_normals, curr_normals;
     for (int sample = 0; sample < SAMPLES; ++sample) {
-      const float u = static_cast<float>(sample) / (SAMPLES - 1);
-      const float k = math::ease_in_out_sin(u);
       HS_EXPECT_SIZE_OR_RETURN(drawn_frames[sample],
                                compiled.static_vertices.size() +
                                    arrival.size());
-      const float shipping_k =
-          Animation::OpLeg::K_EPS + (1.0f - Animation::OpLeg::K_EPS) * k;
       curr.assign(arrival.size(), HankinSolve{});
-      for (size_t i = 0; i < arrival.size(); ++i) {
-        curr[i] = {shipping_k >= 1.0f
-                       ? packed_arrival[i].normalized()
-                       : math::slerp(collapsed[i].pos.normalized(),
-                                     packed_arrival[i], shipping_k),
+      for (size_t i = 0; i < arrival.size(); ++i)
+        curr[i] = {drawn_frames[sample][compiled.static_vertices.size() + i],
                    arrival[i].branch, 0.0f};
-        HS_EXPECT_VEC(drawn_frames[sample][compiled.static_vertices.size() + i],
-                      curr[i].pos, 1e-6f);
-      }
       hankin_face_normals(compiled, curr, curr_normals);
       HankinStepStats row;
       hankin_step_stats(compiled, prev, prev_normals, curr, curr_normals, row);

@@ -248,6 +248,7 @@ inline void test_timed_mesh_endpoint_cache() {
  * endpoints. */
 inline void test_column_edge_quality() {
   constexpr int W = 288, H = 144;
+  constexpr float SPAN_COLUMNS = 60.0f, SPAN_ROWS = 100.0f;
   Spacetime::set_flat_surface(false);
   for (int scene = 0; scene < 3; ++scene) {
     hs_test::StubEffect effect(W, H);
@@ -265,8 +266,8 @@ inline void test_column_edge_quality() {
         const int vertex = std::min(i, 1);
         mesh.vertices[i] =
             vertical
-                ? math::pixel_to_vector<W, H>(40.3f, 20.0f + 100.0f * vertex)
-                : math::Vector::from_spherical((start + 60.0f * vertex) *
+                ? math::pixel_to_vector<W, H>(40.3f, 20.0f + SPAN_ROWS * vertex)
+                : math::Vector::from_spherical((start + SPAN_COLUMNS * vertex) *
                                                    math::RADIANS_PER_COLUMN<W>,
                                                math::PI_F * 0.5f);
       }
@@ -321,7 +322,10 @@ inline void test_column_edge_quality() {
     HS_EXPECT_LE(sqrtf(variance) / mean, 0.05f);
     HS_EXPECT_EQ(starts, 1u);
     HS_EXPECT_EQ(ends, 1u);
-    HS_EXPECT_LT(Spacetime::geometry_counters.column_generated_samples, 128u);
+    // At most two generated samples per pixel of edge length.
+    HS_EXPECT_LE(
+        Spacetime::geometry_counters.column_generated_samples,
+        static_cast<uint32_t>(2.0f * (scene == 2 ? SPAN_ROWS : SPAN_COLUMNS)));
   }
 }
 

@@ -11,8 +11,8 @@
 // ============================================================================
 
 /** @brief MobiusWarpEvolving's per-channel modulation frequencies. */
-constexpr float MOBIUS_FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
-                                        0.71f, 0.83f, 0.97f, 1.09f};
+constexpr const auto &MOBIUS_FREQUENCIES =
+    Animation::MobiusWarpEvolving::FREQUENCIES;
 /// Period of each independently wrapped channel clock.
 constexpr double MOBIUS_PERIOD = 6.283185307179586476925286766559;
 

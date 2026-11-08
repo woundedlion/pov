@@ -677,9 +677,11 @@ inline void test_rasterize_sampling_follows_world_transforms() {
   rotated.init_storage(persistent_arena);
   rendered.clear();
   const int ROTATED = draw(rotated);
-  HS_EXPECT_GT(ROTATED, 300);
+  // Round the pole the ring spans every column within the column gap.
+  constexpr float MAX_COLUMN_GAP = 1.1f;
+  HS_EXPECT_GT(ROTATED, W / MAX_COLUMN_GAP);
   HS_EXPECT_GT(ROTATED, 3 * EQUATOR);
-  HS_EXPECT_GT(rendered.size(), size_t{300});
+  HS_EXPECT_GT(static_cast<float>(rendered.size()), W / MAX_COLUMN_GAP);
   float max_gap = 0;
   for (size_t i = 0; i < rendered.size(); ++i) {
     const float A = math::vector_to_pixel<W, H>(rendered[i]).x;
@@ -688,7 +690,7 @@ inline void test_rasterize_sampling_follows_world_transforms() {
     float gap = fabsf(A - B);
     max_gap = fold_worst(max_gap, std::min(gap, W - gap));
   }
-  HS_EXPECT_LT(max_gap, 1.1f);
+  HS_EXPECT_LT(max_gap, MAX_COLUMN_GAP);
   HS_EXPECT_EQ(draw(rotated, true), ROTATED);
   for (auto &point : points)
     point.pos = math::rotate(point.pos, TURN);
