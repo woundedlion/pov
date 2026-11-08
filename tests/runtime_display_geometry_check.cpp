@@ -2,14 +2,26 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file runtime_display_geometry_check.cpp
+ * @brief Runtime display-geometry and AshCloud runtime-camera checks. */
 #include "core/engine/engine.h"
 #include "core/render/filter/screen_blur.h"
 #include "core/math/spherical_field.h"
+#include "effects/AshCloud.h"
 #include "effects/MeshFeedback.h"
+#include "tests/composed_frame_fixture.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/pole_geometry_test_util.h"
+#include <bit>
+#include <cstdio>
 #include <limits>
+#include <string_view>
+
+namespace hs_test::composed_effect_tests {
+inline uint32_t bits(float value) { return std::bit_cast<uint32_t>(value); }
+#include "tests/composed_effect/ashcloud_shared_color.h"
+} // namespace hs_test::composed_effect_tests
 
 namespace {
 template <int W, int H> void check_geometry(float north, float south) {
@@ -105,9 +117,8 @@ template <int W, int H> void check_geometry(float north, float south) {
   if (!Field::HAS_SOUTH_POLE)
     HS_EXPECT_GT(lit_endpoint_rows[1], 0);
 }
-} // namespace
 
-int main() {
+int run_runtime_display_geometry() {
   if (!hs_test::require_ci_smoke_frames())
     return 1;
   hs_test::ModuleFixture fixture("runtime display geometry");
@@ -140,5 +151,28 @@ int main() {
     HS_EXPECT_EQ(math::DISPLAY_NORTH_PHI, NORTH);
     HS_EXPECT_EQ(math::DISPLAY_SOUTH_PHI, SOUTH);
   }
-  return fixture.result() ? 1 : 0;
+  return fixture.result();
+}
+
+int run_ashcloud_camera() {
+  hs_test::ModuleFixture fixture("AshCloud runtime camera");
+  HS_EXPECT_TRUE(
+      math::set_display_geometry(.02f * math::PI_F, .98f * math::PI_F));
+  math::init_geometry_luts<288, 144>();
+  hs_test::composed_effect_tests::test_ash_cloud_shared_column_qualification();
+  hs_test::composed_effect_tests::test_ash_cloud_shared_color_identity();
+  hs_test::composed_effect_tests::test_ash_cloud_shared_column_fallbacks();
+  return fixture.result();
+}
+} // namespace
+
+int main(int argc, char **argv) {
+  const std::string_view module = argc == 2 ? argv[1] : "";
+  if (module == "runtime_display_geometry")
+    return run_runtime_display_geometry() ? 1 : 0;
+  if (module == "ashcloud_camera")
+    return run_ashcloud_camera() ? 1 : 0;
+  std::fprintf(stderr, "usage: runtime_display_geometry_check "
+                       "runtime_display_geometry|ashcloud_camera\n");
+  return 2;
 }

@@ -611,27 +611,32 @@ add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
     -DDUMP=${CMAKE_CURRENT_BINARY_DIR}/relax_bakes.dump
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_relax_bakes.cmake)
 
+# One executable per engine compile context. Each MODULES entry registers
+# unit_<module>, which passes the module name as the executable's argument;
+# without MODULES, unit_<name minus _check> runs it with no argument.
 function(_hs_engine_check name source)
-  cmake_parse_arguments(PARSE_ARGV 2 check "" "" "LIBS;DEFINES")
+  cmake_parse_arguments(PARSE_ARGV 2 check "" "" "LIBS;DEFINES;MODULES")
   add_executable(${name} ${CMAKE_CURRENT_SOURCE_DIR}/${source} ${HS_ENGINE_SOURCES})
   target_compile_definitions(${name} PRIVATE ${check_DEFINES})
   target_link_libraries(${name} PRIVATE ${check_LIBS})
   target_include_directories(${name} PRIVATE ${HS_ENGINE_INCLUDES})
   _hs_warnings(${name})
   _hs_sanitize(${name})
-  string(REGEX REPLACE "_check$" "" test_suffix "${name}")
-  add_test(NAME unit_${test_suffix} COMMAND ${name})
+  if(check_MODULES)
+    foreach(module IN LISTS check_MODULES)
+      add_test(NAME unit_${module} COMMAND ${name} ${module})
+    endforeach()
+  else()
+    string(REGEX REPLACE "_check$" "" test_suffix "${name}")
+    add_test(NAME unit_${test_suffix} COMMAND ${name})
+  endif()
 endfunction()
 
 # Legacy offset mapping needs a separate TU: offset-3 and offset-0
 # PhiLUT/TrigLUT instantiations have incompatible definitions.
-_hs_engine_check(h_offset_renorm_check h_offset_renorm_check.cpp
+_hs_engine_check(h_offset_check h_offset_check.cpp
   LIBS hs_host_storage
   DEFINES HS_TEST_H_OFFSET=3 HS_ENABLE_TEST_HOOKS=1)
-
-_hs_engine_check(h_offset_full_resolution_check h_offset_renorm_check.cpp
-  LIBS hs_host_storage
-  DEFINES HS_TEST_H_OFFSET=3 HS_OFFSET_FULL_RESOLUTION=1 HS_ENABLE_TEST_HOOKS=1)
 
 # Global operator new replacement conflicts with the sanitizer runtimes'.
 if(NOT HS_SANITIZE AND NOT HS_TSAN)
@@ -650,12 +655,9 @@ _hs_engine_check(display_geometry_check display_geometry_check.cpp
   DEFINES HS_DISPLAY_PROFILE=1 HS_ENABLE_TEST_HOOKS=1)
 
 _hs_engine_check(runtime_display_geometry_check runtime_display_geometry_check.cpp
-  LIBS hs_host_storage
-  DEFINES HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1)
-
-_hs_engine_check(ashcloud_camera_check ashcloud_camera_check.cpp
   LIBS hs_host_effect_runtime
-  DEFINES HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1)
+  DEFINES HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1
+  MODULES runtime_display_geometry ashcloud_camera)
 
 # Host stack high-water-mark gate across every effect, built -Os + the device
 # math flags to track device frame sizes. Fails if the worst effect exceeds the

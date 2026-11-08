@@ -21,20 +21,13 @@ namespace h_offset_renorm {
 
 // With HS_TEST_H_OFFSET=3, H_VIRT = H + 3 and the bottom physical row y=H-1
 // lands SHORT of the south pole (sin(phi) > 0).
-#ifdef HS_OFFSET_FULL_RESOLUTION
-constexpr int W = 96;
-constexpr int H = 20;
-#else
-constexpr int W = 32;
-constexpr int H = 16;
-#endif
 
 inline void face_white(const math::Vector &, Fragment &fragment) {
   fragment.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
 }
 
 /** @brief Verifies Face row bounds and rasterization use the virtual height. */
-inline void test_face_bounds_use_virtual_height() {
+template <int W, int H> inline void test_face_bounds_use_virtual_height() {
   constexpr float PHI_MIN = 1.2f;
   constexpr float PHI_MAX = math::PI_F * 0.5f;
   const auto point = [](float phi, float theta) {
@@ -75,6 +68,7 @@ inline void test_face_bounds_use_virtual_height() {
 }
 
 /** @brief The face clips virtual south rows while retaining physical rows. */
+template <int W, int H>
 inline void test_face_rejects_only_the_virtual_south_rows() {
   const auto point = [](float row, float theta) {
     const float phi = row * math::PI_F / (H + hs::H_OFFSET - 1);
@@ -116,6 +110,7 @@ inline void test_face_rejects_only_the_virtual_south_rows() {
  * @param[out] row_tap_count Count of taps that landed on taps_on_row.
  * @return Sum of the per-tap alphas (the deposited energy).
  */
+template <int W, int H>
 inline float deposited_energy(Filter::Screen::AntiAlias<W, H> &aa, float x,
                               float y, float alpha, int *tap_count = nullptr,
                               int taps_on_row = -1,
@@ -142,6 +137,7 @@ inline float deposited_energy(Filter::Screen::AntiAlias<W, H> &aa, float x,
  * @details H_VIRT is H + 3. The last physical row has sin(phi) > 0;
  *          the virtual bottom row samples the pole with float rounding.
  */
+template <int W, int H>
 inline void test_offset_is_active_and_lut_nondegenerate() {
   using LUT = math::TrigLUT<W, H>;
   const int h_virt = LUT::H_VIRT;
@@ -166,6 +162,7 @@ inline void test_offset_is_active_and_lut_nondegenerate() {
  *          weight folds onto the surviving row); a sample with y >= H deposits
  *          nothing.
  */
+template <int W, int H>
 inline void test_energy_conserved_through_clip_boundary() {
   Filter::Screen::AntiAlias<W, H> aa;
   const float in_alpha = 0.8f;
@@ -191,6 +188,7 @@ inline void test_energy_conserved_through_clip_boundary() {
  * @details X weights depend on the framebuffer fraction at every latitude.
  *          The clipped y1 weight folds into y0 (wy0 == 1).
  */
+template <int W, int H>
 inline void test_boundary_row_splits_two_columns_and_conserves() {
   Filter::Screen::AntiAlias<W, H> aa;
   const float in_alpha = 1.0f;
@@ -211,6 +209,7 @@ inline void test_boundary_row_splits_two_columns_and_conserves() {
  * @details The renorm sets wy0 = 1, so the deposited energy equals the X-weight
  *          sum for every X offset.
  */
+template <int W, int H>
 inline void test_boundary_energy_independent_of_x_fraction() {
   Filter::Screen::AntiAlias<W, H> aa;
   const float in_alpha = 0.5f;
@@ -228,7 +227,7 @@ inline void test_boundary_energy_independent_of_x_fraction() {
  * @details Row H-1 sits at colatitude (H-1)*PI/(H_VIRT-1), so every column
  *          shares one latitude off the pole while its azimuth sweeps a full turn.
  */
-inline void test_scan_bottom_row_is_a_latitude_ring() {
+template <int W, int H> inline void test_scan_bottom_row_is_a_latitude_ring() {
   using LUT = math::TrigLUT<W, H>;
   if (!LUT::initialized)
     LUT::init();
@@ -271,7 +270,7 @@ inline void test_scan_bottom_row_is_a_latitude_ring() {
  * @details The LED ring stops H_OFFSET rows short of the south pole: a stroke
  *          past the last physical row is dropped, one at the bottom row draws.
  */
-inline void test_plot_below_last_row_is_clipped() {
+template <int W, int H> inline void test_plot_below_last_row_is_clipped() {
   const float bottom_row_phi = math::y_to_phi<H>(static_cast<float>(H - 1));
   const float gap_phi = math::y_to_phi<H>(static_cast<float>(H + 1));
 
@@ -286,6 +285,7 @@ inline void test_plot_below_last_row_is_clipped() {
  *          leaves a pole fixed; row H-1 is off the pole here, so it carries the
  *          full longitude shift.
  */
+template <int W, int H>
 inline void test_feedback_bottom_row_rotates_in_longitude() {
   using LUT = math::TrigLUT<W, H>;
   if (!LUT::initialized)
@@ -294,22 +294,29 @@ inline void test_feedback_bottom_row_rotates_in_longitude() {
   hs_test::pole_geometry::check_feedback_ring_centroid<W, H>(H - 1, 50000 / 4);
 }
 
+/** @brief Runs the renorm cases at one resolution. */
+template <int W, int H> inline void run_resolution_cases() {
+  HS_CONTEXT("resolution", W, H);
+  HS_RUN((test_offset_is_active_and_lut_nondegenerate<W, H>));
+  HS_RUN((test_energy_conserved_through_clip_boundary<W, H>));
+  HS_RUN((test_boundary_row_splits_two_columns_and_conserves<W, H>));
+  HS_RUN((test_boundary_energy_independent_of_x_fraction<W, H>));
+  HS_RUN((test_scan_bottom_row_is_a_latitude_ring<W, H>));
+  HS_RUN((test_plot_below_last_row_is_clipped<W, H>));
+  HS_RUN((test_feedback_bottom_row_rotates_in_longitude<W, H>));
+  HS_RUN((hs_test::pole_geometry::check_feedback_device_budget<W, H>));
+  HS_RUN((test_face_bounds_use_virtual_height<W, H>));
+  HS_RUN((test_face_rejects_only_the_virtual_south_rows<W, H>));
+}
+
 /**
  * @brief Runs the H_OFFSET renorm module.
  * @return The module's failure count.
  */
 inline int run_h_offset_renorm_tests() {
   hs_test::ModuleFixture fixture("h_offset_renorm (HS_TEST_H_OFFSET=3)");
-  HS_RUN(test_offset_is_active_and_lut_nondegenerate);
-  HS_RUN(test_energy_conserved_through_clip_boundary);
-  HS_RUN(test_boundary_row_splits_two_columns_and_conserves);
-  HS_RUN(test_boundary_energy_independent_of_x_fraction);
-  HS_RUN(test_scan_bottom_row_is_a_latitude_ring);
-  HS_RUN(test_plot_below_last_row_is_clipped);
-  HS_RUN(test_feedback_bottom_row_rotates_in_longitude);
-  HS_RUN((hs_test::pole_geometry::check_feedback_device_budget<W, H>));
-  HS_RUN(test_face_bounds_use_virtual_height);
-  HS_RUN(test_face_rejects_only_the_virtual_south_rows);
+  run_resolution_cases<32, 16>();
+  run_resolution_cases<96, 20>();
   HS_RUN(pole_wrap_tests::run_pole_wrap_cases);
   return fixture.result();
 }
