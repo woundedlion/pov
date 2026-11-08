@@ -210,8 +210,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   generator or authored input and regenerate; hand-editing its output fails.
 - **Firmware:** `teensy-size` enforces firmware memory and layout budgets, and
   `teensy-warnings` checks every PlatformIO environment with the pinned toolchain.
-  Its cold capture also covers composed profiling knobs, MindSplatter replay
-  comparison, PC sampling and plot-stall attribution configurations.
+  Its cold capture also covers composed profiling knobs, PC sampling and
+  plot-stall attribution configurations.
   The warning gate includes source diagnostics and fileless C compiler, C++
   compiler, linker and command-line diagnostics. C++-only options stay in
   `CXXFLAGS`; shared build flags must also be valid for C sources.

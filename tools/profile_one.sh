@@ -125,9 +125,6 @@ if [ -n "${HS_PROFILE_DEEP:-}" ] && [ "${HS_PROFILE_DEEP:-}" != "0" ]; then
   DEEP="-D HS_PROFILE_DEEP_ENABLE"
   DEEP_SUFFIX="_deep"
 fi
-REPLAY_SUFFIX=$(printf '%s\n' "$EXTRA" |
-  sed -nE 's/.*-D[[:space:]]*HS_MINDSPLATTER_REPLAY(_AB)?([=[:space:]]|$).*/_replay\1/p' |
-  tr '[:upper:]' '[:lower:]')
 MSP_FLAGS=""
 MSP_SUFFIX=""
 MSP_MARKER=""
@@ -154,7 +151,7 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
     exit 1
     ;;
 esac
-MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}${PC_SUFFIX}"
+MODE_SUFFIX="${MSP_SUFFIX}${PC_SUFFIX}"
 OUT=$(hs_native_path "${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}")
 # Every per-run artifact shares the log's stem, and the provenance lines name
 # them in a form the Windows Python report tools open.
@@ -191,9 +188,6 @@ if [ -n "$PC_MARKER" ]; then
 fi
 if [ -n "$PROFILE_PRESET" ]; then
   MARKER="Profile preset:"
-fi
-if [ -n "$REPLAY_SUFFIX" ]; then
-  MARKER="replay corpus:"
 fi
 
 

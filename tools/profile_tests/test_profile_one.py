@@ -311,23 +311,6 @@ def derived_paths(profile_out=None, prelude=""):
     return dict(line.split("=", 1) for line in result.stdout.splitlines())
 
 
-class ReplayFlags(unittest.TestCase):
-    def test_spaced_compact_and_assigned_defines(self):
-        source = PROFILE_ONE.read_text(encoding="utf-8")
-        block = source[source.index("REPLAY_SUFFIX="):source.index('MSP_FLAGS=""')]
-        for suffix in ("", "_AB"):
-            for spacing in ("", " "):
-                for value in ("", "=1"):
-                    flag = f"-D{spacing}HS_MINDSPLATTER_REPLAY{suffix}{value}"
-                    with self.subTest(flag=flag):
-                        result = subprocess.run(
-                            ["bash", "-c", 'EXTRA=$1\n' + block
-                             + 'printf "%s" "$REPLAY_SUFFIX"', "test", flag],
-                            capture_output=True, text=True, encoding="utf-8")
-                        self.assertEqual(result.returncode, 0, result.stderr)
-                        self.assertEqual(result.stdout, "_replay" + suffix.lower())
-
-
 def pc_flags(seconds, pc=None):
     """Evaluate profile_one.sh's HS_PROFILE_PC block for one capture length."""
     source = PROFILE_ONE.read_text(encoding="utf-8")
@@ -368,17 +351,16 @@ class CaptureMarkers(unittest.TestCase):
     def test_pc_capture_uses_dump_marker_without_a_preset_advance(self):
         source = PROFILE_ONE.read_text(encoding="utf-8")
         block = source[source.index('CYCLERS='):source.index('\n\nbuild_image()')]
-        for pc, preset, replay, expected in (
-                ("", "", "", "Preset:"),
-                ("pc profile end", "", "", ""),
-                ("pc profile end", "3", "", "Profile preset:"),
-                ("pc profile end", "", "_replay", "replay corpus:")):
-            with self.subTest(pc=pc, preset=preset, replay=replay):
+        for pc, preset, expected in (
+                ("", "", "Preset:"),
+                ("pc profile end", "", ""),
+                ("pc profile end", "3", "Profile preset:")):
+            with self.subTest(pc=pc, preset=preset):
                 result = subprocess.run(
                     ["bash", "-c", 'set -eu\nEFFECT=DisplacementField\n'
-                     + 'PC_MARKER=$1; PROFILE_PRESET=$2; REPLAY_SUFFIX=$3\n'
+                     + 'PC_MARKER=$1; PROFILE_PRESET=$2\n'
                      + block + '\nprintf "%s" "$MARKER"',
-                     "marker-test", pc, preset, replay],
+                     "marker-test", pc, preset],
                     capture_output=True, text=True, encoding="utf-8")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout, expected)

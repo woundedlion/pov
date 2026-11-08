@@ -728,7 +728,7 @@ inline size_t g_step_budget_override = 0;
 #endif
 
 #ifndef HS_REFERENCE_SCREEN_STEP_HOOK
-#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+#if HS_ENABLE_TEST_ORACLES
 /** @brief Compiles the exact screen-step selection hook. */
 #define HS_REFERENCE_SCREEN_STEP_HOOK 1
 #else
