@@ -218,6 +218,32 @@ inline void test_longitude_filter_tracks_spherical_width() {
   }
 }
 
+/** @brief Arm-split longitude filter keeps each half's footprint inside it,
+ *  centred on its column. */
+inline void test_longitude_arms_filter_within_halves() {
+  constexpr int W = 64, HALF = W / 2;
+  constexpr hs::SphericalFieldLayout<W, 34, 3> layout(4, 4, 1, W / 4);
+  std::array<int, W> source{};
+  std::array<int, W> arms{};
+  std::array<int, W> wrapped{};
+  source[HALF] = 1100;
+  source[HALF / 2] = 900;
+  layout.reconstruct_longitude_arms<IntAccumulator>(
+      source.data(), 1, [&](int x, int value) { arms[x] = value; });
+  layout.reconstruct_longitude_row<IntAccumulator>(
+      source.data(), 1, [&](int x, int value) { wrapped[x] = value; });
+  const int radius = layout.longitude_filter_width(1) / 2;
+  HS_EXPECT_GT(radius, 0);
+  HS_EXPECT_GT(wrapped[HALF - 1], 0);
+  HS_EXPECT_EQ(arms[HALF - 1], 0);
+  HS_EXPECT_EQ(arms[HALF], 1100);
+  for (int x = 0; x < W; ++x) {
+    const int column = x % HALF;
+    if (std::min(column, HALF - 1 - column) >= radius)
+      HS_EXPECT_EQ(arms[x], wrapped[x]);
+  }
+}
+
 /** @brief Longitude filter and sampler wrap poles. */
 inline void test_longitude_filter_and_sampler_wrap_poles() {
   constexpr int W = 64;
@@ -442,6 +468,7 @@ inline int run_spherical_field_tests() {
   HS_RUN(test_populate_recurrence_matches_exact_trig);
   HS_RUN(test_longitude_filter_tracks_spherical_width);
   HS_RUN(test_longitude_filter_and_sampler_wrap_poles);
+  HS_RUN(test_longitude_arms_filter_within_halves);
   HS_RUN(test_sampler_wraps_south_pole_with_virtual_rows);
   HS_RUN(test_sampler_collapses_south_pole_without_virtual_rows);
   HS_RUN(test_rgb_sampler_matches_generic_sampler);

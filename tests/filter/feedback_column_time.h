@@ -393,6 +393,8 @@ inline void test_feedback_column_time_oracle() {
       {"azimuthal forward", math::Y_AXIS, 0.1f, 24, H - 24, true},
       {"azimuthal backward", math::Y_AXIS, -0.1f, 24, H - 24, true},
       {"cap-plane rows", math::X_AXIS, 0.1f, 4, 24, false},
+      {"north infill rows", math::Y_AXIS, 0.1f, 1, 6, true},
+      {"south infill rows", math::Y_AXIS, -0.1f, H - 6, H - 1, true},
       {"tilted", math::Vector(0.6f, 0.0f, 0.8f), 0.08f, 4, H - 4, false},
   };
   for (const Case &c : cases) {

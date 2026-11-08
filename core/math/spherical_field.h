@@ -302,6 +302,41 @@ public:
     }
   }
 
+  /**
+   * @brief Reconstructs one row at its spherical width within each two-arm
+   *   half, for rows whose halves hold columns lit a frame apart.
+   * @tparam Accumulator Default-constructible rolling accumulator with
+   *   add(), remove(), and average().
+   * @tparam Value Source sample type accepted by Accumulator.
+   * @tparam Emit Callable receiving a destination column and averaged sample.
+   * @param source Dense row containing W values.
+   * @param y Latitude row controlling the longitude footprint.
+   * @param emit Receives each destination column and filtered value.
+   * @details Columns [0, W/2) and [W/2, W) filter separately; a footprint
+   *   narrows symmetrically to stay inside its half, so it stays centred on
+   *   its column.
+   */
+  template <typename Accumulator, typename Value, typename Emit>
+  void reconstruct_longitude_arms(const Value *source, int y,
+                                  Emit &&emit) const {
+    static_assert(W % 2 == 0, "two arms need an even width");
+    constexpr int HALF = W / 2;
+    const int radius = longitude_filter_width(y) / 2;
+    for (int begin = 0; begin < W; begin += HALF) {
+      const int last = begin + HALF - 1;
+      Accumulator accumulator;
+      int low = begin, high = begin - 1;
+      for (int x = begin; x <= last; ++x) {
+        const int reach = std::min(radius, std::min(x - begin, last - x));
+        while (high < x + reach)
+          accumulator.add(source[++high]);
+        while (low < x - reach)
+          accumulator.remove(source[low++]);
+        emit(x, accumulator.average(high - low + 1));
+      }
+    }
+  }
+
   /** @brief Reflects one lattice coordinate across poles.
    * @pre The column is already in [0, W).
    * @param x Column in [0, W); rewritten to the reflected column.

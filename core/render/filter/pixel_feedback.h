@@ -936,7 +936,8 @@ private:
   }
 
   /**
-   * @brief Reconstructs a dense infill row at its spherical footprint.
+   * @brief Reconstructs a dense infill row at its spherical footprint, under
+   *        column time within each arm.
    * @param ctx Frame context from prepare_flush().
    * @param y Row, composited into the current frame or, when @p deferred,
    *        into the filter row.
@@ -949,11 +950,16 @@ private:
       std::memcpy(ctx.filtered_row, current, W * sizeof(::Pixel));
     const bool opaque = ctx.alpha >= 1.0f;
     const uint16_t alpha = frac_to_q16(ctx.alpha);
-    ctx.grid.field.template reconstruct_longitude_row<PixelAccumulator>(
-        ctx.filtered_row, y, [&](int x, const ::Pixel &pixel) HS_HOT_INLINE {
-          ::Pixel &dst = current[x];
-          dst = opaque ? pixel : dst.lerp16(pixel, alpha);
-        });
+    auto store = [&](int x, const ::Pixel &pixel) HS_HOT_INLINE {
+      ::Pixel &dst = current[x];
+      dst = opaque ? pixel : dst.lerp16(pixel, alpha);
+    };
+    if (ctx.column_time)
+      ctx.grid.field.template reconstruct_longitude_arms<PixelAccumulator>(
+          ctx.filtered_row, y, store);
+    else
+      ctx.grid.field.template reconstruct_longitude_row<PixelAccumulator>(
+          ctx.filtered_row, y, store);
   }
 
   /**

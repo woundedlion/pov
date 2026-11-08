@@ -116,7 +116,8 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
 }
 
 /**
- * @brief Verifies polar reconstruction suppresses longitude aliasing.
+ * @brief Verifies one-frame polar reconstruction suppresses longitude
+ * aliasing.
  * @details Rows 1 and H-2 sit in the dense infill bands and reconstruct at
  *          their spherical footprint; rows 4 and H-5 lie under the half-
  *          resolution latitude outside that band, where each column pair
@@ -126,6 +127,7 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
  */
 inline void test_feedback_polar_rows_use_spherical_footprint() {
   constexpr int W = 64, H = 34;
+  const ScopedTemporalSampling one_frame(false);
   hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
@@ -188,6 +190,49 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   fx.advance_display();
   flush_once(fx, pipe);
   expect_stripe(4);
+}
+
+/**
+ * @brief Verifies column-time infill rows reconstruct within each arm.
+ * @details Arm A holds a column stripe and arm B a constant: arm B keeps its
+ *          value up to both cuts, and arm A's columns a footprint inside its
+ *          arm flatten to the stripe mean.
+ */
+inline void test_feedback_infill_rows_filter_within_arms() {
+  constexpr int W = 64, H = 34, HALF = W / 2;
+  const ScopedTemporalSampling column_time(true);
+  hs_test::StubEffect fx(W, H);
+
+  ::Feedback::Style style{};
+  style.noise = nullptr; // unbound noise_warp is the identity
+  style.fade = 1.0f;
+  style.downsample = 4;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+
+  constexpr int ROWS[] = {1, H - 2};
+  {
+    Canvas c(fx);
+    for (int y : ROWS)
+      for (int x = 0; x < W; ++x)
+        c(x, y) = Pixel(x >= HALF ? 60000 : ((x & 1) ? 60000 : 0), 0, 0);
+  }
+  fx.advance_display();
+  flush_once(fx, pipe);
+
+  const hs::SphericalFieldLayout<W, H> layout(
+      style.downsample, style.downsample, style.downsample,
+      W / style.downsample);
+  for (int y : ROWS) {
+    const int radius = layout.longitude_filter_width(y) / 2;
+    HS_EXPECT_GT(radius, 1);
+    for (int x = HALF; x < W; ++x)
+      HS_EXPECT_GT(fx.get_pixel(x, y).r, 59000);
+    for (int x = radius; x < HALF - radius; ++x) {
+      HS_EXPECT_GT(fx.get_pixel(x, y).r, 25000);
+      HS_EXPECT_LT(fx.get_pixel(x, y).r, 35000);
+    }
+  }
 }
 
 /**
