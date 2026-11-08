@@ -1142,7 +1142,7 @@ On Windows, the executables have an `.exe` suffix. With no module arguments, a l
 | `test_all_effects` | Roster sweeps, effect factory and parameter marshaling, composed effects, render properties and death cases |
 | `test_shapeshifter` | ShapeShifter oracle, tiles and effect cases |
 | `test_mindsplatter` | MindSplatter cases and oracles |
-| `test_render_hashes` | Render hashes of every roster effect at every preset, printed for `tools/render_diff.sh` |
+| `test_render_hashes` | Render hashes of every roster effect at every preset, printed for `tools/render_diff.sh`; outside `run_tests` and the default build |
 | `test_dreamballs`, `test_hopf`, `test_dynamo`, `test_mobiusrings` | Each effect's white-box cases and temporal oracles |
 | Other `test_<family>` targets | Effect cases split by dependency; Hankin/Islamic mesh cases share `test_mesh_effect`; Conway morph and op-chain modules build as `test_conway_effect` |
 | `run_tests` | Complete compatibility umbrella used by existing CTest and CI entry points |

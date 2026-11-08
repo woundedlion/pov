@@ -22,6 +22,7 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "test_pole_wrap.h"
   "test_radial_surface.h"
   "test_radial_surface_mask.h"
+  "test_render_hashes.h"
   "test_shapeshifter_surface.h"
   "temporal_oracle.h"
   "vec_test_util.h"

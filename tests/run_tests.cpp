@@ -60,7 +60,6 @@
   X("kaleidoscope_melt", run_kaleidoscope_melt_tests, false)                   \
   X("kaleidoscope_smooth", run_kaleidoscope_smooth_tests, false)               \
   X("composed_effect", run_composed_effect_tests, false)                       \
-  X("render_hashes", run_render_hashes_tests, false)                           \
   X("shapeshifter_oracle", run_shapeshifter_oracle_tests, false)               \
   X("shapeshifter_tiles", run_shapeshifter_tiles_tests, false)                 \
   X("dma_core", run_dma_core_tests, false)                                     \

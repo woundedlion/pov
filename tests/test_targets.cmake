@@ -10,7 +10,7 @@ _hs_sanitize(hs_test_main)
 
 set(_hs_engine_groups foundation geometry render hardware)
 set(_hs_roster_groups effects registry plot_parity death)
-set(_hs_effect_groups color conway_effect hyper_lattice shader_chain mindsplatter shapeshifter render_hashes)
+set(_hs_effect_groups color conway_effect hyper_lattice shader_chain mindsplatter shapeshifter)
 set(_hs_case_targets)
 set(_hs_test_group_sources)
 get_target_property(_hs_module_definitions run_tests COMPILE_DEFINITIONS)
@@ -61,6 +61,13 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp" _hs_roster_source)
 string(REGEX MATCHALL "X\\(\"[A-Za-z0-9_]+\",[ \t\r\n\\]*[A-Za-z0-9_]+,[ \t\r\n\\]*(true|false)\\)"
   _hs_roster_rows "${_hs_roster_source}")
+# render_hashes renders every roster effect at every preset, the costliest
+# group to compile, and only prints hashes for tools/render_diff.sh: it stays
+# out of run_tests and the default build, and excluded_targets compiles it.
+list(APPEND _hs_roster_rows "X(\"render_hashes\", run_render_hashes_tests, false)")
+set(_hs_group_source_render_hashes "${CMAKE_CURRENT_SOURCE_DIR}/run_render_hashes_tests.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_hs_group_source_render_hashes}")
+_hs_case_object(render_hashes "${_hs_group_source_render_hashes}")
 
 # Generate a small executable-owned registry over the selected compiled groups.
 function(_hs_module_executable target)
@@ -120,6 +127,9 @@ foreach(_group IN LISTS _hs_effect_groups)
     _hs_module_executable(test_${_group} ${_group})
   endif()
 endforeach()
+
+_hs_module_executable(test_render_hashes render_hashes)
+set_target_properties(hs_cases_render_hashes test_render_hashes PROPERTIES EXCLUDE_FROM_ALL ON)
 
 foreach(_group IN LISTS _hs_effect_case_groups)
   string(REGEX REPLACE "^effect_cases_" "" _family "${_group}")

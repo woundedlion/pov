@@ -6,7 +6,8 @@
 # usage: render_diff.sh [--report] <base> [build-dir] [cmake configure args...]
 #   --report     hash only the render_hashes module (every roster effect at
 #                every preset), print the changed renders grouped per effect,
-#                and always exit 0
+#                and always exit 0; without it, the run_tests modules that
+#                print hashes
 #   <base>       commit to compare against, built in a dedicated worktree
 #                (../temp/<repo>-render-diff, or HS_RENDER_DIFF_DIR)
 #   [build-dir]  the working tree's test build (default build/tests),
@@ -41,7 +42,7 @@ if [ "$report" = 1 ]; then
   modules=(render_hashes)
 else
   target=run_tests
-  modules=(render_hashes plot_parity hyper_lattice composed_effect shader_chain effects)
+  modules=(plot_parity hyper_lattice composed_effect shader_chain effects)
 fi
 
 sha="$(git rev-parse --verify "$base^{commit}")"
