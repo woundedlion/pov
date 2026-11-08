@@ -140,11 +140,12 @@ protected branch's `CI green` status is the authoritative correctness gate.
 - **`.githooks/pre-push`** — checks new guards in each pushed range the same
   way, then runs `tools/local_ci.sh --commit` on each pushed
   commit: every `ci.yml` job this machine can run, through the same
-  `tools/ci/` scripts the workflow calls, stopping at the first failure
+  `tools/ci/` scripts the workflow calls, each lane stopping at its first failure
   (the fast-math optimized flavour stays in CI: its bit patterns differ here),
   plus the local-only Windows suite. The optimized, WASM and firmware-warning
-  jobs are manual (`bash tools/local_ci.sh <job>` runs one), and the PCB suite
-  runs only when the commit changes a PCB input. `bash tools/local_ci.sh
+  jobs are manual (`bash tools/local_ci.sh <job>` runs one); the PCB and
+  Python suites run only when the commit changes one of their inputs; and the
+  native builds run as one lane beside the other jobs. `bash tools/local_ci.sh
   --list` prints each job's local runner or the reason it cannot run locally,
   and `--check` fails when a `ci.yml` job has neither.
   It runs in a dedicated worktree beside the checkout

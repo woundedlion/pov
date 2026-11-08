@@ -51,6 +51,12 @@ LOCAL_ONLY=(windows-tests)
 # every build), and ci.yml runs them on every push.
 MANUAL=(optimized-tests wasm teensy-warnings)
 
+# Jobs that run beside the others, in order, as one lane: the native builds.
+NATIVE_LANE=(windows-tests thread-sanitizer)
+
+# Paths whose change runs the local Python suites; ci.yml runs them always.
+PYTHON_INPUTS='[.]py$|^tools/|^hardware/|^[.]githooks/|^[.]github/|^requirements/|^justfile$|^platformio[.]ini$'
+
 job_lint() { just lint; }
 job_clang_format() { clang-format --version && bash tools/clang_format_gate.sh; }
 job_license_headers() { python tools/license_check.py; }
@@ -72,7 +78,13 @@ job_reaction_graph_provenance() { bash tools/ci/reaction_graph_provenance.sh; }
 job_gamut_lut_provenance() { python tools/gen_gamut_lut.py --check; }
 job_patterns_provenance() { bash tools/ci/patterns_provenance.sh; }
 job_screenshot_gallery() { bash tools/ci/screenshot_gallery.sh; }
-job_python_tests() { bash tools/ci/python_tests.sh; }
+job_python_tests() {
+  if unchanged_since_origin "$PYTHON_INPUTS"; then
+    echo "No Python suite inputs changed since origin/master; skipping."
+    return 0
+  fi
+  bash tools/ci/python_tests.sh
+}
 job_scripts_unit_tests() { bash tools/ci/scripts_tests.sh; }
 job_windows_tests() { bash tools/ci/native_suite.sh --exclude-generated; }
 # TSan is Linux-only here; windows-tests compiles the excluded targets, so the
@@ -95,15 +107,12 @@ job_wasm() {
 }
 job_teensy_size() { bash tools/ci/teensy_size.sh "$PWD/build/local-ci/pio"; }
 job_teensy_warnings() { bash tools/ci/teensy_warnings.sh; }
-# Mirrors ci.yml: the suite runs only when the commit changes a PCB input
-# since it left origin/master.
+# Mirrors ci.yml: the suite runs only when the commit changes a PCB input.
 job_pcb_tests() {
-  local base
   # shellcheck source=tools/ci/common.sh
   . tools/ci/common.sh
-  if base="$(git merge-base HEAD origin/master 2>/dev/null)" &&
-     ! git diff --name-only "$base" HEAD | grep -qE "$PCB_INPUTS"; then
-    echo "No PCB inputs changed since $base; skipping the PCB suite."
+  if unchanged_since_origin "$PCB_INPUTS"; then
+    echo "No PCB inputs changed since origin/master; skipping the PCB suite."
     return 0
   fi
   export KICAD_CONFIG_HOME="$PWD/build/local-ci/kicad-config"
@@ -116,6 +125,14 @@ job_docs_doxygen() {
   bash tools/ci/docs_doxygen.sh || status=$?
   git checkout -- Doxyfile
   return "$status"
+}
+
+# True when no path matching the extended regex changed between HEAD and its
+# merge base with origin/master; false when there is no such base.
+unchanged_since_origin() {
+  local base
+  base="$(git merge-base HEAD origin/master 2>/dev/null)" || return 1
+  ! git diff --name-only "$base" HEAD | grep -qE "$1"
 }
 
 table() { printf '%s\n' "$JOBS" | sed '/^$/d'; }
@@ -153,6 +170,29 @@ run_jobs() {
   check_table
   mkdir -p "$logs"
   table | grep '|skip:' | sed 's/|skip: */ skipped: /' || true
+  local lane=() rest=() lane_pid status=0
+  for job in "$@"; do
+    case " ${NATIVE_LANE[*]} " in
+      *" $job "*) lane+=("$job") ;;
+      *) rest+=("$job") ;;
+    esac
+  done
+  if [ "${#lane[@]}" -gt 0 ]; then
+    run_lane "$logs" "${lane[@]}" &
+    lane_pid=$!
+  fi
+  run_lane "$logs" "${rest[@]}" || status=1
+  if [ -n "${lane_pid:-}" ]; then
+    wait "$lane_pid" || status=1
+  fi
+  [ "$status" = 0 ] || return 1
+  echo "local CI passed at $(git rev-parse --short HEAD)."
+}
+
+# Runs jobs in order, stopping at the first failure.
+run_lane() {
+  local logs=$1 job runner start
+  shift
   for job in "$@"; do
     runner="$(runner_of "$job")"
     case "$runner" in skip:*) continue ;; esac
@@ -166,7 +206,6 @@ run_jobs() {
       return 1
     fi
   done
-  echo "local CI passed at $(git rev-parse --short HEAD)."
 }
 
 # Prepares the dedicated worktree for each commit and runs the commit's own copy
