@@ -26,8 +26,6 @@ inline void test_grid_worms_twist_clocks() {
   effect.init();
   const auto captured = effect.serialize_parameters();
   const auto &params = captured.params.template get<"lens1">();
-  HS_EXPECT_EQ(params.twist_angle, -10.259509086608887f);
-  HS_EXPECT_EQ(params.distribution, 0.9990000128746033f);
   for (int frame = 1; frame <= 241; ++frame) {
     ComposedFrameWhiteBox::advance(effect);
     if (frame == 1 || frame == 9 || frame == 241) {

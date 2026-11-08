@@ -89,6 +89,8 @@ public:
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
+  /// Frames per circular lens warp cycle.
+  static constexpr int LENS_PERIOD_FRAMES = 160;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -155,7 +157,7 @@ public:
 
   /** @brief Starts the circular Mobius lens warp. */
   HS_FLASH_MEMBER void after_composed_init() {
-    this->start_lens_phase(1.0f / 0.416f, 160);
+    this->start_lens_phase(1.0f / 0.416f, LENS_PERIOD_FRAMES);
   }
 
   /** @brief Explicit choreography customization bindings.

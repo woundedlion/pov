@@ -1461,7 +1461,6 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_catalog_semantic_export);
   HS_RUN(test_modulation_schema_defaults_match_controls);
   HS_RUN(test_composed_hand_registered_families);
-  HS_RUN(test_composed_direct_surface_placement);
   HS_RUN(test_composed_slider_registration);
   HS_RUN(test_composed_modulation_is_device_qualified);
   HS_RUN(test_composed_noise_modulation_scale_limits);

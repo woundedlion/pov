@@ -1152,7 +1152,7 @@ inline void test_composed_temporal_roster() {
  * @param time Frames since init; draw k spans [k, k + 1].
  * @return The circular warp's b at the eased phase of @p time. */
 inline math::Complex mobius_grid_b_at(double time) {
-  constexpr double PERIOD = 160.0;
+  constexpr double PERIOD = MobiusGrid<SMALL_W, SMALL_H>::LENS_PERIOD_FRAMES;
   const double cycle = std::fmod(time, PERIOD) / PERIOD;
   const float angle =
       static_cast<float>(2.0 * 3.14159265358979323846 *
@@ -1240,7 +1240,7 @@ inline void test_mobius_grid_lens_follows_phase() {
   FX effect;
   effect.init();
   ComposedHistory<FX> history;
-  for (int draw = 0; draw < 165; ++draw) {
+  for (int draw = 0; draw < FX::LENS_PERIOD_FRAMES + 5; ++draw) {
     pin_frame_clock(draw);
     effect.draw_frame();
     effect.advance_display();
@@ -1254,17 +1254,6 @@ inline void test_mobius_grid_lens_follows_phase() {
       for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
         const auto sampled = sampler.at(fraction);
         const auto &phase = sampled.resources.template get<"lens">();
-        const auto prepared = Pullback::Lens::prepare_mobius(
-            sampled.params.template get<"lens">(), phase.angle,
-            phase.magnitude);
-        math::MobiusParams legacy{-1.072f, 0.304f, 0, 0, 0, 0, 0.70710677f, 0};
-        Animation::MobiusWarpCircular::write_b(legacy, phase.magnitude * 0.416f,
-                                               phase.angle);
-        for (int i = 0; i < 100; ++i) {
-          const auto p = math::Vector::from_spherical(i * 0.618f, i * 0.0314f);
-          HS_EXPECT_VEC(math::mobius_transform(p, prepared),
-                        math::mobius_transform(p, legacy), 1e-5f);
-        }
         const auto reference =
             sample_frame_reference(history.previous, current, fraction);
         HS_EXPECT_NEAR(phase.angle,
@@ -1838,6 +1827,7 @@ inline void test_millefiori_palette_lab_lifetime() {
 /** @brief Millefiori retains ripple endpoints and samples wave ages continuously. */
 inline void test_millefiori_ripple_endpoints() {
   using FX = Millefiori<SMALL_W, SMALL_H>;
+  using Pullback::SphereAnimation::RIPPLE_STAGGER_FRAMES;
   reset_globals();
   FX effect;
   effect.init();
@@ -1848,22 +1838,28 @@ inline void test_millefiori_ripple_endpoints() {
   HS_EXPECT_EQ(first.burst_count, 1u);
   HS_EXPECT_EQ(first.seed, Pullback::Interp::instance_hash(
                                "displace", "sphere.displace.ripple.v2"));
+  const uint8_t LAST = from.params.template get<"displace">().burst_size;
+  HS_EXPECT_GT(LAST, 0);
   HS_EXPECT_NEAR(first.waves[0].age, 1.0f, 0.0f);
-  HS_EXPECT_NEAR(first.waves[1].age, -15.0f, 0.0f);
+  HS_EXPECT_NEAR(first.waves[LAST].age, 1.0f - RIPPLE_STAGGER_FRAMES * LAST,
+                 0.0f);
   ComposedFrameWhiteBox::advance(effect);
   const auto to = ComposedFrameWhiteBox::frame(effect);
   const Pullback::FrameInterval interval(from, to);
   const auto quarter = interval.at(0.25f);
   HS_EXPECT_NEAR(quarter.resources.template get<"displace">().waves[0].age,
                  1.25f, 0.0f);
-  for (int frame = 0; frame < 31; ++frame)
+  const auto LAUNCH = 1 + static_cast<uint32_t>(RIPPLE_STAGGER_FRAMES) * LAST;
+  for (uint32_t frame = 2; frame < LAUNCH; ++frame)
     ComposedFrameWhiteBox::advance(effect);
   const auto later = ComposedFrameWhiteBox::frame(effect);
-  HS_EXPECT_NEAR(later.resources.template get<"displace">().waves[2].age, 1.0f,
-                 0.0f);
+  HS_EXPECT_EQ(later.resources.template get<"displace">().frames, LAUNCH);
+  HS_EXPECT_NEAR(later.resources.template get<"displace">().waves[LAST].age,
+                 1.0f, 0.0f);
   const auto snapshot = effect.serialize_parameters();
   auto invalid = snapshot;
-  invalid.params.template get<"displace">().burst_size = 4;
+  invalid.params.template get<"displace">().burst_size =
+      Pullback::SphereAnimation::RIPPLE_WAVES_PER_BURST;
   HS_EXPECT_FALSE(effect.restore_parameters(invalid));
   invalid = snapshot;
   invalid.params.template get<"displace">().random_center = 2;

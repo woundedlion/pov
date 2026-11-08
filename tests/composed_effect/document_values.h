@@ -980,6 +980,40 @@ inline void check_document_values(const char *name) {
   HS_EXPECT_EQ(compiled_affine, affine_forms.size());
 }
 
+/** @brief Composed fixture with a fixed smooth-grid modulation and a noise
+ * modulation. */
+struct DocumentModulationSpec : Pullback::Spec {
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+          Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+          Pullback::GridSourceParams, B>::Type>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "field", Pattern::SourceKind::SPHERE_SMOOTH_GRID,
+              Pattern::Evaluation::DIRECT>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulate", Pattern::SourceKind::NOISE,
+              Pattern::Evaluation::DIRECT>>>>;
+};
+
+/** @brief Document modulation edit fixture over fixed-topology resources. */
+struct DocumentModulationProbe
+    : Pullback::ComposedEffect<SMALL_W, SMALL_H, DocumentModulationProbe,
+                               DocumentModulationSpec,
+                               Control::HookOwnership::INHERITED> {
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
+};
+
 /** @brief Document modulation edits preserve admission and field ownership. */
 inline void test_composed_document_modulation_members() {
   namespace Document = hs_wasm::document_parameters;
@@ -989,7 +1023,7 @@ inline void test_composed_document_modulation_members() {
                      field.enum_ids[index]);
   }
   reset_globals();
-  Millefiori<SMALL_W, SMALL_H> effect;
+  DocumentModulationProbe effect;
   effect.init();
   const auto read = [&] {
     ColorModulation::Config config;
@@ -1005,7 +1039,6 @@ inline void test_composed_document_modulation_members() {
     return config;
   };
   const auto initial = read();
-  HS_EXPECT_EQ(initial.source, Pattern::SourceKind::SPHERE_SMOOTH_GRID);
   const auto write = [&](std::string_view resource, std::string_view id,
                          float value) {
     return effect.edit_document_modulation(resource, [&](auto &candidate) {

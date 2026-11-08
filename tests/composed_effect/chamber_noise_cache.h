@@ -8,12 +8,13 @@
 /** @brief Chamber patches retain old endpoints and match their complete source identity. */
 inline void test_chamber_noise_cache_bake_lifetime() {
   using namespace Pullback;
+  using Patch = Modulation::ChamberNoisePatch;
   Modulation::Config config;
   config.evaluation = Pattern::Evaluation::DIRECT;
   config.enabled = true;
-  config.seed = 6047;
-  config.noise.scale = 2.4029531f;
-  config.noise.speed = .00015f;
+  config.seed = HUE_NOISE_SEED;
+  config.noise.scale = Patch::QUALIFIED_SCALE;
+  config.noise.speed = Patch::QUALIFIED_SPEED;
   Modulation::Resources<false> source;
   auto clock = Modulation::init(config);
   Modulation::ChamberNoiseCache cache;
@@ -21,17 +22,19 @@ inline void test_chamber_noise_cache_bake_lifetime() {
   HS_EXPECT_TRUE(a.patch != nullptr);
   HS_EXPECT_FALSE(source.prepared.cube.active);
   const auto saved_a = a.patch->values;
-  for (int y : {0, 7, 23})
-    for (int x : {0, 8, 15}) {
-      const float U = -.002f + (.385f + .002f) * x / 15;
-      const float V = -.002f + (.622f + .002f) * y / 23;
+  for (int y : {0, Patch::V_STEPS / 3, Patch::V_STEPS - 1})
+    for (int x : {0, Patch::U_STEPS / 2, Patch::U_STEPS - 1}) {
+      const float U = Patch::U_MIN +
+                      (Patch::U_MAX - Patch::U_MIN) * x / (Patch::U_STEPS - 1);
+      const float V = Patch::V_MIN +
+                      (Patch::V_MAX - Patch::V_MIN) * y / (Patch::V_STEPS - 1);
       const auto direction =
           Pattern::SphereDirection::admit(math::Vector(U, 1, V));
       const auto &noise = std::get<0>(source.prepared.source);
       const auto q = direction.value() * config.noise.scale + noise.loop_offset;
       const float expected =
           hs::clamp(noise.noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
-      HS_EXPECT_NEAR(a.patch->values[y * 16 + x], expected, 1e-5f);
+      HS_EXPECT_NEAR(a.patch->values[y * Patch::U_STEPS + x], expected, 1e-5f);
     }
   auto same = cache.prepare(source.prepared, math::Quaternion());
   HS_EXPECT_TRUE(same.patch == a.patch);
@@ -170,10 +173,11 @@ struct ChamberNoiseEndpointFixture {
     to.resources.template get<"modulation">().phase_noise_current = b;
     auto *ap = const_cast<Modulation::ChamberNoisePatch *>(a.patch);
     auto *bp = const_cast<Modulation::ChamberNoisePatch *>(b.patch);
-    for (int y = 0; y < 24; ++y)
-      for (int x = 0; x < 16; ++x) {
-        ap->values[y * 16 + x] = .01f * x + .02f * y - .3f;
-        bp->values[y * 16 + x] = .01f * x + .02f * y - .2f;
+    for (int y = 0; y < Modulation::ChamberNoisePatch::V_STEPS; ++y)
+      for (int x = 0; x < Modulation::ChamberNoisePatch::U_STEPS; ++x) {
+        const int i = y * Modulation::ChamberNoisePatch::U_STEPS + x;
+        ap->values[i] = .01f * x + .02f * y - .3f;
+        bp->values[i] = .01f * x + .02f * y - .2f;
       }
   }
 };
@@ -181,6 +185,7 @@ struct ChamberNoiseEndpointFixture {
 /** @brief Cached noise interpolates endpoints and falls back outside its chart. */
 inline void test_chamber_noise_cache_phase_and_fallback() {
   using namespace Pullback;
+  using Patch = Modulation::ChamberNoisePatch;
   using FX = AshCloud<96, 20>;
   using Provider =
       ModulationProvider<FX::Binding, "modulation", Pattern::SourceKind::NOISE,
@@ -237,7 +242,8 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
     HS_EXPECT_EQ(GENERIC.noise_offset.x, eager.noise_offset.x);
     HS_EXPECT_EQ(GENERIC.noise_offset.y, eager.noise_offset.y);
     HS_EXPECT_EQ(GENERIC.noise_offset.z, eager.noise_offset.z);
-    const float U = .1915f, V = .31f;
+    const float U = (Patch::U_MIN + Patch::U_MAX) / 2;
+    const float V = (Patch::V_MIN + Patch::V_MAX) / 2;
     const auto sphere = math::rotate(math::Vector(U, 1, V).normalized(),
                                      column.projection_conjugate);
     ColorSample carrier{Color4(Pixel(2000, 4000, 6000), .37f),
@@ -277,8 +283,10 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
         expected_synthetic, generic, supplied_generic);
     HS_EXPECT_NEAR(synthetic.pending_hue, expected_synthetic.pending_hue,
                    1e-7f);
-    const float X = (U + .002f) / (.385f + .002f) * 15;
-    const float Y = (V + .002f) / (.622f + .002f) * 23;
+    const float X = (U - Patch::U_MIN) / (Patch::U_MAX - Patch::U_MIN) *
+                    (Patch::U_STEPS - 1);
+    const float Y = (V - Patch::V_MIN) / (Patch::V_MAX - Patch::V_MIN) *
+                    (Patch::V_STEPS - 1);
     const float expected = .25f * (.01f * X + .02f * Y - .3f + .1f * fraction);
     HS_EXPECT_NEAR(carrier.pending_hue, math::wrap_t(expected), 2e-6f);
     HS_EXPECT_EQ(carrier.color.alpha, .37f);

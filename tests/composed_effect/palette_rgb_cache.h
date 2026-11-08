@@ -325,6 +325,8 @@ inline void test_palette_rgb_cache_shared_base_endpoints() {
 
 /** @brief Midpoint reuse preserves its original baked key and rejects accumulated drift. */
 inline void test_palette_rgb_cache_midpoint_reuse() {
+  constexpr float REUSE = PaletteRgbHueLut::MAX_REUSE_DELTA;
+  constexpr float STEP = PaletteRgbHueLut::MAX_INTERVAL_DELTA / 5;
   const auto make_base = [](float shift, float step) {
     PaletteLabLut base;
     base.active = true;
@@ -334,7 +336,7 @@ inline void test_palette_rgb_cache_midpoint_reuse() {
                                          .08f + .0001f * value, .03f};
     return base;
   };
-  auto original = make_base(0.0f, .001f);
+  auto original = make_base(0.0f, STEP);
   PaletteRgbHueLut first;
   first.bake(original);
   HS_EXPECT_TRUE(original.rgb_midpoint);
@@ -343,21 +345,22 @@ inline void test_palette_rgb_cache_midpoint_reuse() {
   HS_EXPECT_TRUE(original.view(.1f).rgb_low ==
                  first.nodes.data() + HueRotationLutView::SIZE);
   const auto old_pixels = first.nodes;
-  auto next = make_base(.0008f, .001f);
+  auto next = make_base(.8f * REUSE, STEP);
   PaletteRgbHueLut second;
   second.bake(next, &original, &first);
   HS_EXPECT_TRUE(std::equal(old_pixels.begin() + HueRotationLutView::SIZE,
                             old_pixels.begin() + 2 * HueRotationLutView::SIZE,
                             second.nodes.begin() + HueRotationLutView::SIZE));
   HS_EXPECT_EQ(second.baked_midpoint[0].L, .6f);
-  auto shifted = make_base(.0016f, .001f);
+  auto shifted = make_base(1.6f * REUSE, STEP);
   PaletteRgbHueLut third;
   third.bake(shifted, &next, &second);
   HS_EXPECT_EQ(third.baked_midpoint[0].L, shifted.nodes[64].L);
   HS_EXPECT_FALSE(std::equal(old_pixels.begin() + HueRotationLutView::SIZE,
                              old_pixels.begin() + 2 * HueRotationLutView::SIZE,
                              third.nodes.begin() + HueRotationLutView::SIZE));
-  auto discontinuous = make_base(0.0f, .003f);
+  auto discontinuous =
+      make_base(0.0f, .6f * PaletteRgbHueLut::MAX_INTERVAL_DELTA);
   third.bake(discontinuous, &shifted, &third);
   HS_EXPECT_FALSE(discontinuous.rgb_midpoint);
   HS_EXPECT_FALSE(third.midpoint_active);
@@ -696,7 +699,7 @@ inline void test_palette_rgb_midpoint_only_fallback() {
   PaletteRgbHueLutImpl<true> cache;
   cache.bake(base);
   const auto saved = cache.nodes;
-  base.nodes[128].L += .01f;
+  base.nodes[128].L += 2 * PaletteRgbHueLutImpl<true>::MAX_INTERVAL_DELTA;
   auto full_base = base;
   PaletteRgbHueLut full;
   full.bake(full_base);

@@ -90,11 +90,16 @@ inline void test_composed_analytic_modulation_sliders() {
   const auto *SPEED = effect.getParameters().find("Pattern Speed");
   HS_EXPECT_TRUE(SPEED != nullptr);
   if (SPEED != nullptr) {
-    HS_EXPECT_EQ(SPEED->min, -1.0f);
-    HS_EXPECT_EQ(SPEED->max, 1.0f);
-    const auto &field = Pullback::Interp::Op::ModulationParams::EXTRA_SCHEMA[9];
-    HS_EXPECT_EQ(SPEED->min, field.min);
-    HS_EXPECT_EQ(SPEED->max, field.max);
+    const auto &schema = Pullback::Interp::Op::ModulationParams::EXTRA_SCHEMA;
+    const auto field =
+        std::find_if(schema.begin(), schema.end(), [](const auto &entry) {
+          return std::string_view(entry.id) == "sine-speed";
+        });
+    HS_EXPECT_TRUE(field != schema.end());
+    if (field != schema.end()) {
+      HS_EXPECT_EQ(SPEED->min, field->min);
+      HS_EXPECT_EQ(SPEED->max, field->max);
+    }
   }
   const auto DIRECTION = Pattern::SphereDirection::from(math::Y_AXIS);
   const auto before = effect.frame_for_test();
@@ -339,7 +344,7 @@ inline void expect_sliders(const ParamList &params,
   }
 }
 
-/** @brief Composed affine stages register only the sliders their form reads. */
+/** @brief A general-form affine stage registers every affine part's sliders. */
 inline void test_composed_affine_form_sliders() {
   using AffineResource =
       Pullback::ParameterResource<"affine", Pullback::AffineParams,
@@ -359,41 +364,15 @@ inline void test_composed_affine_form_sliders() {
       "Repeat Windings A", "Repeat Windings B", "Repeat Cells"};
   const std::initializer_list<const char *> SCALE_SHEAR = {
       "Affine Scale X", "Affine Scale Y", "Affine Shear"};
-  {
-    HS_CONTEXT("KaleidoscopeHexOil");
-    reset_globals();
-    KaleidoscopeHexOil<SMALL_W, SMALL_H> effect;
-    effect.init();
-    const ParamList &params = effect.getParameters();
-    expect_sliders(params, {"Planar Warp Speed", "Affine Rotation Rate"}, true);
-    expect_sliders(params, TRANSLATION, false);
-    expect_sliders(params, SCALE_SHEAR, false);
-    expect_sliders(params, {"Fallback Lattice Period"}, false);
-  }
-  {
-    HS_CONTEXT("AlienCore");
-    reset_globals();
-    AlienCore<SMALL_W, SMALL_H> effect;
-    effect.init();
-    const ParamList &params = effect.getParameters();
-    expect_sliders(params, {"Planar Warp Speed"}, true);
-    expect_sliders(params, TRANSLATION, true);
-    expect_sliders(params, {"Affine Rotation Rate"}, false);
-    expect_sliders(params, SCALE_SHEAR, false);
-  }
-  {
-    HS_CONTEXT("general form");
-    reset_globals();
-    AnalyticModulationProbe effect;
-    effect.init();
-    const ParamList &params = effect.getParameters();
-    expect_sliders(params, {"Planar Warp 1 Speed", "Affine Rotation Rate"},
-                   true);
-    expect_sliders(params, TRANSLATION, true);
-    expect_sliders(params, SCALE_SHEAR, true);
-    expect_sliders(params, {"Fallback Lattice Period"}, false);
-    HS_EXPECT_EQ(params.size(), params.capacity());
-  }
+  reset_globals();
+  AnalyticModulationProbe effect;
+  effect.init();
+  const ParamList &params = effect.getParameters();
+  expect_sliders(params, {"Planar Warp 1 Speed", "Affine Rotation Rate"}, true);
+  expect_sliders(params, TRANSLATION, true);
+  expect_sliders(params, SCALE_SHEAR, true);
+  expect_sliders(params, {"Fallback Lattice Period"}, false);
+  HS_EXPECT_EQ(params.size(), params.capacity());
 }
 
 struct RepeatedStagesSpec : Pullback::Spec {

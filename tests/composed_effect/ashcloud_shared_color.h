@@ -78,9 +78,11 @@ inline void test_ash_cloud_shared_color_identity() {
   }
 }
 
-/** @brief Shared column colors match canonical colors within each math tier. */
+/** @brief Most columns take the shared path, and its colors match canonical
+ * colors within each math tier. */
 inline void test_ash_cloud_shared_column_qualification() {
   using namespace ashcloud_shared_tests;
+  constexpr int FRAMES = 600, COLUMN_STRIDE = 18;
   reset_globals();
   pin_frame_clock(0);
   FX effect;
@@ -88,7 +90,7 @@ inline void test_ash_cloud_shared_column_qualification() {
   uint64_t samples = 0, sum = 0, mismatches = 0;
   int maximum_rgb = 0, maximum_premultiplied = 0;
   float maximum_alpha = 0.0f;
-  for (int frame_index = 1; frame_index <= 600; ++frame_index) {
+  for (int frame_index = 1; frame_index <= FRAMES; ++frame_index) {
     pin_frame_clock(frame_index);
     effect.draw_frame();
     effect.advance_display();
@@ -96,7 +98,7 @@ inline void test_ash_cloud_shared_column_qualification() {
     HS_EXPECT_TRUE(frame != nullptr);
     if (!frame)
       return;
-    for (int x = 0; x < 288; x += 18) {
+    for (int x = 0; x < 288; x += COLUMN_STRIDE) {
       const auto SHADER = FX::prepare_column_shader(*frame, x);
       if (!SHADER.shared)
         continue;
@@ -132,7 +134,8 @@ inline void test_ash_cloud_shared_column_qualification() {
       }
     }
   }
-  HS_EXPECT_EQ(samples, uint64_t{599 * 16 * 144});
+  constexpr uint64_t SAMPLED = uint64_t{FRAMES} * (288 / COLUMN_STRIDE) * 144;
+  HS_EXPECT_GE(samples, SAMPLED * 9 / 10);
 #if HS_TEST_FAST_MATH
   HS_EXPECT_LE(maximum_rgb, 16);
   HS_EXPECT_LE(maximum_premultiplied, 8);

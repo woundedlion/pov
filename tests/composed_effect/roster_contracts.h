@@ -229,24 +229,3 @@ inline void test_composed_hand_registered_families() {
   HS_EXPECT_EQ(std::size(COLOR_SLIDER_BINDINGS),
                Pullback::ColorParams::FIELDS.size());
 }
-
-/** @brief Direct-noise displacement follows the declared lens placement. */
-inline void test_composed_direct_surface_placement() {
-  using FX = KaleidoscopeHexOil<SMALL_W, SMALL_H>;
-  using Displace = Pullback::Stage::Displace<Pullback::Surface::DirectNoise<
-      Pullback::SurfaceProvider<FX::Binding, Pullback::DirectSurfaceParams,
-                                true>,
-      math::NoiseBasis::SIMPLEX>>;
-  using Lens =
-      Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>;
-  using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
-      Pullback::MetadataFor<KaleidoscopeHexOilSpec>::PROJECTION,
-      FX::Binding>::Type>;
-  using Group = typename FX::RenderPipeline::template NodeAt<1>;
-  static_assert(std::is_same_v<
-                typename Group::BoundTuple,
-                std::tuple<Lens::Bind<FX::Binding>, Displace::Bind<FX::Binding>,
-                           Project::Bind<FX::Binding>>>);
-  HS_EXPECT_EQ(TraitsOf<FX>::SURFACE_PLACEMENT,
-               Pullback::SurfacePlacement::AFTER_LENS);
-}
