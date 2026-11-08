@@ -10,10 +10,8 @@
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"
 #include "effects/MindSplatter.h"
-#if !defined(ARDUINO)
 #include "tests/temporal_oracle.h"
 #include "tests/test_fixture.h"
-#endif
 
 #include <array>
 #include <cstdint>
@@ -51,7 +49,6 @@ struct MindSplatterWhiteBox {
     return effect.warp_history.start(end);
   }
 
-#if !defined(ARDUINO)
   /** @brief Renders production column trails or their frozen geometry.
    * @param timed Uses the production temporal draw.
    * @param fraction Frozen frame fraction.
@@ -170,7 +167,6 @@ struct MindSplatterWhiteBox {
     fx.advance_display();
     return capture_luminance<288, 144>(fx);
   }
-#endif
 
   static constexpr uint32_t REPLAY_MAGIC = 0x3152534du;
   static constexpr uint16_t REPLAY_VERSION = 3;
@@ -592,35 +588,9 @@ struct MindSplatterWhiteBox {
     HS_CHECK(index < ms.particle_system.active());
     return ms.particle_system.pool[index].color_seed;
   }
-  template <int W, int H>
-  static void prime_warp_history(MindSplatter<W, H> &ms) {
-    ms.warp_history.capture(ms.mobius.b);
-  }
   template <int W, int H> static void draw_particles(MindSplatter<W, H> &ms) {
     Canvas canvas(ms);
     ms.draw_particles(canvas);
-  }
-  template <int W, int H>
-  static void draw_particles_candidate(MindSplatter<W, H> &ms, Canvas &canvas) {
-    ms.draw_particles(canvas);
-  }
-  /** @brief Enables reference screen stepping, restoring the prior value. */
-  struct ReferenceScreenStepScope {
-    const bool previous = Plot::g_reference_screen_step;
-
-    ReferenceScreenStepScope() { Plot::g_reference_screen_step = true; }
-    ~ReferenceScreenStepScope() { Plot::g_reference_screen_step = previous; }
-
-    ReferenceScreenStepScope(const ReferenceScreenStepScope &) = delete;
-    ReferenceScreenStepScope &
-    operator=(const ReferenceScreenStepScope &) = delete;
-  };
-
-  template <int W, int H>
-  static void draw_particles_replay_reference(MindSplatter<W, H> &ms,
-                                              Canvas &canvas) {
-    const ReferenceScreenStepScope scope;
-    ms.draw_particles_with(ms.filters, canvas);
   }
   template <int W, int H>
   static void draw_particles_reference(MindSplatter<W, H> &ms) {

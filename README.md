@@ -1702,10 +1702,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── test_radial_surface_mask.h  Static and temporal candidate-mask coverage
 │   ├── sdf/               Sections included by test_sdf.h
 │   ├── shader_chain/      Sections included by test_shader_chain.h
-│   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor shared by its tests and the replay tools
-│   ├── composed_chain_fixture.h   Document-built chain and compiled composed frame parity
-│   ├── mindsplatter_replay_metrics.h  Difference metrics + clip geometry shared by the replay generator and comparator
-│   └── mindsplatter_replay_corpus.h  Generated golden replay corpus (emitted by tools/mindsplatter_replay_gen.cpp)
+│   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor for its tests
+│   └── composed_chain_fixture.h   Document-built chain and compiled composed frame parity
 ├── patterns/                   Shader workbench source documents
 ├── scripts/                    Build + CI tooling
 │   ├── generate_luts.py        sRGB ↔ linear LUT generator of record (emits core/color/color_luts.h)
@@ -1805,8 +1803,6 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)
 │   ├── gen_tangent_field_constants.py  Tangent-field peak-speed and derivative constant generator
 │   ├── mindsplatter_palette_gen.cpp  MindSplatter palette-LUT bank generator of record
-│   ├── mindsplatter_replay_gen.cpp  Golden-corpus generator of record (emits tests/mindsplatter_replay_corpus.h)
-│   ├── mindsplatter_replay_main.cpp  Replay comparator over that corpus (its fixtures live under tests/)
 │   ├── docs_check.py           Markdown, repository-map, roster-count, Doxyfile and C/C++ comment-name validator
 │   ├── docs_images.py          Resolves every documented `<img>`; `--stage` copies them into the Doxygen output (CI)
 │   ├── doc_coverage.py         Fails on any Doxygen input symbol without a documentation comment (CI)

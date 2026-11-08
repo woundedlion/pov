@@ -1090,8 +1090,7 @@ SYMBOL_COMMENT_EXCLUDED_RE = re.compile(
     r"|^core/color/(?:color_luts|gamut_lut|srgb_decode_lut)\.h$"
     r"|^effects/generated/"
     r"|^core/mesh/relax_bakes_generated\.h$"
-    r"|^core/spatial/reaction_graph\.cpp$"
-    r"|^tests/mindsplatter_replay_corpus\.h$")
+    r"|^core/spatial/reaction_graph\.cpp$")
 # Other tracked text whose every word counts as code.
 _SYMBOL_INDEX_SUFFIXES = frozenset({
     "", ".cmake", ".def", ".in", ".ini", ".json", ".ld", ".py", ".sh",

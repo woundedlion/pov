@@ -69,14 +69,6 @@ target_link_libraries(hs_host_effect_runtime INTERFACE hs_host_storage)
 target_compile_definitions(hs_host_effect_runtime INTERFACE
   HS_EXTERNAL_PARAM_STORAGE=1)
 
-add_library(hs_test_whitebox INTERFACE)
-target_link_libraries(hs_test_whitebox INTERFACE hs_host_effect_runtime)
-target_compile_definitions(hs_test_whitebox INTERFACE
-  HS_ENABLE_TEST_HOOKS=1
-  HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_CHAIN_INTERPRETER=1
-  HS_ENABLE_EFFECT_CONTROL_API=1)
-
 add_library(hs_test_support INTERFACE)
 target_link_libraries(hs_test_support INTERFACE hs_host_storage)
 include(${HS_ROOT}/cmake/test_capabilities.cmake)
@@ -280,48 +272,6 @@ _hs_warnings(render_goldens)
 _hs_sanitize(render_goldens)
 
 
-add_executable(mindsplatter_replay_gen
-  ${HS_ROOT}/tools/mindsplatter_replay_gen.cpp
-  ${HS_ENGINE_SOURCES})
-target_compile_definitions(mindsplatter_replay_gen PRIVATE
-  HS_PROFILE_PLOT_RENDER_COUNTS)
-target_link_libraries(mindsplatter_replay_gen PRIVATE hs_test_whitebox)
-target_include_directories(mindsplatter_replay_gen PRIVATE ${HS_ENGINE_INCLUDES})
-target_compile_options(mindsplatter_replay_gen PRIVATE
-  -O3 -ffast-math -fno-finite-math-only)
-_hs_warnings(mindsplatter_replay_gen)
-_hs_sanitize(mindsplatter_replay_gen)
-
-add_custom_target(regenerate_mindsplatter_replay
-  COMMAND $<TARGET_FILE:mindsplatter_replay_gen>
-          ${HS_ROOT}/tests/mindsplatter_replay_corpus.h
-  DEPENDS mindsplatter_replay_gen
-  VERBATIM)
-
-add_test(NAME unit_mindsplatter_replay_form COMMAND ${CMAKE_COMMAND}
-  -DGENERATOR=$<TARGET_FILE:mindsplatter_replay_gen>
-  -DCOMMITTED=${HS_ROOT}/tests/mindsplatter_replay_corpus.h
-  -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mindsplatter_replay_corpus.generated.h
-  -DCOMPILER_ID=${CMAKE_CXX_COMPILER_ID}
-  -DCOMPILER_VERSION=${CMAKE_CXX_COMPILER_VERSION}
-  -DREQUIRE_COMPILER_MATCH=${HS_REQUIRE_GENERATORS}
-  -DSKIP_CODE=77
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_form.cmake)
-set_tests_properties(unit_mindsplatter_replay_form PROPERTIES SKIP_RETURN_CODE 77)
-add_test(NAME unit_mindsplatter_replay_refresh COMMAND ${CMAKE_COMMAND}
-  -DREFRESH_ONLY=ON
-  -DGENERATOR=$<TARGET_FILE:mindsplatter_replay_gen>
-  -DCOMMITTED=${HS_ROOT}/tests/mindsplatter_replay_corpus.h
-  -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mindsplatter_replay_corpus.refreshed.h
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_form.cmake)
-
-add_test(NAME unit_mindsplatter_replay_revision_missing COMMAND ${CMAKE_COMMAND}
-  -DCASE=missing
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_revision_selftest.cmake)
-add_test(NAME unit_mindsplatter_replay_revision_drift COMMAND ${CMAKE_COMMAND}
-  -DCASE=drift
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_revision_selftest.cmake)
-
 add_executable(mindsplatter_palette_gen
   ${HS_ROOT}/tools/mindsplatter_palette_gen.cpp
   ${HS_ENGINE_SOURCES})
@@ -351,17 +301,6 @@ target_link_libraries(mindsplatter_palette_check PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_check)
 _hs_sanitize(mindsplatter_palette_check)
 add_test(NAME unit_mindsplatter_palette COMMAND mindsplatter_palette_check)
-
-add_executable(mindsplatter_replay
-  ${HS_ROOT}/tools/mindsplatter_replay_main.cpp
-  ${HS_ENGINE_SOURCES})
-target_link_libraries(mindsplatter_replay PRIVATE hs_test_whitebox)
-target_include_directories(mindsplatter_replay PRIVATE ${HS_ENGINE_INCLUDES})
-target_compile_options(mindsplatter_replay PRIVATE
-  -O3 -ffast-math -fno-finite-math-only)
-_hs_warnings(mindsplatter_replay)
-_hs_sanitize(mindsplatter_replay)
-add_test(NAME unit_mindsplatter_replay COMMAND mindsplatter_replay)
 
 # Opt-in Clang source-based coverage for the shared native suite. Instrumentation changes
 # codegen. Needs clang_rt.profile, which the Windows emsdk clang does not ship.

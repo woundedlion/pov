@@ -39,8 +39,8 @@ def setUpModule():
 
 
 class TestWarningGate(unittest.TestCase):
-    def test_firmware_support_headers_are_first_party(self):
-        for path in ("tools/profile_isr_window.h", "tests/mindsplatter_replay_corpus.h"):
+    def test_tool_and_test_headers_are_first_party(self):
+        for path in ("tools/profile_isr_window.h", "tests/test_harness.h"):
             with self.subTest(path=path):
                 self.assertEqual(tw.extract_warnings(f"{path}:12:3: warning: unused variable"),
                                  {f"{path}: warning: unused variable"})

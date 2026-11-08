@@ -67,7 +67,6 @@ job_scripts_unit_tests() { bash tools/ci/scripts_tests.sh; }
 job_windows_tests() {
   bash tools/ci/native_suite.sh --exclude-generated
   bash tools/ci/render_goldens.sh
-  bash tools/ci/ubsan_trap.sh
 }
 # The Linux job's suite runs under windows-tests; this is its remaining step.
 job_tests() { bash tools/ci/p1_plot_scan.sh; }

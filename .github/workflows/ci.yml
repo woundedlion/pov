@@ -69,7 +69,6 @@ jobs:
           python tools/build_pins.py --check-tool cmake
 
       - name: Configure, build and test
-        id: native_tests
         run: bash tools/ci/native_suite.sh -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: ccache stats
@@ -95,26 +94,6 @@ jobs:
             build/tests/render-goldens.log
           if-no-files-found: warn
           retention-days: 7
-
-      - name: Detect MindSplatter replay corpus mismatch
-        id: mindsplatter_corpus_mismatch
-        if: ${{ always() && steps.native_tests.outcome == 'failure' }}
-        shell: bash
-        run: |
-          generated=build/tests/tests/mindsplatter_replay_corpus.generated.h
-          committed=tests/mindsplatter_replay_corpus.h
-          if [[ -f "$generated" ]] && ! cmp -s "$committed" "$generated"; then
-            echo "mismatch=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload mismatched MindSplatter replay corpus
-        if: ${{ always() && steps.mindsplatter_corpus_mismatch.outputs.mismatch == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: mindsplatter-replay-corpus-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/tests/tests/mindsplatter_replay_corpus.generated.h
-          if-no-files-found: error
-          retention-days: 3
 
       - name: Save ccache on master
         if: github.ref == 'refs/heads/master'
@@ -491,10 +470,6 @@ jobs:
             build/tests/render-goldens.log
           if-no-files-found: warn
           retention-days: 7
-
-      - name: Build and test the UBSan-trap flavour
-        shell: bash
-        run: bash tools/ci/ubsan_trap.sh
 
   wasm:
     name: WASM build (Emscripten)

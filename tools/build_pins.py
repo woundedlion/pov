@@ -224,7 +224,6 @@ SHARED_LITERALS = {
         r"|(^|/)effects/generated/"
         r"|(^|/)core/mesh/relax_bakes_generated\.h$"
         r"|(^|/)core/spatial/reaction_graph\.cpp$"
-        r"|(^|/)tests/mindsplatter_replay_corpus\.h$"
     ),
     "format-globs": " ".join(f"'*.{ext}'" for ext in FORMAT_EXTENSIONS),
     "format-extensions": r"\.(" + "|".join(FORMAT_EXTENSIONS) + r")$",

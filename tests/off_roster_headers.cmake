@@ -11,8 +11,6 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "hd107s_test_util.h"
   "probe_test_util.h"
   "mesh_test_util.h"
-  "mindsplatter_replay_corpus.h"
-  "mindsplatter_replay_metrics.h"
   "mindsplatter_whitebox.h"
   "pixel_test_util.h"
   "pole_geometry_test_util.h"

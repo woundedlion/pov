@@ -163,7 +163,7 @@ fi
 
   FORMAT="$(printf '%s\n' "$PRESENT" \
     | grep -E '\.(h|hpp|cpp|cc|inl|ino)$' \
-    | grep -vE '(^|/)core/vendor/FastNoiseLite\.h$|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)effects/generated/|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
+    | grep -vE '(^|/)core/vendor/FastNoiseLite\.h$|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)effects/generated/|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$' \
     || true)"
 
   if [ -n "$FORMAT" ]; then
