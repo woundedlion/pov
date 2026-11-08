@@ -5,30 +5,179 @@
  * Generative-palette tests and the EffectPaletteRecipes roster contract.
  */
 
+inline constexpr PaletteHarmony ALL_PALETTE_HARMONIES[] = {
+    PaletteHarmony::MONOCHROMATIC,
+    PaletteHarmony::ANALOGOUS,
+    PaletteHarmony::ACCENTED_ANALOGOUS,
+    PaletteHarmony::COMPLEMENTARY,
+    PaletteHarmony::SPLIT_COMPLEMENTARY,
+    PaletteHarmony::TRIADIC,
+    PaletteHarmony::TETRADIC,
+    PaletteHarmony::SQUARE};
+inline constexpr PaletteDomain ALL_PALETTE_DOMAINS[] = {
+    PaletteDomain::STRAIGHT, PaletteDomain::MIRROR, PaletteDomain::VIGNETTE,
+    PaletteDomain::FALLOFF, PaletteDomain::LOOP};
+inline constexpr AxisCurve PROFILE_LIGHTNESS_CURVES[] = {
+    AxisCurve::CONSTANT, AxisCurve::ASCENDING, AxisCurve::DESCENDING,
+    AxisCurve::BELL, AxisCurve::CUP};
+/// Palette stops sampled per recipe, at t = i / (count - 1).
+inline constexpr int PALETTE_STOP_COUNT = 9;
+
+/** @brief Palette coordinate of stop @p i. @param i Stop index. @return t. */
+inline float palette_stop(int i) {
+  return static_cast<float>(i) / (PALETTE_STOP_COUNT - 1);
+}
+
 /**
- * @brief Pins a compiled TRIADIC/BELL ramp to frozen colors at nine stops.
- * @details A change detector captured from `got` under the native clang
- *          toolchain, not an independent oracle; re-derive only after a
- *          deliberate retune. The tolerance is relative so the dark stops stay
- *          pinned.
+ * @brief OKLab of a 16-bit linear color.
+ * @param rgb Channels in 16-bit units, as floats so callers can step them.
+ * @return The color in OKLab.
  */
-inline void test_generative_palette_deterministic() {
-  const PaletteRecipe recipe = PaletteRecipes::profile(
-      PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::BELL,
-      PaletteRecipes::hue_turns(77), 0.86f);
-  const GenerativePalette palette(recipe);
-  const uint16_t expected[9][3] = {
-      {298, 291, 32},       {1843, 3180, 346},     {1447, 12521, 7570},
-      {3228, 28254, 35424}, {28456, 48750, 60539}, {4818, 24745, 55520},
-      {9819, 2840, 51712},  {6742, 467, 6101},     {807, 48, 375}};
-  const auto tolerance = [](uint16_t value) {
-    return std::fmax(4.0f, 0.001f * static_cast<float>(value));
-  };
-  for (int i = 0; i < 9; ++i) {
-    const Pixel got = palette.get(i / 8.0f).color;
-    HS_EXPECT_NEAR(got.r, expected[i][0], tolerance(expected[i][0]));
-    HS_EXPECT_NEAR(got.g, expected[i][1], tolerance(expected[i][1]));
-    HS_EXPECT_NEAR(got.b, expected[i][2], tolerance(expected[i][2]));
+inline OKLab linear16_to_oklab(const float (&rgb)[3]) {
+  return linear_rgb_to_oklab(rgb[0] * Q16_TO_UNIT, rgb[1] * Q16_TO_UNIT,
+                             rgb[2] * Q16_TO_UNIT);
+}
+
+/**
+ * @brief OKLab hue of a pixel. @param pixel 16-bit linear color.
+ * @return Hue in radians.
+ */
+inline float pixel_oklab_hue(const Pixel &pixel) {
+  const OKLab lab =
+      linear16_to_oklab({float(pixel.r), float(pixel.g), float(pixel.b)});
+  return atan2f(lab.b, lab.a);
+}
+
+/**
+ * @brief Bounds the hue error of an unclipped color quantized to @p pixel.
+ * @param pixel 16-bit linear color.
+ * @return Sum over channels of the hue change one LSB causes.
+ * @details One LSB covers the half-LSB rounding to 16 bits plus the float32
+ * conversion error on either side of it.
+ */
+inline float quantized_hue_error(const Pixel &pixel) {
+  const float rgb[3] = {float(pixel.r), float(pixel.g), float(pixel.b)};
+  const OKLab lab = linear16_to_oklab(rgb);
+  const float hue = atan2f(lab.b, lab.a);
+  float bound = 0.0f;
+  for (int channel = 0; channel < 3; ++channel) {
+    float worst = 0.0f;
+    for (const float step : {-1.0f, 1.0f}) {
+      float shifted[3] = {rgb[0], rgb[1], rgb[2]};
+      shifted[channel] += step;
+      if (shifted[channel] < 0.0f || shifted[channel] > 65535.0f)
+        continue;
+      const OKLab moved = linear16_to_oklab(shifted);
+      worst =
+          fmaxf(worst, fabsf(wrap_angle_pi(atan2f(moved.b, moved.a) - hue)));
+    }
+    bound += worst;
+  }
+  return bound;
+}
+
+/** @brief Compiling one recipe twice yields identical colors. */
+inline void test_generative_palette_compiles_deterministically() {
+  for (const PaletteHarmony harmony : ALL_PALETTE_HARMONIES) {
+    for (const PaletteDomain domain : ALL_PALETTE_DOMAINS) {
+      HS_CONTEXT("harmony, domain", static_cast<int>(harmony),
+                 static_cast<int>(domain));
+      int mismatched = 0;
+      for (uint32_t seed = 0; seed < 256; seed += 37) {
+        const PaletteRecipe recipe = PaletteRecipes::profile(
+            domain, harmony, AxisCurve::BELL, PaletteRecipes::hue_turns(seed));
+        const GenerativePalette first(recipe);
+        const GenerativePalette second(recipe);
+        for (int i = 0; i < PALETTE_STOP_COUNT; ++i) {
+          const Pixel a = first.get(palette_stop(i)).color;
+          const Pixel b = second.get(palette_stop(i)).color;
+          mismatched += a.r != b.r || a.g != b.g || a.b != b.b;
+        }
+      }
+      HS_EXPECT_EQ(mismatched, 0);
+    }
+  }
+}
+
+/** @brief TRIADIC keys render a third of a turn apart in OKLab hue. */
+inline void test_generative_palette_triadic_keys_are_a_third_turn_apart() {
+  constexpr float THIRD_TURN = 2.0f * math::PI_F / 3.0f;
+  // get() reaches a key through the COSINE ease, built on `math::fast_cosf`.
+  const float ease_error =
+      THIRD_TURN * fmaxf(fabsf(0.5f - 0.5f * math::fast_cosf(0.0f)),
+                         fabsf(0.5f + 0.5f * math::fast_cosf(math::PI_F)));
+  for (const HueDirection direction :
+       {HueDirection::SHORTEST, HueDirection::CLOCKWISE,
+        HueDirection::COUNTERCLOCKWISE}) {
+    for (const float chroma : {0.3f, PALETTE_DEFAULT_CHROMA, 1.0f}) {
+      for (uint32_t seed = 0; seed < 256; seed += 7) {
+        HS_CONTEXT("direction, seed", static_cast<int>(direction), seed);
+        PaletteRecipe recipe = PaletteRecipes::profile(
+            PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::BELL,
+            PaletteRecipes::hue_turns(seed), chroma);
+        recipe.hue.direction = direction;
+        const GenerativePalette palette(recipe);
+        const Pixel keys[3] = {palette.get(0.0f).color, palette.get(0.5f).color,
+                               palette.get(1.0f).color};
+        for (int i = 0; i < 3; ++i) {
+          const Pixel &from = keys[i];
+          const Pixel &to = keys[(i + 1) % 3];
+          HS_EXPECT_NEAR(
+              fabsf(wrap_angle_pi(pixel_oklab_hue(to) - pixel_oklab_hue(from))),
+              THIRD_TURN,
+              quantized_hue_error(from) + quantized_hue_error(to) +
+                  2.0f * ease_error);
+        }
+      }
+    }
+  }
+}
+
+/** @brief A BELL lightness ramp rises to its peak at t = 0.5, then falls. */
+inline void test_generative_palette_bell_lightness_peaks_mid_ramp() {
+  static_assert(PALETTE_STOP_COUNT % 2 == 1, "needs a stop at t = 0.5");
+  constexpr int MID = PALETTE_STOP_COUNT / 2;
+  for (const PaletteHarmony harmony : ALL_PALETTE_HARMONIES) {
+    for (uint32_t seed = 0; seed < 256; seed += 37) {
+      HS_CONTEXT("harmony, seed", static_cast<int>(harmony), seed);
+      const GenerativePalette palette(PaletteRecipes::profile(
+          PaletteDomain::STRAIGHT, harmony, AxisCurve::BELL,
+          PaletteRecipes::hue_turns(seed)));
+      float lightness[PALETTE_STOP_COUNT];
+      for (int i = 0; i < PALETTE_STOP_COUNT; ++i) {
+        const Pixel p = palette.get(palette_stop(i)).color;
+        lightness[i] =
+            linear16_to_oklab({float(p.r), float(p.g), float(p.b)}).L;
+      }
+      for (int i = 1; i <= MID; ++i)
+        HS_EXPECT_GT(lightness[i], lightness[i - 1]);
+      for (int i = MID + 1; i < PALETTE_STOP_COUNT; ++i)
+        HS_EXPECT_LT(lightness[i], lightness[i - 1]);
+    }
+  }
+}
+
+/** @brief Profile recipes put every stop inside sRGB without clipping. */
+inline void test_generative_palette_profiles_stay_in_gamut() {
+  for (const PaletteHarmony harmony : ALL_PALETTE_HARMONIES) {
+    for (const PaletteDomain domain : ALL_PALETTE_DOMAINS) {
+      for (const AxisCurve curve : PROFILE_LIGHTNESS_CURVES) {
+        HS_CONTEXT("harmony, domain", static_cast<int>(harmony),
+                   static_cast<int>(domain));
+        HS_CONTEXT("lightness curve", static_cast<int>(curve));
+        int clipped = 0;
+        for (const float chroma : {PALETTE_DEFAULT_CHROMA, 1.0f}) {
+          for (uint32_t seed = 0; seed < 256; seed += 37) {
+            const GenerativePalette palette(PaletteRecipes::profile(
+                domain, harmony, curve, PaletteRecipes::hue_turns(seed),
+                chroma));
+            for (int i = 0; i < PALETTE_STOP_COUNT; ++i)
+              clipped += palette.diagnose(palette_stop(i)).fallback_mapped;
+          }
+        }
+        HS_EXPECT_EQ(clipped, 0);
+      }
+    }
   }
 }
 

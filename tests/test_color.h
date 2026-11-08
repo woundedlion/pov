@@ -228,7 +228,10 @@ inline int run_color_tests() {
 
   HS_RUN(test_procedural_palette_cosine);
   HS_RUN(test_mutating_palette_blends_endpoints);
-  HS_RUN(test_generative_palette_deterministic);
+  HS_RUN(test_generative_palette_compiles_deterministically);
+  HS_RUN(test_generative_palette_triadic_keys_are_a_third_turn_apart);
+  HS_RUN(test_generative_palette_bell_lightness_peaks_mid_ramp);
+  HS_RUN(test_generative_palette_profiles_stay_in_gamut);
   HS_RUN(test_effect_palette_recipe_roster);
   HS_RUN(test_generative_palette_recipe_validation);
   HS_RUN(test_generative_palette_canonical_ignores_inactive_fields);
