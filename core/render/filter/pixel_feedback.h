@@ -1978,7 +1978,7 @@ private:
 
   /** @brief Quantizes an unclamped [0, 65535]-scale channel to a ::Pixel
    *  component, round-to-nearest; NaN maps to the hi bound. */
-  static uint16_t quantize16(float v) {
+  static HS_HOT_INLINE uint16_t quantize16(float v) {
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 65535.0f) + 0.5f);
   }
 

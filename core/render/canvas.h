@@ -552,7 +552,7 @@ public:
   /**
    * @brief Clears the entire current drawing buffer to black.
    */
-  void clear_buffer() {
+  HS_FLASH_MEMBER void clear_buffer() {
     int c = effect.cur.load(std::memory_order_relaxed);
     std::fill_n(effect.bufs[c], effect.frame_width * effect.frame_height,
                 Pixel(0, 0, 0));
