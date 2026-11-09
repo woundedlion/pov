@@ -1550,7 +1550,20 @@ private:
       Span span{0, 0};
       const int16_t *row0 = warp.x_offsets + k * columns;
       const int16_t *row1 = row0 + columns;
+      // Only cells within the rings' largest offsets of a cut can join a
+      // span.
+      int lowest = 0, highest = 0;
       for (int cx = 0; cx < columns; ++cx) {
+        lowest = std::min(lowest, std::min<int>(row0[cx], row1[cx]));
+        highest = std::max(highest, std::max<int>(row0[cx], row1[cx]));
+      }
+      const float near_start = MARGIN - lowest / WARP_SCALE;
+      const float near_end =
+          HALF - 1 - MARGIN - downsample - highest / WARP_SCALE;
+      for (int cx = 0; cx < columns; ++cx) {
+        const int column = cx * downsample % HALF;
+        if (column >= near_start && column <= near_end)
+          continue;
         const int cx1 = cx + 1 < columns ? cx + 1 : 0;
         const int low = std::min(std::min(row0[cx], row0[cx1]),
                                  std::min(row1[cx], row1[cx1]));
