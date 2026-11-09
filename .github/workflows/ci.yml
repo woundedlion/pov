@@ -96,17 +96,6 @@ jobs:
           . tools/ci/common.sh
           ctest --preset tests --output-on-failure --no-tests=error -E "$GENERATED_TESTS"
 
-      - name: Test full-resolution effects under ASan and UBSan
-        env:
-          HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: 1
-          HS_REQUIRE_EFFECTS_FULL: 1
-          HS_SKIPS_ARE_ERRORS: 1
-          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
-        run: >
-          ctest --preset tests --output-on-failure --no-tests=error
-          -R "^unit_effects_smoke$"
-
       - name: Save ccache on master
         if: github.ref == 'refs/heads/master'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

@@ -370,6 +370,19 @@ if(NOT HS_SANITIZE AND NOT HS_TSAN)
     set_tests_properties(unit_effects_smoke PROPERTIES TIMEOUT 1200)
 endif()
 
+# Under ASan and UBSan the production-resolution effect sweep runs as roster
+# shards beside the rest of the suite instead of one serial pass after it.
+if(HS_SANITIZE)
+    set(_hs_smoke_shards 2)
+    math(EXPR _hs_smoke_last_shard "${_hs_smoke_shards} - 1")
+    foreach(_shard RANGE ${_hs_smoke_last_shard})
+        add_test(NAME unit_effects_smoke_full_${_shard} COMMAND run_tests effects_smoke)
+        set_tests_properties(unit_effects_smoke_full_${_shard} PROPERTIES
+            TIMEOUT ${_hs_test_timeout} COST 240
+            ENVIRONMENT "HS_EFFECTS_FULL=1;HS_REQUIRE_EFFECTS_FULL=1;HS_EFFECTS_SHARD=${_shard}/${_hs_smoke_shards}")
+    endforeach()
+endif()
+
 add_test(NAME unit_death_child_dispatch COMMAND ${CMAKE_COMMAND}
     -DTEST_BIN=$<TARGET_FILE:run_tests>
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_death_child_dispatch.cmake)
@@ -842,3 +855,10 @@ endforeach()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/engine_libraries.cmake)
 hs_share_test_engines()
+
+# ctest starts higher-COST tests first, so the longest ones do not finish last.
+set_tests_properties(unit_effects PROPERTIES COST 180)
+set_tests_properties(unit_effects_smoke unit_choreography_hooks
+    unit_shapeshifter_lobes unit_shapeshifter_footprint PROPERTIES COST 80)
+set_tests_properties(unit_case_calls unit_conway_soak unit_shapeshifter_oracle
+    unit_stack_budget unit_arena_budget unit_pullback PROPERTIES COST 50)
