@@ -375,3 +375,94 @@ inline void test_meshfeedback_trails_arm_cut_seam() {
   std::printf("  MeshFeedback arm-cut trail step ratio: %.3f\n", ratio);
   HS_EXPECT_LT(ratio, 1.0);
 }
+
+/** @brief Arm-cut step ratios of MeshFeedback's rows, by row band. */
+struct MeshFeedbackCutSteps {
+  double middle; ///< Rows outside the pole caps.
+  double cap;    ///< Pole-cap rows away from the poles.
+  double infill; ///< Pole-cap rows next to the poles.
+};
+
+/**
+ * @brief Runs one MeshFeedback preset and scores each row band's arm cuts.
+ * @param preset Preset index.
+ * @param seed Random seed, or zero for the default.
+ * @return Per band, the larger of the two cuts' ratio of the mean colour step
+ *         from an arm's last column to the next frame's first over the mean
+ *         step between adjacent columns beside the cut.
+ */
+inline MeshFeedbackCutSteps meshfeedback_cut_steps(size_t preset,
+                                                   uint32_t seed) {
+  constexpr int W = DEFAULT_W, H = DEFAULT_H;
+  constexpr int WARM_FRAMES = 60, FRAMES = 150, BESIDE = 3;
+  reset_globals();
+  if (seed)
+    hs::random().seed(seed);
+  pin_frame_clock(0);
+  MeshFeedback<W, H> fx;
+  fx.init();
+  HS_EXPECT_TRUE(fx.selectPreset(preset));
+  enum Band { MIDDLE, CAP, INFILL };
+  std::vector<double> steps[3];
+  for (auto &band : steps)
+    band.assign(W, 0.0);
+  std::vector<Pixel> previous(W * H), current(W * H);
+  for (int f = 0; f <= WARM_FRAMES + FRAMES; ++f) {
+    pin_frame_clock(f);
+    fx.draw_frame();
+    fx.advance_display();
+    capture_frame<W, H>(fx, current);
+    if (f > WARM_FRAMES)
+      for (int y = 1; y < H - 1; ++y) {
+        const bool polar =
+            hs::SphericalFieldLayout<W, H>::latitude_sine(y) < 0.5f;
+        const Band band = !polar ? MIDDLE : y >= 4 && y < H - 4 ? CAP : INFILL;
+        for (int x = 0; x < W; ++x) {
+          const Pixel a = current[y * W + x];
+          const Pixel b = x % (W / 2) == 0 ? previous[y * W + (x + W - 1) % W]
+                                           : current[y * W + x - 1];
+          steps[band][x] += std::abs(int(a.r) - int(b.r)) +
+                            std::abs(int(a.g) - int(b.g)) +
+                            std::abs(int(a.b) - int(b.b));
+        }
+      }
+    std::swap(previous, current);
+  }
+  auto ratio = [&](const std::vector<double> &step) {
+    double worst = 0.0;
+    for (int cut : {0, W / 2}) {
+      double beside = 0.0;
+      for (int k = 1; k <= BESIDE; ++k)
+        beside += step[(cut + k) % W] + step[(cut + W - k) % W];
+      worst = std::max(worst, step[cut] * 2 * BESIDE / beside);
+    }
+    return worst;
+  };
+  return {ratio(steps[MIDDLE]), ratio(steps[CAP]), ratio(steps[INFILL])};
+}
+
+/**
+ * @brief Every MeshFeedback preset steps across the arm cuts about as far as
+ *        between the columns beside them.
+ * @details Rows outside the pole caps are bounded; cap and infill rows carry
+ * known residuals where the warp turns sources by more than a quarter turn.
+ */
+inline void test_meshfeedback_all_presets_arm_cut_steps() {
+  const ScopedTemporalSampling column_basis(true);
+  MeshFeedbackCutSteps worst{};
+  for (size_t preset = 0; preset < MeshFeedbackWhiteBox::MF::PRESET_COUNT;
+       ++preset)
+    for (uint32_t seed : {0u, 11u}) {
+      const MeshFeedbackCutSteps steps = meshfeedback_cut_steps(preset, seed);
+      std::printf("  MeshFeedback preset %zu seed %u cut steps: middle=%.3f "
+                  "cap=%.3f infill=%.3f\n",
+                  preset, seed, steps.middle, steps.cap, steps.infill);
+      worst.middle = std::max(worst.middle, steps.middle);
+      worst.cap = std::max(worst.cap, steps.cap);
+      worst.infill = std::max(worst.infill, steps.infill);
+    }
+  std::printf("  MeshFeedback worst cut steps: middle=%.3f cap=%.3f "
+              "infill=%.3f\n",
+              worst.middle, worst.cap, worst.infill);
+  HS_EXPECT_LT(worst.middle, 1.3);
+}

@@ -26,6 +26,10 @@ void run_effect_case_meshfeedback_trails_arm_cut_seam() {
   HS_RUN(run_case, test_meshfeedback_trails_arm_cut_seam);
 }
 
+void run_effect_case_meshfeedback_all_presets_arm_cut_steps() {
+  HS_RUN(run_case, test_meshfeedback_all_presets_arm_cut_steps);
+}
+
 void run_effect_case_meshfeedback_base_mesh_selector() {
   HS_RUN(run_case, test_meshfeedback_base_mesh_selector);
 }
@@ -64,6 +68,7 @@ int run_mesh_feedback_tests() {
   if (effects_full_suite()) {
     run_effect_case_meshfeedback_flush_precedes_mesh_draw();
     run_effect_case_meshfeedback_preset_rotation_syncs_noise();
+    run_effect_case_meshfeedback_all_presets_arm_cut_steps();
   }
   return fixture.result();
 }

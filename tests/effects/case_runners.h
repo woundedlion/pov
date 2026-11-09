@@ -585,6 +585,9 @@ void run_effect_case_meshfeedback_flush_precedes_mesh_draw();
 /** @brief Runs test_meshfeedback_preset_rotation_syncs_noise with its case context. */
 void run_effect_case_meshfeedback_preset_rotation_syncs_noise();
 
+/** @brief Runs test_meshfeedback_all_presets_arm_cut_steps with its case context. */
+void run_effect_case_meshfeedback_all_presets_arm_cut_steps();
+
 /** @brief Runs test_comets_manual_preset_restarts_path with its case context. */
 void run_effect_case_comets_manual_preset_restarts_path();
 

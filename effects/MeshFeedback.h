@@ -188,6 +188,7 @@ public:
    */
   HS_FLASH_MEMBER void init() override {
     begin_choreography();
+    ArenaSplit{SCRATCH_A_BYTES, DEFAULT_SCRATCH_B_SIZE}.configure();
 
     // Configure the noise type before apply_params() calls sync_noise().
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -242,7 +243,7 @@ public:
 
     auto &frame_filters = [&]() -> decltype(auto) {
       HS_PROFILE(mf_feedback_flush);
-      return filters.begin_frame(canvas, 1.0f);
+      return filters.begin_split_frame(canvas, 1.0f, HELD_TAPS);
     }();
 
     {
@@ -253,6 +254,7 @@ public:
           [&](const math::Vector &, Fragment &f) { f.color = shade; },
           MESH_GEOMETRY);
     }
+    filters.finish_frame(canvas);
   }
 
 private:
@@ -351,6 +353,14 @@ private:
            Filter::Pixel::Feedback<W, H>>
       filters;
 
+  /** @brief Wireframe taps a frame may land in its feedback forward bands. */
+  static constexpr int HELD_TAPS = 4096;
+  /** @brief Scratch A: the held split frame under the default budget. */
+  static constexpr size_t SCRATCH_A_BYTES =
+      (Filter::Pixel::Feedback<W, H>::split_scratch_bytes(HELD_TAPS) +
+       DEFAULT_SCRATCH_A_SIZE + alignof(std::max_align_t) - 1) &
+      ~(alignof(std::max_align_t) - 1);
+
   static constexpr size_t SCRATCH_A_PEAK_BYTES =
       Plot::Mesh::EDGE_MAX_POINTS * sizeof(Fragment) +
       Plot::rasterize_scratch_a_bytes<W>();
@@ -371,9 +381,10 @@ private:
                         Filter::World::Orient::storage_bytes(W) +
                         gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
                         MESH_STORAGE_BYTES <=
-                    DEVICE_PERSISTENT_BUDGET,
+                    ArenaSplit{SCRATCH_A_BYTES, DEFAULT_SCRATCH_B_SIZE}
+                        .device_persistent(),
                 "MeshFeedback persistent storage exceeds the "
-                "default persistent partition; retune the feedback downsample, "
+                "persistent partition; retune the feedback downsample, "
                 "coarsen the gamut grid, or carve arenas");
 
 public:
