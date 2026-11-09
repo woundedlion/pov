@@ -872,199 +872,204 @@ private:
       if (pass_columns.count == 0)
         continue;
       const bool behind = ctx.back && ctx.reach[y] >= 0;
-      // A forward band on a half-resolution row composites column pairs
-      // short of each arm's last pair, then that pair column by column.
-      const bool tail = forward && half_res;
-      for (int part = 0; part <= int(tail); ++part) {
-        const bool pairs = half_res && part == 0;
-        const int stride = pairs ? 2 : 1;
-        // A half-resolution sample sits between its column pair, so it is
-        // the pair's box average rather than the even column alone.
-        const float lane_offset = pairs ? 0.5f : 0.0f;
-        const ColumnRuns row_runs =
-            tail ? tail_runs(pass_columns, part) : pass_columns;
-        if (field_y1 < polar.north_rings || field_y0 >= polar.south_ring) {
+      const bool polar_row =
+          field_y1 < polar.north_rings || field_y0 >= polar.south_ring;
+      // A polar forward band on a half-resolution row composites column
+      // pairs short of each arm's last pair, then that pair column by column.
+      const bool tail = forward && half_res && polar_row;
+      const bool pairs = half_res && (!forward || tail);
+      const int stride = pairs ? 2 : 1;
+      // A half-resolution sample sits between its column pair, so it is the
+      // pair's box average rather than the even column alone.
+      const float lane_offset = pairs ? 0.5f : 0.0f;
+      const ColumnRuns row_runs =
+          tail ? tail_runs(pass_columns, 0) : pass_columns;
+      if (polar_row) {
+        auto polar_runs = [&](const ColumnRuns &runs, int step, float lane,
+                              bool midpoint) {
           if constexpr (PAIR_PIXELS)
-            composite_polar_row(ctx, row_runs, y, field_y0, field_y1, wy0, wy1,
-                                output, stride, lane_offset, pairs,
-                                defer_filter, transform_pixel);
+            composite_polar_row(ctx, runs, y, field_y0, field_y1, wy0, wy1,
+                                output, step, lane, midpoint, defer_filter,
+                                transform_pixel);
           else
-            composite_polar_row_flash(ctx, row_runs, y, field_y0, field_y1, wy0,
-                                      wy1, output, stride, lane_offset, pairs,
+            composite_polar_row_flash(ctx, runs, y, field_y0, field_y1, wy0,
+                                      wy1, output, step, lane, midpoint,
                                       defer_filter, transform_pixel);
-        } else {
-          for (int r = 0; r < row_runs.count; ++r) {
-            const int xs = row_runs.items[r].begin;
-            const int xe = row_runs.items[r].end;
-            int cx0 = xs / downsample;
-            int sub = xs - cx0 * downsample;
-            bool cell_stale = true;
-            // Whether a pixel of the cell may read past its arm's columns.
-            bool cell_resolved = false;
-            // The buffer holding every source of an unresolved cell.
-            const ::Pixel *source = previous;
-            const auto *source_poles = &poles;
-            int cell_level = unit_level;
-            float leftx = 0.0f, slopex = 0.0f;
-            float lefty = 0.0f, slopey = 0.0f;
-            auto cell = [&]() {
-              HS_PROFILE_DEEP(fb_comp_cell);
-              const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
-              const int i00 = row0 + cx0, i10 = row0 + cx1;
-              const int i01 = row1 + cx0, i11 = row1 + cx1;
-              const int d00 = x_offsets[i00];
-              const int u10 = unwrap_near(x_offsets[i10], d00);
-              const int u01 = unwrap_near(x_offsets[i01], d00);
-              const int u11 = unwrap_near(x_offsets[i11], d00);
-              const float d10 = static_cast<float>(u10);
-              const float d01 = static_cast<float>(u01);
-              const float d11 = static_cast<float>(u11);
-              leftx = (static_cast<float>(d00) * wy0 + d01 * wy1) *
-                      INVERSE_WARP_SCALE;
-              slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
-              lefty = (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
-                      INVERSE_WARP_SCALE;
-              slopey = (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) *
-                           INVERSE_WARP_SCALE -
-                       lefty;
-              if (column_time) {
-                int column = cx0 * downsample;
-                column -= column >= ColumnTime::HALF ? ColumnTime::HALF : 0;
-                // No pixel's offset exceeds its cell's largest node offset, so
-                // a cell at least that far inside its arm reads within it.
-                const int reach =
-                    std::max(std::max(std::abs(d00), std::abs(u10)),
-                             std::max(std::abs(u01), std::abs(u11)));
-                const int room = std::min(column, ColumnTime::HALF - 1 -
-                                                      downsample - column);
-                cell_resolved = straddled_cells;
-                source = previous;
-                source_poles = &poles;
-                if (reach > room * static_cast<int>(WARP_SCALE)) {
-                  // Otherwise the first pixel's source and the last's, past
-                  // the cell's far edge, bound the cell's.
-                  const float first = column + fminf(leftx, leftx + slopex);
-                  const float last =
-                      column + downsample + fmaxf(leftx, leftx + slopex);
-                  const bool within =
-                      first >= 0.0f &&
-                      (forward ? last < ColumnTime::HALF - 1.0f
-                               : last <= ColumnTime::HALF - 0.5f);
-                  if (!within && forward && first >= ColumnTime::HALF) {
-                    source = current;
-                    source_poles = &ctx.current_poles;
-                  } else if (!within && behind && last <= -1.0f) {
-                    source = ctx.back;
-                    source_poles = &ctx.back_poles;
-                  } else {
-                    cell_resolved |= !within;
-                  }
+        };
+        polar_runs(row_runs, stride, lane_offset, pairs);
+        if (tail)
+          polar_runs(tail_runs(pass_columns, 1), 1, 0.0f, false);
+      } else {
+        for (int r = 0; r < row_runs.count; ++r) {
+          const int xs = row_runs.items[r].begin;
+          const int xe = row_runs.items[r].end;
+          int cx0 = xs / downsample;
+          int sub = xs - cx0 * downsample;
+          bool cell_stale = true;
+          // Whether a pixel of the cell may read past its arm's columns.
+          bool cell_resolved = false;
+          // The buffer holding every source of an unresolved cell.
+          const ::Pixel *source = previous;
+          const auto *source_poles = &poles;
+          int cell_level = unit_level;
+          float leftx = 0.0f, slopex = 0.0f;
+          float lefty = 0.0f, slopey = 0.0f;
+          auto cell = [&]() {
+            HS_PROFILE_DEEP(fb_comp_cell);
+            const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
+            const int i00 = row0 + cx0, i10 = row0 + cx1;
+            const int i01 = row1 + cx0, i11 = row1 + cx1;
+            const int d00 = x_offsets[i00];
+            const int u10 = unwrap_near(x_offsets[i10], d00);
+            const int u01 = unwrap_near(x_offsets[i01], d00);
+            const int u11 = unwrap_near(x_offsets[i11], d00);
+            const float d10 = static_cast<float>(u10);
+            const float d01 = static_cast<float>(u01);
+            const float d11 = static_cast<float>(u11);
+            leftx = (static_cast<float>(d00) * wy0 + d01 * wy1) *
+                    INVERSE_WARP_SCALE;
+            slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
+            lefty = (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
+                    INVERSE_WARP_SCALE;
+            slopey = (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) *
+                         INVERSE_WARP_SCALE -
+                     lefty;
+            if (column_time) {
+              int column = cx0 * downsample;
+              column -= column >= ColumnTime::HALF ? ColumnTime::HALF : 0;
+              // No pixel's offset exceeds its cell's largest node offset, so
+              // a cell at least that far inside its arm reads within it.
+              const int reach =
+                  std::max(std::max(std::abs(d00), std::abs(u10)),
+                           std::max(std::abs(u01), std::abs(u11)));
+              const int room =
+                  std::min(column, ColumnTime::HALF - 1 - downsample - column);
+              cell_resolved = straddled_cells;
+              source = previous;
+              source_poles = &poles;
+              if (reach > room * static_cast<int>(WARP_SCALE)) {
+                // Otherwise the first pixel's source and the last's, past
+                // the cell's far edge, bound the cell's.
+                const float first = column + fminf(leftx, leftx + slopex);
+                const float last =
+                    column + downsample + fmaxf(leftx, leftx + slopex);
+                const bool within = first >= 0.0f &&
+                                    (forward ? last < ColumnTime::HALF - 1.0f
+                                             : last <= ColumnTime::HALF - 0.5f);
+                if (!within && forward && first >= ColumnTime::HALF) {
+                  source = current;
+                  source_poles = &ctx.current_poles;
+                } else if (!within && behind && last <= -1.0f) {
+                  source = ctx.back;
+                  source_poles = &ctx.back_poles;
+                } else {
+                  cell_resolved |= !within;
                 }
-                cell_level = static_cast<int>(FadeTable::UNIT_LEVEL + 0.5f -
-                                              (leftx + 0.5f * slopex) *
-                                                  LEVELS_PER_COLUMN);
               }
-            };
-            for (int x = xs; x < xe;) {
-              if (cell_stale) {
-                cell();
-                cell_stale = false;
-              }
+              cell_level =
+                  static_cast<int>(FadeTable::UNIT_LEVEL + 0.5f -
+                                   (leftx + 0.5f * slopex) * LEVELS_PER_COLUMN);
+            }
+          };
+          for (int x = xs; x < xe;) {
+            if (cell_stale) {
+              cell();
+              cell_stale = false;
+            }
 
-              if (cell_resolved) {
-                const int cell_end = std::min(xe, x + downsample - sub);
-                x = composite_resolved_cell<PAIR_PIXELS>(
-                    ctx, transform_pixel, output, x, cell_end, y, sub, stride,
-                    lane_offset, {leftx, slopex, lefty, slopey},
-                    opaque || defer_filter);
-                sub = x - cx0 * downsample;
-                while (sub >= downsample) {
+            if (cell_resolved) {
+              const int cell_end = std::min(xe, x + downsample - sub);
+              x = composite_resolved_cell<PAIR_PIXELS>(
+                  ctx, transform_pixel, output, x, cell_end, y, sub, stride,
+                  lane_offset, {leftx, slopex, lefty, slopey},
+                  opaque || defer_filter);
+              sub = x - cx0 * downsample;
+              while (sub >= downsample) {
+                sub -= downsample;
+                ++cx0;
+                cell_stale = true;
+              }
+              continue;
+            }
+
+            if constexpr (PAIR_PIXELS) {
+              if (downsample - sub >= 2 * stride && xe - x >= 2 * stride) {
+                const float fx0 = (sub + lane_offset) * inverse_downsample;
+                const float fx1 =
+                    (sub + stride + lane_offset) * inverse_downsample;
+                const float ddx0 = leftx + slopex * fx0;
+                const float ddy0 = lefty + slopey * fx0;
+                const float ddx1 = leftx + slopex * fx1;
+                const float ddy1 = lefty + slopey * fx1;
+
+                Sample s0, s1;
+                {
+                  HS_PROFILE_DEEP(fb_comp_sample);
+                  s0 = sample_bilinear_prev(grid.field, source, *source_poles,
+                                            x + lane_offset + ddx0, y + ddy0);
+                  s1 = sample_bilinear_prev(grid.field, source, *source_poles,
+                                            x + stride + lane_offset + ddx1,
+                                            y + ddy1);
+                }
+                const bool black0 = skip_near_black(s0, black_skips_color);
+                const bool black1 = skip_near_black(s1, black_skips_color);
+                ::Pixel p0(0, 0, 0), p1(0, 0, 0);
+                if (!(black0 && black1)) {
+                  HS_PROFILE_DEEP(fb_comp_color);
+                  transform_pair_call(transform_pair, s0.r, s0.g, s0.b, s1.r,
+                                      s1.g, s1.b, cell_level, p0, p1);
+                  p0 = black0 ? ::Pixel(0, 0, 0) : p0;
+                  p1 = black1 ? ::Pixel(0, 0, 0) : p1;
+                }
+
+                HS_PROFILE_DEEP(fb_comp_write);
+                ::Pixel &dst0 = output[x];
+                dst0 = (opaque || defer_filter) ? p0 : blend(dst0, p0);
+                ::Pixel &dst1 = output[x + stride];
+                dst1 = (opaque || defer_filter) ? p1 : blend(dst1, p1);
+
+                x += 2 * stride;
+                sub += 2 * stride;
+                if (sub >= downsample) {
                   sub -= downsample;
                   ++cx0;
                   cell_stale = true;
                 }
                 continue;
               }
+            }
 
-              if constexpr (PAIR_PIXELS) {
-                if (downsample - sub >= 2 * stride && xe - x >= 2 * stride) {
-                  const float fx0 = (sub + lane_offset) * inverse_downsample;
-                  const float fx1 =
-                      (sub + stride + lane_offset) * inverse_downsample;
-                  const float ddx0 = leftx + slopex * fx0;
-                  const float ddy0 = lefty + slopey * fx0;
-                  const float ddx1 = leftx + slopex * fx1;
-                  const float ddy1 = lefty + slopey * fx1;
+            const float fx = (sub + lane_offset) * inverse_downsample;
+            const float ddx = leftx + slopex * fx;
+            const float ddy = lefty + slopey * fx;
 
-                  Sample s0, s1;
-                  {
-                    HS_PROFILE_DEEP(fb_comp_sample);
-                    s0 = sample_bilinear_prev(grid.field, source, *source_poles,
-                                              x + lane_offset + ddx0, y + ddy0);
-                    s1 = sample_bilinear_prev(grid.field, source, *source_poles,
-                                              x + stride + lane_offset + ddx1,
-                                              y + ddy1);
-                  }
-                  const bool black0 = skip_near_black(s0, black_skips_color);
-                  const bool black1 = skip_near_black(s1, black_skips_color);
-                  ::Pixel p0(0, 0, 0), p1(0, 0, 0);
-                  if (!(black0 && black1)) {
-                    HS_PROFILE_DEEP(fb_comp_color);
-                    transform_pair_call(transform_pair, s0.r, s0.g, s0.b, s1.r,
-                                        s1.g, s1.b, cell_level, p0, p1);
-                    p0 = black0 ? ::Pixel(0, 0, 0) : p0;
-                    p1 = black1 ? ::Pixel(0, 0, 0) : p1;
-                  }
+            Sample s;
+            {
+              HS_PROFILE_DEEP(fb_comp_sample);
+              s = sample_bilinear_prev(grid.field, source, *source_poles,
+                                       x + lane_offset + ddx, y + ddy);
+            }
+            ::Pixel p(0, 0, 0);
+            if (!(skip_near_black(s, black_skips_color))) {
+              HS_PROFILE_DEEP(fb_comp_color);
+              if constexpr (PAIR_PIXELS)
+                p = transform_pixel_call(transform_pixel, s.r, s.g, s.b,
+                                         cell_level);
+              else
+                p = transform_pixel(s.r, s.g, s.b, cell_level);
+            }
 
-                  HS_PROFILE_DEEP(fb_comp_write);
-                  ::Pixel &dst0 = output[x];
-                  dst0 = (opaque || defer_filter) ? p0 : blend(dst0, p0);
-                  ::Pixel &dst1 = output[x + stride];
-                  dst1 = (opaque || defer_filter) ? p1 : blend(dst1, p1);
+            // Black must overwrite the stale double-buffer frame.
+            HS_PROFILE_DEEP(fb_comp_write);
+            ::Pixel &dst = output[x];
+            dst = (opaque || defer_filter) ? p : blend(dst, p);
 
-                  x += 2 * stride;
-                  sub += 2 * stride;
-                  if (sub >= downsample) {
-                    sub -= downsample;
-                    ++cx0;
-                    cell_stale = true;
-                  }
-                  continue;
-                }
-              }
-
-              const float fx = (sub + lane_offset) * inverse_downsample;
-              const float ddx = leftx + slopex * fx;
-              const float ddy = lefty + slopey * fx;
-
-              Sample s;
-              {
-                HS_PROFILE_DEEP(fb_comp_sample);
-                s = sample_bilinear_prev(grid.field, source, *source_poles,
-                                         x + lane_offset + ddx, y + ddy);
-              }
-              ::Pixel p(0, 0, 0);
-              if (!(skip_near_black(s, black_skips_color))) {
-                HS_PROFILE_DEEP(fb_comp_color);
-                if constexpr (PAIR_PIXELS)
-                  p = transform_pixel_call(transform_pixel, s.r, s.g, s.b,
-                                           cell_level);
-                else
-                  p = transform_pixel(s.r, s.g, s.b, cell_level);
-              }
-
-              // Black must overwrite the stale double-buffer frame.
-              HS_PROFILE_DEEP(fb_comp_write);
-              ::Pixel &dst = output[x];
-              dst = (opaque || defer_filter) ? p : blend(dst, p);
-
-              x += stride;
-              sub += stride;
-              while (sub >= downsample) {
-                sub -= downsample;
-                ++cx0;
-                cell_stale = true;
-              }
+            x += stride;
+            sub += stride;
+            while (sub >= downsample) {
+              sub -= downsample;
+              ++cx0;
+              cell_stale = true;
             }
           }
         }
@@ -1073,7 +1078,7 @@ private:
         continue;
       if (half_res) {
         HS_PROFILE_DEEP(fb_comp_fill);
-        expand_half_res_row<PAIR_PIXELS>(ctx, output, y, transform_pixel);
+        expand_half_res_row<PAIR_PIXELS>(ctx, output, y, tail, transform_pixel);
       }
       if (forward)
         cover_row(ctx, y, output);
@@ -1462,7 +1467,8 @@ private:
    *        two.
    * @return The part's runs.
    */
-  static ColumnRuns tail_runs(const ColumnRuns &runs, int part) {
+  HS_FLASH_MEMBER static ColumnRuns tail_runs(const ColumnRuns &runs,
+                                              int part) {
     ColumnRuns out{};
     for (int r = 0; r < runs.count; ++r) {
       const int split = std::max(runs.items[r].begin, runs.items[r].end - 2);
@@ -1688,6 +1694,8 @@ private:
    * @param ctx Frame context, its pass selected.
    * @param output Row of pair samples, as for reconstruct_half_res_run().
    * @param y Row index.
+   * @param paired Whether the forward pass composited the band in pairs short
+   *        of its last pair.
    * @param transform_pixel Ages a sample by one frame at the unit level.
    * @details Under column time, a full non-pole row expands arm by arm.
    * Beside a cut, the pair lit just before an arm's first column is the other
@@ -1695,14 +1703,14 @@ private:
    * column is the other arm's first pair a frame on, aged one frame from this
    * one. A split row expands each arm short of its forward band, keeping the
    * last pair's sample in the column after it; the forward pass composites
-   * the band in pairs up to its last pair, which it composites column by
-   * column, and expands the pairs between the kept sample and that last pair.
+   * the band per column, or when @p paired in pairs up to its last pair, and
+   * blends the kept sample and any pairs toward the band's last columns.
    * Other rows expand run by run.
    */
   template <bool PAIR_PIXELS, typename TransformPixelT>
   HS_HOT_FLASH_MEMBER static void
   expand_half_res_row(const FlushContext &ctx, ::Pixel *output, int y,
-                      TransformPixelT &transform_pixel) {
+                      bool paired, TransformPixelT &transform_pixel) {
     const ColumnRuns &runs = ctx.runs;
     // Every column of a pole row is one point.
     const bool pole_row = (SphereField::HAS_NORTH_POLE && y == 0) ||
@@ -1737,7 +1745,7 @@ private:
       const int first = arm + HALF - band;
       if (ctx.pass == Pass::FORWARD) {
         const ::Pixel &last = ctx.kept[2 * y + side];
-        const int tail = arm + HALF - 2;
+        const int tail = paired ? arm + HALF - 2 : first;
         const ::Pixel after = pair_average(output[tail], output[tail + 1]);
         output[first - 1] =
             blend_quarter(last, first < tail ? output[first] : after);
