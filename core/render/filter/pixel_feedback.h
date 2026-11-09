@@ -203,29 +203,27 @@ private:
    */
   HS_O3_BEGIN
   void flush(Canvas &cv, float alpha) {
-    require_unheld();
-    if (!enabled) {
-      if (cv.keeps_stale_pixels())
-        cv.clear_buffer();
+    if (disabled(cv))
       return;
-    }
-
     ScratchScope scope(scratch_arena_a);
     FlushContext ctx = prepare_flush(cv, alpha, scope.get_arena());
-    if (cv.keeps_stale_pixels() && !ctx.back)
-      cv.clear_buffer();
-    if (ctx.mode == FlushMode::SKIP)
-      return;
-
-    HS_PROFILE(feedback_composite);
-    if (ctx.back) {
-      ctx.pass = Pass::ARM_STARTS;
-      composite_pass(ctx);
-      ctx.pass = Pass::REST;
-    }
-    composite_pass(ctx);
+    composite_frame(cv, ctx);
   }
   HS_O3_END
+
+  /**
+   * @brief Clears the frame a disabled filter leaves to the canvas.
+   * @param cv Target canvas.
+   * @return Whether the filter is disabled.
+   */
+  bool disabled(Canvas &cv) {
+    require_unheld();
+    if (enabled)
+      return false;
+    if (cv.keeps_stale_pixels())
+      cv.clear_buffer();
+    return true;
+  }
 
   /**
    * @brief Composites a split frame's columns outside its forward bands and
@@ -238,26 +236,12 @@ private:
    * close first.
    */
   HS_FLASH_MEMBER void flush_split(Canvas &cv, float alpha) {
-    require_unheld();
-    if (!enabled) {
-      if (cv.keeps_stale_pixels())
-        cv.clear_buffer();
+    if (disabled(cv))
       return;
-    }
     const size_t mark = scratch_arena_a.get_offset();
     FlushContext &ctx = *scratch_arena_a.make<FlushContext>(
         prepare_flush(cv, alpha, scratch_arena_a, true));
-    if (cv.keeps_stale_pixels() && !ctx.back)
-      cv.clear_buffer();
-    if (ctx.mode != FlushMode::SKIP) {
-      HS_PROFILE(feedback_composite);
-      if (ctx.back) {
-        ctx.pass = Pass::ARM_STARTS;
-        composite_pass(ctx);
-        ctx.pass = Pass::REST;
-      }
-      composite_pass(ctx);
-    }
+    composite_frame(cv, ctx);
     int floor = ColumnTime::HALF;
     if (ctx.ahead)
       for (int y = 0; y < H; ++y)
@@ -284,11 +268,7 @@ private:
     if (!held)
       return;
     FlushContext &ctx = *held;
-    if (SphereField::HAS_NORTH_POLE)
-      ctx.current_poles[0] = select_pole_sample(ctx.current);
-    if (SphereField::HAS_SOUTH_POLE)
-      ctx.current_poles[SphereField::HAS_NORTH_POLE ? 1 : 0] =
-          select_pole_sample(ctx.current + (H - 1) * W);
+    select_poles(ctx.current, ctx.current_poles);
     {
       HS_PROFILE(feedback_forward);
       ctx.pass = Pass::FORWARD;
@@ -764,22 +744,14 @@ private:
       math::TrigLUT<W, H>::init();
     ctx.previous = cv.prev_data();
     ctx.current = cv.data();
-    if (SphereField::HAS_NORTH_POLE)
-      ctx.poles[0] = select_pole_sample(ctx.previous);
-    if (SphereField::HAS_SOUTH_POLE)
-      ctx.poles[SphereField::HAS_NORTH_POLE ? 1 : 0] =
-          select_pole_sample(ctx.previous + (H - 1) * W);
+    select_poles(ctx.previous, ctx.poles);
     ctx.runs = make_column_runs(band.x_clip, ctx.column_time);
     const bool clipped =
         band.x_clip.active || band.y_begin > 0 || band.y_end < H;
     if (ctx.column_time && cv.keeps_stale_pixels() && alpha >= 1.0f &&
         !clipped) {
       ctx.back = ctx.current;
-      if (SphereField::HAS_NORTH_POLE)
-        ctx.back_poles[0] = select_pole_sample(ctx.back);
-      if (SphereField::HAS_SOUTH_POLE)
-        ctx.back_poles[SphereField::HAS_NORTH_POLE ? 1 : 0] =
-            select_pole_sample(ctx.back + (H - 1) * W);
+      select_poles(ctx.back, ctx.back_poles);
       // An unchanged cached field keeps its spans.
       const bool stored = reused && spans.reach;
       if (!(stored && spans.valid &&
@@ -1375,6 +1347,26 @@ private:
   }
 
   /**
+   * @brief Composites every column outside the forward bands, each arm's
+   *        start before the columns it reads behind the cut are overwritten.
+   * @param cv Target canvas.
+   * @param ctx Frame context from prepare_flush().
+   */
+  HS_HOT_INLINE void composite_frame(Canvas &cv, FlushContext &ctx) {
+    if (cv.keeps_stale_pixels() && !ctx.back)
+      cv.clear_buffer();
+    if (ctx.mode == FlushMode::SKIP)
+      return;
+    HS_PROFILE(feedback_composite);
+    if (ctx.back) {
+      ctx.pass = Pass::ARM_STARTS;
+      composite_pass(ctx);
+      ctx.pass = Pass::REST;
+    }
+    composite_pass(ctx);
+  }
+
+  /**
    * @brief Composites one pass's columns through the frame's color transform.
    * @param ctx Frame context from prepare_flush(), its pass selected.
    */
@@ -1845,6 +1837,20 @@ private:
       }
     }
     return selected;
+  }
+
+  /**
+   * @brief Chooses each pole row's color in a frame.
+   * @param frame Frame buffer.
+   * @param poles Receives the shared value of each pole row present.
+   */
+  static void select_poles(const ::Pixel *frame,
+                           ::Pixel (&poles)[SphereField::POLE_STORAGE_COUNT]) {
+    if (SphereField::HAS_NORTH_POLE)
+      poles[0] = select_pole_sample(frame);
+    if (SphereField::HAS_SOUTH_POLE)
+      poles[SphereField::HAS_NORTH_POLE ? 1 : 0] =
+          select_pole_sample(frame + (H - 1) * W);
   }
 
   /** @brief One bilinear sample on the [0, 65535] scale, unquantized. */
