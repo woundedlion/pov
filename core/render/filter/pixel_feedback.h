@@ -174,6 +174,9 @@ public:
           return lattice_origin(CACHE_FIELD, position, point);
         });
     fade_table.init_storage(arena);
+    spans.reach = arena.allocate_n<int16_t>(H);
+    spans.ahead = arena.allocate_n<Ahead>(H);
+    spans.valid = false;
   }
 
   /**
@@ -559,9 +562,11 @@ private:
   /**
    * @brief The frame's populated warp field: the cache's when the Style and
    * band allow it, otherwise a scratch field.
+   * @param reused Set when the frame reuses the cached field unchanged.
    */
-  __attribute__((always_inline)) WarpField acquire_warp_field(
-      Arena &scratch, const CoarseGrid &grid, const RenderBand &band) {
+  __attribute__((always_inline)) WarpField
+  acquire_warp_field(Arena &scratch, const CoarseGrid &grid,
+                     const RenderBand &band, bool &reused) {
     const bool stock_transform =
         feedback_style->space_fn == &::Feedback::noise_warp ||
         feedback_style->space_fn == &::Feedback::melt_warp;
@@ -589,9 +594,11 @@ private:
     const auto key = warp_cache_key(band);
 
     HS_PROFILE(feedback_populate);
+    reused = cacheable;
     return warp_cache.acquire(
         cacheable ? &key : nullptr, uncached,
         [&](const WarpField &warp) __attribute__((always_inline)) {
+          reused = false;
           ScratchScope populate_scope(scratch);
           WarpControl *controls =
               scratch.allocate_n<WarpControl>(grid.field.sample_count());
@@ -730,7 +737,8 @@ private:
     const CoarseGrid &grid = ctx.grid;
     ctx.band = make_render_band(cv.clip(), grid);
     const RenderBand &band = ctx.band;
-    ctx.warp = acquire_warp_field(scratch, grid, band);
+    bool reused = false;
+    ctx.warp = acquire_warp_field(scratch, grid, band, reused);
     ctx.filtered_row = (!band.x_clip.active && (split || grid.downsample > 1 ||
                                                 !SphereField::HAS_NORTH_POLE ||
                                                 !SphereField::HAS_SOUTH_POLE))
@@ -772,12 +780,24 @@ private:
       if (SphereField::HAS_SOUTH_POLE)
         ctx.back_poles[SphereField::HAS_NORTH_POLE ? 1 : 0] =
             select_pole_sample(ctx.back + (H - 1) * W);
-      int16_t *reach = scratch.allocate_n<int16_t>(H);
-      Ahead *ahead = split ? scratch.allocate_n<Ahead>(H) : nullptr;
-      measure_reach(grid, ctx.warp, half_res_limit(ctx.pole_half_res), reach,
-                    ahead);
-      ctx.reach = reach;
-      ctx.ahead = ahead;
+      // An unchanged cached field keeps its spans.
+      const bool stored = reused && spans.reach;
+      if (!(stored && spans.valid &&
+            spans.pole_half_res == ctx.pole_half_res)) {
+        int16_t *reach = stored ? spans.reach : scratch.allocate_n<int16_t>(H);
+        Ahead *ahead = stored ? spans.ahead : scratch.allocate_n<Ahead>(H);
+        measure_reach(grid, ctx.warp, half_res_limit(ctx.pole_half_res), reach,
+                      ahead);
+        spans.valid = stored;
+        spans.pole_half_res = ctx.pole_half_res;
+        ctx.reach = reach;
+        ctx.ahead = ahead;
+      } else {
+        ctx.reach = spans.reach;
+        ctx.ahead = spans.ahead;
+      }
+      if (!split)
+        ctx.ahead = nullptr;
     }
     ctx.field_y0 = band.field_y_begin;
     ctx.field_y1 = ctx.field_y0 + (ctx.field_y0 < band.field_y_end ? 1 : 0);
@@ -2098,6 +2118,13 @@ private:
   /** Least Ahead::held_from of the held frame; HALF holds no column. */
   int held_floor = ColumnTime::HALF;
   WarpCache warp_cache; /**< Persistent warp field and lattice origins. */
+  /** @brief Persistent measure_reach() spans of the cached warp field. */
+  struct Spans {
+    int16_t *reach = nullptr;   ///< Per row, the reach behind each arm.
+    Ahead *ahead = nullptr;     ///< Per row, the forward band.
+    float pole_half_res = 0.0f; ///< Style::pole_half_res they were measured at.
+    bool valid = false;         ///< Whether they belong to the cached field.
+  } spans;
   FadeTable fade_table; /**< Persistent per-elapsed-time transforms. */
 
 public:
@@ -2122,10 +2149,11 @@ public:
   static constexpr size_t STORAGE_BYTES =
       CACHE_CELLS * 2 * sizeof(int16_t) +
       CACHE_ORIGIN_SAMPLES * sizeof(typename SphereField::Coordinates) +
-      CACHE_CAP_CELLS * 2 * sizeof(int16_t) + FadeTable::BYTES;
+      CACHE_CAP_CELLS * 2 * sizeof(int16_t) + FadeTable::BYTES +
+      H * (sizeof(int16_t) + sizeof(Ahead));
   /** @brief Arena allocations init_storage() makes; each pads its share of
    *  STORAGE_BYTES by less than alignof(std::max_align_t). */
-  static constexpr size_t STORAGE_ALLOCATIONS = 6;
+  static constexpr size_t STORAGE_ALLOCATIONS = 8;
 
   /**
    * @brief scratch_arena_a bytes a split frame holds from flush_split() to

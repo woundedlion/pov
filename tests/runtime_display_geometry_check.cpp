@@ -46,7 +46,9 @@ template <int W, int H> void check_geometry(float north, float south) {
   constexpr size_t EXPECTED_STORAGE =
       CACHE_CELLS *
           (4 * sizeof(int16_t) + sizeof(typename Field::Coordinates)) +
-      Filter::Pixel::FeedbackFadeTable::BYTES;
+      Filter::Pixel::FeedbackFadeTable::BYTES +
+      // Per row, the arm-cut reach and the forward band's two columns.
+      H * 3 * sizeof(int16_t);
   static_assert(HS_RUNTIME_DISPLAY_GEOMETRY);
   HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::STORAGE_BYTES),
                EXPECTED_STORAGE);
