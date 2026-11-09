@@ -1516,31 +1516,53 @@ private:
                       SphereField::Geometry::row_to_phi(static_cast<float>(y1));
       const CapOffset *caps = polar_pair ? warp.cell_caps : nullptr;
       const int16_t *offsets = warp.x_offsets;
-      const int row0 = polar_pair ? polar.row(k) : k, row1 = row0 + 1;
-      Span span{0, 0};
-      for (int cx = 0; cx < columns; ++cx) {
-        const int cx1 = cx + 1 < columns ? cx + 1 : 0;
-        const int nodes[4] = {row0 * columns + cx, row0 * columns + cx1,
-                              row1 * columns + cx, row1 * columns + cx1};
-        float back = 0.0f, forward = 0.0f;
+      const int base = (polar_pair ? polar.row(k) : k) * columns;
+      // The largest backward and forward turns of `count` nodes; false when
+      // a polar node's offset reaches the pole.
+      auto extent = [&](int count, auto &&node, float &back,
+                        float &forward) HS_HOT_INLINE {
         if (polar_pair) {
           int longest_sq = 0;
-          for (int node : nodes)
-            longest_sq = std::max(longest_sq, caps[node].u * caps[node].u +
-                                                  caps[node].v * caps[node].v);
+          for (int i = 0; i < count; ++i) {
+            const CapOffset &o = caps[node(i)];
+            longest_sq = std::max(longest_sq, o.u * o.u + o.v * o.v);
+          }
           const float longest =
               sqrtf(static_cast<float>(longest_sq)) / CapPlane::CAP_SCALE;
-          if (!(longest < near))
-            return Span{HALF, HALF};
           // The turn's tangent bounds the turn.
           back = forward = longest / sqrtf(near * near - longest * longest) *
                            COLUMNS_PER_RADIAN;
-        } else {
-          for (int node : nodes) {
-            back = fmaxf(back, -offsets[node] / WARP_SCALE);
-            forward = fmaxf(forward, offsets[node] / WARP_SCALE);
-          }
+          return longest < near;
         }
+        int low = 0, high = 0;
+        for (int i = 0; i < count; ++i) {
+          low = std::min<int>(low, offsets[node(i)]);
+          high = std::max<int>(high, offsets[node(i)]);
+        }
+        back = -low / WARP_SCALE;
+        forward = high / WARP_SCALE;
+        return true;
+      };
+      float most_back = 0.0f, most_forward = 0.0f;
+      if (!extent(
+              2 * columns, [&](int i) { return base + i; }, most_back,
+              most_forward))
+        return Span{HALF, HALF};
+      Span span{0, 0};
+      for (int cx = 0; cx < columns; ++cx) {
+        // Only cells within the pair's largest turns of a cut can join.
+        const int column = cx * downsample % HALF;
+        if (column - most_back >= MARGIN &&
+            column + downsample + most_forward <= HALF - 1 - MARGIN)
+          continue;
+        const int cx1 = cx + 1 < columns ? cx + 1 : 0;
+        float back = 0.0f, forward = 0.0f;
+        extent(
+            4,
+            [&](int i) {
+              return base + (i >> 1) * columns + (i & 1 ? cx1 : cx);
+            },
+            back, forward);
         for (int arm = 0; arm < W; arm += HALF) {
           const int first = cx * downsample - arm;
           if (first + downsample <= 0 || first >= HALF)
