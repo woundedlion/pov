@@ -19,7 +19,7 @@ case "$flavor" in
   fastmath)
     flags="-Os -g"
     float_flags="-ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1"
-    exclude='^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|pullback_capture_determinism|pov_sync|color_luts|gamut_lut|tangent_field_constants)$'
+    exclude="$GENERATED_TESTS|^unit_(3dmath|sdf|effects|shapeshifter_tiles|shader_chain|pullback_capture_determinism)$"
     skips_are_errors=0 ;;
   ndebug-death)
     flags="-O2 -g -DNDEBUG"
