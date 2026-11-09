@@ -47,8 +47,8 @@ namespace Pixel {
  * where equirect longitude offsets blow up as 1/sin(phi).
  * With temporal sampling on, each pixel reads its source at the time elapsed
  * between their lit columns (FeedbackColumnTime): lattice offsets carry the
- * elapsed scale of their displacement, cells whose sources stay within their
- * arm fade by the cell's elapsed time, and the rest resolve per pixel.
+ * elapsed scale of their displacement, cells whose sources all lie in one
+ * buffer fade by the cell's elapsed time, and the rest resolve per pixel.
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -840,9 +840,9 @@ private:
     const auto &poles = ctx.poles;
     const bool column_time = ctx.column_time;
     const int unit_level = column_time ? FadeTable::UNIT_LEVEL : 0;
-    // Cells crossing an arm cut, and forward-band cells, resolve per pixel.
-    const bool straddled_cells =
-        ColumnTime::HALF % downsample != 0 || ctx.pass == Pass::FORWARD;
+    // Cells crossing an arm cut resolve per pixel.
+    const bool straddled_cells = ColumnTime::HALF % downsample != 0;
+    const bool forward = ctx.pass == Pass::FORWARD;
     constexpr float LEVELS_PER_COLUMN =
         FadeTable::STEPS_PER_FRAME * ColumnTime::INVERSE_HALF;
     int field_y0 = ctx.field_y0;
@@ -893,6 +893,7 @@ private:
       const ColumnRuns row_runs = pass_runs(ctx, y);
       if (row_runs.count == 0)
         continue;
+      const bool behind = ctx.back && ctx.reach[y] >= 0;
       if (field_y1 < polar.north_rings || field_y0 >= polar.south_ring) {
         if constexpr (PAIR_PIXELS)
           composite_polar_row(ctx, row_runs, y, field_y0, field_y1, wy0, wy1,
@@ -911,6 +912,9 @@ private:
           bool cell_stale = true;
           // Whether a pixel of the cell may read past its arm's columns.
           bool cell_resolved = false;
+          // The buffer holding every source of an unresolved cell.
+          const ::Pixel *source = previous;
+          const auto *source_poles = &poles;
           int cell_level = unit_level;
           float leftx = 0.0f, slopex = 0.0f;
           float lefty = 0.0f, slopey = 0.0f;
@@ -945,14 +949,28 @@ private:
               const int room =
                   std::min(column, ColumnTime::HALF - 1 - downsample - column);
               cell_resolved = straddled_cells;
+              source = previous;
+              source_poles = &poles;
               if (reach > room * static_cast<int>(WARP_SCALE)) {
                 // Otherwise the first pixel's source and the last's, past
-                // the cell's far edge, bound the cell's.
+                // the cell's far edge, bound the cell's. A forward band reads
+                // the frame being drawn from the arm's last column on, and an
+                // arm's start the stale frame before its first.
                 const float first = column + fminf(leftx, leftx + slopex);
                 const float last =
                     column + downsample + fmaxf(leftx, leftx + slopex);
-                cell_resolved |=
-                    !(first >= 0.0f && last <= ColumnTime::HALF - 0.5f);
+                const bool within = first >= 0.0f &&
+                                    (forward ? last < ColumnTime::HALF - 1.0f
+                                             : last <= ColumnTime::HALF - 0.5f);
+                if (!within && forward && first >= ColumnTime::HALF) {
+                  source = current;
+                  source_poles = &ctx.current_poles;
+                } else if (!within && behind && last <= -1.0f) {
+                  source = ctx.back;
+                  source_poles = &ctx.back_poles;
+                } else {
+                  cell_resolved |= !within;
+                }
               }
               cell_level =
                   static_cast<int>(FadeTable::UNIT_LEVEL + 0.5f -
@@ -993,9 +1011,9 @@ private:
                 Sample s0, s1;
                 {
                   HS_PROFILE_DEEP(fb_comp_sample);
-                  s0 = sample_bilinear_prev(grid.field, previous, poles,
+                  s0 = sample_bilinear_prev(grid.field, source, *source_poles,
                                             x + lane_offset + ddx0, y + ddy0);
-                  s1 = sample_bilinear_prev(grid.field, previous, poles,
+                  s1 = sample_bilinear_prev(grid.field, source, *source_poles,
                                             x + stride + lane_offset + ddx1,
                                             y + ddy1);
                 }
@@ -1034,7 +1052,7 @@ private:
             Sample s;
             {
               HS_PROFILE_DEEP(fb_comp_sample);
-              s = sample_bilinear_prev(grid.field, previous, poles,
+              s = sample_bilinear_prev(grid.field, source, *source_poles,
                                        x + lane_offset + ddx, y + ddy);
             }
             ::Pixel p(0, 0, 0);

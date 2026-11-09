@@ -497,7 +497,7 @@ blending the lit times of a read between columns as its taps are blended.
 
 Lattice offsets carry the elapsed scale of their displacement, and the stored
 column offset is clamped to half a turn before its 16-bit store. Cells whose
-sources stay within their arm fade by the cell's elapsed time through
+sources all lie in one buffer fade by the cell's elapsed time through
 `Filter::Pixel::FeedbackFadeTable`, and the rest resolve per pixel. The flat
 selection reads every source one frame back.
 
