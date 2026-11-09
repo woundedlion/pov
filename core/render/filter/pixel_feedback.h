@@ -1463,10 +1463,9 @@ private:
       float back;    ///< Largest column offset toward the backward cut.
       float forward; ///< Largest column offset toward the forward cut.
     };
-    auto ring_extent = [&](int field_y) HS_FLASH_MEMBER {
+    auto ring_extent = [&](int field_y, int ring_y) HS_FLASH_MEMBER {
       Extent most{0.0f, 0.0f};
       if (field_y < polar.north_rings || field_y >= polar.south_ring) {
-        const int ring_y = grid.field.ring(field_y).y;
         const bool north = field_y < polar.north_rings;
         const float colatitude =
             SphereField::Geometry::row_to_phi(static_cast<float>(ring_y));
@@ -1496,27 +1495,31 @@ private:
     auto even_columns = [](float most) {
       return (static_cast<int>(ceilf(most)) + 2 + 1) & ~1;
     };
-    int lower_ring = -1, upper_ring = -1;
-    Extent lower{}, upper{};
+    // The rings at or before and at or after each row, walked down the chain.
+    int lower_index = 0;
+    auto lower_ring = grid.field.ring(0);
+    auto upper_ring = grid.field.next_ring(lower_ring);
+    Extent lower = ring_extent(0, lower_ring.y);
+    Extent upper =
+        upper_ring.y > lower_ring.y ? ring_extent(1, upper_ring.y) : lower;
     for (int y = 0; y < H; ++y) {
-      const int lower_at = grid.field.ring_index_at_or_before(y);
-      const int upper_at = grid.field.ring_index_at_or_after(y);
-      if (lower_at != lower_ring) {
-        lower = lower_at == upper_ring ? upper : ring_extent(lower_at);
-        lower_ring = lower_at;
+      while (upper_ring.y <= y && upper_ring.y > lower_ring.y) {
+        lower_ring = upper_ring;
+        lower = upper;
+        ++lower_index;
+        upper_ring = grid.field.next_ring(lower_ring);
+        if (upper_ring.y > lower_ring.y)
+          upper = ring_extent(lower_index + 1, upper_ring.y);
       }
-      if (upper_at != upper_ring) {
-        upper = upper_at == lower_ring ? lower : ring_extent(upper_at);
-        upper_ring = upper_at;
-      }
-      const int back_columns = even_columns(fmaxf(lower.back, upper.back));
+      const Extent &after = lower_ring.y == y ? lower : upper;
+      const int back_columns = even_columns(fmaxf(lower.back, after.back));
       reach[y] = back_columns > HALF / 2 ? int16_t(-1)
                                          : static_cast<int16_t>(back_columns);
       if (!ahead)
         continue;
       const bool pole_row = (SphereField::HAS_NORTH_POLE && y == 0) ||
                             (SphereField::HAS_SOUTH_POLE && y == H - 1);
-      const int band = even_columns(fmaxf(lower.forward, upper.forward));
+      const int band = even_columns(fmaxf(lower.forward, after.forward));
       const bool split =
           band < HALF / 2 && !pole_row && !filtered_infill(grid, y);
       const bool half_res = SphereField::latitude_sine(y) < half_res_sine;
