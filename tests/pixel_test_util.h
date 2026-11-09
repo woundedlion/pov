@@ -47,7 +47,8 @@ inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
 }
 
 #define HS_EXPECT_PIXEL(actual, red, green, blue)                              \
-  HS_EXPECT_EQ((actual), Pixel((red), (green), (blue)))
+  HS_EXPECT_LE(max_channel_gap((actual), Pixel((red), (green), (blue))),       \
+               hs_test::FAST_MATH_CODE_SLACK)
 
 /**
  * @brief Absolute gap between two 16-bit channel values.

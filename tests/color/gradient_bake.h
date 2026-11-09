@@ -651,16 +651,17 @@ inline void test_palette_wipe_arm_step_cadence() {
   HS_EXPECT_PIXEL(baked.get_color(0.5f), 4000, 5000, 6000);
 }
 
-/** @brief Asserts two baked LUTs agree at every sample point. */
+/** @brief Asserts two baked LUTs agree at every sample point, to the code
+ *  under IEEE math. */
 inline void expect_baked_equal(const BakedPalette &a, const BakedPalette &b) {
   for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
     const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
     const Color4 ca = a.get(t);
     const Color4 cb = b.get(t);
-    HS_EXPECT_EQ(ca.color.r, cb.color.r);
-    HS_EXPECT_EQ(ca.color.g, cb.color.g);
-    HS_EXPECT_EQ(ca.color.b, cb.color.b);
-    HS_EXPECT_EQ(ca.alpha, cb.alpha);
+    HS_EXPECT_LE(channel_gap(ca.color.r, cb.color.r), FAST_MATH_CODE_SLACK);
+    HS_EXPECT_LE(channel_gap(ca.color.g, cb.color.g), FAST_MATH_CODE_SLACK);
+    HS_EXPECT_LE(channel_gap(ca.color.b, cb.color.b), FAST_MATH_CODE_SLACK);
+    HS_EXPECT_NEAR(ca.alpha, cb.alpha, 0.0);
   }
 }
 

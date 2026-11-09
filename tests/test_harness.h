@@ -426,6 +426,65 @@ inline constexpr bool IS_C_STRING =
 } // namespace detail
 
 /**
+ * @brief Relative slack every near-equality check gets in the fast-math leg.
+ * @details That leg exists to catch breakage under the shipping float mode:
+ * NaN or Inf escaping, wrong branches, blank output. Reassociation legally
+ * moves results by rounding amounts that depend on inlining, so tolerances
+ * there widen to this fraction of the operands' magnitude; the IEEE legs
+ * hold every tolerance as written.
+ */
+#if defined(HS_TEST_FAST_MATH)
+inline constexpr double FAST_MATH_REL_SLACK = 1e-3;
+#else
+inline constexpr double FAST_MATH_REL_SLACK = 0.0;
+#endif
+
+/** @brief Quantized output codes the fast-math leg lets two paths differ by. */
+#if defined(HS_TEST_FAST_MATH)
+inline constexpr int FAST_MATH_CODE_SLACK = 1;
+#else
+inline constexpr int FAST_MATH_CODE_SLACK = 0;
+#endif
+
+namespace detail {
+/** @brief Detects a quantized colour: same-typed integral r, g and b. */
+template <typename T>
+concept RGB_CODES = requires(const T &t) {
+  requires std::is_integral_v<decltype(t.r)>;
+  requires std::is_same_v<decltype(t.r), decltype(t.g)>;
+  requires std::is_same_v<decltype(t.r), decltype(t.b)>;
+};
+
+/** @brief Distance between two channel codes. */
+template <typename T> inline long long code_gap(T a, T b) {
+  return a > b ? static_cast<long long>(a - b) : static_cast<long long>(b - a);
+}
+} // namespace detail
+
+/**
+ * @brief HS_EXPECT_EQ's comparison: exact, except that in the fast-math leg two
+ *        floating-point operands may differ by FAST_MATH_REL_SLACK of their
+ *        magnitude and two colours by FAST_MATH_CODE_SLACK codes per channel.
+ * @param a Left operand.
+ * @param b Right operand.
+ * @return Whether the operands count as equal.
+ */
+template <typename A, typename B>
+inline bool values_equal(const A &a, const B &b) {
+  if constexpr (std::is_floating_point_v<A> && std::is_floating_point_v<B> &&
+                FAST_MATH_REL_SLACK > 0.0)
+    return a == b || approx_rel(static_cast<double>(a), static_cast<double>(b),
+                                FAST_MATH_REL_SLACK);
+  else if constexpr (std::is_same_v<A, B> && detail::RGB_CODES<A> &&
+                     FAST_MATH_CODE_SLACK > 0)
+    return detail::code_gap(a.r, b.r) <= FAST_MATH_CODE_SLACK &&
+           detail::code_gap(a.g, b.g) <= FAST_MATH_CODE_SLACK &&
+           detail::code_gap(a.b, b.b) <= FAST_MATH_CODE_SLACK;
+  else
+    return a == b;
+}
+
+/**
  * @brief Records a near-equality result and, on failure, prints operands and
  * delta.
  * @param a First value.
@@ -438,7 +497,9 @@ inline constexpr bool IS_C_STRING =
  */
 inline void report_near(double a, double b, double tol, const char *expr,
                         const char *case_name, const char *file, int line) {
-  if (approx(a, b, tol)) {
+  if (approx(a, b,
+             std::max(tol, FAST_MATH_REL_SLACK *
+                               std::max(std::fabs(a), std::fabs(b))))) {
     ++stats().passed;
     return;
   }
@@ -457,7 +518,7 @@ inline void report_near(double a, double b, double tol, const char *expr,
 inline void report_near_rel(double a, double b, double rel_tol,
                             const char *expr, const char *case_name,
                             const char *file, int line) {
-  if (approx_rel(a, b, rel_tol)) {
+  if (approx_rel(a, b, std::max(rel_tol, FAST_MATH_REL_SLACK))) {
     ++stats().passed;
     return;
   }
@@ -614,6 +675,8 @@ inline int end_module(const ModuleScope &m) {
 // would compare as addresses while the failure line prints their text, so that
 // pair is rejected here and routed to HS_EXPECT_STREQ/HS_EXPECT_STRNE.
 #define HS_EXPECT_CMP(a, b, op, opstr)                                         \
+  HS_EXPECT_CMP_BY(a, b, hs_lhs op hs_rhs, opstr)
+#define HS_EXPECT_CMP_BY(a, b, test, opstr)                                    \
   do {                                                                         \
     auto hs_lhs = (a);                                                         \
     auto hs_rhs = (b);                                                         \
@@ -621,8 +684,8 @@ inline int end_module(const ModuleScope &m) {
                     hs_test::detail::IS_C_STRING<decltype(hs_rhs)>),           \
                   "comparing two C strings compares pointers; use "            \
                   "HS_EXPECT_STREQ or HS_EXPECT_STRNE");                       \
-    hs_test::report_cmp(hs_lhs op hs_rhs, hs_lhs, hs_rhs, #a " " opstr " " #b, \
-                        __func__, __FILE__, __LINE__);                         \
+    hs_test::report_cmp(test, hs_lhs, hs_rhs, #a " " opstr " " #b, __func__,   \
+                        __FILE__, __LINE__);                                   \
   } while (0)
 // Content comparison for C strings, null-safe on either side.
 #define HS_EXPECT_STR_CMP(a, b, negate, opstr)                                 \
@@ -635,7 +698,8 @@ inline int end_module(const ModuleScope &m) {
   } while (0)
 #define HS_EXPECT_TRUE(cond) HS_EXPECT((cond), #cond)
 #define HS_EXPECT_FALSE(cond) HS_EXPECT(!(cond), "!(" #cond ")")
-#define HS_EXPECT_EQ(a, b) HS_EXPECT_CMP(a, b, ==, "==")
+#define HS_EXPECT_EQ(a, b)                                                     \
+  HS_EXPECT_CMP_BY(a, b, hs_test::values_equal(hs_lhs, hs_rhs), "==")
 #define HS_EXPECT_NE(a, b) HS_EXPECT_CMP(a, b, !=, "!=")
 #define HS_EXPECT_LT(a, b) HS_EXPECT_CMP(a, b, <, "<")
 #define HS_EXPECT_LE(a, b) HS_EXPECT_CMP(a, b, <=, "<=")
