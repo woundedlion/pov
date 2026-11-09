@@ -267,7 +267,6 @@ private:
       return;
     }
     ctx.cover = scratch_arena_a.allocate_n<uint16_t>(2 * H * COVER_STRIDE);
-    ctx.covered = scratch_arena_a.allocate_n<bool>(H);
     ctx.kept = scratch_arena_a.allocate_n<::Pixel>(2 * H);
     open_coverage(ctx);
     held = &ctx;
@@ -430,8 +429,6 @@ private:
     /// Per row and arm, the pair sample REST keeps for the held column before
     /// a half-resolution band.
     ::Pixel *kept = nullptr;
-    /// Per row, whether a tap landed in its held columns.
-    bool *covered = nullptr;
     /// Shared pole values of the frame being drawn, set by finish().
     ::Pixel current_poles[SphereField::POLE_STORAGE_COUNT]{};
     /// Columns the current pass writes.
@@ -872,8 +869,7 @@ private:
           !band.x_clip.active && filtered_infill(grid, y);
       const bool defer_filter = filter_output && !opaque;
       // A forward band composites beneath its coverage.
-      const bool beneath = forward && ctx.covered[y];
-      ::Pixel *output = defer_filter || beneath ? filtered_row : current + row;
+      ::Pixel *output = defer_filter || forward ? filtered_row : current + row;
       // The pair expansion needs plain stores, and a longitude-filtered row
       // is reconstructed at its footprint already.
       const bool half_res = opaque && !filter_output &&
@@ -1110,7 +1106,7 @@ private:
         HS_PROFILE_DEEP(fb_comp_fill);
         expand_half_res_row<PAIR_PIXELS>(ctx, output, y, transform_pixel);
       }
-      if (beneath)
+      if (forward)
         cover_row(ctx, y, output);
       if (filter_output) {
         HS_PROFILE_DEEP(fb_comp_filter);
@@ -2080,7 +2076,6 @@ private:
     }
     ::Pixel &dst = held->current[row * W + column];
     uint16_t &transmittance = held->cover[cover_index(row, arm, column)];
-    held->covered[row] = true;
     if (alpha >= 1.0f) {
       dst = color;
       transmittance = 0;
@@ -2116,7 +2111,6 @@ private:
     constexpr int HALF = ColumnTime::HALF;
     for (int y = 0; y < H; ++y) {
       const Ahead ahead = ctx.ahead[y];
-      ctx.covered[y] = false;
       if (ahead.held_from >= HALF)
         continue;
       const bool half_res = ahead.held_from < HALF - ahead.band;
@@ -2232,7 +2226,7 @@ public:
     return sizeof(FlushContext) + W * sizeof(::Pixel) +
            H * (sizeof(int16_t) + sizeof(Ahead)) +
            2 * H * COVER_STRIDE * sizeof(uint16_t) + 2 * H * sizeof(::Pixel) +
-           H * sizeof(bool) + PAD + 6 * PAD;
+           6 * PAD;
   }
 };
 
