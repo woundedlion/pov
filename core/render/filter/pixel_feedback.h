@@ -1198,8 +1198,6 @@ private:
     const bool black_skips_color = ctx.black_skips_color;
     const auto blend = blend_alpha(ctx.alpha);
     const bool plain_store = ctx.alpha >= 1.0f || defer_filter;
-    const bool behind = ctx.back && ctx.reach[y] >= 0;
-    const bool ahead = ctx.pass == Pass::FORWARD;
     for (int r = 0; r < runs.count; ++r) {
       const int xs = runs.items[r].begin;
       const int xe = runs.items[r].end;
@@ -1226,8 +1224,7 @@ private:
           arm = ColumnTime::arm_start(x);
           const float source =
               target + unwrap_near(at.x - target, 0.0f, static_cast<float>(W));
-          across = (behind && source < arm) ||
-                   (ahead && source >= arm + ColumnTime::HALF - 1);
+          across = across_cut(ctx, y, arm, source);
           if (across) {
             read = ColumnTime::read_across(target, source, at.y);
           } else {
@@ -1239,10 +1236,7 @@ private:
           }
           level = FadeTable::level(read.elapsed);
         }
-        const Sample s = across
-                             ? sample_across(ctx, arm, read.x, read.y)
-                             : sample_bilinear_prev(grid.field, ctx.previous,
-                                                    ctx.poles, read.x, read.y);
+        const Sample s = sample_read(ctx, arm, across, read.x, read.y);
         ::Pixel p(0, 0, 0);
         if (!(skip_near_black(s, black_skips_color)))
           p = transform_pixel(s.r, s.g, s.b, level);
@@ -1330,17 +1324,16 @@ private:
     const float inverse_downsample = 1.0f / ctx.grid.downsample;
     const float row = static_cast<float>(y);
     const uint16_t alpha = frac_to_q16(ctx.alpha);
-    const bool behind = ctx.back && ctx.reach[y] >= 0;
-    const bool ahead = ctx.pass == Pass::FORWARD;
-    auto resolve = [&](int column_x, int column_sub) HS_HOT_INLINE {
+    auto resolve = [&](int column_x, int column_sub,
+                       bool &across) HS_HOT_INLINE {
       const float fx = (column_sub + lane_offset) * inverse_downsample;
       const float ddx = cell.left_x + cell.slope_x * fx;
       const float ddy = cell.left_y + cell.slope_y * fx;
       const float target = column_x + lane_offset;
       const int arm = ColumnTime::arm_start(column_x);
       const float source = target + ddx;
-      if ((behind && source < arm) ||
-          (ahead && source >= arm + ColumnTime::HALF - 1))
+      across = across_cut(ctx, y, arm, source);
+      if (across)
         return ColumnTime::read_across(target, source, row + ddy);
       const float column = ColumnTime::arm_column(target + ddx, arm);
       return column < ColumnTime::HALF - 0.5f
@@ -1366,15 +1359,11 @@ private:
       dst = plain_store ? p : dst.lerp16(p, alpha);
     };
     while (x < end) {
-      const auto read0 = resolve(x, sub);
+      bool across = false;
+      const auto read0 = resolve(x, sub, across);
       const int level0 = FadeTable::level(read0.elapsed);
-      const int arm = ColumnTime::arm_start(x);
-      const bool across = (behind && read0.x < arm) ||
-                          (ahead && read0.x >= arm + ColumnTime::HALF - 1);
-      const Sample s0 = across
-                            ? sample_across(ctx, arm, read0.x, read0.y)
-                            : sample_bilinear_prev(ctx.grid.field, ctx.previous,
-                                                   ctx.poles, read0.x, read0.y);
+      const Sample s0 =
+          sample_read(ctx, ColumnTime::arm_start(x), across, read0.x, read0.y);
       ::Pixel p(0, 0, 0);
       if (!black(s0))
         p = transform(s0, level0);
@@ -1866,46 +1855,57 @@ private:
   };
 
   /**
-   * @brief Samples a read across one of its target arm's cuts.
-   * @param ctx Frame context with the buffer past the cut: the stale frame
-   *        behind the backward cut, or the frame being drawn past the forward
-   *        cut in the forward pass.
+   * @brief Whether a read lies across one of its target arm's cuts in a
+   *        buffer the current pass holds.
+   * @param ctx Frame context, its pass selected.
+   * @param y Target row.
    * @param arm First column of the target's arm.
-   * @param x Source column, unwrapped: below @p arm, or at least a column
-   *        short of the arm's end.
-   * @param y Source row.
-   * @return The sample, its taps on each side of the cut from the buffer
-   *         holding them.
+   * @param x Source column, unwrapped near the target.
+   * @return True behind the backward cut on a row whose reach the stale frame
+   *         serves, and from the arm's last column on in the forward pass.
    */
-  HS_FLASH_MEMBER Sample sample_across(const FlushContext &ctx, int arm,
-                                       float x, float y) const {
-    if (x < arm)
-      return sample_astride(ctx.grid.field, ctx.back, ctx.back_poles,
-                            ctx.previous, ctx.poles, arm, x, y);
-    return sample_astride(ctx.grid.field, ctx.previous, ctx.poles, ctx.current,
-                          ctx.current_poles, arm + ColumnTime::HALF, x, y);
+  static HS_HOT_INLINE bool across_cut(const FlushContext &ctx, int y, int arm,
+                                       float x) {
+    return (ctx.back && ctx.reach[y] >= 0 && x < arm) ||
+           (ctx.pass == Pass::FORWARD && x >= arm + ColumnTime::HALF - 1);
   }
 
   /**
-   * @brief Samples two buffers that meet at a column.
-   * @param field Spherical topology and interpolation policy.
-   * @param low Buffer holding the columns below @p cut.
-   * @param low_poles Shared pole values of @p low.
-   * @param high Buffer holding @p cut and the columns past it.
-   * @param high_poles Shared pole values of @p high.
-   * @param cut First column @p high holds, unwrapped.
-   * @param x Source column, unwrapped.
+   * @brief Samples a read from the buffers holding its taps.
+   * @param ctx Frame context.
+   * @param arm First column of the target's arm.
+   * @param across Whether the read lies across a cut (across_cut()).
+   * @param x Source column, unwrapped near the target.
    * @param y Source row.
-   * @return The bilinear sample; between the columns beside the cut, each
-   *         buffer's tap blended by its weight.
+   * @return The bilinear sample.
    */
-  HS_FLASH_MEMBER Sample
-  sample_astride(const SphereField &field, const ::Pixel *low,
-                 const ::Pixel (&low_poles)[SphereField::POLE_STORAGE_COUNT],
-                 const ::Pixel *high,
-                 const ::Pixel (&high_poles)[SphereField::POLE_STORAGE_COUNT],
-                 int cut, float x, float y) const {
-    const float first = static_cast<float>(cut);
+  HS_HOT_INLINE Sample sample_read(const FlushContext &ctx, int arm,
+                                   bool across, float x, float y) const {
+    return across ? sample_across(ctx, arm, x, y)
+                  : sample_bilinear_prev(ctx.grid.field, ctx.previous,
+                                         ctx.poles, x, y);
+  }
+
+  /**
+   * @brief Samples a read across one of its target arm's cuts.
+   * @param ctx Frame context.
+   * @param arm First column of the target's arm.
+   * @param x Source column, unwrapped near the target.
+   * @param y Source row.
+   * @return The bilinear sample, the taps on each side of the cut from the
+   *         buffer holding that side: the stale frame behind the arm, the
+   *         frame being drawn past it, the previous frame within it.
+   */
+  HS_FLASH_MEMBER Sample sample_across(const FlushContext &ctx, int arm,
+                                       float x, float y) const {
+    const SphereField &field = ctx.grid.field;
+    const bool behind = x < arm;
+    const ::Pixel *low = behind ? ctx.back : ctx.previous;
+    const ::Pixel *high = behind ? ctx.previous : ctx.current;
+    const auto &low_poles = behind ? ctx.back_poles : ctx.poles;
+    const auto &high_poles = behind ? ctx.poles : ctx.current_poles;
+    const float first =
+        static_cast<float>(behind ? arm : arm + ColumnTime::HALF);
     if (x >= first)
       return sample_bilinear_prev(field, high, high_poles, x, y);
     if (x <= first - 1.0f)
