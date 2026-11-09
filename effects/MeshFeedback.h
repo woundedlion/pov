@@ -188,7 +188,7 @@ public:
    */
   HS_FLASH_MEMBER void init() override {
     begin_choreography();
-    ArenaSplit{SCRATCH_A_BYTES, DEFAULT_SCRATCH_B_SIZE}.configure();
+    arena_split().configure();
 
     // Configure the noise type before apply_params() calls sync_noise().
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -360,6 +360,9 @@ private:
       (Filter::Pixel::Feedback<W, H>::split_scratch_bytes(HELD_TAPS) +
        DEFAULT_SCRATCH_A_SIZE + alignof(std::max_align_t) - 1) &
       ~(alignof(std::max_align_t) - 1);
+  /** @brief The arena split init() configures. */
+  static constexpr ArenaSplit ARENA_SPLIT{SCRATCH_A_BYTES,
+                                          DEFAULT_SCRATCH_B_SIZE};
 
   static constexpr size_t SCRATCH_A_PEAK_BYTES =
       Plot::Mesh::EDGE_MAX_POINTS * sizeof(Fragment) +
@@ -381,13 +384,17 @@ private:
                         Filter::World::Orient::storage_bytes(W) +
                         gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
                         MESH_STORAGE_BYTES <=
-                    ArenaSplit{SCRATCH_A_BYTES, DEFAULT_SCRATCH_B_SIZE}
-                        .device_persistent(),
+                    ARENA_SPLIT.device_persistent(),
                 "MeshFeedback persistent storage exceeds the "
                 "persistent partition; retune the feedback downsample, "
                 "coarsen the gamut grid, or carve arenas");
 
 public:
+  /** @brief The arena split MeshFeedback configures: scratch A carries the
+   *  held split frame.
+   * @return Scratch A and B capacities, bytes. */
+  static constexpr ArenaSplit arena_split() { return ARENA_SPLIT; }
+
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {

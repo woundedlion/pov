@@ -41,10 +41,11 @@ inline void check_feedback_device_budget(Inspect inspect = {}) {
               persistent_arena.get_high_water_mark(),
               scratch_arena_a.get_high_water_mark(),
               scratch_arena_b.get_high_water_mark());
+  constexpr ArenaSplit SPLIT = MeshFeedback<W, H>::arena_split();
   HS_EXPECT_LE(persistent_arena.get_high_water_mark(),
-               DEVICE_PERSISTENT_BUDGET);
-  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), DEFAULT_SCRATCH_A_SIZE);
-  HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(), DEFAULT_SCRATCH_B_SIZE);
+               SPLIT.device_persistent());
+  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), SPLIT.scratch_a);
+  HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(), SPLIT.scratch_b);
 }
 
 /**
