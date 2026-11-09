@@ -60,11 +60,10 @@ constexpr float STAR_RECURRENCE_DRIFT =
 inline void test_star_sample_radius_trig_parity() {
 #if defined(HS_TEST_FAST_MATH)
   constexpr float ARC_STEP_TOL = 4e-5f;
-  constexpr double ARC_TOTAL_REL_TOL = 6e-4;
 #else
   constexpr float ARC_STEP_TOL = 1e-5f;
-  constexpr double ARC_TOTAL_REL_TOL = 4e-6;
 #endif
+  constexpr double ARC_TOTAL_REL_TOL = 4e-6;
   ScratchScope sc(plot_arena());
   const math::Basis b = math::make_basis(
       math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);

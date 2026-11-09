@@ -1338,15 +1338,6 @@ inline void test_pullback_temporal_deferred_in_place() {
 /** @brief A fused final layer matches the canonical temporal endpoint pipeline. */
 inline void test_pullback_fused_modulation_endpoints() {
   using namespace Pullback;
-  const auto expect_alpha = [](float actual, float expected) {
-#if HS_TEST_FAST_MATH
-    const float SCALE = std::max(fabsf(actual), fabsf(expected));
-    HS_EXPECT_NEAR(actual, expected,
-                   4.0f * std::numeric_limits<float>::epsilon() * SCALE);
-#else
-    HS_EXPECT_EQ(actual, expected);
-#endif
-  };
   TemporalPalettes<> palettes;
   palettes.bake(CoordinatePalette{0.2f},
                 ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
@@ -1426,24 +1417,24 @@ inline void test_pullback_fused_modulation_endpoints() {
             const auto actual = Policy::apply_fused_modulation(
                 field, frame, prepared, mod, fraction);
             HS_EXPECT_EQ(actual.color.color, expected.color.color);
-            expect_alpha(actual.color.alpha, expected.color.alpha);
+            HS_EXPECT_EQ(actual.color.alpha, expected.color.alpha);
             HS_EXPECT_EQ(actual.pending_hue, expected.pending_hue);
             HS_EXPECT_EQ(actual.pending_lift, expected.pending_lift);
             HS_EXPECT_EQ(actual.brightness_gain, expected.brightness_gain);
             HS_EXPECT_TRUE(actual.hue_rotation == expected.hue_rotation);
             const auto x = Color::finish(actual), y = Color::finish(expected);
             HS_EXPECT_EQ(x.color, y.color);
-            expect_alpha(x.alpha, y.alpha);
+            HS_EXPECT_EQ(x.alpha, y.alpha);
             const auto DIRECT = Policy::shade_fused_modulation(
                 field, frame, prepared, mod, fraction);
             HS_EXPECT_EQ(DIRECT.color, y.color);
-            expect_alpha(DIRECT.alpha, y.alpha);
+            HS_EXPECT_EQ(DIRECT.alpha, y.alpha);
             const auto PIXEL =
                 Actual::shade(field.sphere, Actual::prepare(frame));
             const auto REFERENCE =
                 Canonical::shade(field.sphere, Canonical::prepare(frame));
             HS_EXPECT_EQ(PIXEL.color, REFERENCE.color);
-            expect_alpha(PIXEL.alpha, REFERENCE.alpha);
+            HS_EXPECT_EQ(PIXEL.alpha, REFERENCE.alpha);
           }
 }
 

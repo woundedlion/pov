@@ -990,26 +990,12 @@ inline void test_mobius_gnomonic_alias_kernel() {
       math::gnomonic_mobius_transform(input, transformer.active_params(0));
   const auto wrong =
       math::mobius_transform(input, transformer.active_params(0));
-#if defined(HS_TEST_FAST_MATH)
-  const auto adjacent = [](float a, float b) {
-    return std::isfinite(a) && std::isfinite(b) &&
-           (a == b || a == std::nextafter(b, a));
-  };
-  HS_EXPECT_TRUE(finite_vec(actual));
-  HS_EXPECT_TRUE(finite_vec(expected));
-  HS_EXPECT_NEAR(actual.x, expected.x,
-                 std::abs(std::nextafter(expected.x, actual.x) - expected.x));
-  HS_EXPECT_NEAR(actual.y, expected.y,
-                 std::abs(std::nextafter(expected.y, actual.y) - expected.y));
-  HS_EXPECT_NEAR(actual.z, expected.z,
-                 std::abs(std::nextafter(expected.z, actual.z) - expected.z));
-  HS_EXPECT_FALSE(adjacent(wrong.x, expected.x) &&
-                  adjacent(wrong.y, expected.y) &&
-                  adjacent(wrong.z, expected.z));
-#else
-  HS_EXPECT_TRUE(vec_identical(actual, expected));
-  HS_EXPECT_FALSE(vec_identical(wrong, expected));
-#endif
+  HS_EXPECT_EQ(actual.x, expected.x);
+  HS_EXPECT_EQ(actual.y, expected.y);
+  HS_EXPECT_EQ(actual.z, expected.z);
+  HS_EXPECT_FALSE(values_equal(wrong.x, expected.x) &&
+                  values_equal(wrong.y, expected.y) &&
+                  values_equal(wrong.z, expected.z));
 }
 
 // ============================================================================

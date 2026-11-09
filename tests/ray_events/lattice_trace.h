@@ -374,13 +374,8 @@ inline void test_octet_prepared_projection() {
                       ? Trace::shade<true>(DIRECTION, prepared)
                       : Trace::shade<false>(DIRECTION, prepared);
               HS_EXPECT_EQ(SHADED.status, traced.status);
-              // Reassociation and the canonical 4D sum can cross one pixel quantum.
-#if defined(HS_TEST_FAST_MATH)
-              constexpr bool ALLOW_QUANTIZATION = true;
-#else
-              const bool ALLOW_QUANTIZATION = domain == Domain::SLICE_4D;
-#endif
-              if (ALLOW_QUANTIZATION) {
+              // The canonical 4D sum can cross one pixel quantum.
+              if (domain == Domain::SLICE_4D) {
                 HS_EXPECT_NEAR(SHADED.color.r, traced.color.r, 1);
                 HS_EXPECT_NEAR(SHADED.color.g, traced.color.g, 1);
                 HS_EXPECT_NEAR(SHADED.color.b, traced.color.b, 1);

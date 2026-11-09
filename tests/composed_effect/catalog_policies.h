@@ -335,14 +335,9 @@ inline void check_affine_lattice_parity() {
         Policy::apply(input.coords, input.provenance, frame, actual_prepared);
     const auto expected =
         Op::WarpAffineV4::run(input, {}, expected_params, expected_prepared);
-#if defined(HS_TEST_FAST_MATH)
-    constexpr float TOLERANCE = 5e-7f;
-#else
-    constexpr float TOLERANCE = 0.0f;
-#endif
-    HS_EXPECT_NEAR(actual.coords.re, expected.coords.re, TOLERANCE);
-    HS_EXPECT_NEAR(actual.coords.im, expected.coords.im, TOLERANCE);
-    HS_EXPECT_NEAR(actual.path_length, expected.path_length, TOLERANCE);
+    HS_EXPECT_EQ(actual.coords.re, expected.coords.re);
+    HS_EXPECT_EQ(actual.coords.im, expected.coords.im);
+    HS_EXPECT_EQ(actual.path_length, expected.path_length);
     HS_EXPECT_LE(actual.path_length, MAX_PATH_LENGTH);
   }
 }

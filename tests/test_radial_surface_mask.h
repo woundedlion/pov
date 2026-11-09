@@ -411,25 +411,9 @@ inline void test_radial_surface_area_footprint_first_interval() {
         const auto reference = area(surface, point, theta, radius, footprint,
                                     zero_bound, shade, nullptr);
         HS_EXPECT_EQ(bounded.r > 0, reference.r > 0);
-#if HS_TEST_FAST_MATH
-        const auto expect_channel = [](float actual, float expected) {
-          constexpr float UNIT = std::numeric_limits<float>::epsilon() * .5f;
-          constexpr float ROUNDS = 8;
-          constexpr float GAMMA = ROUNDS * UNIT / (1 - ROUNDS * UNIT);
-          const float SCALE = std::max(fabsf(actual), fabsf(expected));
-          HS_EXPECT_NEAR(actual, expected, 2 * GAMMA * SCALE);
-        };
-        expect_channel(bounded.r, reference.r);
-        expect_channel(bounded.g, reference.g);
-        expect_channel(bounded.b, reference.b);
-#else
-        HS_EXPECT_EQ(std::bit_cast<uint32_t>(bounded.r),
-                     std::bit_cast<uint32_t>(reference.r));
-        HS_EXPECT_EQ(std::bit_cast<uint32_t>(bounded.g),
-                     std::bit_cast<uint32_t>(reference.g));
-        HS_EXPECT_EQ(std::bit_cast<uint32_t>(bounded.b),
-                     std::bit_cast<uint32_t>(reference.b));
-#endif
+        HS_EXPECT_EQ(bounded.r, reference.r);
+        HS_EXPECT_EQ(bounded.g, reference.g);
+        HS_EXPECT_EQ(bounded.b, reference.b);
         positive += reference.r > 0;
       }
   }
