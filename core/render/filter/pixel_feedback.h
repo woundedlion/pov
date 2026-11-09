@@ -1462,79 +1462,133 @@ private:
    * @param ahead Receives, per row, the forward band of a split frame, or
    *        null for an unsplit one. Pole rows, longitude-filtered infill rows
    *        and rows whose band reaches a quarter turn composite unsplit.
-   * @details A cell's pixels read no further than its nodes' extreme column
-   * offsets; a polar cell's cap offset of length d at cap angle p turns its
-   * source by at most asin(d / p) either way.
+   * @details Each cell bounds its own pixels' sources, so a row's reach and
+   * band cover the columns whose cells may read across a cut. A cell's pixels
+   * read no further than its nodes' extreme column offsets. A polar lane's
+   * source turns from its column by the angle its cap offset's tangential
+   * component subtends beyond the lane's cap angle plus the radial component,
+   * both bounded by the cell's nodes.
    */
   HS_FLASH_MEMBER void measure_reach(const CoarseGrid &grid,
                                      const WarpField &warp, float half_res_sine,
                                      int16_t *reach, Ahead *ahead) const {
     constexpr int HALF = ColumnTime::HALF;
+    constexpr float COLUMNS_PER_RADIAN = W / (2.0f * math::PI_F);
+    // Columns between a cell's bound and a cut.
+    constexpr float MARGIN = 1.0f;
     const PolarRings &polar = grid.polar;
     const int columns = grid.columns;
-    struct Extent {
-      float back;    ///< Largest column offset toward the backward cut.
-      float forward; ///< Largest column offset toward the forward cut.
+    const int downsample = grid.downsample;
+    struct Span {
+      int back;    ///< Columns from each arm's first that may read behind it.
+      int forward; ///< Columns before each arm's end that may read past it.
     };
-    auto ring_extent = [&](int field_y, int ring_y) HS_FLASH_MEMBER {
-      Extent most{0.0f, 0.0f};
-      if (field_y < polar.north_rings || field_y >= polar.south_ring) {
-        const bool north = field_y < polar.north_rings;
-        const float colatitude =
-            SphereField::Geometry::row_to_phi(static_cast<float>(ring_y));
-        const float cap_angle = north ? colatitude : math::PI_F - colatitude;
-        const CapOffset *caps = warp.cell_caps + polar.row(field_y) * columns;
-        float length = 0.0f;
-        for (int cx = 0; cx < columns; ++cx) {
-          const CapCell cell =
-              CapPlane::decode_cell(caps, caps, cx, cx, 1.0f, 0.0f);
-          length = fmaxf(length, sqrtf(cell.left.u * cell.left.u +
-                                       cell.left.v * cell.left.v));
-        }
-        const float turn =
-            cap_angle <= 0.0f || length >= cap_angle
-                ? static_cast<float>(HALF)
-                : asinf(length / cap_angle) * W / (2.0f * math::PI_F);
-        return Extent{turn, turn};
+    // Folds a cell's largest backward and forward column offsets into the
+    // span of the row pair it belongs to.
+    // A whole cell joins the span, bounded as the composite bounds it: from
+    // its first column less its backward offset to past its last column plus
+    // its forward offset.
+    auto fold = [&](Span &span, int cx, float back, float forward) {
+      for (int arm = 0; arm < W; arm += HALF) {
+        const int first = cx * downsample - arm;
+        if (first + downsample <= 0 || first >= HALF)
+          continue;
+        if (first - back < MARGIN)
+          span.back = std::max(span.back, first + downsample);
+        if (first + downsample + forward > HALF - 1 - MARGIN)
+          span.forward = std::max(span.forward, HALF - first);
       }
-      const int16_t *row = warp.x_offsets + field_y * columns;
+    };
+    // Rows interpolating cartesian rings k and k + 1.
+    auto cartesian_span = [&](int k) HS_FLASH_MEMBER {
+      Span span{0, 0};
+      const int16_t *row0 = warp.x_offsets + k * columns;
+      const int16_t *row1 = row0 + columns;
       for (int cx = 0; cx < columns; ++cx) {
-        const float offset = static_cast<float>(row[cx]) / WARP_SCALE;
-        most.back = fmaxf(most.back, -offset);
-        most.forward = fmaxf(most.forward, offset);
+        const int cx1 = cx + 1 < columns ? cx + 1 : 0;
+        const int low = std::min(std::min(row0[cx], row0[cx1]),
+                                 std::min(row1[cx], row1[cx1]));
+        const int high = std::max(std::max(row0[cx], row0[cx1]),
+                                  std::max(row1[cx], row1[cx1]));
+        fold(span, cx, fmaxf(0.0f, -low / WARP_SCALE),
+             fmaxf(0.0f, high / WARP_SCALE));
       }
-      return most;
+      return span;
     };
-    auto even_columns = [](float most) {
-      return (static_cast<int>(ceilf(most)) + 2 + 1) & ~1;
+    // Rows interpolating polar rings k and k + 1, nearest the pole at cap
+    // angle `near`.
+    auto polar_span = [&](int k, float near) HS_FLASH_MEMBER {
+      constexpr float INVERSE_CAP = 1.0f / CapPlane::CAP_SCALE;
+      // Farthest a lane's column lies from its cell's centre column, radians.
+      const float spread = (downsample / 2 + 1) / COLUMNS_PER_RADIAN;
+      const CapOffset *caps0 = warp.cell_caps + polar.row(k) * columns;
+      const CapOffset *caps1 = warp.cell_caps + polar.row(k + 1) * columns;
+      const float *cosine = math::TrigLUT<W, H>::cos_theta_data();
+      const float *sine = math::TrigLUT<W, H>::sin_theta.data();
+      Span span{0, 0};
+      for (int cx = 0; cx < columns; ++cx) {
+        const int cx1 = cx + 1 < columns ? cx + 1 : 0;
+        const int centre = cx * downsample + downsample / 2;
+        const float c = cosine[centre], sn = sine[centre];
+        const CapOffset nodes[4] = {caps0[cx], caps0[cx1], caps1[cx],
+                                    caps1[cx1]};
+        float tangent_max = -1e9f, tangent_min = 1e9f, radial_min = 1e9f;
+        float length_sq = 0.0f;
+        for (const CapOffset &node : nodes) {
+          const float u = node.u * INVERSE_CAP, v = node.v * INVERSE_CAP;
+          const float tangent = v * c - u * sn;
+          const float radial = u * c + v * sn;
+          tangent_max = fmaxf(tangent_max, tangent);
+          tangent_min = fminf(tangent_min, tangent);
+          radial_min = fminf(radial_min, radial);
+          length_sq = fmaxf(length_sq, u * u + v * v);
+        }
+        // A lane's offset blends the nodes; turning its tangent across the
+        // cell moves each component by at most the offset's length times the
+        // angle turned.
+        const float slack = sqrtf(length_sq) * spread;
+        const float along = near + radial_min - slack;
+        if (!(along > 0.0f))
+          return Span{HALF, HALF};
+        // The turn's tangent bounds the turn.
+        const float columns_per_along = COLUMNS_PER_RADIAN / along;
+        fold(span, cx, fmaxf(0.0f, slack - tangent_min) * columns_per_along,
+             fmaxf(0.0f, tangent_max + slack) * columns_per_along);
+      }
+      return span;
     };
-    // The rings at or before and at or after each row, walked down the chain.
-    int lower_index = 0;
+    // The composite interpolates rows in (y_k, y_(k+1)], and row 0, between
+    // rings k and k + 1.
+    auto pair_span = [&](int k, int y0, int y1) HS_FLASH_MEMBER {
+      if (k + 1 < polar.north_rings)
+        return polar_span(
+            k, SphereField::Geometry::row_to_phi(static_cast<float>(y0)));
+      if (k >= polar.south_ring)
+        return polar_span(k, math::PI_F - SphereField::Geometry::row_to_phi(
+                                              static_cast<float>(y1)));
+      return cartesian_span(k);
+    };
+    auto even = [](int span) { return (span + 1) & ~1; };
+    int pair_index = 0;
     auto lower_ring = grid.field.ring(0);
     auto upper_ring = grid.field.next_ring(lower_ring);
-    Extent lower = ring_extent(0, lower_ring.y);
-    Extent upper =
-        upper_ring.y > lower_ring.y ? ring_extent(1, upper_ring.y) : lower;
+    Span pair = pair_span(0, lower_ring.y, upper_ring.y);
     for (int y = 0; y < H; ++y) {
-      while (upper_ring.y <= y && upper_ring.y > lower_ring.y) {
+      if (y > upper_ring.y && upper_ring.y < H - 1) {
         lower_ring = upper_ring;
-        lower = upper;
-        ++lower_index;
         upper_ring = grid.field.next_ring(lower_ring);
-        if (upper_ring.y > lower_ring.y)
-          upper = ring_extent(lower_index + 1, upper_ring.y);
+        pair = pair_span(++pair_index, lower_ring.y, upper_ring.y);
       }
-      const Extent &after = lower_ring.y == y ? lower : upper;
-      const int back_columns = even_columns(fmaxf(lower.back, after.back));
+      const int back_columns = even(pair.back);
       reach[y] = back_columns > HALF / 2 ? int16_t(-1)
                                          : static_cast<int16_t>(back_columns);
       if (!ahead)
         continue;
       const bool pole_row = (SphereField::HAS_NORTH_POLE && y == 0) ||
                             (SphereField::HAS_SOUTH_POLE && y == H - 1);
-      const int band = even_columns(fmaxf(lower.forward, after.forward));
+      const int band = even(pair.forward);
       const bool split =
-          band < HALF / 2 && !pole_row && !filtered_infill(grid, y);
+          band > 0 && band < HALF / 2 && !pole_row && !filtered_infill(grid, y);
       const bool half_res = SphereField::latitude_sine(y) < half_res_sine;
       ahead[y] = split ? Ahead{static_cast<int16_t>(band),
                                static_cast<int16_t>(HALF - band - half_res)}
