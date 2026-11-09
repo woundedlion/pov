@@ -191,6 +191,65 @@ inline void case_feedback_uncached_scratch_budget() {
   pipe.begin_frame(canvas, 1.0f);
 }
 
+/** @brief Space transform reading each direction's source a column west.
+ *  @param v Target direction.
+ *  @return Source direction. */
+inline math::Vector death_feedback_turn(const math::Vector &v,
+                                        const ::Feedback::Style &) {
+  return math::rotate(
+      v, math::make_rotation(math::Y_AXIS, -2.0f * math::PI_F / 32.0f));
+}
+
+/** @brief A lit 32x16 feedback pipeline whose frames split at column time. */
+struct DeathSplitFeedback {
+  using Terminal = Filter::Pixel::Feedback<32, 16>;
+  using Frames = Pipeline<32, 16, Terminal>;
+  ::Feedback::Style style = [] {
+    ::Feedback::Style s{};
+    s.space_fn = &death_feedback_turn;
+    return s;
+  }();
+  DeathEffect fx{32, 16, pipeline_config<Frames>()};
+  Frames pipe{Terminal(style)};
+
+  /** @brief Turns on column time and lights two frames of history. */
+  DeathSplitFeedback() {
+    Spacetime::set_flat_surface(false);
+    for (int frame = 0; frame < 2; ++frame) {
+      {
+        Canvas c(fx);
+        for (int y = 0; y < 16; ++y)
+          for (int x = 0; x < 32; ++x)
+            c(x, y) = Pixel(30000, 30000, 30000);
+      }
+      fx.advance_display();
+    }
+  }
+};
+
+/** @brief Death case: a frame flushed while a split frame awaits its finish
+ *  must trap. */
+inline void case_feedback_split_frame_unfinished() {
+  DeathSplitFeedback split;
+  {
+    Canvas c(split.fx);
+    (void)split.pipe.begin_split_frame(c, 1.0f, 64);
+  }
+  split.fx.advance_display();
+  Canvas c(split.fx);
+  (void)split.pipe.begin_frame(c, 1.0f);
+}
+
+/** @brief Death case: a split frame holding more taps than its capacity must
+ *  trap. */
+inline void case_feedback_split_frame_tap_capacity() {
+  DeathSplitFeedback split;
+  Canvas c(split.fx);
+  auto &frame = split.pipe.begin_split_frame(c, 1.0f, opaque(1));
+  for (int i = 0; i < 2; ++i)
+    frame.plot(c, 15, 8, Pixel(1, 1, 1), 0.0f, 1.0f);
+}
+
 /**
  * @brief Death case: retuning a screen trail to a non-positive lifetime must trap.
  * @details flush()'s fade progress divides by the lifetime.

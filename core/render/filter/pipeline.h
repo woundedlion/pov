@@ -77,7 +77,8 @@ template <int H> __attribute__((always_inline)) inline int round_row(float y) {
  * `terminal_replaces`: a terminal that overwrites the whole frame; no
  * history-bearing stage may precede it, and the effect must call
  * `Pipeline::begin_frame()` before the frame's plot() calls (at alpha >= 1 the
- * terminal pass overwrites every pixel).
+ * terminal pass overwrites every pixel), or `Pipeline::begin_split_frame()`
+ * before them and `Pipeline::finish_frame()` after.
  * `emits_nonunit_world` must not precede `requires_unit_world_input`;
  * `emits_pixel_centers` must not precede `requires_subpixel_input`.
  * `crosses_segments`: output can move between segment bands, forcing a
@@ -204,8 +205,9 @@ inline constexpr bool has_cull_edge =
  *         Filter::PipelineFoldSurface.
  * @param base Config carrying the effect's own flags, including any full_frame,
  *        reads_outside_band, margin or required_margin requirements.
- * @return @p base with full_frame, reads_outside_band, margin and
- *         required_margin requirements combined in; other fields are untouched.
+ * @return @p base with full_frame, reads_outside_band, replaces_frame, margin
+ *         and required_margin requirements combined in; other fields are
+ *         untouched.
  * @details Each field is a minimum requirement, so the fold only widens @p base.
  */
 template <Filter::PipelineFoldSurface PipelineT>
@@ -213,6 +215,7 @@ constexpr EffectConfig pipeline_config(EffectConfig base = {}) {
   base.full_frame = base.full_frame || PipelineT::any_crosses_segments;
   base.reads_outside_band =
       base.reads_outside_band || PipelineT::any_reads_outside_band;
+  base.replaces_frame = base.replaces_frame || PipelineT::terminal_replaces;
   base.margin = std::max(base.margin, PipelineT::total_segment_margin);
   base.required_margin =
       std::max(base.required_margin, PipelineT::total_segment_margin);
@@ -777,6 +780,10 @@ private:
   void flush_stages(Canvas &, const WorldTrailRef &, float) {}
   /** @brief Terminates the recursive terminal-stage flush walk. */
   void flush_stages(Canvas &, float) {}
+  /** @brief Terminates the recursive split-frame flush walk. */
+  void split_stages(Canvas &, float, int) {}
+  /** @brief Terminates the recursive split-frame finish walk. */
+  void finish_stages(Canvas &) {}
 
 public:
   /**
@@ -1639,6 +1646,44 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Flushes a replacing terminal short of the columns that read the
+   *        frame being drawn, and returns the plot-capable frame.
+   * @param cv Target canvas.
+   * @param alpha Global blend alpha in [0, 1].
+   * @param capacity Taps the frame's plots may land in the held columns; more
+   *        trap.
+   * @return State through which this frame's plot calls are made.
+   * @details The split frame contract, for any replacing terminal:
+   * begin_split_frame() composites every column except each arm's forward
+   * band, the last columns whose sources may lie past the arm's forward cut;
+   * the frame's plots follow, and taps landing in a forward band are held;
+   * finish_frame() then composites the bands, reading a source past the
+   * forward cut from the frame as plotted, `1 + (x - s) / (W / 2)` frames
+   * before its target, and writes the held taps in plot order. A frame that
+   * cannot split composites whole, as begin_frame() does. Effects that call
+   * begin_frame() keep the unsplit composite.
+   */
+  PreparedTerminalFrame<Pipeline> &begin_split_frame(Canvas &cv, float alpha,
+                                                     int capacity)
+    requires(terminal_replaces)
+  {
+    split_stages(cv, alpha, capacity);
+    return *this;
+  }
+
+  /**
+   * @brief Composites a split frame's forward bands from the frame as
+   *        plotted and writes the taps held for them.
+   * @param cv Target canvas, the one begin_split_frame() flushed.
+   * @details Must follow the frame's last plot call.
+   */
+  void finish_frame(Canvas &cv)
+    requires(terminal_replaces)
+  {
+    finish_stages(cv);
+  }
+
 private:
   /**
    * @brief Flushes 2D history for this stage, then recurses into the Tail.
@@ -1669,6 +1714,33 @@ private:
       Head::flush(cv, alpha);
     }
     next.flush_stages(cv, alpha);
+  }
+
+  /**
+   * @brief Flushes a terminal stage for a split frame, then recurses into
+   *        the Tail.
+   * @param cv Target canvas.
+   * @param alpha Global blend alpha in [0, 1].
+   * @param capacity Taps the frame's plots may land in the held columns.
+   */
+  void split_stages(Canvas &cv, float alpha, int capacity) {
+    if constexpr (Head::is_terminal)
+      Head::flush_split(cv, alpha, capacity);
+    next.split_stages(cv, alpha, capacity);
+  }
+
+  /**
+   * @brief Finishes a terminal stage's split frame, its held taps continuing
+   *        into the Tail, then recurses into the Tail.
+   * @param cv Target canvas.
+   */
+  void finish_stages(Canvas &cv) {
+    if constexpr (Head::is_terminal)
+      Head::finish(
+          cv, [&](float x, float y, const ::Pixel &c, float age, float alpha) {
+            next.plot_prepared(cv, x, y, c, age, alpha);
+          });
+    next.finish_stages(cv);
   }
 
   /**

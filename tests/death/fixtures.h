@@ -275,6 +275,14 @@ struct DeathEffect : public Effect {
    */
   DeathEffect(int width = 32, int height = 16) : Effect(width, height) {}
   /**
+   * @brief Constructs the effect with construction-time flags.
+   * @param width Canvas width in pixels.
+   * @param height Canvas height in pixels.
+   * @param cfg Effect flags, as a pipeline's pipeline_config() folds them.
+   */
+  DeathEffect(int width, int height, EffectConfig cfg)
+      : Effect(width, height, cfg) {}
+  /**
    * @brief Draws one frame (no-op; the death cases never render).
    */
   void draw_frame() override {}

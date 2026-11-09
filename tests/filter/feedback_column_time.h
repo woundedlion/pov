@@ -298,7 +298,8 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
                        int first_row, int end_row) {
   // A custom space transform composites uncached, from scratch.
   hs_test::ScopedArenaSplit split(1u << 20, 1u << 18, DEFAULT_SCRATCH_B_SIZE);
-  hs_test::StubEffect fx(W, H);
+  hs_test::StubEffect fx(
+      W, H, pipeline_config<Pipeline<W, H, Filter::Pixel::Feedback<W, H>>>());
   ::Feedback::Style style{};
   style.space_fn = &rotation_feedback_warp;
   style.fade = scene.fade;
@@ -310,15 +311,18 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
   auto quantize = [](float c) {
     return static_cast<uint16_t>(hs::clamp(c, 0.0f, 65535.0f) + 0.5f);
   };
-  {
-    Canvas c(fx);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        const auto rgb = scene.column_basis(0, x, y);
-        c(x, y) = Pixel(quantize(rgb[0]), quantize(rgb[1]), quantize(rgb[2]));
-      }
+  // Reads behind a backward cut reach two frames back.
+  for (int seed = -1; seed <= 0; ++seed) {
+    {
+      Canvas c(fx);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          const auto rgb = scene.column_basis(seed, x, y);
+          c(x, y) = Pixel(quantize(rgb[0]), quantize(rgb[1]), quantize(rgb[2]));
+        }
+    }
+    fx.advance_display();
   }
-  fx.advance_display();
   std::vector<Pixel> previous(W * H);
   for (int frame = 1; frame <= frames; ++frame) {
     for (int y = 0; y < H; ++y)
@@ -326,7 +330,8 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
         previous[y * W + x] = fx.get_pixel(x, y);
     {
       Canvas c(fx);
-      (void)pipe.begin_frame(c, 1.0f);
+      (void)pipe.begin_split_frame(c, 1.0f, 1);
+      pipe.finish_frame(c);
     }
     fx.advance_display();
   }
@@ -366,6 +371,193 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
   return {static_cast<float>(bulk / bulk_count),
           static_cast<float>(cut / cut_count),
           static_cast<float>(across / beside)};
+}
+
+/**
+ * @brief A rotation about the vertical axis whose frames each plot a fixed
+ *        pattern over the feedback at opacity `alpha`.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @details Every read within an arm spans the same `a` frames, so content k
+ * plots back is `k a` frames old:
+ * F(v) = sum_k alpha (1 - alpha)^k fade^(k a) g(rotate(v, q^(k a))).
+ */
+template <int W, int H> struct SourcedFeedbackScene {
+  float omega; ///< Per-frame rotation about the vertical axis, radians.
+  float fade;  ///< Per-frame fade.
+  float alpha; ///< Opacity of each frame's plot.
+
+  /** @brief The plotted pattern on the [0, 65535] scale.
+   *  @param p Unit direction.
+   *  @return Channels r, g, b. */
+  static std::array<float, 3> pattern(const math::Vector &p) {
+    return {65535.0f * (0.5f + 0.35f * sinf(2.1f * p.x + 0.7f * p.z + 0.3f)),
+            65535.0f * (0.5f + 0.35f * sinf(1.7f * p.y - 1.3f * p.x + 1.1f)),
+            65535.0f * (0.5f + 0.35f * sinf(1.9f * p.z + 0.9f * p.y - 0.4f))};
+  }
+
+  /** @brief Frames one read within an arm spans.
+   *  @return HALF / (HALF + the source's column offset). */
+  float step_frames() const {
+    constexpr float HALF = W / 2.0f;
+    const math::Vector v = math::pixel_to_vector<W, H>(W / 4, H / 2);
+    const math::Vector s =
+        math::rotate(v, math::make_rotation(math::Y_AXIS, omega));
+    float offset = math::Spherical(s).theta * W / (2.0f * math::PI_F) - W / 4;
+    offset -= W * std::round(offset / W);
+    return HALF / (HALF + offset);
+  }
+
+  /** @brief Steady-state content at a pixel.
+   *  @param x Column.
+   *  @param y Row.
+   *  @return Channels r, g, b. */
+  std::array<float, 3> truth(int x, int y) const {
+    const math::Vector v = math::pixel_to_vector<W, H>(x, y);
+    const float a = step_frames();
+    std::array<float, 3> sum{};
+    float weight = alpha;
+    for (int k = 0; k < 400 && weight > 1e-7f; ++k) {
+      const float age = k * a;
+      const auto g = pattern(
+          math::rotate(v, math::make_rotation(math::Y_AXIS, omega * age)));
+      const float w = weight * powf(fade, age);
+      for (int c = 0; c < 3; ++c)
+        sum[c] += w * g[c];
+      weight *= 1.0f - alpha;
+    }
+    return sum;
+  }
+};
+
+/** @brief Errors of a sourced feedback run against its steady state. */
+struct SourcedOracleError {
+  float bulk; ///< Mean channel error away from the arm cuts.
+  float cut;  ///< Mean channel error of the columns beside the cuts.
+  float seam; ///< Step across the cuts over the steps beside them.
+  float ramp; ///< Brightness of each arm's first twelve columns over its last
+              ///< twelve, each relative to the steady state.
+};
+
+/**
+ * @brief Runs the feedback filter with a per-frame pattern plot until steady
+ * and compares every column with the steady state.
+ * @param scene Rotation, fade and plot opacity.
+ * @param frames Frames to run.
+ * @param first_row First row compared.
+ * @param end_row One past the last row compared.
+ * @return Errors relative to full scale, the seam ratio and the ramp.
+ */
+template <int W, int H>
+SourcedOracleError run_sourced_oracle(const SourcedFeedbackScene<W, H> &scene,
+                                      int frames, int first_row, int end_row) {
+  hs_test::ScopedArenaSplit split(1u << 20, 1u << 18, DEFAULT_SCRATCH_B_SIZE);
+  hs_test::StubEffect fx(
+      W, H, pipeline_config<Pipeline<W, H, Filter::Pixel::Feedback<W, H>>>());
+  ::Feedback::Style style{};
+  style.space_fn = &rotation_feedback_warp;
+  style.fade = scene.fade;
+  style.hue_shift = 0.0f;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  feedback_frame_rotation = math::make_rotation(math::Y_AXIS, scene.omega);
+
+  auto quantize = [](float c) {
+    return static_cast<uint16_t>(hs::clamp(c, 0.0f, 65535.0f) + 0.5f);
+  };
+  std::vector<std::array<float, 3>> plot(W * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      plot[y * W + x] = SourcedFeedbackScene<W, H>::pattern(
+          math::pixel_to_vector<W, H>(x, y));
+  std::vector<Pixel> previous(W * H);
+  for (int frame = 0; frame < frames; ++frame) {
+    for (int i = 0; i < W * H; ++i)
+      previous[i] = fx.get_pixel(i % W, i / W);
+    {
+      Canvas c(fx);
+      auto &plotter = pipe.begin_split_frame(c, 1.0f, W * H / 4);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          const auto &g = plot[y * W + x];
+          plotter.plot(c, x, y,
+                       Pixel(quantize(g[0]), quantize(g[1]), quantize(g[2])),
+                       0.0f, scene.alpha);
+        }
+      pipe.finish_frame(c);
+    }
+    fx.advance_display();
+  }
+
+  constexpr int HALF = W / 2;
+  constexpr int NEAR_CUT = 6;
+  constexpr int RAMP_COLUMNS = 12;
+  double bulk = 0.0, cut = 0.0, start = 0.0, end = 0.0;
+  int bulk_count = 0, cut_count = 0;
+  for (int x = 0; x < W; ++x) {
+    double error = 0.0, shown = 0.0, wanted = 0.0;
+    for (int y = first_row; y < end_row; ++y) {
+      const Pixel p = fx.get_pixel(x, y);
+      const auto want = scene.truth(x, y);
+      error +=
+          (fabs(p.r - want[0]) + fabs(p.g - want[1]) + fabs(p.b - want[2])) /
+          (3.0 * 65535.0);
+      shown += double(p.r) + p.g + p.b;
+      wanted += double(want[0]) + want[1] + want[2];
+    }
+    error /= end_row - first_row;
+    const int column = x % HALF;
+    if (column < RAMP_COLUMNS)
+      start += shown / wanted;
+    else if (column >= HALF - RAMP_COLUMNS)
+      end += shown / wanted;
+    if (std::min(column, HALF - column) < NEAR_CUT) {
+      cut += error;
+      ++cut_count;
+    } else {
+      bulk += error;
+      ++bulk_count;
+    }
+  }
+  auto luminance = [](const Pixel &p) {
+    return (static_cast<double>(p.r) + p.g + p.b) / (3.0 * 65535.0);
+  };
+  double across = 0.0, beside = 0.0;
+  for (int y = first_row; y < end_row; ++y)
+    accumulate_arm_cut_seam_steps<W>(
+        [&](int x) { return luminance(previous[y * W + x]); },
+        [&](int x) { return luminance(fx.get_pixel(x, y)); }, NEAR_CUT - 1,
+        across, beside);
+  return {static_cast<float>(bulk / bulk_count),
+          static_cast<float>(cut / cut_count),
+          static_cast<float>(across / beside), static_cast<float>(start / end)};
+}
+
+/**
+ * @brief Split-frame feedback with a per-frame plot under azimuthal rotations
+ * matches its steady state, with no brightness ramp across the arms and no
+ * step at the cuts.
+ */
+inline void test_feedback_sourced_column_time_oracle() {
+  constexpr int W = 288, H = 144;
+  const ScopedTemporalSampling column_basis(true);
+  struct Case {
+    const char *name;
+    float omega;
+  };
+  const Case cases[] = {{"forward", 0.1f},
+                        {"backward", -0.1f},
+                        {"forward fast", 0.3f},
+                        {"backward fast", -0.3f}};
+  for (const Case &c : cases) {
+    const SourcedFeedbackScene<W, H> scene{c.omega, 0.85f, 0.3f};
+    const auto error = run_sourced_oracle<W, H>(scene, 40, 24, H - 24);
+    std::printf("  sourced oracle %s: bulk=%.5f cut=%.5f seam=%.3f ramp=%.4f\n",
+                c.name, error.bulk, error.cut, error.seam, error.ramp);
+    HS_EXPECT_LT(error.seam, 1.2f);
+    HS_EXPECT_LT(fabsf(error.ramp - 1.0f), 0.01f);
+    HS_EXPECT_LE(error.cut, 1.5f * error.bulk);
+  }
 }
 
 /**
@@ -409,5 +601,158 @@ inline void test_feedback_column_time_oracle() {
     HS_EXPECT_LT(error.cut, 0.0015f);
     if (c.seam_bound > 0.0f)
       HS_EXPECT_LT(error.seam, c.seam_bound);
+  }
+}
+
+/**
+ * @brief Taps a split frame holds for its forward bands write, in plot order,
+ * what the frame's plots write unheld.
+ * @details Each draw starts from the split frame's composite, once through
+ * the feedback pipeline, holding taps, and once through the same stages
+ * without the terminal. The held draw leaves every held pixel as the
+ * composite left it; writing the held taps then matches the unheld draw bit
+ * for bit. Draws: sub-pixel points over every column, and each solid's
+ * wireframe through the column walk under a moving orientation.
+ */
+inline void test_feedback_split_frame_replays_held_taps() {
+  constexpr int W = 288, H = 144;
+  constexpr int CAPACITY = 16384;
+  const ScopedTemporalSampling column_basis(true);
+  hs_test::ScopedArenaSplit split(1u << 21, 1u << 19, DEFAULT_SCRATCH_B_SIZE);
+  using Terminal = Filter::Pixel::Feedback<W, H>;
+  using AntiAlias = Filter::Screen::AntiAlias<W, H>;
+  hs_test::StubEffect fx(
+      W, H, pipeline_config<Pipeline<W, H, AntiAlias, Terminal>>());
+  ::Feedback::Style style{};
+  style.space_fn = &rotation_feedback_warp;
+  style.fade = 0.85f;
+  style.hue_shift = 0.0f;
+  feedback_frame_rotation = math::make_rotation(math::Y_AXIS, 0.15f);
+  const RotatingFeedbackScene<W, H> scene{math::Y_AXIS, 0.15f, 0.85f};
+  auto quantize = [](float c) {
+    return static_cast<uint16_t>(hs::clamp(c, 0.0f, 65535.0f) + 0.5f);
+  };
+  auto seed_history = [&]() {
+    for (int frame = -1; frame <= 0; ++frame) {
+      {
+        Canvas c(fx);
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            const auto rgb = scene.column_basis(frame, x, y);
+            c(x, y) =
+                Pixel(quantize(rgb[0]), quantize(rgb[1]), quantize(rgb[2]));
+          }
+      }
+      fx.advance_display();
+    }
+  };
+  auto snapshot = [&](Canvas &c) {
+    std::vector<Pixel> pixels(W * H);
+    for (int i = 0; i < W * H; ++i)
+      pixels[i] = c(i % W, i / W);
+    return pixels;
+  };
+  Pipeline<W, H> sink;
+  auto write = [&](Canvas &c) {
+    return [&sink, &c](float x, float y, const Pixel &color, float age,
+                       float alpha) { sink.plot(c, x, y, color, age, alpha); };
+  };
+
+  // Runs one split frame: `held_draw` plots through the frame, `plain_draw`
+  // plots the same through the stages before the terminal.
+  auto check = [&](const char *name, Terminal &terminal, auto &&begin,
+                   auto &&held_draw, auto &&plain_draw) {
+    seed_history();
+    {
+      Canvas c(fx);
+      begin(c);
+      const std::vector<Pixel> composite = snapshot(c);
+      held_draw(c);
+      const int held = FeedbackWhiteBox::held_taps(terminal);
+      int disturbed = 0;
+      for (int y = 0; y < H; ++y) {
+        const int from = FeedbackWhiteBox::held_from(terminal, y);
+        for (int x = 0; x < W; ++x)
+          if (x % (W / 2) >= from && !(c(x, y) == composite[y * W + x]))
+            ++disturbed;
+      }
+      FeedbackWhiteBox::release(terminal, write(c));
+      const std::vector<Pixel> replayed = snapshot(c);
+      for (int i = 0; i < W * H; ++i)
+        c(i % W, i / W) = composite[i];
+      plain_draw(c);
+      int differences = 0;
+      for (int i = 0; i < W * H; ++i)
+        differences += !(replayed[i] == c(i % W, i / W));
+      std::printf("  split frame %s: held=%d disturbed=%d differences=%d\n",
+                  name, held, disturbed, differences);
+      HS_EXPECT_GT(held, 0);
+      HS_EXPECT_EQ(disturbed, 0);
+      HS_EXPECT_EQ(differences, 0);
+    }
+    fx.advance_display();
+  };
+
+  {
+    Pipeline<W, H, AntiAlias, Terminal> pipe{AntiAlias{}, Terminal(style)};
+    Pipeline<W, H, AntiAlias> plain{AntiAlias{}};
+    auto points = [](auto &target, Canvas &c) {
+      for (int i = 0; i < 6000; ++i) {
+        const float x = fmodf(i * 0.6180339f * 7.0f, float(W));
+        const float y = 1.0f + fmodf(i * 0.4142136f * 5.0f, float(H - 2));
+        const Pixel color(static_cast<uint16_t>(i * 977 % 65536),
+                          static_cast<uint16_t>(i * 331 % 65536), 40000);
+        target.plot(c, x, y, color, 0.0f, 0.25f + 0.5f * ((i % 7) / 6.0f));
+      }
+    };
+    auto &terminal = pipe.get<Terminal>();
+    PreparedTerminalFrame<decltype(pipe)> *frame = nullptr;
+    check(
+        "points", terminal,
+        [&](Canvas &c) { frame = &pipe.begin_split_frame(c, 1.0f, CAPACITY); },
+        [&](Canvas &c) { points(*frame, c); },
+        [&](Canvas &c) { points(plain, c); });
+  }
+
+  math::Orientation<> orientation;
+  const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
+  const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);
+  orientation.set(start_pose);
+  orientation.push(math::make_rotation(axis, 0.05f) * start_pose);
+  using Orient = Filter::World::Orient;
+  Pipeline<W, H, Orient, AntiAlias, Terminal> pipe{
+      Orient(orientation), AntiAlias{}, Terminal(style)};
+  Pipeline<W, H, Orient, AntiAlias> plain{Orient(orientation), AntiAlias{}};
+  ScratchScope persistent_scope(persistent_arena);
+  pipe.init_storage(persistent_arena);
+  plain.init_storage(persistent_arena);
+  Plot::GeometryCallback geometry;
+  geometry.source_positions = false;
+  const Pixel shade(52000, 30000, 12000);
+  auto shader = [&](const math::Vector &, Fragment &f) {
+    f.color = Color4(shade, 1.0f);
+  };
+  auto &terminal = pipe.get<Terminal>();
+  for (size_t solid = 0; solid < Solids::BASE_MESH_COUNT; ++solid) {
+    ScratchScope mesh_scope(persistent_arena);
+    MeshState mesh;
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      MeshOps::compile(Solids::get_entry(solid).generate(a, b), mesh, target,
+                       a);
+    });
+    ArenaVector<Plot::Mesh::Edge> edges;
+    edges.bind(persistent_arena, Solids::MAX_SOLID_EDGES);
+    Plot::Mesh::extract_edges(mesh, edges);
+    PreparedTerminalFrame<decltype(pipe)> *frame = nullptr;
+    check(
+        Solids::get_entry(solid).name, terminal,
+        [&](Canvas &c) { frame = &pipe.begin_split_frame(c, 1.0f, CAPACITY); },
+        [&](Canvas &c) {
+          Plot::Mesh::draw_timed<W, H>(*frame, c, mesh, edges, shader,
+                                       geometry);
+        },
+        [&](Canvas &c) {
+          Plot::Mesh::draw_timed<W, H>(plain, c, mesh, edges, shader, geometry);
+        });
   }
 }

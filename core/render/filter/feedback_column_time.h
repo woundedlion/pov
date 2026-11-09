@@ -28,10 +28,13 @@ namespace Pixel {
  * pixel reading source column s of the previous frame therefore spans
  * 1 + t(x) - t(s) frames, a read between two columns their lit times blended
  * as its taps are. A Style warp displacing D columns per frame reads, within
- * the target's arm, the source lit `HALF / (HALF + D)` frames earlier; past
- * the arm's forward cut it reads the arm lit a frame before that, twice as
- * far; behind its backward cut lies content no stored frame holds, which
- * slides from the cut column lit last to the first column of the arm.
+ * the target's arm, the source lit `HALF / (HALF + D)` frames earlier. A
+ * source past one of the arm's cuts lies in another frame's buffer: behind the
+ * backward cut, the frame before the previous one; past the forward cut, the
+ * frame being drawn. Each spans 1 + (x - s) / HALF frames. Without those
+ * buffers, a read past the forward cut takes the arm lit a frame before the
+ * previous one, twice as far, and one behind the backward cut slides from the
+ * cut column lit last to the first column of the arm.
  */
 template <int W> struct FeedbackColumnTime {
   static_assert(W % 2 == 0, "FeedbackColumnTime: two arms need an even width");
@@ -109,6 +112,21 @@ template <int W> struct FeedbackColumnTime {
                                         float y) {
     return {arm + column, y,
             1.0f + (target - arm) * INVERSE_HALF - lit_time(column)};
+  }
+
+  /**
+   * @brief A read across one of the target arm's cuts, from the buffer that
+   *        holds the source's frame.
+   * @param target Target column, with its half-resolution lane offset.
+   * @param source Source column, unwrapped: below the target arm's first, or
+   *        past its last.
+   * @param y Source row.
+   * @return The read; the frames elapsed run from the source's lit time, a
+   *         frame before the previous one behind the arm or in the frame
+   *         being drawn past it, to the target's.
+   */
+  static HS_HOT_INLINE Read read_across(float target, float source, float y) {
+    return {source, y, 1.0f + (target - source) * INVERSE_HALF};
   }
 
   /**

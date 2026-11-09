@@ -39,6 +39,23 @@ struct FeedbackWhiteBox {
   static size_t fills(const Filter::Pixel::Feedback<W, H> &feedback) {
     return feedback.warp_cache.cached_fills;
   }
+  /** @brief Taps a split frame holds. */
+  template <int W, int H>
+  static int held_taps(const Filter::Pixel::Feedback<W, H> &feedback) {
+    return feedback.held ? feedback.taps.count : 0;
+  }
+  /** @brief First column past each arm's first whose taps a split frame
+   *  holds on a row; W / 2 when it holds none. */
+  template <int W, int H>
+  static int held_from(const Filter::Pixel::Feedback<W, H> &feedback, int y) {
+    return feedback.held ? feedback.held->ahead[y].held_from : W / 2;
+  }
+  /** @brief Writes a split frame's held taps without compositing its
+   *  forward bands, and releases the frame. */
+  template <int W, int H, typename PassFnT>
+  static void release(Filter::Pixel::Feedback<W, H> &feedback, PassFnT pass) {
+    feedback.release_held(pass);
+  }
 };
 
 namespace filter_tests {
@@ -201,6 +218,8 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_fade_table_invalidates_stored_entries);
   HS_RUN(test_feedback_warp_cache_keys_column_time);
   HS_RUN(test_feedback_column_time_oracle);
+  HS_RUN(test_feedback_sourced_column_time_oracle);
+  HS_RUN(test_feedback_split_frame_replays_held_taps);
 
   HS_RUN(test_world_trails_expired_seed_is_not_stored);
   HS_RUN(test_world_trails_timed_fanout_records_first_copy);

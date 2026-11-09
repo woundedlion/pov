@@ -240,6 +240,13 @@ struct StubEffect : public Effect {
    */
   StubEffect(int w, int h) : Effect(w, h) {}
   /**
+   * @brief Constructs the stub with construction-time flags.
+   * @param w Canvas width in pixels.
+   * @param h Canvas height in pixels.
+   * @param cfg Effect flags, as a pipeline's pipeline_config() folds them.
+   */
+  StubEffect(int w, int h, EffectConfig cfg) : Effect(w, h, cfg) {}
+  /**
    * @brief Per-frame draw hook; a no-op.
    */
   void draw_frame() override {}

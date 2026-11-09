@@ -40,6 +40,11 @@ struct EffectConfig {
   bool reads_outside_band =
       false; /**< Frame generation samples pixels outside the display band. */
   /**
+   * @brief A terminal stage writes every display pixel each frame, so a new
+   *        Canvas keeps the buffer's stale pixels for that stage to read.
+   */
+  bool replaces_frame = false;
+  /**
    * @brief Render-bound expansion the effect's filters need, in pixels
    *        (ClipRegion::margin). Raised to cover the ClipRegion default and
    *        required_margin.
@@ -79,9 +84,9 @@ public:
    */
   HS_FLASH_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
-        reads_outside_band(cfg.reads_outside_band), strobe(cfg.strobe),
-        frame_width(W), frame_height(H),
-        required_margin(W == 1 ? 0 : cfg.required_margin) {
+        reads_outside_band(cfg.reads_outside_band),
+        replaces_frame(cfg.replaces_frame), strobe(cfg.strobe), frame_width(W),
+        frame_height(H), required_margin(W == 1 ? 0 : cfg.required_margin) {
     HS_CHECK(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H,
              "Effect dimensions %d x %d are outside 1..%d x 1..%d", W, H, MAX_W,
              MAX_H);
@@ -340,6 +345,9 @@ protected:
   bool full_frame;
   /** @brief Whether frame generation samples pixels outside the display band. */
   bool reads_outside_band;
+  /** @brief Whether a terminal stage writes every display pixel each frame
+   *  (EffectConfig::replaces_frame). */
+  bool replaces_frame;
   /**
    * @brief POV column-strobe flag (see strobe_columns()); set at construction.
    */
@@ -448,7 +456,7 @@ public:
     // Hook runs post-wait, pre-clear: the clip it sets governs the clear.
     effect.notify_buffer_ready();
     effect.advance_buffer();
-    if (!effect.persist_pixels) {
+    if (!effect.persist_pixels && !effect.replaces_frame) {
       HS_PROFILE(canvas_clear);
       clear_stale_pixels();
     }
@@ -530,6 +538,15 @@ public:
   inline Pixel &operator()(int xy) {
     HS_AUDIT_CHECK(xy >= 0 && xy < effect.frame_width * effect.frame_height);
     return effect.bufs[effect.cur.load(std::memory_order_relaxed)][xy];
+  }
+
+  /**
+   * @brief Whether the drawing buffer still holds the frame it last showed.
+   * @return True when the effect's terminal stage replaces every display
+   *         pixel and the Canvas skipped the stale clear.
+   */
+  [[nodiscard]] bool keeps_stale_pixels() const {
+    return effect.replaces_frame && !effect.persist_pixels;
   }
 
   /**
