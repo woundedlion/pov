@@ -1545,8 +1545,25 @@ private:
       const CapOffset *caps1 = warp.cell_caps + polar.row(k + 1) * columns;
       const float *cosine = math::TrigLUT<W, H>::cos_theta_data();
       const float *sine = math::TrigLUT<W, H>::sin_theta.data();
+      // No source turns further than the longest offset subtends, so only
+      // cells that near a cut can join a span.
+      int longest_sq = 0;
+      for (int cx = 0; cx < columns; ++cx)
+        longest_sq = std::max(
+            longest_sq,
+            std::max(caps0[cx].u * caps0[cx].u + caps0[cx].v * caps0[cx].v,
+                     caps1[cx].u * caps1[cx].u + caps1[cx].v * caps1[cx].v));
+      const float longest = sqrtf(static_cast<float>(longest_sq)) * INVERSE_CAP;
+      const float turn = longest < near
+                             ? asinf(longest / near) * COLUMNS_PER_RADIAN
+                             : static_cast<float>(HALF);
+      const float near_start = MARGIN + turn;
+      const float near_end = HALF - 1 - MARGIN - downsample - turn;
       Span span{0, 0};
       for (int cx = 0; cx < columns; ++cx) {
+        const int column = cx * downsample % HALF;
+        if (column >= near_start && column <= near_end)
+          continue;
         const int cx1 = cx + 1 < columns ? cx + 1 : 0;
         const int centre = cx * downsample + downsample / 2;
         const float c = cosine[centre], sn = sine[centre];
