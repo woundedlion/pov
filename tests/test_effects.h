@@ -97,7 +97,6 @@ inline int run_effects_tests() {
   run_effect_case_petalflow_temporal_source_oracle();
   run_effect_case_meshfeedback_temporal_source_oracle();
   run_effect_case_meshfeedback_stationary_timed_source();
-  run_effect_case_meshfeedback_trails_arm_cut_seam();
   run_effect_case_parameter_lint_failure_guards();
   run_effect_case_parameter_probe_targets();
   run_effect_case_float_dropdown_lint();

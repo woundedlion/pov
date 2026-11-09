@@ -22,10 +22,6 @@ void run_effect_case_meshfeedback_stationary_timed_source() {
   HS_RUN(run_case, test_meshfeedback_stationary_timed_source);
 }
 
-void run_effect_case_meshfeedback_trails_arm_cut_seam() {
-  HS_RUN(run_case, test_meshfeedback_trails_arm_cut_seam);
-}
-
 void run_effect_case_meshfeedback_all_presets_arm_cut_steps() {
   HS_RUN(run_case, test_meshfeedback_all_presets_arm_cut_steps);
 }
@@ -61,7 +57,6 @@ int run_mesh_feedback_tests() {
   ModuleFixture fixture("effects");
   run_effect_case_meshfeedback_temporal_source_oracle();
   run_effect_case_meshfeedback_stationary_timed_source();
-  run_effect_case_meshfeedback_trails_arm_cut_seam();
   run_effect_case_meshfeedback_base_mesh_selector();
   run_effect_case_meshfeedback_preset_export_arity();
   run_effect_case_meshfeedback_mesh_rebuild_reuses_storage();

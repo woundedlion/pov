@@ -329,53 +329,6 @@ inline void test_meshfeedback_stationary_timed_source() {
   HS_EXPECT_LT(lit * 100, still_lit * 103);
 }
 
-/**
- * @brief MeshFeedback's trails step no further across the arm cuts than
- *        between the columns beside them.
- * @details The column lit after a frame's last column of an arm is the next
- * frame's first column of the other arm, so the step between them is compared
- * with the steps between adjacent columns of one frame, over the rows outside
- * the pole caps of presets whose trails cross the cuts. A feedback warp
- * applied as one frame everywhere holds trails at their previous frame's
- * time, which steps at the cuts.
- */
-inline void test_meshfeedback_trails_arm_cut_seam() {
-  constexpr int W = DEFAULT_W, H = DEFAULT_H;
-  constexpr int WARM_FRAMES = 60, FRAMES = 150, BESIDE = 7;
-  const ScopedTemporalSampling column_basis(true);
-  double across = 0.0, beside = 0.0;
-  for (size_t preset : {1u, 4u, 9u, 10u}) {
-    reset_globals();
-    pin_frame_clock(0);
-    MeshFeedback<W, H> fx;
-    fx.init();
-    HS_EXPECT_TRUE(fx.selectPreset(preset));
-    std::vector<float> previous(W * H), current(W * H);
-    for (int f = 0; f <= WARM_FRAMES + FRAMES; ++f) {
-      pin_frame_clock(f);
-      fx.draw_frame();
-      fx.advance_display();
-      if (f < WARM_FRAMES)
-        continue;
-      current = capture_luminance<W, H>(fx);
-      if (f > WARM_FRAMES)
-        for (int y = 0; y < H; ++y) {
-          if (hs::SphericalFieldLayout<W, H>::latitude_sine(y) < 0.5f)
-            continue;
-          const float *before = &previous[y * W];
-          const float *after = &current[y * W];
-          accumulate_arm_cut_seam_steps<W>(
-              [&](int x) { return double(before[x]); },
-              [&](int x) { return double(after[x]); }, BESIDE, across, beside);
-        }
-      std::swap(previous, current);
-    }
-  }
-  const double ratio = across / beside;
-  std::printf("  MeshFeedback arm-cut trail step ratio: %.3f\n", ratio);
-  HS_EXPECT_LT(ratio, 1.0);
-}
-
 /** @brief Arm-cut step ratios of MeshFeedback's rows, by row band. */
 struct MeshFeedbackCutSteps {
   double middle; ///< Rows outside the pole caps.

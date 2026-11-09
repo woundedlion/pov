@@ -88,9 +88,6 @@ void run_effect_case_meshfeedback_temporal_source_oracle();
 /** @brief Runs test_meshfeedback_stationary_timed_source with its case context. */
 void run_effect_case_meshfeedback_stationary_timed_source();
 
-/** @brief Runs test_meshfeedback_trails_arm_cut_seam with its case context. */
-void run_effect_case_meshfeedback_trails_arm_cut_seam();
-
 /** @brief Runs test_parameter_probe_targets with its case context. */
 void run_effect_case_parameter_probe_targets();
 
