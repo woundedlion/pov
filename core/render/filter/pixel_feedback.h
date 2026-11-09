@@ -106,8 +106,8 @@ public:
   explicit Feedback(::Feedback::Style &style) : feedback_style(&style) {}
 
   /**
-   * @brief Passes a current-frame tap to the next stage, or holds it for
-   *        finish() when it lands in a split frame's forward band.
+   * @brief Passes a current-frame tap to the next stage, or blends it into a
+   *        split frame's forward-band coverage when it lands in a band.
    * @param x Column coordinate in pixels.
    * @param y Row coordinate in pixels.
    * @param color Source color, forwarded unchanged.
@@ -229,13 +229,12 @@ private:
    *        holds the frame for finish().
    * @param cv Target canvas.
    * @param alpha Global blend alpha in [0, 1].
-   * @param capacity Taps the frame's plots may land in its forward bands.
    * @details A frame that cannot split, or a row whose forward reach exceeds a
    * quarter turn, composites as flush() does. The held frame keeps its
    * scratch_arena_a allocations until finish(); scopes opened meanwhile must
    * close first.
    */
-  HS_FLASH_MEMBER void flush_split(Canvas &cv, float alpha, int capacity) {
+  HS_FLASH_MEMBER void flush_split(Canvas &cv, float alpha) {
     require_unheld();
     if (!enabled) {
       if (cv.keeps_stale_pixels())
@@ -264,11 +263,9 @@ private:
       scratch_arena_a.set_offset(mark);
       return;
     }
-    taps.places = scratch_arena_a.allocate_n<uint32_t>(capacity);
-    taps.colors = scratch_arena_a.allocate_n<::Pixel>(capacity);
-    taps.alphas = scratch_arena_a.allocate_n<float>(capacity);
-    taps.count = 0;
-    taps.capacity = capacity;
+    ctx.cover = scratch_arena_a.allocate_n<uint16_t>(2 * H * COVER_STRIDE);
+    ctx.kept = scratch_arena_a.allocate_n<::Pixel>(2 * H);
+    open_coverage(ctx);
     held = &ctx;
     held_mark = mark;
     held_floor = floor;
@@ -276,14 +273,11 @@ private:
 
   /**
    * @brief Composites a held frame's forward bands from the frame as plotted,
-   *        then writes the taps held for them.
-   * @tparam PassFnT Downstream 2D callback type.
-   * @param pass Downstream 2D callback receiving each held tap in plot order.
+   *        under the coverage its taps left there.
    * @details A source past a band's forward cut reads the frame being drawn,
    * whose columns there the plots have finished. No-op without a held frame.
    */
-  template <typename PassFnT>
-  HS_FLASH_MEMBER void finish(Canvas &, PassFnT &&pass) {
+  HS_FLASH_MEMBER void finish(Canvas &) {
     if (!held)
       return;
     FlushContext &ctx = *held;
@@ -297,7 +291,7 @@ private:
       ctx.pass = Pass::FORWARD;
       composite_pass(ctx);
     }
-    release_held(pass);
+    end_split();
   }
   HS_O3_BEGIN
 
@@ -405,15 +399,6 @@ private:
     int16_t held_from;
   };
 
-  /** @brief Taps held for a split frame's forward bands, in plot order. */
-  struct HeldTaps {
-    uint32_t *places = nullptr; ///< Column in the low half, row in the high.
-    ::Pixel *colors = nullptr;  ///< Tap colors.
-    float *alphas = nullptr;    ///< Tap opacities.
-    int count = 0;              ///< Taps held.
-    int capacity = 0;           ///< Taps the storage holds.
-  };
-
   /** @brief Per-frame composite inputs prepare_flush() resolves. */
   struct FlushContext {
     CoarseGrid grid;
@@ -434,6 +419,13 @@ private:
     const int16_t *reach = nullptr;
     /// Per row, the forward band of a split frame; null when unsplit.
     const Ahead *ahead = nullptr;
+    /// Per row and arm, the Q16 transmittance of the taps plotted over each
+    /// held column (cover_index()); their colors accumulate in the drawing
+    /// buffer. Null when unsplit.
+    uint16_t *cover = nullptr;
+    /// Per row and arm, the pair sample REST keeps for the held column before
+    /// a half-resolution band.
+    ::Pixel *kept = nullptr;
     /// Shared pole values of the frame being drawn, set by finish().
     ::Pixel current_poles[SphereField::POLE_STORAGE_COUNT]{};
     /// Columns the current pass writes.
@@ -739,9 +731,9 @@ private:
     ctx.band = make_render_band(cv.clip(), grid);
     const RenderBand &band = ctx.band;
     ctx.warp = acquire_warp_field(scratch, grid, band);
-    ctx.filtered_row = (!band.x_clip.active &&
-                        (grid.downsample > 1 || !SphereField::HAS_NORTH_POLE ||
-                         !SphereField::HAS_SOUTH_POLE))
+    ctx.filtered_row = (!band.x_clip.active && (split || grid.downsample > 1 ||
+                                                !SphereField::HAS_NORTH_POLE ||
+                                                !SphereField::HAS_SOUTH_POLE))
                            ? scratch.allocate_n<::Pixel>(W)
                            : nullptr;
 
@@ -856,7 +848,8 @@ private:
       const bool filter_output =
           !band.x_clip.active && filtered_infill(grid, y);
       const bool defer_filter = filter_output && !opaque;
-      ::Pixel *output = defer_filter ? filtered_row : current + row;
+      // A forward band composites beneath its coverage.
+      ::Pixel *output = defer_filter || forward ? filtered_row : current + row;
       // The pair expansion needs plain stores, and a longitude-filtered row
       // is reconstructed at its footprint already.
       const bool half_res = opaque && !filter_output &&
@@ -1086,6 +1079,8 @@ private:
         HS_PROFILE_DEEP(fb_comp_fill);
         expand_half_res_row<PAIR_PIXELS>(ctx, output, y, transform_pixel);
       }
+      if (forward)
+        cover_row(ctx, y, output);
       if (filter_output) {
         HS_PROFILE_DEEP(fb_comp_filter);
         filter_infill_row(ctx, y, defer_filter);
@@ -1679,8 +1674,9 @@ private:
     for (int arm = 0, side = 0; arm < W; arm += HALF, ++side) {
       const int first = arm + HALF - band;
       if (ctx.pass == Pass::FORWARD) {
-        output[first - 1] = blend_quarter(
-            output[first - 1], pair_average(output[first], output[first + 1]));
+        output[first - 1] =
+            blend_quarter(ctx.kept[2 * y + side],
+                          pair_average(output[first], output[first + 1]));
       } else {
         output[first - 1] = output[first - 2];
         reconstruct_half_res_run(output, arm, first - 1, &before[side]);
@@ -1923,31 +1919,108 @@ private:
   }
 
   /**
-   * @brief Holds a tap near an arm's end when it lands in its row's forward
-   *        band, or passes it on.
+   * @brief Blends a tap near an arm's end into its row's forward-band
+   *        coverage when it lands in the band, or passes it on.
    * @param x Column coordinate as plotted.
    * @param column @p x rounded and wrapped as the canvas writes it.
    * @param y Row coordinate.
    * @param color,age,alpha Shading registers.
-   * @param pass Downstream 2D callback.
+   * @param pass Downstream 2D callback, the canvas write.
+   * @details The color blends as the canvas write blends it, and the
+   * transmittance takes the same blend toward zero, so finish() can composite
+   * the band beneath both.
    */
   template <typename PassFnT>
   HS_FLASH_MEMBER void plot_near_arm_end(float x, int column, float y,
                                          const ::Pixel &color, float age,
                                          float alpha, PassFnT &pass) {
     const int row = Filter::round_row<H>(y);
-    if (row < 0 || row >= H ||
-        column - ColumnTime::arm_start(column) < held->ahead[row].held_from) {
+    const int arm = ColumnTime::arm_start(column);
+    if (row < 0 || row >= H || column - arm < held->ahead[row].held_from) {
       pass(x, y, color, age, alpha);
       return;
     }
-    HS_CHECK(taps.count < taps.capacity,
-             "feedback: split frame holds more than %d taps", taps.capacity);
-    taps.places[taps.count] =
-        static_cast<uint32_t>(column) | (static_cast<uint32_t>(row) << 16);
-    taps.colors[taps.count] = color;
-    taps.alphas[taps.count] = alpha;
-    ++taps.count;
+    ::Pixel &dst = held->current[row * W + column];
+    uint16_t &transmittance = held->cover[cover_index(row, arm, column)];
+    if (alpha >= 1.0f) {
+      dst = color;
+      transmittance = 0;
+      return;
+    }
+    const uint16_t weight = frac_to_q16(alpha);
+    dst = dst.lerp16(color, weight);
+    transmittance = lerp_q16(transmittance, 0, weight);
+  }
+
+  /** @brief Transmittance slots per row and arm: a band is even and under a
+   *  quarter turn, and a half-resolution row holds one column more. */
+  static constexpr int COVER_STRIDE = ColumnTime::HALF / 2;
+
+  /**
+   * @brief Transmittance slot of a held column.
+   * @param row Row.
+   * @param arm First column of the column's arm.
+   * @param column Held column.
+   * @return Index into FlushContext::cover.
+   */
+  static HS_HOT_INLINE int cover_index(int row, int arm, int column) {
+    return (2 * row + (arm != 0)) * COVER_STRIDE +
+           (arm + ColumnTime::HALF - 1 - column);
+  }
+
+  /**
+   * @brief Clears a split frame's held columns to empty coverage, keeping
+   *        each half-resolution row's last REST pair sample.
+   * @param ctx Held frame context with its coverage allocated.
+   */
+  HS_FLASH_MEMBER static void open_coverage(FlushContext &ctx) {
+    constexpr int HALF = ColumnTime::HALF;
+    for (int y = 0; y < H; ++y) {
+      const Ahead ahead = ctx.ahead[y];
+      if (ahead.held_from >= HALF)
+        continue;
+      const bool half_res = ahead.held_from < HALF - ahead.band;
+      ::Pixel *row = ctx.current + y * W;
+      for (int arm = 0, side = 0; arm < W; arm += HALF, ++side) {
+        const int first = arm + ahead.held_from;
+        if (half_res)
+          ctx.kept[2 * y + side] = row[first];
+        for (int x = first; x < arm + HALF; ++x) {
+          row[x] = ::Pixel(0, 0, 0);
+          ctx.cover[cover_index(y, arm, x)] = 0xFFFF;
+        }
+      }
+    }
+  }
+
+  /**
+   * @brief Composites one row's held columns beneath their coverage.
+   * @param ctx Held frame context.
+   * @param y Row.
+   * @param under Row composited for the held columns, indexed by column.
+   */
+  HS_FLASH_MEMBER static void cover_row(const FlushContext &ctx, int y,
+                                        const ::Pixel *under) {
+    constexpr int HALF = ColumnTime::HALF;
+    const int from = ctx.ahead[y].held_from;
+    if (from >= HALF)
+      return;
+    ::Pixel *row = ctx.current + y * W;
+    auto add = [](uint16_t covered, uint16_t below, uint16_t transmittance) {
+      return static_cast<uint16_t>(std::min<uint32_t>(
+          covered + lerp_q16(0, below, transmittance), 65535u));
+    };
+    for (int arm = 0; arm < W; arm += HALF)
+      for (int x = arm + from; x < arm + HALF; ++x) {
+        const uint16_t t = ctx.cover[cover_index(y, arm, x)];
+        ::Pixel &dst = row[x];
+        // A column no tap reached holds no color.
+        if (t == 0xFFFF)
+          dst = under[x];
+        else
+          dst = ::Pixel(add(dst.r, under[x].r, t), add(dst.g, under[x].g, t),
+                        add(dst.b, under[x].b, t));
+      }
   }
 
   /** @brief Traps while a split frame awaits finish(). */
@@ -1955,19 +2028,10 @@ private:
     HS_CHECK(!held, "feedback: a split frame was never finished");
   }
 
-  /**
-   * @brief Writes the held taps in plot order and releases the held frame.
-   * @param pass Downstream 2D callback.
-   */
-  template <typename PassFnT> HS_FLASH_MEMBER void release_held(PassFnT &pass) {
-    for (int i = 0; i < taps.count; ++i) {
-      const uint32_t place = taps.places[i];
-      pass(static_cast<float>(place & 0xFFFFu), static_cast<float>(place >> 16),
-           taps.colors[i], 0.0f, taps.alphas[i]);
-    }
+  /** @brief Releases the held frame and its scratch. */
+  HS_FLASH_MEMBER void end_split() {
     held = nullptr;
     held_floor = ColumnTime::HALF;
-    taps = {};
     scratch_arena_a.set_offset(held_mark);
   }
 
@@ -1977,9 +2041,8 @@ private:
   FlushContext *held = nullptr;
   /** scratch_arena_a offset finish() rewinds to. */
   size_t held_mark = 0;
-  /** Least Ahead::held_from of the held frame; HALF holds no tap. */
+  /** Least Ahead::held_from of the held frame; HALF holds no column. */
   int held_floor = ColumnTime::HALF;
-  HeldTaps taps;        /**< Taps held for the forward bands. */
   WarpCache warp_cache; /**< Persistent warp field and lattice origins. */
   FadeTable fade_table; /**< Persistent per-elapsed-time transforms. */
 
@@ -2013,17 +2076,15 @@ public:
   /**
    * @brief scratch_arena_a bytes a split frame holds from flush_split() to
    *        finish() with its warp field and fade table in storage.
-   * @param capacity Taps the frame may hold.
-   * @return The frame context, filter row, per-row reaches and tap storage,
-   *         each allocation padded.
+   * @return The frame context, filter row, per-row reaches and bands, and the
+   *         forward bands' coverage and kept samples, each allocation padded.
    */
-  static constexpr size_t split_scratch_bytes(int capacity) {
+  static constexpr size_t split_scratch_bytes() {
     constexpr size_t PAD = alignof(std::max_align_t);
     return sizeof(FlushContext) + W * sizeof(::Pixel) +
            H * (sizeof(int16_t) + sizeof(Ahead)) +
-           static_cast<size_t>(capacity) *
-               (sizeof(uint32_t) + sizeof(::Pixel) + sizeof(float)) +
-           7 * PAD;
+           2 * H * COVER_STRIDE * sizeof(uint16_t) + 2 * H * sizeof(::Pixel) +
+           6 * PAD;
   }
 };
 

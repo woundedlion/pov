@@ -233,21 +233,11 @@ inline void case_feedback_split_frame_unfinished() {
   DeathSplitFeedback split;
   {
     Canvas c(split.fx);
-    (void)split.pipe.begin_split_frame(c, 1.0f, 64);
+    (void)split.pipe.begin_split_frame(c, 1.0f);
   }
   split.fx.advance_display();
   Canvas c(split.fx);
   (void)split.pipe.begin_frame(c, 1.0f);
-}
-
-/** @brief Death case: a split frame holding more taps than its capacity must
- *  trap. */
-inline void case_feedback_split_frame_tap_capacity() {
-  DeathSplitFeedback split;
-  Canvas c(split.fx);
-  auto &frame = split.pipe.begin_split_frame(c, 1.0f, opaque(1));
-  for (int i = 0; i < 2; ++i)
-    frame.plot(c, 15, 8, Pixel(1, 1, 1), 0.0f, 1.0f);
 }
 
 /**

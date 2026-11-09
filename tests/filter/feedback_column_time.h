@@ -330,7 +330,7 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
         previous[y * W + x] = fx.get_pixel(x, y);
     {
       Canvas c(fx);
-      (void)pipe.begin_split_frame(c, 1.0f, 1);
+      (void)pipe.begin_split_frame(c, 1.0f);
       pipe.finish_frame(c);
     }
     fx.advance_display();
@@ -476,7 +476,7 @@ SourcedOracleError run_sourced_oracle(const SourcedFeedbackScene<W, H> &scene,
       previous[i] = fx.get_pixel(i % W, i / W);
     {
       Canvas c(fx);
-      auto &plotter = pipe.begin_split_frame(c, 1.0f, W * H / 4);
+      auto &plotter = pipe.begin_split_frame(c, 1.0f);
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           const auto &g = plot[y * W + x];
@@ -605,18 +605,17 @@ inline void test_feedback_column_time_oracle() {
 }
 
 /**
- * @brief Taps a split frame holds for its forward bands write, in plot order,
- * what the frame's plots write unheld.
- * @details Each draw starts from the split frame's composite, once through
- * the feedback pipeline, holding taps, and once through the same stages
- * without the terminal. The held draw leaves every held pixel as the
- * composite left it; writing the held taps then matches the unheld draw bit
- * for bit. Draws: sub-pixel points over every column, and each solid's
- * wireframe through the column walk under a moving orientation.
+ * @brief A split frame's forward-band coverage composites the band beneath its
+ * taps as plotting them over the band does, within a few 16-bit rounding
+ * steps.
+ * @details Each draw runs once through the feedback pipeline over a split
+ * frame, and once through the same stages without the terminal over the same
+ * frame. Pixels outside the held columns match bit for bit. Draws: sub-pixel
+ * points over every column, and each solid's wireframe through the column
+ * walk under a moving orientation.
  */
-inline void test_feedback_split_frame_replays_held_taps() {
+inline void test_feedback_split_frame_covers_forward_bands() {
   constexpr int W = 288, H = 144;
-  constexpr int CAPACITY = 16384;
   const ScopedTemporalSampling column_basis(true);
   hs_test::ScopedArenaSplit split(1u << 21, 1u << 19, DEFAULT_SCRATCH_B_SIZE);
   using Terminal = Filter::Pixel::Feedback<W, H>;
@@ -652,11 +651,6 @@ inline void test_feedback_split_frame_replays_held_taps() {
       pixels[i] = c(i % W, i / W);
     return pixels;
   };
-  Pipeline<W, H> sink;
-  auto write = [&](Canvas &c) {
-    return [&sink, &c](float x, float y, const Pixel &color, float age,
-                       float alpha) { sink.plot(c, x, y, color, age, alpha); };
-  };
 
   // Runs one split frame: `held_draw` plots through the frame, `plain_draw`
   // plots the same through the stages before the terminal.
@@ -666,29 +660,40 @@ inline void test_feedback_split_frame_replays_held_taps() {
     {
       Canvas c(fx);
       begin(c);
-      const std::vector<Pixel> composite = snapshot(c);
+      std::vector<Pixel> under = snapshot(c);
+      std::vector<bool> held(W * H);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          held[y * W + x] =
+              x % (W / 2) >= FeedbackWhiteBox::held_from(terminal, y);
+          if (held[y * W + x])
+            under[y * W + x] = Pixel(static_cast<uint16_t>(9000 + 197 * x),
+                                     static_cast<uint16_t>(60000 - 331 * y),
+                                     static_cast<uint16_t>(30000 + 89 * x));
+        }
       held_draw(c);
-      const int held = FeedbackWhiteBox::held_taps(terminal);
-      int disturbed = 0;
-      for (int y = 0; y < H; ++y) {
-        const int from = FeedbackWhiteBox::held_from(terminal, y);
-        for (int x = 0; x < W; ++x)
-          if (x % (W / 2) >= from && !(c(x, y) == composite[y * W + x]))
-            ++disturbed;
-      }
-      FeedbackWhiteBox::release(terminal, write(c));
-      const std::vector<Pixel> replayed = snapshot(c);
+      const int covered = FeedbackWhiteBox::covered(terminal);
+      FeedbackWhiteBox::release(terminal, under.data());
+      const std::vector<Pixel> composited = snapshot(c);
       for (int i = 0; i < W * H; ++i)
-        c(i % W, i / W) = composite[i];
+        c(i % W, i / W) = under[i];
       plain_draw(c);
-      int differences = 0;
-      for (int i = 0; i < W * H; ++i)
-        differences += !(replayed[i] == c(i % W, i / W));
-      std::printf("  split frame %s: held=%d disturbed=%d differences=%d\n",
-                  name, held, disturbed, differences);
-      HS_EXPECT_GT(held, 0);
-      HS_EXPECT_EQ(disturbed, 0);
-      HS_EXPECT_EQ(differences, 0);
+      int outside = 0, worst = 0;
+      for (int i = 0; i < W * H; ++i) {
+        const Pixel a = composited[i], b = c(i % W, i / W);
+        if (!held[i]) {
+          outside += !(a == b);
+          continue;
+        }
+        worst = std::max({worst, std::abs(int(a.r) - int(b.r)),
+                          std::abs(int(a.g) - int(b.g)),
+                          std::abs(int(a.b) - int(b.b))});
+      }
+      std::printf("  split frame %s: covered=%d outside=%d worst=%d\n", name,
+                  covered, outside, worst);
+      HS_EXPECT_GT(covered, 0);
+      HS_EXPECT_EQ(outside, 0);
+      HS_EXPECT_LE(worst, 4);
     }
     fx.advance_display();
   };
@@ -709,7 +714,7 @@ inline void test_feedback_split_frame_replays_held_taps() {
     PreparedTerminalFrame<decltype(pipe)> *frame = nullptr;
     check(
         "points", terminal,
-        [&](Canvas &c) { frame = &pipe.begin_split_frame(c, 1.0f, CAPACITY); },
+        [&](Canvas &c) { frame = &pipe.begin_split_frame(c, 1.0f); },
         [&](Canvas &c) { points(*frame, c); },
         [&](Canvas &c) { points(plain, c); });
   }
@@ -746,7 +751,7 @@ inline void test_feedback_split_frame_replays_held_taps() {
     PreparedTerminalFrame<decltype(pipe)> *frame = nullptr;
     check(
         Solids::get_entry(solid).name, terminal,
-        [&](Canvas &c) { frame = &pipe.begin_split_frame(c, 1.0f, CAPACITY); },
+        [&](Canvas &c) { frame = &pipe.begin_split_frame(c, 1.0f); },
         [&](Canvas &c) {
           Plot::Mesh::draw_timed<W, H>(*frame, c, mesh, edges, shader,
                                        geometry);

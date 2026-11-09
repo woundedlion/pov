@@ -781,7 +781,7 @@ private:
   /** @brief Terminates the recursive terminal-stage flush walk. */
   void flush_stages(Canvas &, float) {}
   /** @brief Terminates the recursive split-frame flush walk. */
-  void split_stages(Canvas &, float, int) {}
+  void split_stages(Canvas &, float) {}
   /** @brief Terminates the recursive split-frame finish walk. */
   void finish_stages(Canvas &) {}
 
@@ -1651,30 +1651,27 @@ public:
    *        frame being drawn, and returns the plot-capable frame.
    * @param cv Target canvas.
    * @param alpha Global blend alpha in [0, 1].
-   * @param capacity Taps the frame's plots may land in the held columns; more
-   *        trap.
    * @return State through which this frame's plot calls are made.
    * @details The split frame contract, for any replacing terminal:
    * begin_split_frame() composites every column except each arm's forward
    * band, the last columns whose sources may lie past the arm's forward cut;
-   * the frame's plots follow, and taps landing in a forward band are held;
-   * finish_frame() then composites the bands, reading a source past the
-   * forward cut from the frame as plotted, `1 + (x - s) / (W / 2)` frames
-   * before its target, and writes the held taps in plot order. A frame that
-   * cannot split composites whole, as begin_frame() does. Effects that call
-   * begin_frame() keep the unsplit composite.
+   * the frame's plots follow, and taps landing in a forward band accumulate
+   * there with their coverage; finish_frame() then composites the bands
+   * beneath that coverage, reading a source past the forward cut from the
+   * frame as plotted, `1 + (x - s) / (W / 2)` frames before its target. A
+   * frame that cannot split composites whole, as begin_frame() does. Effects
+   * that call begin_frame() keep the unsplit composite.
    */
-  PreparedTerminalFrame<Pipeline> &begin_split_frame(Canvas &cv, float alpha,
-                                                     int capacity)
+  PreparedTerminalFrame<Pipeline> &begin_split_frame(Canvas &cv, float alpha)
     requires(terminal_replaces)
   {
-    split_stages(cv, alpha, capacity);
+    split_stages(cv, alpha);
     return *this;
   }
 
   /**
    * @brief Composites a split frame's forward bands from the frame as
-   *        plotted and writes the taps held for them.
+   *        plotted, beneath the taps that landed in them.
    * @param cv Target canvas, the one begin_split_frame() flushed.
    * @details Must follow the frame's last plot call.
    */
@@ -1721,25 +1718,21 @@ private:
    *        the Tail.
    * @param cv Target canvas.
    * @param alpha Global blend alpha in [0, 1].
-   * @param capacity Taps the frame's plots may land in the held columns.
    */
-  void split_stages(Canvas &cv, float alpha, int capacity) {
+  void split_stages(Canvas &cv, float alpha) {
     if constexpr (Head::is_terminal)
-      Head::flush_split(cv, alpha, capacity);
-    next.split_stages(cv, alpha, capacity);
+      Head::flush_split(cv, alpha);
+    next.split_stages(cv, alpha);
   }
 
   /**
-   * @brief Finishes a terminal stage's split frame, its held taps continuing
-   *        into the Tail, then recurses into the Tail.
+   * @brief Finishes a terminal stage's split frame, then recurses into the
+   *        Tail.
    * @param cv Target canvas.
    */
   void finish_stages(Canvas &cv) {
     if constexpr (Head::is_terminal)
-      Head::finish(
-          cv, [&](float x, float y, const ::Pixel &c, float age, float alpha) {
-            next.plot_prepared(cv, x, y, c, age, alpha);
-          });
+      Head::finish(cv);
     next.finish_stages(cv);
   }
 

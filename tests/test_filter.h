@@ -39,10 +39,20 @@ struct FeedbackWhiteBox {
   static size_t fills(const Filter::Pixel::Feedback<W, H> &feedback) {
     return feedback.warp_cache.cached_fills;
   }
-  /** @brief Taps a split frame holds. */
+  /** @brief Held forward-band pixels a split frame's taps reached. */
   template <int W, int H>
-  static int held_taps(const Filter::Pixel::Feedback<W, H> &feedback) {
-    return feedback.held ? feedback.taps.count : 0;
+  static int covered(const Filter::Pixel::Feedback<W, H> &feedback) {
+    if (!feedback.held)
+      return 0;
+    int count = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const int arm = x < W / 2 ? 0 : W / 2;
+        if (x - arm >= feedback.held->ahead[y].held_from)
+          count +=
+              feedback.held->cover[feedback.cover_index(y, arm, x)] != 0xFFFF;
+      }
+    return count;
   }
   /** @brief First column past each arm's first whose taps a split frame
    *  holds on a row; W / 2 when it holds none. */
@@ -50,11 +60,15 @@ struct FeedbackWhiteBox {
   static int held_from(const Filter::Pixel::Feedback<W, H> &feedback, int y) {
     return feedback.held ? feedback.held->ahead[y].held_from : W / 2;
   }
-  /** @brief Writes a split frame's held taps without compositing its
-   *  forward bands, and releases the frame. */
-  template <int W, int H, typename PassFnT>
-  static void release(Filter::Pixel::Feedback<W, H> &feedback, PassFnT pass) {
-    feedback.release_held(pass);
+  /** @brief Composites a split frame's held columns beneath their coverage
+   *  from a given frame instead of its forward pass, and releases the frame.
+   *  @param under Frame beneath the held columns, row-major. */
+  template <int W, int H>
+  static void release(Filter::Pixel::Feedback<W, H> &feedback,
+                      const Pixel *under) {
+    for (int y = 0; y < H; ++y)
+      feedback.cover_row(*feedback.held, y, under + y * W);
+    feedback.end_split();
   }
 };
 
@@ -219,7 +233,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_warp_cache_keys_column_time);
   HS_RUN(test_feedback_column_time_oracle);
   HS_RUN(test_feedback_sourced_column_time_oracle);
-  HS_RUN(test_feedback_split_frame_replays_held_taps);
+  HS_RUN(test_feedback_split_frame_covers_forward_bands);
 
   HS_RUN(test_world_trails_expired_seed_is_not_stored);
   HS_RUN(test_world_trails_timed_fanout_records_first_copy);

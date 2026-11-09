@@ -1678,11 +1678,6 @@ inline const Case *all_cases(int &n) {
            case_feedback_split_frame_unfinished,
            "core/render/filter/pixel_feedback.h",
            "(!held) feedback: a split frame was never finished"},
-          {"feedback_split_frame_tap_capacity",
-           case_feedback_split_frame_tap_capacity,
-           "core/render/filter/pixel_feedback.h",
-           "(taps.count < taps.capacity) feedback: split frame holds more "
-           "than 1 taps"},
           {"screen_trails_set_lifetime_nonpositive",
            case_screen_trails_set_lifetime_nonpositive,
            "core/render/filter/screen_trails.h",

@@ -486,9 +486,11 @@ blending the lit times of a read between columns as its taps are blended.
 - **Past the forward cut:** the source lies in the frame being drawn. An
   effect that calls `Pipeline::begin_split_frame` gets every column
   composited except each arm's forward band; its plots follow, with taps
-  landing in a band held; `Pipeline::finish_frame` composites the bands from
-  the plotted frame, `1 + (x - s) / HALF` frames back, and writes the held
-  taps in plot order. MeshFeedback splits its frames.
+  landing in a band accumulating there with their coverage;
+  `Pipeline::finish_frame` composites the bands beneath that coverage from
+  the plotted frame, `1 + (x - s) / HALF` frames back. The coverage takes a
+  transmittance per band pixel, so no tap count can overflow it. MeshFeedback
+  splits its frames.
 - **Without those buffers,** in a clipped or translucent frame, an unsplit
   one, or a row whose reach exceeds a quarter turn, a read past the forward
   cut takes the other arm lit a frame before the previous one, twice as far,

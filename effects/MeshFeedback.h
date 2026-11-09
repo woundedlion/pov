@@ -243,7 +243,7 @@ public:
 
     auto &frame_filters = [&]() -> decltype(auto) {
       HS_PROFILE(mf_feedback_flush);
-      return filters.begin_split_frame(canvas, 1.0f, HELD_TAPS);
+      return filters.begin_split_frame(canvas, 1.0f);
     }();
 
     {
@@ -353,11 +353,9 @@ private:
            Filter::Pixel::Feedback<W, H>>
       filters;
 
-  /** @brief Wireframe taps a frame may land in its feedback forward bands. */
-  static constexpr int HELD_TAPS = 4096;
   /** @brief Scratch A: the held split frame under the default budget. */
   static constexpr size_t SCRATCH_A_BYTES =
-      (Filter::Pixel::Feedback<W, H>::split_scratch_bytes(HELD_TAPS) +
+      (Filter::Pixel::Feedback<W, H>::split_scratch_bytes() +
        DEFAULT_SCRATCH_A_SIZE + alignof(std::max_align_t) - 1) &
       ~(alignof(std::max_align_t) - 1);
   /** @brief The arena split init() configures. */
