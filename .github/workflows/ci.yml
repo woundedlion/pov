@@ -276,7 +276,7 @@ jobs:
         run: cmake --build --preset tests --target run_tests
 
       - name: Run the instrumented suite
-        # %p separates death-harness children from the parent profile.
+        # %p gives each module process and death-harness child its own profile.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: 0
@@ -284,7 +284,7 @@ jobs:
           HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
-        run: build/tests/tests/run_tests
+        run: bash tools/ci/coverage_suite.sh
 
       - name: Build coverage reports and enforce the floors
         # Explicit bash enables pipefail. The 1% directory floors check presence.
