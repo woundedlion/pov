@@ -1489,7 +1489,8 @@ private:
    * @details Each cell bounds its own pixels' sources, so a row's reach and
    * band cover the columns whose cells may read across a cut. A cell's pixels
    * read no further than its nodes' extreme column offsets; a polar lane's
-   * source turns no further than its cell's longest cap offset subtends.
+   * source turns by the angle its cap offset's tangential part subtends
+   * beyond its cap angle plus the radial part, both bounded by the nodes.
    */
   HS_FLASH_MEMBER void measure_reach(const CoarseGrid &grid,
                                      const WarpField &warp, float half_res_sine,
@@ -1524,17 +1525,30 @@ private:
                               row1 * columns + cx, row1 * columns + cx1};
         float back = 0.0f, forward = 0.0f;
         if (polar_pair) {
-          int longest_sq = 0;
-          for (int node : nodes)
-            longest_sq = std::max(longest_sq, caps[node].u * caps[node].u +
-                                                  caps[node].v * caps[node].v);
-          const float longest =
-              sqrtf(static_cast<float>(longest_sq)) / CapPlane::CAP_SCALE;
-          if (!(longest < near))
+          // A lane's offset blends the nodes' tangential and radial parts,
+          // each moved by at most its length times the angle from the cell's
+          // centre; the turn's tangent bounds the turn.
+          const int centre = cx * downsample + downsample / 2;
+          const float c = math::TrigLUT<W, H>::cos_theta(centre);
+          const float sn = math::TrigLUT<W, H>::sin_theta[centre];
+          float tangent_max = -1e9f, tangent_min = 1e9f, radial_min = 1e9f;
+          float length_sq = 0.0f;
+          for (int node : nodes) {
+            const float u = caps[node].u / CapPlane::CAP_SCALE;
+            const float v = caps[node].v / CapPlane::CAP_SCALE;
+            tangent_max = fmaxf(tangent_max, v * c - u * sn);
+            tangent_min = fminf(tangent_min, v * c - u * sn);
+            radial_min = fminf(radial_min, u * c + v * sn);
+            length_sq = fmaxf(length_sq, u * u + v * v);
+          }
+          const float slack =
+              sqrtf(length_sq) * (downsample / 2 + 1) / COLUMNS_PER_RADIAN;
+          const float along = near + radial_min - slack;
+          if (!(along > 0.0f))
             return Span{HALF, HALF};
-          // The turn's tangent bounds the turn.
-          back = forward = longest / sqrtf(near * near - longest * longest) *
-                           COLUMNS_PER_RADIAN;
+          back = fmaxf(0.0f, slack - tangent_min) * COLUMNS_PER_RADIAN / along;
+          forward =
+              fmaxf(0.0f, tangent_max + slack) * COLUMNS_PER_RADIAN / along;
         } else {
           for (int node : nodes) {
             back = fmaxf(back, -offsets[node] / WARP_SCALE);
