@@ -376,9 +376,8 @@ private:
     /// Columns before each arm's end whose sources may lie past its forward
     /// cut, even; zero where the row composites unsplit.
     int16_t band;
-    /// Column past each arm's first from which taps are held for finish():
-    /// the band, and on a half-resolution row the column before it, whose
-    /// expansion reads the band's first pair; HALF without a band.
+    /// First column past each arm's first that finish() rewrites: the band,
+    /// and before a half-resolution band one column more; HALF without one.
     int16_t held_from;
   };
 
@@ -396,9 +395,9 @@ private:
     const ::Pixel *back = nullptr;
     /// Shared pole values of the stale frame.
     ::Pixel back_poles[SphereField::POLE_STORAGE_COUNT]{};
-    /// Per row, the columns from each arm's first whose sources may lie
-    /// behind its backward cut, even; negative where the reach exceeds a
-    /// quarter turn and the row slides instead. Null without @c back.
+    /// Per row, the even column count from each arm's first that may read
+    /// behind its backward cut; negative where the row slides. Null without
+    /// @c back.
     const int16_t *reach = nullptr;
     /// Per row, the forward band of a split frame; null when unsplit.
     const Ahead *ahead = nullptr;
@@ -943,9 +942,7 @@ private:
                 source_poles = &poles;
                 if (reach > room * static_cast<int>(WARP_SCALE)) {
                   // Otherwise the first pixel's source and the last's, past
-                  // the cell's far edge, bound the cell's. A forward band reads
-                  // the frame being drawn from the arm's last column on, and an
-                  // arm's start the stale frame before its first.
+                  // the cell's far edge, bound the cell's.
                   const float first = column + fminf(leftx, leftx + slopex);
                   const float last =
                       column + downsample + fmaxf(leftx, leftx + slopex);
@@ -1508,15 +1505,11 @@ private:
       int back;    ///< Columns from each arm's first that may read behind it.
       int forward; ///< Columns before each arm's end that may read past it.
     };
-    // The span of rows interpolating rings k and k + 1: each cell whose
-    // pixels' sources may cross a cut joins whole, bounded as the composite
-    // bounds it, from its first column less its backward offset to past its
-    // last column plus its forward offset.
+    // The span of rows interpolating rings k and k + 1: whole cells whose
+    // sources, bounded as the composite bounds them, may cross a cut.
     auto pair_span = [&](int k, int y0, int y1) HS_FLASH_MEMBER {
       const bool north = k + 1 < polar.north_rings;
       const bool polar_pair = north || k >= polar.south_ring;
-      // A polar lane's source turns by at most the angle its cap offset
-      // subtends at the pair's cap angle nearest the pole.
       const float near =
           north ? SphereField::Geometry::row_to_phi(static_cast<float>(y0))
                 : math::PI_F -
