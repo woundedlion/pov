@@ -208,7 +208,8 @@ inline void test_shader_chain_table_integrity() {
                PB::ApproximationOracleId::PEIRCE_FAST_SQUARE);
 }
 
-/** @brief Pins invariants operator schema fields and identities. */
+/** @brief Operator schemas keep unique ids, well-formed topology, and topology
+ * defaults that match their families. */
 inline void test_shader_chain_schema_invariants() {
   static_assert(std::is_same_v<In::Op::ProjectionCoverageMode,
                                PB::ProjectionCoverageMode>);

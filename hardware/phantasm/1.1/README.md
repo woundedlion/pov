@@ -151,13 +151,12 @@ exports run locally through `../gen/fab.py` when the package is regenerated.
   J1's footprint on both artifacts, which the assembly gate cannot see because
   `EXCLUDE_FP_SUBSTR` excludes the board's hand-soldered terminal blocks and
   pin headers.
-- **Count-floor ratchets:** `../gen/fab.py` rejects a board carrying fewer than
-  99 vias or fewer than 2 copper pours — floors pinned to what the committed
-  routed board holds (both counts are in the facts block below; the pours are
-  the In1/In2 reference planes, and the mounting-hole keepout rule areas are
-  counted separately because they pour no copper). Neither floor updates
-  itself: after promoting a re-route, re-measure with `../gen/board_metadata.py`
-  and deliberately re-baseline the constants in `../gen/fab.py`.
+- **Count-floor ratchets:** `../gen/fab.py` enforces the rev 1.1 via floor
+  `MIN_BOARD_VIAS` in `../gen/fab_gates.py`. After promoting a re-route,
+  re-measure with `../gen/board_metadata.py` and re-baseline that constant.
+  The pour floor is one pour per `GROUND_PLANE_LAYERS` entry in
+  `../gen/constraints.py`, not a measured board count. Mounting-hole keepout
+  rule areas are counted separately because they pour no copper.
 - **Assembly-metadata gate:** `../gen/fab.py` rejects the assembly outputs
   unless the assembled references exactly match its LCSC assignment table,
   every rotation correction names an assembled part, and every centroid row

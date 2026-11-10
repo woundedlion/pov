@@ -66,8 +66,8 @@ constexpr int FB_H = 144;
 constexpr int ARRIVAL_FRAMES = HankinSolids<96, 20>::HANKIN_SWEEP_FRAMES + 1 +
                                ConwayGraph::SWEEP_FRAMES +
                                ConwayGraph::SETTLE_FRAMES;
-/** Frames from one walk destination to the next: a hankin cycle and a path of
- *  at most every other node. */
+/** Frames from one walk destination to the next: a hankin cycle and a route
+ *  through at most all NUM_NODES - 1 other nodes. */
 constexpr int DESTINATION_FRAMES =
     HankinSolids<96, 20>::HANKIN_SWEEP_FRAMES + 1 +
     (ConwayGraph::NUM_NODES - 1) *

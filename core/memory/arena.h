@@ -477,7 +477,7 @@ struct ArenaBlockStamp {
  * @param ptr First byte of the block.
  * @param bytes Block length in bytes.
  * @param owner String literal naming the owner in the failure message.
- * @details Expands to nothing under NDEBUG, where the stamp does not exist.
+ * @details Expands to nothing under NDEBUG or without HS_ENABLE_STRUCTURAL_AUDITS.
  */
 #define HS_ASSERT_BLOCK_ALIVE(stamp, ptr, bytes, owner)                        \
   HS_AUDIT_CHECK((stamp).block_alive(ptr, bytes), owner " use-after-free!")

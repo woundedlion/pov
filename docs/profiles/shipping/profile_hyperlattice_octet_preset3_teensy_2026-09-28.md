@@ -83,7 +83,7 @@ frame                   62.507 ms  37.504 Mcyc 100.0%
 - CYCCNT includes ISR time. Startup frame 1 and its window are excluded.
 - Fixed preset pinning keeps camera and palette motion live; results cover the recorded trajectory.
 - No global-O3 twin was captured for this code.
-- The experimental presets are opt-in (`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`).
+- At the captured source, the experimental presets were opt-in (`HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`); the reproduce command's preset indices apply to that source.
 
 ## Harness
 

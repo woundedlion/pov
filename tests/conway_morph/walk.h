@@ -11,6 +11,7 @@
 /** Sweeps within which every node must be swept at least once. */
 constexpr int WALK_COVERAGE_BOUND = 120;
 
+/** @brief Reconciles the held seed identity and checks that the fix is valid. */
 inline void reconcile_seed(int edge, int node, int &held) {
   ConwayGraph::SeedFix fix;
   held = ConwayGraph::reconciled_seed_identity(edge, node, held, fix);

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Cold `pio run -v` over every environment and profiling variant, teed to
-# teensy_build.log for tools/teensy_warnings.py.
+# Cold `pio run -v` over every environment plus three Profile flag sets
+# (PC sampler, GridWarp instrumentation, plot stalls), teed to teensy_build.log
+# for tools/teensy_warnings.py.
 #
 # A cached translation unit emits no warnings, so the object cache and
 # .pio/build are wiped first; budget tens of minutes.

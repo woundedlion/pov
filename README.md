@@ -216,7 +216,7 @@ The Teensy heap fragments under heavy mesh subdivision, so the engine avoids it:
 
 ### 3.4 Why the ISR Double Buffer?
 
-Pixel data must be ready before each column interval fires ([§1.3](#13-how-the-image-forms)). Rendering inside the ISR would block the main loop, so the main loop renders freely into a back buffer while the ISR reads a separate front buffer. `queue_frame()` publishes the finished buffer inside a short interrupt-disabled critical section, and the ISR calls `advance_display()` to adopt it. [§4](#4-frame-lifecycle) walks through the mechanics.
+Pixel data must be ready before each column interval fires ([§1.3](#13-how-the-image-forms)). Rendering inside the ISR would block the main loop, so the main loop renders freely into a back buffer while the ISR reads a separate front buffer. `queue_frame()` publishes the finished buffer with a release store to `next`, paired with the ISR's acquire load in `advance_display()` when adopting it. [§4](#4-frame-lifecycle) walks through the mechanics.
 
 ### 3.5 Why Fail-Fast (`HS_CHECK`)?
 
@@ -241,12 +241,12 @@ Every effect renders a frame inside `draw_frame()`. The `Canvas` object brackets
 ```cpp
 void draw_frame() override {
     Canvas canvas(*this);   // advance_buffer() — grab write buffer
-                            // clear buffer if !persist_pixels
+                            // clear buffer if !persist_pixels && !replaces_frame
     // ... render here using canvas(x, y) = pixel ...
 }                           // ~Canvas() — queue_frame()
 ```
 
-`canvas(x, y)` is a direct array subscript into the write buffer (`bufs[cur][y * width + x]`): bounds are asserted in native and debug builds and unchecked under `NDEBUG` on device, and there is no virtual dispatch.
+`canvas(x, y)` is a direct array subscript into the write buffer (`bufs[cur][y * width + x]`): bounds are audited (`HS_AUDIT_CHECK`) in the native test builds and unchecked in WASM and firmware builds, and there is no virtual dispatch.
 
 The clear covers only the current display clip unless a filter declares `reads_outside_band`. Rendering a full frame and sampling old framebuffer contents outside the band are separate properties: `World::Trails` needs the former, while `Pixel::Feedback` needs both. The margin-expanded render band is otherwise write-only scratch; its width is the pipeline's `total_segment_margin` — the sum of each filter's `segment_margin` (how far the stage's output lands from the plotted position), floored at 1. Filtered effects derive all three properties from their pipelines ([§6.3](#63-the-effectconfig-flags)).
 
@@ -281,7 +281,7 @@ Three `std::atomic<int>` indices manage the double buffer:
 | `next` | The last completed frame (queued by `queue_frame()`) |
 | `prev` | The frame the ISR is currently reading |
 
-The ISR never touches `cur`. The main loop atomically updates `next` inside `queue_frame()` with interrupts disabled. `advance_display()` is called by the ISR at every half-revolution to flip `prev` to `next`.
+The ISR never touches `cur`. The main loop publishes `next` with a release store in `queue_frame()`. The ISR's acquire load in `advance_display()` adopts it at every half-revolution, flipping `prev` to `next`.
 
 Phantasm's `POVSegmented` driver follows the same double-buffer contract, but each board renders only its own segment clip and its flywheel ISR derives the column from the cycle counter.
 
@@ -686,13 +686,13 @@ The parameter list (`ParamList`) is accessible via `getParameters()`, and `updat
 
 ### 6.3 The `EffectConfig` Flags
 
-An effect passes construction-time settings to its base as `Effect(W, H, {.strobe = ..., .persist = ...})`. `EffectConfig` (`core/render/canvas.h`) defaults `strobe` to true and the bool flags `persist`, `full_frame` and `reads_outside_band` to false. Its integer `margin` defaults to the `ClipRegion` default of 1, not 0, and `required_margin` defaults to 0. `set_margin()` may not go below `required_margin`.
+An effect passes construction-time settings to its base as `Effect(W, H, {.strobe = ..., .persist = ...})`. `EffectConfig` (`core/render/canvas.h`) defaults `strobe` to true and the bool flags `persist`, `replaces_frame`, `full_frame` and `reads_outside_band` to false. Its integer `margin` defaults to the `ClipRegion` default of 1, not 0, and `required_margin` defaults to 0. `set_margin()` may not go below `required_margin`.
 
 Clip and margin setters cache an exact key for the resulting render bounds. `Plot::PointRoute` retains that key at preparation and checks it before plotting; changing the clip requires preparing the route again.
 
-With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the new write buffer before rendering, enabling trail/decay effects without explicit trail storage — each frame partially overwrites the last. When false (the default), the display band is zeroed each frame; the render margin is write-only scratch. `.strobe` drives the POV column strobe (`strobe_columns()`) and `.full_frame` forces full-canvas rendering under segmented drivers (`needs_full_frame()`). `.reads_outside_band` declares that the effect samples framebuffer pixels outside the display band, so `Canvas` clears the whole buffer instead of just the display clip. `.margin` is the render-bound expansion past the display edges in pixels (`ClipRegion::margin`), raised to the `ClipRegion` default when a lower value is passed.
+With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the new write buffer before rendering, enabling trail/decay effects without explicit trail storage — each frame partially overwrites the last. When false (the default), the display band is zeroed each frame unless `.replaces_frame` declares that rendering replaces it completely; the render margin is write-only scratch. `.strobe` drives the POV column strobe (`strobe_columns()`) and `.full_frame` forces full-canvas rendering under segmented drivers (`needs_full_frame()`). `.reads_outside_band` declares that the effect samples framebuffer pixels outside the display band, so `Canvas` clears the whole buffer instead of just the display clip. `.margin` is the render-bound expansion past the display edges in pixels (`ClipRegion::margin`), raised to the `ClipRegion` default when a lower value is passed.
 
-`pipeline_config<PipelineT>(base)` folds a filter pipeline's compile-time segment traits into `full_frame`, `reads_outside_band`, `margin`, and `required_margin`, so an effect stacking a filter that crosses segment boundaries, samples outside the band, or lands taps away from the plotted position need not restate those requirements at its base initializer. All four fold as "at least this much": the pipeline widens them and never clears what the effect asked for.
+`pipeline_config<PipelineT>(base)` folds a filter pipeline's compile-time segment traits into `full_frame`, `reads_outside_band`, `margin`, and `required_margin`, and folds `PipelineT::terminal_replaces` into `replaces_frame`, so an effect stacking a filter that crosses segment boundaries, samples outside the band, or lands taps away from the plotted position need not restate those requirements at its base initializer. These fold as "at least this much": the pipeline widens them and never clears what the effect asked for.
 
 ### 6.4 Registration
 
@@ -1569,7 +1569,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── README.md               Project entry point and Quilter upload guide
 │       ├── 1.1/                    Routed rev 1.1 board, schematic, project libraries, and validation matrix
 │       ├── 1.2/                    Rev 1.2 Quilter input and unvalidated routed candidate
-│       ├── 1.3/                    Experimental differential-sync schematic and unplaced PCB
+│       ├── 1.3/                    Experimental differential-sync schematic and unrouted PCB with locked placement
 │       └── gen/                    Python design/fabrication tools (`just pcb` runs `fab.py` only)
 │
 ├── targets/                    Per-target entry points

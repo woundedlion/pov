@@ -1,7 +1,8 @@
 """Generate a placed draft or Quilter board from the schematic + its netlist.
 
 Embeds footprints from KiCad stock libraries, hand-maintained terminal blocks
-in phantasm.pretty, or the generated Teensy footprint. Assigns pad nets by name
+(TBC05-02/03 in the default revision's phantasm.pretty, TBC05-04 in gen/footprints),
+or the generated Teensy footprint. Assigns pad nets by name
 from the exported netlist and declares the nets. Draft mode skyline-packs
 footprints into a PCB_W-wide outline (R-MECH-6). --unplaced locks fixed
 parts on the QUILTER_LENGTH outline; rev 1.3 fixes the complete front placement,

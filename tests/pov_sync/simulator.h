@@ -9,7 +9,7 @@
 inline constexpr double RECOVERY_PHASE_ERROR = 0.08;
 /** Maximum locked-hold board phase error, in columns. */
 inline constexpr double LOCKED_PHASE_ERROR = 0.13;
-/** Protocol §9.1 mis-snap recovery bound, in columns. */
+/** Mis-snap recovery bound, in columns; §9.1 budgets about 780. */
 inline constexpr uint64_t MIS_SNAP_RECOVERY_COLUMNS = 750;
 
 struct SimEffect {

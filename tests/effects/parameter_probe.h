@@ -51,7 +51,8 @@ inline void test_parameter_probe_targets() {
   HS_EXPECT_EQ(parameter_probe_target(slider, 1.0f), -2.0f);
 }
 
-/** @brief Float-backed dropdowns report values outside their option sets. */
+/** @brief The dead-slider lint probes a float-backed dropdown with an option value
+ * and restores it. */
 inline void test_float_dropdown_lint() {
   class DropdownEffect : public Effect {
   public:

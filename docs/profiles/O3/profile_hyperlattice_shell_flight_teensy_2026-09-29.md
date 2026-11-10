@@ -133,7 +133,7 @@ Inclusive flywheel ISR (`isr_wake`) shares are 2.89–2.93%, leaving about 60.7 
 
 ## Harness
 
-`targets/Profile/Profile.ino` with `HS_PROFILE_TARGET=HyperLattice`, `HS_PROFILE_WINDOW=16`, experimental opt-in, and `HS_PROFILE_PRESET=5` or `6`. Use the Setup command; the wrapper locks COM4 through build, attestation, upload and capture.
+The captured source used `targets/Profile/Profile.ino` with `HS_PROFILE_TARGET=HyperLattice`, `HS_PROFILE_WINDOW=16`, experimental opt-in, and `HS_PROFILE_PRESET=5` or `6`. The Setup command's experimental flag and preset indices apply to that source; the wrapper locks COM4 through build, attestation, upload and capture.
 
 ## Global -O3 vs selective -O3
 

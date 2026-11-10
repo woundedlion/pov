@@ -345,7 +345,7 @@ struct Vector {
   /**
    * @brief Divides this vector by a scalar in place.
    * @param s Scalar divisor; a zero yields the same +-Inf/NaN operator/(Vector,
-   *          float) does, guarded only by the debug assert.
+   *          float) does, guarded only by an audit check.
    * @return Reference to this vector.
    */
   Vector &operator/=(float s) {
@@ -1269,7 +1269,7 @@ constexpr Quaternion operator*(float s, const Quaternion &q) { return q * s; }
  * @param q Quaternion.
  * @param s Scalar.
  * @return The resulting quaternion.
- * @details No release-build s == 0 trap; only a debug assert.
+ * @details A zero divisor is guarded only by an audit check.
  */
 constexpr Quaternion operator/(const Quaternion &q, float s) {
   HS_AUDIT_CHECK(s != 0.0f);
@@ -1426,7 +1426,7 @@ __attribute__((always_inline)) inline float fast_acos(float x) {
  * @details exp(x) = 2^(x*log2e): an integer power from the exponent bits times
  * a quartic for the fraction, continuous across exponent boundaries. Peak
  * relative error ~5.1e-6 over [-30, 0]; large-magnitude x saturates to 0.
- * @warning The domain is guarded only by a debug assert, but every argument
+ * @warning The domain is guarded only by an audit check, but every argument
  * still yields a defined result: a positive x stays accurate to x ~ 88.0 and
  * saturates to +Inf above it, and a NaN returns 0.
  */

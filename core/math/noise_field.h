@@ -503,7 +503,7 @@ inline constexpr float EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT = 0.250001f;
  * @brief sphere_exp_map for short arcs, with the transcendentals unrolled.
  * @param v Unit point on the sphere.
  * @param tangent Tangent at @p v; its length is the arc travelled in radians,
- *   and must not exceed half a radian (asserted).
+ *   and must not exceed half a radian (checked only in audit builds).
  * @return The unit point reached after that arc.
  * @details cos and sin/x carried to their degree-6 Taylor terms: truncation
  *   error is under ~1e-7 within half a radian and grows as the eighth power of

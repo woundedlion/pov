@@ -32,7 +32,7 @@ FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
  * @details CAPACITY CONTRACT: appending never grows the block — push_back()
  * traps once element_count reaches capacity(). Only bind() changes capacity; a
  * grow there allocates a fresh block and abandons the old one until the arena
- * is reset. operator[] and back() check their preconditions only in debug
+ * is reset. operator[] and back() check their preconditions only in structural-audit
  * builds.
  *
  * ELEMENT DESTRUCTOR CONTRACT: ArenaVector never runs element destructors.
@@ -186,9 +186,8 @@ public:
    * @param min_capacity Minimum element count to reserve.
    * @details If already bound with at least that capacity, resets size for reuse
    * and keeps the larger prior capacity. A grow reallocates a fresh block and
-   * abandons the old one until the next reset. Debug builds trap on stale
-   * bindings from an arena reset, a different arena, or a rewind below the
-   * block.
+   * abandons the old one until the next reset. Debug builds trap on arena reset or rewind below the block;
+   * structural-audit debug builds also trap on binding to a different arena.
    */
   void bind(Arena &arena, size_t min_capacity) {
     static_assert(

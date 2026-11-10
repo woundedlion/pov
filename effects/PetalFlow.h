@@ -51,7 +51,8 @@ public:
                                Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
-   * @brief Registers sliders, clears all rings, and seeds the timeline.
+   * @brief Registers sliders, builds the ring edges and petal table, and seeds the
+   * timeline with a pre-filled path.
    * @details Runs once per effect instance: init_timeline() adds its events
    * unconditionally.
    */

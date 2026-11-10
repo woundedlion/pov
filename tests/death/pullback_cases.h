@@ -486,10 +486,10 @@ inline void case_chain_column_without_history() {
   program.prepare_column(ctx, ctx, 0.5f);
 }
 
-/** @brief Frame lifecycle changes invalidate cached column continuity. */
 /** @brief Lifecycle event invalidating sampled history. */
 enum class ColumnReset { ADVANCE, PREPARE, CLEAR_HISTORY };
 
+/** @brief Frame lifecycle changes invalidate cached column continuity. */
 template <ColumnReset Reset> inline void chain_column_rechecks_history() {
   static ChainTemporalBlocks blocks;
   static Pullback::Interp::ChainProgram program;

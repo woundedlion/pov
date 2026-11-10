@@ -296,10 +296,7 @@ struct GSWhiteBox {
   static bool hot_bit(const uint32_t *bits, int node) {
     return GS::hot_bits(bits)[node];
   }
-  /**
-   * @brief Compares the render stencil against the SSAA reference stencil.
-   * @return Count of non-zero reference weights compared.
-   */
+  /** @brief Returns a stencil callback storing slot and sample weights. */
   template <size_t Samples>
   static auto recorder(float (&weights)[GS::RD_K + 1][Samples]) {
     return [&](int slot, int) {
@@ -316,6 +313,10 @@ struct GSWhiteBox {
     };
   }
 
+  /**
+   * @brief Compares the render stencil against the SSAA reference stencil.
+   * @return Count of non-zero reference weights compared.
+   */
   static int check_render_kernel(GS &gs) {
     int weighted = 0;
     ScratchScope guard(scratch_arena_a);

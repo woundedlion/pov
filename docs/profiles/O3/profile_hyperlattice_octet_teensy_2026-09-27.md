@@ -146,4 +146,4 @@ No matched host timing is claimed. The original optimization baseline and every 
 
 ## Harness
 
-The targets/Profile/Profile.ino harness uses HS_PROFILE_TARGET=HyperLattice and the fixed-preset flags shown above. The default `profile_o3` command selects the normal roster, so use the explicit experimental flags to reproduce these captures.
+The targets/Profile/Profile.ino harness used HS_PROFILE_TARGET=HyperLattice and the fixed-preset flags shown above. Those experimental flags and preset indices apply to the captured source.

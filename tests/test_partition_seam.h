@@ -265,8 +265,8 @@ inline SeamStats compare(const std::vector<Pixel> &a,
 }
 
 /** Gated-swap envelope, bracketed on both sides; a max band calibrated at the
- * PS_H ceiling is pinned exactly. Fraction and energy count only pixels past
- * DELTA_THRESH. */
+ * PS_H ceiling leaves the max-band check open. Changed fraction and mean band
+ * bound that swap. Fraction and energy count only pixels past DELTA_THRESH. */
 constexpr double CHANGED_FRAC_RELATIVE_MARGIN = 0.10;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
 constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;

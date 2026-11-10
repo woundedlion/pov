@@ -28,9 +28,10 @@ inline constexpr std::array FAR_AREA_KNOTS{
     AreaTestSurface::Knot{.3f, -.1f, -.3f},
     AreaTestSurface::Knot{.5f, -.2f, -.4f}, AreaTestSurface::Knot{.6f, 0, 0}};
 
-/** @brief Checks padded segment coverage independently of mask rectangles. */
+/** @brief Knot radius profile: monotone expansion or folded radius. */
 enum class MaskProfile { EXPANDING, FOLDED };
 
+/** @brief Checks padded segment coverage independently of mask rectangles. */
 template <int RADIAL, int ANGULAR, int INTERVALS = 24,
           MaskProfile PROFILE = MaskProfile::EXPANDING>
 inline void check_radial_surface_mask(float padding) {

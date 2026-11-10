@@ -27,8 +27,9 @@ Version 2 documents encode the descriptor as an ordered chain of
 chain order are canonical and digest-bearing, structural variation is an
 operator id or a topology enum8 parameter, and every parameter id binds
 `<label>.<field>` against the catalog's operator schema. The compiler accepts
-the current document schema and operator identities, plus legacy four-value
-`*.coverage-mode` domains migrated to the current domain before validation.
+the current document schema and operator identities, plus three legacy
+declarations migrated before validation: four-value `*.coverage-mode` domains,
+two-value `*.frame` domains, and LINEAR twist-lens `axis-lambda` interpolation.
 
 The descriptor is a semantic identity over the chain, not a complete
 reproduction of the effect. It describes `chain`, `parameters`,

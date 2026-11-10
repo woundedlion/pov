@@ -116,7 +116,7 @@ PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
 _PHANTASM_ROSTER_MACRO = "HS_PHANTASM_EFFECT_LIST"
 # The shader promotion product group lives beside HS_EFFECT_LIST.
 _PRODUCT_GROUP_MACRO = "HS_SHADER_PRODUCT_GROUP"
-# Both macros spell a row `X(Name, seconds)`.
+# HS_PHANTASM_EFFECT_LIST spells a row `X(Name, seconds)`.
 _NAMED_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*,")
 # The effects reference spells the product group's cardinality in words and
 # tables every composed effect with its preset count.

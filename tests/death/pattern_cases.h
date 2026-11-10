@@ -106,6 +106,7 @@ inline void case_pattern_plane_noise_invalid_prepare() {
                                      static_cast<math::NoiseBasis>(3));
 }
 
+/** @brief Sphere direction admission rejects an infinite vector. */
 inline void case_pattern_direction_infinite() {
   (void)Pattern::SphereDirection::from(math::Vector(opaque(INFINITY), 0, 0));
 }

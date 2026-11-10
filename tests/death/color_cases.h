@@ -164,8 +164,6 @@ inline void case_generated_palette_bank_unknown_mode() {
   (void)bank.palette(opaque(static_cast<Mode>(3)));
 }
 
-/** @brief Sphere field admission rejects an infinite direction. */
-
 /**
  * @brief Death case: cloning a BakedPalette from itself must trap.
  * @details Color surface — clone_from allocates fresh storage into this handle

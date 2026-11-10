@@ -181,9 +181,8 @@ comparison.
 
 `targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=HyperLattice`, and
 `HS_PROFILE_WINDOW=16`; use the locked reproduce command above.
-Captured 2026-09-27 01:05 local time. The source, ELF hashes, and flags are retained
-in provenance; environment dumps are stored as JSON preserving their exact
-UTF-8 bytes and SHA-256, including original line endings.
+Captured 2026-09-27 01:05 local time. Source, ELF hashes, flags, build logs and environment dumps are no longer
+retained in the repository.
 
 Global -O3 versus selective -O3, both frames 2–1577 on COM3: mean render
 45.106 → 44.884 ms (1.005×); peak
@@ -236,7 +235,7 @@ teensy_size:    RAM2: variables:520064  free for malloc/new:4224
 
 Exactness cross-check: frames 321–336, root 1,199,723,503
 cycles / 600 MHz versus 1,999,539 μs wall sum: **0.086 ppm**.
-Build logs and environment dumps are retained beside the raw capture.
+Source, ELF hashes, flags, build logs and environment dumps are no longer retained in the repository.
 
 ### Frame cadence
 

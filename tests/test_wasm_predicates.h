@@ -493,10 +493,6 @@ inline void probe_solid_growth(Arena &input, Arena &target, Arena &temp,
     check_mesh_op_growth(probe, in, target, temp, finalized);
 }
 
-/**
- * @brief Measures every roster operator's growth on solids of differing face
- *        degree and vertex valence.
- */
 /** @brief Every registered mesh operator has one growth probe. */
 inline void test_mesh_op_probes_match_roster() {
   // Every roster operator has exactly one probe.

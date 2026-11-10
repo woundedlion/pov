@@ -294,7 +294,7 @@ add_test(NAME unit_mindsplatter_palette COMMAND mindsplatter_palette_check)
 
 # Opt-in Clang source-based coverage for the shared native suite. Instrumentation changes
 # codegen. Needs clang_rt.profile, which the Windows emsdk clang does not ship.
-option(HS_COVERAGE "Instrument run_tests for llvm-cov source-based coverage" OFF)
+option(HS_COVERAGE "Instrument the native test runners, case objects and their engine objects for llvm-cov source-based coverage" OFF)
 if(HS_COVERAGE)
   foreach(_target IN LISTS _hs_module_targets _hs_case_targets)
     target_compile_options(${_target} PRIVATE -fprofile-instr-generate -fcoverage-mapping)

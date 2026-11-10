@@ -4,7 +4,7 @@ Rev 1.2 is the generator default. The [board index](../README.md) covers shared 
 
 ## Quilter upload
 
-Upload these three files together from that directory:
+Upload these three files together from this directory:
 
 - [phantasm.kicad_pcb](phantasm.kicad_pcb): unplaced rev 1.2 board.
 - [phantasm.kicad_sch](phantasm.kicad_sch): matching rev 1.2 schematic.
@@ -47,7 +47,7 @@ PCB. [Quilter prioritizes direct schematic wires when assigning bypass capacitor
 Start a fresh job to redetect the constraints; replacing files can retain an
 existing incorrect assignment. Verify these two rows before submitting.
 
-The rev 1.2 bypass table contains only those two decouplers. Remove C_IN
+The rev 1.2 bypass table must contain only those two decouplers; remove C_IN
 (bulk storage), C_LF (filter damping), and C_SYNC (signal filtering) from that
 table. In Power Nets, keep 500 mA sizing for all five detected supply nets and
 turn off **Attempt Power Pour** for each. These are Quilter job settings;

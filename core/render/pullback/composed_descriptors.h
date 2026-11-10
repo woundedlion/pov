@@ -821,8 +821,9 @@ template <typename Spec> consteval bool color_gate_open(TopologyGate gate) {
  * @brief Number of sliders one resource contributes.
  * @tparam Spec Composed-effect Spec, for gate evaluation.
  * @tparam Resource Parameter resource.
- * @return Open fields, plus the speed slider of a warp or the palette-mapping
- *         slider of a colour family.
+ * @return Open fields and open topology selectors, plus extra-schema rows, the
+ *         warp speed slider, or a colour family's palette-mapping and authored
+ *         palette selectors; a modulation family contributes its control rows.
  */
 template <typename Spec, typename Resource>
 consteval size_t resource_parameter_count() {

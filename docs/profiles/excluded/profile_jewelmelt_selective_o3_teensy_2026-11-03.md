@@ -83,7 +83,7 @@ isr_wake          3455.8/frame  0.60/1.98/26.12 us  cpu 3.64%
 
 - Submission costs 0.94 us/call versus 9.33 us/call for packing. Per-frame call counts are three times the 62.5 ms case because each rendered frame spans three display windows.
 - At 24 MHz SPI, the 600-byte image-plus-black composite for 72 LEDs takes 230 us including LPSPI byte framing (200 us ideal payload) asynchronously; submission timing does not measure completion latency.
-- Inclusive `isr_wake` consumes 3.64% CPU, leaving about 60.23 ms foreground CPU per 62.5 ms window. Pack and submit are nested inside wake, not added to it. The 77.64 ms steady peak needs a 1.29× render speedup to hold 16 fps; the 74.15 ms steady-window mean needs 1.23×. DMA-completion and other interrupts are not measured.
+- Inclusive `isr_wake` consumes 3.64% CPU, leaving about 60.23 ms foreground CPU per 62.5 ms window. Pack and submit are nested inside wake, not added to it. The 77.64 ms steady peak needs a 1.24× render speedup to hold 16 fps; the 74.15 ms steady-window mean needs 1.19×. DMA-completion and other interrupts are not measured.
 
 ## Summary ranking
 

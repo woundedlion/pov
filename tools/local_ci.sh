@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run every CI job this machine can run, stopping at the first failure. Each
+# Run every CI job this machine can run; each lane stops at its first failure. Each
 # job calls the same commands as its .github/workflows/ci.yml job; a local-only
 # job has no ci.yml job, so this run is its only gate.
 #

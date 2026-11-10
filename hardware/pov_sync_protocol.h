@@ -613,7 +613,7 @@ struct Telemetry {
   uint32_t symbols_discarded_invalid = 0; /**< Invalid pulse counts (§5.2). */
   uint32_t beacons_ok = 0; /**< Beacons decoded with an in-roster index. */
   uint32_t beacons_rejected =
-      0; /**< Checksum, digit-count, or staleness drops. */
+      0; /**< Checksum, out-of-range digit, stale partial frame, or out-of-roster index drops. */
   uint32_t beacon_index_corrections = 0; /**< Missed-epoch fixes (§6.3.2). */
   uint32_t beacon_rev_mismatches = 0; /**< Rev-counter resyncs from beacons. */
   uint32_t epochs_refractory_ignored =

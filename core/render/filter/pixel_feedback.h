@@ -143,7 +143,7 @@ public:
 
   /**
    * @brief Enables or disables feedback.
-   * @param value When false, flush() is skipped entirely.
+   * @param value When false, flush() only clears a stale drawing buffer.
    */
   void set_enabled(bool value) { enabled = value; }
 
@@ -217,7 +217,7 @@ private:
    * @param alpha Global blend alpha in [0, 1].
    * @details Computes a coarse warp field via the Style's space_fn, bilinearly
    * upsamples it, then composites the warped previous frame, honoring the
-   * segment's cylindrical clip. No-op when disabled.
+   * segment's cylindrical clip. Clears a stale drawing buffer only when disabled.
    */
   HS_O3_BEGIN
   void flush(Canvas &cv, float alpha) {

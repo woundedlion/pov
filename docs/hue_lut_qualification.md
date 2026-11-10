@@ -143,11 +143,11 @@ Every canonical validator exits zero and ends in VALID.
 Observed peak frame time and spills are the primary performance criteria.
 Mean differences remain useful diagnostics of repeated work:
 
-| Effect | Accurate/optimized peak ms | Spills | Accurate/optimized mean ms | Mean change |
-| --- | ---: | ---: | ---: | ---: |
-| AlienBrain | 60.395 / 59.726 | 0 / 0 | 30.775534 / 30.327124 | -0.448410 ms (-1.4570%) |
-| JewelMelt | 78.431 / 77.689 | 1 / 1 | 44.616056 / 44.226133 | -0.389923 ms (-0.8740%) |
-| AshCloud | 86.774 / 86.140 | 1 / 1 | 50.455200 / 49.984269 | -0.470931 ms (-0.9334%) |
+| Effect | Accurate/optimized all-frame peak ms (setup frame included) | Accurate/optimized live peak ms | Spills | Accurate/optimized mean ms | Mean change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| AlienBrain | 60.395 / 59.726 | 36.627 / 35.842 | 0 / 0 | 30.775534 / 30.327124 | -0.448410 ms (-1.4570%) |
+| JewelMelt | 78.431 / 77.689 | 52.015 / 51.352 | 1 / 1 | 44.616056 / 44.226133 | -0.389923 ms (-0.8740%) |
+| AshCloud | 86.774 / 86.140 | 57.943 / 57.097 | 1 / 1 | 50.455200 / 49.984269 | -0.470931 ms (-0.9334%) |
 
 JewelMelt and AshCloud spills occur at startup; all steady captures have zero
 spills. The 64-frame block intervals for paired mean differences are
@@ -234,7 +234,7 @@ the accurate control, using the same validated ITCM clock sampler in each
 image. Every individual pair used the same board and settings. AlienBrain ran
 on serial 6362410; AshCloud and JewelMelt ran on serial 6362390.
 
-| Effect | Original/accurate peak ms | Spills | Original/accurate mean ms |
+| Effect | Original/accurate all-frame peak ms (setup frame included) | Spills | Original/accurate mean ms |
 | --- | ---: | ---: | ---: |
 | AlienBrain | 52.495 / 60.374 | 0 / 0 | 26.867842 / 30.777451 |
 | AshCloud | 83.198 / 86.729 | 1 / 1 | 48.995972 / 50.458306 |

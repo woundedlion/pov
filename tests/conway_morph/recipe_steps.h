@@ -232,6 +232,7 @@ struct LegFixture {
  * @param frames_out Optional sink receiving each drawn frame's vertices.
  * @param pause_after Leg frame after which two step_paused() redraws run; 0
  *        drives the leg unpaused.
+ * @param weights_out Optional sink receiving each drawn frame's crossfade weight.
  * @details The departed palettes come from the seed's own classification and
  * the bookend from the step's clean endpoint.
  */

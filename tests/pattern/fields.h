@@ -354,7 +354,8 @@ inline void test_pattern_plane_bands() {
   HS_EXPECT_TRUE(!Source::valid(params));
 }
 
-/** @brief Pins plane source protocols values. */
+/** @brief Plane interference advances its clocks and samples the rotated two-wave
+ * formula; prepared state ignores later param edits. */
 inline void test_pattern_plane_source_protocols() {
   using namespace Pattern;
   PlaneInterference::Params waves;
@@ -378,7 +379,7 @@ inline void test_pattern_plane_source_protocols() {
   HS_EXPECT_EQ(PlaneInterference::sample(POINT, PREPARED), RETAINED);
 }
 
-/** @brief Pins plane source spiral samples values. */
+/** @brief Plane spiral rounds arms to an integer and samples the arm-phase formula. */
 inline void test_pattern_plane_source_spiral_samples() {
   using namespace Pattern;
   const PlanePosition POINT{{0.6f, 0.25f}};
@@ -395,7 +396,7 @@ inline void test_pattern_plane_source_spiral_samples() {
       std::sin(0.65f), 0.0018f);
 }
 
-/** @brief Pins plane source grid samples values. */
+/** @brief Coupled grid samples sin(x) times cos(y) at full mix. */
 inline void test_pattern_plane_source_grid_samples() {
   using namespace Pattern;
   const PlanePosition POINT{{0.6f, 0.25f}};
@@ -434,7 +435,7 @@ inline void test_pattern_plane_source_tessellation_samples() {
   HS_EXPECT_EQ(Edges::sample({{}}, Edges::prepare({}, {})), -1.0f);
 }
 
-/** @brief Pins plane source noise samples values. */
+/** @brief Plane noise advances its turn clock and samples projected contour noise. */
 inline void test_pattern_plane_source_noise_samples() {
   using namespace Pattern;
   const PlanePosition POINT{{0.6f, 0.25f}};
