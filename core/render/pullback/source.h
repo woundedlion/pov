@@ -165,11 +165,13 @@ struct NoiseSourceParams : Pattern::NoiseSourceParams {
   /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<NoiseSourceParams>{"noise-scale", &NoiseSourceParams::noise_scale,
-                               "Source Noise Scale", 1.0f / 64.0f, 64.0f,
+                               "Source Noise Scale", Pattern::MIN_NOISE_SCALE,
+                               Pattern::MAX_NOISE_SCALE,
                                FieldCurve::LOG_POSITIVE},
-      Field<NoiseSourceParams>{
-          "noise-contrast", &NoiseSourceParams::noise_contrast,
-          "Source Noise Contrast", 0.0f, 8.0f, FieldCurve::LERP},
+      Field<NoiseSourceParams>{"noise-contrast",
+                               &NoiseSourceParams::noise_contrast,
+                               "Source Noise Contrast", 0.0f,
+                               Pattern::MAX_NOISE_CONTRAST, FieldCurve::LERP},
       Field<NoiseSourceParams>{
           "noise-speed", &NoiseSourceParams::noise_time_rate,
           "Source Noise Speed", -1.0f / 64.0f, 1.0f / 64.0f, FieldCurve::LERP},
