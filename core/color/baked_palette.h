@@ -32,12 +32,13 @@ struct BakeDomain {
  */
 template <int Size, typename Sample, typename Copy>
 inline void bake_palette_schedule(BakeDomain domain, Sample sample, Copy copy) {
+  static_assert(Size >= 2, "palette table needs at least two entries");
   const int count =
-      domain.mirrors ? Size / 2 : (domain.loops ? Size - 1 : Size);
+      domain.mirrors ? (Size + 1) / 2 : (domain.loops ? Size - 1 : Size);
   for (int i = 0; i < count; ++i)
     sample(i, static_cast<float>(i) / (Size - 1));
   if (domain.mirrors) {
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < Size / 2; ++i)
       copy(Size - 1 - i, i);
   } else if (domain.loops) {
     copy(Size - 1, 0);
