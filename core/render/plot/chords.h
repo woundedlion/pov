@@ -245,8 +245,7 @@ public:
   /** @brief Maximum rotation lever arm over a chart-straight edge.
    * @param a,b Equidistant chart endpoints in radians, within radius pi.
    * @return Maximum distance from the chart pole's axis on the unit sphere. */
-  HS_HOT_INLINE static float rotation_radius(math::PixelCoords a,
-                                             math::PixelCoords b) {
+  HS_HOT_INLINE static float rotation_radius(ChartPoint a, ChartPoint b) {
     const float dx = b.x - a.x, dy = b.y - a.y;
     const float span2 = dx * dx + dy * dy;
     const float nearest =

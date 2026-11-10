@@ -1429,7 +1429,7 @@ inline void test_chart_edge_rotation_radius() {
   using Chords = Plot::PlanarChords<ORACLE_W, ORACLE_H>;
   /** @brief One straight source-chart segment. */
   struct Edge {
-    math::PixelCoords a, b; ///< Chart endpoints, radians.
+    Plot::ChartPoint a, b; ///< Chart endpoints, radians.
   };
   const Edge edges[] = {{{0.0f, 0.0f}, {0.0f, 0.0f}},
                         {{0.2f, 0.0f}, {0.8f, 0.0f}},
