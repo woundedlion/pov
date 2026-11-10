@@ -175,8 +175,9 @@ constexpr int HS_PHANTASM_EXCLUDED_COUNT =
 /** @brief Counts occurrences of an effect name in the exclusions.
  * @param name Effect class name.
  * @return Number of matching exclusions. */
-constexpr int hs_phantasm_excluded_effect_count(std::string_view name) {
-#define HS_PHANTASM_EXCLUDED_NAME_MATCH(cls) +(name == #cls)
+constexpr int hs_phantasm_excluded_effect_count(const char *name) {
+#define HS_PHANTASM_EXCLUDED_NAME_MATCH(cls)                                   \
+  +(hs_effect_name_eq(name, #cls) ? 1 : 0)
   return 0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_NAME_MATCH);
 #undef HS_PHANTASM_EXCLUDED_NAME_MATCH
 }
