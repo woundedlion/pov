@@ -338,6 +338,9 @@ def teensy_footprint():
             ' (fill none) (layer "F.CrtYd"))\n'
             '\t(fp_rect (start -30 -5) (end -18.5 5) (stroke (width 0.25) (type dash))'
             ' (fill none) (layer "Dwgs.User"))')
+    if outline_layer == 'F.SilkS':
+        body += ('\n\t(fp_text user "USB" (at -17.3 0 90) (layer "F.SilkS")'
+                 ' (effects (font (size 1 1) (thickness 0.15))))')
     keepout = (
         '\t(zone\n'
         '\t\t(layer "F.Cu")\n'
