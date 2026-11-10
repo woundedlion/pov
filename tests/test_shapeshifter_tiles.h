@@ -115,7 +115,7 @@ expect_segment_tiles_reconstruct_full_frame(Render render,
   }
 }
 
-/** @brief Segment tile mosaics reproduce the full-frame surface render. */
+/** @brief Segment tile mosaics reproduce the full-frame contour render. */
 inline void test_segment_tiles_reconstruct_full_frame() {
   ScopedPoleRunSplit scope(false);
   expect_segment_tiles_reconstruct_full_frame(reference_renderer(), false);
@@ -135,7 +135,7 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   state.orientation = math::make_rotation(math::X_AXIS, math::Y_AXIS);
   expect_mosaic_matches(state, candidate_renderer(), QUADRANTS);
 
-  // Dense screen-balanced contours at both poles, with pole-run splitting off.
+  state.force_contours = true;
   state.preset_index = 1;
   state.count = 288;
   state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
@@ -184,6 +184,7 @@ inline void test_split_pole_runs_tiles_within_energy_budget() {
   ScopedPoleRunSplit scope(true);
   OracleState state;
   state.preset_index = 1;
+  state.force_contours = true;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.count = 288;
   state.sides = 7;
