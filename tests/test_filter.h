@@ -45,7 +45,8 @@ struct FeedbackWhiteBox {
                        int x) {
     if (!feedback.held)
       return -1;
-    const int slot = feedback.cover_slot(y, x < W / 2 ? 0 : W / 2, x);
+    const int slot =
+        feedback.cover_slot(feedback.held->rows[y], x < W / 2 ? 0 : W / 2, x);
     return slot >= 0 && (feedback.held->cover[slot] & 0xFFFE) != 0 ? slot : -1;
   }
   /** @brief Held pixels a split frame's taps reached. */

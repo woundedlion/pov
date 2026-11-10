@@ -401,17 +401,21 @@ private:
     bool pairs : 1;   ///< Composites column pairs.
     bool infill : 1;  ///< Reconstructs at its longitude footprint.
     bool pole : 1;    ///< Every column is the pole.
+    bool wide : 1;    ///< Covers every column of each arm (cover_slot()).
     /// Lanes past a column that its reconstruction reads: the next pair, or
     /// the infill filter's radius.
     uint8_t reach;
     /// First of the row's finish samples (finish_window()).
     int16_t window_base;
+    /// First of the row's coverage slots.
+    uint16_t cover_base;
   };
 
   /** @brief Lane columns of a row whose sources read the frame as plotted. */
   struct AheadSpan {
     int16_t first; ///< First such column past each arm's first; HALF if none.
-    int16_t last;  ///< Last such column; -1 if none.
+    int16_t last;  ///< Last such column, -1 if none; finish() extends it to
+                   ///< the last lane whose step completes a held column.
   };
 
   /** @brief Per-frame composite inputs prepare_flush() resolves. */
@@ -885,6 +889,7 @@ private:
     auto ring0 = grid.field.ring(field_y0);
     auto ring1 = field_y1 > field_y0 ? grid.field.next_ring(ring0) : ring0;
     int window_base = 0;
+    int cover_base = 0;
     for (int y = band.y_begin; y < band.y_end; ++y) {
       while (y > ring1.y && field_y1 < band.field_y_end) {
         field_y0 = field_y1;
@@ -916,7 +921,13 @@ private:
       g.reach = static_cast<uint8_t>(g.infill ? width / 2 : g.pairs ? 2 : 0);
       g.window_base = static_cast<int16_t>(window_base);
       window_base += 2 * finish_window(g);
+      g.wide = SphereField::latitude_sine(y) < POLAR_TARGET_SINE;
+      g.cover_base = static_cast<uint16_t>(cover_base);
+      cover_base += 2 * cover_columns(g);
     }
+    // no death case: COVER_ROWS bounds every display geometry's wide rows
+    HS_CHECK(cover_base <= COVER_SLOTS,
+             "feedback coverage needs %d slots of %d", cover_base, COVER_SLOTS);
   }
 
   /**
@@ -1412,7 +1423,7 @@ private:
     const RowGeometry &g = ctx.rows[y];
     const int k = x - arm;
     auto open = [&](int column, uint16_t bits) {
-      const int slot = cover_slot(y, arm, arm + column);
+      const int slot = cover_slot(g, arm, arm + column);
       // no death case: coverage spans every lane a capped offset can hold
       HS_CHECK(slot >= 0,
                "feedback row %d column %d is held outside its coverage", y,
@@ -1608,9 +1619,9 @@ private:
                            : nullptr;
     if (windows)
       std::memset(windows, 0, window_slots * sizeof(::Pixel));
-    // The rows holding a lane, each with the lanes whose steps complete a
-    // held column.
-    AheadSpan *visits = scope.get_arena().allocate_n<AheadSpan>(H);
+    // The rows holding a lane; each span's last becomes the last lane whose
+    // step completes a held column.
+    AheadSpan *spans = ctx.ahead_span;
     int16_t *visit_rows = scope.get_arena().allocate_n<int16_t>(H);
     int count = 0, begin = HALF, end = -1;
     for (int y = band.y_begin; y < band.y_end; ++y) {
@@ -1622,23 +1633,23 @@ private:
           g.infill  ? std::min(HALF - 1, span.last + 2 * g.reach)
           : g.pairs ? (span.last + 2 >= HALF - 2 ? HALF - 1 : span.last + 2)
                     : span.last;
-      visit_rows[count] = static_cast<int16_t>(y);
-      visits[count++] = {span.first, static_cast<int16_t>(last)};
+      visit_rows[count++] = static_cast<int16_t>(y);
+      spans[y].last = static_cast<int16_t>(last);
       begin = std::min<int>(begin, span.first);
       end = std::max(end, last);
     }
     for (int c = begin; c <= end; ++c) {
       for (int i = 0; i < count; ++i) {
-        if (c < visits[i].first || c > visits[i].last)
-          continue;
         const int y = visit_rows[i];
+        if (c < spans[y].first || c > spans[y].last)
+          continue;
         const RowGeometry &g = ctx.rows[y];
         if (g.pairs && (c & 1) && c < HALF - 2)
           continue;
         for (int arm = 0, side = 0; arm < W; arm += HALF, ++side) {
           const int x = arm + c;
           ::Pixel p(0, 0, 0);
-          const int slot = cover_slot(y, arm, x);
+          const int slot = cover_slot(g, arm, x);
           const bool held = slot >= 0 && (ctx.cover[slot] & AHEAD_BIT);
           if (!held && !g.pairs && !g.infill)
             continue;
@@ -1737,7 +1748,7 @@ private:
    */
   static HS_HOT_INLINE void add_under(const FlushContext &ctx, int y, int arm,
                                       int x, const ::Pixel &under) {
-    const int slot = cover_slot(y, arm, x);
+    const int slot = cover_slot(ctx.rows[y], arm, x);
     if (slot < 0)
       return;
     const uint16_t t = ctx.cover[slot] & TRANSMITTANCE_BITS;
@@ -2376,7 +2387,8 @@ private:
                                              float alpha, PassFnT &pass) {
     const int row = Filter::round_row<H>(y);
     const int arm = ColumnTime::arm_start(column);
-    const int slot = row < 0 || row >= H ? -1 : cover_slot(row, arm, column);
+    const int slot =
+        row < 0 || row >= H ? -1 : cover_slot(held->rows[row], arm, column);
     if (slot < 0) {
       pass(x, y, color, age, alpha);
       return;
@@ -2396,50 +2408,73 @@ private:
         ahead;
   }
 
-  /** @brief Rows from either end a runtime display geometry can place under
-   *  POLAR_TARGET_SINE: the cap's angle over the smallest row pitch a
-   *  geometry reaching that pole allows (math::set_display_geometry()). */
-  static constexpr int RUNTIME_CAP_ROWS =
-      static_cast<int>((H - 1) * (1.0f / 6.0f) / 0.75f) + 1;
-
-  /**
-   * @brief Coverage slots per arm of a row: every column where a cap-plane
-   *        lane may turn any distance; otherwise the columns a quarter-turn
-   *        forward offset, the elapsed scale's cap, carries past the arm's
-   *        last column, and the pair column before them.
-   * @param y Row.
-   * @return Slot count.
-   */
-  static constexpr int cover_columns(int y) {
-    constexpr int CARTESIAN = HALF / 2 + 1;
+  /** @brief Rows and lattice rings under POLAR_TARGET_SINE, at most, over
+   *  the display geometries math::set_display_geometry() admits: its ends
+   *  sampled, a row's angle taken a milliradian toward the cap and one row
+   *  added at each end; describe_rows() and init_storage() check the bounds. */
+  struct CapExtent {
+    int rows;
+    int rings;
+  };
+  static constexpr CapExtent CAP_EXTENT = [] {
 #if HS_RUNTIME_DISPLAY_GEOMETRY
-    return y < RUNTIME_CAP_ROWS || y >= H - RUNTIME_CAP_ROWS ? HALF : CARTESIAN;
+    constexpr float CAP = math::PI_F / 6.0f + 1.0e-3f;
+    constexpr int STEPS = 24;
+    CapExtent most{0, 0};
+    for (int i = 0; i <= STEPS; ++i)
+      for (int j = 0; j <= STEPS; ++j) {
+        const float north = 0.25f * math::PI_F * i / STEPS;
+        const float south = math::PI_F * (0.75f + 0.25f * j / STEPS);
+        const float pitch = (south - north) / (H - 1);
+        int top = 0, bottom = 0;
+        for (int y = 0; y < H; ++y) {
+          const float phi = north + y * pitch;
+          top += phi < CAP;
+          bottom += phi > math::PI_F - CAP;
+        }
+        top = std::min(top + 1, H);
+        bottom = std::min(bottom + 1, H);
+        const int rings = CACHE_FIELD.rings_within(top, bottom);
+        most.rows = std::max(most.rows, std::min(top + bottom, H));
+        most.rings = std::max(most.rings, rings);
+      }
+    return most;
 #else
-    return SphereField::latitude_sine(y) < POLAR_TARGET_SINE ? HALF : CARTESIAN;
-#endif
-  }
-
-  /** @brief First coverage slot of each row, and the total after the last. */
-  static constexpr std::array<int32_t, H + 1> COVER_BASE = [] {
-    std::array<int32_t, H + 1> base{};
+    int rows = 0;
     for (int y = 0; y < H; ++y)
-      base[y + 1] = base[y] + 2 * cover_columns(y);
-    return base;
+      rows += SphereField::latitude_sine(y) < POLAR_TARGET_SINE;
+    return CapExtent{rows,
+                     polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows()};
+#endif
   }();
+
+  /** @brief Coverage slots per arm of a row: every column of a row under
+   *  POLAR_TARGET_SINE, where a cap-plane lane may turn any distance;
+   *  otherwise the columns a quarter-turn forward offset, the elapsed
+   *  scale's cap, carries past the arm's last column, and the pair column
+   *  before them. */
+  static constexpr int COVER_CARTESIAN = HALF / 2 + 1;
+  /** @brief A row's coverage slots per arm. */
+  static HS_HOT_INLINE int cover_columns(const RowGeometry &g) {
+    return g.wide ? HALF : COVER_CARTESIAN;
+  }
   /** @brief Coverage slots of a frame. */
-  static constexpr int COVER_SLOTS = COVER_BASE[H];
+  static constexpr int COVER_SLOTS =
+      2 * (CAP_EXTENT.rows * HALF + (H - CAP_EXTENT.rows) * COVER_CARTESIAN);
+  static_assert(COVER_SLOTS <= UINT16_MAX,
+                "Feedback<W,H>: RowGeometry::cover_base holds a slot");
   /**
    * @brief Coverage slot of a column.
-   * @param y Row.
+   * @param g The column's row geometry.
    * @param arm First column of the column's arm.
    * @param x Column.
    * @return Index into FlushContext::cover, or -1 for a column too far from
    *         its arm's end to have one.
    */
-  static HS_HOT_INLINE int cover_slot(int y, int arm, int x) {
-    const int width = cover_columns(y);
+  static HS_HOT_INLINE int cover_slot(const RowGeometry &g, int arm, int x) {
+    const int width = cover_columns(g);
     const int slot = arm + HALF - 1 - x;
-    return slot < width ? COVER_BASE[y] + (arm != 0 ? width : 0) + slot : -1;
+    return slot < width ? g.cover_base + (arm != 0 ? width : 0) + slot : -1;
   }
 
   /**
@@ -2450,17 +2485,22 @@ private:
   static constexpr int filter_window_bound(int y) {
     constexpr int WIDEST = (W & 1) ? W : W - 1;
 #if HS_RUNTIME_DISPLAY_GEOMETRY
-    (void)y;
-    return WIDEST;
+    // math::set_display_geometry() puts the far end at least three quarters
+    // of a turn from each pole, so a row d rows from an end lies at least
+    // d * (3 pi / 4) / (H - 1) from its pole; a - a^3 / 6 bounds that angle's
+    // sine from below.
+    const int rows = std::min(y, H - 1 - y);
+    const float angle = rows * (0.75f * math::PI_F / (H - 1));
+    const float sine = angle - angle * angle * angle * (1.0f / 6.0f);
 #else
     const float sine = SphereField::latitude_sine(y);
+#endif
     if (sine < 2.0f / W)
       return WIDEST;
     int width = 1;
     while (width * sine < 1.0f)
       width += 2;
     return std::min(width + 2, WIDEST);
-#endif
   }
 
   /** @brief Finish samples a row keeps per arm: the lanes its reconstruction
@@ -2521,19 +2561,32 @@ private:
   FadeTable fade_table; /**< Persistent per-elapsed-time transforms. */
 
 public:
-  /** @brief Cap-cell budget; runtime geometry reserves the rings a display
-   *  geometry can place within RUNTIME_CAP_ROWS of either end. */
-#if HS_RUNTIME_DISPLAY_GEOMETRY
-  static constexpr int CACHE_CAP_CELLS =
-      CACHE_FIELD.rings_within(RUNTIME_CAP_ROWS) * CACHE_COLUMNS;
-#else
-  static constexpr int CACHE_CAP_CELLS =
-      polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() * CACHE_COLUMNS;
-#endif
+  /** @brief Cap-cell budget: the most polar rings a display geometry
+   *  places (CAP_EXTENT). */
+  static constexpr int CACHE_CAP_CELLS = CAP_EXTENT.rings * CACHE_COLUMNS;
 
-  /** @brief Lattice-origin budget; runtime geometry reserves the cell upper bound. */
+  /** @brief Lattice-origin budget: the most samples a display geometry
+   *  places. Under runtime geometry, row y lies between y * (3 pi / 4) /
+   *  (H - 1) and pi / 4 more from the north pole (math::set_display_geometry()),
+   *  and each ring takes the largest sine over that span. */
 #if HS_RUNTIME_DISPLAY_GEOMETRY
-  static constexpr int CACHE_ORIGIN_SAMPLES = CACHE_CELLS;
+  static constexpr int CACHE_ORIGIN_SAMPLES =
+      CACHE_FIELD.sample_count([](int y) {
+        constexpr float PITCH = 0.75f * math::PI_F / (H - 1);
+        const float low = y * PITCH, high = 0.25f * math::PI_F + y * PITCH;
+        if (low <= 0.5f * math::PI_F && high >= 0.5f * math::PI_F)
+          return 1.0f;
+        // Taylor sine through x^9 overestimates on [0, pi / 2].
+        auto sine = [](float x) {
+          x = x > 0.5f * math::PI_F ? math::PI_F - x : x;
+          const float x2 = x * x;
+          return x * (1.0f - x2 / 6.0f *
+                                 (1.0f - x2 / 20.0f *
+                                             (1.0f - x2 / 42.0f *
+                                                         (1.0f - x2 / 72.0f))));
+        };
+        return std::min(1.0f, std::max(sine(low), sine(high)) + 1.0e-4f);
+      });
 #else
   static constexpr int CACHE_ORIGIN_SAMPLES = CACHE_FIELD.sample_count();
 #endif
@@ -2544,11 +2597,9 @@ public:
       CACHE_CELLS * 2 * sizeof(int16_t) + CACHE_CAP_CELLS * 2 * sizeof(int16_t);
   /** @brief Persistent bytes init_storage() reserves over CACHE_CELLS: two
    *  alternating field sets, the lattice's projected origins, the fade table
-   *  and the rows' reaches. Runtime display geometry budgets one set against
-   *  the device's partition; its arena holds the other or init_storage()
-   *  traps. */
+   *  and the rows' reaches. */
   static constexpr size_t STORAGE_BYTES =
-      (HS_RUNTIME_DISPLAY_GEOMETRY ? 1 : 2) * FIELD_SET_BYTES +
+      2 * FIELD_SET_BYTES +
       CACHE_ORIGIN_SAMPLES * sizeof(typename SphereField::Coordinates) +
       FadeTable::BYTES + H * sizeof(int16_t);
   /** @brief Arena allocations init_storage() makes; each pads its share of
@@ -2565,10 +2616,9 @@ public:
   static constexpr size_t split_scratch_bytes() {
     constexpr size_t PAD = alignof(std::max_align_t);
     return sizeof(FlushContext) + W * sizeof(::Pixel) +
-           H * (sizeof(RowGeometry) +
-                2 * (sizeof(int16_t) + sizeof(AheadSpan))) +
+           H * (sizeof(RowGeometry) + 2 * sizeof(int16_t) + sizeof(AheadSpan)) +
            COVER_SLOTS * sizeof(uint16_t) + WINDOW_SLOTS * sizeof(::Pixel) +
-           9 * PAD;
+           8 * PAD;
   }
 };
 

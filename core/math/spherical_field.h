@@ -138,14 +138,15 @@ public:
   }
 
   /**
-   * @brief Rows of the ring chain within a number of rows of either end.
-   * @param rows Rows from each end; rings at y < rows or y >= H - rows count.
+   * @brief Rings of the chain within a number of rows of each end.
+   * @param north Rows from the first; rings at y < north count.
+   * @param south Rows from the last; rings at y >= H - south count.
    * @return Ring count, from the chain's spacing alone.
    */
-  constexpr int rings_within(int rows) const {
+  constexpr int rings_within(int north, int south) const {
     int count = 0;
     for (int y = 0;; y = next_ring_y(y)) {
-      count += y < rows || y >= H - rows;
+      count += y < north || y >= H - south;
       if (y >= H - 1)
         return count;
     }
@@ -156,9 +157,19 @@ public:
    * @return Sample count.
    */
   constexpr int sample_count() const {
+    return sample_count([](int y) { return latitude_sine(y); });
+  }
+
+  /**
+   * @brief Samples across every ring at given latitude sines, e.g. bounds
+   *        over display geometries.
+   * @param sine Maps a ring's row to the latitude sine its samples follow.
+   * @return Sample count.
+   */
+  template <typename SineFnT> constexpr int sample_count(SineFnT &&sine) const {
     int count = 0;
     for (int y = 0;; y = next_ring_y(y)) {
-      count += samples_on_ring(y);
+      count += samples_at_sine(y, sine(y));
       if (y >= H - 1)
         return count;
     }
@@ -696,10 +707,14 @@ private:
   }
 
   constexpr int samples_on_ring(int y) const {
+    return samples_at_sine(y, latitude_sine(y));
+  }
+
+  constexpr int samples_at_sine(int y, float sine) const {
     if (y < north_infill || y >= H - south_infill)
       return maximum_longitude_samples();
     const int count =
-        static_cast<int>(maximum_longitude_samples() * latitude_sine(y) + 0.5f);
+        static_cast<int>(maximum_longitude_samples() * sine + 0.5f);
     return std::max(count, 1);
   }
 

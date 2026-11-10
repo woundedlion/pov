@@ -45,18 +45,17 @@ template <int W, int H> void check_geometry(float north, float south) {
   constexpr size_t CACHE_CELLS = (W / DOWNSAMPLE) * CACHE_FIELD.ring_count();
   using Feedback = Filter::Pixel::Feedback<W, H>;
   constexpr size_t EXPECTED_STORAGE =
-      CACHE_CELLS *
-          (2 * sizeof(int16_t) + sizeof(typename Field::Coordinates)) +
-      Feedback::CACHE_CAP_CELLS * 2 * sizeof(int16_t) +
+      CACHE_CELLS * 4 * sizeof(int16_t) +
+      Feedback::CACHE_ORIGIN_SAMPLES * sizeof(typename Field::Coordinates) +
+      Feedback::CACHE_CAP_CELLS * 4 * sizeof(int16_t) +
       Filter::Pixel::FeedbackFadeTable::BYTES +
       // Per row, the arm-cut reach.
       H * sizeof(int16_t);
   static_assert(HS_RUNTIME_DISPLAY_GEOMETRY);
   HS_EXPECT_EQ(Feedback::STORAGE_BYTES, EXPECTED_STORAGE);
   {
-    // The alternate field set lies beyond the device budget.
     constexpr size_t BYTES =
-        Feedback::STORAGE_BYTES + Feedback::FIELD_SET_BYTES +
+        Feedback::STORAGE_BYTES +
         Feedback::STORAGE_ALLOCATIONS * alignof(std::max_align_t);
     ScratchScope scope(persistent_arena);
     auto *storage = static_cast<uint8_t *>(scope.get_arena().allocate(BYTES));
