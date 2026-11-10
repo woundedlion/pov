@@ -24,8 +24,10 @@ namespace Pixel {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details acquire() is the only way to mark the buffers valid: it stores the
- * key only after its fill returns. The cache also holds the projected origin
- * of every lattice sample of its layout, filled once by init_storage().
+ * key only after its fill returns. Two buffer sets alternate, so a field
+ * refilled for a later noise time keeps the one before it as its prior. The
+ * cache also holds the projected origin of every lattice sample of its layout,
+ * filled once by init_storage().
  */
 template <int W, int H> class FeedbackWarpCache {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -75,18 +77,18 @@ public:
                                     int cap_cells, OriginFnT &&origin) {
 #ifndef NDEBUG
     HS_CHECK(
-        !column_offsets ||
-            !stamp.block_alive(column_offsets, CELL_COUNT * sizeof(int16_t)),
+        !sets[0].x_offsets ||
+            !stamp.block_alive(sets[0].x_offsets, CELL_COUNT * sizeof(int16_t)),
         "feedback filter: storage already initialized");
     stamped_cells = CELL_COUNT;
     stamped_origin_samples = field.sample_count();
     stamped_cap_cells = cap_cells;
 #endif
-    column_offsets = arena.allocate_n<int16_t>(CELL_COUNT);
-    row_offsets = arena.allocate_n<int16_t>(CELL_COUNT);
+    for (Buffers &set : sets)
+      set = {arena.allocate_n<int16_t>(CELL_COUNT),
+             arena.allocate_n<int16_t>(CELL_COUNT),
+             cap_cells > 0 ? arena.allocate_n<CapOffset>(cap_cells) : nullptr};
     origin_points = arena.allocate_n<Coordinates>(field.sample_count());
-    cap_field =
-        cap_cells > 0 ? arena.allocate_n<CapOffset>(cap_cells) : nullptr;
     valid = false;
 #ifndef NDEBUG
     stamp.record(arena);
@@ -99,7 +101,7 @@ public:
    * @brief Whether init_storage() has run.
    * @return True once storage is bound.
    */
-  bool ready() const { return column_offsets != nullptr; }
+  bool ready() const { return sets[0].x_offsets != nullptr; }
 
   /**
    * @brief Whether the buffers hold the field filled for @p key.
@@ -122,6 +124,9 @@ public:
    *        nullptr.
    * @param fill Called as fill(buffers); must write every cell the field's
    *        band covers.
+   * @param prior Receives the field one noise step before the returned one:
+   *        the previous fill when @p key differs from its key in time alone,
+   *        otherwise the returned buffers.
    * @return The cache's buffers, or @p scratch when @p key is nullptr.
    * @details The cache is invalid while @p fill runs on its buffers; the key
    * is stored, and the cache marked valid, only after @p fill returns. A
@@ -130,11 +135,23 @@ public:
   template <typename FillFnT>
   __attribute__((always_inline)) Buffers acquire(const Key *key,
                                                  const Buffers &scratch,
-                                                 FillFnT &&fill) {
-    if (key && holds(*key))
-      return {column_offsets, row_offsets, cap_field};
-    const Buffers buffers =
-        key ? Buffers{column_offsets, row_offsets, cap_field} : scratch;
+                                                 FillFnT &&fill,
+                                                 Buffers *prior = nullptr) {
+    if (key && holds(*key)) {
+      if (prior)
+        *prior = sets[current];
+      return sets[current];
+    }
+    const bool follows = key && valid && [&] {
+      Key later = *key;
+      later.time = stored_key.time;
+      return later == stored_key;
+    }();
+    if (follows)
+      current ^= 1;
+    const Buffers buffers = key ? sets[current] : scratch;
+    if (prior)
+      *prior = follows ? sets[current ^ 1] : buffers;
     if (key)
       valid = false;
 #if HS_ENABLE_TEST_HOOKS
@@ -154,19 +171,22 @@ public:
    */
   void check_storage_alive() const {
 #ifndef NDEBUG
-    HS_ASSERT_BLOCK_ALIVE(stamp, column_offsets,
-                          stamped_cells * sizeof(int16_t),
-                          "Pixel::Feedback warp cache");
-    HS_ASSERT_BLOCK_ALIVE(stamp, row_offsets, stamped_cells * sizeof(int16_t),
-                          "Pixel::Feedback warp cache");
+    for (const Buffers &set : sets) {
+      HS_ASSERT_BLOCK_ALIVE(stamp, set.x_offsets,
+                            stamped_cells * sizeof(int16_t),
+                            "Pixel::Feedback warp cache");
+      HS_ASSERT_BLOCK_ALIVE(stamp, set.y_offsets,
+                            stamped_cells * sizeof(int16_t),
+                            "Pixel::Feedback warp cache");
+      if (set.cell_caps) {
+        HS_ASSERT_BLOCK_ALIVE(stamp, set.cell_caps,
+                              stamped_cap_cells * sizeof(CapOffset),
+                              "Pixel::Feedback warp cache");
+      }
+    }
     HS_ASSERT_BLOCK_ALIVE(stamp, origin_points,
                           stamped_origin_samples * sizeof(Coordinates),
                           "Pixel::Feedback warp cache");
-    if (cap_field) {
-      HS_ASSERT_BLOCK_ALIVE(stamp, cap_field,
-                            stamped_cap_cells * sizeof(CapOffset),
-                            "Pixel::Feedback warp cache");
-    }
 #endif
   }
 
@@ -175,12 +195,11 @@ public:
 #endif
 
 private:
-  Key stored_key{};   /**< Key the buffers were last filled for. */
-  bool valid = false; /**< True once a fill has completed. */
-  int16_t *column_offsets = nullptr;    /**< Arena-owned column offsets. */
-  int16_t *row_offsets = nullptr;       /**< Arena-owned row offsets. */
+  Key stored_key{};     /**< Key the buffers were last filled for. */
+  bool valid = false;   /**< True once a fill has completed. */
+  Buffers sets[2] = {}; /**< Arena-owned alternating fields. */
+  int current = 0;      /**< Set holding the stored key's. */
   Coordinates *origin_points = nullptr; /**< Arena-owned lattice origins. */
-  CapOffset *cap_field = nullptr; /**< Arena-owned polar-ring cap offsets. */
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state when the buffers were allocated. */
   int stamped_cells = 0; /**< Cells in each per-cell buffer. */

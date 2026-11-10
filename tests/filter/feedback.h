@@ -62,7 +62,8 @@ inline void test_feedback_plot_is_passthrough() {
 
 /**
  * @brief Verifies FeedbackWarpCache stores the key and marks itself valid
- *        only after the fill returns.
+ *        only after the fill returns, keeping the field before a later noise
+ *        time as its prior.
  */
 inline void test_feedback_warp_cache_valid_only_after_fill() {
   constexpr int W = 32, H = 16;
@@ -108,24 +109,37 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
   HS_EXPECT_EQ(fills, 1);
   HS_EXPECT_TRUE(b.x_offsets == a.x_offsets);
 
+  Cache::Buffers prior{};
   held_first_during_fill = true;
-  cache.acquire(&second, Cache::Buffers{}, fill);
+  const Cache::Buffers later =
+      cache.acquire(&second, Cache::Buffers{}, fill, &prior);
   HS_EXPECT_EQ(fills, 2);
   HS_EXPECT_FALSE(held_first_during_fill);
   HS_EXPECT_FALSE(held_second_during_fill);
   HS_EXPECT_TRUE(cache.holds(second));
   HS_EXPECT_FALSE(cache.holds(first));
-  HS_EXPECT_EQ(a.x_offsets[0], 2);
+  // A later noise time fills the other set and keeps the first as its prior.
+  HS_EXPECT_TRUE(prior.x_offsets == a.x_offsets);
+  HS_EXPECT_FALSE(later.x_offsets == a.x_offsets);
+  HS_EXPECT_EQ(a.x_offsets[0], 1);
+  HS_EXPECT_EQ(later.x_offsets[0], 2);
+  cache.acquire(&second, Cache::Buffers{}, fill, &prior);
+  HS_EXPECT_TRUE(prior.x_offsets == later.x_offsets);
+  Cache::Key moved = second;
+  moved.amplitude = 2.0f;
+  const Cache::Buffers refilled =
+      cache.acquire(&moved, Cache::Buffers{}, fill, &prior);
+  HS_EXPECT_TRUE(prior.x_offsets == refilled.x_offsets);
+  HS_EXPECT_TRUE(refilled.x_offsets == later.x_offsets);
 
   int16_t scratch_x[1] = {0};
   const Cache::Buffers scratch{scratch_x, nullptr, nullptr};
   const Cache::Buffers c = cache.acquire(nullptr, scratch, fill);
-  HS_EXPECT_EQ(fills, 3);
-  HS_EXPECT_TRUE(held_second_during_fill);
+  HS_EXPECT_EQ(fills, 4);
   HS_EXPECT_TRUE(c.x_offsets == scratch_x);
-  HS_EXPECT_EQ(scratch_x[0], 3);
-  HS_EXPECT_EQ(a.x_offsets[0], 2);
-  HS_EXPECT_TRUE(cache.holds(second));
+  HS_EXPECT_EQ(scratch_x[0], 4);
+  HS_EXPECT_EQ(refilled.x_offsets[0], 3);
+  HS_EXPECT_TRUE(cache.holds(moved));
 }
 
 /** @brief Persistent feedback allocation follows lattice samples rather than rectangular cells. */

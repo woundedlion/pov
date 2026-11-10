@@ -502,7 +502,12 @@ blending the lit times of a read between columns as its taps are blended.
   backward one.
 
 Lattice offsets carry the elapsed scale of their displacement, and the stored
-column offset is clamped to half a turn before its 16-bit store. Cells whose
+column offset is clamped to half a turn before its 16-bit store. A warp field
+that moves with its noise time keeps the field one step before it
+(`Filter::Pixel::FeedbackWarpCache` alternates two buffer sets), and each node
+reads the two blended at its column's lit time: an arm's first column the
+earlier field, its last the later, so the field runs on unbroken across each
+cut instead of jumping a frame of noise there. Cells whose
 sources all lie in one buffer fade by the cell's elapsed time through
 `Filter::Pixel::FeedbackFadeTable`, and the rest resolve per pixel. The flat
 selection reads every source one frame back.

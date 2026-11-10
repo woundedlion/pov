@@ -42,7 +42,13 @@ inline void check_feedback_device_budget(Inspect inspect = {}) {
               scratch_arena_a.get_high_water_mark(),
               scratch_arena_b.get_high_water_mark());
   constexpr ArenaSplit SPLIT = MeshFeedback<W, H>::arena_split();
-  HS_EXPECT_LE(persistent_arena.get_high_water_mark(),
+  // Runtime display geometry keeps the feedback's alternate warp field set
+  // beyond the device budget (Filter::Pixel::Feedback::STORAGE_BYTES).
+  constexpr size_t BEYOND_BUDGET =
+      HS_RUNTIME_DISPLAY_GEOMETRY
+          ? Filter::Pixel::Feedback<W, H>::FIELD_SET_BYTES
+          : 0;
+  HS_EXPECT_LE(persistent_arena.get_high_water_mark() - BEYOND_BUDGET,
                SPLIT.device_persistent());
   HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), SPLIT.scratch_a);
   HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(), SPLIT.scratch_b);

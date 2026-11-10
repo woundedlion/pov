@@ -430,15 +430,14 @@ inline void print_meshfeedback_cut_steps(size_t preset, uint32_t seed,
 }
 
 /** @brief Largest arm-cut step ratio allowed on the rows outside the caps. */
-constexpr double MESHFEEDBACK_MIDDLE_CUT_BOUND = 1.3;
-/** @brief Largest arm-cut step ratio allowed on the cap rows: the sweep's
- *  worst is the strongest noise warps' scatter beside the cuts. */
-constexpr double MESHFEEDBACK_CAP_CUT_BOUND = 1.75;
+constexpr double MESHFEEDBACK_MIDDLE_CUT_BOUND = 1.15;
+/** @brief Largest arm-cut step ratio allowed on the cap rows. */
+constexpr double MESHFEEDBACK_CAP_CUT_BOUND = 1.2;
 /** @brief Largest arm-cut step ratio allowed on the infill rows, whose
  *  longitude filter leaves each arm's edge columns unfiltered. */
-constexpr double MESHFEEDBACK_INFILL_CUT_BOUND = 5.9;
+constexpr double MESHFEEDBACK_INFILL_CUT_BOUND = 1.55;
 /** @brief Largest latitude step ratio allowed across the pole caps. */
-constexpr double MESHFEEDBACK_LATITUDE_BOUND = 1.3;
+constexpr double MESHFEEDBACK_LATITUDE_BOUND = 1.28;
 
 /**
  * @brief The wormhole presets, whose warps turn the pole caps furthest, step

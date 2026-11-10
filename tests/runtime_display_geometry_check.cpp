@@ -43,24 +43,28 @@ template <int W, int H> void check_geometry(float north, float south) {
   constexpr Field CACHE_FIELD(DOWNSAMPLE, DOWNSAMPLE, DOWNSAMPLE,
                               W / DOWNSAMPLE);
   constexpr size_t CACHE_CELLS = (W / DOWNSAMPLE) * CACHE_FIELD.ring_count();
+  using Feedback = Filter::Pixel::Feedback<W, H>;
   constexpr size_t EXPECTED_STORAGE =
       CACHE_CELLS *
-          (4 * sizeof(int16_t) + sizeof(typename Field::Coordinates)) +
+          (2 * sizeof(int16_t) + sizeof(typename Field::Coordinates)) +
+      Feedback::CACHE_CAP_CELLS * 2 * sizeof(int16_t) +
       Filter::Pixel::FeedbackFadeTable::BYTES +
-      // Per row, the arm-cut reach and the forward band's two columns.
-      H * 3 * sizeof(int16_t);
+      // Per row, the arm-cut reach.
+      H * sizeof(int16_t);
   static_assert(HS_RUNTIME_DISPLAY_GEOMETRY);
-  HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::STORAGE_BYTES),
-               EXPECTED_STORAGE);
+  HS_EXPECT_EQ(Feedback::STORAGE_BYTES, EXPECTED_STORAGE);
   {
+    // The alternate field set lies beyond the device budget.
+    constexpr size_t BYTES =
+        Feedback::STORAGE_BYTES + Feedback::FIELD_SET_BYTES +
+        Feedback::STORAGE_ALLOCATIONS * alignof(std::max_align_t);
     ScratchScope scope(persistent_arena);
-    auto *storage = static_cast<uint8_t *>(scope.get_arena().allocate(
-        Filter::Pixel::Feedback<W, H>::STORAGE_BYTES));
-    Arena arena(storage, Filter::Pixel::Feedback<W, H>::STORAGE_BYTES);
+    auto *storage = static_cast<uint8_t *>(scope.get_arena().allocate(BYTES));
+    Arena arena(storage, BYTES);
     ::Feedback::Style style{};
-    Filter::Pixel::Feedback<W, H> filter(style);
+    Feedback filter(style);
     filter.init_storage(arena);
-    HS_EXPECT_LE(arena.get_offset(), EXPECTED_STORAGE);
+    HS_EXPECT_LE(arena.get_offset(), BYTES);
   }
   const Field field(4);
   for (int row : {0, H - 1}) {

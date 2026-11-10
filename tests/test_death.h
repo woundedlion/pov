@@ -1593,7 +1593,7 @@ inline const Case *all_cases(int &n) {
            "(prepared_for(cv)) DirectAntiAliasSink: prepare current canvas before integer plotting"},
           {"feedback_storage_twice", case_feedback_storage_twice,
            "core/render/filter/feedback_warp_cache.h",
-           "(!column_offsets || !stamp.block_alive(column_offsets, CELL_COUNT * sizeof(int16_t))) feedback filter: storage already initialized",
+           "(!sets[0].x_offsets || !stamp.block_alive(sets[0].x_offsets, CELL_COUNT * sizeof(int16_t))) feedback filter: storage already initialized",
            true},
           {"world_storage_twice", case_world_storage_twice,
            "core/render/filter/world_trails.h",
