@@ -582,6 +582,9 @@ void run_effect_case_meshfeedback_flush_precedes_mesh_draw();
 /** @brief Runs test_meshfeedback_preset_rotation_syncs_noise with its case context. */
 void run_effect_case_meshfeedback_preset_rotation_syncs_noise();
 
+/** @brief Runs test_meshfeedback_polar_rows_step_evenly with its case context. */
+void run_effect_case_meshfeedback_polar_rows_step_evenly();
+
 /** @brief Runs test_meshfeedback_all_presets_arm_cut_steps with its case context. */
 void run_effect_case_meshfeedback_all_presets_arm_cut_steps();
 

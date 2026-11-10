@@ -329,25 +329,32 @@ inline void test_meshfeedback_stationary_timed_source() {
   HS_EXPECT_LT(lit * 100, still_lit * 103);
 }
 
-/** @brief Arm-cut step ratios of MeshFeedback's rows, by row band. */
+/** @brief Seam step ratios of MeshFeedback's rows, by row band. */
 struct MeshFeedbackCutSteps {
-  double middle; ///< Rows outside the pole caps.
-  double cap;    ///< Pole-cap rows away from the poles.
-  double infill; ///< Pole-cap rows next to the poles.
+  double middle;    ///< Arm cuts, rows outside the pole caps.
+  double cap;       ///< Arm cuts, pole-cap rows away from the poles.
+  double infill;    ///< Arm cuts, pole-cap rows next to the poles.
+  double latitude;  ///< Steps between adjacent pole-cap rows.
+  int latitude_row; ///< Row of the largest latitude step.
 };
 
 /**
- * @brief Runs one MeshFeedback preset and scores each row band's arm cuts.
+ * @brief Runs one MeshFeedback preset and scores its seams.
  * @param preset Preset index.
  * @param seed Random seed, or zero for the default.
  * @return Per band, the larger of the two cuts' ratio of the mean colour step
  *         from an arm's last column to the next frame's first over the mean
- *         step between adjacent columns beside the cut.
+ *         step between adjacent columns beside the cut; and over the pole-cap
+ *         rows, the largest ratio of a row's mean colour step to the row above
+ *         over the steps of the two rows on each side.
  */
 inline MeshFeedbackCutSteps meshfeedback_cut_steps(size_t preset,
                                                    uint32_t seed) {
   constexpr int W = DEFAULT_W, H = DEFAULT_H;
   constexpr int WARM_FRAMES = 60, FRAMES = 150, BESIDE = 3;
+  // Rows whose step to the row above is scored: the pole caps short of the
+  // pole rows and their neighbours' reach.
+  constexpr int CAP_ROWS = 26, EDGE = 3;
   reset_globals();
   if (seed)
     hs::random().seed(seed);
@@ -359,7 +366,12 @@ inline MeshFeedbackCutSteps meshfeedback_cut_steps(size_t preset,
   std::vector<double> steps[3];
   for (auto &band : steps)
     band.assign(W, 0.0);
+  std::vector<double> row_steps(H, 0.0);
   std::vector<Pixel> previous(W * H), current(W * H);
+  auto distance = [](const Pixel &a, const Pixel &b) {
+    return std::abs(int(a.r) - int(b.r)) + std::abs(int(a.g) - int(b.g)) +
+           std::abs(int(a.b) - int(b.b));
+  };
   for (int f = 0; f <= WARM_FRAMES + FRAMES; ++f) {
     pin_frame_clock(f);
     fx.draw_frame();
@@ -374,9 +386,8 @@ inline MeshFeedbackCutSteps meshfeedback_cut_steps(size_t preset,
           const Pixel a = current[y * W + x];
           const Pixel b = x % (W / 2) == 0 ? previous[y * W + (x + W - 1) % W]
                                            : current[y * W + x - 1];
-          steps[band][x] += std::abs(int(a.r) - int(b.r)) +
-                            std::abs(int(a.g) - int(b.g)) +
-                            std::abs(int(a.b) - int(b.b));
+          steps[band][x] += distance(a, b);
+          row_steps[y] += distance(a, current[(y - 1) * W + x]);
         }
       }
     std::swap(previous, current);
@@ -391,14 +402,65 @@ inline MeshFeedbackCutSteps meshfeedback_cut_steps(size_t preset,
     }
     return worst;
   };
-  return {ratio(steps[MIDDLE]), ratio(steps[CAP]), ratio(steps[INFILL])};
+  double latitude = 0.0;
+  int latitude_row = 0;
+  for (int y = EDGE; y < H - EDGE; ++y) {
+    if (y > CAP_ROWS && y < H - CAP_ROWS)
+      continue;
+    const double beside = (row_steps[y - 2] + row_steps[y - 1] +
+                           row_steps[y + 1] + row_steps[y + 2]) /
+                          4.0;
+    const double step = beside > 0.0 ? row_steps[y] / beside : 0.0;
+    if (step > latitude) {
+      latitude = step;
+      latitude_row = y;
+    }
+  }
+  return {ratio(steps[MIDDLE]), ratio(steps[CAP]), ratio(steps[INFILL]),
+          latitude, latitude_row};
+}
+
+/** @brief Prints one preset's seam scores. */
+inline void print_meshfeedback_cut_steps(size_t preset, uint32_t seed,
+                                         const MeshFeedbackCutSteps &steps) {
+  std::printf("  MeshFeedback preset %zu seed %u cut steps: middle=%.3f "
+              "cap=%.3f infill=%.3f latitude=%.3f (row %d)\n",
+              preset, seed, steps.middle, steps.cap, steps.infill,
+              steps.latitude, steps.latitude_row);
+}
+
+/** @brief Largest arm-cut step ratio allowed on the rows outside the caps. */
+constexpr double MESHFEEDBACK_MIDDLE_CUT_BOUND = 1.3;
+/** @brief Largest arm-cut step ratio allowed on the cap rows: the sweep's
+ *  worst is the strongest noise warps' scatter beside the cuts. */
+constexpr double MESHFEEDBACK_CAP_CUT_BOUND = 1.75;
+/** @brief Largest arm-cut step ratio allowed on the infill rows, whose
+ *  longitude filter leaves each arm's edge columns unfiltered. */
+constexpr double MESHFEEDBACK_INFILL_CUT_BOUND = 5.9;
+/** @brief Largest latitude step ratio allowed across the pole caps. */
+constexpr double MESHFEEDBACK_LATITUDE_BOUND = 1.3;
+
+/**
+ * @brief The wormhole presets, whose warps turn the pole caps furthest, step
+ *        across the arm cuts and between adjacent pole-cap rows about as far
+ *        as between the pixels beside them.
+ */
+inline void test_meshfeedback_polar_rows_step_evenly() {
+  const ScopedTemporalSampling column_basis(true);
+  for (size_t preset : {size_t{10}, size_t{11}})
+    for (uint32_t seed : {0u, 11u}) {
+      const MeshFeedbackCutSteps steps = meshfeedback_cut_steps(preset, seed);
+      print_meshfeedback_cut_steps(preset, seed, steps);
+      HS_EXPECT_LT(steps.cap, 1.1);
+      HS_EXPECT_LT(steps.infill, 1.2);
+      HS_EXPECT_LT(steps.latitude, 1.2);
+    }
 }
 
 /**
- * @brief Every MeshFeedback preset steps across the arm cuts about as far as
- *        between the columns beside them.
- * @details Rows outside the pole caps are bounded; cap and infill rows carry
- * known residuals where the warp turns sources by more than a quarter turn.
+ * @brief Every MeshFeedback preset steps across the arm cuts, and between
+ *        adjacent pole-cap rows, about as far as between the pixels beside
+ *        them.
  */
 inline void test_meshfeedback_all_presets_arm_cut_steps() {
   const ScopedTemporalSampling column_basis(true);
@@ -407,15 +469,17 @@ inline void test_meshfeedback_all_presets_arm_cut_steps() {
        ++preset)
     for (uint32_t seed : {0u, 11u}) {
       const MeshFeedbackCutSteps steps = meshfeedback_cut_steps(preset, seed);
-      std::printf("  MeshFeedback preset %zu seed %u cut steps: middle=%.3f "
-                  "cap=%.3f infill=%.3f\n",
-                  preset, seed, steps.middle, steps.cap, steps.infill);
+      print_meshfeedback_cut_steps(preset, seed, steps);
       worst.middle = std::max(worst.middle, steps.middle);
       worst.cap = std::max(worst.cap, steps.cap);
       worst.infill = std::max(worst.infill, steps.infill);
+      worst.latitude = std::max(worst.latitude, steps.latitude);
     }
   std::printf("  MeshFeedback worst cut steps: middle=%.3f cap=%.3f "
-              "infill=%.3f\n",
-              worst.middle, worst.cap, worst.infill);
-  HS_EXPECT_LT(worst.middle, 1.3);
+              "infill=%.3f latitude=%.3f\n",
+              worst.middle, worst.cap, worst.infill, worst.latitude);
+  HS_EXPECT_LT(worst.middle, MESHFEEDBACK_MIDDLE_CUT_BOUND);
+  HS_EXPECT_LT(worst.cap, MESHFEEDBACK_CAP_CUT_BOUND);
+  HS_EXPECT_LT(worst.infill, MESHFEEDBACK_INFILL_CUT_BOUND);
+  HS_EXPECT_LT(worst.latitude, MESHFEEDBACK_LATITUDE_BOUND);
 }
