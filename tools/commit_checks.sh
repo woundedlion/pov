@@ -98,6 +98,7 @@ fi
 SNAPSHOT_ROOT="$(mktemp -d "$PWD/.hs-pre-commit.XXXXXX")"
 SNAPSHOT="$SNAPSHOT_ROOT/repo"
 mkdir "$SNAPSHOT"
+SHELL_FILES="$(printf '%s\n' "$PRESENT" | grep -E '\.sh$|^\.githooks/' || true)"
 INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
 if [ -n "$DIFF_BASE" ]; then
   # A range checks the whole tree as of its tip.
@@ -118,7 +119,7 @@ else
   # A commit checks only its staged files, against the staged lint configuration.
   TOOLS="$PWD/tools"
   SHELL_SOURCES=
-  if printf '%s\n' "$PRESENT" | grep -Eq '\.sh$|^\.githooks/'; then
+  if [ -n "$SHELL_FILES" ]; then
     SHELL_SOURCES="$(git -c core.quotePath=false ls-files -- '*.sh' '.githooks/*')"
   fi
   CONFIGS="$(git -c core.quotePath=false ls-files -- .clang-format ruff.toml eslint.config.mjs)"
@@ -206,7 +207,6 @@ $JAVASCRIPT_FILES
 EOF
   fi
 
-  SHELL_FILES="$(printf '%s\n' "$PRESENT" | grep -E '\.sh$|^\.githooks/' || true)"
   if [ -n "$SHELL_FILES" ]; then
     if ! command -v shellcheck >/dev/null 2>&1; then
       echo "[$LABEL] shellcheck not found; pip install -r requirements/shellcheck.txt"
