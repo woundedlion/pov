@@ -538,7 +538,7 @@ def sync_rev13(ctx):
                 fp="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
     to_label(urs, "1", "FRAME_SYNC"); to_power(urs, "2", GND, length=15.24)
     to_label(urs, "3", enable_net); to_label(urs, "4", "SYNC_TX")
-    to_power(urs, "5", GND); to_power(urs, "8", V3)
+    to_power(urs, "5", GND)
     bypass(urs, "8", "C_DEC3", net=V3, dx=-30.48, dy=-8.89)
     cbulk = place("Device:C", "C_BULK3", "1uF", 204.47, 187.96, fp=C06)
     to_power(cbulk, "1", V3); to_power(cbulk, "2", GND)
