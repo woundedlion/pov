@@ -67,10 +67,10 @@ public:
    * @brief Field sampler that evaluates the (blended) harmonic at a world point.
    */
   struct HarmonicField {
-    /// Degree of the first harmonic.
-    int l1, m1; ///< Order of the first harmonic.
-    /// Degree of the second harmonic.
-    int l2, m2;  ///< Order of the second harmonic.
+    int l1;      ///< Degree of the first harmonic.
+    int m1;      ///< Order of the first harmonic.
+    int l2;      ///< Degree of the second harmonic.
+    int m2;      ///< Order of the second harmonic.
     float blend; ///< Morph fraction in [0, 1] toward (l2, m2).
     math::RotationMatrix
         orientation_conj;  /**< World->local rotation (conjugate of
