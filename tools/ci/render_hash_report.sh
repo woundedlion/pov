@@ -34,8 +34,11 @@ export CCACHE_NOHASHDIR=1
 export HS_SMOKE_FRAMES=120 HS_SKIPS_ARE_ERRORS=1 HS_BUFFER_FREE_WATCHDOG_US=30000000
 
 start=$SECONDS
-report="$(bash "$(dirname "$0")/../render_diff.sh" --report "$base" build/tests "$@" 2>&1)" ||
-  report="render_diff: exited with status $?; no report."
+report="$(bash "$(dirname "$0")/../render_diff.sh" --report "$base" build/tests "$@" 2>&1)"
+status=$?
+if [ "$status" -ne 0 ]; then
+  report="$(printf '%s\nrender_diff: exited with status %s; no report.' "$report" "$status")"
+fi
 echo "render_hash_report: $((SECONDS - start)) s"
 lines="$(printf '%s\n' "$report" | grep '^render_diff: \|^  ' || true)"
 headline="$(printf '%s\n' "$lines" | grep '^render_diff: ' | tail -1 | sed 's/^render_diff: //')"
