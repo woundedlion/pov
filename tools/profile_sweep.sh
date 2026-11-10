@@ -121,7 +121,7 @@ g5_ship)
   run GridSpace profile 60 32
   run GridWorms profile 60 32
   run Millefiori profile 60 32
-  run HyperLattice profile 300 16
+  run HyperLattice profile 340 16
   run ChromaticLichen profile 30 32
   run MermaidSkin profile 30 32
   run AshCloud profile 60 32
