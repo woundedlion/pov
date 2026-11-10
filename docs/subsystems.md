@@ -481,21 +481,25 @@ blending the lit times of a read between columns as its taps are blended.
   source lit `HALF / (HALF + D)` frames earlier (`elapsed_scale`, at most 2).
 - **Behind the backward cut:** the source lies in the drawing buffer's stale
   frame, two frames back. The Canvas skips its clear for a frame-replacing
-  terminal, and the composite writes each arm's first columns before any
-  column they read is overwritten. The read spans `1 + (x - s) / HALF` frames.
+  terminal, and the lanes that may read behind a cut composite first, in
+  lit-time order across every row, so no lane overwrites stale content a
+  later lane reads. The read spans `1 + (x - s) / HALF` frames.
 - **Past the forward cut:** the source lies in the frame being drawn. An
-  effect that calls `Pipeline::begin_split_frame` gets every column
-  composited except each arm's forward band; its plots follow, with taps
-  landing in a band accumulating there with their coverage;
-  `Pipeline::finish_frame` composites the bands beneath that coverage from
-  the plotted frame, `1 + (x - s) / HALF` frames back. The coverage takes a
-  transmittance per band pixel, so no tap count can overflow it. MeshFeedback
-  splits its frames.
-- **Without those buffers,** in a clipped or translucent frame, an unsplit
-  one, or a row whose reach exceeds a quarter turn, a read past the forward
-  cut takes the other arm lit a frame before the previous one, twice as far,
-  and one behind the backward cut slides from the cut column lit last to the
-  arm's first column.
+  effect that calls `Pipeline::begin_split_frame` gets every pixel
+  composited from the previous frames, with each pixel whose source reads
+  the frame being drawn held: its pixel keeps the part of its composite those
+  frames supply (a half-resolution neighbour's share, an infill footprint's
+  share), the plots blend over it while its coverage tracks their
+  transmittance, and `Pipeline::finish_frame` adds the rest beneath that
+  coverage from the plotted frame, `1 + (x - s) / HALF` frames back, again
+  in lit-time order so every read lands on columns already final. The
+  coverage takes a transmittance per pixel, so no tap count can overflow it.
+  A pole row is one point, composited once from its source a frame earlier.
+  MeshFeedback splits its frames.
+- **Without those buffers,** in a clipped or translucent frame or an unsplit
+  one, a read across a cut takes the previous frame at the source, at its age
+  there: a frame older past the forward cut, a frame younger behind the
+  backward one.
 
 Lattice offsets carry the elapsed scale of their displacement, and the stored
 column offset is clamped to half a turn before its 16-bit store. Cells whose

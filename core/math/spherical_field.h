@@ -138,6 +138,20 @@ public:
   }
 
   /**
+   * @brief Rows of the ring chain within a number of rows of either end.
+   * @param rows Rows from each end; rings at y < rows or y >= H - rows count.
+   * @return Ring count, from the chain's spacing alone.
+   */
+  constexpr int rings_within(int rows) const {
+    int count = 0;
+    for (int y = 0;; y = next_ring_y(y)) {
+      count += y < rows || y >= H - rows;
+      if (y >= H - 1)
+        return count;
+    }
+  }
+
+  /**
    * @brief Samples across every ring, i.e. the storage a field needs.
    * @return Sample count.
    */

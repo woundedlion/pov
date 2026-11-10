@@ -10,10 +10,8 @@
 
 /**
  * @brief Verifies FeedbackColumnTime's reads span their lit times.
- * @details A read within the arm spans one frame plus the column distance; a
- * read between an arm's last column and the next arm's first blends the two
- * taps' lit times; past the forward cut the source is displaced twice as far;
- * behind the backward cut the read slides from the previous arm's last column.
+ * @details A read spans one frame plus the column distance from its source,
+ * whichever side of the target's arm the source lies on.
  */
 inline void test_feedback_column_time_reads() {
   using Time = Filter::Pixel::FeedbackColumnTime<288>;
@@ -24,79 +22,20 @@ inline void test_feedback_column_time_reads() {
   HS_EXPECT_NEAR(Time::elapsed_scale(16.0f), HALF / (HALF + 16.0f), 1e-6f);
   HS_EXPECT_NEAR(Time::elapsed_scale(-HALF), 2.0f, 1e-6f);
 
-  // Column offsets relative to the arm wrap below its first column.
-  HS_EXPECT_NEAR(Time::arm_column(150.0f, 144), 6.0f, 1e-6f);
-  HS_EXPECT_NEAR(Time::arm_column(140.0f, 144), 284.0f, 1e-6f);
-  HS_EXPECT_NEAR(Time::arm_column(-0.25f, 0), -0.25f, 1e-6f);
-
-  HS_EXPECT_NEAR(Time::lit_time(10.0f), 10.0f / HALF, 1e-6f);
-  HS_EXPECT_NEAR(Time::lit_time(HALF - 1.0f), (HALF - 1.0f) / HALF, 1e-6f);
-  HS_EXPECT_NEAR(Time::lit_time(HALF + 3.0f), 3.0f / HALF, 1e-6f);
-
-  auto check_tap_times = []<int W>() {
-    using Model = Filter::Pixel::FeedbackColumnTime<W>;
-    constexpr int H = W / 2;
-    constexpr double U = std::numeric_limits<float>::epsilon() / 2.0;
-    constexpr double GAMMA = 5 * U / (1 - 5 * U);
-    for (const float column :
-         {-1.0f, -0.75f, -0.5f, -0.25f, 0.0f, 0.25f, H - 1.0f, H - 0.75f,
-          H - 0.5f, H - 0.25f, float(H), H + 0.25f, 2 * H - 1.0f,
-          2 * H - 0.25f}) {
-      const int lower = static_cast<int>(std::floor(double(column)));
-      const int first = (lower % H + H) % H;
-      const int second = (first + 1) % H;
-      const double WEIGHT = double(column) - lower;
-      const double EXPECTED = ((1 - WEIGHT) * first + WEIGHT * second) / H;
-      const float actual = Model::lit_time(column);
-      if constexpr (W == 256) {
-        HS_EXPECT_EQ(actual, EXPECTED);
-      } else {
-        const double OFFSET = column < 0 ? H : column >= H ? -H : 0;
-        const double IN_ARM = double(column) + OFFSET;
-        const double TERMS = std::abs(double(column)) + std::abs(OFFSET);
-        // Reciprocal, coefficient, products, two additions: gamma(5).
-        const double SCALE =
-            IN_ARM >= H - 1 ? (H + TERMS) * (H - 1) / H : TERMS / H;
-        HS_EXPECT_NEAR(actual, EXPECTED, GAMMA * SCALE);
-      }
-    }
-  };
-  check_tap_times.template operator()<256>();
-  check_tap_times.template operator()<288>();
-
   // Target column 20 of the second arm reading 7 columns ahead.
-  const auto within = Time::read_within(164.0f, 144, 27.0f, 9.0f);
+  const auto within = Time::read(164.0f, 171.0f, 9.0f);
   HS_EXPECT_NEAR(within.x, 171.0f, 1e-5f);
   HS_EXPECT_NEAR(within.y, 9.0f, 1e-6f);
   HS_EXPECT_NEAR(within.elapsed, 1.0f - 7.0f / HALF, 1e-6f);
 
-  // Past the forward cut: the twice-displaced source, lit a sweep earlier.
-  int beyond_calls = 0;
-  const auto forward =
-      Time::read_past_cut(140.0f, 30.0f, 0, {147.0f, 31.0f}, [&]() {
-        ++beyond_calls;
-        return Time::Source{154.0f, 32.0f};
-      });
-  HS_EXPECT_EQ(beyond_calls, 1);
-  HS_EXPECT_NEAR(forward.x, 154.0f, 1e-5f);
-  HS_EXPECT_NEAR(forward.y, 32.0f, 1e-6f);
-  HS_EXPECT_NEAR(forward.elapsed, 1.0f + 140.0f / HALF - 10.0f / HALF, 1e-5f);
+  // Past the forward cut, the frame being drawn: under a frame elapsed.
+  const auto ahead = Time::read(140.0f, 150.0f, 31.0f);
+  HS_EXPECT_NEAR(ahead.elapsed, 1.0f - 10.0f / HALF, 1e-6f);
 
-  // Behind the backward cut: partway across the slide reads between the
-  // previous arm's last column and the arm's first, their lit times blended.
-  beyond_calls = 0;
-  const auto gap =
-      Time::read_past_cut(145.0f, 30.0f, 144, {141.5f, 31.0f}, [&]() {
-        ++beyond_calls;
-        return Time::Source{0.0f, 0.0f};
-      });
-  HS_EXPECT_EQ(beyond_calls, 0);
-  const float slide = 1.5f / 3.5f;
-  HS_EXPECT_NEAR(gap.x, 143.0f + slide, 1e-5f);
-  HS_EXPECT_NEAR(gap.y, 30.0f + slide, 1e-5f);
-  HS_EXPECT_NEAR(gap.elapsed,
-                 1.0f + 1.0f / HALF - (1.0f - slide) * (HALF - 1.0f) / HALF,
-                 1e-5f);
+  // Behind the backward cut, the frame before the previous: over a frame.
+  const auto behind = Time::read(145.0f, 141.5f, 30.0f);
+  HS_EXPECT_NEAR(behind.x, 141.5f, 1e-5f);
+  HS_EXPECT_NEAR(behind.elapsed, 1.0f + 3.5f / HALF, 1e-6f);
 }
 
 /** @brief Persistent fade tables rebuild for fade, hue and storage changes. */
@@ -564,8 +503,8 @@ inline void test_feedback_sourced_column_time_oracle() {
  * @brief Feedback under rigid rotations matches the content at each column's
  * lit time, and steps no further across the arm cuts than beside them.
  * @details Azimuthal rotations carry content across both cuts in both
- * directions, through the reads past the forward cut and the slide behind
- * the backward one; a rotation about a horizontal axis carries it through
+ * directions, through the reads past the forward cut and behind the backward
+ * one; a rotation about a horizontal axis carries it through
  * the cap-plane rows; a tilted one through every row. Polar rows composite
  * column pairs, and the pairs beside a cut must not step. A one-frame warp holds
  * content at its previous frame's time, a sweep's worth of error that steps
@@ -605,12 +544,13 @@ inline void test_feedback_column_time_oracle() {
 }
 
 /**
- * @brief A split frame's forward-band coverage composites the band beneath its
- * taps as plotting them over the band does, within a few 16-bit rounding
- * steps.
+ * @brief A split frame's coverage completes each held pixel beneath its taps
+ * as plotting them over the finished pixel does, within a few 16-bit rounding
+ * steps: the part composited before the plots and the part added after them
+ * round separately.
  * @details Each draw runs once through the feedback pipeline over a split
  * frame, and once through the same stages without the terminal over the same
- * frame. Pixels outside the held columns match bit for bit. Draws: sub-pixel
+ * frame. Pixels outside the held ones match bit for bit. Draws: sub-pixel
  * points over every column, and each solid's wireframe through the column
  * walk under a moving orientation.
  */
@@ -626,8 +566,9 @@ inline void test_feedback_split_frame_covers_forward_bands() {
   style.space_fn = &rotation_feedback_warp;
   style.fade = 0.85f;
   style.hue_shift = 0.0f;
-  feedback_frame_rotation = math::make_rotation(math::Y_AXIS, 0.15f);
-  const RotatingFeedbackScene<W, H> scene{math::Y_AXIS, 0.15f, 0.85f};
+  // Backward about the axis, so sources lie ahead of their targets.
+  feedback_frame_rotation = math::make_rotation(math::Y_AXIS, -0.15f);
+  const RotatingFeedbackScene<W, H> scene{math::Y_AXIS, -0.15f, 0.85f};
   auto quantize = [](float c) {
     return static_cast<uint16_t>(hs::clamp(c, 0.0f, 65535.0f) + 0.5f);
   };
@@ -660,12 +601,12 @@ inline void test_feedback_split_frame_covers_forward_bands() {
     {
       Canvas c(fx);
       begin(c);
-      std::vector<Pixel> under = snapshot(c);
+      const std::vector<Pixel> known = snapshot(c);
+      std::vector<Pixel> under = known;
       std::vector<bool> held(W * H);
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
-          held[y * W + x] =
-              x % (W / 2) >= FeedbackWhiteBox::held_from(terminal, y);
+          held[y * W + x] = FeedbackWhiteBox::held_slot(terminal, y, x) >= 0;
           if (held[y * W + x])
             under[y * W + x] = Pixel(static_cast<uint16_t>(9000 + 197 * x),
                                      static_cast<uint16_t>(60000 - 331 * y),
@@ -673,7 +614,7 @@ inline void test_feedback_split_frame_covers_forward_bands() {
         }
       held_draw(c);
       const int covered = FeedbackWhiteBox::covered(terminal);
-      FeedbackWhiteBox::release(terminal, under.data());
+      FeedbackWhiteBox::release(terminal, under.data(), known.data());
       const std::vector<Pixel> composited = snapshot(c);
       for (int i = 0; i < W * H; ++i)
         c(i % W, i / W) = under[i];
@@ -693,7 +634,7 @@ inline void test_feedback_split_frame_covers_forward_bands() {
                   covered, outside, worst);
       HS_EXPECT_GT(covered, 0);
       HS_EXPECT_EQ(outside, 0);
-      HS_EXPECT_LE(worst, 4);
+      HS_EXPECT_LE(worst, 8);
     }
     fx.advance_display();
   };

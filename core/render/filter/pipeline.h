@@ -1653,14 +1653,16 @@ public:
    * @param alpha Global blend alpha in [0, 1].
    * @return State through which this frame's plot calls are made.
    * @details The split frame contract, for any replacing terminal:
-   * begin_split_frame() composites every column except each arm's forward
-   * band, the last columns whose sources may lie past the arm's forward cut;
-   * the frame's plots follow, and taps landing in a forward band accumulate
-   * there with their coverage; finish_frame() then composites the bands
-   * beneath that coverage, reading a source past the forward cut from the
-   * frame as plotted, `1 + (x - s) / (W / 2)` frames before its target. A
-   * frame that cannot split composites whole, as begin_frame() does. Effects
-   * that call begin_frame() keep the unsplit composite.
+   * begin_split_frame() composites every pixel from the previous frames,
+   * holding each pixel whose source lies past its arm's forward cut with the
+   * part of its composite those frames supply; the frame's plots follow, and
+   * taps landing on a held pixel blend over it while its coverage tracks their
+   * transmittance; finish_frame() then adds the rest of each held pixel's
+   * composite beneath that coverage, reading its source from the frame as
+   * plotted, `1 + (x - s) / (W / 2)` frames before its target. A frame no
+   * pixel of which reads past a cut composites whole, as begin_frame() does;
+   * a begin_frame() flush reads such a source from the previous frame, a
+   * frame older.
    */
   PreparedTerminalFrame<Pipeline> &begin_split_frame(Canvas &cv, float alpha)
     requires(terminal_replaces)
@@ -1670,8 +1672,8 @@ public:
   }
 
   /**
-   * @brief Composites a split frame's forward bands from the frame as
-   *        plotted, beneath the taps that landed in them.
+   * @brief Completes a split frame's held pixels from the frame as plotted,
+   *        beneath the taps that landed on them.
    * @param cv Target canvas, the one begin_split_frame() flushed.
    * @details Must follow the frame's last plot call.
    */

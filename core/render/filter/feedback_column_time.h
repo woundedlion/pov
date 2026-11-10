@@ -25,16 +25,11 @@ namespace Pixel {
  * @tparam W Canvas width in pixels.
  * @details Column x is lit at frame fraction t(x) = (x % (W / 2)) / (W / 2),
  * and each frame's buffer holds every column at its own lit time. A target
- * pixel reading source column s of the previous frame therefore spans
- * 1 + t(x) - t(s) frames, a read between two columns their lit times blended
- * as its taps are. A Style warp displacing D columns per frame reads, within
- * the target's arm, the source lit `HALF / (HALF + D)` frames earlier. A
- * source past one of the arm's cuts lies in another frame's buffer: behind the
- * backward cut, the frame before the previous one; past the forward cut, the
- * frame being drawn. Each spans 1 + (x - s) / HALF frames. Without those
- * buffers, a read past the forward cut takes the arm lit a frame before the
- * previous one, twice as far, and one behind the backward cut slides from the
- * cut column lit last to the first column of the arm.
+ * pixel reading source column s spans 1 + (x - s) / HALF frames, s unwrapped
+ * to within half a turn of x. A Style warp displacing D columns per frame
+ * reads, within the target's arm, the source lit `HALF / (HALF + D)` frames
+ * earlier. A source behind the arm's first column lies in the frame before the
+ * previous one; one past the arm's last column lies in the frame being drawn.
  */
 template <int W> struct FeedbackColumnTime {
   static_assert(W % 2 == 0, "FeedbackColumnTime: two arms need an even width");
@@ -48,12 +43,6 @@ template <int W> struct FeedbackColumnTime {
     float x;       ///< Source column.
     float y;       ///< Source row.
     float elapsed; ///< Frames between the source's and the target's lit times.
-  };
-
-  /** @brief A source position. */
-  struct Source {
-    float x; ///< Column.
-    float y; ///< Row.
   };
 
   /**
@@ -74,90 +63,15 @@ template <int W> struct FeedbackColumnTime {
   static int arm_start(int x) { return x >= HALF ? HALF : 0; }
 
   /**
-   * @brief A source column relative to its target's arm.
-   * @param x Source column, within one turn below the arm's first column.
-   * @param arm First column of the target's arm.
-   * @return The column past the arm's first, in [-0.5, W - 0.5): below
-   *         HALF - 0.5 the nearest column lies in the arm.
-   */
-  static HS_HOT_INLINE float arm_column(float x, int arm) {
-    const float column = x - arm;
-    return column < -0.5f ? column + W : column;
-  }
-
-  /**
-   * @brief Lit time of a bilinear read, in frames of the previous sweep.
-   * @param column Read column past an arm's first, in [-1, 2 * HALF).
-   * @return Frame fraction: linear within an arm, and between an arm's last
-   *         column and the next arm's first the two taps' times blended by
-   *         their weights.
-   */
-  static HS_HOT_INLINE float lit_time(float column) {
-    const float in_arm = column < 0.0f    ? column + HALF
-                         : column >= HALF ? column - HALF
-                                          : column;
-    return in_arm > HALF - 1 ? (HALF - in_arm) * ((HALF - 1) * INVERSE_HALF)
-                             : in_arm * INVERSE_HALF;
-  }
-
-  /**
-   * @brief A read within the target's arm.
+   * @brief The read of a source for a target.
    * @param target Target column, with its half-resolution lane offset.
-   * @param arm First column of the target's arm.
-   * @param column Source's arm_column(), below HALF - 0.5.
+   * @param source Source column, unwrapped to within half a turn of @p target.
    * @param y Source row.
-   * @return The read with its elapsed frames.
+   * @return The read, spanning the frames between the source's lit time and
+   *         the target's.
    */
-  static HS_HOT_INLINE Read read_within(float target, int arm, float column,
-                                        float y) {
-    return {arm + column, y,
-            1.0f + (target - arm) * INVERSE_HALF - lit_time(column)};
-  }
-
-  /**
-   * @brief A read across one of the target arm's cuts, from the buffer that
-   *        holds the source's frame.
-   * @param target Target column, with its half-resolution lane offset.
-   * @param source Source column, unwrapped: below the target arm's first, or
-   *        past its last.
-   * @param y Source row.
-   * @return The read; the frames elapsed run from the source's lit time, a
-   *         frame before the previous one behind the arm or in the frame
-   *         being drawn past it, to the target's.
-   */
-  static HS_HOT_INLINE Read read_across(float target, float source, float y) {
+  static HS_HOT_INLINE Read read(float target, float source, float y) {
     return {source, y, 1.0f + (target - source) * INVERSE_HALF};
-  }
-
-  /**
-   * @brief A read for a source past one of its arm's cuts.
-   * @param target Target column, with its half-resolution lane offset.
-   * @param y Target row.
-   * @param arm First column of the target's arm.
-   * @param within Source displaced by the elapsed-scaled warp, past the arm,
-   *        its column unwrapped to within half a turn of @p target.
-   * @param beyond Returns the source displaced twice as far, its column
-   *        unwrapped likewise.
-   * @return Past the forward cut, the twice-displaced source; behind the
-   *         backward cut, the slide from the previous arm's last column to
-   *         the arm's first.
-   */
-  template <typename BeyondFnT>
-  static HS_FLASH_MEMBER Read read_past_cut(float target, float y, int arm,
-                                            const Source &within,
-                                            BeyondFnT &&beyond) {
-    const float first = static_cast<float>(arm);
-    const float lit = 1.0f + (target - first) * INVERSE_HALF;
-    if (within.x >= first) {
-      const Source far = beyond();
-      const float column =
-          fminf(fmaxf(far.x - first, HALF - 0.5f), 2.0f * HALF - 1.0f);
-      return {first + column, far.y, lit - lit_time(column)};
-    }
-    const float slide =
-        fminf(fmaxf((target - first + 0.5f) / (target - within.x), 0.0f), 1.0f);
-    return {first - 1.0f + slide, y + (within.y - y) * slide,
-            lit - lit_time(slide - 1.0f)};
   }
 };
 

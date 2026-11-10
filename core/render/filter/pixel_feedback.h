@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <algorithm>
+#include <array>
 #include <bitset>
 #include <cstdint>
 #include <cstdlib>
@@ -44,11 +45,17 @@ namespace Pixel {
  * Pipeline::finish_frame() after; flushing last blanks the frame at
  * alpha >= 1.
  * Rows under POLAR_TARGET_SINE interpolate offsets in their pole's cap plane,
- * where equirect longitude offsets blow up as 1/sin(phi).
+ * where equirect longitude offsets blow up as 1/sin(phi). A pole row is one
+ * point, composited once from its source a frame earlier.
  * With temporal sampling on, each pixel reads its source at the time elapsed
- * between their lit columns (FeedbackColumnTime): lattice offsets carry the
- * elapsed scale of their displacement, cells whose sources all lie in one
- * buffer fade by the cell's elapsed time, and the rest resolve per pixel.
+ * between their lit columns (FeedbackColumnTime). A source behind the target
+ * arm's first column reads the stale frame the drawing buffer still holds;
+ * one past the arm's last column reads the frame being drawn after its plots,
+ * so the pixel is held: it keeps the part of its composite the previous
+ * frames supply, the plots blend over it while its coverage tracks their
+ * transmittance, and finish() adds the rest beneath that coverage. A frame
+ * without the stale frame, or an unsplit one, reads such a source from the
+ * previous frame at its age there.
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -62,8 +69,8 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   using WarpCache = FeedbackWarpCache<W, H>;
   using WarpField = typename WarpCache::Buffers;
   using ColumnTime = FeedbackColumnTime<W>;
-  using ColumnSource = typename ColumnTime::Source;
   using FadeTable = FeedbackFadeTable;
+  static constexpr int HALF = ColumnTime::HALF;
 
   /** @brief Constructs the shared spherical field layout.
    * @param ds Field downsample factor.
@@ -107,7 +114,7 @@ public:
 
   /**
    * @brief Passes a current-frame tap to the next stage, or blends it into a
-   *        split frame's forward-band coverage when it lands in a band.
+   *        held pixel of a split frame with its coverage.
    * @param x Column coordinate in pixels.
    * @param y Row coordinate in pixels.
    * @param color Source color, forwarded unchanged.
@@ -120,9 +127,13 @@ public:
   HS_HOT_INLINE void plot(float x, float y, const ::Pixel &color, float age,
                           float alpha, PassFnT &&pass) {
     const int column = Filter::round_wrap_column<W>(x);
-    if (column - ColumnTime::arm_start(column) >= held_floor) [[unlikely]] {
-      plot_near_arm_end(x, column, y, color, age, alpha, pass);
-      return;
+    const int past = column - ColumnTime::arm_start(column);
+    if (past >= held_floor) [[unlikely]] {
+      const int row = Filter::round_row<H>(y);
+      if (row >= 0 && row < H && past >= row_floor[row]) {
+        plot_near_arm_end(x, column, y, color, age, alpha, pass);
+        return;
+      }
     }
     pass(x, y, color, age, alpha);
   }
@@ -165,17 +176,21 @@ public:
   HS_FLASH_MEMBER void init_storage(Arena &arena) {
     // Projected from the same incremental-rotation positions populate() hands
     // out, so the per-frame offset subtracts them exactly.
-    warp_cache.template init_storage<CACHE_CELLS>(
-        arena, CACHE_FIELD,
+    const int cap_cells =
         polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
-            CACHE_COLUMNS,
+        CACHE_COLUMNS;
+    // no death case: the reserve covers every display geometry the cap rows admit
+    HS_CHECK(cap_cells <= CACHE_CAP_CELLS,
+             "feedback: %d polar cap cells exceed the %d reserved", cap_cells,
+             CACHE_CAP_CELLS);
+    warp_cache.template init_storage<CACHE_CELLS>(
+        arena, CACHE_FIELD, cap_cells,
         [](const math::Vector &position,
            const typename SphereField::Coordinates &point) {
           return lattice_origin(CACHE_FIELD, position, point);
         });
     fade_table.init_storage(arena);
     spans.reach = arena.allocate_n<int16_t>(H);
-    spans.ahead = arena.allocate_n<Ahead>(H);
     spans.valid = false;
   }
 
@@ -226,14 +241,13 @@ private:
   }
 
   /**
-   * @brief Composites a split frame's columns outside its forward bands and
-   *        holds the frame for finish().
+   * @brief Composites a split frame short of the pixels whose sources lie
+   *        past their arm's last column, and holds the frame for finish().
    * @param cv Target canvas.
    * @param alpha Global blend alpha in [0, 1].
-   * @details A frame that cannot split, or a row whose forward reach exceeds a
-   * quarter turn, composites as flush() does. The held frame keeps its
-   * scratch_arena_a allocations until finish(); scopes opened meanwhile must
-   * close first.
+   * @details The held frame keeps its scratch_arena_a allocations until
+   * finish(); scopes opened meanwhile must close first. A frame no pixel of
+   * which reads past a cut is released at once.
    */
   HS_FLASH_MEMBER void flush_split(Canvas &cv, float alpha) {
     if (disabled(cv))
@@ -241,28 +255,21 @@ private:
     const size_t mark = scratch_arena_a.get_offset();
     FlushContext &ctx = *scratch_arena_a.make<FlushContext>(
         prepare_flush(cv, alpha, scratch_arena_a, true));
+    held_floor = HALF;
+    std::memset(row_floor, HALF, sizeof(row_floor));
     composite_frame(cv, ctx);
-    int floor = ColumnTime::HALF;
-    if (ctx.ahead)
-      for (int y = 0; y < H; ++y)
-        floor = std::min(floor, static_cast<int>(ctx.ahead[y].held_from));
-    if (floor == ColumnTime::HALF) {
+    if (held_floor == HALF) {
       scratch_arena_a.set_offset(mark);
       return;
     }
-    ctx.cover = scratch_arena_a.allocate_n<uint16_t>(2 * H * COVER_STRIDE);
-    ctx.kept = scratch_arena_a.allocate_n<::Pixel>(2 * H);
-    open_coverage(ctx);
     held = &ctx;
     held_mark = mark;
-    held_floor = floor;
   }
 
   /**
-   * @brief Composites a held frame's forward bands from the frame as plotted,
-   *        under the coverage its taps left there.
-   * @details A source past a band's forward cut reads the frame being drawn,
-   * whose columns there the plots have finished. No-op without a held frame.
+   * @brief Adds the part of each held pixel's composite that reads the frame
+   *        as plotted, beneath the coverage its taps left there.
+   * @details No-op without a held frame.
    */
   HS_FLASH_MEMBER void finish(Canvas &) {
     if (!held)
@@ -271,8 +278,7 @@ private:
     select_poles(ctx.current, ctx.current_poles);
     {
       HS_PROFILE(feedback_forward);
-      ctx.pass = Pass::FORWARD;
-      composite_pass(ctx);
+      composite_pass(ctx, true);
     }
     end_split();
   }
@@ -356,29 +362,53 @@ private:
   };
 
   struct ColumnRuns {
-    ColumnRun items[3];
+    ColumnRun items[6];
     int count;
   };
 
   enum class FlushMode : uint8_t { SKIP, HUE, PLAIN, GENERAL };
 
-  /** @brief Columns one composite pass writes. */
-  enum class Pass : uint8_t {
-    ALL,        ///< Every column of the band.
-    ARM_STARTS, ///< Each arm's first reach columns, before any stale
-                ///< column behind a cut is overwritten.
-    REST,       ///< The columns ARM_STARTS and FORWARD leave.
-    FORWARD,    ///< Each arm's last Ahead::band columns, after the plots.
+  /** @brief Where a lane's source lies relative to its target's arm. */
+  enum class Side : uint8_t {
+    WITHIN, ///< Within the arm: the previous frame.
+    BEHIND, ///< Behind the arm's first column: the stale frame before it.
+    AHEAD,  ///< From the arm's last column on: the frame being drawn.
   };
 
-  /** @brief A row's forward band in a split frame. */
-  struct Ahead {
-    /// Columns before each arm's end whose sources may lie past its forward
-    /// cut, even; zero where the row composites unsplit.
-    int16_t band;
-    /// First column past each arm's first that finish() rewrites: the band,
-    /// and before a half-resolution band one column more; HALF without one.
-    int16_t held_from;
+  /** @brief One bilinear sample on the [0, 65535] scale, unquantized. */
+  struct Sample {
+    float r;
+    float g;
+    float b;
+  };
+
+  /** @brief A lane's resolved read. */
+  struct Lane {
+    typename ColumnTime::Read read;
+    Side side;
+  };
+
+  /** @brief A row's interpolation and reconstruction, resolved per frame. */
+  struct RowGeometry {
+    int16_t field_y0; ///< Ring at or above the row.
+    int16_t field_y1; ///< Ring below it, or the same ring on the last.
+    float wy1;        ///< Weight of field_y1.
+    bool polar : 1;   ///< Both rings carry cap-plane offsets.
+    bool north : 1;   ///< A polar row's pole is the north pole.
+    bool pairs : 1;   ///< Composites column pairs.
+    bool infill : 1;  ///< Reconstructs at its longitude footprint.
+    bool pole : 1;    ///< Every column is the pole.
+    /// Lanes past a column that its reconstruction reads: the next pair, or
+    /// the infill filter's radius.
+    uint8_t reach;
+    /// First of the row's finish samples (finish_window()).
+    int16_t window_base;
+  };
+
+  /** @brief Lane columns of a row whose sources read the frame as plotted. */
+  struct AheadSpan {
+    int16_t first; ///< First such column past each arm's first; HALF if none.
+    int16_t visit_end; ///< Last lane column whose step completes a held column.
   };
 
   /** @brief Per-frame composite inputs prepare_flush() resolves. */
@@ -395,28 +425,21 @@ private:
     const ::Pixel *back = nullptr;
     /// Shared pole values of the stale frame.
     ::Pixel back_poles[SphereField::POLE_STORAGE_COUNT]{};
-    /// Per row, the even column count from each arm's first that may read
-    /// behind its backward cut; negative where the row slides. Null without
-    /// @c back.
+    /// Per row, the even column count from each arm's first whose lanes may
+    /// read behind its backward cut. Null without @c back.
     const int16_t *reach = nullptr;
-    /// Per row, the forward band of a split frame; null when unsplit.
-    const Ahead *ahead = nullptr;
-    /// Per row and arm, the Q16 transmittance of the taps plotted over each
-    /// held column (cover_index()); their colors accumulate in the drawing
-    /// buffer. Null when unsplit.
+    /// Per row, its interpolation and reconstruction.
+    const RowGeometry *rows = nullptr;
+    /// Per coverage slot, the transmittance of the taps plotted over the
+    /// pixel in its upper 15 bits, zero where the pixel is final, and in its
+    /// low bit whether the lane's source reads the frame as plotted. Null
+    /// when unsplit.
     uint16_t *cover = nullptr;
-    /// Per row and arm, the pair sample REST keeps for the held column before
-    /// a half-resolution band.
-    ::Pixel *kept = nullptr;
+    /// Per row, the lanes whose sources read the frame as plotted.
+    AheadSpan *ahead_span = nullptr;
     /// Shared pole values of the frame being drawn, set by finish().
     ::Pixel current_poles[SphereField::POLE_STORAGE_COUNT]{};
-    /// Columns the current pass writes.
-    Pass pass = Pass::ALL;
     ColumnRuns runs{};
-    typename SphereField::Ring control_ring1{};
-    int field_y0 = 0;
-    int field_y1 = 0;
-    int control_y0 = 0;
     float alpha = 0.0f;
     float fade = 0.0f;
     float pole_half_res = 0.0f;
@@ -506,9 +529,9 @@ private:
   make_column_runs(const ClipRegion::XClip &clip, bool split_arms = false) {
     ColumnRuns runs{};
     const auto append = [&](int begin, int end) {
-      if (split_arms && begin < ColumnTime::HALF && end > ColumnTime::HALF) {
-        runs.items[runs.count++] = {begin, ColumnTime::HALF};
-        begin = ColumnTime::HALF;
+      if (split_arms && begin < HALF && end > HALF) {
+        runs.items[runs.count++] = {begin, HALF};
+        begin = HALF;
       }
       runs.items[runs.count++] = {begin, end};
     };
@@ -596,6 +619,9 @@ private:
    * @param warp Field to fill.
    * @param controls Scratch for every lattice sample's offset.
    * @param sample_caps Scratch for every polar lattice sample's cap offset.
+   * @details Under column time a cell's offsets carry their elapsed scale,
+   * which caps a forward column offset at a quarter turn; a pole ring's cap
+   * offsets stay unscaled.
    */
   __attribute__((always_inline)) void
   populate_warp_field(const CoarseGrid &grid, const RenderBand &band,
@@ -644,9 +670,12 @@ private:
       HS_PROFILE_DEEP(fb_pop_expand);
       constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
       const bool column_time = !Spacetime::flat_surface();
+      const float forward_limit =
+          column_time ? WRAP_PERIOD * 0.25f : WRAP_PERIOD * 0.5f;
       auto ring = grid.field.ring(band.field_y_begin);
       for (int field_y = band.field_y_begin; field_y <= band.field_y_end;
            ++field_y, ring = grid.field.next_ring(ring)) {
+        const bool pole_ring = is_pole_row(ring.y);
         for (int coarse_x = 0; coarse_x < grid.columns; ++coarse_x) {
           if (band.x_clip.active && !band.coarse_columns_used[coarse_x])
             continue;
@@ -668,8 +697,8 @@ private:
               column_time
                   ? ColumnTime::elapsed_scale(offset_x * INVERSE_WARP_SCALE)
                   : 1.0f;
-          warp.x_offsets[index] = static_cast<int16_t>(hs::clamp(
-              offset_x * scale, -WRAP_PERIOD * 0.5f, WRAP_PERIOD * 0.5f));
+          warp.x_offsets[index] = static_cast<int16_t>(
+              hs::clamp(offset_x * scale, -WRAP_PERIOD * 0.5f, forward_limit));
           warp.y_offsets[index] = static_cast<int16_t>(
               hs::clamp(offset_y * scale, -32767.0f, 32767.0f));
           if (field_y < grid.polar.north_rings ||
@@ -677,7 +706,7 @@ private:
             const CapOffset da = sample_caps[grid.polar.slot(longitude.left)];
             const CapOffset db = sample_caps[grid.polar.slot(longitude.right)];
             CapOffset cap = CapPlane::lerp_offset(da, db, longitude.mix);
-            if (column_time)
+            if (column_time && !pole_ring)
               cap = CapPlane::scale_offset(cap, scale);
             warp.cell_caps[grid.polar.row(field_y) * grid.columns + coarse_x] =
                 cap;
@@ -692,7 +721,7 @@ private:
    * @param cv Target canvas.
    * @param alpha Global blend alpha in [0, 1].
    * @param scratch Arena for the frame's uncached warp field and filter row.
-   * @param split Whether the frame's forward bands composite after its plots.
+   * @param split Whether the frame's held pixels composite after its plots.
    * @return The composite context; mode SKIP when the previous frame is black.
    */
   HS_HOT_FLASH_MEMBER FlushContext prepare_flush(Canvas &cv, float alpha,
@@ -745,6 +774,9 @@ private:
     ctx.current = cv.data();
     select_poles(ctx.previous, ctx.poles);
     ctx.runs = make_column_runs(band.x_clip, ctx.column_time);
+    RowGeometry *rows = scratch.allocate_n<RowGeometry>(H);
+    describe_rows(ctx, rows);
+    ctx.rows = rows;
     const bool clipped =
         band.x_clip.active || band.y_begin > 0 || band.y_end < H;
     if (ctx.column_time && cv.keeps_stale_pixels() && alpha >= 1.0f &&
@@ -756,27 +788,21 @@ private:
       if (!(stored && spans.valid &&
             spans.pole_half_res == ctx.pole_half_res)) {
         int16_t *reach = stored ? spans.reach : scratch.allocate_n<int16_t>(H);
-        Ahead *ahead = stored ? spans.ahead : scratch.allocate_n<Ahead>(H);
-        measure_reach(grid, ctx.warp, half_res_limit(ctx.pole_half_res), reach,
-                      ahead);
+        measure_reach(grid, ctx.warp, rows, reach);
         spans.valid = stored;
         spans.pole_half_res = ctx.pole_half_res;
         ctx.reach = reach;
-        ctx.ahead = ahead;
       } else {
         ctx.reach = spans.reach;
-        ctx.ahead = spans.ahead;
       }
-      if (!split)
-        ctx.ahead = nullptr;
+      if (split) {
+        ctx.cover = scratch.allocate_n<uint16_t>(COVER_SLOTS);
+        std::memset(ctx.cover, 0, COVER_SLOTS * sizeof(uint16_t));
+        ctx.ahead_span = scratch.allocate_n<AheadSpan>(H);
+        for (int y = 0; y < H; ++y)
+          ctx.ahead_span[y] = {static_cast<int16_t>(HALF), -1};
+      }
     }
-    ctx.field_y0 = band.field_y_begin;
-    ctx.field_y1 = ctx.field_y0 + (ctx.field_y0 < band.field_y_end ? 1 : 0);
-    const auto control_ring0 = grid.field.ring(ctx.field_y0);
-    ctx.control_ring1 = control_ring0;
-    if (ctx.field_y1 > ctx.field_y0)
-      ctx.control_ring1 = grid.field.next_ring(control_ring0);
-    ctx.control_y0 = control_ring0.y;
 
     const bool hue_identity =
         feedback_style->hue_ca == 1.0f && feedback_style->hue_sa == 0.0f;
@@ -790,6 +816,58 @@ private:
   }
 
   /**
+   * @brief Resolves each row's ring pair, weights and reconstruction.
+   * @param ctx Frame context with its grid, band and alpha set.
+   * @param rows Receives H entries; rows outside the band stay zero.
+   */
+  HS_FLASH_MEMBER static void describe_rows(const FlushContext &ctx,
+                                            RowGeometry *rows) {
+    const CoarseGrid &grid = ctx.grid;
+    const RenderBand &band = ctx.band;
+    const PolarRings &polar = grid.polar;
+    const bool opaque = ctx.alpha >= 1.0f;
+    const float half_res_sine = half_res_limit(ctx.pole_half_res);
+    std::memset(rows, 0, H * sizeof(RowGeometry));
+    int field_y0 = band.field_y_begin;
+    int field_y1 = field_y0 + (field_y0 < band.field_y_end ? 1 : 0);
+    auto ring0 = grid.field.ring(field_y0);
+    auto ring1 = field_y1 > field_y0 ? grid.field.next_ring(ring0) : ring0;
+    int window_base = 0;
+    for (int y = band.y_begin; y < band.y_end; ++y) {
+      while (y > ring1.y && field_y1 < band.field_y_end) {
+        field_y0 = field_y1;
+        ring0 = ring1;
+        ++field_y1;
+        ring1 = grid.field.next_ring(ring1);
+      }
+      // no death case: the ring chain ends on the band's last row
+      HS_CHECK(y <= ring1.y, "feedback warp row %d past last control row %d", y,
+               ring1.y);
+      RowGeometry &g = rows[y];
+      g.field_y0 = static_cast<int16_t>(field_y0);
+      g.field_y1 = static_cast<int16_t>(field_y1);
+      const int height = ring1.y - ring0.y;
+      g.wy1 = height > 0 ? static_cast<float>(y - ring0.y) / height : 0.0f;
+      g.polar = field_y1 < polar.north_rings || field_y0 >= polar.south_ring;
+      g.north = field_y1 < polar.north_rings;
+      g.pole = is_pole_row(y);
+      g.infill = !band.x_clip.active && filtered_infill(grid, y);
+      // The pair expansion needs plain stores, and a longitude-filtered row
+      // is reconstructed at its footprint already.
+      g.pairs = opaque && !g.infill && !g.pole &&
+                SphereField::latitude_sine(y) < half_res_sine;
+      const int width = g.infill ? grid.field.longitude_filter_width(y) : 1;
+      // no death case: the bound widens longitude_filter_width()
+      HS_CHECK(width <= filter_window_bound(y),
+               "feedback infill row %d filter width %d exceeds its bound %d", y,
+               width, filter_window_bound(y));
+      g.reach = static_cast<uint8_t>(g.infill ? width / 2 : g.pairs ? 2 : 0);
+      g.window_base = static_cast<int16_t>(window_base);
+      window_base += 2 * finish_window(g);
+    }
+  }
+
+  /**
    * @brief Composites the warped previous frame through a color transform.
    * @tparam PAIR_PIXELS Whether to interleave two pixels per step through
    * @p transform_pair.
@@ -798,11 +876,15 @@ private:
    *        level to the output pixel.
    * @param transform_pair Maps two sampled RGB triples sharing one level to
    *        two output pixels.
+   * @param starts Whether to composite only the rows' lanes short of their
+   *        reach, on rows reaching no further than a quarter turn, as
+   *        sweep_behind()'s middle phase; otherwise every row's lanes from its
+   *        reach on, which sweep_behind() left.
    */
   template <bool PAIR_PIXELS, typename TransformPixelT, typename TransformPairT>
   void composite_pixels(const FlushContext &ctx,
                         TransformPixelT &&transform_pixel,
-                        TransformPairT &&transform_pair) {
+                        TransformPairT &&transform_pair, bool starts = false) {
     const CoarseGrid &grid = ctx.grid;
     const RenderBand &band = ctx.band;
     const int downsample = grid.downsample;
@@ -811,8 +893,6 @@ private:
     const int row_end = band.y_end;
     const int16_t *x_offsets = ctx.warp.x_offsets;
     const int16_t *y_offsets = ctx.warp.y_offsets;
-    const PolarRings polar = grid.polar;
-    constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
     const float inverse_downsample = 1.0f / grid.downsample;
     const bool black_skips_color = ctx.black_skips_color;
     const auto blend = blend_alpha(ctx.alpha);
@@ -824,85 +904,44 @@ private:
     const bool column_time = ctx.column_time;
     const int unit_level = column_time ? FadeTable::UNIT_LEVEL : 0;
     // Cells crossing an arm cut resolve per pixel.
-    const bool straddled_cells = ColumnTime::HALF % downsample != 0;
-    const bool forward = ctx.pass == Pass::FORWARD;
+    const bool straddled_cells = HALF % downsample != 0;
     constexpr float LEVELS_PER_COLUMN =
         FadeTable::STEPS_PER_FRAME * ColumnTime::INVERSE_HALF;
-    int field_y0 = ctx.field_y0;
-    int field_y1 = ctx.field_y1;
-    auto control_ring1 = ctx.control_ring1;
-    int control_y0 = ctx.control_y0;
-    int control_y1 = control_ring1.y;
-    const float half_res_sine = half_res_limit(ctx.pole_half_res);
     for (int y = row_begin; y < row_end; ++y) {
+      const RowGeometry &g = ctx.rows[y];
       const int row = y * W;
-      const bool filter_output =
-          !band.x_clip.active && filtered_infill(grid, y);
-      const bool defer_filter = filter_output && !opaque;
-      // A forward band composites beneath its coverage.
-      ::Pixel *output = defer_filter || forward ? filtered_row : current + row;
-      // The pair expansion needs plain stores, and a longitude-filtered row
-      // is reconstructed at its footprint already.
-      const bool half_res = opaque && !filter_output &&
-                            SphereField::latitude_sine(y) < half_res_sine;
-      while (y > control_y1 && field_y1 < band.field_y_end) {
-        field_y0 = field_y1;
-        control_y0 = control_y1;
-        ++field_y1;
-        control_ring1 = grid.field.next_ring(control_ring1);
-        control_y1 = control_ring1.y;
-      }
-      // The last ring lands on the band's last row; short of it the weights
-      // below extrapolate off a stale control pair.
-      HS_CHECK(y <= control_y1, "feedback warp row %d past last control row %d",
-               y, control_y1);
-      // Interpolating outside the populated band silently corrupts pixels.
-      HS_CHECK(field_y0 >= band.field_y_begin && field_y1 <= band.field_y_end,
-               "feedback warp ring %d outside populated band [%d,%d]", field_y1,
-               band.field_y_begin, band.field_y_end);
-      const int control_height = control_y1 - control_y0;
-      const float fy = control_height > 0
-                           ? static_cast<float>(y - control_y0) / control_height
-                           : 0.0f;
-      const float wy0 = 1.0f - fy, wy1 = fy;
-      const int row0 = field_y0 * coarse_columns;
-      const int row1 = field_y1 * coarse_columns;
-
-      const ColumnRuns pass_columns = pass_runs(ctx, y);
-      if (pass_columns.count == 0)
+      if (g.pole) {
+        if (!starts)
+          composite_pole_row<PAIR_PIXELS>(ctx, y, g, transform_pixel);
         continue;
-      const bool behind = ctx.back && ctx.reach[y] >= 0;
-      const bool polar_row =
-          field_y1 < polar.north_rings || field_y0 >= polar.south_ring;
-      // A polar forward band on a half-resolution row composites column
-      // pairs short of each arm's last pair, then that pair column by column.
-      const bool tail = forward && half_res && polar_row;
-      const bool pairs = half_res && (!forward || tail);
-      const int stride = pairs ? 2 : 1;
-      // A half-resolution sample sits between its column pair, so it is the
-      // pair's box average rather than the even column alone.
-      const float lane_offset = pairs ? 0.5f : 0.0f;
-      const ColumnRuns row_runs =
-          tail ? tail_runs(pass_columns, 0) : pass_columns;
-      if (polar_row) {
-        auto polar_runs = [&](const ColumnRuns &runs, int step, float lane,
-                              bool midpoint) {
+      }
+      const bool defer_filter = g.infill && !opaque;
+      ::Pixel *output = defer_filter ? filtered_row : current + row;
+      const bool half_res = g.pairs;
+      const float wy1 = g.wy1, wy0 = 1.0f - wy1;
+      const int row0 = g.field_y0 * coarse_columns;
+      const int row1 = g.field_y1 * coarse_columns;
+
+      const ColumnRuns row_runs = row_lanes(ctx, g, y, starts);
+      for (int r = 0; r < row_runs.count; ++r) {
+        const int xs = row_runs.items[r].begin;
+        const int xe = row_runs.items[r].end;
+        // A half-resolution sample sits between its column pair, so it is the
+        // pair's box average rather than the even column alone.
+        const bool pairs = half_res && pair_lane(ctx, g, xs);
+        const int stride = pairs ? 2 : 1;
+        const float lane_offset = pairs ? 0.5f : 0.0f;
+        if (g.polar) {
           if constexpr (PAIR_PIXELS)
-            composite_polar_row(ctx, runs, y, field_y0, field_y1, wy0, wy1,
-                                output, step, lane, midpoint, defer_filter,
-                                transform_pixel);
+            composite_polar_row(ctx, xs, xe, y, g, output, stride, lane_offset,
+                                defer_filter, transform_pixel);
           else
-            composite_polar_row_flash(ctx, runs, y, field_y0, field_y1, wy0,
-                                      wy1, output, step, lane, midpoint,
-                                      defer_filter, transform_pixel);
-        };
-        polar_runs(row_runs, stride, lane_offset, pairs);
-        if (tail)
-          polar_runs(tail_runs(pass_columns, 1), 1, 0.0f, false);
-      } else {
-        for (int r = 0; r < row_runs.count; ++r) {
-          const int xs = row_runs.items[r].begin;
-          const int xe = row_runs.items[r].end;
+            composite_polar_row_flash(ctx, xs, xe, y, g, output, stride,
+                                      lane_offset, defer_filter,
+                                      transform_pixel);
+          continue;
+        }
+        {
           int cx0 = xs / downsample;
           int sub = xs - cx0 * downsample;
           bool cell_stale = true;
@@ -912,63 +951,42 @@ private:
           const ::Pixel *source = previous;
           const auto *source_poles = &poles;
           int cell_level = unit_level;
-          float leftx = 0.0f, slopex = 0.0f;
-          float lefty = 0.0f, slopey = 0.0f;
+          CellOffsets offsets{};
           auto cell = [&]() {
             HS_PROFILE_DEEP(fb_comp_cell);
             const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
-            const int i00 = row0 + cx0, i10 = row0 + cx1;
-            const int i01 = row1 + cx0, i11 = row1 + cx1;
-            const int d00 = x_offsets[i00];
-            const int u10 = unwrap_near(x_offsets[i10], d00);
-            const int u01 = unwrap_near(x_offsets[i01], d00);
-            const int u11 = unwrap_near(x_offsets[i11], d00);
-            const float d10 = static_cast<float>(u10);
-            const float d01 = static_cast<float>(u01);
-            const float d11 = static_cast<float>(u11);
-            leftx = (static_cast<float>(d00) * wy0 + d01 * wy1) *
-                    INVERSE_WARP_SCALE;
-            slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
-            lefty = (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
-                    INVERSE_WARP_SCALE;
-            slopey = (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) *
-                         INVERSE_WARP_SCALE -
-                     lefty;
+            int reach = 0;
+            offsets = cell_offsets(x_offsets, y_offsets, row0, row1, cx0, cx1,
+                                   wy0, wy1, reach);
             if (column_time) {
               int column = cx0 * downsample;
-              column -= column >= ColumnTime::HALF ? ColumnTime::HALF : 0;
+              column -= column >= HALF ? HALF : 0;
               // No pixel's offset exceeds its cell's largest node offset, so
               // a cell at least that far inside its arm reads within it.
-              const int reach =
-                  std::max(std::max(std::abs(d00), std::abs(u10)),
-                           std::max(std::abs(u01), std::abs(u11)));
-              const int room =
-                  std::min(column, ColumnTime::HALF - 1 - downsample - column);
+              const int room = std::min(column, HALF - 1 - downsample - column);
               cell_resolved = straddled_cells;
               source = previous;
               source_poles = &poles;
               if (reach > room * static_cast<int>(WARP_SCALE)) {
                 // Otherwise the first pixel's source and the last's, past
                 // the cell's far edge, bound the cell's.
-                const float first = column + fminf(leftx, leftx + slopex);
+                const float first =
+                    column +
+                    fminf(offsets.left_x, offsets.left_x + offsets.slope_x);
                 const float last =
-                    column + downsample + fmaxf(leftx, leftx + slopex);
-                const bool within = first >= 0.0f &&
-                                    (forward ? last < ColumnTime::HALF - 1.0f
-                                             : last <= ColumnTime::HALF - 0.5f);
-                if (!within && forward && first >= ColumnTime::HALF) {
-                  source = current;
-                  source_poles = &ctx.current_poles;
-                } else if (!within && behind && last <= -1.0f) {
+                    column + downsample +
+                    fmaxf(offsets.left_x, offsets.left_x + offsets.slope_x);
+                if (ctx.back && last <= -1.0f) {
                   source = ctx.back;
                   source_poles = &ctx.back_poles;
                 } else {
-                  cell_resolved |= !within;
+                  cell_resolved |= !(first >= 0.0f && last < HALF - 1.0f);
                 }
               }
               cell_level =
                   static_cast<int>(FadeTable::UNIT_LEVEL + 0.5f -
-                                   (leftx + 0.5f * slopex) * LEVELS_PER_COLUMN);
+                                   (offsets.left_x + 0.5f * offsets.slope_x) *
+                                       LEVELS_PER_COLUMN);
             }
           };
           for (int x = xs; x < xe;) {
@@ -981,8 +999,7 @@ private:
               const int cell_end = std::min(xe, x + downsample - sub);
               x = composite_resolved_cell<PAIR_PIXELS>(
                   ctx, transform_pixel, output, x, cell_end, y, sub, stride,
-                  lane_offset, {leftx, slopex, lefty, slopey},
-                  opaque || defer_filter);
+                  lane_offset, offsets, opaque || defer_filter);
               sub = x - cx0 * downsample;
               while (sub >= downsample) {
                 sub -= downsample;
@@ -997,10 +1014,10 @@ private:
                 const float fx0 = (sub + lane_offset) * inverse_downsample;
                 const float fx1 =
                     (sub + stride + lane_offset) * inverse_downsample;
-                const float ddx0 = leftx + slopex * fx0;
-                const float ddy0 = lefty + slopey * fx0;
-                const float ddx1 = leftx + slopex * fx1;
-                const float ddy1 = lefty + slopey * fx1;
+                const float ddx0 = offsets.left_x + offsets.slope_x * fx0;
+                const float ddy0 = offsets.left_y + offsets.slope_y * fx0;
+                const float ddx1 = offsets.left_x + offsets.slope_x * fx1;
+                const float ddy1 = offsets.left_y + offsets.slope_y * fx1;
 
                 Sample s0, s1;
                 {
@@ -1040,8 +1057,8 @@ private:
             }
 
             const float fx = (sub + lane_offset) * inverse_downsample;
-            const float ddx = leftx + slopex * fx;
-            const float ddy = lefty + slopey * fx;
+            const float ddx = offsets.left_x + offsets.slope_x * fx;
+            const float ddy = offsets.left_y + offsets.slope_y * fx;
 
             Sample s;
             {
@@ -1052,11 +1069,7 @@ private:
             ::Pixel p(0, 0, 0);
             if (!(skip_near_black(s, black_skips_color))) {
               HS_PROFILE_DEEP(fb_comp_color);
-              if constexpr (PAIR_PIXELS)
-                p = transform_pixel_call(transform_pixel, s.r, s.g, s.b,
-                                         cell_level);
-              else
-                p = transform_pixel(s.r, s.g, s.b, cell_level);
+              p = transform_sample<PAIR_PIXELS>(transform_pixel, s, cell_level);
             }
 
             // Black must overwrite the stale double-buffer frame.
@@ -1074,19 +1087,52 @@ private:
           }
         }
       }
-      if (ctx.pass == Pass::ARM_STARTS)
+      if (starts)
         continue;
       if (half_res) {
         HS_PROFILE_DEEP(fb_comp_fill);
-        expand_half_res_row<PAIR_PIXELS>(ctx, output, y, tail, transform_pixel);
+        expand_half_res_row(ctx, output, y);
       }
-      if (forward)
-        cover_row(ctx, y, output);
-      if (filter_output) {
+      if (g.infill) {
         HS_PROFILE_DEEP(fb_comp_filter);
         filter_infill_row(ctx, y, defer_filter);
       }
+      if (ctx.cover)
+        hold_row(ctx, y, g);
     }
+  }
+
+  /**
+   * @brief Composites a pole row: one read of the pole's source a frame
+   *        earlier, written to every column.
+   * @param ctx Frame context from prepare_flush().
+   * @param y The pole row.
+   * @param g The row's geometry.
+   * @param transform_pixel Maps a sample and its fade-table level to a pixel.
+   */
+  template <bool PAIR_PIXELS, typename TransformPixelT>
+  HS_FLASH_MEMBER void composite_pole_row(const FlushContext &ctx, int y,
+                                          const RowGeometry &g,
+                                          TransformPixelT &transform_pixel) {
+    const CoarseGrid &grid = ctx.grid;
+    // no death case: a pole's latitude sine is zero
+    HS_CHECK(g.polar, "feedback pole row %d lies outside the polar rings", y);
+    const CapCell cell = CapPlane::decode_cell(polar_caps(ctx, g.field_y0),
+                                               polar_caps(ctx, g.field_y1), 0,
+                                               0, 1.0f - g.wy1, g.wy1);
+    const auto at = CapPlane::polar_lane(cell, 0, 0.0f, g.north, false, 0.0f);
+    const int level = ctx.column_time ? FadeTable::UNIT_LEVEL : 0;
+    const Sample s =
+        sample_bilinear_prev(grid.field, ctx.previous, ctx.poles, at.x, at.y);
+    ::Pixel p(0, 0, 0);
+    if (!skip_near_black(s, ctx.black_skips_color))
+      p = transform_sample<PAIR_PIXELS>(transform_pixel, s, level);
+    ::Pixel *output = ctx.current + y * W;
+    const auto blend = blend_alpha(ctx.alpha);
+    const bool plain_store = ctx.alpha >= 1.0f;
+    for (int r = 0; r < ctx.runs.count; ++r)
+      for (int x = ctx.runs.items[r].begin; x < ctx.runs.items[r].end; ++x)
+        output[x] = plain_store ? p : blend(output[x], p);
   }
 
   /**
@@ -1124,57 +1170,46 @@ private:
    */
   template <typename TransformPixelT>
   __attribute__((noinline)) void
-  composite_polar_row(const FlushContext &ctx, const ColumnRuns &runs, int y,
-                      int field_y0, int field_y1, float wy0, float wy1,
-                      ::Pixel *output, int stride, float lane_offset,
-                      bool half_res, bool defer_filter,
+  composite_polar_row(const FlushContext &ctx, int xs, int xe, int y,
+                      const RowGeometry &g, ::Pixel *output, int stride,
+                      float lane_offset, bool defer_filter,
                       TransformPixelT &transform_pixel) {
-    composite_polar_lanes(ctx, runs, y, field_y0, field_y1, wy0, wy1, output,
-                          stride, lane_offset, half_res, defer_filter,
-                          transform_pixel);
+    composite_polar_lanes(ctx, xs, xe, y, g, output, stride, lane_offset,
+                          defer_filter, transform_pixel);
   }
 
   /** @brief composite_polar_row() in flash, for the composites that run
    *         from flash. */
   template <typename TransformPixelT>
   HS_FLASH_MEMBER void
-  composite_polar_row_flash(const FlushContext &ctx, const ColumnRuns &runs,
-                            int y, int field_y0, int field_y1, float wy0,
-                            float wy1, ::Pixel *output, int stride,
-                            float lane_offset, bool half_res, bool defer_filter,
+  composite_polar_row_flash(const FlushContext &ctx, int xs, int xe, int y,
+                            const RowGeometry &g, ::Pixel *output, int stride,
+                            float lane_offset, bool defer_filter,
                             TransformPixelT &transform_pixel) {
-    composite_polar_lanes(ctx, runs, y, field_y0, field_y1, wy0, wy1, output,
-                          stride, lane_offset, half_res, defer_filter,
-                          transform_pixel);
+    composite_polar_lanes(ctx, xs, xe, y, g, output, stride, lane_offset,
+                          defer_filter, transform_pixel);
   }
 
   /** @brief The body of composite_polar_row(). */
   template <typename TransformPixelT>
   __attribute__((always_inline)) void
-  composite_polar_lanes(const FlushContext &ctx, const ColumnRuns &runs, int y,
-                        int field_y0, int field_y1, float wy0, float wy1,
-                        ::Pixel *output, int stride, float lane_offset,
-                        bool half_res, bool defer_filter,
+  composite_polar_lanes(const FlushContext &ctx, int xs, int xe, int y,
+                        const RowGeometry &g, ::Pixel *output, int stride,
+                        float lane_offset, bool defer_filter,
                         TransformPixelT &transform_pixel) {
     const CoarseGrid &grid = ctx.grid;
-    const PolarRings &polar = grid.polar;
     const int downsample = grid.downsample;
     const int coarse_columns = grid.columns;
     const float inverse_downsample = 1.0f / downsample;
-    const CapOffset *caps0 =
-        ctx.warp.cell_caps + polar.row(field_y0) * coarse_columns;
-    const CapOffset *caps1 =
-        ctx.warp.cell_caps + polar.row(field_y1) * coarse_columns;
-    const bool north = field_y1 < polar.north_rings;
-    const float colatitude =
-        SphereField::Geometry::row_to_phi(static_cast<float>(y));
-    const float cap_angle = north ? colatitude : math::PI_F - colatitude;
+    const CapOffset *caps0 = polar_caps(ctx, g.field_y0);
+    const CapOffset *caps1 = polar_caps(ctx, g.field_y1);
+    const float wy1 = g.wy1, wy0 = 1.0f - wy1;
+    const float cap_angle = cap_angle_of(y, g.north);
+    const bool half_res = stride == 2;
     const bool black_skips_color = ctx.black_skips_color;
     const auto blend = blend_alpha(ctx.alpha);
     const bool plain_store = ctx.alpha >= 1.0f || defer_filter;
-    for (int r = 0; r < runs.count; ++r) {
-      const int xs = runs.items[r].begin;
-      const int xe = runs.items[r].end;
+    {
       int cx0 = xs / downsample;
       int sub = xs - cx0 * downsample;
       bool cell_stale = true;
@@ -1188,34 +1223,25 @@ private:
 
         const float fx = (sub + lane_offset) * inverse_downsample;
         const auto at =
-            CapPlane::polar_lane(cell, x, cap_angle, north, half_res, fx);
-        typename ColumnTime::Read read{at.x, at.y, 1.0f};
-        int level = 0;
-        bool across = false;
-        int arm = 0;
-        if (ctx.column_time) {
-          const float target = x + lane_offset;
-          arm = ColumnTime::arm_start(x);
-          const float source =
-              target + unwrap_near(at.x - target, 0.0f, static_cast<float>(W));
-          across = across_cut(ctx, y, arm, source);
-          if (across) {
-            read = ColumnTime::read_across(target, source, at.y);
-          } else {
-            const float column = ColumnTime::arm_column(at.x, arm);
-            read = column < ColumnTime::HALF - 0.5f
-                       ? ColumnTime::read_within(target, arm, column, at.y)
-                       : polar_read_past_cut(cell, x, cap_angle, north,
-                                             half_res, fx, target, y, at);
-          }
-          level = FadeTable::level(read.elapsed);
-        }
-        const Sample s = sample_read(ctx, arm, across, read.x, read.y);
-        ::Pixel p(0, 0, 0);
-        if (!(skip_near_black(s, black_skips_color)))
-          p = transform_pixel(s.r, s.g, s.b, level);
+            CapPlane::polar_lane(cell, x, cap_angle, g.north, half_res, fx);
         ::Pixel &dst = output[x];
-        dst = plain_store ? p : blend(dst, p);
+        const float target = x + lane_offset;
+        const int arm = ColumnTime::arm_start(x);
+        Lane lane{ColumnTime::read(target, at.x, at.y), Side::WITHIN};
+        if (ctx.column_time)
+          lane = resolve_lane(target, arm, at.x, at.y);
+        if (lane.side == Side::AHEAD && ctx.cover) {
+          hold_lane(ctx, y, arm, x);
+          dst = ::Pixel(0, 0, 0);
+        } else {
+          const Sample s = sample_lane(ctx, arm, lane);
+          ::Pixel p(0, 0, 0);
+          if (!skip_near_black(s, black_skips_color))
+            p = transform_pixel(
+                s.r, s.g, s.b,
+                ctx.column_time ? FadeTable::level(lane.read.elapsed) : 0);
+          dst = plain_store ? p : blend(dst, p);
+        }
 
         x += stride;
         sub += stride;
@@ -1228,36 +1254,17 @@ private:
     }
   }
 
-  /**
-   * @brief A polar lane's read for a source past one of its arm's cuts.
-   * @param cell The lane's decoded cell.
-   * @param x The lane's column.
-   * @param cap_angle The row's angle from its pole, in radians.
-   * @param north Whether the row's pole is the north pole.
-   * @param half_res Whether the lane stands for its column pair.
-   * @param fx The lane's fraction across @p cell.
-   * @param target The lane's column with its half-resolution offset.
-   * @param y The lane's row.
-   * @param at The lane's source, past its arm.
-   * @return The resolved read.
-   */
-  static HS_FLASH_MEMBER typename ColumnTime::Read
-  polar_read_past_cut(const CapCell &cell, int x, float cap_angle, bool north,
-                      bool half_res, float fx, float target, int y,
-                      const typename SphereField::Coordinates &at) {
-    return ColumnTime::read_past_cut(
-        target, static_cast<float>(y), ColumnTime::arm_start(x),
-        {target + unwrap_near(at.x - target, 0.0f, static_cast<float>(W)),
-         at.y},
-        [&]() HS_HOT_INLINE {
-          const CapCell twice{{cell.left.u * 2.0f, cell.left.v * 2.0f},
-                              {cell.slope.u * 2.0f, cell.slope.v * 2.0f}};
-          const auto far =
-              CapPlane::polar_lane(twice, x, cap_angle, north, half_res, fx);
-          return ColumnSource{
-              target + unwrap_near(far.x - target, 0.0f, static_cast<float>(W)),
-              far.y};
-        });
+  /** @brief A polar ring's cap offsets, indexed by coarse column. */
+  static HS_HOT_INLINE const CapOffset *polar_caps(const FlushContext &ctx,
+                                                   int field_y) {
+    return ctx.warp.cell_caps + ctx.grid.polar.row(field_y) * ctx.grid.columns;
+  }
+
+  /** @brief A row's angle from its pole, in radians. */
+  static HS_HOT_INLINE float cap_angle_of(int y, bool north) {
+    const float colatitude =
+        SphereField::Geometry::row_to_phi(static_cast<float>(y));
+    return north ? colatitude : math::PI_F - colatitude;
   }
 
   /** @brief A cell's offsets: at its left edge and their change across it,
@@ -1268,6 +1275,115 @@ private:
     float left_y;  ///< Row offset at the left edge.
     float slope_y; ///< Row offset change across the cell.
   };
+
+  /**
+   * @brief A cell's offsets blended between its two rings.
+   * @param x_offsets,y_offsets The warp field.
+   * @param row0,row1 First cell index of each ring.
+   * @param cx0,cx1 The cell's left and right coarse columns.
+   * @param wy0,wy1 The rings' weights.
+   * @param reach Receives the largest node column offset, WARP_SCALE units.
+   * @return The cell's offsets.
+   */
+  static HS_HOT_INLINE CellOffsets cell_offsets(const int16_t *x_offsets,
+                                                const int16_t *y_offsets,
+                                                int row0, int row1, int cx0,
+                                                int cx1, float wy0, float wy1,
+                                                int &reach) {
+    constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
+    const int i00 = row0 + cx0, i10 = row0 + cx1;
+    const int i01 = row1 + cx0, i11 = row1 + cx1;
+    const int d00 = x_offsets[i00];
+    const int u10 = unwrap_near(x_offsets[i10], d00);
+    const int u01 = unwrap_near(x_offsets[i01], d00);
+    const int u11 = unwrap_near(x_offsets[i11], d00);
+    reach = std::max(std::max(std::abs(d00), std::abs(u10)),
+                     std::max(std::abs(u01), std::abs(u11)));
+    CellOffsets o;
+    o.left_x = (static_cast<float>(d00) * wy0 + static_cast<float>(u01) * wy1) *
+               INVERSE_WARP_SCALE;
+    o.slope_x =
+        (static_cast<float>(u10) * wy0 + static_cast<float>(u11) * wy1) *
+            INVERSE_WARP_SCALE -
+        o.left_x;
+    o.left_y =
+        (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) * INVERSE_WARP_SCALE;
+    o.slope_y =
+        (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) * INVERSE_WARP_SCALE -
+        o.left_y;
+    return o;
+  }
+
+  /**
+   * @brief Resolves a lane's read from its target and source.
+   * @param target Target column, with its half-resolution lane offset.
+   * @param arm First column of the target's arm.
+   * @param source_x Source column, on any wrap branch.
+   * @param source_y Source row.
+   * @return The read and the side of the arm its source lies on.
+   * @details The source unwraps to the shortest path, under a half turn ahead
+   * and no further behind than keeps its taps past the other arm's lane of
+   * the same column.
+   */
+  static HS_HOT_INLINE Lane resolve_lane(float target, int arm, float source_x,
+                                         float source_y) {
+    float delta = unwrap_near(source_x - target, 0.0f, static_cast<float>(W));
+    if (delta >= static_cast<float>(HALF))
+      delta -= static_cast<float>(W);
+    delta = fmaxf(delta, -static_cast<float>(HALF - 1));
+    const float column = (target - arm) + delta;
+    const Side side = column < 0.0f           ? Side::BEHIND
+                      : column >= HALF - 1.0f ? Side::AHEAD
+                                              : Side::WITHIN;
+    return {ColumnTime::read(target, target + delta, source_y), side};
+  }
+
+  /**
+   * @brief Samples a resolved lane from the buffers holding its taps.
+   * @param ctx Frame context.
+   * @param arm First column of the target's arm.
+   * @param lane The lane; AHEAD only in a frame without coverage. Its elapsed
+   *        follows the buffer read.
+   * @return The bilinear sample.
+   * @details A source across a cut reads the frame holding it when the frame
+   * has one, else the previous frame, a frame older past the cut and a frame
+   * younger behind it.
+   */
+  HS_HOT_INLINE Sample sample_lane(const FlushContext &ctx, int arm,
+                                   Lane &lane) const {
+    const bool across = lane.side == Side::BEHIND  ? ctx.back != nullptr
+                        : lane.side == Side::AHEAD ? ctx.cover != nullptr
+                                                   : false;
+    if (across)
+      return sample_across(ctx, arm, lane.read.x, lane.read.y);
+    if (lane.side != Side::WITHIN)
+      lane.read.elapsed += lane.side == Side::AHEAD ? 1.0f : -1.0f;
+    return sample_bilinear_prev(ctx.grid.field, ctx.previous, ctx.poles,
+                                lane.read.x, lane.read.y);
+  }
+
+  /**
+   * @brief Marks a lane whose source reads the frame as plotted.
+   * @param ctx Frame context with its coverage allocated.
+   * @param y Row.
+   * @param arm First column of the lane's arm.
+   * @param x The lane's column.
+   */
+  HS_HOT_FLASH_MEMBER static void hold_lane(const FlushContext &ctx, int y,
+                                            int arm, int x) {
+    const int slot = cover_slot(y, arm, x);
+    // no death case: the elapsed scale caps a forward offset at a quarter turn
+    HS_CHECK(slot >= 0,
+             "feedback row %d column %d reads past its cut outside "
+             "its coverage",
+             y, x);
+    ctx.cover[slot] |= AHEAD_BIT;
+  }
+
+  /** @brief Low coverage bit: the lane's source reads the frame as plotted. */
+  static constexpr uint16_t AHEAD_BIT = 1;
+  /** @brief The coverage bits holding a pixel's transmittance. */
+  static constexpr uint16_t TRANSMITTANCE_BITS = 0xFFFE;
 
   /**
    * @brief Composites a cell's pixels whose sources may lie past their arm's
@@ -1298,50 +1414,25 @@ private:
     const float inverse_downsample = 1.0f / ctx.grid.downsample;
     const float row = static_cast<float>(y);
     const uint16_t alpha = frac_to_q16(ctx.alpha);
-    auto resolve = [&](int column_x, int column_sub,
-                       bool &across) HS_HOT_INLINE {
-      const float fx = (column_sub + lane_offset) * inverse_downsample;
+    while (x < end) {
+      const float fx = (sub + lane_offset) * inverse_downsample;
       const float ddx = cell.left_x + cell.slope_x * fx;
       const float ddy = cell.left_y + cell.slope_y * fx;
-      const float target = column_x + lane_offset;
-      const int arm = ColumnTime::arm_start(column_x);
-      const float source = target + ddx;
-      across = across_cut(ctx, y, arm, source);
-      if (across)
-        return ColumnTime::read_across(target, source, row + ddy);
-      const float column = ColumnTime::arm_column(target + ddx, arm);
-      return column < ColumnTime::HALF - 0.5f
-                 ? ColumnTime::read_within(target, arm, column, row + ddy)
-                 : ColumnTime::read_past_cut(
-                       target, row, arm, {target + ddx, row + ddy},
-                       [&]() {
-                         return ColumnSource{target + 2.0f * ddx,
-                                             row + 2.0f * ddy};
-                       });
-    };
-    auto black = [&](const Sample &s) HS_HOT_INLINE {
-      return skip_near_black(s, ctx.black_skips_color);
-    };
-    auto transform = [&](const Sample &s, int level) HS_HOT_INLINE {
-      if constexpr (PAIR_PIXELS)
-        return transform_pixel_call(transform_pixel, s.r, s.g, s.b, level);
-      else
-        return transform_pixel(s.r, s.g, s.b, level);
-    };
-    auto store = [&](int column_x, const ::Pixel &p) HS_HOT_INLINE {
-      ::Pixel &dst = output[column_x];
-      dst = plain_store ? p : dst.lerp16(p, alpha);
-    };
-    while (x < end) {
-      bool across = false;
-      const auto read0 = resolve(x, sub, across);
-      const int level0 = FadeTable::level(read0.elapsed);
-      const Sample s0 =
-          sample_read(ctx, ColumnTime::arm_start(x), across, read0.x, read0.y);
+      const float target = x + lane_offset;
+      const int arm = ColumnTime::arm_start(x);
+      Lane lane = resolve_lane(target, arm, target + ddx, row + ddy);
       ::Pixel p(0, 0, 0);
-      if (!black(s0))
-        p = transform(s0, level0);
-      store(x, p);
+      if (lane.side == Side::AHEAD && ctx.cover) {
+        hold_lane(ctx, y, arm, x);
+        output[x] = p;
+      } else {
+        const Sample s = sample_lane(ctx, arm, lane);
+        if (!skip_near_black(s, ctx.black_skips_color))
+          p = transform_sample<PAIR_PIXELS>(
+              transform_pixel, s, FadeTable::level(lane.read.elapsed));
+        ::Pixel &dst = output[x];
+        dst = plain_store ? p : dst.lerp16(p, alpha);
+      }
       x += stride;
       sub += stride;
     }
@@ -1349,8 +1440,326 @@ private:
   }
 
   /**
-   * @brief Composites every column outside the forward bands, each arm's
-   *        start before the columns it reads behind the cut are overwritten.
+   * @brief One lane's read in a column-major sweep.
+   * @param ctx Frame context.
+   * @param g The lane's row geometry.
+   * @param y The lane's row.
+   * @param x The lane's column.
+   * @return The resolved lane.
+   */
+  HS_HOT_INLINE Lane sweep_lane(const FlushContext &ctx, const RowGeometry &g,
+                                int y, int x) const {
+    const CoarseGrid &grid = ctx.grid;
+    const int downsample = grid.downsample;
+    const int cx0 = x / downsample;
+    const int cx1 = cx0 + 1 < grid.columns ? cx0 + 1 : 0;
+    const bool pair = pair_lane(ctx, g, x);
+    const float lane_offset = pair ? 0.5f : 0.0f;
+    const float fx = (x - cx0 * downsample + lane_offset) / downsample;
+    const float target = x + lane_offset;
+    const int arm = ColumnTime::arm_start(x);
+    const float wy1 = g.wy1, wy0 = 1.0f - wy1;
+    if (g.polar) {
+      const CapCell cell = CapPlane::decode_cell(polar_caps(ctx, g.field_y0),
+                                                 polar_caps(ctx, g.field_y1),
+                                                 cx0, cx1, wy0, wy1);
+      const auto at = CapPlane::polar_lane(cell, x, cap_angle_of(y, g.north),
+                                           g.north, pair, fx);
+      return resolve_lane(target, arm, at.x, at.y);
+    }
+    int reach = 0;
+    const CellOffsets o = cell_offsets(
+        ctx.warp.x_offsets, ctx.warp.y_offsets, g.field_y0 * grid.columns,
+        g.field_y1 * grid.columns, cx0, cx1, wy0, wy1, reach);
+    return resolve_lane(target, arm, target + o.left_x + o.slope_x * fx,
+                        y + o.left_y + o.slope_y * fx);
+  }
+
+  /**
+   * @brief Composites every lane that may read behind its arm's backward cut,
+   *        in lit-time order so no lane overwrites stale content a later lane
+   *        reads.
+   * @tparam PAIR_PIXELS Whether the composite pairs pixels, and so keeps its
+   * single-pixel transform out of line.
+   * @param ctx Frame context with its stale frame.
+   * @param transform_pixel Maps one sampled RGB triple and its fade-table
+   *        level to the output pixel.
+   * @details A read behind the cut lands past the other arm's lane of the
+   * same column, so lane c of a row may be composited once no row's lanes
+   * past c that it may read are. Rows reaching past a quarter turn are swept
+   * column by column, their first quarter before and their second after the
+   * other rows, which never write past a quarter turn and whose reads land
+   * past it: those go through the row composite, cell by cell.
+   * @param transform_pair Maps two sampled RGB triples sharing one level to
+   *        two output pixels.
+   */
+  template <bool PAIR_PIXELS, typename TransformPixelT, typename TransformPairT>
+  HS_HOT_FLASH_MEMBER void sweep_behind(const FlushContext &ctx,
+                                        TransformPixelT &transform_pixel,
+                                        TransformPairT &transform_pair) {
+    const RenderBand &band = ctx.band;
+    constexpr int QUARTER = HALF / 2;
+    auto lane_at = [&](int y, int c) {
+      behind_lane<PAIR_PIXELS>(ctx, transform_pixel, y, c);
+    };
+    auto deep_columns = [&](int begin, int end) {
+      for (int c = begin; c < end; ++c)
+        for (int y = band.y_begin; y < band.y_end; ++y)
+          if (ctx.reach[y] > QUARTER && c < ctx.reach[y])
+            lane_at(y, c);
+    };
+    deep_columns(0, QUARTER);
+    composite_pixels<PAIR_PIXELS>(ctx, transform_pixel, transform_pair, true);
+    deep_columns(QUARTER, HALF);
+  }
+
+  /**
+   * @brief Composites one column of a row in sweep_behind().
+   * @tparam PAIR_PIXELS Whether the composite pairs pixels, and so keeps its
+   * single-pixel transform out of line.
+   * @param ctx Frame context with its stale frame.
+   * @param transform_pixel Maps one sampled RGB triple and its fade-table
+   *        level to the output pixel.
+   * @param y Row.
+   * @param c Column past each arm's first.
+   */
+  template <bool PAIR_PIXELS, typename TransformPixelT>
+  HS_HOT_FLASH_MEMBER void behind_lane(const FlushContext &ctx,
+                                       TransformPixelT &transform_pixel, int y,
+                                       int c) {
+    const RowGeometry &g = ctx.rows[y];
+    if (g.pairs && (c & 1) && c < HALF - 2)
+      return;
+    for (int arm = 0; arm < W; arm += HALF) {
+      const int x = arm + c;
+      Lane lane = sweep_lane(ctx, g, y, x);
+      ::Pixel &dst = ctx.current[y * W + x];
+      if (lane.side == Side::AHEAD && ctx.cover) {
+        hold_lane(ctx, y, arm, x);
+        dst = ::Pixel(0, 0, 0);
+        continue;
+      }
+      const Sample s = sample_lane(ctx, arm, lane);
+      ::Pixel p(0, 0, 0);
+      if (!skip_near_black(s, ctx.black_skips_color))
+        p = transform_sample<PAIR_PIXELS>(transform_pixel, s,
+                                          FadeTable::level(lane.read.elapsed));
+      dst = p;
+    }
+  }
+
+  /**
+   * @brief Adds every held lane's composite from the frame as plotted beneath
+   *        its coverage, in lit-time order so each read lands on columns
+   *        already final.
+   * @tparam PAIR_PIXELS Whether the composite pairs pixels, and so keeps its
+   * single-pixel transform out of line.
+   * @param ctx Held frame context.
+   * @param transform_pixel Maps one sampled RGB triple and its fade-table
+   *        level to the output pixel.
+   * @details A read stops at the last final column of its source rows, at
+   * most the reconstruction's reach and one column short of the antipode.
+   * Each row keeps its last reconstruction window of samples, so a completed
+   * column's addition rounds once.
+   */
+  template <bool PAIR_PIXELS, typename TransformPixelT>
+  HS_HOT_FLASH_MEMBER void sweep_ahead(const FlushContext &ctx,
+                                       TransformPixelT &transform_pixel) {
+    const RenderBand &band = ctx.band;
+    ScratchScope scope(scratch_arena_a);
+    int window_slots = 0;
+    for (int y = band.y_begin; y < band.y_end; ++y)
+      window_slots += 2 * finish_window(ctx.rows[y]);
+    ::Pixel *windows = window_slots > 0
+                           ? scope.get_arena().allocate_n<::Pixel>(window_slots)
+                           : nullptr;
+    if (windows)
+      std::memset(windows, 0, window_slots * sizeof(::Pixel));
+    for (int c = 0; c < HALF; ++c) {
+      for (int y = band.y_begin; y < band.y_end; ++y) {
+        const AheadSpan span = ctx.ahead_span[y];
+        const RowGeometry &g = ctx.rows[y];
+        if (c < span.first || c > span.visit_end)
+          continue;
+        if (g.pairs && (c & 1) && c < HALF - 2)
+          continue;
+        for (int arm = 0, side = 0; arm < W; arm += HALF, ++side) {
+          const int x = arm + c;
+          ::Pixel p(0, 0, 0);
+          const int slot = cover_slot(y, arm, x);
+          if (slot >= 0 && (ctx.cover[slot] & AHEAD_BIT)) {
+            Lane lane = sweep_lane(ctx, g, y, x);
+            // no death case: a lane resolves as it did before the plots
+            HS_CHECK(lane.side == Side::AHEAD,
+                     "feedback held lane %d of row %d no longer reads ahead", x,
+                     y);
+            // A column is final once every lane its reconstruction reads is
+            // composited: the read stops at the last such column of its
+            // source rows.
+            const int row0 =
+                hs::clamp(static_cast<int>(std::floor(lane.read.y)), 0, H - 1);
+            const int reach =
+                std::max<int>(ctx.rows[row0].reach,
+                              ctx.rows[std::min(row0 + 1, H - 1)].reach);
+            const float limit = static_cast<float>(arm + c + HALF - 2 - reach);
+            if (lane.read.x > limit)
+              lane.read = ColumnTime::read(
+                  x + (pair_lane(ctx, g, x) ? 0.5f : 0.0f), limit, lane.read.y);
+            const Sample s = sample_across(ctx, arm, lane.read.x, lane.read.y);
+            if (!skip_near_black(s, ctx.black_skips_color))
+              p = transform_sample<PAIR_PIXELS>(
+                  transform_pixel, s, FadeTable::level(lane.read.elapsed));
+          }
+          ::Pixel *window =
+              windows ? windows + g.window_base + side * finish_window(g)
+                      : nullptr;
+          complete_columns(ctx, y, g, arm, c, p, window);
+        }
+      }
+    }
+  }
+
+  /**
+   * @brief Adds the columns a finish sample completes beneath their coverage.
+   * @param ctx Held frame context.
+   * @param y Row.
+   * @param g The row's geometry.
+   * @param arm First column of the lane's arm.
+   * @param c The lane's column past its arm's first.
+   * @param sample The lane's finish composite; black for an unheld lane.
+   * @param window The row and arm's recent samples, finish_window() of them.
+   */
+  HS_HOT_FLASH_MEMBER static void
+  complete_columns(const FlushContext &ctx, int y, const RowGeometry &g,
+                   int arm, int c, const ::Pixel &sample, ::Pixel *window) {
+    if (g.infill) {
+      const int radius = g.reach;
+      const int width = finish_window(g);
+      window[c % width] = sample;
+      auto complete = [&](int x) {
+        const int reach = std::min(radius, std::min(x, HALF - 1 - x));
+        const int count = 2 * reach + 1;
+        PixelAccumulator sum;
+        for (int k = x - reach; k <= x + reach; ++k)
+          sum.add(window[k % width]);
+        add_under(ctx, y, arm, arm + x, sum.average(count));
+      };
+      if (c >= radius)
+        complete(c - radius);
+      if (c == HALF - 1)
+        for (int x = std::max(0, HALF - radius); x < HALF; ++x)
+          complete(x);
+      return;
+    }
+    if (g.pairs && c < HALF - 2) {
+      const ::Pixel previous = window[0];
+      if (c > 0)
+        add_under(ctx, y, arm, arm + c - 1, blend_quarter(previous, sample));
+      add_under(ctx, y, arm, arm + c, blend_quarter(sample, previous));
+      window[0] = sample;
+      return;
+    }
+    add_under(ctx, y, arm, arm + c, sample);
+    if (!g.pairs)
+      return;
+    // The arm's last two columns are their own lanes; the pair column before
+    // them blends toward their mean.
+    if (c == HALF - 2)
+      window[1] = sample;
+    else
+      add_under(ctx, y, arm, arm + c - 2,
+                blend_quarter(window[0], pair_average(window[1], sample)));
+  }
+
+  /**
+   * @brief Adds a column's finish composite beneath its coverage.
+   * @param ctx Held frame context.
+   * @param y Row.
+   * @param arm First column of the column's arm.
+   * @param x Column.
+   * @param under The part of the column's composite the frame as plotted
+   *        supplies.
+   */
+  static HS_HOT_INLINE void add_under(const FlushContext &ctx, int y, int arm,
+                                      int x, const ::Pixel &under) {
+    const int slot = cover_slot(y, arm, x);
+    if (slot < 0)
+      return;
+    const uint16_t t = ctx.cover[slot] & TRANSMITTANCE_BITS;
+    if (t == 0)
+      return;
+    auto add = [t](uint16_t covered, uint16_t below) {
+      return static_cast<uint16_t>(
+          std::min<uint32_t>(covered + lerp_q16(0, below, t), 65535u));
+    };
+    ::Pixel &dst = ctx.current[y * W + x];
+    dst =
+        ::Pixel(add(dst.r, under.r), add(dst.g, under.g), add(dst.b, under.b));
+  }
+
+  /**
+   * @brief Opens the coverage of every column whose reconstruction reads a
+   *        lane marked by hold_lane(), over the part of its composite already
+   *        written.
+   * @param ctx Frame context with its coverage allocated.
+   * @param y Row.
+   * @param g The row's geometry.
+   */
+  HS_HOT_FLASH_MEMBER void hold_row(const FlushContext &ctx, int y,
+                                    const RowGeometry &g) {
+    int first = HALF, last = -1;
+    for (int arm = 0; arm < W; arm += HALF) {
+      const int width = cover_columns(y);
+      const int base = COVER_BASE[y] + (arm != 0 ? width : 0);
+      auto hold = [&](int x) {
+        const int held = cover_slot(y, arm, arm + x);
+        // no death case: a reconstruction reaches no further than its coverage
+        HS_CHECK(held >= 0,
+                 "feedback row %d column %d is held outside its "
+                 "coverage",
+                 y, arm + x);
+        ctx.cover[held] |= TRANSMITTANCE_BITS;
+        held_floor = std::min(held_floor, x);
+        row_floor[y] = static_cast<uint8_t>(std::min<int>(row_floor[y], x));
+      };
+      for (int slot = 0; slot < width; ++slot) {
+        if (!(ctx.cover[base + slot] & AHEAD_BIT))
+          continue;
+        const int k = HALF - 1 - slot;
+        first = std::min(first, k);
+        last = std::max(last, k);
+        if (g.pairs && k >= HALF - 2) {
+          hold(HALF - 3);
+          hold(k);
+          continue;
+        }
+        int lo = k, hi = k;
+        if (g.pairs) {
+          lo = k - 1;
+          hi = std::min(k + 2, HALF - 3);
+        } else if (g.infill) {
+          lo = k - g.reach;
+          hi = k + g.reach;
+        }
+        for (int x = std::max(lo, 0); x <= std::min(hi, HALF - 1); ++x) {
+          if (g.infill && std::abs(x - k) > std::min(x, HALF - 1 - x))
+            continue;
+          hold(x);
+        }
+      }
+    }
+    int visit_end = last;
+    if (g.infill)
+      visit_end = std::min(HALF - 1, last + 2 * g.reach);
+    else if (g.pairs)
+      visit_end = last + 2 >= HALF - 2 ? HALF - 1 : last + 2;
+    ctx.ahead_span[y] = {static_cast<int16_t>(first),
+                         static_cast<int16_t>(visit_end)};
+  }
+
+  /**
+   * @brief Composites every pixel from the previous frames: the lanes that may
+   *        read behind a cut first, in lit-time order, then each row.
    * @param cv Target canvas.
    * @param ctx Frame context from prepare_flush().
    */
@@ -1360,24 +1769,22 @@ private:
     if (ctx.mode == FlushMode::SKIP)
       return;
     HS_PROFILE(feedback_composite);
-    if (ctx.back) {
-      ctx.pass = Pass::ARM_STARTS;
-      composite_pass(ctx);
-      ctx.pass = Pass::REST;
-    }
-    composite_pass(ctx);
+    composite_pass(ctx, false);
   }
 
   /**
-   * @brief Composites one pass's columns through the frame's color transform.
-   * @param ctx Frame context from prepare_flush(), its pass selected.
+   * @brief Composites the frame, or finishes its held pixels, through the
+   *        frame's color transform.
+   * @param ctx Frame context from prepare_flush().
+   * @param finish Whether to add the held pixels' part from the frame as
+   *        plotted instead of compositing from the previous frames.
    */
-  void composite_pass(const FlushContext &ctx) {
+  void composite_pass(const FlushContext &ctx, bool finish) {
     switch (ctx.mode) {
     case FlushMode::HUE: {
       const float *k = ctx.column_time ? ctx.fades.hue_k : ctx.hue_k;
-      composite_pixels<true>(
-          ctx,
+      composite_phase<true>(
+          ctx, finish,
           [&](float r, float g, float b, int level) {
             return ::Feedback::hue_fade_apply(k + level * FadeTable::MATRIX, r,
                                               g, b);
@@ -1390,38 +1797,52 @@ private:
       break;
     }
     case FlushMode::PLAIN:
-      composite_plain(ctx);
+      composite_plain(ctx, finish);
       break;
     case FlushMode::GENERAL:
-      composite_general(ctx);
+      composite_general(ctx, finish);
       break;
     case FlushMode::SKIP:
       break;
     }
   }
 
+  /** @brief composite_pass() through a colour transform. */
+  template <bool PAIR_PIXELS, typename TransformPixelT, typename TransformPairT>
+  HS_HOT_INLINE void composite_phase(const FlushContext &ctx, bool finish,
+                                     TransformPixelT &&transform_pixel,
+                                     TransformPairT &&transform_pair) {
+    if (finish) {
+      sweep_ahead<PAIR_PIXELS>(ctx, transform_pixel);
+      return;
+    }
+    if (ctx.back)
+      sweep_behind<PAIR_PIXELS>(ctx, transform_pixel, transform_pair);
+    composite_pixels<PAIR_PIXELS>(ctx, transform_pixel, transform_pair);
+  }
+
   /** @brief Composites through the unrotated hue fade: a per-channel scale. */
   HS_FLASH_MEMBER __attribute__((flatten)) void
-  composite_plain(const FlushContext &ctx) {
+  composite_plain(const FlushContext &ctx, bool finish) {
     const float *fades = ctx.column_time ? ctx.fades.fades : &ctx.fade;
     auto plain = [&](float r, float g, float b, int level) {
       const float fade = fades[level];
       return ::Pixel(quantize16(r * fade), quantize16(g * fade),
                      quantize16(b * fade));
     };
-    composite_pixels<false>(ctx, plain, plain);
+    composite_phase<false>(ctx, finish, plain, plain);
   }
 
   /** @brief Composites through the Style's type-erased color transform. */
   HS_FLASH_MEMBER __attribute__((flatten)) void
-  composite_general(const FlushContext &ctx) {
+  composite_general(const FlushContext &ctx, bool finish) {
     const float *fades = ctx.column_time ? ctx.fades.fades : &ctx.fade;
     auto general = [&](float r, float g, float b, int level) {
       return feedback_style->color_fn(
           ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fades[level],
           *feedback_style);
     };
-    composite_pixels<false>(ctx, general, general);
+    composite_phase<false>(ctx, finish, general, general);
   }
   HS_O3_END
 
@@ -1432,88 +1853,86 @@ private:
   static constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
 
   /**
-   * @brief A row's columns for the current pass.
-   * @param ctx Frame context, its pass selected.
+   * @brief Whether a column of a half-resolution row stands for its pair.
+   * @param ctx Frame context.
+   * @param g The row's geometry.
+   * @param x Column.
+   * @return True except, under column time, for each arm's last two columns,
+   *         which are their own lanes.
+   */
+  static HS_HOT_INLINE bool pair_lane(const FlushContext &ctx,
+                                      const RowGeometry &g, int x) {
+    return g.pairs &&
+           !(ctx.column_time && x - ColumnTime::arm_start(x) >= HALF - 2);
+  }
+
+  /**
+   * @brief A row's lanes for the row composite.
+   * @param ctx Frame context.
+   * @param g The row's geometry.
    * @param y Row.
-   * @return The band's runs for Pass::ALL, else each arm's columns the pass
-   *         writes: its first reach columns, its last Ahead::band columns, or
-   *         those between.
+   * @param starts Whether the lanes short of the row's reach are wanted, on a
+   *        row reaching no further than a quarter turn.
+   * @return The band's runs, or with a stale frame each arm's columns from
+   *         the row's reach to its end; a half-resolution row's runs under
+   *         column time end short of each arm's last two columns, which form
+   *         runs of their own.
    */
-  static ColumnRuns pass_runs(const FlushContext &ctx, int y) {
-    if (ctx.pass == Pass::ALL)
-      return ctx.runs;
-    constexpr int HALF = ColumnTime::HALF;
-    const int reach = ctx.reach[y] > 0 ? ctx.reach[y] : 0;
-    const int band = ctx.ahead ? ctx.ahead[y].band : 0;
-    int begin = reach, end = HALF - band;
-    if (ctx.pass == Pass::ARM_STARTS) {
-      begin = 0;
-      end = reach;
-    } else if (ctx.pass == Pass::FORWARD) {
-      begin = HALF - band;
-      end = HALF;
-    }
+  static ColumnRuns row_lanes(const FlushContext &ctx, const RowGeometry &g,
+                              int y, bool starts) {
     ColumnRuns runs{};
-    if (begin < end)
+    if (starts) {
+      if (ctx.reach[y] <= HALF / 2)
+        for (int arm = 0; arm < W; arm += HALF)
+          runs.items[runs.count++] = {arm, arm + ctx.reach[y]};
+    } else if (!ctx.back) {
+      runs = ctx.runs;
+    } else if (ctx.reach[y] < HALF) {
       for (int arm = 0; arm < W; arm += HALF)
-        runs.items[runs.count++] = {arm + begin, arm + end};
-    return runs;
-  }
-
-  /**
-   * @brief A half-resolution forward band's columns in two parts.
-   * @param runs Each arm's forward band, as pass_runs() gives it.
-   * @param part 0 for each band short of its last two columns, 1 for those
-   *        two.
-   * @return The part's runs.
-   */
-  HS_FLASH_MEMBER static ColumnRuns tail_runs(const ColumnRuns &runs,
-                                              int part) {
-    ColumnRuns out{};
-    for (int r = 0; r < runs.count; ++r) {
-      const int split = std::max(runs.items[r].begin, runs.items[r].end - 2);
-      const ColumnRun piece = part == 0 ? ColumnRun{runs.items[r].begin, split}
-                                        : ColumnRun{split, runs.items[r].end};
-      if (piece.begin < piece.end)
-        out.items[out.count++] = piece;
+        runs.items[runs.count++] = {arm + ctx.reach[y], arm + HALF};
     }
-    return out;
+    if (!(ctx.column_time && g.pairs))
+      return runs;
+    ColumnRuns split{};
+    for (int r = 0; r < runs.count; ++r) {
+      const ColumnRun run = runs.items[r];
+      const int tail = ColumnTime::arm_start(run.end - 1) + HALF - 2;
+      if (run.begin < tail && run.end > tail) {
+        split.items[split.count++] = {run.begin, tail};
+        split.items[split.count++] = {tail, run.end};
+      } else {
+        split.items[split.count++] = run;
+      }
+    }
+    return split;
   }
 
   /**
-   * @brief Each row's reach across the arms' cuts.
+   * @brief Each row's reach behind the arms' backward cuts.
    * @param grid Coarse layout of the frame.
    * @param warp The frame's populated warp field.
-   * @param half_res_sine Latitude sine under which rows composite column
-   *        pairs (half_res_limit()).
+   * @param rows The frame's row geometry.
    * @param reach Receives, per row, the even column count from each arm's
-   *        first whose sources may lie behind its backward cut, or -1 where
-   *        that exceeds a quarter turn.
-   * @param ahead Receives, per row, the forward band of a split frame, or
-   *        null for an unsplit one. Pole rows, longitude-filtered infill rows
-   *        and rows whose band reaches a quarter turn composite unsplit.
-   * @details Each cell bounds its own pixels' sources, so a row's reach and
-   * band cover the columns whose cells may read across a cut. A cell's pixels
-   * read no further than its nodes' extreme column offsets; a polar lane's
-   * source turns no further than its cell's longest cap offset subtends.
+   *        first whose lanes' sources may lie behind its backward cut; zero
+   *        on a pole row.
+   * @details A cell's pixels read no further than its nodes' extreme column
+   * offsets; a polar lane's source turns no further than its cell's longest
+   * cap offset subtends, and a cap offset reaching the pole may turn it
+   * anywhere.
    */
   HS_FLASH_MEMBER void measure_reach(const CoarseGrid &grid,
-                                     const WarpField &warp, float half_res_sine,
-                                     int16_t *reach, Ahead *ahead) const {
-    constexpr int HALF = ColumnTime::HALF;
+                                     const WarpField &warp,
+                                     const RowGeometry *rows,
+                                     int16_t *reach) const {
     constexpr float COLUMNS_PER_RADIAN = W / (2.0f * math::PI_F);
     // Columns between a cell's bound and a cut.
     constexpr float MARGIN = 1.0f;
     const PolarRings &polar = grid.polar;
     const int columns = grid.columns;
     const int downsample = grid.downsample;
-    struct Span {
-      int back;    ///< Columns from each arm's first that may read behind it.
-      int forward; ///< Columns before each arm's end that may read past it.
-    };
-    // The span of rows interpolating rings k and k + 1: whole cells whose
-    // sources, bounded as the composite bounds them, may cross a cut.
-    auto pair_span = [&](int k, int y0, int y1) HS_FLASH_MEMBER {
+    // Columns from each arm's first that the rows interpolating rings k and
+    // k + 1 may read behind it: whole cells whose sources may cross the cut.
+    auto pair_reach = [&](int k, int y0, int y1) HS_FLASH_MEMBER {
       const bool north = k + 1 < polar.north_rings;
       const bool polar_pair = north || k >= polar.south_ring;
       const float near =
@@ -1523,10 +1942,9 @@ private:
       const CapOffset *caps = polar_pair ? warp.cell_caps : nullptr;
       const int16_t *offsets = warp.x_offsets;
       const int base = (polar_pair ? polar.row(k) : k) * columns;
-      // The largest backward and forward turns of `count` nodes; false when
-      // a polar node's offset reaches the pole.
-      auto extent = [&](int count, auto &&node, float &back,
-                        float &forward) HS_HOT_INLINE {
+      // The largest backward turn of `count` nodes; false when a polar node's
+      // offset reaches the pole.
+      auto extent = [&](int count, auto &&node, float &back) HS_HOT_INLINE {
         if (polar_pair) {
           int longest_sq = 0;
           for (int i = 0; i < count; ++i) {
@@ -1536,76 +1954,55 @@ private:
           const float longest =
               sqrtf(static_cast<float>(longest_sq)) / CapPlane::CAP_SCALE;
           // The turn's tangent bounds the turn.
-          back = forward = longest / sqrtf(near * near - longest * longest) *
-                           COLUMNS_PER_RADIAN;
+          back = longest / sqrtf(near * near - longest * longest) *
+                 COLUMNS_PER_RADIAN;
           return longest < near;
         }
-        int low = 0, high = 0;
-        for (int i = 0; i < count; ++i) {
+        int low = 0;
+        for (int i = 0; i < count; ++i)
           low = std::min<int>(low, offsets[node(i)]);
-          high = std::max<int>(high, offsets[node(i)]);
-        }
         back = -low / WARP_SCALE;
-        forward = high / WARP_SCALE;
         return true;
       };
-      float most_back = 0.0f, most_forward = 0.0f;
-      if (!extent(
-              2 * columns, [&](int i) { return base + i; }, most_back,
-              most_forward))
-        return Span{HALF, HALF};
-      Span span{0, 0};
+      float most_back = 0.0f;
+      if (!extent(2 * columns, [&](int i) { return base + i; }, most_back))
+        return HALF;
+      int span = 0;
       for (int cx = 0; cx < columns; ++cx) {
-        // Only cells within the pair's largest turns of a cut can join.
+        // Only cells within the pair's largest turn of a cut can join.
         const int column = cx * downsample % HALF;
-        if (column - most_back >= MARGIN &&
-            column + downsample + most_forward <= HALF - 1 - MARGIN)
+        if (column - most_back >= MARGIN)
           continue;
         const int cx1 = cx + 1 < columns ? cx + 1 : 0;
-        float back = 0.0f, forward = 0.0f;
+        float back = 0.0f;
         extent(
             4,
             [&](int i) {
               return base + (i >> 1) * columns + (i & 1 ? cx1 : cx);
             },
-            back, forward);
+            back);
         for (int arm = 0; arm < W; arm += HALF) {
           const int first = cx * downsample - arm;
           if (first + downsample <= 0 || first >= HALF)
             continue;
           if (first - back < MARGIN)
-            span.back = std::max(span.back, first + downsample);
-          if (first + downsample + forward > HALF - 1 - MARGIN)
-            span.forward = std::max(span.forward, HALF - first);
+            span = std::max(span, first + downsample);
         }
       }
       return span;
     };
-    auto even = [](int span) { return (span + 1) & ~1; };
+    auto even = [](int span) { return std::min(HALF, (span + 1) & ~1); };
     int pair_index = 0;
     auto lower_ring = grid.field.ring(0);
     auto upper_ring = grid.field.next_ring(lower_ring);
-    Span pair = pair_span(0, lower_ring.y, upper_ring.y);
+    int pair = pair_reach(0, lower_ring.y, upper_ring.y);
     for (int y = 0; y < H; ++y) {
       if (y > upper_ring.y && upper_ring.y < H - 1) {
         lower_ring = upper_ring;
         upper_ring = grid.field.next_ring(lower_ring);
-        pair = pair_span(++pair_index, lower_ring.y, upper_ring.y);
+        pair = pair_reach(++pair_index, lower_ring.y, upper_ring.y);
       }
-      const int back_columns = even(pair.back);
-      reach[y] = back_columns > HALF / 2 ? int16_t(-1)
-                                         : static_cast<int16_t>(back_columns);
-      if (!ahead)
-        continue;
-      const bool pole_row = (SphereField::HAS_NORTH_POLE && y == 0) ||
-                            (SphereField::HAS_SOUTH_POLE && y == H - 1);
-      const int band = even(pair.forward);
-      const bool split =
-          band > 0 && band < HALF / 2 && !pole_row && !filtered_infill(grid, y);
-      const bool half_res = SphereField::latitude_sine(y) < half_res_sine;
-      ahead[y] = split ? Ahead{static_cast<int16_t>(band),
-                               static_cast<int16_t>(HALF - band - half_res)}
-                       : Ahead{0, static_cast<int16_t>(HALF)};
+      reach[y] = static_cast<int16_t>(rows[y].pole ? 0 : even(pair));
     }
   }
 
@@ -1632,6 +2029,12 @@ private:
         (y < downsample && (!SphereField::HAS_NORTH_POLE || y > 0)) ||
         (y >= H - downsample && (!SphereField::HAS_SOUTH_POLE || y < H - 1));
     return infill_band && grid.field.longitude_filter_width(y) > 1;
+  }
+
+  /** @brief Whether every column of a row is its pole. */
+  static __attribute__((always_inline)) bool is_pole_row(int y) {
+    return (SphereField::HAS_NORTH_POLE && y == 0) ||
+           (SphereField::HAS_SOUTH_POLE && y == H - 1);
   }
 
   /** @brief Three quarters of one pixel and a quarter of another, rounded. */
@@ -1688,72 +2091,33 @@ private:
 
   /**
    * @brief Expands a half-resolution row's pair samples back to every column.
-   * @tparam PAIR_PIXELS Whether the composite pairs pixels, and so keeps its
-   *         colour transform out of line.
-   * @tparam TransformPixelT Callable (r, g, b, level) -> ::Pixel.
-   * @param ctx Frame context, its pass selected.
+   * @param ctx Frame context.
    * @param output Row of pair samples, as for reconstruct_half_res_run().
    * @param y Row index.
-   * @param paired Whether the forward pass composited the band in pairs short
-   *        of its last pair.
-   * @param transform_pixel Ages a sample by one frame at the unit level.
-   * @details Under column time, a full non-pole row expands arm by arm.
-   * Beside a cut, the pair lit just before an arm's first column is the other
-   * arm's last pair of the previous frame; the pair lit just after its last
-   * column is the other arm's first pair a frame on, aged one frame from this
-   * one. A split row expands each arm short of its forward band, keeping the
-   * last pair's sample in the column after it; the forward pass composites
-   * the band per column, or when @p paired in pairs up to its last pair, and
-   * blends the kept sample and any pairs toward the band's last columns.
-   * Other rows expand run by run.
+   * @details Under column time a full row expands arm by arm short of each
+   * arm's last two columns, which are their own lanes: the pair before an
+   * arm's first column is the other arm's last two columns of the previous
+   * frame, the pair after its last pair its own last two columns. Other rows
+   * expand run by run.
    */
-  template <bool PAIR_PIXELS, typename TransformPixelT>
-  HS_HOT_FLASH_MEMBER static void
-  expand_half_res_row(const FlushContext &ctx, ::Pixel *output, int y,
-                      bool paired, TransformPixelT &transform_pixel) {
+  HS_HOT_FLASH_MEMBER static void expand_half_res_row(const FlushContext &ctx,
+                                                      ::Pixel *output, int y) {
     const ColumnRuns &runs = ctx.runs;
-    // Every column of a pole row is one point.
-    const bool pole_row = (SphereField::HAS_NORTH_POLE && y == 0) ||
-                          (SphereField::HAS_SOUTH_POLE && y == H - 1);
-    if (!ctx.column_time || pole_row || runs.count != 2 ||
-        runs.items[0].begin != 0 || runs.items[1].end != W) {
+    if (!ctx.column_time || runs.count != 2 || runs.items[0].begin != 0 ||
+        runs.items[1].end != W) {
       for (int r = 0; r < runs.count; ++r)
         reconstruct_half_res_run(output, runs.items[r].begin,
                                  runs.items[r].end);
       return;
     }
-    constexpr int HALF = ColumnTime::HALF;
-    constexpr int LEVEL = FadeTable::UNIT_LEVEL;
-    auto aged = [&](const ::Pixel &p) {
-      if constexpr (PAIR_PIXELS)
-        return transform_pixel_call(transform_pixel, p.r, p.g, p.b, LEVEL);
-      else
-        return transform_pixel(p.r, p.g, p.b, LEVEL);
-    };
     const ::Pixel *previous_row = ctx.previous + y * W;
-    const ::Pixel before[2] = {
-        pair_average(previous_row[W - 2], previous_row[W - 1]),
-        pair_average(previous_row[HALF - 2], previous_row[HALF - 1])};
-    const int band = ctx.ahead ? ctx.ahead[y].band : 0;
-    if (band == 0) {
-      const ::Pixel after[2] = {aged(output[HALF]), aged(output[0])};
-      reconstruct_half_res_run(output, 0, HALF, &before[0], &after[0]);
-      reconstruct_half_res_run(output, HALF, W, &before[1], &after[1]);
-      return;
-    }
-    for (int arm = 0, side = 0; arm < W; arm += HALF, ++side) {
-      const int first = arm + HALF - band;
-      if (ctx.pass == Pass::FORWARD) {
-        const ::Pixel &last = ctx.kept[2 * y + side];
-        const int tail = paired ? arm + HALF - 2 : first;
-        const ::Pixel after = pair_average(output[tail], output[tail + 1]);
-        output[first - 1] =
-            blend_quarter(last, first < tail ? output[first] : after);
-        reconstruct_half_res_run(output, first, tail, &last, &after);
-      } else {
-        output[first - 1] = output[first - 2];
-        reconstruct_half_res_run(output, arm, first - 1, &before[side]);
-      }
+    for (int arm = 0; arm < W; arm += HALF) {
+      const int other = arm == 0 ? HALF : 0;
+      const ::Pixel before = pair_average(previous_row[other + HALF - 2],
+                                          previous_row[other + HALF - 1]);
+      const ::Pixel after =
+          pair_average(output[arm + HALF - 2], output[arm + HALF - 1]);
+      reconstruct_half_res_run(output, arm, arm + HALF - 2, &before, &after);
     }
   }
 
@@ -1781,9 +2145,10 @@ private:
    */
   static __attribute__((always_inline)) int unwrap_near(int v, int reference) {
     constexpr int PERIOD = static_cast<int>(WRAP_PERIOD);
-    constexpr int HALF = PERIOD / 2;
+    constexpr int HALF_PERIOD = PERIOD / 2;
     const int delta = v - reference;
-    return delta > HALF ? v - PERIOD : (delta < -HALF ? v + PERIOD : v);
+    return delta > HALF_PERIOD ? v - PERIOD
+                               : (delta < -HALF_PERIOD ? v + PERIOD : v);
   }
   static_assert(static_cast<float>(static_cast<int>(WRAP_PERIOD)) ==
                         WRAP_PERIOD &&
@@ -1876,45 +2241,6 @@ private:
           select_pole_sample(frame + (H - 1) * W);
   }
 
-  /** @brief One bilinear sample on the [0, 65535] scale, unquantized. */
-  struct Sample {
-    float r;
-    float g;
-    float b;
-  };
-
-  /**
-   * @brief Whether a read lies across one of its target arm's cuts in a
-   *        buffer the current pass holds.
-   * @param ctx Frame context, its pass selected.
-   * @param y Target row.
-   * @param arm First column of the target's arm.
-   * @param x Source column, unwrapped near the target.
-   * @return True behind the backward cut on a row whose reach the stale frame
-   *         serves, and from the arm's last column on in the forward pass.
-   */
-  static HS_HOT_INLINE bool across_cut(const FlushContext &ctx, int y, int arm,
-                                       float x) {
-    return (ctx.back && ctx.reach[y] >= 0 && x < arm) ||
-           (ctx.pass == Pass::FORWARD && x >= arm + ColumnTime::HALF - 1);
-  }
-
-  /**
-   * @brief Samples a read from the buffers holding its taps.
-   * @param ctx Frame context.
-   * @param arm First column of the target's arm.
-   * @param across Whether the read lies across a cut (across_cut()).
-   * @param x Source column, unwrapped near the target.
-   * @param y Source row.
-   * @return The bilinear sample.
-   */
-  HS_HOT_INLINE Sample sample_read(const FlushContext &ctx, int arm,
-                                   bool across, float x, float y) const {
-    return across ? sample_across(ctx, arm, x, y)
-                  : sample_bilinear_prev(ctx.grid.field, ctx.previous,
-                                         ctx.poles, x, y);
-  }
-
   /**
    * @brief Samples a read across one of its target arm's cuts.
    * @param ctx Frame context.
@@ -1925,16 +2251,15 @@ private:
    *         buffer holding that side: the stale frame behind the arm, the
    *         frame being drawn past it, the previous frame within it.
    */
-  HS_FLASH_MEMBER Sample sample_across(const FlushContext &ctx, int arm,
-                                       float x, float y) const {
+  HS_HOT_FLASH_MEMBER Sample sample_across(const FlushContext &ctx, int arm,
+                                           float x, float y) const {
     const SphereField &field = ctx.grid.field;
     const bool behind = x < arm;
     const ::Pixel *low = behind ? ctx.back : ctx.previous;
     const ::Pixel *high = behind ? ctx.previous : ctx.current;
     const auto &low_poles = behind ? ctx.back_poles : ctx.poles;
     const auto &high_poles = behind ? ctx.poles : ctx.current_poles;
-    const float first =
-        static_cast<float>(behind ? arm : arm + ColumnTime::HALF);
+    const float first = static_cast<float>(behind ? arm : arm + HALF);
     if (x >= first)
       return sample_bilinear_prev(field, high, high_poles, x, y);
     if (x <= first - 1.0f)
@@ -1991,6 +2316,23 @@ private:
     return transform(r, g, b, level);
   }
 
+  /**
+   * @brief Transforms a sample, out of line when the composite pairs pixels.
+   * @tparam PAIR_PIXELS Whether the composite pairs pixels.
+   * @param transform Single-pixel colour transform.
+   * @param s Sample.
+   * @param level Fade-table level.
+   * @return The transformed pixel.
+   */
+  template <bool PAIR_PIXELS, typename TransformPixelT>
+  static HS_HOT_INLINE ::Pixel transform_sample(TransformPixelT &transform,
+                                                const Sample &s, int level) {
+    if constexpr (PAIR_PIXELS)
+      return transform_pixel_call(transform, s.r, s.g, s.b, level);
+    else
+      return transform(s.r, s.g, s.b, level);
+  }
+
   /** @brief Calls @p transform out of line. */
   template <typename TransformPairT>
   __attribute__((noinline)) static void
@@ -2017,109 +2359,133 @@ private:
   }
 
   /**
-   * @brief Blends a tap near an arm's end into its row's forward-band
-   *        coverage when it lands in the band, or passes it on.
+   * @brief Blends a tap near an arm's end into a covered pixel, or passes it
+   *        on.
    * @param x Column coordinate as plotted.
    * @param column @p x rounded and wrapped as the canvas writes it.
    * @param y Row coordinate.
    * @param color,age,alpha Shading registers.
    * @param pass Downstream 2D callback, the canvas write.
    * @details The color blends as the canvas write blends it, and the
-   * transmittance takes the same blend toward zero, so finish() can composite
-   * the band beneath both.
+   * transmittance takes the same blend toward zero, so finish() can add the
+   * rest of the pixel's composite beneath both.
    */
   template <typename PassFnT>
-  HS_FLASH_MEMBER void plot_near_arm_end(float x, int column, float y,
-                                         const ::Pixel &color, float age,
-                                         float alpha, PassFnT &pass) {
+  HS_HOT_FLASH_MEMBER void plot_near_arm_end(float x, int column, float y,
+                                             const ::Pixel &color, float age,
+                                             float alpha, PassFnT &pass) {
     const int row = Filter::round_row<H>(y);
     const int arm = ColumnTime::arm_start(column);
-    if (row < 0 || row >= H || column - arm < held->ahead[row].held_from) {
+    const int slot = row < 0 || row >= H ? -1 : cover_slot(row, arm, column);
+    if (slot < 0) {
       pass(x, y, color, age, alpha);
       return;
     }
     ::Pixel &dst = held->current[row * W + column];
-    uint16_t &transmittance = held->cover[cover_index(row, arm, column)];
+    uint16_t &cover = held->cover[slot];
+    const uint16_t ahead = cover & AHEAD_BIT;
     if (alpha >= 1.0f) {
       dst = color;
-      transmittance = 0;
+      cover = ahead;
       return;
     }
     const uint16_t weight = frac_to_q16(alpha);
     dst = dst.lerp16(color, weight);
-    transmittance = lerp_q16(transmittance, 0, weight);
+    cover =
+        (lerp_q16(cover & TRANSMITTANCE_BITS, 0, weight) & TRANSMITTANCE_BITS) |
+        ahead;
   }
 
-  /** @brief Transmittance slots per row and arm: a band is even and under a
-   *  quarter turn, and a half-resolution row holds one column more. */
-  static constexpr int COVER_STRIDE = ColumnTime::HALF / 2;
+  /** @brief Rows from either end a runtime display geometry can place under
+   *  POLAR_TARGET_SINE: the cap's angle over the smallest row pitch a
+   *  geometry reaching that pole allows (math::set_display_geometry()). */
+  static constexpr int RUNTIME_CAP_ROWS =
+      static_cast<int>((H - 1) * (1.0f / 6.0f) / 0.75f) + 1;
 
   /**
-   * @brief Transmittance slot of a held column.
-   * @param row Row.
-   * @param arm First column of the column's arm.
-   * @param column Held column.
-   * @return Index into FlushContext::cover.
-   */
-  static HS_HOT_INLINE int cover_index(int row, int arm, int column) {
-    return (2 * row + (arm != 0)) * COVER_STRIDE +
-           (arm + ColumnTime::HALF - 1 - column);
-  }
-
-  /**
-   * @brief Clears a split frame's held columns to empty coverage, keeping
-   *        each half-resolution row's last REST pair sample.
-   * @param ctx Held frame context with its coverage allocated.
-   */
-  HS_FLASH_MEMBER static void open_coverage(FlushContext &ctx) {
-    constexpr int HALF = ColumnTime::HALF;
-    for (int y = 0; y < H; ++y) {
-      const Ahead ahead = ctx.ahead[y];
-      if (ahead.held_from >= HALF)
-        continue;
-      const bool half_res = ahead.held_from < HALF - ahead.band;
-      ::Pixel *row = ctx.current + y * W;
-      for (int arm = 0, side = 0; arm < W; arm += HALF, ++side) {
-        const int first = arm + ahead.held_from;
-        if (half_res)
-          ctx.kept[2 * y + side] = row[first];
-        for (int x = first; x < arm + HALF; ++x) {
-          row[x] = ::Pixel(0, 0, 0);
-          ctx.cover[cover_index(y, arm, x)] = 0xFFFF;
-        }
-      }
-    }
-  }
-
-  /**
-   * @brief Composites one row's held columns beneath their coverage.
-   * @param ctx Held frame context.
+   * @brief Coverage slots per arm of a row: every column where a cap-plane
+   *        lane may turn any distance; otherwise the columns a quarter-turn
+   *        forward offset, the elapsed scale's cap, carries past the arm's
+   *        last column, and the pair column before them.
    * @param y Row.
-   * @param under Row composited for the held columns, indexed by column.
+   * @return Slot count.
    */
-  HS_FLASH_MEMBER static void cover_row(const FlushContext &ctx, int y,
-                                        const ::Pixel *under) {
-    constexpr int HALF = ColumnTime::HALF;
-    const int from = ctx.ahead[y].held_from;
-    if (from >= HALF)
-      return;
-    ::Pixel *row = ctx.current + y * W;
-    auto add = [](uint16_t covered, uint16_t below, uint16_t transmittance) {
-      return static_cast<uint16_t>(std::min<uint32_t>(
-          covered + lerp_q16(0, below, transmittance), 65535u));
-    };
-    for (int arm = 0; arm < W; arm += HALF)
-      for (int x = arm + from; x < arm + HALF; ++x) {
-        const uint16_t t = ctx.cover[cover_index(y, arm, x)];
-        ::Pixel &dst = row[x];
-        // A column no tap reached holds no color.
-        if (t == 0xFFFF)
-          dst = under[x];
-        else
-          dst = ::Pixel(add(dst.r, under[x].r, t), add(dst.g, under[x].g, t),
-                        add(dst.b, under[x].b, t));
-      }
+  static constexpr int cover_columns(int y) {
+    constexpr int CARTESIAN = HALF / 2 + 1;
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+    return y < RUNTIME_CAP_ROWS || y >= H - RUNTIME_CAP_ROWS ? HALF : CARTESIAN;
+#else
+    return SphereField::latitude_sine(y) < POLAR_TARGET_SINE ? HALF : CARTESIAN;
+#endif
   }
+
+  /** @brief First coverage slot of each row, and the total after the last. */
+  static constexpr std::array<int32_t, H + 1> COVER_BASE = [] {
+    std::array<int32_t, H + 1> base{};
+    for (int y = 0; y < H; ++y)
+      base[y + 1] = base[y] + 2 * cover_columns(y);
+    return base;
+  }();
+  /** @brief Coverage slots of a frame. */
+  static constexpr int COVER_SLOTS = COVER_BASE[H];
+  /**
+   * @brief Coverage slot of a column.
+   * @param y Row.
+   * @param arm First column of the column's arm.
+   * @param x Column.
+   * @return Index into FlushContext::cover, or -1 for a column too far from
+   *         its arm's end to have one.
+   */
+  static HS_HOT_INLINE int cover_slot(int y, int arm, int x) {
+    const int width = cover_columns(y);
+    const int slot = arm + HALF - 1 - x;
+    return slot < width ? COVER_BASE[y] + (arm != 0 ? width : 0) + slot : -1;
+  }
+
+  /**
+   * @brief Bound on an infill row's longitude filter width.
+   * @param y Row.
+   * @return An odd width no smaller than the layout's.
+   */
+  static constexpr int filter_window_bound(int y) {
+    constexpr int WIDEST = (W & 1) ? W : W - 1;
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+    (void)y;
+    return WIDEST;
+#else
+    const float sine = SphereField::latitude_sine(y);
+    if (sine < 2.0f / W)
+      return WIDEST;
+    int width = 1;
+    while (width * sine < 1.0f)
+      width += 2;
+    return std::min(width + 2, WIDEST);
+#endif
+  }
+
+  /** @brief Finish samples a row keeps per arm: the lanes its reconstruction
+   *  reaches, at most the arm the infill filter narrows to. */
+  static constexpr int finish_window(const RowGeometry &g) {
+    return g.infill ? std::min(2 * g.reach + 1, HALF) : g.pairs ? 2 : 0;
+  }
+
+  /** @brief Finish window samples a frame may keep: a pair sample per arm on
+   *  every row, and the infill rows' filter widths. */
+  static constexpr int WINDOW_SLOTS = [] {
+    int slots = 0;
+    for (int y = 0; y < H; ++y) {
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+      const bool infill = y < CACHE_DOWNSAMPLE || y >= H - CACHE_DOWNSAMPLE;
+#else
+      const bool infill =
+          (y < CACHE_DOWNSAMPLE && (!SphereField::HAS_NORTH_POLE || y > 0)) ||
+          (y >= H - CACHE_DOWNSAMPLE &&
+           (!SphereField::HAS_SOUTH_POLE || y < H - 1));
+#endif
+      slots += 2 * (infill ? std::min(filter_window_bound(y), HALF) : 1);
+    }
+    return slots;
+  }();
 
   /** @brief Traps while a split frame awaits finish(). */
   HS_FLASH_MEMBER void require_unheld() const {
@@ -2129,7 +2495,7 @@ private:
   /** @brief Releases the held frame and its scratch. */
   HS_FLASH_MEMBER void end_split() {
     held = nullptr;
-    held_floor = ColumnTime::HALF;
+    held_floor = HALF;
     scratch_arena_a.set_offset(held_mark);
   }
 
@@ -2139,22 +2505,27 @@ private:
   FlushContext *held = nullptr;
   /** scratch_arena_a offset finish() rewinds to. */
   size_t held_mark = 0;
-  /** Least Ahead::held_from of the held frame; HALF holds no column. */
-  int held_floor = ColumnTime::HALF;
+  /** Least held column past an arm's first in the held frame; HALF holds no
+   *  column. */
+  int held_floor = HALF;
+  /** The same per row. */
+  uint8_t row_floor[H] = {};
+  static_assert(HALF <= UINT8_MAX, "Feedback<W,H>: row_floor holds HALF");
   WarpCache warp_cache; /**< Persistent warp field and lattice origins. */
   /** @brief Persistent measure_reach() spans of the cached warp field. */
   struct Spans {
     int16_t *reach = nullptr;   ///< Per row, the reach behind each arm.
-    Ahead *ahead = nullptr;     ///< Per row, the forward band.
     float pole_half_res = 0.0f; ///< Style::pole_half_res they were measured at.
     bool valid = false;         ///< Whether they belong to the cached field.
   } spans;
   FadeTable fade_table; /**< Persistent per-elapsed-time transforms. */
 
 public:
-  /** @brief Cap-cell budget; runtime geometry reserves a full-ring upper bound. */
+  /** @brief Cap-cell budget; runtime geometry reserves the rings a display
+   *  geometry can place within RUNTIME_CAP_ROWS of either end. */
 #if HS_RUNTIME_DISPLAY_GEOMETRY
-  static constexpr int CACHE_CAP_CELLS = CACHE_CELLS;
+  static constexpr int CACHE_CAP_CELLS =
+      CACHE_FIELD.rings_within(RUNTIME_CAP_ROWS) * CACHE_COLUMNS;
 #else
   static constexpr int CACHE_CAP_CELLS =
       polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() * CACHE_COLUMNS;
@@ -2169,28 +2540,29 @@ public:
 
   /** @brief Persistent bytes init_storage() reserves over CACHE_CELLS: two
    *  int16 warp fields, the lattice's projected origins, the polar cells'
-   *  int16 cap-plane offsets, and the fade table. */
+   *  int16 cap-plane offsets, the fade table and the rows' reaches. */
   static constexpr size_t STORAGE_BYTES =
       CACHE_CELLS * 2 * sizeof(int16_t) +
       CACHE_ORIGIN_SAMPLES * sizeof(typename SphereField::Coordinates) +
       CACHE_CAP_CELLS * 2 * sizeof(int16_t) + FadeTable::BYTES +
-      H * (sizeof(int16_t) + sizeof(Ahead));
+      H * sizeof(int16_t);
   /** @brief Arena allocations init_storage() makes; each pads its share of
    *  STORAGE_BYTES by less than alignof(std::max_align_t). */
-  static constexpr size_t STORAGE_ALLOCATIONS = 8;
+  static constexpr size_t STORAGE_ALLOCATIONS = 7;
 
   /**
    * @brief scratch_arena_a bytes a split frame holds from flush_split() to
    *        finish() with its warp field and fade table in storage.
-   * @return The frame context, filter row, per-row reaches and bands, and the
-   *         forward bands' coverage and kept samples, each allocation padded.
+   * @return The frame context, filter row, row geometry, per-row reaches,
+   *         coverage and held-lane spans, and finish()'s sample windows, each
+   *         allocation padded.
    */
   static constexpr size_t split_scratch_bytes() {
     constexpr size_t PAD = alignof(std::max_align_t);
     return sizeof(FlushContext) + W * sizeof(::Pixel) +
-           H * (sizeof(int16_t) + sizeof(Ahead)) +
-           2 * H * COVER_STRIDE * sizeof(uint16_t) + 2 * H * sizeof(::Pixel) +
-           6 * PAD;
+           H * (sizeof(RowGeometry) + sizeof(int16_t) + sizeof(AheadSpan)) +
+           COVER_SLOTS * sizeof(uint16_t) + WINDOW_SLOTS * sizeof(::Pixel) +
+           7 * PAD;
   }
 };
 

@@ -39,7 +39,16 @@ struct FeedbackWhiteBox {
   static size_t fills(const Filter::Pixel::Feedback<W, H> &feedback) {
     return feedback.warp_cache.cached_fills;
   }
-  /** @brief Held forward-band pixels a split frame's taps reached. */
+  /** @brief The coverage slot of a held pixel, or -1 for an unheld one. */
+  template <int W, int H>
+  static int held_slot(const Filter::Pixel::Feedback<W, H> &feedback, int y,
+                       int x) {
+    if (!feedback.held)
+      return -1;
+    const int slot = feedback.cover_slot(y, x < W / 2 ? 0 : W / 2, x);
+    return slot >= 0 && (feedback.held->cover[slot] & 0xFFFE) != 0 ? slot : -1;
+  }
+  /** @brief Held pixels a split frame's taps reached. */
   template <int W, int H>
   static int covered(const Filter::Pixel::Feedback<W, H> &feedback) {
     if (!feedback.held)
@@ -47,27 +56,35 @@ struct FeedbackWhiteBox {
     int count = 0;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
-        const int arm = x < W / 2 ? 0 : W / 2;
-        if (x - arm >= feedback.held->ahead[y].held_from)
-          count +=
-              feedback.held->cover[feedback.cover_index(y, arm, x)] != 0xFFFF;
+        const int slot = held_slot(feedback, y, x);
+        count += slot >= 0 && (feedback.held->cover[slot] & 0xFFFE) != 0xFFFE;
       }
     return count;
   }
-  /** @brief First column past each arm's first whose taps a split frame
-   *  holds on a row; W / 2 when it holds none. */
-  template <int W, int H>
-  static int held_from(const Filter::Pixel::Feedback<W, H> &feedback, int y) {
-    return feedback.held ? feedback.held->ahead[y].held_from : W / 2;
-  }
-  /** @brief Composites a split frame's held columns beneath their coverage
-   *  from a given frame instead of its forward pass, and releases the frame.
-   *  @param under Frame beneath the held columns, row-major. */
+  /** @brief Replaces the part of each held pixel's composite the previous
+   *  frames supplied with a given frame beneath its coverage, and releases
+   *  the frame.
+   *  @param under Frame beneath the held pixels, row-major.
+   *  @param known The frame as flush_split() left it, row-major. */
   template <int W, int H>
   static void release(Filter::Pixel::Feedback<W, H> &feedback,
-                      const Pixel *under) {
+                      const Pixel *under, const Pixel *known) {
     for (int y = 0; y < H; ++y)
-      feedback.cover_row(*feedback.held, y, under + y * W);
+      for (int x = 0; x < W; ++x) {
+        const int slot = held_slot(feedback, y, x);
+        if (slot < 0)
+          continue;
+        const uint16_t t = feedback.held->cover[slot] & 0xFFFE;
+        auto swap = [t](uint16_t covered, uint16_t was, uint16_t now) {
+          const int32_t v = int32_t(covered) - int32_t(lerp_q16(0, was, t)) +
+                            int32_t(lerp_q16(0, now, t));
+          return static_cast<uint16_t>(std::min(std::max(v, 0), 65535));
+        };
+        Pixel &dst = feedback.held->current[y * W + x];
+        const Pixel &k = known[y * W + x], &u = under[y * W + x];
+        dst = Pixel(swap(dst.r, k.r, u.r), swap(dst.g, k.g, u.g),
+                    swap(dst.b, k.b, u.b));
+      }
     feedback.end_split();
   }
 };
