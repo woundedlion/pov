@@ -112,27 +112,22 @@ template <int W, int H> struct FeedbackCapPlane {
   }
 
   /**
-   * @brief Decodes the cell between columns @p cx0 and @p cx1 of two ring
-   * rows of encoded offsets, blended by the row weights.
-   * @param caps0 Encoded offsets of the upper ring.
-   * @param caps1 Encoded offsets of the lower ring.
-   * @param cx0 Left column.
-   * @param cx1 Right column.
-   * @param wy0 Weight of @p caps0.
-   * @param wy1 Weight of @p caps1.
+   * @brief Decodes a cell's four encoded corners, blended by the row weights.
+   * @param a,b Upper and lower offsets at the left edge.
+   * @param c,d Upper and lower offsets at the right edge.
+   * @param wy0 Weight of the upper ring.
+   * @param wy1 Weight of the lower ring.
    * @return Decoded cell, in radians.
    */
   static __attribute__((always_inline)) CapCell
-  decode_cell(const CapOffset *caps0, const CapOffset *caps1, int cx0, int cx1,
-              float wy0, float wy1) {
+  decode_cell(const CapOffset &a, const CapOffset &b, const CapOffset &c,
+              const CapOffset &d, float wy0, float wy1) {
     constexpr float INVERSE_CAP = 1.0f / CAP_SCALE;
-    const float left_u =
-        (caps0[cx0].u * wy0 + caps1[cx0].u * wy1) * INVERSE_CAP;
-    const float left_v =
-        (caps0[cx0].v * wy0 + caps1[cx0].v * wy1) * INVERSE_CAP;
+    const float left_u = (a.u * wy0 + b.u * wy1) * INVERSE_CAP;
+    const float left_v = (a.v * wy0 + b.v * wy1) * INVERSE_CAP;
     return {{left_u, left_v},
-            {(caps0[cx1].u * wy0 + caps1[cx1].u * wy1) * INVERSE_CAP - left_u,
-             (caps0[cx1].v * wy0 + caps1[cx1].v * wy1) * INVERSE_CAP - left_v}};
+            {(c.u * wy0 + d.u * wy1) * INVERSE_CAP - left_u,
+             (c.v * wy0 + d.v * wy1) * INVERSE_CAP - left_v}};
   }
 
   /**

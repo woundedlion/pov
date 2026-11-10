@@ -1169,9 +1169,7 @@ private:
     const CoarseGrid &grid = ctx.grid;
     // no death case: a pole's latitude sine is zero
     HS_CHECK(g.polar, "feedback pole row %d lies outside the polar rings", y);
-    const CapCell cell = CapPlane::decode_cell(
-        polar_caps(ctx.warp, ctx, g.field_y0),
-        polar_caps(ctx.warp, ctx, g.field_y1), 0, 0, 1.0f - g.wy1, g.wy1);
+    const CapCell cell = polar_cell(ctx, g, 0, 0);
     const auto at = CapPlane::polar_lane(cell, 0, 0.0f, g.north, false, 0.0f);
     const int level = ctx.column_time ? FadeTable::UNIT_LEVEL : 0;
     const Sample s =
@@ -1297,14 +1295,10 @@ private:
                                           int cx1) {
     const CapOffset *caps0 = polar_caps(ctx.warp, ctx, g.field_y0);
     const CapOffset *caps1 = polar_caps(ctx.warp, ctx, g.field_y1);
-    const float wy1 = g.wy1, wy0 = 1.0f - wy1;
-    if (!arm_edge(ctx, cx1))
-      return CapPlane::decode_cell(caps0, caps1, cx0, cx1, wy0, wy1);
-    const CapOffset ring0[2] = {caps0[cx0],
-                                polar_caps(ctx.end, ctx, g.field_y0)[cx1]};
-    const CapOffset ring1[2] = {caps1[cx0],
-                                polar_caps(ctx.end, ctx, g.field_y1)[cx1]};
-    return CapPlane::decode_cell(ring0, ring1, 0, 1, wy0, wy1);
+    const WarpField &right = arm_edge(ctx, cx1) ? ctx.end : ctx.warp;
+    return CapPlane::decode_cell(
+        caps0[cx0], caps1[cx0], polar_caps(right, ctx, g.field_y0)[cx1],
+        polar_caps(right, ctx, g.field_y1)[cx1], 1.0f - g.wy1, g.wy1);
   }
 
   /** @brief A row's angle from its pole, in radians. */
