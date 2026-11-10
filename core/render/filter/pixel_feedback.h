@@ -1615,10 +1615,8 @@ private:
     for (int y = band.y_begin; y < band.y_end; ++y)
       window_slots += 2 * finish_window(ctx.rows[y]);
     ::Pixel *windows = window_slots > 0
-                           ? scope.get_arena().allocate_n<::Pixel>(window_slots)
+                           ? scope.get_arena().make_n<::Pixel>(window_slots)
                            : nullptr;
-    if (windows)
-      std::memset(windows, 0, window_slots * sizeof(::Pixel));
     // The rows holding a lane; each span's last becomes the last lane whose
     // step completes a held column.
     AheadSpan *spans = ctx.ahead_span;
