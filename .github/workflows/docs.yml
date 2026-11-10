@@ -16,6 +16,7 @@ on:
       - 'docs/doxygen-theme.cfg'
       - 'docs/screenshots/**'
       - 'tools/build_pins.py'
+      - 'tools/ci/apply_doxygen_theme.sh'
       - 'tools/docs_check.py'
       - 'tools/doc_coverage.py'
       - 'tools/docs_sync.py'
