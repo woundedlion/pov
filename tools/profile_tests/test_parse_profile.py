@@ -1093,6 +1093,18 @@ class TaggedCounterRows(unittest.TestCase):
 
 
 class CleanHoldSelection(unittest.TestCase):
+    def test_initial_preset_omits_startup_when_a_steady_hold_exists(self):
+        startup = pp.Window("Fx", 288, 144, 1, 16, 1)
+        startup.counters["shader"] = {"us": 16 * 100_000, "calls": 16}
+        steady = pp.Window("Fx", 288, 144, 17, 32, 1)
+        steady.counters["shader"] = {"us": 16 * 20_000, "calls": 16}
+
+        rows = pp.clean_hold_rows([startup, steady], "shader", None)
+
+        self.assertEqual(rows, [("0", 2, 1, 20.0, 1.0, "")])
+        self.assertEqual(pp.clean_hold_rows([startup], "shader", None),
+                         [("0", 1, 1, 100.0, 1.0, "")])
+
     def test_transition_window_with_one_missing_call_is_excluded(self):
         marker = {"key": "preset", "idx": 12, "total": 17, "name": "12"}
         held = pp.Window("Fx", 288, 144, 1, 16, 1)

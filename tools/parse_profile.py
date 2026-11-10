@@ -453,6 +453,7 @@ def clean_hold_rows(windows, scope, gate):
     """Per-preset clean-hold rows: (name, holds, clean, ms, calls/f, meta)."""
     gate = gate or scope
     initial_key = initial_preset_key(windows)
+    first = min((w.f_start for w in windows), default=None)
     groups = {}
     for w in windows:
         if w.marker is None:
@@ -472,6 +473,9 @@ def clean_hold_rows(windows, scope, gate):
             selected = [w for w in selected
                         if gate in w.counters
                         and w.counters[gate]["calls"] == modal]
+        steady = [w for w in selected
+                  if w.f_start != first and not straddles_advance(w)]
+        selected = steady or selected
         vals = [(w.per_frame_ms(scope), w) for w in selected
                 if w.per_frame_ms(scope) is not None]
         if not vals:
