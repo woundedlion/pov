@@ -143,7 +143,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `tools/ci/` scripts the workflow calls, each lane stopping at its first failure
   (the fast-math optimized flavour stays in CI: its bit patterns differ here),
   plus the local-only Windows suite. The optimized, WASM and firmware-warning
-  jobs are manual (`bash tools/local_ci.sh <job>` runs one); the PCB and
+  jobs are manual (`bash tools/local_ci.sh --commit <sha> -- <job>...` runs
+  named jobs in the dedicated worktree); the PCB and
   Python suites run only when the commit changes one of their inputs; and the
   native, Python and PCB jobs run as lanes beside the others, their build and
   worker fan-out capped. `bash tools/local_ci.sh
@@ -152,7 +153,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
   It runs in a dedicated worktree beside the checkout
   (`../temp/<repo>-local-ci`, or `HS_LOCAL_CI_DIR`) whose build trees persist,
   so peers' uncommitted work cannot affect the verdict; one run holds the lock
-  at a time, and a commit that already passed is not re-run. Tools that are
+  at a time. Only full runs read and write the passed-commit record; named
+  jobs always run. Missing PlatformIO libdeps environments are copied from
+  the main checkout. Tools that are
   not on `PATH`, such as the pinned Doxygen and Graphviz, are added with
   `git config --add hs.localCiPath <dir>`; the sibling `../emsdk` and
   `../daydream` checkouts are found automatically. A full run takes tens of

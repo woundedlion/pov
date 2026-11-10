@@ -6,8 +6,9 @@
 # usage: local_ci.sh                  every local job but the manual ones, in
 #                                     this clean checkout
 #        local_ci.sh <job>...         the named jobs in this clean checkout
-#        local_ci.sh --commit <sha>...  every local job on each commit, in the
-#                                     dedicated local-CI worktree (pre-push)
+#        local_ci.sh --commit <sha>... [-- <job>...]
+#                                     default or named jobs on each commit,
+#                                     in the dedicated local-CI worktree
 #        local_ci.sh --new-guards <tip> <remote-sha>
 #                                     new guards in the pushed range need a
 #                                     death case (pre-push)
@@ -218,9 +219,23 @@ run_lane() {
 }
 
 # Prepares the dedicated worktree for each commit and runs the commit's own copy
-# of this script there. Passed commits are recorded so a retried push is free.
+# of this script there. Only full runs use the passed-commit record.
 run_commits() {
-  local common main dir passed sha entry npm_stamp lock_blob
+  local common main dir passed sha entry npm_stamp lock_blob env_dir job
+  local commits=() jobs=()
+  while [ "$#" -gt 0 ] && [ "$1" != -- ]; do
+    commits+=("$1")
+    shift
+  done
+  if [ "$#" -gt 0 ]; then
+    shift
+    [ "$#" -gt 0 ] || { echo "local_ci: -- requires job names" >&2; return 2; }
+    jobs=("$@")
+  fi
+  [ "${#commits[@]}" -gt 0 ] || { echo "local_ci: --commit requires commits" >&2; return 2; }
+  for job in "${jobs[@]}"; do
+    [ -n "$(runner_of "$job")" ] || { echo "local_ci: unknown job $job" >&2; return 2; }
+  done
   common="$(git rev-parse --path-format=absolute --git-common-dir)"
   main="$(dirname "$common")"
   dir="${HS_LOCAL_CI_DIR:-$(dirname "$main")/temp/$(basename "$main")-local-ci}"
@@ -250,8 +265,8 @@ run_commits() {
     export EMSDK
   fi
 
-  for sha in "$@"; do
-    if [ -f "$passed" ] && grep -qx "$sha" "$passed"; then
+  for sha in "${commits[@]}"; do
+    if [ "${#jobs[@]}" -eq 0 ] && [ -f "$passed" ] && grep -qx "$sha" "$passed"; then
       echo "local_ci: $sha already passed local CI."
       continue
     fi
@@ -261,10 +276,13 @@ run_commits() {
     else
       git worktree add --quiet --detach "$dir" "$sha"
     fi
-    if [ ! -d "$dir/.pio/libdeps" ] && [ -d "$main/.pio/libdeps" ]; then
-      mkdir -p "$dir/.pio"
-      cp -r "$main/.pio/libdeps" "$dir/.pio/"
-    fi
+    for env_dir in "$main/.pio/libdeps/"*/; do
+      [ -d "$env_dir" ] || continue
+      if [ ! -d "$dir/.pio/libdeps/$(basename "$env_dir")" ]; then
+        mkdir -p "$dir/.pio/libdeps"
+        cp -r "$env_dir" "$dir/.pio/libdeps/"
+      fi
+    done
     npm_stamp="$dir/build/local-ci/package-lock.blob"
     lock_blob="$(git rev-parse "$sha:package-lock.json")"
     if [ "$(cat "$npm_stamp" 2>/dev/null)" != "$lock_blob" ]; then
@@ -273,8 +291,10 @@ run_commits() {
       echo "$lock_blob" > "$npm_stamp"
     fi
     echo "local_ci: running local CI on $sha in $dir"
-    (cd "$dir" && bash tools/local_ci.sh)
-    echo "$sha" >> "$passed"
+    (cd "$dir" && bash tools/local_ci.sh "${jobs[@]}")
+    if [ "${#jobs[@]}" -eq 0 ]; then
+      echo "$sha" >> "$passed"
+    fi
   done
 }
 
