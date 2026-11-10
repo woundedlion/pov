@@ -1508,36 +1508,72 @@ private:
     return x;
   }
 
+  /** @brief A row's state in a column-major sweep: its pole angle and each
+   *  arm's current cell. */
+  struct SweepRow {
+    float cap_angle;    ///< A polar row's angle from its pole.
+    int16_t cell_cx[2]; ///< Each arm's current cell's coarse column, or -1.
+    union {
+      CellOffsets offsets; ///< A cartesian row's offsets.
+      CapCell cap;         ///< A polar row's cap-plane offsets.
+    } cell[2];             ///< Each arm's current cell.
+  };
+
+  /**
+   * @brief Each row's sweep state, no cell decoded yet.
+   * @param ctx Frame context.
+   * @param arena Arena for the H states.
+   * @return The states, indexed by row.
+   */
+  static SweepRow *sweep_rows(const FlushContext &ctx, Arena &arena) {
+    SweepRow *rows = arena.allocate_n<SweepRow>(H);
+    for (int y = ctx.band.y_begin; y < ctx.band.y_end; ++y) {
+      const RowGeometry &g = ctx.rows[y];
+      rows[y].cap_angle = g.polar ? cap_angle_of(y, g.north) : 0.0f;
+      rows[y].cell_cx[0] = rows[y].cell_cx[1] = -1;
+    }
+    return rows;
+  }
+
   /**
    * @brief One lane's read in a column-major sweep.
    * @param ctx Frame context.
    * @param g The lane's row geometry.
    * @param y The lane's row.
    * @param x The lane's column.
+   * @param row The row's sweep state; decodes the lane's cell when the lane
+   *        enters a new one.
    * @return The resolved lane.
    */
   HS_HOT_INLINE Lane sweep_lane(const FlushContext &ctx, const RowGeometry &g,
-                                int y, int x) const {
+                                int y, int x, SweepRow &row) const {
     const CoarseGrid &grid = ctx.grid;
     const int downsample = grid.downsample;
     const int cx0 = x / downsample;
-    const int cx1 = cx0 + 1 < grid.columns ? cx0 + 1 : 0;
+    const int side = x >= HALF;
+    auto &cell = row.cell[side];
+    if (row.cell_cx[side] != cx0) {
+      row.cell_cx[side] = static_cast<int16_t>(cx0);
+      const int cx1 = cx0 + 1 < grid.columns ? cx0 + 1 : 0;
+      int reach = 0;
+      if (g.polar)
+        cell.cap = polar_cell(ctx, g, cx0, cx1);
+      else
+        cell.offsets = cell_offsets(ctx, g.field_y0 * grid.columns,
+                                    g.field_y1 * grid.columns, cx0, cx1,
+                                    1.0f - g.wy1, g.wy1, reach);
+    }
     const bool pair = pair_lane(ctx, g, x);
     const float lane_offset = pair ? 0.5f : 0.0f;
     const float fx = (x - cx0 * downsample + lane_offset) / downsample;
     const float target = x + lane_offset;
     const int arm = ColumnTime::arm_start(x);
-    const float wy1 = g.wy1, wy0 = 1.0f - wy1;
     if (g.polar) {
-      const CapCell cell = polar_cell(ctx, g, cx0, cx1);
-      const auto at = CapPlane::polar_lane(cell, x, cap_angle_of(y, g.north),
-                                           g.north, pair, fx);
+      const auto at =
+          CapPlane::polar_lane(cell.cap, x, row.cap_angle, g.north, pair, fx);
       return resolve_lane(target, arm, at.x, at.y);
     }
-    int reach = 0;
-    const CellOffsets o =
-        cell_offsets(ctx, g.field_y0 * grid.columns, g.field_y1 * grid.columns,
-                     cx0, cx1, wy0, wy1, reach);
+    const CellOffsets &o = cell.offsets;
     return resolve_lane(target, arm, target + o.left_x + o.slope_x * fx,
                         y + o.left_y + o.slope_y * fx);
   }
@@ -1558,10 +1594,12 @@ private:
   HS_HOT_FLASH_MEMBER void sweep_deep(const FlushContext &ctx,
                                       PixelTransform transform_pixel, int begin,
                                       int end) {
+    ScratchScope scope(scratch_arena_a);
+    SweepRow *rows = sweep_rows(ctx, scope.get_arena());
     for (int c = begin; c < end; ++c)
       for (int y = ctx.band.y_begin; y < ctx.band.y_end; ++y)
         if (ctx.reach[y] > HALF / 2 && c < ctx.reach[y])
-          behind_lane(ctx, transform_pixel, y, c);
+          behind_lane(ctx, transform_pixel, y, c, rows[y]);
   }
 
   /**
@@ -1571,16 +1609,17 @@ private:
    *        level to the output pixel.
    * @param y Row.
    * @param c Column past each arm's first.
+   * @param row The row's sweep state.
    */
   HS_HOT_FLASH_MEMBER void behind_lane(const FlushContext &ctx,
                                        PixelTransform transform_pixel, int y,
-                                       int c) {
+                                       int c, SweepRow &row) {
     const RowGeometry &g = ctx.rows[y];
     if (g.pairs && (c & 1) && c < HALF - 2)
       return;
     for (int arm = 0; arm < W; arm += HALF) {
       const int x = arm + c;
-      Lane lane = sweep_lane(ctx, g, y, x);
+      Lane lane = sweep_lane(ctx, g, y, x, row);
       ::Pixel &dst = ctx.current[y * W + x];
       if (lane.side == Side::AHEAD && ctx.cover) {
         hold_lane(ctx, y, arm, x);
@@ -1621,6 +1660,7 @@ private:
     // step completes a held column.
     AheadSpan *spans = ctx.ahead_span;
     int16_t *visit_rows = scope.get_arena().allocate_n<int16_t>(H);
+    SweepRow *rows = sweep_rows(ctx, scope.get_arena());
     int count = 0, begin = HALF, end = -1;
     for (int y = band.y_begin; y < band.y_end; ++y) {
       const AheadSpan span = ctx.ahead_span[y];
@@ -1652,7 +1692,7 @@ private:
           if (!held && !g.pairs && !g.infill)
             continue;
           if (held) {
-            Lane lane = sweep_lane(ctx, g, y, x);
+            Lane lane = sweep_lane(ctx, g, y, x, rows[y]);
             // no death case: a lane resolves as it did before the plots
             HS_CHECK(lane.side == Side::AHEAD,
                      "feedback held lane %d of row %d no longer reads ahead", x,
@@ -2608,15 +2648,25 @@ public:
    * @brief scratch_arena_a bytes a split frame holds from flush_split() to
    *        finish() with its warp field and fade table in storage.
    * @return The frame context, filter row, row geometry, per-row reaches,
-   *         coverage and held-lane spans, and finish()'s sample windows and
-   *         visited rows, each allocation padded.
+   *         coverage and held-lane spans, each allocation padded.
    */
   static constexpr size_t split_scratch_bytes() {
     constexpr size_t PAD = alignof(std::max_align_t);
     return sizeof(FlushContext) + W * sizeof(::Pixel) +
-           H * (sizeof(RowGeometry) + 2 * sizeof(int16_t) + sizeof(AheadSpan)) +
-           COVER_SLOTS * sizeof(uint16_t) + WINDOW_SLOTS * sizeof(::Pixel) +
-           8 * PAD;
+           H * (sizeof(RowGeometry) + sizeof(int16_t) + sizeof(AheadSpan)) +
+           COVER_SLOTS * sizeof(uint16_t) + 6 * PAD;
+  }
+
+  /**
+   * @brief scratch_arena_a bytes a composite or finish() takes past the
+   *        frame it holds, and releases before returning.
+   * @return finish()'s sample windows, visited rows and sweep states, each
+   *         allocation padded; sweep_deep()'s states are fewer.
+   */
+  static constexpr size_t transient_scratch_bytes() {
+    constexpr size_t PAD = alignof(std::max_align_t);
+    return WINDOW_SLOTS * sizeof(::Pixel) +
+           H * (sizeof(int16_t) + sizeof(SweepRow)) + 3 * PAD;
   }
 };
 

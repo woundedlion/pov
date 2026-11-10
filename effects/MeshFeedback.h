@@ -369,6 +369,10 @@ private:
       SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
       "MeshFeedback wireframe draw exceeds the default scratch_a budget");
   static_assert(
+      Filter::Pixel::Feedback<W, H>::transient_scratch_bytes() <=
+          DEFAULT_SCRATCH_A_SIZE,
+      "MeshFeedback feedback composite exceeds the default scratch_a budget");
+  static_assert(
       sizeof(TriangularBitset<Plot::Mesh::DEDUP_CAPACITY>) <=
           DEFAULT_SCRATCH_B_SIZE,
       "MeshFeedback edge extraction exceeds the default scratch_b budget");
