@@ -1,6 +1,6 @@
 import os
 import sys
-from committed_boards import committed_board, committed_project
+from committed_boards import committed_board
 import tempfile
 import unittest
 import unittest.mock
@@ -18,7 +18,7 @@ from kicad_common import F  # noqa: E402
 UNPLACED = committed_board("1.2")
 PROTOTYPE = committed_board("1.3")
 ROUTED = committed_board()
-TEENSY_LIBRARY = committed_project() / "phantasm.pretty" / "Teensy4.0.kicad_mod"
+TEENSY_LIBRARY = Path(pcb.LOCAL_FOOTPRINT_DIR) / "Teensy4.0.kicad_mod"
 
 # Chip-passive references whose library lands embed must leave untouched.
 LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_D1", "R_D2",
