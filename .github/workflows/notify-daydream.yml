@@ -26,8 +26,8 @@ jobs:
           ENGINE_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "Daydream's scheduled reconciliation will discover this engine."
-            exit 0
+            echo "::error::DAYDREAM_DISPATCH_TOKEN is missing; fix the token. Daydream's scheduled reconciliation will still pick up this engine."
+            exit 1
           fi
           if ! [[ "$ENGINE_SHA" =~ ^[0-9a-f]{40}$ && "$ENGINE_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::Invalid completed engine run identity."
@@ -37,5 +37,6 @@ jobs:
           printf '{"event_type":"holosphere-engine-ready","client_payload":{"engine_sha":"%s","engine_run_id":%s}}\n' \
             "$ENGINE_SHA" "$ENGINE_RUN_ID" > "$payload"
           if ! gh api --method POST repos/woundedlion/daydream/dispatches --input "$payload"; then
-            echo "::warning::Daydream notification failed; scheduled reconciliation remains active."
+            echo "::error::Daydream dispatch failed; fix the token or dispatch. Daydream's scheduled reconciliation will still pick up this engine."
+            exit 1
           fi
