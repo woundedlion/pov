@@ -1031,7 +1031,8 @@ private:
                 const float last =
                     column + downsample +
                     fmaxf(offsets.left_x, offsets.left_x + offsets.slope_x);
-                if (ctx.back && last <= -1.0f) {
+                if (ctx.back && last <= -1.0f &&
+                    first - column >= -static_cast<float>(HALF)) {
                   source = ctx.back;
                   source_poles = &ctx.back_poles;
                 } else {
@@ -1042,6 +1043,9 @@ private:
                   static_cast<int>(FadeTable::UNIT_LEVEL + 0.5f -
                                    (offsets.left_x + 0.5f * offsets.slope_x) *
                                        LEVELS_PER_COLUMN);
+              HS_AUDIT_CHECK(cell_resolved || (cell_level >= 0 &&
+                                               cell_level < FadeTable::LEVELS),
+                             "feedback cell fade level out of range");
             }
           };
           for (int x = xs; x < xe;) {
