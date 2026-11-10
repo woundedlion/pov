@@ -631,8 +631,11 @@ template <typename Model> struct ErasedAdapter {
     const size_t topo_index = schema_index - FIELD_COUNT;
     if (topo_index < TOPOLOGY.size())
       return &(block.*(TOPOLOGY[topo_index].member));
-    if constexpr (requires { block.extra_address(size_t{}); })
-      return block.extra_address(topo_index - TOPOLOGY.size());
+    if constexpr (requires { block.extra_address(size_t{}); }) {
+      const size_t extra_index = topo_index - TOPOLOGY.size();
+      if (extra_index < Params::EXTRA_SCHEMA.size())
+        return block.extra_address(extra_index);
+    }
     HS_CHECK(false, "operator param_address: schema index out of range");
     return nullptr;
   }
