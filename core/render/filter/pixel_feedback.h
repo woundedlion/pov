@@ -761,6 +761,8 @@ private:
     bool reused = false;
     WarpField prior{};
     ctx.end = acquire_warp_field(scratch, grid, band, reused, prior);
+    if (!reused)
+      spans.valid = false;
     ctx.warp = ctx.end;
     ctx.filtered_row = (!band.x_clip.active && (split || grid.downsample > 1 ||
                                                 !SphereField::HAS_NORTH_POLE ||
