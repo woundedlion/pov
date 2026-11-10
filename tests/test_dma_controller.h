@@ -264,7 +264,7 @@ inline void test_transfer_idle_poll() {
 /**
  * @brief strobe selects the composite (image + trailing black) transfer length.
  */
-inline void test_withbg_length() {
+inline void test_strobe_selects_composite_length() {
   reset_correction<N>();
   hd107s::reset_flush_observation();
   MockStrip::reset();
@@ -375,7 +375,7 @@ inline int run_dma_controller_tests() {
   HS_RUN(test_double_buffer_flip);
   HS_RUN(test_overrun_drop);
   HS_RUN(test_transfer_idle_poll);
-  HS_RUN(test_withbg_length);
+  HS_RUN(test_strobe_selects_composite_length);
   HS_RUN(test_end_to_end_wire_bytes);
   HS_RUN(test_correction_pass_throughs);
   HS_RUN(test_apply_default_calibration);

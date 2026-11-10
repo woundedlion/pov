@@ -29,7 +29,7 @@ import connectivity     # noqa: E402
 import pcb              # noqa: E402
 from rev11_placements import QUILTER_FIXED, QUILTER_FIXED_FOOTPRINTS  # noqa: E402
 import sexp             # noqa: E402
-from kicad_env import GENERATES, GENERATES_REASON, generate, read, footprints_by_ref  # noqa: E402
+from kicad_env import footprint_pose, pad_position, GENERATES, GENERATES_REASON, generate, read, footprints_by_ref  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from kicad_common import F, export_netlist, is_copper_pour, kicad_cli, rotate_point  # noqa: E402
 
@@ -76,7 +76,7 @@ class TerminalBodyChecks:
                 local_points = {(x0, y0), (x1, y0), (x1, y1), (x0, y1)}
                 module = pcb.load_mod(f"phantasm:{name}")
                 self.assertEqual(set(zone_polygon(F(module, "zone")[0])), local_points)
-                x, y, angle = map(float, sexp.val(fp, "at"))
+                x, y, angle = footprint_pose(fp)
                 angle = math.radians(angle)
                 placed_points = {
                     (round(x + px * math.cos(angle) + py * math.sin(angle), 6),
@@ -422,19 +422,13 @@ class TerminalEdgePlacementChecks:
     def test_locked_decouplers_are_within_three_mm_of_supply_pins(self):
         footprints = footprints_by_ref(self.root)
 
-        def pad_center(fp, number):
-            pad = next(p for p in F(fp, "pad") if p[1] == number)
-            x, y, angle = map(float, sexp.val(fp, "at"))
-            dx, dy = rotate_point(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
-            return x + dx, y + dy
-
         for cap, parent, pin in (("C_DEC1", "U_MCU", "VIN"), ("C_DEC2", "U1", "14")):
             with self.subTest(cap=cap):
                 self.assertEqual(sexp.val(footprints[cap], "locked"), ["yes"])
                 self.assertEqual(sexp.val(footprints[cap], "layer"),
                                  sexp.val(footprints[parent], "layer"))
-                self.assertLess(math.dist(pad_center(footprints[cap], "1"),
-                                          pad_center(footprints[parent], pin)), 3.0)
+                self.assertLess(math.dist(pad_position(footprints[cap], "1"),
+                                          pad_position(footprints[parent], pin)), 3.0)
 
     def test_debug_header_and_serial_connection_are_absent(self):
         footprints = footprints_by_ref(self.root)
@@ -458,7 +452,7 @@ class TerminalEdgePlacementChecks:
         for ref in ("J1", "J2", "J3A", "J3B"):
             fp = footprints[ref]
             self.assertEqual(sexp.val(fp, "locked"), ["yes"], ref)
-            x, y, angle = map(float, sexp.val(fp, "at"))
+            x, y, angle = footprint_pose(fp)
             self.assertEqual(angle, 0, ref)
             x0, y0, x1, y1 = courtyard_box(fp)
             self.assertGreaterEqual(y0, 0, ref)
@@ -547,7 +541,7 @@ class CommittedTerminalEdgeTests(TerminalEdgePlacementChecks, unittest.TestCase)
             for ref, labels in (("J1", "+-"), ("J2", "DGC"),
                                 ("J3A", "SGH" if revision == "1.2" else "ABGH"),
                                 ("J3B", "SGH" if revision == "1.2" else "ABGH")):
-                x, y, rotation = map(float, sexp.val(footprints[ref], "at"))
+                x, y, rotation = footprint_pose(footprints[ref])
                 layer = layers[revision][ref]
                 offset = offsets[revision][ref]
                 for pin, label in enumerate(labels):

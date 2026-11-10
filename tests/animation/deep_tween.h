@@ -7,18 +7,11 @@
 // deep_tween (global_t span)
 // ============================================================================
 
-/**
- * @brief Pins deep_tween's admissible input: an OrientationTrail, not a bare
- * Orientation.
- * @details A bare Orientation's get() yields a Quaternion, which has no
- * sub-frame history to flatten.
- */
-inline void test_tweenable_rejects_bare_orientation() {
-  static_assert(Tweenable<Animation::OrientationTrail<math::Orientation<8>, 8>>,
-                "OrientationTrail must satisfy Tweenable");
-  static_assert(!Tweenable<math::Orientation<8>>,
-                "a bare Orientation must not satisfy Tweenable");
-}
+// Tweenable inputs carry sub-frame orientation history.
+static_assert(Tweenable<Animation::OrientationTrail<math::Orientation<8>, 8>>,
+              "OrientationTrail must satisfy Tweenable");
+static_assert(!Tweenable<math::Orientation<8>>,
+              "a bare Orientation must not satisfy Tweenable");
 
 /** @brief Verifies Orientation tween skips only a shared motion boundary. */
 inline void test_tween_orientation_skips_shared_boundary() {

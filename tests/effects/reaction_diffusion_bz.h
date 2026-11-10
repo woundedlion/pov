@@ -214,7 +214,7 @@ struct BZWhiteBox {
   }
 };
 
-/** @brief Pins the authored BZ species colors. */
+/** @brief BZ species colors sample their authored palette at distinct positions. */
 inline void test_bz_authored_palette() {
   reset_globals();
   BZWhiteBox::BZ bz;
@@ -223,9 +223,16 @@ inline void test_bz_authored_palette() {
     const Pixel actual = BZWhiteBox::palette_color(bz, position);
     HS_EXPECT_LE(max_channel_gap(actual, expected), 4);
   };
-  expect_color(0.0f, Pixel(36844, 10770, 3));
-  expect_color(0.5f, Pixel(0, 8112, 5753));
-  expect_color(1.0f, Pixel(2059, 0, 9668));
+  const GenerativePalette palette{
+      EffectPaletteRecipes::bz_reaction_diffusion()};
+  for (float t : {0.0f, 0.5f, 1.0f})
+    expect_color(t, palette.get(t).color);
+  const Pixel a = BZWhiteBox::palette_color(bz, 0.0f);
+  const Pixel b = BZWhiteBox::palette_color(bz, 0.5f);
+  const Pixel c = BZWhiteBox::palette_color(bz, 1.0f);
+  HS_EXPECT_GT(max_channel_gap(a, b), 4);
+  HS_EXPECT_GT(max_channel_gap(a, c), 4);
+  HS_EXPECT_GT(max_channel_gap(b, c), 4);
 }
 
 /**

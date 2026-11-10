@@ -185,7 +185,6 @@ inline int run_animation_tests() {
   HS_RUN(test_spin_flip_warp_is_rigid);
   HS_RUN(test_gold_convergence_grades_to_gold);
 
-  HS_RUN(test_tweenable_rejects_bare_orientation);
   HS_RUN(test_deep_tween_global_t_spans_unit_interval);
   HS_RUN(test_tween_orientation_skips_shared_boundary);
   HS_RUN(test_deep_tween_collapsed_newest_frame_reaches_one);

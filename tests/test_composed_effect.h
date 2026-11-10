@@ -999,7 +999,9 @@ inline void check_snapshot_contract(const char *name) {
           family.terms[0].amplitude == 0.125f ? 0.25f : 0.125f;
     if constexpr (std::is_same_v<typename Resource::Family,
                                  Pullback::Color::AuthoredColorParams>)
-      family.palette_mode = (family.palette_mode + 1) % 3;
+      family.palette_mode =
+          static_cast<uint8_t>((family.palette_mode + 1) %
+                               std::size(Pullback::Color::PALETTE_MODE_IDS));
   });
   constexpr size_t MAPPINGS =
       std::size(Pullback::Interp::Op::PALETTE_MAPPING_IDS);

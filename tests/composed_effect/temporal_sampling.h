@@ -7,14 +7,6 @@
  * @brief Column-time interpolation and retained-resource tests.
  */
 
-/** @brief View direction of one display pixel. */
-template <int W, int H> inline math::Vector column_view(int x, int y) {
-  const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-  return math::Vector(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
-                      math::TrigLUT<W, H>::cos_phi[y],
-                      SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
-}
-
 /** @brief Samples spatial state and clocks between consecutive frame endpoints.
  * @tparam Frame Composed temporal frame context.
  * @param from Previous frame, with retained palette and hue tables.
@@ -208,14 +200,14 @@ inline void test_composed_persistent_prepared_frame() {
   }
 }
 
-struct TemporalShadeProbeSpec : GridSpaceSpec {
+struct FactoredGridSpaceSpec : GridSpaceSpec {
   static constexpr bool FACTORED_COLUMNS = true;
 };
 
 /** @brief Custom shading remains authoritative with column factoring enabled. */
 class TemporalShadeProbe
     : public Pullback::ComposedEffect<96, 20, TemporalShadeProbe,
-                                      TemporalShadeProbeSpec> {
+                                      FactoredGridSpaceSpec> {
 public:
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"custom-shade"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -224,9 +216,8 @@ public:
     return GridSpace<96, 20>::initial_params();
   }
   static consteval auto choreography_hooks() {
-    return Pullback::ComposedEffect<
-               96, 20, TemporalShadeProbe,
-               TemporalShadeProbeSpec>::choreography_hooks()
+    return Pullback::ComposedEffect<96, 20, TemporalShadeProbe,
+                                    FactoredGridSpaceSpec>::choreography_hooks()
         .template extend<
             TemporalShadeProbe,
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
@@ -237,18 +228,14 @@ public:
   }
 };
 
-static_assert(TemporalShadeProbeSpec::FACTORED_COLUMNS &&
+static_assert(FactoredGridSpaceSpec::FACTORED_COLUMNS &&
               TemporalShadeProbe::RenderPipeline::LINEAR_COLUMNS);
 static_assert(!TemporalShadeProbe::factored_columns());
 
-struct FactoredColumnProbeSpec : GridSpaceSpec {
-  static constexpr bool FACTORED_COLUMNS = true;
-};
-
-/** @brief Custom shading remains authoritative with column factoring enabled. */
+/** @brief GridSpace with column factoring enabled. */
 class FactoredColumnProbe
     : public Pullback::ComposedEffect<96, 20, FactoredColumnProbe,
-                                      FactoredColumnProbeSpec> {
+                                      FactoredGridSpaceSpec> {
 public:
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "factored-columns"};
@@ -258,9 +245,8 @@ public:
     return GridSpace<96, 20>::initial_params();
   }
   static consteval auto choreography_hooks() {
-    return Pullback::ComposedEffect<
-               96, 20, FactoredColumnProbe,
-               FactoredColumnProbeSpec>::choreography_hooks()
+    return Pullback::ComposedEffect<96, 20, FactoredColumnProbe,
+                                    FactoredGridSpaceSpec>::choreography_hooks()
         .template extend<
             FactoredColumnProbe,
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
@@ -890,7 +876,7 @@ inline void test_gridspace_column_basis_geometry() {
       for (int y = 0; y < 144; ++y) {
         const float SIN_PHI = math::TrigLUT<288, 144>::sin_phi[y];
         const float COS_PHI = math::TrigLUT<288, 144>::cos_phi[y];
-        const math::Vector VIEW = column_view<288, 144>(x, y);
+        const math::Vector VIEW = math::pixel_to_vector<288, 144>(x, y);
         const auto ROTATED =
             Pipeline::NodeAt<0>::run(Pullback::SphereSample{VIEW, 0.0f},
                                      frame.ctx, std::get<0>(frame.prepared));
@@ -957,7 +943,7 @@ inline void test_gridspace_canonical_columns() {
       const auto frame = Pipeline::prepare(
           Spacetime::sample_frame(history.previous, current, TIME));
       for (int y = 0; y < 144; ++y) {
-        const math::Vector VIEW = column_view<288, 144>(x, y);
+        const math::Vector VIEW = math::pixel_to_vector<288, 144>(x, y);
         const Color4 EXPECTED = Pipeline::shade(VIEW, frame);
         const Pixel A = effect.get_pixel(x, y);
         const Pixel B = EXPECTED.color * EXPECTED.alpha;
@@ -1008,7 +994,7 @@ inline void test_gridspace_temporal_pixels() {
     const auto frame = FX::RenderPipeline::prepare(
         Spacetime::sample_frame(history.previous, current, TIME));
     for (int y = 3; y < 17; ++y) {
-      const math::Vector VIEW = column_view<W, H>(x, y);
+      const math::Vector VIEW = math::pixel_to_vector<W, H>(x, y);
       const Color4 EXPECTED = FX::shade(VIEW, frame);
       const Pixel PIXEL = EXPECTED.color * EXPECTED.alpha;
       expect_pixel(effect.get_pixel(x, y), PIXEL);
@@ -1026,7 +1012,7 @@ inline void test_gridspace_temporal_pixels() {
       FX::RenderPipeline::prepare(effect.frame_for_test());
   for (int x = 39; x < 83; ++x) {
     for (int y = 3; y < 17; ++y) {
-      const math::Vector VIEW = column_view<W, H>(x, y);
+      const math::Vector VIEW = math::pixel_to_vector<W, H>(x, y);
       const Color4 EXPECTED = FX::shade(VIEW, instantaneous);
       expect_pixel(effect.get_pixel(x, y), EXPECTED.color * EXPECTED.alpha);
     }
@@ -1041,7 +1027,7 @@ inline void test_gridspace_temporal_pixels() {
     const auto frame = FX::RenderPipeline::prepare(Spacetime::sample_frame(
         history.previous, resumed, Spacetime::SamplingSurface<W>::time(x)));
     for (int y = 3; y < 17; ++y) {
-      const math::Vector VIEW = column_view<W, H>(x, y);
+      const math::Vector VIEW = math::pixel_to_vector<W, H>(x, y);
       const Color4 EXPECTED = FX::shade(VIEW, frame);
       expect_pixel(effect.get_pixel(x, y), EXPECTED.color * EXPECTED.alpha);
     }
@@ -1085,7 +1071,7 @@ inline void check_temporal_roster_pixels(const char *name) {
         initial, initial, Spacetime::SamplingSurface<W>::time(x)));
     for (int y : {1, 7, 18})
       expect_pixel(effect.get_pixel(x, y),
-                   FX::shade(column_view<W, H>(x, y), FIRST));
+                   FX::shade(math::pixel_to_vector<W, H>(x, y), FIRST));
   }
   history.capture(initial, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != initial.palette);
@@ -1114,7 +1100,7 @@ inline void check_temporal_roster_pixels(const char *name) {
     const auto end = FX::RenderPipeline::prepare(
         Spacetime::sample_frame(history.previous, current, 1.0f));
     for (int x : {0, 47, 48, 95}) {
-      const auto direction = column_view<W, H>(x, 7);
+      const auto direction = math::pixel_to_vector<W, H>(x, 7);
       const Color4 BEFORE = FX::shade(direction, previous);
       const Color4 AFTER = FX::shade(direction, instantaneous);
       expect_pixel(BEFORE.color * BEFORE.alpha, FX::shade(direction, start));
@@ -1126,7 +1112,7 @@ inline void check_temporal_roster_pixels(const char *name) {
       const auto frame = FX::RenderPipeline::prepare(
           Spacetime::sample_frame(history.previous, current, FRACTION));
       for (int y = 3; y < 17; ++y) {
-        const auto direction = column_view<W, H>(x, y);
+        const auto direction = math::pixel_to_vector<W, H>(x, y);
         const Color4 TEMPORAL = FX::shade(direction, frame);
         const Color4 CURRENT = FX::shade(direction, instantaneous);
         expect_pixel(effect.get_pixel(x, y), enabled ? TEMPORAL : CURRENT);

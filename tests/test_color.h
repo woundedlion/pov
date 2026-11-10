@@ -207,7 +207,7 @@ inline int run_color_tests() {
   HS_RUN(test_srgb_linear_roundtrip_float);
 
   HS_RUN(test_gradient_endpoints);
-  HS_RUN(test_gradient_in_range_valid_and_monotone);
+  HS_RUN(test_gradient_red_channel_monotone);
   HS_RUN(test_gradient_solid_color);
   HS_RUN(test_gradient_interpolates_between_entries);
   HS_RUN(test_gradient_first_stop_offset_flat_fills_prefix);

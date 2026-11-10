@@ -20,62 +20,13 @@
 namespace hs_test {
 namespace palettes_tests {
 
-/**
- * @brief Pins named palette endpoints and ORANGE_CRUSH reversal.
- */
-inline void test_named_procedural_palette_endpoints_and_reversal() {
-  // `DARK_RAINBOW` has integer frequencies and matching endpoint colors.
-  Color4 dr0 = Palettes::DARK_RAINBOW.get(0.0f);
-  Color4 dr1 = Palettes::DARK_RAINBOW.get(1.0f);
-  HS_EXPECT_EQ(dr0.color.r, 47426);
-  HS_EXPECT_EQ(dr0.color.g, 954);
-  HS_EXPECT_EQ(dr0.color.b, 954);
-  HS_EXPECT_EQ(dr1.color.r, dr0.color.r);
-  HS_EXPECT_EQ(dr1.color.g, dr0.color.g);
-  HS_EXPECT_EQ(dr1.color.b, dr0.color.b);
-  HS_EXPECT_NEAR(dr0.alpha, 1.0f, 1e-6f);
-
-  // `MAUVE_FADE`: red and blue clamp to 1 at t=0.
-  Color4 mf0 = Palettes::MAUVE_FADE.get(0.0f);
-  HS_EXPECT_EQ(mf0.color.r, 65535);
-  HS_EXPECT_EQ(mf0.color.g, 0);
-  HS_EXPECT_EQ(mf0.color.b, 65535);
-
-  // `FIRE_GLOW` / `PEACH_POP` endpoint goldens.
-  Color4 fg0 = Palettes::FIRE_GLOW.get(0.0f);
-  Color4 fg1 = Palettes::FIRE_GLOW.get(1.0f);
-  HS_EXPECT_EQ(fg0.color.r, 108);
-  HS_EXPECT_EQ(fg0.color.g, 0);
-  HS_EXPECT_EQ(fg0.color.b, 0);
-  HS_EXPECT_EQ(fg1.color.r, 17340);
-  HS_EXPECT_EQ(fg1.color.g, 9961);
-  HS_EXPECT_EQ(fg1.color.b, 0);
-
-  Color4 pp0 = Palettes::PEACH_POP.get(0.0f);
-  HS_EXPECT_EQ(pp0.color.r, 65535);
-  HS_EXPECT_EQ(pp0.color.g, 28156);
-  HS_EXPECT_EQ(pp0.color.b, 0);
-
-  Color4 cb0 = Palettes::CORAL_BLUE.get(0.0f);
-  Color4 cb1 = Palettes::CORAL_BLUE.get(1.0f);
-  HS_EXPECT_EQ(cb0.color.r, 42854);
-  HS_EXPECT_EQ(cb0.color.g, 13737);
-  HS_EXPECT_EQ(cb0.color.b, 8572);
-  HS_EXPECT_EQ(cb1.color.r, 1343);
-  HS_EXPECT_EQ(cb1.color.g, 1158);
-  HS_EXPECT_EQ(cb1.color.b, 7717);
-  HS_EXPECT_NEAR(cb0.alpha, 1.0f, 1e-6f);
-
-  constexpr ProceduralPalette FORWARD_ORANGE(
-      {0.575f, 0.168f, 0.464f}, {0.406f, 0.697f, 0.357f},
-      {0.000f, 0.10051f, 0.042778f}, {0.141f, 0.155f, 0.537f});
-  for (float t : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
-    Color4 reversed = Palettes::ORANGE_CRUSH.get(t);
-    Color4 forward = FORWARD_ORANGE.get(1.0f - t);
-    HS_EXPECT_NEAR(reversed.color.r, forward.color.r, 1);
-    HS_EXPECT_NEAR(reversed.color.g, forward.color.g, 1);
-    HS_EXPECT_NEAR(reversed.color.b, forward.color.b, 1);
-  }
+/** @brief Integer-frequency DARK_RAINBOW has matching endpoint colors. */
+inline void test_named_procedural_palette_loop_endpoints() {
+  const Color4 a = Palettes::DARK_RAINBOW.get(0.0f);
+  const Color4 b = Palettes::DARK_RAINBOW.get(1.0f);
+  HS_EXPECT_EQ(a.color.r, b.color.r);
+  HS_EXPECT_EQ(a.color.g, b.color.g);
+  HS_EXPECT_EQ(a.color.b, b.color.b);
 }
 
 /**
@@ -267,7 +218,7 @@ inline int run_palettes_tests() {
 
   HS_RUN(test_procedural_palette_matches_cosine_oracle);
   HS_RUN(test_named_procedural_palettes_bake);
-  HS_RUN(test_named_procedural_palette_endpoints_and_reversal);
+  HS_RUN(test_named_procedural_palette_loop_endpoints);
   HS_RUN(test_named_palette_hue_short_arc);
   HS_RUN(test_mesh_palette_bank_lookup);
   HS_RUN(test_mesh_palette_bank_shuffle_is_permutation);

@@ -491,6 +491,48 @@ struct SweptOnlyRing : SDF::Ring {
   void moved() const = delete;
 };
 
+/** @brief Fibonacci-distributed bases for lit-cap fixtures.
+ * @param count Number of bases.
+ * @return Distributed shape bases. */
+inline std::vector<math::Basis> lit_cap_bases(int count) {
+  std::vector<math::Basis> bases;
+  for (int i = 0; i < count; ++i)
+    bases.push_back(
+        math::make_basis(math::Quaternion(), math::fib_spiral(count, 0.5f, i)));
+  return bases;
+}
+
+/** @brief Draws the lit-cap star and disc fixture.
+ * @param pipeline Raster pipeline.
+ * @param canvas Target canvas.
+ * @param bases Shape bases.
+ * @param placement Fixture rotation.
+ * @param lit Selects lit caps or swept bounds. */
+template <int W, int H>
+inline void draw_lit_cap_shapes(Pipeline<W, H> &pipeline, Canvas &canvas,
+                                const std::vector<math::Basis> &bases,
+                                const math::Quaternion &placement, bool lit) {
+  const auto place = [&](const math::Basis &b) {
+    return math::Basis{math::rotate(b.u, placement),
+                       math::rotate(b.v, placement),
+                       math::rotate(b.w, placement)};
+  };
+  for (size_t i = 0; i < bases.size(); ++i) {
+    const auto star_basis = math::get_antipode(place(bases[i]), 0.04f);
+    const SDF::Star star(star_basis.first, star_basis.second, 5, 0.0f);
+    const SDF::Ring disc(place(bases[(i * 7) % bases.size()]), 0.0f, 0.03f);
+    if (lit) {
+      Scan::rasterize<W, H, false>(pipeline, canvas, star, basis_flat_shader);
+      Scan::rasterize<W, H, false>(pipeline, canvas, disc, basis_flat_shader);
+    } else {
+      Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyStar(star),
+                                   basis_flat_shader);
+      Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyRing(disc),
+                                   basis_flat_shader);
+    }
+  }
+}
+
 /**
  * @brief Small stars and discs bounded by caps re-centred at their columns'
  *        sweep time draw the frame their whole-frame swept bounds draw.
@@ -504,30 +546,13 @@ template <int W, int H> inline void check_lit_caps(float angle) {
   const ScopedPoleLod lod(0.0f);
   const BasisMotion motion = tilted_motion(angle);
   constexpr int SHAPES = 160;
-  std::vector<math::Basis> bases;
-  for (int i = 0; i < SHAPES; ++i)
-    bases.push_back(math::make_basis(math::Quaternion(),
-                                     math::fib_spiral(SHAPES, 0.5f, i)));
+  const auto bases = lit_cap_bases(SHAPES);
   const auto draw = [&](bool moved) {
     return render_column_basis<W, H>(motion, [&](Pipeline<W, H> &pipeline,
                                                  Canvas &canvas,
                                                  const math::Quaternion &) {
-      for (int i = 0; i < SHAPES; ++i) {
-        const auto star_basis = math::get_antipode(bases[i], 0.04f);
-        const SDF::Star star(star_basis.first, star_basis.second, 5, 0.0f);
-        const SDF::Ring disc(bases[(i * 7) % SHAPES], 0.0f, 0.03f);
-        if (moved) {
-          Scan::rasterize<W, H, false>(pipeline, canvas, star,
-                                       basis_flat_shader);
-          Scan::rasterize<W, H, false>(pipeline, canvas, disc,
-                                       basis_flat_shader);
-        } else {
-          Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyStar(star),
-                                       basis_flat_shader);
-          Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyRing(disc),
-                                       basis_flat_shader);
-        }
-      }
+      draw_lit_cap_shapes<W, H>(pipeline, canvas, bases, math::Quaternion(),
+                                moved);
     });
   };
   const std::vector<Pixel> lit = draw(true);

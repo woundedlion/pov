@@ -234,3 +234,35 @@ inline void expect_render_band_parity(const char *label,
   HS_CONTEXT(label, diff.first_x, diff.first_y);
   HS_EXPECT_EQ(diff.diff, 0);
 }
+
+/** @brief Counts qualifying pixels lacking a wrapped 3x3 neighbour.
+ * @param from Source frame.
+ * @param to Neighbour frame.
+ * @param qualifies Source-pixel predicate.
+ * @param lit Neighbour-pixel predicate.
+ * @param y0,y1 Row interval.
+ * @param x0,x1 Column interval.
+ * @param pole_rows Rows excluded at each pole.
+ * @return Number of uncovered source pixels. */
+template <int W, int H, typename Element, typename Qualifies, typename Lit>
+inline size_t pixels_without_lit_neighbor(const std::vector<Element> &from,
+                                          const std::vector<Element> &to,
+                                          Qualifies qualifies, Lit lit,
+                                          int y0 = 0, int y1 = H, int x0 = 0,
+                                          int x1 = W, int pole_rows = 0) {
+  size_t count = 0;
+  for (int y = std::max(y0, pole_rows); y < std::min(y1, H - pole_rows); ++y)
+    for (int x = x0; x < x1; ++x) {
+      if (!qualifies(from[static_cast<size_t>(y) * W + x]))
+        continue;
+      bool nearby = false;
+      for (int dy = -1; dy <= 1 && !nearby; ++dy)
+        for (int dx = -1; dx <= 1 && !nearby; ++dx) {
+          const int sy = y + dy;
+          if (sy >= 0 && sy < H)
+            nearby = lit(to[static_cast<size_t>(sy) * W + (x + dx + W) % W]);
+        }
+      count += !nearby;
+    }
+  return count;
+}

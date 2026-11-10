@@ -4,7 +4,7 @@ import contextlib
 import io
 import os
 import sys
-from committed_boards import committed_board
+from committed_boards import ROUTED_REVISION, committed_board
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
@@ -16,7 +16,7 @@ import sexp  # noqa: E402
 import check  # noqa: E402
 from connectivity import footprint_reference  # noqa: E402
 import kicad_common  # noqa: E402
-from kicad_common import F, kicad_cli  # noqa: E402
+from kicad_common import F, kicad_cli, rotate_point  # noqa: E402
 
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
 STOCK_FOOTPRINTS = os.path.isdir(pcb.FP_DIR)
@@ -84,13 +84,26 @@ def footprints_by_ref(root):
     return footprints
 
 
-def committed_board_nets(revision="1.1"):
-    path = committed_board(revision)
-    root = sexp.parse(path.read_text(encoding="utf-8"))[0]
+def footprint_pose(footprint):
+    """Board position and rotation, defaulting an omitted rotation to zero."""
+    at = sexp.val(footprint, "at")
+    return float(at[0]), float(at[1]), float(at[2]) if len(at) > 2 else 0.0
+
+
+def pad_position(footprint, number):
+    """Board coordinates of a numbered footprint pad."""
+    pad = next(p for p in F(footprint, "pad") if str(p[1]) == number)
+    x, y, angle = footprint_pose(footprint)
+    dx, dy = rotate_point(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
+    return x + dx, y + dy
+
+
+def committed_board_nets(revision=ROUTED_REVISION):
+    root = read(committed_board(revision))
     nets = {}
     for reference, footprint in footprints_by_ref(root).items():
         for pad in F(footprint, "pad"):
             name = kicad_common.net_name(pad)
-            if reference and name:
+            if name:
                 nets.setdefault(name, set()).add(check.node_key(reference, str(pad[1])))
     return nets

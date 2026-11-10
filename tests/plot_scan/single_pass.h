@@ -798,30 +798,12 @@ inline void test_rasterize_balanced_star_visual_budget() {
 
     size_t standard_coverage = 0;
     size_t balanced_coverage = 0;
-    size_t uncovered = 0;
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        const size_t index = static_cast<size_t>(y) * W + x;
-        standard_coverage += covered(standard.pixels[index]);
-        balanced_coverage += covered(balanced.pixels[index]);
-        if (!covered(standard.pixels[index]))
-          continue;
-        bool neighborhood = false;
-        for (int dy = -1; dy <= 1 && !neighborhood; ++dy) {
-          const int sy = y + dy;
-          if (sy < 0 || sy >= H)
-            continue;
-          for (int dx = -1; dx <= 1; ++dx) {
-            const int sx = (x + dx + W) % W;
-            if (covered(balanced.pixels[static_cast<size_t>(sy) * W + sx])) {
-              neighborhood = true;
-              break;
-            }
-          }
-        }
-        uncovered += !neighborhood;
-      }
+    for (size_t index = 0; index < standard.pixels.size(); ++index) {
+      standard_coverage += covered(standard.pixels[index]);
+      balanced_coverage += covered(balanced.pixels[index]);
     }
+    const size_t uncovered = pixels_without_lit_neighbor<W, H>(
+        standard.pixels, balanced.pixels, covered, covered);
     HS_EXPECT_GT(standard_coverage, size_t{20});
     HS_EXPECT_GT(balanced_coverage * 20, standard_coverage * 19);
     HS_EXPECT_LT(balanced_coverage * 25, standard_coverage * 27);

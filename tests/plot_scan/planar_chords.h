@@ -134,7 +134,6 @@ inline void expect_covered_within_one_pixel(const std::vector<Pixel> &reference,
                                             int y0, int y1, int x0, int x1,
                                             int pole_rows, double max_drift) {
   uint64_t reference_energy = 0, candidate_energy = 0;
-  size_t uncovered = 0, stray = 0;
   for (int y = y0; y < y1; ++y)
     for (int x = x0; x < x1; ++x) {
       const size_t i = static_cast<size_t>(y) * W + x;
@@ -142,25 +141,15 @@ inline void expect_covered_within_one_pixel(const std::vector<Pixel> &reference,
       const Pixel &q = candidate[i];
       reference_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
       candidate_energy += static_cast<uint64_t>(q.r) + q.g + q.b;
-      // Pole rows turn a sub-pixel sample-phase shift into whole columns.
-      if (y < pole_rows || y >= H - pole_rows)
-        continue;
-      const auto nearby = [&](const std::vector<Pixel> &frame) {
-        for (int dy = -1; dy <= 1; ++dy)
-          for (int dx = -1; dx <= 1; ++dx) {
-            const int sy = y + dy;
-            if (sy >= 0 && sy < H &&
-                !is_black(
-                    frame[static_cast<size_t>(sy) * W + (x + dx + W) % W]))
-              return true;
-          }
-        return false;
-      };
-      if (static_cast<uint32_t>(p.r) + p.g + p.b >= 12288)
-        uncovered += !nearby(candidate);
-      if (static_cast<uint32_t>(q.r) + q.g + q.b >= 12288)
-        stray += !nearby(reference);
     }
+  const auto qualifies = [](const Pixel &p) {
+    return static_cast<uint32_t>(p.r) + p.g + p.b >= 12288;
+  };
+  const auto lit = [](const Pixel &p) { return !is_black(p); };
+  const size_t uncovered = pixels_without_lit_neighbor<W, H>(
+      reference, candidate, qualifies, lit, y0, y1, x0, x1, pole_rows);
+  const size_t stray = pixels_without_lit_neighbor<W, H>(
+      candidate, reference, qualifies, lit, y0, y1, x0, x1, pole_rows);
   HS_EXPECT_EQ(uncovered, size_t{0});
   HS_EXPECT_EQ(stray, size_t{0});
   if (reference_energy == 0) {

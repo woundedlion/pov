@@ -403,9 +403,9 @@ inline void case_planar_chords_over_capacity() {
 }
 
 /** @brief Draws a timed star with optional motion preparation.
- * @param mode Zero for clip preparation, one for motion, two for motion then clip.
+ * @param prepare_motion_first Prepare motion before preparing the clip.
  */
-inline void draw_timed_planar_chords(int mode) {
+inline void draw_timed_planar_chords(bool prepare_motion_first) {
   constexpr int W = 32, H = 16, VERTICES = 6;
   static uint8_t bytes[Plot::PlanarChords<W, H>::storage_bytes(VERTICES) +
                        sizeof(Fragment) * (VERTICES + 1) + 64];
@@ -426,10 +426,9 @@ inline void draw_timed_planar_chords(int mode) {
   Canvas canvas(effect);
   Filter::Screen::DirectAntiAliasSink<W, H> sink;
   sink.prepare(canvas);
-  if (mode != 0)
+  if (prepare_motion_first)
     chords.prepare(canvas, 0.0f);
-  if (mode != 1)
-    chords.prepare(canvas.clip());
+  chords.prepare(canvas.clip());
   chords.draw_closed(sink, canvas, points, VERTICES, plane,
                      Color4(Pixel(65535, 65535, 65535), 0.5f),
                      {.start = math::RotationMatrix{},
@@ -442,11 +441,13 @@ inline void draw_timed_planar_chords(int mode) {
 
 /** @brief A timed chord draw rejects clip-only preparation. */
 inline void case_planar_chords_motion_unprepared() {
-  draw_timed_planar_chords(0);
+  draw_timed_planar_chords(false);
 }
 
 /** @brief Clip preparation retires earlier motion preparation. */
-inline void case_planar_chords_motion_reset() { draw_timed_planar_chords(2); }
+inline void case_planar_chords_motion_reset() {
+  draw_timed_planar_chords(true);
+}
 
 /** @brief A chord draw rejects a missing closing vertex. */
 inline void case_planar_chords_missing_closing_vertex() {

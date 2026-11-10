@@ -43,6 +43,17 @@ class EngineDispatchTests(unittest.TestCase):
         self.assertEqual(payload, {"event_type": "holosphere-engine-ready", "client_payload": {
             "engine_sha": "a" * 40, "engine_run_id": 1234}})
 
+    def test_missing_token_and_failed_dispatch_are_errors(self):
+        for token, status, diagnostic in (
+            ("", 0, "DAYDREAM_DISPATCH_TOKEN is missing"),
+            ("fixture-token", 1, "Daydream dispatch failed"),
+        ):
+            with self.subTest(token=token, status=status):
+                result, args, _, _ = self.run_notification(token=token, status=status)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(bool(args), bool(token))
+                self.assertIn(diagnostic, result.stdout)
+
     def test_invalid_run_identity_never_reaches_the_api(self):
         for sha, run_id in [("a" * 40 + "-dirty", "1234"), ("a" * 40, "not-a-run")]:
             with self.subTest(sha=sha, run_id=run_id):

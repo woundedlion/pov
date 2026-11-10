@@ -81,6 +81,7 @@ inline void push_turning_steps(math::Orientation<> &history, int frame) {
 /** @brief Explicit-time rotation follows the sub-frame history at every
  *         column time, frame after frame. */
 inline void test_world_orient_follows_history_at_column_times() {
+  ScratchScope persistent_scope(persistent_arena);
   math::Orientation<> history(math::make_rotation(math::X_AXIS, 0.3f));
   Filter::World::Orient orient(history);
   orient.init_storage(persistent_arena, 288);
@@ -109,6 +110,7 @@ inline void test_world_orient_follows_history_at_column_times() {
 
 /** @brief Explicit fractions follow the pose table and refresh next frame. */
 inline void test_world_orient_explicit_time() {
+  ScratchScope persistent_scope(persistent_arena);
   math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   Filter::World::Orient orient(history);
   orient.init_storage(persistent_arena, 288);
@@ -164,6 +166,7 @@ inline void test_world_orient_explicit_time() {
 
 /** @brief Probes transform at their fraction without recording trail samples. */
 inline void test_timed_probe_bypasses_history() {
+  ScratchScope persistent_scope(persistent_arena);
   const math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   using Trails = Filter::World::Trails<16>;
   Pipeline<288, 144, Trails, Filter::World::Orient,
@@ -231,6 +234,7 @@ inline constexpr float ORIENT_ARC_STEP_SLACK =
 
 /** @brief Motion padding admits an entering edge while preserving the clip. */
 inline void test_timed_cull_region() {
+  ScratchScope persistent_scope(persistent_arena);
   const auto history = spin_history(0.0f, 0.10f, 3);
   Pipeline<288, 144, Filter::World::Orient, Filter::Screen::AntiAlias<288, 144>>
       pipeline{Filter::World::Orient(history),
@@ -372,6 +376,7 @@ inline void test_oriented_cull_keeps_visible_history_edges() {
  * input and fraction, and rebuilds on a new frame, under flat sampling and
  * after a collapse. */
 inline void test_world_orient_sample_cache() {
+  ScratchScope persistent_scope(persistent_arena);
   math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   Filter::World::Orient cached(history);
   cached.init_storage(persistent_arena, 288);
@@ -382,6 +387,7 @@ inline void test_world_orient_sample_cache() {
     {
       Canvas canvas(effect);
       auto compare = [&](const math::Vector &v, float t) {
+        ScratchScope fresh_scope(persistent_arena);
         Filter::World::Orient fresh(history);
         fresh.init_storage(persistent_arena, 288);
         const auto expected = fresh.at_time(canvas, v, t);

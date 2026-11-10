@@ -185,31 +185,13 @@ inline void test_ring_draw_stride_tracks_full_grid() {
       }
       HS_EXPECT_EQ(reached, lit);
 
-      // Pixels of `from` with no `to` pixel within one pixel.
-      auto strays = [&](const std::vector<uint8_t> &from,
-                        const std::vector<uint8_t> &to) {
-        int count = 0;
-        for (int y = 0; y < H; ++y)
-          for (int x = 0; x < W; ++x) {
-            if (!from[static_cast<size_t>(y) * W + x])
-              continue;
-            bool near = false;
-            for (int dy = -1; dy <= 1 && !near; ++dy) {
-              int ny = y + dy;
-              if (ny < 0 || ny >= H)
-                continue;
-              for (int dx = -1; dx <= 1 && !near; ++dx) {
-                int nx = ((x + dx) % W + W) % W;
-                near = to[static_cast<size_t>(ny) * W + nx] != 0;
-              }
-            }
-            if (!near)
-              ++count;
-          }
-        return count;
-      };
-      HS_EXPECT_EQ(strays(ref, cur), 0);
-      HS_EXPECT_EQ(strays(cur, ref), 0);
+      const auto lit_pixel = [](uint8_t value) { return value != 0; };
+      HS_EXPECT_EQ(
+          (pixels_without_lit_neighbor<W, H>(ref, cur, lit_pixel, lit_pixel)),
+          size_t{0});
+      HS_EXPECT_EQ(
+          (pixels_without_lit_neighbor<W, H>(cur, ref, lit_pixel, lit_pixel)),
+          size_t{0});
     }
   }
 }

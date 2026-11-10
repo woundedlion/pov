@@ -90,16 +90,28 @@ class ChainCaptureFixtureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate"):
             generator.generate([self.records[0], self.records[0]])
 
-    def test_frozen_noise_controls_keep_their_authored_values(self):
-        snapshot = self.records[0]["snapshot"]
-        recipe = snapshot["modulation"][1]["recipe"]
-        self.assertEqual(recipe["noise"]["scale"], 0.8300312757492065)
-        self.assertEqual(recipe["noise"]["speed"], 0.00021200001356191933)
-        self.assertEqual(recipe["mechanic"]["amount"], 0.39800000190734863)
-        clock = next(entry for entry in snapshot["runtime"]
-                     if entry["instance"] == snapshot["modulation"][1]["instance"])
-        self.assertEqual(clock["kind"], "modulation-clock-v1")
-        self.assertEqual(clock["state"]["phaseTurns"], 0.78100002)
+    def test_noise_controls_round_trip_through_cpp(self):
+        for record in self.records:
+            out = generator.generate([record])
+            snapshot = record["snapshot"]
+            clocks = {entry["instance"]: entry for entry in snapshot["runtime"]}
+            for entry in snapshot["modulation"]:
+                recipe = entry["recipe"]
+                clock = clocks[entry["instance"]]
+                for value in (recipe["noise"]["scale"], recipe["noise"]["speed"],
+                              recipe["mechanic"]["amount"], clock["state"]["phaseTurns"]):
+                    with self.subTest(case=record["name"], instance=entry["instance"], value=value):
+                        self.assertIn(generator.float_cpp(value), out)
+                self.assertIn(
+                    "Pattern::NoiseParams{" + generator.float_cpp(recipe["noise"]["scale"])
+                    + "," + generator.float_cpp(recipe["noise"]["speed"]) + ",", out)
+                self.assertIn(
+                    "ColorModulation::Params{static_cast<ColorModulation::Mechanic>("
+                    + str(recipe["mechanic"]["kind"]) + "),"
+                    + generator.float_cpp(recipe["mechanic"]["amount"]) + "}", out)
+                self.assertIn(
+                    "Pattern::PhaseState{" + generator.float_cpp(clock["state"]["phaseTurns"])
+                    + "}", out)
 
     def test_unknown_pattern_and_retired_runtime_are_rejected(self):
         self.assertIn("ColorModulation::Config", generator.generate([self.records[0]]))

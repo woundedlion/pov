@@ -280,36 +280,16 @@ inline void check_history_lit_caps(const char *label,
   HS_EXPECT_LE(travel, (Scan::ColumnBasisTable<W, H>::SWEEP_PAD));
 
   constexpr int SHAPES = 160;
-  std::vector<math::Basis> bases;
+  const auto bases = lit_cap_bases(SHAPES);
   int moved = 0;
-  for (int i = 0; i < SHAPES; ++i) {
-    bases.push_back(math::make_basis(math::Quaternion(),
-                                     math::fib_spiral(SHAPES, 0.5f, i)));
+  for (const auto &basis : bases) {
     Scan::LitCap cap;
-    moved += Scan::lit_cap<W, H>(bases.back().v, 0.03f, time, cap);
+    moved += Scan::lit_cap<W, H>(basis.v, 0.03f, time, cap);
   }
   HS_EXPECT_GT(moved, SHAPES / 2);
   const auto draw = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
                         const math::Quaternion &placement, bool lit) {
-    const auto place = [&](const math::Basis &b) {
-      return math::Basis{math::rotate(b.u, placement),
-                         math::rotate(b.v, placement),
-                         math::rotate(b.w, placement)};
-    };
-    for (int i = 0; i < SHAPES; ++i) {
-      const auto star_basis = math::get_antipode(place(bases[i]), 0.04f);
-      const SDF::Star star(star_basis.first, star_basis.second, 5, 0.0f);
-      const SDF::Ring disc(place(bases[(i * 7) % SHAPES]), 0.0f, 0.03f);
-      if (lit) {
-        Scan::rasterize<W, H, false>(pipeline, canvas, star, basis_flat_shader);
-        Scan::rasterize<W, H, false>(pipeline, canvas, disc, basis_flat_shader);
-      } else {
-        Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyStar(star),
-                                     basis_flat_shader);
-        Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyRing(disc),
-                                     basis_flat_shader);
-      }
-    }
+    draw_lit_cap_shapes<W, H>(pipeline, canvas, bases, placement, lit);
   };
   const auto scanned = [&](bool lit) {
     return render_stub_frame<W, H>(

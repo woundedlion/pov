@@ -584,9 +584,6 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     }
     return false;
   case SlotRole::SURFACE:
-    if (field_id == "burst-size" || field_id == "random-center") {
-      return text == (field_id == "burst-size" ? "four" : "on");
-    }
     [[fallthrough]];
   case SlotRole::WARP:
     if (field_id == "path-length") {
@@ -613,8 +610,17 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     }
     if (field_id == "basis" || field_id == "integrator" ||
         field_id == "limit" || field_id == "mode" || field_id == "envelope" ||
-        field_id == "harmonic") {
-      return true;
+        field_id == "harmonic" || field_id == "burst-size" ||
+        field_id == "random-center") {
+      const auto *op = In::find_operator(slot.operator_id.c_str());
+      if (op)
+        for (const auto &schema : op->schema_span())
+          if (schema.id == field_id && schema.topology) {
+            HS_EXPECT(text == schema.enum_ids[schema.enum_def],
+                      "fixed topology matches the compiled default");
+            return true;
+          }
+      return false;
     }
     return false;
   default:

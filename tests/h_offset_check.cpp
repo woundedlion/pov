@@ -13,7 +13,9 @@
 #include "tests/test_h_offset_renorm.h"
 #include <memory>
 
-template <template <int, int> class E> void render_offset_effect() {
+template <template <int, int> class E>
+void render_offset_effect(const char *name) {
+  HS_CONTEXT(name);
   hs_test::reset_globals();
   auto effect = std::make_unique<E<96, 20>>();
   effect->init();
@@ -33,8 +35,8 @@ int main() {
   int failed = 0;
   {
     hs_test::ModuleFixture fixture("offset3 full-resolution roster");
-    render_offset_effect<Comets>();
-    render_offset_effect<RingSpin>();
+    render_offset_effect<Comets>("Comets");
+    render_offset_effect<RingSpin>("RingSpin");
     failed |= fixture.result();
   }
   failed |= hs_test::h_offset_renorm::run_h_offset_renorm_tests();

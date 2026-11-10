@@ -29,19 +29,13 @@ inline void test_column_edge_cull_is_conservative() {
        {std::array<int, 4>{0, 72, 0, 144}, std::array<int, 4>{0, 72, 144, 288},
         std::array<int, 4>{36, 72, 100, 136}, std::array<int, 4>{0, H, 30, 230},
         std::array<int, 4>{0, 30, 0, W}, std::array<int, 4>{110, H, 0, 144}}) {
-    ClipRegion clip;
-    clip.w = W;
-    clip.h = H;
-    clip.y_start = band[0];
-    clip.y_end = band[1];
-    clip.x_start = band[2];
-    clip.x_end = band[3];
-    const float top = cosf(
-        fmaxf(0.0f, math::DisplayGeometry<H>::row_to_phi(float(band[0] - 2))));
-    const float bottom = cosf(
-        math::DisplayGeometry<H>::row_to_phi(float(std::min(H, band[1] + 2))));
-    const auto columns = clip.x_clip();
-    const Plot::SweptEdgeCull<W> cull(columns, top, bottom);
+    hs_test::StubEffect effect(W, H);
+    effect.set_clip(band[0], band[1], band[2], band[3]);
+    Canvas canvas(effect);
+    const float top = Plot::SweptEdgeCull<W>::top_of<H>(canvas);
+    const float bottom = Plot::SweptEdgeCull<W>::bottom_of<H>(canvas);
+    const auto columns = canvas.render_x_clip();
+    const auto cull = Plot::SweptEdgeCull<W>::of<H>(canvas);
     for (float radians : {0.0f, 0.01f, 0.06f}) {
       for (int trial = 0; trial < 4000; ++trial) {
         const auto a = hs_test::rand_unit();

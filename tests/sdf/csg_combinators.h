@@ -192,7 +192,7 @@ inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
   SDF::Subtract<Mock, Mock> s(A, B);
 
   const std::pair<float, float> expected[] = {{0.0f, 40.0f}, {60.0f, 100.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("interval block 1", s, 0,
+  sdf_interval_detail::expect_spans<256, 128>("solid B leaves minuend", s, 0,
                                               expected, 1e-4f);
 }
 
@@ -252,8 +252,7 @@ inline void test_subtract_empty_b_emits_every_a_span() {
   SDF::Subtract<Mock, Mock> s(A, B);
 
   const std::pair<float, float> expected[] = {{50.0f, 60.0f}, {0.0f, 10.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("interval block 2", s, 0,
-                                              expected, 1e-4f);
+  sdf_interval_detail::expect_spans<256, 128>("empty B", s, 0, expected, 1e-4f);
 }
 
 /**
@@ -270,8 +269,8 @@ inline void test_subtract_full_width_b_still_emits_the_minuend() {
   SDF::Subtract<MockA, MockB> s(A, B);
 
   const std::pair<float, float> expected[] = {{0.0f, 100.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("interval block 3", s, 0,
-                                              expected, 1e-4f);
+  sdf_interval_detail::expect_spans<256, 128>("full-width B", s, 0, expected,
+                                              1e-4f);
 }
 
 /** @brief Verifies Subtract forwards an unwrapped minuend band. */
@@ -284,7 +283,7 @@ inline void test_subtract_seam_straddle_forwards_minuend() {
   SDF::Subtract<Mock, Mock> s(A, B);
 
   const std::pair<float, float> expected[] = {{-10.0f, 10.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("interval block 4", s, 0,
+  sdf_interval_detail::expect_spans<256, 128>("seam straddle minuend", s, 0,
                                               expected, 1e-4f);
 }
 
@@ -352,7 +351,7 @@ inline void test_intersection_unsorted_child_yields_every_overlap() {
   SDF::Intersection<Mock, Mock> s(A, B);
 
   const std::pair<float, float> expected[] = {{20.0f, 40.0f}, {60.0f, 80.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("interval block 5", s, 0,
+  sdf_interval_detail::expect_spans<256, 128>("unsorted overlap", s, 0,
                                               expected, 1e-4f);
 }
 
@@ -373,7 +372,7 @@ inline void test_intersection_full_width_child_replays_other() {
   {
     SDF::Intersection<MockF, MockI> s(full, shape);
     const std::pair<float, float> expected[] = {{60.0f, 80.0f}, {20.0f, 40.0f}};
-    sdf_interval_detail::expect_spans<256, 128>("interval block 6", s, 0,
+    sdf_interval_detail::expect_spans<256, 128>("full-width A replays B", s, 0,
                                                 expected, 1e-4f);
   }
 
@@ -381,7 +380,7 @@ inline void test_intersection_full_width_child_replays_other() {
   {
     SDF::Intersection<MockI, MockF> s(shape, full);
     const std::pair<float, float> expected[] = {{60.0f, 80.0f}, {20.0f, 40.0f}};
-    sdf_interval_detail::expect_spans<256, 128>("interval block 7", s, 0,
+    sdf_interval_detail::expect_spans<256, 128>("full-width B replays A", s, 0,
                                                 expected, 1e-4f);
   }
 
@@ -442,7 +441,7 @@ inline void test_intersection_seam_straddle_overlaps_across_wrap_frames() {
   SDF::Intersection<Mock, Mock> s(A, B);
 
   const std::pair<float, float> expected[] = {{0.0f, 10.0f}, {246.0f, 256.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("interval block 8", s, 0,
+  sdf_interval_detail::expect_spans<256, 128>("seam straddle wrap frames", s, 0,
                                               expected, 1e-5f);
 }
 
@@ -592,8 +591,8 @@ inline void test_union_merges_overlapping_intervals() {
   SDF::Union<Mock, Mock> u(A, B);
 
   const std::pair<float, float> expected[] = {{0.0f, 70.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("interval block 9", u, 0,
-                                              expected, 1e-4f);
+  sdf_interval_detail::expect_spans<256, 128>("overlap merge", u, 0, expected,
+                                              1e-4f);
 }
 
 /**
@@ -609,8 +608,8 @@ inline void test_union_seam_straddle_merges_overlapping_intervals() {
   SDF::Union<Mock, Mock> u(A, B);
 
   const std::pair<float, float> expected[] = {{-10.0f, 12.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("interval block 10", u, 0,
-                                              expected, 1e-4f);
+  sdf_interval_detail::expect_spans<256, 128>("seam weld", u, 0, expected,
+                                              1e-4f);
 }
 
 /**

@@ -29,7 +29,7 @@ inline void test_gradient_endpoints() {
 /**
  * @brief Verifies the in-range ramp yields a non-decreasing red channel.
  */
-inline void test_gradient_in_range_valid_and_monotone() {
+inline void test_gradient_red_channel_monotone() {
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
   uint16_t prev = 0;
   for (int i = 0; i <= 100; ++i) {

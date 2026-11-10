@@ -9,7 +9,7 @@ sys.path.insert(0, str(GEN_DIR))
 import pcb  # noqa: E402
 from rev11_placements import QUILTER_FIXED  # noqa: E402
 import sexp  # noqa: E402
-from kicad_env import footprints_by_ref  # noqa: E402
+from kicad_env import footprint_pose, footprints_by_ref  # noqa: E402
 
 ROUTED = committed_board()
 
@@ -19,9 +19,7 @@ def placements(path):
     root = sexp.parse(path.read_text(encoding="utf-8"))[0]
     out = {}
     for ref, node in footprints_by_ref(root).items():
-        at = sexp.val(node, "at")
-        out[ref] = (float(at[0]), float(at[1]),
-                    float(at[2]) if len(at) > 2 else 0.0)
+        out[ref] = footprint_pose(node)
     return out
 
 

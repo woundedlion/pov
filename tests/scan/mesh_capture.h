@@ -19,21 +19,12 @@
 template <int W, int H, typename DrawFn>
 inline std::vector<Pixel> render_window_frame(int clip_begin, int clip_end,
                                               DrawFn &&draw) {
-  hs_test::StubEffect fx(W, H);
-  fx.set_clip_x(clip_begin, clip_end);
-  Pipeline<W, H> pipeline;
-  {
-    Canvas canvas(fx);
-    auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
-    const Scan::ColumnBasis time =
-        basis->prepare(math::Quaternion(), math::Quaternion(), true);
-    Scan::ColumnBasisScope column_scope(canvas, time);
-    draw(pipeline, canvas);
-  }
-  fx.advance_display();
-  std::vector<Pixel> out;
-  capture_frame<W, H>(fx, out);
-  return out;
+  return render_column_basis<W, H>(
+      BasisMotion{},
+      [&](Pipeline<W, H> &pipeline, Canvas &canvas, const auto &) {
+        draw(pipeline, canvas);
+      },
+      BasisClip{clip_begin, clip_end}, true);
 }
 
 /** @brief Capture fractions keep the branch nearest each window centre, across

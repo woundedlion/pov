@@ -21,10 +21,10 @@ import fab  # noqa: E402
 import pcb  # noqa: E402
 import sexp  # noqa: E402
 import shorts  # noqa: E402
-from kicad_common import F, export_netlist, kicad_cli, rotate_point  # noqa: E402
+from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from pin_landing import dangling_pins  # noqa: E402
-from kicad_env import committed_board_nets, generate, footprints_by_ref  # noqa: E402
+from kicad_env import pad_position, committed_board_nets, generate, footprints_by_ref  # noqa: E402
 from kicad_env import GENERATES, GENERATES_REASON  # noqa: E402
 
 PROTOTYPE = GEN.parent / "1.3"
@@ -109,15 +109,8 @@ class PrototypeContractTests(unittest.TestCase):
             self.assertIn(f"U1.{pin}", nets[net])
             source_pad = next(p for p in F(footprints[ref], "pad") if str(p[1]) == "2")
             self.assertEqual(sexp.val(source_pad, "net")[-1], f"/{net}")
-            self.assertLess(math.dist(self.pad_position(footprints[ref], "2"),
-                                      self.pad_position(footprints["U1"], pin)), 3)
-
-    @staticmethod
-    def pad_position(footprint, number):
-        pad = next(p for p in F(footprint, "pad") if str(p[1]) == number)
-        x, y, angle = map(float, sexp.val(footprint, "at"))
-        dx, dy = rotate_point(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
-        return x + dx, y + dy
+            self.assertLess(math.dist(pad_position(footprints[ref], "2"),
+                                      pad_position(footprints["U1"], pin)), 3)
 
     def test_front_layout_preserves_full_terminal_approaches(self):
         footprints = footprints_by_ref(self.board)
@@ -133,7 +126,7 @@ class PrototypeContractTests(unittest.TestCase):
                 xs, ys = zip(*[(float(p[1]), float(p[2])) for p in points])
                 self.assertAlmostEqual(max(xs) - min(xs), 2.4)
                 self.assertAlmostEqual(max(ys) - min(ys), 10)
-                px, py = self.pad_position(footprint, str(pin))
+                px, py = pad_position(footprint, str(pin))
                 self.assertAlmostEqual((min(xs) + max(xs)) / 2, px)
                 self.assertAlmostEqual(max(ys), py - 3.25)
         pcb.validate_front_access(list(footprints.values()), pcb.QUILTER_LENGTH)
@@ -141,7 +134,7 @@ class PrototypeContractTests(unittest.TestCase):
     def test_ground_and_shield_approaches_reject_off_center_obstruction(self):
         for pin in ("3", "4"):
             footprints = footprints_by_ref(copy.deepcopy(self.board))
-            x, _ = self.pad_position(footprints["J3B"], pin)
+            x, _ = pad_position(footprints["J3B"], pin)
             probe = sexp.parse_one(
                 f'(footprint "probe" (layer "F.Cu") (at {x + 1.15} -5 0) '
                 '(property "Reference" "R_PROBE") '
@@ -164,8 +157,8 @@ class PrototypeContractTests(unittest.TestCase):
         footprints = footprints_by_ref(self.board)
         for cap, ic, pin in (("C_DEC1", "U_MCU", "VIN"), ("C_DEC2", "U1", "14"),
                              ("C_DEC3", "U_SYNC", "8")):
-            self.assertLess(math.dist(self.pad_position(footprints[cap], "1"),
-                                      self.pad_position(footprints[ic], pin)), 3)
+            self.assertLess(math.dist(pad_position(footprints[cap], "1"),
+                                      pad_position(footprints[ic], pin)), 3)
 
     def test_termination_legend_is_revision_specific(self):
         self.assertIn("TERM=CABLE ENDS", [text[1] for text in F(self.board, "gr_text")])

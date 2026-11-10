@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import re
 import shutil
 import subprocess
 import sys
@@ -202,7 +203,10 @@ class ShellGateTests(unittest.TestCase):
     def test_cold_build_gates_profile_variants_and_preserves_their_failures(self):
         script = self.cold_build_script()
         calls = self.root / "calls.log"
-        for failure in (0, 2, 3, 4):
+        flags = re.findall(r"PLATFORMIO_BUILD_FLAGS='([^']*)'", script.read_text())
+        self.assertTrue(flags)
+        expected = ["|run -v"] + [f"{flag}|run -v -e profile" for flag in flags]
+        for failure in range(len(expected) + 1):
             with self.subTest(failure=failure):
                 calls.unlink(missing_ok=True)
                 self.stub("pio", 'test -f .profile-lock/info || exit 99; '
@@ -212,13 +216,6 @@ class ShellGateTests(unittest.TestCase):
                 result = self.gate(script.name, "capture.log", script=script)
                 self.assertEqual(result.returncode, 7 if failure else 0,
                                  result.stdout + result.stderr)
-                expected = ["|run -v",
-                            "-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PC|run -v -e profile",
-                            "-D HS_PROFILE_TARGET=GridWarp -D HS_PROBE_BREAKDOWN -D HS_PLOT_COUNTS "
-                            "-D HS_PROFILE_PLOT_RENDER_COUNTS -D HS_PROFILE_PULLBACK_PROJECTION "
-                            "-D HS_PROFILE_PC -D HS_PROFILE_MODULATION_SOURCE=1 "
-                            "-D HS_PROFILE_MODULATION_MECHANIC=0 -D HS_SCAN_METRICS|run -v -e profile",
-                            "-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PLOT_STALLS|run -v -e profile"]
                 self.assertEqual(calls.read_text().splitlines(), expected[:failure or len(expected)])
                 self.assertEqual((self.root / "capture.log").read_text().count("fixture-variant"),
                                  failure or len(expected))

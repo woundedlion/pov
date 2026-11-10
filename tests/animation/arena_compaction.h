@@ -23,6 +23,7 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
   MeshOps::compile(poly, carousel.slot(0), persistent_arena, scratch_arena_a);
   MeshOps::compile(poly, carousel.slot(1), persistent_arena, scratch_arena_a);
   const size_t v_front = carousel.current().vertices.size();
+  const math::Vector FIRST = carousel.current().vertices[0];
 
   bool after_reset_ran = false;
   const void *bake_ptr = nullptr;
@@ -34,7 +35,7 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
   HS_EXPECT_TRUE(after_reset_ran);
   HS_EXPECT_TRUE(carousel.current().is_bound());
   HS_EXPECT_EQ(carousel.current().vertices.size(), v_front);
-  HS_EXPECT_VEC(carousel.current().vertices[0], math::Vector(1, 0, 0), 1e-5f);
+  HS_EXPECT_VEC(carousel.current().vertices[0], FIRST, 1e-5f);
   HS_EXPECT_FALSE(carousel.slot(1).is_bound());
   HS_EXPECT_GT(reinterpret_cast<uintptr_t>(&carousel.current().vertices[0]),
                reinterpret_cast<uintptr_t>(bake_ptr));

@@ -487,17 +487,6 @@ inline void test_shader_chain_instantaneous_clips_match_full_render() {
   print_render_hash("ShaderChain-96x20", "clipped", clipped.fold.hash);
 }
 
-/** @brief View direction the scan shades for a 96x20 pixel.
- * @param x Column.
- * @param y Row.
- * @return Unit view direction. */
-inline math::Vector chain_scan_view(int x, int y) {
-  const float sin_phi = math::TrigLUT<96, 20>::sin_phi[y];
-  return math::Vector(sin_phi * math::TrigLUT<96, 20>::cos_theta(x),
-                      math::TrigLUT<96, 20>::cos_phi[y],
-                      sin_phi * math::TrigLUT<96, 20>::sin_theta[x]);
-}
-
 /** Camera spin of the column-time ShaderChain fixtures, radians per frame. */
 inline constexpr float CHAIN_SPIN = 0.05f;
 
@@ -541,7 +530,8 @@ inline int chain_column_gap(ShaderChainWhiteBox::FX &chain, int x,
     worst = std::max<int>(
         worst, max_channel_gap(
                    chain.get_pixel(x, y),
-                   chain_pixel_at_spin(chain, chain_scan_view(x, y), angle)));
+                   chain_pixel_at_spin(
+                       chain, math::pixel_to_vector<96, 20>(x, y), angle)));
   return worst;
 }
 
@@ -639,8 +629,8 @@ inline void test_shader_chain_discrete_changes_reset_history() {
     int worst = 0;
     for (int x = 0; x < 96; ++x)
       for (int y = 0; y < 20; ++y) {
-        const Color4 color =
-            WB::program(chain).evaluate(chain_scan_view(x, y), ctx);
+        const Color4 color = WB::program(chain).evaluate(
+            math::pixel_to_vector<96, 20>(x, y), ctx);
         worst =
             std::max<int>(worst, max_channel_gap(chain.get_pixel(x, y),
                                                  color.color * color.alpha));
@@ -716,8 +706,8 @@ inline void test_shader_chain_palettes_blend_across_the_frame() {
   std::vector<Pixel> previous(96 * 20);
   for (int x = 0; x < 96; ++x)
     for (int y = 0; y < 20; ++y) {
-      const Color4 color =
-          WB::program(chain).evaluate(chain_scan_view(x, y), before);
+      const Color4 color = WB::program(chain).evaluate(
+          math::pixel_to_vector<96, 20>(x, y), before);
       previous[y * 96 + x] = color.color * color.alpha;
     }
   const In::FrameContext &retained = WB::previous_context(chain);
@@ -736,8 +726,8 @@ inline void test_shader_chain_palettes_blend_across_the_frame() {
   for (int x = 0; x < 96; ++x) {
     const float fraction = Spacetime::SamplingSurface<96>::time(x);
     for (int y = 0; y < 20; ++y) {
-      const Color4 color =
-          WB::program(chain).evaluate(chain_scan_view(x, y), after);
+      const Color4 color = WB::program(chain).evaluate(
+          math::pixel_to_vector<96, 20>(x, y), after);
       const Pixel current = color.color * color.alpha;
       const Pixel &old = previous[y * 96 + x];
       changed += max_channel_gap(old, current) > 1024;
