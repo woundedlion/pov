@@ -486,8 +486,6 @@ def clean_hold_rows(windows, scope, gate):
         mk = best_w.marker
         if mk and mk["key"] == "islamic":
             meta = f"V={mk['V']} E={mk['E']} F={mk['F']} I={mk['I']}"
-        elif mk and mk["key"] == "hankin":
-            meta = mk["name"]
         rows.append((key[1], len(ws), len(selected) if clean else 0,
                      best_ms, cf, meta))
     return rows

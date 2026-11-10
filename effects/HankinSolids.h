@@ -120,6 +120,7 @@ public:
           Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
     });
     node = ConwayGraph::TETRAHEDRON;
+    hs::log("Loading shape: '%s'", Solids::simple_registry[node].name);
     seed_identity = ConwayGraph::TETRAHEDRON;
     dest = node;
 
