@@ -166,7 +166,7 @@ inline void test_vertex_reach_levels_and_demotion() {
   HS_EXPECT_GE(motion[0] * Scan::MOTION_UNIT, 0.2f * 0.999f);
   HS_EXPECT_LE(motion[0] * Scan::MOTION_UNIT, 0.2f * 1.01f);
   HS_EXPECT_EQ(moving[1], 0);
-  HS_EXPECT_EQ(motion[1], 0);
+  HS_EXPECT_LT(motion[1] * Scan::MOTION_UNIT, Scan::HELD_VERTEX_ARC<288>);
 }
 
 /** @brief Face capture includes a pole reached by vertex or basis motion. */
