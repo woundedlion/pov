@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <span>
 
 #include "core/color/generative_palette.h"
 #include "core/color/baked_palette.h"
@@ -119,22 +120,60 @@ public:
                                  GenerativePalette &out);
 
   /**
+   * @brief Roster cycle settings for init().
+   * @details Fields without a default are required.
+   */
+  struct RosterSpec {
+    /// Caller-owned entries, [1, MAX_ENTRIES] of them; must outlive the
+    /// cycler. One entry shows a static palette.
+    std::span<const Entry> entries;
+    /// Hold steps before fading, with a minimum of one step; 0 and 1 both
+    /// begin the next fade on the next step.
+    int dwell_frames;
+    /// Frames each fade spans, >= 1.
+    int fade_frames;
+    /// Easing over fade progress; null is linear.
+    float (*easing)(float) = nullptr;
+    /// Pause gate; freezes step() while set and true.
+    const bool *paused = nullptr;
+  };
+
+  /**
+   * @brief Generated cycle settings for init_generated().
+   * @details Fields without a default are required.
+   */
+  struct GeneratedSpec {
+    /// Fills palette number `sequence`; called with 0 and 1 by
+    /// init_generated(), then once per completed fade. Successors must be
+    /// morph-compatible.
+    NextPaletteFn next;
+    /// Opaque caller-owned state forwarded to next.
+    void *context = nullptr;
+    /// Hold steps before fading, with a minimum of one step; 0 and 1 both
+    /// begin the next fade on the next step.
+    int dwell_frames;
+    /// Frames each fade spans, >= 1.
+    int fade_frames;
+    /// Easing over fade progress; null is linear.
+    float (*easing)(float) = nullptr;
+    /// Pause gate; freezes step() while set and true.
+    const bool *paused = nullptr;
+    /// Frames between display bakes, in [1, 255] and at most fade_frames. The
+    /// timeline advances every frame; fade endpoints always bake exactly.
+    int display_interval_frames = 1;
+  };
+
+  /**
    * @brief Allocates the display LUT and enters the first entry's dwell.
    * @param arena Arena for the display, two endpoint scratch LUTs if any pair
    * needs a LUT crossfade, and a morph scratch palette if any pair key-morphs.
-   * @param entry_list Caller-owned entry array; must outlive the cycler.
-   * @param count Number of entries in [1, MAX_ENTRIES]; 1 shows a static
-   * palette.
-   * @param dwell_frames Hold steps before fading, with a minimum of one step;
-   * values 0 and 1 both begin the next fade on the next step.
-   * @param fade_frames Frames each fade spans, >= 1.
-   * @param easing_fn Optional easing over fade progress; null is linear.
-   * @param paused_flag Optional pause gate; freezes step() while set and true.
+   * @param spec Entries, timing and pause gate.
    */
-  HS_FLASH_MEMBER void init(Arena &arena, const Entry *entry_list, int count,
-                            int dwell_frames, int fade_frames,
-                            float (*easing_fn)(float) = nullptr,
-                            const bool *paused_flag = nullptr) {
+  HS_FLASH_MEMBER void init(Arena &arena, const RosterSpec &spec) {
+    const Entry *entry_list = spec.entries.data();
+    const int count = static_cast<int>(spec.entries.size());
+    const int dwell_frames = spec.dwell_frames;
+    const int fade_frames = spec.fade_frames;
     HS_CHECK(entry_list != nullptr && count >= 1 && count <= MAX_ENTRIES,
              "PaletteCycler entry count must be in [1, MAX_ENTRIES]");
     HS_CHECK(dwell_frames >= 0 && fade_frames >= 1,
@@ -154,8 +193,8 @@ public:
     next_sequence = 0;
     dwell = dwell_frames;
     fade = fade_frames;
-    easing = easing_fn;
-    paused = paused_flag;
+    easing = spec.easing;
+    paused = spec.paused;
     current = 0;
     frame = 0;
     fade_active = false;
@@ -189,24 +228,13 @@ public:
    * @brief Allocates the display LUT and enters a provider-generated cycle.
    * @param arena Arena the display, morph scratch, and two palette slots are
    * allocated from.
-   * @param next_fn Fills palette number `sequence`; called with 0 and 1 here,
-   * then once per completed fade. Successors must be morph-compatible.
-   * @param context Opaque state forwarded to @p next_fn; caller-owned.
-   * @param dwell_frames Hold steps before fading, with a minimum of one step;
-   * values 0 and 1 both begin the next fade on the next step.
-   * @param fade_frames Frames each fade spans, >= 1.
-   * @param easing_fn Optional easing over fade progress; null is linear.
-   * @param paused_flag Optional pause gate; freezes step() while set and true.
-   * @param display_interval_frames Frames between display bakes, in [1, 255]
-   * and at most fade_frames. The timeline advances every frame; fade endpoints
-   * always bake exactly.
+   * @param spec Provider, timing, pause gate and display cadence.
    */
-  HS_FLASH_MEMBER void init_generated(Arena &arena, NextPaletteFn next_fn,
-                                      void *context, int dwell_frames,
-                                      int fade_frames,
-                                      float (*easing_fn)(float) = nullptr,
-                                      const bool *paused_flag = nullptr,
-                                      int display_interval_frames = 1) {
+  HS_FLASH_MEMBER void init_generated(Arena &arena, const GeneratedSpec &spec) {
+    const NextPaletteFn next_fn = spec.next;
+    const int dwell_frames = spec.dwell_frames;
+    const int fade_frames = spec.fade_frames;
+    const int display_interval_frames = spec.display_interval_frames;
     HS_CHECK(next_fn != nullptr,
              "PaletteCycler generated cycle needs a provider");
     HS_CHECK(dwell_frames >= 0 && fade_frames >= 1,
@@ -220,11 +248,11 @@ public:
     entry_count = 0;
     key_morph_mask = 0;
     provider = next_fn;
-    provider_context = context;
+    provider_context = spec.context;
     dwell = dwell_frames;
     fade = fade_frames;
-    easing = easing_fn;
-    paused = paused_flag;
+    easing = spec.easing;
+    paused = spec.paused;
     current = 0;
     frame = 0;
     fade_active = false;
@@ -640,16 +668,26 @@ public:
     this->chroma = chroma;
     triadic.init_generated(
         arena,
-        next<&GeneratedPaletteBank::triadic_hue, PaletteHarmony::TRIADIC>, this,
-        DWELL_FRAMES, FADE_FRAMES, easing);
-    complementary.init_generated(arena,
-                                 next<&GeneratedPaletteBank::complementary_hue,
-                                      PaletteHarmony::COMPLEMENTARY>,
-                                 this, DWELL_FRAMES, FADE_FRAMES, easing);
-    analogous.init_generated(
-        arena,
-        next<&GeneratedPaletteBank::analogous_hue, PaletteHarmony::ANALOGOUS>,
-        this, DWELL_FRAMES, FADE_FRAMES, easing);
+        {.next =
+             next<&GeneratedPaletteBank::triadic_hue, PaletteHarmony::TRIADIC>,
+         .context = this,
+         .dwell_frames = DWELL_FRAMES,
+         .fade_frames = FADE_FRAMES,
+         .easing = easing});
+    complementary.init_generated(
+        arena, {.next = next<&GeneratedPaletteBank::complementary_hue,
+                             PaletteHarmony::COMPLEMENTARY>,
+                .context = this,
+                .dwell_frames = DWELL_FRAMES,
+                .fade_frames = FADE_FRAMES,
+                .easing = easing});
+    analogous.init_generated(arena,
+                             {.next = next<&GeneratedPaletteBank::analogous_hue,
+                                           PaletteHarmony::ANALOGOUS>,
+                              .context = this,
+                              .dwell_frames = DWELL_FRAMES,
+                              .fade_frames = FADE_FRAMES,
+                              .easing = easing});
   }
 
   /**

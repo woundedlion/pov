@@ -280,10 +280,13 @@ public:
             INSTANCE_SEED);
       }
     });
-    palette_cycler.init_generated(persistent_arena, next_palette, this,
-                                  GeneratedPaletteBank::DWELL_FRAMES,
-                                  GeneratedPaletteBank::FADE_FRAMES,
-                                  math::ease_in_out_sin, nullptr, 2);
+    palette_cycler.init_generated(
+        persistent_arena, {.next = next_palette,
+                           .context = this,
+                           .dwell_frames = GeneratedPaletteBank::DWELL_FRAMES,
+                           .fade_frames = GeneratedPaletteBank::FADE_FRAMES,
+                           .easing = math::ease_in_out_sin,
+                           .display_interval_frames = 2});
     if constexpr (ANIMATED_PROJECTION) {
       constexpr int32_t SEED = [] {
         if constexpr (AUTHORED_TOPOLOGY &&

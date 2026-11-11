@@ -809,8 +809,11 @@ public:
                                   (W + 2) * (H + 2));
 #endif
     refresh_configuration_schema();
-    depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
-                                 0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
+    depth_palette.init_generated(persistent_arena,
+                                 {.next = next_depth_palette,
+                                  .dwell_frames = 0,
+                                  .fade_frames = PALETTE_FADE_FRAMES,
+                                  .easing = math::ease_in_out_sin});
     iridescent_palette.bake(persistent_arena, depth_palette.palette());
     crossing_list =
         persistent_arena.allocate_n<HyperLatticeDetail::CrossingList>(1);

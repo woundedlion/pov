@@ -93,10 +93,14 @@ inline void reject_palette_display_interval(int interval, int fade_frames) {
   const auto provider = [](void *, uint32_t, GenerativePalette &out) {
     out = GenerativePalette();
   };
-  cycler.init_generated(arena, provider, nullptr, 0, fade_frames, nullptr,
-                        nullptr, 2);
-  cycler.init_generated(arena, provider, nullptr, 0, fade_frames, nullptr,
-                        nullptr, opaque(interval));
+  cycler.init_generated(arena, {.next = provider,
+                                .dwell_frames = 0,
+                                .fade_frames = fade_frames,
+                                .display_interval_frames = 2});
+  cycler.init_generated(arena, {.next = provider,
+                                .dwell_frames = 0,
+                                .fade_frames = fade_frames,
+                                .display_interval_frames = opaque(interval)});
 }
 
 /** @brief Generated display intervals must be nonzero. */
@@ -120,7 +124,7 @@ inline void case_palette_cycler_mutated_policy() {
   GenerativePalette first, second;
   const PaletteCycler::Entry entries[] = {first, second};
   PaletteCycler cycler;
-  cycler.init(arena, entries, 2, 0, 4);
+  cycler.init(arena, {.entries = entries, .dwell_frames = 0, .fade_frames = 4});
   PaletteRecipe changed;
   changed.chroma.headroom = 0.5f;
   second = GenerativePalette(changed);
@@ -140,11 +144,10 @@ inline void case_palette_cycler_restore_incompatible() {
   Arena arena(storage, sizeof(storage));
   PaletteCycler cycler;
   cycler.init_generated(
-      arena,
-      [](void *, uint32_t, GenerativePalette &out) {
-        out = GenerativePalette();
-      },
-      nullptr, 0, 4);
+      arena, {.next = [](void *, uint32_t,
+                         GenerativePalette &out) { out = GenerativePalette(); },
+              .dwell_frames = 0,
+              .fade_frames = 4});
   const GenerativePalette from;
   cycler.restore_generated({.next_sequence = 2, .fade_active = true}, from,
                            from);

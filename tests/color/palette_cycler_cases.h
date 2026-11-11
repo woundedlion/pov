@@ -23,7 +23,8 @@ inline void test_palette_cycler_key_morph_cycle() {
   static_assert(!std::is_copy_constructible_v<PaletteCycler>);
   static_assert(!std::is_copy_constructible_v<GeneratedPaletteBank>);
   PaletteCycler cycler;
-  cycler.init(cycler_arena, entries.data(), entries.size(), 3, 4);
+  cycler.init(cycler_arena,
+              {.entries = entries, .dwell_frames = 3, .fade_frames = 4});
 
   BakedPaletteStorage ref;
   ref.bake(ref_arena, first);
@@ -79,7 +80,7 @@ inline void test_palette_cycler_heterogeneous_crossfade() {
       {ramp, prebaked.view(), generative}};
 
   PaletteCycler cycler;
-  cycler.init(arena, entries.data(), entries.size(), 1, 2);
+  cycler.init(arena, {.entries = entries, .dwell_frames = 1, .fade_frames = 2});
 
   BakedPaletteStorage ramp_lut;
   ramp_lut.bake(arena, ramp);
@@ -123,7 +124,8 @@ inline void test_palette_cycler_pause_and_static() {
 
   const std::array<PaletteCycler::Entry, 1> single = {{ramp}};
   PaletteCycler static_cycler;
-  static_cycler.init(arena, single.data(), single.size(), 1, 1);
+  static_cycler.init(arena,
+                     {.entries = single, .dwell_frames = 1, .fade_frames = 1});
   BakedPaletteStorage ref;
   ref.bake(arena, ramp);
   for (int i = 0; i < 5; ++i)
@@ -136,7 +138,10 @@ inline void test_palette_cycler_pause_and_static() {
   const std::array<PaletteCycler::Entry, 2> pair = {{a, b}};
   bool paused = true;
   PaletteCycler cycler;
-  cycler.init(arena, pair.data(), pair.size(), 1, 2, nullptr, &paused);
+  cycler.init(arena, {.entries = pair,
+                      .dwell_frames = 1,
+                      .fade_frames = 2,
+                      .paused = &paused});
   for (int i = 0; i < 5; ++i)
     cycler.step();
   HS_EXPECT_FALSE(cycler.fading());
@@ -226,27 +231,27 @@ inline void test_palette_cycler_arena_components() {
 
   const size_t single_bytes =
       palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
-        c.init(a, single.data(), single.size(), 1, 2);
+        c.init(a, {.entries = single, .dwell_frames = 1, .fade_frames = 2});
       });
   HS_EXPECT_LE(single_bytes, DISPLAY);
 
   const size_t key_morph_bytes =
       palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
-        c.init(a, key_morph.data(), key_morph.size(), 1, 2);
+        c.init(a, {.entries = key_morph, .dwell_frames = 1, .fade_frames = 2});
       });
   HS_EXPECT_GT(key_morph_bytes, DISPLAY);
   HS_EXPECT_LE(key_morph_bytes, DISPLAY + MORPH);
 
   const size_t crossfade_bytes =
       palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
-        c.init(a, crossfade.data(), crossfade.size(), 1, 2);
+        c.init(a, {.entries = crossfade, .dwell_frames = 1, .fade_frames = 2});
       });
   HS_EXPECT_GT(crossfade_bytes, 2 * DISPLAY);
   HS_EXPECT_LE(crossfade_bytes, DISPLAY + CROSSFADE);
 
   const size_t mixed_bytes =
       palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
-        c.init(a, mixed.data(), mixed.size(), 1, 2);
+        c.init(a, {.entries = mixed, .dwell_frames = 1, .fade_frames = 2});
       });
   HS_EXPECT_GT(mixed_bytes, DISPLAY + CROSSFADE);
   HS_EXPECT_LE(mixed_bytes, PaletteCycler::required_arena_bytes());
@@ -254,7 +259,10 @@ inline void test_palette_cycler_arena_components() {
   int provider_calls = 0;
   const size_t generated_bytes =
       palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
-        c.init_generated(a, scripted_next_palette, &provider_calls, 0, 2);
+        c.init_generated(a, {.next = scripted_next_palette,
+                             .context = &provider_calls,
+                             .dwell_frames = 0,
+                             .fade_frames = 2});
       });
   HS_EXPECT_LE(generated_bytes, PaletteCycler::generated_arena_bytes());
 }
@@ -268,7 +276,10 @@ inline void test_palette_cycler_generated_cycle() {
 
   int provider_calls = 0;
   PaletteCycler cycler;
-  cycler.init_generated(arena, scripted_next_palette, &provider_calls, 0, 2);
+  cycler.init_generated(arena, {.next = scripted_next_palette,
+                                .context = &provider_calls,
+                                .dwell_frames = 0,
+                                .fade_frames = 2});
   HS_EXPECT_EQ(provider_calls, 2);
 
   BakedPaletteStorage ref;
@@ -304,7 +315,8 @@ inline void test_palette_cycler_generated_cycle() {
       reinit_buf[PaletteCycler::required_arena_bytes() +
                  BakedPalette::required_arena_bytes()];
   Arena reinit_arena(reinit_buf, sizeof(reinit_buf));
-  cycler.init(reinit_arena, pair.data(), pair.size(), 0, 2);
+  cycler.init(reinit_arena,
+              {.entries = pair, .dwell_frames = 0, .fade_frames = 2});
 
   cycler.step();
   cycler.step();
@@ -332,7 +344,10 @@ inline void test_palette_cycler_generated_chroma_keeps_morph() {
   Arena arena(buf, sizeof(buf));
   int provider_calls = 0;
   PaletteCycler cycler;
-  cycler.init_generated(arena, scripted_tonal_palette, &provider_calls, 0, 2);
+  cycler.init_generated(arena, {.next = scripted_tonal_palette,
+                                .context = &provider_calls,
+                                .dwell_frames = 0,
+                                .fade_frames = 2});
   cycler.set_generated_chroma(0.4f);
   // Each finish_fade re-checks the retired slot against a fresh provider
   // palette still carrying the recipe's curve.
@@ -356,8 +371,10 @@ inline void test_palette_cycler_roster_hidden_advance_catches_up() {
               buffer{};
       Arena arena(buffer.data(), buffer.size());
       PaletteCycler full, hidden;
-      full.init(arena, entries.data(), entries.size(), 3, 4);
-      hidden.init(arena, entries.data(), entries.size(), 3, 4);
+      full.init(arena,
+                {.entries = entries, .dwell_frames = 3, .fade_frames = 4});
+      hidden.init(arena,
+                  {.entries = entries, .dwell_frames = 3, .fade_frames = 4});
       for (int frame = 0; frame < frames; ++frame) {
         full.step();
         hidden.advance_without_display();
@@ -383,10 +400,14 @@ inline void test_palette_cycler_hidden_advance_catches_up() {
   int hidden_provider_calls = 0;
   PaletteCycler full;
   PaletteCycler hidden;
-  full.init_generated(full_arena, scripted_next_palette, &full_provider_calls,
-                      0, 17);
-  hidden.init_generated(hidden_arena, scripted_next_palette,
-                        &hidden_provider_calls, 0, 17);
+  full.init_generated(full_arena, {.next = scripted_next_palette,
+                                   .context = &full_provider_calls,
+                                   .dwell_frames = 0,
+                                   .fade_frames = 17});
+  hidden.init_generated(hidden_arena, {.next = scripted_next_palette,
+                                       .context = &hidden_provider_calls,
+                                       .dwell_frames = 0,
+                                       .fade_frames = 17});
 
   for (int frame = 0; frame < 50; ++frame) {
     full.step();
@@ -412,9 +433,14 @@ inline void test_palette_cycler_paused_hidden_advance_catches_up() {
       Arena arena(buffer.data(), buffer.size());
       bool paused = false;
       PaletteCycler full, hidden;
-      full.init(arena, entries.data(), entries.size(), 3, 4, nullptr, &paused);
-      hidden.init(arena, entries.data(), entries.size(), 3, 4, nullptr,
-                  &paused);
+      full.init(arena, {.entries = entries,
+                        .dwell_frames = 3,
+                        .fade_frames = 4,
+                        .paused = &paused});
+      hidden.init(arena, {.entries = entries,
+                          .dwell_frames = 3,
+                          .fade_frames = 4,
+                          .paused = &paused});
       for (int frame = 0; frame < frames; ++frame) {
         full.step();
         hidden.advance_without_display();
@@ -435,10 +461,16 @@ inline void test_palette_cycler_paused_hidden_advance_catches_up() {
   bool paused = false;
   int full_calls = 0, hidden_calls = 0;
   PaletteCycler full, hidden;
-  full.init_generated(arena, scripted_next_palette, &full_calls, 3, 4, nullptr,
-                      &paused);
-  hidden.init_generated(arena, scripted_next_palette, &hidden_calls, 3, 4,
-                        nullptr, &paused);
+  full.init_generated(arena, {.next = scripted_next_palette,
+                              .context = &full_calls,
+                              .dwell_frames = 3,
+                              .fade_frames = 4,
+                              .paused = &paused});
+  hidden.init_generated(arena, {.next = scripted_next_palette,
+                                .context = &hidden_calls,
+                                .dwell_frames = 3,
+                                .fade_frames = 4,
+                                .paused = &paused});
   for (int frame = 0; frame < 4; ++frame) {
     full.step();
     hidden.advance_without_display();
@@ -467,7 +499,7 @@ inline void test_palette_cycler_bake_generation() {
   Arena arena(buf, sizeof(buf));
 
   PaletteCycler held;
-  held.init(arena, single.data(), single.size(), 1, 2);
+  held.init(arena, {.entries = single, .dwell_frames = 1, .fade_frames = 2});
   const uint32_t after_init = held.bake_generation();
   HS_EXPECT_NE(after_init, 0u);
   for (int i = 0; i < 4; ++i)
@@ -475,7 +507,7 @@ inline void test_palette_cycler_bake_generation() {
   HS_EXPECT_EQ(held.bake_generation(), after_init);
 
   PaletteCycler cycler;
-  cycler.init(arena, pair.data(), pair.size(), 2, 4);
+  cycler.init(arena, {.entries = pair, .dwell_frames = 2, .fade_frames = 4});
   BakedPaletteStorage snapshot;
   snapshot.bake(arena, a);
   snapshot.rebake_copy(cycler.palette());
@@ -495,7 +527,10 @@ inline void test_palette_cycler_bake_generation() {
 
   int provider_calls = 0;
   PaletteCycler generated;
-  generated.init_generated(arena, scripted_next_palette, &provider_calls, 0, 3);
+  generated.init_generated(arena, {.next = scripted_next_palette,
+                                   .context = &provider_calls,
+                                   .dwell_frames = 0,
+                                   .fade_frames = 3});
   const uint32_t before_chroma = generated.bake_generation();
   generated.set_generated_chroma(0.4f);
   HS_EXPECT_NE(generated.bake_generation(), before_chroma);
@@ -520,7 +555,7 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
   Arena arena(buf, sizeof(buf));
 
   PaletteCycler cycler;
-  cycler.init(arena, pair.data(), pair.size(), 0, 2);
+  cycler.init(arena, {.entries = pair, .dwell_frames = 0, .fade_frames = 2});
 
   BakedPaletteStorage ref;
   ref.bake(arena, a);
@@ -561,14 +596,17 @@ inline void test_generated_palette_restore_cycler_clock_and_endpoints() {
   uint32_t provider_hue = 0;
   PaletteCycler cycler;
   cycler.init_generated(
-      arena,
-      [](void *context, uint32_t sequence, GenerativePalette &out) {
-        GeneratedPaletteBank::next_palette(*static_cast<uint32_t *>(context),
-                                           sequence, PaletteHarmony::TRIADIC,
-                                           0.62f, out);
-      },
-      &provider_hue, GeneratedPaletteBank::DWELL_FRAMES,
-      GeneratedPaletteBank::FADE_FRAMES, math::ease_in_out_sin, nullptr, 2);
+      arena, {.next =
+                  [](void *context, uint32_t sequence, GenerativePalette &out) {
+                    GeneratedPaletteBank::next_palette(
+                        *static_cast<uint32_t *>(context), sequence,
+                        PaletteHarmony::TRIADIC, 0.62f, out);
+                  },
+              .context = &provider_hue,
+              .dwell_frames = GeneratedPaletteBank::DWELL_FRAMES,
+              .fade_frames = GeneratedPaletteBank::FADE_FRAMES,
+              .easing = math::ease_in_out_sin,
+              .display_interval_frames = 2});
   BakedPaletteStorage expected;
   expected.bake(arena,
                 GenerativePalette(PaletteRecipes::balanced_analogous(0.0f)));
@@ -703,10 +741,17 @@ inline void test_palette_cycler_generated_display_cadence() {
       Arena arena(buffer.data(), buffer.size());
       PaletteCycler full, sampled;
       int full_calls = 0, sampled_calls = 0;
-      full.init_generated(arena, scripted_next_palette, &full_calls, 0,
-                          fade_frames, easing);
-      sampled.init_generated(arena, scripted_next_palette, &sampled_calls, 0,
-                             fade_frames, easing, nullptr, 2);
+      full.init_generated(arena, {.next = scripted_next_palette,
+                                  .context = &full_calls,
+                                  .dwell_frames = 0,
+                                  .fade_frames = fade_frames,
+                                  .easing = easing});
+      sampled.init_generated(arena, {.next = scripted_next_palette,
+                                     .context = &sampled_calls,
+                                     .dwell_frames = 0,
+                                     .fade_frames = fade_frames,
+                                     .easing = easing,
+                                     .display_interval_frames = 2});
       BakedPaletteStorage previous, endpoint;
       previous.clone_from(sampled.palette(), arena);
       endpoint.bake(arena, GenerativePalette());
@@ -755,12 +800,23 @@ inline void test_palette_cycler_sampled_restore_and_catchup() {
   bool paused = false;
   int full_calls = 0, sampled_calls = 0, restored_calls = 0;
   PaletteCycler full, sampled, restored;
-  full.init_generated(arena, scripted_next_palette, &full_calls, 0, 8, nullptr,
-                      &paused);
-  sampled.init_generated(arena, scripted_next_palette, &sampled_calls, 0, 8,
-                         nullptr, &paused, 2);
-  restored.init_generated(arena, scripted_next_palette, &restored_calls, 0, 8,
-                          nullptr, &paused, 2);
+  full.init_generated(arena, {.next = scripted_next_palette,
+                              .context = &full_calls,
+                              .dwell_frames = 0,
+                              .fade_frames = 8,
+                              .paused = &paused});
+  sampled.init_generated(arena, {.next = scripted_next_palette,
+                                 .context = &sampled_calls,
+                                 .dwell_frames = 0,
+                                 .fade_frames = 8,
+                                 .paused = &paused,
+                                 .display_interval_frames = 2});
+  restored.init_generated(arena, {.next = scripted_next_palette,
+                                  .context = &restored_calls,
+                                  .dwell_frames = 0,
+                                  .fade_frames = 8,
+                                  .paused = &paused,
+                                  .display_interval_frames = 2});
   for (int frame = 0; frame < 4; ++frame) {
     full.step();
     sampled.step();
@@ -793,7 +849,8 @@ inline void test_palette_cycler_sampled_restore_and_catchup() {
   expect_baked_equal(restored.palette(), full.palette());
 
   const PaletteCycler::Entry entries[] = {from, to};
-  sampled.init(arena, entries, 2, 0, 4);
+  sampled.init(arena,
+               {.entries = entries, .dwell_frames = 0, .fade_frames = 4});
   sampled.step();
   sampled.step();
   GenerativePalette quarter;

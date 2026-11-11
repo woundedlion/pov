@@ -540,13 +540,17 @@ inline void test_pullback_palette_lab_qualification() {
   PaletteCycler cycler;
   cycler.init_generated(
       arena,
-      +[](void *context, uint32_t sequence, GenerativePalette &out) {
-        GeneratedPaletteBank::next_palette(*static_cast<uint32_t *>(context),
-                                           sequence, PaletteHarmony::ANALOGOUS,
-                                           0.84f, out);
-      },
-      &hue, GeneratedPaletteBank::DWELL_FRAMES,
-      GeneratedPaletteBank::FADE_FRAMES, math::ease_in_out_sin, nullptr, 2);
+      {.next =
+           +[](void *context, uint32_t sequence, GenerativePalette &out) {
+             GeneratedPaletteBank::next_palette(
+                 *static_cast<uint32_t *>(context), sequence,
+                 PaletteHarmony::ANALOGOUS, 0.84f, out);
+           },
+       .context = &hue,
+       .dwell_frames = GeneratedPaletteBank::DWELL_FRAMES,
+       .fade_frames = GeneratedPaletteBank::FADE_FRAMES,
+       .easing = math::ease_in_out_sin,
+       .display_interval_frames = 2});
   for (int frame = 0; frame < GeneratedPaletteBank::FADE_FRAMES / 2; ++frame)
     cycler.step();
   BakedPaletteStorage from, to;
