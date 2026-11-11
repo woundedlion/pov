@@ -64,7 +64,7 @@ export CMAKE_BUILD_PARALLEL_LEVEL=8 HS_PYTHON_TEST_WORKERS=4
 PYTHON_INPUTS='[.]py$|^tools/|^hardware/|^[.]githooks/|^[.]github/|^requirements/|^justfile$|^platformio[.]ini$'
 
 job_lint() { just lint; }
-job_clang_format() { clang-format --version && bash tools/clang_format_gate.sh; }
+job_clang_format() { just clang-format; }
 job_license_headers() { python tools/license_check.py; }
 # CI checks the docs against daydream at the revision build_pins.py pins.
 job_docs_markdown() {
