@@ -293,6 +293,78 @@ inline void check_integer_float_endpoints() {
   HS_EXPECT_EQ(value, 0);
 }
 
+/** @brief Convenience registrations set their flags, ranges and values. */
+inline void check_convenience_registrations() {
+  struct LegacyHost : ParamHost {
+    using ParamHost::register_animated_param;
+    using ParamHost::register_animated_param_preserving_value;
+    using ParamHost::register_readonly_param;
+    using ParamHost::use_parameter_storage;
+  } host;
+  std::array<ParamDef, 3> storage{};
+  host.use_parameter_storage(storage);
+  bool flag = true;
+  float telemetry = 0.5f;
+  float outside = 5.0f;
+  host.register_animated_param("Flag", &flag);
+  host.register_readonly_param("Telemetry", &telemetry, 0.0f, 2.0f);
+  host.register_animated_param_preserving_value("Outside", &outside, 0.0f,
+                                                1.0f);
+  const auto &params = host.getParameters();
+  const ParamDef *flag_def = params.find("Flag");
+  const ParamDef *telemetry_def = params.find("Telemetry");
+  const ParamDef *outside_def = params.find("Outside");
+  HS_EXPECT_TRUE(flag_def == &storage[0]);
+  HS_EXPECT_TRUE(telemetry_def == &storage[1]);
+  HS_EXPECT_TRUE(outside_def == &storage[2]);
+  if (!flag_def || !telemetry_def || !outside_def)
+    return;
+  HS_EXPECT_TRUE(flag_def->animated);
+  HS_EXPECT_FALSE(flag_def->readonly);
+  HS_EXPECT_TRUE(telemetry_def->readonly);
+  HS_EXPECT_EQ(telemetry_def->max, 2.0f);
+  HS_EXPECT_EQ(host.updateParameter("Telemetry", 1.0f),
+               ParamSetResult::READONLY);
+  HS_EXPECT_EQ(telemetry, 0.5f);
+  HS_EXPECT_TRUE(outside_def->animated);
+  HS_EXPECT_EQ(outside_def->max, 1.0f);
+  HS_EXPECT_EQ(outside, 5.0f);
+  HS_EXPECT_EQ(host.updateParameter("Outside", 3.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(outside, 1.0f);
+}
+
+/** @brief The GUI bridge's default hooks report the requested value, no
+ *  advisory and no warning, and a display mirror can be dropped. */
+inline void check_gui_bridge_defaults() {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  struct BridgeHost : ParamHost {
+    using ParamHost::mirror_parameter_display_state;
+    using ParamHost::register_param;
+    using ParamHost::show_requested_parameter_value;
+  } host;
+  struct State {
+    float level;
+  } requested{0.5f}, displayed{0.9f};
+  host.register_param("Level", &requested.level, 0.0f, 1.0f);
+  const ParamDef *def = host.getParameters().find("Level");
+  HS_EXPECT_TRUE(def != nullptr);
+  if (def == nullptr)
+    return;
+  host.refresh_parameter_display();
+  HS_EXPECT_EQ(host.accepted_parameter_value(*def), 0.5f);
+  float strength = 7.0f;
+  HS_EXPECT_FALSE(host.parameter_fold_strength("Level", strength));
+  HS_EXPECT_EQ(strength, 7.0f);
+  HS_EXPECT_TRUE(host.parameter_warning("Level") == nullptr);
+  host.mirror_parameter_display_state(requested, displayed);
+  HS_EXPECT_TRUE(def->display_target == &displayed.level);
+  host.show_requested_parameter_value("Missing");
+  HS_EXPECT_TRUE(def->display_target == &displayed.level);
+  host.show_requested_parameter_value("Level");
+  HS_EXPECT_TRUE(def->display_target == nullptr);
+#endif
+}
+
 struct FloatOptionParams {
   float mode;
 };
@@ -622,6 +694,8 @@ inline int run_param_marshal_tests() {
   HS_RUN(test_sparse_option_metadata);
   HS_RUN(check_generation_tracker);
   HS_RUN(check_integer_float_endpoints);
+  HS_RUN(check_convenience_registrations);
+  HS_RUN(check_gui_bridge_defaults);
   HS_RUN(check_distinct_parameter_values);
   HS_RUN(check_schema_hook_preserves_written_parameter_identity);
   // The by-name round-trip skips effects with no editable float param.
