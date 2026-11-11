@@ -55,11 +55,11 @@ struct Shader {
 
     SsaaGrid() {
       constexpr float D_THETA = 0.5f * math::PI_F / static_cast<float>(W);
-      const float D_PHI = 0.25f * math::RADIANS_PER_ROW<H>;
+      const float d_phi = 0.25f * math::RADIANS_PER_ROW<H>;
       cos_dtheta = cosf(D_THETA);
       sin_dtheta = sinf(D_THETA);
-      cos_dphi = cosf(D_PHI);
-      sin_dphi = sinf(D_PHI);
+      cos_dphi = cosf(d_phi);
+      sin_dphi = sinf(d_phi);
     }
 
     /**
@@ -218,24 +218,24 @@ private:
   __attribute__((always_inline)) static void shade_column(Canvas &canvas, int x,
                                                           ShaderFn &&shader) {
     const auto &clip = canvas.clip();
-    const float COS_THETA = math::TrigLUT<W, H>::cos_theta(x);
-    const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
+    const float cos_theta = math::TrigLUT<W, H>::cos_theta(x);
+    const float sin_theta = math::TrigLUT<W, H>::sin_theta[x];
     for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
-      const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-      const auto COLOR = [&]() HS_HOT_INLINE {
+      const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
+      const auto color = [&]() HS_HOT_INLINE {
         if constexpr (std::is_invocable_v<ShaderFn &, float, float>)
-          return shader(SIN_PHI, math::TrigLUT<W, H>::cos_phi[y]);
+          return shader(sin_phi, math::TrigLUT<W, H>::cos_phi[y]);
         else {
-          const math::Vector VIEW(SIN_PHI * COS_THETA,
+          const math::Vector view(sin_phi * cos_theta,
                                   math::TrigLUT<W, H>::cos_phi[y],
-                                  SIN_PHI * SIN_THETA);
-          return shader(VIEW);
+                                  sin_phi * sin_theta);
+          return shader(view);
         }
       }();
-      if constexpr (std::is_same_v<std::decay_t<decltype(COLOR)>, Pixel>)
-        canvas(x, y) = COLOR;
+      if constexpr (std::is_same_v<std::decay_t<decltype(color)>, Pixel>)
+        canvas(x, y) = color;
       else
-        canvas(x, y) = COLOR.color * COLOR.alpha;
+        canvas(x, y) = color.color * color.alpha;
     }
   }
 

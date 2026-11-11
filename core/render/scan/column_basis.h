@@ -441,9 +441,9 @@ struct SeeingFrame {
  * @return Rotated vectors and fixed-column azimuth. */
 template <int W, int H>
 HS_HOT_INLINE SeeingFrame seeing_frame(const ColumnBasis &time, int column) {
-  const auto &EQUATOR = time.azimuth[column];
-  const auto &UP = time.up[column];
-  return {EQUATOR, UP, math::cross(EQUATOR, UP),
+  const auto &equator = time.azimuth[column];
+  const auto &up = time.up[column];
+  return {equator, up, math::cross(equator, up),
           math::TrigLUT<W, H>::cos_theta_data()[column],
           math::TrigLUT<W, H>::sin_theta[column]};
 }
@@ -502,12 +502,12 @@ inline bool lit_cap(const math::Vector &axis, float radius,
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
   const math::Vector seen = drifted_direction<W>(axis, -time.drift, m);
-  const auto FRAME = seeing_frame<W, H>(time, m);
-  const float a = math::dot(seen, FRAME.equator);
-  const float b = math::dot(seen, FRAME.up);
-  const float c = math::dot(seen, FRAME.tangent);
-  lit.axis = math::Vector(a * FRAME.cosine - c * FRAME.sine, b,
-                          a * FRAME.sine + c * FRAME.cosine);
+  const auto frame = seeing_frame<W, H>(time, m);
+  const float a = math::dot(seen, frame.equator);
+  const float b = math::dot(seen, frame.up);
+  const float c = math::dot(seen, frame.tangent);
+  lit.axis = math::Vector(a * frame.cosine - c * frame.sine, b,
+                          a * frame.sine + c * frame.cosine);
   lit.arc = arc;
   return true;
 }
@@ -615,12 +615,12 @@ HS_FLASH_MEMBER inline bool settle_drift(const Scan::ColumnBasis &time,
   lit_columns<W>(lit.axis, radius + lit.arc + angle, 0.0f, first, last);
   if (first == 0 && last == W / 2 - 1)
     return false;
-  const int MIDDLE = (first + last) / 2;
-  const int REACH = std::max(MIDDLE - first, last - MIDDLE);
+  const int middle = (first + last) / 2;
+  const int reach = std::max(middle - first, last - middle);
   // Column fractions are 2/W apart; odd spans have a farther endpoint.
-  if (angle * static_cast<float>(REACH) / (W / 2) > DRIFT_SETTLE_ARC<W>)
+  if (angle * static_cast<float>(reach) / (W / 2) > DRIFT_SETTLE_ARC<W>)
     return false;
-  const math::Vector back = drift * (Spacetime::surface_time(MIDDLE, W) - 1.0f);
+  const math::Vector back = drift * (Spacetime::surface_time(middle, W) - 1.0f);
   const Spacetime::TurnCoefficients k =
       Spacetime::turn_coefficients(math::dot(back, back));
   basis = {Spacetime::rotate_by(basis.u, back, k),

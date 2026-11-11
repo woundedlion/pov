@@ -143,9 +143,9 @@ HS_COLD static void
 compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
                Arena &target_arena, Arena &temp_arena,
                BaseVertices base = BaseVertices::OWNED_COPY) {
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
+  size_t v = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i_value = mesh.get_faces_size();
 
   // Unbind, not clear(): a reused CompiledHankin's bindings may name blocks its
   // arena has already reclaimed.
@@ -154,21 +154,21 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
   if (base == BaseVertices::BORROW) {
     compiled.corner_src = ArenaSpan<math::Vector>(mesh.vertices);
   } else {
-    compiled.base_vertices.bind(target_arena, V);
-    for (size_t i = 0; i < V; ++i) {
+    compiled.base_vertices.bind(target_arena, v);
+    for (size_t i = 0; i < v; ++i) {
       compiled.base_vertices.push_back(mesh.vertices[i]);
     }
     compiled.corner_src = ArenaSpan<math::Vector>(compiled.base_vertices);
   }
-  // Static pool is I/2 midpoints; largest emitted index is (I/2)+(I-1). Guard
-  // adds 1 to both sides to dodge the unsigned underflow of I-1 at I == 0.
-  HS_CHECK((I / 2) + I <= MeshLimits::MAX_VERTICES,
+  // Static pool is i_value/2 midpoints; largest emitted index is (i_value/2)+(i_value-1). Guard
+  // adds 1 to both sides to dodge the unsigned underflow of i_value-1 at i_value == 0.
+  HS_CHECK((i_value / 2) + i_value <= MeshLimits::MAX_VERTICES,
            "Hankin output vertex count exceeds int16_t index range "
            "(oversized source mesh?)");
-  compiled.static_vertices.bind(target_arena, I / 2);
-  compiled.dynamic_instructions.bind(target_arena, I);
-  compiled.face_counts.bind(target_arena, F + V);
-  compiled.faces.bind(target_arena, 4 * I);
+  compiled.static_vertices.bind(target_arena, i_value / 2);
+  compiled.dynamic_instructions.bind(target_arena, i_value);
+  compiled.face_counts.bind(target_arena, f + v);
+  compiled.faces.bind(target_arena, 4 * i_value);
 
   {
     ScratchScope temp_arena_guard(temp_arena);
@@ -177,10 +177,10 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
 
     require_closed_manifold(he_mesh, temp_arena, "compile_hankin");
 
-    uint16_t *he_to_midpoint_idx = temp_arena.allocate_n<uint16_t>(I);
-    std::fill_n(he_to_midpoint_idx, I, HE_NONE);
-    uint16_t *he_to_dynamic_idx = temp_arena.allocate_n<uint16_t>(I);
-    std::fill_n(he_to_dynamic_idx, I, HE_NONE);
+    uint16_t *he_to_midpoint_idx = temp_arena.allocate_n<uint16_t>(i_value);
+    std::fill_n(he_to_midpoint_idx, i_value, HE_NONE);
+    uint16_t *he_to_dynamic_idx = temp_arena.allocate_n<uint16_t>(i_value);
+    std::fill_n(he_to_dynamic_idx, i_value, HE_NONE);
 
     emit_edge_midpoints(he_mesh, mesh, compiled.static_vertices,
                         he_to_midpoint_idx, [](const HalfEdge &) {});
@@ -224,11 +224,11 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
     }
 
     // Rosette faces
-    bool *visited_verts = temp_arena.allocate_n<bool>(V);
-    std::fill_n(visited_verts, V, false);
+    bool *visited_verts = temp_arena.allocate_n<bool>(v);
+    std::fill_n(visited_verts, v, false);
 
     // Per-orbit scratch: two indices (midpoint, dynamic vertex) per orbit step.
-    uint16_t *face_indices = temp_arena.allocate_n<uint16_t>(2 * I);
+    uint16_t *face_indices = temp_arena.allocate_n<uint16_t>(2 * i_value);
 
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       uint16_t he_start_idx = static_cast<uint16_t>(i);
@@ -243,7 +243,7 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
 
       vertex_orbit<OrbitDir::PAIR_NEXT>(
           he_mesh, he_start_idx, [&](uint16_t curr_idx) {
-            HS_CHECK(count + 2 <= (int)(2 * I),
+            HS_CHECK(count + 2 <= (int)(2 * i_value),
                      "Hankin rosette winding overflow");
             face_indices[count++] = he_to_midpoint_idx[curr_idx];
             const uint16_t next_edge_idx =

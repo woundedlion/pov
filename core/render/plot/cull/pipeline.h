@@ -60,7 +60,7 @@ static inline bool edge_fits_one_dot(const math::Vector &a,
   constexpr float B2 = BASE * BASE;
   static_assert(B2 < 1.0f, "chord/angle bounds assume base_step < 1 rad");
   constexpr float KX2 = (W / (2.0f * math::PI_F)) * (W / (2.0f * math::PI_F));
-  const float KY2 = (math::ROWS_PER_RADIAN<H>)*(math::ROWS_PER_RADIAN<H>);
+  const float ky2 = (math::ROWS_PER_RADIAN<H>)*(math::ROWS_PER_RADIAN<H>);
   constexpr float SPX2 = SCREEN_STEP_PX * SCREEN_STEP_PX;
   // Preserve the fast-path implication under screen_rsqrt's <0.1% undershoot.
   constexpr float SCREEN_RSQRT_MIN2 = 0.999f * 0.999f;
@@ -81,7 +81,7 @@ static inline bool edge_fits_one_dot(const math::Vector &a,
   const float c = math::dot(a, b);
   const float cx = a.x * b.z - a.z * b.x;
   const float ty = b.y - c * a.y;
-  return F2 * (KX2 * cx * cx + KY2 * ty * ty * sin2) <=
+  return F2 * (KX2 * cx * cx + ky2 * ty * ty * sin2) <=
          SPX2 * SCREEN_RSQRT_MIN2 * sin2 * sin2;
 }
 HS_O3_END

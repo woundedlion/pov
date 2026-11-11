@@ -511,23 +511,23 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
   constexpr float TANGENT_GUARD2 = 1.0e-8f;
   constexpr float ROW_BOUNDARY_GUARD = 0.01f;
   const math::Vector c = math::cross(a, b);
-  const float L2 = math::dot(c, c);
+  const float l2 = math::dot(c, c);
   const float d = math::dot(a, b);
-  if (L2 <= END_GUARD2 || std::abs(d) >= 1.0f - END_GUARD2 * 0.5f)
+  if (l2 <= END_GUARD2 || std::abs(d) >= 1.0f - END_GUARD2 * 0.5f)
     return RawGeodesicGateResult::EXACT_FALLBACK;
 
   const float cy2 = c.y * c.y;
-  if (cy2 <= AXIS_GUARD2 * L2)
+  if (cy2 <= AXIS_GUARD2 * l2)
     return RawGeodesicGateResult::EXACT_FALLBACK;
 
   float row_lo = fminf(ra, rb);
   float row_hi = fmaxf(ra, rb);
   const float t0 = c.z * a.x - c.x * a.z;
   const float t1 = c.z * b.x - c.x * b.z;
-  if (t0 * t0 <= TANGENT_GUARD2 * L2 || t1 * t1 <= TANGENT_GUARD2 * L2)
+  if (t0 * t0 <= TANGENT_GUARD2 * l2 || t1 * t1 <= TANGENT_GUARD2 * l2)
     return RawGeodesicGateResult::EXACT_FALLBACK;
   if ((t0 > 0.0f) != (t1 > 0.0f)) {
-    const float peak = sqrtf(fmaxf(0.0f, (L2 - cy2) / L2));
+    const float peak = sqrtf(fmaxf(0.0f, (l2 - cy2) / l2));
     const float rp = y_to_screen_row<H>(t0 > 0.0f ? peak : -peak);
     row_lo = fminf(row_lo, rp);
     row_hi = fmaxf(row_hi, rp);
@@ -697,11 +697,11 @@ template <int W, int H>
 static inline float screen_step_components(float pos_y, float tan_y,
                                            float cross_y, float base_step) {
   const float KX = W / (2.0f * math::PI_F);  // columns per radian of longitude
-  const float KY = math::ROWS_PER_RADIAN<H>; // rows per radian of colatitude
+  const float ky = math::ROWS_PER_RADIAN<H>; // rows per radian of colatitude
   // Floored so the pole yields a finite speed.
   const float sin2 = fmaxf(1e-7f, 1.0f - pos_y * pos_y);
   const float vx_num = KX * cross_y;
-  const float vy_num = KY * tan_y;
+  const float vy_num = ky * tan_y;
   const float speed2_num =
       fmaxf(vx_num * vx_num + vy_num * vy_num * sin2, 1e-12f * sin2 * sin2);
   // Degenerate-speed floor: guards 1/speed when a zero/near-zero tangent stalls

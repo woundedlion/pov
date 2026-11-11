@@ -111,15 +111,15 @@ HS_FLASH_MEMBER inline void advance_ripple(RippleState &state,
   for (auto &wave : state.waves)
     wave.age = fminf(wave.age + 1.0f, RIPPLE_RETIRED_AGE);
   state.phase += params.burst_rate;
-  const bool FIRST = state.burst_count == 0;
-  if (!FIRST && state.phase < 1.0f)
+  const bool first = state.burst_count == 0;
+  if (!first && state.phase < 1.0f)
     return;
-  if (!FIRST)
+  if (!first)
     state.phase -= 1.0f;
-  const float AGE = FIRST ? 1.0f : state.phase / params.burst_rate;
+  const float age = first ? 1.0f : state.phase / params.burst_rate;
   for (uint8_t i = 0; i <= params.burst_size; ++i)
     state.waves[wave_slot(state.burst_count, i)] = {
-        AGE - RIPPLE_STAGGER_FRAMES * i, state.burst_count};
+        age - RIPPLE_STAGGER_FRAMES * i, state.burst_count};
   ++state.burst_count;
 }
 
@@ -133,11 +133,11 @@ HS_HOT_FLASH_MEMBER inline math::Vector ripple_center(uint32_t seed,
   hash = (hash ^ (hash >> 16)) * 0x7feb352dU;
   hash = (hash ^ (hash >> 15)) * 0x846ca68bU;
   hash ^= hash >> 16;
-  const float Y = 2.0f * static_cast<float>(hash & 0xffffU) / 65535.0f - 1.0f;
-  const float AZIMUTH =
+  const float y = 2.0f * static_cast<float>(hash & 0xffffU) / 65535.0f - 1.0f;
+  const float azimuth =
       static_cast<float>(hash >> 16) * (math::TWO_PI_F / 65536.0f);
-  const float RADIUS = sqrtf(fmaxf(0.0f, 1.0f - Y * Y));
-  return {RADIUS * cosf(AZIMUTH), Y, RADIUS * sinf(AZIMUTH)};
+  const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
+  return {radius * cosf(azimuth), y, radius * sinf(azimuth)};
 }
 
 /** @brief Net rotation and absolute travel along one radial ray. */
@@ -296,7 +296,7 @@ template <typename Params>
 HS_HOT_FLASH_MEMBER inline void
 prepare_radial_tables(const Params &params, const RippleState &state,
                       RadialTables &tables, bool immutable_view = false) {
-  const uint8_t CACHED_COUNT = tables.enabled ? tables.count : 0;
+  const uint8_t cached_count = tables.enabled ? tables.count : 0;
   tables.validity_ready = false;
   tables.count = 0;
   tables.enabled = params.strength >= RADIAL_STRENGTH.front() &&
@@ -316,7 +316,7 @@ prepare_radial_tables(const Params &params, const RippleState &state,
   auto &current_keys = *scratch_arena_a.make_default_initialized<
       std::array<RadialCurveKey, RIPPLE_BURST_GROUPS>>();
   for (uint32_t lag = RIPPLE_BURST_GROUPS; lag > 0; --lag) {
-    const uint32_t BURST = state.burst_count - lag;
+    const uint32_t burst = state.burst_count - lag;
     std::array<Surface::PreparedRipple, RIPPLE_WAVES_PER_BURST> previous;
     auto &current = current_waves[tables.count];
     RadialCurveKey previous_key{
@@ -325,19 +325,19 @@ prepare_radial_tables(const Params &params, const RippleState &state,
     current_key.shape = previous_key.shape;
     uint8_t previous_count = 0, current_count = 0;
     for (size_t i = 0; i < RIPPLE_WAVES_PER_BURST; ++i) {
-      const auto &wave = state.waves[wave_slot(BURST, i)];
-      if (wave.burst != BURST)
+      const auto &wave = state.waves[wave_slot(burst, i)];
+      if (wave.burst != burst)
         continue;
       if (wave.age >= 0.0f && wave.age < params.period) {
         current_key.ages[current_count] = wave.age;
         current[current_count++] = Surface::prepare_ripple(
             params, wave.age / params.period, math::Y_AXIS);
       }
-      const float PREVIOUS_AGE = wave.age - 1.0f;
-      if (PREVIOUS_AGE >= 0.0f && PREVIOUS_AGE < params.period) {
-        previous_key.ages[previous_count] = PREVIOUS_AGE;
+      const float previous_age = wave.age - 1.0f;
+      if (previous_age >= 0.0f && previous_age < params.period) {
+        previous_key.ages[previous_count] = previous_age;
         previous[previous_count++] = Surface::prepare_ripple(
-            params, PREVIOUS_AGE / params.period, math::Y_AXIS);
+            params, previous_age / params.period, math::Y_AXIS);
       }
     }
     if (!previous_count && !current_count)
@@ -361,12 +361,12 @@ prepare_radial_tables(const Params &params, const RippleState &state,
       continue;
     ++tables.count;
     group.center = params.random_center
-                       ? ripple_center(state.seed, BURST)
+                       ? ripple_center(state.seed, burst)
                        : Surface::prepare_ripple_center(params);
     previous_key.count = previous_count;
     current_key.count = current_count;
     bool reused = false;
-    for (uint8_t cached = 0; cached < CACHED_COUNT; ++cached)
+    for (uint8_t cached = 0; cached < cached_count; ++cached)
       if (previous_key.matches(tables.groups[cached].current_key)) {
         std::memcpy(group.previous.data(), tables.groups[cached].current.data(),
                     sizeof(group.previous));
@@ -375,15 +375,15 @@ prepare_radial_tables(const Params &params, const RippleState &state,
       }
     if (!reused)
       for (size_t i = 0; i < RadialGroup::SAMPLES; ++i) {
-        const float DISTANCE = math::PI_F * i / (RadialGroup::SAMPLES - 1);
-        group.previous[i] = radial_transfer(DISTANCE, previous, previous_count);
+        const float distance = math::PI_F * i / (RadialGroup::SAMPLES - 1);
+        group.previous[i] = radial_transfer(distance, previous, previous_count);
       }
   }
   for (uint8_t group_index = 0; group_index < tables.count; ++group_index) {
     auto &group = tables.groups[group_index];
     for (size_t i = 0; i < RadialGroup::SAMPLES; ++i) {
-      const float DISTANCE = math::PI_F * i / (RadialGroup::SAMPLES - 1);
-      group.current[i] = radial_transfer(DISTANCE, current_waves[group_index],
+      const float distance = math::PI_F * i / (RadialGroup::SAMPLES - 1);
+      group.current[i] = radial_transfer(distance, current_waves[group_index],
                                          current_keys[group_index].count);
     }
     group.current_key = current_keys[group_index];
@@ -409,15 +409,15 @@ HS_HOT_ITCM_MEMBER inline bool try_radial_ripples(const math::Vector &input,
     return false;
   for (uint8_t group_index = 0; group_index < tables->count; ++group_index) {
     const auto &group = tables->groups[group_index];
-    const math::Vector START = result.sphere;
-    const float DISTANCE_COS = math::dot(group.center, START);
-    if (DISTANCE_COS > group.cos_near || DISTANCE_COS < group.cos_far)
+    const math::Vector start = result.sphere;
+    const float distance_cos = math::dot(group.center, start);
+    if (distance_cos > group.cos_near || distance_cos < group.cos_far)
       continue;
-    const float DISTANCE =
-        math::fast_acos(hs::clamp(DISTANCE_COS, -1.0f, 1.0f));
+    const float distance =
+        math::fast_acos(hs::clamp(distance_cos, -1.0f, 1.0f));
     RadialTransfer transfer;
     if (!RippleKernel::sample_transfer(
-            group.previous, group.current, DISTANCE, fraction, track_path,
+            group.previous, group.current, distance, fraction, track_path,
             transfer,
             tables->validity_ready ? tables->valid_cells[group_index].data()
                                    : nullptr))
@@ -426,7 +426,7 @@ HS_HOT_ITCM_MEMBER inline bool try_radial_ripples(const math::Vector &input,
       result.path_length += transfer.path;
     if (transfer.angle == 0.0f)
       continue;
-    if (!RippleKernel::rotate_group(START, group.center, transfer.angle,
+    if (!RippleKernel::rotate_group(start, group.center, transfer.angle,
                                     result.sphere))
       return false;
   }
@@ -479,15 +479,15 @@ HS_HOT_FLASH_MEMBER inline PreparedRipples
 prepare_ripples(const Params &params, const RippleState &state) {
   PreparedRipples result;
   for (uint32_t lag = RIPPLE_BURST_GROUPS; lag > 0; --lag) {
-    const uint32_t BURST = state.burst_count - lag;
+    const uint32_t burst = state.burst_count - lag;
     math::Vector center;
     bool center_ready = false;
     for (size_t i = 0; i < RIPPLE_WAVES_PER_BURST; ++i) {
-      const auto &wave = state.waves[wave_slot(BURST, i)];
-      if (wave.age < 0.0f || wave.age >= params.period || wave.burst != BURST)
+      const auto &wave = state.waves[wave_slot(burst, i)];
+      if (wave.age < 0.0f || wave.age >= params.period || wave.burst != burst)
         continue;
       if (!center_ready) {
-        center = params.random_center ? ripple_center(state.seed, BURST)
+        center = params.random_center ? ripple_center(state.seed, burst)
                                       : Surface::prepare_ripple_center(params);
         center_ready = true;
       }

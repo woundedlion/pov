@@ -478,8 +478,8 @@ private:
   void drag(Node &leader, Node &follower) {
     int dest = math::wrap(follower.x + follower.v, W);
     if (math::shortest_distance(dest, leader.x, W) > (int)params.gap) {
-      const int D = math::wrap(leader.x - follower.x, W);
-      follower.v = (D <= W / 2) ? 1 : -1;
+      const int d = math::wrap(leader.x - follower.x, W);
+      follower.v = (d <= W / 2) ? 1 : -1;
       while (math::shortest_distance(follower.x, leader.x, W) >
              (int)params.gap) {
         move(follower);

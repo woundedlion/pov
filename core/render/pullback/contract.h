@@ -175,7 +175,7 @@ blend_color_samples_in_place(const ColorSample &a, ColorSample &b,
   if (fraction >= 1.0f)
     return;
   HS_AUDIT_CHECK(!a.has_cached_lab && !b.has_cached_lab);
-  const bool SAME_BASE = a.color.color == b.color.color &&
+  const bool same_base = a.color.color == b.color.color &&
                          a.hue_rotation == b.hue_rotation &&
                          a.hue_rotation_gamut == b.hue_rotation_gamut &&
                          a.palette_coordinate == b.palette_coordinate;
@@ -187,7 +187,7 @@ blend_color_samples_in_place(const ColorSample &a, ColorSample &b,
                                                   fraction, 1.0f);
   b.pending_lift = hs::lerp(a.pending_lift, b.pending_lift, fraction);
   b.brightness_gain = hs::lerp(a.brightness_gain, b.brightness_gain, fraction);
-  if (!SAME_BASE) {
+  if (!same_base) {
     b.hue_rotation = nullptr;
     b.hue_rotation_gamut = nullptr;
   }
@@ -233,14 +233,14 @@ finish_color_sample(const ColorSample &sample) {
                   color.alpha);
   if (sample.brightness_gain == 0.0f)
     return Color4(Pixel(0, 0, 0), color.alpha);
-  const bool GUARDED_HUE =
+  const bool guarded_hue =
       !sample.has_cached_lab && sample.pending_hue != 0.0f &&
       sample.hue_rotation && sample.hue_rotation_gamut &&
       sample.hue_rotation_gamut->requires_direct(
           HueRotationValueSample(sample.palette_coordinate).low,
           HueRotationHueSample(sample.pending_hue).low);
   if (sample.has_cached_lab || sample.pending_lift != 0.0f ||
-      (sample.pending_hue != 0.0f && (!sample.hue_rotation || GUARDED_HUE))) {
+      (sample.pending_hue != 0.0f && (!sample.hue_rotation || guarded_hue))) {
     OKLab lab = sample.cached_rgb
                     ? PaletteLabLut::sample(*sample.cached_rgb,
                                             sample.palette_coordinate)
@@ -1871,11 +1871,11 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
       if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction <= 1.0f) {
         using Palette = typename CurrentNode::Descriptor::ColorPolicy;
         using Instrumentation = typename Binding::Instrumentation;
-        const auto START = Instrumentation::mark();
+        const auto start = Instrumentation::mark();
         auto result = Palette::shade_fused_modulation(
             input, ctx, std::get<Index>(prepared),
             std::get<Index + 1>(prepared), ctx.temporal.fraction);
-        Instrumentation::template span<ProfileEvent::COLOR>(START);
+        Instrumentation::template span<ProfileEvent::COLOR>(start);
         return result;
       }
       return finish_color_sample(run_stage<Index>(input, ctx, prepared));
@@ -1983,9 +1983,9 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     if constexpr (std::is_same_v<typename CurrentNode::Output, ColorSample> &&
                   !std::is_same_v<Input, ColorSample> &&
                   requires { ctx.temporal.fraction; }) {
-      const float FRACTION = ctx.temporal.fraction;
+      const float fraction = ctx.temporal.fraction;
       if constexpr (shared_phase_base_supported<Index, Input>())
-        if (FRACTION > 0.0f && phase_tail_ready<Index + 1>(prepared)) {
+        if (fraction > 0.0f && phase_tail_ready<Index + 1>(prepared)) {
           ColorSample result;
           if (CurrentNode::run_shared_base(input, ctx,
                                            std::get<Index>(prepared), result)) {
@@ -1993,21 +1993,21 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
             return result;
           }
         }
-      if (FRACTION < 1.0f) {
+      if (fraction < 1.0f) {
         if constexpr (requires {
                         CurrentNode::run_pair(input, ctx,
                                               std::get<Index>(prepared));
                       }) {
-          if (FRACTION <= 0.0f)
+          if (fraction <= 0.0f)
             return finish(endpoint(true), true);
           if constexpr (fused_color_tail_supported<Index, Input>()) {
             using Palette = typename CurrentNode::Descriptor::ColorPolicy;
             using Instrumentation = typename Binding::Instrumentation;
-            const auto START = Instrumentation::mark();
+            const auto start = Instrumentation::mark();
             auto result = Palette::apply_fused_modulation(
                 input, ctx, std::get<Index>(prepared),
-                std::get<Index + 1>(prepared), FRACTION);
-            Instrumentation::template span<ProfileEvent::COLOR>(START);
+                std::get<Index + 1>(prepared), fraction);
+            Instrumentation::template span<ProfileEvent::COLOR>(start);
             return result;
           }
           if constexpr (requires { CurrentNode::PHASE_BLEND_BASE; }) {
@@ -2017,7 +2017,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
               if (phase_tail_ready<Index + 1>(prepared)) {
                 auto pair = CurrentNode::run_pair(input, ctx,
                                                   std::get<Index>(prepared));
-                blend_color_samples_in_place(pair.first, pair.second, FRACTION);
+                blend_color_samples_in_place(pair.first, pair.second, fraction);
                 run_phase_tail<Index + 1>(pair.second, ctx, prepared);
                 return pair.second;
               }
@@ -2028,15 +2028,15 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
             run_color_tail_pair<Index + 1>(pair.first, pair.second, ctx,
                                            prepared);
           }
-          blend_color_samples_in_place(pair.first, pair.second, FRACTION);
+          blend_color_samples_in_place(pair.first, pair.second, fraction);
           return pair.second;
         }
         const ColorSample A = finish(endpoint(true), true);
-        if (FRACTION <= 0.0f)
+        if (fraction <= 0.0f)
           return A;
         const auto output = endpoint(false);
         const ColorSample B = finish(output, false);
-        return blend_color_samples(A, B, FRACTION);
+        return blend_color_samples(A, B, fraction);
       }
     }
     return finish(endpoint(false), false);
@@ -2217,25 +2217,25 @@ public:
     using Policy = typename Projection::ProjectionPolicy;
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    const math::Vector LOCAL = sine * basis.equator + cosine * basis.up;
-    HS_AUDIT_CHECK(fabsf(math::dot(LOCAL, LOCAL) - 1.0f) <=
+    const math::Vector local = sine * basis.equator + cosine * basis.up;
+    HS_AUDIT_CHECK(fabsf(math::dot(local, local) - 1.0f) <=
                        DIRECTION_NORM_SQUARED_TOLERANCE,
                    "column projection requires a unit direction");
     ProjectionResult result;
     const auto &prepared =
         Prefix::ProjectionLeaf::prepared(std::get<1>(frame.prepared));
-    if constexpr (requires { Policy::project(LOCAL, frame.ctx, prepared); })
-      result = Policy::project(LOCAL, frame.ctx, prepared);
+    if constexpr (requires { Policy::project(local, frame.ctx, prepared); })
+      result = Policy::project(local, frame.ctx, prepared);
     else
-      result = Policy::project(LOCAL, frame.ctx);
-    const PlaneSample PLANE{result.coords, result.provenance, LOCAL, 0.0f};
+      result = Policy::project(local, frame.ctx);
+    const PlaneSample plane{result.coords, result.provenance, local, 0.0f};
     Instrumentation::template span<ProfileEvent::PROJECTION>(start);
     if constexpr (Core::has_fused_final_color() ||
                   Core::has_direct_final_color())
-      return Core::template shade_stage<2>(PLANE, frame.ctx, frame.prepared);
+      return Core::template shade_stage<2>(plane, frame.ctx, frame.prepared);
     else
       return finish_color_sample(
-          Core::template run_stage<2>(PLANE, frame.ctx, frame.prepared));
+          Core::template run_stage<2>(plane, frame.ctx, frame.prepared));
   }
 
   /** @brief Resolves every stage's prepared state from @p ctx.

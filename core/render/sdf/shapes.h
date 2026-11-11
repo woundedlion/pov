@@ -670,8 +670,8 @@ struct Line {
     float dist_seg = 0.0f;
     if (len > math::PI_F ||
         (math::dot(p, edge_a) >= 0.0f && math::dot(p, edge_b) >= 0.0f)) {
-      const float D_PLANE = math::dot(p, n);
-      dist_seg = asinf(fminf(fabsf(D_PLANE), 1.0f));
+      const float d_plane = math::dot(p, n);
+      dist_seg = asinf(fminf(fabsf(d_plane), 1.0f));
     } else {
       float d_a = math::angle_between(p, a);
       float d_b = math::angle_between(p, b);

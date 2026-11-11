@@ -256,15 +256,15 @@ public:
         "DirectAntiAliasSink: prepare current canvas before integer plotting");
     (void)age;
     (void)cv;
-    const int COLUMN = math::fast_wrap(x, W);
-    const bool VISIBLE = x_visible[COLUMN] && y_visible[y];
+    const int column = math::fast_wrap(x, W);
+    const bool visible = x_visible[column] && y_visible[y];
     HS_PLOT_RENDER_COUNT(integer_plots);
 #ifdef HS_PROFILE_PLOT_RENDER_COUNTS
-    ++hs::g_plot_render_counts.aa_tap_masks[VISIBLE ? 1 : 0];
+    ++hs::g_plot_render_counts.aa_tap_masks[visible ? 1 : 0];
 #endif
-    if (VISIBLE) {
+    if (visible) {
       HS_PLOT_STALL_START(blend_start);
-      blend_tap(base + y * W + COLUMN, c, frac_to_q16(alpha));
+      blend_tap(base + y * W + column, c, frac_to_q16(alpha));
       HS_PLOT_STALL_STOP(framebuffer_blend, blend_start);
     }
   }

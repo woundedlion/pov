@@ -102,15 +102,15 @@ HS_HOT_INLINE inline SphereLutSample prepare_sphere_lut_face(int face, float u,
                                                              float v) {
   constexpr float SCALE =
       0.5f * static_cast<float>(SphereLutView::FACE_STEPS - 1);
-  const float X = (u + 1.0f) * SCALE;
-  const float Y = (v + 1.0f) * SCALE;
-  const int X_LOW =
-      std::min(static_cast<int>(X), SphereLutView::FACE_STEPS - 2);
-  const int Y_LOW =
-      std::min(static_cast<int>(Y), SphereLutView::FACE_STEPS - 2);
-  return {face * SphereLutView::FACE_SIZE + Y_LOW * SphereLutView::FACE_STEPS +
-              X_LOW,
-          X - X_LOW, Y - Y_LOW};
+  const float x = (u + 1.0f) * SCALE;
+  const float y = (v + 1.0f) * SCALE;
+  const int x_low =
+      std::min(static_cast<int>(x), SphereLutView::FACE_STEPS - 2);
+  const int y_low =
+      std::min(static_cast<int>(y), SphereLutView::FACE_STEPS - 2);
+  return {face * SphereLutView::FACE_SIZE + y_low * SphereLutView::FACE_STEPS +
+              x_low,
+          x - x_low, y - y_low};
 }
 
 /**
@@ -213,13 +213,13 @@ prepare_sphere_lut(std::span<int8_t, SphereLutView::SIZE> output,
   for (int face = 0; face < SphereLutView::FACE_COUNT; ++face)
     for (int y = 0; y < SphereLutView::FACE_STEPS; ++y)
       for (int x = 0; x < SphereLutView::FACE_STEPS; ++x) {
-        const SphereDirection D =
+        const SphereDirection d =
             sphere_face_coordinate(face, sphere_face_grid_coordinate(x),
                                    sphere_face_grid_coordinate(y));
-        const float SAMPLE = bounded_scalar(Source::sample(D, prepared));
+        const float sample = bounded_scalar(Source::sample(d, prepared));
         output[face * SphereLutView::FACE_SIZE + y * SphereLutView::FACE_STEPS +
-               x] = static_cast<int8_t>(SAMPLE * 127.0f +
-                                        (SAMPLE < 0.0f ? -0.5f : 0.5f));
+               x] = static_cast<int8_t>(sample * 127.0f +
+                                        (sample < 0.0f ? -0.5f : 0.5f));
       }
 }
 /** @brief Baked sphere-field adapter for a typed source policy.

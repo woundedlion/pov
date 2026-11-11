@@ -102,10 +102,10 @@ inline float shortest_periodic_in_range(float a, float b, float progress,
 #pragma clang fp contract(off)
 #endif
   const float delta = shortest_periodic_delta(b - a, period);
-  const float VALUE = a + delta * progress;
-  if (VALUE >= minimum && VALUE <= minimum + period)
-    return VALUE;
-  return minimum + math::wrap_positive(VALUE - minimum, period);
+  const float value = a + delta * progress;
+  if (value >= minimum && value <= minimum + period)
+    return value;
+  return minimum + math::wrap_positive(value - minimum, period);
 }
 
 } // namespace detail

@@ -155,12 +155,12 @@ public:
   static size_t uncached_scratch_bytes(int ds) {
     HS_CHECK(ds > 0 && W % ds == 0,
              "feedback downsample %d must be > 0 and divide width %d", ds, W);
-    const int COLUMNS = W / ds;
-    const SphereField FIELD = field_for(ds);
-    const int RINGS = FIELD.ring_count();
-    const PolarRings POLAR = polar_rings(FIELD, RINGS);
-    return (2 * RINGS * COLUMNS + 2 * FIELD.sample_count()) * sizeof(int16_t) +
-           (POLAR.rows() * COLUMNS + POLAR.samples) * sizeof(CapOffset) +
+    const int columns = W / ds;
+    const SphereField field = field_for(ds);
+    const int rings = field.ring_count();
+    const PolarRings polar = polar_rings(field, rings);
+    return (2 * rings * columns + 2 * field.sample_count()) * sizeof(int16_t) +
+           (polar.rows() * columns + polar.samples) * sizeof(CapOffset) +
            ((ds > 1 || !SphereField::HAS_NORTH_POLE ||
              !SphereField::HAS_SOUTH_POLE)
                 ? W * sizeof(::Pixel)

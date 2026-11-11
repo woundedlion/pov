@@ -132,7 +132,7 @@ struct MobiusGenerator {
  * @return Determinant-one transform, subject to float rounding. */
 HS_FLASH_MEMBER inline MobiusParams mobius_exp(const MobiusGenerator &generator,
                                                float t = 1.0f) {
-  const Complex T(t, 0.0f);
+  const Complex t_value(t, 0.0f);
   const Complex square =
       (generator.alpha * generator.alpha + generator.beta * generator.gamma) *
       Complex(t * t, 0.0f);
@@ -141,18 +141,19 @@ HS_FLASH_MEMBER inline MobiusParams mobius_exp(const MobiusGenerator &generator,
     const Complex fourth = square * square;
     cosine = Complex(1.0f, 0.0f) + square * Complex(0.5f, 0.0f) +
              fourth * Complex(1.0f / 24.0f, 0.0f);
-    factor = T * (Complex(1.0f, 0.0f) + square * Complex(1.0f / 6.0f, 0.0f) +
-                  fourth * Complex(1.0f / 120.0f, 0.0f));
+    factor =
+        t_value * (Complex(1.0f, 0.0f) + square * Complex(1.0f / 6.0f, 0.0f) +
+                   fourth * Complex(1.0f / 120.0f, 0.0f));
   } else {
     const Complex delta = csqrt(square);
     const float exponential = expf(delta.re);
     const float inverse = 1.0f / exponential;
-    const float SIN_IM = sinf(delta.im), COS_IM = cosf(delta.im);
-    cosine = Complex(0.5f * (exponential + inverse) * COS_IM,
-                     0.5f * (exponential - inverse) * SIN_IM);
-    const Complex hyperbolic(0.5f * (exponential - inverse) * COS_IM,
-                             0.5f * (exponential + inverse) * SIN_IM);
-    factor = T * (hyperbolic / delta);
+    const float sin_im = sinf(delta.im), cos_im = cosf(delta.im);
+    cosine = Complex(0.5f * (exponential + inverse) * cos_im,
+                     0.5f * (exponential - inverse) * sin_im);
+    const Complex hyperbolic(0.5f * (exponential - inverse) * cos_im,
+                             0.5f * (exponential + inverse) * sin_im);
+    factor = t_value * (hyperbolic / delta);
   }
   const Complex diagonal = factor * generator.alpha;
   return {cosine + diagonal, factor * generator.beta, factor * generator.gamma,

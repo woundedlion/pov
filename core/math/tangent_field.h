@@ -68,11 +68,11 @@ struct ConformalGenerator {
  * @return Equivalent sphere generator. */
 inline ConformalGenerator
 from_mobius_generator(const MobiusGenerator &generator) {
-  const Complex B = generator.beta + generator.gamma.conjugate();
-  const Complex W =
+  const Complex b = generator.beta + generator.gamma.conjugate();
+  const Complex w =
       Complex(0.0f, 1.0f) * (generator.beta - generator.gamma.conjugate());
-  return {{W.re, -2.0f * generator.alpha.im, W.im},
-          {B.re, 2.0f * generator.alpha.re, B.im}};
+  return {{w.re, -2.0f * generator.alpha.im, w.im},
+          {b.re, 2.0f * generator.alpha.re, b.im}};
 }
 
 /** @brief Scalar polynomial family. */

@@ -573,11 +573,11 @@ step_random_walk(math::Vector &position, math::Vector &direction,
   // fall back to a deterministic perpendicular of position.
   const math::Vector walk_axis = math::normalized_or(
       math::cross(position, direction), math::perpendicular_axis(position));
-  const math::Quaternion WALK_Q =
+  const math::Quaternion walk_q =
       Detail::make_stable_rotation(walk_axis, options.speed);
-  position = math::rotate(position, WALK_Q).normalized();
-  direction = math::rotate(direction, WALK_Q).normalized();
-  return {walk_axis, WALK_Q};
+  position = math::rotate(position, walk_q).normalized();
+  direction = math::rotate(direction, walk_q).normalized();
+  return {walk_axis, walk_q};
 }
 
 /**

@@ -1027,9 +1027,9 @@ public:
       }
     }
 
-    const float rings[] = {4.5f, 9.5f, 15.5f};
-    for (size_t i = 0; i < sizeof(rings) / sizeof(float); ++i) {
-      float y = rings[i];
+    const float RINGS[] = {4.5f, 9.5f, 15.5f};
+    for (size_t i = 0; i < sizeof(RINGS) / sizeof(float); ++i) {
+      float y = RINGS[i];
       for (float x = 0; x < W; ++x) {
         Point p(x, y);
         int dir = 1;

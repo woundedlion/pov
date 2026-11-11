@@ -758,18 +758,18 @@ bool horizontal_intervals_vary_by_row(int y_lo, int y_hi) const {
   const float wide_pad = std::max(pad_lo, pad_hi);
   const float EQUATOR_ROW =
       math::DisplayGeometry<H>::phi_to_row(math::PI_F * 0.5f);
-  const int EQUATOR_LO = static_cast<int>(floorf(EQUATOR_ROW));
-  const int EQUATOR_HI = static_cast<int>(ceilf(EQUATOR_ROW));
-  if (y_lo <= EQUATOR_LO && EQUATOR_LO <= y_hi)
-    narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(EQUATOR_LO));
-  if (y_lo <= EQUATOR_HI && EQUATOR_HI <= y_hi)
-    narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(EQUATOR_HI));
-  const float column_scale = W / math::TWO_PI_F;
+  const int equator_lo = static_cast<int>(floorf(EQUATOR_ROW));
+  const int equator_hi = static_cast<int>(ceilf(EQUATOR_ROW));
+  if (y_lo <= equator_lo && equator_lo <= y_hi)
+    narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(equator_lo));
+  if (y_lo <= equator_hi && equator_hi <= y_hi)
+    narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(equator_hi));
+  const float COLUMN_SCALE = W / math::TWO_PI_F;
   for (const auto &iv : intervals) {
-    if (floorf((iv.start - narrow_pad) * column_scale) !=
-            floorf((iv.start - wide_pad) * column_scale) ||
-        ceilf((iv.end + narrow_pad) * column_scale) !=
-            ceilf((iv.end + wide_pad) * column_scale))
+    if (floorf((iv.start - narrow_pad) * COLUMN_SCALE) !=
+            floorf((iv.start - wide_pad) * COLUMN_SCALE) ||
+        ceilf((iv.end + narrow_pad) * COLUMN_SCALE) !=
+            ceilf((iv.end + wide_pad) * COLUMN_SCALE))
       return true;
   }
   return false;
@@ -791,12 +791,12 @@ bool horizontal_intervals_equal_rows(int first_y, int second_y) const {
   const float second_pad = azimuth_pad_at_row<W, H>(second_y);
   if (first_pad == math::PI_F || second_pad == math::PI_F)
     return first_pad == second_pad;
-  const float column_scale = W / math::TWO_PI_F;
+  const float COLUMN_SCALE = W / math::TWO_PI_F;
   for (const auto &iv : intervals) {
-    if (floorf((iv.start - first_pad) * column_scale) !=
-            floorf((iv.start - second_pad) * column_scale) ||
-        ceilf((iv.end + first_pad) * column_scale) !=
-            ceilf((iv.end + second_pad) * column_scale))
+    if (floorf((iv.start - first_pad) * COLUMN_SCALE) !=
+            floorf((iv.start - second_pad) * COLUMN_SCALE) ||
+        ceilf((iv.end + first_pad) * COLUMN_SCALE) !=
+            ceilf((iv.end + second_pad) * COLUMN_SCALE))
       return false;
   }
   return true;
@@ -829,10 +829,10 @@ bool get_horizontal_intervals(int y, OutputIt out) const {
   const float pad = azimuth_pad_at_row<W, H>(y);
   if (pad == math::PI_F)
     return false;
-  const float column_scale = W / math::TWO_PI_F;
+  const float COLUMN_SCALE = W / math::TWO_PI_F;
   for (const auto &iv : intervals) {
-    float f_x1 = (iv.start - pad) * column_scale;
-    float f_x2 = (iv.end + pad) * column_scale;
+    float f_x1 = (iv.start - pad) * COLUMN_SCALE;
+    float f_x2 = (iv.end + pad) * COLUMN_SCALE;
     out(floorf(f_x1), ceilf(f_x2));
   }
   return true;

@@ -127,14 +127,14 @@ public:
     const SplatTaps t = splat_taps<W, H>(x, y);
     if (column != t.x0 && column != t.x1)
       return;
-    const float TOP = column == t.x0 ? t.v00 : t.v10;
-    const float BOTTOM = column == t.x0 ? t.v01 : t.v11;
-    if (t.y0_physical && TOP > SPLAT_TAP_CUTOFF)
+    const float top = column == t.x0 ? t.v00 : t.v10;
+    const float bottom = column == t.x0 ? t.v01 : t.v11;
+    if (t.y0_physical && top > SPLAT_TAP_CUTOFF)
       pass(static_cast<float>(column), static_cast<float>(t.y0), c, age,
-           alpha * TOP);
-    if (t.y1_physical && BOTTOM > SPLAT_TAP_CUTOFF)
+           alpha * top);
+    if (t.y1_physical && bottom > SPLAT_TAP_CUTOFF)
       pass(static_cast<float>(column), static_cast<float>(t.y1), c, age,
-           alpha * BOTTOM);
+           alpha * bottom);
   }
 
   /** @brief column_taps() out of line.

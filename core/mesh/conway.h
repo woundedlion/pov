@@ -422,13 +422,13 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
  */
 HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
+  size_t v = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i_value = mesh.get_faces_size();
 
-  out_mesh.vertices.bind(target, F);
-  out_mesh.face_counts.bind(target, V);
-  out_mesh.faces.bind(target, I);
+  out_mesh.vertices.bind(target, f);
+  out_mesh.face_counts.bind(target, v);
+  out_mesh.faces.bind(target, i_value);
 
   {
     ScratchScope temp_guard(temp);
@@ -440,13 +440,14 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
     for (size_t i = 0; i < he_mesh.faces.size(); ++i)
       out_mesh.vertices.push_back(dual_vertex(he_mesh, mesh, i));
 
-    bool *visited_verts = target.allocate_n<bool>(V);
+    bool *visited_verts = target.allocate_n<bool>(v);
 
     // Per-orbit scratch buffer sized to the absolute upper bound on valence.
-    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
+    uint16_t *orbit_buf = target.allocate_n<uint16_t>(i_value);
 
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
-        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, Winding::NATURAL,
+        he_mesh, out_mesh, visited_verts, orbit_buf, v, i_value,
+        Winding::NATURAL,
         [&](uint16_t idx) { return he_mesh.half_edges[idx].face; });
   }
   normalize(out_mesh);
@@ -464,27 +465,27 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
 HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
                             [[maybe_unused]] Arena &temp) {
   PolyMesh out_mesh;
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
+  size_t v = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i_value = mesh.get_faces_size();
   const auto *face_counts = mesh.get_face_counts_data();
   const auto *faces = mesh.get_faces_data();
 
-  require_flat_face_length(face_counts, F, I);
+  require_flat_face_length(face_counts, f, i_value);
 
-  out_mesh.vertices.bind(target, V + F);
-  out_mesh.face_counts.bind(target, I);
-  out_mesh.faces.bind(target, 3 * I);
+  out_mesh.vertices.bind(target, v + f);
+  out_mesh.face_counts.bind(target, i_value);
+  out_mesh.faces.bind(target, 3 * i_value);
 
-  for (size_t i = 0; i < V; ++i)
+  for (size_t i = 0; i < v; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
 
   size_t offset = 0;
-  for (size_t fi = 0; fi < F; ++fi) {
+  for (size_t fi = 0; fi < f; ++fi) {
     int count = face_counts[fi];
     HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)");
     for (int k = 0; k < count; ++k) {
-      HS_CHECK(static_cast<size_t>(faces[offset + k]) < V,
+      HS_CHECK(static_cast<size_t>(faces[offset + k]) < v,
                "kis: face vertex index out of range");
     }
     const math::Vector centroid =
@@ -527,14 +528,14 @@ HS_COLD static PolyMesh
 ambo_impl(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
           Arena &temp, const char *op, EdgeFn &&on_edge) {
   PolyMesh out_mesh;
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
-  size_t E = I / 2;
+  size_t v = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i = mesh.get_faces_size();
+  size_t e = i / 2;
 
-  out_mesh.vertices.bind(target, E);
-  out_mesh.face_counts.bind(target, F + V);
-  out_mesh.faces.bind(target, 2 * I);
+  out_mesh.vertices.bind(target, e);
+  out_mesh.face_counts.bind(target, f + v);
+  out_mesh.faces.bind(target, 2 * i);
 
   {
     ScratchScope temp_guard(temp);
@@ -542,12 +543,12 @@ ambo_impl(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
 
     require_closed_manifold(he_mesh, temp, op);
 
-    uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
-    std::fill_n(edge_to_vert, I, HE_NONE);
+    uint16_t *edge_to_vert = target.allocate_n<uint16_t>(i);
+    std::fill_n(edge_to_vert, i, HE_NONE);
 
-    bool *visited_verts = target.allocate_n<bool>(V);
+    bool *visited_verts = target.allocate_n<bool>(v);
 
-    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
+    uint16_t *orbit_buf = target.allocate_n<uint16_t>(i);
 
     emit_edge_midpoints(he_mesh, mesh, out_mesh.vertices, edge_to_vert,
                         on_edge);
@@ -557,7 +558,7 @@ ambo_impl(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
     });
 
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
-        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, Winding::NATURAL,
+        he_mesh, out_mesh, visited_verts, orbit_buf, v, i, Winding::NATURAL,
         [&](uint16_t idx) { return edge_to_vert[idx]; });
   }
   normalize(out_mesh);
@@ -709,14 +710,14 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
                                       Arena &target, Arena &temp, float t) {
   HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
   PolyMesh out_mesh;
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
-  size_t E = I / 2;
+  size_t v = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i_value = mesh.get_faces_size();
+  size_t e = i_value / 2;
 
-  out_mesh.vertices.bind(target, 2 * E);
-  out_mesh.face_counts.bind(target, F + V);
-  out_mesh.faces.bind(target, 3 * I);
+  out_mesh.vertices.bind(target, 2 * e);
+  out_mesh.face_counts.bind(target, f + v);
+  out_mesh.faces.bind(target, 3 * i_value);
 
   {
     ScratchScope temp_guard(temp);
@@ -725,12 +726,13 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
     require_closed_manifold(he_mesh, temp, "truncate");
 
     // Per-edge cut-vertex pair; unset = {HE_NONE, HE_NONE}.
-    TruncateEdgeCuts *edge_to_vert = target.allocate_n<TruncateEdgeCuts>(I);
-    std::fill_n(edge_to_vert, I, TruncateEdgeCuts{HE_NONE, HE_NONE});
+    TruncateEdgeCuts *edge_to_vert =
+        target.allocate_n<TruncateEdgeCuts>(i_value);
+    std::fill_n(edge_to_vert, i_value, TruncateEdgeCuts{HE_NONE, HE_NONE});
 
-    bool *visited_verts = target.allocate_n<bool>(V);
+    bool *visited_verts = target.allocate_n<bool>(v);
 
-    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
+    uint16_t *orbit_buf = target.allocate_n<uint16_t>(i_value);
 
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       if (edge_to_vert[i].k1_side == HE_NONE) {
@@ -766,8 +768,8 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
     });
 
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
-        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, Winding::NATURAL,
-        [&](uint16_t idx) {
+        he_mesh, out_mesh, visited_verts, orbit_buf, v, i_value,
+        Winding::NATURAL, [&](uint16_t idx) {
           return truncate_oriented_cut(he_mesh, edge_to_vert, idx).tail_side;
         });
   }
@@ -841,21 +843,21 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
                                     Arena &temp, float t) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
   PolyMesh out_mesh;
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
-  size_t E = I / 2;
+  size_t v_value = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i = mesh.get_faces_size();
+  size_t e = i / 2;
 
-  out_mesh.vertices.bind(target, I);
-  out_mesh.face_counts.bind(target, F + V + E);
-  out_mesh.faces.bind(target, 4 * I);
+  out_mesh.vertices.bind(target, i);
+  out_mesh.face_counts.bind(target, f + v_value + e);
+  out_mesh.faces.bind(target, 4 * i);
 
   {
     ScratchScope temp_guard(temp);
     require_closed_manifold(he_mesh, temp, "expand");
 
     emit_expanded_shell(
-        mesh, he_mesh, out_mesh, target, V, I,
+        mesh, he_mesh, out_mesh, target, v_value, i,
         [&](size_t, const math::Vector &centroid) {
           return [&mesh, &he_mesh, centroid, t](uint16_t he_idx) {
             // Corner map keyed on the half-edge head.
@@ -928,23 +930,23 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
                                      Arena &temp, float t) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
   PolyMesh out_mesh;
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
-  size_t E = I / 2;
+  size_t v_value = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i_value = mesh.get_faces_size();
+  size_t e = i_value / 2;
 
-  out_mesh.vertices.bind(target, V + 2 * E);
-  out_mesh.face_counts.bind(target, F + E);
-  out_mesh.faces.bind(target, I + 6 * E);
+  out_mesh.vertices.bind(target, v_value + 2 * e);
+  out_mesh.face_counts.bind(target, f + e);
+  out_mesh.faces.bind(target, i_value + 6 * e);
 
   {
     ScratchScope temp_guard(temp);
     require_closed_manifold(he_mesh, temp, "chamfer");
 
-    uint16_t *he_to_new_v = temp.allocate_n<uint16_t>(I);
-    std::fill_n(he_to_new_v, I, HE_NONE);
+    uint16_t *he_to_new_v = temp.allocate_n<uint16_t>(i_value);
+    std::fill_n(he_to_new_v, i_value, HE_NONE);
 
-    for (size_t i = 0; i < V; ++i) {
+    for (size_t i = 0; i < v_value; ++i) {
       out_mesh.vertices.push_back(mesh.vertices[i]);
     }
 
@@ -964,20 +966,20 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
           [&](uint16_t he_idx, uint16_t idx) { he_to_new_v[he_idx] = idx; });
     }
 
-    bool *visited_edges = temp.allocate_n<bool>(I);
+    bool *visited_edges = temp.allocate_n<bool>(i_value);
 
-    for_each_edge(he_mesh, visited_edges, I,
+    for_each_edge(he_mesh, visited_edges, i_value,
                   [&](uint16_t he_idx, const HalfEdge &he) {
                     out_mesh.face_counts.push_back(6);
 
-                    uint16_t A = he_mesh.half_edges[he.prev].vertex;
-                    uint16_t B = he.vertex;
+                    uint16_t a = he_mesh.half_edges[he.prev].vertex;
+                    uint16_t b = he.vertex;
 
-                    out_mesh.faces.push_back(A);
+                    out_mesh.faces.push_back(a);
                     out_mesh.faces.push_back(
                         he_to_new_v[he_mesh.half_edges[he.pair].next]);
                     out_mesh.faces.push_back(he_to_new_v[he.pair]);
-                    out_mesh.faces.push_back(B);
+                    out_mesh.faces.push_back(b);
                     out_mesh.faces.push_back(he_to_new_v[he.next]);
                     out_mesh.faces.push_back(he_to_new_v[he_idx]);
                   });
@@ -1055,41 +1057,41 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
                               int iterations = RELAX_DEFAULT_ITERATIONS) {
   HS_CHECK(iterations >= 0, "relax: negative iteration count");
   PolyMesh out_mesh;
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
+  size_t v_value = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i_value = mesh.get_faces_size();
   const auto *face_counts = mesh.get_face_counts_data();
   const auto *faces = mesh.get_faces_data();
 
-  require_flat_face_length(face_counts, F, I);
+  require_flat_face_length(face_counts, f, i_value);
 
-  out_mesh.vertices.bind(target, V);
-  out_mesh.face_counts.bind(target, F);
-  out_mesh.faces.bind(target, I);
+  out_mesh.vertices.bind(target, v_value);
+  out_mesh.face_counts.bind(target, f);
+  out_mesh.faces.bind(target, i_value);
 
-  for (size_t i = 0; i < V; ++i)
+  for (size_t i = 0; i < v_value; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
-  for (size_t i = 0; i < F; ++i) {
+  for (size_t i = 0; i < f; ++i) {
     HS_CHECK(face_counts[i] >= 3, "relax: degenerate face (< 3 sides)");
     out_mesh.face_counts.push_back(face_counts[i]);
   }
-  for (size_t i = 0; i < I; ++i)
+  for (size_t i = 0; i < i_value; ++i)
     out_mesh.faces.push_back(faces[i]);
 
   if (iterations > 0) {
     ScratchScope temp_guard(temp);
 
     ArenaVector<math::Vector> movements;
-    movements.bind(temp, V);
-    for (size_t i = 0; i < V; ++i)
+    movements.bind(temp, v_value);
+    for (size_t i = 0; i < v_value; ++i)
       movements.push_back(math::Vector(0, 0, 0));
 
     HalfEdgeMesh he_mesh(temp, out_mesh);
 
     // Per-vertex orbit start: the pair of a paired incoming half-edge.
     ArenaVector<uint16_t> orbit_start;
-    orbit_start.bind(temp, V);
-    for (size_t i = 0; i < V; ++i)
+    orbit_start.bind(temp, v_value);
+    for (size_t i = 0; i < v_value; ++i)
       orbit_start.push_back(HE_NONE);
     for (size_t e = 0; e < he_mesh.half_edges.size(); ++e) {
       const HalfEdge &he = he_mesh.half_edges[e];
@@ -1120,7 +1122,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         break;
       float target_len = total_len / edge_count;
 
-      for (size_t i = 0; i < V; ++i) {
+      for (size_t i = 0; i < v_value; ++i) {
         math::Vector force(0, 0, 0);
 
         // Outgoing edge; HE_NONE when no incoming half-edge is paired.
@@ -1145,7 +1147,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       }
 
       float max_move_sq = 0.0f;
-      for (size_t i = 0; i < V; ++i) {
+      for (size_t i = 0; i < v_value; ++i) {
         max_move_sq =
             std::max(max_move_sq, math::dot(movements[i], movements[i]));
         out_mesh.vertices[i] =
@@ -1173,23 +1175,23 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
  */
 [[maybe_unused]] HS_COLD static PolyMesh
 relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
-  const size_t V = mesh.vertices.size();
-  const size_t F = mesh.get_face_counts_size();
-  const size_t I = mesh.get_faces_size();
-  HS_CHECK(V == bake.vertex_count && F == bake.face_count &&
-               I == bake.index_count,
+  const size_t v = mesh.vertices.size();
+  const size_t f = mesh.get_face_counts_size();
+  const size_t i_value = mesh.get_faces_size();
+  HS_CHECK(v == bake.vertex_count && f == bake.face_count &&
+               i_value == bake.index_count,
            "relax_baked: source dimensions differ");
   HS_CHECK(relax_topology_hash(mesh) == bake.topology_hash,
            "relax_baked: source topology differs");
   check_relax_bake_source(mesh, bake);
 
   PolyMesh out_mesh;
-  out_mesh.vertices.bind(target, V);
-  out_mesh.face_counts.bind(target, F);
-  out_mesh.faces.bind(target, I);
+  out_mesh.vertices.bind(target, v);
+  out_mesh.face_counts.bind(target, f);
+  out_mesh.faces.bind(target, i_value);
 
   uint32_t output_hash = FNV1A_BASIS;
-  for (size_t i = 0; i < V; ++i) {
+  for (size_t i = 0; i < v; ++i) {
     const uint32_t x = bake.vertex_bits[3 * i];
     const uint32_t y = bake.vertex_bits[3 * i + 1];
     const uint32_t z = bake.vertex_bits[3 * i + 2];
@@ -1201,11 +1203,11 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
   HS_CHECK(output_hash == bake.output_hash, "relax_baked: output hash differs");
 
   const auto *face_counts = mesh.get_face_counts_data();
-  for (size_t i = 0; i < F; ++i) {
+  for (size_t i = 0; i < f; ++i) {
     HS_CHECK(face_counts[i] >= 3, "relax_baked: degenerate face");
     out_mesh.face_counts.push_back(face_counts[i]);
   }
-  for (size_t i = 0; i < I; ++i)
+  for (size_t i = 0; i < i_value; ++i)
     out_mesh.faces.push_back(mesh.get_faces_data()[i]);
   return out_mesh;
 }
@@ -1228,21 +1230,21 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
                                   Arena &temp, float t, float twist) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
   PolyMesh out_mesh;
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
-  size_t E = I / 2;
+  size_t v_value = mesh.vertices.size();
+  size_t f = mesh.get_face_counts_size();
+  size_t i = mesh.get_faces_size();
+  size_t e = i / 2;
 
-  out_mesh.vertices.bind(target, I);
-  out_mesh.face_counts.bind(target, F + V + 2 * E);
-  out_mesh.faces.bind(target, 5 * I);
+  out_mesh.vertices.bind(target, i);
+  out_mesh.face_counts.bind(target, f + v_value + 2 * e);
+  out_mesh.faces.bind(target, 5 * i);
 
   {
     ScratchScope temp_guard(temp);
     require_closed_manifold(he_mesh, temp, "snub");
 
     emit_expanded_shell(
-        mesh, he_mesh, out_mesh, temp, V, I,
+        mesh, he_mesh, out_mesh, temp, v_value, i,
         [&](size_t fi, const math::Vector &centroid) {
           math::Vector normal_raw = face_normal(he_mesh, mesh, fi);
           math::Vector normal(0, 0, 0);
@@ -1443,27 +1445,27 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
   HS_CHECK(&out != &identity && &out != &authored,
            "reconcile_vertices: output must not alias either input");
   out = PolyMesh();
-  const size_t V = identity.vertices.size();
-  HS_CHECK(authored.vertices.size() == V,
+  const size_t v = identity.vertices.size();
+  HS_CHECK(authored.vertices.size() == v,
            "reconcile_vertices: endpoints differ in vertex count");
-  HS_CHECK(V <= UINT16_MAX,
+  HS_CHECK(v <= UINT16_MAX,
            "reconcile_vertices: endpoint exceeds index capacity");
-  HS_CHECK(V > 0, "reconcile_vertices: endpoint pair has no vertices");
+  HS_CHECK(v > 0, "reconcile_vertices: endpoint pair has no vertices");
   ScratchScope guard(scratch);
-  bool *used = scratch.allocate_n<bool>(V);
-  std::fill_n(used, V, false);
-  uint16_t *by_z = scratch.allocate_n<uint16_t>(V);
-  for (size_t j = 0; j < V; ++j)
+  bool *used = scratch.allocate_n<bool>(v);
+  std::fill_n(used, v, false);
+  uint16_t *by_z = scratch.allocate_n<uint16_t>(v);
+  for (size_t j = 0; j < v; ++j)
     by_z[j] = static_cast<uint16_t>(j);
-  std::sort(by_z, by_z + V, [&](uint16_t a, uint16_t b) {
+  std::sort(by_z, by_z + v, [&](uint16_t a, uint16_t b) {
     const float za = authored.vertices[a].z;
     const float zb = authored.vertices[b].z;
     return za < zb || (za == zb && a < b);
   });
 
   constexpr float RECONCILE_Z_BANDS[] = {0.04f, 0.08f, 0.10f};
-  out.vertices.bind(target, V);
-  for (size_t i = 0; i < V; ++i) {
+  out.vertices.bind(target, v);
+  for (size_t i = 0; i < v; ++i) {
     int best;
     float best_distance_sq;
     const float z = identity.vertices[i].z;
@@ -1472,11 +1474,11 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
       best = -1;
       best_distance_sq = 5.0f;
       const auto first = std::lower_bound(
-          by_z, by_z + V, z - z_band, [&](uint16_t j, float bound) {
+          by_z, by_z + v, z - z_band, [&](uint16_t j, float bound) {
             return authored.vertices[j].z < bound;
           });
       const auto last = std::upper_bound(
-          first, by_z + V, z + z_band, [&](float bound, uint16_t j) {
+          first, by_z + v, z + z_band, [&](float bound, uint16_t j) {
             return bound < authored.vertices[j].z;
           });
       for (const uint16_t *candidate = first; candidate != last; ++candidate) {

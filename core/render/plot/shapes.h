@@ -689,11 +689,11 @@ struct Ring {
       const size_t endpoint = time == 1.0f;
       return ring_vertex<W>(basis, cos_polar[endpoint], sin_polar[endpoint], i);
     };
-    const float START_RADIUS = growth(start_age);
+    const float start_radius = growth(start_age);
     GeometryCallback geometry{vertex,
-                              bound(float(age) - start_age, START_RADIUS)};
+                              bound(float(age) - start_age, start_radius)};
     draw_timed<W, H>(pipeline, canvas, basis, radius, fragment, geometry,
-                     START_RADIUS);
+                     start_radius);
   }
 
   /**
@@ -773,7 +773,7 @@ struct Ring {
     const float r_val = frame.sin_theta;
     const float d_val = frame.cos_theta;
 
-    const float step = 2.0f * math::PI_F / W;
+    const float STEP = 2.0f * math::PI_F / W;
     const int stride = ring_lut_stride<W>(r_val);
 
     if (!math::TrigLUT<W, H>::initialized)
@@ -788,7 +788,7 @@ struct Ring {
       HS_PLOT_COUNT(normalizations);
       f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
       f.v0 = static_cast<float>(i) / W;
-      f.v1 = (i * step) * r_val;
+      f.v1 = (i * STEP) * r_val;
       f.v2 = static_cast<float>(i);
       f.age = 0;
 
@@ -1052,8 +1052,8 @@ struct DistortedRing {
     const float r_val = frame.sin_theta;
     const float d_val = frame.cos_theta;
 
-    const int num_samples = W;
-    const float step = 2.0f * math::PI_F / num_samples;
+    const int NUM_SAMPLES = W;
+    const float STEP = 2.0f * math::PI_F / NUM_SAMPLES;
 
     // Precompute phase for angle-addition: cos/sin(θ+φ) via TrigLUT
     if (!math::TrigLUT<W, H>::initialized)
@@ -1061,8 +1061,8 @@ struct DistortedRing {
     const float cos_phase = cosf(phase);
     const float sin_phase = sinf(phase);
 
-    sample_closed_ring(points, num_samples, [&](int i) {
-      float theta = i * step;
+    sample_closed_ring(points, NUM_SAMPLES, [&](int i) {
+      float theta = i * STEP;
       math::Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
 
       float shift = shift_fn(theta / (2.0f * math::PI_F));
@@ -1360,13 +1360,13 @@ public:
   {
 #if HS_ENABLE_STRUCTURAL_AUDITS
     math::Basis chart_storage;
-    const math::Basis &EXPECTED_CHART =
+    const math::Basis &expected_chart =
         *Projection::edge_basis(basis, radius, chart_storage);
-    const bool CHART_MATCHES =
-        (edge_chart.u - EXPECTED_CHART.u).magnitude() < 1e-6f &&
-        (edge_chart.v - EXPECTED_CHART.v).magnitude() < 1e-6f &&
-        (edge_chart.w - EXPECTED_CHART.w).magnitude() < 1e-6f;
-    HS_CHECK(CHART_MATCHES, "Star: edge chart does not match inputs");
+    const bool chart_matches =
+        (edge_chart.u - expected_chart.u).magnitude() < 1e-6f &&
+        (edge_chart.v - expected_chart.v).magnitude() < 1e-6f &&
+        (edge_chart.w - expected_chart.w).magnitude() < 1e-6f;
+    HS_CHECK(chart_matches, "Star: edge chart does not match inputs");
 #endif
     sample_positions(points, basis, radius, num_sides, phase, radius_trig,
                      step_trig);

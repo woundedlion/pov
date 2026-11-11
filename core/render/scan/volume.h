@@ -272,7 +272,7 @@ struct Volume {
     // otherwise report a grazed background edge (local min of pd). Steps are
     // floored; the march ends at the bounding sphere's back face.
     math::Vector probe = closest_local;
-    const float END_S = bounds_radius - math::dot(closest_local, local_vd);
+    const float end_s = bounds_radius - math::dot(closest_local, local_vd);
     float prev = FLT_MAX;  // previous step's distance
     bool climbing = false; // pd has risen off the foreground graze
     float min_behind = FLT_MAX;
@@ -285,7 +285,7 @@ struct Volume {
     bool need_aft = false;
     for (int i = 0; i < PROBE_STEPS; ++i) {
       // Stop at the back of the bounding sphere: nothing left to occlude this halo.
-      if (s > END_S)
+      if (s > end_s)
         break;
       float pd = (i == 0 && seed_distance != FLT_MAX) ? seed_distance
                                                       : shape.distance(probe);
@@ -623,16 +623,16 @@ struct Volume {
         Occluder occ =
             probe_occluder(shape, closest_local, local_vd, bounds_radius,
                            hit_threshold, aa_width, closest_d);
-        const float BG_COVERAGE = occ.solid ? 1.0f : occ.soft;
-        if (BG_COVERAGE > MIN_ALPHA) {
+        const float bg_coverage = occ.solid ? 1.0f : occ.soft;
+        if (bg_coverage > MIN_ALPHA) {
           Fragment bg;
           bg.pos = occ.behind;
           bg.size = occ.distance;
           shade(px, occ.behind, bg);
-          if (bg.color.alpha * BG_COVERAGE > MIN_ALPHA) {
+          if (bg.color.alpha * bg_coverage > MIN_ALPHA) {
             HS_PROFILE_DEEP(vol_plot);
             pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
-                          bg.color.alpha * BG_COVERAGE);
+                          bg.color.alpha * bg_coverage);
           }
         }
       }

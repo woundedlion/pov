@@ -589,7 +589,7 @@ public:
   HS_FLASH_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     constexpr Segue::Preset::Lerp MORPH{240, math::ease_in_out_sin};
     constexpr Segue::Preset::Fade FADE{240};
-    const bool MORPHS = index == CUBIC_PRESET_INDEX ||
+    const bool morphs = index == CUBIC_PRESET_INDEX ||
                         index == OCTET_PRESET_INDEX ||
                         index == SHELL_PRESET_INDEX;
     Params value;
@@ -662,17 +662,17 @@ public:
       break;
     case SHELL_PRESET_INDEX:
     case SHELL_CLOSE_PRESET_INDEX: {
-      const bool FLIGHT = index == SHELL_PRESET_INDEX;
+      const bool flight = index == SHELL_PRESET_INDEX;
       value.pattern = Pattern::SHELLS;
       value.mode = LatticeMode::SPATIAL_3D;
       value.sphere_radius = 0;
-      value.cell_size = FLIGHT ? .78625f : .4645f;
-      value.near_fade = FLIGHT ? 2.0f : .6f;
-      value.far_distance = FLIGHT ? 10.736f : 5.836f;
+      value.cell_size = flight ? .78625f : .4645f;
+      value.near_fade = flight ? 2.0f : .6f;
+      value.far_distance = flight ? 10.736f : 5.836f;
       value.aa_strength = 2.0f;
       value.speed = .025f;
-      value.spin_3d = FLIGHT ? .015f : .003f;
-      value.shell_radius = FLIGHT ? .1f : .15f;
+      value.spin_3d = flight ? .015f : .003f;
+      value.shell_radius = flight ? .1f : .15f;
       break;
     }
     case SHELL_4D_PRESET_INDEX:
@@ -691,7 +691,7 @@ public:
     default:
       break;
     }
-    return {value, MORPHS ? Segue::Preset::Departure{MORPH}
+    return {value, morphs ? Segue::Preset::Departure{MORPH}
                           : Segue::Preset::Departure{FADE}};
   }
 
@@ -702,13 +702,13 @@ public:
    * @return That preset's parameters.
    */
   static constexpr Params pattern_defaults(Pattern pattern, LatticeMode mode) {
-    const bool SLICE = mode == LatticeMode::SLICE_4D;
+    const bool slice = mode == LatticeMode::SLICE_4D;
     if (pattern == Pattern::CUBIC_WIRE)
-      return preset(SLICE ? HYPERCUBE_PRESET_INDEX : CUBIC_PRESET_INDEX).params;
+      return preset(slice ? HYPERCUBE_PRESET_INDEX : CUBIC_PRESET_INDEX).params;
     if (pattern == Pattern::OCTET)
-      return preset(SLICE ? OCTET_4D_PRESET_INDEX : OCTET_PRESET_INDEX).params;
+      return preset(slice ? OCTET_4D_PRESET_INDEX : OCTET_PRESET_INDEX).params;
     if (pattern == Pattern::SHELLS)
-      return preset(SLICE ? SHELL_4D_PRESET_INDEX : SHELL_PRESET_INDEX).params;
+      return preset(slice ? SHELL_4D_PRESET_INDEX : SHELL_PRESET_INDEX).params;
     HS_CHECK(false, "HyperLattice: unsupported pattern");
     return {};
   }
@@ -865,8 +865,8 @@ public:
         history.previous.state.params.shells != params.shells)
       history.capture(endpoint);
     const HyperLatticeDetail::FrameEndpoint &previous = history.previous;
-    const bool MOVING = previous != endpoint;
-    if (!Spacetime::flat_surface() && MOVING) {
+    const bool moving = previous != endpoint;
+    if (!Spacetime::flat_surface() && moving) {
       HS_PROFILE(hl_shader_draw);
       const HyperLatticeDetail::FrameInterval interval(
           previous.state, context, previous.center, flight_step);
@@ -981,15 +981,15 @@ private:
     history.reset();
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
-      const float NEAR_FADE = params.near_fade;
-      const float IRIDESCENCE = params.iridescence;
-      const float IRIDESCENT_FREQUENCY = params.iridescent_frequency;
-      const float IRIDESCENT_SPEED = params.iridescent_speed;
+      const float near_fade = params.near_fade;
+      const float iridescence = params.iridescence;
+      const float iridescent_frequency = params.iridescent_frequency;
+      const float iridescent_speed = params.iridescent_speed;
       params = pattern_defaults(params.pattern, params.mode);
-      params.near_fade = NEAR_FADE;
-      params.iridescence = IRIDESCENCE;
-      params.iridescent_frequency = IRIDESCENT_FREQUENCY;
-      params.iridescent_speed = IRIDESCENT_SPEED;
+      params.near_fade = near_fade;
+      params.iridescence = iridescence;
+      params.iridescent_frequency = iridescent_frequency;
+      params.iridescent_speed = iridescent_speed;
       sync_configuration();
     }
   }
@@ -1015,12 +1015,12 @@ private:
 
   HS_FLASH_MEMBER void refresh_configuration_schema() {
     this->mark_readonly("4D Spin", params.mode == LatticeMode::SPATIAL_3D);
-    const bool CUBIC = params.pattern == Pattern::CUBIC_WIRE;
-    this->mark_readonly("Lattice Planes", !CUBIC);
-    this->mark_readonly("Softness", !CUBIC);
-    const bool SHELLS = params.pattern == Pattern::SHELLS;
-    this->mark_readonly("Shell Radius", !SHELLS);
-    this->mark_readonly("Wire Radius", SHELLS);
+    const bool cubic = params.pattern == Pattern::CUBIC_WIRE;
+    this->mark_readonly("Lattice Planes", !cubic);
+    this->mark_readonly("Softness", !cubic);
+    const bool shells = params.pattern == Pattern::SHELLS;
+    this->mark_readonly("Shell Radius", !shells);
+    this->mark_readonly("Wire Radius", shells);
   }
 
   HS_FLASH_MEMBER void advance_state() {
@@ -1046,11 +1046,11 @@ private:
     for (int plane = 0; plane < 3; ++plane)
       rotation_phase[plane] = math::wrap(
           rotation_phase[plane] + params.spin_3d * RATE[plane], math::TWO_PI_F);
-    const float SPIN_4D_STEP =
+    const float spin_4d_step =
         (params.mode == LatticeMode::SLICE_4D ? params.spin_4d : 0.0f);
     for (int plane = 3; plane < 6; ++plane)
       rotation_phase[plane] = math::wrap(
-          rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], math::TWO_PI_F);
+          rotation_phase[plane] + spin_4d_step * RATE[plane], math::TWO_PI_F);
   }
 
   using TracePath = HyperLatticeDetail::Trace::TracePath;
@@ -1096,10 +1096,10 @@ private:
           HyperLatticeDetail::Trace::shade_path<PATH, SLICE_4D>(view, frame);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
       if constexpr (PATH == TracePath::GENERIC) {
-        const auto STATUS = result.status;
-        if (STATUS != Raycast::TraceStatus::SURFACE &&
-            STATUS != Raycast::TraceStatus::RANGE_COMPLETE &&
-            STATUS != Raycast::TraceStatus::SATURATED)
+        const auto status = result.status;
+        if (status != Raycast::TraceStatus::SURFACE &&
+            status != Raycast::TraceStatus::RANGE_COMPLETE &&
+            status != Raycast::TraceStatus::SATURATED)
           effect->unfinished_rays += 1;
       } else if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED) {
         effect->unfinished_rays += 1;
@@ -1161,10 +1161,10 @@ private:
     {
       HS_PROFILE_DEEP(hl_column_states);
       for (int x = 0; x < COLUMN_TIMES; ++x) {
-        const float FRACTION = Spacetime::SamplingSurface<W>::time(x);
+        const float fraction = Spacetime::SamplingSurface<W>::time(x);
         std::construct_at(states + x,
-                          prepare_traced(interval.sample(FRACTION),
-                                         interval.center(FRACTION)));
+                          prepare_traced(interval.sample(fraction),
+                                         interval.center(fraction)));
       }
     }
     TracePath path = HyperLatticeDetail::Trace::trace_path(states[0]);

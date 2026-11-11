@@ -148,9 +148,9 @@ HS_HOT_INLINE inline float screen_step_from_axes(const SamplePT &sample,
 template <typename PipelineT>
 HS_HOT_FLASH_MEMBER ScreenStepAxes screen_step_axes(PipelineT &pipeline) {
   ScreenStepAxes axes;
-  const math::Basis identity{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const math::Basis IDENTITY{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   axes.nonrigid = pipeline_sampling_edge(
-      pipeline, math::X_AXIS, math::Y_AXIS, &identity,
+      pipeline, math::X_AXIS, math::Y_AXIS, &IDENTITY,
       [&](const math::Vector &, const math::Vector &, const math::Basis *rb) {
         if (!rb || axes.count == ScreenStepAxes::CAPACITY) {
           axes.overflow = true;
@@ -473,13 +473,13 @@ cap_may_touch_clip(const ClipRegion &cr, const Columns &columns,
   const float beta = math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f));
   return cap_may_touch_clip_rows<H>(
       cr, beta, half_angle, [&](float t2) HS_HOT_INLINE {
-        const bool COLUMNS_ACTIVE = [&] {
+        const bool columns_active = [&] {
           if constexpr (requires { columns.active; })
             return columns.active;
           else
             return cr.x_clip().active;
         }();
-        if (!COLUMNS_ACTIVE || cap_reaches_pole(beta, t2))
+        if (!columns_active || cap_reaches_pole(beta, t2))
           return true;
         return cap_may_touch_clip_columns(cap_column_center(columns, dir, beta),
                                           t2, sin_half_angle);

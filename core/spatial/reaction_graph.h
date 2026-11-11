@@ -54,13 +54,13 @@ HS_FLASH_MEMBER inline math::Vector node(int i) {
   HS_CHECK(i >= 0 && i < RD_N, "node() index outside the lattice");
   // Double precision reproduces neighbors[] bit-for-bit (float32 flips near-tie
   // sort order); bit-exactness is a pinned-toolchain provenance contract.
-  constexpr double golden_angle = 2.399963229728653;
-  constexpr double two_pi = 6.283185307179586;
+  constexpr double GOLDEN_ANGLE = 2.399963229728653;
+  constexpr double LATTICE_TWO_PI = 6.283185307179586;
   double y = 1.0 - (static_cast<double>(i) / (RD_N - 1)) * 2.0;
   // y=±1 at the poles (i=0, i=RD_N-1) collapses radius to 0, placing the node
   // exactly on the axis regardless of theta.
   double radius = std::sqrt(1.0 - y * y);
-  double theta = std::fmod(golden_angle * i, two_pi);
+  double theta = std::fmod(GOLDEN_ANGLE * i, LATTICE_TWO_PI);
   return math::Vector(static_cast<float>(std::cos(theta) * radius),
                       static_cast<float>(y),
                       static_cast<float>(std::sin(theta) * radius));
@@ -110,8 +110,8 @@ validate_neighbor_runs(const NeighborRun *runs = neighbor_runs,
     for (int i = start; i < run.end; ++i) {
       HS_CHECK(index[i] == r, "neighbor run index does not match coverage");
       for (int k = 0; k < RD_K; ++k) {
-        const int NEIGHBOR = i + run.delta[k];
-        HS_CHECK(NEIGHBOR >= 0 && NEIGHBOR < RD_N,
+        const int neighbor = i + run.delta[k];
+        HS_CHECK(neighbor >= 0 && neighbor < RD_N,
                  "neighbor run slot is not a lattice node index");
       }
     }
@@ -257,14 +257,14 @@ public:
    */
   __attribute__((always_inline)) int
   lookup(const Projection &projection) const {
-    const int FACE = projection.face;
-    const float U = projection.u, V = projection.v;
+    const int face = projection.face;
+    const float u = projection.u, v = projection.v;
     // Clamp nonfinite coordinates before converting them to integer texels.
     int ui = static_cast<int>(
-        hs::clamp((U + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
+        hs::clamp((u + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
     int vi = static_cast<int>(
-        hs::clamp((V + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
-    return data[static_cast<size_t>((FACE * RES + vi) * RES + ui)];
+        hs::clamp((v + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
+    return data[static_cast<size_t>((face * RES + vi) * RES + ui)];
   }
 
 private:

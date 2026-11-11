@@ -34,8 +34,8 @@ HS_HOT_INLINE inline Point radial_multiply(Point a, Point b) {
  * @param value Coordinate within the integer range.
  * @return Floor of the coordinate. */
 HS_HOT_INLINE inline int radial_floor_int(float value) {
-  const int TRUNCATED = int(value);
-  return TRUNCATED - (float(TRUNCATED) > value);
+  const int truncated = int(value);
+  return truncated - (float(truncated) > value);
 }
 
 /** @brief Wraps a chart index by a positive count.
@@ -51,24 +51,24 @@ HS_HOT_INLINE inline int radial_wrap_index(int value, int count) {
  * @return Argument in [-pi,pi], preserving signed-zero axis conventions.
  */
 HS_HOT_INLINE inline float radial_atan2(float y, float x) {
-  const float AX = fabsf(x), AY = fabsf(y);
-  const float MAXIMUM = fmaxf(AX, AY);
-  if (MAXIMUM == 0.0f)
+  const float ax = fabsf(x), ay = fabsf(y);
+  const float maximum = fmaxf(ax, ay);
+  if (maximum == 0.0f)
     return copysignf(std::signbit(x) ? math::PI_F : 0.0f, y);
-  const float RATIO = fminf(AX, AY) / MAXIMUM;
-  const bool SHIFTED = RATIO > .4142135623730950488f;
-  const float T = SHIFTED ? (RATIO - 1.0f) / (RATIO + 1.0f) : RATIO;
-  const float SQUARE = T * T;
-  const float POLYNOMIAL =
+  const float ratio = fminf(ax, ay) / maximum;
+  const bool shifted = ratio > .4142135623730950488f;
+  const float t = shifted ? (ratio - 1.0f) / (ratio + 1.0f) : ratio;
+  const float square = t * t;
+  const float polynomial =
       .99999990303436148f +
-      SQUARE * (-.33332184265314274f +
-                SQUARE * (.19961549539561524f +
-                          SQUARE * (-.13751577271705973f +
-                                    SQUARE * .077261777546314622f)));
-  float angle = T * POLYNOMIAL;
-  if (SHIFTED)
+      square * (-.33332184265314274f +
+                square * (.19961549539561524f +
+                          square * (-.13751577271705973f +
+                                    square * .077261777546314622f)));
+  float angle = t * polynomial;
+  if (shifted)
     angle += .25f * math::PI_F;
-  if (AX < AY)
+  if (ax < ay)
     angle = .5f * math::PI_F - angle;
   if (std::signbit(x))
     angle = math::PI_F - angle;

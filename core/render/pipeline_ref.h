@@ -365,7 +365,7 @@ class PipelineRef {
   HS_HOT_FLASH_MEMBER PipelineRef(T &t, Erase<true>)
       : PipelineRef(t, Erase<false>{}) {
     cull = timed_cull_entry<T>;
-    static constexpr TimedEntries entries{
+    static constexpr TimedEntries ENTRIES{
         timed_world_entry<T>,
         timed_probe_entry<T>,
         timed_plot_entry<T>,
@@ -410,7 +410,7 @@ class PipelineRef {
           if constexpr (requires(T &p) { p.select_copy(copy); })
             static_cast<T *>(pipeline)->select_copy(copy);
         }};
-    timed_entries = &entries;
+    timed_entries = &ENTRIES;
   }
 
 public:

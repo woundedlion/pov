@@ -94,10 +94,10 @@ struct ChamberNoisePatch {
                             const math::Quaternion &orientation) {
     const auto &noise = std::get<0>(source.source);
     for (int y = 0; y < V_STEPS; ++y) {
-      const float V = V_MIN + (V_MAX - V_MIN) * y / (V_STEPS - 1);
+      const float v = V_MIN + (V_MAX - V_MIN) * y / (V_STEPS - 1);
       for (int x = 0; x < U_STEPS; ++x) {
-        const float U = U_MIN + (U_MAX - U_MIN) * x / (U_STEPS - 1);
-        const math::Vector chamber = math::Vector(U, 1.0f, V).normalized();
+        const float u = U_MIN + (U_MAX - U_MIN) * x / (U_STEPS - 1);
+        const math::Vector chamber = math::Vector(u, 1.0f, v).normalized();
         const auto coordinate =
             Pattern::SphereDirection::admit(math::rotate(chamber, orientation));
         values[y * U_STEPS + x] = Pattern::bounded_scalar(
@@ -118,11 +118,11 @@ struct ChamberNoisePatch {
    * @param v Vertical interpolation weight.
    * @return Baked scalar. */
   HS_HOT_INLINE float sample(int x, int y, float u, float v) const {
-    const float A =
+    const float a =
         hs::lerp(values[y * U_STEPS + x], values[y * U_STEPS + x + 1], u);
-    const float B = hs::lerp(values[(y + 1) * U_STEPS + x],
+    const float b = hs::lerp(values[(y + 1) * U_STEPS + x],
                              values[(y + 1) * U_STEPS + x + 1], u);
-    return hs::lerp(A, B, v);
+    return hs::lerp(a, b, v);
   }
 };
 
@@ -148,26 +148,26 @@ struct ChamberNoiseCache {
    * @return Current published samples, or an inactive view. */
   ChamberNoiseView prepare(const Prepared &source,
                            const math::Quaternion &orientation) {
-    const float PHASE = source.state.phase.phase_turns;
+    const float phase = source.state.phase.phase_turns;
     if (!ChamberNoisePatch::eligible(source.config) ||
-        !(PHASE >= 0.0f && PHASE < 1.0f)) {
+        !(phase >= 0.0f && phase < 1.0f)) {
       observed = false;
       return {};
     }
     if (patches[slot].matches(source, orientation))
       return {&patches[slot], orientation};
-    const bool REPEATED = observed && observed_phase == PHASE &&
+    const bool repeated = observed && observed_phase == phase &&
                           observed_projection.r == orientation.r &&
                           observed_projection.v.x == orientation.v.x &&
                           observed_projection.v.y == orientation.v.y &&
                           observed_projection.v.z == orientation.v.z;
-    if (REPEATED && !accepted)
+    if (repeated && !accepted)
       return {};
     accepted = !observed || ChamberNoisePatch::continuous(observed_phase,
                                                           observed_projection,
-                                                          PHASE, orientation);
+                                                          phase, orientation);
     observed_projection = orientation;
-    observed_phase = PHASE;
+    observed_phase = phase;
     observed = true;
     if (!accepted)
       return {};
@@ -192,22 +192,22 @@ HS_HOT_INLINE inline bool sample_chamber_noise(
   const math::Vector chamber = math::rotate(sphere, to_chamber);
   if (!(chamber.y > 0.0f))
     return false;
-  const float INVERSE = 1.0f / chamber.y;
-  const float U = chamber.x * INVERSE;
-  const float V = chamber.z * INVERSE;
-  if (!(U >= ChamberNoisePatch::U_MIN && U <= ChamberNoisePatch::U_MAX &&
-        V >= ChamberNoisePatch::V_MIN && V <= ChamberNoisePatch::V_MAX))
+  const float inverse = 1.0f / chamber.y;
+  const float u = chamber.x * inverse;
+  const float v = chamber.z * inverse;
+  if (!(u >= ChamberNoisePatch::U_MIN && u <= ChamberNoisePatch::U_MAX &&
+        v >= ChamberNoisePatch::V_MIN && v <= ChamberNoisePatch::V_MAX))
     return false;
-  const float X = (U - ChamberNoisePatch::U_MIN) *
+  const float x = (u - ChamberNoisePatch::U_MIN) *
                   ((ChamberNoisePatch::U_STEPS - 1) /
                    (ChamberNoisePatch::U_MAX - ChamberNoisePatch::U_MIN));
-  const float Y = (V - ChamberNoisePatch::V_MIN) *
+  const float y = (v - ChamberNoisePatch::V_MIN) *
                   ((ChamberNoisePatch::V_STEPS - 1) /
                    (ChamberNoisePatch::V_MAX - ChamberNoisePatch::V_MIN));
-  const int IX = std::min(static_cast<int>(X), ChamberNoisePatch::U_STEPS - 2);
-  const int IY = std::min(static_cast<int>(Y), ChamberNoisePatch::V_STEPS - 2);
-  scalar = hs::lerp(previous.sample(IX, IY, X - IX, Y - IY),
-                    current.sample(IX, IY, X - IX, Y - IY), fraction);
+  const int ix = std::min(static_cast<int>(x), ChamberNoisePatch::U_STEPS - 2);
+  const int iy = std::min(static_cast<int>(y), ChamberNoisePatch::V_STEPS - 2);
+  scalar = hs::lerp(previous.sample(ix, iy, x - ix, y - iy),
+                    current.sample(ix, iy, x - ix, y - iy), fraction);
   return true;
 }
 

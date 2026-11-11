@@ -199,14 +199,14 @@ struct PotentialParams {
     };
     for (size_t i = 0; i < std::size(IDS); ++i) {
       const auto &ids = IDS[i];
-      const size_t BASE = POTENTIAL_TERM_FIELDS * i;
-      fields[BASE] = enum_field(ids[0], "Term Type", POTENTIAL_TERM_IDS, 0);
-      fields[BASE + 1] = enum_field(ids[1], "Kind", POTENTIAL_KIND_IDS, 0);
-      fields[BASE + 2] =
+      const size_t base = POTENTIAL_TERM_FIELDS * i;
+      fields[base] = enum_field(ids[0], "Term Type", POTENTIAL_TERM_IDS, 0);
+      fields[base + 1] = enum_field(ids[1], "Kind", POTENTIAL_KIND_IDS, 0);
+      fields[base + 2] =
           enum_field(ids[2], "Degree", HARMONIC_ORDER_IDS, 1, ids[0]);
-      fields[BASE + 3] =
+      fields[base + 3] =
           enum_field(ids[3], "Order", HARMONIC_ORDER_IDS, 0, ids[0]);
-      fields[BASE + 4] = {.id = ids[4],
+      fields[base + 4] = {.id = ids[4],
                           .display_name = "Amplitude",
                           .min = -POTENTIAL_AMPLITUDE_LIMIT,
                           .max = POTENTIAL_AMPLITUDE_LIMIT,
@@ -218,7 +218,7 @@ struct PotentialParams {
                           .enum_ids = nullptr,
                           .gated_by = nullptr,
                           .gate_values = 0};
-      fields[BASE + 5] = {.id = ids[5],
+      fields[base + 5] = {.id = ids[5],
                           .display_name = "Phase",
                           .min = -math::PI_F,
                           .max = math::PI_F,
@@ -421,14 +421,14 @@ symmetric_field(uint8_t symmetry, uint8_t kind, float phase) {
   }();
   static_assert(ORDERS.size() == std::size(AUTHORED_SYMMETRY_IDS));
   std::array<PotentialTerm, 4> terms{};
-  const auto TYPE =
+  const auto type =
       symmetry >= static_cast<uint8_t>(Symmetry::TETRAHEDRAL) &&
               symmetry <= static_cast<uint8_t>(Symmetry::DODECAHEDRAL)
           ? static_cast<TermType>(symmetry)
           : TermType::MODE;
-  const uint8_t ORDER = ORDERS[symmetry];
-  terms[0] = {TYPE,  static_cast<Kind>(kind),  ORDER,
-              ORDER, ORDER % 2 ? -1.0f : 1.0f, 0};
+  const uint8_t order = ORDERS[symmetry];
+  terms[0] = {type,  static_cast<Kind>(kind),  order,
+              order, order % 2 ? -1.0f : 1.0f, 0};
   return PotentialField(terms, 0.0f, math::make_rotation(math::Y_AXIS, phase));
 }
 

@@ -116,12 +116,12 @@ inline float ease_out_cubic(float t) {
  * @return The eased factor.
  */
 inline float ease_out_elastic(float t) {
-  const float c4 = (2 * math::PI_F) / 3;
+  const float C4 = (2 * math::PI_F) / 3;
   // Endpoint guards: pin exactly 0/1 and floor at 0 (2^(-10t) explodes for t < 0).
   return t <= 0.0f ? 0.0f
          : t == 1.0f
              ? 1.0f
-             : exp2f(-10.0f * t) * sinf((t * 10.0f - 0.75f) * c4) + 1.0f;
+             : exp2f(-10.0f * t) * sinf((t * 10.0f - 0.75f) * C4) + 1.0f;
 }
 
 } // namespace math

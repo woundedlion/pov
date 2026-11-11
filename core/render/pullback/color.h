@@ -463,14 +463,14 @@ HS_HOT_INLINE inline float palette_opacity(const FieldSample &sample,
 HS_HOT_ITCM_MEMBER inline ColorSample
 apply_generated_palette(const FieldSample &sample,
                         const GeneratedPaletteState &state) {
-  const float VALUE =
+  const float value =
       palette_mapping_coordinate(sample.value, state.mapping,
                                  state.mapping_frequency, state.mapping_offset);
-  const float OPACITY = palette_opacity(sample, state);
-  const float GAIN =
+  const float opacity = palette_opacity(sample, state);
+  const float gain =
       brightness_envelope_gain(sample.value, state.brightness_envelope,
                                state.brightness_bottom, state.brightness_top);
-  return apply_palette_endpoint_impl(sample, state, VALUE, OPACITY, GAIN);
+  return apply_palette_endpoint_impl(sample, state, value, opacity, gain);
 }
 /** @brief Completes deferred color adjustments.
  * @param sample Color carrier.
@@ -568,10 +568,10 @@ HS_HOT_INLINE inline float sample_phase_scalar(const FieldSample &field,
               Pattern::prepare_sphere_lut_sample_unchecked(field.sphere);
           scratch.cube_tap_ready = true;
         }
-        const auto &TAP = scratch.cube_tap;
+        const auto &tap = scratch.cube_tap;
         return hs::lerp(
-            Pattern::bounded_scalar(TAP.sample(*prepared.cube_previous)),
-            Pattern::bounded_scalar(TAP.sample(*prepared.cube_current)),
+            Pattern::bounded_scalar(tap.sample(*prepared.cube_previous)),
+            Pattern::bounded_scalar(tap.sample(*prepared.cube_current)),
             prepared.cube_fraction);
       }
     bool cached = false;
@@ -623,10 +623,10 @@ HS_HOT_INLINE inline Color4
 cached_phase_color(const FieldSample &sample,
                    const TemporalGeneratedPaletteState &prepared, float hue) {
   const auto &state = prepared.current;
-  const float VALUE =
+  const float value =
       palette_mapping_coordinate(sample.value, state.mapping,
                                  state.mapping_frequency, state.mapping_offset);
-  return Color4(PaletteRgbHueLut::sample(prepared.lab, VALUE, hue),
+  return Color4(PaletteRgbHueLut::sample(prepared.lab, value, hue),
                 palette_opacity(sample, state));
 }
 
@@ -664,14 +664,14 @@ shade_cached_phase(const FieldSample &sample,
        modulation.mechanic.kind != ColorModulation::Mechanic::HUE_ROTATION))
     return false;
   PhaseScratch scratch;
-  const float HUE =
+  const float hue =
       modulation.enabled && modulation.mechanic.amount != 0.0f
           ? accumulate_hue(0.0f,
                            Color::sample_phase_scalar<Phase, SinePhase>(
                                sample, modulation, scratch),
                            modulation.mechanic)
           : 0.0f;
-  output = finish_cached_phase(sample, prepared, HUE);
+  output = finish_cached_phase(sample, prepared, hue);
   return true;
 }
 
@@ -683,8 +683,8 @@ shade_cached_phase(const FieldSample &sample,
 HS_HOT_INLINE inline float
 accumulate_lift(float lift, float scalar,
                 const ColorModulation::Params &mechanic) {
-  const float LIFT = mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
-  return lift + (1.0f - lift) * LIFT;
+  const float lift_value = mechanic.amount * hs::clamp(scalar, 0.0f, 1.0f);
+  return lift + (1.0f - lift) * lift_value;
 }
 
 /** @brief Updates deferred perceptual state from one scalar.
@@ -753,11 +753,11 @@ apply_modulation_pair_in_place(ColorSample &previous, ColorSample &current,
     return;
   }
   HS_AUDIT_CHECK(state.previous && state.current);
-  const auto DIRECTION = Pattern::SphereDirection::admit(current.field.sphere);
-  const auto SCALARS =
-      Modulation::sample_pair(*state.previous, *state.current, DIRECTION);
-  apply_mechanic_scalar(previous, SCALARS.first, state.mechanic);
-  apply_mechanic_scalar(current, SCALARS.second, state.mechanic);
+  const auto direction = Pattern::SphereDirection::admit(current.field.sphere);
+  const auto scalars =
+      Modulation::sample_pair(*state.previous, *state.current, direction);
+  apply_mechanic_scalar(previous, scalars.first, state.mechanic);
+  apply_mechanic_scalar(current, scalars.second, state.mechanic);
 }
 
 /** @brief Applies one ordered modulation layer to a copy.
@@ -833,13 +833,13 @@ HS_HOT_INLINE inline Color4 finish_palette_lab(OKLab lab, float hue, float lift,
                                                Canonical &&canonical) {
   if (gain == 0.0f)
     return Color4(Pixel(0, 0, 0), alpha);
-  const auto LAB = rotated_palette_lab(lab, hue, lift);
-  auto output = oklab_to_linear_rgb(LAB);
+  const auto lab_value = rotated_palette_lab(lab, hue, lift);
+  auto output = oklab_to_linear_rgb(lab_value);
   if (near_palette_gamut_gate(output))
     return canonical();
   if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
     HS_PROFILE_DEEP(gamut_clip);
-    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(LAB));
+    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab_value));
   }
   if (gain != 1.0f) {
     apply_brightness_gain(output, gain);
@@ -1027,24 +1027,24 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   {
     (void)frame;
     const auto &state = prepared.current;
-    const float VALUE = palette_mapping_coordinate(sample.value, state.mapping,
+    const float value = palette_mapping_coordinate(sample.value, state.mapping,
                                                    state.mapping_frequency,
                                                    state.mapping_offset);
-    const float OPACITY = palette_opacity(sample, state);
-    const float GAIN =
+    const float opacity = palette_opacity(sample, state);
+    const float gain =
         brightness_envelope_gain(sample.value, state.brightness_envelope,
                                  state.brightness_bottom, state.brightness_top);
     if constexpr (LAB_CACHE) {
       const auto endpoint =
           [&](const GeneratedPaletteState &endpoint_state) HS_HOT_INLINE {
-            return apply_cache_fallback_endpoint(sample, endpoint_state, VALUE,
-                                                 OPACITY, GAIN);
+            return apply_cache_fallback_endpoint(sample, endpoint_state, value,
+                                                 opacity, gain);
           };
       return {endpoint(prepared.previous), endpoint(state)};
     } else {
-      return {apply_palette_endpoint(sample, prepared.previous, VALUE, OPACITY,
-                                     GAIN),
-              apply_palette_endpoint(sample, state, VALUE, OPACITY, GAIN)};
+      return {apply_palette_endpoint(sample, prepared.previous, value, opacity,
+                                     gain),
+              apply_palette_endpoint(sample, state, value, opacity, gain)};
     }
   }
   /** @brief Samples a canonical endpoint for a cache-enabled fallback.
@@ -1098,14 +1098,14 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   {
     (void)frame;
     const auto &state = prepared.current;
-    const float VALUE = palette_mapping_coordinate(sample.value, state.mapping,
+    const float value = palette_mapping_coordinate(sample.value, state.mapping,
                                                    state.mapping_frequency,
                                                    state.mapping_offset);
-    const float OPACITY = palette_opacity(sample, state);
-    output.color = Color4(Pixel(0, 0, 0), OPACITY);
+    const float opacity = palette_opacity(sample, state);
+    output.color = Color4(Pixel(0, 0, 0), opacity);
     output.field = sample;
     output.hue_rotation = nullptr;
-    output.palette_coordinate = VALUE;
+    output.palette_coordinate = value;
     output.pending_hue = 0.0f;
     output.brightness_gain =
         brightness_envelope_gain(sample.value, state.brightness_envelope,
@@ -1115,7 +1115,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         prepared.lab.rgb_low && prepared.lab.rgb_high ? &prepared.lab : nullptr;
     output.cached_lab = output.cached_rgb
                             ? OKLab{}
-                            : PaletteLabLut::sample(prepared.lab, VALUE);
+                            : PaletteLabLut::sample(prepared.lab, value);
     output.has_cached_lab = true;
   }
 
@@ -1130,14 +1130,14 @@ private:
     if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
       return {sample.path_length, sample.path_length};
     HS_AUDIT_CHECK(modulation.previous && modulation.current);
-    const auto DIRECTION = Pattern::SphereDirection::admit(sample.sphere);
+    const auto direction = Pattern::SphereDirection::admit(sample.sphere);
     if (modulation.paired_cube_ready) {
-      const auto TAP = Pattern::prepare_sphere_lut_sample(DIRECTION);
-      return {Pattern::bounded_scalar(TAP.sample(modulation.previous->cube)),
-              Pattern::bounded_scalar(TAP.sample(modulation.current->cube))};
+      const auto tap = Pattern::prepare_sphere_lut_sample(direction);
+      return {Pattern::bounded_scalar(tap.sample(modulation.previous->cube)),
+              Pattern::bounded_scalar(tap.sample(modulation.current->cube))};
     }
     return Modulation::sample_pair(*modulation.previous, *modulation.current,
-                                   DIRECTION);
+                                   direction);
   }
 
   /** @brief Resolves one canonical deferred hue endpoint.
@@ -1167,9 +1167,9 @@ private:
   HS_HOT_INLINE static float
   fused_pending_hue(const std::pair<float, float> &scalars, float amount,
                     float fraction) {
-    const float PREVIOUS = fused_endpoint_hue(scalars.first, amount);
-    const float CURRENT = fused_endpoint_hue(scalars.second, amount);
-    return blend_fused_hue(PREVIOUS, CURRENT, fraction);
+    const float previous = fused_endpoint_hue(scalars.first, amount);
+    const float current = fused_endpoint_hue(scalars.second, amount);
+    return blend_fused_hue(previous, current, fraction);
   }
 
   /** @brief Blends palette and modulation endpoints into one color carrier.
@@ -1192,7 +1192,7 @@ private:
       apply_modulation_in_place(result, modulation, fraction <= 0.0f);
       return;
     }
-    const bool CACHED = [&] {
+    const bool cached = [&] {
       if constexpr (LAB_CACHE)
         return apply_shared_base(sample, frame, prepared, result);
       else
@@ -1202,19 +1202,19 @@ private:
     Color4 current;
     const Pixel *previous_table;
     const Pixel *current_table;
-    if (CACHED) {
+    if (cached) {
       previous = current = result.color;
       previous_table = current_table = nullptr;
     } else {
       const auto &state = prepared.current;
-      const float VALUE = palette_mapping_coordinate(
+      const float value = palette_mapping_coordinate(
           sample.value, state.mapping, state.mapping_frequency,
           state.mapping_offset);
-      const float OPACITY = palette_opacity(sample, state);
-      previous = prepared.previous.palette->get(VALUE);
-      current = state.palette->get(VALUE);
-      previous.alpha *= OPACITY;
-      current.alpha *= OPACITY;
+      const float opacity = palette_opacity(sample, state);
+      previous = prepared.previous.palette->get(value);
+      current = state.palette->get(value);
+      previous.alpha *= opacity;
+      current.alpha *= opacity;
       previous_table = prepared.previous.hue_rotation.active
                            ? prepared.previous.hue_rotation.data
                            : nullptr;
@@ -1223,7 +1223,7 @@ private:
       result.field = sample;
       result.hue_rotation = current_table;
       result.hue_rotation_gamut = prepared.current.hue_rotation.gamut_mask;
-      result.palette_coordinate = VALUE;
+      result.palette_coordinate = value;
       result.brightness_gain = brightness_envelope_gain(
           sample.value, state.brightness_envelope, state.brightness_bottom,
           state.brightness_top);
@@ -1233,7 +1233,7 @@ private:
     float previous_lift = 0.0f;
     float current_lift = 0.0f;
     if (modulation.enabled && modulation.mechanic.amount != 0.0f) {
-      const auto SCALARS = sample_fused_scalars(sample, modulation);
+      const auto scalars = sample_fused_scalars(sample, modulation);
       const auto apply = [&](Color4 &color, float &hue, float &lift,
                              float scalar) {
         if (modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
@@ -1244,17 +1244,17 @@ private:
         } else
           color = ColorModulation::apply(color, scalar, modulation.mechanic);
       };
-      apply(previous, previous_hue, previous_lift, SCALARS.first);
-      apply(current, current_hue, current_lift, SCALARS.second);
+      apply(previous, previous_hue, previous_lift, scalars.first);
+      apply(current, current_hue, current_lift, scalars.second);
     }
-    const bool SAME_BASE =
+    const bool same_base =
         previous.color == current.color && previous_table == current_table;
     result.color =
         Color4(previous.color.lerp16(current.color, frac_to_q16(fraction)),
                hs::lerp(previous.alpha, current.alpha, fraction));
     result.pending_hue = blend_fused_hue(previous_hue, current_hue, fraction);
     result.pending_lift = hs::lerp(previous_lift, current_lift, fraction);
-    if (!SAME_BASE)
+    if (!same_base)
       result.hue_rotation = nullptr;
   }
 
@@ -1265,18 +1265,18 @@ private:
   HS_HOT_INLINE static void restore_fused_palette_base(ColorSample &result,
                                                        const Prepared &prepared,
                                                        float fraction) {
-    const Pixel A =
+    const Pixel a =
         prepared.previous.palette->get_color(result.palette_coordinate);
-    const Pixel B =
+    const Pixel b =
         prepared.current.palette->get_color(result.palette_coordinate);
-    const Pixel *const A_TABLE = prepared.previous.hue_rotation.active
+    const Pixel *const a_table = prepared.previous.hue_rotation.active
                                      ? prepared.previous.hue_rotation.data
                                      : nullptr;
-    const Pixel *const B_TABLE = prepared.current.hue_rotation.active
+    const Pixel *const b_table = prepared.current.hue_rotation.active
                                      ? prepared.current.hue_rotation.data
                                      : nullptr;
-    result.color.color = A.lerp16(B, frac_to_q16(fraction));
-    result.hue_rotation = A == B && A_TABLE == B_TABLE ? B_TABLE : nullptr;
+    result.color.color = a.lerp16(b, frac_to_q16(fraction));
+    result.hue_rotation = a == b && a_table == b_table ? b_table : nullptr;
     result.hue_rotation_gamut = result.hue_rotation
                                     ? prepared.current.hue_rotation.gamut_mask
                                     : nullptr;
@@ -1331,14 +1331,14 @@ public:
            modulation.mechanic.kind ==
                ColorModulation::Mechanic::HUE_ROTATION)) {
         const auto &state = prepared.current;
-        const float VALUE = palette_mapping_coordinate(
+        const float value = palette_mapping_coordinate(
             sample.value, state.mapping, state.mapping_frequency,
             state.mapping_offset);
-        const float OPACITY = palette_opacity(sample, state);
-        const float HUE = [&] {
+        const float opacity = palette_opacity(sample, state);
+        const float hue = [&] {
           if (!modulation.enabled || modulation.mechanic.amount == 0.0f)
             return 0.0f;
-          const float SCALAR = [&] {
+          const float scalar = [&] {
             if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
               return sample.path_length;
             HS_AUDIT_CHECK(modulation.current);
@@ -1346,15 +1346,15 @@ public:
                 *modulation.current,
                 Pattern::SphereDirection::admit(sample.sphere));
           }();
-          return fused_endpoint_hue(SCALAR, modulation.mechanic.amount);
+          return fused_endpoint_hue(scalar, modulation.mechanic.amount);
         }();
         return finish_palette_lab(
-            PaletteLabLut::sample(prepared.lab, VALUE), HUE, 0.0f, 1.0f,
-            OPACITY, [&] {
+            PaletteLabLut::sample(prepared.lab, value), hue, 0.0f, 1.0f,
+            opacity, [&] {
               ColorSample canonical{
-                  Color4(state.palette->get_color(VALUE), OPACITY), {}};
-              canonical.palette_coordinate = VALUE;
-              canonical.pending_hue = HUE;
+                  Color4(state.palette->get_color(value), opacity), {}};
+              canonical.palette_coordinate = value;
+              canonical.pending_hue = hue;
               canonical.hue_rotation =
                   state.hue_rotation.active ? state.hue_rotation.data : nullptr;
               canonical.hue_rotation_gamut = state.hue_rotation.gamut_mask;
@@ -1368,20 +1368,20 @@ public:
           modulation.mechanic.amount != 0.0f &&
           modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
           prepared.current.brightness_envelope == BrightnessEnvelope::NONE) {
-        const auto SCALARS = sample_fused_scalars(sample, modulation);
+        const auto scalars = sample_fused_scalars(sample, modulation);
         const auto &state = prepared.current;
-        const float VALUE = palette_mapping_coordinate(
+        const float value = palette_mapping_coordinate(
             sample.value, state.mapping, state.mapping_frequency,
             state.mapping_offset);
-        const float OPACITY = palette_opacity(sample, state);
-        const float HUE =
-            fused_pending_hue(SCALARS, modulation.mechanic.amount, fraction);
+        const float opacity = palette_opacity(sample, state);
+        const float hue =
+            fused_pending_hue(scalars, modulation.mechanic.amount, fraction);
         return finish_palette_lab(
-            PaletteLabLut::sample(prepared.lab, VALUE), HUE, 0.0f, 1.0f,
-            OPACITY, [&] {
-              ColorSample canonical{Color4(Pixel(0, 0, 0), OPACITY), {}};
-              canonical.palette_coordinate = VALUE;
-              canonical.pending_hue = HUE;
+            PaletteLabLut::sample(prepared.lab, value), hue, 0.0f, 1.0f,
+            opacity, [&] {
+              ColorSample canonical{Color4(Pixel(0, 0, 0), opacity), {}};
+              canonical.palette_coordinate = value;
+              canonical.pending_hue = hue;
               restore_fused_palette_base(canonical, prepared, fraction);
               return finish_color_sample(canonical);
             });

@@ -132,9 +132,9 @@ struct MeshPaletteBank {
    *        256-entry Pixel and Q16-alpha arrays.
    */
   HS_FLASH_MEMBER void bake_all(Arena &arena) {
-    constexpr auto sources = MeshPaletteBank::sources();
+    constexpr auto SOURCES = MeshPaletteBank::sources();
     for (int i = 0; i < N; ++i)
-      bank.entries[i].bake(arena, *sources[i]);
+      bank.entries[i].bake(arena, *SOURCES[i]);
   }
 
   /**

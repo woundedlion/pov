@@ -688,7 +688,7 @@ private:
   draw_surface_all(Canvas &canvas, const BakedPalette &palette, bool timed,
                    Scan::SurfaceAreaStats *stats = nullptr,
                    float row_displacement = 0) {
-    const int INTERVALS = std::clamp(int(ceilf(fabsf(params.amplitude) * 24)),
+    const int intervals = std::clamp(int(ceilf(fabsf(params.amplitude) * 24)),
                                      24, SURFACE_MAX_INTERVALS);
     ScratchScope scope_a(scratch_arena_a), scope_b(scratch_arena_b);
     const auto columns = timed ? Scan::prepare_column_basis<W, H>(
@@ -697,30 +697,30 @@ private:
     const auto basis = math::make_basis(orientation.get(), math::X_AXIS);
     Surface near, far;
     near.bind(scratch_arena_a, int(params.sides), Plot::STAR_INNER_RATIO,
-              INTERVALS);
+              intervals);
     far.bind(scratch_arena_a, int(params.sides), Plot::STAR_INNER_RATIO,
-             INTERVALS);
+             intervals);
     Scan::RadialSurfaceCandidateMask<> near_mask, far_mask;
     if constexpr (MASK) {
       near_mask.bind(scratch_arena_b);
       far_mask.bind(scratch_arena_b);
     }
-    const float FOOTPRINT =
+    const float footprint =
         .25f * math::PI_F *
             sqrtf(math::RADIANS_PER_COLUMN<W> * math::RADIANS_PER_COLUMN<W> +
                   math::RADIANS_PER_ROW<H> * math::RADIANS_PER_ROW<H>) +
         1e-5f;
     auto *knots =
-        scratch_arena_b.allocate_n<typename Surface::Knot>(INTERVALS + 1);
-    auto *radii = scratch_arena_b.allocate_n<float>(INTERVALS + 1);
-    auto *sines = scratch_arena_b.allocate_n<float>(INTERVALS + 1);
-    auto *cosines = scratch_arena_b.allocate_n<float>(INTERVALS + 1);
+        scratch_arena_b.allocate_n<typename Surface::Knot>(intervals + 1);
+    auto *radii = scratch_arena_b.allocate_n<float>(intervals + 1);
+    auto *sines = scratch_arena_b.allocate_n<float>(intervals + 1);
+    auto *cosines = scratch_arena_b.allocate_n<float>(intervals + 1);
     auto *colors =
-        scratch_arena_b.allocate_n<Scan::SurfaceColor>(INTERVALS + 1);
+        scratch_arena_b.allocate_n<Scan::SurfaceColor>(intervals + 1);
     auto *first = scratch_arena_b.allocate_n<uint16_t>(257);
     const float opacity = alpha * preset_opacity;
-    for (int i = 0; i <= INTERVALS; ++i) {
-      const float q = .5f * i / INTERVALS;
+    for (int i = 0; i <= intervals; ++i) {
+      const float q = .5f * i / intervals;
       radii[i] = math::PI_F * screen_balanced_radius_t(q);
       sines[i] = sinf(math::TWO_PI_F * q);
       cosines[i] = cosf(math::TWO_PI_F * q);
@@ -732,19 +732,19 @@ private:
     int index = 0;
     for (int i = 0; i <= 256; ++i) {
       const float radius = i * (.5f * math::PI_F / 256);
-      while (index < INTERVALS - 1 && radii[index + 1] < radius)
+      while (index < intervals - 1 && radii[index + 1] < radius)
         ++index;
       first[i] = uint16_t(index);
     }
     float sine = 0, cosine = 1, current_time = 1;
     float near_mask_time = -2, far_mask_time = -2;
     constexpr float MASK_TIME_RANGE = 16.0f / W;
-    const float PHASE_MOTION =
+    const float phase_motion =
         timed ? fabsf(params.amplitude * math::TWO_PI_F * twist_step) *
                     MASK_TIME_RANGE
               : 0;
-    const float COMPLEX_MOTION = .5f * math::PI_F * PHASE_MOTION;
-    const float RELATIVE_PHASE_MOTION = PHASE_MOTION * math::PI_F / INTERVALS;
+    const float complex_motion = .5f * math::PI_F * phase_motion;
+    const float relative_phase_motion = phase_motion * math::PI_F / intervals;
     auto prepare = [&](int column) HS_HOT_INLINE {
       const float time =
           timed ? Spacetime::SamplingSurface<W>::time(column) : 1;
@@ -755,7 +755,7 @@ private:
     };
     auto ensure = [&](int side) HS_HOT_FLASH_MEMBER {
       HS_PROFILE(ss_surface_knots);
-      for (int i = 0; i <= INTERVALS; ++i) {
+      for (int i = 0; i <= intervals; ++i) {
         const float wave = side ? sine * cosines[i] - cosine * sines[i]
                                 : sine * cosines[i] + cosine * sines[i];
         const float turn =
@@ -771,15 +771,15 @@ private:
       }
       (side ? far : near)
           .set_knots(
-              std::span<const typename Surface::Knot>(knots, INTERVALS + 1));
+              std::span<const typename Surface::Knot>(knots, intervals + 1));
       if constexpr (MASK) {
         float &mask_time = side ? far_mask_time : near_mask_time;
         if (fabsf(current_time - mask_time) > MASK_TIME_RANGE) {
           HS_PROFILE(ss_surface_mask);
           const auto work = (side ? far_mask : near_mask)
                                 .template prepare<COUNT>(
-                                    side ? far : near, FOOTPRINT,
-                                    COMPLEX_MOTION, RELATIVE_PHASE_MOTION);
+                                    side ? far : near, footprint,
+                                    complex_motion, relative_phase_motion);
           mask_time = current_time;
           if constexpr (COUNT)
             if (stats) {

@@ -112,13 +112,13 @@ struct PreparedCamera {
       for (int i = 0; i < DIMENSIONS; ++i)
         components[j] += embedding.m[i][j] * gradient[i];
     const math::Vector projected(components[0], components[1], components[2]);
-    const float LENGTH2 = math::dot(projected, projected);
-    if (!finite(LENGTH2) || LENGTH2 <= 1e-20f) {
+    const float length2 = math::dot(projected, projected);
+    if (!finite(length2) || length2 <= 1e-20f) {
       normal = math::Vector();
       inverse_length = 0.0f;
       return false;
     }
-    inverse_length = 1.0f / sqrtf(LENGTH2);
+    inverse_length = 1.0f / sqrtf(length2);
     normal = projected * inverse_length;
     return true;
   }

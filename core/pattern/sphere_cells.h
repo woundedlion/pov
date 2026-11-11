@@ -132,11 +132,11 @@ struct SphereCells {
     size_t nearest = 0;
     float nearest_distance = math::distance_squared(point, prepared.centers[0]);
     for (size_t index = 1; index < prepared.count; ++index) {
-      const float DISTANCE =
+      const float distance =
           math::distance_squared(point, prepared.centers[index]);
-      if (DISTANCE < nearest_distance) {
+      if (distance < nearest_distance) {
         nearest = index;
-        nearest_distance = DISTANCE;
+        nearest_distance = distance;
       }
     }
     if (prepared.output == SphereCellOutput::CELL_VALUE)
@@ -144,28 +144,28 @@ struct SphereCells {
                  math::hash01(static_cast<uint32_t>(nearest), prepared.seed) -
              1.0f;
     if (prepared.output == SphereCellOutput::CENTERS) {
-      const float DISTANCE =
+      const float distance =
           math::angle_between(point, prepared.centers[nearest]) *
           prepared.distance_scale;
-      return 1.0f - 2.0f * hs::clamp(DISTANCE, 0.0f, 1.0f);
+      return 1.0f - 2.0f * hs::clamp(distance, 0.0f, 1.0f);
     }
     float edge_sine = 1.0f;
     for (size_t index = 0; index < prepared.count; ++index) {
       if (index == nearest)
         continue;
       const auto normal = prepared.centers[nearest] - prepared.centers[index];
-      const float LENGTH_SQUARED = math::dot(normal, normal);
-      if (LENGTH_SQUARED < math::EPS_NORMALIZE_SQ)
+      const float length_squared = math::dot(normal, normal);
+      if (length_squared < math::EPS_NORMALIZE_SQ)
         continue;
-      const float SINE = math::dot(point, normal) / sqrtf(LENGTH_SQUARED);
-      edge_sine = std::min(edge_sine, SINE);
+      const float sine = math::dot(point, normal) / sqrtf(length_squared);
+      edge_sine = std::min(edge_sine, sine);
     }
-    const float DISTANCE =
+    const float distance =
         asinf(hs::clamp(edge_sine, 0.0f, 1.0f)) * prepared.distance_scale;
     return 1.0f - 2.0f * math::smooth_ramp(prepared.line_thickness,
                                            prepared.line_thickness +
                                                prepared.line_softness,
-                                           DISTANCE);
+                                           distance);
   }
 };
 

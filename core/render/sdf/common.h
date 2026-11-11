@@ -151,14 +151,14 @@ convex_half_planes(int count, float area2, EdgeAt &&edge_at,
   if ((pos && neg) || flips < 1 || flips > 2)
     return -1.0f;
 
-  const float SIGN = area2 >= 0.0f ? 1.0f : -1.0f;
+  const float sign = area2 >= 0.0f ? 1.0f : -1.0f;
   float origin_side = -FLT_MAX;
   for (int k = 0; k < count; ++k) {
     const auto edge = edge_at(k);
     const float length2 = edge.ex * edge.ex + edge.ey * edge.ey;
     if (length2 < 1e-12f)
       return -1.0f;
-    const float inv = SIGN / sqrtf(length2);
+    const float inv = sign / sqrtf(length2);
     const float nx = edge.ey * inv;
     const float ny = -edge.ex * inv;
     const float off = -(nx * edge.x + ny * edge.y);
@@ -572,22 +572,22 @@ template <int W, size_t N, size_t M>
 inline void
 normalize_intervals_to_range(const StaticCircularBuffer<Interval, N> &src,
                              StaticCircularBuffer<Interval, M> &dst) {
-  constexpr float Wf = static_cast<float>(W);
+  constexpr float WF = static_cast<float>(W);
   for (size_t i = 0; i < src.size(); ++i) {
     float len = src[i].end - src[i].start;
     HS_CHECK(len >= 0.0f,
              "normalize_intervals_to_range: interval end precedes start");
-    if (len >= Wf) {
-      push_interval(dst, 0.0f, Wf);
+    if (len >= WF) {
+      push_interval(dst, 0.0f, WF);
       continue;
     }
-    const float s = math::wrap(src[i].start, Wf);
+    const float s = math::wrap(src[i].start, WF);
     const float e = s + len;
-    if (e <= Wf) {
+    if (e <= WF) {
       push_interval(dst, s, e);
     } else {
-      push_interval(dst, s, Wf);
-      push_interval(dst, 0.0f, e - Wf);
+      push_interval(dst, s, WF);
+      push_interval(dst, 0.0f, e - WF);
     }
   }
 }

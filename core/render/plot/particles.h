@@ -134,9 +134,9 @@ struct ParticleSystem {
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
       const size_t trail_len = p.history.length();
-      constexpr int sample_stride = trail_sample_stride<SystemT>();
+      constexpr int SAMPLE_STRIDE = trail_sample_stride<SystemT>();
       const bool append_live_tip = [&] {
-        if constexpr (sample_stride == 1) {
+        if constexpr (SAMPLE_STRIDE == 1) {
           return false;
         } else {
           return system.appends_live_tip(p);
@@ -186,7 +186,7 @@ struct ParticleSystem {
           history_batch.step();
 #endif
         };
-        if constexpr (sample_stride == 1) {
+        if constexpr (SAMPLE_STRIDE == 1) {
           p.history.tween(emit);
         } else {
           const float denominator = static_cast<float>(point_count - 1);
@@ -310,7 +310,7 @@ struct ParticleSystem {
         HS_PROFILE(plot_ps_raster);
         rasterize<W, H,
                   RasterConfig{.single_pass =
-                                   SinglePassRaster && sample_stride == 1,
+                                   SinglePassRaster && SAMPLE_STRIDE == 1,
                                .open_geodesic = true}>(
             pipeline, canvas, trail, fragment_shader,
             {.projection = RasterProjection::geodesic(vis),

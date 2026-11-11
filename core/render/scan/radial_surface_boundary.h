@@ -98,10 +98,10 @@ public:
                                            float shape_x, float shape_y,
                                            float h, float slack, float &low,
                                            float &high) {
-    const float VALUE = spin * shape_x - h * radial, SLOPE = spin * shape_y;
-    const float TOLERANCE =
-        64 * FLT_EPSILON * (fabsf(VALUE) + fabsf(SLOPE) + 1e-8f) + slack;
-    return clip_parameter(VALUE - TOLERANCE, SLOPE, low, high);
+    const float value = spin * shape_x - h * radial, slope = spin * shape_y;
+    const float tolerance =
+        64 * FLT_EPSILON * (fabsf(value) + fabsf(slope) + 1e-8f) + slack;
+    return clip_parameter(value - tolerance, slope, low, high);
   }
 
   /** @brief Visits first-arrival candidates in one repeated star period.
@@ -118,32 +118,32 @@ public:
   visit_candidates(const Surface &surface, Visitor &&visit,
                    float derivative_motion = 0,
                    float relative_derivative_motion = 0) {
-    const int COUNT = surface.interval_count();
-    const float PERIOD = math::TWO_PI_F / (surface.edge_count() / 2);
-    for (int i = 0; i < COUNT; ++i) {
+    const int count = surface.interval_count();
+    const float period = math::TWO_PI_F / (surface.edge_count() / 2);
+    for (int i = 0; i < count; ++i) {
       const auto &a = surface.knot(i), &b = surface.knot(i + 1);
-      const Point C{a.real, a.imag}, D{b.real - a.real, b.imag - a.imag};
-      const float LENGTH2 = D.x * D.x + D.y * D.y;
-      if (LENGTH2 == 0.0f && derivative_motion == 0.0f &&
+      const Point c{a.real, a.imag}, d{b.real - a.real, b.imag - a.imag};
+      const float length2 = d.x * d.x + d.y * d.y;
+      if (length2 == 0.0f && derivative_motion == 0.0f &&
           relative_derivative_motion == 0.0f)
         continue;
       const auto first = surface.edge(0);
-      const float H = first.y;
-      const bool POSITIVE = radial_cross(C, D) >= 0.0f;
-      const auto before = surface.edge(POSITIVE ? 0 : surface.edge_count() - 1);
-      const auto after = surface.edge(POSITIVE ? surface.edge_count() - 1 : 0);
-      const float SPIN = radial_cross(C, D);
-      const float RADIAL = C.x * D.x + C.y * D.y;
-      const float LOCAL_RADIUS2 = fmaxf(a.real * a.real + a.imag * a.imag,
+      const float h = first.y;
+      const bool positive = radial_cross(c, d) >= 0.0f;
+      const auto before = surface.edge(positive ? 0 : surface.edge_count() - 1);
+      const auto after = surface.edge(positive ? surface.edge_count() - 1 : 0);
+      const float spin = radial_cross(c, d);
+      const float radial = c.x * d.x + c.y * d.y;
+      const float local_radius2 = fmaxf(a.real * a.real + a.imag * a.imag,
                                         b.real * b.real + b.imag * b.imag);
       float low = 0.0f, high = 1.0f;
-      if (!tip_range(SPIN, RADIAL, LENGTH2, H, before.x, after.x,
+      if (!tip_range(spin, radial, length2, h, before.x, after.x,
                      derivative_motion +
-                         relative_derivative_motion * LOCAL_RADIUS2,
+                         relative_derivative_motion * local_radius2,
                      low, high))
         continue;
-      visit(Candidate{{C.x + low * D.x, C.y + low * D.y},
-                      {C.x + high * D.x, C.y + high * D.y},
+      visit(Candidate{{c.x + low * d.x, c.y + low * d.y},
+                      {c.x + high * d.x, c.y + high * d.y},
                       a.phase,
                       b.phase,
                       low == 0.0f && high == 1.0f,
@@ -151,80 +151,80 @@ public:
                       .5f * (a.phase + b.phase),
                       i});
     }
-    for (int endpoint : {0, COUNT})
+    for (int endpoint : {0, count})
       for (int edge = 0; edge < 2; ++edge) {
         const auto a = surface.vertex(edge), b = surface.vertex(edge + 1);
-        const Point A{a.x, a.y}, E{b.x - a.x, b.y - a.y};
+        const Point a_value{a.x, a.y}, e{b.x - a.x, b.y - a.y};
         float low = 0, high = 1;
         if (endpoint > 0) {
           const auto &k = surface.knot(endpoint),
                      &prior = surface.knot(endpoint - 1);
-          const Point C{k.real, k.imag},
-              D{k.real - prior.real, k.imag - prior.imag};
-          const float SPIN = radial_cross(C, D);
-          const auto &METRICS = surface.edge_metrics(edge);
-          const float LOCAL_RADIUS2 =
+          const Point c{k.real, k.imag},
+              d{k.real - prior.real, k.imag - prior.imag};
+          const float spin = radial_cross(c, d);
+          const auto &metrics = surface.edge_metrics(edge);
+          const float local_radius2 =
               fmaxf(k.real * k.real + k.imag * k.imag,
                     prior.real * prior.real + prior.imag * prior.imag);
-          if (!endpoint_range(SPIN, C.x * D.x + C.y * D.y, METRICS.dot,
-                              METRICS.squared_length, METRICS.determinant,
+          if (!endpoint_range(spin, c.x * d.x + c.y * d.y, metrics.dot,
+                              metrics.squared_length, metrics.determinant,
                               derivative_motion +
-                                  relative_derivative_motion * LOCAL_RADIUS2,
+                                  relative_derivative_motion * local_radius2,
                               low, high))
             continue;
         }
         visit(Candidate{
             transform(surface.knot(endpoint),
-                      {A.x + low * E.x, A.y + low * E.y}),
+                      {a_value.x + low * e.x, a_value.y + low * e.y}),
             transform(surface.knot(endpoint),
-                      {A.x + high * E.x, A.y + high * E.y}),
-            surface.knot(endpoint).phase + edge * PERIOD * .5f,
-            surface.knot(endpoint).phase + (edge + 1) * PERIOD * .5f,
+                      {a_value.x + high * e.x, a_value.y + high * e.y}),
+            surface.knot(endpoint).phase + edge * period * .5f,
+            surface.knot(endpoint).phase + (edge + 1) * period * .5f,
             low == 0 && high == 1, false,
-            surface.knot(endpoint).phase + (edge + .5f) * PERIOD * .5f,
+            surface.knot(endpoint).phase + (edge + .5f) * period * .5f,
             endpoint});
       }
 
-    const auto &M0 = surface.edge_metrics(0), &M1 = surface.edge_metrics(1);
-    const Point SHAPE0{M0.dot, M0.squared_length};
-    const Point SHAPE1{M1.dot, M1.squared_length};
-    const float H0 = M0.determinant;
-    const float H1 = M1.determinant;
-    for (int i = 1; i < COUNT; ++i) {
+    const auto &m0 = surface.edge_metrics(0), &m1 = surface.edge_metrics(1);
+    const Point shape0{m0.dot, m0.squared_length};
+    const Point shape1{m1.dot, m1.squared_length};
+    const float h0 = m0.determinant;
+    const float h1 = m1.determinant;
+    for (int i = 1; i < count; ++i) {
       const auto &c = surface.knot(i);
       const auto &previous = surface.knot(i - 1), &next = surface.knot(i + 1);
-      const Point LEFT{c.real - previous.real, c.imag - previous.imag};
-      const Point RIGHT{next.real - c.real, next.imag - c.imag};
-      const Point C{c.real, c.imag};
-      const float LEFT_SPIN = radial_cross(C, LEFT),
-                  RIGHT_SPIN = radial_cross(C, RIGHT);
-      const float LEFT_RADIAL = C.x * LEFT.x + C.y * LEFT.y;
-      const float RIGHT_RADIAL = C.x * RIGHT.x + C.y * RIGHT.y;
+      const Point left{c.real - previous.real, c.imag - previous.imag};
+      const Point right{next.real - c.real, next.imag - c.imag};
+      const Point c_value{c.real, c.imag};
+      const float left_spin = radial_cross(c_value, left),
+                  right_spin = radial_cross(c_value, right);
+      const float left_radial = c_value.x * left.x + c_value.y * left.y;
+      const float right_radial = c_value.x * right.x + c_value.y * right.y;
       for (int edge = 0; edge < 2; ++edge) {
-        const float H = edge == 0 ? H0 : H1;
-        const Point SHAPE = edge == 0 ? SHAPE0 : SHAPE1;
-        const float LOCAL_RADIUS2 = fmaxf(
-            C.x * C.x + C.y * C.y,
+        const float h = edge == 0 ? h0 : h1;
+        const Point shape = edge == 0 ? shape0 : shape1;
+        const float local_radius2 = fmaxf(
+            c_value.x * c_value.x + c_value.y * c_value.y,
             fmaxf(previous.real * previous.real + previous.imag * previous.imag,
                   next.real * next.real + next.imag * next.imag));
         float low = 0.0f, high = 1.0f;
-        if (!knot_range(LEFT_SPIN, LEFT_RADIAL, RIGHT_SPIN, RIGHT_RADIAL,
-                        SHAPE.x, SHAPE.y, H,
+        if (!knot_range(left_spin, left_radial, right_spin, right_radial,
+                        shape.x, shape.y, h,
                         derivative_motion +
-                            relative_derivative_motion * LOCAL_RADIUS2,
+                            relative_derivative_motion * local_radius2,
                         low, high))
           continue;
         const auto unit_a = surface.vertex(edge), unit_e = surface.edge(edge);
-        const Point A{unit_a.x, unit_a.y}, E{unit_e.x, unit_e.y};
-        const Point WORLD_A = transform(c, A), WORLD_E = transform(c, E);
+        const Point a{unit_a.x, unit_a.y}, e{unit_e.x, unit_e.y};
+        const Point world_a = transform(c, a), world_e = transform(c, e);
         visit(Candidate{
-            {WORLD_A.x + low * WORLD_E.x, WORLD_A.y + low * WORLD_E.y},
-            {WORLD_A.x + high * WORLD_E.x, WORLD_A.y + high * WORLD_E.y},
+            {world_a.x + low * world_e.x, world_a.y + low * world_e.y},
+            {world_a.x + high * world_e.x, world_a.y + high * world_e.y},
             0,
             0,
             false,
             true,
-            c.phase + (edge + .5f) * PERIOD * .5f,
+            c.phase + (edge + .5f) * period * .5f,
             i});
       }
     }
@@ -238,14 +238,14 @@ private:
    * @return Whether any candidate range remains. */
   static HS_HOT_INLINE bool paired_range(Point left, Point right, float slack,
                                          float &low, float &high) {
-    const float TOLERANCE = 64 * FLT_EPSILON *
+    const float tolerance = 64 * FLT_EPSILON *
                                 (fabsf(left.x) + fabsf(left.y) +
                                  fabsf(right.x) + fabsf(right.y) + 1e-8f) +
                             slack;
-    return fminf(left.x, left.x + left.y) <= TOLERANCE &&
-           fmaxf(right.x, right.x + right.y) >= -TOLERANCE &&
-           clip_parameter(left.x - TOLERANCE, left.y, low, high) &&
-           clip_parameter(-right.x - TOLERANCE, -right.y, low, high);
+    return fminf(left.x, left.x + left.y) <= tolerance &&
+           fmaxf(right.x, right.x + right.y) >= -tolerance &&
+           clip_parameter(left.x - tolerance, left.y, low, high) &&
+           clip_parameter(-right.x - tolerance, -right.y, low, high);
   }
   /** @tparam Knot Similarity multiplier type.
    * @param c Similarity multiplier.

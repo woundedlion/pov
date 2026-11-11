@@ -92,12 +92,12 @@ struct ToolingOpGuard {
 static bool ensure_tooling_arenas() {
   if (tooling_arena.get_capacity() != 0)
     return true;
-  const size_t total = TOOLING_ARENA_BYTES + 2 * TOOLING_SCRATCH_BYTES;
-  uint8_t *block = static_cast<uint8_t *>(std::malloc(total));
+  const size_t TOTAL = TOOLING_ARENA_BYTES + 2 * TOOLING_SCRATCH_BYTES;
+  uint8_t *block = static_cast<uint8_t *>(std::malloc(TOTAL));
   if (block == nullptr) {
     hs::log("WASM: tooling arena block allocation of %zu bytes failed — "
             "ignored",
-            total);
+            TOTAL);
     return false;
   }
   tooling_arena.rebind(block, TOOLING_ARENA_BYTES);

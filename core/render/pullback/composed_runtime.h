@@ -1278,14 +1278,14 @@ private:
   static bool palette_cache_controls_eligible(const Params &value) {
     if constexpr (SpecT::INITIAL_CACHE_CONTROLS_ONLY) {
       const auto INITIAL = Derived::initial_params();
-      const bool COLOR_MATCHES =
+      const bool color_matches =
           value.template get<"color">() == INITIAL.template get<"color">();
       if constexpr (Params::template HAS<"modulation">)
-        return COLOR_MATCHES &&
+        return color_matches &&
                value.template get<"modulation">().modulation ==
                    INITIAL.template get<"modulation">().modulation;
       else
-        return COLOR_MATCHES;
+        return color_matches;
     } else
       return true;
   }

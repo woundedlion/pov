@@ -229,31 +229,31 @@ public:
   shade_shared(const math::Vector &view, const typename Base::Frame &frame) {
     using Pipeline = typename Base::RenderPipeline;
     static_assert(Pipeline::NODE_COUNT == 8);
-    const auto ROTATED = Pipeline::template NodeAt<0>::run(
+    const auto rotated = Pipeline::template NodeAt<0>::run(
         Pullback::SphereSample{view, 0.0f}, frame.ctx,
         std::get<0>(frame.prepared));
-    const auto RIPPLED = Pipeline::template NodeAt<1>::run(
-        ROTATED, frame.ctx, std::get<1>(frame.prepared));
-    const auto PROJECTED = Pipeline::template NodeAt<2>::run(
-        RIPPLED, frame.ctx, std::get<2>(frame.prepared));
-    const auto SAMPLED = Pipeline::template NodeAt<3>::run(
-        PROJECTED, frame.ctx, std::get<3>(frame.prepared));
-    const auto COVERED = Pipeline::template NodeAt<4>::run(
-        SAMPLED, frame.ctx, std::get<4>(frame.prepared));
-    const auto &BASE = std::get<5>(frame.prepared);
+    const auto rippled = Pipeline::template NodeAt<1>::run(
+        rotated, frame.ctx, std::get<1>(frame.prepared));
+    const auto projected = Pipeline::template NodeAt<2>::run(
+        rippled, frame.ctx, std::get<2>(frame.prepared));
+    const auto sampled = Pipeline::template NodeAt<3>::run(
+        projected, frame.ctx, std::get<3>(frame.prepared));
+    const auto covered = Pipeline::template NodeAt<4>::run(
+        sampled, frame.ctx, std::get<4>(frame.prepared));
+    const auto &base = std::get<5>(frame.prepared);
     float hue = 0.0f;
     const auto apply_hue = [&]<size_t Index>() HS_HOT_INLINE {
-      const auto &PREPARED = std::get<Index>(frame.prepared);
-      if (!PREPARED.enabled || PREPARED.mechanic.amount == 0.0f)
+      const auto &prepared = std::get<Index>(frame.prepared);
+      if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
         return;
       using Policy =
           typename Pipeline::template NodeAt<Index>::Descriptor::ColorPolicy;
-      const float SCALAR = Policy::sample_phase_scalar(COVERED, PREPARED);
-      hue = Pullback::Color::accumulate_hue(hue, SCALAR, PREPARED.mechanic);
+      const float scalar = Policy::sample_phase_scalar(covered, prepared);
+      hue = Pullback::Color::accumulate_hue(hue, scalar, prepared.mechanic);
     };
     apply_hue.template operator()<6>();
     apply_hue.template operator()<7>();
-    return Pullback::Color::cached_phase_color(COVERED, BASE, hue);
+    return Pullback::Color::cached_phase_color(covered, base, hue);
   }
 
   /** @brief Column shader with canonical camera rotation. */
@@ -268,10 +268,10 @@ public:
      * @param row_cosine Cosine of the row polar angle.
      * @return Straight-alpha color. */
     Color4 operator()(float row_sine, float row_cosine) const {
-      const math::Vector VIEW(row_sine * cosine, row_cosine, row_sine * sine);
+      const math::Vector view(row_sine * cosine, row_cosine, row_sine * sine);
       if (!shared)
-        return AshCloud::shade(VIEW, *frame);
-      return AshCloud::shade_shared(VIEW, *frame);
+        return AshCloud::shade(view, *frame);
+      return AshCloud::shade_shared(view, *frame);
     }
   };
 
@@ -282,23 +282,23 @@ public:
   static ColumnShader prepare_column_shader(const typename Base::Frame &frame,
                                             int x) {
     using Pipeline = typename Base::RenderPipeline;
-    const auto &BASE = std::get<5>(frame.prepared);
+    const auto &base = std::get<5>(frame.prepared);
     const auto hue_only = [](const auto &prepared) {
       return !prepared.enabled || prepared.mechanic.amount == 0.0f ||
              prepared.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION;
     };
-    const bool SHARED =
-        BASE.current.brightness_envelope ==
+    const bool shared =
+        base.current.brightness_envelope ==
             Pullback::Color::BrightnessEnvelope::NONE &&
         hue_only(std::get<6>(frame.prepared)) &&
-        hue_only(std::get<7>(frame.prepared)) && BASE.lab.low &&
-        BASE.lab.rgb_low && BASE.lab.rgb_high && BASE.fraction > 0.0f &&
-        BASE.fraction < 1.0f &&
+        hue_only(std::get<7>(frame.prepared)) && base.lab.low &&
+        base.lab.rgb_low && base.lab.rgb_high && base.fraction > 0.0f &&
+        base.fraction < 1.0f &&
         Pipeline::template NodeAt<6>::phase_ready(
             std::get<6>(frame.prepared)) &&
         Pipeline::template NodeAt<7>::phase_ready(std::get<7>(frame.prepared));
     return {&frame, math::TrigLUT<W, H>::cos_theta(x),
-            math::TrigLUT<W, H>::sin_theta[x], SHARED};
+            math::TrigLUT<W, H>::sin_theta[x], shared};
   }
 
   /** @brief Explicit choreography customization bindings.

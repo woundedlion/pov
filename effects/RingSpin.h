@@ -61,14 +61,14 @@ public:
     // (wrap_t(1)==0 would fold it to black).
     InsetModifier inset;
     EdgeAlphaShade edge_fade;
-    const ProceduralPalette sources[NUM_PALETTES] = {
+    const ProceduralPalette SOURCES[NUM_PALETTES] = {
         Palettes::ICE_MELT, Palettes::UNDERSEA, Palettes::MANGO_PEEL,
         Palettes::RICH_SUNSET};
     for (int i = 0; i < NUM_PALETTES; ++i) {
       StaticPalette<ProceduralPalette, Coords<InsetModifier>,
                     Colors<EdgeAlphaShade>, /*Wrap=*/false>
           v;
-      v.bind(&sources[i], &inset, &edge_fade);
+      v.bind(&SOURCES[i], &inset, &edge_fade);
       baked_palettes[i].bake(persistent_arena, v);
     }
 

@@ -94,11 +94,11 @@ struct ClipRegion {
     KeyType key;
     unsigned offset = 0;
     auto append = [&](unsigned value, unsigned bits) HS_HOT_INLINE {
-      const unsigned WORD = offset / 64;
-      const unsigned SHIFT = offset % 64;
-      key.words[WORD] |= uint64_t(value) << SHIFT;
-      if (SHIFT + bits > 64)
-        key.words[WORD + 1] |= uint64_t(value) >> (64 - SHIFT);
+      const unsigned word = offset / 64;
+      const unsigned shift = offset % 64;
+      key.words[word] |= uint64_t(value) << shift;
+      if (shift + bits > 64)
+        key.words[word + 1] |= uint64_t(value) >> (64 - shift);
       offset += bits;
     };
     append(unsigned(y_start), KeyType::ROW_BITS);

@@ -306,16 +306,16 @@ template <typename A, typename B> struct SmoothUnion {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
-    const int PAD = pad_rows<H>();
-    const auto A_BAND = a.template get_vertical_bounds<H>();
-    const auto near_edge = [y, PAD](Bounds band) {
-      return band.y_min <= band.y_max && (std::abs(y - band.y_min) <= PAD ||
-                                          std::abs(y - band.y_max) <= PAD);
+    const int pad = pad_rows<H>();
+    const auto a_band = a.template get_vertical_bounds<H>();
+    const auto near_edge = [y, pad](Bounds band) {
+      return band.y_min <= band.y_max && (std::abs(y - band.y_min) <= pad ||
+                                          std::abs(y - band.y_max) <= pad);
     };
-    if (near_edge(A_BAND))
+    if (near_edge(a_band))
       return false;
-    const auto B_BAND = b.template get_vertical_bounds<H>();
-    if (near_edge(B_BAND))
+    const auto b_band = b.template get_vertical_bounds<H>();
+    if (near_edge(b_band))
       return false;
     ScratchScope scratch(scratch_arena_b);
     MergedIntervalBuffer &merged = scratch_spans<MergedIntervalBuffer>(scratch);
@@ -347,8 +347,8 @@ template <typename A, typename B> struct SmoothUnion {
     if (merged.is_empty()) {
       // Neither child covers this row, but the weld bulges outside both bands:
       // a row within the blend reach needs a full scan.
-      return !row_within_padded_band(A_BAND, y, PAD) &&
-             !row_within_padded_band(B_BAND, y, PAD);
+      return !row_within_padded_band(a_band, y, pad) &&
+             !row_within_padded_band(b_band, y, pad);
     }
 
     // Emitted spans may straddle θ=0; the union merge is frame-tolerant.
@@ -826,17 +826,17 @@ template <typename Shape> struct AngularRepeat {
       return false;
 
     const float step = static_cast<float>(W) / static_cast<float>(repetitions);
-    const float pad = 1.0f + ANGULAR_REPEAT_FOLD_SLOP * static_cast<float>(W) /
+    const float PAD = 1.0f + ANGULAR_REPEAT_FOLD_SLOP * static_cast<float>(W) /
                                  math::TWO_PI_F;
     for (size_t i = 0; i < child.size(); ++i)
       // Copies of a span this wide abut, covering every column anyway.
-      if (child[i].end - child[i].start + 2.0f * pad >= step)
+      if (child[i].end - child[i].start + 2.0f * PAD >= step)
         return false;
 
     for (size_t i = 0; i < child.size(); ++i)
       for (int k = 0; k < repetitions; ++k) {
         const float shift = static_cast<float>(k) * step;
-        out(child[i].start + shift - pad, child[i].end + shift + pad);
+        out(child[i].start + shift - PAD, child[i].end + shift + PAD);
       }
     return true;
   }

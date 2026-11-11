@@ -254,11 +254,11 @@ HS_HOT_ITCM_MEMBER inline float grid(const PlanePosition &coordinate,
 HS_HOT_INLINE inline float square_distance(float x, float y, float radius) {
   const float bx = fabsf(x) - radius;
   const float by = fabsf(y) - radius;
-  const float EDGE = fmaxf(bx, by);
-  const float CORNER = EDGE < 0.0f ? 0.0f
+  const float edge = fmaxf(bx, by);
+  const float corner = edge < 0.0f ? 0.0f
                                    : sqrtf(fmaxf(bx, 0.0f) * fmaxf(bx, 0.0f) +
                                            fmaxf(by, 0.0f) * fmaxf(by, 0.0f));
-  return CORNER + fminf(EDGE, 0.0f);
+  return corner + fminf(edge, 0.0f);
 }
 
 /** @brief Signed distance to a centred hexagon whose edges face the x axis
@@ -718,10 +718,10 @@ struct PlaneSpiral : StationarySource<SpiralSourceParams> {
       const float longitude =
           math::wrap_positive(coordinate.value.re, math::TWO_PI_F);
       const float latitude = coordinate.value.im;
-      const float COS_LATITUDE = std::cos(latitude);
-      const math::Vector direction{COS_LATITUDE * std::cos(longitude),
+      const float cos_latitude = std::cos(latitude);
+      const math::Vector direction{cos_latitude * std::cos(longitude),
                                    std::sin(latitude),
-                                   COS_LATITUDE * std::sin(longitude)};
+                                   cos_latitude * std::sin(longitude)};
       const math::Vector local =
           math::rotate(direction, prepared.center_conjugate);
       const float radius = std::acos(std::clamp(local.y, -1.0f, 1.0f));

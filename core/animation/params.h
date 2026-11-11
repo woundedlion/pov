@@ -1160,9 +1160,9 @@ struct NoiseParams {
 template <typename P>
 HS_HOT_INLINE inline void advance_noise_clock(std::reference_wrapper<P> params,
                                               NoiseTimeLoop &clock) {
-  const float SPEED = params.get().speed;
-  if (std::isfinite(SPEED) && SPEED != 0.0f)
-    params.get().time = clock.advance(SPEED);
+  const float speed = params.get().speed;
+  if (std::isfinite(speed) && speed != 0.0f)
+    params.get().time = clock.advance(speed);
 }
 
 /**

@@ -95,9 +95,9 @@ closest_approach(const Shape &shape, const math::Vector &origin,
     float d = shape.distance(local_p);
     float r = d < 0.0f ? -d : d;
     if (omega > 1.0f && spheres_disjoint(r, prev_r, step_len)) {
-      const float REWIND = prev_r - step_len;
-      t += REWIND;
-      local_p = advance(local_p, direction, REWIND);
+      const float rewind = prev_r - step_len;
+      t += rewind;
+      local_p = advance(local_p, direction, rewind);
       omega = 1.0f;
       prev_r = 0.0f;
       step_len = 0.0f;
@@ -107,12 +107,12 @@ closest_approach(const Shape &shape, const math::Vector &origin,
     if (d < closest_d) {
       closest_d = d;
       closest_local = local_p;
-      const bool HIT = closest_d <= aa_width * HIT_FRACTION;
-      if (HIT)
+      const bool hit = closest_d <= aa_width * HIT_FRACTION;
+      if (hit)
         return false;
     } else {
-      const bool LEAVING_GRAZE = closest_d < aa_width;
-      if (LEAVING_GRAZE)
+      const bool leaving_graze = closest_d < aa_width;
+      if (leaving_graze)
         return false;
     }
     step_len = fmaxf(d * STEP_SAFETY * omega, MIN_STEP);
@@ -199,9 +199,9 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
       return result;
     }
   }
-  const auto GUARANTEES = query.capabilities();
+  const auto guarantees = query.capabilities();
   if (!ray.valid() || !valid_footprint(footprint) ||
-      !tolerance_verifiable(limits, GUARANTEES)) {
+      !tolerance_verifiable(limits, guarantees)) {
     result.status = TraceStatus::INVALID_QUERY;
     return result;
   }
@@ -238,15 +238,15 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
     return true;
   };
   auto keeps_start_side = [&]() HS_HOT_INLINE {
-    const bool SAMPLE_INSIDE = sample.field < 0.0f;
+    const bool sample_inside = sample.field < 0.0f;
     if (first) {
       first = false;
-      inside = SAMPLE_INSIDE;
-      if (!can_start(GUARANTEES, inside))
+      inside = sample_inside;
+      if (!can_start(guarantees, inside))
         return stop(TraceStatus::UNSUPPORTED_START);
       return true;
     }
-    if (SAMPLE_INSIDE != inside)
+    if (sample_inside != inside)
       return stop(TraceStatus::INVALID_QUERY);
     return true;
   };
@@ -254,26 +254,26 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
   auto refine = [&]() HS_HOT_INLINE {
     if (result.counters.refinements >= limits.max_refinements)
       return stop(TraceStatus::UNRESOLVED);
-    const float PROBE_T =
+    const float probe_t =
         fminf(t + limits.position_tolerance, ray.interval.far);
-    if (!(PROBE_T > t))
+    if (!(probe_t > t))
       return stop(TraceStatus::UNRESOLVED);
     QuerySample probe;
     ++result.counters.refinements;
-    if (!evaluate(PROBE_T, probe))
+    if (!evaluate(probe_t, probe))
       return false;
     if (probe.boundary || ((probe.field < 0.0f) != inside))
-      return emit((t + PROBE_T) * 0.5f, probe);
-    t = PROBE_T;
+      return emit((t + probe_t) * 0.5f, probe);
+    t = probe_t;
     sample = probe;
     sample_ready = true;
     return true;
   };
   auto sphere_step = [&](float clearance) HS_HOT_INLINE {
-    const float NEXT_T = t + clearance * STEP_SAFETY;
-    if (!(NEXT_T > t) || NEXT_T > ray.interval.far)
+    const float next_t = t + clearance * STEP_SAFETY;
+    if (!(next_t > t) || next_t > ray.interval.far)
       return stop(TraceStatus::UNRESOLVED);
-    t = NEXT_T;
+    t = next_t;
     return true;
   };
   march_steps(limits.max_steps, [&]() HS_HOT_INLINE {
@@ -281,20 +281,20 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
       return false;
     sample_ready = false;
     ++result.counters.steps;
-    if (sample.boundary && GUARANTEES.surface_verification)
+    if (sample.boundary && guarantees.surface_verification)
       return emit(t, sample);
     if (!keeps_start_side())
       return false;
-    const float CLEARANCE = fmaxf(sample.clearance - GUARANTEES.error, 0.0f);
-    const float REMAINING = ray.interval.far - t;
-    if (CLEARANCE > REMAINING)
+    const float clearance = fmaxf(sample.clearance - guarantees.error, 0.0f);
+    const float remaining = ray.interval.far - t;
+    if (clearance > remaining)
       return stop(TraceStatus::RANGE_COMPLETE);
-    if (REMAINING <= 0.0f)
+    if (remaining <= 0.0f)
       return stop(sample.field == 0.0f ? TraceStatus::UNRESOLVED
                                        : TraceStatus::RANGE_COMPLETE);
-    if (CLEARANCE <= limits.position_tolerance)
+    if (clearance <= limits.position_tolerance)
       return refine();
-    return sphere_step(CLEARANCE);
+    return sphere_step(clearance);
   });
   return result;
 }

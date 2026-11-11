@@ -540,13 +540,13 @@ public:
       ScratchScope a(scratch_arena_a);
       auto *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
       for (size_t f = 0; f < tr.topo.size(); ++f) {
-        const size_t HOST =
+        const size_t host =
             f < handoff.prev_faces
                 ? f
                 : spec.prepared->hosts[MeshPaletteBank::slot_of(tr.topo[f])];
-        HS_CHECK(HOST < handoff.prev_faces,
+        HS_CHECK(host < handoff.prev_faces,
                  "OpLeg: prepared bridge host out of range");
-        from[f] = handoff.prev_face_palette[HOST];
+        from[f] = handoff.prev_face_palette[host];
       }
       build_palette_mapping(tr, source.mesh, handoff, bookend, arena, nullptr,
                             tr.seed_faces, from);
@@ -1332,14 +1332,14 @@ private:
   template <typename Emit>
   HS_FLASH_MEMBER static void first_seen_corners(const PolyMesh &dual,
                                                  Arena &arena, Emit &&emit) {
-    const size_t V = dual.vertices.size();
-    bool *seen = arena.allocate_n<bool>(V);
-    std::fill_n(seen, V, false);
+    const size_t v = dual.vertices.size();
+    bool *seen = arena.allocate_n<bool>(v);
+    std::fill_n(seen, v, false);
     size_t out = 0, off = 0;
     for (size_t face = 0; face < dual.face_counts.size(); ++face) {
       for (int j = 0; j < dual.face_counts[face]; ++j) {
         const uint16_t vertex = dual.faces[off + j];
-        HS_CHECK(vertex < V, "OpLeg: dual face index out of range");
+        HS_CHECK(vertex < v, "OpLeg: dual face index out of range");
         if (seen[vertex])
           continue;
         seen[vertex] = true;
@@ -1348,7 +1348,7 @@ private:
       }
       off += dual.face_counts[face];
     }
-    HS_CHECK(out == V, "OpLeg: dual corners incomplete");
+    HS_CHECK(out == v, "OpLeg: dual corners incomplete");
   }
 
   HS_FLASH_MEMBER static const uint8_t *

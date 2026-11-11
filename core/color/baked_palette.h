@@ -114,11 +114,11 @@ public:
   std::optional<float> constant_alpha() const {
     HS_AUDIT_CHECK(alpha_q16 != nullptr,
                    "BakedPalette::constant_alpha before bake()");
-    const uint16_t ALPHA = alpha_q16[0];
+    const uint16_t alpha = alpha_q16[0];
     for (int index = 1; index < LUT_SIZE; ++index)
-      if (alpha_q16[index] != ALPHA)
+      if (alpha_q16[index] != alpha)
         return std::nullopt;
-    return ALPHA * Q16_TO_UNIT;
+    return alpha * Q16_TO_UNIT;
   }
 
   /**
@@ -145,17 +145,17 @@ public:
     HS_AUDIT_CHECK(colors != nullptr,
                    "BakedPalette::get_color_unit_scaled before bake()");
     HS_AUDIT_CHECK(t >= 0.0f && t <= 1.0f);
-    const float IDX = t * (LUT_SIZE - 1);
-    const int LO = std::min(lut_index_lo(IDX), LUT_SIZE - 2);
-    const float FRAC = (IDX - static_cast<float>(LO)) * scale;
-    const Pixel &BELOW = colors[LO];
-    const Pixel &ABOVE = colors[LO + 1];
-    const float RED = static_cast<float>(BELOW.r);
-    const float GREEN = static_cast<float>(BELOW.g);
-    const float BLUE = static_cast<float>(BELOW.b);
-    rgb[0] = RED * scale + (static_cast<float>(ABOVE.r) - RED) * FRAC;
-    rgb[1] = GREEN * scale + (static_cast<float>(ABOVE.g) - GREEN) * FRAC;
-    rgb[2] = BLUE * scale + (static_cast<float>(ABOVE.b) - BLUE) * FRAC;
+    const float idx = t * (LUT_SIZE - 1);
+    const int lo = std::min(lut_index_lo(idx), LUT_SIZE - 2);
+    const float frac = (idx - static_cast<float>(lo)) * scale;
+    const Pixel &below = colors[lo];
+    const Pixel &above = colors[lo + 1];
+    const float red = static_cast<float>(below.r);
+    const float green = static_cast<float>(below.g);
+    const float blue = static_cast<float>(below.b);
+    rgb[0] = red * scale + (static_cast<float>(above.r) - red) * frac;
+    rgb[1] = green * scale + (static_cast<float>(above.g) - green) * frac;
+    rgb[2] = blue * scale + (static_cast<float>(above.b) - blue) * frac;
   }
 
   /**

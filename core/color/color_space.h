@@ -604,13 +604,13 @@ gamut_clip_preserve_chroma(OKLab lab) {
   if (!(c_sq > 1e-12f))
     return {lab.L, 0.0f, 0.0f};
 
-  const float C = sqrtf(c_sq);
-  const float inverse_C = 1.0f / C;
-  const float C_MAX =
-      gamut_max_chroma(lab.L, lab.a * inverse_C, lab.b * inverse_C);
-  if (C <= C_MAX)
+  const float c = sqrtf(c_sq);
+  const float inverse_c = 1.0f / c;
+  const float c_max =
+      gamut_max_chroma(lab.L, lab.a * inverse_c, lab.b * inverse_c);
+  if (c <= c_max)
     return lab;
-  const float scale = C_MAX * inverse_C;
+  const float scale = c_max * inverse_c;
   return {lab.L, lab.a * scale, lab.b * scale};
 }
 
@@ -728,8 +728,8 @@ struct LmsChromaClip {
    */
   HS_O3_FN static inline void apply(float l, float m, float s, float &r,
                                     float &g, float &b) {
-    const OKLab LAB = lms_to_oklab(l, m, s);
-    oklab_to_linear_rgb(gamut_clip_preserve_chroma(LAB), r, g, b);
+    const OKLab lab = lms_to_oklab(l, m, s);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
   }
 };
 
@@ -1192,9 +1192,9 @@ HS_FLASH_INLINE inline Color4 blend_outputs(const Color4 &from,
  * @return The color in OKLCH space; hue h in radians.
  */
 inline OKLCH oklab_to_oklch(OKLab lab) {
-  float C = sqrtf(lab.a * lab.a + lab.b * lab.b);
+  float c = sqrtf(lab.a * lab.a + lab.b * lab.b);
   float h = atan2f(lab.b, lab.a);
-  return {lab.L, C, h};
+  return {lab.L, c, h};
 }
 
 /**
@@ -1281,7 +1281,7 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
   } else {
     h = a.h + wrap_angle_pi(b.h - a.h) * t;
   }
-  float L = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
-  float C = std::max(0.0f, a.C + (b.C - a.C) * t);
-  return {L, C, h};
+  float l = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
+  float c = std::max(0.0f, a.C + (b.C - a.C) * t);
+  return {l, c, h};
 }

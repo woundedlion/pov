@@ -241,10 +241,10 @@ private:
   }
 
   static void add_pigment(float *weights, uint16_t pigment, float mass) {
-    const auto PIGMENT = Pigment::unpack(pigment);
-    float first = Pigment::first_mass(PIGMENT.mass);
-    weights[PIGMENT.first] += mass * first;
-    weights[PIGMENT.second] += mass * (1.0f - first);
+    const auto pigment_value = Pigment::unpack(pigment);
+    float first = Pigment::first_mass(pigment_value.mass);
+    weights[pigment_value.first] += mass * first;
+    weights[pigment_value.second] += mass * (1.0f - first);
   }
 
   static uint16_t pack_pigment(const float *weights) {
@@ -298,21 +298,21 @@ private:
   HS_HOT_FLASH_MEMBER void step_pigment(const float *a, const float *b,
                                         uint16_t *next) {
     HS_PROFILE(grd_pigment);
-    const float DT = params.dt * STEP_DT_SCALE;
-    const float DIFFUSION = params.d_b * DT;
+    const float dt = params.dt * STEP_DT_SCALE;
+    const float diffusion_value = params.d_b * dt;
     float weights[NUM_SEED_CLUSTERS] = {};
     int i = 0;
     for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
       const auto &run = ReactionGraph::neighbor_runs[r];
       for (; i < run.end; ++i) {
-        float retained = fmaxf(0.0f, b[i] * (1.0f - RD_K * DIFFUSION -
-                                             (params.k + params.feed) * DT) +
-                                         a[i] * b[i] * b[i] * DT);
-        float diffusion = DIFFUSION;
+        float retained = fmaxf(0.0f, b[i] * (1.0f - RD_K * diffusion_value -
+                                             (params.k + params.feed) * dt) +
+                                         a[i] * b[i] * b[i] * dt);
+        float diffusion = diffusion_value;
         if constexpr (PIGMENT_STEPS > 1) {
           float incoming = 0.0f;
           for (int k = 0; k < RD_K; ++k)
-            incoming += b[i + run.delta[k]] * DIFFUSION;
+            incoming += b[i + run.delta[k]] * diffusion_value;
           float total = retained + incoming;
           float retain_ratio = total > 0.0f ? retained / total : 0.0f;
           float power = 1.0f, scale = 1.0f;
@@ -343,10 +343,10 @@ private:
           touched |= 1u << id;
         };
         auto gather = [&](int node, float mass) HS_HOT_INLINE {
-          const auto PIGMENT = Pigment::unpack(state.pigment[node]);
-          float first = Pigment::first_mass(PIGMENT.mass);
-          add(PIGMENT.first, mass * first);
-          add(PIGMENT.second, mass * (1.0f - first));
+          const auto pigment = Pigment::unpack(state.pigment[node]);
+          float first = Pigment::first_mass(pigment.mass);
+          add(pigment.first, mass * first);
+          add(pigment.second, mass * (1.0f - first));
         };
         gather(i, retained);
         for (int k = 0; k < RD_K; ++k) {
@@ -413,10 +413,10 @@ private:
                                                    float lightness) const {
     if (shift == 0.0f && lightness == 0.0f)
       return palette_color(seed, t);
-    const Color4 SOURCE(palette_color(seed, t), 1.0f);
-    const Color4 SHIFTED =
-        shift == 0.0f ? SOURCE : hue_rotate_lut_gamut(SOURCE, shift);
-    return ColorModulation::PositiveLightnessLift::apply(SHIFTED, lightness,
+    const Color4 source(palette_color(seed, t), 1.0f);
+    const Color4 shifted =
+        shift == 0.0f ? source : hue_rotate_lut_gamut(source, shift);
+    return ColorModulation::PositiveLightnessLift::apply(shifted, lightness,
                                                          {1.0f})
         .color;
   }
@@ -457,9 +457,9 @@ private:
       enabled = hue != 0.0f || shimmer != 0.0f;
       exact = !enabled || fabsf(hue) > CACHED_HUE_LIMIT ||
               shimmer > CACHED_SHIMMER_LIMIT;
-      const bool RESTART =
+      const bool restart =
           !valid || latched_hue != hue || latched_shimmer != shimmer;
-      if (RESTART) {
+      if (restart) {
         latched_hue = hue;
         latched_shimmer = shimmer;
         valid = true;
@@ -469,7 +469,7 @@ private:
       if (next_row == COLOR_NOISE_STEPS || exact)
         return;
       HS_PROFILE(grd_color_palette);
-      int count = complete ? COLOR_NOISE_STEPS : RESTART ? 5 : 2;
+      int count = complete ? COLOR_NOISE_STEPS : restart ? 5 : 2;
       for (; count > 0 && next_row < COLOR_NOISE_STEPS; --count) {
         int index = next_row++;
         int n = COLOR_NOISE_STEPS / 2 +
@@ -488,9 +488,9 @@ private:
     /** @brief The noise row pair below `position`, and whether to shade it
      * exactly. */
     HS_HOT_INLINE Selection selection(float position) const {
-      const int ROW =
+      const int row =
           std::min(static_cast<int>(position), COLOR_NOISE_STEPS - 2);
-      return {ROW, !valid || (rows & (3u << ROW)) != (3u << ROW) || exact};
+      return {row, !valid || (rows & (3u << row)) != (3u << row) || exact};
     }
 
     /** @brief The baked colors of `seed` at noise row `noise_row`. */
@@ -521,24 +521,24 @@ private:
   }
 
   HS_FLASH_INLINE void refresh_color_noise() {
-    const math::NoiseFieldSpec KEY{.seed = COLOR_NOISE_SEED,
+    const math::NoiseFieldSpec key{.seed = COLOR_NOISE_SEED,
                                    .scale = params.noise_scale,
                                    .phase = color_noise_phase};
-    const Pattern::NoiseParams INPUTS{.scale = params.noise_scale};
-    const auto PREPARED =
-        Pattern::SphereNoise::prepare(INPUTS, {color_noise_phase}, color_noise);
+    const Pattern::NoiseParams inputs{.scale = params.noise_scale};
+    const auto prepared =
+        Pattern::SphereNoise::prepare(inputs, {color_noise_phase}, color_noise);
     color_noise_cache.refresh<Pattern::SphereNoise>(
         std::span<int8_t, Pattern::SphereLutView::SIZE>(
             color_noise_lut, Pattern::SphereLutView::SIZE),
-        KEY, PREPARED);
+        key, prepared);
   }
 
   void advance_color_noise() {
-    const float PREVIOUS_PHASE = color_noise_phase;
+    const float previous_phase = color_noise_phase;
     color_noise_phase = math::wrap_t(color_noise_phase + params.noise_speed);
     if (params.hue_shift != 0.0f || params.shimmer != 0.0f) {
       if (!Spacetime::flat_surface())
-        retain_color_noise(PREVIOUS_PHASE);
+        retain_color_noise(previous_phase);
       refresh_color_noise();
     }
   }
@@ -563,16 +563,16 @@ private:
 
   HS_O3_FN HS_HOT_INLINE float sample_color_noise(
       const ReactionGraph::CubemapLUT::Projection &projection) const {
-    const int FACE = projection.face;
-    const float U = FACE < 2 ? -projection.u : projection.u;
-    const float V = FACE >= 2 && FACE < 4 ? -projection.v : projection.v;
-    const Pattern::SphereLutSample SAMPLE =
-        Pattern::prepare_sphere_lut_face(FACE, U, V);
-    const float NOW = SAMPLE.sample({color_noise_lut, true});
+    const int face = projection.face;
+    const float u = face < 2 ? -projection.u : projection.u;
+    const float v = face >= 2 && face < 4 ? -projection.v : projection.v;
+    const Pattern::SphereLutSample sample =
+        Pattern::prepare_sphere_lut_face(face, u, v);
+    const float now = sample.sample({color_noise_lut, true});
     if (!slab_noise.previous)
-      return NOW;
-    const float BEFORE = SAMPLE.sample({slab_noise.previous, true});
-    return BEFORE + slab_noise.weight * (NOW - BEFORE);
+      return now;
+    const float before = sample.sample({slab_noise.previous, true});
+    return before + slab_noise.weight * (now - before);
   }
 
   /**
@@ -688,10 +688,10 @@ private:
    * in-flight one, which reseeds into whatever the constants read at its end.
    */
   void advance_transition(float mean_db) {
-    const TransitionPlan PLAN = plan_transition();
-    if (PLAN.dissolve >= 0.0f)
-      convert_below(PLAN.dissolve);
-    finish_transition(PLAN, mean_db);
+    const TransitionPlan plan = plan_transition();
+    if (plan.dissolve >= 0.0f)
+      convert_below(plan.dissolve);
+    finish_transition(plan, mean_db);
   }
 
   /** @brief The parts of a frame's lifecycle step settled before its
@@ -707,11 +707,11 @@ private:
    * @return The frame's lifecycle outcome, but for stabilization.
    */
   TransitionPlan plan_transition() {
-    const bool EDITED = reaction_edited();
+    const bool edited = reaction_edited();
     if (transition.dissolve_frames < 0)
-      return {EDITED, -1.0f, false};
+      return {edited, -1.0f, false};
     transition.dissolve_frames++;
-    return {EDITED,
+    return {edited,
             static_cast<float>(transition.dissolve_frames) / DISSOLVE_FRAMES,
             transition.dissolve_frames >= DISSOLVE_FRAMES};
   }
@@ -784,7 +784,7 @@ private:
   HS_HOT_FLASH_MEMBER void
   step_physics_nodes(const float *c_a, const float *c_b, StoreFn &&store) {
     const float feed = params.feed;
-    const float KILL_RATE = params.k;
+    const float kill_rate = params.k;
     const float d_a = params.d_a;
     const float d_b = params.d_b;
     const float dt = params.dt * STEP_DT_SCALE;
@@ -834,7 +834,7 @@ private:
         float next_a = hs::clamp(a + (d_a * l_a - abb + feed * (1.0f - a)) * dt,
                                  0.0f, 1.0f);
         float next_b = hs::clamp(
-            b + (d_b * l_b + abb - (KILL_RATE + feed) * b) * dt, 0.0f, 1.0f);
+            b + (d_b * l_b + abb - (kill_rate + feed) * b) * dt, 0.0f, 1.0f);
         return std::pair{next_a, next_b};
       };
       for (; i + 3 < run.end; i += 4) {
@@ -950,10 +950,10 @@ private:
         const float dot = radial_scale[row] * radial + grid.cos_phi[row] * up;
         const float base_u = 1.0f - (2.0f - 2.0f * dot) * Base::INV_R2;
         const float cross = cross_scale[row] * tangent;
-        const float LEFT = fmaxf(0.0f, base_u - cross);
-        const float RIGHT = fmaxf(0.0f, base_u + cross);
-        on_weight(2 * row, LEFT * LEFT);
-        on_weight(2 * row + 1, RIGHT * RIGHT);
+        const float left = fmaxf(0.0f, base_u - cross);
+        const float right = fmaxf(0.0f, base_u + cross);
+        on_weight(2 * row, left * left);
+        on_weight(2 * row + 1, right * right);
       }
     }
   }
@@ -972,29 +972,29 @@ private:
                                              float scale,
                                              float noise_value) const {
     HS_PROFILE_DEEP(grd_shader_palette);
-    const auto PIGMENT = Pigment::unpack(pigment);
-    const float FIRST_MASS = Pigment::first_mass(PIGMENT.mass);
-    const int PALETTE_COUNT = PIGMENT.mass == Pigment::FULL_MASS ? 1 : 2;
-    const float NOISE_POSITION =
+    const auto pigment_value = Pigment::unpack(pigment);
+    const float first_mass = Pigment::first_mass(pigment_value.mass);
+    const int palette_count = pigment_value.mass == Pigment::FULL_MASS ? 1 : 2;
+    const float noise_position =
         hs::clamp((noise_value + 1.0f) * (0.5f * (COLOR_NOISE_STEPS - 1)), 0.0f,
                   static_cast<float>(COLOR_NOISE_STEPS - 1));
-    const auto NOISE_SELECTION = shimmer_cache.selection(NOISE_POSITION);
-    const int NOISE_ROW = NOISE_SELECTION.row;
-    const bool EXACT = NOISE_SELECTION.exact;
-    const float VALUE_POSITION = t * (COLOR_VALUE_STEPS - 1);
-    const int VALUE_COLUMN =
-        std::min(static_cast<int>(VALUE_POSITION), COLOR_VALUE_STEPS - 2);
-    const float NOISE_WEIGHT = NOISE_POSITION - NOISE_ROW;
-    const float VALUE_WEIGHT = VALUE_POSITION - VALUE_COLUMN;
-    const float SCALE00 = (1.0f - VALUE_WEIGHT) * (1.0f - NOISE_WEIGHT) * scale;
-    const float SCALE01 = VALUE_WEIGHT * (1.0f - NOISE_WEIGHT) * scale;
-    const float SCALE10 = (1.0f - VALUE_WEIGHT) * NOISE_WEIGHT * scale;
-    const float SCALE11 = VALUE_WEIGHT * NOISE_WEIGHT * scale;
+    const auto noise_selection = shimmer_cache.selection(noise_position);
+    const int noise_row = noise_selection.row;
+    const bool exact = noise_selection.exact;
+    const float value_position = t * (COLOR_VALUE_STEPS - 1);
+    const int value_column =
+        std::min(static_cast<int>(value_position), COLOR_VALUE_STEPS - 2);
+    const float noise_weight = noise_position - noise_row;
+    const float value_weight = value_position - value_column;
+    const float scale00 = (1.0f - value_weight) * (1.0f - noise_weight) * scale;
+    const float scale01 = value_weight * (1.0f - noise_weight) * scale;
+    const float scale10 = (1.0f - value_weight) * noise_weight * scale;
+    const float scale11 = value_weight * noise_weight * scale;
     float accum_r = 0, accum_g = 0, accum_b = 0;
-    for (int component = 0; component < PALETTE_COUNT; ++component) {
-      int palette = component ? PIGMENT.second : PIGMENT.first;
-      float mass = component ? 1.0f - FIRST_MASS : FIRST_MASS;
-      if (EXACT) {
+    for (int component = 0; component < palette_count; ++component) {
+      int palette = component ? pigment_value.second : pigment_value.first;
+      float mass = component ? 1.0f - first_mass : first_mass;
+      if (exact) {
         Pixel rgb =
             modified_palette_color(palette, t, noise_value * params.hue_shift,
                                    fmaxf(noise_value, 0.0f) * params.shimmer);
@@ -1005,9 +1005,9 @@ private:
         continue;
       }
       const FloatRgb *row =
-          shimmer_cache.row(palette, NOISE_ROW) + VALUE_COLUMN;
-      float w00 = mass * SCALE00, w01 = mass * SCALE01;
-      float w10 = mass * SCALE10, w11 = mass * SCALE11;
+          shimmer_cache.row(palette, noise_row) + value_column;
+      float w00 = mass * scale00, w01 = mass * scale01;
+      float w10 = mass * scale10, w11 = mass * scale11;
       accum_r += row[0].r * w00 + row[1].r * w01 +
                  row[COLOR_VALUE_STEPS].r * w10 +
                  row[COLOR_VALUE_STEPS + 1].r * w11;
@@ -1140,19 +1140,19 @@ private:
       int center = Base::refine_render_center(center_rv, nodes, seed);
       if (culled(hot_flags, center))
         return Pixel(0, 0, 0);
-      const float LIMIT = render_support_limit<Grid>();
-      if (LIMIT <= 0.0f ||
-          Base::dist2(center_rv, nodes[center]) > LIMIT * LIMIT)
+      const float limit = render_support_limit<Grid>();
+      if (limit <= 0.0f ||
+          Base::dist2(center_rv, nodes[center]) > limit * limit)
         return shade_column_full(seed, center_rv, nodes, grid, column,
                                  hot_flags, projection);
       pigment = state.pigment[center];
       const auto &run = ReactionGraph::neighbor_runs
           [ReactionGraph::neighbor_run_index[center]];
-      const float RADIAL0 = grid.sin_phi[0] * grid.cos_dtheta;
-      const float RADIAL1 = grid.sin_phi[1] * grid.cos_dtheta;
-      const float CROSS0 =
+      const float radial0 = grid.sin_phi[0] * grid.cos_dtheta;
+      const float radial1 = grid.sin_phi[1] * grid.cos_dtheta;
+      const float cross0 =
           2.0f * grid.sin_phi[0] * grid.sin_dtheta * Base::INV_R2;
-      const float CROSS1 =
+      const float cross1 =
           2.0f * grid.sin_phi[1] * grid.sin_dtheta * Base::INV_R2;
       // An object-frame column folds its frame into one direction per term,
       // so each node costs a dot product per term.
@@ -1162,50 +1162,50 @@ private:
         const Scan::ObjectColumn &frame = column.frame;
         const float SCALE = 2.0f * Base::INV_R2;
         base_dir0 =
-            (frame.radial * RADIAL0 + frame.up * grid.cos_phi[0]) * SCALE;
+            (frame.radial * radial0 + frame.up * grid.cos_phi[0]) * SCALE;
         base_dir1 =
-            (frame.radial * RADIAL1 + frame.up * grid.cos_phi[1]) * SCALE;
-        side0 = frame.tangent * -CROSS0;
-        side1 = frame.tangent * -CROSS1;
+            (frame.radial * radial1 + frame.up * grid.cos_phi[1]) * SCALE;
+        side0 = frame.tangent * -cross0;
+        side1 = frame.tangent * -cross1;
       }
       constexpr float BASE_OFFSET = 1.0f - 2.0f * Base::INV_R2;
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC unroll 2
 #endif
       for (int slot = 0; slot < RD_K + 1; ++slot) {
-        const int NODE = slot == 0 ? center : center + run.delta[slot - 1];
-        const math::Vector &p = nodes[NODE];
-        const float B = state.B[NODE] - B_CULL_THRESHOLD / Q16_INV;
-        float BASE0, BASE1, D0, D1;
+        const int node = slot == 0 ? center : center + run.delta[slot - 1];
+        const math::Vector &p = nodes[node];
+        const float b = state.B[node] - B_CULL_THRESHOLD / Q16_INV;
+        float base0, base1, d0, d1;
         if constexpr (OBJECT_FRAME) {
-          BASE0 = BASE_OFFSET + math::dot(base_dir0, p);
-          BASE1 = BASE_OFFSET + math::dot(base_dir1, p);
-          D0 = math::dot(side0, p);
-          D1 = math::dot(side1, p);
+          base0 = BASE_OFFSET + math::dot(base_dir0, p);
+          base1 = BASE_OFFSET + math::dot(base_dir1, p);
+          d0 = math::dot(side0, p);
+          d1 = math::dot(side1, p);
         } else {
-          const float RADIAL = column.radial(p);
-          const float TANGENT = column.tangent(p);
-          const float UP = column.up(p);
-          const float DOT0 = RADIAL0 * RADIAL + grid.cos_phi[0] * UP;
-          const float DOT1 = RADIAL1 * RADIAL + grid.cos_phi[1] * UP;
-          BASE0 = 1.0f - (2.0f - 2.0f * DOT0) * Base::INV_R2;
-          BASE1 = 1.0f - (2.0f - 2.0f * DOT1) * Base::INV_R2;
-          D0 = CROSS0 * TANGENT;
-          D1 = CROSS1 * TANGENT;
+          const float radial = column.radial(p);
+          const float tangent = column.tangent(p);
+          const float up = column.up(p);
+          const float dot0 = radial0 * radial + grid.cos_phi[0] * up;
+          const float dot1 = radial1 * radial + grid.cos_phi[1] * up;
+          base0 = 1.0f - (2.0f - 2.0f * dot0) * Base::INV_R2;
+          base1 = 1.0f - (2.0f - 2.0f * dot1) * Base::INV_R2;
+          d0 = cross0 * tangent;
+          d1 = cross1 * tangent;
         }
-        float left = fmaxf(0.0f, BASE0 - D0), right = fmaxf(0.0f, BASE0 + D0);
+        float left = fmaxf(0.0f, base0 - d0), right = fmaxf(0.0f, base0 + d0);
         left *= left;
         right *= right;
         w00 += left;
-        b00 += B * left;
-        b01 += B * right;
-        left = fmaxf(0.0f, BASE1 - D1);
-        right = fmaxf(0.0f, BASE1 + D1);
+        b00 += b * left;
+        b01 += b * right;
+        left = fmaxf(0.0f, base1 - d1);
+        right = fmaxf(0.0f, base1 + d1);
         left *= left;
         right *= right;
         w11 += right;
-        b10 += B * left;
-        b11 += B * right;
+        b10 += b * left;
+        b11 += b * right;
       }
     }
     // Within the guard, Q16 rounding can flip a corner's sign.
@@ -1219,13 +1219,13 @@ private:
     int covered = (b00 >= 0.0f) + (b01 >= 0.0f) + (b10 >= 0.0f) + (b11 >= 0.0f);
     if (!covered)
       return Pixel(0, 0, 0);
-    const float INVERSE0 = Q16_INV * B_COLOR_SCALE / w00;
-    const float INVERSE1 = Q16_INV * B_COLOR_SCALE / w11;
-    const float INVERSE_CROSS = 0.5f * (INVERSE0 + INVERSE1);
-    float t_sum = hs::clamp(b00 * INVERSE0, 0.0f, 1.0f) +
-                  hs::clamp(b11 * INVERSE1, 0.0f, 1.0f) +
-                  hs::clamp(b01 * INVERSE_CROSS, 0.0f, 1.0f) +
-                  hs::clamp(b10 * INVERSE_CROSS, 0.0f, 1.0f);
+    const float inverse0 = Q16_INV * B_COLOR_SCALE / w00;
+    const float inverse1 = Q16_INV * B_COLOR_SCALE / w11;
+    const float inverse_cross = 0.5f * (inverse0 + inverse1);
+    float t_sum = hs::clamp(b00 * inverse0, 0.0f, 1.0f) +
+                  hs::clamp(b11 * inverse1, 0.0f, 1.0f) +
+                  hs::clamp(b01 * inverse_cross, 0.0f, 1.0f) +
+                  hs::clamp(b10 * inverse_cross, 0.0f, 1.0f);
     return shade_render(pigment, t_sum / covered, covered * (1.0f / SAMPLES),
                         center_rv, projection);
   }
@@ -1408,11 +1408,11 @@ private:
         canvas, [&](const math::Vector &center, const auto &grid, int x) {
           const math::Vector object_direction =
               Base::inverse_orientation.apply(center);
-          const auto PROJECTION =
+          const auto projection =
               ReactionGraph::CubemapLUT::project(object_direction);
-          const int seed = Base::cube_lut.lookup(PROJECTION);
+          const int seed = Base::cube_lut.lookup(projection);
           return hot2[seed] ? shade_pixel(seed, center, world_nodes, grid, x,
-                                          hot1, &PROJECTION)
+                                          hot1, &projection)
                             : Pixel(0, 0, 0);
         });
   }
@@ -1433,10 +1433,10 @@ private:
         canvas, basis,
         [&](const math::Vector &center, const Scan::ObjectColumn &frame,
             const auto &grid, int) HS_HOT_INLINE {
-          const auto PROJECTION = ReactionGraph::CubemapLUT::project(center);
-          const int seed = Base::cube_lut.lookup(PROJECTION);
+          const auto projection = ReactionGraph::CubemapLUT::project(center);
+          const int seed = Base::cube_lut.lookup(projection);
           return hot2[seed] ? shade_lattice_pixel(seed, center, grid, frame,
-                                                  hot1, &PROJECTION)
+                                                  hot1, &projection)
                             : Pixel(0, 0, 0);
         });
   }
@@ -1453,7 +1453,7 @@ private:
   HS_O3_FN HS_NOINLINE_NOCLONE void publish_b(const float *b, float dissolve,
                                               uint32_t *marked) {
     HS_PROFILE(grd_publish);
-    const uint16_t THRESHOLD = to_q16(B_CULL_THRESHOLD);
+    const uint16_t threshold = to_q16(B_CULL_THRESHOLD);
     uint32_t *words = marked + HOT_GUARD_WORDS;
     const auto publish = [&](auto &&adjust) HS_HOT_INLINE {
       for (int w = 0; w < RD_N / 32; ++w) {
@@ -1464,7 +1464,7 @@ private:
               adjust(i, static_cast<uint16_t>(
                             fminf(fmaxf(b[i], 0.0f), 1.0f) * 65535.0f + 0.5f));
           state.B[i] = q;
-          word |= static_cast<uint32_t>(q >= THRESHOLD) << j;
+          word |= static_cast<uint32_t>(q >= threshold) << j;
         }
         words[w] = word;
       }
@@ -1536,8 +1536,8 @@ private:
       shade();
       return;
     }
-    const TransitionPlan PLAN = plan_transition();
-    if (!PLAN.reseed)
+    const TransitionPlan plan = plan_transition();
+    if (!plan.reseed)
       refresh_color_palettes();
     float *cur_a = scratch_arena_a.allocate_n<float>(RD_N);
     float *cur_b = scratch_arena_a.allocate_n<float>(RD_N);
@@ -1556,28 +1556,28 @@ private:
             step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
         },
         [&]() HS_HOT_INLINE {
-          const int ENDS = ++slab;
-          if (ENDS == STEPS_PER_FRAME / 2 + 1)
+          const int ends = ++slab;
+          if (ends == STEPS_PER_FRAME / 2 + 1)
             std::memcpy(state.pigment, next_pigment,
                         RD_N * sizeof(*next_pigment));
-          if (PLAN.reseed)
+          if (plan.reseed)
             return;
           const float dissolve =
-              PLAN.dissolve < 0.0f
-                  ? PLAN.dissolve
+              plan.dissolve < 0.0f
+                  ? plan.dissolve
                   : (static_cast<float>(transition.dissolve_frames - 1) +
-                     static_cast<float>(ENDS) / STEPS_PER_FRAME) /
+                     static_cast<float>(ends) / STEPS_PER_FRAME) /
                         DISSOLVE_FRAMES;
           publish_b(cur_b, dissolve, marked);
           slab_noise = {noise_history ? previous_noise_lut : nullptr,
-                        static_cast<float>(ENDS) / STEPS_PER_FRAME};
+                        static_cast<float>(ends) / STEPS_PER_FRAME};
           shade();
         });
     slab_noise = {};
-    const float MEAN_DB = store_fields(cur_a, cur_b, start_b);
-    if (PLAN.dissolve >= 0.0f)
-      convert_below(PLAN.dissolve);
-    finish_transition(PLAN, MEAN_DB);
+    const float mean_db = store_fields(cur_a, cur_b, start_b);
+    if (plan.dissolve >= 0.0f)
+      convert_below(plan.dissolve);
+    finish_transition(plan, mean_db);
   }
 
   /**
@@ -1620,8 +1620,8 @@ private:
         for (int step = 0; step < STEPS_PER_FRAME; ++step) {
           step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
         }
-        const float MEAN_DB = store_fields(cur_a, cur_b, state.B);
-        mean_db = MEAN_DB;
+        const float mean_db_value = store_fields(cur_a, cur_b, state.B);
+        mean_db = mean_db_value;
       }
       advance_transition(mean_db);
       if (transition.reseed_pending())

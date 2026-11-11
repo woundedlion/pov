@@ -121,19 +121,19 @@ public:
         size_t((intervals + BLOCK_INTERVALS - 1) / BLOCK_INTERVALS));
     edge_length = 0.0f;
     for (int i = 0; i < num_edges; ++i) {
-      const float RADIUS = (i & 1) ? inner : 1.0f;
-      vertices[i] = {RADIUS * cosf(i * sector), RADIUS * sinf(i * sector)};
+      const float radius = (i & 1) ? inner : 1.0f;
+      vertices[i] = {radius * cosf(i * sector), radius * sinf(i * sector)};
     }
     for (int i = 0; i < num_edges; ++i) {
-      const Point NEXT = vertices[(i + 1) % num_edges];
-      edges[i] = {NEXT.x - vertices[i].x, NEXT.y - vertices[i].y};
+      const Point next = vertices[(i + 1) % num_edges];
+      edges[i] = {next.x - vertices[i].x, next.y - vertices[i].y};
       edge_length = fmaxf(edge_length, sqrtf(edges[i].x * edges[i].x +
                                              edges[i].y * edges[i].y));
     }
     auto metrics = [&](int i) {
-      const Point A = vertices[i], E = edges[i];
-      return EdgeMetrics{A.x * E.x + A.y * E.y, E.x * E.x + E.y * E.y,
-                         A.x * E.y - A.y * E.x};
+      const Point a = vertices[i], e = edges[i];
+      return EdgeMetrics{a.x * e.x + a.y * e.y, e.x * e.x + e.y * e.y,
+                         a.x * e.y - a.y * e.x};
     };
     first_edge_metrics = metrics(0);
     second_edge_metrics = metrics(1);
@@ -155,43 +155,43 @@ public:
       if (i != 0) {
         HS_CHECK(fabsf(knots[i].phase - knots[i - 1].phase) < sector,
                  "RadialSurface: interval crosses multiple sectors");
-        const float DX = knots[i].real - knots[i - 1].real;
-        const float DY = knots[i].imag - knots[i - 1].imag;
-        pieces[i - 1] = {{DX, DY},
-                         determinant * (DX * DX + DY * DY),
+        const float dx = knots[i].real - knots[i - 1].real;
+        const float dy = knots[i].imag - knots[i - 1].imag;
+        pieces[i - 1] = {{dx, dy},
+                         determinant * (dx * dx + dy * dy),
                          2.0f * determinant *
-                             (knots[i - 1].real * DX + knots[i - 1].imag * DY)};
+                             (knots[i - 1].real * dx + knots[i - 1].imag * dy)};
         increasing_radius &=
             pieces[i - 1].radial_linear >= 0 && pieces[i - 1].quadratic > 0;
       }
     }
     for (int first = 0; first < num_intervals; first += BLOCK_INTERVALS) {
-      const int END = std::min(first + BLOCK_INTERVALS, num_intervals);
-      const float INV = 1.0f / (END - first);
-      const Knot &START = knots[first], &FINISH = knots[END];
-      float low = START.phase, high = START.phase, deviation2 = 0;
+      const int end = std::min(first + BLOCK_INTERVALS, num_intervals);
+      const float inv = 1.0f / (end - first);
+      const Knot &start = knots[first], &finish = knots[end];
+      float low = start.phase, high = start.phase, deviation2 = 0;
       float radius2 = norms[first];
-      for (int i = first + 1; i <= END; ++i) {
+      for (int i = first + 1; i <= end; ++i) {
         low = fminf(low, knots[i].phase);
         high = fmaxf(high, knots[i].phase);
         radius2 = fmaxf(radius2, norms[i]);
-        const float T = (i - first) * INV;
-        const float DX =
-            knots[i].real - (START.real + T * (FINISH.real - START.real));
-        const float DY =
-            knots[i].imag - (START.imag + T * (FINISH.imag - START.imag));
-        deviation2 = fmaxf(deviation2, DX * DX + DY * DY);
+        const float t = (i - first) * inv;
+        const float dx =
+            knots[i].real - (start.real + t * (finish.real - start.real));
+        const float dy =
+            knots[i].imag - (start.imag + t * (finish.imag - start.imag));
+        deviation2 = fmaxf(deviation2, dx * dx + dy * dy);
       }
-      const float RADIUS = sqrtf(radius2);
-      const float COARSE_RADIUS = sqrtf(fmaxf(norms[first], norms[END]));
-      const float DEVIATION = sqrtf(deviation2) + 16.0f * FLT_EPSILON * RADIUS;
+      const float radius = sqrtf(radius2);
+      const float coarse_radius = sqrtf(fmaxf(norms[first], norms[end]));
+      const float deviation = sqrtf(deviation2) + 16.0f * FLT_EPSILON * radius;
       blocks[first / BLOCK_INTERVALS] = {low,
                                          high,
-                                         RADIUS * (1.0f + 16.0f * FLT_EPSILON),
-                                         edge_length * DEVIATION,
-                                         determinant * DEVIATION *
-                                             (2.0f * COARSE_RADIUS + DEVIATION),
-                                         edge_length * COARSE_RADIUS};
+                                         radius * (1.0f + 16.0f * FLT_EPSILON),
+                                         edge_length * deviation,
+                                         determinant * deviation *
+                                             (2.0f * coarse_radius + deviation),
+                                         edge_length * coarse_radius};
     }
   }
 
@@ -238,13 +238,13 @@ public:
    * @return Radius and angular extent for conservative block rejection. */
   static HS_HOT_INLINE QueryBounds query_bounds(Point p, float theta,
                                                 float extent) {
-    const float RADIUS = sqrtf(p.x * p.x + p.y * p.y);
-    const float ANGLE =
+    const float radius = sqrtf(p.x * p.x + p.y * p.y);
+    const float angle =
         extent == 0.0f
             ? 0.0f
-            : (RADIUS > extent ? fminf(math::PI_F, extent / (RADIUS - extent))
+            : (radius > extent ? fminf(math::PI_F, extent / (radius - extent))
                                : math::PI_F);
-    return {p, theta, RADIUS, extent, ANGLE};
+    return {p, theta, radius, extent, angle};
   }
 
   /** @brief Skips the remainder of a block only when its whole sweep misses.
@@ -254,29 +254,29 @@ public:
   HS_HOT_INLINE int skip_outside(const QueryBounds &query, int interval) const {
     if (interval < 0 || interval >= num_intervals)
       return interval;
-    const int FIRST = interval / BLOCK_INTERVALS * BLOCK_INTERVALS;
-    const int END = std::min(FIRST + BLOCK_INTERVALS, num_intervals);
-    const Block &BLOCK = blocks[FIRST / BLOCK_INTERVALS];
-    if (query.radius - query.extent > BLOCK.radius)
-      return END;
-    const int FIRST_SECTOR =
-        sector_index(query.theta - query.angular_extent - BLOCK.high_phase);
-    const int LAST_SECTOR =
-        sector_index(query.theta + query.angular_extent - BLOCK.low_phase);
-    if (FIRST_SECTOR != LAST_SECTOR)
+    const int first = interval / BLOCK_INTERVALS * BLOCK_INTERVALS;
+    const int end = std::min(first + BLOCK_INTERVALS, num_intervals);
+    const Block &block = blocks[first / BLOCK_INTERVALS];
+    if (query.radius - query.extent > block.radius)
+      return end;
+    const int first_sector =
+        sector_index(query.theta - query.angular_extent - block.high_phase);
+    const int last_sector =
+        sector_index(query.theta + query.angular_extent - block.low_phase);
+    if (first_sector != last_sector)
       return interval;
-    const Point EDGE = edges[radial_wrap_index(FIRST_SECTOR, num_edges)];
-    const float A = radial_cross(query.point, multiply(knots[FIRST], EDGE)) -
-                    determinant * norms[FIRST];
-    const float B = radial_cross(query.point, multiply(knots[END], EDGE)) -
-                    determinant * norms[END];
-    const float ROUNDING = 32.0f * FLT_EPSILON *
-                           (1.0f + query.radius * BLOCK.reach +
-                            determinant * BLOCK.radius * BLOCK.radius);
-    const float MARGIN = (query.radius + query.extent) * BLOCK.point_error +
-                         BLOCK.constant_error + query.extent * BLOCK.reach +
-                         ROUNDING;
-    return fminf(A, B) > MARGIN ? END : interval;
+    const Point edge = edges[radial_wrap_index(first_sector, num_edges)];
+    const float a = radial_cross(query.point, multiply(knots[first], edge)) -
+                    determinant * norms[first];
+    const float b = radial_cross(query.point, multiply(knots[end], edge)) -
+                    determinant * norms[end];
+    const float rounding = 32.0f * FLT_EPSILON *
+                           (1.0f + query.radius * block.reach +
+                            determinant * block.radius * block.radius);
+    const float margin = (query.radius + query.extent) * block.point_error +
+                         block.constant_error + query.extent * block.reach +
+                         rounding;
+    return fminf(a, b) > margin ? end : interval;
   }
 
   /** @brief Tests a chart footprint against a prepared radial block.
@@ -301,11 +301,11 @@ public:
                                                 int knot_index) const {
     if (knot_index < 0 || knot_index > num_intervals || norms[knot_index] == 0)
       return false;
-    const float EXTENT = .5f * (sqrtf(dx.x * dx.x + dx.y * dx.y) +
+    const float extent = .5f * (sqrtf(dx.x * dx.x + dx.y * dx.y) +
                                 sqrtf(dy.x * dy.x + dy.y * dy.y)) +
                          1e-6f;
-    const auto QUERY = query_bounds(p, theta, EXTENT);
-    return contains_footprint(QUERY, dx, dy, knots[knot_index]);
+    const auto query = query_bounds(p, theta, extent);
+    return contains_footprint(query, dx, dy, knots[knot_index]);
   }
 
   /** @brief Certifies an affine footprint inside a similarity star.
@@ -315,11 +315,11 @@ public:
    * @return True only if every touched edge half-plane contains the footprint. */
   HS_HOT_INLINE bool contains_footprint(const QueryBounds &query, Point dx,
                                         Point dy, const Knot &c) const {
-    const int CENTER = sector_index(query.theta - c.phase);
-    const Point EDGE = multiply(c, edges[radial_wrap_index(CENTER, num_edges)]);
-    const float VALUE = radial_cross(query.point, EDGE) -
+    const int center = sector_index(query.theta - c.phase);
+    const Point edge = multiply(c, edges[radial_wrap_index(center, num_edges)]);
+    const float value = radial_cross(query.point, edge) -
                         determinant * (c.real * c.real + c.imag * c.imag);
-    return contains_footprint(query, dx, dy, c, CENTER, VALUE);
+    return contains_footprint(query, dx, dy, c, center, value);
   }
 
   /** @brief Certifies containment using a cached center edge predicate.
@@ -334,31 +334,32 @@ public:
                                         float value) const {
     if (value >= 0)
       return false;
-    const Point C{c.real, c.imag};
-    const float CONSTANT = determinant * (C.x * C.x + C.y * C.y);
+    const Point c_value{c.real, c.imag};
+    const float constant =
+        determinant * (c_value.x * c_value.x + c_value.y * c_value.y);
     auto inside = [&](int index, float predicate) HS_HOT_INLINE {
-      const Point EDGE =
-          radial_multiply(C, edges[radial_wrap_index(index, num_edges)]);
-      const float SUPPORT =
-          .5f * (fabsf(radial_cross(dx, EDGE)) + fabsf(radial_cross(dy, EDGE)));
-      const float GUARD =
-          32 * FLT_EPSILON * (1 + fabsf(predicate) + SUPPORT + CONSTANT);
-      return predicate + SUPPORT < -GUARD;
+      const Point edge =
+          radial_multiply(c_value, edges[radial_wrap_index(index, num_edges)]);
+      const float support =
+          .5f * (fabsf(radial_cross(dx, edge)) + fabsf(radial_cross(dy, edge)));
+      const float guard =
+          32 * FLT_EPSILON * (1 + fabsf(predicate) + support + constant);
+      return predicate + support < -guard;
     };
     if (!inside(center, value))
       return false;
-    const int LOW_SECTOR =
+    const int low_sector =
         sector_index(query.theta - query.angular_extent - c.phase);
-    const int HIGH_SECTOR =
+    const int high_sector =
         std::min(sector_index(query.theta + query.angular_extent - c.phase),
-                 LOW_SECTOR + num_edges - 1);
-    for (int i = LOW_SECTOR; i <= HIGH_SECTOR; ++i)
+                 low_sector + num_edges - 1);
+    for (int i = low_sector; i <= high_sector; ++i)
       if (i != center &&
-          !inside(i,
-                  radial_cross(query.point,
-                               radial_multiply(
-                                   C, edges[radial_wrap_index(i, num_edges)])) -
-                      CONSTANT))
+          !inside(i, radial_cross(
+                         query.point,
+                         radial_multiply(
+                             c_value, edges[radial_wrap_index(i, num_edges)])) -
+                         constant))
         return false;
     return true;
   }
@@ -389,17 +390,18 @@ public:
       return {};
     if (p.x == 0.0f && p.y == 0.0f)
       return {first_interval, 0.0f};
-    QueryBounds QUERY;
+    QueryBounds query;
     if constexpr (std::is_same_v<Observer, NoObserver>)
-      QUERY = query_bounds(p, theta, 0.0f);
+      query = query_bounds(p, theta, 0.0f);
     else
-      QUERY = observer->query;
+      query = observer->query;
 
     int start_sector = sector_index(theta - knots[first_interval].phase);
     int start_edge = radial_wrap_index(start_sector, num_edges);
-    const Point START_EDGE = multiply(knots[first_interval], edges[start_edge]);
+    const Point start_edge_value =
+        multiply(knots[first_interval], edges[start_edge]);
     float start_value =
-        radial_cross(p, START_EDGE) - determinant * norms[first_interval];
+        radial_cross(p, start_edge_value) - determinant * norms[first_interval];
     if (norms[first_interval] > 0.0f && start_value <= 0.0f)
       return finish<DERIVATIVES>(p, first_interval, 0.0f, start_edge);
 
@@ -409,12 +411,12 @@ public:
         if (i / BLOCK_INTERVALS != checked_block) {
           checked_block = i / BLOCK_INTERVALS;
           count<COUNT>(stats, &Stats::coarse_checks);
-          const int NEXT = skip_outside(QUERY, i);
-          if (NEXT != i) {
+          const int next = skip_outside(query, i);
+          if (next != i) {
             if constexpr (COUNT)
               if (stats)
-                stats->skipped += uint32_t(NEXT - i);
-            i = NEXT;
+                stats->skipped += uint32_t(next - i);
+            i = next;
             if (i >= num_intervals)
               break;
             start_sector = sector_index(theta - knots[i].phase);
@@ -428,56 +430,57 @@ public:
         }
       }
       count<COUNT>(stats, &Stats::intervals);
-      const int END_SECTOR = sector_index(theta - knots[i + 1].phase);
-      const int UNWRAPPED_END_EDGE = start_edge + END_SECTOR - start_sector;
-      const int END_EDGE =
-          UNWRAPPED_END_EDGE < 0            ? UNWRAPPED_END_EDGE + num_edges
-          : UNWRAPPED_END_EDGE >= num_edges ? UNWRAPPED_END_EDGE - num_edges
-                                            : UNWRAPPED_END_EDGE;
-      const Point END_VECTOR = multiply(knots[i + 1], edges[END_EDGE]);
-      const float END_VALUE =
-          radial_cross(p, END_VECTOR) - determinant * norms[i + 1];
+      const int end_sector = sector_index(theta - knots[i + 1].phase);
+      const int unwrapped_end_edge = start_edge + end_sector - start_sector;
+      const int end_edge =
+          unwrapped_end_edge < 0            ? unwrapped_end_edge + num_edges
+          : unwrapped_end_edge >= num_edges ? unwrapped_end_edge - num_edges
+                                            : unwrapped_end_edge;
+      const Point end_vector = multiply(knots[i + 1], edges[end_edge]);
+      const float end_value =
+          radial_cross(p, end_vector) - determinant * norms[i + 1];
       if constexpr (!std::is_same_v<Observer, NoObserver>)
-        observer->interval(*this, i, start_sector, start_value, END_SECTOR,
-                           END_VALUE);
+        observer->interval(*this, i, start_sector, start_value, end_sector,
+                           end_value);
       if (norms[i] == 0.0f) {
-        if (END_VALUE <= 0.0f) {
+        if (end_value <= 0.0f) {
           count<COUNT>(stats, &Stats::roots);
-          const float T =
-              radial_cross(p, END_VECTOR) / (determinant * norms[i + 1]);
-          return finish<DERIVATIVES>(p, i, hs::clamp(T, 0.0f, 1.0f), END_EDGE);
+          const float t =
+              radial_cross(p, end_vector) / (determinant * norms[i + 1]);
+          return finish<DERIVATIVES>(p, i, hs::clamp(t, 0.0f, 1.0f), end_edge);
         }
-      } else if (start_sector == END_SECTOR) {
-        if (END_VALUE <= 0.0f) {
+      } else if (start_sector == end_sector) {
+        if (end_value <= 0.0f) {
           count<COUNT>(stats, &Stats::roots);
           return solve<DERIVATIVES>(p, i, start_edge, 0.0f, 1.0f, start_value);
         }
       } else {
-        const int CORNER = END_SECTOR > start_sector ? END_EDGE : start_edge;
-        if ((CORNER & 1) == 0 || END_VALUE <= 0.0f) {
+        const int corner = end_sector > start_sector ? end_edge : start_edge;
+        if ((corner & 1) == 0 || end_value <= 0.0f) {
           count<COUNT>(stats, &Stats::events);
-          const Point CORNER_START = multiply(knots[i], vertices[CORNER]);
-          const Point CORNER_DELTA =
-              radial_multiply(pieces[i].delta, vertices[CORNER]);
-          const float DENOMINATOR = radial_cross(p, CORNER_DELTA);
-          const float EVENT = hs::clamp(
-              -radial_cross(p, CORNER_START) / DENOMINATOR, 0.0f, 1.0f);
-          const float EVENT_VALUE = predicate(p, i, start_edge, EVENT);
-          if (EVENT_VALUE <= 0.0f) {
+          const Point corner_start = multiply(knots[i], vertices[corner]);
+          const Point corner_delta =
+              radial_multiply(pieces[i].delta, vertices[corner]);
+          const float denominator = radial_cross(p, corner_delta);
+          const float event = hs::clamp(
+              -radial_cross(p, corner_start) / denominator, 0.0f, 1.0f);
+          const float event_value = predicate(p, i, start_edge, event);
+          if (event_value <= 0.0f) {
             count<COUNT>(stats, &Stats::roots);
-            return solve<DERIVATIVES>(p, i, start_edge, 0.0f, EVENT,
+            return solve<DERIVATIVES>(p, i, start_edge, 0.0f, event,
                                       start_value);
           }
-          if (END_VALUE <= 0.0f) {
+          if (end_value <= 0.0f) {
             count<COUNT>(stats, &Stats::roots);
-            const float START_VALUE = predicate(p, i, END_EDGE, EVENT);
-            return solve<DERIVATIVES>(p, i, END_EDGE, EVENT, 1.0f, START_VALUE);
+            const float start_value_value = predicate(p, i, end_edge, event);
+            return solve<DERIVATIVES>(p, i, end_edge, event, 1.0f,
+                                      start_value_value);
           }
         }
       }
-      start_sector = END_SECTOR;
-      start_edge = END_EDGE;
-      start_value = END_VALUE;
+      start_sector = end_sector;
+      start_edge = end_edge;
+      start_value = end_value;
     }
     return {};
   }
@@ -516,10 +519,10 @@ private:
    * @param t Interval fraction.
    * @return Positive outside, negative inside the edge half-plane. */
   HS_HOT_INLINE float predicate(Point p, int i, int edge_index, float t) const {
-    const Point C{knots[i].real + t * pieces[i].delta.x,
+    const Point c{knots[i].real + t * pieces[i].delta.x,
                   knots[i].imag + t * pieces[i].delta.y};
-    return radial_cross(p, radial_multiply(C, edges[edge_index])) -
-           determinant * (C.x * C.x + C.y * C.y);
+    return radial_cross(p, radial_multiply(c, edges[edge_index])) -
+           determinant * (c.x * c.x + c.y * c.y);
   }
   /** @param p Chart point.
    * @param i Interval.
@@ -532,15 +535,15 @@ private:
                           float value) const {
     if (value <= 0.0f)
       return finish<DERIVATIVES>(p, i, low, edge_index);
-    const Piece &PIECE = pieces[i];
-    const float LINEAR =
-        radial_cross(p, radial_multiply(PIECE.delta, edges[edge_index])) -
-        PIECE.radial_linear - 2.0f * PIECE.quadratic * low;
-    const float ROOT = sqrtf(LINEAR * LINEAR + 4.0f * PIECE.quadratic * value);
-    const float T =
-        low + (LINEAR > 0.0f ? (LINEAR + ROOT) / (2.0f * PIECE.quadratic)
-                             : 2.0f * value / (ROOT - LINEAR));
-    return finish<DERIVATIVES>(p, i, hs::clamp(T, low, high), edge_index);
+    const Piece &piece = pieces[i];
+    const float linear =
+        radial_cross(p, radial_multiply(piece.delta, edges[edge_index])) -
+        piece.radial_linear - 2.0f * piece.quadratic * low;
+    const float root = sqrtf(linear * linear + 4.0f * piece.quadratic * value);
+    const float t =
+        low + (linear > 0.0f ? (linear + root) / (2.0f * piece.quadratic)
+                             : 2.0f * value / (root - linear));
+    return finish<DERIVATIVES>(p, i, hs::clamp(t, low, high), edge_index);
   }
   /** @param p Chart point.
    * @param i Interval.
@@ -551,17 +554,17 @@ private:
   HS_HOT_INLINE Hit finish(Point p, int i, float t, int edge_index) const {
     if constexpr (!DERIVATIVES)
       return {i, t, edge_index};
-    const Piece &PIECE = pieces[i];
-    const Point C{knots[i].real + t * PIECE.delta.x,
-                  knots[i].imag + t * PIECE.delta.y};
-    const Point EDGE = radial_multiply(C, edges[edge_index]);
-    const float DERIVATIVE =
-        radial_cross(p, radial_multiply(PIECE.delta, edges[edge_index])) -
-        PIECE.radial_linear - 2.0f * PIECE.quadratic * t;
-    const float INV = DERIVATIVE != 0.0f ? -1.0f / DERIVATIVE : 0.0f;
+    const Piece &piece = pieces[i];
+    const Point c{knots[i].real + t * piece.delta.x,
+                  knots[i].imag + t * piece.delta.y};
+    const Point edge = radial_multiply(c, edges[edge_index]);
+    const float derivative =
+        radial_cross(p, radial_multiply(piece.delta, edges[edge_index])) -
+        piece.radial_linear - 2.0f * piece.quadratic * t;
+    const float inv = derivative != 0.0f ? -1.0f / derivative : 0.0f;
     return {i,          t,
-            edge_index, {EDGE.y, -EDGE.x},
-            DERIVATIVE, {EDGE.y * INV, -EDGE.x * INV}};
+            edge_index, {edge.y, -edge.x},
+            derivative, {edge.y * inv, -edge.x * inv}};
   }
   /** @tparam COUNT Whether counting is compiled in.
    * @param stats Counter destination.

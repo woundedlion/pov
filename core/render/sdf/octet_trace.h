@@ -88,10 +88,10 @@ trace_events(const Events &events, Raycast::Interval interval,
     for (size_t k = 1; k < SLOTS; ++k)
       if (next[k] < next[first])
         first = k;
-    const float T = next[first];
-    if (!(T <= interval.far))
+    const float t = next[first];
+    if (!(t <= interval.far))
       break;
-    if (pending && T > group_end && !flush()) {
+    if (pending && t > group_end && !flush()) {
       result.color = composite.premultiplied();
       return result;
     }
@@ -100,22 +100,22 @@ trace_events(const Events &events, Raycast::Interval interval,
       break;
     }
     ++candidates;
-    if (T >= interval.near) {
+    if (t >= interval.near) {
       uint32_t feature;
-      const float COVERAGE = events.coverage(stream[first], T, feature);
-      if (COVERAGE <= 0.0f) {
+      const float coverage = events.coverage(stream[first], t, feature);
+      if (coverage <= 0.0f) {
         HS_PROFILE_DEEP(hl_event_miss);
       } else if (!pending) {
         pending = true;
-        pending_t = T;
-        pending_coverage = COVERAGE;
+        pending_t = t;
+        pending_coverage = coverage;
         group_end =
-            Raycast::merge_window_end(T, Raycast::MERGE_RELATIVE_TOLERANCE);
-      } else if (COVERAGE > pending_coverage) {
-        pending_coverage = COVERAGE;
+            Raycast::merge_window_end(t, Raycast::MERGE_RELATIVE_TOLERANCE);
+      } else if (coverage > pending_coverage) {
+        pending_coverage = coverage;
       }
     }
-    next[first] = T + step[first];
+    next[first] = t + step[first];
   }
   if (pending)
     flush();
@@ -149,21 +149,21 @@ trace_sorted(const Events &events, Raycast::Interval interval,
              const Raycast::Appearance &appearance, CrossingStorage &storage) {
   CoveredCrossings covered(storage.distances, storage.coverages);
   int crossings = 0;
-  const int BUDGET =
+  const int budget =
       std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
   for (uint8_t stream = 0; stream < Events::STREAM_COUNT; ++stream) {
     if (!events.active(stream))
       continue;
-    const float STEP = events.step[stream];
-    for (float t = events.next[stream]; t <= interval.far; t += STEP) {
-      if (++crossings > BUDGET)
+    const float step = events.step[stream];
+    for (float t = events.next[stream]; t <= interval.far; t += step) {
+      if (++crossings > budget)
         return trace_events(events, interval, limits, appearance);
       if (t < interval.near)
         continue;
       uint32_t feature;
-      const float COVERAGE = events.coverage(stream, t, feature);
-      if (COVERAGE > 0.0f)
-        covered.insert(t, COVERAGE);
+      const float coverage = events.coverage(stream, t, feature);
+      if (coverage > 0.0f)
+        covered.insert(t, coverage);
     }
   }
   return covered.composite<true, Sample>(appearance, limits);
@@ -192,9 +192,9 @@ trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
          const Raycast::Footprint &footprint,
          const Raycast::TraceLimits &limits,
          const Raycast::Appearance &appearance, CrossingStorage &storage) {
-  const float NEAR = camera.interval.near;
-  const float FAR = camera.interval.far;
-  const float WIRE_RADIUS = projection.wire_radius;
+  const float near = camera.interval.near;
+  const float far = camera.interval.far;
+  const float wire_radius = projection.wire_radius;
   std::array<float, 4> speeds;
   std::array<float, 4> positions;
   for (int family = 0; family < 4; ++family) {
@@ -212,72 +212,72 @@ trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
   }
   CoveredCrossings covered(storage.distances, storage.coverages);
   int crossings = 0;
-  const int BUDGET =
+  const int budget =
       std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
   const auto walk =
       [&]<size_t PAIRS>(uint8_t owner, const std::array<uint8_t, PAIRS> &others)
           __attribute__((always_inline)) {
-            const float SPEED = speeds[owner];
-            if (SPEED == 0.0f)
+            const float speed = speeds[owner];
+            if (speed == 0.0f)
               return true;
-            const float NUMERATOR = SPEED * SPEED * projection.spacing2;
+            const float numerator_value = speed * speed * projection.spacing2;
             std::array<float, PAIRS> denominators, bases, rates;
             for (size_t pair = 0; pair < PAIRS; ++pair) {
-              const uint8_t OTHER = others[pair];
-              const float A = speeds[std::min(owner, OTHER)];
-              const float B = speeds[std::max(owner, OTHER)];
-              denominators[pair] = A * A + B * B + (2.0f / 3.0f) * A * B;
-              bases[pair] = positions[OTHER];
-              rates[pair] = speeds[OTHER];
+              const uint8_t other = others[pair];
+              const float a = speeds[std::min(owner, other)];
+              const float b = speeds[std::max(owner, other)];
+              denominators[pair] = a * a + b * b + (2.0f / 3.0f) * a * b;
+              bases[pair] = positions[other];
+              rates[pair] = speeds[other];
             }
-            const float POSITION = positions[owner] + NEAR * SPEED;
-            const float PLANE =
-                SPEED > 0.0f ? ceilf(POSITION) : floorf(POSITION);
-            const float INVERSE = 1.0f / SPEED;
-            const float STEP = fabsf(INVERSE);
-            const float FIRST = NEAR + (PLANE - POSITION) * INVERSE;
-            if (!Raycast::finite(FIRST) || !Raycast::finite(STEP) ||
-                !(STEP > 0.0f))
+            const float position = positions[owner] + near * speed;
+            const float plane =
+                speed > 0.0f ? ceilf(position) : floorf(position);
+            const float inverse = 1.0f / speed;
+            const float step = fabsf(inverse);
+            const float first = near + (plane - position) * inverse;
+            if (!Raycast::finite(first) || !Raycast::finite(step) ||
+                !(step > 0.0f))
               return true;
-            for (float t = FIRST; t <= FAR; t += STEP) {
-              if (++crossings > BUDGET)
+            for (float t = first; t <= far; t += step) {
+              if (++crossings > budget)
                 return false;
-              if (t < NEAR)
+              if (t < near)
                 continue;
               float numerator = INFINITY;
               float denominator = 1.0f;
               for (size_t pair = 0; pair < PAIRS; ++pair) {
-                const float U = bases[pair] + t * rates[pair];
-                const float RESIDUAL = U - roundf(U);
-                const float N = RESIDUAL * RESIDUAL * NUMERATOR;
-                if (N * denominator < numerator * denominators[pair]) {
-                  numerator = N;
+                const float u = bases[pair] + t * rates[pair];
+                const float residual = u - roundf(u);
+                const float n = residual * residual * numerator_value;
+                if (n * denominator < numerator * denominators[pair]) {
+                  numerator = n;
                   denominator = denominators[pair];
                 }
               }
-              const float WIDTH = footprint.at(t);
-              const float SUPPORT = WIRE_RADIUS + .5f * WIDTH;
-              if (numerator > SUPPORT * SUPPORT * denominator)
+              const float width = footprint.at(t);
+              const float support = wire_radius + .5f * width;
+              if (numerator > support * support * denominator)
                 continue;
-              const float FIELD = sqrtf(numerator / denominator) - WIRE_RADIUS;
-              const float COVERAGE = footprint_coverage(WIDTH, FIELD);
-              if (COVERAGE > 0.0f)
-                covered.insert(t, COVERAGE);
+              const float field = sqrtf(numerator / denominator) - wire_radius;
+              const float coverage = footprint_coverage(width, field);
+              if (coverage > 0.0f)
+                covered.insert(t, coverage);
             }
             return true;
           };
   constexpr uint8_t OTHERS[4][3] = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2}};
-  const uint8_t FASTEST = order[0];
-  const std::array<uint8_t, 3> FASTEST_PAIRS{
-      OTHERS[FASTEST][0], OTHERS[FASTEST][1], OTHERS[FASTEST][2]};
-  const std::array<uint8_t, 2> SECOND_PAIRS{std::min(order[2], order[3]),
+  const uint8_t fastest = order[0];
+  const std::array<uint8_t, 3> fastest_pairs{
+      OTHERS[fastest][0], OTHERS[fastest][1], OTHERS[fastest][2]};
+  const std::array<uint8_t, 2> second_pairs{std::min(order[2], order[3]),
                                             std::max(order[2], order[3])};
-  const std::array<uint8_t, 1> THIRD_PAIR{order[3]};
-  if (!walk.template operator()<3>(FASTEST, FASTEST_PAIRS) ||
-      !walk.template operator()<2>(order[1], SECOND_PAIRS) ||
-      !walk.template operator()<1>(order[2], THIRD_PAIR)) {
+  const std::array<uint8_t, 1> third_pair{order[3]};
+  if (!walk.template operator()<3>(fastest, fastest_pairs) ||
+      !walk.template operator()<2>(order[1], second_pairs) ||
+      !walk.template operator()<1>(order[2], third_pair)) {
     const SDF::OctetEvents events(projection, direction, camera.radial_start,
-                                  NEAR, footprint);
+                                  near, footprint);
     return trace_events(events, camera.interval, limits, appearance);
   }
   return covered.composite<true, Sample>(appearance, limits);
@@ -310,11 +310,11 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
   struct Pair {
     uint8_t i, j, k, l;
   };
-  const float NEAR = camera.interval.near;
-  const float FAR = camera.interval.far;
-  const float INVERSE_SCALE = projection.inverse_scale;
-  const float SCALE = SDF::OctetFramework4::HALF_CUBE * framework.cell_size;
-  const float WIRE_RADIUS = framework.wire_radius;
+  const float near_value = camera.interval.near;
+  const float far = camera.interval.far;
+  const float inverse_scale = projection.inverse_scale;
+  const float scale = SDF::OctetFramework4::HALF_CUBE * framework.cell_size;
+  const float wire_radius = framework.wire_radius;
   std::array<float, 4> ambient;
   for (int axis = 0; axis < 4; ++axis)
     ambient[axis] = math::dot(direction, projection.embedding[axis]);
@@ -334,12 +334,12 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
   }
   std::array<float, 4> components, rates, origins;
   for (int m = 0; m < 4; ++m) {
-    const uint8_t AXIS = order[m];
-    const float LOCAL = ambient[AXIS] * INVERSE_SCALE;
-    const float START = projection.origin[AXIS] + camera.radial_start * LOCAL;
-    components[m] = fabsf(ambient[AXIS]);
-    rates[m] = fabsf(LOCAL);
-    origins[m] = ambient[AXIS] < 0.0f ? -START : START;
+    const uint8_t axis = order[m];
+    const float local = ambient[axis] * inverse_scale;
+    const float start = projection.origin[axis] + camera.radial_start * local;
+    components[m] = fabsf(ambient[axis]);
+    rates[m] = fabsf(local);
+    origins[m] = ambient[axis] < 0.0f ? -start : start;
   }
   // Plane coordinates and speeds of the all-positive family (index 0) and
   // the families flipping coordinates 0, 1 and 2, with one division for the
@@ -349,7 +349,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
     float position = 0.0f, speed = 0.0f;
     std::array<float, 4> near;
     for (int m = 0; m < 4; ++m) {
-      near[m] = origins[m] + NEAR * rates[m];
+      near[m] = origins[m] + near_value * rates[m];
       position += near[m];
       speed += rates[m];
     }
@@ -359,25 +359,25 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
       positions[m + 1] = positions[0] - near[m];
       speeds[m + 1] = speeds[0] - rates[m];
     }
-    const float PRODUCT = speeds[0] * speeds[1] * speeds[2] * speeds[3];
-    if (PRODUCT > 1e-30f) {
-      const float INVERSE = 1.0f / PRODUCT;
-      const float FIRST_PAIR = speeds[0] * speeds[1];
-      const float SECOND_PAIR = speeds[2] * speeds[3];
+    const float product = speeds[0] * speeds[1] * speeds[2] * speeds[3];
+    if (product > 1e-30f) {
+      const float inverse = 1.0f / product;
+      const float first_pair = speeds[0] * speeds[1];
+      const float second_pair = speeds[2] * speeds[3];
       inverses = {
-          INVERSE * speeds[1] * SECOND_PAIR, INVERSE * speeds[0] * SECOND_PAIR,
-          INVERSE * FIRST_PAIR * speeds[3], INVERSE * FIRST_PAIR * speeds[2]};
+          inverse * speeds[1] * second_pair, inverse * speeds[0] * second_pair,
+          inverse * first_pair * speeds[3], inverse * first_pair * speeds[2]};
     } else {
       for (int f = 0; f < 4; ++f)
         inverses[f] = 1.0f / speeds[f];
     }
   }
-  const float SUPPORT_RATE = .5f * footprint.angular_radius * INVERSE_SCALE;
-  const float SUPPORT_BASE =
-      WIRE_RADIUS * INVERSE_SCALE + SUPPORT_RATE * footprint.radial_start;
+  const float support_rate = .5f * footprint.angular_radius * inverse_scale;
+  const float support_base =
+      wire_radius * inverse_scale + support_rate * footprint.radial_start;
   CoveredCrossings covered(storage.distances, storage.coverages);
   int crossings = 0;
-  const int BUDGET =
+  const int budget =
       std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
   const auto walk = [&]<size_t CLASSES>(
                         int flipped, float sign,
@@ -385,11 +385,11 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                             &pairs) __attribute__((always_inline)) {
     // Only the largest-coordinate sum can be parallel in the canonical unit frame.
     if constexpr (CLASSES == 1) {
-      const auto &PAIR = pairs[0];
-      const float ALONG = components[PAIR.i] + sign * components[PAIR.j];
-      const float DENOMINATOR = 1.0f - 0.5f * ALONG * ALONG;
+      const auto &pair = pairs[0];
+      const float along = components[pair.i] + sign * components[pair.j];
+      const float denominator = 1.0f - 0.5f * along * along;
       uint32_t bits;
-      std::memcpy(&bits, &DENOMINATOR, sizeof(bits));
+      std::memcpy(&bits, &denominator, sizeof(bits));
       const bool owned = bits - 1 < 0x7F7FFFFFu;
       if (!owned)
         return true;
@@ -399,55 +399,55 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
     const float speed = speeds[flipped + 1];
     if (speed == 0.0f)
       return true;
-    const float PLANE = ceilf(position);
-    const float INVERSE = inverses[flipped + 1];
-    const float STEP = INVERSE;
-    const float FIRST = NEAR + (PLANE - position) * INVERSE;
-    if (!Raycast::finite(FIRST) || !Raycast::finite(STEP) || !(STEP > 0.0f))
+    const float plane = ceilf(position);
+    const float inverse = inverses[flipped + 1];
+    const float step = inverse;
+    const float first = near_value + (plane - position) * inverse;
+    if (!Raycast::finite(first) || !Raycast::finite(step) || !(step > 0.0f))
       return true;
-    // The first plane lies at or past NEAR. A crossing within rounding of FAR
+    // The first plane lies at or past near_value. A crossing within rounding of far
     // carries no fog-weighted opacity either way.
-    const int COUNT =
-        FIRST <= FAR ? static_cast<int>((FAR - FIRST) * speed) + 1 : 0;
-    crossings += COUNT;
-    if (crossings > BUDGET)
+    const int count =
+        first <= far ? static_cast<int>((far - first) * speed) + 1 : 0;
+    crossings += count;
+    if (crossings > budget)
       return false;
-    if (COUNT == 0)
+    if (count == 0)
       return true;
     // The plane bound runs in 16-bit fixed point: the low 16 bits of Q * 2^16
     // wrap exactly as Q mod 1, so their signed value is Q's nearest-integer
     // residual. FIXED_ERROR bounds quantization and t drift over the budget.
     constexpr float FIXED_ONE = 65536.0f;
     constexpr float FIXED_ERROR = 2.0e-3f;
-    const float INVERSE_PLANE = INVERSE * INVERSE_SCALE;
-    const float THRESHOLD_SCALE =
-        (FIXED_ONE * FIXED_ONE / 0.9999f) * INVERSE_PLANE * INVERSE_PLANE;
+    const float inverse_plane = inverse * inverse_scale;
+    const float threshold_scale =
+        (FIXED_ONE * FIXED_ONE / 0.9999f) * inverse_plane * inverse_plane;
     const float THRESHOLD_MARGIN = 3 * FIXED_ERROR * FIXED_ONE * FIXED_ONE;
-    const float ADVANCE_STEP = COUNT > 1 ? STEP : 0.0f;
+    const float advance_step = count > 1 ? step : 0.0f;
     std::array<uint32_t, 4> starts, advances;
     for (int m = 0; m < 4; ++m) {
       starts[m] = static_cast<uint32_t>(
-          static_cast<int32_t>((origins[m] + rates[m] * FIRST) * FIXED_ONE));
+          static_cast<int32_t>((origins[m] + rates[m] * first) * FIXED_ONE));
       advances[m] = static_cast<uint32_t>(
-          static_cast<int32_t>(rates[m] * ADVANCE_STEP * FIXED_ONE));
+          static_cast<int32_t>(rates[m] * advance_step * FIXED_ONE));
     }
-    float t = FIRST - STEP;
-    for (uint32_t index = 0; index < static_cast<uint32_t>(COUNT); ++index) {
-      t += STEP;
-      const float SUPPORT = SUPPORT_BASE + SUPPORT_RATE * t;
-      const float SUPPORT2 = SUPPORT * SUPPORT;
+    float t = first - step;
+    for (uint32_t index = 0; index < static_cast<uint32_t>(count); ++index) {
+      t += step;
+      const float support = support_base + support_rate * t;
+      const float support2 = support * support;
       std::array<uint32_t, 4> fixed;
       std::array<uint32_t, 4> squares;
       for (int m = 0; m < 4; ++m) {
         fixed[m] = starts[m] + index * advances[m];
-        const int32_t RESIDUAL =
+        const int32_t residual_value =
             static_cast<int16_t>(static_cast<uint16_t>(fixed[m]));
-        squares[m] = static_cast<uint32_t>(RESIDUAL * RESIDUAL);
+        squares[m] = static_cast<uint32_t>(residual_value * residual_value);
       }
       // Each class's line lies no nearer than half its squared across
       // residual plus its free coordinates' squared residuals.
-      const uint32_t THRESHOLD = static_cast<uint32_t>(
-          fminf(SUPPORT2 * THRESHOLD_SCALE + THRESHOLD_MARGIN, 4294967040.0f));
+      const uint32_t threshold = static_cast<uint32_t>(
+          fminf(support2 * threshold_scale + THRESHOLD_MARGIN, 4294967040.0f));
       uint32_t free_nearest = UINT32_MAX;
       if constexpr (CLASSES == 6) {
         free_nearest =
@@ -462,79 +462,79 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
           free_nearest =
               std::min(free_nearest, squares[pair.k] + squares[pair.l]);
       }
-      if (free_nearest > THRESHOLD) [[likely]]
+      if (free_nearest > threshold) [[likely]]
         continue;
       std::array<uint32_t, CLASSES> bounds;
       uint32_t nearest = UINT32_MAX;
       for (size_t c = 0; c < CLASSES; ++c) {
-        const auto &PAIR = pairs[c];
-        const int32_t ACROSS = static_cast<int16_t>(
-            static_cast<uint16_t>(sign > 0.0f ? fixed[PAIR.i] - fixed[PAIR.j]
-                                              : fixed[PAIR.i] + fixed[PAIR.j]));
-        bounds[c] = (static_cast<uint32_t>(ACROSS * ACROSS) >> 1) +
-                    squares[PAIR.k] + squares[PAIR.l];
+        const auto &pair = pairs[c];
+        const int32_t across = static_cast<int16_t>(
+            static_cast<uint16_t>(sign > 0.0f ? fixed[pair.i] - fixed[pair.j]
+                                              : fixed[pair.i] + fixed[pair.j]));
+        bounds[c] = (static_cast<uint32_t>(across * across) >> 1) +
+                    squares[pair.k] + squares[pair.l];
         nearest = std::min(nearest, bounds[c]);
       }
-      if (nearest > THRESHOLD)
+      if (nearest > threshold)
         continue;
       std::array<float, 4> residual;
       std::array<float, 4> rounded;
       for (int m = 0; m < 4; ++m) {
-        const float Q = origins[m] + rates[m] * t;
-        rounded[m] = roundf(Q);
-        residual[m] = Q - rounded[m];
+        const float q = origins[m] + rates[m] * t;
+        rounded[m] = roundf(q);
+        residual[m] = q - rounded[m];
       }
       int parity = 0;
       for (int m = 0; m < 4; ++m)
         parity += static_cast<int>(rounded[m]);
-      const bool ODD = parity & 1;
+      const bool odd = parity & 1;
       float numerator = INFINITY;
       float denominator = 1.0f;
       for (size_t c = 0; c < CLASSES; ++c) {
-        const auto &PAIR = pairs[c];
-        float rk = residual[PAIR.k];
-        float rl = residual[PAIR.l];
+        const auto &pair = pairs[c];
+        float rk = residual[pair.k];
+        float rl = residual[pair.l];
         // A class the plane bound clears cannot reach the support, and
         // neither can a farther class it would otherwise have beaten.
-        if (bounds[c] > THRESHOLD)
+        if (bounds[c] > threshold)
           continue;
-        const float ALONG = components[PAIR.i] + sign * components[PAIR.j];
-        const float DENOMINATOR = 1.0f - 0.5f * ALONG * ALONG;
-        float across = residual[PAIR.i] - sign * residual[PAIR.j];
+        const float along = components[pair.i] + sign * components[pair.j];
+        const float denominator_value = 1.0f - 0.5f * along * along;
+        float across = residual[pair.i] - sign * residual[pair.j];
         // |across| <= 1, and ties round to even: -1, 0 or 1 as the
         // strict half-way comparisons give.
-        const float SHIFT = rintf(across);
-        across -= SHIFT;
-        if ((SHIFT != 0.0f) != ODD) {
-          const float COST = 0.5f - fabsf(across);
-          const float COST_K = 1.0f - 2.0f * fabsf(rk);
-          const float COST_L = 1.0f - 2.0f * fabsf(rl);
-          if (COST <= COST_K && COST <= COST_L)
+        const float shift = rintf(across);
+        across -= shift;
+        if ((shift != 0.0f) != odd) {
+          const float cost = 0.5f - fabsf(across);
+          const float cost_k = 1.0f - 2.0f * fabsf(rk);
+          const float cost_l = 1.0f - 2.0f * fabsf(rl);
+          if (cost <= cost_k && cost <= cost_l)
             across -= copysignf(1.0f, across);
-          else if (COST_K <= COST_L)
+          else if (cost_k <= cost_l)
             rk -= copysignf(1.0f, rk);
           else
             rl -= copysignf(1.0f, rl);
         }
-        const float OFFSET2 = 0.5f * across * across + rk * rk + rl * rl;
-        const float TRANSVERSE =
-            0.5f * (components[PAIR.i] - sign * components[PAIR.j]);
-        const float DOT = across * TRANSVERSE + rk * components[PAIR.k] +
-                          rl * components[PAIR.l];
-        const float N = fmaxf(0.0f, OFFSET2 * DENOMINATOR - DOT * DOT);
-        if (N * denominator < numerator * DENOMINATOR) {
-          numerator = N;
-          denominator = DENOMINATOR;
+        const float offset2 = 0.5f * across * across + rk * rk + rl * rl;
+        const float transverse =
+            0.5f * (components[pair.i] - sign * components[pair.j]);
+        const float dot = across * transverse + rk * components[pair.k] +
+                          rl * components[pair.l];
+        const float n = fmaxf(0.0f, offset2 * denominator_value - dot * dot);
+        if (n * denominator < numerator * denominator_value) {
+          numerator = n;
+          denominator = denominator_value;
         }
       }
-      if (numerator > SUPPORT2 * denominator)
+      if (numerator > support2 * denominator)
         continue;
-      const float FIELD = SCALE * sqrtf(numerator / denominator) - WIRE_RADIUS;
-      const float WIDTH = footprint.at(t);
-      const float COVERAGE = footprint_coverage(WIDTH, FIELD);
-      // The counted walk can round its last crossing past FAR.
-      if (COVERAGE > 0.0f && t <= FAR)
-        covered.insert(t, COVERAGE);
+      const float field = scale * sqrtf(numerator / denominator) - wire_radius;
+      const float width = footprint.at(t);
+      const float coverage = footprint_coverage(width, field);
+      // The counted walk can round its last crossing past far.
+      if (coverage > 0.0f && t <= far)
+        covered.insert(t, coverage);
     }
     return true;
   };
@@ -551,7 +551,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
   if (!walk(-1, -1.0f, DIFFERENCES) || !walk(0, 1.0f, FIRST_SUMS) ||
       !walk(1, 1.0f, SECOND_SUMS) || !walk(2, 1.0f, THIRD_SUM)) {
     const SDF::OctetEvents4 events(framework, projection, direction,
-                                   camera.radial_start, NEAR, footprint);
+                                   camera.radial_start, near_value, footprint);
     return trace_events(events, camera.interval, limits, appearance);
   }
   return covered.composite<true, Sample>(appearance, limits);

@@ -102,14 +102,14 @@ namespace TwistTable {
 constexpr auto make_log_mantissa() {
   std::array<float, 129> table{};
   for (size_t i = 0; i < table.size(); ++i) {
-    const double M = 1.0 + static_cast<double>(i) / 128.0;
-    const double Z = (M - 1.0) / (M + 1.0);
-    const double Z2 = Z * Z;
-    double term = Z;
+    const double m = 1.0 + static_cast<double>(i) / 128.0;
+    const double z = (m - 1.0) / (m + 1.0);
+    const double z2 = z * z;
+    double term = z;
     double sum = 0.0;
     for (int order = 1; order <= 25; order += 2) {
       sum += term / order;
-      term *= Z2;
+      term *= z2;
     }
     table[i] = static_cast<float>(2.0 * sum);
   }
@@ -283,13 +283,13 @@ tetrahedral_from_dodecahedral_chamber(math::Vector v) {
                                SECOND_Y;
   if (v.y <= MIN_SAFE_Y)
     return polyhedral_kaleidoscope_lens(v, TETRAHEDRAL_MIRRORS);
-  const float DISTANCE = math::dot(v, NORMAL);
-  if (DISTANCE < -POLYHEDRAL_MIRROR_EPS) {
-    v.y -= 2.0f * DISTANCE * NORMAL.y;
-    v.z -= 2.0f * DISTANCE * NORMAL.z;
+  const float distance = math::dot(v, NORMAL);
+  if (distance < -POLYHEDRAL_MIRROR_EPS) {
+    v.y -= 2.0f * distance * NORMAL.y;
+    v.z -= 2.0f * distance * NORMAL.z;
   }
   HS_PULLBACK_PROJECTION_COUNT(hs::g_pullback_projection_counts.note_fold(
-      DISTANCE < -POLYHEDRAL_MIRROR_EPS ? 1 : 0));
+      distance < -POLYHEDRAL_MIRROR_EPS ? 1 : 0));
   return v;
 }
 

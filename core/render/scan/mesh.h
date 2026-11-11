@@ -100,8 +100,8 @@ HS_HOT_INLINE inline void check_face_offsets(const MeshState &mesh) {
 HS_HOT_INLINE inline float face_cap(const math::Vector *vertices,
                                     const uint16_t *indices, size_t count,
                                     math::Vector &axis) {
-  const float COSINE = face_cap_cosine(vertices, indices, count, axis);
-  return COSINE > 0.0f ? cosine_arc(COSINE) : UNBOUNDED_FACE_CAP;
+  const float cosine = face_cap_cosine(vertices, indices, count, axis);
+  return cosine > 0.0f ? cosine_arc(cosine) : UNBOUNDED_FACE_CAP;
 }
 } // namespace detail
 

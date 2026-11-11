@@ -360,9 +360,9 @@ HS_HOT_INLINE inline void advance_distance(float &current_dist,
  *         BALANCED_SCREEN_STEP_PX, capped at @p base_step.
  */
 HS_HOT_INLINE inline float balanced_step(float default_step, float base_step) {
-  const float POLE_GUARD =
+  const float pole_guard =
       base_step * MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE;
-  return default_step <= POLE_GUARD
+  return default_step <= pole_guard
              ? default_step
              : fminf(base_step,
                      default_step * (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));

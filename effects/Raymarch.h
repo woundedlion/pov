@@ -416,14 +416,14 @@ private:
   }
 
   HS_FLASH_MEMBER void refresh_hue_noise() {
-    const math::NoiseFieldSpec KEY{.seed = Pullback::HUE_NOISE_SEED,
+    const math::NoiseFieldSpec key{.seed = Pullback::HUE_NOISE_SEED,
                                    .scale = params.hue_noise_scale,
                                    .phase = hue_noise_phase};
-    const Pattern::NoiseParams INPUTS{.scale = params.hue_noise_scale};
-    const auto PREPARED = Pattern::SphereNoise::prepare(
-        INPUTS, {hue_noise_phase}, palette_state->noise);
+    const Pattern::NoiseParams inputs{.scale = params.hue_noise_scale};
+    const auto prepared = Pattern::SphereNoise::prepare(
+        inputs, {hue_noise_phase}, palette_state->noise);
     palette_state->hue_noise_bake.template refresh<Pattern::SphereNoise>(
-        palette_state->hue_noise_lut, KEY, PREPARED);
+        palette_state->hue_noise_lut, key, prepared);
   }
 
   /**
@@ -456,17 +456,17 @@ private:
   float surface_noise_sample(const SurfaceFrame &surface,
                              const int8_t *before = nullptr,
                              float weight = 1.0f) const {
-    const auto U = Pattern::prepare_sphere_lut_sample_unchecked(
+    const auto u = Pattern::prepare_sphere_lut_sample_unchecked(
         math::Vector(surface.cos_u, surface.sin_u, surface.cos_v));
-    const auto V = Pattern::prepare_sphere_lut_sample_unchecked(
+    const auto v = Pattern::prepare_sphere_lut_sample_unchecked(
         math::Vector(surface.cos_v, surface.sin_v, surface.sin_u));
-    const Pattern::SphereLutView NOW{palette_state->hue_noise_lut.data(), true};
-    const float CURRENT = U.sample(NOW) + V.sample(NOW);
+    const Pattern::SphereLutView now{palette_state->hue_noise_lut.data(), true};
+    const float current = u.sample(now) + v.sample(now);
     if (!before)
-      return .5f * CURRENT;
-    const Pattern::SphereLutView PREVIOUS{before, true};
-    const float PREV = U.sample(PREVIOUS) + V.sample(PREVIOUS);
-    return .5f * (PREV + weight * (CURRENT - PREV));
+      return .5f * current;
+    const Pattern::SphereLutView previous{before, true};
+    const float prev = u.sample(previous) + v.sample(previous);
+    return .5f * (prev + weight * (current - prev));
   }
 
   HS_O3_FN static SurfaceFrame

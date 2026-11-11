@@ -167,11 +167,11 @@ static_assert(
         const char *name = ROSTER_NAMES[i];
         const char *id = AUTHORED_PALETTE_NAME_IDS[i];
         while (*name || *id) {
-          const char FOLDED = *name == '_' ? '-'
+          const char folded = *name == '_' ? '-'
                               : *name >= 'A' && *name <= 'Z'
                                   ? *name + ('a' - 'A')
                                   : *name;
-          if (FOLDED != *id)
+          if (folded != *id)
             return false;
           ++name;
           ++id;

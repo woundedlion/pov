@@ -152,12 +152,12 @@ public:
         }
         ++composited;
       }
-      const float T = distances[index];
-      const float GROUP_END = merge_window_end(T, MERGE_RELATIVE_TOLERANCE);
+      const float t = distances[index];
+      const float group_end = merge_window_end(t, MERGE_RELATIVE_TOLERANCE);
       float coverage = coverages[index];
-      for (++index; index < count && distances[index] <= GROUP_END; ++index)
+      for (++index; index < count && distances[index] <= group_end; ++index)
         coverage = fmaxf(coverage, coverages[index]);
-      appearance.composite(layers, T, coverage);
+      appearance.composite(layers, t, coverage);
       if (layers.saturated()) {
         if constexpr (!std::is_same_v<Result, LayerComposite>)
           result.status = TraceStatus::SATURATED;

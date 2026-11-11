@@ -249,9 +249,9 @@ public:
     HS_CHECK(blocks[0] == nullptr, "ChainProgram::bind_storage: rebinding");
     HS_CHECK(block_capacity < std::numeric_limits<uint32_t>::max(),
              "ChainProgram::bind_storage: capacity exceeds offset range");
-    const uintptr_t A = reinterpret_cast<uintptr_t>(block_a);
-    const uintptr_t B = reinterpret_cast<uintptr_t>(block_b);
-    HS_CHECK(A < B ? B - A >= block_capacity : A - B >= block_capacity,
+    const uintptr_t a = reinterpret_cast<uintptr_t>(block_a);
+    const uintptr_t b = reinterpret_cast<uintptr_t>(block_b);
+    HS_CHECK(a < b ? b - a >= block_capacity : a - b >= block_capacity,
              "ChainProgram::bind_storage: overlapping blocks");
     for (const OperatorDescriptor &entry : operator_table) {
       HS_CHECK(entry.input <= entry.output,
@@ -309,9 +309,10 @@ public:
     const auto disjoint = [](std::span<uint8_t> a, std::span<uint8_t> b) {
       if (a.empty() || b.empty())
         return true;
-      const auto A = reinterpret_cast<uintptr_t>(a.data());
-      const auto B = reinterpret_cast<uintptr_t>(b.data());
-      return A < B ? B - A >= a.size() : A - B >= b.size();
+      const auto a_value = reinterpret_cast<uintptr_t>(a.data());
+      const auto b_value = reinterpret_cast<uintptr_t>(b.data());
+      return a_value < b_value ? b_value - a_value >= a.size()
+                               : a_value - b_value >= b.size();
     };
     HS_CHECK(
         disjoint(history_block, column_block),

@@ -40,12 +40,12 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
    *  @param p World point.
    *  @return Field value; nonpositive inside. */
   float field(const math::Vector &p) const {
-    const math::Vector Q = (p - origin) * (math::TWO_PI_F / period);
+    const math::Vector q = (p - origin) * (math::TWO_PI_F / period);
     if constexpr (Kind == PeriodicSurfaceKind::COSINE)
-      return cosf(Q.x) + cosf(Q.y) + cosf(Q.z) - iso;
+      return cosf(q.x) + cosf(q.y) + cosf(q.z) - iso;
     else
-      return sinf(Q.x) * cosf(Q.y) + sinf(Q.y) * cosf(Q.z) +
-             sinf(Q.z) * cosf(Q.x) - iso;
+      return sinf(q.x) * cosf(q.y) + sinf(q.y) * cosf(q.z) +
+             sinf(q.z) * cosf(q.x) - iso;
   }
 
   /** @brief Signed conservative clearance, not an exact signed distance.
@@ -57,24 +57,24 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
    *  @param p World point.
    *  @return Gradient of field() in world units. */
   math::Vector gradient(const math::Vector &p) const {
-    const float K = math::TWO_PI_F / period;
-    const math::Vector Q = (p - origin) * K;
+    const float k = math::TWO_PI_F / period;
+    const math::Vector q = (p - origin) * k;
     if constexpr (Kind == PeriodicSurfaceKind::COSINE)
-      return math::Vector(-sinf(Q.x), -sinf(Q.y), -sinf(Q.z)) * K;
+      return math::Vector(-sinf(q.x), -sinf(q.y), -sinf(q.z)) * k;
     else
-      return math::Vector(cosf(Q.x) * cosf(Q.y) - sinf(Q.z) * sinf(Q.x),
-                          cosf(Q.y) * cosf(Q.z) - sinf(Q.x) * sinf(Q.y),
-                          cosf(Q.z) * cosf(Q.x) - sinf(Q.y) * sinf(Q.z)) *
-             K;
+      return math::Vector(cosf(q.x) * cosf(q.y) - sinf(q.z) * sinf(q.x),
+                          cosf(q.y) * cosf(q.z) - sinf(q.x) * sinf(q.y),
+                          cosf(q.z) * cosf(q.x) - sinf(q.y) * sinf(q.z)) *
+             k;
   }
 
   /** @brief Unit outward normal.
    *  @param p World point.
    *  @return Normalized gradient(), or zero where the gradient vanishes. */
   math::Vector normal(const math::Vector &p) const {
-    const math::Vector G = gradient(p);
-    const float LENGTH = G.magnitude();
-    return LENGTH > 0.0f ? G * (1.0f / LENGTH) : math::Vector{};
+    const math::Vector g = gradient(p);
+    const float length = g.magnitude();
+    return length > 0.0f ? g * (1.0f / length) : math::Vector{};
   }
 
   /** @brief Query capabilities: clearance on both sides, exact verification.
@@ -87,8 +87,8 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
    *  @param p World point.
    *  @return Sample with zero material and feature; boundary only at zero. */
   Raycast::QuerySample sample(const math::Vector &p) const {
-    const float VALUE = distance(p);
-    return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, 0};
+    const float value = distance(p);
+    return {value, fabsf(value), value == 0.0f, 0, 0};
   }
 };
 

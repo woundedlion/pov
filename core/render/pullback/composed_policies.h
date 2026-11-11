@@ -625,9 +625,9 @@ struct AuthoredProjection
    * @param frame Bound frame.
    * @return Identity or animated conjugate rotation. */
   static const math::Quaternion &frame_conjugate(const FrameState &frame) {
-    static const math::Quaternion IDENTITY;
+    static const math::Quaternion identity;
     return frame.params.template get<"projection">().frame == 0
-               ? IDENTITY
+               ? identity
                : State::conjugate(frame);
   }
   /** @brief Checks the bound projection provider.

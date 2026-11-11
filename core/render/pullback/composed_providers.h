@@ -518,8 +518,8 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
    * @return Exact kernels, or an empty optional for deferred preparation. */
   static Prepared prepare(const FrameState &frame) {
     if constexpr (LAZY_RADIAL_PREPARE) {
-      const auto *TABLES = State::radial_tables(frame);
-      if (TABLES && TABLES->enabled)
+      const auto *tables = State::radial_tables(frame);
+      if (tables && tables->enabled)
         return std::nullopt;
     }
     return State::prepare(frame);
@@ -530,8 +530,8 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
    * @return Exact grouped displacement and angular travel. */
   HS_HOT_FLASH_MEMBER static SurfaceResult
   exact_fallback(const math::Vector &input, const FrameState &frame) {
-    const auto PREPARED = State::prepare(frame);
-    return SphereAnimation::grouped_ripples(input, PREPARED,
+    const auto prepared = State::prepare(frame);
+    return SphereAnimation::grouped_ripples(input, prepared,
                                             State::path_length_required(frame));
   }
   /** @brief Applies every active wave in launch order.
@@ -842,14 +842,14 @@ struct ModulationProvider {
   static Prepared prepare(const FrameState &frame) {
     const auto &config = frame.params.template get<Key>().modulation;
     const auto &resource = frame.resources.template get<Key>();
-    const Color::ModulationState BASE{
+    const Color::ModulationState base{
         resource.modulation, resource.previous_modulation, config.source,
         config.mechanic, config.enabled};
     if constexpr (!PhaseV)
-      return BASE;
+      return base;
     else {
       PhasePrepared result;
-      static_cast<Color::ModulationState &>(result) = BASE;
+      static_cast<Color::ModulationState &>(result) = base;
       if constexpr (requires { frame.temporal.phase_compatible; }) {
         if (!frame.temporal.phase_compatible)
           return result;
@@ -860,23 +860,23 @@ struct ModulationProvider {
             config.mechanic.kind !=
                 ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
           return result;
-        const auto SOURCE = DynamicV ? config.source : SourceV;
-        const bool DIRECT = (DynamicV ? config.evaluation : EvaluationV) ==
+        const auto source = DynamicV ? config.source : SourceV;
+        const bool direct = (DynamicV ? config.evaluation : EvaluationV) ==
                             Pattern::Evaluation::DIRECT;
-        if (SOURCE == Pattern::SourceKind::DISPLACEMENT)
+        if (source == Pattern::SourceKind::DISPLACEMENT)
           result.ready = true;
         else if constexpr (CUBE_PHASE) {
-          if (SOURCE == Pattern::SourceKind::NOISE && !DIRECT) {
+          if (source == Pattern::SourceKind::NOISE && !direct) {
             prepare_cube_phase(result, resource, frame.temporal.fraction);
             return result;
           }
         }
-        if (SOURCE == Pattern::SourceKind::NOISE && DIRECT)
+        if (source == Pattern::SourceKind::NOISE && direct)
           prepare_noise_phase(result, resource, frame);
-        else if (SOURCE == Pattern::SourceKind::SPHERE_SMOOTH_GRID && DIRECT)
+        else if (source == Pattern::SourceKind::SPHERE_SMOOTH_GRID && direct)
           prepare_grid_phase(result, resource, frame.temporal.fraction);
         if constexpr (SINE_PHASE)
-          if (SOURCE == Pattern::SourceKind::DIRECTIONAL_SINE && DIRECT)
+          if (source == Pattern::SourceKind::DIRECTIONAL_SINE && direct)
             prepare_sine_phase(result, resource, frame.temporal.fraction);
       }
       return result;
@@ -943,19 +943,19 @@ private:
         result.noise_to_chamber = frame.projection_conjugate.conjugate();
       }
     }
-    const float PHASE =
+    const float phase =
         Spacetime::ClockInterval(
             resource.previous_modulation->state.phase.phase_turns,
             resource.modulation->state.phase.phase_turns, 1.0f)
             .sample(frame.temporal.fraction);
     if constexpr (CACHED_NOISE)
       if (result.noise_previous && result.noise_current) {
-        result.noise_phase = PHASE;
+        result.noise_phase = phase;
         result.lazy_noise_offset = true;
         result.ready = true;
         return;
       }
-    result.noise_offset = math::noise_sphere_loop_offset(PHASE);
+    result.noise_offset = math::noise_sphere_loop_offset(phase);
     result.ready = true;
   }
 

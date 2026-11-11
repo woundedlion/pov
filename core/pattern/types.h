@@ -65,11 +65,11 @@ public:
    * @return Unit direction. */
   static SphereDirection admit(const math::Vector &vector) {
     HS_AUDIT_CHECK(valid(vector));
-    const float M2 =
+    const float m2 =
         vector.x * vector.x + vector.y * vector.y + vector.z * vector.z;
-    const float M = sqrtf(M2);
+    const float m = sqrtf(m2);
     return SphereDirection(
-        math::Vector(vector.x / M, vector.y / M, vector.z / M));
+        math::Vector(vector.x / m, vector.y / m, vector.z / m));
   }
   /** @brief Reads the admitted unit direction.
    * @return Unit vector. */

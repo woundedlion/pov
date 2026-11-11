@@ -94,8 +94,8 @@ template <int Dimensions> struct WireLattice {
    */
   float distance(const Point &p) const {
     int axis;
-    const math::Vec4 OFFSET = edge_offset(p, axis);
-    return cell_size * offset_length(OFFSET) - wire_radius;
+    const math::Vec4 offset = edge_offset(p, axis);
+    return cell_size * offset_length(offset) - wire_radius;
   }
 
   /**
@@ -105,13 +105,13 @@ template <int Dimensions> struct WireLattice {
    */
   Point gradient(const Point &p) const {
     int axis;
-    const math::Vec4 OFFSET = edge_offset(p, axis);
-    const float LENGTH = offset_length(OFFSET);
-    const float SCALE = LENGTH > 0.0f ? 1.0f / LENGTH : 0.0f;
+    const math::Vec4 offset = edge_offset(p, axis);
+    const float length = offset_length(offset);
+    const float scale = length > 0.0f ? 1.0f / length : 0.0f;
     math::Vec4 result;
     for (int i = 0; i < Dimensions; ++i)
       for (int j = 0; j < Dimensions; ++j)
-        result[i] += rotation.m[i][j] * OFFSET[j] * SCALE;
+        result[i] += rotation.m[i][j] * offset[j] * scale;
     if constexpr (Dimensions == 3)
       return {result[0], result[1], result[2]};
     else
@@ -141,9 +141,9 @@ template <int Dimensions> struct WireLattice {
    */
   Raycast::QuerySample sample(const Point &p) const {
     int axis;
-    const math::Vec4 OFFSET = edge_offset(p, axis);
-    const float VALUE = cell_size * offset_length(OFFSET) - wire_radius;
-    return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, static_cast<uint32_t>(axis)};
+    const math::Vec4 offset = edge_offset(p, axis);
+    const float value = cell_size * offset_length(offset) - wire_radius;
+    return {value, fabsf(value), value == 0.0f, 0, static_cast<uint32_t>(axis)};
   }
 
 private:

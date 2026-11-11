@@ -1070,7 +1070,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
   auto &[pipeline, canvas, points, shader, frame, segments, segment_count, band,
          direction, radians, single_time, velocity, source_positions, chained,
          turning, top_y, bottom_y, half_sine, half_cosine] = state;
-  constexpr bool local_lattice = LOCAL;
+  constexpr bool LOCAL_LATTICE = LOCAL;
   const auto arm_change = [&](int from) HS_HOT_INLINE {
     return (direction > 0 ? math::fast_wrap(from + 1, W) : from) % (W / 2) == 0;
   };
@@ -1096,19 +1096,19 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         continue;
       }
       x = math::fast_wrap(owner + direction, W);
-      float t = radians == 0.0f && !local_lattice
+      float t = radians == 0.0f && !LOCAL_LATTICE
                     ? 0.0f
                     : Spacetime::SamplingSurface<W>::time(float(owner));
       math::Vector a, b, source_a, source_b;
       GeodesicEdgeSampler sampler;
       float pieces, total;
       bool unit = false;
-      if (radians != 0.0f || local_lattice) {
+      if (radians != 0.0f || LOCAL_LATTICE) {
         frame.at(owner, t, a, b, source_positions, source_a, source_b);
         total = frame.bases[0].total_dist +
                 (frame.bases[1].total_dist - frame.bases[0].total_dist) * t;
         pieces = frame.pieces[0] + (frame.pieces[1] - frame.pieces[0]) * t;
-        if (local_lattice) {
+        if (LOCAL_LATTICE) {
           if constexpr (Cfg.column_edge_lengths) {
             sampler = EdgeWorldsheet::arc(EdgeWorldsheet::normalize(a),
                                           EdgeWorldsheet::normalize(b));
@@ -1154,7 +1154,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           part_b = part ? b : turn;
           length = (to - from) * total;
         }
-        if (radians != 0.0f || local_lattice) {
+        if (radians != 0.0f || LOCAL_LATTICE) {
           const float inverse_length = length > 1e-7f ? 1.0f / length : 0.0f;
           const int meridian =
               Cfg.column_edge_lengths ? owner % (W / 2) : owner;
@@ -1165,7 +1165,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           const float column_sine =
               arm * math::TrigLUT<W, H>::sin_theta[meridian];
           const int arc_direction =
-              local_lattice ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
+              LOCAL_LATTICE ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
                             : direction;
           const float sine = arc_direction * half_sine;
           const math::Vector normal(
@@ -1207,7 +1207,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           if (SPLIT && !pieced)
             piece = EdgeWorldsheet::basis(part_a, part_b, length);
           const GeodesicEdgeSampler basis = SPLIT ? piece : sampler;
-          if (!local_lattice && carried >= 0.0f) {
+          if (!LOCAL_LATTICE && carried >= 0.0f) {
             start_column = false;
             s_in = fminf(carried, s_out);
           } else {
@@ -1236,7 +1236,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           edge_start = start_column && from == 0.0f;
           edge_end = end_column && to == 1.0f;
         }
-        if (local_lattice) {
+        if (LOCAL_LATTICE) {
           const float at = 0.5f * (s_in + s_out);
           float sine, cosine;
           math::poly_sincosf_0_pi(total * at, sine, cosine);
@@ -1248,15 +1248,15 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
               total / screen_step_components<W, H>(y, tangent_y, cross_y,
                                                    math::RADIANS_PER_COLUMN<W>);
         }
-        const int count = local_lattice ? std::max(1, int(ceilf(pieces)))
+        const int count = LOCAL_LATTICE ? std::max(1, int(ceilf(pieces)))
                                         : EdgeWorldsheet::lattice(pieces);
-        if (local_lattice || count != lattice_count) {
+        if (LOCAL_LATTICE || count != lattice_count) {
           lattice_count = count;
           lattice_step =
-              1.0f / (local_lattice ? fmaxf(pieces, 1.0f) : float(count));
+              1.0f / (LOCAL_LATTICE ? fmaxf(pieces, 1.0f) : float(count));
         }
         const float lattice_scale =
-            local_lattice ? fmaxf(pieces, 1.0f) : float(count);
+            LOCAL_LATTICE ? fmaxf(pieces, 1.0f) : float(count);
         const int first = edge_start ? 0 : int(ceilf(s_in * lattice_scale));
         const int last = edge_end ? count - int(chained)
                                   : int(ceilf(s_out * lattice_scale)) - 1;
@@ -1276,7 +1276,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         for (int k = first; k <= last; ++k) {
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_generated_samples>();
-          if (!local_lattice &&
+          if (!LOCAL_LATTICE &&
               ++sample_count > 2 * rasterize_step_budget<W>()) {
             HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
             break;
@@ -1298,7 +1298,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_projections>();
           const auto p = math::vector_to_pixel<W, H>(world);
-          if (radians == 0.0f && !local_lattice)
+          if (radians == 0.0f && !LOCAL_LATTICE)
             t = Spacetime::SamplingSurface<W>::time(p.x);
           if (plain)
             Spacetime::count_geometry<
@@ -1327,9 +1327,9 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
             Spacetime::count_geometry<
                 &Spacetime::GeometryCounters::column_history_visits>();
             pipeline.record_world_sample(canvas, f.pos, f.age, t,
-                                         local_lattice ? owner : -1, p.x);
+                                         LOCAL_LATTICE ? owner : -1, p.x);
           }
-          if (local_lattice) {
+          if (LOCAL_LATTICE) {
             pipeline.plot_column_at(canvas, p, owner, f.color.color, f.age,
                                     f.color.alpha, t);
             continue;
@@ -1357,7 +1357,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         continue;
       }
       seen = true;
-      if (!local_lattice && sample_count > 2 * rasterize_step_budget<W>())
+      if (!LOCAL_LATTICE && sample_count > 2 * rasterize_step_budget<W>())
         break;
       if (finished && !turning)
         break;

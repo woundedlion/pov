@@ -237,14 +237,14 @@ constexpr EffectRegistration make_registration() {
   static_assert(
       requires { ClassName<HS_REG_IDENTITY_RESOLUTION>::EFFECT_IDENTITY; },
       "registered effects require a typed EFFECT_IDENTITY");
-  constexpr auto identity =
+  constexpr auto IDENTITY =
       ClassName<HS_REG_IDENTITY_RESOLUTION>::EFFECT_IDENTITY;
-  static_assert(hs::canonical_effect_id(identity.machine_id));
-  static_assert(!identity.rng_seed_key.empty());
+  static_assert(hs::canonical_effect_id(IDENTITY.machine_id));
+  static_assert(!IDENTITY.rng_seed_key.empty());
   static_assert(ClassName<HS_REG_IDENTITY_RESOLUTION>::EFFECT_ID ==
-                identity.machine_id);
+                IDENTITY.machine_id);
 #define HS_REG_FILL_POINTER(W, H) &fill_registration<ClassName, W, H>,
-  return {identity, HS_RESOLUTIONS(HS_REG_FILL_POINTER)};
+  return {IDENTITY, HS_RESOLUTIONS(HS_REG_FILL_POINTER)};
 #undef HS_REG_FILL_POINTER
 }
 

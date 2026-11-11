@@ -1246,10 +1246,10 @@ private:
     const bool relative = chroma_basis == ChromaBasis::LOCAL_GAMUT;
     const float boundary =
         (relative || diagnostics) ? gamut_continuous_chroma(L, h_final) : 0.0f;
-    const float C = relative ? __builtin_fminf(control, headroom) * boundary
+    const float c = relative ? __builtin_fminf(control, headroom) * boundary
                              : std::max(0.0f, control);
-    return {oklch_to_oklab({L, C, h_final}),
-            diagnostics ? diagnostic_q(C, boundary, control) : 0.0f, h_path,
+    return {oklch_to_oklab({L, c, h_final}),
+            diagnostics ? diagnostic_q(c, boundary, control) : 0.0f, h_path,
             h_final, boundary};
   }
 
@@ -1272,7 +1272,7 @@ private:
     const ControlKey envelope = segment.envelope;
     const float progress = segment.progress;
     const float visibility = segment.visibility;
-    const float L = envelope.L * visibility;
+    const float l = envelope.L * visibility;
     const float control = envelope.chroma * visibility;
     const bool chromatic = is_chromatic(control);
 
@@ -1282,21 +1282,21 @@ private:
           apply_easing(segment.relationship_position);
 
       if (color_path == ColorPath::OKLAB_CARTESIAN) {
-        const ControlKey first{L, control, keys[0].h};
-        const ControlKey opposite{L, control, keys[key_count - 1].h};
+        const ControlKey first{l, control, keys[0].h};
+        const ControlKey opposite{l, control, keys[key_count - 1].h};
         path = evaluate_cartesian_path(first, opposite, chromatic,
                                        relationship_position, control, detail);
       } else {
-        path = evaluate_arc_path(L, control, keys[0].h, keys[key_count - 1].h,
+        path = evaluate_arc_path(l, control, keys[0].h, keys[key_count - 1].h,
                                  chromatic, relationship_position, detail);
       }
     } else if (color_path == ColorPath::OKLAB_CARTESIAN) {
-      const ControlKey left_key{L, control, segment.left.h};
-      const ControlKey right_key{L, control, segment.right.h};
+      const ControlKey left_key{l, control, segment.left.h};
+      const ControlKey right_key{l, control, segment.right.h};
       path = evaluate_cartesian_path(left_key, right_key, chromatic, progress,
                                      control, detail);
     } else {
-      path = evaluate_arc_path(L, control, segment.left.h, segment.right.h,
+      path = evaluate_arc_path(l, control, segment.left.h, segment.right.h,
                                chromatic, progress, detail);
     }
     return path;

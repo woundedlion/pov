@@ -275,13 +275,13 @@ private:
         node_idx = axis_dist < 0 ? node.left : node.right;
       }
       while (node_idx == -1 && waiting > 0) {
-        const Pending NEXT = pending[--waiting];
+        const Pending next = pending[--waiting];
         if constexpr (MOVING) {
-          const float REACH = fabsf(NEXT.axis_dist) - drift;
-          if (REACH <= 0.0f || REACH * REACH <= worst_d_sq)
-            node_idx = NEXT.node;
-        } else if (NEXT.axis_dist * NEXT.axis_dist <= worst_d_sq) {
-          node_idx = NEXT.node;
+          const float reach = fabsf(next.axis_dist) - drift;
+          if (reach <= 0.0f || reach * reach <= worst_d_sq)
+            node_idx = next.node;
+        } else if (next.axis_dist * next.axis_dist <= worst_d_sq) {
+          node_idx = next.node;
         }
       }
       if (node_idx == -1)

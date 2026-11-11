@@ -42,16 +42,16 @@ template <typename Shape> struct VolumeQuery {
    * are zero.
    */
   QuerySample sample(const math::Vector &p) const {
-    const float DISTANCE = shape.distance(p);
-    float field = DISTANCE;
+    const float distance = shape.distance(p);
+    float field = distance;
     if constexpr (requires { shape.raw_distance(p); }) {
       // A cheap exterior bound cannot certify a boundary.
-      if (DISTANCE <= 0.0f)
+      if (distance <= 0.0f)
         field = shape.raw_distance(p);
     }
     return {field,
-            field < 0.0f ? (guarantees.interior_clearance ? -DISTANCE : 0.0f)
-                         : fmaxf(DISTANCE, 0.0f),
+            field < 0.0f ? (guarantees.interior_clearance ? -distance : 0.0f)
+                         : fmaxf(distance, 0.0f),
             field == 0.0f && guarantees.surface_verification, 0, 0};
   }
 };

@@ -49,18 +49,18 @@ struct HueRotationGamutMask {
    * @param value Lower palette-coordinate node index.
    * @param hue Lower hue node index. */
   void mark_cell(int value, int hue) {
-    const int CELL = value * HueRotationLutView::HUE_STEPS + hue;
-    bits[CELL / 8] |= uint8_t(1u << (CELL % 8));
+    const int cell = value * HueRotationLutView::HUE_STEPS + hue;
+    bits[cell / 8] |= uint8_t(1u << (cell % 8));
   }
   /** @brief Tests the cell containing a pair of lower node indices.
    * @param value Lower palette-coordinate node index.
    * @param hue Lower hue node index.
    * @return Whether direct hue evaluation is required. */
   bool requires_direct(int value, int hue) const {
-    const int CELL = std::min(value, HueRotationLutView::VALUE_STEPS - 2) *
+    const int cell = std::min(value, HueRotationLutView::VALUE_STEPS - 2) *
                          HueRotationLutView::HUE_STEPS +
                      hue;
-    return (bits[CELL / 8] & uint8_t(1u << (CELL % 8))) != 0;
+    return (bits[cell / 8] & uint8_t(1u << (cell % 8))) != 0;
   }
 };
 
@@ -93,18 +93,18 @@ struct HueRotationGamutBuilder {
       return;
     if (value != 0)
       for (int column = 0; column < HueRotationLutView::HUE_STEPS; ++column) {
-        const int NEXT = (column + 1) & (HueRotationLutView::HUE_STEPS - 1);
-        const uint8_t FIRST = previous[column];
+        const int next = (column + 1) & (HueRotationLutView::HUE_STEPS - 1);
+        const uint8_t first = previous[column];
         const auto span = [&](auto channel) {
-          const int A = channel(previous_rgb[column]);
-          const int B = channel(previous_rgb[NEXT]);
-          const int C = channel(current_rgb[column]);
-          const int D = channel(current_rgb[NEXT]);
-          return std::max({A, B, C, D}) - std::min({A, B, C, D});
+          const int a = channel(previous_rgb[column]);
+          const int b = channel(previous_rgb[next]);
+          const int c = channel(current_rgb[column]);
+          const int d = channel(current_rgb[next]);
+          return std::max({a, b, c, d}) - std::min({a, b, c, d});
         };
-        if (FIRST != previous[NEXT] || FIRST != current[column] ||
-            FIRST != current[NEXT] ||
-            (FIRST != 0 && (span([](Pixel p) { return p.r; }) >
+        if (first != previous[next] || first != current[column] ||
+            first != current[next] ||
+            (first != 0 && (span([](Pixel p) { return p.r; }) >
                                 HueRotationGamutMask::MAX_CHANNEL_SPAN ||
                             span([](Pixel p) { return p.g; }) >
                                 HueRotationGamutMask::MAX_CHANNEL_SPAN ||
@@ -136,8 +136,8 @@ template <> struct HueRotationGamutStorage<true> {
 inline void mark_hue_gamut_node(HueRotationGamutBuilder &builder, int value,
                                 int hue, const OKLab &base, float cosine,
                                 float sine, const Pixel &node) {
-  const auto RAW = oklab_to_linear_rgb(rotate_chroma(base, cosine, sine));
-  builder.append(value, hue, RAW, node);
+  const auto raw = oklab_to_linear_rgb(rotate_chroma(base, cosine, sine));
+  builder.append(value, hue, raw, node);
 }
 
 /**
@@ -164,14 +164,14 @@ prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
          ++hue_index) {
       const float amount =
           static_cast<float>(hue_index) / HueRotationLutView::HUE_STEPS;
-      const Pixel NODE = hue_rotate_lut_gamut(base, amount).color;
+      const Pixel node = hue_rotate_lut_gamut(base, amount).color;
       if (gamut_mask) {
         float cosine, sine;
         hue_sincos(amount, cosine, sine);
         mark_hue_gamut_node(builder, value_index, hue_index, base.lab, cosine,
-                            sine, NODE);
+                            sine, node);
       }
-      output[value_index * HueRotationLutView::HUE_STEPS + hue_index] = NODE;
+      output[value_index * HueRotationLutView::HUE_STEPS + hue_index] = node;
     }
   }
 }
@@ -204,13 +204,13 @@ struct HueRotationHueSample {
   /** @brief Prepares a periodic hue-axis sample.
    * @param amount Hue rotation in turns. */
   explicit HueRotationHueSample(float amount) {
-    const float POSITION =
+    const float position =
         hs::clamp((amount - floorf(amount)) * HueRotationLutView::HUE_STEPS,
                   0.0f, static_cast<float>(HueRotationLutView::HUE_STEPS));
-    const int STEP = lut_index_lo(POSITION);
-    low = STEP & (HueRotationLutView::HUE_STEPS - 1);
+    const int step = lut_index_lo(position);
+    low = step & (HueRotationLutView::HUE_STEPS - 1);
     high = (low + 1) & (HueRotationLutView::HUE_STEPS - 1);
-    weight = lut_index_weight(POSITION, STEP);
+    weight = lut_index_weight(position, step);
     linear_weight = weight * Q16_TO_UNIT;
   }
 };

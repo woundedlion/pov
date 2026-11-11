@@ -227,17 +227,17 @@ protected:
     BuildTiming timing;
     timing.sweep = std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / sp));
     timing.reconcile = std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
-    const int BRIDGE =
+    const int bridge =
         std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
     for (size_t k = 0; k < chain.size(); ++k) {
       const auto op = chain[k].op;
       if (dt_pair_in(chain, k)) {
-        timing.legs[k] = BRIDGE;
-        timing.total += timing.sweep + BRIDGE + timing.reconcile;
+        timing.legs[k] = bridge;
+        timing.total += timing.sweep + bridge + timing.reconcile;
         ++k;
       } else if (standalone_kis_in(chain, k)) {
-        timing.legs[k] = BRIDGE;
-        timing.total += BRIDGE + timing.sweep + BRIDGE + timing.reconcile;
+        timing.legs[k] = bridge;
+        timing.total += bridge + timing.sweep + bridge + timing.reconcile;
       } else {
         timing.legs[k] = std::max(1, static_cast<int>(leg_frames(op) / sp));
         timing.total += timing.legs[k];
@@ -838,10 +838,10 @@ protected:
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
-      PolyMesh X = Solids::build_steps(seed, build_step_chain, x_prefix,
+      PolyMesh x = Solids::build_steps(seed, build_step_chain, x_prefix,
                                        scratch_arena_a, scratch_arena_b);
       PolyMesh Xc;
-      MeshOps::clone(X, Xc, scratch_arena_a);
+      MeshOps::clone(x, Xc, scratch_arena_a);
       PolyMesh authored =
           kis_of_dual ? MeshOps::needle(Xc, scratch_arena_a, scratch_arena_b)
                       : MeshOps::kis(Xc, scratch_arena_a, scratch_arena_b);

@@ -581,14 +581,14 @@ public:
               int vertices, const math::Basis &planar_basis,
               const Color4 &color, const TimedMotion &motion) {
     const math::RotationMatrix &start = motion.start, &middle = motion.middle;
-    const int MAX_INTERVALS = motion.max_intervals;
-    const bool ALTERNATING_RADII = motion.alternating_radii;
-    const bool REFERENCE_CHORDS = motion.reference_chords;
-    const float CONTOUR_SPEED = motion.contour_speed;
+    const int max_intervals = motion.max_intervals;
+    const bool alternating_radii = motion.alternating_radii;
+    const bool reference_chords = motion.reference_chords;
+    const float contour_speed = motion.contour_speed;
     HS_CHECK(motion_prepared,
              "PlanarChords: timed draw requires motion preparation");
     const float target_step =
-        REFERENCE_CHORDS ? TARGET_STEP : BALANCED_SCREEN_STEP_PX;
+        reference_chords ? TARGET_STEP : BALANCED_SCREEN_STEP_PX;
     using Geometry = math::DisplayGeometry<H>;
     require_closed(pipeline, canvas, points, vertices);
     ScratchScope length_scope(scratch_arena_a);
@@ -603,10 +603,10 @@ public:
     const float first_dy = y_chart[1] - y_chart[0];
     const float edge_arc = sqrtf(first_dx * first_dx + first_dy * first_dy);
     const int anchor_intervals =
-        hs::clamp(static_cast<int>(ceilf(edge_arc / (ALTERNATING_RADII
+        hs::clamp(static_cast<int>(ceilf(edge_arc / (alternating_radii
                                                          ? MAX_ANCHOR_ARC
                                                          : RADIAL_ANCHOR_ARC))),
-                  1, std::min(MAX_INTERVALS, MAX_RADIAL_INTERVALS));
+                  1, std::min(max_intervals, MAX_RADIAL_INTERVALS));
     const float inv_intervals = 1.0f / static_cast<float>(anchor_intervals);
     planar_arc_cumul({x_chart[0], y_chart[0]}, first_dx, first_dy, planar_basis,
                      arc_cumul);
@@ -630,10 +630,10 @@ public:
       const float slope =
           PLANAR_LEN_SAMPLES * (arc_cumul[j + 1] - arc_cumul[j]);
       reference_density[k] =
-          REFERENCE_CHORDS || !(speed > 0.0f) ? 1.0f : slope / speed;
+          reference_chords || !(speed > 0.0f) ? 1.0f : slope / speed;
     }
     const float radial_bend =
-        ALTERNATING_RADII ? edge_arc * edge_arc * inv_intervals *
+        alternating_radii ? edge_arc * edge_arc * inv_intervals *
                                 inv_intervals * math::ROWS_PER_RADIAN<H> / 8.0f
                           : 0.0f;
     for (int k = 1; k < anchor_intervals; ++k) {
@@ -647,7 +647,7 @@ public:
           radius > math::EPS_GEOMETRIC ? sine / radius : 1.0f, cosine};
     }
 
-    const float velocity = CONTOUR_SPEED * math::ROWS_PER_RADIAN<H>;
+    const float velocity = contour_speed * math::ROWS_PER_RADIAN<H>;
     auto walk_segment = [&](const math::PixelCoords &from0,
                             const math::PixelCoords &to0,
                             const math::PixelCoords &from1,
@@ -657,7 +657,7 @@ public:
                             float curve_bend) __attribute__((always_inline)) {
       auto sample_alpha = [&](float ratio) HS_HOT_INLINE {
         return stroke_sample_alpha(color.alpha, ratio, density,
-                                   REFERENCE_CHORDS);
+                                   reference_chords);
       };
       const math::PixelCoords from_curve{
           2.0f * (from0.x + from1.x - 2.0f * from_mid.x),
@@ -853,7 +853,7 @@ public:
           return points[edge + 1].pos;
         const float t = static_cast<float>(k) * inv_intervals;
         const int profile =
-            ALTERNATING_RADII && (edge & 1) ? anchor_intervals - k : k;
+            alternating_radii && (edge & 1) ? anchor_intervals - k : k;
         const auto &coefficient = radial_coefficients[profile];
         const float x = x_chart[edge] + dx * t;
         const float y = y_chart[edge] + dy * t;
@@ -886,7 +886,7 @@ public:
           polar_from_ready = false;
           continue;
         }
-        const float density = reference_density[ALTERNATING_RADII && (edge & 1)
+        const float density = reference_density[alternating_radii && (edge & 1)
                                                     ? anchor_intervals - 1 - k
                                                     : k];
         if (!captured_from) {
@@ -915,7 +915,7 @@ public:
                                     fmaxf(0.0f, pole_distance - row_margin))),
             0, H - 1);
         const float sine = fmaxf(0.001f, math::TrigLUT<W, H>::sin_phi[row]);
-        const float bend = CONTOUR_SPEED * CONTOUR_SPEED *
+        const float bend = contour_speed * contour_speed *
                            math::ROWS_PER_RADIAN<H> / (8.0f * sine);
         const bool polar = pole_distance < POLE_PIECE_ROWS + row_margin ||
                            bend > POLAR_TIME_ERROR_PX ||
@@ -938,7 +938,7 @@ public:
           const PolarAnchor polar_to =
               capture(start_world_to, mid_world_to, to);
           PolarWalk<W, H>::draw(pipeline, canvas, polar_from, polar_to, north,
-                                color, target_step, REFERENCE_CHORDS, density);
+                                color, target_step, reference_chords, density);
           polar_from = polar_to;
           polar_from_north = north;
           polar_from_ready = true;

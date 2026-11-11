@@ -179,8 +179,8 @@ inline float normalization(int l, int m) {
   float ratio = 1.0f;
   for (int64_t i = static_cast<int64_t>(l) + abs_m; i > l - abs_m; --i)
     ratio /= static_cast<float>(i);
-  float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * math::PI_F)) * ratio);
-  return (m != 0) ? sqrtf(2.0f) * N : N;
+  float n = sqrtf(((2.0f * l + 1.0f) / (4.0f * math::PI_F)) * ratio);
+  return (m != 0) ? sqrtf(2.0f) * n : n;
 }
 
 /**
@@ -212,8 +212,8 @@ inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
     im = re * p.z + im * p.x;
     re = next_re;
   }
-  float Q = reduced_legendre(l, abs_m, hs::clamp(p.y, -1.0f, 1.0f));
-  return N * Q * ((m < 0) ? im : re);
+  float q = reduced_legendre(l, abs_m, hs::clamp(p.y, -1.0f, 1.0f));
+  return N * q * ((m < 0) ? im : re);
 }
 
 /** @brief Evaluates the gradient for an admitted harmonic mode.
@@ -228,10 +228,10 @@ spherical_harmonic_gradient_unchecked(int l, int m, const math::Vector &p,
                                       float N, math::Complex phase) {
   HS_AUDIT_CHECK(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l);
   math::Complex power(1.0f, 0.0f), previous;
-  const math::Complex W(p.x, p.z);
+  const math::Complex w(p.x, p.z);
   for (int i = 0; i < m; ++i) {
     previous = power;
-    power = power * W;
+    power = power * w;
   }
   const math::Complex derivative =
       phase * previous * math::Complex(float(m), 0.0f);

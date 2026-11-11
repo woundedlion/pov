@@ -271,12 +271,12 @@ public:
    *   point, saturate to the widest odd footprint the row admits.
    */
   int longitude_filter_width(int y) const {
-    const int maximum_odd_width = (W & 1) ? W : W - 1;
+    const int MAXIMUM_ODD_WIDTH = (W & 1) ? W : W - 1;
     const float sine = latitude_sine(y);
     if (sine < 1.0f / W)
-      return maximum_odd_width;
+      return MAXIMUM_ODD_WIDTH;
     int width = static_cast<int>(ceilf(1.0f / sine)) | 1;
-    return hs::clamp(width, 1, maximum_odd_width);
+    return hs::clamp(width, 1, MAXIMUM_ODD_WIDTH);
   }
 
   /**

@@ -284,10 +284,10 @@ struct PreparedFace {
       : PreparedFace(vertices, indices, scratch,
                      virtual_grid_geometry(virtual_height, height), height,
                      clip, azimuth_pads, bounds_margin) {
-    const math::LatitudeGeometry DISPLAY_GEOMETRY(height);
-    HS_CHECK(build_geometry.row_to_phi(0) == DISPLAY_GEOMETRY.row_to_phi(0) &&
+    const math::LatitudeGeometry display_geometry(height);
+    HS_CHECK(build_geometry.row_to_phi(0) == display_geometry.row_to_phi(0) &&
                  build_geometry.row_to_phi(height - 1) ==
-                     DISPLAY_GEOMETRY.row_to_phi(height - 1),
+                     display_geometry.row_to_phi(height - 1),
              "PreparedFace: virtual height must match the display geometry");
   }
 
@@ -475,7 +475,7 @@ struct PreparedFace {
     const ClipRegion::XClip xc = cr.x_clip();
     if (!xc.active)
       return false;
-    const int Wd = cr.w;
+    const int wd = cr.w;
     float pw;
     if (build_azimuth_pads) {
       pw = std::max(build_azimuth_pads[band_y_min],
@@ -484,21 +484,21 @@ struct PreparedFace {
       const float sin_phi =
           std::min(sinf(build_geometry.row_to_phi(band_y_min)),
                    sinf(build_geometry.row_to_phi(band_y_max)));
-      pw = face_azimuth_pad(Wd, sin_phi);
+      pw = face_azimuth_pad(wd, sin_phi);
     }
-    const int band_len = xc.length(Wd);
-    const float COLUMN_SCALE = Wd / math::TWO_PI_F;
+    const int band_len = xc.length(wd);
+    const float column_scale = wd / math::TWO_PI_F;
     for (const auto &iv : intervals) {
       // Match get_horizontal_intervals' radians-to-column rounding.
-      int a = static_cast<int>(floorf((iv.start - pw) * COLUMN_SCALE));
-      int b = static_cast<int>(ceilf((iv.end + pw) * COLUMN_SCALE));
+      int a = static_cast<int>(floorf((iv.start - pw) * column_scale));
+      int b = static_cast<int>(ceilf((iv.end + pw) * column_scale));
       int len = b - a;
       if (len <= 0)
         continue;
-      if (len > Wd)
-        len = Wd;
-      const int s = ((a % Wd) + Wd) % Wd;
-      if (ClipRegion::arcs_overlap(xc.rs, band_len, s, len, Wd))
+      if (len > wd)
+        len = wd;
+      const int s = ((a % wd) + wd) % wd;
+      if (ClipRegion::arcs_overlap(xc.rs, band_len, s, len, wd))
         return false;
     }
     return true;

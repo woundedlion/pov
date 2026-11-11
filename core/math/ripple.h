@@ -113,12 +113,12 @@ HS_HOT_INLINE inline math::Vector transform_at_distance(const math::Vector &v,
                                                         const Wave &wave,
                                                         float distance,
                                                         float phase) {
-  const float THETA = angle_at_distance(wave, distance, phase);
+  const float theta = angle_at_distance(wave, distance, phase);
   math::Vector axis = math::cross(wave.center, v);
   float len_sq = math::dot(axis, axis);
   if (len_sq > 1e-6f) {
     axis = axis * (1.0f / sqrtf(len_sq));
-    return rotate(v, axis, THETA);
+    return rotate(v, axis, theta);
   }
   return v;
 }
@@ -154,20 +154,20 @@ struct RadialTransfer {
 HS_HOT_INLINE inline bool radial_step(const Wave &wave, float &distance,
                                       float &angle, float &path,
                                       bool track_path) {
-  const float HALF_WIDTH = wave.half_width();
+  const float half_width = wave.half_width();
   if (wave.amplitude <= NEGLIGIBLE_AMPLITUDE ||
-      distance < wave.phase - 2.0f * HALF_WIDTH ||
-      distance > wave.phase + 2.0f * HALF_WIDTH)
+      distance < wave.phase - 2.0f * half_width ||
+      distance > wave.phase + 2.0f * half_width)
     return true;
-  const float THETA = angle_at_distance(wave, distance, wave.phase);
-  if (THETA == 0.0f)
+  const float theta = angle_at_distance(wave, distance, wave.phase);
+  if (theta == 0.0f)
     return true;
-  distance += THETA;
+  distance += theta;
   if (!(distance > 0.01f && distance < math::PI_F - 0.01f))
     return false;
-  angle += THETA;
+  angle += theta;
   if (track_path)
-    path += fabsf(THETA);
+    path += fabsf(theta);
   return true;
 }
 
@@ -196,23 +196,23 @@ radial_transfer(float distance, const WaveAt &wave_at, uint8_t count) {
 HS_HOT_INLINE inline bool rotate_group(const math::Vector &start,
                                        const math::Vector &center, float angle,
                                        math::Vector &output) {
-  const math::Vector CROSS = math::cross(center, start);
-  const float CROSS_SQ = math::dot(CROSS, CROSS);
-  if (!(CROSS_SQ >= 1e-4f) || !(fabsf(math::dot(start, start) - 1.0f) <= 1e-4f))
+  const math::Vector cross = math::cross(center, start);
+  const float cross_sq = math::dot(cross, cross);
+  if (!(cross_sq >= 1e-4f) || !(fabsf(math::dot(start, start) - 1.0f) <= 1e-4f))
     return false;
-  const math::Vector AXIS = CROSS * (1.0f / sqrtf(CROSS_SQ));
+  const math::Vector axis = cross * (1.0f / sqrtf(cross_sq));
   if (fabsf(angle) <= GROUP_ROTATION_POLYNOMIAL_MAX) {
-    const float SQUARED = angle * angle;
-    const float COSINE =
-        1.0f + SQUARED * (-0.5f +
-                          SQUARED * (1.0f / 24.0f - SQUARED * (1.0f / 720.0f)));
-    const float SINE =
-        angle * (1.0f + SQUARED * (-1.0f / 6.0f +
-                                   SQUARED * (1.0f / 120.0f -
-                                              SQUARED * (1.0f / 5040.0f))));
-    output = start * COSINE + math::cross(AXIS, start) * SINE;
+    const float squared = angle * angle;
+    const float cosine =
+        1.0f + squared * (-0.5f +
+                          squared * (1.0f / 24.0f - squared * (1.0f / 720.0f)));
+    const float sine =
+        angle * (1.0f + squared * (-1.0f / 6.0f +
+                                   squared * (1.0f / 120.0f -
+                                              squared * (1.0f / 5040.0f))));
+    output = start * cosine + math::cross(axis, start) * sine;
   } else
-    output = rotate(start, AXIS, angle);
+    output = rotate(start, axis, angle);
   return true;
 }
 
@@ -230,12 +230,12 @@ HS_HOT_INLINE inline Result sequential(const math::Vector &input,
                                        bool track_path) {
   Result result{input, 0.0f};
   for (uint8_t index = 0; index < count; ++index) {
-    const math::Vector START = result.sphere;
-    result.sphere = transform(START, wave_at(index));
+    const math::Vector start = result.sphere;
+    result.sphere = transform(start, wave_at(index));
     if (track_path) {
-      const math::Vector CROSS = math::cross(START, result.sphere);
-      result.path_length += atan2f(sqrtf(math::dot(CROSS, CROSS)),
-                                   math::dot(START, result.sphere));
+      const math::Vector cross = math::cross(start, result.sphere);
+      result.path_length += atan2f(sqrtf(math::dot(cross, cross)),
+                                   math::dot(start, result.sphere));
     }
   }
   return result;
@@ -258,18 +258,18 @@ HS_HOT_INLINE inline Result grouped(const math::Vector &input,
   Result result{input, 0.0f};
   uint8_t index = 0;
   while (index < count) {
-    const math::Vector START = result.sphere;
-    const math::Vector CENTER = wave_at(index).center;
-    const float DISTANCE_COS = math::dot(CENTER, START);
-    float distance = math::fast_acos(hs::clamp(DISTANCE_COS, -1.0f, 1.0f));
+    const math::Vector start = result.sphere;
+    const math::Vector center = wave_at(index).center;
+    const float distance_cos = math::dot(center, start);
+    float distance = math::fast_acos(hs::clamp(distance_cos, -1.0f, 1.0f));
     float total_angle = 0.0f;
     do {
       if (!radial_step(wave_at(index++), distance, total_angle,
                        result.path_length, track_path))
         return fallback();
-    } while (index < count && same_center(wave_at(index).center, CENTER));
+    } while (index < count && same_center(wave_at(index).center, center));
     if (total_angle != 0.0f &&
-        !rotate_group(START, CENTER, total_angle, result.sphere))
+        !rotate_group(start, center, total_angle, result.sphere))
       return fallback();
   }
   return result;
@@ -291,24 +291,24 @@ sample_transfer(const std::array<RadialTransfer, Samples> &previous,
                 const std::array<RadialTransfer, Samples> &current,
                 float distance, float fraction, bool track_path,
                 RadialTransfer &output, const uint8_t *valid_cells = nullptr) {
-  const float POSITION = distance * ((Samples - 1) / math::PI_F);
-  if (!(POSITION >= 0.0f && POSITION <= Samples - 1))
+  const float position = distance * ((Samples - 1) / math::PI_F);
+  if (!(position >= 0.0f && position <= Samples - 1))
     return false;
-  const size_t LOW_INDEX = std::min(static_cast<size_t>(POSITION), Samples - 2);
-  const float WEIGHT = POSITION - LOW_INDEX;
-  const auto &a = previous[LOW_INDEX];
-  const auto &b = previous[LOW_INDEX + 1];
-  const auto &c = current[LOW_INDEX];
-  const auto &d = current[LOW_INDEX + 1];
+  const size_t low_index = std::min(static_cast<size_t>(position), Samples - 2);
+  const float weight = position - low_index;
+  const auto &a = previous[low_index];
+  const auto &b = previous[low_index + 1];
+  const auto &c = current[low_index];
+  const auto &d = current[low_index + 1];
   if (valid_cells
-          ? !valid_cells[LOW_INDEX]
+          ? !valid_cells[low_index]
           : (a.path < 0.0f || b.path < 0.0f || c.path < 0.0f || d.path < 0.0f))
     return false;
-  output.angle = hs::lerp(hs::lerp(a.angle, b.angle, WEIGHT),
-                          hs::lerp(c.angle, d.angle, WEIGHT), fraction);
+  output.angle = hs::lerp(hs::lerp(a.angle, b.angle, weight),
+                          hs::lerp(c.angle, d.angle, weight), fraction);
   if (track_path)
-    output.path = hs::lerp(hs::lerp(a.path, b.path, WEIGHT),
-                           hs::lerp(c.path, d.path, WEIGHT), fraction);
+    output.path = hs::lerp(hs::lerp(a.path, b.path, weight),
+                           hs::lerp(c.path, d.path, weight), fraction);
   return true;
 }
 

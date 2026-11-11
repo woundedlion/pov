@@ -56,11 +56,11 @@ public:
    * @return Sum of the physical horizontal and vertical speed bounds. */
   HS_HOT_INLINE static float physical_speed(float dx, float dy, float row_lo,
                                             float row_hi) {
-    const float EQUATOR = math::phi_to_y<H>(math::PI_F * 0.5f);
-    const float nearest = hs::clamp(EQUATOR, row_lo, row_hi);
+    const float equator = math::phi_to_y<H>(math::PI_F * 0.5f);
+    const float nearest = hs::clamp(equator, row_lo, row_hi);
     const int row = hs::clamp(static_cast<int>(floorf(nearest)), 0, H - 1);
     const float sine =
-        row <= EQUATOR && row + 1 >= EQUATOR
+        row <= equator && row + 1 >= equator
             ? 1.0f
             : fmaxf(math::TrigLUT<W, H>::sin_phi[row],
                     math::TrigLUT<W, H>::sin_phi[std::min(row + 1, H - 1)]);
@@ -255,7 +255,7 @@ private:
       }
     }
     const float dx = b.x - a.x, dy = b.y - a.y;
-    const float PHYSICAL_GAIN = (1.0f + math::PI_F) * math::ROWS_PER_RADIAN<H>;
+    const float physical_gain = (1.0f + math::PI_F) * math::ROWS_PER_RADIAN<H>;
     const float norm2 = 1.0f - 0.25f * math::dot(end - origin, end - origin);
     const float offset2 = math::dot(offset, offset);
     bool chord_holds = offset2 == 0.0f && small_chord(origin, end);
@@ -267,13 +267,13 @@ private:
       const float remaining = BEND_PIXELS - acceleration * 0.125f;
       chord_holds =
           remaining >= 0.0f &&
-          offset2 * (PHYSICAL_GAIN * PHYSICAL_GAIN + remaining * remaining) <=
+          offset2 * (physical_gain * physical_gain + remaining * remaining) <=
               norm2 * remaining * remaining;
     }
     if (!chord_holds) {
       constexpr float CURVE_ERROR = 0.002f;
       const float ignored_error =
-          offset2 > 0.0f && offset2 * (PHYSICAL_GAIN * PHYSICAL_GAIN +
+          offset2 > 0.0f && offset2 * (physical_gain * physical_gain +
                                        CURVE_ERROR * CURVE_ERROR) <=
                                 norm2 * CURVE_ERROR * CURVE_ERROR
               ? CURVE_ERROR
@@ -310,8 +310,8 @@ public:
         fmaxf(0.0f, fminf(origin.x * origin.x + origin.z * origin.z,
                           end.x * end.x + end.z * end.z) -
                         0.25f * horizontal2);
-    const float GAIN = math::ROWS_PER_RADIAN<H> / (4.0f * BEND_PIXELS);
-    return m2 <= 0.01f && m2 * m2 * (GAIN * GAIN) <= rho2 * norm2 * norm2;
+    const float gain = math::ROWS_PER_RADIAN<H> / (4.0f * BEND_PIXELS);
+    return m2 <= 0.01f && m2 * m2 * (gain * gain) <= rho2 * norm2 * norm2;
   }
 
   /**

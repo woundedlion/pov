@@ -151,29 +151,29 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
     result.valid = result.periodic_shells.valid && settings.shell_layers;
     return result;
   }
-  const auto &E = settings.embedding.m;
+  const auto &e = settings.embedding.m;
   if (settings.domain == Raycast::SamplingDomain::SPATIAL_3D) {
-    const auto FAMILIES = result.octet.plane_families();
+    const auto families = result.octet.plane_families();
     auto &projection = result.octet_projection;
-    const float SPACING = FAMILIES[0].spacing;
-    projection.spacing2 = SPACING * SPACING;
+    const float spacing = families[0].spacing;
+    projection.spacing2 = spacing * spacing;
     projection.wire_radius = result.octet.wire_radius;
-    const math::Vector ORIGIN(settings.center[0], settings.center[1],
+    const math::Vector origin(settings.center[0], settings.center[1],
                               settings.center[2]);
-    for (size_t i = 0; i < FAMILIES.size(); ++i) {
-      const math::Vector NORMAL = FAMILIES[i].normal / SPACING;
-      projection.offsets[i] = math::dot(ORIGIN - result.octet.origin, NORMAL);
+    for (size_t i = 0; i < families.size(); ++i) {
+      const math::Vector normal = families[i].normal / spacing;
+      projection.offsets[i] = math::dot(origin - result.octet.origin, normal);
       projection.normals[i] = {
-          NORMAL.x * E[0][0] + NORMAL.y * E[1][0] + NORMAL.z * E[2][0],
-          NORMAL.x * E[0][1] + NORMAL.y * E[1][1] + NORMAL.z * E[2][1],
-          NORMAL.x * E[0][2] + NORMAL.y * E[1][2] + NORMAL.z * E[2][2]};
+          normal.x * e[0][0] + normal.y * e[1][0] + normal.z * e[2][0],
+          normal.x * e[0][1] + normal.y * e[1][1] + normal.z * e[2][1],
+          normal.x * e[0][2] + normal.y * e[1][2] + normal.z * e[2][2]};
     }
   } else {
     auto &projection = result.octet4_projection;
     projection.inverse_scale =
         1.0f / (SDF::OctetFramework4::HALF_CUBE * settings.cell_size);
     for (int i = 0; i < 4; ++i) {
-      projection.embedding[i] = math::Vector(E[i][0], E[i][1], E[i][2]);
+      projection.embedding[i] = math::Vector(e[i][0], e[i][1], e[i][2]);
       projection.origin[i] =
           fmodf((settings.center[i] - result.octet4.origin[i]) *
                     projection.inverse_scale,

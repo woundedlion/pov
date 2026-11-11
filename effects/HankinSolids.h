@@ -66,11 +66,11 @@ public:
     using namespace ConwayGraph;
     int frames = NUM_NODES * (HANKIN_SWEEP_FRAMES + 1);
     for (int from = 0; from < NUM_NODES; ++from) {
-      const int DEST = (from + 1) % NUM_NODES;
-      for (int node = from; node != DEST;) {
-        const int EDGE = next_edge_toward(node, DEST, 0);
-        frames += SWEEP_FRAMES + (EDGES[EDGE].settle ? SETTLE_FRAMES : 0);
-        node = edge_other_end(EDGE, node);
+      const int dest = (from + 1) % NUM_NODES;
+      for (int node = from; node != dest;) {
+        const int edge = next_edge_toward(node, dest, 0);
+        frames += SWEEP_FRAMES + (EDGES[edge].settle ? SETTLE_FRAMES : 0);
+        node = edge_other_end(edge, node);
       }
     }
     return frames;
@@ -743,7 +743,7 @@ private:
     reverse = (e.to_node == node);
 
     SeedFix fix;
-    const int RECONCILED =
+    const int reconciled =
         reconciled_seed_identity(cur_edge, node, seed_identity, fix);
     HS_CHECK(fix != SeedFix::INVALID,
              "HankinSolids: no seed reconciliation for the picked edge");
@@ -757,7 +757,7 @@ private:
         seed_base =
             Solids::finalize_solid(MeshOps::dual(seed_base, a, b), target);
       });
-      seed_identity = static_cast<uint8_t>(RECONCILED);
+      seed_identity = static_cast<uint8_t>(reconciled);
     } else if (fix == SeedFix::REGEN_TETRA) {
       // Reverse family bridge: the held octa/icosa was derived from the
       // registry tetrahedron, so regenerating that tetrahedron is frame-exact.
@@ -768,7 +768,7 @@ private:
         seed_base =
             Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
       });
-      seed_identity = static_cast<uint8_t>(RECONCILED);
+      seed_identity = static_cast<uint8_t>(reconciled);
     }
     HS_CHECK(fix == SeedFix::DERIVE_AMBO || seed_identity == e.seed_solid,
              "HankinSolids: leg seed identity mismatch");

@@ -619,7 +619,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     }
 
     // Equatorial step 2π/W: screen_step cap and balanced-threshold reference.
-    const float base_step = (2.0f * math::PI_F) / W;
+    const float BASE_STEP = (2.0f * math::PI_F) / W;
     auto adaptive_step = [&](const SamplePT &value) {
       if (!world_identity && step_axes.usable())
         return screen_step_from_axes<W, H>(value, step_axes);
@@ -629,7 +629,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       } else {
         if (!world_identity)
           return pipeline_screen_step<W, H>(pipeline, value, false, &step_axes);
-        return screen_step<W, H>(value.pos, value.tan, base_step);
+        return screen_step<W, H>(value.pos, value.tan, BASE_STEP);
       }
     };
     int planar_arc_interval = 0;
@@ -674,7 +674,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // screen space. `smp`/`first_step` seed the first iteration.
     if constexpr (SINGLE_PASS) {
       HS_PROFILE_DEEP(plot_seg_single_pass);
-      SinglePassWalk<Cfg> walk(smp, first_step, total_dist, base_step,
+      SinglePassWalk<Cfg> walk(smp, first_step, total_dist, BASE_STEP,
                                balanced_sampling);
       while (walk.unfinished()) {
         math::Vector p;

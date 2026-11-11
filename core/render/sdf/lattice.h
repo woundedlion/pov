@@ -66,18 +66,18 @@ inline PreparedTrace prepare(const Settings &settings, const math::Vec4 &origin,
       settings.softness > 0 && settings.cell_size > 0 &&
           settings.aa_strength >= 0,
       "lattice requires positive softness and cell size and nonnegative AA");
-  const float INV_CELL = 1.0f / settings.cell_size;
+  const float inv_cell = 1.0f / settings.cell_size;
   PreparedTrace result{settings,
                        origin,
                        embedding,
                        far_distance,
-                       settings.aa_strength * pixel_half_angle * INV_CELL *
-                           INV_CELL,
+                       settings.aa_strength * pixel_half_angle * inv_cell *
+                           inv_cell,
                        settings.wire_radius + settings.softness,
                        settings.sphere_radius * settings.cell_size};
   for (int i = 0; i < DIMENSIONS; ++i)
     for (int j = 0; j < DIMENSIONS; ++j)
-      result.world_to_lattice.m[i][j] *= INV_CELL;
+      result.world_to_lattice.m[i][j] *= inv_cell;
   return result;
 }
 /** @brief One ray's covered plane crossings, sorted by distance. */
@@ -509,32 +509,32 @@ composite_crossings(const math::Vector &normal,
   }
   // One division serves every axis: each step is the product of the other
   // magnitudes over the product of all of them.
-  const float INVERSE_PRODUCT = 1.0f / product;
-  const uint8_t SHELL_COUNT =
+  const float inverse_product = 1.0f / product;
+  const uint8_t shell_count =
       SHELLS ? SHELLS : static_cast<uint8_t>(lattice.params.shells) + 1;
   Raycast::CoveredCrossings<CrossingList::CAPACITY> covered(
       prepared.crossings->distances, prepared.crossings->coverages);
   const auto cross = [&](int axis) __attribute__((always_inline)) {
     if (!(magnitude[axis] >= DIRECTION_EPSILON))
       return;
-    float step = INVERSE_PRODUCT;
+    float step = inverse_product;
     for (int other = 0; other < DIMENSIONS; ++other)
       if (other != axis && magnitude[other] >= DIRECTION_EPSILON)
         step *= magnitude[other];
     float distance =
         next_plane_offset(origin[axis], direction[axis] > 0) * step;
     for (uint8_t shell = 0;
-         shell < SHELL_COUNT && distance < lattice.far_distance;
+         shell < shell_count && distance < lattice.far_distance;
          ++shell, distance += step) {
       HS_PROFILE_DEEP(hl_event_step);
-      const float COVERAGE =
+      const float coverage =
           trace_plane<SLICE_4D>(origin, direction, axis, distance, step,
                                 lattice)
               .coverage *
-          shell_horizon_coverage(shell, SHELL_COUNT, distance, magnitude[axis]);
-      if (!(COVERAGE > 0.0f))
+          shell_horizon_coverage(shell, shell_count, distance, magnitude[axis]);
+      if (!(coverage > 0.0f))
         continue;
-      covered.insert(distance, COVERAGE);
+      covered.insert(distance, coverage);
     }
   };
   cross(0);

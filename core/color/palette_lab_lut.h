@@ -50,10 +50,10 @@ struct PaletteLabLutBase {
    * @param raw Unmapped linear RGB.
    * @return Whether canonical-base restoration is required. */
   HS_HOT_INLINE static bool near_gamut_gate(const LinRGB &raw) {
-    const float LEAST = __builtin_fminf(__builtin_fminf(raw.r, raw.g), raw.b);
-    const float MOST = __builtin_fmaxf(__builtin_fmaxf(raw.r, raw.g), raw.b);
-    return !(fabsf(LEAST - LINEAR_RGB_GAMUT_MIN) > GAMUT_GUARD_WIDTH &&
-             fabsf(MOST - LINEAR_RGB_GAMUT_MAX) > GAMUT_GUARD_WIDTH);
+    const float least = __builtin_fminf(__builtin_fminf(raw.r, raw.g), raw.b);
+    const float most = __builtin_fmaxf(__builtin_fmaxf(raw.r, raw.g), raw.b);
+    return !(fabsf(least - LINEAR_RGB_GAMUT_MIN) > GAMUT_GUARD_WIDTH &&
+             fabsf(most - LINEAR_RGB_GAMUT_MAX) > GAMUT_GUARD_WIDTH);
   }
 
   /** @brief Finishes the immutable RGB-first base through a prepared hue.
@@ -65,15 +65,15 @@ struct PaletteLabLutBase {
   HS_HOT_FLASH_MEMBER __attribute__((flatten)) static LinRGB
   canonical_hue_rgb(const PaletteLabTimeView &time, float value, float cosine,
                     float sine) {
-    const auto RGB = time.canonical_base->palette_from->get_color(value).lerp16(
+    const auto rgb = time.canonical_base->palette_from->get_color(value).lerp16(
         time.canonical_base->palette_to->get_color(value),
         frac_to_q16(time.fraction));
-    const auto LINEAR_INPUT = pixel_to_linrgb(RGB);
-    const auto LAB =
-        rotate_chroma(linear_rgb_to_oklab_fast(LINEAR_INPUT.r, LINEAR_INPUT.g,
-                                               LINEAR_INPUT.b),
+    const auto linear_input = pixel_to_linrgb(rgb);
+    const auto lab =
+        rotate_chroma(linear_rgb_to_oklab_fast(linear_input.r, linear_input.g,
+                                               linear_input.b),
                       cosine, sine);
-    return oklab_to_linear_rgb_lut_gamut(LAB);
+    return oklab_to_linear_rgb_lut_gamut(lab);
   }
 
   /** @brief Finishes the immutable RGB-first base through a prepared hue.
@@ -96,29 +96,29 @@ struct PaletteLabLutBase {
   HS_FLASH_INLINE PaletteLabTimeView view(float fraction) const {
     if (!active)
       return {};
-    const float POSITION = hs::clamp(fraction, 0.0f, 1.0f) * (TIMES - 1);
-    const int LOW_INDEX = std::min(int(POSITION), TIMES - 2);
-    const auto *const MASK_LOW =
-        rgb_masks ? rgb_masks + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX)
+    const float position = hs::clamp(fraction, 0.0f, 1.0f) * (TIMES - 1);
+    const int low_index = std::min(int(position), TIMES - 2);
+    const auto *const mask_low =
+        rgb_masks ? rgb_masks + (rgb_midpoint ? rgb_midpoint_row : low_index)
                   : nullptr;
-    const auto *const MASK_HIGH =
+    const auto *const mask_high =
         rgb_masks
-            ? rgb_masks + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX + 1)
+            ? rgb_masks + (rgb_midpoint ? rgb_midpoint_row : low_index + 1)
             : nullptr;
-    return {data + LOW_INDEX * value_steps,
-            data + (LOW_INDEX + 1) * value_steps,
-            POSITION - LOW_INDEX,
+    return {data + low_index * value_steps,
+            data + (low_index + 1) * value_steps,
+            position - low_index,
             value_steps,
             rgb_nodes
-                ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX) *
+                ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : low_index) *
                                   HueRotationLutView::SIZE
                 : nullptr,
             rgb_nodes ? rgb_nodes +
-                            (rgb_midpoint ? rgb_midpoint_row : LOW_INDEX + 1) *
+                            (rgb_midpoint ? rgb_midpoint_row : low_index + 1) *
                                 HueRotationLutView::SIZE
                       : nullptr,
-            MASK_LOW,
-            MASK_HIGH == MASK_LOW ? nullptr : MASK_HIGH,
+            mask_low,
+            mask_high == mask_low ? nullptr : mask_high,
             this,
             hs::clamp(fraction, 0.0f, 1.0f)};
   }
@@ -130,17 +130,17 @@ struct PaletteLabLutBase {
   __attribute__((always_inline)) static OKLab
   sample(const PaletteLabTimeView &time, float value) {
     HS_AUDIT_CHECK(time.low && time.high && time.value_steps >= 2);
-    const float POSITION =
+    const float position =
         hs::clamp(value, 0.0f, 1.0f) * (time.value_steps - 1);
-    const int LOW_INDEX = std::min(int(POSITION), time.value_steps - 2);
-    const float WEIGHT = POSITION - LOW_INDEX;
+    const int low_index = std::min(int(position), time.value_steps - 2);
+    const float weight = position - low_index;
     const auto lerp = [](const OKLab &a, const OKLab &b,
                          float fraction) HS_HOT_INLINE {
       return OKLab{hs::lerp(a.L, b.L, fraction), hs::lerp(a.a, b.a, fraction),
                    hs::lerp(a.b, b.b, fraction)};
     };
-    return lerp(lerp(time.low[LOW_INDEX], time.low[LOW_INDEX + 1], WEIGHT),
-                lerp(time.high[LOW_INDEX], time.high[LOW_INDEX + 1], WEIGHT),
+    return lerp(lerp(time.low[low_index], time.low[low_index + 1], weight),
+                lerp(time.high[low_index], time.high[low_index + 1], weight),
                 time.weight);
   }
 
@@ -213,27 +213,28 @@ template <int ValueSteps> struct PaletteLabLutStorage : PaletteLabLutBase {
     rgb_masks = nullptr;
     rgb_midpoint = false;
     rgb_midpoint_row = 1;
-    const auto A = from.constant_alpha();
-    const auto B = to.constant_alpha();
-    active = A.has_value() && B.has_value() && *A == 1.0f && *B == 1.0f;
+    const auto a = from.constant_alpha();
+    const auto b = to.constant_alpha();
+    active = a.has_value() && b.has_value() && *a == 1.0f && *b == 1.0f;
     if (!active)
       return;
     const auto convert = [](const Pixel &rgb) HS_HOT_INLINE {
-      const LinRGB LINEAR = pixel_to_linrgb(rgb);
-      return linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
+      const LinRGB linear = pixel_to_linrgb(rgb);
+      return linear_rgb_to_oklab_fast(linear.r, linear.g, linear.b);
     };
     for (int value = 0; value < VALUES; ++value) {
-      const float COORDINATE = float(value) / (VALUES - 1);
-      const Pixel FROM = from.get_color(COORDINATE);
-      const Pixel TO = to.get_color(COORDINATE);
-      const OKLab FROM_LAB = convert(FROM);
-      const OKLab TO_LAB = FROM == TO ? FROM_LAB : convert(TO);
-      const Pixel MIDPOINT = FROM.lerp16(TO, frac_to_q16(0.5f));
-      nodes[value] = FROM_LAB;
-      nodes[VALUES + value] = MIDPOINT == FROM ? FROM_LAB
-                              : MIDPOINT == TO ? TO_LAB
-                                               : convert(MIDPOINT);
-      nodes[2 * VALUES + value] = TO_LAB;
+      const float coordinate = float(value) / (VALUES - 1);
+      const Pixel from_value = from.get_color(coordinate);
+      const Pixel to_value = to.get_color(coordinate);
+      const OKLab from_lab = convert(from_value);
+      const OKLab to_lab =
+          from_value == to_value ? from_lab : convert(to_value);
+      const Pixel midpoint = from_value.lerp16(to_value, frac_to_q16(0.5f));
+      nodes[value] = from_lab;
+      nodes[VALUES + value] = midpoint == from_value ? from_lab
+                              : midpoint == to_value ? to_lab
+                                                     : convert(midpoint);
+      nodes[2 * VALUES + value] = to_lab;
     }
   }
 
@@ -340,16 +341,16 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
           const auto &lab =
               base.nodes[base_row * PaletteLabLut::VALUES + value];
           LinRGB raw;
-          const auto NODE = rotate_node(lab, cosines[hue], sines[hue], raw);
+          const auto node = rotate_node(lab, cosines[hue], sines[hue], raw);
           nodes[row * HueRotationLutView::SIZE +
-                value * HueRotationLutView::HUE_STEPS + hue] = NODE;
-          builder.append(value, hue, raw, NODE);
+                value * HueRotationLutView::HUE_STEPS + hue] = node;
+          builder.append(value, hue, raw, node);
         }
     };
     if constexpr (MidpointOnly) {
       bake_row(0, 1);
     } else {
-      const bool REUSE =
+      const bool reuse =
           !base.rgb_midpoint && previous_base && previous &&
           previous_base->active && !previous_base->rgb_midpoint &&
           previous_base->rgb_nodes == previous->nodes.data() &&
@@ -357,14 +358,14 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
                       previous_base->nodes.data() +
                           (PaletteLabLut::TIMES - 1) * PaletteLabLut::VALUES,
                       PaletteLabLut::VALUES * sizeof(OKLab)) == 0;
-      if (REUSE) {
+      if (reuse) {
         std::memcpy(nodes.data(),
                     previous->nodes.data() +
                         (PaletteLabLut::TIMES - 1) * HueRotationLutView::SIZE,
                     HueRotationLutView::SIZE * sizeof(Pixel));
         masks[0] = previous->masks[PaletteLabLut::TIMES - 1];
       }
-      for (int time = base.rgb_midpoint || REUSE ? 1 : 0;
+      for (int time = base.rgb_midpoint || reuse ? 1 : 0;
            time < (base.rgb_midpoint ? 2 : PaletteLabLut::TIMES); ++time)
         bake_row(time, time);
     }
@@ -384,12 +385,12 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
    * @return Gamut-mapped RGB16 node. */
   HS_HOT_INLINE static Pixel rotate_node(const OKLab &lab, float cosine,
                                          float sine, LinRGB &raw) {
-    const auto ROTATED = rotate_chroma(lab, cosine, sine);
-    raw = oklab_to_linear_rgb(ROTATED);
+    const auto rotated = rotate_chroma(lab, cosine, sine);
+    raw = oklab_to_linear_rgb(rotated);
     LinRGB mapped = raw;
     if (!linear_rgb_in_gamut(raw.r, raw.g, raw.b)) {
       HS_PROFILE_DEEP(gamut_clip);
-      mapped = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(ROTATED));
+      mapped = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(rotated));
     }
     return linrgb_to_pixel(mapped);
   }
@@ -408,13 +409,13 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
          time.rgb_mask_high->requires_direct(coordinate.low, rotation.low))) {
       return PaletteLabLutBase::direct_hue_color(time, value, hue);
     }
-    const Pixel LOW_RGB =
+    const Pixel low_rgb =
         sample_hue_rotation_lut({time.rgb_low, true}, coordinate, rotation);
     if (time.rgb_low == time.rgb_high)
-      return LOW_RGB;
-    const Pixel HIGH_RGB =
+      return low_rgb;
+    const Pixel high_rgb =
         sample_hue_rotation_lut({time.rgb_high, true}, coordinate, rotation);
-    return LOW_RGB.lerp16(HIGH_RGB, frac_to_q16(time.weight));
+    return low_rgb.lerp16(high_rgb, frac_to_q16(time.weight));
   }
 };
 

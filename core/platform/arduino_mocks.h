@@ -449,7 +449,7 @@ inline uint16_t scale16(uint16_t i, uint16_t sc) {
  * @return Sine in [0, 255] centred on 128 (sin8(0)==128, sin8(64)==255).
  */
 inline uint8_t sin8(uint8_t theta) {
-  static const uint8_t b_m16_interleave[] = {0, 49, 49, 41, 90, 27, 117, 10};
+  static const uint8_t B_M16_INTERLEAVE[] = {0, 49, 49, 41, 90, 27, 117, 10};
   uint8_t offset = theta;
   if (theta & 0x40)
     offset = 255 - offset;
@@ -458,7 +458,7 @@ inline uint8_t sin8(uint8_t theta) {
   if (theta & 0x40)
     secoffset++;
   uint8_t section = offset >> 4;
-  const uint8_t *p = b_m16_interleave + section * 2;
+  const uint8_t *p = B_M16_INTERLEAVE + section * 2;
   uint8_t b = *p++;
   uint8_t m16 = *p;
   uint8_t mx = (m16 * secoffset) >> 4;
@@ -474,15 +474,15 @@ inline uint8_t sin8(uint8_t theta) {
  * @return Signed sine in [-32767, 32767].
  */
 inline int16_t sin16(uint16_t theta) {
-  static const uint16_t base[] = {0,     6393,  12539, 18204,
+  static const uint16_t BASE[] = {0,     6393,  12539, 18204,
                                   23170, 27245, 30273, 32137};
-  static const uint8_t slope[] = {49, 48, 44, 38, 31, 23, 14, 4};
+  static const uint8_t SLOPE[] = {49, 48, 44, 38, 31, 23, 14, 4};
   uint16_t offset = (theta & 0x3FFF) >> 3; // 0..2047
   if (theta & 0x4000)
     offset = 2047 - offset;
   uint8_t section = offset / 256; // 0..7
-  uint16_t b = base[section];
-  uint8_t m = slope[section];
+  uint16_t b = BASE[section];
+  uint8_t m = SLOPE[section];
   uint8_t secoffset8 = static_cast<uint8_t>(offset) / 2;
   int16_t y = static_cast<int16_t>(m * secoffset8) + b;
   if (theta & 0x8000)

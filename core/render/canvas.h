@@ -326,9 +326,9 @@ public:
    * until queue_frame() and stable until the release store to prev.
    */
   template <typename Ready> inline void advance_display_if(Ready ready) {
-    const int N = next.load(std::memory_order_acquire);
-    if (N != prev.load(std::memory_order_relaxed) && ready())
-      prev.store(N, std::memory_order_release);
+    const int n = next.load(std::memory_order_acquire);
+    if (n != prev.load(std::memory_order_relaxed) && ready())
+      prev.store(n, std::memory_order_release);
   }
 
 protected:
@@ -726,7 +726,7 @@ private:
    * @details Read once per process.
    */
   static unsigned long buffer_free_watchdog_us() {
-    static const unsigned long RESOLVED = [] {
+    static const unsigned long resolved = [] {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
       const char *e = std::getenv("HS_BUFFER_FREE_WATCHDOG_US");
@@ -738,7 +738,7 @@ private:
       }
       return BUFFER_FREE_WATCHDOG_US;
     }();
-    return RESOLVED;
+    return resolved;
   }
 #endif
 

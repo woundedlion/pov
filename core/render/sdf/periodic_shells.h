@@ -47,19 +47,19 @@ struct PeriodicShells {
     float a = 0, b = 0,
           c = -shell_radius * shell_radius * cell_size * cell_size;
     for (int k = 0; k < dimensions; ++k) {
-      const float O = origin[k], D = direction[k];
-      a += D * D;
-      b += O * D;
-      c += O * O;
+      const float o = origin[k], d = direction[k];
+      a += d * d;
+      b += o * d;
+      c += o * o;
     }
-    const float DISCRIMINANT = b * b - a * c;
-    if (DISCRIMINANT < 0 || a <= 0)
+    const float discriminant = b * b - a * c;
+    if (discriminant < 0 || a <= 0)
       return {};
-    const float ROOT = sqrtf(DISCRIMINANT);
-    const float Q = -b - copysignf(ROOT, b);
-    const float FIRST = Q == 0 ? 0 : Q / a;
-    const float SECOND = Q == 0 ? 0 : c / Q;
-    return {std::min(FIRST, SECOND), std::max(FIRST, SECOND), true};
+    const float root = sqrtf(discriminant);
+    const float q = -b - copysignf(root, b);
+    const float first = q == 0 ? 0 : q / a;
+    const float second = q == 0 ? 0 : c / q;
+    return {std::min(first, second), std::max(first, second), true};
   }
 };
 
@@ -111,13 +111,13 @@ prepare_periodic_shells(const Raycast::PreparedCamera &camera, float cell_size,
     // at the far distance of the ray. Seen from the ray's crossing of the
     // sphere's layer across the dominant axis, that clearance grows by at most
     // sqrt(3); below half a cell the crossing rounds to the sphere's center.
-    const float WIDEST = shell_radius + .5f *
+    const float widest = shell_radius + .5f *
                                             footprint.at(camera.interval.far) *
                                             prepared.inverse_cell;
     prepared.single_owner =
         camera.domain == Raycast::SamplingDomain::SPATIAL_3D &&
-        1.7320508f * WIDEST < .499f;
-    prepared.march = WIDEST < .499f;
+        1.7320508f * widest < .499f;
+    prepared.march = widest < .499f;
   }
   return prepared;
 }
@@ -186,47 +186,47 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
     const PreparedPeriodicShells &prepared,
     const Raycast::PreparedCamera &camera, const math::Vector &direction,
     const Raycast::TraceLimits &limits, const Raycast::Appearance &appearance) {
-  const auto &E = camera.embedding.m;
-  const float D[3] = {
-      E[0][0] * direction.x + E[0][1] * direction.y + E[0][2] * direction.z,
-      E[1][0] * direction.x + E[1][1] * direction.y + E[1][2] * direction.z,
-      E[2][0] * direction.x + E[2][1] * direction.y + E[2][2] * direction.z};
-  const float CELL = prepared.geometry.cell_size;
-  const float INVERSE_CELL = prepared.inverse_cell;
-  const float RADIAL_START = camera.radial_start;
-  int k = fabsf(D[1]) > fabsf(D[0]) ? 1 : 0;
-  if (fabsf(D[2]) > fabsf(D[k]))
+  const auto &e = camera.embedding.m;
+  const float d[3] = {
+      e[0][0] * direction.x + e[0][1] * direction.y + e[0][2] * direction.z,
+      e[1][0] * direction.x + e[1][1] * direction.y + e[1][2] * direction.z,
+      e[2][0] * direction.x + e[2][1] * direction.y + e[2][2] * direction.z};
+  const float cell = prepared.geometry.cell_size;
+  const float inverse_cell = prepared.inverse_cell;
+  const float radial_start = camera.radial_start;
+  int k = fabsf(d[1]) > fabsf(d[0]) ? 1 : 0;
+  if (fabsf(d[2]) > fabsf(d[k]))
     k = 2;
-  const int I = k == 0 ? 1 : 0;
-  const int J = k == 2 ? 1 : 2;
-  const float A = D[0] * D[0] + D[1] * D[1] + D[2] * D[2];
-  // A is 1 to rounding, so one Newton step from 1 is its reciprocal.
-  const float INVERSE_A = 2 - A;
-  const float ORIGIN_K =
-      (camera.center[k] + D[k] * RADIAL_START) * INVERSE_CELL;
-  const float INVERSE_DK = 1 / D[k];
-  const float STEP = fabsf(INVERSE_DK);
-  const float NEAR = camera.interval.near;
-  const float FAR = camera.interval.far;
-  const float LAST = FAR * INVERSE_CELL + .5f * STEP;
+  const int i = k == 0 ? 1 : 0;
+  const int j = k == 2 ? 1 : 2;
+  const float a = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+  // a is 1 to rounding, so one Newton step from 1 is its reciprocal.
+  const float inverse_a = 2 - a;
+  const float origin_k =
+      (camera.center[k] + d[k] * radial_start) * inverse_cell;
+  const float inverse_dk = 1 / d[k];
+  const float step_value = fabsf(inverse_dk);
+  const float near = camera.interval.near;
+  const float far = camera.interval.far;
+  const float last = far * inverse_cell + .5f * step_value;
   float tau =
-      (rintf(ORIGIN_K + NEAR * INVERSE_CELL * D[k]) - ORIGIN_K) * INVERSE_DK;
+      (rintf(origin_k + near * inverse_cell * d[k]) - origin_k) * inverse_dk;
   float y =
-      (camera.center[I] + D[I] * RADIAL_START) * INVERSE_CELL + tau * D[I];
+      (camera.center[i] + d[i] * radial_start) * inverse_cell + tau * d[i];
   float z =
-      (camera.center[J] + D[J] * RADIAL_START) * INVERSE_CELL + tau * D[J];
-  const float DY = D[I] * STEP;
-  const float DZ = D[J] * STEP;
+      (camera.center[j] + d[j] * radial_start) * inverse_cell + tau * d[j];
+  const float dy = d[i] * step_value;
+  const float dz = d[j] * step_value;
   // Clearance bound in cells at the layer, padded by the farthest a closest
   // approach can sit from its layer crossing.
-  const float HALF_RATE = .5f * prepared.footprint.angular_radius;
+  const float half_rate = .5f * prepared.footprint.angular_radius;
   float reach =
       prepared.geometry.shell_radius + 1e-4f +
-      HALF_RATE * (prepared.footprint.radial_start * INVERSE_CELL + tau + .75f);
-  const float REACH_STEP = HALF_RATE * STEP;
-  const float RADIUS = prepared.geometry.shell_radius * CELL;
-  const float HALF_INVERSE_RADIUS = .5f / RADIUS;
-  const bool FILTERED = prepared.footprint.angular_radius > 0;
+      half_rate * (prepared.footprint.radial_start * inverse_cell + tau + .75f);
+  const float reach_step = half_rate * step_value;
+  const float radius = prepared.geometry.shell_radius * cell;
+  const float half_inverse_radius = .5f / radius;
+  const bool filtered = prepared.footprint.angular_radius > 0;
 
   ShellSample result;
   LayerComposite composite;
@@ -245,58 +245,59 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
     }
     return true;
   };
-  // A layer within rounding of LAST holds nothing nearer than FAR.
-  const int LAYERS =
-      tau <= LAST ? static_cast<int>((LAST - tau) * fabsf(D[k])) + 1 : 0;
-  for (int step = 0; step < std::min(LAYERS, limits.max_steps); ++step) {
-    const float EY = y - rintf(y);
-    const float EZ = z - rintf(z);
-    const float OFFSET2 = EY * EY + EZ * EZ;
-    const float ALONG = EY * D[I] + EZ * D[J];
-    if (OFFSET2 - ALONG * ALONG < reach * reach) {
-      const float CROSSING = tau * CELL;
-      const float B = ALONG * CELL;
-      const float C = OFFSET2 * CELL * CELL - prepared.radius_squared;
-      const float DISCRIMINANT = B * B - A * C;
-      if (DISCRIMINANT >= 0) {
-        const float ROOT = sqrtf(DISCRIMINANT);
-        const float INCIDENCE = fminf(ROOT * (2 * HALF_INVERSE_RADIUS), 1.0f);
-        const float SHADE = SHADED ? .1f + .9f * INCIDENCE * INCIDENCE : 1.0f;
-        const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
-                                CROSSING + (-B + ROOT) * INVERSE_A};
-        const float DEPTH = DISCRIMINANT * HALF_INVERSE_RADIUS;
+  // a layer within rounding of last holds nothing nearer than far.
+  const int layer_limit =
+      tau <= last ? static_cast<int>((last - tau) * fabsf(d[k])) + 1 : 0;
+  for (int step = 0; step < std::min(layer_limit, limits.max_steps); ++step) {
+    const float ey = y - rintf(y);
+    const float ez = z - rintf(z);
+    const float offset2 = ey * ey + ez * ez;
+    const float along = ey * d[i] + ez * d[j];
+    if (offset2 - along * along < reach * reach) {
+      const float crossing = tau * cell;
+      const float b = along * cell;
+      const float c = offset2 * cell * cell - prepared.radius_squared;
+      const float discriminant = b * b - a * c;
+      if (discriminant >= 0) {
+        const float root_value = sqrtf(discriminant);
+        const float incidence =
+            fminf(root_value * (2 * half_inverse_radius), 1.0f);
+        const float shade = SHADED ? .1f + .9f * incidence * incidence : 1.0f;
+        const float times[2] = {crossing + (-b - root_value) * inverse_a,
+                                crossing + (-b + root_value) * inverse_a};
+        const float depth = discriminant * half_inverse_radius;
         for (int root = 0; root < 2; ++root) {
-          const float T = TIMES[root];
-          if (T < NEAR || T > FAR || (root == 1 && T == TIMES[0]))
+          const float t = times[root];
+          if (t < near || t > far || (root == 1 && t == times[0]))
             continue;
-          const float WIDTH = prepared.footprint.at(T);
-          const float COVERAGE =
-              WIDTH > 0 ? footprint_coverage<true>(WIDTH, DEPTH) : 1.0f;
-          if (!emit(T, COVERAGE, SHADE)) {
+          const float width = prepared.footprint.at(t);
+          const float coverage =
+              width > 0 ? footprint_coverage<true>(width, depth) : 1.0f;
+          if (!emit(t, coverage, shade)) {
             result.color = composite.premultiplied();
             return result;
           }
         }
-      } else if (FILTERED) {
-        const float T = CROSSING - B * INVERSE_A;
-        const float SQUARED = C + prepared.radius_squared - B * B * INVERSE_A;
-        const float WIDTH = prepared.footprint.at(T);
-        if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
-          const float COVERAGE =
-              footprint_coverage(WIDTH, sqrtf(SQUARED) - RADIUS);
-          if (COVERAGE > 0 && !emit(T, COVERAGE, SHADED ? .1f : 1.0f)) {
+      } else if (filtered) {
+        const float t = crossing - b * inverse_a;
+        const float squared = c + prepared.radius_squared - b * b * inverse_a;
+        const float width = prepared.footprint.at(t);
+        if (t >= near && t <= far && squared > 0 && width > 0) {
+          const float coverage =
+              footprint_coverage(width, sqrtf(squared) - radius);
+          if (coverage > 0 && !emit(t, coverage, SHADED ? .1f : 1.0f)) {
             result.color = composite.premultiplied();
             return result;
           }
         }
       }
     }
-    y += DY;
-    z += DZ;
-    tau += STEP;
-    reach += REACH_STEP;
+    y += dy;
+    z += dz;
+    tau += step_value;
+    reach += reach_step;
   }
-  if (LAYERS > limits.max_steps)
+  if (layer_limit > limits.max_steps)
     result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
   result.color = composite.premultiplied();
   return result;
@@ -337,65 +338,66 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   static_assert(DIMENSIONS == 3 || DIMENSIONS == 4);
   constexpr int OTHERS = DIMENSIONS - 1;
   static_assert((2 << OTHERS) <= ShellLayerStorage::CAPACITY);
-  const auto &E = camera.embedding.m;
-  float D[DIMENSIONS];
+  const auto &e_value = camera.embedding.m;
+  float d_value[DIMENSIONS];
   for (int axis = 0; axis < DIMENSIONS; ++axis)
-    D[axis] = E[axis][0] * direction.x + E[axis][1] * direction.y +
-              E[axis][2] * direction.z;
-  const float CELL = prepared.geometry.cell_size;
-  const float INVERSE_CELL = prepared.inverse_cell;
-  const float RADIAL_START = camera.radial_start;
+    d_value[axis] = e_value[axis][0] * direction.x +
+                    e_value[axis][1] * direction.y +
+                    e_value[axis][2] * direction.z;
+  const float cell = prepared.geometry.cell_size;
+  const float inverse_cell = prepared.inverse_cell;
+  const float radial_start = camera.radial_start;
   int k = 0;
   for (int axis = 1; axis < DIMENSIONS; ++axis)
-    if (fabsf(D[axis]) > fabsf(D[k]))
+    if (fabsf(d_value[axis]) > fabsf(d_value[k]))
       k = axis;
   int other[OTHERS];
   for (int axis = 0, n = 0; axis < DIMENSIONS; ++axis)
     if (axis != k)
       other[n++] = axis;
-  float A = 0;
+  float a = 0;
   for (int axis = 0; axis < DIMENSIONS; ++axis)
-    A += D[axis] * D[axis];
-  // A is 1 to rounding, so one Newton step from 1 is its reciprocal.
-  const float INVERSE_A = 2 - A;
-  const float INVERSE_DK = 1 / D[k];
-  const float STEP = fabsf(INVERSE_DK);
-  const float NEAR = camera.interval.near;
-  const float FAR = camera.interval.far;
+    a += d_value[axis] * d_value[axis];
+  // a is 1 to rounding, so one Newton step from 1 is its reciprocal.
+  const float inverse_a = 2 - a;
+  const float inverse_dk = 1 / d_value[k];
+  const float step_value = fabsf(inverse_dk);
+  const float near = camera.interval.near;
+  const float far = camera.interval.far;
   // Bound in cells on a contributing center's distance from the ray.
-  const float WIDEST = WIDE ? prepared.geometry.shell_radius + 1e-4f +
+  const float widest = WIDE ? prepared.geometry.shell_radius + 1e-4f +
                                   .5f * prepared.footprint.angular_radius *
-                                      (prepared.footprint.radial_start + FAR) *
-                                      INVERSE_CELL
+                                      (prepared.footprint.radial_start + far) *
+                                      inverse_cell
                             : 0.0f;
-  const float LAST =
-      FAR * INVERSE_CELL + (WIDE ? fmaxf(.5f, WIDEST) : .5f) * STEP;
-  const float ORIGIN_K =
-      (camera.center[k] + D[k] * RADIAL_START) * INVERSE_CELL;
-  float tau =
-      (rintf(ORIGIN_K + NEAR * INVERSE_CELL * D[k]) - ORIGIN_K) * INVERSE_DK;
+  const float last =
+      far * inverse_cell + (WIDE ? fmaxf(.5f, widest) : .5f) * step_value;
+  const float origin_k =
+      (camera.center[k] + d_value[k] * radial_start) * inverse_cell;
+  float tau = (rintf(origin_k + near * inverse_cell * d_value[k]) - origin_k) *
+              inverse_dk;
   if constexpr (WIDE)
-    tau -= fmaxf(0.0f, ceilf(WIDEST - .5f)) * STEP;
+    tau -= fmaxf(0.0f, ceilf(widest - .5f)) * step_value;
   float position[OTHERS], rate[OTHERS], d[OTHERS];
   for (int n = 0; n < OTHERS; ++n) {
-    const int AXIS = other[n];
-    d[n] = D[AXIS];
-    rate[n] = D[AXIS] * STEP;
+    const int axis = other[n];
+    d[n] = d_value[axis];
+    rate[n] = d_value[axis] * step_value;
     position[n] =
-        (camera.center[AXIS] + D[AXIS] * RADIAL_START) * INVERSE_CELL +
-        tau * D[AXIS];
+        (camera.center[axis] + d_value[axis] * radial_start) * inverse_cell +
+        tau * d_value[axis];
   }
   // Clearance bound in cells at the layer, padded by the farthest a closest
   // approach can sit from its layer crossing; over |D_k| it bounds the
   // in-layer offset of a contributing center.
-  const float HALF_RATE = .5f * prepared.footprint.angular_radius;
+  const float half_rate = .5f * prepared.footprint.angular_radius;
   float reach = prepared.geometry.shell_radius + 1e-4f +
-                HALF_RATE * (prepared.footprint.radial_start * INVERSE_CELL +
-                             tau + (WIDE ? WIDEST * STEP : .9f));
-  const float REACH_STEP = HALF_RATE * STEP;
-  const float RADIUS = prepared.geometry.shell_radius * CELL;
-  const bool FILTERED = prepared.footprint.angular_radius > 0;
-  const float INVERSE_RADIUS = SHADED ? 1 / RADIUS : 0.0f;
+                half_rate * (prepared.footprint.radial_start * inverse_cell +
+                             tau + (WIDE ? widest * step_value : .9f));
+  const float reach_step = half_rate * step_value;
+  const float radius = prepared.geometry.shell_radius * cell;
+  const bool filtered = prepared.footprint.angular_radius > 0;
+  const float inverse_radius = SHADED ? 1 / radius : 0.0f;
 
   ShellSample result;
   LayerComposite composite;
@@ -409,24 +411,24 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
         for (int j = 0; j < 3; ++j) {
           float component = 0;
           for (int axis = 0; axis < DIMENSIONS; ++axis)
-            component += E[axis][j] * gradient[axis];
+            component += e_value[axis][j] * gradient[axis];
           length2 += component * component;
         }
         return length2;
       };
-  // A layer within rounding of LAST holds nothing nearer than FAR.
-  const int LAYERS =
-      tau <= LAST ? static_cast<int>((LAST - tau) * fabsf(D[k])) + 1 : 0;
-  for (int step = 0; step < std::min(LAYERS, limits.max_steps); ++step) {
+  // a layer within rounding of last holds nothing nearer than far.
+  const int layer_limit =
+      tau <= last ? static_cast<int>((last - tau) * fabsf(d_value[k])) + 1 : 0;
+  for (int step = 0; step < std::min(layer_limit, limits.max_steps); ++step) {
     std::array<float, OTHERS> offset;
     float farthest = 0;
     for (int n = 0; n < OTHERS; ++n) {
       offset[n] = position[n] - rintf(position[n]);
       farthest = fmaxf(farthest, fabsf(offset[n]));
     }
-    const float REACH = WIDE ? fminf(reach, WIDEST) : reach;
-    const float REACH2 = REACH * REACH;
-    const float SPREAD = REACH * STEP;
+    const float reach_value = WIDE ? fminf(reach, widest) : reach;
+    const float reach2 = reach_value * reach_value;
+    const float spread = reach_value * step_value;
     int count = held;
     const auto candidate = [&](const std::array<float, OTHERS>
                                    &e) __attribute__((always_inline)) {
@@ -435,83 +437,83 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
         offset2 += e[n] * e[n];
         along += e[n] * d[n];
       }
-      if (!(offset2 - along * along < REACH2))
+      if (!(offset2 - along * along < reach2))
         return;
-      const float CROSSING = tau * CELL;
-      const float B = along * CELL;
-      const float C = offset2 * CELL * CELL - prepared.radius_squared;
-      const float DISCRIMINANT = B * B - A * C;
+      const float crossing = tau * cell;
+      const float b = along * cell;
+      const float c = offset2 * cell * cell - prepared.radius_squared;
+      const float discriminant = b * b - a * c;
       float gradient[DIMENSIONS];
       gradient[k] = 0;
       for (int n = 0; n < OTHERS; ++n)
-        gradient[other[n]] = e[n] * CELL;
+        gradient[other[n]] = e[n] * cell;
       const auto at = [&](float u, float (&point)[DIMENSIONS])
                           __attribute__((always_inline)) {
                             for (int axis = 0; axis < DIMENSIONS; ++axis)
-                              point[axis] = gradient[axis] + u * D[axis];
+                              point[axis] = gradient[axis] + u * d_value[axis];
                           };
-      if (DISCRIMINANT >= 0) {
-        const float ROOT = sqrtf(DISCRIMINANT);
-        const float INCIDENCE = fminf(ROOT * INVERSE_RADIUS, 1.0f);
-        const float SHADE = SHADED ? .1f + .9f * INCIDENCE * INCIDENCE : 1.0f;
-        const float TIMES[2] = {CROSSING + (-B - ROOT) * INVERSE_A,
-                                CROSSING + (-B + ROOT) * INVERSE_A};
+      if (discriminant >= 0) {
+        const float root_value = sqrtf(discriminant);
+        const float incidence = fminf(root_value * inverse_radius, 1.0f);
+        const float shade = SHADED ? .1f + .9f * incidence * incidence : 1.0f;
+        const float times[2] = {crossing + (-b - root_value) * inverse_a,
+                                crossing + (-b + root_value) * inverse_a};
         for (int root = 0; root < 2; ++root) {
-          const float T = TIMES[root];
-          if (T < NEAR || T > FAR || (root == 1 && T == TIMES[0]))
+          const float t = times[root];
+          if (t < near || t > far || (root == 1 && t == times[0]))
             continue;
-          const float WIDTH = prepared.footprint.at(T);
+          const float width = prepared.footprint.at(t);
           float coverage = 1.0f;
-          if (WIDTH > 0) {
+          if (width > 0) {
             float point[DIMENSIONS];
-            at(T - CROSSING, point);
-            const float LENGTH2 = projected_length2(point);
-            const float INVERSE_LENGTH =
-                LENGTH2 > 1e-20f && Raycast::finite(LENGTH2)
-                    ? 1 / sqrtf(LENGTH2)
+            at(t - crossing, point);
+            const float length2 = projected_length2(point);
+            const float inverse_length =
+                length2 > 1e-20f && Raycast::finite(length2)
+                    ? 1 / sqrtf(length2)
                     : 0;
-            const float DEPTH = .5f * DISCRIMINANT * INVERSE_A * INVERSE_LENGTH;
-            coverage = footprint_coverage<true>(WIDTH, DEPTH);
+            const float depth = .5f * discriminant * inverse_a * inverse_length;
+            coverage = footprint_coverage<true>(width, depth);
           }
           if constexpr (WIDE)
-            storage.retain(count, cutoff, T, coverage, SHADE);
+            storage.retain(count, cutoff, t, coverage, shade);
           else
-            pending[count++] = {T, coverage, SHADE};
+            pending[count++] = {t, coverage, shade};
         }
-      } else if (FILTERED) {
-        const float U = -B * INVERSE_A;
-        const float T = CROSSING + U;
-        const float SQUARED = C + prepared.radius_squared - B * B * INVERSE_A;
-        const float WIDTH = prepared.footprint.at(T);
-        if (T >= NEAR && T <= FAR && SQUARED > 0 && WIDTH > 0) {
-          const float LENGTH = sqrtf(SQUARED);
-          float distance = LENGTH - RADIUS;
+      } else if (filtered) {
+        const float u = -b * inverse_a;
+        const float t = crossing + u;
+        const float squared = c + prepared.radius_squared - b * b * inverse_a;
+        const float width = prepared.footprint.at(t);
+        if (t >= near && t <= far && squared > 0 && width > 0) {
+          const float length = sqrtf(squared);
+          float distance = length - radius;
           if constexpr (DIMENSIONS == 4) {
             float point[DIMENSIONS];
-            at(U, point);
-            const float PROJECTED2 = projected_length2(point);
-            distance = PROJECTED2 > 0 ? distance * LENGTH / sqrtf(PROJECTED2)
+            at(u, point);
+            const float projected2 = projected_length2(point);
+            distance = projected2 > 0 ? distance * length / sqrtf(projected2)
                                       : INFINITY;
           }
-          const float COVERAGE = footprint_coverage(WIDTH, distance);
-          if (COVERAGE > 0) {
+          const float coverage = footprint_coverage(width, distance);
+          if (coverage > 0) {
             if constexpr (WIDE)
-              storage.retain(count, cutoff, T, COVERAGE, SHADED ? .1f : 1.0f);
+              storage.retain(count, cutoff, t, coverage, SHADED ? .1f : 1.0f);
             else
-              pending[count++] = {T, COVERAGE, SHADED ? .1f : 1.0f};
+              pending[count++] = {t, coverage, SHADED ? .1f : 1.0f};
           }
         }
       }
     };
     if constexpr (WIDE) {
-      // Every lattice point of the layer within SPREAD on each coordinate.
+      // Every lattice point of the layer within spread on each coordinate.
       std::array<float, OTHERS> e, first;
       int span[OTHERS], index[OTHERS];
       bool empty = false;
       for (int n = 0; n < OTHERS; ++n) {
-        const float UPPER = floorf(position[n] + SPREAD);
-        first[n] = e[n] = position[n] - UPPER;
-        span[n] = static_cast<int>(UPPER - ceilf(position[n] - SPREAD)) + 1;
+        const float upper = floorf(position[n] + spread);
+        first[n] = e[n] = position[n] - upper;
+        span[n] = static_cast<int>(upper - ceilf(position[n] - spread)) + 1;
         index[n] = 0;
         empty |= span[n] <= 0;
       }
@@ -528,13 +530,13 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
       }
     } else {
       candidate(offset);
-      if (farthest > 1 - SPREAD) {
+      if (farthest > 1 - spread) {
         // Neighbors one step across each coordinate the reach can cross.
         std::array<float, OTHERS> across;
         unsigned crossing = 0;
         for (int n = 0; n < OTHERS; ++n) {
           across[n] = offset[n] - copysignf(1.0f, offset[n]);
-          crossing |= static_cast<unsigned>(fabsf(across[n]) < SPREAD) << n;
+          crossing |= static_cast<unsigned>(fabsf(across[n]) < spread) << n;
         }
         for (unsigned mask = 1; mask < 1u << OTHERS; ++mask)
           if ((mask & crossing) == mask) {
@@ -550,12 +552,13 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
            --slot)
         std::swap(pending[slot - 1], pending[slot]);
     // Later layers contribute no nearer than HORIZON.
-    const float HORIZON = WIDE && step + 1 < std::min(LAYERS, limits.max_steps)
-                              ? (tau + (1 - WIDEST) * STEP) * CELL
-                              : INFINITY;
+    const float horizon =
+        WIDE && step + 1 < std::min(layer_limit, limits.max_steps)
+            ? (tau + (1 - widest) * step_value) * cell
+            : INFINITY;
     int ready = count;
     if constexpr (WIDE)
-      for (ready = 0; ready < count && pending[ready].t < HORIZON;)
+      for (ready = 0; ready < count && pending[ready].t < horizon;)
         ++ready;
     for (int layer = 0; layer < ready; ++layer) {
       if (layers >= limits.max_candidates || layers >= limits.max_layers) {
@@ -576,15 +579,15 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
       held = count - ready;
       for (int slot = 0; slot < held; ++slot)
         pending[slot] = pending[ready + slot];
-      if (cutoff <= HORIZON)
+      if (cutoff <= horizon)
         break;
     }
     for (int n = 0; n < OTHERS; ++n)
       position[n] += rate[n];
-    tau += STEP;
-    reach += REACH_STEP;
+    tau += step_value;
+    reach += reach_step;
   }
-  if (LAYERS > limits.max_steps || (WIDE && cutoff < INFINITY))
+  if (layer_limit > limits.max_steps || (WIDE && cutoff < INFINITY))
     result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
   result.color = composite.premultiplied();
   return result;
@@ -619,25 +622,27 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
     result.trace.status = Raycast::TraceStatus::INVALID_QUERY;
     return result;
   }
-  const auto DIRECTION =
+  const auto direction_value =
       camera.embedding.apply({{direction.x, direction.y, direction.z, 0}});
-  const auto ORIGIN = camera.point4(direction * camera.radial_start);
+  const auto origin = camera.point4(direction * camera.radial_start);
   float a = 0;
   for (int k = 0; k < DIMENSIONS; ++k)
-    a += DIRECTION[k] * DIRECTION[k];
-  const float INVERSE_A = 1 / a;
+    a += direction_value[k] * direction_value[k];
+  const float inverse_a = 1 / a;
   math::Vec4 cell{}, boundary{}, step{};
   for (int k = 0; k < DIMENSIONS; ++k) {
-    const float P = ORIGIN[k] + camera.interval.near * DIRECTION[k];
-    cell[k] = floorf(P / cell_size + .5f);
-    if (DIRECTION[k] < 0 && P == (cell[k] - .5f) * cell_size)
+    const float p = origin[k] + camera.interval.near * direction_value[k];
+    cell[k] = floorf(p / cell_size + .5f);
+    if (direction_value[k] < 0 && p == (cell[k] - .5f) * cell_size)
       --cell[k];
-    boundary[k] = DIRECTION[k] == 0
-                      ? INFINITY
-                      : ((cell[k] + copysignf(.5f, DIRECTION[k])) * cell_size -
-                         ORIGIN[k]) /
-                            DIRECTION[k];
-    step[k] = DIRECTION[k] == 0 ? INFINITY : cell_size / fabsf(DIRECTION[k]);
+    boundary[k] =
+        direction_value[k] == 0
+            ? INFINITY
+            : ((cell[k] + copysignf(.5f, direction_value[k])) * cell_size -
+               origin[k]) /
+                  direction_value[k];
+    step[k] = direction_value[k] == 0 ? INFINITY
+                                      : cell_size / fabsf(direction_value[k]);
   }
   LayerComposite composite;
   float start = camera.interval.near;
@@ -651,29 +656,29 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
     math::Vec4 local{};
     for (int k = 0; k < DIMENSIONS; ++k) {
       end = fminf(end, boundary[k]);
-      local[k] = ORIGIN[k] - cell[k] * cell_size;
+      local[k] = origin[k] - cell[k] * cell_size;
     }
     float b = 0;
     for (int k = 0; k < DIMENSIONS; ++k)
-      b += local[k] * DIRECTION[k];
+      b += local[k] * direction_value[k];
     PeriodicShells::Intersections roots =
-        prepared.geometry.intersect(local, DIRECTION, DIMENSIONS);
-    const bool VERIFIED = roots.hit;
+        prepared.geometry.intersect(local, direction_value, DIMENSIONS);
+    const bool verified = roots.hit;
     float filtered_coverage = 0;
     if (!roots.hit && footprint.angular_radius > 0) {
-      const float T = -b * INVERSE_A;
-      if (T >= start && T <= end) {
+      const float t = -b * inverse_a;
+      if (t >= start && t <= end) {
         float squared = 0;
         math::Vec4 gradient{};
         for (int k = 0; k < DIMENSIONS; ++k) {
-          const float P = local[k] + T * DIRECTION[k];
-          squared += P * P;
-          gradient[k] = P;
+          const float p = local[k] + t * direction_value[k];
+          squared += p * p;
+          gradient[k] = p;
         }
-        const float WIDTH = footprint.at(T);
-        if (squared > 0 && WIDTH > 0) {
-          const float LENGTH = sqrtf(squared);
-          float distance = LENGTH - shell_radius * cell_size;
+        const float width = footprint.at(t);
+        if (squared > 0 && width > 0) {
+          const float length = sqrtf(squared);
+          float distance = length - shell_radius * cell_size;
           if constexpr (DIMENSIONS == 4) {
             float projected_squared = 0;
             for (int j = 0; j < 3; ++j) {
@@ -683,20 +688,20 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
               projected_squared += component * component;
             }
             distance = projected_squared > 0
-                           ? distance * LENGTH / sqrtf(projected_squared)
+                           ? distance * length / sqrtf(projected_squared)
                            : INFINITY;
           }
-          filtered_coverage = footprint_coverage(WIDTH, distance);
+          filtered_coverage = footprint_coverage(width, distance);
           if (filtered_coverage > 0)
-            roots = {T, T, true};
+            roots = {t, t, true};
         }
       }
     }
     if (roots.hit) {
-      const float TIMES[2] = {roots.near, roots.far};
+      const float times[2] = {roots.near, roots.far};
       for (int root = 0; root < 2; ++root) {
-        const float T = TIMES[root];
-        if (T < start || T > end || (root == 1 && T == TIMES[0]))
+        const float t = times[root];
+        if (t < start || t > end || (root == 1 && t == times[0]))
           continue;
         if (result.trace.counters.candidates >= limits.max_candidates ||
             result.trace.counters.layers >= limits.max_layers) {
@@ -707,25 +712,25 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
         ++result.trace.counters.candidates;
         ++result.trace.counters.layers;
         Raycast::Contribution hit;
-        hit.t = T;
-        hit.verified = VERIFIED;
+        hit.t = t;
+        hit.verified = verified;
         math::Vec4 gradient{};
         for (int k = 0; k < DIMENSIONS; ++k)
-          gradient[k] = local[k] + T * DIRECTION[k];
+          gradient[k] = local[k] + t * direction_value[k];
         float inverse_length;
         hit.has_normal = camera.project_normal_dimension<DIMENSIONS>(
             gradient, hit.normal, inverse_length);
-        const float WIDTH = footprint.at(T);
-        if (!VERIFIED) {
+        const float width = footprint.at(t);
+        if (!verified) {
           hit.coverage = filtered_coverage;
-        } else if (WIDTH > 0) {
-          const float INCIDENCE = b + T * a;
-          const float DEPTH = .25f * (roots.far - roots.near) *
-                              fabsf(INCIDENCE) * inverse_length;
-          hit.coverage = footprint_coverage<true>(WIDTH, DEPTH);
+        } else if (width > 0) {
+          const float incidence = b + t * a;
+          const float depth = .25f * (roots.far - roots.near) *
+                              fabsf(incidence) * inverse_length;
+          hit.coverage = footprint_coverage<true>(width, depth);
         }
         result.trace.contribution = hit;
-        appearance.composite(composite, T, hit.coverage);
+        appearance.composite(composite, t, hit.coverage);
         if (composite.saturated()) {
           result.trace.status = Raycast::TraceStatus::SATURATED;
           result.color = composite.finish();
@@ -741,7 +746,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
     }
     for (int k = 0; k < DIMENSIONS; ++k)
       if (boundary[k] <= end) {
-        cell[k] += copysignf(1.0f, DIRECTION[k]);
+        cell[k] += copysignf(1.0f, direction_value[k]);
         boundary[k] += step[k];
       }
     start = end;

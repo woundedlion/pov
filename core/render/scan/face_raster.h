@@ -333,8 +333,8 @@ HS_HOT_INLINE inline void rasterize_face_body(
   Fragment frag;
 
   // 1.0002 margin keeps the sqrt-free cull strictly conservative.
-  const float base_reject_rad = PIXEL_WIDTH * 1.0002f;
-  const float base_reject_dsq = base_reject_rad * base_reject_rad;
+  const float BASE_REJECT_RAD = PIXEL_WIDTH * 1.0002f;
+  const float BASE_REJECT_DSQ = BASE_REJECT_RAD * BASE_REJECT_RAD;
   [[maybe_unused]] const float plane_stretch = report_stretch(shape);
   const float shade_reach = (probe_flags & SDF::PreparedFace::PROBE_LINEAR)
                                 ? PIXEL_WIDTH
@@ -378,8 +378,8 @@ HS_HOT_INLINE inline void rasterize_face_body(
     float cp = math::TrigLUT<W, H>::cos_phi[y];
     const int stride = pole_lod_run(sp);
     float block_slack = 0.0f;
-    float reject_dsq = base_reject_dsq;
-    float reject_plane = base_reject_rad;
+    float reject_dsq = BASE_REJECT_DSQ;
+    float reject_plane = BASE_REJECT_RAD;
     if constexpr (pole_lod_blocks<SDF::PreparedFace>) {
       if constexpr (COLUMN_TIME)
         block_slack = (pole_lod_slack<W, SDF::PreparedFace>(stride, sp) +
@@ -710,11 +710,11 @@ template <int W, int H> struct FaceClipPlanes {
              math::TrigLUT<W, H>::cos_theta_data()[start]};
     last = {math::TrigLUT<W, H>::sin_theta[end], 0.0f,
             -math::TrigLUT<W, H>::cos_theta_data()[end]};
-    const auto geometry = math::LatitudeGeometry(H);
-    const float row = geometry.row_to_phi(1) - geometry.row_to_phi(0);
-    north = cosf(fmaxf(geometry.row_to_phi(clip.render_y_start()) - row, 0.0f));
+    const auto GEOMETRY = math::LatitudeGeometry(H);
+    const float row = GEOMETRY.row_to_phi(1) - GEOMETRY.row_to_phi(0);
+    north = cosf(fmaxf(GEOMETRY.row_to_phi(clip.render_y_start()) - row, 0.0f));
     south = cosf(
-        fminf(geometry.row_to_phi(clip.render_y_end() - 1) + row, math::PI_F));
+        fminf(GEOMETRY.row_to_phi(clip.render_y_end() - 1) + row, math::PI_F));
     bounded = reach < math::PI_F * 0.5f;
     pad_cos = cosf(reach);
     pad_sin = sinf(reach);
@@ -793,10 +793,10 @@ HS_HOT_INLINE inline float face_cap_cosine(const math::Vector *vertices,
   float min_cos = 1.0f;
   for (size_t k = 0; k < count; ++k) {
     const math::Vector &v = vertices[indices[k]];
-    const float PROJECTION = math::dot(axis, v);
-    if (!(PROJECTION > 0.0f))
+    const float projection = math::dot(axis, v);
+    if (!(projection > 0.0f))
       return UNBOUNDED_FACE_CAP;
-    min_cos = fminf(min_cos, PROJECTION / sqrtf(math::dot(v, v)));
+    min_cos = fminf(min_cos, projection / sqrtf(math::dot(v, v)));
   }
   return min_cos;
 }
@@ -846,10 +846,10 @@ face_bounds_pose(std::span<const math::Vector> vertices,
   if (hi >= arm + HALF)
     return false;
   const int m = (lo + hi) / 2 - arm;
-  const auto FRAME = seeing_frame<W, H>(*time, m);
-  pose.x = FRAME.equator * FRAME.cosine - FRAME.tangent * FRAME.sine;
-  pose.y = FRAME.up;
-  pose.z = FRAME.equator * FRAME.sine + FRAME.tangent * FRAME.cosine;
+  const auto frame = seeing_frame<W, H>(*time, m);
+  pose.x = frame.equator * frame.cosine - frame.tangent * frame.sine;
+  pose.y = frame.up;
+  pose.z = frame.equator * frame.sine + frame.tangent * frame.cosine;
   const bool wide = hi - lo > COMPACT_FACE_COLUMNS;
   pose.residual = compact_face_residual<W>(
       time->sweep_rate, wide ? WIDE_FACE_COLUMNS : COMPACT_FACE_COLUMNS);

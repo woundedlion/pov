@@ -1308,8 +1308,8 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
 inline Vector least_parallel_axis(const Vector &v) {
   // Scale-invariant: compare v.x^2 against the threshold scaled by |v|^2, so a
   // non-unit v can't slip past the cosine test and seed a degenerate cross.
-  constexpr float k = math::COS_AXIS_PARALLEL;
-  return v.x * v.x > k * k * dot(v, v) ? Vector(0, 1, 0) : Vector(1, 0, 0);
+  constexpr float K = math::COS_AXIS_PARALLEL;
+  return v.x * v.x > K * K * dot(v, v) ? Vector(0, 1, 0) : Vector(1, 0, 0);
 }
 
 /**
@@ -1486,8 +1486,8 @@ __attribute__((always_inline)) inline float sinf_0_2pi(float x) {
  * reduction loses precision as a float's ULP grows past the period.
  */
 __attribute__((always_inline)) inline float fast_sinf(float x) {
-  constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
-  return sinf_0_2pi(x - floorf(x * INV_2PI) * (2.0f * PI_F));
+  constexpr float INV_2_PI = 1.0f / (2.0f * PI_F);
+  return sinf_0_2pi(x - floorf(x * INV_2_PI) * (2.0f * PI_F));
 }
 
 /**
@@ -1500,8 +1500,8 @@ __attribute__((always_inline)) inline float fast_sinf(float x) {
  * reduction loses precision as a float's ULP grows past the period.
  */
 __attribute__((always_inline)) inline float fast_cosf(float x) {
-  constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
-  float r = x - floorf(x * INV_2PI + 0.25f) * (2.0f * PI_F);
+  constexpr float INV_2_PI = 1.0f / (2.0f * PI_F);
+  float r = x - floorf(x * INV_2_PI + 0.25f) * (2.0f * PI_F);
   return sinf_0_2pi(r + PI_F * 0.5f);
 }
 

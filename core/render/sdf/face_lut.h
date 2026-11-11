@@ -99,14 +99,14 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
            "build_canonical_distance_lut requires at least 3 polygon vertices");
   HS_CHECK(n >= 2, "build_canonical_distance_lut requires a grid resolution "
                    "of at least 2");
-  const auto [MIN_X, MAX_X, MIN_Y, MAX_Y] =
+  const auto [min_x, max_x, min_y, max_y] =
       canonical_polygon_box(poly_xy, count);
-  lut.cx = (MIN_X + MAX_X) * 0.5f;
-  lut.cy = (MIN_Y + MAX_Y) * 0.5f;
-  const auto HALF_EXTENTS =
-      canonical_lut_half_extents(MIN_X, MAX_X, MIN_Y, MAX_Y);
-  lut.half_x = HALF_EXTENTS.first;
-  lut.half_y = HALF_EXTENTS.second;
+  lut.cx = (min_x + max_x) * 0.5f;
+  lut.cy = (min_y + max_y) * 0.5f;
+  const auto half_extents =
+      canonical_lut_half_extents(min_x, max_x, min_y, max_y);
+  lut.half_x = half_extents.first;
+  lut.half_y = half_extents.second;
   lut.n = n;
   lut.inv_step_x = (n - 1) / (2.0f * lut.half_x);
   lut.inv_step_y = (n - 1) / (2.0f * lut.half_y);

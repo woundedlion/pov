@@ -380,20 +380,20 @@ protected:
                   "effect lacks the departure's hook (blend_params for Lerp, "
                   "set_preset_opacity for Fade)");
     const Params target = preset_target(change.to);
-    const Segue::Preset::Departure DEPARTURE = preset_departure(change.from);
-    const uint16_t FRAMES = Segue::Preset::frames(DEPARTURE);
-    if (change.origin == PresetChangeOrigin::AUTOMATIC && FRAMES > 0) {
+    const Segue::Preset::Departure departure = preset_departure(change.from);
+    const uint16_t frames = Segue::Preset::frames(departure);
+    if (change.origin == PresetChangeOrigin::AUTOMATIC && frames > 0) {
       if (transition.active)
         return false;
-      const auto *LERP = std::get_if<Segue::Preset::Lerp>(&DEPARTURE);
-      const uint16_t TRANSITION_SERIAL = transition.serial + 1;
+      const auto *lerp = std::get_if<Segue::Preset::Lerp>(&departure);
+      const uint16_t transition_serial = transition.serial + 1;
       if (timeline.add_get(0,
                            Animation::Progress(
-                               [this, TRANSITION_SERIAL](float progress) {
-                                 if (transition.serial == TRANSITION_SERIAL)
+                               [this, transition_serial](float progress) {
+                                 if (transition.serial == transition_serial)
                                    run_transition(progress);
                                },
-                               FRAMES, LERP ? LERP->easing : math::ease_linear),
+                               frames, lerp ? lerp->easing : math::ease_linear),
                            Timeline::Pin::UNPINNED, &anims_paused) == nullptr) {
         preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
         return false;
@@ -401,11 +401,11 @@ protected:
       transition = {.from = params,
                     .to = target,
                     .active = true,
-                    .frames = FRAMES,
-                    .fades = LERP == nullptr,
-                    .serial = TRANSITION_SERIAL,
+                    .frames = frames,
+                    .fades = lerp == nullptr,
+                    .serial = transition_serial,
                     .from_index = change.from};
-      if (LERP) {
+      if (lerp) {
         if constexpr (has_hook<Control::ChoreographyHook::TRANSITION_ARMED>())
           invoke_hook<Control::ChoreographyHook::TRANSITION_ARMED>(target);
       }
@@ -473,22 +473,22 @@ protected:
   HS_FLASH_MEMBER void run_transition(float progress) {
     if (!transition.active)
       return;
-    const bool COMPLETE = ++transition.elapsed_frames >= transition.frames;
-    const float PROGRESS = COMPLETE ? 1.0f : progress;
+    const bool complete = ++transition.elapsed_frames >= transition.frames;
+    const float progress_value = complete ? 1.0f : progress;
     if (transition.fades) {
-      if (PROGRESS >= 0.5f && !transition.adopted) {
+      if (progress_value >= 0.5f && !transition.adopted) {
         finish_target(transition.to);
         transition.adopted = true;
         log_preset();
       }
-      set_opacity(fabsf(1.0f - 2.0f * PROGRESS));
+      set_opacity(fabsf(1.0f - 2.0f * progress_value));
     } else if constexpr (BLENDS) {
       if constexpr (has_hook<Control::ChoreographyHook::BLEND_PARAMS>())
-        invoke_hook<Control::ChoreographyHook::BLEND_PARAMS>(PROGRESS);
+        invoke_hook<Control::ChoreographyHook::BLEND_PARAMS>(progress_value);
       else
-        blend_params(PROGRESS);
+        blend_params(progress_value);
     }
-    if (COMPLETE) {
+    if (complete) {
       if (!transition.fades) {
         finish_target(transition.to);
       }
@@ -529,17 +529,17 @@ private:
    *        preset it was leaving and call preset_changed().
    */
   HS_FLASH_MEMBER void end_transition(bool restore_preset = true) {
-    const bool FADING = transition.active && transition.fades;
-    const bool RESTORE = FADING && !transition.adopted && restore_preset &&
+    const bool fading = transition.active && transition.fades;
+    const bool restore = fading && !transition.adopted && restore_preset &&
                          preset_index != transition.from_index;
     const PresetChange change{preset_index, transition.from_index,
                               PresetChangeOrigin::RESTORED};
     transition.active = false;
-    if (RESTORE)
+    if (restore)
       preset_index = change.to;
-    if (FADING)
+    if (fading)
       set_opacity(1.0f);
-    if (RESTORE)
+    if (restore)
       preset_changed(change);
   }
 
@@ -599,13 +599,13 @@ private:
     constexpr bool TAKES_OPACITY =
         has_hook<Control::ChoreographyHook::PRESET_OPACITY>();
     for (size_t index = 0; index < preset_count_of(); ++index) {
-      const auto DEPARTURE = preset_departure(index);
-      if (Segue::Preset::frames(DEPARTURE) >= Derived::PRESET_DWELL_FRAMES)
+      const auto departure = preset_departure(index);
+      if (Segue::Preset::frames(departure) >= Derived::PRESET_DWELL_FRAMES)
         return false;
-      if (std::holds_alternative<Segue::Preset::Fade>(DEPARTURE) &&
+      if (std::holds_alternative<Segue::Preset::Fade>(departure) &&
           !TAKES_OPACITY)
         return false;
-      if (std::holds_alternative<Segue::Preset::Lerp>(DEPARTURE) && !BLENDS)
+      if (std::holds_alternative<Segue::Preset::Lerp>(departure) && !BLENDS)
         return false;
     }
     return true;

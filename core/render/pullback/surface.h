@@ -308,14 +308,14 @@ step_field(const math::Vector &input, const F &field, float strength,
       return F::HALF_RADIAN_STEPS;
     return false;
   }();
-  const bool SMALL =
+  const bool small =
       HALF_RADIAN_STEPS || fabsf(strength) * field.speed_bound() <= 0.5f;
   const auto exp_map = [&](const math::Vector &p,
                            const math::Vector &v) HS_HOT_INLINE {
     if constexpr (HALF_RADIAN_STEPS)
       return math::sphere_exp_map_half_radian(p, v);
     else
-      return SMALL ? math::sphere_exp_map_half_radian(p, v)
+      return small ? math::sphere_exp_map_half_radian(p, v)
                    : math::sphere_exp_map(p, v);
   };
   const auto finish = [&](const math::Vector &p,
@@ -331,7 +331,7 @@ step_field(const math::Vector &input, const F &field, float strength,
       const math::Vector half_step = (0.5f * distance) * field.velocity(p);
       const math::Vector middle = exp_map(p, half_step);
       math::Vector velocity = field.velocity(middle);
-      if (SMALL)
+      if (small)
         return finish(p,
                       distance * math::parallel_transport(middle, p, velocity));
       const float angle = half_step.length();

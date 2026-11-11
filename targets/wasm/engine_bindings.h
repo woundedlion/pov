@@ -245,16 +245,16 @@ public:
         top_percent < 0.0 || top_percent > 25.0 || bottom_percent < 0.0 ||
         bottom_percent > 25.0)
       return false;
-    const float NORTH = static_cast<float>(top_percent / 100.0) * math::PI_F;
-    const float SOUTH =
+    const float north = static_cast<float>(top_percent / 100.0) * math::PI_F;
+    const float south =
         (1.0f - static_cast<float>(bottom_percent / 100.0)) * math::PI_F;
-    if (NORTH == getDisplayNorthPhi() && SOUTH == getDisplaySouthPhi())
+    if (north == getDisplayNorthPhi() && south == getDisplaySouthPhi())
       return true;
     if (!current_effect) {
-      apply_display_geometry(NORTH, SOUTH);
+      apply_display_geometry(north, south);
       return true;
     }
-    rebuild_display_geometry(NORTH, SOUTH);
+    rebuild_display_geometry(north, south);
     return true;
   }
 
@@ -997,11 +997,11 @@ private:
   }
 
   void rebuild_display_geometry(float north, float south) {
-    const std::string NAME(current_factory_entry->identity.display_name);
-    const size_t PRESET = current_effect->getPresetIndex();
-    const bool HAS_PRESET = current_effect->getPresetCount() != 0;
-    const bool PAUSED = binding_state->paused;
-    const ClipRegion CLIP = current_effect->clip();
+    const std::string name(current_factory_entry->identity.display_name);
+    const size_t preset = current_effect->getPresetIndex();
+    const bool has_preset = current_effect->getPresetCount() != 0;
+    const bool paused = binding_state->paused;
+    const ClipRegion clip = current_effect->clip();
     std::vector<std::pair<std::string, float>> parameters;
     current_effect->refresh_parameter_display();
     for (const auto &parameter : current_effect->getParameters())
@@ -1024,10 +1024,10 @@ private:
 
     teardown_effect();
     apply_display_geometry(north, south);
-    HS_CHECK(setEffect(NAME) == EffectSetResult::INSTALLED,
+    HS_CHECK(setEffect(name) == EffectSetResult::INSTALLED,
              "Geometry rebuild must reinstall the current effect");
-    if (HAS_PRESET)
-      HS_CHECK(current_effect->synchronizePreset(PRESET),
+    if (has_preset)
+      HS_CHECK(current_effect->synchronizePreset(preset),
                "Geometry rebuild must restore the selected preset");
 
     const bool parameters_restored =
@@ -1050,8 +1050,8 @@ private:
       }
       current_effect->replay_parameter_writes(parameters);
     }
-    setAnimationsPaused(PAUSED);
-    setClip(CLIP.x_start, CLIP.x_end, CLIP.y_start, CLIP.y_end);
+    setAnimationsPaused(paused);
+    setClip(clip.x_start, clip.x_end, clip.y_start, clip.y_end);
     param_generation.observe(current_effect->getParameterSchemaGeneration());
   }
 

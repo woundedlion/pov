@@ -120,12 +120,12 @@ template <typename Owner, typename Value = float> struct Field {
           validation_max > std::numeric_limits<Integer>::max() ||
           validation_min > validation_max)
         return false;
-      const auto ID = static_cast<int64_t>(sample);
-      if (ID < validation_min || ID > validation_max)
+      const auto id = static_cast<int64_t>(sample);
+      if (id < validation_min || id > validation_max)
         return false;
       if (!spec.option_values.empty()) {
         for (const auto option : spec.option_values)
-          if (ID == option)
+          if (id == option)
             return true;
         return false;
       }

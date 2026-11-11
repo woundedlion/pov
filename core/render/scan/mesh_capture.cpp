@@ -164,18 +164,18 @@ HS_HOT_INLINE float vertex_turns(const FaceTables &tables, size_t i) {
 HS_O3_FN HS_HOT_INLINE bool capture_pool_matches(const SweptMesh &d,
                                                  const FaceTables &tables,
                                                  size_t i, float centre) {
-  const uint8_t STATE = tables.state[i];
-  if (!(STATE & (POOL_OWN | POOL_ACROSS | POOL_FIRST_HALF | POOL_SECOND_HALF)))
+  const uint8_t state = tables.state[i];
+  if (!(state & (POOL_OWN | POOL_ACROSS | POOL_FIRST_HALF | POOL_SECOND_HALF)))
     return false;
-  const float START = d.start[i] * (1.0f / 65536.0f);
-  const float FIRST = unwrap_capture(START, centre);
-  const bool EARLY = STATE & VERTEX_EARLY;
-  return ((STATE & POOL_OWN) &&
-          FIRST == unwrap_capture(START, EARLY ? 0.25f : 0.75f)) ||
-         ((STATE & POOL_ACROSS) &&
-          FIRST == unwrap_capture(START, EARLY ? 1.25f : -0.25f)) ||
-         ((STATE & POOL_FIRST_HALF) && FIRST == unwrap_capture(START, 0.25f)) ||
-         ((STATE & POOL_SECOND_HALF) && FIRST == unwrap_capture(START, 0.75f));
+  const float start = d.start[i] * (1.0f / 65536.0f);
+  const float first = unwrap_capture(start, centre);
+  const bool early = state & VERTEX_EARLY;
+  return ((state & POOL_OWN) &&
+          first == unwrap_capture(start, early ? 0.25f : 0.75f)) ||
+         ((state & POOL_ACROSS) &&
+          first == unwrap_capture(start, early ? 1.25f : -0.25f)) ||
+         ((state & POOL_FIRST_HALF) && first == unwrap_capture(start, 0.25f)) ||
+         ((state & POOL_SECOND_HALF) && first == unwrap_capture(start, 0.75f));
 }
 
 /**

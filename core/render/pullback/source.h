@@ -111,9 +111,9 @@ static_assert(field_defaults_in_range<BandsSourceParams>());
  * @param params Band frequency and orientation.
  * @return A rotated square lattice with one band-normal period. */
 inline TranslationLattice translation_lattice(const BandsSourceParams &params) {
-  const float PERIOD = math::TWO_PI_F / params.pattern_freq;
-  const float COSINE = cosf(params.angle), SINE = sinf(params.angle);
-  return {{PERIOD * COSINE, PERIOD * SINE}, {-PERIOD * SINE, PERIOD * COSINE}};
+  const float period = math::TWO_PI_F / params.pattern_freq;
+  const float cosine = cosf(params.angle), sine = sinf(params.angle);
+  return {{period * cosine, period * sine}, {-period * sine, period * cosine}};
 }
 
 /**

@@ -54,13 +54,13 @@ struct SweepWedge {
     };
     for (size_t j = 0; j < 3; ++j) {
       const math::Vector first = knot(j, 0);
-      const float FIRST_ANGLE = j == 0 ? reference : atan2f(first.z, first.x);
-      float angle = FIRST_ANGLE, winding = 0.0f;
+      const float first_angle = j == 0 ? reference : atan2f(first.z, first.x);
+      float angle = first_angle, winding = 0.0f;
       for (size_t k = 0; k < n; ++k) {
         const math::Vector a = knot(j, k);
         const math::Vector b = knot(j, k + 1 == n ? 0 : k + 1);
-        const float NEXT_ANGLE = k + 1 == n ? FIRST_ANGLE : atan2f(b.z, b.x);
-        const float turn = std::remainder(NEXT_ANGLE - angle, math::TWO_PI_F);
+        const float next_angle = k + 1 == n ? first_angle : atan2f(b.z, b.x);
+        const float turn = std::remainder(next_angle - angle, math::TWO_PI_F);
         if (fabsf(turn) >= 0.9f * math::PI_F)
           return wedge;
         winding += turn;
@@ -68,7 +68,7 @@ struct SweepWedge {
         lo = fminf(lo, offset);
         hi = fmaxf(hi, offset);
         closest = fminf(closest, arc_distance(pole, a, b));
-        angle = NEXT_ANGLE;
+        angle = next_angle;
       }
       if (fabsf(winding) > math::PI_F)
         return wedge;
@@ -297,25 +297,25 @@ public:
     };
     crossed[0] = crossed[1] = 0;
     // Each edge's extent along the line, by the projection on its direction.
-    const float ALONG_X = -lb, ALONG_Y = la;
+    const float along_x_value = -lb, along_y_value = la;
     if (!convex) {
-      along_x = ALONG_X;
-      along_y = ALONG_Y;
+      along_x = along_x_value;
+      along_y = along_y_value;
     }
     const float pole_depth = math::dot(axis, up);
     const float pole_along = pole_depth != 0.0f
-                                 ? (ALONG_X * math::dot(basis_u, up) +
-                                    ALONG_Y * math::dot(basis_w, up)) /
+                                 ? (along_x_value * math::dot(basis_u, up) +
+                                    along_y_value * math::dot(basis_w, up)) /
                                        pole_depth
                                  : FLT_MAX;
     bool touches_pole = false;
     float from_line = la * edges[0].x + lb * edges[0].y + le;
-    float from_along = ALONG_X * edges[0].x + ALONG_Y * edges[0].y;
+    float from_along = along_x_value * edges[0].x + along_y_value * edges[0].y;
     for (int k = 0; k < count; ++k) {
       Edge &e = edges[k];
       const Edge &next = edges[k + 1 == count ? 0 : k + 1];
       const float to_line = la * next.x + lb * next.y + le;
-      const float to_along = ALONG_X * next.x + ALONG_Y * next.y;
+      const float to_along = along_x_value * next.x + along_y_value * next.y;
       if (!convex)
         span[k] = {fminf(from_along, to_along), fmaxf(from_along, to_along)};
       if (fabsf(from_line) <= REACH)
@@ -383,12 +383,12 @@ public:
     }
     // Each arm's polar angles, widened by the reach and math::fast_acos's
     // error, and past either pole onto the other arm.
-    const float pad = REACH + static_cast<float>(math::FAST_ACOS_MAX_ERROR);
+    const float PAD = REACH + static_cast<float>(math::FAST_ACOS_MAX_ERROR);
     float first[2], last[2];
     for (int arm = 0; arm < 2; ++arm) {
       const bool empty = lo[arm] > hi[arm];
-      first[arm] = empty ? math::PI_F + pad : math::fast_acos(hi[arm]) - pad;
-      last[arm] = empty ? -pad : math::fast_acos(lo[arm]) + pad;
+      first[arm] = empty ? math::PI_F + PAD : math::fast_acos(hi[arm]) - PAD;
+      last[arm] = empty ? -PAD : math::fast_acos(lo[arm]) + PAD;
     }
     bool any = false;
     for (int arm = 0; arm < 2; ++arm) {
@@ -520,8 +520,8 @@ private:
                                        float &radius2) {
     e.ex = next.x - e.x;
     e.ey = next.y - e.y;
-    const float LENGTH2 = e.ex * e.ex + e.ey * e.ey;
-    e.inv_length2 = LENGTH2 > 0.0f ? 1.0f / LENGTH2 : 0.0f;
+    const float length2 = e.ex * e.ex + e.ey * e.ey;
+    e.inv_length2 = length2 > 0.0f ? 1.0f / length2 : 0.0f;
     area2 += e.x * next.y - next.x * e.y;
     radius2 = fmaxf(radius2, e.x * e.x + e.y * e.y);
   }

@@ -196,10 +196,10 @@ inline Config interpolate(const Config &a, const Config &b, float fraction) {
                                      const math::Vector &end) {
     if (start.x == end.x && start.y == end.y && start.z == end.z)
       return end;
-    const auto START_UNIT = Pattern::SphereDirection::admit(start).value();
-    const auto END_UNIT = Pattern::SphereDirection::admit(end).value();
-    const auto BLENDED = START_UNIT + (END_UNIT - START_UNIT) * fraction;
-    return Pattern::SphereDirection::valid(BLENDED) ? BLENDED : end;
+    const auto start_unit = Pattern::SphereDirection::admit(start).value();
+    const auto end_unit = Pattern::SphereDirection::admit(end).value();
+    const auto blended = start_unit + (end_unit - start_unit) * fraction;
+    return Pattern::SphereDirection::valid(blended) ? blended : end;
   };
   const auto wave = [&](const auto &start, const auto &end, auto &out) {
     out.axis = blend_axis(start.axis, end.axis);
@@ -282,9 +282,9 @@ sample_pair(const Prepared &previous, const Prepared &current,
             const Pattern::SphereDirection &direction) {
   if (previous.evaluate == sample_cube && current.evaluate == sample_cube &&
       previous.cube.active && current.cube.active) {
-    const auto TAP = Pattern::prepare_sphere_lut_sample(direction);
-    return {Pattern::bounded_scalar(TAP.sample(previous.cube)),
-            Pattern::bounded_scalar(TAP.sample(current.cube))};
+    const auto tap = Pattern::prepare_sphere_lut_sample(direction);
+    return {Pattern::bounded_scalar(tap.sample(previous.cube)),
+            Pattern::bounded_scalar(tap.sample(current.cube))};
   }
   return {sample(previous, direction), sample(current, direction)};
 }
@@ -736,10 +736,10 @@ struct ControlField {
  * @return Control descriptors; null addresses mark unused entries. */
 HS_FLASH_MEMBER inline std::array<ControlField, 3>
 control_fields(Config &config) {
-  const bool UNIT = ColorModulation::unit_mechanic(config.mechanic.kind);
+  const bool unit = ColorModulation::unit_mechanic(config.mechanic.kind);
   std::array<ControlField, 3> fields{};
   fields[0] = {"Modulation Amount", &config.mechanic.amount,
-               UNIT ? 0.0f : -4.0f, UNIT ? 1.0f : 4.0f};
+               unit ? 0.0f : -4.0f, unit ? 1.0f : 4.0f};
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
     fields[1] = {"Pattern Scale", &config.noise.scale, 1.0f / 64.0f,
@@ -854,10 +854,10 @@ template <bool Baked = true> struct Resources {
         config.evaluation == Pattern::Evaluation::BAKED_CUBE) {
       HS_CHECK(Baked, "modulation owner has no baked cube capacity");
       if constexpr (Baked) {
-        const FieldIdentity IDENTITY = field_identity(config, selected);
+        const FieldIdentity identity = field_identity(config, selected);
         if (cache.template refresh<Pattern::SphereNoise>(
                 std::span<int8_t, Pattern::SphereLutView::SIZE>(table),
-                IDENTITY, std::get<NOISE>(prepared.source)))
+                identity, std::get<NOISE>(prepared.source)))
           ++bake_generation;
       }
     }

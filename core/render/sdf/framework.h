@@ -28,8 +28,8 @@ __attribute__((always_inline)) inline float footprint_coverage(float width,
                                                                float field) {
   constexpr float MIDPOINT = 0.5f;
   if (width > 0.0f) {
-    const float RATIO = field / width;
-    return hs::clamp(POSITIVE_INSIDE ? MIDPOINT + RATIO : MIDPOINT - RATIO,
+    const float ratio = field / width;
+    return hs::clamp(POSITIVE_INSIDE ? MIDPOINT + ratio : MIDPOINT - ratio,
                      0.0f, 1.0f);
   }
   return (POSITIVE_INSIDE ? field >= 0.0f : field <= 0.0f) ? 1.0f : 0.0f;
@@ -55,9 +55,9 @@ template <typename Framework>
 inline Raycast::QuerySample framework_sample(const Framework &framework,
                                              const math::Vector &p) {
   uint32_t feature;
-  const float VALUE =
+  const float value =
       framework.edge_offset(p, feature).magnitude() - framework.wire_radius;
-  return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
+  return {value, fabsf(value), value == 0.0f, 0, feature};
 }
 
 /** @brief Outward normal of a framework's nearest strut.
@@ -69,9 +69,9 @@ template <typename Framework>
 inline math::Vector framework_normal(const Framework &framework,
                                      const math::Vector &p) {
   uint32_t feature;
-  const math::Vector OFFSET = framework.edge_offset(p, feature);
-  const float LENGTH = OFFSET.magnitude();
-  return LENGTH > 0.0f ? OFFSET * (1.0f / LENGTH) : math::Vector{};
+  const math::Vector offset = framework.edge_offset(p, feature);
+  const float length = offset.magnitude();
+  return length > 0.0f ? offset * (1.0f / length) : math::Vector{};
 }
 } // namespace detail
 
@@ -98,10 +98,10 @@ struct TriangularFramework {
   /** @brief Three XY edge-line families and the Z layer planes.
    * @return Unit normals and spacings of the four families. */
   std::array<PlaneFamily, STREAM_COUNT> plane_families() const {
-    const float HEIGHT = TRIANGLE_HEIGHT * cell_size;
-    return {{{{0.0f, 1.0f, 0.0f}, HEIGHT},
-             {{TRIANGLE_HEIGHT, 0.5f, 0.0f}, HEIGHT},
-             {{-TRIANGLE_HEIGHT, 0.5f, 0.0f}, HEIGHT},
+    const float height = TRIANGLE_HEIGHT * cell_size;
+    return {{{{0.0f, 1.0f, 0.0f}, height},
+             {{TRIANGLE_HEIGHT, 0.5f, 0.0f}, height},
+             {{-TRIANGLE_HEIGHT, 0.5f, 0.0f}, height},
              {{0.0f, 0.0f, 1.0f}, layer_height}}};
   }
 
@@ -112,33 +112,34 @@ struct TriangularFramework {
    * @return Vector from the nearest edge point to p.
    */
   math::Vector edge_offset(const math::Vector &p, uint32_t &feature) const {
-    const math::Vector Q = p - origin;
-    const float HEIGHT = TRIANGLE_HEIGHT * cell_size;
-    const float B = roundf(Q.y / HEIGHT);
-    const float A = roundf(Q.x / cell_size - 0.5f * B);
+    const math::Vector q = p - origin;
+    const float height = TRIANGLE_HEIGHT * cell_size;
+    const float b_value = roundf(q.y / height);
+    const float a_value = roundf(q.x / cell_size - 0.5f * b_value);
     math::Vector result{cell_size, cell_size, 0.0f};
     float best = math::dot(result, result);
     feature = 3;
     for (int b = -1; b <= 1; ++b) {
       for (int a = -1; a <= 1; ++a) {
-        const math::Vector OFFSET{Q.x - cell_size * (A + a + 0.5f * (B + b)),
-                                  Q.y - HEIGHT * (B + b), 0.0f};
-        const float SQUARED = math::dot(OFFSET, OFFSET);
-        if (SQUARED < best) {
-          best = SQUARED;
-          result = OFFSET;
+        const math::Vector offset{
+            q.x - cell_size * (a_value + a + 0.5f * (b_value + b)),
+            q.y - height * (b_value + b), 0.0f};
+        const float squared = math::dot(offset, offset);
+        if (squared < best) {
+          best = squared;
+          result = offset;
         }
       }
     }
-    const float Z = Q.z - layer_height * roundf(Q.z / layer_height);
-    const auto FAMILIES = plane_families();
+    const float z = q.z - layer_height * roundf(q.z / layer_height);
+    const auto families = plane_families();
     for (uint32_t i = 0; i < 3; ++i) {
-      const float U = math::dot(Q, FAMILIES[i].normal);
-      const float D = U - HEIGHT * roundf(U / HEIGHT);
-      const float SQUARED = D * D + Z * Z;
-      if (SQUARED < best) {
-        best = SQUARED;
-        result = FAMILIES[i].normal * D + math::Vector{0.0f, 0.0f, Z};
+      const float u = math::dot(q, families[i].normal);
+      const float d = u - height * roundf(u / height);
+      const float squared = d * d + z * z;
+      if (squared < best) {
+        best = squared;
+        result = families[i].normal * d + math::Vector{0.0f, 0.0f, z};
         feature = i;
       }
     }
@@ -199,11 +200,11 @@ struct OctetFramework {
    * @return Unit normals and spacings of the four families. */
   std::array<PlaneFamily, STREAM_COUNT> plane_families() const {
     const float N = NORMAL_COMPONENT;
-    const float SPACING = PLANE_SPACING * cell_size;
-    return {{{{N, N, N}, SPACING},
-             {{N, -N, -N}, SPACING},
-             {{-N, N, -N}, SPACING},
-             {{-N, -N, N}, SPACING}}};
+    const float spacing = PLANE_SPACING * cell_size;
+    return {{{{N, N, N}, spacing},
+             {{N, -N, -N}, spacing},
+             {{-N, N, -N}, spacing},
+             {{-N, -N, N}, spacing}}};
   }
 
   /**
@@ -213,13 +214,13 @@ struct OctetFramework {
    * @return Vector from the nearest strut point to p.
    */
   math::Vector edge_offset(const math::Vector &p, uint32_t &feature) const {
-    const auto FAMILIES = plane_families();
-    const math::Vector Q = p - origin;
-    const float SPACING = FAMILIES[0].spacing;
+    const auto families = plane_families();
+    const math::Vector q = p - origin;
+    const float spacing = families[0].spacing;
     std::array<float, STREAM_COUNT> residual;
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      const float U = math::dot(Q, FAMILIES[i].normal);
-      residual[i] = U - SPACING * roundf(U / SPACING);
+      const float u = math::dot(q, families[i].normal);
+      residual[i] = u - spacing * roundf(u / spacing);
     }
     math::Vector result{};
     float best = INFINITY;
@@ -230,15 +231,15 @@ struct OctetFramework {
         float b = residual[j];
         if (a * b > 0.0f) {
           float &larger = fabsf(a) > fabsf(b) ? a : b;
-          const float SMALLER = fminf(fabsf(a), fabsf(b));
-          if (fabsf(larger) + SMALLER / 3.0f > 0.5f * SPACING)
-            larger -= copysignf(SPACING, larger);
+          const float smaller = fminf(fabsf(a), fabsf(b));
+          if (fabsf(larger) + smaller / 3.0f > 0.5f * spacing)
+            larger -= copysignf(spacing, larger);
         }
-        const float SQUARED = 1.125f * (a * a + b * b + (2.0f / 3.0f) * a * b);
-        if (SQUARED < best) {
-          best = SQUARED;
-          result = FAMILIES[i].normal * (1.125f * a + 0.375f * b) +
-                   FAMILIES[j].normal * (1.125f * b + 0.375f * a);
+        const float squared = 1.125f * (a * a + b * b + (2.0f / 3.0f) * a * b);
+        if (squared < best) {
+          best = squared;
+          result = families[i].normal * (1.125f * a + 0.375f * b) +
+                   families[j].normal * (1.125f * b + 0.375f * a);
           feature = pair;
         }
       }
@@ -284,9 +285,9 @@ namespace detail::reference {
    */
 inline Raycast::QuerySample plane_sample(const OctetFramework &framework,
                                          size_t index, const math::Vector &p) {
-  const auto FAMILIES = framework.plane_families();
-  const math::Vector Q = p - framework.origin;
-  const float SPACING = FAMILIES[0].spacing;
+  const auto families = framework.plane_families();
+  const math::Vector q = p - framework.origin;
+  const float spacing = families[0].spacing;
   float best = INFINITY;
   uint32_t feature = 0;
   uint32_t pair = 0;
@@ -294,18 +295,18 @@ inline Raycast::QuerySample plane_sample(const OctetFramework &framework,
     for (size_t j = i + 1; j < OctetFramework::STREAM_COUNT; ++j, ++pair) {
       if (i != index && j != index)
         continue;
-      const size_t OTHER = i == index ? j : i;
-      const float U = math::dot(Q, FAMILIES[OTHER].normal);
-      const float D = fabsf(U - SPACING * roundf(U / SPACING));
-      if (D < best) {
-        best = D;
+      const size_t other = i == index ? j : i;
+      const float u = math::dot(q, families[other].normal);
+      const float d = fabsf(u - spacing * roundf(u / spacing));
+      if (d < best) {
+        best = d;
         feature = pair;
       }
     }
   }
-  const float VALUE =
+  const float value =
       best * OctetFramework::INVERSE_PLANE_SINE - framework.wire_radius;
-  return {VALUE, 0.0f, false, 0, feature};
+  return {value, 0.0f, false, 0, feature};
 }
 } // namespace detail::reference
 
@@ -358,20 +359,20 @@ struct OctetFramework4 {
   template <bool WithOffset, bool Normalized = false>
   HS_HOT_FLASH_MEMBER auto edge_query(const math::Vec4 &p,
                                       uint32_t &feature) const {
-    const float SCALE = Normalized ? 1.0f : HALF_CUBE * cell_size;
-    const float INVERSE_SCALE = 1.0f / SCALE;
+    const float scale = Normalized ? 1.0f : HALF_CUBE * cell_size;
+    const float inverse_scale = 1.0f / scale;
     math::Vec4 residual, absolute;
     float parity = 0.0f;
     int halves = 0;
     for (int k = 0; k < 4; ++k) {
-      const float Q = Normalized ? p[k] : (p[k] - origin[k]) * INVERSE_SCALE;
-      const float ROUNDED = roundf(Q);
-      parity += ROUNDED;
-      residual[k] = Q - ROUNDED;
+      const float q = Normalized ? p[k] : (p[k] - origin[k]) * inverse_scale;
+      const float rounded = roundf(q);
+      parity += rounded;
+      residual[k] = q - rounded;
       absolute[k] = fabsf(residual[k]);
       halves += absolute[k] == 0.5f;
     }
-    const bool ODD = fabsf(parity - 2.0f * roundf(parity * 0.5f)) > 0.5f;
+    const bool odd = fabsf(parity - 2.0f * roundf(parity * 0.5f)) > 0.5f;
     // The nearest strut uses the two largest fractional coordinates.
     int i = 0;
     int j = 1;
@@ -398,7 +399,7 @@ struct OctetFramework4 {
     if (halves >= 3) {
       // Three half-grid coordinates tie both strut orientations.
       if constexpr (WithOffset) {
-        if (ODD != (residual[i] + residual[j] != 0.0f))
+        if (odd != (residual[i] + residual[j] != 0.0f))
           for (int k = 0; k < 4; ++k)
             if (k != i && k != j && absolute[k] == 0.5f) {
               residual[k] = -residual[k];
@@ -408,26 +409,26 @@ struct OctetFramework4 {
         residual[j] = 0.0f;
       }
     } else {
-      const bool SAME_SIGN = (residual[i] < 0.0f) == (residual[j] < 0.0f);
-      const float SIGN =
-          absolute[i] != 0.0f && absolute[j] != 0.0f && SAME_SIGN != ODD
+      const bool same_sign = (residual[i] < 0.0f) == (residual[j] < 0.0f);
+      const float sign =
+          absolute[i] != 0.0f && absolute[j] != 0.0f && same_sign != odd
               ? 1.0f
               : -1.0f;
-      across = residual[i] - SIGN * residual[j];
-      if (ODD)
+      across = residual[i] - sign * residual[j];
+      if (odd)
         across -= copysignf(1.0f, across);
       if constexpr (WithOffset) {
         residual[i] = 0.5f * across;
-        residual[j] = -0.5f * SIGN * across;
+        residual[j] = -0.5f * sign * across;
       }
-      feature += SIGN > 0.0f;
+      feature += sign > 0.0f;
     }
     if constexpr (WithOffset) {
       for (int k = 0; k < 4; ++k)
-        residual[k] *= SCALE;
+        residual[k] *= scale;
       return residual;
     } else {
-      return sqrtf(transverse_squared + 0.5f * across * across) * SCALE;
+      return sqrtf(transverse_squared + 0.5f * across * across) * scale;
     }
   }
 
@@ -463,9 +464,9 @@ struct OctetFramework4 {
   math::Vec4 normal(const math::Vec4 &p) const {
     uint32_t feature;
     math::Vec4 offset = edge_offset(p, feature);
-    const float LENGTH = magnitude(offset);
+    const float length = magnitude(offset);
     for (int i = 0; i < 4; ++i)
-      offset[i] = LENGTH > 0.0f ? offset[i] / LENGTH : 0.0f;
+      offset[i] = length > 0.0f ? offset[i] / length : 0.0f;
     return offset;
   }
 
@@ -480,8 +481,8 @@ struct OctetFramework4 {
    * @return Signed distance, clearance and strut id. */
   Raycast::QuerySample sample(const math::Vec4 &p) const {
     uint32_t feature;
-    const float VALUE = edge_query<false>(p, feature) - wire_radius;
-    return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
+    const float value = edge_query<false>(p, feature) - wire_radius;
+    return {value, fabsf(value), value == 0.0f, 0, feature};
   }
 };
 
@@ -506,9 +507,9 @@ template <size_t Count> struct PlaneStreams {
   /** @brief Moves a stream to its next crossing.
    * @param index Stream index. */
   void advance(size_t index) {
-    const float NEXT = next[index] + step[index];
-    live[index] = Raycast::finite(NEXT) && NEXT > next[index];
-    next[index] = NEXT;
+    const float next_value = next[index] + step[index];
+    live[index] = Raycast::finite(next_value) && next_value > next[index];
+    next[index] = next_value;
   }
 
   /**
@@ -524,10 +525,10 @@ template <size_t Count> struct PlaneStreams {
       live[index] = false;
       return;
     }
-    const float PLANE = speed > 0.0f ? ceilf(position) : floorf(position);
-    const float INVERSE = 1.0f / speed;
-    next[index] = near + (PLANE - position) * INVERSE;
-    step[index] = fabsf(INVERSE);
+    const float plane = speed > 0.0f ? ceilf(position) : floorf(position);
+    const float inverse = 1.0f / speed;
+    next[index] = near + (plane - position) * inverse;
+    step[index] = fabsf(inverse);
     live[index] = Raycast::finite(next[index]) &&
                   Raycast::finite(step[index]) && step[index] > 0.0f;
   }
@@ -537,8 +538,8 @@ template <size_t Count> struct PlaneStreams {
    * @param field Signed field value in world units.
    * @return Coverage in [0, 1]. */
   __attribute__((always_inline)) float coverage_of(float t, float field) const {
-    const float WIDTH = footprint.at(t);
-    return footprint_coverage(WIDTH, field);
+    const float width = footprint.at(t);
+    return footprint_coverage(width, field);
   }
 
   /**
@@ -576,10 +577,10 @@ struct FrameworkPlaneEvents : PlaneStreams<4> {
   void initialize(const std::array<FrameworkPlane, STREAM_COUNT> &families,
                   const math::Vector &origin) {
     HS_CHECK(ray.valid(), "framework event ray must be valid");
-    const math::Vector START = ray.at(ray.interval.near) - origin;
+    const math::Vector start_value = ray.at(ray.interval.near) - origin;
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
       const auto &family = families[i];
-      start(i, math::dot(START, family.normal) / family.spacing,
+      start(i, math::dot(start_value, family.normal) / family.spacing,
             math::dot(ray.direction, family.normal) / family.spacing,
             ray.interval.near);
     }
@@ -649,15 +650,15 @@ struct OctetEvents : PlaneStreams<4> {
     live.fill(false);
     HS_CHECK(geometry.valid(), "octet event geometry must be valid");
     HS_CHECK(ray.valid(), "octet event ray must be valid");
-    const auto FAMILIES = geometry.plane_families();
-    const float SPACING = FAMILIES[0].spacing;
+    const auto families = geometry.plane_families();
+    const float spacing = families[0].spacing;
     wire_radius = geometry.wire_radius;
-    const math::Vector ORIGIN = ray.origin - geometry.origin;
+    const math::Vector origin = ray.origin - geometry.origin;
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      positions[i] = math::dot(ORIGIN, FAMILIES[i].normal) / SPACING;
-      speeds[i] = math::dot(ray.direction, FAMILIES[i].normal) / SPACING;
+      positions[i] = math::dot(origin, families[i].normal) / spacing;
+      speeds[i] = math::dot(ray.direction, families[i].normal) / spacing;
     }
-    initialize(ray.interval.near, SPACING * SPACING);
+    initialize(ray.interval.near, spacing * spacing);
   }
 
   /**
@@ -691,16 +692,16 @@ struct OctetEvents : PlaneStreams<4> {
     uint8_t pair = 0;
     for (uint8_t i = 0; i < STREAM_COUNT; ++i)
       for (uint8_t j = i + 1; j < STREAM_COUNT; ++j, ++pair) {
-        const float A = speeds[i];
-        const float B = speeds[j];
-        const uint8_t OWNER = fabsf(A) >= fabsf(B) ? i : j;
-        const float SPEED = speeds[OWNER];
-        if (SPEED == 0.0f)
+        const float a = speeds[i];
+        const float b = speeds[j];
+        const uint8_t owner = fabsf(a) >= fabsf(b) ? i : j;
+        const float speed = speeds[owner];
+        if (speed == 0.0f)
           continue;
         // Ray-to-line distance for tetrahedral plane normals (dot = -1/3).
-        owned[OWNER][owned_count[OWNER]++] = {
-            SPEED * SPEED * spacing2, A * A + B * B + (2.0f / 3.0f) * A * B,
-            static_cast<uint8_t>(OWNER == i ? j : i), pair};
+        owned[owner][owned_count[owner]++] = {
+            speed * speed * spacing2, a * a + b * b + (2.0f / 3.0f) * a * b,
+            static_cast<uint8_t>(owner == i ? j : i), pair};
       }
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
       if (owned_count[i])
@@ -724,17 +725,17 @@ struct OctetEvents : PlaneStreams<4> {
     float denominator = 1.0f;
     for (size_t k = 0; k < owned_count[index]; ++k) {
       const auto &pair = pairs[k];
-      const float U = positions[pair.other] + t * speeds[pair.other];
-      const float RESIDUAL = U - roundf(U);
-      const float N = RESIDUAL * RESIDUAL * pair.numerator;
-      if (N * denominator < numerator * pair.denominator) {
-        numerator = N;
+      const float u = positions[pair.other] + t * speeds[pair.other];
+      const float residual = u - roundf(u);
+      const float n = residual * residual * pair.numerator;
+      if (n * denominator < numerator * pair.denominator) {
+        numerator = n;
         denominator = pair.denominator;
         feature = pair.pair;
       }
     }
-    const float SUPPORT = wire_radius + .5f * footprint.at(t);
-    if (numerator > SUPPORT * SUPPORT * denominator)
+    const float support = wire_radius + .5f * footprint.at(t);
+    if (numerator > support * support * denominator)
       return 0.0f;
     return coverage_of(t, sqrtf(numerator / denominator) - wire_radius);
   }
@@ -869,11 +870,11 @@ struct OctetEvents4 : PlaneStreams<8> {
                                                  float near) {
     // The owners are the family matching the direction's sign pattern and
     // that family with one coordinate flipped.
-    const bool FLIP = direction[0] < 0.0f;
+    const bool flip = direction[0] < 0.0f;
     std::array<float, 4> sign{1.0f, 1.0f, 1.0f, 1.0f};
     uint8_t star = 0;
     for (int k = 1; k < 4; ++k)
-      if ((direction[k] < 0.0f) != FLIP) {
+      if ((direction[k] < 0.0f) != flip) {
         sign[k] = -1.0f;
         star |= static_cast<uint8_t>(1u << (k - 1));
       }
@@ -882,9 +883,9 @@ struct OctetEvents4 : PlaneStreams<8> {
     const auto add = [&](uint8_t family, uint8_t i, uint8_t j, uint8_t k,
                          uint8_t l, float s,
                          uint8_t feature) __attribute__((always_inline)) {
-      const float ALONG = direction[i] + s * direction[j];
-      const float DENOMINATOR = 1.0f - 0.5f * ALONG * ALONG;
-      if (!(DENOMINATOR > 0.0f))
+      const float along = direction[i] + s * direction[j];
+      const float denominator = 1.0f - 0.5f * along * along;
+      if (!(denominator > 0.0f))
         return;
       if (owner_of[family] == UNOWNED) {
         owner_of[family] = count;
@@ -894,7 +895,7 @@ struct OctetEvents4 : PlaneStreams<8> {
       auto &strut = owner.classes[owner.count++];
       strut.sign = s;
       strut.transverse = 0.5f * (direction[i] - s * direction[j]);
-      strut.denominator = DENOMINATOR;
+      strut.denominator = denominator;
       strut.dk = direction[k];
       strut.dl = direction[l];
       strut.i = i;
@@ -912,13 +913,13 @@ struct OctetEvents4 : PlaneStreams<8> {
         uint8_t l = k + 1;
         while (l == i || l == j)
           ++l;
-        const float SAME = sign[i] * sign[j];
-        const uint8_t FLIPPED =
+        const float same = sign[i] * sign[j];
+        const uint8_t flipped =
             fabsf(direction[j]) < fabsf(direction[i]) ? j : i;
-        const uint8_t NEIGHBOR = static_cast<uint8_t>(
-            star ^ (FLIPPED == 0 ? 7u : 1u << (FLIPPED - 1)));
-        add(star, i, j, k, l, -SAME, 2 * pair + (SAME < 0.0f));
-        add(NEIGHBOR, i, j, k, l, SAME, 2 * pair + (SAME > 0.0f));
+        const uint8_t neighbor = static_cast<uint8_t>(
+            star ^ (flipped == 0 ? 7u : 1u << (flipped - 1)));
+        add(star, i, j, k, l, -same, 2 * pair + (same < 0.0f));
+        add(neighbor, i, j, k, l, same, 2 * pair + (same > 0.0f));
       }
     for (uint8_t family = 0; family < STREAM_COUNT; ++family) {
       if (owner_of[family] == UNOWNED) {
@@ -928,10 +929,10 @@ struct OctetEvents4 : PlaneStreams<8> {
       float position = local_origin[0] + near * local_direction[0];
       float speed = local_direction[0];
       for (int k = 1; k < 4; ++k) {
-        const float P = local_origin[k] + near * local_direction[k];
-        const bool NEGATIVE = family & (1u << (k - 1));
-        position += NEGATIVE ? -P : P;
-        speed += NEGATIVE ? -local_direction[k] : local_direction[k];
+        const float p = local_origin[k] + near * local_direction[k];
+        const bool negative = family & (1u << (k - 1));
+        position += negative ? -p : p;
+        speed += negative ? -local_direction[k] : local_direction[k];
       }
       start(family, 0.5f * position, 0.5f * speed, near);
     }
@@ -950,12 +951,12 @@ struct OctetEvents4 : PlaneStreams<8> {
     math::Vec4 residual;
     int parity = 0;
     for (int k = 0; k < 4; ++k) {
-      const float Q = local_origin[k] + local_direction[k] * t;
-      const float ROUNDED = roundf(Q);
-      residual[k] = Q - ROUNDED;
-      parity += static_cast<int>(ROUNDED);
+      const float q = local_origin[k] + local_direction[k] * t;
+      const float rounded = roundf(q);
+      residual[k] = q - rounded;
+      parity += static_cast<int>(rounded);
     }
-    const bool ODD = parity & 1;
+    const bool odd = parity & 1;
     float numerator = INFINITY;
     float denominator = 1.0f;
     for (size_t c = 0; c < owner.count; ++c) {
@@ -963,32 +964,32 @@ struct OctetEvents4 : PlaneStreams<8> {
       float across = residual[strut.i] - strut.sign * residual[strut.j];
       float rk = residual[strut.k];
       float rl = residual[strut.l];
-      const float STEP = across > 0.5f ? 1.0f : across < -0.5f ? -1.0f : 0.0f;
-      across -= STEP;
+      const float step = across > 0.5f ? 1.0f : across < -0.5f ? -1.0f : 0.0f;
+      across -= step;
       // The nearest vertex on this class's coset flips the cheapest coordinate.
-      if ((STEP != 0.0f) != ODD) {
-        const float COST = 0.5f - fabsf(across);
-        const float COST_K = 1.0f - 2.0f * fabsf(rk);
-        const float COST_L = 1.0f - 2.0f * fabsf(rl);
-        if (COST <= COST_K && COST <= COST_L)
+      if ((step != 0.0f) != odd) {
+        const float cost = 0.5f - fabsf(across);
+        const float cost_k = 1.0f - 2.0f * fabsf(rk);
+        const float cost_l = 1.0f - 2.0f * fabsf(rl);
+        if (cost <= cost_k && cost <= cost_l)
           across -= copysignf(1.0f, across);
-        else if (COST_K <= COST_L)
+        else if (cost_k <= cost_l)
           rk -= copysignf(1.0f, rk);
         else
           rl -= copysignf(1.0f, rl);
       }
-      const float OFFSET2 = 0.5f * across * across + rk * rk + rl * rl;
-      const float DOT =
+      const float offset2 = 0.5f * across * across + rk * rk + rl * rl;
+      const float dot =
           across * strut.transverse + rk * strut.dk + rl * strut.dl;
-      const float N = fmaxf(0.0f, OFFSET2 * strut.denominator - DOT * DOT);
-      if (N * denominator < numerator * strut.denominator) {
-        numerator = N;
+      const float n = fmaxf(0.0f, offset2 * strut.denominator - dot * dot);
+      if (n * denominator < numerator * strut.denominator) {
+        numerator = n;
         denominator = strut.denominator;
         feature = strut.feature;
       }
     }
-    const float SUPPORT = (wire_radius + .5f * footprint.at(t)) * inverse_scale;
-    if (numerator > SUPPORT * SUPPORT * denominator)
+    const float support = (wire_radius + .5f * footprint.at(t)) * inverse_scale;
+    if (numerator > support * support * denominator)
       return 0.0f;
     return coverage_of(t, scale * sqrtf(numerator / denominator) - wire_radius);
   }

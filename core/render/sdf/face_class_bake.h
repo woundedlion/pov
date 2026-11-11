@@ -94,24 +94,25 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   ScratchScope scratch_guard(scratch);
   const size_t persistent_start = persistent.get_offset();
 
-  const size_t F = mesh.get_face_counts_size();
-  const size_t V = mesh.vertices.size();
+  const size_t f_value = mesh.get_face_counts_size();
+  const size_t v_value = mesh.vertices.size();
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
   const uint16_t *topology = mesh.get_topology_data();
   const size_t fi_size = mesh.get_faces_size();
-  HS_CHECK(mesh.get_topology_size() == F,
+  HS_CHECK(mesh.get_topology_size() == f_value,
            "build_mesh_class_bake requires classify_faces_by_topology first");
-  HS_CHECK(mesh.get_face_offsets_size() == F,
+  HS_CHECK(mesh.get_face_offsets_size() == f_value,
            "build_mesh_class_bake requires one face offset per face");
 
   // Unbind, not reuse: a rebaked bake's vectors may still name blocks its arena
   // has already reclaimed, and bind()'s reuse path would then write through
   // them.
   out = MeshClassBake();
-  out.classes.bind(persistent, std::min<size_t>(MAX_CONGRUENCE_CLASSES, F));
-  out.face_recs.bind(persistent, F);
+  out.classes.bind(persistent,
+                   std::min<size_t>(MAX_CONGRUENCE_CLASSES, f_value));
+  out.face_recs.bind(persistent, f_value);
 
   constexpr int MAX_VERTS = SDF::FaceScratchBuffer::MAX_VERTS;
   const float eps_plane = CONGRUENCE_EPS_PX * pixel_width;
@@ -121,7 +122,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   int *order = scratch.allocate_n<int>(MAX_CONGRUENCE_CLASSES);
   float worst_res_px = 0.0f;
 
-  for (size_t f = 0; f < F; ++f) {
+  for (size_t f = 0; f < f_value; ++f) {
     const int count = fc[f];
     out.face_recs.push_back({NO_CLASS, 0, 0});
     FaceClassRec &rec = out.face_recs[f];
@@ -135,7 +136,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     const uint16_t *idx = fi + fo[f];
     math::Vector center(0, 0, 0);
     for (int k = 0; k < count; ++k) {
-      HS_CHECK(static_cast<size_t>(idx[k]) < V,
+      HS_CHECK(static_cast<size_t>(idx[k]) < v_value,
                "mesh face vertex index out of range");
       center = center + mesh.vertices[idx[k]];
     }
@@ -201,7 +202,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
         const float c = best_alignment.rr * inv_r,
                     s = best_alignment.ri * inv_r;
         float max_dev_sq = 0.0f;
-        const auto [MIN_X, MAX_X, MIN_Y, MAX_Y] =
+        const auto [min_x, max_x, min_y, max_y] =
             SDF::canonical_polygon_box(canon, count);
         SDF::align_walk(
             count, best_off, best_refl,
@@ -214,13 +215,13 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
               const float dx = cx - (c * x - s * y), dy = cy - (s * x + c * y);
               max_dev_sq = std::max(max_dev_sq, dx * dx + dy * dy);
             });
-        const auto [HALF_X, HALF_Y] =
-            SDF::canonical_lut_half_extents(MIN_X, MAX_X, MIN_Y, MAX_Y);
+        const auto [half_x, half_y] =
+            SDF::canonical_lut_half_extents(min_x, max_x, min_y, max_y);
         // The finest allowed grid has the smallest runtime deviation cap.
-        const float step = 2.0f / (CLASS_LUT_MAX_N - 1);
+        const float STEP = 2.0f / (CLASS_LUT_MAX_N - 1);
         const float cap_sq = SDF::ALIGN_MAX_DEV_DIAGS *
-                             SDF::ALIGN_MAX_DEV_DIAGS * step * step *
-                             (HALF_X * HALF_X + HALF_Y * HALF_Y);
+                             SDF::ALIGN_MAX_DEV_DIAGS * STEP * STEP *
+                             (half_x * half_x + half_y * half_y);
         bindable = max_dev_sq <= cap_sq;
       }
     }
@@ -282,10 +283,10 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   int dropped_classes = 0, dropped_faces = 0, lowq_classes = 0;
   // Staging buffer: a LUT is promoted to the persistent arena only if its
   // predicted hit share clears MIN_CLASS_HIT_SHARE.
-  const size_t minimum_lut_bytes =
+  const size_t MINIMUM_LUT_BYTES =
       CLASS_LUT_MIN_N * CLASS_LUT_MIN_N * sizeof(int16_t);
   int16_t *staging =
-      n_elig > 0 && budget >= minimum_lut_bytes
+      n_elig > 0 && budget >= MINIMUM_LUT_BYTES
           ? scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N)
           : nullptr;
   // A null staging buffer is never read: a budget below minimum_lut_bytes
@@ -295,12 +296,12 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     out.concave_faces += cls.members;
     // Size the grid so the cell diagonal lands on target_diag (the box gains
     // including the canonical LUT margin).
-    const auto [MIN_X, MAX_X, MIN_Y, MAX_Y] =
+    const auto [min_x, max_x, min_y, max_y] =
         SDF::canonical_polygon_box(cls.canon_xy, cls.n_verts);
-    const auto [HALF_X, HALF_Y] =
-        SDF::canonical_lut_half_extents(MIN_X, MAX_X, MIN_Y, MAX_Y);
+    const auto [half_x, half_y] =
+        SDF::canonical_lut_half_extents(min_x, max_x, min_y, max_y);
     int n = static_cast<int>(hs::clamp(
-        ceilf(2.0f * sqrtf(HALF_X * HALF_X + HALF_Y * HALF_Y) / target_diag) +
+        ceilf(2.0f * sqrtf(half_x * half_x + half_y * half_y) / target_diag) +
             1.0f,
         static_cast<float>(CLASS_LUT_MIN_N),
         static_cast<float>(CLASS_LUT_MAX_N)));
@@ -335,7 +336,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     float max_dist_sq = max_dist * max_dist;
     float step_x = (2.0f * lut.half_x) / (n - 1);
     float step_y = (2.0f * lut.half_y) / (n - 1);
-    const int32_t SAFE_Q = static_cast<int32_t>(
+    const int32_t safe_q = static_cast<int32_t>(
         lut.safe_dist * (1.0f + SDF::ALIGN_MAX_DEV_DIAGS) / lut.dequant);
     int in_disk = 0, safe = 0;
     for (int gy = 0; gy + 1 < n; ++gy) {
@@ -352,7 +353,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
                          (q00 > 0) == (q11 > 0);
         int min_q = std::min(
             {std::abs(q00), std::abs(q10), std::abs(q01), std::abs(q11)});
-        if (same_sign && min_q > SAFE_Q)
+        if (same_sign && min_q > safe_q)
           ++safe;
       }
     }
@@ -381,12 +382,13 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   out.lowq_classes = static_cast<uint16_t>(lowq_classes);
   out.predicted_hit_share =
       out.lut_faces > 0 ? hit_share_acc / out.lut_faces : 0.0f;
-  out.lut_face_share = F > 0 ? static_cast<float>(out.lut_faces) / F : 0.0f;
+  out.lut_face_share =
+      f_value > 0 ? static_cast<float>(out.lut_faces) / f_value : 0.0f;
   out.aux_bytes = persistent.get_offset() - persistent_start - out.lut_bytes;
 
   // Device logging supports integer conversions only.
   const int shared_permille =
-      F > 0 ? static_cast<int>(1000.0f * out.shared_faces / F) : 0;
+      f_value > 0 ? static_cast<int>(1000.0f * out.shared_faces / f_value) : 0;
   const int worst_res_milli_px = static_cast<int>(1000.0f * worst_res_px);
   const int lut_face_permille = static_cast<int>(1000.0f * out.lut_face_share);
   const int pred_hit_permille =
@@ -395,7 +397,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
           "overflow=%d faces concave=%d luts=%d/%d lut_faces=%d.%d%% "
           "(dropped %d cls/%d faces, "
           "%d low-quality, %dB left) pred_hit=%d.%d%% aux=%dB",
-          (int)F, (int)out.classes.size(), shared_permille / 10,
+          (int)f_value, (int)out.classes.size(), shared_permille / 10,
           shared_permille % 10, worst_res_milli_px / 1000,
           worst_res_milli_px % 1000, (int)out.overflow_faces,
           (int)out.concave_faces, (int)out.luts_built, n_elig,

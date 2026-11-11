@@ -1124,11 +1124,11 @@ struct RingGroup {
     auto member_reach = [&](const math::Vector &mid_axis,
                             const math::Vector &member_axis,
                             int s) HS_HOT_INLINE {
-      const float DEV =
+      const float dev =
           math::fast_acos(
               hs::clamp(math::dot(mid_axis, member_axis), -1.0f, 1.0f)) +
           std::abs(shapes[s].target_angle - shapes[mid].target_angle) + 1e-3f;
-      return shapes[s].thickness + DEV;
+      return shapes[s].thickness + dev;
     };
     float pad_th = shapes[mid].thickness;
     for (int s = 0; s < n; ++s) {
