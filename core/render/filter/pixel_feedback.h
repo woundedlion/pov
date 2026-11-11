@@ -2547,7 +2547,7 @@ private:
     return g.infill ? std::min(2 * g.reach + 1, HALF) : g.pairs ? 2 : 0;
   }
 
-  /** @brief Finish window samples a frame may keep: a pair sample per arm on
+  /** @brief Finish window samples a frame may keep: two pair samples per arm on
    *  every row, and the infill rows' filter widths. */
   static constexpr int WINDOW_SLOTS = [] {
     int slots = 0;
@@ -2560,7 +2560,7 @@ private:
           (y >= H - CACHE_DOWNSAMPLE &&
            (!SphereField::HAS_SOUTH_POLE || y < H - 1));
 #endif
-      slots += 2 * (infill ? std::min(filter_window_bound(y), HALF) : 1);
+      slots += 2 * (infill ? std::min(filter_window_bound(y), HALF) : 2);
     }
     return slots;
   }();
