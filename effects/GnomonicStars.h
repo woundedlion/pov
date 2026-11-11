@@ -53,16 +53,11 @@ public:
     spiral_cache = persistent_arena.allocate_n<math::Vector>(MAX_POINTS);
     drawn_centres = persistent_arena.allocate_n<math::Vector>(MAX_POINTS);
 
-    register_int_param("Points", &params.points, 100, MAX_POINTS);
-    register_param("Radius", &params.star_radius, 0.7f * radius_px(),
-                   7.0f * radius_px());
-    register_int_param("Sides", &params.star_sides, 3, 8);
+    register_described_params<&GnomonicStars::parameter_fields>(params);
 
     // Args are (scale, speed); speed is overwritten from params each frame.
     warp = transformer.spawn_pinned(0, 0.5f, 0.0f);
     HS_CHECK(warp, "GnomonicStars: pinned warp spawn must succeed");
-    register_param("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
-    register_param("Debug BB", &params.debug_bb);
 
     baked_palette.bake(persistent_arena, Palettes::MANGO_PEEL);
 
@@ -277,4 +272,31 @@ private:
     float warp_speed = 0.035f; /**< Möbius warp evolution speed. */
     bool debug_bb = false; /**< When true, draws each star's bounding box. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, int>{.id = "points",
+                                    .member = &Params::points,
+                                    .name = "Points",
+                                    .spec = {.min = 100, .max = MAX_POINTS}},
+        Control::Field<Params, float>{
+            .id = "star_radius",
+            .member = &Params::star_radius,
+            .name = "Radius",
+            .spec = {.min = 0.7f * radius_px(), .max = 7.0f * radius_px()}},
+        Control::Field<Params, int>{.id = "star_sides",
+                                    .member = &Params::star_sides,
+                                    .name = "Sides",
+                                    .spec = {.min = 3, .max = 8}},
+        Control::Field<Params, float>{.id = "warp_speed",
+                                      .member = &Params::warp_speed,
+                                      .name = "Warp Speed",
+                                      .spec = {.min = 0.0f, .max = 1.0f}},
+        Control::Field<Params, bool>{.id = "debug_bb",
+                                     .member = &Params::debug_bb,
+                                     .name = "Debug BB",
+                                     .spec = {.min = 0, .max = 1}}};
+  }
 };

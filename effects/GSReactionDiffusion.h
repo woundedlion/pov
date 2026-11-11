@@ -58,7 +58,6 @@ class GSReactionDiffusion
   using Base::Q16_INV;
   using Base::RD_K;
   using Base::RD_N;
-  using Base::register_param;
   using Base::to_q16;
   using typename Base::LatticeBasis;
   using typename Base::FloatRgb;
@@ -106,17 +105,8 @@ public:
                                        PALETTE_BYTES, SCRATCH_BYTES,
                                        SCRATCH_TENANTS, true>();
 
-    register_param("Feed", &params.feed, 0.0f, 0.1f);
-    register_param("Kill", &params.k, 0.0f, 0.1f);
-    // Each substep clamps to [0,1], so the joint Speed/diffusion maximum may
-    // exceed the linear diffusion bound.
-    register_param("dA", &params.d_a, 0.0f, 0.05f);
-    register_param("dB", &params.d_b, 0.0f, 0.05f);
-    register_param("Speed", &params.dt, 0.1f, 3.0f);
-    register_param("Noise Speed", &params.noise_speed, -0.001f, 0.001f);
-    register_param("Noise Scale", &params.noise_scale, 1.0f / 64.0f, 8.0f);
-    register_param("Hue Shift", &params.hue_shift, -4.0f, 4.0f);
-    register_param("Shimmer", &params.shimmer, 0.0f, 1.0f);
+    this->template register_described_params<
+        &GSReactionDiffusion::parameter_fields>(params);
 
     state.A = persistent_arena.allocate_n<uint16_t>(RD_N);
     state.B = persistent_arena.allocate_n<uint16_t>(RD_N);
@@ -1721,6 +1711,51 @@ private:
     float hue_shift = 0.2f;             ///< Hue shift per unit of signed noise.
     float shimmer = 0.4f;               ///< Shimmer gain on positive noise.
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "feed",
+                                      .member = &Params::feed,
+                                      .name = "Feed",
+                                      .spec = {.min = 0.0f, .max = 0.1f}},
+        Control::Field<Params, float>{.id = "k",
+                                      .member = &Params::k,
+                                      .name = "Kill",
+                                      .spec = {.min = 0.0f, .max = 0.1f}},
+        // Each substep clamps to [0,1], so the joint Speed/diffusion maximum
+        // may exceed the linear diffusion bound.
+        Control::Field<Params, float>{.id = "d_a",
+                                      .member = &Params::d_a,
+                                      .name = "dA",
+                                      .spec = {.min = 0.0f, .max = 0.05f}},
+        Control::Field<Params, float>{.id = "d_b",
+                                      .member = &Params::d_b,
+                                      .name = "dB",
+                                      .spec = {.min = 0.0f, .max = 0.05f}},
+        Control::Field<Params, float>{.id = "dt",
+                                      .member = &Params::dt,
+                                      .name = "Speed",
+                                      .spec = {.min = 0.1f, .max = 3.0f}},
+        Control::Field<Params, float>{.id = "noise_speed",
+                                      .member = &Params::noise_speed,
+                                      .name = "Noise Speed",
+                                      .spec = {.min = -0.001f, .max = 0.001f}},
+        Control::Field<Params, float>{
+            .id = "noise_scale",
+            .member = &Params::noise_scale,
+            .name = "Noise Scale",
+            .spec = {.min = 1.0f / 64.0f, .max = 8.0f}},
+        Control::Field<Params, float>{.id = "hue_shift",
+                                      .member = &Params::hue_shift,
+                                      .name = "Hue Shift",
+                                      .spec = {.min = -4.0f, .max = 4.0f}},
+        Control::Field<Params, float>{.id = "shimmer",
+                                      .member = &Params::shimmer,
+                                      .name = "Shimmer",
+                                      .spec = {.min = 0.0f, .max = 1.0f}}};
+  }
   static_assert(Params{}.dt == DEFAULT_DT,
                 "the stabilization floor is calibrated at the Speed default");
 };

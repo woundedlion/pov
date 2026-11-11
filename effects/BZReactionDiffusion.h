@@ -54,7 +54,6 @@ class BZReactionDiffusion
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_render_center;
-  using Base::register_param;
   using Base::seed_blobs;
   using Base::rasterize_lattice;
   using Base::to_q16;
@@ -92,11 +91,8 @@ public:
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES, 0,
                                        SCRATCH_BYTES, SCRATCH_TENANTS>();
 
-    // Predation coefficient; bounded only by to_q16's [0,1] clamp, so a high
-    // value saturates.
-    register_param("Compete", &params.alpha, 0.0f, 4.0f);
-    register_param("Diff", &params.diffusion, 0.001f, DIFF_MAX);
-    register_param("Speed", &params.dt, 0.0f, SPEED_MAX);
+    this->template register_described_params<
+        &BZReactionDiffusion::parameter_fields>(params);
 
     allocate_state();
     init_lattice();
@@ -439,4 +435,24 @@ private:
     float diffusion = 0.05f; /**< Diffusion coefficient. */
     float dt = 0.35f;        /**< Integration timestep per substep. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        // Predation coefficient; bounded only by to_q16's [0,1] clamp, so a
+        // high value saturates.
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Compete",
+                                      .spec = {.min = 0.0f, .max = 4.0f}},
+        Control::Field<Params, float>{.id = "diffusion",
+                                      .member = &Params::diffusion,
+                                      .name = "Diff",
+                                      .spec = {.min = 0.001f, .max = DIFF_MAX}},
+        Control::Field<Params, float>{.id = "dt",
+                                      .member = &Params::dt,
+                                      .name = "Speed",
+                                      .spec = {.min = 0.0f, .max = SPEED_MAX}}};
+  }
 };

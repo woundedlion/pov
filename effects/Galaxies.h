@@ -64,21 +64,7 @@ public:
         "Galaxies particle pool + attractor/emitter storage "
         "overflow the device persistent arena");
 
-    register_param("Friction", &params.friction, 0.999f, 1.0f);
-    register_param("Core Mass", &params.core_mass, 0.02f, 0.2f);
-    register_param("Black Hole", &params.black_hole);
-    register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.06f);
-    register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
-    register_param("Arm Pitch", &params.arm_pitch, 0.1f, 0.65f);
-    register_param("Arm Sharpness", &params.arm_sharpness, 0.0f, 3.0f);
-    register_int_param("Arms", &params.arms, 1, MAX_ARMS);
-    register_param("Emission Rate", &params.emission_rate, MIN_EMISSION_RATE,
-                   MAX_EMISSION_RATE);
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Particles", &params.active_count,
-                   ParamSpec<float>{.min = 0.0f,
-                                    .max = static_cast<float>(NUM_PARTICLES),
-                                    .readonly = true});
+    register_described_params<&Galaxies::parameter_fields>(params);
 
     build_particle_system();
 
@@ -436,4 +422,58 @@ private:
     float alpha = 1.0f;          /**< Overall opacity. */
     float active_count = 0.0f;   /**< Live particles (engine-written). */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "friction",
+                                      .member = &Params::friction,
+                                      .name = "Friction",
+                                      .spec = {.min = 0.999f, .max = 1.0f}},
+        Control::Field<Params, float>{.id = "core_mass",
+                                      .member = &Params::core_mass,
+                                      .name = "Core Mass",
+                                      .spec = {.min = 0.02f, .max = 0.2f}},
+        Control::Field<Params, bool>{.id = "black_hole",
+                                     .member = &Params::black_hole,
+                                     .name = "Black Hole",
+                                     .spec = {.min = 0, .max = 1}},
+        Control::Field<Params, float>{.id = "orbit_speed",
+                                      .member = &Params::orbit_speed,
+                                      .name = "Orbit Spd",
+                                      .spec = {.min = 0.004f, .max = 0.06f}},
+        Control::Field<Params, float>{.id = "arm_spin",
+                                      .member = &Params::arm_spin,
+                                      .name = "Arm Spin",
+                                      .spec = {.min = 0.0f, .max = 0.25f}},
+        Control::Field<Params, float>{.id = "arm_pitch",
+                                      .member = &Params::arm_pitch,
+                                      .name = "Arm Pitch",
+                                      .spec = {.min = 0.1f, .max = 0.65f}},
+        Control::Field<Params, float>{.id = "arm_sharpness",
+                                      .member = &Params::arm_sharpness,
+                                      .name = "Arm Sharpness",
+                                      .spec = {.min = 0.0f, .max = 3.0f}},
+        Control::Field<Params, int>{.id = "arms",
+                                    .member = &Params::arms,
+                                    .name = "Arms",
+                                    .spec = {.min = 1, .max = MAX_ARMS}},
+        Control::Field<Params, float>{
+            .id = "emission_rate",
+            .member = &Params::emission_rate,
+            .name = "Emission Rate",
+            .spec = {.min = MIN_EMISSION_RATE, .max = MAX_EMISSION_RATE}},
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Alpha",
+                                      .spec = {.min = 0.0f, .max = 1.0f}},
+        Control::Field<Params, float>{
+            .id = "active_count",
+            .member = &Params::active_count,
+            .name = "Particles",
+            .spec = {.min = 0.0f,
+                     .max = static_cast<float>(NUM_PARTICLES),
+                     .readonly = true}}};
+  }
 };

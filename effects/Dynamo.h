@@ -64,13 +64,7 @@ public:
 
     nodes = persistent_arena.make_n<Node>(NUM_NODES);
 
-    register_param("Speed", &params.speed, -SPEED_MAX, SPEED_MAX);
-    register_param("Gap", &params.gap, 1.0f, GAP_MAX);
-    register_int_param("Trail Len", &params.trail_length, 1, TRAIL_LEN_MAX);
-    register_readonly_param("Trail Cap", &params.trail_ceiling, 1.0f,
-                            static_cast<float>(TRAIL_LEN_MAX));
-    register_param("Wipe Dur", &params.wipe_duration, 1.0f,
-                   static_cast<float>(WIPE_DURATION_MAX));
+    register_described_params<&Dynamo::parameter_fields>(params);
 
     for (size_t i = 0; i < NUM_NODES; ++i) {
       nodes[i].y = math::phi_to_y<H>(static_cast<float>(i) * math::PI_F /
@@ -621,4 +615,36 @@ private:
     /** Longest trail the ring can hold, in frames (engine-written). */
     float trail_ceiling = static_cast<float>(TRAIL_LEN_MAX);
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{
+            .id = "speed",
+            .member = &Params::speed,
+            .name = "Speed",
+            .spec = {.min = -SPEED_MAX, .max = SPEED_MAX}},
+        Control::Field<Params, float>{.id = "gap",
+                                      .member = &Params::gap,
+                                      .name = "Gap",
+                                      .spec = {.min = 1.0f, .max = GAP_MAX}},
+        Control::Field<Params, int>{.id = "trail_length",
+                                    .member = &Params::trail_length,
+                                    .name = "Trail Len",
+                                    .spec = {.min = 1, .max = TRAIL_LEN_MAX}},
+        Control::Field<Params, float>{
+            .id = "trail_ceiling",
+            .member = &Params::trail_ceiling,
+            .name = "Trail Cap",
+            .spec = {.min = 1.0f,
+                     .max = static_cast<float>(TRAIL_LEN_MAX),
+                     .readonly = true}},
+        Control::Field<Params, float>{
+            .id = "wipe_duration",
+            .member = &Params::wipe_duration,
+            .name = "Wipe Dur",
+            .spec = {.min = 1.0f,
+                     .max = static_cast<float>(WIPE_DURATION_MAX)}}};
+  }
 };

@@ -118,21 +118,7 @@ public:
 
     noise_field.template_params.noise.SetSeed(hs::rand_int(0, 65536));
 
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_int_param("Rings", &params.num_rings, 1, RING_SLOTS);
-    register_param("Thickness", &params.thickness, 0.4f * THICKNESS_PX,
-                   6.0f * THICKNESS_PX);
-    register_param("Ball Amp", &params.ball_amp, 0.0f, 0.8f);
-    register_param("Noise Amp", &params.noise_amp, 0.0f, 0.8f);
-    register_param("Scale 1", &params.scale1, 0.5f, 4.0f);
-    register_param("Scale 2", &params.scale2, 0.5f, 8.0f);
-    register_param("Hue Rotate", &params.hue_scale, 0.0f, 3.0f);
-    register_param("Flow Speed", &params.flow_speed, 0.0f, 0.15f);
-    register_param("Ball Min", &params.ball_min, 0.05f, 1.0f);
-    register_param("Ball Max", &params.ball_max, 0.05f, 1.0f);
-    register_param("Ball Rate", &params.ball_rate, 0.5f, 50.0f);
-    register_param("Speed Min", &params.ball_speed_min, 0.1f, 3.0f);
-    register_param("Speed Max", &params.ball_speed_max, 0.1f, 3.0f);
+    register_described_params<&DisplacementField::parameter_fields>(params);
 
     // Pinned first, before any finite event can precede it in the buffer.
     noise_field.spawn_pinned(0);
@@ -1944,6 +1930,69 @@ public:
 
 private:
   Params params = PRESETS[0];
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Alpha",
+                                      .spec = {.min = 0.0f, .max = 1.0f}},
+        Control::Field<Params, int>{.id = "num_rings",
+                                    .member = &Params::num_rings,
+                                    .name = "Rings",
+                                    .spec = {.min = 1, .max = RING_SLOTS}},
+        Control::Field<Params, float>{
+            .id = "thickness",
+            .member = &Params::thickness,
+            .name = "Thickness",
+            .spec = {.min = 0.4f * THICKNESS_PX, .max = 6.0f * THICKNESS_PX}},
+        Control::Field<Params, float>{.id = "ball_amp",
+                                      .member = &Params::ball_amp,
+                                      .name = "Ball Amp",
+                                      .spec = {.min = 0.0f, .max = 0.8f}},
+        Control::Field<Params, float>{.id = "noise_amp",
+                                      .member = &Params::noise_amp,
+                                      .name = "Noise Amp",
+                                      .spec = {.min = 0.0f, .max = 0.8f}},
+        Control::Field<Params, float>{.id = "scale1",
+                                      .member = &Params::scale1,
+                                      .name = "Scale 1",
+                                      .spec = {.min = 0.5f, .max = 4.0f}},
+        Control::Field<Params, float>{.id = "scale2",
+                                      .member = &Params::scale2,
+                                      .name = "Scale 2",
+                                      .spec = {.min = 0.5f, .max = 8.0f}},
+        Control::Field<Params, float>{.id = "hue_scale",
+                                      .member = &Params::hue_scale,
+                                      .name = "Hue Rotate",
+                                      .spec = {.min = 0.0f, .max = 3.0f}},
+        Control::Field<Params, float>{.id = "flow_speed",
+                                      .member = &Params::flow_speed,
+                                      .name = "Flow Speed",
+                                      .spec = {.min = 0.0f, .max = 0.15f}},
+        Control::Field<Params, float>{.id = "ball_min",
+                                      .member = &Params::ball_min,
+                                      .name = "Ball Min",
+                                      .spec = {.min = 0.05f, .max = 1.0f}},
+        Control::Field<Params, float>{.id = "ball_max",
+                                      .member = &Params::ball_max,
+                                      .name = "Ball Max",
+                                      .spec = {.min = 0.05f, .max = 1.0f}},
+        Control::Field<Params, float>{.id = "ball_rate",
+                                      .member = &Params::ball_rate,
+                                      .name = "Ball Rate",
+                                      .spec = {.min = 0.5f, .max = 50.0f}},
+        Control::Field<Params, float>{.id = "ball_speed_min",
+                                      .member = &Params::ball_speed_min,
+                                      .name = "Speed Min",
+                                      .spec = {.min = 0.1f, .max = 3.0f}},
+        Control::Field<Params, float>{.id = "ball_speed_max",
+                                      .member = &Params::ball_speed_max,
+                                      .name = "Speed Max",
+                                      .spec = {.min = 0.1f, .max = 3.0f}}};
+  }
 
   static_assert(Params{}.thickness >= 0.4f * THICKNESS_PX &&
                     Params{}.thickness <= 6.0f * THICKNESS_PX,
