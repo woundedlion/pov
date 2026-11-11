@@ -522,31 +522,23 @@ protected:
 
   /**
    * @brief Captures palette provenance for a leg departing a prior landing.
-   * @param departed Mesh the next leg departs from, in the previous leg's
-   * landing face order (so its face f carries build_landing face f's palette).
+   * @param faces Departed face count in the previous landing's face order.
    * @param scratch Arena the arrays live in.
    * @param correspondence Departed-to-swept face-order relationship.
    * @return The handoff for the next leg.
    */
   HS_FLASH_MEMBER Animation::OpLeg::PaletteHandoff
-  landing_handoff(const PolyMesh &departed, Arena &scratch,
-                  Animation::OpLeg::FaceCorrespondence correspondence =
-                      Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
-    const size_t nf = departed.face_counts.size();
-    HS_CHECK(nf <= MAX_BUILD_FACES && build_landing &&
-                 build_landing->faces >= nf,
+  landing_handoff(size_t faces, Arena &scratch,
+                  Animation::OpLeg::FaceCorrespondence correspondence) {
+    HS_CHECK(faces <= MAX_BUILD_FACES && build_landing &&
+                 build_landing->faces >= faces,
              "RecipeBuild: landing does not cover the departed mesh");
-    math::Vector *cen = nullptr;
-    uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
-    if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
-      cen = scratch.allocate_n<math::Vector>(nf);
-      MeshOps::face_centroids_into(departed, cen);
-    }
-    build_landing->copy_landed_palettes(pal, nf);
+    uint8_t *pal = scratch.allocate_n<uint8_t>(faces);
+    build_landing->copy_landed_palettes(pal, faces);
     return {.bank = &host().palette_bank.bank,
             .prev_face_palette = pal,
-            .prev_faces = nf,
-            .prev_face_centroid = cen,
+            .prev_faces = faces,
+            .prev_face_centroid = nullptr,
             .correspondence = correspondence,
             .preserve_without_births = true};
   }
@@ -614,17 +606,9 @@ protected:
     HS_CHECK(build_landing,
              "RecipeBuild: dual medial leg has no prior landing");
     const size_t medial_faces = build_landing->faces;
-    HS_CHECK(medial_faces <= MAX_BUILD_FACES,
-             "RecipeBuild: dual bridge ambo exceeds MAX_BUILD_FACES");
-    uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(medial_faces);
-    build_landing->copy_landed_palettes(pal, medial_faces);
-    Animation::OpLeg::PaletteHandoff handoff{
-        .bank = &host().palette_bank.bank,
-        .prev_face_palette = pal,
-        .prev_faces = medial_faces,
-        .prev_face_centroid = nullptr,
-        .correspondence = Animation::OpLeg::FaceCorrespondence::IDENTITY,
-        .preserve_without_births = true};
+    Animation::OpLeg::PaletteHandoff handoff =
+        landing_handoff(medial_faces, scratch_arena_a,
+                        Animation::OpLeg::FaceCorrespondence::IDENTITY);
     uint16_t *medial_topology =
         scratch_arena_a.allocate_n<uint16_t>(medial_faces);
     std::copy_n(build_landing->topology, medial_faces, medial_topology);
@@ -658,11 +642,9 @@ protected:
   HS_FLASH_MEMBER void schedule_dual_untruncate() {
     ScratchScope a_guard(scratch_arena_a);
     const size_t nf = dual_bridge_ambo_faces;
-    HS_CHECK(nf <= MAX_BUILD_FACES && build_landing &&
-                 build_landing->faces >= nf,
-             "RecipeBuild: dual bridge landing does not cover ambo(P)");
-    uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(nf);
-    build_landing->copy_landed_palettes(pal, nf);
+    Animation::OpLeg::PaletteHandoff handoff =
+        landing_handoff(nf, scratch_arena_a,
+                        Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING);
     build_landing = nullptr;
 
     // Compact: keep the seed P for leg 3, drop leg 2.
@@ -694,12 +676,6 @@ protected:
                   .topology = build_next_seed.topology.data(),
                   .faces = build_next_seed.face_counts.size()};
 
-    Animation::OpLeg::PaletteHandoff handoff{
-        .bank = &host().palette_bank.bank,
-        .prev_face_palette = pal,
-        .prev_faces = nf,
-        .correspondence = Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING,
-        .preserve_without_births = true};
     const int frames = dual_sub_frames(2);
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
     Animation::OpLeg leg(
