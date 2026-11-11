@@ -456,12 +456,13 @@ private:
     const math::RotationMatrix end_pose = poses.at(poses.times());
     const math::RotationMatrix end_to_start =
         math::rotation_between(end_pose, start_pose);
-    Plot::PointRoute<W, H> route;
-    route.prepare(canvas, spin + 2.0f * math::PI_F / W);
 
     ScratchScope chunk_scope(scratch_arena_a);
-    Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, float, uint8_t> chunk(
-        scratch_arena_a);
+    Plot::ColumnChainDraw<W, H, COLUMN_CHUNK_VERTICES, decltype(timed_pipeline),
+                          float, uint8_t>
+        draw(scratch_arena_a, timed_pipeline, canvas,
+             spin + 2.0f * math::PI_F / W);
+    auto &chunk = draw.chunk;
     constexpr int TRAIL_POINTS = TRAIL_LEN + 1;
     static_assert(TRAIL_POINTS <= COLUMN_CHUNK_VERTICES,
                   "a whole trail must fit one begin_chain");
@@ -474,15 +475,7 @@ private:
     auto color = [&](size_t head, float progress, float time) HS_HOT_INLINE {
       return trail_color(progress, time, chunk.template attribute<1>(head));
     };
-    Plot::GeometryCallback geometry;
-    geometry.source_positions = false;
-    geometry.chained = true;
-    const auto setup =
-        Plot::Mesh::column_draw_setup<W, H>(timed_pipeline, canvas);
-    auto flush = [&]() HS_HOT_INLINE {
-      chunk.template flush<W, H>(timed_pipeline, canvas, setup, coordinate,
-                                 color, geometry, 0.0f);
-    };
+    auto flush = [&]() HS_HOT_INLINE { draw.flush(coordinate, color, 0.0f); };
 
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];
@@ -527,8 +520,8 @@ private:
         if (cull.rejects(pair, 2, spin))
           continue;
         const float head = node_progress(j), tail = node_progress(j - 1);
-        chunk.template plot_edge<W, H>(
-            route, trail_pipeline, canvas,
+        draw.plot_edge(
+            trail_pipeline,
             {static_cast<uint16_t>(j), static_cast<uint16_t>(j - 1)},
             {starts[j], starts[j - 1]}, {world[j], world[j - 1]}, STEADY_POINTS,
             [&](float s, float time) HS_HOT_INLINE {

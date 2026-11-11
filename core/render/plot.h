@@ -16,3 +16,4 @@
 #include "core/render/plot/particles.h"
 #include "core/render/plot/chords.h"
 #include "core/render/plot/point_route.h"
+#include "core/render/plot/column_chain.h"

@@ -1490,6 +1490,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── polar_walk.h            Column-time strokes in display-pole equidistant charts
 │   │   │   ├── column_walk.h           Geometry callbacks and column-time edge walk
 │   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
+│   │   │   ├── column_chain.h          Chained edges drawn at column times through a point route and column-walk chunks
 │   │   │   └── cull/                   Cull region, edge samplers, span tests and visibility gates behind cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
 │   │   │                            umbrella over filter/

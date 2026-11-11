@@ -474,8 +474,6 @@ private:
     if (count_vertices < 2)
       return;
     const auto cull = Plot::SweptEdgeCull<W>::template of<H>(canvas);
-    Plot::PointRoute<W, H> route;
-    route.prepare(canvas, bound + 2.0f * math::PI_F / W);
 
     ScratchScope kept_scope(scratch_arena_a);
     auto *kept = scratch_arena_a.allocate_n<uint16_t>(count_vertices);
@@ -493,8 +491,10 @@ private:
       }
     }
 
-    Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, uint16_t> chunk(
-        scratch_arena_a);
+    Plot::ColumnChainDraw<W, H, COLUMN_CHUNK_VERTICES, decltype(filters),
+                          uint16_t>
+        draw(scratch_arena_a, filters, canvas, bound + 2.0f * math::PI_F / W);
+    auto &chunk = draw.chunk;
 
     auto chord_position = [&](size_t i, float t) HS_HOT_FLASH_MEMBER {
       const math::Vector &from = starts[chunk.template attribute<0>(i)].pos;
@@ -510,15 +510,8 @@ private:
       chunk.position(slot) = ends[source];
       chunk.template attribute<0>(slot) = static_cast<uint16_t>(source);
     };
-    Plot::GeometryCallback geometry;
-    geometry.evaluate = chord_position;
-    geometry.source_positions = false;
-    geometry.chained = true;
-    const auto setup = Plot::Mesh::column_draw_setup<W, H>(filters, canvas);
-    auto flush = [&]() HS_HOT_INLINE {
-      chunk.template flush<W, H>(filters, canvas, setup, coordinate, color,
-                                 geometry, bound);
-    };
+    draw.geometry.evaluate = chord_position;
+    auto flush = [&]() HS_HOT_INLINE { draw.flush(coordinate, color, bound); };
 
     for (size_t k = kept_count - 1; k > 0; --k) {
       const size_t head = kept[k], tail = kept[k - 1];
@@ -530,9 +523,8 @@ private:
           Plot::EdgeWorldsheet::normalize(starts[tail].pos)};
       const float head_t = starts[head].palette_t;
       const float tail_t = starts[tail].palette_t;
-      chunk.template plot_edge<W, H>(
-          route, filters, canvas,
-          {static_cast<uint16_t>(head), static_cast<uint16_t>(tail)},
+      draw.plot_edge(
+          filters, {static_cast<uint16_t>(head), static_cast<uint16_t>(tail)},
           start_pair, end_pair, STEADY_POINTS,
           [&](float s, float time) HS_HOT_INLINE {
             return shade(head_t + (tail_t - head_t) * s, time);
