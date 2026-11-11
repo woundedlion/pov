@@ -341,7 +341,7 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
           const auto &lab =
               base.nodes[base_row * PaletteLabLut::VALUES + value];
           LinRGB raw;
-          const auto node = rotate_node(lab, cosines[hue], sines[hue], raw);
+          const auto node = rotate_hue_node(lab, cosines[hue], sines[hue], raw);
           nodes[row * HueRotationLutView::SIZE +
                 value * HueRotationLutView::HUE_STEPS + hue] = node;
           builder.append(value, hue, raw, node);
@@ -376,23 +376,6 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
                   sizeof(baked_midpoint));
     base.rgb_nodes = nodes.data();
     base.rgb_masks = masks.data();
-  }
-  /** @brief Final hue node with a prepared rotation.
-   * @param lab Baked interval base.
-   * @param cosine Hue cosine.
-   * @param sine Hue sine.
-   * @param raw Receives rotated linear RGB before gamut mapping.
-   * @return Gamut-mapped RGB16 node. */
-  HS_HOT_INLINE static Pixel rotate_node(const OKLab &lab, float cosine,
-                                         float sine, LinRGB &raw) {
-    const auto rotated = rotate_chroma(lab, cosine, sine);
-    raw = oklab_to_linear_rgb(rotated);
-    LinRGB mapped = raw;
-    if (!linear_rgb_in_gamut(raw.r, raw.g, raw.b)) {
-      HS_PROFILE_DEEP(gamut_clip);
-      mapped = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(rotated));
-    }
-    return linrgb_to_pixel(mapped);
   }
   /** @brief Trilinear palette, hue and time lookup.
    * @param time Prepared neighboring RGB rows.

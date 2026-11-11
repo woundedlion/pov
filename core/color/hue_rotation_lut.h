@@ -140,6 +140,24 @@ inline void mark_hue_gamut_node(HueRotationGamutBuilder &builder, int value,
   builder.append(value, hue, raw, node);
 }
 
+/** @brief Gamut-mapped hue node and its unmapped linear RGB.
+ * @param lab Baked interval base.
+ * @param cosine Hue cosine.
+ * @param sine Hue sine.
+ * @param raw Receives rotated linear RGB before gamut mapping.
+ * @return Gamut-mapped RGB16 node. */
+HS_FLASH_INLINE inline Pixel rotate_hue_node(const OKLab &lab, float cosine,
+                                             float sine, LinRGB &raw) {
+  const auto rotated = rotate_chroma(lab, cosine, sine);
+  raw = oklab_to_linear_rgb(rotated);
+  LinRGB mapped = raw;
+  if (!linear_rgb_in_gamut(raw.r, raw.g, raw.b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    mapped = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(rotated));
+  }
+  return linrgb_to_pixel(mapped);
+}
+
 /**
  * @brief Bakes all palette-coordinate and hue-rotation combinations.
  * @tparam Source Palette source exposing Color4 get(float) const.
@@ -164,13 +182,15 @@ prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
          ++hue_index) {
       const float amount =
           static_cast<float>(hue_index) / HueRotationLutView::HUE_STEPS;
-      const Pixel node = hue_rotate_lut_gamut(base, amount).color;
+      Pixel node;
       if (gamut_mask) {
         float cosine, sine;
         hue_sincos(amount, cosine, sine);
-        mark_hue_gamut_node(builder, value_index, hue_index, base.lab, cosine,
-                            sine, node);
-      }
+        LinRGB raw;
+        node = rotate_hue_node(base.lab, cosine, sine, raw);
+        builder.append(value_index, hue_index, raw, node);
+      } else
+        node = hue_rotate_lut_gamut(base, amount).color;
       output[value_index * HueRotationLutView::HUE_STEPS + hue_index] = node;
     }
   }
