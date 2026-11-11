@@ -28,6 +28,7 @@
 #   HS_PIO_JOBS=<n>         `pio run -j` for the builds (tools/fw_cache.sh)
 #   HS_PROFILE_TREE=<path>  checkout to build (default: the one holding this script)
 #   HS_PROFILE_OUT=<path>   capture log path; all per-run artifacts share its stem
+#   HS_PROFILE_LABEL=<name> label in the default log stem before the build tag
 #   HS_PROFILE_ARTIFACTS_KEEP=<n> artifact directories kept, including this capture's (100)
 #   HS_PROFILE_EXPECT_SHAPE=<name> require "Spawning Shape: <name>" in the capture
 #                           (used by profile_islamic_big.sh for IslamicStars)
@@ -152,7 +153,7 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
     ;;
 esac
 MODE_SUFFIX="${MSP_SUFFIX}${PC_SUFFIX}"
-OUT=$(hs_native_path "${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}")
+OUT=$(hs_native_path "${HS_PROFILE_OUT:-build/prof/${LOWER}${HS_PROFILE_LABEL:+_$HS_PROFILE_LABEL}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}")
 # Every per-run artifact shares the log's stem, and the provenance lines name
 # them in a form the Windows Python report tools open.
 STEM=${OUT%.log}
