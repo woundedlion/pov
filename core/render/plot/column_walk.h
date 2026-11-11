@@ -2,12 +2,23 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/plot/raster.h.
+#include "core/render/canvas.h"
+#include "core/render/filter/screen_anti_alias.h"
+#include "core/render/plot/raster_config.h"
+#include "core/render/spacetime/crossing.h"
+#include "core/render/spacetime/pose_table.h"
+#include "core/render/spacetime/swept_bound.h"
+#include "core/render/spacetime/worldlines.h"
 
 /** @file column_walk.h
  * @brief Geometry callbacks and the column-time edge walk.
  */
+
+namespace Plot {
+
+HS_O3_BEGIN
 
 /** @brief Borrowed geometric control-point evaluator and path bounds. */
 struct GeometryCallback {
@@ -41,8 +52,6 @@ struct GeometryCallback {
     return {fn};
   }
 };
-
-HS_O3_BEGIN
 
 #if HS_ENABLE_TEST_HOOKS
 /** @brief Spacing checks using the directional certificate. */
@@ -1609,3 +1618,5 @@ HS_HOT_FLASH_MEMBER void rasterize_recording_column_edges(
 }
 
 HS_O3_END
+
+} // namespace Plot

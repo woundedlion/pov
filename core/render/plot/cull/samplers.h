@@ -2,12 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/plot/cull.h.
+#include "core/render/plot/cull/region.h"
 
 /** @file samplers.h
  * @brief Planar and geodesic edge samplers and their per-edge setup.
  */
+
+namespace Plot {
 
 /** @brief Azimuthal chart coordinates in angular plane units. */
 struct ChartPoint {
@@ -595,3 +598,5 @@ make_planar_edge_sampler(const PlanarEdgeSpan &span, const math::Vector &end,
   sampler.dist = sampler.arc_cumul[PLANAR_LEN_SAMPLES];
   return sampler;
 }
+
+} // namespace Plot

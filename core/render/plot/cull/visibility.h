@@ -2,13 +2,19 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/render/plot/cull/region.h"
+#include "core/render/plot/cull/samplers.h"
+#include "core/render/plot/cull/spans.h"
+#include "core/render/plot/cull/pipeline.h"
 
 /** @file visibility.h
  * @brief Clip-visibility gates for dots, caps, rings and trails, and the
  * pipeline-aware screen step.
  */
 
-// Included by core/render/plot/cull.h.
+namespace Plot {
 
 /** @brief Tests a transformed geodesic against a motion-padded region.
  * @tparam W,H Canvas dimensions.
@@ -1052,3 +1058,5 @@ gate_trail_edges(const PipelineT &, const ClipRegion &cr,
   return any;
 }
 HS_O3_END
+
+} // namespace Plot

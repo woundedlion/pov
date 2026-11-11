@@ -2,12 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/plot/cull.h.
+#include "core/render/plot/cull/region.h"
+#include "core/render/plot/cull/spans.h"
 
 /** @file pipeline.h
  * @brief Compile-time pipeline-stage queries and the one-dot edge test.
  */
+
+namespace Plot {
 
 /**
  * @brief True when @p P statically declares it has no world cull stage, so a
@@ -81,3 +85,5 @@ static inline bool edge_fits_one_dot(const math::Vector &a,
          SPX2 * SCREEN_RSQRT_MIN2 * sin2 * sin2;
 }
 HS_O3_END
+
+} // namespace Plot

@@ -2,14 +2,19 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/plot/raster.h.
+#include "core/render/plot/raster_config.h"
 
 /**
  * @file raster_walk.h
  * @brief Per-sample seeding, shading and plotting helpers and the planar
  * rendered-arc table used by rasterize().
  */
+
+namespace Plot {
+
+HS_O3_BEGIN
 
 /**
  * @brief Starts a raster sample at @p src's position.
@@ -212,3 +217,7 @@ private:
   float cumul = 0.0f;
   const math::Basis *planar_basis = nullptr;
 };
+
+HS_O3_END
+
+} // namespace Plot

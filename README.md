@@ -1469,11 +1469,12 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
-│   │   │   ├── raster_walk.h           Raster sample setup, shading, plotting and planar arc registers included by raster.h
+│   │   │   ├── raster_config.h         rasterize() configuration, options, scratch budgets and per-step helpers
+│   │   │   ├── raster_walk.h           Raster sample setup, shading, plotting and planar arc registers
 │   │   │   ├── polar_walk.h            Column-time strokes in display-pole equidistant charts
-│   │   │   ├── column_walk.h           Geometry callbacks and column-time edge walk included by raster.h
+│   │   │   ├── column_walk.h           Geometry callbacks and column-time edge walk
 │   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
-│   │   │   └── cull/                   Cull strategy sections included by cull.h
+│   │   │   └── cull/                   Cull region, edge samplers, span tests and visibility gates behind cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
 │   │   │                            umbrella over filter/
 │   │   ├── filter/                 Pipeline composition (pipeline) and the shared splat

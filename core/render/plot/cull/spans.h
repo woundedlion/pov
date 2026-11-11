@@ -2,13 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/plot/cull.h.
+#include "core/render/plot/cull/region.h"
+#include "core/render/plot/cull/samplers.h"
 
 /** @file spans.h
  * @brief Screen row and column spans of geodesic and planar edges, their clip
  * visibility tests, and adaptive screen-step lengths.
  */
+
+namespace Plot {
 
 /**
  * @brief Screen row of a unit-sphere y coordinate (the renderer's row map).
@@ -726,3 +730,5 @@ static inline float screen_step(const math::Vector &pos,
 /** @brief Caps rasterize()'s per-segment sub-step budget; 0 leaves it alone. */
 inline size_t g_step_budget_override = 0;
 #endif
+
+} // namespace Plot

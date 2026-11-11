@@ -1704,7 +1704,7 @@ inline const Case *all_cases(int &n) {
            "(params.loop_seam == nullptr || params.close_loop) a raster seam fragment requires a closed loop"},
           {"raster_point_projection_pair_mismatch",
            case_raster_point_projection_pair_mismatch,
-           "core/render/plot/raster.h",
+           "core/render/plot/raster_config.h",
            "(rows.size() == cols.size()) hoisted point projection rows and columns differ in length"},
           {"raster_nonfinite_point", case_raster_nonfinite_point,
            "core/render/plot/raster.h",
