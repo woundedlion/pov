@@ -155,6 +155,7 @@ struct IsPipelineSink : FilterTraits<true, false> {
 template <typename T>
 concept PipelineFoldSurface = requires {
   requires std::is_same_v<decltype(T::is_pipeline), const bool>;
+  requires std::is_same_v<decltype(T::terminal_replaces), const bool>;
   requires std::is_same_v<decltype(T::any_crosses_segments), const bool>;
   requires std::is_same_v<decltype(T::any_reads_outside_band), const bool>;
   requires std::is_same_v<decltype(T::any_2d_history), const bool>;
@@ -252,6 +253,8 @@ protected:
 public:
   /// Whole-pipeline marker.
   static constexpr bool is_pipeline = PipelineT::is_pipeline;
+  /// Whether the terminal overwrites the frame.
+  static constexpr bool terminal_replaces = PipelineT::terminal_replaces;
   /// No stage moves world points.
   static constexpr bool world_transform_is_identity =
       PipelineT::world_transform_is_identity;
