@@ -805,8 +805,8 @@ public:
     this->register_described_params();
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    this->register_readonly_param("Unfinished Rays", &unfinished_rays, 0,
-                                  (W + 2) * (H + 2));
+    this->template register_described_params<&HyperLattice::telemetry_fields>(
+        *this);
 #endif
     refresh_configuration_schema();
     depth_palette.init_generated(persistent_arena,
@@ -1209,6 +1209,18 @@ private:
   math::Vec4 trace_center{{.255f, .465f, .645f, .375f}};
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   float unfinished_rays = 0;
+
+  /** @brief Descriptions of the engine-written telemetry parameters.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto telemetry_fields() {
+    return std::tuple{Control::Field<HyperLattice, float>{
+        .id = "unfinished_rays",
+        .member = &HyperLattice::unfinished_rays,
+        .name = "Unfinished Rays",
+        .spec = {.min = 0.0f,
+                 .max = static_cast<float>((W + 2) * (H + 2)),
+                 .readonly = true}}};
+  }
 #endif
 
   /// Hue offsets, in turns, the depth palette cycles through.

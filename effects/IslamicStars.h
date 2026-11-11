@@ -154,25 +154,14 @@ public:
     params.trans_speed = static_cast<float>(HS_PROFILE_TRANS_SPEED);
 #endif
 
-    // Per-face fade length range (frames): each face draws a random fade from
-    // [lo, hi] as the terminator reaches it, fraying the sweep front.
-    this->register_param("Face Fade Lo", &carousel.segue().fade_frames_min,
-                         0.0f, 32.0f);
-    this->register_param("Face Fade Hi", &carousel.segue().fade_frames_max,
-                         0.0f, 32.0f);
-    this->register_int_param("Burst", &params.burst_size, 1, BURST_MAX);
-    // Thickness is fixed, so RIPPLE_AMP_MAX bounds amp/thickness.
-    this->register_param("Ripp Amp", &ripple_gen.template_params.amplitude,
-                         0.0f, RIPPLE_AMP_MAX);
-    this->register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f,
-                         5.0f);
-    for (const char *name :
-         {"Face Fade Lo", "Face Fade Hi", "Ripp Amp", "Ripp Decay"})
-      this->mark_global(name);
-    this->register_param("Ripp Dur", &params.ripple_duration,
-                         RIPPLE_DURATION_MIN, RIPPLE_DURATION_MAX);
-    this->register_param("Trans Speed", &params.trans_speed, TRANS_SPEED_MIN,
-                         TRANS_SPEED_MAX);
+    this->template register_described_params<&IslamicStars::segue_fields>(
+        carousel.segue());
+    this->template register_described_params<&IslamicStars::burst_fields>(
+        params);
+    this->template register_described_params<&IslamicStars::ripple_fields>(
+        ripple_gen.template_params);
+    this->template register_described_params<&IslamicStars::timing_fields>(
+        params);
 
     add_orientation_walk();
 
@@ -281,6 +270,68 @@ private:
   using SegueT = Segue::TerminatorSweep;
 
   MeshCarousel<SegueT> carousel;
+
+  /** @brief Descriptions of the global per-face fade range parameters.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto segue_fields() {
+    return std::tuple{
+        // Per-face fade length range (frames): each face draws a random fade
+        // from [lo, hi] as the terminator reaches it, fraying the sweep front.
+        Control::Field<SegueT, float>{
+            .id = "fade_frames_min",
+            .member = &SegueT::fade_frames_min,
+            .name = "Face Fade Lo",
+            .spec = {.min = 0.0f, .max = 32.0f, .preset = false}},
+        Control::Field<SegueT, float>{
+            .id = "fade_frames_max",
+            .member = &SegueT::fade_frames_max,
+            .name = "Face Fade Hi",
+            .spec = {.min = 0.0f, .max = 32.0f, .preset = false}}};
+  }
+
+  /** @brief Description of the ripple burst size parameter.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto burst_fields() {
+    return std::tuple{Control::Field<IslamicStarsParams, uint8_t>{
+        .id = "burst_size",
+        .member = &IslamicStarsParams::burst_size,
+        .name = "Burst",
+        .spec = {.min = 1, .max = BURST_MAX}}};
+  }
+
+  /** @brief Descriptions of the global ripple template parameters.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto ripple_fields() {
+    return std::tuple{
+        // Thickness is fixed, so RIPPLE_AMP_MAX bounds amp/thickness.
+        Control::Field<Animation::RippleParams, float>{
+            .id = "amplitude",
+            .member = &Animation::RippleParams::amplitude,
+            .name = "Ripp Amp",
+            .spec = {.min = 0.0f, .max = RIPPLE_AMP_MAX, .preset = false}},
+        Control::Field<Animation::RippleParams, float>{
+            .id = "decay",
+            .member = &Animation::RippleParams::decay,
+            .name = "Ripp Decay",
+            .spec = {.min = 0.0f, .max = 5.0f, .preset = false}}};
+  }
+
+  /** @brief Descriptions of the ripple duration and transition speed
+   *         parameters.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto timing_fields() {
+    return std::tuple{
+        Control::Field<IslamicStarsParams, float>{
+            .id = "ripple_duration",
+            .member = &IslamicStarsParams::ripple_duration,
+            .name = "Ripp Dur",
+            .spec = {.min = RIPPLE_DURATION_MIN, .max = RIPPLE_DURATION_MAX}},
+        Control::Field<IslamicStarsParams, float>{
+            .id = "trans_speed",
+            .member = &IslamicStarsParams::trans_speed,
+            .name = "Trans Speed",
+            .spec = {.min = TRANS_SPEED_MIN, .max = TRANS_SPEED_MAX}}};
+  }
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank;

@@ -138,8 +138,8 @@ public:
   HS_FLASH_MEMBER void init() override {
     ArenaSplit{SURFACE_SCRATCH_A_BYTES, SURFACE_SCRATCH_B_BYTES}.configure();
     params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
-    register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
-    mark_global("Alpha");
+    this->template register_described_params<&ShapeShifter::global_fields>(
+        *this);
     this->register_described_params();
 
     spaced_radius_t = persistent_arena.allocate_n<float>(MAX_SHAPES);
@@ -275,9 +275,7 @@ private:
   }
 
   using Choreography::begin_choreography;
-  using Choreography::mark_global;
   using Choreography::params;
-  using Choreography::register_param;
   using Choreography::step_choreography;
   using Choreography::timeline;
 
@@ -1376,6 +1374,16 @@ private:
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
   float alpha = 1.0f;
   float preset_opacity = 1.0f;
+
+  /** @brief Descriptions of the effect-owned parameters preset exports omit.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto global_fields() {
+    return std::tuple{Control::Field<ShapeShifter, float>{
+        .id = "alpha",
+        .member = &ShapeShifter::alpha,
+        .name = "Alpha",
+        .spec = {.min = ALPHA_MIN, .max = ALPHA_MAX, .preset = false}}};
+  }
   float phase = 0.0f;
   float twist_step = 0.0f;  ///< Waveform phase advance over this frame, turns.
   bool twist_ready = false; ///< Whether the phase continues the last frame.

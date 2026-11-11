@@ -200,11 +200,8 @@ public:
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
 
     this->register_described_params();
-
-    register_param("Feedback", &feedback_enabled);
-    mark_global("Feedback");
-    register_param("Pole Half-Res", &pole_half_res, POLE_RES_MIN, POLE_RES_MAX);
-    mark_global("Pole Half-Res");
+    this->template register_described_params<&MeshFeedback::global_fields>(
+        *this);
 
     filters.init_storage(persistent_arena);
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
@@ -270,9 +267,7 @@ private:
   friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
 
   using Choreography::begin_choreography;
-  using Choreography::mark_global;
   using Choreography::params;
-  using Choreography::register_param;
   using Choreography::step_choreography;
   using Choreography::timeline;
 
@@ -332,6 +327,23 @@ private:
   bool feedback_enabled = true;
   /** Feedback::Style::pole_half_res; global, so preset snaps keep it. */
   float pole_half_res = 1.0f;
+
+  /** @brief Descriptions of the effect-owned parameters preset exports omit.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto global_fields() {
+    return std::tuple{Control::Field<MeshFeedback, bool>{
+                          .id = "feedback_enabled",
+                          .member = &MeshFeedback::feedback_enabled,
+                          .name = "Feedback",
+                          .spec = {.min = 0, .max = 1, .preset = false}},
+                      Control::Field<MeshFeedback, float>{
+                          .id = "pole_half_res",
+                          .member = &MeshFeedback::pole_half_res,
+                          .name = "Pole Half-Res",
+                          .spec = {.min = POLE_RES_MIN,
+                                   .max = POLE_RES_MAX,
+                                   .preset = false}}};
+  }
   Animation::NoiseParams noise_params;
   // Separate walk generator: RandomWalk owns its frequency and seed, and
   // noise_params.sync() rewrites the shared one every frame.

@@ -635,18 +635,20 @@ public:
   MyEffect()
       : Base(W, H, pipeline_config<decltype(filters)>({.strobe = true})) {}
 
-  static bool valid_params(const MyParams &p) {
-    return std::isfinite(p.speed) && p.speed >= 0.0f && p.speed <= 10.0f;
+  static constexpr auto parameter_fields() {
+    return std::tuple{Control::Field<MyParams, float>{
+        .id = "speed", .member = &MyParams::speed, .name = "Speed",
+        .spec = {.min = 0.0f, .max = 10.0f}}};
   }
 
   static consteval auto choreography_hooks() {
     return Control::HookSet<MyEffect,
-        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
-                             &MyEffect::valid_params>>{};
+        Control::HookBinding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                             &MyEffect::parameter_fields>>{};
   }
 
   void init() override {
-    this->register_param("Speed", &params.speed, 0.0f, 10.0f);
+    this->register_described_params();
     this->begin_choreography();
   }
 
@@ -668,19 +670,32 @@ private:
 
 ### 6.2 Parameters
 
-Effects expose live-adjustable parameters through the float `register_param()`, integer `register_int_param()`, typed-enum overloads, and runtime `enum8` registration (`control/param_host.h`). These are reflected into the WASM bridge and auto-generate GUI controls in the simulator.
+Effects describe their live-adjustable parameters as tuples of `Control::Field` (`control/fields.h`), one per member: a stable `id`, the member pointer, the GUI name, and a `ParamSpec<T>` carrying bounds, option labels and the named policy fields `.animated`, `.readonly` and `.preset`. `register_described_params<&Fx::parameter_fields>(owner)` registers a tuple, in order, against the aggregate holding its members. Registered parameters are reflected into the WASM bridge and auto-generate GUI controls in the simulator.
 
-The typed `register_param(name, T*, ParamSpec<T>)` overload carries bounds and control metadata. Policies are named fields (`.animated`, `.readonly`, `.preset`) or named helpers such as `register_animated_param()`; registration overloads do not take positional policy booleans. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. Bind custom methods explicitly in `choreography_hooks()` with `Control::HookBinding`; the returned `Control::HookSet` names the declaring effect as its owner. An empty owned list uses defaults, and a `Pullback::ComposedEffect` can explicitly inherit its default list with `Control::HookOwnership::INHERITED`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields.
+Registration lowers to the protected `ParamHost` primitive `register_param(name, T*, ParamSpec<T>)` (`control/param_host.h`). It and its float, integer, typed-enum and runtime `enum8` helpers stay available to engine code such as `Pullback::ComposedEffect`'s generated controls; no registration overload takes positional policy booleans. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. Bind custom methods explicitly in `choreography_hooks()` with `Control::HookBinding`; the returned `Control::HookSet` names the declaring effect as its owner. An empty owned list uses defaults, and a `Pullback::ComposedEffect` can explicitly inherit its default list with `Control::HookOwnership::INHERITED`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields.
 
 ```cpp
-register_param("Twist",   &params.twist, -5.0f, 5.0f);        // float slider (min, max)
-register_param("Enabled", &params.enabled);                   // boolean toggle (bool* overload takes no range)
-register_param("Shape",   &params.shape, SHAPE_NAMES, 4);     // dropdown; float* index over [0, count-1]
-register_animated_param("Speed", &params.speed, 0.0f, 2.0f);  // animation-driven slider
-register_readonly_param("Particles", &params.active_count, 0.0f, 1024.0f);  // engine-written telemetry
+// float slider (min, max)
+Control::Field<Params, float>{.id = "twist", .member = &Params::twist,
+    .name = "Twist", .spec = {.min = -5.0f, .max = 5.0f}},
+// boolean toggle
+Control::Field<Params, bool>{.id = "enabled", .member = &Params::enabled,
+    .name = "Enabled", .spec = {.min = 0, .max = 1}},
+// dropdown over the enum's indices [0, count-1]
+Control::Field<Params, Shape>{.id = "shape", .member = &Params::shape,
+    .name = "Shape", .spec = ParamSpec<Shape>::enumerated(SHAPE_NAMES, 4)},
+// animation-driven slider
+Control::Field<Params, float>{.id = "speed", .member = &Params::speed,
+    .name = "Speed", .spec = {.min = 0.0f, .max = 2.0f, .animated = true}},
+// engine-written telemetry
+Control::Field<Params, float>{.id = "particles", .member = &Params::active_count,
+    .name = "Particles", .spec = {.min = 0.0f, .max = 1024.0f, .readonly = true}},
+// global control, skipped by preset exports
+Control::Field<Params, float>{.id = "alpha", .member = &Params::alpha,
+    .name = "Alpha", .spec = {.min = 0.0f, .max = 1.0f, .preset = false}},
 ```
 
-The enum overload takes an array of option labels that must outlive the effect (string literals). `register_animated_param` marks the param as written by the animation system, so the GUI renders it as an auto-pausing slider that engages "Pause Presets" when touched; `register_readonly_param` marks it engine-written, so the GUI shows the live value but disables editing. The readonly flag can also be applied to an already-registered param via `mark_readonly(name)`, and `mark_global(name)` marks an already-registered param a global control rather than part of the effect's presets, clearing the `preset` flag so preset exports skip it.
+Option labels must outlive the effect (string literals). `.animated` marks the param as written by the animation system, so the GUI renders it as an auto-pausing slider that engages "Pause Presets" when touched; `.readonly` marks it engine-written, so the GUI shows the live value but disables editing; `.preset = false` makes it a global control rather than part of the effect's presets, so preset exports skip it. `mark_readonly(name)` toggles the readonly flag of an already-registered param, and `mark_global(name)` clears its `preset` flag.
 
 The parameter list (`ParamList`) is accessible via `getParameters()`, and `updateParameter(name, float)` sets values at runtime. Its default storage is a fixed array of `HS_INLINE_PARAM_CAPACITY` entries; an effect that needs more calls `use_parameter_storage()` to swap in an arena-allocated array, as `ShaderChain` (`MAX_CHAIN_PARAMS`) and every `Pullback::ComposedEffect` (sized from its spec) do. Either way the capacity is fixed, which preserves the no-realloc memory-view invariant the WASM bridge depends on. Each `ParamDef` holds a plain `void *` target tagged by a `TargetType`: `FLOAT`, `BOOL`, or one of the signed and unsigned 8-, 16- and 32-bit integer widths. Every write arrives as a float and is converted on store, with bools thresholded at 0.5. The animation system can also write these parameters, so effects can animate their own exposed controls.
 
