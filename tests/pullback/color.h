@@ -377,8 +377,8 @@ inline void test_pullback_fused_rgb_carrier_finish() {
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{Color4(Pixel(12000, 13000, 14000), 1.0f)},
                 ConstantPalette{Color4(Pixel(22000, 23000, 24000), 1.0f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
+  auto &a = palettes.a;
+  auto &b = palettes.b;
   PaletteLabLut cache;
   cache.bake(a.view(), b.view());
   PaletteRgbHueLut rgb;
@@ -456,8 +456,8 @@ inline void test_pullback_cached_phase_finish() {
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{Color4(Pixel(12000, 8000, 4000), 1.0f)},
                 ConstantPalette{Color4(Pixel(7000, 15000, 19000), 1.0f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
+  auto &a = palettes.a;
+  auto &b = palettes.b;
   PaletteLabLut cache;
   cache.bake(a.view(), b.view());
   PaletteRgbHueLut rgb;
@@ -688,8 +688,8 @@ inline void test_pullback_shared_lab_dispatch() {
   TemporalPalettes<BakedPalette::required_arena_bytes()> palettes;
   palettes.bake(ConstantPalette{Color4(Pixel(1000, 2000, 3000), 1.0f)},
                 ConstantPalette{Color4(Pixel(9000, 6000, 1000), 1.0f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
+  auto &a = palettes.a;
+  auto &b = palettes.b;
   PaletteLabLut cache;
   cache.bake(a.view(), b.view());
   Color::PhaseModulationState layer;
@@ -816,8 +816,6 @@ inline void test_pullback_phase_tail_dispatch() {
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)},
                 ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
   Color::PhaseModulationState layer;
   layer.source = Pattern::SourceKind::DISPLACEMENT;
   layer.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.2f};
@@ -889,8 +887,6 @@ inline void test_pullback_paired_color_dispatch() {
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)},
                 ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
   PaletteFrame frame;
   palettes.bind(frame);
   for (float fraction : {0.0f, 0.25f, 1.0f}) {
@@ -926,8 +922,7 @@ inline void test_pullback_paired_palette_controls() {
   using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
   TemporalPalettes<> palettes;
   palettes.bake(CoordinatePalette{0.2f}, CoordinatePalette{0.6f});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
+  auto &a = palettes.a;
   std::array<Pixel, 2> hue{};
   PaletteFrame frame;
   palettes.bind(frame);
@@ -966,8 +961,6 @@ inline void test_pullback_temporal_palette() {
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)},
                 ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
   PaletteFrame frame;
   palettes.bind(frame);
   frame.mechanic.amount = 0.0f;
@@ -989,8 +982,6 @@ inline void test_pullback_modulation_temporal_alpha() {
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{Color4(RGB, 0.2f)},
                 ConstantPalette{Color4(RGB, 0.6f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
   Modulation::Resources<false> previous, current;
   prepare_sine_clock_pair(previous, current);
   PaletteFrame frame;
@@ -1228,8 +1219,6 @@ inline void test_pullback_temporal_composed_modulations() {
   const Color4 END(Pixel(0, 0, 65535), 0.6f);
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{START}, ConstantPalette{END});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
   Modulation::Resources<false> previous, current;
   prepare_sine_clock_pair(previous, current);
   PaletteFrame frame;
@@ -1341,8 +1330,7 @@ inline void test_pullback_fused_modulation_endpoints() {
   TemporalPalettes<> palettes;
   palettes.bake(CoordinatePalette{0.2f},
                 ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
+  auto &a = palettes.a;
   PaletteFrame frame;
   palettes.bind(frame);
   using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
@@ -1494,8 +1482,8 @@ inline void test_pullback_fused_cached_modulation() {
   TemporalPalettes<BakedPalette::required_arena_bytes()> palettes;
   palettes.bake(CoordinatePalette{1.0f},
                 ConstantPalette{Color4(Pixel(32000, 44000, 13000), 1.0f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
+  auto &a = palettes.a;
+  auto &b = palettes.b;
   auto &arena = palettes.arena;
   BakedPaletteStorage translucent;
   translucent.bake(arena,
@@ -1568,8 +1556,8 @@ inline void test_pullback_fused_lab_direct_fallback() {
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{Color4(Pixel(1626, 1306, 43097), 1.0f)},
                 ConstantPalette{Color4(Pixel(1451, 1516, 42130), 1.0f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
+  auto &a = palettes.a;
+  auto &b = palettes.b;
   PaletteLabLut cache;
   cache.active = true;
   std::array<Pixel, HueRotationLutView::SIZE> hue;
@@ -1627,8 +1615,8 @@ inline void test_pullback_fused_lab_current_endpoint() {
   TemporalPalettes<> palettes;
   palettes.bake(ConstantPalette{Color4(Pixel(10000, 40000, 20000), 1.0f)},
                 ConstantPalette{Color4(Pixel(1451, 1516, 42130), 1.0f)});
-  [[maybe_unused]] auto &a = palettes.a;
-  [[maybe_unused]] auto &b = palettes.b;
+  auto &a = palettes.a;
+  auto &b = palettes.b;
   PaletteLabLut cache;
   PaletteFrame frame;
   palettes.bind(frame);
@@ -1808,8 +1796,6 @@ inline void test_pullback_prepared_cube_pair() {
   TemporalPalettes<> palettes;
   palettes.bake(CoordinatePalette{0.2f},
                 ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});
-  [[maybe_unused]] auto &from = palettes.a;
-  [[maybe_unused]] auto &to = palettes.b;
   PaletteFrame frame;
   palettes.bind(frame);
   frame.previous_modulation = &a;
