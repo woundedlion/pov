@@ -44,6 +44,7 @@ struct DynamoWhiteBox {
     effect.color_wipe();
     HS_EXPECT_EQ(effect.color(math::Z_AXIS, 0.5f).color, opening.color);
     effect.palette_boundaries.front() = math::PI_F + effect.WIPE_BLEND_WIDTH;
+    effect.prepare_wipe_boundaries();
     HS_EXPECT_EQ(effect.color(math::Z_AXIS * -1.0f, 0.5f).color,
                  effect.baked_palettes[0].get(0.5f).color);
     effect.color_wipe();
@@ -54,6 +55,7 @@ struct DynamoWhiteBox {
     // baked_palettes[i+1] access for part of the sweep.
     effect.palette_boundaries[0] = 1.5f; // newer, overtaken ahead of the older
     effect.palette_boundaries[1] = 0.5f; // older, left behind
+    effect.prepare_wipe_boundaries();
 
     // PALETTE_NORMAL is Z_AXIS, so v = (sin theta, 0, cos theta) sweeps
     // angle_between(v, normal) across the full [0, PI] band span.
@@ -67,6 +69,13 @@ struct DynamoWhiteBox {
       HS_EXPECT_GE(c.alpha, 0.0f);
       HS_EXPECT_LE(c.alpha, 1.0f);
     }
+
+    effect.palette_boundaries[0] = effect.WIPE_COMPLETE;
+    effect.prepare_wipe_boundaries();
+    const Color4 newest = effect.baked_palettes[0].get(0.5f);
+    const Color4 covered = effect.color(math::Z_AXIS * -1.0f, 0.5f);
+    HS_EXPECT_EQ(covered.color, newest.color);
+    HS_EXPECT_EQ(covered.alpha, newest.alpha);
   }
 
   /** @brief Pins disjoint band colors and overlapping wipe continuity. */
@@ -89,6 +98,7 @@ struct DynamoWhiteBox {
     constexpr float FIRST = 0.9f, SECOND = 2.6f;
     effect.palette_boundaries[0] = angle(FIRST);
     effect.palette_boundaries[1] = angle(SECOND);
+    effect.prepare_wipe_boundaries();
     HS_EXPECT_LT(effect.palette_boundaries[0] + effect.WIPE_BLEND_WIDTH,
                  effect.palette_boundaries[1] - effect.WIPE_BLEND_WIDTH);
 
@@ -121,6 +131,7 @@ struct DynamoWhiteBox {
         SolidPalette{Color4(Pixel(0, 0, 65535), 0.25f)});
     effect.palette_boundaries[0] = 1.0f;
     effect.palette_boundaries[1] = 1.5f;
+    effect.prepare_wipe_boundaries();
     const float edge = effect.palette_boundaries[0] + effect.WIPE_BLEND_WIDTH;
     const auto before = effect.color(direction(edge - 0.001f), T);
     const auto after = effect.color(direction(edge + 0.001f), T);

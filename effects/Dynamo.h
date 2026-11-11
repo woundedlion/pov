@@ -111,6 +111,7 @@ public:
 
     // Collapse finished wipes (FIFO).
     reap_completed_wipes();
+    prepare_wipe_boundaries();
 
     HS_CHECK(palettes.size() == palette_boundaries.size() + 1,
              "Dynamo: palettes must stay one ahead of palette_boundaries "
@@ -217,6 +218,7 @@ private:
     palettes.push_front(make_palette());
     palette_boundaries.push_front(-WIPE_BLEND_WIDTH);
     rotate_and_rebake_front();
+    prepare_wipe_boundaries();
 
     // Stamp WIPE_COMPLETE on completion (not pop_back): overlapping wipes can
     // finish out of order, so pop_back would evict a still-animating boundary.
@@ -256,6 +258,15 @@ private:
     baked_palettes[0].rebake(palettes[0]);
   }
 
+  /** @brief Builds monotone boundary positions for color sampling. */
+  void prepare_wipe_boundaries() {
+    float boundary = -WIPE_BLEND_WIDTH;
+    for (size_t i = 0; i < palette_boundaries.size(); ++i) {
+      boundary = fmaxf(boundary, palette_boundaries[i]);
+      effective_boundaries[i] = boundary;
+    }
+  }
+
   /**
    * @brief Picks the color for a direction at a palette parameter.
    * @param v Unit sample direction; the angle between it and PALETTE_NORMAL
@@ -271,14 +282,14 @@ private:
         math::fast_acos(hs::clamp(math::dot(v, PALETTE_NORMAL), -1.0f, 1.0f));
     size_t first = 0;
     for (size_t i = palette_boundaries.size(); i > 0; --i)
-      if (a >= palette_boundaries[i - 1] + WIPE_BLEND_WIDTH) {
+      if (a >= effective_boundaries[i - 1] + WIPE_BLEND_WIDTH) {
         first = i;
         break;
       }
     Color4 result = baked_palettes[first].get(t);
     for (size_t i = first; i < palette_boundaries.size(); ++i) {
       const float blend =
-          hs::clamp((a - (palette_boundaries[i] - WIPE_BLEND_WIDTH)) /
+          hs::clamp((a - (effective_boundaries[i] - WIPE_BLEND_WIDTH)) /
                         (2 * WIPE_BLEND_WIDTH),
                     0.0f, 1.0f);
       if (blend == 0.0f)
@@ -548,6 +559,8 @@ private:
       palettes; /**< Live palettes. */
   StaticCircularBuffer<float, MAX_PALETTES - 1>
       palette_boundaries; /**< Wipe boundary angles. */
+  std::array<float, MAX_PALETTES - 1>
+      effective_boundaries{}; /**< Monotone wipe boundary positions. */
   /**
    * @brief Baked 256-entry LUTs mirroring palettes[] in logical order.
    * @details A wipe push rotates them to match (rotate_and_rebake_front); a
