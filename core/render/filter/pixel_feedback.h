@@ -2146,17 +2146,32 @@ private:
    * @details Under column time a full row expands arm by arm short of each
    * arm's last two columns, which are their own lanes: the pair before an
    * arm's first column is the other arm's last two columns of the previous
-   * frame, the pair after its last pair its own last two columns. Other rows
-   * expand run by run.
+   * frame, the pair after its last pair its own last two columns. Clipped rows
+   * expand each run short of those lanes.
    */
   HS_HOT_FLASH_MEMBER static void expand_half_res_row(const FlushContext &ctx,
                                                       ::Pixel *output, int y) {
     const ColumnRuns &runs = ctx.runs;
     if (!ctx.column_time || runs.count != 2 || runs.items[0].begin != 0 ||
         runs.items[1].end != W) {
-      for (int r = 0; r < runs.count; ++r)
-        reconstruct_half_res_run(output, runs.items[r].begin,
-                                 runs.items[r].end);
+      for (int r = 0; r < runs.count; ++r) {
+        const ColumnRun run = runs.items[r];
+        if (!ctx.column_time) {
+          reconstruct_half_res_run(output, run.begin, run.end);
+          continue;
+        }
+        const int arm = ColumnTime::arm_start(run.begin);
+        const int end = std::min(run.end, arm + HALF - 2);
+        if (run.begin >= end)
+          continue;
+        if (run.end == arm + HALF) {
+          const ::Pixel after =
+              pair_average(output[arm + HALF - 2], output[arm + HALF - 1]);
+          reconstruct_half_res_run(output, run.begin, end, nullptr, &after);
+        } else {
+          reconstruct_half_res_run(output, run.begin, end);
+        }
+      }
       return;
     }
     const ::Pixel *previous_row = ctx.previous + y * W;
