@@ -437,6 +437,19 @@ inline void test_medial_dual_bridge_wellformed() {
 }
 
 /**
+ * @brief Classifies a mesh's faces by topology in scratch arenas reclaimed on
+ *        return.
+ * @param mesh Mesh to classify.
+ * @param target Arena receiving the topology keys.
+ */
+inline void classify_in_scratch(PolyMesh &mesh, Arena &target) {
+  ScratchScope ta(scratch_arena_a);
+  ScratchScope tb(scratch_arena_b);
+  MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
+                                      target);
+}
+
+/**
  * @brief Drives a MEDIAL_SLERP leg to completion through OpLeg on every DUAL-leg
  *        seed: constant compiled face count, bounded per-frame motion, a total
  *        palette mapping, and a landing describing the whole medial face list.
@@ -467,12 +480,7 @@ inline void test_opleg_medial_leg_smoke() {
 
     // Departed mesh: ambo(P), class-keyed palettes plus face centroids.
     PolyMesh ambo_p = Solids::finalize_solid(MeshOps::ambo(P, leg, temp), leg);
-    {
-      ScratchScope ta(scratch_arena_a);
-      ScratchScope tb(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(ambo_p, scratch_arena_a,
-                                          scratch_arena_b, leg);
-    }
+    classify_in_scratch(ambo_p, leg);
     const size_t prev_faces = ambo_p.face_counts.size();
     std::vector<uint8_t> pal(prev_faces);
     std::vector<math::Vector> centroid(prev_faces);
@@ -518,6 +526,227 @@ inline void test_opleg_medial_leg_smoke() {
 }
 
 /**
+ * @brief Class-keyed palette slot of each face of a classified mesh.
+ * @param mesh Mesh with a topology key per face.
+ * @return One palette slot per face, in face order.
+ */
+inline std::vector<uint8_t> topology_palettes(const PolyMesh &mesh) {
+  const size_t nf = mesh.face_counts.size();
+  std::vector<uint8_t> pal2(nf);
+  for (size_t f = 0; f < nf; ++f)
+    pal2[f] = static_cast<uint8_t>(MeshPaletteBank::slot_of(mesh.topology[f]));
+  return pal2;
+}
+
+/**
+ * @brief Recipe-step truncate sweep closing the dual bridge, ambo(D) -> D.
+ * @param sweep_frames Frames in the sweep.
+ * @return Sweep spec with bridge provenance.
+ */
+inline Animation::OpLeg::ParamSweepSpec dual_closing_sweep(int sweep_frames) {
+  return {.op = ConwayGraph::MorphOp::TRUNCATE,
+          .t_start = 0.5f,
+          .t_end = 0.0f,
+          .sweep_frames = sweep_frames,
+          .bridge_provenance = true};
+}
+
+/**
+ * @brief Checks the medial leg's landing against the departed palettes.
+ * @param landing2 Medial leg landing.
+ * @param pal2 Departed ambo(P) palettes, one per medial face.
+ * @param preserve_palettes Whether landed palettes must equal departed ones.
+ * @return False when the landing lacks the arrival data the seam reads.
+ */
+inline bool check_medial_landing(const Animation::OpLeg::Landing &landing2,
+                                 const std::vector<uint8_t> &pal2,
+                                 bool preserve_palettes) {
+  const size_t nf = pal2.size();
+  HS_EXPECT_EQ(landing2.faces, nf);
+  HS_EXPECT_TRUE(landing2.arrival_topology != nullptr);
+  HS_EXPECT_TRUE(landing2.arrival_point != nullptr);
+  HS_EXPECT_TRUE(landing2.from_palette != nullptr);
+  if (landing2.faces != nf || !landing2.arrival_topology ||
+      !landing2.arrival_point || !landing2.from_palette)
+    return false;
+  HS_EXPECT_EQ(landing2.arrival_topology->face_counts.size(), nf);
+  if (landing2.arrival_topology->face_counts.size() != nf)
+    return false;
+  for (size_t f = 0; f < nf; ++f) {
+    HS_EXPECT_EQ(landing2.from_palette[f], pal2[f]);
+    if (preserve_palettes)
+      HS_EXPECT_EQ(landing2.landed_palette(f), pal2[f]);
+  }
+  return true;
+}
+
+/**
+ * @brief Reads a landing's arrival faces: landed palettes and unit centroids.
+ * @param landing2 Landing with arrival topology and points.
+ * @param pal3 Receives each arrival face's landed palette; sized to the face
+ * count.
+ * @param cen3 Receives each arrival face's unit centroid; sized like @p pal3.
+ */
+inline void read_arrival_faces(const Animation::OpLeg::Landing &landing2,
+                               std::vector<uint8_t> &pal3,
+                               std::vector<math::Vector> &cen3) {
+  const PolyMesh &arrival = *landing2.arrival_topology;
+  size_t off = 0;
+  for (size_t f = 0; f < pal3.size(); ++f) {
+    math::Vector c(0.0f, 0.0f, 0.0f);
+    for (int j = 0; j < arrival.face_counts[f]; ++j) {
+      const size_t v = arrival.faces[off + j];
+      c = c + landing2.arrival_point[v].decode().normalized();
+    }
+    cen3[f] = c.normalized();
+    pal3[f] = landing2.landed_palette(f);
+    off += arrival.face_counts[f];
+  }
+}
+
+/**
+ * @brief Derives the seam permutation from exact geometry: ambo(@p D) has the
+ *        closing leg's face order and the seam's exact positions.
+ * @param D Classified dual mesh.
+ * @param cen3 Unit centroids of the medial leg's arrival faces.
+ * @param temp Scratch arena for the ambo operator.
+ * @param perm Receives, per closing face, the nearest arrival face.
+ * @return False when ambo(@p D)'s face count differs from the arrival's.
+ */
+inline bool derive_seam_permutation(const PolyMesh &D,
+                                    const std::vector<math::Vector> &cen3,
+                                    Arena &temp, std::vector<int> &perm) {
+  constexpr float SEAM_MATCH_TOL = 0.02f;
+  const size_t nf = cen3.size();
+  Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+  PolyMesh ambo_d = MeshOps::ambo(D, aux, temp);
+  HS_EXPECT_EQ(ambo_d.face_counts.size(), nf);
+  if (ambo_d.face_counts.size() != nf)
+    return false;
+  std::vector<char> used(nf, 0);
+  int bad_match = 0, non_bijective = 0;
+  size_t off = 0;
+  for (size_t l = 0; l < nf; ++l) {
+    const math::Vector c =
+        face_centroid_unit(ambo_d, off, ambo_d.face_counts[l]);
+    off += ambo_d.face_counts[l];
+    size_t best = 0;
+    float bd = 1e9f;
+    for (size_t m = 0; m < nf; ++m) {
+      const float d = math::distance_between(c, cen3[m]);
+      if (d < bd) {
+        bd = d;
+        best = m;
+      }
+    }
+    if (bd > SEAM_MATCH_TOL)
+      ++bad_match;
+    if (used[best])
+      ++non_bijective;
+    used[best] = 1;
+    perm[l] = static_cast<int>(best);
+  }
+  HS_EXPECT_EQ(bad_match, 0);
+  HS_EXPECT_EQ(non_bijective, 0);
+  return true;
+}
+
+/**
+ * @brief Checks the closing leg's block-transposed face order: D-faces are the
+ *        medial's P-vertex orbits in emission order; D-vertex orbit faces land
+ *        in the medial's P-face block.
+ * @param landing3 Closing leg landing.
+ * @param perm Seam permutation, closing face -> medial arrival face.
+ * @param pal3 Medial arrival palettes.
+ * @param PF Primal face count.
+ * @param DF Dual face count.
+ * @param preserve_palettes Whether landed palettes must follow the permutation.
+ * @return The medial arrival palettes in closing face order.
+ */
+inline std::vector<uint8_t>
+check_closing_blocks(const Animation::OpLeg::Landing &landing3,
+                     const std::vector<int> &perm,
+                     const std::vector<uint8_t> &pal3, size_t PF, size_t DF,
+                     bool preserve_palettes) {
+  const size_t nf = pal3.size();
+  std::vector<uint8_t> closing_palettes(nf);
+  int block1_viol = 0, block2_viol = 0, from_mismatch = 0;
+  for (size_t l = 0; l < nf; ++l) {
+    closing_palettes[l] = pal3[perm[l]];
+    if (preserve_palettes)
+      HS_EXPECT_EQ(landing3.landed_palette(l), closing_palettes[l]);
+    if (l < DF && perm[l] != static_cast<int>(PF + l))
+      ++block1_viol;
+    if (l >= DF && perm[l] >= static_cast<int>(PF))
+      ++block2_viol;
+    if (landing3.from_palette[l] != pal3[perm[l]])
+      ++from_mismatch;
+  }
+  HS_EXPECT_EQ(block1_viol, 0);
+  HS_EXPECT_EQ(block2_viol, 0);
+  HS_EXPECT_EQ(from_mismatch, 0);
+  return closing_palettes;
+}
+
+/**
+ * @brief A closing leg handed per-face palettes with arrival centroids maps
+ *        them through the seam permutation.
+ * @param D Classified dual mesh.
+ * @param bookend3 Bookend classes of @p D.
+ * @param cen3 Unit centroids of the medial leg's arrival faces.
+ * @param perm Seam permutation, closing face -> medial arrival face.
+ * @param bank Palette bank the handoff names.
+ * @param cb Draw callback.
+ * @param SWEEP Closing sweep frames.
+ */
+inline void check_geometric_closing(
+    const PolyMesh &D, const Animation::OpLeg::BookendClasses &bookend3,
+    const std::vector<math::Vector> &cen3, const std::vector<int> &perm,
+    const MeshPaletteBank &bank, Animation::OpLeg::MorphDrawFn cb, int SWEEP) {
+  using Animation::OpLeg;
+  const size_t nf = cen3.size();
+  Arena geometric_arena(morph_aux_buf, sizeof(morph_aux_buf));
+  std::vector<uint8_t> geometric_palette(nf);
+  for (size_t f = 0; f < nf; ++f)
+    geometric_palette[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+  OpLeg::PaletteHandoff geometric_handoff{.bank = &bank.bank,
+                                          .prev_face_palette =
+                                              geometric_palette.data(),
+                                          .prev_faces = nf,
+                                          .prev_face_centroid = cen3.data()};
+  OpLeg geometric_closing(OpLeg::SweepSeed::borrow(D),
+                          dual_closing_sweep(SWEEP), geometric_arena, cb,
+                          geometric_handoff, bookend3);
+  const OpLeg::Landing &geometric_landing = geometric_closing.landing();
+  HS_EXPECT_EQ(geometric_landing.faces, nf);
+  HS_EXPECT_TRUE(geometric_landing.from_palette != nullptr);
+  if (geometric_landing.from_palette)
+    for (size_t f = 0; f < nf; ++f)
+      HS_EXPECT_EQ(geometric_landing.from_palette[f],
+                   geometric_palette[perm[f]]);
+}
+
+/**
+ * @brief Summed absolute 8-bit channel difference between two frames.
+ * @param a,b Same-sized frames.
+ * @param sumabs Receives the summed channel difference.
+ * @param changed Receives the count of pixels with any channel difference.
+ */
+inline void frame_diff(const std::vector<Pixel> &a, const std::vector<Pixel> &b,
+                       long long &sumabs, int &changed) {
+  sumabs = 0;
+  changed = 0;
+  for (size_t i = 0; i < a.size(); ++i) {
+    const int dr = std::abs((a[i].r >> 8) - (b[i].r >> 8));
+    const int dg = std::abs((a[i].g >> 8) - (b[i].g >> 8));
+    const int db = std::abs((a[i].b >> 8) - (b[i].b >> 8));
+    sumabs += dr + dg + db;
+    if (dr | dg | db)
+      ++changed;
+  }
+}
+
+/**
  * @brief Drives the dual bridge's medial -> closing-leg handoff on every
  *        DUAL-leg seed and pins the face correspondence across the seam.
  * @details The closing leg's face list is block-transposed against the
@@ -529,7 +758,6 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
   using Animation::OpLeg;
   constexpr int SWEEP = 24;
   constexpr int RW = 288, RH = 144;
-  constexpr float SEAM_MATCH_TOL = 0.02f;
   // The seam step's summed difference, in control-step units.
   constexpr long long SEAM_CONTROL_RATIO_MAX = 10;
 
@@ -558,17 +786,9 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
       ambo_p = Solids::finalize_solid(MeshOps::ambo(P, aux, temp), leg);
     }
-    {
-      ScratchScope ta(scratch_arena_a);
-      ScratchScope tb(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(ambo_p, scratch_arena_a,
-                                          scratch_arena_b, leg);
-    }
+    classify_in_scratch(ambo_p, leg);
     const size_t nf = ambo_p.face_counts.size();
-    std::vector<uint8_t> pal2(nf);
-    for (size_t f = 0; f < nf; ++f)
-      pal2[f] =
-          static_cast<uint8_t>(MeshPaletteBank::slot_of(ambo_p.topology[f]));
+    const std::vector<uint8_t> pal2 = topology_palettes(ambo_p);
     hs_test::StubEffect fx(RW, RH);
     std::vector<Pixel> snaps[3]; // leg-2 last, leg-3 first, leg-3 second
     const uint8_t *expected_palettes = pal2.data();
@@ -610,21 +830,8 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
         .preserve_without_births = preserve_palettes};
     OpLeg leg2(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff2);
     const OpLeg::Landing &landing2 = leg2.landing();
-    HS_EXPECT_EQ(landing2.faces, nf);
-    HS_EXPECT_TRUE(landing2.arrival_topology != nullptr);
-    HS_EXPECT_TRUE(landing2.arrival_point != nullptr);
-    HS_EXPECT_TRUE(landing2.from_palette != nullptr);
-    if (landing2.faces != nf || !landing2.arrival_topology ||
-        !landing2.arrival_point || !landing2.from_palette)
+    if (!check_medial_landing(landing2, pal2, preserve_palettes))
       continue;
-    HS_EXPECT_EQ(landing2.arrival_topology->face_counts.size(), nf);
-    if (landing2.arrival_topology->face_counts.size() != nf)
-      continue;
-    for (size_t f = 0; f < nf; ++f) {
-      HS_EXPECT_EQ(landing2.from_palette[f], pal2[f]);
-      if (preserve_palettes)
-        HS_EXPECT_EQ(landing2.landed_palette(f), pal2[f]);
-    }
     rasterize_at = SWEEP;
     hs_test::drive_leg(leg2, fx, SWEEP);
     snap(snaps[0]);
@@ -632,30 +839,14 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
     // Leg 3 departs from leg 2's landed palettes; centroids derive the seam permutation.
     std::vector<uint8_t> pal3(nf);
     std::vector<math::Vector> cen3(nf);
-    const PolyMesh &arrival = *landing2.arrival_topology;
-    size_t off = 0;
-    for (size_t f = 0; f < nf; ++f) {
-      math::Vector c(0.0f, 0.0f, 0.0f);
-      for (int j = 0; j < arrival.face_counts[f]; ++j) {
-        const size_t v = arrival.faces[off + j];
-        c = c + landing2.arrival_point[v].decode().normalized();
-      }
-      cen3[f] = c.normalized();
-      pal3[f] = landing2.landed_palette(f);
-      off += arrival.face_counts[f];
-    }
+    read_arrival_faces(landing2, pal3, cen3);
 
     PolyMesh D;
     {
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
       D = Solids::finalize_solid(MeshOps::dual(P, aux, temp), leg);
     }
-    {
-      ScratchScope ta(scratch_arena_a);
-      ScratchScope tb(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(D, scratch_arena_a, scratch_arena_b,
-                                          leg);
-    }
+    classify_in_scratch(D, leg);
     // dual drops sub-3 orbits, so D's faces are exactly the medial's P-vertex
     // block: the two blocks partition the shared face count.
     const size_t DF = D.face_counts.size();
@@ -668,140 +859,44 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
         .correspondence = OpLeg::FaceCorrespondence::DUAL_CLOSING,
         .preserve_without_births = preserve_palettes};
     OpLeg::BookendClasses bookend3{.topology = D.topology.data(), .faces = DF};
-    OpLeg leg3(OpLeg::SweepSeed::borrow(D),
-               OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                     .t_start = 0.5f,
-                                     .t_end = 0.0f,
-                                     .sweep_frames = SWEEP,
-                                     .bridge_provenance = true},
-               leg, cb, handoff3, bookend3);
+    OpLeg leg3(OpLeg::SweepSeed::borrow(D), dual_closing_sweep(SWEEP), leg, cb,
+               handoff3, bookend3);
     const OpLeg::Landing &landing3 = leg3.landing();
     HS_EXPECT_EQ(landing3.faces, nf);
     HS_EXPECT_TRUE(landing3.from_palette != nullptr);
     if (!landing3.from_palette)
       continue;
 
-    // Derive the true seam permutation from the exact geometry: ambo(D) has
-    // the closing leg's face order and the seam's exact positions.
     std::vector<int> perm(nf, -1);
-    {
-      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      PolyMesh ambo_d = MeshOps::ambo(D, aux, temp);
-      HS_EXPECT_EQ(ambo_d.face_counts.size(), nf);
-      if (ambo_d.face_counts.size() != nf)
-        continue;
-      std::vector<char> used(nf, 0);
-      int bad_match = 0, non_bijective = 0;
-      size_t off = 0;
-      for (size_t l = 0; l < nf; ++l) {
-        const math::Vector c =
-            face_centroid_unit(ambo_d, off, ambo_d.face_counts[l]);
-        off += ambo_d.face_counts[l];
-        size_t best = 0;
-        float bd = 1e9f;
-        for (size_t m = 0; m < nf; ++m) {
-          const float d = math::distance_between(c, cen3[m]);
-          if (d < bd) {
-            bd = d;
-            best = m;
-          }
-        }
-        if (bd > SEAM_MATCH_TOL)
-          ++bad_match;
-        if (used[best])
-          ++non_bijective;
-        used[best] = 1;
-        perm[l] = static_cast<int>(best);
-      }
-      HS_EXPECT_EQ(bad_match, 0);
-      HS_EXPECT_EQ(non_bijective, 0);
-    }
-
-    // Block structure: D-faces are the medial's P-vertex orbits in emission
-    // order; D-vertex orbit faces land in the medial's P-face block.
-    std::vector<uint8_t> closing_palettes(nf);
-    int block1_viol = 0, block2_viol = 0, from_mismatch = 0;
-    for (size_t l = 0; l < nf; ++l) {
-      closing_palettes[l] = pal3[perm[l]];
-      if (preserve_palettes)
-        HS_EXPECT_EQ(landing3.landed_palette(l), closing_palettes[l]);
-      if (l < DF && perm[l] != static_cast<int>(PF + l))
-        ++block1_viol;
-      if (l >= DF && perm[l] >= static_cast<int>(PF))
-        ++block2_viol;
-      if (landing3.from_palette[l] != pal3[perm[l]])
-        ++from_mismatch;
-    }
-    HS_EXPECT_EQ(block1_viol, 0);
-    HS_EXPECT_EQ(block2_viol, 0);
-    HS_EXPECT_EQ(from_mismatch, 0);
-
-    {
-      Arena geometric_arena(morph_aux_buf, sizeof(morph_aux_buf));
-      std::vector<uint8_t> geometric_palette(nf);
-      for (size_t f = 0; f < nf; ++f)
-        geometric_palette[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-      OpLeg::PaletteHandoff geometric_handoff{
-          .bank = &bank.bank,
-          .prev_face_palette = geometric_palette.data(),
-          .prev_faces = nf,
-          .prev_face_centroid = cen3.data()};
-      OpLeg geometric_closing(
-          OpLeg::SweepSeed::borrow(D),
-          OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                .t_start = 0.5f,
-                                .t_end = 0.0f,
-                                .sweep_frames = SWEEP,
-                                .bridge_provenance = true},
-          geometric_arena, cb, geometric_handoff, bookend3);
-      const OpLeg::Landing &geometric_landing = geometric_closing.landing();
-      HS_EXPECT_EQ(geometric_landing.faces, nf);
-      HS_EXPECT_TRUE(geometric_landing.from_palette != nullptr);
-      if (geometric_landing.from_palette)
-        for (size_t f = 0; f < nf; ++f)
-          HS_EXPECT_EQ(geometric_landing.from_palette[f],
-                       geometric_palette[perm[f]]);
-    }
+    if (!derive_seam_permutation(D, cen3, temp, perm))
+      continue;
+    const std::vector<uint8_t> closing_palettes =
+        check_closing_blocks(landing3, perm, pal3, PF, DF, preserve_palettes);
+    check_geometric_closing(D, bookend3, cen3, perm, bank, cb, SWEEP);
 
     expected_palettes = closing_palettes.data();
     // Rendered seam A/B plus a one-step in-leg control.
     drawn = 0;
-    rasterize_at = 1;
-    {
-      Canvas c(fx);
-      leg3.step(c);
-    }
-    fx.advance_display();
-    snap(snaps[1]);
-    rasterize_at = 2;
-    {
-      Canvas c(fx);
-      leg3.step(c);
-    }
-    fx.advance_display();
-    snap(snaps[2]);
+    auto step_and_snap = [&](int frame, std::vector<Pixel> &out) {
+      rasterize_at = frame;
+      {
+        Canvas c(fx);
+        leg3.step(c);
+      }
+      fx.advance_display();
+      snap(out);
+    };
+    step_and_snap(1, snaps[1]);
+    step_and_snap(2, snaps[2]);
     HS_EXPECT_EQ(drawn, 2);
     for (const auto &frame : snaps) {
       HS_EXPECT_GT(count_lit(frame), static_cast<size_t>(RW * RH / 100));
     }
 
-    auto diff = [&](const std::vector<Pixel> &a, const std::vector<Pixel> &b,
-                    long long &sumabs, int &changed) {
-      sumabs = 0;
-      changed = 0;
-      for (size_t i = 0; i < a.size(); ++i) {
-        const int dr = std::abs((a[i].r >> 8) - (b[i].r >> 8));
-        const int dg = std::abs((a[i].g >> 8) - (b[i].g >> 8));
-        const int db = std::abs((a[i].b >> 8) - (b[i].b >> 8));
-        sumabs += dr + dg + db;
-        if (dr | dg | db)
-          ++changed;
-      }
-    };
     long long seam_sum = 0, ctrl_sum = 0;
     int seam_px = 0, ctrl_px = 0;
-    diff(snaps[0], snaps[1], seam_sum, seam_px);
-    diff(snaps[1], snaps[2], ctrl_sum, ctrl_px);
+    frame_diff(snaps[0], snaps[1], seam_sum, seam_px);
+    frame_diff(snaps[1], snaps[2], ctrl_sum, ctrl_px);
 
     const int seam_quiet = RW * RH - seam_px;
     const int ctrl_quiet = RW * RH - ctrl_px;
