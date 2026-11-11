@@ -112,7 +112,13 @@ job_wasm() {
   rm -rf build/local-ci/daydream-install
   bash tools/ci/wasm.sh "$PWD/build/local-ci/daydream-install"
 }
-job_teensy_size() { bash tools/ci/teensy_size.sh "$PWD/build/local-ci/pio"; }
+# The profiling variants compile here unless teensy-warnings' cold build runs.
+job_teensy_size() {
+  case " ${HS_LOCAL_CI_JOBS:-} " in
+    *" teensy-warnings "*) bash tools/ci/teensy_size.sh ;;
+    *) bash tools/ci/teensy_size.sh "$PWD/build/local-ci/pio" ;;
+  esac
+}
 job_teensy_warnings() { bash tools/ci/teensy_warnings.sh; }
 # Mirrors ci.yml: the suite runs only when the commit changes a PCB input.
 job_pcb_tests() {
@@ -175,6 +181,7 @@ run_jobs() {
     return 1
   fi
   check_table
+  export HS_LOCAL_CI_JOBS="$*"
   mkdir -p "$logs"
   table | grep '|skip:' | sed 's/|skip: */ skipped: /' || true
   local lane laned=" " jobs pids=() pid rest=() status=0

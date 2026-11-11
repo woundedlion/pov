@@ -131,6 +131,23 @@ class CommitJobs(unittest.TestCase):
         self.assertIn("already passed local CI", done.stdout)
         self.assertFalse((self.tree / "build/ran-job").exists())
 
+    def test_teensy_size_compiles_profile_variants_only_without_the_cold_build(self):
+        stubs = self.repo / "tools/ci"
+        stubs.mkdir()
+        (stubs / "teensy_size.sh").write_text('echo "$#" > build/teensy-size-args\n',
+                                             encoding="utf-8", newline="\n")
+        (stubs / "teensy_warnings.sh").write_text("true\n", encoding="utf-8", newline="\n")
+        git_run(self.repo, "add", "tools/ci", env=self.env)
+        git_run(self.repo, "commit", "--quiet", "-m", "stubs", env=self.env)
+        tip = git_run(self.repo, "rev-parse", "HEAD", env=self.env).stdout.strip()
+        for jobs, variant_args in ((("teensy-size",), "1"),
+                                   (("teensy-size", "teensy-warnings"), "0")):
+            with self.subTest(jobs=jobs):
+                done = self.run_ci(tip, "--", *jobs)
+                self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+                self.assertEqual(
+                    (self.tree / "build/teensy-size-args").read_text().strip(), variant_args)
+
     def test_missing_commits_or_jobs_and_unknown_jobs_fail(self):
         for args in ((), ("--", "lint"), (self.sha, "--"), (self.sha, "--", "unknown")):
             with self.subTest(args=args):

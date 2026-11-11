@@ -831,9 +831,11 @@ jobs:
           restore-keys: pio-objs-${{ hashFiles('platformio.ini') }}-
       - name: Install pinned PlatformIO
         run: pip install --require-hashes -r requirements/platformio.txt
-      - name: Build + size + layout gate, then compile the profiling variants
-        # Shipping environments enforce budgets; other environments provide compile coverage.
-        run: bash tools/ci/teensy_size.sh "${{ runner.temp }}"
+      - name: Build + size + layout gate
+        # Shipping environments enforce budgets; other environments provide
+        # compile coverage. teensy-warnings' cold build compiles the profiling
+        # variants.
+        run: bash tools/ci/teensy_size.sh
 
       - name: Cap build-object cache
         # Drop the oldest cached objects above 400 MB; config and the signature db stay.
