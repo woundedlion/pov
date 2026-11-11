@@ -750,7 +750,7 @@ jobs:
              [ "$BASE" != 0000000000000000000000000000000000000000 ] &&
              git fetch --quiet --depth=1 origin "$BASE" &&
              ! git diff --name-only "$BASE" HEAD |
-               grep -qE "$PCB_INPUTS"; then
+               grep -E "$PCB_INPUTS" >/dev/null; then
             run=false
             echo "No PCB inputs changed since $BASE; skipping the PCB suite."
           fi

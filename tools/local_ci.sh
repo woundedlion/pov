@@ -145,7 +145,7 @@ job_docs_doxygen() {
 unchanged_since_origin() {
   local base
   base="$(git merge-base HEAD origin/master 2>/dev/null)" || return 1
-  ! git diff --name-only "$base" HEAD | grep -qE "$1"
+  ! git diff --name-only "$base" HEAD | grep -E "$1" >/dev/null
 }
 
 table() { printf '%s\n' "$JOBS" | sed '/^$/d'; }
