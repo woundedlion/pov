@@ -520,38 +520,53 @@ private:
     const uint32_t now = ARM_DWT_CYCCNT;
     pov::run_wake_sequence(
         sync_pulse, submit_gate, handoff,
-        [&] {
-          pov::sync::BurstSnapshot burst;
-          const pov::sync::BurstSnapshot *bp = nullptr;
-          if (downstream && sync.claim_sync_burst(now, &burst))
-            bp = &burst;
-          return sync.tick(now, bp);
-        },
-        [] { return pov::sync::SyncBoard::build_gen_of(sync.build_word()); },
-        [](bool high) { digitalWriteFast(PIN_SYNC_TX, high ? HIGH : LOW); },
-        [] {
-          HS_CHECK(
-              false,
-              "epoch commit: effect init exceeded the K-revolution window");
-        },
-        [](Effect *e, int32_t column) {
-          e->set_output_envelope(sync.effect_envelope(column, CANVAS_W));
-        },
-        [](pov::SubmitAction action, Effect *e, int32_t column) {
-          switch (action) {
-          case pov::SubmitAction::BLACK:
-            return pack_black();
-          case pov::SubmitAction::COLUMN:
-            return pack_column(e, column);
-          case pov::SubmitAction::RESUBMIT:
-            return resubmit_frame(e->strobe_columns());
-          case pov::SubmitAction::NONE:
-            break;
-          }
-          return false;
-        },
-        [](Effect *e) {
-          pov::advance_segment_display(*e, segment, handoff.window_left());
+        pov::WakeHooks{
+            .tick =
+                [&] {
+                  pov::sync::BurstSnapshot burst;
+                  const pov::sync::BurstSnapshot *bp = nullptr;
+                  if (downstream && sync.claim_sync_burst(now, &burst))
+                    bp = &burst;
+                  return sync.tick(now, bp);
+                },
+            .wire_gen =
+                [] {
+                  return pov::sync::SyncBoard::build_gen_of(sync.build_word());
+                },
+            .drive_sync =
+                [](bool high) {
+                  digitalWriteFast(PIN_SYNC_TX, high ? HIGH : LOW);
+                },
+            .commit_failure =
+                [] {
+                  HS_CHECK(
+                      false,
+                      "epoch commit: effect init exceeded the K-revolution window");
+                },
+            .set_envelope =
+                [](Effect *e, int32_t column) {
+                  e->set_output_envelope(
+                      sync.effect_envelope(column, CANVAS_W));
+                },
+            .submit =
+                [](pov::SubmitAction action, Effect *e, int32_t column) {
+                  switch (action) {
+                  case pov::SubmitAction::BLACK:
+                    return pack_black();
+                  case pov::SubmitAction::COLUMN:
+                    return pack_column(e, column);
+                  case pov::SubmitAction::RESUBMIT:
+                    return resubmit_frame(e->strobe_columns());
+                  case pov::SubmitAction::NONE:
+                    break;
+                  }
+                  return false;
+                },
+            .advance =
+                [](Effect *e) {
+                  pov::advance_segment_display(*e, segment,
+                                               handoff.window_left());
+                },
         });
   }
 

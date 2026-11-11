@@ -328,40 +328,47 @@ private:
     TickActions a;
     pov::run_wake_sequence(
         b.sync_pulse, b.submit_gate, b.handoff,
-        [&] { return a = b.board.tick(now, sp); },
-        [&] {
-          // Foreground model (build pickup at a flip, commit/join swaps).
-          const uint32_t bw = b.board.build_word();
-          const uint32_t gen = SyncBoard::build_gen_of(bw);
-          const bool pickup = gen == b.pending_pickup && a.flip;
-          b.pending_pickup = gen;
-          if (gen != b.seen_gen && pickup) {
-            b.seen_gen = gen;
-            // Release + delete the outgoing instance.
-            b.handoff.request_release();
-            b.handoff.clear_pending();
-            b.pending_index = SyncBoard::build_index_of(bw);
-            b.pending_gen = gen;
-            b.pending_ready_g = tg + b.init_delay;
-            b.have_pending = true;
-          }
-          // Construction completes: the instance is published for the ISR to adopt.
-          if (b.have_pending && b.pending_gen == gen && tg >= b.pending_ready_g)
-            b.handoff.publish(&b.instance, b.pending_gen);
+        pov::WakeHooks{
+            .tick = [&] { return a = b.board.tick(now, sp); },
+            .wire_gen =
+                [&] {
+                  // Foreground model (build pickup at a flip, commit/join swaps).
+                  const uint32_t bw = b.board.build_word();
+                  const uint32_t gen = SyncBoard::build_gen_of(bw);
+                  const bool pickup = gen == b.pending_pickup && a.flip;
+                  b.pending_pickup = gen;
+                  if (gen != b.seen_gen && pickup) {
+                    b.seen_gen = gen;
+                    // Release + delete the outgoing instance.
+                    b.handoff.request_release();
+                    b.handoff.clear_pending();
+                    b.pending_index = SyncBoard::build_index_of(bw);
+                    b.pending_gen = gen;
+                    b.pending_ready_g = tg + b.init_delay;
+                    b.have_pending = true;
+                  }
+                  // Construction completes: the instance is published for the ISR to adopt.
+                  if (b.have_pending && b.pending_gen == gen &&
+                      tg >= b.pending_ready_g)
+                    b.handoff.publish(&b.instance, b.pending_gen);
 
-          return gen;
-        },
-        [&](bool high) {
-          if (high && b.master)
-            for (size_t j = 1; j < boards.size(); ++j)
-              deliver_edge(static_cast<int>(j), tg);
-        },
-        [&] { b.trapped = true; },
-        [&](SimEffect *, int32_t column) {
-          b.envelope = b.board.effect_envelope(column, cfg.W);
-          b.envelope_column = column;
-        },
-        [](pov::SubmitAction, SimEffect *, int32_t) { return true; });
+                  return gen;
+                },
+            .drive_sync =
+                [&](bool high) {
+                  if (high && b.master)
+                    for (size_t j = 1; j < boards.size(); ++j)
+                      deliver_edge(static_cast<int>(j), tg);
+                },
+            .commit_failure = [&] { b.trapped = true; },
+            .set_envelope =
+                [&](SimEffect *, int32_t column) {
+                  b.envelope = b.board.effect_envelope(column, cfg.W);
+                  b.envelope_column = column;
+                },
+            .submit = [](pov::SubmitAction, SimEffect *,
+                         int32_t) { return true; },
+        });
     const auto &w = b.handoff.last;
     if (w.adopted) {
       b.live_index = b.pending_index;

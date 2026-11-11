@@ -206,33 +206,69 @@ concept WakeSubmit =
       { t(action, effect, column) } -> std::convertible_to<bool>;
     };
 
+/** @brief Default advance hook: publishes the queued frame. */
+struct AdvanceDisplay {
+  /**
+   * @brief Calls advance_display() on @p effect.
+   * @tparam Effect Live effect type.
+   * @param effect Live effect.
+   */
+  template <class Effect> void operator()(Effect *effect) const {
+    effect->advance_display();
+  }
+};
+
+/**
+ * @brief Callables one run_wake_sequence() call drives, set by designated
+ * initializer.
+ * @details Every hook but advance is required; class template argument
+ * deduction fails when one is omitted.
+ * @tparam Tick Flywheel tick callable.
+ * @tparam WireGen Wire-generation reader.
+ * @tparam DriveSync Sync-pin driver.
+ * @tparam CommitFailure Missed-commit handler.
+ * @tparam SetEnvelope Output-envelope setter.
+ * @tparam Submit LED transport action.
+ * @tparam Advance Display-boundary publisher.
+ */
+template <class Tick, class WireGen, class DriveSync, class CommitFailure,
+          class SetEnvelope, class Submit, class Advance = AdvanceDisplay>
+struct WakeHooks {
+  Tick tick;        ///< Claims pending sync input and advances the flywheel.
+  WireGen wire_gen; ///< Reads the generation advertised on the sync wire.
+  DriveSync drive_sync;         ///< Drives the sync pin to the requested level.
+  CommitFailure commit_failure; ///< Handles a missed epoch commit deadline.
+  SetEnvelope set_envelope; ///< Applies the current column's output envelope.
+  Submit submit;            ///< Performs the selected LED transport action.
+  Advance advance = {}; ///< Publishes a queued frame at the display boundary.
+};
+
 /**
  * @brief Runs one segmented-driver wake in ISR order.
  * @param sync_pulse Sync-pin pulse-width state.
  * @param submit_gate LED-submit retry state.
  * @param handoff Effect ownership and display-window state.
- * @param tick Claims pending sync input and advances the flywheel.
- * @param wire_gen Reads the generation advertised on the sync wire.
- * @param drive_sync Drives the sync pin to the requested level.
- * @param commit_failure Handles a missed epoch commit deadline.
- * @param set_envelope Applies the current column's output envelope.
- * @param submit Performs the selected LED transport action.
- * @param advance Publishes a queued frame at the current display boundary.
+ * @param hooks Callables the wake invokes.
  */
 template <WakeHandoff Handoff, WakeTick Tick, WakeWireGen WireGen,
           WakeDriveSync DriveSync, WakeCommitFailure CommitFailure,
-          typename SetEnvelope, typename Submit,
-          typename Advance = decltype([](auto *effect) {
-            effect->advance_display();
-          })>
+          typename SetEnvelope, typename Submit, typename Advance>
   requires WakeSetEnvelope<SetEnvelope, WakeEffectPtr<Handoff>> &&
            WakeSubmit<Submit, WakeEffectPtr<Handoff>>
 __attribute__((always_inline)) inline void
 run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
-                  Handoff &handoff, Tick tick, WireGen wire_gen,
-                  DriveSync drive_sync, CommitFailure commit_failure,
-                  SetEnvelope set_envelope, Submit submit,
-                  Advance advance = {}) {
+                  Handoff &handoff,
+                  const WakeHooks<Tick, WireGen, DriveSync, CommitFailure,
+                                  SetEnvelope, Submit, Advance> &hooks) {
+  // Per-hook locals: a hook called out of line escapes only its own object.
+  Tick tick = hooks.tick;
+  WireGen wire_gen = hooks.wire_gen;
+  DriveSync drive_sync = hooks.drive_sync;
+  CommitFailure commit_failure = hooks.commit_failure;
+  SetEnvelope set_envelope = hooks.set_envelope;
+  Submit submit = hooks.submit;
+  Advance advance = hooks.advance;
+
   if (sync_pulse.take_deferred_low())
     drive_sync(false);
 

@@ -625,33 +625,40 @@ inline void test_composed_wake_sequence() {
 
   pov::run_wake_sequence(
       sync_pulse, submit_gate, handoff,
-      [&] {
-        steps.push_back(WakeStep::TICK);
-        return WakeActions{.pulse = true,
-                           .commit = true,
-                           .flip = true,
-                           .zero_crossing = true,
-                           .render_column = 17};
-      },
-      [&] {
-        steps.push_back(WakeStep::WIRE_GEN);
-        return 9u;
-      },
-      [&](bool high) {
-        steps.push_back(high ? WakeStep::HIGH : WakeStep::LOW);
-      },
-      [] { HS_EXPECT_TRUE(false); },
-      [&](WakeEffect *live, int32_t column) {
-        HS_EXPECT_EQ(live, &effect);
-        HS_EXPECT_EQ(column, 17);
-        steps.push_back(WakeStep::ENVELOPE);
-      },
-      [&](SubmitAction action, WakeEffect *live, int32_t column) {
-        HS_EXPECT_EQ(action, SubmitAction::COLUMN);
-        HS_EXPECT_EQ(live, &effect);
-        HS_EXPECT_EQ(column, 17);
-        steps.push_back(WakeStep::SUBMIT);
-        return true;
+      pov::WakeHooks{
+          .tick =
+              [&] {
+                steps.push_back(WakeStep::TICK);
+                return WakeActions{.pulse = true,
+                                   .commit = true,
+                                   .flip = true,
+                                   .zero_crossing = true,
+                                   .render_column = 17};
+              },
+          .wire_gen =
+              [&] {
+                steps.push_back(WakeStep::WIRE_GEN);
+                return 9u;
+              },
+          .drive_sync =
+              [&](bool high) {
+                steps.push_back(high ? WakeStep::HIGH : WakeStep::LOW);
+              },
+          .commit_failure = [] { HS_EXPECT_TRUE(false); },
+          .set_envelope =
+              [&](WakeEffect *live, int32_t column) {
+                HS_EXPECT_EQ(live, &effect);
+                HS_EXPECT_EQ(column, 17);
+                steps.push_back(WakeStep::ENVELOPE);
+              },
+          .submit =
+              [&](SubmitAction action, WakeEffect *live, int32_t column) {
+                HS_EXPECT_EQ(action, SubmitAction::COLUMN);
+                HS_EXPECT_EQ(live, &effect);
+                HS_EXPECT_EQ(column, 17);
+                steps.push_back(WakeStep::SUBMIT);
+                return true;
+              },
       });
 
   const std::vector<WakeStep> expected = {
@@ -678,13 +685,19 @@ inline void test_commit_failure_settles_sync_pulse() {
 
     pov::run_wake_sequence(
         sync_pulse, submit_gate, handoff,
-        [] { return WakeActions{.pulse = true, .commit = true}; },
-        [] { return 4u; }, [&](bool high) { sync_high = high; },
-        [&] { settled_before_failure = sync_pulse.low_deferred(); },
-        [](WakeEffect *, int32_t) { HS_EXPECT_TRUE(false); },
-        [](SubmitAction, WakeEffect *, int32_t) {
-          HS_EXPECT_TRUE(false);
-          return false;
+        pov::WakeHooks{
+            .tick = [] { return WakeActions{.pulse = true, .commit = true}; },
+            .wire_gen = [] { return 4u; },
+            .drive_sync = [&](bool high) { sync_high = high; },
+            .commit_failure =
+                [&] { settled_before_failure = sync_pulse.low_deferred(); },
+            .set_envelope = [](WakeEffect *,
+                               int32_t) { HS_EXPECT_TRUE(false); },
+            .submit =
+                [](SubmitAction, WakeEffect *, int32_t) {
+                  HS_EXPECT_TRUE(false);
+                  return false;
+                },
         });
 
     HS_EXPECT_TRUE(settled_before_failure);
@@ -706,13 +719,19 @@ inline void test_commit_failure_settles_sync_pulse() {
     try {
       pov::run_wake_sequence(
           sync_pulse, submit_gate, handoff,
-          [] { return WakeActions{.pulse = true, .commit = true}; },
-          [] { return 4u; }, [](bool) {},
-          NoreturnCommitFailure{&sync_pulse, &settled_before_failure},
-          [](WakeEffect *, int32_t) { HS_EXPECT_TRUE(false); },
-          [](SubmitAction, WakeEffect *, int32_t) {
-            HS_EXPECT_TRUE(false);
-            return false;
+          pov::WakeHooks{
+              .tick = [] { return WakeActions{.pulse = true, .commit = true}; },
+              .wire_gen = [] { return 4u; },
+              .drive_sync = [](bool) {},
+              .commit_failure =
+                  NoreturnCommitFailure{&sync_pulse, &settled_before_failure},
+              .set_envelope = [](WakeEffect *,
+                                 int32_t) { HS_EXPECT_TRUE(false); },
+              .submit =
+                  [](SubmitAction, WakeEffect *, int32_t) {
+                    HS_EXPECT_TRUE(false);
+                    return false;
+                  },
           });
     } catch (const CommitFailureExit &) {
       escaped = true;
@@ -982,17 +1001,24 @@ inline void test_late_segment_publication() {
             auto boundary = [&] {
               pov::run_wake_sequence(
                   pulse, submit, handoff,
-                  [&] {
-                    return WakeActions{.flip = true,
-                                       .zero_crossing = left,
-                                       .render_column = -1};
-                  },
-                  [] { return 1u; }, [](bool) {}, [] {},
-                  [](Effect *, int32_t) {},
-                  [](SubmitAction, Effect *, int32_t) { return false; },
-                  [&](Effect *e) {
-                    pov::advance_segment_display(*e, map,
-                                                 handoff.window_left());
+                  pov::WakeHooks{
+                      .tick =
+                          [&] {
+                            return WakeActions{.flip = true,
+                                               .zero_crossing = left,
+                                               .render_column = -1};
+                          },
+                      .wire_gen = [] { return 1u; },
+                      .drive_sync = [](bool) {},
+                      .commit_failure = [] {},
+                      .set_envelope = [](Effect *, int32_t) {},
+                      .submit = [](SubmitAction, Effect *,
+                                   int32_t) { return false; },
+                      .advance =
+                          [&](Effect *e) {
+                            pov::advance_segment_display(*e, map,
+                                                         handoff.window_left());
+                          },
                   });
             };
             pov::prime_segment_frame(effect, band, prepare_phase_clip);
@@ -1330,15 +1356,22 @@ struct SyncPinTrace {
     int submits = 0;
     pov::run_wake_sequence(
         gate, submit_gate, handoff,
-        [=] {
-          return WakeActions{.pulse = pulse, .render_column = render_column};
-        },
-        [] { return 1u; }, [this](bool level) { drive(level); }, [] {},
-        [](WakeEffect *, int32_t) {},
-        [&](SubmitAction action, WakeEffect *, int32_t) {
-          ++submits;
-          HS_EXPECT_EQ(action, expected);
-          return accepted;
+        pov::WakeHooks{
+            .tick =
+                [=] {
+                  return WakeActions{.pulse = pulse,
+                                     .render_column = render_column};
+                },
+            .wire_gen = [] { return 1u; },
+            .drive_sync = [this](bool level) { drive(level); },
+            .commit_failure = [] {},
+            .set_envelope = [](WakeEffect *, int32_t) {},
+            .submit =
+                [&](SubmitAction action, WakeEffect *, int32_t) {
+                  ++submits;
+                  HS_EXPECT_EQ(action, expected);
+                  return accepted;
+                },
         });
     HS_EXPECT_EQ(submits, expected == SubmitAction::NONE ? 0 : 1);
   }
@@ -1478,12 +1511,18 @@ inline void test_sync_pulse_resubmit_defers_low() {
   submit_gate.settle(SubmitAction::COLUMN, false);
   pov::run_wake_sequence(
       t.gate, submit_gate, handoff,
-      [] { return WakeActions{.pulse = true, .render_column = -1}; },
-      [] { return 1u; }, [&t](bool level) { t.drive(level); }, [] {},
-      [](WakeEffect *, int32_t) {},
-      [](SubmitAction action, WakeEffect *, int32_t) {
-        HS_EXPECT_EQ(action, SubmitAction::RESUBMIT);
-        return true;
+      pov::WakeHooks{
+          .tick =
+              [] { return WakeActions{.pulse = true, .render_column = -1}; },
+          .wire_gen = [] { return 1u; },
+          .drive_sync = [&t](bool level) { t.drive(level); },
+          .commit_failure = [] {},
+          .set_envelope = [](WakeEffect *, int32_t) {},
+          .submit =
+              [](SubmitAction action, WakeEffect *, int32_t) {
+                HS_EXPECT_EQ(action, SubmitAction::RESUBMIT);
+                return true;
+              },
       });
   HS_EXPECT_FALSE(submit_gate.resubmit_pending());
   HS_EXPECT_TRUE(t.high);
