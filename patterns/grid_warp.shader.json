@@ -289,7 +289,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "ratio"
+        "unit": "radian"
       },
       {
         "classification": "preset",
