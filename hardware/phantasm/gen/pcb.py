@@ -318,6 +318,24 @@ def refresh_uuids(node):
             refresh_uuids(child)
 
 
+def component_keepout(name, x0, y0, x1, y1, uuid):
+    return (
+        '\t(zone\n'
+        '\t\t(layer "F.Cu")\n'
+        f'\t\t(uuid "{uuid}")\n'
+        f'\t\t(name "{name}")\n'
+        '\t\t(hatch full 0.5)\n'
+        '\t\t(connect_pads (clearance 0))\n'
+        '\t\t(min_thickness 0.25)\n'
+        '\t\t(keepout (tracks allowed) (vias allowed) (pads allowed)'
+        ' (copperpour allowed) (footprints not_allowed))\n'
+        '\t\t(placement (enabled no) (sheetname ""))\n'
+        '\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.4))\n'
+        f'\t\t(polygon (pts (xy {fmt(x0)} {fmt(y0)}) (xy {fmt(x1)} {fmt(y0)})'
+        f' (xy {fmt(x1)} {fmt(y1)}) (xy {fmt(x0)} {fmt(y1)})))\n'
+        '\t)\n')
+
+
 def teensy_footprint():
     """2x14 THT module, pads named by Teensy pin label; long axis along X.
     Pad map is the top view (component side up) with the USB end at -X:
@@ -342,21 +360,7 @@ def teensy_footprint():
     if outline_layer == 'F.SilkS':
         body += ('\n\t(fp_text user "USB" (at -17.3 0 90) (layer "F.SilkS")'
                  ' (effects (font (size 1 1) (thickness 0.15))))')
-    keepout = (
-        '\t(zone\n'
-        '\t\t(layer "F.Cu")\n'
-        f'\t\t(uuid "{uid()}")\n'
-        '\t\t(name "USB mating plug")\n'
-        '\t\t(hatch full 0.5)\n'
-        '\t\t(connect_pads (clearance 0))\n'
-        '\t\t(min_thickness 0.25)\n'
-        '\t\t(keepout (tracks allowed) (vias allowed) (pads allowed)'
-        ' (copperpour allowed) (footprints not_allowed))\n'
-        '\t\t(placement (enabled no) (sheetname ""))\n'
-        '\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.4))\n'
-        '\t\t(polygon (pts (xy -30 -5) (xy -18.5 -5)'
-        ' (xy -18.5 5) (xy -30 5)))\n'
-        '\t)\n')
+    keepout = component_keepout("USB mating plug", -30, -5, -18.5, 5, uid())
     model = (
         f'\t(model {sexp.quote(TEENSY_MODEL_PATH)}\n'
         '\t\t(offset (xyz 0 0 0))\n'
@@ -399,16 +403,8 @@ def reserve_terminal_wire_access(node):
         y = float(sexp.val(pad, "at")[1])
         x0, x1 = -3.25 - WIRE_APPROACH_MM, -3.25
         y0, y1 = y - WIRE_ENVELOPE_MM / 2, y + WIRE_ENVELOPE_MM / 2
-        node.append(sexp.parse_one(
-            f'(zone (layer "F.Cu") (uuid "{uid()}") '
-            f'(name "Terminal wire access pin {pad[1]}") (hatch full 0.5) '
-            '(connect_pads (clearance 0)) (min_thickness 0.25) '
-            '(keepout (tracks allowed) (vias allowed) (pads allowed) '
-            '(copperpour allowed) (footprints not_allowed)) '
-            '(placement (enabled no) (sheetname "")) '
-            '(fill (thermal_gap 0.3) (thermal_bridge_width 0.4)) '
-            f'(polygon (pts (xy {fmt(x0)} {fmt(y0)}) (xy {fmt(x1)} {fmt(y0)}) '
-            f'(xy {fmt(x1)} {fmt(y1)}) (xy {fmt(x0)} {fmt(y1)}))))'))
+        node.append(sexp.parse_one(component_keepout(
+            f"Terminal wire access pin {pad[1]}", x0, y0, x1, y1, uid())))
 
 
 def validate_front_access(footprints, length):
