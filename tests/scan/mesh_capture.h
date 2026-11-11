@@ -99,8 +99,8 @@ inline void test_capture_window_faces() {
 }
 
 /**
- * @brief Vertex arc bounds cover an independent angular reference, and
- *        held vertices retain zero motion flags and reach.
+ * @brief Vertex arc bounds cover an independent angular reference, and a
+ *        vertex that only rescales measures as held.
  */
 inline void test_vertex_arc_and_reach_flags() {
   const double U = std::numeric_limits<float>::epsilon() / 2.0;
@@ -134,19 +134,10 @@ inline void test_vertex_arc_and_reach_flags() {
                      PIXELS_PER_RADIAN,
                  Scan::HELD_VERTEX_PIXELS);
   }
-  uint8_t still_motion[4] = {255, 255, 255, 255};
-  Scan::flag_moving_vertices<288>(still_previous, still_current, 4,
-                                  still_motion);
-  uint8_t still_reach[4] = {255, 255, 255, 255};
-  Scan::flag_vertex_reaches<288>(still_previous, still_current, 4, still_reach);
-  for (int i = 0; i < 4; ++i) {
-    HS_EXPECT_EQ(still_motion[i], 0);
-    HS_EXPECT_EQ(still_reach[i], 0);
-    HS_EXPECT_EQ(Scan::vertex_reach(still_reach[i]), 0.0f);
-  }
 }
 
-/** @brief Reach levels conservatively quantize motion and demote held vertices. */
+/** @brief Reach levels conservatively quantize motion, and a still vertex
+ *  holds. */
 inline void test_vertex_reach_levels_and_demotion() {
   // A reach level stands for at least the reach, and at most a third of an
   // octave more.
@@ -166,12 +157,16 @@ inline void test_vertex_reach_levels_and_demotion() {
   const math::Vector previous[2] = {
       math::rotate(placed, math::make_rotation(math::Vector(0, 0, 1), 0.2f)),
       placed};
-  // The second vertex, picked but still, holds.
-  uint8_t moving[2] = {Scan::VERTEX_MOVES, Scan::VERTEX_MOVES};
-  Scan::flag_vertex_reaches<288>(previous, current, 2, moving);
-  HS_EXPECT_GE(Scan::vertex_reach(moving[0]), 0.2f);
-  HS_EXPECT_LE(Scan::vertex_reach(moving[0]), 0.26f);
+  ScratchScope guard(scratch_arena_a);
+  uint8_t moving[2] = {255, 255};
+  uint16_t motion[2] = {UINT16_MAX, UINT16_MAX};
+  Scan::flag_moving<288>({current, previous}, 2, 0.2f, moving, motion,
+                         scratch_arena_a, nullptr, Scan::NoRipples{});
+  HS_EXPECT_EQ(moving[0], 1);
+  HS_EXPECT_GE(motion[0] * Scan::MOTION_UNIT, 0.2f * 0.999f);
+  HS_EXPECT_LE(motion[0] * Scan::MOTION_UNIT, 0.2f * 1.01f);
   HS_EXPECT_EQ(moving[1], 0);
+  HS_EXPECT_EQ(motion[1], 0);
 }
 
 /** @brief Face capture includes a pole reached by vertex or basis motion. */

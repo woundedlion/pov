@@ -181,7 +181,7 @@ inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
     Scan::mesh_capture_counters = {};
     std::fill_n(Scan::visibility_counts, 4, size_t(0));
     HS_SCAN_METRIC(hs::g_scan_metrics.reset());
-    const size_t passes = IslamicBuildProbe::vertex_passes<W, H>();
+    const size_t passes = Scan::mesh_motion_counters.passes;
     effect.draw_frame();
     effect.advance_display();
     if (audit) {
@@ -209,8 +209,8 @@ inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
           "  f %d deform %zu moving %zu path evaluations %zu (scan %zu) "
           "captures %zu polar %zu swept %zu copies %zu\n",
           frame, w.deformations, w.vertices,
-          IslamicBuildProbe::vertex_passes<W, H>() - passes, w.evaluations,
-          w.captures, w.polar_faces, w.swept_faces, w.face_copies);
+          Scan::mesh_motion_counters.passes - passes, w.evaluations, w.captures,
+          w.polar_faces, w.swept_faces, w.face_copies);
     window.deformations += w.deformations;
     window.vertices += w.vertices;
     window.evaluations += w.evaluations;

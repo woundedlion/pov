@@ -25,24 +25,13 @@ struct IslamicBuildProbe {
   }
   /** @brief Selects the reference ripple capture loop and clears its counters. */
   static void reference_ripples(bool enabled) {
-    IS::test_reference_ripples = enabled;
-    IS::test_vertex_passes = 0;
-    IS::test_ripple_candidates = 0;
-    IS::test_ripple_interpolations = 0;
-  }
-  /**
-   * @brief Vertex path evaluations of an effect at any resolution.
-   * @tparam W Canvas width.
-   * @tparam H Canvas height.
-   * @return Evaluations so far, at the frame's start and at captures.
-   */
-  template <int W, int H> static size_t vertex_passes() {
-    return IslamicStars<W, H>::test_vertex_passes;
+    Scan::mesh_motion_reference = enabled;
+    Scan::mesh_motion_counters = {};
   }
   /** @return Vertex passes, visited bands and interpolated ripples. */
   static std::array<size_t, 3> ripple_counts() {
-    return {IS::test_vertex_passes, IS::test_ripple_candidates,
-            IS::test_ripple_interpolations};
+    const auto &c = Scan::mesh_motion_counters;
+    return {c.passes, c.candidates, c.interpolations};
   }
   /** @brief Selects the ungrouped endpoint chain and resets its counters. */
   static void reference_endpoints(bool enabled) {
@@ -388,14 +377,17 @@ struct IslamicBuildProbe {
       Canvas canvas(e);
       ScratchScope scope(scratch_arena_a);
       const MeshState &source = e.carousel.slot(e.carousel.front_index());
-      const typename IslamicStars<W, H>::ModelPath path{source.vertices.data()};
-      const float bound = e.motion_bound(path, source.vertices.size());
+      const Scan::ModelPath path{source.vertices.data()};
+      const float bound =
+          Scan::motion_bound(path, source.vertices.size(), e.ripple_gen);
       const auto time = Scan::prepare_column_basis<W, H>(scratch_arena_a,
                                                          e.orientation, true);
       Scan::ColumnBasisScope columns(canvas, time);
       MeshState mesh = e.transform_shape(source);
-      const auto plan = e.plan_motion(canvas, mesh, path, bound,
-                                      scratch_arena_a, scratch_arena_b);
+      const Scan::EndpointCamera camera(e.orientation);
+      const auto plan =
+          Scan::plan_motion<W>(canvas, mesh, path, bound, e.ripple_gen, camera,
+                               scratch_arena_a, scratch_arena_b);
       HS_EXPECT_TRUE(plan.active);
       FacePaletteShader fragment;
       int window = -1;
@@ -403,7 +395,8 @@ struct IslamicBuildProbe {
           canvas, mesh, plan.active, plan.columns, plan.moving, plan.start,
           scratch_arena_a, bound,
           [&](size_t i, float u) {
-            return e.capture_position(plan, path, i, u);
+            return Scan::capture_position(plan, path, e.ripple_gen, camera, i,
+                                          u);
           },
           [&]() {
             window = record_face_copies(canvas, mesh, e.orientation, copies);

@@ -170,13 +170,12 @@ struct HankinSolidsWhiteBox {
                           const math::Quaternion &to, FaceCopies &copies) {
     effect.orientation.set(from).push(to);
     const auto &mesh = effect.hankin_mesh;
-    std::vector<math::Vector> before = previous;
     {
       Canvas canvas(effect);
       FacePaletteShader fragment;
       int window = -1;
       effect.scan_mesh(
-          canvas, mesh, before.data(), false, [&](const MeshState &rotated) {
+          canvas, mesh, previous.data(), false, [&](const MeshState &rotated) {
             window =
                 record_face_copies(canvas, rotated, effect.orientation, copies);
             auto setup = [&](size_t f, float size) {

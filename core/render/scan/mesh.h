@@ -349,56 +349,6 @@ HS_HOT_INLINE inline float vertex_arc(const math::Vector &a,
   return cosine_arc(norms > 0.0f ? math::dot(a, b) / sqrtf(norms) : 1.0f);
 }
 
-/**
- * @brief Flags the vertices that move between two endpoints.
- * @tparam W Canvas width in pixels.
- * @param previous Vertices at the previous endpoint.
- * @param current The same vertices at the current endpoint.
- * @param count Number of vertices.
- * @param moving Receives VERTEX_MOVES for a vertex that moves more than
- *        HELD_VERTEX_ARC, else 0.
- */
-template <int W>
-HS_FLASH_MEMBER void flag_moving_vertices(const math::Vector *previous,
-                                          const math::Vector *current,
-                                          size_t count, uint8_t *moving) {
-  const float held_cos = cosf(HELD_VERTEX_ARC<W>);
-  for (size_t i = 0; i < count; ++i) {
-    const float norms =
-        math::dot(previous[i], previous[i]) * math::dot(current[i], current[i]);
-    moving[i] = math::dot(previous[i], current[i]) < held_cos * sqrtf(norms)
-                    ? VERTEX_MOVES
-                    : 0;
-  }
-}
-
-/**
- * @brief Records the reach of the moving vertices of a draw whose vertices
- *        move along the arcs between two endpoints.
- * @tparam W Display width.
- * @param previous Vertices at the previous endpoint.
- * @param current The same vertices at the current endpoint.
- * @param count Number of vertices.
- * @param moving Nonzero for the vertices to flag, as pick_moving_faces()
- *        leaves them; each receives vertex_flags() of its arc when it moves
- *        more than HELD_VERTEX_ARC, 0 otherwise.
- */
-template <int W>
-HS_FLASH_MEMBER void flag_vertex_reaches(const math::Vector *previous,
-                                         const math::Vector *current,
-                                         size_t count, uint8_t *moving) {
-  const float held_cos = cosf(HELD_VERTEX_ARC<W>);
-  for (size_t i = 0; i < count; ++i) {
-    if (!moving[i])
-      continue;
-    const float norms =
-        math::dot(previous[i], previous[i]) * math::dot(current[i], current[i]);
-    const float c =
-        norms > 0.0f ? math::dot(previous[i], current[i]) / sqrtf(norms) : 1.0f;
-    moving[i] = c < held_cos ? vertex_flags(cosine_arc(c)) : 0;
-  }
-}
-
 /// Vertex motion over one frame, in pixels of arc, past which the frame is a
 /// jump and draws at its current endpoint.
 inline constexpr float MAX_VERTEX_MOTION_PIXELS = 8.0f;
@@ -527,8 +477,8 @@ struct ClipRows {
  *        placement of the face reaches a row the render clip admits.
  * @param radii Per-face cap radii pick_moving_faces() recorded from the same
  *        vertices, or null to measure the caps.
- * @details Call after pick_moving_faces(), optionally after flag_vertex_reaches()
- * and drop_held_faces(), when tightening the motion reach. Mesh vertices and
+ * @details Call after pick_moving_faces(), optionally after drop_held_faces(),
+ * when tightening the motion reach. Mesh vertices and
  * topology must match the selection. Tables remain caller-owned and are borrowed
  * only for this call; arena-backed tables must outlive it.
  */
@@ -581,7 +531,7 @@ moving_face_columns(const Canvas &canvas, const MeshState &mesh, float reach,
  * @return The number of picked faces.
  * @details A face is picked when it holds a moving vertex and a column and a
  * row the render clip admits can see it; the others draw once at the current
- * endpoint. Call before flag_vertex_reaches() and drop_held_faces(); optionally
+ * endpoint. Call before drop_held_faces(); optionally
  * tighten the reach with moving_face_columns() before deform_mesh(). The caller
  * owns the moving-vertex flags, column pairs and optional radii; the function
  * borrows them only for this call. Keep flags and columns alive through

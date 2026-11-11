@@ -8,6 +8,7 @@
 #pragma once
 
 #include "core/render/scan.h"
+#include "core/render/scan/mesh_motion.h"
 #include "core/render/sdf/volume.h"
 #include "core/render/plot.h"
 #include "core/render/filter.h"

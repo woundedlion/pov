@@ -11,7 +11,7 @@
  *        one into the next.
  */
 
-#include "core/animation/ripple_motion.h"
+#include "core/render/scan/mesh_motion.h"
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/animation/animation.h"
@@ -462,323 +462,10 @@ private:
     return transformed_state;
   }
 
-  /**
-   * @brief Bound on how far the active ripples move any point over the frame.
-   * @return Radians.
-   */
-  HS_FLASH_MEMBER float ripple_arc() const {
-    float arc = 0.0f;
-    for (int k = 0; k < ripple_gen.active_count(); ++k)
-      arc += ripple_gen.active_params(k).step_arc();
-    return arc;
-  }
-
-  /**
-   * @brief Maximum displacement from the undeformed model over capture times.
-   * @param motion Frame vertex-motion bound.
-   * @return Angular displacement in radians.
-   */
-  HS_HOT_FLASH_MEMBER float visibility_reach(float motion) const {
-    float reach = 2.0f * fmaxf(motion - ripple_arc(), 0.0f);
-    for (int k = 0; k < ripple_gen.active_count(); ++k) {
-      const auto &p = ripple_gen.active_params(k);
-      reach += fmaxf(fabsf(p.amplitude), fabsf(p.previous_amplitude)) +
-               fabsf(p.amplitude - p.previous_amplitude);
-    }
-    return reach;
-  }
-
-  /** @brief Where a draw's model-space vertices stand over the frame. */
-  struct ModelPath {
-    const math::Vector *current = nullptr;  ///< At the current endpoint.
-    const math::Vector *previous = nullptr; ///< At the previous endpoint.
-    /** Shading whose leg moves the model vertex by vertex, or null. */
-    const Animation::OpLeg::Shading *leg = nullptr;
-    /// At the current endpoint, packed, in place of current.
-    const math::Snorm3 *packed = nullptr;
-
-    /** @return Whether the model moves over the frame. */
-    bool moves() const { return leg || previous; }
-
-    /** @brief One fraction of the frame, with the leg's parameter there. */
-    struct Moment {
-      float u = 0.0f; ///< Frame fraction; 0 and 1 are the endpoints.
-      float k = 0.0f; ///< The leg's sweep parameter at `u`; 0 without a leg.
-    };
-
-    /**
-     * @brief A fraction of the frame, resolved for at().
-     * @param u Frame fraction; past either endpoint the model continues
-     *        along its path, holding at a leg's own ends.
-     * @return The moment.
-     */
-    Moment moment(float u) const {
-      return {u, leg ? leg->parameter_at(u) : 0.0f};
-    }
-
-    /**
-     * @brief A model vertex at a moment of the frame.
-     * @param i Vertex index.
-     * @param m The moment, as moment() gives it.
-     * @return The vertex on its leg's path, normalized-lerped from
-     * `previous`, or `current` when the model holds.
-     */
-    HS_HOT_INLINE math::Vector at(size_t i, const Moment &m) const {
-      if (leg)
-        return leg->vertex_at_parameter(i, m.k);
-      const math::Vector now = packed ? packed[i].decode() : current[i];
-      if (previous)
-        return (previous[i] + (now - previous[i]) * m.u).normalized();
-      return now;
-    }
-
-    /**
-     * @brief A model vertex at its capture fraction.
-     * @param i Vertex index.
-     * @param u Frame fraction.
-     * @return Vertex on the model path.
-     */
-    HS_HOT_INLINE math::Vector at(size_t i, float u) const {
-      return at(i, moment(u));
-    }
-  };
-
-  /**
-   * @brief Bound on how far a mesh draw's vertices move over the frame.
-   * @param path The draw's model path.
-   * @param count Number of vertices.
-   * @return Radians; the ripples' bound plus the model's largest motion.
-   */
-  HS_FLASH_MEMBER float motion_bound(const ModelPath &path,
-                                     size_t count) const {
-    float min_cos = 1.0f;
-    if (path.moves()) {
-      const auto start = path.moment(0.0f);
-      const auto end = path.moment(1.0f);
-      for (size_t i = 0; i < count; ++i)
-        min_cos = fminf(min_cos, math::dot(path.at(i, start), path.at(i, end)));
-    }
-    return ripple_arc() + acosf(hs::clamp(min_cos, -1.0f, 1.0f));
-  }
-
-  /// Arc, radians, of one unit of a vertex's recorded model motion.
-  static constexpr float MOTION_UNIT = math::PI_F / 65535.0f;
-
-  using RippleBand = RippleMotion::RippleBand;
-
-  /**
-   * @brief Flags the vertices the model or an active ripple's last step can
-   *        move.
-   * @param path The draw's model path.
-   * @param count Number of vertices.
-   * @param leg_arc The model's largest motion (radians).
-   * @param moving Receives 1 for each vertex the model moves more than
-   *        Scan::HELD_VERTEX_ARC, or that stands within @p leg_arc of a
-   *        moving ripple's band at either end of its step; 0 for the others.
-   * @param motion Receives each vertex's model motion over the frame, in
-   *        MOTION_UNIT arcs rounded up.
-   * @param arena Arena holding the bands for the call.
-   * @param visible Per-vertex board visibility bits, or null.
-   * @details A vertex outside every band is left in place by each ripple in
-   * turn.
-   */
-  HS_FLASH_MEMBER void flag_moving(const ModelPath &path, size_t count,
-                                   float leg_arc, uint8_t *moving,
-                                   uint16_t *motion, Arena &arena,
-                                   const uint8_t *visible = nullptr) const {
-    ScratchScope scope(arena);
-    int band_count = 0;
-    const RippleBand *bands =
-        RippleMotion::ripple_bands(ripple_gen, leg_arc, arena, band_count);
-    const float held_cos = cosf(Scan::HELD_VERTEX_ARC<W>);
-    const auto start = path.moment(0.0f);
-    const auto end = path.moment(1.0f);
-    for (size_t i = 0; i < count; ++i) {
-      if (!Scan::mesh_visible(visible, i)) {
-        moving[i] = 0;
-        motion[i] = 0;
-        continue;
-      }
-      const math::Vector model = path.at(i, end);
-      bool moves = false;
-      motion[i] = 0;
-      if (path.moves()) {
-        const float c = math::dot(path.at(i, start), model);
-        motion[i] = static_cast<uint16_t>(
-            fminf(ceilf(Scan::cosine_arc(c) * (1.0f / MOTION_UNIT)), 65535.0f));
-        moves = c < held_cos;
-      }
-      for (int b = 0; b < band_count && !moves; ++b)
-        moves = bands[b].holds(model);
-      moving[i] = moves;
-    }
-  }
-
-  // plan_motion()'s cap radii are freed before the scan's face scratch and
+  // Scan::plan_motion()'s cap radii are freed before the scan's face scratch and
   // face selection take their place.
   static_assert(MAX_BUILD_FACES * sizeof(float) <=
                 MAX_BUILD_FACES + sizeof(SDF::FaceStorage));
-
-  struct MotionCounters {
-    static void candidate() {
-#if HS_ENABLE_TEST_HOOKS
-      ++test_ripple_candidates;
-#endif
-    }
-    static void interpolated() {
-#if HS_ENABLE_TEST_HOOKS
-      ++test_ripple_interpolations;
-#endif
-    }
-  };
-  using MotionRipple = RippleMotion::MotionRipple<MotionCounters>;
-#if HS_ENABLE_TEST_HOOKS
-  inline static bool test_reference_ripples =
-      false; ///< Uses the uncached capture loop.
-  inline static size_t test_vertex_passes = 0; ///< Temporal vertex captures.
-  inline static size_t test_ripple_candidates = 0; ///< Ripple bands visited.
-  inline static size_t test_ripple_interpolations =
-      0; ///< Ripple samples interpolated.
-#endif
-
-  /** @brief Vertex deformation state of one mesh draw. */
-  struct MotionPlan {
-    bool active = false;            ///< Whether vertices deform.
-    uint8_t *moving = nullptr;      ///< Nonzero per moving vertex.
-    uint16_t *start = nullptr;      ///< Moving vertices' columns at the
-                                    ///< frame's start (Scan::vertex_column()).
-    uint16_t *columns = nullptr;    ///< Per-face seeing columns.
-    MotionRipple *during = nullptr; ///< One per active ripple.
-  };
-
-  /**
-   * @brief Caches each active ripple at the start of its frame.
-   * @param during Receives the params.
-   */
-  HS_FLASH_MEMBER void ripples_at(MotionRipple *during) const {
-    for (int k = 0; k < ripple_gen.active_count(); ++k)
-      during[k].prepare(ripple_gen.active_params(k));
-  }
-
-  /**
-   * @brief Plans the vertex deformation of one mesh draw.
-   * @param canvas Canvas with the frame's column-time state installed.
-   * @param mesh The mesh, placed at the current endpoint.
-   * @param path The draw's model path.
-   * @param bound motion_bound() of the draw.
-   * @param arena Arena backing the plan's tables for the caller's scope.
-   * @param start_arena Arena backing the plan's frame-start columns for the
-   *        caller's scope.
-   * @return Inactive with temporal sampling off or when every visible vertex holds.
-   * @details The faces the clip can see with a moving vertex are picked; the
-   * largest vertex motion activates deformation. A picked face
-   * whose vertices all move at most Scan::HELD_VERTEX_ARC draws once. A
-   * placed vertex strays from the current endpoint by at most its motion
-   * plus the bend of its path between the endpoints, which a column of arc
-   * covers. Each candidate vertex is evaluated once, at the frame's start;
-   * the scan captures it from its column there.
-   */
-  HS_FLASH_MEMBER MotionPlan plan_motion(const Canvas &canvas,
-                                         const MeshState &mesh,
-                                         const ModelPath &path, float bound,
-                                         Arena &arena, Arena &start_arena) {
-    MotionPlan plan;
-    if (!Scan::mesh_motion_active<W>(bound))
-      return plan;
-    const size_t count = mesh.vertices.size();
-    plan.moving = arena.allocate_n<uint8_t>(count);
-    // Each vertex's model motion stands in its start column's place until
-    // the vertex's column replaces it.
-    plan.start = start_arena.allocate_n<uint16_t>(count);
-    flag_moving(
-        path, count, bound - ripple_arc(), plan.moving, plan.start, arena,
-        canvas.column_basis() ? canvas.column_basis()->mesh.visible_vertices
-                              : nullptr);
-    plan.columns = arena.allocate_n<uint16_t>(2 * mesh.num_faces());
-    plan.during = arena.allocate_n<MotionRipple>(ripple_gen.active_count() + 1);
-    ScratchScope radii_scope(arena);
-    float *radii = arena.allocate_n<float>(mesh.num_faces());
-    if (Scan::pick_moving_faces<W>(canvas, mesh, plan.moving, bound,
-                                   plan.columns, radii) == 0)
-      return plan;
-    ripples_at(plan.during);
-    for (int k = 0; k < ripple_gen.active_count(); ++k)
-      plan.during[k].widen(ripple_gen.active_params(k));
-    // The stepping ripples' bands, turned with the camera to the scanned
-    // mesh.
-    int band_count = 0;
-    RippleBand *bands = RippleMotion::ripple_bands(
-        ripple_gen, bound - ripple_arc(), arena, band_count);
-    OrientTransformer camera(orientation);
-    for (int b = 0; b < band_count; ++b)
-      bands[b].center = camera(bands[b].center);
-    const float held_cos = cosf(Scan::HELD_VERTEX_ARC<W>);
-    float min_cos = 1.0f;
-    for (size_t i = 0; i < count; ++i) {
-      if (!plan.moving[i])
-        continue;
-      const float model_arc = plan.start[i] * MOTION_UNIT;
-      const math::Vector start = capture_position(plan, path, i, 0.0f);
-      plan.start[i] =
-          Scan::vertex_column(start, *canvas.column_basis(), 0.0f, W);
-      const math::Vector &end = mesh.vertices[i];
-      const float c = math::dot(start, end);
-      min_cos = fminf(min_cos, c);
-      if (!(c < held_cos)) {
-        plan.moving[i] = 0;
-        continue;
-      }
-      // Its model motion over the frame, with the steps of the ripples whose
-      // bands it stands in.
-      float reach = model_arc;
-      for (int b = 0; b < band_count; b += 2)
-        if (bands[b].holds(end) || bands[b + 1].holds(end))
-          reach += bands[b].step;
-      plan.moving[i] = Scan::vertex_flags(reach);
-    }
-    const float arc = acosf(hs::clamp(min_cos, -1.0f, 1.0f));
-    if (Scan::drop_held_faces(mesh, plan.moving, plan.columns) == 0)
-      return plan;
-    plan.active = Scan::mesh_motion_active<W>(arc);
-    if (plan.active)
-      Scan::moving_face_columns<W>(canvas, mesh, arc + math::TWO_PI_F / W,
-                                   plan.columns, radii);
-    return plan;
-  }
-
-  /**
-   * @brief Evaluates one vertex on its model and ripple paths in camera space.
-   * @param plan Frame's ripple cache and motion selection.
-   * @param path Model-space vertex path.
-   * @param i Vertex index.
-   * @param u Frame fraction.
-   * @return Vertex at the requested frame fraction.
-   */
-  HS_HOT_INLINE math::Vector capture_position(const MotionPlan &plan,
-                                              const ModelPath &path, size_t i,
-                                              float u) const {
-#if HS_ENABLE_TEST_HOOKS
-    ++test_vertex_passes;
-    if (test_reference_ripples) {
-      math::Vector vertex = path.at(i, u);
-      for (int k = 0; k < ripple_gen.active_count(); ++k) {
-        const auto &p = ripple_gen.active_params(k);
-        auto &during = plan.during[k].params;
-        during.phase = p.previous_phase + (p.phase - p.previous_phase) * u;
-        during.amplitude =
-            p.previous_amplitude + (p.amplitude - p.previous_amplitude) * u;
-        ++test_ripple_candidates;
-        ++test_ripple_interpolations;
-        vertex = ripple_params_transform(vertex, during);
-      }
-      return OrientTransformer(orientation)(vertex);
-    }
-#endif
-    math::Vector vertex = path.at(i, u);
-    for (int k = 0; k < ripple_gen.active_count(); ++k)
-      vertex = plan.during[k].transform(vertex, u);
-    return OrientTransformer(orientation)(vertex);
-  }
 
   /**
    * @brief Sprite draw callback: draws the held shape for one envelope frame.
@@ -856,20 +543,24 @@ private:
 
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
-    const ModelPath path{base_state.vertices.data()};
-    const float bound = motion_bound(path, base_state.vertices.size());
+    const Scan::ModelPath path{base_state.vertices.data()};
+    const float bound =
+        Scan::motion_bound(path, base_state.vertices.size(), ripple_gen);
     Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
         scratch_arena_a, orientation,
         previous_phase != phase || Scan::mesh_motion_active<W>(bound));
     Scan::select_mesh_visibility<W, H>(
         canvas.clip(), base_state, OrientTransformer(orientation),
-        visibility_reach(bound), scratch_arena_a, column_basis);
+        Scan::visibility_reach(ripple_gen, bound), scratch_arena_a,
+        column_basis);
     Scan::ColumnBasisScope column_scope(canvas, column_basis);
     MeshState transformed_state =
         transform_shape(base_state, column_basis.mesh.visible_vertices);
     ScratchScope b_guard(scratch_arena_b);
-    const MotionPlan plan = plan_motion(canvas, transformed_state, path, bound,
-                                        scratch_arena_a, scratch_arena_b);
+    const Scan::EndpointCamera camera(orientation);
+    const Scan::MotionPlan plan =
+        Scan::plan_motion<W>(canvas, transformed_state, path, bound, ripple_gen,
+                             camera, scratch_arena_a, scratch_arena_b);
     ArenaVector<float> face_phases;
     {
       HS_PROFILE(is_face_offsets);
@@ -898,8 +589,9 @@ private:
       Scan::deform_mesh<W, H>(
           canvas, transformed_state, plan.active, plan.columns, plan.moving,
           plan.start, scratch_arena_a, bound,
-          [&](size_t i, float u)
-              HS_HOT_INLINE { return capture_position(plan, path, i, u); },
+          [&](size_t i, float u) HS_HOT_INLINE {
+            return Scan::capture_position(plan, path, ripple_gen, camera, i, u);
+          },
           [&]() HS_HOT_INLINE {
             Scan::Mesh::draw_specialized<W, H>(
                 filters, canvas, transformed_state, fragment_shader,
@@ -926,9 +618,8 @@ private:
     // Opened after the OpLeg's blended ramps, which the shader reads.
     ScratchScope b_guard(scratch_arena_b);
     const size_t count = mesh.vertices.size();
-    ModelPath path{mesh.vertices.data(), sh.previous_vertices,
-                   sh.leg ? &sh : nullptr};
-    const float bound = motion_bound(path, count);
+    Scan::ModelPath path = Scan::ModelPath::of(mesh.vertices.data(), sh);
+    const float bound = Scan::motion_bound(path, count, ripple_gen);
     const bool active = Scan::mesh_motion_active<W>(bound);
     // A leg moving vertex by vertex places from its own path; otherwise the
     // scan keeps the current endpoint's model-space vertices, packed.
@@ -944,7 +635,8 @@ private:
         sh.previous_weight != sh.weight || active);
     Scan::select_mesh_visibility<W, H>(
         canvas.clip(), mesh, OrientTransformer(orientation),
-        visibility_reach(bound), scratch_arena_b, column_basis);
+        Scan::visibility_reach(ripple_gen, bound), scratch_arena_b,
+        column_basis);
     Scan::ColumnBasisScope column_scope(canvas, column_basis);
     // The frame-local mesh and its source occupy scratch_a.
     OrientTransformer camera(orientation);
@@ -978,21 +670,25 @@ private:
    * @param sh Per-face palette table and previous vertices from the OpLeg.
    * @param path The mesh's model path, or null when the frame cannot need
    *        deformation.
-   * @param bound motion_bound() of the draw.
+   * @param bound Scan::motion_bound() of the draw.
    */
   HS_FLASH_MEMBER void scan_build_mesh(Canvas &canvas, MeshState &mesh,
                                        const Animation::OpLeg::Shading &sh,
-                                       const ModelPath *path, float bound) {
-    const MotionPlan plan = path ? plan_motion(canvas, mesh, *path, bound,
-                                               scratch_arena_b, scratch_arena_b)
-                                 : MotionPlan{};
+                                       const Scan::ModelPath *path,
+                                       float bound) {
+    const Scan::EndpointCamera camera(orientation);
+    const Scan::MotionPlan plan =
+        path ? Scan::plan_motion<W>(canvas, mesh, *path, bound, ripple_gen,
+                                    camera, scratch_arena_b, scratch_arena_b)
+             : Scan::MotionPlan{};
     const SegueT &seg = carousel.segue();
     // Per-face scan scratch must remain disjoint from the mesh in scratch_a.
     Scan::deform_mesh<W, H>(
         canvas, mesh, plan.active, plan.columns, plan.moving, plan.start,
         scratch_arena_b, bound,
-        [&](size_t i, float u)
-            HS_HOT_INLINE { return capture_position(plan, *path, i, u); },
+        [&](size_t i, float u) HS_HOT_INLINE {
+          return Scan::capture_position(plan, *path, ripple_gen, camera, i, u);
+        },
         [&]() HS_HOT_INLINE {
           Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, mesh, sh, 1.0f,
                                                seg.opacity(1.0f),

@@ -1474,6 +1474,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            shader, volume, column_basis)
 │   │   │   ├── face_raster.h      Face-specialized scan loops and swept face bounds
 │   │   │   ├── mesh_capture.cpp    Per-face column-time capture of deforming meshes
+│   │   │   ├── mesh_motion.h     Motion planning for meshes on model paths under ripples
 │   │   │   ├── swept_face.h      Column-time polygon sweep state and meridian crossings
 │   │   │   ├── radial_surface.h  Bounded first-arrival star-family queries
 │   │   │   ├── radial_surface_boundary.h  Canonical first-arrival boundary candidates

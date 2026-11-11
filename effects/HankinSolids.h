@@ -13,8 +13,7 @@
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
-#include <cstring>
-#include <type_traits>
+#include "core/render/scan/mesh_motion.h"
 
 namespace hs_test {
 namespace conway_soak_tests {
@@ -399,67 +398,90 @@ private:
    * @tparam ScanFn Callable (const MeshState &) scanning the rotated mesh.
    * @param canvas Target canvas to draw into.
    * @param mesh Source mesh in model space at the current endpoint.
-   * @param previous The mesh's vertices at the previous endpoint, index for
-   * index, or null when they hold; rotated in place.
+   * @param path The mesh's model-space vertex path over the frame.
    * @param state_moves Whether the scan's per-column shading state moves.
    * @param scan Scans the rotated mesh into the canvas.
    */
   template <typename ScanFn>
-  HS_FLASH_MEMBER void scan_mesh(Canvas &canvas, const MeshState &mesh,
-                                 math::Vector *previous, bool state_moves,
+  HS_FLASH_MEMBER void scan_path(Canvas &canvas, const MeshState &mesh,
+                                 const Scan::ModelPath &path, bool state_moves,
                                  ScanFn &&scan) {
+    const Scan::NoRipples ripples;
     const size_t count = mesh.vertices.size();
-    const float arc =
-        previous ? Scan::max_vertex_arc(previous, mesh.vertices.data(), count)
-                 : 0.0f;
-    bool active = Scan::mesh_motion_active<W>(arc);
+    const float bound = Scan::motion_bound(path, count, ripples);
+    const bool active = Scan::mesh_motion_active<W>(bound);
     ScratchScope scratch_a_guard(scratch_arena_a);
     ScratchScope scratch_b_guard(scratch_arena_b);
     const Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
         scratch_arena_a, orientation, state_moves || active);
     Scan::ColumnBasisScope column_scope(canvas, column_basis);
     MeshState &rotated_mesh = *scratch_arena_a.make<MeshState>();
-    OrientTransformer camera(orientation);
-    uint8_t *moving = nullptr;
-    uint16_t *columns = nullptr;
-    math::Vector *current = nullptr;
-    uint16_t *start = nullptr;
+    const Scan::EndpointCamera camera = path.leg
+                                            ? Scan::EndpointCamera(orientation)
+                                            : Scan::EndpointCamera::none();
+    Scan::ModelPath placed = path;
+    Scan::MotionPlan plan;
     {
       HS_PROFILE(hk_mesh_transform);
-      MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
-      if (active) {
-        moving = scratch_arena_b.allocate_n<uint8_t>(count);
-        Scan::flag_moving_vertices<W>(previous, mesh.vertices.data(), count,
-                                      moving);
-        columns = scratch_arena_b.allocate_n<uint16_t>(2 * mesh.num_faces());
-        if (Scan::pick_moving_faces<W>(canvas, rotated_mesh, moving,
-                                       arc + math::TWO_PI_F / W, columns) == 0)
-          active = false;
-      }
-      if (active) {
-        Scan::flag_vertex_reaches<W>(previous, mesh.vertices.data(), count,
-                                     moving);
-        current = scratch_arena_b.allocate_n<math::Vector>(count);
-        static_assert(std::is_trivially_copyable_v<math::Vector>);
-        std::memcpy(current, rotated_mesh.vertices.data(),
-                    count * sizeof(math::Vector));
-        start = scratch_arena_b.allocate_n<uint16_t>(count);
+      const OrientTransformer turn(orientation);
+      MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, turn);
+      // A lerped path turns to camera space once instead of per capture.
+      if (active && !path.leg && path.previous) {
+        math::Vector *current = scratch_arena_b.allocate_n<math::Vector>(count);
+        math::Vector *previous =
+            scratch_arena_b.allocate_n<math::Vector>(count);
         for (size_t i = 0; i < count; ++i) {
-          previous[i] = camera(previous[i]);
-          if (moving[i])
-            start[i] = Scan::vertex_column(previous[i], *canvas.column_basis(),
-                                           0.0f, W);
+          current[i] = rotated_mesh.vertices[i];
+          previous[i] = turn(path.previous[i]);
         }
+        placed = {current, previous};
       }
+      plan = Scan::plan_motion<W>(canvas, rotated_mesh, placed, bound, ripples,
+                                  camera, scratch_arena_b, scratch_arena_b);
     }
     HS_PROFILE(hk_mesh_scan);
     Scan::deform_mesh<W, H>(
-        canvas, rotated_mesh, active, columns, moving, start, scratch_arena_b,
-        arc,
+        canvas, rotated_mesh, plan.active, plan.columns, plan.moving,
+        plan.start, scratch_arena_b, bound,
         [&](size_t i, float u) HS_HOT_INLINE {
-          return (previous[i] + (current[i] - previous[i]) * u).normalized();
+          return Scan::capture_position(plan, placed, ripples, camera, i, u);
         },
         [&]() HS_HOT_INLINE { scan(rotated_mesh); });
+  }
+
+  /**
+   * @brief scan_path() for a mesh whose vertices move along the arcs from
+   *        their previous endpoint.
+   * @tparam ScanFn As scan_path() takes it.
+   * @param canvas Target canvas to draw into.
+   * @param mesh Source mesh in model space at the current endpoint.
+   * @param previous The mesh's vertices at the previous endpoint, index for
+   *        index, or null when they hold.
+   * @param state_moves Whether the scan's per-column shading state moves.
+   * @param scan Scans the rotated mesh into the canvas.
+   */
+  template <typename ScanFn>
+  HS_FLASH_MEMBER void scan_mesh(Canvas &canvas, const MeshState &mesh,
+                                 const math::Vector *previous, bool state_moves,
+                                 ScanFn &&scan) {
+    scan_path(canvas, mesh, {mesh.vertices.data(), previous}, state_moves,
+              scan);
+  }
+
+  /**
+   * @brief scan_path() for a leg frame's swept mesh.
+   * @tparam ScanFn As scan_path() takes it.
+   * @param canvas Target canvas to draw into.
+   * @param mesh Compiled swept mesh in model space.
+   * @param sh The leg's shading for the frame.
+   * @param scan Scans the rotated mesh into the canvas.
+   */
+  template <typename ScanFn>
+  HS_FLASH_MEMBER void scan_mesh(Canvas &canvas, const MeshState &mesh,
+                                 const Animation::OpLeg::Shading &sh,
+                                 ScanFn &&scan) {
+    scan_path(canvas, mesh, Scan::ModelPath::of(mesh.vertices.data(), sh),
+              sh.previous_weight != sh.weight, scan);
   }
 
   /**
@@ -476,7 +498,7 @@ private:
    * weights at both frame endpoints; each column shades at its sweep time
    * between them.
    * @param previous_vertices The mesh's vertices at the previous endpoint, or
-   * null when they hold; overwritten.
+   * null when they hold.
    * @details At either angle-0 bookend the straps are zero-area, so the
    * star-face bookend stays bitwise exact.
    */
@@ -484,7 +506,7 @@ private:
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
                  const FrameHandoff &handoff = {},
-                 math::Vector *previous_vertices = nullptr) {
+                 const math::Vector *previous_vertices = nullptr) {
     if (mesh.vertices.is_empty())
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -563,8 +585,7 @@ private:
     if (mesh.vertices.is_empty())
       return;
     HS_PROFILE(hk_draw_mesh);
-    scan_mesh(canvas, mesh, shading.previous_vertices,
-              shading.previous_weight != shading.weight,
+    scan_mesh(canvas, mesh, shading,
               [&](const MeshState &rotated) HS_HOT_INLINE {
                 Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, rotated,
                                                      shading, params.intensity,
