@@ -158,7 +158,7 @@ struct SphereCells {
       if (length_squared < math::EPS_NORMALIZE_SQ)
         continue;
       const float sine = math::dot(point, normal) / sqrtf(length_squared);
-      edge_sine = std::min(edge_sine, sine);
+      edge_sine = fminf(edge_sine, sine);
     }
     const float distance =
         asinf(hs::clamp(edge_sine, 0.0f, 1.0f)) * prepared.distance_scale;
