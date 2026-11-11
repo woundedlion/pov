@@ -39,16 +39,6 @@ inline OKLab linear16_to_oklab(const float (&rgb)[3]) {
 }
 
 /**
- * @brief OKLab hue of a pixel. @param pixel 16-bit linear color.
- * @return Hue in radians.
- */
-inline float pixel_oklab_hue(const Pixel &pixel) {
-  const OKLab lab =
-      linear16_to_oklab({float(pixel.r), float(pixel.g), float(pixel.b)});
-  return atan2f(lab.b, lab.a);
-}
-
-/**
  * @brief Bounds the hue error of an unclipped color quantized to @p pixel.
  * @param pixel 16-bit linear color.
  * @return Sum over channels of the hue change one LSB causes.
@@ -122,11 +112,11 @@ inline void test_generative_palette_triadic_keys_are_a_third_turn_apart() {
         for (int i = 0; i < 3; ++i) {
           const Pixel &from = keys[i];
           const Pixel &to = keys[(i + 1) % 3];
-          HS_EXPECT_NEAR(
-              fabsf(wrap_angle_pi(pixel_oklab_hue(to) - pixel_oklab_hue(from))),
-              THIRD_TURN,
-              quantized_hue_error(from) + quantized_hue_error(to) +
-                  2.0f * ease_error);
+          HS_EXPECT_NEAR(fabsf(wrap_angle_pi(pixel_to_oklch(to).h -
+                                             pixel_to_oklch(from).h)),
+                         THIRD_TURN,
+                         quantized_hue_error(from) + quantized_hue_error(to) +
+                             2.0f * ease_error);
         }
       }
     }
@@ -146,8 +136,7 @@ inline void test_generative_palette_bell_lightness_peaks_mid_ramp() {
       float lightness[PALETTE_STOP_COUNT];
       for (int i = 0; i < PALETTE_STOP_COUNT; ++i) {
         const Pixel p = palette.get(palette_stop(i)).color;
-        lightness[i] =
-            linear16_to_oklab({float(p.r), float(p.g), float(p.b)}).L;
+        lightness[i] = pixel_to_oklch(p).L;
       }
       for (int i = 1; i <= MID; ++i)
         HS_EXPECT_GT(lightness[i], lightness[i - 1]);

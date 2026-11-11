@@ -564,13 +564,15 @@ inline void test_galaxies_live_particle_count() {
                  ParamSetResult::READONLY);
   }
   WB::hide(fx);
-  WB::set_emission_rate(fx, 4.0f);
+  constexpr float RATE = 4.0f;
+  WB::set_emission_rate(fx, RATE);
   for (int g = 0; g < WB::NUM_GALAXIES; ++g)
     WB::galaxy(fx, g).emission_credit = 0.0f;
   for (int frame = 0; frame < 2; ++frame) {
     pin_frame_clock(frame);
     fx.draw_frame();
-    HS_EXPECT_EQ(count->get(), 24.0f * (frame + 1));
+    HS_EXPECT_EQ(count->get(),
+                 static_cast<float>(WB::NUM_GALAXIES) * RATE * (frame + 1));
     fx.advance_display();
   }
   auto &ps = WB::system(fx);
@@ -578,6 +580,6 @@ inline void test_galaxies_live_particle_count() {
     ps.pool[i].life = 1;
   pin_frame_clock(2);
   fx.draw_frame();
-  HS_EXPECT_EQ(count->get(), 24.0f);
+  HS_EXPECT_EQ(count->get(), static_cast<float>(WB::NUM_GALAXIES) * RATE);
   fx.advance_display();
 }

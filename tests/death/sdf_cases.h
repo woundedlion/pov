@@ -9,9 +9,8 @@
  * @brief Death case: a polygon with fewer than three sides must trap.
  */
 inline void case_sdf_polygon_side_count() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::PlanarPolygon poly(B, opaque(0.5f), opaque(2), opaque(0.0f));
+  SDF::PlanarPolygon poly(DEATH_IDENTITY_BASIS, opaque(0.5f), opaque(2),
+                          opaque(0.0f));
   (void)poly;
 }
 
@@ -19,9 +18,7 @@ inline void case_sdf_polygon_side_count() {
  * @brief Death case: an angular repeat around a non-unit axis must trap.
  */
 inline void case_sdf_angular_repeat_nonunit_axis() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::Ring ring(B, opaque(1.0f), opaque(0.1f));
+  SDF::Ring ring(DEATH_IDENTITY_BASIS, opaque(1.0f), opaque(0.1f));
   math::Vector axis{opaque(0.0f), opaque(2.0f), opaque(0.0f)};
   SDF::AngularRepeat<SDF::Ring> rep(ring, opaque(4), axis); // non-unit -> trap
   (void)rep;
@@ -31,32 +28,27 @@ inline void case_sdf_angular_repeat_nonunit_axis() {
  * @brief Death case: a knot ring with no cells must trap.
  */
 inline void case_sdf_distorted_ring_zero_knots() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
   const float KNOTS[1] = {0.0f};
   SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(B, opaque(0.5f), opaque(0.05f), KNOTS, opaque(0),
-                          opaque(0.0f), pf); // no knot cells -> trap
+  SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, opaque(0.5f), opaque(0.05f),
+                          KNOTS, opaque(0), opaque(0.0f),
+                          pf); // no knot cells -> trap
   (void)ring;
 }
 
 inline void case_sdf_distorted_ring_one_knots() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
   const float KNOTS[1] = {0.0f};
   SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(B, opaque(0.5f), opaque(0.05f), KNOTS, opaque(1),
-                          opaque(0.0f), pf);
+  SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, opaque(0.5f), opaque(0.05f),
+                          KNOTS, opaque(1), opaque(0.0f), pf);
   (void)ring;
 }
 
 inline void case_sdf_distorted_ring_two_knots() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
   const float KNOTS[2] = {0.0f};
   SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(B, opaque(0.5f), opaque(0.05f), KNOTS, opaque(2),
-                          opaque(0.0f), pf);
+  SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, opaque(0.5f), opaque(0.05f),
+                          KNOTS, opaque(2), opaque(0.0f), pf);
   (void)ring;
 }
 
@@ -80,9 +72,8 @@ inline void case_transformed_torus_invalid_minor_radius() {
  * @details Build such a shape inverted about its antipode instead.
  */
 inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::SphericalPolygon poly(B, opaque(1.5f), opaque(5), opaque(0.0f));
+  SDF::SphericalPolygon poly(DEATH_IDENTITY_BASIS, opaque(1.5f), opaque(5),
+                             opaque(0.0f));
   (void)poly;
 }
 
@@ -90,9 +81,8 @@ inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
  * @brief Death case: a flower wider than a hemisphere must trap.
  */
 inline void case_sdf_flower_radius_over_hemisphere() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::Flower flower(B, opaque(1.5f), opaque(5), opaque(0.0f));
+  SDF::Flower flower(DEATH_IDENTITY_BASIS, opaque(1.5f), opaque(5),
+                     opaque(0.0f));
   (void)flower;
 }
 
@@ -100,9 +90,8 @@ inline void case_sdf_flower_radius_over_hemisphere() {
  * @brief Death case: a zero-radius flower must trap.
  */
 inline void case_sdf_flower_zero_radius() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::Flower flower(B, opaque(0.0f), opaque(5), opaque(0.0f));
+  SDF::Flower flower(DEATH_IDENTITY_BASIS, opaque(0.0f), opaque(5),
+                     opaque(0.0f));
   (void)flower;
 }
 
@@ -158,9 +147,7 @@ inline void case_sdf_bind_class_lut_offset_out_of_range() {
  * @brief Death case: a ring wider than the antipode must trap.
  */
 inline void case_sdf_ring_radius_past_antipode() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::Ring ring(B, opaque(2.5f), opaque(0.05f));
+  SDF::Ring ring(DEATH_IDENTITY_BASIS, opaque(2.5f), opaque(0.05f));
   (void)ring;
 }
 
@@ -168,9 +155,7 @@ inline void case_sdf_ring_radius_past_antipode() {
  * @brief Death case: a ring with a negative stroke half-width must trap.
  */
 inline void case_sdf_ring_negative_thickness() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::Ring ring(B, opaque(1.0f), opaque(-0.05f));
+  SDF::Ring ring(DEATH_IDENTITY_BASIS, opaque(1.0f), opaque(-0.05f));
   (void)ring;
 }
 
@@ -178,9 +163,8 @@ inline void case_sdf_ring_negative_thickness() {
  * @brief Death case: a distorted ring wider than the antipode must trap.
  */
 inline void case_sdf_distorted_ring_radius_past_antipode() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::FlatDistortedRing ring(B, opaque(2.5f), opaque(0.05f));
+  SDF::FlatDistortedRing ring(DEATH_IDENTITY_BASIS, opaque(2.5f),
+                              opaque(0.05f));
   (void)ring;
 }
 
@@ -188,9 +172,8 @@ inline void case_sdf_distorted_ring_radius_past_antipode() {
  * @brief Death case: a distorted ring with a negative half-width must trap.
  */
 inline void case_sdf_distorted_ring_negative_thickness() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
-  SDF::FlatDistortedRing ring(B, opaque(0.5f), opaque(-0.05f));
+  SDF::FlatDistortedRing ring(DEATH_IDENTITY_BASIS, opaque(0.5f),
+                              opaque(-0.05f));
   (void)ring;
 }
 
@@ -208,26 +191,22 @@ inline void case_sdf_line_negative_thickness() {
  * @details The callback is invoked per azimuth on every probe.
  */
 inline void case_sdf_distorted_ring_null_shift() {
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
   ScalarFn shift; // default-constructed -> empty
-  SDF::DistortedRing ring(B, opaque(0.5f), opaque(0.05f), shift, opaque(0.1f),
-                          opaque(0.0f));
+  SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, opaque(0.5f), opaque(0.05f),
+                          shift, opaque(0.1f), opaque(0.0f));
   (void)ring;
 }
 
 inline void case_sdf_distorted_ring_negative_distortion() {
-  const math::Basis BASIS{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   ScalarFn shift = [](float) { return 0.0f; };
-  SDF::DistortedRing ring(BASIS, opaque(0.5f), opaque(0.05f), shift,
-                          opaque(-0.1f), 0.0f);
+  SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, opaque(0.5f), opaque(0.05f),
+                          shift, opaque(-0.1f), 0.0f);
   (void)ring;
 }
 
 /** @brief Rejects a non-positive smooth-union blend width. */
 inline void case_sdf_smooth_union_zero_radius() {
-  const math::Basis BASIS{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  const SDF::PlanarPolygon polygon(BASIS, .5f, 3, 0.f);
+  const SDF::PlanarPolygon polygon(DEATH_IDENTITY_BASIS, .5f, 3, 0.f);
   SDF::SmoothUnion<SDF::PlanarPolygon, SDF::PlanarPolygon> shape(
       polygon, polygon, opaque(0.f));
   (void)shape;
@@ -235,8 +214,7 @@ inline void case_sdf_smooth_union_zero_radius() {
 
 /** @brief Rejects an angular repeat with no copies. */
 inline void case_sdf_angular_repeat_zero_copies() {
-  const math::Basis BASIS{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  const SDF::Ring ring(BASIS, 1.f, .1f);
+  const SDF::Ring ring(DEATH_IDENTITY_BASIS, 1.f, .1f);
   SDF::AngularRepeat<SDF::Ring> shape(ring, opaque(0), math::Y_AXIS);
   (void)shape;
 }

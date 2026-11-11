@@ -495,6 +495,9 @@ struct GSWhiteBox {
     return {gs.params.noise_speed, gs.params.noise_scale, gs.params.hue_shift,
             gs.params.shimmer};
   }
+  static std::array<float, 4> reaction_params(const GS &gs) {
+    return {gs.params.feed, gs.params.k, gs.params.d_a, gs.params.d_b};
+  }
   static void set_color_params(GS &gs, float speed, float scale, float hue,
                                float shimmer) {
     gs.params.noise_speed = speed;

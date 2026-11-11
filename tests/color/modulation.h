@@ -32,14 +32,16 @@ inline void test_color_modulation_mechanics() {
 /** @brief Positive lift preserves hue and alpha at the expected lightness. */
 inline void test_color_modulation_lift_accuracy() {
   const Color4 INPUT(Pixel(4000, 8000, 12000), .37f);
-  const auto raised =
+  const auto input_raised =
       ColorModulation::PositiveLightnessLift::apply(INPUT, .5f, {.8f});
-  const auto rgb = pixel_to_linrgb(INPUT.color);
-  const auto base = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
-  const auto output = pixel_to_linrgb(raised.color);
-  const auto lab = linear_rgb_to_oklab_fast(output.r, output.g, output.b);
-  HS_EXPECT_NEAR(lab.L, base.L + (1 - base.L) * .4f, .005f);
-  HS_EXPECT_EQ(raised.alpha, INPUT.alpha);
+  const auto input_rgb = pixel_to_linrgb(INPUT.color);
+  const auto input_base =
+      linear_rgb_to_oklab_fast(input_rgb.r, input_rgb.g, input_rgb.b);
+  const auto input_output = pixel_to_linrgb(input_raised.color);
+  const auto input_lab =
+      linear_rgb_to_oklab_fast(input_output.r, input_output.g, input_output.b);
+  HS_EXPECT_NEAR(input_lab.L, input_base.L + (1 - input_base.L) * .4f, .005f);
+  HS_EXPECT_EQ(input_raised.alpha, INPUT.alpha);
   for (const Pixel color :
        {Pixel(65535, 0, 0), Pixel(0, 0, 0), Pixel(65535, 65535, 65535)}) {
     const Color4 source(color, .37f);

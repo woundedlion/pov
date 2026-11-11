@@ -214,12 +214,11 @@ inline void test_kdtree_matches_brute_force() {
 inline void test_kdtree_duplicates_and_max_k() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   math::Vector pts[8] = {
-      math::Vector(1, 1, 1), // 0  coincident cluster (d²=0 from query)
-      math::Vector(1, 1, 1), // 1  coincident
-      math::Vector(1, 1, 1), // 2  coincident
-      math::Vector(2, 0, 0), // 3  d²=3
-      math::Vector(0, 2,
-                   0), // 4  d²=3  (boundary tie: only two of 3/4/5 fit k=5)
+      math::Vector(1, 1, 1),    // 0  coincident cluster (d²=0 from query)
+      math::Vector(1, 1, 1),    // 1  coincident
+      math::Vector(1, 1, 1),    // 2  coincident
+      math::Vector(2, 0, 0),    // 3  d²=3
+      math::Vector(0, 2, 0),    // 4  d²=3
       math::Vector(0, 0, 2),    // 5  d²=3
       math::Vector(-1, -1, -1), // 6  d²=12
       math::Vector(5, 5, 5),    // 7  d²=48

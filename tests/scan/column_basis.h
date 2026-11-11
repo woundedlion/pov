@@ -751,7 +751,7 @@ inline void test_rotate_by_matches_exact_rotation() {
  * @tparam H Canvas height.
  */
 template <int W, int H> inline void check_swept_cap_clip() {
-  HS_CONTEXT(W == 96 ? "cap clip 96" : "cap clip 288");
+  HS_CONTEXT("cap clip", W, H);
   const ScopedPoleLod lod(0.0f);
   const BasisMotion motion = tilted_motion(0.2f);
   auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();

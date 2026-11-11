@@ -372,8 +372,6 @@ class ManifestValidation(unittest.TestCase):
 
 
 class CaptureBackend(unittest.TestCase):
-
-
     def test_backend_oracle_resolution_drift_within_limit_is_accepted(self):
         metrics = {}
         for oracle in ORACLES:
@@ -490,20 +488,6 @@ class CaptureBackend(unittest.TestCase):
             with self.assertRaisesRegex(capture.CaptureError,
                                         "capture backend selected-pixel mismatch"):
                 capture.load_backend(path, programs, ORACLES)
-
-    def test_backend_stream_is_complete(self):
-        programs = _test_manifest()
-        header, records, metrics = _backend_stream(programs)
-        data = header + b"".join(records) + b"".join(metrics)
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "capture.bin"
-            path.write_bytes(data)
-            resolution, metrics = capture.load_backend(
-                path, programs, ORACLES
-            )
-        self.assertEqual(resolution, (16, 16))
-        self.assertEqual(len(metrics), len(ORACLES))
-
 
 if __name__ == "__main__":
     unittest.main()

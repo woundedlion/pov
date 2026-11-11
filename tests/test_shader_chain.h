@@ -447,9 +447,7 @@ inline void test_shader_chain_snapshot_roundtrip() {
     HS_EXPECT_TRUE(GeneratedPaletteBank::valid_snapshot(*saved.palette_bank));
     for (size_t index = 0; index < program.ops().size(); ++index) {
       const auto &op = program.ops()[index];
-      std::vector<std::max_align_t> storage(
-          (op.op->runtime.state.size + sizeof(std::max_align_t) - 1) /
-          sizeof(std::max_align_t));
+      auto storage = erased_block(op.op->runtime.state.size);
       op.op->runtime.init(storage.data(),
                           {op.instance, op.op->operator_id, op.stable_hash});
       const auto captured =

@@ -83,10 +83,9 @@ using DeathRadialSurface = Scan::RadialSurface<4, 8>;
 
 inline void case_scan_ring_stack_too_many_slots() {
   constexpr int W = 32, H = 16;
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
   const float KNOTS[4] = {0.0f, 0.01f, 0.0f, -0.01f};
-  SDF::DistortedRing ring(B, 1.0f, 0.05f, KNOTS, 4, 0.0f, nullptr);
+  SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, 1.0f, 0.05f, KNOTS, 4, 0.0f,
+                          nullptr);
   const int8_t SLOT_BY_RING[1] = {0};
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipeline;
@@ -99,10 +98,9 @@ inline void case_scan_ring_stack_too_many_slots() {
 
 inline void case_scan_ring_stack_too_many_rings() {
   constexpr int W = 32, H = 16;
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
   const float KNOTS[4] = {0.0f, 0.01f, 0.0f, -0.01f};
-  SDF::DistortedRing ring(B, 1.0f, 0.05f, KNOTS, 4, 0.0f, nullptr);
+  SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, 1.0f, 0.05f, KNOTS, 4, 0.0f,
+                          nullptr);
   int8_t slot_by_ring[256];
   for (int8_t &s : slot_by_ring)
     s = -1;
@@ -118,10 +116,9 @@ inline void case_scan_ring_stack_too_many_rings() {
 
 inline void case_scan_ring_stack_callback_ring() {
   constexpr int W = 32, H = 16;
-  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                      math::Vector(0, 0, 1)};
   SDF::DistortedRing ring(
-      B, 1.0f, 0.05f, [](float) { return 0.0f; }, opaque(0.01f), 0.0f);
+      DEATH_IDENTITY_BASIS, 1.0f, 0.05f, [](float) { return 0.0f; },
+      opaque(0.01f), 0.0f);
   const int8_t SLOT_BY_RING[1] = {0};
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipeline;

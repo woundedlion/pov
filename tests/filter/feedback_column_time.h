@@ -502,6 +502,7 @@ inline void test_feedback_sourced_column_time_oracle() {
     const auto error = run_sourced_oracle<W, H>(scene, 40, 24, H - 24);
     std::printf("  sourced oracle %s: bulk=%.5f cut=%.5f seam=%.3f ramp=%.4f\n",
                 c.name, error.bulk, error.cut, error.seam, error.ramp);
+    HS_EXPECT_LT(error.bulk, 0.002f);
     HS_EXPECT_LT(error.seam, 1.2f);
     HS_EXPECT_LT(fabsf(error.ramp - 1.0f), 0.01f);
     HS_EXPECT_LE(error.cut, 1.5f * error.bulk);

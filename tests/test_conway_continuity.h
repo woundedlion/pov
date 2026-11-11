@@ -913,7 +913,8 @@ inline void test_collapsing_faces_land_on_host_palette() {
  * @brief Verifies the crossfade endpoints on an emission-order leg (cube ->
  *        truncated_cube): frame 1 (w = 0) shades every surviving face from the
  *        handed-off palette and every newborn face from its target; the final
- *        frame (w = 1) shades every face from the landed target assignment.
+ *        mid-leg departs from the handed-off palette, and the final frame
+ *        (w = 1) shades every face from the landed target assignment.
  */
 inline void test_crossfade_exact_at_endpoints_emission() {
   reset_globals();
@@ -980,8 +981,23 @@ inline void test_crossfade_exact_at_endpoints_emission() {
                       bank.bank.entries[from].get(RAMP_SAMPLES[s]));
   }
 
+  for (int f = 1; f < SWEEP / 2; ++f)
+    step_and_snapshot(anim, fx, snap);
+  HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
+  bool departed = false;
+  for (size_t f = 0; f < landing.primary_faces; ++f) {
+    const uint8_t to =
+        landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
+    if (pal[f] == to)
+      continue;
+    for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
+      departed |= snap.colors[f][s].color !=
+                  bank.bank.entries[pal[f]].get(RAMP_SAMPLES[s]).color;
+  }
+  HS_EXPECT_TRUE(departed);
+
   // Final frame: p = 1, so w == 1 — the landed target assignment, exactly.
-  for (int f = 1; f < SWEEP; ++f)
+  for (int f = SWEEP / 2; f < SWEEP; ++f)
     step_and_snapshot(anim, fx, snap);
   HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {

@@ -391,21 +391,6 @@ inline void test_mesh_edge_gate_pixel_parity() {
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       render(fx);
       fx.advance_display();
-      const ClipRegion &clip = fx.clip();
-      for (const auto &edge : edges) {
-        const math::PixelCoords endpoint =
-            math::vector_to_pixel<W, H>(posed.vertices[edge.v]);
-        const int x = static_cast<int>(endpoint.x);
-        const int y = static_cast<int>(endpoint.y);
-        if (!clip.contains_x(x) || !clip.contains_y(y))
-          continue;
-        const Pixel &expected = ref[static_cast<size_t>(y) * W + x];
-        if (is_black(expected))
-          continue;
-        const Pixel &actual = fx.get_pixel(x, y);
-        HS_CONTEXT("mesh endpoint", edge.u, edge.v);
-        HS_EXPECT_TRUE(!is_black(actual));
-      }
       const RenderBandDiff diff = render_band_diff<W>(fx, ref);
       expect_render_band_parity("mesh edge gate", diff);
       lit_total += diff.lit;

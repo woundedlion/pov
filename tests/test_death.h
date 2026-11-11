@@ -2861,21 +2861,19 @@ inline bool shard_spec_from_env(ShardSpec &out) {
   const char *slash = std::strchr(spec, '/');
   if (!slash || !dir || dir[0] == '\0')
     return false;
-  char *end = nullptr;
-  const long count = std::strtol(slash + 1, &end, 10);
-  if (end == slash + 1 || *end != '\0' || count < 1 || count > 1024)
-    return false;
-  out.count = static_cast<int>(count);
   out.dir = dir;
   if (std::strncmp(spec, "census/", 7) == 0) {
+    char *end = nullptr;
+    const long count = std::strtol(slash + 1, &end, 10);
+    if (end == slash + 1 || *end != '\0' || count < 1 || count > 1024)
+      return false;
+    out.count = static_cast<int>(count);
     out.role = ShardSpec::Role::CENSUS;
     return true;
   }
-  const long index = std::strtol(spec, &end, 10);
-  if (end == spec || end != slash || index < 0 || index >= count)
+  if (!hs_test::parse_shard_fraction(spec, 1024, out.index, out.count))
     return false;
   out.role = ShardSpec::Role::SHARD;
-  out.index = static_cast<int>(index);
   return true;
 }
 

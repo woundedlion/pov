@@ -61,7 +61,7 @@ inline void test_shader_chain_table_behavior() {
       fixture->program.prepare(ctx);
       for (const auto &view : sweep_views()) {
         const auto color = fixture->program.evaluate(view, ctx);
-        lit += color.alpha > 0 && !is_black(color.color);
+        lit += carrier_live(color);
         const auto repeated = fixture->program.evaluate(view, ctx);
         HS_EXPECT_EQ(repeated.color, color.color);
         HS_EXPECT_EQ(repeated.alpha, color.alpha);
@@ -80,15 +80,11 @@ inline void test_shader_chain_table_behavior() {
  */
 inline void test_shader_chain_state_restore_values() {
   constexpr int FRAMES = 37;
-  const auto blocks = [](size_t bytes) {
-    return std::vector<std::max_align_t>(
-        (bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
-  };
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     if (op.runtime.state.size == sizeof(In::EmptyState))
       continue;
     HS_CONTEXT(op.operator_id);
-    auto params = blocks(op.runtime.param.size);
+    auto params = erased_block(op.runtime.param.size);
     op.runtime.construct_params(params.data());
     for (uint16_t index = 0; index < op.schema_count; ++index) {
       const In::ParamFieldInfo &field = op.schema[index];
@@ -108,9 +104,9 @@ inline void test_shader_chain_state_restore_values() {
           ->modulation.noise.scale = 4.0f;
     }
     const auto *param_bytes = reinterpret_cast<const uint8_t *>(params.data());
-    auto advanced = blocks(op.runtime.state.size);
-    auto fresh = blocks(op.runtime.state.size);
-    auto restored = blocks(op.runtime.state.size);
+    auto advanced = erased_block(op.runtime.state.size);
+    auto fresh = erased_block(op.runtime.state.size);
+    auto restored = erased_block(op.runtime.state.size);
     op.runtime.init(advanced.data(), {"a", op.operator_id, 1337});
     op.runtime.init(fresh.data(), {"a", op.operator_id, 1337});
     op.runtime.init(restored.data(), {"b", op.operator_id, 4242});
@@ -145,9 +141,7 @@ inline void test_shader_chain_table_integrity() {
     HS_EXPECT_TRUE(op.runtime.restore_state != nullptr);
     HS_EXPECT_GT(op.runtime.param.size, 0u);
     HS_EXPECT_GT(op.runtime.state.size, 0u);
-    std::vector<std::max_align_t> state(
-        (op.runtime.state.size + sizeof(std::max_align_t) - 1) /
-        sizeof(std::max_align_t));
+    auto state = erased_block(op.runtime.state.size);
     op.runtime.init(state.data(), {"snapshot", op.operator_id, 1337});
     const auto captured = op.runtime.capture_state(state.data());
     HS_EXPECT_EQ(std::holds_alternative<std::monostate>(captured),
@@ -973,8 +967,7 @@ inline void test_shader_chain_default_chain_renders() {
     const Color4 color = program.evaluate(view, ctx);
     HS_EXPECT_TRUE(std::isfinite(color.alpha));
     HS_EXPECT_GE(color.alpha, 0.0f);
-    if (color.alpha > 0.0f &&
-        (color.color.r | color.color.g | color.color.b) != 0)
+    if (carrier_live(color))
       any_opaque = true;
   }
   HS_EXPECT_TRUE(any_opaque);
@@ -1082,9 +1075,7 @@ inline void test_shader_chain_parity_rotate_project() {
 inline void test_shader_chain_schema_defaults_match_params() {
   for (const auto &op : In::OPERATOR_TABLE) {
     HS_CONTEXT(op.operator_id);
-    std::vector<std::max_align_t> storage(
-        (op.runtime.param.size + sizeof(std::max_align_t) - 1) /
-        sizeof(std::max_align_t));
+    auto storage = erased_block(op.runtime.param.size);
     op.runtime.construct_params(storage.data());
     const auto begin = reinterpret_cast<uintptr_t>(storage.data());
     const auto end = begin + op.runtime.param.size;

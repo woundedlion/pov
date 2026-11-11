@@ -287,6 +287,16 @@ inline bool carrier_live(const Color4 &c) {
          (c.color.r | c.color.g | c.color.b) != 0;
 }
 
+/**
+ * @brief Storage for an erased runtime parameter or state block.
+ * @param bytes Required byte capacity.
+ * @return Aligned storage covering the requested size.
+ */
+inline std::vector<std::max_align_t> erased_block(size_t bytes) {
+  return std::vector<std::max_align_t>((bytes + sizeof(std::max_align_t) - 1) /
+                                       sizeof(std::max_align_t));
+}
+
 /** @brief Every field of a runtime snapshot as raw 32-bit words, led by the
  *  alternative index. */
 inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {

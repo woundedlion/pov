@@ -602,8 +602,8 @@ inline void test_tweenable_concept() {
 /**
  * @brief Pins DissolveMask's partition contract: two masks with the same
  *        threshold/salt and opposite invert own every key exactly once, the
- *        endpoints are total, the owned fraction tracks the threshold, and the
- *        hash's identity is frozen against a golden.
+ *        endpoints are total, the owned fraction tracks the threshold, and
+ *        salt changes the ownership pattern.
  */
 inline void test_dissolve_mask_partition() {
   constexpr int KA = 288, KB = 144;
@@ -631,11 +631,14 @@ inline void test_dissolve_mask_partition() {
     }
   }
 
-  // Frozen golden over one key row.
-  uint32_t row = 0;
-  for (int a = 0; a < 32; ++a)
-    row |= (incoming.owns(a, 7) ? 1u : 0u) << a;
-  HS_EXPECT_EQ(row, 0x20000222u);
+  DissolveMask reseeded{65536u / 4u, SALT ^ 1u, false};
+  int changed = 0;
+  for (int b = 0; b < KB; ++b)
+    for (int a = 0; a < KA; ++a)
+      changed += incoming.owns(a, b) != reseeded.owns(a, b);
+  const float changed_fraction = static_cast<float>(changed) / (KA * KB);
+  HS_EXPECT_GT(changed_fraction, 0.33f);
+  HS_EXPECT_LT(changed_fraction, 0.42f);
 }
 
 /**

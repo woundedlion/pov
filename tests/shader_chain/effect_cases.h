@@ -74,9 +74,7 @@ inline void test_shader_chain_composed_frame_parity() {
       const Color4 expected = FX::shade(view, prepared);
       const Color4 actual = program.evaluate(view, ctx);
       expect_color_within(actual, expected, 1, 1e-6f);
-      visible += expected.alpha > 0.0f &&
-                 (expected.color.r != 0 || expected.color.g != 0 ||
-                  expected.color.b != 0);
+      visible += carrier_live(expected);
     }
   }
   HS_EXPECT_GT(visible, 0u);

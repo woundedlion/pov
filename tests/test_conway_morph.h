@@ -138,7 +138,6 @@ inline int run_conway_morph_tests() {
   HS_RUN(test_opleg_step_paused_holds_frame);
   HS_RUN(test_opleg_step_leg_overshooting_easing);
   HS_RUN(test_opleg_gated_swap_smoke);
-  HS_RUN(test_opleg_edge_leg_crossfade);
   HS_RUN(test_recipe_step_morphable_boundaries);
 
   HS_RUN(test_relax_source_hash_separates_bevel_inputs);

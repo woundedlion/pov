@@ -5,6 +5,9 @@
 
 // Death-test effect fixture.
 
+inline constexpr math::Basis DEATH_IDENTITY_BASIS{math::X_AXIS, math::Y_AXIS,
+                                                  math::Z_AXIS};
+
 /**
  * @brief Concrete Effect for the canvas death cases.
  * @details Defaults to 32x16 and exposes register_param via reg.

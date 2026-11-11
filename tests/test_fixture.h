@@ -28,6 +28,33 @@
 
 namespace hs_test {
 
+/**
+ * @brief Parses a shard selector of the form "k/N".
+ * @param spec Selector text.
+ * @param max_count Largest accepted shard count.
+ * @param index Parsed zero-based shard index.
+ * @param count Parsed shard count.
+ * @return Whether the selector is valid.
+ */
+inline bool parse_shard_fraction(const char *spec, int max_count, int &index,
+                                 int &count) {
+  if (!spec)
+    return false;
+  char *end = nullptr;
+  const long parsed_index = std::strtol(spec, &end, 10);
+  if (end == spec || *end != '/')
+    return false;
+  const char *count_text = end + 1;
+  const long parsed_count = std::strtol(count_text, &end, 10);
+  if (end == count_text || *end != '\0' || parsed_count < 1 ||
+      parsed_count > max_count || parsed_index < 0 ||
+      parsed_index >= parsed_count)
+    return false;
+  index = static_cast<int>(parsed_index);
+  count = static_cast<int>(parsed_count);
+  return true;
+}
+
 /** @brief Restores the shared random generator on scope exit. */
 class ScopedRng {
 public:

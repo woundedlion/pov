@@ -46,20 +46,8 @@ inline EffectShard effect_shard_from_env() {
   if (!spec || spec[0] == '\0')
     return shard;
   shard.sharded = true;
-  char *end = nullptr;
-  const long index = std::strtol(spec, &end, 10);
-  if (end == spec || *end != '/') {
-    shard.valid = false;
-    return shard;
-  }
-  const char *count_text = end + 1;
-  const long count = std::strtol(count_text, &end, 10);
-  shard.valid = end != count_text && *end == '\0' && count >= 1 &&
-                count <= 64 && index >= 0 && index < count;
-  if (shard.valid) {
-    shard.index = static_cast<int>(index);
-    shard.count = static_cast<int>(count);
-  }
+  shard.valid =
+      hs_test::parse_shard_fraction(spec, 64, shard.index, shard.count);
   return shard;
 }
 

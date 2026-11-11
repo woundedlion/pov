@@ -348,6 +348,14 @@ class MainTests(unittest.TestCase):
         self.assertIn("refill-fixable (zone)", output)
         self.assertIn(">> best by signal integrity: Candidate 1", output)
 
+    def test_unconnected_candidate_is_ineligible(self):
+        open_net = {"status": analyze_candidates.DRC_OK,
+                    "errors": 0, "real": 0, "unconnected": 1}
+        result, output = self.rank_sources([SYNTHETIC_BOARD], [open_net])
+        self.assertEqual(result, 1)
+        self.assertIn("REAL FAULTS", output)
+        self.assertNotIn("best by signal integrity", output)
+
     def test_ineligible_candidates_are_not_recommended(self):
         result, output = self.rank_sources(
             [SYNTHETIC_BOARD],

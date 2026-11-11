@@ -1364,6 +1364,58 @@ inline void test_mobius_grid_segmented_matches_single_engine() {
   HS_EXPECT_EQ(mismatches, 0);
 }
 
+/** @brief Two independently clocked baked modulation layers. */
+struct StackedModulationSpec : Pullback::Spec {
+  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
+      Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+          Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+                                  Pullback::GridSourceParams, B>::Type,
+                              Pullback::Weight::Projection,
+                              Pullback::ProjectionCoverage::Weight>,
+      Pullback::Stage::Colorize<
+          Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
+              B, Pullback::Color::BrightnessEnvelope::NONE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "modulation", Pattern::SourceKind::NOISE>>>,
+      Pullback::Stage::Modulate<
+          Pullback::Color::Modulate<Pullback::ModulationProvider<
+              B, "second", Pattern::SourceKind::NOISE>>>>;
+};
+/** @brief Exact resource ownership for independently authored color layers. */
+struct StackedModulationProbe
+    : Pullback::ComposedEffect<96, 20, StackedModulationProbe,
+                               StackedModulationSpec> {
+  using Base = Pullback::ComposedEffect<96, 20, StackedModulationProbe,
+                                        StackedModulationSpec>;
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"stack"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr Params initial_params() {
+    Params value;
+    auto &a = value.template get<"modulation">().modulation;
+    auto &b = value.template get<"second">().modulation;
+    a.mechanic.amount = 0.25f;
+    a.noise.speed = 0.001f;
+    b.mechanic = {ColorModulation::Mechanic::OPACITY, 0.8f};
+    b.noise.speed = -0.0005f;
+    b.seed = 811;
+    return value;
+  }
+  static consteval auto choreography_hooks() {
+    return Base::choreography_hooks()
+        .template extend<
+            StackedModulationProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &StackedModulationProbe::initial_params>>();
+  }
+};
+
 /** @brief Each baked modulation retains its own immutable cube and source clock. */
 inline void test_temporal_stacked_modulation_resources() {
   reset_globals();

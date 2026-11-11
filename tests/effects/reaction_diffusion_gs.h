@@ -480,7 +480,8 @@ inline void test_gs_partial_color_palette_rows() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
-  constexpr uint16_t ALL_ROWS = (1u << 15) - 1;
+  constexpr uint16_t ALL_ROWS = (1u << GSWhiteBox::COLOR_NOISE_STEPS) - 1;
+  const auto initial_color = GSWhiteBox::color_params(gs);
   // A non-empty run of adjacent rows.
   const auto contiguous = [](uint16_t mask) {
     if (mask == 0)
@@ -503,9 +504,10 @@ inline void test_gs_partial_color_palette_rows() {
     HS_EXPECT_TRUE(contiguous(rows));
     HS_EXPECT_TRUE(GSWhiteBox::exact_color_sample(gs, -1.0f));
     HS_EXPECT_TRUE(GSWhiteBox::exact_color_sample(gs, 1.0f));
-    float hue = generation == 0 ? 0.2f : -0.2f;
-    float shimmer = generation == 0 ? 0.4f : 0.3f;
-    for (float noise : {-1.0f + 12.0f / 14.0f, 0.0f}) {
+    float hue = generation == 0 ? initial_color[2] : -0.2f;
+    float shimmer = generation == 0 ? initial_color[3] : 0.3f;
+    for (float noise :
+         {-1.0f + 12.0f / (GSWhiteBox::COLOR_NOISE_STEPS - 1), 0.0f}) {
       HS_EXPECT_FALSE(GSWhiteBox::exact_color_sample(gs, noise));
       for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed)
         for (float value : {0.0f, 1.0f})
@@ -872,7 +874,9 @@ inline void test_gs_reaction_edit_starts_dissolve() {
     HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
 
     for (float speed : {0.1f, 1.0f}) {
-      GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, speed);
+      const auto values = GSWhiteBox::reaction_params(gs);
+      GSWhiteBox::set_params(gs, values[0], values[1], values[2], values[3],
+                             speed);
       gs.draw_frame();
       gs.advance_display();
       HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
@@ -887,7 +891,7 @@ inline void test_gs_reaction_edit_starts_dissolve() {
     edited.draw_frame();
     edited.advance_display();
     HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(edited), -1);
-    float values[] = {0.04f, 0.06f, 0.02f, 0.01f};
+    auto values = GSWhiteBox::reaction_params(edited);
     values[parameter] *= 0.75f;
     GSWhiteBox::set_params(edited, values[0], values[1], values[2], values[3],
                            1.0f);
@@ -903,7 +907,8 @@ inline int gs_frames_to_dissolve(float dt, MeanDb &&mean_db, int limit) {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
-  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, dt);
+  const auto values = GSWhiteBox::reaction_params(gs);
+  GSWhiteBox::set_params(gs, values[0], values[1], values[2], values[3], dt);
   for (int frame = 1; frame <= limit; ++frame) {
     GSWhiteBox::advance_transition(gs, mean_db(frame));
     if (GSWhiteBox::dissolve_frame(gs) >= 0)
