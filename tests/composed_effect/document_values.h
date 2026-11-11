@@ -324,305 +324,386 @@ template <typename Lens> constexpr std::string_view lens_symmetry_id() {
 }
 
 /**
+ * @brief Applies one numeric document entry onto @p built.
+ * @return False when the key addresses nothing this effect owns.
+ * @details Writes through the owning family's field table, so a document key
+ * the engine does not table fails loudly.
+ */
+template <typename FX>
+inline bool apply_document_number(typename FX::Params &built,
+                                  const DocumentSlot &slot,
+                                  std::string_view field_id, float number) {
+  bool assigned = false;
+  built.visit([&]<typename Resource>(auto &family) {
+    if (Resource::KEY.view() == document_resource_key(slot))
+      assigned = assign_field(family,
+                              slot.role == SlotRole::CAMERA &&
+                                      Resource::KIND ==
+                                          Pullback::ResourceKind::PROJECTION &&
+                                      field_id == "wander"
+                                  ? "camera-wander"
+                                  : field_id,
+                              number) ||
+                 assigned;
+  });
+  if (assigned)
+    return true;
+  switch (slot.role) {
+  case SlotRole::CAMERA:
+    if (field_id == "wander")
+      return assign_field(built.template get<"projection">(), "camera-wander",
+                          number);
+    if (field_id == "spin-speed") {
+      if constexpr (requires { FX::CAMERA_SPIN_RATE; }) {
+        HS_EXPECT_EQ(bits(number), bits(FX::CAMERA_SPIN_RATE));
+        return true;
+      }
+      return false;
+    }
+    return false;
+  case SlotRole::SAMPLE:
+    if (assign_field(built.template get<"source">(), field_id, number))
+      return true;
+    if constexpr (FX::Params::template HAS<"value">)
+      if (assign_field(built.template get<"value">(), field_id, number))
+        return true;
+    // The sample operators always carry an edge-width; without edge-fade
+    // coverage it is inert in the chain and has no composed-effect field.
+    return field_id == "edge-width" &&
+           FX::Metadata::COVERAGE !=
+               Pullback::ProjectionCoverageMode::EDGE_FADE;
+  case SlotRole::LENS: {
+    bool assigned = assign_mobius(built, field_id, number);
+    built.visit([&]<typename Resource>(auto &family) {
+      if constexpr (Resource::KIND == Pullback::ResourceKind::LENS ||
+                    Resource::KIND == Pullback::ResourceKind::TWIST)
+        if (Resource::KEY.view() == slot.label)
+          assigned = assign_field(family, field_id, number) || assigned;
+    });
+    return assigned;
+  }
+  default:
+    return false;
+  }
+}
+
+/**
+ * @brief Writes a topology entry through the slot resource's TOPOLOGY or
+ *        extra-schema enum tables.
+ * @return Whether any table took @p text.
+ */
+template <typename FX>
+inline bool
+assign_document_topology(typename FX::Params &built, const DocumentSlot &slot,
+                         std::string_view field_id, std::string_view text) {
+  bool assigned = false;
+  built.visit([&]<typename Resource>(auto &family) {
+    using Family = typename Resource::Family;
+    if constexpr (requires { Family::TOPOLOGY; }) {
+      const bool matches = Resource::KEY.view() == document_resource_key(slot);
+      if (!matches)
+        return;
+      for (const auto &field : Family::TOPOLOGY)
+        if (field_id == field.id)
+          for (const auto &schema :
+               In::find_operator(slot.operator_id.c_str())->schema_span())
+            if (field_id == schema.id && schema.topology)
+              for (uint8_t index = 0; index < schema.enum_count; ++index)
+                if (text == schema.enum_ids[index]) {
+                  family.*field.member = index;
+                  assigned = true;
+                }
+    }
+    if constexpr (requires { family.extra_address(size_t{}); }) {
+      if (Resource::KEY.view() != document_resource_key(slot))
+        return;
+      for (size_t index = 0; index < Family::EXTRA_SCHEMA.size(); ++index) {
+        const auto &field = Family::EXTRA_SCHEMA[index];
+        if (field_id != field.id || !field.topology)
+          continue;
+        for (uint8_t option = 0; option < field.enum_count; ++option)
+          if (text == field.enum_ids[option]) {
+            *static_cast<uint8_t *>(family.extra_address(index)) = option;
+            assigned = true;
+          }
+      }
+    }
+  });
+  return assigned;
+}
+
+/**
+ * @brief Writes a modulation enum entry into the modulation resource named by
+ *        the slot label.
+ * @return Whether the modulation schema took @p text.
+ */
+template <typename FX>
+inline bool
+assign_modulation_topology(typename FX::Params &built, const DocumentSlot &slot,
+                           std::string_view field_id, std::string_view text) {
+  bool assigned = false;
+  built.visit([&]<typename Resource>(auto &family) {
+    if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
+      if (Resource::KEY.view() != slot.label)
+        return;
+      ChainOp::ModulationParams bridge;
+      bridge.modulation = family.modulation;
+      for (size_t index = 0; index < bridge.EXTRA_SCHEMA.size(); ++index) {
+        const auto &field = bridge.EXTRA_SCHEMA[index];
+        if (field_id != field.id || !field.topology)
+          continue;
+        for (uint8_t option = 0; option < field.enum_count; ++option)
+          if (text == field.enum_ids[option]) {
+            *static_cast<uint8_t *>(bridge.extra_address(index)) = option;
+            family.modulation = bridge.modulation;
+            assigned = true;
+          }
+      }
+    }
+  });
+  return assigned;
+}
+
+/**
+ * @brief Applies a colorize string entry: authored palette selections are
+ *        written, fixed palette topology is checked against the traits.
+ * @return False when the key addresses nothing this effect owns.
+ */
+template <typename FX>
+inline bool apply_colorize_text(typename FX::Params &built,
+                                std::string_view field_id,
+                                std::string_view text) {
+  using Traits = TraitsOf<FX>;
+  if constexpr (FX::AUTHORED_PALETTE) {
+    auto &color = built.template get<"color">();
+    const auto assign = [&](uint8_t &member, const auto &ids) {
+      for (uint8_t index = 0; index < std::size(ids); ++index)
+        if (text == ids[index]) {
+          member = index;
+          return true;
+        }
+      return false;
+    };
+    if (field_id == "palette-mode")
+      return assign(color.palette_mode, ChainOp::PALETTE_MODE_IDS);
+    if (field_id == "palette-type")
+      return assign(color.palette_type, AUTHORED_PALETTE_TYPE_IDS);
+    if (field_id == "palette-harmony")
+      return assign(color.palette_harmony, AUTHORED_PALETTE_HARMONY_IDS);
+    if (field_id == "palette-lightness-curve")
+      return assign(color.palette_lightness_curve,
+                    AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS);
+    if (field_id == "palette-name")
+      return assign(color.palette_name, AUTHORED_PALETTE_NAME_IDS);
+    if (field_id == "palette-name-b")
+      return assign(color.palette_name_b, AUTHORED_PALETTE_NAME_IDS);
+    if (field_id == "brightness-envelope") {
+      uint8_t index = 0;
+      if (!assign(index, ChainOp::BRIGHTNESS_ENVELOPE_IDS))
+        return false;
+      color.brightness_envelope =
+          static_cast<Pullback::Color::BrightnessEnvelope>(index);
+      return true;
+    }
+  }
+  if (field_id == "palette-type") {
+    HS_EXPECT_TRUE(text == "cycling-generated");
+    return true;
+  }
+  if (field_id == "palette-mapping") {
+    for (uint8_t index = 0; index < std::size(ChainOp::PALETTE_MAPPING_IDS);
+         ++index)
+      if (text == ChainOp::PALETTE_MAPPING_IDS[index]) {
+        built.template get<"color">().palette_mapping =
+            static_cast<Pullback::Color::PaletteMapping>(index);
+        return true;
+      }
+    return false;
+  }
+  if (field_id == "palette-mode") {
+    const char *expected = palette_mode_id(Traits::HARMONY);
+    HS_EXPECT_TRUE(expected != nullptr && text == expected);
+    return true;
+  }
+  if (field_id == "brightness-envelope") {
+    HS_EXPECT_TRUE(text ==
+                   ChainOp::BRIGHTNESS_ENVELOPE_IDS[static_cast<uint8_t>(
+                       Traits::BRIGHTNESS)]);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * @brief Checks a sample string entry against the effect's coverage and
+ *        tessellation constants.
+ * @return False when the key addresses nothing this effect owns.
+ */
+template <typename FX>
+inline bool check_sample_text(std::string_view field_id,
+                              std::string_view text) {
+  if (field_id == "coverage-mode") {
+    if constexpr (static_cast<size_t>(FX::Metadata::COVERAGE) <
+                  std::size(ChainOp::COVERAGE_MODE_IDS))
+      HS_EXPECT_TRUE(text == ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(
+                                 FX::Metadata::COVERAGE)]);
+    else
+      return false;
+    return true;
+  }
+  if (field_id == "weight-mode") {
+    HS_EXPECT_TRUE(text == "projection");
+    return true;
+  }
+  if (field_id == "kind" || field_id == "fill") {
+    using Source = typename FX::Params::template Family<"source">;
+    if constexpr (requires {
+                    Source::KIND;
+                    Source::FILL;
+                  }) {
+      HS_EXPECT_TRUE(text ==
+                     (field_id == "kind"
+                          ? ChainOp::TESSELLATION_KIND_IDS[static_cast<uint8_t>(
+                                Source::KIND)]
+                          : ChainOp::TESSELLATION_FILL_IDS[static_cast<uint8_t>(
+                                Source::FILL)]));
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+/**
+ * @brief Checks a projection string entry against the effect's projection
+ *        frame and hemisphere.
+ * @return False when the key addresses nothing this effect owns.
+ */
+template <typename FX>
+inline bool check_project_text(std::string_view field_id,
+                               std::string_view text) {
+  if (field_id == "frame") {
+    HS_EXPECT_TRUE(text == (!FX::ANIMATED_PROJECTION ? "identity"
+                            : FX::Spec::TILTED_PROJECTION_FRAME
+                                ? "spin-wander-tilted"
+                                : "spin-wander"));
+    return true;
+  }
+  if (field_id == "hemisphere") {
+    HS_EXPECT_TRUE(FX::Metadata::PROJECTION ==
+                       Pullback::ProjectionKind::GNOMONIC_FOLDED &&
+                   text == "folded");
+    return true;
+  }
+  return false;
+}
+
+/**
+ * @brief Checks a lens symmetry entry against the compiled lens stages.
+ * @return False when the key addresses nothing this effect owns.
+ */
+template <typename FX>
+inline bool check_lens_text(std::string_view field_id, std::string_view text) {
+  if (field_id == "symmetry") {
+    using Leaves = Pullback::ComposedDetail::PipelineLeaves<
+        typename FX::Spec::template Pipeline<
+            Pullback::ComposedDetail::DiscoveryBinding>>;
+    const bool found = [&]<size_t... I>(std::index_sequence<I...>) {
+      return (
+          ([]<typename Stage>(std::string_view symmetry) {
+            if constexpr (Pullback::ComposedDetail::IsLensStage<Stage>::value)
+              return symmetry == lens_symmetry_id<typename Stage::LensPolicy>();
+            return false;
+          }.template operator()<typename Leaves::template StageAt<I>>(text)) ||
+          ...);
+    }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+    HS_EXPECT_TRUE(found);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * @brief Checks a warp or surface string entry against the compiled affine
+ *        path tracking and the operator's fixed topology defaults.
+ * @return False when the key addresses nothing this effect owns.
+ */
+template <typename FX>
+inline bool check_warp_text(const DocumentSlot &slot, std::string_view field_id,
+                            std::string_view text) {
+  if (field_id == "path-length") {
+    using Leaves = Pullback::ComposedDetail::PipelineLeaves<
+        typename FX::Spec::template Pipeline<
+            Pullback::ComposedDetail::DiscoveryBinding>>;
+    const std::string_view key = document_resource_key(slot);
+    const int tracked = [&]<size_t... I>(std::index_sequence<I...>) {
+      int found = -1;
+      (
+          [&]<typename Stage>() {
+            using Tracking = AffineStageTracking<Stage>;
+            if constexpr (Tracking::AFFINE)
+              if (Tracking::KEY == key)
+                found = Tracking::TRACK ? 1 : 0;
+          }.template operator()<typename Leaves::template StageAt<I>>(),
+          ...);
+      return found;
+    }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+    HS_EXPECT(tracked >= 0, "path-length names a compiled affine stage");
+    HS_EXPECT(text == (tracked == 1 ? "on" : "off"),
+              "path-length matches the compiled affine TrackPath");
+    return tracked >= 0;
+  }
+  if (field_id == "basis" || field_id == "integrator" || field_id == "limit" ||
+      field_id == "mode" || field_id == "envelope" || field_id == "harmonic" ||
+      field_id == "burst-size" || field_id == "random-center") {
+    const auto *op = In::find_operator(slot.operator_id.c_str());
+    if (op)
+      for (const auto &schema : op->schema_span())
+        if (schema.id == field_id && schema.topology) {
+          HS_EXPECT(text == schema.enum_ids[schema.enum_def],
+                    "fixed topology matches the compiled default");
+          return true;
+        }
+    return false;
+  }
+  return false;
+}
+
+/**
  * @brief Applies one document preset entry onto @p built, or verifies it
  *        against the effect's compile-time constants.
  * @return False when the key addresses nothing this effect owns.
- * @details Numeric entries write through the owning family's field table, so a
- * document key the engine does not table fails loudly. String entries
- * are chain topology: the ones with a composed-effect equivalent are checked
- * against the derived topology.
+ * @details String entries are chain topology: the ones with a composed-effect
+ * equivalent are checked against the derived topology.
  */
 template <typename FX>
 inline bool
 apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
                      std::string_view field_id, const JsonValue &value) {
-  using Traits = TraitsOf<FX>;
-  if (value.kind == JsonValue::Kind::NUMBER) {
-    const float number = static_cast<float>(value.number);
-    bool assigned = false;
-    built.visit([&]<typename Resource>(auto &family) {
-      if (Resource::KEY.view() == document_resource_key(slot))
-        assigned =
-            assign_field(family,
-                         slot.role == SlotRole::CAMERA &&
-                                 Resource::KIND ==
-                                     Pullback::ResourceKind::PROJECTION &&
-                                 field_id == "wander"
-                             ? "camera-wander"
-                             : field_id,
-                         number) ||
-            assigned;
-    });
-    if (assigned)
-      return true;
-    switch (slot.role) {
-    case SlotRole::CAMERA:
-      if (field_id == "wander")
-        return assign_field(built.template get<"projection">(), "camera-wander",
-                            number);
-      if (field_id == "spin-speed") {
-        if constexpr (requires { FX::CAMERA_SPIN_RATE; }) {
-          HS_EXPECT_EQ(bits(number), bits(FX::CAMERA_SPIN_RATE));
-          return true;
-        }
-        return false;
-      }
-      return false;
-    case SlotRole::SAMPLE:
-      if (assign_field(built.template get<"source">(), field_id, number))
-        return true;
-      if constexpr (FX::Params::template HAS<"value">)
-        if (assign_field(built.template get<"value">(), field_id, number))
-          return true;
-      // The sample operators always carry an edge-width; without edge-fade
-      // coverage it is inert in the chain and has no composed-effect field.
-      return field_id == "edge-width" &&
-             FX::Metadata::COVERAGE !=
-                 Pullback::ProjectionCoverageMode::EDGE_FADE;
-    case SlotRole::LENS: {
-      bool assigned = assign_mobius(built, field_id, number);
-      built.visit([&]<typename Resource>(auto &family) {
-        if constexpr (Resource::KIND == Pullback::ResourceKind::LENS ||
-                      Resource::KIND == Pullback::ResourceKind::TWIST)
-          if (Resource::KEY.view() == slot.label)
-            assigned = assign_field(family, field_id, number) || assigned;
-      });
-      return assigned;
-    }
-    default:
-      return false;
-    }
-  }
+  if (value.kind == JsonValue::Kind::NUMBER)
+    return apply_document_number<FX>(built, slot, field_id,
+                                     static_cast<float>(value.number));
   if (value.kind != JsonValue::Kind::STRING)
     return false;
   const std::string_view text = value.text;
-  if (slot.role != SlotRole::COLORIZE) {
-    bool assigned = false;
-    built.visit([&]<typename Resource>(auto &family) {
-      using Family = typename Resource::Family;
-      if constexpr (requires { Family::TOPOLOGY; }) {
-        const bool matches =
-            Resource::KEY.view() == document_resource_key(slot);
-        if (!matches)
-          return;
-        for (const auto &field : Family::TOPOLOGY)
-          if (field_id == field.id)
-            for (const auto &schema :
-                 In::find_operator(slot.operator_id.c_str())->schema_span())
-              if (field_id == schema.id && schema.topology)
-                for (uint8_t index = 0; index < schema.enum_count; ++index)
-                  if (text == schema.enum_ids[index]) {
-                    family.*field.member = index;
-                    assigned = true;
-                  }
-      }
-      if constexpr (requires { family.extra_address(size_t{}); }) {
-        if (Resource::KEY.view() != document_resource_key(slot))
-          return;
-        for (size_t index = 0; index < Family::EXTRA_SCHEMA.size(); ++index) {
-          const auto &field = Family::EXTRA_SCHEMA[index];
-          if (field_id != field.id || !field.topology)
-            continue;
-          for (uint8_t option = 0; option < field.enum_count; ++option)
-            if (text == field.enum_ids[option]) {
-              *static_cast<uint8_t *>(family.extra_address(index)) = option;
-              assigned = true;
-            }
-        }
-      }
-    });
-    if (assigned)
-      return true;
-  }
+  if (slot.role != SlotRole::COLORIZE &&
+      assign_document_topology<FX>(built, slot, field_id, text))
+    return true;
   switch (slot.role) {
-  case SlotRole::MODULATION: {
-    bool assigned = false;
-    built.visit([&]<typename Resource>(auto &family) {
-      if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
-        if (Resource::KEY.view() != slot.label)
-          return;
-        ChainOp::ModulationParams bridge;
-        bridge.modulation = family.modulation;
-        for (size_t index = 0; index < bridge.EXTRA_SCHEMA.size(); ++index) {
-          const auto &field = bridge.EXTRA_SCHEMA[index];
-          if (field_id != field.id || !field.topology)
-            continue;
-          for (uint8_t option = 0; option < field.enum_count; ++option)
-            if (text == field.enum_ids[option]) {
-              *static_cast<uint8_t *>(bridge.extra_address(index)) = option;
-              family.modulation = bridge.modulation;
-              assigned = true;
-            }
-        }
-      }
-    });
-    return assigned;
-  }
+  case SlotRole::MODULATION:
+    return assign_modulation_topology<FX>(built, slot, field_id, text);
   case SlotRole::COLORIZE:
-    if constexpr (FX::AUTHORED_PALETTE) {
-      auto &color = built.template get<"color">();
-      const auto assign = [&](uint8_t &member, const auto &ids) {
-        for (uint8_t index = 0; index < std::size(ids); ++index)
-          if (text == ids[index]) {
-            member = index;
-            return true;
-          }
-        return false;
-      };
-      if (field_id == "palette-mode")
-        return assign(color.palette_mode, ChainOp::PALETTE_MODE_IDS);
-      if (field_id == "palette-type")
-        return assign(color.palette_type, AUTHORED_PALETTE_TYPE_IDS);
-      if (field_id == "palette-harmony")
-        return assign(color.palette_harmony, AUTHORED_PALETTE_HARMONY_IDS);
-      if (field_id == "palette-lightness-curve")
-        return assign(color.palette_lightness_curve,
-                      AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS);
-      if (field_id == "palette-name")
-        return assign(color.palette_name, AUTHORED_PALETTE_NAME_IDS);
-      if (field_id == "palette-name-b")
-        return assign(color.palette_name_b, AUTHORED_PALETTE_NAME_IDS);
-      if (field_id == "brightness-envelope") {
-        uint8_t index = 0;
-        if (!assign(index, ChainOp::BRIGHTNESS_ENVELOPE_IDS))
-          return false;
-        color.brightness_envelope =
-            static_cast<Pullback::Color::BrightnessEnvelope>(index);
-        return true;
-      }
-    }
-    if (field_id == "palette-type") {
-      HS_EXPECT_TRUE(text == "cycling-generated");
-      return true;
-    }
-    if (field_id == "palette-mapping") {
-      for (uint8_t index = 0; index < std::size(ChainOp::PALETTE_MAPPING_IDS);
-           ++index)
-        if (text == ChainOp::PALETTE_MAPPING_IDS[index]) {
-          built.template get<"color">().palette_mapping =
-              static_cast<Pullback::Color::PaletteMapping>(index);
-          return true;
-        }
-      return false;
-    }
-    if (field_id == "palette-mode") {
-      const char *expected = palette_mode_id(Traits::HARMONY);
-      HS_EXPECT_TRUE(expected != nullptr && text == expected);
-      return true;
-    }
-    if (field_id == "brightness-envelope") {
-      HS_EXPECT_TRUE(text ==
-                     ChainOp::BRIGHTNESS_ENVELOPE_IDS[static_cast<uint8_t>(
-                         Traits::BRIGHTNESS)]);
-      return true;
-    }
-    return false;
+    return apply_colorize_text<FX>(built, field_id, text);
   case SlotRole::SAMPLE:
-    if (field_id == "coverage-mode") {
-      if constexpr (static_cast<size_t>(FX::Metadata::COVERAGE) <
-                    std::size(ChainOp::COVERAGE_MODE_IDS))
-        HS_EXPECT_TRUE(text == ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(
-                                   FX::Metadata::COVERAGE)]);
-      else
-        return false;
-      return true;
-    }
-    if (field_id == "weight-mode") {
-      HS_EXPECT_TRUE(text == "projection");
-      return true;
-    }
-    if (field_id == "kind" || field_id == "fill") {
-      using Source = typename FX::Params::template Family<"source">;
-      if constexpr (requires {
-                      Source::KIND;
-                      Source::FILL;
-                    }) {
-        HS_EXPECT_TRUE(
-            text == (field_id == "kind"
-                         ? ChainOp::TESSELLATION_KIND_IDS[static_cast<uint8_t>(
-                               Source::KIND)]
-                         : ChainOp::TESSELLATION_FILL_IDS[static_cast<uint8_t>(
-                               Source::FILL)]));
-        return true;
-      }
-      return false;
-    }
-    return false;
+    return check_sample_text<FX>(field_id, text);
   case SlotRole::PROJECT:
-    if (field_id == "frame") {
-      HS_EXPECT_TRUE(text == (!FX::ANIMATED_PROJECTION ? "identity"
-                              : FX::Spec::TILTED_PROJECTION_FRAME
-                                  ? "spin-wander-tilted"
-                                  : "spin-wander"));
-      return true;
-    }
-    if (field_id == "hemisphere") {
-      HS_EXPECT_TRUE(FX::Metadata::PROJECTION ==
-                         Pullback::ProjectionKind::GNOMONIC_FOLDED &&
-                     text == "folded");
-      return true;
-    }
-    return false;
+    return check_project_text<FX>(field_id, text);
   case SlotRole::LENS:
-    if (field_id == "symmetry") {
-      using Leaves = Pullback::ComposedDetail::PipelineLeaves<
-          typename FX::Spec::template Pipeline<
-              Pullback::ComposedDetail::DiscoveryBinding>>;
-      const bool found = [&]<size_t... I>(std::index_sequence<I...>) {
-        return (
-            ([]<typename Stage>(std::string_view symmetry) {
-              if constexpr (Pullback::ComposedDetail::IsLensStage<Stage>::value)
-                return symmetry ==
-                       lens_symmetry_id<typename Stage::LensPolicy>();
-              return false;
-            }.template
-             operator()<typename Leaves::template StageAt<I>>(text)) ||
-            ...);
-      }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
-      HS_EXPECT_TRUE(found);
-      return true;
-    }
-    return false;
+    return check_lens_text<FX>(field_id, text);
   case SlotRole::SURFACE:
     [[fallthrough]];
   case SlotRole::WARP:
-    if (field_id == "path-length") {
-      using Leaves = Pullback::ComposedDetail::PipelineLeaves<
-          typename FX::Spec::template Pipeline<
-              Pullback::ComposedDetail::DiscoveryBinding>>;
-      const std::string_view key = document_resource_key(slot);
-      const int tracked = [&]<size_t... I>(std::index_sequence<I...>) {
-        int found = -1;
-        (
-            [&]<typename Stage>() {
-              using Tracking = AffineStageTracking<Stage>;
-              if constexpr (Tracking::AFFINE)
-                if (Tracking::KEY == key)
-                  found = Tracking::TRACK ? 1 : 0;
-            }.template operator()<typename Leaves::template StageAt<I>>(),
-            ...);
-        return found;
-      }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
-      HS_EXPECT(tracked >= 0, "path-length names a compiled affine stage");
-      HS_EXPECT(text == (tracked == 1 ? "on" : "off"),
-                "path-length matches the compiled affine TrackPath");
-      return tracked >= 0;
-    }
-    if (field_id == "basis" || field_id == "integrator" ||
-        field_id == "limit" || field_id == "mode" || field_id == "envelope" ||
-        field_id == "harmonic" || field_id == "burst-size" ||
-        field_id == "random-center") {
-      const auto *op = In::find_operator(slot.operator_id.c_str());
-      if (op)
-        for (const auto &schema : op->schema_span())
-          if (schema.id == field_id && schema.topology) {
-            HS_EXPECT(text == schema.enum_ids[schema.enum_def],
-                      "fixed topology matches the compiled default");
-            return true;
-          }
-      return false;
-    }
-    return false;
+    return check_warp_text<FX>(slot, field_id, text);
   default:
     return false;
   }
