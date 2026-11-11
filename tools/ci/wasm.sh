@@ -53,6 +53,10 @@ echo "No first-party or fileless toolchain warnings in the release, debug or str
 # Debug frames have a 6 KB ceiling; optimized frames use 2 KB.
 WASM_SMOKE_STACK_CEILING=6144 node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
 node scripts/wasm_smoke.mjs build/wasm-release/holosphere_wasm.js
+# Engine payloads match targets/wasm/engine_types.d.ts and the emitted aliases;
+# the debug module adds the developer bindings.
+node scripts/engine_payload_types.mjs build/wasm-debug/holosphere_wasm.js
+node scripts/engine_payload_types.mjs build/wasm-release/holosphere_wasm.js
 
 # Verify the installed provenance set and both directory installs.
 cmake --build --preset wasm-release-install

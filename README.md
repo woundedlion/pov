@@ -1730,6 +1730,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── exit.mjs                  Shared command exit after pending stderr writes drain
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
 │   ├── engine_bindings_contract.test.mjs Node contract tests for WASM engine binding invariants
+│   ├── engine_payload_types.mjs / engine_payload_types.test.mjs  Checks every engine payload against engine_types.d.ts and the emitted aliases (CI); checker tests
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   ├── wasm_smoke_predicates.mjs Module-free WASM smoke predicates
 │   ├── wasm_smoke_predicates.test.mjs Node unit tests for the WASM smoke predicates
@@ -1846,7 +1847,9 @@ The public simulator and design-tool pages retain their existing URLs.
 Holosphere installs runtime assets and their provenance under `generated/`;
 these outputs and the emitted binding declarations are ignored. Authored object
 schemas and loader extensions live in `targets/wasm/engine_types.d.ts`; methods
-and enums come from Embind. The install exports FPS and numeric enums from the
+and enums come from Embind. CI's `wasm` job calls every payload-returning
+binding through `scripts/engine_payload_types.mjs` and fails when a payload and
+its declaration disagree or a declaration matches no payload. The install exports FPS and numeric enums from the
 bound module and compiles shared segment geometry to standalone JavaScript. The current shader document catalog lives under
 `generated/shader/patterns/`.
 Build and install the runtime assets with the Quickstart commands;
