@@ -125,7 +125,7 @@ BUILD_INPUTS = (
     "tools/profile_isr_window.h",
     "tools/profile_clock.h",
     "tools/pc_sampler.h",
-    "tools/teensy_budgets.json", "platformio.ini",
+    "tools/teensy_budgets.json", "platformio.ini", "cmake/engine_sources.ini",
 )
 
 

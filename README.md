@@ -1147,7 +1147,7 @@ On Windows, the executables have an `.exe` suffix. With no module arguments, a l
 | Other `test_<family>` targets | Effect cases split by dependency; Hankin/Islamic mesh cases share `test_mesh_effect`; Conway morph and op-chain modules build as `test_conway_effect` |
 | `run_tests` | Complete compatibility umbrella used by existing CTest and CI entry points |
 
-The umbrella and local runners link the same compiled case objects. `tests/test_main.cpp` supplies the module CLI and CI depth checks, and `tests/process_setup.cpp` suppresses Windows error dialogs in every native executable. `tests/engine_libraries.cmake` shares engine objects across compatible compile contexts; separate objects retain helper tools' different ABI, scan metrics, display/offset, math and sanitizer settings. The build's engine_compile_contexts.txt report records those variants. `cmake/engine_sources.cmake` supplies the shared translation-unit list for native and WASM targets and the WASM arena budget; capture producers use the same list. Coverage instruments the shared case and engine objects as well as the umbrella.
+The umbrella and local runners link the same compiled case objects. `tests/test_main.cpp` supplies the module CLI and CI depth checks, and `tests/process_setup.cpp` suppresses Windows error dialogs in every native executable. `tests/engine_libraries.cmake` shares engine objects across compatible compile contexts; separate objects retain helper tools' different ABI, scan metrics, display/offset, math and sanitizer settings. The build's engine_compile_contexts.txt report records those variants. `cmake/engine_sources.cmake` supplies the translation units listed in `cmake/engine_sources.ini` to native and WASM targets, and the WASM arena budget; capture producers use the same list, and `platformio.ini` builds it into every firmware image. Coverage instruments the shared case and engine objects as well as the umbrella.
 
 The per-effect smoke and determinism window is `HS_SMOKE_FRAMES`. Its local default is short enough that no preset transition arms, so the pause, slot-reuse and FIFO-expiry paths never execute; `just test` and every CI leg raise it, and `run_tests` refuses a shallower window when `CI` is set. Case lists invoke `HS_RUN(test_case)` or `HS_RUN(test_case, arguments...)` so failure context retains the case name inside lambdas and shared helpers.
 
@@ -1613,7 +1613,8 @@ files define line-ending policy and working-artifact exclusions.
 ├── cmake/
 │   ├── prune_mirrored.cmake     Removes stale engine-owned shader documents and gallery PNGs during install
 │   ├── chain_capture_fixtures.cmake Typed fixture header generation for capture producers
-│   ├── engine_sources.cmake     Shared engine translation units and WASM arena budget
+│   ├── engine_sources.cmake     Reads the engine translation units for CMake; WASM arena budget
+│   ├── engine_sources.ini       Engine translation-unit list shared by CMake and platformio.ini
 │   ├── test_capabilities.cmake Shared feature capabilities for test and capture targets
 │   ├── wasm_cache_key.cmake     Keys the binary URL by its content hash after linking
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset

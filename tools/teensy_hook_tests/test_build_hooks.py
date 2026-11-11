@@ -54,9 +54,16 @@ COMPILE_COMMANDS = {"CCCOM": "$CC -c", "CXXCOM": "$CXX -c", "ASPPCOM": "$CC -x"}
 
 
 def _pio_config():
+    """platformio.ini merged with the files its `extra_configs` names."""
     cfg = configparser.RawConfigParser()
     cfg.read(PIO_INI, encoding="utf-8")
+    cfg.read([REPO / path for path in _extra_configs(cfg)], encoding="utf-8")
     return cfg
+
+
+def _extra_configs(cfg):
+    """Repo-relative paths in platformio.ini's `[platformio] extra_configs`."""
+    return cfg.get("platformio", "extra_configs", fallback="").split()
 
 
 def _pio_envs():
@@ -109,6 +116,27 @@ class TestOptionInterpolation(unittest.TestCase):
                 if path.startswith("tools/"):
                     with self.subTest(environment=environment, path=path):
                         self.assertIn(path, inputs)
+
+    def test_firmware_build_inputs_cover_every_extra_config(self):
+        extra = _extra_configs(_pio_config())
+        self.assertIn("cmake/engine_sources.ini", extra)
+        for path in extra:
+            with self.subTest(path=path):
+                self.assertTrue((REPO / path).is_file())
+                self.assertIn(path, size_trail.BUILD_INPUTS)
+
+    def test_every_env_builds_every_engine_source(self):
+        cfg = _pio_config()
+        engine = _option_lines(cfg, "engine", "sources")
+        self.assertTrue(engine, "[engine] sources lists no translation units")
+        for term in engine:
+            with self.subTest(term=term):
+                self.assertRegex(term, r"^\+<[^*?\[>]+\.cpp>$")
+                self.assertTrue((REPO / term[2:-1]).is_file(), term)
+        for name in _pio_envs():
+            with self.subTest(env=name):
+                resolved = _option_lines(cfg, f"env:{name}", "build_src_filter")
+                self.assertEqual(resolved[:len(engine) + 1], ["-<*>", *engine])
 
     def test_inline_source_references_include_shared_and_local_filters(self):
         cfg = configparser.RawConfigParser()
