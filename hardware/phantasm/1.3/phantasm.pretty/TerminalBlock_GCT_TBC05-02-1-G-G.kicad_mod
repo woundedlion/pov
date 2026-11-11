@@ -110,16 +110,6 @@
 			)
 		)
 	)
-	(fp_rect
-		(start -8.25 -1.97)
-		(end -3.75 4.51)
-		(stroke
-			(width 0.1)
-			(type dash)
-		)
-		(fill none)
-		(layer "Dwgs.User")
-	)
 	(zone
 		(layer "F.Cu")
 		(uuid "28f3bf29-427c-56eb-81e0-8831193f69f7")

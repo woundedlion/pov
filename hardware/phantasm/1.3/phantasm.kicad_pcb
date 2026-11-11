@@ -179,7 +179,7 @@
 		(fill (thermal_gap 0.3) (thermal_bridge_width 0.4))
 		(polygon (pts (xy 52.08 25.8) (xy 57.48 25.8) (xy 57.48 31.2) (xy 52.08 31.2)))
 	)
-	(gr_text "PHANTASM segment board UNPLACED  -  58.28x32mm outline (width <=35mm); mechanical and signal-integrity placements locked" (at 4 -4 0) (layer "Cmts.User") (uuid "263f4715-0af9-575a-af6e-c84c39a922ca") (effects (font (size 2 2) (thickness 0.3)) (justify left bottom)))
+	(gr_text "PHANTASM segment board UNROUTED  -  58.28x32mm outline (width <=35mm); mechanical and signal-integrity placements locked" (at 4 -4 0) (layer "Cmts.User") (uuid "263f4715-0af9-575a-af6e-c84c39a922ca") (effects (font (size 2 2) (thickness 0.3)) (justify left bottom)))
 	(gr_text "USB PLUG KEEP-OUT" (at 5.3 20 90) (layer "Dwgs.User") (uuid "d7d22b27-2722-557b-8522-88cf5aae8404") (effects (font (size 0.8 0.8) (thickness 0.15))))
 	(gr_text "ID0" (at 24.55 8.93 0) (layer "B.SilkS") (uuid "be163a1a-24e4-539a-9f11-ff5cdd63af30") (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))
 	(gr_text "ID1" (at 28.35 8.93 0) (layer "B.SilkS") (uuid "99b7a3fd-d5e6-5f17-a4f0-ce93a6191e4a") (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))
@@ -329,16 +329,6 @@
 					(xy 8.6 -0.32)
 				)
 			)
-		)
-		(fp_rect
-			(start -8.25 -1.97)
-			(end -3.75 4.51)
-			(stroke
-				(width 0.1)
-				(type dash)
-			)
-			(fill none)
-			(layer "Dwgs.User")
 		)
 		(zone
 			(layer "F.Cu")

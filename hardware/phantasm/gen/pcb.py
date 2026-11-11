@@ -399,6 +399,11 @@ def reserve_terminal_wire_access(node):
     """Reserve each terminal's nominal insulated-wire insertion envelope."""
     node[:] = [n for n in node if not (isinstance(n, list) and n and n[0] == "zone"
                and str(sexp.val(n, "name", [""])[0]).startswith("Terminal wire access"))]
+    node[:] = [n for n in node if not (
+        isinstance(n, list) and n and n[0] == "fp_rect"
+        and sexp.val(n, "layer") == ["Dwgs.User"]
+        and max(float(sexp.val(n, "start")[0]),
+                float(sexp.val(n, "end")[0])) <= -3.25)]
     for pad in F(node, "pad"):
         y = float(sexp.val(pad, "at")[1])
         x0, x1 = -3.25 - WIRE_APPROACH_MM, -3.25
@@ -1092,7 +1097,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         # the staged grid sits below the outline by design; only locked parts are on it
         bounded = list(fixed)
         OUTFILE = UNPLACED_FILE
-        NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
+        status = 'UNROUTED' if selected == '1.3' else 'UNPLACED'
+        NOTE = (f'PHANTASM segment board {status}  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
                 f'(width <={fmt(PCB_W_MAX)}mm); mechanical and signal-integrity '
                 'placements locked')
     else:
