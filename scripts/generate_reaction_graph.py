@@ -9,7 +9,7 @@ core/spatial/reaction_graph.h is the analytic reference for those positions.
 Provenance — DOUBLE PRECISION. node(i) is computed in IEEE double, and the
 committed table reproduces bit-for-bit ONLY in double: float32 flips the sort
 order of rows at near-tie distances. Emitted node coordinates narrow to float32
-before hex formatting. RD_N, RD_K, golden_angle and two_pi are parsed from the
+before hex formatting. RD_N, RD_K, GOLDEN_ANGLE and LATTICE_TWO_PI are parsed from the
 header; the node() formula is mirrored by hand, so an edit to it requires
 regenerating the table.
 
@@ -17,7 +17,7 @@ Lattice (mirrors core/spatial/reaction_graph.h::node):
 
   y(i)      = 1 - i/(RD_N-1) * 2                  # +1 at the north pole down to -1
   radius(i) = sqrt(1 - y*y)
-  theta(i)  = fmod(golden_angle * i, 2π)
+  theta(i)  = fmod(GOLDEN_ANGLE * i, 2π)
   node(i)   = (cos(theta)*radius, y, sin(theta)*radius)
 
 neighbors[i] = the RD_K indices j != i minimizing |node(i) - node(j)|^2, sorted
@@ -64,11 +64,11 @@ def _load_header_constants():
         int(_header_constant(text, r"constexpr\s+int\s+RD_K\s*=\s*(\d+)\s*;",
                              "RD_K")),
         float(_header_constant(
-            text, r"constexpr\s+double\s+golden_angle\s*=\s*([0-9.eE+-]+)\s*;",
-            "golden_angle")),
+            text, r"constexpr\s+double\s+GOLDEN_ANGLE\s*=\s*([0-9.eE+-]+)\s*;",
+            "GOLDEN_ANGLE")),
         float(_header_constant(
-            text, r"constexpr\s+double\s+two_pi\s*=\s*([0-9.eE+-]+)\s*;",
-            "two_pi")),
+            text, r"constexpr\s+double\s+LATTICE_TWO_PI\s*=\s*([0-9.eE+-]+)\s*;",
+            "LATTICE_TWO_PI")),
     )
 
 
