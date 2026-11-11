@@ -108,7 +108,6 @@ EFFECT_ROSTER_SOURCE = PurePosixPath("targets/effects.h")
 _EFFECT_ROSTER_MACRO = "HS_EFFECT_LIST"
 # X-row spelling mirrored by scripts/effect_roster.mjs; comments are stripped
 # before matching.
-_COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
 # The device playlist: the roster minus HS_PHANTASM_EXCLUDED_EFFECTS.
@@ -1045,7 +1044,7 @@ def composed_roster_issues(root: Path, effects_text: str,
             issues.append(Issue(header.as_posix(), 1,
                                 f"cannot read as UTF-8: {error}"))
             continue
-        declared = _PRESET_IDS_RE.search(_COMMENT_RE.sub("", text))
+        declared = _PRESET_IDS_RE.search(split_source(text, script=False)[0])
         if not declared:
             issues.append(Issue(
                 _EFFECTS_REFERENCE, number,
