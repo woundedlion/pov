@@ -613,8 +613,6 @@ private:
     const int last = std::min(static_cast<int>(floorf(center + radius)),
                               static_cast<int>(ceilf((arm + t1) * HALF)) - 1);
     for (int unwrapped = first; unwrapped <= last; ++unwrapped) {
-      if (unwrapped < arm * (W / 2) || unwrapped >= (arm + 1) * (W / 2))
-        continue;
       const int column = math::fast_wrap(unwrapped, W);
       const float at = Spacetime::SamplingSurface<W>::time(column);
       const float lag = at - capture.time;
