@@ -314,8 +314,8 @@ protected:
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-        build_next_seed =
-            Solids::finalize_solid(clean_endpoint(step, a, b), target);
+        build_next_seed = Solids::finalize_solid(
+            clean_endpoint(step, build_seed, a, b), target);
       });
       bookend = next_seed_bookend();
     }
@@ -330,69 +330,9 @@ protected:
                          "never budgeted");
     hs::log("Build leg: %s (%d frames)", leg_name(step.op), frames);
 
-    // The swept operator's endpoints: every inflate leg opens at the clamped
-    // zero-area birth limit and lands on the step's own parameter; ambo is a
-    // truncate swept to the short-circuit point.
-    switch (step.op) {
-    case Solids::Op::HANKIN:
-      schedule_build_leg(Animation::OpLeg(
-          build_seed,
-          Animation::OpLeg::HankinSweepSpec{.theta_start = 0.0f,
-                                            .theta_end = step.param,
-                                            .sweep_frames = frames},
-          persistent_arena, draw_build_fn, handoff, bookend));
-      break;
-    case Solids::Op::RELAX:
-      schedule_build_leg(
-          Animation::OpLeg(build_seed,
-                           Animation::OpLeg::RelaxSpec{
-                               .iterations = static_cast<int>(step.param),
-                               .bake = step.bake,
-                               .sweep_frames = frames},
-                           persistent_arena, draw_build_fn, handoff, bookend));
-      break;
-    case Solids::Op::AMBO:
-      schedule_build_leg(Animation::OpLeg(
-          build_seed,
-          Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                           .t_start = 0.0f,
-                                           .t_end = 0.5f,
-                                           .sweep_frames = frames},
-          persistent_arena, draw_build_fn, handoff, bookend));
-      break;
-    case Solids::Op::TRUNCATE:
-      schedule_build_leg(Animation::OpLeg(
-          build_seed,
-          Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                           .t_start = 0.0f,
-                                           .t_end = step.param,
-                                           .sweep_frames = frames},
-          persistent_arena, draw_build_fn, handoff, bookend));
-      break;
-    case Solids::Op::SNUB:
-      schedule_build_leg(Animation::OpLeg(
-          build_seed,
-          Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::SNUB,
-                                           .t_start = 0.0f,
-                                           .t_end = step.param,
-                                           .twist_end = step.twist,
-                                           .sweep_frames = frames},
-          persistent_arena, draw_build_fn, handoff, bookend));
-      break;
-    case Solids::Op::CHAMFER:
-      schedule_build_leg(Animation::OpLeg(
-          build_seed,
-          Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::CHAMFER,
-                                           .t_start = 0.0f,
-                                           .t_end = step.param,
-                                           .sweep_frames = frames},
-          persistent_arena, draw_build_fn, handoff, bookend));
-      break;
-    default:
-      // DUAL and KIS route through the smooth bridges.
-      HS_CHECK(false, "RecipeBuild: unsweepable primitive op reached a leg");
-      break;
-    }
+    schedule_build_leg(make_build_leg(step, build_seed, frames,
+                                      persistent_arena, draw_build_fn, handoff,
+                                      bookend));
   }
 
   /**
@@ -927,28 +867,93 @@ protected:
    * @brief Builds the clean endpoint mesh a leg lands on.
    * @param step Lowered primitive step; a hankin step has no entry, since its
    * leg rebuilds its own arrival from the topology it swept.
+   * @param seed Mesh at the start of the leg.
    * @param a Output arena for even pipeline stages.
    * @param b Scratch arena for odd pipeline stages.
    * @return The op applied to the current build seed at its exact parameter.
    */
-  HS_FLASH_MEMBER PolyMesh clean_endpoint(const Solids::OpStep &step, Arena &a,
-                                          Arena &b) {
+  HS_FLASH_MEMBER static PolyMesh clean_endpoint(const Solids::OpStep &step,
+                                                 const PolyMesh &seed, Arena &a,
+                                                 Arena &b) {
     switch (step.op) {
     case Solids::Op::AMBO:
-      return MeshOps::ambo(build_seed, a, b);
+      return MeshOps::ambo(seed, a, b);
     case Solids::Op::TRUNCATE:
-      return MeshOps::truncate(build_seed, a, b, step.param);
+      return MeshOps::truncate(seed, a, b, step.param);
     case Solids::Op::SNUB:
-      return MeshOps::snub(build_seed, a, b, step.param, step.twist);
+      return MeshOps::snub(seed, a, b, step.param, step.twist);
     case Solids::Op::CHAMFER:
-      return MeshOps::chamfer(build_seed, a, b, step.param);
+      return MeshOps::chamfer(seed, a, b, step.param);
     case Solids::Op::RELAX:
       if (step.bake)
-        return MeshOps::relax_baked(build_seed, a, *step.bake);
-      return MeshOps::relax(build_seed, a, b, static_cast<int>(step.param));
+        return MeshOps::relax_baked(seed, a, *step.bake);
+      return MeshOps::relax(seed, a, b, static_cast<int>(step.param));
     default:
       HS_CHECK(false, "RecipeBuild: step builds no eager endpoint");
       return PolyMesh{};
+    }
+  }
+
+  /** @brief Constructs a swept leg for a lowered primitive step.
+   * @param step Lowered primitive step.
+   * @param seed Mesh at the start of the leg.
+   * @param frames Leg frame budget.
+   * @param arena Persistent arena for the leg.
+   * @param draw Build-frame draw callback.
+   * @param handoff Palette handoff from the prior leg.
+   * @param bookend Classes at the leg's endpoint.
+   * @return Constructed leg. */
+  HS_FLASH_MEMBER static Animation::OpLeg
+  make_build_leg(const Solids::OpStep &step, const PolyMesh &seed, int frames,
+                 Arena &arena, Animation::OpLeg::MorphDrawFn draw,
+                 Animation::OpLeg::PaletteHandoff handoff,
+                 Animation::OpLeg::BookendClasses bookend) {
+    using Animation::OpLeg;
+    switch (step.op) {
+    case Solids::Op::HANKIN:
+      return OpLeg(seed,
+                   OpLeg::HankinSweepSpec{.theta_start = 0.0f,
+                                          .theta_end = step.param,
+                                          .sweep_frames = frames},
+                   arena, draw, handoff, bookend);
+    case Solids::Op::RELAX:
+      return OpLeg(seed,
+                   OpLeg::RelaxSpec{.iterations = static_cast<int>(step.param),
+                                    .bake = step.bake,
+                                    .sweep_frames = frames},
+                   arena, draw, handoff, bookend);
+    case Solids::Op::AMBO:
+      return OpLeg(seed,
+                   OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                         .t_start = 0.0f,
+                                         .t_end = 0.5f,
+                                         .sweep_frames = frames},
+                   arena, draw, handoff, bookend);
+    case Solids::Op::TRUNCATE:
+      return OpLeg(seed,
+                   OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                         .t_start = 0.0f,
+                                         .t_end = step.param,
+                                         .sweep_frames = frames},
+                   arena, draw, handoff, bookend);
+    case Solids::Op::SNUB:
+      return OpLeg(seed,
+                   OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::SNUB,
+                                         .t_start = 0.0f,
+                                         .t_end = step.param,
+                                         .twist_end = step.twist,
+                                         .sweep_frames = frames},
+                   arena, draw, handoff, bookend);
+    case Solids::Op::CHAMFER:
+      return OpLeg(seed,
+                   OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::CHAMFER,
+                                         .t_start = 0.0f,
+                                         .t_end = step.param,
+                                         .sweep_frames = frames},
+                   arena, draw, handoff, bookend);
+    default:
+      HS_CHECK(false, "RecipeBuild: unsweepable primitive op reached a leg");
+      __builtin_unreachable();
     }
   }
 

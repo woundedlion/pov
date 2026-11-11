@@ -283,7 +283,7 @@ struct IslamicBuildProbe {
   static PolyMesh clean_endpoint(IslamicStars<W, H> &e,
                                  const Solids::OpStep &step, Arena &a,
                                  Arena &b) {
-    return e.clean_endpoint(step, a, b);
+    return e.clean_endpoint(step, e.build_seed, a, b);
   }
 
   template <int W, int H>

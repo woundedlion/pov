@@ -71,6 +71,8 @@ struct RecipeLegLengths : Animation::RecipeBuild<RecipeLegLengths, 1, 1> {
   using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::HANKIN_LEG_FRAMES;
   using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::SWEEP_LEG_FRAMES;
   using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::RELAX_LEG_FRAMES;
+  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::clean_endpoint;
+  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::make_build_leg;
 };
 
 using ConwayGraph::T_EPS;

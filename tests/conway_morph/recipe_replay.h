@@ -44,33 +44,14 @@ inline constexpr int REPLAY_GATE_HALF_FRAMES = 6;
 /** @brief Builds one replay step's raw endpoint in its scratch arenas. */
 inline PolyMesh replay_endpoint(const Solids::OpStep &step,
                                 const PolyMesh &current, Arena &a, Arena &b) {
-  PolyMesh nx;
   switch (step.op) {
-  case Solids::Op::AMBO:
-    nx = MeshOps::ambo(current, a, b);
-    break;
-  case Solids::Op::TRUNCATE:
-    nx = MeshOps::truncate(current, a, b, step.param);
-    break;
-  case Solids::Op::SNUB:
-    nx = MeshOps::snub(current, a, b, step.param, step.twist);
-    break;
   case Solids::Op::KIS:
-    nx = MeshOps::kis(current, a, b);
-    break;
+    return MeshOps::kis(current, a, b);
   case Solids::Op::DUAL:
-    nx = MeshOps::dual(current, a, b);
-    break;
-  case Solids::Op::CHAMFER:
-    nx = MeshOps::chamfer(current, a, b, step.param);
-    break;
+    return MeshOps::dual(current, a, b);
   default:
-    nx = step.bake
-             ? MeshOps::relax_baked(current, a, *step.bake)
-             : MeshOps::relax(current, a, b, static_cast<int>(step.param));
-    break;
+    return RecipeLegLengths::clean_endpoint(step, current, a, b);
   }
-  return nx;
 }
 
 /** @brief Constructs the production or gated approximation for a replay step. */
@@ -91,47 +72,9 @@ make_replay_leg(const Solids::OpStep &step, const PolyMesh &cur, int frames,
                  OpLeg::GatedSwapSpec{.op = OpLeg::SwapOp::DUAL,
                                       .gate_frames = REPLAY_GATE_HALF_FRAMES},
                  arena, cb, handoff, bookend);
-  case Solids::Op::HANKIN:
-    return OpLeg(cur,
-                 OpLeg::HankinSweepSpec{.theta_start = 0.0f,
-                                        .theta_end = step.param,
-                                        .sweep_frames = frames},
-                 arena, cb, handoff, bookend);
-  case Solids::Op::AMBO:
-    return OpLeg(cur,
-                 OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                       .t_start = 0.0f,
-                                       .t_end = 0.5f,
-                                       .sweep_frames = frames},
-                 arena, cb, handoff, bookend);
-  case Solids::Op::TRUNCATE:
-    return OpLeg(cur,
-                 OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                       .t_start = 0.0f,
-                                       .t_end = step.param,
-                                       .sweep_frames = frames},
-                 arena, cb, handoff, bookend);
-  case Solids::Op::SNUB:
-    return OpLeg(cur,
-                 OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::SNUB,
-                                       .t_start = 0.0f,
-                                       .t_end = step.param,
-                                       .twist_end = step.twist,
-                                       .sweep_frames = frames},
-                 arena, cb, handoff, bookend);
-  case Solids::Op::CHAMFER:
-    return OpLeg(cur,
-                 OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::CHAMFER,
-                                       .t_start = 0.0f,
-                                       .t_end = step.param,
-                                       .sweep_frames = frames},
-                 arena, cb, handoff, bookend);
   default:
-    return OpLeg(cur,
-                 OpLeg::RelaxSpec{.iterations = static_cast<int>(step.param),
-                                  .bake = step.bake,
-                                  .sweep_frames = frames},
-                 arena, cb, handoff, bookend);
+    return RecipeLegLengths::make_build_leg(step, cur, frames, arena, cb,
+                                            handoff, bookend);
   }
 }
 
