@@ -293,13 +293,12 @@ protected:
                : preset_index;
   }
 
+  using Effect::register_described_params;
+
   /** @brief Registers the derived effect's typed parameter descriptions. */
   HS_FLASH_MEMBER void register_described_params() {
-    Control::register_fields(
-        params, parameter_fields_of(),
-        [this](const char *name, auto *target, const auto &spec) {
-          this->register_param(name, target, spec);
-        });
+    register_described_params<&ChoreographedEffect::parameter_fields_of>(
+        params);
   }
 
   /**

@@ -10,6 +10,7 @@
  *        writes to them, and the preset pause flag.
  */
 
+#include "core/control/fields.h"
 #include "core/control/params.h"
 #include "core/control/param_spec.h"
 #include "core/memory.h"
@@ -434,6 +435,23 @@ protected:
   }
 
   void register_param(const char *, float *, int, int) = delete;
+
+  /**
+   * @brief Registers each named description @p DESCRIBE returns, in tuple
+   *        order.
+   * @tparam DESCRIBE Function returning a tuple of `Control::Field` or
+   *         `Control::FieldGroup` descriptions over Owner.
+   * @tparam Owner Aggregate holding the described members.
+   * @param owner Aggregate the registered parameters target.
+   */
+  template <auto DESCRIBE, typename Owner>
+  HS_FLASH_MEMBER void register_described_params(Owner &owner) {
+    Control::register_fields(
+        owner, DESCRIBE(),
+        [this](const char *name, auto *target, const auto &spec) {
+          this->register_param(name, target, spec);
+        });
+  }
 
   /**
    * @brief Registers a float slider with the default parameter policies.
