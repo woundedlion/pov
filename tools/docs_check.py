@@ -590,18 +590,8 @@ def _path_span_issue(source: PurePosixPath, line: int, span: str,
             return Issue(source.as_posix(), line,
                          f"ambiguous basename {candidate!r}: {', '.join(matches)}")
         return None
-    in_scope = False
-    for base in (PurePosixPath(""), source.parent, _IMPLICIT_PATH_ROOT):
-        resolved = PurePosixPath(posixpath.normpath(
-            posixpath.join(base.as_posix(), candidate)))
-        # Scope each interpretation to its first directory under that base.
-        scope = PurePosixPath(*resolved.parts[:len(base.parts) + 1])
-        if scope not in entries:
-            continue
-        in_scope = True
-        if resolved in entries:
-            return None
-    if not in_scope:
+    exists = _scoped_path_exists(source, candidate, entries)
+    if exists is not False:
         return None
     return Issue(source.as_posix(), line, f"backticked path {candidate!r} does not exist")
 
@@ -1233,12 +1223,9 @@ def scan_symbols(sources: dict[PurePosixPath, str]
     return words, spans
 
 
-def _comment_path_exists(source: PurePosixPath, candidate: str,
-                         entries: set[PurePosixPath]) -> bool | None:
-    """Whether a comment path is tracked; None when its root is untracked."""
-    candidate = candidate.rstrip("/")
-    if "/" not in candidate:
-        return any(entry.name == candidate for entry in entries)
+def _scoped_path_exists(source: PurePosixPath, candidate: str,
+                        entries: set[PurePosixPath]) -> bool | None:
+    """Whether a scoped repo path is tracked; None outside tracked roots."""
     in_scope = False
     for base in (PurePosixPath(""), _IMPLICIT_PATH_ROOT, source.parent):
         resolved = PurePosixPath(posixpath.normpath(
@@ -1250,6 +1237,15 @@ def _comment_path_exists(source: PurePosixPath, candidate: str,
         if resolved in entries:
             return True
     return False if in_scope else None
+
+
+def _comment_path_exists(source: PurePosixPath, candidate: str,
+                         entries: set[PurePosixPath]) -> bool | None:
+    """Whether a comment path is tracked; None when its root is untracked."""
+    candidate = candidate.rstrip("/")
+    if "/" not in candidate:
+        return any(entry.name == candidate for entry in entries)
+    return _scoped_path_exists(source, candidate, entries)
 
 
 def symbol_reference_issues(spans: list[tuple[PurePosixPath, int, str]],
