@@ -454,8 +454,7 @@ public:
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = math::ease_in_out_sin)
-      : AnimationBase(spec.sweep_frames + spec.settle_frames, false),
-        easing_fn(easing_fn), draw_fn(draw) {
+      : OpLeg(spec.sweep_frames + spec.settle_frames, easing_fn, draw) {
     HS_CHECK(spec.edge, "OpLeg: edge sweep carries no graph edge");
     const ConwayGraph::EdgeSpec &edge = *spec.edge;
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -502,8 +501,7 @@ public:
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = math::ease_in_out_sin)
-      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
-        draw_fn(draw) {
+      : OpLeg(spec.sweep_frames, easing_fn, draw) {
     HS_CHECK(spec.sweep_frames >= 1,
              "OpLeg: parameter sweep needs a positive sweep length");
     Transients &tr = init_transients(LegKind::CONWAY_SWEEP, spec.sweep_frames,
@@ -585,8 +583,7 @@ public:
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = math::ease_in_out_sin)
-      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
-        draw_fn(draw) {
+      : OpLeg(spec.sweep_frames, easing_fn, draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     Transients &tr = init_transients(LegKind::HANKIN_SWEEP, spec.sweep_frames,
                                      arena, handoff, blend_fn);
@@ -676,8 +673,7 @@ public:
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = math::ease_in_out_sin)
-      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
-        draw_fn(draw) {
+      : OpLeg(spec.sweep_frames, easing_fn, draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(spec.bake || spec.iterations >= 1,
              "OpLeg: relax leg needs a positive iteration count");
@@ -745,8 +741,7 @@ public:
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = math::ease_in_out_sin)
-      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
-        draw_fn(draw) {
+      : OpLeg(spec.sweep_frames, easing_fn, draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     Transients &tr = init_transients(LegKind::MEDIAL_SLERP, spec.sweep_frames,
                                      arena, handoff, blend_fn);
@@ -826,8 +821,7 @@ public:
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = math::ease_in_out_sin)
-      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
-        draw_fn(draw) {
+      : OpLeg(spec.sweep_frames, easing_fn, draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(spec.to_positions, "OpLeg: reconcile leg carries no endpoints");
     HS_CHECK(spec.to_count == from_mesh.vertices.size(),
@@ -894,8 +888,7 @@ public:
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0})
-      : AnimationBase(2 * spec.gate_frames + 1, false),
-        easing_fn(math::ease_in_out_sin), draw_fn(draw) {
+      : OpLeg(2 * spec.gate_frames + 1, math::ease_in_out_sin, draw) {
     HS_CHECK(spec.gate_frames >= 1, "OpLeg needs a positive gate length");
     Transients &tr = init_transients(LegKind::GATED_SWAP, spec.gate_frames,
                                      arena, handoff, classic_blend);
@@ -930,6 +923,15 @@ public:
   }
 
 private:
+  /**
+   * @brief Initializes the members every leg constructor shares.
+   * @param duration Leg length in frames.
+   * @param easing_fn Easing applied to the sweep parameter.
+   * @param draw Draw callback invoked once per frame.
+   */
+  HS_FLASH_INLINE OpLeg(int duration, EasingFn easing_fn, MorphDrawFn draw)
+      : AnimationBase(duration, false), easing_fn(easing_fn), draw_fn(draw) {}
+
   HS_FLASH_MEMBER void draw_frame(Canvas &canvas) {
     check_alive();
     Transients &tr = *buf;
