@@ -701,6 +701,20 @@ apply_perceptual_scalar(ColorSample &sample, float scalar,
     sample.pending_lift =
         accumulate_lift(sample.pending_lift, scalar, mechanic);
 }
+
+/** @brief Applies one modulation mechanic to a color carrier.
+ * @param sample Carrier to update.
+ * @param scalar Source value.
+ * @param mechanic Ordered mechanic. */
+HS_HOT_INLINE inline void
+apply_mechanic_scalar(ColorSample &sample, float scalar,
+                      const ColorModulation::Params &mechanic) {
+  if (mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION ||
+      mechanic.kind == ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
+    apply_perceptual_scalar(sample, scalar, mechanic);
+  else
+    sample.color = ColorModulation::apply(sample.color, scalar, mechanic);
+}
 /** @brief Applies one ordered modulation layer.
  * @param sample Color and source coordinates, updated in place.
  * @param state Layer controls and endpoint sources.
@@ -720,16 +734,7 @@ apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
     scalar = Modulation::sample(
         *source, Pattern::SphereDirection::admit(sample.field.sphere));
   }
-  if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
-    sample.pending_hue =
-        accumulate_hue(sample.pending_hue, scalar, state.mechanic);
-  else if (state.mechanic.kind ==
-           ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT) {
-    sample.pending_lift =
-        accumulate_lift(sample.pending_lift, scalar, state.mechanic);
-  } else {
-    sample.color = ColorModulation::apply(sample.color, scalar, state.mechanic);
-  }
+  apply_mechanic_scalar(sample, scalar, state.mechanic);
 }
 
 /** @brief Applies one layer to retained and current color endpoints.
@@ -751,17 +756,8 @@ apply_modulation_pair_in_place(ColorSample &previous, ColorSample &current,
   const auto DIRECTION = Pattern::SphereDirection::admit(current.field.sphere);
   const auto SCALARS =
       Modulation::sample_pair(*state.previous, *state.current, DIRECTION);
-  const auto apply = [&](ColorSample &sample, float scalar) {
-    if (state.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION ||
-        state.mechanic.kind ==
-            ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
-      apply_perceptual_scalar(sample, scalar, state.mechanic);
-    else
-      sample.color =
-          ColorModulation::apply(sample.color, scalar, state.mechanic);
-  };
-  apply(previous, SCALARS.first);
-  apply(current, SCALARS.second);
+  apply_mechanic_scalar(previous, SCALARS.first, state.mechanic);
+  apply_mechanic_scalar(current, SCALARS.second, state.mechanic);
 }
 
 /** @brief Applies one ordered modulation layer to a copy.
