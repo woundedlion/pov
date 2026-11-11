@@ -573,6 +573,9 @@ jobs:
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
+      - name: Install script test dependencies
+        run: npm ci --no-audit --no-fund
+
       # The runner rejects empty file selections, cases, and assertion counts.
       - name: Every scripts/*.test.mjs unit test and the browser capture helper
         run: bash tools/ci/scripts_tests.sh --with-deps
