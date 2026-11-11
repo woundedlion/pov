@@ -29,6 +29,8 @@ inline void test_shader_chain_parameter_ranges() {
   AffineWarpChain fixture;
   constexpr float MIN_SCALE = AffineWarpChain::MIN_SCALE;
   const auto &ids = fixture.ids;
+  const std::string refused_scale_x =
+      ids[AffineWarpChain::ADMITTED] + ".scale-x";
   const auto &chain = fixture.chain;
   reset_globals();
   ShaderChainWhiteBox::FX effect;
@@ -41,11 +43,11 @@ inline void test_shader_chain_parameter_ranges() {
                                                 {y.c_str(), MIN_SCALE}};
     HS_EXPECT_EQ(effect.update_parameters(writes), ParamSetResult::APPLIED);
   }
-  HS_EXPECT_EQ(effect.updateParameter("warp4.scale-x", MIN_SCALE),
+  HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(), MIN_SCALE),
                ParamSetResult::INADMISSIBLE);
   effect.setAnimationsPaused(false);
   const auto generation = effect.getParameterSchemaGeneration();
-  const char *warning = effect.parameter_warning("warp4.scale-x");
+  const char *warning = effect.parameter_warning(refused_scale_x.c_str());
   auto &program = ShaderChainWhiteBox::program(effect);
   std::vector<std::vector<uint8_t>> params;
   std::vector<std::vector<uint8_t>> states;
@@ -62,14 +64,14 @@ inline void test_shader_chain_parameter_ranges() {
     if (parameter)
       HS_EXPECT_FALSE(parameter->is_enum());
   });
-  const auto limited = parameter_range(effect, "warp4.scale-x");
+  const auto limited = parameter_range(effect, refused_scale_x.c_str());
   HS_EXPECT_GT(limited[0], MIN_SCALE);
   HS_EXPECT_LE(limited[0], 1.0f);
   HS_EXPECT_GT(limited[1], 1.0f);
   HS_EXPECT_LT(limited[1], 64.0f);
   HS_EXPECT_FALSE(effect.animations_paused());
   HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), generation);
-  HS_EXPECT_TRUE(effect.parameter_warning("warp4.scale-x") == warning);
+  HS_EXPECT_TRUE(effect.parameter_warning(refused_scale_x.c_str()) == warning);
   for (size_t index = 0; index < program.ops().size(); ++index) {
     HS_EXPECT_EQ(std::memcmp(params[index].data(), program.param_block(index),
                              params[index].size()),
@@ -78,24 +80,24 @@ inline void test_shader_chain_parameter_ranges() {
                              states[index].size()),
                  0);
   }
-  HS_EXPECT_EQ(effect.updateParameter("warp4.scale-x", limited[0]),
+  HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(), limited[0]),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(
-      effect.updateParameter("warp4.scale-x", std::nextafter(limited[0], 0.0f)),
-      ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_EQ(effect.updateParameter("warp4.scale-x", limited[1]),
+  HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(),
+                                      std::nextafter(limited[0], 0.0f)),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(), limited[1]),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("warp4.scale-x",
+  HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(),
                                       std::nextafter(limited[1], INFINITY)),
                ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_EQ(effect.updateParameter("warp4.scale-x", 1.0f),
+  HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(), 1.0f),
                ParamSetResult::APPLIED);
   const ShaderChainParameterWrite release[] = {{"warp0.scale-x", 1.0f},
                                                {"warp0.scale-y", 1.0f}};
   HS_EXPECT_EQ(effect.update_parameters(release), ParamSetResult::APPLIED);
-  const auto expanded = parameter_range(effect, "warp4.scale-x");
+  const auto expanded = parameter_range(effect, refused_scale_x.c_str());
   HS_EXPECT_LT(expanded[0], limited[0]);
-  HS_EXPECT_EQ(effect.updateParameter("warp4.scale-x", expanded[0]),
+  HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(), expanded[0]),
                ParamSetResult::APPLIED);
 }
 

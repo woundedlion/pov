@@ -90,6 +90,8 @@ class DeathPinUniqueness(unittest.TestCase):
         for raw in ("assert(value);\n", "#include <cassert>\n", "#include <assert.h>\n"):
             with self.subTest(raw=raw), self.assertRaisesRegex(SystemExit, r"core/guard.h:2"):
                 self.check_fixture(guard + raw, pin)
+        with self.assertRaisesRegex(SystemExit, r"core/guard.h:3"):
+            self.check_fixture(guard + "auto quote = '\"';\nassert(value);\n", pin)
 
     def test_empty_table_is_rejected(self):
         source = 'HS_CHECK(value > 0, "probe: positive");'

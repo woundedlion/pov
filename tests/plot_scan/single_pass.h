@@ -44,8 +44,8 @@ inline void test_planar_one_pass_matches_forward_difference() {
     math::Vector a = rand_unit();
     math::Vector b = rand_unit();
     // Antipodal-seam edges do not take the planar strategy.
-    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (Plot::at_planar_antipode(a, basis) ||
+        Plot::at_planar_antipode(b, basis))
       continue;
     Plot::PlanarEdgeSampler s = planar_sampler(a, b, basis);
     if (s.dist < 0.05f)
@@ -93,8 +93,8 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
     math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
     math::Vector a = rand_unit();
     math::Vector b = rand_unit();
-    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (Plot::at_planar_antipode(a, basis) ||
+        Plot::at_planar_antipode(b, basis))
       continue;
     Plot::PlanarEdgeSampler s = planar_sampler(a, b, basis);
     if (s.dist < 0.2f)

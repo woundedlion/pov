@@ -5,6 +5,121 @@
 
 // Mesh death cases.
 
+/**
+ * @brief Builds a PolyMesh from an explicit face-count and flat index list.
+ * @param mesh Mesh to populate.
+ * @param arena Arena backing the mesh arrays.
+ * @param num_verts Vertex count; positions are all zero (never read).
+ * @param counts Per-face side counts.
+ * @param num_faces Number of entries in @p counts.
+ * @param indices Flat per-face vertex index list.
+ * @param num_indices Number of entries in @p indices.
+ */
+inline void build_polymesh(PolyMesh &mesh, Arena &arena, size_t num_verts,
+                           const uint8_t *counts, size_t num_faces,
+                           const uint16_t *indices, size_t num_indices) {
+  mesh.vertices.bind(arena, num_verts);
+  for (size_t i = 0; i < num_verts; ++i)
+    mesh.vertices.push_back(math::Vector{});
+  mesh.face_counts.bind(arena, num_faces);
+  for (size_t i = 0; i < num_faces; ++i)
+    mesh.face_counts.push_back(opaque(counts[i]));
+  mesh.faces.bind(arena, num_indices);
+  for (size_t i = 0; i < num_indices; ++i)
+    mesh.faces.push_back(opaque(indices[i]));
+}
+
+/**
+ * @brief Borrows opaque side counts, faces and offsets into a fresh MeshState.
+ * @param counts Per-face side counts.
+ * @param index_count Length of the flat face list; entry i holds index i.
+ * @param offsets Per-face offsets; empty borrows no offsets span.
+ * @param topology_key Key borrowed alongside an empty topology span.
+ */
+inline void death_set_borrowed(std::initializer_list<uint8_t> counts,
+                               uint16_t index_count,
+                               std::initializer_list<uint16_t> offsets,
+                               uint32_t topology_key = 0) {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> count_list(arena, counts.size());
+  for (uint8_t count : counts)
+    count_list.push_back(opaque(count));
+  ArenaVector<uint16_t> faces(arena, index_count);
+  for (uint16_t i = 0; i < index_count; ++i)
+    faces.push_back(opaque(i));
+  ArenaVector<uint16_t> offset_list;
+  ArenaSpan<uint16_t> offset_span;
+  if (offsets.size() > 0) {
+    offset_list.bind(arena, offsets.size());
+    for (uint16_t offset : offsets)
+      offset_list.push_back(opaque(offset));
+    offset_span = ArenaSpan<uint16_t>(offset_list);
+  }
+  MeshState m;
+  m.set_borrowed(ArenaSpan<uint8_t>(count_list), ArenaSpan<uint16_t>(faces),
+                 offset_span, {}, opaque(topology_key));
+  (void)m.num_faces();
+}
+
+/** @brief Vertex-bit payload words a tetrahedron bake needs (3 per vertex). */
+inline constexpr size_t TETRAHEDRON_BAKE_WORDS = 3 * 4;
+
+/**
+ * @brief Builds a tetrahedron plus a relax bake that matches it exactly.
+ * @param mesh Mesh to populate.
+ * @param arena Arena backing the mesh arrays.
+ * @param bits Payload storage, TETRAHEDRON_BAKE_WORDS words, filled with the
+ *        mesh's own vertex bits; must outlive the relax_baked() call.
+ * @return Bake relax_baked() accepts until the caller perturbs one field.
+ * @details The source mesh's own vertices make both source and payload hashes
+ *          match.
+ */
+inline MeshOps::RelaxBake
+build_matching_relax_bake(PolyMesh &mesh, Arena &arena, uint32_t *bits) {
+  build_solid<Solids::Tetrahedron>(mesh, arena);
+  uint32_t output_hash = MeshOps::FNV1A_BASIS;
+  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+    const math::Vector &v = mesh.vertices[i];
+    bits[3 * i] = std::bit_cast<uint32_t>(v.x);
+    bits[3 * i + 1] = std::bit_cast<uint32_t>(v.y);
+    bits[3 * i + 2] = std::bit_cast<uint32_t>(v.z);
+    for (size_t k = 0; k < 3; ++k)
+      output_hash = MeshOps::fnv1a_step(output_hash, bits[3 * i + k]);
+  }
+  MeshOps::RelaxBake bake{};
+  bake.name = "death_tetrahedron";
+  bake.vertex_bits = bits;
+  bake.vertex_count = static_cast<uint16_t>(mesh.vertices.size());
+  bake.face_count = static_cast<uint16_t>(mesh.get_face_counts_size());
+  bake.index_count = static_cast<uint16_t>(mesh.get_faces_size());
+  bake.iterations = 0;
+  bake.source_hash = MeshOps::relax_source_hash(mesh);
+  bake.topology_hash = MeshOps::relax_topology_hash(mesh);
+  bake.output_hash = output_hash;
+  return bake;
+}
+
+/**
+ * @brief Builds a one-face PolyMesh with independently sized count and index
+ * data.
+ * @param mesh Mesh to populate.
+ * @param arena Arena backing the mesh arrays.
+ * @param side_count Value stored in the face-count array.
+ * @param num_indices Number of entries stored in the flat face-index array.
+ */
+inline void build_mismatched_polymesh(PolyMesh &mesh, Arena &arena,
+                                      uint8_t side_count, size_t num_indices) {
+  mesh.vertices.bind(arena, 4);
+  for (size_t i = 0; i < 4; ++i)
+    mesh.vertices.push_back(math::Vector{});
+  mesh.face_counts.bind(arena, 1);
+  mesh.face_counts.push_back(opaque(side_count));
+  mesh.faces.bind(arena, num_indices);
+  for (size_t i = 0; i < num_indices; ++i)
+    mesh.faces.push_back(static_cast<uint16_t>(i));
+}
+
 /** @brief Death case: a face loop exceeding its side limit must trap. */
 inline void case_mesh_face_loop_side_limit() {
   static uint8_t buf[1024];

@@ -5,6 +5,63 @@
 
 // Animation death cases.
 
+/** @brief Draw callback for the OpLeg construction death cases; never runs. */
+inline void death_opleg_draw(Canvas &, MeshState &,
+                             const Animation::OpLeg::Shading &) {}
+
+/**
+ * @brief Constructs an OpLeg over an empty seed for death probes.
+ * @tparam CAPACITY Scratch arena capacity in bytes.
+ * @param spec Constructor specification.
+ * @param handoff Palette handoff supplied to the constructor.
+ */
+template <size_t CAPACITY = 1024, typename Spec>
+inline void
+death_construct_opleg(const Spec &spec,
+                      Animation::OpLeg::PaletteHandoff handoff = {}) {
+  static uint8_t buffer[CAPACITY];
+  Arena arena(buffer, sizeof(buffer));
+  PolyMesh seed;
+  Animation::OpLeg leg(seed, spec, arena, death_opleg_draw, handoff);
+  (void)leg.landing();
+}
+
+/**
+ * @brief A palette handoff complete enough to clear the OpLeg handoff guard.
+ * @return A handoff naming a default bank and a one-face departed palette.
+ * @details Lets a case reach a guard that sits behind the handoff check.
+ */
+inline Animation::OpLeg::PaletteHandoff death_opleg_handoff() {
+  static const BakedPaletteBank bank;
+  static const uint8_t face_palette[1] = {0};
+  return {.bank = &bank,
+          .prev_face_palette = face_palette,
+          .prev_faces = 1,
+          .prev_face_centroid = nullptr,
+          .correspondence = Animation::OpLeg::FaceCorrespondence::GEOMETRIC};
+}
+
+/** @brief A well-formed non-settling graph edge for the OpLeg death cases. */
+inline constexpr ConwayGraph::EdgeSpec death_opleg_edge{
+    .from_node = 0,
+    .to_node = 0,
+    .seed_solid = 0,
+    .op = ConwayGraph::MorphOp::TRUNCATE,
+    .t_from = 0.0f,
+    .t_to = 0.4f,
+    .twist_from = 0.0f,
+    .twist_to = 0.0f,
+    .settle = false,
+    .reseed = ConwayGraph::Reseed::NONE,
+    .bridge = false};
+
+/** @brief Adds an event from a clear hook, violating the hook contract. */
+inline void add_event_from_clear_hook(void *ctx) {
+  static float value = 0.0f;
+  static_cast<Timeline *>(ctx)->add(
+      0, Animation::Transition(value, 1.0f, 1, math::ease_linear));
+}
+
 /** @brief Lens clocks reject nonfinite multipliers. */
 inline void case_lens_phase_nonfinite_scale() {
   float angle = 0.0f, magnitude = 1.0f;

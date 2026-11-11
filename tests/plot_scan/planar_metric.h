@@ -69,7 +69,7 @@ inline void test_azimuthal_roundtrip_identity() {
     HS_EXPECT_NEAR(rp.y, Py, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
 
     math::Vector p = rand_unit();
-    if (math::dot(p, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (Plot::at_planar_antipode(p, basis))
       continue;
     auto proj = Plot::azimuthal_project(p, basis);
     math::Vector back = Plot::azimuthal_unproject(proj.x, proj.y, basis);
@@ -117,8 +117,8 @@ inline void test_planar_arc_length_matches_fine_quadrature() {
         Plot::azimuthal_unproject(R1 * std::cos(t1), R1 * std::sin(t1), basis);
     math::Vector b =
         Plot::azimuthal_unproject(R2 * std::cos(t2), R2 * std::sin(t2), basis);
-    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (Plot::at_planar_antipode(a, basis) ||
+        Plot::at_planar_antipode(b, basis))
       continue;
 
     auto p1 = Plot::azimuthal_project(a, basis);
@@ -205,8 +205,8 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
         Plot::azimuthal_unproject(R1 * std::cos(t1), R1 * std::sin(t1), basis);
     math::Vector b =
         Plot::azimuthal_unproject(R2 * std::cos(t2), R2 * std::sin(t2), basis);
-    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (Plot::at_planar_antipode(a, basis) ||
+        Plot::at_planar_antipode(b, basis))
       continue;
 
     auto p1 = Plot::azimuthal_project(a, basis);

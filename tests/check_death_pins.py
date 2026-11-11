@@ -15,6 +15,7 @@ import re
 import subprocess
 
 STRING = r'"(?:[^"\\]|\\.)*"'
+CHAR = r"'(?:[^'\\\n]|\\.)+'"
 TOKEN = re.compile(STRING + r"|//[^\n]*|/\*.*?\*/|[(),]|[^(),\"/]+|/", re.S)
 
 
@@ -50,8 +51,8 @@ def guard_texts(text):
 def guard_sites(text):
     """Yield (offset into text, condition/message pair) for each guard."""
     # Blank comments in place so match offsets still index the original text.
-    text = re.sub(STRING + r"|//[^\n]*|/\*.*?\*/",
-                  lambda m: m[0] if m[0].startswith('"') else re.sub(r"[^\n]", " ", m[0]),
+    text = re.sub(CHAR + r"|" + STRING + r"|//[^\n]*|/\*.*?\*/",
+                  lambda m: m[0] if m[0][0] in "\"'" else re.sub(r"[^\n]", " ", m[0]),
                   text, flags=re.S)
     for match in re.finditer(r"HS_(?:AUDIT_)?CHECK\s*\(", text):
         depth = 1
@@ -83,7 +84,7 @@ RAW_ASSERT = re.compile(r"(?<!\w)assert\s*\(|#\s*include\s*<(?:cassert|assert\.h
 
 def raw_assert_lines(text):
     """Line numbers of raw assert() calls and <cassert> includes outside comments and strings."""
-    code = re.sub(STRING + r"|//[^\n]*|/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m[0]), text,
+    code = re.sub(CHAR + r"|" + STRING + r"|//[^\n]*|/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m[0]), text,
                   flags=re.S)
     return [code.count("\n", 0, m.start()) + 1 for m in RAW_ASSERT.finditer(code)]
 

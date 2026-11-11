@@ -23,7 +23,8 @@ struct DepthPalette {
 
 /** @brief Arena-backed DepthPalette bake. */
 struct DepthPaletteFixture {
-  alignas(std::max_align_t) uint8_t storage[4096];
+  alignas(
+      std::max_align_t) uint8_t storage[BakedPalette::required_arena_bytes()];
   Arena arena{storage, sizeof(storage)};
   BakedPaletteStorage palette;
 

@@ -5,6 +5,79 @@
 
 // Scan and radial-surface death cases.
 
+/**
+ * @brief Builds an invalid scan mesh with either missing offsets or a bad index.
+ * @param omit_offsets Selects the missing-offset guard before index validation.
+ */
+inline void scan_mesh_invalid_fixture(bool omit_offsets) {
+  constexpr int W = 32, H = 16;
+  static uint8_t geom_buf[1024];
+  static uint8_t scratch_buf[64 * 1024];
+  Arena geom(geom_buf, sizeof(geom_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+
+  MeshState mesh;
+  mesh.vertices.bind(geom, 3);
+  for (int i = 0; i < 3; ++i)
+    mesh.vertices.push_back(math::Vector(0.0f, 1.0f, 0.0f));
+  mesh.face_counts.bind(geom, 1);
+  mesh.face_counts.push_back(opaque<uint8_t>(3));
+  if (!omit_offsets) {
+    mesh.face_offsets.bind(geom, 1);
+    mesh.face_offsets.push_back(opaque<uint16_t>(0));
+  }
+  mesh.faces.bind(geom, 3);
+  mesh.faces.push_back(opaque<uint16_t>(0));
+  mesh.faces.push_back(opaque<uint16_t>(1));
+  mesh.faces.push_back(opaque<uint16_t>(3));
+
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  Pipeline<W, H> pipe;
+  Scan::Mesh::draw<W, H>(
+      pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch);
+}
+
+/** @brief Selects a valid mesh before rejecting malformed face data. */
+inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index,
+                                        bool omit_offsets = false) {
+  constexpr int W = 32, H = 16;
+  uint8_t geometry_storage[1024], frame_storage[4096];
+  Arena geometry(geometry_storage, sizeof(geometry_storage));
+  Arena frame(frame_storage, sizeof(frame_storage));
+  MeshState mesh;
+  mesh.vertices.bind(geometry, 3);
+  mesh.vertices.push_back(math::X_AXIS);
+  mesh.vertices.push_back(math::Y_AXIS);
+  mesh.vertices.push_back(math::Z_AXIS);
+  mesh.face_counts.bind(geometry, 1);
+  mesh.face_counts.push_back(3);
+  mesh.face_offsets.bind(geometry, 1);
+  mesh.face_offsets.push_back(0);
+  mesh.faces.bind(geometry, 3);
+  for (uint16_t index = 0; index < 3; ++index)
+    mesh.faces.push_back(index);
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Scan::ColumnBasis basis;
+  uint8_t moving[3] = {1, 1, 1};
+  uint16_t columns[2] = {};
+  const auto select = [&] {
+    if (visibility)
+      Scan::select_mesh_visibility<W, H>(
+          canvas.clip(), mesh, [](const math::Vector &p) { return p; }, 0.0f,
+          frame, basis);
+    else
+      Scan::pick_moving_faces<W>(canvas, mesh, moving, 0.0f, columns);
+  };
+  select();
+  if (omit_offsets)
+    mesh.face_offsets.clear();
+  else
+    mesh.faces[2] = opaque<uint16_t>(bad_index);
+  select();
+}
+
 /** @brief Radial surface family shared by the radial surface death cases. */
 using DeathRadialSurface = Scan::RadialSurface<4, 8>;
 

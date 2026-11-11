@@ -5,6 +5,85 @@
 
 // Plot filter death cases.
 
+/** @brief Draws valid timed edges before rejecting an out-of-range endpoint. */
+inline void plot_column_edge_index_fixture(bool bad_start) {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  sink.prepare(canvas);
+  const math::Vector vertices[] = {math::X_AXIS,
+                                   math::Vector(1, 0.2f, 0.1f).normalized()};
+  const Plot::Mesh::VertexSpan mesh{{vertices, std::size(vertices)}};
+  ScratchScope guard(scratch_arena_a);
+  ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, 1);
+  const auto shader = [](const math::Vector &, Fragment &fragment) {
+    fragment.color = Color4(Pixel(1, 0, 0), 1.0f);
+  };
+  Plot::Mesh::draw_column_edges<W, H>(sink, canvas, mesh, edges, shader, {},
+                                      0.0f);
+  edges.push_back({0, 1});
+  Plot::Mesh::draw_column_edges<W, H>(sink, canvas, mesh, edges, shader, {},
+                                      0.0f);
+  edges[0] = bad_start ? Plot::Mesh::Edge{opaque<uint16_t>(2), 1}
+                       : Plot::Mesh::Edge{0, opaque<uint16_t>(2)};
+  Plot::Mesh::draw_column_edges<W, H>(sink, canvas, mesh, edges, shader, {},
+                                      0.0f);
+}
+
+/**
+ * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
+ *        exceeds the TriangularBitset<128> capacity.
+ * @details The trap fires before any vertex or pipeline access, so the vertex
+ *          store only needs to satisfy the interface.
+ */
+struct OverCapacityMockMesh {
+  /**
+   * @brief Stand-in vertex store satisfying the mesh interface.
+   */
+  struct Verts {
+    /**
+     * @brief Returns a fixed vertex for any index.
+     * @return A constant Vector{0,1,0}.
+     */
+    math::Vector operator[](size_t) const {
+      return math::Vector{0.0f, 1.0f, 0.0f};
+    }
+    /**
+     * @brief Reports the vertex count.
+     * @return Always 1.
+     */
+    size_t size() const { return 1; }
+  } vertices;
+  uint8_t fc[1];  /**< Face-counts data: a single 2-gon face. */
+  uint16_t fi[2]; /**< Face-index data; second entry is over-capacity. */
+  /**
+   * @brief Builds the mock mesh with one over-capacity 2-gon face.
+   * @details Stores the over-capacity index at runtime so the optimizer can't
+   *          prove the trap at compile time and reshape the case (see opaque).
+   */
+  OverCapacityMockMesh() : fc{2}, fi{0, opaque<uint16_t>(130)} {}
+  /**
+   * @brief Returns the face-counts array.
+   * @return Pointer to the face-counts data.
+   */
+  const uint8_t *get_face_counts_data() const { return fc; }
+  /**
+   * @brief Returns the number of faces.
+   * @return Always 1.
+   */
+  size_t get_face_counts_size() const { return 1; }
+  /**
+   * @brief Returns the flat face-index array.
+   * @return Pointer to the face-index data.
+   */
+  const uint16_t *get_faces_data() const { return fi; }
+  /**
+   * @brief Returns the flat face-index array length.
+   * @return Always 2.
+   */
+  size_t get_faces_size() const { return 2; }
+};
 /** @brief Traps when a pose table is built without storage. */
 inline void case_pose_table_build_without_storage() {
   Spacetime::PoseTable table;

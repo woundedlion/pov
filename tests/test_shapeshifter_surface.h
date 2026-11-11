@@ -79,7 +79,7 @@ inline SurfaceMotionCase surface_replay_pose(bool reset, int frame_number) {
     effect.init();
     if (reset)
       effect.profile_select_preset(0);
-    effect.set_clip(0, 72, 0, 144);
+    effect.set_clip(0, ORACLE_H / 2, 0, ORACLE_W / 2);
     for (int frame = 1; frame <= frame_number; ++frame) {
       replay_frame(effect, frame);
     }
@@ -124,25 +124,25 @@ inline std::vector<float> surface_kernel_motion(const SurfaceMotionCase &pose,
                                              displacement);
       }
     } else {
-      const int column = Spacetime::surface_column(fraction, 288);
-      out.resize(288 * 144);
-      for (int x : {column, column + 144}) {
-        effect.set_clip(0, 144, x, x + 1);
+      const int column = Spacetime::surface_column(fraction, ORACLE_W);
+      out.resize(ORACLE_W * ORACLE_H);
+      for (int x : {column, column + ORACLE_W / 2}) {
+        effect.set_clip(0, ORACLE_H, x, x + 1);
         {
           Canvas canvas(effect);
           ShapeShifterWhiteBox::surface_kernel(effect, canvas, false, nullptr,
                                                displacement);
         }
         effect.advance_display();
-        for (int y = 0; y < 144; ++y) {
+        for (int y = 0; y < ORACLE_H; ++y) {
           const auto p = effect.get_pixel(x, y);
-          out[y * 288 + x] = (float(p.r) + p.g + p.b) / (3 * 65535);
+          out[y * ORACLE_W + x] = (float(p.r) + p.g + p.b) / (3 * 65535);
         }
       }
     }
     if (timed || fraction == 1) {
       effect.advance_display();
-      out = capture_luminance<288, 144>(effect);
+      out = capture_luminance<ORACLE_W, ORACLE_H>(effect);
     }
   }
   Timeline().clear();
@@ -155,13 +155,13 @@ inline void test_surface_clips() {
   for (bool timed : {false, true}) {
     const auto full = surface_kernel_motion(pose, timed, 1, 0);
     std::vector<float> stitched(full.size());
-    for (int y = 0; y < 144; y += 72)
-      for (int x = 0; x < 288; x += 144) {
-        const OracleClip clip{y, y + 72, x, x + 144};
+    for (int y = 0; y < ORACLE_H; y += ORACLE_H / 2)
+      for (int x = 0; x < ORACLE_W; x += ORACLE_W / 2) {
+        const OracleClip clip{y, y + ORACLE_H / 2, x, x + ORACLE_W / 2};
         const auto tile = surface_kernel_motion(pose, timed, 1, 0, clip);
-        for (int row = y; row < y + 72; ++row)
-          for (int column = x; column < x + 144; ++column)
-            stitched[row * 288 + column] = tile[row * 288 + column];
+        for (int row = y; row < y + ORACLE_H / 2; ++row)
+          for (int column = x; column < x + ORACLE_W / 2; ++column)
+            stitched[row * ORACLE_W + column] = tile[row * ORACLE_W + column];
       }
     HS_EXPECT_EQ(stitched, full);
   }
@@ -189,7 +189,7 @@ inline void test_surface_seams() {
   reversed.step = -fixture.step;
   reversed.name = "surface reverse";
   for (auto pose : {fixture, reversed, zero, reset})
-    seam_compare_render<288, 144>(
+    seam_compare_render<ORACLE_W, ORACLE_H>(
         [&](bool timed, float t, float displacement) {
           return surface_kernel_motion(pose, timed, t, displacement);
         },
@@ -199,7 +199,8 @@ inline void test_surface_seams() {
 inline void surface_mask_case(OracleEffect &effect, const char *name) {
   for (bool timed : {false, true})
     for (bool board : {false, true}) {
-      effect.set_clip(0, board ? 72 : 144, 0, board ? 144 : 288);
+      effect.set_clip(0, board ? ORACLE_H / 2 : ORACLE_H, 0,
+                      board ? ORACLE_W / 2 : ORACLE_W);
       OracleFrame images[2];
       for (bool mask : {false, true}) {
         Scan::SurfaceAreaStats stats;
@@ -212,8 +213,8 @@ inline void surface_mask_case(OracleEffect &effect, const char *name) {
         HS_EXPECT_EQ(Scan::RadialChartWork::footprints,
                      mask ? stats.mask_hits : stats.pixels);
         effect.advance_display();
-        for (int y = 0; y < 144; ++y)
-          for (int x = 0; x < 288; ++x)
+        for (int y = 0; y < ORACLE_H; ++y)
+          for (int x = 0; x < ORACLE_W; ++x)
             images[mask].pixels.push_back(effect.get_pixel(x, y));
         if (mask) {
           std::printf(
@@ -250,7 +251,7 @@ inline void surface_mask_cases() {
     effect.init();
     auto state = surface_state();
     state.phase = .37f;
-    state.clip = {0, 144, 0, 288};
+    state.clip = {0, ORACLE_H, 0, ORACLE_W};
     ShapeShifterWhiteBox::configure(effect, state);
     auto &orientation = ShapeShifterWhiteBox::orientation(effect);
     const auto start = math::make_rotation(math::X_AXIS, .27f);
@@ -333,10 +334,10 @@ inline void test_surface_lobe_outliers() {
       for (bool timed : {false, true}) {
         OracleFrame full;
         for (int tile = -1; tile < 4; ++tile) {
-          const int x0 = tile < 0 ? 0 : (tile % 2) * 144;
-          const int y0 = tile < 0 ? 0 : (tile / 2) * 72;
-          const int x1 = tile < 0 ? 288 : x0 + 144;
-          const int y1 = tile < 0 ? 144 : y0 + 72;
+          const int x0 = tile < 0 ? 0 : (tile % 2) * (ORACLE_W / 2);
+          const int y0 = tile < 0 ? 0 : (tile / 2) * ORACLE_H / 2;
+          const int x1 = tile < 0 ? ORACLE_W : x0 + ORACLE_W / 2;
+          const int y1 = tile < 0 ? ORACLE_H : y0 + ORACLE_H / 2;
           effect.set_clip(y0, y1, x0, x1);
           {
             Canvas canvas(effect);
@@ -344,8 +345,8 @@ inline void test_surface_lobe_outliers() {
           }
           effect.advance_display();
           OracleFrame image;
-          for (int y = 0; y < 144; ++y)
-            for (int x = 0; x < 288; ++x)
+          for (int y = 0; y < ORACLE_H; ++y)
+            for (int x = 0; x < ORACLE_W; ++x)
               image.pixels.push_back(effect.get_pixel(x, y));
           if (tile < 0)
             full = image;
@@ -353,14 +354,14 @@ inline void test_surface_lobe_outliers() {
             size_t different = 0;
             for (int y = y0; y < y1; ++y)
               for (int x = x0; x < x1; ++x) {
-                const auto a = image.pixels[y * 288 + x];
-                const auto b = full.pixels[y * 288 + x];
+                const auto a = image.pixels[y * ORACLE_W + x];
+                const auto b = full.pixels[y * ORACLE_W + x];
                 different += a.r != b.r || a.g != b.g || a.b != b.b;
               }
             HS_EXPECT_EQ(different, size_t{0});
           }
           auto energy = [&](int x, int y) {
-            const auto p = image.pixels[y * 288 + x];
+            const auto p = image.pixels[y * ORACLE_W + x];
             return float(p.r) + p.g + p.b;
           };
           for (int y = y0 + 1; y < y1 - 1; ++y)
@@ -443,10 +444,10 @@ inline void test_surface_footprint_darkening() {
     OracleEffect effect;
     effect.init();
     for (int frame = 1; frame <= NATURAL_P1_FRAMES; ++frame) {
-      effect.set_clip(0, 72, 0, 144);
+      effect.set_clip(0, ORACLE_H / 2, 0, ORACLE_W / 2);
       replay_frame(effect, frame);
       HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
-      effect.set_clip(0, 144, 0, 288);
+      effect.set_clip(0, ORACLE_H, 0, ORACLE_W);
       SurfaceFootprintAudit audit;
       SurfaceFootprintAudit::AA::observer = &SurfaceFootprintAudit::inspect;
       SurfaceFootprintAudit::AA::observer_data = &audit;
@@ -480,7 +481,7 @@ inline void test_surface_max_amplitude() {
   auto state = surface_state();
   state.amplitude = 10;
   state.phase = .37f;
-  state.clip = {0, 72, 0, 144};
+  state.clip = {0, ORACLE_H / 2, 0, ORACLE_W / 2};
   state.orientation = math::make_rotation(math::X_AXIS, .27f);
   for (bool timed : {false, true}) {
     const auto image =

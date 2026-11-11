@@ -228,6 +228,18 @@ FAB_GATES = {
 }
 
 
+def fixture_export(stage, args, revision="1.1", gerbers=ZipMembershipTests.EXPORTED):
+    target = Path(args[args.index("-o") + 1])
+    if stage == "netlist":
+        target.write_text('(export (design (sheet (name "/") '
+                          f'(title_block (rev "{revision}")))))', encoding="utf-8")
+    elif stage == "centroid":
+        target.write_text("Ref,PosX,PosY,Rot,Side\n", encoding="utf-8")
+    elif stage == "gerber":
+        for name in gerbers:
+            (target / name).write_bytes(f"fixture export: {name}\n".encode())
+
+
 def patch_fab_run(stack, out, export, **overrides):
     """Stub every `fab.main` gate, export through `export`, and write into `out`.
 
@@ -281,12 +293,7 @@ class FabricationWiringTests(unittest.TestCase):
     def fabricate(self, schematic_revision="1.1", board=TITLED_BOARD, comps=None):
         with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
             def export(stage, args):
-                target = Path(args[args.index("-o") + 1])
-                if stage == "netlist":
-                    target.write_text('(export (design (sheet (name "/") '
-                                      f'(title_block (rev "{schematic_revision}")))))', encoding="utf-8")
-                elif stage == "centroid":
-                    target.write_text("Ref,PosX,PosY,Rot,Side\n", encoding="utf-8")
+                fixture_export(stage, args, revision=schematic_revision)
             patch_fab_run(stack, Path(directory), export, read_board=board,
                           parse_components=comps or {})
             fab.fabricate(validate_only=True)
@@ -333,15 +340,7 @@ class PackagePromotionTests(unittest.TestCase):
             metadata["U1"].update(lcsc="C155176", rotation=180.0)
 
             def export(stage, args):
-                target = Path(args[args.index("-o") + 1])
-                if stage == "netlist":
-                    target.write_text('(export (design (sheet (name "/") '
-                                      '(title_block (rev "1.1")))))', encoding="utf-8")
-                elif stage == "centroid":
-                    target.write_text("Ref,PosX,PosY,Rot,Side\n", encoding="utf-8")
-                elif stage == "gerber":
-                    for name in ZipMembershipTests.EXPORTED:
-                        (target / name).write_bytes(f"fixture export: {name}\n".encode())
+                fixture_export(stage, args)
 
             patch_fab_run(stack, out, export, parse_components=comps,
                           validate_assembly_metadata=metadata)
@@ -413,20 +412,15 @@ class PackagePromotionTests(unittest.TestCase):
                 def export(stage, args):
                     if replacement == "stale-backup" and stage == "gerber":
                         self.fail("stale backup must be diagnosed before gerber export")
-                    target = Path(args[args.index("-o") + 1])
-                    if stage == "netlist":
-                        target.write_text('(export (design (sheet (name "/") '
-                                          '(title_block (rev "1.1")))))')
-                    elif stage == "centroid":
-                        target.write_text("Ref,PosX,PosY,Rot,Side\n")
-                    elif stage == "gerber":
+                    if stage == "gerber":
                         names = set(ZipMembershipTests.EXPORTED) - {"phantasm-In1_Cu.g1"}
                         if replacement == "archive-failure":
                             names.add("phantasm-In1_Cu.g1")
                         elif replacement:
                             names.add(replacement)
-                        for name in names:
-                            (target / name).write_text("fixture export")
+                        fixture_export(stage, args, gerbers=names)
+                    else:
+                        fixture_export(stage, args)
 
                 patch_fab_run(stack, out, export)
                 if replacement == "archive-failure":
@@ -465,18 +459,11 @@ class OutputLockTests(unittest.TestCase):
             refusals = []
 
             def export(stage, args):
-                target = Path(args[args.index("-o") + 1])
-                if stage == "netlist":
-                    target.write_text('(export (design (sheet (name "/") '
-                                      '(title_block (rev "1.1")))))', encoding="utf-8")
-                elif stage == "centroid":
-                    target.write_text("Ref,PosX,PosY,Rot,Side\n", encoding="utf-8")
-                elif stage == "gerber":
+                if stage == "gerber":
                     with self.assertRaises(SystemExit) as refused:
                         fab.main()
                     refusals.append(str(refused.exception))
-                    for name in ZipMembershipTests.EXPORTED:
-                        (target / name).write_bytes(f"fixture export: {name}\n".encode())
+                fixture_export(stage, args)
 
             patch_fab_run(stack, out, export)
             fab.main()

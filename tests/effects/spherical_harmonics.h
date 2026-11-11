@@ -637,19 +637,6 @@ struct ShTimeEvaluator {
   }
 };
 
-/** @brief View direction the scan shades for a pixel.
- * @tparam W Canvas width.
- * @tparam H Canvas height.
- * @param x Column.
- * @param y Row.
- * @return Unit view direction. */
-template <int W, int H> inline math::Vector scan_view(int x, int y) {
-  const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
-  return math::Vector(sin_phi * math::TrigLUT<W, H>::cos_theta(x),
-                      math::TrigLUT<W, H>::cos_phi[y],
-                      sin_phi * math::TrigLUT<W, H>::sin_theta[x]);
-}
-
 /** @brief Largest channel gap between a drawn column and a reference.
  * @param fx Effect after a draw.
  * @param x Column.
@@ -661,8 +648,9 @@ inline int sh_column_gap(const SphericalHarmonicsWhiteBox::SH &fx, int x,
   int worst = 0;
   for (int y = 0; y < SMALL_H; ++y)
     worst = std::max<int>(
-        worst, max_channel_gap(fx.get_pixel(x, y),
-                               expected(scan_view<SMALL_W, SMALL_H>(x, y))));
+        worst, max_channel_gap(
+                   fx.get_pixel(x, y),
+                   expected(math::pixel_to_vector<SMALL_W, SMALL_H>(x, y))));
   return worst;
 }
 

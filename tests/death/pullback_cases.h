@@ -5,6 +5,35 @@
 
 // Pullback death cases.
 
+inline void chain_invalid_layout(unsigned variant) {
+  using namespace Pullback::Interp;
+  ChainProgram program;
+  OperatorDescriptor descriptor = OPERATOR_TABLE[0];
+  alignas(std::max_align_t) uint8_t block_a[512], block_b[512];
+  size_t capacity = sizeof(block_a);
+  switch (variant) {
+  case 0:
+    descriptor.runtime.param.align = 0;
+    break;
+  case 1:
+    descriptor.runtime.prepared.align = 3;
+    break;
+  case 2:
+    descriptor.runtime.state.align = 2 * alignof(std::max_align_t);
+    break;
+  case 3:
+    descriptor.runtime.param.size = 0;
+    break;
+  case 4:
+    descriptor.runtime.state.size = 3;
+    break;
+  case 5:
+    capacity = std::numeric_limits<uint32_t>::max();
+    break;
+  }
+  program.bind_storage(block_a, block_b, capacity, {&descriptor, 1});
+}
+
 /** @brief Registered field curves retain their catalog spellings. */
 inline void check_catalog_field_curve_companion() {
   using Curve = Control::FieldCurve;

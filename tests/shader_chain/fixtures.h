@@ -221,20 +221,21 @@ inline bool color4_identical(const Color4 &a, const Color4 &b) {
 /** @brief Compares sphere carriers exactly. */
 inline bool sphere_identical(const PB::SphereSample &a,
                              const PB::SphereSample &b) {
-  return float_identical(a.dir.x, b.dir.x) &&
-         float_identical(a.dir.y, b.dir.y) &&
-         float_identical(a.dir.z, b.dir.z) &&
-         float_identical(a.path_length, b.path_length);
+  const auto &[dir, path_length] = a;
+  return float_identical(dir.x, b.dir.x) && float_identical(dir.y, b.dir.y) &&
+         float_identical(dir.z, b.dir.z) &&
+         float_identical(path_length, b.path_length);
 }
 
 /** @brief Compares plane carriers exactly. */
 inline bool plane_identical(const PB::PlaneSample &a,
                             const PB::PlaneSample &b) {
+  const auto &[coords, provenance, sphere, path_length] = a;
   const auto &[region_id, component_id, boundary_flags, fade_edge_distance,
                value_weight, flags, traits, edge_class, domain_coverage] =
-      a.provenance;
-  return float_identical(a.coords.re, b.coords.re) &&
-         float_identical(a.coords.im, b.coords.im) &&
+      provenance;
+  return float_identical(coords.re, b.coords.re) &&
+         float_identical(coords.im, b.coords.im) &&
          region_id == b.provenance.region_id &&
          component_id == b.provenance.component_id &&
          boundary_flags == b.provenance.boundary_flags &&
@@ -243,10 +244,10 @@ inline bool plane_identical(const PB::PlaneSample &a,
          flags == b.provenance.flags && traits == b.provenance.traits &&
          edge_class == b.provenance.edge_class &&
          float_identical(domain_coverage, b.provenance.domain_coverage) &&
-         float_identical(a.sphere.x, b.sphere.x) &&
-         float_identical(a.sphere.y, b.sphere.y) &&
-         float_identical(a.sphere.z, b.sphere.z) &&
-         float_identical(a.path_length, b.path_length);
+         float_identical(sphere.x, b.sphere.x) &&
+         float_identical(sphere.y, b.sphere.y) &&
+         float_identical(sphere.z, b.sphere.z) &&
+         float_identical(path_length, b.path_length);
 }
 
 /** @brief Compares field carriers exactly. */
@@ -347,7 +348,8 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           static_assert(sizeof(T) == sizeof(uint32_t));
           put(v.oscillation_phase);
         } else if constexpr (std::is_same_v<T, In::ModulationClockSnapshot>) {
-          const auto &[source, version, phase, initialized] = v.modulation;
+          const auto &[modulation] = v;
+          const auto &[source, version, phase, initialized] = modulation;
           put(static_cast<uint32_t>(source));
           put(static_cast<uint32_t>(version));
           static_assert(sizeof(phase) == sizeof(uint32_t));

@@ -44,3 +44,6 @@ endfunction()
 check_fixture("${focused}" TRUE "")
 string(REPLACE "  run_effect_case_alpha();\n" "" missing "${focused}")
 check_fixture("${missing}" FALSE "membership/tier mismatch")
+string(REPLACE "  if (effects_full_suite()) {\n    run_effect_case_beta();\n  }\n"
+  "  run_effect_case_beta();\n" demoted "${focused}")
+check_fixture("${demoted}" FALSE "membership/tier mismatch")

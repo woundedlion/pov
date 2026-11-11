@@ -8,6 +8,21 @@
 // rotation oracle and arm-cut seams
 // ============================================================================
 
+/** @brief Shared source pattern for feedback oracles. */
+inline std::array<float, 3> feedback_oracle_pattern(const math::Vector &p) {
+  return {0.5f + 0.35f * sinf(2.1f * p.x + 0.7f * p.z + 0.3f),
+          0.5f + 0.35f * sinf(1.7f * p.y - 1.3f * p.x + 1.1f),
+          0.5f + 0.35f * sinf(1.9f * p.z + 0.9f * p.y - 0.4f)};
+}
+
+inline uint16_t quantize_feedback_channel(float channel) {
+  return static_cast<uint16_t>(hs::clamp(channel, 0.0f, 65535.0f) + 0.5f);
+}
+
+inline double feedback_oracle_luminance(const Pixel &pixel) {
+  return (static_cast<double>(pixel.r) + pixel.g + pixel.b) / (3.0 * 65535.0);
+}
+
 /**
  * @brief Verifies FeedbackColumnTime's reads span their lit times.
  * @details A read spans one frame plus the column distance from its source,
@@ -194,10 +209,11 @@ template <int W, int H> struct RotatingFeedbackScene {
   std::array<float, 3> at(float time, const math::Vector &v) const {
     const math::Vector p =
         math::rotate(v, math::make_rotation(axis, omega * time));
+    auto rgb = feedback_oracle_pattern(p);
     const float scale = 65535.0f * powf(fade, time);
-    return {scale * (0.5f + 0.35f * sinf(2.1f * p.x + 0.7f * p.z + 0.3f)),
-            scale * (0.5f + 0.35f * sinf(1.7f * p.y - 1.3f * p.x + 1.1f)),
-            scale * (0.5f + 0.35f * sinf(1.9f * p.z + 0.9f * p.y - 0.4f))};
+    for (float &channel : rgb)
+      channel = scale * channel;
+    return rgb;
   }
 
   /** @brief A frame as the display holds it: every column at its own lit
@@ -247,9 +263,6 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
       Filter::Pixel::Feedback<W, H>(style)};
   feedback_frame_rotation = math::make_rotation(scene.axis, scene.omega);
 
-  auto quantize = [](float c) {
-    return static_cast<uint16_t>(hs::clamp(c, 0.0f, 65535.0f) + 0.5f);
-  };
   // Reads behind a backward cut reach two frames back.
   for (int seed = -1; seed <= 0; ++seed) {
     {
@@ -257,7 +270,9 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           const auto rgb = scene.column_basis(seed, x, y);
-          c(x, y) = Pixel(quantize(rgb[0]), quantize(rgb[1]), quantize(rgb[2]));
+          c(x, y) = Pixel(quantize_feedback_channel(rgb[0]),
+                          quantize_feedback_channel(rgb[1]),
+                          quantize_feedback_channel(rgb[2]));
         }
     }
     fx.advance_display();
@@ -298,15 +313,12 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
     }
   }
 
-  auto luminance = [](const Pixel &p) {
-    return (static_cast<double>(p.r) + p.g + p.b) / (3.0 * 65535.0);
-  };
   double across = 0.0, beside = 0.0;
   for (int y = first_row; y < end_row; ++y)
     accumulate_arm_cut_seam_steps<W>(
-        [&](int x) { return luminance(previous[y * W + x]); },
-        [&](int x) { return luminance(fx.get_pixel(x, y)); }, NEAR_CUT - 1,
-        across, beside);
+        [&](int x) { return feedback_oracle_luminance(previous[y * W + x]); },
+        [&](int x) { return feedback_oracle_luminance(fx.get_pixel(x, y)); },
+        NEAR_CUT - 1, across, beside);
   return {static_cast<float>(bulk / bulk_count),
           static_cast<float>(cut / cut_count),
           static_cast<float>(across / beside)};
@@ -330,9 +342,10 @@ template <int W, int H> struct SourcedFeedbackScene {
    *  @param p Unit direction.
    *  @return Channels r, g, b. */
   static std::array<float, 3> pattern(const math::Vector &p) {
-    return {65535.0f * (0.5f + 0.35f * sinf(2.1f * p.x + 0.7f * p.z + 0.3f)),
-            65535.0f * (0.5f + 0.35f * sinf(1.7f * p.y - 1.3f * p.x + 1.1f)),
-            65535.0f * (0.5f + 0.35f * sinf(1.9f * p.z + 0.9f * p.y - 0.4f))};
+    auto rgb = feedback_oracle_pattern(p);
+    for (float &channel : rgb)
+      channel = 65535.0f * channel;
+    return rgb;
   }
 
   /** @brief Frames one read within an arm spans.
@@ -401,9 +414,6 @@ SourcedOracleError run_sourced_oracle(const SourcedFeedbackScene<W, H> &scene,
       Filter::Pixel::Feedback<W, H>(style)};
   feedback_frame_rotation = math::make_rotation(math::Y_AXIS, scene.omega);
 
-  auto quantize = [](float c) {
-    return static_cast<uint16_t>(hs::clamp(c, 0.0f, 65535.0f) + 0.5f);
-  };
   std::vector<std::array<float, 3>> plot(W * H);
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
@@ -420,7 +430,9 @@ SourcedOracleError run_sourced_oracle(const SourcedFeedbackScene<W, H> &scene,
         for (int x = 0; x < W; ++x) {
           const auto &g = plot[y * W + x];
           plotter.plot(c, x, y,
-                       Pixel(quantize(g[0]), quantize(g[1]), quantize(g[2])),
+                       Pixel(quantize_feedback_channel(g[0]),
+                             quantize_feedback_channel(g[1]),
+                             quantize_feedback_channel(g[2])),
                        0.0f, scene.alpha);
         }
       pipe.finish_frame(c);
@@ -458,15 +470,12 @@ SourcedOracleError run_sourced_oracle(const SourcedFeedbackScene<W, H> &scene,
       ++bulk_count;
     }
   }
-  auto luminance = [](const Pixel &p) {
-    return (static_cast<double>(p.r) + p.g + p.b) / (3.0 * 65535.0);
-  };
   double across = 0.0, beside = 0.0;
   for (int y = first_row; y < end_row; ++y)
     accumulate_arm_cut_seam_steps<W>(
-        [&](int x) { return luminance(previous[y * W + x]); },
-        [&](int x) { return luminance(fx.get_pixel(x, y)); }, NEAR_CUT - 1,
-        across, beside);
+        [&](int x) { return feedback_oracle_luminance(previous[y * W + x]); },
+        [&](int x) { return feedback_oracle_luminance(fx.get_pixel(x, y)); },
+        NEAR_CUT - 1, across, beside);
   return {static_cast<float>(bulk / bulk_count),
           static_cast<float>(cut / cut_count),
           static_cast<float>(across / beside), static_cast<float>(start / end)};
@@ -569,9 +578,6 @@ inline void test_feedback_split_frame_covers_forward_bands() {
   // Backward about the axis, so sources lie ahead of their targets.
   feedback_frame_rotation = math::make_rotation(math::Y_AXIS, -0.15f);
   const RotatingFeedbackScene<W, H> scene{math::Y_AXIS, -0.15f, 0.85f};
-  auto quantize = [](float c) {
-    return static_cast<uint16_t>(hs::clamp(c, 0.0f, 65535.0f) + 0.5f);
-  };
   auto seed_history = [&]() {
     for (int frame = -1; frame <= 0; ++frame) {
       {
@@ -579,8 +585,9 @@ inline void test_feedback_split_frame_covers_forward_bands() {
         for (int y = 0; y < H; ++y)
           for (int x = 0; x < W; ++x) {
             const auto rgb = scene.column_basis(frame, x, y);
-            c(x, y) =
-                Pixel(quantize(rgb[0]), quantize(rgb[1]), quantize(rgb[2]));
+            c(x, y) = Pixel(quantize_feedback_channel(rgb[0]),
+                            quantize_feedback_channel(rgb[1]),
+                            quantize_feedback_channel(rgb[2]));
           }
       }
       fx.advance_display();

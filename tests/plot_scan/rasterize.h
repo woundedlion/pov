@@ -135,13 +135,13 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   points.bind(plot_arena(), 4);
 
   // planar basis centered on +Z; the second endpoint sits within the antipodal
-  // margin of -Z (dot < -COS_PLANAR_ANTIPODE), tripping the seam guard.
+  // margin of -Z, tripping the seam guard.
   math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0, 0, 1));
   Fragment a, b;
   a.pos = math::Vector(1, 0, 0);
   b.pos = math::Vector(0.02f, 0.0f, -1.0f).normalized();
-  HS_EXPECT_LT(math::dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_TRUE(Plot::at_planar_antipode(b.pos, basis));
   points.push_back(a);
   points.push_back(b);
 
@@ -185,8 +185,8 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   a.pos = disk_point(basis, 0.3f, 0.0f);
   b.pos = disk_point(basis, 1.3f, 1.0f);
   // Stays out of the antipodal-seam fallback so the planar strategy is used.
-  HS_EXPECT_GT(math::dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
-  HS_EXPECT_GT(math::dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_FALSE(Plot::at_planar_antipode(a.pos, basis));
+  HS_EXPECT_FALSE(Plot::at_planar_antipode(b.pos, basis));
   points.push_back(a);
   points.push_back(b);
 
@@ -231,8 +231,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   Fragment a, b;
   a.pos = disk_point(basis, 0.3f, 0.0f);
   b.pos = disk_point(basis, 1.3f, 1.0f);
-  HS_EXPECT_GT(math::dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
-  HS_EXPECT_GT(math::dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_FALSE(Plot::at_planar_antipode(a.pos, basis));
+  HS_EXPECT_FALSE(Plot::at_planar_antipode(b.pos, basis));
   // Bare control points default v0/v1 to 0.
   points.push_back(a);
   points.push_back(b);

@@ -109,10 +109,19 @@ inline void test_composed_authored_palette_sources() {
   color.palette_type = static_cast<uint8_t>(AuthoredPaletteType::MUTATING);
   color.palette_name = 0;
   color.palette_name_b = 19;
-  MutatingPalette mutation({.367f, .367f, .367f}, {.5f, .5f, .5f}, {1, 1, 1},
-                           {0, .33f, .67f}, {0.500f, 0.500f, 0.500f},
-                           {0.500f, 0.500f, 0.500f}, {0.955f, 1.004f, 0.910f},
-                           {0.167f, 0.018f, 0.930f});
+#define HS_AUTHORED_PALETTE_COEFFICIENTS(name, A, B, C, D)                     \
+  std::array<std::array<float, 3>, 4>{{{HS_PALETTE_VEC3 A},                    \
+                                       {HS_PALETTE_VEC3 B},                    \
+                                       {HS_PALETTE_VEC3 C},                    \
+                                       {HS_PALETTE_VEC3 D}}},
+  const auto coefficients =
+      std::array{HS_PROCEDURAL_PALETTE_LIST(HS_AUTHORED_PALETTE_COEFFICIENTS)};
+#undef HS_AUTHORED_PALETTE_COEFFICIENTS
+  const auto &palette_a = coefficients[color.palette_name];
+  const auto &palette_b = coefficients[color.palette_name_b];
+  MutatingPalette mutation(palette_a[0], palette_a[1], palette_a[2],
+                           palette_a[3], palette_b[0], palette_b[1],
+                           palette_b[2], palette_b[3]);
   for (float amount : {0.0f, .4f, 1.0f}) {
     color.palette_mutation = amount;
     mutation.mutate(amount);

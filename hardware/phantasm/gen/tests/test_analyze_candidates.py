@@ -255,6 +255,10 @@ class ScoreTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
+    @staticmethod
+    def emitted(emit):
+        return "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
+
     def test_candidate_label_comes_from_the_last_path_match(self):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory) / "Candidate_runs" / "Quilter_Candidate_7"
@@ -265,7 +269,7 @@ class MainTests(unittest.TestCase):
             with mock.patch("builtins.print") as emit, mock.patch.object(
                     analyze_candidates, "run_drc", return_value=clean):
                 result = analyze_candidates.main([str(folder)])
-        output = "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
+        output = self.emitted(emit)
         self.assertEqual(result, 0)
         self.assertIn(">> best by signal integrity: Candidate 7", output)
 
@@ -279,7 +283,7 @@ class MainTests(unittest.TestCase):
             with mock.patch("builtins.print") as emit, mock.patch.object(
                     analyze_candidates, "run_drc", side_effect=results):
                 result = analyze_candidates.main(boards)
-        output = "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
+        output = self.emitted(emit)
         return result, output
 
     def test_clean_candidates_recommend_shorter_copper(self):
@@ -345,27 +349,17 @@ class MainTests(unittest.TestCase):
         self.assertIn(">> best by signal integrity: Candidate 1", output)
 
     def test_ineligible_candidates_are_not_recommended(self):
-        with tempfile.TemporaryDirectory() as directory:
-            board = Path(directory) / "Candidate 1.kicad_pcb"
-            board.write_text(SYNTHETIC_BOARD, encoding="utf-8")
-            with mock.patch("builtins.print") as emit, mock.patch.object(
-                    analyze_candidates, "run_drc",
-                    return_value=analyze_candidates.no_drc(analyze_candidates.DRC_FAILED)):
-                result = analyze_candidates.main([str(board)])
-        output = "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
+        result, output = self.rank_sources(
+            [SYNTHETIC_BOARD],
+            [analyze_candidates.no_drc(analyze_candidates.DRC_FAILED)])
         self.assertEqual(result, 1)
         self.assertIn("No eligible candidate", output)
         self.assertNotIn("best by signal integrity", output)
 
     def test_floor_refusals_have_a_distinct_report(self):
-        with tempfile.TemporaryDirectory() as directory:
-            board = Path(directory) / "Candidate 1.kicad_pcb"
-            board.write_text(SYNTHETIC_BOARD, encoding="utf-8")
-            with mock.patch("builtins.print") as emit, mock.patch.object(
-                    analyze_candidates, "run_drc",
-                    return_value=analyze_candidates.no_drc(analyze_candidates.DRC_RULES)):
-                result = analyze_candidates.main([str(board)])
-        output = "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
+        result, output = self.rank_sources(
+            [SYNTHETIC_BOARD],
+            [analyze_candidates.no_drc(analyze_candidates.DRC_RULES)])
         self.assertEqual(result, 1)
         self.assertIn("RULES (project/zone floor refusal)", output)
         self.assertIn("Candidate 1: RULES", output)
@@ -381,8 +375,7 @@ class MainTests(unittest.TestCase):
                     mock.patch.object(analyze_candidates, "run_drc") as run_drc:
                 result = analyze_candidates.main([str(board)])
 
-        output = "\n".join(" ".join(map(str, call.args))
-                           for call in emit.call_args_list)
+        output = self.emitted(emit)
         self.assertEqual(result, 1)
         self.assertIn("unrouted critical nets", output)
         self.assertNotIn("PAIR SKEW", output)
@@ -403,8 +396,7 @@ class MainTests(unittest.TestCase):
                     mock.patch.object(analyze_candidates, "run_drc") as run_drc:
                 result = analyze_candidates.main(boards)
 
-        output = "\n".join(" ".join(map(str, call.args))
-                           for call in emit.call_args_list)
+        output = self.emitted(emit)
         self.assertEqual(result, 1)
         self.assertIn("names two boards", output)
         for board in boards:

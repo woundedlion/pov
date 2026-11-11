@@ -303,24 +303,32 @@ inline void test_shader_chain_plane_growth_admission() {
       break;
   }
   HS_EXPECT_EQ(admitted, AffineWarpChain::ADMITTED);
-  HS_EXPECT_TRUE(effect.parameter_warning(scale_x[4].c_str()) ==
-                 In::PLANE_GROWTH_WARNING);
-  HS_EXPECT_EQ(effect.updateParameter(scale_y[4].c_str(), MIN_SCALE),
+  HS_EXPECT_TRUE(
+      effect.parameter_warning(scale_x[AffineWarpChain::ADMITTED].c_str()) ==
+      In::PLANE_GROWTH_WARNING);
+  HS_EXPECT_EQ(effect.updateParameter(
+                   scale_y[AffineWarpChain::ADMITTED].c_str(), MIN_SCALE),
                ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_TRUE(effect.parameter_warning(scale_y[4].c_str()) ==
-                 In::PLANE_GROWTH_WARNING);
-  HS_EXPECT_EQ(requested_param(effect, scale_y[4].c_str()), 1.0f);
-  HS_EXPECT_EQ(effect.updateParameter(scale_x[4].c_str(), 1.5f),
-               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(
+      effect.parameter_warning(scale_y[AffineWarpChain::ADMITTED].c_str()) ==
+      In::PLANE_GROWTH_WARNING);
+  HS_EXPECT_EQ(
+      requested_param(effect, scale_y[AffineWarpChain::ADMITTED].c_str()),
+      1.0f);
+  HS_EXPECT_EQ(
+      effect.updateParameter(scale_x[AffineWarpChain::ADMITTED].c_str(), 1.5f),
+      ParamSetResult::APPLIED);
 
   const ChainSnapshot live = effect.snapshot();
   ChainSnapshot overflowing = live;
   for (auto &parameter : overflowing.parameters)
-    if (parameter.name == scale_y[4])
+    if (parameter.name == scale_y[AffineWarpChain::ADMITTED])
       parameter.value = MIN_SCALE;
   HS_EXPECT_EQ(effect.restore_snapshot(overflowing),
                ChainSnapshotRestoreResult::INVALID_VALUE);
-  HS_EXPECT_EQ(requested_param(effect, scale_y[4].c_str()), 1.0f);
+  HS_EXPECT_EQ(
+      requested_param(effect, scale_y[AffineWarpChain::ADMITTED].c_str()),
+      1.0f);
   HS_EXPECT_EQ(effect.restore_snapshot(live),
                ChainSnapshotRestoreResult::APPLIED);
   effect.draw_frame();

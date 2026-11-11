@@ -35,8 +35,8 @@ inline void test_row_span_covers_arc_bulge() {
       pb = &basis;
       random_disk_edge(basis, a, b);
       // Antipodal-seam edges fall back to the geodesic strategy; skip them.
-      if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-          math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      if (Plot::at_planar_antipode(a, basis) ||
+          Plot::at_planar_antipode(b, basis))
         continue;
     } else {
       math::Vector ra = rand_cube_vector();

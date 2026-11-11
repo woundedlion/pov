@@ -176,7 +176,7 @@ inline void test_galaxies_white_star_stays_white() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
-  fx.updateParameter("Black Hole", 1.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Black Hole", 1.0f), ParamSetResult::APPLIED);
   WB::set_pitch(fx, 0.5f);
   auto &ps = WB::system(fx);
   const auto &galaxy = WB::galaxy(fx, 0);
@@ -223,7 +223,8 @@ inline void test_galaxies_black_hole_core_toggle() {
 
   uint64_t original_energy = 0;
   for (int mode : {0, 1, 0}) {
-    fx.updateParameter("Black Hole", static_cast<float>(mode));
+    HS_EXPECT_EQ(fx.updateParameter("Black Hole", static_cast<float>(mode)),
+                 ParamSetResult::APPLIED);
     GalaxiesWhiteBox::render(fx);
     fx.advance_display();
     uint64_t center_energy = 0;
@@ -251,7 +252,7 @@ inline void test_galaxies_black_hole_core_toggle() {
       original_energy = center_energy;
     }
   }
-  fx.updateParameter("Black Hole", 1.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Black Hole", 1.0f), ParamSetResult::APPLIED);
   auto &particles = GalaxiesWhiteBox::system(fx);
   const auto &galaxy = GalaxiesWhiteBox::galaxy(fx, 0);
   particles.spawn(galaxy.core, {}, 0xc000);
@@ -403,14 +404,18 @@ inline void test_galaxies_arm_sharpness() {
     const math::Vector position =
         galaxy.core * cosf(ring) +
         (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(ring);
-    fx.updateParameter("Arm Sharpness", 1.0f);
+    HS_EXPECT_EQ(fx.updateParameter("Arm Sharpness", 1.0f),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_NEAR(WB::density(fx, 0, position), 0.5f, 1e-2f);
-    fx.updateParameter("Arm Sharpness", 0.5f);
+    HS_EXPECT_EQ(fx.updateParameter("Arm Sharpness", 0.5f),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_NEAR(WB::density(fx, 0, position), cosf(math::PI_F / 6.0f),
                    1e-2f);
-    fx.updateParameter("Arm Sharpness", 2.0f);
+    HS_EXPECT_EQ(fx.updateParameter("Arm Sharpness", 2.0f),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_NEAR(WB::density(fx, 0, position), 0.0f, 1e-5f);
-    fx.updateParameter("Arm Sharpness", 0.0f);
+    HS_EXPECT_EQ(fx.updateParameter("Arm Sharpness", 0.0f),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_NEAR(WB::density(fx, 0, position), 1.0f, 1e-5f);
   }
 }
@@ -482,7 +487,8 @@ inline void test_galaxies_packed_orbits_match_float() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
-  fx.updateParameter("Orbit Spd", 0.0124f);
+  HS_EXPECT_EQ(fx.updateParameter("Orbit Spd", 0.0124f),
+               ParamSetResult::APPLIED);
   auto &packed = WB::system(fx);
   packed.emitters.clear();
   packed.motion_cap = 0.0372f;

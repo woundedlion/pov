@@ -192,8 +192,8 @@ inline void test_col_span_covers_arc() {
     math::Vector a, b;
     random_disk_edge(basis, a, b);
     // Antipode-seam segments render geodesic (use_planar is false there).
-    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (Plot::at_planar_antipode(a, basis) ||
+        Plot::at_planar_antipode(b, basis))
       continue;
 
     int s, len;
@@ -315,8 +315,8 @@ inline void test_edge_visible_in_clip_is_conservative() {
       math::Vector a, b;
       random_disk_edge(basis, a, b);
       // Antipode-seam segments render geodesic (use_planar is false there).
-      if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-          math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      if (Plot::at_planar_antipode(a, basis) ||
+          Plot::at_planar_antipode(b, basis))
         continue;
 
       const bool got =

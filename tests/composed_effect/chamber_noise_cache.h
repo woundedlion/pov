@@ -303,10 +303,9 @@ inline void test_chamber_noise_cache_phase_and_fallback() {
       HS_EXPECT_NEAR(fallback.pending_hue, direct.pending_hue, 1e-7f);
       const float advance = (.0001f - .9999f) + 1.0f;
       const float phase = math::wrap_t(.9999f + advance * fraction);
-      const float angle = math::TWO_PI_F * phase;
       const auto q =
           Pattern::SphereDirection::admit(local).value() * config.noise.scale +
-          math::Vector(32 * cosf(angle), 32 * sinf(angle), 0);
+          math::noise_sphere_loop_offset(phase);
       const auto &noise = std::get<0>(current.prepared.source).noise;
       const float value =
           hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);

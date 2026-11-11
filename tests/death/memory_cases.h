@@ -5,6 +5,54 @@
 
 // Memory death cases.
 
+/**
+ * @brief Recursive generator body: each level calls generate() once more.
+ * @param target Arena forwarded to the next generate().
+ * @param remaining Levels of nesting still to open; stops at 0.
+ * @return Always 0.
+ */
+inline int nested_generate(Arena &target, Arena &, Arena &, int remaining) {
+  if (remaining <= 0)
+    return 0;
+  return hs::generate(target, nested_generate, remaining - 1);
+}
+
+/**
+ * @brief Trivial Cloneable whose clone() allocates from the destination arena,
+ *        so a Persist restore measurably grows the persistent arena.
+ */
+struct PersistProbe {
+  uint8_t *storage = nullptr; /**< Stand-in for arena-backed object state. */
+  /**
+   * @brief Clones by allocating fresh storage from @p arena.
+   * @param src Source probe (unused beyond the Cloneable interface).
+   * @param dst Destination probe receiving freshly allocated storage.
+   * @param arena Arena the clone allocates from.
+   */
+  static void clone(const PersistProbe &src, PersistProbe &dst, Arena &arena) {
+    (void)src;
+    dst.storage = static_cast<uint8_t *>(arena.allocate(opaque<size_t>(8)));
+  }
+};
+
+/**
+ * @brief Cloneable payload that allocates nothing, so only the distinct-arena
+ *        guard can trap a same-arena Persist.
+ */
+struct FlatProbe {
+  int value = 0; /**< Whole payload; clone() copies it without an arena. */
+  /**
+   * @brief Clones by plain copy, leaving the arena offset untouched.
+   * @param src Source probe.
+   * @param dst Destination probe.
+   * @param arena Unused; the payload needs no storage.
+   */
+  static void clone(const FlatProbe &src, FlatProbe &dst, Arena &arena) {
+    (void)arena;
+    dst.value = src.value;
+  }
+};
+
 /** @brief Death case: arena over-allocation must trap. */
 inline void case_arena_oom() {
   static uint8_t buf[64];

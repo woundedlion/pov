@@ -5,6 +5,23 @@
 
 // Particles death cases.
 
+/**
+ * @brief Initializes a particle system with the requested maximum lifetime.
+ * @param max_life Maximum lifetime passed to ParticleSystem::init.
+ */
+inline void init_particle_system_with_lifetime(float max_life) {
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 1> ps;
+  ps.init(arena, 0.85f, 0.0f, max_life);
+}
+
+/** @brief Pipeline stub for the particle-render lifetime death case. */
+struct DeathPlotPipeline {
+  void plot(Canvas &, const math::Vector &, const Pixel &, float, float) {}
+  void plot(Canvas &, float, float, const Pixel &, float, float) {}
+};
+
 /** @brief Enabling signed-axis physics validates registered positions. */
 inline void case_particle_enable_signed_axis_invalid_positions() {
   static uint8_t storage[4096];

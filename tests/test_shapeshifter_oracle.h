@@ -1380,7 +1380,7 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
   state.phase = 0.37f;
   const auto full = render_timed_contours(state, 0.0186f, true, 1.0f, 0.0f);
   const auto full_counts = Spacetime::geometry_counters;
-  state.clip = {0, 72, 0, 144};
+  state.clip = {0, ORACLE_H / 2, 0, ORACLE_W / 2};
   const auto clipped = render_timed_contours(state, 0.0186f, true, 1.0f, 0.0f);
   const auto clipped_counts = Spacetime::geometry_counters;
   HS_EXPECT_GT(clipped_counts.chord_fast_samples, 0u);
@@ -1388,8 +1388,8 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
   HS_EXPECT_GT(clipped_counts.polar_column_samples, 0u);
   HS_EXPECT_LT(clipped_counts.polar_column_samples,
                full_counts.polar_column_samples);
-  for (int y = 0; y < 72; ++y)
-    for (int x = 0; x < 144; ++x)
+  for (int y = 0; y < ORACLE_H / 2; ++y)
+    for (int x = 0; x < ORACLE_W / 2; ++x)
       HS_EXPECT_NEAR(clipped[y * ORACLE_W + x], full[y * ORACLE_W + x], 1e-5f);
   std::printf(
       "  flower clip: intervals=%u culled=%u coherent=%u screen=%u projections=%u column_samples=%u; full projections=%u\n",
@@ -1406,7 +1406,7 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
 /** @brief A clipped timed dense star samples its polar columns. */
 inline void test_timed_dense_star_clip_samples_polar_columns() {
   OracleState state;
-  state.clip = {0, 72, 0, 144};
+  state.clip = {0, ORACLE_H / 2, 0, ORACLE_W / 2};
   state.phase = .37f;
   state.preset_index = 1;
   state.force_contours = true;

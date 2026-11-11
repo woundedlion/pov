@@ -1325,11 +1325,14 @@ struct SyncPinTrace {
   }
 
   void wake(bool pulse, bool accepted,
-            SubmitAction expected = SubmitAction::COLUMN) {
+            SubmitAction expected = SubmitAction::COLUMN,
+            int32_t render_column = 0) {
     int submits = 0;
     pov::run_wake_sequence(
         gate, submit_gate, handoff,
-        [=] { return WakeActions{.pulse = pulse, .render_column = 0}; },
+        [=] {
+          return WakeActions{.pulse = pulse, .render_column = render_column};
+        },
         [] { return 1u; }, [this](bool level) { drive(level); }, [] {},
         [](WakeEffect *, int32_t) {},
         [&](SubmitAction action, WakeEffect *, int32_t) {
@@ -1357,7 +1360,7 @@ struct SyncPinTrace {
  */
 inline void test_sync_pulse_widthed_by_render() {
   SyncPinTrace t;
-  t.wake(/*pulse=*/true, /*did_render=*/true);
+  t.wake(/*pulse=*/true, /*accepted=*/true);
 
   HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(2));
   HS_EXPECT_TRUE(t.at(0));
@@ -1377,7 +1380,7 @@ inline void test_sync_pulse_widthed_by_render() {
  */
 inline void test_sync_pulse_deferred_across_wake_boundary() {
   SyncPinTrace t;
-  t.wake(/*pulse=*/true, /*did_render=*/false);
+  t.wake(/*pulse=*/true, /*accepted=*/false, SubmitAction::NONE, -1);
 
   HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(1));
   HS_EXPECT_TRUE(t.high); // held across the ISR boundary
@@ -1401,8 +1404,8 @@ inline void test_sync_pulse_deferred_across_wake_boundary() {
  */
 inline void test_sync_pulse_deferred_drop_precedes_next_pulse() {
   SyncPinTrace t;
-  t.wake(/*pulse=*/true, /*did_render=*/false);
-  t.wake(/*pulse=*/true, /*did_render=*/false);
+  t.wake(/*pulse=*/true, /*accepted=*/false);
+  t.wake(/*pulse=*/true, /*accepted=*/false);
 
   HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(3));
   HS_EXPECT_TRUE(t.at(0));
@@ -1411,7 +1414,7 @@ inline void test_sync_pulse_deferred_drop_precedes_next_pulse() {
   HS_EXPECT_TRUE(t.high);
   HS_EXPECT_TRUE(t.gate.low_deferred());
 
-  t.wake(/*pulse=*/true, /*did_render=*/true);
+  t.wake(/*pulse=*/true, /*accepted=*/true);
   HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(6));
   HS_EXPECT_FALSE(t.at(3));
   HS_EXPECT_TRUE(t.at(4));
@@ -1425,7 +1428,7 @@ inline void test_sync_pulse_deferred_drop_precedes_next_pulse() {
  */
 inline void test_sync_pulse_render_without_pulse_is_silent() {
   SyncPinTrace t;
-  t.wake(/*pulse=*/false, /*did_render=*/true);
+  t.wake(/*pulse=*/false, /*accepted=*/true);
   HS_EXPECT_TRUE(t.writes.empty());
   HS_EXPECT_FALSE(t.gate.low_deferred());
 

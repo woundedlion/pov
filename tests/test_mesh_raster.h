@@ -80,50 +80,6 @@ inline bool lit_near(const hs_test::StubEffect &fx, float px, float py, int r) {
 // Plot::Mesh::draw — wireframe: every unique edge actually drawn
 // ============================================================================
 
-/**
- * @brief Verifies the wireframe draw lights every unique edge.
- * @details Extracts the octahedron's 12 edges, draws, and asserts each edge's
- *          projected geodesic midpoint is lit. Also checks the wireframe covers
- *          some but well under half the canvas.
- */
-inline void test_wireframe_draws_every_edge() {
-  constexpr int W = 288, H = 144;
-  configure_arenas_default();
-
-  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
-  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
-  Arena geom(mr_geom, sizeof(mr_geom));
-
-  // Octahedron edge midpoints are off the poles, so each projects to a
-  // well-defined, non-singular pixel.
-  PolyMesh mesh = Solids::Platonic::octahedron(seed_a, seed_b);
-
-  ArenaVector<Plot::Mesh::Edge> edges;
-  edges.bind(geom, 64);
-  Plot::Mesh::extract_edges(mesh, edges);
-  HS_EXPECT_EQ(edges.size(), (size_t)12); // octahedron has 12 edges
-
-  hs_test::StubEffect fx(W, H);
-  {
-    Canvas c(fx);
-    Pipeline<W, H> pipe; // bare sink, no AA
-    Plot::Mesh::draw<W, H>(pipe, c, mesh, white);
-  }
-  fx.advance_display();
-
-  for (size_t e = 0; e < edges.size(); ++e) {
-    math::Vector a = mesh.vertices[edges[e].u];
-    math::Vector b = mesh.vertices[edges[e].v];
-    math::Vector mid = ((a + b) * 0.5f).normalized();
-    math::PixelCoords p = math::vector_to_pixel<W, H>(mid);
-    HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 3)));
-  }
-
-  const size_t lit = count_lit_region<W, H>(fx);
-  HS_EXPECT_GT(lit, (size_t)0);
-  HS_EXPECT_LT(lit, (size_t)(W * H) / 2);
-}
-
 /** @brief Reused and rebuilt mesh cull spans produce identical pixels. */
 inline void test_wireframe_reuses_geodesic_cull_span() {
   constexpr int W = 288, H = 144;
@@ -340,6 +296,8 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
   ArenaVector<Plot::Mesh::Edge> edges;
   edges.bind(geom, edge_cap);
   Plot::Mesh::extract_edges(mesh, edges);
+  HS_EXPECT_EQ(edges.size(),
+               mesh.vertices.size() + mesh.face_counts.size() - 2);
 
   hs_test::StubEffect fx(W, H);
   {
@@ -1326,7 +1284,6 @@ inline int run_mesh_raster_tests() {
   HS_RUN(test_face_cap_zero_vertex);
   HS_RUN(test_face_bounds_pose_with_clip);
   HS_RUN(test_empty_and_single_face_meshes);
-  HS_RUN(test_wireframe_draws_every_edge);
   HS_RUN(test_wireframe_pixels_lie_on_edges);
   HS_RUN(test_wireframe_reuses_geodesic_cull_span);
   HS_RUN(test_solid_fill_covers_faces_and_tiles_sphere);
