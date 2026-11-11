@@ -905,9 +905,8 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
 
 /**
  * @brief Contiguous stages with a selected run() emission.
- * @details Invisible to the semantic leaf view. The endpoint entry point
- * run_endpoint() traverses the children inline for every emission, including
- * OUT_OF_LINE_FLASH and OUT_OF_LINE_ITCM.
+ * @details Invisible to the semantic leaf view. Retained endpoints traverse
+ * the children inline; current endpoints use the selected emission.
  */
 template <CodeEmission EmissionV, typename... Stages> struct Placed {
   /// How the group is emitted.
@@ -1123,6 +1122,9 @@ protected:
     static_assert(std::is_same_v<In, typename Current::Input>,
                   "pullback pipeline: stage input mismatch");
     const auto output = [&]() HS_HOT_INLINE {
+      if constexpr (requires { Current::EMISSION; })
+        if (!previous)
+          return Current::run(input, frame, std::get<Index>(prepared));
       if constexpr (requires {
                       Current::run_endpoint(
                           input, frame, std::get<Index>(prepared), previous);
@@ -1653,10 +1655,17 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     else if constexpr (requires {
                          Current::run_endpoint(
                              sample, ctx, std::get<Index>(prepared), previous);
-                       })
-      sample = Current::run_endpoint(sample, ctx, std::get<Index>(prepared),
-                                     previous);
-    else
+                       }) {
+      if constexpr (requires { Current::EMISSION; }) {
+        if (!previous)
+          sample = Current::run(sample, ctx, std::get<Index>(prepared));
+        else
+          sample = Current::run_endpoint(sample, ctx, std::get<Index>(prepared),
+                                         previous);
+      } else
+        sample = Current::run_endpoint(sample, ctx, std::get<Index>(prepared),
+                                       previous);
+    } else
       sample = Current::run(sample, ctx, std::get<Index>(prepared));
     if constexpr (Index + 1 < NODE_COUNT)
       run_color_tail<Index + 1>(sample, ctx, prepared, previous);
@@ -1882,10 +1891,14 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     } else if constexpr (Index + 1 < NODE_COUNT &&
                          !std::same_as<typename CurrentNode::Output,
                                        ColorSample>) {
-      if constexpr (requires {
-                      CurrentNode::run_endpoint(
-                          input, ctx, std::get<Index>(prepared), false);
-                    })
+      if constexpr (requires { CurrentNode::EMISSION; })
+        return shade_stage<Index + 1>(
+            CurrentNode::run(input, ctx, std::get<Index>(prepared)), ctx,
+            prepared);
+      else if constexpr (requires {
+                           CurrentNode::run_endpoint(
+                               input, ctx, std::get<Index>(prepared), false);
+                         })
         return shade_stage<Index + 1>(
             CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
                                       false),
@@ -1960,6 +1973,9 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     static_assert(std::is_same_v<Input, typename CurrentNode::Input>,
                   "pullback pipeline: stage input mismatch");
     const auto endpoint = [&](bool retained) HS_HOT_INLINE {
+      if constexpr (requires { CurrentNode::EMISSION; })
+        if (!retained)
+          return CurrentNode::run(input, ctx, std::get<Index>(prepared));
       if constexpr (requires {
                       CurrentNode::run_endpoint(
                           input, ctx, std::get<Index>(prepared), retained);
