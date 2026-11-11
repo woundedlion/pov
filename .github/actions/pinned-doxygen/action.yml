@@ -1,15 +1,22 @@
 # Installs the Doxygen the API reference is built with and applies the theme.
 name: Pinned Doxygen
-description: Install the pinned Doxygen release plus Graphviz and apply the pinned doxygen-awesome theme.
+description: Install the pinned Doxygen and Graphviz releases and apply the pinned doxygen-awesome theme.
 
 runs:
   using: composite
   steps:
-    # Graphviz is installed from the runner's Ubuntu archive; its version is unpinned.
-    - name: Install Doxygen 1.17.0 (pinned) + Graphviz
+    # Graphviz comes from the noble release pocket, which never supersedes a
+    # version; apt checks every package against the archive's signed hashes.
+    - name: Install Doxygen 1.17.0 (pinned) + Graphviz 2.42.2-9build1 (pinned)
       shell: bash
+      env:
+        GRAPHVIZ: 2.42.2-9build1
       run: |
-        sudo apt-get update && sudo apt-get install -y graphviz
+        sudo apt-get update
+        sudo apt-get install -y graphviz="$GRAPHVIZ" libcdt5="$GRAPHVIZ" libcgraph6="$GRAPHVIZ" \
+          libgvc6="$GRAPHVIZ" libgvpr2="$GRAPHVIZ" liblab-gamut1="$GRAPHVIZ" \
+          libpathplan4="$GRAPHVIZ" libxdot4="$GRAPHVIZ"
+        dot -V 2>&1 | grep -F "graphviz version ${GRAPHVIZ%%-*} "
         curl -fsSL https://github.com/doxygen/doxygen/releases/download/Release_1_17_0/doxygen-1.17.0.linux.bin.tar.gz -o doxygen.tar.gz
         echo '75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2  doxygen.tar.gz' | sha256sum --check --strict
         tar xzf doxygen.tar.gz

@@ -81,6 +81,9 @@ INLINE_PINS = {
     "doxygen": "1.17.0",
     "doxygen-sha256":
         "75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2",
+    # Ubuntu noble's release-pocket package; apt verifies it against the signed
+    # archive index.
+    "graphviz": "2.42.2-9build1",
     # apt.llvm.org's signing key.
     "llvm-key-sha256":
         "8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d",
@@ -189,6 +192,8 @@ INLINE_USES = (
     (r"\bdoxygen-([\w.]+)\.linux", "doxygen", lambda v: v),
     (r"\bdoxygen-([\w.]+)/bin", "doxygen", lambda v: v),
     (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v),
+    (r"\+ Graphviz ([\w.~+-]+) \(pinned\)", "graphviz", lambda v: v),
+    (r"GRAPHVIZ: ([\w.~+-]+)", "graphviz", lambda v: v),
     (r"([0-9a-f]{64})  /tmp/llvm-snapshot\.gpg\.key", "llvm-key-sha256",
      lambda v: v),
     (r'KICAD_VERSION = "([\d.]+)"', "kicad-full", lambda v: v),
@@ -355,6 +360,9 @@ INLINE_AUTHORITIES = {
         '.github/actions/pinned-doxygen/action.yml',
     ),
     'doxygen-sha256': (
+        '.github/actions/pinned-doxygen/action.yml',
+    ),
+    'graphviz': (
         '.github/actions/pinned-doxygen/action.yml',
     ),
     'just': (
