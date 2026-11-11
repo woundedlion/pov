@@ -332,7 +332,7 @@ template <> struct RuntimeStateCodec<Op::ModulationClockState> {
         !Detail::snapshot_phase(value->modulation.phase.phase_turns) ||
         (!value->modulation.initialized &&
          value->modulation.phase.phase_turns != 0.0f) ||
-        value->modulation.version != 1 ||
+        value->modulation.version != ColorModulation::RECIPE_VERSION ||
         static_cast<unsigned>(value->modulation.source) >
             static_cast<unsigned>(Pattern::SourceKind::DISPLACEMENT))
       return false;
