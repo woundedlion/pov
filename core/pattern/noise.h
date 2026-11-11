@@ -126,7 +126,7 @@ struct PlaneNoise {
            parameter_in_range(params.noise_contrast, 0.0f,
                               MAX_NOISE_CONTRAST) &&
            finite(params.noise_time_rate) &&
-           fabsf(params.noise_time_rate) <= 1.0f / 64.0f;
+           fabsf(params.noise_time_rate) <= MAX_NOISE_TIME_RATE;
   }
   /** @brief Initializes the noise-loop phase.
    * @param params Source controls.

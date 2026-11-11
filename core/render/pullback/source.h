@@ -174,7 +174,8 @@ struct NoiseSourceParams : Pattern::NoiseSourceParams {
                                Pattern::MAX_NOISE_CONTRAST, FieldCurve::LERP},
       Field<NoiseSourceParams>{
           "noise-speed", &NoiseSourceParams::noise_time_rate,
-          "Source Noise Speed", -1.0f / 64.0f, 1.0f / 64.0f, FieldCurve::LERP},
+          "Source Noise Speed", -Pattern::MAX_NOISE_TIME_RATE,
+          Pattern::MAX_NOISE_TIME_RATE, FieldCurve::LERP},
   };
 };
 static_assert(field_ids_unique<NoiseSourceParams>());
