@@ -21,7 +21,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 
 /**
  * @brief Holds an effect's registered parameters and validates writes to
@@ -439,6 +441,8 @@ protected:
   /**
    * @brief Registers each named description @p DESCRIBE returns, in tuple
    *        order.
+   * @details Constant descriptions lower plain ranges through compact
+   * helpers; descriptions computed at run time pass each full spec.
    * @tparam DESCRIBE Function returning a tuple of `Control::Field` or
    *         `Control::FieldGroup` descriptions over Owner.
    * @tparam Owner Aggregate holding the described members.
@@ -446,11 +450,16 @@ protected:
    */
   template <auto DESCRIBE, typename Owner>
   HS_FLASH_MEMBER void register_described_params(Owner &owner) {
-    Control::register_fields(
-        owner, DESCRIBE(),
-        [this](const char *name, auto *target, const auto &spec) {
-          this->register_param(name, target, spec);
-        });
+    if constexpr (requires { typename std::bool_constant<(DESCRIBE(), true)>; })
+      register_described_entries<DESCRIBE>(
+          owner,
+          std::make_index_sequence<std::tuple_size_v<decltype(DESCRIBE())>>{});
+    else
+      Control::register_fields(
+          owner, DESCRIBE(),
+          [this](const char *name, auto *target, const auto &spec) {
+            this->register_param(name, target, spec);
+          });
   }
 
   /**
@@ -646,6 +655,167 @@ protected:
   }
 
 private:
+  /** @brief Policy bits of a compact registration. */
+  enum CompactPolicy : uint8_t {
+    COMPACT_ANIMATED = 1, /**< Sets ParamSpec::animated. */
+    COMPACT_READONLY = 2, /**< Sets ParamSpec::readonly. */
+    COMPACT_GLOBAL = 4,   /**< Clears ParamSpec::preset. */
+  };
+
+  /**
+   * @brief Packs a spec's policy flags into CompactPolicy bits.
+   * @param spec Spec whose flags are packed.
+   * @return The CompactPolicy bits.
+   */
+  template <typename T>
+  static constexpr uint8_t compact_policy(const ParamSpec<T> &spec) {
+    return (spec.animated ? COMPACT_ANIMATED : 0) |
+           (spec.readonly ? COMPACT_READONLY : 0) |
+           (spec.preset ? 0 : COMPACT_GLOBAL);
+  }
+
+  /**
+   * @brief Whether a spec is a plain range that a compact registration
+   *        reproduces exactly.
+   * @param spec Spec to classify.
+   * @return True for a non-enum spec with in-range initial-value policy and,
+   *         for an integer target, 32-bit bounds.
+   */
+  template <typename T>
+  static constexpr bool compact_spec(const ParamSpec<T> &spec) {
+    if (spec.options != nullptr || spec.export_options != nullptr ||
+        spec.option_count != 0 || !spec.option_values.empty() ||
+        spec.initial_value != ParamInitialValue::REQUIRE_IN_RANGE)
+      return false;
+    if constexpr (std::is_same_v<T, float>)
+      return true;
+    else if constexpr (std::is_same_v<T, bool>)
+      return spec.min == 0 && spec.max == 1;
+    else if constexpr (std::is_integral_v<T>)
+      return spec.min >= INT32_MIN && spec.max <= INT32_MAX;
+    else
+      return false;
+  }
+
+  /**
+   * @brief Rebuilds a compact spec from its bounds and policy bits.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   * @param policy CompactPolicy bits.
+   * @return The equivalent spec.
+   */
+  template <typename T>
+  static ParamSpec<T> compact_to_spec(typename ParamSpec<T>::Bound min,
+                                      typename ParamSpec<T>::Bound max,
+                                      uint8_t policy) {
+    return {.min = min,
+            .max = max,
+            .animated = (policy & COMPACT_ANIMATED) != 0,
+            .readonly = (policy & COMPACT_READONLY) != 0,
+            .preset = (policy & COMPACT_GLOBAL) == 0};
+  }
+
+  /**
+   * @brief Registers a plain float range.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   * @param policy CompactPolicy bits.
+   */
+  HS_FLASH_MEMBER void register_compact_param(const char *name, float *ptr,
+                                              float min, float max,
+                                              uint8_t policy) {
+    register_param(name, ptr, compact_to_spec<float>(min, max, policy));
+  }
+
+  /**
+   * @brief Registers a bool.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param policy CompactPolicy bits.
+   */
+  HS_FLASH_MEMBER void register_compact_param(const char *name, bool *ptr,
+                                              uint8_t policy) {
+    register_param(name, ptr, compact_to_spec<bool>(0, 1, policy));
+  }
+
+  /**
+   * @brief Registers a plain integer range.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   * @param policy CompactPolicy bits.
+   */
+  template <typename Integer>
+  HS_FLASH_MEMBER void register_compact_param(const char *name, Integer *ptr,
+                                              int32_t min, int32_t max,
+                                              uint8_t policy) {
+    register_param(name, ptr, compact_to_spec<Integer>(min, max, policy));
+  }
+
+  /**
+   * @brief Selects the description at an index path through nested groups.
+   * @tparam HEAD Index into @p fields.
+   * @tparam TAIL Remaining indices into the selected group's fields.
+   * @param fields Tuple of Field or FieldGroup descriptions.
+   * @return The selected description.
+   */
+  template <size_t HEAD, size_t... TAIL, typename Fields>
+  static constexpr auto described_entry(const Fields &fields) {
+    if constexpr (sizeof...(TAIL) == 0)
+      return std::get<HEAD>(fields);
+    else
+      return described_entry<TAIL...>(std::get<HEAD>(fields).fields);
+  }
+
+  /**
+   * @brief Registers the descriptions at indices @p I under @p PATH.
+   * @tparam DESCRIBE Function returning the description tuple.
+   * @tparam PATH Index path of the enclosing group; empty at the top level.
+   * @tparam I Indices within the enclosing tuple.
+   * @param owner Aggregate holding the described members.
+   */
+  template <auto DESCRIBE, size_t... PATH, typename Owner, size_t... I>
+  HS_FLASH_INLINE void register_described_entries(Owner &owner,
+                                                  std::index_sequence<I...>) {
+    (register_described_entry<DESCRIBE, PATH..., I>(owner), ...);
+  }
+
+  /**
+   * @brief Registers one description; plain ranges go through the compact
+   *        helpers, other specs through register_param().
+   * @tparam DESCRIBE Function returning the description tuple.
+   * @tparam PATH Index path of the description.
+   * @param owner Aggregate holding the described member.
+   */
+  template <auto DESCRIBE, size_t... PATH, typename Owner>
+  HS_FLASH_INLINE void register_described_entry(Owner &owner) {
+    constexpr auto ENTRY = described_entry<PATH...>(DESCRIBE());
+    if constexpr (requires { ENTRY.fields; }) {
+      register_described_entries<DESCRIBE, PATH...>(
+          owner.*ENTRY.member,
+          std::make_index_sequence<std::tuple_size_v<
+              std::remove_cvref_t<decltype(ENTRY.fields)>>>{});
+    } else if constexpr (ENTRY.name != nullptr) {
+      using Value = std::remove_cvref_t<decltype(owner.*ENTRY.member)>;
+      constexpr ParamSpec<Value> SPEC = ENTRY.spec;
+      Value *target = &(owner.*ENTRY.member);
+      if constexpr (!compact_spec(SPEC))
+        register_param(ENTRY.name, target, SPEC);
+      else if constexpr (std::is_same_v<Value, bool>)
+        register_compact_param(ENTRY.name, target, compact_policy(SPEC));
+      else if constexpr (std::is_same_v<Value, float>)
+        register_compact_param(ENTRY.name, target, SPEC.min, SPEC.max,
+                               compact_policy(SPEC));
+      else
+        register_compact_param<Value>(
+            ENTRY.name, target, static_cast<int32_t>(SPEC.min),
+            static_cast<int32_t>(SPEC.max), compact_policy(SPEC));
+    }
+  }
+
   HS_FLASH_MEMBER static void validate_integer_registration(
       const char *name, int64_t min, int64_t max, int64_t value,
       int64_t target_min, int64_t target_max, bool enum_target,
