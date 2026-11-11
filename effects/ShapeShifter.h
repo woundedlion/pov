@@ -866,6 +866,62 @@ private:
     }
   };
 
+  /** @brief A planar contour's edge chart and corner count. */
+  struct PlanarChart {
+    const math::Basis *basis; ///< Azimuthal-equidistant chart of the edges.
+    int corners;              ///< Corners with chart coordinates set.
+  };
+
+  /**
+   * @brief Strokes a sampled planar contour along its timed turn.
+   * @tparam Flush Callable drawing the pending column-walk chunk.
+   * @param canvas Target canvas.
+   * @param ring Frame-end ring.
+   * @param chart Edge chart and corner count.
+   * @param contour Contour twist.
+   * @param color Stroke color and opacity.
+   * @param start_orientation Orientation at the frame's start.
+   * @param middle_orientation Orientation at mid-frame.
+   * @param end_orientation Orientation at the frame's end.
+   * @param shape Planar primitive.
+   * @param count Contours drawn.
+   * @param spin Column sweep arc.
+   * @param flush Called before the stroke so earlier contours draw first.
+   */
+  template <typename Flush>
+  HS_HOT_INLINE void draw_timed_planar_contour(
+      Canvas &canvas, const Fragments &ring, const PlanarChart &chart,
+      const TimedContour &contour, const Color4 &color,
+      const math::Quaternion &start_orientation,
+      const math::Quaternion &middle_orientation,
+      const math::Quaternion &end_orientation, ShapeType shape, int count,
+      float spin, Flush &flush) {
+    const math::Quaternion start_turn =
+        start_orientation *
+        math::make_rotation(contour.axis, contour.turn_at(0.0f)) *
+        end_orientation.conjugate();
+    const float lever = Plot::PlanarChords<W, H>::rotation_radius(
+        {star_chords.chart_x()[0], star_chords.chart_y()[0]},
+        {star_chords.chart_x()[1], star_chords.chart_y()[1]});
+    const float contour_speed =
+        fabsf(contour.twist) * contour.rate * lever + spin;
+    flush();
+    star_chords.draw_closed(
+        plot_filters, canvas, ring, chart.corners, *chart.basis, color,
+        {.start = math::RotationMatrix(start_turn),
+         .middle = math::RotationMatrix(
+             middle_orientation *
+             math::make_rotation(contour.axis, contour.turn_at(0.5f)) *
+             end_orientation.conjugate()),
+         .max_intervals = shape == ShapeType::PLANAR_STAR
+                              ? Plot::PlanarChords<W, H>::MAX_ANCHOR_INTERVALS
+                              : FLOWER_ANCHOR_INTERVALS,
+         .alternating_radii = shape == ShapeType::PLANAR_STAR,
+         .reference_chords = shape == ShapeType::PLANAR_STAR &&
+                             float(count) >= DENSE_CONTOUR_COUNT,
+         .contour_speed = contour_speed});
+  }
+
   /**
    * @brief Draws the contour stack at its columns' times.
    * @param canvas Target canvas.
@@ -1018,30 +1074,10 @@ private:
             star_chords.chart_y()[k] = at.y;
           }
         }
-        const math::Quaternion start_turn =
-            start_orientation *
-            math::make_rotation(contour.axis, contour.turn_at(0.0f)) *
-            end_orientation.conjugate();
-        const float lever = Plot::PlanarChords<W, H>::rotation_radius(
-            {star_chords.chart_x()[0], star_chords.chart_y()[0]},
-            {star_chords.chart_x()[1], star_chords.chart_y()[1]});
-        const float contour_speed = fabsf(contour.twist) * rate * lever + spin;
-        flush();
-        star_chords.draw_closed(
-            plot_filters, canvas, ring, corners, *chart, shaded_color,
-            {.start = math::RotationMatrix(start_turn),
-             .middle = math::RotationMatrix(
-                 middle_orientation *
-                 math::make_rotation(contour.axis, contour.turn_at(0.5f)) *
-                 end_orientation.conjugate()),
-             .max_intervals =
-                 shape == ShapeType::PLANAR_STAR
-                     ? Plot::PlanarChords<W, H>::MAX_ANCHOR_INTERVALS
-                     : FLOWER_ANCHOR_INTERVALS,
-             .alternating_radii = shape == ShapeType::PLANAR_STAR,
-             .reference_chords = shape == ShapeType::PLANAR_STAR &&
-                                 float(count) >= DENSE_CONTOUR_COUNT,
-             .contour_speed = contour_speed});
+        draw_timed_planar_contour(canvas, ring, {chart, corners}, contour,
+                                  shaded_color, start_orientation,
+                                  middle_orientation, end_orientation, shape,
+                                  count, spin, flush);
         continue;
       }
       if (geodesic_flower)
