@@ -327,6 +327,48 @@ struct AttractorSample {
 };
 
 /**
+ * @brief Whether a particle lies inside an attractor's kill radius.
+ * @param attractor Attractor settings.
+ * @param dist_sq Squared distance from the particle to the attractor.
+ * @return True when the attractor kills the particle.
+ */
+HS_HOT_INLINE inline bool attractor_kills(const Attractor &attractor,
+                                          float dist_sq) {
+  return dist_sq < attractor.kill_radius * attractor.kill_radius;
+}
+
+/**
+ * @brief Applies one surviving attractor's capture and gravity steering.
+ * @tparam Pull Callable `(float force) -> math::Vector` returning the velocity
+ *         impulse of a gravity force outside the event horizon.
+ * @param velocity Particle velocity to update.
+ * @param pos Particle position.
+ * @param max_delta Minimum radial speed inside the event horizon.
+ * @param gravity Global force multiplier.
+ * @param attractor Attractor position and force settings.
+ * @param dist_sq Squared distance from @p pos to the attractor.
+ * @param pull Gravity impulse of a force.
+ */
+template <typename Pull>
+HS_O3_FN HS_HOT_INLINE inline void
+steer_by_attractor(math::Vector &velocity, const math::Vector &pos,
+                   float max_delta, float gravity, const Attractor &attractor,
+                   float dist_sq, const Pull &pull) {
+  if (dist_sq > ATTRACTOR_MIN_DISTANCE_SQ) {
+    if (dist_sq < attractor.event_horizon * attractor.event_horizon) {
+      // Floor the speed so a friction-drained particle still advances inward
+      // to kill_radius instead of stalling.
+      const math::Vector inward = (attractor.position - pos).normalized();
+      const float speed = fmaxf(velocity.magnitude(), max_delta);
+      velocity = inward * speed;
+    } else {
+      velocity += pull((gravity * attractor.strength) /
+                       (dist_sq + attractor.softening_sq));
+    }
+  }
+}
+
+/**
  * @brief Applies the single-attractor fallback steering and kill policy.
  * @param life Particle lifetime; set to zero inside the kill radius.
  * @param velocity Particle velocity to update.
@@ -342,29 +384,18 @@ apply_signed_axis_attractor(uint16_t &life, math::Vector &velocity,
                             const math::Vector &pos, float max_delta,
                             float gravity, const Attractor &attractor,
                             AttractorSample s) {
-  if (s.dist_sq < attractor.kill_radius * attractor.kill_radius) {
+  if (attractor_kills(attractor, s.dist_sq)) {
     life = 0;
     return false;
   }
-
-  if (s.dist_sq <= ATTRACTOR_MIN_DISTANCE_SQ)
-    return true;
-
-  if (s.dist_sq < attractor.event_horizon * attractor.event_horizon) {
-    const math::Vector inward = (attractor.position - pos).normalized();
-    const float speed = fmaxf(velocity.magnitude(), max_delta);
-    velocity = inward * speed;
-    return true;
-  }
-
-  const float force =
-      (gravity * attractor.strength) / (s.dist_sq + attractor.softening_sq);
-  if (s.cross_sq < math::EPS_NORMALIZE_SQ) {
-    velocity += math::cross(math::Vector(force, 0, 0), pos);
-  } else {
-    const math::Vector tangent = attractor.position * s.pos_sq - pos * s.dot_pa;
-    velocity += tangent * (force / sqrtf(s.cross_sq));
-  }
+  steer_by_attractor(velocity, pos, max_delta, gravity, attractor, s.dist_sq,
+                     [&](float force) HS_HOT_INLINE {
+                       if (s.cross_sq < math::EPS_NORMALIZE_SQ)
+                         return math::cross(math::Vector(force, 0, 0), pos);
+                       const math::Vector tangent =
+                           attractor.position * s.pos_sq - pos * s.dot_pa;
+                       return tangent * (force / sqrtf(s.cross_sq));
+                     });
   return true;
 }
 
@@ -621,32 +652,22 @@ private:
   apply_attractors(ParticleType &p, const math::Vector &pos, float max_delta) {
     for (size_t k = 0; k < attractors.size(); ++k) {
       const Attractor &attr = attractors[k];
-      float dist_sq = math::distance_squared(pos, attr.position);
-
-      if (dist_sq < attr.kill_radius * attr.kill_radius) {
+      const float dist_sq = math::distance_squared(pos, attr.position);
+      if (attractor_kills(attr, dist_sq)) {
         p.life = 0;
         return false;
       }
-
-      if (dist_sq > ATTRACTOR_MIN_DISTANCE_SQ) {
-        if (dist_sq < attr.event_horizon * attr.event_horizon) {
-          // Steer into center. Floor the speed so a friction-drained particle
-          // still advances inward to kill_radius instead of stalling.
-          math::Vector inward = (attr.position - pos).normalized();
-          float speed = fmaxf(p.velocity.magnitude(), max_delta);
-          p.velocity = inward * speed;
-        } else {
-          // Gravity. pos and the attractor can be ~antipodal (undefined cross
-          // axis), so guard the normalize.
-          float force =
-              (gravity * attr.strength) / (dist_sq + attr.softening_sq);
-          math::Vector torque =
-              math::normalized_or(math::cross(pos, attr.position),
-                                  math::Vector(1, 0, 0)) *
-              force;
-          p.velocity += math::cross(torque, pos);
-        }
-      }
+      // pos and the attractor can be ~antipodal (undefined cross axis), so
+      // guard the normalize.
+      steer_by_attractor(
+          p.velocity, pos, max_delta, gravity, attr, dist_sq,
+          [&](float force) HS_HOT_INLINE {
+            return math::cross(
+                math::normalized_or(math::cross(pos, attr.position),
+                                    math::Vector(1, 0, 0)) *
+                    force,
+                pos);
+          });
     }
     return true;
   }
