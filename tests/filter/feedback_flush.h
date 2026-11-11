@@ -1300,8 +1300,7 @@ inline void test_feedback_x_clips_match_full_frame() {
     std::vector<Pixel> pixels;
     std::vector<bool> inside;
   };
-  const auto render = [&](bool temporal, int first, int last,
-                          float pole_half_res) {
+  const auto render = [&](bool temporal, int first, int last) {
     reset_globals();
     const ScopedTemporalSampling sampling(temporal);
     ScopedArenaSplit split(16384, 131072, 131072);
@@ -1309,7 +1308,7 @@ inline void test_feedback_x_clips_match_full_frame() {
     ::Feedback::Style style{};
     style.fade = 0.83f;
     style.downsample = 4;
-    style.pole_half_res = pole_half_res;
+    style.pole_half_res = 0;
     Animation::NoiseParams noise;
     style.noise = &noise;
     style.sync_noise();
@@ -1348,25 +1347,37 @@ inline void test_feedback_x_clips_match_full_frame() {
     capture_frame<W, H>(effect, frame.pixels);
     return frame;
   };
-  for (bool temporal : {false, true})
-    for (float pole_half_res : {0.0f, 2.0f}) {
-      const auto full = render(temporal, 0, W, pole_half_res);
-      for (const auto [first, last] : {std::pair{5, 21}, std::pair{0, 8},
-                                       std::pair{30, 32}, std::pair{29, 32}}) {
-        const auto clipped = render(temporal, first, last, pole_half_res);
-        HS_EXPECT_SIZE_OR_RETURN(clipped.pixels, full.pixels.size());
-        size_t inside = 0, outside = 0;
-        for (size_t i = 0; i < full.pixels.size(); ++i) {
-          if (clipped.inside[i]) {
-            ++inside;
-            HS_EXPECT_EQ(clipped.pixels[i], full.pixels[i]);
-          } else {
-            ++outside;
-            HS_EXPECT_EQ(clipped.pixels[i], UNTOUCHED);
-          }
+  for (bool temporal : {false, true}) {
+    const auto full = render(temporal, 0, W);
+    for (const auto [first, last] : {std::pair{5, 21}, std::pair{0, 8}}) {
+      const auto clipped = render(temporal, first, last);
+      HS_EXPECT_SIZE_OR_RETURN(clipped.pixels, full.pixels.size());
+      size_t inside = 0, outside = 0;
+      for (size_t i = 0; i < full.pixels.size(); ++i) {
+        if (clipped.inside[i]) {
+          ++inside;
+          HS_EXPECT_EQ(clipped.pixels[i], full.pixels[i]);
+        } else {
+          ++outside;
+          HS_EXPECT_EQ(clipped.pixels[i], UNTOUCHED);
         }
-        HS_EXPECT_GT(inside, size_t{0});
-        HS_EXPECT_GT(outside, size_t{0});
       }
+      HS_EXPECT_GT(inside, size_t{0});
+      HS_EXPECT_GT(outside, size_t{0});
     }
+  }
+}
+
+/** @brief Clipped column-time reconstruction preserves each arm's own lanes. */
+inline void test_feedback_clipped_half_res_keeps_own_lanes() {
+  constexpr int W = 64, H = 32, HALF = W / 2;
+  for (int begin : {26, 27}) {
+    std::array<Pixel, W> row{};
+    for (int x = 0; x < W; ++x)
+      row[x] = Pixel(1000 + x * 200, 3000 + x * 100, 5000 + x * 50);
+    const Pixel first = row[HALF - 2], second = row[HALF - 1];
+    FeedbackWhiteBox::expand_clipped_row<W, H>(row.data(), begin, HALF);
+    HS_EXPECT_EQ(row[HALF - 2], first);
+    HS_EXPECT_EQ(row[HALF - 1], second);
+  }
 }

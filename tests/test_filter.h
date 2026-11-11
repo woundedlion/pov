@@ -39,6 +39,16 @@ struct FeedbackWhiteBox {
   static size_t fills(const Filter::Pixel::Feedback<W, H> &feedback) {
     return feedback.warp_cache.cached_fills;
   }
+  template <int W, int H>
+  static void expand_clipped_row(Pixel *output, int begin, int end) {
+    using Feedback = Filter::Pixel::Feedback<W, H>;
+    typename Feedback::FlushContext ctx{
+        {1, typename Feedback::SphereField{1}, 0, 0, {}}};
+    ctx.column_time = true;
+    ctx.runs.items[0] = {begin, end};
+    ctx.runs.count = 1;
+    Feedback::expand_half_res_row(ctx, output, 0);
+  }
   /** @brief The coverage slot of a held pixel, or -1 for an unheld one. */
   template <int W, int H>
   static int held_slot(const Filter::Pixel::Feedback<W, H> &feedback, int y,
@@ -226,6 +236,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_translucent_flush_matches_opaque_blend);
   HS_RUN(test_feedback_custom_color_receives_elapsed_fade);
   HS_RUN(test_feedback_x_clips_match_full_frame);
+  HS_RUN(test_feedback_clipped_half_res_keeps_own_lanes);
   HS_RUN(test_feedback_north_pole_uses_single_physical_sample);
   HS_RUN(test_feedback_south_pole_uses_single_physical_sample);
   HS_RUN(test_feedback_polar_rows_use_spherical_footprint);
