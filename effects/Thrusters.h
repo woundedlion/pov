@@ -56,8 +56,7 @@ public:
   HS_FLASH_MEMBER void init() override {
     // Radius 0 and 2 both collapse the ring to a point (ring_vec and its
     // antipode), so the slider stops short of each end.
-    register_param("Radius", &params.radius, 0.1f, 1.9f);
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_described_params<&Thrusters::parameter_fields>(params);
 
     // Inigo Quilez cosine palette: color(t) = bias + amp*cos(2π(freq*t + phase)).
     palette.bake(persistent_arena,
@@ -414,10 +413,24 @@ private:
   Timeline timeline; /**< Animation timeline for sprite/timer/spin. */
 
   /**
-   * @brief User-tunable parameters exposed via register_param.
+   * @brief User-tunable parameters described by parameter_fields().
    */
   struct Params {
     float radius = 1.0f; /**< Ring radius as a fraction of a hemisphere. */
     float alpha = 0.2f;  /**< Global opacity multiplier in [0, 1]. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "radius",
+                                      .member = &Params::radius,
+                                      .name = "Radius",
+                                      .spec = {.min = 0.1f, .max = 1.9f}},
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Alpha",
+                                      .spec = {.min = 0.0f, .max = 1.0f}}};
+  }
 };

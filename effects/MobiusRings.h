@@ -84,9 +84,7 @@ public:
       curve_directions[vertex] = {cosf(theta), sinf(theta)};
     }
 
-    register_animated_param("Rings", &params.num_rings, 0.0f, 20.0f);
-    register_animated_param("Lines", &params.num_lines, 0.0f, 20.0f);
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_described_params<&MobiusRings::parameter_fields>(params);
 
     auto *warp = mobius_gen.spawn_pinned(0, 1.0f, 160);
     HS_CHECK(warp, "MobiusRings: pinned warp spawn must succeed");
@@ -605,6 +603,26 @@ private:
     float num_lines = 1.0f;
     float alpha = 0.2f; /**< Overall opacity multiplier in [0, 1]. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{
+            .id = "num_rings",
+            .member = &Params::num_rings,
+            .name = "Rings",
+            .spec = {.min = 0.0f, .max = 20.0f, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "num_lines",
+            .member = &Params::num_lines,
+            .name = "Lines",
+            .spec = {.min = 0.0f, .max = 20.0f, .animated = true}},
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Alpha",
+                                      .spec = {.min = 0.0f, .max = 1.0f}}};
+  }
 
   /**
    * @brief Spinning render orientation.

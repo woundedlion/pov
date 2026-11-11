@@ -54,9 +54,7 @@ public:
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
    */
   HS_FLASH_MEMBER void init() override {
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Thickness", &params.thickness, 0.01f, 10.0f);
-    register_param("Debug BB", &params.debug_bb);
+    register_described_params<&RingSpin::parameter_fields>(params);
 
     // Inset the source into the middle band, then fade alpha at the edges.
     // Wrap=false so the top edge resolves to the source's last stop
@@ -211,6 +209,24 @@ private:
     float thickness = 0.8f; /**< Ring line thickness multiplier (unitless). */
     bool debug_bb = false;  /**< Whether to draw each ring's bounding box. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Alpha",
+                                      .spec = {.min = 0.0f, .max = 1.0f}},
+        Control::Field<Params, float>{.id = "thickness",
+                                      .member = &Params::thickness,
+                                      .name = "Thickness",
+                                      .spec = {.min = 0.01f, .max = 10.0f}},
+        Control::Field<Params, bool>{.id = "debug_bb",
+                                     .member = &Params::debug_bb,
+                                     .name = "Debug BB",
+                                     .spec = {.min = 0, .max = 1}}};
+  }
 
   // Persistent: the ring pool and one vignette palette LUT per palette.
   static constexpr size_t FOOTPRINT_BYTES =

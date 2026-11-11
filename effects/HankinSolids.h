@@ -103,9 +103,7 @@ public:
    */
   HS_FLASH_MEMBER void init() override {
     ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.configure();
-    register_param("Intensity", &params.intensity, 0.0f, 5.0f);
-    register_animated_param("Angle", &params.hankin_angle, 0.0f,
-                            math::PI_F / 2.0f);
+    register_described_params<&HankinSolids::parameter_fields>(params);
 
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, math::Y_AXIS, noise,
@@ -956,6 +954,21 @@ private:
     float intensity = 1.2f;    /**< Edge-distance shading gain. */
     float hankin_angle = 0.0f; /**< Interlace angle in radians. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "intensity",
+                                      .member = &Params::intensity,
+                                      .name = "Intensity",
+                                      .spec = {.min = 0.0f, .max = 5.0f}},
+        Control::Field<Params, float>{
+            .id = "hankin_angle",
+            .member = &Params::hankin_angle,
+            .name = "Angle",
+            .spec = {.min = 0.0f, .max = math::PI_F / 2.0f, .animated = true}}};
+  }
 
   math::Orientation<> orientation; /**< Current camera orientation. */
   FastNoiseLite noise;    /**< Noise source driving the orientation walk. */

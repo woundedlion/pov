@@ -52,7 +52,7 @@ public:
    *          it in place (rebake, no allocation).
    */
   HS_FLASH_MEMBER void init() override {
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_described_params<&RingShower::parameter_fields>(params);
 
     for (size_t i = 0; i < MAX_RINGS; ++i)
       rings[i].palette.bake(persistent_arena, dot_keyed(make_palette()));
@@ -252,4 +252,14 @@ private:
   struct Params {
     float alpha = 0.2f; /**< Global opacity scale in [0, 1]. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Alpha",
+                                      .spec = {.min = 0.0f, .max = 1.0f}}};
+  }
 };

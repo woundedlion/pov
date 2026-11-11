@@ -57,10 +57,7 @@ public:
    * unconditionally.
    */
   HS_FLASH_MEMBER void init() override {
-    register_param("Twist", &params.twist_factor, 0.0f, 5.0f);
-    register_param("Speed", &params.speed, 0.0f, SPEED_MAX);
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Density", &params.density, 0.5f, DENSITY_MAX);
+    register_described_params<&PetalFlow::parameter_fields>(params);
 
     filters.init_storage(persistent_arena);
     ring_edges.bind(persistent_arena, NUM_SAMPLES);
@@ -427,6 +424,29 @@ private:
     float density =
         1.0f; /**< Ring packing; live spacing is SPACING / density. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "twist_factor",
+                                      .member = &Params::twist_factor,
+                                      .name = "Twist",
+                                      .spec = {.min = 0.0f, .max = 5.0f}},
+        Control::Field<Params, float>{.id = "speed",
+                                      .member = &Params::speed,
+                                      .name = "Speed",
+                                      .spec = {.min = 0.0f, .max = SPEED_MAX}},
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Alpha",
+                                      .spec = {.min = 0.0f, .max = 1.0f}},
+        Control::Field<Params, float>{
+            .id = "density",
+            .member = &Params::density,
+            .name = "Density",
+            .spec = {.min = 0.5f, .max = DENSITY_MAX}}};
+  }
 
   Params history_params;      /**< Controls at the preceding frame endpoint. */
   bool history_ready = false; /**< Whether a preceding endpoint is available. */

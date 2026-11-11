@@ -123,7 +123,7 @@ public:
    */
   HS_FLASH_MEMBER void init() override {
     configure_presets(PRESET_IDS.size());
-    register_param("Amplitude", &params.amplitude, 0.1f, 10.0f);
+    register_described_params<&SphericalHarmonics::parameter_fields>(params);
 
     baked_palette.bake(persistent_arena, Palettes::RICH_SUNSET);
 
@@ -457,4 +457,14 @@ private:
   struct Params {
     float amplitude = 3.2f; /**< Field-value gain applied before coloring. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "amplitude",
+                                      .member = &Params::amplitude,
+                                      .name = "Amplitude",
+                                      .spec = {.min = 0.1f, .max = 10.0f}}};
+  }
 };

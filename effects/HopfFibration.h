@@ -53,11 +53,7 @@ public:
    * @brief Initializes params, buffers, fibers, and timeline animations.
    */
   HS_FLASH_MEMBER void init() override {
-    register_param("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
-    register_param("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
-    register_param("Folding", &params.folding, 0.0f, 2.0f);
-    register_param("Twist", &params.twist, -5.0f, 5.0f);
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_described_params<&HopfFibration::parameter_fields>(params);
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
     timed_pipeline.init_storage(persistent_arena);
@@ -179,6 +175,32 @@ private:
         4.0f; /**< Twist applied to azimuth per fold, dimensionless. */
     float alpha = 1.0f; /**< Global trail opacity multiplier in [0, 1]. */
   } params;
+
+  /** @brief GUI parameter descriptions, in registration order.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, float>{.id = "flow_speed",
+                                      .member = &Params::flow_speed,
+                                      .name = "Flow Spd",
+                                      .spec = {.min = 0.0f, .max = 20.0f}},
+        Control::Field<Params, float>{.id = "tumble_speed",
+                                      .member = &Params::tumble_speed,
+                                      .name = "Tumble Spd",
+                                      .spec = {.min = 0.0f, .max = 10.0f}},
+        Control::Field<Params, float>{.id = "folding",
+                                      .member = &Params::folding,
+                                      .name = "Folding",
+                                      .spec = {.min = 0.0f, .max = 2.0f}},
+        Control::Field<Params, float>{.id = "twist",
+                                      .member = &Params::twist,
+                                      .name = "Twist",
+                                      .spec = {.min = -5.0f, .max = 5.0f}},
+        Control::Field<Params, float>{.id = "alpha",
+                                      .member = &Params::alpha,
+                                      .name = "Alpha",
+                                      .spec = {.min = 0.0f, .max = 1.0f}}};
+  }
 
   // Borrowed by timeline-resident animations, with the phase accumulators and
   // params; declared before the Timeline to outlive it.
