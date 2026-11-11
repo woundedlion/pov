@@ -520,8 +520,9 @@ private:
     const size_t star_faces = node_faces;
     const ShapeWeights &weights = handoff.current;
     const ShapeWeights &previous = handoff.previous;
-    const float strap_blend = fminf(weights.strap_open, weights.strap_close);
-    const float previous_strap_blend =
+    const float strap_rim_blend =
+        fminf(weights.strap_open, weights.strap_close);
+    const float previous_strap_rim_blend =
         fminf(previous.strap_open, previous.strap_close);
     const float strap_alpha = weights.strap_open * weights.strap_terminal;
     const float previous_strap_alpha =
@@ -549,9 +550,9 @@ private:
                                 is_strap ? previous_strap_alpha : 1.0f);
       // Cross-fade this face's ramp onto the ramp of the face taking its
       // place, sampled at the same edge distance.
-      const float blend = is_strap ? strap_blend : weights.star_close;
+      const float blend = is_strap ? strap_rim_blend : weights.star_close;
       const float previous_blend =
-          is_strap ? previous_strap_blend : previous.star_close;
+          is_strap ? previous_strap_rim_blend : previous.star_close;
       if (blend < 1.0f || previous_blend < 1.0f) {
         const uint8_t counterpart =
             is_strap ? host_face_palette[fi] : star_rim_palette[fi];
