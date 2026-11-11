@@ -323,6 +323,13 @@ public:
     return (2 + POLE_RUN_POINTS) * sizeof(Fragment) + 2 * alignof(Fragment);
   }
 
+  /** @brief Peak transient bytes the timed draw_closed() takes.
+   *  @return Byte count. */
+  static constexpr size_t timed_scratch_a_bytes() {
+    return (PLANAR_LEN_SAMPLES + 1 + MAX_RADIAL_INTERVALS) * sizeof(float) +
+           2 * alignof(float);
+  }
+
   /** @brief Binds chart and scratch storage for up to @p max_vertices
    *  vertices.
    *  @param arena Arena the storage is allocated from.

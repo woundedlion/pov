@@ -1392,10 +1392,7 @@ private:
       (STAR_VERTICES + 2) * (sizeof(math::Vector) + sizeof(Fragment)) +
       std::max(Plot::Mesh::column_scratch_a_bytes(),
                Plot::PlanarChords<W, H>::scratch_a_bytes() +
-                   (Plot::PLANAR_LEN_SAMPLES + 1 +
-                    Plot::PlanarChords<W, H>::MAX_RADIAL_INTERVALS) *
-                       sizeof(float) +
-                   2 * alignof(float)) +
+                   Plot::PlanarChords<W, H>::timed_scratch_a_bytes()) +
       128;
   static_assert(TIMED_SCRATCH_A_BYTES <= SURFACE_SCRATCH_A_BYTES,
                 "ShapeShifter column storage exceeds scratch_a");
