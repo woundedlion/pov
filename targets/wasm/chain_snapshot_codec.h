@@ -203,6 +203,8 @@ class ChainSnapshotCodec {
         !number(noise, "contrast", config.noise.contrast) ||
         !integer(noise, "basis", basis) ||
         !integer(noise, "variant", variant) ||
+        basis > static_cast<uint8_t>(Pattern::NoiseBasis::RIDGED3) ||
+        variant > static_cast<uint8_t>(Pattern::NoiseVariant::OCTAVE_CONTOUR) ||
         !sine(value["sine"], config.sine) ||
         !interference(value["interference"], config.interference) ||
         !interference(value["grid"], config.grid) || !object(operation) ||
