@@ -1010,14 +1010,12 @@ consteval size_t resource_name_bytes() {
           bytes += PREFIX + std::string_view(field.id).size();
         return bytes;
       }
-      size_t bytes = PREFIX + std::string_view("Modulation Amount").size();
+      size_t bytes = PREFIX + std::string_view(Modulation::AMOUNT_LABEL).size();
       if constexpr (Resource::Family::SOURCE !=
                     Pattern::SourceKind::DISPLACEMENT)
-        bytes += 2 * PREFIX + std::string_view("Pattern Speed").size() +
-                 std::string_view(Resource::Family::SOURCE ==
-                                          Pattern::SourceKind::NOISE
-                                      ? "Pattern Scale"
-                                      : "Pattern Frequency")
+        bytes += 2 * PREFIX + std::string_view(Modulation::SPEED_LABEL).size() +
+                 std::string_view(
+                     Modulation::source_scale_label(Resource::Family::SOURCE))
                      .size();
       return bytes;
     } else {

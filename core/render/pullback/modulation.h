@@ -731,6 +731,17 @@ struct ControlField {
   float min = 0.0f;           ///< Lower bound.
   float max = 0.0f;           ///< Upper bound.
 };
+/// Label of the modulation amount control.
+inline constexpr const char *AMOUNT_LABEL = "Modulation Amount";
+/// Label of a modulation source's speed control.
+inline constexpr const char *SPEED_LABEL = "Pattern Speed";
+/** @brief Label of a modulation source's spatial scale control.
+ * @param source Selected modulation source.
+ * @return Scale or frequency label. */
+constexpr const char *source_scale_label(Pattern::SourceKind source) {
+  return source == Pattern::SourceKind::NOISE ? "Pattern Scale"
+                                              : "Pattern Frequency";
+}
 /** @brief Enumerates the amount and selected source controls.
  * @param config Live source recipe.
  * @return Control descriptors; null addresses mark unused entries. */
@@ -738,34 +749,36 @@ HS_FLASH_MEMBER inline std::array<ControlField, 3>
 control_fields(Config &config) {
   const bool unit = ColorModulation::unit_mechanic(config.mechanic.kind);
   std::array<ControlField, 3> fields{};
-  fields[0] = {"Modulation Amount", &config.mechanic.amount,
-               unit ? 0.0f : -4.0f, unit ? 1.0f : 4.0f};
+  fields[0] = {AMOUNT_LABEL, &config.mechanic.amount, unit ? 0.0f : -4.0f,
+               unit ? 1.0f : 4.0f};
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
-    fields[1] = {"Pattern Scale", &config.noise.scale, 1.0f / 64.0f,
+    fields[1] = {source_scale_label(config.source), &config.noise.scale,
+                 1.0f / 64.0f,
                  config.evaluation == Pattern::Evaluation::BAKED_CUBE
                      ? Pattern::MAX_BAKED_NOISE_SCALE
                      : 64.0f};
-    fields[2] = {"Pattern Speed", &config.noise.speed,
-                 -Pattern::MAX_NOISE_SPEED, Pattern::MAX_NOISE_SPEED};
+    fields[2] = {SPEED_LABEL, &config.noise.speed, -Pattern::MAX_NOISE_SPEED,
+                 Pattern::MAX_NOISE_SPEED};
     break;
   case Pattern::SourceKind::DIRECTIONAL_SINE:
-    fields[1] = {"Pattern Frequency", &config.sine.frequency, 0.0f,
-                 Pattern::MAX_AXIAL_FREQUENCY};
-    fields[2] = {"Pattern Speed", &config.sine.speed,
-                 -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED};
+    fields[1] = {source_scale_label(config.source), &config.sine.frequency,
+                 0.0f, Pattern::MAX_AXIAL_FREQUENCY};
+    fields[2] = {SPEED_LABEL, &config.sine.speed, -Pattern::MAX_ANALYTIC_SPEED,
+                 Pattern::MAX_ANALYTIC_SPEED};
     break;
   case Pattern::SourceKind::SPHERE_INTERFERENCE:
-    fields[1] = {"Pattern Frequency", &config.interference.frequency, 0.0f,
+    fields[1] = {source_scale_label(config.source),
+                 &config.interference.frequency, 0.0f,
                  Pattern::MAX_AXIAL_FREQUENCY};
-    fields[2] = {"Pattern Speed", &config.interference.speed,
+    fields[2] = {SPEED_LABEL, &config.interference.speed,
                  -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED};
     break;
   case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-    fields[1] = {"Pattern Frequency", &config.grid.frequency, 0.0f,
-                 Pattern::MAX_AXIAL_FREQUENCY};
-    fields[2] = {"Pattern Speed", &config.grid.speed,
-                 -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED};
+    fields[1] = {source_scale_label(config.source), &config.grid.frequency,
+                 0.0f, Pattern::MAX_AXIAL_FREQUENCY};
+    fields[2] = {SPEED_LABEL, &config.grid.speed, -Pattern::MAX_ANALYTIC_SPEED,
+                 Pattern::MAX_ANALYTIC_SPEED};
     break;
   case Pattern::SourceKind::DISPLACEMENT:
     break;
