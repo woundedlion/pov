@@ -16,7 +16,8 @@ runs:
         sudo apt-get install -y graphviz="$GRAPHVIZ" libcdt5="$GRAPHVIZ" libcgraph6="$GRAPHVIZ" \
           libgvc6="$GRAPHVIZ" libgvpr2="$GRAPHVIZ" liblab-gamut1="$GRAPHVIZ" \
           libpathplan4="$GRAPHVIZ" libxdot4="$GRAPHVIZ"
-        dot -V 2>&1 | grep -F "graphviz version ${GRAPHVIZ%%-*} "
+        test "$(dpkg-query -W -f='${Version}' graphviz)" = "$GRAPHVIZ"
+        dot -V
         curl -fsSL https://github.com/doxygen/doxygen/releases/download/Release_1_17_0/doxygen-1.17.0.linux.bin.tar.gz -o doxygen.tar.gz
         echo '75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2  doxygen.tar.gz' | sha256sum --check --strict
         tar xzf doxygen.tar.gz
