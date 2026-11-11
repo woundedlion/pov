@@ -2,8 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/pullback/composed_effect.h.
+#include "core/render/pullback/composed_policies.h"
 
 /** @file composed_interval.h
  * @brief Retained frame endpoints and column-time sampling for composed effects.

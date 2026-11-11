@@ -2,13 +2,20 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/pullback/composed_effect.h.
+#include <cstdint>
+#include "core/render/pullback/composed_resources.h"
+#include "core/render/pullback.h"
+#include "core/render/pullback/authored_lens.h"
+#include "core/render/pullback/tangent_surface.h"
 
 /** @file composed_providers.h
  * @brief Providers binding pullback stages to a composed effect's
  * frame state and parameter families.
  */
+
+namespace Pullback {
 
 /** @brief Pipeline order of the surface stage relative to the lens stage. */
 enum class SurfacePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
@@ -1019,3 +1026,5 @@ struct AuthoredColorProvider : ColorProvider<B, Brightness, LabCache, Fused> {
     return frame.params.template get<"color">().brightness_envelope;
   }
 };
+
+} // namespace Pullback

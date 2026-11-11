@@ -2,12 +2,42 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/pullback/composed_effect.h.
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <optional>
+#include <span>
+#include <type_traits>
+#include "core/animation/orientation.h"
+#include "core/color/authored_palette.h"
+#include "core/color/palette_cycler.h"
+#include "core/control/choreography.h"
+#include "core/control/registry.h"
+#include "core/math/mobius.h"
+#include "core/math/noise_field.h"
+#include "core/memory.h"
+#include "core/render/pullback/composed_descriptors.h"
+#include "core/render/pullback/composed_interval.h"
+#include "core/render/pullback/runtime_seeds.h"
+#include "core/render/scan.h"
+#include "core/render/spacetime.h"
+#include "core/render/spacetime/field.h"
+
+#if HS_ENABLE_TEST_HOOKS
+namespace hs_test {
+struct ComposedFrameWhiteBox;
+}
+#endif
 
 /** @file composed_runtime.h
  * @brief `ComposedEffect`, the lifecycle base of composed pullback effects.
  */
+
+namespace Pullback {
 
 /**
  * @brief A complete composed effect: the shared lifecycle plus a pipeline
@@ -1432,3 +1462,5 @@ private:
   PaletteHarmony palette_harmony = SpecT::HARMONY;
   PaletteCycler palette_cycler;
 };
+
+} // namespace Pullback

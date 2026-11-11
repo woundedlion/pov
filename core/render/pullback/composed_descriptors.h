@@ -2,13 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/pullback/composed_effect.h.
+#include "core/render/pullback/composed_policies.h"
 
 /** @file composed_descriptors.h
  * @brief Compile-time stage classification, topology derivation and parameter
  * counting for composed effects.
  */
+
+namespace Pullback {
 
 namespace ComposedDetail {
 
@@ -1055,3 +1058,5 @@ consteval size_t parameter_name_bytes(ResourceList<Resources...>) {
 
 /** @brief Topology inferred from a spec's typed pipeline. @tparam Spec Authored pipeline spec. */
 template <typename Spec> using MetadataFor = ComposedDetail::MetadataFor<Spec>;
+
+} // namespace Pullback

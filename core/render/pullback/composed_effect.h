@@ -37,22 +37,9 @@
 #include "core/render/pullback/composed_resources.h"
 #include "core/render/spacetime/field.h"
 
-#if HS_ENABLE_TEST_HOOKS
-namespace hs_test {
-struct ComposedFrameWhiteBox;
-}
-#endif
-
-namespace Pullback {
-
 #include "core/render/pullback/composed_providers.h"
 #include "core/render/pullback/composed_parameters.h"
 #include "core/render/pullback/composed_policies.h"
 #include "core/render/pullback/composed_descriptors.h"
-} // namespace Pullback
-
 #include "core/render/pullback/composed_interval.h"
-
-namespace Pullback {
 #include "core/render/pullback/composed_runtime.h"
-} // namespace Pullback

@@ -2,13 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/pullback/composed_effect.h.
+#include "core/render/pullback/composed_parameters.h"
 
 /** @file composed_policies.h
  * @brief Composed-effect authored controls and policy selectors keyed on
  * parameter families and projection kind.
  */
+
+namespace Pullback {
 
 /** @brief Authored controls accompanying an explicit typed stage pipeline.
  * @details Derived specs supply `template <typename B> using Pipeline`.
@@ -760,3 +763,5 @@ struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE_SQUARED, B, Family,
   using Type =
       ProjectionCoverage::EdgeFadeSquared<ValueProvider<B, Family, Key>>;
 };
+
+} // namespace Pullback

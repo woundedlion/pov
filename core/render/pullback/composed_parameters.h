@@ -2,13 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/pullback/composed_effect.h.
+#include "core/render/pullback/composed_providers.h"
 
 /** @file composed_parameters.h
  * @brief Parameter-kind enums, uses_* predicates, interpolation, range
  * validation and runtime storage for composed effects.
  */
+
+namespace Pullback {
 
 /**
  * @brief Interpolates one parameter family across a preset transition.
@@ -395,3 +398,5 @@ constexpr bool valid_projection_topology(ProjectionKind kind,
          (kind != ProjectionKind::AIROCEAN ||
           params.layout < std::size(Projection::AIROCEAN_LAYOUT_IDS));
 }
+
+} // namespace Pullback
