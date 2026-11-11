@@ -37,9 +37,9 @@ inline void test_authored_interpolation_destination_aliases() {
       Params a = from, b = to, destination{};
       Params &out = alias == 1 ? a : alias == 2 ? b : destination;
       interpolate_into(out, a, b, progress);
-      const float scales[] = {1.0f, 4.0f, 16.0f};
+      const float SCALES[] = {1.0f, 4.0f, 16.0f};
       HS_EXPECT_NEAR(out.template get<"a">().modulation.noise.scale,
-                     scales[static_cast<int>(progress * 2)], 1e-6f);
+                     SCALES[static_cast<int>(progress * 2)], 1e-6f);
       HS_EXPECT_NEAR(out.template get<"a">().modulation.mechanic.amount,
                      2.0f * progress, 0.0f);
       HS_EXPECT_EQ(out.template get<"b">().modulation.source,
@@ -73,7 +73,7 @@ using AuthoredSurfaceProvider =
 inline void test_authored_tangent_bindings_match_operators() {
   using namespace Pullback;
   using namespace Surface;
-  const auto INPUT = math::Vector(0.31f, 0.57f, -0.76f).normalized();
+  const auto input = math::Vector(0.31f, 0.57f, -0.76f).normalized();
   for (uint8_t integrator = 0; integrator < 3; ++integrator) {
     for (float phase : {-2.3f, 0.0f, 1.7f}) {
       AuthoredSurfaceFrame<RossbyHaurwitzParams> frame{};
@@ -87,19 +87,19 @@ inline void test_authored_tangent_bindings_match_operators() {
       frame.resources.template get<"surface">().phase = phase;
       using Policy =
           RossbyHaurwitz<AuthoredSurfaceProvider<RossbyHaurwitzParams>>;
-      const auto ACTUAL = Policy::apply(INPUT, frame, Policy::prepare(frame));
+      const auto actual = Policy::apply(input, frame, Policy::prepare(frame));
       Interp::Op::RossbyHaurwitzParams reference;
       reference.strength = params.strength;
       reference.omega = params.omega;
       reference.wave = params.wave;
       reference.order = params.order;
-      const auto EXPECTED = Interp::Op::DisplaceRossbyHaurwitz::step(
-          INPUT, Interp::Op::DisplaceRossbyHaurwitz::field(reference, phase),
+      const auto expected = Interp::Op::DisplaceRossbyHaurwitz::step(
+          input, Interp::Op::DisplaceRossbyHaurwitz::field(reference, phase),
           reference.strength, integrator);
-      HS_EXPECT_NEAR(ACTUAL.sphere.x, EXPECTED.sphere.x, 1e-6f);
-      HS_EXPECT_NEAR(ACTUAL.sphere.y, EXPECTED.sphere.y, 1e-6f);
-      HS_EXPECT_NEAR(ACTUAL.sphere.z, EXPECTED.sphere.z, 1e-6f);
-      HS_EXPECT_NEAR(ACTUAL.path_length, EXPECTED.path_length, 1e-6f);
+      HS_EXPECT_NEAR(actual.sphere.x, expected.sphere.x, 1e-6f);
+      HS_EXPECT_NEAR(actual.sphere.y, expected.sphere.y, 1e-6f);
+      HS_EXPECT_NEAR(actual.sphere.z, expected.sphere.z, 1e-6f);
+      HS_EXPECT_NEAR(actual.path_length, expected.path_length, 1e-6f);
 
       for (uint8_t symmetry = 0; symmetry < 9; ++symmetry)
         for (uint8_t kind = 0; kind < 2; ++kind) {
@@ -112,18 +112,19 @@ inline void test_authored_tangent_bindings_match_operators() {
                       .kind = kind};
           symmetric.resources.template get<"surface">().phase = phase;
           using Symmetry = Symmetric<AuthoredSurfaceProvider<SymmetricParams>>;
-          const auto OUTPUT =
-              Symmetry::apply(INPUT, symmetric, Symmetry::prepare(symmetric));
+          const auto output =
+              Symmetry::apply(input, symmetric, Symmetry::prepare(symmetric));
           Interp::Op::SymmetricDisplaceParams baseline;
           baseline.symmetry = symmetry;
           baseline.kind = kind;
-          const auto REFERENCE = Interp::Op::DisplaceSymmetric::step(
-              INPUT, Interp::Op::DisplaceSymmetric::field(baseline, phase),
+          const auto reference_value = Interp::Op::DisplaceSymmetric::step(
+              input, Interp::Op::DisplaceSymmetric::field(baseline, phase),
               0.23f, integrator);
-          HS_EXPECT_NEAR(OUTPUT.sphere.x, REFERENCE.sphere.x, 1e-6f);
-          HS_EXPECT_NEAR(OUTPUT.sphere.y, REFERENCE.sphere.y, 1e-6f);
-          HS_EXPECT_NEAR(OUTPUT.sphere.z, REFERENCE.sphere.z, 1e-6f);
-          HS_EXPECT_NEAR(OUTPUT.path_length, REFERENCE.path_length, 1e-6f);
+          HS_EXPECT_NEAR(output.sphere.x, reference_value.sphere.x, 1e-6f);
+          HS_EXPECT_NEAR(output.sphere.y, reference_value.sphere.y, 1e-6f);
+          HS_EXPECT_NEAR(output.sphere.z, reference_value.sphere.z, 1e-6f);
+          HS_EXPECT_NEAR(output.path_length, reference_value.path_length,
+                         1e-6f);
         }
     }
   }
@@ -143,15 +144,15 @@ inline void test_authored_tangent_bindings_match_operators() {
     reference.terms[i] = {term.type, term.kind,      term.l,
                           term.m,    term.amplitude, term.phase};
   }
-  const auto ACTUAL =
-      Policy::apply(INPUT, potential, Policy::prepare(potential));
-  const auto EXPECTED = Interp::Op::DisplacePotential::step(
-      INPUT, Interp::Op::DisplacePotential::field(reference, -0.73f),
+  const auto actual =
+      Policy::apply(input, potential, Policy::prepare(potential));
+  const auto expected = Interp::Op::DisplacePotential::step(
+      input, Interp::Op::DisplacePotential::field(reference, -0.73f),
       params.strength, 0);
-  HS_EXPECT_NEAR(ACTUAL.sphere.x, EXPECTED.sphere.x, 1e-6f);
-  HS_EXPECT_NEAR(ACTUAL.sphere.y, EXPECTED.sphere.y, 1e-6f);
-  HS_EXPECT_NEAR(ACTUAL.sphere.z, EXPECTED.sphere.z, 1e-6f);
-  HS_EXPECT_NEAR(ACTUAL.path_length, EXPECTED.path_length, 1e-6f);
+  HS_EXPECT_NEAR(actual.sphere.x, expected.sphere.x, 1e-6f);
+  HS_EXPECT_NEAR(actual.sphere.y, expected.sphere.y, 1e-6f);
+  HS_EXPECT_NEAR(actual.sphere.z, expected.sphere.z, 1e-6f);
+  HS_EXPECT_NEAR(actual.path_length, expected.path_length, 1e-6f);
 }
 
 /** @brief Tangent fields interpolate drift across the radian wrap seam. */
@@ -160,9 +161,9 @@ inline void test_authored_tangent_interval_uses_radians() {
   Frame from{}, to{};
   from.resources.template get<"surface">().phase = math::TWO_PI_F - 0.04f;
   to.resources.template get<"surface">().phase = 0.06f;
-  const Pullback::FrameInterval<Frame> INTERVAL(from, to);
-  const auto MIDDLE = INTERVAL.at(0.5f);
-  HS_EXPECT_NEAR(MIDDLE.resources.template get<"surface">().phase,
+  const Pullback::FrameInterval<Frame> interval(from, to);
+  const auto middle = interval.at(0.5f);
+  HS_EXPECT_NEAR(middle.resources.template get<"surface">().phase,
                  math::TWO_PI_F + 0.01f, 1e-6f);
 }
 
@@ -206,11 +207,11 @@ inline void test_authored_potential_interpolation_and_admission() {
   to.terms[0].phase = -3.0f;
   from.terms[0].amplitude = 0.4f;
   to.terms[0].amplitude = 0.9f;
-  const auto MIDDLE = Pullback::interpolate(from, to, 0.5f);
-  HS_EXPECT_TRUE(Pullback::valid(MIDDLE));
-  HS_EXPECT_NEAR(fabsf(MIDDLE.orientation_azimuth), math::PI_F, 1e-6f);
-  HS_EXPECT_NEAR(fabsf(MIDDLE.terms[0].phase), math::PI_F, 1e-6f);
-  HS_EXPECT_EQ(MIDDLE.terms[0].amplitude, 0.4f);
+  const auto middle = Pullback::interpolate(from, to, 0.5f);
+  HS_EXPECT_TRUE(Pullback::valid(middle));
+  HS_EXPECT_NEAR(fabsf(middle.orientation_azimuth), math::PI_F, 1e-6f);
+  HS_EXPECT_NEAR(fabsf(middle.terms[0].phase), math::PI_F, 1e-6f);
+  HS_EXPECT_EQ(middle.terms[0].amplitude, 0.4f);
   to.terms[0].m = 2;
   HS_EXPECT_FALSE(Pullback::valid(to));
   to.terms[0].l = 3;
@@ -224,7 +225,7 @@ inline void test_authored_surface_noise_topology() {
   using namespace Pullback;
   FastNoiseLite noise;
   init_effect_noise(noise, 137);
-  const auto INPUT = math::Vector(-0.37f, 0.58f, 0.72f).normalized();
+  const auto input = math::Vector(-0.37f, 0.58f, 0.72f).normalized();
   for (uint8_t basis = 0; basis < 3; ++basis) {
     AuthoredSurfaceFrame<AuthoredDirectSurfaceParams> direct{};
     auto &p = direct.params.template get<"surface">();
@@ -237,16 +238,16 @@ inline void test_authored_surface_noise_topology() {
     resource.noise = &noise;
     using Directed = Surface::ConfiguredDirect<
         AuthoredSurfaceProvider<AuthoredDirectSurfaceParams>>;
-    const auto PREPARED = Directed::prepare(direct);
-    const auto ACTUAL = Directed::apply(INPUT, direct, PREPARED);
-    const auto EXPECTED = Surface::direct_noise(
-        INPUT, noise, static_cast<math::NoiseBasis>(basis), p.scale,
-        PREPARED.loop_offset, p.strength, PREPARED.direction_cos,
-        PREPARED.direction_sin, true);
-    HS_EXPECT_NEAR(ACTUAL.sphere.x, EXPECTED.sphere.x, 1e-6f);
-    HS_EXPECT_NEAR(ACTUAL.sphere.y, EXPECTED.sphere.y, 1e-6f);
-    HS_EXPECT_NEAR(ACTUAL.sphere.z, EXPECTED.sphere.z, 1e-6f);
-    HS_EXPECT_NEAR(ACTUAL.path_length, EXPECTED.path_length, 1e-6f);
+    const auto prepared = Directed::prepare(direct);
+    const auto actual = Directed::apply(input, direct, prepared);
+    const auto expected = Surface::direct_noise(
+        input, noise, static_cast<math::NoiseBasis>(basis), p.scale,
+        prepared.loop_offset, p.strength, prepared.direction_cos,
+        prepared.direction_sin, true);
+    HS_EXPECT_NEAR(actual.sphere.x, expected.sphere.x, 1e-6f);
+    HS_EXPECT_NEAR(actual.sphere.y, expected.sphere.y, 1e-6f);
+    HS_EXPECT_NEAR(actual.sphere.z, expected.sphere.z, 1e-6f);
+    HS_EXPECT_NEAR(actual.path_length, expected.path_length, 1e-6f);
     for (uint8_t integrator = 0; integrator < 3; ++integrator)
       for (uint8_t limit = 0; limit < 2; ++limit) {
         AuthoredSurfaceFrame<AuthoredSurfaceNoiseParams> curl{};
@@ -260,17 +261,17 @@ inline void test_authored_surface_noise_topology() {
         curl.resources.template get<"surface">().noise = &noise;
         using Curled = Surface::ConfiguredCurl<
             AuthoredSurfaceProvider<AuthoredSurfaceNoiseParams>>;
-        const auto PREPARE = Curled::prepare(curl);
-        const auto OUTPUT = Curled::apply(INPUT, curl, PREPARE);
-        const auto REFERENCE = Surface::curl_noise(
-            INPUT, noise, static_cast<math::NoiseBasis>(basis),
+        const auto prepare = Curled::prepare(curl);
+        const auto output = Curled::apply(input, curl, prepare);
+        const auto reference = Surface::curl_noise(
+            input, noise, static_cast<math::NoiseBasis>(basis),
             static_cast<Surface::Integrator>(integrator),
             static_cast<math::TangentLimit>(limit), params.scale,
-            PREPARE.loop_offset, params.strength, true);
-        HS_EXPECT_NEAR(OUTPUT.sphere.x, REFERENCE.sphere.x, 1e-6f);
-        HS_EXPECT_NEAR(OUTPUT.sphere.y, REFERENCE.sphere.y, 1e-6f);
-        HS_EXPECT_NEAR(OUTPUT.sphere.z, REFERENCE.sphere.z, 1e-6f);
-        HS_EXPECT_NEAR(OUTPUT.path_length, REFERENCE.path_length, 1e-6f);
+            prepare.loop_offset, params.strength, true);
+        HS_EXPECT_NEAR(output.sphere.x, reference.sphere.x, 1e-6f);
+        HS_EXPECT_NEAR(output.sphere.y, reference.sphere.y, 1e-6f);
+        HS_EXPECT_NEAR(output.sphere.z, reference.sphere.z, 1e-6f);
+        HS_EXPECT_NEAR(output.path_length, reference.path_length, 1e-6f);
       }
   }
 }
@@ -286,16 +287,16 @@ inline void test_authored_dynamic_modulation_storage() {
   params.modulation.source = Pattern::SourceKind::DISPLACEMENT;
   params.modulation.evaluation = Pattern::Evaluation::DIRECT;
   HS_EXPECT_TRUE(valid(params));
-  const auto &DISPLACEMENT =
+  const auto &displacement =
       storage.modulation_resources.prepare(params.modulation, {});
-  HS_EXPECT_FALSE(DISPLACEMENT.cube.active);
+  HS_EXPECT_FALSE(displacement.cube.active);
   params.modulation.source = Pattern::SourceKind::NOISE;
   params.modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
   HS_EXPECT_TRUE(valid(params));
-  const auto &NOISE =
+  const auto &noise =
       storage.modulation_resources.prepare(params.modulation, {});
-  HS_EXPECT_TRUE(NOISE.cube.active);
-  HS_EXPECT_TRUE(NOISE.evaluate != nullptr);
+  HS_EXPECT_TRUE(noise.cube.active);
+  HS_EXPECT_TRUE(noise.evaluate != nullptr);
   params.modulation.noise.scale = -1.0f;
   HS_EXPECT_FALSE(valid(params));
   using Minimal = Modulation::Params<Pattern::SourceKind::DISPLACEMENT,
@@ -309,13 +310,13 @@ inline void test_authored_dynamic_modulation_storage() {
   switches.modulation.source = Pattern::SourceKind::NOISE;
   switches.modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
   HS_EXPECT_TRUE(valid(switches));
-  const auto &BAKED =
+  const auto &baked =
       flexible.modulation_resources.prepare(switches.modulation, {});
-  HS_EXPECT_TRUE(BAKED.cube.active);
-  const auto *COPY =
-      Modulation::retain(&BAKED, retained.modulation, retained.table);
-  HS_EXPECT_TRUE(COPY->cube.data == retained.table.data());
-  HS_EXPECT_TRUE(COPY->cube.data != BAKED.cube.data);
+  HS_EXPECT_TRUE(baked.cube.active);
+  const auto *copy =
+      Modulation::retain(&baked, retained.modulation, retained.table);
+  HS_EXPECT_TRUE(copy->cube.data == retained.table.data());
+  HS_EXPECT_TRUE(copy->cube.data != baked.cube.data);
   HS_EXPECT_EQ(retained.table.size(), size_t(Pattern::SphereLutView::SIZE));
 }
 
@@ -368,40 +369,42 @@ inline void verify_authored_projection() {
         chain.layout = params.layout;
       if constexpr (requires { chain.hemisphere; })
         chain.hemisphere = params.hemisphere;
-      const auto PREPARED = Policy::prepare(frame);
-      const auto REFERENCE = Operator::prepare({}, chain, {});
+      const auto prepared = Policy::prepare(frame);
+      const auto reference = Operator::prepare({}, chain, {});
       for (const auto &view :
            {math::Vector(0.31f, 0.57f, -0.76f).normalized(),
             math::Vector(-0.58f, -0.69f, 0.42f).normalized()}) {
-        const auto ACTUAL = Policy::project(view, frame, PREPARED);
-        const auto EXPECTED = [&] {
-          if constexpr (requires { Operator::project(view, chain, REFERENCE); })
-            return Operator::project(view, chain, REFERENCE);
+        const auto actual = Policy::project(view, frame, prepared);
+        const auto expected = [&] {
+          if constexpr (requires { Operator::project(view, chain, reference); })
+            return Operator::project(view, chain, reference);
           else
             return Operator::project(view, chain);
         }();
-        HS_EXPECT_NEAR(ACTUAL.coords.re, EXPECTED.coords.re, 1e-6f);
-        HS_EXPECT_NEAR(ACTUAL.coords.im, EXPECTED.coords.im, 1e-6f);
-        HS_EXPECT_NEAR(ACTUAL.provenance.value_weight,
-                       EXPECTED.provenance.value_weight, 1e-6f);
-        HS_EXPECT_NEAR(ACTUAL.provenance.fade_edge_distance,
-                       EXPECTED.provenance.fade_edge_distance, 1e-6f);
-        HS_EXPECT_EQ(ACTUAL.provenance.region_id,
-                     EXPECTED.provenance.region_id);
-        HS_EXPECT_EQ(ACTUAL.provenance.component_id,
-                     EXPECTED.provenance.component_id);
-        HS_EXPECT_EQ(ACTUAL.provenance.boundary_flags,
-                     EXPECTED.provenance.boundary_flags);
+        HS_EXPECT_NEAR(actual.coords.re, expected.coords.re, 1e-6f);
+        HS_EXPECT_NEAR(actual.coords.im, expected.coords.im, 1e-6f);
+        HS_EXPECT_NEAR(actual.provenance.value_weight,
+                       expected.provenance.value_weight, 1e-6f);
+        HS_EXPECT_NEAR(actual.provenance.fade_edge_distance,
+                       expected.provenance.fade_edge_distance, 1e-6f);
+        HS_EXPECT_EQ(actual.provenance.region_id,
+                     expected.provenance.region_id);
+        HS_EXPECT_EQ(actual.provenance.component_id,
+                     expected.provenance.component_id);
+        HS_EXPECT_EQ(actual.provenance.boundary_flags,
+                     expected.provenance.boundary_flags);
       }
     }
   frame.projection_conjugate = math::make_rotation(math::Y_AXIS, 0.7f);
-  const auto VIEW = math::Vector(0.3f, 0.2f, 0.8f).normalized();
-  const auto IDENTITY = math::rotate(VIEW, Policy::frame_conjugate(frame));
-  HS_EXPECT_NEAR(IDENTITY.x, VIEW.x, 1e-6f);
-  HS_EXPECT_NEAR(IDENTITY.z, VIEW.z, 1e-6f);
+  const auto view_value = math::Vector(0.3f, 0.2f, 0.8f).normalized();
+  const auto identity =
+      math::rotate(view_value, Policy::frame_conjugate(frame));
+  HS_EXPECT_NEAR(identity.x, view_value.x, 1e-6f);
+  HS_EXPECT_NEAR(identity.z, view_value.z, 1e-6f);
   params.frame = 1;
-  const auto ANIMATED = math::rotate(VIEW, Policy::frame_conjugate(frame));
-  HS_EXPECT_GT(fabsf(ANIMATED.x - VIEW.x), 0.1f);
+  const auto animated =
+      math::rotate(view_value, Policy::frame_conjugate(frame));
+  HS_EXPECT_GT(fabsf(animated.x - view_value.x), 0.1f);
 }
 
 /** @brief Authored projection families preserve every catalog projection layout. */
@@ -628,13 +631,13 @@ inline void test_authored_potential_nested_controls() {
   HS_EXPECT_EQ(effect.updateParameter("displace.term-1-type", 0),
                ParamSetResult::APPLIED);
   for (size_t index = 1; index < 4; ++index) {
-    const char *const AMPLITUDE[] = {"displace.term-2-amplitude",
+    const char *const amplitude[] = {"displace.term-2-amplitude",
                                      "displace.term-3-amplitude",
                                      "displace.term-4-amplitude"};
-    const float VALUE = float(index) * -0.7f;
-    HS_EXPECT_EQ(effect.updateParameter(AMPLITUDE[index - 1], VALUE),
+    const float value = float(index) * -0.7f;
+    HS_EXPECT_EQ(effect.updateParameter(amplitude[index - 1], value),
                  ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(effect.configuration().terms[index].amplitude, VALUE);
+    HS_EXPECT_EQ(effect.configuration().terms[index].amplitude, value);
   }
 }
 
@@ -691,13 +694,13 @@ inline void verify_source_seed(uint32_t expected_seed) {
   hs_test::reset_globals();
   SourceSeedProbe<Key, Authored> effect;
   effect.init();
-  const auto FRAME = effect.frame_for_test();
-  const auto &ACTUAL = *FRAME.resources.template get<Key>().noise;
+  const auto frame = effect.frame_for_test();
+  const auto &actual = *frame.resources.template get<Key>().noise;
   FastNoiseLite expected;
   Pullback::init_effect_noise(expected, static_cast<int32_t>(expected_seed));
   for (const auto &point :
        {math::Vector(0.13f, -0.77f, 0.91f), math::Vector(-2.3f, 1.17f, 0.42f)})
-    HS_EXPECT_NEAR(ACTUAL.GetNoiseSingle(point.x, point.y, point.z),
+    HS_EXPECT_NEAR(actual.GetNoiseSingle(point.x, point.y, point.z),
                    expected.GetNoiseSingle(point.x, point.y, point.z), 1e-6f);
 }
 
@@ -758,12 +761,12 @@ inline void test_authored_noise_seed_identity() {
   hs_test::reset_globals();
   ProjectionSeedProbe effect;
   effect.init();
-  const auto &ACTUAL = hs_test::ComposedFrameWhiteBox::projection_noise(effect);
+  const auto &actual = hs_test::ComposedFrameWhiteBox::projection_noise(effect);
   FastNoiseLite expected;
   Pullback::init_effect_noise(expected, static_cast<int32_t>(0x2058155Cu));
   expected.SetFrequency(Animation::RandomWalk<8>::Options{}.noise_scale);
   for (const auto &point :
        {math::Vector(0.13f, -0.77f, 0.91f), math::Vector(-2.3f, 1.17f, 0.42f)})
-    HS_EXPECT_NEAR(ACTUAL.GetNoiseSingle(point.x, point.y, point.z),
+    HS_EXPECT_NEAR(actual.GetNoiseSingle(point.x, point.y, point.z),
                    expected.GetNoiseSingle(point.x, point.y, point.z), 1e-6f);
 }

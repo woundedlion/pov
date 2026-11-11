@@ -76,17 +76,17 @@ inline void test_feedback_fade_table_invalidates_stored_entries() {
   style.sync_hue();
   const auto turned = table.acquire(style, scratch.get_arena());
   HS_EXPECT_EQ(turned.hue_k, first.hue_k);
-  const float SCALE = math::fast_cbrt(style.fade * Q16_TO_UNIT);
+  const float scale = math::fast_cbrt(style.fade * Q16_TO_UNIT);
   for (int i = 0; i < Table::MATRIX; ++i)
     HS_EXPECT_EQ(turned.hue_k[Table::UNIT_LEVEL * Table::MATRIX + i],
-                 style.hue_k[i] * SCALE);
+                 style.hue_k[i] * scale);
   table.init_storage(arena);
   const auto rebound = table.acquire(style, scratch.get_arena());
   HS_EXPECT_NE(rebound.fades, first.fades);
   HS_EXPECT_EQ(rebound.fades[Table::UNIT_LEVEL], style.fade);
   for (int i = 0; i < Table::MATRIX; ++i)
     HS_EXPECT_EQ(rebound.hue_k[Table::UNIT_LEVEL * Table::MATRIX + i],
-                 style.hue_k[i] * SCALE);
+                 style.hue_k[i] * scale);
 }
 
 /**
@@ -121,14 +121,14 @@ inline void test_feedback_fade_table_entries() {
     return ::Feedback::hue_fade_apply(view.hue_k + level * Table::MATRIX, p.r,
                                       p.g, p.b);
   };
-  const Pixel source(40000, 20000, 10000);
-  const Pixel none = apply(0, source);
+  const Pixel SOURCE(40000, 20000, 10000);
+  const Pixel none = apply(0, SOURCE);
   HS_EXPECT_NEAR(none.r, 40000.0f, 80.0f);
   HS_EXPECT_NEAR(none.g, 20000.0f, 80.0f);
   HS_EXPECT_NEAR(none.b, 10000.0f, 80.0f);
-  const Pixel twice = apply(Table::LEVELS - 1, source);
+  const Pixel twice = apply(Table::LEVELS - 1, SOURCE);
   const Pixel two_steps =
-      apply(Table::UNIT_LEVEL, apply(Table::UNIT_LEVEL, source));
+      apply(Table::UNIT_LEVEL, apply(Table::UNIT_LEVEL, SOURCE));
   HS_EXPECT_NEAR(twice.r, two_steps.r, 120.0f);
   HS_EXPECT_NEAR(twice.g, two_steps.g, 120.0f);
   HS_EXPECT_NEAR(twice.b, two_steps.b, 120.0f);
@@ -493,11 +493,11 @@ inline void test_feedback_sourced_column_time_oracle() {
     const char *name;
     float omega;
   };
-  const Case cases[] = {{"forward", 0.1f},
+  const Case CASES[] = {{"forward", 0.1f},
                         {"backward", -0.1f},
                         {"forward fast", 0.3f},
                         {"backward fast", -0.3f}};
-  for (const Case &c : cases) {
+  for (const Case &c : CASES) {
     const SourcedFeedbackScene<W, H> scene{c.omega, 0.85f, 0.3f};
     const auto error = run_sourced_oracle<W, H>(scene, 40, 24, H - 24);
     std::printf("  sourced oracle %s: bulk=%.5f cut=%.5f seam=%.3f ramp=%.4f\n",
@@ -530,7 +530,7 @@ inline void test_feedback_column_time_oracle() {
     int end_row;
     float seam_bound; ///< Largest seam ratio; 0 leaves it unchecked.
   };
-  const Case cases[] = {
+  const Case CASES[] = {
       {"azimuthal forward", math::Y_AXIS, 0.1f, 24, H - 24, 1.5f},
       {"azimuthal backward", math::Y_AXIS, -0.1f, 24, H - 24, 1.5f},
       {"cap-plane rows", math::X_AXIS, 0.1f, 4, 24, 1.2f},
@@ -539,7 +539,7 @@ inline void test_feedback_column_time_oracle() {
       {"half-resolution polar rows", math::Y_AXIS, 0.1f, 6, 24, 1.2f},
       {"tilted", math::Vector(0.6f, 0.0f, 0.8f), 0.08f, 4, H - 4, 0.0f},
   };
-  for (const Case &c : cases) {
+  for (const Case &c : CASES) {
     const RotatingFeedbackScene<W, H> scene{c.axis, c.omega, 0.85f};
     const auto error =
         run_column_time_oracle<W, H>(scene, 6, c.first_row, c.end_row);
@@ -577,14 +577,14 @@ inline void test_feedback_split_frame_covers_forward_bands() {
   style.hue_shift = 0.0f;
   // Backward about the axis, so sources lie ahead of their targets.
   feedback_frame_rotation = math::make_rotation(math::Y_AXIS, -0.15f);
-  const RotatingFeedbackScene<W, H> scene{math::Y_AXIS, -0.15f, 0.85f};
+  const RotatingFeedbackScene<W, H> SCENE{math::Y_AXIS, -0.15f, 0.85f};
   auto seed_history = [&]() {
     for (int frame = -1; frame <= 0; ++frame) {
       {
         Canvas c(fx);
         for (int y = 0; y < H; ++y)
           for (int x = 0; x < W; ++x) {
-            const auto rgb = scene.column_basis(frame, x, y);
+            const auto rgb = SCENE.column_basis(frame, x, y);
             c(x, y) = Pixel(quantize_feedback_channel(rgb[0]),
                             quantize_feedback_channel(rgb[1]),
                             quantize_feedback_channel(rgb[2]));
@@ -681,9 +681,9 @@ inline void test_feedback_split_frame_covers_forward_bands() {
   plain.init_storage(persistent_arena);
   Plot::GeometryCallback geometry;
   geometry.source_positions = false;
-  const Pixel shade(52000, 30000, 12000);
+  const Pixel SHADE(52000, 30000, 12000);
   auto shader = [&](const math::Vector &, Fragment &f) {
-    f.color = Color4(shade, 1.0f);
+    f.color = Color4(SHADE, 1.0f);
   };
   auto &terminal = pipe.get<Terminal>();
   for (size_t solid = 0; solid < Solids::BASE_MESH_COUNT; ++solid) {

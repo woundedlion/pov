@@ -25,8 +25,8 @@ inline void test_bounding_sphere_initializes_trig() {
 /** @brief Alpha at the cutoff is discarded; the next representable value draws. */
 inline void test_min_alpha_boundary() {
   constexpr int W = 32, H = 16;
-  const math::Basis BASIS = math::make_basis(math::Quaternion(), math::UP);
-  SDF::PlanarPolygon shape(BASIS, 0.5f, 5, 0.0f);
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::UP);
+  SDF::PlanarPolygon shape(basis, 0.5f, 5, 0.0f);
   for (float alpha : {std::nextafter(Scan::MIN_ALPHA, 0.0f), Scan::MIN_ALPHA,
                       std::nextafter(Scan::MIN_ALPHA, 1.0f)}) {
     for (bool constant : {false, true}) {
@@ -34,13 +34,13 @@ inline void test_min_alpha_boundary() {
       {
         Canvas canvas(fx);
         Pipeline<W, H> pipe;
-        const Color4 COLOR(Pixel(65535, 65535, 65535), alpha);
+        const Color4 color(Pixel(65535, 65535, 65535), alpha);
         if (constant)
-          Scan::rasterize_solid<W, H>(pipe, canvas, shape, COLOR);
+          Scan::rasterize_solid<W, H>(pipe, canvas, shape, color);
         else
           Scan::rasterize<W, H, false>(
               pipe, canvas, shape,
-              [&](const math::Vector &, Fragment &f) { f.color = COLOR; });
+              [&](const math::Vector &, Fragment &f) { f.color = color; });
       }
       fx.advance_display();
       const size_t lit = count_lit_region<W, H>(fx);
@@ -268,10 +268,10 @@ inline void test_shader_clip_arc_matches_predicate() {
          Scan::Shader::draw_cached<W, H>(
              c,
              [&](const math::Vector &v, int x, int y) {
-               const auto EXPECTED = math::pixel_to_vector<W, H>(x, y);
-               HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
-               HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
-               HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
+               const auto expected = math::pixel_to_vector<W, H>(x, y);
+               HS_EXPECT_NEAR(v.x, expected.x, 1e-6f);
+               HS_EXPECT_NEAR(v.y, expected.y, 1e-6f);
+               HS_EXPECT_NEAR(v.z, expected.z, 1e-6f);
                return positional(v);
              },
              [](int) {});
@@ -283,8 +283,8 @@ inline void test_shader_clip_arc_matches_predicate() {
              c,
              [&](const math::Vector &v, int, int y) {
                HS_EXPECT_EQ(row, y);
-               const Color4 COLOR = positional(v);
-               return COLOR.color * COLOR.alpha;
+               const Color4 color = positional(v);
+               return color.color * color.alpha;
              },
              [&](int y) {
                HS_EXPECT_EQ(y, row + 1);
@@ -296,9 +296,9 @@ inline void test_shader_clip_arc_matches_predicate() {
        [&](Canvas &c) {
          Scan::Shader::walk_grid<W, H>(
              c, [&](const math::Vector &center, const auto &grid, int x) {
-               const Color4 COLOR = positional(grid.at(x, 0));
+               const Color4 color = positional(grid.at(x, 0));
                HS_EXPECT_NEAR(center.magnitude(), 1.0f, 1e-6f);
-               return COLOR.color * COLOR.alpha;
+               return color.color * color.alpha;
              });
        }},
       {"grid draw",
@@ -317,26 +317,26 @@ inline void test_shader_clip_arc_matches_predicate() {
          Scan::Shader::draw_columns<W, H>(c, [&](int x) {
            ++prepared[x];
            return [&, x, row = 0](const math::Vector &v) mutable {
-             const auto EXPECTED = math::pixel_to_vector<W, H>(x, row++);
-             HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
-             HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
-             HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
+             const auto expected = math::pixel_to_vector<W, H>(x, row++);
+             HS_EXPECT_NEAR(v.x, expected.x, 1e-6f);
+             HS_EXPECT_NEAR(v.y, expected.y, 1e-6f);
+             HS_EXPECT_NEAR(v.z, expected.z, 1e-6f);
              ++shaded[x];
              return positional(v);
            };
          });
          for (int x = 0; x < W; ++x) {
-           const bool VISIBLE = !c.clip().x_clip().clipped(x);
-           HS_EXPECT_EQ(prepared[x], VISIBLE ? 1 : 0);
-           HS_EXPECT_EQ(shaded[x], VISIBLE ? H : 0);
+           const bool visible = !c.clip().x_clip().clipped(x);
+           HS_EXPECT_EQ(prepared[x], visible ? 1 : 0);
+           HS_EXPECT_EQ(shaded[x], visible ? H : 0);
          }
        }},
       {"column pixels",
        [&](Canvas &c) {
          Scan::Shader::draw_columns<W, H>(c, [&](int) {
            return [&](const math::Vector &v) {
-             const Color4 COLOR = positional(v);
-             return COLOR.color * COLOR.alpha;
+             const Color4 color = positional(v);
+             return color.color * color.alpha;
            };
          });
        }},
@@ -353,10 +353,10 @@ inline void test_shader_clip_arc_matches_predicate() {
              [&](int t, int x) {
                HS_EXPECT_EQ(t, x % (W / 2));
                return [&, x, row = 0](const math::Vector &v) mutable {
-                 const auto EXPECTED = math::pixel_to_vector<W, H>(x, row++);
-                 HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
-                 HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
-                 HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
+                 const auto expected = math::pixel_to_vector<W, H>(x, row++);
+                 HS_EXPECT_NEAR(v.x, expected.x, 1e-6f);
+                 HS_EXPECT_NEAR(v.y, expected.y, 1e-6f);
+                 HS_EXPECT_NEAR(v.z, expected.z, 1e-6f);
                  ++shaded[x];
                  return positional(v);
                };
@@ -387,7 +387,7 @@ inline void test_shader_clip_arc_matches_predicate() {
     int x0, x1, margin;
   };
   // Plain arc, wrapping margin, single column, arc ending at the seam.
-  const Band bands[] = {{8, 20, 2}, {0, 10, 3}, {3, 4, 0}, {W - 3, W, 0}};
+  const Band BANDS[] = {{8, 20, 2}, {0, 10, 3}, {3, 4, 0}, {W - 3, W, 0}};
 
   for (const auto &variant : variants) {
     HS_CONTEXT(variant.name);
@@ -400,7 +400,7 @@ inline void test_shader_clip_arc_matches_predicate() {
       painted += p.b == 30000;
     HS_EXPECT_EQ(painted, static_cast<size_t>(W * H));
 
-    for (const Band &b : bands) {
+    for (const Band &b : BANDS) {
       HS_CONTEXT("band", b.x0, b.margin);
       ClipRegion cr;
       cr.w = W;
@@ -477,8 +477,8 @@ inline void test_shader_render_x_window_matches_predicate() {
   struct Band {
     int x0, x1, margin;
   };
-  const Band bands[] = {{0, W, 0}, {8, 20, 2}, {0, 10, 3}, {W - 3, W, 0}};
-  const Spacetime::TimeWindow windows[] = {{0, HALF, true}, {0, 5, true},
+  const Band BANDS[] = {{0, W, 0}, {8, 20, 2}, {0, 10, 3}, {W - 3, W, 0}};
+  const Spacetime::TimeWindow WINDOWS[] = {{0, HALF, true}, {0, 5, true},
                                            {5, 11, true},   {11, HALF, true},
                                            {7, 7, true},    {0, 0, false}};
 
@@ -492,13 +492,13 @@ inline void test_shader_render_x_window_matches_predicate() {
     full.x_end = W;
     full.margin = 0;
     render(fragments, full, {}, reference);
-    for (const Band &b : bands) {
+    for (const Band &b : BANDS) {
       ClipRegion cr = full;
       cr.x_start = b.x0;
       cr.x_end = b.x1;
       cr.margin = b.margin;
       const ClipRegion::XClip xc = cr.x_clip();
-      for (const Spacetime::TimeWindow &window : windows) {
+      for (const Spacetime::TimeWindow &window : WINDOWS) {
         HS_CONTEXT("band", b.x0, b.margin);
         HS_CONTEXT("window", window.begin, window.end);
         auto admitted = [&](int x) {

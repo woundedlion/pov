@@ -84,10 +84,10 @@ inline void test_timed_projected_entry_bypasses_world() {
                      Filter::Screen::AntiAlias<W, H>{},
                      ProjectedTapRecorder(actual));
         PipelineRef ref(pipeline, Spacetime::Timed{});
-        const Pixel color(111, 222, 333);
+        const Pixel COLOR(111, 222, 333);
         Filter::Screen::AntiAlias<W, H> aa;
         aa.plot_at(
-            column, 45.1f, color, 9.0f, 0.7f, time,
+            column, 45.1f, COLOR, 9.0f, 0.7f, time,
             [&](float x, float y, const Pixel &c, float age, float alpha) {
               expected.push_back({x, y, c, age, alpha});
             });
@@ -96,8 +96,8 @@ inline void test_timed_projected_entry_bypasses_world() {
         const math::PixelCoords point{column, 45.1f};
         const float landed =
             erased
-                ? ref.plot_projected_at(canvas, point, color, 9.0f, 0.7f, time)
-                : pipeline.plot_projected_at(canvas, point, color, 9.0f, 0.7f,
+                ? ref.plot_projected_at(canvas, point, COLOR, 9.0f, 0.7f, time)
+                : pipeline.plot_projected_at(canvas, point, COLOR, 9.0f, 0.7f,
                                              time);
         HS_EXPECT_NEAR(landed, column, 0.0f);
         HS_EXPECT_EQ(counts.world, 0);

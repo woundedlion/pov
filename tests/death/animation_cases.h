@@ -33,9 +33,9 @@ death_construct_opleg(const Spec &spec,
  */
 inline Animation::OpLeg::PaletteHandoff death_opleg_handoff() {
   static const BakedPaletteBank bank;
-  static const uint8_t face_palette[1] = {0};
+  static const uint8_t FACE_PALETTE[1] = {0};
   return {.bank = &bank,
-          .prev_face_palette = face_palette,
+          .prev_face_palette = FACE_PALETTE,
           .prev_faces = 1,
           .prev_face_centroid = nullptr,
           .correspondence = Animation::OpLeg::FaceCorrespondence::GEOMETRIC};
@@ -262,10 +262,10 @@ inline void case_mobiuswarp_evolving_rewind() {
   static hs_test::StubEffect fx(8, 8);
   static Canvas canvas(fx);
   math::MobiusParams params;
-  const size_t START = persistent_arena.get_offset();
+  const size_t start = persistent_arena.get_offset();
   Animation::MobiusWarpEvolving warp(params);
   warp.step(canvas);
-  persistent_arena.set_offset(START);
+  persistent_arena.set_offset(start);
   warp.step(canvas);
 }
 
@@ -274,15 +274,15 @@ inline void case_mobiuswarp_evolving_move_rewind_refill() {
   static hs_test::StubEffect fx(8, 8);
   static Canvas canvas(fx);
   math::MobiusParams params;
-  const size_t START = persistent_arena.get_offset();
+  const size_t start = persistent_arena.get_offset();
   Animation::MobiusWarpEvolving source(params);
   Animation::MobiusWarpEvolving moved(std::move(source));
   Animation::MobiusWarpEvolving assigned(params);
   assigned = std::move(moved);
   assigned.step(canvas);
-  const size_t END = persistent_arena.get_offset();
-  persistent_arena.set_offset(START);
-  persistent_arena.allocate(END - START);
+  const size_t end = persistent_arena.get_offset();
+  persistent_arena.set_offset(start);
+  persistent_arena.allocate(end - start);
   assigned.step(canvas);
 }
 
@@ -292,14 +292,14 @@ inline void case_mobiuswarp_evolving_copy_rewind_refill() {
   static Canvas canvas(fx);
   math::MobiusParams params;
   Animation::MobiusWarpEvolving source(params);
-  const size_t START = persistent_arena.get_offset();
+  const size_t start = persistent_arena.get_offset();
   Animation::MobiusWarpEvolving copied(source);
   Animation::MobiusWarpEvolving assigned(params);
   assigned = copied;
   assigned.step(canvas);
-  const size_t END = persistent_arena.get_offset();
-  persistent_arena.set_offset(START);
-  persistent_arena.allocate(END - START);
+  const size_t end = persistent_arena.get_offset();
+  persistent_arena.set_offset(start);
+  persistent_arena.allocate(end - start);
   assigned.step(canvas);
 }
 
@@ -310,17 +310,17 @@ inline void case_opleg_rewind_refill() {
   PolyMesh seed;
   build_solid<Solids::Cube>(seed, seed_arena);
   static const BakedPaletteBank bank;
-  static const uint8_t palettes[6]{};
-  const Animation::OpLeg::PaletteHandoff HANDOFF{
-      .bank = &bank, .prev_face_palette = palettes, .prev_faces = 6};
+  static const uint8_t PALETTES[6]{};
+  const Animation::OpLeg::PaletteHandoff handoff{
+      .bank = &bank, .prev_face_palette = PALETTES, .prev_faces = 6};
   Animation::OpLeg leg(
       seed,
       Animation::OpLeg::GatedSwapSpec{.op = Animation::OpLeg::SwapOp::KIS,
                                       .gate_frames = 1},
-      leg_arena, death_opleg_draw, HANDOFF);
-  const size_t BYTES = leg_arena.get_offset();
+      leg_arena, death_opleg_draw, handoff);
+  const size_t bytes = leg_arena.get_offset();
   leg_arena.set_offset(0);
-  leg_arena.allocate(BYTES);
+  leg_arena.allocate(bytes);
   (void)leg.landing();
 }
 
@@ -379,17 +379,17 @@ inline void case_opleg_invalid_prepared_bridge_host() {
   PolyMesh seed;
   build_solid<Solids::Cube>(seed, seed_arena);
   OpLeg::BridgePreparation prepared;
-  const uint16_t classes[7]{};
-  prepared.topology.bind(seed_arena, std::size(classes));
-  prepared.topology.append_bulk(classes, std::size(classes));
+  const uint16_t CLASSES[7]{};
+  prepared.topology.bind(seed_arena, std::size(CLASSES));
+  prepared.topology.append_bulk(CLASSES, std::size(CLASSES));
   prepared.hosts.fill(UINT16_MAX);
 
-  const uint8_t palettes[6]{};
-  const math::Vector centroids[6]{};
+  const uint8_t PALETTES[6]{};
+  const math::Vector CENTROIDS[6]{};
   auto handoff = death_opleg_handoff();
-  handoff.prev_face_palette = palettes;
-  handoff.prev_faces = std::size(palettes);
-  handoff.prev_face_centroid = centroids;
+  handoff.prev_face_palette = PALETTES;
+  handoff.prev_faces = std::size(PALETTES);
+  handoff.prev_face_centroid = CENTROIDS;
   OpLeg leg(OpLeg::SweepSeed::borrow(seed),
             OpLeg::ParamSweepSpec{.t_end = 0.5f,
                                   .sweep_frames = 1,
@@ -495,9 +495,9 @@ inline void case_opleg_reconcile_no_endpoints() {
 
 /** @brief Death case: reconcile endpoint and seed counts must agree. */
 inline void case_opleg_reconcile_endpoint_count() {
-  const math::Vector endpoint{};
+  const math::Vector ENDPOINT{};
   death_construct_opleg(
-      Animation::OpLeg::ReconcileSpec{.to_positions = &endpoint,
+      Animation::OpLeg::ReconcileSpec{.to_positions = &ENDPOINT,
                                       .to_count = opaque<size_t>(1),
                                       .sweep_frames = opaque(1)});
 }
@@ -508,9 +508,9 @@ inline void case_opleg_reconcile_endpoint_count() {
  * init_transients palette-handoff guard.
  */
 inline void case_opleg_reconcile_incomplete_handoff() {
-  static const math::Vector endpoints[1] = {math::Vector(0, 0, 1)};
+  static const math::Vector ENDPOINTS[1] = {math::Vector(0, 0, 1)};
   death_construct_opleg(Animation::OpLeg::ReconcileSpec{
-      .to_positions = endpoints, .sweep_frames = opaque(1)});
+      .to_positions = ENDPOINTS, .sweep_frames = opaque(1)});
 }
 
 /**
@@ -539,9 +539,9 @@ inline void case_opleg_gated_swap_incomplete_handoff() {
  */
 inline void case_opleg_shading_blend_face_out_of_range() {
   static BakedPalette ramps[1];
-  static const uint8_t face_ramp[1] = {0};
+  static const uint8_t FACE_RAMP[1] = {0};
   const Animation::OpLeg::Shading shading{
-      .ramps = ramps, .face_ramp = face_ramp, .faces = opaque<size_t>(1)};
+      .ramps = ramps, .face_ramp = FACE_RAMP, .faces = opaque<size_t>(1)};
   FacePaletteShader shader;
   shading.blend_face(shader, opaque<size_t>(3));
 }
@@ -551,9 +551,9 @@ inline void case_opleg_shading_blend_face_out_of_range() {
  */
 inline void case_opleg_shading_face_out_of_range() {
   static BakedPalette ramps[1];
-  static const uint8_t face_ramp[1] = {0};
+  static const uint8_t FACE_RAMP[1] = {0};
   const Animation::OpLeg::Shading shading{
-      .ramps = ramps, .face_ramp = face_ramp, .faces = opaque<size_t>(1)};
+      .ramps = ramps, .face_ramp = FACE_RAMP, .faces = opaque<size_t>(1)};
   (void)&shading.ramp_for(opaque<size_t>(3));
 }
 

@@ -69,12 +69,12 @@ inline void paused_render_one(const char *name) {
   reset_globals();
   pin_frame_clock(0);
 
-  const int frames = PAUSED_FRAMES;
+  const int FRAMES = PAUSED_FRAMES;
   E<W, H> effect;
   effect.setAnimationsPaused(true);
   effect.init();
   HS_EXPECT_TRUE(effect.animations_paused());
-  for (int f = 0; f < frames; ++f) {
+  for (int f = 0; f < FRAMES; ++f) {
     pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
@@ -86,7 +86,7 @@ inline void paused_render_one(const char *name) {
     std::printf(
         "  PAUSED-BLANK %-20s final paused frame (of %d) has no lit pixel "
         "@ %dx%d\n",
-        name, frames, W, H);
+        name, FRAMES, W, H);
   HS_EXPECT(acc > 0, "effect must produce non-black output while paused");
 }
 

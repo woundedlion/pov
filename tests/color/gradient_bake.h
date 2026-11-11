@@ -236,9 +236,9 @@ inline void test_baked_palette_constant_alpha() {
     float alpha;
     int changed = -1;
     Color4 get(float t) const {
-      const int INDEX = static_cast<int>(t * 255.0f + 0.5f);
-      return Color4(Pixel(INDEX * 200, 1234, 5678),
-                    INDEX == changed ? 0.25f : alpha);
+      const int index = static_cast<int>(t * 255.0f + 0.5f);
+      return Color4(Pixel(index * 200, 1234, 5678),
+                    index == changed ? 0.25f : alpha);
     }
   };
   alignas(std::max_align_t)
@@ -246,20 +246,20 @@ inline void test_baked_palette_constant_alpha() {
   Arena arena(buffer, sizeof(buffer));
   BakedPaletteStorage storage;
   storage.bake(arena, Source{1.0f});
-  const BakedPalette VIEW = storage.view();
+  const BakedPalette view = storage.view();
   for (const float ALPHA : {0.0f, 0.5f, 1.0f}) {
     storage.rebake(Source{ALPHA});
-    const auto CONSTANT = VIEW.constant_alpha();
-    HS_EXPECT_TRUE(CONSTANT.has_value());
-    HS_EXPECT_NEAR(CONSTANT.value_or(-1.0f),
+    const auto constant = view.constant_alpha();
+    HS_EXPECT_TRUE(constant.has_value());
+    HS_EXPECT_NEAR(constant.value_or(-1.0f),
                    ALPHA == 0.5f ? 32768.0f / 65535.0f : ALPHA, 1e-7f);
     for (const int INDEX : {0, 127, 255}) {
       storage.rebake(Source{ALPHA, INDEX});
-      HS_EXPECT_TRUE(!VIEW.constant_alpha().has_value());
+      HS_EXPECT_TRUE(!view.constant_alpha().has_value());
     }
   }
   storage.rebake(Source{1.0f});
-  HS_EXPECT_NEAR(VIEW.constant_alpha().value_or(-1.0f), 1.0f, 0.0f);
+  HS_EXPECT_NEAR(view.constant_alpha().value_or(-1.0f), 1.0f, 0.0f);
 }
 
 /**
@@ -429,13 +429,13 @@ inline void test_baked_palette_clone_from_matches_source() {
     HS_EXPECT_NEAR(a.alpha, b.alpha, 1e-6f);
   }
 
-  const Color4 CLONED = dst.get(0.5f);
+  const Color4 cloned = dst.get(0.5f);
   SolidColorPalette replacement(Color4(Pixel(123, 456, 789), 0.25f));
   src.rebake(replacement);
   HS_EXPECT_PIXEL(src.get(0.5f).color, 123, 456, 789);
-  HS_EXPECT_PIXEL(dst.get(0.5f).color, CLONED.color.r, CLONED.color.g,
-                  CLONED.color.b);
-  HS_EXPECT_EQ(dst.get(0.5f).alpha, CLONED.alpha);
+  HS_EXPECT_PIXEL(dst.get(0.5f).color, cloned.color.r, cloned.color.g,
+                  cloned.color.b);
+  HS_EXPECT_EQ(dst.get(0.5f).alpha, cloned.alpha);
 }
 
 /**
@@ -597,9 +597,9 @@ inline void test_palette_wipe_arm_step_cadence() {
   const GenerativePalette palette;
   GenerativePalette target;
   target.set_constant_chroma(0.0f);
-  const auto START = palette.snapshot();
-  const auto TARGET = target.snapshot();
-  HS_EXPECT_NE(std::memcmp(&START, &TARGET, sizeof(START)), 0);
+  const auto start = palette.snapshot();
+  const auto target_value = target.snapshot();
+  HS_EXPECT_NE(std::memcmp(&start, &target_value, sizeof(start)), 0);
   SolidColorPalette initial(Color4(Pixel(1000, 2000, 3000), 1.0f));
   SolidColorPalette source(Color4(Pixel(4000, 5000, 6000), 1.0f));
   SolidColorPalette after(Color4(Pixel(7000, 8000, 9000), 1.0f));
@@ -615,9 +615,10 @@ inline void test_palette_wipe_arm_step_cadence() {
   HS_EXPECT_FALSE(wipe.pending);
 
   constexpr int FRAMES = 3;
-  wipe.arm(palette, TARGET, FRAMES);
-  HS_EXPECT_EQ(std::memcmp(&wipe.start, &START, sizeof(START)), 0);
-  HS_EXPECT_EQ(std::memcmp(&wipe.target, &TARGET, sizeof(TARGET)), 0);
+  wipe.arm(palette, target_value, FRAMES);
+  HS_EXPECT_EQ(std::memcmp(&wipe.start, &start, sizeof(start)), 0);
+  HS_EXPECT_EQ(std::memcmp(&wipe.target, &target_value, sizeof(target_value)),
+               0);
   HS_EXPECT_TRUE(wipe.pending);
   HS_EXPECT_TRUE(wipe.in_flight());
   HS_EXPECT_EQ(wipe.frames_remaining, FRAMES);

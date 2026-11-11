@@ -40,24 +40,24 @@ inline void test_shader_chain_palette_selection() {
   }
   params.palette_type = static_cast<uint8_t>(Type::PROCEDURAL);
 #define HS_TEST_NAMED_PALETTE(name, A, B, C, D) &Palettes::name,
-  const Palette *SOURCES[] = {
+  const Palette *sources[] = {
       HS_PROCEDURAL_PALETTE_LIST(HS_TEST_NAMED_PALETTE)};
 #undef HS_TEST_NAMED_PALETTE
-  HS_EXPECT_EQ(std::size(SOURCES), std::size(In::Op::PALETTE_NAME_IDS));
-  for (uint8_t index = 0; index < std::size(SOURCES); ++index) {
+  HS_EXPECT_EQ(std::size(sources), std::size(In::Op::PALETTE_NAME_IDS));
+  for (uint8_t index = 0; index < std::size(sources); ++index) {
     params.palette_name = index;
     const auto named_ctx = WB::frame_context(effect);
     WB::program(effect).prepare(named_ctx);
     HS_EXPECT_EQ(
         run_entry<Color4>(WB::program(effect), named_ctx, 3, SAMPLE).color,
-        SOURCES[index]->get(COORDINATE).color);
+        sources[index]->get(COORDINATE).color);
   }
   params.palette_name = 0;
   auto ctx = WB::frame_context(effect);
   HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color,
                Palettes::DARK_RAINBOW.get(COORDINATE).color);
   params.palette_type = static_cast<uint8_t>(Type::MUTATING);
-  params.palette_name_b = static_cast<uint8_t>(std::size(SOURCES) - 1);
+  params.palette_name_b = static_cast<uint8_t>(std::size(sources) - 1);
   params.palette_mutation = .5f;
   ctx = WB::frame_context(effect);
   using Coefficients = std::array<std::array<float, 3>, 4>;
@@ -65,7 +65,7 @@ inline void test_shader_chain_palette_selection() {
 #define HS_TEST_COEFFICIENTS(name, A, B, C, D)                                 \
   Coefficients{HS_TEST_TRIPLE A, HS_TEST_TRIPLE B, HS_TEST_TRIPLE C,           \
                HS_TEST_TRIPLE D},
-  const Coefficients COEFFICIENTS[] = {
+  const Coefficients coefficients[] = {
       HS_PROCEDURAL_PALETTE_LIST(HS_TEST_COEFFICIENTS)};
 #undef HS_TEST_COEFFICIENTS
 #undef HS_TEST_TRIPLE
@@ -73,16 +73,16 @@ inline void test_shader_chain_palette_selection() {
   for (size_t term = 0; term < 4; ++term)
     for (size_t channel = 0; channel < 3; ++channel)
       mixed[term][channel] =
-          .5f * (COEFFICIENTS[params.palette_name][term][channel] +
-                 COEFFICIENTS[params.palette_name_b][term][channel]);
-  const ProceduralPalette MIXED(mixed[0], mixed[1], mixed[2], mixed[3]);
+          .5f * (coefficients[params.palette_name][term][channel] +
+                 coefficients[params.palette_name_b][term][channel]);
+  const ProceduralPalette mixed_value(mixed[0], mixed[1], mixed[2], mixed[3]);
   HS_EXPECT_LE(max_channel_gap(ctx.palettes[0]->get(COORDINATE).color,
-                               MIXED.get(COORDINATE).color),
+                               mixed_value.get(COORDINATE).color),
                2);
   params.palette_mutation = 1;
   ctx = WB::frame_context(effect);
   HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color,
-               SOURCES[params.palette_name_b]->get(COORDINATE).color);
+               sources[params.palette_name_b]->get(COORDINATE).color);
   params.palette_type = static_cast<uint8_t>(Type::GRADIENT);
   params.gradient_start_r = .2f;
   params.gradient_start_g = .4f;
@@ -99,21 +99,21 @@ inline void test_shader_chain_palette_selection() {
   ctx = WB::frame_context(effect);
   HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color,
                GRADIENT.get(COORDINATE).color);
-  const Pixel COLOR = ctx.palettes[0]->get(COORDINATE).color;
+  const Pixel color = ctx.palettes[0]->get(COORDINATE).color;
   params.palette_type = static_cast<uint8_t>(Type::CYCLING_GENERATED);
   ctx = WB::frame_context(effect);
-  HS_EXPECT_NE(ctx.palettes[0]->get(COORDINATE).color, COLOR);
+  HS_EXPECT_NE(ctx.palettes[0]->get(COORDINATE).color, color);
   params.palette_type = static_cast<uint8_t>(Type::GRADIENT);
   ctx = WB::frame_context(effect);
-  HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color, COLOR);
+  HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color, color);
   const ChainSnapshot saved = effect.snapshot();
   params.palette_chroma = .05f;
   ctx = WB::frame_context(effect);
-  HS_EXPECT_NE(ctx.palettes[0]->get(COORDINATE).color, COLOR);
+  HS_EXPECT_NE(ctx.palettes[0]->get(COORDINATE).color, color);
   HS_EXPECT_EQ(effect.restore_snapshot(saved),
                ChainSnapshotRestoreResult::APPLIED);
   ctx = WB::frame_context(effect);
-  HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color, COLOR);
+  HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color, color);
   HS_EXPECT_EQ(WB::color_params(effect).palette_type,
                static_cast<uint8_t>(Type::GRADIENT));
 }
@@ -129,13 +129,13 @@ inline void test_shader_chain_authored_palette_history() {
   pin_frame_clock(0);
   effect.draw_frame();
   effect.advance_display();
-  const Pixel BEFORE =
+  const Pixel before =
       WB::previous_context(effect).palettes[0]->get(.37f).color;
   params.palette_hue = .5f;
   const auto ctx = WB::frame_context(effect);
-  HS_EXPECT_NE(ctx.palettes[0]->get(.37f).color, BEFORE);
+  HS_EXPECT_NE(ctx.palettes[0]->get(.37f).color, before);
   HS_EXPECT_EQ(WB::previous_context(effect).palettes[0]->get(.37f).color,
-               BEFORE);
+               before);
   WB::program(effect).prepare_column(ctx, WB::previous_context(effect), .5f);
   const auto &prepared =
       prepared_as<PB::Color::GeneratedPaletteState>(WB::program(effect), 3);

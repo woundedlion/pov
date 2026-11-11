@@ -30,21 +30,21 @@ struct GSWhiteBox {
     using Grid = Scan::Shader::SsaaGrid<Width, Height>;
     math::PhiLUT<Height>::init();
     math::TrigLUT<Width, Height>::init();
-    const float LIMIT = GS::template render_support_limit<Grid>();
-    if (LIMIT <= 0.0f)
+    const float limit = GS::template render_support_limit<Grid>();
+    if (limit <= 0.0f)
       return 0.0f;
     Grid grid;
     float minimum = 1.0f;
     for (int y = 0; y < Height; ++y) {
       grid.set_row(y);
       for (int x = 0; x < Width; x += Width / 8) {
-        const math::Vector CENTER = math::pixel_to_vector<Width, Height>(x, y);
+        const math::Vector center = math::pixel_to_vector<Width, Height>(x, y);
         for (int sample = 0; sample < Grid::SAMPLES; ++sample) {
-          const float MAX_DISTANCE =
-              LIMIT + (grid.at(x, sample) - CENTER).length();
-          const float U =
-              fmaxf(0.0f, 1.0f - MAX_DISTANCE * MAX_DISTANCE * GS::INV_R2);
-          minimum = std::min(minimum, U * U);
+          const float max_distance =
+              limit + (grid.at(x, sample) - center).length();
+          const float u =
+              fmaxf(0.0f, 1.0f - max_distance * max_distance * GS::INV_R2);
+          minimum = std::min(minimum, u * u);
         }
       }
     }
@@ -68,10 +68,10 @@ struct GSWhiteBox {
     float position =
         hs::clamp((noise + 1.0f) * (0.5f * (GS::COLOR_NOISE_STEPS - 1)), 0.0f,
                   static_cast<float>(GS::COLOR_NOISE_STEPS - 1));
-    const auto SELECTION = gs.shimmer_cache.selection(position);
-    return {SELECTION.row,
-            static_cast<uint16_t>((position - SELECTION.row) * 65535.0f), noise,
-            SELECTION.exact};
+    const auto selection = gs.shimmer_cache.selection(position);
+    return {selection.row,
+            static_cast<uint16_t>((position - selection.row) * 65535.0f), noise,
+            selection.exact};
   }
 
   static ColorValueSample color_value_sample(float t) {
@@ -84,18 +84,18 @@ struct GSWhiteBox {
   /** @brief Bilinear read of the cached palette rows, or the exact color. */
   static Pixel cached_palette_color(const GS &gs, int seed, float t,
                                     float noise) {
-    const ColorValueSample VALUE = color_value_sample(t);
-    const ColorNoiseSample NOISE = color_noise_sample(gs, noise);
-    if (NOISE.exact)
+    const ColorValueSample value = color_value_sample(t);
+    const ColorNoiseSample noise_value = color_noise_sample(gs, noise);
+    if (noise_value.exact)
       return gs.modified_palette_color(
-          seed, VALUE.value, NOISE.value * gs.params.hue_shift,
-          fmaxf(NOISE.value, 0.0f) * gs.params.shimmer);
+          seed, value.value, noise_value.value * gs.params.hue_shift,
+          fmaxf(noise_value.value, 0.0f) * gs.params.shimmer);
     const typename GS::FloatRgb *row =
-        gs.shimmer_cache.row(seed, NOISE.row) + VALUE.column;
-    Pixel first = row[0].pixel().lerp16(row[1].pixel(), VALUE.weight);
+        gs.shimmer_cache.row(seed, noise_value.row) + value.column;
+    Pixel first = row[0].pixel().lerp16(row[1].pixel(), value.weight);
     Pixel second = row[GS::COLOR_VALUE_STEPS].pixel().lerp16(
-        row[GS::COLOR_VALUE_STEPS + 1].pixel(), VALUE.weight);
-    return first.lerp16(second, NOISE.weight);
+        row[GS::COLOR_VALUE_STEPS + 1].pixel(), value.weight);
+    return first.lerp16(second, noise_value.weight);
   }
 
   using Pigment = typename GS::Pigment;
@@ -110,12 +110,12 @@ struct GSWhiteBox {
   /** @brief Blends a packed pigment's two palettes by its first-mass weight. */
   template <typename Sample>
   static Pixel mix_pigment(uint16_t pigment, Sample &&sample) {
-    const auto PIGMENT = Pigment::unpack(pigment);
-    Pixel first = sample(PIGMENT.first);
-    if (PIGMENT.mass == Pigment::FULL_MASS)
+    const auto pigment_value = Pigment::unpack(pigment);
+    Pixel first = sample(pigment_value.first);
+    if (pigment_value.mass == Pigment::FULL_MASS)
       return first;
-    Pixel second = sample(PIGMENT.second);
-    return second.lerp16(first, first_weight16(PIGMENT.mass));
+    Pixel second = sample(pigment_value.second);
+    return second.lerp16(first, first_weight16(pigment_value.mass));
   }
 
   /** @brief Jacobi reference substep for the in-place physics. */
@@ -159,9 +159,9 @@ struct GSWhiteBox {
       std::vector<math::Vector> world(N);
       for (int i = 0; i < N; ++i)
         world[i] = m.apply(gs.nodes[i]);
-      const auto BITS1 = pack_hot_flags(hot1), BITS2 = pack_hot_flags(hot2);
-      gs.draw_lattice(canvas, world.data(), gs.hot_bits(BITS1.data()),
-                      gs.hot_bits(BITS2.data()));
+      const auto bits1 = pack_hot_flags(hot1), bits2 = pack_hot_flags(hot2);
+      gs.draw_lattice(canvas, world.data(), gs.hot_bits(bits1.data()),
+                      gs.hot_bits(bits2.data()));
     }
     gs.advance_display();
   }
@@ -266,9 +266,9 @@ struct GSWhiteBox {
         gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
                           GS::to_q16(GS::B_CULL_THRESHOLD));
         auto lattice = gs.orient_lattice();
-        const auto BITS1 = pack_hot_flags(hot1), BITS2 = pack_hot_flags(hot2);
-        gs.draw_lattice(canvas, lattice.get(), gs.hot_bits(BITS1.data()),
-                        gs.hot_bits(BITS2.data()));
+        const auto bits1 = pack_hot_flags(hot1), bits2 = pack_hot_flags(hot2);
+        gs.draw_lattice(canvas, lattice.get(), gs.hot_bits(bits1.data()),
+                        gs.hot_bits(bits2.data()));
       }
     }
     gs.advance_display();
@@ -366,10 +366,10 @@ struct GSWhiteBox {
     gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
                       TestGS::to_q16(TestGS::B_CULL_THRESHOLD));
     std::vector<Pixel> expected(Width * Height);
-    const int CLIPS[][4] = {{0, Height, 0, Width},
+    const int clips[][4] = {{0, Height, 0, Width},
                             {Height / 4, Height / 2, Width / 4, Width / 2},
                             {0, Height, 0, Width / 8}};
-    for (const auto &clip : CLIPS) {
+    for (const auto &clip : clips) {
       gs.set_clip(clip[0], clip[1], clip[2], clip[3]);
       gs.set_margin(3);
       {
@@ -381,8 +381,8 @@ struct GSWhiteBox {
         };
         clear();
         auto pixel = [&](Fragment &frag, const auto &grid, int x) {
-          const int SEED = static_cast<int>(frag.v0);
-          return hot2[SEED] ? gs.shade_pixel(SEED, frag.pos, lattice.get(),
+          const int seed = static_cast<int>(frag.v0);
+          return hot2[seed] ? gs.shade_pixel(seed, frag.pos, lattice.get(),
                                              grid, x, hot1.data())
                             : Pixel(0, 0, 0);
         };
@@ -395,9 +395,9 @@ struct GSWhiteBox {
           }
         fewest_lit = std::min(fewest_lit, lit);
         clear();
-        const auto BITS1 = pack_hot_flags(hot1), BITS2 = pack_hot_flags(hot2);
-        gs.draw_lattice(canvas, lattice.get(), gs.hot_bits(BITS1.data()),
-                        gs.hot_bits(BITS2.data()));
+        const auto bits1 = pack_hot_flags(hot1), bits2 = pack_hot_flags(hot2);
+        gs.draw_lattice(canvas, lattice.get(), gs.hot_bits(bits1.data()),
+                        gs.hot_bits(bits2.data()));
         for (int y = 0; y < Height; ++y)
           for (int x = 0; x < Width; ++x) {
             HS_CONTEXT("px", x, y);
@@ -410,16 +410,16 @@ struct GSWhiteBox {
     return fewest_lit;
   }
   static void check_staged_reseed(GS &gs) {
-    const auto INITIAL_RNG = hs::random();
+    const auto initial_rng = hs::random();
     gs.start_reaction();
-    const std::vector<uint16_t> EXPECTED_A(gs.state.A, gs.state.A + N);
-    const std::vector<uint16_t> EXPECTED_B(gs.state.B, gs.state.B + N);
-    const std::vector<uint16_t> EXPECTED_PIGMENT(gs.state.pigment,
+    const std::vector<uint16_t> expected_a(gs.state.A, gs.state.A + N);
+    const std::vector<uint16_t> expected_b(gs.state.B, gs.state.B + N);
+    const std::vector<uint16_t> expected_pigment(gs.state.pigment,
                                                  gs.state.pigment + N);
-    const std::vector<Pixel> EXPECTED_PALETTES(
+    const std::vector<Pixel> expected_palettes(
         gs.palettes, gs.palettes + GS::NUM_SEED_CLUSTERS * GS::PALETTE_SIZE);
-    const uint32_t EXPECTED_NEXT_RANDOM = hs::random()();
-    hs::random() = INITIAL_RNG;
+    const uint32_t expected_next_random = hs::random()();
+    hs::random() = initial_rng;
     gs.transition.dissolve_frames = GS::DISSOLVE_FRAMES - 1;
     {
       Canvas canvas(gs);
@@ -438,14 +438,14 @@ struct GSWhiteBox {
     gs.advance_display();
     HS_EXPECT_EQ(gs.transition.next_seed, GS::NUM_SEED_CLUSTERS);
     HS_EXPECT_EQ(gs.transition.grow_frames, 0);
-    HS_EXPECT_EQ(hs::random()(), EXPECTED_NEXT_RANDOM);
+    HS_EXPECT_EQ(hs::random()(), expected_next_random);
     for (int i = 0; i < N; ++i) {
-      HS_EXPECT_EQ(gs.state.A[i], EXPECTED_A[i]);
-      HS_EXPECT_EQ(gs.state.B[i], EXPECTED_B[i]);
-      HS_EXPECT_EQ(gs.state.pigment[i], EXPECTED_PIGMENT[i]);
+      HS_EXPECT_EQ(gs.state.A[i], expected_a[i]);
+      HS_EXPECT_EQ(gs.state.B[i], expected_b[i]);
+      HS_EXPECT_EQ(gs.state.pigment[i], expected_pigment[i]);
     }
     for (int i = 0; i < GS::NUM_SEED_CLUSTERS * GS::PALETTE_SIZE; ++i)
-      HS_EXPECT_EQ(gs.palettes[i], EXPECTED_PALETTES[i]);
+      HS_EXPECT_EQ(gs.palettes[i], expected_palettes[i]);
     const bool lit = count_lit_region<SMALL_W, SMALL_H>(gs) > 0;
     HS_EXPECT_EQ(lit, true);
     gs.draw_frame();
@@ -485,9 +485,9 @@ struct GSWhiteBox {
   static Pixel wrapped_palette(const GS &gs, int seed, float t, float shift,
                                float lightness) {
     typename GS::SeedPalette source{gs.palettes + seed * GS::PALETTE_SIZE};
-    const auto SHIFTED =
+    const auto shifted =
         ColorModulation::HueRotation::apply(source.get(t), shift, {1.0f});
-    return ColorModulation::PositiveLightnessLift::apply(SHIFTED, lightness,
+    return ColorModulation::PositiveLightnessLift::apply(shifted, lightness,
                                                          {1.0f})
         .color;
   }
@@ -544,19 +544,19 @@ struct GSWhiteBox {
   template <int STEPS = 1>
   static void pigment_reference(const GS &gs, const float *a, const float *b,
                                 uint16_t *next) {
-    const float DT = gs.params.dt * GS::STEP_DT_SCALE;
-    const float DIFFUSION = gs.params.d_b * DT;
+    const float dt = gs.params.dt * GS::STEP_DT_SCALE;
+    const float diffusion_value = gs.params.d_b * dt;
     for (int i = 0; i < N; ++i) {
       float weights[SEEDS] = {};
       float retained =
-          fmaxf(0.0f, b[i] * (1.0f - GS::RD_K * DIFFUSION -
-                              (gs.params.k + gs.params.feed) * DT) +
-                          a[i] * b[i] * b[i] * DT);
-      float diffusion = DIFFUSION;
+          fmaxf(0.0f, b[i] * (1.0f - GS::RD_K * diffusion_value -
+                              (gs.params.k + gs.params.feed) * dt) +
+                          a[i] * b[i] * b[i] * dt);
+      float diffusion = diffusion_value;
       if constexpr (STEPS > 1) {
         float incoming = 0.0f;
         for (int nb : ReactionGraph::neighbors[i])
-          incoming += b[nb] * DIFFUSION;
+          incoming += b[nb] * diffusion_value;
         float total = retained + incoming;
         float r = total > 0.0f ? retained / total : 0.0f;
         float power = 1.0f, scale = 1.0f;
@@ -697,21 +697,21 @@ struct GSWhiteBox {
         Fragment frag;
         frag.pos = math::pixel_to_vector<W, H>(x, y);
         gs.seed_face_lut(frag);
-        const int SEED = static_cast<int>(frag.v0);
-        const Pixel GOT =
-            gs.shade_pixel(SEED, frag.pos, lattice.get(), grid, x);
-        const Pixel EXPECTED =
-            gs.shade_pixel_full(SEED, frag.pos, lattice.get(), grid, x);
-        const int DR = channel_gap(GOT.r, EXPECTED.r);
-        const int DG = channel_gap(GOT.g, EXPECTED.g);
-        const int DB = channel_gap(GOT.b, EXPECTED.b);
-        const bool GOT_LIT = !is_black(GOT);
-        const bool EXPECTED_LIT = !is_black(EXPECTED);
-        error.coverage += GOT_LIT != EXPECTED_LIT;
-        error.lit += GOT_LIT || EXPECTED_LIT;
+        const int seed = static_cast<int>(frag.v0);
+        const Pixel got =
+            gs.shade_pixel(seed, frag.pos, lattice.get(), grid, x);
+        const Pixel expected =
+            gs.shade_pixel_full(seed, frag.pos, lattice.get(), grid, x);
+        const int dr = channel_gap(got.r, expected.r);
+        const int dg = channel_gap(got.g, expected.g);
+        const int db = channel_gap(got.b, expected.b);
+        const bool got_lit = !is_black(got);
+        const bool expected_lit = !is_black(expected);
+        error.coverage += got_lit != expected_lit;
+        error.lit += got_lit || expected_lit;
         error.max_channel =
-            std::max(error.max_channel, std::max(DR, std::max(DG, DB)));
-        error.total_channel += DR + DG + DB;
+            std::max(error.max_channel, std::max(dr, std::max(dg, db)));
+        error.total_channel += dr + dg + db;
       }
     }
     return error;
@@ -790,22 +790,22 @@ struct GSWhiteBox {
     double total_mass = 0.0, concentration = 0.0;
     int covered = 0;
     for (int i = 0; i < Grid::SAMPLES; ++i) {
-      const math::Vector SAMPLE = grid.at(x, i);
+      const math::Vector sample = grid.at(x, i);
       int center = options.fixed_stencil
                        ? shared_center
-                       : gs.refine_center(SAMPLE, world_nodes, seed);
+                       : gs.refine_center(sample, world_nodes, seed);
       ++error.stencil_samples;
       error.stencil_changes += center != shared_center;
       float tw = 0.0f, wb = 0.0f;
-      gs.kernel_accumulate(SAMPLE, world_nodes, center, [&](int node, float w) {
-        const float MASS = gs.state.B[node] * w;
+      gs.kernel_accumulate(sample, world_nodes, center, [&](int node, float w) {
+        const float mass = gs.state.B[node] * w;
         tw += w;
-        wb += MASS;
-        const auto PIGMENT = Pigment::unpack(gs.state.pigment[node]);
-        const double FIRST_FRACTION = first_weight16(PIGMENT.mass) / 65535.0;
-        palette_mass[PIGMENT.first] += MASS * FIRST_FRACTION;
-        palette_mass[PIGMENT.second] += MASS * (1.0 - FIRST_FRACTION);
-        total_mass += MASS;
+        wb += mass;
+        const auto pigment = Pigment::unpack(gs.state.pigment[node]);
+        const double first_fraction = first_weight16(pigment.mass) / 65535.0;
+        palette_mass[pigment.first] += mass * first_fraction;
+        palette_mass[pigment.second] += mass * (1.0 - first_fraction);
+        total_mass += mass;
       });
       float b =
           tw <= GS::KERNEL_MIN_TOTAL_WEIGHT ? 0.0f : wb * (GS::Q16_INV / tw);
@@ -817,10 +817,10 @@ struct GSWhiteBox {
     }
     if (options.center_pigment) {
       std::fill(std::begin(palette_mass), std::end(palette_mass), 0.0);
-      const auto PIGMENT = Pigment::unpack(gs.state.pigment[shared_center]);
-      const double FIRST_FRACTION = first_weight16(PIGMENT.mass) / 65535.0;
-      palette_mass[PIGMENT.first] += FIRST_FRACTION;
-      palette_mass[PIGMENT.second] += 1.0 - FIRST_FRACTION;
+      const auto pigment = Pigment::unpack(gs.state.pigment[shared_center]);
+      const double first_fraction = first_weight16(pigment.mass) / 65535.0;
+      palette_mass[pigment.first] += first_fraction;
+      palette_mass[pigment.second] += 1.0 - first_fraction;
       total_mass = 1.0;
     }
     if (covered && total_mass > 0.0) {
@@ -831,11 +831,11 @@ struct GSWhiteBox {
             options.direct_color
                 ? gs.modified_palette_color(palette, t, shift, lightness)
                 : cached_palette_color(gs, palette, t, noise);
-        const double WEIGHT =
+        const double weight =
             palette_mass[palette] * covered / (Grid::SAMPLES * total_mass);
-        rgb[0] += color.r * WEIGHT;
-        rgb[1] += color.g * WEIGHT;
-        rgb[2] += color.b * WEIGHT;
+        rgb[0] += color.r * weight;
+        rgb[1] += color.g * weight;
+        rgb[2] += color.b * weight;
       }
       expected =
           Pixel(round_linear_channel(rgb[0]), round_linear_channel(rgb[1]),

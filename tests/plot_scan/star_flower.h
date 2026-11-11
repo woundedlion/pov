@@ -17,15 +17,15 @@
 inline void test_star_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());
   Fragments points;
-  const int sides = 5;
-  points.bind(plot_arena(), sides * 2 + 2);
+  const int SIDES = 5;
+  points.bind(plot_arena(), SIDES * 2 + 2);
 
   math::Basis b = math::make_basis(
       math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
-  Plot::Star<Plot::PlanarProjection>::sample(points, b, 0.5f, sides, 0.0f);
+  Plot::Star<Plot::PlanarProjection>::sample(points, b, 0.5f, SIDES, 0.0f);
 
   // 2*sides vertices + 1 close fragment.
-  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(SIDES * 2 + 1));
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
@@ -40,7 +40,7 @@ inline void test_star_sample_unit_length_closed() {
       math::angle_between(points[1].pos, axis); // odd index  -> inner
   HS_EXPECT_GT(outer, inner + 1e-3f);
   HS_EXPECT_NEAR(inner / outer, Plot::STAR_INNER_RATIO, 1e-2f);
-  for (int i = 0; i < sides * 2; ++i) {
+  for (int i = 0; i < SIDES * 2; ++i) {
     const float colat = math::angle_between(points[i].pos, axis);
     HS_EXPECT_NEAR(colat, (i % 2 == 0) ? outer : inner, 1e-3f);
   }
@@ -210,10 +210,10 @@ inline void test_star_continuous_collapses_at_antipode() {
       math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
   Fragments points;
   points.bind(plot_arena(), 16);
-  const int sides = 7;
+  const int SIDES = 7;
   Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
-      points, basis, 2.0f, sides, 0.37f);
-  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
+      points, basis, 2.0f, SIDES, 0.37f);
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(SIDES * 2 + 1));
   for (const Fragment &point : points)
     HS_EXPECT_LT(math::angle_between(point.pos, -basis.v), 0.001f);
 }
@@ -226,14 +226,14 @@ inline void test_star_continuous_collapses_at_antipode() {
 inline void test_flower_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());
   Fragments points;
-  const int sides = 6;
-  points.bind(plot_arena(), sides * 2 + 2);
+  const int SIDES = 6;
+  points.bind(plot_arena(), SIDES * 2 + 2);
 
   math::Basis b = math::make_basis(
       math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
-  Plot::Flower::sample(points, b, 0.5f, sides, 0.0f);
+  Plot::Flower::sample(points, b, 0.5f, SIDES, 0.0f);
 
-  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(SIDES * 2 + 1));
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
@@ -242,7 +242,7 @@ inline void test_flower_sample_unit_length_closed() {
   // Constant colatitude about the center axis.
   const math::Vector axis = math::get_antipode(b, 0.5f).first.v;
   const float colat0 = math::angle_between(points[0].pos, axis);
-  for (int i = 0; i < sides * 2; ++i) {
+  for (int i = 0; i < SIDES * 2; ++i) {
     const float colat = math::angle_between(points[i].pos, axis);
     HS_EXPECT_NEAR(colat, colat0, 1e-3f);
   }

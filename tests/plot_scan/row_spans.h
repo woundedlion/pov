@@ -132,14 +132,14 @@ inline void test_cap_may_touch_clip_is_conservative() {
   constexpr int W = 288, H = 144;
   hs::random().seed(0xCA9C);
 
-  const int clips[][5] = {
+  const int CLIPS[][5] = {
       {0, H / 2, 0, W / 2, 0},  {0, H / 2, W / 2, W, 2},
       {H / 2, H, 0, W / 2, 0},  {H / 2, H, W / 2, W, 1},
       {20, H - 20, 40, 200, 0}, {0, H, 0, W, 0},
   };
 
   int rejects = 0, reaches = 0;
-  for (const auto &bounds : clips) {
+  for (const auto &bounds : CLIPS) {
     ClipRegion cr;
     cr.w = W;
     cr.h = H;
@@ -227,9 +227,9 @@ template <int CHUNKS> inline void check_chunk_spans(int lut_n, uint32_t mask) {
  *        routes each chunk by its mask bit.
  */
 inline void test_for_each_chunk_span_tiles_columns() {
-  const uint32_t masks[] = {0u, 0xFFFFFFFFu, 0x5u, 0xA5A5A5A5u, 0x80000001u};
+  const uint32_t MASKS[] = {0u, 0xFFFFFFFFu, 0x5u, 0xA5A5A5A5u, 0x80000001u};
   for (int lut_n : {0, 1, 5, 16, 17, 31, 32, 33, 100, 288}) {
-    for (uint32_t mask : masks) {
+    for (uint32_t mask : MASKS) {
       check_chunk_spans<1>(lut_n, mask & 1u);
       check_chunk_spans<16>(lut_n, mask & 0xFFFFu);
       check_chunk_spans<32>(lut_n, mask);

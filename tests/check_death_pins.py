@@ -121,6 +121,21 @@ def guard_matches(guard, pin):
     return re.match("".join(pieces), pin) is not None
 
 
+GUARD_RENAME_PINS = (
+    ('core/animation/opleg.h', '(vertex < V) OpLeg: dual face index out of range', '(vertex < v) OpLeg: dual face index out of range'),
+    ('core/animation/opleg.h', '(out == V) OpLeg: dual corners incomplete', '(out == v) OpLeg: dual corners incomplete'),
+    ('core/mesh/conway.h', '(static_cast<size_t>(faces[offset + k]) < V) kis: face vertex index out of range', '(static_cast<size_t>(faces[offset + k]) < v) kis: face vertex index out of range'),
+    ('core/mesh/conway.h', '(V <= UINT16_MAX) reconcile_vertices: endpoint exceeds index capacity', '(v <= UINT16_MAX) reconcile_vertices: endpoint exceeds index capacity'),
+    ('core/mesh/hankin.h', '((I / 2) + I <= MeshLimits::MAX_VERTICES) Hankin output vertex count exceeds int16_t index range (oversized source mesh?)', '((i_value / 2) + i_value <= MeshLimits::MAX_VERTICES) Hankin output vertex count exceeds int16_t index range (oversized source mesh?)'),
+    ('core/mesh/hankin.h', '(count + 2 <= (int)(2 * I)) Hankin rosette winding overflow', '(count + 2 <= (int)(2 * i_value)) Hankin rosette winding overflow'),
+    ('core/render/sdf/face_class_bake.h', '(mesh.get_topology_size() == F) build_mesh_class_bake requires classify_faces_by_topology first', '(mesh.get_topology_size() == f_value) build_mesh_class_bake requires classify_faces_by_topology first'),
+    ('core/render/sdf/face_class_bake.h', '(mesh.get_face_offsets_size() == F) build_mesh_class_bake requires one face offset per face', '(mesh.get_face_offsets_size() == f_value) build_mesh_class_bake requires one face offset per face'),
+    ('core/render/sdf/face_class_bake.h', '(static_cast<size_t>(idx[k]) < V) mesh face vertex index out of range', '(static_cast<size_t>(idx[k]) < v_value) mesh face vertex index out of range'),
+    ('targets/wasm/engine_bindings.h', '(setEffect(NAME) == EffectSetResult::INSTALLED) Geometry rebuild must reinstall the current effect', '(setEffect(name) == EffectSetResult::INSTALLED) Geometry rebuild must reinstall the current effect'),
+    ('targets/wasm/engine_bindings.h', '(current_effect->synchronizePreset(PRESET)) Geometry rebuild must restore the selected preset', '(current_effect->synchronizePreset(preset)) Geometry rebuild must restore the selected preset'),
+)
+
+
 SOURCE_SUFFIXES = (".h", ".cpp", ".ino")
 WAIVER = re.compile(r"//[ \t]*no death case:[ \t]*\S")
 
@@ -159,6 +174,42 @@ def waived(text, offset):
     return WAIVER.search(text[above:end if end >= 0 else len(text)]) is not None
 
 
+def renamed_guards(before, after, file):
+    """Match explicit identifier-only census pins at unchanged guard positions."""
+    old_guards = list(guard_texts(before))
+    new_guards = list(guard_texts(after))
+    if len(old_guards) != len(new_guards):
+        return set()
+    aliases = {(compact(old), compact(new)) for path, old, new in GUARD_RENAME_PINS if path == file}
+    matched = set()
+    token = re.compile(STRING + "|" + CHAR + r"|(?:0[xX][0-9a-fA-F]+|[0-9]+)(?:\.[0-9]*)?(?:[eEpP][+-]?[0-9]+)?[uUlLfF]*|[A-Za-z_][A-Za-z_0-9]*|[^\s]")
+    identifier = re.compile(r"[A-Za-z_][A-Za-z_0-9]*")
+    for old, new in zip(old_guards, new_guards):
+        if (compact(old), compact(new)) not in aliases:
+            continue
+        def parts(guard):
+            depth = 0
+            for match in TOKEN.finditer(guard):
+                if match[0] == "(":
+                    depth += 1
+                elif match[0] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        return token.findall(guard[:match.end()]), guard[match.end():]
+            return [], guard
+        old_tokens, old_message = parts(old)
+        new_tokens, new_message = parts(new)
+        if old_message != new_message or len(old_tokens) != len(new_tokens):
+            continue
+        changes = [(a, b) for a, b in zip(old_tokens, new_tokens) if a != b]
+        mapping = dict(changes)
+        if (changes and all(identifier.fullmatch(a) and identifier.fullmatch(b) for a, b in changes)
+                and len(set(mapping.values())) == len(mapping)
+                and [mapping.get(a, a) for a in old_tokens] == new_tokens):
+            matched.add(compact(new))
+    return matched
+
+
 def new_guards(repo, base, tip):
     """List "path:line: guard" for each guard tip adds over base that no case pins."""
     directories = blobs(repo, tip, ["tests/guard_directories.txt"])[
@@ -171,14 +222,16 @@ def new_guards(repo, base, tip):
     bearing = [hit.split(":", 1)[1] for hit in git(
         repo, "grep", "-l", "-E", r"HS_(AUDIT_)?CHECK|check_fail", base, "--",
         *directories).splitlines()]
+    base_sources = blobs(repo, base, [p for p in bearing if p.endswith(SOURCE_SUFFIXES)])
     existing = {compact(guard)
-                for text in blobs(repo, base, [p for p in bearing if p.endswith(SOURCE_SUFFIXES)]).values()
+                for text in base_sources.values()
                 for guard in guard_texts(text)}
     case_pins = pins(blobs(repo, tip, ["tests/test_death.h"])["tests/test_death.h"])
     missing = []
     for path, text in blobs(repo, tip, changed).items():
+        renames = renamed_guards(base_sources.get(path, ""), text, path)
         for offset, guard in guard_sites(text):
-            if text.startswith("HS_AUDIT_CHECK", offset) or compact(guard) in existing or waived(text, offset):
+            if text.startswith("HS_AUDIT_CHECK", offset) or compact(guard) in existing or compact(guard) in renames or waived(text, offset):
                 continue
             if any(file == path and guard_matches(guard, pin) for _, file, pin in case_pins):
                 continue

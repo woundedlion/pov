@@ -36,7 +36,7 @@ template <int W, int H> inline void test_face_bounds_use_virtual_height() {
   };
   const math::Vector vertices[] = {point(PHI_MAX, -0.2f), point(PHI_MIN, 0.0f),
                                    point(PHI_MAX, 0.2f)};
-  const uint16_t indices[] = {0, 1, 2};
+  const uint16_t INDICES[] = {0, 1, 2};
 
   hs_test::StubEffect effect(W, H);
   math::PixelCoords centroid;
@@ -45,7 +45,7 @@ template <int W, int H> inline void test_face_bounds_use_virtual_height() {
     Pipeline<W, H> pipeline;
     SDF::FaceScratchBuffer scratch;
     SDF::PreparedFace face(std::span<const math::Vector>(vertices, 3),
-                           std::span<const uint16_t>(indices, 3), scratch,
+                           std::span<const uint16_t>(INDICES, 3), scratch,
                            H + hs::H_OFFSET, H, &canvas.clip(), nullptr,
                            SDF::BOUNDS_MARGIN);
     const SDF::Bounds actual = face.get_vertical_bounds<H>();
@@ -75,14 +75,14 @@ inline void test_face_rejects_only_the_virtual_south_rows() {
     return math::Vector(sinf(phi) * cosf(theta), cosf(phi),
                         sinf(phi) * sinf(theta));
   };
-  const uint16_t indices[] = {0, 1, 2};
+  const uint16_t INDICES[] = {0, 1, 2};
   for (bool virtual_only : {false, true}) {
     const float row = virtual_only ? H + 0.75f : H - 1.5f;
     const math::Vector vertices[] = {point(row + 0.5f, -0.2f), point(row, 0.0f),
                                      point(row + 0.5f, 0.2f)};
     SDF::FaceScratchBuffer scratch;
     SDF::PreparedFace face(std::span<const math::Vector>(vertices, 3),
-                           std::span<const uint16_t>(indices, 3), scratch,
+                           std::span<const uint16_t>(INDICES, 3), scratch,
                            H + hs::H_OFFSET, H, nullptr, nullptr,
                            SDF::BOUNDS_MARGIN);
     const SDF::Bounds bounds = face.get_vertical_bounds<H>();
@@ -140,9 +140,9 @@ inline float deposited_energy(Filter::Screen::AntiAlias<W, H> &aa, float x,
 template <int W, int H>
 inline void test_offset_is_active_and_lut_nondegenerate() {
   using LUT = math::TrigLUT<W, H>;
-  const int h_virt = LUT::H_VIRT;
+  const int H_VIRT = LUT::H_VIRT;
   HS_EXPECT_EQ(hs::H_OFFSET, 3);
-  HS_EXPECT_EQ(h_virt, H + 3);
+  HS_EXPECT_EQ(H_VIRT, H + 3);
 
   if (!LUT::initialized)
     LUT::init();
@@ -152,7 +152,7 @@ inline void test_offset_is_active_and_lut_nondegenerate() {
   HS_EXPECT_GT(sin_last_phys, 0.01f);
 
   // Final virtual row samples sin(PI_F), approximately zero.
-  const float sin_virtual_pole = LUT::sin_phi[h_virt - 1];
+  const float sin_virtual_pole = LUT::sin_phi[H_VIRT - 1];
   HS_EXPECT_NEAR(sin_virtual_pole, 0.0f, 1e-4f);
 }
 
@@ -165,15 +165,15 @@ inline void test_offset_is_active_and_lut_nondegenerate() {
 template <int W, int H>
 inline void test_energy_conserved_through_clip_boundary() {
   Filter::Screen::AntiAlias<W, H> aa;
-  const float in_alpha = 0.8f;
+  const float IN_ALPHA = 0.8f;
 
   for (int step = 0; step <= 30; ++step) {
     const float y = static_cast<float>(H - 2) + 0.1f * static_cast<float>(step);
     int count = 0;
-    float energy = deposited_energy(aa, 10.37f, y, in_alpha, &count);
+    float energy = deposited_energy(aa, 10.37f, y, IN_ALPHA, &count);
 
     if (y < static_cast<float>(H)) {
-      HS_EXPECT_NEAR(energy, in_alpha, 1e-4f);
+      HS_EXPECT_NEAR(energy, IN_ALPHA, 1e-4f);
       HS_EXPECT_GE(count, 1);
       HS_EXPECT_LE(count, 4);
     } else {
@@ -191,17 +191,17 @@ inline void test_energy_conserved_through_clip_boundary() {
 template <int W, int H>
 inline void test_boundary_row_splits_two_columns_and_conserves() {
   Filter::Screen::AntiAlias<W, H> aa;
-  const float in_alpha = 1.0f;
+  const float IN_ALPHA = 1.0f;
 
   // y in [H-1, H): y0 = H-1 survives, y1 = H is clipped -> the renorm fires.
-  const float y = static_cast<float>(H - 1) + 0.4f;
+  const float Y = static_cast<float>(H - 1) + 0.4f;
   int count = 0, taps_on_boundary = 0;
-  float energy = deposited_energy(aa, 7.5f, y, in_alpha, &count,
+  float energy = deposited_energy(aa, 7.5f, Y, IN_ALPHA, &count,
                                   /*taps_on_row=*/H - 1, &taps_on_boundary);
 
   HS_EXPECT_EQ(taps_on_boundary, 2);
   HS_EXPECT_EQ(count, 2);
-  HS_EXPECT_NEAR(energy, in_alpha, 1e-4f);
+  HS_EXPECT_NEAR(energy, IN_ALPHA, 1e-4f);
 }
 
 /**
@@ -212,13 +212,13 @@ inline void test_boundary_row_splits_two_columns_and_conserves() {
 template <int W, int H>
 inline void test_boundary_energy_independent_of_x_fraction() {
   Filter::Screen::AntiAlias<W, H> aa;
-  const float in_alpha = 0.5f;
-  const float y = static_cast<float>(H - 1) + 0.25f;
+  const float IN_ALPHA = 0.5f;
+  const float Y = static_cast<float>(H - 1) + 0.25f;
 
   for (int step = 1; step < 20; ++step) {
     const float xf = 0.05f * static_cast<float>(step);
-    float energy = deposited_energy(aa, 12.0f + xf, y, in_alpha);
-    HS_EXPECT_NEAR(energy, in_alpha, 1e-4f);
+    float energy = deposited_energy(aa, 12.0f + xf, Y, IN_ALPHA);
+    HS_EXPECT_NEAR(energy, IN_ALPHA, 1e-4f);
   }
 }
 

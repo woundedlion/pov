@@ -549,10 +549,11 @@ inline void skip_case(const char *case_name, const char *reason) {
   ++stats().skipped;
   std::printf("  SKIP [%s] %s\n", case_name, reason);
 #if defined(HS_TEST_FAST_MATH)
-  const std::string_view CASE(case_name);
-  if (std::none_of(std::begin(FAST_MATH_APPROVED_SKIPS),
-                   std::end(FAST_MATH_APPROVED_SKIPS),
-                   [&](const char *approved) { return CASE == approved; })) {
+  const std::string_view case_value(case_name);
+  if (std::none_of(
+          std::begin(FAST_MATH_APPROVED_SKIPS),
+          std::end(FAST_MATH_APPROVED_SKIPS),
+          [&](const char *approved) { return case_value == approved; })) {
     ++stats().failed;
     std::printf("  FAIL: unapproved fast-math skip [%s]\n", case_name);
   }

@@ -29,7 +29,7 @@ inline void test_ring_rasterize_produces_bounded_output() {
   }
   fx.advance_display();
 
-  const float target = RADIUS * (math::PI_F / 2.0f); // ring-centre polar angle
+  const float TARGET = RADIUS * (math::PI_F / 2.0f); // ring-centre polar angle
   const float row = math::RADIANS_PER_ROW<H>;
   // Two rows of quantization either side of the nominal stroke: inside the
   // inner bound the ring is solid, outside the outer one it is clear.
@@ -41,7 +41,7 @@ inline void test_ring_rasterize_produces_bounded_output() {
     for (int x = 0; x < W; ++x) {
       HS_CONTEXT("px", x, y);
       const math::Vector v = math::pixel_to_vector<W, H>(x, y);
-      const float offset = fabsf(acosf(hs::clamp(v.y, -1.0f, 1.0f)) - target);
+      const float offset = fabsf(acosf(hs::clamp(v.y, -1.0f, 1.0f)) - TARGET);
       const bool lit = !is_black(fx.get_pixel(x, y));
       if (lit) {
         ++plotted;
@@ -339,16 +339,16 @@ inline void test_ring_group_matches_sequential() {
 
   run_case(math::Vector(0.3f, 0.8f, -0.5f).normalized(), false);
   run_case(math::Vector(0.3f, 0.8f, -0.5f).normalized(), true);
-  const math::Vector POLE_AXIS = math::Vector(0.005f, 1.0f, 0.0f).normalized();
-  run_case(POLE_AXIS, false, 0.002f);
-  run_case(POLE_AXIS, false, 0.002f, true);
+  const math::Vector pole_axis = math::Vector(0.005f, 1.0f, 0.0f).normalized();
+  run_case(pole_axis, false, 0.002f);
+  run_case(pole_axis, false, 0.002f, true);
 }
 
 /** @brief Distorted rings wholly past a pole add no candidate cells. */
 inline void test_distorted_ring_candidates_outside_poles() {
   constexpr int W = 32, H = 16, KNOTS = 8;
   const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
-  const int8_t slots[] = {0};
+  const int8_t SLOTS[] = {0};
   for (const float offset : {-4.0f, 4.0f}) {
     float knots[KNOTS + 1];
     std::fill_n(knots, KNOTS + 1, offset);
@@ -357,7 +357,7 @@ inline void test_distorted_ring_candidates_outside_poles() {
     Scan::DistortedRingStack::CandidateTable<W, H> table;
     for (auto &cell : table.cells)
       cell = {17, 23};
-    Scan::DistortedRingStack::build_candidate_table<W, H>(1, shapes, slots,
+    Scan::DistortedRingStack::build_candidate_table<W, H>(1, shapes, SLOTS,
                                                           table);
     for (const auto &cell : table.cells)
       HS_EXPECT_GT(cell.lo, cell.hi);
@@ -384,7 +384,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
 
   auto run_case = [&](const math::Vector &normal, bool partial_clip, int culled,
                       float spin = 0.3f) {
-    const float ths[N_RINGS] = {0.07f, 0.05f, 0.09f, 0.05f, 0.07f};
+    const float THS[N_RINGS] = {0.07f, 0.05f, 0.09f, 0.05f, 0.07f};
     math::Basis basis = math::make_basis(
         math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(), spin),
         normal);
@@ -405,7 +405,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
         slot_by_ring[i] = -1;
         continue;
       }
-      rings.emplace(n_slots, basis, ring_radius(i), ths[i], knots[i], LUT_N,
+      rings.emplace(n_slots, basis, ring_radius(i), THS[i], knots[i], LUT_N,
                     0.0f, nullptr);
       slot_color[n_slots] = colors[i];
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
@@ -435,7 +435,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
             continue;
           auto shader = [&](const math::Vector &, Fragment &f) { shade(s, f); };
           Scan::DistortedRing::draw<W, H>(
-              pipeline, canvas, basis, ring_radius(i), ths[i], knots[i], LUT_N,
+              pipeline, canvas, basis, ring_radius(i), THS[i], knots[i], LUT_N,
               shader, {.suppress_pole_fill = true});
         }
       }
@@ -496,7 +496,7 @@ inline void test_distorted_ring_stack_empty_clip_skips_table() {
   const auto basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   float knots[9]{};
   SDF::DistortedRing ring(basis, 1.0f, 0.18f, knots, 8, 0.0f, nullptr);
-  const int8_t slots[] = {0};
+  const int8_t SLOTS[] = {0};
   Scan::DistortedRingStack::CandidateTable<W, H> table;
   for (auto &cell : table.cells)
     cell = {17, 23};
@@ -504,7 +504,7 @@ inline void test_distorted_ring_stack_empty_clip_skips_table() {
   {
     Canvas canvas(effect);
     Scan::DistortedRingStack::draw<W, H>(
-        pipeline, canvas, 1, &ring, slots, 1, table,
+        pipeline, canvas, 1, &ring, SLOTS, 1, table,
         [&](int, const math::Vector &, Fragment &) { ++shaded; });
   }
   HS_EXPECT_EQ(shaded, 0);
@@ -527,7 +527,7 @@ inline void test_fused_walks_ignore_pole_lod() {
   const math::Basis basis = math::make_basis(
       math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(), 0.3f),
       normal);
-  const float ths[N] = {0.08f, 0.04f, 0.06f, 0.05f};
+  const float THS[N] = {0.08f, 0.04f, 0.06f, 0.05f};
   const Color4 colors[N] = {Color4(Pixel(60000, 10000, 5000), 0.9f),
                             Color4(Pixel(5000, 60000, 10000), 0.6f),
                             Color4(Pixel(10000, 5000, 60000), 0.4f),
@@ -544,7 +544,7 @@ inline void test_fused_walks_ignore_pole_lod() {
               math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(),
                                   0.02f * s),
               normal),
-          1.0f, ths[s]);
+          1.0f, THS[s]);
     }
     out = render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
       Scan::RingGroup::draw<W, H>(pipeline, canvas, shapes, N, shader);
@@ -558,7 +558,7 @@ inline void test_fused_walks_ignore_pole_lod() {
     auto *shapes = rings.data();
     int8_t slot_by_ring[N];
     for (int i = 0; i < N; ++i) {
-      rings.emplace(i, basis, 2.0f * (i + 1) / (N + 1), ths[i], knots[i], LUT_N,
+      rings.emplace(i, basis, 2.0f * (i + 1) / (N + 1), THS[i], knots[i], LUT_N,
                     0.0f, nullptr);
       slot_by_ring[i] = static_cast<int8_t>(i);
     }
@@ -591,17 +591,17 @@ inline void test_fused_walks_ignore_pole_lod() {
 /** @brief Scalar-function rings forward phase, debug and pole-fill options. */
 inline void test_scalar_ring_draw_options() {
   constexpr int W = 96, H = 48;
-  const auto RENDER = [](const Scan::RingDrawOptions &options) {
+  const auto render = [](const Scan::RingDrawOptions &options) {
     StubEffect effect(W, H);
     Pipeline<W, H> pipeline;
     {
       Canvas canvas(effect);
-      const auto BASIS = math::make_basis(math::Quaternion(), math::X_AXIS);
-      const auto SHIFT = [](float t) {
+      const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+      const auto shift = [](float t) {
         return .08f * sinf(2 * math::TWO_PI_F * t);
       };
       Scan::DistortedRing::draw<W, H>(
-          pipeline, canvas, BASIS, 1.0f, .02f, SHIFT, .08f,
+          pipeline, canvas, basis, 1.0f, .02f, shift, .08f,
           [](const math::Vector &, Fragment &fragment) {
             fragment.color = Color4(Pixel(25000, 15000, 5000), 1.0f);
           },
@@ -612,18 +612,20 @@ inline void test_scalar_ring_draw_options() {
     capture_frame<W, H>(effect, pixels);
     return pixels;
   };
-  const auto DEFAULT = RENDER({});
-  const size_t lit = count_lit(DEFAULT);
+  const auto default_value = render({});
+  const size_t lit = count_lit(default_value);
   HS_EXPECT_GT(lit, size_t{0});
-  HS_EXPECT_FALSE(compare_buffers(DEFAULT, RENDER({.phase = .7f})).exact());
-  HS_EXPECT_FALSE(compare_buffers(DEFAULT, RENDER({.debug_bb = true})).exact());
-  const auto SUPPRESSED = RENDER({.suppress_pole_fill = true});
-  const size_t suppressed_lit = count_lit(SUPPRESSED);
+  HS_EXPECT_FALSE(
+      compare_buffers(default_value, render({.phase = .7f})).exact());
+  HS_EXPECT_FALSE(
+      compare_buffers(default_value, render({.debug_bb = true})).exact());
+  const auto suppressed = render({.suppress_pole_fill = true});
+  const size_t suppressed_lit = count_lit(suppressed);
   if (fabsf(math::TrigLUT<W, H>::sin_phi[0]) < 1e-8f) {
     HS_EXPECT_LT(suppressed_lit, lit);
     for (int x = 0; x < W; ++x) {
-      HS_EXPECT_FALSE(is_black(DEFAULT[x]));
-      HS_EXPECT_TRUE(is_black(SUPPRESSED[x]));
+      HS_EXPECT_FALSE(is_black(default_value[x]));
+      HS_EXPECT_TRUE(is_black(suppressed[x]));
     }
   } else
     HS_EXPECT_EQ(suppressed_lit, lit);

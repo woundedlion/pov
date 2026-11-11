@@ -263,12 +263,12 @@ inline void test_bz_q16_roundtrip() {
  */
 inline void test_bz_min_diffusion_step_survives_quantization() {
   BZWhiteBox::BZ bz;
-  const float DT = BZWhiteBox::dt(bz);
+  const float dt = BZWhiteBox::dt(bz);
   bz.init();
   const auto *diffusion = required_param(bz, "Diff");
   if (!diffusion)
     return;
-  BZWhiteBox::set_params(bz, 3.0f, diffusion->min, DT);
+  BZWhiteBox::set_params(bz, 3.0f, diffusion->min, dt);
   // Cold node, one saturated neighbour out of RD_K: lap = 1, reaction term 0.
   HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, 0.0f, 0.0f, /*lap*/ 1.0f),
                0);
@@ -440,9 +440,9 @@ inline void test_bz_perturb_scales_with_timestep() {
 /** @brief Compares common traversal order against the full generated table. */
 inline void test_bz_ordered_neighbors() {
   for (int i = 0; i < ReactionGraph::RD_N; ++i) {
-    const auto ACTUAL = BZWhiteBox::ordered_neighbors(i);
+    const auto actual = BZWhiteBox::ordered_neighbors(i);
     for (int k = 0; k < ReactionGraph::RD_K; ++k)
-      HS_EXPECT_EQ(ACTUAL[k], ReactionGraph::neighbors[i][k]);
+      HS_EXPECT_EQ(actual[k], ReactionGraph::neighbors[i][k]);
   }
 }
 
@@ -456,20 +456,20 @@ inline void test_bz_ordered_neighbors() {
 inline void test_bz_substep_diffuses() {
   std::vector<uint16_t> sA(BZWhiteBox::N, 0), sB(BZWhiteBox::N, 0),
       sC(BZWhiteBox::N, 0);
-  const int seed = 4000;
-  sA[seed] = 65535;
+  const int SEED = 4000;
+  sA[SEED] = 65535;
 
   BZWhiteBox::BZ bz;
   BZWhiteBox::set_params(bz, 3.0f, 0.05f, 0.35f);
   BZWhiteBox::step(bz, sA.data(), sB.data(), sC.data());
 
-  HS_EXPECT_GT((int)sA[seed], 0); // the seed decays but does not vanish/wrap
+  HS_EXPECT_GT((int)sA[SEED], 0); // the seed decays but does not vanish/wrap
   int spread = 0, reciprocal_neighbors = 0;
   for (int k = 0; k < ReactionGraph::RD_K; ++k) {
-    int nb = ReactionGraph::neighbors[seed][k];
+    int nb = ReactionGraph::neighbors[SEED][k];
     bool reciprocal = false;
     for (int j = 0; j < ReactionGraph::RD_K; ++j)
-      reciprocal |= ReactionGraph::neighbors[nb][j] == seed;
+      reciprocal |= ReactionGraph::neighbors[nb][j] == SEED;
     if (!reciprocal)
       continue;
     ++reciprocal_neighbors;
@@ -485,12 +485,12 @@ inline void test_bz_substep_diffuses() {
  *        (C preys on A, A on B, B on C).
  */
 inline void test_bz_substep_predator_wiring() {
-  const uint16_t QA = BZWhiteBox::to_q16(0.5f), QB = BZWhiteBox::to_q16(0.25f),
-                 QC = BZWhiteBox::to_q16(0.75f);
-  std::vector<uint16_t> sA(BZWhiteBox::N, QA), sB(BZWhiteBox::N, QB),
-      sC(BZWhiteBox::N, QC);
-  const float a = BZWhiteBox::from_q16(QA), b = BZWhiteBox::from_q16(QB),
-              c = BZWhiteBox::from_q16(QC);
+  const uint16_t qa = BZWhiteBox::to_q16(0.5f), qb = BZWhiteBox::to_q16(0.25f),
+                 qc = BZWhiteBox::to_q16(0.75f);
+  std::vector<uint16_t> sA(BZWhiteBox::N, qa), sB(BZWhiteBox::N, qb),
+      sC(BZWhiteBox::N, qc);
+  const float a = BZWhiteBox::from_q16(qa), b = BZWhiteBox::from_q16(qb),
+              c = BZWhiteBox::from_q16(qc);
 
   BZWhiteBox::BZ bz;
   BZWhiteBox::set_params(bz, 3.0f, 0.05f, 0.35f);

@@ -227,14 +227,14 @@ inline void test_construction_dimension_boundaries() {
 /** @brief Output envelope scales RGB at zero, half and full brightness. */
 inline void test_output_envelope_endpoints() {
   TestEffect fx(8, 8);
-  const Pixel source{65535, 32768, 1};
+  const Pixel SOURCE{65535, 32768, 1};
   fx.set_output_envelope(0.0f);
-  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 0, 0, 0);
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(SOURCE), 0, 0, 0);
   fx.set_output_envelope(1.0f);
-  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 65535, 32768, 1);
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(SOURCE), 65535, 32768, 1);
   fx.set_output_envelope(0.5f);
   HS_EXPECT_EQ(fx.output_envelope_u16(), uint16_t(32768));
-  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 32768, 16384, 1);
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(SOURCE), 32768, 16384, 1);
 }
 
 #include "tests/canvas/effect_transition.h"
@@ -276,9 +276,9 @@ inline void test_preset_state_machine() {
   HS_EXPECT_EQ(fx.commit_count, 3);
 
   fx.accept = true;
-  const auto APPLIED_TO = fx.applied_to;
+  const auto applied_to = fx.applied_to;
   HS_EXPECT_FALSE(fx.selectPreset(3));
-  HS_EXPECT_EQ(fx.applied_to, APPLIED_TO);
+  HS_EXPECT_EQ(fx.applied_to, applied_to);
   HS_EXPECT_EQ(fx.getPresetIndex(), size_t(2));
   HS_EXPECT_EQ(fx.commit_count, 3);
 }
@@ -548,13 +548,13 @@ inline void test_double_buffer_handoff_no_aliasing() {
       seen[distinct++] = p;
   };
 
-  const Pixel colors[6] = {Pixel(10, 0, 0), Pixel(0, 20, 0), Pixel(0, 0, 30),
+  const Pixel COLORS[6] = {Pixel(10, 0, 0), Pixel(0, 20, 0), Pixel(0, 0, 30),
                            Pixel(40, 0, 0), Pixel(0, 50, 0), Pixel(0, 0, 60)};
 
   {
     Canvas c(fx);
     for (int i = 0; i < N; ++i)
-      c(i) = colors[0];
+      c(i) = COLORS[0];
   }
   fx.advance_display();
   record_ptr(fx.display_buffer());
@@ -568,20 +568,20 @@ inline void test_double_buffer_handoff_no_aliasing() {
     {
       Canvas c(fx);
       for (int i = 0; i < N; ++i)
-        c(i) = colors[f];
+        c(i) = COLORS[f];
     }
 
     // Queued frame is invisible: the displayed pointer is unchanged and still
     // shows the previous frame.
     HS_EXPECT_FALSE(fx.buffer_free());
     HS_EXPECT_EQ(fx.display_buffer(), display_before);
-    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), colors[f - 1].r, colors[f - 1].g,
-                    colors[f - 1].b);
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), COLORS[f - 1].r, COLORS[f - 1].g,
+                    COLORS[f - 1].b);
 
     fx.advance_display();
 
     HS_EXPECT_TRUE(fx.buffer_free());
-    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), colors[f].r, colors[f].g, colors[f].b);
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), COLORS[f].r, COLORS[f].g, COLORS[f].b);
     HS_EXPECT_NE(fx.display_buffer(), display_before);
     record_ptr(fx.display_buffer());
   }
@@ -813,14 +813,14 @@ inline void test_parameter_display_mirror() {
     float speed;
     TestMode mode;
   };
-  static const char *const MODES[] = {"None", "Warp", "Sparkle"};
-  static const char *const EXPORT_MODES[] = {"TestMode::NONE", "TestMode::WARP",
+  static const char *const modes[] = {"None", "Warp", "Sparkle"};
+  static const char *const export_modes[] = {"TestMode::NONE", "TestMode::WARP",
                                              "TestMode::SPARKLE"};
   TestEffect fx(4, 4);
   State requested{1.0f, TestMode::NONE};
   State displayed{4.0f, TestMode::SPARKLE};
   fx.add_float("Speed", &requested.speed, 0.0f, 10.0f);
-  fx.add_typed_enum("Mode", &requested.mode, MODES, EXPORT_MODES, 3);
+  fx.add_typed_enum("Mode", &requested.mode, modes, export_modes, 3);
   fx.add_float("Global", &fx.speed, 0.0f, 10.0f);
   fx.mirror_display(requested, displayed);
   for (const char *name : {"Speed", "Mode", "Global"}) {
@@ -869,15 +869,15 @@ inline void test_update_parameter_rejects_readonly() {
  */
 inline void test_register_and_update_enum_param() {
   TestEffect fx(4, 4);
-  static const char *const MODES[] = {"None", "Warp", "Sparkle"};
+  static const char *const modes[] = {"None", "Warp", "Sparkle"};
   float mode = 1.0f;
-  fx.add_enum("Mode", &mode, MODES, 3);
+  fx.add_enum("Mode", &mode, modes, 3);
 
   HS_REQUIRED_PARAM(def, fx, "Mode");
   HS_EXPECT_TRUE(def->is_enum());
   HS_EXPECT_FALSE(def->is_bool());
   HS_EXPECT_EQ(def->option_count, 3);
-  HS_EXPECT_EQ(def->options, MODES);
+  HS_EXPECT_EQ(def->options, modes);
   HS_EXPECT_NEAR(def->min, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(def->max, 2.0f, 1e-6f);
   HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f);
@@ -906,11 +906,11 @@ inline void test_register_and_update_enum_param() {
 /** @brief Verifies typed enums and preset-export metadata round-trip. */
 inline void test_typed_enum_and_global_param_metadata() {
   TestEffect fx(4, 4);
-  static const char *const MODES[] = {"None", "Warp", "Sparkle"};
-  static const char *const EXPORT_MODES[] = {"TestMode::NONE", "TestMode::WARP",
+  static const char *const modes[] = {"None", "Warp", "Sparkle"};
+  static const char *const export_modes[] = {"TestMode::NONE", "TestMode::WARP",
                                              "TestMode::SPARKLE"};
   TestMode mode = TestMode::WARP;
-  fx.add_typed_enum("Mode", &mode, MODES, EXPORT_MODES, 3);
+  fx.add_typed_enum("Mode", &mode, modes, export_modes, 3);
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
   const auto before_global = fx.getParameterSchemaGeneration();
   fx.mark_global("Speed");
@@ -921,7 +921,7 @@ inline void test_typed_enum_and_global_param_metadata() {
   HS_REQUIRED_PARAM(mode_def, fx, "Mode");
   HS_REQUIRED_PARAM(speed_def, fx, "Speed");
   HS_EXPECT_EQ(mode_def->get(), 1.0f);
-  HS_EXPECT_EQ(mode_def->export_options, EXPORT_MODES);
+  HS_EXPECT_EQ(mode_def->export_options, export_modes);
   HS_EXPECT_TRUE(mode_def->preset);
   HS_EXPECT_FALSE(speed_def->preset);
 
@@ -933,19 +933,19 @@ inline void test_typed_enum_and_global_param_metadata() {
 /** @brief Verifies every supported enum storage width round-trips. */
 inline void test_typed_enum_storage_widths() {
   TestEffect fx(4, 4);
-  static const char *const MODES[] = {"None", "Warp", "Sparkle"};
-  static const char *const EXPORT_MODES[] = {"NONE", "WARP", "SPARKLE"};
+  static const char *const modes[] = {"None", "Warp", "Sparkle"};
+  static const char *const export_modes[] = {"NONE", "WARP", "SPARKLE"};
   TestModeI8 i8 = TestModeI8::NONE;
   TestModeU8 u8 = TestModeU8::NONE;
   TestModeI16 i16 = TestModeI16::NONE;
   TestModeU16 u16 = TestModeU16::NONE;
   TestModeU32 u32 = TestModeU32::NONE;
 
-  fx.add_typed_enum("I8", &i8, MODES, EXPORT_MODES, 3);
-  fx.add_typed_enum("U8", &u8, MODES, EXPORT_MODES, 3);
-  fx.add_typed_enum("I16", &i16, MODES, EXPORT_MODES, 3);
-  fx.add_typed_enum("U16", &u16, MODES, EXPORT_MODES, 3);
-  fx.add_typed_enum("U32", &u32, MODES, EXPORT_MODES, 3);
+  fx.add_typed_enum("I8", &i8, modes, export_modes, 3);
+  fx.add_typed_enum("U8", &u8, modes, export_modes, 3);
+  fx.add_typed_enum("I16", &i16, modes, export_modes, 3);
+  fx.add_typed_enum("U16", &u16, modes, export_modes, 3);
+  fx.add_typed_enum("U32", &u32, modes, export_modes, 3);
 
   for (const char *name : {"I8", "U8", "I16", "U16", "U32"}) {
     HS_EXPECT_EQ(fx.updateParameter(name, 2.0f), ParamSetResult::APPLIED);
@@ -1171,26 +1171,26 @@ inline void test_clip_content_key_is_exact() {
 /** @brief Clip mutations refresh cached keys and restoring content restores its key. */
 inline void test_canvas_clip_key_tracks_mutators() {
   TestEffect effect(96, 20);
-  const auto INITIAL = effect.clip_key();
-  HS_EXPECT_EQ(INITIAL, effect.clip().content_key());
+  const auto initial = effect.clip_key();
+  HS_EXPECT_EQ(initial, effect.clip().content_key());
   effect.set_clip(2, 10, 5, 96);
-  const auto CLIPPED = effect.clip_key();
-  HS_EXPECT_FALSE(CLIPPED == INITIAL);
-  HS_EXPECT_EQ(CLIPPED, effect.clip().content_key());
+  const auto clipped = effect.clip_key();
+  HS_EXPECT_FALSE(clipped == initial);
+  HS_EXPECT_EQ(clipped, effect.clip().content_key());
   effect.set_clip_x(7, 96);
-  HS_EXPECT_FALSE(effect.clip_key() == CLIPPED);
+  HS_EXPECT_FALSE(effect.clip_key() == clipped);
   HS_EXPECT_EQ(effect.clip_key(), effect.clip().content_key());
   effect.set_clip_x(5, 96);
-  HS_EXPECT_EQ(effect.clip_key(), CLIPPED);
+  HS_EXPECT_EQ(effect.clip_key(), clipped);
   effect.set_margin(3);
-  HS_EXPECT_FALSE(effect.clip_key() == CLIPPED);
+  HS_EXPECT_FALSE(effect.clip_key() == clipped);
   HS_EXPECT_EQ(effect.clip_key(), effect.clip().content_key());
   effect.set_margin(1);
-  HS_EXPECT_EQ(effect.clip_key(), CLIPPED);
+  HS_EXPECT_EQ(effect.clip_key(), clipped);
   effect.set_clip(0, 20, 0, 96);
-  HS_EXPECT_EQ(effect.clip_key(), INITIAL);
+  HS_EXPECT_EQ(effect.clip_key(), initial);
   Canvas canvas(effect);
-  HS_EXPECT_EQ(canvas.clip_key(), INITIAL);
+  HS_EXPECT_EQ(canvas.clip_key(), initial);
 }
 
 /** @brief Cached Canvas render bounds match ClipRegion containment. */

@@ -56,15 +56,15 @@ inline void test_gs_shared_cube_projection() {
     for (int face = 0; face < Pattern::SphereLutView::FACE_COUNT; ++face)
       for (float u : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f})
         for (float v : {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f}) {
-          const auto DIRECTION = Pattern::sphere_face_direction(face, u, v);
-          const auto PROJECTION = ReactionGraph::CubemapLUT::project(DIRECTION);
+          const auto direction = Pattern::sphere_face_direction(face, u, v);
+          const auto projection = ReactionGraph::CubemapLUT::project(direction);
           if (fabsf(u) < 1.0f && fabsf(v) < 1.0f) {
-            HS_EXPECT_EQ(PROJECTION.face, face);
-            HS_EXPECT_NEAR(PROJECTION.u, face < 2 ? -u : u, 2e-7f);
-            HS_EXPECT_NEAR(PROJECTION.v, face >= 2 && face < 4 ? -v : v, 2e-7f);
+            HS_EXPECT_EQ(projection.face, face);
+            HS_EXPECT_NEAR(projection.u, face < 2 ? -u : u, 2e-7f);
+            HS_EXPECT_NEAR(projection.v, face >= 2 && face < 4 ? -v : v, 2e-7f);
           }
-          HS_EXPECT_EQ(GSWhiteBox::projected_color_noise(gs, DIRECTION),
-                       GSWhiteBox::color_noise(gs, DIRECTION));
+          HS_EXPECT_EQ(GSWhiteBox::projected_color_noise(gs, direction),
+                       GSWhiteBox::color_noise(gs, direction));
         }
     for (const auto &direction : ReactionGraph::node_positions)
       HS_EXPECT_EQ(GSWhiteBox::projected_color_noise(gs, direction),
@@ -79,7 +79,7 @@ inline void test_gs_shared_noise_palette_modifiers() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
-  const size_t OFFSET = persistent_arena.get_offset();
+  const size_t offset = persistent_arena.get_offset();
   int rotated = 0;
   for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed) {
     for (float t : {0.0f, 0.37f, 1.0f})
@@ -95,27 +95,27 @@ inline void test_gs_shared_noise_palette_modifiers() {
     HS_EXPECT_EQ(hue, expected);
     rotated += hue != base;
     Pixel shimmer = GSWhiteBox::modified_palette(gs, seed, 0.5f, 0.0f, 0.5f);
-    const LinRGB BEFORE = pixel_to_linrgb(base);
-    const LinRGB AFTER = pixel_to_linrgb(shimmer);
-    HS_EXPECT_GT(linear_rgb_to_oklab(AFTER.r, AFTER.g, AFTER.b).L,
-                 linear_rgb_to_oklab(BEFORE.r, BEFORE.g, BEFORE.b).L);
+    const LinRGB before = pixel_to_linrgb(base);
+    const LinRGB after = pixel_to_linrgb(shimmer);
+    HS_EXPECT_GT(linear_rgb_to_oklab(after.r, after.g, after.b).L,
+                 linear_rgb_to_oklab(before.r, before.g, before.b).L);
   }
   HS_EXPECT_EQ(rotated, GSWhiteBox::SEEDS);
 
   GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, 0.35f, 0.25f);
   GSWhiteBox::advance_color_noise(gs);
-  const float STILL = GSWhiteBox::color_noise(gs, math::X_AXIS);
+  const float still = GSWhiteBox::color_noise(gs, math::X_AXIS);
   GSWhiteBox::advance_color_noise(gs);
   HS_EXPECT_EQ(GSWhiteBox::noise_phase(gs), 0.0f);
-  HS_EXPECT_EQ(GSWhiteBox::color_noise(gs, math::X_AXIS), STILL);
+  HS_EXPECT_EQ(GSWhiteBox::color_noise(gs, math::X_AXIS), still);
   GSWhiteBox::set_color_params(gs, 0.001f, 2.0f, 0.35f, 0.25f);
   for (int i = 0; i < 40; ++i)
     GSWhiteBox::advance_color_noise(gs);
-  HS_EXPECT_GT(fabsf(GSWhiteBox::color_noise(gs, math::X_AXIS) - STILL), 1e-3f);
-  const float MOVING = GSWhiteBox::color_noise(gs, math::X_AXIS);
+  HS_EXPECT_GT(fabsf(GSWhiteBox::color_noise(gs, math::X_AXIS) - still), 1e-3f);
+  const float moving = GSWhiteBox::color_noise(gs, math::X_AXIS);
   GSWhiteBox::set_color_params(gs, 0.0f, 4.0f, 0.35f, 0.25f);
   GSWhiteBox::advance_color_noise(gs);
-  HS_EXPECT_GT(fabsf(GSWhiteBox::color_noise(gs, math::X_AXIS) - MOVING),
+  HS_EXPECT_GT(fabsf(GSWhiteBox::color_noise(gs, math::X_AXIS) - moving),
                1e-3f);
   GSWhiteBox::set_noise_phase(gs, 0.0005f);
   GSWhiteBox::set_color_params(gs, -0.001f, 4.0f, 0.35f, 0.25f);
@@ -123,7 +123,7 @@ inline void test_gs_shared_noise_palette_modifiers() {
   HS_EXPECT_NEAR(GSWhiteBox::noise_phase(gs), 0.9995f, 1e-6f);
   HS_EXPECT(!GSWhiteBox::reaction_edited(gs),
             "color controls must not restart the reaction");
-  HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
+  HS_EXPECT_EQ(persistent_arena.get_offset(), offset);
 }
 
 /** @brief The baked color noise samples match the direct reference. */
@@ -157,15 +157,15 @@ inline void test_gs_seed_palettes_and_pigment_transport() {
 
   std::vector<float> a(GSWhiteBox::N, 1.0f), b(GSWhiteBox::N, 0.0f);
   constexpr int NODE = GSWhiteBox::N / 2;
-  const int NEIGHBOR = ReactionGraph::neighbors[NODE][0];
+  const int neighbor = ReactionGraph::neighbors[NODE][0];
   b[NODE] = 0.5f;
   GSWhiteBox::set_pigment(gs, NODE, 7);
   GSWhiteBox::step_pigment(gs, a.data(), b.data());
-  HS_EXPECT_NEAR(GSWhiteBox::pigment_weight(gs, NEIGHBOR, 7), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(GSWhiteBox::pigment_weight(gs, neighbor, 7), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(GSWhiteBox::pigment_weight(gs, NODE, 7), 1.0f, 1e-6f);
 
-  b[NEIGHBOR] = 0.5f;
-  GSWhiteBox::set_pigment(gs, NEIGHBOR, 12);
+  b[neighbor] = 0.5f;
+  GSWhiteBox::set_pigment(gs, neighbor, 12);
   GSWhiteBox::step_pigment(gs, a.data(), b.data());
   float mix = GSWhiteBox::pigment_weight(gs, NODE, 12);
   HS_EXPECT_GT(mix, 0.0f);
@@ -182,9 +182,9 @@ inline void test_gs_seed_palettes_and_pigment_transport() {
   GSWhiteBox::step_pigment(gs, a.data(), b.data());
   HS_EXPECT_NEAR(GSWhiteBox::pigment_weight(gs, NODE, 12), mix, 1e-6f);
 
-  const size_t OFFSET = persistent_arena.get_offset();
+  const size_t offset = persistent_arena.get_offset();
   GSWhiteBox::start_reaction(gs);
-  HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
+  HS_EXPECT_EQ(persistent_arena.get_offset(), offset);
   for (int i = 0; i < GSWhiteBox::N; ++i) {
     if (GSWhiteBox::b_field(gs)[i] != 0)
       continue;
@@ -284,14 +284,14 @@ inline void test_gs_hot_flags_match_directed_graph() {
   std::vector<uint8_t> hot1(N + 2), hot2(N + 2), ref1(N), ref2(N);
   std::vector<uint32_t> bits1(GSWhiteBox::HOT_WORDS),
       bits2(GSWhiteBox::HOT_WORDS);
-  const uint16_t THRESHOLDS[] = {
+  const uint16_t thresholds[] = {
       0, 1, GSWhiteBox::to_q16(GSWhiteBox::B_CULL_THRESHOLD), 65535};
-  for (uint16_t threshold : THRESHOLDS) {
-    const uint16_t BELOW = threshold == 0 ? 0 : threshold - 1;
-    const uint16_t ABOVE = threshold == 65535 ? 65535 : threshold + 1;
+  for (uint16_t threshold : thresholds) {
+    const uint16_t below = threshold == 0 ? 0 : threshold - 1;
+    const uint16_t above = threshold == 65535 ? 65535 : threshold + 1;
     for (int pattern = 0; pattern < 9; ++pattern) {
       for (int i = 0; i < N; ++i) {
-        const uint32_t HASH = static_cast<uint32_t>(i) * 2654435761u;
+        const uint32_t hash = static_cast<uint32_t>(i) * 2654435761u;
         switch (pattern) {
         case 0:
           b[i] = 0;
@@ -300,25 +300,25 @@ inline void test_gs_hot_flags_match_directed_graph() {
           b[i] = 65535;
           break;
         case 2:
-          b[i] = BELOW;
+          b[i] = below;
           break;
         case 3:
           b[i] = threshold;
           break;
         case 4:
-          b[i] = HASH % 257 == 0 ? ABOVE : BELOW;
+          b[i] = hash % 257 == 0 ? above : below;
           break;
         case 5:
-          b[i] = HASH % 7 != 0 ? ABOVE : BELOW;
+          b[i] = hash % 7 != 0 ? above : below;
           break;
         case 6:
-          b[i] = HASH % 3 == 0 ? BELOW : HASH % 3 == 1 ? threshold : ABOVE;
+          b[i] = hash % 3 == 0 ? below : hash % 3 == 1 ? threshold : above;
           break;
         case 7:
-          b[i] = i == 0 ? ABOVE : BELOW;
+          b[i] = i == 0 ? above : below;
           break;
         case 8:
-          b[i] = i == N - 1 ? ABOVE : BELOW;
+          b[i] = i == N - 1 ? above : below;
           break;
         }
       }
@@ -380,21 +380,21 @@ inline void test_gs_hot_flags_match_directed_graph() {
  *          reaches the running best.
  */
 inline void test_gs_render_certificates_bound_lattice() {
-  const int n = GSWhiteBox::N;
-  std::vector<math::Vector> lattice(static_cast<size_t>(n));
-  for (int i = 0; i < n; ++i)
+  const int N = GSWhiteBox::N;
+  std::vector<math::Vector> lattice(static_cast<size_t>(N));
+  for (int i = 0; i < N; ++i)
     lattice[static_cast<size_t>(i)] = ReactionGraph::node(i);
 
-  const float bulk_floor =
+  const float BULK_FLOOR =
       GSWhiteBox::BULK_MIN_SPACING_FRAC * ReactionGraph::D_AVG;
   float bulk_min_d2 = 4.0f; // antipodal chord squared: the loosest possible
   float pole_min_d2 = 4.0f;
   int tight_band = 0; // band width the sub-bulk-spacing nodes actually need
-  for (int i = 0; i < n; ++i) {
+  for (int i = 0; i < N; ++i) {
     const math::Vector &p = lattice[static_cast<size_t>(i)];
     float best = 4.0f;
     for (int step = -1; step <= 1; step += 2) {
-      for (int j = i + step; j >= 0 && j < n; j += step) {
+      for (int j = i + step; j >= 0 && j < N; j += step) {
         const math::Vector &q = lattice[static_cast<size_t>(j)];
         float dy = p.y - q.y;
         if (dy * dy >= best)
@@ -405,13 +405,13 @@ inline void test_gs_render_certificates_bound_lattice() {
           best = d2;
       }
     }
-    if (i < GSWhiteBox::POLE_BAND || i >= n - GSWhiteBox::POLE_BAND) {
+    if (i < GSWhiteBox::POLE_BAND || i >= N - GSWhiteBox::POLE_BAND) {
       pole_min_d2 = std::min(pole_min_d2, best);
     } else {
       bulk_min_d2 = std::min(bulk_min_d2, best);
     }
-    if (best < bulk_floor * bulk_floor)
-      tight_band = std::max(tight_band, std::min(i, n - 1 - i) + 1);
+    if (best < BULK_FLOOR * BULK_FLOOR)
+      tight_band = std::max(tight_band, std::min(i, N - 1 - i) + 1);
   }
 
   const float bulk_frac = std::sqrt(bulk_min_d2) / ReactionGraph::D_AVG;
@@ -490,7 +490,7 @@ inline void test_gs_partial_color_palette_rows() {
     return (mask & (mask + 1u)) == 0;
   };
   HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs), ALL_ROWS);
-  const size_t OFFSET = persistent_arena.get_offset();
+  const size_t offset = persistent_arena.get_offset();
   for (int generation = 0; generation < 3; ++generation) {
     if (generation == 1)
       GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, -0.2f, 0.3f);
@@ -519,9 +519,9 @@ inline void test_gs_partial_color_palette_rows() {
         const float noise =
             -1.0f + 2.0f * n / (GSWhiteBox::COLOR_NOISE_STEPS - 1);
         const bool exact = GSWhiteBox::exact_color_sample(gs, noise);
-        const float knot = 5.0f / (GSWhiteBox::COLOR_VALUE_STEPS - 1);
+        const float KNOT = 5.0f / (GSWhiteBox::COLOR_VALUE_STEPS - 1);
         for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed)
-          for (float value : {0.0f, exact ? 0.37f : knot, 1.0f})
+          for (float value : {0.0f, exact ? 0.37f : KNOT, 1.0f})
             HS_EXPECT_EQ(
                 GSWhiteBox::staged_palette(gs, seed, value, noise),
                 GSWhiteBox::modified_palette(gs, seed, value, noise * hue,
@@ -534,7 +534,7 @@ inline void test_gs_partial_color_palette_rows() {
       rows = grown;
     }
     HS_EXPECT_EQ(rows, ALL_ROWS);
-    HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
+    HS_EXPECT_EQ(persistent_arena.get_offset(), offset);
   }
 }
 
@@ -546,23 +546,23 @@ inline void test_gs_reseed_invalidates_shimmer_cache() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
-  const auto CONTROLS = GSWhiteBox::color_params(gs);
-  const float HUE = CONTROLS[2], SHIMMER = CONTROLS[3];
+  const auto controls = GSWhiteBox::color_params(gs);
+  const float hue = controls[2], shimmer = controls[3];
   HS_EXPECT_FALSE(GSWhiteBox::exact_color_sample(gs, 0.0f));
-  const Pixel BEFORE = GSWhiteBox::staged_palette(gs, 0, 1.0f, 0.0f);
+  const Pixel before = GSWhiteBox::staged_palette(gs, 0, 1.0f, 0.0f);
   GSWhiteBox::start_reaction(gs);
-  HS_EXPECT(GSWhiteBox::modified_palette(gs, 0, 1.0f, 0.0f, 0.0f) != BEFORE,
+  HS_EXPECT(GSWhiteBox::modified_palette(gs, 0, 1.0f, 0.0f, 0.0f) != before,
             "reseed kept the first seed palette");
   GSWhiteBox::refresh_color_palettes(gs, true);
   int stale = 0;
   for (int n = 0; n < GSWhiteBox::COLOR_NOISE_STEPS; ++n) {
-    const float NOISE = -1.0f + 2.0f * n / (GSWhiteBox::COLOR_NOISE_STEPS - 1);
-    HS_EXPECT_FALSE(GSWhiteBox::exact_color_sample(gs, NOISE));
+    const float noise = -1.0f + 2.0f * n / (GSWhiteBox::COLOR_NOISE_STEPS - 1);
+    HS_EXPECT_FALSE(GSWhiteBox::exact_color_sample(gs, noise));
     for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed)
       for (float value : {0.0f, 1.0f})
-        stale += GSWhiteBox::staged_palette(gs, seed, value, NOISE) !=
-                 GSWhiteBox::modified_palette(gs, seed, value, NOISE * HUE,
-                                              std::max(NOISE, 0.0f) * SHIMMER);
+        stale += GSWhiteBox::staged_palette(gs, seed, value, noise) !=
+                 GSWhiteBox::modified_palette(gs, seed, value, noise * hue,
+                                              std::max(noise, 0.0f) * shimmer);
   }
   HS_EXPECT_EQ(stale, 0);
 }
@@ -581,7 +581,7 @@ inline void test_gs_support_certificate_matches_display_geometry() {
 
 /** @brief Preserves four-sample coverage while bounding reciprocal estimation error. */
 inline void test_gs_signed_coverage_and_concentration() {
-  const uint16_t FLOOR = GSWhiteBox::to_q16(GSWhiteBox::B_CULL_THRESHOLD);
+  const uint16_t floor = GSWhiteBox::to_q16(GSWhiteBox::B_CULL_THRESHOLD);
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
@@ -591,32 +591,32 @@ inline void test_gs_signed_coverage_and_concentration() {
     if (frame != 4 && frame != 40 && frame != 200 && frame != 400 &&
         frame != 450 && frame != 470 && frame != 600 && frame != 650)
       continue;
-    const auto ERROR =
+    const auto error =
         GSWhiteBox::concentration_shader_error<DEFAULT_W, DEFAULT_H>(gs);
-    HS_EXPECT_GT(ERROR.lit, DEFAULT_W * DEFAULT_H / 100);
-    HS_EXPECT_EQ(ERROR.coverage, 0);
-    HS_EXPECT_LE(ERROR.max_channel, 6000);
-    HS_EXPECT_LE(ERROR.total_channel,
-                 static_cast<uint64_t>(ERROR.lit) * 3u * 125u);
+    HS_EXPECT_GT(error.lit, DEFAULT_W * DEFAULT_H / 100);
+    HS_EXPECT_EQ(error.coverage, 0);
+    HS_EXPECT_LE(error.max_channel, 6000);
+    HS_EXPECT_LE(error.total_channel,
+                 static_cast<uint64_t>(error.lit) * 3u * 125u);
   }
   int pattern_lit = 0, fallback_lit = 0;
   for (int pattern = 0; pattern < 8; ++pattern) {
     for (int node = 0; node < GSWhiteBox::N; ++node) {
-      const uint32_t HASH = static_cast<uint32_t>(node) * 2654435761u;
-      const uint16_t B = pattern < 4
-                             ? static_cast<uint16_t>(FLOOR - 2 + pattern)
+      const uint32_t hash = static_cast<uint32_t>(node) * 2654435761u;
+      const uint16_t b = pattern < 4
+                             ? static_cast<uint16_t>(floor - 2 + pattern)
                              : static_cast<uint16_t>(
-                                   FLOOR - 2 + ((HASH >> (pattern - 4)) & 3));
-      GSWhiteBox::set_node(gs, node, 65535, B);
+                                   floor - 2 + ((hash >> (pattern - 4)) & 3));
+      GSWhiteBox::set_node(gs, node, 65535, b);
     }
-    const auto ERROR =
+    const auto error =
         GSWhiteBox::concentration_shader_error<DEFAULT_W, DEFAULT_H>(gs);
-    pattern_lit += ERROR.lit;
-    HS_EXPECT_EQ(ERROR.coverage, 0);
-    const auto FALLBACK = GSWhiteBox::concentration_shader_error<16, 8>(gs);
-    fallback_lit += FALLBACK.lit;
-    HS_EXPECT_EQ(FALLBACK.max_channel, 0);
-    HS_EXPECT_EQ(FALLBACK.total_channel, 0u);
+    pattern_lit += error.lit;
+    HS_EXPECT_EQ(error.coverage, 0);
+    const auto fallback = GSWhiteBox::concentration_shader_error<16, 8>(gs);
+    fallback_lit += fallback.lit;
+    HS_EXPECT_EQ(fallback.max_channel, 0);
+    HS_EXPECT_EQ(fallback.total_channel, 0u);
   }
   HS_EXPECT_GT(pattern_lit, 0);
   HS_EXPECT_GT(fallback_lit, 0);
@@ -635,65 +635,65 @@ inline void test_gs_nearest_pigment_shader_fidelity() {
     if (frame != 4 && frame != 40 && frame != 200 && frame != 400 &&
         frame != 500 && frame != 600)
       continue;
-    const auto ERROR = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+    const auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
         gs, {.fixed_stencil = true,
              .direct_color = true,
              .aggregate_color = false});
-    HS_EXPECT_GT(ERROR.lit, DEFAULT_W * DEFAULT_H / 100);
-    HS_EXPECT_LE(ERROR.coverage, MAX_COVERAGE_DIFFERENCES);
-    HS_EXPECT_LE(ERROR.max_channel, 22000);
-    HS_EXPECT_LE(ERROR.total_channel,
-                 static_cast<uint64_t>(ERROR.lit) * 3u * 850u);
-    HS_EXPECT_LE(ERROR.hard * 10, ERROR.lit);
-    const auto ROUNDING = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+    HS_EXPECT_GT(error.lit, DEFAULT_W * DEFAULT_H / 100);
+    HS_EXPECT_LE(error.coverage, MAX_COVERAGE_DIFFERENCES);
+    HS_EXPECT_LE(error.max_channel, 22000);
+    HS_EXPECT_LE(error.total_channel,
+                 static_cast<uint64_t>(error.lit) * 3u * 850u);
+    HS_EXPECT_LE(error.hard * 10, error.lit);
+    const auto rounding = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
         gs,
         {.fixed_stencil = true, .center_pigment = true, .full_kernel = true});
-    HS_EXPECT_GT(ROUNDING.lit, DEFAULT_W * DEFAULT_H / 100);
-    HS_EXPECT_LE(ROUNDING.coverage, MAX_COVERAGE_DIFFERENCES);
-    HS_EXPECT_LE(ROUNDING.max_channel, 2048);
-    HS_EXPECT_LE(ROUNDING.total_channel,
-                 static_cast<uint64_t>(ROUNDING.lit) * 6u);
-    const auto AGGREGATE =
+    HS_EXPECT_GT(rounding.lit, DEFAULT_W * DEFAULT_H / 100);
+    HS_EXPECT_LE(rounding.coverage, MAX_COVERAGE_DIFFERENCES);
+    HS_EXPECT_LE(rounding.max_channel, 2048);
+    HS_EXPECT_LE(rounding.total_channel,
+                 static_cast<uint64_t>(rounding.lit) * 6u);
+    const auto aggregate =
         GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
             gs, {.fixed_stencil = true});
-    HS_EXPECT_GT(AGGREGATE.lit, DEFAULT_W * DEFAULT_H / 100);
+    HS_EXPECT_GT(aggregate.lit, DEFAULT_W * DEFAULT_H / 100);
     std::printf(
         "GS nearest pigment frame=%d procedural_mae=%.2f procedural_max=%d "
         "aggregate_mae=%.2f aggregate_max=%d rounding_max=%d\n",
-        frame, static_cast<double>(ERROR.total_channel) / (ERROR.lit * 3),
-        ERROR.max_channel,
-        static_cast<double>(AGGREGATE.total_channel) / (AGGREGATE.lit * 3),
-        AGGREGATE.max_channel, ROUNDING.max_channel);
-    HS_EXPECT_LE(AGGREGATE.coverage, MAX_COVERAGE_DIFFERENCES);
-    HS_EXPECT_LE(AGGREGATE.max_channel, 22000);
-    HS_EXPECT_LE(AGGREGATE.total_channel,
-                 static_cast<uint64_t>(AGGREGATE.lit) * 3u * 400u);
+        frame, static_cast<double>(error.total_channel) / (error.lit * 3),
+        error.max_channel,
+        static_cast<double>(aggregate.total_channel) / (aggregate.lit * 3),
+        aggregate.max_channel, rounding.max_channel);
+    HS_EXPECT_LE(aggregate.coverage, MAX_COVERAGE_DIFFERENCES);
+    HS_EXPECT_LE(aggregate.max_channel, 22000);
+    HS_EXPECT_LE(aggregate.total_channel,
+                 static_cast<uint64_t>(aggregate.lit) * 3u * 400u);
     if (frame != 200 && frame != 400 && frame != 600)
       continue;
-    const auto CONTROLS = GSWhiteBox::color_params(gs);
+    const auto controls = GSWhiteBox::color_params(gs);
     for (float hue : {-4.0f, -0.25f, 0.0f, 0.25f, 4.0f}) {
       for (float shimmer : {0.0f, 0.4f, 1.0f}) {
-        GSWhiteBox::set_color_params(gs, CONTROLS[0], CONTROLS[1], hue,
+        GSWhiteBox::set_color_params(gs, controls[0], controls[1], hue,
                                      shimmer);
         GSWhiteBox::refresh_color_palettes(gs);
-        const auto EXTREME =
+        const auto extreme =
             GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
                 gs, {.fixed_stencil = true,
                      .direct_color = true,
                      .aggregate_color = false});
-        if (EXTREME.max_channel > 30000)
+        if (extreme.max_channel > 30000)
           std::printf(
               "GS nearest pigment extreme frame=%d hue=%.2f shimmer=%.2f max=%d\n",
               frame, static_cast<double>(hue), static_cast<double>(shimmer),
-              EXTREME.max_channel);
-        HS_EXPECT_LE(EXTREME.coverage, MAX_COVERAGE_DIFFERENCES);
-        HS_EXPECT_LE(EXTREME.max_channel, 35000);
-        HS_EXPECT_LE(EXTREME.total_channel,
-                     static_cast<uint64_t>(EXTREME.lit) * 3u * 1000u);
+              extreme.max_channel);
+        HS_EXPECT_LE(extreme.coverage, MAX_COVERAGE_DIFFERENCES);
+        HS_EXPECT_LE(extreme.max_channel, 35000);
+        HS_EXPECT_LE(extreme.total_channel,
+                     static_cast<uint64_t>(extreme.lit) * 3u * 1000u);
       }
     }
-    GSWhiteBox::set_color_params(gs, CONTROLS[0], CONTROLS[1], CONTROLS[2],
-                                 CONTROLS[3]);
+    GSWhiteBox::set_color_params(gs, controls[0], controls[1], controls[2],
+                                 controls[3]);
   }
 }
 
@@ -703,14 +703,14 @@ inline void test_gs_exact_color_path_boundaries() {
   GSWhiteBox::GS gs;
   gs.init();
   for (float hue : {-4.0f, -0.3f, 0.0f, 0.3f, 4.0f}) {
-    const float SHIMMER = hue == 0.0f ? 0.0f : 0.4f;
-    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, hue, SHIMMER);
+    const float shimmer = hue == 0.0f ? 0.0f : 0.4f;
+    GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, hue, shimmer);
     for (float value : {0.0f, 0.37f, 1.0f})
       for (float noise : {-1.0f, -0.25f, 0.0f, 0.8f, 1.0f})
         HS_EXPECT_EQ(
             GSWhiteBox::cached_palette(gs, 0, value, noise),
             GSWhiteBox::modified_palette(gs, 0, value, hue * noise,
-                                         std::max(noise, 0.0f) * SHIMMER));
+                                         std::max(noise, 0.0f) * shimmer));
   }
   constexpr float SHIMMER_LIMIT = GSWhiteBox::CACHED_SHIMMER_LIMIT;
   constexpr float HUE_LIMIT = GSWhiteBox::CACHED_HUE_LIMIT;
@@ -726,8 +726,8 @@ inline void test_gs_exact_color_path_boundaries() {
             GSWhiteBox::modified_palette(gs, 0, 0.37f, INSIDE_HUE * noise,
                                          std::max(noise, 0.0f) * shimmer));
   }
-  const float PAST_HUE = std::nextafter(HUE_LIMIT, 2.0f);
-  for (float hue : {-PAST_HUE, -HUE_LIMIT, HUE_LIMIT, PAST_HUE}) {
+  const float past_hue = std::nextafter(HUE_LIMIT, 2.0f);
+  for (float hue : {-past_hue, -HUE_LIMIT, HUE_LIMIT, past_hue}) {
     GSWhiteBox::set_color_params(gs, 0.0f, 2.0f, hue, SHIMMER_LIMIT);
     HS_EXPECT_EQ(GSWhiteBox::exact_color_path(gs), fabsf(hue) > HUE_LIMIT);
   }
@@ -830,10 +830,10 @@ inline void test_gs_dissolve_clears_and_reseeds() {
 
   // Run until the stalled field trips a dissolve; the default reaction settles
   // well inside this budget.
-  const int budget =
+  const int BUDGET =
       GSWhiteBox::MIN_GROW_FRAMES + GSWhiteBox::STABLE_HOLD_FRAMES + 400;
   int f = 0;
-  for (; f < budget && GSWhiteBox::dissolve_frame(gs) < 0; ++f) {
+  for (; f < BUDGET && GSWhiteBox::dissolve_frame(gs) < 0; ++f) {
     gs.draw_frame();
     gs.advance_display();
   }
@@ -923,20 +923,20 @@ inline void test_gs_stall_hold_starts_dissolve() {
   constexpr int LIMIT = GROW + 3 * HOLD;
   constexpr int SPIKE = GROW + HOLD / 2;
   constexpr float DT = 2.5f;
-  const float FLOOR = GSWhiteBox::stable_floor(DT);
+  const float floor = GSWhiteBox::stable_floor(DT);
   HS_EXPECT_EQ(gs_frames_to_dissolve(
                    DT, [](int) { return 0.0f; }, LIMIT),
                GROW + HOLD - 1);
   HS_EXPECT_EQ(gs_frames_to_dissolve(
-                   DT, [&](int) { return 0.75f * FLOOR; }, LIMIT),
+                   DT, [&](int) { return 0.75f * floor; }, LIMIT),
                GROW + HOLD - 1);
   HS_EXPECT_EQ(
       gs_frames_to_dissolve(
-          DT, [&](int frame) { return frame == SPIKE ? 2.0f * FLOOR : 0.0f; },
+          DT, [&](int frame) { return frame == SPIKE ? 2.0f * floor : 0.0f; },
           LIMIT),
       SPIKE + HOLD);
   HS_EXPECT_EQ(gs_frames_to_dissolve(
-                   DT / 2.0f, [&](int) { return 0.75f * FLOOR; }, LIMIT),
+                   DT / 2.0f, [&](int) { return 0.75f * floor; }, LIMIT),
                -1);
 }
 
@@ -959,10 +959,10 @@ inline void test_gs_preset_pause_does_not_hold_lifecycle() {
     gs.draw_frame();
     gs.advance_display();
     HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), frame);
-    const float PHASE = static_cast<float>(frame) / GSWhiteBox::DISSOLVE_FRAMES;
+    const float phase = static_cast<float>(frame) / GSWhiteBox::DISSOLVE_FRAMES;
     int cleared = 0;
     for (int i = 0; i < GSWhiteBox::N; ++i)
-      if (GSWhiteBox::dissolve_hash(i, DISSOLVE_SEED) < PHASE) {
+      if (GSWhiteBox::dissolve_hash(i, DISSOLVE_SEED) < phase) {
         HS_EXPECT_EQ(GSWhiteBox::a_field(gs)[i], 65535);
         HS_EXPECT_EQ(GSWhiteBox::b_field(gs)[i], 0);
         ++cleared;

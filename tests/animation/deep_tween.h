@@ -102,8 +102,8 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
 
   // The collapsed tail frame is dropped, so the count matches the two
   // contentful frames (M=3 sub-frames each): M + (contentful-1)*(M-1).
-  const size_t M = 3, contentful = 2;
-  HS_EXPECT_SIZE_OR_RETURN(gts, M + (contentful - 1) * (M - 1));
+  const size_t M = 3, CONTENTFUL = 2;
+  HS_EXPECT_SIZE_OR_RETURN(gts, M + (CONTENTFUL - 1) * (M - 1));
   HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
   for (size_t i = 1; i < gts.size(); ++i)
@@ -201,10 +201,10 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
   deep_tween(trail,
              [&](const math::Quaternion &, float gt) { gts.push_back(gt); });
 
-  const float expected[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+  const float EXPECTED_VALUE[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
   HS_EXPECT_SIZE_OR_RETURN(gts, 5);
   for (size_t i = 0; i < gts.size(); ++i)
-    HS_EXPECT_NEAR(gts[i], expected[i], 1e-6f);
+    HS_EXPECT_NEAR(gts[i], EXPECTED_VALUE[i], 1e-6f);
   constexpr size_t RECORDS[] = {0, 2};
   constexpr size_t FIRST[] = {0, 1};
   constexpr size_t SAMPLE_RECORDS[] = {0, 0, 0, 2, 2};
@@ -225,11 +225,11 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
   size_t sample_index = 0;
   deep_tween(
       trail, [&](size_t record, size_t sub, const math::Quaternion &q, float) {
-        const auto EXPECTED = trail.get(record).at(static_cast<int>(sub));
-        HS_EXPECT_EQ(q.r, EXPECTED.r);
-        HS_EXPECT_EQ(q.v.x, EXPECTED.v.x);
-        HS_EXPECT_EQ(q.v.y, EXPECTED.v.y);
-        HS_EXPECT_EQ(q.v.z, EXPECTED.v.z);
+        const auto expected_value = trail.get(record).at(static_cast<int>(sub));
+        HS_EXPECT_EQ(q.r, expected_value.r);
+        HS_EXPECT_EQ(q.v.x, expected_value.v.x);
+        HS_EXPECT_EQ(q.v.y, expected_value.v.y);
+        HS_EXPECT_EQ(q.v.z, expected_value.v.z);
         HS_EXPECT_LT(sample_index, std::size(SAMPLE_RECORDS));
         if (sample_index < std::size(SAMPLE_RECORDS)) {
           HS_EXPECT_EQ(record, SAMPLE_RECORDS[sample_index]);

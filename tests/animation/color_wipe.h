@@ -33,11 +33,11 @@ inline void test_colorwipe_reaches_target_keys() {
   const GenerativePalette::Snapshot start = from.snapshot();
   GenerativePalette::Snapshot target = to.snapshot();
 
-  const int duration = 6;
-  Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear);
+  const int DURATION = 6;
+  Animation::ColorWipe wipe(from, start, target, DURATION, math::ease_linear);
   HS_EXPECT_FALSE(wipe.done());
 
-  for (int i = 0; i < duration - 1; ++i)
+  for (int i = 0; i < DURATION - 1; ++i)
     wipe.step(fake_canvas());
   HS_EXPECT_FALSE(wipe.done()); // not done until t == duration
 
@@ -65,8 +65,8 @@ inline void test_colorwipe_uses_owned_start_snapshot() {
       CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
   const GenerativePalette::Snapshot start = from.snapshot();
   const GenerativePalette::Snapshot target = to.snapshot();
-  const int duration = 4;
-  Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear);
+  const int DURATION = 4;
+  Animation::ColorWipe wipe(from, start, target, DURATION, math::ease_linear);
 
   from = make_palette(CPixel(200, 200, 200), CPixel(200, 200, 200),
                       CPixel(200, 200, 200));
@@ -88,19 +88,19 @@ inline void test_colorwipe_slow_fade_resolves_every_frame() {
       CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
   const GenerativePalette::Snapshot start = from.snapshot();
   const GenerativePalette::Snapshot target = to.snapshot();
-  const int duration = 600;
-  Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear);
+  const int DURATION = 600;
+  Animation::ColorWipe wipe(from, start, target, DURATION, math::ease_linear);
 
   int advanced = 0;
   float prev = -1.0f;
-  for (int i = 0; i < duration; ++i) {
+  for (int i = 0; i < DURATION; ++i) {
     wipe.step(fake_canvas());
     float cur = GenerativePalette::snapshot_key(from.snapshot(), 0).L;
     if (i > 0 && cur != prev)
       ++advanced;
     prev = cur;
   }
-  HS_EXPECT_GE(advanced, duration - 2);
+  HS_EXPECT_GE(advanced, DURATION - 2);
 }
 
 /**
@@ -117,17 +117,17 @@ inline void test_colorwipe_paused_holds_keys() {
   GenerativePalette::Snapshot target = to.snapshot();
   const float start_l = GenerativePalette::snapshot_key(from.snapshot(), 0).L;
 
-  const int duration = 4;
-  Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear,
+  const int DURATION = 4;
+  Animation::ColorWipe wipe(from, start, target, DURATION, math::ease_linear,
                             {.paused = &paused});
-  for (int i = 0; i < duration; ++i)
+  for (int i = 0; i < DURATION; ++i)
     wipe.step(fake_canvas());
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L, start_l,
                  1e-6f);
   HS_EXPECT_FALSE(wipe.done());
 
   paused = false;
-  for (int i = 0; i < duration; ++i)
+  for (int i = 0; i < DURATION; ++i)
     wipe.step(fake_canvas());
   HS_EXPECT_TRUE(wipe.done());
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L,

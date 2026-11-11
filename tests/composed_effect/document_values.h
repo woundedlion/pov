@@ -90,8 +90,8 @@ inline void test_catalog_semantic_export() {
                          const char *name) -> const JsonValue & {
     const JsonValue *value = object.find(name);
     HS_EXPECT(value != nullptr, "catalog member is present");
-    static const JsonValue EMPTY;
-    return value != nullptr ? *value : EMPTY;
+    static const JsonValue empty;
+    return value != nullptr ? *value : empty;
   };
   const auto &operators = member(root, "operators").items;
   HS_EXPECT_EQ(operators.size(), Catalog::OPERATOR_TABLE.size());
@@ -717,12 +717,12 @@ inline void test_document_numeric_resource_selection() {
   JsonValue value;
   value.kind = JsonValue::Kind::NUMBER;
   value.number = 4.0;
-  const float INITIAL = built.template get<"inner_warp">().cell_x;
+  const float initial = built.template get<"inner_warp">().cell_x;
   HS_EXPECT_FALSE(apply_document_value<FX>(built, slot, "cell-x", value));
-  HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, INITIAL);
+  HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, initial);
   slot.resource_key = "missing";
   HS_EXPECT_FALSE(apply_document_value<FX>(built, slot, "cell-x", value));
-  HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, INITIAL);
+  HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, initial);
   slot.resource_key = "inner_warp";
   HS_EXPECT_TRUE(apply_document_value<FX>(built, slot, "cell-x", value));
   HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, 4.0f);
@@ -954,8 +954,8 @@ inline void check_document_values(const char *name) {
         }
 
     Params built{};
-    const float MISSING = std::bit_cast<float>(uint32_t{0x7fc00001});
-    const auto poison = [MISSING, values, &slots]<typename Resource>(
+    const float missing = std::bit_cast<float>(uint32_t{0x7fc00001});
+    const auto poison = [missing, values, &slots]<typename Resource>(
                             typename Resource::Family &family) {
       (void)values;
       (void)slots;
@@ -991,7 +991,7 @@ inline void check_document_values(const char *name) {
                     Pullback::Color::BrightnessEnvelope::NONE)
               continue;
           }
-          family.*(field.member) = MISSING;
+          family.*(field.member) = missing;
         }
     };
     built.visit([&]<typename Resource>(auto &family) {
@@ -1000,10 +1000,10 @@ inline void check_document_values(const char *name) {
     });
     built.visit([&]<typename Resource>(auto &family) {
       if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
-        family.modulation.mechanic.amount = MISSING;
+        family.modulation.mechanic.amount = missing;
         if (family.modulation.source == Pattern::SourceKind::NOISE) {
-          family.modulation.noise.scale = MISSING;
-          family.modulation.noise.speed = MISSING;
+          family.modulation.noise.scale = missing;
+          family.modulation.noise.speed = missing;
         }
       }
     });

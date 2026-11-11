@@ -16,15 +16,15 @@ inline void test_antialias_weights_partition() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
-  const float x = 10.3f, y = 20.6f;
-  const float xs = math::quintic_kernel(x - floorf(x));
-  const float ys = math::quintic_kernel(y - floorf(y));
-  const float in_alpha = 0.8f;
+  const float X = 10.3f, Y = 20.6f;
+  const float xs = math::quintic_kernel(X - floorf(X));
+  const float ys = math::quintic_kernel(Y - floorf(Y));
+  const float IN_ALPHA = 0.8f;
   struct Tap {
     float x, y, a;
   };
   std::vector<Tap> taps;
-  aa.plot(x, y, Pixel(1, 2, 3), 2.75f, in_alpha,
+  aa.plot(X, Y, Pixel(1, 2, 3), 2.75f, IN_ALPHA,
           [&](float tx, float ty, const Pixel &, float age, float a) {
             HS_EXPECT_EQ(age, 2.75f);
             taps.push_back({tx, ty, a});
@@ -38,12 +38,12 @@ inline void test_antialias_weights_partition() {
     HS_EXPECT_TRUE(t.y == 20.0f || t.y == 21.0f);
     const float wx = t.x == 10.0f ? 1.0f - xs : xs;
     const float wy = t.y == 20.0f ? 1.0f - ys : ys;
-    HS_EXPECT_NEAR(t.a, in_alpha * wx * wy, 1e-6f);
+    HS_EXPECT_NEAR(t.a, IN_ALPHA * wx * wy, 1e-6f);
     seen |= 1u << ((t.x == 11.0f ? 1u : 0u) | (t.y == 21.0f ? 2u : 0u));
     sum += t.a;
   }
   HS_EXPECT_EQ(seen, 15u);
-  HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+  HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
 }
 
 /**
@@ -80,10 +80,10 @@ inline void test_antialias_seam_wraps_left_column() {
   Filter::Screen::AntiAlias<W, H> aa;
 
   // Integer y = 32 gives zero Y fraction, isolating the two X taps.
-  const float in_alpha = 1.0f;
+  const float IN_ALPHA = 1.0f;
   float sum = 0.0f;
   bool all_in_range = true, saw_w_minus_1 = false, saw_zero = false;
-  aa.plot(-0.3f, 32.0f, Pixel(1, 1, 1), 0.0f, in_alpha,
+  aa.plot(-0.3f, 32.0f, Pixel(1, 1, 1), 0.0f, IN_ALPHA,
           [&](float x, float y, const Pixel &, float, float a) {
             (void)y;
             sum += a;
@@ -98,7 +98,7 @@ inline void test_antialias_seam_wraps_left_column() {
   HS_EXPECT_TRUE(all_in_range);
   HS_EXPECT_TRUE(saw_w_minus_1);
   HS_EXPECT_TRUE(saw_zero);
-  HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+  HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
 }
 
 /**
@@ -112,10 +112,10 @@ inline void test_antialias_far_seam_wraps_both_taps() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
-  const float in_alpha = 1.0f;
+  const float IN_ALPHA = 1.0f;
   float sum = 0.0f;
   bool all_in_range = true, saw_w_minus_1 = false, saw_zero = false;
-  aa.plot(2.0f * W - 0.3f, 32.0f, Pixel(1, 1, 1), 0.0f, in_alpha,
+  aa.plot(2.0f * W - 0.3f, 32.0f, Pixel(1, 1, 1), 0.0f, IN_ALPHA,
           [&](float x, float y, const Pixel &, float, float a) {
             (void)y;
             sum += a;
@@ -130,7 +130,7 @@ inline void test_antialias_far_seam_wraps_both_taps() {
   HS_EXPECT_TRUE(all_in_range);
   HS_EXPECT_TRUE(saw_w_minus_1);
   HS_EXPECT_TRUE(saw_zero);
-  HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+  HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
 }
 
 /**

@@ -344,10 +344,10 @@ inline void test_pullback_carrier_contract() {
   static_assert(!Pullback::CanonicalCarrier<NotACarrier>);
   static_assert(!Pullback::CanonicalCarrier<Pullback::ProjectionResult>);
 
-  constexpr Pullback::ProjectionProvenance provenance{1, 2, 3, 0.25f, 0.5f, 4};
-  HS_EXPECT_EQ(provenance.traits, 0);
-  HS_EXPECT_EQ(provenance.edge_class, 0);
-  HS_EXPECT_EQ(provenance.domain_coverage, 1.0f);
+  constexpr Pullback::ProjectionProvenance PROVENANCE{1, 2, 3, 0.25f, 0.5f, 4};
+  HS_EXPECT_EQ(PROVENANCE.traits, 0);
+  HS_EXPECT_EQ(PROVENANCE.edge_class, 0);
+  HS_EXPECT_EQ(PROVENANCE.domain_coverage, 1.0f);
   HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::CUT), 1);
   HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::SINGULAR), 2);
 }
@@ -400,7 +400,7 @@ inline void test_pullback_registered_curve_subset() {
 /** @brief Projection traits preserve their declared branch and cut semantics. */
 inline void test_pullback_projection_traits() {
   using projections::ProjectionTrait;
-  const math::Vector direction(0.6f, 0.8f, 0.0f);
+  const math::Vector DIRECTION(0.6f, 0.8f, 0.0f);
   const uint8_t singular =
       projections::projection_traits(ProjectionTrait::SINGULAR);
   const uint8_t folded =
@@ -411,27 +411,27 @@ inline void test_pullback_projection_traits() {
       ProjectionTrait::CUT, ProjectionTrait::SINGULAR, ProjectionTrait::FOLDED);
 
   HS_EXPECT_EQ(
-      Pullback::Projection::stereographic(direction, 1.0f).provenance.traits,
+      Pullback::Projection::stereographic(DIRECTION, 1.0f).provenance.traits,
       singular);
-  HS_EXPECT_EQ(Pullback::Projection::folded_sinusoidal(direction, 0.0f)
+  HS_EXPECT_EQ(Pullback::Projection::folded_sinusoidal(DIRECTION, 0.0f)
                    .provenance.traits,
                folded);
-  HS_EXPECT_EQ(Pullback::Projection::equirectangular(direction, 0.0f, 1.0f)
+  HS_EXPECT_EQ(Pullback::Projection::equirectangular(DIRECTION, 0.0f, 1.0f)
                    .provenance.traits,
                cut_singular);
   HS_EXPECT_EQ(
       Pullback::Projection::gnomonic(
-          direction, 1.0f, Pullback::Projection::GnomonicHemisphere::FRONT)
+          DIRECTION, 1.0f, Pullback::Projection::GnomonicHemisphere::FRONT)
           .provenance.traits,
       cut_singular);
   HS_EXPECT_EQ(
       Pullback::Projection::gnomonic(
-          direction, 1.0f, Pullback::Projection::GnomonicHemisphere::BACK)
+          DIRECTION, 1.0f, Pullback::Projection::GnomonicHemisphere::BACK)
           .provenance.traits,
       cut_singular);
   HS_EXPECT_EQ(
       Pullback::Projection::gnomonic(
-          direction, 1.0f, Pullback::Projection::GnomonicHemisphere::FOLDED)
+          DIRECTION, 1.0f, Pullback::Projection::GnomonicHemisphere::FOLDED)
           .provenance.traits,
       cut_singular_folded);
 }
@@ -662,15 +662,15 @@ inline void test_pullback_type_erased_prepare() {
   using Pipeline = PreparedGroupedPipeline;
   TestFrame source;
   source.edge_width = 0.75f;
-  const math::Vector view(1.0f, 2.0f, 3.0f);
+  const math::Vector VIEW(1.0f, 2.0f, 3.0f);
   const Pipeline::Frame frame = Pipeline::prepare(source);
-  const Color4 expected = Pipeline::shade(view, frame);
+  const Color4 expected = Pipeline::shade(VIEW, frame);
 
   const TestFrame ctx = source;
   alignas(Pipeline::PreparedTuple) unsigned char
       storage[sizeof(Pipeline::PreparedTuple)];
   Pipeline::prepare_into(ctx, storage);
-  const Color4 erased = Pipeline::shade_prepared(view, ctx, storage);
+  const Color4 erased = Pipeline::shade_prepared(VIEW, ctx, storage);
 
   HS_EXPECT_EQ(expected.color.r, 4);
   HS_EXPECT_EQ(expected.color.g, 100);
@@ -977,30 +977,30 @@ inline void test_pullback_counting_instrumentation() {
 inline void test_pullback_prepared_stage_policies() {
   CountingInstrumentation::count = 0;
   const TestFrame frame;
-  const Pullback::SphereSample sphere{math::Vector(1.0f, 2.0f, 3.0f), 0.0f};
+  const Pullback::SphereSample SPHERE{math::Vector(1.0f, 2.0f, 3.0f), 0.0f};
 
   using BoundRotate =
       Pullback::Stage::Rotate<PreparedOrientationPolicy>::Bind<CountingBinding>;
   const auto rotate_prepared = BoundRotate::prepare(frame);
   HS_EXPECT_EQ(rotate_prepared, 1);
   const Pullback::SphereSample rotated =
-      BoundRotate::run(sphere, frame, rotate_prepared);
+      BoundRotate::run(SPHERE, frame, rotate_prepared);
   HS_EXPECT_EQ(rotated.dir.x, -1.0f);
   HS_EXPECT_EQ(rotated.dir.y, 2.0f);
   HS_EXPECT_EQ(rotated.dir.z, -3.0f);
-  HS_EXPECT_EQ(rotated.path_length, sphere.path_length);
+  HS_EXPECT_EQ(rotated.path_length, SPHERE.path_length);
 
   using BoundLens =
       Pullback::Stage::Lens<PreparedLensPolicy>::Bind<CountingBinding>;
   const auto lens_prepared = BoundLens::prepare(frame);
   HS_EXPECT_EQ(lens_prepared, 2);
-  HS_EXPECT_EQ(BoundLens::run(sphere, frame, lens_prepared).dir.x, 3.0f);
+  HS_EXPECT_EQ(BoundLens::run(SPHERE, frame, lens_prepared).dir.x, 3.0f);
 
   using BoundProject =
       Pullback::Stage::Project<PreparedProjectionPolicy>::Bind<CountingBinding>;
   const auto project_prepared = BoundProject::prepare(frame);
   HS_EXPECT_EQ(project_prepared, 3);
-  HS_EXPECT_EQ(BoundProject::run({math::X_AXIS, sphere.path_length}, frame,
+  HS_EXPECT_EQ(BoundProject::run({math::X_AXIS, SPHERE.path_length}, frame,
                                  project_prepared)
                    .coords.re,
                4.0f);
@@ -1013,7 +1013,7 @@ inline void test_pullback_prepared_stage_policies() {
   using BoundSample = Pullback::Stage::Sample<
       PreparedSourcePolicy, PreparedWeightPolicy,
       PreparedSampleCoveragePolicy>::Bind<CountingBinding>;
-  const Pullback::PlaneSample plane{math::Complex(1.0f, 0.0f),
+  const Pullback::PlaneSample PLANE{math::Complex(1.0f, 0.0f),
                                     {0, 0, 0, 0.0f, 1.0f, 0, 0, 0, 0.8f},
                                     math::X_AXIS,
                                     0.75f};
@@ -1022,27 +1022,27 @@ inline void test_pullback_prepared_stage_policies() {
   HS_EXPECT_EQ(std::get<1>(sample_prepared), 0.5f);
   HS_EXPECT_EQ(std::get<2>(sample_prepared), 0.25f);
   const Pullback::FieldSample sampled =
-      BoundSample::run(plane, frame, sample_prepared);
+      BoundSample::run(PLANE, frame, sample_prepared);
   HS_EXPECT_EQ(sampled.value, 0.875f);
   HS_EXPECT_EQ(sampled.coverage, 0.2f);
   HS_EXPECT_EQ(sampled.path_length, 0.75f);
 
-  const Pullback::FieldSample field{0.25f, 0.8f, math::X_AXIS, 0.0f};
+  const Pullback::FieldSample FIELD{0.25f, 0.8f, math::X_AXIS, 0.0f};
   using BoundTransfer =
       Pullback::Stage::Transfer<PreparedTransferPolicy>::Bind<CountingBinding>;
   const auto transfer_prepared = BoundTransfer::prepare(frame);
-  HS_EXPECT_EQ(BoundTransfer::run(field, frame, transfer_prepared).value, 0.5f);
+  HS_EXPECT_EQ(BoundTransfer::run(FIELD, frame, transfer_prepared).value, 0.5f);
 
   using BoundCoverage = Pullback::Stage::ApplyCoverage<
       PreparedCoveragePolicy>::Bind<CountingBinding>;
   const auto coverage_prepared = BoundCoverage::prepare(frame);
-  HS_EXPECT_EQ(BoundCoverage::run(field, frame, coverage_prepared).coverage,
+  HS_EXPECT_EQ(BoundCoverage::run(FIELD, frame, coverage_prepared).coverage,
                0.4f);
 
   using BoundColorize =
       Pullback::Stage::Colorize<PreparedColorPolicy>::Bind<CountingBinding>;
   const auto color_prepared = BoundColorize::prepare(frame);
-  HS_EXPECT_EQ(BoundColorize::run(field, frame, color_prepared).color.color.r,
+  HS_EXPECT_EQ(BoundColorize::run(FIELD, frame, color_prepared).color.color.r,
                11);
 }
 
@@ -1053,9 +1053,9 @@ inline void test_pullback_stage_combinators() {
 
   using BoundProject =
       Pullback::Stage::Project<CountingProjectionPolicy>::Bind<CountingBinding>;
-  const Pullback::SphereSample view{math::X_AXIS, 0.5f};
+  const Pullback::SphereSample VIEW{math::X_AXIS, 0.5f};
   const Pullback::PlaneSample projected =
-      BoundProject::run(view, frame, BoundProject::prepare(frame));
+      BoundProject::run(VIEW, frame, BoundProject::prepare(frame));
   HS_EXPECT_EQ(projected.coords.re, 1.0f);
   HS_EXPECT_EQ(projected.coords.im, 0.0f);
   HS_EXPECT_EQ(projected.provenance.value_weight, 0.5f);
@@ -1088,11 +1088,11 @@ inline void test_pullback_stage_combinators() {
   using BoundSphereSample = Pullback::Stage::SampleSphere<
       CountingSphericalSourcePolicy>::Bind<CountingBinding>;
   const Pullback::FieldSample sphere_sampled =
-      BoundSphereSample::run(view, frame, BoundSphereSample::prepare(frame));
+      BoundSphereSample::run(VIEW, frame, BoundSphereSample::prepare(frame));
   HS_EXPECT_EQ(sphere_sampled.value, 1.0f);
   HS_EXPECT_EQ(sphere_sampled.coverage, 1.0f);
-  HS_EXPECT_EQ(sphere_sampled.sphere.x, view.dir.x);
-  HS_EXPECT_EQ(sphere_sampled.path_length, view.path_length);
+  HS_EXPECT_EQ(sphere_sampled.sphere.x, VIEW.dir.x);
+  HS_EXPECT_EQ(sphere_sampled.path_length, VIEW.path_length);
 
   using BoundTransfer = Pullback::Stage::Transfer<
       Pullback::Transfer::Ridge>::Bind<CountingBinding>;
@@ -1112,7 +1112,7 @@ inline void test_pullback_stage_combinators() {
   using BoundDisplace =
       Pullback::Stage::Displace<CountingSurfacePolicy>::Bind<CountingBinding>;
   const Pullback::SphereSample displaced =
-      BoundDisplace::run(view, frame, BoundDisplace::prepare(frame));
+      BoundDisplace::run(VIEW, frame, BoundDisplace::prepare(frame));
   HS_EXPECT_EQ(displaced.dir.x, 1.0f);
   HS_EXPECT_EQ(displaced.path_length, 1.0f);
 }
@@ -1161,12 +1161,12 @@ inline void test_pullback_provider_contracts() {
   // Runtime half: a provider that declares no Prepared collapses to an empty
   // bound prepared state, and the bound stage still runs.
   const TestFrame frame;
-  const Pullback::SphereSample sphere{math::Vector(1.0f, 2.0f, 3.0f), 4.0f};
+  const Pullback::SphereSample SPHERE{math::Vector(1.0f, 2.0f, 3.0f), 4.0f};
   using BoundStatelessRotate =
       Pullback::Stage::Rotate<CountingOrientationState>::Bind<CountingBinding>;
   HS_EXPECT_TRUE(std::is_empty_v<typename BoundStatelessRotate::Prepared>);
   const Pullback::SphereSample carried = BoundStatelessRotate::run(
-      sphere, frame, BoundStatelessRotate::prepare(frame));
+      SPHERE, frame, BoundStatelessRotate::prepare(frame));
   HS_EXPECT_EQ(carried.dir.x, 1.0f);
   HS_EXPECT_EQ(carried.dir.y, 2.0f);
   HS_EXPECT_EQ(carried.dir.z, 3.0f);
@@ -1212,10 +1212,10 @@ inline void test_pullback_affine_provider_repeat_contract() {
   static_assert(!Pullback::Warp::AffineFrame<WrongRepeatState>::PROVIDER_VALID<
                 TestBinding>);
   const TestFrame frame;
-  const math::Complex point(0.25f, -0.75f);
-  const auto actual = Policy::apply(point, {}, frame, Policy::prepare(frame));
-  HS_EXPECT_EQ(actual.coords.re, point.re);
-  HS_EXPECT_EQ(actual.coords.im, point.im);
+  const math::Complex POINT(0.25f, -0.75f);
+  const auto actual = Policy::apply(POINT, {}, frame, Policy::prepare(frame));
+  HS_EXPECT_EQ(actual.coords.re, POINT.re);
+  HS_EXPECT_EQ(actual.coords.im, POINT.im);
   HS_EXPECT_EQ(actual.path_length, 0.0f);
 }
 
@@ -1223,19 +1223,19 @@ inline void test_pullback_affine_provider_repeat_contract() {
 inline void test_pullback_square_cells_formula() {
   const auto reference = [](const Pattern::PlanePosition &coordinate,
                             const Pattern::TessellationCellParams &params) {
-    const float X =
+    const float x =
         math::wrap_t(params.cell_scale * coordinate.value.re + 0.5f) - 0.5f;
-    const float Y =
+    const float y =
         math::wrap_t(params.cell_scale * coordinate.value.im + 0.5f) - 0.5f;
-    const float CIRCLE = sqrtf(X * X + Y * Y) - params.cell_radius;
-    const float BX = fabsf(X) - params.cell_radius;
-    const float BY = fabsf(Y) - params.cell_radius;
-    const float SQUARE = sqrtf(fmaxf(BX, 0.0f) * fmaxf(BX, 0.0f) +
-                               fmaxf(BY, 0.0f) * fmaxf(BY, 0.0f)) +
-                         fminf(fmaxf(BX, BY), 0.0f);
+    const float circle = sqrtf(x * x + y * y) - params.cell_radius;
+    const float bx = fabsf(x) - params.cell_radius;
+    const float by = fabsf(y) - params.cell_radius;
+    const float square = sqrtf(fmaxf(bx, 0.0f) * fmaxf(bx, 0.0f) +
+                               fmaxf(by, 0.0f) * fmaxf(by, 0.0f)) +
+                         fminf(fmaxf(bx, by), 0.0f);
     return 1.0f - 2.0f * math::smooth_ramp(
                              -params.cell_softness, params.cell_softness,
-                             hs::lerp(CIRCLE, SQUARE, params.cell_shape));
+                             hs::lerp(circle, square, params.cell_shape));
   };
   hs::Pcg32 random(0x12345678u);
   for (float scale : {1.0f / 64.0f, 0.98971874f, 1.0f, 8.0f})
@@ -1248,18 +1248,18 @@ inline void test_pullback_square_cells_formula() {
           params.cell_softness = softness;
           params.cell_shape = blend;
           for (int sample = 0; sample < 256; ++sample) {
-            const float X = rand_uniform(random, -1024.0f, 1024.0f);
-            const float Y = rand_uniform(random, -1024.0f, 1024.0f);
-            const Pattern::PlanePosition COORDINATE{
-                math::Complex(sample < 8 ? float(sample - 4) * 0.5f : X,
-                              sample < 8 ? 0.0f : Y)};
-            const float EXPECTED = reference(COORDINATE, params);
-            const float ACTUAL = Pattern::square_cells(COORDINATE, params);
+            const float x = rand_uniform(random, -1024.0f, 1024.0f);
+            const float y = rand_uniform(random, -1024.0f, 1024.0f);
+            const Pattern::PlanePosition coordinate{
+                math::Complex(sample < 8 ? float(sample - 4) * 0.5f : x,
+                              sample < 8 ? 0.0f : y)};
+            const float expected = reference(coordinate, params);
+            const float actual = Pattern::square_cells(coordinate, params);
 #if HS_TEST_FAST_MATH
-            HS_EXPECT_NEAR(ACTUAL, EXPECTED,
+            HS_EXPECT_NEAR(actual, expected,
                            8.0f * std::numeric_limits<float>::epsilon());
 #else
-            HS_EXPECT_TRUE(std::memcmp(&EXPECTED, &ACTUAL, sizeof(float)) == 0);
+            HS_EXPECT_TRUE(std::memcmp(&expected, &actual, sizeof(float)) == 0);
 #endif
           }
         }
@@ -1395,9 +1395,9 @@ inline void test_pullback_tessellation_reference() {
         int inside = 0;
         int outside = 0;
         for (int sample = 0; sample < 2000; ++sample) {
-          const float X = next();
-          const float Y = next();
-          const math::Complex point(X, Y);
+          const float x = next();
+          const float y = next();
+          const math::Complex point(x, y);
           const float actual = Pattern::tessellation(
               Pattern::PlanePosition{point}, reference.params, kind, fill);
           const double expected = reference(point);
@@ -1419,11 +1419,11 @@ inline void test_pullback_hexagonal_cells_pack_hex_lattice() {
   params.cell_scale = 2.5f;
   params.cell_radius = 0.4f;
   params.cell_softness = 0.05f;
-  const float period = 0.4f;
-  const float half_sqrt3 = 0.8660254038f;
+  const float PERIOD = 0.4f;
+  const float HALF_SQRT3 = 0.8660254038f;
   const auto at = [&](float u, float v) {
     return Pattern::tessellation<K::HEXAGONAL, F::CELLS>(
-        Pattern::PlanePosition{math::Complex(period * u, period * v)}, params);
+        Pattern::PlanePosition{math::Complex(PERIOD * u, PERIOD * v)}, params);
   };
   for (const float shape : {0.0f, 1.0f}) {
     HS_CONTEXT("shape", static_cast<int>(shape));
@@ -1431,13 +1431,13 @@ inline void test_pullback_hexagonal_cells_pack_hex_lattice() {
     for (int j = -3; j <= 3; ++j)
       for (int i = -3; i <= 3; ++i) {
         const float u = i + 0.5f * j;
-        const float v = half_sqrt3 * j;
+        const float v = HALF_SQRT3 * j;
         HS_EXPECT_EQ(at(u, v), 1.0f);
         HS_EXPECT_EQ(at(u + 0.5f, v), -1.0f);
-        HS_EXPECT_EQ(at(u + 0.25f, v + 0.5f * half_sqrt3), -1.0f);
-        HS_EXPECT_EQ(at(u - 0.25f, v + 0.5f * half_sqrt3), -1.0f);
+        HS_EXPECT_EQ(at(u + 0.25f, v + 0.5f * HALF_SQRT3), -1.0f);
+        HS_EXPECT_EQ(at(u - 0.25f, v + 0.5f * HALF_SQRT3), -1.0f);
         HS_EXPECT_LT(at(u + 0.42f, v), 0.0f);
-        const float corner = at(u + 0.44f * half_sqrt3, v + 0.44f * 0.5f);
+        const float corner = at(u + 0.44f * HALF_SQRT3, v + 0.44f * 0.5f);
         if (shape == 0.0f)
           HS_EXPECT_LT(corner, 0.0f);
         else
@@ -1472,12 +1472,12 @@ void check_tessellation_translation_lattice() {
   }
   const Pullback::TranslationLattice lattice =
       Pullback::Source::translation_lattice(params);
-  const float period = 1.0f / 1.7f;
+  const float PERIOD = 1.0f / 1.7f;
   const bool square = Kind == Pattern::TessellationKind::SQUARE;
-  HS_EXPECT_EQ(lattice.a.re, period);
+  HS_EXPECT_EQ(lattice.a.re, PERIOD);
   HS_EXPECT_EQ(lattice.a.im, 0.0f);
-  HS_EXPECT_NEAR(lattice.b.re, square ? 0.0f : 0.5f * period, 1e-7f);
-  HS_EXPECT_NEAR(lattice.b.im, square ? period : 0.8660254038f * period, 1e-7f);
+  HS_EXPECT_NEAR(lattice.b.re, square ? 0.0f : 0.5f * PERIOD, 1e-7f);
+  HS_EXPECT_NEAR(lattice.b.im, square ? PERIOD : 0.8660254038f * PERIOD, 1e-7f);
   bool half_differs = false;
   hs::Pcg32 random(0x2545f491u);
   for (int sample = 0; sample < 300; ++sample) {
@@ -1526,41 +1526,41 @@ inline void test_pullback_concrete_catalog() {
     float cell_softness;
     float cell_radius;
   };
-  constexpr Prepared prepared{0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
-  constexpr Prepared shifted{0.7f, 0.3f, 0.0f, 1.0f, 0.0f};
-  constexpr Prepared turned{0.0f, 0.0f, math::PI_F * 0.5f, 0.0f, 1.0f};
-  constexpr Params params{1.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
-  constexpr Params coupled{0.0f, 0.5f, 1.0f, 0.0f, 0.1f, 0.25f};
+  constexpr Prepared PREPARED{0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
+  constexpr Prepared SHIFTED{0.7f, 0.3f, 0.0f, 1.0f, 0.0f};
+  constexpr Prepared TURNED{0.0f, 0.0f, math::PI_F * 0.5f, 0.0f, 1.0f};
+  constexpr Params PARAMS{1.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
+  constexpr Params COUPLED{0.0f, 0.5f, 1.0f, 0.0f, 0.1f, 0.25f};
   const math::Complex origin;
-  const math::Complex off(0.6f, 0.25f); // radius 0.65, azimuth atan2(0.25, 0.6)
-  HS_EXPECT_EQ(Pattern::twin_wave(Pattern::PlanePosition{origin}, prepared),
+  const math::Complex OFF(0.6f, 0.25f); // radius 0.65, azimuth atan2(0.25, 0.6)
+  HS_EXPECT_EQ(Pattern::twin_wave(Pattern::PlanePosition{origin}, PREPARED),
                0.0f);
-  HS_EXPECT_EQ(Pattern::twin_wave(Pattern::PlanePosition{origin}, shifted),
+  HS_EXPECT_EQ(Pattern::twin_wave(Pattern::PlanePosition{origin}, SHIFTED),
                0.5f * (math::fast_sinf(0.7f) + math::fast_sinf(0.3f)));
-  HS_EXPECT_NEAR(Pattern::twin_wave(Pattern::PlanePosition{off}, turned),
+  HS_EXPECT_NEAR(Pattern::twin_wave(Pattern::PlanePosition{OFF}, TURNED),
                  0.5f * (math::fast_sinf(0.6f) + math::fast_sinf(0.25f)),
                  2e-3f);
   HS_EXPECT_EQ(Pattern::spiral(Pattern::PlanePosition{origin}, 0.0f), 0.0f);
-  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{off}, 0.0f),
+  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{OFF}, 0.0f),
                  math::fast_sinf(0.65f), 2e-3f);
   HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{origin}, 3.0f), 1.0f,
                  2e-3f);
-  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{off}, 3.0f),
+  HS_EXPECT_NEAR(Pattern::spiral(Pattern::PlanePosition{OFF}, 3.0f),
                  math::fast_sinf(0.65f - 3.0f * math::fast_atan2(0.25f, 0.6f)),
                  2e-3f);
-  HS_EXPECT_EQ(Pattern::grid(Pattern::PlanePosition{origin}, params, prepared),
+  HS_EXPECT_EQ(Pattern::grid(Pattern::PlanePosition{origin}, PARAMS, PREPARED),
                0.0f);
   HS_EXPECT_NEAR(
-      Pattern::grid(Pattern::PlanePosition{origin}, coupled, shifted),
+      Pattern::grid(Pattern::PlanePosition{origin}, COUPLED, SHIFTED),
       math::fast_sinf(0.5f * math::fast_sinf(0.7f)) *
           math::fast_cosf(0.5f * math::fast_cosf(-0.7f)),
       2e-3f);
-  HS_EXPECT_EQ(Pattern::square_cells(Pattern::PlanePosition{origin}, params),
+  HS_EXPECT_EQ(Pattern::square_cells(Pattern::PlanePosition{origin}, PARAMS),
                1.0f);
   // Cell coordinate (0.2, 0.1) sits inside the softness band, so the edge ramp
   // resolves between its saturated ends.
   HS_EXPECT_NEAR(Pattern::square_cells(
-                     Pattern::PlanePosition{math::Complex(0.2f, 0.1f)}, params),
+                     Pattern::PlanePosition{math::Complex(0.2f, 0.1f)}, PARAMS),
                  0.38671f, 2e-3f);
 
   using Kind = Pattern::TessellationKind;
@@ -1580,10 +1580,10 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(axis.y, 1.0f);
   HS_EXPECT_EQ(axis.z, 0.0f);
 
-  const projections::ProjectionKernelResult kernel{
+  const projections::ProjectionKernelResult KERNEL{
       math::Complex(1.0f, 2.0f), 3, 4, 5, 3.0f, 6, 7, 8};
   const Pullback::ProjectionResult projected =
-      Pullback::Projection::from_kernel(kernel, 2.0f);
+      Pullback::Projection::from_kernel(KERNEL, 2.0f);
   HS_EXPECT_EQ(projected.coords.re, 2.0f);
   HS_EXPECT_EQ(projected.coords.im, 4.0f);
   HS_EXPECT_EQ(projected.provenance.fade_edge_distance, 6.0f);
@@ -1595,8 +1595,8 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(projected.provenance.edge_class, 8);
   HS_EXPECT_EQ(projected.provenance.value_weight, 1.0f);
   HS_EXPECT_EQ(projected.provenance.domain_coverage, 1.0f);
-  const math::Vector north(0.5416752f, 0.6427876f, 0.5416752f);
-  const math::Vector south(north.x, -north.y, north.z);
+  const math::Vector NORTH(0.5416752f, 0.6427876f, 0.5416752f);
+  const math::Vector south(NORTH.x, -NORTH.y, NORTH.z);
   for (const auto layout : {projections::PeirceLayout::HORIZONTAL,
                             projections::PeirceLayout::VERTICAL}) {
     const auto weight = [&](const math::Vector &direction) {
@@ -1606,7 +1606,7 @@ inline void test_pullback_concrete_catalog() {
           .provenance.value_weight;
     };
     HS_EXPECT_GT(weight(south), 0.4f);
-    HS_EXPECT_NEAR(weight(south), weight(north), 1e-6f);
+    HS_EXPECT_NEAR(weight(south), weight(NORTH), 1e-6f);
   }
   HS_EXPECT_EQ(
       Pullback::Projection::peirce_weight(south, 1.0f, 0.0f, 1.0f, true), 0.0f);
@@ -1627,11 +1627,11 @@ inline void test_pullback_concrete_catalog() {
 
 /** @brief Warp parameters close their configured phase loop. */
 inline void test_pullback_warp_phase_loop() {
-  const Pullback::Warp::MirrorParams mirror{0.0f, 0.7f, 1.3f,
+  const Pullback::Warp::MirrorParams MIRROR{0.0f, 0.7f, 1.3f,
                                             0.9f, 0.4f, -0.2f};
-  const auto mirror_0 = Pullback::Warp::prepare(mirror, 0.0f);
-  const auto mirror_1 = Pullback::Warp::prepare(mirror, 1.0f);
-  const auto mirror_mid = Pullback::Warp::prepare(mirror, 0.25f);
+  const auto mirror_0 = Pullback::Warp::prepare(MIRROR, 0.0f);
+  const auto mirror_1 = Pullback::Warp::prepare(MIRROR, 1.0f);
+  const auto mirror_mid = Pullback::Warp::prepare(MIRROR, 0.25f);
   HS_EXPECT_GT(std::abs(mirror_mid.mirror.offset_x - mirror_0.mirror.offset_x),
                0.1f);
   HS_EXPECT_NEAR(mirror_0.mirror.offset_x, mirror_1.mirror.offset_x, 1e-6f);
@@ -1784,17 +1784,17 @@ inline void test_pullback_dodecahedral_matrix_fold() {
     return float(state & 0xffffff) * (2.0f / 0xffffff) - 1.0f;
   };
   for (int sample = 0; sample < 8192; ++sample) {
-    const float X = random();
-    const float Y = random();
-    const float Z = random();
-    const auto INPUT = math::Vector(X, Y, Z).normalized();
-    const auto EXPECTED = lenses::dodecahedral_kaleidoscope_lens(INPUT);
+    const float x = random();
+    const float y = random();
+    const float z = random();
+    const auto input = math::Vector(x, y, z).normalized();
+    const auto expected = lenses::dodecahedral_kaleidoscope_lens(input);
     math::Vector candidate;
-    const bool FAST = lenses::try_dodecahedral_table(INPUT, candidate);
-    const auto ACTUAL = lenses::dodecahedral_table_lens(INPUT);
-    HS_EXPECT_LE((ACTUAL - EXPECTED).length(), 2e-6f);
-    HS_EXPECT_NEAR(math::dot(ACTUAL, ACTUAL), math::dot(INPUT, INPUT), 2e-6f);
-    if (FAST) {
+    const bool fast = lenses::try_dodecahedral_table(input, candidate);
+    const auto actual = lenses::dodecahedral_table_lens(input);
+    HS_EXPECT_LE((actual - expected).length(), 2e-6f);
+    HS_EXPECT_NEAR(math::dot(actual, actual), math::dot(input, input), 2e-6f);
+    if (fast) {
       ++accepted;
       HS_EXPECT_GT(candidate.x, lenses::DodecahedralTable::WALL_MARGIN);
       HS_EXPECT_GT(candidate.z, lenses::DodecahedralTable::WALL_MARGIN);
@@ -1805,7 +1805,7 @@ inline void test_pullback_dodecahedral_matrix_fold() {
   HS_EXPECT_GT(accepted, size_t(6000));
   HS_EXPECT_LT(accepted, size_t(8192));
   const auto NORMAL = lenses::DODECAHEDRAL_MIRRORS[1];
-  const math::Vector WALLS[] = {
+  const math::Vector walls[] = {
       {0.0f, 0.95f, 0.3f},
       {0.2f, 0.98f, 0.0f},
       {0.1f, (-NORMAL.x * 0.1f - NORMAL.z * 0.1f) / NORMAL.y, 0.1f}};
@@ -1813,22 +1813,22 @@ inline void test_pullback_dodecahedral_matrix_fold() {
   for (const auto &matrix : lenses::DodecahedralTable::GROUP.values)
     for (int wall = 0; wall < 3; ++wall)
       for (float offset : {-1e-6f, 0.0f, 1e-6f}) {
-        const auto POINT = (WALLS[wall] + offset * NORMALS[wall]).normalized();
-        const auto INPUT =
-            math::Vector(matrix[0][0] * POINT.x + matrix[1][0] * POINT.y +
-                             matrix[2][0] * POINT.z,
-                         matrix[0][1] * POINT.x + matrix[1][1] * POINT.y +
-                             matrix[2][1] * POINT.z,
-                         matrix[0][2] * POINT.x + matrix[1][2] * POINT.y +
-                             matrix[2][2] * POINT.z)
+        const auto point = (walls[wall] + offset * NORMALS[wall]).normalized();
+        const auto input =
+            math::Vector(matrix[0][0] * point.x + matrix[1][0] * point.y +
+                             matrix[2][0] * point.z,
+                         matrix[0][1] * point.x + matrix[1][1] * point.y +
+                             matrix[2][1] * point.z,
+                         matrix[0][2] * point.x + matrix[1][2] * point.y +
+                             matrix[2][2] * point.z)
                 .normalized();
         math::Vector candidate;
-        HS_EXPECT_FALSE(lenses::try_dodecahedral_table(INPUT, candidate));
-        const auto EXPECTED = lenses::dodecahedral_kaleidoscope_lens(INPUT);
-        const auto ACTUAL = lenses::dodecahedral_table_lens(INPUT);
-        HS_EXPECT_EQ(ACTUAL.x, EXPECTED.x);
-        HS_EXPECT_EQ(ACTUAL.y, EXPECTED.y);
-        HS_EXPECT_EQ(ACTUAL.z, EXPECTED.z);
+        HS_EXPECT_FALSE(lenses::try_dodecahedral_table(input, candidate));
+        const auto expected = lenses::dodecahedral_kaleidoscope_lens(input);
+        const auto actual = lenses::dodecahedral_table_lens(input);
+        HS_EXPECT_EQ(actual.x, expected.x);
+        HS_EXPECT_EQ(actual.y, expected.y);
+        HS_EXPECT_EQ(actual.z, expected.z);
       }
 }
 
@@ -1994,9 +1994,9 @@ inline void test_pullback_custom_grid_preparation() {
   using Grid = Pullback::Source::Grid<State>;
   static_assert(Grid::PROVIDER_VALID<TestBinding>);
   const TestFrame FRAME{};
-  const auto PREPARED = Grid::prepare(FRAME);
+  const auto prepared = Grid::prepare(FRAME);
   const Pullback::PlaneSample INPUT{{0.0f, 0.0f}, {}, math::Z_AXIS, 0.0f};
-  HS_EXPECT_NEAR(Grid::sample(INPUT, FRAME, PREPARED), std::sin(1.0f), 2e-3f);
+  HS_EXPECT_NEAR(Grid::sample(INPUT, FRAME, prepared), std::sin(1.0f), 2e-3f);
 }
 
 /** @brief Hexagonal edge bands agree at corners and shared boundaries. */
@@ -2030,9 +2030,9 @@ inline void test_pullback_hexagonal_edges() {
         const math::Complex &b = vertices[(edge + 1) % 6];
         const math::Complex midpoint((a.re + b.re) * 0.5f,
                                      (a.im + b.im) * 0.5f);
-        const float LENGTH = std::hypot(midpoint.re, midpoint.im);
-        HS_EXPECT_NEAR(LENGTH, 0.5f, 1e-6f);
-        const math::Complex normal(midpoint.re / LENGTH, midpoint.im / LENGTH);
+        const float length = std::hypot(midpoint.re, midpoint.im);
+        HS_EXPECT_NEAR(length, 0.5f, 1e-6f);
+        const math::Complex normal(midpoint.re / length, midpoint.im / length);
         HS_EXPECT_EQ(sample(a), 1.0f);
         HS_EXPECT_EQ(sample(midpoint), 1.0f);
         for (float direction : {-1.0f, 1.0f}) {
@@ -2058,13 +2058,13 @@ inline void test_pullback_displacement_overflow() {
         math::Complex(1e30f, -1e30f), math::Complex(1e30f, 0.0f)}) {
     HS_EXPECT_EQ(Pullback::Warp::displacement(delta, false), 0.0f);
     const float distance = Pullback::Warp::displacement(delta, true);
-    const double EXPECTED = std::hypot(static_cast<double>(delta.re),
+    const double expected = std::hypot(static_cast<double>(delta.re),
                                        static_cast<double>(delta.im));
     HS_EXPECT_TRUE(std::isfinite(distance));
-    HS_EXPECT_NEAR(distance, EXPECTED, EXPECTED * 1e-6);
-    const float SQUARED = delta.re * delta.re + delta.im * delta.im;
-    if (std::isfinite(SQUARED))
-      HS_EXPECT_EQ(distance, sqrtf(SQUARED));
+    HS_EXPECT_NEAR(distance, expected, expected * 1e-6);
+    const float squared = delta.re * delta.re + delta.im * delta.im;
+    if (std::isfinite(squared))
+      HS_EXPECT_EQ(distance, sqrtf(squared));
   }
 }
 

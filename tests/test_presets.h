@@ -420,12 +420,12 @@ inline void test_cancelled_fade_notifies_committed_index() {
       HS_EXPECT_TRUE(effect.attempt());
       effect.progress(adopted ? 0.5f : 0.25f);
       HS_EXPECT_EQ(effect.notifications.size(), size_t{1});
-      const bool REPLACEMENT = action == Cancel::MANUAL_FROM ||
+      const bool replacement = action == Cancel::MANUAL_FROM ||
                                action == Cancel::MANUAL_TO ||
                                action == Cancel::SYNCHRONIZED;
-      const size_t INDEX =
-          REPLACEMENT ? size_t(action == Cancel::MANUAL_TO) : size_t(adopted);
-      float expected_value = float(INDEX + 1);
+      const size_t index =
+          replacement ? size_t(action == Cancel::MANUAL_TO) : size_t(adopted);
+      float expected_value = float(index + 1);
       switch (action) {
       case Cancel::EDIT:
         effect.cancel_from_notification = true;
@@ -438,31 +438,31 @@ inline void test_cancelled_fade_notifies_committed_index() {
         break;
       case Cancel::MANUAL_FROM:
       case Cancel::MANUAL_TO:
-        HS_EXPECT_TRUE(effect.selectPreset(INDEX));
+        HS_EXPECT_TRUE(effect.selectPreset(index));
         break;
       case Cancel::SYNCHRONIZED:
-        HS_EXPECT_TRUE(effect.synchronizePreset(INDEX));
+        HS_EXPECT_TRUE(effect.synchronizePreset(index));
         break;
       }
-      const size_t COUNT = REPLACEMENT || !adopted ? 2 : 1;
-      HS_EXPECT_EQ(effect.notifications.size(), COUNT);
-      if (COUNT == 2 && effect.notifications.size() == COUNT) {
+      const size_t count = replacement || !adopted ? 2 : 1;
+      HS_EXPECT_EQ(effect.notifications.size(), count);
+      if (count == 2 && effect.notifications.size() == count) {
         const auto &notification = effect.notifications.back();
         HS_EXPECT_EQ(notification.change.from, size_t{1});
-        HS_EXPECT_EQ(notification.change.to, INDEX);
-        const auto ORIGIN = action == Cancel::SYNCHRONIZED
+        HS_EXPECT_EQ(notification.change.to, index);
+        const auto origin = action == Cancel::SYNCHRONIZED
                                 ? FadePresetEffect::Origin::SYNCHRONIZED
-                            : REPLACEMENT ? FadePresetEffect::Origin::MANUAL
+                            : replacement ? FadePresetEffect::Origin::MANUAL
                                           : FadePresetEffect::Origin::RESTORED;
-        HS_EXPECT_TRUE(notification.change.origin == ORIGIN);
-        HS_EXPECT_EQ(notification.visible_index, INDEX);
+        HS_EXPECT_TRUE(notification.change.origin == origin);
+        HS_EXPECT_EQ(notification.visible_index, index);
         HS_EXPECT_FALSE(notification.active);
         HS_EXPECT_EQ(notification.opacity, 1.0f);
       }
       effect.cancel();
       effect.progress(1.0f);
-      HS_EXPECT_EQ(effect.notifications.size(), COUNT);
-      HS_EXPECT_EQ(effect.getPresetIndex(), INDEX);
+      HS_EXPECT_EQ(effect.notifications.size(), count);
+      HS_EXPECT_EQ(effect.getPresetIndex(), index);
       HS_EXPECT_EQ(effect.value(), expected_value);
       HS_EXPECT_EQ(effect.opacity, 1.0f);
     }

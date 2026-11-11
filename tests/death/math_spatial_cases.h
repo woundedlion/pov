@@ -369,10 +369,10 @@ inline void case_spherical_field_ring_index_oob() {
  *          re-populate it and leave the caller believing it wrote fresh rings.
  */
 inline void case_spherical_field_populate_ring_end_oob() {
-  constexpr hs::SphericalFieldLayout<32, 16, 0> layout(4);
-  static float values[layout.sample_count()];
-  hs::SphericalField<float, 32, 16, 0> field(values, layout);
-  field.populate(0, opaque(layout.ring_count()),
+  constexpr hs::SphericalFieldLayout<32, 16, 0> LAYOUT(4);
+  static float values[LAYOUT.sample_count()];
+  hs::SphericalField<float, 32, 16, 0> field(values, LAYOUT);
+  field.populate(0, opaque(LAYOUT.ring_count()),
                  [](const math::Vector &v, const auto &) { return v.y; });
   (void)values[0];
 }

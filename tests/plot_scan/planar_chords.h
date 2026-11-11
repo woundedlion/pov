@@ -267,8 +267,8 @@ inline void test_planar_band_split_matches_whole_polyline() {
   constexpr int W = 288, H = 144;
   constexpr int POLE_ROWS = 3;
   hs_test::StubEffect fx(W, H);
-  const ClipRegion full{0, H, 0, W, 1, W, H};
-  const ClipRegion quadrants[] = {
+  const ClipRegion FULL{0, H, 0, W, 1, W, H};
+  const ClipRegion QUADRANTS[] = {
       {0, H / 2, 0, W / 2, 1, W, H},
       {0, H / 2, W / 2, W, 1, W, H},
       {H / 2, H, 0, W / 2, 1, W, H},
@@ -286,9 +286,9 @@ inline void test_planar_band_split_matches_whole_polyline() {
   size_t skipped = 0;
   for (const PlanarShapeCase &flower : flowers) {
     const auto whole =
-        render_band_split_flower<W, H>(fx, flower, full, false).pixels;
+        render_band_split_flower<W, H>(fx, flower, FULL, false).pixels;
     HS_EXPECT_GT(frame_energy(whole), uint64_t{0});
-    for (const ClipRegion &clip : quadrants) {
+    for (const ClipRegion &clip : QUADRANTS) {
       const auto tile = render_band_split_flower<W, H>(fx, flower, clip, true);
       skipped += tile.skipped_edges;
       expect_covered_within_one_pixel<W, H>(whole, tile.pixels, clip.y_start,
@@ -307,7 +307,7 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
   constexpr int W = 288, H = 144;
   constexpr int POLE_ROWS = 3;
   hs_test::StubEffect fx(W, H);
-  constexpr auto quadrants = quadrant_clips<W, H>();
+  constexpr auto QUADRANTS = quadrant_clips<W, H>();
   const std::array<PlanarShapeCase, 5> stars = {{
       {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.12f, 7, 0.6f},
       {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.35f, 7, 1.7f},
@@ -322,7 +322,7 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
   for (const PlanarShapeCase &star : stars) {
     fx.set_clip(0, H, 0, W);
     const auto whole = render_planar_chord_star<W, H>(fx, star, true);
-    for (const auto &q : quadrants) {
+    for (const auto &q : QUADRANTS) {
       fx.set_clip(q[0], q[1], q[2], q[3]);
       const auto unsplit = [&] {
         ScopedPoleRunSplit scope(false);

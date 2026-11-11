@@ -352,13 +352,13 @@ inline void test_arena_reclaimed_since() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(32);
   HS_EXPECT_EQ(a.get_rewind_floor(), SIZE_MAX);
-  const auto INITIAL_SEQ = a.get_rewind_seq();
+  const auto initial_seq = a.get_rewind_seq();
   a.set_offset(a.get_offset());
   {
     ScratchScope empty(a);
   }
   HS_EXPECT_EQ(a.get_rewind_floor(), SIZE_MAX);
-  HS_EXPECT_EQ(a.get_rewind_seq(), INITIAL_SEQ);
+  HS_EXPECT_EQ(a.get_rewind_seq(), initial_seq);
   size_t mark = a.get_offset();
   uint64_t seq_at_birth = a.get_rewind_seq();
   void *p = a.allocate(64);
@@ -366,7 +366,7 @@ inline void test_arena_reclaimed_since() {
 
   a.set_offset(mark);
   HS_EXPECT_EQ(a.get_rewind_floor(), mark);
-  HS_EXPECT_EQ(a.get_rewind_seq(), INITIAL_SEQ + 1);
+  HS_EXPECT_EQ(a.get_rewind_seq(), initial_seq + 1);
   HS_EXPECT_TRUE(a.reclaimed_since(p, 64, seq_at_birth));
 
   // A new owner takes the same bytes: covers() calls the region live again.
@@ -394,12 +394,12 @@ inline void test_arena_reclaimed_since() {
   HS_EXPECT_TRUE(a.reclaimed_since(r, 64, seq_deep));
 
   a.set_offset(0);
-  const uint64_t BIRTH = a.get_rewind_seq();
+  const uint64_t birth = a.get_rewind_seq();
   void *b = a.allocate(32);
   a.set_offset(0);
   a.allocate(80);
   a.set_offset(60);
-  HS_EXPECT_TRUE(a.reclaimed_since(b, 32, BIRTH));
+  HS_EXPECT_TRUE(a.reclaimed_since(b, 32, birth));
 
   a.reset();
   HS_EXPECT_EQ(a.get_rewind_floor(), SIZE_MAX);
@@ -592,11 +592,11 @@ inline void test_arena_reset_hook_runs_on_configure() {
   using namespace reset_hook_probe;
   outer_calls = 0;
   {
-    const size_t PREVIOUS_CAPACITY = persistent_arena.get_capacity();
+    const size_t previous_capacity = persistent_arena.get_capacity();
     ArenaResetHook hook(record_state);
     configure_arenas(48 * 1024, 8 * 1024, 8 * 1024);
     HS_EXPECT_EQ(outer_calls, 1);
-    HS_EXPECT_EQ(observed_capacity, PREVIOUS_CAPACITY);
+    HS_EXPECT_EQ(observed_capacity, previous_capacity);
     configure_arenas_default();
     HS_EXPECT_EQ(outer_calls, 2);
     HS_EXPECT_EQ(observed_capacity, size_t{48 * 1024});
@@ -614,10 +614,10 @@ inline void test_reset_persistent_arena_runs_hooks() {
   {
     ArenaResetHook hook(record_state);
     persistent_arena.allocate_n<uint32_t>(16);
-    const size_t PREVIOUS_OFFSET = persistent_arena.get_offset();
+    const size_t previous_offset = persistent_arena.get_offset();
     reset_persistent_arena();
     HS_EXPECT_EQ(outer_calls, 1);
-    HS_EXPECT_EQ(observed_offset, PREVIOUS_OFFSET);
+    HS_EXPECT_EQ(observed_offset, previous_offset);
     HS_EXPECT_EQ(persistent_arena.get_offset(), (size_t)0);
   }
 }

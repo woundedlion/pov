@@ -255,9 +255,9 @@ inline void test_registry_angles_clear_rounding_boundary() {
     PolyMesh m = build_index(i, geom);
     const uint8_t *fc = m.get_face_counts_data();
     const uint16_t *faces = m.get_faces_data();
-    const size_t F = m.get_face_counts_size();
+    const size_t f_value = m.get_face_counts_size();
     size_t off = 0;
-    for (size_t f = 0; f < F; ++f) {
+    for (size_t f = 0; f < f_value; ++f) {
       const int count = fc[f];
       if (count < 3) {
         off += count;
@@ -336,17 +336,17 @@ inline void check_euler_for_index(size_t index, int expected_V = -1,
     unpaired += edge.pair == HE_NONE;
   HS_EXPECT_EQ(unpaired, size_t(0));
 
-  int V = static_cast<int>(m.vertices.size());
-  int E = static_cast<int>(he.half_edges.size()) / 2;
-  int F = static_cast<int>(he.faces.size());
-  HS_EXPECT_EQ(V - E + F, 2);
+  int v = static_cast<int>(m.vertices.size());
+  int e = static_cast<int>(he.half_edges.size()) / 2;
+  int f = static_cast<int>(he.faces.size());
+  HS_EXPECT_EQ(v - e + f, 2);
 
   if (expected_V >= 0)
-    HS_EXPECT_EQ(V, expected_V);
+    HS_EXPECT_EQ(v, expected_V);
   if (expected_E >= 0)
-    HS_EXPECT_EQ(E, expected_E);
+    HS_EXPECT_EQ(e, expected_E);
   if (expected_F >= 0)
-    HS_EXPECT_EQ(F, expected_F);
+    HS_EXPECT_EQ(f, expected_F);
 }
 
 /**
@@ -613,8 +613,8 @@ inline void test_composite_lowering_matches_composites() {
 
   // bevel(0.5)'s lowered form is exactly ambo, ambo (truncate's ambo
   // short-circuit is not a legal leg target).
-  const Solids::OpStep bevel_half = {Solids::Op::BEVEL, 0.5f};
-  const Solids::Recipe recipe = {0, &bevel_half, 1};
+  const Solids::OpStep BEVEL_HALF = {Solids::Op::BEVEL, 0.5f};
+  const Solids::Recipe recipe = {0, &BEVEL_HALF, 1};
   Solids::OpStep lowered[MAX_LOWERED_STEPS];
   size_t n = Solids::expand_to_primitives(recipe, lowered, MAX_LOWERED_STEPS);
   HS_EXPECT_EQ(n, (size_t)2);

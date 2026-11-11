@@ -249,7 +249,7 @@ struct VolumeSink {
  */
 inline void test_transformed_volume_world_local_roundtrip() {
   SphereSDF sphere{0.3f};
-  const math::Vector center(0.2f, -0.5f, 0.8f);
+  const math::Vector CENTER(0.2f, -0.5f, 0.8f);
   const math::Quaternion q =
       math::make_rotation(math::Vector(0.3f, 1.0f, -0.2f).normalized(), 0.7f);
   using Volume = Scan::TransformedVolume<decltype(sphere)>;
@@ -259,31 +259,31 @@ inline void test_transformed_volume_world_local_roundtrip() {
   static_assert(
       !std::is_constructible_v<Volume, decltype(sphere) &&,
                                const math::Vector &, const math::Quaternion &>);
-  Scan::TransformedVolume vol(sphere, center, q);
+  Scan::TransformedVolume vol(sphere, CENTER, q);
 
   // bounds_center maps to the local origin (the cull precondition).
-  math::Vector local_bc = vol.origin_to_local(center);
+  math::Vector local_bc = vol.origin_to_local(CENTER);
   HS_EXPECT_NEAR(local_bc.length(), 0.0f, 1e-5f);
 
   // A local point pushed out to world and back is recovered exactly.
-  const math::Vector lp(0.1f, 0.2f, -0.25f);
-  math::Vector world = center + math::rotate(lp, q);
+  const math::Vector LP(0.1f, 0.2f, -0.25f);
+  math::Vector world = CENTER + math::rotate(LP, q);
   math::Vector back = vol.origin_to_local(world);
-  HS_EXPECT_NEAR(back.x, lp.x, 1e-5f);
-  HS_EXPECT_NEAR(back.y, lp.y, 1e-5f);
-  HS_EXPECT_NEAR(back.z, lp.z, 1e-5f);
+  HS_EXPECT_NEAR(back.x, LP.x, 1e-5f);
+  HS_EXPECT_NEAR(back.y, LP.y, 1e-5f);
+  HS_EXPECT_NEAR(back.z, LP.z, 1e-5f);
 
   // The ray direction maps through the inverse rotation.
-  const math::Vector vd(0.0f, 0.0f, -1.0f);
-  auto [lro, lvd] = vol.ray_to_local(world, vd);
-  HS_EXPECT_NEAR(lro.x, lp.x, 1e-5f);
-  HS_EXPECT_NEAR(lro.y, lp.y, 1e-5f);
-  HS_EXPECT_NEAR(lro.z, lp.z, 1e-5f);
+  const math::Vector VD(0.0f, 0.0f, -1.0f);
+  auto [lro, lvd] = vol.ray_to_local(world, VD);
+  HS_EXPECT_NEAR(lro.x, LP.x, 1e-5f);
+  HS_EXPECT_NEAR(lro.y, LP.y, 1e-5f);
+  HS_EXPECT_NEAR(lro.z, LP.z, 1e-5f);
   HS_EXPECT_NEAR(lvd.length(), 1.0f, 1e-5f);
-  HS_EXPECT_VEC(lvd, math::rotate(vd, q.conjugate()), 1e-5f);
+  HS_EXPECT_VEC(lvd, math::rotate(VD, q.conjugate()), 1e-5f);
 
   // distance() forwards straight to the wrapped SDF.
-  HS_EXPECT_NEAR(vol.distance(lp), sphere.distance(lp), 1e-6f);
+  HS_EXPECT_NEAR(vol.distance(LP), sphere.distance(LP), 1e-6f);
 }
 
 /**
@@ -295,13 +295,13 @@ inline void test_transformed_volume_world_local_roundtrip() {
  */
 inline void test_volume_raymarch_silhouette_and_registers() {
   constexpr int W = 96, H = 64;
-  const math::Vector center(0.0f, 0.0f, 1.0f); // bounds centre in LED space
+  const math::Vector CENTER(0.0f, 0.0f, 1.0f); // bounds centre in LED space
   const float BOUNDS_RADIUS = 0.35f;
   const float SPHERE_R = 0.28f; // < bounds so the SDF fits the cull sphere
   const float AA_WIDTH = 0.01f;
 
   SphereSDF sphere{SPHERE_R};
-  Scan::TransformedVolume vol(sphere, center, math::Quaternion());
+  Scan::TransformedVolume vol(sphere, CENTER, math::Quaternion());
 
   hs_test::StubEffect fx(W, H);
   VolumeSink sink;
@@ -313,7 +313,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   {
     Canvas c(fx);
     Scan::Volume::draw<W, H>(
-        sink, c, center, BOUNDS_RADIUS, vol,
+        sink, c, CENTER, BOUNDS_RADIUS, vol,
         [&](const math::Vector &loc, Fragment &frag) {
           ++hits;
           HS_EXPECT_VEC(frag.pos, loc, 0.0f);
@@ -331,11 +331,11 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   HS_EXPECT_LT((size_t)hits, (size_t)(W * H));
   HS_EXPECT_GT(sink.plotted.size(), (size_t)0);
   HS_EXPECT_LE(sink.plotted.size(), (size_t)hits);
-  const float projected_disc_pixels =
+  const float PROJECTED_DISC_PIXELS =
       math::PI_F * SPHERE_R * SPHERE_R /
       ((math::TWO_PI_F / W) * (math::PI_F / (H - 1)));
   HS_EXPECT_GT(sink.plotted.size(),
-               static_cast<size_t>(projected_disc_pixels * 0.5f));
+               static_cast<size_t>(PROJECTED_DISC_PIXELS * 0.5f));
   for (const auto &[x, y] : sink.plotted) {
     const math::Vector point = math::pixel_to_vector<W, H>(x, y);
     HS_EXPECT_GT(point.z, 0.0f);
@@ -359,20 +359,20 @@ inline void test_volume_raymarch_silhouette_and_registers() {
  */
 inline void test_volume_draw_occluded_edge_blends_over_background() {
   constexpr int W = 96, H = 64;
-  const math::Vector center(0.0f, 0.0f, 1.0f);
+  const math::Vector CENTER(0.0f, 0.0f, 1.0f);
   const float BOUNDS_RADIUS = 0.65f;
   const float AA_WIDTH = 0.08f;
 
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
                      math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
-  Scan::TransformedVolume vol(shape, center, math::Quaternion());
+  Scan::TransformedVolume vol(shape, CENTER, math::Quaternion());
 
   hs_test::StubEffect fx(W, H);
   VolumeSink sink;
   {
     Canvas c(fx);
     Scan::Volume::draw<W, H>(
-        sink, c, center, BOUNDS_RADIUS, vol,
+        sink, c, CENTER, BOUNDS_RADIUS, vol,
         [&](const math::Vector &, Fragment &frag) {
           frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         },
@@ -384,13 +384,13 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
   for (size_t i = 1; i < sink.plotted.size(); ++i) {
     if (sink.plotted[i] == sink.plotted[i - 1]) {
       ++occ_pairs;
-      const float BG = sink.alpha[i - 1], FG = sink.alpha[i];
-      HS_EXPECT_GT(BG, 0.0f);
-      HS_EXPECT_LE(BG, 1.0f);
-      HS_EXPECT_GT(FG, 0.0f);
-      HS_EXPECT_LT(FG, 1.0f);
-      solid_pairs += BG == 1.0f;
-      soft_pairs += BG < 1.0f;
+      const float bg = sink.alpha[i - 1], fg = sink.alpha[i];
+      HS_EXPECT_GT(bg, 0.0f);
+      HS_EXPECT_LE(bg, 1.0f);
+      HS_EXPECT_GT(fg, 0.0f);
+      HS_EXPECT_LT(fg, 1.0f);
+      solid_pairs += bg == 1.0f;
+      soft_pairs += bg < 1.0f;
     }
   }
 
@@ -414,13 +414,13 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
 
   // Grazing ray: passes 0.005 outside the foreground silhouette, then through
   // the background sphere's interior.
-  const math::Vector ro(0.185f, 0.0f, 1.0f);
-  const math::Vector vd(0.0f, 0.0f, -1.0f);
+  const math::Vector RO(0.185f, 0.0f, 1.0f);
+  const math::Vector VD(0.0f, 0.0f, -1.0f);
 
   for (int max_steps : {14, 40}) {
     math::Vector closest_local;
     float closest_d = Scan::Volume::trace_closest(
-        shape, ro, vd, 0.5f, max_steps, AA_WIDTH, closest_local);
+        shape, RO, VD, 0.5f, max_steps, AA_WIDTH, closest_local);
     HS_EXPECT_GT(closest_d, 0.003f);
     HS_EXPECT_LT(closest_d, 0.0075f);
     HS_EXPECT_GT(closest_local.z, 0.1f);
@@ -442,17 +442,17 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
                      math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
 
   // Silhouette-crossing corner, offset outward of both circles by ~0.0033.
-  const math::Vector ro(0.0357f, 0.1797f, 1.0f);
-  const math::Vector vd(0.0f, 0.0f, -1.0f);
+  const math::Vector RO(0.0357f, 0.1797f, 1.0f);
+  const math::Vector VD(0.0f, 0.0f, -1.0f);
 
   math::Vector closest_local;
-  float closest_d = Scan::Volume::trace_closest(shape, ro, vd, 0.6f, 40,
+  float closest_d = Scan::Volume::trace_closest(shape, RO, VD, 0.6f, 40,
                                                 AA_WIDTH, closest_local);
   HS_EXPECT_GT(closest_d, HIT_THRESHOLD);
   HS_EXPECT_LT(closest_d, AA_WIDTH);
   HS_EXPECT_GT(closest_local.z, 0.1f);
 
-  auto occ = Scan::Volume::probe_occluder(shape, closest_local, vd, 0.6f,
+  auto occ = Scan::Volume::probe_occluder(shape, closest_local, VD, 0.6f,
                                           HIT_THRESHOLD, AA_WIDTH);
   HS_EXPECT_FALSE(occ.solid);
   // The ray passes 0.0033 outside the background sphere, so the analytic
@@ -475,7 +475,7 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
                                                         {2, 0.35f, 0.45f}};
   const float BOUNDS_RADIUS = 0.72f;
   const float AA_WIDTH = 0.07f;
-  const math::Vector vd(0.0f, 0.0f, -1.0f);
+  const math::Vector VD(0.0f, 0.0f, -1.0f);
 
   int covered = 0, hits = 0;
   for (int iy = -14; iy <= 14; ++iy) {
@@ -484,11 +484,11 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
 
       math::Vector closest_local;
       float closest_d = Scan::Volume::trace_closest(
-          torus, ro, vd, BOUNDS_RADIUS, 18, AA_WIDTH, closest_local);
+          torus, ro, VD, BOUNDS_RADIUS, 18, AA_WIDTH, closest_local);
 
       float ref_min = FLT_MAX;
       VolumeReference::march(
-          torus, ro, vd, BOUNDS_RADIUS,
+          torus, ro, VD, BOUNDS_RADIUS,
           [&](VolumeReference::Sample sample) {
             ref_min = std::min(ref_min, sample.distance);
             return true;

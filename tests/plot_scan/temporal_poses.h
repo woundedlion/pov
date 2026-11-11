@@ -246,9 +246,9 @@ inline void test_pose_table_rotates_between_column_times() {
         const double slope = std::max(fabs(exact[axis] - left[axis]),
                                       fabs(right[axis] - exact[axis]));
         // Cross/dot/lerp: gamma(8); quotient/product: at most 2u column drift.
-        const double BOUND = GAMMA * scale + 2 * U * HALF * slope;
-        HS_EXPECT_LT(BOUND, 2e-6);
-        HS_EXPECT_NEAR(actual[axis], exact[axis], BOUND);
+        const double bound = GAMMA * scale + 2 * U * HALF * slope;
+        HS_EXPECT_LT(bound, 2e-6);
+        HS_EXPECT_NEAR(actual[axis], exact[axis], bound);
       }
       if (W == 256) {
         HS_EXPECT_EQ(t * HALF, static_cast<float>(c));

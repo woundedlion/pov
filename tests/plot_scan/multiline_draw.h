@@ -35,7 +35,7 @@ inline void test_arc_angular_distance_clamps_to_minor_arc() {
  */
 inline void test_multiline_draw_covers_only_its_geodesic_edges() {
   constexpr int W = 128, H = 64;
-  const float row = math::PI_F / (H - 1);
+  const float ROW = math::PI_F / (H - 1);
 
   std::vector<math::Vector> control;
   multiline_control_points(control);
@@ -62,15 +62,15 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
                          arc_angular_distance(p, control[i - 1], control[i]));
     worst_off_path = std::max(worst_off_path, nearest);
   }
-  HS_EXPECT_LT(worst_off_path, row);
+  HS_EXPECT_LT(worst_off_path, ROW);
 
   // Every control point is reached, so no edge was skipped.
   for (const math::Vector &c : control) {
-    HS_EXPECT_LT(nearest_angle(c, pipe.plotted), row);
+    HS_EXPECT_LT(nearest_angle(c, pipe.plotted), ROW);
   }
 
   // Consecutive samples in the open walk stay within a row.
-  HS_EXPECT_LT(max_consecutive_gap(pipe.plotted, /*wrap=*/false), row);
+  HS_EXPECT_LT(max_consecutive_gap(pipe.plotted, /*wrap=*/false), ROW);
 }
 
 /**
@@ -80,7 +80,7 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
  */
 inline void test_multiline_draw_closed_adds_the_seam_edge() {
   constexpr int W = 128, H = 64;
-  const float row = math::PI_F / (H - 1);
+  const float ROW = math::PI_F / (H - 1);
 
   std::vector<math::Vector> control;
   multiline_control_points(control);
@@ -93,7 +93,7 @@ inline void test_multiline_draw_closed_adds_the_seam_edge() {
     midpoint_to_open_path = std::min(
         midpoint_to_open_path,
         arc_angular_distance(seam_midpoint, control[i - 1], control[i]));
-  HS_EXPECT_GT(midpoint_to_open_path, 4.0f * row);
+  HS_EXPECT_GT(midpoint_to_open_path, 4.0f * ROW);
 
   auto draw_path = [&](bool closed) {
     ScratchScope sc(plot_arena());
@@ -116,6 +116,6 @@ inline void test_multiline_draw_closed_adds_the_seam_edge() {
   const auto closed_path = draw_path(true);
 
   HS_EXPECT_GT(closed_path.first, open_path.first);
-  HS_EXPECT_LT(closed_path.second, row);
-  HS_EXPECT_GT(open_path.second, 4.0f * row);
+  HS_EXPECT_LT(closed_path.second, ROW);
+  HS_EXPECT_GT(open_path.second, 4.0f * ROW);
 }

@@ -67,11 +67,11 @@ inline double area_reference(const Surface &surface, Surface::Point p,
   double total = 0;
   for (int y = 0; y < n; ++y)
     for (int x = 0; x < n; ++x) {
-      const float U = (x + .5f) / n - .5f, V = (y + .5f) / n - .5f;
-      const Surface::Point Q{p.x + U * dx.x + V * dy.x,
-                             p.y + U * dx.y + V * dy.y};
+      const float u = (x + .5f) / n - .5f, v = (y + .5f) / n - .5f;
+      const Surface::Point q{p.x + u * dx.x + v * dy.x,
+                             p.y + u * dx.y + v * dy.y};
       const auto hit = surface.template sample<false, true, false>(
-          Q, Scan::radial_atan2(Q.y, Q.x));
+          q, Scan::radial_atan2(q.y, q.x));
       total += hit.found() ? shade(hit).r : 0;
     }
   return total / (n * n);
@@ -90,44 +90,48 @@ inline double reference_hit(ReferencePoint p,
   for (size_t i = 0; i + 1 < knots.size(); ++i) {
     double earliest = 2.0;
     for (int edge = 0; edge < 2 * sides; ++edge) {
-      const double A = TAU * edge / (2 * sides);
-      const double B = TAU * (edge + 1) / (2 * sides);
-      const double RA = (edge & 1) ? ratio : 1.0;
-      const double RB = (edge & 1) ? 1.0 : ratio;
-      const ReferencePoint UNIT_A{RA * std::cos(A), RA * std::sin(A)};
-      const ReferencePoint UNIT_B{RB * std::cos(B), RB * std::sin(B)};
-      const auto a = reference_multiply(knots[i], UNIT_A);
-      const auto b = reference_multiply(knots[i], UNIT_B);
-      const auto end_a = reference_multiply(knots[i + 1], UNIT_A);
-      const auto end_b = reference_multiply(knots[i + 1], UNIT_B);
+      const double a_value = TAU * edge / (2 * sides);
+      const double b_value = TAU * (edge + 1) / (2 * sides);
+      const double ra = (edge & 1) ? ratio : 1.0;
+      const double rb = (edge & 1) ? 1.0 : ratio;
+      const ReferencePoint unit_a{ra * std::cos(a_value),
+                                  ra * std::sin(a_value)};
+      const ReferencePoint unit_b{rb * std::cos(b_value),
+                                  rb * std::sin(b_value)};
+      const auto a = reference_multiply(knots[i], unit_a);
+      const auto b = reference_multiply(knots[i], unit_b);
+      const auto end_a = reference_multiply(knots[i + 1], unit_a);
+      const auto end_b = reference_multiply(knots[i + 1], unit_b);
       const ReferencePoint da{end_a.x - a.x, end_a.y - a.y};
       const ReferencePoint e{b.x - a.x, b.y - a.y};
       const ReferencePoint de{end_b.x - end_a.x - e.x, end_b.y - end_a.y - e.y};
       const ReferencePoint pa{p.x - a.x, p.y - a.y};
-      const double C = reference_cross(pa, e);
-      const double L = reference_cross(pa, de) - reference_cross(da, e);
-      const double Q = -reference_cross(da, de);
+      const double c = reference_cross(pa, e);
+      const double l = reference_cross(pa, de) - reference_cross(da, e);
+      const double q = -reference_cross(da, de);
       std::array<double, 2> roots{-1, -1};
-      if (std::abs(Q) < 1e-25) {
-        if (L != 0)
-          roots[0] = -C / L;
+      if (std::abs(q) < 1e-25) {
+        if (l != 0)
+          roots[0] = -c / l;
       } else {
-        const double DISCRIMINANT = L * L - 4 * Q * C;
-        if (DISCRIMINANT >= 0) {
-          roots[0] = (-L - std::sqrt(DISCRIMINANT)) / (2 * Q);
-          roots[1] = (-L + std::sqrt(DISCRIMINANT)) / (2 * Q);
+        const double discriminant = l * l - 4 * q * c;
+        if (discriminant >= 0) {
+          roots[0] = (-l - std::sqrt(discriminant)) / (2 * q);
+          roots[1] = (-l + std::sqrt(discriminant)) / (2 * q);
         }
       }
       for (double t : roots) {
         if (t < -1e-8 || t > 1 + 1e-8)
           continue;
-        const ReferencePoint EDGE{e.x + t * de.x, e.y + t * de.y};
-        const double LENGTH2 = EDGE.x * EDGE.x + EDGE.y * EDGE.y;
-        if (LENGTH2 < 1e-24)
+        const ReferencePoint edge_value{e.x + t * de.x, e.y + t * de.y};
+        const double length2 =
+            edge_value.x * edge_value.x + edge_value.y * edge_value.y;
+        if (length2 < 1e-24)
           continue;
-        const double U =
-            ((pa.x - t * da.x) * EDGE.x + (pa.y - t * da.y) * EDGE.y) / LENGTH2;
-        if (U >= -1e-8 && U <= 1 + 1e-8)
+        const double u = ((pa.x - t * da.x) * edge_value.x +
+                          (pa.y - t * da.y) * edge_value.y) /
+                         length2;
+        if (u >= -1e-8 && u <= 1 + 1e-8)
           earliest = std::min(earliest, std::clamp(t, 0.0, 1.0));
       }
     }
@@ -148,10 +152,10 @@ inline double reference_hit(ReferencePoint p,
 inline float root_rounding_tolerance(const Surface::Hit &hit,
                                      Surface::Point p) {
 #if defined(HS_TEST_FAST_MATH)
-  const float TERM =
+  const float term =
       sqrtf(p.x * p.x + p.y * p.y) *
       sqrtf(hit.normal.x * hit.normal.x + hit.normal.y * hit.normal.y);
-  return TERM > 0.0f ? 4.0f * FLT_EPSILON * TERM / fabsf(hit.derivative) : 0.0f;
+  return term > 0.0f ? 4.0f * FLT_EPSILON * term / fabsf(hit.derivative) : 0.0f;
 #else
   (void)hit;
   (void)p;
@@ -163,14 +167,14 @@ inline float root_rounding_tolerance(const Surface::Hit &hit,
 inline void test_radial_surface_tip_sweep() {
   ScratchScope scope(scratch_arena_a);
   Surface surface;
-  const std::array<Surface::Knot, 2> KNOTS{
+  const std::array<Surface::Knot, 2> knots{
       Surface::Knot{cosf(-.1f), sinf(-.1f), -.1f},
       Surface::Knot{cosf(.1f), sinf(.1f), .1f}};
-  surface.prepare(scratch_arena_a, 7, .382f, KNOTS);
+  surface.prepare(scratch_arena_a, 7, .382f, knots);
   HS_EXPECT_FALSE(surface.strictly_increasing_radius());
   Surface::Stats stats;
   const auto hit = surface.sample<true>({.99f, 0}, 0, 0, &stats);
-  const auto expected = reference_hit({.99f, 0}, KNOTS, 7, .382f);
+  const auto expected = reference_hit({.99f, 0}, knots, 7, .382f);
   HS_EXPECT_TRUE(hit.found());
   HS_EXPECT_NEAR(hit.fraction, expected, 2e-5);
   HS_EXPECT_EQ(stats.intervals, 1u);
@@ -185,20 +189,20 @@ inline void test_radial_surface_descending_root_cancellation() {
   ScratchScope scope(scratch_arena_a);
   Surface surface;
   const float PHASE = -0.3f;
-  const std::array KNOTS{
+  const std::array knots{
       Surface::Knot{1, 0, 0},
       Surface::Knot{30 * cosf(PHASE), 30 * sinf(PHASE), PHASE}};
-  surface.prepare(scratch_arena_a, 4, 0.01f, KNOTS);
-  const auto VERTEX = surface.vertex(0);
-  const auto EDGE = surface.edge(0);
-  Surface::Point p{VERTEX.x + 0.5f * EDGE.x, VERTEX.y + 0.5f * EDGE.y};
-  const ReferencePoint DELTA{double(KNOTS[1].real) - 1, KNOTS[1].imag};
-  const ReferencePoint EDGE_DELTA{DELTA.x * EDGE.x - DELTA.y * EDGE.y,
-                                  DELTA.y * EDGE.x + DELTA.x * EDGE.y};
-  const double DETERMINANT =
-      reference_cross({VERTEX.x, VERTEX.y}, {EDGE.x, EDGE.y});
-  const double QUADRATIC =
-      DETERMINANT * (DELTA.x * DELTA.x + DELTA.y * DELTA.y);
+  surface.prepare(scratch_arena_a, 4, 0.01f, knots);
+  const auto vertex = surface.vertex(0);
+  const auto edge = surface.edge(0);
+  Surface::Point p{vertex.x + 0.5f * edge.x, vertex.y + 0.5f * edge.y};
+  const ReferencePoint delta{double(knots[1].real) - 1, knots[1].imag};
+  const ReferencePoint edge_delta{delta.x * edge.x - delta.y * edge.y,
+                                  delta.y * edge.x + delta.x * edge.y};
+  const double determinant =
+      reference_cross({vertex.x, vertex.y}, {edge.x, edge.y});
+  const double quadratic =
+      determinant * (delta.x * delta.x + delta.y * delta.y);
   for (int i = 0; i < 64; ++i)
     p.x = nextafterf(p.x, 0.0f);
   int descending = 0;
@@ -206,14 +210,14 @@ inline void test_radial_surface_descending_root_cancellation() {
     const auto hit = surface.sample<false, false, false>(p, atan2f(p.y, p.x));
     HS_EXPECT_TRUE(hit.found());
     if (hit.fraction > 0.001f) {
-      const double VALUE =
-          reference_cross({p.x, p.y}, {EDGE.x, EDGE.y}) - DETERMINANT;
-      const double LINEAR =
-          reference_cross({p.x, p.y}, EDGE_DELTA) - 2 * DETERMINANT * DELTA.x;
-      const double EXPECTED =
-          (LINEAR + std::sqrt(LINEAR * LINEAR + 4 * QUADRATIC * VALUE)) /
-          (2 * QUADRATIC);
-      HS_EXPECT_NEAR(hit.fraction, EXPECTED, 1e-6);
+      const double value =
+          reference_cross({p.x, p.y}, {edge.x, edge.y}) - determinant;
+      const double linear =
+          reference_cross({p.x, p.y}, edge_delta) - 2 * determinant * delta.x;
+      const double expected =
+          (linear + std::sqrt(linear * linear + 4 * quadratic * value)) /
+          (2 * quadratic);
+      HS_EXPECT_NEAR(hit.fraction, expected, 1e-6);
       ++descending;
     }
     p.x = nextafterf(p.x, 2.0f);
@@ -297,9 +301,9 @@ inline void test_radial_surface_degenerate_intervals() {
   const std::array TINY_KNOTS{Surface::Knot{0, 0, 0},
                               Surface::Knot{1e-10f, 0, 0}};
   thin.prepare(scratch_arena_a, 7, 1e-30f, TINY_KNOTS);
-  const std::array TINY_HITS{thin.sample<false, true, false>({5e-11f, 0}, 0),
+  const std::array tiny_hits{thin.sample<false, true, false>({5e-11f, 0}, 0),
                              thin.sample<false, false, false>({5e-11f, 0}, 0)};
-  for (const auto &hit : TINY_HITS) {
+  for (const auto &hit : tiny_hits) {
     HS_EXPECT_TRUE(hit.found());
     HS_EXPECT_TRUE(std::isfinite(hit.fraction));
     HS_EXPECT_GE(hit.fraction, 0.0f);
@@ -307,10 +311,10 @@ inline void test_radial_surface_degenerate_intervals() {
   }
   Surface near_corner;
   constexpr float RADIUS = 1e-13f, PHASE = 1e-20f;
-  const std::array CORNER_KNOTS{
+  const std::array corner_knots{
       Surface::Knot{RADIUS, 0, 0},
       Surface::Knot{2 * RADIUS, 2 * RADIUS * PHASE, PHASE}};
-  near_corner.prepare(scratch_arena_a, 7, .382f, CORNER_KNOTS);
+  near_corner.prepare(scratch_arena_a, 7, .382f, corner_knots);
   const auto corner_hit =
       near_corner.sample<false, true, false>({1.5f * RADIUS, 0}, 0);
   HS_EXPECT_TRUE(corner_hit.found());
@@ -328,31 +332,31 @@ inline void test_radial_surface_block_bounds() {
   Surface surface;
   surface.prepare(scratch_arena_a, 7, .382f, knots);
   const auto a = surface.vertex(0), b = surface.vertex(1);
-  const Surface::Point EDGE{b.x - a.x, b.y - a.y};
-  const float LENGTH = sqrtf(EDGE.x * EDGE.x + EDGE.y * EDGE.y);
-  const Surface::Point CENTER{.5f * (a.x + b.x), .5f * (a.y + b.y)};
-  const Surface::Point BULGE{CENTER.x * 1.005f, CENTER.y * 1.005f};
-  const float THETA = atan2f(BULGE.y, BULGE.x);
-  HS_EXPECT_EQ(surface.skip_outside(BULGE, 0, 0), 0);
-  const auto hit = surface.sample(BULGE, THETA);
-  const double EXPECTED = reference_hit({BULGE.x, BULGE.y}, knots, 7, .382f);
+  const Surface::Point edge{b.x - a.x, b.y - a.y};
+  const float length = sqrtf(edge.x * edge.x + edge.y * edge.y);
+  const Surface::Point center{.5f * (a.x + b.x), .5f * (a.y + b.y)};
+  const Surface::Point bulge{center.x * 1.005f, center.y * 1.005f};
+  const float theta = atan2f(bulge.y, bulge.x);
+  HS_EXPECT_EQ(surface.skip_outside(bulge, 0, 0), 0);
+  const auto hit = surface.sample(bulge, theta);
+  const double expected = reference_hit({bulge.x, bulge.y}, knots, 7, .382f);
   HS_EXPECT_TRUE(hit.found());
-  HS_EXPECT_NEAR(float(hit.interval) + hit.fraction, EXPECTED, 1e-4);
+  HS_EXPECT_NEAR(float(hit.interval) + hit.fraction, expected, 1e-4);
   for (auto &k : knots)
     k = {1, 0, 0};
   surface.set_knots(knots);
-  const Surface::Point NEAR{CENTER.x + .01f * EDGE.y / LENGTH,
-                            CENTER.y - .01f * EDGE.x / LENGTH};
+  const Surface::Point near{center.x + .01f * edge.y / length,
+                            center.y - .01f * edge.x / length};
   constexpr int INTERVALS = int(knots.size()) - 1;
   const auto block_end = [=](int interval) {
     return std::min((interval / Surface::BLOCK_INTERVALS + 1) *
                         Surface::BLOCK_INTERVALS,
                     INTERVALS);
   };
-  HS_EXPECT_EQ(surface.skip_outside(NEAR, .02f, 0), 0);
-  HS_EXPECT_EQ(surface.skip_outside(NEAR, .001f, 0), block_end(0));
-  HS_EXPECT_EQ(surface.skip_outside(NEAR, .001f, 3), block_end(3));
-  HS_EXPECT_EQ(surface.skip_outside(NEAR, .001f, INTERVALS), INTERVALS);
+  HS_EXPECT_EQ(surface.skip_outside(near, .02f, 0), 0);
+  HS_EXPECT_EQ(surface.skip_outside(near, .001f, 0), block_end(0));
+  HS_EXPECT_EQ(surface.skip_outside(near, .001f, 3), block_end(3));
+  HS_EXPECT_EQ(surface.skip_outside(near, .001f, INTERVALS), INTERVALS);
   HS_EXPECT_EQ(surface.skip_outside({0, 0}, .02f, 0), 0);
   HS_EXPECT_EQ(surface.skip_outside({2, 0}, .02f, 0), block_end(0));
 }
@@ -369,50 +373,50 @@ inline void test_radial_surface_matches_all_edges() {
   uint64_t bounded_checks = 0, bounded_skipped = 0, bounded_fine = 0;
   for (float direction : {-1.0f, 1.0f}) {
     for (int i = 0; i <= N; ++i) {
-      const float RADIUS = float(i) / N;
-      const float PHASE = direction * sinf(3.0f * RADIUS + .4f);
-      knots[i] = {RADIUS * cosf(PHASE), RADIUS * sinf(PHASE), PHASE};
+      const float radius = float(i) / N;
+      const float phase = direction * sinf(3.0f * radius + .4f);
+      knots[i] = {radius * cosf(phase), radius * sinf(phase), phase};
     }
     surface.set_knots({knots, N + 1});
     for (int angle = 0; angle < 97; ++angle) {
-      const float THETA = (angle + .371f) * math::TWO_PI_F / 97;
+      const float theta = (angle + .371f) * math::TWO_PI_F / 97;
       for (int radius = 0; radius < 25; ++radius) {
-        const float RHO = (radius + .217f) / 25;
-        const Surface::Point P{RHO * cosf(THETA), RHO * sinf(THETA)};
-        const double EXPECTED =
-            reference_hit({P.x, P.y}, {knots, N + 1}, 7, .382f);
+        const float rho = (radius + .217f) / 25;
+        const Surface::Point p{rho * cosf(theta), rho * sinf(theta)};
+        const double expected =
+            reference_hit({p.x, p.y}, {knots, N + 1}, 7, .382f);
         Surface::Stats stats;
-        const auto hit = surface.sample<true>(P, THETA, 0, &stats);
-        const float ROOT_TOLERANCE = root_rounding_tolerance(hit, P);
-        const auto unskipped = surface.sample<false, false>(P, THETA);
+        const auto hit = surface.sample<true>(p, theta, 0, &stats);
+        const float root_tolerance = root_rounding_tolerance(hit, p);
+        const auto unskipped = surface.sample<false, false>(p, theta);
         const auto parameter_only =
-            surface.sample<false, true, false>(P, THETA);
+            surface.sample<false, true, false>(p, theta);
         HS_EXPECT_EQ(parameter_only.interval, hit.interval);
-        HS_EXPECT_NEAR(parameter_only.fraction, hit.fraction, ROOT_TOLERANCE);
+        HS_EXPECT_NEAR(parameter_only.fraction, hit.fraction, root_tolerance);
         HS_EXPECT_EQ(parameter_only.edge, hit.edge);
         Surface::Stats bounded_stats;
         const auto bounded =
-            surface.sample<true>(P, THETA, int(RHO * N), &bounded_stats);
+            surface.sample<true>(p, theta, int(rho * N), &bounded_stats);
         coarse_checks += stats.coarse_checks;
         skipped += stats.skipped;
         fine_visits += stats.intervals;
         bounded_checks += bounded_stats.coarse_checks;
         bounded_skipped += bounded_stats.skipped;
         bounded_fine += bounded_stats.intervals;
-        HS_EXPECT_EQ(hit.found(), EXPECTED >= 0);
+        HS_EXPECT_EQ(hit.found(), expected >= 0);
         HS_EXPECT_EQ(hit.found(), bounded.found());
         HS_EXPECT_EQ(hit.interval, unskipped.interval);
-        HS_EXPECT_NEAR(hit.fraction, unskipped.fraction, ROOT_TOLERANCE);
+        HS_EXPECT_NEAR(hit.fraction, unskipped.fraction, root_tolerance);
         HS_EXPECT_LE(stats.intervals, uint32_t(N));
         HS_EXPECT_LE(stats.roots, 1u);
-        if (hit.found() && EXPECTED >= 0) {
-          const float ERROR =
-              fabsf(float(hit.interval) + hit.fraction - float(EXPECTED));
-          worst = std::max(worst, ERROR);
-          HS_EXPECT_LE(ERROR, 2e-3f);
+        if (hit.found() && expected >= 0) {
+          const float error =
+              fabsf(float(hit.interval) + hit.fraction - float(expected));
+          worst = std::max(worst, error);
+          HS_EXPECT_LE(error, 2e-3f);
           HS_EXPECT_EQ(hit.interval, bounded.interval);
           HS_EXPECT_NEAR(hit.fraction, bounded.fraction,
-                         std::max(1e-6f, ROOT_TOLERANCE));
+                         std::max(1e-6f, root_tolerance));
         }
       }
     }
@@ -436,13 +440,13 @@ inline void test_radial_surface_atan2() {
   float worst_x = 0, worst_y = 0;
   uint32_t failures = 0, cases = 0;
   auto check = [&](float y, float x) {
-    const float ACTUAL = Scan::radial_atan2(y, x);
-    const double EXPECTED = std::atan2(double(y), double(x));
-    const double ERROR = std::abs(double(ACTUAL) - EXPECTED);
-    if (!std::isfinite(ACTUAL) || ERROR > 5e-7)
+    const float actual = Scan::radial_atan2(y, x);
+    const double expected = std::atan2(double(y), double(x));
+    const double error = std::abs(double(actual) - expected);
+    if (!std::isfinite(actual) || error > 5e-7)
       ++failures;
-    if (ERROR > maximum) {
-      maximum = ERROR;
+    if (error > maximum) {
+      maximum = error;
       worst_x = x;
       worst_y = y;
     }
@@ -460,27 +464,27 @@ inline void test_radial_surface_atan2() {
     return std::bit_cast<float>(bits);
   };
   for (int i = 0; i < 500000; ++i) {
-    const float X = next_float(), Y = next_float();
-    check(Y, X);
+    const float x = next_float(), y = next_float();
+    check(y, x);
   }
   for (float ratio : {0.0f, .4142135623730950488f, 1.0f})
     for (int exponent = -120; exponent <= 120; ++exponent)
       for (int dx : {-1, 1})
         for (int dy : {-1, 1}) {
-          const float SCALE = std::ldexp(1.0f, exponent);
-          const float BASE = ratio * SCALE;
-          for (float small : {BASE, std::nextafter(BASE, 0.0f),
-                              std::nextafter(BASE, INFINITY)}) {
-            check(dy * small, dx * SCALE);
-            check(dy * SCALE, dx * small);
+          const float scale = std::ldexp(1.0f, exponent);
+          const float base = ratio * scale;
+          for (float small : {base, std::nextafter(base, 0.0f),
+                              std::nextafter(base, INFINITY)}) {
+            check(dy * small, dx * scale);
+            check(dy * scale, dx * small);
           }
         }
   for (float x : {-0.0f, 0.0f, -1.0f, 1.0f})
     for (float y : {-0.0f, 0.0f}) {
-      const float ACTUAL = Scan::radial_atan2(y, x);
-      const float EXPECTED = std::atan2(y, x);
-      HS_EXPECT_EQ(std::signbit(ACTUAL), std::signbit(EXPECTED));
-      HS_EXPECT_NEAR(ACTUAL, EXPECTED, 5e-7);
+      const float actual = Scan::radial_atan2(y, x);
+      const float expected = std::atan2(y, x);
+      HS_EXPECT_EQ(std::signbit(actual), std::signbit(expected));
+      HS_EXPECT_NEAR(actual, expected, 5e-7);
     }
   HS_EXPECT_EQ(failures, 0u);
   std::printf("  radial atan2: cases=%u max_error=%.10g x=%.8g y=%.8g\n", cases,
@@ -492,25 +496,25 @@ inline void test_radial_surface_footprint_witness() {
   ScratchScope scope(scratch_arena_a);
   Surface surface;
   const float PHASE = .231f;
-  const std::array KNOTS{Surface::Knot{0, 0, PHASE},
+  const std::array knots{Surface::Knot{0, 0, PHASE},
                          Surface::Knot{cosf(PHASE), sinf(PHASE), PHASE}};
-  surface.prepare(scratch_arena_a, 7, .382f, KNOTS);
+  surface.prepare(scratch_arena_a, 7, .382f, knots);
   auto inside = [&](ReferencePoint p) {
     bool result = false;
     for (int i = 0; i < 14; ++i) {
       const auto va = surface.vertex(i), vb = surface.vertex((i + 1) % 14);
-      const auto A = reference_multiply(KNOTS[1], {va.x, va.y});
-      const auto B = reference_multiply(KNOTS[1], {vb.x, vb.y});
-      if ((A.y > p.y) != (B.y > p.y) &&
-          p.x < (B.x - A.x) * (p.y - A.y) / (B.y - A.y) + A.x)
+      const auto a = reference_multiply(knots[1], {va.x, va.y});
+      const auto b = reference_multiply(knots[1], {vb.x, vb.y});
+      if ((a.y > p.y) != (b.y > p.y) &&
+          p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x)
         result = !result;
     }
     return result;
   };
   uint32_t certificates = 0, failures = 0;
   auto check = [&](Surface::Point p, Surface::Point dx, Surface::Point dy) {
-    const float THETA = Scan::radial_atan2(p.y, p.x);
-    if (!surface.contains_footprint_at_knot(p, dx, dy, THETA, 1))
+    const float theta = Scan::radial_atan2(p.y, p.x);
+    if (!surface.contains_footprint_at_knot(p, dx, dy, theta, 1))
       return;
     ++certificates;
     for (int x : {-1, 1})
@@ -521,30 +525,30 @@ inline void test_radial_surface_footprint_witness() {
   };
   for (int x = -100; x <= 100; ++x)
     for (int y = -100; y <= 100; ++y) {
-      const float ANGLE = .31f * x + .17f * y;
+      const float angle = .31f * x + .17f * y;
       check({x / 100.0f, y / 100.0f},
-            {.017f * cosf(ANGLE), .017f * sinf(ANGLE)},
-            {-.011f * sinf(ANGLE), .011f * cosf(ANGLE)});
+            {.017f * cosf(angle), .017f * sinf(angle)},
+            {-.011f * sinf(angle), .011f * cosf(angle)});
     }
   for (int edge = 0; edge < 14; ++edge) {
     const auto va = surface.vertex(edge), ve = surface.edge(edge);
-    const auto A = reference_multiply(KNOTS[1], {va.x, va.y});
-    const auto E = reference_multiply(KNOTS[1], {ve.x, ve.y});
+    const auto a = reference_multiply(knots[1], {va.x, va.y});
+    const auto e = reference_multiply(knots[1], {ve.x, ve.y});
     for (int i = 0; i <= 100; ++i)
       for (float epsilon : {-1e-5f, -1e-7f, 0.0f, 1e-7f, 1e-5f}) {
-        const float T = i / 100.0f;
-        check({float(A.x + T * E.x + epsilon * E.y),
-               float(A.y + T * E.y - epsilon * E.x)},
+        const float t = i / 100.0f;
+        check({float(a.x + t * e.x + epsilon * e.y),
+               float(a.y + t * e.y - epsilon * e.x)},
               {1e-7f, 0}, {0, 1e-7f});
       }
   }
   hs::Pcg32 random(0x42da5819);
   auto coordinate = [&] { return rand_uniform(random, -1.0f, 1.0f); };
   for (int i = 0; i < 20000; ++i) {
-    const Surface::Point P{coordinate(), coordinate()};
-    const Surface::Point DX{.05f * coordinate(), .05f * coordinate()};
-    const Surface::Point DY{.05f * coordinate(), .05f * coordinate()};
-    check(P, DX, DY);
+    const Surface::Point p{coordinate(), coordinate()};
+    const Surface::Point dx{.05f * coordinate(), .05f * coordinate()};
+    const Surface::Point dy{.05f * coordinate(), .05f * coordinate()};
+    check(p, dx, dy);
   }
   HS_EXPECT_GT(certificates, 1000u);
   HS_EXPECT_EQ(failures, 0u);
@@ -566,8 +570,8 @@ inline void test_radial_surface_edge_aa() {
   Surface surface;
   auto *knots = scratch_arena_a.allocate_n<Surface::Knot>(N + 1);
   for (int i = 0; i <= N; ++i) {
-    const float R = float(i) / N, P = sinf(3 * R + .4f);
-    knots[i] = {R * cosf(P), R * sinf(P), P};
+    const float r = float(i) / N, p = sinf(3 * r + .4f);
+    knots[i] = {r * cosf(p), r * sinf(p), p};
   }
   surface.prepare(scratch_arena_a, 7, .382f, {knots, N + 1});
   AA aa;
@@ -578,27 +582,27 @@ inline void test_radial_surface_edge_aa() {
   const auto shade = arrival_ramp(N);
   for (int x = -20; x <= 20; ++x)
     for (int y = -20; y <= 20; ++y) {
-      const Surface::Point P{x * .05f, y * .05f};
+      const Surface::Point p{x * .05f, y * .05f};
       const auto color =
-          aa.sample(surface, P, {.05f, 0}, {0, .05f},
-                    Scan::radial_atan2(P.y, P.x), 0, shade, &stats);
+          aa.sample(surface, p, {.05f, 0}, {0, .05f},
+                    Scan::radial_atan2(p.y, p.x), 0, shade, &stats);
       HS_EXPECT_TRUE(std::isfinite(color.r));
       HS_EXPECT_GE(color.r, 0);
       HS_EXPECT_LE(color.r, 1);
       const double reference =
-          area_reference(surface, P, {.05f, 0}, {0, .05f}, 12, shade);
+          area_reference(surface, p, {.05f, 0}, {0, .05f}, 12, shade);
       const auto center = surface.template sample<false, true, false>(
-          P, Scan::radial_atan2(P.y, P.x));
-      const double POINT = center.found() ? shade(center).r : 0;
-      const float ERROR = float(std::abs(color.r - reference));
+          p, Scan::radial_atan2(p.y, p.x));
+      const double point = center.found() ? shade(center).r : 0;
+      const float error = float(std::abs(color.r - reference));
 
-      aa_error += ERROR;
-      point_error += std::abs(POINT - reference);
-      worse += ERROR > std::abs(POINT - reference) + .02;
-      if (ERROR > worst_error) {
-        worst_error = ERROR;
-        worst_x = P.x;
-        worst_y = P.y;
+      aa_error += error;
+      point_error += std::abs(point - reference);
+      worse += error > std::abs(point - reference) + .02;
+      if (error > worst_error) {
+        worst_error = error;
+        worst_x = p.x;
+        worst_y = p.y;
       }
     }
   HS_EXPECT_GT(stats.edge_pixels, 0u);
@@ -639,11 +643,11 @@ inline void test_radial_surface_fold_visibility() {
   float longest = 0, max_gap = 0;
   for (int phase = 0; phase < 64; ++phase) {
     for (int i = 0; i <= N; ++i) {
-      const float U = float(i) / N;
-      const float R = U < BREAK_QUANTILE ? U * DENSITY_INTEGRAL / DENSITY_FLOOR
-                                         : acosf(DENSITY_INTEGRAL * (1 - U));
-      const float P = sinf(math::PI_F * U + phase * math::TWO_PI_F / 64);
-      knots[i] = {R * cosf(P), R * sinf(P), P};
+      const float u = float(i) / N;
+      const float r = u < BREAK_QUANTILE ? u * DENSITY_INTEGRAL / DENSITY_FLOOR
+                                         : acosf(DENSITY_INTEGRAL * (1 - u));
+      const float p = sinf(math::PI_F * u + phase * math::TWO_PI_F / 64);
+      knots[i] = {r * cosf(p), r * sinf(p), p};
     }
     surface.set_knots({knots, N + 1});
     HS_EXPECT_TRUE(surface.strictly_increasing_radius());
@@ -654,22 +658,22 @@ inline void test_radial_surface_fold_visibility() {
           ++segments;
           bool any = false;
           for (int j = 1; j <= 5; ++j) {
-            const float T = j / 6.0f;
-            const Surface::Point P{
-                candidate.a.x + T * (candidate.b.x - candidate.a.x),
-                candidate.a.y + T * (candidate.b.y - candidate.a.y)};
+            const float t = j / 6.0f;
+            const Surface::Point p{
+                candidate.a.x + t * (candidate.b.x - candidate.a.x),
+                candidate.a.y + t * (candidate.b.y - candidate.a.y)};
             const auto hit = surface.template sample<false, true, false>(
-                P, Scan::radial_atan2(P.y, P.x));
-            const bool VISIBLE =
+                p, Scan::radial_atan2(p.y, p.x));
+            const bool visible_value =
                 !hit.found() ||
                 hit.interval + hit.fraction >= candidate.origin_interval - .01f;
-            any |= VISIBLE;
-            if (VISIBLE) {
-              const float R = hypotf(P.x, P.y);
+            any |= visible_value;
+            if (visible_value) {
+              const float r = hypotf(p.x, p.y);
               max_gap =
                   fmaxf(max_gap, hypotf(knots[candidate.origin_interval].real,
                                         knots[candidate.origin_interval].imag) -
-                                     R);
+                                     r);
             }
           }
           if (any) {
@@ -768,17 +772,17 @@ inline void test_radial_surface_fixture_edge_trace() {
   const auto shade = arrival_ramp(64);
   const auto result = aa.sample(surface, P, DX, DY, -2.15354013f, 23, shade);
   const auto zero = aa.sample(surface, P, DX, DY, -2.15354013f, 0, shade);
-  const float RADIUS = sqrtf(P.x * P.x + P.y * P.y);
-  const float EXTENT = .5f * (sqrtf(DX.x * DX.x + DX.y * DX.y) +
+  const float radius = sqrtf(P.x * P.x + P.y * P.y);
+  const float extent = .5f * (sqrtf(DX.x * DX.x + DX.y * DX.y) +
                               sqrtf(DY.x * DY.x + DY.y * DY.y));
   const auto prepared =
       aa.sample(surface, P, DX, DY, -2.15354013f, 23, shade, nullptr,
-                {.radius = RADIUS, .extent = EXTENT});
+                {.radius = radius, .extent = extent});
   HS_EXPECT_NEAR(prepared.r, result.r, 1e-6);
   Scan::SurfaceAreaStats disabled_stats;
   const auto uncounted = aa.template sample<false>(
       surface, P, DX, DY, -2.15354013f, 23, shade, &disabled_stats,
-      {.radius = RADIUS, .extent = EXTENT});
+      {.radius = radius, .extent = extent});
   HS_EXPECT_NEAR(uncounted.r, result.r, 1e-6);
   HS_EXPECT_EQ(disabled_stats.pixels, 0u);
   const double reference = area_reference(surface, P, DX, DY, 32, shade);
@@ -800,8 +804,8 @@ inline void test_radial_surface_edge_pair_corner() {
   const auto color = aa.sample(
       surface, {.98f, 0}, {.1f, 0}, {0, .1f}, 0, 0,
       [](const Surface::Hit &) { return Scan::SurfaceColor{1, 1, 1}; }, &stats);
-  const float INNER = .382f * sqrtf(.5f);
-  const float HALF_PLANE = .5f + .02f * INNER / (.1f * (1 - INNER));
+  const float inner = .382f * sqrtf(.5f);
+  const float half_plane = .5f + .02f * inner / (.1f * (1 - inner));
   HS_EXPECT_EQ(stats.clips, 1u);
   const auto shade = [](const auto &) { return Scan::SurfaceColor{1, 1, 1}; };
   const double reference =
@@ -809,7 +813,7 @@ inline void test_radial_surface_edge_pair_corner() {
   std::printf("  terminal corner coverage %.6f area %.6f\n", color.r,
               reference);
   HS_EXPECT_NEAR(color.r, reference, .16);
-  HS_EXPECT_LT(color.r, HALF_PLANE - .1f);
+  HS_EXPECT_LT(color.r, half_plane - .1f);
 }
 
 /** @brief Checks a terminal-boundary overlap against subpixel area.
@@ -977,33 +981,34 @@ inline void test_radial_surface_hidden_terminal() {
   surface.prepare(scratch_arena_a, 7, Plot::STAR_INNER_RATIO, KNOTS);
   Scan::RadialSurfaceEdgeAA<Surface> aa;
   for (int sector = 0; sector < 7; ++sector) {
-    const float ANGLE = sector * math::TWO_PI_F / 7;
+    const float angle = sector * math::TWO_PI_F / 7;
     auto rotate = [&](Surface::Point p) {
-      return Surface::Point{p.x * cosf(ANGLE) - p.y * sinf(ANGLE),
-                            p.x * sinf(ANGLE) + p.y * cosf(ANGLE)};
+      return Surface::Point{p.x * cosf(angle) - p.y * sinf(angle),
+                            p.x * sinf(angle) + p.y * cosf(angle)};
     };
-    const auto P = rotate({.220684409f, -.662453413f});
-    const auto DX = rotate({.00910583977f, .0197949838f});
-    const auto DY = rotate({-.021678308f, .00790116936f});
+    const auto p_value = rotate({.220684409f, -.662453413f});
+    const auto dx = rotate({.00910583977f, .0197949838f});
+    const auto dy = rotate({-.021678308f, .00790116936f});
     double reference = 0;
     for (int y = 0; y < 16; ++y)
       for (int x = 0; x < 16; ++x) {
-        const double U = (x + .5) / 16 - .5, V = (y + .5) / 16 - .5;
-        const double HIT = reference_hit(
-            {P.x + U * DX.x + V * DY.x, P.y + U * DX.y + V * DY.y}, KNOTS, 7,
-            Plot::STAR_INNER_RATIO);
-        HS_EXPECT_GT(HIT, 8.0);
-        HS_EXPECT_LT(HIT, 10.0);
-        reference += 1 - HIT / 24;
+        const double u = (x + .5) / 16 - .5, v = (y + .5) / 16 - .5;
+        const double hit = reference_hit(
+            {p_value.x + u * dx.x + v * dy.x, p_value.y + u * dx.y + v * dy.y},
+            KNOTS, 7, Plot::STAR_INNER_RATIO);
+        HS_EXPECT_GT(hit, 8.0);
+        HS_EXPECT_LT(hit, 10.0);
+        reference += 1 - hit / 24;
       }
     reference /= 256;
     const auto shade = arrival_ramp(24, true);
     Scan::SurfaceAreaStats stats;
     int calls = 0;
-    const float THETA = Scan::radial_atan2(P.y, P.x);
-    const auto POINT = shade(surface.sample<false, true, false>(P, THETA, 7));
-    const auto COLOR = aa.sample(
-        surface, P, DX, DY, THETA, 7,
+    const float theta = Scan::radial_atan2(p_value.y, p_value.x);
+    const auto point =
+        shade(surface.sample<false, true, false>(p_value, theta, 7));
+    const auto color = aa.sample(
+        surface, p_value, dx, dy, theta, 7,
         [&](const Surface::Hit &hit) {
           ++calls;
           return shade(hit);
@@ -1012,14 +1017,14 @@ inline void test_radial_surface_hidden_terminal() {
     HS_EXPECT_EQ(stats.edge_pixels, uint64_t{0});
     HS_EXPECT_EQ(stats.outside_intervals, uint64_t{0});
     HS_EXPECT_EQ(calls, 1);
-    HS_EXPECT_EQ(COLOR.r, POINT.r);
+    HS_EXPECT_EQ(color.r, point.r);
     Scan::SurfaceAreaStats wide_stats;
-    aa.sample(surface, P, {2 * DX.x, 2 * DX.y}, {2 * DY.x, 2 * DY.y}, THETA, 7,
-              shade, &wide_stats);
+    aa.sample(surface, p_value, {2 * dx.x, 2 * dx.y}, {2 * dy.x, 2 * dy.y},
+              theta, 7, shade, &wide_stats);
     HS_EXPECT_EQ(wide_stats.edge_pixels, uint64_t{1});
     std::printf("  hidden terminal sector=%d aa=%g reference=%g\n", sector,
-                COLOR.r, reference);
-    HS_EXPECT_NEAR(COLOR.r, reference, .005);
+                color.r, reference);
+    HS_EXPECT_NEAR(color.r, reference, .005);
   }
 }
 
@@ -1063,9 +1068,9 @@ inline void test_radial_surface_footprint_colours() {
   double minimum = 1;
   for (int y = 0; y <= 64; ++y)
     for (int x = 0; x <= 64; ++x) {
-      const double U = x / 64.0 - .5, V = y / 64.0 - .5;
+      const double u = x / 64.0 - .5, v = y / 64.0 - .5;
       const double hit =
-          reference_hit({P.x + U * DX.x + V * DY.x, P.y + U * DX.y + V * DY.y},
+          reference_hit({P.x + u * DX.x + v * DY.x, P.y + u * DX.y + v * DY.y},
                         KNOTS, 7, Plot::STAR_INNER_RATIO);
       HS_EXPECT_GT(hit, 0.0);
       minimum = std::min(minimum, 1 - hit / 24);

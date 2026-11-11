@@ -42,16 +42,16 @@ inline std::array<float, 8> mobius_channels(const math::MobiusParams &p) {
  */
 inline void test_mobiuswarp_closes_at_completion() {
   math::MobiusParams params;
-  const float scale = 0.4f;
-  const int duration = 8;
-  Animation::MobiusWarp warp(params, scale, duration,
+  const float SCALE = 0.4f;
+  const int DURATION = 8;
+  Animation::MobiusWarp warp(params, SCALE, DURATION,
                              {.repeat = false, .easing = math::ease_linear});
   HS_EXPECT_FALSE(warp.done());
 
   warp.step(fake_canvas()); // t=1: b lifts off the origin
   HS_EXPECT_GT(std::abs(params.b.re) + std::abs(params.b.im), 1e-4f);
 
-  for (int i = 1; i < duration - 1; ++i)
+  for (int i = 1; i < DURATION - 1; ++i)
     warp.step(fake_canvas());
   HS_EXPECT_FALSE(warp.done());
 
@@ -86,8 +86,8 @@ inline void test_mobiuswarp_retains_last_finite_scale() {
 inline void test_mobiuswarp_bind_scale_reads_live() {
   math::MobiusParams params;
   float live = 1.0f;
-  const int duration = 4;
-  Animation::MobiusWarp warp(params, /*scale=*/0.0f, duration,
+  const int DURATION = 4;
+  Animation::MobiusWarp warp(params, /*scale=*/0.0f, DURATION,
                              {.repeat = false, .easing = math::ease_linear});
   warp.bind_scale(live);
   warp.step(
@@ -101,31 +101,31 @@ inline void test_mobiuswarp_bind_scale_reads_live() {
  */
 inline void test_mobiuswarp_circular_traces_radius() {
   math::MobiusParams params;
-  const float scale = 0.3f;
-  const int duration = 8;
+  const float SCALE = 0.3f;
+  const int DURATION = 8;
   Animation::MobiusWarpCircular warp(
-      params, scale, duration, {.repeat = false, .easing = math::ease_linear});
+      params, SCALE, DURATION, {.repeat = false, .easing = math::ease_linear});
   warp.step(fake_canvas()); // |b| sits on the scale-radius circle every frame
   HS_EXPECT_NEAR(
-      std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im), scale,
+      std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im), SCALE,
       1e-4f);
 
-  for (int i = 1; i < duration; ++i) {
+  for (int i = 1; i < DURATION; ++i) {
     warp.step(fake_canvas());
     if (i == 1) {
       HS_EXPECT_NEAR(params.b.re, 0.0f, 1e-4f);
-      HS_EXPECT_NEAR(params.b.im, -scale, 1e-4f);
+      HS_EXPECT_NEAR(params.b.im, -SCALE, 1e-4f);
     } else if (i == 3) {
-      HS_EXPECT_NEAR(params.b.re, -scale, 1e-4f);
+      HS_EXPECT_NEAR(params.b.re, -SCALE, 1e-4f);
       HS_EXPECT_NEAR(params.b.im, 0.0f, 1e-4f);
     } else if (i == 5) {
       HS_EXPECT_NEAR(params.b.re, 0.0f, 1e-4f);
-      HS_EXPECT_NEAR(params.b.im, scale, 1e-4f);
+      HS_EXPECT_NEAR(params.b.im, SCALE, 1e-4f);
     }
   }
   HS_EXPECT_TRUE(warp.done());
   // angle 2π: b.re == scale, b.im == 0.
-  HS_EXPECT_NEAR(params.b.re, scale, 1e-4f);
+  HS_EXPECT_NEAR(params.b.re, SCALE, 1e-4f);
   HS_EXPECT_NEAR(params.b.im, 0.0f, 1e-4f);
 }
 
@@ -136,9 +136,9 @@ inline void test_mobiuswarp_circular_traces_radius() {
 inline void test_mobiuswarp_circular_bind_scale_reads_live() {
   math::MobiusParams params;
   float live = 0.5f;
-  const int duration = 4;
+  const int DURATION = 4;
   Animation::MobiusWarpCircular warp(
-      params, /*scale=*/0.0f, duration,
+      params, /*scale=*/0.0f, DURATION,
       {.repeat = false, .easing = math::ease_linear});
   warp.bind_scale(live);
   warp.step(fake_canvas()); // captured scale is 0: any radius comes from live
@@ -156,8 +156,8 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
   const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   math::MobiusParams params(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 3.0f, 0.0f);
-  const float scale = 0.5f;
-  Animation::MobiusWarpEvolving warp(params, scale, /*speed=*/0.05f);
+  const float SCALE = 0.5f;
+  Animation::MobiusWarpEvolving warp(params, SCALE, /*speed=*/0.05f);
   HS_EXPECT_FALSE(warp.done());
 
   const math::MobiusParams base = params;
@@ -169,13 +169,13 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
     const std::array<float, 8> live = mobius_channels(params);
     for (int c = 0; c < 8; ++c) {
       float delta = std::abs(live[c] - baseline[c]);
-      HS_EXPECT_LE(delta, scale + 1e-4f);
+      HS_EXPECT_LE(delta, SCALE + 1e-4f);
       peak[c] = std::max(peak[c], delta);
     }
   }
   // 50 frames at speed 0.05 sweeps even the slowest channel past half amplitude.
   for (int c = 0; c < 8; ++c)
-    HS_EXPECT_GT(peak[c], 0.5f * scale);
+    HS_EXPECT_GT(peak[c], 0.5f * SCALE);
 }
 
 /** @brief Wrapped channels follow live speeds after large temporal advances. */
@@ -366,9 +366,9 @@ inline void test_mobiusflow_nonfinite_live_input_holds_last_value() {
   const float INF_VALUE = std::numeric_limits<float>::infinity();
   math::MobiusParams held_params, ref_params;
   float rings = 3.0f, lines = 5.0f;
-  const float ref_rings = 3.0f, ref_lines = 5.0f;
+  const float REF_RINGS = 3.0f, REF_LINES = 5.0f;
   Animation::MobiusFlow held(held_params, rings, lines, 8, {.repeat = false});
-  Animation::MobiusFlow ref(ref_params, ref_rings, ref_lines, 8,
+  Animation::MobiusFlow ref(ref_params, REF_RINGS, REF_LINES, 8,
                             {.repeat = false});
   held.step(fake_canvas());
   ref.step(fake_canvas());
@@ -390,14 +390,14 @@ inline void test_mobiusflow_nonfinite_live_input_holds_last_value() {
  */
 inline void test_mobiusflow_step_preserves_unit_product() {
   math::MobiusParams params;
-  const float rings = 2.0f, lines = 4.0f;
-  const int duration = 8;
-  Animation::MobiusFlow flow(params, rings, lines, duration, {.repeat = false});
-  for (int i = 0; i < duration; ++i) {
+  const float RINGS = 2.0f, LINES = 4.0f;
+  const int DURATION = 8;
+  Animation::MobiusFlow flow(params, RINGS, LINES, DURATION, {.repeat = false});
+  for (int i = 0; i < DURATION; ++i) {
     flow.step(fake_canvas());
-    const double progress = static_cast<double>(i + 1) / duration;
-    const double magnitude = std::exp(progress * 2.5 / (rings + 1.0));
-    const double angle = progress * 2.0 * std::acos(-1.0) / lines;
+    const double progress = static_cast<double>(i + 1) / DURATION;
+    const double magnitude = std::exp(progress * 2.5 / (RINGS + 1.0));
+    const double angle = progress * 2.0 * std::acos(-1.0) / LINES;
     HS_CONTEXT("flow frame", i);
     HS_EXPECT_NEAR(params.a.re, magnitude * std::cos(angle), 1e-5);
     HS_EXPECT_NEAR(params.a.im, magnitude * std::sin(angle), 1e-5);

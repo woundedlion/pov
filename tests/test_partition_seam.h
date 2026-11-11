@@ -326,11 +326,11 @@ inline void expect_within_envelope(const SeamStats &st,
  * @brief Prints one statistics row.
  */
 inline void report(const char *tag, const SeamStats &st) {
-  const double n = double(PS_W) * PS_H;
+  const double N = double(PS_W) * PS_H;
   std::printf("  [%s] changed %zu px (%.2f%% of canvas, %.2f%% of lit); "
               "max dark %.1f%% bright %.1f%%; mean |d| %.1f%%; "
               "band mean %.2f max %d px\n",
-              tag, st.changed, 100.0 * st.changed / n,
+              tag, st.changed, 100.0 * st.changed / N,
               st.lit_a ? 100.0 * st.changed / double(st.lit_a) : 0.0,
               100.0 * st.max_dark, 100.0 * st.max_bright, 100.0 * st.mean_abs,
               st.mean_band, st.max_band);

@@ -994,8 +994,8 @@ inline void test_is_linear_tracks_head() {
 /** @brief Verifies a refused push preserves the full buffer. */
 inline void test_try_push_back_preserves_full_buffer() {
   StaticCircularBuffer<int, 2> buffer;
-  const int first = 7;
-  HS_EXPECT_TRUE(buffer.try_push_back(first));
+  const int FIRST = 7;
+  HS_EXPECT_TRUE(buffer.try_push_back(FIRST));
   HS_EXPECT_TRUE(buffer.try_push_back(9));
   HS_EXPECT_FALSE(buffer.try_push_back(11));
   HS_EXPECT_EQ(buffer.front(), 7);

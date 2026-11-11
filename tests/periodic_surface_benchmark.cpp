@@ -67,9 +67,9 @@ template <typename Surface> void measure(const char *name) {
           Surface surface;
           surface.period = period;
           surface.iso = iso;
-          const math::Vector CENTER = center * period;
-          const float FAR = 4.0f * period;
-          const bool INSIDE = surface.field(CENTER) < 0.0f;
+          const math::Vector center_value = center * period;
+          const float far = 4.0f * period;
+          const bool inside = surface.field(center_value) < 0.0f;
           Raycast::TraceLimits limits;
           limits.max_queries = 1024;
           limits.max_steps = 1024;
@@ -77,51 +77,53 @@ template <typename Surface> void measure(const char *name) {
           limits.position_tolerance = period * 1e-4f;
           for (int i = 0; i < SAMPLES; ++i)
             reference[i] = Raycast::surface_search(
-                surface, {CENTER, directions[i], {0.0f, FAR}}, {}, limits);
+                surface, {center_value, directions[i], {0.0f, far}}, {},
+                limits);
           for (size_t budget_index = 0; budget_index < BUDGETS.size();
                ++budget_index) {
             limits.max_queries = BUDGETS[budget_index];
             Metrics &m = metrics[budget_index];
-            const auto START = std::chrono::steady_clock::now();
+            const auto start = std::chrono::steady_clock::now();
             for (int i = 0; i < SAMPLES; ++i)
               results[i] = Raycast::surface_search(
-                  surface, {CENTER, directions[i], {0.0f, FAR}}, {}, limits);
-            const double ELAPSED = std::chrono::duration<double, std::milli>(
-                                       std::chrono::steady_clock::now() - START)
+                  surface, {center_value, directions[i], {0.0f, far}}, {},
+                  limits);
+            const double elapsed = std::chrono::duration<double, std::milli>(
+                                       std::chrono::steady_clock::now() - start)
                                        .count();
             for (int i = 0; i < SAMPLES; ++i) {
-              const auto &RESULT = results[i];
+              const auto &result = results[i];
               ++m.rays;
-              m.queries += RESULT.counters.queries;
+              m.queries += result.counters.queries;
               m.peak_queries =
-                  std::max(m.peak_queries, RESULT.counters.queries);
-              m.unresolved += unresolved(RESULT);
+                  std::max(m.peak_queries, result.counters.queries);
+              m.unresolved += unresolved(result);
               m.reference_unresolved += unresolved(reference[i]);
               m.hit_disagreement +=
-                  RESULT.has_surface != reference[i].has_surface;
-              m.image_error += fabsf(depth_pixel(RESULT, FAR) -
-                                     depth_pixel(reference[i], FAR));
+                  result.has_surface != reference[i].has_surface;
+              m.image_error += fabsf(depth_pixel(result, far) -
+                                     depth_pixel(reference[i], far));
             }
-            m.inside_starts += INSIDE ? SAMPLES : 0;
-            m.total_ms += ELAPSED;
-            m.peak_ms = std::max(m.peak_ms, ELAPSED);
+            m.inside_starts += inside ? SAMPLES : 0;
+            m.total_ms += elapsed;
+            m.peak_ms = std::max(m.peak_ms, elapsed);
           }
         }
       }
     }
   }
   for (size_t i = 0; i < BUDGETS.size(); ++i) {
-    const Metrics &M = metrics[i];
+    const Metrics &m = metrics[i];
     std::printf("%s,%d,%llu,%.6f,%d,%.6f,%.6f,%.6f,%.6f,%.3f,%.3f,%.6f\n", name,
-                BUDGETS[i], static_cast<unsigned long long>(M.rays),
-                static_cast<double>(M.queries) / M.rays, M.peak_queries,
-                static_cast<double>(M.unresolved) / M.rays,
-                static_cast<double>(M.reference_unresolved) / M.rays,
-                static_cast<double>(M.hit_disagreement) / M.rays,
-                M.image_error / M.rays,
-                M.total_ms / (SIDES * PERIODS.size() * ISOVALUES.size() *
+                BUDGETS[i], static_cast<unsigned long long>(m.rays),
+                static_cast<double>(m.queries) / m.rays, m.peak_queries,
+                static_cast<double>(m.unresolved) / m.rays,
+                static_cast<double>(m.reference_unresolved) / m.rays,
+                static_cast<double>(m.hit_disagreement) / m.rays,
+                m.image_error / m.rays,
+                m.total_ms / (SIDES * PERIODS.size() * ISOVALUES.size() *
                               CENTERS.size()),
-                M.peak_ms, static_cast<double>(M.inside_starts) / M.rays);
+                m.peak_ms, static_cast<double>(m.inside_starts) / m.rays);
   }
 }
 

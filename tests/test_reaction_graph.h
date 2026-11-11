@@ -37,11 +37,11 @@ constexpr float MAX_NEIGHBOR_CHORD2 = 0.008f;
 /** @brief Compares generated flash positions with their analytic reference. */
 inline void test_generated_node_positions() {
   for (int i = 0; i < RD_N; ++i) {
-    const math::Vector EXPECTED = node(i);
-    const math::Vector ACTUAL = ReactionGraph::node_positions[i];
-    HS_EXPECT_NEAR(ACTUAL.x, EXPECTED.x, 1e-7f);
-    HS_EXPECT_NEAR(ACTUAL.y, EXPECTED.y, 1e-7f);
-    HS_EXPECT_NEAR(ACTUAL.z, EXPECTED.z, 1e-7f);
+    const math::Vector expected = node(i);
+    const math::Vector actual = ReactionGraph::node_positions[i];
+    HS_EXPECT_NEAR(actual.x, expected.x, 1e-7f);
+    HS_EXPECT_NEAR(actual.y, expected.y, 1e-7f);
+    HS_EXPECT_NEAR(actual.z, expected.z, 1e-7f);
   }
 }
 
@@ -324,10 +324,10 @@ enum class LookupClass { EXACT, NEIGHBOR, MISS };
 inline LookupClass classify_lookup(const ReactionGraph::CubemapLUT &lut,
                                    const math::Vector &q) {
   const int best = nearest_node(q);
-  const int FOUND = lut.lookup(q);
-  if (FOUND == best)
+  const int found = lut.lookup(q);
+  if (found == best)
     return LookupClass::EXACT;
-  if (is_adjacent(best, FOUND))
+  if (is_adjacent(best, found))
     return LookupClass::NEIGHBOR;
   return LookupClass::MISS;
 }
@@ -383,10 +383,10 @@ inline void test_cubemap_lut_offlattice() {
     } while (len2 < 0.01f);
     q = q.normalized();
 
-    const LookupClass CLASSIFICATION = classify_lookup(lut, q);
-    if (CLASSIFICATION == LookupClass::EXACT)
+    const LookupClass classification = classify_lookup(lut, q);
+    if (classification == LookupClass::EXACT)
       ++exact;
-    else if (CLASSIFICATION == LookupClass::NEIGHBOR)
+    else if (classification == LookupClass::NEIGHBOR)
       ++near;
     else
       ++miss;
@@ -414,10 +414,10 @@ inline void test_cubemap_lut_equatorial() {
     float r = std::sqrt(1.0f - y * y);
     math::Vector q(std::cos(lon) * r, y, std::sin(lon) * r);
 
-    const LookupClass CLASSIFICATION = classify_lookup(lut, q);
-    if (CLASSIFICATION == LookupClass::EXACT)
+    const LookupClass classification = classify_lookup(lut, q);
+    if (classification == LookupClass::EXACT)
       ++exact;
-    else if (CLASSIFICATION == LookupClass::NEIGHBOR)
+    else if (classification == LookupClass::NEIGHBOR)
       ++near;
     else
       ++miss;
@@ -432,33 +432,33 @@ inline void test_cubemap_lut_equatorial() {
 /** @brief Row-coherent seeding matches an independent per-texel hill climb and
  * stays within one neighbour of the nearest node. */
 inline void test_cubemap_coherent_seeds() {
-  const auto &LUT = built_cubemap_lut();
+  const auto &lut = built_cubemap_lut();
   constexpr int RES = ReactionGraph::CubemapLUT::RES;
   int changed = 0, misses = 0;
   for (int face = 0; face < 6; ++face)
     for (int y = 0; y < RES; ++y)
       for (int x = 0; x < RES; ++x) {
-        const float U = (x + 0.5f) / RES * 2.0f - 1.0f;
-        const float V = (y + 0.5f) / RES * 2.0f - 1.0f;
+        const float u = (x + 0.5f) / RES * 2.0f - 1.0f;
+        const float v = (y + 0.5f) / RES * 2.0f - 1.0f;
         math::Vector q;
         switch (face) {
         case 0:
-          q = {1, V, -U};
+          q = {1, v, -u};
           break;
         case 1:
-          q = {-1, V, U};
+          q = {-1, v, u};
           break;
         case 2:
-          q = {U, 1, -V};
+          q = {u, 1, -v};
           break;
         case 3:
-          q = {U, -1, V};
+          q = {u, -1, v};
           break;
         case 4:
-          q = {U, V, 1};
+          q = {u, v, 1};
           break;
         default:
-          q = {-U, V, -1};
+          q = {-u, v, -1};
           break;
         }
         q = q.normalized();
@@ -470,23 +470,23 @@ inline void test_cubemap_coherent_seeds() {
         for (int iter = 0; iter < 64; ++iter) {
           bool improved = false;
           for (int k = 0; k < RD_K; ++k) {
-            const int NEIGHBOR = neighbors[baseline][k];
-            const float D = math::distance_squared(
-                q, ReactionGraph::node_positions[NEIGHBOR]);
-            if (D < distance) {
-              baseline = NEIGHBOR;
-              distance = D;
+            const int neighbor = neighbors[baseline][k];
+            const float d = math::distance_squared(
+                q, ReactionGraph::node_positions[neighbor]);
+            if (d < distance) {
+              baseline = neighbor;
+              distance = d;
               improved = true;
             }
           }
           if (!improved)
             break;
         }
-        const int FOUND =
-            LUT.lookup(ReactionGraph::CubemapLUT::Projection{face, U, V});
-        changed += FOUND != baseline;
+        const int found =
+            lut.lookup(ReactionGraph::CubemapLUT::Projection{face, u, v});
+        changed += found != baseline;
         const int nearest = nearest_node(q);
-        const bool adjacent = FOUND == nearest || is_adjacent(nearest, FOUND);
+        const bool adjacent = found == nearest || is_adjacent(nearest, found);
         misses += !adjacent;
       }
   std::printf("  [info] coherent cubemap: %d changed, %d misses\n", changed,

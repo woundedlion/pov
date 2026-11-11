@@ -172,10 +172,10 @@ inline void test_pipeline_2d_into_3d_head_roundtrips() {
   // Replicate(1) clamps to a single emission -> identity pass-through.
   Pipeline<W, H, Filter::World::Replicate<W>> pipe(
       Filter::World::Replicate<W>(1));
-  const int px = 16, py = 8; // interior, away from poles/seam
+  const int PX = 16, PY = 8; // interior, away from poles/seam
   {
     Canvas c(fx);
-    pipe.plot(c, static_cast<float>(px), static_cast<float>(py),
+    pipe.plot(c, static_cast<float>(PX), static_cast<float>(PY),
               Pixel(0, 60000, 0), 0.0f, 1.0f);
   }
   fx.advance_display();
@@ -186,7 +186,7 @@ inline void test_pipeline_2d_into_3d_head_roundtrips() {
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
       if (!is_black(fx.get_pixel(x, y)))
-        near_input |= (std::abs(x - px) <= 1 && std::abs(y - py) <= 1);
+        near_input |= (std::abs(x - PX) <= 1 && std::abs(y - PY) <= 1);
   HS_EXPECT_TRUE(near_input);
 }
 
@@ -300,34 +300,34 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
   static_assert(!Direct::any_crosses_segments);
 
   std::vector<AASinkSample> samples;
-  constexpr std::array<float, 12> xs{-17.0f,  -16.999f, -0.999f, -0.001f,
+  constexpr std::array<float, 12> XS{-17.0f,  -16.999f, -0.999f, -0.001f,
                                      0.0f,    0.001f,   7.5f,    15.999f,
                                      16.999f, 17.001f,  33.001f, 33.999f};
-  constexpr std::array<float, 11> ys{-1.001f, -1.0f,  -0.999f, -0.001f,
+  constexpr std::array<float, 11> YS{-1.001f, -1.0f,  -0.999f, -0.001f,
                                      0.0f,    0.001f, 4.5f,    7.999f,
                                      8.0f,    8.999f, 9.001f};
-  constexpr std::array<float, 5> alphas{0.0f, 0.00001f, 0.25f, 1.0f, 1.2f};
+  constexpr std::array<float, 5> ALPHAS{0.0f, 0.00001f, 0.25f, 1.0f, 1.2f};
   size_t sequence = 0;
-  for (float x : xs)
-    for (float y : ys) {
+  for (float x : XS)
+    for (float y : YS) {
       const uint16_t n = static_cast<uint16_t>(sequence++ * 4051u);
       samples.push_back({x, y,
                          Pixel(n, static_cast<uint16_t>(n * 3u),
                                static_cast<uint16_t>(65535u - n)),
-                         alphas[sequence % alphas.size()]});
+                         ALPHAS[sequence % ALPHAS.size()]});
     }
 
-  constexpr std::array<float, 5> interior_fractions{0.1f, 0.25f, 0.5f, 0.75f,
+  constexpr std::array<float, 5> INTERIOR_FRACTIONS{0.1f, 0.25f, 0.5f, 0.75f,
                                                     0.9f};
   for (int yi = 1; yi < H - 1; ++yi) {
     for (int xi = 0; xi < W; ++xi) {
-      for (float fraction : interior_fractions) {
+      for (float fraction : INTERIOR_FRACTIONS) {
         const uint16_t n = static_cast<uint16_t>(sequence++ * 4051u);
         samples.push_back({static_cast<float>(xi) + fraction,
                            static_cast<float>(yi) + (1.0f - fraction),
                            Pixel(n, static_cast<uint16_t>(n * 3u),
                                  static_cast<uint16_t>(65535u - n)),
-                           alphas[sequence % alphas.size()]});
+                           ALPHAS[sequence % ALPHAS.size()]});
       }
     }
   }
@@ -346,7 +346,7 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
   struct ClipCase {
     int y0, y1, x0, x1, margin;
   };
-  constexpr std::array<ClipCase, 7> clips{{
+  constexpr std::array<ClipCase, 7> CLIPS{{
       {0, H, 0, W, 0},
       {2, 7, 3, 13, 0},
       {2, 7, 3, 13, 1},
@@ -363,10 +363,10 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
       integer_samples.push_back({static_cast<float>(x), static_cast<float>(y),
                                  Pixel(n, static_cast<uint16_t>(n * 3u),
                                        static_cast<uint16_t>(65535u - n)),
-                                 alphas[sequence % alphas.size()]});
+                                 ALPHAS[sequence % ALPHAS.size()]});
     }
 
-  for (const ClipCase &clip : clips) {
+  for (const ClipCase &clip : CLIPS) {
     const auto background = render_aa_sink_case<Reference>(
         W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, {});
     const auto expected = render_aa_sink_case<Reference>(

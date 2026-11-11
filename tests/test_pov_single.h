@@ -121,9 +121,9 @@ inline void test_strip_derivation() {
  * wrap at the seam where x >= w/2 folds back to the low columns.
  */
 inline void test_opposite_col_offset() {
-  const int w = 96;
-  HS_EXPECT_EQ(strip_opposite_col(17, w), 65);
-  HS_EXPECT_EQ(strip_opposite_col(95, w), 47); // (95 + 48) % 96
+  const int W = 96;
+  HS_EXPECT_EQ(strip_opposite_col(17, W), 65);
+  HS_EXPECT_EQ(strip_opposite_col(95, W), 47); // (95 + 48) % 96
 }
 
 /** @brief Fractional timer periods preserve the requested rotation rate. */

@@ -12,12 +12,12 @@
  */
 inline math::Vector az_unproject_exact(float Px, float Py,
                                        const math::Basis &b) {
-  float R = std::sqrt(Px * Px + Py * Py);
-  if (R < math::EPS_GEOMETRIC)
+  float r = std::sqrt(Px * Px + Py * Py);
+  if (r < math::EPS_GEOMETRIC)
     return b.v;
   float th = std::atan2(Py, Px);
   math::Vector axis = b.u * std::cos(th) + b.w * std::sin(th);
-  return b.v * std::cos(R) + axis * std::sin(R);
+  return b.v * std::cos(r) + axis * std::sin(r);
 }
 
 /**
@@ -60,13 +60,13 @@ inline void test_azimuthal_roundtrip_identity() {
   for (int trial = 0; trial < 4000; ++trial) {
     math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
 
-    float R = hs::rand_f(0.05f, math::PI_F - 0.05f);
+    float r = hs::rand_f(0.05f, math::PI_F - 0.05f);
     float th = hs::rand_f(-math::PI_F, math::PI_F);
-    float Px = R * std::cos(th), Py = R * std::sin(th);
+    float Px = r * std::cos(th), Py = r * std::sin(th);
     math::Vector s = Plot::azimuthal_unproject(Px, Py, basis);
     auto rp = Plot::azimuthal_project(s, basis);
-    HS_EXPECT_NEAR(rp.x, Px, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
-    HS_EXPECT_NEAR(rp.y, Py, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
+    HS_EXPECT_NEAR(rp.x, Px, AZ_ROUNDTRIP_REL_TOL * (r + 1.0f));
+    HS_EXPECT_NEAR(rp.y, Py, AZ_ROUNDTRIP_REL_TOL * (r + 1.0f));
 
     math::Vector p = rand_unit();
     if (Plot::at_planar_antipode(p, basis))
@@ -87,11 +87,11 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
   int n = 0;
   for (int trial = 0; trial < 4000; ++trial) {
     math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
-    float R = hs::rand_f(0.02f, math::PI_F - 0.02f);
+    float r = hs::rand_f(0.02f, math::PI_F - 0.02f);
     float th = hs::rand_f(-math::PI_F, math::PI_F);
     math::Vector got =
-        Plot::azimuthal_unproject(R * std::cos(th), R * std::sin(th), basis);
-    math::Vector want = disk_point(basis, R, th);
+        Plot::azimuthal_unproject(r * std::cos(th), r * std::sin(th), basis);
+    math::Vector want = disk_point(basis, r, th);
     HS_EXPECT_NEAR(math::angle_between(got, want), 0.0f, 1e-2f);
     float got_R = math::angle_between(got, basis.v);
     if (got_R > 0.05f && got_R < math::PI_F - 0.05f)
@@ -110,13 +110,13 @@ inline void test_planar_arc_length_matches_fine_quadrature() {
   float max_rel_err = 0.0f;
   for (int trial = 0; trial < 3000; ++trial) {
     math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
-    float R1 = hs::rand_f(0.2f, 1.2f), R2 = hs::rand_f(0.2f, 1.2f);
+    float r1 = hs::rand_f(0.2f, 1.2f), r2 = hs::rand_f(0.2f, 1.2f);
     float t1 = hs::rand_f(-math::PI_F, math::PI_F),
           t2 = t1 + hs::rand_f(0.15f, 0.8f);
     math::Vector a =
-        Plot::azimuthal_unproject(R1 * std::cos(t1), R1 * std::sin(t1), basis);
+        Plot::azimuthal_unproject(r1 * std::cos(t1), r1 * std::sin(t1), basis);
     math::Vector b =
-        Plot::azimuthal_unproject(R2 * std::cos(t2), R2 * std::sin(t2), basis);
+        Plot::azimuthal_unproject(r2 * std::cos(t2), r2 * std::sin(t2), basis);
     if (Plot::at_planar_antipode(a, basis) ||
         Plot::at_planar_antipode(b, basis))
       continue;
@@ -198,13 +198,13 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
   int checked = 0;
   for (int trial = 0; trial < 2000; ++trial) {
     math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
-    float R1 = hs::rand_f(0.1f, 1.3f), R2 = hs::rand_f(0.1f, 1.3f);
+    float r1 = hs::rand_f(0.1f, 1.3f), r2 = hs::rand_f(0.1f, 1.3f);
     float t1 = hs::rand_f(-math::PI_F, math::PI_F),
           t2 = t1 + hs::rand_f(0.3f, 1.5f);
     math::Vector a =
-        Plot::azimuthal_unproject(R1 * std::cos(t1), R1 * std::sin(t1), basis);
+        Plot::azimuthal_unproject(r1 * std::cos(t1), r1 * std::sin(t1), basis);
     math::Vector b =
-        Plot::azimuthal_unproject(R2 * std::cos(t2), R2 * std::sin(t2), basis);
+        Plot::azimuthal_unproject(r2 * std::cos(t2), r2 * std::sin(t2), basis);
     if (Plot::at_planar_antipode(a, basis) ||
         Plot::at_planar_antipode(b, basis))
       continue;
@@ -223,10 +223,10 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
         span.p1.x + span.dx, span.p1.y + span.dy, basis);
     const Plot::PlanarEdgeSampler sampler =
         Plot::make_planar_edge_sampler(span, span_end, basis);
-    constexpr float total_tol = 2e-5f;
-    HS_EXPECT_NEAR(cumul[Plot::PLANAR_LEN_SAMPLES], sampler.dist, total_tol);
+    constexpr float TOTAL_TOL = 2e-5f;
+    HS_EXPECT_NEAR(cumul[Plot::PLANAR_LEN_SAMPLES], sampler.dist, TOTAL_TOL);
     HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), sampler.dist,
-                   total_tol);
+                   TOTAL_TOL);
     // Triangle inequality against the endpoints the table joins.
     const math::Vector chart_start =
         Plot::azimuthal_unproject(p1.x, p1.y, basis);

@@ -12,14 +12,14 @@ inline void test_shader_chain_program_lifetime() {
   CountLifecycle::reset();
   auto fixture =
       std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, extended_table());
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  if (!expect_compiled(fixture->program.compile(chain)))
+  if (!expect_compiled(fixture->program.compile(CHAIN)))
     return;
   HS_EXPECT_EQ(CountLifecycle::inits, 1);
   HS_EXPECT_EQ(CountLifecycle::destroys, 0);
@@ -660,10 +660,10 @@ inline JsonValue native_catalog() {
  * @return The member, or a null value after failing the calling test. */
 inline const JsonValue &catalog_member(const JsonValue &object,
                                        const char *key) {
-  static const JsonValue MISSING;
+  static const JsonValue missing;
   const JsonValue *value = object.find(key);
   HS_EXPECT(value != nullptr, key);
-  return value != nullptr ? *value : MISSING;
+  return value != nullptr ? *value : missing;
 }
 
 /** @brief A block member as an unsigned size.
@@ -1029,11 +1029,11 @@ inline void test_shader_chain_param_address_channel() {
   // The write is visible to the render: identical view, different coverage.
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
-  const math::Vector view = math::Y_AXIS;
-  const Color4 faded = program.evaluate(view, ctx);
+  const math::Vector VIEW = math::Y_AXIS;
+  const Color4 faded = program.evaluate(VIEW, ctx);
   *coverage_mode = static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
   program.prepare(ctx);
-  const Color4 full = program.evaluate(view, ctx);
+  const Color4 full = program.evaluate(VIEW, ctx);
   HS_EXPECT_LT(faded.alpha, full.alpha);
   HS_EXPECT_LT(faded.alpha, 0.5f);
   program.clear();
@@ -1086,18 +1086,18 @@ inline void test_shader_chain_schema_defaults_match_params() {
         (op.runtime.param.size + sizeof(std::max_align_t) - 1) /
         sizeof(std::max_align_t));
     op.runtime.construct_params(storage.data());
-    const auto BEGIN = reinterpret_cast<uintptr_t>(storage.data());
-    const auto END = BEGIN + op.runtime.param.size;
+    const auto begin = reinterpret_cast<uintptr_t>(storage.data());
+    const auto end = begin + op.runtime.param.size;
     for (uint16_t index = 0; index < op.schema_count; ++index) {
       const auto &field = op.schema[index];
       HS_CONTEXT(field.id);
       const auto *address = op.runtime.param_address(storage.data(), index);
-      const auto VALUE = reinterpret_cast<uintptr_t>(address);
-      const size_t BYTES = field.enum_count ? sizeof(uint8_t) : sizeof(float);
-      HS_EXPECT_GE(VALUE, BEGIN);
-      HS_EXPECT_LE(VALUE, END);
-      HS_EXPECT_LE(BYTES, END - VALUE);
-      if (VALUE < BEGIN || VALUE > END || BYTES > END - VALUE)
+      const auto value = reinterpret_cast<uintptr_t>(address);
+      const size_t bytes = field.enum_count ? sizeof(uint8_t) : sizeof(float);
+      HS_EXPECT_GE(value, begin);
+      HS_EXPECT_LE(value, end);
+      HS_EXPECT_LE(bytes, end - value);
+      if (value < begin || value > end || bytes > end - value)
         continue;
       if (field.enum_count)
         HS_EXPECT_EQ(*static_cast<const uint8_t *>(address), field.enum_def);

@@ -83,26 +83,26 @@ using DeathRadialSurface = Scan::RadialSurface<4, 8>;
 
 inline void case_scan_ring_stack_too_many_slots() {
   constexpr int W = 32, H = 16;
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  const float knots[4] = {0.0f, 0.01f, 0.0f, -0.01f};
-  SDF::DistortedRing ring(b, 1.0f, 0.05f, knots, 4, 0.0f, nullptr);
-  const int8_t slot_by_ring[1] = {0};
+  const float KNOTS[4] = {0.0f, 0.01f, 0.0f, -0.01f};
+  SDF::DistortedRing ring(B, 1.0f, 0.05f, KNOTS, 4, 0.0f, nullptr);
+  const int8_t SLOT_BY_RING[1] = {0};
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipeline;
   Canvas canvas(fx);
   static Scan::DistortedRingStack::CandidateTable<W, H> table;
   Scan::DistortedRingStack::draw<W, H>(
-      pipeline, canvas, 1, &ring, slot_by_ring, opaque(INT8_MAX + 1), table,
+      pipeline, canvas, 1, &ring, SLOT_BY_RING, opaque(INT8_MAX + 1), table,
       [](int, const math::Vector &, Fragment &) {});
 }
 
 inline void case_scan_ring_stack_too_many_rings() {
   constexpr int W = 32, H = 16;
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  const float knots[4] = {0.0f, 0.01f, 0.0f, -0.01f};
-  SDF::DistortedRing ring(b, 1.0f, 0.05f, knots, 4, 0.0f, nullptr);
+  const float KNOTS[4] = {0.0f, 0.01f, 0.0f, -0.01f};
+  SDF::DistortedRing ring(B, 1.0f, 0.05f, KNOTS, 4, 0.0f, nullptr);
   int8_t slot_by_ring[256];
   for (int8_t &s : slot_by_ring)
     s = -1;
@@ -118,17 +118,17 @@ inline void case_scan_ring_stack_too_many_rings() {
 
 inline void case_scan_ring_stack_callback_ring() {
   constexpr int W = 32, H = 16;
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
   SDF::DistortedRing ring(
-      b, 1.0f, 0.05f, [](float) { return 0.0f; }, opaque(0.01f), 0.0f);
-  const int8_t slot_by_ring[1] = {0};
+      B, 1.0f, 0.05f, [](float) { return 0.0f; }, opaque(0.01f), 0.0f);
+  const int8_t SLOT_BY_RING[1] = {0};
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipeline;
   Canvas canvas(fx);
   static Scan::DistortedRingStack::CandidateTable<W, H> table;
   Scan::DistortedRingStack::draw<W, H>(
-      pipeline, canvas, 1, &ring, slot_by_ring, 1, table,
+      pipeline, canvas, 1, &ring, SLOT_BY_RING, 1, table,
       [](int, const math::Vector &, Fragment &) {}); // no knots -> trap
 }
 
@@ -207,9 +207,9 @@ inline void case_scan_deformation_without_column_time() {
   DeathEffect fx(W, H);
   Canvas c(fx);
   MeshState mesh;
-  const uint16_t columns[2] = {0, 0};
+  const uint16_t COLUMNS[2] = {0, 0};
   Scan::deform_mesh<W, H>(
-      c, mesh, true, columns, nullptr, nullptr, scratch_arena_a, 0.1f,
+      c, mesh, true, COLUMNS, nullptr, nullptr, scratch_arena_a, 0.1f,
       [](size_t, float) { return math::Vector(1, 0, 0); }, [] {});
 }
 
@@ -319,13 +319,13 @@ inline void case_scan_deformation_without_azimuth() {
   DeathEffect fx(W, H);
   Canvas canvas(fx);
   MeshState mesh;
-  const uint16_t columns[2] = {};
+  const uint16_t COLUMNS[2] = {};
   Scan::ColumnBasis basis;
   Scan::ColumnBasisScope scope(canvas, basis);
   const auto vertex = [](size_t, float) { return math::Vector(1, 0, 0); };
-  Scan::deform_mesh<W, H>(canvas, mesh, false, columns, nullptr, nullptr,
+  Scan::deform_mesh<W, H>(canvas, mesh, false, COLUMNS, nullptr, nullptr,
                           scratch_arena_a, 0.1f, vertex, [] {});
-  Scan::deform_mesh<W, H>(canvas, mesh, true, columns, nullptr, nullptr,
+  Scan::deform_mesh<W, H>(canvas, mesh, true, COLUMNS, nullptr, nullptr,
                           scratch_arena_a, 0.1f, vertex, [] {});
 }
 
@@ -379,18 +379,18 @@ inline void case_radial_surface_knot_count() {
 inline void case_radial_surface_noninitial_zero_multiplier() {
   ScratchScope scope(scratch_arena_a);
   DeathRadialSurface surface;
-  const DeathRadialSurface::Knot KNOTS[2] = {{1, 0, 0}, {opaque(0.0f), 0, 0}};
-  surface.prepare(scratch_arena_a, 4, 0.1f, KNOTS);
+  const DeathRadialSurface::Knot knots[2] = {{1, 0, 0}, {opaque(0.0f), 0, 0}};
+  surface.prepare(scratch_arena_a, 4, 0.1f, knots);
 }
 
 /** @brief Traps on adjacent knot phases a full edge sector apart. */
 inline void case_radial_surface_interval_crosses_sectors() {
   ScratchScope scope(scratch_arena_a);
   DeathRadialSurface surface;
-  const float PHASE = opaque(math::PI_F / 4);
-  const DeathRadialSurface::Knot KNOTS[2] = {{1, 0, 0},
-                                             {cosf(PHASE), sinf(PHASE), PHASE}};
-  surface.prepare(scratch_arena_a, 4, 0.1f, KNOTS);
+  const float phase = opaque(math::PI_F / 4);
+  const DeathRadialSurface::Knot knots[2] = {{1, 0, 0},
+                                             {cosf(phase), sinf(phase), phase}};
+  surface.prepare(scratch_arena_a, 4, 0.1f, knots);
 }
 
 /** @brief Traps when an unbound candidate mask is prepared. */

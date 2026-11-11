@@ -54,9 +54,9 @@ inline void test_mindsplatter_warp_history() {
       HS_EXPECT_TRUE(WB::warp_ready(effect));
       HS_EXPECT_EQ(WB::drawn_warp(effect).re, end.re);
       HS_EXPECT_EQ(WB::drawn_warp(effect).im, end.im);
-      const math::Complex next(0.7f, -0.3f);
-      const auto start = WB::warp_start(effect, next);
-      const auto expected = Spacetime::flat_surface() ? next : end;
+      const math::Complex NEXT(0.7f, -0.3f);
+      const auto start = WB::warp_start(effect, NEXT);
+      const auto expected = Spacetime::flat_surface() ? NEXT : end;
       HS_EXPECT_EQ(start.re, expected.re);
       HS_EXPECT_EQ(start.im, expected.im);
     }
@@ -283,14 +283,14 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   struct Quadrant {
     int x0, x1, y0, y1;
   };
-  constexpr Quadrant quadrants[] = {
+  constexpr Quadrant QUADRANTS[] = {
       {0, W / 2, 0, H / 2},
       {W / 2, W, 0, H / 2},
       {0, W / 2, H / 2, H},
       {W / 2, W, H / 2, H},
   };
 
-  for (const Quadrant &quadrant : quadrants) {
+  for (const Quadrant &quadrant : QUADRANTS) {
     reset_globals();
     MS effect;
     effect.init();
@@ -332,7 +332,7 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
   using WB = MindSplatterWhiteBox;
   constexpr int W = DEFAULT_W;
   constexpr int H = DEFAULT_H;
-  const math::MobiusParams transforms[] = {
+  const math::MobiusParams TRANSFORMS[] = {
       math::MobiusParams(), math::MobiusParams(1, 0, -1.2f, 0, 0, 0, 1, 0),
       math::MobiusParams(1, 0, -0.6f, 0.6f, 0, 0, 1, 0),
       math::MobiusParams(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f)};
@@ -424,7 +424,7 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
       math::Vector(-1.0f, 1.0f, -1.0f).normalized(),
   };
   hs::random().seed(0x6D617472);
-  for (const math::MobiusParams &transform : transforms) {
+  for (const math::MobiusParams &transform : TRANSFORMS) {
     for (const math::Quaternion &orientation : orientations) {
       for (const math::Vector &v : representative_vectors)
         check(v, transform, orientation);
@@ -548,9 +548,9 @@ inline void test_mindsplatter_show_window_covers_final_dwell() {
     pin_frame_clock(static_cast<int>(frame));
     WB::step_state_without_render(effect);
     effect.advance_display();
-    const size_t INDEX = effect.getPresetIndex();
-    visited_last |= INDEX + 1 == effect.getPresetCount();
-    final_departure_armed |= visited_last && INDEX == 0;
+    const size_t index = effect.getPresetIndex();
+    visited_last |= index + 1 == effect.getPresetCount();
+    final_departure_armed |= visited_last && index == 0;
   }
   HS_EXPECT_TRUE(visited_last);
   HS_EXPECT_TRUE(final_departure_armed);
@@ -709,9 +709,9 @@ inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
     HS_EXPECT_EQ(WB::hole_alpha(p), WB::reference_hole_alpha(p));
   };
 
-  const math::Vector axes[] = {math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
+  const math::Vector AXES[] = {math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
                                -math::Y_AXIS, math::Z_AXIS,  -math::Z_AXIS};
-  for (const math::Vector &axis : axes) {
+  for (const math::Vector &axis : AXES) {
     math::Vector tangent = math::cross(axis, math::Y_AXIS);
     if (tangent.length() < 0.5f)
       tangent = math::cross(axis, math::X_AXIS);
@@ -792,7 +792,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
   ms.init();
   HS_EXPECT_EQ(ms.updateParameter("Ang Spd", 1.0f), ParamSetResult::APPLIED);
 
-  const float two_pi = 2.0f * math::PI_F;
+  const float TWO_PI = 2.0f * math::PI_F;
   const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
   std::vector<float> previous(WB::num_emitters(ms), 0.0f);
   int laps = 0;
@@ -802,7 +802,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
     for (size_t i = 0; i < previous.size(); ++i) {
       const float ph = WB::emit_phase(ms, i);
       HS_EXPECT_GE(ph, 0.0f);
-      HS_EXPECT_LT(ph, two_pi);
+      HS_EXPECT_LT(ph, TWO_PI);
       if (ph < previous[i])
         ++laps;
       previous[i] = ph;

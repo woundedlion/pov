@@ -31,7 +31,7 @@ struct HankinSolidsWhiteBox {
   static size_t resolved_slot_bytes(EffectT &effect, int frame,
                                     bool column_blend) {
     ScratchScope scratch(scratch_arena_b);
-    const size_t BEGIN = scratch_arena_b.get_offset();
+    const size_t begin = scratch_arena_b.get_offset();
     BakedPalette blended[PALETTES];
     const BakedPalette *star[PALETTES], *strap[PALETTES];
     effect.resolve_hankin_slot_luts(frame, column_blend, blended, star, strap,
@@ -40,11 +40,11 @@ struct HankinSolidsWhiteBox {
       HS_EXPECT_TRUE(
           star[slot] ==
           &effect.palette_bank.bank.entries[effect.palette_idx[slot]].view());
-      const bool ALIAS = column_blend || frame >= STRAP_FRAMES ||
+      const bool alias = column_blend || frame >= STRAP_FRAMES ||
                          !(effect.strap_blend_mask & (1u << slot));
-      HS_EXPECT_TRUE(strap[slot] == (ALIAS ? star[slot] : &blended[slot]));
+      HS_EXPECT_TRUE(strap[slot] == (alias ? star[slot] : &blended[slot]));
     }
-    return scratch_arena_b.get_offset() - BEGIN;
+    return scratch_arena_b.get_offset() - begin;
   }
 
   static int cycle_frame(const EffectT &effect) {
@@ -457,11 +457,11 @@ inline void test_hankinsolids_strap_luts_allocate_only_while_blending() {
   effect.init();
   WB::arm_strap_crossfade(effect);
   for (const int frame : {0, 1, WB::STRAP_FRAMES - 1, WB::STRAP_FRAMES}) {
-    const size_t HELD = WB::resolved_slot_bytes(effect, frame, false);
+    const size_t held = WB::resolved_slot_bytes(effect, frame, false);
     if (frame > 0 && frame < WB::STRAP_FRAMES)
-      HS_EXPECT_GT(HELD, size_t{0});
+      HS_EXPECT_GT(held, size_t{0});
     else if (frame >= WB::STRAP_FRAMES)
-      HS_EXPECT_EQ(HELD, size_t{0});
+      HS_EXPECT_EQ(held, size_t{0});
     HS_EXPECT_EQ(WB::resolved_slot_bytes(effect, frame, true), size_t{0});
   }
 }
@@ -479,8 +479,8 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
   WB::set_angle(effect, 0.6f);
   constexpr int RAMPS = 3;
   constexpr float FROM_WEIGHT = 0.3f, TO_WEIGHT = 0.6f;
-  const uint8_t ramp_from[RAMPS] = {0, 1, 2};
-  const uint8_t ramp_to[RAMPS] = {3, 4, 2};
+  const uint8_t RAMP_FROM[RAMPS] = {0, 1, 2};
+  const uint8_t RAMP_TO[RAMPS] = {3, 4, 2};
   const size_t faces = WB::faces(effect);
   std::vector<uint8_t> face_ramp(faces);
   for (size_t f = 0; f < faces; ++f)
@@ -490,13 +490,13 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
     BakedPalette ramps[RAMPS];
     for (int r = 0; r < RAMPS; ++r)
       ramps[r] = bake_palette_blend(
-          scratch_arena_b, WB::palette_bank(effect).entries[ramp_from[r]],
-          WB::palette_bank(effect).entries[ramp_to[r]], weight);
+          scratch_arena_b, WB::palette_bank(effect).entries[RAMP_FROM[r]],
+          WB::palette_bank(effect).entries[RAMP_TO[r]], weight);
     Shading shading{ramps, face_ramp.data(), faces};
     if (moving) {
       shading.bank = &WB::palette_bank(effect);
-      shading.ramp_from = ramp_from;
-      shading.ramp_to = ramp_to;
+      shading.ramp_from = RAMP_FROM;
+      shading.ramp_to = RAMP_TO;
     }
     shading.weight = weight;
     shading.previous_weight = previous_weight;

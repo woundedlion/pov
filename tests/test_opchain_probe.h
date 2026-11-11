@@ -122,24 +122,25 @@ inline void test_chamfer_zero_area_birth_limit() {
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
     const PolyMesh seed = finalize_site_seed(site, persist, a, b);
-    const size_t F = seed.face_counts.size();
-    const size_t E = seed.faces.size() / 2;
+    const size_t f_value = seed.face_counts.size();
+    const size_t e_value = seed.faces.size() / 2;
     std::vector<math::Vector> seed_centroid;
     face_centroids(seed, seed_centroid);
 
-    std::printf("  [chamfer-birth] %s (F=%zu E=%zu)\n", site.name, F, E);
+    std::printf("  [chamfer-birth] %s (F=%zu E=%zu)\n", site.name, f_value,
+                e_value);
     float prev_area = 0.0f;
     float limit_slope = 0.0f;
     for (float t : T) {
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh out = MeshOps::chamfer(seed, a, b, t);
-      HS_EXPECT_EQ(out.face_counts.size(), F + E);
+      HS_EXPECT_EQ(out.face_counts.size(), f_value + e_value);
 
       std::vector<size_t> off;
       face_offsets(out, off);
       float born_area = 0.0f;
-      for (size_t f = F; f < out.face_counts.size(); ++f) {
+      for (size_t f = f_value; f < out.face_counts.size(); ++f) {
         const math::Vector n =
             face_area_vector(out, off[f], out.face_counts[f]);
         born_area += std::sqrt(math::dot(n, n));
@@ -148,7 +149,7 @@ inline void test_chamfer_zero_area_birth_limit() {
       // converging on a seed vertex as t -> 0.
       float max_centroid_shift = 0.0f;
       float max_vertex_shift = 0.0f;
-      for (size_t f = 0; f < F; ++f) {
+      for (size_t f = 0; f < f_value; ++f) {
         HS_EXPECT_EQ(static_cast<int>(out.face_counts[f]),
                      static_cast<int>(seed.face_counts[f]));
         math::Vector c(0, 0, 0);
@@ -412,8 +413,8 @@ inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
  */
 inline void test_truncate50d_far_side_sweep_holds_topology() {
   constexpr int SAMPLES = 48;
-  const float birth = ConwayGraph::truncate_birth_floor(TRUNCATE50D_T_STAR);
-  HS_EXPECT_LT(birth, 0.5f);
+  const float BIRTH = ConwayGraph::truncate_birth_floor(TRUNCATE50D_T_STAR);
+  HS_EXPECT_LT(BIRTH, 0.5f);
   HS_EXPECT_GT(TRUNCATE50D_T_STAR, 0.5f);
   HS_EXPECT_LE(TRUNCATE50D_T_STAR, ConwayGraph::T_TRUNCATE_FAR_MAX);
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE50D_T_STAR}));
@@ -437,7 +438,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       // the guard is exercised deterministically.
       float raw = (s == SAMPLES / 2)
                       ? 0.5f
-                      : birth + (TRUNCATE50D_T_STAR - birth) *
+                      : BIRTH + (TRUNCATE50D_T_STAR - BIRTH) *
                                     (static_cast<float>(s) / (SAMPLES - 1));
       const float t = ConwayGraph::truncate_off_pinch(raw);
       HS_EXPECT_TRUE(t != 0.5f);
@@ -475,7 +476,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
     else
       std::printf("  [truncate50d] %s: birth=%.4f -> %.4f through pinch V=%zu "
                   "F=%zu I=%zu compiled=%zu min_area_near=%.3e\n",
-                  site.name, static_cast<double>(birth),
+                  site.name, static_cast<double>(BIRTH),
                   static_cast<double>(TRUNCATE50D_T_STAR), first.v, first.f,
                   first.i, first.compiled, static_cast<double>(min_area_near));
   }
@@ -493,7 +494,7 @@ inline void test_chamfer_birth_epsilon() {
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
     const PolyMesh seed = finalize_site_seed(site, persist, a, b);
-    const size_t F = seed.face_counts.size();
+    const size_t f_value = seed.face_counts.size();
 
     // Culled newborn count at t; compile's own face count for contrast.
     auto probe = [&](float t, size_t &culled, size_t &compiled_faces) {
@@ -506,7 +507,7 @@ inline void test_chamfer_birth_epsilon() {
       std::vector<size_t> off;
       face_offsets(out, off);
       culled = 0;
-      for (size_t f = F; f < out.face_counts.size(); ++f)
+      for (size_t f = f_value; f < out.face_counts.size(); ++f)
         if (face_is_culled(out, off[f], out.face_counts[f]))
           ++culled;
     };
@@ -542,8 +543,8 @@ inline void test_chamfer_birth_epsilon() {
     std::printf("  [chamfer-eps] %s: births clear the SDF cull at t>=%.2e "
                 "(T_EPS=%.3f culls %zu of %zu; compile keeps %zu of %zu)\n",
                 site.name, static_cast<double>(hi),
-                static_cast<double>(ConwayGraph::T_EPS), at_eps, raw_faces - F,
-                cf_eps, raw_faces);
+                static_cast<double>(ConwayGraph::T_EPS), at_eps,
+                raw_faces - f_value, cf_eps, raw_faces);
   }
 }
 
@@ -711,19 +712,19 @@ inline void test_build_chain_provenance_ambiguity() {
       std::vector<int> degree(seed.vertices.size(), 0);
       for (size_t i = 0; i < seed.faces.size(); ++i)
         ++degree[seed.faces[i]];
-      const size_t V = static_cast<size_t>(std::count_if(
+      const size_t v = static_cast<size_t>(std::count_if(
           degree.begin(), degree.end(), [](int d) { return d >= 3; }));
-      const size_t E = seed.faces.size() / 2;
+      const size_t e = seed.faces.size() / 2;
       switch (step.op) {
       case Op::AMBO:
       case Op::TRUNCATE:
-        HS_EXPECT_EQ(total, prev_faces + V);
+        HS_EXPECT_EQ(total, prev_faces + v);
         break;
       case Op::CHAMFER:
-        HS_EXPECT_EQ(total, prev_faces + E);
+        HS_EXPECT_EQ(total, prev_faces + e);
         break;
       case Op::SNUB:
-        HS_EXPECT_EQ(total, prev_faces + V + 2 * E);
+        HS_EXPECT_EQ(total, prev_faces + v + 2 * e);
         break;
       default:
         HS_EXPECT_GT(total, prev_faces);

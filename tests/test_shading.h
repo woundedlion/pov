@@ -183,10 +183,10 @@ inline void test_fragment_edge_dist_degenerate_face() {
  *        modulo the palette count.
  */
 inline void test_mesh_topology_slot_in_range_wraps() {
-  const uint16_t topology[] = {0, 5, 2};
+  const uint16_t TOPOLOGY[] = {0, 5, 2};
   Fragment f;
   f.v2 = 1.0f; // face index 1 -> class 5
-  HS_EXPECT_EQ((mesh_topology_slot<4>(f, topology, 3)), 1); // wrap(5, 4) == 1
+  HS_EXPECT_EQ((mesh_topology_slot<4>(f, TOPOLOGY, 3)), 1); // wrap(5, 4) == 1
 }
 
 /**
@@ -194,22 +194,22 @@ inline void test_mesh_topology_slot_in_range_wraps() {
  *        rather than reading out of bounds.
  */
 inline void test_mesh_topology_slot_out_of_range_falls_back() {
-  const uint16_t topology[] = {3, 3, 3, 3};
+  const uint16_t TOPOLOGY[] = {3, 3, 3, 3};
   Fragment over;
   over.v2 = 9.0f; // >= num_faces -> class 0
-  HS_EXPECT_EQ((mesh_topology_slot<4>(over, topology, 3)), 0);
+  HS_EXPECT_EQ((mesh_topology_slot<4>(over, TOPOLOGY, 3)), 0);
 
   Fragment at_end;
   at_end.v2 = 3.0f;
-  HS_EXPECT_EQ((mesh_topology_slot<4>(at_end, topology, 3)), 0);
+  HS_EXPECT_EQ((mesh_topology_slot<4>(at_end, TOPOLOGY, 3)), 0);
 
   Fragment last;
   last.v2 = 2.0f;
-  HS_EXPECT_EQ((mesh_topology_slot<4>(last, topology, 3)), 3);
+  HS_EXPECT_EQ((mesh_topology_slot<4>(last, TOPOLOGY, 3)), 3);
 
   Fragment neg;
   neg.v2 = -1.0f; // negative -> class 0
-  HS_EXPECT_EQ((mesh_topology_slot<4>(neg, topology, 3)), 0);
+  HS_EXPECT_EQ((mesh_topology_slot<4>(neg, TOPOLOGY, 3)), 0);
 }
 
 // --- shade_blinn_phong ------------------------------------------------------
@@ -219,22 +219,22 @@ inline void test_mesh_topology_slot_out_of_range_falls_back() {
  *        light tilted along the tangent.
  */
 inline void test_blinn_phong_half() {
-  const math::Vector up(0, 0, 1);
-  const math::Vector zero(0, 0, 0);
+  const math::Vector UP(0, 0, 1);
+  const math::Vector ZERO(0, 0, 0);
 
   // No tilt leaves the half vector on the view axis.
-  math::Vector h = blinn_phong_half(up, zero);
+  math::Vector h = blinn_phong_half(UP, ZERO);
   HS_EXPECT_NEAR(h.x, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.y, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.z, 1.0f, 1e-6f);
 
-  const math::Vector tangent(1, 0, 0);
-  h = blinn_phong_half(up, tangent);
+  const math::Vector TANGENT(1, 0, 0);
+  h = blinn_phong_half(UP, TANGENT);
   const math::Vector light =
-      (up + tangent * BLINN_PHONG_TANGENT_TILT).normalized();
+      (UP + TANGENT * BLINN_PHONG_TANGENT_TILT).normalized();
   HS_EXPECT_NEAR(h.length(), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(math::dot(h, up), math::dot(h, light), 1e-6f);
-  HS_EXPECT_NEAR(math::dot(math::cross(up, light), h), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::dot(h, UP), math::dot(h, light), 1e-6f);
+  HS_EXPECT_NEAR(math::dot(math::cross(UP, light), h), 0.0f, 1e-6f);
   HS_EXPECT_GT(h.x, 0.0f);
 }
 
@@ -244,41 +244,41 @@ inline void test_blinn_phong_half() {
  *        n·h = 1, and a Fresnel rim peaking at grazing view.
  */
 inline void test_shade_blinn_phong() {
-  const math::Vector up(0, 0, 1);
-  const math::Vector side(1, 0, 0);
-  const math::Vector down(0, 0, -1);
+  const math::Vector UP(0, 0, 1);
+  const math::Vector SIDE(1, 0, 0);
+  const math::Vector DOWN(0, 0, -1);
   const auto term = [&](const math::Vector &view, const math::Vector &half,
                         float d, float s, float f) {
-    return shade_blinn_phong(up, view, half, d, s, f) - BLINN_PHONG_AMBIENT;
+    return shade_blinn_phong(UP, view, half, d, s, f) - BLINN_PHONG_AMBIENT;
   };
 
-  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 0.0f, 0.0f),
+  HS_EXPECT_NEAR(shade_blinn_phong(UP, UP, UP, 0.0f, 0.0f, 0.0f),
                  BLINN_PHONG_AMBIENT, 1e-6f);
 
   // Half-Lambert diffuse: (n·v / 2 + 1/2)^2.
-  HS_EXPECT_NEAR(term(up, up, 1, 0, 0), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(term(side, up, 1, 0, 0), 0.25f, 1e-6f);
-  HS_EXPECT_NEAR(term(down, up, 1, 0, 0), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(UP, UP, 1, 0, 0), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(SIDE, UP, 1, 0, 0), 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(term(DOWN, UP, 1, 0, 0), 0.0f, 1e-6f);
 
   // Specular (n·h)^BLINN_PHONG_SPECULAR_EXP, clamped at n·h = 0.
-  const math::Vector u(0.6f, 0, 0.8f);
-  HS_EXPECT_NEAR(term(up, up, 0, 1, 0), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(term(up, u, 0, 1, 0), std::pow(0.8, BLINN_PHONG_SPECULAR_EXP),
+  const math::Vector U(0.6f, 0, 0.8f);
+  HS_EXPECT_NEAR(term(UP, UP, 0, 1, 0), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(UP, U, 0, 1, 0), std::pow(0.8, BLINN_PHONG_SPECULAR_EXP),
                  1e-6f);
-  HS_EXPECT_NEAR(term(up, down, 0, 1, 0), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(UP, DOWN, 0, 1, 0), 0.0f, 1e-6f);
 
   // Fresnel rim: 1 at grazing view, 0 head-on and from behind.
-  HS_EXPECT_NEAR(term(side, up, 0, 0, 1), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(term(up, up, 0, 0, 1), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(term(down, up, 0, 0, 1), 1.0f, 1e-6f);
-  HS_EXPECT_GT(term(u, up, 0, 0, 1), 0.0f);
-  HS_EXPECT_LT(term(u, up, 0, 0, 1), 1.0f);
+  HS_EXPECT_NEAR(term(SIDE, UP, 0, 0, 1), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(UP, UP, 0, 0, 1), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(term(DOWN, UP, 0, 0, 1), 1.0f, 1e-6f);
+  HS_EXPECT_GT(term(U, UP, 0, 0, 1), 0.0f);
+  HS_EXPECT_LT(term(U, UP, 0, 0, 1), 1.0f);
 
   // The weighted terms superpose.
   const float WD = 0.5f, WS = 0.3f, WF = 0.2f;
-  HS_EXPECT_NEAR(term(u, u, WD, WS, WF),
-                 WD * term(u, u, 1, 0, 0) + WS * term(u, u, 0, 1, 0) +
-                     WF * term(u, u, 0, 0, 1),
+  HS_EXPECT_NEAR(term(U, U, WD, WS, WF),
+                 WD * term(U, U, 1, 0, 0) + WS * term(U, U, 0, 1, 0) +
+                     WF * term(U, U, 0, 0, 1),
                  1e-6f);
 }
 
@@ -354,7 +354,7 @@ struct StubPaletteBank {
  *        opacity argument, regardless of the palette color's own alpha.
  */
 inline void test_shade_mesh_topology_direct() {
-  const uint16_t topology[] = {2};               // face 0 -> topology class 2
+  const uint16_t TOPOLOGY[] = {2};               // face 0 -> topology class 2
   std::array<int, 4> palette_idx = {0, 0, 3, 0}; // class 2 -> bank slot 3
   StubPaletteBank bank;
   for (int i = 0; i < 4; ++i)
@@ -367,11 +367,11 @@ inline void test_shade_mesh_topology_direct() {
   f.v2 = 0.0f;   // face index 0
 
   Color4 out =
-      shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f, 0.6f);
+      shade_mesh_topology(f, TOPOLOGY, 1, bank, palette_idx, 1.0f, 0.6f);
   HS_EXPECT_EQ(out.color.r, 500);
   HS_EXPECT_EQ(out.color.b, 3);
   HS_EXPECT_NEAR(out.alpha, .6f, 1e-6f);
-  out = shade_mesh_topology(f, topology, 1, bank, palette_idx, 4.f, .6f);
+  out = shade_mesh_topology(f, TOPOLOGY, 1, bank, palette_idx, 4.f, .6f);
   HS_EXPECT_EQ(out.color.r, 1000);
   HS_EXPECT_EQ(out.color.b, 3);
 }

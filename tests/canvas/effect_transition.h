@@ -103,18 +103,18 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
 inline void test_effect_transition_fenced_commit() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
-  const hs::EffectTransitionRequest request{
+  const hs::EffectTransitionRequest REQUEST{
       "kaleidoscope-smooth", "coupled-grid", hs::EffectTransitionOrigin::MANUAL,
       2};
-  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.request(REQUEST), hs::EffectTransitionStatus::OK);
   controller.tick();
-  const size_t ENVELOPES_BEFORE_REFUSAL = adapter.envelopes.size();
+  const size_t envelopes_before_refusal = adapter.envelopes.size();
   adapter.preflight_status = hs::EffectTransitionStatus::RESOURCE_REJECTED;
   const hs::EffectTransitionRequest REFUSED{
       "alien-brain", "alien-brain", hs::EffectTransitionOrigin::MANUAL, 1};
   HS_EXPECT_EQ(controller.request(REFUSED),
                hs::EffectTransitionStatus::RESOURCE_REJECTED);
-  HS_EXPECT_EQ(adapter.envelopes.size(), ENVELOPES_BEFORE_REFUSAL);
+  HS_EXPECT_EQ(adapter.envelopes.size(), envelopes_before_refusal);
   adapter.preflight_status = hs::EffectTransitionStatus::OK;
   controller.tick();
   controller.tick();
@@ -141,7 +141,7 @@ inline void test_effect_transition_fenced_commit() {
   controller.tick();
   HS_EXPECT_TRUE(adapter.committed);
   HS_EXPECT_EQ(adapter.committed_effect_id,
-               std::string_view(request.effect_id));
+               std::string_view(REQUEST.effect_id));
   controller.tick();
   controller.tick();
   controller.tick();
@@ -151,16 +151,16 @@ inline void test_effect_transition_fenced_commit() {
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::STEADY_IN);
-  const size_t SECOND_START = adapter.envelopes.size();
-  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  const size_t second_start = adapter.envelopes.size();
+  HS_EXPECT_EQ(controller.request(REQUEST), hs::EffectTransitionStatus::OK);
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
   controller.tick();
   controller.tick();
   controller.tick();
-  HS_EXPECT_SIZE_OR_RETURN(adapter.envelopes, SECOND_START + 4);
-  HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 1], 1.0f);
-  HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 2], 0.5f);
-  HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 3], 0.0f);
+  HS_EXPECT_SIZE_OR_RETURN(adapter.envelopes, second_start + 4);
+  HS_EXPECT_EQ(adapter.envelopes[second_start + 1], 1.0f);
+  HS_EXPECT_EQ(adapter.envelopes[second_start + 2], 0.5f);
+  HS_EXPECT_EQ(adapter.envelopes[second_start + 3], 0.0f);
 }
 
 /** @brief Hidden and restored frames remain fenced and receive the latest handoff. */
@@ -184,13 +184,13 @@ inline void test_effect_transition_fences_hold() {
         HS_EXPECT_EQ(controller.request(REQUEST, SECOND),
                      hs::EffectTransitionStatus::OK);
       }
-      const auto TARGET =
+      const auto target =
           restoring ? hs::EffectTransitionState::RESTORE_FRAME_READY
                     : hs::EffectTransitionState::HIDDEN_FRAME_PRESENTED;
-      for (int step = 0; step < 20 && controller.current_state() != TARGET;
+      for (int step = 0; step < 20 && controller.current_state() != target;
            ++step)
         controller.tick();
-      HS_EXPECT_EQ(controller.current_state(), TARGET);
+      HS_EXPECT_EQ(controller.current_state(), target);
       const auto &expected = replacement ? SECOND : FIRST;
       HS_EXPECT_EQ(adapter.imported_handoff.schema_version,
                    expected.schema_version);
@@ -201,12 +201,12 @@ inline void test_effect_transition_fences_hold() {
       HS_EXPECT_EQ(adapter.imported_handoff.choreography_position,
                    expected.choreography_position);
       adapter.fenced = false;
-      const size_t ENVELOPES = adapter.envelopes.size();
+      const size_t envelopes = adapter.envelopes.size();
       for (int step = 0; step < 4; ++step) {
         controller.tick();
-        HS_EXPECT_EQ(controller.current_state(), TARGET);
+        HS_EXPECT_EQ(controller.current_state(), target);
         HS_EXPECT_FALSE(adapter.committed);
-        HS_EXPECT_EQ(adapter.envelopes.size(), ENVELOPES);
+        HS_EXPECT_EQ(adapter.envelopes.size(), envelopes);
       }
       adapter.fenced = true;
       controller.tick();
@@ -263,13 +263,13 @@ inline void test_effect_transition_replacement_pause_and_restore() {
 
 /** @brief Missing restore capability enters failsafe and permits a later retry. */
 inline void test_effect_transition_restore_none_enters_failsafe() {
-  const hs::EffectTransitionRequest request{
+  const hs::EffectTransitionRequest REQUEST{
       "kaleidoscope-hex-bright", "alien-brain",
       hs::EffectTransitionOrigin::AUTOMATIC, 2};
   TransitionAdapter none;
   none.capability = hs::EffectRestoreCapability::NONE;
   hs::EffectTransitionController failing(none);
-  HS_EXPECT_EQ(failing.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(failing.request(REQUEST), hs::EffectTransitionStatus::OK);
   failing.tick();
   failing.tick();
   failing.tick();
@@ -285,7 +285,7 @@ inline void test_effect_transition_restore_none_enters_failsafe() {
   HS_EXPECT_EQ(none.envelopes.back(), 0.0f);
 
   none.construct_status = hs::EffectTransitionStatus::OK;
-  HS_EXPECT_EQ(failing.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(failing.request(REQUEST), hs::EffectTransitionStatus::OK);
   HS_EXPECT_EQ(failing.current_state(),
                hs::EffectTransitionState::CONSTRUCTING);
   EXPECT_MIN_SIZE_OR_RETURN(none.envelopes, 1);
@@ -302,18 +302,18 @@ inline void test_effect_transition_restore_none_enters_failsafe() {
 inline void test_effect_transition_shorter_replacement_preserves_progress() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
-  const hs::EffectTransitionRequest initial{
+  const hs::EffectTransitionRequest INITIAL{
       "alien-brain", "alien-brain", hs::EffectTransitionOrigin::AUTOMATIC, 60};
-  HS_EXPECT_EQ(controller.request(initial), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.request(INITIAL), hs::EffectTransitionStatus::OK);
   for (int i = 0; i < 55; ++i)
     controller.tick();
   EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
   HS_EXPECT_NEAR(adapter.envelopes.back(), 0.1f, 1e-6f);
 
-  const hs::EffectTransitionRequest replacement{
+  const hs::EffectTransitionRequest REPLACEMENT{
       "kaleidoscope-hex-bright", "kaleidoscope-hex-bright",
       hs::EffectTransitionOrigin::AUTOMATIC, 1};
-  HS_EXPECT_EQ(controller.request(replacement), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.request(REPLACEMENT), hs::EffectTransitionStatus::OK);
   controller.tick();
   EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
   HS_EXPECT_EQ(adapter.envelopes.back(), 0.0f);
@@ -326,9 +326,9 @@ inline void test_effect_transition_failsafe_retry() {
   adapter.fenced = true;
   adapter.construct_status = hs::EffectTransitionStatus::RESOURCE_REJECTED;
   hs::EffectTransitionController controller(adapter);
-  const hs::EffectTransitionRequest request{
+  const hs::EffectTransitionRequest REQUEST{
       "alien-brain", "alien-brain", hs::EffectTransitionOrigin::AUTOMATIC, 1};
-  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.request(REQUEST), hs::EffectTransitionStatus::OK);
   for (int i = 0; i < 5; ++i)
     controller.tick();
   HS_EXPECT_EQ(controller.current_state(),
@@ -340,7 +340,7 @@ inline void test_effect_transition_failsafe_retry() {
 
   // a preflight advertising a restorable outgoing cannot resurrect one
   adapter.capability = hs::EffectRestoreCapability::EXACT_STATE;
-  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.request(REQUEST), hs::EffectTransitionStatus::OK);
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::CONSTRUCTING);
   controller.tick();
@@ -351,7 +351,7 @@ inline void test_effect_transition_failsafe_retry() {
                hs::EffectTransitionState::CLEAR_FAILSAFE);
 
   adapter.construct_status = hs::EffectTransitionStatus::OK;
-  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.request(REQUEST), hs::EffectTransitionStatus::OK);
   for (int i = 0; i < 7; ++i)
     controller.tick();
   HS_EXPECT_TRUE(adapter.committed);
@@ -366,21 +366,21 @@ inline void test_effect_transition_failsafe_retry() {
 inline void test_effect_transition_refusal_branches() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
-  const hs::EffectTransitionRequest request{
+  const hs::EffectTransitionRequest REQUEST{
       "alien-brain", "alien-brain", hs::EffectTransitionOrigin::AUTOMATIC, 1};
 
-  hs::EffectTransitionRequest malformed = request;
+  hs::EffectTransitionRequest malformed = REQUEST;
   malformed.effect_id = "";
   HS_EXPECT_EQ(controller.request(malformed),
                hs::EffectTransitionStatus::UNAVAILABLE);
-  malformed = request;
+  malformed = REQUEST;
   malformed.fade_ticks = 0;
   HS_EXPECT_EQ(controller.request(malformed),
                hs::EffectTransitionStatus::UNAVAILABLE);
   HS_EXPECT_EQ(adapter.preflights, 0);
 
   adapter.preflight_status = hs::EffectTransitionStatus::INVALID_RESTORE;
-  HS_EXPECT_EQ(controller.request(request),
+  HS_EXPECT_EQ(controller.request(REQUEST),
                hs::EffectTransitionStatus::INVALID_RESTORE);
   HS_EXPECT_EQ(adapter.preflights, 1);
   HS_EXPECT_EQ(controller.current_state(),
@@ -388,12 +388,12 @@ inline void test_effect_transition_refusal_branches() {
   HS_EXPECT_TRUE(adapter.envelopes.empty());
   adapter.preflight_status = hs::EffectTransitionStatus::OK;
 
-  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.request(REQUEST), hs::EffectTransitionStatus::OK);
   controller.tick();
   controller.tick();
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::CLEAR_PRESENTED);
-  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::BUSY);
+  HS_EXPECT_EQ(controller.request(REQUEST), hs::EffectTransitionStatus::BUSY);
   HS_EXPECT_EQ(adapter.preflights, 2);
 
   adapter.fenced = true;
@@ -427,7 +427,7 @@ inline void test_effect_transition_refusal_branches() {
   adapter.prepare_status = hs::EffectTransitionStatus::FIRST_FRAME_REJECTED;
   adapter.restore_status = hs::EffectTransitionStatus::INVALID_RESTORE;
   adapter.restored_published = false;
-  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.request(REQUEST), hs::EffectTransitionStatus::OK);
   HS_EXPECT_EQ(controller.failure(), hs::EffectTransitionStatus::OK);
   for (int i = 0; i < 5; ++i)
     controller.tick();
@@ -453,7 +453,7 @@ inline void test_effect_transition_refusal_branches() {
   frame.prepare_status = hs::EffectTransitionStatus::FIRST_FRAME_REJECTED;
   frame.restore_prepare_status = hs::EffectTransitionStatus::RESTORE_REJECTED;
   hs::EffectTransitionController second(frame);
-  HS_EXPECT_EQ(second.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(second.request(REQUEST), hs::EffectTransitionStatus::OK);
   for (int i = 0; i < 6; ++i)
     second.tick();
   HS_EXPECT_EQ(frame.discards, 1);

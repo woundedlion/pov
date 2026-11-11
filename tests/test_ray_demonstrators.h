@@ -58,18 +58,18 @@ struct PlaneCrossingReference {
   PlaneCrossingReference(const Raycast::Ray &ray,
                          const std::array<SDF::FrameworkPlane, 4> &families,
                          const math::Vector &origin) {
-    const math::Vector START = ray.at(ray.interval.near) - origin;
+    const math::Vector start = ray.at(ray.interval.near) - origin;
     for (size_t i = 0; i < cursors.size(); ++i) {
-      const float SPEED = math::dot(ray.direction, families[i].normal);
-      if (SPEED == 0.0f)
+      const float speed = math::dot(ray.direction, families[i].normal);
+      if (speed == 0.0f)
         continue;
-      const float POSITION = math::dot(START, families[i].normal);
-      const float SPACING = families[i].spacing;
-      const float CELL = POSITION / SPACING;
-      const float PLANE = SPEED > 0.0f ? ceilf(CELL) : floorf(CELL);
+      const float position = math::dot(start, families[i].normal);
+      const float spacing = families[i].spacing;
+      const float cell = position / spacing;
+      const float plane = speed > 0.0f ? ceilf(cell) : floorf(cell);
       auto &cursor = cursors[i];
-      cursor.next = ray.interval.near + (PLANE * SPACING - POSITION) / SPEED;
-      cursor.step = SPACING / fabsf(SPEED);
+      cursor.next = ray.interval.near + (plane * spacing - position) / speed;
+      cursor.step = spacing / fabsf(speed);
       cursor.active = Raycast::finite(cursor.next) &&
                       Raycast::finite(cursor.step) && cursor.step > 0.0f;
     }
@@ -79,9 +79,9 @@ struct PlaneCrossingReference {
   float distance(size_t index) const { return cursors[index].next; }
   void advance(size_t index) {
     auto &cursor = cursors[index];
-    const float NEXT = cursor.next + cursor.step;
-    cursor.active = Raycast::finite(NEXT) && NEXT > cursor.next;
-    cursor.next = NEXT;
+    const float next = cursor.next + cursor.step;
+    cursor.active = Raycast::finite(next) && next > cursor.next;
+    cursor.next = next;
   }
 };
 
@@ -96,71 +96,71 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
                                            : 10.0f;
     geometry.wire_radius = geometry.cell_size * .055f;
     geometry.origin = {.3f, -.2f, .7f};
-    const Raycast::Ray RAY{{sinf(sample * .43f) * 5, cosf(sample * .71f) * 5,
+    const Raycast::Ray ray{{sinf(sample * .43f) * 5, cosf(sample * .71f) * 5,
                             sinf(sample * .19f) * 5},
                            math::Vector{cosf(sample * .31f),
                                         sinf(sample * .57f),
                                         cosf(sample * .23f)}
                                .normalized(),
                            {.1f, 16.0f}};
-    const Raycast::Footprint FOOTPRINT{sample % 5 == 0 ? 0.0f : .02f, .3f};
-    const auto PLANES = geometry.plane_families();
-    SDF::OctetEvents events(geometry, RAY, FOOTPRINT);
-    PlaneCrossingReference reference(RAY, PLANES, geometry.origin);
+    const Raycast::Footprint footprint{sample % 5 == 0 ? 0.0f : .02f, .3f};
+    const auto planes = geometry.plane_families();
+    SDF::OctetEvents events(geometry, ray, footprint);
+    PlaneCrossingReference reference(ray, planes, geometry.origin);
     HS_EXPECT_TRUE(geometry.valid());
     std::array<bool, SDF::OctetEvents::STREAM_COUNT> owns_pair{};
-    for (size_t i = 0; i < PLANES.size(); ++i) {
-      for (size_t j = i + 1; j < PLANES.size(); ++j) {
-        const float A = math::dot(RAY.direction, PLANES[i].normal);
-        const float B = math::dot(RAY.direction, PLANES[j].normal);
-        const size_t OWNER = fabsf(A) >= fabsf(B) ? i : j;
-        owns_pair[OWNER] = owns_pair[OWNER] || (OWNER == i ? A : B) != 0;
+    for (size_t i = 0; i < planes.size(); ++i) {
+      for (size_t j = i + 1; j < planes.size(); ++j) {
+        const float a = math::dot(ray.direction, planes[i].normal);
+        const float b = math::dot(ray.direction, planes[j].normal);
+        const size_t owner = fabsf(a) >= fabsf(b) ? i : j;
+        owns_pair[owner] = owns_pair[owner] || (owner == i ? a : b) != 0;
       }
     }
-    for (size_t stream = 0; stream < PLANES.size(); ++stream)
+    for (size_t stream = 0; stream < planes.size(); ++stream)
       reference.cursors[stream].active &= owns_pair[stream];
-    for (size_t stream = 0; stream < PLANES.size(); ++stream) {
+    for (size_t stream = 0; stream < planes.size(); ++stream) {
       HS_EXPECT_EQ(events.active(stream), reference.active(stream));
       for (int crossing = 0; crossing < 8 && events.active(stream);
            ++crossing) {
         ++compared;
-        const auto HIT = events.candidate(stream);
-        HS_EXPECT_NEAR(HIT.t, reference.distance(stream),
-                       2e-5f * std::max(1.0f, HIT.t));
-        const auto POINT = RAY.at(HIT.t) - geometry.origin;
+        const auto hit = events.candidate(stream);
+        HS_EXPECT_NEAR(hit.t, reference.distance(stream),
+                       2e-5f * std::max(1.0f, hit.t));
+        const auto point = ray.at(hit.t) - geometry.origin;
         float best = INFINITY;
         uint32_t feature = 0;
         uint32_t pair = 0;
-        for (size_t i = 0; i < PLANES.size(); ++i)
-          for (size_t j = i + 1; j < PLANES.size(); ++j, ++pair) {
-            const float A = math::dot(RAY.direction, PLANES[i].normal);
-            const float B = math::dot(RAY.direction, PLANES[j].normal);
-            const size_t OWNER = fabsf(A) >= fabsf(B) ? i : j;
-            if (OWNER != stream)
+        for (size_t i = 0; i < planes.size(); ++i)
+          for (size_t j = i + 1; j < planes.size(); ++j, ++pair) {
+            const float a = math::dot(ray.direction, planes[i].normal);
+            const float b = math::dot(ray.direction, planes[j].normal);
+            const size_t owner = fabsf(a) >= fabsf(b) ? i : j;
+            if (owner != stream)
               continue;
-            const size_t OTHER = OWNER == i ? j : i;
-            const float U = math::dot(POINT, PLANES[OTHER].normal);
-            const float RESIDUAL =
-                U - PLANES[OTHER].spacing * roundf(U / PLANES[OTHER].spacing);
-            const auto CROSS = math::cross(
-                RAY.direction, math::cross(PLANES[i].normal, PLANES[j].normal));
-            const float DISTANCE =
-                fabsf(RESIDUAL * (OWNER == i ? A : B)) / CROSS.magnitude();
-            if (DISTANCE < best) {
-              best = DISTANCE;
+            const size_t other = owner == i ? j : i;
+            const float u = math::dot(point, planes[other].normal);
+            const float residual =
+                u - planes[other].spacing * roundf(u / planes[other].spacing);
+            const auto cross = math::cross(
+                ray.direction, math::cross(planes[i].normal, planes[j].normal));
+            const float distance =
+                fabsf(residual * (owner == i ? a : b)) / cross.magnitude();
+            if (distance < best) {
+              best = distance;
               feature = pair;
             }
           }
-        const float WIDTH = FOOTPRINT.at(HIT.t);
-        const float COVERAGE =
-            WIDTH > 0 ? std::clamp(.5f - (best - geometry.wire_radius) / WIDTH,
+        const float width = footprint.at(hit.t);
+        const float coverage =
+            width > 0 ? std::clamp(.5f - (best - geometry.wire_radius) / width,
                                    0.0f, 1.0f)
             : best <= geometry.wire_radius ? 1.0f
                                            : 0.0f;
-        HS_EXPECT_NEAR(HIT.coverage, COVERAGE, 3e-4f);
-        if (COVERAGE > 0) {
+        HS_EXPECT_NEAR(hit.coverage, coverage, 3e-4f);
+        if (coverage > 0) {
           ++hits;
-          HS_EXPECT_EQ(HIT.feature, feature);
+          HS_EXPECT_EQ(hit.feature, feature);
         }
         events.advance(stream);
         reference.advance(stream);
@@ -182,35 +182,35 @@ inline void test_framework_generic_event_rendering() {
   SDF::FrameworkEvents events(geometry, RAY);
   std::array<Raycast::Contribution, 8> output;
   size_t count = 0;
-  const auto RESULT = Raycast::trace_events(
+  const auto result = Raycast::trace_events(
       events, RAY.interval, limits, [&](const Raycast::Contribution &hit) {
         if (count < output.size())
           output[count] = hit;
         ++count;
         return true;
       });
-  HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_EQ(count, size_t{3});
   for (size_t i = 0; i < count && i < output.size(); ++i) {
     HS_EXPECT_NEAR(output[i].t, 0.3f + static_cast<float>(i), 1e-6f);
     HS_EXPECT_EQ(output[i].coverage, 1.0f);
     HS_EXPECT_FALSE(output[i].verified);
   }
-  const math::Vector DIRECTION = math::Vector{0.7f, 0.4f, 0.3f}.normalized();
-  const Raycast::Ray OBLIQUE{{0.0f, 0.0f, 0.0f}, DIRECTION, {0.0f, 5.0f}};
-  SDF::FrameworkEvents slanted(geometry, OBLIQUE, {0.05f, 0.2f});
+  const math::Vector direction = math::Vector{0.7f, 0.4f, 0.3f}.normalized();
+  const Raycast::Ray oblique{{0.0f, 0.0f, 0.0f}, direction, {0.0f, 5.0f}};
+  SDF::FrameworkEvents slanted(geometry, oblique, {0.05f, 0.2f});
   for (size_t i = 0; i < SDF::FrameworkEvents::STREAM_COUNT; ++i)
     HS_EXPECT_TRUE(slanted.active(i));
   float previous = -1.0f;
   count = 0;
-  const auto SLANTED = Raycast::trace_events(
-      slanted, OBLIQUE.interval, limits, [&](const Raycast::Contribution &hit) {
+  const auto slanted_value = Raycast::trace_events(
+      slanted, oblique.interval, limits, [&](const Raycast::Contribution &hit) {
         HS_EXPECT_GE(hit.t, previous);
         previous = hit.t;
         ++count;
         return true;
       });
-  HS_EXPECT_EQ(SLANTED.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(slanted_value.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_GT(count, size_t{1});
 }
 
@@ -238,15 +238,15 @@ inline void test_repeated_stream_grouping_preserves_order_and_endpoints() {
   Raycast::TraceLimits limits;
   std::array<Raycast::Contribution, 8> output;
   size_t count = 0;
-  const auto RESULT = Raycast::trace_events(
+  const auto result = Raycast::trace_events(
       events, {0.0f, 1.0f}, limits, [&](const Raycast::Contribution &hit) {
         if (count < output.size())
           output[count] = hit;
         ++count;
         return true;
       });
-  HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
-  HS_EXPECT_EQ(RESULT.counters.candidates, 6);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(result.counters.candidates, 6);
   HS_EXPECT_EQ(count, size_t{4});
   if (count == 0 || count > output.size())
     return;
@@ -271,30 +271,30 @@ inline void test_lattice_volume_camera_demonstrators() {
   limits.max_refinements = 256;
   limits.position_tolerance = 1e-5f;
   const math::Vector DIRECTION{0.0f, -1.0f, 0.0f};
-  const auto CUBIC =
+  const auto cubic_value =
       Raycast::surface_search(query3, camera.ray(DIRECTION), {}, limits);
-  HS_EXPECT_TRUE(CUBIC.has_surface);
-  HS_EXPECT_TRUE(CUBIC.contribution.verified);
-  HS_EXPECT_NEAR(CUBIC.contribution.t, 0.15f, 1e-5f);
+  HS_EXPECT_TRUE(cubic_value.has_surface);
+  HS_EXPECT_TRUE(cubic_value.contribution.verified);
+  HS_EXPECT_NEAR(cubic_value.contribution.t, 0.15f, 1e-5f);
 
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
   camera.center[3] = 0.03f;
   SDF::WireLattice<4> hypercubic;
   Raycast::DomainQuery4<decltype(hypercubic)> query4{hypercubic, camera};
-  const auto HYPERCUBIC =
+  const auto hypercubic_value =
       Raycast::surface_search(query4, camera.ray(DIRECTION), {}, limits);
-  HS_EXPECT_TRUE(HYPERCUBIC.has_surface);
-  HS_EXPECT_NEAR(HYPERCUBIC.contribution.t, 0.16f, 1e-5f);
+  HS_EXPECT_TRUE(hypercubic_value.has_surface);
+  HS_EXPECT_NEAR(hypercubic_value.contribution.t, 0.16f, 1e-5f);
   camera.center[1] = 0.0f;
-  const auto EXIT = Raycast::surface_search(
+  const auto exit = Raycast::surface_search(
       query4, camera.ray(math::Vector{0.0f, 1.0f, 0.0f}), {}, limits);
-  HS_EXPECT_TRUE(EXIT.has_surface);
-  HS_EXPECT_NEAR(EXIT.contribution.t, 0.04f, 1e-5f);
+  HS_EXPECT_TRUE(exit.has_surface);
+  HS_EXPECT_NEAR(exit.contribution.t, 0.04f, 1e-5f);
   camera.center[3] = 0.1f;
-  const auto EMPTY_SLICE =
+  const auto empty_slice =
       Raycast::surface_search(query4, camera.ray(DIRECTION), {}, limits);
-  HS_EXPECT_FALSE(EMPTY_SLICE.has_surface);
-  HS_EXPECT_EQ(EMPTY_SLICE.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_FALSE(empty_slice.has_surface);
+  HS_EXPECT_EQ(empty_slice.status, Raycast::TraceStatus::RANGE_COMPLETE);
 }
 
 struct ConstantPalette {
@@ -365,32 +365,32 @@ void check_placed_volume_stage(const Shape &shape,
   for (int pose = 0; pose < 2; ++pose) {
     frame.inverse_rotation =
         math::make_rotation(math::Vector{1.0f, 0.0f, 0.0f}, -pose * 0.8f);
-    const auto PREPARED = Pipeline::prepare_stages(frame);
+    const auto prepared = Pipeline::prepare_stages(frame);
     HS_EXPECT_EQ(frame.preparations, pose + 1);
     uint64_t hash = hs_test::HASH_SEED64;
     int hits = 0;
     int misses = 0;
     for (int y = -6; y <= 6; ++y) {
       for (int x = -6; x <= 6; ++x) {
-        const math::Vector DIRECTION =
+        const math::Vector direction =
             math::Vector{x * 0.08f, y * 0.08f, 1.0f}.normalized();
-        const Color4 COLOR = Pipeline::evaluate(DIRECTION, frame, PREPARED);
-        const auto TRACE =
-            Renderer::trace(DIRECTION, frame, std::get<0>(PREPARED));
-        HS_EXPECT_EQ(COLOR.color.r, TRACE.color.color.r);
-        HS_EXPECT_EQ(COLOR.alpha, TRACE.color.alpha);
-        HS_EXPECT_TRUE(Raycast::finite(COLOR.alpha));
-        HS_EXPECT_GE(COLOR.alpha, 0.0f);
-        HS_EXPECT_LE(COLOR.alpha, 1.0f);
-        if (TRACE.trace.has_surface) {
+        const Color4 color = Pipeline::evaluate(direction, frame, prepared);
+        const auto trace =
+            Renderer::trace(direction, frame, std::get<0>(prepared));
+        HS_EXPECT_EQ(color.color.r, trace.color.color.r);
+        HS_EXPECT_EQ(color.alpha, trace.color.alpha);
+        HS_EXPECT_TRUE(Raycast::finite(color.alpha));
+        HS_EXPECT_GE(color.alpha, 0.0f);
+        HS_EXPECT_LE(color.alpha, 1.0f);
+        if (trace.trace.has_surface) {
           ++hits;
-          HS_EXPECT_TRUE(TRACE.trace.contribution.verified);
-          HS_EXPECT_GT(COLOR.alpha, 0.0f);
+          HS_EXPECT_TRUE(trace.trace.contribution.verified);
+          HS_EXPECT_GT(color.alpha, 0.0f);
         } else {
           ++misses;
-          HS_EXPECT_EQ(COLOR.alpha, 0.0f);
+          HS_EXPECT_EQ(color.alpha, 0.0f);
         }
-        hash = hs_test::fnv1a64_channel(hash, COLOR.color.r);
+        hash = hs_test::fnv1a64_channel(hash, color.color.r);
       }
     }
     HS_EXPECT_GT(hits, 10);
@@ -409,9 +409,9 @@ inline void test_torus_and_warped_volume_spherical_stage() {
   auto &palette = fixture.palette;
   const SDF::Torus TORUS{1.0f, 0.25f};
   check_placed_volume_stage(TORUS, palette.view());
-  const SDF::WarpedVolume WARPED{TORUS, SDF::Warp::Twist{3, 0.15f, 1.0f},
+  const SDF::WarpedVolume warped{TORUS, SDF::Warp::Twist{3, 0.15f, 1.0f},
                                  0.001f};
-  check_placed_volume_stage(WARPED, palette.view());
+  check_placed_volume_stage(warped, palette.view());
 }
 
 struct OffSliceBall {
@@ -419,10 +419,10 @@ struct OffSliceBall {
     return {true, true, true, 0.0f};
   }
   Raycast::QuerySample sample(const math::Vec4 &p) const {
-    const float W = p[3] - 1.001f;
-    const float VALUE =
-        sqrtf(p[0] * p[0] + p[1] * p[1] + p[2] * p[2] + W * W) - 1.0f;
-    return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, 0};
+    const float w = p[3] - 1.001f;
+    const float value =
+        sqrtf(p[0] * p[0] + p[1] * p[1] + p[2] * p[2] + w * w) - 1.0f;
+    return {value, fabsf(value), value == 0.0f, 0, 0};
   }
 };
 
@@ -436,19 +436,19 @@ inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
   constexpr std::array<math::Vector, 4> DIRECTIONS = {
       math::Vector{1.0f, 0.0f, 0.0f}, math::Vector{-1.0f, 0.0f, 0.0f},
       math::Vector{0.0f, 1.0f, 0.0f}, math::Vector{0.0f, -1.0f, 0.0f}};
-  const auto FILTERED =
+  const auto filtered =
       Raycast::verified_filter(DIRECTIONS, [&](const auto &dir) {
         Raycast::ShadedTrace sample;
         sample.trace = Raycast::surface_search(query, camera.ray(dir), {}, {});
         sample.color = {{65535, 65535, 65535}, 1.0f};
         return sample;
       });
-  HS_EXPECT_FALSE(FILTERED.trace.has_surface);
-  HS_EXPECT_EQ(FILTERED.color.alpha, 0.0f);
+  HS_EXPECT_FALSE(filtered.trace.has_surface);
+  HS_EXPECT_EQ(filtered.color.alpha, 0.0f);
   math::Vector projected{1.0f, 1.0f, 1.0f};
   HS_EXPECT_FALSE(camera.project_normal({{0.0f, 0.0f, 0.0f, 1.0f}}, projected));
   HS_EXPECT_EQ(projected.magnitude(), 0.0f);
-  const auto PARTIAL =
+  const auto partial =
       Raycast::verified_filter(DIRECTIONS, [](const auto &dir) {
         Raycast::ShadedTrace sample;
         if (dir.x > 0.0f) {
@@ -461,116 +461,116 @@ inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
         }
         return sample;
       });
-  HS_EXPECT_EQ(PARTIAL.trace.status, Raycast::TraceStatus::UNRESOLVED);
-  HS_EXPECT_TRUE(PARTIAL.trace.has_surface);
-  HS_EXPECT_TRUE(PARTIAL.trace.contribution.verified);
-  HS_EXPECT_NEAR(PARTIAL.trace.contribution.coverage, 0.25f, 1e-7f);
-  HS_EXPECT_NEAR(PARTIAL.color.alpha, 0.2f, 1e-7f);
-  HS_EXPECT_EQ(PARTIAL.color.color.r, uint16_t{40000});
+  HS_EXPECT_EQ(partial.trace.status, Raycast::TraceStatus::UNRESOLVED);
+  HS_EXPECT_TRUE(partial.trace.has_surface);
+  HS_EXPECT_TRUE(partial.trace.contribution.verified);
+  HS_EXPECT_NEAR(partial.trace.contribution.coverage, 0.25f, 1e-7f);
+  HS_EXPECT_NEAR(partial.color.alpha, 0.2f, 1e-7f);
+  HS_EXPECT_EQ(partial.color.color.r, uint16_t{40000});
 }
 
 /** @brief Periodic-shell roots match analytic sphere chords and reject disjoint slices. */
 inline void test_periodic_shell_roots_and_slices() {
   SDF::PeriodicShells geometry{2, .3f};
-  const auto SPHERE = geometry.intersect({{-2, 0, 0, 0}}, {{1, 0, 0, 0}}, 3);
-  HS_EXPECT_TRUE(SPHERE.hit);
-  HS_EXPECT_NEAR(SPHERE.near, 1.4f, 1e-6f);
-  HS_EXPECT_NEAR(SPHERE.far, 2.6f, 1e-6f);
-  const auto SLICE = geometry.intersect({{-2, 0, 0, .36f}}, {{1, 0, 0, 0}}, 4);
-  HS_EXPECT_NEAR(SLICE.near, 1.52f, 1e-6f);
-  HS_EXPECT_NEAR(SLICE.far, 2.48f, 1e-6f);
+  const auto sphere = geometry.intersect({{-2, 0, 0, 0}}, {{1, 0, 0, 0}}, 3);
+  HS_EXPECT_TRUE(sphere.hit);
+  HS_EXPECT_NEAR(sphere.near, 1.4f, 1e-6f);
+  HS_EXPECT_NEAR(sphere.far, 2.6f, 1e-6f);
+  const auto slice = geometry.intersect({{-2, 0, 0, .36f}}, {{1, 0, 0, 0}}, 4);
+  HS_EXPECT_NEAR(slice.near, 1.52f, 1e-6f);
+  HS_EXPECT_NEAR(slice.far, 2.48f, 1e-6f);
   HS_EXPECT_FALSE(geometry.intersect({{-2, 0, 0, .7f}}, {{1, 0, 0, 0}}, 4).hit);
-  const auto INSIDE = geometry.intersect({{0, 0, 0, 0}}, {{1, 0, 0, 0}}, 4);
-  HS_EXPECT_NEAR(INSIDE.near, -.6f, 1e-6f);
-  HS_EXPECT_NEAR(INSIDE.far, .6f, 1e-6f);
+  const auto inside = geometry.intersect({{0, 0, 0, 0}}, {{1, 0, 0, 0}}, 4);
+  HS_EXPECT_NEAR(inside.near, -.6f, 1e-6f);
+  HS_EXPECT_NEAR(inside.far, .6f, 1e-6f);
 }
 
 /** @brief Shell traversal clips intervals, respects budgets and projects slice antialias coverage. */
 inline void test_periodic_shell_traversal_budgets() {
   PaletteFixture<ConstantPalette> fixture;
   auto &palette = fixture.palette;
-  const Raycast::Appearance APPEARANCE{.1f, 0, 1, &palette.view()};
+  const Raycast::Appearance appearance{.1f, 0, 1, &palette.view()};
   Raycast::PreparedCamera camera;
   camera.center = {{-.5f, 0, 0, 0}};
   camera.interval = {0, 1};
   Raycast::TraceLimits limits;
-  const auto COMPLETE = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
-  HS_EXPECT_EQ(COMPLETE.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
-  HS_EXPECT_EQ(COMPLETE.trace.counters.layers, 2);
-  HS_EXPECT_FALSE(COMPLETE.trace.has_surface);
-  HS_EXPECT_NEAR(COMPLETE.trace.contribution.t, .8f, 1e-6f);
+  const auto complete = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, appearance);
+  HS_EXPECT_EQ(complete.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(complete.trace.counters.layers, 2);
+  HS_EXPECT_FALSE(complete.trace.has_surface);
+  HS_EXPECT_NEAR(complete.trace.contribution.t, .8f, 1e-6f);
   limits.max_layers = 1;
-  const auto PARTIAL = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
-  HS_EXPECT_EQ(PARTIAL.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
-  HS_EXPECT_EQ(PARTIAL.trace.counters.layers, 1);
-  HS_EXPECT_GT(PARTIAL.color.alpha, 0);
-  HS_EXPECT_NEAR(PARTIAL.trace.contribution.t, .2f, 1e-6f);
+  const auto partial = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, appearance);
+  HS_EXPECT_EQ(partial.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(partial.trace.counters.layers, 1);
+  HS_EXPECT_GT(partial.color.alpha, 0);
+  HS_EXPECT_NEAR(partial.trace.contribution.t, .2f, 1e-6f);
   limits.max_steps = 0;
-  const auto EMPTY = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
-  HS_EXPECT_EQ(EMPTY.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
-  HS_EXPECT_EQ(EMPTY.trace.counters.layers, 0);
+  const auto empty = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, appearance);
+  HS_EXPECT_EQ(empty.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(empty.trace.counters.layers, 0);
   limits = {};
   camera.interval = {.5f, .9f};
-  const auto CLIPPED = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
-  HS_EXPECT_EQ(CLIPPED.trace.counters.layers, 1);
-  HS_EXPECT_NEAR(CLIPPED.trace.contribution.t, .8f, 1e-6f);
+  const auto clipped = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, appearance);
+  HS_EXPECT_EQ(clipped.trace.counters.layers, 1);
+  HS_EXPECT_NEAR(clipped.trace.contribution.t, .8f, 1e-6f);
   camera.center = {{.5f, 0, 0, 0}};
   camera.interval = {0, 1};
-  const auto REVERSE = SDF::detail::reference::shade_periodic_shells(
-      camera, {-1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
-  HS_EXPECT_EQ(REVERSE.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
-  HS_EXPECT_EQ(REVERSE.trace.counters.layers, 2);
+  const auto reverse = SDF::detail::reference::shade_periodic_shells(
+      camera, {-1, 0, 0}, 1, .3f, {}, limits, appearance);
+  HS_EXPECT_EQ(reverse.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(reverse.trace.counters.layers, 2);
   camera.center = {{-.5f, .305f, 0, 0}};
-  const auto FILTERED = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, {.04f, 0}, limits, APPEARANCE);
-  HS_EXPECT_EQ(FILTERED.trace.counters.layers, 1);
-  HS_EXPECT_FALSE(FILTERED.trace.contribution.verified);
-  HS_EXPECT_NEAR(FILTERED.trace.contribution.coverage, .25f, 1e-5f);
-  const auto UNFILTERED = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
-  HS_EXPECT_EQ(UNFILTERED.trace.counters.layers, 0);
+  const auto filtered = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {.04f, 0}, limits, appearance);
+  HS_EXPECT_EQ(filtered.trace.counters.layers, 1);
+  HS_EXPECT_FALSE(filtered.trace.contribution.verified);
+  HS_EXPECT_NEAR(filtered.trace.contribution.coverage, .25f, 1e-5f);
+  const auto unfiltered = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, appearance);
+  HS_EXPECT_EQ(unfiltered.trace.counters.layers, 0);
 
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
   camera.center = {{-.5f, .245f, 0, .18f}};
   const Raycast::Footprint FOOTPRINT{.08f, 0};
-  const auto SLICE_FILTERED = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
-  const float AMBIENT_DISTANCE = sqrtf(.245f * .245f + .18f * .18f);
-  const float PROJECTED_DISTANCE =
-      (AMBIENT_DISTANCE - .3f) * AMBIENT_DISTANCE / .245f;
-  HS_EXPECT_EQ(SLICE_FILTERED.trace.counters.layers, 1);
-  HS_EXPECT_FALSE(SLICE_FILTERED.trace.contribution.verified);
-  HS_EXPECT_NEAR(SLICE_FILTERED.trace.contribution.coverage,
-                 .5f - PROJECTED_DISTANCE / FOOTPRINT.at(.5f), 1e-5f);
-  HS_EXPECT_NEAR(SLICE_FILTERED.trace.contribution.normal.y, 1, 1e-6f);
+  const auto slice_filtered = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, appearance);
+  const float ambient_distance = sqrtf(.245f * .245f + .18f * .18f);
+  const float projected_distance =
+      (ambient_distance - .3f) * ambient_distance / .245f;
+  HS_EXPECT_EQ(slice_filtered.trace.counters.layers, 1);
+  HS_EXPECT_FALSE(slice_filtered.trace.contribution.verified);
+  HS_EXPECT_NEAR(slice_filtered.trace.contribution.coverage,
+                 .5f - projected_distance / FOOTPRINT.at(.5f), 1e-5f);
+  HS_EXPECT_NEAR(slice_filtered.trace.contribution.normal.y, 1, 1e-6f);
 
   camera.center = {{-.5f, .235f, 0, .18f}};
-  const auto SLICE_HIT = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
-  const float HALF_CHORD = sqrtf(.3f * .3f - .18f * .18f - .235f * .235f);
-  HS_EXPECT_EQ(SLICE_HIT.trace.counters.layers, 2);
-  HS_EXPECT_TRUE(SLICE_HIT.trace.contribution.verified);
-  HS_EXPECT_NEAR(SLICE_HIT.trace.contribution.t, .5f + HALF_CHORD, 1e-6f);
-  HS_EXPECT_NEAR(SLICE_HIT.trace.contribution.coverage,
-                 .5f + .5f * HALF_CHORD * HALF_CHORD /
-                           (.24f * FOOTPRINT.at(.5f + HALF_CHORD)),
+  const auto slice_hit = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, appearance);
+  const float half_chord = sqrtf(.3f * .3f - .18f * .18f - .235f * .235f);
+  HS_EXPECT_EQ(slice_hit.trace.counters.layers, 2);
+  HS_EXPECT_TRUE(slice_hit.trace.contribution.verified);
+  HS_EXPECT_NEAR(slice_hit.trace.contribution.t, .5f + half_chord, 1e-6f);
+  HS_EXPECT_NEAR(slice_hit.trace.contribution.coverage,
+                 .5f + .5f * half_chord * half_chord /
+                           (.24f * FOOTPRINT.at(.5f + half_chord)),
                  1e-5f);
 
   camera.center = {{-.5f, 0, 0, .305f}};
-  const auto OFF_SLICE = SDF::detail::reference::shade_periodic_shells(
-      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
-  HS_EXPECT_EQ(OFF_SLICE.trace.counters.layers, 0);
+  const auto off_slice = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, appearance);
+  HS_EXPECT_EQ(off_slice.trace.counters.layers, 0);
 }
 
 /** @brief Prepared shell hits match analytic roots with unit normals and reject invalid embeddings. */
 inline void test_prepared_shells_match_sphere_roots() {
   PaletteFixture<ConstantPalette> fixture;
   auto &palette = fixture.palette;
-  const Raycast::Appearance APPEARANCE{.1f, 0, 1, &palette.view()};
+  const Raycast::Appearance appearance{.1f, 0, 1, &palette.view()};
   static_assert(sizeof(SDF::PreparedPeriodicShells) <= 28);
   for (int sample = 0; sample < 120; ++sample) {
     Raycast::PreparedCamera camera;
@@ -581,32 +581,32 @@ inline void test_prepared_shells_match_sphere_roots() {
     math::rotate_plane(camera.embedding, 0, 2, sample * .37f);
     if (sample % 2)
       math::rotate_plane(camera.embedding, 1, 3, sample * .21f);
-    const SDF::PeriodicShells GEOMETRY{1, .12f + (sample % 6) * .05f};
-    const auto PREPARED = SDF::prepare_periodic_shells(
-        camera, GEOMETRY.cell_size, GEOMETRY.shell_radius, {});
-    HS_EXPECT_TRUE(PREPARED.valid);
-    const math::Vector VIEW =
+    const SDF::PeriodicShells geometry{1, .12f + (sample % 6) * .05f};
+    const auto prepared = SDF::prepare_periodic_shells(
+        camera, geometry.cell_size, geometry.shell_radius, {});
+    HS_EXPECT_TRUE(prepared.valid);
+    const math::Vector view =
         math::Vector{cosf(sample * .51f), sinf(sample * .41f), .43f}
             .normalized();
-    const auto AMBIENT = camera.embedding.apply({{VIEW.x, VIEW.y, VIEW.z, 0}});
-    const auto ROOTS =
-        GEOMETRY.intersect(camera.center, AMBIENT, sample % 2 ? 4 : 3);
-    const auto HIT = SDF::detail::reference::shade_periodic_shells(
-        PREPARED, camera, VIEW, {}, APPEARANCE);
-    HS_EXPECT_TRUE(ROOTS.hit);
-    HS_EXPECT_EQ(HIT.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
-    HS_EXPECT_EQ(HIT.trace.counters.layers, 1);
-    HS_EXPECT_NEAR(HIT.trace.contribution.t, ROOTS.far, 1e-6f);
-    HS_EXPECT_TRUE(HIT.trace.contribution.verified);
-    HS_EXPECT_TRUE(HIT.trace.contribution.has_normal);
-    HS_EXPECT_NEAR(HIT.trace.contribution.normal.magnitude(), 1.0f, 2e-6f);
+    const auto ambient = camera.embedding.apply({{view.x, view.y, view.z, 0}});
+    const auto roots =
+        geometry.intersect(camera.center, ambient, sample % 2 ? 4 : 3);
+    const auto hit = SDF::detail::reference::shade_periodic_shells(
+        prepared, camera, view, {}, appearance);
+    HS_EXPECT_TRUE(roots.hit);
+    HS_EXPECT_EQ(hit.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
+    HS_EXPECT_EQ(hit.trace.counters.layers, 1);
+    HS_EXPECT_NEAR(hit.trace.contribution.t, roots.far, 1e-6f);
+    HS_EXPECT_TRUE(hit.trace.contribution.verified);
+    HS_EXPECT_TRUE(hit.trace.contribution.has_normal);
+    HS_EXPECT_NEAR(hit.trace.contribution.normal.magnitude(), 1.0f, 2e-6f);
   }
   Raycast::PreparedCamera invalid;
   invalid.embedding.m[0][0] = 2;
-  const auto PREPARED = SDF::prepare_periodic_shells(invalid, 1, .3f, {});
-  HS_EXPECT_FALSE(PREPARED.valid);
+  const auto prepared = SDF::prepare_periodic_shells(invalid, 1, .3f, {});
+  HS_EXPECT_FALSE(prepared.valid);
   HS_EXPECT_EQ(SDF::detail::reference::shade_periodic_shells(
-                   PREPARED, invalid, {1, 0, 0}, {}, APPEARANCE)
+                   prepared, invalid, {1, 0, 0}, {}, appearance)
                    .trace.status,
                Raycast::TraceStatus::INVALID_QUERY);
 }
@@ -837,25 +837,25 @@ shell_neighborhood(const Raycast::PreparedCamera &camera,
                    Raycast::Footprint footprint) {
   const int dimensions =
       camera.domain == Raycast::SamplingDomain::SLICE_4D ? 4 : 3;
-  const auto &E = camera.embedding.m;
-  const math::Vec4 D =
+  const auto &e = camera.embedding.m;
+  const math::Vec4 d =
       camera.embedding.apply({{direction.x, direction.y, direction.z, 0}});
-  const math::Vec4 O = camera.point4(direction * camera.radial_start);
-  const float NEAR = camera.interval.near, FAR = camera.interval.far;
-  const float R = radius * cell;
-  const float MARGIN = R + footprint.at(FAR) + cell;
+  const math::Vec4 o = camera.point4(direction * camera.radial_start);
+  const float near = camera.interval.near, far = camera.interval.far;
+  const float r = radius * cell;
+  const float margin = r + footprint.at(far) + cell;
   int low[4] = {}, high[4] = {};
   for (int k = 0; k < dimensions; ++k) {
-    const float A = O[k] + NEAR * D[k], B = O[k] + FAR * D[k];
-    low[k] = static_cast<int>(floorf((fminf(A, B) - MARGIN) / cell));
-    high[k] = static_cast<int>(ceilf((fmaxf(A, B) + MARGIN) / cell));
+    const float a = o[k] + near * d[k], b = o[k] + far * d[k];
+    low[k] = static_cast<int>(floorf((fminf(a, b) - margin) / cell));
+    high[k] = static_cast<int>(ceilf((fmaxf(a, b) + margin) / cell));
   }
   const auto projected = [&](const float (&g)[4]) {
     float length2 = 0;
     for (int j = 0; j < 3; ++j) {
       float component = 0;
       for (int k = 0; k < dimensions; ++k)
-        component += E[k][j] * g[k];
+        component += e[k][j] * g[k];
       length2 += component * component;
     }
     return sqrtf(length2);
@@ -863,46 +863,46 @@ shell_neighborhood(const Raycast::PreparedCamera &camera,
   std::vector<ShellContribution> found;
   int index[4] = {low[0], low[1], low[2], low[3]};
   for (;;) {
-    float g0[4] = {}, a = 0, b = 0, c = -R * R;
+    float g0[4] = {}, a = 0, b = 0, c = -r * r;
     for (int k = 0; k < dimensions; ++k) {
-      g0[k] = O[k] - index[k] * cell;
-      a += D[k] * D[k];
-      b += g0[k] * D[k];
+      g0[k] = o[k] - index[k] * cell;
+      a += d[k] * d[k];
+      b += g0[k] * d[k];
       c += g0[k] * g0[k];
     }
-    const float DISCRIMINANT = b * b - a * c;
-    if (DISCRIMINANT >= 0) {
-      const float HALF_CHORD = sqrtf(DISCRIMINANT) / a;
-      const float CENTER = -b / a;
-      for (const float T : {CENTER - HALF_CHORD, CENTER + HALF_CHORD}) {
-        if (T < NEAR || T > FAR ||
-            (T == CENTER + HALF_CHORD && HALF_CHORD == 0))
+    const float discriminant = b * b - a * c;
+    if (discriminant >= 0) {
+      const float half_chord = sqrtf(discriminant) / a;
+      const float center = -b / a;
+      for (const float T : {center - half_chord, center + half_chord}) {
+        if (T < near || T > far ||
+            (T == center + half_chord && half_chord == 0))
           continue;
         float g[4] = {};
         for (int k = 0; k < dimensions; ++k)
-          g[k] = g0[k] + T * D[k];
-        const float WIDTH = footprint.at(T);
-        const float LENGTH = projected(g);
-        const float DEPTH =
-            LENGTH > 0 ? HALF_CHORD * HALF_CHORD / (2 * LENGTH) : 0;
+          g[k] = g0[k] + T * d[k];
+        const float width = footprint.at(T);
+        const float length = projected(g);
+        const float depth =
+            length > 0 ? half_chord * half_chord / (2 * length) : 0;
         found.push_back(
-            {T, WIDTH > 0 ? hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f) : 1.0f});
+            {T, width > 0 ? hs::clamp(.5f + depth / width, 0.0f, 1.0f) : 1.0f});
       }
     } else if (footprint.angular_radius > 0) {
-      const float T = -b / a;
+      const float t = -b / a;
       float g[4] = {}, length2 = 0;
       for (int k = 0; k < dimensions; ++k) {
-        g[k] = g0[k] + T * D[k];
+        g[k] = g0[k] + t * d[k];
         length2 += g[k] * g[k];
       }
-      const float LENGTH = sqrtf(length2);
-      const float PROJECTED = projected(g);
-      const float WIDTH = footprint.at(T);
-      if (T >= NEAR && T <= FAR && WIDTH > 0 && PROJECTED > 0) {
-        const float DISTANCE = (LENGTH - R) * LENGTH / PROJECTED;
-        const float COVERAGE = hs::clamp(.5f - DISTANCE / WIDTH, 0.0f, 1.0f);
-        if (COVERAGE > 0)
-          found.push_back({T, COVERAGE});
+      const float length = sqrtf(length2);
+      const float projected_value = projected(g);
+      const float width = footprint.at(t);
+      if (t >= near && t <= far && width > 0 && projected_value > 0) {
+        const float distance = (length - r) * length / projected_value;
+        const float coverage = hs::clamp(.5f - distance / width, 0.0f, 1.0f);
+        if (coverage > 0)
+          found.push_back({t, coverage});
       }
     }
     int k = 0;
@@ -985,28 +985,28 @@ inline void test_wide_shell_footprint_gathers_neighbor_rows() {
 inline void test_wide_shell_march_gathers_layers_behind_start() {
   PaletteFixture<GradientPalette> fixture;
   auto &palette = fixture.palette;
-  const math::Vector VIEW = math::Vector{1, 1, 1}.normalized();
+  const math::Vector view = math::Vector{1, 1, 1}.normalized();
   const math::Vector START{-.49f, -.3415f, -.3415f};
   const Raycast::Footprint FOOTPRINT{.1f, 8};
   Raycast::PreparedCamera camera;
   camera.radial_start = FOOTPRINT.radial_start;
   camera.interval = {0, 8};
-  const math::Vector CENTER = START - VIEW * camera.radial_start;
-  camera.center = {{CENTER.x, CENTER.y, CENTER.z, 0}};
+  const math::Vector center = START - view * camera.radial_start;
+  camera.center = {{center.x, center.y, center.z, 0}};
   const auto prepared =
       SDF::prepare_periodic_shells(camera, 1, .32f, FOOTPRINT);
   HS_EXPECT_FALSE(prepared.march);
   const Raycast::Appearance appearance{1 / 8.0f, 0, 50, &palette.view()};
   Raycast::TraceLimits limits;
   limits.max_steps = 256;
-  const auto found = shell_neighborhood(camera, VIEW, 1, .32f, FOOTPRINT);
+  const auto found = shell_neighborhood(camera, view, 1, .32f, FOOTPRINT);
   HS_EXPECT_FALSE(found.empty());
   if (found.empty())
     return;
   HS_EXPECT_NEAR(found.front().t, .1f, .01f);
   SDF::ShellLayerStorage layers;
   const auto traced = SDF::trace_periodic_shells_march<3, true>(
-      prepared, camera, VIEW, limits, appearance, layers);
+      prepared, camera, view, limits, appearance, layers);
   const auto expected =
       composite_shells(found, found.size(), appearance, limits);
   HS_EXPECT_LE(max_channel_gap(traced.color, expected.first), 2);
@@ -1033,10 +1033,10 @@ inline void test_wide_shell_march_matches_neighborhood() {
     for (const auto &settings : CASES) {
       for (int frame = 0; frame < 6; ++frame) {
         const auto camera = shell_camera(settings, random, domain);
-        const Raycast::Footprint FOOTPRINT{settings.angular,
+        const Raycast::Footprint footprint{settings.angular,
                                            settings.radial_start};
         const auto prepared = SDF::prepare_periodic_shells(
-            camera, settings.cell, settings.radius, FOOTPRINT);
+            camera, settings.cell, settings.radius, footprint);
         HS_EXPECT_FALSE(prepared.march);
         const Raycast::Appearance appearance{
             1 / settings.far, 0, 1 / settings.near_fade, &palette.view()};
@@ -1049,7 +1049,7 @@ inline void test_wide_shell_march_matches_neighborhood() {
           const float z = rand_uniform(random, -1.0f, 1.0f);
           const math::Vector direction = math::Vector{x, y, z}.normalized();
           const auto found = shell_neighborhood(
-              camera, direction, settings.cell, settings.radius, FOOTPRINT);
+              camera, direction, settings.cell, settings.radius, footprint);
           const auto traced =
               domain == Raycast::SamplingDomain::SLICE_4D
                   ? SDF::trace_periodic_shells_march<4, true>(
@@ -1089,7 +1089,7 @@ inline void test_wide_shell_march_matches_neighborhood() {
 inline void test_shell_shading_preserves_opacity() {
   PaletteFixture<ConstantPalette> fixture;
   auto &palette = fixture.palette;
-  const Raycast::Appearance APPEARANCE{0, 0, 100, &palette.view()};
+  const Raycast::Appearance appearance{0, 0, 100, &palette.view()};
   for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
                             Raycast::SamplingDomain::SLICE_4D}) {
     for (const float OFFSET : {0.0f, .09f, .12f, .144f}) {
@@ -1099,32 +1099,32 @@ inline void test_shell_shading_preserves_opacity() {
                           ? math::Vec4{{-.5f, OFFSET, 0, 0}}
                           : math::Vec4{{-.5f, 0, 0, OFFSET}};
       camera.interval = {0, 1};
-      const float HALF_CHORD = sqrtf(.15f * .15f - OFFSET * OFFSET);
+      const float half_chord = sqrtf(.15f * .15f - OFFSET * OFFSET);
       const float BRIGHTNESS = 1 - .9f * OFFSET * OFFSET / (.15f * .15f);
-      const Pixel EXPECTED = APPEARANCE.color(.5f - HALF_CHORD) * BRIGHTNESS;
+      const Pixel expected = appearance.color(.5f - half_chord) * BRIGHTNESS;
       const auto prepared = SDF::prepare_periodic_shells(camera, 1, .15f, {});
       SDF::ShellLayerStorage storage;
       const auto narrow =
           domain == Raycast::SamplingDomain::SPATIAL_3D
               ? SDF::trace_periodic_shells_march<3, false, true>(
-                    prepared, camera, math::X_AXIS, {}, APPEARANCE, storage)
+                    prepared, camera, math::X_AXIS, {}, appearance, storage)
               : SDF::trace_periodic_shells_march<4, false, true>(
-                    prepared, camera, math::X_AXIS, {}, APPEARANCE, storage);
+                    prepared, camera, math::X_AXIS, {}, appearance, storage);
       const auto wide =
           domain == Raycast::SamplingDomain::SPATIAL_3D
               ? SDF::trace_periodic_shells_march<3, true, true>(
-                    prepared, camera, math::X_AXIS, {}, APPEARANCE, storage)
+                    prepared, camera, math::X_AXIS, {}, appearance, storage)
               : SDF::trace_periodic_shells_march<4, true, true>(
-                    prepared, camera, math::X_AXIS, {}, APPEARANCE, storage);
+                    prepared, camera, math::X_AXIS, {}, appearance, storage);
       HS_EXPECT_EQ(narrow.status, Raycast::TraceStatus::SATURATED);
       HS_EXPECT_EQ(wide.status, Raycast::TraceStatus::SATURATED);
-      HS_EXPECT_LE(max_channel_gap(narrow.color, EXPECTED), 2);
-      HS_EXPECT_LE(max_channel_gap(wide.color, EXPECTED), 2);
+      HS_EXPECT_LE(max_channel_gap(narrow.color, expected), 2);
+      HS_EXPECT_LE(max_channel_gap(wide.color, expected), 2);
       if (domain == Raycast::SamplingDomain::SPATIAL_3D) {
         const auto owner = SDF::trace_periodic_shells_3d<true>(
-            prepared, camera, math::X_AXIS, {}, APPEARANCE);
+            prepared, camera, math::X_AXIS, {}, appearance);
         HS_EXPECT_EQ(owner.status, Raycast::TraceStatus::SATURATED);
-        HS_EXPECT_LE(max_channel_gap(owner.color, EXPECTED), 2);
+        HS_EXPECT_LE(max_channel_gap(owner.color, expected), 2);
       }
     }
   }

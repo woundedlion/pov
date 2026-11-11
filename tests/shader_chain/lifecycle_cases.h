@@ -71,50 +71,50 @@ inline void test_shader_chain_refusal_shape() {
   expect_refusal(program, too_long, In::ChainStatus::TOO_LONG, -1, ctx,
                  baseline);
 
-  const In::ChainEntryRequest unknown[] = {
+  const In::ChainEntryRequest UNKNOWN[] = {
       {"camera", "sphere.rotate.v2"},
       {"warp", "warp.unknown.v2"},
   };
-  expect_refusal(program, unknown, In::ChainStatus::UNKNOWN_OPERATOR, 1, ctx,
+  expect_refusal(program, UNKNOWN, In::ChainStatus::UNKNOWN_OPERATOR, 1, ctx,
                  baseline);
 
-  const In::ChainEntryRequest duplicate[] = {
+  const In::ChainEntryRequest DUPLICATE[] = {
       {"camera", "sphere.rotate.v2"},
       {"camera", "project.stereographic.v2"},
   };
-  expect_refusal(program, duplicate, In::ChainStatus::DUPLICATE_INSTANCE, 1,
+  expect_refusal(program, DUPLICATE, In::ChainStatus::DUPLICATE_INSTANCE, 1,
                  ctx, baseline);
 
-  const In::ChainEntryRequest malformed[] = {
+  const In::ChainEntryRequest MALFORMED[] = {
       {"camera", "sphere.rotate.v2"},
       {"Bad.Label", "project.stereographic.v2"},
   };
-  expect_refusal(program, malformed, In::ChainStatus::MALFORMED_INSTANCE, 1,
+  expect_refusal(program, MALFORMED, In::ChainStatus::MALFORMED_INSTANCE, 1,
                  ctx, baseline);
 
-  const In::ChainEntryRequest bad_entry[] = {
+  const In::ChainEntryRequest BAD_ENTRY[] = {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  expect_refusal(program, bad_entry, In::ChainStatus::ENTRY_FAMILY, 0, ctx,
+  expect_refusal(program, BAD_ENTRY, In::ChainStatus::ENTRY_FAMILY, 0, ctx,
                  baseline);
 
-  const In::ChainEntryRequest bad_exit[] = {
+  const In::ChainEntryRequest BAD_EXIT[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
   };
-  expect_refusal(program, bad_exit, In::ChainStatus::EXIT_FAMILY, 2, ctx,
+  expect_refusal(program, BAD_EXIT, In::ChainStatus::EXIT_FAMILY, 2, ctx,
                  baseline);
 
-  const In::ChainEntryRequest mismatch[] = {
+  const In::ChainEntryRequest MISMATCH[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"camera2", "sphere.rotate.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  expect_refusal(program, mismatch, In::ChainStatus::CARRIER_MISMATCH, 2, ctx,
+  expect_refusal(program, MISMATCH, In::ChainStatus::CARRIER_MISMATCH, 2, ctx,
                  baseline);
 
   // State continuity: the shape refusals left every clock untouched.
@@ -173,7 +173,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
   HS_EXPECT_FALSE(small->program.compiled());
 
   // A committed program survives a later over-budget recompile.
-  const In::ChainEntryRequest longer[] = {
+  const In::ChainEntryRequest LONGER[] = {
       {"camera", "sphere.rotate.v2"},
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
@@ -185,7 +185,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
   SweepColors baseline;
   snapshot_render(exact->program, ctx, baseline);
   expect_sweep_live(baseline);
-  const In::ChainRefusal rejected = exact->program.compile(longer);
+  const In::ChainRefusal rejected = exact->program.compile(LONGER);
   HS_EXPECT_EQ(rejected.code, In::ChainStatus::ARENA_OVERFLOW);
   HS_EXPECT_EQ(exact->program.ops().size(), 4u);
   SweepColors after;
@@ -197,14 +197,14 @@ inline void test_shader_chain_refusal_budget_overflows() {
   CountLifecycle::reset();
   auto fat =
       std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, extended_table());
-  const In::ChainEntryRequest fat_chain[] = {
+  const In::ChainEntryRequest FAT_CHAIN[] = {
       {"fat", "test.fat.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const In::ChainRefusal params_overflow = fat->program.compile(fat_chain);
+  const In::ChainRefusal params_overflow = fat->program.compile(FAT_CHAIN);
   HS_EXPECT_EQ(params_overflow.code, In::ChainStatus::PARAM_OVERFLOW);
   HS_EXPECT_EQ(params_overflow.entry_index, -1);
   HS_EXPECT_FALSE(fat->program.compiled());
@@ -230,19 +230,19 @@ inline void test_shader_chain_refusal_budget_overflows() {
 
   auto widest =
       std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, extended_table());
-  const In::ChainEntryRequest exact_fit_chain[] = {
+  const In::ChainEntryRequest EXACT_FIT_CHAIN[] = {
       {"filler", "test.exact-fit.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   size_t field_total = 0;
-  for (const In::ChainEntryRequest &entry : exact_fit_chain)
+  for (const In::ChainEntryRequest &entry : EXACT_FIT_CHAIN)
     for (const In::OperatorDescriptor &op : extended_table())
       if (entry.operator_id == op.operator_id)
         field_total += op.schema_count;
   HS_EXPECT_EQ(field_total, In::MAX_CHAIN_PARAMS);
-  const In::ChainRefusal params_fit = widest->program.compile(exact_fit_chain);
+  const In::ChainRefusal params_fit = widest->program.compile(EXACT_FIT_CHAIN);
   expect_compiled(params_fit);
   HS_EXPECT_TRUE(widest->program.compiled());
   widest->program.clear();
@@ -253,14 +253,14 @@ inline void test_shader_chain_refusal_migrate_failed() {
   auto fixture =
       std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, extended_table());
   In::ChainProgram &program = fixture->program;
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const In::ChainRefusal first = program.compile(chain);
+  const In::ChainRefusal first = program.compile(CHAIN);
   expect_compiled(first);
   HS_EXPECT_EQ(CountLifecycle::inits, 1);
   program.advance();
@@ -274,7 +274,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
 
   CountLifecycle::fail_migrate = true;
   const int destroys_before = CountLifecycle::destroys;
-  const In::ChainRefusal failed = program.compile(chain);
+  const In::ChainRefusal failed = program.compile(CHAIN);
   HS_EXPECT_EQ(failed.code, In::ChainStatus::MIGRATE_FAILED);
   HS_EXPECT_EQ(failed.entry_index, 0);
   // The live program is untouched: no state destroyed, phase and render kept.
@@ -286,7 +286,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
 
   // A failing migrate deeper in the chain destroys only the candidate states
   // constructed before it: "fresh" inits at entry 0, "counter" fails at 1.
-  const In::ChainEntryRequest deep_chain[] = {
+  const In::ChainEntryRequest DEEP_CHAIN[] = {
       {"fresh", "test.count-b.v2"},
       {"counter", "test.count-a.v2"},
       {"camera", "sphere.rotate.v2"},
@@ -297,7 +297,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   const int inits_before = CountLifecycle::inits;
   const int migrates_before = CountLifecycle::migrates;
   const int deep_destroys_before = CountLifecycle::destroys;
-  const In::ChainRefusal deep = program.compile(deep_chain);
+  const In::ChainRefusal deep = program.compile(DEEP_CHAIN);
   HS_EXPECT_EQ(deep.code, In::ChainStatus::MIGRATE_FAILED);
   HS_EXPECT_EQ(deep.entry_index, 1);
   // The fresh candidate was constructed then torn down; the live program
@@ -322,7 +322,7 @@ inline void test_shader_chain_column_states_outlive_evaluation() {
       std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, lifetime_table());
   In::ChainProgram &program = fixture->program;
   program.bind_temporal_storage(blocks->history, blocks->column);
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"life", "test.lifetime.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
@@ -336,7 +336,7 @@ inline void test_shader_chain_column_states_outlive_evaluation() {
       program.evaluate_column(view, ctx, ctx, fraction);
   };
   const auto arm = [&] {
-    expect_compiled(program.compile(chain));
+    expect_compiled(program.compile(CHAIN));
     program.prepare(ctx);
     program.capture_history();
     program.advance();
@@ -357,7 +357,7 @@ inline void test_shader_chain_column_states_outlive_evaluation() {
   program.advance();
   program.prepare(ctx);
   render_column(0.5f);
-  expect_compiled(program.compile(chain));
+  expect_compiled(program.compile(CHAIN));
   HS_EXPECT_EQ(LifetimeRegistry::live.size(), 1u);
 
   arm();
@@ -377,14 +377,14 @@ inline void test_shader_chain_state_identity_migration() {
   auto fixture =
       std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, extended_table());
   In::ChainProgram &program = fixture->program;
-  const In::ChainEntryRequest first[] = {
+  const In::ChainEntryRequest FIRST[] = {
       {"a", "test.count-a.v2"},
       {"b", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  if (!expect_compiled(program.compile(first)))
+  if (!expect_compiled(program.compile(FIRST)))
     return;
   HS_EXPECT_EQ(CountLifecycle::inits, 2);
   program.advance();
@@ -393,7 +393,7 @@ inline void test_shader_chain_state_identity_migration() {
 
   // Surviving pair migrates and keeps its phase; the removed instance is
   // destroyed; the new label gets a fresh init.
-  const In::ChainEntryRequest second[] = {
+  const In::ChainEntryRequest SECOND[] = {
       {"a", "test.count-a.v2"},
       {"c", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
@@ -401,7 +401,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const int destroys_before = CountLifecycle::destroys;
-  if (!expect_compiled(program.compile(second)))
+  if (!expect_compiled(program.compile(SECOND)))
     return;
   HS_EXPECT_EQ(CountLifecycle::migrates, 1);
   HS_EXPECT_EQ(CountLifecycle::inits, 3);
@@ -411,7 +411,7 @@ inline void test_shader_chain_state_identity_migration() {
   HS_EXPECT_EQ(state_as<CountingState>(program, 1).accumulator, 0.0f);
 
   // Same label, different operator: a fresh init, never a migration.
-  const In::ChainEntryRequest third[] = {
+  const In::ChainEntryRequest THIRD[] = {
       {"a", "test.count-b.v2"},
       {"c", "test.count-a.v2"},
       {"project", "project.stereographic.v2"},
@@ -419,7 +419,7 @@ inline void test_shader_chain_state_identity_migration() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const int migrates_before = CountLifecycle::migrates;
-  if (!expect_compiled(program.compile(third)))
+  if (!expect_compiled(program.compile(THIRD)))
     return;
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 0.0f);
   // "a" re-inits under the new operator; "c" migrates.
@@ -440,14 +440,14 @@ inline void test_shader_chain_state_continuity() {
   const auto source_before = state_as<In::Op::SourceClockState>(program, 2);
   HS_EXPECT_GT(source_before.primary, 0.0f);
 
-  const In::ChainEntryRequest edited[] = {
+  const In::ChainEntryRequest EDITED[] = {
       {"camera", "sphere.rotate.v2"},
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  if (!expect_compiled(program.compile(edited)))
+  if (!expect_compiled(program.compile(EDITED)))
     return;
   // An unchanged pair keeps its accumulated walk and clocks across an edit
   // elsewhere; the new instance starts fresh.
@@ -470,14 +470,14 @@ inline void test_shader_chain_state_continuity() {
 inline void test_shader_chain_operator_state_migration() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
-  const In::ChainEntryRequest first[] = {
+  const In::ChainEntryRequest FIRST[] = {
       {"ripple", "sphere.displace.ripple.v2"},
       {"project", "project.stereographic.v2"},
       {"wave", "warp.wave-shear.v2"},
       {"affine", "warp.affine.v4"},
       {"sample", "sample.projected-noise.v2"},
       {"colorize", "colorize.generated-palette.v4"}};
-  if (!expect_compiled(program.compile(first)))
+  if (!expect_compiled(program.compile(FIRST)))
     return;
   state_as<In::Op::RipplePhaseState>(program, 0).phase = 0.37f;
   state_as<In::Op::WarpPhaseState>(program, 2).phase = 0.59f;
@@ -489,12 +489,12 @@ inline void test_shader_chain_operator_state_migration() {
   noise.noise.SetSeed(923);
   const float sample = noise.noise.GetNoise(0.3f, 0.7f, 1.2f);
   const In::ChainEntryRequest edited[] = {{"camera", "sphere.rotate.v2"},
-                                          first[0],
-                                          first[1],
-                                          first[2],
-                                          first[3],
-                                          first[4],
-                                          first[5]};
+                                          FIRST[0],
+                                          FIRST[1],
+                                          FIRST[2],
+                                          FIRST[3],
+                                          FIRST[4],
+                                          FIRST[5]};
   if (!expect_compiled(program.compile(edited)))
     return;
   HS_EXPECT_EQ(state_as<In::Op::RipplePhaseState>(program, 1).phase, 0.37f);
@@ -531,13 +531,13 @@ inline void test_shader_chain_determinism() {
   expect_sweep_identical(second_colors, first_colors);
   // Instance labels participate in stateful-resource identity.
   auto relabeled = std::make_unique<ProgramFixture>();
-  const In::ChainEntryRequest renamed[] = {
+  const In::ChainEntryRequest RENAMED[] = {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  if (!expect_compiled(relabeled->program.compile(renamed)))
+  if (!expect_compiled(relabeled->program.compile(RENAMED)))
     return;
   apply_value_set(param_as<In::Op::RotateChainParams>(relabeled->program, 0),
                   ValueSet::MAXIMUMS);

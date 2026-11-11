@@ -209,9 +209,9 @@ inline void test_face_oracle_rejects_invalid_distances() {
       math::Vector(0.0f, 0.3f, 1.0f).normalized(),
       math::Vector(-0.3f, 0.0f, 1.0f).normalized(),
       math::Vector(0.0f, -0.3f, 1.0f).normalized()};
-  const uint16_t indices[4] = {0, 1, 2, 3};
+  const uint16_t INDICES[4] = {0, 1, 2, 3};
   SDF::FaceScratchBuffer scratch;
-  SDF::PreparedFace face(vertices, indices, scratch,
+  SDF::PreparedFace face(vertices, INDICES, scratch,
                          math::LatitudeGeometry(144), 144, nullptr, nullptr,
                          SDF::BOUNDS_MARGIN);
   HS_EXPECT_EQ(face.count, 4);
@@ -593,7 +593,7 @@ inline void test_face_distance_matches_exact_oracle() {
 
 /** @brief Thin-face rectangle rejection preserves signed distances within reach. */
 inline void test_face_plane_box_rejection() {
-  const math::Basis BASIS =
+  const math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0.4f, 0.3f, 1.0f));
   constexpr float POLYGON[6][2] = {{-0.14f, -0.02f}, {0.14f, -0.02f},
                                    {0.14f, 0.0f},    {0.0f, 0.0f},
@@ -602,7 +602,7 @@ inline void test_face_plane_box_rejection() {
   uint16_t indices[6];
   for (int i = 0; i < 6; ++i) {
     indices[i] = i;
-    vertices[i] = (BASIS.v + BASIS.u * POLYGON[i][0] + BASIS.w * POLYGON[i][1])
+    vertices[i] = (basis.v + basis.u * POLYGON[i][0] + basis.w * POLYGON[i][1])
                       .normalized();
   }
   SDF::FaceScratchBuffer scratch;
@@ -637,14 +637,14 @@ inline void test_face_plane_box_rejection() {
 
 /** @brief Convex rejection preserves every distance below its cutoff. */
 inline void test_face_convex_rejection_cutoff() {
-  const math::Basis BASIS =
+  const math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0.4f, 0.3f, 1.0f));
   math::Vector vertices[16];
   uint16_t indices[16];
-  const int COUNT =
-      build_regular_face(BASIS, 6, 0.12f, 0.0f, vertices, indices);
+  const int count =
+      build_regular_face(basis, 6, 0.12f, 0.0f, vertices, indices);
   SDF::FaceScratchBuffer scratch;
-  SDF::PreparedFace face(std::span(vertices, COUNT), std::span(indices, COUNT),
+  SDF::PreparedFace face(std::span(vertices, count), std::span(indices, count),
                          scratch, math::LatitudeGeometry(144), 144, nullptr,
                          nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(face.convex);
@@ -665,7 +665,7 @@ inline void test_face_convex_rejection_cutoff() {
       }
   HS_EXPECT_GT(retained, 100);
   HS_EXPECT_GT(rejected, 100);
-  for (int i = 0; i < COUNT; ++i) {
+  for (int i = 0; i < count; ++i) {
     const auto &edge = face.packed_edges[i];
     const auto &plane = face.half_planes[i];
     for (const float fraction : {-0.001f, 0.0f, 0.5f, 1.0f, 1.001f})
@@ -698,61 +698,61 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
                                  float rot_angle) {
   constexpr int H = 144;
   const math::LatitudeGeometry GEOMETRY(H);
-  constexpr int sides = 6, n_verts = 2 * sides;
-  constexpr float rho = 0.40f, rho_inner = 0.20f;
-  const math::Vector axis(0.4f, 0.3f, 1.0f);
+  constexpr int SIDES = 6, N_VERTS = 2 * SIDES;
+  constexpr float RHO = 0.40f, RHO_INNER = 0.20f;
+  const math::Vector AXIS(0.4f, 0.3f, 1.0f);
 
-  math::Basis basis = math::make_basis(math::Quaternion(), axis);
-  math::Vector orig[n_verts];
-  uint16_t canon_idx[n_verts];
+  math::Basis basis = math::make_basis(math::Quaternion(), AXIS);
+  math::Vector orig[N_VERTS];
+  uint16_t canon_idx[N_VERTS];
   HS_EXPECT_EQ(
-      build_regular_face(basis, sides, rho, rho_inner, orig, canon_idx),
-      n_verts);
+      build_regular_face(basis, SIDES, RHO, RHO_INNER, orig, canon_idx),
+      N_VERTS);
 
   // Canonical polygon: the untransformed face's own centered 2D projection.
   SDF::FaceScratchBuffer canon_scratch;
-  SDF::PreparedFace canon_face(std::span<const math::Vector>(orig, n_verts),
-                               std::span<const uint16_t>(canon_idx, n_verts),
+  SDF::PreparedFace canon_face(std::span<const math::Vector>(orig, N_VERTS),
+                               std::span<const uint16_t>(canon_idx, N_VERTS),
                                canon_scratch, GEOMETRY, H, nullptr, nullptr,
                                SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(!canon_face.convex);
-  float canon[2 * n_verts];
+  float canon[2 * N_VERTS];
   float mx = 0.0f, my = 0.0f;
-  for (int i = 0; i < n_verts; ++i) {
+  for (int i = 0; i < N_VERTS; ++i) {
     mx += canon_face.poly_2d[i].x;
     my += canon_face.poly_2d[i].y;
   }
-  mx /= n_verts;
-  my /= n_verts;
-  for (int i = 0; i < n_verts; ++i) {
+  mx /= N_VERTS;
+  my /= N_VERTS;
+  for (int i = 0; i < N_VERTS; ++i) {
     canon[2 * i] = canon_face.poly_2d[i].x - mx;
     canon[2 * i + 1] = canon_face.poly_2d[i].y - my;
   }
 
   static int16_t lut_data[64 * 64];
   SDF::ClassLut lut;
-  SDF::build_canonical_distance_lut(canon, n_verts, 64, lut_data, lut);
+  SDF::build_canonical_distance_lut(canon, N_VERTS, 64, lut_data, lut);
   HS_EXPECT_GT(lut.safe_dist, 0.0f);
   HS_EXPECT_LT(lut.safe_dist, 0.03f);
 
   // Congruent copy: rotate the sphere, then reindex. A cyclic shift by cyc
   // maps canonical vertex k to copy index (n - cyc + k) % n; the mirror family
   // reverses the order (keeping winding consistent) and binds with offset 0.
-  math::Vector verts[n_verts];
+  math::Vector verts[N_VERTS];
   const math::Vector rot_axis = math::Vector(0.3f, -0.8f, 0.52f).normalized();
-  for (int j = 0; j < n_verts; ++j) {
-    int src = reflected ? (n_verts - j) % n_verts : (j + cyc) % n_verts;
+  for (int j = 0; j < N_VERTS; ++j) {
+    int src = reflected ? (N_VERTS - j) % N_VERTS : (j + cyc) % N_VERTS;
     math::Vector v =
         math::rotate(orig[src], math::make_rotation(rot_axis, rot_angle));
     if (reflected)
       v.x = -v.x;
     verts[j] = v;
   }
-  int off = reflected ? 0 : (n_verts - cyc) % n_verts;
+  int off = reflected ? 0 : (N_VERTS - cyc) % N_VERTS;
 
   SDF::FaceScratchBuffer scratch;
-  SDF::PreparedFace face(std::span<const math::Vector>(verts, n_verts),
-                         std::span<const uint16_t>(canon_idx, n_verts), scratch,
+  SDF::PreparedFace face(std::span<const math::Vector>(verts, N_VERTS),
+                         std::span<const uint16_t>(canon_idx, N_VERTS), scratch,
                          GEOMETRY, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(face.bind_class_lut(&lut, canon, off, reflected));
   const uint32_t probe_flags = face.probe_flags();
@@ -760,9 +760,9 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   // A degenerate canonical shape must be rejected by the correlation guard.
   {
     SDF::FaceScratchBuffer reject_scratch;
-    static const float zeros[2 * n_verts] = {};
-    SDF::PreparedFace reject_face(std::span<const math::Vector>(verts, n_verts),
-                                  std::span<const uint16_t>(canon_idx, n_verts),
+    static const float zeros[2 * N_VERTS] = {};
+    SDF::PreparedFace reject_face(std::span<const math::Vector>(verts, N_VERTS),
+                                  std::span<const uint16_t>(canon_idx, N_VERTS),
                                   reject_scratch, GEOMETRY, H, nullptr, nullptr,
                                   SDF::BOUNDS_MARGIN);
     HS_EXPECT_TRUE(!reject_face.bind_class_lut(&lut, zeros, 0, false));
@@ -792,7 +792,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
         continue; // culled
 
       const float expected = exact_plane_distance(
-          std::span<const math::Vector>(verts, n_verts), p, face.linear_dist);
+          std::span<const math::Vector>(verts, N_VERTS), p, face.linear_dist);
 
       if (took_lut) {
         ++lut_samples;
@@ -801,10 +801,10 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
         float mag = std::abs(res.raw_dist);
         if (mag < min_lut_mag)
           min_lut_mag = mag;
-        const float GX = face.lut_ax * px + face.lut_bx * py + face.lut_cx;
-        const float GY = face.lut_ay * px + face.lut_by * py + face.lut_cy;
-        if (GX >= 0 && GX <= face.lut_clamp && GY >= 0 &&
-            GY <= face.lut_clamp) {
+        const float gx = face.lut_ax * px + face.lut_bx * py + face.lut_cx;
+        const float gy = face.lut_ay * px + face.lut_by * py + face.lut_cy;
+        if (gx >= 0 && gx <= face.lut_clamp && gy >= 0 &&
+            gy <= face.lut_clamp) {
           ++interior_samples;
           interior_error += std::abs(res.raw_dist - expected);
         }
@@ -850,7 +850,7 @@ inline void test_face_handle_reuses_arena_storage() {
   const math::Vector verts[] = {math::pixel_to_vector<W, H>(70.0f, 65.0f),
                                 math::pixel_to_vector<W, H>(80.0f, 75.0f),
                                 math::pixel_to_vector<W, H>(65.0f, 77.0f)};
-  const uint16_t indices[] = {0, 1, 2};
+  const uint16_t INDICES[] = {0, 1, 2};
   ScratchScope scope(scratch_arena_a);
   auto &storage = *scratch_arena_a.make_default_initialized<SDF::FaceStorage>();
   const size_t allocated = scratch_arena_a.get_offset();
@@ -859,7 +859,7 @@ inline void test_face_handle_reuses_arena_storage() {
       std::is_same_v<decltype(std::declval<const SDF::Face &>().prepared()),
                      const SDF::PreparedFace &>);
   for (int build = 0; build < 8; ++build) {
-    SDF::Face face(verts, indices, storage, math::LatitudeGeometry(H), H,
+    SDF::Face face(verts, INDICES, storage, math::LatitudeGeometry(H), H,
                    nullptr, nullptr, SDF::BOUNDS_MARGIN);
     const SDF::Face copy = face;
     const auto &prepared = copy.prepared();

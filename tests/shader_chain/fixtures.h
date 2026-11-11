@@ -114,8 +114,8 @@ struct ColorResources {
 
 /** @brief Returns the shared baked palette and hue lookup resources. */
 inline const ColorResources &shared_resources() {
-  static const ColorResources RESOURCES;
-  return RESOURCES;
+  static const ColorResources resources;
+  return resources;
 }
 
 /** @brief Owned request labels for the eighteen-affine-warp growth boundary. */
@@ -184,10 +184,10 @@ template <typename T>
 void check_state_layout(const In::ChainProgram &program, size_t index) {
   const auto &layout = program.ops()[index].op->runtime.state;
   const void *state = program.state_block(index);
-  const bool MATCHES = layout.size == sizeof(T) && layout.align == alignof(T) &&
+  const bool matches = layout.size == sizeof(T) && layout.align == alignof(T) &&
                        reinterpret_cast<uintptr_t>(state) % alignof(T) == 0;
-  HS_EXPECT_TRUE(MATCHES);
-  HS_CHECK(MATCHES, "shader-chain fixture state type mismatch");
+  HS_EXPECT_TRUE(matches);
+  HS_CHECK(matches, "shader-chain fixture state type mismatch");
 }
 
 template <typename T> T &state_as(In::ChainProgram &program, size_t index) {

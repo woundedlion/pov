@@ -223,21 +223,21 @@ inline void test_fishbowl_fire_duty_cycle() {
   };
 
   HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.5f), ParamSetResult::APPLIED);
-  const Pixel black(0, 0, 0);
+  const Pixel BLACK(0, 0, 0);
   for (float t : {0.20f, 0.39f}) {
     HS_CONTEXT(t < 0.3f ? "early lit" : "late lit");
     const Color4 lit = WB::sample_fire(fx, t);
     HS_EXPECT_EQ(lit.color, WB::fire_gradient(fx, t / 0.5f).color);
-    HS_EXPECT_TRUE(lit.color != black);
+    HS_EXPECT_TRUE(lit.color != BLACK);
   }
-  HS_EXPECT_EQ(WB::sample_fire(fx, 0.50f).color, black);
-  HS_EXPECT_EQ(WB::sample_fire(fx, 0.75f).color, black);
+  HS_EXPECT_EQ(WB::sample_fire(fx, 0.50f).color, BLACK);
+  HS_EXPECT_EQ(WB::sample_fire(fx, 0.75f).color, BLACK);
   const float dark_palette_t = 0.75f / value("Scale Factor");
   HS_EXPECT_EQ(WB::shade_trail(fx, dark_palette_t, 0.50f).alpha, 0.0f);
 
   HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.25f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(WB::sample_fire(fx, 0.30f).color, black);
+  HS_EXPECT_EQ(WB::sample_fire(fx, 0.30f).color, BLACK);
 }
 
 /** @brief Palette phase compensates trail fill consistently. */
@@ -258,9 +258,9 @@ inline void test_fishbowl_palette_phase_compensates_fill() {
                static_cast<float>(WB::EffectType::TRAIL_LENGTH / 2) /
                    WB::EffectType::TRAIL_LENGTH);
   HS_EXPECT_EQ(WB::palette_fill_scale(WB::EffectType::TRAIL_LENGTH), 1.0f);
-  const float sample_index = 12.0f;
-  const float short_coord = (sample_index / 32.0f) * WB::palette_fill_scale(32);
-  const float long_coord = (sample_index / 96.0f) * WB::palette_fill_scale(96);
+  const float SAMPLE_INDEX = 12.0f;
+  const float short_coord = (SAMPLE_INDEX / 32.0f) * WB::palette_fill_scale(32);
+  const float long_coord = (SAMPLE_INDEX / 96.0f) * WB::palette_fill_scale(96);
   HS_EXPECT_NEAR(short_coord, long_coord, 1e-7f);
 
   const float cycle_speed = value("Cycle Speed");
@@ -281,10 +281,10 @@ inline void test_fishbowl_adaptive_midpoint() {
   WB::EffectType fx;
   fx.init();
 
-  const math::Vector a = math::X_AXIS;
-  const math::Vector b = math::Y_AXIS;
-  HS_EXPECT_FALSE(WB::needs_adaptive_midpoint(a, math::slerp(a, b, 0.5f), b));
-  HS_EXPECT_TRUE(WB::needs_adaptive_midpoint(a, math::Z_AXIS, b));
+  const math::Vector A = math::X_AXIS;
+  const math::Vector B = math::Y_AXIS;
+  HS_EXPECT_FALSE(WB::needs_adaptive_midpoint(A, math::slerp(A, B, 0.5f), B));
+  HS_EXPECT_TRUE(WB::needs_adaptive_midpoint(A, math::Z_AXIS, B));
 }
 
 /**

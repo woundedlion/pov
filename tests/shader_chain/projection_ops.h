@@ -155,15 +155,15 @@ inline void test_shader_chain_atlas_full_face_edge_fade() {
   for (const math::Vector &selector : atlas.selectors)
     if (fabsf(math::dot(selector.normalized(), face)) < 1e-4f)
       neighbor = selector.normalized();
-  const math::Vector POINTS[] = {face + neighbor, face + neighbor * 0.5f, face};
+  const math::Vector points[] = {face + neighbor, face + neighbor * 0.5f, face};
   const float COVERAGE[] = {0.0f, 0.5f, 1.0f};
   for (float scale : {0.25f, 1.0f, 4.0f}) {
     projection.coordinate_scale = scale;
     source.edge_width = 0.5f * scale;
     HS_EXPECT_TRUE(source.edge_width <= width_field->max);
     program.prepare(ctx);
-    for (size_t index = 0; index < std::size(POINTS); ++index) {
-      const PB::SphereSample seed{POINTS[index].normalized(), 0.0f};
+    for (size_t index = 0; index < std::size(points); ++index) {
+      const PB::SphereSample seed{points[index].normalized(), 0.0f};
       const auto plane = run_entry<PB::PlaneSample>(program, ctx, 1, seed);
       const auto field = run_entry<PB::FieldSample>(program, ctx, 2, plane);
       HS_EXPECT_NEAR(field.coverage, COVERAGE[index], 1e-6f);

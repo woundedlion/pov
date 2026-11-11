@@ -333,10 +333,10 @@ inline void test_harness_counts_failures() {
     HS_EXPECT_STREQ(nullptr, "");
     HS_EXPECT_NEAR_REL(1.0, 2.0, 0.01);
     HS_EXPECT_NEAR_REL(2.0, 2.0, 0.01);
-    const std::array<int, 1> values{1};
-    HS_EXPECT_SIZE_OR_RETURN(values, 1);
+    const std::array<int, 1> VALUES{1};
+    HS_EXPECT_SIZE_OR_RETURN(VALUES, 1);
     const auto wrong_size = [&] {
-      HS_EXPECT_SIZE_OR_RETURN(values, 2);
+      HS_EXPECT_SIZE_OR_RETURN(VALUES, 2);
       size_returned = true;
     };
     wrong_size();

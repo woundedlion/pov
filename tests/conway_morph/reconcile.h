@@ -46,9 +46,9 @@ inline void test_reconcile_bijection_wellposed() {
     Arena keep(morph_persist_buf, sizeof(morph_persist_buf));
 
     constexpr size_t CAPACITY = IslamicStarsDetail::MAX_BUILD_OPS;
-    const size_t LOWERED = Solids::lowered_step_count(*site.recipe);
-    HS_EXPECT_LE(LOWERED, CAPACITY);
-    if (LOWERED > CAPACITY)
+    const size_t lowered_value = Solids::lowered_step_count(*site.recipe);
+    HS_EXPECT_LE(lowered_value, CAPACITY);
+    if (lowered_value > CAPACITY)
       continue;
     Solids::OpStep lowered[CAPACITY];
     const size_t count =
@@ -71,12 +71,12 @@ inline void test_reconcile_bijection_wellposed() {
       continue;
     const size_t x_prefix = site.dtd ? kis : kis - 1; // steps to reach X
 
-    PolyMesh X =
+    PolyMesh x =
         Solids::build_steps(site.recipe->seed, lowered, x_prefix, a, b);
     PolyMesh Xc; // stable copy: identity/authored reuse a,b as ping-pong
-    MeshOps::clone(X, Xc, aux);
+    MeshOps::clone(x, Xc, aux);
 
-    // identity: dt = dual(truncate(X)); dtd = dual(truncate(dual(X))). Clone the
+    // identity: dt = dual(truncate(x)); dtd = dual(truncate(dual(x))). Clone the
     // identity out of a/b before building authored, which reuses those arenas.
     PolyMesh identity;
     PolyMesh authored;
@@ -86,27 +86,27 @@ inline void test_reconcile_bijection_wellposed() {
       MeshOps::clone(dX, dXc, aux);
       PolyMesh t = MeshOps::truncate(dXc, a, b, RECONCILE_TRUNCATE_T);
       MeshOps::clone(MeshOps::dual(t, b, a), identity, keep);
-      authored = MeshOps::kis(Xc, a, b); // kis(X)
+      authored = MeshOps::kis(Xc, a, b); // kis(x)
     } else {
       PolyMesh t = MeshOps::truncate(Xc, a, b, RECONCILE_TRUNCATE_T);
       MeshOps::clone(MeshOps::dual(t, b, a), identity, keep);
-      authored = MeshOps::needle(Xc, a, b); // kis(dual(X))
+      authored = MeshOps::needle(Xc, a, b); // kis(dual(x))
     }
 
-    const size_t V = identity.vertices.size();
+    const size_t v = identity.vertices.size();
     if (!expect_same_mesh_sizes(identity, authored))
       continue;
 
     // Per-vertex nearest (argmax-dot) map identity -> authored;
     // must be injective.
-    std::vector<bool> used(V, false);
-    std::vector<int> match(V, -1);
+    std::vector<bool> used(v, false);
+    std::vector<int> match(v, -1);
     float worst_chord = 0.0f;
     bool injective = true;
-    for (size_t i = 0; i < V; ++i) {
+    for (size_t i = 0; i < v; ++i) {
       int best = -1;
       float best_dot = -2.0f;
-      for (size_t j = 0; j < V; ++j) {
+      for (size_t j = 0; j < v; ++j) {
         const float d = math::dot(identity.vertices[i], authored.vertices[j]);
         if (d > best_dot) {
           best_dot = d;
@@ -139,7 +139,7 @@ inline void test_reconcile_bijection_wellposed() {
         connectivity_kept &= reconciled.faces[i] == identity.faces[i];
       HS_EXPECT_TRUE(connectivity_kept);
       bool matches_oracle = true;
-      for (size_t i = 0; i < V; ++i)
+      for (size_t i = 0; i < v; ++i)
         matches_oracle &= reconciled.vertices[i] ==
                           authored.vertices[static_cast<size_t>(match[i])];
       HS_EXPECT_TRUE(matches_oracle);
@@ -147,10 +147,10 @@ inline void test_reconcile_bijection_wellposed() {
 
     if (hs_test::stats().failed != failed_before)
       std::printf("    [reconcile] %s FAILED (V=%zu inj=%d worst_chord=%.4f)\n",
-                  site.name, V, injective ? 1 : 0, (double)worst_chord);
+                  site.name, v, injective ? 1 : 0, (double)worst_chord);
     else
       std::printf("  [reconcile] %s: V=%zu F=%zu bijective worst_chord=%.4f\n",
-                  site.name, V, identity.face_counts.size(),
+                  site.name, v, identity.face_counts.size(),
                   (double)worst_chord);
   }
 }

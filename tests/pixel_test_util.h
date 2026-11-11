@@ -503,10 +503,10 @@ inline int expect_frames_within(const char *label,
                                 const std::vector<Pixel> &actual,
                                 const std::vector<Pixel> &expected, int bound) {
   HS_CONTEXT(label);
-  const FrameErrorStats STATS = compare_buffers(expected, actual);
-  HS_CONTEXT("first differing pixel", STATS.first_different_pixel);
-  HS_EXPECT_LE(STATS.max_absolute_error, static_cast<uint32_t>(bound));
-  return static_cast<int>(STATS.lit_reference_pixels);
+  const FrameErrorStats stats = compare_buffers(expected, actual);
+  HS_CONTEXT("first differing pixel", stats.first_different_pixel);
+  HS_EXPECT_LE(stats.max_absolute_error, static_cast<uint32_t>(bound));
+  return static_cast<int>(stats.lit_reference_pixels);
 }
 
 /**

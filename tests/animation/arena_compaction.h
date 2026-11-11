@@ -23,7 +23,7 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
   MeshOps::compile(poly, carousel.slot(0), persistent_arena, scratch_arena_a);
   MeshOps::compile(poly, carousel.slot(1), persistent_arena, scratch_arena_a);
   const size_t v_front = carousel.current().vertices.size();
-  const math::Vector FIRST = carousel.current().vertices[0];
+  const math::Vector first = carousel.current().vertices[0];
 
   bool after_reset_ran = false;
   const void *bake_ptr = nullptr;
@@ -35,7 +35,7 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
   HS_EXPECT_TRUE(after_reset_ran);
   HS_EXPECT_TRUE(carousel.current().is_bound());
   HS_EXPECT_EQ(carousel.current().vertices.size(), v_front);
-  HS_EXPECT_VEC(carousel.current().vertices[0], FIRST, 1e-5f);
+  HS_EXPECT_VEC(carousel.current().vertices[0], first, 1e-5f);
   HS_EXPECT_FALSE(carousel.slot(1).is_bound());
   HS_EXPECT_GT(reinterpret_cast<uintptr_t>(&carousel.current().vertices[0]),
                reinterpret_cast<uintptr_t>(bake_ptr));
@@ -58,8 +58,8 @@ inline void test_meshcarousel_compact_keep_front_slot_one() {
   carousel.set_front(1);
   const auto &front = carousel.current();
   HS_EXPECT_SIZE_OR_RETURN(front.vertices, tetrahedron.vertices.size());
-  const size_t FACE_COUNT = front.face_counts.size();
-  const math::Vector FIRST = front.vertices[0];
+  const size_t face_count = front.face_counts.size();
+  const math::Vector first = front.vertices[0];
 
   carousel.compact_keep_front(0, [](Arena &) {});
 
@@ -67,8 +67,8 @@ inline void test_meshcarousel_compact_keep_front_slot_one() {
   HS_EXPECT_TRUE(carousel.slot(1).is_bound());
   HS_EXPECT_EQ(carousel.front_index(), 1);
   HS_EXPECT_SIZE_OR_RETURN(front.vertices, tetrahedron.vertices.size());
-  HS_EXPECT_EQ(front.face_counts.size(), FACE_COUNT);
-  HS_EXPECT_VEC(front.vertices[0], FIRST, 1e-5f);
+  HS_EXPECT_EQ(front.face_counts.size(), face_count);
+  HS_EXPECT_VEC(front.vertices[0], first, 1e-5f);
 }
 
 /**

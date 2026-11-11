@@ -618,17 +618,17 @@ inline void test_orientation_historical_index_accessors() {
   o.push(q2);
   HS_EXPECT_EQ(o.length(), 3);
 
-  const math::Vector v(0.2f, 0.4f, 0.9f);
+  const math::Vector V(0.2f, 0.4f, 0.9f);
   for (int i = 0; i < 3; ++i) {
-    HS_EXPECT_VEC(o.orient(v, i), math::rotate(v, o.get(i)), 1e-5f);
-    HS_EXPECT_VEC(o.unorient(v, i), math::rotate(v, o.get(i).conjugate()),
+    HS_EXPECT_VEC(o.orient(V, i), math::rotate(V, o.get(i)), 1e-5f);
+    HS_EXPECT_VEC(o.unorient(V, i), math::rotate(V, o.get(i).conjugate()),
                   1e-5f);
   }
 
   math::Quaternion q_new = math::make_rotation(math::Vector(0, 1, 0), 0.25f);
   o.set_at(1, q_new);
   HS_EXPECT_QUAT(o.get(1), q_new, 1e-6f);
-  HS_EXPECT_VEC(o.orient(v, 1), math::rotate(v, q_new), 1e-5f);
+  HS_EXPECT_VEC(o.orient(V, 1), math::rotate(V, q_new), 1e-5f);
 }
 
 /**
@@ -657,9 +657,9 @@ inline void test_orientation_set_at_normalized() {
   o.set_at_normalized(2, q1);
   HS_EXPECT_QUAT(o.get(2), q1, 1e-6f);
 
-  const math::Vector v(0.2f, 0.4f, 0.9f);
-  HS_EXPECT_VEC(o.orient(v, 1), math::rotate(v, unit), 1e-5f);
-  HS_EXPECT_VEC(o.unorient(v, 1), math::rotate(v, unit.conjugate()), 1e-5f);
+  const math::Vector V(0.2f, 0.4f, 0.9f);
+  HS_EXPECT_VEC(o.orient(V, 1), math::rotate(V, unit), 1e-5f);
+  HS_EXPECT_VEC(o.unorient(V, 1), math::rotate(V, unit.conjugate()), 1e-5f);
 }
 
 // --- wrap(float, m) / wrap_t ------------------------------------------------

@@ -341,21 +341,22 @@ inline void lint_animated_pause(FX &effect, const char *name) {
     HS_EXPECT_EQ(written, ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(effect.animations_paused());
     const auto *written_def = effect.getParameters().find(names[index]);
-    const float WRITTEN = written_def->get_requested();
-    const float EPS =
+    const float written_value = written_def->get_requested();
+    const float eps =
         written_def->is_bool()
             ? 0.0f
             : fmaxf(1e-3f, 1e-3f * (written_def->max - written_def->min));
     effect.draw_frame();
     effect.advance_display();
     const auto *after_write = effect.getParameters().find(names[index]);
-    const bool PERSISTED = fabsf(after_write->get_requested() - WRITTEN) <= EPS;
-    if (!PERSISTED)
+    const bool persisted =
+        fabsf(after_write->get_requested() - written_value) <= eps;
+    if (!persisted)
       std::printf(
           "  PAUSED WRITE LOST %s::%s wrote %.4f, engine reverted to %.4f\n",
-          name, names[index], static_cast<double>(WRITTEN),
+          name, names[index], static_cast<double>(written_value),
           static_cast<double>(after_write->get_requested()));
-    HS_EXPECT(PERSISTED, "paused animated parameter writes must persist");
+    HS_EXPECT(persisted, "paused animated parameter writes must persist");
     const float held = effect.getParameters().find(names[index])->get();
     for (int frame = 0; frame < frames_per_param; ++frame) {
       effect.draw_frame();
@@ -696,9 +697,9 @@ inline void expect_slab_bands_match_full_frame(int warmup) {
   for (const Pixel &p : full)
     lit += !is_black(p);
   HS_EXPECT_GT(lit, static_cast<size_t>(0));
-  const std::array<std::array<int, 2>, 4> bands{
+  const std::array<std::array<int, 2>, 4> BANDS{
       {{0, 30}, {20, 60}, {44, 52}, {70, W}}};
-  for (const auto &[x0, x1] : bands) {
+  for (const auto &[x0, x1] : BANDS) {
     HS_CONTEXT("band", x0, x1);
     const std::vector<Pixel> band = render(x0, x1);
     size_t next = 0;

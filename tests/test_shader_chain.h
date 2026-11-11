@@ -85,8 +85,8 @@ inline void test_shader_chain_modulation_bake_cache() {
   auto &cache_b = WB::layer_resources(effect, key_b);
   HS_EXPECT_TRUE(&cache_a != &cache_b);
   HS_EXPECT_TRUE(ctx.modulations[0].prepared != ctx.modulations[1].prepared);
-  const auto A = cache_a.modulation.bake_generation;
-  const auto B = cache_b.modulation.bake_generation;
+  const auto a = cache_a.modulation.bake_generation;
+  const auto b = cache_b.modulation.bake_generation;
   HS_EXPECT_TRUE(cache_a.modulation.prepared.cube.active);
   HS_EXPECT_TRUE(cache_b.modulation.prepared.cube.active);
   HS_EXPECT_TRUE(cache_a.modulation.table.data() !=
@@ -96,16 +96,16 @@ inline void test_shader_chain_modulation_bake_cache() {
   WB::color_params(effect).palette_chroma = .1f;
   WB::advance_without_render(effect);
   WB::frame_context(effect);
-  HS_EXPECT_EQ(cache_a.modulation.bake_generation, A);
-  HS_EXPECT_EQ(cache_b.modulation.bake_generation, B);
+  HS_EXPECT_EQ(cache_a.modulation.bake_generation, a);
+  HS_EXPECT_EQ(cache_b.modulation.bake_generation, b);
   first.noise.scale = 3.0f;
   WB::frame_context(effect);
-  HS_EXPECT_EQ(cache_a.modulation.bake_generation, A + 1);
-  HS_EXPECT_EQ(cache_b.modulation.bake_generation, B);
+  HS_EXPECT_EQ(cache_a.modulation.bake_generation, a + 1);
+  HS_EXPECT_EQ(cache_b.modulation.bake_generation, b);
   ++second.seed;
   WB::frame_context(effect);
-  HS_EXPECT_EQ(cache_a.modulation.bake_generation, A + 1);
-  HS_EXPECT_EQ(cache_b.modulation.bake_generation, B + 1);
+  HS_EXPECT_EQ(cache_a.modulation.bake_generation, a + 1);
+  HS_EXPECT_EQ(cache_b.modulation.bake_generation, b + 1);
   effect.draw_frame();
   const auto &previous = WB::previous_context(effect);
   HS_EXPECT_EQ(previous.modulations.size(), 2u);
@@ -150,14 +150,14 @@ inline void test_shader_chain_modulation_clock_lifecycle() {
       0);
   const auto saved_a = WB::modulation_params(effect, "first");
   const auto saved_b = WB::modulation_params(effect, "second");
-  const In::ChainEntryRequest reordered[] = {
+  const In::ChainEntryRequest REORDERED[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
       {"second", "color.modulate.v1"},
       {"first", "color.modulate.v1"}};
-  HS_EXPECT_EQ(effect.set_chain(reordered).code, In::ChainStatus::OK);
+  HS_EXPECT_EQ(effect.set_chain(REORDERED).code, In::ChainStatus::OK);
   WB::modulation_params(effect, "first") = saved_a;
   WB::modulation_params(effect, "second") = saved_b;
   WB::advance_without_render(effect);
@@ -206,13 +206,13 @@ inline void test_shader_chain_modulation_combinations() {
       layer.enabled = true;
       auto input = PB::Color::apply_generated_palette(FIELD, palette);
       Color4 expected = input.color;
-      const float SCALAR =
+      const float scalar =
           source == Pattern::SourceKind::DISPLACEMENT ? 4.5f : .5f;
       if (mechanic == Kind::HUE_ROTATION)
         expected.color = sample_hue_rotation_lut(
-            palette.hue_rotation, FIELD.value, math::wrap_t(.4f * SCALAR));
+            palette.hue_rotation, FIELD.value, math::wrap_t(.4f * scalar));
       else
-        expected = ColorModulation::apply(expected, SCALAR, layer.mechanic);
+        expected = ColorModulation::apply(expected, scalar, layer.mechanic);
       const auto actual =
           PB::Color::finish(PB::Color::apply_modulation(input, layer));
       HS_EXPECT_TRUE(color4_identical(actual, expected));
@@ -276,18 +276,19 @@ inline void test_shader_chain_modulation_temporal_endpoints() {
   program.capture_history();
   for (float fraction : {0.0f, .375f, 1.0f}) {
     program.prepare_column(ctx, old_ctx, fraction);
-    const auto VIEW = math::Vector(.3f, .7f, .2f).normalized();
+    const auto view = math::Vector(.3f, .7f, .2f).normalized();
     const auto field = run_entry<PB::FieldSample>(
-        program, ctx, 2, projected_input(program, ctx, VIEW));
-    const auto BASE = old_ctx.palettes[0]
-                          ->get(field.value)
-                          .lerp(ctx.palettes[0]->get(field.value), fraction);
-    HueRotateBase base = make_hue_rotate_base(BASE);
+        program, ctx, 2, projected_input(program, ctx, view));
+    const auto base_value =
+        old_ctx.palettes[0]
+            ->get(field.value)
+            .lerp(ctx.palettes[0]->get(field.value), fraction);
+    HueRotateBase base = make_hue_rotate_base(base_value);
     base.lab.L += (1.0f - base.lab.L) * (.3f * fraction);
     auto expected =
         hue_rotate_lut_gamut(base, math::wrap_t(-.1f + .2f * fraction));
     expected.alpha *= field.coverage;
-    const auto actual = program.evaluate_column(VIEW, ctx, old_ctx, fraction);
+    const auto actual = program.evaluate_column(view, ctx, old_ctx, fraction);
     HS_EXPECT_NEAR(actual.color.r, expected.color.r, 1.0f);
     HS_EXPECT_NEAR(actual.color.g, expected.color.g, 1.0f);
     HS_EXPECT_NEAR(actual.color.b, expected.color.b, 1.0f);
@@ -329,12 +330,12 @@ inline void test_shader_chain_modulation_endpoint_identity() {
   auto context = shared_resources().context();
   context.modulations = endpoints;
   program.prepare(context);
-  const auto VIEW = math::Vector(.3f, .7f, .2f).normalized();
-  const auto FIELD = run_entry<PB::FieldSample>(
-      program, context, 2, projected_input(program, context, VIEW));
-  const float EXPECTED = FIELD.coverage * .25f * .875f;
-  HS_EXPECT_GT(EXPECTED, 0.0f);
-  HS_EXPECT_NEAR(program.evaluate(VIEW, context).alpha, EXPECTED, 1e-7f);
+  const auto view = math::Vector(.3f, .7f, .2f).normalized();
+  const auto field = run_entry<PB::FieldSample>(
+      program, context, 2, projected_input(program, context, view));
+  const float expected = field.coverage * .25f * .875f;
+  HS_EXPECT_GT(expected, 0.0f);
+  HS_EXPECT_NEAR(program.evaluate(view, context).alpha, expected, 1e-7f);
 }
 
 // The wire spellings are the JS contract.
@@ -412,7 +413,7 @@ inline void test_shader_chain_snapshot_roundtrip() {
   {
     WB::FX effect;
     effect.init();
-    const In::ChainEntryRequest topology[] = {
+    const In::ChainEntryRequest TOPOLOGY[] = {
         {"camera", "sphere.rotate.v2"},
         {"project", "project.stereographic.v2"},
         {"noise", "warp.vector-noise.v2"},
@@ -420,7 +421,7 @@ inline void test_shader_chain_snapshot_roundtrip() {
         {"sample", "sample.grid.v4"},
         {"colorize", "colorize.generated-palette.v4"},
         {"modulation", "color.modulate.v1"}};
-    HS_EXPECT_EQ(effect.set_chain(topology).code, In::ChainStatus::OK);
+    HS_EXPECT_EQ(effect.set_chain(TOPOLOGY).code, In::ChainStatus::OK);
     auto &program = WB::program(effect);
     param_as<In::Op::RotateChainParams>(program, 0).wander = 0.8f;
     param_as<In::Op::RotateChainParams>(program, 0).spin_speed = 0.001f;

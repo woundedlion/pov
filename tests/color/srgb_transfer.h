@@ -32,10 +32,10 @@ inline void test_linear_to_srgb8_decode_matches_lut() {
  *          first input during pixel accumulation.
  */
 inline void test_min_encodable_alpha_is_the_encode_floor() {
-  const int v = static_cast<int>(MIN_ENCODABLE_ALPHA * 65535.0f + 0.5f);
-  HS_EXPECT_EQ(MIN_ENCODABLE_ALPHA, static_cast<float>(v) / 65535.0f);
-  HS_EXPECT_GE(linear_to_srgb8(static_cast<uint16_t>(v)), 1);
-  for (int u = 0; u < v; ++u)
+  const int V = static_cast<int>(MIN_ENCODABLE_ALPHA * 65535.0f + 0.5f);
+  HS_EXPECT_EQ(MIN_ENCODABLE_ALPHA, static_cast<float>(V) / 65535.0f);
+  HS_EXPECT_GE(linear_to_srgb8(static_cast<uint16_t>(V)), 1);
+  for (int u = 0; u < V; ++u)
     HS_EXPECT_EQ(linear_to_srgb8(static_cast<uint16_t>(u)), 0);
 }
 

@@ -102,17 +102,17 @@ inline void test_clamp_finite_bounds_backend_parity() {
  * variant.
  */
 inline void test_lms_transform_pair_matches_scalar() {
-  const float matrices[][9] = {
+  const float MATRICES[][9] = {
       {1, 0, 0, 0, 1, 0, 0, 0, 1},
       {0.8f, -0.3f, 0.5f, 0.2f, 1.2f, -0.4f, -0.1f, 0.3f, 0.8f}};
-  const float samples[][3] = {{0, 0, 0},
+  const float SAMPLES[][3] = {{0, 0, 0},
                               {1, 1, 1},
                               {0.2f, 0.7f, 0.4f},
                               {-0.2f, 1.2f, 0.5f},
                               {0.9f, 0.1f, 0.7f}};
-  for (const auto &matrix : matrices) {
-    for (const auto &a : samples) {
-      for (const auto &b : samples) {
+  for (const auto &matrix : MATRICES) {
+    for (const auto &a : SAMPLES) {
+      for (const auto &b : SAMPLES) {
         float scalar[6], paired[6];
         lms_cbrt_transform_rgb(matrix, a[0], a[1], a[2], scalar[0], scalar[1],
                                scalar[2]);

@@ -27,8 +27,8 @@ inline void case_solids_unknown_name() {
 }
 
 inline void case_recipe_bake_wrong_op() {
-  const MeshOps::RelaxBake bake{};
-  run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, 0.0f, &bake});
+  const MeshOps::RelaxBake BAKE{};
+  run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, 0.0f, &BAKE});
 }
 
 inline void case_recipe_twist_wrong_op() {
@@ -41,8 +41,8 @@ inline void case_recipe_composite_in_primitive_steps() {
 }
 
 inline void case_recipe_bake_live_iterations() {
-  const MeshOps::RelaxBake bake{};
-  run_invalid_recipe_step({Solids::Op::RELAX, opaque(1.0f), 0.0f, &bake});
+  const MeshOps::RelaxBake BAKE{};
+  run_invalid_recipe_step({Solids::Op::RELAX, opaque(1.0f), 0.0f, &BAKE});
 }
 
 /**

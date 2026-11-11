@@ -188,36 +188,36 @@ struct SchemaModulationHeaderBA {
  * Field reorders and type changes affect the hash even at equal layout size.
  */
 inline void test_parameter_layout_reorder() {
-  const SchemaFieldsAB original{};
-  const SchemaFieldsBA reordered{};
-  static_assert(sizeof(original) == sizeof(reordered));
+  const SchemaFieldsAB ORIGINAL{};
+  const SchemaFieldsBA REORDERED{};
+  static_assert(sizeof(ORIGINAL) == sizeof(REORDERED));
   ParameterLayoutHash before, after;
-  before.member(original, original, "family");
-  after.member(reordered, reordered, "family");
+  before.member(ORIGINAL, ORIGINAL, "family");
+  after.member(REORDERED, REORDERED, "family");
   HS_EXPECT_NE(before.value, after.value);
-  const SchemaModulationHeaderAB original_header{};
-  const SchemaModulationHeaderBA reordered_header{};
-  static_assert(sizeof(original_header) == sizeof(reordered_header));
+  const SchemaModulationHeaderAB ORIGINAL_HEADER{};
+  const SchemaModulationHeaderBA REORDERED_HEADER{};
+  static_assert(sizeof(ORIGINAL_HEADER) == sizeof(REORDERED_HEADER));
   ParameterLayoutHash header_before, header_after;
-  header_before.member(original_header, original_header.enabled, "enabled");
-  header_before.member(original_header, original_header.source, "source");
-  header_after.member(reordered_header, reordered_header.enabled, "enabled");
-  header_after.member(reordered_header, reordered_header.source, "source");
+  header_before.member(ORIGINAL_HEADER, ORIGINAL_HEADER.enabled, "enabled");
+  header_before.member(ORIGINAL_HEADER, ORIGINAL_HEADER.source, "source");
+  header_after.member(REORDERED_HEADER, REORDERED_HEADER.enabled, "enabled");
+  header_after.member(REORDERED_HEADER, REORDERED_HEADER.source, "source");
   HS_EXPECT_NE(header_before.value, header_after.value);
   ParameterLayoutHash boolean_type, enum_type;
-  boolean_type.member(original_header, original_header.enabled, "tag");
-  enum_type.member(reordered_header, reordered_header.source, "tag");
+  boolean_type.member(ORIGINAL_HEADER, ORIGINAL_HEADER.enabled, "tag");
+  enum_type.member(REORDERED_HEADER, REORDERED_HEADER.source, "tag");
   HS_EXPECT_NE(boolean_type.value, enum_type.value);
 }
 
 /** @brief Hashes named parameter fields and their offsets in the snapshot. */
 template <typename Params> uint64_t parameter_layout_hash() {
-  const Params params{};
+  const Params PARAMS{};
   ParameterLayoutHash hash;
   hash.number(sizeof(Params));
   hash.number(alignof(Params));
-  params.visit([&]<typename Resource>(const auto &family) {
-    hash.member(params, family, Resource::KEY.view());
+  PARAMS.visit([&]<typename Resource>(const auto &family) {
+    hash.member(PARAMS, family, Resource::KEY.view());
   });
   return hash.value;
 }
@@ -285,7 +285,7 @@ inline void test_composed_parameter_schema_pins() {
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_SCHEMA_PIN)
 #undef HS_COMPOSED_SCHEMA_PIN
 #define HS_COMPOSED_ROSTER_ONE(name) +1
-  constexpr size_t roster = 0 HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_ROSTER_ONE);
+  constexpr size_t ROSTER = 0 HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_ROSTER_ONE);
 #undef HS_COMPOSED_ROSTER_ONE
-  HS_EXPECT_EQ(std::size(PARAMETER_SCHEMA_PINS), roster);
+  HS_EXPECT_EQ(std::size(PARAMETER_SCHEMA_PINS), ROSTER);
 }

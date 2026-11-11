@@ -47,17 +47,17 @@ inline void test_position_legs_preserve_face_palettes() {
     MeshOps::classify_faces_by_topology(relaxed, scratch_arena_a,
                                         scratch_arena_b, aux);
   }
-  const size_t FACES = seed.face_counts.size();
-  std::vector<uint8_t> palettes(FACES);
-  for (size_t f = 0; f < FACES; ++f)
+  const size_t faces = seed.face_counts.size();
+  std::vector<uint8_t> palettes(faces);
+  for (size_t f = 0; f < faces; ++f)
     palettes[f] = static_cast<uint8_t>(f % 2);
 
   constexpr int FRAMES = 24;
   int drawn = 0;
   auto draw = [&](Canvas &, const MeshState &, const OpLeg::Shading &sh) {
     ++drawn;
-    HS_EXPECT_EQ(sh.faces, FACES);
-    for (size_t f = 0; f < FACES; ++f) {
+    HS_EXPECT_EQ(sh.faces, faces);
+    for (size_t f = 0; f < faces; ++f) {
       for (float t : {0.0f, 0.5f, 1.0f}) {
         const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
         const Color4 expected = bank.bank.entries[palettes[f]].get(t);
@@ -69,14 +69,14 @@ inline void test_position_legs_preserve_face_palettes() {
   };
   OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                 .prev_face_palette = palettes.data(),
-                                .prev_faces = FACES,
+                                .prev_faces = faces,
                                 .preserve_without_births = true};
   auto run = [&](OpLeg &&leg) {
     drawn = 0;
     const auto &landing = leg.landing();
-    HS_EXPECT_EQ(landing.faces, FACES);
+    HS_EXPECT_EQ(landing.faces, faces);
     bool same_class_different_palette = false;
-    for (size_t f = 0; f < FACES; ++f) {
+    for (size_t f = 0; f < faces; ++f) {
       HS_EXPECT_EQ(landing.from_palette[f], palettes[f]);
       HS_EXPECT_EQ(landing.landed_palette(f), palettes[f]);
       HS_EXPECT_EQ(landing.topology[f], relaxed.topology[f]);

@@ -803,12 +803,12 @@ inline void case_point_route_without_prepare() {
   Pipeline<W, H> pipe;
   Plot::PointRoute<W, H> valid;
   valid.prepare(canvas, 0.0f);
-  const math::Vector point(1, 0, 0);
-  const auto start = [&] { return point; };
+  const math::Vector POINT(1, 0, 0);
+  const auto start = [&] { return POINT; };
   const auto shade = [] { return Color4(Pixel(1, 0, 0), 1.0f); };
-  valid.plot(pipe, canvas, point, start, shade);
+  valid.plot(pipe, canvas, POINT, start, shade);
   Plot::PointRoute<W, H> unprepared;
-  unprepared.plot(pipe, canvas, point, start, shade);
+  unprepared.plot(pipe, canvas, POINT, start, shade);
 }
 
 /** @brief Timed pipeline erasure rejects an unprepared direct sink. */

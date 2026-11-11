@@ -135,17 +135,17 @@ inline void test_world_hole_setters() {
 /** @brief Verifies disabled radii pass every point and setters refresh the cap. */
 inline void test_world_hole_radius_limits() {
   Filter::World::Hole hole(math::Y_AXIS, 0.1f);
-  const math::Vector PROBE(sinf(0.25f), cosf(0.25f), 0.0f);
+  const math::Vector probe(sinf(0.25f), cosf(0.25f), 0.0f);
   for (float radius : {0.0f, -0.5f, 0.1f, 0.5f, 0.0f, 0.5f}) {
     hole.set_radius(radius);
     int count = 0;
     float alpha = -1.0f;
-    hole.plot(PROBE, Pixel(1, 2, 3), 2.0f, 0.8f,
+    hole.plot(probe, Pixel(1, 2, 3), 2.0f, 0.8f,
               [&](const math::Vector &v, const Pixel &c, float age, float a) {
                 ++count;
                 alpha = a;
-                HS_EXPECT_EQ(v.x, PROBE.x);
-                HS_EXPECT_EQ(v.y, PROBE.y);
+                HS_EXPECT_EQ(v.x, probe.x);
+                HS_EXPECT_EQ(v.y, probe.y);
                 HS_EXPECT_EQ(c.r, 1);
                 HS_EXPECT_EQ(age, 2.0f);
               });
@@ -176,49 +176,49 @@ inline void test_world_hole_angular_reference() {
 #endif
   for (const math::Vector &center :
        {math::Y_AXIS, math::Vector(1.0f, 2.0f, -3.0f).normalized()}) {
-    const math::Vector TANGENT = math::cross(center, math::X_AXIS).normalized();
-    const math::Vector NORMALIZED_ORIGIN = (center * 3.0f).normalized();
+    const math::Vector tangent = math::cross(center, math::X_AXIS).normalized();
+    const math::Vector normalized_origin = (center * 3.0f).normalized();
     for (float radius : {0.05f, 0.5f, 1.2f, math::PI_F, 1.5f * math::PI_F,
                          2.0f * math::PI_F}) {
       Filter::World::Hole hole(center * 3.0f, radius);
       for (int i = 0; i <= 360; ++i) {
-        const double ANGLE = 3.14159265358979323846 * i / 360.0;
+        const double angle = 3.14159265358979323846 * i / 360.0;
         for (float scale : {0.998f, 1.0f - 2e-7f, 1.0f, 1.0f + 2e-7f, 1.002f}) {
-          const math::Vector POINT =
-              (center * math::fast_cosf(static_cast<float>(ANGLE)) +
-               TANGENT * math::fast_sinf(static_cast<float>(ANGLE))) *
+          const math::Vector point =
+              (center * math::fast_cosf(static_cast<float>(angle)) +
+               tangent * math::fast_sinf(static_cast<float>(angle))) *
               scale;
-          const double DOT = static_cast<double>(POINT.x) * center.x +
-                             static_cast<double>(POINT.y) * center.y +
-                             static_cast<double>(POINT.z) * center.z;
-          const double NORM =
-              std::sqrt((static_cast<double>(POINT.x) * POINT.x +
-                         static_cast<double>(POINT.y) * POINT.y +
-                         static_cast<double>(POINT.z) * POINT.z) *
+          const double dot = static_cast<double>(point.x) * center.x +
+                             static_cast<double>(point.y) * center.y +
+                             static_cast<double>(point.z) * center.z;
+          const double norm =
+              std::sqrt((static_cast<double>(point.x) * point.x +
+                         static_cast<double>(point.y) * point.y +
+                         static_cast<double>(point.z) * point.z) *
                         (static_cast<double>(center.x) * center.x +
                          static_cast<double>(center.y) * center.y +
                          static_cast<double>(center.z) * center.z));
-          const double T = std::min(
-              std::acos(std::clamp(DOT / NORM, -1.0, 1.0)) / radius, 1.0);
-          const double MASK = T * T * T * (10.0 + T * (-15.0 + 6.0 * T));
+          const double t = std::min(
+              std::acos(std::clamp(dot / norm, -1.0, 1.0)) / radius, 1.0);
+          const double mask = t * t * t * (10.0 + t * (-15.0 + 6.0 * t));
           int count = 0;
           float alpha = 0.0f;
-          hole.plot(POINT, Pixel(1, 2, 3), 0.0f, 0.8f,
+          hole.plot(point, Pixel(1, 2, 3), 0.0f, 0.8f,
                     [&](const math::Vector &, const Pixel &, float, float a) {
                       ++count;
                       alpha = a;
                     });
           HS_EXPECT_LE(count, 1);
-          HS_EXPECT_NEAR(alpha, 0.8 * MASK, 0.003f);
-          const float DISTANCE = math::angle_between(POINT, NORMALIZED_ORIGIN);
-          const float ANGLE_BETWEEN_MASK =
-              DISTANCE >= radius ? 1.0f
-                                 : math::quintic_kernel(DISTANCE / radius);
+          HS_EXPECT_NEAR(alpha, 0.8 * mask, 0.003f);
+          const float distance = math::angle_between(point, normalized_origin);
+          const float angle_between_mask =
+              distance >= radius ? 1.0f
+                                 : math::quintic_kernel(distance / radius);
           HS_EXPECT_NEAR(alpha,
-                         ANGLE_BETWEEN_MASK > 1e-8f ? 0.8f * ANGLE_BETWEEN_MASK
+                         angle_between_mask > 1e-8f ? 0.8f * angle_between_mask
                                                     : 0.0f,
                          PARITY_TOLERANCE);
-          if (MASK > 0.01)
+          if (mask > 0.01)
             HS_EXPECT_EQ(count, 1);
           if (i == 360 && radius == math::PI_F)
             HS_EXPECT_NEAR(alpha, 0.8f, 1e-6f);
@@ -292,11 +292,11 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
   HS_EXPECT_EQ(n, 1);
 
   // A planar edge rotates its basis alongside the endpoints.
-  const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const math::Basis PB{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   math::Vector normal;
   n = 0;
   orient.cull_edge(
-      math::X_AXIS, math::X_AXIS, &pb,
+      math::X_AXIS, math::X_AXIS, &PB,
       [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
         HS_EXPECT_TRUE(bp != nullptr);
         if (bp && n == 0)
@@ -433,11 +433,11 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
   HS_EXPECT_EQ(n, 1);
 
   // A planar edge rotates its basis alongside the endpoints, per candidate.
-  const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const math::Basis PB{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   math::Vector normals[2];
   n = 0;
   slice.cull_edge(
-      math::X_AXIS, math::X_AXIS, &pb,
+      math::X_AXIS, math::X_AXIS, &PB,
       [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
         if (bp && n < 2)
           normals[n] = bp->v;
@@ -574,11 +574,11 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
   HS_EXPECT_EQ(n, 1);
 
   // A planar edge rotates its basis alongside the endpoints.
-  const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const math::Basis PB{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   math::Vector normals[N];
   n = 0;
   vr.cull_edge(
-      math::X_AXIS, math::X_AXIS, &pb,
+      math::X_AXIS, math::X_AXIS, &PB,
       [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
         if (bp && n < N)
           normals[n] = bp->u;
@@ -595,10 +595,10 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
 inline void test_replicate_three_planar_basis_copies() {
   constexpr int W = 32;
   Filter::World::Replicate<W> replicate(3);
-  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const math::Basis BASIS{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   int copies = 0;
   const bool hit = replicate.cull_edge(
-      math::X_AXIS, math::Z_AXIS, &basis,
+      math::X_AXIS, math::Z_AXIS, &BASIS,
       [&](const math::Vector &a, const math::Vector &b,
           const math::Basis *forwarded) {
         HS_EXPECT_LT(copies, 3);
@@ -607,7 +607,7 @@ inline void test_replicate_three_planar_basis_copies() {
           return false;
         const auto rotation =
             math::make_rotation(math::Y_AXIS, math::TWO_PI_F * copies / 3.0f);
-        const auto expected = math::rotate(basis, rotation);
+        const auto expected = math::rotate(BASIS, rotation);
         HS_EXPECT_VEC(forwarded->u, expected.u, 1e-5f);
         HS_EXPECT_VEC(forwarded->v, expected.v, 1e-5f);
         HS_EXPECT_VEC(forwarded->w, expected.w, 1e-5f);
@@ -719,11 +719,11 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   HS_EXPECT_NEAR(sink_a.y, 1.0f, 1e-6f);
 
   // The planar basis rides the same chain.
-  const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const math::Basis PB{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   math::Vector tail_normal{};
   n = 0;
   pipe.could_intersect_clip(
-      math::Y_AXIS, math::Z_AXIS, &pb,
+      math::Y_AXIS, math::Z_AXIS, &PB,
       [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
         if (bp)
           tail_normal = bp->v;

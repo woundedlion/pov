@@ -293,16 +293,16 @@ template <typename FX, Pullback::ResourceKey Key>
 inline void verify_warp_slot(const ParamList &params, const char *slot_name) {
   using Family = typename FX::Params::template Family<Key>;
   HS_CONTEXT(slot_name);
-  constexpr bool present = !std::is_void_v<Family>;
+  constexpr bool PRESENT = !std::is_void_v<Family>;
   const ParamDef *def = params.find(slot_name);
-  constexpr bool speed = present && affine_field_read<FX, Key>("speed");
-  HS_EXPECT_EQ(def != nullptr, speed);
-  if constexpr (present)
+  constexpr bool SPEED = PRESENT && affine_field_read<FX, Key>("speed");
+  HS_EXPECT_EQ(def != nullptr, SPEED);
+  if constexpr (PRESENT)
     if (def != nullptr) {
       HS_EXPECT_EQ(bits(def->min), bits(Family::FIELDS[0].min));
       HS_EXPECT_EQ(bits(def->max), bits(Family::FIELDS[0].max));
     }
-  verify_family_sliders<FX, Family, Key>(params, present);
+  verify_family_sliders<FX, Family, Key>(params, PRESENT);
 }
 
 /** @brief Bitwise-compares every tabled field of one parameter family. */
@@ -507,9 +507,9 @@ inline void check_authored_slider_registration(const FX &effect) {
         return;
       }
 
-      const bool UNIT = ColorModulation::unit_mechanic(config.mechanic.kind);
-      require_target(&config.mechanic.amount, UNIT ? 0.0f : -4.0f,
-                     UNIT ? 1.0f : 4.0f);
+      const bool unit = ColorModulation::unit_mechanic(config.mechanic.kind);
+      require_target(&config.mechanic.amount, unit ? 0.0f : -4.0f,
+                     unit ? 1.0f : 4.0f);
       switch (config.source) {
       case Pattern::SourceKind::NOISE:
         require_target(&config.noise.scale, 1.0f / 64.0f,
@@ -848,29 +848,29 @@ inline void check_slider_registration(const char *name) {
 
   for (const char *slider : UNGATED_COLOR_SLIDERS)
     HS_EXPECT_TRUE(params.find(slider) != nullptr);
-  constexpr bool mobius =
+  constexpr bool MOBIUS =
       std::is_same_v<typename Params::template Family<"lens">,
                      Pullback::MobiusGeneratorParams>;
   for (const char *slider : MOBIUS_SLIDERS)
-    HS_EXPECT_EQ(params.find(slider) != nullptr, mobius);
-  constexpr bool brightness =
+    HS_EXPECT_EQ(params.find(slider) != nullptr, MOBIUS);
+  constexpr bool BRIGHTNESS =
       Traits::BRIGHTNESS != Pullback::Color::BrightnessEnvelope::NONE;
-  constexpr bool displacement = Params::template HAS<"displacement">;
-  constexpr bool spatial_modulation = Params::template HAS<"modulation">;
+  constexpr bool DISPLACEMENT = Params::template HAS<"displacement">;
+  constexpr bool SPATIAL_MODULATION = Params::template HAS<"modulation">;
   HS_EXPECT_EQ(params.find("Modulation Amount") != nullptr,
-               displacement || spatial_modulation);
-  HS_EXPECT_EQ(params.find("Brightness Bottom") != nullptr, brightness);
-  HS_EXPECT_EQ(params.find("Brightness Top") != nullptr, brightness);
-  constexpr bool noise_modulation = [] {
+               DISPLACEMENT || SPATIAL_MODULATION);
+  HS_EXPECT_EQ(params.find("Brightness Bottom") != nullptr, BRIGHTNESS);
+  HS_EXPECT_EQ(params.find("Brightness Top") != nullptr, BRIGHTNESS);
+  constexpr bool NOISE_MODULATION = [] {
     if constexpr (Params::template HAS<"modulation">)
       return Params::template Family<"modulation">::SOURCE ==
              Pattern::SourceKind::NOISE;
     return false;
   }();
-  HS_EXPECT_EQ(params.find("Pattern Scale") != nullptr, noise_modulation);
+  HS_EXPECT_EQ(params.find("Pattern Scale") != nullptr, NOISE_MODULATION);
   HS_EXPECT_EQ(params.find("Pattern Frequency") != nullptr,
-               spatial_modulation && !noise_modulation);
-  HS_EXPECT_EQ(params.find("Pattern Speed") != nullptr, spatial_modulation);
+               SPATIAL_MODULATION && !NOISE_MODULATION);
+  HS_EXPECT_EQ(params.find("Pattern Speed") != nullptr, SPATIAL_MODULATION);
   if constexpr (Params::template HAS<"modulation">) {
     const auto initial = preset_params<FX>(0);
     const auto &config = initial.template get<"modulation">().modulation;
@@ -895,11 +895,11 @@ inline void check_slider_registration(const char *name) {
     const ParamDef *speed = params.find("Pattern Speed");
     HS_EXPECT_TRUE(speed != nullptr);
     if (speed != nullptr) {
-      const float MAXIMUM = config.source == Pattern::SourceKind::NOISE
+      const float maximum = config.source == Pattern::SourceKind::NOISE
                                 ? Pattern::MAX_NOISE_SPEED
                                 : Pattern::MAX_ANALYTIC_SPEED;
-      HS_EXPECT_EQ(speed->min, -MAXIMUM);
-      HS_EXPECT_EQ(speed->max, MAXIMUM);
+      HS_EXPECT_EQ(speed->min, -maximum);
+      HS_EXPECT_EQ(speed->max, maximum);
       for (const auto &field : Fields::EXTRA_SCHEMA)
         if (std::strcmp(field.id, speed_id) == 0) {
           HS_EXPECT_EQ(speed->min, field.min);
@@ -909,9 +909,9 @@ inline void check_slider_registration(const char *name) {
     const ParamDef *amount = params.find("Modulation Amount");
     HS_EXPECT_TRUE(amount != nullptr);
     if (amount != nullptr) {
-      const bool UNIT = ColorModulation::unit_mechanic(config.mechanic.kind);
-      HS_EXPECT_EQ(amount->min, UNIT ? 0.0f : -4.0f);
-      HS_EXPECT_EQ(amount->max, UNIT ? 1.0f : 4.0f);
+      const bool unit = ColorModulation::unit_mechanic(config.mechanic.kind);
+      HS_EXPECT_EQ(amount->min, unit ? 0.0f : -4.0f);
+      HS_EXPECT_EQ(amount->max, unit ? 1.0f : 4.0f);
     }
   }
 
@@ -954,10 +954,10 @@ inline void check_slider_registration(const char *name) {
       named_field_count<FX, typename Params::template Family<"value">>() +
       warp_slot_count<FX, "outer_warp">() +
       warp_slot_count<FX, "inner_warp">() + warp_slot_count<FX, "affine">() +
-      (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
-      std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
-      (spatial_modulation ? size_t{3} : size_t{0}) +
-      (displacement ? size_t{1} : size_t{0});
+      (MOBIUS ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
+      std::size(UNGATED_COLOR_SLIDERS) + (BRIGHTNESS ? size_t{2} : size_t{0}) +
+      (SPATIAL_MODULATION ? size_t{3} : size_t{0}) +
+      (DISPLACEMENT ? size_t{1} : size_t{0});
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_EQ(params.size(), params.capacity());
 }
@@ -1241,18 +1241,18 @@ inline void test_palette_mapping_crossfade() {
     HS_EXPECT_EQ(palette_mapping_coordinate(PHASE, weights, 1.0f, 0.0f),
                  palette_mapping_coordinate(PHASE, MAPPING, 1.0f, 0.0f));
   }
-  const auto midpoint = PaletteMappingWeights::lerp(LINEAR, CUP, 0.5f);
-  HS_EXPECT_EQ(midpoint.exact, 0xff);
-  HS_EXPECT_NEAR(palette_mapping_coordinate(PHASE, midpoint, 1.0f, 0.0f),
+  const auto MIDPOINT = PaletteMappingWeights::lerp(LINEAR, CUP, 0.5f);
+  HS_EXPECT_EQ(MIDPOINT.exact, 0xff);
+  HS_EXPECT_NEAR(palette_mapping_coordinate(PHASE, MIDPOINT, 1.0f, 0.0f),
                  0.5f * PHASE + 0.5f * math::unit_cup(PHASE), 1e-6f);
-  const auto bell = PaletteMappingWeights::single(PaletteMapping::BELL);
+  const auto BELL = PaletteMappingWeights::single(PaletteMapping::BELL);
   HS_EXPECT_NEAR(
       palette_mapping_coordinate(
-          PHASE, PaletteMappingWeights::lerp(CUP, bell, 0.5f), 1.0f, 0.0f),
+          PHASE, PaletteMappingWeights::lerp(CUP, BELL, 0.5f), 1.0f, 0.0f),
       0.5f, 1e-6f);
-  const auto unchanged = PaletteMappingWeights::lerp(CUP, CUP, 0.3f);
-  HS_EXPECT_EQ(unchanged.exact, CUP.exact);
-  HS_EXPECT_TRUE(unchanged.values == CUP.values);
+  const auto UNCHANGED = PaletteMappingWeights::lerp(CUP, CUP, 0.3f);
+  HS_EXPECT_EQ(UNCHANGED.exact, CUP.exact);
+  HS_EXPECT_TRUE(UNCHANGED.values == CUP.values);
 }
 
 #include "tests/composed_effect/temporal_sampling.h"
@@ -1293,13 +1293,13 @@ inline void test_ash_cloud_document_pipeline() {
   };
   for (const auto &view : {math::X_AXIS, -math::Y_AXIS, math::Z_AXIS,
                            math::Vector(-0.3f, 0.4f, -0.5f).normalized()}) {
-    const auto EXPECTED = lenses::dodecahedral_kaleidoscope_lens(view);
+    const auto expected = lenses::dodecahedral_kaleidoscope_lens(view);
     for (float fraction : {0.0f, 1.0f}) {
-      const auto ACTUAL = Pullback::Lens::DodecahedralTableKaleidoscope::apply(
+      const auto actual = Pullback::Lens::DodecahedralTableKaleidoscope::apply(
           view, Frame{{fraction}});
-      HS_EXPECT_EQ(ACTUAL.x, EXPECTED.x);
-      HS_EXPECT_EQ(ACTUAL.y, EXPECTED.y);
-      HS_EXPECT_EQ(ACTUAL.z, EXPECTED.z);
+      HS_EXPECT_EQ(actual.x, expected.x);
+      HS_EXPECT_EQ(actual.y, expected.y);
+      HS_EXPECT_EQ(actual.z, expected.z);
     }
   }
   composed_chain_tests::verify_export<FX>(0, DOCUMENT_CHANNEL_TOLERANCE);

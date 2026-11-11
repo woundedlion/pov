@@ -11,21 +11,21 @@ using Pipeline = FX::RenderPipeline;
 
 inline Color4 unfactored_shared(const math::Vector &view,
                                 const FX::Frame &frame) {
-  const auto ROTATED =
+  const auto rotated =
       Pipeline::NodeAt<0>::run(Pullback::SphereSample{view, 0.0f}, frame.ctx,
                                std::get<0>(frame.prepared));
-  const auto RIPPLED =
-      Pipeline::NodeAt<1>::run(ROTATED, frame.ctx, std::get<1>(frame.prepared));
-  const auto PROJECTED =
-      Pipeline::NodeAt<2>::run(RIPPLED, frame.ctx, std::get<2>(frame.prepared));
-  const auto SAMPLED = Pipeline::NodeAt<3>::run(PROJECTED, frame.ctx,
+  const auto rippled =
+      Pipeline::NodeAt<1>::run(rotated, frame.ctx, std::get<1>(frame.prepared));
+  const auto projected =
+      Pipeline::NodeAt<2>::run(rippled, frame.ctx, std::get<2>(frame.prepared));
+  const auto sampled = Pipeline::NodeAt<3>::run(projected, frame.ctx,
                                                 std::get<3>(frame.prepared));
-  const auto COVERED =
-      Pipeline::NodeAt<4>::run(SAMPLED, frame.ctx, std::get<4>(frame.prepared));
+  const auto covered =
+      Pipeline::NodeAt<4>::run(sampled, frame.ctx, std::get<4>(frame.prepared));
   Pullback::ColorSample color;
-  const bool READY = Pipeline::NodeAt<5>::run_shared_base(
-      COVERED, frame.ctx, std::get<5>(frame.prepared), color);
-  HS_EXPECT_TRUE(READY);
+  const bool ready = Pipeline::NodeAt<5>::run_shared_base(
+      covered, frame.ctx, std::get<5>(frame.prepared), color);
+  HS_EXPECT_TRUE(ready);
   Pipeline::NodeAt<6>::run_phase(color, frame.ctx, std::get<6>(frame.prepared));
   Pipeline::NodeAt<7>::run_phase(color, frame.ctx, std::get<7>(frame.prepared));
   return Pullback::finish_color_sample(color);
@@ -53,20 +53,20 @@ inline void test_ash_cloud_shared_color_identity() {
     if (!frame)
       return;
     for (int x = 0; x < 288; x += 18) {
-      const auto SHADER = FX::prepare_column_shader(*frame, x);
-      if (!SHADER.shared)
+      const auto shader = FX::prepare_column_shader(*frame, x);
+      if (!shader.shared)
         continue;
       for (int y = 0; y < 144; y += 18) {
-        const auto VIEW = direction(x, math::TrigLUT<288, 144>::sin_phi[y],
+        const auto view = direction(x, math::TrigLUT<288, 144>::sin_phi[y],
                                     math::TrigLUT<288, 144>::cos_phi[y]);
-        const auto EXPECTED = FX::shade(VIEW, *frame);
-        const auto ACTUAL = unfactored_shared(VIEW, *frame);
-        HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
-        HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
-        const auto COLUMN = SHADER(math::TrigLUT<288, 144>::sin_phi[y],
+        const auto expected = FX::shade(view, *frame);
+        const auto actual = unfactored_shared(view, *frame);
+        HS_EXPECT_EQ(actual.color, expected.color);
+        HS_EXPECT_EQ(actual.alpha, expected.alpha);
+        const auto column = shader(math::TrigLUT<288, 144>::sin_phi[y],
                                    math::TrigLUT<288, 144>::cos_phi[y]);
-        HS_EXPECT_EQ(COLUMN.color, ACTUAL.color);
-        HS_EXPECT_EQ(COLUMN.alpha, ACTUAL.alpha);
+        HS_EXPECT_EQ(column.color, actual.color);
+        HS_EXPECT_EQ(column.alpha, actual.alpha);
       }
     }
   }
@@ -93,37 +93,39 @@ inline void test_ash_cloud_shared_column_qualification() {
     if (!frame)
       return;
     for (int x = 0; x < 288; x += COLUMN_STRIDE) {
-      const auto SHADER = FX::prepare_column_shader(*frame, x);
-      if (!SHADER.shared)
+      const auto shader = FX::prepare_column_shader(*frame, x);
+      if (!shader.shared)
         continue;
       for (int y = 0; y < 144; ++y) {
-        const float SINE = math::TrigLUT<288, 144>::sin_phi[y];
-        const float COSINE = math::TrigLUT<288, 144>::cos_phi[y];
-        const auto VIEW = direction(x, SINE, COSINE);
-        const auto EXPECTED = FX::shade(VIEW, *frame);
-        const auto ACTUAL = SHADER(SINE, COSINE);
-        mismatches += ACTUAL.color != EXPECTED.color ||
-                      bits(ACTUAL.alpha) != bits(EXPECTED.alpha);
-        const Pixel EXPECTED_PREMULTIPLIED = EXPECTED.color * EXPECTED.alpha;
-        const Pixel ACTUAL_PREMULTIPLIED = ACTUAL.color * ACTUAL.alpha;
+        const float sine = math::TrigLUT<288, 144>::sin_phi[y];
+        const float cosine = math::TrigLUT<288, 144>::cos_phi[y];
+        const auto view = direction(x, sine, cosine);
+        const auto expected_value = FX::shade(view, *frame);
+        const auto actual_value = shader(sine, cosine);
+        mismatches += actual_value.color != expected_value.color ||
+                      bits(actual_value.alpha) != bits(expected_value.alpha);
+        const Pixel expected_premultiplied_value =
+            expected_value.color * expected_value.alpha;
+        const Pixel actual_premultiplied_value =
+            actual_value.color * actual_value.alpha;
         const auto check = [&](int expected, int actual,
                                int expected_premultiplied,
                                int actual_premultiplied) {
-          const int ERROR = std::abs(expected - actual);
-          maximum_rgb = std::max(maximum_rgb, ERROR);
+          const int error = std::abs(expected - actual);
+          maximum_rgb = std::max(maximum_rgb, error);
           maximum_premultiplied =
               std::max(maximum_premultiplied,
                        std::abs(expected_premultiplied - actual_premultiplied));
-          sum += ERROR;
+          sum += error;
         };
-        check(EXPECTED.color.r, ACTUAL.color.r, EXPECTED_PREMULTIPLIED.r,
-              ACTUAL_PREMULTIPLIED.r);
-        check(EXPECTED.color.g, ACTUAL.color.g, EXPECTED_PREMULTIPLIED.g,
-              ACTUAL_PREMULTIPLIED.g);
-        check(EXPECTED.color.b, ACTUAL.color.b, EXPECTED_PREMULTIPLIED.b,
-              ACTUAL_PREMULTIPLIED.b);
-        maximum_alpha =
-            std::max(maximum_alpha, fabsf(EXPECTED.alpha - ACTUAL.alpha));
+        check(expected_value.color.r, actual_value.color.r,
+              expected_premultiplied_value.r, actual_premultiplied_value.r);
+        check(expected_value.color.g, actual_value.color.g,
+              expected_premultiplied_value.g, actual_premultiplied_value.g);
+        check(expected_value.color.b, actual_value.color.b,
+              expected_premultiplied_value.b, actual_premultiplied_value.b);
+        maximum_alpha = std::max(
+            maximum_alpha, fabsf(expected_value.alpha - actual_value.alpha));
         ++samples;
       }
     }
@@ -183,15 +185,15 @@ inline void test_ash_cloud_shared_column_fallbacks() {
     if (mode == 6)
       std::get<7>(frame.prepared).ready = false;
     for (int x = 0; x < 288; x += 18) {
-      const auto SHADER = FX::prepare_column_shader(frame, x);
-      HS_EXPECT_FALSE(SHADER.shared);
+      const auto shader = FX::prepare_column_shader(frame, x);
+      HS_EXPECT_FALSE(shader.shared);
       for (int y = 0; y < 144; ++y) {
-        const float SINE = math::TrigLUT<288, 144>::sin_phi[y];
-        const float COSINE = math::TrigLUT<288, 144>::cos_phi[y];
-        const auto EXPECTED = FX::shade(direction(x, SINE, COSINE), frame);
-        const auto ACTUAL = SHADER(SINE, COSINE);
-        HS_EXPECT_TRUE(ACTUAL.color == EXPECTED.color);
-        HS_EXPECT_EQ(bits(ACTUAL.alpha), bits(EXPECTED.alpha));
+        const float sine = math::TrigLUT<288, 144>::sin_phi[y];
+        const float cosine = math::TrigLUT<288, 144>::cos_phi[y];
+        const auto expected = FX::shade(direction(x, sine, cosine), frame);
+        const auto actual = shader(sine, cosine);
+        HS_EXPECT_TRUE(actual.color == expected.color);
+        HS_EXPECT_EQ(bits(actual.alpha), bits(expected.alpha));
       }
     }
   }

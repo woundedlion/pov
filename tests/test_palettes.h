@@ -67,11 +67,11 @@ inline void test_mesh_palette_bank_lookup() {
 
   for (int i = 0; i < MeshPaletteBank::N; ++i) {
     for (float t : {0.0f, 1.0f}) {
-      const Color4 ACTUAL = bank[i].get(t);
-      const Color4 EXPECTED = MeshPaletteBank::sources()[i]->get(t);
-      HS_EXPECT_EQ(ACTUAL.color.r, EXPECTED.color.r);
-      HS_EXPECT_EQ(ACTUAL.color.g, EXPECTED.color.g);
-      HS_EXPECT_EQ(ACTUAL.color.b, EXPECTED.color.b);
+      const Color4 actual = bank[i].get(t);
+      const Color4 expected = MeshPaletteBank::sources()[i]->get(t);
+      HS_EXPECT_EQ(actual.color.r, expected.color.r);
+      HS_EXPECT_EQ(actual.color.g, expected.color.g);
+      HS_EXPECT_EQ(actual.color.b, expected.color.b);
     }
   }
 

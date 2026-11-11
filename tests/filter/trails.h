@@ -13,11 +13,11 @@
  *        rounded snorm16 component error bound.
  */
 inline void test_world_trails_int16_quantization_roundtrip() {
-  constexpr int Cap = 8;
+  constexpr int CAP = 8;
   alignas(std::max_align_t) static uint8_t
-      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
+      buf[Filter::World::Trails<CAP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<Cap> trails(/*lifetime=*/10);
+  Filter::World::Trails<CAP> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
   const math::Vector v0 = math::Vector(0.3f, -0.6f, 0.74f).normalized();
@@ -54,16 +54,16 @@ inline void test_world_trails_int16_quantization_roundtrip() {
  * @details encode() clamps to [-1, 1] before quantizing.
  */
 inline void test_world_trails_clamps_out_of_range() {
-  constexpr int Cap = 4;
+  constexpr int CAP = 4;
   alignas(std::max_align_t) static uint8_t
-      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
+      buf[Filter::World::Trails<CAP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<Cap> trails(/*lifetime=*/10);
+  Filter::World::Trails<CAP> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
   // 1.8*32767 and -1.5*32767 overflow int16; both must saturate to +/-1.
-  const math::Vector v = math::Vector(1.8f, 0.5f, -1.5f);
-  trails.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
+  const math::Vector V = math::Vector(1.8f, 0.5f, -1.5f);
+  trails.plot(V, Pixel(1, 1, 1), 0.0f, 1.0f,
               [](const math::Vector &, const Pixel &, float, float) {});
 
   math::Vector decoded(0, 0, 0);
@@ -80,22 +80,22 @@ inline void test_world_trails_clamps_out_of_range() {
 
 /** @brief Capacity eviction retains a bounded live set and accepts new points. */
 inline void test_world_trails_capacity_evicts_one_slot() {
-  constexpr int Cap = 4;
-  constexpr int Overflow = 3;
+  constexpr int CAP = 4;
+  constexpr int OVERFLOW_COUNT = 3;
   alignas(std::max_align_t) static uint8_t
-      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
+      buf[Filter::World::Trails<CAP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<Cap> trails(/*lifetime=*/100);
+  Filter::World::Trails<CAP> trails(/*lifetime=*/100);
   trails.init_storage(arena);
 
   auto noop = [](const math::Vector &, const Pixel &, float, float) {};
-  math::Vector pushed[Cap + Overflow];
-  for (int i = 0; i < Cap + Overflow; ++i) {
+  math::Vector pushed[CAP + OVERFLOW_COUNT];
+  for (int i = 0; i < CAP + OVERFLOW_COUNT; ++i) {
     pushed[i] =
         math::Vector(static_cast<float>(i + 1), 1.0f, 0.5f).normalized();
     trails.plot(pushed[i], Pixel(1, 1, 1), 0.0f, 1.0f, noop);
   }
-  HS_EXPECT_EQ(trails.size(), (size_t)Cap);
+  HS_EXPECT_EQ(trails.size(), (size_t)CAP);
 
   auto trail = [](const math::Vector &, float) {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
@@ -105,7 +105,7 @@ inline void test_world_trails_capacity_evicts_one_slot() {
                [&](const math::Vector &v, const Pixel &, float, float) {
                  decoded.push_back(v);
                });
-  HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
+  HS_EXPECT_SIZE_OR_RETURN(decoded, CAP);
   constexpr float TOLERANCE = 0.5f / 32767.0f + 1e-7f;
   auto matches = [&](const math::Vector &want) {
     int n = 0;
@@ -117,8 +117,8 @@ inline void test_world_trails_capacity_evicts_one_slot() {
     return n;
   };
   // Each overflow push replaces the newest slot; the oldest Cap - 1 survive.
-  for (int i = 0; i < Cap + Overflow; ++i) {
-    const bool kept = i < Cap - 1 || i == Cap + Overflow - 1;
+  for (int i = 0; i < CAP + OVERFLOW_COUNT; ++i) {
+    const bool kept = i < CAP - 1 || i == CAP + OVERFLOW_COUNT - 1;
     HS_EXPECT_EQ(matches(pushed[i]), (kept ? 1 : 0));
   }
 }
@@ -128,11 +128,11 @@ inline void test_world_trails_capacity_evicts_one_slot() {
  *        once ttl reaches 0.
  */
 inline void test_world_trails_ttl_expiry() {
-  constexpr int Cap = 4;
+  constexpr int CAP = 4;
   alignas(std::max_align_t) static uint8_t
-      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
+      buf[Filter::World::Trails<CAP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<Cap> trails(/*lifetime=*/2);
+  Filter::World::Trails<CAP> trails(/*lifetime=*/2);
   trails.init_storage(arena);
 
   auto noop = [](const math::Vector &, const Pixel &, float, float) {};
@@ -155,11 +155,11 @@ inline void test_world_trails_ttl_expiry() {
  *        fade progress at zero for points above the new lifetime.
  */
 inline void test_world_trails_set_lifetime_caps_ttl() {
-  constexpr int Cap = 8;
+  constexpr int CAP = 8;
   alignas(std::max_align_t) static uint8_t
-      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
+      buf[Filter::World::Trails<CAP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<Cap> trails(/*lifetime=*/10);
+  Filter::World::Trails<CAP> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
   const math::Vector v0 = math::Vector(0.3f, -0.6f, 0.74f).normalized();
@@ -196,32 +196,32 @@ inline void test_world_trails_set_lifetime_caps_ttl() {
  *          without evicting any live point.
  */
 inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
-  constexpr int Cap = 4;
+  constexpr int CAP = 4;
   alignas(std::max_align_t) static uint8_t
-      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
+      buf[Filter::World::Trails<CAP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<Cap> trails(/*lifetime=*/100);
+  Filter::World::Trails<CAP> trails(/*lifetime=*/100);
   trails.init_storage(arena);
 
   // Orthogonal/antipodal unit vectors so int16-quantized decodes stay trivially
   // identifiable by dot product.
-  const math::Vector p0(1, 0, 0), p1(0, 1, 0), p2(0, 0, 1), p3(-1, 0, 0),
-      p4(0, -1, 0);
+  const math::Vector P0(1, 0, 0), P1(0, 1, 0), P2(0, 0, 1), P3(-1, 0, 0),
+      P4(0, -1, 0);
   auto noop = [](const math::Vector &, const Pixel &, float, float) {};
 
-  trails.plot(p0, Pixel(1, 1, 1), 0.0f, 1.0f,
+  trails.plot(P0, Pixel(1, 1, 1), 0.0f, 1.0f,
               noop); // ttl 100 — oldest, long-lived
-  trails.plot(p1, Pixel(1, 1, 1), 99.0f, 1.0f,
+  trails.plot(P1, Pixel(1, 1, 1), 99.0f, 1.0f,
               noop); // ttl 1 — dies on next flush
-  trails.plot(p2, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
-  trails.plot(p3, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
-  HS_EXPECT_EQ(trails.size(), (size_t)Cap);          // [p0, p1, p2, p3] — full
+  trails.plot(P2, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
+  trails.plot(P3, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
+  HS_EXPECT_EQ(trails.size(), (size_t)CAP);          // [p0, p1, p2, p3] — full
 
   int live_drawn = 0;
   bool saw_p0 = false;
   auto trail = [&](const math::Vector &v, float) {
     ++live_drawn;
-    if (math::dot(v, p0) > 0.9f)
+    if (math::dot(v, P0) > 0.9f)
       saw_p0 = true;
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
@@ -230,23 +230,23 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   trails.flush(WorldTrailRef(trail), 1.0f, noop);
   HS_EXPECT_EQ(live_drawn, 4); // all 4 still live at emit time
   HS_EXPECT_TRUE(saw_p0);      // the oldest live point still draws
-  HS_EXPECT_EQ(trails.size(), (size_t)(Cap - 1)); // dead p1's slot reclaimed
+  HS_EXPECT_EQ(trails.size(), (size_t)(CAP - 1)); // dead p1's slot reclaimed
 
   // The reclaimed slot admits p4 without evicting any live point.
-  trails.plot(p4, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
+  trails.plot(P4, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
 
   bool saw_p0_after = false, saw_p2_after = false, saw_p3_after = false,
        saw_p4_after = false;
   int drawn_after = 0;
   auto trail2 = [&](const math::Vector &v, float) {
     ++drawn_after;
-    if (math::dot(v, p0) > 0.9f)
+    if (math::dot(v, P0) > 0.9f)
       saw_p0_after = true;
-    if (math::dot(v, p2) > 0.9f)
+    if (math::dot(v, P2) > 0.9f)
       saw_p2_after = true;
-    if (math::dot(v, p3) > 0.9f)
+    if (math::dot(v, P3) > 0.9f)
       saw_p3_after = true;
-    if (math::dot(v, p4) > 0.9f)
+    if (math::dot(v, P4) > 0.9f)
       saw_p4_after = true;
     return Color4(Pixel(1, 1, 1), 1.0f);
   };

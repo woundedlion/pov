@@ -263,7 +263,7 @@ inline void test_generative_palette_recipe_validation() {
     PaletteHarmony harmony;
     uint8_t count;
   };
-  constexpr RelationshipCount relationships[] = {
+  constexpr RelationshipCount RELATIONSHIPS[] = {
       {PaletteHarmony::MONOCHROMATIC, 2},
       {PaletteHarmony::ANALOGOUS, 3},
       {PaletteHarmony::ACCENTED_ANALOGOUS, 4},
@@ -273,7 +273,7 @@ inline void test_generative_palette_recipe_validation() {
       {PaletteHarmony::TETRADIC, 4},
       {PaletteHarmony::SQUARE, 4},
   };
-  for (const auto relationship : relationships) {
+  for (const auto relationship : RELATIONSHIPS) {
     PaletteRecipe derived;
     derived.hue.harmony = relationship.harmony;
     HS_EXPECT_TRUE(
@@ -990,12 +990,12 @@ inline void test_generative_palette_lerp_interpolates_loop_seam() {
 
 /** @brief Gray keys inherit their chromatic neighbor hue. */
 inline void test_generative_palette_gray_keys_use_neighbor_hue() {
-  const PaletteRecipe GRAY_BLUE =
+  const PaletteRecipe gray_blue =
       PaletteRecipes::from_colors(PaletteDomain::STRAIGHT, CPixel(0, 0, 0),
                                   CPixel(0, 0, 255), CPixel(255, 255, 255));
-  HS_EXPECT_NEAR(GRAY_BLUE.hue.custom_turns[0], GRAY_BLUE.hue.custom_turns[1],
+  HS_EXPECT_NEAR(gray_blue.hue.custom_turns[0], gray_blue.hue.custom_turns[1],
                  1e-6f);
-  HS_EXPECT_NEAR(GRAY_BLUE.hue.custom_turns[2], GRAY_BLUE.hue.custom_turns[1],
+  HS_EXPECT_NEAR(gray_blue.hue.custom_turns[2], gray_blue.hue.custom_turns[1],
                  1e-6f);
 }
 

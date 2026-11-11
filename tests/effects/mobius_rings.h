@@ -299,8 +299,8 @@ inline void test_mobius_rings_conformal_and_counter_rotation() {
   }
   HS_EXPECT_NEAR(WB::ring_polar(0.5f), math::PI_F / 2.0f, 1e-7f);
 
-  const float zs[] = {-1.0f, -0.999999f, -0.5f, 0.0f, 0.5f, 0.999999f, 1.0f};
-  for (float z : zs) {
+  const float ZS[] = {-1.0f, -0.999999f, -0.5f, 0.0f, 0.5f, 0.999999f, 1.0f};
+  for (float z : ZS) {
     for (float phase : {0.0f, 0.25f, 0.6f, 0.95f}) {
       float coord = WB::conformal_coord(z, phase);
       HS_EXPECT_TRUE(std::isfinite(coord));

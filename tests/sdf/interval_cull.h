@@ -168,10 +168,10 @@ inline int expect_cull_covers_fringe(const Shape &shape, const char *label,
  */
 inline void test_star_polygon_cull_covers_aa_fringe() {
   constexpr int W = 96, H = 48;
-  const math::Vector axes[] = {math::Vector(0, 1, 0), math::Vector(1, 0, 0),
+  const math::Vector AXES[] = {math::Vector(0, 1, 0), math::Vector(1, 0, 0),
                                math::Vector(0.3f, -0.8f, 0.5f)};
   int total = 0;
-  for (const math::Vector &axis : axes) {
+  for (const math::Vector &axis : AXES) {
     math::Basis basis = math::make_basis(math::Quaternion(), axis);
     for (float radius : {0.03f, 0.3f, 0.9f}) {
       for (int sides : {5, 8}) {
@@ -211,13 +211,13 @@ template <int W, int H>
 inline void test_cull_covers_interior_over_orientation_grid() {
   HS_CONTEXT("grid", W, H);
 
-  const math::Vector axes[] = {
+  const math::Vector AXES[] = {
       math::Vector(0, 1, 0),          math::Vector(0, -1, 0),
       math::Vector(1, 0, 0),          math::Vector(0, 0, 1),
       math::Vector(1, 1, 0.4f),       math::Vector(-0.5f, 0.7f, -0.6f),
       math::Vector(0.3f, -0.8f, 0.5f)};
 
-  for (const math::Vector &axis : axes) {
+  for (const math::Vector &axis : AXES) {
     math::Basis basis = math::make_basis(math::Quaternion(), axis);
     for (float radius : {0.3f, 0.6f, 0.9f}) {
       SDF::Ring ring(basis, radius, /*thickness=*/0.25f);
@@ -303,7 +303,7 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
     math::Vector axis_a, axis_b;
     float radius_a, radius_b;
   };
-  const Pose poses[] = {
+  const Pose POSES[] = {
       {math::Vector(0, 0, 1), math::Vector(0.3f, 0.2f, 1.0f), 0.8f, 0.5f},
       {math::Vector(0, 1, 0), math::Vector(0.25f, 1.0f, -0.15f), 0.7f, 0.45f},
       {math::Vector(-0.4f, 0.6f, 0.7f), math::Vector(-0.2f, 0.75f, 0.6f), 0.9f,
@@ -311,7 +311,7 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
       {math::Vector(1, 0, 0), math::Vector(1.0f, 0.15f, 0.2f), 0.8f, 0.5f},
   };
 
-  for (const Pose &pose : poses) {
+  for (const Pose &pose : POSES) {
     math::Basis basis_a = math::make_basis(math::Quaternion(), pose.axis_a);
     math::Basis basis_b = math::make_basis(math::Quaternion(), pose.axis_b);
     Poly poly_a(basis_a, pose.radius_a / (math::PI_F / 2.0f), /*sides=*/6,
@@ -341,7 +341,7 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
     float radius_a; /**< Polygon circumradius in radians. */
     float radius_b; /**< Star tip radius, normalized (x PI/2 for radians). */
   };
-  const Pose poses[] = {
+  const Pose POSES[] = {
       {math::Vector(0, 0, 1), math::Vector(0.2f, 0.1f, 1.0f), 0.9f, 0.35f},
       {math::Vector(0, 1, 0), math::Vector(0.2f, 1.0f, -0.1f), 0.8f, 0.3f},
       {math::Vector(-0.4f, 0.6f, 0.7f), math::Vector(-0.3f, 0.65f, 0.7f), 1.0f,
@@ -349,7 +349,7 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
       {math::Vector(1, 0, 0), math::Vector(1.0f, 0.1f, 0.15f), 0.9f, 0.35f},
   };
 
-  for (const Pose &pose : poses) {
+  for (const Pose &pose : POSES) {
     math::Basis basis_a = math::make_basis(math::Quaternion(), pose.axis_a);
     math::Basis basis_b = math::make_basis(math::Quaternion(), pose.axis_b);
     Poly poly(basis_a, pose.radius_a / (math::PI_F / 2.0f), /*sides=*/6, 0.0f);
@@ -376,7 +376,7 @@ inline void test_smooth_union_cull_covers_fringe_over_leaf_pairs() {
     math::Vector axis_a, axis_b;
     float radius_a, radius_b;
   };
-  const Pose poses[] = {
+  const Pose POSES[] = {
       {math::Vector(0, 0, 1), math::Vector(0.6f, 0.2f, 1.0f), 0.9f, 0.8f},
       {math::Vector(0, 0, 1), math::Vector(0.6f, 0.2f, 1.0f), 0.5f, 0.4f},
       {math::Vector(0, 1, 0), math::Vector(0.5f, 1.0f, -0.2f), 0.45f, 0.35f},
@@ -385,7 +385,7 @@ inline void test_smooth_union_cull_covers_fringe_over_leaf_pairs() {
       {math::Vector(1, 0, 0), math::Vector(1.0f, 0.35f, 0.2f), 0.5f, 0.4f},
   };
 
-  for (const Pose &pose : poses) {
+  for (const Pose &pose : POSES) {
     math::Basis basis_a = math::make_basis(math::Quaternion(), pose.axis_a);
     math::Basis basis_b = math::make_basis(math::Quaternion(), pose.axis_b);
     Poly poly_a(basis_a, pose.radius_a / (math::PI_F / 2.0f), /*sides=*/6,
@@ -470,9 +470,9 @@ inline void test_angular_repeat_y_axis_cull_keeps_rows_narrows_columns() {
   for (uint8_t v : visited)
     visited_px += v;
   auto bounds = rep.get_vertical_bounds<H>();
-  const auto CHILD = star.get_vertical_bounds<H>();
-  HS_EXPECT_EQ(bounds.y_min, CHILD.y_min);
-  HS_EXPECT_EQ(bounds.y_max, CHILD.y_max);
+  const auto child = star.get_vertical_bounds<H>();
+  HS_EXPECT_EQ(bounds.y_min, child.y_min);
+  HS_EXPECT_EQ(bounds.y_max, child.y_max);
   HS_EXPECT_GT(bounds.y_min, 0);
   HS_EXPECT_LT(bounds.y_max, H - 1);
   const int rows =
@@ -493,11 +493,11 @@ inline void test_angular_repeat_tilted_axis_forfeits_cull() {
   constexpr int REPS = 5;
   math::init_geometry_luts<W, H>();
   // Exceeds the Y-fold axis tolerance (`ANGULAR_REPEAT_Y_AXIS_TOL_SQ`).
-  const float tilt = 5e-3f;
+  const float TILT = 5e-3f;
   SDF::Line ln(math::Vector(0.25f, 1, 0).normalized(),
                math::Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
   SDF::AngularRepeat<SDF::Line> rep(ln, REPS,
-                                    math::Vector(tilt, 1, 0).normalized());
+                                    math::Vector(TILT, 1, 0).normalized());
   auto bounds = rep.get_vertical_bounds<H>();
   HS_EXPECT_EQ(bounds.y_min, 0);
   HS_EXPECT_EQ(bounds.y_max, H - 1);
@@ -579,17 +579,17 @@ inline void test_face_arc_extrema_bounds() {
  *   circle, which the bounds must cover.
  */
 inline void test_line_antipodal_cull_covers_interior() {
-  const math::Vector a(-0.21973225f, -0.52185529f, -0.82424802f);
-  const math::Vector b(0.21973109f, 0.52185678f, 0.82424736f);
-  SDF::Line jittered(a, b, 0.01f);
-  const auto n = math::cross(a, math::Vector(0, 1, 0)).normalized();
-  const auto p = math::cross(n, a).normalized();
+  const math::Vector A(-0.21973225f, -0.52185529f, -0.82424802f);
+  const math::Vector B(0.21973109f, 0.52185678f, 0.82424736f);
+  SDF::Line jittered(A, B, 0.01f);
+  const auto n = math::cross(A, math::Vector(0, 1, 0)).normalized();
+  const auto p = math::cross(n, A).normalized();
   SDF::DistanceResult result;
   jittered.distance(p, result);
   HS_EXPECT_LT(result.dist, 0.0f);
   constexpr int W = 96, H = 48;
-  const math::Vector ENDPOINT = math::Vector(0.4f, 0.6f, 0.69f).normalized();
-  SDF::Line ln(ENDPOINT, -ENDPOINT, /*thickness=*/0.15f);
+  const math::Vector endpoint = math::Vector(0.4f, 0.6f, 0.69f).normalized();
+  SDF::Line ln(endpoint, -endpoint, /*thickness=*/0.15f);
   expect_cull_covers_interior<W, H>(ln, "line antipodal", false);
   expect_cull_covers_painted<W, H>(ln, "line antipodal", false);
 }
@@ -617,13 +617,13 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
   struct Cfg {
     float tilt, radius, thickness;
   };
-  const Cfg cfgs[] = {
+  const Cfg CFGS[] = {
       {0.15f, 0.22f, 0.13f},
       {0.16f, 0.25f, 0.14f},
       {0.16f, 0.33f, 0.15f},
       {0.16f, 0.39f, 0.15f},
   };
-  for (const Cfg &c : cfgs) {
+  for (const Cfg &c : CFGS) {
     math::Basis basis_n =
         math::make_basis(math::Quaternion(), math::Vector(c.tilt, 1.0f, 0.0f));
     SDF::Ring ring_n(basis_n, c.radius, c.thickness);
@@ -651,18 +651,18 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
     int harmonic;
     float phase_frac;
   };
-  const Cfg cfgs[] = {
+  const Cfg CFGS[] = {
       {0.18f, 127, 0.5f / 256.0f},
       {0.20f, 255, 0.5f / 256.0f},
       {0.15f, 384, 0.25f / 256.0f},
       {0.22f, 200, 0.5f / 256.0f},
   };
-  const math::Vector axes[] = {math::Vector(0, 1, 0),
+  const math::Vector AXES[] = {math::Vector(0, 1, 0),
                                math::Vector(0.3f, 1.0f, 0.2f),
                                math::Vector(1, 0, 0)};
-  for (const math::Vector &axis : axes) {
+  for (const math::Vector &axis : AXES) {
     math::Basis basis = math::make_basis(math::Quaternion(), axis);
-    for (const Cfg &c : cfgs) {
+    for (const Cfg &c : CFGS) {
       float amp = c.amp;
       int harmonic = c.harmonic;
       float ph = c.phase_frac;
@@ -745,8 +745,8 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
 inline void test_face_hemisphere_clip_covers_fringe() {
   constexpr int W = 288, H = 144;
   const math::LatitudeGeometry GEOMETRY(H);
-  const float pixel_width = math::TWO_PI_F / W;
-  const float bounds_margin = std::max(SDF::BOUNDS_MARGIN, pixel_width);
+  const float PIXEL_WIDTH = math::TWO_PI_F / W;
+  const float BOUNDS_MARGIN = std::max(SDF::BOUNDS_MARGIN, PIXEL_WIDTH);
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
   int early_rejects = 0;
@@ -767,7 +767,7 @@ inline void test_face_hemisphere_clip_covers_fringe() {
         SDF::FaceScratchBuffer reference_scratch;
         const SDF::PreparedFace reference(verts, idx, reference_scratch,
                                           GEOMETRY, H, nullptr, nullptr,
-                                          bounds_margin);
+                                          BOUNDS_MARGIN);
         std::vector<uint8_t> reference_visited;
         cull_visited<W, H>(reference, reference_visited);
         std::vector<float> distances(W * H);
@@ -788,16 +788,16 @@ inline void test_face_hemisphere_clip_covers_fringe() {
             SDF::FaceScratchBuffer clipped_scratch;
             const SDF::PreparedFace clipped(verts, idx, clipped_scratch,
                                             GEOMETRY, H, &clip, nullptr,
-                                            bounds_margin);
+                                            BOUNDS_MARGIN);
             const bool early_rejected = reference.phi_band_rejects(
-                verts, idx, reference.build_geometry, H, bounds_margin, &clip);
+                verts, idx, reference.build_geometry, H, BOUNDS_MARGIN, &clip);
             early_rejects += early_rejected;
             std::vector<uint8_t> visited;
             cull_visited<W, H>(clipped, visited);
             for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y)
               for (int x = 0; x < W; ++x) {
                 const float distance = distances[y * W + x];
-                if (distance >= pixel_width)
+                if (distance >= PIXEL_WIDTH)
                   continue;
                 HS_CONTEXT("clip rows", y_start, margin);
                 HS_CONTEXT("clip pixel", x, y);
@@ -818,12 +818,12 @@ inline void test_face_hemisphere_clip_covers_fringe() {
 /** @brief Pins azimuth culling to the columns emitted at a rounded boundary. */
 inline void test_face_azimuth_cull_matches_boundary_column() {
   constexpr int W = 288, H = 144, Y = 72;
-  const math::Vector VERTS[] = {math::Vector(1.0f, 0.1f, 0.0f).normalized(),
+  const math::Vector verts[] = {math::Vector(1.0f, 0.1f, 0.0f).normalized(),
                                 math::Vector(1.0f, -0.1f, 0.1f).normalized(),
                                 math::Vector(1.0f, -0.1f, -0.1f).normalized()};
   const uint16_t INDICES[] = {0, 1, 2};
   SDF::FaceScratchBuffer scratch;
-  SDF::PreparedFace face(VERTS, INDICES, scratch, math::LatitudeGeometry(H), H,
+  SDF::PreparedFace face(verts, INDICES, scratch, math::LatitudeGeometry(H), H,
                          nullptr, nullptr, SDF::BOUNDS_MARGIN);
   std::array<float, H> pads;
   pads.fill(0.05f);
@@ -861,14 +861,14 @@ inline void test_face_cull_covers_aa_fringe() {
     float rho;
     math::Vector axis;
   };
-  const Cfg cfgs[] = {
+  const Cfg CFGS[] = {
       {3, 0.15f, math::Vector(0, 0, 1)},
       {3, 0.30f, math::Vector(0, 0, 1)},
       {3, 0.48f, math::Vector(0, 0, 1)},
       {3, 0.18f, math::Vector(1, 0, 0)},
   };
   int total_paintable = 0;
-  for (const Cfg &c : cfgs) {
+  for (const Cfg &c : CFGS) {
     const int paintable =
         expect_face_cull_covers_fringe<W, H>(c.sides, c.rho, c.axis);
     HS_EXPECT_GT(paintable, 0);
@@ -880,18 +880,18 @@ inline void test_face_cull_covers_aa_fringe() {
 /** @brief Vertical bounds cover wide AA bands on tall, low-width grids. */
 inline void test_face_vertical_margin_tracks_pixel_width() {
   constexpr int W = 64, H = 144;
-  const float tilt = math::PI_F / 60.0f;
-  const math::Vector axis(sinf(tilt) * cosf(0.37f), cosf(tilt),
-                          sinf(tilt) * sinf(0.37f));
+  const float TILT = math::PI_F / 60.0f;
+  const math::Vector axis(sinf(TILT) * cosf(0.37f), cosf(TILT),
+                          sinf(TILT) * sinf(0.37f));
   const math::Basis basis = math::make_basis(math::Quaternion(), axis);
   math::Vector vertices[3];
-  const uint16_t indices[] = {0, 1, 2};
+  const uint16_t INDICES[] = {0, 1, 2};
   build_regular_face(basis, 3, 0.025f, 0.0f, vertices);
   SDF::FaceScratchBuffer original_scratch, widened_scratch;
-  SDF::PreparedFace original(vertices, indices, original_scratch,
+  SDF::PreparedFace original(vertices, INDICES, original_scratch,
                              math::LatitudeGeometry(H), H, nullptr, nullptr,
                              SDF::BOUNDS_MARGIN);
-  SDF::PreparedFace widened(vertices, indices, widened_scratch,
+  SDF::PreparedFace widened(vertices, INDICES, widened_scratch,
                             math::LatitudeGeometry(H), H, nullptr, nullptr,
                             std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
   const auto original_bounds = original.get_vertical_bounds<H>();
@@ -913,7 +913,7 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
 
   SDF::FaceScratchBuffer shipping_scratch;
   SDF::PreparedFace shipping(
-      vertices, indices, shipping_scratch, math::LatitudeGeometry(H), H,
+      vertices, INDICES, shipping_scratch, math::LatitudeGeometry(H), H,
       nullptr, nullptr, std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / 288));
   const auto shipping_bounds = shipping.get_vertical_bounds<H>();
   HS_EXPECT_EQ(shipping_bounds.y_min, original_bounds.y_min);
@@ -930,15 +930,15 @@ inline void face_fixed_pad_visited(const SDF::PreparedFace &face,
   const int y_hi = std::min(H - 1, bounds.y_max);
   if (y_lo > y_hi)
     return;
-  const float pad = SDF::face_azimuth_pad(W);
+  const float PAD = SDF::face_azimuth_pad(W);
   Scan::scan_region<W, H>(
       y_lo, y_hi,
       [&](int, auto &&out) {
         if (face.full_width)
           return false;
         for (const auto &iv : face.intervals) {
-          out(floorf((iv.start - pad) * W / math::TWO_PI_F),
-              ceilf((iv.end + pad) * W / math::TWO_PI_F));
+          out(floorf((iv.start - PAD) * W / math::TWO_PI_F),
+              ceilf((iv.end + PAD) * W / math::TWO_PI_F));
         }
         return true;
       },
@@ -964,13 +964,13 @@ inline std::pair<int, int> face_fringe_misses(const SDF::PreparedFace &face) {
   face_fixed_pad_visited<W, H>(face, fixed_visited);
   cull_visited<W, H>(face, widened_visited);
 
-  const float pixel_width = math::TWO_PI_F / W;
+  const float PIXEL_WIDTH = math::TWO_PI_F / W;
   int fixed_misses = 0;
   int widened_misses = 0;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       const math::Vector p = math::pixel_to_vector<W, H>(x, y);
-      if (SDF::distance_of(face, p).dist >= pixel_width)
+      if (SDF::distance_of(face, p).dist >= PIXEL_WIDTH)
         continue;
       const size_t px = static_cast<size_t>(y) * W + x;
       fixed_misses += !fixed_visited[px];
@@ -992,14 +992,14 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
     float rho;
     float phi;
   };
-  const Cfg cfgs[] = {
+  const Cfg CFGS[] = {
       {3, 0.14f, 2.58f}, {3, 0.14f, 2.76f}, {3, 0.20f, 2.38f},
       {3, 0.20f, 2.58f}, {3, 0.26f, 2.76f}, {3, 0.26f, 0.38f},
       {3, 0.26f, 0.56f}, {5, 0.14f, 0.38f}, {4, 0.20f, 0.38f},
       {3, 0.08f, 0.38f},
   };
   int fixed_misses = 0;
-  for (const Cfg &cfg : cfgs) {
+  for (const Cfg &cfg : CFGS) {
     const float theta = 0.31f * cfg.sides + 1.7f * cfg.rho + 0.23f * cfg.phi;
     const math::Vector axis(sinf(cfg.phi) * cosf(theta), cosf(cfg.phi),
                             sinf(cfg.phi) * sinf(theta));
@@ -1033,15 +1033,15 @@ template <int W, int H>
 inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
   const math::LatitudeGeometry GEOMETRY(H);
   constexpr int N_VERTS = 4;
-  const float rho = 0.7f;
+  const float RHO = 0.7f;
 
   math::Vector verts[N_VERTS];
   uint16_t idx[N_VERTS];
   verts[0] = math::Vector(0, pole_y, 0);
   for (int i = 1; i < N_VERTS; ++i) {
     const float a = pole_y * 0.55f * static_cast<float>(i - 2);
-    verts[i] = math::Vector(sinf(rho) * cosf(a), pole_y * cosf(rho),
-                            sinf(rho) * sinf(a));
+    verts[i] = math::Vector(sinf(RHO) * cosf(a), pole_y * cosf(RHO),
+                            sinf(RHO) * sinf(a));
   }
   for (int i = 0; i < N_VERTS; ++i)
     idx[i] = static_cast<uint16_t>(i);
@@ -1070,7 +1070,7 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
   }
   fx.advance_display();
 
-  const float pixel_width = 2.0f * math::PI_F / W;
+  const float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   int painted = 0;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
@@ -1078,11 +1078,11 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
       const float d = SDF::distance_of(face, p).dist;
       const Pixel px = fx.get_pixel(x, y);
       const bool lit = px.r != 0 || px.g != 0 || px.b != 0;
-      if (d >= pixel_width) {
+      if (d >= PIXEL_WIDTH) {
         HS_EXPECT_TRUE(!lit);
         continue;
       }
-      const float alpha = Scan::solid_coverage(d, pixel_width);
+      const float alpha = Scan::solid_coverage(d, PIXEL_WIDTH);
       if (alpha > 2.0f * Scan::MIN_ALPHA) {
         ++painted;
         HS_EXPECT_TRUE(lit);

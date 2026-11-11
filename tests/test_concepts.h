@@ -75,8 +75,8 @@ inline void test_functionref_overload_resolution() {
   FunctionRef<int(int)> r_nonconst = f; // non-const lvalue -> non-const ctor
   HS_EXPECT_EQ(r_nonconst(0), 1);
 
-  const DualCall cf{};
-  FunctionRef<int(int)> r_const = cf; // const lvalue -> const ctor
+  const DualCall CF{};
+  FunctionRef<int(int)> r_const = CF; // const lvalue -> const ctor
   HS_EXPECT_EQ(r_const(0), 100);
 
   HS_EXPECT_EQ(call_scoped(0, DualCall{}), 100);
@@ -363,8 +363,8 @@ inline void test_pipeline_ref_timed_defaults() {
   TimedRefRecorder sink;
   PipelineRef ordinary(sink);
   PipelineRef timed(sink, Spacetime::Timed{});
-  const math::Vector point(0.25f, -0.5f, 0.75f);
-  const Pixel color(123, 456, 789);
+  const math::Vector POINT(0.25f, -0.5f, 0.75f);
+  const Pixel COLOR(123, 456, 789);
 
   for (const PipelineRef *ref : {&ordinary, &timed}) {
     HS_EXPECT_TRUE(ref->world_transform_is_identity);
@@ -376,32 +376,32 @@ inline void test_pipeline_ref_timed_defaults() {
     HS_EXPECT_FALSE(ref->column_taps_ready());
     ref->select_copy(2);
   }
-  const auto world = timed.world_at(canvas, point, 0.375f);
+  const auto world = timed.world_at(canvas, POINT, 0.375f);
   HS_EXPECT_EQ(world.x, 0.25f);
   HS_EXPECT_EQ(world.y, -0.5f);
   HS_EXPECT_EQ(world.z, 0.75f);
-  const auto projected = timed.probe(canvas, point, 0.375f);
+  const auto projected = timed.probe(canvas, POINT, 0.375f);
   HS_EXPECT_EQ(projected.x, 1.75f);
   HS_EXPECT_EQ(projected.y, -1.25f);
   HS_EXPECT_EQ(sink.route, 0);
 
   HS_EXPECT_EQ(
-      timed.plot_transformed_at(canvas, point, color, 6.5f, 0.25f, 0.375f),
+      timed.plot_transformed_at(canvas, POINT, COLOR, 6.5f, 0.25f, 0.375f),
       17.375f);
   HS_EXPECT_EQ(sink.route, 3);
   HS_EXPECT_EQ(sink.point.x, 0.25f);
   HS_EXPECT_EQ(sink.point.y, -0.5f);
   HS_EXPECT_EQ(sink.point.z, 0.75f);
   HS_EXPECT_EQ(sink.time, 0.375f);
-  expect_timed_ref_registers(sink, canvas, color, 6.5f, 0.25f);
-  const Pixel projected_color(987, 654, 321);
-  HS_EXPECT_EQ(timed.plot_projected_at(canvas, {2.25f, 1.5f}, projected_color,
+  expect_timed_ref_registers(sink, canvas, COLOR, 6.5f, 0.25f);
+  const Pixel PROJECTED_COLOR(987, 654, 321);
+  HS_EXPECT_EQ(timed.plot_projected_at(canvas, {2.25f, 1.5f}, PROJECTED_COLOR,
                                        2.5f, 0.5f, 0.875f),
                2.25f);
   HS_EXPECT_EQ(sink.route, 1);
   HS_EXPECT_EQ(sink.projected.x, 2.25f);
   HS_EXPECT_EQ(sink.projected.y, 1.5f);
-  expect_timed_ref_registers(sink, canvas, projected_color, 2.5f, 0.5f);
+  expect_timed_ref_registers(sink, canvas, PROJECTED_COLOR, 2.5f, 0.5f);
 }
 
 /** @brief Timed pipeline fixture exposing stage-specific entry points. */
@@ -455,8 +455,8 @@ inline void test_pipeline_ref_timed_stages() {
   TimedRefStages sink;
   PipelineRef ref(sink, Spacetime::Timed{});
   PipelineRef copy(ref);
-  const math::Vector point(0.25f, -0.5f, 0.75f);
-  const Pixel color(321, 654, 987);
+  const math::Vector POINT(0.25f, -0.5f, 0.75f);
+  const Pixel COLOR(321, 654, 987);
   HS_EXPECT_FALSE(copy.world_transform_is_identity);
   HS_EXPECT_FALSE(copy.has_temporal_motion);
   HS_EXPECT_TRUE(copy.column_taps_ready());
@@ -466,20 +466,20 @@ inline void test_pipeline_ref_timed_stages() {
   HS_EXPECT_EQ(copy.copy_count(), 3);
   copy.select_copy(2);
   HS_EXPECT_EQ(sink.selected, 2);
-  const auto world = copy.world_at(canvas, point, 0.375f);
+  const auto world = copy.world_at(canvas, POINT, 0.375f);
   HS_EXPECT_EQ(world.x, 1.125f);
   HS_EXPECT_EQ(world.y, -0.125f);
   HS_EXPECT_EQ(world.z, -0.5f);
 
-  HS_EXPECT_EQ(copy.plot_at(canvas, point, color, 4.5f, 0.75f, 0.25f), 17.25f);
+  HS_EXPECT_EQ(copy.plot_at(canvas, POINT, COLOR, 4.5f, 0.75f, 0.25f), 17.25f);
   HS_EXPECT_EQ(sink.route, 3);
   HS_EXPECT_EQ(sink.point.x, 0.25f);
   HS_EXPECT_EQ(sink.point.y, -0.5f);
   HS_EXPECT_EQ(sink.point.z, 0.75f);
   HS_EXPECT_EQ(sink.time, 0.25f);
-  expect_timed_ref_registers(sink, canvas, color, 4.5f, 0.75f);
-  const Pixel transformed_color(135, 246, 357);
-  HS_EXPECT_EQ(copy.plot_transformed_at(canvas, point, transformed_color, 7.5f,
+  expect_timed_ref_registers(sink, canvas, COLOR, 4.5f, 0.75f);
+  const Pixel TRANSFORMED_COLOR(135, 246, 357);
+  HS_EXPECT_EQ(copy.plot_transformed_at(canvas, POINT, TRANSFORMED_COLOR, 7.5f,
                                         0.5f, 0.375f),
                -8.625f);
   HS_EXPECT_EQ(sink.route, 4);
@@ -487,22 +487,22 @@ inline void test_pipeline_ref_timed_stages() {
   HS_EXPECT_EQ(sink.point.y, -0.5f);
   HS_EXPECT_EQ(sink.point.z, 0.75f);
   HS_EXPECT_EQ(sink.time, 0.375f);
-  expect_timed_ref_registers(sink, canvas, transformed_color, 7.5f, 0.5f);
-  const Pixel projected_color(987, 654, 321);
-  HS_EXPECT_EQ(copy.plot_projected_at(canvas, {2.25f, 1.5f}, projected_color,
+  expect_timed_ref_registers(sink, canvas, TRANSFORMED_COLOR, 7.5f, 0.5f);
+  const Pixel PROJECTED_COLOR(987, 654, 321);
+  HS_EXPECT_EQ(copy.plot_projected_at(canvas, {2.25f, 1.5f}, PROJECTED_COLOR,
                                       2.5f, 0.25f, 0.875f),
                2.375f);
   HS_EXPECT_EQ(sink.route, 5);
   HS_EXPECT_EQ(sink.projected.x, 2.25f);
   HS_EXPECT_EQ(sink.projected.y, 1.5f);
   HS_EXPECT_EQ(sink.time, 0.875f);
-  expect_timed_ref_registers(sink, canvas, projected_color, 2.5f, 0.25f);
-  copy.plot_column_at(canvas, {3.25f, 2.5f}, 3, color, 4.5f, 0.75f, 0.625f);
+  expect_timed_ref_registers(sink, canvas, PROJECTED_COLOR, 2.5f, 0.25f);
+  copy.plot_column_at(canvas, {3.25f, 2.5f}, 3, COLOR, 4.5f, 0.75f, 0.625f);
   HS_EXPECT_EQ(sink.route, 6);
   HS_EXPECT_EQ(sink.projected.x, 3.25f);
   HS_EXPECT_EQ(sink.projected.y, 2.5f);
   HS_EXPECT_EQ(sink.column, 3);
-  expect_timed_ref_registers(sink, canvas, color, 4.5f, 0.75f);
+  expect_timed_ref_registers(sink, canvas, COLOR, 4.5f, 0.75f);
   HS_EXPECT_EQ(sink.time, 0.625f);
 }
 
@@ -512,16 +512,16 @@ inline void test_pipeline_ref_world_sample_column_filter() {
   Canvas canvas(effect);
   TimedRefStages sink;
   PipelineRef copy(sink, Spacetime::Timed{});
-  const math::Vector point(0.25f, -0.5f, 0.75f);
-  copy.record_world_sample(canvas, point, 0.0f, 0.5f);
+  const math::Vector POINT(0.25f, -0.5f, 0.75f);
+  copy.record_world_sample(canvas, POINT, 0.0f, 0.5f);
   HS_EXPECT_EQ(sink.recorded, 1);
-  copy.record_world_sample(canvas, point, 0.0f, 0.5f, 3, 3.25f);
+  copy.record_world_sample(canvas, POINT, 0.0f, 0.5f, 3, 3.25f);
   HS_EXPECT_EQ(sink.recorded, 2);
-  copy.record_world_sample(canvas, point, 0.0f, 0.5f, 4, 3.25f);
+  copy.record_world_sample(canvas, POINT, 0.0f, 0.5f, 4, 3.25f);
   HS_EXPECT_EQ(sink.recorded, 2);
-  copy.record_world_sample(canvas, point, 0.0f, 0.5f, 0, 8.5f);
+  copy.record_world_sample(canvas, POINT, 0.0f, 0.5f, 0, 8.5f);
   HS_EXPECT_EQ(sink.recorded, 3);
-  copy.record_world_sample(canvas, point, 0.0f, 0.5f, 7, 8.5f);
+  copy.record_world_sample(canvas, POINT, 0.0f, 0.5f, 7, 8.5f);
   HS_EXPECT_EQ(sink.recorded, 3);
 }
 
@@ -607,10 +607,10 @@ inline void test_tweenable_concept() {
  */
 inline void test_dissolve_mask_partition() {
   constexpr int KA = 288, KB = 144;
-  const uint32_t salt = 0x1234ABCDu;
+  const uint32_t SALT = 0x1234ABCDu;
 
-  DissolveMask incoming{65536u / 4u, salt, false};
-  DissolveMask outgoing{65536u / 4u, salt, true};
+  DissolveMask incoming{65536u / 4u, SALT, false};
+  DissolveMask outgoing{65536u / 4u, SALT, true};
   int owned_in = 0;
   for (int b = 0; b < KB; ++b) {
     for (int a = 0; a < KA; ++a) {
@@ -622,8 +622,8 @@ inline void test_dissolve_mask_partition() {
   float frac = static_cast<float>(owned_in) / (KA * KB);
   HS_EXPECT_TRUE(frac > 0.23f && frac < 0.27f);
 
-  DissolveMask none{0u, salt, false};
-  DissolveMask all{65536u, salt, false};
+  DissolveMask none{0u, SALT, false};
+  DissolveMask all{65536u, SALT, false};
   for (int b = 0; b < KB; b += 7) {
     for (int a = 0; a < KA; a += 7) {
       HS_EXPECT_FALSE(none.owns(a, b));

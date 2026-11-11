@@ -245,7 +245,7 @@ inline void test_shader_chain_affine_lattice_wrap() {
     source.cell_softness = 0.2f;
     source.weight_mode = 0;
     source.coverage_mode = 0;
-    const Sample::Prepared sample{};
+    const Sample::Prepared SAMPLE{};
     const PB::TranslationLattice downstream =
         Sample::translation_lattice(source);
     const bool square = kind == Pattern::TessellationKind::SQUARE;
@@ -271,10 +271,10 @@ inline void test_shader_chain_affine_lattice_wrap() {
       const float wb = direction * -2.0f;
       const math::Complex shift{downstream.a.re * wa + downstream.b.re * wb,
                                 downstream.a.im * wa + downstream.b.im * wb};
-      const Model::State before{0.999999f, 0.73f};
-      const Model::State after{0.0f, 0.73f};
-      const auto from = Model::prepare(ctx, params, before, downstream);
-      const auto to = Model::prepare(ctx, params, after, downstream);
+      const Model::State BEFORE{0.999999f, 0.73f};
+      const Model::State AFTER{0.0f, 0.73f};
+      const auto from = Model::prepare(ctx, params, BEFORE, downstream);
+      const auto to = Model::prepare(ctx, params, AFTER, downstream);
       bool varied = false;
       float first_hue = 0.0f;
       for (int index = 0; index < 21; ++index) {
@@ -289,9 +289,9 @@ inline void test_shader_chain_affine_lattice_wrap() {
         HS_EXPECT_NEAR(warped_to.coords.im - warped_from.coords.im, shift.im,
                        2e-6f);
         PB::ColorSample color_from{};
-        color_from.field = Sample::run(warped_from, ctx, source, sample);
+        color_from.field = Sample::run(warped_from, ctx, source, SAMPLE);
         PB::ColorSample color_to{};
-        color_to.field = Sample::run(warped_to, ctx, source, sample);
+        color_to.field = Sample::run(warped_to, ctx, source, SAMPLE);
         HS_EXPECT_NEAR(color_from.field.value, color_to.field.value, 5e-5f);
         HS_EXPECT_NEAR(color_from.field.path_length, color_to.field.path_length,
                        3e-6f);
@@ -316,29 +316,29 @@ inline void test_shader_chain_affine_lattice_wrap() {
 inline void test_shader_chain_affine_lattice_distance() {
   using Model = In::Op::WarpAffineV4;
   const In::FrameContext ctx = shared_resources().context();
-  const PB::TranslationLattice lattice = PB::square_lattice(0.4f);
+  const PB::TranslationLattice LATTICE = PB::square_lattice(0.4f);
   Model::Params params;
   params.translation_x = 1.0f;
   PB::PlaneSample input{};
   input.sphere = math::UP;
   input.path_length = 0.125f;
   for (float phase : {0.499999f, 0.5f, 0.500001f}) {
-    const auto prepared = Model::prepare(ctx, params, {phase, 0.0f}, lattice);
+    const auto prepared = Model::prepare(ctx, params, {phase, 0.0f}, LATTICE);
     const auto output = Model::run(input, ctx, params, prepared);
     HS_EXPECT_NEAR(output.path_length, 0.325f, 1e-6f);
     HS_EXPECT_NEAR(output.coords.re, -0.4f * phase, 1e-7f);
   }
   params.translation_x = 1.51f;
   params.translation_y = -2.51f;
-  const auto prepared = Model::prepare(ctx, params, {0.125f, 0.0f}, lattice);
+  const auto prepared = Model::prepare(ctx, params, {0.125f, 0.0f}, LATTICE);
   const auto output = Model::run(input, ctx, params, prepared);
   HS_EXPECT_NEAR(output.coords.re, -0.1f, 1e-7f);
   HS_EXPECT_NEAR(output.coords.im, 0.15f, 1e-7f);
   HS_EXPECT_NEAR(output.path_length, 0.125 + std::sqrt(0.1 * 0.1 + 0.15 * 0.15),
                  1e-7f);
-  const auto end = Model::prepare(ctx, params, {0.999999f, 0.0f}, lattice);
+  const auto end = Model::prepare(ctx, params, {0.999999f, 0.0f}, LATTICE);
   const auto end_output = Model::run(input, ctx, params, end);
-  const float bound = Model::plane_bound(params, 0.0f, lattice);
+  const float bound = Model::plane_bound(params, 0.0f, LATTICE);
   HS_EXPECT_NEAR(bound, 0.4 * std::sqrt(13.0), 2e-6f);
   HS_EXPECT_LE(std::hypot(end_output.coords.re, end_output.coords.im), bound);
   for (const auto &field : Model::Params::FIELDS)
@@ -417,13 +417,13 @@ inline void test_shader_chain_affine_hex_lattice() {
 /** @brief Repeat reduction finds the closest vector for unreduced bases; the
     general reduction also holds for axis-aligned ones. */
 inline void test_shader_chain_affine_repeat_reduction() {
-  const std::array<std::pair<math::Complex, math::Complex>, 4> bases{{
+  const std::array<std::pair<math::Complex, math::Complex>, 4> BASES{{
       {{0.25f, 0.0f}, {0.0f, 0.25f}},
       {{0.3f, 0.0f}, {1.35f, 0.26f}},
       {{0.2f, 0.1f}, {-0.7f, 0.45f}},
       {{0.0f, 0.5f}, {0.3f, 0.0f}},
   }};
-  for (const auto &[a, b] : bases) {
+  for (const auto &[a, b] : BASES) {
     const PB::Warp::PreparedRepeat repeat = PB::Warp::prepare_repeat(a, b);
     for (int index = 0; index < 61; ++index) {
       const math::Complex delta{0.37f * index - 9.0f,
@@ -456,7 +456,7 @@ inline void test_shader_chain_affine_repeat_cells() {
   lattice.cell_softness = 0.2f;
   lattice.weight_mode = 0;
   lattice.coverage_mode = 0;
-  const In::Op::SampleTessellation::Prepared sample{};
+  const In::Op::SampleTessellation::Prepared SAMPLE{};
   const PB::TranslationLattice downstream =
       In::Op::SampleTessellation::translation_lattice(lattice);
   Model::Params params;
@@ -477,9 +477,9 @@ inline void test_shader_chain_affine_repeat_cells() {
     HS_EXPECT_NEAR(warped_to.coords.re - warped_from.coords.re, 1.5f, 2e-5f);
     HS_EXPECT_NEAR(warped_to.coords.im - warped_from.coords.im, -0.75f, 2e-5f);
     HS_EXPECT_NEAR(
-        In::Op::SampleTessellation::run(warped_from, ctx, lattice, sample)
+        In::Op::SampleTessellation::run(warped_from, ctx, lattice, SAMPLE)
             .value,
-        In::Op::SampleTessellation::run(warped_to, ctx, lattice, sample).value,
+        In::Op::SampleTessellation::run(warped_to, ctx, lattice, SAMPLE).value,
         2e-4f);
     HS_EXPECT_NEAR(warped_from.path_length, warped_to.path_length, 2e-5f);
     HS_EXPECT_LE(warped_to.path_length, std::sqrt(2.0f) * 0.375f + 1e-6f);
@@ -495,7 +495,7 @@ inline void test_shader_chain_affine_repeat_cells() {
 inline void test_shader_chain_affine_interval() {
   using Model = In::Op::WarpAffineV4;
   const In::FrameContext ctx = shared_resources().context();
-  const PB::TranslationLattice lattice = PB::square_lattice(0.25f);
+  const PB::TranslationLattice LATTICE = PB::square_lattice(0.25f);
   for (const float speed : {-0.002f, 0.002f}) {
     Model::Params params;
     params.speed = speed;
@@ -520,7 +520,7 @@ inline void test_shader_chain_affine_interval() {
       HS_EXPECT_NEAR(state.rotation,
                      before.rotation + speed * params.rotation_rate * fraction,
                      1e-6f);
-      const auto prepared = Model::prepare(ctx, params, state, lattice);
+      const auto prepared = Model::prepare(ctx, params, state, LATTICE);
       const auto output = Model::run(input, ctx, params, prepared);
       if (index > 0)
         HS_EXPECT_LT(fabsf(output.path_length - previous_length), 0.001f);
@@ -534,14 +534,14 @@ inline void test_shader_chain_affine_interval() {
 inline void test_shader_chain_affine_reads_next_lattice() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"project", In::Op::ProjectStereographic::ID},
       {"far", In::Op::WarpAffineV4::ID},
       {"near", In::Op::WarpAffineV4::ID},
       {"sample", In::Op::SampleTessellation::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
-  if (!expect_compiled(program.compile(chain)))
+  if (!expect_compiled(program.compile(CHAIN)))
     return;
   HS_EXPECT_TRUE(program.ops()[3].op->runtime.translation_lattice != nullptr);
   HS_EXPECT_TRUE(program.ops()[2].op->runtime.translation_lattice == nullptr);
@@ -579,13 +579,13 @@ inline void test_shader_chain_affine_column_lattice() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
   program.bind_temporal_storage(blocks->history, blocks->column);
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"project", In::Op::ProjectStereographic::ID},
       {"warp", In::Op::WarpAffineV4::ID},
       {"sample", In::Op::SampleTessellation::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
-  if (!expect_compiled(program.compile(chain)))
+  if (!expect_compiled(program.compile(CHAIN)))
     return;
   auto &params = param_as<In::Op::AffineWarpParams>(program, 1);
   params.translation_x = 1.0f;
@@ -688,7 +688,7 @@ inline void test_shader_chain_parity_warp_vector_noise() {
 inline void test_shader_chain_noise_instances_decorrelate() {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"warp-a", In::Op::WarpVectorNoise::ID},
@@ -697,7 +697,7 @@ inline void test_shader_chain_noise_instances_decorrelate() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(chain));
+      program.compile(std::span<const In::ChainEntryRequest>(CHAIN));
   if (!expect_compiled(refusal))
     return;
   const auto &first = state_as<In::Op::NoisePhaseState>(program, 2);

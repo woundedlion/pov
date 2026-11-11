@@ -54,12 +54,12 @@ template <typename EffectT> void measure(const char *name) {
     size_t charged = 0;
     const char *remainder = "";
     for (int i = 0; i < 3; ++i) {
-      const size_t CAPACITY = arenas[i]->get_capacity();
-      if (CAPACITY >= INFLATION) {
+      const size_t capacity = arenas[i]->get_capacity();
+      if (capacity >= INFLATION) {
         charged += arenas[i]->get_lifetime_high_water_mark();
         remainder = names[i];
       } else {
-        charged += CAPACITY;
+        charged += capacity;
       }
     }
     if (charged > charged_peak) {

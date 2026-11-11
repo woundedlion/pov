@@ -164,9 +164,9 @@ inline void test_arm_passes_extend_to_frame_ends() {
 /** @brief Piecewise tracks emit each pass once, inner knots included. */
 inline void test_piecewise_arm_passes_match_brute_force() {
   constexpr int W = 288;
-  const float knots[] = {10.0f, 12.0f, 9.0f};
+  const float KNOTS[] = {10.0f, 12.0f, 9.0f};
   PassList solved;
-  Spacetime::piecewise_crossings<W>(knots, 3, false, false, solved);
+  Spacetime::piecewise_crossings<W>(KNOTS, 3, false, false, solved);
   const auto truth = brute_force_passes<W>(
       [&](double t) {
         return t < 0.5 ? 10.0 + 4.0 * t : 12.0 - 6.0 * (t - 0.5);
@@ -177,20 +177,20 @@ inline void test_piecewise_arm_passes_match_brute_force() {
     HS_EXPECT_NEAR(solved.passes[i].time, static_cast<float>(truth[i].time),
                    2e-6f);
   // A pass exactly at the inner knot: x = 72 at t = 1/2 meets arm 0.
-  const float through[] = {70.0f, 72.0f, 74.0f};
+  const float THROUGH[] = {70.0f, 72.0f, 74.0f};
   PassList knot;
-  Spacetime::piecewise_crossings<W>(through, 3, false, false, knot);
+  Spacetime::piecewise_crossings<W>(THROUGH, 3, false, false, knot);
   HS_EXPECT_EQ(static_cast<int>(knot.passes.size()), 1);
   PassList frame_end;
-  Spacetime::piecewise_crossings<W>(through, 3, false, true, frame_end);
+  Spacetime::piecewise_crossings<W>(THROUGH, 3, false, true, frame_end);
   HS_EXPECT_SIZE_OR_RETURN(frame_end.passes, 1);
-  const float starting[] = {71.0f, 71.5f, 72.0f};
+  const float STARTING[] = {71.0f, 71.5f, 72.0f};
   PassList frame_start;
-  Spacetime::piecewise_crossings<W>(starting, 3, true, false, frame_start);
+  Spacetime::piecewise_crossings<W>(STARTING, 3, true, false, frame_start);
   HS_EXPECT_SIZE_OR_RETURN(frame_start.passes, 1);
-  const float later_knots[] = {100.0f, 110.0f, 130.0f};
+  const float LATER_KNOTS[] = {100.0f, 110.0f, 130.0f};
   PassList later;
-  Spacetime::piecewise_crossings<W>(later_knots, 3, false, false, later);
+  Spacetime::piecewise_crossings<W>(LATER_KNOTS, 3, false, false, later);
   const auto later_truth = brute_force_passes<W>(
       [](double t) {
         return t < 0.5 ? 100.0 + 20.0 * t : 110.0 + 40.0 * (t - 0.5);
@@ -308,26 +308,26 @@ inline void test_model_track_splits_or_refuses_near_poles() {
   // A point carried over the pole: its longitude swings through half a turn.
   const math::Vector near_pole =
       math::Vector(0.02f, 0.999f, 0.03f).normalized();
-  const float over = 0.08f;
+  const float OVER = 0.08f;
   const math::Vector over_end =
-      math::rotate(near_pole, math::make_rotation(math::X_AXIS, over));
+      math::rotate(near_pole, math::make_rotation(math::X_AXIS, OVER));
   Spacetime::LongitudeTrack track;
   HS_EXPECT_FALSE(Spacetime::model_track<W>(
-      near_pole, over_end, Spacetime::PathBound::rotation(over).chord_error(),
+      near_pole, over_end, Spacetime::PathBound::rotation(OVER).chord_error(),
       1.0f, track));
   // A fast spin at high latitude: refused whole, modelled in halves.
-  const float height = 0.97f, angle = 1.3f;
-  const float r = sqrtf(1.0f - height * height);
-  const math::Vector p0(r, height, 0.0f);
+  const float HEIGHT = 0.97f, ANGLE = 1.3f;
+  const float r = sqrtf(1.0f - HEIGHT * HEIGHT);
+  const math::Vector p0(r, HEIGHT, 0.0f);
   const std::function<math::Vector(double)> spin = [&](double t) {
     return math::rotate(
-        p0, math::make_rotation(math::Y_AXIS, angle * static_cast<float>(t)));
+        p0, math::make_rotation(math::Y_AXIS, ANGLE * static_cast<float>(t)));
   };
   HS_EXPECT_FALSE(Spacetime::model_track<W>(
       spin(0.0), spin(1.0),
-      Spacetime::PathBound::rotation(angle, r).chord_error(), 1.0f, track));
+      Spacetime::PathBound::rotation(ANGLE, r).chord_error(), 1.0f, track));
   const float half_deviation =
-      Spacetime::PathBound::rotation(0.5f * angle, r).chord_error();
+      Spacetime::PathBound::rotation(0.5f * ANGLE, r).chord_error();
   HS_EXPECT_TRUE(check_track_passes(spin, 0.0, 0.5, half_deviation, track));
   HS_EXPECT_TRUE(check_track_passes(spin, 0.5, 1.0, half_deviation, track));
 }

@@ -75,15 +75,15 @@ inline void check_compile_hankin_invariants(size_t edges) {
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
 
-  const size_t V = base.vertices.size();
-  const size_t S = compiled.static_vertices.size();
+  const size_t v = base.vertices.size();
+  const size_t s = compiled.static_vertices.size();
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &ins = compiled.dynamic_instructions[i];
-    HS_EXPECT_TRUE(ins.v_corner < V);
-    HS_EXPECT_TRUE(ins.v_prev < V);
-    HS_EXPECT_TRUE(ins.v_next < V);
-    HS_EXPECT_TRUE(ins.idx_m1 < S);
-    HS_EXPECT_TRUE(ins.idx_m2 < S);
+    HS_EXPECT_TRUE(ins.v_corner < v);
+    HS_EXPECT_TRUE(ins.v_prev < v);
+    HS_EXPECT_TRUE(ins.v_next < v);
+    HS_EXPECT_TRUE(ins.idx_m1 < s);
+    HS_EXPECT_TRUE(ins.idx_m2 < s);
   }
 }
 
@@ -176,14 +176,14 @@ inline void check_star_faces_first_in_base_face_order() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(base, compiled, target, temp);
 
-  const size_t F = base.face_counts.size();
-  const size_t V = base.vertices.size();
+  const size_t f = base.face_counts.size();
+  const size_t v = base.vertices.size();
   const auto static_offset = static_cast<uint16_t>(compiled.static_offset);
-  HS_EXPECT_EQ(compiled.face_counts.size(), F + V);
+  HS_EXPECT_EQ(compiled.face_counts.size(), f + v);
 
   size_t off = 0;
   size_t base_off = 0;
-  for (size_t fi = 0; fi < F; ++fi) {
+  for (size_t fi = 0; fi < f; ++fi) {
     const int bc = base.face_counts[fi];
     const int oc = compiled.face_counts[fi];
     HS_EXPECT_EQ(oc, 2 * bc);
@@ -213,9 +213,9 @@ inline void check_star_faces_first_in_base_face_order() {
     base_off += bc;
   }
 
-  // Everything after the F star faces is a rosette: reversed emission puts a
+  // Everything after the f star faces is a rosette: reversed emission puts a
   // star-point entry first, never a midpoint.
-  for (size_t fi = F; fi < compiled.face_counts.size(); ++fi) {
+  for (size_t fi = f; fi < compiled.face_counts.size(); ++fi) {
     HS_EXPECT_TRUE(compiled.faces[off] >= static_offset);
     off += compiled.face_counts[fi];
   }
@@ -279,8 +279,8 @@ inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
 
   // Make instruction 0's previous corner coincide with its corner so
   // cross(p_prev, p_corner) == 0, forcing a zero-length edge.
-  const size_t idx = 0;
-  const auto ins = compiled.dynamic_instructions[idx];
+  const size_t IDX = 0;
+  const auto ins = compiled.dynamic_instructions[IDX];
   HS_EXPECT_TRUE(ins.v_prev != ins.v_corner);
   compiled.base_vertices[ins.v_prev] = compiled.base_vertices[ins.v_corner];
 
@@ -289,7 +289,7 @@ inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.5f);
 
   const math::Vector corner = compiled.base_vertices[ins.v_corner].normalized();
-  const math::Vector got = out.vertices[compiled.static_offset + idx];
+  const math::Vector got = out.vertices[compiled.static_offset + IDX];
   HS_EXPECT_VEC(got, corner, 1e-4f);
 
   // Stays finite and unit-length — never NaN from normalising a zero.
@@ -541,16 +541,16 @@ inline void test_compile_hankin_on_hankin_output() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(seed, compiled, target, temp);
 
-  const size_t E = seed.faces.size() / 2;
-  const size_t F = seed.face_counts.size();
-  const size_t V = seed.vertices.size();
+  const size_t e = seed.faces.size() / 2;
+  const size_t f = seed.face_counts.size();
+  const size_t v = seed.vertices.size();
   HS_EXPECT_EQ(compiled.static_vertices.size() +
                    compiled.dynamic_instructions.size(),
-               3 * E);
-  HS_EXPECT_EQ(compiled.face_counts.size(), F + V);
-  HS_EXPECT_EQ(compiled.faces.size(), 8 * E);
+               3 * e);
+  HS_EXPECT_EQ(compiled.face_counts.size(), f + v);
+  HS_EXPECT_EQ(compiled.faces.size(), 8 * e);
 
-  std::vector<int> rosettes(compiled.face_counts.begin() + F,
+  std::vector<int> rosettes(compiled.face_counts.begin() + f,
                             compiled.face_counts.end());
   std::vector<int> expected;
   for (int d : degree)
@@ -811,9 +811,9 @@ inline void test_compile_hankin_recompiles_after_arena_reset() {
  *          connectivity, so the key is what tells update_hankin the two apart.
  */
 inline void test_hankin_dual_seeds_share_census_not_key() {
-  const size_t half = sizeof(hankin_target_buf) / 2;
-  Arena target(hankin_target_buf, half);
-  Arena target2(hankin_target_buf + half, half);
+  const size_t HALF = sizeof(hankin_target_buf) / 2;
+  Arena target(hankin_target_buf, HALF);
+  Arena target2(hankin_target_buf + HALF, HALF);
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
 
   PolyMesh cube;

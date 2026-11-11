@@ -222,15 +222,15 @@ inline void test_spherical_harmonics_are_orthonormal() {
     scale[idx] = SHMath::harmonic_scale(lm.first, lm.second);
   }
   std::array<std::array<double, MODES>, MODES> gram{};
-  const double d_phi = PI_D / PHI_STEPS;
-  const double d_theta = 2.0 * PI_D / THETA_STEPS;
+  const double D_PHI = PI_D / PHI_STEPS;
+  const double D_THETA = 2.0 * PI_D / THETA_STEPS;
   std::array<double, MODES> value{};
   for (int phi_step = 0; phi_step < PHI_STEPS; ++phi_step) {
-    const double phi = (phi_step + 0.5) * d_phi;
-    const double weight = std::sin(phi) * d_phi * d_theta;
+    const double phi = (phi_step + 0.5) * D_PHI;
+    const double weight = std::sin(phi) * D_PHI * D_THETA;
     for (int theta_step = 0; theta_step < THETA_STEPS; ++theta_step) {
       const math::Vector p =
-          spherical_direction(phi, theta_step * d_theta - PI_D);
+          spherical_direction(phi, theta_step * D_THETA - PI_D);
       for (int idx = 0; idx < MODES; ++idx) {
         const std::pair<int, int> lm = SHMath::decode_lm(idx);
         value[idx] =
@@ -260,8 +260,8 @@ inline void test_decode_lm_inverts_the_flat_index() {
   for (int idx = 0; idx < 4096; ++idx)
     check(idx);
   for (int k : {3000, 5000, 12345, 40000}) {
-    const int SQUARE = k * k;
-    for (int idx : {SQUARE - 1, SQUARE, SQUARE + 1, SQUARE + k, SQUARE + 2 * k})
+    const int square = k * k;
+    for (int idx : {square - 1, square, square + 1, square + k, square + 2 * k})
       check(idx);
   }
 }

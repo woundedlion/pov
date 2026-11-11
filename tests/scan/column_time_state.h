@@ -60,11 +60,11 @@ template <int W, int H> inline void check_timed_shader(float lod) {
   }
   HS_EXPECT_EQ(mismatched, 0);
   HS_EXPECT_GT(lit, 300);
-  const size_t seam = static_cast<size_t>(H / 2) * W + W / 2;
-  HS_EXPECT_GT(drawn[seam - 1].r, drawn[seam].r);
+  const size_t SEAM = static_cast<size_t>(H / 2) * W + W / 2;
+  HS_EXPECT_GT(drawn[SEAM - 1].r, drawn[SEAM].r);
 
   const std::vector<Pixel> off = [&] {
-    const ScopedTemporalSampling sampling(false);
+    const ScopedTemporalSampling SAMPLING(false);
     return render_stub_frame<W, H>(timed);
   }();
   const std::vector<Pixel> endpoint =
@@ -165,7 +165,7 @@ inline void test_face_palette_shader_moves_at_column_time() {
  */
 inline void test_volume_timed_shader_reads_column_sweep_time() {
   constexpr int W = 96, H = 48;
-  const SDF::Torus torus{0.3f, 0.1f};
+  const SDF::Torus TORUS{0.3f, 0.1f};
   const math::Vector centre = math::Vector(-1.0f, 0.2f, 0.1f).normalized();
   const math::Quaternion q =
       math::make_rotation(math::Vector(0.3f, 1.0f, 0.2f).normalized(), 0.8f);
@@ -175,7 +175,7 @@ inline void test_volume_timed_shader_reads_column_sweep_time() {
     columns->set(c, centre, q);
   const std::vector<Pixel> drawn =
       render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-        Scan::TransformedVolume volume(torus, centre, q);
+        Scan::TransformedVolume volume(TORUS, centre, q);
         Scan::Volume::draw<W, H>(
             pipeline, canvas, centre, BOUNDS, volume,
             [](const math::Vector &, Fragment &f, float u) {
@@ -185,7 +185,7 @@ inline void test_volume_timed_shader_reads_column_sweep_time() {
       });
   const std::vector<Pixel> expected = render_state_oracle<W, H>(
       [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
-        Scan::TransformedVolume volume(torus, centre, q);
+        Scan::TransformedVolume volume(TORUS, centre, q);
         Scan::Volume::draw<W, H>(
             pipeline, canvas, centre, BOUNDS, volume,
             [u](const math::Vector &, Fragment &f) {
@@ -464,13 +464,13 @@ inline void test_settled_drift_matches_column_drift() {
       basis->prepare(math::Quaternion(), math::Quaternion(), true);
   const float THETA = 15 * math::TWO_PI_F / W;
   const float PHI = 0.4f;
-  const math::Vector ODD_CENTRE{cosf(THETA) * sinf(PHI), cosf(PHI),
+  const math::Vector odd_centre{cosf(THETA) * sinf(PHI), cosf(PHI),
                                 sinf(THETA) * sinf(PHI)};
-  math::Basis odd = math::make_basis(math::Quaternion(), ODD_CENTRE);
-  const math::Basis UNMOVED = odd;
-  const math::Vector ODD_DRIFT = math::perpendicular_axis(ODD_CENTRE) * 0.033f;
-  HS_EXPECT_FALSE(settle_shape(fixed, ODD_DRIFT, 0.045f, odd));
-  HS_EXPECT_VEC(odd.u, UNMOVED.u, 0.0f);
-  HS_EXPECT_VEC(odd.v, UNMOVED.v, 0.0f);
-  HS_EXPECT_VEC(odd.w, UNMOVED.w, 0.0f);
+  math::Basis odd = math::make_basis(math::Quaternion(), odd_centre);
+  const math::Basis unmoved = odd;
+  const math::Vector odd_drift = math::perpendicular_axis(odd_centre) * 0.033f;
+  HS_EXPECT_FALSE(settle_shape(fixed, odd_drift, 0.045f, odd));
+  HS_EXPECT_VEC(odd.u, unmoved.u, 0.0f);
+  HS_EXPECT_VEC(odd.v, unmoved.v, 0.0f);
+  HS_EXPECT_VEC(odd.w, unmoved.w, 0.0f);
 }

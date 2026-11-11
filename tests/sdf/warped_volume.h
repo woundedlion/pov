@@ -262,11 +262,11 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
           const double t = next() * 2 * std::numbers::pi,
                        ph = next() * 2 * std::numbers::pi;
           const double rr = c.r * (kind == 1 ? next() * 0.9 : 1.0);
-          const double X = c.R + rr * std::cos(ph);
+          const double x = c.R + rr * std::cos(ph);
           p = math::Vector(
-              static_cast<float>(X * std::cos(t)),
+              static_cast<float>(x * std::cos(t)),
               static_cast<float>(rr * std::sin(ph) + c.A * std::sin(c.n * t)),
-              static_cast<float>(X * std::sin(t)));
+              static_cast<float>(x * std::sin(t)));
         } else {
           const double px = (next() * 2 - 1) * reach;
           const double py = (next() * 2 - 1) * reach;
@@ -329,24 +329,24 @@ inline void test_twist_correct_normal_matches_field_gradient() {
 
   // The analytic chain rule must match central differences of raw_distance,
   // the field the normal is the gradient of.
-  const float R = 2.0f, r = 0.5f, A = 0.3f;
-  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{SDF::Torus{R, r},
-                                                     SDF::Warp::Twist{2, A, R}};
-  const float h = 1e-3f;
+  const float R = 2.0f, MINOR_RADIUS = 0.5f, A = 0.3f;
+  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
+      SDF::Torus{R, MINOR_RADIUS}, SDF::Warp::Twist{2, A, R}};
+  const float H = 1e-3f;
   for (int i = 0; i < 16; ++i) {
     const float theta = static_cast<float>(i) * 0.53f;
     const float phi = static_cast<float>(i) * 0.91f;
-    const float s = R + r * std::cos(phi);
+    const float s = R + MINOR_RADIUS * std::cos(phi);
     // A point on the warped surface: torus surface, displaced as apply() does.
     math::Vector p(s * std::cos(theta),
-                   r * std::sin(phi) + A * std::sin(2.0f * theta),
+                   MINOR_RADIUS * std::sin(phi) + A * std::sin(2.0f * theta),
                    s * std::sin(theta));
-    math::Vector grad((wv.raw_distance(p + math::Vector(h, 0, 0)) -
-                       wv.raw_distance(p - math::Vector(h, 0, 0))),
-                      (wv.raw_distance(p + math::Vector(0, h, 0)) -
-                       wv.raw_distance(p - math::Vector(0, h, 0))),
-                      (wv.raw_distance(p + math::Vector(0, 0, h)) -
-                       wv.raw_distance(p - math::Vector(0, 0, h))));
+    math::Vector grad((wv.raw_distance(p + math::Vector(H, 0, 0)) -
+                       wv.raw_distance(p - math::Vector(H, 0, 0))),
+                      (wv.raw_distance(p + math::Vector(0, H, 0)) -
+                       wv.raw_distance(p - math::Vector(0, H, 0))),
+                      (wv.raw_distance(p + math::Vector(0, 0, H)) -
+                       wv.raw_distance(p - math::Vector(0, 0, H))));
     HS_EXPECT_VEC(wv.normal(p), grad.normalized(), 5e-3f);
   }
 }

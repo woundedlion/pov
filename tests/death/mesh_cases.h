@@ -124,10 +124,10 @@ inline void build_mismatched_polymesh(PolyMesh &mesh, Arena &arena,
 inline void case_mesh_face_loop_side_limit() {
   static uint8_t buf[1024];
   Arena arena(buf, sizeof(buf));
-  const uint8_t counts[] = {3};
-  const uint16_t indices[] = {0, 1, 2};
+  const uint8_t COUNTS[] = {3};
+  const uint16_t INDICES[] = {0, 1, 2};
   PolyMesh mesh;
-  build_polymesh(mesh, arena, 3, counts, 1, indices, 3);
+  build_polymesh(mesh, arena, 3, COUNTS, 1, INDICES, 3);
   HalfEdgeMesh half_edges(arena, mesh);
   MeshOps::face_loop(half_edges, half_edges.faces[0].half_edge, opaque(2),
                      [](uint16_t) {});
@@ -190,10 +190,10 @@ inline void case_mesh_state_set_borrowed_offsets_not_prefix_sum() {
 inline void case_half_edge_zero_side_face() {
   static uint8_t buf[1024];
   Arena arena(buf, sizeof(buf));
-  const uint8_t counts[] = {0, 3};
-  const uint16_t indices[] = {0, 1, 2};
+  const uint8_t COUNTS[] = {0, 3};
+  const uint16_t INDICES[] = {0, 1, 2};
   PolyMesh mesh;
-  build_polymesh(mesh, arena, 3, counts, 2, indices, 3);
+  build_polymesh(mesh, arena, 3, COUNTS, 2, INDICES, 3);
   HalfEdgeMesh half_edges(arena, mesh); // face 0 has zero sides -> HS_CHECK
   (void)half_edges.faces.size();
 }
@@ -206,10 +206,10 @@ inline void case_half_edge_zero_side_face() {
 inline void case_half_edge_non_manifold_edge() {
   static uint8_t buf[2048];
   Arena arena(buf, sizeof(buf));
-  const uint8_t counts[] = {3, 3, 3};
-  const uint16_t indices[] = {0, 1, 2, 0, 1, 3, 0, 1, 4};
+  const uint8_t COUNTS[] = {3, 3, 3};
+  const uint16_t INDICES[] = {0, 1, 2, 0, 1, 3, 0, 1, 4};
   PolyMesh mesh;
-  build_polymesh(mesh, arena, 5, counts, 3, indices, 9);
+  build_polymesh(mesh, arena, 5, COUNTS, 3, INDICES, 9);
   HalfEdgeMesh half_edges(arena, mesh); // 3 half-edges on (0,1) -> HS_CHECK
   (void)half_edges.faces.size();
 }
@@ -223,10 +223,10 @@ inline void case_half_edge_non_manifold_edge() {
 inline void case_half_edge_inconsistent_winding() {
   static uint8_t buf[2048];
   Arena arena(buf, sizeof(buf));
-  const uint8_t counts[] = {3, 3};
-  const uint16_t indices[] = {0, 1, 2, 0, 1, 3};
+  const uint8_t COUNTS[] = {3, 3};
+  const uint16_t INDICES[] = {0, 1, 2, 0, 1, 3};
   PolyMesh mesh;
-  build_polymesh(mesh, arena, 4, counts, 2, indices, 6);
+  build_polymesh(mesh, arena, 4, COUNTS, 2, INDICES, 6);
   HalfEdgeMesh half_edges(arena, mesh); // both edges run 0->1 -> HS_CHECK
   (void)half_edges.faces.size();
 }
@@ -244,10 +244,10 @@ inline void case_mesh_narrow_face_count() {
 inline void case_mesh_require_closed_manifold() {
   static uint8_t buf[1024];
   Arena arena(buf, sizeof(buf));
-  const uint8_t counts[] = {3};
-  const uint16_t indices[] = {0, 1, 2};
+  const uint8_t COUNTS[] = {3};
+  const uint16_t INDICES[] = {0, 1, 2};
   PolyMesh mesh;
-  build_polymesh(mesh, arena, 3, counts, 1, indices, 3);
+  build_polymesh(mesh, arena, 3, COUNTS, 1, INDICES, 3);
   HalfEdgeMesh half_edges(arena, mesh);
   // unpaired -> HS_CHECK
   MeshOps::require_closed_manifold(half_edges, arena, "death");
@@ -261,11 +261,11 @@ inline void case_mesh_require_closed_manifold() {
 inline void case_mesh_require_vertex_manifold() {
   static uint8_t buf[4096];
   Arena arena(buf, sizeof(buf));
-  const uint8_t counts[] = {3, 3, 3, 3, 3, 3, 3, 3};
-  const uint16_t indices[] = {0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2,
+  const uint8_t COUNTS[] = {3, 3, 3, 3, 3, 3, 3, 3};
+  const uint16_t INDICES[] = {0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2,
                               0, 4, 5, 0, 5, 6, 0, 6, 4, 4, 6, 5};
   PolyMesh mesh;
-  build_polymesh(mesh, arena, 7, counts, 8, indices, 24);
+  build_polymesh(mesh, arena, 7, COUNTS, 8, INDICES, 24);
   HalfEdgeMesh half_edges(arena, mesh);
   // split fan at vertex 0 -> HS_CHECK
   MeshOps::require_closed_manifold(half_edges, arena, "death");
@@ -282,14 +282,14 @@ inline void case_mesh_require_vertex_manifold() {
 inline void case_mesh_require_matching_face_sides() {
   static uint8_t buf[2048];
   Arena arena(buf, sizeof(buf));
-  const uint8_t he_counts[] = {3, 4};
-  const uint8_t mesh_counts[] = {4, 3};
-  const uint16_t indices[] = {0, 1, 2, 3, 4, 5, 6};
+  const uint8_t HE_COUNTS[] = {3, 4};
+  const uint8_t MESH_COUNTS[] = {4, 3};
+  const uint16_t INDICES[] = {0, 1, 2, 3, 4, 5, 6};
   PolyMesh he_source;
-  build_polymesh(he_source, arena, 7, he_counts, 2, indices, 7);
+  build_polymesh(he_source, arena, 7, HE_COUNTS, 2, INDICES, 7);
   HalfEdgeMesh half_edges(arena, he_source);
   PolyMesh mesh;
-  build_polymesh(mesh, arena, 7, mesh_counts, 2, indices, 7);
+  build_polymesh(mesh, arena, 7, MESH_COUNTS, 2, INDICES, 7);
   // face 1 starts at 3 in he_source, 4 in mesh -> HS_CHECK
   MeshOps::require_matching_half_edges(half_edges, mesh, "death");
 }
@@ -300,15 +300,15 @@ inline void case_mesh_require_matching_face_sides() {
 inline void case_mesh_require_matching_half_edge_census() {
   static uint8_t buf[2048];
   Arena arena(buf, sizeof(buf));
-  const uint8_t he_counts[] = {3, 3};
-  const uint8_t mesh_counts[] = {3, 4};
-  const uint16_t indices[] = {0, 1, 2, 3, 4, 5};
+  const uint8_t HE_COUNTS[] = {3, 3};
+  const uint8_t MESH_COUNTS[] = {3, 4};
+  const uint16_t INDICES[] = {0, 1, 2, 3, 4, 5};
   PolyMesh he_source;
-  build_polymesh(he_source, arena, 7, he_counts, 2, indices, 6);
+  build_polymesh(he_source, arena, 7, HE_COUNTS, 2, INDICES, 6);
   HalfEdgeMesh half_edges(arena, he_source);
   PolyMesh mesh;
   // counts sum to 7 over a 6-entry index list -> HS_CHECK
-  build_polymesh(mesh, arena, 7, mesh_counts, 2, indices, 6);
+  build_polymesh(mesh, arena, 7, MESH_COUNTS, 2, INDICES, 6);
   MeshOps::require_matching_half_edges(half_edges, mesh, "death");
 }
 
@@ -321,15 +321,15 @@ inline void case_mesh_require_matching_half_edge_census() {
 inline void case_mesh_require_matching_half_edge_loops() {
   static uint8_t buf[2048];
   Arena arena(buf, sizeof(buf));
-  const uint8_t counts[] = {3, 3};
-  const uint16_t he_indices[] = {0, 1, 2, 3, 4, 5};
-  const uint16_t mesh_indices[] = {0, 2, 1, 3, 4, 5};
+  const uint8_t COUNTS[] = {3, 3};
+  const uint16_t HE_INDICES[] = {0, 1, 2, 3, 4, 5};
+  const uint16_t MESH_INDICES[] = {0, 2, 1, 3, 4, 5};
   PolyMesh he_source;
-  build_polymesh(he_source, arena, 6, counts, 2, he_indices, 6);
+  build_polymesh(he_source, arena, 6, COUNTS, 2, HE_INDICES, 6);
   HalfEdgeMesh half_edges(arena, he_source);
   PolyMesh mesh;
   // face 0 winds 0,2,1 in mesh and 0,1,2 in he_source -> HS_CHECK
-  build_polymesh(mesh, arena, 6, counts, 2, mesh_indices, 6);
+  build_polymesh(mesh, arena, 6, COUNTS, 2, MESH_INDICES, 6);
   MeshOps::require_matching_half_edges(half_edges, mesh, "death");
 }
 

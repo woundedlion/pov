@@ -43,9 +43,9 @@ inline void test_mesh_dissolve_masks_partition_edges() {
     return seen;
   };
 
-  const float phases[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+  const float PHASES[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
   for (uint32_t frame = 0; frame < 3; ++frame) {
-    for (float p : phases) {
+    for (float p : PHASES) {
       const auto masks = dissolve.mask_pair(p, frame);
       auto in_set = drawn_set(masks.incoming);
       auto out_set = drawn_set(masks.outgoing);

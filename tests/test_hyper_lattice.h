@@ -174,32 +174,32 @@ inline void test_periodic_distance() {
  * axis.
  */
 inline void test_edge_metrics() {
-  const math::Vec4 origin{{0.0f, 0.0f, 0.0f, 0.0f}};
-  const math::Vec4 direction{{0.0f, 0.02f, 0.4f, 0.1f}};
+  const math::Vec4 ORIGIN{{0.0f, 0.0f, 0.0f, 0.0f}};
+  const math::Vec4 DIRECTION{{0.0f, 0.02f, 0.4f, 0.1f}};
   const HL::EdgeMetric cubic =
-      HL::edge_metric_3d_at(origin, direction, 0, 1.0f);
+      HL::edge_metric_3d_at(ORIGIN, DIRECTION, 0, 1.0f);
   HS_EXPECT_NEAR(cubic.distance_sq, 0.0004f, 1e-7f);
   HS_EXPECT_EQ(cubic.free_axis, uint8_t(2));
 
   HL::EdgeMetric hyper{};
-  HS_EXPECT_TRUE(HL::edge_metric_4d_at_bounded(origin, direction, 0, 1.0f, 0.5f,
+  HS_EXPECT_TRUE(HL::edge_metric_4d_at_bounded(ORIGIN, DIRECTION, 0, 1.0f, 0.5f,
                                                0.25f, hyper));
   HS_EXPECT_NEAR(hyper.distance_sq, 0.0104f, 1e-6f);
   HS_EXPECT_EQ(hyper.free_axis, uint8_t(2));
 
   // Neither in-plane component inside the band.
-  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(origin, direction, 0, 1.0f,
+  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(ORIGIN, DIRECTION, 0, 1.0f,
                                                 0.01f, 0.25f, hyper));
   // One in-plane component inside the band, the w component outside it.
-  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(origin, direction, 0, 1.0f,
+  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(ORIGIN, DIRECTION, 0, 1.0f,
                                                 0.05f, 0.25f, hyper));
   // Inside the band, beyond the squared-distance limit.
-  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(origin, direction, 0, 1.0f,
+  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(ORIGIN, DIRECTION, 0, 1.0f,
                                                 0.5f, 1.0e-6f, hyper));
 
   HL::EdgeMetric no_axis{};
   HS_EXPECT_TRUE(HL::edge_metric_4d_at_bounded<false>(
-      origin, direction, 0, 1.0f, 0.5f, 0.25f, no_axis));
+      ORIGIN, DIRECTION, 0, 1.0f, 0.5f, 0.25f, no_axis));
   HS_EXPECT_NEAR(no_axis.distance_sq, 0.0104f, 1e-6f);
   HS_EXPECT_EQ(no_axis.free_axis, uint8_t(0));
 }
@@ -862,8 +862,8 @@ inline void test_instantaneous_renders_are_lit_and_clip_exact() {
  *  @param period Coordinate period.
  *  @return The shortest signed displacement. */
 inline float unwrapped(float from, float to, float period) {
-  const float DELTA = to - from;
-  return DELTA - period * std::round(DELTA / period);
+  const float delta = to - from;
+  return delta - period * std::round(delta / period);
 }
 
 /**
@@ -880,7 +880,7 @@ state_between(const HyperLatticeWhiteBox::Drawn &from,
   HyperLatticeWhiteBox::Drawn out = to;
   out.frame.params.lerp(from.frame.params, to.frame.params, fraction);
   const auto &p = to.frame.params;
-  const float PERIOD =
+  const float period =
       p.cell_size * (p.pattern == HyperLatticeDetail::Pattern::OCTET
                          ? std::sqrt(2.0f)
                          : 1.0f);
@@ -891,7 +891,7 @@ state_between(const HyperLatticeWhiteBox::Drawn &from,
             fraction;
     out.center[axis] =
         from.center[axis] +
-        unwrapped(from.center[axis], to.center[axis], PERIOD) * fraction;
+        unwrapped(from.center[axis], to.center[axis], period) * fraction;
   }
   for (size_t plane = 0; plane < out.frame.rotation_phase.size(); ++plane)
     out.frame.rotation_phase[plane] =
@@ -913,22 +913,22 @@ state_between(const HyperLatticeWhiteBox::Drawn &from,
 template <int W, int H>
 inline Pixel traced_pixel(const HyperLatticeWhiteBox::Drawn &state, int x,
                           int y) {
-  const math::Vector VIEW = math::pixel_to_vector<W, H>(x, y);
+  const math::Vector view = math::pixel_to_vector<W, H>(x, y);
   const auto &params = state.frame.params;
-  const bool SLICE = params.mode == HL::LatticeMode::SLICE_4D;
+  const bool slice = params.mode == HL::LatticeMode::SLICE_4D;
   if (params.pattern == HyperLatticeDetail::Pattern::CUBIC_WIRE) {
     const auto prepared = HyperLatticeDetail::prepare_trace(state.frame);
-    return SLICE ? HyperLatticeDetail::Renderer<true>::shade_premultiplied(
-                       VIEW, prepared)
+    return slice ? HyperLatticeDetail::Renderer<true>::shade_premultiplied(
+                       view, prepared)
                  : HyperLatticeDetail::Renderer<>::shade_premultiplied(
-                       VIEW, prepared);
+                       view, prepared);
   }
   static SDF::ShellLayerStorage layers;
   auto settings = HyperLatticeDetail::trace_settings(state.frame, state.center);
   settings.shell_layers = &layers;
   const auto prepared = prepare_traced(settings);
-  return (SLICE ? Trace::shade<true>(VIEW, prepared)
-                : Trace::shade<false>(VIEW, prepared))
+  return (slice ? Trace::shade<true>(view, prepared)
+                : Trace::shade<false>(view, prepared))
       .color;
 }
 
@@ -955,13 +955,13 @@ inline ColumnAgreement column_agreement(const HyperLattice<W, H> &effect,
                                         int x0, int x1, int y0, int y1) {
   ColumnAgreement out;
   for (int x = x0; x < x1; ++x) {
-    const auto STATE =
+    const auto state =
         state_between(from, to, static_cast<float>(x % (W / 2)) / (W / 2));
     for (int y = y0; y < y1; ++y) {
-      const Pixel EXPECTED = traced_pixel<W, H>(STATE, x, y);
+      const Pixel expected = traced_pixel<W, H>(state, x, y);
       out.worst = std::max<int>(
-          out.worst, max_channel_gap(effect.get_pixel(x, y), EXPECTED));
-      out.changed += EXPECTED != traced_pixel<W, H>(to, x, y);
+          out.worst, max_channel_gap(effect.get_pixel(x, y), expected));
+      out.changed += expected != traced_pixel<W, H>(to, x, y);
     }
   }
   return out;
@@ -1061,11 +1061,11 @@ inline void test_column_time_segments_match_full_frame() {
   struct Band {
     int x0, x1, y0, y1;
   };
-  const Band bands[] = {{0, 30, 0, 20}, {40, 96, 0, 20}, {45, 51, 3, 17}};
+  const Band BANDS[] = {{0, 30, 0, 20}, {40, 96, 0, 20}, {45, 51, 3, 17}};
   for (size_t preset :
        {Effect::CUBIC_PRESET_INDEX, Effect::OCTET_PRESET_INDEX}) {
     const auto full = column_time_band(preset, 0, 96, 0, 20);
-    for (const Band &b : bands) {
+    for (const Band &b : BANDS) {
       HS_CONTEXT("band", b.x0, static_cast<long long>(preset));
       const auto band = column_time_band(preset, b.x0, b.x1, b.y0, b.y1);
       size_t i = 0, different = 0;
@@ -1179,13 +1179,13 @@ inline void test_column_time_parameter_motion() {
   effect.set_margin(0);
   effect.set_clip(0, H, 1, 21);
   HS_EXPECT_TRUE(effect.selectPreset(WB::Effect::SHELL_PRESET_INDEX));
-  const HL::Params SHELLS = WB::live(effect);
+  const HL::Params shells = WB::live(effect);
   WB::live(effect).shell_radius = .32f;
   WB::live(effect).far_distance = 16.0f;
   effect.draw_frame();
   effect.advance_display();
   const auto from = WB::drawn(effect);
-  WB::live(effect) = SHELLS;
+  WB::live(effect) = shells;
   effect.draw_frame();
   effect.advance_display();
   const auto to = WB::drawn(effect);
@@ -1329,22 +1329,22 @@ inline void test_family_segues() {
   using Effect = HyperLatticeWhiteBox::Effect;
   constexpr size_t COUNT = Effect::PRESET_IDS.size();
   for (size_t index = 0; index < COUNT; ++index) {
-    const auto FROM = Effect::preset(index).params;
-    const auto TO = Effect::preset((index + 1) % COUNT).params;
-    const bool SAME_FAMILY = FROM.pattern == TO.pattern && FROM.mode == TO.mode;
-    const auto DEPARTURE = Effect::preset(index).segue;
-    HS_EXPECT_EQ(std::holds_alternative<Segue::Preset::Lerp>(DEPARTURE),
-                 SAME_FAMILY);
-    HS_EXPECT_EQ(std::holds_alternative<Segue::Preset::Fade>(DEPARTURE),
-                 !SAME_FAMILY);
+    const auto from = Effect::preset(index).params;
+    const auto to = Effect::preset((index + 1) % COUNT).params;
+    const bool same_family = from.pattern == to.pattern && from.mode == to.mode;
+    const auto departure = Effect::preset(index).segue;
+    HS_EXPECT_EQ(std::holds_alternative<Segue::Preset::Lerp>(departure),
+                 same_family);
+    HS_EXPECT_EQ(std::holds_alternative<Segue::Preset::Fade>(departure),
+                 !same_family);
   }
 
   reset_globals();
   Effect effect;
   effect.init();
   const auto &params = HyperLatticeWhiteBox::params(effect);
-  const auto WIDE = Effect::preset(Effect::WIDE_PRESET_INDEX).params;
-  const auto HYPERCUBE = Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
+  const auto wide = Effect::preset(Effect::WIDE_PRESET_INDEX).params;
+  const auto hypercube = Effect::preset(Effect::HYPERCUBE_PRESET_INDEX).params;
   HS_EXPECT_TRUE(effect.selectPreset(Effect::WIDE_PRESET_INDEX));
   effect.setAnimationsPaused(false);
   Canvas canvas(effect);
@@ -1356,9 +1356,9 @@ inline void test_family_segues() {
   float darkest = 1.0f;
   for (int frame = 1; frame <= FADE; ++frame) {
     HyperLatticeWhiteBox::step_choreography(effect, canvas);
-    const float GAIN = HyperLatticeWhiteBox::preset_gain(effect);
-    darkest = fminf(darkest, GAIN);
-    const auto &expected = frame < FADE / 2 ? WIDE : HYPERCUBE;
+    const float gain = HyperLatticeWhiteBox::preset_gain(effect);
+    darkest = fminf(darkest, gain);
+    const auto &expected = frame < FADE / 2 ? wide : hypercube;
     HS_EXPECT_EQ(params.mode, expected.mode);
     HS_EXPECT_EQ(params.cell_size, expected.cell_size);
   }
@@ -1368,7 +1368,7 @@ inline void test_family_segues() {
 
   HS_EXPECT_TRUE(effect.selectPreset(Effect::CUBIC_PRESET_INDEX));
   effect.setAnimationsPaused(false);
-  const auto CUBIC = Effect::preset(Effect::CUBIC_PRESET_INDEX).params;
+  const auto cubic = Effect::preset(Effect::CUBIC_PRESET_INDEX).params;
   for (int frame = 0; frame < Effect::PRESET_DWELL_FRAMES; ++frame)
     HyperLatticeWhiteBox::step_choreography(effect, canvas);
   const int LERP =
@@ -1377,11 +1377,11 @@ inline void test_family_segues() {
     HyperLatticeWhiteBox::step_choreography(effect, canvas);
     HS_EXPECT_EQ(HyperLatticeWhiteBox::preset_gain(effect), 1.0f);
     if (frame < LERP) {
-      HS_EXPECT_GT(params.cell_size, CUBIC.cell_size);
-      HS_EXPECT_LT(params.cell_size, WIDE.cell_size);
+      HS_EXPECT_GT(params.cell_size, cubic.cell_size);
+      HS_EXPECT_LT(params.cell_size, wide.cell_size);
     }
   }
-  HS_EXPECT_EQ(params.cell_size, WIDE.cell_size);
+  HS_EXPECT_EQ(params.cell_size, wide.cell_size);
   HS_EXPECT_EQ(effect.getPresetIndex(), Effect::WIDE_PRESET_INDEX);
 }
 
@@ -1579,7 +1579,7 @@ inline void test_traced_preset_camera_setup() {
   effect.init();
   effect.setAnimationsPaused(true);
   for (size_t i : {Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX}) {
-    const bool SLICE = i == Effect::OCTET_4D_PRESET_INDEX;
+    const bool slice = i == Effect::OCTET_4D_PRESET_INDEX;
     HL::FrameState frame{};
     frame.params = Effect::preset(i).params;
     frame.params.sphere_radius = .7f;
@@ -1590,14 +1590,14 @@ inline void test_traced_preset_camera_setup() {
     const auto after = prepare_traced(
         HyperLatticeDetail::trace_settings(frame, {{.4f, .7f, .2f, .8f}}));
     HS_EXPECT_TRUE(before.valid && after.valid);
-    const auto wrong_domain = !SLICE
+    const auto wrong_domain = !slice
                                   ? Trace::shade<true>(math::X_AXIS, before)
                                   : Trace::shade<false>(math::X_AXIS, before);
     HS_EXPECT_EQ(wrong_domain.status, Raycast::TraceStatus::INVALID_QUERY);
-    HS_EXPECT_EQ(before.camera.domain, !SLICE
+    HS_EXPECT_EQ(before.camera.domain, !slice
                                            ? Raycast::SamplingDomain::SPATIAL_3D
                                            : Raycast::SamplingDomain::SLICE_4D);
-    if (SLICE) {
+    if (slice) {
       HS_EXPECT_NE(before.camera.center[3], 0);
       frame.rotation_phase[3] = .7f;
       const auto rotated = prepare_traced(
@@ -1622,16 +1622,16 @@ inline void test_traced_preset_control_state() {
   effect.setAnimationsPaused(true);
   const auto initial = effect.serialize_parameters();
   for (size_t i : {Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX}) {
-    const bool SLICE = i == Effect::OCTET_4D_PRESET_INDEX;
+    const bool slice = i == Effect::OCTET_4D_PRESET_INDEX;
     auto selected = initial;
     selected.params = Effect::preset(i).params;
     HS_EXPECT_TRUE(effect.restore_parameters(selected));
     HS_REQUIRED_PARAM(pattern, effect, "Pattern");
     HS_EXPECT_EQ(pattern->get(), 1);
     HS_REQUIRED_PARAM(view, effect, "View");
-    HS_EXPECT_EQ(view->get(), float(SLICE));
+    HS_EXPECT_EQ(view->get(), float(slice));
     HS_REQUIRED_PARAM(spin_4d, effect, "4D Spin");
-    HS_EXPECT_EQ(spin_4d->readonly, !SLICE);
+    HS_EXPECT_EQ(spin_4d->readonly, !slice);
     HS_REQUIRED_PARAM(lattice_planes, effect, "Lattice Planes");
     HS_EXPECT_TRUE(lattice_planes->readonly);
     HS_REQUIRED_PARAM(wire_radius, effect, "Wire Radius");
@@ -1805,11 +1805,11 @@ inline void test_regular_patterns() {
     HS_EXPECT_EQ(Effect::configuration_id(snapshot.params), configuration.id);
     HS_REQUIRED_PARAM(view, effect, "View");
     HS_EXPECT_FALSE(view->readonly);
-    const bool SHELLS = configuration.pattern == Effect::Pattern::SHELLS;
+    const bool shells = configuration.pattern == Effect::Pattern::SHELLS;
     HS_REQUIRED_PARAM(shell_radius, effect, "Shell Radius");
-    HS_EXPECT_EQ(shell_radius->readonly, !SHELLS);
+    HS_EXPECT_EQ(shell_radius->readonly, !shells);
     HS_REQUIRED_PARAM(wire_radius, effect, "Wire Radius");
-    HS_EXPECT_EQ(wire_radius->readonly, SHELLS);
+    HS_EXPECT_EQ(wire_radius->readonly, shells);
     effect.draw_frame();
     effect.advance_display();
     const size_t lit = count_lit_region<96, 20>(effect);
@@ -1915,7 +1915,7 @@ inline void test_octet_continuous_flight() {
     HS_EXPECT_TRUE(effect.selectPreset(preset));
     auto &params = HyperLatticeWhiteBox::params(effect);
     params.spin_3d = params.spin_4d = 0;
-    const float INITIAL_SPEED = params.speed;
+    const float initial_speed = params.speed;
     const auto initial = HyperLatticeWhiteBox::trace_center(effect);
     const float period = std::sqrt(2.0f) * params.cell_size;
     math::Vec4 previous = initial;
@@ -1951,7 +1951,7 @@ inline void test_octet_continuous_flight() {
     const auto fast = HyperLatticeWhiteBox::trace_center(effect);
     for (int axis = 0; axis < 4; ++axis) {
       const float expected =
-          std::fmod(previous[axis] + increment[axis] * (.3f / INITIAL_SPEED),
+          std::fmod(previous[axis] + increment[axis] * (.3f / initial_speed),
                     small_period);
       HS_EXPECT_NEAR(fast[axis], expected, 3e-5f);
       HS_EXPECT_GE(fast[axis], 0);

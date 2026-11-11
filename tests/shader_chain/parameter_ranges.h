@@ -92,9 +92,9 @@ inline void test_shader_chain_parameter_ranges() {
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(), 1.0f),
                ParamSetResult::APPLIED);
-  const ShaderChainParameterWrite release[] = {{"warp0.scale-x", 1.0f},
+  const ShaderChainParameterWrite RELEASE[] = {{"warp0.scale-x", 1.0f},
                                                {"warp0.scale-y", 1.0f}};
-  HS_EXPECT_EQ(effect.update_parameters(release), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.update_parameters(RELEASE), ParamSetResult::APPLIED);
   const auto expanded = parameter_range(effect, refused_scale_x.c_str());
   HS_EXPECT_LT(expanded[0], limited[0]);
   HS_EXPECT_EQ(effect.updateParameter(refused_scale_x.c_str(), expanded[0]),
@@ -106,28 +106,28 @@ inline void test_shader_chain_axis_ranges() {
   reset_globals();
   ShaderChainWhiteBox::FX effect;
   effect.init();
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"project", In::Op::ProjectStereographic::ID},
       {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID},
       {"modulation", In::Op::ModulateColorV1::ID},
   };
-  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
-  const ShaderChainParameterWrite direction[] = {
+  HS_EXPECT_EQ(effect.set_chain(CHAIN).code, In::ChainStatus::OK);
+  const ShaderChainParameterWrite DIRECTION[] = {
       {"modulation.modulation-source", 1.0f},
       {"modulation.modulation-evaluation", 0.0f},
       {"modulation.sine-axis-x", 1.0f},
       {"modulation.sine-axis-y", 0.0f},
       {"modulation.sine-axis-z", 0.0f}};
-  HS_EXPECT_EQ(effect.update_parameters(direction), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.update_parameters(DIRECTION), ParamSetResult::APPLIED);
   const ParamDef *axis = effect.getParameters().find("modulation.sine-axis-x");
   HS_EXPECT_TRUE(axis != nullptr);
   if (!axis)
     return;
-  const float AXIS_MIN = axis->min, AXIS_MAX = axis->max;
+  const float axis_min = axis->min, axis_max = axis->max;
   const auto positive = parameter_range(effect, "modulation.sine-axis-x");
   HS_EXPECT_GT(positive[0], 0.0f);
-  HS_EXPECT_EQ(positive[1], AXIS_MAX);
+  HS_EXPECT_EQ(positive[1], axis_max);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", positive[0]),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x",
@@ -136,7 +136,7 @@ inline void test_shader_chain_axis_ranges() {
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", -1.0f),
                ParamSetResult::APPLIED);
   const auto negative = parameter_range(effect, "modulation.sine-axis-x");
-  HS_EXPECT_EQ(negative[0], AXIS_MIN);
+  HS_EXPECT_EQ(negative[0], axis_min);
   HS_EXPECT_LT(negative[1], 0.0f);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", negative[1]),
                ParamSetResult::APPLIED);
@@ -146,8 +146,8 @@ inline void test_shader_chain_axis_ranges() {
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-y", 1.0f),
                ParamSetResult::APPLIED);
   const auto crossing = parameter_range(effect, "modulation.sine-axis-x");
-  HS_EXPECT_EQ(crossing[0], AXIS_MIN);
-  HS_EXPECT_EQ(crossing[1], AXIS_MAX);
+  HS_EXPECT_EQ(crossing[0], axis_min);
+  HS_EXPECT_EQ(crossing[1], axis_max);
   HS_EXPECT_EQ(effect.updateParameter("modulation.sine-axis-x", 0.0f),
                ParamSetResult::APPLIED);
 }
@@ -157,15 +157,15 @@ inline void test_shader_chain_harmonic_ranges() {
   reset_globals();
   ShaderChainWhiteBox::FX effect;
   effect.init();
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"field", In::Op::DisplacePotential::ID},
       {"project", In::Op::ProjectStereographic::ID},
       {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
-  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
-  const ShaderChainParameterWrite mode[] = {{"field.term-1-l", 2},
+  HS_EXPECT_EQ(effect.set_chain(CHAIN).code, In::ChainStatus::OK);
+  const ShaderChainParameterWrite MODE[] = {{"field.term-1-l", 2},
                                             {"field.term-1-m", 1}};
-  HS_EXPECT_EQ(effect.update_parameters(mode), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.update_parameters(MODE), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter_range(effect, "field.term-1-l")[0], 1.0f);
   HS_EXPECT_EQ(parameter_range(effect, "field.term-1-l")[1], 8.0f);
   HS_EXPECT_EQ(parameter_range(effect, "field.term-1-m")[0], 0.0f);

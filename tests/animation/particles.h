@@ -38,7 +38,7 @@ inline void test_particle_lifetime_storage_contract() {
     float lifetime;
     uint16_t expected;
   };
-  const Case CASES[] = {{-1.0f, 0},
+  const Case cases[] = {{-1.0f, 0},
                         {0.0f, 0},
                         {0.99f, 0},
                         {1.0f, 1},
@@ -48,7 +48,7 @@ inline void test_particle_lifetime_storage_contract() {
                         {std::numeric_limits<float>::quiet_NaN(), 0},
                         {std::numeric_limits<float>::infinity(), 0},
                         {-std::numeric_limits<float>::infinity(), 0}};
-  for (const auto &test : CASES) {
+  for (const auto &test : cases) {
     Animation::Particle<8> trail;
     Animation::PointParticle point;
     trail.init(math::X_AXIS, {}, 17, test.lifetime);
@@ -137,18 +137,18 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   // Zero gravity and no attractor isolate the particle's inertial step.
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/120.0f);
 
-  const math::Vector pos(0.6f, 0.0f, 0.8f);
-  const math::Vector vel(0.0f, 0.01f, 0.0f);
-  ps.spawn(pos, vel, /*seed=*/42);
+  const math::Vector POS(0.6f, 0.0f, 0.8f);
+  const math::Vector VEL(0.0f, 0.01f, 0.0f);
+  ps.spawn(POS, VEL, /*seed=*/42);
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
 
   const auto &p = ps.pool[0];
-  HS_EXPECT_NEAR(p.position.x, pos.x, 0.0f);
-  HS_EXPECT_NEAR(p.position.y, pos.y, 0.0f);
-  HS_EXPECT_NEAR(p.position.z, pos.z, 0.0f);
-  HS_EXPECT_NEAR(p.velocity.x, vel.x, 0.0f);
-  HS_EXPECT_NEAR(p.velocity.y, vel.y, 0.0f);
-  HS_EXPECT_NEAR(p.velocity.z, vel.z, 0.0f);
+  HS_EXPECT_NEAR(p.position.x, POS.x, 0.0f);
+  HS_EXPECT_NEAR(p.position.y, POS.y, 0.0f);
+  HS_EXPECT_NEAR(p.position.z, POS.z, 0.0f);
+  HS_EXPECT_NEAR(p.velocity.x, VEL.x, 0.0f);
+  HS_EXPECT_NEAR(p.velocity.y, VEL.y, 0.0f);
+  HS_EXPECT_NEAR(p.velocity.z, VEL.z, 0.0f);
   HS_EXPECT_EQ(static_cast<int>(p.color_seed), 42);
   HS_EXPECT_EQ(static_cast<int>(p.life), 120); // == system max_life
   HS_EXPECT_EQ(static_cast<int>(p.history_length()), 0);
@@ -187,7 +187,7 @@ inline void test_particle_system_sparse_trail_sampling() {
  */
 inline void test_particle_system_attractor_kill_radius_boundary() {
   static uint8_t buf[256 * 1024];
-  constexpr float kr = 0.5f;
+  constexpr float KR = 0.5f;
 
   auto survives = [&](float dist) {
     Arena arena(buf, sizeof(buf));
@@ -195,14 +195,14 @@ inline void test_particle_system_attractor_kill_radius_boundary() {
     ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.001f, /*max_life=*/600.0f);
     ps.spawn(math::Vector(1, 0, 0), math::Vector(0, 0, 0), 0);
     ps.add_attractor(math::Vector(1.0f + dist, 0, 0), /*strength=*/1.0f,
-                     /*kill_radius=*/kr, /*event_horizon=*/0.0f);
+                     /*kill_radius=*/KR, /*event_horizon=*/0.0f);
     ps.step(fake_canvas());
     return ps.active() == 1;
   };
 
-  HS_EXPECT_FALSE(survives(kr - 0.01f)); // inside the radius → killed
-  HS_EXPECT_TRUE(survives(kr)); // exactly at the radius → survives (strict <)
-  HS_EXPECT_TRUE(survives(kr + 0.01f));
+  HS_EXPECT_FALSE(survives(KR - 0.01f)); // inside the radius → killed
+  HS_EXPECT_TRUE(survives(KR)); // exactly at the radius → survives (strict <)
+  HS_EXPECT_TRUE(survives(KR + 0.01f));
 }
 
 template <int CAPACITY, bool SIGNED_AXIS>
@@ -213,9 +213,9 @@ template <typename PS>
 inline void add_signed_axis_attractors(PS &ps, float strength = 0.85f,
                                        float kill_radius = 0.003f,
                                        float event_horizon = 0.2f) {
-  const math::Vector axes[] = {math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
+  const math::Vector AXES[] = {math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
                                -math::Y_AXIS, math::Z_AXIS,  -math::Z_AXIS};
-  for (const math::Vector &axis : axes)
+  for (const math::Vector &axis : AXES)
     ps.add_attractor(axis, strength, kill_radius, event_horizon);
 }
 
@@ -233,14 +233,14 @@ inline void test_particle_surface_motion_contract() {
         particles.spawn(math::X_AXIS, {0.0f, speed, 0.0f}, 17);
         particles.step(fake_canvas());
         const auto &particle = particles.pool[0];
-        const float ANGLE = speed > 1e-6f ? std::min(speed, cap) : 0.0f;
+        const float angle = speed > 1e-6f ? std::min(speed, cap) : 0.0f;
         HS_EXPECT_EQ(particles.active(), 1);
         HS_EXPECT_EQ(particle.life, 19);
-        HS_EXPECT_NEAR(particle.position.x, cosf(ANGLE), 3e-7f);
-        HS_EXPECT_NEAR(particle.position.y, sinf(ANGLE), 3e-7f);
+        HS_EXPECT_NEAR(particle.position.x, cosf(angle), 3e-7f);
+        HS_EXPECT_NEAR(particle.position.y, sinf(angle), 3e-7f);
         HS_EXPECT_EQ(particle.position.z, 0.0f);
-        HS_EXPECT_NEAR(particle.velocity.x, -speed * sinf(ANGLE), 5e-7f);
-        HS_EXPECT_NEAR(particle.velocity.y, speed * cosf(ANGLE), 5e-7f);
+        HS_EXPECT_NEAR(particle.velocity.x, -speed * sinf(angle), 5e-7f);
+        HS_EXPECT_NEAR(particle.velocity.y, speed * cosf(angle), 5e-7f);
       }
     }
     uint8_t bytes[2048];
@@ -363,8 +363,8 @@ inline void test_particle_system_signed_axis_boundaries() {
   };
   auto at_chord_distance = [](float distance) {
     const float x = 1.0f - 0.5f * distance * distance;
-    const float DX = x - 1.0f;
-    return math::Vector(x, sqrtf(distance * distance - DX * DX), 0.0f);
+    const float dx = x - 1.0f;
+    return math::Vector(x, sqrtf(distance * distance - dx * dx), 0.0f);
   };
   auto boundary_positions = [](float radius) {
     return std::array<math::Vector, 3>{
@@ -481,10 +481,10 @@ inline void test_particle_system_signed_axis_trajectory() {
   HS_EXPECT_EQ(color_seed_mismatches, 0);
   HS_EXPECT_GE(compared_particle_steps, size_t{2000});
   constexpr float COMPONENT_BOUND = 1e-5f;
-  const double ANGLE_BOUND = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
+  const double angle_bound = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
   HS_EXPECT_LE(max_position_error, COMPONENT_BOUND);
   HS_EXPECT_LE(max_velocity_error, COMPONENT_BOUND);
-  HS_EXPECT_LE(max_angle_error, ANGLE_BOUND);
+  HS_EXPECT_LE(max_angle_error, angle_bound);
   HS_EXPECT_LE(max_norm_drift, 8e-6f);
 }
 

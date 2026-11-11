@@ -68,12 +68,12 @@ static_assert(segment_clip(segment_map(1, 288, 4), true, 288, 4, 288).y0 == 72);
  * covered once.
  */
 inline void check_tiling(int S, int N, int w, int x) {
-  const int PPS = S / N;
-  const int ROWS = S / 2;
+  const int pps = S / N;
+  const int rows = S / 2;
   const int col_a = x;
   const int col_b = (x + w / 2) % w;
 
-  std::vector<int> cover(static_cast<size_t>(w) * ROWS, 0);
+  std::vector<int> cover(static_cast<size_t>(w) * rows, 0);
   int writes = 0;
 
   for (int seg = 0; seg < N; ++seg) {
@@ -84,10 +84,10 @@ inline void check_tiling(int S, int N, int w, int x) {
       continue; // keep an out-of-range column out of the cover grid
 
     int prev_y = -1;
-    for (int i = 0; i < PPS; ++i) {
+    for (int i = 0; i < pps; ++i) {
       const int y = segment_y(m, i);
-      HS_EXPECT_TRUE(y >= 0 && y < ROWS);
-      if (y < 0 || y >= ROWS)
+      HS_EXPECT_TRUE(y >= 0 && y < rows);
+      if (y < 0 || y >= rows)
         continue;
       // The accumulated stride recurrence must equal segment_y per pixel.
       const int off =
@@ -98,14 +98,14 @@ inline void check_tiling(int S, int N, int w, int x) {
       if (i > 0)
         HS_EXPECT_EQ(y - prev_y, m.y_step);
       prev_y = y;
-      cover[static_cast<size_t>(x_col) * ROWS + y]++;
+      cover[static_cast<size_t>(x_col) * rows + y]++;
       ++writes;
     }
   }
 
   HS_EXPECT_EQ(writes, S);
 
-  check_arm_column_coverage(cover, w, ROWS, col_a, col_b);
+  check_arm_column_coverage(cover, w, rows, col_a, col_b);
 }
 
 /**
@@ -174,16 +174,16 @@ inline void test_segment_id_straps() {
   HS_EXPECT_EQ(segment_id_strap_count(8), 3);
 
   for (int id = 0; id < 8; ++id) {
-    const int RAW = (~id) & 7;
-    HS_EXPECT_EQ(decode_segment_id(RAW, 8), id);
+    const int raw = (~id) & 7;
+    HS_EXPECT_EQ(decode_segment_id(raw, 8), id);
   }
   for (int id = 0; id < 4; ++id) {
-    const int RAW = (~id) & 3;
-    HS_EXPECT_EQ(decode_segment_id(RAW, 4), id);
+    const int raw = (~id) & 3;
+    HS_EXPECT_EQ(decode_segment_id(raw, 4), id);
   }
   for (int id = 0; id < 2; ++id) {
-    const int RAW = (~id) & 1;
-    HS_EXPECT_EQ(decode_segment_id(RAW, 2), id);
+    const int raw = (~id) & 1;
+    HS_EXPECT_EQ(decode_segment_id(raw, 2), id);
   }
 }
 
@@ -193,12 +193,12 @@ inline void test_segment_id_straps() {
  * and wrap modulo w; arm A samples the column unshifted.
  */
 inline void test_arm_b_offset() {
-  const int w = 288;
-  HS_EXPECT_EQ(segment_x_col(false, 0, w), 0);
-  HS_EXPECT_EQ(segment_x_col(false, 17, w), 17);
-  HS_EXPECT_EQ(segment_x_col(true, 0, w), 144);
-  HS_EXPECT_EQ(segment_x_col(true, 144, w), 0);   // wraps to the seam
-  HS_EXPECT_EQ(segment_x_col(true, 287, w), 143); // (287 + 144) % 288
+  const int W = 288;
+  HS_EXPECT_EQ(segment_x_col(false, 0, W), 0);
+  HS_EXPECT_EQ(segment_x_col(false, 17, W), 17);
+  HS_EXPECT_EQ(segment_x_col(true, 0, W), 144);
+  HS_EXPECT_EQ(segment_x_col(true, 144, W), 0);   // wraps to the seam
+  HS_EXPECT_EQ(segment_x_col(true, 287, W), 143); // (287 + 144) % 288
 }
 
 /**
@@ -208,20 +208,20 @@ inline void test_arm_b_offset() {
  * @param w Canvas width.
  */
 inline void check_segment_clips(int S, int N, int w) {
-  const int ROWS = S / 2;
-  const int PPS = S / N;
+  const int rows = S / 2;
+  const int pps = S / N;
 
   for (bool arm_a_left : {true, false}) {
-    std::vector<int> cover(static_cast<size_t>(w) * ROWS, 0);
+    std::vector<int> cover(static_cast<size_t>(w) * rows, 0);
     for (int seg = 0; seg < N; ++seg) {
       const SegmentMap m = segment_map(seg, S, N);
       const SegmentClip c = segment_clip(m, arm_a_left, S, N, w);
 
       // Half the width, one segment's row band.
       HS_EXPECT_EQ(c.x1 - c.x0, w / 2);
-      HS_EXPECT_EQ(c.y1 - c.y0, PPS);
-      const int EXPECTED_Y0 = m.y_step > 0 ? m.y_base : m.y_base - (PPS - 1);
-      HS_EXPECT_EQ(c.y0, EXPECTED_Y0);
+      HS_EXPECT_EQ(c.y1 - c.y0, pps);
+      const int expected_y0 = m.y_step > 0 ? m.y_base : m.y_base - (pps - 1);
+      HS_EXPECT_EQ(c.y0, expected_y0);
       const int rotation_start = arm_a_left ? 0 : w / 2;
       for (int rotation = rotation_start; rotation < rotation_start + w / 2;
            ++rotation) {
@@ -232,7 +232,7 @@ inline void check_segment_clips(int S, int N, int w) {
 
       for (int y = c.y0; y < c.y1; ++y)
         for (int x = c.x0; x < c.x1; ++x)
-          cover[static_cast<size_t>(x) * ROWS + y]++;
+          cover[static_cast<size_t>(x) * rows + y]++;
     }
     for (size_t i = 0; i < cover.size(); ++i)
       HS_EXPECT_EQ(cover[i], 1);

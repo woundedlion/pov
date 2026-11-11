@@ -41,13 +41,13 @@ void test_coordinates() {
     HS_EXPECT_NEAR((math::TrigLUT<W, H>::cos_phi[y]),
                    std::cos(Geometry::row_to_phi(y)), 1e-6f);
   }
-  const math::LatitudeGeometry asymmetric(H, 0.1f, math::PI_F - 0.2f);
-  HS_EXPECT_NEAR(asymmetric.row_to_phi(0), 0.1f, 1e-6f);
-  HS_EXPECT_NEAR(asymmetric.row_to_phi(H - 1), math::PI_F - 0.2f, 1e-6f);
-  HS_EXPECT_LT(asymmetric.phi_to_row(0), 0.0f);
-  HS_EXPECT_GT(asymmetric.phi_to_row(math::PI_F), H - 1.0f);
+  const math::LatitudeGeometry ASYMMETRIC(H, 0.1f, math::PI_F - 0.2f);
+  HS_EXPECT_NEAR(ASYMMETRIC.row_to_phi(0), 0.1f, 1e-6f);
+  HS_EXPECT_NEAR(ASYMMETRIC.row_to_phi(H - 1), math::PI_F - 0.2f, 1e-6f);
+  HS_EXPECT_LT(ASYMMETRIC.phi_to_row(0), 0.0f);
+  HS_EXPECT_GT(ASYMMETRIC.phi_to_row(math::PI_F), H - 1.0f);
   for (float y : {0.0f, 0.25f, 72.5f, 143.0f})
-    HS_EXPECT_NEAR(asymmetric.phi_to_row(asymmetric.row_to_phi(y)), y, 2e-5f);
+    HS_EXPECT_NEAR(ASYMMETRIC.phi_to_row(ASYMMETRIC.row_to_phi(y)), y, 2e-5f);
 }
 
 /**

@@ -734,7 +734,7 @@ inline void test_repeating_timer_fires_then_each_cycle() {
  * consuming another random delay draw.
  */
 inline void test_repeating_timer_canceled_in_callback_fires_then_once() {
-  const hs_test::ScopedRng SAVED_RNG;
+  const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   Timeline tl;
   int thens = 0;
@@ -867,7 +867,7 @@ inline void test_timeline_required_add_active_time_and_last_slot() {
     bool paused = PAUSABLE;
     float value = 0.0f;
     int completions = 0;
-    const uint32_t DROPPED = Timeline::dropped_events();
+    const uint32_t dropped = Timeline::dropped_events();
     auto &result = timeline.add_required(
         2, Animation::Transition(value, 42.0f, 1, math::ease_linear).then([&] {
           ++completions;
@@ -891,12 +891,12 @@ inline void test_timeline_required_add_active_time_and_last_slot() {
     HS_EXPECT_EQ(timeline.event_count(), 0);
     timeline.step(fake_canvas());
     HS_EXPECT_EQ(completions, 1);
-    HS_EXPECT_EQ(Timeline::dropped_events(), DROPPED);
+    HS_EXPECT_EQ(Timeline::dropped_events(), dropped);
   }
   Timeline timeline;
   float sink = 0.0f, required = 0.0f;
   int completions = 0;
-  const uint32_t DROPPED = Timeline::dropped_events();
+  const uint32_t dropped = Timeline::dropped_events();
   for (int i = 0; i < Timeline::MAX_EVENTS - 1; ++i)
     timeline.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
   timeline.add_required(
@@ -909,7 +909,7 @@ inline void test_timeline_required_add_active_time_and_last_slot() {
   HS_EXPECT_EQ(required, 9.0f);
   HS_EXPECT_EQ(completions, 1);
   HS_EXPECT_EQ(timeline.event_count(), Timeline::MAX_EVENTS - 1);
-  HS_EXPECT_EQ(Timeline::dropped_events(), DROPPED);
+  HS_EXPECT_EQ(Timeline::dropped_events(), dropped);
 }
 
 /**

@@ -33,9 +33,9 @@ inline void test_sweep_slabs_tile_the_half_turn() {
     const double U = std::numeric_limits<float>::epsilon() / 2.0;
     const double GAMMA = 2 * U / (1 - 2 * U);
     for (int x = 0; x < width; ++x) {
-      const double FRACTION = static_cast<double>(x % half) / half;
+      const double fraction = static_cast<double>(x % half) / half;
       const float actual = Spacetime::surface_time(x, width);
-      HS_EXPECT_NEAR(actual, FRACTION, GAMMA * FRACTION);
+      HS_EXPECT_NEAR(actual, fraction, GAMMA * fraction);
       HS_EXPECT_EQ(Spacetime::surface_column(actual, width), x % half);
     }
     for (int count : {1, 2, 3, 5, 6, 7, half}) {
@@ -114,7 +114,7 @@ inline void test_world_orient_explicit_time() {
   math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   Filter::World::Orient orient(history);
   orient.init_storage(persistent_arena, 288);
-  const math::Vector v(0.6f, -0.8f, 0.0f);
+  const math::Vector V(0.6f, -0.8f, 0.0f);
   StubEffect effect(288, 144);
   Pipeline<288, 144, Filter::World::Orient, Filter::Screen::AntiAlias<288, 144>>
       timed{Filter::World::Orient(history),
@@ -126,10 +126,10 @@ inline void test_world_orient_explicit_time() {
       Canvas canvas(effect);
       HS_EXPECT_EQ(canvas.frame_number(), static_cast<uint32_t>(frame + 1));
       for (float t : {0.0f, 0.13f, 0.5f, 0.73f, 1.0f}) {
-        const math::Vector want = math::rotate(v, history.sample(t));
+        const math::Vector want = math::rotate(V, history.sample(t));
         int calls = 0;
         orient.plot_at(
-            canvas, v, Pixel(1, 2, 3), 7.0f, 0.25f, t,
+            canvas, V, Pixel(1, 2, 3), 7.0f, 0.25f, t,
             [&](const math::Vector &p, const Pixel &c, float age, float alpha) {
               ++calls;
               HS_EXPECT_NEAR((p - want).magnitude(), 0.0f, 2e-5f);
@@ -139,21 +139,21 @@ inline void test_world_orient_explicit_time() {
             });
         HS_EXPECT_EQ(calls, 1);
         std::fill_n(canvas.data(), 288 * 144, Pixel{});
-        plain.plot(canvas, orient.at_time(canvas, v, t), Pixel(65535, 0, 0),
+        plain.plot(canvas, orient.at_time(canvas, V, t), Pixel(65535, 0, 0),
                    7.0f, 1.0f);
         std::vector<Pixel> expected(canvas.data(), canvas.data() + 288 * 144);
         std::fill_n(canvas.data(), 288 * 144, Pixel{});
-        timed.plot_at(canvas, v, Pixel(65535, 0, 0), 7.0f, 1.0f, t);
+        timed.plot_at(canvas, V, Pixel(65535, 0, 0), 7.0f, 1.0f, t);
         for (size_t i = 0; i < expected.size(); ++i)
           HS_EXPECT_EQ(canvas.data()[i], expected[i]);
       }
-      const math::Vector end = math::rotate(v, history.get());
-      const math::Vector at_end = orient.at_time(canvas, v, 1.0f);
+      const math::Vector end = math::rotate(V, history.get());
+      const math::Vector at_end = orient.at_time(canvas, V, 1.0f);
       HS_EXPECT_EQ(at_end.x, end.x);
       HS_EXPECT_EQ(at_end.y, end.y);
       HS_EXPECT_EQ(at_end.z, end.z);
       Spacetime::set_flat_surface(true);
-      const math::Vector disabled = orient.at_time(canvas, v, 0.13f);
+      const math::Vector disabled = orient.at_time(canvas, V, 0.13f);
       Spacetime::set_flat_surface(false);
       HS_EXPECT_EQ(disabled.x, end.x);
       HS_EXPECT_EQ(disabled.y, end.y);
@@ -177,11 +177,11 @@ inline void test_timed_probe_bypasses_history() {
   PipelineRef ref(pipeline, Spacetime::Timed{});
   StubEffect effect(288, 144);
   Canvas canvas(effect);
-  const math::Vector v(0.6f, -0.8f, 0.0f);
+  const math::Vector V(0.6f, -0.8f, 0.0f);
   for (float t : {0.0f, 0.3f, 0.6f, 1.0f}) {
-    const auto got = ref.probe(canvas, v, t);
+    const auto got = ref.probe(canvas, V, t);
     const auto want =
-        math::vector_to_pixel<288, 144>(math::rotate(v, history.sample(t)));
+        math::vector_to_pixel<288, 144>(math::rotate(V, history.sample(t)));
     HS_EXPECT_NEAR(got.x, want.x, 0.002f);
     HS_EXPECT_NEAR(got.y, want.y, 0.002f);
   }
@@ -194,7 +194,7 @@ inline void test_timed_probe_bypasses_history() {
   HS_EXPECT_EQ(records, 0);
   for (int i = 0; i < 288 * 144; ++i)
     HS_EXPECT_EQ(canvas.data()[i], Pixel{});
-  ref.plot_at(canvas, v, Pixel(65535, 0, 0), 0.0f, 1.0f, 0.3f);
+  ref.plot_at(canvas, V, Pixel(65535, 0, 0), 0.0f, 1.0f, 0.3f);
   pipeline.flush(canvas, WorldTrailRef(shader), 1.0f);
   HS_EXPECT_EQ(records, 1);
 }
@@ -206,19 +206,19 @@ inline void test_timed_boundary_tap_ownership() {
   Pipeline<288, 144, Filter::Screen::AntiAlias<288, 144>> pipeline;
   Filter::Screen::DirectAntiAliasSink<288, 144> sink;
   sink.prepare(canvas);
-  const Pixel color(65535, 12000, 30000);
+  const Pixel COLOR(65535, 12000, 30000);
   for (float column : {143.5f, 287.5f}) {
     const auto v = math::pixel_to_vector<288, 144>(column, 72.5f);
     std::fill_n(canvas.data(), 288 * 144, Pixel{});
-    pipeline.plot(canvas, v, color, 0.0f, 0.4f);
+    pipeline.plot(canvas, v, COLOR, 0.0f, 0.4f);
     std::vector<Pixel> expected(canvas.data(), canvas.data() + 288 * 144);
     for (bool direct : {false, true}) {
       std::fill_n(canvas.data(), 288 * 144, Pixel{});
       for (float t : {0.0f, 1.0f}) {
         if (direct)
-          sink.plot_at(canvas, v, color, 0.0f, 0.4f, t);
+          sink.plot_at(canvas, v, COLOR, 0.0f, 0.4f, t);
         else
-          pipeline.plot_at(canvas, v, color, 0.0f, 0.4f, t);
+          pipeline.plot_at(canvas, v, COLOR, 0.0f, 0.4f, t);
       }
       for (size_t i = 0; i < expected.size(); ++i)
         HS_EXPECT_EQ(canvas.data()[i], expected[i]);
@@ -357,14 +357,14 @@ inline void test_oriented_cull_keeps_visible_history_edges() {
     const bool sliced = Plot::edge_visible_in_clip<288, 144>(
         slices, canvas.clip(), canvas.clip().x_clip(), from, to, nullptr);
     PipelineRef erased_history(pipeline);
-    const bool ERASED_VISIBLE = Plot::edge_visible_in_clip<288, 144>(
+    const bool erased_visible = Plot::edge_visible_in_clip<288, 144>(
         erased_history, canvas.clip(), canvas.clip().x_clip(), from, to,
         nullptr);
     if (oracle) {
       ++visible;
       HS_EXPECT_TRUE(got);
       HS_EXPECT_TRUE(sliced);
-      HS_EXPECT_TRUE(ERASED_VISIBLE);
+      HS_EXPECT_TRUE(erased_visible);
     }
     rejected += !got;
   }
@@ -381,8 +381,8 @@ inline void test_world_orient_sample_cache() {
   Filter::World::Orient cached(history);
   cached.init_storage(persistent_arena, 288);
   StubEffect effect(288, 144);
-  const math::Vector a(0.6f, -0.8f, 0.0f);
-  const math::Vector b(-0.2f, 0.3f, 0.7f);
+  const math::Vector A(0.6f, -0.8f, 0.0f);
+  const math::Vector B(-0.2f, 0.3f, 0.7f);
   for (int frame = 0; frame < 2; ++frame) {
     {
       Canvas canvas(effect);
@@ -396,21 +396,21 @@ inline void test_world_orient_sample_cache() {
         HS_EXPECT_EQ(actual.y, expected.y);
         HS_EXPECT_EQ(actual.z, expected.z);
       };
-      compare(a, 0.13f);
-      compare(a, 0.13f);
-      compare(b, 0.13f);
-      compare(b, 0.73f);
-      compare(a, 0.13f);
-      compare(a, 1.0f);
+      compare(A, 0.13f);
+      compare(A, 0.13f);
+      compare(B, 0.13f);
+      compare(B, 0.73f);
+      compare(A, 0.13f);
+      compare(A, 1.0f);
       Spacetime::set_flat_surface(true);
-      compare(a, 0.13f);
+      compare(A, 0.13f);
       Spacetime::set_flat_surface(false);
-      compare(a, 0.13f);
+      compare(A, 0.13f);
       if (frame == 0) {
         history.collapse();
-        compare(b, 0.13f);
+        compare(B, 0.13f);
         history = spin_history(0.4f, 0.2f, 3);
-        compare(a, 0.13f);
+        compare(A, 0.13f);
       }
     }
     effect.advance_display();

@@ -597,11 +597,11 @@ inline void test_isr_window_logging_latency() {
     log(first.submit, 6000u);
     advance(1000);
     const auto second = capture();
-    const uint32_t EXPECTED_US = 1000u + 3u * latency;
-    HS_EXPECT_EQ(second.window_us, EXPECTED_US);
-    HS_EXPECT_EQ(second.wake.cycles, uint64_t{EXPECTED_US} * 60u);
-    HS_EXPECT_EQ(second.pack.cycles, uint64_t{EXPECTED_US} * 30u);
-    HS_EXPECT_EQ(second.submit.cycles, uint64_t{EXPECTED_US} * 6u);
+    const uint32_t expected_us = 1000u + 3u * latency;
+    HS_EXPECT_EQ(second.window_us, expected_us);
+    HS_EXPECT_EQ(second.wake.cycles, uint64_t{expected_us} * 60u);
+    HS_EXPECT_EQ(second.pack.cycles, uint64_t{expected_us} * 30u);
+    HS_EXPECT_EQ(second.submit.cycles, uint64_t{expected_us} * 6u);
     now = UINT32_MAX - 99u;
     capture();
     advance(200);

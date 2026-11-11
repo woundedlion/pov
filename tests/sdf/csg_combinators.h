@@ -188,12 +188,12 @@ inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{0.0f, 40.0f}, {60.0f, 100.0f}};
   std::vector<P> b_ivs = {{60.0f, 70.0f}, {20.0f, 30.0f}}; // unsorted, multi
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::Subtract<Mock, Mock> s(A, B);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::Subtract<Mock, Mock> s(a, b);
 
-  const std::pair<float, float> expected[] = {{0.0f, 40.0f}, {60.0f, 100.0f}};
+  const std::pair<float, float> EXPECTED[] = {{0.0f, 40.0f}, {60.0f, 100.0f}};
   sdf_interval_detail::expect_spans<256, 128>("solid B leaves minuend", s, 0,
-                                              expected, 1e-4f);
+                                              EXPECTED, 1e-4f);
 }
 
 /**
@@ -204,18 +204,18 @@ inline void test_subtract_star_notch_columns_survive_the_carve() {
   using P = std::pair<float, float>;
   constexpr int W = 256, H = 128;
   // Axis +Z puts the shared center at column W/4, clear of the theta=0 seam.
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 0, 1),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 0, 1),
                       math::Vector(0, 1, 0)};
-  constexpr float outer = 0.5f; // star tip radius (radians)
-  SDF::PlanarPolygon poly(b, 0.7f / (math::PI_F / 2.0f), 5,
+  constexpr float OUTER = 0.5f; // star tip radius (radians)
+  SDF::PlanarPolygon poly(B, 0.7f / (math::PI_F / 2.0f), 5,
                           0.0f); // apothem 0.566 > outer
-  SDF::Star star(b, outer / (math::PI_F / 2.0f), 5, 0.0f);
+  SDF::Star star(B, OUTER / (math::PI_F / 2.0f), 5, 0.0f);
   SDF::Subtract<SDF::PlanarPolygon, SDF::Star> s(poly, star);
 
   // Half a sector off a tip, just short of the tip radius: a notch.
-  const float polar = 0.9f * outer, az = math::PI_F / 5.0f;
-  math::Vector p = (b.v * std::cos(polar) +
-                    (b.u * std::cos(az) + b.w * std::sin(az)) * std::sin(polar))
+  const float POLAR = 0.9f * OUTER, AZ = math::PI_F / 5.0f;
+  math::Vector p = (B.v * std::cos(POLAR) +
+                    (B.u * std::cos(AZ) + B.w * std::sin(AZ)) * std::sin(POLAR))
                        .normalized();
   HS_EXPECT_TRUE(SDF::distance_of(star, p).dist > 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(poly, p).dist < 0.0f);
@@ -248,11 +248,11 @@ inline void test_subtract_empty_b_emits_every_a_span() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{50.0f, 60.0f}, {0.0f, 10.0f}}; // unsorted
   std::vector<P> b_ivs = {};
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::Subtract<Mock, Mock> s(A, B);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::Subtract<Mock, Mock> s(a, b);
 
-  const std::pair<float, float> expected[] = {{50.0f, 60.0f}, {0.0f, 10.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("empty B", s, 0, expected, 1e-4f);
+  const std::pair<float, float> EXPECTED[] = {{50.0f, 60.0f}, {0.0f, 10.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("empty B", s, 0, EXPECTED, 1e-4f);
 }
 
 /**
@@ -264,12 +264,12 @@ inline void test_subtract_full_width_b_still_emits_the_minuend() {
   using MockA = sdf_interval_detail::MockIntervalShape;
   using MockB = sdf_interval_detail::MockFullWidthShape;
   std::vector<P> a_ivs = {{0.0f, 100.0f}};
-  MockA A{&a_ivs};
-  MockB B;
-  SDF::Subtract<MockA, MockB> s(A, B);
+  MockA a{&a_ivs};
+  MockB b;
+  SDF::Subtract<MockA, MockB> s(a, b);
 
-  const std::pair<float, float> expected[] = {{0.0f, 100.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("full-width B", s, 0, expected,
+  const std::pair<float, float> EXPECTED[] = {{0.0f, 100.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("full-width B", s, 0, EXPECTED,
                                               1e-4f);
 }
 
@@ -279,12 +279,12 @@ inline void test_subtract_seam_straddle_forwards_minuend() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-10.0f, 10.0f}};  // seam band, negative frame
   std::vector<P> b_ivs = {{246.0f, 266.0f}}; // same band, [W,2W) frame (W=256)
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::Subtract<Mock, Mock> s(A, B);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::Subtract<Mock, Mock> s(a, b);
 
-  const std::pair<float, float> expected[] = {{-10.0f, 10.0f}};
+  const std::pair<float, float> EXPECTED[] = {{-10.0f, 10.0f}};
   sdf_interval_detail::expect_spans<256, 128>("seam straddle minuend", s, 0,
-                                              expected, 1e-4f);
+                                              EXPECTED, 1e-4f);
 }
 
 /** @brief Verifies Subtract preserves all minuend spans. */
@@ -301,8 +301,8 @@ inline void test_subtract_many_arc_preserves_minuend() {
     a_ivs.push_back({start, start + 0.125f});
   }
   std::vector<P> b_ivs = {{45.0f, 55.0f}, {125.0f, 135.0f}};
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::Subtract<Mock, Mock> s(A, B);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::Subtract<Mock, Mock> s(a, b);
 
   sdf_interval_detail::expect_spans<256, 128>("many minuend spans", s, 0, a_ivs,
                                               1e-4f);
@@ -327,14 +327,14 @@ inline void test_intersection_requires_both_inside() {
   auto r2 = SDF::distance_of(inter, far_pt);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
 
-  const math::Vector ONLY_A = math::Vector(1, 0, 1).normalized();
-  const math::Vector ONLY_B = math::Vector(1, 1, 0).normalized();
-  HS_EXPECT_LT(SDF::distance_of(la, ONLY_A).dist, 0.0f);
-  HS_EXPECT_GT(SDF::distance_of(lb, ONLY_A).dist, 0.0f);
-  HS_EXPECT_GT(SDF::distance_of(inter, ONLY_A).dist, 0.0f);
-  HS_EXPECT_GT(SDF::distance_of(la, ONLY_B).dist, 0.0f);
-  HS_EXPECT_LT(SDF::distance_of(lb, ONLY_B).dist, 0.0f);
-  HS_EXPECT_GT(SDF::distance_of(inter, ONLY_B).dist, 0.0f);
+  const math::Vector only_a = math::Vector(1, 0, 1).normalized();
+  const math::Vector only_b = math::Vector(1, 1, 0).normalized();
+  HS_EXPECT_LT(SDF::distance_of(la, only_a).dist, 0.0f);
+  HS_EXPECT_GT(SDF::distance_of(lb, only_a).dist, 0.0f);
+  HS_EXPECT_GT(SDF::distance_of(inter, only_a).dist, 0.0f);
+  HS_EXPECT_GT(SDF::distance_of(la, only_b).dist, 0.0f);
+  HS_EXPECT_LT(SDF::distance_of(lb, only_b).dist, 0.0f);
+  HS_EXPECT_GT(SDF::distance_of(inter, only_b).dist, 0.0f);
 }
 
 /**
@@ -347,12 +347,12 @@ inline void test_intersection_unsorted_child_yields_every_overlap() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{0.0f, 100.0f}};
   std::vector<P> b_ivs = {{60.0f, 80.0f}, {20.0f, 40.0f}}; // unsorted, multi
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::Intersection<Mock, Mock> s(A, B);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::Intersection<Mock, Mock> s(a, b);
 
-  const std::pair<float, float> expected[] = {{20.0f, 40.0f}, {60.0f, 80.0f}};
+  const std::pair<float, float> EXPECTED[] = {{20.0f, 40.0f}, {60.0f, 80.0f}};
   sdf_interval_detail::expect_spans<256, 128>("unsorted overlap", s, 0,
-                                              expected, 1e-4f);
+                                              EXPECTED, 1e-4f);
 }
 
 /**
@@ -371,17 +371,17 @@ inline void test_intersection_full_width_child_replays_other() {
 
   {
     SDF::Intersection<MockF, MockI> s(full, shape);
-    const std::pair<float, float> expected[] = {{60.0f, 80.0f}, {20.0f, 40.0f}};
+    const std::pair<float, float> EXPECTED[] = {{60.0f, 80.0f}, {20.0f, 40.0f}};
     sdf_interval_detail::expect_spans<256, 128>("full-width A replays B", s, 0,
-                                                expected, 1e-4f);
+                                                EXPECTED, 1e-4f);
   }
 
   // Symmetric: A has intervals, B full-width.
   {
     SDF::Intersection<MockI, MockF> s(shape, full);
-    const std::pair<float, float> expected[] = {{60.0f, 80.0f}, {20.0f, 40.0f}};
+    const std::pair<float, float> EXPECTED[] = {{60.0f, 80.0f}, {20.0f, 40.0f}};
     sdf_interval_detail::expect_spans<256, 128>("full-width B replays A", s, 0,
-                                                expected, 1e-4f);
+                                                EXPECTED, 1e-4f);
   }
 
   // Both fall back -> full-scan fallback (return false).
@@ -437,12 +437,12 @@ inline void test_intersection_seam_straddle_overlaps_across_wrap_frames() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-10.0f, 10.0f}};  // seam band, negative frame
   std::vector<P> b_ivs = {{246.0f, 266.0f}}; // same band, [W,2W) frame (W=256)
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::Intersection<Mock, Mock> s(A, B);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::Intersection<Mock, Mock> s(a, b);
 
-  const std::pair<float, float> expected[] = {{0.0f, 10.0f}, {246.0f, 256.0f}};
+  const std::pair<float, float> EXPECTED[] = {{0.0f, 10.0f}, {246.0f, 256.0f}};
   sdf_interval_detail::expect_spans<256, 128>("seam straddle wrap frames", s, 0,
-                                              expected, 1e-5f);
+                                              EXPECTED, 1e-5f);
 }
 
 // ============================================================================
@@ -471,32 +471,32 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
 inline void test_smooth_union_blends_inside_band() {
   SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.1f);
   SDF::Line lb(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), 0.1f);
-  const float k = 0.5f;
-  SDF::SmoothUnion<SDF::Line, SDF::Line> su(la, lb, k);
+  const float K = 0.5f;
+  SDF::SmoothUnion<SDF::Line, SDF::Line> su(la, lb, K);
 
   // Both arcs lie in the y=0 plane, so the north pole is equidistant from both
   // (|dA - dB| ≈ 0), maximizing the cubic blend (h == 1, m == k/6).
   math::Vector p(0, 1, 0);
   float dA = SDF::distance_of(la, p).dist;
   float dB = SDF::distance_of(lb, p).dist;
-  HS_EXPECT_TRUE(std::abs(dA - dB) < k);
+  HS_EXPECT_TRUE(std::abs(dA - dB) < K);
 
-  float h = std::max(k - std::abs(dA - dB), 0.0f) / k;
-  float m = h * h * h * k * (1.0f / 6.0f);
+  float h = std::max(K - std::abs(dA - dB), 0.0f) / K;
+  float m = h * h * h * K * (1.0f / 6.0f);
   float soft = SDF::distance_of(su, p).dist;
   HS_EXPECT_NEAR(soft, std::min(dA, dB) - m, 1e-4f);
   HS_EXPECT_LT(soft, std::min(dA, dB) - 1e-4f);
   // Independent of the cubic: the smooth min never rises above the hard min,
   // and k/6 is the deepest it can dip below it anywhere.
   HS_EXPECT_LE(soft, std::min(dA, dB) + 1e-5f);
-  HS_EXPECT_GE(soft, std::min(dA, dB) - k * (1.0f / 6.0f) - 1e-5f);
+  HS_EXPECT_GE(soft, std::min(dA, dB) - K * (1.0f / 6.0f) - 1e-5f);
 
   // Outside the band the blend vanishes and collapses to the hard min.
   math::Vector q =
       ((math::Vector(1, 0, 0) + math::Vector(0, 0, 1)) * 0.5f).normalized();
   float qA = SDF::distance_of(la, q).dist;
   float qB = SDF::distance_of(lb, q).dist;
-  HS_EXPECT_TRUE(std::abs(qA - qB) >= k);
+  HS_EXPECT_TRUE(std::abs(qA - qB) >= K);
   HS_EXPECT_NEAR(SDF::distance_of(su, q).dist, std::min(qA, qB), 1e-5f);
 }
 
@@ -587,11 +587,11 @@ inline void test_union_merges_overlapping_intervals() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{0.0f, 40.0f}};
   std::vector<P> b_ivs = {{30.0f, 70.0f}};
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::Union<Mock, Mock> u(A, B);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::Union<Mock, Mock> u(a, b);
 
-  const std::pair<float, float> expected[] = {{0.0f, 70.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("overlap merge", u, 0, expected,
+  const std::pair<float, float> EXPECTED[] = {{0.0f, 70.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("overlap merge", u, 0, EXPECTED,
                                               1e-4f);
 }
 
@@ -604,11 +604,11 @@ inline void test_union_seam_straddle_merges_overlapping_intervals() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-10.0f, 6.0f}};
   std::vector<P> b_ivs = {{2.0f, 12.0f}};
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::Union<Mock, Mock> u(A, B);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::Union<Mock, Mock> u(a, b);
 
-  const std::pair<float, float> expected[] = {{-10.0f, 12.0f}};
-  sdf_interval_detail::expect_spans<256, 128>("seam weld", u, 0, expected,
+  const std::pair<float, float> EXPECTED[] = {{-10.0f, 12.0f}};
+  sdf_interval_detail::expect_spans<256, 128>("seam weld", u, 0, EXPECTED,
                                               1e-4f);
 }
 
@@ -623,10 +623,10 @@ inline void test_nested_union_emits_every_child_arc() {
   constexpr int W = 256, H = 128;
   // Ring axis along +X so the row math has a non-degenerate horizontal
   // projection (a +Y axis full-row scans instead).
-  const math::Basis b{math::Vector(0, 1, 0), math::Vector(1, 0, 0),
+  const math::Basis B{math::Vector(0, 1, 0), math::Vector(1, 0, 0),
                       math::Vector(0, 0, 1)};
-  SDF::Ring r1(b, 0.4f, 0.05f), r2(b, 0.6f, 0.05f);
-  SDF::Ring r3(b, 0.8f, 0.05f), r4(b, 1.0f, 0.05f);
+  SDF::Ring r1(B, 0.4f, 0.05f), r2(B, 0.6f, 0.05f);
+  SDF::Ring r3(B, 0.8f, 0.05f), r4(B, 1.0f, 0.05f);
 
   using U2 = SDF::Union<SDF::Ring, SDF::Ring>;
   using U3 = SDF::Union<U2, SDF::Ring>;
@@ -667,19 +667,19 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
   math::init_geometry_luts<W, H>();
-  const int row = H / 2; // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
-  const float k = 0.02f;
-  const float sin_phi = math::TrigLUT<W, H>::sin_phi[row];
+  const int ROW = H / 2; // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
+  const float K = 0.02f;
+  const float sin_phi = math::TrigLUT<W, H>::sin_phi[ROW];
   const float pad =
-      std::min(k * W / (2.0f * math::PI_F) / sin_phi, static_cast<float>(W));
+      std::min(K * W / (2.0f * math::PI_F) / sin_phi, static_cast<float>(W));
   std::vector<P> a_ivs = {{-10.0f, 6.0f}};
   std::vector<P> b_ivs = {{2.0f, 12.0f}};
-  Mock A{&a_ivs}, B{&b_ivs};
-  SDF::SmoothUnion<Mock, Mock> su(A, B, k);
+  Mock a{&a_ivs}, b{&b_ivs};
+  SDF::SmoothUnion<Mock, Mock> su(a, b, K);
 
   std::vector<P> out;
   bool ok = su.get_horizontal_intervals<W, H>(
-      row, [&](float st, float en) { out.push_back({st, en}); });
+      ROW, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
   HS_EXPECT_SIZE_OR_RETURN(out, 1);
   HS_EXPECT_NEAR(out[0].first, -10.0f - pad, 1e-4f);
@@ -700,26 +700,26 @@ inline void test_smooth_union_pad_widens_toward_pole() {
   using Mock = sdf_interval_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
   math::init_geometry_luts<W, H>();
-  const float k = 0.05f;
+  const float K = 0.05f;
   std::vector<P> ivs = {{100.0f, 100.0f}}; // a point; only the pad sets width
-  Mock A{&ivs}, B{&ivs};
-  SDF::SmoothUnion<Mock, Mock> su(A, B, k);
+  Mock a{&ivs}, b{&ivs};
+  SDF::SmoothUnion<Mock, Mock> su(a, b, K);
 
   auto span_at = [&](int row) {
     std::vector<P> out;
-    const bool HANDLED = su.get_horizontal_intervals<W, H>(
+    const bool handled = su.get_horizontal_intervals<W, H>(
         row, [&](float st, float en) { out.push_back({st, en}); });
-    HS_EXPECT_TRUE(HANDLED);
-    if (!HANDLED)
+    HS_EXPECT_TRUE(handled);
+    if (!handled)
       return -1.0f;
     return out.empty() ? 0.0f : out[0].second - out[0].first;
   };
-  const int NEAR_POLE = su.pad_rows<H>() + 4;
-  const float POLE_SPAN = span_at(NEAR_POLE);
-  HS_EXPECT_GT(POLE_SPAN, span_at(H / 2));
-  HS_EXPECT_NEAR(POLE_SPAN,
-                 2.0f * fminf(k * W / math::TWO_PI_F /
-                                  math::TrigLUT<W, H>::sin_phi[NEAR_POLE],
+  const int near_pole = su.pad_rows<H>() + 4;
+  const float pole_span = span_at(near_pole);
+  HS_EXPECT_GT(pole_span, span_at(H / 2));
+  HS_EXPECT_NEAR(pole_span,
+                 2.0f * fminf(K * W / math::TWO_PI_F /
+                                  math::TrigLUT<W, H>::sin_phi[near_pole],
                               static_cast<float>(W)),
                  1e-3f);
 }
@@ -767,15 +767,15 @@ inline void test_angular_repeat_creates_copies() {
 inline void test_angular_repeat_t_is_sector_local() {
   math::Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
-  const int reps = 4;
-  SDF::AngularRepeat<SDF::Ring> rep(ring, reps, math::Vector(0, 1, 0));
+  const int REPS = 4;
+  SDF::AngularRepeat<SDF::Ring> rep(ring, REPS, math::Vector(0, 1, 0));
 
   // A point at 30° azimuth (inside sector 0, off a boundary) and its copy one
   // sector away.
   float az = math::PI_F / 6.0f;
   math::Vector p(cosf(az), 0.0f, sinf(az));
   math::Quaternion q_sector =
-      math::make_rotation(math::Vector(0, 1, 0), 2 * math::PI_F / reps);
+      math::make_rotation(math::Vector(0, 1, 0), 2 * math::PI_F / REPS);
   math::Vector p2 = math::rotate(p, q_sector);
 
   // The un-repeated ring sees two global azimuths one sector apart (sign is
@@ -784,7 +784,7 @@ inline void test_angular_repeat_t_is_sector_local() {
   float t_global_2 = SDF::distance_of(ring, p2).t;
   float dg = t_global_2 - t_global_1;
   dg -= floorf(dg);
-  HS_EXPECT_NEAR(std::min(dg, 1.0f - dg), 1.0f / reps, 1e-3f);
+  HS_EXPECT_NEAR(std::min(dg, 1.0f - dg), 1.0f / REPS, 1e-3f);
 
   // The repeated shape folds both into the same sector → identical sector-local t.
   float t_rep_1 = SDF::distance_of(rep, p).t;

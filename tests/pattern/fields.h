@@ -33,11 +33,11 @@ inline void test_pattern_direction_admission() {
   HS_EXPECT_TRUE(!SphereDirection::valid({INF, 1.0f, 0.0f}));
   HS_EXPECT_TRUE(!SphereDirection::valid({NAN_VALUE, 1.0f, 0.0f}));
   HS_EXPECT_TRUE(!SphereDirection::valid({1.0e30f, 1.0e30f, 0.0f}));
-  const auto A = SphereDirection::from({0.3f, -0.6f, 0.9f});
-  const auto B = SphereDirection::from({3.0f, -6.0f, 9.0f});
-  HS_EXPECT_NEAR(A.value().x, B.value().x, 1.0e-7f);
-  HS_EXPECT_NEAR(A.value().y, B.value().y, 1.0e-7f);
-  HS_EXPECT_NEAR(A.value().z, B.value().z, 1.0e-7f);
+  const auto a = SphereDirection::from({0.3f, -0.6f, 0.9f});
+  const auto b = SphereDirection::from({3.0f, -6.0f, 9.0f});
+  HS_EXPECT_NEAR(a.value().x, b.value().x, 1.0e-7f);
+  HS_EXPECT_NEAR(a.value().y, b.value().y, 1.0e-7f);
+  HS_EXPECT_NEAR(a.value().z, b.value().z, 1.0e-7f);
   for (const math::Vector &input :
        {math::Vector(0.3f, -0.6f, 0.9f), math::Vector(3.0f, -6.0f, 9.0f),
         math::Vector(1.0e-6f, 0.0f, 0.0f)}) {
@@ -47,11 +47,11 @@ inline void test_pattern_direction_admission() {
     HS_EXPECT_NEAR(actual.y, expected.y, 1.0e-7f);
     HS_EXPECT_NEAR(actual.z, expected.z, 1.0e-7f);
   }
-  const math::Vector unit(0.6f, 0.8f, 0.0f);
-  const auto preserved = SphereDirection::from_unit(unit).value();
-  HS_EXPECT_EQ(preserved.x, unit.x);
-  HS_EXPECT_EQ(preserved.y, unit.y);
-  HS_EXPECT_EQ(preserved.z, unit.z);
+  const math::Vector UNIT(0.6f, 0.8f, 0.0f);
+  const auto preserved = SphereDirection::from_unit(UNIT).value();
+  HS_EXPECT_EQ(preserved.x, UNIT.x);
+  HS_EXPECT_EQ(preserved.y, UNIT.y);
+  HS_EXPECT_EQ(preserved.z, UNIT.z);
 }
 
 /** @brief Sphere sources match their independent wave formulas. */
@@ -59,39 +59,39 @@ inline void test_pattern_sphere_formulas() {
   using namespace Pattern;
   SineParams params;
   params.frequency = 0.25f;
-  const auto Y = SphereDirection::from(math::Y_AXIS);
-  const auto X = SphereDirection::from(math::X_AXIS);
-  const auto PREPARED = DirectionalSine::prepare(params, {});
-  HS_EXPECT_EQ(DirectionalSine::sample(Y, PREPARED), 1.0f);
-  HS_EXPECT_EQ(DirectionalSine::sample(X, PREPARED), 0.0f);
-  HS_EXPECT_EQ(DirectSphereField<DirectionalSine>::sample(Y, PREPARED), 1.0f);
+  const auto y = SphereDirection::from(math::Y_AXIS);
+  const auto x = SphereDirection::from(math::X_AXIS);
+  const auto prepared = DirectionalSine::prepare(params, {});
+  HS_EXPECT_EQ(DirectionalSine::sample(y, prepared), 1.0f);
+  HS_EXPECT_EQ(DirectionalSine::sample(x, prepared), 0.0f);
+  HS_EXPECT_EQ(DirectSphereField<DirectionalSine>::sample(y, prepared), 1.0f);
   params.offset = 0.25f;
-  HS_EXPECT_EQ(DirectionalSine::sample(X, DirectionalSine::prepare(params, {})),
+  HS_EXPECT_EQ(DirectionalSine::sample(x, DirectionalSine::prepare(params, {})),
                1.0f);
   InterferenceParams waves;
   waves.frequency = 0.25f;
   waves.frequency_b = 0.5f;
   waves.offset_b = 0.25f;
-  const auto PAIR = SphereInterference::prepare(waves, {});
-  HS_EXPECT_EQ(SphereInterference::sample(Y, PAIR), 1.0f);
-  HS_EXPECT_NEAR(SphereInterference::sample(X, PAIR), -0.5f, 1.0e-6f);
+  const auto pair = SphereInterference::prepare(waves, {});
+  HS_EXPECT_EQ(SphereInterference::sample(y, pair), 1.0f);
+  HS_EXPECT_NEAR(SphereInterference::sample(x, pair), -0.5f, 1.0e-6f);
   GridParams grid;
   grid.frequency = 0.25f;
   grid.frequency_b = 0.5f;
   grid.offset_b = 0.25f;
-  const auto GRID = SphereSmoothGrid::prepare(grid, {});
-  HS_EXPECT_EQ(SphereSmoothGrid::sample(Y, GRID), 1.0f);
-  HS_EXPECT_EQ(SphereSmoothGrid::sample(X, GRID), 0.0f);
+  const auto grid_value = SphereSmoothGrid::prepare(grid, {});
+  HS_EXPECT_EQ(SphereSmoothGrid::sample(y, grid_value), 1.0f);
+  HS_EXPECT_EQ(SphereSmoothGrid::sample(x, grid_value), 0.0f);
   for (int i = -64; i <= 64; ++i) {
-    const auto D = SphereDirection::from({0.37f, i * 0.125f, -0.91f});
-    const float EXPECTED_A = std::sin(math::TWO_PI_F * 0.25f * D.value().y);
-    const float EXPECTED_B =
-        std::sin(math::TWO_PI_F * (0.5f * D.value().x + 0.25f));
-    HS_EXPECT_NEAR(SphereInterference::sample(D, PAIR),
-                   0.5f * (EXPECTED_A + EXPECTED_B), 0.0018f);
-    HS_EXPECT_NEAR(SphereSmoothGrid::sample(D, GRID), EXPECTED_A * EXPECTED_B,
-                   0.0035f);
-    HS_EXPECT_TRUE(std::abs(SphereSmoothGrid::sample(D, GRID)) <= 1.0f);
+    const auto d = SphereDirection::from({0.37f, i * 0.125f, -0.91f});
+    const float expected_a = std::sin(math::TWO_PI_F * 0.25f * d.value().y);
+    const float expected_b =
+        std::sin(math::TWO_PI_F * (0.5f * d.value().x + 0.25f));
+    HS_EXPECT_NEAR(SphereInterference::sample(d, pair),
+                   0.5f * (expected_a + expected_b), 0.0018f);
+    HS_EXPECT_NEAR(SphereSmoothGrid::sample(d, grid_value),
+                   expected_a * expected_b, 0.0035f);
+    HS_EXPECT_TRUE(std::abs(SphereSmoothGrid::sample(d, grid_value)) <= 1.0f);
   }
 }
 
@@ -102,12 +102,12 @@ inline void test_pattern_sphere_shared_phase() {
   waves.frequency = 0.25f;
   waves.frequency_b = 0.5f;
   waves.offset_b = 0.25f;
-  const auto PAIR = SphereInterference::prepare(waves, {});
+  const auto pair = SphereInterference::prepare(waves, {});
   for (int i = -64; i <= 64; ++i) {
-    const auto D = SphereDirection::from({0.37f, i * 0.125f, -0.91f});
-    HS_EXPECT_NEAR(SphereInterference::sample(D, PAIR),
+    const auto d = SphereDirection::from({0.37f, i * 0.125f, -0.91f});
+    HS_EXPECT_NEAR(SphereInterference::sample(d, pair),
                    SphereInterference::sample(
-                       D, SphereInterference::prepare(waves, {1.0f})),
+                       d, SphereInterference::prepare(waves, {1.0f})),
                    1.0e-6f);
   }
 }
@@ -129,22 +129,22 @@ inline void test_pattern_sphere_skewed_axes() {
     HS_EXPECT_TRUE(SphereSmoothGrid::valid(grid));
     if (!SphereSmoothGrid::valid(grid))
       return;
-    const auto SKEWED = SphereSmoothGrid::prepare(grid, {0.125f});
-    const float LENGTH_B = std::sqrt(AXIS_B.x * AXIS_B.x + AXIS_B.y * AXIS_B.y);
-    HS_EXPECT_NEAR(SKEWED.a.axis.y, 1.0f, 1.0e-7f);
-    HS_EXPECT_NEAR(SKEWED.b.axis.x, AXIS_B.x / LENGTH_B, 1.0e-7f);
-    HS_EXPECT_NEAR(SKEWED.b.axis.y, AXIS_B.y / LENGTH_B, 1.0e-7f);
+    const auto skewed = SphereSmoothGrid::prepare(grid, {0.125f});
+    const float length_b = std::sqrt(AXIS_B.x * AXIS_B.x + AXIS_B.y * AXIS_B.y);
+    HS_EXPECT_NEAR(skewed.a.axis.y, 1.0f, 1.0e-7f);
+    HS_EXPECT_NEAR(skewed.b.axis.x, AXIS_B.x / length_b, 1.0e-7f);
+    HS_EXPECT_NEAR(skewed.b.axis.y, AXIS_B.y / length_b, 1.0e-7f);
     for (int i = -16; i <= 16; ++i) {
-      const auto D = SphereDirection::from({0.37f, i * 0.125f, -0.91f});
-      const float EXPECTED_A =
-          std::sin(math::TWO_PI_F * (0.25f * D.value().y + 0.125f - 0.17f));
-      const float EXPECTED_B = std::sin(
+      const auto d = SphereDirection::from({0.37f, i * 0.125f, -0.91f});
+      const float expected_a =
+          std::sin(math::TWO_PI_F * (0.25f * d.value().y + 0.125f - 0.17f));
+      const float expected_b = std::sin(
           math::TWO_PI_F *
-          (0.5f * (AXIS_B.x * D.value().x + AXIS_B.y * D.value().y) / LENGTH_B +
+          (0.5f * (AXIS_B.x * d.value().x + AXIS_B.y * d.value().y) / length_b +
            0.125f + 0.23f));
-      const float ACTUAL = SphereSmoothGrid::sample(D, SKEWED);
-      HS_EXPECT_NEAR(ACTUAL, EXPECTED_A * EXPECTED_B, 0.0035f);
-      HS_EXPECT_TRUE(std::abs(ACTUAL) <= 1.0f);
+      const float actual = SphereSmoothGrid::sample(d, skewed);
+      HS_EXPECT_NEAR(actual, expected_a * expected_b, 0.0035f);
+      HS_EXPECT_TRUE(std::abs(actual) <= 1.0f);
     }
   }
 }
@@ -168,18 +168,18 @@ inline void test_pattern_sphere_admission() {
   grid.axis_b = math::Vector(0.0f, -4.0f, 0.0f);
   grid.offset = -0.17f;
   grid.offset_b = 0.23f;
-  const GridParams VALID_GRID = grid;
+  const GridParams valid_grid = grid;
   for (bool second : {false, true}) {
     for (const math::Vector INVALID_AXIS :
          {math::Vector(0.0f, 0.0f, 0.0f),
           math::Vector(std::numeric_limits<float>::infinity(), 1.0f, 0.0f),
           math::Vector(std::numeric_limits<float>::quiet_NaN(), 1.0f, 0.0f)}) {
-      grid = VALID_GRID;
+      grid = valid_grid;
       (second ? grid.axis_b : grid.axis) = INVALID_AXIS;
       HS_EXPECT_TRUE(!SphereSmoothGrid::valid(grid));
     }
     for (float frequency : {-1.0f, MAX_AXIAL_FREQUENCY + 1.0f}) {
-      grid = VALID_GRID;
+      grid = valid_grid;
       (second ? grid.frequency_b : grid.frequency) = frequency;
       HS_EXPECT_TRUE(!SphereSmoothGrid::valid(grid));
     }
@@ -239,7 +239,7 @@ inline void test_pattern_source_clocks() {
 
 /** @brief Turn clocks reduce large phases and increments independently. */
 inline void test_pattern_turn_clock_reduction() {
-  const auto FRACTION = [](double value) {
+  const auto fraction = [](double value) {
     double reduced = std::fmod(value, 1.0);
     return reduced < 0.0 ? reduced + 1.0 : reduced;
   };
@@ -248,41 +248,41 @@ inline void test_pattern_turn_clock_reduction() {
                             0.75f, 1.0f, 2.75f, 16777216.0f, LIMIT}) {
     for (const float RATE : {-LIMIT, -16777216.0f, -1.25f, -1.0f, -0.25f, 0.0f,
                              0.25f, 1.0f, 1.25f, 16777216.0f, LIMIT}) {
-      const float SUM =
-          static_cast<float>(FRACTION(PHASE)) +
+      const float sum =
+          static_cast<float>(fraction(PHASE)) +
           static_cast<float>(std::fmod(static_cast<double>(RATE), 1.0));
-      const float EXPECTED = static_cast<float>(FRACTION(SUM));
-      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, RATE), EXPECTED);
+      const float expected = static_cast<float>(fraction(sum));
+      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, RATE), expected);
       Pattern::NoiseSourceParams params;
       params.noise_time_rate = RATE;
-      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), EXPECTED);
+      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), expected);
     }
   }
   for (uint32_t index = 1; index <= 4096; ++index) {
-    const float RATE = std::bit_cast<float>(index * 2654435761u);
-    if (!std::isfinite(RATE))
+    const float rate = std::bit_cast<float>(index * 2654435761u);
+    if (!std::isfinite(rate))
       continue;
-    const float FRACTIONAL_RATE =
-        static_cast<float>(std::fmod(static_cast<double>(RATE), 1.0));
+    const float fractional_rate =
+        static_cast<float>(std::fmod(static_cast<double>(rate), 1.0));
     for (const float PHASE : {0.0f, 0.375f, 0.99999994f}) {
-      const float SUM = PHASE + FRACTIONAL_RATE;
-      const float REDUCED = static_cast<float>(FRACTION(SUM));
-      const float EXPECTED = REDUCED >= 1.0f ? 0.0f : REDUCED;
-      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, RATE), EXPECTED);
+      const float sum = PHASE + fractional_rate;
+      const float reduced = static_cast<float>(fraction(sum));
+      const float expected = reduced >= 1.0f ? 0.0f : reduced;
+      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, rate), expected);
       Pattern::NoiseSourceParams params;
-      params.noise_time_rate = RATE;
-      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), EXPECTED);
+      params.noise_time_rate = rate;
+      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), expected);
     }
   }
   for (int step = 0; step < 4096; ++step) {
-    const float PHASE = static_cast<float>(step) / 4096.0f;
+    const float phase = static_cast<float>(step) / 4096.0f;
     for (const float RATE :
          {-0.999f, -0.25f, -1.0e-7f, 0.0f, 1.0e-7f, 0.25f, 0.999f}) {
-      const float SINGLE_WRAP = math::wrap_t(PHASE + RATE);
-      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, RATE), SINGLE_WRAP);
+      const float single_wrap = math::wrap_t(phase + RATE);
+      HS_EXPECT_EQ(Pattern::advance_turn_phase(phase, RATE), single_wrap);
       Pattern::NoiseSourceParams params;
       params.noise_time_rate = RATE;
-      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), SINGLE_WRAP);
+      HS_EXPECT_EQ(Pattern::advance_noise_phase(phase, params), single_wrap);
     }
   }
 }
@@ -296,26 +296,26 @@ inline void test_pattern_noise_formulas() {
   NoiseParams params;
   params.scale = 3.5f;
   const PhaseState STATE{0.37f};
-  const auto D = SphereDirection::from({0.4f, -0.3f, 0.7f});
-  const auto SINGLE = SphereNoise::prepare(params, STATE, generator);
-  const auto Q = params.scale * D.value() +
+  const auto d = SphereDirection::from({0.4f, -0.3f, 0.7f});
+  const auto single = SphereNoise::prepare(params, STATE, generator);
+  const auto q = params.scale * d.value() +
                  math::noise_sphere_loop_offset(STATE.phase_turns);
-  const float EXPECTED = generator.GetNoiseSingle(Q.x, Q.y, Q.z);
-  HS_EXPECT_EQ(SphereNoise::sample(D, SINGLE), EXPECTED);
+  const float expected = generator.GetNoiseSingle(q.x, q.y, q.z);
+  HS_EXPECT_EQ(SphereNoise::sample(d, single), expected);
   generator.SetSeed(-12);
-  HS_EXPECT_EQ(SphereNoise::sample(D, SINGLE), EXPECTED);
+  HS_EXPECT_EQ(SphereNoise::sample(d, single), expected);
   generator.SetSeed(719);
   params.variant = NoiseVariant::OCTAVE_CONTOUR;
   params.basis = NoiseBasis::FBM3;
   params.contrast = 2.0f;
-  const float OCTAVES =
-      (generator.GetNoiseSingle(Q.x, Q.y, Q.z) +
-       0.5f * generator.GetNoiseSingle(2.0f * Q.x, 2.0f * Q.y, 2.0f * Q.z) +
-       0.25f * generator.GetNoiseSingle(4.0f * Q.x, 4.0f * Q.y, 4.0f * Q.z)) /
+  const float octaves =
+      (generator.GetNoiseSingle(q.x, q.y, q.z) +
+       0.5f * generator.GetNoiseSingle(2.0f * q.x, 2.0f * q.y, 2.0f * q.z) +
+       0.25f * generator.GetNoiseSingle(4.0f * q.x, 4.0f * q.y, 4.0f * q.z)) /
       1.75f;
   HS_EXPECT_NEAR(
-      SphereNoise::sample(D, SphereNoise::prepare(params, STATE, generator)),
-      OCTAVES * 3.0f / (1.0f + 2.0f * std::abs(OCTAVES)), 1.0e-5f);
+      SphereNoise::sample(d, SphereNoise::prepare(params, STATE, generator)),
+      octaves * 3.0f / (1.0f + 2.0f * std::abs(octaves)), 1.0e-5f);
   params.variant = NoiseVariant::CONFIGURED_SINGLE;
   HS_EXPECT_TRUE(!SphereNoise::valid(params));
 }
@@ -362,21 +362,21 @@ inline void test_pattern_plane_source_protocols() {
   waves.speed = -0.2f;
   waves.secondary_rate = 1.5f;
   waves.angle_rate = 0.03f;
-  const auto ZERO = PlaneInterference::init_state(waves);
-  const auto NEXT = PlaneInterference::advance(ZERO, waves);
-  HS_EXPECT_EQ(ZERO.primary, 0.0f);
-  HS_EXPECT_EQ(NEXT.primary, -0.2f);
-  HS_EXPECT_EQ(NEXT.secondary, -0.3f);
-  HS_EXPECT_EQ(NEXT.angle, 0.03f);
+  const auto zero = PlaneInterference::init_state(waves);
+  const auto next = PlaneInterference::advance(zero, waves);
+  HS_EXPECT_EQ(zero.primary, 0.0f);
+  HS_EXPECT_EQ(next.primary, -0.2f);
+  HS_EXPECT_EQ(next.secondary, -0.3f);
+  HS_EXPECT_EQ(next.angle, 0.03f);
   const PlanePosition POINT{{0.6f, 0.25f}};
-  const auto PREPARED = PlaneInterference::prepare(waves, NEXT);
-  const float ROTATED =
+  const auto prepared = PlaneInterference::prepare(waves, next);
+  const float rotated =
       POINT.value.re * std::cos(0.03f) + POINT.value.im * std::sin(0.03f);
-  HS_EXPECT_NEAR(PlaneInterference::sample(POINT, PREPARED),
-                 0.5f * (std::sin(0.4f) + std::sin(ROTATED - 0.3f)), 0.0018f);
-  const float RETAINED = PlaneInterference::sample(POINT, PREPARED);
+  HS_EXPECT_NEAR(PlaneInterference::sample(POINT, prepared),
+                 0.5f * (std::sin(0.4f) + std::sin(rotated - 0.3f)), 0.0018f);
+  const float retained = PlaneInterference::sample(POINT, prepared);
   waves.pattern_freq = 13.0f;
-  HS_EXPECT_EQ(PlaneInterference::sample(POINT, PREPARED), RETAINED);
+  HS_EXPECT_EQ(PlaneInterference::sample(POINT, prepared), retained);
 }
 
 /** @brief Plane spiral rounds arms to an integer and samples the arm-phase formula. */
@@ -386,9 +386,9 @@ inline void test_pattern_plane_source_spiral_samples() {
   static_assert(std::is_empty_v<PlaneSpiral::State>);
   PlaneSpiral::Params spiral_params;
   spiral_params.arms = 2.6f;
-  const auto SPIRAL = PlaneSpiral::prepare(spiral_params, {});
-  HS_EXPECT_EQ(SPIRAL.arms, 3.0f);
-  HS_EXPECT_NEAR(PlaneSpiral::sample({{0.0f, 0.5f}}, SPIRAL),
+  const auto spiral = PlaneSpiral::prepare(spiral_params, {});
+  HS_EXPECT_EQ(spiral.arms, 3.0f);
+  HS_EXPECT_NEAR(PlaneSpiral::sample({{0.0f, 0.5f}}, spiral),
                  std::sin(0.5f - 1.5f * std::numbers::pi_v<float>), 0.012f);
   spiral_params.arms = 0.0f;
   HS_EXPECT_NEAR(
@@ -415,20 +415,20 @@ inline void test_pattern_plane_source_tessellation_samples() {
       PlaneTessellation<TessellationKind::SQUARE, TessellationFill::CELLS>;
   static_assert(std::is_empty_v<Cells::State>);
   Cells::Params lattice;
-  const auto EMPTY = Cells::advance(Cells::init_state(lattice), lattice);
-  HS_EXPECT_EQ(Cells::sample({{}}, Cells::prepare(lattice, EMPTY)), 1.0f);
+  const auto empty = Cells::advance(Cells::init_state(lattice), lattice);
+  HS_EXPECT_EQ(Cells::sample({{}}, Cells::prepare(lattice, empty)), 1.0f);
   lattice.cell_shape = 1.0f;
   lattice.cell_softness = 0.5f;
-  const auto SQUARE = Cells::prepare(lattice, EMPTY);
-  const float CENTRE = Cells::sample({{}}, SQUARE);
-  HS_EXPECT_LE(CENTRE, 1.0f);
+  const auto square = Cells::prepare(lattice, empty);
+  const float centre = Cells::sample({{}}, square);
+  HS_EXPECT_LE(centre, 1.0f);
   for (float sign : {-1.0f, 1.0f}) {
-    const float INSIDE = Cells::sample({{sign * 0.125f, 0.0f}}, SQUARE);
-    HS_EXPECT_GT(INSIDE, 0.0f);
-    HS_EXPECT_LT(INSIDE, CENTRE);
-    HS_EXPECT_EQ(INSIDE, Cells::sample({{0.125f, 0.0f}}, SQUARE));
-    HS_EXPECT_EQ(Cells::sample({{sign * 0.25f, 0.0f}}, SQUARE), 0.0f);
-    HS_EXPECT_EQ(Cells::sample({{sign * 0.375f, 0.0f}}, SQUARE), -INSIDE);
+    const float inside = Cells::sample({{sign * 0.125f, 0.0f}}, square);
+    HS_EXPECT_GT(inside, 0.0f);
+    HS_EXPECT_LT(inside, centre);
+    HS_EXPECT_EQ(inside, Cells::sample({{0.125f, 0.0f}}, square));
+    HS_EXPECT_EQ(Cells::sample({{sign * 0.25f, 0.0f}}, square), 0.0f);
+    HS_EXPECT_EQ(Cells::sample({{sign * 0.375f, 0.0f}}, square), -inside);
   }
   using Edges =
       PlaneTessellation<TessellationKind::SQUARE, TessellationFill::EDGES>;
@@ -439,17 +439,17 @@ inline void test_pattern_plane_source_tessellation_samples() {
 inline void test_pattern_plane_source_noise_samples() {
   using namespace Pattern;
   const PlanePosition POINT{{0.6f, 0.25f}};
-  const FastNoiseLite GENERATOR;
+  const FastNoiseLite generator;
   PlaneNoise::Params noise;
   noise.noise_time_rate = -0.01f;
-  const auto CLOCK = PlaneNoise::advance(PlaneNoise::init_state(noise), noise);
-  HS_EXPECT_EQ(CLOCK.phase_turns, 0.99f);
-  const auto NOISE =
-      PlaneNoise::prepare(noise, CLOCK, GENERATOR, math::NoiseBasis::FBM3);
-  const auto Q = math::noise_projected_coordinate(
-      POINT.value, noise.noise_scale, CLOCK.phase_turns);
-  HS_EXPECT_EQ(PlaneNoise::sample(POINT, NOISE),
-               noise_contour(GENERATOR, math::NoiseBasis::FBM3, Q, 0.0f));
+  const auto clock = PlaneNoise::advance(PlaneNoise::init_state(noise), noise);
+  HS_EXPECT_EQ(clock.phase_turns, 0.99f);
+  const auto noise_value =
+      PlaneNoise::prepare(noise, clock, generator, math::NoiseBasis::FBM3);
+  const auto q = math::noise_projected_coordinate(
+      POINT.value, noise.noise_scale, clock.phase_turns);
+  HS_EXPECT_EQ(PlaneNoise::sample(POINT, noise_value),
+               noise_contour(generator, math::NoiseBasis::FBM3, q, 0.0f));
 }
 
 /** @brief Spherical cells use the engine's canonical seed layouts. */
@@ -459,39 +459,39 @@ inline void test_pattern_sphere_cell_layouts() {
     SphereCellLayout layout;
     std::span<const math::Vector> vertices;
   };
-  const LayoutCase CASES[] = {
+  const LayoutCase cases[] = {
       {SphereCellLayout::TETRAHEDRON, Solids::Tetrahedron::vertices},
       {SphereCellLayout::CUBE, Solids::Cube::vertices},
       {SphereCellLayout::OCTAHEDRON, Solids::Octahedron::vertices},
       {SphereCellLayout::DODECAHEDRON, Solids::Dodecahedron::vertices},
       {SphereCellLayout::ICOSAHEDRON, Solids::Icosahedron::vertices}};
   SphereCellsParams params;
-  for (const auto &entry : CASES) {
+  for (const auto &entry : cases) {
     params.layout = static_cast<uint8_t>(entry.layout);
-    const auto PREPARED = SphereCells::prepare(params);
-    HS_EXPECT_EQ(PREPARED.count, entry.vertices.size());
+    const auto prepared = SphereCells::prepare(params);
+    HS_EXPECT_EQ(prepared.count, entry.vertices.size());
     for (size_t index = 0; index < entry.vertices.size(); ++index) {
-      HS_EXPECT_EQ(PREPARED.centers[index].x, entry.vertices[index].x);
-      HS_EXPECT_EQ(PREPARED.centers[index].y, entry.vertices[index].y);
-      HS_EXPECT_EQ(PREPARED.centers[index].z, entry.vertices[index].z);
+      HS_EXPECT_EQ(prepared.centers[index].x, entry.vertices[index].x);
+      HS_EXPECT_EQ(prepared.centers[index].y, entry.vertices[index].y);
+      HS_EXPECT_EQ(prepared.centers[index].z, entry.vertices[index].z);
     }
   }
   params.layout = static_cast<uint8_t>(SphereCellLayout::FIBONACCI);
   params.count = 9.6f;
-  const auto TEN = SphereCells::prepare(params);
-  HS_EXPECT_EQ(TEN.count, 10u);
-  for (size_t index = 0; index < TEN.count; ++index) {
-    const auto EXPECTED = math::fib_spiral(static_cast<int>(TEN.count), 0.5f,
+  const auto ten = SphereCells::prepare(params);
+  HS_EXPECT_EQ(ten.count, 10u);
+  for (size_t index = 0; index < ten.count; ++index) {
+    const auto expected = math::fib_spiral(static_cast<int>(ten.count), 0.5f,
                                            static_cast<int>(index));
-    HS_EXPECT_EQ(TEN.centers[index].x, EXPECTED.x);
-    HS_EXPECT_EQ(TEN.centers[index].y, EXPECTED.y);
-    HS_EXPECT_EQ(TEN.centers[index].z, EXPECTED.z);
+    HS_EXPECT_EQ(ten.centers[index].x, expected.x);
+    HS_EXPECT_EQ(ten.centers[index].y, expected.y);
+    HS_EXPECT_EQ(ten.centers[index].z, expected.z);
   }
   params.count = 24.0f;
-  const auto DENSER = SphereCells::prepare(params);
-  HS_EXPECT_EQ(DENSER.count, 24u);
-  HS_EXPECT_TRUE(DENSER.centers[0].y != TEN.centers[0].y);
-  HS_EXPECT_GT(DENSER.distance_scale, TEN.distance_scale);
+  const auto denser = SphereCells::prepare(params);
+  HS_EXPECT_EQ(denser.count, 24u);
+  HS_EXPECT_TRUE(denser.centers[0].y != ten.centers[0].y);
+  HS_EXPECT_GT(denser.distance_scale, ten.distance_scale);
   params.count = static_cast<float>(SphereCells::MAX_CELLS);
   HS_EXPECT_EQ(SphereCells::prepare(params).count, SphereCells::MAX_CELLS);
 }
@@ -504,30 +504,30 @@ inline void test_pattern_sphere_cell_seed_isolation() {
   params.count = 31.0f;
   params.seed = 917.0f;
   auto expected_rng = hs::random();
-  const auto FIRST = SphereCells::prepare(params);
-  const auto AGAIN = SphereCells::prepare(params);
+  const auto first = SphereCells::prepare(params);
+  const auto again = SphereCells::prepare(params);
   ++params.seed;
-  const auto OTHER = SphereCells::prepare(params);
+  const auto other = SphereCells::prepare(params);
   auto actual_rng = hs::random();
   HS_EXPECT_EQ(actual_rng(), expected_rng());
   bool changed = false;
-  for (size_t index = 0; index < FIRST.count; ++index) {
-    HS_EXPECT_EQ(FIRST.centers[index].x, AGAIN.centers[index].x);
-    HS_EXPECT_EQ(FIRST.centers[index].y, AGAIN.centers[index].y);
-    HS_EXPECT_EQ(FIRST.centers[index].z, AGAIN.centers[index].z);
-    HS_EXPECT_NEAR(math::dot(FIRST.centers[index], FIRST.centers[index]), 1.0f,
+  for (size_t index = 0; index < first.count; ++index) {
+    HS_EXPECT_EQ(first.centers[index].x, again.centers[index].x);
+    HS_EXPECT_EQ(first.centers[index].y, again.centers[index].y);
+    HS_EXPECT_EQ(first.centers[index].z, again.centers[index].z);
+    HS_EXPECT_NEAR(math::dot(first.centers[index], first.centers[index]), 1.0f,
                    3.0e-7f);
-    changed |= FIRST.centers[index].x != OTHER.centers[index].x;
+    changed |= first.centers[index].x != other.centers[index].x;
   }
   HS_EXPECT_TRUE(changed);
   params.layout = static_cast<uint8_t>(SphereCellLayout::OCTAHEDRON);
   params.output = static_cast<uint8_t>(SphereCellOutput::CELL_VALUE);
-  const auto A = SphereCells::prepare(params);
+  const auto a = SphereCells::prepare(params);
   ++params.seed;
-  const auto B = SphereCells::prepare(params);
-  const auto POINT = SphereDirection::from_unit(math::X_AXIS);
-  HS_EXPECT_TRUE(SphereCells::sample(POINT, A) !=
-                 SphereCells::sample(POINT, B));
+  const auto b = SphereCells::prepare(params);
+  const auto point = SphereDirection::from_unit(math::X_AXIS);
+  HS_EXPECT_TRUE(SphereCells::sample(point, a) !=
+                 SphereCells::sample(point, b));
 }
 
 /** @brief Cell borders, center falloff and labels match known octahedral cells. */
@@ -538,31 +538,31 @@ inline void test_pattern_sphere_cell_outputs() {
   params.line_thickness = 0.1f;
   params.line_softness = 0.2f;
   auto prepared = SphereCells::prepare(params);
-  const auto X = SphereDirection::from_unit(math::X_AXIS);
-  const auto BOUNDARY = SphereDirection::from({1.0f, 1.0f, 0.0f});
-  HS_EXPECT_EQ(SphereCells::sample(X, prepared), -1.0f);
-  HS_EXPECT_EQ(SphereCells::sample(BOUNDARY, prepared), 1.0f);
-  const float SCALE = std::sqrt(6.0f / (4.0f * std::numbers::pi_v<float>));
-  const float OFFSET = 0.2f / SCALE;
+  const auto x = SphereDirection::from_unit(math::X_AXIS);
+  const auto boundary = SphereDirection::from({1.0f, 1.0f, 0.0f});
+  HS_EXPECT_EQ(SphereCells::sample(x, prepared), -1.0f);
+  HS_EXPECT_EQ(SphereCells::sample(boundary, prepared), 1.0f);
+  const float scale = std::sqrt(6.0f / (4.0f * std::numbers::pi_v<float>));
+  const float offset = 0.2f / scale;
   for (float side : {-1.0f, 1.0f}) {
-    const float ANGLE = std::numbers::pi_v<float> / 4.0f + side * OFFSET;
-    const auto POINT =
-        SphereDirection::from({std::cos(ANGLE), std::sin(ANGLE), 0});
-    HS_EXPECT_NEAR(SphereCells::sample(POINT, prepared), 0.0f, 2.0e-6f);
+    const float angle = std::numbers::pi_v<float> / 4.0f + side * offset;
+    const auto point =
+        SphereDirection::from({std::cos(angle), std::sin(angle), 0});
+    HS_EXPECT_NEAR(SphereCells::sample(point, prepared), 0.0f, 2.0e-6f);
   }
   prepared.output = SphereCellOutput::CENTERS;
-  HS_EXPECT_NEAR(SphereCells::sample(X, prepared), 1.0f, 1.0e-6f);
+  HS_EXPECT_NEAR(SphereCells::sample(x, prepared), 1.0f, 1.0e-6f);
   for (float angle : {0.2f, 0.5f}) {
-    const auto POINT =
+    const auto point =
         SphereDirection::from({std::cos(angle), std::sin(angle), 0});
-    HS_EXPECT_NEAR(SphereCells::sample(POINT, prepared),
-                   1.0f - 2.0f * angle * SCALE, 5.0e-4f);
+    HS_EXPECT_NEAR(SphereCells::sample(point, prepared),
+                   1.0f - 2.0f * angle * scale, 5.0e-4f);
   }
   prepared.output = SphereCellOutput::CELL_VALUE;
   prepared.seed = 391;
-  HS_EXPECT_EQ(SphereCells::sample(X, prepared),
+  HS_EXPECT_EQ(SphereCells::sample(x, prepared),
                2.0f * math::hash01(0, 391) - 1.0f);
-  HS_EXPECT_EQ(SphereCells::sample(BOUNDARY, prepared),
+  HS_EXPECT_EQ(SphereCells::sample(boundary, prepared),
                2.0f * math::hash01(0, 391) - 1.0f);
   HS_EXPECT_EQ(
       SphereCells::sample(SphereDirection::from_unit(math::Y_AXIS), prepared),
@@ -581,8 +581,8 @@ inline void test_pattern_sphere_cell_all_bisectors() {
   for (size_t index = 0; index < prepared.count; ++index)
     prepared.centers[index] = {std::sin(ANGLES[index]), std::cos(ANGLES[index]),
                                0};
-  const auto POINT = SphereDirection::from_unit(math::Y_AXIS);
-  HS_EXPECT_NEAR(SphereCells::sample(POINT, prepared), 0.0f, 2.0e-6f);
+  const auto point = SphereDirection::from_unit(math::Y_AXIS);
+  HS_EXPECT_NEAR(SphereCells::sample(point, prepared), 0.0f, 2.0e-6f);
 }
 
 /** @brief Cell recipes accept finite endpoints and reject invalid controls. */

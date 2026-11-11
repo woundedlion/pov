@@ -233,13 +233,13 @@ inline void test_shader_chain_ripple_bursts() {
   params.burst_rate = 1.0f / 64.0f;
   params.period = 80.0f;
   params.burst_size = 3;
-  const int NEXT_BURST = static_cast<int>(1.0f / params.burst_rate);
+  const int next_burst = static_cast<int>(1.0f / params.burst_rate);
   const auto launch_age = [&](int frames, int burst) {
-    return burst == 0 ? float(frames) : float(frames - burst * NEXT_BURST);
+    return burst == 0 ? float(frames) : float(frames - burst * next_burst);
   };
   const auto active_waves = [&](int frames) {
     int count = 0;
-    for (int burst = 0; burst * NEXT_BURST <= frames; ++burst)
+    for (int burst = 0; burst * next_burst <= frames; ++burst)
       for (int i = 0; i <= params.burst_size; ++i) {
         const float age = launch_age(frames, burst) - RIPPLE_STAGGER_FRAMES * i;
         count += age >= 0.0f && age < params.period;
@@ -254,7 +254,7 @@ inline void test_shader_chain_ripple_bursts() {
   for (int frame = 0; frame < 40; ++frame)
     Ripple::advance(aging, params);
   HS_EXPECT_EQ(aging.waves[0].age, 80.0f);
-  HS_EXPECT_EQ(aging.burst_count, uint32_t(1 + 80 / NEXT_BURST));
+  HS_EXPECT_EQ(aging.burst_count, uint32_t(1 + 80 / next_burst));
 
   Ripple::State state;
   Ripple::init(state,
@@ -279,7 +279,7 @@ inline void test_shader_chain_ripple_bursts() {
   Ripple::State restored;
   HS_EXPECT_TRUE(
       In::RuntimeStateCodec<Ripple::State>::restore(restored, snapshot));
-  for (int frame = EARLY; frame < NEXT_BURST - 1; ++frame) {
+  for (int frame = EARLY; frame < next_burst - 1; ++frame) {
     Ripple::advance(state, params);
     Ripple::advance(restored, params);
   }
@@ -291,7 +291,7 @@ inline void test_shader_chain_ripple_bursts() {
       snapshot_words(In::RuntimeStateCodec<Ripple::State>::capture(state)) ==
       snapshot_words(In::RuntimeStateCodec<Ripple::State>::capture(restored)));
   prepared = Ripple::prepare(ctx, params, state);
-  HS_EXPECT_EQ(prepared.count, active_waves(NEXT_BURST));
+  HS_EXPECT_EQ(prepared.count, active_waves(next_burst));
   const auto next_center = prepared.waves[prepared.count - 1].ripple.center;
   HS_EXPECT_TRUE((next_center - center).magnitude() > 0.01f);
   params.random_center = 0;
@@ -467,9 +467,9 @@ inline void test_shader_chain_twist_axis_short_arc() {
                                 reinterpret_cast<const uint8_t *>(&to),
                                 fraction);
       HS_EXPECT_TRUE(Pullback::Fields::valid(sampled));
-      const float EXPECTED =
+      const float expected =
           direction * (3.0f + fraction * (math::TWO_PI_F - 6.0f));
-      HS_EXPECT_NEAR(remainderf(sampled.axis_lambda - EXPECTED, math::TWO_PI_F),
+      HS_EXPECT_NEAR(remainderf(sampled.axis_lambda - expected, math::TWO_PI_F),
                      0.0f, 1e-6f);
       if (fraction == 0.0f)
         HS_EXPECT_EQ(sampled.axis_lambda, from.axis_lambda);
@@ -513,17 +513,17 @@ inline void test_shader_chain_twist_animation() {
   Twist::Params params;
   params.speed = 0.04f;
   params.drift = 0.013f;
-  const Twist::State start{math::TWO_PI_F - 0.02f, math::TWO_PI_F - 0.006f};
-  auto end = start;
+  const Twist::State START{math::TWO_PI_F - 0.02f, math::TWO_PI_F - 0.006f};
+  auto end = START;
   Twist::advance(end, params);
   HS_EXPECT_TRUE(end.phi < 0.03f);
   HS_EXPECT_TRUE(end.lambda < 0.01f);
-  const auto interval = In::Op::temporal_interval(start, end);
+  const auto interval = In::Op::temporal_interval(START, end);
   for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     auto column = end;
     In::Op::temporal_sample(column, interval, params, fraction);
-    expect_axis(column, double(start.phi) + params.speed * fraction,
-                double(start.lambda) + params.drift * fraction);
+    expect_axis(column, double(START.phi) + params.speed * fraction,
+                double(START.lambda) + params.drift * fraction);
   }
   const auto snapshot = In::RuntimeStateCodec<Twist::State>::capture(end);
   Twist::State restored;
@@ -545,23 +545,23 @@ inline void test_shader_chain_twist_animation() {
 inline void test_shader_chain_twist_closed_form() {
   for (const float distribution : {0.0f, 0.85f, 1.0f}) {
     for (const float total_angle : {-96.0f, 0.0f, 96.0f}) {
-      const PB::SphereSample input{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
+      const PB::SphereSample INPUT{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
       In::Op::TwistChainParams params;
       params.twist_angle = total_angle;
       params.distribution = distribution;
       const auto ctx = shared_resources().context();
       const auto prepared = In::Op::LensTwist::prepare(ctx, params, {});
-      const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
+      const auto result = In::Op::LensTwist::run(INPUT, ctx, params, prepared);
       const double a = distribution * 0.999;
       const double angle =
           0.5 * total_angle *
-          (a == 0.0 ? input.dir.y : atanh(a * input.dir.y) / atanh(a));
+          (a == 0.0 ? INPUT.dir.y : atanh(a * INPUT.dir.y) / atanh(a));
       HS_EXPECT_NEAR(result.dir.x,
-                     input.dir.x * cos(angle) - input.dir.z * sin(angle),
+                     INPUT.dir.x * cos(angle) - INPUT.dir.z * sin(angle),
                      2.5e-3);
-      HS_EXPECT_EQ(result.dir.y, input.dir.y);
+      HS_EXPECT_EQ(result.dir.y, INPUT.dir.y);
       HS_EXPECT_NEAR(result.dir.z,
-                     input.dir.x * sin(angle) + input.dir.z * cos(angle),
+                     INPUT.dir.x * sin(angle) + INPUT.dir.z * cos(angle),
                      2.5e-3);
     }
   }

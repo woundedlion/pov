@@ -184,8 +184,8 @@ inline void test_half_edge_mesh_open_boundary_edges() {
   open.vertices.push_back(math::Vector(-1, 0, 0));
   open.face_counts.push_back(3);
   open.face_counts.push_back(3);
-  const uint16_t idx[] = {0, 1, 2, 0, 2, 3}; // tri A: 0->1->2, tri B: 0->2->3
-  for (uint16_t i : idx)
+  const uint16_t IDX[] = {0, 1, 2, 0, 2, 3}; // tri A: 0->1->2, tri B: 0->2->3
+  for (uint16_t i : IDX)
     open.faces.push_back(i);
 
   HalfEdgeMesh he(arena, open);
@@ -236,14 +236,14 @@ inline void test_half_edge_mesh_euler_invariant() {
   build_solid<Solids::Cube>(cube, arena);
   HalfEdgeMesh he(arena, cube);
 
-  int V = static_cast<int>(cube.vertices.size());
-  int E = count_paired_edges(he);
-  HS_EXPECT_EQ(2 * E, static_cast<int>(he.half_edges.size()));
-  int F = static_cast<int>(he.faces.size());
-  HS_EXPECT_EQ(V - E + F, 2);
-  HS_EXPECT_EQ(V, 8);
-  HS_EXPECT_EQ(E, 12);
-  HS_EXPECT_EQ(F, 6);
+  int v = static_cast<int>(cube.vertices.size());
+  int e = count_paired_edges(he);
+  HS_EXPECT_EQ(2 * e, static_cast<int>(he.half_edges.size()));
+  int f = static_cast<int>(he.faces.size());
+  HS_EXPECT_EQ(v - e + f, 2);
+  HS_EXPECT_EQ(v, 8);
+  HS_EXPECT_EQ(e, 12);
+  HS_EXPECT_EQ(f, 6);
 }
 
 /**
@@ -256,14 +256,14 @@ inline void test_half_edge_mesh_euler_tetrahedron() {
   build_solid<Solids::Tetrahedron>(tet, arena);
   HalfEdgeMesh he(arena, tet);
 
-  int V = static_cast<int>(tet.vertices.size());
-  int E = count_paired_edges(he);
-  HS_EXPECT_EQ(2 * E, static_cast<int>(he.half_edges.size()));
-  int F = static_cast<int>(he.faces.size());
-  HS_EXPECT_EQ(V, 4);
-  HS_EXPECT_EQ(E, 6);
-  HS_EXPECT_EQ(F, 4);
-  HS_EXPECT_EQ(V - E + F, 2);
+  int v = static_cast<int>(tet.vertices.size());
+  int e = count_paired_edges(he);
+  HS_EXPECT_EQ(2 * e, static_cast<int>(he.half_edges.size()));
+  int f = static_cast<int>(he.faces.size());
+  HS_EXPECT_EQ(v, 4);
+  HS_EXPECT_EQ(e, 6);
+  HS_EXPECT_EQ(f, 4);
+  HS_EXPECT_EQ(v - e + f, 2);
 }
 
 /**
@@ -828,13 +828,13 @@ inline void test_classify_faces_roster_hash_collision_free() {
 
       const uint8_t *fc = mesh.get_face_counts_data();
       const uint16_t *faces = mesh.get_faces_data();
-      const size_t F = mesh.get_face_counts_size();
-      HS_EXPECT_TRUE(F <= MAX_SWEEP_FACES);
-      if (F > MAX_SWEEP_FACES)
+      const size_t f_value = mesh.get_face_counts_size();
+      HS_EXPECT_TRUE(f_value <= MAX_SWEEP_FACES);
+      if (f_value > MAX_SWEEP_FACES)
         continue;
 
       size_t off = 0;
-      for (size_t f = 0; f < F; ++f) {
+      for (size_t f = 0; f < f_value; ++f) {
         const int count = fc[f];
         const FaceTopoRecord rec = face_topo_record(mesh, faces + off, count);
         off += count;
@@ -847,7 +847,7 @@ inline void test_classify_faces_roster_hash_collision_free() {
       // hashes, matching classify_faces_impl's second stage.
       HalfEdgeMesh he(c, mesh);
       size_t he_off = 0;
-      for (size_t f = 0; f < F; ++f) {
+      for (size_t f = 0; f < f_value; ++f) {
         const int count = fc[f];
         uint64_t neighbor_keys[MAX_TOPO_SIDES];
         int n_neighbors = 0;
@@ -878,14 +878,14 @@ inline void test_classify_faces_roster_hash_collision_free() {
       Arena scratch_b(mesh_arena_c + sizeof(mesh_arena_c) / 2,
                       sizeof(mesh_arena_c) / 2);
       MeshOps::classify_faces_by_topology(mesh, scratch_a, scratch_b, a);
-      HS_EXPECT_EQ(mesh.topology.size(), F);
-      if (mesh.topology.size() != F)
+      HS_EXPECT_EQ(mesh.topology.size(), f_value);
+      if (mesh.topology.size() != f_value)
         continue;
 
       uint64_t id_key[MAX_TOPO_CLASSES];
       bool id_used[MAX_TOPO_CLASSES] = {};
       int classes = 0;
-      for (size_t f = 0; f < F; ++f) {
+      for (size_t f = 0; f < f_value; ++f) {
         const int id = mesh.topology[f];
         HS_CONTEXT(entry.name, static_cast<long long>(f));
         HS_EXPECT_TRUE(id >= 0 && id < MAX_TOPO_CLASSES);
@@ -900,7 +900,7 @@ inline void test_classify_faces_roster_hash_collision_free() {
         // Same production class must mean the same reference topology.
         HS_EXPECT_EQ(id_key[id], folded_keys[f]);
       }
-      for (size_t f = 0; f < F; ++f) {
+      for (size_t f = 0; f < f_value; ++f) {
         HS_CONTEXT(entry.name, static_cast<long long>(f));
         int matching = -1;
         for (int id = 0; id < MAX_TOPO_CLASSES; ++id)

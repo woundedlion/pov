@@ -13,12 +13,12 @@
  */
 inline void test_mutation_applies_function_of_eased_time() {
   float v = 0.0f;
-  const int duration = 5;
+  const int DURATION = 5;
   Animation::Mutation m(
-      v, [](float e) { return e * 10.0f; }, duration,
+      v, [](float e) { return e * 10.0f; }, DURATION,
       [](float t) { return t * t; });
   constexpr float EXPECTED[] = {0.4f, 1.6f, 3.6f, 6.4f, 10.0f};
-  for (int i = 0; i < duration; ++i) {
+  for (int i = 0; i < DURATION; ++i) {
     m.step(fake_canvas());
     HS_EXPECT_NEAR(v, EXPECTED[i], 1e-3f);
   }

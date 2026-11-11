@@ -270,11 +270,11 @@ inline void test_gnomonic_mobius_known_rotation() {
  *        to the rotated equator longitude, independent of coefficient scaling.
  */
 inline void test_gnomonic_mobius_equator_rotation() {
-  const math::Vector v(1.0f, 0.0f, 0.0f);
+  const math::Vector V(1.0f, 0.0f, 0.0f);
   math::MobiusParams times_i_by_divisor(1, 0, 0, 0, 0, 0, 0, -1); // z / -i
   math::MobiusParams times_i(0, 1, 0, 0, 0, 0, 1, 0);             // i z / 1
   for (const math::MobiusParams &p : {times_i_by_divisor, times_i}) {
-    const math::Vector r = math::gnomonic_mobius_transform(v, p);
+    const math::Vector r = math::gnomonic_mobius_transform(V, p);
     HS_EXPECT_NEAR(r.x, 0.0f, 1e-3f);
     HS_EXPECT_NEAR(r.y, 0.0f, 1e-3f);
     HS_EXPECT_NEAR(r.z, 1.0f, 1e-3f);
@@ -378,11 +378,11 @@ inline void test_ripple_threshold_reject_path() {
   HS_EXPECT_GT(p.cos_far, -1.0f);
 
   // In-band: at the peak.
-  const math::Vector in_band = math::Vector(1, 0, 0);
-  const math::Vector r_in = ripple_transform(in_band, p);
+  const math::Vector IN_BAND = math::Vector(1, 0, 0);
+  const math::Vector r_in = ripple_transform(IN_BAND, p);
   HS_EXPECT_TRUE(finite_vec(r_in));
   HS_EXPECT_NEAR(r_in.length(), 1.0f, 1e-4f);
-  const float moved_in = displacement(r_in, in_band);
+  const float moved_in = displacement(r_in, IN_BAND);
   HS_EXPECT_GT(moved_in, 1e-2f);
 
   // Out-of-band toward the center (d < d_min): cos_d > cos_near leg.
@@ -418,13 +418,13 @@ inline void test_ripple_decay_attenuates() {
   base.phase = math::PI_F * 0.5f; // wavelet peak at d == 90°
   base.thickness = 1.0f;
   // Default thresholds (min=1, max=-1) disable the fast reject.
-  const math::Vector v = math::Vector(1, 0, 0);
+  const math::Vector V = math::Vector(1, 0, 0);
 
   auto moved = [&](float decay) {
     Animation::RippleParams p = base;
     p.decay = decay;
-    math::Vector r = ripple_transform(v, p);
-    return displacement(r, v);
+    math::Vector r = ripple_transform(V, p);
+    return displacement(r, V);
   };
 
   const float m0 = moved(0.0f);
@@ -456,7 +456,7 @@ inline void test_ripple_threshold_boundary() {
 
   const float d_min = p.phase - p.thickness;
   const float d_max = p.phase + p.thickness;
-  const float eps = 0.02f;
+  const float EPS = 0.02f;
 
   auto pt = [](float d) {
     return math::Vector(std::sin(d), std::cos(d), 0.0f);
@@ -467,11 +467,11 @@ inline void test_ripple_threshold_boundary() {
   };
 
   // Just inside each edge: wavelet tail is small but nonzero.
-  HS_EXPECT_GT(moved(pt(d_max - eps)), 1e-4f);
-  HS_EXPECT_GT(moved(pt(d_min + eps)), 1e-4f);
+  HS_EXPECT_GT(moved(pt(d_max - EPS)), 1e-4f);
+  HS_EXPECT_GT(moved(pt(d_min + EPS)), 1e-4f);
   // Just outside each edge: fast-rejected → returned exactly unchanged.
-  HS_EXPECT_EQ(moved(pt(d_max + eps)), 0.0f);
-  HS_EXPECT_EQ(moved(pt(d_min - eps)), 0.0f);
+  HS_EXPECT_EQ(moved(pt(d_max + EPS)), 0.0f);
+  HS_EXPECT_EQ(moved(pt(d_min - EPS)), 0.0f);
 }
 
 /** @brief Neutral endpoint groups preserve mixed-center spawn order. */
@@ -504,15 +504,15 @@ inline void test_ripple_kernel_endpoint_order() {
   size_t visited_groups = 0, visited_waves = 0;
   for (int polar = 1; polar < 20; ++polar)
     for (int azimuth = 0; azimuth < 23; ++azimuth) {
-      const auto INPUT = math::Vector::from_spherical(
+      const auto input = math::Vector::from_spherical(
           azimuth * math::TWO_PI_F / 23, polar * math::PI_F / 20);
-      auto expected = INPUT;
+      auto expected = input;
       for (const auto &wave : waves)
         expected = ripple_transform(expected, wave);
-      const auto ACTUAL = sequential_groups(
-          INPUT, groups.data(), count, [&] { ++visited_groups; },
+      const auto actual = sequential_groups(
+          input, groups.data(), count, [&] { ++visited_groups; },
           [&] { ++visited_waves; });
-      HS_EXPECT_TRUE(vec_identical(ACTUAL, expected));
+      HS_EXPECT_TRUE(vec_identical(actual, expected));
     }
   HS_EXPECT_EQ(visited_groups, size_t{19 * 23 * 3});
   HS_EXPECT_GT(visited_waves, size_t{0});
@@ -586,41 +586,41 @@ inline void test_ripple_small_angle_series_matches_exact() {
   p.decay = 0.0f;
   p.thickness = 1.0f;
   // Default thresholds (min=1, max=-1) disable the fast reject.
-  const math::Vector v = math::Vector(1, 0, 0);
-  const math::Vector axis = math::cross(p.center, v).normalized();
+  const math::Vector V = math::Vector(1, 0, 0);
+  const math::Vector axis = math::cross(p.center, V).normalized();
 
   auto at = [&](float amplitude) {
     Animation::RippleParams q = p;
     q.amplitude = amplitude;
-    return ripple_transform(v, q);
+    return ripple_transform(V, q);
   };
   auto exact = [&](float theta) {
-    return math::rotate(v, math::make_rotation(axis, theta));
+    return math::rotate(V, math::make_rotation(axis, theta));
   };
 
   // Calibrate theta/amplitude from the exact branch, in libm acos rather than
   // the fast_acos angle_between uses.
   auto turned = [&](const math::Vector &out) {
-    return (float)std::acos(hs::clamp(math::dot(v, out), -1.0f, 1.0f));
+    return (float)std::acos(hs::clamp(math::dot(V, out), -1.0f, 1.0f));
   };
-  const float anchor_amplitude = 0.9f;
-  const math::Vector anchor = at(anchor_amplitude);
-  const float envelope = turned(anchor) / anchor_amplitude;
+  const float ANCHOR_AMPLITUDE = 0.9f;
+  const math::Vector anchor = at(ANCHOR_AMPLITUDE);
+  const float envelope = turned(anchor) / ANCHOR_AMPLITUDE;
   // The peak of a zero-decay Ricker wavelet is unit gain.
   HS_EXPECT_NEAR(envelope, 1.0f, 2e-3f);
-  HS_EXPECT_LE(max_component_delta(anchor, exact(anchor_amplitude * envelope)),
+  HS_EXPECT_LE(max_component_delta(anchor, exact(ANCHOR_AMPLITUDE * envelope)),
                1e-6f);
 
   // Series branch, from just above the amplitude short-circuit up to the
   // switchover.
-  const float amp_lo = 0.002f;
+  const float AMP_LO = 0.002f;
   const float amp_hi = RIPPLE_SMALL_ANGLE_MAX / envelope;
   float worst_err = 0.0f;
   float worst_unit_err = 0.0f;
-  const int steps = 300;
-  for (int i = 0; i <= steps; ++i) {
+  const int STEPS = 300;
+  for (int i = 0; i <= STEPS; ++i) {
     const float amplitude =
-        amp_lo + (amp_hi - amp_lo) * (float)i / (float)steps;
+        AMP_LO + (amp_hi - AMP_LO) * (float)i / (float)STEPS;
     const math::Vector got = at(amplitude);
     worst_err = fold_worst(
         worst_err, max_component_delta(got, exact(amplitude * envelope)));
@@ -669,12 +669,13 @@ inline void test_ripple_threshold_collapses_past_pi() {
  * comparison fails.
  */
 inline void test_transforms_nonfinite_passes_through_identity() {
-  const float inf = HUGE_VALF;
-  const float nan = NAN;
-  const math::Vector bad[] = {math::Vector(nan, 0, 0), math::Vector(0, inf, 0),
-                              math::Vector(inf, nan, -inf)};
+  const float INF = HUGE_VALF;
+  const float NAN_VALUE = NAN;
+  const math::Vector BAD[] = {math::Vector(NAN_VALUE, 0, 0),
+                              math::Vector(0, INF, 0),
+                              math::Vector(INF, NAN_VALUE, -INF)};
 
-  for (const math::Vector &v : bad) {
+  for (const math::Vector &v : BAD) {
     Animation::RippleParams rp;
     rp.amplitude = 0.0f;
     HS_EXPECT_TRUE(vec_identical(ripple_transform(v, rp), v));
@@ -1015,7 +1016,7 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
 
   constexpr int DELAY = 20;
   constexpr int DURATION = 4;
-  const math::Vector center(0, 1, 0);
+  const math::Vector CENTER(0, 1, 0);
 
   RippleTransformer<1> control(tl);
   control.init_storage(persistent_arena);
@@ -1023,8 +1024,8 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
   gated.init_storage(persistent_arena);
 
   bool paused = false;
-  HS_EXPECT_TRUE(control.spawn(DELAY, center, 0.2f, DURATION) != nullptr);
-  HS_EXPECT_TRUE(gated.spawn_pausable(&paused, DELAY, center, 0.2f, DURATION) !=
+  HS_EXPECT_TRUE(control.spawn(DELAY, CENTER, 0.2f, DURATION) != nullptr);
+  HS_EXPECT_TRUE(gated.spawn_pausable(&paused, DELAY, CENTER, 0.2f, DURATION) !=
                  nullptr);
   HS_EXPECT_EQ(gated.active_count(), 1);
 
@@ -1118,16 +1119,16 @@ inline double transformed_angle(const math::Vector &a, const math::Vector &b) {
 
 /** @brief A nonfinite transformed direction yields no finite movement. */
 inline void test_transformed_angle_rejects_nonfinite_directions() {
-  const math::Vector unit(0.0f, 1.0f, 0.0f);
-  HS_EXPECT_NEAR(transformed_angle(unit, math::Vector(1.0f, 0.0f, 0.0f)),
+  const math::Vector UNIT(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_NEAR(transformed_angle(UNIT, math::Vector(1.0f, 0.0f, 0.0f)),
                  math::PI_F * 0.5f, 1e-6f);
   const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
   const float INF_VALUE = std::numeric_limits<float>::infinity();
   for (const math::Vector &bad : {math::Vector(NAN_VALUE, NAN_VALUE, NAN_VALUE),
                                   math::Vector(0.0f, NAN_VALUE, 0.0f),
                                   math::Vector(0.0f, INF_VALUE, 0.0f)}) {
-    HS_EXPECT_TRUE(std::isnan(transformed_angle(unit, bad)));
-    HS_EXPECT_TRUE(std::isnan(transformed_angle(bad, unit)));
+    HS_EXPECT_TRUE(std::isnan(transformed_angle(UNIT, bad)));
+    HS_EXPECT_TRUE(std::isnan(transformed_angle(bad, UNIT)));
     HS_EXPECT_TRUE(std::isnan(fold_worst(0.0, transformed_angle(bad, bad))));
   }
 }
@@ -1485,8 +1486,8 @@ inline void test_field_transformer_storage_survives_arena_rewind() {
 inline void test_dominant_field_identities() {
   HS_EXPECT_EQ(DominantFieldAccumulator().value(), 0.0f);
 
-  const float singles[] = {0.7f, -0.7f, 4.5f, -0.013f, 1.0f};
-  for (float s : singles) {
+  const float SINGLES[] = {0.7f, -0.7f, 4.5f, -0.013f, 1.0f};
+  for (float s : SINGLES) {
     DominantFieldAccumulator acc;
     acc.add(s);
     HS_EXPECT_NEAR(acc.value(), s, 1e-6f);
@@ -1536,8 +1537,8 @@ inline void test_dominant_field_strongest_wins_without_stacking() {
  *          move substantially overall.
  */
 inline void test_dominant_field_sign_crossing_is_continuous() {
-  const int steps = 1000;
-  const float lo = -1.5f, hi = -0.5f;
+  const int STEPS = 1000;
+  const float LO = -1.5f, HI = -0.5f;
 
   auto blend = [](float b) {
     DominantFieldAccumulator acc;
@@ -1546,11 +1547,11 @@ inline void test_dominant_field_sign_crossing_is_continuous() {
     return acc.value();
   };
 
-  float prev = blend(lo);
+  float prev = blend(LO);
   const float first = prev;
   float worst_step = 0.0f;
-  for (int i = 1; i <= steps; ++i) {
-    const float b = lo + (hi - lo) * (float)i / (float)steps;
+  for (int i = 1; i <= STEPS; ++i) {
+    const float b = LO + (HI - LO) * (float)i / (float)STEPS;
     const float cur = blend(b);
     worst_step = fold_worst(worst_step, std::fabs(cur - prev));
     prev = cur;
@@ -1589,9 +1590,9 @@ inline void test_bump_field_threshold_sync() {
  *          sign(y) * (R - |y|) * sin(pi |y| / R).
  */
 inline void test_bump_field_drapes_over_ball() {
-  const float c_lat = math::PI_F / 3.0f;
+  const float C_LAT = math::PI_F / 3.0f;
   Animation::BumpParams p;
-  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.center = math::Vector(std::sin(C_LAT), std::cos(C_LAT), 0.0f);
   p.axis = math::Vector(0, 1, 0);
   p.radius = 0.5f;
   p.amplitude = 1.0f;
@@ -1601,7 +1602,7 @@ inline void test_bump_field_drapes_over_ball() {
   // Sample the meridian at colatitude offset d from the center.
   auto at = [&](float d) {
     return bump_field(
-        math::Vector(std::sin(c_lat + d), std::cos(c_lat + d), 0.0f), p);
+        math::Vector(std::sin(C_LAT + d), std::cos(C_LAT + d), 0.0f), p);
   };
 
   HS_EXPECT_NEAR(at(0.0f), 0.0f, 2e-3f);
@@ -1627,9 +1628,9 @@ inline void test_bump_field_drapes_over_ball() {
  *        by the ring's drape weight, so the bow is round rather than pointed.
  */
 inline void test_bump_field_round_bulge_along_ring() {
-  const float c_lat = math::PI_F / 2.0f;
+  const float C_LAT = math::PI_F / 2.0f;
   Animation::BumpParams p;
-  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.center = math::Vector(std::sin(C_LAT), std::cos(C_LAT), 0.0f);
   p.axis = math::Vector(0, 1, 0);
   p.radius = 0.5f;
   p.envelope = 1.0f;
@@ -1639,20 +1640,20 @@ inline void test_bump_field_round_bulge_along_ring() {
   // sampled at azimuth offset 0.3 rad about the axis. There x ~ 0.3 * sin of
   // the ring's colatitude, and the push is sqrt(R^2 - x^2) - |y|.
   const float y = p.radius * 0.5f;
-  const float lat = c_lat + y;
-  const float az = 0.3f;
-  const math::Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
-                       std::sin(lat) * std::sin(az));
-  const float x = az * std::sin(lat);
+  const float lat = C_LAT + y;
+  const float AZ = 0.3f;
+  const math::Vector v(std::sin(lat) * std::cos(AZ), std::cos(lat),
+                       std::sin(lat) * std::sin(AZ));
+  const float x = AZ * std::sin(lat);
   const float expected = std::sqrt(p.radius * p.radius - x * x) - y;
   HS_EXPECT_NEAR(bump_field(v, p), expected, 5e-3f);
 }
 
 /** @brief Verifies the cached-ring evaluator matches the generic bump field. */
 inline void test_bump_field_precomputed_y_parity() {
-  const float c_lat = 1.1f;
+  const float C_LAT = 1.1f;
   Animation::BumpParams p;
-  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.center = math::Vector(std::sin(C_LAT), std::cos(C_LAT), 0.0f);
   p.axis = math::Vector(0, 1, 0);
   p.radius = 0.55f;
   p.amplitude = 0.8f;
@@ -1673,9 +1674,9 @@ inline void test_bump_field_precomputed_y_parity() {
 
 /** @brief A bump with precomputed y stays finite and bounded near its center. */
 inline void test_bump_field_with_y_near_center_stays_bounded() {
-  const float c_lat = 1.1f;
+  const float C_LAT = 1.1f;
   Animation::BumpParams p;
-  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.center = math::Vector(std::sin(C_LAT), std::cos(C_LAT), 0.0f);
   p.axis = math::Vector(0, 1, 0);
   p.radius = 0.55f;
   p.amplitude = 0.8f;
@@ -1698,16 +1699,16 @@ inline void test_bump_field_with_y_near_center_stays_bounded() {
  *        when fully faded.
  */
 inline void test_bump_field_envelope_gates() {
-  const float c_lat = math::PI_F / 3.0f;
+  const float C_LAT = math::PI_F / 3.0f;
   Animation::BumpParams p;
-  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.center = math::Vector(std::sin(C_LAT), std::cos(C_LAT), 0.0f);
   p.axis = math::Vector(0, 1, 0);
   p.radius = 0.5f;
   p.sync();
 
   // Half the shrunken footprint below the center on the axis meridian.
-  const float d = c_lat + 0.125f;
-  const math::Vector v(std::sin(d), std::cos(d), 0.0f);
+  const float D = C_LAT + 0.125f;
+  const math::Vector v(std::sin(D), std::cos(D), 0.0f);
   p.envelope = 0.5f; // effective radius 0.25
   p.sync();
   HS_EXPECT_NEAR(bump_field(v, p), 0.125f, 2e-3f);
@@ -1917,13 +1918,13 @@ inline void test_ball_drop_traverses_and_reclaims() {
   Canvas cv(fx);
 
   math::Orientation<> ori;
-  const math::Vector pole(0, 1, 0);
-  const int duration = 40;
+  const math::Vector POLE(0, 1, 0);
+  const int DURATION = 40;
 
   BallDropTransformer<1> balls(tl);
   balls.init_storage(persistent_arena);
   balls.template_params.radius = 0.5f;
-  HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 0.0f, duration) != nullptr);
+  HS_EXPECT_TRUE(balls.spawn(0, ori, POLE, 0.0f, DURATION) != nullptr);
 
   tl.step(cv);
   balls.prepare_frame();
@@ -1932,7 +1933,7 @@ inline void test_ball_drop_traverses_and_reclaims() {
   // The full-envelope plateau reads with rounding jitter.
   constexpr float ULP_SLACK = 1e-5f;
   float previous = early_bound;
-  for (int i = 1; i < duration / 2; ++i) {
+  for (int i = 1; i < DURATION / 2; ++i) {
     tl.step(cv);
     balls.prepare_frame();
     HS_EXPECT_GE(balls.field_bound(), previous - ULP_SLACK);
@@ -1940,17 +1941,17 @@ inline void test_ball_drop_traverses_and_reclaims() {
   }
   // Mid-fall: the bump sits at (1, 0, 0) at full envelope. Half a footprint
   // below the center the push is R - R/2; the mirrored point reads its negation.
-  HS_EXPECT_NEAR(balls.field(pole), 0.0f, 1e-5f);
-  const float half_r = 0.5f * 0.5f;
-  const math::Vector below(std::cos(half_r), -std::sin(half_r), 0.0f);
-  const math::Vector above(std::cos(half_r), std::sin(half_r), 0.0f);
-  HS_EXPECT_NEAR(balls.field(below), half_r, 3e-3f);
-  HS_EXPECT_NEAR(balls.field(above), -half_r, 3e-3f);
+  HS_EXPECT_NEAR(balls.field(POLE), 0.0f, 1e-5f);
+  const float HALF_R = 0.5f * 0.5f;
+  const math::Vector below(std::cos(HALF_R), -std::sin(HALF_R), 0.0f);
+  const math::Vector above(std::cos(HALF_R), std::sin(HALF_R), 0.0f);
+  HS_EXPECT_NEAR(balls.field(below), HALF_R, 3e-3f);
+  HS_EXPECT_NEAR(balls.field(above), -HALF_R, 3e-3f);
   const float mid_bound = balls.field_bound();
   HS_EXPECT_GE(mid_bound, balls.field(below));
   HS_EXPECT_GT(mid_bound, early_bound);
 
-  for (int i = duration / 2; i < 3 * duration / 4; ++i) {
+  for (int i = DURATION / 2; i < 3 * DURATION / 4; ++i) {
     tl.step(cv);
     balls.prepare_frame();
     HS_EXPECT_LE(balls.field_bound(), previous + ULP_SLACK);
@@ -1958,23 +1959,23 @@ inline void test_ball_drop_traverses_and_reclaims() {
   }
   // Three quarters down, the bump has left the mid-fall footprint and pushes
   // half a footprint below its new center.
-  const float late_phi = 3.0f * math::PI_F / 4.0f + half_r;
-  const math::Vector late(std::sin(late_phi), std::cos(late_phi), 0.0f);
+  const float LATE_PHI = 3.0f * math::PI_F / 4.0f + HALF_R;
+  const math::Vector late(std::sin(LATE_PHI), std::cos(LATE_PHI), 0.0f);
   HS_EXPECT_NEAR(balls.field(below), 0.0f, 1e-5f);
   HS_EXPECT_GT(balls.field(late), 0.0f);
-  for (int i = 3 * duration / 4; i < duration - 1; ++i) {
+  for (int i = 3 * DURATION / 4; i < DURATION - 1; ++i) {
     tl.step(cv);
     balls.prepare_frame();
     HS_EXPECT_LE(balls.field_bound(), previous + ULP_SLACK);
     previous = balls.field_bound();
   }
   HS_EXPECT_LT(previous, mid_bound);
-  for (int i = duration - 1; i <= duration + 2; ++i)
+  for (int i = DURATION - 1; i <= DURATION + 2; ++i)
     tl.step(cv);
   balls.prepare_frame();
   HS_EXPECT_EQ(balls.field_bound(), 0.0f);
   HS_EXPECT_EQ(balls.active_count(), 0);
-  HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 1.0f, duration) != nullptr);
+  HS_EXPECT_TRUE(balls.spawn(0, ori, POLE, 1.0f, DURATION) != nullptr);
 }
 
 // ============================================================================

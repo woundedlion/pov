@@ -68,10 +68,10 @@ inline void test_named_presets() {
  */
 inline void test_sync_hue_rotates_per_efold() {
   constexpr float UNIT_CIRCLE_TOL = 2e-3f;
-  const float efolds[] = {0.5f, 1.0f, 2.0f, 3.0f};
-  const float shifts[] = {0.05f, 0.2f, 0.33f};
-  for (float efold : efolds)
-    for (float shift : shifts) {
+  const float EFOLDS[] = {0.5f, 1.0f, 2.0f, 3.0f};
+  const float SHIFTS[] = {0.05f, 0.2f, 0.33f};
+  for (float efold : EFOLDS)
+    for (float shift : SHIFTS) {
       Feedback::Style s{};
       s.fade = std::exp(-efold);
       s.hue_shift = shift;
@@ -195,10 +195,10 @@ inline void test_melt_warp_drifts_toward_north() {
   s.speed = 0.0f;
   HS_EXPECT_VEC(Feedback::melt_warp(v, s), v, 1e-6f);
   s.speed = 2.0f;
-  const auto DOUBLE_SPEED = Feedback::melt_warp(v, s);
-  const float ANGLE = std::atan2(out.y, out.x);
-  const float DOUBLE_ANGLE = std::atan2(DOUBLE_SPEED.y, DOUBLE_SPEED.x);
-  HS_EXPECT_NEAR(DOUBLE_ANGLE / ANGLE, 2.0f, 0.1f);
+  const auto double_speed = Feedback::melt_warp(v, s);
+  const float angle = std::atan2(out.y, out.x);
+  const float double_angle = std::atan2(double_speed.y, double_speed.x);
+  HS_EXPECT_NEAR(double_angle / angle, 2.0f, 0.1f);
 }
 
 /**
@@ -331,10 +331,10 @@ inline void test_hue_fade_nonzero_shift_rotates_saturated() {
   Feedback::Style s{};
   s.hue_shift = 0.33f;
   s.sync_hue();
-  const float fade = 0.8f;
-  Pixel rotated = Feedback::hue_fade(red, fade, s);
+  const float FADE = 0.8f;
+  Pixel rotated = Feedback::hue_fade(red, FADE, s);
 
-  Pixel plain = red * fade;
+  Pixel plain = red * FADE;
   const int delta = std::abs((int)rotated.r - (int)plain.r) +
                     std::abs((int)rotated.g - (int)plain.g) +
                     std::abs((int)rotated.b - (int)plain.b);
@@ -378,15 +378,15 @@ inline void test_hue_fade_matches_rotate_reference() {
       lut_buf[gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
-  const Pixel colors[] = {Pixel(65535, 0, 0),        Pixel(0, 65535, 0),
+  const Pixel COLORS[] = {Pixel(65535, 0, 0),        Pixel(0, 65535, 0),
                           Pixel(0, 0, 65535),        Pixel(65535, 65535, 0),
                           Pixel(50000, 2000, 2000),  Pixel(300, 200, 100),
                           Pixel(20000, 20000, 20000)};
-  const float fades[] = {0.0f, 0.58f, 0.9f, 0.99f};
-  const float shifts[] = {0.0f, 0.01f, 0.05f, 0.1f, 0.33f};
-  for (const Pixel &c : colors)
-    for (float fade : fades)
-      for (float shift : shifts) {
+  const float FADES[] = {0.0f, 0.58f, 0.9f, 0.99f};
+  const float SHIFTS[] = {0.0f, 0.01f, 0.05f, 0.1f, 0.33f};
+  for (const Pixel &c : COLORS)
+    for (float fade : FADES)
+      for (float shift : SHIFTS) {
         Feedback::Style s{};
         s.fade = fade;
         s.hue_shift = shift;
@@ -406,7 +406,7 @@ inline void test_hue_fade_matches_rotate_reference() {
  *        quantized output, the level the display observes.
  */
 inline void test_hue_fade_apply2_tracks_scalar() {
-  const float channels[][3] = {{0.0f, 0.0f, 0.0f},
+  const float CHANNELS[][3] = {{0.0f, 0.0f, 0.0f},
                                {1.0f, 0.0f, 0.0f},
                                {0.5f, 0.25f, 0.125f},
                                {300.0f, 200.0f, 100.0f},
@@ -418,15 +418,15 @@ inline void test_hue_fade_apply2_tracks_scalar() {
                                {50000.0f, 2000.0f, 2000.0f},
                                {65535.0f, 65535.0f, 65535.0f},
                                {12345.0f, 54321.0f, 999.0f}};
-  const int n = (int)std::size(channels);
-  const float fades[] = {0.58f, 0.75f, 0.9f, 0.99f};
-  const float shifts[] = {0.0f, 0.01f, 0.1f, 0.33f, 0.75f};
+  const int n = (int)std::size(CHANNELS);
+  const float FADES[] = {0.58f, 0.75f, 0.9f, 0.99f};
+  const float SHIFTS[] = {0.0f, 0.01f, 0.1f, 0.33f, 0.75f};
 
-  for (int si = 0; si < (int)std::size(shifts); ++si)
-    for (int fi = 0; fi < (int)std::size(fades); ++fi) {
+  for (int si = 0; si < (int)std::size(SHIFTS); ++si)
+    for (int fi = 0; fi < (int)std::size(FADES); ++fi) {
       HS_CONTEXT("shift/fade", si, fi);
-      const float shift = shifts[si];
-      const float fade = fades[fi];
+      const float shift = SHIFTS[si];
+      const float fade = FADES[fi];
       Feedback::Style s{};
       s.fade = fade;
       s.hue_shift = shift;
@@ -437,14 +437,14 @@ inline void test_hue_fade_apply2_tracks_scalar() {
       for (int a = 0; a < n; ++a)
         for (int b = 0; b < n; ++b) {
           HS_CONTEXT("channel pair", a, b);
-          Pixel s0 = Feedback::hue_fade_apply(k, channels[a][0], channels[a][1],
-                                              channels[a][2]);
-          Pixel s1 = Feedback::hue_fade_apply(k, channels[b][0], channels[b][1],
-                                              channels[b][2]);
+          Pixel s0 = Feedback::hue_fade_apply(k, CHANNELS[a][0], CHANNELS[a][1],
+                                              CHANNELS[a][2]);
+          Pixel s1 = Feedback::hue_fade_apply(k, CHANNELS[b][0], CHANNELS[b][1],
+                                              CHANNELS[b][2]);
           Pixel p0, p1;
-          Feedback::hue_fade_apply2(k, channels[a][0], channels[a][1],
-                                    channels[a][2], channels[b][0],
-                                    channels[b][1], channels[b][2], p0, p1);
+          Feedback::hue_fade_apply2(k, CHANNELS[a][0], CHANNELS[a][1],
+                                    CHANNELS[a][2], CHANNELS[b][0],
+                                    CHANNELS[b][1], CHANNELS[b][2], p0, p1);
           HS_EXPECT_LE(max_channel_gap(p0, s0), hue_parity_tolerance(s0));
           HS_EXPECT_LE(max_channel_gap(p1, s1), hue_parity_tolerance(s1));
         }

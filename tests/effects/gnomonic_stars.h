@@ -169,11 +169,11 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
   expect_lattice(164);
 
   // An unchanged count leaves the cache alone, so the poison survives.
-  const math::Vector poison(0.0f, 0.0f, 1.0f);
-  WB::poison_cache(fx, 7, poison);
+  const math::Vector POISON(0.0f, 0.0f, 1.0f);
+  WB::poison_cache(fx, 7, POISON);
   step(164.0f);
   HS_EXPECT_EQ(WB::cached_points(fx), 164);
-  HS_EXPECT_EQ(WB::cache_at(fx, 7).z, poison.z);
+  HS_EXPECT_EQ(WB::cache_at(fx, 7).z, POISON.z);
 
   // A changed count rebuilds every slot, the poisoned one included.
   step(140.0f);

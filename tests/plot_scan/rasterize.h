@@ -48,7 +48,7 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
  */
 inline void test_rasterize_open_segment_gap_free() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * math::PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -70,7 +70,7 @@ inline void test_rasterize_open_segment_gap_free() {
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)10);
   // Adaptive sub-stepping caps each advance at ~base_step (slack for quantization).
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
-               1.5f * base_step);
+               1.5f * BASE_STEP);
   HS_EXPECT_TRUE(!pipe.plotted.empty());
   if (pipe.plotted.empty())
     return;
@@ -87,7 +87,7 @@ inline void test_rasterize_open_segment_gap_free() {
  */
 inline void test_rasterize_closed_loop_gap_free_no_dup() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * math::PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -113,7 +113,7 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)20);
   // Continuity all the way around, including the last->first seam.
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/true),
-               1.5f * base_step);
+               1.5f * BASE_STEP);
   // No vertex plotted twice: consecutive samples stay distinct.
   for (size_t i = 0; i < pipe.plotted.size(); ++i) {
     const math::Vector delta =
@@ -172,7 +172,7 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
  */
 inline void test_rasterize_planar_segment_gap_free_arclength() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * math::PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -203,7 +203,7 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   if (pipe.plotted.empty())
     return;
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
-               1.5f * base_step);
+               1.5f * BASE_STEP);
   // Endpoints land within PlanarEdgeSampler's project/unproject round-trip error.
   HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-2f);
   HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-2f);
@@ -637,7 +637,7 @@ inline void test_rasterize_planar_arc_registers_skip_culled_segments() {
 /** @brief Sampling follows rendered latitude, including cached one-dot flags. */
 inline void test_rasterize_sampling_follows_world_transforms() {
   constexpr int W = 288, H = 144, N = 64;
-  const math::Quaternion TURN =
+  const math::Quaternion turn =
       math::make_rotation(math::X_AXIS, -math::PI_F / 2);
   hs_test::StubEffect fx(W, H);
   Canvas canvas(fx);
@@ -645,10 +645,10 @@ inline void test_rasterize_sampling_follows_world_transforms() {
   Fragments points;
   points.bind(plot_arena(), N);
   for (int i = 0; i < N; ++i) {
-    const float ANGLE = 2 * math::PI_F * i / N;
+    const float angle = 2 * math::PI_F * i / N;
     Fragment f;
-    f.pos = {sinf(math::PI_F / 18) * cosf(ANGLE),
-             sinf(math::PI_F / 18) * sinf(ANGLE), cosf(math::PI_F / 18)};
+    f.pos = {sinf(math::PI_F / 18) * cosf(angle),
+             sinf(math::PI_F / 18) * sinf(angle), cosf(math::PI_F / 18)};
     points.push_back(f);
   }
   std::array<uint8_t, N> flags;
@@ -670,53 +670,53 @@ inline void test_rasterize_sampling_follows_world_transforms() {
   };
   std::vector<math::Vector> rendered;
   Pipeline<W, H, WorldSampleCapture> direct{WorldSampleCapture(rendered)};
-  const int EQUATOR = draw(direct);
-  math::Orientation<> orientation(TURN);
+  const int equator = draw(direct);
+  math::Orientation<> orientation(turn);
   Pipeline<W, H, Filter::World::Orient, WorldSampleCapture> rotated{
       Filter::World::Orient(orientation), WorldSampleCapture(rendered)};
   rotated.init_storage(persistent_arena);
   rendered.clear();
-  const int ROTATED = draw(rotated);
+  const int rotated_value = draw(rotated);
   // Round the pole the ring spans every column within the column gap.
   constexpr float MAX_COLUMN_GAP = 1.1f;
-  HS_EXPECT_GT(ROTATED, W / MAX_COLUMN_GAP);
-  HS_EXPECT_GT(ROTATED, 3 * EQUATOR);
+  HS_EXPECT_GT(rotated_value, W / MAX_COLUMN_GAP);
+  HS_EXPECT_GT(rotated_value, 3 * equator);
   HS_EXPECT_GT(static_cast<float>(rendered.size()), W / MAX_COLUMN_GAP);
   float max_gap = 0;
   for (size_t i = 0; i < rendered.size(); ++i) {
-    const float A = math::vector_to_pixel<W, H>(rendered[i]).x;
-    const float B =
+    const float a = math::vector_to_pixel<W, H>(rendered[i]).x;
+    const float b =
         math::vector_to_pixel<W, H>(rendered[(i + 1) % rendered.size()]).x;
-    float gap = fabsf(A - B);
+    float gap = fabsf(a - b);
     max_gap = fold_worst(max_gap, std::min(gap, W - gap));
   }
   HS_EXPECT_LT(max_gap, MAX_COLUMN_GAP);
-  HS_EXPECT_EQ(draw(rotated, true), ROTATED);
+  HS_EXPECT_EQ(draw(rotated, true), rotated_value);
   for (auto &point : points)
-    point.pos = math::rotate(point.pos, TURN);
-  const int POLE = draw(direct);
-  HS_EXPECT_NEAR(ROTATED, POLE, 4);
-  orientation.set(TURN.conjugate());
-  const int UNROTATED = draw(rotated);
-  HS_EXPECT_LT(UNROTATED, POLE / 2);
-  HS_EXPECT_NEAR(UNROTATED, EQUATOR, 4);
+    point.pos = math::rotate(point.pos, turn);
+  const int pole = draw(direct);
+  HS_EXPECT_NEAR(rotated_value, pole, 4);
+  orientation.set(turn.conjugate());
+  const int unrotated = draw(rotated);
+  HS_EXPECT_LT(unrotated, pole / 2);
+  HS_EXPECT_NEAR(unrotated, equator, 4);
   orientation.set(math::Quaternion());
   orientation.push(math::Quaternion());
-  orientation.push(TURN.conjugate());
-  HS_EXPECT_GE(draw(rotated), POLE - 4);
+  orientation.push(turn.conjugate());
+  HS_EXPECT_GE(draw(rotated), pole - 4);
   for (auto &point : points)
-    point.pos = math::rotate(point.pos, TURN.conjugate());
+    point.pos = math::rotate(point.pos, turn.conjugate());
   math::Orientation<> half(math::make_rotation(math::X_AXIS, -math::PI_F / 4));
   Pipeline<W, H, Filter::World::Orient, Filter::World::Orient,
            WorldSampleCapture>
       composed{Filter::World::Orient(half), Filter::World::Orient(half),
                WorldSampleCapture(rendered)};
   composed.init_storage(persistent_arena);
-  HS_EXPECT_NEAR(draw(composed), POLE, 4);
+  HS_EXPECT_NEAR(draw(composed), pole, 4);
   math::MobiusParams params;
   Pipeline<W, H, Filter::World::Mobius, WorldSampleCapture> nonrigid{
       Filter::World::Mobius(params), WorldSampleCapture(rendered)};
-  HS_EXPECT_GE(draw(nonrigid), POLE);
+  HS_EXPECT_GE(draw(nonrigid), pole);
   HS_EXPECT_EQ(draw(nonrigid, true), draw(nonrigid));
 }
 

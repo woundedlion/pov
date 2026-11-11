@@ -88,10 +88,10 @@ HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)
   {name, hs_test::module_runners::fn, effects_tier},
 
 const hs_test::TestSuite &hs_test::test_suite() {
-  static const TestModule MODULES[] = {
+  static const TestModule modules[] = {
       HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)};
-  static const TestSuite SUITE{MODULES, module_runners::set_death_self_exe,
+  static const TestSuite suite{modules, module_runners::set_death_self_exe,
                                module_runners::run_death_child_case};
-  return SUITE;
+  return suite;
 }
 #undef HS_TEST_MODULE_ENTRY

@@ -37,13 +37,13 @@ inline void chain_invalid_layout(unsigned variant) {
 /** @brief Registered field curves retain their catalog spellings. */
 inline void check_catalog_field_curve_companion() {
   using Curve = Control::FieldCurve;
-  const std::pair<Curve, const char *> curves[] = {
+  const std::pair<Curve, const char *> CURVES[] = {
       {Curve::LERP, "lerp"},
       {Curve::LOG_POSITIVE, "log-positive"},
       {Curve::SHORTEST_PERIODIC, "shortest-periodic"},
       {Curve::SHORTEST_TURN, "shortest-turn"},
       {Curve::SNAP, "snap"}};
-  for (const auto &[curve, name] : curves)
+  for (const auto &[curve, name] : CURVES)
     HS_EXPECT(std::strcmp(Pullback::Interp::Detail::curve_name(curve), name) ==
                   0,
               "registered field curve spelling");
@@ -391,13 +391,13 @@ inline void case_projection_invalid_frame_prepare() {
 }
 
 inline void case_sample_plane_nan() {
-  const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
-  (void)Pullback::Kernel::sample(Pullback::PlaneSample{}, NAN_VALUE, 1.0f);
+  const float nan_value = opaque(std::numeric_limits<float>::quiet_NaN());
+  (void)Pullback::Kernel::sample(Pullback::PlaneSample{}, nan_value, 1.0f);
 }
 
 inline void case_sample_sphere_nan() {
-  const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
-  (void)Pullback::Kernel::sample(Pullback::SphereSample{}, NAN_VALUE);
+  const float nan_value = opaque(std::numeric_limits<float>::quiet_NaN());
+  (void)Pullback::Kernel::sample(Pullback::SphereSample{}, nan_value);
 }
 
 /** @brief Arena-sized blocks for column-time chain death cases. */
@@ -423,11 +423,11 @@ inline void compile_temporal_chain(Pullback::Interp::ChainProgram &program,
   program.bind_storage(blocks.a, blocks.b);
   if (temporal)
     program.bind_temporal_storage(blocks.history, blocks.column);
-  const In::ChainEntryRequest request[] = {
+  const In::ChainEntryRequest REQUEST[] = {
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"color", "colorize.generated-palette.v4"}};
-  if (program.compile(request).code != In::ChainStatus::OK)
+  if (program.compile(REQUEST).code != In::ChainStatus::OK)
     std::exit(0);
 }
 
@@ -511,8 +511,8 @@ inline void case_chain_column_without_history() {
   static ChainTemporalBlocks blocks;
   static Pullback::Interp::ChainProgram program;
   compile_temporal_chain(program, blocks, true);
-  const Pullback::Interp::FrameContext ctx{};
-  program.prepare_column(ctx, ctx, 0.5f);
+  const Pullback::Interp::FrameContext CTX{};
+  program.prepare_column(CTX, CTX, 0.5f);
 }
 
 /** @brief Lifecycle event invalidating sampled history. */

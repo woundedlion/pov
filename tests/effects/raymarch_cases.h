@@ -363,15 +363,15 @@ inline void test_raymarch_surface_frame_uv() {
   constexpr float MINOR_R = 0.12f;
   constexpr float AMPLITUDE = 0.08f;
   constexpr int TWIST = 3;
-  const float u = 0.7f;
-  const float v = -1.1f;
-  const float cos_u = cosf(u);
-  const float sin_u = sinf(u);
-  const float cos_v = cosf(v);
-  const float sin_v = sinf(v);
+  const float U = 0.7f;
+  const float V = -1.1f;
+  const float cos_u = cosf(U);
+  const float sin_u = sinf(U);
+  const float cos_v = cosf(V);
+  const float sin_v = sinf(V);
   const float radial = MAJOR_R + MINOR_R * cos_v;
   const math::Vector loc(radial * cos_u,
-                         AMPLITUDE * sinf(TWIST * u) + MINOR_R * sin_v,
+                         AMPLITUDE * sinf(TWIST * U) + MINOR_R * sin_v,
                          radial * sin_u);
   const auto frame = RaymarchWhiteBox::surface_frame<SMALL_W, SMALL_H>(
       loc, TWIST, AMPLITUDE, MAJOR_R, MINOR_R);
@@ -411,8 +411,8 @@ inline void test_raymarch_constexpr_sqrt_converges() {
   }
   HS_EXPECT_LT(worst, 1e-6);
 
-  const float radicand = WB::MAJOR * WB::MAJOR + WB::TWIST * WB::TWIST;
-  HS_EXPECT_NEAR(math::constexpr_sqrt(radicand), std::sqrt(radicand), 1e-7);
+  const float RADICAND = WB::MAJOR * WB::MAJOR + WB::TWIST * WB::TWIST;
+  HS_EXPECT_NEAR(math::constexpr_sqrt(RADICAND), std::sqrt(RADICAND), 1e-7);
 
   // Radicands far outside O(1), where a fixed iteration count stops short.
   for (int i = 0; i < 6; ++i) {
@@ -440,8 +440,8 @@ inline void test_raymarch_constexpr_sqrt_converges() {
 inline void test_raymarch_unit_bounds_contains_twisted_tube() {
   using WB = RaymarchWhiteBox;
   constexpr double TWO_PI_DBL = 6.283185307179586;
-  const double R = WB::MAJOR, r = WB::MINOR, A = WB::TWIST;
-  const double bound = WB::BOUNDS;
+  const double R = WB::MAJOR, MINOR_RADIUS = WB::MINOR, A = WB::TWIST;
+  const double BOUND = WB::BOUNDS;
 
   double max_off_surface = 0.0; // |SDF| at the sampled surface points
   double max_radius = 0.0;      // farthest surface point from the torus centre
@@ -449,7 +449,7 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
 
   for (int n = 0; n <= WB::TWIST_MAX; ++n) {
     const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
-        SDF::Torus{static_cast<float>(R), static_cast<float>(r)},
+        SDF::Torus{static_cast<float>(R), static_cast<float>(MINOR_RADIUS)},
         SDF::Warp::Twist{n, static_cast<float>(A), static_cast<float>(R)}};
 
     for (int i = 0; i < 256; ++i) {
@@ -458,8 +458,8 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
       const double y_mid = A * std::sin(n * th);
       for (int j = 0; j < 256; ++j) {
         const double a = TWO_PI_DBL * j / 256;
-        const double s = R + r * std::cos(a);
-        const double y = y_mid + r * std::sin(a);
+        const double s = R + MINOR_RADIUS * std::cos(a);
+        const double y = y_mid + MINOR_RADIUS * std::sin(a);
         const math::Vector p(static_cast<float>(s * ct), static_cast<float>(y),
                              static_cast<float>(s * st));
         max_off_surface = hs_test::fold_worst(
@@ -475,9 +475,9 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
       for (int j = 0; j <= 64; ++j) {
         const double ph = 0.5 * TWO_PI_DBL * j / 64;
         const double sp = std::sin(ph);
-        const math::Vector q(static_cast<float>(bound * sp * std::cos(th)),
-                             static_cast<float>(bound * std::cos(ph)),
-                             static_cast<float>(bound * sp * std::sin(th)));
+        const math::Vector q(static_cast<float>(BOUND * sp * std::cos(th)),
+                             static_cast<float>(BOUND * std::cos(ph)),
+                             static_cast<float>(BOUND * sp * std::sin(th)));
         const double shell_distance = static_cast<double>(wv.raw_distance(q));
         if (std::isnan(shell_distance) || shell_distance < min_on_shell)
           min_on_shell = shell_distance;
@@ -486,11 +486,11 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
   }
 
   HS_EXPECT_LT(max_off_surface, 2e-4); // the samples are the SDF's zero set
-  HS_EXPECT_LE(max_radius, bound + 1e-6);
+  HS_EXPECT_LE(max_radius, BOUND + 1e-6);
   HS_EXPECT_GT(min_on_shell, -1e-4);
-  HS_EXPECT_NEAR(max_radius, bound, 1e-3);
+  HS_EXPECT_NEAR(max_radius, BOUND, 1e-3);
 
   // The visible outer radius the per-vertex auto-size fits to the neighbour gap
   // is the ring rim, so it must sit inside the cull sphere.
-  HS_EXPECT_LT(static_cast<double>(WB::VIS), bound);
+  HS_EXPECT_LT(static_cast<double>(WB::VIS), BOUND);
 }

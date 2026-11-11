@@ -154,11 +154,11 @@ inline void check_face_counts_consistent(const PolyMesh &m) {
  */
 inline void check_indices_in_range(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.faces.size() > 0);
-  size_t V = m.vertices.size();
+  size_t v = m.vertices.size();
   size_t max_index = 0;
   for (size_t i = 0; i < m.faces.size(); ++i)
     max_index = std::max<size_t>(max_index, m.faces[i]);
-  HS_EXPECT_LT(max_index, V);
+  HS_EXPECT_LT(max_index, v);
 }
 
 /** Longest geodesic edge a healthy solid reaches, as a multiple of its median
@@ -398,8 +398,8 @@ inline int count_inward_winding(const PolyMesh &m) {
     if (count >= 3) {
       math::Vector n = face_newell_normal(m, offset, count);
       math::Vector c = face_centroid_pos(m, offset, count);
-      const float LENGTH = n.length();
-      if (!std::isfinite(LENGTH) || (LENGTH > 1e-6f && math::dot(n, c) <= 0.0f))
+      const float length = n.length();
+      if (!std::isfinite(length) || (length > 1e-6f && math::dot(n, c) <= 0.0f))
         ++bad;
     }
     offset += count;
@@ -506,7 +506,7 @@ inline void check_euler_characteristic_two(const PolyMesh &m) {
   }
   std::sort(edges.begin(), edges.end());
 
-  int E = 0;
+  int e = 0;
   int min_fanout = edges.empty() ? 2 : (int)edges.size();
   int max_fanout = edges.empty() ? 2 : 0;
   for (size_t i = 0; i < edges.size();) {
@@ -515,16 +515,16 @@ inline void check_euler_characteristic_two(const PolyMesh &m) {
       ++j;
     min_fanout = std::min(min_fanout, (int)(j - i));
     max_fanout = std::max(max_fanout, (int)(j - i));
-    ++E;
+    ++e;
     i = j;
   }
   // Each undirected edge must bound exactly two faces.
   HS_EXPECT_EQ(min_fanout, 2);
   HS_EXPECT_EQ(max_fanout, 2);
 
-  int V = (int)m.vertices.size();
-  int F = (int)m.face_counts.size();
-  HS_EXPECT_EQ(V - E + F, 2);
+  int v_value = (int)m.vertices.size();
+  int f = (int)m.face_counts.size();
+  HS_EXPECT_EQ(v_value - e + f, 2);
 }
 
 /**

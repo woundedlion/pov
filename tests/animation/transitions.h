@@ -13,13 +13,13 @@
  */
 inline void test_transition_reaches_target_linear() {
   float v = 0.0f;
-  const int duration = 10;
-  Animation::Transition tr(v, 100.0f, duration, math::ease_linear);
+  const int DURATION = 10;
+  Animation::Transition tr(v, 100.0f, DURATION, math::ease_linear);
   HS_EXPECT_FALSE(tr.done());
-  for (int i = 0; i < duration; ++i) {
+  for (int i = 0; i < DURATION; ++i) {
     tr.step(fake_canvas());
     HS_EXPECT_NEAR(v, 10.0f * static_cast<float>(i + 1), 1e-3f);
-    if (i < duration - 1)
+    if (i < DURATION - 1)
       HS_EXPECT_FALSE(tr.done());
   }
   HS_EXPECT_TRUE(tr.done());
@@ -32,12 +32,12 @@ inline void test_transition_reaches_target_linear() {
  */
 inline void test_transition_monotonic_and_starts_from_current() {
   float v = 5.0f;
-  const int duration = 8;
-  Animation::Transition tr(v, 25.0f, duration, math::ease_linear);
+  const int DURATION = 8;
+  Animation::Transition tr(v, 25.0f, DURATION, math::ease_linear);
   v = 9.0f;
-  for (int i = 0; i < duration; ++i) {
+  for (int i = 0; i < DURATION; ++i) {
     tr.step(fake_canvas());
-    HS_EXPECT_NEAR(v, 9.0f + 16.0f * (i + 1) / duration, 1e-5f);
+    HS_EXPECT_NEAR(v, 9.0f + 16.0f * (i + 1) / DURATION, 1e-5f);
   }
   HS_EXPECT_NEAR(v, 25.0f, 1e-3f);
 }
@@ -61,10 +61,10 @@ inline void test_transition_duration_zero_no_divide_by_zero() {
  */
 inline void test_transition_quantized_floors_result() {
   float v = 0.0f;
-  const int duration = 4;
-  Animation::Transition tr(v, 3.7f, duration, math::ease_linear,
+  const int DURATION = 4;
+  Animation::Transition tr(v, 3.7f, DURATION, math::ease_linear,
                            {.quantized = true});
-  for (int i = 0; i < duration; ++i) {
+  for (int i = 0; i < DURATION; ++i) {
     tr.step(fake_canvas());
     HS_EXPECT_EQ(v, static_cast<float>(i));
   }
@@ -81,16 +81,16 @@ inline void test_transition_quantized_floors_result() {
 inline void test_transition_repeat_retraverses_each_cycle() {
   Timeline tl;
   float v = 0.0f;
-  const int duration = 4;
-  tl.add(0, Animation::Transition(v, 10.0f, duration, math::ease_linear,
+  const int DURATION = 4;
+  tl.add(0, Animation::Transition(v, 10.0f, DURATION, math::ease_linear,
                                   {.repeat = true}));
-  std::array<float, duration> first_cycle{};
-  for (int i = 0; i < duration; ++i) {
+  std::array<float, DURATION> first_cycle{};
+  for (int i = 0; i < DURATION; ++i) {
     tl.step(fake_canvas());
     first_cycle[i] = v;
   }
   HS_EXPECT_NEAR(v, 10.0f, 1e-5f);
-  for (int i = 0; i < duration; ++i) {
+  for (int i = 0; i < DURATION; ++i) {
     tl.step(fake_canvas());
     HS_EXPECT_NEAR(v, first_cycle[i], 1e-5f);
   }
@@ -104,10 +104,10 @@ inline void test_transition_repeat_retraverses_each_cycle() {
 inline void test_transition_paused_holds_value() {
   bool paused = true;
   float v = 0.0f;
-  const int duration = 4;
-  Animation::Transition tr(v, 10.0f, duration, math::ease_linear,
+  const int DURATION = 4;
+  Animation::Transition tr(v, 10.0f, DURATION, math::ease_linear,
                            {.paused = &paused});
-  for (int i = 0; i < duration; ++i)
+  for (int i = 0; i < DURATION; ++i)
     tr.step(fake_canvas());
   HS_EXPECT_NEAR(v, 0.0f, 1e-5f);
   HS_EXPECT_FALSE(tr.done());
@@ -116,7 +116,7 @@ inline void test_transition_paused_holds_value() {
   paused = false;
   tr.step(fake_canvas());
   HS_EXPECT_NEAR(v, 7.0f, 1e-3f);
-  for (int i = 1; i < duration; ++i)
+  for (int i = 1; i < DURATION; ++i)
     tr.step(fake_canvas());
   HS_EXPECT_TRUE(tr.done());
   HS_EXPECT_NEAR(v, 10.0f, 1e-3f);

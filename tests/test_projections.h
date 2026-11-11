@@ -106,10 +106,10 @@ inline void test_wrap_longitude_range() {
   HS_EXPECT_EQ(wrap_longitude(math::PI_F), -math::PI_F);
   HS_EXPECT_EQ(wrap_longitude(-math::PI_F), -math::PI_F);
   HS_EXPECT_EQ(wrap_longitude(3.0f * math::PI_F), -math::PI_F);
-  const float BELOW_CUT = wrap_longitude(
+  const float below_cut = wrap_longitude(
       std::nextafter(-math::PI_F, -std::numeric_limits<float>::infinity()));
-  HS_EXPECT_LT(BELOW_CUT, math::PI_F);
-  HS_EXPECT_EQ(std::bit_cast<uint32_t>(BELOW_CUT),
+  HS_EXPECT_LT(below_cut, math::PI_F);
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(below_cut),
                std::bit_cast<uint32_t>(math::PI_F) - 2u);
 }
 
@@ -122,13 +122,13 @@ inline void test_wrap_longitude_fmod_contract() {
     return reduced - math::PI_F;
   };
   const auto check = [&](float raw) {
-    const float EXPECTED = reference(raw);
-    const float ACTUAL = wrap_longitude(raw);
-    if (std::isnan(EXPECTED))
-      HS_EXPECT_TRUE(std::isnan(ACTUAL));
+    const float expected = reference(raw);
+    const float actual = wrap_longitude(raw);
+    if (std::isnan(expected))
+      HS_EXPECT_TRUE(std::isnan(actual));
     else
-      HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL),
-                   std::bit_cast<uint32_t>(EXPECTED));
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual),
+                   std::bit_cast<uint32_t>(expected));
   };
   const float INFINITY_VALUE = std::numeric_limits<float>::infinity();
   for (float value : {-3.0f * math::PI_F, -math::PI_F, -0.0f, 0.0f, math::PI_F,
@@ -767,8 +767,8 @@ inline void test_airocean_face14_half_cut_edge() {
 /** @brief Face selection remains bounded for huge, infinite and NaN directions. */
 inline void test_airocean_projection_face_index_stays_in_range() {
   // Far off the unit sphere, every face scores above the fallback's sentinel.
-  const float magnitudes[] = {1.0f, 1e18f, 1e30f, 3.0e38f};
-  for (float magnitude : magnitudes)
+  const float MAGNITUDES[] = {1.0f, 1e18f, 1e30f, 3.0e38f};
+  for (float magnitude : MAGNITUDES)
     for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face)
       for (size_t edge = 0; edge < 3; ++edge)
         for (int step = 0; step <= 8; ++step) {
@@ -802,48 +802,48 @@ inline void test_airocean_projection_face_index_stays_in_range() {
 
 /** @brief Segment distance clamps to endpoints and handles degenerate segments. */
 inline void test_point_segment_distance() {
-  const AiroceanPoint a{1.0f, 2.0f};
-  const AiroceanPoint b{5.0f, 2.0f};
-  HS_EXPECT_NEAR(point_segment_distance(a, a, b), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(point_segment_distance(b, a, b), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(point_segment_distance(AiroceanPoint{3.0f, 5.0f}, a, b), 3.0f,
+  const AiroceanPoint A{1.0f, 2.0f};
+  const AiroceanPoint B{5.0f, 2.0f};
+  HS_EXPECT_NEAR(point_segment_distance(A, A, B), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(point_segment_distance(B, A, B), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(point_segment_distance(AiroceanPoint{3.0f, 5.0f}, A, B), 3.0f,
                  1e-6f);
-  HS_EXPECT_NEAR(point_segment_distance(AiroceanPoint{-3.0f, 2.0f}, a, b), 4.0f,
+  HS_EXPECT_NEAR(point_segment_distance(AiroceanPoint{-3.0f, 2.0f}, A, B), 4.0f,
                  1e-6f);
-  HS_EXPECT_NEAR(point_segment_distance(AiroceanPoint{9.0f, 5.0f}, a, b), 5.0f,
+  HS_EXPECT_NEAR(point_segment_distance(AiroceanPoint{9.0f, 5.0f}, A, B), 5.0f,
                  1e-6f);
-  HS_EXPECT_NEAR(point_segment_distance(AiroceanPoint{1.0f, 6.0f}, a, a), 4.0f,
+  HS_EXPECT_NEAR(point_segment_distance(AiroceanPoint{1.0f, 6.0f}, A, A), 4.0f,
                  1e-6f);
   const float squared =
-      point_segment_distance_squared(AiroceanPoint{3.0f, 5.0f}, a, b);
+      point_segment_distance_squared(AiroceanPoint{3.0f, 5.0f}, A, B);
   HS_EXPECT_NEAR(squared, 9.0f, 1e-6f);
 }
 
 /** @brief Projection trait bits compose and match Bonne and Peirce kernel metadata. */
 inline void test_projection_trait_packing() {
   HS_EXPECT_EQ(projection_traits(ProjectionTrait::NONE), 0);
-  constexpr auto bit = [](ProjectionTrait trait) {
+  constexpr auto BIT = [](ProjectionTrait trait) {
     return static_cast<uint8_t>(trait);
   };
   HS_EXPECT_EQ(projection_traits(ProjectionTrait::CUT, ProjectionTrait::GLUED),
-               bit(ProjectionTrait::CUT) | bit(ProjectionTrait::GLUED));
+               BIT(ProjectionTrait::CUT) | BIT(ProjectionTrait::GLUED));
   HS_EXPECT_EQ(projection_traits(ProjectionTrait::CUT, ProjectionTrait::GLUED,
                                  ProjectionTrait::SINGULAR),
-               bit(ProjectionTrait::CUT) | bit(ProjectionTrait::GLUED) |
-                   bit(ProjectionTrait::SINGULAR));
+               BIT(ProjectionTrait::CUT) | BIT(ProjectionTrait::GLUED) |
+                   BIT(ProjectionTrait::SINGULAR));
   const ProjectionKernelResult bonne =
       bonne_projection(math::Vector(1.0f, 0.0f, 0.0f), 0.0f, 0.4f);
   HS_EXPECT_EQ(bonne.traits, projection_traits(ProjectionTrait::CUT));
   const math::Vector EQUATOR(1.0f, 0.0f, 0.0f);
-  const auto SQUARE =
+  const auto square =
       peirce_projection(EQUATOR, 0.0f, projections::PeirceLayout::SQUARE, 0.0f);
-  const auto STRIP = peirce_projection(
+  const auto strip = peirce_projection(
       EQUATOR, 0.0f, projections::PeirceLayout::HORIZONTAL, 0.0f);
   const auto TRAITS =
       projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
                         ProjectionTrait::PERIODIC, ProjectionTrait::SINGULAR);
-  HS_EXPECT_EQ(SQUARE.traits, TRAITS);
-  HS_EXPECT_EQ(STRIP.traits, TRAITS | projection_traits(ProjectionTrait::CUT));
+  HS_EXPECT_EQ(square.traits, TRAITS);
+  HS_EXPECT_EQ(strip.traits, TRAITS | projection_traits(ProjectionTrait::CUT));
 }
 
 /** @brief Equirectangular and folded sinusoidal coordinates match longitude and latitude formulas. */

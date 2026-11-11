@@ -143,14 +143,14 @@ inline void test_blend_outputs_endpoints_verbatim() {
 
 /** @brief Tiny normal alpha preserves the expected straight-color mixture. */
 inline void test_blend_outputs_tiny_normal_alpha() {
-  const float alpha = 4.0f * std::numeric_limits<float>::min();
-  const Color4 from(Pixel(1000, 2000, 3000), alpha);
-  const Color4 to(Pixel(3000, 4000, 5000), alpha);
+  const float ALPHA = 4.0f * std::numeric_limits<float>::min();
+  const Color4 from(Pixel(1000, 2000, 3000), ALPHA);
+  const Color4 to(Pixel(3000, 4000, 5000), ALPHA);
   const Color4 blended = blend_outputs(from, to, 0.5f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.r), 2000.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.g), 3000.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.b), 4000.0f, 1.0f);
-  HS_EXPECT_EQ(blended.alpha, alpha);
+  HS_EXPECT_EQ(blended.alpha, ALPHA);
 }
 
 /**
@@ -184,9 +184,9 @@ inline void test_lerp16_full_range_correct() {
 
   // Sweep high-operand pairs (all >= 32768) against the double reference — the
   // regime a signed multiply would corrupt.
-  const uint16_t vals[] = {32768, 40000, 49152, 60000, 65535};
-  for (uint16_t av : vals)
-    for (uint16_t bv : vals)
+  const uint16_t VALS[] = {32768, 40000, 49152, 60000, 65535};
+  for (uint16_t av : VALS)
+    for (uint16_t bv : VALS)
       for (uint32_t f = 0; f <= 65535; f += 8191) {
         Pixel pa(av, 0, 0), pb(bv, 0, 0);
         uint16_t got = pa.lerp16(pb, static_cast<uint16_t>(f)).r;

@@ -70,11 +70,11 @@ inline void test_noise_field_periodic_coordinates() {
   const math::Vector sphere0 = math::noise_sphere_coordinate(v, 3.0f, 0.0f);
   const math::Vector sphere1 = math::noise_sphere_coordinate(v, 3.0f, 1.0f);
   HS_EXPECT_EQ(std::memcmp(&sphere0, &sphere1, sizeof(math::Vector)), 0);
-  const math::Complex p(1.25f, -0.75f);
+  const math::Complex P(1.25f, -0.75f);
   const math::Vector projected0 =
-      math::noise_projected_coordinate(p, 0.5f, 0.0f);
+      math::noise_projected_coordinate(P, 0.5f, 0.0f);
   const math::Vector projected1 =
-      math::noise_projected_coordinate(p, 0.5f, 1.0f);
+      math::noise_projected_coordinate(P, 0.5f, 1.0f);
   HS_EXPECT_EQ(std::memcmp(&projected0, &projected1, sizeof(math::Vector)), 0);
 }
 
@@ -108,7 +108,7 @@ inline void test_noise_field_loop_offset_geometry() {
  */
 inline void test_noise_field_hoisted_loop_offsets() {
   const math::Vector v = math::Vector(-0.6f, 0.3f, 0.7416198f).normalized();
-  const math::Complex p(-2.5f, 0.875f);
+  const math::Complex P(-2.5f, 0.875f);
   for (float phase : {0.0f, 0.125f, 0.4f, 0.9375f, 1.75f, -0.3f}) {
     const math::Vector sphere = math::noise_sphere_coordinate(v, 3.0f, phase);
     const math::Vector sphere_hoisted = math::noise_sphere_coordinate(
@@ -116,9 +116,9 @@ inline void test_noise_field_hoisted_loop_offsets() {
     HS_EXPECT_EQ(std::memcmp(&sphere, &sphere_hoisted, sizeof(math::Vector)),
                  0);
     const math::Vector projected =
-        math::noise_projected_coordinate(p, 0.5f, phase);
+        math::noise_projected_coordinate(P, 0.5f, phase);
     const math::Vector projected_hoisted = math::noise_projected_coordinate(
-        p, 0.5f, math::noise_projected_loop_offset(phase));
+        P, 0.5f, math::noise_projected_loop_offset(phase));
     HS_EXPECT_EQ(
         std::memcmp(&projected, &projected_hoisted, sizeof(math::Vector)), 0);
   }
@@ -149,7 +149,7 @@ inline void test_noise_field_octave_formulas() {
 /** @brief Vector noise channels match independent offset-sample goldens. */
 inline void test_noise_field_ridged_channel_pairs() {
   const FastNoiseLite noise = make_noise(991);
-  const math::Vector q(-3.0f, 8.5f, 29.0f);
+  const math::Vector Q(-3.0f, 8.5f, 29.0f);
   constexpr std::array<float, 3> RIDGED = {0.216791987f, -0.152162731f,
                                            -0.0796125233f};
   constexpr std::array<float, 3> SIMPLEX = {0.00326943118f, 0.439077944f,
@@ -164,10 +164,10 @@ inline void test_noise_field_ridged_channel_pairs() {
 #endif
   for (size_t channel = 0; channel < 3; ++channel) {
     HS_EXPECT_NEAR(math::sample_noise_vector_channel(
-                       noise, math::NoiseBasis::RIDGED3, q, channel),
+                       noise, math::NoiseBasis::RIDGED3, Q, channel),
                    RIDGED[channel], RIDGED_TOLERANCE);
     HS_EXPECT_NEAR(math::sample_noise_vector_channel(
-                       noise, math::NoiseBasis::SIMPLEX, q, channel),
+                       noise, math::NoiseBasis::SIMPLEX, Q, channel),
                    SIMPLEX[channel], 2e-6f);
   }
 }
@@ -228,11 +228,11 @@ inline void test_noise_field_tetrahedral_gradient() {
       math::Vector(0.0f, 0.0f, 0.0f), math::Vector(1.0f, -2.0f, 3.0f),
       math::Vector(-4.0f, 0.5f, -1.25f)};
   for (const math::Vector &q : POINTS) {
-    const math::Vector expected(0.25f, -0.5f, 1.0f);
+    const math::Vector EXPECTED(0.25f, -0.5f, 1.0f);
     const math::Vector actual = math::tetrahedral_gradient(q, linear);
-    HS_EXPECT_NEAR(actual.x, expected.x, 2e-4f);
-    HS_EXPECT_NEAR(actual.y, expected.y, 2e-4f);
-    HS_EXPECT_NEAR(actual.z, expected.z, 2e-4f);
+    HS_EXPECT_NEAR(actual.x, EXPECTED.x, 2e-4f);
+    HS_EXPECT_NEAR(actual.y, EXPECTED.y, 2e-4f);
+    HS_EXPECT_NEAR(actual.z, EXPECTED.z, 2e-4f);
   }
 }
 
@@ -241,8 +241,8 @@ template <typename Float> inline void check_noise_rounding() {
   const auto check = [](Float value) {
     if (!std::isfinite(value) || std::fabs(value) > Float(1000000000))
       return;
-    const int EXPECTED = value >= 0 ? int(value + 0.5f) : int(value - 0.5f);
-    HS_EXPECT_EQ(FastNoiseLite::FastRoundForTest(value), EXPECTED);
+    const int expected = value >= 0 ? int(value + 0.5f) : int(value - 0.5f);
+    HS_EXPECT_EQ(FastNoiseLite::FastRoundForTest(value), expected);
   };
   for (Float value :
        {Float(-0.0), Float(0.0), Float(-0.5), Float(0.5), Float(-1.5),
@@ -329,33 +329,36 @@ inline void test_noise_field_gradient_value_return() {
         FastNoiseLite noise = make_noise(seed);
         noise.SetFrequency(frequency);
         noise.SetRotationType3D(rotation);
-        const bool ELIGIBLE =
+        const bool eligible =
             frequency == 1.0f && rotation == FastNoiseLite::RotationType3D_None;
-        HS_EXPECT_EQ(noise.has_default_gradient_transform(), ELIGIBLE);
+        HS_EXPECT_EQ(noise.has_default_gradient_transform(), eligible);
         for (int sample = 0; sample < 256; ++sample) {
-          const float X = coordinate();
-          const float Y = coordinate();
-          const float Z = coordinate();
-          const math::Vector POINT(X, Y, Z);
+          const float x = coordinate();
+          const float y = coordinate();
+          const float z = coordinate();
+          const math::Vector point(x, y, z);
           math::Vector reference;
-          noise.GetNoiseGradientSingle(POINT.x, POINT.y, POINT.z, reference.x,
+          noise.GetNoiseGradientSingle(point.x, point.y, point.z, reference.x,
                                        reference.y, reference.z);
-          const auto VALUE =
-              noise.get_noise_gradient_single(POINT.x, POINT.y, POINT.z);
-          expect_gradient(VALUE, reference, GRADIENT_ROUNDOFF * frequency);
-          if (ELIGIBLE) {
-            const auto DEFAULT = noise.get_noise_gradient_unit_default(
-                POINT.x, POINT.y, POINT.z);
-            const float COORDINATE_SCALE = std::max(
-                {1.0f, fabsf(POINT.x), fabsf(POINT.y), fabsf(POINT.z)});
-            expect_gradient(DEFAULT, reference,
-                            TRANSFORM_ROUNDOFF * COORDINATE_SCALE);
-            const auto INLINE = noise.get_noise_gradient_unit_default<true>(
-                POINT.x, POINT.y, POINT.z);
+          const auto value =
+              noise.get_noise_gradient_single(point.x, point.y, point.z);
+          expect_gradient(value, reference, GRADIENT_ROUNDOFF * frequency);
+          if (eligible) {
+            const auto default_value = noise.get_noise_gradient_unit_default(
+                point.x, point.y, point.z);
+            const float coordinate_scale = std::max(
+                {1.0f, fabsf(point.x), fabsf(point.y), fabsf(point.z)});
+            expect_gradient(default_value, reference,
+                            TRANSFORM_ROUNDOFF * coordinate_scale);
+            const auto inline_value =
+                noise.get_noise_gradient_unit_default<true>(point.x, point.y,
+                                                            point.z);
 #if defined(HS_TEST_FAST_MATH)
-            expect_gradient(INLINE, DEFAULT, GRADIENT_ROUNDOFF);
+            expect_gradient(inline_value, default_value, GRADIENT_ROUNDOFF);
 #else
-            HS_EXPECT_EQ(std::memcmp(&INLINE, &DEFAULT, sizeof(DEFAULT)), 0);
+            HS_EXPECT_EQ(std::memcmp(&inline_value, &default_value,
+                                     sizeof(default_value)),
+                         0);
 #endif
           }
         }
@@ -401,7 +404,7 @@ inline void test_vector_noise_rotation_setter_order() {
     math::Vector simplex;
     math::Vector untransformed;
   };
-  const Case CASES[] = {
+  const Case cases[] = {
       {FastNoiseLite::RotationType3D_None,
        {1.30739737f, -2.88196921f, 0.453307718f},
        {1.20877635f, -2.75325942f, 0.496854395f}},
@@ -412,7 +415,7 @@ inline void test_vector_noise_rotation_setter_order() {
        {1.48228431f, -2.84245944f, 0.170210212f},
        {1.48228431f, -2.84245944f, 0.170210212f}},
   };
-  for (const Case &test : CASES) {
+  for (const Case &test : cases) {
     HS_CONTEXT("rotation", static_cast<int>(test.rotation));
     // FASTNOISELITE_ONLY_OPENSIMPLEX2 leaves warp type selecting the 3D transform.
     for (const auto warp : {FastNoiseLite::DomainWarpType_OpenSimplex2,
@@ -429,13 +432,13 @@ inline void test_vector_noise_rotation_setter_order() {
       HS_EXPECT_EQ(a.x, b.x);
       HS_EXPECT_EQ(a.y, b.y);
       HS_EXPECT_EQ(a.z, b.z);
-      const math::Vector &EXPECTED =
+      const math::Vector &expected =
           warp == FastNoiseLite::DomainWarpType_OpenSimplex2
               ? test.simplex
               : test.untransformed;
-      HS_EXPECT_NEAR(a.x, EXPECTED.x, 2e-6f);
-      HS_EXPECT_NEAR(a.y, EXPECTED.y, 2e-6f);
-      HS_EXPECT_NEAR(a.z, EXPECTED.z, 2e-6f);
+      HS_EXPECT_NEAR(a.x, expected.x, 2e-6f);
+      HS_EXPECT_NEAR(a.y, expected.y, 2e-6f);
+      HS_EXPECT_NEAR(a.z, expected.z, 2e-6f);
     }
   }
 }
@@ -532,22 +535,22 @@ inline void test_noise_field_smooth_curl_tangent() {
 
 /** @brief Sphere displacement and tangent transport preserve geometric length constraints. */
 inline void test_sphere_exp_map_and_transport() {
-  const math::Vector v(0.0f, 1.0f, 0.0f);
-  HS_EXPECT_EQ(math::sphere_exp_map(v, math::Vector()), v);
+  const math::Vector V(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_EQ(math::sphere_exp_map(V, math::Vector()), V);
   for (const float arc : {0.3f, 1.0f, 2.5f, math::PI_F, 4.0f}) {
     const math::Vector step = arc * math::Vector(1.0f, 0.0f, 0.0f);
-    const math::Vector reached = math::sphere_exp_map(v, step);
+    const math::Vector reached = math::sphere_exp_map(V, step);
     HS_EXPECT_NEAR(reached.x, sinf(arc), 3e-7f);
     HS_EXPECT_NEAR(reached.y, cosf(arc), 3e-7f);
   }
-  const math::Vector tangent(0.25f, 0.0f, -0.1f);
-  const math::Vector moved = math::sphere_exp_map(v, tangent);
+  const math::Vector TANGENT(0.25f, 0.0f, -0.1f);
+  const math::Vector moved = math::sphere_exp_map(V, TANGENT);
   HS_EXPECT_NEAR(moved.length(), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(math::fast_acos(math::dot(v, moved)), tangent.length(),
+  HS_EXPECT_NEAR(math::fast_acos(math::dot(V, moved)), TANGENT.length(),
                  5.1e-5f);
-  const math::Vector transported = math::parallel_transport(v, moved, tangent);
+  const math::Vector transported = math::parallel_transport(V, moved, TANGENT);
   HS_EXPECT_NEAR(math::dot(transported, moved), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(transported.length(), tangent.length(), 1e-6f);
+  HS_EXPECT_NEAR(transported.length(), TANGENT.length(), 1e-6f);
 }
 
 /** @brief The half-radian exponential-map approximation matches the exact map. */
@@ -630,23 +633,23 @@ inline void check_curl_policy_dispatch(std::initializer_list<float> scales) {
             frame.scale = scale;
             frame.strength = strength;
             frame.phase = phase;
-            const auto PREPARED = Policy::prepare(frame);
+            const auto prepared = Policy::prepare(frame);
             const math::Vector AXES[] = {math::X_AXIS, math::Y_AXIS,
                                          math::Z_AXIS, -math::X_AXIS};
             for (int i = 0; i < 16; ++i) {
-              const float Y = -1.0f + (2.0f * i + 1.0f) / 12.0f;
-              const float RADIUS = sqrtf(fmaxf(0.0f, 1.0f - Y * Y));
-              const math::Vector INPUT =
-                  i < 12 ? math::Vector(RADIUS * cosf(i * 2.39996323f), Y,
-                                        RADIUS * sinf(i * 2.39996323f))
+              const float y = -1.0f + (2.0f * i + 1.0f) / 12.0f;
+              const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
+              const math::Vector input =
+                  i < 12 ? math::Vector(radius * cosf(i * 2.39996323f), y,
+                                        radius * sinf(i * 2.39996323f))
                          : AXES[i - 12];
-              const auto EXPECTED =
-                  oracle(INPUT, frame.noise, Basis, Integrator::VALUE, Limit,
-                         scale, PREPARED.loop_offset, strength, path_required);
-              const auto MOTION = EXPECTED.sphere - INPUT;
+              const auto expected =
+                  oracle(input, frame.noise, Basis, Integrator::VALUE, Limit,
+                         scale, prepared.loop_offset, strength, path_required);
+              const auto motion = expected.sphere - input;
               max_motion_sq =
-                  std::max(max_motion_sq, math::dot(MOTION, MOTION));
-              const auto RESULT = Policy::apply(INPUT, frame, PREPARED);
+                  std::max(max_motion_sq, math::dot(motion, motion));
+              const auto result = Policy::apply(input, frame, prepared);
 #if defined(HS_TEST_FAST_MATH)
               constexpr float SPHERE_TOLERANCE =
                   std::is_same_v<Integrator, Pullback::Surface::Euler> ? 1e-6f
@@ -654,18 +657,18 @@ inline void check_curl_policy_dispatch(std::initializer_list<float> scales) {
               constexpr float PATH_TOLERANCE =
                   std::is_same_v<Integrator, Pullback::Surface::Euler> ? 1e-6f
                                                                        : 1e-5f;
-              HS_EXPECT_VEC(RESULT.sphere, EXPECTED.sphere, SPHERE_TOLERANCE);
-              HS_EXPECT_NEAR(RESULT.path_length, EXPECTED.path_length,
+              HS_EXPECT_VEC(result.sphere, expected.sphere, SPHERE_TOLERANCE);
+              HS_EXPECT_NEAR(result.path_length, expected.path_length,
                              PATH_TOLERANCE);
 #else
-              HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.x),
-                           std::bit_cast<uint32_t>(EXPECTED.sphere.x));
-              HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.y),
-                           std::bit_cast<uint32_t>(EXPECTED.sphere.y));
-              HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.sphere.z),
-                           std::bit_cast<uint32_t>(EXPECTED.sphere.z));
-              HS_EXPECT_EQ(std::bit_cast<uint32_t>(RESULT.path_length),
-                           std::bit_cast<uint32_t>(EXPECTED.path_length));
+              HS_EXPECT_EQ(std::bit_cast<uint32_t>(result.sphere.x),
+                           std::bit_cast<uint32_t>(expected.sphere.x));
+              HS_EXPECT_EQ(std::bit_cast<uint32_t>(result.sphere.y),
+                           std::bit_cast<uint32_t>(expected.sphere.y));
+              HS_EXPECT_EQ(std::bit_cast<uint32_t>(result.sphere.z),
+                           std::bit_cast<uint32_t>(expected.sphere.z));
+              HS_EXPECT_EQ(std::bit_cast<uint32_t>(result.path_length),
+                           std::bit_cast<uint32_t>(expected.path_length));
 #endif
             }
           }

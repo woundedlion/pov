@@ -197,9 +197,9 @@ int main(int argc, char **argv) {
 
   const char *death_child = hs_test::env_var("HS_DEATH_CHILD");
   const char *death_case = hs_test::env_var("HS_DEATH_CASE");
-  const bool IS_DEATH_CHILD =
+  const bool is_death_child =
       death_child && std::strcmp(death_child, "harness") == 0;
-  if (IS_DEATH_CHILD && (argc > 1 || !death_case || death_case[0] == '\0')) {
+  if (is_death_child && (argc > 1 || !death_case || death_case[0] == '\0')) {
     std::fprintf(stderr, "run_tests: invalid death-child invocation\n");
     return 2;
   }
@@ -217,10 +217,10 @@ int main(int argc, char **argv) {
       return check_modules(argc - 2, argv + 2);
   }
 
-  if (check_ci_levers(!IS_DEATH_CHILD && runs_effects(argc, argv)))
+  if (check_ci_levers(!is_death_child && runs_effects(argc, argv)))
     return 1;
 
-  if (IS_DEATH_CHILD) {
+  if (is_death_child) {
     if (!test_suite().run_death_child_case) {
       std::fprintf(stderr,
                    "run_tests: death cases are unavailable in this binary\n");

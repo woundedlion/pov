@@ -279,7 +279,7 @@ inline void test_medial_dual_bridge_wellformed() {
     HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
-    PolyMesh P = build_step_leg_seed(site, persist);
+    PolyMesh p = build_step_leg_seed(site, persist);
 
     Arena a(morph_target_buf, sizeof(morph_target_buf));
     Arena b(morph_temp_buf, sizeof(morph_temp_buf));
@@ -287,17 +287,17 @@ inline void test_medial_dual_bridge_wellformed() {
 
     PolyMesh med_a;
     ArenaVector<math::Vector> med_b;
-    MeshOps::medial(P, med_a, med_b, a, b);
+    MeshOps::medial(p, med_a, med_b, a, b);
     HS_EXPECT_EQ(med_b.size(), med_a.vertices.size());
     if (med_b.size() != med_a.vertices.size())
       continue;
 
-    // s = 0 is ambo(P), s = 1 is ambo(dual(P)): one rectified connectivity, so
+    // s = 0 is ambo(p), s = 1 is ambo(dual(p)): one rectified connectivity, so
     // the face count is constant. Vertex identity is checked by position: a
-    // hankin seed's dual is lossy, so ambo(dual(P)) merges coincident edge
+    // hankin seed's dual is lossy, so ambo(dual(p)) merges coincident edge
     // midpoints.
-    PolyMesh ambo_p = MeshOps::ambo(P, b, aux);
-    PolyMesh dual_p = MeshOps::dual(P, b, aux);
+    PolyMesh ambo_p = MeshOps::ambo(p, b, aux);
+    PolyMesh dual_p = MeshOps::dual(p, b, aux);
     PolyMesh ambo_dual_p = MeshOps::ambo(dual_p, aux, b);
     HS_EXPECT_EQ(med_a.vertices.size(), ambo_p.vertices.size());
     HS_EXPECT_EQ(med_a.face_counts.size(), ambo_p.face_counts.size());
@@ -308,7 +308,7 @@ inline void test_medial_dual_bridge_wellformed() {
     HS_EXPECT_TRUE(std::equal(med_a.faces.begin(), med_a.faces.end(),
                               ambo_p.faces.begin(), ambo_p.faces.end()));
 
-    // out_a is bit-identical to ambo(P); pin it before snorm16 packing can
+    // out_a is bit-identical to ambo(p); pin it before snorm16 packing can
     // absorb a drift.
     const size_t pair_n =
         std::min(med_a.vertices.size(), ambo_p.vertices.size());
@@ -336,7 +336,7 @@ inline void test_medial_dual_bridge_wellformed() {
     for (auto &v : med_b)
       v = math::Snorm3::encode(v).decode().normalized();
 
-    // Every medial vertex sits on an ambo(P) vertex at s=0 and an ambo(dual(P))
+    // Every medial vertex sits on an ambo(p) vertex at s=0 and an ambo(dual(p))
     // vertex at s=1 (set containment; a lossy dual makes s=1 many-to-one).
     const float end_a = medial_vertex_set_dist(med_a, ambo_p);
     const float end_b = medial_vertex_set_dist(med_b, ambo_dual_p);
@@ -473,13 +473,13 @@ inline void test_opleg_medial_leg_smoke() {
     HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
-    PolyMesh P = build_step_leg_seed(site, persist);
+    PolyMesh p = build_step_leg_seed(site, persist);
 
     Arena leg(morph_target_buf, sizeof(morph_target_buf));
     Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
 
-    // Departed mesh: ambo(P), class-keyed palettes plus face centroids.
-    PolyMesh ambo_p = Solids::finalize_solid(MeshOps::ambo(P, leg, temp), leg);
+    // Departed mesh: ambo(p), class-keyed palettes plus face centroids.
+    PolyMesh ambo_p = Solids::finalize_solid(MeshOps::ambo(p, leg, temp), leg);
     classify_in_scratch(ambo_p, leg);
     const size_t prev_faces = ambo_p.face_counts.size();
     std::vector<uint8_t> pal(prev_faces);
@@ -503,10 +503,10 @@ inline void test_opleg_medial_leg_smoke() {
       probe.observe(m, sh);
     };
 
-    OpLeg anim(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff);
+    OpLeg anim(p, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff);
     const OpLeg::Landing &landing = anim.landing();
     probe.ramp_count = landing.blend_pairs;
-    // The medial connectivity is ambo(P), so the leg's face list is the whole
+    // The medial connectivity is ambo(p), so the leg's face list is the whole
     // rectified polyhedron and every face lives the whole slerp.
     HS_EXPECT_EQ(landing.faces, prev_faces);
     HS_EXPECT_EQ(landing.primary_faces, prev_faces);
@@ -777,14 +777,14 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
     Arena leg(morph_target_buf, sizeof(morph_target_buf));
     Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
 
-    PolyMesh P = build_step_leg_seed(site, persist);
-    const size_t PF = P.face_counts.size();
+    PolyMesh p = build_step_leg_seed(site, persist);
+    const size_t pf = p.face_counts.size();
 
-    // Departed mesh ambo(P): class-keyed palettes in medial face order.
+    // Departed mesh ambo(p): class-keyed palettes in medial face order.
     PolyMesh ambo_p;
     {
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      ambo_p = Solids::finalize_solid(MeshOps::ambo(P, aux, temp), leg);
+      ambo_p = Solids::finalize_solid(MeshOps::ambo(p, aux, temp), leg);
     }
     classify_in_scratch(ambo_p, leg);
     const size_t nf = ambo_p.face_counts.size();
@@ -821,14 +821,14 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
       capture_frame<RW, RH>(fx, out);
     };
 
-    // Leg 2: the medial slerp, departed from ambo(P).
+    // Leg 2: the medial slerp, departed from ambo(p).
     OpLeg::PaletteHandoff handoff2{
         .bank = &bank.bank,
         .prev_face_palette = pal2.data(),
         .prev_faces = nf,
         .correspondence = OpLeg::FaceCorrespondence::IDENTITY,
         .preserve_without_births = preserve_palettes};
-    OpLeg leg2(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff2);
+    OpLeg leg2(p, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff2);
     const OpLeg::Landing &landing2 = leg2.landing();
     if (!check_medial_landing(landing2, pal2, preserve_palettes))
       continue;
@@ -841,16 +841,16 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
     std::vector<math::Vector> cen3(nf);
     read_arrival_faces(landing2, pal3, cen3);
 
-    PolyMesh D;
+    PolyMesh d;
     {
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      D = Solids::finalize_solid(MeshOps::dual(P, aux, temp), leg);
+      d = Solids::finalize_solid(MeshOps::dual(p, aux, temp), leg);
     }
-    classify_in_scratch(D, leg);
-    // dual drops sub-3 orbits, so D's faces are exactly the medial's P-vertex
+    classify_in_scratch(d, leg);
+    // dual drops sub-3 orbits, so d's faces are exactly the medial's p-vertex
     // block: the two blocks partition the shared face count.
-    const size_t DF = D.face_counts.size();
-    HS_EXPECT_EQ(DF, nf - PF);
+    const size_t df = d.face_counts.size();
+    HS_EXPECT_EQ(df, nf - pf);
 
     OpLeg::PaletteHandoff handoff3{
         .bank = &bank.bank,
@@ -858,8 +858,8 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
         .prev_faces = nf,
         .correspondence = OpLeg::FaceCorrespondence::DUAL_CLOSING,
         .preserve_without_births = preserve_palettes};
-    OpLeg::BookendClasses bookend3{.topology = D.topology.data(), .faces = DF};
-    OpLeg leg3(OpLeg::SweepSeed::borrow(D), dual_closing_sweep(SWEEP), leg, cb,
+    OpLeg::BookendClasses bookend3{.topology = d.topology.data(), .faces = df};
+    OpLeg leg3(OpLeg::SweepSeed::borrow(d), dual_closing_sweep(SWEEP), leg, cb,
                handoff3, bookend3);
     const OpLeg::Landing &landing3 = leg3.landing();
     HS_EXPECT_EQ(landing3.faces, nf);
@@ -868,11 +868,11 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
       continue;
 
     std::vector<int> perm(nf, -1);
-    if (!derive_seam_permutation(D, cen3, temp, perm))
+    if (!derive_seam_permutation(d, cen3, temp, perm))
       continue;
     const std::vector<uint8_t> closing_palettes =
-        check_closing_blocks(landing3, perm, pal3, PF, DF, preserve_palettes);
-    check_geometric_closing(D, bookend3, cen3, perm, bank, cb, SWEEP);
+        check_closing_blocks(landing3, perm, pal3, pf, df, preserve_palettes);
+    check_geometric_closing(d, bookend3, cen3, perm, bank, cb, SWEEP);
 
     expected_palettes = closing_palettes.data();
     // Rendered seam A/B plus a one-step in-leg control.
@@ -915,7 +915,7 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
     }
     std::printf("  [opleg seam] %s: F=%zu blocks %zu/%zu, seam diff "
                 "sumabs=%lld px=%d (control %lld/%d) quiet=%.3f/%.3f%s\n",
-                site.name, nf, DF, nf - DF, seam_sum, seam_px, ctrl_sum,
+                site.name, nf, df, nf - df, seam_sum, seam_px, ctrl_sum,
                 ctrl_px, static_cast<double>(quiet_ratio),
                 static_cast<double>(site.seam_quiet_ratio),
                 hs_test::stats().failed != failed_before ? " FAILED" : "");

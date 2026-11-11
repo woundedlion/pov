@@ -42,13 +42,13 @@ inline void test_tangent_integer_controls() {
   reset_globals();
   ShaderChain<96, 20> effect;
   effect.init();
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"field", In::Op::DisplacePotential::ID},
       {"wave", In::Op::DisplaceRossbyHaurwitz::ID},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"}};
-  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_EQ(effect.set_chain(CHAIN).code, In::ChainStatus::OK);
   for (const char *id : {"field.term-1-l", "field.term-1-m"}) {
     const auto *parameter = require_param(effect, id);
     if (!parameter)
@@ -151,23 +151,23 @@ inline void test_symmetric_single_strength() {
   reset_globals();
   ShaderChainWhiteBox::FX effect;
   effect.init();
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"symmetric", Symmetric::ID},
       {"project", In::Op::ProjectStereographic::ID},
       {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
-  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_EQ(effect.set_chain(CHAIN).code, In::ChainStatus::OK);
   HS_EXPECT_TRUE(effect.getParameters().find("symmetric.amplitude") == nullptr);
   HS_EXPECT_EQ(effect.updateParameter("symmetric.strength", 4.0f * math::PI_F),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(requested_param(effect, "symmetric.strength"),
                4.0f * math::PI_F);
-  const In::ChainEntryRequest retired[] = {
+  const In::ChainEntryRequest RETIRED[] = {
       {"symmetric", "sphere.displace.symmetric.v1"},
       {"project", In::Op::ProjectStereographic::ID},
       {"sample", In::Op::SampleGridV4::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
-  HS_EXPECT_EQ(effect.set_chain(retired).code,
+  HS_EXPECT_EQ(effect.set_chain(RETIRED).code,
                In::ChainStatus::UNKNOWN_OPERATOR);
 }
 
@@ -326,12 +326,12 @@ inline void test_symmetric_snapshot_clock() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"symmetric", Symmetric::ID},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"}};
-  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_EQ(effect.set_chain(CHAIN).code, In::ChainStatus::OK);
   HS_EXPECT_EQ(effect.updateParameter("symmetric.speed", -0.04f),
                ParamSetResult::APPLIED);
   for (int frame = 0; frame < 7; ++frame)
@@ -380,7 +380,7 @@ struct BoundedRotationTestField : RotationTestField {
 /** @brief Every field integrator preserves equatorial rotation and arc length. */
 inline void test_tangent_step_integrators() {
   const RotationTestField field;
-  const math::Vector input(1, 0, 0);
+  const math::Vector INPUT(1, 0, 0);
   const BoundedRotationTestField bounded;
   static_assert(PB::Surface::DirectNoiseField::HALF_RADIAN_STEPS);
   static_assert(PB::Surface::DynamicCurlNoiseField::HALF_RADIAN_STEPS);
@@ -391,12 +391,12 @@ inline void test_tangent_step_integrators() {
     const math::Vector expected(cosf(strength), 0, -sinf(strength));
     for (const auto &result :
          {PB::Surface::step_field<BoundedRotationTestField, PB::Surface::Euler>(
-              input, bounded, strength, true),
+              INPUT, bounded, strength, true),
           PB::Surface::step_field<BoundedRotationTestField,
-                                  PB::Surface::Midpoint>(input, bounded,
+                                  PB::Surface::Midpoint>(INPUT, bounded,
                                                          strength, true),
           PB::Surface::step_field<BoundedRotationTestField,
-                                  PB::Surface::Midpoint2>(input, bounded,
+                                  PB::Surface::Midpoint2>(INPUT, bounded,
                                                           strength, true)}) {
       HS_EXPECT_NEAR((result.sphere - expected).length(), 0.0f, 2e-5f);
       HS_EXPECT_NEAR(result.path_length, fabsf(strength), 1e-5f);
@@ -409,13 +409,13 @@ inline void test_tangent_step_integrators() {
         2.0f * math::PI_F, 4.0f * math::PI_F, 16.0f * math::PI_F}) {
     const auto a =
         PB::Surface::step_field<RotationTestField, PB::Surface::Euler>(
-            input, field, strength, true);
+            INPUT, field, strength, true);
     const auto b =
         PB::Surface::step_field<RotationTestField, PB::Surface::Midpoint>(
-            input, field, strength, true);
+            INPUT, field, strength, true);
     const auto c =
         PB::Surface::step_field<RotationTestField, PB::Surface::Midpoint2>(
-            input, field, strength, true);
+            INPUT, field, strength, true);
     const math::Vector expected(cosf(strength), 0, -sinf(strength));
     for (const auto &result : {a, b, c}) {
       HS_EXPECT_NEAR(result.sphere.x, expected.x, 2e-5f);
@@ -426,7 +426,7 @@ inline void test_tangent_step_integrators() {
     }
     const auto no_path =
         PB::Surface::step_field<RotationTestField, PB::Surface::Midpoint2>(
-            input, field, strength, false);
+            INPUT, field, strength, false);
     HS_EXPECT_EQ(no_path.path_length, 0.0f);
   }
 }
@@ -622,12 +622,12 @@ inline void test_potential_invariant_drift_clock() {
     reset_globals();
     ShaderChainWhiteBox::FX effect;
     effect.init();
-    const In::ChainEntryRequest chain[] = {
+    const In::ChainEntryRequest CHAIN[] = {
         {"field", In::Op::DisplacePotential::ID},
         {"project", In::Op::ProjectStereographic::ID},
         {"sample", In::Op::SampleGridV4::ID},
         {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
-    HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+    HS_EXPECT_EQ(effect.set_chain(CHAIN).code, In::ChainStatus::OK);
     const ShaderChainParameterWrite controls[] = {
         {"field.term-1-type", float(type)},
         {"field.term-1-amplitude", 1.0f},
@@ -668,12 +668,12 @@ inline void test_tangent_dynamic_advisory() {
   reset_globals();
   ShaderChain<96, 20> effect;
   effect.init();
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"field", In::Op::DisplacePotential::ID},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"}};
-  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_EQ(effect.set_chain(CHAIN).code, In::ChainStatus::OK);
   const std::array replay{
       std::pair<std::string, float>{"field.strength", 0.1f},
       std::pair<std::string, float>{"field.term-1-amplitude", 1.0f},

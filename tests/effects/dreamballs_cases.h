@@ -175,13 +175,13 @@ struct DreamBallsWhiteBox {
                   fmaxf(worst_ratio, error / bounds.path.chord_error());
           }
         }
-    const double PI_D = std::acos(-1.0);
-    const auto quarter = [PI_D](double u) {
+    const double pi_d = std::acos(-1.0);
+    const auto quarter = [pi_d](double u) {
       const double d = (u - 1.0) * (u - 1.0) + 4.0;
       return std::array<double, 3>{4.0 * u * (2.0 - u) / d,
-                                   -40.0 * (u - 1.0) / (d * d) * (2.0 / PI_D),
+                                   -40.0 * (u - 1.0) / (d * d) * (2.0 / pi_d),
                                    40.0 * (3.0 * (u - 1.0) * (u - 1.0) - 4.0) /
-                                       (d * d * d) * (4.0 / (PI_D * PI_D))};
+                                       (d * d * d) * (4.0 / (pi_d * pi_d))};
     };
     for (float radius : {0.03f, 0.05f, 0.3f, 1.0f}) {
       const auto bound = DB::orbit_bounds(1.0f, radius);

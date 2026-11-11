@@ -43,9 +43,9 @@ inline void test_twist_displacement_paths() {
   const auto native = In::Op::LensTwist::run(input, ctx, frame.twist, prepared);
   HS_EXPECT_NEAR(typed.path_length, expected, 2e-3f);
   HS_EXPECT_NEAR(native.path_length, expected, 2e-3f);
-  const double a = lenses::TWIST_DISTRIBUTION * 0.999;
+  const double A = lenses::TWIST_DISTRIBUTION * 0.999;
   const double angle =
-      0.5 * lenses::TWIST_ANGLE * (a == 0 ? 0.5 : atanh(a * 0.5) / atanh(a));
+      0.5 * lenses::TWIST_ANGLE * (A == 0 ? 0.5 : atanh(A * 0.5) / atanh(A));
   const auto fixed = lens_path_stage<PB::Lens::Twist>(input, frame);
   HS_EXPECT_NEAR(fixed.path_length, 0.125 + acos(0.25 + 0.75 * cos(angle)),
                  3e-3f);
@@ -61,7 +61,7 @@ inline void test_twist_displacement_paths() {
 /** @brief Mobius spin and push contribute independently known angular distances. */
 inline void test_mobius_displacement_paths() {
   using Policy = PB::Lens::MobiusGenerator<MobiusMirrorProvider>;
-  const PB::SphereSample input{math::X_AXIS, 0.125f};
+  const PB::SphereSample INPUT{math::X_AXIS, 0.125f};
   const auto ctx = shared_resources().context();
   SphereOpMirrorFrame frame;
   const auto native = [&](const PB::SphereSample &p) {
@@ -73,19 +73,19 @@ inline void test_mobius_displacement_paths() {
        {0.0f, 0.5f * math::PI_F, math::PI_F, math::TWO_PI_F}) {
     frame.mobius.spin_y = spin;
     const double expected = 0.125 + acos(cos(double(spin)));
-    HS_EXPECT_NEAR(native(input).path_length, expected, 1e-3f);
-    HS_EXPECT_NEAR(lens_path_stage<Policy>(input, frame).path_length, expected,
+    HS_EXPECT_NEAR(native(INPUT).path_length, expected, 1e-3f);
+    HS_EXPECT_NEAR(lens_path_stage<Policy>(INPUT, frame).path_length, expected,
                    1e-3f);
   }
   frame.mobius.spin_y = 0;
   frame.mobius.push_y = 1;
   const double expected = 0.125 + atan(sinh(1.0));
-  HS_EXPECT_NEAR(native(input).path_length, expected, 1e-4f);
-  HS_EXPECT_NEAR(lens_path_stage<Policy>(input, frame).path_length, expected,
+  HS_EXPECT_NEAR(native(INPUT).path_length, expected, 1e-4f);
+  HS_EXPECT_NEAR(lens_path_stage<Policy>(INPUT, frame).path_length, expected,
                  1e-4f);
   HS_EXPECT_NEAR(native({math::Y_AXIS, 0.25f}).path_length, 0.25f, 1e-4f);
-  HS_EXPECT_EQ((lens_path_stage<Policy, false>(input, frame).path_length),
-               input.path_length);
+  HS_EXPECT_EQ((lens_path_stage<Policy, false>(INPUT, frame).path_length),
+               INPUT.path_length);
 }
 
 /** @brief Fold policies, native folds and the camera preserve existing displacement. */
@@ -161,9 +161,9 @@ inline void test_lens_displacement_modulation() {
   HS_EXPECT_NEAR(alpha(twisted), 0.5 * (1 + twist_arc), 1e-3f);
   HS_EXPECT_GT(alpha(twisted), alpha(input) + 0.2f);
   frame.mobius.spin_y = 0.5f;
-  const PB::SphereSample equator{math::X_AXIS, 0};
+  const PB::SphereSample EQUATOR{math::X_AXIS, 0};
   const auto mobius = In::Op::LensMobius::run(
-      equator, ctx, frame.mobius,
+      EQUATOR, ctx, frame.mobius,
       In::Op::LensMobius::prepare(ctx, frame.mobius, {}));
   HS_EXPECT_NEAR(alpha(mobius), 0.75f, 1e-4f);
   for (uint8_t symmetry = 0; symmetry < 9; ++symmetry) {

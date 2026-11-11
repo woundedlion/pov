@@ -222,11 +222,11 @@ inline void test_emitter_on_time_pitch() {
   // oversampled (⅛-column) grid.
   {
     SymbolEmitter e;
-    const uint32_t b = 1000000u;
-    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, b, b + COL / 8, cfg));
-    HS_EXPECT_FALSE(e.schedule_boundary(Symbol::HALF, b, b, cfg));
+    const uint32_t B = 1000000u;
+    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, B, B + COL / 8, cfg));
+    HS_EXPECT_FALSE(e.schedule_boundary(Symbol::HALF, B, B, cfg));
     std::vector<uint32_t> pulses;
-    for (uint32_t t = b + COL / 8; t < b + 8 * COL; t += COL / 8) {
+    for (uint32_t t = B + COL / 8; t < B + 8 * COL; t += COL / 8) {
       if (e.tick(t, cfg, &aborted))
         pulses.push_back(t);
       HS_EXPECT_FALSE(aborted);
@@ -234,9 +234,9 @@ inline void test_emitter_on_time_pitch() {
     HS_EXPECT_EQ(pulses.size(), static_cast<size_t>(3));
     if (pulses.size() == 3) {
       // Each pulse within an oversample step of its scheduled slot.
-      HS_EXPECT_LE(pulses[0] - b, COL / 8);
-      HS_EXPECT_LE(pulses[1] - (b + 2 * COL), COL / 8);
-      HS_EXPECT_LE(pulses[2] - (b + 4 * COL), COL / 8);
+      HS_EXPECT_LE(pulses[0] - B, COL / 8);
+      HS_EXPECT_LE(pulses[1] - (B + 2 * COL), COL / 8);
+      HS_EXPECT_LE(pulses[2] - (B + 4 * COL), COL / 8);
     }
   }
 }
@@ -256,12 +256,12 @@ inline void test_emitter_boundary_censoring() {
   // accepted and emitted once `now` reaches the boundary.
   {
     SymbolEmitter e;
-    const uint32_t at = 1000000u;
-    const uint32_t early = at - 2u * cfg.late_censor_cycles(); // well before
-    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, at, early, cfg));
+    const uint32_t AT = 1000000u;
+    const uint32_t early = AT - 2u * cfg.late_censor_cycles(); // well before
+    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, AT, early, cfg));
     HS_EXPECT_FALSE(e.tick(early, cfg, &aborted)); // not due yet, no pulse
     HS_EXPECT_FALSE(aborted);
-    HS_EXPECT_TRUE(e.tick(at, cfg, &aborted)); // first pulse at the boundary
+    HS_EXPECT_TRUE(e.tick(AT, cfg, &aborted)); // first pulse at the boundary
     HS_EXPECT_FALSE(aborted);
   }
 }
@@ -277,18 +277,18 @@ inline void test_emitter_mid_burst_abort() {
       const uint32_t START = 1000000u;
       HS_EXPECT_TRUE(e.schedule_boundary(symbol, START, START, cfg));
       for (uint32_t i = 0; i < sent; ++i) {
-        const uint32_t NOW = START + i * cfg.pulse_pitch_cycles();
-        HS_EXPECT_TRUE(e.tick(NOW, cfg, &aborted));
-        mailbox.on_edge(NOW, cfg.glitch_filter_cycles);
+        const uint32_t now = START + i * cfg.pulse_pitch_cycles();
+        HS_EXPECT_TRUE(e.tick(now, cfg, &aborted));
+        mailbox.on_edge(now, cfg.glitch_filter_cycles);
       }
-      const uint32_t LATE = START + sent * cfg.pulse_pitch_cycles() +
+      const uint32_t late = START + sent * cfg.pulse_pitch_cycles() +
                             cfg.late_censor_cycles() + 1;
-      if (e.tick(LATE, cfg, &aborted))
-        mailbox.on_edge(LATE, cfg.glitch_filter_cycles);
+      if (e.tick(late, cfg, &aborted))
+        mailbox.on_edge(late, cfg.glitch_filter_cycles);
       HS_EXPECT_TRUE(aborted);
       HS_EXPECT_TRUE(e.idle());
       BurstSnapshot burst{};
-      HS_EXPECT_TRUE(mailbox.try_claim(LATE + cfg.gap_timeout_cycles(),
+      HS_EXPECT_TRUE(mailbox.try_claim(late + cfg.gap_timeout_cycles(),
                                        cfg.gap_timeout_cycles(),
                                        cfg.max_burst_cycles(), &burst));
       HS_EXPECT_EQ(classify_count(burst.count), Symbol::INVALID);
@@ -359,11 +359,11 @@ inline void test_emitter_beacon_loopback() {
     BeaconParser p;
     uint8_t d[5];
     encode_beacon_digits(13, 22, d);
-    const uint32_t t0 = 5000000u;
-    e.schedule_beacon(d, t0, cfg);
+    const uint32_t T0 = 5000000u;
+    e.schedule_beacon(d, T0, cfg);
     BeaconFrame f{};
     bool got = false, rejected = false;
-    for (uint32_t t = t0; t < t0 + 100 * COL; t += COL / 8) {
+    for (uint32_t t = T0; t < T0 + 100 * COL; t += COL / 8) {
       if (e.tick(t, cfg, &aborted))
         m.on_edge(t, cfg.glitch_filter_cycles);
       if (m.try_claim(t, cfg.gap_timeout_cycles(), UINT32_MAX, &claimed)) {
@@ -387,25 +387,25 @@ inline void test_master_beacon_busy_retry() {
   board.seed(0, true);
   content_mut(board).rev_in_effect = 1;
 
-  const uint32_t beacon_at = PERIOD / 2;
+  const uint32_t BEACON_AT = PERIOD / 2;
   SymbolEmitter &emitter = SyncBoardTestAccess::emitter(board);
   HS_EXPECT_TRUE(
-      emitter.schedule_boundary(Symbol::ZERO, beacon_at + COL, beacon_at, cfg));
+      emitter.schedule_boundary(Symbol::ZERO, BEACON_AT + COL, BEACON_AT, cfg));
 
-  SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
+  SyncBoardTestAccess::maybe_schedule_beacon(board, BEACON_AT);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
 
-  SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
+  SyncBoardTestAccess::maybe_schedule_beacon(board, BEACON_AT);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
 
   HS_EXPECT_EQ(emitter.drop_pending_emission(),
                SymbolEmitter::DroppedBurst::BOUNDARY);
-  SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
+  SyncBoardTestAccess::maybe_schedule_beacon(board, BEACON_AT);
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_busy_dropped, 1u);
   HS_EXPECT_EQ(emitter.drop_pending_emission(),
                SymbolEmitter::DroppedBurst::BEACON);
 
-  SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
+  SyncBoardTestAccess::maybe_schedule_beacon(board, BEACON_AT);
   HS_EXPECT_EQ(emitter.drop_pending_emission(),
                SymbolEmitter::DroppedBurst::NONE);
 }
@@ -431,12 +431,12 @@ inline void test_beacon_late_coast() {
   // beacon and HALF boundary pulses.
   auto run = [&](int32_t resume_col, uint32_t sub_col = 0) -> PulseCounts {
     SyncBoard m(cfg);
-    const uint32_t t0 = 1000000u;
-    m.seed(t0, /*is_master=*/true);
+    const uint32_t T0 = 1000000u;
+    m.seed(T0, /*is_master=*/true);
     // One tick a full revolution ahead folds HALF then ZERO in a single wake,
     // landing boundary ZERO with rev_in_effect == 1 (a beacon-due rev under
     // test_config's epoch repeats). epoch1 is that ZERO instant.
-    const uint32_t epoch1 = t0 + 2u * period;
+    const uint32_t epoch1 = T0 + 2u * period;
     m.tick(epoch1, nullptr);
     // Drain the rev-1 ZERO symbol's remaining pulses (columns 2, 4) so the
     // emitter is idle before the coast.
@@ -506,18 +506,18 @@ inline void test_master_fold_stall_recovers() {
   const uint32_t period = cfg.cycles_per_half_rev;
 
   SyncBoard m(cfg);
-  const uint32_t t0 = 1000000u;
-  m.seed(t0, /*is_master=*/true);
-  m.tick(t0 + 2u * period, nullptr);
+  const uint32_t T0 = 1000000u;
+  m.seed(T0, /*is_master=*/true);
+  m.tick(T0 + 2u * period, nullptr);
   HS_EXPECT_EQ(m.telemetry_snapshot().master_stalls, 0u);
   const uint32_t flips_before = m.telemetry_snapshot().flips;
   HS_EXPECT_GT(flips_before, 0u);
 
   // Resume past the int32 horizon. The epoch trails `now` by more than 2^31, so
   // fold() cannot recover the elapsed crossings in this modular window.
-  const uint32_t stalled = t0 + 2u * period + 0x90000000u;
+  const uint32_t stalled = T0 + 2u * period + 0x90000000u;
   Flywheel probe(cfg);
-  probe.seed(t0 + 2u * period);
+  probe.seed(T0 + 2u * period);
   HS_EXPECT_TRUE(probe.fold_stalled(stalled));
   HS_EXPECT_FALSE(probe.fold(stalled).crossed);
 
@@ -544,15 +544,15 @@ inline void test_master_fold_stall_recovery_flips() {
   const uint32_t period = cfg.cycles_per_half_rev;
 
   SyncBoard m(cfg);
-  const uint32_t t0 = 1000000u;
-  m.seed(t0, /*is_master=*/true);
+  const uint32_t T0 = 1000000u;
+  m.seed(T0, /*is_master=*/true);
   // A single fold leaves HALF as the last flipped boundary — the identity the
   // re-seed's ZERO reproduces on the very next crossing.
-  m.tick(t0 + period, nullptr);
+  m.tick(T0 + period, nullptr);
   const uint32_t flips_before = m.telemetry_snapshot().flips;
   HS_EXPECT_EQ(flips_before, 1u);
 
-  const uint32_t stalled = t0 + period + 0x90000000u;
+  const uint32_t stalled = T0 + period + 0x90000000u;
   m.tick(stalled, nullptr);
   HS_EXPECT_EQ(m.telemetry_snapshot().master_stalls, 1u);
   // The re-anchor lands the epoch on `stalled`, so nothing crosses on that tick.
@@ -579,7 +579,7 @@ inline void test_beacon_tail_quiet() {
   cfg.rejoin_budget_revs = cfg.rejoin_bound_revs();
   HS_EXPECT_STREQ(cfg.valid(), nullptr);
   const uint32_t period = cfg.cycles_per_half_rev;
-  const uint32_t step = COL / 8u;
+  const uint32_t STEP = COL / 8u;
 
   // Resume the master's first post-ZERO tick of the beacon-due revolution at
   // `resume_col`, carrying the (index, rev) payload; return the beacon pulse
@@ -588,9 +588,9 @@ inline void test_beacon_tail_quiet() {
   auto run = [&](int32_t resume_col, int32_t index, uint32_t rev,
                  uint32_t *tail_gap) -> int {
     SyncBoard m(cfg);
-    const uint32_t t0 = 1000000u;
-    m.seed(t0, /*is_master=*/true);
-    const uint32_t epoch1 = t0 + 2u * period;
+    const uint32_t T0 = 1000000u;
+    m.seed(T0, /*is_master=*/true);
+    const uint32_t epoch1 = T0 + 2u * period;
     m.tick(epoch1, nullptr);
     // Drain the ZERO symbol's remaining pulses (columns 2, 4) so the emitter is
     // idle before the coast, then dial in the beacon payload.
@@ -604,7 +604,7 @@ inline void test_beacon_tail_quiet() {
     uint32_t last_beacon = 0;
     *tail_gap = 0;
     for (uint32_t t = epoch1 + static_cast<uint32_t>(resume_col) * COL;
-         t <= half_at + 8u * COL; t += step) {
+         t <= half_at + 8u * COL; t += STEP) {
       if (!m.tick(t, nullptr).pulse)
         continue;
       if (t < half_at) {
@@ -649,25 +649,25 @@ inline void test_beacon_tail_quiet() {
 inline void test_master_epoch_train_bounded() {
   const Config cfg = test_config();
   const uint32_t rev_cycles = 2u * cfg.cycles_per_half_rev;
-  const uint32_t step = COL / 8;
-  const int32_t probed_revs = 9;
+  const uint32_t STEP = COL / 8;
+  const int32_t PROBED_REVS = 9;
 
   SyncBoard m(cfg);
-  const uint32_t t0 = 1000000u;
-  m.seed(t0, /*is_master=*/true);
+  const uint32_t T0 = 1000000u;
+  m.seed(T0, /*is_master=*/true);
   // Seeded at boundary ZERO with rev_in_effect 0, so the crossing that starts
   // the train (rev_in_effect == revs_per_effect) is exactly this instant.
-  const uint32_t b = t0 + cfg.revs_per_effect * rev_cycles;
-  for (uint32_t t = t0 + step; t + COL < b; t += step)
+  const uint32_t b = T0 + cfg.revs_per_effect * rev_cycles;
+  for (uint32_t t = T0 + STEP; t + COL < b; t += STEP)
     m.tick(t, nullptr);
 
   // Pulses per ZERO burst window; the beacon point (W/4) and HALF are outside.
-  int pulses[probed_revs] = {};
+  int pulses[PROBED_REVS] = {};
   for (uint32_t t = b + COL;
-       t < b + static_cast<uint32_t>(probed_revs) * rev_cycles; t += step) {
+       t < b + static_cast<uint32_t>(PROBED_REVS) * rev_cycles; t += STEP) {
     if (!m.tick(t, nullptr).pulse)
       continue;
-    for (int32_t k = 0; k < probed_revs; ++k) {
+    for (int32_t k = 0; k < PROBED_REVS; ++k) {
       const uint32_t off = t - (b + static_cast<uint32_t>(k) * rev_cycles);
       if (off < 12u * COL) {
         ++pulses[k];
@@ -679,6 +679,6 @@ inline void test_master_epoch_train_bounded() {
   HS_EXPECT_EQ(pulses[0], 0); // primary censored by the late resume
   for (int32_t k = 1; k <= cfg.epoch_repeats; ++k)
     HS_EXPECT_EQ(pulses[k], 5);
-  for (int32_t k = cfg.epoch_repeats + 1; k < probed_revs; ++k)
+  for (int32_t k = cfg.epoch_repeats + 1; k < PROBED_REVS; ++k)
     HS_EXPECT_EQ(pulses[k], 3);
 }

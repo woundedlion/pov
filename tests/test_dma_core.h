@@ -88,14 +88,14 @@ inline void test_transfer_us_bound() {
  * still yields the true elapsed delta.
  */
 inline void test_transfer_stale_wraparound() {
-  const unsigned long wd = dma::TRANSFER_WATCHDOG_US;
-  const unsigned long max = std::numeric_limits<unsigned long>::max();
+  const unsigned long WD = dma::TRANSFER_WATCHDOG_US;
+  const unsigned long MAX = std::numeric_limits<unsigned long>::max();
   // start just before rollover, now just after: elapsed below wd.
-  HS_EXPECT_FALSE(dma::transfer_stale(max - 10, 9, wd)); // elapsed 20
+  HS_EXPECT_FALSE(dma::transfer_stale(MAX - 10, 9, WD)); // elapsed 20
   // start before rollover, now far enough past it to exceed the watchdog.
-  HS_EXPECT_TRUE(dma::transfer_stale(max - 10, wd, wd)); // elapsed wd + 11
+  HS_EXPECT_TRUE(dma::transfer_stale(MAX - 10, WD, WD)); // elapsed wd + 11
   // exact boundary across the seam: elapsed == wd.
-  HS_EXPECT_TRUE(dma::transfer_stale(max - 9, wd - 10, wd));
+  HS_EXPECT_TRUE(dma::transfer_stale(MAX - 9, WD - 10, WD));
 }
 
 /**

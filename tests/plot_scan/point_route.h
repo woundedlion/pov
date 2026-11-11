@@ -19,23 +19,23 @@ inline void test_sampling_surface_arm_seam_geometry() {
     HS_EXPECT_EQ(PERIOD, W / 2.0f);
     HS_EXPECT_EQ(RADIUS, 1.0f);
     for (int period = -2; period <= 2; ++period) {
-      const float SEAM = period * PERIOD;
-      HS_EXPECT_EQ(distance(SEAM), 0.0f);
-      HS_EXPECT_TRUE(Surface::near_arm_seam(SEAM));
+      const float seam = period * PERIOD;
+      HS_EXPECT_EQ(distance(seam), 0.0f);
+      HS_EXPECT_TRUE(Surface::near_arm_seam(seam));
       for (float direction : {-1.0f, 1.0f}) {
-        const float EDGE = SEAM + direction * RADIUS;
-        const float INSIDE = std::nextafter(EDGE, SEAM);
-        const float OUTSIDE = std::nextafter(EDGE, EDGE + direction);
-        HS_EXPECT_EQ(distance(EDGE), RADIUS);
-        HS_EXPECT_TRUE(Surface::near_arm_seam(EDGE));
-        HS_EXPECT_LT(distance(INSIDE), RADIUS);
-        HS_EXPECT_TRUE(Surface::near_arm_seam(INSIDE));
-        HS_EXPECT_GT(distance(OUTSIDE), RADIUS);
-        HS_EXPECT_FALSE(Surface::near_arm_seam(OUTSIDE));
+        const float edge = seam + direction * RADIUS;
+        const float inside = std::nextafter(edge, seam);
+        const float outside = std::nextafter(edge, edge + direction);
+        HS_EXPECT_EQ(distance(edge), RADIUS);
+        HS_EXPECT_TRUE(Surface::near_arm_seam(edge));
+        HS_EXPECT_LT(distance(inside), RADIUS);
+        HS_EXPECT_TRUE(Surface::near_arm_seam(inside));
+        HS_EXPECT_GT(distance(outside), RADIUS);
+        HS_EXPECT_FALSE(Surface::near_arm_seam(outside));
       }
-      const float MIDDLE = SEAM + W / 4.0f;
-      HS_EXPECT_EQ(distance(MIDDLE), W / 4.0f);
-      HS_EXPECT_FALSE(Surface::near_arm_seam(MIDDLE));
+      const float middle = seam + W / 4.0f;
+      HS_EXPECT_EQ(distance(middle), W / 4.0f);
+      HS_EXPECT_FALSE(Surface::near_arm_seam(middle));
     }
   };
   check.operator()<16>();
@@ -73,9 +73,9 @@ inline void test_point_route_physical_curvature_bound() {
       }
     }
   }
-  const math::Vector equator(1.0f, 0.0f, 0.0f);
+  const math::Vector EQUATOR(1.0f, 0.0f, 0.0f);
   HS_EXPECT_EQ(
-      (Plot::PointRoute<W, H>::projected_acceleration(equator, equator)), 0.0f);
+      (Plot::PointRoute<W, H>::projected_acceleration(EQUATOR, EQUATOR)), 0.0f);
 }
 
 /** @brief A point stepped along a great circle under a slerped rotation, the
@@ -429,21 +429,21 @@ inline void test_point_route_gate_keeps_visible_taps() {
       Plot::PointRoute<W, H> route;
       for (const PointRoutePath &path : paths) {
         const math::Vector end = path.at(1.0f);
-        const Pixel white(65535, 65535, 65535);
+        const Pixel WHITE(65535, 65535, 65535);
         if (plain) {
-          sink.plot(canvas, end, white, 0.0f, 0.7f);
+          sink.plot(canvas, end, WHITE, 0.0f, 0.7f);
           continue;
         }
         route.prepare(canvas, (end - path.at(0.0f)).magnitude());
         route.plot(
             sink, canvas, end, [&] { return path.at(0.0f); },
-            [&] { return Color4(white, 0.7f); });
+            [&] { return Color4(WHITE, 0.7f); });
       }
       frame.assign(canvas.data(), canvas.data() + W * H);
     }
     return frame;
   };
-  const std::array<std::array<int, 4>, 6> clips = {{{36, 72, 0, 144},
+  const std::array<std::array<int, 4>, 6> CLIPS = {{{36, 72, 0, 144},
                                                     {72, 108, 144, 288},
                                                     {0, 36, 144, 288},
                                                     {108, 144, 0, 144},
@@ -453,7 +453,7 @@ inline void test_point_route_gate_keeps_visible_taps() {
   for (bool timed : {true, false}) {
     Spacetime::set_flat_surface(!timed);
     const std::vector<Pixel> full = render(nullptr, false);
-    for (const auto &clip : clips) {
+    for (const auto &clip : CLIPS) {
       const std::vector<Pixel> got = render(&clip, false);
       for (size_t i = 0; i < got.size(); ++i) {
         drawn += visible[i] && full[i].r > 0;
@@ -708,14 +708,14 @@ inline void test_point_route_physical_speed_covers_equator_cell() {
     math::TrigLUT<W, H>::init();
     const float EQUATOR =
         math::DisplayGeometry<H>::phi_to_row(math::PI_F * 0.5f);
-    const float EXPECTED =
+    const float expected =
         0.25f + math::TWO_PI_F * math::DisplayGeometry<H>::ROWS_PER_RADIAN / W;
     HS_EXPECT_NEAR((Plot::PointRoute<W, H>::physical_speed(
                        -1.0f, 0.25f, EQUATOR - 0.1f, EQUATOR + 0.1f)),
-                   EXPECTED, 1e-6f);
+                   expected, 1e-6f);
     HS_EXPECT_NEAR((Plot::PointRoute<W, H>::physical_speed(
                        -1.0f, 0.25f, EQUATOR - 0.1f, EQUATOR - 0.05f)),
-                   EXPECTED, 1e-6f);
+                   expected, 1e-6f);
   };
   check.template operator()<96, 20>();
   check.template operator()<288, 144>();

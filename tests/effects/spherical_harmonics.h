@@ -421,24 +421,24 @@ inline void test_sh_cycle_covers_every_mode() {
   reset_globals();
   WB::SH fx;
   fx.init();
-  const int SEED = WB::current_idx(fx);
+  const int seed = WB::current_idx(fx);
   std::vector<int> visits(WB::max_mode_idx() + 1);
-  int previous = SEED;
+  int previous = seed;
   int commits = 0;
   for (size_t frame = 0; frame < WB::SH::FULL_CYCLE_FRAMES; ++frame) {
     pin_frame_clock(static_cast<int>(frame));
     WB::step_timeline(fx);
     fx.advance_display();
-    const int CURRENT = WB::current_idx(fx);
-    if (CURRENT != previous) {
-      HS_EXPECT_EQ(CURRENT, previous % WB::max_mode_idx() + 1);
-      ++visits[CURRENT];
+    const int current = WB::current_idx(fx);
+    if (current != previous) {
+      HS_EXPECT_EQ(current, previous % WB::max_mode_idx() + 1);
+      ++visits[current];
       ++commits;
-      previous = CURRENT;
+      previous = current;
     }
   }
   HS_EXPECT_EQ(commits, WB::max_mode_idx());
-  HS_EXPECT_EQ(previous, SEED);
+  HS_EXPECT_EQ(previous, seed);
   for (int mode = 1; mode <= WB::max_mode_idx(); ++mode)
     HS_EXPECT_EQ(visits[mode], 1);
 }
@@ -590,10 +590,10 @@ struct ShTimeEvaluator {
    * @return Shape orientation. */
   static math::Quaternion spin(double time) {
     using WB = SphericalHarmonicsWhiteBox;
-    const math::Vector AXIS = WB::spin_axis().normalized();
+    const math::Vector axis = WB::spin_axis().normalized();
     const double rate =
         2.0 * 3.14159265358979323846 * WB::spin_turns() / WB::spin_frames();
-    return math::make_rotation(AXIS, static_cast<float>(rate * time));
+    return math::make_rotation(axis, static_cast<float>(rate * time));
   }
 
   /** @brief Shades one view direction on the morph chain at a frame time.
@@ -667,7 +667,7 @@ inline void test_sh_columns_follow_sweep_time() {
   WB::pin_mode(fx, WB::max_mode_idx());
   WB::set_next_idx(fx, 1);
   const ShTimeEvaluator evaluator{WB::max_mode_idx()};
-  const float AMPLITUDE = WB::amplitude(fx);
+  const float amplitude = WB::amplitude(fx);
   constexpr int MORPH_FRAMES = WB::SH::MORPH_FRAMES;
   int worst = 0;
   int held_gap = 0;
@@ -682,11 +682,11 @@ inline void test_sh_columns_follow_sweep_time() {
       const double time =
           draw == 0 ? 1.0 : draw + Spacetime::SamplingSurface<SMALL_W>::time(x);
       worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
-                         return evaluator.shade(fx, view, time, AMPLITUDE);
+                         return evaluator.shade(fx, view, time, amplitude);
                        }));
       held_gap =
           std::max(held_gap, sh_column_gap(fx, x, [&](const auto &view) {
-                     return evaluator.shade(fx, view, draw + 1.0, AMPLITUDE);
+                     return evaluator.shade(fx, view, draw + 1.0, amplitude);
                    }));
     }
   }
@@ -763,13 +763,13 @@ inline void test_sh_manual_preset_resets_morph_history() {
   pin_frame_clock(20);
   fx.draw_frame();
   fx.advance_display();
-  const float A0 = WB::amplitude(fx);
+  const float a0 = WB::amplitude(fx);
   int worst = 0;
   for (int x = 0; x < SMALL_W; ++x) {
     const double time = 20 + Spacetime::SamplingSurface<SMALL_W>::time(x);
     worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
                        return ShTimeEvaluator::shade_modes(fx, view, time, mode,
-                                                           mode, 0.0f, A0);
+                                                           mode, 0.0f, a0);
                      }));
   }
   HS_EXPECT_LE(worst, SH_TIME_TOLERANCE);
@@ -784,7 +784,7 @@ inline void test_sh_manual_preset_resets_morph_history() {
     worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
                        return ShTimeEvaluator::shade_modes(
                            fx, view, 21 + fraction, mode, mode, 0.0f,
-                           A0 + (7.0f - A0) * fraction);
+                           a0 + (7.0f - a0) * fraction);
                      }));
   }
   hs::clear_mock_time();
@@ -799,7 +799,7 @@ inline void test_sh_fidelity_toggle_keeps_history() {
   WB::SH fx;
   fx.init();
   const ShTimeEvaluator evaluator;
-  const float AMPLITUDE = WB::amplitude(fx);
+  const float amplitude = WB::amplitude(fx);
   int worst = 0;
   int draw = 0;
   for (const bool enabled : {true, false, false, true, true}) {
@@ -814,7 +814,7 @@ inline void test_sh_fidelity_toggle_keeps_history() {
               ? draw + 1.0
               : draw + Spacetime::SamplingSurface<SMALL_W>::time(x);
       worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
-                         return evaluator.shade(fx, view, time, AMPLITUDE);
+                         return evaluator.shade(fx, view, time, amplitude);
                        }));
     }
     ++draw;

@@ -436,9 +436,9 @@ inline auto all_boards_on(int index) {
  */
 inline void expect_swaps_aligned(const Sim &sim, uint64_t tol = 3 * COL) {
   for (size_t i = 1; i < sim.boards.size(); ++i) {
-    const int64_t DELTA = static_cast<int64_t>(sim.boards[i].swap_g) -
+    const int64_t delta = static_cast<int64_t>(sim.boards[i].swap_g) -
                           static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(std::abs(DELTA), static_cast<int64_t>(tol));
+    HS_EXPECT_LE(std::abs(delta), static_cast<int64_t>(tol));
   }
 }
 
@@ -488,9 +488,9 @@ inline bool to_pre_train(Sim &sim, const Config &cfg) {
  */
 inline void test_sim_boot_and_phase() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 20, -20, 40};
+  const int32_t PPM[4] = {0, 20, -20, 40};
   // Local clocks start below the 32-bit wrap so CYCCNT wraps mid-run (§12).
-  Sim sim(cfg, 4, ppm, 0xFFFFFFFFull - 10ull * 2 * PERIOD + 12345);
+  Sim sim(cfg, 4, PPM, 0xFFFFFFFFull - 10ull * 2 * PERIOD + 12345);
 
   // Birth phase, before a single symbol: every downstream board is tens of
   // columns from the master, beyond what a LOCKED snap could close.
@@ -569,8 +569,8 @@ inline void test_sim_eight_board_boot_and_phase() {
  */
 inline void test_sim_epoch_commit() {
   const Config cfg = test_config(2);
-  const int32_t ppm[4] = {0, 30, -25, 10};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 30, -25, 10};
+  Sim sim(cfg, 4, PPM);
 
   HS_EXPECT_TRUE(boot_join(sim, cfg));
 
@@ -654,8 +654,8 @@ inline void test_sim_variable_effect_durations() {
   uint32_t effect_revolutions[4] = {24, 52, 32, 64};
   Config cfg = test_config();
   cfg.set_effect_revolutions(effect_revolutions);
-  const int32_t ppm[4] = {0, 30, -25, 10};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 30, -25, 10};
+  Sim sim(cfg, 4, PPM);
 
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   HS_EXPECT_TRUE(
@@ -695,8 +695,8 @@ inline Config beacon_gap_config() {
 inline void test_sim_commit_beacon_gap() {
   const uint32_t *effect_revolutions = BEACON_GAP_REVOLUTIONS;
   const Config cfg = beacon_gap_config();
-  const int32_t ppm[2] = {0, 0};
-  Sim sim(cfg, 2, ppm);
+  const int32_t PPM[2] = {0, 0};
+  Sim sim(cfg, 2, PPM);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
 
   uint32_t seen = sim.boards[1].board.telemetry_snapshot().beacons_ok;
@@ -714,11 +714,11 @@ inline void test_sim_commit_beacon_gap() {
         return false;
       },
       double(effect_revolutions[0] + effect_revolutions[1]) + 12);
-  const uint64_t rev = 2ull * PERIOD;
+  const uint64_t REV = 2ull * PERIOD;
   const uint64_t expected = cfg.commit_beacon_gap_revs(0);
   HS_EXPECT_EQ(expected, 22u);
   HS_EXPECT_EQ(cfg.commit_beacon_gap_revs(1), 7u);
-  HS_EXPECT_EQ((widest + rev / 2) / rev, expected);
+  HS_EXPECT_EQ((widest + REV / 2) / REV, expected);
 }
 
 /**
@@ -728,8 +728,8 @@ inline void test_sim_commit_beacon_gap() {
  */
 inline void test_sim_rejoin_worst_case() {
   const Config cfg = beacon_gap_config();
-  const int32_t ppm[2] = {0, 0};
-  Sim sim(cfg, 2, ppm);
+  const int32_t PPM[2] = {0, 0};
+  Sim sim(cfg, 2, PPM);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Revolution 33 carries effect 0's last beacon before its commit.
   HS_EXPECT_TRUE(sim.run_until(
@@ -744,9 +744,9 @@ inline void test_sim_rejoin_worst_case() {
   b1.reboot(Sim::local_now(b1, sim.g));
   HS_EXPECT_TRUE(sim.run_until([](Sim &s) { return s.boards[1].live; },
                                double(cfg.rejoin_bound_revs())));
-  const uint64_t rev = 2ull * PERIOD;
-  HS_EXPECT_LE(sim.g - reboot_at, uint64_t(cfg.rejoin_bound_revs()) * rev);
-  HS_EXPECT_GE(sim.g - reboot_at, uint64_t(cfg.rejoin_bound_revs() - 3) * rev);
+  const uint64_t REV = 2ull * PERIOD;
+  HS_EXPECT_LE(sim.g - reboot_at, uint64_t(cfg.rejoin_bound_revs()) * REV);
+  HS_EXPECT_GE(sim.g - reboot_at, uint64_t(cfg.rejoin_bound_revs() - 3) * REV);
   HS_EXPECT_EQ(b1.live_index, 1);
   HS_EXPECT_EQ(b1.live_index, sim.boards[0].live_index);
 }
@@ -758,8 +758,8 @@ inline void test_sim_rejoin_worst_case() {
  */
 inline void test_sim_commit_deadline_trap() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 0, 0, 0};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 0, 0, 0};
+  Sim sim(cfg, 4, PPM);
   sim.boards[2].init_delay =
       static_cast<uint64_t>(3) * 2 * PERIOD; // 3 revs > K
   // Boot joins are not deadline-bound: board 2 goes live at a later join-grid
@@ -777,9 +777,9 @@ inline void test_sim_commit_deadline_trap() {
 /** @brief Pickup traps with 0.4 half-revs of commit slack, but accepts 1.5. */
 inline void test_sim_commit_pickup_budget() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 0, 0, 0};
+  const int32_t PPM[4] = {0, 0, 0, 0};
   for (bool over_budget : {false, true}) {
-    Sim sim(cfg, 4, ppm);
+    Sim sim(cfg, 4, PPM);
     HS_EXPECT_TRUE(boot_join(sim, cfg));
     sim.boards[2].init_delay = static_cast<uint64_t>(
         (2.0 * cfg.commit_revs - (over_budget ? 0.4 : 1.5)) * PERIOD);
@@ -800,22 +800,22 @@ inline void test_sim_commit_pickup_budget() {
  */
 inline void test_sim_masked_windows() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 25, -25, 15};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 25, -25, 15};
+  Sim sim(cfg, 4, PPM);
 
   // Recurring masks over the ZERO boundary, starting after boot join so
   // acquisition is clean. Board 1's narrow masks delay burst edges without
   // truncating the count; board 2's wide masks swallow wakes and merge burst
   // edges, so its decoder sees truncated counts.
-  const uint64_t rev = 2ull * PERIOD;
+  const uint64_t REV = 2ull * PERIOD;
   for (int k = 8; k < 28; ++k) {
-    const uint64_t b0 = k * rev; // master ZERO crossings ≈ k·rev (ppm 0)
+    const uint64_t b0 = k * REV; // master ZERO crossings ≈ k·rev (ppm 0)
     sim.boards[1].masks.push_back({b0 - COL / 4, b0 + COL / 4});
     sim.boards[2].masks.push_back({b0 - COL / 2, b0 + 2 * COL + COL / 2});
   }
   // Board 3: mid-revolution masks only coalesce wakes.
   for (int k = 8; k < 28; ++k) {
-    const uint64_t m0 = k * rev + 40 * COL;
+    const uint64_t m0 = k * REV + 40 * COL;
     sim.boards[3].masks.push_back({m0, m0 + 5 * COL});
   }
 
@@ -839,9 +839,9 @@ inline void test_sim_masked_windows() {
 
   // Master masked across its own boundary: it self-censors (or truncates)
   // rather than emitting late; downstream coasts one half-rev and re-snaps.
-  Sim sim2(cfg, 2, ppm);
+  Sim sim2(cfg, 2, PPM);
   sim2.run_revs(8.0);
-  const uint64_t b0 = (static_cast<uint64_t>(sim2.g / rev) + 2) * rev;
+  const uint64_t b0 = (static_cast<uint64_t>(sim2.g / REV) + 2) * REV;
   sim2.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
   sim2.run_revs(6.0);
   const Telemetry &tm0 = sim2.boards[0].board.telemetry_snapshot();
@@ -861,9 +861,9 @@ inline void test_sim_masked_windows() {
  */
 inline void test_sim_emi() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 20, -30, 5};
-  Sim sim(cfg, 4, ppm);
-  const uint64_t rev = 2ull * PERIOD;
+  const int32_t PPM[4] = {0, 20, -30, 5};
+  Sim sim(cfg, 4, PPM);
+  const uint64_t REV = 2ull * PERIOD;
 
   // Isolated spurious edges on board 1, away from boundaries: each is a valid
   // HALF symbol the LOCKED gate must reject.
@@ -871,14 +871,14 @@ inline void test_sim_emi() {
   for (int k = 8; k < 40; ++k) {
     lcg = lcg * 1664525u + 1013904223u;
     const uint64_t off = (20 + lcg % 100) * static_cast<uint64_t>(COL);
-    sim.emi.push_back({k * rev + off, 1});
+    sim.emi.push_back({k * REV + off, 1});
   }
   // Two edges injected INSIDE master ZERO bursts on board 2 (count 3 → 4):
   // even count = invalid, discarded whole; the crossing flip covers it.
-  sim.emi.push_back({10 * rev + COL, 2});
-  sim.emi.push_back({14 * rev + COL, 2});
+  sim.emi.push_back({10 * REV + COL, 2});
+  sim.emi.push_back({14 * REV + COL, 2});
   // The nearby forged edge merges with the real HALF into an invalid count.
-  sim.emi.push_back({12 * rev + (PERIOD - 2ull * COL), 3});
+  sim.emi.push_back({12 * REV + (PERIOD - 2ull * COL), 3});
   std::sort(sim.emi.begin(), sim.emi.end());
 
   sim.run_revs(42.0);
@@ -908,15 +908,15 @@ inline void test_sim_emi() {
  */
 inline void test_sim_drops_and_missed_epoch() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 35, -35, 20};
-  Sim sim(cfg, 4, ppm);
-  const uint64_t rev = 2ull * PERIOD;
+  const int32_t PPM[4] = {0, 35, -35, 20};
+  Sim sim(cfg, 4, PPM);
+  const uint64_t REV = 2ull * PERIOD;
 
   HS_EXPECT_TRUE(boot_join(sim, cfg));
 
   // Board 1 hears nothing for 2 revolutions: it coasts, then re-snaps.
-  sim.boards[1].drop_from = sim.g + rev;
-  sim.boards[1].drop_to = sim.g + 3 * rev;
+  sim.boards[1].drop_from = sim.g + REV;
+  sim.boards[1].drop_to = sim.g + 3 * REV;
   sim.run_revs(5.0);
   HS_EXPECT_GE(sim.boards[1].board.telemetry_snapshot().max_coast_halves, 4u);
   HS_EXPECT_EQ(lock(sim.boards[1].board), LockState::LOCKED);
@@ -927,7 +927,7 @@ inline void test_sim_drops_and_missed_epoch() {
   // beacons correct it (§6.3.2, §6.3.4).
   HS_EXPECT_TRUE(to_pre_train(sim, cfg));
   sim.boards[3].drop_from = sim.g;
-  sim.boards[3].drop_to = sim.g + 7 * rev; // covers B..B+K and the repeats
+  sim.boards[3].drop_to = sim.g + 7 * REV; // covers B..B+K and the repeats
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         return s.boards[0].live_index == 1 && s.boards[1].live_index == 1;
@@ -972,8 +972,8 @@ inline void test_sim_drops_and_missed_epoch() {
  *        beacon + join-grid boundary — never a wrong frame in between.
  */
 inline void test_sim_reboot(const Config &cfg) {
-  const int32_t ppm[4] = {0, 15, -15, 30};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 15, -15, 30};
+  Sim sim(cfg, 4, PPM);
   sim.run_revs(12.0);
 
   const uint64_t reboot_at = sim.g;
@@ -1017,14 +1017,14 @@ inline void test_sim_reboot(const Config &cfg) {
  */
 inline void test_sim_forged_burst() {
   const Config cfg = test_config();
-  const int32_t ppm[2] = {0, 10};
-  Sim sim(cfg, 2, ppm);
+  const int32_t PPM[2] = {0, 10};
+  Sim sim(cfg, 2, PPM);
   sim.run_revs(10.0);
-  const uint64_t rev = 2ull * PERIOD;
+  const uint64_t REV = 2ull * PERIOD;
 
   // An isolated valid-count (HALF) burst 30 columns past a real ZERO boundary,
   // clear of the gap-timeout window and the quiet-before guard (§5.3).
-  const uint64_t b0 = (sim.g / rev + 2) * rev; // a future master ZERO
+  const uint64_t b0 = (sim.g / REV + 2) * REV; // a future master ZERO
   sim.emi.push_back({b0 + 30 * static_cast<uint64_t>(COL), 1});
   sim.emi_pos = 0;
   std::sort(sim.emi.begin(), sim.emi.end());
@@ -1070,19 +1070,19 @@ inline void expect_refractory_ignored(Sim &sim, int deaf) {
  */
 inline void test_sim_epoch_repeat_lockstep() {
   const Config cfg = test_config();
-  const uint64_t rev = 2ull * PERIOD;
+  const uint64_t REV = 2ull * PERIOD;
 
   const double commit_revs_max =
       double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8;
 
   // Sub-scenario 1: board 2 misses ONLY the primary copy at B.
   {
-    const int32_t ppm[4] = {0, 20, -20, 10};
-    Sim sim(cfg, 4, ppm);
+    const int32_t PPM[4] = {0, 20, -20, 10};
+    Sim sim(cfg, 4, PPM);
     HS_EXPECT_TRUE(boot_join(sim, cfg));
     HS_EXPECT_TRUE(to_pre_train(sim, cfg));
-    sim.boards[2].drop_from = sim.g + rev - 4 * COL;
-    sim.boards[2].drop_to = sim.g + rev + rev / 4; // before the B+1 repeat
+    sim.boards[2].drop_from = sim.g + REV - 4 * COL;
+    sim.boards[2].drop_to = sim.g + REV + REV / 4; // before the B+1 repeat
     HS_EXPECT_TRUE(sim.run_until(all_boards_on(1), commit_revs_max));
     expect_refractory_ignored(sim, 2);
     expect_lockstep(sim);
@@ -1092,11 +1092,11 @@ inline void test_sim_epoch_repeat_lockstep() {
   // its own train-start boundary, a designed event — §5.2): it must not
   // schedule a commit its peers cannot match.
   {
-    const int32_t ppm[4] = {0, 15, -25, 30};
-    Sim sim(cfg, 4, ppm);
+    const int32_t PPM[4] = {0, 15, -25, 30};
+    Sim sim(cfg, 4, PPM);
     HS_EXPECT_TRUE(boot_join(sim, cfg));
     HS_EXPECT_TRUE(to_pre_train(sim, cfg));
-    const uint64_t b0 = sim.g + rev;
+    const uint64_t b0 = sim.g + REV;
     sim.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
     HS_EXPECT_TRUE(sim.run_until(all_boards_on(1), commit_revs_max));
     const Telemetry &tm0 = sim.boards[0].board.telemetry_snapshot();
@@ -1117,9 +1117,9 @@ inline void test_sim_epoch_repeat_lockstep() {
  */
 inline void test_sim_rev_resync() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 20, -20, 10};
-  Sim sim(cfg, 4, ppm);
-  const uint64_t rev = 2ull * PERIOD;
+  const int32_t PPM[4] = {0, 20, -20, 10};
+  Sim sim(cfg, 4, PPM);
+  const uint64_t REV = 2ull * PERIOD;
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Settle past the boot beacons, then slip board 3's counter by +2: left
   // uncorrected it would commit 2 revolutions early.
@@ -1141,8 +1141,8 @@ inline void test_sim_rev_resync() {
   // The next epoch commits in lockstep even though board 3 ALSO misses the
   // primary copy, taking the repeat path that depends on j-inference.
   HS_EXPECT_TRUE(to_pre_train(sim, cfg));
-  sim.boards[3].drop_from = sim.g + rev - 4 * COL;
-  sim.boards[3].drop_to = sim.g + rev + rev / 4;
+  sim.boards[3].drop_from = sim.g + REV - 4 * COL;
+  sim.boards[3].drop_to = sim.g + REV + REV / 4;
   HS_EXPECT_TRUE(sim.run_until(
       all_boards_on(1),
       double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8));
@@ -1163,8 +1163,8 @@ inline void test_sim_rev_wrap_within_effect() {
   Config cfg = test_config();
   cfg.revs_per_effect =
       90; // > 64: rev_in_effect wraps its 6-bit residue mid-effect
-  const int32_t ppm[4] = {0, 20, -20, 10};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 20, -20, 10};
+  Sim sim(cfg, 4, PPM);
 
   // Boot: all four boards live on effect 0.
   HS_EXPECT_TRUE(boot_join(sim, cfg));
@@ -1223,24 +1223,24 @@ inline void test_sim_rev_wrap_within_effect() {
  */
 inline void test_epoch_same_tick_burst_fold() {
   const Config cfg = test_config();
-  const uint32_t RPE = cfg.revs_per_effect;
-  const uint32_t R = static_cast<uint32_t>(cfg.epoch_repeats);
-  const uint32_t K = cfg.commit_revs;
+  const uint32_t rpe = cfg.revs_per_effect;
+  const uint32_t r = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t k = cfg.commit_revs;
 
-  for (uint32_t j = 0; j <= R; ++j) {
+  for (uint32_t j = 0; j <= r; ++j) {
     HS_CONTEXT("copy j", j);
     SyncBoard board(cfg);
     constexpr uint32_t START = 1000u;
     board.seed(START, false);
     flywheel_mut(board).force_lock();
     content_mut(board).identity_known = true;
-    content_mut(board).rev_in_effect = RPE + j - 1;
-    const uint32_t ZERO = START + 2u * cfg.cycles_per_half_rev;
-    const uint32_t COL = cfg.cycles_per_column();
-    const BurstSnapshot burst{5, ZERO, ZERO + 4u * COL};
-    board.tick(ZERO + 4u * COL + cfg.gap_timeout_cycles(), &burst);
+    content_mut(board).rev_in_effect = rpe + j - 1;
+    const uint32_t zero = START + 2u * cfg.cycles_per_half_rev;
+    const uint32_t col = cfg.cycles_per_column();
+    const BurstSnapshot burst{5, zero, zero + 4u * col};
+    board.tick(zero + 4u * col + cfg.gap_timeout_cycles(), &burst);
     HS_EXPECT_TRUE(content(board).commit_pending);
-    HS_EXPECT_EQ(content(board).commit_in_revs, K + R - j);
+    HS_EXPECT_EQ(content(board).commit_in_revs, k + r - j);
     HS_EXPECT_EQ(content(board).refractory_revs_left, cfg.refractory_revs);
   }
 
@@ -1250,12 +1250,12 @@ inline void test_epoch_same_tick_burst_fold() {
     ContentTracker c;
     c.identity_known = true;
     c.effect_index = 0;
-    c.rev_in_effect = RPE + j;
+    c.rev_in_effect = rpe + j;
     const uint32_t base_rev = c.rev_in_effect;
     HS_EXPECT_TRUE(c.on_epoch_symbol(cfg)); // opens the commit window
-    HS_EXPECT_EQ(c.commit_in_revs, K + R - j);
+    HS_EXPECT_EQ(c.commit_in_revs, k + r - j);
     uint32_t count = 0;
-    while (count <= RPE) {
+    while (count <= rpe) {
       const bool committed = c.on_zero_crossing(cfg);
       ++count;
       if (committed)
@@ -1264,9 +1264,9 @@ inline void test_epoch_same_tick_burst_fold() {
     return base_rev + count;
   };
 
-  // Every copy commits at the absolute B+R+K boundary, independent of j.
-  for (uint32_t j = 0; j <= R; ++j)
-    HS_EXPECT_EQ(commit_rev_for(j), RPE + R + K);
+  // Every copy commits at the absolute B+r+k boundary, independent of j.
+  for (uint32_t j = 0; j <= r; ++j)
+    HS_EXPECT_EQ(commit_rev_for(j), rpe + r + k);
 }
 
 /** @brief Verifies EPOCH symbols stay rejected for the full refractory window. */
@@ -1300,24 +1300,24 @@ inline void test_epoch_refractory_window() {
  */
 inline void test_construction_window_predicates() {
   const Config cfg = test_config();
-  const uint32_t RPE = cfg.revs_per_effect;
-  const uint32_t R = static_cast<uint32_t>(cfg.epoch_repeats);
-  const uint32_t K = cfg.commit_revs;
+  const uint32_t rpe = cfg.revs_per_effect;
+  const uint32_t r = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t k = cfg.commit_revs;
 
-  for (uint32_t j = 0; j <= R; ++j) {
+  for (uint32_t j = 0; j <= r; ++j) {
     HS_CONTEXT("copy", static_cast<long long>(j));
     ContentTracker c;
     c.identity_known = true;
     c.effect_index = 0;
-    c.rev_in_effect = RPE + j;
+    c.rev_in_effect = rpe + j;
 
     // Nothing scheduled: neither predicate can fire off commit_pending.
     HS_EXPECT_FALSE(c.construction_opens(cfg));
     HS_EXPECT_FALSE(c.constructing(cfg));
 
     HS_EXPECT_TRUE(c.on_epoch_symbol(cfg));
-    const uint32_t announce = R - j; // crossings before the window opens
-    HS_EXPECT_EQ(c.commit_in_revs, K + announce);
+    const uint32_t announce = r - j; // crossings before the window opens
+    HS_EXPECT_EQ(c.commit_in_revs, k + announce);
     HS_EXPECT_EQ(c.construction_opens(cfg), announce == 0);
     HS_EXPECT_EQ(c.constructing(cfg), announce == 0);
 
@@ -1325,7 +1325,7 @@ inline void test_construction_window_predicates() {
     uint32_t dark = c.constructing(cfg) ? 1u : 0u;
     uint32_t steps = 0;
     bool committed = false;
-    while (!committed && steps <= K + R + 1) {
+    while (!committed && steps <= k + r + 1) {
       committed = c.on_zero_crossing(cfg);
       ++steps;
       // Opening is a moment inside the window, never outside it.
@@ -1334,9 +1334,9 @@ inline void test_construction_window_predicates() {
       dark += c.constructing(cfg) ? 1u : 0u;
     }
     HS_EXPECT_TRUE(committed);
-    HS_EXPECT_EQ(steps, K + announce);
+    HS_EXPECT_EQ(steps, k + announce);
     HS_EXPECT_EQ(opens, 1u);
-    HS_EXPECT_EQ(dark, K);
+    HS_EXPECT_EQ(dark, k);
 
     // The commit closes the window; a board past it is lit again.
     HS_EXPECT_FALSE(c.construction_opens(cfg));

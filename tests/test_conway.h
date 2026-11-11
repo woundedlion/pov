@@ -44,7 +44,7 @@ inline uint8_t
 template <typename Solid> inline void check_euler_for_seed() {
   const int V = Solid::NUM_VERTS;
   const int F = Solid::NUM_FACES;
-  const int E = static_cast<int>(Solid::faces.size()) / 2;
+  const int e = static_cast<int>(Solid::faces.size()) / 2;
 
 #define HS_EULER_OP(CALL, EXP_V, EXP_F, EXP_I, VDEG, FDEG)                     \
   do {                                                                         \
@@ -77,18 +77,18 @@ template <typename Solid> inline void check_euler_for_seed() {
     HS_EXPECT_EQ((int)seed.vertices.size(), V);
     HS_EXPECT_EQ((int)seed.face_counts.size(), F);
   }
-  HS_EULER_OP(dual(seed, target, temp), F, V, 2 * E, 0, 0);
-  HS_EULER_OP(kis(seed, target, temp), V + F, 2 * E, 6 * E, 0, 3);
-  HS_EULER_OP(ambo(seed, target, temp), E, V + F, 4 * E, 4, 0);
-  HS_EULER_OP(truncate(seed, target, temp), 2 * E, V + F, 6 * E, 3, 0);
-  HS_EULER_OP(expand(seed, target, temp), 2 * E, V + F + E, 8 * E, 4, 0);
-  HS_EULER_OP(chamfer(seed, target, temp), V + 2 * E, F + E, 8 * E, 0, 0);
-  HS_EULER_OP(snub(seed, target, temp), 2 * E, V + F + 2 * E, 10 * E, 5, 0);
-  HS_EULER_OP(gyro(seed, target, temp), V + F + 2 * E, 2 * E, 10 * E, 0, 5);
-  HS_EULER_OP(meta(seed, target, temp), V + F + E, 4 * E, 12 * E, 0, 3);
-  HS_EULER_OP(needle(seed, target, temp), V + F, 2 * E, 6 * E, 0, 3);
-  HS_EULER_OP(zip(seed, target, temp), 2 * E, V + F, 6 * E, 3, 0);
-  HS_EULER_OP(bevel(seed, target, temp), 4 * E, V + F + E, 12 * E, 3, 0);
+  HS_EULER_OP(dual(seed, target, temp), F, V, 2 * e, 0, 0);
+  HS_EULER_OP(kis(seed, target, temp), V + F, 2 * e, 6 * e, 0, 3);
+  HS_EULER_OP(ambo(seed, target, temp), e, V + F, 4 * e, 4, 0);
+  HS_EULER_OP(truncate(seed, target, temp), 2 * e, V + F, 6 * e, 3, 0);
+  HS_EULER_OP(expand(seed, target, temp), 2 * e, V + F + e, 8 * e, 4, 0);
+  HS_EULER_OP(chamfer(seed, target, temp), V + 2 * e, F + e, 8 * e, 0, 0);
+  HS_EULER_OP(snub(seed, target, temp), 2 * e, V + F + 2 * e, 10 * e, 5, 0);
+  HS_EULER_OP(gyro(seed, target, temp), V + F + 2 * e, 2 * e, 10 * e, 0, 5);
+  HS_EULER_OP(meta(seed, target, temp), V + F + e, 4 * e, 12 * e, 0, 3);
+  HS_EULER_OP(needle(seed, target, temp), V + F, 2 * e, 6 * e, 0, 3);
+  HS_EULER_OP(zip(seed, target, temp), 2 * e, V + F, 6 * e, 3, 0);
+  HS_EULER_OP(bevel(seed, target, temp), 4 * e, V + F + e, 12 * e, 3, 0);
 #undef HS_EULER_OP
 }
 
@@ -161,13 +161,13 @@ inline void test_normalize_pushes_to_unit_sphere() {
 
   MeshOps::normalize(m);
   check_all_unit_vertices(m, 1e-3f);
-  const float DIAGONAL = 1.0f / std::sqrt(3.0f);
-  const math::Vector EXPECTED[] = {
-      {0.6f, 0.8f, 0.0f}, {0.0f, 0.0f, 1.0f}, {DIAGONAL, DIAGONAL, DIAGONAL}};
+  const float diagonal = 1.0f / std::sqrt(3.0f);
+  const math::Vector expected[] = {
+      {0.6f, 0.8f, 0.0f}, {0.0f, 0.0f, 1.0f}, {diagonal, diagonal, diagonal}};
   for (size_t i = 0; i < m.vertices.size(); ++i) {
-    HS_EXPECT_NEAR(m.vertices[i].x, EXPECTED[i].x, 1e-3f);
-    HS_EXPECT_NEAR(m.vertices[i].y, EXPECTED[i].y, 1e-3f);
-    HS_EXPECT_NEAR(m.vertices[i].z, EXPECTED[i].z, 1e-3f);
+    HS_EXPECT_NEAR(m.vertices[i].x, expected[i].x, 1e-3f);
+    HS_EXPECT_NEAR(m.vertices[i].y, expected[i].y, 1e-3f);
+    HS_EXPECT_NEAR(m.vertices[i].z, expected[i].z, 1e-3f);
   }
 }
 
@@ -432,12 +432,12 @@ inline void test_relax_preserves_topology() {
 template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
   const auto *fc = m.get_face_counts_data();
   const auto *faces = m.get_faces_data();
-  const size_t F = m.get_face_counts_size();
+  const size_t f_value = m.get_face_counts_size();
 
   double sum = 0.0;
   int n = 0;
   size_t idx = 0;
-  for (size_t f = 0; f < F; ++f) {
+  for (size_t f = 0; f < f_value; ++f) {
     const int c = fc[f];
     for (int k = 0; k < c; ++k) {
       const int a = faces[idx + k];
@@ -451,7 +451,7 @@ template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
 
   double var = 0.0;
   idx = 0;
-  for (size_t f = 0; f < F; ++f) {
+  for (size_t f = 0; f < f_value; ++f) {
     const int c = fc[f];
     for (int k = 0; k < c; ++k) {
       const int a = faces[idx + k];
@@ -596,14 +596,14 @@ inline bool ptr_in_buffer(const void *p, const uint8_t *buf, size_t n) {
 inline void test_conway_composition_polarity() {
   const uint8_t *tgt = conway_target_buf;
   const uint8_t *tmp = conway_temp_buf;
-  const size_t tgt_n = sizeof(conway_target_buf);
-  const size_t tmp_n = sizeof(conway_temp_buf);
+  const size_t TGT_N = sizeof(conway_target_buf);
+  const size_t TMP_N = sizeof(conway_temp_buf);
   auto expect_in_target = [&](const PolyMesh &m) {
     for (const void *p : {static_cast<const void *>(m.vertices.data()),
                           static_cast<const void *>(m.face_counts.data()),
                           static_cast<const void *>(m.faces.data())}) {
-      HS_EXPECT_TRUE(ptr_in_buffer(p, tgt, tgt_n));
-      HS_EXPECT_FALSE(ptr_in_buffer(p, tmp, tmp_n));
+      HS_EXPECT_TRUE(ptr_in_buffer(p, tgt, TGT_N));
+      HS_EXPECT_FALSE(ptr_in_buffer(p, tmp, TMP_N));
     }
   };
 
@@ -776,7 +776,7 @@ inline void test_snub_cube_is_well_formed() {
  *          centre-independent.
  */
 inline void test_snub_twist_rotates_primary_faces() {
-  const float twist = 0.28f;
+  const float TWIST = 0.28f;
 
   std::vector<math::Vector> base;
   std::vector<std::vector<uint16_t>> primary_faces;
@@ -808,7 +808,7 @@ inline void test_snub_twist_rotates_primary_faces() {
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, temp);
-    PolyMesh s1 = MeshOps::snub(cube, target, temp, 0.5f, twist);
+    PolyMesh s1 = MeshOps::snub(cube, target, temp, 0.5f, TWIST);
     for (size_t i = 0; i < s1.vertices.size(); ++i)
       twisted.push_back(s1.vertices[i]);
   }
@@ -826,7 +826,7 @@ inline void test_snub_twist_rotates_primary_faces() {
       HS_EXPECT_NEAR(e_twist.length(), e_base.length(), 3e-3f);
       float ang = std::atan2(math::dot(math::cross(e_base, e_twist), n),
                              math::dot(e_base, e_twist));
-      HS_EXPECT_NEAR(ang, twist, 5e-3f);
+      HS_EXPECT_NEAR(ang, TWIST, 5e-3f);
     }
   }
 }

@@ -559,9 +559,9 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
 
 inline math::Vector midpoint_test_warp(const math::Vector &v,
                                        const ::Feedback::Style &) {
-  const math::Spherical S(v);
-  return math::Vector(math::Spherical(S.theta + 0.1f * sinf(S.theta),
-                                      S.phi + 0.02f * sinf(S.theta)));
+  const math::Spherical s(v);
+  return math::Vector(math::Spherical(s.theta + 0.1f * sinf(s.theta),
+                                      s.phi + 0.02f * sinf(s.theta)));
 }
 
 /** @brief
@@ -597,13 +597,13 @@ inline void test_feedback_half_res_warp_uses_pair_midpoint() {
       };
       for (int x = 8; x < 24; x += 2) {
         for (auto channel : {&Pixel::r, &Pixel::g}) {
-          const float OWN = midpoint(x, channel);
-          const float LEFT = midpoint(x - 2, channel);
-          const float RIGHT = midpoint(x + 2, channel);
+          const float own = midpoint(x, channel);
+          const float left = midpoint(x - 2, channel);
+          const float right = midpoint(x + 2, channel);
           HS_EXPECT_NEAR(fx.get_pixel(x, 8).*channel,
-                         0.75f * OWN + 0.25f * LEFT, 4.0f);
+                         0.75f * own + 0.25f * left, 4.0f);
           HS_EXPECT_NEAR(fx.get_pixel(x + 1, 8).*channel,
-                         0.75f * OWN + 0.25f * RIGHT, 4.0f);
+                         0.75f * own + 0.25f * right, 4.0f);
         }
       }
     }
@@ -639,17 +639,17 @@ inline void test_feedback_spherical_ring_control_rows() {
 
   flush_once(fx, pipe);
 
-  constexpr hs::SphericalFieldLayout<W, H> layout(DOWNSAMPLE, DOWNSAMPLE,
+  constexpr hs::SphericalFieldLayout<W, H> LAYOUT(DOWNSAMPLE, DOWNSAMPLE,
                                                   DOWNSAMPLE, W / DOWNSAMPLE);
-  for (int ring_index = 0; ring_index < layout.ring_count(); ++ring_index) {
-    const int y = layout.ring(ring_index).y;
+  for (int ring_index = 0; ring_index < LAYOUT.ring_count(); ++ring_index) {
+    const int y = LAYOUT.ring(ring_index).y;
     const math::Vector warped =
         metric_row_test_warp(math::pixel_to_vector<W, H>(0, y), style);
     const float expected_y = math::phi_to_y<H>(math::Spherical(warped).phi);
     const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
   }
-  HS_EXPECT_LE(layout.sample_count(), (W / DOWNSAMPLE) * layout.ring_count());
+  HS_EXPECT_LE(LAYOUT.sample_count(), (W / DOWNSAMPLE) * LAYOUT.ring_count());
 }
 
 /**
@@ -682,7 +682,7 @@ inline void test_feedback_init_storage_matches_storage_bytes() {
 inline void test_spherical_field_layout_angular_error() {
   constexpr int W = 288, H = 144;
   constexpr int DOWNSAMPLE = 4;
-  constexpr hs::SphericalFieldLayout<W, H> layout(DOWNSAMPLE, DOWNSAMPLE,
+  constexpr hs::SphericalFieldLayout<W, H> LAYOUT(DOWNSAMPLE, DOWNSAMPLE,
                                                   DOWNSAMPLE, W / DOWNSAMPLE);
   struct Offset {
     float x;
@@ -718,9 +718,9 @@ inline void test_spherical_field_layout_angular_error() {
   style.frequency = 0.37036f;
   style.speed = 2.625f;
   style.scale = 50.0f;
-  std::vector<Offset> controls(layout.sample_count());
-  std::vector<Offset> expanded(layout.ring_count() * (W / DOWNSAMPLE));
-  hs::SphericalField<Offset, W, H> field(controls.data(), layout);
+  std::vector<Offset> controls(LAYOUT.sample_count());
+  std::vector<Offset> expanded(LAYOUT.ring_count() * (W / DOWNSAMPLE));
+  hs::SphericalField<Offset, W, H> field(controls.data(), LAYOUT);
   double east_sq = 0.0;
   double down_sq = 0.0;
   double polar_error = 0.0;
@@ -733,7 +733,7 @@ inline void test_spherical_field_layout_angular_error() {
     noise.time = 7.0f + frame * 3.25f;
     style.sync_noise();
     field.populate(
-        0, layout.ring_count() - 1,
+        0, LAYOUT.ring_count() - 1,
         [&](const math::Vector &position, const auto &point) {
           const math::Spherical warped(style.space_fn(position, style));
           float dx = warped.theta * W / (2.0f * math::PI_F) - point.x;
@@ -751,10 +751,10 @@ inline void test_spherical_field_layout_angular_error() {
         b.x += W;
       return Offset{hs::lerp(a.x, b.x, t), hs::lerp(a.y, b.y, t)};
     };
-    for (int ring_index = 0; ring_index < layout.ring_count(); ++ring_index) {
-      const auto ring = layout.ring(ring_index);
+    for (int ring_index = 0; ring_index < LAYOUT.ring_count(); ++ring_index) {
+      const auto ring = LAYOUT.ring(ring_index);
       for (int x = 0; x < W; x += DOWNSAMPLE) {
-        const auto longitude = layout.longitude_bounded(ring, x);
+        const auto longitude = LAYOUT.longitude_bounded(ring, x);
         expanded[ring_index * (W / DOWNSAMPLE) + x / DOWNSAMPLE] =
             circular_lerp(controls[longitude.left], controls[longitude.right],
                           longitude.mix);
@@ -762,9 +762,9 @@ inline void test_spherical_field_layout_angular_error() {
     }
 
     auto approximate = [&](int x, int y) {
-      const auto latitude = layout.row(y);
-      const int lower_ring = layout.ring_index_at_or_before(y);
-      const int upper_ring = layout.ring_index_at_or_after(y);
+      const auto latitude = LAYOUT.row(y);
+      const int lower_ring = LAYOUT.ring_index_at_or_before(y);
+      const int upper_ring = LAYOUT.ring_index_at_or_after(y);
       const int coarse_x = x / DOWNSAMPLE;
       const int next_x = coarse_x + 1 < W / DOWNSAMPLE ? coarse_x + 1 : 0;
       const float fx = static_cast<float>(x % DOWNSAMPLE) / DOWNSAMPLE;
@@ -1041,7 +1041,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
 
     Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
         Filter::Pixel::Feedback<W, H>(s)};
-    const size_t CACHE_OFFSET = persistent_arena.get_offset();
+    const size_t cache_offset = persistent_arena.get_offset();
     if (cached)
       pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
           persistent_arena);
@@ -1064,7 +1064,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
       if (frame == 5)
         s.speed = 1.0f; // time-varying: miss every frame
       if (frame == 6 && cached) {
-        persistent_arena.set_offset(CACHE_OFFSET);
+        persistent_arena.set_offset(cache_offset);
         pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
             persistent_arena);
       }
@@ -1277,9 +1277,9 @@ inline void test_feedback_custom_color_receives_elapsed_fade() {
     }
     effect.advance_display();
     HS_EXPECT_GT(FeedbackFadeProbe::fades.size(), size_t{0});
-    const float elapsed = 16.0f / (16.0f + 4.0f);
+    const float ELAPSED = 16.0f / (16.0f + 4.0f);
     const float quantized =
-        std::round(elapsed * Table::STEPS_PER_FRAME) / Table::STEPS_PER_FRAME;
+        std::round(ELAPSED * Table::STEPS_PER_FRAME) / Table::STEPS_PER_FRAME;
     const float expected =
         temporal ? std::pow(style.fade, quantized) : style.fade;
     HS_EXPECT_TRUE(std::any_of(

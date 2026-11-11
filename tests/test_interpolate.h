@@ -152,11 +152,11 @@ inline float fmod_shortest_reference(float a, float b, float progress,
     return b;
   if (period <= 0.0f)
     return a + (b - a) * progress;
-  const float HALF = period * 0.5f;
+  const float half = period * 0.5f;
   float delta = std::fmod(b - a, period);
-  if (delta < -HALF)
+  if (delta < -half)
     delta += period;
-  if (delta >= HALF)
+  if (delta >= half)
     delta -= period;
   return fmod_wrap_reference(a + delta * progress, period);
 }
@@ -180,13 +180,13 @@ template <typename T> inline void expect_periodic_bits(T actual, T expected) {
 /** @brief Wrapping matches fmod bits at boundaries and across finite inputs. */
 inline void test_periodic_wrap_fmod_parity() {
   const auto check = []<typename T>() {
-    const T INFINITY_VALUE = std::numeric_limits<T>::infinity();
-    const T NAN_VALUE = std::numeric_limits<T>::quiet_NaN();
+    const T infinity_value = std::numeric_limits<T>::infinity();
+    const T nan_value = std::numeric_limits<T>::quiet_NaN();
     const T MINIMUM = std::numeric_limits<T>::min();
-    const T SUBNORMAL = std::numeric_limits<T>::denorm_min();
+    const T subnormal = std::numeric_limits<T>::denorm_min();
     const T MAXIMUM = std::numeric_limits<T>::max();
-    for (T period : {T{0}, -T{0}, T{-1}, T{1}, T{2}, T{0.5}, MINIMUM, SUBNORMAL,
-                     MAXIMUM, INFINITY_VALUE, -INFINITY_VALUE, NAN_VALUE}) {
+    for (T period : {T{0}, -T{0}, T{-1}, T{1}, T{2}, T{0.5}, MINIMUM, subnormal,
+                     MAXIMUM, infinity_value, -infinity_value, nan_value}) {
       for (T value : {T{0},
                       -T{0},
                       T{0.25},
@@ -195,19 +195,19 @@ inline void test_periodic_wrap_fmod_parity() {
                       T{-1},
                       MINIMUM,
                       -MINIMUM,
-                      SUBNORMAL,
-                      -SUBNORMAL,
+                      subnormal,
+                      -subnormal,
                       MAXIMUM,
                       -MAXIMUM,
-                      INFINITY_VALUE,
-                      -INFINITY_VALUE,
-                      NAN_VALUE,
+                      infinity_value,
+                      -infinity_value,
+                      nan_value,
                       period,
                       -period,
                       std::nextafter(period, T{0}),
-                      std::nextafter(period, INFINITY_VALUE),
+                      std::nextafter(period, infinity_value),
                       std::nextafter(-period, T{0}),
-                      std::nextafter(-period, -INFINITY_VALUE)}) {
+                      std::nextafter(-period, -infinity_value)}) {
         expect_periodic_bits(math::wrap_positive(value, period),
                              fmod_wrap_reference(value, period));
       }
@@ -217,10 +217,10 @@ inline void test_periodic_wrap_fmod_parity() {
   check.template operator()<double>();
   hs::Pcg32 next(0x72ec5217U);
   for (int sample = 0; sample < 32768; ++sample) {
-    const float VALUE = std::bit_cast<float>(next());
-    const float PERIOD = std::bit_cast<float>(next() & 0x7fffffffU);
-    expect_periodic_bits(math::wrap_positive(VALUE, PERIOD),
-                         fmod_wrap_reference(VALUE, PERIOD));
+    const float value = std::bit_cast<float>(next());
+    const float period = std::bit_cast<float>(next() & 0x7fffffffU);
+    expect_periodic_bits(math::wrap_positive(value, period),
+                         fmod_wrap_reference(value, period));
   }
   constexpr uint64_t PERIOD = uint64_t{1} << 63;
   constexpr std::array<uint64_t, 5> VALUES{
@@ -265,24 +265,24 @@ inline void test_shortest_periodic_fmod_parity() {
   for (int a = 0; a < 65; ++a) {
     for (int b = 0; b < 65; ++b) {
       for (int progress = 0; progress <= 16; ++progress) {
-        const float START = static_cast<float>(a) / 65.0f;
-        const float END = static_cast<float>(b) / 65.0f;
-        const float FRACTION = static_cast<float>(progress) / 16.0f;
+        const float start = static_cast<float>(a) / 65.0f;
+        const float end = static_cast<float>(b) / 65.0f;
+        const float fraction = static_cast<float>(progress) / 16.0f;
         expect_periodic_bits(
-            interp::shortest_periodic(START, END, FRACTION, 1.0f),
-            fmod_shortest_reference(START, END, FRACTION, 1.0f));
+            interp::shortest_periodic(start, end, fraction, 1.0f),
+            fmod_shortest_reference(start, end, fraction, 1.0f));
       }
     }
   }
   hs::Pcg32 next(0xb4572e1dU);
   for (int sample = 0; sample < 32768; ++sample) {
-    const float START = std::bit_cast<float>(next());
-    const float END = std::bit_cast<float>(next());
-    const float PERIOD = std::bit_cast<float>(next() & 0x7fffffffU);
-    const float FRACTION = static_cast<float>(next() & 0xffffU) / 65535.0f;
+    const float start = std::bit_cast<float>(next());
+    const float end = std::bit_cast<float>(next());
+    const float period = std::bit_cast<float>(next() & 0x7fffffffU);
+    const float fraction = static_cast<float>(next() & 0xffffU) / 65535.0f;
     expect_periodic_bits(
-        interp::shortest_periodic(START, END, FRACTION, PERIOD),
-        fmod_shortest_reference(START, END, FRACTION, PERIOD));
+        interp::shortest_periodic(start, end, fraction, period),
+        fmod_shortest_reference(start, end, fraction, period));
   }
 }
 

@@ -42,10 +42,10 @@ inline void test_color_modulation_lift_accuracy() {
   HS_EXPECT_EQ(raised.alpha, INPUT.alpha);
   for (const Pixel color :
        {Pixel(65535, 0, 0), Pixel(0, 0, 0), Pixel(65535, 65535, 65535)}) {
-    const Color4 SOURCE(color, .37f);
+    const Color4 source(color, .37f);
     const auto raised =
-        ColorModulation::PositiveLightnessLift::apply(SOURCE, .5f, {.8f});
-    const auto rgb = pixel_to_linrgb(SOURCE.color);
+        ColorModulation::PositiveLightnessLift::apply(source, .5f, {.8f});
+    const auto rgb = pixel_to_linrgb(source.color);
     const auto base = linear_rgb_to_oklab(rgb.r, rgb.g, rgb.b);
     const auto output = pixel_to_linrgb(raised.color);
     const auto lab = linear_rgb_to_oklab(output.r, output.g, output.b);
@@ -59,7 +59,7 @@ inline void test_color_modulation_lift_accuracy() {
       HS_EXPECT_NEAR(lab.a, 0, .001f);
       HS_EXPECT_NEAR(lab.b, 0, .001f);
     }
-    HS_EXPECT_EQ(raised.alpha, SOURCE.alpha);
+    HS_EXPECT_EQ(raised.alpha, source.alpha);
   }
 }
 
@@ -70,14 +70,14 @@ inline void test_color_modulation_hue_rotation_accuracy() {
     const auto result = ColorModulation::HueRotation::apply(INPUT, 1, {amount});
     const auto input = pixel_to_linrgb(INPUT.color);
     const auto base = linear_rgb_to_oklab(input.r, input.g, input.b);
-    const float ANGLE = amount * 2.0f * math::PI_F;
-    const OKLab EXPECTED{base.L, base.a * cosf(ANGLE) - base.b * sinf(ANGLE),
-                         base.a * sinf(ANGLE) + base.b * cosf(ANGLE)};
+    const float angle = amount * 2.0f * math::PI_F;
+    const OKLab expected{base.L, base.a * cosf(angle) - base.b * sinf(angle),
+                         base.a * sinf(angle) + base.b * cosf(angle)};
     const auto rgb = pixel_to_linrgb(result.color);
     const auto lab = linear_rgb_to_oklab(rgb.r, rgb.g, rgb.b);
-    HS_EXPECT_NEAR(lab.L, EXPECTED.L, .002f);
-    HS_EXPECT_NEAR(lab.a, EXPECTED.a, .002f);
-    HS_EXPECT_NEAR(lab.b, EXPECTED.b, .002f);
+    HS_EXPECT_NEAR(lab.L, expected.L, .002f);
+    HS_EXPECT_NEAR(lab.a, expected.a, .002f);
+    HS_EXPECT_NEAR(lab.b, expected.b, .002f);
     HS_EXPECT_EQ(result.alpha, INPUT.alpha);
   }
 }
@@ -86,12 +86,12 @@ inline void test_color_modulation_hue_rotation_accuracy() {
 inline void test_color_modulation_whole_turn_identity() {
   for (const Pixel color :
        {Pixel(65535, 0, 0), Pixel(0, 0, 0), Pixel(65535, 65535, 65535)}) {
-    const Color4 SOURCE(color, .37f);
+    const Color4 source(color, .37f);
     for (float turns : {-3.0f, -1.0f, 1.0f, 4.0f}) {
       const auto identity =
-          ColorModulation::HueRotation::apply(SOURCE, 1, {turns});
-      HS_EXPECT_EQ(identity.color, SOURCE.color);
-      HS_EXPECT_EQ(identity.alpha, SOURCE.alpha);
+          ColorModulation::HueRotation::apply(source, 1, {turns});
+      HS_EXPECT_EQ(identity.color, source.color);
+      HS_EXPECT_EQ(identity.alpha, source.alpha);
     }
   }
 }

@@ -47,12 +47,12 @@ inline void expect_filled_cap(const hs_test::StubEffect &fx, bool cap_north,
   HS_EXPECT_FALSE((row_has_lit<W>(fx, far_row)));
 
   const float rows_per_radian = math::ROWS_PER_RADIAN<H>;
-  const float slack_rows = 3.0f;
+  const float SLACK_ROWS = 3.0f;
   const int lit = static_cast<int>(count_lit_region<W, H>(fx));
   HS_EXPECT_GE(lit,
-               static_cast<int>(W * (r_min * rows_per_radian - slack_rows)));
+               static_cast<int>(W * (r_min * rows_per_radian - SLACK_ROWS)));
   HS_EXPECT_LE(lit,
-               static_cast<int>(W * (r_max * rows_per_radian + slack_rows)));
+               static_cast<int>(W * (r_max * rows_per_radian + SLACK_ROWS)));
 }
 
 /** @brief Verifies a filled Star caps the basis.v (+Y) pole and not the other. */
@@ -72,16 +72,16 @@ inline void test_star_pixel_placement() {
   }
   fx.advance_display();
   // Tips at the circumradius, notches at Render::STAR_INNER_RATIO of it.
-  const float r_max = RADIUS * (math::PI_F / 2.0f);
+  const float R_MAX = RADIUS * (math::PI_F / 2.0f);
   expect_filled_cap<W, H>(fx, /*cap_north=*/true,
-                          r_max * Render::STAR_INNER_RATIO, r_max);
+                          R_MAX * Render::STAR_INNER_RATIO, R_MAX);
   const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
-  const float probe_radius = r_max * 0.7f;
+  const float PROBE_RADIUS = R_MAX * 0.7f;
   const auto probe = [&](float azimuth) {
     const math::Vector direction =
-        basis.v * cosf(probe_radius) +
+        basis.v * cosf(PROBE_RADIUS) +
         (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) *
-            sinf(probe_radius);
+            sinf(PROBE_RADIUS);
     const auto pixel = math::vector_to_pixel<W, H>(direction);
     return fx.get_pixel(static_cast<int>(std::round(pixel.x)) % W,
                         static_cast<int>(std::round(pixel.y)));
@@ -107,9 +107,9 @@ inline void test_planar_polygon_pixel_placement() {
   }
   fx.advance_display();
   // Vertices at the circumradius, edge midpoints at the apothem.
-  const float r_max = RADIUS * (math::PI_F / 2.0f);
+  const float R_MAX = RADIUS * (math::PI_F / 2.0f);
   expect_filled_cap<W, H>(fx, /*cap_north=*/true,
-                          r_max * cosf(math::PI_F / SIDES), r_max);
+                          R_MAX * cosf(math::PI_F / SIDES), R_MAX);
 }
 
 /**
@@ -133,10 +133,10 @@ inline void test_flower_pixel_placement() {
   fx.advance_display();
   // Petal boundary (PI - r) * cos(local) == PI - r_max: the tip at local 0,
   // narrowest at the sector edge.
-  const float r_max = RADIUS * (math::PI_F / 2.0f);
+  const float R_MAX = RADIUS * (math::PI_F / 2.0f);
   const float r_min =
-      math::PI_F - (math::PI_F - r_max) / cosf(math::PI_F / SIDES);
-  expect_filled_cap<W, H>(fx, /*cap_north=*/false, r_min, r_max);
+      math::PI_F - (math::PI_F - R_MAX) / cosf(math::PI_F / SIDES);
+  expect_filled_cap<W, H>(fx, /*cap_north=*/false, r_min, R_MAX);
 }
 
 enum class SolidShape { PLANAR_POLYGON, SPHERICAL_POLYGON, FLOWER, STAR };
@@ -150,13 +150,13 @@ inline void test_solid_color_path_matches_generic() {
   constexpr int SIDES = 5;
   constexpr float PHASE = 0.31f;
   const Color4 color(Pixel(51000, 23000, 9000), 0.37f);
-  const SolidShape shapes[] = {SolidShape::PLANAR_POLYGON,
+  const SolidShape SHAPES[] = {SolidShape::PLANAR_POLYGON,
                                SolidShape::SPHERICAL_POLYGON,
                                SolidShape::FLOWER, SolidShape::STAR};
 
-  for (SolidShape shape : shapes) {
+  for (SolidShape shape : SHAPES) {
     for (bool debug_bb : {false, true}) {
-      const auto GENERIC = render_stub_frame<W, H>([&](auto &generic_pipeline,
+      const auto generic = render_stub_frame<W, H>([&](auto &generic_pipeline,
                                                        Canvas &canvas) {
         math::Basis basis = math::make_basis(
             math::make_rotation(math::Vector(0.3f, 0.7f, 0.2f).normalized(),
@@ -187,7 +187,7 @@ inline void test_solid_color_path_matches_generic() {
           break;
         }
       });
-      const auto SOLID = render_stub_frame<W, H>([&](auto &solid_pipeline,
+      const auto solid = render_stub_frame<W, H>([&](auto &solid_pipeline,
                                                      Canvas &canvas) {
         math::Basis basis = math::make_basis(
             math::make_rotation(math::Vector(0.3f, 0.7f, 0.2f).normalized(),
@@ -215,7 +215,7 @@ inline void test_solid_color_path_matches_generic() {
         }
       });
       HS_EXPECT_GT(
-          expect_frames_within("solid-color scan path", SOLID, GENERIC, 0), 0);
+          expect_frames_within("solid-color scan path", solid, generic, 0), 0);
     }
   }
 }
@@ -239,7 +239,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
     int sides;
     float phase;
   };
-  const Case cases[] = {{0.24f, 3, -2.2f},
+  const Case CASES[] = {{0.24f, 3, -2.2f},
                         {0.74f, 5, 0.37f},
                         {0.98f, 12, 4.8f},
                         {1.38f, 7, -0.61f}};
@@ -263,7 +263,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
 
   size_t different_pixels = 0;
   int max_channel_error = 0;
-  for (const Case &c : cases) {
+  for (const Case &c : CASES) {
     const std::vector<Pixel> exact = render.template operator()<false>(c);
     const std::vector<Pixel> sine = render.template operator()<true>(c);
     for (size_t i = 0; i < exact.size(); ++i) {
@@ -275,7 +275,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
   }
 
   std::printf("spherical sine framebuffer samples=%d different=%zu max=%d\n",
-              W * H * static_cast<int>(std::size(cases)), different_pixels,
+              W * H * static_cast<int>(std::size(CASES)), different_pixels,
               max_channel_error);
   HS_EXPECT_GT(different_pixels, static_cast<size_t>(0));
   HS_EXPECT_LE(max_channel_error, 128);

@@ -54,11 +54,11 @@ inline Frame sample_frame_reference(const Frame &from, const Frame &to,
       if constexpr (std::is_same_v<
                         typename Resource::Family,
                         Pullback::SphereAnimation::BurstRippleParams>) {
-        const uint32_t DELTA = b.frames - a.frames;
+        const uint32_t delta = b.frames - a.frames;
         for (auto &wave : clock.waves)
-          wave.age -= DELTA * (1.0f - fraction);
-        clock.radial_fraction = DELTA == 1 ? fraction : 1.0f;
-        if (DELTA > 1 ||
+          wave.age -= delta * (1.0f - fraction);
+        clock.radial_fraction = delta == 1 ? fraction : 1.0f;
+        if (delta > 1 ||
             std::memcmp(&family, &from.params.template get<Resource::KEY>(),
                         sizeof(family)) != 0 ||
             std::memcmp(&family, &to.params.template get<Resource::KEY>(),
@@ -295,8 +295,8 @@ inline void test_temporal_clock_sampling() {
                  1e-6f);
   HS_EXPECT_NEAR(Spacetime::sample_clock(0.01f, 0.99f, 0.5f, 1.0f), 0.0f,
                  1e-6f);
-  const float LAST = Spacetime::sample_clock(0.98f, 0.0f, 143.0f / 144, 1.0f);
-  HS_EXPECT_NEAR(1.0f - LAST, 0.02f / 144, 1e-6f);
+  const float last = Spacetime::sample_clock(0.98f, 0.0f, 143.0f / 144, 1.0f);
+  HS_EXPECT_NEAR(1.0f - last, 0.02f / 144, 1e-6f);
 
   using FX = GridSpace<96, 20>;
   typename FX::FrameState from{}, to{};
@@ -312,8 +312,10 @@ inline void test_temporal_clock_sampling() {
                  1e-6f);
   HS_EXPECT_NEAR(middle.resources.template get<"outer_warp">().rotation,
                  6.281592653589793f, 1e-6f);
-  const math::Quaternion EXPECTED = math::make_rotation(math::Y_AXIS, 0.2f);
-  HS_EXPECT_NEAR(math::dot(middle.outer_conjugate, EXPECTED), 1.0f, 1e-6f);
+  const math::Quaternion expected_value =
+      math::make_rotation(math::Y_AXIS, 0.2f);
+  HS_EXPECT_NEAR(math::dot(middle.outer_conjugate, expected_value), 1.0f,
+                 1e-6f);
   HS_EXPECT_NEAR(Spacetime::sample_frame(from, to, 0.0f)
                      .resources.template get<"outer_warp">()
                      .phase,
@@ -347,9 +349,9 @@ inline void test_temporal_clock_sampling() {
       to.outer_conjugate = -math::make_rotation(math::Y_AXIS, angle);
       const Pullback::FrameInterval sampler(from, to);
       for (int column = 0; column <= 144; ++column) {
-        const float FRACTION = column / 144.0f;
-        const auto actual = sampler.at(FRACTION);
-        const auto expected = sample_frame_reference(from, to, FRACTION);
+        const float fraction = column / 144.0f;
+        const auto actual = sampler.at(fraction);
+        const auto expected = sample_frame_reference(from, to, fraction);
         const auto check_rotation = [](const math::Quaternion &a,
                                        const math::Quaternion &b) {
           HS_EXPECT_NEAR(a.r, b.r, 1e-7f);
@@ -397,10 +399,10 @@ inline void test_temporal_clock_sampling() {
   surface_to.resources.template get<"surface">().phase = 0.01f;
   const Pullback::FrameInterval surface_sampler(surface_from, surface_to);
   for (int column = 0; column <= 144; ++column) {
-    const float FRACTION = column / 144.0f;
-    const auto actual = surface_sampler.at(FRACTION);
+    const float fraction = column / 144.0f;
+    const auto actual = surface_sampler.at(fraction);
     const auto expected =
-        sample_frame_reference(surface_from, surface_to, FRACTION);
+        sample_frame_reference(surface_from, surface_to, fraction);
     HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase,
                    expected.resources.template get<"surface">().phase, 0.0f);
     if (column == 72) {
@@ -423,10 +425,10 @@ inline void test_temporal_clock_sampling() {
     ripple_to.params.template get<"surface">().period = period;
     const Pullback::FrameInterval sampler(ripple_from, ripple_to);
     for (int column = 0; column <= 144; ++column) {
-      const float FRACTION = column / 144.0f;
-      const auto actual = sampler.at(FRACTION);
+      const float fraction = column / 144.0f;
+      const auto actual = sampler.at(fraction);
       const auto expected =
-          sample_frame_reference(ripple_from, ripple_to, FRACTION);
+          sample_frame_reference(ripple_from, ripple_to, fraction);
       HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase,
                      expected.resources.template get<"surface">().phase, 0.0f);
       if (column == 72 && period == 3.0f)
@@ -449,14 +451,14 @@ inline void test_temporal_affine_cycle() {
       warp.shear = params[2];
       const auto actual = Pullback::Warp::prepare(
           warp, phase, 0.3f, Pullback::square_lattice(1.2f));
-      const float CYCLE = cosf(math::TWO_PI_F * math::wrap_t(phase));
+      const float cycle = cosf(math::TWO_PI_F * math::wrap_t(phase));
       HS_EXPECT_NEAR(
           actual.affine.inverse_scale_x,
-          warp.scale_x == 1.0f ? 1.0f : 1.0f / powf(warp.scale_x, CYCLE), 0.0f);
+          warp.scale_x == 1.0f ? 1.0f : 1.0f / powf(warp.scale_x, cycle), 0.0f);
       HS_EXPECT_NEAR(
           actual.affine.inverse_scale_y,
-          warp.scale_y == 1.0f ? 1.0f : 1.0f / powf(warp.scale_y, CYCLE), 0.0f);
-      HS_EXPECT_NEAR(actual.affine.shear, warp.shear * CYCLE, 0.0f);
+          warp.scale_y == 1.0f ? 1.0f : 1.0f / powf(warp.scale_y, cycle), 0.0f);
+      HS_EXPECT_NEAR(actual.affine.shear, warp.shear * cycle, 0.0f);
     }
   }
 }
@@ -513,8 +515,8 @@ inline void test_temporal_equal_palettes_color_as_current() {
   history.capture(current, persistent_arena);
   using PathPalette = Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
       FX::Binding, Pullback::Color::BrightnessEnvelope::CUP>>;
-  const Pullback::FrameInterval EQUAL(history.previous, current);
-  auto sample = EQUAL.at(0.5f);
+  const Pullback::FrameInterval equal(history.previous, current);
+  auto sample = equal.at(0.5f);
   HS_EXPECT_TRUE(Spacetime::sample_frame(history.previous, current, 0.5f)
                      .temporal.same_palette);
   HS_EXPECT_TRUE(sample.temporal.same_palette);
@@ -532,12 +534,12 @@ inline void test_temporal_equal_palettes_color_as_current() {
     field.value = static_cast<float>(index) / 256;
     field.coverage = 0.75f;
     field.path_length = static_cast<float>(index) * 0.37f;
-    const Color4 A = Pullback::Color::finish(
+    const Color4 a = Pullback::Color::finish(
         PathPalette::apply_endpoint(field, interpolated, blended, true));
-    const Color4 B = Pullback::Color::finish(
+    const Color4 b = Pullback::Color::finish(
         PathPalette::apply_endpoint(field, interpolated, blended, false));
-    HS_EXPECT_TRUE(A.color == B.color);
-    HS_EXPECT_NEAR(A.alpha, B.alpha, 0.0f);
+    HS_EXPECT_TRUE(a.color == b.color);
+    HS_EXPECT_NEAR(a.alpha, b.alpha, 0.0f);
   }
 
   auto rotation = history.hue_rotation;
@@ -578,17 +580,17 @@ inline void test_temporal_moving_families_interpolate() {
   start_config.noise.speed = -0.001f;
   end_config.noise.scale = 4.0f;
   end_config.noise.speed = 0.001f;
-  const auto MIDPOINT =
+  const auto midpoint =
       Pullback::interpolate(history.previous.params, moved.params, 0.5f);
-  HS_EXPECT_NEAR(MIDPOINT.template get<"modulation">().modulation.noise.scale,
+  HS_EXPECT_NEAR(midpoint.template get<"modulation">().modulation.noise.scale,
                  2.0f, 1e-6f);
-  HS_EXPECT_NEAR(MIDPOINT.template get<"modulation">().modulation.noise.speed,
+  HS_EXPECT_NEAR(midpoint.template get<"modulation">().modulation.noise.speed,
                  0.0f, 1e-8f);
 
-  const Pullback::FrameInterval SAMPLER(history.previous, moved);
+  const Pullback::FrameInterval sampler(history.previous, moved);
   for (const float fraction : {0.1f, 0.37f, 0.5f, 0.9f}) {
     HS_CONTEXT("fraction per mille", static_cast<int>(fraction * 1000.0f));
-    const auto sampled = SAMPLER.at(fraction).params;
+    const auto sampled = sampler.at(fraction).params;
     const auto expected =
         Pullback::interpolate(history.previous.params, moved.params, fraction);
     sampled.visit([&]<typename Resource>(const auto &family) {
@@ -672,10 +674,10 @@ inline void test_temporal_owned_resources() {
         direction(index));
     HS_EXPECT_EQ(retained_samples[index], live_samples[index]);
   }
-  const auto TABLE = history.resources.template get<"modulation">().table;
-  const auto RECIPE =
+  const auto table = history.resources.template get<"modulation">().table;
+  const auto recipe =
       history.resources.template get<"modulation">().modulation.config;
-  const Pixel PALETTE = history.previous.palette->get(0.4f).color;
+  const Pixel palette = history.previous.palette->get(0.4f).color;
   for (int frame = 0; frame < 4; ++frame) {
     effect.draw_frame();
     effect.advance_display();
@@ -693,11 +695,11 @@ inline void test_temporal_owned_resources() {
             direction(index)) != live_samples[index];
   }
   HS_EXPECT_TRUE(live_changed);
-  HS_EXPECT_TRUE(history.resources.template get<"modulation">().table == TABLE);
+  HS_EXPECT_TRUE(history.resources.template get<"modulation">().table == table);
   HS_EXPECT_TRUE(
       history.resources.template get<"modulation">().modulation.config ==
-      RECIPE);
-  HS_EXPECT_TRUE(history.previous.palette->get(0.4f).color == PALETTE);
+      recipe);
+  HS_EXPECT_TRUE(history.previous.palette->get(0.4f).color == palette);
 }
 
 /** @brief Topology intervals select the current prepared endpoint. */
@@ -735,11 +737,11 @@ inline void test_temporal_topology_interval_selects_current_endpoint() {
   from.resources.template get<"modulation">().modulation = &a.prepared;
   to.resources.template get<"modulation">().modulation = &b.prepared;
   for (float fraction : {0.0f, 0.25f, 0.5f, 1.0f}) {
-    const auto COLUMN = FrameInterval(from, to).at(fraction);
-    HS_EXPECT_TRUE(COLUMN.resources.template get<"modulation">().modulation ==
+    const auto column = FrameInterval(from, to).at(fraction);
+    HS_EXPECT_TRUE(column.resources.template get<"modulation">().modulation ==
                    to.resources.template get<"modulation">().modulation);
     HS_EXPECT_NEAR(
-        COLUMN.params.template get<"modulation">().modulation.mechanic.amount,
+        column.params.template get<"modulation">().modulation.mechanic.amount,
         0.8f, 0.0f);
   }
 }
@@ -812,19 +814,19 @@ inline void test_temporal_modulation_bake_generation() {
   auto clock = Modulation::init(config);
   cube.prepare(config, clock);
   HS_EXPECT_EQ(cube.bake_generation, uint32_t{1});
-  const auto SCALAR_TABLE = cube.table;
+  const auto scalar_table = cube.table;
   config.mechanic.kind = ColorModulation::Mechanic::OPACITY;
   config.mechanic.amount = 0.7f;
   cube.prepare(config, clock);
   HS_EXPECT_EQ(cube.bake_generation, uint32_t{1});
-  HS_EXPECT_TRUE(cube.table == SCALAR_TABLE);
+  HS_EXPECT_TRUE(cube.table == scalar_table);
   config.sine.offset += 0.25f;
   cube.prepare(config, clock);
   HS_EXPECT_EQ(cube.bake_generation, uint32_t{1});
   ++config.seed;
   cube.prepare(config, clock);
   HS_EXPECT_EQ(cube.bake_generation, uint32_t{2});
-  HS_EXPECT_TRUE(cube.table != SCALAR_TABLE);
+  HS_EXPECT_TRUE(cube.table != scalar_table);
   cube.reset();
   cube.prepare(config, clock);
   HS_EXPECT_EQ(cube.bake_generation, uint32_t{3});
@@ -832,8 +834,8 @@ inline void test_temporal_modulation_bake_generation() {
   clock.phase.phase_turns = 0.375f;
   Modulation::synchronize(clock, config);
   HS_EXPECT_NEAR(clock.phase.phase_turns, 0.375f, 0.0f);
-  const auto DIRECT = cube.prepare(config, clock);
-  HS_EXPECT_TRUE(!DIRECT.cube.active);
+  const auto direct = cube.prepare(config, clock);
+  HS_EXPECT_TRUE(!direct.cube.active);
   cube.prepare(config, clock);
   HS_EXPECT_NEAR(clock.phase.phase_turns, 0.375f, 0.0f);
 }
@@ -865,25 +867,25 @@ inline void test_gridspace_column_basis_geometry() {
     effect.advance_display();
     const auto current = effect.frame_for_test();
     for (int x = 0; x < 288; ++x) {
-      const float TIME = step == 0   ? 0.0f
+      const float time = step == 0   ? 0.0f
                          : step == 1 ? 1.0f
                                      : Spacetime::SamplingSurface<288>::time(x);
       const auto frame = Pipeline::prepare(
-          Spacetime::sample_frame(history.previous, current, TIME));
-      const float COSINE = math::TrigLUT<288, 144>::cos_theta(x);
-      const float SINE = math::TrigLUT<288, 144>::sin_theta[x];
-      const auto basis = Pipeline::column_basis(frame, COSINE, SINE);
+          Spacetime::sample_frame(history.previous, current, time));
+      const float cosine = math::TrigLUT<288, 144>::cos_theta(x);
+      const float sine = math::TrigLUT<288, 144>::sin_theta[x];
+      const auto basis = Pipeline::column_basis(frame, cosine, sine);
       for (int y = 0; y < 144; ++y) {
-        const float SIN_PHI = math::TrigLUT<288, 144>::sin_phi[y];
-        const float COS_PHI = math::TrigLUT<288, 144>::cos_phi[y];
-        const math::Vector VIEW = math::pixel_to_vector<288, 144>(x, y);
-        const auto ROTATED =
-            Pipeline::NodeAt<0>::run(Pullback::SphereSample{VIEW, 0.0f},
+        const float sin_phi = math::TrigLUT<288, 144>::sin_phi[y];
+        const float cos_phi = math::TrigLUT<288, 144>::cos_phi[y];
+        const math::Vector view = math::pixel_to_vector<288, 144>(x, y);
+        const auto rotated =
+            Pipeline::NodeAt<0>::run(Pullback::SphereSample{view, 0.0f},
                                      frame.ctx, std::get<0>(frame.prepared));
-        const auto EXPECTED =
-            math::rotate(ROTATED.dir, Policy::frame_conjugate(frame.ctx));
-        const auto ACTUAL = SIN_PHI * basis.equator + COS_PHI * basis.up;
-        maximum_error = std::max(maximum_error, (ACTUAL - EXPECTED).length());
+        const auto expected =
+            math::rotate(rotated.dir, Policy::frame_conjugate(frame.ctx));
+        const auto actual = sin_phi * basis.equator + cos_phi * basis.up;
+        maximum_error = std::max(maximum_error, (actual - expected).length());
       }
     }
   }
@@ -939,16 +941,16 @@ inline void test_gridspace_canonical_columns() {
     std::optional<Cache> reference_cache;
     bind_retained_lab_reference(current, history.previous, reference_cache);
     for (int x = 0; x < 288; ++x) {
-      const float TIME = Spacetime::SamplingSurface<288>::time(x);
+      const float time = Spacetime::SamplingSurface<288>::time(x);
       const auto frame = Pipeline::prepare(
-          Spacetime::sample_frame(history.previous, current, TIME));
+          Spacetime::sample_frame(history.previous, current, time));
       for (int y = 0; y < 144; ++y) {
-        const math::Vector VIEW = math::pixel_to_vector<288, 144>(x, y);
-        const Color4 EXPECTED = Pipeline::shade(VIEW, frame);
-        const Pixel A = effect.get_pixel(x, y);
-        const Pixel B = EXPECTED.color * EXPECTED.alpha;
-        for (int error : {std::abs(int(A.r) - B.r), std::abs(int(A.g) - B.g),
-                          std::abs(int(A.b) - B.b)}) {
+        const math::Vector view = math::pixel_to_vector<288, 144>(x, y);
+        const Color4 expected = Pipeline::shade(view, frame);
+        const Pixel a = effect.get_pixel(x, y);
+        const Pixel b = expected.color * expected.alpha;
+        for (int error : {std::abs(int(a.r) - b.r), std::abs(int(a.g) - b.g),
+                          std::abs(int(a.b) - b.b)}) {
           if (error > maximum_error) {
             maximum_error = error;
             worst_step = step;
@@ -990,16 +992,16 @@ inline void test_gridspace_temporal_pixels() {
     HS_EXPECT_NEAR(actual.b, expected.b, 2);
   };
   for (int x = 39; x < 83; ++x) {
-    const float TIME = Spacetime::SamplingSurface<W>::time(x);
+    const float time = Spacetime::SamplingSurface<W>::time(x);
     const auto frame = FX::RenderPipeline::prepare(
-        Spacetime::sample_frame(history.previous, current, TIME));
+        Spacetime::sample_frame(history.previous, current, time));
     for (int y = 3; y < 17; ++y) {
-      const math::Vector VIEW = math::pixel_to_vector<W, H>(x, y);
-      const Color4 EXPECTED = FX::shade(VIEW, frame);
-      const Pixel PIXEL = EXPECTED.color * EXPECTED.alpha;
-      expect_pixel(effect.get_pixel(x, y), PIXEL);
-      const Color4 CURRENT = FX::shade(VIEW, frozen);
-      if (PIXEL != CURRENT.color * CURRENT.alpha)
+      const math::Vector view = math::pixel_to_vector<W, H>(x, y);
+      const Color4 expected = FX::shade(view, frame);
+      const Pixel pixel = expected.color * expected.alpha;
+      expect_pixel(effect.get_pixel(x, y), pixel);
+      const Color4 current_value = FX::shade(view, frozen);
+      if (pixel != current_value.color * current_value.alpha)
         ++changed;
     }
   }
@@ -1012,9 +1014,9 @@ inline void test_gridspace_temporal_pixels() {
       FX::RenderPipeline::prepare(effect.frame_for_test());
   for (int x = 39; x < 83; ++x) {
     for (int y = 3; y < 17; ++y) {
-      const math::Vector VIEW = math::pixel_to_vector<W, H>(x, y);
-      const Color4 EXPECTED = FX::shade(VIEW, instantaneous);
-      expect_pixel(effect.get_pixel(x, y), EXPECTED.color * EXPECTED.alpha);
+      const math::Vector view = math::pixel_to_vector<W, H>(x, y);
+      const Color4 expected = FX::shade(view, instantaneous);
+      expect_pixel(effect.get_pixel(x, y), expected.color * expected.alpha);
     }
   }
 
@@ -1027,9 +1029,9 @@ inline void test_gridspace_temporal_pixels() {
     const auto frame = FX::RenderPipeline::prepare(Spacetime::sample_frame(
         history.previous, resumed, Spacetime::SamplingSurface<W>::time(x)));
     for (int y = 3; y < 17; ++y) {
-      const math::Vector VIEW = math::pixel_to_vector<W, H>(x, y);
-      const Color4 EXPECTED = FX::shade(VIEW, frame);
-      expect_pixel(effect.get_pixel(x, y), EXPECTED.color * EXPECTED.alpha);
+      const math::Vector view = math::pixel_to_vector<W, H>(x, y);
+      const Color4 expected = FX::shade(view, frame);
+      expect_pixel(effect.get_pixel(x, y), expected.color * expected.alpha);
     }
   }
 }
@@ -1057,21 +1059,21 @@ inline void check_temporal_roster_pixels(const char *name) {
   effect.init();
   ComposedHistory<FX> history;
   const auto expect_pixel = [](const Pixel &actual, const Color4 &expected) {
-    const Pixel PIXEL = expected.color * expected.alpha;
-    HS_EXPECT_NEAR(actual.r, PIXEL.r, TOLERANCE);
-    HS_EXPECT_NEAR(actual.g, PIXEL.g, TOLERANCE);
-    HS_EXPECT_NEAR(actual.b, PIXEL.b, TOLERANCE);
+    const Pixel pixel = expected.color * expected.alpha;
+    HS_EXPECT_NEAR(actual.r, pixel.r, TOLERANCE);
+    HS_EXPECT_NEAR(actual.g, pixel.g, TOLERANCE);
+    HS_EXPECT_NEAR(actual.b, pixel.b, TOLERANCE);
   };
 
   effect.draw_frame();
   effect.advance_display();
   const auto initial = ComposedFrameWhiteBox::current_frame(effect);
   for (int x : {0, 1, 47, 48, 49, 95}) {
-    const auto FIRST = FX::RenderPipeline::prepare(Spacetime::sample_frame(
+    const auto first = FX::RenderPipeline::prepare(Spacetime::sample_frame(
         initial, initial, Spacetime::SamplingSurface<W>::time(x)));
     for (int y : {1, 7, 18})
       expect_pixel(effect.get_pixel(x, y),
-                   FX::shade(math::pixel_to_vector<W, H>(x, y), FIRST));
+                   FX::shade(math::pixel_to_vector<W, H>(x, y), first));
   }
   history.capture(initial, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != initial.palette);
@@ -1101,22 +1103,24 @@ inline void check_temporal_roster_pixels(const char *name) {
         Spacetime::sample_frame(history.previous, current, 1.0f));
     for (int x : {0, 47, 48, 95}) {
       const auto direction = math::pixel_to_vector<W, H>(x, 7);
-      const Color4 BEFORE = FX::shade(direction, previous);
-      const Color4 AFTER = FX::shade(direction, instantaneous);
-      expect_pixel(BEFORE.color * BEFORE.alpha, FX::shade(direction, start));
-      expect_pixel(AFTER.color * AFTER.alpha, FX::shade(direction, end));
+      const Color4 before = FX::shade(direction, previous);
+      const Color4 after = FX::shade(direction, instantaneous);
+      expect_pixel(before.color * before.alpha, FX::shade(direction, start));
+      expect_pixel(after.color * after.alpha, FX::shade(direction, end));
     }
     int changed = 0;
     for (int x = 39; x < 83; ++x) {
-      const float FRACTION = Spacetime::SamplingSurface<W>::time(x);
+      const float fraction = Spacetime::SamplingSurface<W>::time(x);
       const auto frame = FX::RenderPipeline::prepare(
-          Spacetime::sample_frame(history.previous, current, FRACTION));
+          Spacetime::sample_frame(history.previous, current, fraction));
       for (int y = 3; y < 17; ++y) {
         const auto direction = math::pixel_to_vector<W, H>(x, y);
-        const Color4 TEMPORAL = FX::shade(direction, frame);
-        const Color4 CURRENT = FX::shade(direction, instantaneous);
-        expect_pixel(effect.get_pixel(x, y), enabled ? TEMPORAL : CURRENT);
-        if (TEMPORAL.color * TEMPORAL.alpha != CURRENT.color * CURRENT.alpha)
+        const Color4 temporal = FX::shade(direction, frame);
+        const Color4 current_value = FX::shade(direction, instantaneous);
+        expect_pixel(effect.get_pixel(x, y),
+                     enabled ? temporal : current_value);
+        if (temporal.color * temporal.alpha !=
+            current_value.color * current_value.alpha)
           ++changed;
       }
     }
@@ -1388,27 +1392,27 @@ inline void test_temporal_stacked_modulation_resources() {
   HS_EXPECT_TRUE(old_a->cube.data != old_b->cube.data);
   HS_EXPECT_TRUE(old_a->cube.data != a->cube.data);
   HS_EXPECT_TRUE(old_b->cube.data != b->cube.data);
-  const auto DIRECTION =
+  const auto direction =
       Pattern::SphereDirection::from(math::Vector(0.3f, 0.8f, 0.2f));
-  const float A = Pullback::Modulation::sample(*a, DIRECTION);
-  const float B = Pullback::Modulation::sample(*b, DIRECTION);
-  HS_EXPECT_TRUE(A != B);
-  const auto BEFORE =
+  const float a_value = Pullback::Modulation::sample(*a, direction);
+  const float b_value = Pullback::Modulation::sample(*b, direction);
+  HS_EXPECT_TRUE(a_value != b_value);
+  const auto before =
       StackedModulationProbe::RenderPipeline::prepare(history.previous);
-  const auto PIXEL_BEFORE = StackedModulationProbe::shade(
-      math::Vector(0.3f, 0.8f, 0.2f).normalized(), BEFORE);
+  const auto pixel_before = StackedModulationProbe::shade(
+      math::Vector(0.3f, 0.8f, 0.2f).normalized(), before);
   for (int i = 0; i < 4; ++i) {
     effect.draw_frame();
     effect.advance_display();
   }
-  HS_EXPECT_EQ(Pullback::Modulation::sample(*old_a, DIRECTION), A);
-  HS_EXPECT_EQ(Pullback::Modulation::sample(*old_b, DIRECTION), B);
-  const auto AFTER =
+  HS_EXPECT_EQ(Pullback::Modulation::sample(*old_a, direction), a_value);
+  HS_EXPECT_EQ(Pullback::Modulation::sample(*old_b, direction), b_value);
+  const auto after =
       StackedModulationProbe::RenderPipeline::prepare(history.previous);
-  const auto PIXEL_AFTER = StackedModulationProbe::shade(
-      math::Vector(0.3f, 0.8f, 0.2f).normalized(), AFTER);
-  HS_EXPECT_EQ(PIXEL_BEFORE.color, PIXEL_AFTER.color);
-  HS_EXPECT_NEAR(PIXEL_BEFORE.alpha, PIXEL_AFTER.alpha, 0.0f);
+  const auto pixel_after = StackedModulationProbe::shade(
+      math::Vector(0.3f, 0.8f, 0.2f).normalized(), after);
+  HS_EXPECT_EQ(pixel_before.color, pixel_after.color);
+  HS_EXPECT_NEAR(pixel_before.alpha, pixel_after.alpha, 0.0f);
 }
 
 /** @brief Millefiori samples stable analytic grid phases along the shortest arc. */
@@ -1443,29 +1447,29 @@ inline void test_millefiori_column_color_phase() {
   from.resources.template get<"field">().modulation = &previous.prepared;
   to.resources.template get<"field">().modulation = &current.prepared;
   for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
-    const auto COLUMN = FrameInterval(from, to).at(fraction);
-    const auto PREPARED = Provider::prepare(COLUMN);
-    HS_EXPECT_EQ(PREPARED.ready, fraction > 0.0f && fraction < 1.0f);
-    if (!PREPARED.ready)
+    const auto column = FrameInterval(from, to).at(fraction);
+    const auto prepared = Provider::prepare(column);
+    HS_EXPECT_EQ(prepared.ready, fraction > 0.0f && fraction < 1.0f);
+    if (!prepared.ready)
       continue;
-    HS_EXPECT_NEAR(PREPARED.grid.a.phase_turns, 0.99f + 0.02f * fraction,
+    HS_EXPECT_NEAR(prepared.grid.a.phase_turns, 0.99f + 0.02f * fraction,
                    1e-7f);
-    HS_EXPECT_NEAR(PREPARED.grid.b.phase_turns, 0.24f + 0.02f * fraction,
+    HS_EXPECT_NEAR(prepared.grid.b.phase_turns, 0.24f + 0.02f * fraction,
                    1e-7f);
     for (const auto &direction :
          {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
           math::Vector(0.3f, 0.4f, 0.5f).normalized()}) {
-      const auto ADMITTED = Pattern::SphereDirection::admit(direction).value();
-      const float A = math::sinf_0_2pi(
+      const auto admitted = Pattern::SphereDirection::admit(direction).value();
+      const float a = math::sinf_0_2pi(
           math::TWO_PI_F *
-          math::wrap_t(3.0f * ADMITTED.y + 0.99f + 0.02f * fraction));
-      const float B = math::sinf_0_2pi(
+          math::wrap_t(3.0f * admitted.y + 0.99f + 0.02f * fraction));
+      const float b = math::sinf_0_2pi(
           math::TWO_PI_F *
-          math::wrap_t(2.0f * ADMITTED.x + 0.24f + 0.02f * fraction));
+          math::wrap_t(2.0f * admitted.x + 0.24f + 0.02f * fraction));
       ColorSample sample{Color4(Pixel(2000, 4000, 6000), 0.37f),
                          {0.5f, 0.7f, direction, 2.0f}};
-      Color::Modulate<Provider>::apply_phase_in_place(sample, COLUMN, PREPARED);
-      HS_EXPECT_NEAR(sample.pending_lift, 0.35f * fmaxf(0.0f, A * B), 1e-6f);
+      Color::Modulate<Provider>::apply_phase_in_place(sample, column, prepared);
+      HS_EXPECT_NEAR(sample.pending_lift, 0.35f * fmaxf(0.0f, a * b), 1e-6f);
       HS_EXPECT_EQ(sample.color.alpha, 0.37f);
     }
   }
@@ -1488,9 +1492,9 @@ inline void test_millefiori_column_color_phase() {
       recipe.source = Pattern::SourceKind::DISPLACEMENT;
     if (change == 7)
       recipe.evaluation = Pattern::Evaluation::BAKED_CUBE;
-    const auto COLUMN = FrameInterval(from, changed).at(0.5f);
-    HS_EXPECT_FALSE(COLUMN.temporal.phase_compatible);
-    HS_EXPECT_FALSE(Provider::prepare(COLUMN).ready);
+    const auto column = FrameInterval(from, changed).at(0.5f);
+    HS_EXPECT_FALSE(column.temporal.phase_compatible);
+    HS_EXPECT_FALSE(Provider::prepare(column).ready);
   }
 }
 
@@ -1526,24 +1530,24 @@ inline void test_grid_worms_sine_column_phase() {
   to.resources.template get<"modulation">().modulation = &current.prepared;
   HS_EXPECT_TRUE(Modulation::phase_compatible(config, config));
   for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
-    const auto COLUMN = FrameInterval(from, to).at(fraction);
-    const auto PREPARED = Provider::prepare(COLUMN);
-    HS_EXPECT_EQ(PREPARED.ready, fraction > 0.0f && fraction < 1.0f);
-    if (!PREPARED.ready)
+    const auto column = FrameInterval(from, to).at(fraction);
+    const auto prepared = Provider::prepare(column);
+    HS_EXPECT_EQ(prepared.ready, fraction > 0.0f && fraction < 1.0f);
+    if (!prepared.ready)
       continue;
-    HS_EXPECT_NEAR(PREPARED.grid.a.phase_turns, 0.24f + 0.02f * fraction,
+    HS_EXPECT_NEAR(prepared.grid.a.phase_turns, 0.24f + 0.02f * fraction,
                    1e-6f);
     for (const auto &direction :
          {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
           math::Vector(0.3f, 0.4f, 0.5f).normalized()}) {
-      const auto ADMITTED = Pattern::SphereDirection::admit(direction).value();
-      const float SCALAR = math::sinf_0_2pi(
+      const auto admitted = Pattern::SphereDirection::admit(direction).value();
+      const float scalar = math::sinf_0_2pi(
           math::TWO_PI_F *
-          math::wrap_t(2.0f * ADMITTED.z + 0.24f + 0.02f * fraction));
+          math::wrap_t(2.0f * admitted.z + 0.24f + 0.02f * fraction));
       ColorSample sample{Color4(Pixel(2000, 4000, 6000), 0.37f),
                          {0.5f, 0.7f, direction, 2.0f}};
-      Color::Modulate<Provider>::apply_phase_in_place(sample, COLUMN, PREPARED);
-      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(0.35f * SCALAR), 1e-6f);
+      Color::Modulate<Provider>::apply_phase_in_place(sample, column, prepared);
+      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(0.35f * scalar), 1e-6f);
       HS_EXPECT_EQ(sample.color.alpha, 0.37f);
     }
   }
@@ -1565,9 +1569,9 @@ inline void test_grid_worms_sine_column_phase() {
     if (change == 6)
       recipe.source = Pattern::SourceKind::DISPLACEMENT;
     HS_EXPECT_FALSE(Modulation::phase_compatible(config, recipe));
-    const auto COLUMN = FrameInterval(from, changed).at(0.5f);
-    HS_EXPECT_FALSE(COLUMN.temporal.phase_compatible);
-    HS_EXPECT_FALSE(Provider::prepare(COLUMN).ready);
+    const auto column = FrameInterval(from, changed).at(0.5f);
+    HS_EXPECT_FALSE(column.temporal.phase_compatible);
+    HS_EXPECT_FALSE(Provider::prepare(column).ready);
   }
 }
 
@@ -1603,32 +1607,32 @@ inline void test_ash_cloud_noise_column_phase() {
   to.resources.template get<"modulation">().modulation = &current.prepared;
   HS_EXPECT_TRUE(Modulation::phase_compatible(config, config));
   for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
-    const auto COLUMN = FrameInterval(from, to).at(fraction);
-    const auto PREPARED = Provider::prepare(COLUMN);
-    HS_EXPECT_EQ(PREPARED.ready, fraction > 0.0f && fraction < 1.0f);
-    if (!PREPARED.ready)
+    const auto column = FrameInterval(from, to).at(fraction);
+    const auto prepared = Provider::prepare(column);
+    HS_EXPECT_EQ(prepared.ready, fraction > 0.0f && fraction < 1.0f);
+    if (!prepared.ready)
       continue;
-    HS_EXPECT_TRUE(PREPARED.noise == &std::get<0>(current.prepared.source));
+    HS_EXPECT_TRUE(prepared.noise == &std::get<0>(current.prepared.source));
     const float ADVANCE = (0.0001f - 0.9999f) + 1.0f;
-    const float PHASE = math::wrap_t(0.9999f + ADVANCE * fraction);
-    const float ANGLE = math::TWO_PI_F * PHASE;
-    const math::Vector OFFSET(math::NOISE_LOOP_RADIUS * cosf(ANGLE),
-                              math::NOISE_LOOP_RADIUS * sinf(ANGLE), 0.0f);
-    HS_EXPECT_NEAR(PREPARED.noise_offset.x, OFFSET.x, 1e-5f);
-    HS_EXPECT_NEAR(PREPARED.noise_offset.y, OFFSET.y, 1e-5f);
-    HS_EXPECT_EQ(PREPARED.noise_offset.z, 0.0f);
+    const float phase = math::wrap_t(0.9999f + ADVANCE * fraction);
+    const float angle = math::TWO_PI_F * phase;
+    const math::Vector offset(math::NOISE_LOOP_RADIUS * cosf(angle),
+                              math::NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
+    HS_EXPECT_NEAR(prepared.noise_offset.x, offset.x, 1e-5f);
+    HS_EXPECT_NEAR(prepared.noise_offset.y, offset.y, 1e-5f);
+    HS_EXPECT_EQ(prepared.noise_offset.z, 0.0f);
     for (const auto &direction :
          {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
           math::Vector(0.3f, 0.4f, 0.5f).normalized()}) {
-      const auto UNIT = Pattern::SphereDirection::admit(direction).value();
-      const auto Q = UNIT * config.noise.scale + OFFSET;
-      const float SCALAR = hs::clamp(std::get<0>(current.prepared.source)
-                                         .noise.GetNoiseSingle(Q.x, Q.y, Q.z),
+      const auto unit = Pattern::SphereDirection::admit(direction).value();
+      const auto q = unit * config.noise.scale + offset;
+      const float scalar = hs::clamp(std::get<0>(current.prepared.source)
+                                         .noise.GetNoiseSingle(q.x, q.y, q.z),
                                      -1.0f, 1.0f);
       ColorSample sample{Color4(Pixel(2000, 4000, 6000), 0.37f),
                          {0.5f, 0.7f, direction, 2.0f}};
-      Color::Modulate<Provider>::apply_phase_in_place(sample, COLUMN, PREPARED);
-      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(-0.35f * SCALAR), 1e-6f);
+      Color::Modulate<Provider>::apply_phase_in_place(sample, column, prepared);
+      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(-0.35f * scalar), 1e-6f);
       HS_EXPECT_EQ(sample.color.alpha, 0.37f);
     }
   }
@@ -1656,9 +1660,9 @@ inline void test_ash_cloud_noise_column_phase() {
     if (change == 9)
       recipe.evaluation = Pattern::Evaluation::BAKED_CUBE;
     HS_EXPECT_FALSE(Modulation::phase_compatible(config, recipe));
-    const auto COLUMN = FrameInterval(from, changed).at(0.5f);
-    HS_EXPECT_FALSE(COLUMN.temporal.phase_compatible);
-    HS_EXPECT_FALSE(Provider::prepare(COLUMN).ready);
+    const auto column = FrameInterval(from, changed).at(0.5f);
+    HS_EXPECT_FALSE(column.temporal.phase_compatible);
+    HS_EXPECT_FALSE(Provider::prepare(column).ready);
   }
   auto unsupported = config;
   unsupported.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
@@ -1702,25 +1706,25 @@ inline void test_baked_cube_column_phase() {
   from.resources.template get<"modulate1">().modulation = &previous.prepared;
   to.resources.template get<"modulate1">().modulation = &current.prepared;
   for (const float fraction : {0.25f, 0.5f, 0.75f}) {
-    const auto COLUMN = FrameInterval(from, to).at(fraction);
-    const auto PREPARED = Provider::prepare(COLUMN);
-    HS_EXPECT_TRUE(PREPARED.ready);
-    if (!PREPARED.ready)
+    const auto column = FrameInterval(from, to).at(fraction);
+    const auto prepared = Provider::prepare(column);
+    HS_EXPECT_TRUE(prepared.ready);
+    if (!prepared.ready)
       continue;
     for (const auto &direction :
          {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
           math::Vector(0.3f, -0.4f, 0.5f).normalized()}) {
-      const auto DIRECTION = Pattern::SphereDirection::admit(direction);
-      const float SCALAR = hs::lerp(
-          Pattern::bounded_scalar(
-              Pattern::sample_sphere_lut(previous.prepared.cube, DIRECTION)),
-          Pattern::bounded_scalar(
-              Pattern::sample_sphere_lut(current.prepared.cube, DIRECTION)),
-          fraction);
+      const auto direction_value = Pattern::SphereDirection::admit(direction);
+      const float scalar =
+          hs::lerp(Pattern::bounded_scalar(Pattern::sample_sphere_lut(
+                       previous.prepared.cube, direction_value)),
+                   Pattern::bounded_scalar(Pattern::sample_sphere_lut(
+                       current.prepared.cube, direction_value)),
+                   fraction);
       ColorSample sample{Color4(Pixel(2000, 4000, 6000), 0.37f),
                          {0.5f, 0.7f, direction, 2.0f}};
-      Color::Modulate<Provider>::apply_phase_in_place(sample, COLUMN, PREPARED);
-      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(0.4f * SCALAR), 1e-5f);
+      Color::Modulate<Provider>::apply_phase_in_place(sample, column, prepared);
+      HS_EXPECT_NEAR(sample.pending_hue, math::wrap_t(0.4f * scalar), 1e-5f);
     }
   }
   auto unbaked = FrameInterval(from, to).at(0.5f);
@@ -1738,64 +1742,64 @@ inline void test_millefiori_palette_lab_lifetime() {
   effect.init();
   pin_frame_clock(1);
   effect.draw_frame();
-  const auto FIRST = ComposedFrameWhiteBox::current_frame(effect);
-  HS_EXPECT_TRUE(FIRST.palette_lab_lut && FIRST.palette_lab_lut->active);
-  if (!FIRST.palette_lab_lut)
+  const auto first = ComposedFrameWhiteBox::current_frame(effect);
+  HS_EXPECT_TRUE(first.palette_lab_lut && first.palette_lab_lut->active);
+  if (!first.palette_lab_lut)
     return;
-  const auto *FIRST_CACHE =
-      static_cast<const PaletteLabLut *>(FIRST.palette_lab_lut);
-  const auto FIRST_NODES = FIRST_CACHE->nodes;
-  const auto FIRST_VIEW = FIRST.palette_lab_lut->view(0.37f);
-  const auto FIRST_LAB = PaletteLabLut::sample(FIRST_VIEW, 0.43f);
+  const auto *first_cache =
+      static_cast<const PaletteLabLut *>(first.palette_lab_lut);
+  const auto first_nodes = first_cache->nodes;
+  const auto first_view = first.palette_lab_lut->view(0.37f);
+  const auto first_lab = PaletteLabLut::sample(first_view, 0.43f);
   PaletteLabLutStorage<256> dense;
-  dense.bake(*FIRST.palette, *FIRST.palette);
-  const auto DENSE_VIEW = dense.view(0.37f);
-  HS_EXPECT_EQ(DENSE_VIEW.value_steps, 256);
+  dense.bake(*first.palette, *first.palette);
+  const auto dense_view = dense.view(0.37f);
+  HS_EXPECT_EQ(dense_view.value_steps, 256);
   constexpr float DENSE_COORDINATE = 127.0f / 255.0f;
-  const auto LINEAR =
-      pixel_to_linrgb(FIRST.palette->get_color(DENSE_COORDINATE));
-  const auto EXPECTED_DENSE =
-      linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
-  const auto ACTUAL_DENSE = PaletteLabLut::sample(DENSE_VIEW, DENSE_COORDINATE);
-  HS_EXPECT_NEAR(ACTUAL_DENSE.L, EXPECTED_DENSE.L, 1e-6f);
-  HS_EXPECT_NEAR(ACTUAL_DENSE.a, EXPECTED_DENSE.a, 1e-6f);
-  HS_EXPECT_NEAR(ACTUAL_DENSE.b, EXPECTED_DENSE.b, 1e-6f);
+  const auto linear =
+      pixel_to_linrgb(first.palette->get_color(DENSE_COORDINATE));
+  const auto expected_dense =
+      linear_rgb_to_oklab_fast(linear.r, linear.g, linear.b);
+  const auto actual_dense = PaletteLabLut::sample(dense_view, DENSE_COORDINATE);
+  HS_EXPECT_NEAR(actual_dense.L, expected_dense.L, 1e-6f);
+  HS_EXPECT_NEAR(actual_dense.a, expected_dense.a, 1e-6f);
+  HS_EXPECT_NEAR(actual_dense.b, expected_dense.b, 1e-6f);
   Pullback::ColorSample carrier{Color4(Pixel(0, 0, 0), 0.37f),
                                 {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
-  carrier.cached_lab = FIRST_LAB;
+  carrier.cached_lab = first_lab;
   carrier.has_cached_lab = true;
-  const auto FIRST_COLOR = Pullback::finish_color_sample(carrier);
+  const auto first_color = Pullback::finish_color_sample(carrier);
   effect.advance_display();
   ComposedFrameWhiteBox::advance_palette(effect,
                                          GeneratedPaletteBank::FADE_FRAMES / 2);
   pin_frame_clock(2);
   effect.draw_frame();
-  const auto SECOND = ComposedFrameWhiteBox::current_frame(effect);
-  HS_EXPECT_TRUE(SECOND.palette_lab_lut != FIRST.palette_lab_lut);
-  HS_EXPECT_EQ(std::memcmp(FIRST_NODES.data(), FIRST_CACHE->nodes.data(),
-                           sizeof(FIRST_NODES)),
+  const auto second = ComposedFrameWhiteBox::current_frame(effect);
+  HS_EXPECT_TRUE(second.palette_lab_lut != first.palette_lab_lut);
+  HS_EXPECT_EQ(std::memcmp(first_nodes.data(), first_cache->nodes.data(),
+                           sizeof(first_nodes)),
                0);
-  const auto *SECOND_CACHE =
-      static_cast<const PaletteLabLut *>(SECOND.palette_lab_lut);
-  const auto SECOND_NODES = SECOND_CACHE->nodes;
-  HS_EXPECT_TRUE(std::memcmp(FIRST_NODES.data(), SECOND_NODES.data(),
-                             sizeof(FIRST_NODES)) != 0);
+  const auto *second_cache =
+      static_cast<const PaletteLabLut *>(second.palette_lab_lut);
+  const auto second_nodes = second_cache->nodes;
+  HS_EXPECT_TRUE(std::memcmp(first_nodes.data(), second_nodes.data(),
+                             sizeof(first_nodes)) != 0);
   effect.advance_display();
   ComposedFrameWhiteBox::advance_palette(effect,
                                          GeneratedPaletteBank::FADE_FRAMES / 2);
   pin_frame_clock(3);
   effect.draw_frame();
-  const auto THIRD = ComposedFrameWhiteBox::current_frame(effect);
-  HS_EXPECT_TRUE(THIRD.palette_lab_lut == FIRST.palette_lab_lut);
-  HS_EXPECT_EQ(std::memcmp(SECOND_NODES.data(), SECOND_CACHE->nodes.data(),
-                           sizeof(SECOND_NODES)),
+  const auto third = ComposedFrameWhiteBox::current_frame(effect);
+  HS_EXPECT_TRUE(third.palette_lab_lut == first.palette_lab_lut);
+  HS_EXPECT_EQ(std::memcmp(second_nodes.data(), second_cache->nodes.data(),
+                           sizeof(second_nodes)),
                0);
-  HS_EXPECT_EQ(Pullback::finish_color_sample(carrier).color, FIRST_COLOR.color);
-  HS_EXPECT_EQ(Pullback::finish_color_sample(carrier).alpha, FIRST_COLOR.alpha);
-  const auto *THIRD_CACHE =
-      static_cast<const PaletteLabLut *>(THIRD.palette_lab_lut);
-  const auto THIRD_NODES = THIRD_CACHE->nodes;
-  auto params = THIRD.params;
+  HS_EXPECT_EQ(Pullback::finish_color_sample(carrier).color, first_color.color);
+  HS_EXPECT_EQ(Pullback::finish_color_sample(carrier).alpha, first_color.alpha);
+  const auto *third_cache =
+      static_cast<const PaletteLabLut *>(third.palette_lab_lut);
+  const auto third_nodes = third_cache->nodes;
+  auto params = third.params;
   params.template get<"color">().palette_chroma += 0.01f;
   ComposedFrameWhiteBox::set_params(effect, params);
   effect.advance_display();
@@ -1803,8 +1807,8 @@ inline void test_millefiori_palette_lab_lifetime() {
   effect.draw_frame();
   HS_EXPECT_TRUE(ComposedFrameWhiteBox::current_frame(effect).palette_lab_lut ==
                  nullptr);
-  HS_EXPECT_EQ(std::memcmp(THIRD_NODES.data(), THIRD_CACHE->nodes.data(),
-                           sizeof(THIRD_NODES)),
+  HS_EXPECT_EQ(std::memcmp(third_nodes.data(), third_cache->nodes.data(),
+                           sizeof(third_nodes)),
                0);
   HS_EXPECT_TRUE(ComposedFrameWhiteBox::frame(effect).palette_lab_lut ==
                  nullptr);
@@ -1824,10 +1828,10 @@ inline void test_millefiori_ripple_endpoints() {
   HS_EXPECT_EQ(first.burst_count, 1u);
   HS_EXPECT_EQ(first.seed, Pullback::Interp::instance_hash(
                                "displace", "sphere.displace.ripple.v2"));
-  const uint8_t LAST = from.params.template get<"displace">().burst_size;
-  HS_EXPECT_GT(LAST, 0);
+  const uint8_t last = from.params.template get<"displace">().burst_size;
+  HS_EXPECT_GT(last, 0);
   HS_EXPECT_NEAR(first.waves[0].age, 1.0f, 0.0f);
-  HS_EXPECT_NEAR(first.waves[LAST].age, 1.0f - RIPPLE_STAGGER_FRAMES * LAST,
+  HS_EXPECT_NEAR(first.waves[last].age, 1.0f - RIPPLE_STAGGER_FRAMES * last,
                  0.0f);
   ComposedFrameWhiteBox::advance(effect);
   const auto to = ComposedFrameWhiteBox::frame(effect);
@@ -1835,12 +1839,12 @@ inline void test_millefiori_ripple_endpoints() {
   const auto quarter = interval.at(0.25f);
   HS_EXPECT_NEAR(quarter.resources.template get<"displace">().waves[0].age,
                  1.25f, 0.0f);
-  const auto LAUNCH = 1 + static_cast<uint32_t>(RIPPLE_STAGGER_FRAMES) * LAST;
-  for (uint32_t frame = 2; frame < LAUNCH; ++frame)
+  const auto launch = 1 + static_cast<uint32_t>(RIPPLE_STAGGER_FRAMES) * last;
+  for (uint32_t frame = 2; frame < launch; ++frame)
     ComposedFrameWhiteBox::advance(effect);
   const auto later = ComposedFrameWhiteBox::frame(effect);
-  HS_EXPECT_EQ(later.resources.template get<"displace">().frames, LAUNCH);
-  HS_EXPECT_NEAR(later.resources.template get<"displace">().waves[LAST].age,
+  HS_EXPECT_EQ(later.resources.template get<"displace">().frames, launch);
+  HS_EXPECT_NEAR(later.resources.template get<"displace">().waves[last].age,
                  1.0f, 0.0f);
   const auto snapshot = effect.serialize_parameters();
   auto invalid = snapshot;
@@ -1863,42 +1867,42 @@ inline void test_millefiori_radial_table_interval() {
   effect.init();
   auto previous = effect.frame_for_test();
   ComposedFrameWhiteBox::advance(effect);
-  const auto CURRENT = effect.frame_for_test();
+  const auto current = effect.frame_for_test();
   previous.resources.template get<"displace">().radial_tables = nullptr;
-  const auto *TABLE =
-      CURRENT.resources.template get<"displace">().radial_tables;
-  HS_EXPECT_TRUE(TABLE != nullptr);
-  if (!TABLE)
+  const auto *table =
+      current.resources.template get<"displace">().radial_tables;
+  HS_EXPECT_TRUE(table != nullptr);
+  if (!table)
     return;
-  HS_EXPECT_TRUE(TABLE->enabled);
-  HS_EXPECT_LT(CURRENT.resources.template get<"displace">().radial_fraction,
+  HS_EXPECT_TRUE(table->enabled);
+  HS_EXPECT_LT(current.resources.template get<"displace">().radial_fraction,
                0.0f);
   using Provider = Pullback::SurfaceProvider<FX::Binding, BurstRippleParams,
                                              true, "displace">;
-  HS_EXPECT_TRUE(Provider::radial_tables(CURRENT) == nullptr);
-  const Pullback::FrameInterval interval(previous, CURRENT);
+  HS_EXPECT_TRUE(Provider::radial_tables(current) == nullptr);
+  const Pullback::FrameInterval interval(previous, current);
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
-    const auto FRAME = interval.at(fraction);
-    const auto &resource = FRAME.resources.template get<"displace">();
+    const auto frame = interval.at(fraction);
+    const auto &resource = frame.resources.template get<"displace">();
     if (fraction > 0.0f)
-      HS_EXPECT_EQ(resource.radial_tables, TABLE);
+      HS_EXPECT_EQ(resource.radial_tables, table);
     HS_EXPECT_EQ(resource.radial_fraction,
                  fraction > 0.0f && fraction < 1.0f ? fraction : -1.0f);
-    HS_EXPECT_EQ(Provider::radial_tables(FRAME),
-                 fraction > 0.0f && fraction < 1.0f ? TABLE : nullptr);
-    HS_EXPECT_EQ(Provider::radial_fraction(FRAME), resource.radial_fraction);
+    HS_EXPECT_EQ(Provider::radial_tables(frame),
+                 fraction > 0.0f && fraction < 1.0f ? table : nullptr);
+    HS_EXPECT_EQ(Provider::radial_fraction(frame), resource.radial_fraction);
   }
-  const auto SAME = Pullback::FrameInterval(CURRENT, CURRENT).at(0.5f);
-  HS_EXPECT_EQ(SAME.resources.template get<"displace">().radial_fraction, 1.0f);
-  auto skipped = CURRENT;
+  const auto same = Pullback::FrameInterval(current, current).at(0.5f);
+  HS_EXPECT_EQ(same.resources.template get<"displace">().radial_fraction, 1.0f);
+  auto skipped = current;
   skipped.resources.template get<"displace">().frames += 2;
   for (float fraction : {0.0f, 0.5f}) {
-    const auto FRAME = Pullback::FrameInterval(previous, skipped).at(fraction);
-    HS_EXPECT_TRUE(Provider::radial_tables(FRAME) == nullptr);
+    const auto frame = Pullback::FrameInterval(previous, skipped).at(fraction);
+    HS_EXPECT_TRUE(Provider::radial_tables(frame) == nullptr);
   }
   previous.params.template get<"displace">().period += 1.0f;
-  const auto CHANGED = Pullback::FrameInterval(previous, CURRENT).at(0.5f);
-  HS_EXPECT_TRUE(CHANGED.resources.template get<"displace">().radial_tables ==
+  const auto changed = Pullback::FrameInterval(previous, current).at(0.5f);
+  HS_EXPECT_TRUE(changed.resources.template get<"displace">().radial_tables ==
                  nullptr);
 }
 
@@ -1962,22 +1966,22 @@ inline void test_composed_default_gradient_preparation() {
       noise.SetRotationType3D(FastNoiseLite::RotationType3D_ImproveXYPlanes);
     if (change == 4)
       noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-    const auto PREPARED = Provider::prepare(frame);
-    HS_EXPECT_EQ(PREPARED.unit_default_gradient, change == 0);
+    const auto prepared = Provider::prepare(frame);
+    HS_EXPECT_EQ(prepared.unit_default_gradient, change == 0);
     for (const auto &direction :
          {math::X_AXIS, math::Y_AXIS,
           math::Vector(-0.3f, 0.4f, -0.5f).normalized()}) {
-      const auto EXPECTED = Pullback::Surface::curl_noise(
+      const auto expected = Pullback::Surface::curl_noise(
           direction, noise, math::NoiseBasis::SIMPLEX,
           Pullback::Surface::Integrator::EULER, math::TangentLimit::SMOOTH,
-          params.scale, PREPARED.loop_offset, params.strength, true);
-      const auto ACTUAL = Policy::apply(direction, frame, PREPARED);
-      expect_displacement(ACTUAL, EXPECTED);
-      const auto SHARED = DefaultPolicy::apply(direction, frame, PREPARED);
-      expect_displacement(ACTUAL, SHARED);
-      const auto FOREIGN = ForeignPolicy::apply(
+          params.scale, prepared.loop_offset, params.strength, true);
+      const auto actual = Policy::apply(direction, frame, prepared);
+      expect_displacement(actual, expected);
+      const auto shared = DefaultPolicy::apply(direction, frame, prepared);
+      expect_displacement(actual, shared);
+      const auto foreign = ForeignPolicy::apply(
           direction, frame, ForeignProvider::prepare(frame));
-      expect_displacement(FOREIGN, EXPECTED);
+      expect_displacement(foreign, expected);
     }
   }
 }

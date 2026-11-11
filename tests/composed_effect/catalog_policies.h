@@ -21,8 +21,8 @@ inline void test_palette_selection_schema_parity() {
   using Chain = Op::GeneratedPaletteParams;
   constexpr size_t FIRST = Pullback::Color::ColorControls::FIELDS.size();
   static_assert(Authored::FIELDS.size() == Chain::FIELDS.size());
-  const Authored authored{};
-  const Chain chain{};
+  const Authored AUTHORED{};
+  const Chain CHAIN{};
   for (size_t index = FIRST; index < Authored::FIELDS.size(); ++index) {
     const auto &a = Authored::FIELDS[index];
     const auto &b = Chain::FIELDS[index];
@@ -33,7 +33,7 @@ inline void test_palette_selection_schema_parity() {
     HS_EXPECT_EQ(a.max, b.max);
     HS_EXPECT_TRUE(a.curve == b.curve);
     HS_EXPECT_TRUE(a.gate == b.gate);
-    HS_EXPECT_EQ(authored.*a.member, chain.*b.member);
+    HS_EXPECT_EQ(AUTHORED.*a.member, CHAIN.*b.member);
     HS_EXPECT_TRUE(a.topology_gate.field == nullptr);
     HS_EXPECT_EQ(a.topology_gate.values, 0);
     const auto expected = index < FIRST + 4    ? Op::GENERATED_PALETTE_GATE
@@ -235,11 +235,11 @@ inline void check_affine_lattice_windings() {
   params.shear = 0.3f;
   params.repeat_cells = 2.0f;
   clock.rotation = 0.7f;
-  const math::Complex point{0.13f, -0.21f};
+  const math::Complex POINT{0.13f, -0.21f};
   clock.phase = 0.999999f;
-  const auto before = Tracked::apply(point, {}, frame, Tracked::prepare(frame));
+  const auto before = Tracked::apply(POINT, {}, frame, Tracked::prepare(frame));
   clock.phase = 0.000001f;
-  const auto after = Tracked::apply(point, {}, frame, Tracked::prepare(frame));
+  const auto after = Tracked::apply(POINT, {}, frame, Tracked::prepare(frame));
   HS_EXPECT_NEAR(after.coords.re - before.coords.re, 1.6f, 6e-6f);
   HS_EXPECT_NEAR(after.coords.im - before.coords.im, -1.6f, 6e-6f);
   HS_EXPECT_NEAR(before.path_length, after.path_length, 3e-6f);
@@ -262,12 +262,12 @@ inline void check_affine_lattice_windings() {
     for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
       const auto sampled = interval.at(fraction);
       const auto &sampled_clock = sampled.resources.template get<"probe">();
-      const float PHASE = start.phase + direction * 0.002f * fraction;
-      HS_EXPECT_NEAR(remainderf(sampled_clock.phase - PHASE, 1.0f), 0.0f,
+      const float phase = start.phase + direction * 0.002f * fraction;
+      HS_EXPECT_NEAR(remainderf(sampled_clock.phase - phase, 1.0f), 0.0f,
                      2e-7f);
-      const float ROTATION = start.rotation + 0.002f * fraction;
+      const float rotation = start.rotation + 0.002f * fraction;
       HS_EXPECT_NEAR(
-          remainderf((sampled_clock.rotation - ROTATION) / math::TWO_PI_F,
+          remainderf((sampled_clock.rotation - rotation) / math::TWO_PI_F,
                      1.0f),
           0.0f, 2e-7f);
       HS_EXPECT_NEAR(sampled.params.template get<"probe">().translation_x,
@@ -310,12 +310,12 @@ inline void check_affine_lattice_parity() {
   params.rotation_rate = 1.2f;
   params.scale_x = 1.4f;
   params.shear = 0.2f;
-  const float MAX_PATH_LENGTH = [&] {
+  const float max_path_length = [&] {
     if constexpr (std::is_same_v<SourceFamily, Source::BandsSourceParams>) {
-      const float PERIOD = math::TWO_PI_F / source.pattern_freq *
+      const float period = math::TWO_PI_F / source.pattern_freq *
                            std::round(params.repeat_cells);
-      HS_EXPECT_TRUE(std::isfinite(PERIOD) && PERIOD > 0.0f);
-      return std::sqrt(2.0f) * 0.5f * PERIOD + 1e-6f;
+      HS_EXPECT_TRUE(std::isfinite(period) && period > 0.0f);
+      return std::sqrt(2.0f) * 0.5f * period + 1e-6f;
     } else
       return std::sqrt(2.0f) * 0.5f + 1e-6f;
   }();
@@ -338,7 +338,7 @@ inline void check_affine_lattice_parity() {
     HS_EXPECT_EQ(actual.coords.re, expected.coords.re);
     HS_EXPECT_EQ(actual.coords.im, expected.coords.im);
     HS_EXPECT_EQ(actual.path_length, expected.path_length);
-    HS_EXPECT_LE(actual.path_length, MAX_PATH_LENGTH);
+    HS_EXPECT_LE(actual.path_length, max_path_length);
   }
 }
 

@@ -105,9 +105,9 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
       Plot::SamplePT one = s.one_pass(t);
       worst_orth =
           fold_worst(worst_orth, std::abs(math::dot(one.pos, one.tan)));
-      const float step = 1.0f / 64.0f;
-      const math::Vector ahead = s.pos(std::min(1.0f, t + step));
-      const math::Vector behind = s.pos(std::max(0.0f, t - step));
+      const float STEP = 1.0f / 64.0f;
+      const math::Vector ahead = s.pos(std::min(1.0f, t + STEP));
+      const math::Vector behind = s.pos(std::max(0.0f, t - STEP));
       HS_EXPECT_GT(math::dot(one.tan, ahead - behind), 0.0f);
       ++checked;
     }
@@ -122,7 +122,7 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
  */
 inline void test_rasterize_single_pass_planar_matches_two_pass() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * math::PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -154,7 +154,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
 
   HS_EXPECT_GT(single.plotted.size(), (size_t)10);
   HS_EXPECT_LE(max_consecutive_gap(single.plotted, /*wrap=*/false),
-               1.5f * base_step);
+               1.5f * BASE_STEP);
   for (const math::Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   if (single.plotted.empty())
@@ -168,7 +168,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + 2);
   HS_EXPECT_GE(single.plotted.size() + 2, cached.plotted.size());
   for (const math::Vector &p : single.plotted) {
-    HS_EXPECT_LE(nearest_angle(p, cached.plotted), base_step);
+    HS_EXPECT_LE(nearest_angle(p, cached.plotted), BASE_STEP);
   }
 }
 
@@ -177,7 +177,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
  */
 inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * math::PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -210,7 +210,7 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
 
   HS_EXPECT_GT(single.plotted.size(), (size_t)20);
   HS_EXPECT_LE(max_consecutive_gap(single.plotted, /*wrap=*/true),
-               1.5f * base_step);
+               1.5f * BASE_STEP);
   for (const math::Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + points.size());
@@ -219,11 +219,11 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
     return;
   HS_EXPECT_LE(
       math::angle_between(single.plotted.front(), single.plotted.back()),
-      1.5f * base_step);
+      1.5f * BASE_STEP);
   const math::Vector seam_delta = single.plotted.back() - points[0].pos;
   HS_EXPECT_GT(math::dot(seam_delta, seam_delta), 1e-10f);
   for (const math::Vector &p : single.plotted) {
-    HS_EXPECT_LE(nearest_angle(p, cached.plotted), base_step);
+    HS_EXPECT_LE(nearest_angle(p, cached.plotted), BASE_STEP);
   }
 }
 
@@ -809,13 +809,13 @@ inline void test_rasterize_balanced_star_visual_budget() {
     HS_EXPECT_LT(balanced_coverage * 25, standard_coverage * 27);
     HS_EXPECT_EQ(uncovered, size_t{0});
 
-    const std::array<ClipRegion, 4> clips = {{
+    const std::array<ClipRegion, 4> CLIPS = {{
         {0, H / 2, 0, W / 2},
         {0, H / 2, W / 2, W},
         {H / 2, H, 0, W / 2},
         {H / 2, H, W / 2, W},
     }};
-    for (const ClipRegion &clip : clips) {
+    for (const ClipRegion &clip : CLIPS) {
       const Frame tile =
           render.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
               state, &clip);
@@ -931,7 +931,7 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
  */
 inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
   constexpr int W = 96, H = 48;
-  const std::array<std::pair<int, int>, 10> control_pixels = {{
+  const std::array<std::pair<int, int>, 10> CONTROL_PIXELS = {{
       {4, 4},
       {W / 2 - 5, H / 2 - 5},
       {W / 2 + 5, 5},
@@ -948,8 +948,8 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     Filter::Screen::DirectAntiAliasSink<W, H> sink;
     ScratchScope sc(plot_arena());
     Fragments points;
-    points.bind(plot_arena(), control_pixels.size());
-    for (const auto &[x, y] : control_pixels) {
+    points.bind(plot_arena(), CONTROL_PIXELS.size());
+    for (const auto &[x, y] : CONTROL_PIXELS) {
       Fragment f;
       f.pos = math::pixel_to_vector<W, H>(x, y);
       points.push_back(f);
@@ -960,7 +960,7 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     sink.prepare(canvas);
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
-    std::array<uint8_t, control_pixels.size() - 1> bits{};
+    std::array<uint8_t, CONTROL_PIXELS.size() - 1> bits{};
     std::span<const uint8_t> visible;
     if (!clip.is_full()) {
       if (!Plot::gate_trail_edges<W, H>(sink, clip, x_clip, points,
@@ -981,9 +981,9 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     hs_test::capture_frame<W, H>(fx, reference);
   }
 
-  constexpr auto quadrants = quadrant_clips<W, H>();
+  constexpr auto QUADRANTS = quadrant_clips<W, H>();
   int margin_lit = 0;
-  for (const auto &quadrant : quadrants) {
+  for (const auto &quadrant : QUADRANTS) {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(quadrant[0], quadrant[1], quadrant[2], quadrant[3]);
     render(fx);

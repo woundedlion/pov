@@ -13,13 +13,13 @@
  */
 inline void test_sprite_fade_in_plateau_fade_out_envelope() {
   std::vector<float> ops;
-  const int dur = 10, fade_in = 3, fade_out = 3;
-  Animation::Sprite s([&](Canvas &, float o) { ops.push_back(o); }, dur,
-                      {.fade_in = {fade_in}, .fade_out = {fade_out}});
-  for (int i = 0; i < dur; ++i)
+  const int DUR = 10, FADE_IN = 3, FADE_OUT = 3;
+  Animation::Sprite s([&](Canvas &, float o) { ops.push_back(o); }, DUR,
+                      {.fade_in = {FADE_IN}, .fade_out = {FADE_OUT}});
+  for (int i = 0; i < DUR; ++i)
     s.step(fake_canvas()); // observed at t = 1..10
 
-  HS_EXPECT_SIZE_OR_RETURN(ops, dur);
+  HS_EXPECT_SIZE_OR_RETURN(ops, DUR);
   // Fade-in (linear): t=1 -> 1/3, then rising.
   HS_EXPECT_NEAR(ops[0], 1.0f / 3.0f, 1e-3f);
   HS_EXPECT_GT(ops[1], ops[0]);
@@ -48,14 +48,14 @@ inline void test_sprite_clamps_overshooting_fade_in() {
  */
 inline void test_sprite_overlapping_fades_stay_continuous() {
   std::vector<float> ops;
-  const int dur = 10, fade_in = 8,
-            fade_out = 8; // 8 + 8 > 10 => overlap, scaled to 5 + 5
-  Animation::Sprite s([&](Canvas &, float o) { ops.push_back(o); }, dur,
-                      {.fade_in = {fade_in}, .fade_out = {fade_out}});
-  for (int i = 0; i < dur; ++i)
+  const int DUR = 10, FADE_IN = 8,
+            FADE_OUT = 8; // 8 + 8 > 10 => overlap, scaled to 5 + 5
+  Animation::Sprite s([&](Canvas &, float o) { ops.push_back(o); }, DUR,
+                      {.fade_in = {FADE_IN}, .fade_out = {FADE_OUT}});
+  for (int i = 0; i < DUR; ++i)
     s.step(fake_canvas()); // observed at t = 1..10
 
-  HS_EXPECT_SIZE_OR_RETURN(ops, dur);
+  HS_EXPECT_SIZE_OR_RETURN(ops, DUR);
   // Scaled to 5 + 5: slope 1/5 per frame, so no single-frame step exceeds ~0.2.
   float max_jump = 0.0f;
   for (size_t i = 1; i < ops.size(); ++i)

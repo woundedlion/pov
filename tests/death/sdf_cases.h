@@ -9,9 +9,9 @@
  * @brief Death case: a polygon with fewer than three sides must trap.
  */
 inline void case_sdf_polygon_side_count() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::PlanarPolygon poly(b, opaque(0.5f), opaque(2), opaque(0.0f));
+  SDF::PlanarPolygon poly(B, opaque(0.5f), opaque(2), opaque(0.0f));
   (void)poly;
 }
 
@@ -19,9 +19,9 @@ inline void case_sdf_polygon_side_count() {
  * @brief Death case: an angular repeat around a non-unit axis must trap.
  */
 inline void case_sdf_angular_repeat_nonunit_axis() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::Ring ring(b, opaque(1.0f), opaque(0.1f));
+  SDF::Ring ring(B, opaque(1.0f), opaque(0.1f));
   math::Vector axis{opaque(0.0f), opaque(2.0f), opaque(0.0f)};
   SDF::AngularRepeat<SDF::Ring> rep(ring, opaque(4), axis); // non-unit -> trap
   (void)rep;
@@ -31,31 +31,31 @@ inline void case_sdf_angular_repeat_nonunit_axis() {
  * @brief Death case: a knot ring with no cells must trap.
  */
 inline void case_sdf_distorted_ring_zero_knots() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  const float knots[1] = {0.0f};
+  const float KNOTS[1] = {0.0f};
   SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(0),
+  SDF::DistortedRing ring(B, opaque(0.5f), opaque(0.05f), KNOTS, opaque(0),
                           opaque(0.0f), pf); // no knot cells -> trap
   (void)ring;
 }
 
 inline void case_sdf_distorted_ring_one_knots() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  const float knots[1] = {0.0f};
+  const float KNOTS[1] = {0.0f};
   SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(1),
+  SDF::DistortedRing ring(B, opaque(0.5f), opaque(0.05f), KNOTS, opaque(1),
                           opaque(0.0f), pf);
   (void)ring;
 }
 
 inline void case_sdf_distorted_ring_two_knots() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  const float knots[2] = {0.0f};
+  const float KNOTS[2] = {0.0f};
   SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(2),
+  SDF::DistortedRing ring(B, opaque(0.5f), opaque(0.05f), KNOTS, opaque(2),
                           opaque(0.0f), pf);
   (void)ring;
 }
@@ -80,9 +80,9 @@ inline void case_transformed_torus_invalid_minor_radius() {
  * @details Build such a shape inverted about its antipode instead.
  */
 inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::SphericalPolygon poly(b, opaque(1.5f), opaque(5), opaque(0.0f));
+  SDF::SphericalPolygon poly(B, opaque(1.5f), opaque(5), opaque(0.0f));
   (void)poly;
 }
 
@@ -90,9 +90,9 @@ inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
  * @brief Death case: a flower wider than a hemisphere must trap.
  */
 inline void case_sdf_flower_radius_over_hemisphere() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::Flower flower(b, opaque(1.5f), opaque(5), opaque(0.0f));
+  SDF::Flower flower(B, opaque(1.5f), opaque(5), opaque(0.0f));
   (void)flower;
 }
 
@@ -100,9 +100,9 @@ inline void case_sdf_flower_radius_over_hemisphere() {
  * @brief Death case: a zero-radius flower must trap.
  */
 inline void case_sdf_flower_zero_radius() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::Flower flower(b, opaque(0.0f), opaque(5), opaque(0.0f));
+  SDF::Flower flower(B, opaque(0.0f), opaque(5), opaque(0.0f));
   (void)flower;
 }
 
@@ -110,10 +110,10 @@ inline void case_sdf_flower_zero_radius() {
  * @brief Death case: baking a class LUT for a degenerate polygon must trap.
  */
 inline void case_sdf_class_lut_too_few_vertices() {
-  static const float poly_xy[4] = {-0.5f, -0.5f, 0.5f, -0.5f};
+  static const float POLY_XY[4] = {-0.5f, -0.5f, 0.5f, -0.5f};
   static int16_t grid[16];
   SDF::ClassLut lut;
-  SDF::build_canonical_distance_lut(poly_xy, opaque(2), opaque(4), grid, lut);
+  SDF::build_canonical_distance_lut(POLY_XY, opaque(2), opaque(4), grid, lut);
   (void)lut;
 }
 
@@ -121,10 +121,10 @@ inline void case_sdf_class_lut_too_few_vertices() {
  * @brief Death case: baking a class LUT on a single-cell grid must trap.
  */
 inline void case_sdf_class_lut_grid_too_small() {
-  static const float poly_xy[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
+  static const float POLY_XY[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
   static int16_t grid[16];
   SDF::ClassLut lut;
-  SDF::build_canonical_distance_lut(poly_xy, opaque(3), opaque(1), grid, lut);
+  SDF::build_canonical_distance_lut(POLY_XY, opaque(3), opaque(1), grid, lut);
   (void)lut;
 }
 
@@ -149,18 +149,18 @@ inline void case_sdf_bind_class_lut_offset_out_of_range() {
   SDF::PreparedFace face(std::span<const math::Vector>(verts, 3),
                          std::span<const uint16_t>(idx, 3), scratch, HV, H,
                          nullptr, nullptr, SDF::BOUNDS_MARGIN);
-  static const float canon_xy[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
+  static const float CANON_XY[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
   SDF::ClassLut lut;
-  (void)face.bind_class_lut(&lut, canon_xy, opaque(7), false);
+  (void)face.bind_class_lut(&lut, CANON_XY, opaque(7), false);
 }
 
 /**
  * @brief Death case: a ring wider than the antipode must trap.
  */
 inline void case_sdf_ring_radius_past_antipode() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::Ring ring(b, opaque(2.5f), opaque(0.05f));
+  SDF::Ring ring(B, opaque(2.5f), opaque(0.05f));
   (void)ring;
 }
 
@@ -168,9 +168,9 @@ inline void case_sdf_ring_radius_past_antipode() {
  * @brief Death case: a ring with a negative stroke half-width must trap.
  */
 inline void case_sdf_ring_negative_thickness() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::Ring ring(b, opaque(1.0f), opaque(-0.05f));
+  SDF::Ring ring(B, opaque(1.0f), opaque(-0.05f));
   (void)ring;
 }
 
@@ -178,9 +178,9 @@ inline void case_sdf_ring_negative_thickness() {
  * @brief Death case: a distorted ring wider than the antipode must trap.
  */
 inline void case_sdf_distorted_ring_radius_past_antipode() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::FlatDistortedRing ring(b, opaque(2.5f), opaque(0.05f));
+  SDF::FlatDistortedRing ring(B, opaque(2.5f), opaque(0.05f));
   (void)ring;
 }
 
@@ -188,9 +188,9 @@ inline void case_sdf_distorted_ring_radius_past_antipode() {
  * @brief Death case: a distorted ring with a negative half-width must trap.
  */
 inline void case_sdf_distorted_ring_negative_thickness() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
-  SDF::FlatDistortedRing ring(b, opaque(0.5f), opaque(-0.05f));
+  SDF::FlatDistortedRing ring(B, opaque(0.5f), opaque(-0.05f));
   (void)ring;
 }
 
@@ -208,26 +208,26 @@ inline void case_sdf_line_negative_thickness() {
  * @details The callback is invoked per azimuth on every probe.
  */
 inline void case_sdf_distorted_ring_null_shift() {
-  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Basis B{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                       math::Vector(0, 0, 1)};
   ScalarFn shift; // default-constructed -> empty
-  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), shift, opaque(0.1f),
+  SDF::DistortedRing ring(B, opaque(0.5f), opaque(0.05f), shift, opaque(0.1f),
                           opaque(0.0f));
   (void)ring;
 }
 
 inline void case_sdf_distorted_ring_negative_distortion() {
-  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const math::Basis BASIS{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   ScalarFn shift = [](float) { return 0.0f; };
-  SDF::DistortedRing ring(basis, opaque(0.5f), opaque(0.05f), shift,
+  SDF::DistortedRing ring(BASIS, opaque(0.5f), opaque(0.05f), shift,
                           opaque(-0.1f), 0.0f);
   (void)ring;
 }
 
 /** @brief Rejects a non-positive smooth-union blend width. */
 inline void case_sdf_smooth_union_zero_radius() {
-  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  const SDF::PlanarPolygon polygon(basis, .5f, 3, 0.f);
+  const math::Basis BASIS{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const SDF::PlanarPolygon polygon(BASIS, .5f, 3, 0.f);
   SDF::SmoothUnion<SDF::PlanarPolygon, SDF::PlanarPolygon> shape(
       polygon, polygon, opaque(0.f));
   (void)shape;
@@ -235,8 +235,8 @@ inline void case_sdf_smooth_union_zero_radius() {
 
 /** @brief Rejects an angular repeat with no copies. */
 inline void case_sdf_angular_repeat_zero_copies() {
-  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  const SDF::Ring ring(basis, 1.f, .1f);
+  const math::Basis BASIS{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const SDF::Ring ring(BASIS, 1.f, .1f);
   SDF::AngularRepeat<SDF::Ring> shape(ring, opaque(0), math::Y_AXIS);
   (void)shape;
 }
@@ -296,9 +296,9 @@ inline void case_face_handle_retargeted_by_early_cull() {
   const math::Vector verts[] = {math::pixel_to_vector<W, H>(20.0f, 2.0f),
                                 math::pixel_to_vector<W, H>(25.0f, 3.0f),
                                 math::pixel_to_vector<W, H>(18.0f, 4.0f)};
-  const uint16_t indices[] = {0, 1, 2};
+  const uint16_t INDICES[] = {0, 1, 2};
   static SDF::FaceStorage storage;
-  SDF::Face first(verts, indices, storage, math::LatitudeGeometry(H), H,
+  SDF::Face first(verts, INDICES, storage, math::LatitudeGeometry(H), H,
                   nullptr, nullptr, SDF::BOUNDS_MARGIN);
   const SDF::Face copy = first;
   const uint32_t table_claim = storage.tables.claim_seq;
@@ -309,7 +309,7 @@ inline void case_face_handle_retargeted_by_early_cull() {
                   .margin = 0,
                   .w = W,
                   .h = H};
-  SDF::Face culled(verts, indices, storage, math::LatitudeGeometry(H), H, &clip,
+  SDF::Face culled(verts, INDICES, storage, math::LatitudeGeometry(H), H, &clip,
                    nullptr, SDF::BOUNDS_MARGIN);
   const auto bounds = culled.get_vertical_bounds<H>();
   if (!(bounds.y_min > bounds.y_max) || storage.tables.claim_seq != table_claim)
@@ -320,12 +320,12 @@ inline void case_face_handle_retargeted_by_early_cull() {
 /** @brief Mutable geometry binding rejects a retargeted face handle. */
 inline void case_face_handle_mutable_retargeted() {
   constexpr int H = 20;
-  const math::Vector verts[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  const uint16_t indices[] = {0, 1, 2};
+  const math::Vector VERTS[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const uint16_t INDICES[] = {0, 1, 2};
   static SDF::FaceStorage storage;
-  SDF::Face first(verts, indices, storage, math::LatitudeGeometry(H), H,
+  SDF::Face first(VERTS, INDICES, storage, math::LatitudeGeometry(H), H,
                   nullptr, nullptr, SDF::BOUNDS_MARGIN);
-  SDF::Face second(verts, indices, storage, math::LatitudeGeometry(H), H,
+  SDF::Face second(VERTS, INDICES, storage, math::LatitudeGeometry(H), H,
                    nullptr, nullptr, SDF::BOUNDS_MARGIN);
   (void)second;
   (void)first.prepared();
@@ -366,10 +366,10 @@ inline void case_face_scratch_retargeted() {
 /** @brief Death case: a virtual-height Face must use the active display grid. */
 inline void case_face_virtual_height_mismatched_geometry() {
   constexpr int H = 16;
-  const math::Vector verts[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  const uint16_t indices[] = {0, 1, 2};
+  const math::Vector VERTS[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const uint16_t INDICES[] = {0, 1, 2};
   static SDF::FaceScratchBuffer scratch;
-  SDF::PreparedFace face(verts, indices, scratch, opaque(H + hs::H_OFFSET + 1),
+  SDF::PreparedFace face(VERTS, INDICES, scratch, opaque(H + hs::H_OFFSET + 1),
                          H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   (void)face;
 }
@@ -377,12 +377,12 @@ inline void case_face_virtual_height_mismatched_geometry() {
 /** @brief A seeing-time face bounds pose requires a render clip. */
 inline void case_face_bounds_pose_without_clip() {
   constexpr int H = 16;
-  const math::Vector verts[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  const uint16_t indices[] = {0, 1, 2};
+  const math::Vector VERTS[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const uint16_t INDICES[] = {0, 1, 2};
   static SDF::FaceScratchBuffer scratch;
-  const SDF::FaceBoundsPose pose{};
-  SDF::PreparedFace face(verts, indices, scratch, math::LatitudeGeometry(H), H,
-                         nullptr, nullptr, SDF::BOUNDS_MARGIN, &pose);
+  const SDF::FaceBoundsPose POSE{};
+  SDF::PreparedFace face(VERTS, INDICES, scratch, math::LatitudeGeometry(H), H,
+                         nullptr, nullptr, SDF::BOUNDS_MARGIN, &POSE);
   (void)face;
 }
 

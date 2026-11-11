@@ -254,12 +254,12 @@ inline void check_islamicstars_motion_fits_scratch(size_t preset, int frames) {
   HS_CONTEXT("preset", static_cast<int>(preset));
   scratch_arena_a.reset_peak_tracking();
   scratch_arena_b.reset_peak_tracking();
-  const size_t DEFORMATIONS =
+  const size_t deformations =
       replay_islamicstars_profile(preset, 4.0f, frames, false);
-  HS_EXPECT_GT(DEFORMATIONS, size_t{0});
+  HS_EXPECT_GT(deformations, size_t{0});
   std::printf(
       "  [islamic scratch, preset %zu] deformations %zu, peak a %zu, b %zu\n",
-      preset, DEFORMATIONS, scratch_arena_a.get_lifetime_high_water_mark(),
+      preset, deformations, scratch_arena_a.get_lifetime_high_water_mark(),
       scratch_arena_b.get_lifetime_high_water_mark());
 }
 

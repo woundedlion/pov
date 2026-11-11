@@ -86,9 +86,9 @@ inline void test_config_timing_bounds() {
   HS_EXPECT_EQ(rd.commit_beacon_gap_revs(0), 22u);
   expect_rejects(rd, "rejoin_bound_revs() <= rejoin_budget_revs");
   // One such entry in a roster is enough.
-  const uint32_t mixed[4] = {48, 64, 49, 32};
+  const uint32_t MIXED[4] = {48, 64, 49, 32};
   Config plain = rd;
-  rd.set_effect_revolutions(mixed);
+  rd.set_effect_revolutions(MIXED);
   expect_rejects(rd, "rejoin_bound_revs() <= rejoin_budget_revs");
   // The boot repeats are the last beacon when the cadence never fires.
   plain.revs_per_effect = 17;
@@ -369,17 +369,17 @@ inline void test_mailbox() {
 
   EdgeMailbox tc;
   BurstSnapshot out;
-  const uint32_t MAXB = test_config().max_burst_cycles();
-  HS_EXPECT_FALSE(tc.try_claim(0, 4 * COL, MAXB, &out)); // no burst yet
+  const uint32_t maxb = test_config().max_burst_cycles();
+  HS_EXPECT_FALSE(tc.try_claim(0, 4 * COL, maxb, &out)); // no burst yet
   tc.on_edge(1000, GLITCH);
   tc.on_edge(1000 + 2 * COL, GLITCH);
   HS_EXPECT_FALSE(
-      tc.try_claim(1000 + 3 * COL, 4 * COL, MAXB, &out)); // gap too short
-  HS_EXPECT_TRUE(tc.try_claim(1000 + 6 * COL + 1, 4 * COL, MAXB, &out));
+      tc.try_claim(1000 + 3 * COL, 4 * COL, maxb, &out)); // gap too short
+  HS_EXPECT_TRUE(tc.try_claim(1000 + 6 * COL + 1, 4 * COL, maxb, &out));
   HS_EXPECT_EQ(out.count, 2u);
   HS_EXPECT_EQ(out.first_cycles, 1000u);
   HS_EXPECT_EQ(out.last_cycles, 1000u + 2 * COL);
-  HS_EXPECT_FALSE(tc.try_claim(1000 + 7 * COL, 4 * COL, MAXB, &out)); // reset
+  HS_EXPECT_FALSE(tc.try_claim(1000 + 7 * COL, 4 * COL, maxb, &out)); // reset
 }
 
 /**
@@ -389,25 +389,25 @@ inline void test_mailbox() {
  */
 inline void test_mailbox_overlong_burst() {
   const Config cfg = test_config();
-  const uint32_t GLITCH = cfg.glitch_filter_cycles;
-  const uint32_t MAXB = cfg.max_burst_cycles();
-  const uint32_t GAP = cfg.gap_timeout_cycles();
-  const uint32_t t0 = 1000u;
+  const uint32_t glitch = cfg.glitch_filter_cycles;
+  const uint32_t maxb = cfg.max_burst_cycles();
+  const uint32_t gap = cfg.gap_timeout_cycles();
+  const uint32_t T0 = 1000u;
 
   EdgeMailbox m;
   BurstSnapshot out{};
   uint32_t claimed_at = 0;
   bool claimed = false;
-  for (uint32_t t = t0; t <= t0 + 4 * MAXB; t += GLITCH) {
-    m.on_edge(t, GLITCH);
-    if (!claimed && m.try_claim(t, GAP, MAXB, &out)) {
+  for (uint32_t t = T0; t <= T0 + 4 * maxb; t += glitch) {
+    m.on_edge(t, glitch);
+    if (!claimed && m.try_claim(t, gap, maxb, &out)) {
       claimed = true;
       claimed_at = t;
     }
   }
   HS_EXPECT_TRUE(claimed);
-  HS_EXPECT_LE(claimed_at - t0, MAXB + GLITCH);
-  HS_EXPECT_EQ(out.first_cycles, t0);
+  HS_EXPECT_LE(claimed_at - T0, maxb + glitch);
+  HS_EXPECT_EQ(out.first_cycles, T0);
   // A jammed burst never lands on the odd-only alphabet, so the symbol is
   // discarded and counted rather than snapped on.
   HS_EXPECT_EQ(classify_count(out.count), Symbol::INVALID);
@@ -416,9 +416,9 @@ inline void test_mailbox_overlong_burst() {
   EdgeMailbox n;
   const uint32_t pitch = cfg.pulse_pitch_cycles();
   for (uint32_t i = 0; i < 5; ++i)
-    n.on_edge(t0 + i * pitch, GLITCH);
-  HS_EXPECT_FALSE(n.try_claim(t0 + 4 * pitch + GAP - 1, GAP, MAXB, &out));
-  HS_EXPECT_TRUE(n.try_claim(t0 + 4 * pitch + GAP, GAP, MAXB, &out));
+    n.on_edge(T0 + i * pitch, glitch);
+  HS_EXPECT_FALSE(n.try_claim(T0 + 4 * pitch + gap - 1, gap, maxb, &out));
+  HS_EXPECT_TRUE(n.try_claim(T0 + 4 * pitch + gap, gap, maxb, &out));
   HS_EXPECT_EQ(out.count, 5u);
 }
 
@@ -449,17 +449,17 @@ inline void test_mailbox_prior_staleness() {
   {
     EdgeMailbox m;
     BurstSnapshot claimed{};
-    const uint32_t prior = 1000u;
-    m.on_edge(prior, GLITCH); // a one-edge burst…
-    HS_EXPECT_TRUE(m.try_claim(prior + 10 * COL, COL, UINT32_MAX, &claimed));
+    const uint32_t PRIOR = 1000u;
+    m.on_edge(PRIOR, GLITCH); // a one-edge burst…
+    HS_EXPECT_TRUE(m.try_claim(PRIOR + 10 * COL, COL, UINT32_MAX, &claimed));
     HS_EXPECT_EQ(claimed.count, 1u); // …claimed; the prior persists across it.
     // A poll during the silence retires the stale reference (COL > GLITCH).
-    m.age_prior(prior + 11 * COL, GLITCH);
+    m.age_prior(PRIOR + 11 * COL, GLITCH);
     // A real edge after the counter has wrapped: its modular distance to the
     // old prior is only GLITCH/2, which the un-aged filter would reject.
-    const uint32_t wrapped = prior + GLITCH / 2;
-    m.on_edge(wrapped, GLITCH);
-    HS_EXPECT_TRUE(m.try_claim(wrapped + 10 * COL, COL, UINT32_MAX, &claimed));
+    const uint32_t WRAPPED = PRIOR + GLITCH / 2;
+    m.on_edge(WRAPPED, GLITCH);
+    HS_EXPECT_TRUE(m.try_claim(WRAPPED + 10 * COL, COL, UINT32_MAX, &claimed));
     HS_EXPECT_EQ(claimed.count, 1u); // accepted as a fresh one-edge burst.
   }
 }
@@ -473,22 +473,22 @@ inline void test_mailbox_prior_staleness() {
  */
 inline void test_mailbox_rejects_backward_clock() {
   const uint32_t GLITCH = 60000u;
-  const uint32_t now = 100000u;
-  const uint32_t skew = 40u; // edge accepted after `now` was sampled
+  const uint32_t NOW = 100000u;
+  const uint32_t SKEW = 40u; // edge accepted after `NOW` was sampled
 
   EdgeMailbox m;
   BurstSnapshot claimed{};
   BurstSnapshot out{};
-  m.on_edge(now + skew, GLITCH);
-  HS_EXPECT_FALSE(m.try_claim(now, 4 * COL, UINT32_MAX, &claimed));
+  m.on_edge(NOW + SKEW, GLITCH);
+  HS_EXPECT_FALSE(m.try_claim(NOW, 4 * COL, UINT32_MAX, &claimed));
   HS_EXPECT_FALSE(
-      m.try_claim(now, 4 * COL, test_config().max_burst_cycles(), &out));
+      m.try_claim(NOW, 4 * COL, test_config().max_burst_cycles(), &out));
 
-  m.age_prior(now, GLITCH);
+  m.age_prior(NOW, GLITCH);
   // The reference survived, so a spike inside the window is still suppressed.
-  m.on_edge(now + skew + GLITCH / 2, GLITCH);
+  m.on_edge(NOW + SKEW + GLITCH / 2, GLITCH);
   HS_EXPECT_TRUE(
-      m.try_claim(now + skew + 100 * GLITCH, 1, UINT32_MAX, &claimed));
+      m.try_claim(NOW + SKEW + 100 * GLITCH, 1, UINT32_MAX, &claimed));
   HS_EXPECT_EQ(claimed.count, 1u);
 }
 
@@ -550,34 +550,34 @@ inline void test_configure_replaces_claim_windows() {
   replacement.glitch_filter_cycles /= 2;
   const uint32_t gap = replacement.gap_timeout_cycles();
   const uint32_t col = replacement.cycles_per_column();
-  const uint32_t t = 5000u;
+  const uint32_t T = 5000u;
   BurstSnapshot s;
   {
     SyncBoard board(cfg);
     board.configure(replacement);
-    board.on_sync_edge(t);
-    HS_EXPECT_FALSE(board.claim_sync_burst(t + gap - 1, &s));
-    HS_EXPECT_TRUE(board.claim_sync_burst(t + gap, &s));
+    board.on_sync_edge(T);
+    HS_EXPECT_FALSE(board.claim_sync_burst(T + gap - 1, &s));
+    HS_EXPECT_TRUE(board.claim_sync_burst(T + gap, &s));
     HS_EXPECT_EQ(s.count, 1u);
   }
   {
     SyncBoard board(cfg);
     board.configure(replacement);
-    uint32_t edge = t;
-    while (edge - t < replacement.max_burst_cycles()) {
+    uint32_t edge = T;
+    while (edge - T < replacement.max_burst_cycles()) {
       board.on_sync_edge(edge);
       edge += col;
     }
     board.on_sync_edge(edge);
     HS_EXPECT_TRUE(board.claim_sync_burst(edge + 1, &s));
-    HS_EXPECT_EQ(s.first_cycles, t);
+    HS_EXPECT_EQ(s.first_cycles, T);
   }
   {
     SyncBoard board(cfg);
     board.configure(replacement);
-    board.on_sync_edge(t);
-    board.on_sync_edge(t + replacement.glitch_filter_cycles);
-    HS_EXPECT_TRUE(board.claim_sync_burst(t + 100 * col, &s));
+    board.on_sync_edge(T);
+    board.on_sync_edge(T + replacement.glitch_filter_cycles);
+    HS_EXPECT_TRUE(board.claim_sync_burst(T + 100 * col, &s));
     HS_EXPECT_EQ(s.count, 2u);
   }
 }
@@ -647,9 +647,9 @@ inline void test_beacon_codec() {
     BeaconParser parser;
     bool got = false;
     for (int i = 0; i < 5; ++i) {
-      const uint32_t FIRST = 1000u + i * 12u * COL;
-      const BurstSnapshot burst{static_cast<uint32_t>(digits[i]) + 1u, FIRST,
-                                FIRST + digits[i] * COL};
+      const uint32_t first = 1000u + i * 12u * COL;
+      const BurstSnapshot burst{static_cast<uint32_t>(digits[i]) + 1u, first,
+                                first + digits[i] * COL};
       bool rejected = false;
       got = parser.feed(burst, cfg, out, &rejected);
       if (i < 4) {
@@ -671,9 +671,9 @@ inline void test_beacon_codec() {
       HS_EXPECT_EQ(frame.effect_index, idx);
       HS_EXPECT_EQ(frame.rev_count, rev);
       for (int position = 0; position < 5; ++position) {
-        const uint8_t ORIGINAL = d[position];
+        const uint8_t original = d[position];
         for (uint8_t replacement = 0; replacement < 8; ++replacement) {
-          if (replacement == ORIGINAL)
+          if (replacement == original)
             continue;
           d[position] = replacement;
           BeaconFrame unchanged{123, 456u};
@@ -681,7 +681,7 @@ inline void test_beacon_codec() {
           HS_EXPECT_EQ(unchanged.effect_index, 123);
           HS_EXPECT_EQ(unchanged.rev_count, 456u);
         }
-        d[position] = ORIGINAL;
+        d[position] = original;
       }
     }
   }
@@ -996,20 +996,20 @@ inline void test_flywheel_position() {
       uint32_t random = 0x9e3779b9;
       for (int i = 0; i < 4096; ++i) {
         random = random * 1664525u + 1013904223u;
-        const int64_t LIMIT = static_cast<int64_t>(MIN_SAFE_HALF_REVS) * period;
-        const int64_t DELTA =
-            static_cast<int64_t>(random) % (2 * LIMIT) - LIMIT;
-        const int64_t NUMERATOR = DELTA * (width / 2);
-        const int64_t QUOTIENT = NUMERATOR / period - (NUMERATOR % period < 0);
-        const int32_t EXPECTED =
-            static_cast<int32_t>((QUOTIENT % width + width) % width);
-        HS_EXPECT_EQ(flywheel.position(EPOCH + static_cast<uint32_t>(DELTA)),
-                     EXPECTED);
+        const int64_t limit = static_cast<int64_t>(MIN_SAFE_HALF_REVS) * period;
+        const int64_t delta =
+            static_cast<int64_t>(random) % (2 * limit) - limit;
+        const int64_t numerator = delta * (width / 2);
+        const int64_t quotient = numerator / period - (numerator % period < 0);
+        const int32_t expected =
+            static_cast<int32_t>((quotient % width + width) % width);
+        HS_EXPECT_EQ(flywheel.position(EPOCH + static_cast<uint32_t>(delta)),
+                     expected);
       }
       for (int64_t half = -static_cast<int64_t>(MIN_SAFE_HALF_REVS);
            half < MIN_SAFE_HALF_REVS; ++half) {
-        const int64_t DELTA = half * period;
-        HS_EXPECT_EQ(flywheel.position(EPOCH + static_cast<uint32_t>(DELTA)),
+        const int64_t delta = half * period;
+        HS_EXPECT_EQ(flywheel.position(EPOCH + static_cast<uint32_t>(delta)),
                      half % 2 == 0 ? 0 : width / 2);
       }
     }
@@ -1027,15 +1027,15 @@ inline void test_flywheel_position() {
     HS_EXPECT_EQ(c1.at_cycles, 1000u + PERIOD);
     HS_EXPECT_FALSE(f.fold(1000u + PERIOD).crossed);
     // Coast 2.5 half-revs: two more crossings at exact instants.
-    const uint32_t late = 1000u + PERIOD + 2 * PERIOD + PERIOD / 2;
-    const Crossing c2 = f.fold(late);
+    const uint32_t LATE = 1000u + PERIOD + 2 * PERIOD + PERIOD / 2;
+    const Crossing c2 = f.fold(LATE);
     HS_EXPECT_TRUE(c2.crossed && c2.boundary == Boundary::ZERO);
     HS_EXPECT_EQ(c2.at_cycles, 1000u + 2 * PERIOD);
-    const Crossing c3 = f.fold(late);
+    const Crossing c3 = f.fold(LATE);
     HS_EXPECT_TRUE(c3.crossed && c3.boundary == Boundary::HALF);
     HS_EXPECT_EQ(c3.at_cycles, 1000u + 3 * PERIOD);
-    HS_EXPECT_FALSE(f.fold(late).crossed);
-    HS_EXPECT_EQ(f.position(late), 144 + 72);
+    HS_EXPECT_FALSE(f.fold(LATE).crossed);
+    HS_EXPECT_EQ(f.position(LATE), 144 + 72);
   }
 
   // The rebase rule makes the 32-bit wrap unobservable: run thousands of

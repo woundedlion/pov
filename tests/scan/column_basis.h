@@ -885,7 +885,7 @@ inline void test_point_birth_skips_earlier_columns() {
  */
 inline void test_volume_columns_match_rotated_placements() {
   constexpr int W = 96, H = 48;
-  const SDF::Torus torus{0.25f, 0.08f};
+  const SDF::Torus TORUS{0.25f, 0.08f};
   const math::Vector anchor = math::Vector(0.3f, 0.4f, 0.85f).normalized();
   const BasisMotion camera{math::Quaternion(),
                            math::make_rotation(math::Y_AXIS, 0.6f)};
@@ -911,7 +911,7 @@ inline void test_volume_columns_match_rotated_placements() {
   const auto [centre, q] = place(1.0f);
   const std::vector<Pixel> swept =
       render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
-        Scan::TransformedVolume volume(torus, centre, q);
+        Scan::TransformedVolume volume(TORUS, centre, q);
         Scan::Volume::draw<W, H>(pipeline, canvas, centre, BOUNDS, volume,
                                  shade, 24, 0.02f, *columns);
       });
@@ -919,7 +919,7 @@ inline void test_volume_columns_match_rotated_placements() {
   const auto expected =
       render_state_oracle<W, H>([&](auto &pipeline, Canvas &canvas, float u) {
         const auto [at, rotation] = place(u);
-        Scan::TransformedVolume volume(torus, at, rotation);
+        Scan::TransformedVolume volume(TORUS, at, rotation);
         Scan::Volume::draw<W, H>(pipeline, canvas, at, BOUNDS, volume, shade,
                                  24, 0.02f);
       });
@@ -1315,7 +1315,7 @@ inline void test_cap_may_touch_window_covers_window_pixels() {
 /** @brief Read-column bounds contain every placement consumed during a volume swing. */
 template <int W, int H> inline void test_volume_read_columns_cover_hits() {
   HS_CONTEXT("grid", W, H);
-  const SDF::Torus torus{0.25f, 0.08f};
+  const SDF::Torus TORUS{0.25f, 0.08f};
   const math::Vector anchor = math::Vector(0.3f, 0.4f, 0.85f).normalized();
   const auto rotation = math::make_rotation(math::Y_AXIS, 0.6f);
   constexpr float BOUNDS = 0.36f;
@@ -1330,7 +1330,7 @@ template <int W, int H> inline void test_volume_read_columns_cover_hits() {
   const auto [first, last] = columns->read_columns(centre, BOUNDS);
   int hits = 0;
   render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
-    Scan::TransformedVolume volume(torus, centre, rotation);
+    Scan::TransformedVolume volume(TORUS, centre, rotation);
     Scan::Volume::draw<W, H>(
         pipeline, canvas, centre, BOUNDS, volume,
         [&](const math::Vector &, Fragment &f, float time) {

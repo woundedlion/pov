@@ -96,8 +96,8 @@ inline void authored_sample_apply(Corrupt corrupt) {
   if constexpr (requires { Policy<Provider>::prepare(frame); })
     (void)Policy<Provider>::prepare(frame);
   else {
-    const float RESULT = Policy<Provider>::apply(provenance, frame);
-    (void)RESULT;
+    const float result = Policy<Provider>::apply(provenance, frame);
+    (void)result;
   }
 }
 

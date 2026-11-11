@@ -111,9 +111,9 @@ struct DynamoWhiteBox {
 
     HS_EXPECT_EQ(effect.color(math::Z_AXIS, T).color, bands[0]);
     HS_EXPECT_EQ(effect.color(direction(1.75f), T).color, bands[1]);
-    const float boundaries[2] = {FIRST, SECOND};
+    const float BOUNDARIES[2] = {FIRST, SECOND};
     for (int i = 0; i < 2; ++i) {
-      const Pixel mid = effect.color(direction(boundaries[i]), T).color;
+      const Pixel mid = effect.color(direction(BOUNDARIES[i]), T).color;
       const Pixel expected =
           bands[i].lerp16(bands[i + 1], float_to_pixel16(0.5f));
       HS_EXPECT_LE(max_channel_gap(mid, expected), 1);

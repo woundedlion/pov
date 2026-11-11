@@ -163,16 +163,16 @@ inline void test_interpolants_bound_orbit() {
 /** @brief A curved non-rigid path: the parabola through the middle capture
  *         meets the third-derivative bound, which is tight for a cubic. */
 inline void test_interpolants_bound_curved_path() {
-  const math::Vector a(0.1f, 0.7f, 0.6f), v(0.04f, -0.02f, 0.03f),
-      w(-0.05f, 0.03f, 0.02f), z(0.03f, 0.05f, -0.04f);
+  const math::Vector A(0.1f, 0.7f, 0.6f), V(0.04f, -0.02f, 0.03f),
+      W(-0.05f, 0.03f, 0.02f), Z(0.03f, 0.05f, -0.04f);
   for (const float scale : {0.2f, 1.0f, 3.0f}) {
     HS_CONTEXT("scale x10", std::llround(scale * 10.0f));
     const auto exact = [&](float t) {
-      return a + (v * t + w * (t * t) + z * (t * t * t)) * scale;
+      return A + (V * t + W * (t * t) + Z * (t * t * t)) * scale;
     };
     const Spacetime::PathBound bound{
-        (2.0f * w.magnitude() + 6.0f * z.magnitude()) * scale,
-        6.0f * z.magnitude() * scale};
+        (2.0f * W.magnitude() + 6.0f * Z.magnitude()) * scale,
+        6.0f * Z.magnitude() * scale};
     check_interpolants(exact, bound, nullptr, false);
     const auto parabola =
         Spacetime::Worldline::quadratic(exact(0.0f), exact(0.5f), exact(1.0f));

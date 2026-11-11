@@ -275,16 +275,16 @@ inline void test_shader_chain_bands_column_angle() {
     params.angle = angles.second;
     program.prepare(ctx);
     program.prepare_column(ctx, ctx, 0.5f);
-    const auto VIEWS = sweep_views();
+    const auto views = sweep_views();
     std::vector<Color4> actual;
-    for (const auto &view : VIEWS)
+    for (const auto &view : views)
       actual.push_back(program.evaluate_column(view, ctx, ctx, 0.5f));
     params.angle = (angles.first + angles.second) * 0.5f;
     program.prepare(ctx);
-    for (size_t index = 0; index < VIEWS.size(); ++index) {
-      const auto EXPECTED = program.evaluate(VIEWS[index], ctx);
-      HS_EXPECT_EQ(actual[index].color, EXPECTED.color);
-      HS_EXPECT_NEAR(actual[index].alpha, EXPECTED.alpha, 1e-6f);
+    for (size_t index = 0; index < views.size(); ++index) {
+      const auto expected = program.evaluate(views[index], ctx);
+      HS_EXPECT_EQ(actual[index].color, expected.color);
+      HS_EXPECT_NEAR(actual[index].alpha, expected.alpha, 1e-6f);
     }
   }
   program.clear();
@@ -294,13 +294,13 @@ inline void test_shader_chain_bands_column_angle() {
 inline void test_shader_chain_bands_latitudes() {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"project", "project.equirectangular.v2"},
       {"source", "sample.bands.v1"},
       {"colorize", "colorize.generated-palette.v4"},
   };
   if (!arm_chain<In::Op::MeridianProjectChainParams, In::Op::BandsSampleParams,
-                 In::Op::GeneratedPaletteParams>(program, chain, 0,
+                 In::Op::GeneratedPaletteParams>(program, CHAIN, 0,
                                                  ValueSet::DEFAULTS))
     return;
   auto &bands = param_as<In::Op::BandsSampleParams>(program, 1);
@@ -521,7 +521,7 @@ inline void test_shader_chain_noise_operator_domain() {
 inline void test_shader_chain_composed_noise_domain() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"project", In::Op::ProjectStereographic::ID},
       {"affine-a", In::Op::WarpAffineV4::ID},
       {"affine-b", In::Op::WarpAffineV4::ID},
@@ -532,7 +532,7 @@ inline void test_shader_chain_composed_noise_domain() {
       {"sample", In::Op::SampleProjectedNoise::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
   };
-  if (!expect_compiled(program.compile(chain)))
+  if (!expect_compiled(program.compile(CHAIN)))
     return;
   auto &projection = param_as<In::Op::ProjectChainParams>(program, 0);
   projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
@@ -817,14 +817,14 @@ inline void test_shader_chain_combined_color_modulation() {
         spatial.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, amount};
         const auto actual = PB::Color::finish(PB::Color::apply_modulation(
             PB::Color::apply_modulation(base, path), spatial));
-        const float ROTATION = math::wrap_t(.25f + scalar * amount);
+        const float rotation = math::wrap_t(.25f + scalar * amount);
         Color4 expected = base.color;
-        if (ROTATION != 0)
+        if (rotation != 0)
           expected.color =
               table
                   ? sample_hue_rotation_lut(palette.hue_rotation, FIELD.value,
-                                            ROTATION)
-                  : ColorModulation::HueRotation::apply(expected, 1, {ROTATION})
+                                            rotation)
+                  : ColorModulation::HueRotation::apply(expected, 1, {rotation})
                         .color;
         HS_EXPECT_TRUE(color4_identical(actual, expected));
       }

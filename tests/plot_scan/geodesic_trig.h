@@ -26,18 +26,18 @@ inline void test_geodesic_sincos_bit_parity() {
     }
   };
 
-  const uint32_t PI_BITS = std::bit_cast<uint32_t>(math::PI_F);
-  const uint32_t HALF_PI_BITS = std::bit_cast<uint32_t>(math::PI_F * 0.5f);
+  const uint32_t pi_bits = std::bit_cast<uint32_t>(math::PI_F);
+  const uint32_t half_pi_bits = std::bit_cast<uint32_t>(math::PI_F * 0.5f);
   constexpr uint32_t BOUNDARY_ULPS = 65536;
   for (uint32_t bits = 0; bits <= BOUNDARY_ULPS; ++bits)
     check(std::bit_cast<float>(bits));
-  for (uint32_t center : {HALF_PI_BITS, PI_BITS}) {
+  for (uint32_t center : {half_pi_bits, pi_bits}) {
     for (uint32_t bits = center - BOUNDARY_ULPS;
-         bits <= center + BOUNDARY_ULPS && bits <= PI_BITS; ++bits)
+         bits <= center + BOUNDARY_ULPS && bits <= pi_bits; ++bits)
       check(std::bit_cast<float>(bits));
   }
   constexpr uint32_t STRIDE = 4093;
-  for (uint64_t bits = 0; bits <= PI_BITS; bits += STRIDE)
+  for (uint64_t bits = 0; bits <= pi_bits; bits += STRIDE)
     check(std::bit_cast<float>(static_cast<uint32_t>(bits)));
   check(math::PI_F);
 

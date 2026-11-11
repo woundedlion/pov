@@ -365,7 +365,7 @@ inline const Case *all_cases(int &n) {
            "OpLeg: incompatible prepared bridge"},
           {"opleg_invalid_prepared_bridge_host",
            case_opleg_invalid_prepared_bridge_host, "core/animation/opleg.h",
-           "(HOST < handoff.prev_faces) OpLeg: prepared bridge host out of range"},
+           "(host < handoff.prev_faces) OpLeg: prepared bridge host out of range"},
           {"opleg_edge_settle_mismatch", case_opleg_edge_settle_mismatch,
            "core/animation/opleg.h",
            "(spec.settle_frames >= 0 && edge.settle == (spec.settle_frames > 0)) "
@@ -900,12 +900,12 @@ inline const Case *all_cases(int &n) {
           {"reaction_graph_slot_out_of_range",
            case_reaction_graph_slot_out_of_range,
            "core/spatial/reaction_graph.h",
-           "(NEIGHBOR >= 0 && NEIGHBOR < RD_N) neighbor run slot is not a "
+           "(neighbor >= 0 && neighbor < RD_N) neighbor run slot is not a "
            "lattice node index"},
           {"reaction_graph_slot_above_range",
            case_reaction_graph_slot_above_range,
            "core/spatial/reaction_graph.h",
-           "(NEIGHBOR >= 0 && NEIGHBOR < RD_N) neighbor run slot is not a "
+           "(neighbor >= 0 && neighbor < RD_N) neighbor run slot is not a "
            "lattice node index"},
           {"reaction_graph_empty_runs", case_reaction_graph_empty_runs,
            "core/spatial/reaction_graph.h",
@@ -1199,7 +1199,7 @@ inline const Case *all_cases(int &n) {
            "/ cap 16"},
           {"relax_baked_dimension_mismatch",
            case_relax_baked_dimension_mismatch, "core/mesh/conway.h",
-           "(V == bake.vertex_count && F == bake.face_count && I == "
+           "(v == bake.vertex_count && f == bake.face_count && i_value == "
            "bake.index_count) relax_baked: source dimensions differ"},
           {"relax_baked_topology_mismatch", case_relax_baked_topology_mismatch,
            "core/mesh/conway.h",
@@ -1312,11 +1312,11 @@ inline const Case *all_cases(int &n) {
            "source mesh"},
           {"reconcile_vertices_size_mismatch",
            case_reconcile_vertices_size_mismatch, "core/mesh/conway.h",
-           "(authored.vertices.size() == V) reconcile_vertices: endpoints differ "
+           "(authored.vertices.size() == v) reconcile_vertices: endpoints differ "
            "in vertex count"},
           {"reconcile_vertices_empty", case_reconcile_vertices_empty,
            "core/mesh/conway.h",
-           "(V > 0) reconcile_vertices: endpoint pair has no vertices"},
+           "(v > 0) reconcile_vertices: endpoint pair has no vertices"},
           {"reconcile_vertices_aliased_output",
            case_reconcile_vertices_aliased_output, "core/mesh/conway.h",
            "(&out != &identity && &out != &authored) reconcile_vertices: output must not alias either input"},
@@ -1736,7 +1736,7 @@ inline const Case *all_cases(int &n) {
            "[0, 1]"},
           {"star_mismatched_chart", case_star_mismatched_chart,
            "core/render/plot/shapes.h",
-           "(CHART_MATCHES) Star: edge chart does not match inputs"},
+           "(chart_matches) Star: edge chart does not match inputs"},
           // scan
           {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds,
            "core/render/scan/shader.h",
@@ -1906,11 +1906,11 @@ inline const Case *all_cases(int &n) {
            "(coverage >= 0.0f && coverage <= 1.0f && input.provenance.domain_coverage >= 0.0f && input.provenance.domain_coverage <= 1.0f) field coverage factors must remain in [0, 1]"},
           {"chain_overlapping_storage", case_chain_overlapping_storage,
            "core/render/pullback/interpreter.h",
-           "(A < B ? B - A >= block_capacity : A - B >= block_capacity) "
+           "(a < b ? b - a >= block_capacity : a - b >= block_capacity) "
            "ChainProgram::bind_storage: overlapping blocks"},
           {"chain_identical_storage", case_chain_identical_storage,
            "core/render/pullback/interpreter.h",
-           "(A < B ? B - A >= block_capacity : A - B >= block_capacity) "
+           "(a < b ? b - a >= block_capacity : a - b >= block_capacity) "
            "ChainProgram::bind_storage: overlapping blocks"},
           {"chain_zero_alignment", case_chain_zero_alignment,
            "core/render/pullback/interpreter.h",
@@ -2007,7 +2007,7 @@ inline const Case *all_cases(int &n) {
           {"pullback_column_nonunit_direction",
            case_pullback_column_nonunit_direction,
            "core/render/pullback/contract.h",
-           "(fabsf(math::dot(LOCAL, LOCAL) - 1.0f) <= "
+           "(fabsf(math::dot(local, local) - 1.0f) <= "
            "DIRECTION_NORM_SQUARED_TOLERANCE) "
            "column projection requires a unit direction"},
           {"pullback_operator_invalid_coverage_mode",
@@ -2196,9 +2196,9 @@ inline const Case *all_cases(int &n) {
           {"face_virtual_height_mismatched_geometry",
            case_face_virtual_height_mismatched_geometry,
            "core/render/sdf/face.h",
-           "(build_geometry.row_to_phi(0) == DISPLAY_GEOMETRY.row_to_phi(0) && "
+           "(build_geometry.row_to_phi(0) == display_geometry.row_to_phi(0) && "
            "build_geometry.row_to_phi(height - 1) == "
-           "DISPLAY_GEOMETRY.row_to_phi(height - 1)) "
+           "display_geometry.row_to_phi(height - 1)) "
            "PreparedFace: virtual height must match the display geometry"},
           {"face_scratch_retargeted_by_culled_face",
            case_face_scratch_retargeted_by_culled_face,
@@ -2380,17 +2380,17 @@ inline void run_child_case(const char *name) {
   if (std::strcmp(name, DETERMINISM_PROBE_CASE) == 0) {
     std::vector<Pixel> frame;
     uint64_t fold = 0;
-    const auto CAPTURE = [&]<template <int, int> class E>() {
+    const auto capture = [&]<template <int, int> class E>() {
       effects_tests::render_capture<E, effects_tests::SMALL_W,
                                     effects_tests::SMALL_H>(frame, 8, &fold);
-      const uint64_t COLD = fold;
+      const uint64_t cold = fold;
       effects_tests::render_capture<E, effects_tests::SMALL_W,
                                     effects_tests::SMALL_H>(frame, 8, &fold);
       std::printf("capture %016llx %016llx\n",
-                  static_cast<unsigned long long>(COLD),
+                  static_cast<unsigned long long>(cold),
                   static_cast<unsigned long long>(fold));
     };
-#define HS_CAPTURE_COLD_WARM(effect) CAPTURE.operator()<effect>();
+#define HS_CAPTURE_COLD_WARM(effect) capture.operator()<effect>();
     HS_EFFECT_LIST(HS_CAPTURE_COLD_WARM)
 #undef HS_CAPTURE_COLD_WARM
     return;
@@ -2458,8 +2458,8 @@ inline void load_child_output() {
   if (std::fseek(f, 0, SEEK_END) == 0) {
     const long size = std::ftell(f);
     if (size > 0) {
-      const long cap = static_cast<long>(CHILD_OUTPUT_CAP) - 1;
-      const long keep = size < cap ? size : cap;
+      const long CAP = static_cast<long>(CHILD_OUTPUT_CAP) - 1;
+      const long keep = size < CAP ? size : CAP;
       if (std::fseek(f, size - keep, SEEK_SET) == 0)
         buf[std::fread(buf, 1, static_cast<size_t>(keep), f)] = '\0';
     }
@@ -2681,15 +2681,15 @@ inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
     _exit(127); // exec failed — never returns to the harness
   }
   int status = 0;
-  const auto DEADLINE =
+  const auto deadline_value =
       std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
   for (;;) {
-    const pid_t WAITED = waitpid(pid, &status, WNOHANG);
-    if (WAITED == pid)
+    const pid_t waited = waitpid(pid, &status, WNOHANG);
+    if (waited == pid)
       break;
-    if (WAITED < 0 && errno != EINTR)
+    if (waited < 0 && errno != EINTR)
       return -1;
-    if (std::chrono::steady_clock::now() >= DEADLINE) {
+    if (std::chrono::steady_clock::now() >= deadline_value) {
       kill(pid, SIGKILL);
       while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
       }
@@ -3036,15 +3036,15 @@ inline void compare_determinism_folds() {
       HS_EXPECT_TRUE(false);
       break;
     }
-    const std::string COLD = fold_a.substr(offset, 16);
-    const std::string WARM = fold_a.substr(offset + 17, 16);
-    HS_EXPECT_EQ(COLD.find_first_not_of("0123456789abcdef"), std::string::npos);
-    HS_EXPECT_EQ(WARM.find_first_not_of("0123456789abcdef"), std::string::npos);
+    const std::string cold = fold_a.substr(offset, 16);
+    const std::string warm = fold_a.substr(offset + 17, 16);
+    HS_EXPECT_EQ(cold.find_first_not_of("0123456789abcdef"), std::string::npos);
+    HS_EXPECT_EQ(warm.find_first_not_of("0123456789abcdef"), std::string::npos);
     HS_EXPECT_EQ(fold_a[offset + 16], ' ');
     HS_EXPECT_TRUE(fold_a[offset + PAYLOAD_BYTES] == '\r' ||
                    fold_a[offset + PAYLOAD_BYTES] == '\n');
-    HS_EXPECT_TRUE(COLD != "0000000000000000");
-    HS_EXPECT_EQ(COLD, WARM);
+    HS_EXPECT_TRUE(cold != "0000000000000000");
+    HS_EXPECT_EQ(cold, warm);
     ++record_count;
     offset += PAYLOAD_BYTES;
   }

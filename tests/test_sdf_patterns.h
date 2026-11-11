@@ -56,11 +56,11 @@ inline void test_lattice_world_metric_and_fourth_axis() {
   HS_EXPECT_NEAR(cubic.distance({3.5f, -1.8f, 1.0f}), 0.1f, 1e-6f);
   math::rotate_plane(cubic.rotation, 0, 1, 0.7f);
   HS_EXPECT_TRUE(cubic.valid());
-  const math::Vec4 ROTATED = cubic.rotation.apply({{0.5f, 0.2f, 0.0f, 0.0f}});
-  const math::Vector P{ROTATED[0] + 3.0f, ROTATED[1] - 2.0f, ROTATED[2] + 1.0f};
-  HS_EXPECT_NEAR(cubic.distance(P), 0.1f, 1e-6f);
-  HS_EXPECT_NEAR(cubic.normal(P).magnitude(), 1.0f, 1e-6f);
-  check_distance_normal(cubic, P);
+  const math::Vec4 rotated = cubic.rotation.apply({{0.5f, 0.2f, 0.0f, 0.0f}});
+  const math::Vector p{rotated[0] + 3.0f, rotated[1] - 2.0f, rotated[2] + 1.0f};
+  HS_EXPECT_NEAR(cubic.distance(p), 0.1f, 1e-6f);
+  HS_EXPECT_NEAR(cubic.normal(p).magnitude(), 1.0f, 1e-6f);
+  check_distance_normal(cubic, p);
   cubic.rotation.m[0][0] *= 2.0f;
   HS_EXPECT_FALSE(cubic.valid());
 
@@ -119,10 +119,10 @@ inline void test_framework_geometry_and_plane_streams() {
   check_distance_normal(framework, P);
   HS_EXPECT_NEAR(framework.distance(P),
                  framework.distance(P + math::Vector{0.5f, H, 1.0f}), 1e-6f);
-  const auto FAMILIES = framework.plane_families();
-  HS_EXPECT_NEAR(math::dot(FAMILIES[0].normal, FAMILIES[1].normal), 0.5f,
+  const auto families = framework.plane_families();
+  HS_EXPECT_NEAR(math::dot(families[0].normal, families[1].normal), 0.5f,
                  1e-6f);
-  HS_EXPECT_NEAR(math::dot(FAMILIES[1].normal, FAMILIES[2].normal), -0.5f,
+  HS_EXPECT_NEAR(math::dot(families[1].normal, families[2].normal), -0.5f,
                  1e-6f);
   Raycast::Ray ray{{0.2f, 0.1f, 0.3f}, {0.0f, 0.0f, -1.0f}, {0.0f, 4.0f}};
   SDF::FrameworkEvents events(framework, ray);
@@ -152,15 +152,15 @@ inline float octet_segment_reference(const math::Vector &p) {
       for (int z = -2; z <= 2; ++z) {
         if ((x + y + z) % 2 != 0)
           continue;
-        const math::Vector VERTEX =
+        const math::Vector vertex =
             math::Vector{static_cast<float>(x), static_cast<float>(y),
                          static_cast<float>(z)} *
             HALF_CUBE;
         for (const auto &direction : DIRECTIONS) {
-          const math::Vector EDGE = direction * HALF_CUBE;
-          const float ALONG =
-              std::clamp(math::dot(p - VERTEX, EDGE), 0.0f, 1.0f);
-          best = std::min(best, (p - VERTEX - EDGE * ALONG).magnitude());
+          const math::Vector edge = direction * HALF_CUBE;
+          const float along =
+              std::clamp(math::dot(p - vertex, edge), 0.0f, 1.0f);
+          best = std::min(best, (p - vertex - edge * along).magnitude());
         }
       }
   return best;
@@ -170,24 +170,24 @@ inline float octet_segment_reference(const math::Vector &p) {
 inline void test_octet_fcc_geometry_and_symmetry() {
   SDF::OctetFramework octet;
   HS_EXPECT_TRUE(octet.valid());
-  const auto PLANES = octet.plane_families();
-  for (size_t i = 0; i < PLANES.size(); ++i) {
-    HS_EXPECT_NEAR(PLANES[i].normal.magnitude(), 1.0f, 1e-6f);
-    HS_EXPECT_NEAR(PLANES[i].spacing, sqrtf(2.0f / 3.0f), 1e-6f);
-    for (size_t j = i + 1; j < PLANES.size(); ++j)
-      HS_EXPECT_NEAR(math::dot(PLANES[i].normal, PLANES[j].normal),
+  const auto planes = octet.plane_families();
+  for (size_t i = 0; i < planes.size(); ++i) {
+    HS_EXPECT_NEAR(planes[i].normal.magnitude(), 1.0f, 1e-6f);
+    HS_EXPECT_NEAR(planes[i].spacing, sqrtf(2.0f / 3.0f), 1e-6f);
+    for (size_t j = i + 1; j < planes.size(); ++j)
+      HS_EXPECT_NEAR(math::dot(planes[i].normal, planes[j].normal),
                      -1.0f / 3.0f, 1e-6f);
   }
   constexpr float H = 0.7071067811865475f;
   for (int zero = 0; zero < 3; ++zero)
     for (int a : {-1, 1})
       for (int b : {-1, 1}) {
-        const math::Vector END = zero == 0   ? math::Vector{0, a * H, b * H}
+        const math::Vector end = zero == 0   ? math::Vector{0, a * H, b * H}
                                  : zero == 1 ? math::Vector{a * H, 0, b * H}
                                              : math::Vector{a * H, b * H, 0};
-        HS_EXPECT_NEAR(END.magnitude(), octet.cell_size, 1e-6f);
+        HS_EXPECT_NEAR(end.magnitude(), octet.cell_size, 1e-6f);
         for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f})
-          HS_EXPECT_NEAR(octet.distance(END * fraction), -octet.wire_radius,
+          HS_EXPECT_NEAR(octet.distance(end * fraction), -octet.wire_radius,
                          1e-6f);
       }
   check_distance_normal(octet, {0.23f, 0.19f, 0.17f});
@@ -195,30 +195,30 @@ inline void test_octet_fcc_geometry_and_symmetry() {
   HS_EXPECT_NEAR(octet.distance({H / 2, H / 2, H / 2}),
                  H / 2 - octet.wire_radius, 1e-6f);
   for (int i = 0; i < 100; ++i) {
-    const math::Vector P{0.7f * sinf(i * 0.73f), 0.7f * cosf(i * 0.47f),
+    const math::Vector p{0.7f * sinf(i * 0.73f), 0.7f * cosf(i * 0.47f),
                          0.7f * sinf(i * 0.31f)};
-    const float DISTANCE = octet.distance(P);
-    HS_EXPECT_NEAR(DISTANCE, octet_segment_reference(P) - octet.wire_radius,
+    const float distance = octet.distance(p);
+    HS_EXPECT_NEAR(distance, octet_segment_reference(p) - octet.wire_radius,
                    2e-6f);
-    HS_EXPECT_NEAR(DISTANCE, octet.distance({P.z, P.x, P.y}), 1e-6f);
-    HS_EXPECT_NEAR(DISTANCE, octet.distance({-P.x, P.y, P.z}), 1e-6f);
-    HS_EXPECT_NEAR(DISTANCE, octet.distance(P + math::Vector{H, H, 0}), 1e-6f);
-    HS_EXPECT_NEAR(octet.normal(P).magnitude(), 1.0f, 1e-6f);
-    const math::Vector Q = P + math::Vector{0.01f, -0.03f, 0.02f};
-    HS_EXPECT_LE(fabsf(DISTANCE - octet.distance(Q)),
-                 (P - Q).magnitude() + 1e-6f);
+    HS_EXPECT_NEAR(distance, octet.distance({p.z, p.x, p.y}), 1e-6f);
+    HS_EXPECT_NEAR(distance, octet.distance({-p.x, p.y, p.z}), 1e-6f);
+    HS_EXPECT_NEAR(distance, octet.distance(p + math::Vector{H, H, 0}), 1e-6f);
+    HS_EXPECT_NEAR(octet.normal(p).magnitude(), 1.0f, 1e-6f);
+    const math::Vector q = p + math::Vector{0.01f, -0.03f, 0.02f};
+    HS_EXPECT_LE(fabsf(distance - octet.distance(q)),
+                 (p - q).magnitude() + 1e-6f);
     SDF::OctetFramework scaled;
     scaled.cell_size *= 3;
     scaled.wire_radius *= 3;
     scaled.origin = {2, -3, 4};
-    HS_EXPECT_NEAR(scaled.distance(P * 3 + scaled.origin), DISTANCE * 3, 3e-6f);
-    for (size_t plane = 0; plane < PLANES.size(); ++plane) {
-      const auto N = PLANES[plane].normal;
-      const auto ON_PLANE = P - N * math::dot(P, N);
-      const auto SAMPLE =
-          SDF::detail::reference::plane_sample(octet, plane, ON_PLANE);
-      HS_EXPECT_GE(SAMPLE.field + 2e-6f, octet.distance(ON_PLANE));
-      HS_EXPECT_FALSE(SAMPLE.boundary);
+    HS_EXPECT_NEAR(scaled.distance(p * 3 + scaled.origin), distance * 3, 3e-6f);
+    for (size_t plane = 0; plane < planes.size(); ++plane) {
+      const auto n = planes[plane].normal;
+      const auto on_plane = p - n * math::dot(p, n);
+      const auto sample =
+          SDF::detail::reference::plane_sample(octet, plane, on_plane);
+      HS_EXPECT_GE(sample.field + 2e-6f, octet.distance(on_plane));
+      HS_EXPECT_FALSE(sample.boundary);
     }
   }
   HS_EXPECT_FALSE(octet.sample({H, 0, 0}).boundary);
@@ -231,12 +231,12 @@ inline void test_octet_fcc_geometry_and_symmetry() {
 
 /** @brief Octet events preserve tie ordering and capacity limits. */
 inline void test_octet_events_ties_and_limits() {
-  const SDF::OctetFramework OCTET;
+  const SDF::OctetFramework octet;
   const Raycast::Ray RAY{{0, 0, 0}, {1, 0, 0}, {0, 1.5f}};
-  SDF::OctetEvents events(OCTET, RAY);
+  SDF::OctetEvents events(octet, RAY);
   Raycast::TraceLimits limits;
   size_t count = 0;
-  const auto RESULT = Raycast::trace_events(
+  const auto result = Raycast::trace_events(
       events, RAY.interval, limits, [&](const Raycast::Contribution &hit) {
         HS_EXPECT_NEAR(hit.t, static_cast<float>(count) * sqrtf(2.0f), 1e-6f);
         HS_EXPECT_EQ(hit.coverage, 1.0f);
@@ -244,48 +244,48 @@ inline void test_octet_events_ties_and_limits() {
         ++count;
         return true;
       });
-  HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
-  HS_EXPECT_FALSE(RESULT.has_surface);
-  HS_EXPECT_EQ(RESULT.counters.candidates, 6);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_FALSE(result.has_surface);
+  HS_EXPECT_EQ(result.counters.candidates, 6);
   HS_EXPECT_EQ(count, size_t{2});
   limits.max_candidates = 3;
-  events = SDF::OctetEvents(OCTET, RAY);
-  const auto LIMITED = Raycast::trace_events(events, RAY.interval, limits,
+  events = SDF::OctetEvents(octet, RAY);
+  const auto limited = Raycast::trace_events(events, RAY.interval, limits,
                                              [](const auto &) { return true; });
-  HS_EXPECT_EQ(LIMITED.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
-  HS_EXPECT_EQ(LIMITED.counters.candidates, 3);
-  HS_EXPECT_EQ(LIMITED.counters.layers, 1);
+  HS_EXPECT_EQ(limited.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(limited.counters.candidates, 3);
+  HS_EXPECT_EQ(limited.counters.layers, 1);
   limits.max_candidates = 64;
   limits.max_layers = 1;
-  events = SDF::OctetEvents(OCTET, RAY);
-  const auto LAYERS = Raycast::trace_events(events, RAY.interval, limits,
+  events = SDF::OctetEvents(octet, RAY);
+  const auto layers = Raycast::trace_events(events, RAY.interval, limits,
                                             [](const auto &) { return true; });
-  HS_EXPECT_EQ(LAYERS.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
-  HS_EXPECT_EQ(LAYERS.counters.layers, 1);
-  const Raycast::Ray EDGE_RAY{
+  HS_EXPECT_EQ(layers.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(layers.counters.layers, 1);
+  const Raycast::Ray edge_ray{
       {0, 0, 0}, math::Vector{1, 1, 0}.normalized(), {0, 3}};
-  SDF::OctetEvents edge_events(OCTET, EDGE_RAY);
+  SDF::OctetEvents edge_events(octet, edge_ray);
   HS_EXPECT_FALSE(edge_events.active(1));
   HS_EXPECT_FALSE(edge_events.active(2));
   edge_events.advance(0);
   HS_EXPECT_NEAR(edge_events.distance(0), 1.0f, 1e-6f);
-  const Raycast::Ray OBLIQUE{
+  const Raycast::Ray oblique{
       {0.2f, -0.3f, 0.4f}, math::Vector{-1, 2, -3}.normalized(), {0.3f, 4}};
-  SDF::OctetEvents slanted(OCTET, OBLIQUE, {0.05f, 0.1f});
+  SDF::OctetEvents slanted(octet, oblique, {0.05f, 0.1f});
   size_t slanted_hits = 0;
-  float previous = OBLIQUE.interval.near;
+  float previous = oblique.interval.near;
   limits.max_layers = 32;
-  const auto SLANTED = Raycast::trace_events(slanted, OBLIQUE.interval, limits,
-                                             [&](const auto &hit) {
-                                               ++slanted_hits;
-                                               HS_EXPECT_GE(hit.t, previous);
-                                               HS_EXPECT_GE(hit.coverage, 0.0f);
-                                               HS_EXPECT_LE(hit.coverage, 1.0f);
-                                               HS_EXPECT_FALSE(hit.verified);
-                                               previous = hit.t;
-                                               return true;
-                                             });
-  HS_EXPECT_EQ(SLANTED.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  const auto slanted_value = Raycast::trace_events(
+      slanted, oblique.interval, limits, [&](const auto &hit) {
+        ++slanted_hits;
+        HS_EXPECT_GE(hit.t, previous);
+        HS_EXPECT_GE(hit.coverage, 0.0f);
+        HS_EXPECT_LE(hit.coverage, 1.0f);
+        HS_EXPECT_FALSE(hit.verified);
+        previous = hit.t;
+        return true;
+      });
+  HS_EXPECT_EQ(slanted_value.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_GT(slanted_hits, size_t{1});
 }
 
@@ -301,67 +301,67 @@ inline void test_octet_struts_have_one_angle_correct_coverage_layer() {
       {0, H, -H},
   }};
   for (const auto &edge : EDGES) {
-    const math::Vector MIDPOINT = edge * 0.5f;
-    const math::Vector TRANSVERSE = edge.x == 0   ? math::Vector{1, 0, 0}
+    const math::Vector midpoint = edge * 0.5f;
+    const math::Vector transverse = edge.x == 0   ? math::Vector{1, 0, 0}
                                     : edge.y == 0 ? math::Vector{0, 1, 0}
                                                   : math::Vector{0, 0, 1};
-    const math::Vector BINORMAL = math::cross(edge, TRANSVERSE);
+    const math::Vector binormal = math::cross(edge, transverse);
     for (float along : {0.0f, 0.75f, 8.0f}) {
       SDF::OctetFramework octet;
       octet.wire_radius = along > 1 ? 0.0005f : 0.05f;
       for (float angle : {-0.0001f, 0.0f, 0.0001f, 0.27f, 0.7853981634f, -1.1f})
         for (float sign : {-1.0f, 1.0f}) {
-          const math::Vector DIRECTION =
-              (TRANSVERSE * cosf(angle) + BINORMAL * sinf(angle) + edge * along)
+          const math::Vector direction =
+              (transverse * cosf(angle) + binormal * sinf(angle) + edge * along)
                   .normalized() *
               sign;
-          const math::Vector CROSS = math::cross(DIRECTION, edge);
-          const math::Vector OFFSET_DIRECTION = CROSS.normalized();
+          const math::Vector cross = math::cross(direction, edge);
+          const math::Vector offset_direction = cross.normalized();
           for (float offset :
                {-1.5f, -1.05f, -0.9f, -0.4f, 0.0f, 0.4f, 0.9f, 1.05f, 1.5f})
             for (float aa : {0.0f, 1.0f}) {
-              const Raycast::Ray RAY{
-                  MIDPOINT + OFFSET_DIRECTION * (offset * octet.wire_radius) -
-                      DIRECTION * 0.2f,
-                  DIRECTION,
+              const Raycast::Ray ray{
+                  midpoint + offset_direction * (offset * octet.wire_radius) -
+                      direction * 0.2f,
+                  direction,
                   {0, 0.4f}};
-              const Raycast::Footprint FOOTPRINT{aa * octet.wire_radius, 0.2f};
-              const double CX =
-                  double(DIRECTION.y) * edge.z - double(DIRECTION.z) * edge.y;
-              const double CY =
-                  double(DIRECTION.z) * edge.x - double(DIRECTION.x) * edge.z;
-              const double CZ =
-                  double(DIRECTION.x) * edge.y - double(DIRECTION.y) * edge.x;
-              const double DISTANCE =
-                  fabs((double(RAY.origin.x) - MIDPOINT.x) * CX +
-                       (double(RAY.origin.y) - MIDPOINT.y) * CY +
-                       (double(RAY.origin.z) - MIDPOINT.z) * CZ) /
-                  sqrt(CX * CX + CY * CY + CZ * CZ);
-              SDF::OctetEvents events(octet, RAY, FOOTPRINT);
+              const Raycast::Footprint footprint{aa * octet.wire_radius, 0.2f};
+              const double cx =
+                  double(direction.y) * edge.z - double(direction.z) * edge.y;
+              const double cy =
+                  double(direction.z) * edge.x - double(direction.x) * edge.z;
+              const double cz =
+                  double(direction.x) * edge.y - double(direction.y) * edge.x;
+              const double distance =
+                  fabs((double(ray.origin.x) - midpoint.x) * cx +
+                       (double(ray.origin.y) - midpoint.y) * cy +
+                       (double(ray.origin.z) - midpoint.z) * cz) /
+                  sqrt(cx * cx + cy * cy + cz * cz);
+              SDF::OctetEvents events(octet, ray, footprint);
               size_t count = 0;
-              const auto RESULT = Raycast::trace_events(
-                  events, RAY.interval, {}, [&](const auto &hit) {
-                    const float WIDTH = FOOTPRINT.at(hit.t);
-                    const double EXPECTED =
-                        WIDTH > 0
-                            ? std::clamp(0.5 - (DISTANCE - octet.wire_radius) /
-                                                   WIDTH,
+              const auto result = Raycast::trace_events(
+                  events, ray.interval, {}, [&](const auto &hit) {
+                    const float width = footprint.at(hit.t);
+                    const double expected =
+                        width > 0
+                            ? std::clamp(0.5 - (distance - octet.wire_radius) /
+                                                   width,
                                          0.0, 1.0)
                             : 1.0f;
                     // Plane-coordinate rounding is amplified by the AA width.
-                    const double TOLERANCE =
-                        WIDTH > 0
+                    const double tolerance =
+                        width > 0
                             ? 2e-4 + std::numeric_limits<float>::epsilon() *
-                                         octet.cell_size / WIDTH
+                                         octet.cell_size / width
                             : 2e-4;
-                    HS_EXPECT_NEAR(hit.coverage, EXPECTED, TOLERANCE);
+                    HS_EXPECT_NEAR(hit.coverage, expected, tolerance);
                     HS_EXPECT_FALSE(hit.verified);
                     ++count;
                     return true;
                   });
-              HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
-              const bool VISIBLE = fabsf(offset) < (aa > 0 ? 1.1f : 1.0f);
-              HS_EXPECT_EQ(count, VISIBLE ? size_t{1} : size_t{0});
+              HS_EXPECT_EQ(result.status, Raycast::TraceStatus::RANGE_COMPLETE);
+              const bool visible = fabsf(offset) < (aa > 0 ? 1.1f : 1.0f);
+              HS_EXPECT_EQ(count, visible ? size_t{1} : size_t{0});
             }
         }
     }
@@ -378,20 +378,20 @@ inline float octet4_segment_reference(const math::Vec4 &p) {
         for (int w = -2; w <= 2; ++w) {
           if ((x + y + z + w) % 2 != 0)
             continue;
-          const math::Vec4 VERTEX{{x * H, y * H, z * H, w * H}};
+          const math::Vec4 vertex{{x * H, y * H, z * H, w * H}};
           for (int i = 0; i < 4; ++i)
             for (int j = i + 1; j < 4; ++j)
               for (int sign : {-1, 1}) {
-                const float ALONG = std::clamp(
-                    H * (p[i] - VERTEX[i] + sign * (p[j] - VERTEX[j])), 0.0f,
+                const float along = std::clamp(
+                    H * (p[i] - vertex[i] + sign * (p[j] - vertex[j])), 0.0f,
                     1.0f);
                 float squared = 0.0f;
                 for (int k = 0; k < 4; ++k) {
-                  const float D = p[k] - VERTEX[k] -
-                                  (k == i   ? H * ALONG
-                                   : k == j ? sign * H * ALONG
+                  const float d = p[k] - vertex[k] -
+                                  (k == i   ? H * along
+                                   : k == j ? sign * H * along
                                             : 0.0f);
-                  squared += D * D;
+                  squared += d * d;
                 }
                 best = std::min(best, sqrtf(squared));
               }
@@ -404,12 +404,12 @@ template <bool Normalized = false>
 inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
                                           const math::Vec4 &p,
                                           uint32_t &feature) {
-  const float SCALE =
+  const float scale =
       Normalized ? 1.0f : SDF::OctetFramework4::HALF_CUBE * geometry.cell_size;
-  const float INVERSE_SCALE = 1.0f / SCALE;
+  const float inverse_scale = 1.0f / scale;
   math::Vec4 q, rounded, residual, result;
   for (int i = 0; i < 4; ++i) {
-    q[i] = Normalized ? p[i] : (p[i] - geometry.origin[i]) * INVERSE_SCALE;
+    q[i] = Normalized ? p[i] : (p[i] - geometry.origin[i]) * inverse_scale;
     rounded[i] = roundf(q[i]);
     residual[i] = q[i] - rounded[i];
   }
@@ -419,10 +419,10 @@ inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
   for (int i = 0; i < 4; ++i)
     for (int j = i + 1; j < 4; ++j)
       for (int sign : {-1, 1}) {
-        const float U = q[i] - sign * q[j];
-        const float PLANE = roundf(U);
-        float along = U - PLANE;
-        float parity = PLANE;
+        const float u = q[i] - sign * q[j];
+        const float plane = roundf(u);
+        float along = u - plane;
+        float parity = plane;
         float squared = 0.0f;
         float flip_cost = 0.5f - fabsf(along);
         int flip_axis = -1;
@@ -432,9 +432,9 @@ inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
             continue;
           parity += rounded[k];
           squared += residual[k] * residual[k];
-          const float COST = 1.0f - 2.0f * fabsf(residual[k]);
-          if (COST < flip_cost) {
-            flip_cost = COST;
+          const float cost = 1.0f - 2.0f * fabsf(residual[k]);
+          if (cost < flip_cost) {
+            flip_cost = cost;
             flip_axis = k;
           }
         }
@@ -452,7 +452,7 @@ inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
           offset[i] = 0.5f * along;
           offset[j] = -0.5f * sign * along;
           for (int k = 0; k < 4; ++k)
-            result[k] = offset[k] * SCALE;
+            result[k] = offset[k] * scale;
           feature = pair;
         }
         ++pair;
@@ -490,18 +490,18 @@ inline void test_octet4_edges_parity_and_symmetry() {
     math::Vec4 p;
     for (int i = 0; i < 4; ++i)
       p[i] = 0.7f * sinf(sample * (i + 1) * 0.47f + 0.13f);
-    const float DISTANCE = octet.distance(p);
-    HS_EXPECT_NEAR(DISTANCE, octet4_segment_reference(p) - octet.wire_radius,
+    const float distance = octet.distance(p);
+    HS_EXPECT_NEAR(distance, octet4_segment_reference(p) - octet.wire_radius,
                    2e-6f);
-    HS_EXPECT_NEAR(DISTANCE, octet.distance({{p[3], -p[2], p[1], p[0]}}),
+    HS_EXPECT_NEAR(distance, octet.distance({{p[3], -p[2], p[1], p[0]}}),
                    1e-6f);
     auto moved = p;
     moved[0] += H;
     moved[3] -= H;
-    HS_EXPECT_NEAR(DISTANCE, octet.distance(moved), 1e-6f);
+    HS_EXPECT_NEAR(distance, octet.distance(moved), 1e-6f);
     auto nearby = p;
     nearby[3] += 0.023f;
-    HS_EXPECT_LE(fabsf(DISTANCE - octet.distance(nearby)), 0.023001f);
+    HS_EXPECT_LE(fabsf(distance - octet.distance(nearby)), 0.023001f);
     HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(octet.normal(p)), 1.0f,
                    1e-6f);
     auto scaled = octet;
@@ -511,17 +511,17 @@ inline void test_octet4_edges_parity_and_symmetry() {
     math::Vec4 placed;
     for (int i = 0; i < 4; ++i)
       placed[i] = scaled.origin[i] + 2.5f * p[i];
-    HS_EXPECT_NEAR(scaled.distance(placed), DISTANCE * 2.5f, 3e-6f);
-    const auto QUERY = octet.sample(p);
-    HS_EXPECT_NEAR(QUERY.clearance, fabsf(DISTANCE), 1e-6f);
-    HS_EXPECT_LT(QUERY.feature, uint32_t{12});
+    HS_EXPECT_NEAR(scaled.distance(placed), distance * 2.5f, 3e-6f);
+    const auto query = octet.sample(p);
+    HS_EXPECT_NEAR(query.clearance, fabsf(distance), 1e-6f);
+    HS_EXPECT_LT(query.feature, uint32_t{12});
   }
   for (const auto &plane : octet.plane_families()) {
     HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(plane.normal), 1.0f, 1e-6f);
     HS_EXPECT_NEAR(plane.spacing, H, 1e-6f);
   }
   const math::Vec4 POINT{{0.23f, 0.19f, 0.17f, 0.31f}};
-  const auto NORMAL = octet.normal(POINT);
+  const auto normal = octet.normal(POINT);
   math::Vec4 derivative;
   constexpr float DELTA = 1e-4f;
   float squared = 0;
@@ -534,7 +534,7 @@ inline void test_octet4_edges_parity_and_symmetry() {
     squared += derivative[axis] * derivative[axis];
   }
   for (int axis = 0; axis < 4; ++axis)
-    HS_EXPECT_NEAR(NORMAL[axis], derivative[axis] / sqrtf(squared), 3e-3f);
+    HS_EXPECT_NEAR(normal[axis], derivative[axis] / sqrtf(squared), 3e-3f);
   octet.origin[3] = INFINITY;
   HS_EXPECT_FALSE(octet.valid());
 }
@@ -542,28 +542,28 @@ inline void test_octet4_edges_parity_and_symmetry() {
 /** @brief Octet4 nearest edge matches line search. */
 inline void test_octet4_nearest_edge_matches_line_search() {
   SDF::OctetFramework4 geometry;
-  const auto VERIFY = [&]<bool Normalized>(const math::Vec4 &point) {
+  const auto verify = [&]<bool Normalized>(const math::Vec4 &point) {
     uint32_t expected_feature;
     uint32_t feature;
     uint32_t sample_feature;
-    const auto EXPECTED =
+    const auto expected =
         octet4_offset_reference<Normalized>(geometry, point, expected_feature);
-    const auto OFFSET = geometry.edge_query<true, Normalized>(point, feature);
-    const float DISTANCE =
+    const auto offset = geometry.edge_query<true, Normalized>(point, feature);
+    const float distance =
         geometry.edge_query<false, Normalized>(point, sample_feature);
-    HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(OFFSET),
-                   SDF::OctetFramework4::magnitude(EXPECTED), 4e-6f);
-    HS_EXPECT_NEAR(DISTANCE, SDF::OctetFramework4::magnitude(EXPECTED), 4e-6f);
+    HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(offset),
+                   SDF::OctetFramework4::magnitude(expected), 4e-6f);
+    HS_EXPECT_NEAR(distance, SDF::OctetFramework4::magnitude(expected), 4e-6f);
     HS_EXPECT_EQ(sample_feature, expected_feature);
     HS_EXPECT_EQ(feature, expected_feature);
     for (int axis = 0; axis < 4; ++axis)
-      HS_EXPECT_NEAR(OFFSET[axis], EXPECTED[axis], Normalized ? 0.0f : 4e-6f);
+      HS_EXPECT_NEAR(offset[axis], expected[axis], Normalized ? 0.0f : 4e-6f);
   };
   for (int x = -8; x <= 8; ++x)
     for (int y = -8; y <= 8; ++y)
       for (int z = -8; z <= 8; ++z)
         for (int w = -8; w <= 8; ++w)
-          VERIFY.template operator()<true>(
+          verify.template operator()<true>(
               {{x * 0.125f, y * 0.125f, z * 0.125f, w * 0.125f}});
   hs::Pcg32 random{0x19770425};
   for (int sample = 0; sample < 10000; ++sample) {
@@ -571,7 +571,7 @@ inline void test_octet4_nearest_edge_matches_line_search() {
     for (int axis = 0; axis < 4; ++axis) {
       point[axis] = rand_uniform(random, -10.0f, 10.0f);
     }
-    VERIFY.template operator()<false>(point);
+    verify.template operator()<false>(point);
   }
 }
 
@@ -583,7 +583,7 @@ inline void test_octet4_scalar_distance_matches_offset() {
     geometry.wire_radius = 0.05f * cell_size;
     geometry.origin = {
         {2.0f * cell_size, -cell_size, 0.5f * cell_size, -0.25f * cell_size}};
-    const float SCALE = SDF::OctetFramework4::HALF_CUBE * cell_size;
+    const float scale = SDF::OctetFramework4::HALF_CUBE * cell_size;
     for (int axis = 0; axis < 4; ++axis)
       for (float boundary : {-1.0f, -0.5f, -0.0f, 0.0f, nextafterf(0.5f, 0.0f),
                              0.5f, nextafterf(0.5f, 1.0f), 1.0f})
@@ -591,17 +591,17 @@ inline void test_octet4_scalar_distance_matches_offset() {
           math::Vec4 point{{boundary, -boundary, 0.5f, -0.5f}};
           point[axis] += parity;
           for (int k = 0; k < 4; ++k)
-            point[k] = geometry.origin[k] + point[k] * SCALE;
+            point[k] = geometry.origin[k] + point[k] * scale;
           uint32_t feature;
-          const auto OFFSET = geometry.edge_offset(point, feature);
-          const auto SAMPLE = geometry.sample(point);
-          HS_EXPECT_NEAR(SAMPLE.field,
-                         SDF::OctetFramework4::magnitude(OFFSET) -
+          const auto offset = geometry.edge_offset(point, feature);
+          const auto sample = geometry.sample(point);
+          HS_EXPECT_NEAR(sample.field,
+                         SDF::OctetFramework4::magnitude(offset) -
                              geometry.wire_radius,
                          2e-6f * cell_size);
-          HS_EXPECT_EQ(SAMPLE.feature, feature);
-          HS_EXPECT_EQ(SAMPLE.field, geometry.distance(point));
-          HS_EXPECT_EQ(SAMPLE.clearance, fabsf(SAMPLE.field));
+          HS_EXPECT_EQ(sample.feature, feature);
+          HS_EXPECT_EQ(sample.field, geometry.distance(point));
+          HS_EXPECT_EQ(sample.clearance, fabsf(sample.field));
         }
   }
 }
@@ -634,9 +634,9 @@ strut_owners(const StrutVector &direction,
     for (size_t family = 0; family < 8; ++family) {
       if (fabs(strut_dot(strut_normal(family), classes[c].u)) > 1e-9)
         continue;
-      const double SPEED = fabs(strut_dot(strut_normal(family), direction));
-      if (SPEED > best) {
-        best = SPEED;
+      const double speed = fabs(strut_dot(strut_normal(family), direction));
+      if (speed > best) {
+        best = speed;
         owner[c] = static_cast<int>(family);
       }
     }
@@ -656,39 +656,39 @@ inline double ray_strut_distance_squared(const StrutVector &q,
     for (int b = -2; b <= 2; ++b)
       for (int e = -2; e <= 2; ++e)
         for (int g = -2; g <= 2; ++g) {
-          const StrutVector V{std::floor(q[0]) + a, std::floor(q[1]) + b,
+          const StrutVector v{std::floor(q[0]) + a, std::floor(q[1]) + b,
                               std::floor(q[2]) + e, std::floor(q[3]) + g};
-          const double SUM = V[0] + V[1] + V[2] + V[3];
-          if (std::fmod(fabs(SUM), 2.0) != 0.0 ||
-              fabs(strut_dot(normal, V) - plane) > 0.5)
+          const double sum = v[0] + v[1] + v[2] + v[3];
+          if (std::fmod(fabs(sum), 2.0) != 0.0 ||
+              fabs(strut_dot(normal, v) - plane) > 0.5)
             continue;
           StrutVector w;
           for (int k = 0; k < 4; ++k)
-            w[k] = q[k] - V[k];
-          const double ALONG = strut_dot(w, strut);
+            w[k] = q[k] - v[k];
+          const double along = strut_dot(w, strut);
           double squared = 0.0;
           for (int k = 0; k < 4; ++k)
-            squared += (w[k] - ALONG * strut[k]) * (w[k] - ALONG * strut[k]);
+            squared += (w[k] - along * strut[k]) * (w[k] - along * strut[k]);
           if (squared < nearest) {
             nearest = squared;
-            vertex = V;
+            vertex = v;
           }
         }
   StrutVector w, across;
-  const double UD = strut_dot(strut, direction);
+  const double ud = strut_dot(strut, direction);
   for (int k = 0; k < 4; ++k) {
     w[k] = q[k] - vertex[k];
-    across[k] = strut[k] - UD * direction[k];
+    across[k] = strut[k] - ud * direction[k];
   }
-  const double ACROSS = sqrt(strut_dot(across, across));
+  const double across_value = sqrt(strut_dot(across, across));
   for (int k = 0; k < 4; ++k)
-    across[k] /= ACROSS;
-  const double WD = strut_dot(w, direction);
-  const double WA = strut_dot(w, across);
+    across[k] /= across_value;
+  const double wd = strut_dot(w, direction);
+  const double wa = strut_dot(w, across);
   double distance2 = 0.0;
   for (int k = 0; k < 4; ++k) {
-    const double R = w[k] - WD * direction[k] - WA * across[k];
-    distance2 += R * R;
+    const double r = w[k] - wd * direction[k] - wa * across[k];
+    distance2 += r * r;
   }
   return distance2;
 }
@@ -732,18 +732,18 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
         const float offset = rand_uniform(random, -1.0f, 1.0f);
         origin[k] = geometry.origin[k] + 3.0f * cell_size * offset;
       }
-      const float NEAR = static_cast<float>(ray % 3) * 0.37f * cell_size;
-      const Raycast::Interval INTERVAL{NEAR, NEAR + 6.0f * cell_size};
-      const Raycast::Footprint FOOTPRINT{ray % 4 == 0 ? 0.0f : 0.01f,
+      const float near = static_cast<float>(ray % 3) * 0.37f * cell_size;
+      const Raycast::Interval interval{near, near + 6.0f * cell_size};
+      const Raycast::Footprint footprint{ray % 4 == 0 ? 0.0f : 0.01f,
                                          cell_size};
-      SDF::OctetEvents4 events(geometry, origin, direction, INTERVAL,
-                               FOOTPRINT);
-      const StrutVector D{direction[0], direction[1], direction[2],
+      SDF::OctetEvents4 events(geometry, origin, direction, interval,
+                               footprint);
+      const StrutVector d{direction[0], direction[1], direction[2],
                           direction[3]};
-      const double SCALE =
+      const double scale =
           static_cast<double>(SDF::OctetFramework4::HALF_CUBE) * cell_size;
 
-      const auto owner = strut_owners(D, classes);
+      const auto owner = strut_owners(d, classes);
       size_t active = 0;
       for (size_t family = 0; family < 8; ++family) {
         bool owns = false;
@@ -756,39 +756,39 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
 
       for (size_t family = 0; family < 8; ++family)
         for (int crossing = 0; crossing < 16 && events.active(family) &&
-                               events.distance(family) <= INTERVAL.far;
+                               events.distance(family) <= interval.far;
              ++crossing) {
-          const float T = events.distance(family);
+          const float t = events.distance(family);
           StrutVector q;
           for (int k = 0; k < 4; ++k)
-            q[k] = (static_cast<double>(origin[k]) + D[k] * T -
+            q[k] = (static_cast<double>(origin[k]) + d[k] * t -
                     geometry.origin[k]) /
-                   SCALE;
-          const StrutVector NORMAL = strut_normal(family);
-          const double PLANE = strut_dot(NORMAL, q);
-          HS_EXPECT_NEAR(0.5 * PLANE, std::round(0.5 * PLANE), 1e-3);
+                   scale;
+          const StrutVector normal = strut_normal(family);
+          const double plane = strut_dot(normal, q);
+          HS_EXPECT_NEAR(0.5 * plane, std::round(0.5 * plane), 1e-3);
           double best = INFINITY;
           uint32_t feature = 0;
           for (size_t c = 0; c < classes.size(); ++c) {
             if (owner[c] != static_cast<int>(family))
               continue;
             const double distance2 =
-                ray_strut_distance_squared(q, D, NORMAL, PLANE, classes[c].u);
+                ray_strut_distance_squared(q, d, normal, plane, classes[c].u);
             if (distance2 < best) {
               best = distance2;
               feature = classes[c].feature;
             }
           }
-          const double FIELD = SCALE * sqrt(best) - geometry.wire_radius;
-          const double WIDTH = FOOTPRINT.at(T);
-          const double EXPECTED =
-              WIDTH > 0.0 ? std::clamp(0.5 - FIELD / WIDTH, 0.0, 1.0)
-                          : (FIELD <= 0.0 ? 1.0 : 0.0);
-          const auto ACTUAL = events.candidate(family);
-          HS_EXPECT_EQ(ACTUAL.t, T);
-          HS_EXPECT_NEAR(ACTUAL.coverage, EXPECTED, 2e-3);
-          if (EXPECTED > 0.01) {
-            HS_EXPECT_EQ(ACTUAL.feature, feature);
+          const double field = scale * sqrt(best) - geometry.wire_radius;
+          const double width = footprint.at(t);
+          const double expected =
+              width > 0.0 ? std::clamp(0.5 - field / width, 0.0, 1.0)
+                          : (field <= 0.0 ? 1.0 : 0.0);
+          const auto actual = events.candidate(family);
+          HS_EXPECT_EQ(actual.t, t);
+          HS_EXPECT_NEAR(actual.coverage, expected, 2e-3);
+          if (expected > 0.01) {
+            HS_EXPECT_EQ(actual.feature, feature);
             ++covered;
             ++by_class[feature];
             double parity = 0.0;
@@ -811,14 +811,14 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
 
 /** @brief Ambient octet events remain ordered and within capacity. */
 inline void test_octet4_ambient_events_and_limits() {
-  const SDF::OctetFramework4 OCTET;
+  const SDF::OctetFramework4 octet;
   const Raycast::Interval INTERVAL{0, 1.5f};
   const math::Vec4 ORIGIN{};
   const math::Vec4 DIRECTION{{0, 0, 0, 1}};
-  SDF::OctetEvents4 events(OCTET, ORIGIN, DIRECTION, INTERVAL);
+  SDF::OctetEvents4 events(octet, ORIGIN, DIRECTION, INTERVAL);
   Raycast::TraceLimits limits;
   size_t count = 0;
-  const auto RESULT =
+  const auto result =
       Raycast::trace_events(events, INTERVAL, limits, [&](const auto &hit) {
         HS_EXPECT_NEAR(hit.t, count * sqrtf(2.0f), 1e-6f);
         HS_EXPECT_EQ(hit.coverage, 1.0f);
@@ -826,20 +826,20 @@ inline void test_octet4_ambient_events_and_limits() {
         ++count;
         return true;
       });
-  HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
-  HS_EXPECT_EQ(RESULT.counters.candidates, 8);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(result.counters.candidates, 8);
   HS_EXPECT_EQ(count, size_t{2});
-  HS_EXPECT_FALSE(RESULT.has_surface);
-  SDF::OctetEvents4 limited(OCTET, ORIGIN, DIRECTION, INTERVAL);
+  HS_EXPECT_FALSE(result.has_surface);
+  SDF::OctetEvents4 limited(octet, ORIGIN, DIRECTION, INTERVAL);
   limits.max_candidates = 3;
-  const auto LIMITED = Raycast::trace_events(limited, INTERVAL, limits,
-                                             [](const auto &) { return true; });
-  HS_EXPECT_EQ(LIMITED.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
-  HS_EXPECT_EQ(LIMITED.counters.candidates, 3);
-  HS_EXPECT_EQ(LIMITED.counters.layers, 1);
+  const auto limited_value = Raycast::trace_events(
+      limited, INTERVAL, limits, [](const auto &) { return true; });
+  HS_EXPECT_EQ(limited_value.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(limited_value.counters.candidates, 3);
+  HS_EXPECT_EQ(limited_value.counters.layers, 1);
   const math::Vec4 START{{0, 0, 0, 0.2f}};
   const math::Vec4 BACKWARD{{0, 0, 0, -1}};
-  SDF::OctetEvents4 returning(OCTET, START, BACKWARD, {0.1f, 0.3f});
+  SDF::OctetEvents4 returning(octet, START, BACKWARD, {0.1f, 0.3f});
   size_t owners = 0;
   for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i) {
     if (!returning.active(i))
@@ -850,7 +850,7 @@ inline void test_octet4_ambient_events_and_limits() {
   }
   HS_EXPECT_EQ(owners, SDF::OctetEvents4::OWNER_CAPACITY);
   constexpr float H = SDF::OctetFramework4::HALF_CUBE;
-  SDF::OctetEvents4 edge(OCTET, ORIGIN, {{H, H, 0, 0}}, INTERVAL);
+  SDF::OctetEvents4 edge(octet, ORIGIN, {{H, H, 0, 0}}, INTERVAL);
   for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i)
     HS_EXPECT_EQ(edge.active(i), i == 0 || i == 2 || i == 4);
 }
@@ -864,39 +864,39 @@ template <typename Surface> void check_periodic_surface() {
   HS_EXPECT_TRUE(surface.capabilities().interior_clearance);
   constexpr float DELTA = 0.0003f;
   for (int i = 0; i < 90; ++i) {
-    const math::Vector P{0.073f * i, sinf(i * 0.7f), cosf(i * 0.4f)};
-    const math::Vector G = surface.gradient(P);
-    HS_EXPECT_LE(G.magnitude(), surface.lipschitz() + 1e-5f);
-    HS_EXPECT_NEAR(G.x,
-                   (surface.field(P + math::Vector{DELTA, 0.0f, 0.0f}) -
-                    surface.field(P - math::Vector{DELTA, 0.0f, 0.0f})) /
+    const math::Vector p{0.073f * i, sinf(i * 0.7f), cosf(i * 0.4f)};
+    const math::Vector g = surface.gradient(p);
+    HS_EXPECT_LE(g.magnitude(), surface.lipschitz() + 1e-5f);
+    HS_EXPECT_NEAR(g.x,
+                   (surface.field(p + math::Vector{DELTA, 0.0f, 0.0f}) -
+                    surface.field(p - math::Vector{DELTA, 0.0f, 0.0f})) /
                        (2.0f * DELTA),
                    0.012f);
-    HS_EXPECT_NEAR(G.y,
-                   (surface.field(P + math::Vector{0.0f, DELTA, 0.0f}) -
-                    surface.field(P - math::Vector{0.0f, DELTA, 0.0f})) /
+    HS_EXPECT_NEAR(g.y,
+                   (surface.field(p + math::Vector{0.0f, DELTA, 0.0f}) -
+                    surface.field(p - math::Vector{0.0f, DELTA, 0.0f})) /
                        (2.0f * DELTA),
                    0.012f);
-    HS_EXPECT_NEAR(G.z,
-                   (surface.field(P + math::Vector{0.0f, 0.0f, DELTA}) -
-                    surface.field(P - math::Vector{0.0f, 0.0f, DELTA})) /
+    HS_EXPECT_NEAR(g.z,
+                   (surface.field(p + math::Vector{0.0f, 0.0f, DELTA}) -
+                    surface.field(p - math::Vector{0.0f, 0.0f, DELTA})) /
                        (2.0f * DELTA),
                    0.012f);
-    HS_EXPECT_NEAR(surface.field(P),
-                   surface.field(P + math::Vector{surface.period, 0.0f, 0.0f}),
+    HS_EXPECT_NEAR(surface.field(p),
+                   surface.field(p + math::Vector{surface.period, 0.0f, 0.0f}),
                    1e-5f);
-    const math::Vector Q = P + math::Vector{0.11f, -0.03f, 0.07f};
-    HS_EXPECT_LE(fabsf(surface.distance(P) - surface.distance(Q)),
-                 (P - Q).magnitude() + 1e-6f);
-    const auto SAMPLE = surface.sample(P);
-    HS_EXPECT_NEAR(SAMPLE.clearance, fabsf(surface.distance(P)), 1e-7f);
+    const math::Vector q = p + math::Vector{0.11f, -0.03f, 0.07f};
+    HS_EXPECT_LE(fabsf(surface.distance(p) - surface.distance(q)),
+                 (p - q).magnitude() + 1e-6f);
+    const auto sample = surface.sample(p);
+    HS_EXPECT_NEAR(sample.clearance, fabsf(surface.distance(p)), 1e-7f);
     Surface scaled = surface;
     scaled.period *= 3.0f;
-    HS_EXPECT_NEAR(scaled.distance(P * 3.0f), surface.distance(P) * 3.0f,
+    HS_EXPECT_NEAR(scaled.distance(p * 3.0f), surface.distance(p) * 3.0f,
                    3e-6f);
     Surface placed = surface;
     placed.origin = {3.0f, -5.0f, 7.0f};
-    HS_EXPECT_NEAR(placed.distance(P + placed.origin), surface.distance(P),
+    HS_EXPECT_NEAR(placed.distance(p + placed.origin), surface.distance(p),
                    2e-6f);
   }
   surface.period = 0.0f;

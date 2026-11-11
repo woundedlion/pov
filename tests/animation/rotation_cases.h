@@ -76,27 +76,27 @@ inline void test_rotation_applies_final_frame_residual() {
 
 /** @brief Local and world rotations compose on opposite sides of a nonidentity start. */
 inline void test_rotation_and_motion_local_world_composition() {
-  const auto START = math::make_rotation(math::X_AXIS, math::PI_F * 0.5f);
+  const auto start = math::make_rotation(math::X_AXIS, math::PI_F * 0.5f);
   constexpr float ANGLE = 0.3f;
-  const auto DELTA = math::make_rotation(math::Z_AXIS, ANGLE);
-  const auto LOCAL = START * DELTA;
-  const auto WORLD = DELTA * START;
-  HS_EXPECT_GT((LOCAL.v - WORLD.v).length(), 0.1f);
+  const auto delta = math::make_rotation(math::Z_AXIS, ANGLE);
+  const auto local = start * delta;
+  const auto world = delta * start;
+  HS_EXPECT_GT((local.v - world.v).length(), 0.1f);
   for (const auto SPACE : {Animation::Space::Local, Animation::Space::World}) {
-    math::Orientation<16> rotation(START);
+    math::Orientation<16> rotation(start);
     Animation::Rotation<288, 16>::animate(fake_canvas(), rotation, math::Z_AXIS,
                                           ANGLE, math::ease_linear, SPACE);
     HS_EXPECT_QUAT(rotation.at(rotation.length() - 1),
-                   SPACE == Animation::Space::Local ? LOCAL : WORLD, 1e-5f);
+                   SPACE == Animation::Space::Local ? local : world, 1e-5f);
     ProceduralPath path;
     path.f = [](float t) {
       return math::Vector(cosf(ANGLE * t), sinf(ANGLE * t), 0.0f);
     };
-    math::Orientation<16> motion_orientation(START);
+    math::Orientation<16> motion_orientation(start);
     Animation::Motion<288, 16> motion(motion_orientation, path, 1,
                                       {.space = SPACE});
     motion.step(fake_canvas());
     HS_EXPECT_QUAT(motion_orientation.at(motion_orientation.length() - 1),
-                   SPACE == Animation::Space::Local ? LOCAL : WORLD, 1e-5f);
+                   SPACE == Animation::Space::Local ? local : world, 1e-5f);
   }
 }

@@ -131,9 +131,9 @@ inline void test_unit_cup_and_bell() {
   HS_EXPECT_EQ(math::unit_bell(1.0f), 0.0f);
 
   for (int i = 0; i <= 64; ++i) {
-    const float T = static_cast<float>(i) / 64.0f;
-    HS_EXPECT_EQ(math::unit_cup(T), math::unit_cup(1.0f - T));
-    HS_EXPECT_NEAR(math::unit_cup(T) + math::unit_bell(T), 1.0f, 1e-7f);
+    const float t = static_cast<float>(i) / 64.0f;
+    HS_EXPECT_EQ(math::unit_cup(t), math::unit_cup(1.0f - t));
+    HS_EXPECT_NEAR(math::unit_cup(t) + math::unit_bell(t), 1.0f, 1e-7f);
   }
 }
 
@@ -322,11 +322,11 @@ inline void test_fast_cbrt() {
 
   for (int exponent = -96; exponent <= 94; ++exponent) {
     for (const float mantissa : {1.0f, 1.25f, 1.5f}) {
-      const float X = std::ldexp(mantissa, exponent);
-      const float EXPECTED = std::cbrt(X);
-      const float RELATIVE_ERROR =
-          std::abs(math::fast_cbrt(X) - EXPECTED) / EXPECTED;
-      HS_EXPECT_LE(RELATIVE_ERROR, 2.3e-5f);
+      const float x = std::ldexp(mantissa, exponent);
+      const float expected = std::cbrt(x);
+      const float relative_error =
+          std::abs(math::fast_cbrt(x) - expected) / expected;
+      HS_EXPECT_LE(relative_error, 2.3e-5f);
     }
   }
   HS_EXPECT_EQ(math::fast_cbrt(1e-35f), 0.0f);
@@ -398,9 +398,9 @@ inline void test_fast_cbrt6() {
 
   // Non-positive inputs clamp to 0 without poisoning the shared product.
   {
-    const float x[6] = {-1.0f, 0.0f, -0.0f, 8.0f, 1.0f, 27.0f};
+    const float X[6] = {-1.0f, 0.0f, -0.0f, 8.0f, 1.0f, 27.0f};
     float o[6];
-    math::fast_cbrt6(x, o);
+    math::fast_cbrt6(X, o);
     HS_EXPECT_NEAR(o[0], 0.0f, 1e-7f);
     HS_EXPECT_NEAR(o[1], 0.0f, 1e-7f);
     HS_EXPECT_NEAR(o[2], 0.0f, 1e-7f);
@@ -411,13 +411,13 @@ inline void test_fast_cbrt6() {
 
   // Just under the documented overflow ceiling the result is still accurate.
   {
-    const float v = 4.0e5f;
-    const float x[6] = {v, v, v, v, v, v};
+    const float V = 4.0e5f;
+    const float X[6] = {V, V, V, V, V, V};
     float o[6];
-    math::fast_cbrt6(x, o);
+    math::fast_cbrt6(X, o);
     for (int j = 0; j < 6; ++j) {
       HS_EXPECT_TRUE(std::isfinite(o[j]));
-      float rel = std::abs(o[j] - std::cbrt(v)) / std::cbrt(v);
+      float rel = std::abs(o[j] - std::cbrt(V)) / std::cbrt(V);
       HS_EXPECT_LE(rel, 2.3e-5f);
     }
   }
@@ -440,9 +440,9 @@ inline void test_fast_expf() {
     HS_EXPECT_LE(rel, 5.2e-6f);
   }
 
-  const float BOUNDARY = -std::log(2.0f);
-  HS_EXPECT_NEAR(math::fast_expf(std::nextafter(BOUNDARY, -INFINITY)),
-                 math::fast_expf(std::nextafter(BOUNDARY, INFINITY)), 2e-7f);
+  const float boundary = -std::log(2.0f);
+  HS_EXPECT_NEAR(math::fast_expf(std::nextafter(boundary, -INFINITY)),
+                 math::fast_expf(std::nextafter(boundary, INFINITY)), 2e-7f);
 
   HS_EXPECT_GT(math::fast_expf(-87.0f), 0.0f);
   HS_EXPECT_EQ(math::fast_expf(-88.0f), 0.0f);
@@ -573,11 +573,11 @@ inline void test_vector_spherical_construction() {
 
   math::Vector u = math::Vector::from_spherical(0.8f, 1.1f);
   HS_EXPECT_NEAR(u.length(), 1.0f, 1e-6f);
-  const double theta = static_cast<double>(0.8f);
-  const double phi = static_cast<double>(1.1f);
-  HS_EXPECT_NEAR(u.x, std::sin(phi) * std::cos(theta), 1e-6);
-  HS_EXPECT_NEAR(u.y, std::cos(phi), 1e-6);
-  HS_EXPECT_NEAR(u.z, std::sin(phi) * std::sin(theta), 1e-6);
+  const double THETA = static_cast<double>(0.8f);
+  const double PHI = static_cast<double>(1.1f);
+  HS_EXPECT_NEAR(u.x, std::sin(PHI) * std::cos(THETA), 1e-6);
+  HS_EXPECT_NEAR(u.y, std::cos(PHI), 1e-6);
+  HS_EXPECT_NEAR(u.z, std::sin(PHI) * std::sin(THETA), 1e-6);
 }
 
 /**
@@ -751,10 +751,10 @@ inline void test_angle_between_vectors() {
   HS_EXPECT_NEAR(math::angle_between(x, x), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(x, -x), math::PI_F, 1e-3f);
   // Independent of operand magnitude.
-  const math::Vector diagonal(1.0f, 1.0f, 0.0f);
-  HS_EXPECT_NEAR(math::angle_between(x * 5.0f, diagonal * 0.3f),
+  const math::Vector DIAGONAL(1.0f, 1.0f, 0.0f);
+  HS_EXPECT_NEAR(math::angle_between(x * 5.0f, DIAGONAL * 0.3f),
                  math::PI_F * 0.25f, 1e-3f);
-  HS_EXPECT_NEAR(math::angle_between(x * 0.3f, diagonal * 5.0f),
+  HS_EXPECT_NEAR(math::angle_between(x * 0.3f, DIAGONAL * 5.0f),
                  math::PI_F * 0.25f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(x * 5.0f, y * 0.3f), math::PI_F * 0.5f,
                  1e-3f);
@@ -1072,15 +1072,15 @@ inline void test_quaternion_from_basis() {
   for (const math::Vector AXIS :
        {math::Vector(1.0f, 0.2f, 0.3f), math::Vector(0.3f, 1.0f, 0.2f),
         math::Vector(0.2f, 0.3f, 1.0f)}) {
-    const auto ROTATION = math::make_rotation(AXIS.normalized(), 2.8f);
-    const auto X = math::rotate(math::X_AXIS, ROTATION);
-    const auto Y = math::rotate(math::Y_AXIS, ROTATION);
-    const auto Z = math::rotate(math::Z_AXIS, ROTATION);
-    HS_EXPECT_LT(X.x + Y.y + Z.z, 0.0f);
-    const auto RESTORED = math::quaternion_from_basis(X, Y, Z);
-    HS_EXPECT_VEC(math::rotate(math::X_AXIS, RESTORED), X, 1e-5f);
-    HS_EXPECT_VEC(math::rotate(math::Y_AXIS, RESTORED), Y, 1e-5f);
-    HS_EXPECT_VEC(math::rotate(math::Z_AXIS, RESTORED), Z, 1e-5f);
+    const auto rotation = math::make_rotation(AXIS.normalized(), 2.8f);
+    const auto x = math::rotate(math::X_AXIS, rotation);
+    const auto y = math::rotate(math::Y_AXIS, rotation);
+    const auto z = math::rotate(math::Z_AXIS, rotation);
+    HS_EXPECT_LT(x.x + y.y + z.z, 0.0f);
+    const auto restored = math::quaternion_from_basis(x, y, z);
+    HS_EXPECT_VEC(math::rotate(math::X_AXIS, restored), x, 1e-5f);
+    HS_EXPECT_VEC(math::rotate(math::Y_AXIS, restored), y, 1e-5f);
+    HS_EXPECT_VEC(math::rotate(math::Z_AXIS, restored), z, 1e-5f);
   }
 
   // trace <= 0 branch: 180° rotation about Z (diagonal = (-1,-1,1)).
@@ -1125,7 +1125,7 @@ inline void test_rotation_matrix_matches_rotate() {
                                math::Vector(0, 0, 1),
                                math::Vector(1, 2, 3).normalized(),
                                math::Vector(-2, 0.5f, 1).normalized()};
-  const math::Vector samples[] = {math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+  const math::Vector SAMPLES[] = {math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                                   math::Vector(0, 0, 1), math::Vector(1, 2, 3),
                                   math::Vector(-4, 0.25f, 2)};
 
@@ -1134,7 +1134,7 @@ inline void test_rotation_matrix_matches_rotate() {
       float angle = (2.0f * math::PI_F * i) / 12.0f;
       math::Quaternion q = math::make_rotation(axis, angle);
       math::RotationMatrix m(q);
-      for (const math::Vector &v : samples) {
+      for (const math::Vector &v : SAMPLES) {
         HS_EXPECT_VEC(m.apply(v), math::rotate(v, q), 1e-4f);
       }
       HS_EXPECT_NEAR(math::dot(m.r0, m.r0), 1.0f, 1e-5f);
@@ -1182,9 +1182,9 @@ inline void test_vector_slerp() {
   HS_EXPECT_NEAR(mid.y, std::sqrt(2.0f) * 0.5f, 5e-3f);
   HS_EXPECT_NEAR(mid.z, 0.0f, 5e-3f);
   for (const float t : {0.25f, 0.75f}) {
-    const float ANGLE = t * math::PI_F * 0.5f;
+    const float angle = t * math::PI_F * 0.5f;
     HS_EXPECT_VEC(math::slerp(a, b, t),
-                  math::Vector(std::cos(ANGLE), std::sin(ANGLE), 0.0f), 2e-3f);
+                  math::Vector(std::cos(angle), std::sin(angle), 0.0f), 2e-3f);
   }
 
   // Nearly-identical vectors take the normalized-lerp fallback.
@@ -1201,8 +1201,8 @@ inline void test_vector_slerp() {
 
   const math::Vector same = math::Vector(0.2f, -0.6f, 0.75f).normalized();
   for (int step = 0; step <= 4; ++step) {
-    const float T = static_cast<float>(step) / 4.0f;
-    HS_EXPECT_VEC(math::slerp(same, same, T), same, 1e-6f);
+    const float t = static_cast<float>(step) / 4.0f;
+    HS_EXPECT_VEC(math::slerp(same, same, t), same, 1e-6f);
   }
 
   // Antipodal: slerp picks a perpendicular axis; the midpoint must not collapse
@@ -1212,8 +1212,8 @@ inline void test_vector_slerp() {
   HS_EXPECT_VEC(math::slerp(p, ap, 1.0f), ap, 5e-3f);
   float previous = math::dot(math::slerp(p, ap, 0.0f), p);
   for (int step = 1; step <= 16; ++step) {
-    const float T = static_cast<float>(step) / 16.0f;
-    const math::Vector interpolated = math::slerp(p, ap, T);
+    const float t = static_cast<float>(step) / 16.0f;
+    const math::Vector interpolated = math::slerp(p, ap, t);
     HS_EXPECT_NEAR(interpolated.length(), 1.0f, 1e-3f);
     const float current = math::dot(interpolated, p);
     HS_EXPECT_GT(previous, current);
@@ -1226,11 +1226,11 @@ inline void test_vector_slerp() {
   HS_EXPECT_VEC(math::slerp(normalized, -normalized, 0.0f), normalized, 1e-5f);
   HS_EXPECT_VEC(math::slerp(normalized, -normalized, 1.0f), -normalized, 1e-5f);
   for (int step = 1; step < 16; ++step) {
-    const float T = static_cast<float>(step) / 16.0f;
-    const math::Vector interpolated = math::slerp(normalized, -normalized, T);
+    const float t = static_cast<float>(step) / 16.0f;
+    const math::Vector interpolated = math::slerp(normalized, -normalized, t);
     HS_EXPECT_NEAR(interpolated.length(), 1.0f, 1e-5f);
     HS_EXPECT_NEAR(math::dot(interpolated, normalized),
-                   std::cos(math::PI_F * T), 1e-4f);
+                   std::cos(math::PI_F * t), 1e-4f);
   }
   const math::Vector nearby = math::Vector(-1, -0.99f, -1).normalized();
   HS_EXPECT_VEC(math::slerp(normalized, nearby, 0.0f), normalized, 1e-5f);
@@ -1250,30 +1250,30 @@ inline void test_vector_slerp() {
  *        cancelling-blend fallback at math::EPS_BLEND_LEN_SQ.
  */
 inline void test_vector_nlerp_unit() {
-  const math::Vector a(1, 0, 0), b(0, 1, 0);
-  HS_EXPECT_VEC(math::nlerp_unit(a, b, 0.0f), a, 1e-5f);
-  HS_EXPECT_VEC(math::nlerp_unit(a, b, 1.0f), b, 1e-5f);
+  const math::Vector A(1, 0, 0), B(0, 1, 0);
+  HS_EXPECT_VEC(math::nlerp_unit(A, B, 0.0f), A, 1e-5f);
+  HS_EXPECT_VEC(math::nlerp_unit(A, B, 1.0f), B, 1e-5f);
 
-  const math::Vector mid = math::nlerp_unit(a, b, 0.5f);
+  const math::Vector mid = math::nlerp_unit(A, B, 0.5f);
   HS_EXPECT_NEAR(mid.x, std::sqrt(2.0f) * 0.5f, 1e-5f);
   HS_EXPECT_NEAR(mid.y, std::sqrt(2.0f) * 0.5f, 1e-5f);
   HS_EXPECT_NEAR(mid.z, 0.0f, 1e-5f);
 
   for (int i = 0; i <= 10; ++i)
     HS_EXPECT_NEAR(
-        math::nlerp_unit(a, b, static_cast<float>(i) / 10.0f).length(), 1.0f,
+        math::nlerp_unit(A, B, static_cast<float>(i) / 10.0f).length(), 1.0f,
         1e-5f);
 
   // Antipodal endpoints cancel: the blend carries no direction, so it holds a.
-  const math::Vector p(0, 1, 0), ap(0, -1, 0);
-  HS_EXPECT_VEC(math::nlerp_unit(p, ap, 0.5f), p, 1e-5f);
-  HS_EXPECT_VEC(math::nlerp_unit(p, ap, 0.5f + 1e-5f), p, 1e-5f);
-  HS_EXPECT_VEC(math::nlerp_unit(p, ap, 0.5f + 1e-3f), ap, 1e-5f);
+  const math::Vector P(0, 1, 0), AP(0, -1, 0);
+  HS_EXPECT_VEC(math::nlerp_unit(P, AP, 0.5f), P, 1e-5f);
+  HS_EXPECT_VEC(math::nlerp_unit(P, AP, 0.5f + 1e-5f), P, 1e-5f);
+  HS_EXPECT_VEC(math::nlerp_unit(P, AP, 0.5f + 1e-3f), AP, 1e-5f);
 
   // Near-antipodal but non-cancelling: the residual still resolves to a unit
   // direction.
   const math::Vector near_ap = math::Vector(0.01f, -1.0f, 0.0f).normalized();
-  HS_EXPECT_NEAR(math::nlerp_unit(p, near_ap, 0.5f).length(), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(math::nlerp_unit(P, near_ap, 0.5f).length(), 1.0f, 1e-4f);
 }
 
 /**
@@ -1330,12 +1330,12 @@ inline void test_quaternion_slerp() {
   HS_EXPECT_QUAT(math::slerp(normalized, normalized, 1.0f, true), normalized,
                  1e-5f);
   for (int step = 1; step < 16; ++step) {
-    const float T = static_cast<float>(step) / 16.0f;
+    const float t = static_cast<float>(step) / 16.0f;
     const math::Quaternion interpolated =
-        math::slerp(normalized, normalized, T, true);
+        math::slerp(normalized, normalized, t, true);
     HS_EXPECT_NEAR(interpolated.magnitude(), 1.0f, 1e-5f);
     HS_EXPECT_NEAR(math::dot(interpolated, -normalized),
-                   std::cos(math::PI_F * T), 1e-5f);
+                   std::cos(math::PI_F * t), 1e-5f);
   }
   const math::Quaternion nearby = math::Quaternion(1, 0.99f, 1, 0).normalized();
   HS_EXPECT_QUAT(math::slerp(normalized, nearby, 0.0f, true), -normalized,
@@ -1370,8 +1370,8 @@ inline void test_scaled_rotation_delta() {
   // Half the arc, applied twice, recovers the full delta.
   const math::Quaternion half = math::scaled_rotation_delta(q, 0.5f);
   HS_EXPECT_NEAR(half.magnitude(), 1.0f, 1e-3f);
-  const math::Vector v(1, 0, 0);
-  HS_EXPECT_VEC(math::rotate(math::rotate(v, half), half), math::rotate(v, q),
+  const math::Vector V(1, 0, 0);
+  HS_EXPECT_VEC(math::rotate(math::rotate(V, half), half), math::rotate(V, q),
                 1e-5f);
 
   // Off the midpoint, the scaled delta turns by that fraction of the arc.
@@ -1388,7 +1388,7 @@ inline void test_scaled_rotation_delta() {
     const float amount = static_cast<float>(step) / 8.0f;
     const math::Quaternion scaled = math::scaled_rotation_delta(q, amount);
     HS_EXPECT_NEAR(scaled.magnitude(), 1.0f, 1e-3f);
-    const float turned = 1.0f - math::dot(math::rotate(v, scaled), v);
+    const float turned = 1.0f - math::dot(math::rotate(V, scaled), V);
     HS_EXPECT_GT(turned, previous);
     previous = turned;
   }
@@ -1420,9 +1420,9 @@ inline void test_stereo_roundtrip() {
   }
   for (const math::Vector &v :
        {samples[0], samples[1], samples[3], samples[4]}) {
-    const auto Z = projections::stereo(v);
-    HS_EXPECT_EQ(Z.re, v.x);
-    HS_EXPECT_EQ(Z.im, v.z);
+    const auto z = projections::stereo(v);
+    HS_EXPECT_EQ(z.re, v.x);
+    HS_EXPECT_EQ(z.im, v.z);
   }
 
   // North pole maps to the infinity sentinel (azimuth undefined → +real axis).
@@ -1442,12 +1442,12 @@ inline void test_stereo_roundtrip() {
 
   // The cap boundary is the crossover where the raw quotient would reach the
   // sentinel, not a step: outside it the projection stays below STEREO_INF.
-  const float Y = std::nextafter(1.0f, 0.0f);
-  const math::Complex Z_OUT =
-      projections::stereo(math::Vector(std::sqrt(1.0f - Y * Y), Y, 0.0f));
-  const float RADIUS = std::sqrt(Z_OUT.re * Z_OUT.re + Z_OUT.im * Z_OUT.im);
-  HS_EXPECT_GT(RADIUS, projections::STEREO_INF_RECOGNIZE);
-  HS_EXPECT_LT(RADIUS, projections::STEREO_INF);
+  const float y = std::nextafter(1.0f, 0.0f);
+  const math::Complex z_out =
+      projections::stereo(math::Vector(std::sqrt(1.0f - y * y), y, 0.0f));
+  const float radius = std::sqrt(z_out.re * z_out.re + z_out.im * z_out.im);
+  HS_EXPECT_GT(radius, projections::STEREO_INF_RECOGNIZE);
+  HS_EXPECT_LT(radius, projections::STEREO_INF);
 
   // Large complex magnitude maps back to north pole.
   math::Vector pole =
@@ -1511,14 +1511,14 @@ inline void test_complex_arithmetic() {
 
 /** @brief Projection division preserves finite ratios and singular directions. */
 inline void test_project_div_conventions() {
-  const math::Complex a(1, 2), b(3, 4);
+  const math::Complex A(1, 2), B(3, 4);
   for (const float divisor : {3e-23f, 1e-21f}) {
     HS_EXPECT_COMPLEX(math::project_div(math::Complex(divisor, divisor),
                                         math::Complex(divisor, 0)),
                       math::Complex(1, 1), 2e-6f);
   }
   // project_div matches ordinary division away from the singularity.
-  HS_EXPECT_COMPLEX(math::project_div(a, b), a / b, 1e-6f);
+  HS_EXPECT_COMPLEX(math::project_div(A, B), A / B, 1e-6f);
 
   // project_div convention: 0 / 0 → 0.
   HS_EXPECT_COMPLEX(math::project_div(math::Complex(0, 0), math::Complex(0, 0)),
@@ -1543,12 +1543,12 @@ inline void test_project_div_conventions() {
 
   // A divisor whose squared magnitude underflows is still a divisor, so a
   // tiny-but-equal homogeneous pair divides to 1 rather than to the sentinel.
-  const math::Complex tiny(1e-30f, 0.0f);
-  HS_EXPECT_COMPLEX(math::project_div(tiny, tiny), math::Complex(1, 0), 1e-6f);
-  HS_EXPECT_COMPLEX(math::project_div(math::Complex(3e-30f, 4e-30f), tiny),
+  const math::Complex TINY(1e-30f, 0.0f);
+  HS_EXPECT_COMPLEX(math::project_div(TINY, TINY), math::Complex(1, 0), 1e-6f);
+  HS_EXPECT_COMPLEX(math::project_div(math::Complex(3e-30f, 4e-30f), TINY),
                     math::Complex(3, 4), 1e-5f);
   // A normal numerator over that same divisor is still the point at infinity.
-  math::Complex underflow_inf = math::project_div(math::Complex(1, 0), tiny);
+  math::Complex underflow_inf = math::project_div(math::Complex(1, 0), TINY);
   HS_EXPECT_NEAR(underflow_inf.re, projections::STEREO_INF, 1e-1f);
   HS_EXPECT_NEAR(underflow_inf.im, 0.0f, 1e-6f);
 }
@@ -1711,23 +1711,23 @@ inline void test_gnomonic_roundtrip() {
  *        in-range values, wraps at/above the period, and folds negatives.
  */
 inline void test_wrap_index() {
-  const int m = 288;
+  const int M = 288;
 
-  HS_EXPECT_NEAR(wrap_index(0.0f, m), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(wrap_index(0.5f, m), 0.5f, 1e-5f);
-  HS_EXPECT_NEAR(wrap_index(287.9f, m), 287.9f, 1e-3f);
+  HS_EXPECT_NEAR(wrap_index(0.0f, M), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(wrap_index(0.5f, M), 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(wrap_index(287.9f, M), 287.9f, 1e-3f);
 
-  HS_EXPECT_NEAR(wrap_index(static_cast<float>(m), m), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(wrap_index(m + 1.5f, m), 1.5f, 1e-4f);
+  HS_EXPECT_NEAR(wrap_index(static_cast<float>(M), M), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(wrap_index(M + 1.5f, M), 1.5f, 1e-4f);
 
   // Negatives fold into [0, m): -0.5 -> 287.5.
-  HS_EXPECT_NEAR(wrap_index(-0.5f, m), 287.5f, 1e-3f);
-  HS_EXPECT_NEAR(wrap_index(-1.5f, m), 286.5f, 1e-3f);
-  HS_EXPECT_NEAR(wrap_index(-static_cast<float>(m) + 0.25f, m), 0.25f, 1e-3f);
+  HS_EXPECT_NEAR(wrap_index(-0.5f, M), 287.5f, 1e-3f);
+  HS_EXPECT_NEAR(wrap_index(-1.5f, M), 286.5f, 1e-3f);
+  HS_EXPECT_NEAR(wrap_index(-static_cast<float>(M) + 0.25f, M), 0.25f, 1e-3f);
 
-  for (int i = -3 * m; i <= 3 * m; ++i) {
-    float w = wrap_index(i * 0.5f, m);
-    HS_EXPECT_TRUE(w >= 0.0f && w < static_cast<float>(m));
+  for (int i = -3 * M; i <= 3 * M; ++i) {
+    float w = wrap_index(i * 0.5f, M);
+    HS_EXPECT_TRUE(w >= 0.0f && w < static_cast<float>(M));
   }
 }
 
@@ -1758,8 +1758,8 @@ inline void test_hash01() {
 
   // Seeds select streams, not permutations: the value sets must differ.
   constexpr uint32_t N = 256;
-  const uint32_t pairs[3][2] = {{0u, 1u}, {1u, 2u}, {7u, 8u}};
-  for (const auto &pair : pairs) {
+  const uint32_t PAIRS[3][2] = {{0u, 1u}, {1u, 2u}, {7u, 8u}};
+  for (const auto &pair : PAIRS) {
     float a[N], b[N];
     for (uint32_t i = 0; i < N; ++i) {
       a[i] = math::hash01(i, pair[0]);
@@ -1859,14 +1859,14 @@ inline void test_twist_lens() {
       HS_EXPECT_EQ(lenses::twist_angle(0.0f, profile), 0.0f);
     }
   }
-  const math::Vector input(0.6f, 0.5f, 0.6244998f);
-  const auto output = lenses::twist_lens(input);
+  const math::Vector INPUT(0.6f, 0.5f, 0.6244998f);
+  const auto output = lenses::twist_lens(INPUT);
   const double A = static_cast<double>(lenses::TWIST_DISTRIBUTION) *
                    lenses::TWIST_PROFILE_MAX;
   const double angle =
-      0.5 * lenses::TWIST_ANGLE * atanh(A * input.y) / atanh(A);
-  HS_EXPECT_NEAR(output.x, input.x * cos(angle) - input.z * sin(angle), 2e-3);
-  HS_EXPECT_NEAR(output.z, input.x * sin(angle) + input.z * cos(angle), 2e-3);
+      0.5 * lenses::TWIST_ANGLE * atanh(A * INPUT.y) / atanh(A);
+  HS_EXPECT_NEAR(output.x, INPUT.x * cos(angle) - INPUT.z * sin(angle), 2e-3);
+  HS_EXPECT_NEAR(output.z, INPUT.x * sin(angle) + INPUT.z * cos(angle), 2e-3);
   const auto linear = lenses::prepare_twist_profile(math::TWO_PI_F, 0.0f);
   const auto distributed = lenses::prepare_twist_profile(math::TWO_PI_F, 1.0f);
   HS_EXPECT_NEAR(lenses::twist_angle(0.5f, linear), 0.25 * math::TWO_PI_F,
@@ -1990,7 +1990,7 @@ inline void expect_chamber_fold(const std::array<math::Vector, 3> &mirrors,
  *        fold, plus the dodecahedral specialization.
  */
 inline void test_polyhedral_kaleidoscope_chambers() {
-  const std::array<math::Vector, 3> tables[] = {
+  const std::array<math::Vector, 3> TABLES[] = {
       lenses::TETRAHEDRAL_MIRRORS,     lenses::OCTAHEDRAL_MIRRORS,
       lenses::DODECAHEDRAL_MIRRORS,    lenses::TRIANGULAR_PRISM_MIRRORS,
       lenses::SQUARE_PRISM_MIRRORS,    lenses::PENTAGONAL_PRISM_MIRRORS,
@@ -1998,9 +1998,9 @@ inline void test_polyhedral_kaleidoscope_chambers() {
   };
   constexpr int ORDERS[][3] = {{3, 3, 2}, {4, 3, 2}, {5, 3, 2}, {2, 3, 2},
                                {2, 4, 2}, {2, 5, 2}, {2, 6, 2}, {2, 8, 2}};
-  for (size_t index = 0; index < std::size(tables); ++index) {
+  for (size_t index = 0; index < std::size(TABLES); ++index) {
     HS_CONTEXT("chamber", index);
-    const auto &mirrors = tables[index];
+    const auto &mirrors = TABLES[index];
     for (int pair = 0; pair < 3; ++pair) {
       constexpr int FIRST[] = {0, 1, 0};
       constexpr int SECOND[] = {1, 2, 2};
@@ -2028,12 +2028,12 @@ dodecahedral_apply(const lenses::DodecahedralTable::Matrix &matrix,
 /** @brief Generated group transforms preserve lengths and mirror transitions. */
 inline void test_dodecahedral_group_generation() {
   namespace table = lenses::DodecahedralTable;
-  const auto group = table::make_group();
-  HS_EXPECT_EQ(group.count, 120);
+  const auto GROUP = table::make_group();
+  HS_EXPECT_EQ(GROUP.count, 120);
 
-  for (int index = 0; index < group.count; ++index) {
+  for (int index = 0; index < GROUP.count; ++index) {
     HS_CONTEXT("group", index);
-    const auto &matrix = group.values[index];
+    const auto &matrix = GROUP.values[index];
     const auto transitions = table::make_transition_row(index);
     for (const math::Vector input :
          {math::Vector(1, 0, 0), math::Vector(0, 1, 0), math::Vector(0, 0, 1),
@@ -2046,15 +2046,15 @@ inline void test_dodecahedral_group_generation() {
         const auto normal = lenses::DODECAHEDRAL_MIRRORS[mirror];
         const auto expected =
             output - normal * (2.0f * math::dot(output, normal));
-        HS_EXPECT_LT(transitions[mirror], group.count);
-        if (transitions[mirror] < group.count)
+        HS_EXPECT_LT(transitions[mirror], GROUP.count);
+        if (transitions[mirror] < GROUP.count)
           HS_EXPECT_VEC(
-              dodecahedral_apply(group.values[transitions[mirror]], input),
+              dodecahedral_apply(GROUP.values[transitions[mirror]], input),
               expected, 1e-5f);
       }
     }
     for (int previous = 0; previous < index; ++previous)
-      HS_EXPECT_FALSE(table::same(matrix, group.values[previous]));
+      HS_EXPECT_FALSE(table::same(matrix, GROUP.values[previous]));
   }
 }
 
@@ -2168,9 +2168,9 @@ inline void test_tetrahedral_after_dodecahedral() {
       tangent = tangent / tangent.magnitude();
       const math::Vector bitangent = math::cross(normal, tangent);
       for (int angle = 0; angle < 64; ++angle) {
-        const float PHASE = angle * (2.0f * math::PI_F / 64.0f);
+        const float phase = angle * (2.0f * math::PI_F / 64.0f);
         const math::Vector on_wall =
-            tangent * std::cos(PHASE) + bitangent * std::sin(PHASE);
+            tangent * std::cos(phase) + bitangent * std::sin(phase);
         for (const float OFFSET :
              {-4e-6f, -2e-6f, -1.001e-6f, -1e-6f, -0.999e-6f, -1e-7f, 0.0f,
               1e-7f, 0.999e-6f, 1e-6f, 1.001e-6f, 2e-6f, 4e-6f})
@@ -2245,15 +2245,15 @@ inline math::Vec4 rand_vec4(hs::Pcg32 &rng) {
  * @brief Pins Mat4::identity() and the row-major reading of Mat4::apply().
  */
 inline void test_mat4_identity_and_apply() {
-  const math::Mat4 id = math::Mat4::identity();
+  const math::Mat4 ID = math::Mat4::identity();
   for (int row = 0; row < math::VEC4_DIMENSIONS; ++row)
     for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
-      HS_EXPECT_EQ(id.m[row][column], row == column ? 1.0f : 0.0f);
+      HS_EXPECT_EQ(ID.m[row][column], row == column ? 1.0f : 0.0f);
 
-  const math::Vec4 v{{1.0f, -2.0f, 3.5f, 0.25f}};
-  const math::Vec4 unchanged = id.apply(v);
+  const math::Vec4 V{{1.0f, -2.0f, 3.5f, 0.25f}};
+  const math::Vec4 unchanged = ID.apply(V);
   for (int i = 0; i < math::VEC4_DIMENSIONS; ++i)
-    HS_EXPECT_EQ(unchanged[i], v[i]);
+    HS_EXPECT_EQ(unchanged[i], V[i]);
 
   // An asymmetric matrix pins the row-major reading.
   math::Mat4 ramp{};
@@ -2261,11 +2261,11 @@ inline void test_mat4_identity_and_apply() {
     for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
       ramp.m[row][column] =
           static_cast<float>(row * math::VEC4_DIMENSIONS + column);
-  const math::Vec4 mapped = ramp.apply(v);
+  const math::Vec4 mapped = ramp.apply(V);
   for (int row = 0; row < math::VEC4_DIMENSIONS; ++row) {
     float expected = 0.0f;
     for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
-      expected += ramp.m[row][column] * v[column];
+      expected += ramp.m[row][column] * V[column];
     HS_EXPECT_NEAR(mapped[row], expected, 1e-5f);
   }
 }

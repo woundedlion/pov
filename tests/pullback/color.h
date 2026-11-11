@@ -118,9 +118,9 @@ struct ConstantPalette {
 
 struct VariableAlphaPalette {
   Color4 get(float value) const {
-    const float INDEX = value * (BakedPalette::LUT_SIZE - 1);
+    const float index = value * (BakedPalette::LUT_SIZE - 1);
     return Color4(Pixel(1000, 2000, 3000),
-                  INDEX > 0.5f && INDEX < 1.5f ? 0.5f : 1.0f);
+                  index > 0.5f && index < 1.5f ? 0.5f : 1.0f);
   }
 };
 
@@ -149,64 +149,65 @@ inline void test_pullback_palette_lab_nodes() {
   PaletteLabLut cache;
   cache.bake(a.view(), b.view());
   HS_EXPECT_TRUE(cache.active);
-  const auto MID = PaletteLabLut::sample(cache.view(0.5f), 0.37f);
-  HS_EXPECT_NEAR(MID.L, std::cbrt(32768.0 / 65535.0), 3e-5);
-  HS_EXPECT_GT(MID.L, 0.75f);
-  HS_EXPECT_NEAR(MID.a, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(MID.b, 0.0f, 1e-6f);
+  const auto mid = PaletteLabLut::sample(cache.view(0.5f), 0.37f);
+  HS_EXPECT_NEAR(mid.L, std::cbrt(32768.0 / 65535.0), 3e-5);
+  HS_EXPECT_GT(mid.L, 0.75f);
+  HS_EXPECT_NEAR(mid.a, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(mid.b, 0.0f, 1e-6f);
   for (int row = 0; row < PaletteLabLut::TIMES; ++row)
     for (int index = 0; index < PaletteLabLut::VALUES; ++index) {
-      const float FRACTION = float(row) / (PaletteLabLut::TIMES - 1);
-      const float VALUE = float(index) / (PaletteLabLut::VALUES - 1);
-      const Pixel RGB = a.view().get_color(VALUE).lerp16(
-          b.view().get_color(VALUE), frac_to_q16(FRACTION));
-      const auto LINEAR = pixel_to_linrgb(RGB);
-      const auto EXPECTED =
-          linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
-      const auto ACTUAL = PaletteLabLut::sample(cache.view(FRACTION), VALUE);
-      HS_EXPECT_NEAR(ACTUAL.L, EXPECTED.L, 1e-7f);
-      HS_EXPECT_NEAR(ACTUAL.a, EXPECTED.a, 1e-7f);
-      HS_EXPECT_NEAR(ACTUAL.b, EXPECTED.b, 1e-7f);
+      const float fraction = float(row) / (PaletteLabLut::TIMES - 1);
+      const float value = float(index) / (PaletteLabLut::VALUES - 1);
+      const Pixel rgb = a.view().get_color(value).lerp16(
+          b.view().get_color(value), frac_to_q16(fraction));
+      const auto linear = pixel_to_linrgb(rgb);
+      const auto expected =
+          linear_rgb_to_oklab_fast(linear.r, linear.g, linear.b);
+      const auto actual = PaletteLabLut::sample(cache.view(fraction), value);
+      HS_EXPECT_NEAR(actual.L, expected.L, 1e-7f);
+      HS_EXPECT_NEAR(actual.a, expected.a, 1e-7f);
+      HS_EXPECT_NEAR(actual.b, expected.b, 1e-7f);
     }
-  const auto OLD_VIEW = cache.view(0.25f);
+  const auto old_view = cache.view(0.25f);
   PaletteLabLut next;
   next.bake(b.view(), a.view());
-  HS_EXPECT_NEAR(PaletteLabLut::sample(OLD_VIEW, 0.37f).L, MID.L * 0.5f, 1e-7f);
+  HS_EXPECT_NEAR(PaletteLabLut::sample(old_view, 0.37f).L, mid.L * 0.5f, 1e-7f);
   BakedPaletteStorage ramp, translucent;
   ramp.bake(arena, LabRampPalette{});
   translucent.bake(arena, ConstantPalette{Color4(Pixel(123, 456, 789), 0.6f)});
   next.bake(ramp.view(), b.view());
   for (float value : {0.183f, 0.677f}) {
-    const float POSITION =
+    const float position =
         value * static_cast<float>(PaletteLabLut::VALUES - 1);
-    const int INDEX = static_cast<int>(POSITION);
-    const float WEIGHT = POSITION - INDEX;
+    const int index_value = static_cast<int>(position);
+    const float weight = position - index_value;
     const auto node = [&](int index, float fraction) {
-      const float COORDINATE =
+      const float coordinate =
           float(index) / static_cast<float>(PaletteLabLut::VALUES - 1);
-      const Pixel RGB =
+      const Pixel rgb =
           ramp.view()
-              .get_color(COORDINATE)
-              .lerp16(b.view().get_color(COORDINATE), frac_to_q16(fraction));
-      const LinRGB LINEAR = pixel_to_linrgb(RGB);
-      return linear_rgb_to_oklab_fast(LINEAR.r, LINEAR.g, LINEAR.b);
+              .get_color(coordinate)
+              .lerp16(b.view().get_color(coordinate), frac_to_q16(fraction));
+      const LinRGB linear = pixel_to_linrgb(rgb);
+      return linear_rgb_to_oklab_fast(linear.r, linear.g, linear.b);
     };
-    const auto A = node(INDEX, 0.0f), B = node(INDEX + 1, 0.0f);
-    const auto C = node(INDEX, 0.5f), D = node(INDEX + 1, 0.5f);
-    const auto ACTUAL = PaletteLabLut::sample(next.view(0.17f), value);
-    HS_EXPECT_NEAR(ACTUAL.L,
-                   hs::lerp(hs::lerp(A.L, B.L, WEIGHT),
-                            hs::lerp(C.L, D.L, WEIGHT),
+    const auto a_value = node(index_value, 0.0f),
+               b_value = node(index_value + 1, 0.0f);
+    const auto c = node(index_value, 0.5f), d = node(index_value + 1, 0.5f);
+    const auto actual = PaletteLabLut::sample(next.view(0.17f), value);
+    HS_EXPECT_NEAR(actual.L,
+                   hs::lerp(hs::lerp(a_value.L, b_value.L, weight),
+                            hs::lerp(c.L, d.L, weight),
                             (0.17f * (PaletteLabLut::TIMES - 1))),
                    1e-7f);
-    HS_EXPECT_NEAR(ACTUAL.a,
-                   hs::lerp(hs::lerp(A.a, B.a, WEIGHT),
-                            hs::lerp(C.a, D.a, WEIGHT),
+    HS_EXPECT_NEAR(actual.a,
+                   hs::lerp(hs::lerp(a_value.a, b_value.a, weight),
+                            hs::lerp(c.a, d.a, weight),
                             (0.17f * (PaletteLabLut::TIMES - 1))),
                    1e-7f);
-    HS_EXPECT_NEAR(ACTUAL.b,
-                   hs::lerp(hs::lerp(A.b, B.b, WEIGHT),
-                            hs::lerp(C.b, D.b, WEIGHT),
+    HS_EXPECT_NEAR(actual.b,
+                   hs::lerp(hs::lerp(a_value.b, b_value.b, weight),
+                            hs::lerp(c.b, d.b, weight),
                             (0.17f * (PaletteLabLut::TIMES - 1))),
                    1e-7f);
   }
@@ -237,36 +238,36 @@ inline void test_pullback_palette_lab_owned_copy() {
     source.rgb_nodes = rgb.data();
     source.rgb_midpoint = true;
     source.rgb_midpoint_row = 0;
-    const auto NODES = source.nodes;
+    const auto nodes = source.nodes;
     PaletteLabLutStorage<Values> copy(source);
     HS_EXPECT_TRUE(copy.data == copy.nodes.data() && copy.data != source.data);
     HS_EXPECT_EQ(copy.value_steps, Values);
     HS_EXPECT_TRUE(copy.active && copy.rgb_midpoint);
     HS_EXPECT_EQ(copy.rgb_midpoint_row, 0);
     HS_EXPECT_TRUE(copy.rgb_nodes == rgb.data());
-    HS_EXPECT_EQ(std::memcmp(copy.nodes.data(), NODES.data(), sizeof(NODES)),
+    HS_EXPECT_EQ(std::memcmp(copy.nodes.data(), nodes.data(), sizeof(nodes)),
                  0);
     source.nodes[0].L = 1.0f;
-    HS_EXPECT_EQ(copy.nodes[0].L, NODES[0].L);
-    const auto VIEW = copy.view(0.25f);
-    HS_EXPECT_TRUE(VIEW.low == copy.nodes.data());
-    HS_EXPECT_EQ(VIEW.value_steps, Values);
-    HS_EXPECT_TRUE(VIEW.rgb_low == rgb.data() && VIEW.rgb_high == rgb.data());
+    HS_EXPECT_EQ(copy.nodes[0].L, nodes[0].L);
+    const auto view = copy.view(0.25f);
+    HS_EXPECT_TRUE(view.low == copy.nodes.data());
+    HS_EXPECT_EQ(view.value_steps, Values);
+    HS_EXPECT_TRUE(view.rgb_low == rgb.data() && view.rgb_high == rgb.data());
     PaletteLabLutStorage<Values> assigned;
     HS_EXPECT_TRUE(&(assigned = copy) == &assigned);
     HS_EXPECT_TRUE(assigned.data == assigned.nodes.data());
     HS_EXPECT_TRUE(assigned.data != copy.data);
     HS_EXPECT_EQ(
-        std::memcmp(assigned.nodes.data(), NODES.data(), sizeof(NODES)), 0);
+        std::memcmp(assigned.nodes.data(), nodes.data(), sizeof(nodes)), 0);
     auto *same = &assigned;
     assigned = *same;
     HS_EXPECT_TRUE(assigned.data == assigned.nodes.data());
     HS_EXPECT_EQ(
-        std::memcmp(assigned.nodes.data(), NODES.data(), sizeof(NODES)), 0);
+        std::memcmp(assigned.nodes.data(), nodes.data(), sizeof(nodes)), 0);
     HS_EXPECT_TRUE(assigned.rgb_nodes == rgb.data() && assigned.rgb_midpoint);
     HS_EXPECT_EQ(assigned.rgb_midpoint_row, 0);
     copy.nodes[0].L = 0.75f;
-    HS_EXPECT_EQ(assigned.nodes[0].L, NODES[0].L);
+    HS_EXPECT_EQ(assigned.nodes[0].L, nodes[0].L);
   };
   check.template operator()<64>();
   check.template operator()<256>();
@@ -279,12 +280,12 @@ inline void test_pullback_cached_lab_finish() {
                      {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
   sample.cached_lab = {0.7f, 0.02f, 0.03f};
   sample.has_cached_lab = true;
-  const auto EXPECTED =
+  const auto expected =
       linrgb_to_pixel(oklab_to_linear_rgb_lut_gamut(sample.cached_lab));
-  const auto ACTUAL = finish_color_sample(sample);
-  HS_EXPECT_EQ(ACTUAL.color, EXPECTED);
-  HS_EXPECT_EQ(ACTUAL.alpha, 0.37f);
-  HS_EXPECT_GT(ACTUAL.color.r, 0);
+  const auto actual = finish_color_sample(sample);
+  HS_EXPECT_EQ(actual.color, expected);
+  HS_EXPECT_EQ(actual.alpha, 0.37f);
+  HS_EXPECT_GT(actual.color.r, 0);
   sample.brightness_gain = 0.0f;
   HS_EXPECT_EQ(finish_color_sample(sample).color, Pixel(0, 0, 0));
   HS_EXPECT_EQ(finish_color_sample(sample).alpha, 0.37f);
@@ -387,11 +388,11 @@ inline void test_pullback_fused_rgb_carrier_finish() {
   palettes.bind(frame);
   frame.lab = &cache;
   Modulation::Prepared previous{}, current{};
-  const auto SOURCE = [](const Modulation::Prepared &p,
+  const auto source = [](const Modulation::Prepared &p,
                          const Pattern::SphereDirection &) {
     return p.state.phase.phase_turns;
   };
-  previous.evaluate = current.evaluate = SOURCE;
+  previous.evaluate = current.evaluate = source;
   previous.state.phase.phase_turns = 0.13f;
   current.state.phase.phase_turns = 0.67f;
   frame.previous_modulation = &previous;
@@ -403,38 +404,38 @@ inline void test_pullback_fused_rgb_carrier_finish() {
                       ColorModulation::Mechanic::OPACITY}) {
       frame.temporal.fraction = fraction;
       frame.mechanic = {kind, 0.4f};
-      const auto PREPARED = Policy::prepare(frame);
-      const auto MODULATION = PaletteLayerProvider::prepare(frame);
-      const auto CARRIER = Policy::apply_fused_modulation(
-          FIELD, frame, PREPARED, MODULATION, fraction);
+      const auto prepared = Policy::prepare(frame);
+      const auto modulation = PaletteLayerProvider::prepare(frame);
+      const auto carrier = Policy::apply_fused_modulation(
+          FIELD, frame, prepared, modulation, fraction);
       if (fraction > 0.0f && fraction < 1.0f) {
-        HS_EXPECT_TRUE(CARRIER.cached_rgb == &PREPARED.lab);
-        HS_EXPECT_TRUE(CARRIER.has_cached_lab);
+        HS_EXPECT_TRUE(carrier.cached_rgb == &prepared.lab);
+        HS_EXPECT_TRUE(carrier.has_cached_lab);
         for (float gain : {0.0f, 0.3f, 1.0f})
           for (float lift : {0.0f, 0.4f}) {
-            auto sample = CARRIER;
+            auto sample = carrier;
             sample.brightness_gain = gain;
             sample.pending_lift = lift;
-            const auto EXPECTED = finish_color_sample(sample);
+            const auto expected = finish_color_sample(sample);
             int callbacks = 0;
             HS_EXPECT_FALSE(Color::restore_cached_palette_base_near_gamut_gate(
                 sample, [&] { ++callbacks; }));
-            const auto ACTUAL =
+            const auto actual =
                 Color::finish_fused_color(sample, [&] { ++callbacks; });
             HS_EXPECT_EQ(callbacks, 0);
-            HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
-            HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+            HS_EXPECT_EQ(actual.color, expected.color);
+            HS_EXPECT_EQ(actual.alpha, expected.alpha);
           }
       }
-      const auto EXPECTED = finish_color_sample(CARRIER);
-      const auto DIRECT = Policy::shade_fused_modulation(FIELD, frame, PREPARED,
-                                                         MODULATION, fraction);
-      HS_EXPECT_EQ(DIRECT.color, EXPECTED.color);
-      HS_EXPECT_EQ(DIRECT.alpha, EXPECTED.alpha);
-      const auto PIXEL =
+      const auto expected = finish_color_sample(carrier);
+      const auto direct = Policy::shade_fused_modulation(FIELD, frame, prepared,
+                                                         modulation, fraction);
+      HS_EXPECT_EQ(direct.color, expected.color);
+      HS_EXPECT_EQ(direct.alpha, expected.alpha);
+      const auto pixel =
           Pipeline::shade(math::Y_AXIS, Pipeline::prepare(frame));
-      HS_EXPECT_EQ(PIXEL.color, EXPECTED.color);
-      HS_EXPECT_EQ(PIXEL.alpha, EXPECTED.alpha);
+      HS_EXPECT_EQ(pixel.color, expected.color);
+      HS_EXPECT_EQ(pixel.alpha, expected.alpha);
     }
 }
 
@@ -495,33 +496,33 @@ inline void test_pullback_cached_phase_finish() {
             modulation.ready = ready;
             modulation.mechanic = {kind, amount};
             frame.temporal.fraction = fraction;
-            const auto PREPARED = Pipeline::prepare_stages(frame);
+            const auto prepared = Pipeline::prepare_stages(frame);
             const SphereSample INPUT{math::Y_AXIS, 0.7f};
-            const auto EXPECTED = finish_color_sample(
-                Core::template run_stage<0>(INPUT, frame, PREPARED));
-            const auto ACTUAL =
-                Core::template shade_stage<0>(INPUT, frame, PREPARED);
-            HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
-            HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
-            const auto PALETTE = Policy::prepare(frame);
+            const auto expected = finish_color_sample(
+                Core::template run_stage<0>(INPUT, frame, prepared));
+            const auto actual =
+                Core::template shade_stage<0>(INPUT, frame, prepared);
+            HS_EXPECT_EQ(actual.color, expected.color);
+            HS_EXPECT_EQ(actual.alpha, expected.alpha);
+            const auto palette = Policy::prepare(frame);
             for (float value : {0.0f, 0.01f, 0.5f, 0.99f, 1.0f}) {
-              const FieldSample FIELD{value, 0.5f, math::Y_AXIS, 0.7f};
+              const FieldSample field{value, 0.5f, math::Y_AXIS, 0.7f};
               ColorSample carrier;
-              const bool SHARED =
-                  Policy::apply_shared_base(FIELD, frame, PALETTE, carrier);
+              const bool shared =
+                  Policy::apply_shared_base(field, frame, palette, carrier);
               Color4 direct;
-              const bool FINISHED = Policy::template shade_cached_phase<Layer>(
-                  FIELD, PALETTE, modulation, direct);
+              const bool finished = Policy::template shade_cached_phase<Layer>(
+                  field, palette, modulation, direct);
               HS_EXPECT_EQ(
-                  FINISHED,
-                  SHARED && ready &&
+                  finished,
+                  shared && ready &&
                       (amount == 0.0f ||
                        kind == ColorModulation::Mechanic::HUE_ROTATION));
-              if (FINISHED) {
+              if (finished) {
                 Layer::apply_phase_in_place(carrier, frame, modulation);
-                const auto REFERENCE = finish_color_sample(carrier);
-                HS_EXPECT_EQ(direct.color, REFERENCE.color);
-                HS_EXPECT_EQ(direct.alpha, REFERENCE.alpha);
+                const auto reference = finish_color_sample(carrier);
+                HS_EXPECT_EQ(direct.color, reference.color);
+                HS_EXPECT_EQ(direct.alpha, reference.alpha);
               }
             }
           }
@@ -572,33 +573,33 @@ inline void test_pullback_palette_lab_qualification() {
   constexpr int FRACTIONS = 128;
   for (int time = 0; time < FRACTIONS; ++time) {
     frame.temporal.fraction = (static_cast<float>(time) + 0.5f) / FRACTIONS;
-    const auto PREPARED = Policy::prepare(frame);
+    const auto prepared = Policy::prepare(frame);
     for (int index = 0; index < VALUES; ++index) {
-      const FieldSample FIELD{(static_cast<float>(index) + 0.5f) / VALUES,
+      const FieldSample field{(static_cast<float>(index) + 0.5f) / VALUES,
                               0.75f, math::Y_AXIS, 0.0f};
       ColorSample cached;
-      HS_EXPECT_TRUE(Policy::apply_shared_base(FIELD, frame, PREPARED, cached));
-      const auto PAIR = Policy::apply_pair(FIELD, frame, PREPARED);
-      const auto EXPECTED = finish_color_sample(blend_color_samples(
-          PAIR.first, PAIR.second, frame.temporal.fraction));
-      const auto ACTUAL = finish_color_sample(cached);
-      HS_EXPECT_NEAR(ACTUAL.alpha, EXPECTED.alpha, 1e-7f);
+      HS_EXPECT_TRUE(Policy::apply_shared_base(field, frame, prepared, cached));
+      const auto pair = Policy::apply_pair(field, frame, prepared);
+      const auto expected = finish_color_sample(blend_color_samples(
+          pair.first, pair.second, frame.temporal.fraction));
+      const auto actual = finish_color_sample(cached);
+      HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-7f);
       for (const uint32_t ERROR :
-           {channel_gap(ACTUAL.color.r, EXPECTED.color.r),
-            channel_gap(ACTUAL.color.g, EXPECTED.color.g),
-            channel_gap(ACTUAL.color.b, EXPECTED.color.b)}) {
+           {channel_gap(actual.color.r, expected.color.r),
+            channel_gap(actual.color.g, expected.color.g),
+            channel_gap(actual.color.b, expected.color.b)}) {
         maximum = std::max(maximum, ERROR);
         total += ERROR;
         ++channels;
       }
     }
   }
-  const double MEAN = static_cast<double>(total) / channels;
+  const double mean = static_cast<double>(total) / channels;
   std::printf("  palette lab cache max=%u mean=%.3f channel codes\n", maximum,
-              MEAN);
+              mean);
   HS_EXPECT_GT(maximum, 0u);
   HS_EXPECT_LE(static_cast<float>(maximum), Policy::METRICS[0].limit);
-  HS_EXPECT_LE(MEAN, Policy::METRICS[1].limit);
+  HS_EXPECT_LE(mean, Policy::METRICS[1].limit);
 }
 
 /** @brief Displacement source selection for modulation qualification. */
@@ -624,7 +625,7 @@ inline void test_pullback_modulation_lut_qualification() {
   HueRotationGamutMask mask;
   PaletteFrame frame;
   frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
-  const auto PREPARED = Layer::prepare(frame);
+  const auto prepared = Layer::prepare(frame);
   uint32_t maximum = 0;
   int worst_frame = 0, worst_value = 0, worst_hue = 0;
   uint64_t total = 0;
@@ -639,23 +640,23 @@ inline void test_pullback_modulation_lut_qualification() {
     prepare_hue_rotation_lut(std::span(table), palette, &mask);
     constexpr int VALUES = 512, HUES = 128;
     for (int value = 0; value < VALUES; ++value) {
-      const float COORDINATE = (value + 0.5f) / VALUES;
-      const auto BASE = palette.get(COORDINATE);
+      const float coordinate = (value + 0.5f) / VALUES;
+      const auto base = palette.get(coordinate);
       for (int hue = 0; hue < HUES; ++hue) {
-        const float SCALAR = 2.0f * (hue + 0.5f) / HUES - 1.0f;
-        ColorSample input{BASE, {COORDINATE, 0.75f, math::Y_AXIS, SCALAR}};
+        const float scalar = 2.0f * (hue + 0.5f) / HUES - 1.0f;
+        ColorSample input{base, {coordinate, 0.75f, math::Y_AXIS, scalar}};
         input.hue_rotation = table.data();
         input.hue_rotation_gamut = &mask;
-        input.palette_coordinate = COORDINATE;
-        const auto ACTUAL =
-            finish_color_sample(Layer::apply(input, frame, PREPARED));
-        const auto EXPECTED =
-            ColorModulation::apply(BASE, SCALAR, frame.mechanic);
-        HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+        input.palette_coordinate = coordinate;
+        const auto actual =
+            finish_color_sample(Layer::apply(input, frame, prepared));
+        const auto expected =
+            ColorModulation::apply(base, scalar, frame.mechanic);
+        HS_EXPECT_EQ(actual.alpha, expected.alpha);
         for (const uint32_t ERROR :
-             {channel_gap(ACTUAL.color.r, EXPECTED.color.r),
-              channel_gap(ACTUAL.color.g, EXPECTED.color.g),
-              channel_gap(ACTUAL.color.b, EXPECTED.color.b)}) {
+             {channel_gap(actual.color.r, expected.color.r),
+              channel_gap(actual.color.g, expected.color.g),
+              channel_gap(actual.color.b, expected.color.b)}) {
           if (ERROR > maximum) {
             maximum = ERROR;
             worst_frame = target;
@@ -668,12 +669,12 @@ inline void test_pullback_modulation_lut_qualification() {
       }
     }
   }
-  const double MEAN = static_cast<double>(total) / channels;
+  const double mean = static_cast<double>(total) / channels;
   std::printf("  modulation LUT max=%u mean=%.3f channels=%zu worst=%d/%d/%d\n",
-              maximum, MEAN, channels, worst_frame, worst_value, worst_hue);
+              maximum, mean, channels, worst_frame, worst_value, worst_hue);
   HS_EXPECT_GT(maximum, 0u);
   HS_EXPECT_LE(static_cast<float>(maximum), Layer::METRICS[0].limit);
-  HS_EXPECT_LE(MEAN, Layer::METRICS[1].limit);
+  HS_EXPECT_LE(mean, Layer::METRICS[1].limit);
 }
 
 /** @brief Shared cached bases skip both palette endpoints and preserve alpha. */
@@ -706,7 +707,7 @@ inline void test_pullback_shared_lab_dispatch() {
   frame.phase = &layer;
   frame.lab = &cache;
   frame.temporal.fraction = 0.37f;
-  const auto DIRECT_PREPARED = CountingLabPalette::Base::prepare(frame);
+  const auto direct_prepared = CountingLabPalette::Base::prepare(frame);
   const FieldSample DIRECT_FIELD{0.5f, 0.5f, math::Y_AXIS, 0.7f};
   ColorSample dirty{Color4(Pixel(123, 456, 789), 0.9f),
                     {0.1f, 0.2f, math::X_AXIS, 0.3f},
@@ -717,14 +718,14 @@ inline void test_pullback_shared_lab_dispatch() {
                     0.7f,
                     {0.8f, 0.9f, 1.0f},
                     false};
-  const auto STALE_RGB = cache.view(0.0f);
-  dirty.cached_rgb = &STALE_RGB;
+  const auto stale_rgb = cache.view(0.0f);
+  dirty.cached_rgb = &stale_rgb;
   HS_EXPECT_TRUE(CountingLabPalette::Base::apply_shared_base(
-      DIRECT_FIELD, frame, DIRECT_PREPARED, dirty));
+      DIRECT_FIELD, frame, direct_prepared, dirty));
   HS_EXPECT_EQ(dirty.color.color, Pixel(0, 0, 0));
-  const auto DIRECT_PAIR = CountingLabPalette::Base::apply_pair(
-      DIRECT_FIELD, frame, DIRECT_PREPARED);
-  HS_EXPECT_EQ(dirty.color.alpha, DIRECT_PAIR.first.color.alpha);
+  const auto direct_pair = CountingLabPalette::Base::apply_pair(
+      DIRECT_FIELD, frame, direct_prepared);
+  HS_EXPECT_EQ(dirty.color.alpha, direct_pair.first.color.alpha);
   HS_EXPECT_EQ(dirty.field.value, DIRECT_FIELD.value);
   HS_EXPECT_EQ(dirty.field.coverage, DIRECT_FIELD.coverage);
   HS_EXPECT_EQ(dirty.field.sphere, DIRECT_FIELD.sphere);
@@ -735,10 +736,10 @@ inline void test_pullback_shared_lab_dispatch() {
   HS_EXPECT_EQ(dirty.pending_hue, 0.0f);
   HS_EXPECT_EQ(dirty.brightness_gain, 1.0f);
   HS_EXPECT_EQ(dirty.pending_lift, 0.0f);
-  const auto EXPECTED_LAB = PaletteLabLut::sample(cache.view(0.37f), 0.5f);
-  HS_EXPECT_EQ(dirty.cached_lab.L, EXPECTED_LAB.L);
-  HS_EXPECT_EQ(dirty.cached_lab.a, EXPECTED_LAB.a);
-  HS_EXPECT_EQ(dirty.cached_lab.b, EXPECTED_LAB.b);
+  const auto expected_lab = PaletteLabLut::sample(cache.view(0.37f), 0.5f);
+  HS_EXPECT_EQ(dirty.cached_lab.L, expected_lab.L);
+  HS_EXPECT_EQ(dirty.cached_lab.a, expected_lab.a);
+  HS_EXPECT_EQ(dirty.cached_lab.b, expected_lab.b);
   HS_EXPECT_TRUE(dirty.has_cached_lab);
   for (bool ready : {false, true})
     for (bool active : {false, true})
@@ -748,55 +749,55 @@ inline void test_pullback_shared_lab_dispatch() {
         frame.temporal.fraction = fraction;
         CountingLabPalette::shared_calls = 0;
         CountingLabPalette::pair_calls = 0;
-        const auto PREPARED = Pipeline::prepare_stages(frame);
-        const auto ACTUAL = Core::template run_stage<0>(
-            SphereSample{math::Y_AXIS, 0.7f}, frame, PREPARED);
-        const bool INTERIOR = fraction > 0.0f && fraction < 1.0f;
-        const bool SHARED = ready && fraction > 0.0f;
-        HS_EXPECT_EQ(ACTUAL.has_cached_lab, active && SHARED);
-        HS_EXPECT_EQ(CountingLabPalette::shared_calls, SHARED ? 1 : 0);
+        const auto prepared = Pipeline::prepare_stages(frame);
+        const auto actual = Core::template run_stage<0>(
+            SphereSample{math::Y_AXIS, 0.7f}, frame, prepared);
+        const bool interior = fraction > 0.0f && fraction < 1.0f;
+        const bool shared = ready && fraction > 0.0f;
+        HS_EXPECT_EQ(actual.has_cached_lab, active && shared);
+        HS_EXPECT_EQ(CountingLabPalette::shared_calls, shared ? 1 : 0);
         HS_EXPECT_EQ(CountingLabPalette::pair_calls,
-                     INTERIOR && !(active && ready) ? 1 : 0);
+                     interior && !(active && ready) ? 1 : 0);
         const FieldSample FIELD{0.5f, 0.5f, math::Y_AXIS, 0.7f};
-        const auto PAIR = CountingLabPalette::Base::apply_pair(
-            FIELD, frame, std::get<1>(PREPARED));
-        HS_EXPECT_EQ(ACTUAL.color.alpha,
-                     fraction <= 0.0f ? PAIR.first.color.alpha
+        const auto pair = CountingLabPalette::Base::apply_pair(
+            FIELD, frame, std::get<1>(prepared));
+        HS_EXPECT_EQ(actual.color.alpha,
+                     fraction <= 0.0f ? pair.first.color.alpha
                      : fraction >= 1.0f
-                         ? PAIR.second.color.alpha
-                         : hs::lerp(PAIR.first.color.alpha,
-                                    PAIR.second.color.alpha, fraction));
-        HS_EXPECT_NEAR(ACTUAL.pending_hue, 0.14f, 1e-7f);
-        if (!INTERIOR && !(active && SHARED))
-          HS_EXPECT_EQ(ACTUAL.color.color, fraction == 0.0f
-                                               ? PAIR.first.color.color
-                                               : PAIR.second.color.color);
+                         ? pair.second.color.alpha
+                         : hs::lerp(pair.first.color.alpha,
+                                    pair.second.color.alpha, fraction));
+        HS_EXPECT_NEAR(actual.pending_hue, 0.14f, 1e-7f);
+        if (!interior && !(active && shared))
+          HS_EXPECT_EQ(actual.color.color, fraction == 0.0f
+                                               ? pair.first.color.color
+                                               : pair.second.color.color);
       }
   layer.ready = true;
   frame.lab = &cache;
   frame.temporal.fraction = 0.5f;
   CountingLabPalette::shared_calls = 0;
   CountingLabPalette::pair_calls = 0;
-  const auto CUSTOM = CustomCore::template run_stage<0>(
+  const auto custom = CustomCore::template run_stage<0>(
       SphereSample{math::Y_AXIS, 0.7f}, frame, Custom::prepare_stages(frame));
-  HS_EXPECT_FALSE(CUSTOM.has_cached_lab);
+  HS_EXPECT_FALSE(custom.has_cached_lab);
   HS_EXPECT_EQ(CountingLabPalette::shared_calls, 0);
   HS_EXPECT_EQ(CountingLabPalette::pair_calls, 1);
-  HS_EXPECT_EQ(CUSTOM.color.color.r, 5123);
+  HS_EXPECT_EQ(custom.color.color.r, 5123);
   BakedPaletteStorage translucent;
   translucent.bake(palettes.arena,
                    ConstantPalette{Color4(Pixel(4000, 5000, 6000), 0.6f)});
   cache.bake(a.view(), translucent.view());
   frame.palette = &translucent.view();
-  const auto PREPARED = Pipeline::prepare_stages(frame);
-  const auto FALLBACK = Core::template run_stage<0>(
-      SphereSample{math::Y_AXIS, 0.7f}, frame, PREPARED);
-  const auto PAIR = CountingLabPalette::Base::apply_pair(
+  const auto prepared = Pipeline::prepare_stages(frame);
+  const auto fallback = Core::template run_stage<0>(
+      SphereSample{math::Y_AXIS, 0.7f}, frame, prepared);
+  const auto pair = CountingLabPalette::Base::apply_pair(
       FieldSample{0.5f, 0.5f, math::Y_AXIS, 0.7f}, frame,
-      std::get<1>(PREPARED));
-  HS_EXPECT_FALSE(FALLBACK.has_cached_lab);
-  HS_EXPECT_EQ(FALLBACK.color.alpha,
-               hs::lerp(PAIR.first.color.alpha, PAIR.second.color.alpha, 0.5f));
+      std::get<1>(prepared));
+  HS_EXPECT_FALSE(fallback.has_cached_lab);
+  HS_EXPECT_EQ(fallback.color.alpha,
+               hs::lerp(pair.first.color.alpha, pair.second.color.alpha, 0.5f));
 }
 
 /** @brief Shared phase tails run once; incomplete or unready tails keep endpoints. */
@@ -835,26 +836,26 @@ inline void test_pullback_phase_tail_dispatch() {
       CountingPhasePolicy::phase_calls = 0;
       CountingPhasePolicy::endpoint_calls = 0;
       const auto prepared = Phase::prepare_stages(frame);
-      const auto SAMPLE = PhaseCore::template run_stage<0>(
+      const auto sample = PhaseCore::template run_stage<0>(
           SphereSample{math::Y_AXIS, 0.7f}, frame, prepared);
-      const bool SHARED = ready && fraction > 0.0f && fraction < 1.0f;
-      HS_EXPECT_EQ(CountingPhasePolicy::phase_calls, SHARED ? 2 : 0);
+      const bool shared = ready && fraction > 0.0f && fraction < 1.0f;
+      HS_EXPECT_EQ(CountingPhasePolicy::phase_calls, shared ? 2 : 0);
       HS_EXPECT_EQ(CountingPhasePolicy::endpoint_calls,
-                   SHARED ? 0 : (fraction > 0.0f && fraction < 1.0f ? 4 : 2));
-      HS_EXPECT_NEAR(SAMPLE.pending_hue, 0.28f, 1e-7f);
-      HS_EXPECT_NEAR(SAMPLE.color.alpha, 0.04f + 0.08f * fraction, 1e-7f);
-      HS_EXPECT_NEAR(SAMPLE.color.color.r, 1000 + 8000 * fraction, 1.0f);
+                   shared ? 0 : (fraction > 0.0f && fraction < 1.0f ? 4 : 2));
+      HS_EXPECT_NEAR(sample.pending_hue, 0.28f, 1e-7f);
+      HS_EXPECT_NEAR(sample.color.alpha, 0.04f + 0.08f * fraction, 1e-7f);
+      HS_EXPECT_NEAR(sample.color.color.r, 1000 + 8000 * fraction, 1.0f);
       CountingPhasePolicy::phase_calls = 0;
       CountingPhasePolicy::endpoint_calls = 0;
-      const auto OTHER = FallbackCore::template run_stage<0>(
+      const auto other = FallbackCore::template run_stage<0>(
           SphereSample{math::Y_AXIS, 0.7f}, frame,
           Fallback::prepare_stages(frame));
       HS_EXPECT_EQ(CountingPhasePolicy::phase_calls, 0);
       HS_EXPECT_EQ(CountingPhasePolicy::endpoint_calls,
                    fraction > 0.0f && fraction < 1.0f ? 4 : 2);
-      HS_EXPECT_EQ(OTHER.color.color, SAMPLE.color.color);
-      HS_EXPECT_EQ(OTHER.color.alpha, SAMPLE.color.alpha);
-      HS_EXPECT_EQ(OTHER.pending_hue, SAMPLE.pending_hue);
+      HS_EXPECT_EQ(other.color.color, sample.color.color);
+      HS_EXPECT_EQ(other.color.alpha, sample.color.alpha);
+      HS_EXPECT_EQ(other.pending_hue, sample.pending_hue);
     }
 }
 
@@ -897,16 +898,16 @@ inline void test_pullback_paired_color_dispatch() {
     frame.temporal.fraction = fraction;
     CountingPairedPalette::pairs = 0;
     CountingPairedPalette::endpoints = 0;
-    const auto COLOR = Paired::shade(math::Y_AXIS, Paired::prepare(frame));
-    HS_EXPECT_NEAR(COLOR.color.r, 1000 + 8000 * fraction, 1.0f);
-    HS_EXPECT_NEAR(COLOR.alpha, 0.04f + 0.08f * fraction, 1e-6f);
+    const auto color = Paired::shade(math::Y_AXIS, Paired::prepare(frame));
+    HS_EXPECT_NEAR(color.color.r, 1000 + 8000 * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.alpha, 0.04f + 0.08f * fraction, 1e-6f);
     HS_EXPECT_EQ(CountingPairedPalette::pairs, fraction == 0.25f ? 1 : 0);
     HS_EXPECT_EQ(CountingPairedPalette::endpoints, fraction == 0.25f ? 0 : 1);
     CountingPairedPalette::pairs = 0;
     CountingPairedPalette::endpoints = 0;
-    const auto OTHER = Fallback::shade(math::Y_AXIS, Fallback::prepare(frame));
-    HS_EXPECT_EQ(OTHER.color, COLOR.color);
-    HS_EXPECT_EQ(OTHER.alpha, COLOR.alpha);
+    const auto other = Fallback::shade(math::Y_AXIS, Fallback::prepare(frame));
+    HS_EXPECT_EQ(other.color, color.color);
+    HS_EXPECT_EQ(other.alpha, color.alpha);
     HS_EXPECT_EQ(CountingPairedPalette::pairs, 0);
     HS_EXPECT_EQ(CountingPairedPalette::endpoints,
                  fraction > 0.0f && fraction < 1.0f ? 2 : 1);
@@ -941,8 +942,8 @@ inline void test_pullback_paired_palette_controls() {
   prepared.previous.palette = &a.view();
   prepared.previous.hue_rotation = {hue.data() + 1, true};
   const FieldSample INPUT{0.37f, 0.45f, math::X_AXIS, 2.5f};
-  const auto PAIR = Policy::apply_pair(INPUT, frame, prepared);
-  for (const auto *sample : {&PAIR.first, &PAIR.second}) {
+  const auto pair = Policy::apply_pair(INPUT, frame, prepared);
+  for (const auto *sample : {&pair.first, &pair.second}) {
     HS_EXPECT_NEAR(sample->palette_coordinate, 0.87f, 1e-6f);
     HS_EXPECT_NEAR(sample->brightness_gain, 0.422f, 1e-6f);
     HS_EXPECT_EQ(sample->field.value, INPUT.value);
@@ -953,10 +954,10 @@ inline void test_pullback_paired_palette_controls() {
     HS_EXPECT_EQ(sample->pending_lift, 0.0f);
     HS_EXPECT_EQ(sample->color.color, a.view().get(0.87f).color);
   }
-  HS_EXPECT_NEAR(PAIR.first.color.alpha, 0.03132f, 1e-6f);
-  HS_EXPECT_NEAR(PAIR.second.color.alpha, 0.09396f, 1e-6f);
-  HS_EXPECT_TRUE(PAIR.first.hue_rotation == hue.data() + 1);
-  HS_EXPECT_TRUE(PAIR.second.hue_rotation == hue.data());
+  HS_EXPECT_NEAR(pair.first.color.alpha, 0.03132f, 1e-6f);
+  HS_EXPECT_NEAR(pair.second.color.alpha, 0.09396f, 1e-6f);
+  HS_EXPECT_TRUE(pair.first.hue_rotation == hue.data() + 1);
+  HS_EXPECT_TRUE(pair.second.hue_rotation == hue.data());
 }
 
 /** @brief The complete color suffix interpolates immutable palette endpoints. */
@@ -970,12 +971,12 @@ inline void test_pullback_temporal_palette() {
   frame.mechanic.amount = 0.0f;
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
-    const auto COLOR = TemporalPalettePipeline::shade(
+    const auto color = TemporalPalettePipeline::shade(
         math::Y_AXIS, TemporalPalettePipeline::prepare(frame));
-    HS_EXPECT_NEAR(COLOR.color.r, 1000 + 8000 * fraction, 1.0f);
-    HS_EXPECT_NEAR(COLOR.color.g, 2000 + 4000 * fraction, 1.0f);
-    HS_EXPECT_NEAR(COLOR.color.b, 3000 - 2000 * fraction, 1.0f);
-    HS_EXPECT_NEAR(COLOR.alpha, 0.04f + 0.08f * fraction, 1e-6f);
+    HS_EXPECT_NEAR(color.color.r, 1000 + 8000 * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.color.g, 2000 + 4000 * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.color.b, 3000 - 2000 * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.alpha, 0.04f + 0.08f * fraction, 1e-6f);
   }
 }
 
@@ -995,15 +996,15 @@ inline void test_pullback_modulation_temporal_alpha() {
   frame.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
-    const auto COLOR = TemporalPalettePipeline::shade(
+    const auto color = TemporalPalettePipeline::shade(
         math::Y_AXIS, TemporalPalettePipeline::prepare(frame));
-    HS_EXPECT_EQ(COLOR.color, RGB);
-    HS_EXPECT_NEAR(COLOR.alpha, 0.12f * fraction, 1e-6f);
+    HS_EXPECT_EQ(color.color, RGB);
+    HS_EXPECT_NEAR(color.alpha, 0.12f * fraction, 1e-6f);
     const auto check_placed = [&]<CodeEmission Emission>() {
       using Placed = TemporalPalettePlacedPipeline<Emission>;
-      const auto PLACED = Placed::shade(math::Y_AXIS, Placed::prepare(frame));
-      HS_EXPECT_EQ(PLACED.color, COLOR.color);
-      HS_EXPECT_NEAR(PLACED.alpha, COLOR.alpha, 0.0f);
+      const auto placed = Placed::shade(math::Y_AXIS, Placed::prepare(frame));
+      HS_EXPECT_EQ(placed.color, color.color);
+      HS_EXPECT_NEAR(placed.alpha, color.alpha, 0.0f);
     };
     check_placed.template operator()<CodeEmission::INLINE_ONLY>();
     check_placed.template operator()<CodeEmission::OUT_OF_LINE_FLASH>();
@@ -1011,14 +1012,14 @@ inline void test_pullback_modulation_temporal_alpha() {
   }
   frame.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 1.0f};
   frame.temporal.fraction = 0.5f;
-  const auto COLOR = TemporalPalettePipeline::shade(
+  const auto color = TemporalPalettePipeline::shade(
       math::Y_AXIS, TemporalPalettePipeline::prepare(frame));
-  const auto EXPECTED =
+  const auto expected =
       ColorModulation::PositiveLightnessLift::apply(Color4(RGB), 0.5f, {1.0f})
           .color;
-  HS_EXPECT_NEAR(COLOR.color.r, EXPECTED.r, 1.0f);
-  HS_EXPECT_NEAR(COLOR.color.g, EXPECTED.g, 1.0f);
-  HS_EXPECT_NEAR(COLOR.color.b, EXPECTED.b, 1.0f);
+  HS_EXPECT_NEAR(color.color.r, expected.r, 1.0f);
+  HS_EXPECT_NEAR(color.color.g, expected.g, 1.0f);
+  HS_EXPECT_NEAR(color.color.b, expected.b, 1.0f);
 }
 
 /** @brief Hue and lightness composition uses one final gamut mapping.
@@ -1056,32 +1057,32 @@ inline void test_pullback_finish_brightness_quantization() {
           for (float lift : {0.0f, 0.25f, 0.9f}) {
             if (hue == 0.0f && lift == 0.0f)
               continue;
-            const Color4 BASE(Pixel(r, g, b), 0.37f);
-            const auto UNDIMMED =
-                composed_modulation_reference(BASE, hue, lift);
+            const Color4 base(Pixel(r, g, b), 0.37f);
+            const auto undimmed =
+                composed_modulation_reference(base, hue, lift);
             for (float gain : {-1.0f, 0.0f, 0.001f, 0.25f, 1.0f, 2.0f}) {
-              ColorSample sample{BASE, {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
+              ColorSample sample{base, {0.5f, 0.7f, math::Y_AXIS, 2.0f}};
               sample.pending_hue = hue;
               sample.pending_lift = lift;
               sample.brightness_gain = gain;
-              const auto ACTUAL = finish_color_sample(sample);
-              const auto EXPECTED =
-                  composed_modulation_reference(BASE, hue, lift, gain);
-              HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
-              HS_EXPECT_EQ(ACTUAL.alpha, BASE.alpha);
-              const Pixel DIMMED_AFTER_QUANTIZATION = UNDIMMED.color * gain;
-              const int GAP = std::max(
-                  {std::abs(int(ACTUAL.color.r) - DIMMED_AFTER_QUANTIZATION.r),
-                   std::abs(int(ACTUAL.color.g) - DIMMED_AFTER_QUANTIZATION.g),
-                   std::abs(int(ACTUAL.color.b) -
-                            DIMMED_AFTER_QUANTIZATION.b)});
-              HS_EXPECT_LE(GAP, gain <= 1.0f ? 1 : 2);
+              const auto actual = finish_color_sample(sample);
+              const auto expected =
+                  composed_modulation_reference(base, hue, lift, gain);
+              HS_EXPECT_EQ(actual.color, expected.color);
+              HS_EXPECT_EQ(actual.alpha, base.alpha);
+              const Pixel dimmed_after_quantization = undimmed.color * gain;
+              const int gap = std::max(
+                  {std::abs(int(actual.color.r) - dimmed_after_quantization.r),
+                   std::abs(int(actual.color.g) - dimmed_after_quantization.g),
+                   std::abs(int(actual.color.b) -
+                            dimmed_after_quantization.b)});
+              HS_EXPECT_LE(gap, gain <= 1.0f ? 1 : 2);
               if (gain == 0.0f)
-                HS_EXPECT_EQ(ACTUAL.color, Pixel(0, 0, 0));
+                HS_EXPECT_EQ(actual.color, Pixel(0, 0, 0));
               if (gain == 1.0f)
-                HS_EXPECT_EQ(ACTUAL.color, UNDIMMED.color);
+                HS_EXPECT_EQ(actual.color, undimmed.color);
               quantization_differences +=
-                  ACTUAL.color != DIMMED_AFTER_QUANTIZATION;
+                  actual.color != dimmed_after_quantization;
             }
           }
   HS_EXPECT_GT(quantization_differences, size_t{0});
@@ -1099,10 +1100,10 @@ inline void test_pullback_stacked_modulations() {
                                true};
   auto second = first;
   second.mechanic.amount = -0.3f;
-  const auto CANCELLED = Color::finish(
+  const auto cancelled = Color::finish(
       Color::apply_modulation(Color::apply_modulation(INPUT, first), second));
-  HS_EXPECT_EQ(CANCELLED.color, BASE.color);
-  HS_EXPECT_NEAR(CANCELLED.alpha, BASE.alpha, 0.0f);
+  HS_EXPECT_EQ(cancelled.color, BASE.color);
+  HS_EXPECT_NEAR(cancelled.alpha, BASE.alpha, 0.0f);
   std::array<Pixel, HueRotationLutView::SIZE> table;
   for (size_t index = 0; index < table.size(); ++index)
     table[index] = Pixel((index % 16) * 1000, 2000, 3000);
@@ -1122,21 +1123,21 @@ inline void test_pullback_stacked_modulations() {
   for (float phase : {0.0f, 0.75f}) {
     clock.phase.phase_turns = phase;
     const auto &source = lift_source.prepare(lift_config, clock);
-    const Color::ModulationState IDENTITY_LIFT{
+    const Color::ModulationState identity_lift{
         &source,
         &source,
         Pattern::SourceKind::DIRECTIONAL_SINE,
         {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 1.0f},
         true};
-    const auto LAYERED = Color::apply_modulation(
+    const auto layered = Color::apply_modulation(
         Color::apply_modulation(Color::apply_modulation(with_table, first),
-                                IDENTITY_LIFT),
+                                identity_lift),
         second);
-    HS_EXPECT_EQ(Color::finish(LAYERED).color, BASE.color);
+    HS_EXPECT_EQ(Color::finish(layered).color, BASE.color);
   }
-  const auto ROTATED = Color::finish(Color::apply_modulation(INPUT, first));
-  const auto EXPECTED = ColorModulation::HueRotation::apply(BASE, 2.5f, {0.3f});
-  HS_EXPECT_EQ(ROTATED.color, EXPECTED.color);
+  const auto rotated = Color::finish(Color::apply_modulation(INPUT, first));
+  const auto expected = ColorModulation::HueRotation::apply(BASE, 2.5f, {0.3f});
+  HS_EXPECT_EQ(rotated.color, expected.color);
   auto lift = first;
   lift.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 0.4f};
   second.mechanic.amount = 0.1f;
@@ -1144,17 +1145,17 @@ inline void test_pullback_stacked_modulations() {
       Color::apply_modulation(Color::apply_modulation(INPUT, first), lift),
       second);
   HS_EXPECT_EQ(actual.color.color, BASE.color);
-  const auto COMPOSED = composed_modulation_reference(BASE, 0.0f, 0.4f);
-  HS_EXPECT_EQ(Color::finish(actual).color, COMPOSED.color);
-  const auto REORDERED = Color::finish(Color::apply_modulation(
+  const auto composed = composed_modulation_reference(BASE, 0.0f, 0.4f);
+  HS_EXPECT_EQ(Color::finish(actual).color, composed.color);
+  const auto reordered = Color::finish(Color::apply_modulation(
       Color::apply_modulation(Color::apply_modulation(INPUT, first), second),
       lift));
-  HS_EXPECT_EQ(REORDERED.color, COMPOSED.color);
+  HS_EXPECT_EQ(reordered.color, composed.color);
   actual.brightness_gain = 0.25f;
-  const auto DIMMED = Color::finish(actual).color;
-  const auto DIMMED_REFERENCE =
+  const auto dimmed = Color::finish(actual).color;
+  const auto dimmed_reference =
       composed_modulation_reference(BASE, 0.0f, 0.4f, 0.25f).color;
-  HS_EXPECT_EQ(DIMMED, DIMMED_REFERENCE);
+  HS_EXPECT_EQ(dimmed, dimmed_reference);
   auto opacity = first;
   opacity.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
   HS_EXPECT_NEAR(Color::finish(Color::apply_modulation(INPUT, opacity)).alpha,
@@ -1183,31 +1184,31 @@ inline void test_pullback_composed_lightness_hue() {
   opacity.mechanic = {ColorModulation::Mechanic::OPACITY, 0.5f};
   for (const Pixel BASE : {Pixel(65535, 0, 0), Pixel(0, 65535, 0),
                            Pixel(0, 0, 65535), Pixel(62000, 61000, 60000)}) {
-    const ColorSample INPUT{Color4(BASE, 0.7f),
+    const ColorSample input{Color4(BASE, 0.7f),
                             {0.5f, 1.0f, math::Y_AXIS, 0.5f}};
-    auto actual = Color::apply_modulation(INPUT, HUE_A);
+    auto actual = Color::apply_modulation(input, HUE_A);
     actual = Color::apply_modulation(actual, lift_a);
     actual = Color::apply_modulation(actual, hue_b);
     actual = Color::apply_modulation(actual, lift_b);
     HS_EXPECT_EQ(actual.color.color, BASE);
-    const auto EXPECTED =
-        composed_modulation_reference(INPUT.color, 0.375f, 0.55f);
-    const auto FINISHED = Color::finish(actual);
-    HS_EXPECT_NEAR(FINISHED.color.r, EXPECTED.color.r, 1.0f);
-    HS_EXPECT_NEAR(FINISHED.color.g, EXPECTED.color.g, 1.0f);
-    HS_EXPECT_NEAR(FINISHED.color.b, EXPECTED.color.b, 1.0f);
-    HS_EXPECT_NEAR(FINISHED.alpha, 0.7f, 0.0f);
+    const auto expected =
+        composed_modulation_reference(input.color, 0.375f, 0.55f);
+    const auto finished = Color::finish(actual);
+    HS_EXPECT_NEAR(finished.color.r, expected.color.r, 1.0f);
+    HS_EXPECT_NEAR(finished.color.g, expected.color.g, 1.0f);
+    HS_EXPECT_NEAR(finished.color.b, expected.color.b, 1.0f);
+    HS_EXPECT_NEAR(finished.alpha, 0.7f, 0.0f);
     actual = Color::apply_modulation(actual, opacity);
     actual.brightness_gain = 0.25f;
-    const auto MASKED = Color::finish(actual);
+    const auto masked = Color::finish(actual);
     HS_EXPECT_EQ(
-        MASKED.color,
-        composed_modulation_reference(INPUT.color, 0.375f, 0.55f, 0.25f).color);
-    HS_EXPECT_NEAR(MASKED.alpha, 0.6125f, 1e-7f);
+        masked.color,
+        composed_modulation_reference(input.color, 0.375f, 0.55f, 0.25f).color);
+    HS_EXPECT_NEAR(masked.alpha, 0.6125f, 1e-7f);
     actual.brightness_gain = 0.0f;
-    const auto DARK = Color::finish(actual);
-    HS_EXPECT_EQ(DARK.color, Pixel(0, 0, 0));
-    HS_EXPECT_EQ(DARK.alpha, MASKED.alpha);
+    const auto dark = Color::finish(actual);
+    HS_EXPECT_EQ(dark.color, Pixel(0, 0, 0));
+    HS_EXPECT_EQ(dark.alpha, masked.alpha);
   }
 }
 
@@ -1230,24 +1231,25 @@ inline void test_pullback_temporal_composed_modulations() {
   frame.modulation = &current.prepared;
   frame.previous_modulation = &previous.prepared;
   frame.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 0.4f};
-  const auto PREVIOUS = composed_modulation_reference(START, -0.25f, 0.0f);
-  const auto CURRENT = composed_modulation_reference(END, 0.25f, 0.4f);
+  const auto previous_value =
+      composed_modulation_reference(START, -0.25f, 0.0f);
+  const auto current_value = composed_modulation_reference(END, 0.25f, 0.4f);
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
-    const auto COLOR = Pipeline::shade(math::Y_AXIS, Pipeline::prepare(frame));
-    const auto BASE = START.color.lerp16(END.color, frac_to_q16(fraction));
-    const auto EXPECTED = composed_modulation_reference(
-        Color4(BASE), 0.75f - 0.5f * fraction, 0.4f * fraction);
-    HS_EXPECT_NEAR(COLOR.color.r, EXPECTED.color.r, 1.0f);
-    HS_EXPECT_NEAR(COLOR.color.g, EXPECTED.color.g, 1.0f);
-    HS_EXPECT_NEAR(COLOR.color.b, EXPECTED.color.b, 1.0f);
-    HS_EXPECT_NEAR(COLOR.alpha, 0.04f + 0.08f * fraction, 1e-6f);
+    const auto color = Pipeline::shade(math::Y_AXIS, Pipeline::prepare(frame));
+    const auto base = START.color.lerp16(END.color, frac_to_q16(fraction));
+    const auto expected = composed_modulation_reference(
+        Color4(base), 0.75f - 0.5f * fraction, 0.4f * fraction);
+    HS_EXPECT_NEAR(color.color.r, expected.color.r, 1.0f);
+    HS_EXPECT_NEAR(color.color.g, expected.color.g, 1.0f);
+    HS_EXPECT_NEAR(color.color.b, expected.color.b, 1.0f);
+    HS_EXPECT_NEAR(color.alpha, 0.04f + 0.08f * fraction, 1e-6f);
     if (fraction > 0.0f && fraction < 1.0f) {
-      const auto COMPLETED_BLEND =
-          PREVIOUS.color.lerp16(CURRENT.color, frac_to_q16(fraction));
-      HS_EXPECT_GT(std::abs(int(COLOR.color.r) - int(COMPLETED_BLEND.r)) +
-                       std::abs(int(COLOR.color.g) - int(COMPLETED_BLEND.g)) +
-                       std::abs(int(COLOR.color.b) - int(COMPLETED_BLEND.b)),
+      const auto completed_blend = previous_value.color.lerp16(
+          current_value.color, frac_to_q16(fraction));
+      HS_EXPECT_GT(std::abs(int(color.color.r) - int(completed_blend.r)) +
+                       std::abs(int(color.color.g) - int(completed_blend.g)) +
+                       std::abs(int(color.color.b) - int(completed_blend.b)),
                    1000);
     }
   }
@@ -1264,12 +1266,12 @@ inline void test_pullback_temporal_deferred_hue_wrap() {
   b.pending_lift = 0.8f;
   a.brightness_gain = 0.25f;
   b.brightness_gain = 0.75f;
-  const auto MIXED = blend_color_samples(a, b, 0.5f);
-  HS_EXPECT_NEAR(MIXED.pending_hue, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(MIXED.pending_lift, 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(MIXED.brightness_gain, 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(MIXED.color.alpha, 0.5f, 1e-6f);
-  HS_EXPECT_EQ(MIXED.color.color,
+  const auto mixed = blend_color_samples(a, b, 0.5f);
+  HS_EXPECT_NEAR(mixed.pending_hue, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(mixed.pending_lift, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(mixed.brightness_gain, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(mixed.color.alpha, 0.5f, 1e-6f);
+  HS_EXPECT_EQ(mixed.color.color,
                a.color.color.lerp16(b.color.color, frac_to_q16(0.5f)));
   HS_EXPECT_EQ(blend_color_samples(a, b, 0.0f).color.color, a.color.color);
   HS_EXPECT_EQ(blend_color_samples(a, b, 1.0f).color.color, b.color.color);
@@ -1417,22 +1419,22 @@ inline void test_pullback_fused_modulation_endpoints() {
             const auto x = Color::finish(actual), y = Color::finish(expected);
             HS_EXPECT_EQ(x.color, y.color);
             HS_EXPECT_EQ(x.alpha, y.alpha);
-            const auto DIRECT = Policy::shade_fused_modulation(
+            const auto direct = Policy::shade_fused_modulation(
                 field, frame, prepared, mod, fraction);
-            HS_EXPECT_EQ(DIRECT.color, y.color);
-            HS_EXPECT_EQ(DIRECT.alpha, y.alpha);
-            const auto PIXEL =
+            HS_EXPECT_EQ(direct.color, y.color);
+            HS_EXPECT_EQ(direct.alpha, y.alpha);
+            const auto pixel =
                 Actual::shade(field.sphere, Actual::prepare(frame));
-            const auto REFERENCE =
+            const auto reference =
                 Canonical::shade(field.sphere, Canonical::prepare(frame));
-            HS_EXPECT_EQ(PIXEL.color, REFERENCE.color);
-            HS_EXPECT_EQ(PIXEL.alpha, REFERENCE.alpha);
+            HS_EXPECT_EQ(pixel.color, reference.color);
+            HS_EXPECT_EQ(pixel.alpha, reference.alpha);
           }
 }
 
 /** @brief Unit-hue wrapping matches canonical periodic interpolation bit for bit. */
 inline void test_pullback_unit_hue_blending() {
-  const std::array<float, 12> VALUES{-0.0f,
+  const std::array<float, 12> values{-0.0f,
                                      0.0f,
                                      std::numeric_limits<float>::denorm_min(),
                                      std::numeric_limits<float>::min(),
@@ -1444,7 +1446,7 @@ inline void test_pullback_unit_hue_blending() {
                                      0.75f,
                                      0.875f,
                                      std::nextafter(1.0f, 0.0f)};
-  const std::array<float, 12> FRACTIONS{
+  const std::array<float, 12> fractions{
       -1.0f,
       -0.0f,
       0.0f,
@@ -1458,14 +1460,14 @@ inline void test_pullback_unit_hue_blending() {
       1.0f,
       2.0f};
   const auto check = [](float a, float b, float fraction) {
-    const float EXPECTED = interp::shortest_periodic(a, b, fraction, 1.0f);
-    const float ACTUAL = Pullback::Color::blend_unit_hue(a, b, fraction);
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL),
-                 std::bit_cast<uint32_t>(EXPECTED));
+    const float expected = interp::shortest_periodic(a, b, fraction, 1.0f);
+    const float actual = Pullback::Color::blend_unit_hue(a, b, fraction);
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual),
+                 std::bit_cast<uint32_t>(expected));
   };
-  for (float a : VALUES)
-    for (float b : VALUES)
-      for (float fraction : FRACTIONS)
+  for (float a : values)
+    for (float b : values)
+      for (float fraction : fractions)
         check(a, b, fraction);
   uint32_t random = 0x6d2b79f5u;
   const auto next = [&] {
@@ -1473,9 +1475,9 @@ inline void test_pullback_unit_hue_blending() {
     return float(random >> 8) * (1.0f / 16777216.0f);
   };
   for (int i = 0; i < 131072; ++i) {
-    const float A = next();
-    const float B = next();
-    check(A, B, i % 8 == 0 ? FRACTIONS[(i / 8) % FRACTIONS.size()] : next());
+    const float a = next();
+    const float b = next();
+    check(a, b, i % 8 == 0 ? fractions[(i / 8) % fractions.size()] : next());
   }
 }
 
@@ -1508,49 +1510,49 @@ inline void test_pullback_fused_cached_modulation() {
       for (float value : {0.0f, 0.13f, 0.5f, 0.99f, 1.0f}) {
         frame.lab = active ? &cache : nullptr;
         frame.temporal.fraction = fraction;
-        const auto PREPARED = Policy::prepare(frame);
-        const FieldSample FIELD{value, 0.45f, math::Y_AXIS, 0.37f};
-        auto pair = Policy::apply_pair(FIELD, frame, PREPARED);
+        const auto prepared = Policy::prepare(frame);
+        const FieldSample field{value, 0.45f, math::Y_AXIS, 0.37f};
+        auto pair = Policy::apply_pair(field, frame, prepared);
         Color::apply_modulation_in_place(pair.first, modulation, true);
         Color::apply_modulation_in_place(pair.second, modulation, false);
-        const auto CANONICAL =
+        const auto canonical =
             blend_color_samples(pair.first, pair.second, fraction);
-        const auto ACTUAL = Policy::apply_fused_modulation(
-            FIELD, frame, PREPARED, modulation, fraction);
-        auto expected = CANONICAL;
-        if (ACTUAL.has_cached_lab) {
+        const auto actual = Policy::apply_fused_modulation(
+            field, frame, prepared, modulation, fraction);
+        auto expected = canonical;
+        if (actual.has_cached_lab) {
           ++cache_hits;
           HS_EXPECT_TRUE(active && fraction > 0.0f && fraction < 1.0f);
           HS_EXPECT_TRUE(
-              Policy::apply_shared_base(FIELD, frame, PREPARED, expected));
-          expected.pending_hue = CANONICAL.pending_hue;
-          expected.pending_lift = CANONICAL.pending_lift;
-          expected.color.alpha = CANONICAL.color.alpha;
-          expected.brightness_gain = CANONICAL.brightness_gain;
+              Policy::apply_shared_base(field, frame, prepared, expected));
+          expected.pending_hue = canonical.pending_hue;
+          expected.pending_lift = canonical.pending_lift;
+          expected.color.alpha = canonical.color.alpha;
+          expected.brightness_gain = canonical.brightness_gain;
         }
-        HS_EXPECT_EQ(ACTUAL.pending_hue, CANONICAL.pending_hue);
-        HS_EXPECT_EQ(ACTUAL.pending_lift, CANONICAL.pending_lift);
-        HS_EXPECT_EQ(ACTUAL.color.alpha, CANONICAL.color.alpha);
-        HS_EXPECT_EQ(ACTUAL.brightness_gain, CANONICAL.brightness_gain);
-        const auto FINISHED = Color::finish(ACTUAL);
-        const auto EXPECTED = Color::finish(expected);
-        HS_EXPECT_EQ(FINISHED.color, EXPECTED.color);
-        HS_EXPECT_EQ(FINISHED.alpha, EXPECTED.alpha);
-        const auto DIRECT = Policy::shade_fused_modulation(
-            FIELD, frame, PREPARED, modulation, fraction);
-        HS_EXPECT_EQ(DIRECT.color, FINISHED.color);
-        HS_EXPECT_EQ(DIRECT.alpha, FINISHED.alpha);
+        HS_EXPECT_EQ(actual.pending_hue, canonical.pending_hue);
+        HS_EXPECT_EQ(actual.pending_lift, canonical.pending_lift);
+        HS_EXPECT_EQ(actual.color.alpha, canonical.color.alpha);
+        HS_EXPECT_EQ(actual.brightness_gain, canonical.brightness_gain);
+        const auto finished = Color::finish(actual);
+        const auto expected_value = Color::finish(expected);
+        HS_EXPECT_EQ(finished.color, expected_value.color);
+        HS_EXPECT_EQ(finished.alpha, expected_value.alpha);
+        const auto direct = Policy::shade_fused_modulation(
+            field, frame, prepared, modulation, fraction);
+        HS_EXPECT_EQ(direct.color, finished.color);
+        HS_EXPECT_EQ(direct.alpha, finished.alpha);
       }
   HS_EXPECT_GT(cache_hits, 0);
   cache.bake(a.view(), translucent.view());
   frame.palette = &translucent.view();
   frame.lab = &cache;
   frame.temporal.fraction = 0.5f;
-  const auto PREPARED = Policy::prepare(frame);
-  const auto FALLBACK = Policy::apply_fused_modulation(
-      FieldSample{0.5f, 0.45f, math::Y_AXIS, 0.37f}, frame, PREPARED,
+  const auto prepared = Policy::prepare(frame);
+  const auto fallback = Policy::apply_fused_modulation(
+      FieldSample{0.5f, 0.45f, math::Y_AXIS, 0.37f}, frame, prepared,
       modulation, 0.5f);
-  HS_EXPECT_FALSE(FALLBACK.has_cached_lab);
+  HS_EXPECT_FALSE(fallback.has_cached_lab);
 }
 
 /** @brief Direct Lab shading reuses endpoint taps through canonical gamut fallback. */
@@ -1571,16 +1573,16 @@ inline void test_pullback_fused_lab_direct_fallback() {
   frame.lab = &cache;
   frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
   static int calls;
-  const auto SOURCE = [](const Modulation::Prepared &,
+  const auto source = [](const Modulation::Prepared &,
                          const Pattern::SphereDirection &) {
     ++calls;
     return 0.9814453125f;
   };
   Modulation::Prepared previous{}, current{};
-  previous.evaluate = current.evaluate = SOURCE;
+  previous.evaluate = current.evaluate = source;
   frame.previous_modulation = &previous;
   frame.modulation = &current;
-  const auto MODULATION = PaletteLayerProvider::prepare(frame);
+  const auto modulation = PaletteLayerProvider::prepare(frame);
   for (bool guard : {false, true}) {
     cache.nodes.fill(guard ? OKLab{0.431782782f, 0.00217834837f, -0.24565056f}
                            : linear_rgb_to_oklab_fast(0.3f, 0.4f, 0.5f));
@@ -1590,20 +1592,20 @@ inline void test_pullback_fused_lab_direct_fallback() {
           same_base ? hue.data() : nullptr;
       for (float fraction : {0.25f, 0.5f, 0.75f}) {
         frame.temporal.fraction = fraction;
-        const auto PREPARED = Policy::prepare(frame);
+        const auto prepared = Policy::prepare(frame);
         const FieldSample FIELD{0.5f, 0.61689651f, math::Y_AXIS, 0.37f};
-        const auto CARRIER = Policy::apply_fused_modulation(
-            FIELD, frame, PREPARED, MODULATION, fraction);
-        HS_EXPECT_EQ(CARRIER.has_cached_lab, !guard);
-        const auto EXPECTED = finish_color_sample(CARRIER);
+        const auto carrier = Policy::apply_fused_modulation(
+            FIELD, frame, prepared, modulation, fraction);
+        HS_EXPECT_EQ(carrier.has_cached_lab, !guard);
+        const auto expected = finish_color_sample(carrier);
         calls = 0;
-        const auto ACTUAL = Policy::shade_fused_modulation(
-            FIELD, frame, PREPARED, MODULATION, fraction);
-        HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
-        HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+        const auto actual = Policy::shade_fused_modulation(
+            FIELD, frame, prepared, modulation, fraction);
+        HS_EXPECT_EQ(actual.color, expected.color);
+        HS_EXPECT_EQ(actual.alpha, expected.alpha);
         HS_EXPECT_EQ(calls, 2);
         if (guard && same_base)
-          HS_EXPECT_EQ(ACTUAL.color, hue.front());
+          HS_EXPECT_EQ(actual.color, hue.front());
       }
     }
   }
@@ -1628,13 +1630,13 @@ inline void test_pullback_fused_lab_current_endpoint() {
   frame.lab = &cache;
   frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.0f};
   static int calls;
-  const auto SOURCE = [](const Modulation::Prepared &prepared,
+  const auto source = [](const Modulation::Prepared &prepared,
                          const Pattern::SphereDirection &) {
     ++calls;
     return prepared.state.phase.phase_turns;
   };
   Modulation::Prepared current{};
-  current.evaluate = SOURCE;
+  current.evaluate = source;
   frame.modulation = &current;
   for (bool guard : {false, true}) {
     cache.bake(a.view(), b.view());
@@ -1642,56 +1644,56 @@ inline void test_pullback_fused_lab_current_endpoint() {
       cache.nodes.fill({0.431782782f, 0.00217834837f, -0.24565056f});
     for (float scalar : {-0.125f, 0.0f, 0.13f, 0.9814453125f}) {
       current.state.phase.phase_turns = scalar;
-      const auto MODULATION = PaletteLayerProvider::prepare(frame);
-      const auto PREPARED = Policy::prepare(frame);
+      const auto modulation = PaletteLayerProvider::prepare(frame);
+      const auto prepared = Policy::prepare(frame);
       for (float coverage : {0.0f, 0.5f, 1.0f}) {
-        const FieldSample FIELD{0.5f, coverage, math::Y_AXIS, 0.0f};
-        const auto REFERENCE = Policy::apply_fused_modulation(
-            FIELD, frame, PREPARED, MODULATION, 1.0f);
-        const auto EXPECTED = finish_color_sample(REFERENCE);
-        auto cached = REFERENCE;
+        const FieldSample field{0.5f, coverage, math::Y_AXIS, 0.0f};
+        const auto reference = Policy::apply_fused_modulation(
+            field, frame, prepared, modulation, 1.0f);
+        const auto expected = finish_color_sample(reference);
+        auto cached = reference;
         cached.cached_lab =
-            PaletteLabLut::sample(PREPARED.lab, cached.palette_coordinate);
+            PaletteLabLut::sample(prepared.lab, cached.palette_coordinate);
         cached.has_cached_lab = true;
         Color::restore_cached_palette_base_near_gamut_gate(cached, [] {});
         if (guard && scalar == 0.9814453125f)
           HS_EXPECT_FALSE(cached.has_cached_lab);
-        const auto CACHED = finish_color_sample(cached);
+        const auto cached_value = finish_color_sample(cached);
         calls = 0;
-        const auto ACTUAL = Policy::shade_fused_modulation(
-            FIELD, frame, PREPARED, MODULATION, 1.0f);
-        HS_EXPECT_EQ(ACTUAL.color, CACHED.color);
-        HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+        const auto actual = Policy::shade_fused_modulation(
+            field, frame, prepared, modulation, 1.0f);
+        HS_EXPECT_EQ(actual.color, cached_value.color);
+        HS_EXPECT_EQ(actual.alpha, expected.alpha);
         HS_EXPECT_EQ(calls, 1);
         if (!guard) {
-          HS_EXPECT_NEAR(ACTUAL.color.r, EXPECTED.color.r, 2);
-          HS_EXPECT_NEAR(ACTUAL.color.g, EXPECTED.color.g, 2);
-          HS_EXPECT_NEAR(ACTUAL.color.b, EXPECTED.color.b, 2);
+          HS_EXPECT_NEAR(actual.color.r, expected.color.r, 2);
+          HS_EXPECT_NEAR(actual.color.g, expected.color.g, 2);
+          HS_EXPECT_NEAR(actual.color.b, expected.color.b, 2);
         }
       }
       calls = 0;
-      const auto PIXEL =
+      const auto pixel =
           Pipeline::shade(math::Y_AXIS, Pipeline::prepare(frame));
       HS_EXPECT_EQ(calls, 1);
-      const auto DIRECT = Policy::shade_fused_modulation(
-          FieldSample{0.5f, 0.5f, math::Y_AXIS, 0.0f}, frame, PREPARED,
-          MODULATION, 1.0f);
-      HS_EXPECT_EQ(PIXEL.color, DIRECT.color);
-      HS_EXPECT_EQ(PIXEL.alpha, DIRECT.alpha);
+      const auto direct = Policy::shade_fused_modulation(
+          FieldSample{0.5f, 0.5f, math::Y_AXIS, 0.0f}, frame, prepared,
+          modulation, 1.0f);
+      HS_EXPECT_EQ(pixel.color, direct.color);
+      HS_EXPECT_EQ(pixel.alpha, direct.alpha);
     }
   }
   frame.temporal.fraction = 0.0f;
   frame.previous_modulation = &current;
-  const auto PREPARED = Policy::prepare(frame);
-  const auto MODULATION = PaletteLayerProvider::prepare(frame);
+  const auto prepared_value = Policy::prepare(frame);
+  const auto modulation = PaletteLayerProvider::prepare(frame);
   const FieldSample FIELD{0.5f, 0.5f, math::Y_AXIS, 0.0f};
-  const auto EXPECTED = finish_color_sample(
-      Policy::apply_fused_modulation(FIELD, frame, PREPARED, MODULATION, 0.0f));
+  const auto expected = finish_color_sample(Policy::apply_fused_modulation(
+      FIELD, frame, prepared_value, modulation, 0.0f));
   calls = 0;
-  const auto ACTUAL =
-      Policy::shade_fused_modulation(FIELD, frame, PREPARED, MODULATION, 0.0f);
-  HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
-  HS_EXPECT_EQ(ACTUAL.alpha, EXPECTED.alpha);
+  const auto actual = Policy::shade_fused_modulation(
+      FIELD, frame, prepared_value, modulation, 0.0f);
+  HS_EXPECT_EQ(actual.color, expected.color);
+  HS_EXPECT_EQ(actual.alpha, expected.alpha);
   HS_EXPECT_EQ(calls, 1);
 }
 
@@ -1707,24 +1709,24 @@ inline void test_pullback_cached_gamut_gate_fallback() {
   cached.color.color = Pixel(0, 0, 0);
   cached.cached_lab = {0.431782782f, 0.00217834837f, -0.24565056f};
   cached.has_cached_lab = true;
-  const auto REFERENCE = finish_color_sample(canonical);
-  const auto UNGUARDED = finish_color_sample(cached);
+  const auto reference = finish_color_sample(canonical);
+  const auto unguarded = finish_color_sample(cached);
   auto direct = cached;
   int direct_fetches = 0;
-  const auto DIRECT = Color::finish_fused_color(direct, [&] {
+  const auto direct_value = Color::finish_fused_color(direct, [&] {
     ++direct_fetches;
     direct.color.color = canonical.color.color;
     direct.hue_rotation = canonical.hue_rotation;
   });
   HS_EXPECT_EQ(direct_fetches, 1);
   HS_EXPECT_FALSE(direct.has_cached_lab);
-  HS_EXPECT_EQ(DIRECT.color, REFERENCE.color);
-  HS_EXPECT_EQ(DIRECT.alpha, REFERENCE.alpha);
-  const Pixel EXPECTED = REFERENCE.color * REFERENCE.alpha;
-  const Pixel WRONG = UNGUARDED.color * UNGUARDED.alpha;
-  HS_EXPECT_GT(std::max({std::abs(int(EXPECTED.r) - WRONG.r),
-                         std::abs(int(EXPECTED.g) - WRONG.g),
-                         std::abs(int(EXPECTED.b) - WRONG.b)}),
+  HS_EXPECT_EQ(direct_value.color, reference.color);
+  HS_EXPECT_EQ(direct_value.alpha, reference.alpha);
+  const Pixel expected_value = reference.color * reference.alpha;
+  const Pixel wrong = unguarded.color * unguarded.alpha;
+  HS_EXPECT_GT(std::max({std::abs(int(expected_value.r) - wrong.r),
+                         std::abs(int(expected_value.g) - wrong.g),
+                         std::abs(int(expected_value.b) - wrong.b)}),
                4000);
   int fetches = 0;
   HS_EXPECT_TRUE(
@@ -1735,9 +1737,9 @@ inline void test_pullback_cached_gamut_gate_fallback() {
       }));
   HS_EXPECT_EQ(fetches, 1);
   HS_EXPECT_FALSE(cached.has_cached_lab);
-  const auto GUARDED = finish_color_sample(cached);
-  HS_EXPECT_EQ(GUARDED.color, REFERENCE.color);
-  HS_EXPECT_EQ(GUARDED.alpha, REFERENCE.alpha);
+  const auto guarded = finish_color_sample(cached);
+  HS_EXPECT_EQ(guarded.color, reference.color);
+  HS_EXPECT_EQ(guarded.alpha, reference.alpha);
   cached.cached_lab = linear_rgb_to_oklab_fast(0.3f, 0.4f, 0.5f);
   cached.has_cached_lab = true;
   cached.pending_hue = 0.0f;
@@ -1762,14 +1764,14 @@ inline void test_pullback_cached_gamut_gate_fallback() {
             ++reference_fetches;
             expected.color.color = canonical.color.color;
           });
-          const auto FINISHED = finish_color_sample(expected);
+          const auto finished = finish_color_sample(expected);
           int actual_fetches = 0;
-          const auto FAST = Color::finish_fused_color(cached, [&] {
+          const auto fast = Color::finish_fused_color(cached, [&] {
             ++actual_fetches;
             cached.color.color = canonical.color.color;
           });
-          HS_EXPECT_EQ(FAST.color, FINISHED.color);
-          HS_EXPECT_EQ(FAST.alpha, FINISHED.alpha);
+          HS_EXPECT_EQ(fast.color, finished.color);
+          HS_EXPECT_EQ(fast.alpha, finished.alpha);
           HS_EXPECT_EQ(actual_fetches, reference_fetches);
           HS_EXPECT_EQ(cached.has_cached_lab, expected.has_cached_lab);
         }
@@ -1807,50 +1809,50 @@ inline void test_pullback_prepared_cube_pair() {
   frame.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 1.5958333f};
   for (bool floats : {false, true}) {
     b.cube.linear_data = floats ? linear.data() : nullptr;
-    const auto PREPARED = Layer::prepare(frame);
-    HS_EXPECT_TRUE(PREPARED.paired_cube_ready);
-    auto dynamic = PREPARED;
+    const auto prepared = Layer::prepare(frame);
+    HS_EXPECT_TRUE(prepared.paired_cube_ready);
+    auto dynamic = prepared;
     dynamic.paired_cube_ready = false;
     for (float fraction : {0.00001f, 0.25f, 0.75f, 0.99999f}) {
       frame.temporal.fraction = fraction;
-      const auto PALETTE = Policy::prepare(frame);
+      const auto palette = Policy::prepare(frame);
       for (int x = -3; x <= 3; ++x) {
-        const FieldSample FIELD{0.13f, 0.47f, math::Vector(x, 0.7f, -1.0f),
+        const FieldSample field{0.13f, 0.47f, math::Vector(x, 0.7f, -1.0f),
                                 0.3f};
-        const auto EXPECTED = Policy::apply_fused_modulation(
-            FIELD, frame, PALETTE, dynamic, fraction);
-        const auto ACTUAL = Policy::apply_fused_modulation(
-            FIELD, frame, PALETTE, PREPARED, fraction);
-        HS_EXPECT_EQ(ACTUAL.pending_hue, EXPECTED.pending_hue);
-        HS_EXPECT_EQ(ACTUAL.color.color, EXPECTED.color.color);
-        HS_EXPECT_EQ(ACTUAL.color.alpha, EXPECTED.color.alpha);
-        const auto FINISHED = Policy::shade_fused_modulation(
-            FIELD, frame, PALETTE, PREPARED, fraction);
-        const auto REFERENCE = finish_color_sample(EXPECTED);
-        HS_EXPECT_EQ(FINISHED.color, REFERENCE.color);
-        HS_EXPECT_EQ(FINISHED.alpha, REFERENCE.alpha);
+        const auto expected = Policy::apply_fused_modulation(
+            field, frame, palette, dynamic, fraction);
+        const auto actual = Policy::apply_fused_modulation(
+            field, frame, palette, prepared, fraction);
+        HS_EXPECT_EQ(actual.pending_hue, expected.pending_hue);
+        HS_EXPECT_EQ(actual.color.color, expected.color.color);
+        HS_EXPECT_EQ(actual.color.alpha, expected.color.alpha);
+        const auto finished = Policy::shade_fused_modulation(
+            field, frame, palette, prepared, fraction);
+        const auto reference = finish_color_sample(expected);
+        HS_EXPECT_EQ(finished.color, reference.color);
+        HS_EXPECT_EQ(finished.alpha, reference.alpha);
       }
-      const auto PIPELINE_FRAME = TemporalPalettePipeline::prepare(frame);
-      HS_EXPECT_TRUE(std::get<2>(PIPELINE_FRAME.prepared).paired_cube_ready);
+      const auto pipeline_frame = TemporalPalettePipeline::prepare(frame);
+      HS_EXPECT_TRUE(std::get<2>(pipeline_frame.prepared).paired_cube_ready);
     }
   }
   static int calls;
-  const auto CUSTOM = [](const Modulation::Prepared &prepared,
-                         const Pattern::SphereDirection &) {
+  const auto custom_value = [](const Modulation::Prepared &prepared,
+                               const Pattern::SphereDirection &) {
     ++calls;
     return prepared.state.phase.phase_turns;
   };
   a.state.phase.phase_turns = -0.3f;
   b.state.phase.phase_turns = 0.7f;
   for (int custom = 1; custom <= 3; ++custom) {
-    a.evaluate = custom & 1 ? CUSTOM : Modulation::sample_cube;
-    b.evaluate = custom & 2 ? CUSTOM : Modulation::sample_cube;
-    const auto PREPARED = Layer::prepare(frame);
-    HS_EXPECT_FALSE(PREPARED.paired_cube_ready);
+    a.evaluate = custom & 1 ? custom_value : Modulation::sample_cube;
+    b.evaluate = custom & 2 ? custom_value : Modulation::sample_cube;
+    const auto prepared = Layer::prepare(frame);
+    HS_EXPECT_FALSE(prepared.paired_cube_ready);
     calls = 0;
-    const auto PALETTE = Policy::prepare(frame);
+    const auto palette = Policy::prepare(frame);
     (void)Policy::shade_fused_modulation(
-        FieldSample{0.5f, 0.5f, math::Y_AXIS, 0.0f}, frame, PALETTE, PREPARED,
+        FieldSample{0.5f, 0.5f, math::Y_AXIS, 0.0f}, frame, palette, prepared,
         frame.temporal.fraction);
     HS_EXPECT_EQ(calls, custom == 3 ? 2 : 1);
   }
@@ -1868,9 +1870,9 @@ inline void test_pullback_prepared_cube_pair() {
   HS_EXPECT_FALSE(Layer::prepare(frame).paired_cube_ready);
   frame.modulation = nullptr;
   HS_EXPECT_FALSE(Layer::prepare(frame).paired_cube_ready);
-  const Color::ModulationState MANUAL{&b, &a, Pattern::SourceKind::NOISE,
+  const Color::ModulationState manual{&b, &a, Pattern::SourceKind::NOISE,
                                       frame.mechanic, true};
-  HS_EXPECT_FALSE(MANUAL.paired_cube_ready);
+  HS_EXPECT_FALSE(manual.paired_cube_ready);
 }
 
 /** @brief Paired cube samples preserve individual samplers and custom dispatch. */
@@ -1896,29 +1898,29 @@ inline void test_pullback_modulation_paired_samples() {
         for (int z = -3; z <= 3; ++z) {
           if (x == 0 && y == 0 && z == 0)
             continue;
-          const auto DIRECTION =
+          const auto direction =
               Pattern::SphereDirection::admit(math::Vector(x, y, z));
-          const auto PAIR =
-              Modulation::sample_pair(previous, current, DIRECTION);
-          HS_EXPECT_EQ(PAIR.first, Modulation::sample(previous, DIRECTION));
-          HS_EXPECT_EQ(PAIR.second, Modulation::sample(current, DIRECTION));
+          const auto pair =
+              Modulation::sample_pair(previous, current, direction);
+          HS_EXPECT_EQ(pair.first, Modulation::sample(previous, direction));
+          HS_EXPECT_EQ(pair.second, Modulation::sample(current, direction));
         }
   }
   static int calls;
   calls = 0;
-  const auto CUSTOM = [](const Modulation::Prepared &prepared,
+  const auto custom = [](const Modulation::Prepared &prepared,
                          const Pattern::SphereDirection &) {
     ++calls;
     return prepared.state.phase.phase_turns;
   };
-  previous.evaluate = current.evaluate = CUSTOM;
+  previous.evaluate = current.evaluate = custom;
   previous.state.phase.phase_turns = -2.0f;
   current.state.phase.phase_turns = 3.0f;
-  const auto PAIR = Modulation::sample_pair(
+  const auto pair = Modulation::sample_pair(
       previous, current, Pattern::SphereDirection::from_unit(math::Y_AXIS));
   HS_EXPECT_EQ(calls, 2);
-  HS_EXPECT_EQ(PAIR.first, -1.0f);
-  HS_EXPECT_EQ(PAIR.second, 1.0f);
+  HS_EXPECT_EQ(pair.first, -1.0f);
+  HS_EXPECT_EQ(pair.second, 1.0f);
 }
 
 /** @brief Paired modulation keeps canonical endpoint colors and mechanic order. */
@@ -1958,20 +1960,20 @@ inline void test_pullback_modulation_paired_colors() {
           b.pending_hue = 0.07f;
           a.pending_lift = 0.2f;
           b.pending_lift = 0.4f;
-          const auto EXPECTED_A = Color::apply_modulation(a, state, true);
-          const auto EXPECTED_B = Color::apply_modulation(b, state, false);
+          const auto expected_a = Color::apply_modulation(a, state, true);
+          const auto expected_b = Color::apply_modulation(b, state, false);
           Color::apply_modulation_pair_in_place(a, b, state);
           for (auto pair :
-               {std::pair{a, EXPECTED_A}, std::pair{b, EXPECTED_B}}) {
+               {std::pair{a, expected_a}, std::pair{b, expected_b}}) {
             HS_EXPECT_EQ(pair.first.color.color, pair.second.color.color);
             HS_EXPECT_EQ(pair.first.color.alpha, pair.second.color.alpha);
             HS_EXPECT_EQ(pair.first.pending_hue, pair.second.pending_hue);
             HS_EXPECT_EQ(pair.first.pending_lift, pair.second.pending_lift);
             HS_EXPECT_EQ(pair.first.field.sphere, pair.second.field.sphere);
-            const auto FINISHED = Color::finish(pair.first);
-            const auto EXPECTED = Color::finish(pair.second);
-            HS_EXPECT_EQ(FINISHED.color, EXPECTED.color);
-            HS_EXPECT_EQ(FINISHED.alpha, EXPECTED.alpha);
+            const auto finished = Color::finish(pair.first);
+            const auto expected = Color::finish(pair.second);
+            HS_EXPECT_EQ(finished.color, expected.color);
+            HS_EXPECT_EQ(finished.alpha, expected.alpha);
           }
         }
 }
@@ -1994,40 +1996,40 @@ inline void test_pullback_modulation_field_identity() {
         SourceKind::SPHERE_INTERFERENCE, SourceKind::SPHERE_SMOOTH_GRID,
         SourceKind::DISPLACEMENT}) {
     config.source = source;
-    const FieldIdentity IDENTITY = field_identity(config, STATE);
-    HS_EXPECT_EQ(IDENTITY.source, source);
-    HS_EXPECT_EQ(IDENTITY.version, 7);
-    HS_EXPECT_EQ(IDENTITY.evaluation, Pattern::Evaluation::DIRECT);
-    HS_EXPECT_EQ(IDENTITY.phase, Pattern::PhaseState{0.25f});
-    HS_EXPECT_EQ(IDENTITY.bake_layout_version,
+    const FieldIdentity identity = field_identity(config, STATE);
+    HS_EXPECT_EQ(identity.source, source);
+    HS_EXPECT_EQ(identity.version, 7);
+    HS_EXPECT_EQ(identity.evaluation, Pattern::Evaluation::DIRECT);
+    HS_EXPECT_EQ(identity.phase, Pattern::PhaseState{0.25f});
+    HS_EXPECT_EQ(identity.bake_layout_version,
                  Pattern::SphereLutView::LAYOUT_VERSION);
-    HS_EXPECT_EQ(IDENTITY.seed, source == SourceKind::NOISE ? 123 : 0);
-    HS_EXPECT_EQ(IDENTITY.noise, source == SourceKind::NOISE
+    HS_EXPECT_EQ(identity.seed, source == SourceKind::NOISE ? 123 : 0);
+    HS_EXPECT_EQ(identity.noise, source == SourceKind::NOISE
                                      ? config.noise
                                      : Pattern::NoiseParams{});
-    HS_EXPECT_EQ(IDENTITY.sine, source == SourceKind::DIRECTIONAL_SINE
+    HS_EXPECT_EQ(identity.sine, source == SourceKind::DIRECTIONAL_SINE
                                     ? config.sine
                                     : Pattern::SineParams{});
-    HS_EXPECT_EQ(IDENTITY.interference,
+    HS_EXPECT_EQ(identity.interference,
                  source == SourceKind::SPHERE_INTERFERENCE
                      ? config.interference
                      : Pattern::InterferenceParams{});
-    HS_EXPECT_EQ(IDENTITY.grid, source == SourceKind::SPHERE_SMOOTH_GRID
+    HS_EXPECT_EQ(identity.grid, source == SourceKind::SPHERE_SMOOTH_GRID
                                     ? config.grid
                                     : Pattern::GridParams{});
   }
   config.source = static_cast<SourceKind>(255);
-  const FieldIdentity UNKNOWN = field_identity(config, STATE);
-  HS_EXPECT_EQ(UNKNOWN.source, static_cast<SourceKind>(255));
-  HS_EXPECT_EQ(UNKNOWN.version, 7);
-  HS_EXPECT_EQ(UNKNOWN.evaluation, Pattern::Evaluation::DIRECT);
-  HS_EXPECT_EQ(UNKNOWN.phase, STATE.phase);
-  HS_EXPECT_EQ(UNKNOWN.noise, Pattern::NoiseParams{});
-  HS_EXPECT_EQ(UNKNOWN.sine, Pattern::SineParams{});
-  HS_EXPECT_EQ(UNKNOWN.interference, Pattern::InterferenceParams{});
-  HS_EXPECT_EQ(UNKNOWN.grid, Pattern::GridParams{});
-  HS_EXPECT_EQ(UNKNOWN.seed, 0);
-  HS_EXPECT_EQ(UNKNOWN.bake_layout_version,
+  const FieldIdentity unknown = field_identity(config, STATE);
+  HS_EXPECT_EQ(unknown.source, static_cast<SourceKind>(255));
+  HS_EXPECT_EQ(unknown.version, 7);
+  HS_EXPECT_EQ(unknown.evaluation, Pattern::Evaluation::DIRECT);
+  HS_EXPECT_EQ(unknown.phase, STATE.phase);
+  HS_EXPECT_EQ(unknown.noise, Pattern::NoiseParams{});
+  HS_EXPECT_EQ(unknown.sine, Pattern::SineParams{});
+  HS_EXPECT_EQ(unknown.interference, Pattern::InterferenceParams{});
+  HS_EXPECT_EQ(unknown.grid, Pattern::GridParams{});
+  HS_EXPECT_EQ(unknown.seed, 0);
+  HS_EXPECT_EQ(unknown.bake_layout_version,
                Pattern::SphereLutView::LAYOUT_VERSION);
 }
 

@@ -73,16 +73,16 @@ inline void test_fold_phi_band_matches_circle_extent() {
     return std::pair<float, float>(lo, hi);
   };
 
-  const float centers[] = {0.0f, 0.2f, 0.9f, 1.5f, 2.4f, 3.0f, math::PI_F};
+  const float CENTERS[] = {0.0f, 0.2f, 0.9f, 1.5f, 2.4f, 3.0f, math::PI_F};
   // Past π and negative: a complement-radius ring and a mirrored one still
   // trace a real circle, so the band must order its folded endpoints.
-  const float radii[] = {0.0f, 0.1f,       0.5f, 1.0f, 2.0f,
+  const float RADII[] = {0.0f, 0.1f,       0.5f, 1.0f, 2.0f,
                          2.5f, math::PI_F, 4.0f, -0.7f};
-  for (int ci = 0; ci < static_cast<int>(std::size(centers)); ++ci) {
-    for (int ti = 0; ti < static_cast<int>(std::size(radii)); ++ti) {
+  for (int ci = 0; ci < static_cast<int>(std::size(CENTERS)); ++ci) {
+    for (int ti = 0; ti < static_cast<int>(std::size(RADII)); ++ti) {
       HS_CONTEXT("center/radius index", ci, ti);
-      const float c = centers[ci];
-      const float t = radii[ti];
+      const float c = CENTERS[ci];
+      const float t = RADII[ti];
       SDF::PhiBand band = SDF::fold_phi_band(c, t);
       auto expected = circle_extent(c, t);
       HS_EXPECT_NEAR(band.phi_min, expected.first, 1e-4f);
@@ -111,11 +111,11 @@ inline void test_fold_phi_band_pole_crossing_poses() {
 
 /** @brief Verifies the reciprocal sector fold matches the general wrap path. */
 inline void test_centered_sector_angle_matches_wrap() {
-  const float angles[] = {-13.7f, -2.3f, -0.7f, 0.21f, 1.8f, 9.4f};
+  const float ANGLES[] = {-13.7f, -2.3f, -0.7f, 0.21f, 1.8f, 9.4f};
   for (int sides : {3, 5, 8, 17}) {
     float sector = 2.0f * math::PI_F / sides;
     float reciprocal_sector = static_cast<float>(sides) / (2.0f * math::PI_F);
-    for (float angle : angles) {
+    for (float angle : ANGLES) {
       const float folded =
           SDF::centered_sector_angle(angle, sector, reciprocal_sector);
       float expected =
@@ -171,10 +171,10 @@ inline void test_ring_inside_band() {
 
   SDF::Ring thin_ring(b, 0.5f, 0.05f);
   for (float offset : {-0.03f, 0.03f}) {
-    const float ANGLE = math::PI_F / 4.0f + offset;
-    const auto SAMPLE = SDF::distance_of(
-        thin_ring, math::Vector(sinf(ANGLE), cosf(ANGLE), 0.0f));
-    HS_EXPECT_NEAR(SAMPLE.raw_dist, 0.03f, 1e-3f);
+    const float angle = math::PI_F / 4.0f + offset;
+    const auto sample = SDF::distance_of(
+        thin_ring, math::Vector(sinf(angle), cosf(angle), 0.0f));
+    HS_EXPECT_NEAR(sample.raw_dist, 0.03f, 1e-3f);
   }
 }
 
@@ -236,13 +236,13 @@ inline void test_ring_small_radius_distance_symmetric() {
 
 /** @brief Distorted rings retain a copy of their construction basis. */
 inline void test_distorted_ring_copies_basis() {
-  const float knots[] = {0.0f, 0.0f, 0.0f, 0.0f};
+  const float KNOTS[] = {0.0f, 0.0f, 0.0f, 0.0f};
   SDF::KnotPrefilter prefilter;
   math::Basis basis = equator_basis();
   SDF::DistortedRing shifted(
       basis, 1.0f, 0.05f, [](float) { return 0.0f; }, 0.0f, 0.0f);
-  SDF::DistortedRing pointer_knots(basis, 1.0f, 0.05f, knots, 4, 0.0f, nullptr);
-  SDF::DistortedRing prefetched_knots(basis, 1.0f, 0.05f, knots, 4, 0.0f,
+  SDF::DistortedRing pointer_knots(basis, 1.0f, 0.05f, KNOTS, 4, 0.0f, nullptr);
+  SDF::DistortedRing prefetched_knots(basis, 1.0f, 0.05f, KNOTS, 4, 0.0f,
                                       prefilter);
   SDF::FlatDistortedRing flat(basis, 1.0f, 0.05f);
 
@@ -263,29 +263,29 @@ inline void test_distorted_ring_copies_basis() {
 inline void test_distorted_ring_constant_shift_moves_centerline() {
   math::Basis b =
       equator_basis(); // v=+Y, u=+X, w=+Z; radius=1 → target_angle = π/2
-  const float shift = 0.2f;
-  const float thickness = 0.05f;
+  const float SHIFT = 0.2f;
+  const float THICKNESS = 0.05f;
 
   // Azimuth 0 (along +X) on the shifted centerline: polar angle from +Y is
   // π/2 + shift.
-  math::Vector p(std::sin(math::PI_F / 2 + shift),
-                 std::cos(math::PI_F / 2 + shift), 0.0f);
+  math::Vector p(std::sin(math::PI_F / 2 + SHIFT),
+                 std::cos(math::PI_F / 2 + SHIFT), 0.0f);
 
   SDF::DistortedRing shifted(
-      b, 1.0f, thickness, [shift](float) { return shift; },
-      /*max_distortion=*/shift, /*phase=*/0.0f);
+      b, 1.0f, THICKNESS, [SHIFT](float) { return SHIFT; },
+      /*max_distortion=*/SHIFT, /*phase=*/0.0f);
   auto rs = SDF::distance_of(shifted, p);
   HS_EXPECT_NEAR(rs.raw_dist, 0.0f, 5e-4f);
-  HS_EXPECT_NEAR(rs.dist, -thickness, 5e-4f);
+  HS_EXPECT_NEAR(rs.dist, -THICKNESS, 5e-4f);
   HS_EXPECT_NEAR(rs.t, 0.0f, 5e-4f);
 
-  // Same point, no shift: the centerline stays at π/2, so it now sits `shift`
+  // Same point, no shift: the centerline stays at π/2, so it now sits `SHIFT`
   // radians off (raw_dist ≈ shift).
   SDF::DistortedRing plain(
-      b, 1.0f, thickness, [](float) { return 0.0f; },
-      /*max_distortion=*/shift, /*phase=*/0.0f);
+      b, 1.0f, THICKNESS, [](float) { return 0.0f; },
+      /*max_distortion=*/SHIFT, /*phase=*/0.0f);
   auto rp = SDF::distance_of(plain, p);
-  HS_EXPECT_NEAR(rp.raw_dist, shift, 5e-4f);
+  HS_EXPECT_NEAR(rp.raw_dist, SHIFT, 5e-4f);
 }
 
 /**
@@ -294,15 +294,15 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
  */
 inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
   math::Basis b = equator_basis();
-  const float amp = 0.2f;
+  const float AMP = 0.2f;
   SDF::DistortedRing ring(
       b, 1.0f, 0.05f,
-      [amp](float t) { return amp * std::sin(2 * math::PI_F * t); }, amp, 0.0f);
+      [AMP](float t) { return AMP * std::sin(2 * math::PI_F * t); }, AMP, 0.0f);
 
   // Azimuth π/2 (along +Z) → t = 0.25 → shift = amp; centerline polar angle is
   // π/2 + amp.
-  math::Vector on(0.0f, std::cos(math::PI_F / 2 + amp),
-                  std::sin(math::PI_F / 2 + amp));
+  math::Vector on(0.0f, std::cos(math::PI_F / 2 + AMP),
+                  std::sin(math::PI_F / 2 + AMP));
   auto r_on = SDF::distance_of(ring, on);
   HS_EXPECT_NEAR(r_on.t, 0.25f, 5e-4f);
   HS_EXPECT_NEAR(r_on.raw_dist, 0.0f, 5e-4f);
@@ -310,7 +310,7 @@ inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
   // Same azimuth on the unshifted equator (+Z): centerline moved by amp here.
   auto r_off = SDF::distance_of(ring, math::Vector(0, 0, 1));
   HS_EXPECT_NEAR(r_off.t, 0.25f, 5e-4f);
-  HS_EXPECT_NEAR(r_off.raw_dist, amp, 5e-4f);
+  HS_EXPECT_NEAR(r_off.raw_dist, AMP, 5e-4f);
 }
 
 /**
@@ -321,17 +321,17 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
   float knots[LUT_N + 1] = {};
 
   auto check = [&](const math::Basis &basis, float radius) {
-    constexpr float thickness = 0.08f;
-    SDF::FlatDistortedRing flat(basis, radius, thickness);
+    constexpr float THICKNESS = 0.08f;
+    SDF::FlatDistortedRing flat(basis, radius, THICKNESS);
     SDF::KnotPrefilter pf;
-    SDF::DistortedRing polyline(basis, radius, thickness, knots, LUT_N, 0.0f,
+    SDF::DistortedRing polyline(basis, radius, THICKNESS, knots, LUT_N, 0.0f,
                                 pf);
     const float target = radius * (math::PI_F / 2.0f);
-    const float azimuths[] = {0.0f, 1e-5f, math::PI_F / 2.0f, math::PI_F,
+    const float AZIMUTHS[] = {0.0f, 1e-5f, math::PI_F / 2.0f, math::PI_F,
                               2.0f * math::PI_F - 1e-5f};
-    const float offsets[] = {-0.04f, 0.0f, 0.04f};
-    for (float azimuth : azimuths) {
-      for (float offset : offsets) {
+    const float OFFSETS[] = {-0.04f, 0.0f, 0.04f};
+    for (float azimuth : AZIMUTHS) {
+      for (float offset : OFFSETS) {
         float polar = hs::clamp(target + offset, 0.0f, math::PI_F);
         math::Vector p =
             basis.v * cosf(polar) +
@@ -365,21 +365,21 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
 template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
   math::Basis b =
       math::make_basis(math::Quaternion(), math::Vector(0.3f, 1.0f, 0.2f));
-  const float amp = 0.2f;
-  const int harmonic = 5;
-  const float radius = 0.5f; // target_angle = π/4: curved chart, tilted axis
-  const float thickness = 0.06f;
+  const float AMP = 0.2f;
+  const int HARMONIC = 5;
+  const float RADIUS = 0.5f; // target_angle = π/4: curved chart, tilted axis
+  const float THICKNESS = 0.06f;
   float knots[LUT_N + 1];
   for (int k = 0; k <= LUT_N; ++k)
     knots[k] =
-        amp * std::sin(2.0f * math::PI_F * harmonic * (k % LUT_N) / LUT_N);
+        AMP * std::sin(2.0f * math::PI_F * HARMONIC * (k % LUT_N) / LUT_N);
   SDF::KnotPrefilter pf;
-  SDF::DistortedRing ring(b, radius, thickness, knots, LUT_N, 0.0f, pf);
+  SDF::DistortedRing ring(b, RADIUS, THICKNESS, knots, LUT_N, 0.0f, pf);
 
-  const float target = radius * (math::PI_F / 2.0f);
+  const float TARGET = RADIUS * (math::PI_F / 2.0f);
   auto on_sphere = [&](float t, float dv) {
     float theta =
-        target + amp * std::sin(2.0f * math::PI_F * harmonic * t) + dv;
+        TARGET + AMP * std::sin(2.0f * math::PI_F * HARMONIC * t) + dv;
     float a = 2.0f * math::PI_F * t;
     return (b.v * std::cos(theta)) +
            ((b.u * std::cos(a)) + (b.w * std::sin(a))) * std::sin(theta);
@@ -390,7 +390,7 @@ template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
     for (int s = 0; s < SAMPLES; ++s) {
       int k = s / 64;
       float f = (s % 64) / 64.0f;
-      float theta = target + knots[k] + f * (knots[k + 1] - knots[k]);
+      float theta = TARGET + knots[k] + f * (knots[k + 1] - knots[k]);
       float a = 2.0f * math::PI_F * (k + f) / LUT_N;
       math::Vector q =
           (b.v * std::cos(theta)) +
@@ -402,14 +402,14 @@ template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
 
   // t = 0.05: crest (slope zero, curvature max); t = 0.1: steep flank;
   // t = 0.998: wrap seam. Offsets stay within the thickness reach.
-  const float probes[][2] = {{0.05f, 0.04f},   {0.05f, -0.05f}, {0.1f, 0.05f},
+  const float PROBES[][2] = {{0.05f, 0.04f},   {0.05f, -0.05f}, {0.1f, 0.05f},
                              {0.1f, -0.04f},   {0.998f, 0.04f}, {0.25f, 0.05f},
                              {0.375f, -0.05f}, {0.6f, 0.03f}};
-  for (const auto &pr : probes) {
+  for (const auto &pr : PROBES) {
     math::Vector p = on_sphere(pr[0], pr[1]);
     auto r = SDF::distance_of(ring, p);
     float expected = brute(p);
-    HS_EXPECT_TRUE(expected < thickness);
+    HS_EXPECT_TRUE(expected < THICKNESS);
     HS_EXPECT_NEAR(r.raw_dist, expected, 3e-3f);
   }
 }
@@ -417,11 +417,11 @@ template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
 /** @brief Closing-segment bounds depend on the first knot, not a sentinel. */
 inline void test_distorted_ring_closes_without_a_sentinel() {
   const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
-  const float knots[] = {0.1f, -0.2f, 0.3f, 0.05f};
-  const float stale_sentinel[] = {0.1f, -0.2f, 0.3f, 0.05f, 10.0f};
+  const float KNOTS[] = {0.1f, -0.2f, 0.3f, 0.05f};
+  const float STALE_SENTINEL[] = {0.1f, -0.2f, 0.3f, 0.05f, 10.0f};
   SDF::KnotPrefilter exact, extra;
-  SDF::DistortedRing a(basis, 0.5f, 0.02f, knots, 4, 0.0f, exact);
-  SDF::DistortedRing b(basis, 0.5f, 0.02f, stale_sentinel, 4, 0.0f, extra);
+  SDF::DistortedRing a(basis, 0.5f, 0.02f, KNOTS, 4, 0.0f, exact);
+  SDF::DistortedRing b(basis, 0.5f, 0.02f, STALE_SENTINEL, 4, 0.0f, extra);
   for (int c = 0; c < SDF::KnotPrefilter::CHUNKS; ++c) {
     HS_EXPECT_EQ(exact.lo[c], extra.lo[c]);
     HS_EXPECT_EQ(exact.hi[c], extra.hi[c]);
@@ -532,10 +532,10 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
   SDF::KnotPrefilter pf;
   SDF::DistortedRing ring(basis, RADIUS, THICKNESS, knots, LUT_N, 0.0f, pf);
 
-  const float azimuth = 2.0f * math::PI_F * 1.5f / LUT_N;
-  const float polar = TARGET + SPIKE - 0.05f;
-  math::Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
-                 sinf(azimuth) * sinf(polar));
+  const float AZIMUTH = 2.0f * math::PI_F * 1.5f / LUT_N;
+  const float POLAR = TARGET + SPIKE - 0.05f;
+  math::Vector p(cosf(AZIMUTH) * sinf(POLAR), cosf(POLAR),
+                 sinf(AZIMUTH) * sinf(POLAR));
   HS_EXPECT_GE(SDF::distance_of(ring, p).dist, SDF::FAR_SENTINEL - THICKNESS);
 
   math::Basis poly_basis = math::make_basis(math::Quaternion(), p);
@@ -679,12 +679,12 @@ inline void test_spherical_polygon_far_outside() {
  */
 inline void test_spherical_polygon_center_and_edge_magnitude() {
   math::Basis b = equator_basis();
-  const int sides = 5;
-  const float radius = 0.5f;
-  SDF::SphericalPolygon sp(b, radius, sides, 0.0f);
+  const int SIDES = 5;
+  const float RADIUS = 0.5f;
+  SDF::SphericalPolygon sp(b, RADIUS, SIDES, 0.0f);
 
-  const float R = radius * (math::PI_F / 2.0f);
-  const float inradius = std::atan(std::tan(R) * std::cos(math::PI_F / sides));
+  const float R = RADIUS * (math::PI_F / 2.0f);
+  const float inradius = std::atan(std::tan(R) * std::cos(math::PI_F / SIDES));
 
   auto center = SDF::distance_of(sp, math::Vector(0, 1, 0));
   HS_EXPECT_NEAR(center.dist, -inradius, 5e-4f);
@@ -715,7 +715,7 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
     int sides;
     float phase;
   };
-  const Case cases[] = {{0.22f, 3, -2.7f},
+  const Case CASES[] = {{0.22f, 3, -2.7f},
                         {0.72f, 5, 0.31f},
                         {0.98f, 12, 5.4f},
                         {1.42f, 7, -0.9f},
@@ -723,7 +723,7 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
 
   float max_error = 0.0f;
   int edge_samples = 0;
-  for (const Case &c : cases) {
+  for (const Case &c : CASES) {
     auto folded = math::get_antipode(basis, c.radius);
     SDF::SphericalPolygon shape(folded.first, folded.second, c.sides, c.phase,
                                 c.radius > 1.0f);
@@ -811,11 +811,11 @@ inline void test_spherical_polygon_composes_under_csg() {
 
   // Poles on +X and +Z: both cross the equatorial row, a quarter turn apart.
   constexpr int W = 256, H = 128;
-  const math::Basis bx{math::Vector(0, 1, 0), math::Vector(1, 0, 0),
+  const math::Basis BX{math::Vector(0, 1, 0), math::Vector(1, 0, 0),
                        math::Vector(0, 0, 1)};
-  const math::Basis bz{math::Vector(0, 1, 0), math::Vector(0, 0, 1),
+  const math::Basis BZ{math::Vector(0, 1, 0), math::Vector(0, 0, 1),
                        math::Vector(-1, 0, 0)};
-  SDF::SphericalPolygon px(bx, 0.3f, 5, 0.0f), pz(bz, 0.3f, 5, 0.0f);
+  SDF::SphericalPolygon px(BX, 0.3f, 5, 0.0f), pz(BZ, 0.3f, 5, 0.0f);
   U disjoint(px, pz);
 
   std::vector<std::pair<float, float>> out;
@@ -854,14 +854,14 @@ inline void test_star_far_outside() {
  */
 inline void test_star_tip_on_boundary() {
   math::Basis b = equator_basis();
-  const float radius = 0.6f;
-  SDF::Star star(b, radius, /*sides=*/5, 0.0f);
+  const float RADIUS = 0.6f;
+  SDF::Star star(b, RADIUS, /*sides=*/5, 0.0f);
 
-  const float outer = radius * (math::PI_F / 2.0f);
-  math::Vector tip(std::sin(outer), std::cos(outer), 0.0f);
+  const float OUTER = RADIUS * (math::PI_F / 2.0f);
+  math::Vector tip(std::sin(OUTER), std::cos(OUTER), 0.0f);
   auto r = SDF::distance_of(star, tip);
   HS_EXPECT_NEAR(r.dist, 0.0f, 5e-4f);
-  HS_EXPECT_NEAR(r.raw_dist, outer, 5e-4f);
+  HS_EXPECT_NEAR(r.raw_dist, OUTER, 5e-4f);
 }
 
 // ============================================================================
@@ -878,16 +878,16 @@ inline void test_star_tip_on_boundary() {
  */
 inline void test_flower_interior_along_petal() {
   math::Basis b = equator_basis();
-  const float radius = 0.6f;
-  SDF::Flower flower(b, radius, /*sides=*/6, 0.0f);
+  const float RADIUS = 0.6f;
+  SDF::Flower flower(b, RADIUS, /*sides=*/6, 0.0f);
 
-  const float outer = radius * (math::PI_F / 2.0f);
-  const float s = 0.1f;
+  const float OUTER = RADIUS * (math::PI_F / 2.0f);
+  const float S = 0.1f;
   // From the antipode (-Y), step s toward +u (+X): interior of a petal.
-  math::Vector p(std::sin(s), -std::cos(s), 0.0f);
+  math::Vector p(std::sin(S), -std::cos(S), 0.0f);
   auto r = SDF::distance_of(flower, p);
-  HS_EXPECT_NEAR(r.dist, s - outer, 5e-4f);
-  HS_EXPECT_NEAR(r.raw_dist, s, 1e-3f);
+  HS_EXPECT_NEAR(r.dist, S - OUTER, 5e-4f);
+  HS_EXPECT_NEAR(r.raw_dist, S, 1e-3f);
 }
 
 /**
@@ -899,15 +899,15 @@ inline void test_flower_interior_along_petal() {
  */
 inline void test_flower_petal_tip_on_boundary() {
   math::Basis b = equator_basis();
-  const float radius = 0.6f;
-  SDF::Flower flower(b, radius, /*sides=*/6, 0.0f);
+  const float RADIUS = 0.6f;
+  SDF::Flower flower(b, RADIUS, /*sides=*/6, 0.0f);
 
-  const float outer = radius * (math::PI_F / 2.0f);
-  // From the antipode (-Y), step `outer` toward +u (+X).
-  math::Vector tip(std::sin(outer), -std::cos(outer), 0.0f);
+  const float OUTER = RADIUS * (math::PI_F / 2.0f);
+  // From the antipode (-Y), step `OUTER` toward +u (+X).
+  math::Vector tip(std::sin(OUTER), -std::cos(OUTER), 0.0f);
   auto r = SDF::distance_of(flower, tip);
   HS_EXPECT_NEAR(r.dist, 0.0f, 5e-4f);
-  HS_EXPECT_NEAR(r.raw_dist, outer, 5e-4f);
+  HS_EXPECT_NEAR(r.raw_dist, OUTER, 5e-4f);
 }
 
 /** @brief Verifies the solid-shape unit-vector and no-UV distance paths. */
@@ -947,26 +947,26 @@ inline void test_solid_shape_unit_angle_and_no_uv_paths() {
  */
 inline void test_inverted_fill_stays_centered() {
   math::Basis b = equator_basis();
-  const float radius = 1.5f;
-  auto res = math::get_antipode(b, radius);
+  const float RADIUS = 1.5f;
+  auto res = math::get_antipode(b, RADIUS);
   const math::Basis &fb = res.first;
   const float fr = res.second;
   HS_EXPECT_NEAR(fr, 0.5f, 1e-6f);
 
-  const math::Vector center(0, 1, 0);
-  const math::Vector far_side(0, -1, 0);
+  const math::Vector CENTER(0, 1, 0);
+  const math::Vector FAR_SIDE(0, -1, 0);
 
   SDF::SphericalPolygon sp(fb, fr, 5, 0.0f, /*invert=*/true);
-  HS_EXPECT_TRUE(SDF::distance_of(sp, center).dist < 0.0f);
-  HS_EXPECT_TRUE(SDF::distance_of(sp, far_side).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(sp, CENTER).dist < 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(sp, FAR_SIDE).dist > 0.0f);
 
   SDF::Star star(fb, fr, 5, 0.0f, /*invert=*/true);
-  HS_EXPECT_TRUE(SDF::distance_of(star, center).dist < 0.0f);
-  HS_EXPECT_TRUE(SDF::distance_of(star, far_side).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(star, CENTER).dist < 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(star, FAR_SIDE).dist > 0.0f);
 
   SDF::PlanarPolygon pp(fb, fr, 6, 0.0f, /*invert=*/true);
-  HS_EXPECT_TRUE(SDF::distance_of(pp, center).dist < 0.0f);
-  HS_EXPECT_TRUE(SDF::distance_of(pp, far_side).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(pp, CENTER).dist < 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(pp, FAR_SIDE).dist > 0.0f);
 
   // Flower fills around the antipode of its axis, so the sides swap; sample
   // off the exact poles (azimuth is degenerate there).
@@ -997,17 +997,17 @@ inline void test_line_on_arc_is_inside() {
 inline void test_line_on_arc_sweep() {
   const math::Vector A(1, 0, 0);
   for (float angle : {0.05f, 0.5f, 1.644f, 1.7f, 2.2f, 2.4f, 3.1f}) {
-    const math::Vector B(cosf(angle), 0, sinf(angle));
-    const SDF::Line LINE(A, B, 0.1f);
+    const math::Vector b(cosf(angle), 0, sinf(angle));
+    const SDF::Line line(A, b, 0.1f);
     for (int i = 1; i < 256; ++i) {
-      const float PHASE = angle * i / 256;
-      const math::Vector P(cosf(PHASE), 0, sinf(PHASE));
-      const auto RESULT = SDF::distance_of(LINE, P);
-      HS_EXPECT_NEAR(RESULT.raw_dist, 0.0f, 1e-6f);
-      HS_EXPECT_NEAR(RESULT.dist, -0.1f, 1e-6f);
+      const float phase = angle * i / 256;
+      const math::Vector p(cosf(phase), 0, sinf(phase));
+      const auto result = SDF::distance_of(line, p);
+      HS_EXPECT_NEAR(result.raw_dist, 0.0f, 1e-6f);
+      HS_EXPECT_NEAR(result.dist, -0.1f, 1e-6f);
     }
-    const auto POLE = SDF::distance_of(LINE, LINE.n);
-    HS_EXPECT_NEAR(POLE.raw_dist, math::PI_F / 2, 2e-4f);
+    const auto pole = SDF::distance_of(line, line.n);
+    HS_EXPECT_NEAR(pole.raw_dist, math::PI_F / 2, 2e-4f);
   }
 }
 

@@ -25,7 +25,7 @@ inline void test_shader_chain_composed_frame_parity() {
   reset_globals();
   ShaderChainWhiteBox::FX chain;
   chain.init();
-  const In::ChainEntryRequest topology[] = {
+  const In::ChainEntryRequest TOPOLOGY[] = {
       {"camera", "sphere.rotate.v2"},
       {"lens", "sphere.lens.glitch.v2"},
       {"project", "project.gnomonic.v2"},
@@ -34,7 +34,7 @@ inline void test_shader_chain_composed_frame_parity() {
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  if (!expect_compiled(chain.set_chain(topology)))
+  if (!expect_compiled(chain.set_chain(TOPOLOGY)))
     return;
   auto &program = ShaderChainWhiteBox::program(chain);
   param_as<In::Op::RotateChainParams>(program, 0).wander =
@@ -124,14 +124,14 @@ inline void test_shader_chain_parameter_admission() {
   reset_globals();
   ShaderChain<96, 20> effect;
   effect.init();
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"lens", "sphere.lens.mobius.v3"},
       {"project", "project.stereographic.v2"},
       {"warp", "warp.curl-flow.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  if (!expect_compiled(effect.set_chain(chain)))
+  if (!expect_compiled(effect.set_chain(CHAIN)))
     return;
   ShaderChainWhiteBox::ensure_modulation(effect);
   HS_EXPECT_EQ(effect.updateParameter("modulation.modulation-evaluation", 0.0f),
@@ -166,20 +166,20 @@ inline void test_shader_chain_parameter_admission() {
   effect.updateParameter("warp.strength", 0.0f);
   HS_EXPECT_TRUE(effect.parameter_warning("warp.strength") == nullptr);
   HS_EXPECT_EQ(effect.accepted_parameter_value(strength), 0.0f);
-  const ShaderChainParameterWrite valid_batch[] = {{"lens.spin-x", 1.0f},
+  const ShaderChainParameterWrite VALID_BATCH[] = {{"lens.spin-x", 1.0f},
                                                    {"lens.push-x", -2.0f}};
-  HS_EXPECT_EQ(effect.update_parameters(valid_batch), ParamSetResult::APPLIED);
-  for (const auto &write : valid_batch)
+  HS_EXPECT_EQ(effect.update_parameters(VALID_BATCH), ParamSetResult::APPLIED);
+  for (const auto &write : VALID_BATCH)
     HS_EXPECT_EQ(requested_param(effect, write.name), write.value);
-  const ShaderChainParameterWrite unknown_batch[] = {{"lens.spin-x", 0.5f},
+  const ShaderChainParameterWrite UNKNOWN_BATCH[] = {{"lens.spin-x", 0.5f},
                                                      {"missing", 0.0f}};
-  HS_EXPECT_EQ(effect.update_parameters(unknown_batch),
+  HS_EXPECT_EQ(effect.update_parameters(UNKNOWN_BATCH),
                ParamSetResult::UNKNOWN_PARAM);
-  const ShaderChainParameterWrite nonfinite_batch[] = {{"lens.spin-x", 0.5f},
+  const ShaderChainParameterWrite NONFINITE_BATCH[] = {{"lens.spin-x", 0.5f},
                                                        {"lens.push-x", NAN}};
-  HS_EXPECT_EQ(effect.update_parameters(nonfinite_batch),
+  HS_EXPECT_EQ(effect.update_parameters(NONFINITE_BATCH),
                ParamSetResult::NON_FINITE);
-  for (const auto &write : valid_batch)
+  for (const auto &write : VALID_BATCH)
     HS_EXPECT_EQ(requested_param(effect, write.name), write.value);
   effect.draw_frame();
   effect.advance_display();
@@ -189,14 +189,14 @@ inline void test_shader_chain_edge_distance_admission() {
   reset_globals();
   ShaderChain<96, 20> effect;
   effect.init();
-  const In::ChainEntryRequest chain[] = {
+  const In::ChainEntryRequest CHAIN[] = {
       {"project", "project.folded-sinusoidal.v2"},
       {"warp", "warp.wave-shear.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  expect_compiled(effect.set_chain(chain));
-  const float ACCEPTED_COVERAGE =
+  expect_compiled(effect.set_chain(CHAIN));
+  const float accepted_coverage =
       requested_param(effect, "sample.coverage-mode");
   HS_EXPECT_EQ(effect.updateParameter("sample.coverage-mode", 3),
                ParamSetResult::INADMISSIBLE);
@@ -207,13 +207,13 @@ inline void test_shader_chain_edge_distance_admission() {
   HS_EXPECT_TRUE(envelope != nullptr && coverage_mode != nullptr);
   if (!envelope || !coverage_mode)
     return;
-  const float ACCEPTED_ENVELOPE = envelope->get_requested();
-  const ShaderChainParameterWrite writes[] = {{"warp.envelope", 2}};
-  HS_EXPECT_EQ(effect.update_parameters(writes), ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_EQ(requested_param(effect, "warp.envelope"), ACCEPTED_ENVELOPE);
+  const float accepted_envelope = envelope->get_requested();
+  const ShaderChainParameterWrite WRITES[] = {{"warp.envelope", 2}};
+  HS_EXPECT_EQ(effect.update_parameters(WRITES), ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(requested_param(effect, "warp.envelope"), accepted_envelope);
   HS_EXPECT_TRUE(effect.parameter_warning("warp.envelope") != nullptr);
   HS_EXPECT_EQ(requested_param(effect, "sample.coverage-mode"),
-               ACCEPTED_COVERAGE);
+               accepted_coverage);
 }
 
 /** @brief Projections stay within their declared plane bound. */
@@ -225,10 +225,10 @@ inline void test_shader_chain_projection_plane_bound() {
        {math::Vector(1e-4f, 1, 0), math::Vector(0, 1, 1e-4f),
         math::Vector(1, 1e-6f, 0), math::Vector(0, -1e-6f, 1)})
     views.push_back(view.normalized());
-  const float NEAR_POLE_Y = std::nextafter(1.0f, 0.0f);
+  const float near_pole_y = std::nextafter(1.0f, 0.0f);
   views.emplace_back(sqrtf(1.0f + PB::DIRECTION_NORM_SQUARED_TOLERANCE -
-                           NEAR_POLE_Y * NEAR_POLE_Y),
-                     NEAR_POLE_Y, 0.0f);
+                           near_pole_y * near_pole_y),
+                     near_pole_y, 0.0f);
   constexpr int SWEEP = 4096;
   for (int index = 0; index < SWEEP; ++index) {
     const float y = 1.0f - 2.0f * (index + 0.5f) / SWEEP;
@@ -343,7 +343,7 @@ inline void test_shader_chain_plane_growth_admission() {
     HS_EXPECT_TRUE(std::isfinite(plane.path_length));
   }
 
-  const In::ChainEntryRequest ordinary[] = {
+  const In::ChainEntryRequest ORDINARY[] = {
       {"camera", "sphere.rotate.v2"},
       {"project", "project.gnomonic.v2"},
       {"warp", "warp.affine.v4"},
@@ -351,14 +351,14 @@ inline void test_shader_chain_plane_growth_admission() {
       {"sample", "sample.tessellation.v3"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  expect_compiled(effect.set_chain(ordinary));
-  const ShaderChainParameterWrite extreme[] = {
+  expect_compiled(effect.set_chain(ORDINARY));
+  const ShaderChainParameterWrite EXTREME[] = {
       {"warp.scale-x", MIN_SCALE},    {"warp.scale-y", 64.0f},
       {"warp.shear", -4.0f},          {"warp.translation-x", 4.0f},
       {"warp.translation-y", -4.0f},  {"warp.lattice-period", 100.0f},
       {"polar.radial-scale", 64.0f},  {"polar.radial-phase", 6.0f},
       {"polar.angular-phase", -6.0f}, {"polar.harmonic", 15.0f}};
-  HS_EXPECT_EQ(effect.update_parameters(extreme), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.update_parameters(EXTREME), ParamSetResult::APPLIED);
   effect.draw_frame();
   effect.advance_display();
 }
@@ -368,13 +368,13 @@ inline void test_shader_chain_effect_rebind_generation() {
   ShaderChain<96, 20> effect;
   effect.init();
   const uint32_t initial = effect.getParameterSchemaGeneration();
-  const In::ChainEntryRequest edited[] = {
+  const In::ChainEntryRequest EDITED[] = {
       {"camera2", "sphere.rotate.v2"},
       {"project", "project.stereographic.v2"},
       {"sample", "sample.grid.v4"},
       {"colorize", "colorize.generated-palette.v4"},
   };
-  const In::ChainRefusal committed = effect.set_chain(edited);
+  const In::ChainRefusal committed = effect.set_chain(EDITED);
   expect_compiled(committed);
   // set_chain rebinds before returning: fresh generation, fresh names.
   HS_EXPECT_NE(effect.getParameterSchemaGeneration(), initial);
@@ -390,11 +390,11 @@ inline void test_shader_chain_effect_refusal_keeps_schema() {
   effect.init();
   const uint32_t committed = effect.getParameterSchemaGeneration();
   const size_t param_count = effect.getParameters().size();
-  const In::ChainEntryRequest unknown[] = {
+  const In::ChainEntryRequest UNKNOWN[] = {
       {"camera", "sphere.rotate.v2"},
       {"warp", "warp.unknown.v2"},
   };
-  const In::ChainRefusal refusal = effect.set_chain(unknown);
+  const In::ChainRefusal refusal = effect.set_chain(UNKNOWN);
   HS_EXPECT_EQ(refusal.code, In::ChainStatus::UNKNOWN_OPERATOR);
   HS_EXPECT_EQ(refusal.entry_index, 1);
   // Definitions, generation, and the committed program survive, and the
@@ -454,7 +454,7 @@ shader_chain_instantaneous_run(const ClipSchedule<96, 20> *clips) {
   HS_EXPECT_TRUE(Spacetime::flat_surface());
   WB::FX chain;
   chain.init();
-  const In::ChainEntryRequest topology[] = {
+  const In::ChainEntryRequest TOPOLOGY[] = {
       {"camera", "sphere.rotate.v2"},
       {"lens", "sphere.lens.glitch.v2"},
       {"project", "project.gnomonic.v2"},
@@ -469,7 +469,7 @@ shader_chain_instantaneous_run(const ClipSchedule<96, 20> *clips) {
     if (clips)
       clips->apply(chain, frame);
     if (frame == 60) {
-      expect_compiled(chain.set_chain(topology));
+      expect_compiled(chain.set_chain(TOPOLOGY));
       WB::modulation_params(chain).modulation.mechanic.amount = 0.3f;
     }
     chain.draw_frame();

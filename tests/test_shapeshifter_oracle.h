@@ -487,14 +487,14 @@ inline uint64_t row_energy(const OracleFrame &frame, int y) {
 inline std::array<OracleState, 20> shape_function_matrix() {
   using Function = OracleEffect::PhaseFunction;
   using Shape = OracleEffect::ShapeType;
-  const Shape shapes[] = {Shape::PLANAR_POLYGON, Shape::SPHERICAL_POLYGON,
+  const Shape SHAPES[] = {Shape::PLANAR_POLYGON, Shape::SPHERICAL_POLYGON,
                           Shape::FLOWER, Shape::PLANAR_STAR,
                           Shape::SPHERICAL_STAR};
-  const Function functions[] = {Function::SINE, Function::TRIANGLE,
+  const Function FUNCTIONS[] = {Function::SINE, Function::TRIANGLE,
                                 Function::SAWTOOTH, Function::SQUARE};
-  const int counts[] = {1, 2, 7, 75};
-  const int sides[] = {3, 5, 9, 16, 7};
-  const float phases[] = {0.0f, 0.249f, 0.5f, 0.999f};
+  const int COUNTS[] = {1, 2, 7, 75};
+  const int SIDES[] = {3, 5, 9, 16, 7};
+  const float PHASES[] = {0.0f, 0.249f, 0.5f, 0.999f};
   const math::Quaternion orientations[] = {
       math::Quaternion(), math::make_rotation(math::X_AXIS, math::Y_AXIS),
       math::make_rotation(math::X_AXIS, -math::Y_AXIS),
@@ -505,17 +505,17 @@ inline std::array<OracleState, 20> shape_function_matrix() {
   for (int shape = 0; shape < 5; ++shape)
     for (int function = 0; function < 4; ++function) {
       OracleState state;
-      state.shape = shapes[shape];
+      state.shape = SHAPES[shape];
       const bool star = state.shape == Shape::PLANAR_STAR ||
                         state.shape == Shape::SPHERICAL_STAR;
       state.alpha_falloff = star ? OracleEffect::AlphaFalloff::TOWARD_EQUATOR
                                  : OracleEffect::AlphaFalloff::CONSTANT_HALF;
-      state.function = functions[function];
+      state.function = FUNCTIONS[function];
       state.count = state.shape == Shape::SPHERICAL_STAR
-                        ? std::min(counts[function], 7)
-                        : counts[function];
-      state.sides = sides[shape];
-      state.phase = phases[function];
+                        ? std::min(COUNTS[function], 7)
+                        : COUNTS[function];
+      state.sides = SIDES[shape];
+      state.phase = PHASES[function];
       state.orientation = orientations[(shape + function) % 4];
       matrix[index++] = state;
     }
@@ -685,7 +685,7 @@ inline void test_candidate_matrix_stays_within_visual_budget() {
     size_t pixels;
   };
   // Per-case native baselines with aggregate and peak headroom.
-  constexpr Budget budgets[] = {
+  constexpr Budget BUDGETS[] = {
       {0.4, 5, 480, 1},         {2.8, 36, 3800, 1},   {9, 87, 9700, 9},
       {30, 172, 10910, 17},     {0.3, 1.5, 90, 1},    {0.4, 3.5, 210, 1},
       {6.2, 82, 7720, 7},       {54, 232, 11340, 44}, {0.4, 6, 650, 1},
@@ -694,9 +694,9 @@ inline void test_candidate_matrix_stays_within_visual_budget() {
       {351, 1192, 20450, 1845}, {1.2, 14, 1250, 1},   {9.5, 101, 4550, 1},
       {23, 185, 11160, 25},     {15, 135, 8530, 9}};
   const auto matrix = shape_function_matrix();
-  static_assert(std::size(budgets) == std::tuple_size_v<decltype(matrix)>);
+  static_assert(std::size(BUDGETS) == std::tuple_size_v<decltype(matrix)>);
   for (size_t index = 0; index < matrix.size(); ++index) {
-    const auto &budget = budgets[index];
+    const auto &budget = BUDGETS[index];
     expect_candidate_within_visual_budget(matrix[index], MAX_ENERGY_DRIFT,
                                           budget.pixels, budget.mae,
                                           budget.rmse, budget.channel);
@@ -781,7 +781,7 @@ inline void test_high_count_uniform_star_stays_within_visual_budget() {
       math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(),
       math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
   }};
-  const std::array<float, 6> phases = {
+  const std::array<float, 6> PHASES = {
       {0.0f, 0.125f, 0.249f, 0.5f, 0.75f, 0.999f}};
   for (size_t i = 0; i < orientations.size(); ++i) {
     OracleState state;
@@ -789,7 +789,7 @@ inline void test_high_count_uniform_star_stays_within_visual_budget() {
     state.function = Function::SINE;
     state.count = 144;
     state.sides = 7;
-    state.phase = phases[i];
+    state.phase = PHASES[i];
     state.alpha = 0.274f;
     state.orientation = orientations[i];
     expect_candidate_within_visual_budget(
@@ -1086,10 +1086,10 @@ inline void test_screen_balanced_spacing_follows_sampling_envelope() {
   const float equator_equivalent_count =
       1.0f / (mapped(COUNT / 2 - 1) - mapped(COUNT / 2 - 2));
   const float pole_equivalent_count = 1.0f / (mapped(1) - mapped(0));
-  const float density_scale = COUNT * math::PI_F / (2.0f * DENSITY_INTEGRAL);
-  HS_EXPECT_NEAR(equator_equivalent_count, density_scale, 0.2f);
+  const float DENSITY_SCALE = COUNT * math::PI_F / (2.0f * DENSITY_INTEGRAL);
+  HS_EXPECT_NEAR(equator_equivalent_count, DENSITY_SCALE, 0.2f);
   HS_EXPECT_NEAR(equator_equivalent_count, OracleEffect::MAX_SHAPES, 1.8f);
-  HS_EXPECT_NEAR(pole_equivalent_count, density_scale * DENSITY_FLOOR, 0.2f);
+  HS_EXPECT_NEAR(pole_equivalent_count, DENSITY_SCALE * DENSITY_FLOOR, 0.2f);
   HS_EXPECT_NEAR(pole_equivalent_count, ORACLE_H, 1.0f);
   HS_EXPECT_NEAR(mapped(0) * math::PI_F, 2.0f * DENSITY_INTEGRAL / COUNT,
                  1e-6f);
@@ -1157,9 +1157,9 @@ inline void test_preset_transition_fades_through_black() {
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_dwell_frames() +
                      ShapeShifterWhiteBox::preset_segue_frames(),
                  ShapeShifterWhiteBox::preset_frames());
-    const auto FIRST = ShapeShifterWhiteBox::preset_shape(0);
-    const auto SECOND = ShapeShifterWhiteBox::preset_shape(1);
-    HS_EXPECT_NE(static_cast<int>(FIRST), static_cast<int>(SECOND));
+    const auto first = ShapeShifterWhiteBox::preset_shape(0);
+    const auto second = ShapeShifterWhiteBox::preset_shape(1);
+    HS_EXPECT_NE(static_cast<int>(first), static_cast<int>(second));
     auto step = [&] {
       ShapeShifterWhiteBox::step_choreography(effect, canvas);
     };
@@ -1169,20 +1169,20 @@ inline void test_preset_transition_fades_through_black() {
       step();
     HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 1.0f, 1e-6f);
     HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
-                 static_cast<int>(FIRST));
+                 static_cast<int>(first));
 
     for (int frame = 1; frame < HALF; ++frame) {
       step();
       HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect),
                      1.0f - static_cast<float>(frame) / HALF, 1e-6f);
       HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
-                   static_cast<int>(FIRST));
+                   static_cast<int>(first));
     }
 
     step();
     HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 0.0f, 1e-6f);
     HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
-                 static_cast<int>(SECOND));
+                 static_cast<int>(second));
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
 
     for (int frame = 1; frame <= HALF; ++frame) {
@@ -1191,7 +1191,7 @@ inline void test_preset_transition_fades_through_black() {
                      static_cast<float>(frame) / HALF, 1e-6f);
     }
     HS_EXPECT_EQ(static_cast<int>(ShapeShifterWhiteBox::shape(effect)),
-                 static_cast<int>(SECOND));
+                 static_cast<int>(second));
   }
   Timeline().clear();
 }
@@ -1300,14 +1300,14 @@ inline void test_timed_contours_match_frozen_columns() {
     float step;
     const char *name;
   };
-  const Case cases[] = {
+  const Case CASES[] = {
       {ShapeType::SPHERICAL_POLYGON, 24, 4, 2.0f, 0.01f, "spherical polygon"},
       {ShapeType::SPHERICAL_STAR, 12, 5, 1.0f, 0.016f, "spherical star"},
       {ShapeType::PLANAR_STAR, 48, 7, 1.0f, 0.016f, "planar star"},
       {ShapeType::PLANAR_STAR, 12, 5, 1.0f, 0.016f, "sparse planar star"},
       {ShapeType::PLANAR_POLYGON, 16, 5, 1.0f, 0.016f, "planar polygon"},
       {ShapeType::FLOWER, 24, 3, 1.0f, 0.0186f, "flower"}};
-  for (const Case &test : cases) {
+  for (const Case &test : CASES) {
     OracleState state;
     state.shape = test.shape;
     state.count = test.count;

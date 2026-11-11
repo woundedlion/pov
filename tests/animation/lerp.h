@@ -32,9 +32,9 @@ inline void test_lerp_drives_subject_to_target() {
   Lerpable subject, start, target;
   start.value = 0.0f;
   target.value = 200.0f;
-  const int duration = 10;
-  Animation::Lerp l(subject, start, target, duration, math::ease_linear);
-  for (int i = 0; i < duration; ++i) {
+  const int DURATION = 10;
+  Animation::Lerp l(subject, start, target, DURATION, math::ease_linear);
+  for (int i = 0; i < DURATION; ++i) {
     l.step(fake_canvas());
   }
   HS_EXPECT_NEAR(subject.value, 200.0f, 1e-3f);
@@ -49,8 +49,8 @@ inline void test_lerp_midpoint() {
   Lerpable subject, start, target;
   start.value = 10.0f;
   target.value = 20.0f;
-  const int duration = 4;
-  Animation::Lerp l(subject, start, target, duration, math::ease_linear);
+  const int DURATION = 4;
+  Animation::Lerp l(subject, start, target, DURATION, math::ease_linear);
   l.step(fake_canvas()); // t=1 -> progress 0.25 -> 12.5
   l.step(fake_canvas()); // t=2 -> progress 0.50 -> 15.0
   HS_EXPECT_NEAR(subject.value, 15.0f, 1e-3f);

@@ -116,13 +116,13 @@ constexpr float PRIMARY_CORNER_TOL_SINGLE = 0.06f;
 inline void check_primary_faces_match_seed(const PolyMesh &seed,
                                            const PolyMesh &out,
                                            int corners_per_source, float tol) {
-  const size_t F = seed.face_counts.size();
-  HS_EXPECT_GE(out.face_counts.size(), F);
-  if (out.face_counts.size() < F)
+  const size_t f = seed.face_counts.size();
+  HS_EXPECT_GE(out.face_counts.size(), f);
+  if (out.face_counts.size() < f)
     return;
   size_t seed_off = 0;
   size_t out_off = 0;
-  for (size_t fi = 0; fi < F; ++fi) {
+  for (size_t fi = 0; fi < f; ++fi) {
     const int bc = seed.face_counts[fi];
     const int oc = out.face_counts[fi];
     HS_EXPECT_EQ(oc, bc * corners_per_source);

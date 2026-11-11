@@ -15,8 +15,8 @@ inline void test_timed_edge_endpoint_registers() {
   ScratchScope scope(scratch_arena_a);
   Fragments points;
   points.bind(scratch_arena_a, 2);
-  const math::Vector near(1.0f, 1e-8f, 0.0f);
-  Plot::prepare_timed_edge(points, math::X_AXIS, near, 7, 0.0f);
+  const math::Vector NEAR(1.0f, 1e-8f, 0.0f);
+  Plot::prepare_timed_edge(points, math::X_AXIS, NEAR, 7, 0.0f);
   HS_EXPECT_EQ(points.size(), 2u);
   HS_EXPECT_EQ(points[0].pos, math::X_AXIS);
   HS_EXPECT_EQ(points[1].pos, math::X_AXIS);
@@ -64,19 +64,20 @@ inline ArenaVector<Plot::Mesh::Edge> chain_edges(Arena &arena) {
 inline void test_column_long_polar_edge_finishes() {
   constexpr int W = 288, H = 144;
   const ScopedTemporalSampling sampling(true);
-  const math::Vector MID(sinf(0.02f), cosf(0.02f), 0);
+  const math::Vector mid(sinf(0.02f), cosf(0.02f), 0);
   const float HALF_LENGTH = math::PI_F / 4;
-  const math::Vector A =
-      MID * cosf(HALF_LENGTH) - math::Z_AXIS * sinf(HALF_LENGTH);
-  const math::Vector B =
-      MID * cosf(HALF_LENGTH) + math::Z_AXIS * sinf(HALF_LENGTH);
+  const math::Vector a_value =
+      mid * cosf(HALF_LENGTH) - math::Z_AXIS * sinf(HALF_LENGTH);
+  const math::Vector b_value =
+      mid * cosf(HALF_LENGTH) + math::Z_AXIS * sinf(HALF_LENGTH);
   for (bool reversed : {false, true}) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
-    TimedMeshFixture mesh{{reversed ? B : A, reversed ? A : B, {}}};
-    const auto ARC =
+    TimedMeshFixture mesh{
+        {reversed ? b_value : a_value, reversed ? a_value : b_value, {}}};
+    const auto arc =
         Plot::EdgeWorldsheet::arc(mesh.vertices[0], mesh.vertices[1]);
-    HS_EXPECT_GT((Plot::EdgeWorldsheet::pieces_of<W, H>(ARC)),
+    HS_EXPECT_GT((Plot::EdgeWorldsheet::pieces_of<W, H>(arc)),
                  2 * Plot::rasterize_step_budget<W>());
     Spacetime::geometry_counters = {};
     hs::g_scan_metrics = {};
@@ -95,10 +96,10 @@ inline void test_column_long_polar_edge_finishes() {
                                    geometry);
     }
     effect.advance_display();
-    const auto PIXEL = math::vector_to_pixel<W, H>(mesh.vertices[1]);
+    const auto pixel = math::vector_to_pixel<W, H>(mesh.vertices[1]);
     uint64_t far_energy = 0;
-    for (int y = int(PIXEL.y) - 1; y <= int(PIXEL.y) + 2; ++y)
-      for (int x = int(PIXEL.x) - 1; x <= int(PIXEL.x) + 2; ++x)
+    for (int y = int(pixel.y) - 1; y <= int(pixel.y) + 2; ++y)
+      for (int x = int(pixel.x) - 1; x <= int(pixel.x) + 2; ++x)
         far_energy += effect.get_pixel((x + W) % W, std::clamp(y, 0, H - 1)).r;
     HS_EXPECT_GT(ends, 0u);
     HS_EXPECT_GT(far_energy, uint64_t{0});
@@ -196,8 +197,8 @@ inline void test_trail_gate_uses_motion_region() {
   constexpr int W = 288, H = 144;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline{
       Filter::Screen::AntiAlias<W, H>()};
-  const ClipRegion clip{36, 72, 0, W, 1, W, H};
-  const auto xc = clip.x_clip();
+  const ClipRegion CLIP{36, 72, 0, W, 1, W, H};
+  const auto xc = CLIP.x_clip();
   ScratchScope guard(scratch_arena_a);
   Fragments points;
   points.bind(scratch_arena_a, 2);
@@ -208,10 +209,10 @@ inline void test_trail_gate_uses_motion_region() {
   }
   uint8_t bits[1];
   const bool still =
-      Plot::gate_trail_edges<W, H>(pipeline, clip, xc, points, bits);
+      Plot::gate_trail_edges<W, H>(pipeline, CLIP, xc, points, bits);
   HS_EXPECT(!still, "endpoint edge is outside the clip");
   const bool moving =
-      Plot::gate_trail_edges<W, H>(pipeline, clip, xc, points, bits, 0.1f);
+      Plot::gate_trail_edges<W, H>(pipeline, CLIP, xc, points, bits, 0.1f);
   HS_EXPECT(moving, "swept edge reaches the clip");
   HS_EXPECT_EQ(bits[0], Plot::EDGE_VISIBLE);
 }
@@ -332,7 +333,7 @@ inline void test_column_edge_quality() {
 /** @brief Meridian fractions enclose the column walk sampler's arc parameter. */
 inline void test_column_crossing_parameter_bound() {
   constexpr float LENGTH = 3.13f;
-  const math::Vector a(1.0f, 0.0f, 0.0f), tangent(0.0f, 0.0f, 1.0f);
+  const math::Vector A(1.0f, 0.0f, 0.0f), TANGENT(0.0f, 0.0f, 1.0f);
   float sine, cosine;
   math::poly_sincosf_0_pi(LENGTH, sine, cosine);
   const math::Vector b(cosine, 0.0f, sine);
@@ -341,8 +342,8 @@ inline void test_column_crossing_parameter_bound() {
     const float parameter = LENGTH * i / 16384.0f;
     math::poly_sincosf_0_pi(parameter, sine, cosine);
     float fraction;
-    HS_EXPECT(Plot::column_edge_crossing(a, b, {cosine, 0.0f, sine}, LENGTH,
-                                         tangent, fraction),
+    HS_EXPECT(Plot::column_edge_crossing(A, b, {cosine, 0.0f, sine}, LENGTH,
+                                         TANGENT, fraction),
               "interior meridian crosses arc");
     const float error = fabsf(fraction * LENGTH - parameter);
     worst = fmaxf(worst, error);
@@ -691,8 +692,8 @@ inline void test_column_directional_spacing_certificate() {
   for (int trial = 0; trial < 6000; ++trial) {
     const auto a = hs_test::rand_unit();
     const auto axis = math::cross(a, hs_test::rand_unit()).normalized();
-    const float scale[] = {0.00001f, 0.002f, 0.02f, 0.2f, 1.0f, 2.8f};
-    const float length = scale[trial % 6] * hs::rand_f(0.75f, 1.1f);
+    const float SCALE[] = {0.00001f, 0.002f, 0.02f, 0.2f, 1.0f, 2.8f};
+    const float length = SCALE[trial % 6] * hs::rand_f(0.75f, 1.1f);
     const auto b = math::rotate(a, math::make_rotation(axis, length));
     const auto basis = Frame::arc(a, b);
     const float pieces = Frame::pieces_of<W, H>(basis);
@@ -936,7 +937,7 @@ inline void test_column_uniform_color_preserves_age() {
       {
         Canvas canvas(effect);
         ScratchScope a(scratch_arena_a), b(scratch_arena_b);
-        const Plot::MeshEdge pair{0, 1};
+        const Plot::MeshEdge PAIR{0, 1};
         Spacetime::Worldlines<> motion;
         motion.bind(scratch_arena_b, 2);
         motion.begin_frame(2, false);
@@ -976,7 +977,7 @@ inline void test_column_uniform_color_preserves_age() {
                                     .prepare = prepare,
                                     .vertices = vertices,
                                     .motion = motion,
-                                    .pairs = &pair,
+                                    .pairs = &PAIR,
                                     .chained = false,
                                     .rigid_lattice = false,
                                     .uniform_color = uniform};
@@ -1061,8 +1062,8 @@ inline void test_column_uniform_color_seam_registers() {
   owner.age = 105.0f;
   owner.size = 106.0f;
   owner.color = Color4(Pixel(1000, 2000, 3000), 0.3f);
-  const Plot::ColumnTapSample sample{{143.8f, 50.2f}, 0.998f, 0.25f};
-  for (const float far : {0.0f, sample.t}) {
+  const Plot::ColumnTapSample SAMPLE{{143.8f, 50.2f}, 0.998f, 0.25f};
+  for (const float far : {0.0f, SAMPLE.t}) {
     uint32_t calls = 0;
     auto shade = [&](const math::Vector &p, Fragment &f, float time) {
       ++calls;
@@ -1072,12 +1073,12 @@ inline void test_column_uniform_color_seam_registers() {
     };
     const TimedShaderRef shader(shade);
     const auto normal = Plot::column_seam_registers<{.timed = true}, false>(
-        points, sample, owner, far, shader);
+        points, SAMPLE, owner, far, shader);
     const auto uniform = Plot::column_seam_registers<{.timed = true}, true>(
-        points, sample, owner, far, shader);
-    HS_EXPECT_EQ(calls, far == sample.t ? 0u : 1u);
+        points, SAMPLE, owner, far, shader);
+    HS_EXPECT_EQ(calls, far == SAMPLE.t ? 0u : 1u);
     for (const Fragment *result : {&normal, &uniform}) {
-      const bool same_time = far == sample.t;
+      const bool same_time = far == SAMPLE.t;
       HS_EXPECT_VEC(result->pos, same_time ? owner.pos : math::Vector{}, 0.0f);
       HS_EXPECT_EQ(result->v0, same_time ? 101.0f : 0.25f);
       HS_EXPECT_EQ(result->v1, same_time ? 102.0f : 12.5f);

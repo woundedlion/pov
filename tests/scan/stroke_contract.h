@@ -66,15 +66,15 @@ inline void test_scan_shader_v2_contract() {
   math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   constexpr float RADIUS = 0.5f;
   constexpr float THICKNESS = 0.1f;
-  const float phi = RADIUS * (math::PI_F / 2.0f) + THICKNESS * 0.5f;
-  const math::Vector p(sinf(phi), cosf(phi), 0.0f);
+  const float PHI = RADIUS * (math::PI_F / 2.0f) + THICKNESS * 0.5f;
+  const math::Vector p(sinf(PHI), cosf(PHI), 0.0f);
   SDF::Ring ring(basis, RADIUS, THICKNESS);
 
   SDF::DistanceResult expected_result;
   ring.distance<false>(p, expected_result);
   const float expected_coverage =
       math::quintic_kernel(-expected_result.dist / expected_result.size);
-  const float RAW_DIST_FACTOR = math::quintic_kernel(
+  const float raw_dist_factor = math::quintic_kernel(
       1.0f -
       hs::clamp(expected_result.raw_dist / expected_result.size, 0.0f, 1.0f));
 
@@ -95,7 +95,7 @@ inline void test_scan_shader_v2_contract() {
   HS_EXPECT_LT(expected_coverage, 0.9f);
   HS_EXPECT_NEAR(shader_coverage, expected_coverage, 1e-6f);
   HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * expected_coverage, 1e-6f);
-  HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * RAW_DIST_FACTOR, 2e-6f);
+  HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * raw_dist_factor, 2e-6f);
 
   SDF::PlanarPolygon solid(basis, 0.5f / (math::PI_F / 2.0f), 6, 0.0f);
   AlphaSink solid_sink;
@@ -289,7 +289,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
 
   const float RADIUS = 0.5f;     // centerline at polar PI/4
   const float THICKNESS = 0.10f; // band half-width in radians
-  const float target = RADIUS * (math::PI_F / 2.0f);
+  const float TARGET = RADIUS * (math::PI_F / 2.0f);
   math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   SDF::Ring ring(basis, RADIUS, THICKNESS);
 
@@ -299,7 +299,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
   bool saw_one = false, saw_zero = false, saw_mid = false;
   for (int i = 0; i < N; ++i) {
     float delta = (THICKNESS * 1.4f) * i / (N - 1); // 0 .. 1.4*thickness
-    float ph = target + delta;
+    float ph = TARGET + delta;
     math::Vector p(sinf(ph), cosf(ph), 0.0f); // az=0, polar angle ph
     int count = 0;
     float a = scan_alpha_at<W, H>(ring, p, c, &count);

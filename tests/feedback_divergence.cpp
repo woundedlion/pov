@@ -150,11 +150,11 @@ int dump(const char *path, int frames) {
     printf("cannot open %s for writing\n", path);
     return 1;
   }
-  const int magic = 0x46424456; // "FBDV"
-  const int np = NPRESET;
-  if (fwrite(&magic, sizeof(magic), 1, f) != 1 ||
+  const int MAGIC = 0x46424456; // "FBDV"
+  const int NP = NPRESET;
+  if (fwrite(&MAGIC, sizeof(MAGIC), 1, f) != 1 ||
       fwrite(&frames, sizeof(frames), 1, f) != 1 ||
-      fwrite(&np, sizeof(np), 1, f) != 1)
+      fwrite(&NP, sizeof(NP), 1, f) != 1)
     return fail_dump(f, path, "write header of");
 
   std::vector<uint16_t> row(CHANS);
@@ -319,12 +319,12 @@ void usage() {
 
 int main(int argc, char **argv) {
   if (argc >= 3 && std::strcmp(argv[1], "--dump") == 0) {
-    const int FRAMES = argc > 3 ? atoi(argv[3]) : 1000;
-    if (FRAMES <= 0) {
+    const int frames = argc > 3 ? atoi(argv[3]) : 1000;
+    if (frames <= 0) {
       usage();
       return 1;
     }
-    return dump(argv[2], FRAMES);
+    return dump(argv[2], frames);
   }
   if (argc >= 4 && std::strcmp(argv[1], "--check-comparator") == 0) {
     if (compare(argv[2], argv[3]) != 0)

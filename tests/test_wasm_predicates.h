@@ -273,31 +273,31 @@ inline void test_mesh_op_arena_room() {
  */
 inline void test_mesh_degree_measurements() {
   // A cube: six quads, eight vertices of valence 3.
-  const uint8_t cube_counts[6] = {4, 4, 4, 4, 4, 4};
-  const uint16_t cube_faces[24] = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 5, 4,
+  const uint8_t CUBE_COUNTS[6] = {4, 4, 4, 4, 4, 4};
+  const uint16_t CUBE_FACES[24] = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 5, 4,
                                    2, 3, 7, 6, 0, 3, 7, 4, 1, 2, 6, 5};
   uint32_t incidence[8] = {};
 
-  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(cube_counts, 6), 4u);
-  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(cube_faces, 24, incidence, 8),
+  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(CUBE_COUNTS, 6), 4u);
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(CUBE_FACES, 24, incidence, 8),
                3u);
 
-  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(cube_counts, 0), 0u);
-  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(cube_faces, 0, incidence, 8),
+  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(CUBE_COUNTS, 0), 0u);
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(CUBE_FACES, 0, incidence, 8),
                0u);
 
-  const uint8_t mixed[4] = {3, 200, 6, 3};
-  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(mixed, 4), 200u);
+  const uint8_t MIXED[4] = {3, 200, 6, 3};
+  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(MIXED, 4), 200u);
 
   // The scan reports the single hottest vertex, not an average, and re-clears
   // its counters so a reused buffer cannot inflate the next measurement.
-  const uint16_t fan[7] = {0, 0, 0, 0, 0, 1, 2};
-  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(fan, 7, incidence, 3), 5u);
-  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(fan, 7, incidence, 3), 5u);
+  const uint16_t FAN[7] = {0, 0, 0, 0, 0, 1, 2};
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(FAN, 7, incidence, 3), 5u);
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(FAN, 7, incidence, 3), 5u);
 
   // An index past the vertex count is skipped rather than read out of bounds.
-  const uint16_t stray[3] = {0, 1, 9};
-  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(stray, 3, incidence, 2), 1u);
+  const uint16_t STRAY[3] = {0, 1, 9};
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(STRAY, 3, incidence, 2), 1u);
 }
 
 /**
@@ -531,12 +531,12 @@ inline void test_mesh_op_growth_factors() {
   bipyramid.vertices.push_back(math::Vector(0, 1, 0));
   bipyramid.vertices.push_back(math::Vector(0, -1, 0));
   for (uint16_t i = 0; i < N; ++i) {
-    const float ANGLE = math::TWO_PI_F * i / N;
-    bipyramid.vertices.push_back(math::Vector(cosf(ANGLE), 0, sinf(ANGLE)));
+    const float angle = math::TWO_PI_F * i / N;
+    bipyramid.vertices.push_back(math::Vector(cosf(angle), 0, sinf(angle)));
   }
   for (uint16_t i = 0; i < N; ++i) {
-    const uint16_t HERE = i + 2, NEXT = (i + 1) % N + 2;
-    for (uint16_t vertex : {uint16_t{0}, NEXT, HERE, uint16_t{1}, HERE, NEXT})
+    const uint16_t here = i + 2, next = (i + 1) % N + 2;
+    for (uint16_t vertex : {uint16_t{0}, next, here, uint16_t{1}, here, next})
       bipyramid.faces.push_back(vertex);
     bipyramid.face_counts.push_back(3);
     bipyramid.face_counts.push_back(3);
@@ -567,16 +567,16 @@ inline void test_mesh_op_declared_factor_boundaries() {
   for (const auto &row : hs_wasm::MESHOP_BOUNDS) {
     HS_CONTEXT(row.name);
     for (bool degree : {true, false}) {
-      const size_t FACTOR =
+      const size_t factor =
           degree ? row.bounds.face_degree : row.bounds.valence;
-      if (!FACTOR)
+      if (!factor)
         continue;
-      const size_t LIMIT = 255 / FACTOR;
+      const size_t limit = 255 / factor;
       HS_EXPECT_FALSE(hs_wasm::mesh_op_face_degree_overflows(
-          degree ? LIMIT : 0, degree ? 0 : LIMIT, row.bounds.face_degree,
+          degree ? limit : 0, degree ? 0 : limit, row.bounds.face_degree,
           row.bounds.valence, 255));
       HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(
-          degree ? LIMIT + 1 : 0, degree ? 0 : LIMIT + 1,
+          degree ? limit + 1 : 0, degree ? 0 : limit + 1,
           row.bounds.face_degree, row.bounds.valence, 255));
     }
   }

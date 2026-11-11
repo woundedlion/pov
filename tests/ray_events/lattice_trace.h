@@ -66,11 +66,11 @@ inline math::Vector direction(int sample) {
 /** @brief Every lattice view sample is finite and unit length. */
 inline void test_lattice_view_directions_are_unit_length() {
   for (int i = 0; i < DIRECTION_SAMPLES; ++i) {
-    const math::Vector VIEW = direction(i);
-    HS_EXPECT_TRUE(std::isfinite(VIEW.x));
-    HS_EXPECT_TRUE(std::isfinite(VIEW.y));
-    HS_EXPECT_TRUE(std::isfinite(VIEW.z));
-    HS_EXPECT_NEAR(VIEW.x * VIEW.x + VIEW.y * VIEW.y + VIEW.z * VIEW.z, 1.0f,
+    const math::Vector view = direction(i);
+    HS_EXPECT_TRUE(std::isfinite(view.x));
+    HS_EXPECT_TRUE(std::isfinite(view.y));
+    HS_EXPECT_TRUE(std::isfinite(view.z));
+    HS_EXPECT_NEAR(view.x * view.x + view.y * view.y + view.z * view.z, 1.0f,
                    2e-6f);
   }
 }
@@ -97,12 +97,12 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
                                                         hit.coverage);
                           return !reference.saturated();
                         });
-  const Color4 REFERENCE = reference.finish();
-  HS_EXPECT_NEAR(actual.alpha, REFERENCE.alpha, 3e-4f);
+  const Color4 reference_value = reference.finish();
+  HS_EXPECT_NEAR(actual.alpha, reference_value.alpha, 3e-4f);
   // Independent reciprocal evaluation can cross one final pixel rounding boundary.
-  const Pixel ACTUAL_PIXEL = composite.premultiplied();
-  const Pixel REFERENCE_PIXEL = reference.premultiplied();
-  HS_EXPECT_LE(max_channel_gap(ACTUAL_PIXEL, REFERENCE_PIXEL), 1);
+  const Pixel actual_pixel = composite.premultiplied();
+  const Pixel reference_pixel = reference.premultiplied();
+  HS_EXPECT_LE(max_channel_gap(actual_pixel, reference_pixel), 1);
   lit += actual.alpha > 0.0f;
 }
 
@@ -164,11 +164,11 @@ inline void test_octet_preparation_matches_world_events() {
   for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
                             Raycast::SamplingDomain::SLICE_4D}) {
     settings.domain = domain;
-    const bool SLICE = domain == Raycast::SamplingDomain::SLICE_4D;
-    settings.center = {{.231f, -.437f, .719f, SLICE ? .383f : 0.0f}};
+    const bool slice = domain == Raycast::SamplingDomain::SLICE_4D;
+    settings.center = {{.231f, -.437f, .719f, slice ? .383f : 0.0f}};
     settings.embedding = math::Mat4::identity();
     math::rotate_plane(settings.embedding, 0, 1, .31f);
-    if (SLICE)
+    if (slice)
       math::rotate_plane(settings.embedding, 0, 3, .73f);
     for (float cell : {.4f, 1.7f}) {
       settings.cell_size = cell;
@@ -183,7 +183,7 @@ inline void test_octet_preparation_matches_world_events() {
           const auto ambient =
               prepared.camera.embedding.apply({{view.x, view.y, view.z, 0.0f}});
           Raycast::ShadedTrace expected;
-          if (SLICE) {
+          if (slice) {
             SDF::OctetEvents4 events(prepared.octet4,
                                      prepared.camera.point4(ray.origin),
                                      ambient, ray.interval, prepared.footprint);
@@ -197,7 +197,7 @@ inline void test_octet_preparation_matches_world_events() {
             expected = Raycast::shade_events(
                 events, ray.interval, prepared.limits, prepared.appearance);
           }
-          const auto actual = SLICE ? Trace::shade<true>(view, prepared)
+          const auto actual = slice ? Trace::shade<true>(view, prepared)
                                     : Trace::shade<false>(view, prepared);
           const Pixel premultiplied =
               expected.color.color * expected.color.alpha;
@@ -224,11 +224,11 @@ inline void test_octet_distant_center_periodicity() {
   HS_EXPECT_TRUE(distant.valid);
   float expected[4];
   for (int i = 0; i < 4; ++i) {
-    const float NORMALIZED =
+    const float normalized =
         settings.center[i] * distant.octet4_projection.inverse_scale;
     expected[i] = static_cast<float>(
-        static_cast<double>(NORMALIZED) -
-        2.0 * std::trunc(static_cast<double>(NORMALIZED) / 2.0));
+        static_cast<double>(normalized) -
+        2.0 * std::trunc(static_cast<double>(normalized) / 2.0));
     settings.center[i] = expected[i] / distant.octet4_projection.inverse_scale;
   }
   const auto local = Trace::prepare(settings);
@@ -296,10 +296,10 @@ inline void test_octet_prepared_projection() {
   const auto expect_premultiplied = [](const SDF::OctetTrace::Sample &actual,
                                        const Raycast::ShadedTrace &expected) {
     HS_EXPECT_EQ(actual.status, expected.trace.status);
-    const Pixel PREMULTIPLIED = expected.color.color * expected.color.alpha;
-    HS_EXPECT_NEAR(actual.color.r, PREMULTIPLIED.r, 1);
-    HS_EXPECT_NEAR(actual.color.g, PREMULTIPLIED.g, 1);
-    HS_EXPECT_NEAR(actual.color.b, PREMULTIPLIED.b, 1);
+    const Pixel premultiplied = expected.color.color * expected.color.alpha;
+    HS_EXPECT_NEAR(actual.color.r, premultiplied.r, 1);
+    HS_EXPECT_NEAR(actual.color.g, premultiplied.g, 1);
+    HS_EXPECT_NEAR(actual.color.b, premultiplied.b, 1);
   };
   size_t lit = 0, compared = 0;
   for (Domain domain : {Domain::SPATIAL_3D, Domain::SLICE_4D}) {
@@ -325,63 +325,64 @@ inline void test_octet_prepared_projection() {
           for (float near : {0.0f, .19f}) {
             prepared.camera.interval.near = near;
             for (int sample = 0; sample < 48; ++sample) {
-              const float PHASE = sample * 2.39996323f;
-              const float Z = (sample + .5f) / 24.0f - 1.0f;
-              const float R = sqrtf(1.0f - Z * Z);
-              const math::Vector DIRECTION(R * cosf(PHASE), R * sinf(PHASE), Z);
-              const auto RAY = camera.ray(DIRECTION);
-              const auto AMBIENT = camera.embedding.apply(
-                  {{DIRECTION.x, DIRECTION.y, DIRECTION.z, 0.0f}});
+              const float phase = sample * 2.39996323f;
+              const float z = (sample + .5f) / 24.0f - 1.0f;
+              const float r = sqrtf(1.0f - z * z);
+              const math::Vector direction(r * cosf(phase), r * sinf(phase), z);
+              const auto ray = camera.ray(direction);
+              const auto ambient = camera.embedding.apply(
+                  {{direction.x, direction.y, direction.z, 0.0f}});
               Raycast::ShadedTrace world;
               Raycast::ShadedTrace projected;
               SDF::OctetTrace::Sample traced;
               if (domain == Domain::SLICE_4D) {
                 SDF::OctetEvents4 generic(prepared.octet4,
-                                          camera.point4(RAY.origin), AMBIENT,
-                                          RAY.interval, prepared.footprint);
+                                          camera.point4(ray.origin), ambient,
+                                          ray.interval, prepared.footprint);
                 world =
-                    Raycast::shade_events(generic, RAY.interval,
+                    Raycast::shade_events(generic, ray.interval,
                                           prepared.limits, prepared.appearance);
                 const SDF::OctetEvents4 events(
-                    prepared.octet4, prepared.octet4_projection, DIRECTION,
+                    prepared.octet4, prepared.octet4_projection, direction,
                     camera.radial_start, near, prepared.footprint);
                 auto copy = events;
                 projected = Raycast::shade_events(
-                    copy, RAY.interval, prepared.limits, prepared.appearance);
+                    copy, ray.interval, prepared.limits, prepared.appearance);
                 traced = SDF::OctetTrace::trace_events(
-                    events, RAY.interval, prepared.limits, prepared.appearance);
+                    events, ray.interval, prepared.limits, prepared.appearance);
               } else {
-                const Raycast::Ray WORLD{camera.point3(RAY.origin),
-                                         {AMBIENT[0], AMBIENT[1], AMBIENT[2]},
-                                         RAY.interval};
-                SDF::OctetEvents generic(prepared.octet, WORLD,
+                const Raycast::Ray world_value{
+                    camera.point3(ray.origin),
+                    {ambient[0], ambient[1], ambient[2]},
+                    ray.interval};
+                SDF::OctetEvents generic(prepared.octet, world_value,
                                          prepared.footprint);
                 world =
-                    Raycast::shade_events(generic, RAY.interval,
+                    Raycast::shade_events(generic, ray.interval,
                                           prepared.limits, prepared.appearance);
                 const SDF::OctetEvents events(prepared.octet_projection,
-                                              DIRECTION, camera.radial_start,
+                                              direction, camera.radial_start,
                                               near, prepared.footprint);
                 auto copy = events;
                 projected = Raycast::shade_events(
-                    copy, RAY.interval, prepared.limits, prepared.appearance);
+                    copy, ray.interval, prepared.limits, prepared.appearance);
                 traced = SDF::OctetTrace::trace_events(
-                    events, RAY.interval, prepared.limits, prepared.appearance);
+                    events, ray.interval, prepared.limits, prepared.appearance);
               }
               expect_same(projected, world);
               expect_premultiplied(traced, projected);
-              const auto SHADED =
+              const auto shaded =
                   domain == Domain::SLICE_4D
-                      ? Trace::shade<true>(DIRECTION, prepared)
-                      : Trace::shade<false>(DIRECTION, prepared);
-              HS_EXPECT_EQ(SHADED.status, traced.status);
+                      ? Trace::shade<true>(direction, prepared)
+                      : Trace::shade<false>(direction, prepared);
+              HS_EXPECT_EQ(shaded.status, traced.status);
               // The canonical 4D sum can cross one pixel quantum.
               if (domain == Domain::SLICE_4D) {
-                HS_EXPECT_NEAR(SHADED.color.r, traced.color.r, 1);
-                HS_EXPECT_NEAR(SHADED.color.g, traced.color.g, 1);
-                HS_EXPECT_NEAR(SHADED.color.b, traced.color.b, 1);
+                HS_EXPECT_NEAR(shaded.color.r, traced.color.r, 1);
+                HS_EXPECT_NEAR(shaded.color.g, traced.color.g, 1);
+                HS_EXPECT_NEAR(shaded.color.b, traced.color.b, 1);
               } else {
-                HS_EXPECT_EQ(SHADED.color, traced.color);
+                HS_EXPECT_EQ(shaded.color, traced.color);
               }
               ++compared;
               lit += traced.color != Pixel{};
@@ -427,24 +428,24 @@ inline void test_octet_4d_canonical_trace() {
     HS_EXPECT_TRUE(prepared.valid);
     const auto &camera = prepared.camera;
     for (int ray = 0; ray < 400; ++ray) {
-      const math::Vector DIRECTION =
+      const math::Vector direction =
           math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
               .normalized();
       const SDF::OctetEvents4 events(
-          prepared.octet4, prepared.octet4_projection, DIRECTION,
+          prepared.octet4, prepared.octet4_projection, direction,
           camera.radial_start, camera.interval.near, prepared.footprint);
-      const auto EXPECTED = SDF::OctetTrace::trace_events(
+      const auto expected = SDF::OctetTrace::trace_events(
           events, camera.interval, prepared.limits, prepared.appearance);
-      const auto ACTUAL = SDF::OctetTrace::trace_4d(
-          DIRECTION, camera, prepared.octet4, prepared.octet4_projection,
+      const auto actual = SDF::OctetTrace::trace_4d(
+          direction, camera, prepared.octet4, prepared.octet4_projection,
           prepared.footprint, prepared.limits, prepared.appearance,
           *prepared.crossings);
-      HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
-      const int DELTA = max_channel_gap(ACTUAL.color, EXPECTED.color);
-      differing += DELTA > 1;
-      HS_EXPECT_LE(DELTA, 16);
+      HS_EXPECT_EQ(actual.status, expected.status);
+      const int delta = max_channel_gap(actual.color, expected.color);
+      differing += delta > 1;
+      HS_EXPECT_LE(delta, 16);
       ++compared;
-      lit += EXPECTED.color != Pixel{};
+      lit += expected.color != Pixel{};
     }
   }
   HS_EXPECT_GT(lit, compared / 10);
@@ -462,7 +463,7 @@ inline void test_octet_4d_canonical_boundary_directions() {
   settings.pixel_half_angle = .5f * math::coarse_pixel_pitch<288, 144>();
   settings.domain = Raycast::SamplingDomain::SLICE_4D;
   settings.center = {{.255f, .465f, .645f, .375f}};
-  const std::array<math::Vector, 10> DIRECTIONS{
+  const std::array<math::Vector, 10> directions{
       math::X_AXIS,
       -math::X_AXIS,
       math::Y_AXIS,
@@ -480,23 +481,23 @@ inline void test_octet_4d_canonical_boundary_directions() {
     settings.radial_start = frame % 2 ? .5f : 0.0f;
     const auto prepared = prepare_octet_trace(settings);
     HS_EXPECT_TRUE(prepared.valid);
-    for (const auto &direction : DIRECTIONS) {
+    for (const auto &direction : directions) {
       const auto &camera = prepared.camera;
       const SDF::OctetEvents4 events(
           prepared.octet4, prepared.octet4_projection, direction,
           camera.radial_start, camera.interval.near, prepared.footprint);
-      const auto EXPECTED = SDF::OctetTrace::trace_events(
+      const auto expected = SDF::OctetTrace::trace_events(
           events, camera.interval, prepared.limits, prepared.appearance);
-      const auto ACTUAL = SDF::OctetTrace::trace_4d(
+      const auto actual = SDF::OctetTrace::trace_4d(
           direction, camera, prepared.octet4, prepared.octet4_projection,
           prepared.footprint, prepared.limits, prepared.appearance,
           *prepared.crossings);
-      HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
-      HS_EXPECT_LE(max_channel_gap(ACTUAL.color, EXPECTED.color), 2);
-      lit += EXPECTED.color != Pixel{};
+      HS_EXPECT_EQ(actual.status, expected.status);
+      HS_EXPECT_LE(max_channel_gap(actual.color, expected.color), 2);
+      lit += expected.color != Pixel{};
     }
   }
-  HS_EXPECT_GT(lit, DIRECTIONS.size() * 9 / 3);
+  HS_EXPECT_GT(lit, directions.size() * 9 / 3);
 }
 
 /**
@@ -521,15 +522,15 @@ inline void test_octet_trace_sorted_matches_events() {
   const auto compare = [&](const auto &events, Raycast::Interval interval,
                            const Raycast::TraceLimits &limits,
                            const Raycast::Appearance &appearance, int budget) {
-    const auto EXPECTED =
+    const auto expected =
         SDF::OctetTrace::trace_events(events, interval, limits, appearance);
-    const auto ACTUAL = SDF::OctetTrace::detail::reference::trace_sorted(
+    const auto actual = SDF::OctetTrace::detail::reference::trace_sorted(
         events, interval, limits, appearance, storage);
-    HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
-    HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
+    HS_EXPECT_EQ(actual.status, expected.status);
+    HS_EXPECT_EQ(actual.color, expected.color);
     ++compared;
-    lit += EXPECTED.color != Pixel{};
-    if (EXPECTED.status == Raycast::TraceStatus::BUDGET_EXHAUSTED) {
+    lit += expected.color != Pixel{};
+    if (expected.status == Raycast::TraceStatus::BUDGET_EXHAUSTED) {
       if (budget == 1)
         ++candidate_exhausted;
       else if (budget == 2)
@@ -559,7 +560,7 @@ inline void test_octet_trace_sorted_matches_events() {
       Raycast::TraceLimits starved_layers = prepared.limits;
       starved_layers.max_layers = 2;
       for (int ray = 0; ray < 100; ++ray) {
-        const math::Vector DIRECTION =
+        const math::Vector direction =
             math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
                 .normalized();
         const Raycast::TraceLimits budgets[] = {
@@ -568,12 +569,12 @@ inline void test_octet_trace_sorted_matches_events() {
           const auto &limits = budgets[budget];
           if (domain == Domain::SLICE_4D)
             compare(SDF::OctetEvents4(prepared.octet4,
-                                      prepared.octet4_projection, DIRECTION,
+                                      prepared.octet4_projection, direction,
                                       camera.radial_start, camera.interval.near,
                                       prepared.footprint),
                     camera.interval, limits, prepared.appearance, budget);
           else
-            compare(SDF::OctetEvents(prepared.octet_projection, DIRECTION,
+            compare(SDF::OctetEvents(prepared.octet_projection, direction,
                                      camera.radial_start, camera.interval.near,
                                      prepared.footprint),
                     camera.interval, limits, prepared.appearance, budget);

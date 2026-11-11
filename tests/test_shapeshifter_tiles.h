@@ -45,18 +45,18 @@ inline void test_timed_tiles_match_full_frame() {
   for (size_t i = 1; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
     HS_CONTEXT("preset", static_cast<int>(i + 1));
     OracleState state = preset_state(i);
-    const float STEP = preset_phase_step(i);
-    const auto FULL = render_timed_contours(state, STEP, true, 1.0f, 0.0f);
+    const float step = preset_phase_step(i);
+    const auto full = render_timed_contours(state, step, true, 1.0f, 0.0f);
     double energy = 0;
-    for (float luminance : FULL)
+    for (float luminance : full)
       energy += luminance;
     HS_EXPECT_GT(energy, 0.0);
     for (const auto &clip : QUADRANTS) {
       state.clip = clip;
-      const auto TILE = render_timed_contours(state, STEP, true, 1.0f, 0.0f);
+      const auto tile = render_timed_contours(state, step, true, 1.0f, 0.0f);
       for (int y = clip.y0; y < clip.y1; ++y)
         for (int x = clip.x0; x < clip.x1; ++x)
-          HS_EXPECT_NEAR(TILE[y * ORACLE_W + x], FULL[y * ORACLE_W + x], 1e-5f);
+          HS_EXPECT_NEAR(tile[y * ORACLE_W + x], full[y * ORACLE_W + x], 1e-5f);
     }
   }
 }
@@ -76,10 +76,10 @@ inline void expect_mosaic_matches(OracleState state, Render render,
     copy_clip(tiled, capture_frame(state, render), clip);
   }
   if (approximate) {
-    const uint64_t ENERGY = frame_energy(full);
-    HS_EXPECT_GT(ENERGY, uint64_t{0});
-    HS_EXPECT_LT(std::fabs(static_cast<double>(frame_energy(tiled)) - ENERGY) /
-                     ENERGY,
+    const uint64_t energy = frame_energy(full);
+    HS_EXPECT_GT(energy, uint64_t{0});
+    HS_EXPECT_LT(std::fabs(static_cast<double>(frame_energy(tiled)) - energy) /
+                     energy,
                  0.035);
     size_t uncovered = 0;
     size_t ghosts = 0;
@@ -153,7 +153,7 @@ inline void test_segment_tiles_reconstruct_full_frame() {
  */
 inline void test_star_azimuthal_cull_spans_narrow_columns() {
   ScopedPoleRunSplit scope(false);
-  const OracleClip columns[] = {{0, ORACLE_H, 0, ORACLE_W / 4},
+  const OracleClip COLUMNS[] = {{0, ORACLE_H, 0, ORACLE_W / 4},
                                 {0, ORACLE_H, ORACLE_W / 4, ORACLE_W / 2},
                                 {0, ORACLE_H, ORACLE_W / 2, 3 * ORACLE_W / 4},
                                 {0, ORACLE_H, 3 * ORACLE_W / 4, ORACLE_W}};
@@ -163,7 +163,7 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
       math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(),
       math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
   }};
-  const std::array<float, 4> phases = {{0.0f, 0.37f, 0.5f, 0.83f}};
+  const std::array<float, 4> PHASES = {{0.0f, 0.37f, 0.5f, 0.83f}};
 
   for (size_t i = 0; i < orientations.size(); ++i) {
     OracleState state;
@@ -171,11 +171,11 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
     state.function = OracleEffect::PhaseFunction::SINE;
     state.count = 144;
     state.sides = 7;
-    state.phase = phases[i];
+    state.phase = PHASES[i];
     state.alpha = 0.274f;
     state.orientation = orientations[i];
 
-    expect_mosaic_matches(state, candidate_renderer(), columns);
+    expect_mosaic_matches(state, candidate_renderer(), COLUMNS);
   }
 }
 

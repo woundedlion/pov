@@ -14,20 +14,20 @@ inline void test_pullback_ripple_supplied_center() {
   params.strength = 0.15f;
   params.thickness = 0.7f;
   params.decay = 0.2f;
-  const auto CENTER =
+  const auto center =
       math::Vector::from_spherical(params.center_azimuth, params.center_polar);
-  const auto OTHER = math::Vector(0.2f, 0.8f, -0.3f).normalized();
+  const auto other = math::Vector(0.2f, 0.8f, -0.3f).normalized();
   for (float cycle : {-0.25f, 0.0f, 0.01f, 0.5f, 1.0f, 1.25f}) {
-    const auto FIXED = Pullback::Surface::prepare_ripple(params, cycle);
-    const auto SUPPLIED =
-        Pullback::Surface::prepare_ripple(params, cycle, CENTER);
+    const auto fixed = Pullback::Surface::prepare_ripple(params, cycle);
+    const auto supplied =
+        Pullback::Surface::prepare_ripple(params, cycle, center);
     HS_EXPECT_EQ(
-        std::memcmp(&FIXED.ripple, &SUPPLIED.ripple, sizeof(FIXED.ripple)), 0);
-    auto expected = FIXED;
-    expected.ripple.center = OTHER;
-    const auto ACTUAL = Pullback::Surface::prepare_ripple(params, cycle, OTHER);
+        std::memcmp(&fixed.ripple, &supplied.ripple, sizeof(fixed.ripple)), 0);
+    auto expected = fixed;
+    expected.ripple.center = other;
+    const auto actual = Pullback::Surface::prepare_ripple(params, cycle, other);
     HS_EXPECT_EQ(
-        std::memcmp(&expected.ripple, &ACTUAL.ripple, sizeof(expected.ripple)),
+        std::memcmp(&expected.ripple, &actual.ripple, sizeof(expected.ripple)),
         0);
   }
 }
@@ -52,35 +52,35 @@ inline void test_pullback_ripple_burst_centers() {
   state.waves[12] = {1.0f, 99};
   for (bool random : {false, true}) {
     params.random_center = random;
-    const auto ACTUAL = prepare_ripples(params, state);
+    const auto actual = prepare_ripples(params, state);
     PreparedRipples reference;
     for (uint32_t lag = 4; lag > 0; --lag) {
-      const uint32_t BURST = state.burst_count - lag;
+      const uint32_t burst = state.burst_count - lag;
       for (size_t i = 0; i < 4; ++i) {
-        const auto &wave = state.waves[(BURST % 4) * 4 + i];
-        if (wave.age < 0.0f || wave.age >= params.period || wave.burst != BURST)
+        const auto &wave = state.waves[(burst % 4) * 4 + i];
+        if (wave.age < 0.0f || wave.age >= params.period || wave.burst != burst)
           continue;
         auto prepared =
             Pullback::Surface::prepare_ripple(params, wave.age / params.period);
         if (random)
-          prepared.ripple.center = ripple_center(state.seed, BURST);
+          prepared.ripple.center = ripple_center(state.seed, burst);
         reference.waves[reference.count++] = prepared;
       }
     }
-    HS_EXPECT_EQ(ACTUAL.count, uint8_t{4});
-    HS_EXPECT_EQ(ACTUAL.count, reference.count);
-    for (uint8_t i = 0; i < ACTUAL.count; ++i)
-      HS_EXPECT_EQ(std::memcmp(&ACTUAL.waves[i], &reference.waves[i],
-                               sizeof(ACTUAL.waves[i])),
+    HS_EXPECT_EQ(actual.count, uint8_t{4});
+    HS_EXPECT_EQ(actual.count, reference.count);
+    for (uint8_t i = 0; i < actual.count; ++i)
+      HS_EXPECT_EQ(std::memcmp(&actual.waves[i], &reference.waves[i],
+                               sizeof(actual.waves[i])),
                    0);
     static RadialTables tables;
     prepare_radial_tables(params, state, tables);
     HS_EXPECT_EQ(tables.count, uint8_t{2});
     for (uint8_t i = 0; i < tables.count; ++i) {
-      const auto EXPECTED =
+      const auto expected =
           random ? ripple_center(state.seed, i + 1)
                  : Pullback::Surface::prepare_ripple_center(params);
-      HS_EXPECT_EQ(tables.groups[i].center, EXPECTED);
+      HS_EXPECT_EQ(tables.groups[i].center, expected);
     }
   }
 }
@@ -149,12 +149,12 @@ inline math::Vector ripple_test_sequential(
   for (uint8_t i = 0; i < prepared.count; ++i) {
     const auto &wave = prepared.waves[i].ripple;
     if (support_margin && wave.amplitude > 0.001f) {
-      const float DISTANCE =
+      const float distance =
           acosf(hs::clamp(math::dot(view, wave.center), -1.0f, 1.0f));
       for (float edge : {wave.phase - 2.0f * wave.half_width(),
                          wave.phase + 2.0f * wave.half_width()})
         if (edge > 0.0f && edge < math::PI_F)
-          *support_margin = fminf(*support_margin, fabsf(DISTANCE - edge));
+          *support_margin = fminf(*support_margin, fabsf(distance - edge));
     }
     view = Pullback::Surface::periodic_ripple(view, prepared.waves[i], false)
                .sphere;
@@ -165,55 +165,57 @@ inline math::Vector ripple_test_sequential(
 /** @brief Group rotations preserve the analytic rotation within their domain. */
 inline void test_pullback_group_rotation_polynomial() {
   static_assert(RippleKernel::GROUP_ROTATION_POLYNOMIAL_MAX == 0.5f);
-  const float OUTSIDE = std::nextafter(0.5f, 1.0f);
-  const float ANGLES[] = {-0.9f,  -OUTSIDE, -0.5f, -0.49999f, -0.2f,
+  const float outside = std::nextafter(0.5f, 1.0f);
+  const float angles[] = {-0.9f,  -outside, -0.5f, -0.49999f, -0.2f,
                           -0.15f, -0.05f,   0.0f,  0.05f,     0.15f,
-                          0.2f,   0.49999f, 0.5f,  OUTSIDE,   0.9f};
+                          0.2f,   0.49999f, 0.5f,  outside,   0.9f};
   for (int row = 0; row < 13; ++row)
     for (int column = 0; column < 17; ++column) {
-      const float Y = -0.99f + 1.98f * row / 12;
-      const float ANGLE = math::TWO_PI_F * column / 17;
-      const float RADIUS = sqrtf(1.0f - Y * Y);
-      const math::Vector START(RADIUS * cosf(ANGLE), Y, RADIUS * sinf(ANGLE));
-      const math::Vector CENTER = math::Vector(cosf(ANGLE * 0.37f + 0.2f), 0.3f,
-                                               sinf(ANGLE * 0.71f + 0.4f))
-                                      .normalized();
-      const auto CROSS = math::cross(CENTER, START);
-      const float CROSS_SQ = math::dot(CROSS, CROSS);
-      if (CROSS_SQ < 1e-4f)
+      const float y = -0.99f + 1.98f * row / 12;
+      const float angle_value = math::TWO_PI_F * column / 17;
+      const float radius = sqrtf(1.0f - y * y);
+      const math::Vector start(radius * cosf(angle_value), y,
+                               radius * sinf(angle_value));
+      const math::Vector center =
+          math::Vector(cosf(angle_value * 0.37f + 0.2f), 0.3f,
+                       sinf(angle_value * 0.71f + 0.4f))
+              .normalized();
+      const auto cross = math::cross(center, start);
+      const float cross_sq = math::dot(cross, cross);
+      if (cross_sq < 1e-4f)
         continue;
-      const auto AXIS = CROSS * (1.0f / sqrtf(CROSS_SQ));
-      for (float angle : ANGLES) {
+      const auto axis = cross * (1.0f / sqrtf(cross_sq));
+      for (float angle : angles) {
         math::Vector output;
         HS_EXPECT_TRUE(
-            RippleKernel::rotate_group(START, CENTER, angle, output));
-        const auto REFERENCE = RippleKernel::rotate(START, AXIS, angle);
-        const auto DELTA = output - REFERENCE;
-        HS_EXPECT_LE(math::dot(DELTA, DELTA), 1e-12f);
+            RippleKernel::rotate_group(start, center, angle, output));
+        const auto reference = RippleKernel::rotate(start, axis, angle);
+        const auto delta = output - reference;
+        HS_EXPECT_LE(math::dot(delta, delta), 1e-12f);
         HS_EXPECT_NEAR(math::dot(output, output), 1.0f, 1e-6f);
-        const double COSINE = std::cos(double(angle));
-        const double SINE = std::sin(double(angle));
-        const double DOT = double(AXIS.x) * START.x + double(AXIS.y) * START.y +
-                           double(AXIS.z) * START.z;
+        const double cosine = std::cos(double(angle));
+        const double sine = std::sin(double(angle));
+        const double dot = double(axis.x) * start.x + double(axis.y) * start.y +
+                           double(axis.z) * start.z;
         const double expected[] = {
-            START.x * COSINE +
-                (double(AXIS.y) * START.z - double(AXIS.z) * START.y) * SINE +
-                AXIS.x * DOT * (1.0 - COSINE),
-            START.y * COSINE +
-                (double(AXIS.z) * START.x - double(AXIS.x) * START.z) * SINE +
-                AXIS.y * DOT * (1.0 - COSINE),
-            START.z * COSINE +
-                (double(AXIS.x) * START.y - double(AXIS.y) * START.x) * SINE +
-                AXIS.z * DOT * (1.0 - COSINE)};
-        const double ERROR_SQ =
+            start.x * cosine +
+                (double(axis.y) * start.z - double(axis.z) * start.y) * sine +
+                axis.x * dot * (1.0 - cosine),
+            start.y * cosine +
+                (double(axis.z) * start.x - double(axis.x) * start.z) * sine +
+                axis.y * dot * (1.0 - cosine),
+            start.z * cosine +
+                (double(axis.x) * start.y - double(axis.y) * start.x) * sine +
+                axis.z * dot * (1.0 - cosine)};
+        const double error_sq =
             (output.x - expected[0]) * (output.x - expected[0]) +
             (output.y - expected[1]) * (output.y - expected[1]) +
             (output.z - expected[2]) * (output.z - expected[2]);
-        HS_EXPECT_LE(ERROR_SQ, 1e-12);
+        HS_EXPECT_LE(error_sq, 1e-12);
         if (fabsf(angle) > 0.5f) {
-          HS_EXPECT_EQ(output.x, REFERENCE.x);
-          HS_EXPECT_EQ(output.y, REFERENCE.y);
-          HS_EXPECT_EQ(output.z, REFERENCE.z);
+          HS_EXPECT_EQ(output.x, reference.x);
+          HS_EXPECT_EQ(output.y, reference.y);
+          HS_EXPECT_EQ(output.z, reference.z);
         }
       }
     }
@@ -222,14 +224,14 @@ inline void test_pullback_group_rotation_polynomial() {
 /** @brief Empty ripple batches preserve the direction and zero travel. */
 inline void test_pullback_grouped_ripple_identity() {
   const Pullback::SphereAnimation::PreparedRipples EMPTY{};
-  const math::Vector VIEW = math::Vector(0.3f, 0.4f, 0.5f).normalized();
+  const math::Vector view = math::Vector(0.3f, 0.4f, 0.5f).normalized();
   for (bool track_path : {false, true}) {
-    const auto RESULT =
-        Pullback::SphereAnimation::grouped_ripples(VIEW, EMPTY, track_path);
-    HS_EXPECT_EQ(RESULT.sphere.x, VIEW.x);
-    HS_EXPECT_EQ(RESULT.sphere.y, VIEW.y);
-    HS_EXPECT_EQ(RESULT.sphere.z, VIEW.z);
-    HS_EXPECT_EQ(RESULT.path_length, 0.0f);
+    const auto result =
+        Pullback::SphereAnimation::grouped_ripples(view, EMPTY, track_path);
+    HS_EXPECT_EQ(result.sphere.x, view.x);
+    HS_EXPECT_EQ(result.sphere.y, view.y);
+    HS_EXPECT_EQ(result.sphere.z, view.z);
+    HS_EXPECT_EQ(result.path_length, 0.0f);
   }
 }
 
@@ -238,20 +240,20 @@ inline void test_pullback_grouped_ripple_analytic_crest() {
   Pullback::SphereAnimation::PreparedRipples prepared{};
   prepared.count = 1;
   prepared.waves[0] = ripple_test_wave(math::Y_AXIS, math::PI_F * 0.5f, 0.075f);
-  const math::Vector EXPECTED(cosf(0.075f), -sinf(0.075f), 0.0f);
-  const auto TRACKED =
+  const math::Vector expected(cosf(0.075f), -sinf(0.075f), 0.0f);
+  const auto tracked =
       Pullback::SphereAnimation::grouped_ripples(math::X_AXIS, prepared, true);
-  const auto UNTRACKED =
+  const auto untracked =
       Pullback::SphereAnimation::grouped_ripples(math::X_AXIS, prepared, false);
-  HS_EXPECT_NEAR(TRACKED.sphere.x, EXPECTED.x, 1e-6f);
-  HS_EXPECT_NEAR(TRACKED.sphere.y, EXPECTED.y, 1e-6f);
-  HS_EXPECT_NEAR(TRACKED.sphere.z, EXPECTED.z, 1e-6f);
-  HS_EXPECT_NEAR(TRACKED.path_length, 0.075f, 1e-6f);
-  HS_EXPECT_GT(TRACKED.path_length, 0.07f);
-  HS_EXPECT_EQ(UNTRACKED.sphere.x, TRACKED.sphere.x);
-  HS_EXPECT_EQ(UNTRACKED.sphere.y, TRACKED.sphere.y);
-  HS_EXPECT_EQ(UNTRACKED.sphere.z, TRACKED.sphere.z);
-  HS_EXPECT_EQ(UNTRACKED.path_length, 0.0f);
+  HS_EXPECT_NEAR(tracked.sphere.x, expected.x, 1e-6f);
+  HS_EXPECT_NEAR(tracked.sphere.y, expected.y, 1e-6f);
+  HS_EXPECT_NEAR(tracked.sphere.z, expected.z, 1e-6f);
+  HS_EXPECT_NEAR(tracked.path_length, 0.075f, 1e-6f);
+  HS_EXPECT_GT(tracked.path_length, 0.07f);
+  HS_EXPECT_EQ(untracked.sphere.x, tracked.sphere.x);
+  HS_EXPECT_EQ(untracked.sphere.y, tracked.sphere.y);
+  HS_EXPECT_EQ(untracked.sphere.z, tracked.sphere.z);
+  HS_EXPECT_EQ(untracked.path_length, 0.0f);
 }
 
 /** @brief Mixed-center batches preserve the launch order of noncommuting waves. */
@@ -262,15 +264,15 @@ inline void test_pullback_grouped_ripple_order() {
   prepared.waves[1] = ripple_test_wave(math::Z_AXIS, math::PI_F * 0.5f, 0.11f);
   prepared.waves[2] = ripple_test_wave(math::Y_AXIS, math::PI_F * 0.5f, 0.09f);
   prepared.waves[3] = ripple_test_wave(math::Y_AXIS, math::PI_F * 0.5f, 0.07f);
-  const math::Vector EXPECTED = ripple_test_sequential(math::X_AXIS, prepared);
-  const auto RESULT =
+  const math::Vector expected = ripple_test_sequential(math::X_AXIS, prepared);
+  const auto result =
       Pullback::SphereAnimation::grouped_ripples(math::X_AXIS, prepared, true);
-  HS_EXPECT_NEAR(RESULT.sphere.x, EXPECTED.x, 1e-5f);
-  HS_EXPECT_NEAR(RESULT.sphere.y, EXPECTED.y, 1e-5f);
-  HS_EXPECT_NEAR(RESULT.sphere.z, EXPECTED.z, 1e-5f);
+  HS_EXPECT_NEAR(result.sphere.x, expected.x, 1e-5f);
+  HS_EXPECT_NEAR(result.sphere.y, expected.y, 1e-5f);
+  HS_EXPECT_NEAR(result.sphere.z, expected.z, 1e-5f);
   std::swap(prepared.waves[0], prepared.waves[3]);
-  const math::Vector REVERSED = ripple_test_sequential(math::X_AXIS, prepared);
-  HS_EXPECT_GT((REVERSED - EXPECTED).length(), 1e-4f);
+  const math::Vector reversed = ripple_test_sequential(math::X_AXIS, prepared);
+  HS_EXPECT_GT((reversed - expected).length(), 1e-4f);
 }
 
 /** @brief Preset-range batches remain finite, unit length and geometrically faithful. */
@@ -293,36 +295,36 @@ inline void test_pullback_grouped_ripple_parameter_grid() {
           state.seed = 149502542u;
           for (int frame = 0; frame < 256; ++frame) {
             advance_ripple(state, params);
-            const auto PREPARED = prepare_ripples(params, state);
+            const auto prepared = prepare_ripples(params, state);
             for (int i = 0; i < 24; ++i) {
-              const math::Vector VIEW = math::fib_spiral(24, 0.5f, i);
-              const auto RESULT = grouped_ripples(VIEW, PREPARED, true);
-              const auto UNTRACKED = grouped_ripples(VIEW, PREPARED, false);
+              const math::Vector view = math::fib_spiral(24, 0.5f, i);
+              const auto result = grouped_ripples(view, prepared, true);
+              const auto untracked = grouped_ripples(view, prepared, false);
               float support_margin = math::PI_F;
-              const auto EXPECTED =
-                  ripple_test_sequential(VIEW, PREPARED, &support_margin);
-              const float ERROR =
-                  std::max({fabsf(RESULT.sphere.x - EXPECTED.x),
-                            fabsf(RESULT.sphere.y - EXPECTED.y),
-                            fabsf(RESULT.sphere.z - EXPECTED.z)});
-              max_error = fmaxf(max_error, ERROR);
+              const auto expected =
+                  ripple_test_sequential(view, prepared, &support_margin);
+              const float error =
+                  std::max({fabsf(result.sphere.x - expected.x),
+                            fabsf(result.sphere.y - expected.y),
+                            fabsf(result.sphere.z - expected.z)});
+              max_error = fmaxf(max_error, error);
               if (support_margin > 5e-4f) {
-                max_interior_error = fmaxf(max_interior_error, ERROR);
-                HS_EXPECT_LE(ERROR, 1e-4f);
+                max_interior_error = fmaxf(max_interior_error, error);
+                HS_EXPECT_LE(error, 1e-4f);
               } else
-                cutoff_exceptions += ERROR > 1e-4f;
-              HS_EXPECT_TRUE(std::isfinite(RESULT.sphere.x));
-              HS_EXPECT_TRUE(std::isfinite(RESULT.sphere.y));
-              HS_EXPECT_TRUE(std::isfinite(RESULT.sphere.z));
-              HS_EXPECT_TRUE(std::isfinite(RESULT.path_length));
-              HS_EXPECT_GE(RESULT.path_length, 0.0f);
-              HS_EXPECT_NEAR(math::dot(RESULT.sphere, RESULT.sphere), 1.0f,
+                cutoff_exceptions += error > 1e-4f;
+              HS_EXPECT_TRUE(std::isfinite(result.sphere.x));
+              HS_EXPECT_TRUE(std::isfinite(result.sphere.y));
+              HS_EXPECT_TRUE(std::isfinite(result.sphere.z));
+              HS_EXPECT_TRUE(std::isfinite(result.path_length));
+              HS_EXPECT_GE(result.path_length, 0.0f);
+              HS_EXPECT_NEAR(math::dot(result.sphere, result.sphere), 1.0f,
                              1e-5f);
-              HS_EXPECT_LE(ERROR, 0.002f);
-              HS_EXPECT_EQ(UNTRACKED.sphere.x, RESULT.sphere.x);
-              HS_EXPECT_EQ(UNTRACKED.sphere.y, RESULT.sphere.y);
-              HS_EXPECT_EQ(UNTRACKED.sphere.z, RESULT.sphere.z);
-              HS_EXPECT_EQ(UNTRACKED.path_length, 0.0f);
+              HS_EXPECT_LE(error, 0.002f);
+              HS_EXPECT_EQ(untracked.sphere.x, result.sphere.x);
+              HS_EXPECT_EQ(untracked.sphere.y, result.sphere.y);
+              HS_EXPECT_EQ(untracked.sphere.z, result.sphere.z);
+              HS_EXPECT_EQ(untracked.path_length, 0.0f);
             }
           }
         }
@@ -341,12 +343,12 @@ inline void test_pullback_grouped_ripple_guards() {
   for (const math::Vector &view :
        {math::Y_AXIS, -math::Y_AXIS, math::X_AXIS, 1.0001f * math::X_AXIS,
         math::Vector(sinf(0.02f), cosf(0.02f), 0.0f)}) {
-    const auto EXPECTED = ripple_test_sequential(view, prepared);
-    const auto RESULT = grouped_ripples(view, prepared, true);
-    HS_EXPECT_NEAR(RESULT.sphere.x, EXPECTED.x, 1e-5f);
-    HS_EXPECT_NEAR(RESULT.sphere.y, EXPECTED.y, 1e-5f);
-    HS_EXPECT_NEAR(RESULT.sphere.z, EXPECTED.z, 1e-5f);
-    HS_EXPECT_TRUE(std::isfinite(RESULT.path_length));
+    const auto expected = ripple_test_sequential(view, prepared);
+    const auto result = grouped_ripples(view, prepared, true);
+    HS_EXPECT_NEAR(result.sphere.x, expected.x, 1e-5f);
+    HS_EXPECT_NEAR(result.sphere.y, expected.y, 1e-5f);
+    HS_EXPECT_NEAR(result.sphere.z, expected.z, 1e-5f);
+    HS_EXPECT_TRUE(std::isfinite(result.path_length));
   }
 }
 
@@ -355,19 +357,19 @@ inline void test_pullback_grouped_ripple_path_continuity() {
   using namespace Pullback::SphereAnimation;
   PreparedRipples prepared{};
   prepared.count = 1;
-  const float DISTANCE = asinf(0.01f);
+  const float distance = asinf(0.01f);
   prepared.waves[0] =
-      ripple_test_wave(math::Y_AXIS, DISTANCE + 0.99f * 0.175f, 0.002f);
-  const float BELOW = DISTANCE - 1e-6f;
-  const float ABOVE = DISTANCE + 1e-6f;
-  const auto A = grouped_ripples(math::Vector(sinf(BELOW), cosf(BELOW), 0.0f),
+      ripple_test_wave(math::Y_AXIS, distance + 0.99f * 0.175f, 0.002f);
+  const float below = distance - 1e-6f;
+  const float above = distance + 1e-6f;
+  const auto a = grouped_ripples(math::Vector(sinf(below), cosf(below), 0.0f),
                                  prepared, true);
-  const auto B = grouped_ripples(math::Vector(sinf(ABOVE), cosf(ABOVE), 0.0f),
+  const auto b = grouped_ripples(math::Vector(sinf(above), cosf(above), 0.0f),
                                  prepared, true);
-  HS_EXPECT_GT(A.path_length, 1e-5f);
-  HS_EXPECT_GT(B.path_length, 1e-5f);
-  HS_EXPECT_NEAR(A.path_length, B.path_length, 2e-6f);
-  HS_EXPECT_LT((A.sphere - B.sphere).length(), 1e-5f);
+  HS_EXPECT_GT(a.path_length, 1e-5f);
+  HS_EXPECT_GT(b.path_length, 1e-5f);
+  HS_EXPECT_NEAR(a.path_length, b.path_length, 2e-6f);
+  HS_EXPECT_LT((a.sphere - b.sphere).length(), 1e-5f);
 }
 
 /** @brief Baked validity preserves every endpoint-cell admission and transfer bit. */
@@ -381,51 +383,51 @@ inline void test_pullback_radial_cell_validity() {
   auto &group = tables.groups[0];
   group.previous.fill({.04f, .1f});
   group.current.fill({.08f, .2f});
-  const auto CHECK = [&]() {
+  const auto check = [&]() {
     prepare_radial_validity(tables);
     HS_EXPECT_TRUE(tables.validity_ready);
     for (size_t cell = 0; cell < RadialGroup::SAMPLES - 1; ++cell) {
-      const bool VALID = !(group.previous[cell].path < 0.0f ||
+      const bool valid = !(group.previous[cell].path < 0.0f ||
                            group.previous[cell + 1].path < 0.0f ||
                            group.current[cell].path < 0.0f ||
                            group.current[cell + 1].path < 0.0f);
-      HS_EXPECT_EQ(bool(tables.valid_cells[0][cell]), VALID);
-      const float DISTANCE =
+      HS_EXPECT_EQ(bool(tables.valid_cells[0][cell]), valid);
+      const float distance =
           (float(cell) + .375f) * (math::PI_F / (RadialGroup::SAMPLES - 1));
       for (bool track_path : {false, true}) {
         RadialTransfer expected{.123f, .456f}, actual = expected;
-        const bool EXPECTED = RippleKernel::sample_transfer(
-            group.previous, group.current, DISTANCE, .625f, track_path,
+        const bool expected_value = RippleKernel::sample_transfer(
+            group.previous, group.current, distance, .625f, track_path,
             expected);
-        const bool ACTUAL = RippleKernel::sample_transfer(
-            group.previous, group.current, DISTANCE, .625f, track_path, actual,
+        const bool actual_value = RippleKernel::sample_transfer(
+            group.previous, group.current, distance, .625f, track_path, actual,
             tables.valid_cells[0].data());
-        HS_EXPECT_EQ(ACTUAL, EXPECTED);
+        HS_EXPECT_EQ(actual_value, expected_value);
         HS_EXPECT_EQ(std::memcmp(&actual, &expected, sizeof(actual)), 0);
       }
     }
   };
-  CHECK();
+  check();
   for (int endpoint : {0, 1})
     for (size_t node :
          {size_t{0}, size_t{1}, size_t{RadialGroup::SAMPLES - 1} / 2,
           size_t{RadialGroup::SAMPLES - 1}}) {
       auto &curve = endpoint == 0 ? group.previous : group.current;
-      const float SAVED = curve[node].path;
+      const float saved = curve[node].path;
       curve[node].path = -1.0f;
-      CHECK();
-      curve[node].path = SAVED;
+      check();
+      curve[node].path = saved;
     }
   group.previous[0].path = -0.0f;
   group.current[0].path = std::numeric_limits<float>::quiet_NaN();
-  CHECK();
+  check();
   RadialTransfer expected{.123f, .456f}, actual = expected;
-  const bool EXPECTED = RippleKernel::sample_transfer(
+  const bool expected_value = RippleKernel::sample_transfer(
       group.previous, group.current, math::PI_F, .25f, true, expected);
-  const bool ACTUAL = RippleKernel::sample_transfer(
+  const bool actual_value = RippleKernel::sample_transfer(
       group.previous, group.current, math::PI_F, .25f, true, actual,
       tables.valid_cells[0].data());
-  HS_EXPECT_EQ(ACTUAL, EXPECTED);
+  HS_EXPECT_EQ(actual_value, expected_value);
   HS_EXPECT_EQ(std::memcmp(&actual, &expected, sizeof(actual)), 0);
 }
 
@@ -459,22 +461,22 @@ inline void test_pullback_radial_validity_lifetime() {
     HS_EXPECT_TRUE(tables.enabled);
     HS_EXPECT_TRUE(tables.validity_ready);
     for (int probe = 0; probe < 32; ++probe) {
-      const float AZIMUTH = math::TWO_PI_F * probe / 32;
-      const float Y = -.95f + 1.9f * ((probe * 17 + frame) % 32) / 31;
-      const float RADIUS = sqrtf(1.0f - Y * Y);
-      const math::Vector VIEW{RADIUS * cosf(AZIMUTH), Y,
-                              RADIUS * sinf(AZIMUTH)};
+      const float azimuth = math::TWO_PI_F * probe / 32;
+      const float y = -.95f + 1.9f * ((probe * 17 + frame) % 32) / 31;
+      const float radius = sqrtf(1.0f - y * y);
+      const math::Vector view{radius * cosf(azimuth), y,
+                              radius * sinf(azimuth)};
       for (bool track_path : {false, true}) {
         Pullback::SurfaceResult actual, expected;
-        const bool ACTUAL =
-            try_radial_ripples(VIEW, track_path, &tables, .375f, actual);
+        const bool actual_value =
+            try_radial_ripples(view, track_path, &tables, .375f, actual);
         tables.validity_ready = false;
-        const bool EXPECTED =
-            try_radial_ripples(VIEW, track_path, &tables, .375f, expected);
+        const bool expected_value =
+            try_radial_ripples(view, track_path, &tables, .375f, expected);
         tables.validity_ready = true;
-        HS_EXPECT_EQ(ACTUAL, EXPECTED);
+        HS_EXPECT_EQ(actual_value, expected_value);
         HS_EXPECT_EQ(std::memcmp(&actual, &expected, sizeof(actual)), 0);
-        successes += ACTUAL;
+        successes += actual_value;
       }
     }
   }
@@ -512,15 +514,15 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
   static RadialTables cached, fresh;
   ScratchScope scratch(scratch_arena_a);
   auto *sentinel = scratch_arena_a.make<uint32_t>(0x12345678u);
-  const size_t OFFSET = scratch_arena_a.get_offset();
-  const auto CHECK = [&](const BurstRippleParams &params,
+  const size_t offset = scratch_arena_a.get_offset();
+  const auto check = [&](const BurstRippleParams &params,
                          const RippleState &state) {
     prepare_radial_tables(params, state, cached, true);
-    HS_EXPECT_EQ(scratch_arena_a.get_offset(), OFFSET);
+    HS_EXPECT_EQ(scratch_arena_a.get_offset(), offset);
     HS_EXPECT_EQ(*sentinel, 0x12345678u);
     fresh.enabled = false;
     prepare_radial_tables(params, state, fresh, true);
-    HS_EXPECT_EQ(scratch_arena_a.get_offset(), OFFSET);
+    HS_EXPECT_EQ(scratch_arena_a.get_offset(), offset);
     HS_EXPECT_EQ(*sentinel, 0x12345678u);
     HS_EXPECT_EQ(cached.enabled, fresh.enabled);
     HS_EXPECT_EQ(cached.count, fresh.count);
@@ -531,37 +533,37 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
                                sizeof(cached.valid_cells)),
                    0);
     for (uint8_t group = 0; group < fresh.count; ++group) {
-      const auto &ACTUAL = cached.groups[group];
-      const auto &EXPECTED = fresh.groups[group];
+      const auto &actual = cached.groups[group];
+      const auto &expected = fresh.groups[group];
       HS_EXPECT_EQ(
-          std::memcmp(&ACTUAL.center, &EXPECTED.center, sizeof(ACTUAL.center)),
+          std::memcmp(&actual.center, &expected.center, sizeof(actual.center)),
           0);
       HS_EXPECT_EQ(
-          std::memcmp(&ACTUAL.cos_near, &EXPECTED.cos_near, sizeof(float)), 0);
+          std::memcmp(&actual.cos_near, &expected.cos_near, sizeof(float)), 0);
       HS_EXPECT_EQ(
-          std::memcmp(&ACTUAL.cos_far, &EXPECTED.cos_far, sizeof(float)), 0);
-      HS_EXPECT_TRUE(ACTUAL.current_key.matches(EXPECTED.current_key));
+          std::memcmp(&actual.cos_far, &expected.cos_far, sizeof(float)), 0);
+      HS_EXPECT_TRUE(actual.current_key.matches(expected.current_key));
 #if HS_TEST_FAST_MATH
-      for (size_t sample = 0; sample < ACTUAL.previous.size(); ++sample) {
-        const auto &a = ACTUAL.previous[sample];
-        const auto &b = EXPECTED.previous[sample];
+      for (size_t sample = 0; sample < actual.previous.size(); ++sample) {
+        const auto &a = actual.previous[sample];
+        const auto &b = expected.previous[sample];
         HS_EXPECT_EQ(a.path < 0, b.path < 0);
         if (b.path < 0) {
           HS_EXPECT_EQ(std::memcmp(&a, &b, sizeof(a)), 0);
           continue;
         }
-        const float ERROR =
+        const float error =
             radial_endpoint_roundoff(params.strength, a.path, b.path);
-        HS_EXPECT_NEAR(a.angle, b.angle, ERROR);
-        HS_EXPECT_NEAR(a.path, b.path, ERROR);
+        HS_EXPECT_NEAR(a.angle, b.angle, error);
+        HS_EXPECT_NEAR(a.path, b.path, error);
       }
 #else
-      HS_EXPECT_EQ(std::memcmp(ACTUAL.previous.data(), EXPECTED.previous.data(),
-                               sizeof(ACTUAL.previous)),
+      HS_EXPECT_EQ(std::memcmp(actual.previous.data(), expected.previous.data(),
+                               sizeof(actual.previous)),
                    0);
 #endif
-      HS_EXPECT_EQ(std::memcmp(ACTUAL.current.data(), EXPECTED.current.data(),
-                               sizeof(ACTUAL.current)),
+      HS_EXPECT_EQ(std::memcmp(actual.current.data(), expected.current.data(),
+                               sizeof(actual.current)),
                    0);
     }
   };
@@ -573,7 +575,7 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
     RippleState state;
     state.seed = 149502542u;
     uint32_t random = 0x719463a5u;
-    const auto NEXT = [&]() {
+    const auto next = [&]() {
       random ^= random << 13;
       random ^= random >> 17;
       random ^= random << 5;
@@ -581,15 +583,15 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
     };
     for (int frame = 0; frame < 600; ++frame) {
       if (randomize && frame % 29 == 0) {
-        params.period = 60.0f + 83.0f * NEXT();
-        params.strength = 0.01f + 0.14f * NEXT();
-        params.decay = 5.0f * NEXT();
-        params.thickness = 0.7f + 0.7f * NEXT();
-        params.burst_rate = (1.0f + NEXT()) / 128.0f;
-        params.burst_size = static_cast<uint8_t>(4.0f * NEXT());
-        params.random_center = static_cast<uint8_t>(NEXT() >= 0.5f);
-        params.center_azimuth = math::TWO_PI_F * NEXT();
-        params.center_polar = math::PI_F * NEXT();
+        params.period = 60.0f + 83.0f * next();
+        params.strength = 0.01f + 0.14f * next();
+        params.decay = 5.0f * next();
+        params.thickness = 0.7f + 0.7f * next();
+        params.burst_rate = (1.0f + next()) / 128.0f;
+        params.burst_size = static_cast<uint8_t>(4.0f * next());
+        params.random_center = static_cast<uint8_t>(next() >= 0.5f);
+        params.center_azimuth = math::TWO_PI_F * next();
+        params.center_polar = math::PI_F * next();
         state.seed = random;
       }
       if (randomize && frame % 83 == 0)
@@ -599,12 +601,12 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
         for (int skipped = 0; skipped < 7; ++skipped)
           advance_ripple(state, params);
       advance_ripple(state, params);
-      CHECK(params, state);
+      check(params, state);
       if (randomize && frame % 47 == 0) {
         auto unsupported = params;
         unsupported.thickness = 0.1f;
-        CHECK(unsupported, state);
-        CHECK(params, state);
+        check(unsupported, state);
+        check(params, state);
       }
     }
   }
@@ -615,17 +617,17 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
   reordered.burst_count = 4;
   for (uint32_t burst = 0; burst < 4; ++burst)
     reordered.waves[burst * 4] = {20.0f * (burst + 1), burst};
-  CHECK(params, reordered);
+  check(params, reordered);
   for (uint32_t burst = 0; burst < 4; ++burst)
     reordered.waves[burst * 4].age = 81.0f - 20.0f * burst;
-  CHECK(params, reordered);
+  check(params, reordered);
 
   for (int control = 0; control < 4; ++control) {
     cached.enabled = false;
     params = {};
     params.period = 143.0f;
     reordered.waves[0] = {40.0f, 0};
-    CHECK(params, reordered);
+    check(params, reordered);
     advance_ripple(reordered, params);
     switch (control) {
     case 0:
@@ -641,7 +643,7 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
       params.thickness = 0.8f;
       break;
     }
-    CHECK(params, reordered);
+    check(params, reordered);
   }
 
   for (bool change_shape : {false, true}) {
@@ -657,7 +659,7 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
     for (size_t sample = 0; sample < cached.groups[0].current.size(); ++sample)
       cached.groups[0].current[sample] = {SENTINEL + float(sample),
                                           SENTINEL + 2 * float(sample)};
-    const auto EXPECTED = cached.groups[0].current;
+    const auto expected = cached.groups[0].current;
     advance_ripple(reordered, params);
     if (change_shape)
       params.strength = 0.125f;
@@ -666,7 +668,7 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
       HS_EXPECT_NE(cached.groups[0].previous[0].angle, SENTINEL);
     else
       HS_EXPECT_EQ(std::memcmp(cached.groups[0].previous.data(),
-                               EXPECTED.data(), sizeof(EXPECTED)),
+                               expected.data(), sizeof(expected)),
                    0);
   }
 
@@ -707,19 +709,19 @@ inline void test_pullback_radial_ripple_crest() {
   HS_EXPECT_TRUE(tables.enabled);
   HS_EXPECT_EQ(tables.count, 1);
   auto prepared = prepare_ripples(params, state);
-  const auto RESULT =
+  const auto result =
       radial_ripples(math::X_AXIS, prepared, true, &tables, 1.0f);
   // Half-way through its period the wave carries half its strength.
-  const float CREST = 0.5f * params.strength;
-  HS_EXPECT_NEAR(RESULT.sphere.x, cosf(CREST), 1e-6f);
-  HS_EXPECT_NEAR(RESULT.sphere.y, -sinf(CREST), 1e-6f);
-  HS_EXPECT_NEAR(RESULT.sphere.z, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(RESULT.path_length, CREST, 1e-6f);
-  const auto UNTRACKED =
+  const float crest = 0.5f * params.strength;
+  HS_EXPECT_NEAR(result.sphere.x, cosf(crest), 1e-6f);
+  HS_EXPECT_NEAR(result.sphere.y, -sinf(crest), 1e-6f);
+  HS_EXPECT_NEAR(result.sphere.z, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(result.path_length, crest, 1e-6f);
+  const auto untracked =
       radial_ripples(math::X_AXIS, prepared, false, &tables, 1.0f);
-  HS_EXPECT_EQ(UNTRACKED.sphere.x, RESULT.sphere.x);
-  HS_EXPECT_EQ(UNTRACKED.sphere.y, RESULT.sphere.y);
-  HS_EXPECT_EQ(UNTRACKED.path_length, 0.0f);
+  HS_EXPECT_EQ(untracked.sphere.x, result.sphere.x);
+  HS_EXPECT_EQ(untracked.sphere.y, result.sphere.y);
+  HS_EXPECT_EQ(untracked.path_length, 0.0f);
 }
 
 /** @brief Unsupported clocks and narrow wavelets retain grouped evaluation. */
@@ -736,23 +738,23 @@ inline void test_pullback_radial_ripple_fallback() {
     prepare_radial_tables(params, state, tables);
     HS_EXPECT_FALSE(tables.enabled);
     auto prepared = prepare_ripples(params, state);
-    const math::Vector VIEW = math::Vector(0.4f, 0.5f, 0.6f).normalized();
-    const auto EXPECTED = grouped_ripples(VIEW, prepared, true);
-    const auto RESULT = radial_ripples(VIEW, prepared, true, &tables, 1.0f);
-    HS_EXPECT_EQ(RESULT.sphere.x, EXPECTED.sphere.x);
-    HS_EXPECT_EQ(RESULT.sphere.y, EXPECTED.sphere.y);
-    HS_EXPECT_EQ(RESULT.sphere.z, EXPECTED.sphere.z);
-    HS_EXPECT_EQ(RESULT.path_length, EXPECTED.path_length);
+    const math::Vector view = math::Vector(0.4f, 0.5f, 0.6f).normalized();
+    const auto expected = grouped_ripples(view, prepared, true);
+    const auto result = radial_ripples(view, prepared, true, &tables, 1.0f);
+    HS_EXPECT_EQ(result.sphere.x, expected.sphere.x);
+    HS_EXPECT_EQ(result.sphere.y, expected.sphere.y);
+    HS_EXPECT_EQ(result.sphere.z, expected.sphere.z);
+    HS_EXPECT_EQ(result.path_length, expected.path_length);
   }
   params = {};
   prepare_radial_tables(params, RippleState{}, tables);
   HS_EXPECT_TRUE(tables.enabled);
   HS_EXPECT_EQ(tables.count, 0);
   PreparedRipples empty;
-  const auto IDENTITY =
+  const auto identity =
       radial_ripples(math::X_AXIS, empty, true, &tables, 1.0f);
-  HS_EXPECT_EQ(IDENTITY.sphere.x, 1.0f);
-  HS_EXPECT_EQ(IDENTITY.path_length, 0.0f);
+  HS_EXPECT_EQ(identity.sphere.x, 1.0f);
+  HS_EXPECT_EQ(identity.path_length, 0.0f);
 }
 
 /** @brief Radial rejection resolves the whole original input exactly once. */
@@ -772,34 +774,34 @@ inline void test_pullback_radial_ripple_lazy_fallback() {
   const Pullback::SurfaceResult EXPECTED{math::Vector(0.2f, 0.3f, 0.4f), 0.75f};
   int calls = 0;
   math::Vector input = math::X_AXIS;
-  const auto FALLBACK = [&](const math::Vector &original) {
+  const auto fallback = [&](const math::Vector &original) {
     ++calls;
     HS_EXPECT_EQ(original, input);
     return EXPECTED;
   };
-  const auto CHECK_FALLBACK = [&](const RadialTables *view) {
+  const auto check_fallback = [&](const RadialTables *view) {
     calls = 0;
-    const auto RESULT = radial_ripples(input, true, view, 0.5f, FALLBACK);
+    const auto result = radial_ripples(input, true, view, 0.5f, fallback);
     HS_EXPECT_EQ(calls, 1);
-    HS_EXPECT_EQ(RESULT.sphere, EXPECTED.sphere);
-    HS_EXPECT_EQ(RESULT.path_length, EXPECTED.path_length);
+    HS_EXPECT_EQ(result.sphere, EXPECTED.sphere);
+    HS_EXPECT_EQ(result.path_length, EXPECTED.path_length);
   };
-  CHECK_FALLBACK(nullptr);
+  check_fallback(nullptr);
   tables.enabled = false;
-  CHECK_FALLBACK(&tables);
+  check_fallback(&tables);
   tables.enabled = true;
   tables.groups[1].current.fill({0.2f, -1.0f});
-  CHECK_FALLBACK(&tables);
+  check_fallback(&tables);
   tables.count = 1;
   input = math::Y_AXIS;
-  CHECK_FALLBACK(&tables);
+  check_fallback(&tables);
   input = 2.0f * math::X_AXIS;
-  CHECK_FALLBACK(&tables);
+  check_fallback(&tables);
   input = math::X_AXIS;
   calls = 0;
-  const auto RESULT = radial_ripples(input, true, &tables, 0.5f, FALLBACK);
+  const auto result = radial_ripples(input, true, &tables, 0.5f, fallback);
   HS_EXPECT_EQ(calls, 0);
-  HS_EXPECT_GT((RESULT.sphere - input).length(), 0.1f);
+  HS_EXPECT_GT((result.sphere - input).length(), 0.1f);
 }
 
 template <typename Value> struct RippleTestResource {
@@ -860,38 +862,38 @@ inline void test_pullback_ripple_lazy_preparation() {
   prepare_radial_tables(params, clock, tables);
   clock.radial_tables = &tables;
   clock.radial_fraction = 0.5f;
-  const auto PREPARED = Policy::prepare(frame);
-  HS_EXPECT_FALSE(PREPARED.has_value());
-  const auto EXACT = RippleTestProvider::prepare(frame);
-  const auto EXPECTED =
-      radial_ripples(math::X_AXIS, EXACT, true, &tables, 0.5f);
-  const auto RESULT = Policy::apply(math::X_AXIS, frame, PREPARED);
-  HS_EXPECT_EQ(RESULT.sphere, EXPECTED.sphere);
-  HS_EXPECT_EQ(RESULT.path_length, EXPECTED.path_length);
-  const auto CUSTOM_INTACT = Custom::prepare(frame);
-  HS_EXPECT_EQ(Custom::apply(math::X_AXIS, frame, CUSTOM_INTACT).sphere,
+  const auto prepared = Policy::prepare(frame);
+  HS_EXPECT_FALSE(prepared.has_value());
+  const auto exact = RippleTestProvider::prepare(frame);
+  const auto expected =
+      radial_ripples(math::X_AXIS, exact, true, &tables, 0.5f);
+  const auto result = Policy::apply(math::X_AXIS, frame, prepared);
+  HS_EXPECT_EQ(result.sphere, expected.sphere);
+  HS_EXPECT_EQ(result.path_length, expected.path_length);
+  const auto custom_intact = Custom::prepare(frame);
+  HS_EXPECT_EQ(Custom::apply(math::X_AXIS, frame, custom_intact).sphere,
                math::X_AXIS);
   tables.groups[0].current.fill({0.0f, -1.0f});
-  const auto FALLBACK = Policy::apply(math::X_AXIS, frame, PREPARED);
-  const auto GROUPED = grouped_ripples(math::X_AXIS, EXACT, true);
-  HS_EXPECT_EQ(FALLBACK.sphere, GROUPED.sphere);
-  HS_EXPECT_EQ(FALLBACK.path_length, GROUPED.path_length);
+  const auto fallback = Policy::apply(math::X_AXIS, frame, prepared);
+  const auto grouped = grouped_ripples(math::X_AXIS, exact, true);
+  HS_EXPECT_EQ(fallback.sphere, grouped.sphere);
+  HS_EXPECT_EQ(fallback.path_length, grouped.path_length);
   CustomRippleTestProvider::calls = 0;
-  const auto CUSTOM = Custom::prepare(frame);
+  const auto custom = Custom::prepare(frame);
   HS_EXPECT_EQ(CustomRippleTestProvider::calls, 1);
-  HS_EXPECT_EQ(CUSTOM.count, 0);
-  HS_EXPECT_EQ(Custom::apply(math::X_AXIS, frame, CUSTOM).sphere, math::X_AXIS);
+  HS_EXPECT_EQ(custom.count, 0);
+  HS_EXPECT_EQ(Custom::apply(math::X_AXIS, frame, custom).sphere, math::X_AXIS);
   HS_EXPECT_EQ(CustomRippleTestProvider::calls, 1);
-  HS_EXPECT_EQ(Generic::prepare(frame).count, EXACT.count);
-  HS_EXPECT_EQ(Generic::apply(math::X_AXIS, frame, EXACT).sphere,
-               GROUPED.sphere);
+  HS_EXPECT_EQ(Generic::prepare(frame).count, exact.count);
+  HS_EXPECT_EQ(Generic::apply(math::X_AXIS, frame, exact).sphere,
+               grouped.sphere);
   {
     clock.radial_fraction = -1.0f;
-    const auto ENDPOINT = Policy::prepare(frame);
-    HS_EXPECT_TRUE(ENDPOINT.has_value());
-    HS_EXPECT_EQ(ENDPOINT->count, EXACT.count);
-    HS_EXPECT_EQ(Policy::apply(math::X_AXIS, frame, ENDPOINT).sphere,
-                 GROUPED.sphere);
+    const auto endpoint = Policy::prepare(frame);
+    HS_EXPECT_TRUE(endpoint.has_value());
+    HS_EXPECT_EQ(endpoint->count, exact.count);
+    HS_EXPECT_EQ(Policy::apply(math::X_AXIS, frame, endpoint).sphere,
+                 grouped.sphere);
   }
   clock.radial_fraction = 0.5f;
   tables.enabled = false;
@@ -919,15 +921,15 @@ inline void test_pullback_radial_ripple_geometry() {
         wave.age -= 1.0f - fraction;
       auto prepared = prepare_ripples(params, sampled);
       for (int i = 0; i < 32; ++i) {
-        const math::Vector VIEW = math::fib_spiral(32, 0.5f, i);
-        const auto EXPECTED = grouped_ripples(VIEW, prepared, true);
-        const auto RESULT =
-            radial_ripples(VIEW, prepared, true, &tables, fraction);
-        HS_EXPECT_TRUE(std::isfinite(RESULT.path_length));
-        HS_EXPECT_GE(RESULT.path_length, 0.0f);
-        HS_EXPECT_NEAR(math::dot(RESULT.sphere, RESULT.sphere), 1.0f, 1e-5f);
-        HS_EXPECT_LE((RESULT.sphere - EXPECTED.sphere).length(), 0.005f);
-        HS_EXPECT_LE(fabsf(RESULT.path_length - EXPECTED.path_length), 0.02f);
+        const math::Vector view = math::fib_spiral(32, 0.5f, i);
+        const auto expected = grouped_ripples(view, prepared, true);
+        const auto result =
+            radial_ripples(view, prepared, true, &tables, fraction);
+        HS_EXPECT_TRUE(std::isfinite(result.path_length));
+        HS_EXPECT_GE(result.path_length, 0.0f);
+        HS_EXPECT_NEAR(math::dot(result.sphere, result.sphere), 1.0f, 1e-5f);
+        HS_EXPECT_LE((result.sphere - expected.sphere).length(), 0.005f);
+        HS_EXPECT_LE(fabsf(result.path_length - expected.path_length), 0.02f);
       }
     }
   }

@@ -81,15 +81,15 @@ inline void test_composed_analytic_modulation_sliders() {
   AnalyticModulationProbe effect;
   effect.init();
   HS_EXPECT_TRUE(effect.getParameters().find("Pattern Scale") == nullptr);
-  const auto *AMOUNT = effect.getParameters().find("Modulation Amount");
-  HS_EXPECT_TRUE(AMOUNT != nullptr);
-  if (AMOUNT != nullptr) {
-    HS_EXPECT_NEAR(AMOUNT->min, 0.0f, 0.0f);
-    HS_EXPECT_NEAR(AMOUNT->max, 1.0f, 0.0f);
+  const auto *amount = effect.getParameters().find("Modulation Amount");
+  HS_EXPECT_TRUE(amount != nullptr);
+  if (amount != nullptr) {
+    HS_EXPECT_NEAR(amount->min, 0.0f, 0.0f);
+    HS_EXPECT_NEAR(amount->max, 1.0f, 0.0f);
   }
-  const auto *SPEED = effect.getParameters().find("Pattern Speed");
-  HS_EXPECT_TRUE(SPEED != nullptr);
-  if (SPEED != nullptr) {
+  const auto *speed = effect.getParameters().find("Pattern Speed");
+  HS_EXPECT_TRUE(speed != nullptr);
+  if (speed != nullptr) {
     const auto &schema = Pullback::Interp::Op::ModulationParams::EXTRA_SCHEMA;
     const auto field =
         std::find_if(schema.begin(), schema.end(), [](const auto &entry) {
@@ -97,22 +97,22 @@ inline void test_composed_analytic_modulation_sliders() {
         });
     HS_EXPECT_TRUE(field != schema.end());
     if (field != schema.end()) {
-      HS_EXPECT_EQ(SPEED->min, field->min);
-      HS_EXPECT_EQ(SPEED->max, field->max);
+      HS_EXPECT_EQ(speed->min, field->min);
+      HS_EXPECT_EQ(speed->max, field->max);
     }
   }
-  const auto DIRECTION = Pattern::SphereDirection::from(math::Y_AXIS);
+  const auto direction = Pattern::SphereDirection::from(math::Y_AXIS);
   const auto before = effect.frame_for_test();
-  const float BEFORE = Pullback::Modulation::sample(
-      *before.resources.template get<"modulation">().modulation, DIRECTION);
-  HS_EXPECT_NEAR(BEFORE, 0.70710678f, 0.002f);
+  const float before_value = Pullback::Modulation::sample(
+      *before.resources.template get<"modulation">().modulation, direction);
+  HS_EXPECT_NEAR(before_value, 0.70710678f, 0.002f);
   HS_EXPECT_TRUE(effect.updateParameter("Pattern Frequency", 0.25f) ==
                  ParamSetResult::APPLIED);
   const auto after = effect.frame_for_test();
-  const float AFTER = Pullback::Modulation::sample(
-      *after.resources.template get<"modulation">().modulation, DIRECTION);
-  HS_EXPECT_NEAR(AFTER, 1.0f, 1e-5f);
-  HS_EXPECT_GT(AFTER - BEFORE, 0.25f);
+  const float after_value = Pullback::Modulation::sample(
+      *after.resources.template get<"modulation">().modulation, direction);
+  HS_EXPECT_NEAR(after_value, 1.0f, 1e-5f);
+  HS_EXPECT_GT(after_value - before_value, 0.25f);
   HS_EXPECT_TRUE(effect.updateParameter("Pattern Speed", -0.125f) ==
                  ParamSetResult::APPLIED);
   ComposedFrameWhiteBox::advance(effect);
@@ -604,7 +604,7 @@ inline void test_composed_periodic_ripple_surface() {
   using FX = RippleProbe<SMALL_W, SMALL_H>;
   static_assert(!FX::HAS_SURFACE_NOISE);
 
-  const auto RENDER = [](float strength) {
+  const auto render = [](float strength) {
     reset_globals();
     pin_frame_clock(0);
     FX effect;
@@ -623,11 +623,11 @@ inline void test_composed_periodic_ripple_surface() {
     capture_frame<SMALL_W, SMALL_H>(effect, pixels);
     return pixels;
   };
-  const auto FLAT = RENDER(0.0f);
-  const auto RIPPLE = RENDER(0.15f);
+  const auto flat = render(0.0f);
+  const auto ripple = render(0.15f);
   size_t changed = 0;
-  for (size_t i = 0; i < FLAT.size(); ++i)
-    changed += FLAT[i] != RIPPLE[i];
+  for (size_t i = 0; i < flat.size(); ++i)
+    changed += flat[i] != ripple[i];
   HS_EXPECT_GT(changed, size_t{0});
   hs::clear_mock_time();
 }
@@ -899,11 +899,11 @@ inline void test_choreography_fade_departure() {
   effect.setAnimationsPaused(false);
   hs_test::run_frames(effect, DWELL + 2);
   HS_EXPECT_LT(effect.last_opacity, 1.0f);
-  const size_t HELD = effect.getPresetIndex();
+  const size_t held = effect.getPresetIndex();
   effect.setAnimationsPaused(true);
   hs_test::run_frames(effect, 2 * (DWELL + FADE));
   HS_EXPECT_EQ(effect.last_opacity, 1.0f);
-  HS_EXPECT_EQ(effect.getPresetIndex(), HELD);
+  HS_EXPECT_EQ(effect.getPresetIndex(), held);
   HS_EXPECT_TRUE(effect.selectPreset(0));
   hs_test::run_frames(effect, 1);
   HS_EXPECT_EQ(effect.last_opacity, 1.0f);

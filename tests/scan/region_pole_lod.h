@@ -99,10 +99,10 @@ inline void test_scan_region_seam_no_double_plot() {
   int counts[W];
   for (int i = 0; i < W; ++i)
     counts[i] = 0;
-  const int y = 10;
+  const int Y = 10;
 
   Scan::scan_region<W, H>(
-      y, y,
+      Y, Y,
       [](int, auto &&out) {
         out(1.0f, 5.0f);                     // low span      -> 1,2,3,4
         out((float)(W - 2), (float)(W + 2)); // seam-crosser  -> W-2,W-1,0,1
@@ -129,10 +129,10 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
   int counts[W];
   for (int i = 0; i < W; ++i)
     counts[i] = 0;
-  const int y = 10;
+  const int Y = 10;
 
   Scan::scan_region<W, H>(
-      y, y,
+      Y, Y,
       [](int, auto &&out) {
         out(2.0f, 5.4f); // -> 2,3,4,5
         out(5.6f, 8.0f); // floor(5.6)=5 would re-plot x=5 without the clamp
@@ -159,19 +159,19 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
 inline void test_pole_lod_runs_are_canvas_anchored() {
   constexpr int W = 288;
   constexpr int H = 144;
-  const int y = 2; // near the north pole, so sin(phi) is small and stride > 1
+  const int Y = 2; // near the north pole, so sin(phi) is small and stride > 1
 
   math::TrigLUT<W, H>::init();
 
   const ScopedPoleLod lod(1.0f);
-  const int lod_stride = Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
+  const int lod_stride = Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[Y]);
   HS_EXPECT_GT(lod_stride, 1);
 
   // probe[x] = the column whose shade settled x, -1 if unvisited.
   auto scan_probes = [&](ClipRegion::XClip xc, std::array<int, W> &probe) {
     probe.fill(-1);
     Scan::scan_region<W, H>(
-        y, y,
+        Y, Y,
         [](int, auto &&out) {
           out(0.0f, (float)W);
           return true;
@@ -241,7 +241,7 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
 
   // Aggressiveness 0 is exactly one column per run.
   Render::pole_lod_aggressiveness = 0.0f;
-  HS_EXPECT_EQ(Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]), 1);
+  HS_EXPECT_EQ(Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[Y]), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
 }
 
@@ -372,10 +372,10 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return render_stub_frame<W, H>([&](auto &pipe, Canvas &c) {
       // Azimuth in the fold's own perpendicular frame, where the sector
       // boundaries sit at +/- PI / reps.
-      const float rho = 0.30f;
+      const float RHO = 0.30f;
       const float theta = math::PI_F / static_cast<float>(reps);
-      const math::Vector centre(sinf(rho) * cosf(theta), cosf(rho),
-                                -sinf(rho) * sinf(theta));
+      const math::Vector centre(sinf(RHO) * cosf(theta), cosf(RHO),
+                                -sinf(RHO) * sinf(theta));
       const math::Basis child_basis =
           math::make_basis(math::Quaternion(), centre);
       SDF::PlanarPolygon child(child_basis, /*circumradius=*/0.15f, /*sides=*/5,
@@ -397,13 +397,13 @@ inline void test_pole_lod_shading_matches_undecimated() {
     Render::pole_lod_aggressiveness = lod;
     const math::Vector axis = math::Vector(sinf(tilt), cosf(tilt), 0.0f);
     const math::Basis basis = math::make_basis(math::Quaternion(), axis);
-    const float px[3] = {0.7f, -0.35f, -0.35f};
-    const float py[3] = {0.0f, 0.06f, -0.06f};
+    const float PX[3] = {0.7f, -0.35f, -0.35f};
+    const float PY[3] = {0.0f, 0.06f, -0.06f};
     math::Vector verts[3];
     uint16_t idx[3];
     for (int i = 0; i < 3; ++i) {
-      const float rx = px[i] * cosf(spin) - py[i] * sinf(spin);
-      const float ry = px[i] * sinf(spin) + py[i] * cosf(spin);
+      const float rx = PX[i] * cosf(spin) - PY[i] * sinf(spin);
+      const float ry = PX[i] * sinf(spin) + PY[i] * cosf(spin);
       verts[i] = (basis.v + basis.u * rx + basis.w * ry).normalized();
       idx[i] = static_cast<uint16_t>(i);
     }
@@ -560,13 +560,13 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
  */
 inline void test_scan_region_clip_arc_matches_predicate() {
   constexpr int W = 96, H = 20;
-  const int y = 10;
+  const int Y = 10;
 
   auto run = [&](ClipRegion::XClip xc, bool handled, int (&counts)[W]) {
     for (int i = 0; i < W; ++i)
       counts[i] = 0;
     Scan::scan_region<W, H>(
-        y, y,
+        Y, Y,
         [&](int, auto &&out) {
           if (!handled)
             return false;
@@ -583,16 +583,16 @@ inline void test_scan_region_clip_arc_matches_predicate() {
         xc);
   };
 
-  const ClipRegion::XClip no_clip{};
-  const ClipRegion::XClip arc{3, 8, true, false};
-  const ClipRegion::XClip wrap_arc{W - 2, 2, true, true};
+  const ClipRegion::XClip NO_CLIP{};
+  const ClipRegion::XClip ARC{3, 8, true, false};
+  const ClipRegion::XClip WRAP_ARC{W - 2, 2, true, true};
 
   for (bool handled : {true, false}) {
     int reference[W];
-    run(no_clip, handled, reference);
+    run(NO_CLIP, handled, reference);
     for (int x = 0; x < W; ++x)
       HS_EXPECT_EQ(reference[x], !handled || x <= 4 || x >= W - 4 ? 1 : 0);
-    for (const auto &xc : {arc, wrap_arc}) {
+    for (const auto &xc : {ARC, WRAP_ARC}) {
       int counts[W];
       run(xc, handled, counts);
       int kept = 0;
@@ -617,7 +617,7 @@ inline void test_prepared_face_reports_match_unprepared() {
     for (float radius : {.08f, .6f}) {
       for (float squish : {1.0f, .15f}) {
         math::Vector vertices[3];
-        const uint16_t indices[3] = {0, 1, 2};
+        const uint16_t INDICES[3] = {0, 1, 2};
         for (int i = 0; i < 3; ++i) {
           const float angle = math::TWO_PI_F * (i / 3.0f + 5.0f / 24.0f);
           vertices[i] = (basis.v + (basis.u * cosf(angle) +
@@ -626,7 +626,7 @@ inline void test_prepared_face_reports_match_unprepared() {
                             .normalized();
         }
         SDF::FaceScratchBuffer scratch;
-        const SDF::PreparedFace face(vertices, indices, scratch,
+        const SDF::PreparedFace face(vertices, INDICES, scratch,
                                      math::LatitudeGeometry(H), H, nullptr,
                                      nullptr, SDF::BOUNDS_MARGIN);
         Scan::PreparedDistance<SDF::PreparedFace> prepared(face);
@@ -673,7 +673,7 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
   const auto basis = math::make_basis(
       math::Quaternion(), math::Vector(sinf(.225f), cosf(.225f), 0.0f));
   math::Vector vertices[3], far_vertices[3];
-  const uint16_t indices[3] = {0, 1, 2};
+  const uint16_t INDICES[3] = {0, 1, 2};
   for (int i = 0; i < 3; ++i) {
     const float angle = math::TWO_PI_F * (i / 3.0f + 5.0f / 24.0f);
     vertices[i] =
@@ -684,10 +684,10 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
   StubEffect effect(W, H);
   Canvas canvas(effect);
   SDF::FaceScratchBuffer scratch, far_scratch;
-  const SDF::PreparedFace face(vertices, indices, scratch,
+  const SDF::PreparedFace face(vertices, INDICES, scratch,
                                math::LatitudeGeometry(H), H, nullptr, nullptr,
                                math::TWO_PI_F / W);
-  const SDF::PreparedFace far(far_vertices, indices, far_scratch,
+  const SDF::PreparedFace far(far_vertices, INDICES, far_scratch,
                               math::LatitudeGeometry(H), H, nullptr, nullptr,
                               math::TWO_PI_F / W);
   HS_EXPECT_TRUE(face.convex);
@@ -761,41 +761,41 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
 /** @brief Culled face probes lie outside the static report margin. */
 inline void test_face_cull_sentinel_respects_static_margin() {
   constexpr int H = 144;
-  const auto BASIS = math::make_basis(
+  const auto basis = math::make_basis(
       math::Quaternion(), math::Vector(.3f, .8f, -.4f).normalized());
   for (const float RADIUS : {.03f, .3f, 1.2f}) {
     for (const float SQUISH : {.05f, 1.0f}) {
       math::Vector vertices[3];
       const uint16_t INDICES[3] = {0, 1, 2};
       for (int i = 0; i < 3; ++i) {
-        const float ANGLE = math::TWO_PI_F * i / 3;
-        vertices[i] = (BASIS.v + RADIUS * (BASIS.u * cosf(ANGLE) +
-                                           BASIS.w * (SQUISH * sinf(ANGLE))))
+        const float angle = math::TWO_PI_F * i / 3;
+        vertices[i] = (basis.v + RADIUS * (basis.u * cosf(angle) +
+                                           basis.w * (SQUISH * sinf(angle))))
                           .normalized();
       }
       SDF::FaceScratchBuffer scratch;
-      const SDF::PreparedFace FACE(vertices, INDICES, scratch,
+      const SDF::PreparedFace face(vertices, INDICES, scratch,
                                    math::LatitudeGeometry(H), H, nullptr,
                                    nullptr, SDF::BOUNDS_MARGIN);
       std::array<OraclePoint2D, 3> polygon;
       for (int i = 0; i < 3; ++i)
-        polygon[i] = {FACE.poly_2d[i].x, FACE.poly_2d[i].y};
+        polygon[i] = {face.poly_2d[i].x, face.poly_2d[i].y};
       SDF::DistanceResult report;
-      FACE.distance<false>(FACE.center, report);
+      face.distance<false>(face.center, report);
       HS_EXPECT_LT(report.dist, 0.0f);
-      const float PLANE_RADIUS = FACE.max_dist + 1e-4f;
+      const float plane_radius = face.max_dist + 1e-4f;
       for (int i = 0; i < 32; ++i) {
-        const float ANGLE = math::TWO_PI_F * i / 32;
-        const OraclePoint2D QUERY{PLANE_RADIUS * cosf(ANGLE),
-                                  PLANE_RADIUS * sinf(ANGLE)};
-        const auto DIRECTION = (FACE.center + FACE.basis_u * float(QUERY.x) +
-                                FACE.basis_w * float(QUERY.y))
+        const float angle = math::TWO_PI_F * i / 32;
+        const OraclePoint2D query{plane_radius * cosf(angle),
+                                  plane_radius * sinf(angle)};
+        const auto direction = (face.center + face.basis_u * float(query.x) +
+                                face.basis_w * float(query.y))
                                    .normalized();
-        FACE.distance<false>(DIRECTION, report);
+        face.distance<false>(direction, report);
         HS_EXPECT_EQ(report.dist, SDF::FAR_SENTINEL);
-        const double EXACT = polygon_distance_oracle(polygon, QUERY);
-        HS_EXPECT_GE(EXACT, double(SDF::BOUNDS_MARGIN_WIDE));
-        HS_EXPECT_GE(std::atan(EXACT),
+        const double exact = polygon_distance_oracle(polygon, query);
+        HS_EXPECT_GE(exact, double(SDF::BOUNDS_MARGIN_WIDE));
+        HS_EXPECT_GE(std::atan(exact),
                      double(SDF::reject_margin<SDF::PreparedFace>));
       }
     }

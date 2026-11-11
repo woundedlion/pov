@@ -89,13 +89,13 @@ inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
   for (bool temporal : {false, true}) {
     HS_CONTEXT("downsample / temporal", downsample, static_cast<int>(temporal));
     const ScopedTemporalSampling sampling(temporal);
-    const size_t SCRATCH_B = scratch_arena_b.get_capacity();
-    const size_t REQUIRED =
+    const size_t scratch_b = scratch_arena_b.get_capacity();
+    const size_t required =
         (Filter::Pixel::Feedback<W, H>::uncached_scratch_bytes(downsample) +
          Filter::Pixel::FeedbackFadeTable::BYTES + 127) &
         ~size_t{63};
-    const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - REQUIRED - SCRATCH_B,
-                                 REQUIRED, SCRATCH_B);
+    const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - required - scratch_b,
+                                 required, scratch_b);
     constexpr Pixel BRIGHT(12000, 30000, 50000);
     constexpr int SOURCE_X = W / 3;
     hs_test::StubEffect effect(W, H);
@@ -135,8 +135,8 @@ inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
     HS_EXPECT_LT(lit, W);
     constexpr double STEP = LONGITUDE_STEP * W / (2 * math::PI_F);
     // A within-arm read solves dx = -STEP * (1 + 2 * dx / W).
-    const double EXPECTED = temporal ? -STEP / (1.0 + 2.0 * STEP / W) : -STEP;
-    HS_EXPECT_NEAR(moment / mass, EXPECTED, 0.5);
+    const double expected = temporal ? -STEP / (1.0 + 2.0 * STEP / W) : -STEP;
+    HS_EXPECT_NEAR(moment / mass, expected, 0.5);
   }
 }
 } // namespace hs_test::pole_geometry

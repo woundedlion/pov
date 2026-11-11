@@ -92,27 +92,27 @@ inline void test_oklab_reference_triples() {
     uint8_t r, g, b;
     float L, a, bb; // expected OKLab
   };
-  const Ref refs[] = {
+  const Ref REFS[] = {
       {255, 255, 255, 1.0000f, 0.0000f, 0.0000f},
       {255, 0, 0, 0.6279f, 0.2249f, 0.1258f},
       {0, 255, 0, 0.8664f, -0.2339f, 0.1795f},
       {0, 0, 255, 0.4520f, -0.0324f, -0.3115f},
   };
-  const float tol = 4e-3f;
-  for (const Ref &x : refs) {
+  const float TOL = 4e-3f;
+  for (const Ref &x : REFS) {
     float rf = srgb_to_linear_float(x.r / 255.0f);
     float gf = srgb_to_linear_float(x.g / 255.0f);
     float bf = srgb_to_linear_float(x.b / 255.0f);
     OKLab lab = linear_rgb_to_oklab(rf, gf, bf);
-    HS_EXPECT_NEAR(lab.L, x.L, tol);
-    HS_EXPECT_NEAR(lab.a, x.a, tol);
-    HS_EXPECT_NEAR(lab.b, x.bb, tol);
+    HS_EXPECT_NEAR(lab.L, x.L, TOL);
+    HS_EXPECT_NEAR(lab.a, x.a, TOL);
+    HS_EXPECT_NEAR(lab.b, x.bb, TOL);
   }
 
   // Pure red in OKLCH: L=0.6279, C=0.2577, h=29.23deg.
   OKLCH red = srgb_to_oklch(255, 0, 0);
-  HS_EXPECT_NEAR(red.L, 0.6279f, tol);
-  HS_EXPECT_NEAR(red.C, 0.2577f, tol);
+  HS_EXPECT_NEAR(red.L, 0.6279f, TOL);
+  HS_EXPECT_NEAR(red.C, 0.2577f, TOL);
   HS_EXPECT_NEAR(red.h, 29.23f * math::PI_F / 180.0f, 5e-3f);
 }
 
@@ -371,24 +371,24 @@ inline void oklab_to_linear_rgb_ref(double L, double a, double b, double &r,
  *          interval narrower than the sampling step can be missed.
  */
 inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
-  const double lo_b = -1e-4, hi_b = 1.0 + 1e-4;
+  const double LO_B = -1e-4, HI_B = 1.0 + 1e-4;
   auto inside = [&](double c) {
     double r, g, b;
     oklab_to_linear_rgb_ref(L, ad * c, bd * c, r, g, b);
-    return r >= lo_b && r <= hi_b && g >= lo_b && g <= hi_b && b >= lo_b &&
-           b <= hi_b;
+    return r >= LO_B && r <= HI_B && g >= LO_B && g <= HI_B && b >= LO_B &&
+           b <= HI_B;
   };
-  const int coarse = 512;
+  const int COARSE = 512;
   int hit = -1;
-  for (int i = 1; i <= coarse; ++i) {
-    if (!inside(cap * i / coarse)) {
+  for (int i = 1; i <= COARSE; ++i) {
+    if (!inside(cap * i / COARSE)) {
       hit = i;
       break;
     }
   }
   if (hit < 0)
     return cap;
-  double lo = cap * (hit - 1) / coarse, hi = cap * hit / coarse;
+  double lo = cap * (hit - 1) / COARSE, hi = cap * hit / COARSE;
   for (int i = 0; i < 50; ++i) {
     double mid = 0.5 * (lo + hi);
     if (inside(mid))
@@ -407,19 +407,19 @@ inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
 inline void test_gamut_bracket_refine_out_of_gamut_lower_bound() {
   const float LO = 0.45f, HI = 0.5f;
   for (int il = 3; il <= 8; ++il) {
-    const float L = il / 10.0f;
+    const float l = il / 10.0f;
     for (int ih = 0; ih < 32; ++ih) {
       HS_CONTEXT("L tenths, hue step", il, ih);
       const float h = math::TWO_PI_F * ih / 32.0f;
       const float a = cosf(h), b = sinf(h);
       float r, g, bl;
-      oklab_to_linear_rgb({L, a * LO, b * LO}, r, g, bl);
+      oklab_to_linear_rgb({l, a * LO, b * LO}, r, g, bl);
       HS_EXPECT_FALSE(linear_rgb_in_gamut(r, g, bl));
 
-      const float got = gamut_bracket_refine(L, a, b, LO, HI);
-      oklab_to_linear_rgb({L, a * got, b * got}, r, g, bl);
+      const float got = gamut_bracket_refine(l, a, b, LO, HI);
+      oklab_to_linear_rgb({l, a * got, b * got}, r, g, bl);
       HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, bl));
-      const float ref = static_cast<float>(gamut_first_exit_ref(L, a, b, LO));
+      const float ref = static_cast<float>(gamut_first_exit_ref(l, a, b, LO));
       HS_EXPECT_LE(ref - got, LO / 256.0f + 1e-5f);
       HS_EXPECT_LE(got - ref, 1e-5f);
     }
@@ -439,13 +439,13 @@ inline void test_gamut_direction_lookup_matches_angle() {
   // Past the largest sRGB chroma in OKLab, so the ray always exits.
   const double CAP = 0.5;
   for (int il = 1; il < 16; ++il) {
-    const float L = il / 16.0f;
+    const float l = il / 16.0f;
     for (int ih = 0; ih < 64; ++ih) {
       const float h = math::TWO_PI_F * ih / 64.0f;
-      const float got = gamut_max_chroma(L, h);
-      HS_EXPECT_EQ(got, gamut_max_chroma(L, cosf(h), sinf(h)));
+      const float got = gamut_max_chroma(l, h);
+      HS_EXPECT_EQ(got, gamut_max_chroma(l, cosf(h), sinf(h)));
       const float ref =
-          static_cast<float>(gamut_first_exit_ref(L, cosf(h), sinf(h), CAP));
+          static_cast<float>(gamut_first_exit_ref(l, cosf(h), sinf(h), CAP));
       HS_EXPECT_LT(ref - got, DEFICIT_BOUND);
       HS_EXPECT_LE(got - ref, OVERSAT_BOUND);
     }
@@ -468,31 +468,31 @@ inline void expect_clip_lands_on_first_exit(const char *path) {
   float worst_deficit = 0.0f, worst_oversat = -1.0f;
   size_t samples = 0, residues = 0;
   auto probe = [&](double lightness, double degrees, double chroma) {
-    const double HUE = degrees * 3.14159265358979323846 / 180.0;
-    const double AD = std::cos(HUE), BD = std::sin(HUE);
-    const OKLab MAPPED = gamut_clip_preserve_chroma(
-        {static_cast<float>(lightness), static_cast<float>(AD * chroma),
-         static_cast<float>(BD * chroma)});
+    const double hue = degrees * 3.14159265358979323846 / 180.0;
+    const double ad = std::cos(hue), bd = std::sin(hue);
+    const OKLab mapped = gamut_clip_preserve_chroma(
+        {static_cast<float>(lightness), static_cast<float>(ad * chroma),
+         static_cast<float>(bd * chroma)});
     float r, g, b;
-    oklab_to_linear_rgb(MAPPED, r, g, b);
+    oklab_to_linear_rgb(mapped, r, g, b);
     HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
-    const float GOT = std::sqrt(MAPPED.a * MAPPED.a + MAPPED.b * MAPPED.b);
-    const float REF =
-        static_cast<float>(gamut_first_exit_ref(lightness, AD, BD, chroma));
-    worst_deficit = fold_worst(worst_deficit, REF - GOT);
-    worst_oversat = fold_worst(worst_oversat, GOT - REF);
-    residues += GOT - REF > OVERSAT_BOUND;
+    const float got = std::sqrt(mapped.a * mapped.a + mapped.b * mapped.b);
+    const float ref =
+        static_cast<float>(gamut_first_exit_ref(lightness, ad, bd, chroma));
+    worst_deficit = fold_worst(worst_deficit, ref - got);
+    worst_oversat = fold_worst(worst_oversat, got - ref);
+    residues += got - ref > OVERSAT_BOUND;
     ++samples;
-    return GOT - REF;
+    return got - ref;
   };
 
   for (int il = 0; il <= 32; ++il) {
-    const double L = 0.1 + 0.8 * il / 32.0;
+    const double l = 0.1 + 0.8 * il / 32.0;
     for (int ih = 0; ih < 360 + 96; ++ih) {
       // 360 even steps, then a fine fan across the blue vertex.
       const double deg = ih < 360 ? ih : 258.0 + 0.125 * (ih - 360);
       for (double chroma : CHROMA_IN)
-        probe(L, deg, chroma);
+        probe(l, deg, chroma);
     }
   }
   // A ray that leaves the gamut and re-enters it before the chroma cap.
@@ -530,12 +530,12 @@ inline void test_gamut_master_clip_lands_on_first_exit() {
  */
 inline void test_gamut_continuous_chroma_is_smooth_and_in_gamut() {
   for (int il = 1; il < 100; ++il) {
-    const float L = il / 100.0f;
+    const float l = il / 100.0f;
     for (int ih = 0; ih < 720; ++ih) {
       const float h = 2.0f * math::PI_F * ih / 720.0f;
-      const float C = gamut_continuous_chroma(L, h);
+      const float c = gamut_continuous_chroma(l, h);
       float r, g, b;
-      oklab_to_linear_rgb(oklch_to_oklab({L, C, h}), r, g, b);
+      oklab_to_linear_rgb(oklch_to_oklab({l, c, h}), r, g, b);
       HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
     }
   }
@@ -569,12 +569,12 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
   // Outside the reported lightness band the bracket widens, but the in-gamut
   // guarantee is structural and must still hold at every L and hue.
   for (int il = 0; il <= 200; ++il) {
-    const float L = il / 200.0f;
+    const float l = il / 200.0f;
     for (int ih = 0; ih < 180; ++ih) {
       const float h = 6.28318531f * ih / 180.0f;
       for (float cin : {0.05f, 0.2f, 0.45f}) {
         OKLab mapped = gamut_clip_preserve_chroma(
-            {L, cin * std::cos(h), cin * std::sin(h)});
+            {l, cin * std::cos(h), cin * std::sin(h)});
         float r, g, b;
         oklab_to_linear_rgb(mapped, r, g, b);
         HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
@@ -594,7 +594,7 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
 inline void test_gamut_lut_downsample_preserves_bracket() {
   // Half the master on both axes, so cells actually merge.
   constexpr int A = GAMUT_LUT_ANGLE_STEPS / 2, NL = GAMUT_LUT_L_STEPS / 2;
-  const int sa = GAMUT_LUT_ANGLE_STEPS / A, sl = GAMUT_LUT_L_STEPS / NL;
+  const int SA = GAMUT_LUT_ANGLE_STEPS / A, SL = GAMUT_LUT_L_STEPS / NL;
   alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(A, NL)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, A, NL);
@@ -606,10 +606,10 @@ inline void test_gamut_lut_downsample_preserves_bracket() {
       const uint16_t c_lo = g_gamut_lut.table[(l * A + a) * 2];
       const uint16_t c_hi = g_gamut_lut.table[(l * A + a) * 2 + 1];
       HS_EXPECT_LE(c_lo, c_hi);
-      for (int dl = 0; dl < sl; ++dl)
-        for (int da = 0; da < sa; ++da) {
+      for (int dl = 0; dl < SL; ++dl)
+        for (int da = 0; da < SA; ++da) {
           const int f =
-              ((l * sl + dl) * GAMUT_LUT_ANGLE_STEPS + a * sa + da) * 2;
+              ((l * SL + dl) * GAMUT_LUT_ANGLE_STEPS + a * SA + da) * 2;
           HS_EXPECT_LE(c_lo, GAMUT_LUT[f]);
           HS_EXPECT_LE(GAMUT_LUT[f + 1], c_hi);
         }
@@ -634,17 +634,17 @@ inline void test_gamut_boundary_scale_cache_matches_master() {
     for (int lightness = 0; lightness <= 32; ++lightness)
       for (int hue = 0; hue < 128; ++hue)
         for (float chroma : {0.0f, 0.1f, 0.5f}) {
-          const auto LAB = oklch_to_oklab(
+          const auto lab = oklch_to_oklab(
               {lightness / 32.0f, chroma, hue * math::TWO_PI_F / 128.0f});
-          const auto EXPECTED =
-              gamut_scale_to_boundary_lut(LAB, GAMUT_LUT_MASTER);
-          const auto ACTUAL = gamut_scale_to_boundary_lut(LAB);
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL.L),
-                       std::bit_cast<uint32_t>(EXPECTED.L));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL.a),
-                       std::bit_cast<uint32_t>(EXPECTED.a));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(ACTUAL.b),
-                       std::bit_cast<uint32_t>(EXPECTED.b));
+          const auto expected =
+              gamut_scale_to_boundary_lut(lab, GAMUT_LUT_MASTER);
+          const auto actual = gamut_scale_to_boundary_lut(lab);
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.L),
+                       std::bit_cast<uint32_t>(expected.L));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.a),
+                       std::bit_cast<uint32_t>(expected.a));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.b),
+                       std::bit_cast<uint32_t>(expected.b));
         }
   }
   release_gamut_lut();
@@ -735,13 +735,13 @@ inline void test_gamut_lut_boundary_scale_rounding() {
           GAMUT_LUT_INV_SCALE -
       GAMUT_CLIP_MARGIN;
   // Bit-hack seed plus exactly one Newton step on |(a, b)|^2.
-  const float chroma_sq = 0.4f * 0.4f + 0.3f * 0.3f;
+  const float CHROMA_SQ = 0.4f * 0.4f + 0.3f * 0.3f;
   uint32_t bits;
-  std::memcpy(&bits, &chroma_sq, sizeof(bits));
+  std::memcpy(&bits, &CHROMA_SQ, sizeof(bits));
   bits = 0x5f3759dfu - (bits >> 1);
   float inverse_chroma;
   std::memcpy(&inverse_chroma, &bits, sizeof(inverse_chroma));
-  inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
+  inverse_chroma *= 1.5f - 0.5f * CHROMA_SQ * inverse_chroma * inverse_chroma;
   HS_EXPECT_NEAR_REL(scaled.a, 0.4f * boundary * inverse_chroma, 1e-6);
   HS_EXPECT_NEAR_REL(scaled.b, 0.3f * boundary * inverse_chroma, 1e-6);
   // One scale factor on (a, b): the input 0.4:0.3 ratio survives.
@@ -773,11 +773,11 @@ inline void test_configure_arenas_releases_gamut_lut() {
  *          16-bit quantization.
  */
 inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
-  const float L = 0.62f, C = 0.42f, h = 0.9f;
-  Pixel p = oklch_to_pixel({L, C, h});
+  const float L = 0.62f, C = 0.42f, H = 0.9f;
+  Pixel p = oklch_to_pixel({L, C, H});
 
   OKLCH got = pixel_to_oklch(p);
-  HS_EXPECT_NEAR(wrap_hue_delta(got.h - h), 0.0f, 2e-2f);
+  HS_EXPECT_NEAR(wrap_hue_delta(got.h - H), 0.0f, 2e-2f);
 }
 
 // ============================================================================

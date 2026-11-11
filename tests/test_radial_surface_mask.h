@@ -40,7 +40,7 @@ inline void check_radial_surface_mask(float padding) {
   using Mask = Scan::RadialSurfaceCandidateMask<RADIAL, ANGULAR>;
   using Boundary = Scan::RadialSurfaceBoundaryCandidates;
   using Point = Boundary::Point;
-  const float PAD = padding;
+  const float pad = padding;
   uint32_t probes = 0, misses = 0, marked = 0, total = 0;
   uint64_t interval_bits = 0;
   uint32_t candidates = 0, pieces = 0, writes = 0;
@@ -48,17 +48,17 @@ inline void check_radial_surface_mask(float padding) {
     ScratchScope scope(scratch_arena_a);
     std::array<typename Surface::Knot, INTERVALS + 1> knots;
     for (int i = 0; i <= INTERVALS; ++i) {
-      const float Q = float(i) / INTERVALS;
-      const float R = PROFILE == MaskProfile::EXPANDING
-                          ? math::PI_F * .5f * (1.44f * Q - .44f * Q * Q)
-                          : .7f + .25f * sinf(math::TWO_PI_F * Q);
-      const float P =
+      const float q = float(i) / INTERVALS;
+      const float r = PROFILE == MaskProfile::EXPANDING
+                          ? math::PI_F * .5f * (1.44f * q - .44f * q * q)
+                          : .7f + .25f * sinf(math::TWO_PI_F * q);
+      const float p =
           (PROFILE == MaskProfile::EXPANDING ? 1 : 3) *
           sinf((PROFILE == MaskProfile::EXPANDING ? math::PI_F
                                                   : math::TWO_PI_F) *
-                   Q +
+                   q +
                phase * math::PI_F / 3);
-      knots[i] = {R * cosf(P), R * sinf(P), P};
+      knots[i] = {r * cosf(p), r * sinf(p), p};
     }
     float maximum_radius = 0;
     for (const auto &knot : knots)
@@ -67,26 +67,26 @@ inline void check_radial_surface_mask(float padding) {
     surface.prepare(scratch_arena_a, SIDES, .382f, knots);
     Mask mask;
     mask.bind(scratch_arena_a);
-    const auto stats = mask.prepare(surface, PAD);
+    const auto stats = mask.prepare(surface, pad);
     candidates += stats.candidates;
     pieces += stats.pieces;
     writes += stats.row_writes;
     Boundary::visit_candidates(surface, [&](const auto &candidate) {
       for (int along = 0; along <= 32; ++along) {
-        const float T = along / 32.0f;
-        const Point P{candidate.a.x + T * (candidate.b.x - candidate.a.x),
-                      candidate.a.y + T * (candidate.b.y - candidate.a.y)};
+        const float t = along / 32.0f;
+        const Point p{candidate.a.x + t * (candidate.b.x - candidate.a.x),
+                      candidate.a.y + t * (candidate.b.y - candidate.a.y)};
         for (int angle = 0; angle < 16; ++angle) {
-          const float A = angle * math::TWO_PI_F / 16;
-          const Point Q{P.x + PAD * cosf(A), P.y + PAD * sinf(A)};
-          const float R = sqrtf(Q.x * Q.x + Q.y * Q.y);
-          const float THETA = atan2f(Q.y, Q.x);
+          const float a = angle * math::TWO_PI_F / 16;
+          const Point q{p.x + pad * cosf(a), p.y + pad * sinf(a)};
+          const float r = sqrtf(q.x * q.x + q.y * q.y);
+          const float theta = atan2f(q.y, q.x);
           ++probes;
-          misses += (mask.interval_bits(R, THETA) &
+          misses += (mask.interval_bits(r, theta) &
                      (uint32_t(1) << (candidate.origin_interval >>
                                       mask.interval_shift()))) == 0;
           ++probes;
-          misses += (mask.interval_bits(R, THETA + math::TWO_PI_F / SIDES) &
+          misses += (mask.interval_bits(r, theta + math::TWO_PI_F / SIDES) &
                      (uint32_t(1) << (candidate.origin_interval >>
                                       mask.interval_shift()))) == 0;
         }
@@ -94,9 +94,9 @@ inline void check_radial_surface_mask(float padding) {
     });
     for (int r = 0; r < 100; ++r)
       for (int a = 0; a < 100; ++a) {
-        const float R = (r + .5f) * (maximum_radius + PAD) / 100;
-        const float THETA = (a + .5f) * math::TWO_PI_F / (SIDES * 100);
-        const uint32_t bits = mask.interval_bits(R, THETA);
+        const float r_value = (r + .5f) * (maximum_radius + pad) / 100;
+        const float theta = (a + .5f) * math::TWO_PI_F / (SIDES * 100);
+        const uint32_t bits = mask.interval_bits(r_value, theta);
         marked += bits != 0;
         interval_bits += std::popcount(bits);
         ++total;
@@ -115,7 +115,7 @@ inline void check_radial_surface_mask(float padding) {
   HS_EXPECT_LE(candidates, 6u * (3u * INTERVALS + 2u));
   std::printf(
       "  mask %dx%d N=%d pad=%g: probes=%u misses=%u marked=%u/%u candidates=%u pieces=%u row_writes=%u bytes=%zu\n",
-      RADIAL, ANGULAR, INTERVALS, PAD, probes, misses, marked, total,
+      RADIAL, ANGULAR, INTERVALS, pad, probes, misses, marked, total,
       candidates, pieces, writes, Mask::STORAGE_BYTES);
 }
 
@@ -131,10 +131,10 @@ inline void test_radial_surface_mask_motion() {
       ScratchScope scope(scratch_arena_a);
       std::array<Surface::Knot, 25> reference, moved;
       for (int i = 0; i <= 24; ++i) {
-        const float Q = float(i) / 24;
-        const float R = RADIUS * (1.44f * Q - .44f * Q * Q);
-        const float P = sinf(math::PI_F * Q + phase * math::PI_F / 4);
-        reference[i] = {R * cosf(P), R * sinf(P), P};
+        const float q = float(i) / 24;
+        const float r = RADIUS * (1.44f * q - .44f * q * q);
+        const float p = sinf(math::PI_F * q + phase * math::PI_F / 4);
+        reference[i] = {r * cosf(p), r * sinf(p), p};
       }
       Surface surface;
       surface.prepare(scratch_arena_a, 7, .382f, reference);
@@ -143,33 +143,33 @@ inline void test_radial_surface_mask_motion() {
       mask.prepare(surface, PIXEL, (fixed ? 1 : 3) * RADIUS * DRIFT + 1e-6f,
                    fixed ? DRIFT * math::PI_F / 24 : -1);
       for (int time = -4; time <= 4; ++time) {
-        const float T = time / 4.0f;
+        const float t = time / 4.0f;
         for (int i = 0; i <= 24; ++i) {
-          const float Q = float(i) / 24;
-          float R = RADIUS * (1.44f * Q - .44f * Q * Q);
-          float P;
+          const float q = float(i) / 24;
+          float r = RADIUS * (1.44f * q - .44f * q * q);
+          float p;
           if (fixed)
-            P = sinf(math::PI_F * Q + phase * math::PI_F / 4 + DRIFT * T);
+            p = sinf(math::PI_F * q + phase * math::PI_F / 4 + DRIFT * t);
           else {
-            R *= 1 + DRIFT * T * sinf(i * .7f);
-            P = reference[i].phase + DRIFT * T * cosf(i * .8f);
+            r *= 1 + DRIFT * t * sinf(i * .7f);
+            p = reference[i].phase + DRIFT * t * cosf(i * .8f);
           }
-          moved[i] = {R * cosf(P), R * sinf(P), P};
+          moved[i] = {r * cosf(p), r * sinf(p), p};
         }
         surface.set_knots(moved);
         Boundary::visit_candidates(surface, [&](const auto &candidate) {
           for (int along = 0; along <= 16; ++along)
             for (int angle = 0; angle < 8; ++angle) {
-              const float U = along / 16.0f, A = angle * math::TWO_PI_F / 8;
-              const float X = candidate.a.x +
-                              U * (candidate.b.x - candidate.a.x) +
-                              PIXEL * cosf(A);
-              const float Y = candidate.a.y +
-                              U * (candidate.b.y - candidate.a.y) +
-                              PIXEL * sinf(A);
+              const float u = along / 16.0f, a = angle * math::TWO_PI_F / 8;
+              const float x = candidate.a.x +
+                              u * (candidate.b.x - candidate.a.x) +
+                              PIXEL * cosf(a);
+              const float y = candidate.a.y +
+                              u * (candidate.b.y - candidate.a.y) +
+                              PIXEL * sinf(a);
               ++probes;
               const auto bits =
-                  mask.interval_bits(sqrtf(X * X + Y * Y), atan2f(Y, X));
+                  mask.interval_bits(sqrtf(x * x + y * y), atan2f(y, x));
               misses += ((bits >> (candidate.origin_interval >>
                                    mask.interval_shift())) &
                          1u) == 0;
@@ -191,9 +191,9 @@ inline void test_radial_surface_candidate_parity() {
     ScratchScope scope(scratch_arena_a);
     std::array<Surface::Knot, 25> knots;
     for (int i = 0; i <= 24; ++i) {
-      const float Q = float(i) / 24, R = math::PI_F * .5f * Q;
-      const float P = sinf(math::PI_F * Q + phase * math::PI_F / 4);
-      knots[i] = {R * cosf(P), R * sinf(P), P};
+      const float q = float(i) / 24, r = math::PI_F * .5f * q;
+      const float p = sinf(math::PI_F * q + phase * math::PI_F / 4);
+      knots[i] = {r * cosf(p), r * sinf(p), p};
     }
     Surface surface;
     surface.prepare(scratch_arena_a, 7, .382f, knots);
@@ -203,9 +203,9 @@ inline void test_radial_surface_candidate_parity() {
                  .006f * math::PI_F / 24);
     if (phase & 1) {
       for (int i = 0; i <= 24; ++i) {
-        const float Q = float(i) / 24, R = math::PI_F * .5f * Q;
-        const float P = sinf(math::PI_F * Q + phase * math::PI_F / 4 + .006f);
-        knots[i] = {R * cosf(P), R * sinf(P), P};
+        const float q = float(i) / 24, r = math::PI_F * .5f * q;
+        const float p = sinf(math::PI_F * q + phase * math::PI_F / 4 + .006f);
+        knots[i] = {r * cosf(p), r * sinf(p), p};
       }
       surface.set_knots(knots);
     }
@@ -213,17 +213,17 @@ inline void test_radial_surface_candidate_parity() {
     const auto shade = radial_surface_tests::arrival_ramp(24);
     for (int y = -30; y <= 30; ++y)
       for (int x = -30; x <= 30; ++x) {
-        const Surface::Point P{x * .05f, y * .05f}, DX{.025f, .001f},
+        const Surface::Point p{x * .05f, y * .05f}, DX{.025f, .001f},
             DY{-.002f, .025f};
-        const float R = sqrtf(P.x * P.x + P.y * P.y),
-                    A = Scan::radial_atan2(P.y, P.x);
+        const float r = sqrtf(p.x * p.x + p.y * p.y),
+                    a = Scan::radial_atan2(p.y, p.x);
         const auto reference =
-            aa.template sample<false>(surface, P, DX, DY, A, 0, shade);
+            aa.template sample<false>(surface, p, DX, DY, a, 0, shade);
         const auto masked = aa.template sample<false>(
-            surface, P, DX, DY, A, 0, shade, nullptr,
+            surface, p, DX, DY, a, 0, shade, nullptr,
             {.radius = -1,
              .extent = -1,
-             .candidate_bits = mask.interval_bits(R, A),
+             .candidate_bits = mask.interval_bits(r, a),
              .candidate_shift = mask.interval_shift()});
         different += std::bit_cast<uint32_t>(reference.r) !=
                      std::bit_cast<uint32_t>(masked.r);
@@ -257,12 +257,12 @@ inline void test_radial_surface_mask_degenerate_motion() {
     if (candidate.origin_interval != 2 || candidate.knot)
       return;
     for (int i = 0; i <= 16; ++i) {
-      const float T = i / 16.0f;
-      const float X = candidate.a.x + T * (candidate.b.x - candidate.a.x);
-      const float Y = candidate.a.y + T * (candidate.b.y - candidate.a.y);
+      const float t = i / 16.0f;
+      const float x = candidate.a.x + t * (candidate.b.x - candidate.a.x);
+      const float y = candidate.a.y + t * (candidate.b.y - candidate.a.y);
       ++probes;
       misses +=
-          (mask.interval_bits(sqrtf(X * X + Y * Y), atan2f(Y, X)) & 4u) == 0;
+          (mask.interval_bits(sqrtf(x * x + y * y), atan2f(y, x)) & 4u) == 0;
     }
   });
   HS_EXPECT_GT(probes, 0u);
@@ -289,35 +289,36 @@ inline void test_radial_surface_area() {
   Scan::RadialSurfaceEdgeAA<Surface> aa;
   auto lower_bound = [](float) { return 0; };
   auto shade = [](const Surface::Hit &hit) {
-    const float Q = hit.interval + hit.fraction;
-    return Scan::SurfaceColor{Q, Q * 2, Q * 3};
+    const float q = hit.interval + hit.fraction;
+    return Scan::SurfaceColor{q, q * 2, q * 3};
   };
   uint32_t points = 0, edges = 0, hemispheres = 0;
   for (const auto *surface : {&near, &far}) {
     const auto &mask = surface == &near ? near_mask : far_mask;
     for (int r = 1; r <= 100; ++r)
       for (int a = 0; a < 16; ++a) {
-        const float R = r * .01f, THETA = a * math::TWO_PI_F / 112;
-        const Surface::Point P{R * cosf(THETA), R * sinf(THETA)};
+        const float r_value = r * .01f, theta = a * math::TWO_PI_F / 112;
+        const Surface::Point p{r_value * cosf(theta), r_value * sinf(theta)};
         auto footprint = [&] {
           return Scan::radial_chart_footprint<Surface::Point>(
-              {sinf(R) * cosf(THETA), cosf(R), sinf(R) * sinf(THETA)},
+              {sinf(r_value) * cosf(theta), cosf(r_value),
+               sinf(r_value) * sinf(theta)},
               {.01f, 0, 0}, {0, 0, .01f});
         };
-        const uint32_t BITS = mask.interval_bits(R, THETA);
-        const auto BEFORE = Scan::RadialChartWork::footprints;
+        const uint32_t bits = mask.interval_bits(r_value, theta);
+        const auto before = Scan::RadialChartWork::footprints;
         Scan::SurfaceAreaStats stats;
-        const auto actual =
-            area(*surface, P, THETA, R, footprint, lower_bound, shade, &stats);
-        HS_EXPECT_EQ(Scan::RadialChartWork::footprints, BEFORE + (BITS != 0));
+        const auto actual = area(*surface, p, theta, r_value, footprint,
+                                 lower_bound, shade, &stats);
+        HS_EXPECT_EQ(Scan::RadialChartWork::footprints, before + (bits != 0));
         HS_EXPECT_EQ(stats.mask_queries, 1u);
-        HS_EXPECT_EQ(stats.mask_hits, uint64_t(BITS != 0));
+        HS_EXPECT_EQ(stats.mask_hits, uint64_t(bits != 0));
         Scan::SurfaceColor expected;
-        if (!BITS) {
+        if (!bits) {
           ++points;
           Surface::Stats work;
           const auto hit =
-              surface->sample<true, true, false>(P, THETA, 0, &work);
+              surface->sample<true, true, false>(p, theta, 0, &work);
           expected = hit.found() ? shade(hit) : Scan::SurfaceColor{};
           HS_EXPECT_EQ(stats.pixels, 1u);
           HS_EXPECT_EQ(stats.intervals, work.intervals);
@@ -329,11 +330,11 @@ inline void test_radial_surface_area() {
           ++edges;
           const auto query = footprint();
           Scan::SurfaceAreaStats reference;
-          expected = aa.sample<true>(*surface, P, query.dx, query.dy, THETA, 0,
+          expected = aa.sample<true>(*surface, p, query.dx, query.dy, theta, 0,
                                      shade, &reference,
-                                     {.radius = R,
+                                     {.radius = r_value,
                                       .extent = query.extent,
-                                      .candidate_bits = BITS,
+                                      .candidate_bits = bits,
                                       .candidate_shift = mask.interval_shift(),
                                       .point_first = 0});
           HS_EXPECT_EQ(stats.intervals, reference.intervals);
@@ -349,14 +350,14 @@ inline void test_radial_surface_area() {
                      std::bit_cast<uint32_t>(expected.g));
         HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.b),
                      std::bit_cast<uint32_t>(expected.b));
-        const auto UNMASKED_BEFORE = Scan::RadialChartWork::footprints;
-        const auto all = unmasked(*surface, P, THETA, R, footprint, lower_bound,
-                                  shade, nullptr);
-        HS_EXPECT_EQ(Scan::RadialChartWork::footprints, UNMASKED_BEFORE + 1);
+        const auto unmasked_before = Scan::RadialChartWork::footprints;
+        const auto all = unmasked(*surface, p, theta, r_value, footprint,
+                                  lower_bound, shade, nullptr);
+        HS_EXPECT_EQ(Scan::RadialChartWork::footprints, unmasked_before + 1);
         const auto query = footprint();
-        const auto reference = aa.sample<false>(*surface, P, query.dx, query.dy,
-                                                THETA, 0, shade, nullptr,
-                                                {.radius = R,
+        const auto reference = aa.sample<false>(*surface, p, query.dx, query.dy,
+                                                theta, 0, shade, nullptr,
+                                                {.radius = r_value,
                                                  .extent = query.extent,
                                                  .candidate_bits = UINT32_MAX,
                                                  .candidate_shift = 0,

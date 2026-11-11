@@ -16,7 +16,7 @@ constexpr float MOTION_WARP_TOL = 1e-4f;
  */
 inline void test_motion_repeating_does_not_drift() {
   using Ori = math::Orientation<16>;
-  constexpr int duration = 40;
+  constexpr int DURATION = 40;
   ProceduralPath path;
   // lissajous(.,.,.,0) == +Y, so the identity-start orientation places the head
   // on the path at phase 0.
@@ -25,33 +25,33 @@ inline void test_motion_repeating_does_not_drift() {
   };
 
   Ori o; // identity, single frame; orient(+Y) starts on the path
-  const math::Vector node_v = math::Y_AXIS;
+  const math::Vector NODE_V = math::Y_AXIS;
 
   Timeline tl;
-  tl.add(0, Animation::Motion<288, 16>(o, path, duration, {.repeat = true}));
+  tl.add(0, Animation::Motion<288, 16>(o, path, DURATION, {.repeat = true}));
 
-  math::Vector late_heads[duration + 1]; // indexed by phase 1..duration
-  const int cycles = 600;
-  for (int c = 0; c < cycles; ++c) {
-    for (int fr = 1; fr <= duration; ++fr) {
+  math::Vector late_heads[DURATION + 1]; // indexed by phase 1..duration
+  const int CYCLES = 600;
+  for (int c = 0; c < CYCLES; ++c) {
+    for (int fr = 1; fr <= DURATION; ++fr) {
       tl.step(fake_canvas());
-      if (c == cycles - 1)
-        late_heads[fr] = o.orient(node_v);
+      if (c == CYCLES - 1)
+        late_heads[fr] = o.orient(NODE_V);
     }
   }
 
   // Each phase's internal angle to the phase-1 anchor must match the ideal
   // Lissajous internal angle; a rigid precession leaves these untouched, so any
   // growth is genuine warp. Interior phases only (the boundary frame rewinds).
-  const int anchor = 1;
-  const math::Vector ideal_anchor = path.f((float)anchor / duration);
+  const int ANCHOR = 1;
+  const math::Vector ideal_anchor = path.f((float)ANCHOR / DURATION);
   float max_error = 0.0f;
-  for (int fr = 2; fr < duration; ++fr) {
-    const math::Vector ideal_fr = path.f((float)fr / duration);
-    const float ERROR =
-        fabsf(math::angle_between(late_heads[anchor], late_heads[fr]) -
+  for (int fr = 2; fr < DURATION; ++fr) {
+    const math::Vector ideal_fr = path.f((float)fr / DURATION);
+    const float error =
+        fabsf(math::angle_between(late_heads[ANCHOR], late_heads[fr]) -
               math::angle_between(ideal_anchor, ideal_fr));
-    max_error = hs_test::fold_worst(max_error, ERROR);
+    max_error = hs_test::fold_worst(max_error, error);
   }
   std::printf("  late-cycle motion angle drift: %.9g rad\n", max_error);
   HS_EXPECT_LT(max_error, MOTION_WARP_TOL);
@@ -62,23 +62,23 @@ inline void test_motion_reanchor_after_path_swap() {
   const auto step_after_swap = [](bool reanchor) {
     ProceduralPath path;
     path.f = [](float t) {
-      const float ANGLE = math::TWO_PI_F * t;
-      return math::Vector(cosf(ANGLE), sinf(ANGLE), 0);
+      const float angle = math::TWO_PI_F * t;
+      return math::Vector(cosf(angle), sinf(angle), 0);
     };
     math::Orientation<16> orientation;
     Animation::Motion<288, 16> motion(orientation, path, 1000,
                                       {.repeat = true});
     for (int frame = 0; frame < 5; ++frame)
       motion.step(fake_canvas());
-    const math::Vector BEFORE = orientation.orient(math::X_AXIS);
+    const math::Vector before = orientation.orient(math::X_AXIS);
     path.f = [](float t) {
-      const float ANGLE = math::TWO_PI_F * t + math::PI_F * 0.5f;
-      return math::Vector(cosf(ANGLE), sinf(ANGLE), 0);
+      const float angle = math::TWO_PI_F * t + math::PI_F * 0.5f;
+      return math::Vector(cosf(angle), sinf(angle), 0);
     };
     if (reanchor)
       motion.reanchor();
     motion.step(fake_canvas());
-    return math::angle_between(BEFORE, orientation.orient(math::X_AXIS));
+    return math::angle_between(before, orientation.orient(math::X_AXIS));
   };
   HS_EXPECT_LT(step_after_swap(true), 0.02f);
   HS_EXPECT_GT(step_after_swap(false), 1.0f);
@@ -94,7 +94,7 @@ inline void test_motion_reanchor_after_path_swap() {
  */
 inline void test_motion_codriven_survives_repeat_seam() {
   using Ori = math::Orientation<16>;
-  const int duration = 30;
+  const int DURATION = 30;
   ProceduralPath path;
   // A closed great circle: path(0) == path(1) with matching tangent, so Motion's
   // per-cycle delta product is identity.
@@ -106,20 +106,20 @@ inline void test_motion_codriven_survives_repeat_seam() {
   Ori o; // identity
   Timeline tl;
   // Repeating Motion + a repeating co-driver rotation about Y, both driving `o`.
-  tl.add(0, Animation::Motion<288, 16>(o, path, duration, {.repeat = true}));
+  tl.add(0, Animation::Motion<288, 16>(o, path, DURATION, {.repeat = true}));
   tl.add(0, Animation::Rotation<288, 16>(o, math::Y_AXIS, 2.0f * math::PI_F,
-                                         duration, math::ease_linear,
+                                         DURATION, math::ease_linear,
                                          {.repeat = true}));
 
-  const math::Vector probe = math::Z_AXIS;
-  math::Vector prev = o.orient(probe);
+  const math::Vector PROBE = math::Z_AXIS;
+  math::Vector prev = o.orient(PROBE);
   float max_step = 0.0f;
   float total_travel = 0.0f;
-  const int cycles = 8;
-  for (int c = 0; c < cycles; ++c) {
-    for (int fr = 1; fr <= duration; ++fr) {
+  const int CYCLES = 8;
+  for (int c = 0; c < CYCLES; ++c) {
+    for (int fr = 1; fr <= DURATION; ++fr) {
       tl.step(fake_canvas());
-      math::Vector cur = o.orient(probe);
+      math::Vector cur = o.orient(PROBE);
       float step = math::angle_between(prev, cur);
       max_step = std::max(max_step, step);
       total_travel += step;
@@ -147,11 +147,11 @@ inline void test_motion_set_duration_below_position_rescales() {
   Ori o;
   Animation::Motion<288, 16> motion(o, path, 60, {.repeat = true});
 
-  const math::Vector probe = math::X_AXIS;
+  const math::Vector PROBE = math::X_AXIS;
   for (int i = 0; i < 40; ++i)
     motion.step(fake_canvas());
   HS_EXPECT_FALSE(motion.done());
-  const math::Vector before = o.orient(probe);
+  const math::Vector before = o.orient(PROBE);
 
   // 40 frames into a 60-frame loop; 20 frames is behind that position.
   motion.set_duration(20);
@@ -159,7 +159,7 @@ inline void test_motion_set_duration_below_position_rescales() {
 
   // Reanchoring keeps the first relative step incremental.
   motion.step(fake_canvas());
-  HS_EXPECT_LT(math::angle_between(before, o.orient(probe)), 0.5f);
+  HS_EXPECT_LT(math::angle_between(before, o.orient(PROBE)), 0.5f);
   for (int i = 1; i < 6; ++i)
     motion.step(fake_canvas());
   HS_EXPECT_FALSE(motion.done());

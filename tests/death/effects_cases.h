@@ -89,8 +89,8 @@ inline void case_lattice_negative_aa() {
 
 /** @brief Death case: a HyperLattice frame without crossing scratch traps. */
 inline void case_hyperlattice_frame_without_crossings() {
-  const HyperLatticeDetail::FrameState frame{};
-  (void)HyperLatticeDetail::prepare_trace(frame);
+  const HyperLatticeDetail::FrameState FRAME{};
+  (void)HyperLatticeDetail::prepare_trace(FRAME);
 }
 
 /** @brief Death case: cubic-wire patterns have no lattice trace geometry. */
@@ -289,8 +289,8 @@ inline void case_islamicstars_hankin_eager_endpoint() {
   static uint8_t b_buf[64];
   Arena a(a_buf, sizeof(a_buf));
   Arena b(b_buf, sizeof(b_buf));
-  const Solids::OpStep step{Solids::Op::HANKIN};
-  PolyMesh out = WB::clean_endpoint(effect, step, a, b);
+  const Solids::OpStep STEP{Solids::Op::HANKIN};
+  PolyMesh out = WB::clean_endpoint(effect, STEP, a, b);
   (void)out.vertices.size();
 }
 

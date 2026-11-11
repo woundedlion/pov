@@ -175,14 +175,14 @@ inline void test_circle_and_point_match_their_rings() {
                                shader);
       });
   HS_EXPECT_GT(expect_frames_within("circle", circle_frame, ring_frame, 0), 0);
-  const math::Vector center(-0.4f, 0.5f, 0.766f);
+  const math::Vector CENTER(-0.4f, 0.5f, 0.766f);
   const auto point_frame =
       render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
-        Scan::Point::draw<W, H>(pipe, canvas, center, 0.3f, shader);
+        Scan::Point::draw<W, H>(pipe, canvas, CENTER, 0.3f, shader);
       });
   const auto point_ring_frame =
       render_stub_frame<W, H>([&](auto &pipe, Canvas &canvas) {
-        const auto point_basis = math::make_basis(math::Quaternion(), center);
+        const auto point_basis = math::make_basis(math::Quaternion(), CENTER);
         Scan::Ring::draw<W, H>(pipe, canvas, point_basis, 0.0f, 0.3f, shader);
       });
   HS_EXPECT_GT(expect_frames_within("point", point_frame, point_ring_frame, 0),
@@ -249,16 +249,16 @@ struct EpilogueCapture {
 inline void test_scan_epilogue_contract() {
   constexpr int W = 96, H = 48;
   const ScopedPoleLod lod(0.0f);
-  const Pixel color(45000, 17000, 32000);
+  const Pixel COLOR(45000, 17000, 32000);
   constexpr float OPACITY = 0.37f;
   const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
   SDF::Ring ring(basis, 1.0f, 0.18f);
   float knots[9]{};
   SDF::DistortedRing distorted(basis, 1.0f, 0.18f, knots, 8, 0.0f, nullptr);
-  const int8_t slots[1] = {0};
+  const int8_t SLOTS[1] = {0};
   Scan::DistortedRingStack::CandidateTable<W, H> stack_table;
   math::Vector vertices[4];
-  const uint16_t indices[4] = {0, 1, 2, 3};
+  const uint16_t INDICES[4] = {0, 1, 2, 3};
   for (int i = 0; i < 4; ++i) {
     const float angle = i * math::PI_F * 0.5f;
     vertices[i] = (basis.v * cosf(0.7f) +
@@ -274,7 +274,7 @@ inline void test_scan_epilogue_contract() {
     {
       Canvas canvas(effect);
       SDF::FaceScratchBuffer scratch;
-      SDF::PreparedFace face(vertices, indices, scratch, H + hs::H_OFFSET, H,
+      SDF::PreparedFace face(vertices, INDICES, scratch, H + hs::H_OFFSET, H,
                              &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN);
       const auto face_coverage = [&](const math::Vector &point) {
         const float d = SDF::distance_of(face, point).dist;
@@ -288,23 +288,23 @@ inline void test_scan_epilogue_contract() {
         if (variant == 0)
           return;
         fragment.color =
-            Color4(color, variant == 1 ? Scan::MIN_ALPHA : OPACITY);
+            Color4(COLOR, variant == 1 ? Scan::MIN_ALPHA : OPACITY);
         fragment.age = 7.0f;
         if (variant == 2) {
           const float coverage = path == 2 ? face_coverage(point) : fragment.v2;
-          expected.push_back({0, 0, color, 7.0f, OPACITY * coverage});
+          expected.push_back({0, 0, COLOR, 7.0f, OPACITY * coverage});
         }
       };
       if (path == 0)
         Scan::rasterize<W, H, false>(capture, canvas, ring, shader);
       else if (path == 1)
         Scan::rasterize_solid<W, H>(capture, canvas, face,
-                                    Color4(color, OPACITY));
+                                    Color4(COLOR, OPACITY));
       else if (path == 2)
         Scan::rasterize_face<W, H>(capture, canvas, face, shader);
       else if (path == 3)
         Scan::DistortedRingStack::draw<W, H>(
-            capture, canvas, 1, &distorted, slots, 1, stack_table,
+            capture, canvas, 1, &distorted, SLOTS, 1, stack_table,
             [&](int, const math::Vector &point, Fragment &fragment) {
               shader(point, fragment);
             });
@@ -319,7 +319,7 @@ inline void test_scan_epilogue_contract() {
         Scan::rasterize<W, H, false>(
             reference, canvas, face,
             [&](const math::Vector &, Fragment &fragment) {
-              fragment.color = Color4(color, OPACITY);
+              fragment.color = Color4(COLOR, OPACITY);
             });
         expected = std::move(reference.points);
       }
@@ -359,23 +359,23 @@ inline void test_replicated_clip_matches_full_frame() {
   constexpr int W = 96, H = 48;
   const Color4 COLOR(Pixel(50000, 30000, 10000), 0.8f);
   const math::Vector NORMAL(0, 0, -1);
-  const math::Basis BASIS = math::make_basis(math::Quaternion(), NORMAL);
+  const math::Basis basis = math::make_basis(math::Quaternion(), NORMAL);
   for (int count : {2, 3}) {
     std::vector<Pixel> expected(W * H);
     for (int band = -1; band < 5; ++band) {
       StubEffect effect(W, H);
       effect.set_margin(0);
-      const int X0 = band < 0   ? 0
+      const int x0 = band < 0   ? 0
                      : band < 2 ? band * W / 2
                                 : (band - 2) * W / 3;
-      const int X1 = band < 0   ? W
+      const int x1 = band < 0   ? W
                      : band < 2 ? (band + 1) * W / 2
                                 : (band - 1) * W / 3;
-      effect.set_clip(0, H, X0, X1);
+      effect.set_clip(0, H, x0, x1);
       Pipeline<W, H, Filter::World::Replicate<W>> pipeline(count);
       {
         Canvas canvas(effect);
-        SDF::PlanarPolygon shape(BASIS, 0.2f, 5, 0.0f);
+        SDF::PlanarPolygon shape(basis, 0.2f, 5, 0.0f);
         Scan::rasterize_solid<W, H>(pipeline, canvas, shape, COLOR);
       }
       effect.advance_display();
@@ -389,7 +389,7 @@ inline void test_replicated_clip_matches_full_frame() {
               ++lit;
           } else {
             const Pixel want =
-                x >= X0 && x < X1 ? expected[y * W + x] : Pixel(0, 0, 0);
+                x >= x0 && x < x1 ? expected[y * W + x] : Pixel(0, 0, 0);
             HS_EXPECT_PIXEL(actual, want.r, want.g, want.b);
           }
         }

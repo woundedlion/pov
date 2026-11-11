@@ -81,8 +81,8 @@ inline void test_blur_full_kernel_sums_to_alpha() {
 
   float sum = 0.0f;
   int count = 0;
-  const float in_alpha = 0.6f;
-  blur.plot(15.0f, 16.0f, Pixel(1, 2, 3), 3.25f, in_alpha,
+  const float IN_ALPHA = 0.6f;
+  blur.plot(15.0f, 16.0f, Pixel(1, 2, 3), 3.25f, IN_ALPHA,
             [&](float, float, const Pixel &color, float age, float a) {
               HS_EXPECT_EQ(color.r, uint16_t{1});
               HS_EXPECT_EQ(color.g, uint16_t{2});
@@ -92,7 +92,7 @@ inline void test_blur_full_kernel_sums_to_alpha() {
               ++count;
             });
   HS_EXPECT_EQ(count, 9);
-  HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+  HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
 }
 
 /**
@@ -105,7 +105,7 @@ inline void test_blur_full_kernel_sums_to_alpha() {
 inline void test_blur_wraps_column_taps() {
   constexpr int W = 32, H = 32;
   Filter::Screen::Blur<W, H> blur(1.0f);
-  const float in_alpha = 0.5f;
+  const float IN_ALPHA = 0.5f;
 
   auto expect_seam = [&](int column, int left, int right) {
     HS_CONTEXT("column", column);
@@ -113,7 +113,7 @@ inline void test_blur_wraps_column_taps() {
     bool all_in_range = true;
     int count = 0;
     float sum = 0.0f;
-    blur.plot(static_cast<float>(column), 16.0f, Pixel(1, 1, 1), 0.0f, in_alpha,
+    blur.plot(static_cast<float>(column), 16.0f, Pixel(1, 1, 1), 0.0f, IN_ALPHA,
               [&](float x, float, const Pixel &, float, float a) {
                 ++count;
                 sum += a;
@@ -127,7 +127,7 @@ inline void test_blur_wraps_column_taps() {
     HS_EXPECT_TRUE(hit[left]);
     HS_EXPECT_TRUE(hit[column]);
     HS_EXPECT_TRUE(hit[right]);
-    HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+    HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
   };
 
   expect_seam(0, W - 1, 1);
@@ -188,22 +188,22 @@ inline void test_blur_update_changes_kernel() {
  */
 inline void test_blur_kernel_weights_by_offset() {
   constexpr int W = 32, H = 32;
-  constexpr float cx = 15.0f, cy = 16.0f;
+  constexpr float CX = 15.0f, CY = 16.0f;
   struct Case {
     float factor, center, edge, corner;
   };
-  constexpr std::array<Case, 2> cases{{
+  constexpr std::array<Case, 2> CASES{{
       {1.0f, 0.25f, 0.125f, 0.0625f},
       {0.5f, 0.625f, 0.0625f, 0.03125f},
   }};
-  for (const Case &k : cases) {
+  for (const Case &k : CASES) {
     Filter::Screen::Blur<W, H> blur(k.factor);
     int count = 0;
     float sum = 0.0f;
-    blur.plot(cx, cy, Pixel(1, 1, 1), 0.0f, 1.0f,
+    blur.plot(CX, CY, Pixel(1, 1, 1), 0.0f, 1.0f,
               [&](float x, float y, const Pixel &, float, float a) {
                 const int manhattan =
-                    static_cast<int>(std::fabs(x - cx) + std::fabs(y - cy));
+                    static_cast<int>(std::fabs(x - CX) + std::fabs(y - CY));
                 HS_EXPECT_LE(manhattan, 2);
                 const float expected = manhattan == 0   ? k.center
                                        : manhattan == 1 ? k.edge
@@ -226,12 +226,12 @@ inline void test_blur_pole_row_renormalizes() {
   constexpr int W = 32, H = 32;
   Filter::Screen::Blur<W, H> blur(1.0f);
 
-  const float in_alpha = 0.6f;
+  const float IN_ALPHA = 0.6f;
   for (float py : {0.0f, static_cast<float>(H - 1)}) {
     float sum = 0.0f;
     int count = 0;
     bool all_in_bounds = true;
-    blur.plot(15.0f, py, Pixel(1, 1, 1), 0.0f, in_alpha,
+    blur.plot(15.0f, py, Pixel(1, 1, 1), 0.0f, IN_ALPHA,
               [&](float, float yy, const Pixel &, float, float a) {
                 sum += a;
                 ++count;
@@ -241,6 +241,6 @@ inline void test_blur_pole_row_renormalizes() {
     HS_EXPECT_EQ(count,
                  6); // off-pole virtual row dropped -> 2 surviving rows, 6 taps
     HS_EXPECT_TRUE(all_in_bounds);
-    HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+    HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
   }
 }

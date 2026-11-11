@@ -29,13 +29,13 @@ inline double max_err_over(Sim &sim, double revs) {
  */
 inline void test_budget_spurious_epoch() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 0, 0, 0};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 0, 0, 0};
+  Sim sim(cfg, 4, PPM);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   const uint64_t REV = 2ull * PERIOD;
-  const uint64_t BOUNDARY = (sim.g / REV + 2) * REV;
-  sim.emi.push_back({BOUNDARY + COL, 2});
-  sim.emi.push_back({BOUNDARY + 3ull * COL, 2});
+  const uint64_t boundary = (sim.g / REV + 2) * REV;
+  sim.emi.push_back({boundary + COL, 2});
+  sim.emi.push_back({boundary + 3ull * COL, 2});
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[2].live_index == 1; }, 8.0));
   HS_EXPECT_EQ(sim.boards[0].live_index, 0);
@@ -66,8 +66,8 @@ inline void test_budget_spurious_epoch() {
  */
 inline void test_budget_lost_symbol() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 40, -40, 25}; // worst-case datasheet spread
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 40, -40, 25}; // worst-case datasheet spread
+  Sim sim(cfg, 4, PPM);
   sim.run_revs(6.0);
   HS_EXPECT_TRUE(run_to_master_column(sim, 40));
 
@@ -96,8 +96,8 @@ inline void test_budget_lost_symbol() {
  */
 inline void test_budget_emi_accepted_seam() {
   const Config cfg = test_config();
-  const int32_t ppm[2] = {0, 20};
-  Sim sim(cfg, 2, ppm);
+  const int32_t PPM[2] = {0, 20};
+  Sim sim(cfg, 2, PPM);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
   HS_EXPECT_TRUE(run_to_master_column(sim, 40));
@@ -132,8 +132,8 @@ inline void test_budget_emi_accepted_seam() {
  */
 inline void test_budget_corrupted_timebase() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 20, -20, 10};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 20, -20, 10};
+  Sim sim(cfg, 4, PPM);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Park at rev 10 (≡ 2 mod the beacon period) so the ACQUIRE window stays
   // clear of beacon trains.
@@ -190,11 +190,11 @@ inline void test_budget_corrupted_timebase() {
 inline void test_acquire_ignores_beacon_head() {
   Config cfg = test_config(39);
   cfg.beacon_period_revs = 16;
-  const int32_t ppm[4] = {0, 20, -20, 10};
+  const int32_t PPM[4] = {0, 20, -20, 10};
   for (int effect_index : {0, 16, 32}) {
     for (uint32_t beacon_rev : {1u, 2u}) {
       HS_CONTEXT("effect and beacon revolution", effect_index, beacon_rev);
-      Sim sim(cfg, 4, ppm);
+      Sim sim(cfg, 4, PPM);
       const int previous =
           (effect_index + cfg.effect_count - 1) % cfg.effect_count;
       SyncBoardTestAccess::select_boot_effect(sim.boards[0].board, previous);
@@ -257,8 +257,8 @@ inline void test_acquire_ignores_beacon_head() {
  */
 inline void test_budget_beacon_corruption() {
   const Config cfg = test_config();
-  const int32_t ppm[4] = {0, 15, -20, 30};
-  Sim sim(cfg, 4, ppm);
+  const int32_t PPM[4] = {0, 15, -20, 30};
+  Sim sim(cfg, 4, PPM);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Master beacons ride rev ≡ 1 (mod 8); the train starts at x = W/4 = 72.
   HS_EXPECT_TRUE(sim.run_until(
@@ -312,19 +312,19 @@ inline void test_beacon_two_edge_substitution() {
   }
 
   // [0,0,6,1,7]: digit 3 pulses at train columns 21 and 22.
-  const uint64_t TRAIN = sim.g + 32ull * COL;
-  sim.emi.push_back({TRAIN + 21ull * COL + COL / 2, 1});
-  sim.emi.push_back({TRAIN + 22ull * COL + COL / 2, 1});
-  const Telemetry BEFORE = sim.boards[1].board.telemetry_snapshot();
-  const Telemetry CLEAN_BEFORE = sim.boards[2].board.telemetry_snapshot();
+  const uint64_t train = sim.g + 32ull * COL;
+  sim.emi.push_back({train + 21ull * COL + COL / 2, 1});
+  sim.emi.push_back({train + 22ull * COL + COL / 2, 1});
+  const Telemetry before = sim.boards[1].board.telemetry_snapshot();
+  const Telemetry clean_before = sim.boards[2].board.telemetry_snapshot();
   sim.run_revs(0.5);
-  const Telemetry AFTER = sim.boards[1].board.telemetry_snapshot();
-  const Telemetry CLEAN_AFTER = sim.boards[2].board.telemetry_snapshot();
-  HS_EXPECT_EQ(AFTER.beacons_rejected, BEFORE.beacons_rejected + 1);
-  HS_EXPECT_EQ(AFTER.beacons_ok, BEFORE.beacons_ok);
-  HS_EXPECT_EQ(AFTER.beacon_rev_mismatches, BEFORE.beacon_rev_mismatches);
-  HS_EXPECT_EQ(CLEAN_AFTER.beacons_ok, CLEAN_BEFORE.beacons_ok + 1);
-  HS_EXPECT_EQ(CLEAN_AFTER.beacons_rejected, CLEAN_BEFORE.beacons_rejected);
+  const Telemetry after = sim.boards[1].board.telemetry_snapshot();
+  const Telemetry clean_after = sim.boards[2].board.telemetry_snapshot();
+  HS_EXPECT_EQ(after.beacons_rejected, before.beacons_rejected + 1);
+  HS_EXPECT_EQ(after.beacons_ok, before.beacons_ok);
+  HS_EXPECT_EQ(after.beacon_rev_mismatches, before.beacon_rev_mismatches);
+  HS_EXPECT_EQ(clean_after.beacons_ok, clean_before.beacons_ok + 1);
+  HS_EXPECT_EQ(clean_after.beacons_rejected, clean_before.beacons_rejected);
   for (const auto &board : sim.boards)
     HS_EXPECT_EQ(content(board.board).rev_in_effect, 945u);
 
@@ -344,9 +344,9 @@ inline void test_beacon_two_edge_substitution() {
  */
 inline void test_budget_wire_dead() {
   const Config cfg = test_config();
-  const int32_t ppm[3] = {0, 40, -25};
+  const int32_t PPM[3] = {0, 40, -25};
   // Local clocks start below the 32-bit wrap so the wrap lands in the coast.
-  Sim sim(cfg, 3, ppm, 0xFFFFFFFFull - 30ull * 2 * PERIOD + 999);
+  Sim sim(cfg, 3, PPM, 0xFFFFFFFFull - 30ull * 2 * PERIOD + 999);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
   // Cut the wire mid-half so no burst is in flight.
@@ -359,8 +359,8 @@ inline void test_budget_wire_dead() {
   uint64_t flips_before[3];
   for (int i = 0; i < 3; ++i)
     flips_before[i] = sim.boards[i].flips;
-  const double coast = 150.0;
-  sim.run_revs(coast);
+  const double COAST = 150.0;
+  sim.run_revs(COAST);
 
   for (int i = 1; i < 3; ++i) {
     // Silence is a coast, not a fault: locked, zero rejections or fallback.
@@ -369,8 +369,8 @@ inline void test_budget_wire_dead() {
                  0u);
     // ~2 flips/rev throughout.
     const uint64_t df = sim.boards[i].flips - flips_before[i];
-    HS_EXPECT_GE(df, 2 * static_cast<uint64_t>(coast) - 5);
-    HS_EXPECT_LE(df, 2 * static_cast<uint64_t>(coast) + 5);
+    HS_EXPECT_GE(df, 2 * static_cast<uint64_t>(COAST) - 5);
+    HS_EXPECT_LE(df, 2 * static_cast<uint64_t>(COAST) + 5);
     // Layer 3 freezes on the current effect.
     HS_EXPECT_EQ(sim.boards[i].live_index, 0);
     HS_EXPECT_EQ(sim.boards[i].envelope, 0.0f);
@@ -435,9 +435,9 @@ inline void test_effect_output_envelope() {
 inline void test_joined_board_dark_through_commit_window() {
   Config cfg = test_config();
   cfg.revs_per_effect = 128; // > 64: the beacon rev field is congruent only
-  const uint32_t RPE = cfg.revs_per_effect;
-  const uint32_t R = static_cast<uint32_t>(cfg.epoch_repeats);
-  const uint32_t K = cfg.commit_revs;
+  const uint32_t rpe = cfg.revs_per_effect;
+  const uint32_t r = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t k = cfg.commit_revs;
   constexpr int WIDTH = 288;
   constexpr uint32_t JOIN_REV = 70;
 
@@ -449,18 +449,18 @@ inline void test_joined_board_dark_through_commit_window() {
   joined.rev_in_effect = JOIN_REV & 63u; // what a beacon can carry
   HS_EXPECT_EQ(joined.rev_in_effect, 6u);
 
-  for (uint32_t rev = JOIN_REV; rev < RPE; ++rev) {
+  for (uint32_t rev = JOIN_REV; rev < rpe; ++rev) {
     HS_EXPECT_FALSE(synced.on_zero_crossing(cfg));
     HS_EXPECT_FALSE(joined.on_zero_crossing(cfg));
   }
-  HS_EXPECT_EQ(synced.rev_in_effect, RPE);
-  HS_EXPECT_EQ(joined.rev_in_effect, RPE - 64u);
+  HS_EXPECT_EQ(synced.rev_in_effect, rpe);
+  HS_EXPECT_EQ(joined.rev_in_effect, rpe - 64u);
 
   // The counter-driven envelope is what the two disagree on: this is the state
   // the window gate has to override.
-  HS_EXPECT_EQ(effect_output_envelope(synced.rev_in_effect, RPE, 0, WIDTH),
+  HS_EXPECT_EQ(effect_output_envelope(synced.rev_in_effect, rpe, 0, WIDTH),
                0.0f);
-  HS_EXPECT_EQ(effect_output_envelope(joined.rev_in_effect, RPE, 0, WIDTH),
+  HS_EXPECT_EQ(effect_output_envelope(joined.rev_in_effect, rpe, 0, WIDTH),
                1.0f);
 
   HS_EXPECT_TRUE(synced.on_epoch_symbol(cfg));
@@ -470,7 +470,7 @@ inline void test_joined_board_dark_through_commit_window() {
   // the envelope is the only thing holding the strip dark.
   bool synced_committed = false;
   bool joined_committed = false;
-  for (uint32_t step = 0; step < R + K; ++step) {
+  for (uint32_t step = 0; step < r + k; ++step) {
     HS_CONTEXT("window rev", static_cast<long long>(step));
     for (int x = 0; x < WIDTH; x += 37) {
       HS_CONTEXT("column", x);

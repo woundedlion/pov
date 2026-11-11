@@ -69,14 +69,14 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
   constexpr int W = 32, H = 16;
   constexpr int DS = 4;
   using Cache = Filter::Pixel::FeedbackWarpCache<W, H>;
-  constexpr hs::SphericalFieldLayout<W, H> field(DS, DS, DS, W / DS);
-  constexpr int CELLS = (W / DS) * field.ring_count();
+  constexpr hs::SphericalFieldLayout<W, H> FIELD(DS, DS, DS, W / DS);
+  constexpr int CELLS = (W / DS) * FIELD.ring_count();
 
   ScratchScope persistent_scope(persistent_arena);
   Cache cache;
   HS_EXPECT_FALSE(cache.ready());
   cache.init_storage<CELLS>(
-      persistent_arena, field, W / DS,
+      persistent_arena, FIELD, W / DS,
       [](const math::Vector &, const Cache::Coordinates &point) {
         return point;
       });
@@ -84,7 +84,7 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
 
   const Cache::Key first{
       &::Feedback::noise_warp, nullptr, 0u, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0,
-      field.ring_count() - 1,  true};
+      FIELD.ring_count() - 1,  true};
   Cache::Key second = first;
   second.time = 1.0f;
   HS_EXPECT_FALSE(cache.holds(first));

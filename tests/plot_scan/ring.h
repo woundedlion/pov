@@ -75,21 +75,21 @@ inline void test_ring_sample_lut_matches_direct() {
 
   math::Basis b =
       math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
-  const float radius = 0.5f;
-  const float phase = 0.7f;
-  Plot::Ring::sample<W, H>(points, b, radius, phase);
+  const float RADIUS = 0.5f;
+  const float PHASE = 0.7f;
+  Plot::Ring::sample<W, H>(points, b, RADIUS, PHASE);
 
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(W + 1));
 
   const std::vector<math::Vector> expected =
-      ring_vertices_direct(b, radius, phase, W);
-  const float r_val = ring_arc_scale(b, radius);
-  const float step = 2.0f * math::PI_F / W;
+      ring_vertices_direct(b, RADIUS, PHASE, W);
+  const float r_val = ring_arc_scale(b, RADIUS);
+  const float STEP = 2.0f * math::PI_F / W;
 
   for (int i = 0; i < W; ++i) {
     HS_EXPECT_VEC(points[i].pos, expected[i], 2e-3f);
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
-    HS_EXPECT_NEAR(points[i].v1, i * step * r_val, 2e-3f);
+    HS_EXPECT_NEAR(points[i].v1, i * STEP * r_val, 2e-3f);
   }
 
   HS_EXPECT_VEC(points.back().pos, points[0].pos, 1e-3f);
@@ -111,10 +111,10 @@ inline void test_ring_draw_stride_tracks_full_grid() {
   constexpr int W = 96, H = 48;
   auto shade = white_shader(1.0f);
 
-  const math::Vector centers[] = {math::Vector(0, 1, 0),
+  const math::Vector CENTERS[] = {math::Vector(0, 1, 0),
                                   math::Vector(0.3f, 0.8f, 0.5f),
                                   math::Vector(1, 0, 0)};
-  for (const math::Vector &center : centers) {
+  for (const math::Vector &center : CENTERS) {
     math::Basis b = math::make_basis(math::Quaternion(1, 0, 0, 0), center);
     for (float radius : {0.06f, 0.15f, 0.3f}) {
       HS_EXPECT_GT((Plot::ring_lut_stride<W>(sinf(radius * math::PI_F / 2.0f))),

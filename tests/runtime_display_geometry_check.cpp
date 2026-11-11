@@ -65,7 +65,7 @@ template <int W, int H> void check_geometry(float north, float south) {
     filter.init_storage(arena);
     HS_EXPECT_LE(arena.get_offset(), BYTES);
   }
-  const Field field(4);
+  const Field FIELD(4);
   for (int row : {0, H - 1}) {
     const bool pole = row == 0 ? Field::HAS_NORTH_POLE : Field::HAS_SOUTH_POLE;
     if (!pole)
@@ -73,7 +73,7 @@ template <int W, int H> void check_geometry(float north, float south) {
         hs_test::pole_geometry::check_feedback_ring_centroid<W, H>(row, 0, 1,
                                                                    alpha);
   }
-  const float poles[Field::POLE_STORAGE_COUNT] = {30.0f, 40.0f};
+  const float POLES[Field::POLE_STORAGE_COUNT] = {30.0f, 40.0f};
   for (int row : {0, H - 1}) {
     const float phi = row == 0 ? north : south;
     const bool pole = row == 0 ? Field::HAS_NORTH_POLE : Field::HAS_SOUTH_POLE;
@@ -81,8 +81,8 @@ template <int W, int H> void check_geometry(float north, float south) {
     HS_EXPECT_NEAR(point.y, std::cos(phi), 1e-6f);
     HS_EXPECT_NEAR(point.x, std::sin(phi), 1e-6f);
     HS_EXPECT_NEAR(Geometry::phi_to_row(phi), static_cast<float>(row), 3e-5f);
-    const float sampled = field.sample_bilinear(
-        3.0f, static_cast<float>(row), poles, 0.0f,
+    const float sampled = FIELD.sample_bilinear(
+        3.0f, static_cast<float>(row), POLES, 0.0f,
         [](int, int) { return 10.0f; },
         [](float a, float, float, float, float, float) { return a; });
     const float expected_pole =

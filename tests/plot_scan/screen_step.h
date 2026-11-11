@@ -15,23 +15,23 @@
  */
 inline void test_screen_step_matches_analytic_unclamped() {
   constexpr int W = 288, H = 144;
-  constexpr float base_step = (2.0f * math::PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   const float KX = W / (2.0f * math::PI_F);
   const float KY = math::DisplayGeometry<H>::ROWS_PER_RADIAN;
 
   auto screen_speed = [&](const math::Vector &pos, const math::Vector &tan) {
-    const float ds = 1e-4f;
+    const float DS = 1e-4f;
     auto xy = [&](const math::Vector &p) {
       float phi = std::acos(hs::clamp(p.y, -1.0f, 1.0f));
       float lam = std::atan2(p.z, p.x);
       return std::pair<float, float>(lam * KX, phi * KY);
     };
-    math::Vector pp = (pos * std::cos(ds) + tan * std::sin(ds)).normalized();
-    math::Vector pm = (pos * std::cos(ds) - tan * std::sin(ds)).normalized();
+    math::Vector pp = (pos * std::cos(DS) + tan * std::sin(DS)).normalized();
+    math::Vector pm = (pos * std::cos(DS) - tan * std::sin(DS)).normalized();
     auto a = xy(pp);
     auto b = xy(pm);
-    float dx = (a.first - b.first) / (2.0f * ds);
-    float dy = (a.second - b.second) / (2.0f * ds);
+    float dx = (a.first - b.first) / (2.0f * DS);
+    float dy = (a.second - b.second) / (2.0f * DS);
     return std::sqrt(dx * dx + dy * dy);
   };
 
@@ -41,10 +41,10 @@ inline void test_screen_step_matches_analytic_unclamped() {
   // The tangent must be perpendicular to pos (a genuine arc-length tangent), or
   // the geodesic oracle and screen_step's formula parametrize differently.
   const math::Vector pos_off(std::sqrt(0.75f), 0.5f, 0.0f);
-  const math::Vector raw(0.0f, 1.0f,
+  const math::Vector RAW(0.0f, 1.0f,
                          1.0f); // arbitrary; projected onto the tangent plane
   const math::Vector tan_mixed =
-      (raw - pos_off * math::dot(raw, pos_off)).normalized();
+      (RAW - pos_off * math::dot(RAW, pos_off)).normalized();
   // Equatorial longitudinal, off-equator longitudinal, and mixed tangents.
   const Case cases[] = {
       {math::Vector(1.0f, 0.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f)},
@@ -52,19 +52,19 @@ inline void test_screen_step_matches_analytic_unclamped() {
       {pos_off, tan_mixed},
   };
 
-  const float lo = base_step * Plot::MIN_POLE_SCALE;
+  const float LO = BASE_STEP * Plot::MIN_POLE_SCALE;
   for (const Case &c : cases) {
     float speed = screen_speed(c.pos, c.tan);
     float expected = Plot::SCREEN_STEP_PX / speed;
     // Unclamped regime guard: the analytic step sits strictly inside the window.
-    HS_EXPECT_GT(expected, lo);
-    HS_EXPECT_LT(expected, base_step);
+    HS_EXPECT_GT(expected, LO);
+    HS_EXPECT_LT(expected, BASE_STEP);
 
-    float got = Plot::screen_step<W, H>(c.pos, c.tan, base_step);
+    float got = Plot::screen_step<W, H>(c.pos, c.tan, BASE_STEP);
     HS_EXPECT_NEAR(got, expected, expected * 2e-3f);
 
     // Speed squares the tangent, so the sign drops out.
-    float flipped = Plot::screen_step<W, H>(c.pos, c.tan * -1.0f, base_step);
+    float flipped = Plot::screen_step<W, H>(c.pos, c.tan * -1.0f, BASE_STEP);
     HS_EXPECT_NEAR(flipped, got, 1e-6f);
   }
 }
@@ -78,7 +78,7 @@ inline void test_screen_step_matches_analytic_unclamped() {
  */
 inline void test_edge_fits_one_dot_is_conservative() {
   constexpr int W = 288, H = 144;
-  constexpr float base_step = (2.0f * math::PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs::random().seed(20260720);
 
   int accepted = 0;
@@ -100,7 +100,7 @@ inline void test_edge_fits_one_dot_is_conservative() {
     if (t.length() < 1e-3f)
       continue;
     t = t.normalized();
-    float theta = base_step * std::pow(10.0f, hs::rand_f(-4.0f, 0.5f));
+    float theta = BASE_STEP * std::pow(10.0f, hs::rand_f(-4.0f, 0.5f));
     math::Vector b = (a * std::cos(theta) + t * std::sin(theta)).normalized();
 
     if (!Plot::edge_fits_one_dot<W, H>(a, b))
@@ -111,7 +111,7 @@ inline void test_edge_fits_one_dot_is_conservative() {
     HS_EXPECT_GE(total, math::EPS_GEOMETRIC);
     math::Vector axis = math::cross(a, b).normalized();
     math::Vector v_perp = math::cross(axis, a);
-    float first_step = Plot::screen_step<W, H>(a, v_perp, base_step);
+    float first_step = Plot::screen_step<W, H>(a, v_perp, BASE_STEP);
     HS_EXPECT_LE(total, first_step);
   }
   HS_EXPECT_GT(accepted, 500);
@@ -162,9 +162,9 @@ inline void test_geodesic_edge_gate_keeps_upper_antialias_tap() {
   const float phi = math::DisplayGeometry<H>::row_to_phi(EDGE_ROW);
   const float sp = sinf(phi);
   const float cp = cosf(phi);
-  const float theta = 0.2f;
-  const math::Vector a(sp * cosf(theta), cp, sp * sinf(theta));
-  const math::Vector b(sp * cosf(theta), cp, -sp * sinf(theta));
+  const float THETA = 0.2f;
+  const math::Vector a(sp * cosf(THETA), cp, sp * sinf(THETA));
+  const math::Vector b(sp * cosf(THETA), cp, -sp * sinf(THETA));
   const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
 
   ClipRegion cr;
@@ -214,14 +214,14 @@ inline void test_antialiased_dot_gate_matches_antialias_taps() {
   struct Band {
     int y_start, y_end, x_start, x_end, margin;
   };
-  const Band bands[] = {
+  const Band BANDS[] = {
       {0, H, 0, W, 1},   {10, 14, 0, W, 1},    {10, 14, 4, 9, 0},
       {10, 14, 4, 9, 1}, {H - 2, H, 6, 7, 0},  {0, 2, 0, W, 0},
       {8, 12, 0, 3, 2},  {8, 12, W - 3, W, 2},
   };
 
   int mismatches = 0, visible = 0, hidden = 0;
-  for (const Band &b : bands) {
+  for (const Band &b : BANDS) {
     ClipRegion cr;
     cr.w = W;
     cr.h = H;

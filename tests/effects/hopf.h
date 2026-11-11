@@ -109,27 +109,27 @@ inline void test_hopf_projection_math() {
   WB::set_twist(fx, 0.0f);
   WB::set_cache(fx, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 
-  const float polar = 1.2f, azimuth = 0.7f;
-  WB::set_fiber(fx, 0, azimuth, polar);
+  const float POLAR = 1.2f, AZIMUTH = 0.7f;
+  WB::set_fiber(fx, 0, AZIMUTH, POLAR);
   const math::Vector v = WB::project(fx, 0);
 
-  const float eta = polar * 0.5f;
-  const float ce = math::fast_cosf(eta), se = math::fast_sinf(eta);
-  const math::Vector expected = math::Vector(ce * math::fast_cosf(azimuth),
-                                             ce * math::fast_sinf(azimuth), se)
+  const float ETA = POLAR * 0.5f;
+  const float ce = math::fast_cosf(ETA), se = math::fast_sinf(ETA);
+  const math::Vector expected = math::Vector(ce * math::fast_cosf(AZIMUTH),
+                                             ce * math::fast_sinf(AZIMUTH), se)
                                     .normalized();
   HS_EXPECT_VEC(v, expected, 1e-4f);
   HS_EXPECT_NEAR(v.magnitude(), 1.0f, 1e-4f);
 
   // Active tumble, then tumble with fold and twist, against a double-precision
   // fold -> twist -> S3 -> R_xw/R_yz -> stereographic reference.
-  const double ax = 0.9, ay = 0.4, flow = 0.3;
-  const double fold_base = std::sin(ax * 0.5) * 0.5;
-  WB::set_cache(fx, static_cast<float>(std::cos(ax)),
-                static_cast<float>(std::sin(ax)),
-                static_cast<float>(std::cos(ay)),
-                static_cast<float>(std::sin(ay)), static_cast<float>(fold_base),
-                static_cast<float>(flow), static_cast<float>(ay));
+  const double AX = 0.9, AY = 0.4, FLOW = 0.3;
+  const double fold_base = std::sin(AX * 0.5) * 0.5;
+  WB::set_cache(fx, static_cast<float>(std::cos(AX)),
+                static_cast<float>(std::sin(AX)),
+                static_cast<float>(std::cos(AY)),
+                static_cast<float>(std::sin(AY)), static_cast<float>(fold_base),
+                static_cast<float>(FLOW), static_cast<float>(AY));
   for (const auto [folding, twist] : {std::pair{0.0f, 0.0f}, {0.5f, 2.0f}}) {
     WB::set_folding(fx, folding);
     WB::set_twist(fx, twist);
@@ -143,17 +143,17 @@ inline void test_hopf_projection_math() {
       const double azimuth0 = sph.theta;
       const double eta =
           sph.phi / 2.0 +
-          std::sin(azimuth0 * 2.0 + ay + fold_base) * 0.2 * folding;
+          std::sin(azimuth0 * 2.0 + AY + fold_base) * 0.2 * folding;
       const double azimuth = azimuth0 + eta * twist;
-      const double beta = flow + static_cast<double>(i) * WB::phase_step();
+      const double beta = FLOW + static_cast<double>(i) * WB::phase_step();
       const double q0 = std::cos(eta) * std::cos(azimuth + beta);
       const double q1 = std::cos(eta) * std::sin(azimuth + beta);
       const double q2 = std::sin(eta) * std::cos(beta);
       const double q3 = std::sin(eta) * std::sin(beta);
-      const double r0 = q0 * std::cos(ax) - q3 * std::sin(ax);
-      const double r3 = q0 * std::sin(ax) + q3 * std::cos(ax);
-      const double r1 = q1 * std::cos(ay) - q2 * std::sin(ay);
-      const double r2 = q1 * std::sin(ay) + q2 * std::cos(ay);
+      const double r0 = q0 * std::cos(AX) - q3 * std::sin(AX);
+      const double r3 = q0 * std::sin(AX) + q3 * std::cos(AX);
+      const double r1 = q1 * std::cos(AY) - q2 * std::sin(AY);
+      const double r2 = q1 * std::sin(AY) + q2 * std::cos(AY);
       const double factor = 1.0 / (1.0 + 0.001 - r3);
       const double x = r0 * factor, y = r1 * factor, z = r2 * factor;
       const double len = std::sqrt(x * x + y * y + z * z);
@@ -182,10 +182,10 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
   using WB = HopfWhiteBox;
   using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;
   // Ascending, all at or above MIN_VISIBLE_ALPHA.
-  const float alphas[] = {MIN_VISIBLE_ALPHA, 0.005f, 0.01f, 0.05f, 0.4f, 1.0f};
+  const float ALPHAS[] = {MIN_VISIBLE_ALPHA, 0.005f, 0.01f, 0.05f, 0.4f, 1.0f};
   for (size_t len = 2; len <= static_cast<size_t>(HF::TRAIL_LEN); ++len) {
     size_t previous_first = len;
-    for (float alpha : alphas) {
+    for (float alpha : ALPHAS) {
       const size_t first = WB::trim_start(len, alpha);
       HS_EXPECT_LT(first + 1, len);
       HS_EXPECT_LE(first, previous_first);

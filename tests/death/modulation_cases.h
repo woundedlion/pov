@@ -35,18 +35,18 @@ inline void case_modulation_invalid_synchronization() {
 }
 inline void case_modulation_invalid_preparation() {
   ColorModulation::Config config;
-  const auto STATE = Pullback::Modulation::init(config);
+  const auto state = Pullback::Modulation::init(config);
   Pullback::Modulation::Resources<> resources;
-  (void)resources.prepare(config, STATE);
+  (void)resources.prepare(config, state);
   config.version = opaque(uint16_t{0});
-  (void)resources.prepare(config, STATE);
+  (void)resources.prepare(config, state);
 }
 inline void case_modulation_missing_cube_capacity() {
   ColorModulation::Config config;
   config.mechanic.amount = 0.5f;
-  const auto STATE = Pullback::Modulation::init(config);
+  const auto state = Pullback::Modulation::init(config);
   Pullback::Modulation::Resources<false> resources;
-  (void)resources.prepare(config, STATE);
+  (void)resources.prepare(config, state);
 }
 
 inline void case_modulation_retain_table_size() {

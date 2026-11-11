@@ -287,8 +287,8 @@ inline void test_packpixel_shipped_gains_full_brightness() {
 /** @brief Verifies nearest 8-bit quantization for the non-DMA output path. */
 inline void test_linear_quantization() {
   for (uint32_t value = 0; value <= 65535u; ++value) {
-    const auto EXPECTED = static_cast<uint8_t>(value * 255.0 / 65535.0 + 0.5);
-    HS_EXPECT_EQ(linear16_to_linear8(static_cast<uint16_t>(value)), EXPECTED);
+    const auto expected = static_cast<uint8_t>(value * 255.0 / 65535.0 + 0.5);
+    HS_EXPECT_EQ(linear16_to_linear8(static_cast<uint16_t>(value)), expected);
   }
 }
 
@@ -298,32 +298,32 @@ inline void test_packpixel_adaptive_quantization() {
   Frame f;
   int previous_light = 0;
   for (uint32_t value = 0; value <= 65535u; ++value) {
-    const uint16_t CHANNEL = static_cast<uint16_t>(value);
-    const Pixel INPUTS[] = {
-        Pixel(CHANNEL, CHANNEL, CHANNEL),
-        Pixel(CHANNEL, static_cast<uint16_t>(value / 3), 0),
-        Pixel(0, CHANNEL, static_cast<uint16_t>(65535u - value)),
-        Pixel(static_cast<uint16_t>(value / 7), 0, CHANNEL)};
-    for (const Pixel &input : INPUTS) {
+    const uint16_t channel = static_cast<uint16_t>(value);
+    const Pixel inputs[] = {
+        Pixel(channel, channel, channel),
+        Pixel(channel, static_cast<uint16_t>(value / 3), 0),
+        Pixel(0, channel, static_cast<uint16_t>(65535u - value)),
+        Pixel(static_cast<uint16_t>(value / 7), 0, channel)};
+    for (const Pixel &input : inputs) {
       f.pack_pixel(0, input);
-      const uint8_t *WIRE = pixel(f, 0);
-      const int BRIGHTNESS = WIRE[0] & 31;
-      HS_EXPECT_EQ(WIRE[0] & 0xE0, 0xE0);
-      HS_EXPECT_TRUE(BRIGHTNESS >= 1 && BRIGHTNESS <= 31);
-      const double PEAK = std::max({input.r, input.g, input.b}) / 65535.0;
-      HS_EXPECT_TRUE(PEAK <= BRIGHTNESS / 31.0 * (255.5 / 255));
-      if (PEAK > 0)
-        HS_EXPECT_TRUE(PEAK >= (BRIGHTNESS - 1) / 31.0 * (255.5 / 255));
-      const uint16_t CHANNELS[] = {input.b, input.g, input.r};
+      const uint8_t *wire = pixel(f, 0);
+      const int brightness = wire[0] & 31;
+      HS_EXPECT_EQ(wire[0] & 0xE0, 0xE0);
+      HS_EXPECT_TRUE(brightness >= 1 && brightness <= 31);
+      const double peak = std::max({input.r, input.g, input.b}) / 65535.0;
+      HS_EXPECT_TRUE(peak <= brightness / 31.0 * (255.5 / 255));
+      if (peak > 0)
+        HS_EXPECT_TRUE(peak >= (brightness - 1) / 31.0 * (255.5 / 255));
+      const uint16_t channels[] = {input.b, input.g, input.r};
       for (int i = 0; i < 3; ++i) {
-        const double LIGHT = WIRE[i + 1] / 255.0 * BRIGHTNESS / 31.0;
-        const double ERROR = std::abs(LIGHT - CHANNELS[i] / 65535.0);
-        HS_EXPECT_TRUE(ERROR <= BRIGHTNESS / (31.0 * 255.0 * 2) + 1e-12);
+        const double light = wire[i + 1] / 255.0 * brightness / 31.0;
+        const double error = std::abs(light - channels[i] / 65535.0);
+        HS_EXPECT_TRUE(error <= brightness / (31.0 * 255.0 * 2) + 1e-12);
       }
       if (input.r == input.g && input.g == input.b) {
-        const int LIGHT = WIRE[3] * BRIGHTNESS;
-        HS_EXPECT_GE(LIGHT, previous_light);
-        previous_light = LIGHT;
+        const int light = wire[3] * brightness;
+        HS_EXPECT_GE(light, previous_light);
+        previous_light = light;
       }
     }
   }

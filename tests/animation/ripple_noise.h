@@ -15,9 +15,9 @@
 inline void test_ripple_envelope_and_done_boundary() {
   Animation::RippleParams params;
   params.amplitude = 2.0f; // peak captured at construction
-  const math::Vector center(0.0f, 1.0f, 0.0f);
-  const int duration = 20;
-  Animation::Ripple ripple(params, center, /*speed=*/0.2f, duration);
+  const math::Vector CENTER(0.0f, 1.0f, 0.0f);
+  const int DURATION = 20;
+  Animation::Ripple ripple(params, CENTER, /*speed=*/0.2f, DURATION);
 
   // Construction zeroes the live amplitude and seats the center.
   HS_EXPECT_NEAR(params.amplitude, 0.0f, 1e-6f);
@@ -26,13 +26,13 @@ inline void test_ripple_envelope_and_done_boundary() {
   std::vector<float> amps;
   float prev_phase = params.phase;
   bool phase_advances = true;
-  for (int i = 0; i < duration; ++i) {
+  for (int i = 0; i < DURATION; ++i) {
     ripple.step(fake_canvas());
     amps.push_back(params.amplitude);
-    if (i < duration - 1 && params.phase <= prev_phase)
+    if (i < DURATION - 1 && params.phase <= prev_phase)
       phase_advances = false;
     prev_phase = params.phase;
-    if (i < duration - 1)
+    if (i < DURATION - 1)
       HS_EXPECT_FALSE(ripple.done());
   }
   HS_EXPECT_TRUE(ripple.done()); // t == duration
@@ -56,7 +56,7 @@ inline void test_ripple_envelope_and_done_boundary() {
   HS_EXPECT_LT(argmax, amps.size() - 1);
   HS_EXPECT_NEAR(amps.back(), 0.0f, 1e-6f);
   // Phase stops advancing at the boundary, with the envelope.
-  HS_EXPECT_NEAR(params.phase, 0.2f * (duration - 1), 1e-5f);
+  HS_EXPECT_NEAR(params.phase, 0.2f * (DURATION - 1), 1e-5f);
 }
 
 /**
@@ -355,16 +355,16 @@ inline void test_random_walk_stays_unit_and_travels() {
     math::Orientation<4> o; // identity
     FastNoiseLite noise;
     Walk walk(o, math::Y_AXIS, noise, options, seed);
-    const math::Vector probe = math::X_AXIS, companion = math::Z_AXIS;
+    const math::Vector PROBE = math::X_AXIS, COMPANION = math::Z_AXIS;
     const float rest =
-        static_cast<float>(chord_angle_between(probe, companion));
-    math::Vector prev = o.orient(probe);
+        static_cast<float>(chord_angle_between(PROBE, COMPANION));
+    math::Vector prev = o.orient(PROBE);
     float travel = 0.0f;
     for (int fr = 0; fr < RANDOM_WALK_FRAMES; ++fr) {
       HS_CONTEXT("frame", fr);
       walk.step(fake_canvas());
-      const math::Vector cur = o.orient(probe);
-      const math::Vector other = o.orient(companion);
+      const math::Vector cur = o.orient(PROBE);
+      const math::Vector other = o.orient(COMPANION);
       trace.push_back(cur);
       HS_EXPECT_NEAR(cur.length(), 1.0f, 1e-4f);
       HS_EXPECT_NEAR(other.length(), 1.0f, 1e-4f);

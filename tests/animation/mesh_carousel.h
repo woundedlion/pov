@@ -15,24 +15,24 @@
 inline void test_crossfade_segue_schedules_overlapping_sprite() {
   Timeline tl;
   std::vector<float> ops;
-  const int dur = 10, window = 3;
+  const int DUR = 10, WINDOW = 3;
   MeshCarousel<Segue::Crossfade> carousel;
   int next_delay = carousel.schedule_segue(
       tl, carousel.front_index(), [&](Canvas &, float o) { ops.push_back(o); },
-      dur, window);
-  HS_EXPECT_EQ(next_delay, dur - window);
+      DUR, WINDOW);
+  HS_EXPECT_EQ(next_delay, DUR - WINDOW);
   HS_EXPECT_EQ(tl.event_count(), 1);
 
-  for (int i = 0; i < dur; ++i)
+  for (int i = 0; i < DUR; ++i)
     tl.step(fake_canvas()); // observed at t = 1..10
 
-  HS_EXPECT_SIZE_OR_RETURN(ops, dur);
+  HS_EXPECT_SIZE_OR_RETURN(ops, DUR);
   // Fade-in ramp, full-opacity plateau, transparent on the final frame.
-  HS_EXPECT_LT(ops[window - 2], 1.0f);
-  HS_EXPECT_NEAR(ops[window - 1], 1.0f, 1e-3f);
-  HS_EXPECT_NEAR(ops[dur - window - 1], 1.0f, 1e-3f);
-  HS_EXPECT_LT(ops[dur - window], 1.0f);
-  HS_EXPECT_NEAR(ops[dur - 1], 0.0f, 1e-3f);
+  HS_EXPECT_LT(ops[WINDOW - 2], 1.0f);
+  HS_EXPECT_NEAR(ops[WINDOW - 1], 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(ops[DUR - WINDOW - 1], 1.0f, 1e-3f);
+  HS_EXPECT_LT(ops[DUR - WINDOW], 1.0f);
+  HS_EXPECT_NEAR(ops[DUR - 1], 0.0f, 1e-3f);
   HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
@@ -41,11 +41,11 @@ inline void test_crossfade_segue_schedules_overlapping_sprite() {
  */
 inline void test_crossfade_segue_clamps_fade_to_half_duration() {
   Timeline tl;
-  const int dur = 10, window = 9; // > dur/2, clamps to 5
+  const int DUR = 10, WINDOW = 9; // > dur/2, clamps to 5
   MeshCarousel<Segue::Crossfade> carousel;
   int next_delay = carousel.schedule_segue(
-      tl, carousel.front_index(), [](Canvas &, float) {}, dur, window);
-  HS_EXPECT_EQ(next_delay, dur - dur / 2);
+      tl, carousel.front_index(), [](Canvas &, float) {}, DUR, WINDOW);
+  HS_EXPECT_EQ(next_delay, DUR - DUR / 2);
 }
 
 /**
@@ -55,21 +55,21 @@ inline void test_crossfade_segue_clamps_fade_to_half_duration() {
  */
 inline void test_crossfade_segue_overlap_is_configurable() {
   Timeline tl;
-  const int dur = 10, window = 3;
+  const int DUR = 10, WINDOW = 3;
   MeshCarousel<Segue::Crossfade> carousel;
   auto noop = [](Canvas &, float) {};
   carousel.segue().overlap = 0;
   HS_EXPECT_EQ(
-      carousel.schedule_segue(tl, carousel.front_index(), noop, dur, window),
-      dur);
+      carousel.schedule_segue(tl, carousel.front_index(), noop, DUR, WINDOW),
+      DUR);
   carousel.segue().overlap = 100;
   HS_EXPECT_EQ(
-      carousel.schedule_segue(tl, carousel.front_index(), noop, dur, window),
-      dur - window);
+      carousel.schedule_segue(tl, carousel.front_index(), noop, DUR, WINDOW),
+      DUR - WINDOW);
   carousel.segue().overlap = 2;
   HS_EXPECT_EQ(
-      carousel.schedule_segue(tl, carousel.front_index(), noop, dur, window),
-      dur - 2);
+      carousel.schedule_segue(tl, carousel.front_index(), noop, DUR, WINDOW),
+      DUR - 2);
 }
 
 /**
@@ -79,24 +79,24 @@ inline void test_crossfade_segue_overlap_is_configurable() {
 inline void test_sequential_segue_never_overlaps_sprites() {
   Timeline tl;
   std::vector<float> ops;
-  const int dur = 10, window = 3;
+  const int DUR = 10, WINDOW = 3;
   MeshCarousel<Segue::SpinFlip> carousel;
   int next_delay = carousel.schedule_segue(
       tl, carousel.front_index(), [&](Canvas &, float p) { ops.push_back(p); },
-      dur, window);
-  HS_EXPECT_EQ(next_delay, dur);
+      DUR, WINDOW);
+  HS_EXPECT_EQ(next_delay, DUR);
   HS_EXPECT_EQ(tl.event_count(), 1);
 
-  for (int i = 0; i < dur; ++i)
+  for (int i = 0; i < DUR; ++i)
     tl.step(fake_canvas()); // observed at t = 1..10
 
-  HS_EXPECT_SIZE_OR_RETURN(ops, dur);
+  HS_EXPECT_SIZE_OR_RETURN(ops, DUR);
   // Phase ramps up, plateaus at 1, and returns to 0 on the final frame.
-  HS_EXPECT_LT(ops[window - 2], 1.0f);
-  HS_EXPECT_NEAR(ops[window - 1], 1.0f, 1e-3f);
-  HS_EXPECT_NEAR(ops[dur - window - 1], 1.0f, 1e-3f);
-  HS_EXPECT_LT(ops[dur - window], 1.0f);
-  HS_EXPECT_NEAR(ops[dur - 1], 0.0f, 1e-3f);
+  HS_EXPECT_LT(ops[WINDOW - 2], 1.0f);
+  HS_EXPECT_NEAR(ops[WINDOW - 1], 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(ops[DUR - WINDOW - 1], 1.0f, 1e-3f);
+  HS_EXPECT_LT(ops[DUR - WINDOW], 1.0f);
+  HS_EXPECT_NEAR(ops[DUR - 1], 0.0f, 1e-3f);
 }
 
 /**
@@ -155,15 +155,15 @@ inline void test_dissolve_segue_reseeds_per_frame_and_transition() {
  */
 inline void test_dissolve_segue_overlaps_the_full_fade_window() {
   Timeline tl;
-  const int dur = 10, window = 3; // fade = min(window, dur/2) = window
+  const int DUR = 10, WINDOW = 3; // fade = min(window, dur/2) = window
   MeshCarousel<Segue::Dissolve> carousel;
   bool drew_out = false, drew_in = false;
   int co_resident = 0;
   int outgoing_frames = 0;
   int next_delay = carousel.schedule_segue(
       tl, carousel.front_index(), [&](Canvas &, float) { drew_out = true; },
-      dur, window);
-  HS_EXPECT_EQ(next_delay, dur - window);
+      DUR, WINDOW);
+  HS_EXPECT_EQ(next_delay, DUR - WINDOW);
 
   for (int i = 0; i < next_delay; ++i) {
     drew_out = drew_in = false;
@@ -173,14 +173,14 @@ inline void test_dissolve_segue_overlaps_the_full_fade_window() {
   HS_EXPECT_EQ(outgoing_frames, next_delay);
 
   carousel.schedule_segue(
-      tl, carousel.front_index(), [&](Canvas &, float) { drew_in = true; }, dur,
-      window);
-  for (int i = 0; i < dur; ++i) {
+      tl, carousel.front_index(), [&](Canvas &, float) { drew_in = true; }, DUR,
+      WINDOW);
+  for (int i = 0; i < DUR; ++i) {
     drew_out = drew_in = false;
     tl.step(fake_canvas());
     co_resident += drew_out && drew_in;
   }
-  HS_EXPECT_EQ(co_resident, window);
+  HS_EXPECT_EQ(co_resident, WINDOW);
 }
 
 /**
@@ -192,10 +192,10 @@ inline void test_dissolve_segue_overlaps_the_full_fade_window() {
 inline void test_breakdown_guards_degenerate_class_inputs() {
   const hs_test::ScopedRng saved_rng;
   Segue::Breakdown bd; // default: one class, no reorder() yet
-  const math::Vector any(0.0f, 1.0f, 0.0f);
+  const math::Vector ANY(0.0f, 1.0f, 0.0f);
   HS_EXPECT_EQ(bd.num_classes, 1);
-  HS_EXPECT_NEAR(bd.face_offset(any, 0, 0), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(bd.face_offset(any, 0, 5), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(bd.face_offset(ANY, 0, 0), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(bd.face_offset(ANY, 0, 5), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(bd.face_phase(0.0f, 0.0f), 0.0f, 1e-6f);
   HS_EXPECT_EQ(bd.face_phase(1.0f, 0.0f), 1.0f);
 
@@ -203,11 +203,11 @@ inline void test_breakdown_guards_degenerate_class_inputs() {
   const std::vector<uint8_t> face_classes{0, 1, 2};
   bd.reorder(face_classes);
   HS_EXPECT_EQ(bd.num_classes, 3);
-  const float class0 = bd.face_offset(any, 0, 0);
-  HS_EXPECT_NEAR(bd.face_offset(any, 0, -1), class0, 1e-6f);
-  HS_EXPECT_NEAR(bd.face_offset(any, 0, bd.num_classes), class0, 1e-6f);
+  const float class0 = bd.face_offset(ANY, 0, 0);
+  HS_EXPECT_NEAR(bd.face_offset(ANY, 0, -1), class0, 1e-6f);
+  HS_EXPECT_NEAR(bd.face_offset(ANY, 0, bd.num_classes), class0, 1e-6f);
   for (int c = 0; c < bd.num_classes; ++c) {
-    const float o = bd.face_offset(any, 0, c);
+    const float o = bd.face_offset(ANY, 0, c);
     HS_EXPECT_NEAR(bd.face_phase(0.0f, o), 0.0f, 1e-6f);
     HS_EXPECT_EQ(bd.face_phase(1.0f, o), 1.0f);
   }
@@ -333,17 +333,17 @@ inline void test_lace_fill_keeps_edge_band() {
  * earlier.
  */
 inline void test_sweep_phase_front_ordering() {
-  const float band = 0.25f;
+  const float BAND = 0.25f;
   for (float o : {0.0f, 0.5f, 1.0f}) {
-    HS_EXPECT_NEAR(Segue::sweep_phase(1.0f, o, band), 1.0f, 1e-3f);
-    HS_EXPECT_NEAR(Segue::sweep_phase(0.0f, o, band), 0.0f, 1e-3f);
+    HS_EXPECT_NEAR(Segue::sweep_phase(1.0f, o, BAND), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(Segue::sweep_phase(0.0f, o, BAND), 0.0f, 1e-3f);
   }
   // Monotone in phase at fixed offset inside the front's ramp.
-  HS_EXPECT_GT(Segue::sweep_phase(0.3f, 0.5f, band),
-               Segue::sweep_phase(0.2f, 0.5f, band));
+  HS_EXPECT_GT(Segue::sweep_phase(0.3f, 0.5f, BAND),
+               Segue::sweep_phase(0.2f, 0.5f, BAND));
   // At a fixed phase, a higher offset is further extinguished.
-  HS_EXPECT_GT(Segue::sweep_phase(0.5f, 0.2f, band),
-               Segue::sweep_phase(0.5f, 0.8f, band));
+  HS_EXPECT_GT(Segue::sweep_phase(0.5f, 0.2f, BAND),
+               Segue::sweep_phase(0.5f, 0.8f, BAND));
 }
 
 /** @brief Counts the per-face hooks used to prepare a segue. */
@@ -472,16 +472,16 @@ inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
                                      mesh.get_face_counts_data()[face]),
             math::UP);
       };
-      const int CLS = MeshPaletteBank::slot_of(transformed.topology[face]);
+      const int cls = MeshPaletteBank::slot_of(transformed.topology[face]);
       const auto &policy = carousel.segue();
-      const float WANT = policy.face_phase(
-          0.5f, policy.face_offset(center(expected), face, CLS),
+      const float want = policy.face_phase(
+          0.5f, policy.face_offset(center(expected), face, cls),
           policy.face_fade_frac(face));
-      const float OTHER =
-          policy.face_phase(0.5f, policy.face_offset(center(other), face, CLS),
+      const float other_value =
+          policy.face_phase(0.5f, policy.face_offset(center(other), face, cls),
                             policy.face_fade_frac(face));
-      HS_EXPECT_NEAR(phases[face], WANT, 1e-6f);
-      distinguishes_frame |= fabsf(WANT - OTHER) > 0.1f;
+      HS_EXPECT_NEAR(phases[face], want, 1e-6f);
+      distinguishes_frame |= fabsf(want - other_value) > 0.1f;
     }
     if constexpr (!std::is_same_v<Policy, Segue::Breakdown>)
       HS_EXPECT_TRUE(distinguishes_frame);
@@ -532,29 +532,29 @@ inline void test_terminator_sweep_orders_by_axis() {
  */
 inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   Timeline tl;
-  const int dur = 200, window = 32;
+  const int DUR = 200, WINDOW = 32;
   MeshCarousel<Segue::TerminatorSweep> carousel;
   carousel.segue().fade_frames_min = 8.0f;
   carousel.segue().fade_frames_max = 8.0f;
   int next_delay = carousel.schedule_segue(
-      tl, carousel.front_index(), [](Canvas &, float) {}, dur, window);
-  HS_EXPECT_EQ(next_delay, dur); // sequential: one mesh at a time, no overlap
+      tl, carousel.front_index(), [](Canvas &, float) {}, DUR, WINDOW);
+  HS_EXPECT_EQ(next_delay, DUR); // sequential: one mesh at a time, no overlap
   const Segue::TerminatorSweep &term = carousel.segue();
-  const float f = 8.0f / window;
-  HS_EXPECT_NEAR(term.face_fade_frac(0), f, 1e-6f);
-  HS_EXPECT_NEAR(term.face_fade_frac(97), f, 1e-6f);
+  const float F = 8.0f / WINDOW;
+  HS_EXPECT_NEAR(term.face_fade_frac(0), F, 1e-6f);
+  HS_EXPECT_NEAR(term.face_fade_frac(97), F, 1e-6f);
   for (float o : {0.0f, 0.5f, 1.0f}) {
-    float touch = o * (1.0f - f); // phase at which the front reaches the face
-    HS_EXPECT_NEAR(term.face_phase(touch, o, f), 0.0f, 1e-5f);
-    HS_EXPECT_NEAR(term.face_phase(touch + 0.5f * f, o, f), 0.5f, 1e-5f);
-    HS_EXPECT_NEAR(term.face_phase(touch + f, o, f), 1.0f, 1e-5f);
-    HS_EXPECT_NEAR(term.face_phase(1.0f, o, f), 1.0f, 1e-5f);
-    HS_EXPECT_NEAR(term.face_phase(0.0f, o, f), 0.0f, 1e-5f);
+    float touch = o * (1.0f - F); // phase at which the front reaches the face
+    HS_EXPECT_NEAR(term.face_phase(touch, o, F), 0.0f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(touch + 0.5f * F, o, F), 0.5f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(touch + F, o, F), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(1.0f, o, F), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(0.0f, o, F), 0.0f, 1e-5f);
     // Independent of the phase algebra: a clamped monotone ramp over the whole
     // transition, so no sampled phase can back up or leave [0, 1].
     float prev = 0.0f;
     for (int i = 0; i <= 40; ++i) {
-      const float ph = term.face_phase(i / 40.0f, o, f);
+      const float ph = term.face_phase(i / 40.0f, o, F);
       HS_EXPECT_GE(ph, prev - 1e-5f);
       HS_EXPECT_GE(ph, 0.0f);
       HS_EXPECT_LE(ph, 1.0f);
@@ -595,20 +595,20 @@ inline void test_terminator_sweep_per_face_fade_random_in_range() {
   const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   Timeline tl;
-  const int dur = 400, window = 64;
+  const int DUR = 400, WINDOW = 64;
   MeshCarousel<Segue::TerminatorSweep> carousel;
   carousel.segue().retarget(math::Y_AXIS); // rolls the per-face fade seed
   carousel.segue().fade_frames_min = 4.0f;
   carousel.segue().fade_frames_max = 16.0f;
   carousel.schedule_segue(
-      tl, carousel.front_index(), [](Canvas &, float) {}, dur, window);
+      tl, carousel.front_index(), [](Canvas &, float) {}, DUR, WINDOW);
   const Segue::TerminatorSweep &term = carousel.segue();
-  const float lo = 4.0f / window, hi = 16.0f / window;
+  const float LO = 4.0f / WINDOW, HI = 16.0f / WINDOW;
   const float first = term.face_fade_frac(0);
   bool varied = false;
   for (int i = 0; i < 256; ++i) {
     float ff = term.face_fade_frac(i);
-    HS_EXPECT_TRUE(ff >= lo - 1e-6f && ff <= hi + 1e-6f);
+    HS_EXPECT_TRUE(ff >= LO - 1e-6f && ff <= HI + 1e-6f);
     HS_EXPECT_NEAR(term.face_phase(1.0f, 0.7f, ff), 1.0f, 1e-5f);
     HS_EXPECT_NEAR(term.face_phase(0.0f, 0.7f, ff), 0.0f, 1e-5f);
     if (std::fabs(ff - first) > 1e-4f)
@@ -823,29 +823,29 @@ inline void test_breakdown_fades_classes_sequentially() {
   const hs_test::ScopedRng saved_rng;
   hs::random().seed(7u);
   Segue::Breakdown bd;
-  constexpr int n = 5;
+  constexpr int N = 5;
   // Per-face classes (dense [0, n), out of order with repeats); reorder derives
   // num_classes = max + 1 = n from them rather than taking a declared count.
   const std::vector<uint8_t> face_classes{2, 0, 4, 1, 3, 4, 0};
   bd.reorder(face_classes);
-  HS_EXPECT_EQ(bd.num_classes, n);
-  bool seen[n] = {};
-  for (int c = 0; c < n; ++c) {
-    HS_EXPECT_LT(static_cast<int>(bd.rank[c]), n);
-    if (bd.rank[c] < n)
+  HS_EXPECT_EQ(bd.num_classes, N);
+  bool seen[N] = {};
+  for (int c = 0; c < N; ++c) {
+    HS_EXPECT_LT(static_cast<int>(bd.rank[c]), N);
+    if (bd.rank[c] < N)
       seen[bd.rank[c]] = true;
   }
-  for (int r = 0; r < n; ++r)
+  for (int r = 0; r < N; ++r)
     HS_EXPECT_TRUE(seen[r]); // a permutation: every rank assigned once
 
   math::Vector any(0.0f, 1.0f, 0.0f);
-  for (int c = 0; c < n; ++c) {
+  for (int c = 0; c < N; ++c) {
     float o = bd.face_offset(any, 0, c);
     int r = bd.rank[c];
-    HS_EXPECT_NEAR(o, static_cast<float>(n - 1 - r) / (n - 1), 1e-6f);
+    HS_EXPECT_NEAR(o, static_cast<float>(N - 1 - r) / (N - 1), 1e-6f);
     // Class rank r fades linearly over one band of [BLACK_DWELL, 1].
-    float band = (1.0f - Segue::Breakdown::BLACK_DWELL) / n;
-    float floor_p = Segue::Breakdown::BLACK_DWELL + (n - 1 - r) * band;
+    float band = (1.0f - Segue::Breakdown::BLACK_DWELL) / N;
+    float floor_p = Segue::Breakdown::BLACK_DWELL + (N - 1 - r) * band;
     HS_EXPECT_NEAR(bd.face_phase(floor_p, o), 0.0f, 1e-5f);
     HS_EXPECT_NEAR(bd.face_phase(floor_p + band, o), 1.0f, 1e-5f);
     HS_EXPECT_NEAR(bd.face_phase(Segue::Breakdown::BLACK_DWELL, o), 0.0f,
@@ -855,14 +855,14 @@ inline void test_breakdown_fades_classes_sequentially() {
 
   // Independent of the band algebra: every class is a clamped monotone ramp,
   // and at any phase a later-ranked class is never behind an earlier one.
-  float previous_by_class[n] = {};
+  float previous_by_class[N] = {};
   for (int step = 0; step <= 40; ++step) {
     const float t = step / 40.0f;
     // Rank n-1 owns the earliest window, so descending rank never fades later.
     float prev_phase = 1.0f;
-    for (int r = n - 1; r >= 0; --r) {
+    for (int r = N - 1; r >= 0; --r) {
       int cls = -1;
-      for (int c = 0; c < n; ++c)
+      for (int c = 0; c < N; ++c)
         if (bd.rank[c] == r)
           cls = c;
       HS_EXPECT_GE(cls, 0);

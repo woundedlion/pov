@@ -51,10 +51,10 @@ inline void expect_fold_parity(uint32_t seed, auto cached_fold) {
     return float(random & 0xffffff) * (2.0f / 0xffffff) - 1.0f;
   };
   for (int sample = 0; sample < 1000000; ++sample) {
-    const float X = next();
-    const float Y = next();
-    const float Z = next();
-    const auto input = math::Vector(X, Y, Z).normalized();
+    const float x = next();
+    const float y = next();
+    const float z = next();
+    const auto input = math::Vector(x, y, z).normalized();
     const auto flash = lenses::dodecahedral_table_lens(input);
     const auto cached = cached_fold(input);
     if (std::memcmp(&flash, &cached, sizeof(flash)) != 0) {

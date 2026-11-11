@@ -48,9 +48,9 @@ inline uint8_t cc_bank_buf[64 * 1024];  /**< Baked palette LUT arena. */
  * split is canvas-independent; the instantiation only names it. */
 [[nodiscard]] inline ScopedArenaSplit configure_hankin_split() {
   using Fx = HankinSolids<96, 20>;
-  const ArenaSplit split{Fx::SCRATCH_A_BYTES, Fx::SCRATCH_B_BYTES};
-  return {split.persistent(GLOBAL_ARENA_SIZE), split.scratch_a,
-          split.scratch_b};
+  const ArenaSplit SPLIT{Fx::SCRATCH_A_BYTES, Fx::SCRATCH_B_BYTES};
+  return {SPLIT.persistent(GLOBAL_ARENA_SIZE), SPLIT.scratch_a,
+          SPLIT.scratch_b};
 }
 
 // ---------------------------------------------------------------------------
@@ -281,15 +281,15 @@ inline void test_no_empty_frame_across_cycle_joins() {
  */
 inline void check_flat_star_faces_match_base(const PolyMesh &base,
                                              const PolyMesh &flat) {
-  const size_t F = base.face_counts.size();
-  HS_EXPECT_GE(flat.face_counts.size(), F);
-  if (flat.face_counts.size() < F)
+  const size_t f = base.face_counts.size();
+  HS_EXPECT_GE(flat.face_counts.size(), f);
+  if (flat.face_counts.size() < f)
     return;
   constexpr float TOL = 1e-4f;
 
   size_t base_off = 0;
   size_t flat_off = 0;
-  for (size_t fi = 0; fi < F; ++fi) {
+  for (size_t fi = 0; fi < f; ++fi) {
     const int bc = base.face_counts[fi];
     const int oc = flat.face_counts[fi];
     HS_EXPECT_EQ(oc, 2 * bc);
@@ -341,7 +341,7 @@ template <typename Solid> inline void check_bookend_swap_one() {
 
   PolyMesh base;
   build_solid<Solid>(base, geom);
-  const int F = static_cast<int>(base.face_counts.size());
+  const int f_value = static_cast<int>(base.face_counts.size());
 
   CompiledHankin compiled;
   MeshOps::compile_hankin(base, compiled, geom, temp);
@@ -358,7 +358,7 @@ template <typename Solid> inline void check_bookend_swap_one() {
   std::vector<Pixel> base_px, flat_px;
   render_faces(base_px, base_ms, [](int f) { return face_color(f); });
   render_faces(flat_px, flat_ms,
-               [&](int f) { return f < F ? face_color(f) : sentinel; });
+               [&](int f) { return f < f_value ? face_color(f) : sentinel; });
 
   // The star 2n-gon's edge planes are fp-distinct from the base n-gon's, so a
   // boundary AA blend can differ by up to 2 counts; a recolored face moves
@@ -379,7 +379,7 @@ template <typename Solid> inline void check_bookend_swap_one() {
   }
   std::printf("  [bookend] F=%d: base vs hankin@0 diff=%zu px "
               "(+%zu quantization-level)\n",
-              F, diff, quant_only);
+              f_value, diff, quant_only);
   HS_EXPECT_EQ(diff, (size_t)0);
   HS_EXPECT_LE(quant_only, QUANT_BAND_BUDGET);
 
@@ -387,11 +387,11 @@ template <typename Solid> inline void check_bookend_swap_one() {
   // lit pixel is rosette output.
   std::vector<Pixel> rosette_px;
   render_faces(rosette_px, flat_ms, [&](int f) {
-    return f < F ? Color4(Pixel(0, 0, 0), 1.0f)
-                 : Color4(Pixel(65535, 65535, 65535), 1.0f);
+    return f < f_value ? Color4(Pixel(0, 0, 0), 1.0f)
+                       : Color4(Pixel(65535, 65535, 65535), 1.0f);
   });
   const size_t rosette_lit = count_lit(rosette_px);
-  std::printf("  [bookend] F=%d: rosette contribution %zu px\n", F,
+  std::printf("  [bookend] F=%d: rosette contribution %zu px\n", f_value,
               rosette_lit);
   HS_EXPECT_EQ(rosette_lit, (size_t)0);
 }
@@ -500,7 +500,7 @@ inline DiffStats swap_diff(const PolyMesh &seed, const PolyMesh &swept,
   Arena aux(cc_aux_buf, sizeof(cc_aux_buf));
   Arena temp(cc_temp_buf, sizeof(cc_temp_buf));
 
-  const int F = static_cast<int>(seed.face_counts.size());
+  const int f_value = static_cast<int>(seed.face_counts.size());
   MeshState seed_ms;
   MeshOps::compile(seed, seed_ms, aux, temp);
   std::vector<Pixel> seed_px;
@@ -511,13 +511,13 @@ inline DiffStats swap_diff(const PolyMesh &seed, const PolyMesh &swept,
   MeshOps::compile(swept, swept_ms, aux, temp);
   std::vector<Pixel> swept_px;
   render_faces(swept_px, swept_ms, [&](int f) {
-    if (f >= F)
+    if (f >= f_value)
       return sentinel;
-    return face_color(rotate_primaries ? (f + 1) % F : f);
+    return face_color(rotate_primaries ? (f + 1) % f_value : f);
   });
 
-  return diff_stats(seed_px, face_palette(F), swept_px, face_palette(F),
-                    &sentinel);
+  return diff_stats(seed_px, face_palette(f_value), swept_px,
+                    face_palette(f_value), &sentinel);
 }
 
 /**
@@ -533,11 +533,11 @@ inline void test_swap_in_framebuffer() {
   const struct {
     ConwayGraph::MorphOp op;
     const char *name;
-  } cases[] = {{ConwayGraph::MorphOp::TRUNCATE, "truncate"},
+  } CASES[] = {{ConwayGraph::MorphOp::TRUNCATE, "truncate"},
                {ConwayGraph::MorphOp::EXPAND, "expand"},
                {ConwayGraph::MorphOp::SNUB, "snub"},
                {ConwayGraph::MorphOp::CHAMFER, "chamfer"}};
-  for (const auto &entry : cases) {
+  for (const auto &entry : CASES) {
     Arena geom(cc_geom_buf, sizeof(cc_geom_buf));
     Arena temp(cc_temp_buf, sizeof(cc_temp_buf));
     PolyMesh cube;
@@ -657,9 +657,9 @@ inline void test_dual_swap_crossover_framebuffer() {
   // Clean side count at the shared cuboctahedron: primaries keep the seed's
   // count, vertex faces the seed's vertex degree.
   const auto class_color = [](const PolyMesh &seed, int f, bool swap_classes) {
-    const int F = static_cast<int>(seed.face_counts.size());
+    const int f_value = static_cast<int>(seed.face_counts.size());
     int sides;
-    if (f < F) {
+    if (f < f_value) {
       sides = seed.face_counts[f];
     } else {
       // Both seeds here are regular: vertex degree = total corners / vertices.
@@ -1252,7 +1252,7 @@ inline void test_leg_start_seed_frame_continuity() {
     const int failed_before = hs_test::stats().failed;
 
     SeedFix fix;
-    const int RECONCILED =
+    const int reconciled =
         reconciled_seed_identity(ei, node, seed_identity, fix);
     HS_EXPECT_TRUE(fix != SeedFix::INVALID);
     if (fix == SeedFix::INVALID)
@@ -1280,7 +1280,7 @@ inline void test_leg_start_seed_frame_continuity() {
       seed_arena.reset();
       seed_base = Solids::finalize_solid(t, seed_arena);
     }
-    seed_identity = RECONCILED;
+    seed_identity = reconciled;
     PolyMesh derived_seed;
     if (fix == SeedFix::DERIVE_AMBO)
       derived_seed = MeshOps::ambo(seed_base, work, temp);
@@ -1519,7 +1519,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
   HankinSolids<96, 20> fx;
   fx.init();
   const BakedPaletteBank &bank = Probe::palette_bank(fx).bank;
-  const int BLEND = Probe::strap_blend_frames(fx);
+  const int blend = Probe::strap_blend_frames(fx);
   Arena resolve_arena(cc_temp_buf, sizeof(cc_temp_buf));
 
   StrapSweepStats st;
@@ -1566,7 +1566,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
       if (!strap[s])
         HS_EXPECT_EQ((mask >> s) & 1, 0);
       if (star[s]) {
-        for (int cf : {0, BLEND}) {
+        for (int cf : {0, blend}) {
           resolve_arena.reset();
           Probe::resolve_slot_luts(fx, cf, blended, star_by_slot, strap_by_slot,
                                    resolve_arena);
@@ -1585,7 +1585,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
         expect_color_eq(strap_by_slot[s]->get(RAMP_SAMPLES[k]),
                         bank.entries[from[s]].get(RAMP_SAMPLES[k]));
       resolve_arena.reset();
-      Probe::resolve_slot_luts(fx, BLEND, blended, star_by_slot, strap_by_slot,
+      Probe::resolve_slot_luts(fx, blend, blended, star_by_slot, strap_by_slot,
                                resolve_arena);
       for (int k = 0; k < NUM_RAMP_SAMPLES; ++k)
         expect_color_eq(strap_by_slot[s]->get(RAMP_SAMPLES[k]),
@@ -1613,9 +1613,9 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
       const int pair_dist =
           lut_sample_dist(bank.entries[from[s]], bank.entries[idx[s]]);
       const int step_bound =
-          static_cast<int>((1.6f / BLEND) * pair_dist) + STRAP_STEP_SLACK;
+          static_cast<int>((1.6f / blend) * pair_dist) + STRAP_STEP_SLACK;
       std::array<Color4, NUM_RAMP_SAMPLES> prev_c{};
-      for (int cf = 0; cf <= BLEND; ++cf) {
+      for (int cf = 0; cf <= blend; ++cf) {
         resolve_arena.reset();
         Probe::resolve_slot_luts(fx, cf, blended, star_by_slot, strap_by_slot,
                                  resolve_arena);

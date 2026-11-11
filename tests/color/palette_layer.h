@@ -38,8 +38,8 @@ inline void test_mutating_palette_blends_endpoints() {
   m.mutate(1.0f);
   HS_EXPECT_EQ(m.get(0.0f).color.r, 0);
   m.mutate(0.5f); // a=.25, b=.25 -> 0.25 + 0.25*cos(0) = 0.5 sRGB
-  const uint16_t MID = m.get(0.0f).color.r;
-  HS_EXPECT_NEAR(static_cast<float>(MID), srgb_to_linear_interp(0.5f), 2.0f);
+  const uint16_t mid = m.get(0.0f).color.r;
+  HS_EXPECT_NEAR(static_cast<float>(mid), srgb_to_linear_interp(0.5f), 2.0f);
 }
 
 /**
@@ -398,9 +398,9 @@ inline void test_chroma_pulse_shade() {
   // sin(-pi/2) = -1: chroma scales down toward gray.
   float neg_phase = -math::PI_F * 0.5f;
   ChromaPulseShade cut(&neg_phase, 0.3f);
-  const OKLCH CUT = pixel_to_oklch(cut.shade(mid, 0.2f).color);
-  HS_EXPECT_LT(CUT.C, before.C * 0.9f);
-  HS_EXPECT_NEAR(wrap_hue_delta(CUT.h - before.h), 0.0f, .01f);
+  const OKLCH cut_value = pixel_to_oklch(cut.shade(mid, 0.2f).color);
+  HS_EXPECT_LT(cut_value.C, before.C * 0.9f);
+  HS_EXPECT_NEAR(wrap_hue_delta(cut_value.h - before.h), 0.0f, .01f);
 
   // sin(0) = 0: pass-through within the OKLab round-trip budget.
   float phase_driver = 0.0f;

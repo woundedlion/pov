@@ -45,11 +45,11 @@ inline void test_sphere_bakes_match_reference() {
               const math::Vector q = scale * d + offset;
               const float sample =
                   hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
-              const int INDEX = face * N * N + y * N + x;
-              reference[INDEX] = static_cast<int8_t>(
+              const int index = face * N * N + y * N + x;
+              reference[index] = static_cast<int8_t>(
                   sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
 #if defined(HS_TEST_FAST_MATH)
-              reference_samples[INDEX] = sample * 127.0f;
+              reference_samples[index] = sample * 127.0f;
 #endif
             }
           }
@@ -113,13 +113,13 @@ inline void test_sphere_face_linear_table() {
         linear[face * Pattern::SphereLutView::FACE_SIZE +
                y * Pattern::SphereLutView::FACE_STEPS + x] =
             float(face * 10 + x + y);
-  const Pattern::SphereLutView VIEW{bytes.data(), true, linear.data()};
+  const Pattern::SphereLutView view{bytes.data(), true, linear.data()};
   for (int face = 0; face < Pattern::SphereLutView::FACE_COUNT; ++face)
     for (float u : {-1.0f, -0.25f, 1.0f})
       for (float v : {-1.0f, 0.25f, 1.0f}) {
-        const float EXPECTED = (face * 10 + (u + v + 2) * 11.5f) / 127.0f;
-        HS_EXPECT_NEAR(Pattern::sample_sphere_lut_face(VIEW, face, u, v),
-                       EXPECTED, 2e-7f);
+        const float expected = (face * 10 + (u + v + 2) * 11.5f) / 127.0f;
+        HS_EXPECT_NEAR(Pattern::sample_sphere_lut_face(view, face, u, v),
+                       expected, 2e-7f);
       }
 }
 
@@ -238,25 +238,25 @@ inline void test_sphere_lut_all_edges() {
       for (float scale : {3.0f, 64.0f}) {
         prepare_sphere_lut<SphereNoise>(
             table, SphereNoise::prepare({.scale = scale}, {phase}, generator));
-        const SphereLutView VIEW{table.data(), true};
+        const SphereLutView view{table.data(), true};
         for (int a : {-1, 1})
           for (int b : {-1, 1})
             for (int index = 0; index <= 200; ++index) {
-              const float T = -1.0f + 0.01f * index;
-              const math::Vector XY(a, b, T), XZ(a, T, b), YZ(T, a, b);
-              const float XY_ERROR =
-                  fabsf(sphere_edge_face_sample(VIEW, a > 0 ? 0 : 1, XY) -
-                        sphere_edge_face_sample(VIEW, b > 0 ? 2 : 3, XY));
-              const float XZ_ERROR =
-                  fabsf(sphere_edge_face_sample(VIEW, a > 0 ? 0 : 1, XZ) -
-                        sphere_edge_face_sample(VIEW, b > 0 ? 4 : 5, XZ));
-              const float YZ_ERROR =
-                  fabsf(sphere_edge_face_sample(VIEW, a > 0 ? 2 : 3, YZ) -
-                        sphere_edge_face_sample(VIEW, b > 0 ? 4 : 5, YZ));
-              maximum = std::max({maximum, XY_ERROR, XZ_ERROR, YZ_ERROR});
-              HS_EXPECT_LE(XY_ERROR, 1.0e-5f);
-              HS_EXPECT_LE(XZ_ERROR, 1.0e-5f);
-              HS_EXPECT_LE(YZ_ERROR, 1.0e-5f);
+              const float t = -1.0f + 0.01f * index;
+              const math::Vector xy(a, b, t), xz(a, t, b), yz(t, a, b);
+              const float xy_error =
+                  fabsf(sphere_edge_face_sample(view, a > 0 ? 0 : 1, xy) -
+                        sphere_edge_face_sample(view, b > 0 ? 2 : 3, xy));
+              const float xz_error =
+                  fabsf(sphere_edge_face_sample(view, a > 0 ? 0 : 1, xz) -
+                        sphere_edge_face_sample(view, b > 0 ? 4 : 5, xz));
+              const float yz_error =
+                  fabsf(sphere_edge_face_sample(view, a > 0 ? 2 : 3, yz) -
+                        sphere_edge_face_sample(view, b > 0 ? 4 : 5, yz));
+              maximum = std::max({maximum, xy_error, xz_error, yz_error});
+              HS_EXPECT_LE(xy_error, 1.0e-5f);
+              HS_EXPECT_LE(xz_error, 1.0e-5f);
+              HS_EXPECT_LE(yz_error, 1.0e-5f);
             }
       }
     }
@@ -272,7 +272,7 @@ inline void test_sphere_noise_bake_qualification() {
   using namespace Pattern;
   constexpr int SAMPLE_COUNT = 4096;
   constexpr float QUANTIZATION_BOUND = 1.0f / 254.0f + 3.0e-6f;
-  const std::array<NoiseParams, 9> RECIPES{{
+  const std::array<NoiseParams, 9> recipes{{
       {},
       {.contrast = 2.0f, .variant = NoiseVariant::OCTAVE_CONTOUR},
       {.contrast = 8.0f, .variant = NoiseVariant::OCTAVE_CONTOUR},
@@ -301,7 +301,7 @@ inline void test_sphere_noise_bake_qualification() {
   std::printf(
       "recipe,scale,max_quantization,max_spatial,max_total,mean_total\n");
 #endif
-  for (size_t recipe = 0; recipe < RECIPES.size(); ++recipe) {
+  for (size_t recipe = 0; recipe < recipes.size(); ++recipe) {
     double previous_mean = 0.0;
     for (size_t scale_index = 0; scale_index < SCALES.size(); ++scale_index) {
       const float scale = SCALES[scale_index];
@@ -315,41 +315,41 @@ inline void test_sphere_noise_bake_qualification() {
           generator.SetSeed(seed);
           generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
           generator.SetFrequency(1.0f);
-          auto params = RECIPES[recipe];
+          auto params = recipes[recipe];
           params.scale = scale;
-          const auto PREPARED =
+          const auto prepared =
               SphereNoise::prepare(params, {phase}, generator);
-          prepare_sphere_lut<SphereNoise>(table, PREPARED);
+          prepare_sphere_lut<SphereNoise>(table, prepared);
           for (int face = 0; face < SphereLutView::FACE_COUNT; ++face)
             for (int y = 0; y < SphereLutView::FACE_STEPS; ++y)
               for (int x = 0; x < SphereLutView::FACE_STEPS; ++x) {
-                const int INDEX = face * SphereLutView::FACE_SIZE +
+                const int index = face * SphereLutView::FACE_SIZE +
                                   y * SphereLutView::FACE_STEPS + x;
-                const auto D =
+                const auto d =
                     sphere_face_coordinate(face, sphere_face_grid_coordinate(x),
                                            sphere_face_grid_coordinate(y));
-                const float VALUE = SphereNoise::sample(D, PREPARED);
-                exact[INDEX] = VALUE * 127.0f;
+                const float value = SphereNoise::sample(d, prepared);
+                exact[index] = value * 127.0f;
                 max_quantization = std::max(
-                    max_quantization, fabsf(VALUE - table[INDEX] / 127.0f));
+                    max_quantization, fabsf(value - table[index] / 127.0f));
               }
-          const SphereLutView VIEW{table.data(), true};
-          const SphereLutView FLOAT_VIEW{table.data(), true, exact.data()};
+          const SphereLutView view{table.data(), true};
+          const SphereLutView float_view{table.data(), true, exact.data()};
           for (int index = 0; index < SAMPLE_COUNT; ++index) {
-            const float Z = 1.0f - 2.0f * (index + 0.5f) / SAMPLE_COUNT;
-            const float R = sqrtf(1.0f - Z * Z);
-            const float ANGLE =
+            const float z = 1.0f - 2.0f * (index + 0.5f) / SAMPLE_COUNT;
+            const float r = sqrtf(1.0f - z * z);
+            const float angle =
                 math::TWO_PI_F * math::wrap_t(index * 0.61803398875f);
-            const auto D =
-                SphereDirection::from({R * cosf(ANGLE), R * sinf(ANGLE), Z});
-            const float DIRECT = SphereNoise::sample(D, PREPARED);
-            const float BAKED = sample_sphere_lut(VIEW, D);
-            const float SPATIAL = sample_sphere_lut(FLOAT_VIEW, D);
+            const auto d =
+                SphereDirection::from({r * cosf(angle), r * sinf(angle), z});
+            const float direct = SphereNoise::sample(d, prepared);
+            const float baked = sample_sphere_lut(view, d);
+            const float spatial = sample_sphere_lut(float_view, d);
             max_quantization =
-                std::max(max_quantization, fabsf(BAKED - SPATIAL));
-            max_spatial = std::max(max_spatial, fabsf(DIRECT - SPATIAL));
-            max_total = std::max(max_total, fabsf(DIRECT - BAKED));
-            total += fabsf(DIRECT - BAKED);
+                std::max(max_quantization, fabsf(baked - spatial));
+            max_spatial = std::max(max_spatial, fabsf(direct - spatial));
+            max_total = std::max(max_total, fabsf(direct - baked));
+            total += fabsf(direct - baked);
           }
         }
       // Quantization dominates at low scale; above it interpolation error

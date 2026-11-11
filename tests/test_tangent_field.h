@@ -81,11 +81,11 @@ inline void test_horner_values_and_phased_gradients() {
                   std::pow(std::complex<double>(v.x, v.z), m))
                      .real();
         };
-        const math::Vector axes[] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+        const math::Vector AXES[] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
         const float components[] = {gradient.x, gradient.y, gradient.z};
         for (int axis = 0; axis < 3; ++axis) {
-          const auto plus = p + axes[axis] * 0.001f;
-          const auto minus = p - axes[axis] * 0.001f;
+          const auto plus = p + AXES[axis] * 0.001f;
+          const auto minus = p - AXES[axis] * 0.001f;
           const double denominator = axis == 0   ? plus.x - minus.x
                                      : axis == 1 ? plus.y - minus.y
                                                  : plus.z - minus.z;
@@ -131,13 +131,13 @@ inline void test_mobius_exp_log_projective_roundtrip() {
     HS_EXPECT_VEC(recovered.rotation, generator.rotation, 2e-5f);
     HS_EXPECT_VEC(recovered.boost, generator.boost, 2e-5f);
   }
-  const math::MobiusParams cases[] = {
+  const math::MobiusParams CASES[] = {
       {},
       {{1, 0}, {2, -1}, {0, 0}, {1, 0}},
       {{-1, 0}, {0.001f, 0}, {0, 0}, {-1, 0}},
       {{0, 1}, {0, 0}, {0, 0}, {0, -1}},
       {-1.072f, 0.304f, 0.416f, 0.0f, 0.0f, 0.0f, 0.7071f, 0.0f}};
-  for (const auto &matrix : cases) {
+  for (const auto &matrix : CASES) {
     const auto recovered = math::mobius_exp(math::mobius_log(matrix));
     for (int index = 0; index < 100; ++index)
       HS_EXPECT_VEC(math::mobius_transform(direction(index, 100), matrix),
@@ -201,12 +201,12 @@ inline void test_constant_potentials_have_zero_bounds() {
 }
 
 inline void test_potential_divergence_and_curl() {
-  const TF::PotentialTerm terms[] = {
+  const TF::PotentialTerm TERMS[] = {
       {TF::TermType::MODE, TF::Kind::TOROIDAL, 8, 5, 1.0f, 0.73f},
       {TF::TermType::TETRAHEDRAL, TF::Kind::TOROIDAL, 0, 0, 1.0f},
       {TF::TermType::OCTAHEDRAL, TF::Kind::TOROIDAL, 0, 0, 1.0f},
       {TF::TermType::DODECAHEDRAL, TF::Kind::TOROIDAL, 0, 0, 1.0f}};
-  for (auto term : terms)
+  for (auto term : TERMS)
     for (TF::Kind kind : {TF::Kind::TOROIDAL, TF::Kind::POLOIDAL}) {
       term.kind = kind;
       const auto field = single_term(term);
@@ -245,20 +245,20 @@ inline math::Vector apply(const lenses::DodecahedralTable::Matrix &matrix,
 }
 
 inline void test_invariants_and_vector_fields_follow_fold_groups() {
-  const std::array<std::array<math::Vector, 3>, 8> mirrors = {
+  const std::array<std::array<math::Vector, 3>, 8> MIRRORS = {
       lenses::TETRAHEDRAL_MIRRORS,     lenses::OCTAHEDRAL_MIRRORS,
       lenses::DODECAHEDRAL_MIRRORS,    lenses::TRIANGULAR_PRISM_MIRRORS,
       lenses::SQUARE_PRISM_MIRRORS,    lenses::PENTAGONAL_PRISM_MIRRORS,
       lenses::HEXAGONAL_PRISM_MIRRORS, lenses::OCTAGONAL_PRISM_MIRRORS};
-  const TF::TermType types[] = {TF::TermType::TETRAHEDRAL,
+  const TF::TermType TYPES[] = {TF::TermType::TETRAHEDRAL,
                                 TF::TermType::OCTAHEDRAL,
                                 TF::TermType::DODECAHEDRAL, TF::TermType::MODE};
-  const int degrees[] = {0, 0, 0, 3, 4, 5, 6, 8};
-  for (size_t symmetry = 0; symmetry < mirrors.size(); ++symmetry) {
-    const auto group = lenses::DodecahedralTable::make_group(mirrors[symmetry]);
+  const int DEGREES[] = {0, 0, 0, 3, 4, 5, 6, 8};
+  for (size_t symmetry = 0; symmetry < MIRRORS.size(); ++symmetry) {
+    const auto group = lenses::DodecahedralTable::make_group(MIRRORS[symmetry]);
     TF::PotentialTerm term;
-    term.type = types[std::min<size_t>(symmetry, 3)];
-    term.l = term.m = degrees[symmetry];
+    term.type = TYPES[std::min<size_t>(symmetry, 3)];
+    term.l = term.m = DEGREES[symmetry];
     term.amplitude = 1.0f;
     const auto prepared = TF::prepare_term(term);
     const auto toroidal = single_term(term);
@@ -267,13 +267,13 @@ inline void test_invariants_and_vector_fields_follow_fold_groups() {
     const auto image_sample = [&](const TF::PotentialField &field,
                                   math::Vector point, float strength) {
       const auto warped = exponential(point, field.velocity(point) * strength);
-      return lenses::polyhedral_kaleidoscope_lens(warped, mirrors[symmetry]);
+      return lenses::polyhedral_kaleidoscope_lens(warped, MIRRORS[symmetry]);
     };
     float reflected_image_difference = 0.0f;
     for (int index = 0; index < 30; ++index) {
       const auto p = direction(index, 30);
       const auto folded =
-          lenses::polyhedral_kaleidoscope_lens(p, mirrors[symmetry]);
+          lenses::polyhedral_kaleidoscope_lens(p, MIRRORS[symmetry]);
       HS_EXPECT_NEAR(prepared.sample(p).value, prepared.sample(folded).value,
                      2e-5f);
       for (size_t element = 0; element < group.count; ++element) {
@@ -418,19 +418,19 @@ inline void test_normalized_terms_have_tight_speed_bounds() {
 /** @brief Zonal harmonic peak speed is independent of authored phase and drift. */
 inline void test_zonal_potential_phase_preserves_peak_speed() {
   constexpr float COORDINATE = 0.7071067811865475f;
-  const math::Vector point(COORDINATE, COORDINATE, 0.0f);
+  const math::Vector POINT(COORDINATE, COORDINATE, 0.0f);
   for (const auto kind : {TF::Kind::TOROIDAL, TF::Kind::POLOIDAL}) {
     for (const float phase : {0.0f, math::PI_F / 2, math::PI_F, -1.3f}) {
       std::array<TF::PotentialTerm, 4> terms{};
       terms[0] = {TF::TermType::MODE, kind, 2, 0, 1.0f, phase};
       for (const float drift : {-2.0f, 0.0f, 0.7f}) {
         const TF::PotentialField field(terms, drift);
-        HS_EXPECT_NEAR(field.velocity(point).length(), 1.0f / 1.01f, 1e-5f);
+        HS_EXPECT_NEAR(field.velocity(POINT).length(), 1.0f / 1.01f, 1e-5f);
         const math::Vector expected =
             kind == TF::Kind::TOROIDAL
                 ? math::Vector(0.0f, 0.0f, 1.0f / 1.01f)
                 : math::Vector(-COORDINATE, COORDINATE, 0.0f) / 1.01f;
-        HS_EXPECT_VEC(field.velocity(point), expected, 1e-5f);
+        HS_EXPECT_VEC(field.velocity(POINT), expected, 1e-5f);
       }
     }
   }

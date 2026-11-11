@@ -554,18 +554,18 @@ inline void test_islamicstars_presets_cover_roster() {
   reset_globals();
   IslamicBuildProbe::IS effect;
   effect.init();
-  const auto &EXPECTED_NAMES = IslamicStarsDetail::SHAPE_NAMES;
-  HS_EXPECT_EQ(effect.getPresetCount(), std::size(EXPECTED_NAMES));
+  const auto &expected_names = IslamicStarsDetail::SHAPE_NAMES;
+  HS_EXPECT_EQ(effect.getPresetCount(), std::size(expected_names));
   HS_EXPECT_EQ(effect.getPresetIndex(), first_recipe_entry());
-  for (size_t i = 0; i < std::size(EXPECTED_NAMES); ++i) {
+  for (size_t i = 0; i < std::size(expected_names); ++i) {
     HS_EXPECT_TRUE(effect.selectPreset(i));
     HS_EXPECT_EQ(
         std::string_view(IslamicBuildProbe::selected_entry(effect)->name),
-        EXPECTED_NAMES[i]);
-    for (size_t j = i + 1; j < std::size(EXPECTED_NAMES); ++j)
-      HS_EXPECT_TRUE(EXPECTED_NAMES[i] != EXPECTED_NAMES[j]);
+        expected_names[i]);
+    for (size_t j = i + 1; j < std::size(expected_names); ++j)
+      HS_EXPECT_TRUE(expected_names[i] != expected_names[j]);
   }
-  HS_EXPECT_FALSE(effect.selectPreset(std::size(EXPECTED_NAMES)));
+  HS_EXPECT_FALSE(effect.selectPreset(std::size(expected_names)));
   for (const char *name :
        {"Face Fade Lo", "Face Fade Hi", "Ripp Amp", "Ripp Decay"}) {
     const auto *def = effect.getParameters().find(name);
@@ -1135,7 +1135,7 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
   const float steepest =
       math::PI_F / 2.0f - RIPPLE_STEEPEST_REACH * ripple.half_width();
   const float phases[3] = {steepest - STEP, steepest, steepest + STEP};
-  const float amplitudes[3] = {RIPPLE_SMALL_ANGLE_MAX,
+  const float AMPLITUDES[3] = {RIPPLE_SMALL_ANGLE_MAX,
                                0.97f * RIPPLE_SMALL_ANGLE_MAX,
                                0.94f * RIPPLE_SMALL_ANGLE_MAX};
   std::array<FaceCopies, 2> frames;
@@ -1143,8 +1143,8 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
   for (int j = 0; j < 2; ++j) {
     ripple.previous_phase = phases[j];
     ripple.phase = phases[j + 1];
-    ripple.previous_amplitude = amplitudes[j];
-    ripple.amplitude = amplitudes[j + 1];
+    ripple.previous_amplitude = AMPLITUDES[j];
+    ripple.amplitude = AMPLITUDES[j + 1];
     ripple.sync();
     ripples[j] = P::ripples(effect);
     P::draw_copies(effect, cameras[j], cameras[j + 1], frames[j]);

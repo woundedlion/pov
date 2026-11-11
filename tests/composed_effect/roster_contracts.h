@@ -28,16 +28,16 @@ inline void test_composed_modulation_blends_axes() {
       (start.*member).axis_b = {0.0f, 0.0f, 4.0f};
       (end.*member).axis_b = {2.0f, 0.0f, 0.0f};
     }
-    const auto MID = interpolate(start, end, 0.5f);
-    HS_EXPECT_TRUE(Pullback::Modulation::valid(MID));
-    HS_EXPECT_VEC((MID.*member).axis, math::Vector(0.5f, 0.5f, 0.0f), 1e-6f);
-    if constexpr (requires { (MID.*member).axis_b; }) {
-      HS_EXPECT_VEC((MID.*member).axis_b, math::Vector(0.5f, 0.0f, 0.5f),
+    const auto mid = interpolate(start, end, 0.5f);
+    HS_EXPECT_TRUE(Pullback::Modulation::valid(mid));
+    HS_EXPECT_VEC((mid.*member).axis, math::Vector(0.5f, 0.5f, 0.0f), 1e-6f);
+    if constexpr (requires { (mid.*member).axis_b; }) {
+      HS_EXPECT_VEC((mid.*member).axis_b, math::Vector(0.5f, 0.0f, 0.5f),
                     1e-6f);
       (end.*member).axis_b = {0.0f, 0.0f, -2.0f};
-      const auto ANTIPODAL = interpolate(start, end, 0.5f);
-      HS_EXPECT_TRUE(Pullback::Modulation::valid(ANTIPODAL));
-      HS_EXPECT_EQ((ANTIPODAL.*member).axis_b, (end.*member).axis_b);
+      const auto antipodal = interpolate(start, end, 0.5f);
+      HS_EXPECT_TRUE(Pullback::Modulation::valid(antipodal));
+      HS_EXPECT_EQ((antipodal.*member).axis_b, (end.*member).axis_b);
     }
     HS_EXPECT_EQ((interpolate(start, end, 0.0f).*member).axis,
                  (start.*member).axis);

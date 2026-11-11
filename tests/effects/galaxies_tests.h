@@ -91,12 +91,12 @@ inline void test_galaxies_core_fade() {
   HS_EXPECT_EQ(WB::core_fade(2.0f), 1.0f);
   HS_EXPECT_NEAR(WB::core_fade(0.25f), 0.070556640625f, 1e-7f);
   HS_EXPECT_NEAR(WB::core_fade(0.5f), 0.5f, 1e-7f);
-  const float INV_SPAN = 1.0f / (1.0f - cosf(WB::CORE_FADE_RADIUS));
+  const float inv_span = 1.0f / (1.0f - cosf(WB::CORE_FADE_RADIUS));
   float previous = 0.0f;
   for (int i = 0; i <= 1000; ++i) {
     const float angle = i * (REFERENCE_ANGULAR_CAP / 1000.0f);
     const float cos_distance = cosf(angle);
-    const float actual = WB::core_fade((1.0f - cos_distance) * INV_SPAN);
+    const float actual = WB::core_fade((1.0f - cos_distance) * inv_span);
     const float reference =
         math::quintic_kernel(angle / REFERENCE_ANGULAR_CAP) *
         math::quintic_kernel((1.0f - cos_distance) /
@@ -123,15 +123,15 @@ inline void test_galaxies_alternate_orbits_and_arm_spin() {
     galaxy.emission_credit = 0.0f;
     ps.emitters[g](ps);
     HS_EXPECT_EQ(ps.active(), g + 1);
-    const float DIRECTION = (g & 1) ? -1.0f : 1.0f;
+    const float direction = (g & 1) ? -1.0f : 1.0f;
     const auto &particle = ps.pool[g];
     const float orbit = math::dot(
         math::cross(galaxy.core, particle.get_position()), particle.velocity);
-    HS_EXPECT(orbit * DIRECTION > 0.0f,
+    HS_EXPECT(orbit * direction > 0.0f,
               "stellar orbit follows alternating direction");
-    const float EXPECTED_PHASE = fmodf(
-        0.01f + WB::arm_spin(fx) * DIRECTION + math::TWO_PI_F, math::TWO_PI_F);
-    HS_EXPECT_NEAR(galaxy.phase, EXPECTED_PHASE, 1e-6f);
+    const float expected_phase = fmodf(
+        0.01f + WB::arm_spin(fx) * direction + math::TWO_PI_F, math::TWO_PI_F);
+    HS_EXPECT_NEAR(galaxy.phase, expected_phase, 1e-6f);
   }
 }
 
@@ -181,10 +181,10 @@ inline void test_galaxies_white_star_stays_white() {
   auto &ps = WB::system(fx);
   const auto &galaxy = WB::galaxy(fx, 0);
   constexpr float RING = 0.35f;
-  const float ANGLE =
+  const float angle =
       galaxy.phase - galaxy.spin * logf(RING / WB::RING_RADIUS) / tanf(0.5f);
   ps.spawn(galaxy.core * cosf(RING) +
-               (galaxy.u * cosf(ANGLE) + galaxy.w * sinf(ANGLE)) * sinf(RING),
+               (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(RING),
            math::Vector(), 0xc000);
   std::array<std::array<uint64_t, 3>, 3> colors{};
   const int AGES[] = {80, 520, 640};
@@ -260,22 +260,22 @@ inline void test_galaxies_black_hole_core_toggle() {
   particles.pool[0].life = particles.max_life - 700;
   uint64_t star_energy[2]{};
   for (int sample = 0; sample < 2; ++sample) {
-    const float RING = sample == 0 ? 0.04f : 0.12f;
-    particles.pool[0].set_position(galaxy.core * cosf(RING) +
-                                   galaxy.u * sinf(RING));
+    const float ring = sample == 0 ? 0.04f : 0.12f;
+    particles.pool[0].set_position(galaxy.core * cosf(ring) +
+                                   galaxy.u * sinf(ring));
     GalaxiesWhiteBox::render(fx);
     fx.advance_display();
     star_energy[sample] = frame_energy<DEFAULT_W, DEFAULT_H>(fx);
     HS_EXPECT_GT(star_energy[sample], 0u);
   }
-  const double RATIO = static_cast<double>(star_energy[0]) / star_energy[1];
+  const double ratio = static_cast<double>(star_energy[0]) / star_energy[1];
   std::printf("  black-hole star near=%llu far=%llu ratio=%.6f\n",
               static_cast<unsigned long long>(star_energy[0]),
-              static_cast<unsigned long long>(star_energy[1]), RATIO);
+              static_cast<unsigned long long>(star_energy[1]), ratio);
   // Dimmed near the black core but not culled.
   constexpr double MAX_NEAR_FAR_RATIO = 0.9;
-  HS_EXPECT_GT(RATIO, 0.0);
-  HS_EXPECT_LT(RATIO, MAX_NEAR_FAR_RATIO);
+  HS_EXPECT_GT(ratio, 0.0);
+  HS_EXPECT_LT(ratio, MAX_NEAR_FAR_RATIO);
 }
 
 /** @brief Stars span logarithmic arms with tangential orbital velocities. */
@@ -397,13 +397,13 @@ inline void test_galaxies_arm_sharpness() {
   for (int arms : {1, 2, 5}) {
     WB::set_arms(fx, arms);
     auto &galaxy = WB::galaxy(fx, 0);
-    const float ring = 0.35f;
+    const float RING = 0.35f;
     const float angle =
-        galaxy.phase - galaxy.spin * logf(ring / WB::RING_RADIUS) / tanf(0.5f) +
+        galaxy.phase - galaxy.spin * logf(RING / WB::RING_RADIUS) / tanf(0.5f) +
         math::PI_F / (3.0f * arms);
     const math::Vector position =
-        galaxy.core * cosf(ring) +
-        (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(ring);
+        galaxy.core * cosf(RING) +
+        (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(RING);
     HS_EXPECT_EQ(fx.updateParameter("Arm Sharpness", 1.0f),
                  ParamSetResult::APPLIED);
     HS_EXPECT_NEAR(WB::density(fx, 0, position), 0.5f, 1e-2f);

@@ -448,9 +448,9 @@ inline void test_palette_cycler_paused_hidden_advance_catches_up() {
       paused = true;
       hidden.step();
       expect_baked_equal(full.palette(), hidden.palette());
-      const uint32_t GENERATION = hidden.bake_generation();
+      const uint32_t generation = hidden.bake_generation();
       hidden.step();
-      HS_EXPECT_EQ(hidden.bake_generation(), GENERATION);
+      HS_EXPECT_EQ(hidden.bake_generation(), generation);
       expect_baked_equal(full.palette(), hidden.palette());
     }
   }
@@ -479,9 +479,9 @@ inline void test_palette_cycler_paused_hidden_advance_catches_up() {
   hidden.step();
   expect_baked_equal(full.palette(), hidden.palette());
   HS_EXPECT_EQ(full_calls, hidden_calls);
-  const uint32_t GENERATION = hidden.bake_generation();
+  const uint32_t generation = hidden.bake_generation();
   hidden.step();
-  HS_EXPECT_EQ(hidden.bake_generation(), GENERATION);
+  HS_EXPECT_EQ(hidden.bake_generation(), generation);
 }
 
 /** @brief The bake generation advances over a cycle and never holds still
@@ -692,14 +692,14 @@ inline void test_generated_palette_bank_routes_and_rechromas() {
   compare(Mode::ANALOGOUS, PaletteHarmony::ANALOGOUS, 0,
           float(QUARTER_STEPS) / FADE, 0.62f, false);
   bank.set_chroma(0.4f);
-  constexpr Mode modes[] = {Mode::TRIADIC, Mode::COMPLEMENTARY,
+  constexpr Mode MODES[] = {Mode::TRIADIC, Mode::COMPLEMENTARY,
                             Mode::ANALOGOUS};
-  constexpr PaletteHarmony harmonies[] = {PaletteHarmony::TRIADIC,
+  constexpr PaletteHarmony HARMONIES[] = {PaletteHarmony::TRIADIC,
                                           PaletteHarmony::COMPLEMENTARY,
                                           PaletteHarmony::ANALOGOUS};
   for (int i = 0; i < 3; ++i) {
-    bank.step(modes[i]);
-    compare(modes[i], harmonies[i], 0, float(QUARTER_STEPS + 1 + i) / FADE,
+    bank.step(MODES[i]);
+    compare(MODES[i], HARMONIES[i], 0, float(QUARTER_STEPS + 1 + i) / FADE,
             0.4f, true);
   }
   // The next fade starts after FADE_FRAMES + DWELL_FRAMES + 1 steps.

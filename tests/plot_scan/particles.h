@@ -172,14 +172,14 @@ render_particle_materialization(const StubParticle &particle,
       Fragments trail;
       trail.bind(scratch_arena_a,
                  std::remove_cvref_t<decltype(particle.history)>::CAPACITY);
-      const float inv_max_life = 1.0f / 100.0f;
+      const float INV_MAX_LIFE = 1.0f / 100.0f;
       tween(particle.history, [&](const math::Vector &v, float t) {
         Fragment f;
         f.pos = v;
         f.v0 = t;
         f.v1 = 0.0f;
         f.v2 = 0.0f;
-        f.v3 = static_cast<float>(particle.life) * inv_max_life;
+        f.v3 = static_cast<float>(particle.life) * INV_MAX_LIFE;
         f.age = 0;
         f.color = Color4(0, 0, 0, 0);
         trail.push_back(f);
@@ -213,10 +213,10 @@ inline void test_particle_system_draws_active_trails_with_registers() {
 
   StubParticle p0;
   p0.life = 60;
-  const math::Vector t0[3] = {math::Vector(1, 0, 0),
+  const math::Vector T0[3] = {math::Vector(1, 0, 0),
                               math::Vector(0.7071f, 0.0f, 0.7071f),
                               math::Vector(0, 0, 1)}; // equatorial +X -> +Z arc
-  for (const math::Vector &v : t0)
+  for (const math::Vector &v : T0)
     p0.history.record(v);
 
   StubParticle p1; // inactive: parked on the poles, must NOT be drawn
@@ -246,7 +246,7 @@ inline void test_particle_system_draws_active_trails_with_registers() {
   // Active trail follows its recorded arc; the inactive ±Y particle is absent.
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)2);
   for (const math::Vector &v : pipe.plotted) {
-    HS_EXPECT_LE(arc_angular_distance(v, t0[0], t0[2]), 0.05f);
+    HS_EXPECT_LE(arc_angular_distance(v, T0[0], T0[2]), 0.05f);
     HS_EXPECT_LT(std::fabs(v.y), 0.1f);
   }
   // Registers: v2 == source index 0; v3 == life/max_life == 0.6, constant.
@@ -312,8 +312,8 @@ inline void test_particle_system_skips_unrenderable_trails() {
  *        particle registers for partial, full, and wrapped histories.
  */
 inline void test_particle_system_direct_trail_materialization_registers() {
-  const int sample_counts[] = {7, 23, 30};
-  for (int sample_count : sample_counts) {
+  const int SAMPLE_COUNTS[] = {7, 23, 30};
+  for (int sample_count : SAMPLE_COUNTS) {
     StubParticle particle = make_particle_trail(sample_count);
     std::vector<Fragment> vertices = capture_particle_vertices(particle);
     const size_t len = particle.history.length();
@@ -369,9 +369,9 @@ inline void test_particle_system_v0_zero_at_oldest_sample() {
   particle.life = 60;
   constexpr size_t CAP =
       std::remove_cvref_t<decltype(particle.history)>::CAPACITY;
-  const size_t recorded = CAP + 5;
+  const size_t RECORDED = CAP + 5;
   std::vector<math::Vector> order;
-  for (size_t i = 0; i < recorded; ++i) {
+  for (size_t i = 0; i < RECORDED; ++i) {
     float theta = 0.2f + 0.04f * static_cast<float>(i);
     math::Vector v(std::cos(theta), 0.0f, std::sin(theta));
     particle.history.record(v);
@@ -381,7 +381,7 @@ inline void test_particle_system_v0_zero_at_oldest_sample() {
   std::vector<Fragment> vertices = capture_particle_vertices(particle);
   HS_EXPECT_SIZE_OR_RETURN(vertices, CAP);
 
-  const math::Vector oldest = order[recorded - CAP];
+  const math::Vector oldest = order[RECORDED - CAP];
   const math::Vector newest = order.back();
   HS_EXPECT_GT(math::angle_between(oldest, newest), 0.1f);
   HS_EXPECT_EQ(vertices.front().v0, 0.0f);
@@ -445,8 +445,8 @@ inline void test_particle_system_custom_v2_mapper() {
  *        full linear and full wrapped quantized histories.
  */
 inline void test_particle_system_direct_trail_materialization_output_parity() {
-  const int sample_counts[] = {23, 30};
-  for (int sample_count : sample_counts) {
+  const int SAMPLE_COUNTS[] = {23, 30};
+  for (int sample_count : SAMPLE_COUNTS) {
     StubParticle particle = make_particle_trail(sample_count);
     std::vector<Pixel> direct =
         render_particle_materialization(particle, false);
@@ -538,7 +538,7 @@ inline constexpr int PARTICLE_PARITY_BANDS[4][4] = {
  */
 inline void test_particle_system_deferred_shader_parity_and_skip() {
   constexpr int W = 96, H = 48;
-  const int band_x0 = 0, band_x1 = W / 2;
+  const int BAND_X0 = 0, BAND_X1 = W / 2;
 
   // Shaded-space equatorial arcs (theta -> column x = theta * W / 2pi):
   // trail 0 spans columns ~40..58 (crosses band_x1 = 48), trail 1 ~64..76
@@ -601,7 +601,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   // Clipped, split shaders: in-band pixels identical; trail 1 never shaded.
   {
     hs_test::StubEffect fx(W, H);
-    fx.set_clip(0, H, band_x0, band_x1);
+    fx.set_clip(0, H, BAND_X0, BAND_X1);
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
@@ -670,23 +670,23 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   }
   sys.active_count = NT;
 
-  const ParticleParityShaders shade{Pixel(65535, 65535, 65535)};
+  const ParticleParityShaders SHADE{Pixel(65535, 65535, 65535)};
 
   const std::vector<Pixel> ref = particle_reference_frame<W, H>(
-      sys, shade, ParticleParityShaders::combined);
+      sys, SHADE, ParticleParityShaders::combined);
 
   int margin_lit = 0;
   for (const auto &bd : PARTICLE_PARITY_BANDS) {
     // Non-deferred combined shader.
     {
       const RenderBandDiff diff = particle_band_diff<W, H>(
-          sys, bd, ref, shade, ParticleParityShaders::combined);
+          sys, bd, ref, SHADE, ParticleParityShaders::combined);
       margin_lit += diff.margin_lit;
       expect_render_band_parity("particle combined shader", diff);
     }
 
     const RenderBandDiff d = particle_band_diff<W, H>(
-        sys, bd, ref, shade, ParticleParityShaders::position,
+        sys, bd, ref, SHADE, ParticleParityShaders::position,
         ParticleParityShaders::deferred);
     margin_lit += d.margin_lit;
     HS_EXPECT_GT(d.lit, 20);
@@ -701,7 +701,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
  */
 inline void test_particle_system_subpixel_trail_dot_parity() {
   constexpr int W = 96, H = 48;
-  constexpr float base_step = (2.0f * math::PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs::random().seed(20260720);
 
   StubSystem sys;
@@ -717,21 +717,21 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
     for (int k = 0; k < 12; ++k) {
       p.history.record(v);
       const math::Vector step = rand_cube_vector();
-      v = (v + step * (base_step * 0.2f)).normalized();
+      v = (v + step * (BASE_STEP * 0.2f)).normalized();
     }
     sys.pool.push_back(p);
   }
   sys.active_count = NT;
 
-  const ParticleParityShaders shade{Pixel(65535, 40000, 20000)};
+  const ParticleParityShaders SHADE{Pixel(65535, 40000, 20000)};
 
   const std::vector<Pixel> ref = particle_reference_frame<W, H>(
-      sys, shade, ParticleParityShaders::combined);
+      sys, SHADE, ParticleParityShaders::combined);
 
   int margin_lit = 0;
   for (const auto &bd : PARTICLE_PARITY_BANDS) {
     const RenderBandDiff d = particle_band_diff<W, H>(
-        sys, bd, ref, shade, ParticleParityShaders::position,
+        sys, bd, ref, SHADE, ParticleParityShaders::position,
         ParticleParityShaders::deferred);
     margin_lit += d.margin_lit;
     HS_EXPECT_GT(d.lit, 10);

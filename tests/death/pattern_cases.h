@@ -18,10 +18,10 @@ inline void case_pattern_sine_invalid_axis() {
   (void)Pattern::DirectionalSine::prepare(params, {});
 }
 inline void case_pattern_sine_invalid_state() {
-  const Pattern::SineParams PARAMS;
-  (void)Pattern::DirectionalSine::advance({}, PARAMS);
+  const Pattern::SineParams params;
+  (void)Pattern::DirectionalSine::advance({}, params);
   (void)Pattern::DirectionalSine::advance(
-      {std::numeric_limits<float>::infinity()}, PARAMS);
+      {std::numeric_limits<float>::infinity()}, params);
 }
 inline void case_pattern_interference_invalid_advance() {
   Pattern::InterferenceParams params;
@@ -55,10 +55,10 @@ inline void case_pattern_noise_invalid_advance() {
 }
 inline void case_pattern_noise_invalid_prepare() {
   Pattern::NoiseParams params;
-  const FastNoiseLite GENERATOR;
-  (void)Pattern::SphereNoise::prepare(params, {}, GENERATOR);
+  const FastNoiseLite generator;
+  (void)Pattern::SphereNoise::prepare(params, {}, generator);
   params.scale = 0.0f;
-  (void)Pattern::SphereNoise::prepare(params, {}, GENERATOR);
+  (void)Pattern::SphereNoise::prepare(params, {}, generator);
 }
 inline void case_pattern_radian_invalid_advance() {
   Pattern::PlaneInterference::Params params;
@@ -99,10 +99,10 @@ inline void case_pattern_plane_noise_invalid_advance() {
 }
 inline void case_pattern_plane_noise_invalid_prepare() {
   Pattern::PlaneNoise::Params params;
-  const FastNoiseLite GENERATOR;
-  (void)Pattern::PlaneNoise::prepare(params, {}, GENERATOR,
+  const FastNoiseLite generator;
+  (void)Pattern::PlaneNoise::prepare(params, {}, generator,
                                      math::NoiseBasis::SIMPLEX);
-  (void)Pattern::PlaneNoise::prepare(params, {}, GENERATOR,
+  (void)Pattern::PlaneNoise::prepare(params, {}, generator,
                                      static_cast<math::NoiseBasis>(3));
 }
 

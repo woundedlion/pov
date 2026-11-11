@@ -62,18 +62,18 @@ inline void test_pullback_cached_hue_qualification() {
           for (float fraction : {.17f, .5f, .83f}) {
             frame.temporal.fraction = fraction;
             const auto prepared = Policy::prepare(frame);
-            const int LOW_ROW =
+            const int low_row =
                 std::min(int(fraction * (PaletteLabLut::TIMES - 1)),
                          int(PaletteLabLut::TIMES) - 2);
-            const auto *const LOW_MASK =
+            const auto *const low_mask =
                 &rgb[slot].masks[cache.rgb_midpoint ? cache.rgb_midpoint_row
-                                                    : LOW_ROW];
-            const auto *const HIGH_MASK =
+                                                    : low_row];
+            const auto *const high_mask =
                 &rgb[slot].masks[cache.rgb_midpoint ? cache.rgb_midpoint_row
-                                                    : LOW_ROW + 1];
-            HS_EXPECT_TRUE(prepared.lab.rgb_mask_low == LOW_MASK);
+                                                    : low_row + 1];
+            HS_EXPECT_TRUE(prepared.lab.rgb_mask_low == low_mask);
             HS_EXPECT_TRUE(prepared.lab.rgb_mask_high ==
-                           (LOW_MASK == HIGH_MASK ? nullptr : HIGH_MASK));
+                           (low_mask == high_mask ? nullptr : high_mask));
             for (int value = 0; value < 256; ++value) {
               const float coordinate = (value + .5f) / 256;
               for (int hue = 0; hue < 128; ++hue) {

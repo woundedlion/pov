@@ -99,19 +99,19 @@ inline void test_kaleidoscope_melt_cache_controls() {
   pin_frame_clock(0);
   FX effect;
   effect.init();
-  const auto INITIAL = KaleidoscopeMeltWhiteBox::params(effect);
+  const auto initial = KaleidoscopeMeltWhiteBox::params(effect);
   const auto draw = [&](int frame) {
     pin_frame_clock(frame);
     effect.draw_frame();
-    const auto &CURRENT = ComposedFrameWhiteBox::current_frame(effect);
-    const bool CACHED =
-        CURRENT.palette_lab_lut && CURRENT.palette_lab_lut->active;
+    const auto &current = ComposedFrameWhiteBox::current_frame(effect);
+    const bool cached =
+        current.palette_lab_lut && current.palette_lab_lut->active;
     effect.advance_display();
-    return CACHED;
+    return cached;
   };
   HS_EXPECT_TRUE(draw(1));
   for (int control = 0; control < 4; ++control) {
-    auto changed = INITIAL;
+    auto changed = initial;
     auto &color = changed.template get<"color">();
     if (control == 0)
       color.opacity_high = 1.0f;
@@ -125,7 +125,7 @@ inline void test_kaleidoscope_melt_cache_controls() {
     HS_EXPECT_FALSE(draw(2 + control * 3));
     HS_EXPECT_FALSE(draw(3 + control * 3));
   }
-  ComposedFrameWhiteBox::set_params(effect, INITIAL);
+  ComposedFrameWhiteBox::set_params(effect, initial);
   HS_EXPECT_FALSE(draw(14));
   HS_EXPECT_TRUE(draw(15));
 }

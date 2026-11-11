@@ -39,33 +39,33 @@ inline void test_shader_chain_spherical_noise_policy() {
   auto &clock = frame.resources.template get<"source">();
   clock.noise = &state.noise;
   clock.noise_time = state.phase;
-  const auto ORACLE_NOISE = make_oracle_noise("source", Model::ID, 1.0f);
+  const auto oracle_noise = make_oracle_noise("source", Model::ID, 1.0f);
   for (uint8_t basis = 0; basis < 3; ++basis) {
     params.basis = basis;
-    const auto PREPARED = Model::prepare({}, params, state);
-    const auto TYPED = Fixture::Stage::template prepare<Binding>(frame);
-    const auto ORACLE = Pattern::SphereNoise::prepare(
+    const auto prepared = Model::prepare({}, params, state);
+    const auto typed = Fixture::Stage::template prepare<Binding>(frame);
+    const auto oracle = Pattern::SphereNoise::prepare(
         {3.5f, -1.0f / 128.0f, static_cast<math::NoiseBasis>(basis), 1.7f,
          Pattern::NoiseVariant::OCTAVE_CONTOUR},
-        {0.37f}, ORACLE_NOISE);
+        {0.37f}, oracle_noise);
     for (const auto &view : sweep_views()) {
-      const float UNIT_RAW = Pattern::SphereNoise::sample(
-          Pattern::SphereDirection::from(view), ORACLE);
+      const float unit_raw = Pattern::SphereNoise::sample(
+          Pattern::SphereDirection::from(view), oracle);
       for (float scale : {1.0f, std::sqrt(1.003f)}) {
-        const PB::SphereSample INPUT{scale * view, 0.375f};
-        const auto ACTUAL = Model::run(INPUT, {}, params, PREPARED);
-        const auto COMPOSED =
-            Fixture::Stage::template run<Binding>(INPUT, frame, TYPED);
-        const float RAW = Pattern::SphereNoise::sample(
-            Pattern::SphereDirection::from(INPUT.dir), ORACLE);
-        HS_EXPECT_NEAR(ACTUAL.value, 0.5f + 0.5f * RAW, 1.0e-7f);
-        HS_EXPECT_NEAR(ACTUAL.value, 0.5f + 0.5f * UNIT_RAW, 2.0e-5f);
-        HS_EXPECT_TRUE(field_identical(ACTUAL, COMPOSED));
-        HS_EXPECT_EQ(ACTUAL.coverage, 1.0f);
-        HS_EXPECT_EQ(ACTUAL.path_length, 0.375f);
-        HS_EXPECT_EQ(ACTUAL.sphere.x, INPUT.dir.x);
-        HS_EXPECT_EQ(ACTUAL.sphere.y, INPUT.dir.y);
-        HS_EXPECT_EQ(ACTUAL.sphere.z, INPUT.dir.z);
+        const PB::SphereSample input{scale * view, 0.375f};
+        const auto actual = Model::run(input, {}, params, prepared);
+        const auto composed =
+            Fixture::Stage::template run<Binding>(input, frame, typed);
+        const float raw = Pattern::SphereNoise::sample(
+            Pattern::SphereDirection::from(input.dir), oracle);
+        HS_EXPECT_NEAR(actual.value, 0.5f + 0.5f * raw, 1.0e-7f);
+        HS_EXPECT_NEAR(actual.value, 0.5f + 0.5f * unit_raw, 2.0e-5f);
+        HS_EXPECT_TRUE(field_identical(actual, composed));
+        HS_EXPECT_EQ(actual.coverage, 1.0f);
+        HS_EXPECT_EQ(actual.path_length, 0.375f);
+        HS_EXPECT_EQ(actual.sphere.x, input.dir.x);
+        HS_EXPECT_EQ(actual.sphere.y, input.dir.y);
+        HS_EXPECT_EQ(actual.sphere.z, input.dir.z);
       }
     }
   }
@@ -88,29 +88,29 @@ inline void test_shader_chain_spherical_cells_policy() {
          output <= static_cast<uint8_t>(Pattern::SphereCellOutput::CELL_VALUE);
          ++output) {
       params.output = output;
-      const auto PREPARED = Model::prepare({}, params, {});
-      const auto TYPED = Fixture::Stage::template prepare<Binding>(frame);
+      const auto prepared = Model::prepare({}, params, {});
+      const auto typed = Fixture::Stage::template prepare<Binding>(frame);
       for (const auto &view : sweep_views()) {
-        const float UNIT_RAW = Pattern::SphereCells::sample(
-            Pattern::SphereDirection::from(view), PREPARED);
+        const float unit_raw = Pattern::SphereCells::sample(
+            Pattern::SphereDirection::from(view), prepared);
         for (float scale : {1.0f, std::sqrt(1.003f)}) {
-          const PB::SphereSample INPUT{scale * view, 1.25f};
-          const auto ACTUAL = Model::run(INPUT, {}, params, PREPARED);
-          const auto COMPOSED =
-              Fixture::Stage::template run<Binding>(INPUT, frame, TYPED);
-          HS_EXPECT_TRUE(field_identical(ACTUAL, COMPOSED));
-          const float RAW = Pattern::SphereCells::sample(
-              Pattern::SphereDirection::from(INPUT.dir), PREPARED);
-          HS_EXPECT_NEAR(ACTUAL.value, 0.5f + 0.5f * RAW, 1.0e-7f);
+          const PB::SphereSample input{scale * view, 1.25f};
+          const auto actual = Model::run(input, {}, params, prepared);
+          const auto composed =
+              Fixture::Stage::template run<Binding>(input, frame, typed);
+          HS_EXPECT_TRUE(field_identical(actual, composed));
+          const float raw = Pattern::SphereCells::sample(
+              Pattern::SphereDirection::from(input.dir), prepared);
+          HS_EXPECT_NEAR(actual.value, 0.5f + 0.5f * raw, 1.0e-7f);
           if (output !=
               static_cast<uint8_t>(Pattern::SphereCellOutput::CELL_VALUE))
-            HS_EXPECT_NEAR(ACTUAL.value, 0.5f + 0.5f * UNIT_RAW, 3.0e-6f);
-          HS_EXPECT_TRUE(ACTUAL.value >= 0.0f && ACTUAL.value <= 1.0f);
-          HS_EXPECT_EQ(ACTUAL.coverage, 1.0f);
-          HS_EXPECT_EQ(ACTUAL.path_length, 1.25f);
-          HS_EXPECT_EQ(ACTUAL.sphere.x, INPUT.dir.x);
-          HS_EXPECT_EQ(ACTUAL.sphere.y, INPUT.dir.y);
-          HS_EXPECT_EQ(ACTUAL.sphere.z, INPUT.dir.z);
+            HS_EXPECT_NEAR(actual.value, 0.5f + 0.5f * unit_raw, 3.0e-6f);
+          HS_EXPECT_TRUE(actual.value >= 0.0f && actual.value <= 1.0f);
+          HS_EXPECT_EQ(actual.coverage, 1.0f);
+          HS_EXPECT_EQ(actual.path_length, 1.25f);
+          HS_EXPECT_EQ(actual.sphere.x, input.dir.x);
+          HS_EXPECT_EQ(actual.sphere.y, input.dir.y);
+          HS_EXPECT_EQ(actual.sphere.z, input.dir.z);
         }
       }
     }
@@ -118,28 +118,28 @@ inline void test_shader_chain_spherical_cells_policy() {
   params.layout = static_cast<uint8_t>(Pattern::SphereCellLayout::OCTAHEDRON);
   params.output = static_cast<uint8_t>(Pattern::SphereCellOutput::CENTERS);
   const PB::SphereSample INPUT{math::X_AXIS, 2.0f};
-  const auto PREPARED = Model::prepare({}, params, {});
-  HS_EXPECT_NEAR(Model::run(INPUT, {}, params, PREPARED).value, 1.0f, 1.0e-6f);
+  const auto prepared = Model::prepare({}, params, {});
+  HS_EXPECT_NEAR(Model::run(INPUT, {}, params, prepared).value, 1.0f, 1.0e-6f);
   params.output = static_cast<uint8_t>(Pattern::SphereCellOutput::BORDERS);
   params.line_thickness = 0.1f;
   params.line_softness = 0.2f;
-  const float ANGLE =
+  const float angle =
       std::numbers::pi_v<float> / 4.0f -
       0.2f / std::sqrt(6.0f / (4.0f * std::numbers::pi_v<float>));
-  const math::Vector BORDER{std::cos(ANGLE), std::sin(ANGLE), 0.0f};
-  const auto BORDER_PREPARED = Model::prepare({}, params, {});
-  const auto BORDER_TYPED = Fixture::Stage::template prepare<Binding>(frame);
+  const math::Vector border{std::cos(angle), std::sin(angle), 0.0f};
+  const auto border_prepared = Model::prepare({}, params, {});
+  const auto border_typed = Fixture::Stage::template prepare<Binding>(frame);
   for (float scale : {1.0f, std::sqrt(1.003f)}) {
-    const PB::SphereSample DRIFTED{scale * BORDER, 2.0f};
-    const auto ACTUAL = Model::run(DRIFTED, {}, params, BORDER_PREPARED);
-    const auto COMPOSED =
-        Fixture::Stage::template run<Binding>(DRIFTED, frame, BORDER_TYPED);
-    HS_EXPECT_NEAR(ACTUAL.value, 0.5f, 2.0e-6f);
-    HS_EXPECT_NEAR(COMPOSED.value, 0.5f, 2.0e-6f);
-    HS_EXPECT_EQ(ACTUAL.sphere.x, DRIFTED.dir.x);
-    HS_EXPECT_EQ(COMPOSED.sphere.x, DRIFTED.dir.x);
-    HS_EXPECT_EQ(ACTUAL.path_length, 2.0f);
-    HS_EXPECT_EQ(COMPOSED.path_length, 2.0f);
+    const PB::SphereSample drifted{scale * border, 2.0f};
+    const auto actual = Model::run(drifted, {}, params, border_prepared);
+    const auto composed =
+        Fixture::Stage::template run<Binding>(drifted, frame, border_typed);
+    HS_EXPECT_NEAR(actual.value, 0.5f, 2.0e-6f);
+    HS_EXPECT_NEAR(composed.value, 0.5f, 2.0e-6f);
+    HS_EXPECT_EQ(actual.sphere.x, drifted.dir.x);
+    HS_EXPECT_EQ(composed.sphere.x, drifted.dir.x);
+    HS_EXPECT_EQ(actual.path_length, 2.0f);
+    HS_EXPECT_EQ(composed.path_length, 2.0f);
   }
 }
 
@@ -151,9 +151,9 @@ inline void test_shader_chain_spherical_source_pipeline() {
       {"source", In::Op::SampleSphericalCells::ID},
       {"cutout", In::Op::CoverageValueCutout::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
-  const auto RESULT = program.compile(CHAIN);
-  HS_EXPECT_EQ(RESULT.code, In::ChainStatus::OK);
-  if (RESULT.code != In::ChainStatus::OK)
+  const auto result = program.compile(CHAIN);
+  HS_EXPECT_EQ(result.code, In::ChainStatus::OK);
+  if (result.code != In::ChainStatus::OK)
     return;
   auto &params = param_as<In::Op::SampleSphericalCells::Params>(program, 0);
   params.layout = static_cast<uint8_t>(Pattern::SphereCellLayout::OCTAHEDRON);
@@ -161,27 +161,27 @@ inline void test_shader_chain_spherical_source_pipeline() {
   auto &cutout = param_as<In::Op::ValueCutoutChainParams>(program, 1);
   cutout.cutout_threshold = 0.75f;
   cutout.cutout_softness = 0.0f;
-  const auto CTX = shared_resources().context();
-  program.prepare(CTX);
+  const auto ctx = shared_resources().context();
+  program.prepare(ctx);
   const PB::SphereSample CENTER{math::X_AXIS, 0.25f};
-  const PB::SphereSample EDGE{math::Vector(1, 1, 0).normalized(), 0.25f};
-  const auto CENTER_FIELD = run_entry<PB::FieldSample>(program, CTX, 0, CENTER);
-  const auto EDGE_FIELD = run_entry<PB::FieldSample>(program, CTX, 0, EDGE);
-  HS_EXPECT_NEAR(CENTER_FIELD.value, 1.0f, 1.0e-6f);
-  HS_EXPECT_TRUE(EDGE_FIELD.value < 0.75f);
-  const auto VISIBLE =
-      run_entry<PB::FieldSample>(program, CTX, 1, CENTER_FIELD);
-  const auto HIDDEN = run_entry<PB::FieldSample>(program, CTX, 1, EDGE_FIELD);
-  HS_EXPECT_EQ(VISIBLE.coverage, 1.0f);
-  HS_EXPECT_EQ(HIDDEN.coverage, 0.0f);
-  HS_EXPECT_EQ(HIDDEN.path_length, 0.25f);
-  HS_EXPECT_EQ(HIDDEN.sphere.x, EDGE.dir.x);
-  HS_EXPECT_EQ(HIDDEN.sphere.y, EDGE.dir.y);
-  const auto COLOR = program.evaluate(CENTER.dir, CTX);
-  const auto CUT = program.evaluate(EDGE.dir, CTX);
-  HS_EXPECT_EQ(COLOR.alpha, 1.0f);
-  HS_EXPECT_EQ(CUT.alpha, 0.0f);
-  HS_EXPECT_TRUE(carrier_live(COLOR));
+  const PB::SphereSample edge{math::Vector(1, 1, 0).normalized(), 0.25f};
+  const auto center_field = run_entry<PB::FieldSample>(program, ctx, 0, CENTER);
+  const auto edge_field = run_entry<PB::FieldSample>(program, ctx, 0, edge);
+  HS_EXPECT_NEAR(center_field.value, 1.0f, 1.0e-6f);
+  HS_EXPECT_TRUE(edge_field.value < 0.75f);
+  const auto visible =
+      run_entry<PB::FieldSample>(program, ctx, 1, center_field);
+  const auto hidden = run_entry<PB::FieldSample>(program, ctx, 1, edge_field);
+  HS_EXPECT_EQ(visible.coverage, 1.0f);
+  HS_EXPECT_EQ(hidden.coverage, 0.0f);
+  HS_EXPECT_EQ(hidden.path_length, 0.25f);
+  HS_EXPECT_EQ(hidden.sphere.x, edge.dir.x);
+  HS_EXPECT_EQ(hidden.sphere.y, edge.dir.y);
+  const auto color = program.evaluate(CENTER.dir, ctx);
+  const auto cut = program.evaluate(edge.dir, ctx);
+  HS_EXPECT_EQ(color.alpha, 1.0f);
+  HS_EXPECT_EQ(cut.alpha, 0.0f);
+  HS_EXPECT_TRUE(carrier_live(color));
 }
 
 /** @brief Spherical noise keeps its instance clock through edits and restore. */
@@ -200,21 +200,21 @@ inline void test_shader_chain_spherical_noise_lifecycle() {
   for (int frame = 0; frame < 3; ++frame)
     program.advance();
   HS_EXPECT_EQ(state_as<Model::State>(program, 0).phase, 3.0f / 128.0f);
-  const auto CTX = shared_resources().context();
-  program.prepare(CTX);
+  const auto ctx = shared_resources().context();
+  program.prepare(ctx);
   SweepColors before;
-  snapshot_render(program, CTX, before);
+  snapshot_render(program, ctx, before);
   const auto &runtime = program.ops()[0].op->runtime;
-  const auto SAVED = runtime.capture_state(program.state_block(0));
+  const auto saved = runtime.capture_state(program.state_block(0));
   program.advance();
   HS_EXPECT_EQ(state_as<Model::State>(program, 0).phase, 4.0f / 128.0f);
-  HS_EXPECT_TRUE(runtime.restore_state(program.state_block(0), SAVED));
+  HS_EXPECT_TRUE(runtime.restore_state(program.state_block(0), saved));
   HS_EXPECT_EQ(state_as<Model::State>(program, 0).phase, 3.0f / 128.0f);
-  program.prepare(CTX);
+  program.prepare(ctx);
   SweepColors restored;
-  snapshot_render(program, CTX, restored);
+  snapshot_render(program, ctx, restored);
   expect_sweep_identical(restored, before);
-  const auto SEED = state_as<Model::State>(program, 0).noise_seed;
+  const auto seed = state_as<Model::State>(program, 0).noise_seed;
   const In::ChainEntryRequest EDITED[] = {
       {"camera", "sphere.rotate.v2"},
       {"source", Model::ID},
@@ -224,7 +224,7 @@ inline void test_shader_chain_spherical_noise_lifecycle() {
   if (result.code != In::ChainStatus::OK)
     return;
   HS_EXPECT_EQ(state_as<Model::State>(program, 1).phase, 3.0f / 128.0f);
-  HS_EXPECT_EQ(state_as<Model::State>(program, 1).noise_seed, SEED);
+  HS_EXPECT_EQ(state_as<Model::State>(program, 1).noise_seed, seed);
   const In::ChainEntryRequest RENAMED[] = {
       {"other", Model::ID},
       {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID}};
@@ -233,5 +233,5 @@ inline void test_shader_chain_spherical_noise_lifecycle() {
   if (result.code != In::ChainStatus::OK)
     return;
   HS_EXPECT_EQ(state_as<Model::State>(program, 0).phase, 0.0f);
-  HS_EXPECT_TRUE(state_as<Model::State>(program, 0).noise_seed != SEED);
+  HS_EXPECT_TRUE(state_as<Model::State>(program, 0).noise_seed != seed);
 }

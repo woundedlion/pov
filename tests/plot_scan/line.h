@@ -20,22 +20,22 @@ inline void test_line_sample_endpoints_and_unit_length() {
   Fragment a, b;
   a.pos = math::Vector(0.6f, 0.0f, 0.8f);
   b.pos = math::Vector(-0.64f, 0.6f, 0.48f);
-  const int density = 8;
-  Plot::Line::sample(points, a, b, density);
+  const int DENSITY = 8;
+  Plot::Line::sample(points, a, b, DENSITY);
 
-  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(DENSITY + 1));
 
   HS_EXPECT_VEC(points[0].pos, a.pos, 0.0f);
-  HS_EXPECT_VEC(points[density].pos, b.pos, 0.0f);
+  HS_EXPECT_VEC(points[DENSITY].pos, b.pos, 0.0f);
 
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
 
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(points[density].v0, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(points[DENSITY].v0, 1.0f, 1e-6f);
   float total_angle = math::angle_between(a.pos, b.pos);
-  HS_EXPECT_NEAR(points[density].v1, total_angle, 1e-4f);
+  HS_EXPECT_NEAR(points[DENSITY].v1, total_angle, 1e-4f);
   HS_EXPECT_NEAR(total_angle, math::PI_F * 0.5f, 1e-4f);
 }
 
@@ -57,9 +57,9 @@ inline void test_line_sample_interior_between_endpoints() {
   Fragment a, b;
   a.pos = math::Vector(1, 0, 0);
   b.pos = math::Vector(0, 1, 0);
-  const int density = 4;
-  Plot::Line::sample(points, a, b, density);
-  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
+  const int DENSITY = 4;
+  Plot::Line::sample(points, a, b, DENSITY);
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(DENSITY + 1));
 
   const float total = math::angle_between(a.pos, b.pos);
   for (size_t i = 1; i + 1 < points.size(); ++i) {
@@ -69,9 +69,9 @@ inline void test_line_sample_interior_between_endpoints() {
     const float from_b = math::angle_between(b.pos, p);
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
     HS_EXPECT_NEAR(from_a + from_b, total, LINE_SAMPLE_ANGLE_TOL);
-    HS_EXPECT_NEAR(from_a, total * static_cast<float>(i) / density,
+    HS_EXPECT_NEAR(from_a, total * static_cast<float>(i) / DENSITY,
                    LINE_SAMPLE_ANGLE_TOL);
-    HS_EXPECT_NEAR(points[i].v0, static_cast<float>(i) / density, 1e-6f);
+    HS_EXPECT_NEAR(points[i].v0, static_cast<float>(i) / DENSITY, 1e-6f);
     HS_EXPECT_NEAR(points[i].v1, from_a, LINE_SAMPLE_ANGLE_TOL);
   }
 }
@@ -117,12 +117,12 @@ inline void test_line_sample_antipodal_stable_axis() {
   Fragment a, b;
   a.pos = math::Vector(1, 0, 0);
   b.pos = math::Vector(-1, 0, 0);
-  const int density = 8;
-  Plot::Line::sample(points, a, b, density);
+  const int DENSITY = 8;
+  Plot::Line::sample(points, a, b, DENSITY);
 
-  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(DENSITY + 1));
   HS_EXPECT_NEAR(points[0].pos.x, a.pos.x, 1e-6f);
-  HS_EXPECT_NEAR(points[density].pos.x, b.pos.x, 1e-6f);
+  HS_EXPECT_NEAR(points[DENSITY].pos.x, b.pos.x, 1e-6f);
 
   for (size_t i = 0; i < points.size(); ++i) {
     const math::Vector &p = points[i].pos;
@@ -131,7 +131,7 @@ inline void test_line_sample_antipodal_stable_axis() {
   }
 
   // The midpoint is ~90deg from each antipodal endpoint.
-  const math::Vector &mid = points[density / 2].pos;
+  const math::Vector &mid = points[DENSITY / 2].pos;
   HS_EXPECT_NEAR(math::angle_between(a.pos, mid), math::PI_F * 0.5f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(b.pos, mid), math::PI_F * 0.5f, 1e-3f);
 }
@@ -155,16 +155,16 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   const math::Vector pole = math::cross(a.pos, b.pos);
   HS_EXPECT_LT(math::dot(pole, pole), math::EPS_NORMALIZE_SQ);
 
-  const int density = 8;
-  Plot::Line::sample(points, a, b, density);
+  const int DENSITY = 8;
+  Plot::Line::sample(points, a, b, DENSITY);
 
-  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(DENSITY + 1));
   for (size_t i = 0; i < points.size(); ++i) {
     const math::Vector &p = points[i].pos;
     HS_EXPECT_TRUE(finite_vec(p));
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
-  const math::Vector &mid = points[density / 2].pos;
+  const math::Vector &mid = points[DENSITY / 2].pos;
   HS_EXPECT_NEAR(math::angle_between(a.pos, mid), math::PI_F * 0.5f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(b.pos, mid), math::PI_F * 0.5f, 1e-3f);
 

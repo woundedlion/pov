@@ -80,8 +80,8 @@ struct MindSplatterWhiteBox {
     const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);
     fx.orientation.set(start_pose);
     fx.orientation.push(math::make_rotation(axis, 0.012f) * start_pose);
-    const math::Complex previous_warp(0.15f, 0.06f);
-    fx.warp_history.capture(previous_warp);
+    const math::Complex PREVIOUS_WARP(0.15f, 0.06f);
+    fx.warp_history.capture(PREVIOUS_WARP);
     fx.mobius.b = math::Complex(0.15f + shift, 0.06f + 0.4f * shift);
     constexpr uint16_t LIFE = 148;
     for (float x : {1.0f, 60.0f, 143.0f, 222.0f}) {
@@ -104,11 +104,11 @@ struct MindSplatterWhiteBox {
         if (setups)
           *setups = Spacetime::geometry_counters.column_draw_setups;
       } else {
-        const math::Complex warp_step(fx.mobius.b.re - previous_warp.re,
-                                      fx.mobius.b.im - previous_warp.im);
+        const math::Complex warp_step(fx.mobius.b.re - PREVIOUS_WARP.re,
+                                      fx.mobius.b.im - PREVIOUS_WARP.im);
         math::MobiusParams warp = fx.mobius;
-        warp.b = math::Complex(previous_warp.re + warp_step.re * fraction,
-                               previous_warp.im + warp_step.im * fraction);
+        warp.b = math::Complex(PREVIOUS_WARP.re + warp_step.re * fraction,
+                               PREVIOUS_WARP.im + warp_step.im * fraction);
         const auto pose = fx.orientation.sample(fraction);
         fx.orientation.set(pose);
         ScratchScope guard(scratch_arena_a);

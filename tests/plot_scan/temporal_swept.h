@@ -28,12 +28,12 @@ inline void test_swept_bounds_cover_moving_edges() {
             Spacetime::PathBound::rotation(angle).chord_error() + 1e-6f;
         float low = 0.0f, high = 0.0f;
         HS_EXPECT_TRUE(Spacetime::swept_heights(captures, 4, pad, low, high));
-        const math::Vector normals[] = {
+        const math::Vector NORMALS[] = {
             math::Vector(1.0f, 0.0f, 0.0f), math::Vector(-0.3f, 0.0f, 1.0f),
             math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.2f, -1.0f, 0.1f)};
         bool beyond[4];
         for (int n = 0; n < 4; ++n) {
-          beyond[n] = Spacetime::swept_beyond(captures, 4, pad, normals[n]);
+          beyond[n] = Spacetime::swept_beyond(captures, 4, pad, NORMALS[n]);
           beyond_hits += beyond[n];
         }
         if (span == 1.0f)
@@ -50,7 +50,7 @@ inline void test_swept_bounds_cover_moving_edges() {
             HS_EXPECT_LE(p.y, high);
             for (int n = 0; n < 4; ++n)
               if (beyond[n])
-                HS_EXPECT_GT(math::dot(p, normals[n]), 0.0f);
+                HS_EXPECT_GT(math::dot(p, NORMALS[n]), 0.0f);
           }
         }
         float highest_capture = -1.0f;

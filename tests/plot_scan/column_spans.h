@@ -16,13 +16,13 @@ inline void test_bilinear_clip_tap_oracle_companions() {
       const ClipRegion clip{3 + dy, 4 + dy, 7 + dx, 8 + dx, 0, W, H};
       HS_EXPECT_TRUE((taps_in_clip<W, H>(clip, point)));
     }
-  const ClipRegion missed_x{3, 5, 9, 10, 0, W, H};
-  const ClipRegion missed_y{5, 6, 7, 9, 0, W, H};
-  HS_EXPECT_FALSE((taps_in_clip<W, H>(missed_x, point)));
-  HS_EXPECT_FALSE((taps_in_clip<W, H>(missed_y, point)));
-  const ClipRegion wrapped{3, 5, 0, 1, 0, W, H};
+  const ClipRegion MISSED_X{3, 5, 9, 10, 0, W, H};
+  const ClipRegion MISSED_Y{5, 6, 7, 9, 0, W, H};
+  HS_EXPECT_FALSE((taps_in_clip<W, H>(MISSED_X, point)));
+  HS_EXPECT_FALSE((taps_in_clip<W, H>(MISSED_Y, point)));
+  const ClipRegion WRAPPED{3, 5, 0, 1, 0, W, H};
   HS_EXPECT_TRUE((
-      taps_in_clip<W, H>(wrapped, math::pixel_to_vector<W, H>(15.75f, 3.25f))));
+      taps_in_clip<W, H>(WRAPPED, math::pixel_to_vector<W, H>(15.75f, 3.25f))));
 }
 
 /**
@@ -78,13 +78,13 @@ inline void test_clip_arcs_overlap() {
  * @brief geodesic_col_span declines an arc pole within AXIS_Y_EPS of horizontal.
  */
 inline void test_col_span_rejects_ill_conditioned_pole() {
-  const math::Vector a(1.0f, 0.0f, 0.0f);
+  const math::Vector A(1.0f, 0.0f, 0.0f);
   const math::Vector b = math::Vector(-1.0f, 0.0002f, 0.00000001f).normalized();
-  const auto span = Plot::make_geodesic_edge_span(a, b);
+  const auto span = Plot::make_geodesic_edge_span(A, b);
   HS_EXPECT_FALSE(span.antipodal);
   HS_EXPECT_LT(std::abs(span.axis.y), Plot::AXIS_Y_EPS);
   int start = 0, length = 0;
-  HS_EXPECT_FALSE(Plot::geodesic_col_span<288>(a, b, span, start, length));
+  HS_EXPECT_FALSE(Plot::geodesic_col_span<288>(A, b, span, start, length));
 }
 
 /**
@@ -353,7 +353,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
   auto shade = white_shader(0.9f);
 
   hs::random().seed(0x5EED);
-  constexpr auto clips = quadrant_wedge_clips<W, H>();
+  constexpr auto CLIPS = quadrant_wedge_clips<W, H>();
   int lit_total = 0, margin_lit_total = 0;
 
   MeshState posed;
@@ -386,7 +386,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
       hs_test::capture_frame<W, H>(fx, ref);
     }
 
-    for (auto &cl : clips) {
+    for (auto &cl : CLIPS) {
       hs_test::StubEffect fx(W, H);
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       render(fx);
@@ -420,9 +420,9 @@ inline void test_mesh_edge_gate_pixel_parity() {
 inline void test_short_geodesic_arc_lengths() {
   float previous = 0.0f;
   for (float angle : {0.0001f, 0.0002f, 0.00025f, 0.0004f, 0.0005f}) {
-    const math::Vector a(1.0f, 0.0f, 0.0f);
+    const math::Vector A(1.0f, 0.0f, 0.0f);
     const math::Vector b(cosf(angle), 0.0f, sinf(angle));
-    const auto span = Plot::make_geodesic_edge_span(a, b);
+    const auto span = Plot::make_geodesic_edge_span(A, b);
     HS_EXPECT_NEAR(span.total, angle, 1e-9f);
     HS_EXPECT_GT(span.total, previous);
     previous = span.total;
@@ -432,7 +432,7 @@ inline void test_short_geodesic_arc_lengths() {
 /** @brief Endpoint shortcuts obey the same arc window as the adaptive walk. */
 inline void test_rasterize_short_edge_windows() {
   constexpr int W = 96, H = 48;
-  const math::Basis BASIS =
+  const math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(1, 0, 0));
   for (bool planar : {false, true}) {
     for (float distance : {0.0f, 0.0001f}) {
@@ -451,7 +451,7 @@ inline void test_rasterize_short_edge_windows() {
       auto shader = [&](const math::Vector &, Fragment &) { ++shaded; };
       Plot::RasterOptions options;
       if (planar)
-        options.projection = Plot::RasterProjection::planar(BASIS);
+        options.projection = Plot::RasterProjection::planar(basis);
       options.plot_t_start = 0.25f;
       options.plot_t_end = 0.75f;
       Plot::rasterize<W, H>(sink, canvas, points, shader, options);
@@ -497,14 +497,14 @@ inline void test_rasterize_window_preserves_terminal_sample() {
       };
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
           full, canvas, points, shade);
-      const float FULL_TERMINAL_T = terminal_t;
+      const float full_terminal_t = terminal_t;
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
           clipped, canvas, points, shade, {.plot_t_start = 0.5f});
       HS_EXPECT_GT(clipped.plotted.size(), size_t{2});
       if (clipped.plotted.size() <= 2 || full.plotted.empty())
         return;
       HS_EXPECT_LT(clipped.plotted.size(), full.plotted.size());
-      HS_EXPECT_EQ(terminal_t, FULL_TERMINAL_T);
+      HS_EXPECT_EQ(terminal_t, full_terminal_t);
       HS_EXPECT_VEC(clipped.plotted.back(), full.plotted.back(), 0.0f);
       CapturePipeline bounded;
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
@@ -515,12 +515,12 @@ inline void test_rasterize_window_preserves_terminal_sample() {
       HS_EXPECT_LE(terminal_t, 0.75f);
       CapturePipeline near_end;
       terminal_t = -1.f;
-      const float BEFORE_END = std::nextafter(1.0f, 0.0f);
+      const float before_end = std::nextafter(1.0f, 0.0f);
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
-          near_end, canvas, points, shade, {.plot_t_end = BEFORE_END});
+          near_end, canvas, points, shade, {.plot_t_end = before_end});
       HS_EXPECT_GT(near_end.plotted.size(), size_t{1});
       HS_EXPECT_GT(terminal_t, .75f);
-      HS_EXPECT_LE(terminal_t, BEFORE_END);
+      HS_EXPECT_LE(terminal_t, before_end);
     };
     check.template operator()<false>();
     check.template operator()<true>();
@@ -537,7 +537,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
   auto shade = white_shader(0.9f);
 
   hs::random().seed(0xC01C);
-  constexpr auto clips = quadrant_wedge_clips<W, H>();
+  constexpr auto CLIPS = quadrant_wedge_clips<W, H>();
   int lit_total = 0, margin_lit_total = 0, row_margin_lit_total = 0;
 
   for (int trial = 0; trial < 50; ++trial) {
@@ -583,7 +583,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
       hs_test::capture_frame<W, H>(fx, ref);
     }
 
-    for (auto &cl : clips) {
+    for (auto &cl : CLIPS) {
       hs_test::StubEffect fx(W, H);
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       render(fx);
@@ -609,29 +609,30 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
   constexpr int TW = 288, TH = 144;
   Pipeline<TW, TH, Filter::Screen::AntiAlias<TW, TH>> pipeline{
       Filter::Screen::AntiAlias<TW, TH>()};
-  const math::Vector a(-0.616987944f, -0.142148912f, 0.774028182f);
-  const math::Vector b(-0.623163402f, 0.021294117f, 0.78180176f);
+  const math::Vector A_VALUE(-0.616987944f, -0.142148912f, 0.774028182f);
+  const math::Vector B_VALUE(-0.623163402f, 0.021294117f, 0.78180176f);
 
-  HS_EXPECT_FALSE(Plot::make_geodesic_edge_span(a, b).azimuth_bounded);
+  HS_EXPECT_FALSE(
+      Plot::make_geodesic_edge_span(A_VALUE, B_VALUE).azimuth_bounded);
   size_t excluding_bands = 0;
   ScratchScope sc(plot_arena());
   Fragments trail;
-  const math::Vector ends[] = {a, b};
-  bind_trail(trail, ends);
+  const math::Vector ENDS[] = {A_VALUE, B_VALUE};
+  bind_trail(trail, ENDS);
 
   for (int x0 = 0; x0 < TW; x0 += 24) {
     const ClipRegion cr{0, TH, x0, std::min(x0 + 96, TW), 1, TW, TH};
     const auto xc = cr.x_clip();
 
-    const auto A = math::vector_to_pixel<TW, TH>(a);
-    const auto B = math::vector_to_pixel<TW, TH>(b);
-    excluding_bands += !cr.contains_x(static_cast<int>(A.x)) &&
-                       !cr.contains_x(static_cast<int>(B.x));
+    const auto a_value = math::vector_to_pixel<TW, TH>(A_VALUE);
+    const auto b_value = math::vector_to_pixel<TW, TH>(B_VALUE);
+    excluding_bands += !cr.contains_x(static_cast<int>(a_value.x)) &&
+                       !cr.contains_x(static_cast<int>(b_value.x));
     uint8_t bits[2];
     const bool any =
         Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc, trail, bits);
-    const bool want =
-        Plot::edge_visible_in_clip<TW, TH>(pipeline, cr, xc, a, b, nullptr);
+    const bool want = Plot::edge_visible_in_clip<TW, TH>(
+        pipeline, cr, xc, A_VALUE, B_VALUE, nullptr);
     HS_EXPECT_EQ(any, want);
     HS_EXPECT_EQ(bits[0] != 0, want);
   }
@@ -669,24 +670,24 @@ inline void test_raw_geodesic_edge_gate_parity() {
 
   ClipRegion cr{0, H / 2, 0, W / 2, 1, W, H};
 
-  const math::Vector a = math::X_AXIS;
+  const math::Vector A = math::X_AXIS;
   auto arc = [&](float angle, const math::Vector &tangent) {
-    return (a * cosf(angle) + tangent * sinf(angle)).normalized();
+    return (A * cosf(angle) + tangent * sinf(angle)).normalized();
   };
-  HS_EXPECT_EQ(run(cr, a, arc(0.0005f, math::Z_AXIS)),
+  HS_EXPECT_EQ(run(cr, A, arc(0.0005f, math::Z_AXIS)),
                Plot::RawGeodesicGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(run(cr, a, arc(math::PI_F - 0.0005f, math::Z_AXIS)),
+  HS_EXPECT_EQ(run(cr, A, arc(math::PI_F - 0.0005f, math::Z_AXIS)),
                Plot::RawGeodesicGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(run(cr, a, arc(0.4f, math::Y_AXIS)),
+  HS_EXPECT_EQ(run(cr, A, arc(0.4f, math::Y_AXIS)),
                Plot::RawGeodesicGateResult::EXACT_FALLBACK);
 
   hs::random().seed(0xC2055);
-  const int clips[][4] = {
+  const int CLIPS[][4] = {
       {0, H / 2, 0, W / 2}, {0, H / 2, W / 2, W}, {H / 2, H, 0, W / 2},
       {H / 2, H, W / 2, W}, {24, 120, 250, W},    {0, H, 40, 112},
   };
   int raw_count = 0;
-  for (const auto &bounds : clips) {
+  for (const auto &bounds : CLIPS) {
     cr = ClipRegion{bounds[0], bounds[1], bounds[2], bounds[3], 1, W, H};
     for (int trial = 0; trial < 5000; ++trial) {
       const math::Vector p = rand_unit();
@@ -722,10 +723,10 @@ inline void test_raw_geodesic_edge_gate_parity() {
         ++raw_count;
     }
 
-    const float guarded_angles[] = {1.0e-6f, 5.0e-4f, 1.5e-3f, 2.5e-3f};
-    for (float angle : guarded_angles) {
+    const float GUARDED_ANGLES[] = {1.0e-6f, 5.0e-4f, 1.5e-3f, 2.5e-3f};
+    for (float angle : GUARDED_ANGLES) {
       for (float end_angle : {angle, math::PI_F - angle}) {
-        const auto result = run(cr, a, arc(end_angle, math::Z_AXIS));
+        const auto result = run(cr, A, arc(end_angle, math::Z_AXIS));
         if (result != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
           ++raw_count;
       }
@@ -940,9 +941,9 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
       Filter::Screen::AntiAlias<W, H>()};
   hs::random().seed(0xCA47);
 
-  constexpr auto clips = quadrant_clips<W, H>();
+  constexpr auto CLIPS = quadrant_clips<W, H>();
   int latitude_rejects = 0, meridian_rejects = 0;
-  for (const auto &bounds : clips) {
+  for (const auto &bounds : CLIPS) {
     const ClipRegion cr{bounds[0], bounds[1], bounds[2], bounds[3], 1, W, H};
     const auto xc = cr.x_clip();
     const auto cartesian = Plot::make_cartesian_quadrant_clip<W, H>(cr);
@@ -1013,14 +1014,14 @@ inline void test_gate_trail_edges_matches_edge_visible() {
       Filter::Screen::AntiAlias<TW, TH>()};
   hs::random().seed(0x60FE);
 
-  const int bands[][4] = {
+  const int BANDS[][4] = {
       {0, 72, 0, 144},
       {36, 108, 144, 288},
       {0, 144, 60, 200},
       {100, 144, 0, 288},
   };
   int rejects = 0, visible = 0, culled = 0;
-  for (const auto &bd : bands) {
+  for (const auto &bd : BANDS) {
     const ClipRegion cr{bd[0], bd[1], bd[2], bd[3], 1, TW, TH};
     const auto xc = cr.x_clip();
 
@@ -1070,7 +1071,7 @@ inline void test_mesh_clip_cut_separates_band() {
       Filter::Screen::AntiAlias<TW, TH>()};
   hs::random().seed(0xC07);
 
-  const int bands[][4] = {
+  const int BANDS[][4] = {
       {0, 72, 0, 144},
       {36, 108, 144, 288},
       {0, 144, 60, 200},
@@ -1078,7 +1079,7 @@ inline void test_mesh_clip_cut_separates_band() {
   };
   int cuts = 0, kept = 0, culled = 0;
   long shown_arc = 0, drawn_arc = 0;
-  for (const auto &bd : bands) {
+  for (const auto &bd : BANDS) {
     const ClipRegion cr{bd[0], bd[1], bd[2], bd[3], 1, TW, TH};
     const auto xc = cr.x_clip();
     const Plot::ClipCutBounds cb = Plot::make_clip_cut_bounds<TW, TH>(cr, xc);
@@ -1144,7 +1145,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
   auto shade = white_shader(0.9f);
   hs::random().seed(0x617E);
 
-  const int clips[3][4] = {
+  const int CLIPS[3][4] = {
       {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}};
   int lit_total = 0;
 
@@ -1156,7 +1157,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
       walk[i] = random_hop(walk[i - 1], 0.05f, 0.6f);
     }
 
-    for (auto &cl : clips) {
+    for (auto &cl : CLIPS) {
       auto render = [&](hs_test::StubEffect &fx, bool use_bits) {
         Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
             Filter::Screen::AntiAlias<W, H>()};
@@ -1214,7 +1215,7 @@ inline void test_visible_chunk_mask_covers_sampled_ring() {
     cosines[chunk] = static_cast<float>(std::cos(angle));
     sines[chunk] = static_cast<float>(std::sin(angle));
   }
-  const ClipRegion clips[] = {{0, H, 0, W, 0, W, H},
+  const ClipRegion CLIPS[] = {{0, H, 0, W, 0, W, H},
                               {0, H / 2, 0, W / 2, 0, W, H},
                               {H / 2, H, W / 2, W, 0, W, H}};
   size_t covered = 0;
@@ -1225,7 +1226,7 @@ inline void test_visible_chunk_mask_covers_sampled_ring() {
     const auto basis = math::make_basis(orientation, math::Y_AXIS);
     for (float theta : {0.0f, 0.01f, 0.4f, 1.5f, 2.8f, math::PI_F}) {
       const float sin_t = std::sin(theta), cos_t = std::cos(theta);
-      for (const auto &clip : clips) {
+      for (const auto &clip : CLIPS) {
         HS_CONTEXT("ring theta", static_cast<long long>(theta * 1000));
         const uint32_t mask = Plot::visible_chunk_mask<H, CHUNKS>(
             clip, basis, theta, cos_t, sin_t, 0.01f, 0.01f, cosines.data(),
@@ -1278,12 +1279,12 @@ inline void test_chunk_mask_padding_exact_masks() {
         basis, theta, cosf(theta), sinf(theta), 0.0f, thickness, cosines.data(),
         sines.data());
   };
-  const float equator = 0.5f * math::PI_F;
-  HS_EXPECT_EQ(mask(0, equator, 0.0f), 0x83u);
-  HS_EXPECT_EQ(mask(7, equator, 0.0f), 0xc1u);
-  HS_EXPECT_EQ(mask(0, equator, 0.01f), 0xc7u);
-  HS_EXPECT_EQ(mask(7, equator, 0.01f), 0xe3u);
-  HS_EXPECT_EQ(mask(0, equator, 2.0f), 0xffu);
+  const float EQUATOR = 0.5f * math::PI_F;
+  HS_EXPECT_EQ(mask(0, EQUATOR, 0.0f), 0x83u);
+  HS_EXPECT_EQ(mask(7, EQUATOR, 0.0f), 0xc1u);
+  HS_EXPECT_EQ(mask(0, EQUATOR, 0.01f), 0xc7u);
+  HS_EXPECT_EQ(mask(7, EQUATOR, 0.01f), 0xe3u);
+  HS_EXPECT_EQ(mask(0, EQUATOR, 2.0f), 0xffu);
   HS_EXPECT_EQ(mask(7, 0.0f, 0.0f), 0xffu);
-  HS_EXPECT_EQ(mask(-1, equator, 2.0f), 0u);
+  HS_EXPECT_EQ(mask(-1, EQUATOR, 2.0f), 0u);
 }

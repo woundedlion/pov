@@ -187,19 +187,19 @@ inline void test_kdtree_matches_brute_force() {
   std::span<math::Vector> sp(pts, N);
   KDTree tree(arena, sp);
 
-  const math::Vector query(0.5f, -0.25f, 1.0f);
+  const math::Vector QUERY(0.5f, -0.25f, 1.0f);
 
   int best_i = -1;
   float best_d2 = FLT_MAX;
   for (int i = 0; i < N; ++i) {
-    float d2 = math::distance_squared(pts[i], query);
+    float d2 = math::distance_squared(pts[i], QUERY);
     if (d2 < best_d2) {
       best_d2 = d2;
       best_i = i;
     }
   }
 
-  auto r = tree.nearest(query, 1);
+  auto r = tree.nearest(QUERY, 1);
   HS_EXPECT_SIZE_OR_RETURN(r, 1);
   HS_EXPECT_EQ((int)r[0].original_index, best_i);
   HS_EXPECT_VEC(r[0].point, pts[best_i], 1e-6f);
@@ -228,22 +228,22 @@ inline void test_kdtree_duplicates_and_max_k() {
   KDTree tree(arena, sp);
 
   constexpr int K = KDTree::MAX_K;
-  const math::Vector query(1, 1, 1); // lands on the coincident cluster
+  const math::Vector QUERY(1, 1, 1); // lands on the coincident cluster
 
-  auto r = tree.nearest(query, K);
+  auto r = tree.nearest(QUERY, K);
   HS_EXPECT_SIZE_OR_RETURN(r, K);
 
   float all_d2[8];
   for (int i = 0; i < 8; ++i)
-    all_d2[i] = math::distance_squared(pts[i], query);
+    all_d2[i] = math::distance_squared(pts[i], QUERY);
   std::sort(all_d2, all_d2 + 8);
 
   // (distance, source index) is a total order, so index 5 loses the d²=3
   // boundary tie to the lower-indexed 3 and 4.
-  const int expected_index[K] = {0, 1, 2, 3, 4};
+  const int EXPECTED_INDEX[K] = {0, 1, 2, 3, 4};
   float prev = -1.0f;
   for (int i = 0; i < K; ++i) {
-    HS_EXPECT_EQ((int)r[i].original_index, expected_index[i]);
+    HS_EXPECT_EQ((int)r[i].original_index, EXPECTED_INDEX[i]);
     HS_EXPECT_GE(r[i].d_sq, prev - 1e-6f);
     prev = r[i].d_sq;
     HS_EXPECT_NEAR(r[i].d_sq, all_d2[i], 1e-5f);
@@ -251,7 +251,7 @@ inline void test_kdtree_duplicates_and_max_k() {
     HS_EXPECT_LT(oi, (size_t)8);
     if (oi < 8)
       HS_EXPECT_VEC(r[i].point, pts[oi], 1e-6f);
-    HS_EXPECT_NEAR(math::distance_squared(r[i].point, query), r[i].d_sq, 1e-5f);
+    HS_EXPECT_NEAR(math::distance_squared(r[i].point, QUERY), r[i].d_sq, 1e-5f);
   }
 
   HS_EXPECT_NEAR(r[0].d_sq, 0.0f, 1e-6f);
@@ -278,7 +278,7 @@ inline void test_kdtree_k_nearest_brute_force_random() {
   std::span<math::Vector> sp(pts, N);
   KDTree tree(arena, sp);
 
-  const math::Vector queries[] = {
+  const math::Vector QUERIES[] = {
       math::Vector(0, 0, 0),
       math::Vector(3.5f, -7.0f, 2.0f),
       math::Vector(-8.0f, 8.0f, -1.5f),
@@ -287,7 +287,7 @@ inline void test_kdtree_k_nearest_brute_force_random() {
   };
   constexpr int K = KDTree::MAX_K;
 
-  for (const math::Vector &q : queries) {
+  for (const math::Vector &q : QUERIES) {
     auto r = tree.nearest(q, K);
     HS_EXPECT_SIZE_OR_RETURN(r, K);
 
@@ -333,16 +333,16 @@ inline void test_kdtree_nearest_moved_matches_brute_force() {
   KDTree tree(arena, std::span<math::Vector>(built, N));
   static constexpr float DRIFTS[] = {0.0f, 0.5f, 4.0f};
   for (size_t scale = 0; scale < std::size(DRIFTS); ++scale) {
-    const float DRIFT = DRIFTS[scale];
+    const float drift = DRIFTS[scale];
     math::Vector moved[N];
     for (int i = 0; i < N; ++i)
-      moved[i] = built[i] + offsets[i] * (DRIFT * (i % 3) / 2.0f);
+      moved[i] = built[i] + offsets[i] * (drift * (i % 3) / 2.0f);
     for (int query = 0; query < 200; ++query) {
       const float x = rand_uniform(rng, -11.0f, 11.0f);
       const float y = rand_uniform(rng, -11.0f, 11.0f);
       const float z = rand_uniform(rng, -11.0f, 11.0f);
       const math::Vector target(x, y, z);
-      const auto result = tree.nearest_moved(target, K, DRIFT, [&](uint16_t i) {
+      const auto result = tree.nearest_moved(target, K, drift, [&](uint16_t i) {
         return math::distance_squared(moved[i], target);
       });
       HS_EXPECT_SIZE_OR_RETURN(result, K);
@@ -350,9 +350,9 @@ inline void test_kdtree_nearest_moved_matches_brute_force() {
       for (int i = 0; i < N; ++i)
         order[i] = i;
       std::sort(order, order + N, [&](int a, int b) {
-        const float DA = math::distance_squared(moved[a], target);
-        const float DB = math::distance_squared(moved[b], target);
-        return DA != DB ? DA < DB : a < b;
+        const float da = math::distance_squared(moved[a], target);
+        const float db = math::distance_squared(moved[b], target);
+        return da != db ? da < db : a < b;
       });
       HS_CONTEXT("drift", static_cast<long long>(scale), query);
       for (int rank = 0; rank < K; ++rank) {

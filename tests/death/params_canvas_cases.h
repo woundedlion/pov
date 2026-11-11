@@ -116,8 +116,8 @@ inline void case_float_options_wrong_range() {
 inline void case_float_options_fractional_initial_value() {
   DeathEffect effect;
   float value = opaque(0.5f);
-  static constexpr const char *options[] = {"one", "two"};
-  effect.reg_float_options(&value, options, 2);
+  static constexpr const char *OPTIONS[] = {"one", "two"};
+  effect.reg_float_options(&value, OPTIONS, 2);
 }
 
 /** @brief Death case: overflowing the fixed ParamList must trap. */

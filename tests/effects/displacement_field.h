@@ -256,9 +256,9 @@ struct DisplacementFieldWhiteBox {
       effect.ball_azimuth[i] = azimuth < 0 ? azimuth + math::TWO_PI_F : azimuth;
     }
     std::array<float, W> shifts{};
-    const float step = math::TWO_PI_F / W;
+    const float STEP = math::TWO_PI_F / W;
     effect.bake_ball_spans(basis,
-                           {cosf(theta), sinf(theta), cosf(step), sinf(step)},
+                           {cosf(theta), sinf(theta), cosf(STEP), sinf(STEP)},
                            theta, W, effect.CHUNK_MASK, N, shifts.data());
     int displaced = 0;
     for (int x = 0; x < W; ++x) {
@@ -418,14 +418,14 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
     float max_amount;
     bool cyclic;
   };
-  const TableCase cases[] = {{0.4f, 0.4f, false},
+  const TableCase CASES[] = {{0.4f, 0.4f, false},
                              {-0.4f, -0.4f, false},
                              {1.0f, 3.0f, true},
                              {-1.0f, -3.0f, true}};
   constexpr int SAMPLE_COUNT = 1024;
   const int table_size = DisplacementFieldWhiteBox::hue_table_size(effect);
 
-  for (const TableCase &table_case : cases) {
+  for (const TableCase &table_case : CASES) {
     DisplacementFieldWhiteBox::bind_hue_table(effect, base, table_case.domain,
                                               table_case.cyclic);
     DisplacementFieldWhiteBox::prepare_hue_table(effect);
@@ -469,18 +469,18 @@ inline void test_displacement_field_hue_table_bind_clears_knots() {
                                                     AxisCurve::CONSTANT, 0.0f));
   const HueRotateBase first = make_hue_rotate_base(palette.get(0.1f));
   const HueRotateBase second = make_hue_rotate_base(palette.get(0.6f));
-  const float domain = 0.4f;
-  const float amount = 0.0f;
+  const float DOMAIN_SIZE = 0.4f;
+  const float AMOUNT = 0.0f;
 
-  DisplacementFieldWhiteBox::bind_hue_table(effect, first, domain, false);
+  DisplacementFieldWhiteBox::bind_hue_table(effect, first, DOMAIN_SIZE, false);
   const Pixel first_sample =
-      DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, amount);
-  DisplacementFieldWhiteBox::bind_hue_table(effect, second, domain, false);
+      DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, AMOUNT);
+  DisplacementFieldWhiteBox::bind_hue_table(effect, second, DOMAIN_SIZE, false);
   HS_EXPECT_FALSE(DisplacementFieldWhiteBox::hue_knot_valid(effect, 0));
   const Pixel second_sample =
-      DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, amount);
+      DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, AMOUNT);
 
-  const Pixel expected = hue_rotate(second, amount).color;
+  const Pixel expected = hue_rotate(second, AMOUNT).color;
   HS_EXPECT_EQ(second_sample, expected);
   HS_EXPECT_TRUE(first_sample != second_sample);
 }
@@ -704,11 +704,11 @@ inline void test_displacement_field_clip_tiles_full() {
   struct Quad {
     int x0, x1, y0, y1;
   };
-  const Quad quads[] = {{0, DEFAULT_W / 2, 0, DEFAULT_H / 2},
+  const Quad QUADS[] = {{0, DEFAULT_W / 2, 0, DEFAULT_H / 2},
                         {DEFAULT_W / 2, DEFAULT_W, DEFAULT_H / 2, DEFAULT_H}};
-  const int frames = 60;
+  const int FRAMES = 60;
   // The shorter window still sits inside the same displacement phase.
-  const int widest_frames = 24;
+  const int WIDEST_FRAMES = 24;
 
   size_t lit = 0;
   auto capture_region = [&](bool clip, const Quad &q, bool widest) {
@@ -722,7 +722,7 @@ inline void test_displacement_field_clip_tiles_full() {
     if (clip)
       fx.set_clip(q.y0, q.y1, q.x0, q.x1);
     std::vector<Pixel> pixels;
-    for (int f = 0; f < (widest ? widest_frames : frames); ++f) {
+    for (int f = 0; f < (widest ? WIDEST_FRAMES : FRAMES); ++f) {
       pin_frame_clock(f);
       fx.draw_frame();
       fx.advance_display();
@@ -741,7 +741,7 @@ inline void test_displacement_field_clip_tiles_full() {
   };
 
   for (bool widest : {false, true})
-    for (const Quad &q : quads) {
+    for (const Quad &q : QUADS) {
       HS_CONTEXT("clip pair", widest, q.x0);
       lit = 0;
       const auto full = capture_region(false, q, widest);
@@ -890,11 +890,11 @@ inline void test_displacement_field_pause_holds_phase_only() {
     if (fade_out)
       hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() / 2);
     effect.setAnimationsPaused(true);
-    const int HOLD = WB::hold(effect);
-    const float GAIN = WB::gain(effect);
+    const int hold = WB::hold(effect);
+    const float gain = WB::gain(effect);
     if (fade_out) {
-      HS_EXPECT_GT(GAIN, 0.0f);
-      HS_EXPECT_LT(GAIN, 1.0f);
+      HS_EXPECT_GT(gain, 0.0f);
+      HS_EXPECT_LT(gain, 1.0f);
     }
     for (int frame = 0; frame < WB::fade_frames<SMALL_W, SMALL_H>() + 2;
          ++frame) {
@@ -902,8 +902,8 @@ inline void test_displacement_field_pause_holds_phase_only() {
       effect.advance_display();
     }
     HS_EXPECT_TRUE(WB::in_noise(effect));
-    HS_EXPECT_EQ(WB::hold(effect), HOLD);
-    HS_EXPECT_NEAR(WB::gain(effect), fade_out ? GAIN : 1.0f, 1e-6f);
+    HS_EXPECT_EQ(WB::hold(effect), hold);
+    HS_EXPECT_NEAR(WB::gain(effect), fade_out ? gain : 1.0f, 1e-6f);
 
     if (fade_out) {
       effect.setAnimationsPaused(false);
@@ -980,9 +980,9 @@ inline void test_displacement_field_ball_tuning() {
   hs_test::run_frames(effect, 2);
   HS_EXPECT_NEAR(WB::ball_amplitude(effect),
                  (0.6f * WB::drape_per_amplitude<SMALL_W, SMALL_H>()), 1e-6f);
-  const float SPIN = WB::color_spin(effect);
+  const float spin = WB::color_spin(effect);
   hs_test::run_frames(effect, 10);
-  HS_EXPECT_TRUE(WB::color_spin(effect) != SPIN);
+  HS_EXPECT_TRUE(WB::color_spin(effect) != spin);
   HS_EXPECT_GE(WB::active_balls(effect),
                (WB::preview_balls<SMALL_W, SMALL_H>()));
 }
@@ -1058,18 +1058,18 @@ inline void test_displacement_field_paused_balls_keep_moving() {
   effect.init();
   HS_EXPECT_TRUE(effect.selectPreset(1));
   hs_test::run_frames(effect, 2);
-  const float HEIGHT = WB::first_ball_height(effect);
-  const int COUNT = WB::active_balls(effect);
-  const int WINDOW = WB::ball_window(effect);
+  const float height = WB::first_ball_height(effect);
+  const int count = WB::active_balls(effect);
+  const int window = WB::ball_window(effect);
   hs_test::run_frames(effect, 10);
-  HS_EXPECT_LT(WB::first_ball_height(effect), HEIGHT);
-  HS_EXPECT_GT(WB::active_balls(effect), COUNT);
-  HS_EXPECT_EQ(WB::ball_window(effect), WINDOW);
+  HS_EXPECT_LT(WB::first_ball_height(effect), height);
+  HS_EXPECT_GT(WB::active_balls(effect), count);
+  HS_EXPECT_EQ(WB::ball_window(effect), window);
   HS_EXPECT_EQ(effect.updateParameter("Ball Amp", 0.6f),
                ParamSetResult::APPLIED);
   hs_test::run_frames(effect, 1200);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
-  HS_EXPECT_EQ(WB::ball_window(effect), WINDOW);
+  HS_EXPECT_EQ(WB::ball_window(effect), window);
   HS_EXPECT_GT(WB::active_balls(effect), 0);
   HS_EXPECT_NEAR(WB::ball_amplitude(effect),
                  (0.6f * WB::drape_per_amplitude<SMALL_W, SMALL_H>()), 1e-6f);

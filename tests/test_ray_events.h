@@ -221,10 +221,10 @@ inline void test_event_stream_contracts() {
 
 /** @brief Verified filtering preserves counters, unresolved status and invalid-query precedence. */
 inline void test_verified_filter_contracts() {
-  const std::array<math::Vector, 4> directions{math::X_AXIS, math::Y_AXIS,
+  const std::array<math::Vector, 4> DIRECTIONS{math::X_AXIS, math::Y_AXIS,
                                                math::Z_AXIS, -math::X_AXIS};
   int sample = 0;
-  const auto filtered = Raycast::verified_filter(directions, [&](const auto &) {
+  const auto filtered = Raycast::verified_filter(DIRECTIONS, [&](const auto &) {
     Raycast::ShadedTrace trace;
     trace.trace.counters.queries = 2;
     trace.trace.counters.steps = 5;
@@ -247,17 +247,17 @@ inline void test_verified_filter_contracts() {
   HS_EXPECT_EQ(filtered.trace.counters.layers, 4);
   HS_EXPECT_EQ(filtered.trace.status, Raycast::TraceStatus::UNRESOLVED);
   sample = 0;
-  const auto invalid = Raycast::verified_filter(directions, [&](const auto &) {
+  const auto invalid = Raycast::verified_filter(DIRECTIONS, [&](const auto &) {
     Raycast::ShadedTrace trace;
     trace.trace.status = sample++ == 0 ? Raycast::TraceStatus::INVALID_QUERY
                                        : Raycast::TraceStatus::UNRESOLVED;
     return trace;
   });
   HS_EXPECT_EQ(invalid.trace.status, Raycast::TraceStatus::INVALID_QUERY);
-  const std::array weighted_directions{math::X_AXIS, math::Y_AXIS};
+  const std::array WEIGHTED_DIRECTIONS{math::X_AXIS, math::Y_AXIS};
   int hit = 0;
   const auto weighted =
-      Raycast::verified_filter(weighted_directions, [&](const auto &) {
+      Raycast::verified_filter(WEIGHTED_DIRECTIONS, [&](const auto &) {
         Raycast::ShadedTrace trace;
         trace.trace.status = Raycast::TraceStatus::SURFACE;
         trace.trace.has_surface = true;

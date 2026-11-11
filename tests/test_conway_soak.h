@@ -36,9 +36,9 @@ static_assert(!ConwayGraph::is_platonic(
 constexpr int SOAK_LEG_BOUND = [] {
   int legs = 0;
   for (int offset = 0; offset < ConwayGraph::NUM_NODES; ++offset) {
-    const int NODE =
+    const int node =
         (ConwayGraph::TETRAHEDRON + offset) % ConwayGraph::NUM_NODES;
-    legs += ConwayGraph::hops(NODE, (NODE + 1) % ConwayGraph::NUM_NODES);
+    legs += ConwayGraph::hops(node, (node + 1) % ConwayGraph::NUM_NODES);
   }
   return legs;
 }();
@@ -224,15 +224,15 @@ inline void test_ordered_sweep_cycle() {
   int completed = 0;
   for (int cycle = 0; cycle < 2; ++cycle) {
     for (int frame = 0; frame < Fx::FULL_CYCLE_FRAMES; ++frame) {
-      const int BEFORE = HankinWalkProbe::hankin_cycle_frame(fx);
+      const int before = HankinWalkProbe::hankin_cycle_frame(fx);
       fx.draw_frame();
       fx.advance_display();
-      const int AFTER = HankinWalkProbe::hankin_cycle_frame(fx);
-      if (BEFORE == Fx::HANKIN_SWEEP_FRAMES && AFTER == BEFORE + 1) {
-        const int NODE = HankinWalkProbe::node(fx);
-        HS_EXPECT_EQ(NODE, completed % ConwayGraph::NUM_NODES);
+      const int after = HankinWalkProbe::hankin_cycle_frame(fx);
+      if (before == Fx::HANKIN_SWEEP_FRAMES && after == before + 1) {
+        const int node = HankinWalkProbe::node(fx);
+        HS_EXPECT_EQ(node, completed % ConwayGraph::NUM_NODES);
         ++completed;
-        ++swept[NODE];
+        ++swept[node];
       }
     }
     for (int node = 0; node < ConwayGraph::NUM_NODES; ++node)

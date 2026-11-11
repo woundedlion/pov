@@ -182,7 +182,7 @@ inline void test_wide_face_preserves_near_horizon_interior() {
   const math::Vector u = math::cross(axis, math::UP).normalized();
   const math::Vector w = math::cross(axis, u).normalized();
   math::Vector verts[4];
-  const uint16_t indices[4] = {0, 1, 2, 3};
+  const uint16_t INDICES[4] = {0, 1, 2, 3};
   for (int i = 0; i < 4; ++i) {
     const float x = (i == 0 || i == 3) ? -200.0f : 200.0f;
     const float y = i < 2 ? -200.0f : 200.0f;
@@ -194,7 +194,7 @@ inline void test_wide_face_preserves_near_horizon_interior() {
     Pipeline<W, H> pipe;
     SDF::FaceScratchBuffer scratch;
     SDF::PreparedFace face(std::span<const math::Vector>(verts, 4),
-                           std::span<const uint16_t>(indices, 4), scratch,
+                           std::span<const uint16_t>(INDICES, 4), scratch,
                            H + hs::H_OFFSET, H, &canvas.clip(), nullptr,
                            SDF::BOUNDS_MARGIN);
     const float cosine = math::dot(probe, face.center);
@@ -307,14 +307,14 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
   }
   fx.advance_display();
 
-  const float tol = 4.0f * (math::PI_F / H);
+  const float TOL = 4.0f * (math::PI_F / H);
   for (const auto &edge : edges) {
-    const math::Vector A = mesh.vertices[edge.u], B = mesh.vertices[edge.v];
-    auto point = (A + B).normalized();
+    const math::Vector a = mesh.vertices[edge.u], b = mesh.vertices[edge.v];
+    auto point = (a + b).normalized();
     if (fabsf(point.y) > 0.99f)
-      point = math::slerp(A, B, 0.25f);
-    const auto PIXEL = math::vector_to_pixel<W, H>(point);
-    HS_EXPECT_TRUE((lit_near<W, H>(fx, PIXEL.x, PIXEL.y, 3)));
+      point = math::slerp(a, b, 0.25f);
+    const auto pixel = math::vector_to_pixel<W, H>(point);
+    HS_EXPECT_TRUE((lit_near<W, H>(fx, pixel.x, pixel.y, 3)));
   }
   size_t lit = 0, off_arc = 0;
   for (int y = 0; y < H; ++y)
@@ -330,7 +330,7 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
         if (d < best)
           best = d;
       }
-      if (best > tol)
+      if (best > TOL)
         ++off_arc;
     }
   HS_EXPECT_GT(lit, (size_t)0);
@@ -394,9 +394,9 @@ inline size_t check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 2)));
   }
 
-  const size_t total = static_cast<size_t>(W) * H;
+  const size_t TOTAL = static_cast<size_t>(W) * H;
   const size_t fill_lit = count_lit_region<W, H>(fx);
-  HS_EXPECT_EQ(fill_lit, total);
+  HS_EXPECT_EQ(fill_lit, TOTAL);
   return fill_lit;
 }
 
@@ -565,7 +565,7 @@ inline void test_class_bake_borrowed_mode() {
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
   Arena geom(mr_geom, sizeof(mr_geom));
   constexpr int W = 288;
-  const float pixel_width = 2.0f * math::PI_F / W;
+  const float PIXEL_WIDTH = 2.0f * math::PI_F / W;
 
   const auto islamic = Solids::Collections::get_islamic_solids();
   HS_EXPECT_TRUE(!islamic.empty());
@@ -577,7 +577,7 @@ inline void test_class_bake_borrowed_mode() {
   MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
 
   MeshOps::MeshClassBake owned;
-  MeshOps::build_mesh_class_bake(mesh, seed_a, geom, pixel_width, owned, 0);
+  MeshOps::build_mesh_class_bake(mesh, seed_a, geom, PIXEL_WIDTH, owned, 0);
 
   MeshState borrowed;
   MeshOps::transform(mesh, borrowed, seed_b,
@@ -586,7 +586,7 @@ inline void test_class_bake_borrowed_mode() {
   HS_EXPECT_EQ(borrowed.get_topology_size(), mesh.get_topology_size());
 
   MeshOps::MeshClassBake bake;
-  MeshOps::build_mesh_class_bake(borrowed, seed_a, geom, pixel_width, bake, 0);
+  MeshOps::build_mesh_class_bake(borrowed, seed_a, geom, PIXEL_WIDTH, bake, 0);
 
   HS_EXPECT_EQ(bake.classes.size(), owned.classes.size());
   HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, owned.face_recs.size());
@@ -614,22 +614,22 @@ inline void check_class_bake_census(size_t islamic_idx) {
   MeshOps::MeshClassBake bake;
   build_islamic_bake(islamic_idx, seed_a, seed_b, geom, mesh, bake);
 
-  const size_t F = mesh.num_faces();
-  HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, F);
+  const size_t f_value = mesh.num_faces();
+  HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, f_value);
   HS_EXPECT_GT(bake.classes.size(), (size_t)0);
 
   // Every face lands in a class, and every class is shared (>= 2 members).
   size_t assigned = 0, member_sum = 0;
-  for (size_t f = 0; f < F; ++f)
+  for (size_t f = 0; f < f_value; ++f)
     if (bake.face_recs[f].class_id != MeshOps::NO_CLASS)
       ++assigned;
   for (size_t c = 0; c < bake.classes.size(); ++c) {
     HS_EXPECT_GT(bake.classes[c].members, (uint16_t)1);
     member_sum += bake.classes[c].members;
   }
-  HS_EXPECT_EQ(assigned, F);
-  HS_EXPECT_EQ(member_sum, F);
-  HS_EXPECT_EQ(bake.shared_faces, (uint16_t)F);
+  HS_EXPECT_EQ(assigned, f_value);
+  HS_EXPECT_EQ(member_sum, f_value);
+  HS_EXPECT_EQ(bake.shared_faces, (uint16_t)f_value);
 
   HS_EXPECT_GT(bake.luts_built, (uint16_t)0);
 }
@@ -898,14 +898,14 @@ inline void expect_bake_partition(const BakeAccounting &a) {
  *        low-quality discard).
  */
 inline void test_class_bake_budget_accounting() {
-  const size_t min_lut =
+  const size_t MIN_LUT =
       (size_t)MeshOps::CLASS_LUT_MIN_N * MeshOps::CLASS_LUT_MIN_N * 2;
 
   BakeAccounting full = bake_with_budget(1, 1.0f, MeshOps::CLASS_LUT_BUDGET);
   BakeAccounting none = bake_with_budget(1, 1.0f, 0);
   BakeAccounting fine_full =
       bake_with_budget(1, 0.25f, MeshOps::CLASS_LUT_BUDGET);
-  BakeAccounting fine_tight = bake_with_budget(1, 0.25f, min_lut);
+  BakeAccounting fine_tight = bake_with_budget(1, 0.25f, MIN_LUT);
   BakeAccounting fine_none = bake_with_budget(1, 0.25f, 0);
   BakeAccounting coarse = bake_with_budget(1, 16.0f, MeshOps::CLASS_LUT_BUDGET);
 
@@ -955,10 +955,10 @@ inline void test_class_bake_budget_accounting() {
   star.faces.bind(geometry, 2 * POINTS);
   star.topology.bind(geometry, 2);
   for (int i = 0; i < POINTS; ++i) {
-    const float ANGLE = math::TWO_PI_F * i / POINTS;
-    const float RADIUS = (i % 2 == 0) ? 0.5f : 0.1f;
+    const float angle = math::TWO_PI_F * i / POINTS;
+    const float radius = (i % 2 == 0) ? 0.5f : 0.1f;
     star.vertices.push_back(
-        math::Vector(1.0f, RADIUS * cosf(ANGLE), RADIUS * sinf(ANGLE))
+        math::Vector(1.0f, radius * cosf(angle), radius * sinf(angle))
             .normalized());
   }
   for (int face = 0; face < 2; ++face) {
@@ -1081,8 +1081,8 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
   build_islamic_bake(islamic_idx, seed_a, seed_b, geom, mesh, bake);
 
   constexpr int H = 144;
-  const size_t F = mesh.num_faces();
-  HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, F);
+  const size_t f_value = mesh.num_faces();
+  HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, f_value);
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
@@ -1092,7 +1092,7 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
   static SDF::FaceScratchBuffer face_scratch;
   std::vector<float> xy;
   size_t checked = 0, concave_seen = 0, convex_seen = 0;
-  for (size_t f = 0; f < F; ++f) {
+  for (size_t f = 0; f < f_value; ++f) {
     SDF::PreparedFace face(verts, std::span<const uint16_t>(fi + fo[f], fc[f]),
                            face_scratch, H + hs::H_OFFSET, H, nullptr, nullptr,
                            SDF::BOUNDS_MARGIN);
@@ -1180,8 +1180,8 @@ inline void test_empty_and_single_face_meshes() {
         }
       }
       fx.advance_display();
-      const size_t LIT = count_lit_region<W, H>(fx);
-      HS_EXPECT_EQ(LIT > 0, populated);
+      const size_t lit = count_lit_region<W, H>(fx);
+      HS_EXPECT_EQ(lit > 0, populated);
       if (populated) {
         constexpr float MARGIN = -math::RADIANS_PER_COLUMN<W>;
         for (int y = 0; y < H; ++y)
@@ -1197,9 +1197,9 @@ inline void test_empty_and_single_face_meshes() {
           }
       }
       if (populated && mode >= 2) {
-        const auto CENTER =
+        const auto center =
             math::vector_to_pixel<W, H>(math::Vector(1, 1, 1).normalized());
-        HS_EXPECT_TRUE((lit_near<W, H>(fx, CENTER.x, CENTER.y, 1)));
+        HS_EXPECT_TRUE((lit_near<W, H>(fx, center.x, center.y, 1)));
       }
     }
   }
@@ -1209,21 +1209,21 @@ inline void test_empty_and_single_face_meshes() {
 inline void test_swept_face_vertex_cone_distance() {
   constexpr float RADIUS = 0.06f, DELTA = 0.01f;
   Spacetime::Worldline paths[4];
-  const math::Vector vertices[] = {{RADIUS, 1.0f, RADIUS},
+  const math::Vector VERTICES[] = {{RADIUS, 1.0f, RADIUS},
                                    {-RADIUS, 1.0f, RADIUS},
                                    {-RADIUS, 1.0f, -RADIUS},
                                    {RADIUS, 1.0f, -RADIUS}};
   for (int i = 0; i < 4; ++i) {
-    const auto vertex = vertices[i].normalized();
+    const auto vertex = VERTICES[i].normalized();
     paths[i] = Spacetime::Worldline::chord(vertex, vertex);
   }
   ScratchScope storage(scratch_arena_a);
   const Scan::PoleFaceSweep sweep{0, paths, 4, true};
   Scan::SweptFace<288, 144> face(sweep, scratch_arena_a);
-  const math::Vector azimuth[] = {math::X_AXIS}, up[] = {math::Y_AXIS};
+  const math::Vector AZIMUTH[] = {math::X_AXIS}, UP[] = {math::Y_AXIS};
   Scan::ColumnBasis time;
-  time.azimuth = azimuth;
-  time.up = up;
+  time.azimuth = AZIMUTH;
+  time.up = UP;
   SDF::Bounds rows[2];
   HS_EXPECT_TRUE(face.column(time, 0, 3, rows));
   for (const float sign_x : {-1.0f, 1.0f})
@@ -1259,15 +1259,15 @@ inline void test_face_cap_zero_vertex() {
 /** @brief A seeing-time bounds pose accepts a matching render clip. */
 inline void test_face_bounds_pose_with_clip() {
   constexpr int W = 32, H = 16;
-  const math::Vector vertices[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  const uint16_t indices[] = {0, 1, 2};
+  const math::Vector VERTICES[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const uint16_t INDICES[] = {0, 1, 2};
   SDF::FaceScratchBuffer scratch;
-  const SDF::FaceBoundsPose pose{math::X_AXIS, math::Y_AXIS, math::Z_AXIS, 0.0f,
+  const SDF::FaceBoundsPose POSE{math::X_AXIS, math::Y_AXIS, math::Z_AXIS, 0.0f,
                                  nullptr};
   hs_test::StubEffect effect(W, H);
   Canvas canvas(effect);
-  SDF::PreparedFace face(vertices, indices, scratch, math::LatitudeGeometry(H),
-                         H, &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN, &pose);
+  SDF::PreparedFace face(VERTICES, INDICES, scratch, math::LatitudeGeometry(H),
+                         H, &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN, &POSE);
   HS_EXPECT_EQ(face.count, 3);
   const auto bounds = face.get_vertical_bounds<H>();
   HS_EXPECT_LE(bounds.y_min, bounds.y_max);

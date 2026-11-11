@@ -412,10 +412,10 @@ struct SurfaceFootprintAudit {
     auto scan = [&](int samples) {
       for (int v = 0; v <= samples; ++v)
         for (int u = 0; u <= samples; ++u) {
-          const float U = float(u) / samples - .5f,
-                      V = float(v) / samples - .5f;
-          const Surface::Point q{p.x + U * dx.x + V * dy.x,
-                                 p.y + U * dx.y + V * dy.y};
+          const float u_value = float(u) / samples - .5f,
+                      v_value = float(v) / samples - .5f;
+          const Surface::Point q{p.x + u_value * dx.x + v_value * dy.x,
+                                 p.y + u_value * dx.y + v_value * dy.y};
           const auto hit = surface.sample<false, true, false>(
               q, Scan::radial_atan2(q.y, q.x));
           minimum = std::min(

@@ -59,15 +59,15 @@ inline void test_column_edge_cull_is_conservative() {
           motion.capture_end(1, b1);
           Plot::EdgeWorldsheet reference, gated;
           reference.prepare<W, H>(motion, 0, 1, nullptr, 0.0f, false);
-          const bool HIDDEN =
+          const bool hidden =
               cull.rejects({reference.bases[0].v1, reference.bases[1].v1,
                             reference.ends[0], reference.ends[1]},
                            reference.deviation + 1e-4f);
           Plot::g_geodesic_edge_span_builds = 0;
-          const bool PREPARED = gated.prepare<W, H>(motion, 0, 1, nullptr, 0.0f,
+          const bool prepared = gated.prepare<W, H>(motion, 0, 1, nullptr, 0.0f,
                                                     false, true, &cull);
-          HS_EXPECT_EQ(PREPARED, !HIDDEN);
-          HS_EXPECT_EQ(Plot::g_geodesic_edge_span_builds, HIDDEN ? 0u : 2u);
+          HS_EXPECT_EQ(prepared, !hidden);
+          HS_EXPECT_EQ(Plot::g_geodesic_edge_span_builds, hidden ? 0u : 2u);
         }
         const bool rejects = cull.rejects({a, a1, b, b1}, 1e-4f);
         rejected += rejects;
@@ -99,23 +99,23 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
   const Plot::SweptEdgeCull<288> NORTHERN_ROWS({}, 1.0f, 0.25f);
   const math::Vector ANTIPODAL[] = {math::X_AXIS, -math::X_AXIS};
   HS_EXPECT_FALSE(NORTHERN_ROWS.rejects(ANTIPODAL, 2, 0.0f));
-  const math::Vector SOUTHERN[] = {
+  const math::Vector southern[] = {
       math::Vector(1.0f, -1.0f, 0.0f).normalized(),
       math::Vector(1.0f, -1.0f, 0.1f).normalized()};
-  HS_EXPECT_TRUE(NORTHERN_ROWS.rejects(SOUTHERN, 2, 0.0f));
+  HS_EXPECT_TRUE(NORTHERN_ROWS.rejects(southern, 2, 0.0f));
   const auto poles = []<int HEIGHT>() {
     constexpr int WIDTH = 288;
     hs_test::StubEffect effect(WIDTH, HEIGHT);
     Canvas canvas(effect);
     const auto cull = Plot::SweptEdgeCull<WIDTH>::of<HEIGHT>(canvas);
-    const math::Vector north{0.0f, 1.0f, 0.0f};
-    const math::Vector south{0.0f, -1.0f, 0.0f};
+    const math::Vector NORTH{0.0f, 1.0f, 0.0f};
+    const math::Vector SOUTH{0.0f, -1.0f, 0.0f};
     if constexpr (HEIGHT == 20 || HS_DISPLAY_PROFILE == 0) {
       HS_EXPECT_EQ(Plot::SweptEdgeCull<WIDTH>::top_of<HEIGHT>(canvas), 1.0f);
       HS_EXPECT_EQ(Plot::SweptEdgeCull<WIDTH>::bottom_of<HEIGHT>(canvas),
                    -1.0f);
-      HS_EXPECT_FALSE(cull.rejects(&north, 1, 0.0f));
-      HS_EXPECT_FALSE(cull.rejects(&south, 1, 0.0f));
+      HS_EXPECT_FALSE(cull.rejects(&NORTH, 1, 0.0f));
+      HS_EXPECT_FALSE(cull.rejects(&SOUTH, 1, 0.0f));
     }
   };
   poles.template operator()<20>();
@@ -220,7 +220,7 @@ inline void test_column_physical_north_cap() {
   constexpr int W = 288, H = 144;
   constexpr math::LatitudeGeometry GEOMETRY(H, 0.02f * math::PI_F,
                                             0.98f * math::PI_F);
-  const float TOP =
+  const float top =
       Plot::SweptEdgeCull<W>::physical_top(GEOMETRY.row_to_phi(-1.0f));
   const auto point = [&](float row, float longitude) {
     const float phi = GEOMETRY.row_to_phi(row);
@@ -234,7 +234,7 @@ inline void test_column_physical_north_cap() {
     frame.bases[1].v1 = a1;
     frame.ends[0] = b;
     frame.ends[1] = b1;
-    return frame.reaches_rows<W>(TOP, -1.0f);
+    return frame.reaches_rows<W>(top, -1.0f);
   };
   for (const float row : {-0.5f, -2.5f}) {
     const auto a = point(row, 0.0f);

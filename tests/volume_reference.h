@@ -27,22 +27,22 @@ struct VolumeReference {
   static void march(const Shape &shape, const math::Vector &origin,
                     const math::Vector &direction, float radius, Visit visit,
                     int steps = 16384) {
-    const float END = radius - math::dot(origin, direction);
+    const float end = radius - math::dot(origin, direction);
     for (int i = 0; i <= steps; ++i) {
-      const float T = END * static_cast<float>(i) / steps;
-      const math::Vector P(origin.x + direction.x * T,
-                           origin.y + direction.y * T,
-                           origin.z + direction.z * T);
-      if (!visit(Sample{P, shape.distance(P)}))
+      const float t = end * static_cast<float>(i) / steps;
+      const math::Vector p(origin.x + direction.x * t,
+                           origin.y + direction.y * t,
+                           origin.z + direction.z * t);
+      if (!visit(Sample{p, shape.distance(p)}))
         break;
     }
   }
 
   /** @brief Evaluates smooth coverage from signed distance. */
   static float coverage(float distance, float threshold, float width) {
-    const double X =
+    const double x =
         std::clamp((width - distance) / (width - threshold), 0.0f, 1.0f);
-    return static_cast<float>(X * X * X * (10.0 + X * (-15.0 + 6.0 * X)));
+    return static_cast<float>(x * x * x * (10.0 + x * (-15.0 + 6.0 * x)));
   }
 
   /** @brief Finds the first near-surface distance minimum. */
