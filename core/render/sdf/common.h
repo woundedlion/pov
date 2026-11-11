@@ -110,6 +110,62 @@ scan_polygon_turn(float turn, float scale, bool &pos, bool &neg) {
   }
 }
 
+/** @brief Projected polygon vertex and its outgoing edge. */
+struct ConvexEdge2D {
+  float x, y;   ///< Projected vertex.
+  float ex, ey; ///< Outgoing edge vector.
+};
+
+/** @brief Builds convex half-planes and returns the origin's interior radius.
+ * @tparam EdgeAt Accessor returning a projected edge by index.
+ * @tparam PlaneSink Receives each outward plane by index.
+ * @param count Edge count.
+ * @param area2 Twice the signed polygon area.
+ * @param edge_at Edge accessor.
+ * @param plane_sink Plane receiver.
+ * @return Interior radius, or -1 when the polygon is not convex about the origin. */
+template <typename EdgeAt, typename PlaneSink>
+__attribute__((always_inline)) inline float
+convex_half_planes(int count, float area2, EdgeAt &&edge_at,
+                   PlaneSink &&plane_sink) {
+  bool pos = false, neg = false;
+  int flips = 0;
+  float dir = 0.0f;
+  auto previous = edge_at(count - 1);
+  float previous_length2 =
+      previous.ex * previous.ex + previous.ey * previous.ey;
+  for (int k = 0; k < count; ++k) {
+    const auto edge = edge_at(k);
+    const float length2 = edge.ex * edge.ex + edge.ey * edge.ey;
+    const float turn = previous.ex * edge.ey - previous.ey * edge.ex;
+    scan_polygon_turn(turn, previous_length2 * length2, pos, neg);
+    previous = edge;
+    previous_length2 = length2;
+    if (edge.ey != 0.0f) {
+      flips += dir * edge.ey < 0.0f;
+      dir = edge.ey;
+    }
+  }
+  if ((pos && neg) || flips < 1 || flips > 2)
+    return -1.0f;
+
+  const float SIGN = area2 >= 0.0f ? 1.0f : -1.0f;
+  float origin_side = -FLT_MAX;
+  for (int k = 0; k < count; ++k) {
+    const auto edge = edge_at(k);
+    const float length2 = edge.ex * edge.ex + edge.ey * edge.ey;
+    if (length2 < 1e-12f)
+      return -1.0f;
+    const float inv = SIGN / sqrtf(length2);
+    const float nx = edge.ey * inv;
+    const float ny = -edge.ex * inv;
+    const float off = -(nx * edge.x + ny * edge.y);
+    plane_sink(k, nx, ny, off);
+    origin_side = __builtin_fmaxf(origin_side, off);
+  }
+  return origin_side < 0.0f ? -origin_side : -1.0f;
+}
+
 /** AA fringe pad in radians applied to a face's azimuth intervals: one pixel
  *  of falloff reach plus a quarter pixel of slack. Vertex thetas err by at most
  *  PreparedFace::AZIMUTH_ERROR.

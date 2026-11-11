@@ -551,12 +551,7 @@ private:
   /// Projects a direction, any length, about the axis as SDF::PreparedFace does.
   HS_FLASH_INLINE void project(const math::Vector &v, float &px,
                                float &py) const {
-    float depth = math::dot(v, axis);
-    if (fabsf(depth) < math::TOLERANCE)
-      depth = copysignf(math::TOLERANCE, depth);
-    const float inv = 1.0f / depth;
-    px = math::dot(v, basis_u) * inv;
-    py = math::dot(v, basis_w) * inv;
+    SDF::gnomonic_project(v, axis, basis_u, basis_w, px, py);
   }
 
   /// Fills the edges from the projected vertices, with twice the polygon's
@@ -577,40 +572,15 @@ private:
    * @return Whether it is.
    */
   HS_FLASH_INLINE bool half_planes(float area2) {
-    bool pos = false, neg = false;
-    int flips = 0;
-    float dir = 0.0f;
-    const Edge *previous = &edges[count - 1];
-    for (int k = 0; k < count; ++k) {
-      const Edge &e = edges[k];
-      const float turn = previous->ex * e.ey - previous->ey * e.ex;
-      const float scale =
-          (previous->ex * previous->ex + previous->ey * previous->ey) *
-          (e.ex * e.ex + e.ey * e.ey);
-      previous = &e;
-      SDF::scan_polygon_turn(turn, scale, pos, neg);
-      if (e.ey != 0.0f) {
-        flips += dir * e.ey < 0.0f;
-        dir = e.ey;
-      }
-    }
-    if ((pos && neg) || flips < 1 || flips > 2)
-      return false;
-    const float sign = area2 >= 0.0f ? 1.0f : -1.0f;
-    float centre_side = -FLT_MAX;
-    for (int k = 0; k < count; ++k) {
-      const Edge &e = edges[k];
-      Plane &h = planes[k];
-      const float length2 = e.ex * e.ex + e.ey * e.ey;
-      if (length2 < 1e-12f)
-        return false;
-      const float inv = sign / sqrtf(length2);
-      h.nx = e.ey * inv;
-      h.ny = -e.ex * inv;
-      h.off = -(h.nx * e.x + h.ny * e.y);
-      centre_side = fmaxf(centre_side, h.off);
-    }
-    return centre_side < 0.0f;
+    return SDF::convex_half_planes(
+               count, area2,
+               [&](int k) {
+                 const Edge &e = edges[k];
+                 return SDF::ConvexEdge2D{e.x, e.y, e.ex, e.ey};
+               },
+               [&](int k, float nx, float ny, float off) {
+                 planes[k] = Plane{nx, ny, off};
+               }) >= 0.0f;
   }
 
   /// Squared distance in the projection plane to an edge.

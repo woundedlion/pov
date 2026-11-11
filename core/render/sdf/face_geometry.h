@@ -198,47 +198,19 @@ __attribute__((always_inline)) float
 build_half_planes(FaceScratchBuffer &scratch, float area2) {
   ::new (static_cast<void *>(&scratch.half_planes))
       std::array<HalfPlane, FaceScratchBuffer::MAX_VERTS>;
-  bool pos = false, neg = false;
-  const math::Vector *e1 = &edge_vectors[count - 1];
-  float l1 = edge_lengths_sq[count - 1];
-  // Edge-direction y sign flips, uncounted across the ring seam: one
-  // revolution of the edge directions makes one or two.
-  int flips = 0;
-  float dir = 0.0f;
-  for (int i = 0; i < count; ++i) {
-    const math::Vector &e2 = edge_vectors[i];
-    float cr = e1->x * e2.y - e1->y * e2.x;
-    float scale = l1 * edge_lengths_sq[i];
-    e1 = &e2;
-    l1 = edge_lengths_sq[i];
-    scan_polygon_turn(cr, scale, pos, neg);
-    if (e2.y != 0.0f) {
-      flips += dir * e2.y < 0.0f;
-      dir = e2.y;
-    }
-  }
-  if ((pos && neg) || flips < 1 || flips > 2)
-    return -1.0f;
-
-  float sign = area2 >= 0 ? 1.0f : -1.0f;
-  // d0 is the origin's worst half-plane distance: the projected face center
-  // must be strictly interior or the winding/orientation is untrustworthy.
-  float d0 = -FLT_MAX;
-  for (int i = 0; i < count; ++i) {
-    float len_sq = edge_lengths_sq[i];
-    if (len_sq < 1e-12f)
-      return -1.0f;
-    float inv = sign / sqrtf(len_sq);
-    float nx = edge_vectors[i].y * inv;
-    float ny = -edge_vectors[i].x * inv;
-    float off = -(nx * poly_2d[i].x + ny * poly_2d[i].y);
-    auto &hp = scratch.half_planes[i];
-    hp.nx = nx;
-    hp.ny = ny;
-    hp.off = off;
-    d0 = __builtin_fmaxf(off, d0);
-  }
-  if (d0 >= 0.0f)
+  const float convex_radius = convex_half_planes(
+      count, area2,
+      [&](int i) {
+        return ConvexEdge2D{poly_2d[i].x, poly_2d[i].y, edge_vectors[i].x,
+                            edge_vectors[i].y};
+      },
+      [&](int i, float nx, float ny, float off) {
+        auto &hp = scratch.half_planes[i];
+        hp.nx = nx;
+        hp.ny = ny;
+        hp.off = off;
+      });
+  if (convex_radius < 0.0f)
     return -1.0f;
   half_planes = std::span<const HalfPlane>(scratch.half_planes.data(), count);
   convex = true;
@@ -264,7 +236,7 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
     scratch.half_planes[i].first = static_cast<uint16_t>(first);
     scratch.half_planes[i].last = static_cast<uint16_t>(last);
   }
-  return -d0;
+  return convex_radius;
 }
 
 /**
