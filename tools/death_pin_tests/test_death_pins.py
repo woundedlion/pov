@@ -156,6 +156,13 @@ class NewGuardsNeedACase(unittest.TestCase):
         self.base = self.commit({"core/guard.h": self.GUARD})
         self.assertEqual(len(self.missing({"core/guard.h": self.GUARD.replace("positive", "above zero")})), 1)
 
+    def test_explicit_rename_of_existing_guard_passes(self):
+        self.base = self.commit({"core/guard.h": self.GUARD})
+        aliases = [("core/guard.h", "(value > 0) probe: positive",
+                    "(renamed_value > 0) probe: positive")]
+        with mock.patch.object(checker, "GUARD_RENAME_PINS", aliases):
+            self.assertEqual(self.missing({"core/guard.h": self.GUARD.replace("value", "renamed_value")}), [])
+
     def test_command_line_fails_on_a_missing_case(self):
         tip = self.commit({"core/guard.h": self.GUARD})
         with mock.patch.object(sys, "argv", ["check", str(self.repo), "--new-guards", self.base, tip]), \
@@ -163,6 +170,41 @@ class NewGuardsNeedACase(unittest.TestCase):
                 self.assertRaisesRegex(SystemExit, "1 new guard"):
             checker.main()
         self.assertIn("core/guard.h:1:", out.getvalue())
+
+
+class GuardRenamePins(unittest.TestCase):
+    def match(self, old, new, before=None, after=None):
+        file = 'core/guard.h'
+        with mock.patch.object(checker, 'GUARD_RENAME_PINS', [(file, old, new)]):
+            return checker.renamed_guards(
+                before if before is not None else 'HS_CHECK' + old.replace(') positive', ', "positive");'),
+                after if after is not None else 'HS_CHECK' + new.replace(') positive', ', "positive");'), file)
+
+    def test_identifier_rename(self):
+        self.assertEqual(self.match('(VALUE > 0) positive', '(value > 0) positive'), {'(value>0)positive'})
+
+    def test_missing_base_guard(self):
+        self.assertEqual(self.match('(VALUE > 0) positive', '(value > 0) positive', before=''), set())
+
+    def test_unlisted_guard(self):
+        with mock.patch.object(checker, 'GUARD_RENAME_PINS', []):
+            self.assertEqual(checker.renamed_guards('HS_CHECK(VALUE > 0, "positive");',
+                                                   'HS_CHECK(value > 0, "positive");', 'core/guard.h'), set())
+
+    def test_added_guard(self):
+        self.assertEqual(self.match('(VALUE > 0) positive', '(value > 0) positive',
+                                   after='HS_CHECK(value > 0, "positive"); HS_CHECK(true, "extra");'), set())
+
+    def test_operator_number_or_message_change(self):
+        for new in ('(value >= 0) positive', '(value > 1) positive', '(value > 0) changed'):
+            with self.subTest(new=new):
+                self.assertEqual(self.match('(VALUE > 0) positive', new,
+                                           after='HS_CHECK' + new.replace(') positive', ', "positive");').replace(') changed', ', "changed");')), set())
+
+    def test_inconsistent_identifier_mapping(self):
+        self.assertEqual(self.match('(VALUE > 0 && VALUE < 4) positive',
+                                    '(lower > 0 && upper < 4) positive'), set())
+
 
 
 if __name__ == "__main__":

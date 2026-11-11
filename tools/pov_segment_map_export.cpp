@@ -54,13 +54,13 @@ void emit_segment(const pov::SegmentMap &m, int pps, const Config &cfg,
   std::printf("], \"clips\": [");
   for (int i = 0; i < WIDTH_COUNT; ++i) {
     for (bool first_half : {false, true}) {
-      const auto CLIP =
+      const auto clip =
           pov::segment_clip(m, first_half, cfg.leds, cfg.segments, WIDTHS[i]);
       std::printf("%s{ \"width\": %d, \"first_half\": %s,",
                   (i || first_half) ? ", " : "", WIDTHS[i],
                   first_half ? "true" : "false");
-      std::printf(" \"y0\": %d, \"y1\": %d, \"x0\": %d, \"x1\": %d }", CLIP.y0,
-                  CLIP.y1, CLIP.x0, CLIP.x1);
+      std::printf(" \"y0\": %d, \"y1\": %d, \"x0\": %d, \"x1\": %d }", clip.y0,
+                  clip.y1, clip.x0, clip.x1);
     }
   }
   std::printf("] }%s\n", tail);
@@ -72,19 +72,19 @@ void emit_segment(const pov::SegmentMap &m, int pps, const Config &cfg,
  * @param tail Separator after the object: "," unless this is the last config.
  */
 void emit_config(const Config &cfg, const char *tail) {
-  const int S = cfg.leds;
-  const int N = cfg.segments;
+  const int s = cfg.leds;
+  const int n = cfg.segments;
   // ROWS and PPS as pov_segment_map.h defines them internally.
-  const int rows = S / 2;
-  const int pps = S / N;
+  const int rows = s / 2;
+  const int pps = s / n;
   std::printf("    {\n");
-  std::printf("      \"leds\": %d,\n", S);
-  std::printf("      \"segment_count\": %d,\n", N);
+  std::printf("      \"leds\": %d,\n", s);
+  std::printf("      \"segment_count\": %d,\n", n);
   std::printf("      \"rows\": %d,\n", rows);
   std::printf("      \"pps\": %d,\n", pps);
   std::printf("      \"segments\": [\n");
-  for (int id = 0; id < N; id++)
-    emit_segment(pov::segment_map(id, S, N), pps, cfg, id == N - 1 ? "" : ",");
+  for (int id = 0; id < n; id++)
+    emit_segment(pov::segment_map(id, s, n), pps, cfg, id == n - 1 ? "" : ",");
   std::printf("      ]\n");
   std::printf("    }%s\n", tail);
 }
@@ -99,12 +99,12 @@ void emit_x_cols(int w, const char *tail) {
   const int arm_b = pov::segment_x_col(true, 0, w);
   std::printf("    { \"width\": %d,", w);
   std::printf(" \"arm_a\": %d, \"arm_b\": %d, \"samples\": [", arm_a, arm_b);
-  const int XS[] = {0, w / 2 - 1, w / 2, w - 1};
-  for (size_t i = 0; i < std::size(XS); ++i) {
-    const int X = XS[i];
+  const int xs[] = {0, w / 2 - 1, w / 2, w - 1};
+  for (size_t i = 0; i < std::size(xs); ++i) {
+    const int x = xs[i];
     std::printf("%s{ \"x\": %d, \"arm_a\": %d, \"arm_b\": %d }", i ? ", " : "",
-                X, pov::segment_x_col(false, X, w),
-                pov::segment_x_col(true, X, w));
+                x, pov::segment_x_col(false, x, w),
+                pov::segment_x_col(true, x, w));
   }
   std::printf("] }%s\n", tail);
 }
