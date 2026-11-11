@@ -274,11 +274,13 @@ inline void test_fast_acos() {
 
   for (int i = 0; i <= 32; ++i) {
     float x = -1.0f + (i / 16.0f);
-    HS_EXPECT_NEAR(math::fast_acos(x), std::acos(x), 5.1e-5f);
+    HS_EXPECT_NEAR(math::fast_acos(x), std::acos(x),
+                   math::FAST_ACOS_PEAK_ERROR);
   }
 
   // Peak-error point, between the sweep's samples.
-  HS_EXPECT_NEAR(math::fast_acos(0.0807f), std::acos(0.0807f), 5.1e-5f);
+  HS_EXPECT_NEAR(math::fast_acos(0.0807f), std::acos(0.0807f),
+                 math::FAST_ACOS_PEAK_ERROR);
 }
 
 /**

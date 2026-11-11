@@ -191,7 +191,7 @@ inline void test_star_polygon_cull_covers_aa_fringe() {
 
 /** @brief Annular angle bounds contain the reference angle before pixel rounding. */
 inline void test_annular_angles_bound_reference() {
-  static_assert(SDF::ANNULAR_ANGLE_PAD >= 5.1e-5f);
+  static_assert(SDF::ANNULAR_ANGLE_PAD >= math::FAST_ACOS_PEAK_ERROR);
   for (int i = 0; i <= 1000; ++i) {
     const float cosine = 2.0f * i / 1000 - 1.0f;
     float angle_min, angle_max;

@@ -1404,6 +1404,8 @@ inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
 
 /** @brief Absolute angular error bound in radians on [-1, 1]. */
 inline constexpr double FAST_ACOS_MAX_ERROR = 1e-4;
+/// Measured peak error used by narrow annular bounds.
+inline constexpr float FAST_ACOS_PEAK_ERROR = 5.1e-5f;
 
 /**
  * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.

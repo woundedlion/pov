@@ -34,6 +34,7 @@ inline constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
 inline constexpr float INTERVAL_DENOM_EPS = 1e-6f;
 /** Annular angle slack covers the error bounded by test_fast_acos. */
 inline constexpr float ANNULAR_ANGLE_PAD = 6e-5f;
+static_assert(ANNULAR_ANGLE_PAD >= math::FAST_ACOS_PEAK_ERROR);
 /** Threshold for near-pole ring approximation safety. */
 inline constexpr float POLE_SAFE_MARGIN = 0.05f;
 /** Ring thickness ceiling as a fraction of tan(target_angle) for the

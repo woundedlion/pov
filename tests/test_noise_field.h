@@ -547,7 +547,7 @@ inline void test_sphere_exp_map_and_transport() {
   const math::Vector moved = math::sphere_exp_map(V, TANGENT);
   HS_EXPECT_NEAR(moved.length(), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(math::fast_acos(math::dot(V, moved)), TANGENT.length(),
-                 5.1e-5f);
+                 math::FAST_ACOS_PEAK_ERROR);
   const math::Vector transported = math::parallel_transport(V, moved, TANGENT);
   HS_EXPECT_NEAR(math::dot(transported, moved), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(transported.length(), TANGENT.length(), 1e-6f);

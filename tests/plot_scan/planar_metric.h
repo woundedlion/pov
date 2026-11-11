@@ -233,7 +233,8 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     const float endpoint_cos = math::dot(chart_start, span_end) /
                                sqrtf(math::dot(chart_start, chart_start) *
                                      math::dot(span_end, span_end));
-    constexpr float CHORD_ERROR_BUDGET = Plot::PLANAR_LEN_SAMPLES * 5.1e-5f;
+    constexpr float CHORD_ERROR_BUDGET =
+        Plot::PLANAR_LEN_SAMPLES * math::FAST_ACOS_PEAK_ERROR;
     HS_EXPECT_GE(cumul[Plot::PLANAR_LEN_SAMPLES],
                  acosf(hs::clamp(endpoint_cos, -1.0f, 1.0f)) -
                      CHORD_ERROR_BUDGET);
