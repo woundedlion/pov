@@ -492,12 +492,7 @@ private:
                                      (keep_tail ? 1 : 0));
         world[j] = Plot::EdgeWorldsheet::normalize(end_pose.apply(sources[j]));
       }
-      float reach_cosine = 1.0f;
-      const math::Vector &centre = world[points / 2];
-      for (int j = 0; j < points; ++j)
-        reach_cosine = fminf(reach_cosine, math::dot(centre, world[j]));
-      if (cull.rejects(&centre, 1,
-                       spin + sqrtf(fmaxf(0.0f, 2.0f - 2.0f * reach_cosine))))
+      if (cull.rejects_chain(world, points, spin))
         continue;
       auto node_progress = [&](int j) HS_HOT_INLINE {
         return static_cast<float>(static_cast<int>(first) + j -

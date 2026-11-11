@@ -726,12 +726,7 @@ private:
                         : trail[j].origin;
         world[j] = Plot::EdgeWorldsheet::normalize(end_pose.apply(warped[j]));
       }
-      float reach_cosine = 1.0f;
-      const math::Vector &centre = world[points / 2];
-      for (int j = 0; j < points; ++j)
-        reach_cosine = fminf(reach_cosine, math::dot(centre, world[j]));
-      if (cull.rejects(&centre, 1,
-                       pad + sqrtf(fmaxf(0.0f, 2.0f - 2.0f * reach_cosine))))
+      if (cull.rejects_chain(world, points, pad))
         continue;
       uint32_t visible = 0;
       for (int j = points - 1; j > 0; --j) {

@@ -247,6 +247,21 @@ template <int W> struct SweptEdgeCull {
     return rejects_variable(points, count, pad);
   }
 
+  /** @brief Tests a trail chain using its midpoint's enclosing chord bound.
+   * @param world Unit positions in chain order.
+   * @param count Number of positions.
+   * @param pad Bound beyond the chain's captured positions.
+   * @return True when the padded chain misses the clip. */
+  HS_HOT_INLINE bool rejects_chain(const math::Vector *world, int count,
+                                   float pad) const {
+    const math::Vector &centre = world[count / 2];
+    float reach_cosine = 1.0f;
+    for (int j = 0; j < count; ++j)
+      reach_cosine = fminf(reach_cosine, math::dot(centre, world[j]));
+    return rejects(&centre, 1,
+                   pad + sqrtf(fmaxf(0.0f, 2.0f - 2.0f * reach_cosine)));
+  }
+
   /** @brief Tests whether every arc an edge sweeps over the frame stays
    * outside the bounds.
    * @param points Both endpoints at the frame's start and end.
