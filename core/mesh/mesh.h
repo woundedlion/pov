@@ -271,8 +271,9 @@ inline constexpr int MAX_FACE_DEGREE = UINT8_MAX;
  * @param total_indices Length of @p faces_arr.
  * @details Emits one half-edge per face index, links each face's next/prev loop,
  * then pairs opposite half-edges by undirected vertex key. Traps on mismatched
- * flat face lengths, a 16-bit index overflow, a zero-side face or a pair of
- * faces wound the same way around a shared edge.
+ * flat face lengths, an empty face list, a 16-bit index overflow, a zero-side
+ * face, an out-of-range vertex index, a non-manifold edge, or a pair of faces
+ * wound the same way around a shared edge.
  */
 [[maybe_unused]] HS_COLD static void
 build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,

@@ -31,8 +31,8 @@ namespace Plot {
  * @brief Plots single points, each at the frame fraction its column is lit.
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
- * @details A point's motion over the frame is its world positions at t = 0
- * and t = 1; between them it moves along their chord. Both endpoints are
+ * @details A point moves from its world position at t = 0 to t = 1 along
+ * the endpoint chord, with a quadratic departure when plot() takes a middle offset. Both endpoints are
  * projected once, and the projected column and row are taken as linear in t
  * between them, so each arm pass is one division
  * (Spacetime::screen_crossings()). The pass is splatted through the sink's own

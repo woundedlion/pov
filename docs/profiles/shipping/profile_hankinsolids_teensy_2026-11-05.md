@@ -222,7 +222,7 @@ Rows are ranked by dominant-scope cost; each row states its observation method.
 | cube cube | 13/8 | unavailable | 17.954 | 18.227 | 16.13 | modal-call-count hold |
 | octahedron octahedron | 11/8 | unavailable | 17.937 | 18.222 | 16.06 | modal-call-count hold |
 | icosahedron icosahedron | 9/6 | unavailable | 17.814 | 18.085 | 15.97 | modal-call-count hold |
-| 0  | 7/6 | unavailable | 15.916 | 16.189 | 17.63 | modal-call-count hold |
+| 0  | 7/6 | unavailable | 15.916 | 16.189 | n/a | startup window (includes setup frame 1) |
 | tetrahedron tetrahedron | 2/1 | unavailable | 12.293 | 12.575 | 16.00 | modal-call-count hold |
 
 | Preset | Peak render ms | Spilled/frames | Cadence fps |
@@ -289,7 +289,6 @@ README cells: peak 🟢 30.408 (19), spilled 🟢 0/2687 (0.00%).
 
 README setup frame 1: 19.120 ms. Captured 2026-11-04 23:22 America/Los_Angeles.
 
-This capture measures the generated hot-code layout against the 11-04 matched sweep; see the sweep scorecard for the delta.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 

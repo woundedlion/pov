@@ -243,7 +243,7 @@ private:
   /**
    * @brief Chooses how one ring's bake evaluates its hue rotation.
    * @param lut_n Bake columns for the ring.
-   * @param visible Chunk mask from Plot::visible_chunk_mask.
+   * @param visible Visible-chunk mask, one bit per bake chunk.
    * @param hue_extent Hue turns the displacement range covers.
    * @return Table sampling mode and domain.
    * @details Culled chunks bake no columns, so the precompute decision
@@ -939,7 +939,7 @@ private:
   /**
    * @brief Sets knot_visible[x] to whether knot x lies in a visible chunk.
    * @param lut_n Knot count.
-   * @param visible Chunk mask from Plot::visible_chunk_mask.
+   * @param visible Visible-chunk mask, one bit per bake chunk.
    */
   HS_HOT_INLINE void mark_visible_knots(int lut_n, uint32_t visible) {
     int x = 0;
@@ -1117,7 +1117,7 @@ private:
    * @param step Trig of theta and of one knot cell's azimuth step.
    * @param theta Ring colatitude.
    * @param lut_n Knot count, a multiple of OCTAVE_GRID.
-   * @param visible Chunk mask from Plot::visible_chunk_mask.
+   * @param visible Visible-chunk mask, one bit per bake chunk.
    * @param n_local Balls that can reach the ring (ball_local).
    * @param slut Receives the shift of every knot in a visible chunk.
    * @details The two octaves use OCTAVE1_STRIDE and OCTAVE2_STRIDE knot spacing
@@ -1277,7 +1277,7 @@ private:
    * @param step Trig of theta and of one knot cell's azimuth step.
    * @param theta Ring colatitude.
    * @param lut_n Knot count.
-   * @param visible Chunk mask from Plot::visible_chunk_mask.
+   * @param visible Visible-chunk mask, one bit per bake chunk.
    * @param n_local Balls that can reach the ring (ball_local).
    * @param slut Receives the shift of every knot in a visible chunk.
    * @details On the ring, a ball's cap test dot(p, center) > cos_radius reads

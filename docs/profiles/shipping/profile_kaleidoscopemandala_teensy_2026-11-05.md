@@ -183,7 +183,6 @@ README cells: peak 🟢 42.737 (2), spilled 🟢 0/1631 (0.00%).
 
 README setup frame 1: 62.398 ms. Captured 2026-11-04 23:53 America/Los_Angeles.
 
-Pullback shader: also affected by the 1a3244da8..dc2954193 cached-phase/color fixes; this delta does not isolate layout.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 
@@ -212,7 +211,7 @@ effect=KaleidoscopeMandala  windows=51
 INVALID: KaleidoscopeMandala
 ```
 
-Validation flags: [FAIL] cycle returns to its first index (peak idx 2, 1 distinct); [FAIL] all 2 presets visited (1). The reported cadence is supported by direct per-frame render telemetry; unobserved wrap and cycle-counter exactness are not claimed.
+Validation flags: [FAIL] cycle returns to its first index (peak idx 2, 1 distinct); [FAIL] all 2 presets visited (1). The reported cadence is supported by direct per-frame render telemetry; an unobserved wrap is not claimed.
 
 ## Harness
 

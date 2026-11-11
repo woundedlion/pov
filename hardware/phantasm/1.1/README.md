@@ -214,7 +214,7 @@ level shifter → LED strip, sync RX divider + daisy, ID straps / debug, power f
 - **Series/divider paths are wired** — `U1` outputs through the 33 Ω/100 Ω source
   terminators, and the pin-3 RC divider (`R1`/`R2`/`C_SYNC`).
 - **Cross-block signals use net labels as ports** — `DATA(_IN)`, `CLK(_IN)`,
-  `FRAME_SYNC`, `SYNC_TX` (rev 1.2), `MASTER_EN`, `SYNC_BUS`, `ID0/1`, `SHIELD` — the conventional way to
+  `FRAME_SYNC`, `SYNC_TX` (rev 1.2), `MASTER_EN`, `SYNC_BUS`, `ID0/1/2`, `SYNC_PULLDOWN`, `SERIAL1_TX`, `SHIELD` — the conventional way to
   avoid dragging wires around the large Teensy symbol.
 
 It's still a generated **functional layout**; rearrange/beautify freely in Eeschema —

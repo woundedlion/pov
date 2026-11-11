@@ -15,8 +15,7 @@ capacity; only its per-partition persist/scratchA/scratchB figures compare with
 these lifetime-high-water columns.
 
 Host figures are a conservative **upper bound** on the device: the host is
-64-bit, so pointer-bearing pooled headers inflate vs the 32-bit device (see
-the arena_measure.cpp header). Two further caveats: the probe samples one
+64-bit, so pointer-bearing pooled headers inflate vs the 32-bit device. Two further caveats: the probe samples one
 fixed-seed spawn per effect (other seeds, shapes or presets can use more memory), and 8 frames
 does not capture long-run growth. CI drives a 120-frame window for the arena
 budget gate used for device sizing.

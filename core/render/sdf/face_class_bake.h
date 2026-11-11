@@ -289,7 +289,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       n_elig > 0 && budget >= MINIMUM_LUT_BYTES
           ? scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N)
           : nullptr;
-  // A null staging buffer is never read: a budget below minimum_lut_bytes
+  // A null staging buffer is never read: a budget below MINIMUM_LUT_BYTES
   // drops every class at the degrade step.
   for (int e = 0; e < n_elig; ++e) {
     CongruenceClass &cls = out.classes[order[e]];

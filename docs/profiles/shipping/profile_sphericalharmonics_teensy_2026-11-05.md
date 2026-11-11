@@ -121,7 +121,7 @@ Rows are ranked by dominant-scope cost; each row states its observation method.
 | 11  | 4/3 | unavailable | 11.894 | 12.175 | 16.01 | modal-call-count hold |
 | 20  | 4/3 | unavailable | 11.861 | 12.142 | 16.01 | modal-call-count hold |
 | 21  | 4/3 | unavailable | 11.838 | 12.121 | 16.01 | modal-call-count hold |
-| 7  | 4/3 | unavailable | 11.741 | 12.019 | 17.63 | modal-call-count hold |
+| 7  | 4/3 | unavailable | 11.741 | 12.019 | n/a | startup window (includes setup frame 1) |
 | 8  | 4/3 | unavailable | 11.672 | 11.945 | 16.01 | modal-call-count hold |
 | 12  | 4/3 | unavailable | 11.656 | 11.932 | 16.01 | modal-call-count hold |
 | 5  | 4/3 | unavailable | 11.602 | 11.881 | 16.01 | modal-call-count hold |
@@ -199,7 +199,6 @@ README cells: peak 🟢 12.951 (24), spilled 🟢 0/1503 (0.00%).
 
 README setup frame 1: 21.277 ms. Captured 2026-11-04 23:24 America/Los_Angeles.
 
-Also affected by the 1a3244da8..dc2954193 placement/render fixes; this delta does not isolate layout.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 

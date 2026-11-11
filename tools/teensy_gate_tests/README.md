@@ -52,7 +52,6 @@ The `real/*` fixtures are output from actual `[env:holosphere]` and
 `[env:phantasm]` builds (`teensy_size`, `readelf -sW`/`-SW`, `size -A`,
 `pio run -v`), so the parsers are exercised against exact toolchain formatting
 alongside the hand-built pass path. In the three `pio run -v` captures, the
-Windows home directory was rewritten to `C:\Users\dev`; nothing else was edited. In the three `pio run -v` captures, the
 Windows home directory was rewritten to `C:\Users\dev`; nothing else was edited.
 
 The Phantasm quartet was captured on 2026-10-10 from a pre-landing

@@ -82,7 +82,7 @@ These are inclusive complete-window means, not frame peaks; maxima can occur in 
 | Octave noise / opacity / baked | 9.894 (641–672) | 2.120 (353–384) | 33.135 (1–32) | 32.624 | 2.032 | 3.032 |
 | Single noise / lightness lift / baked | 4.405 (353–384) | 2.130 (417–448) | 43.075 (1–32) | 42.698 | 1.288 | 3.034 |
 
-`parse_profile.py ... validate --scope fx_shader_draw` passes for every capture: one GridSpace geometry, monotonic windows, complete per-frame records, and root cycles ÷ 600 MHz agreeing with the wall sum within 5 ppm in the richest shader window. The sine capture has one other window at 7.366 ppm, above that 5 ppm diagnostic threshold; the validator checks the richest shader window only. This is not a claim of sub-5-ppm agreement for every window. Raw capture coverage is:
+`parse_profile.py ... validate --scope fx_shader_draw` passes for every capture: one GridSpace geometry, monotonic windows, complete per-frame records, and root cycles ÷ 600 MHz agreeing with the wall sum within 5 ppm in the richest shader window. The sine and baked octave/hue captures each have one other window above that 5 ppm diagnostic threshold (7.366 and 8.581 ppm); the validator checks the richest shader window only. This is not a claim of sub-5-ppm agreement for every window. Raw capture coverage is:
 
 | Raw log suffix | Complete windows | Trailing rows excluded | Raw peak ms | Raw spilled |
 |---|--:|--:|--:|--:|

@@ -161,7 +161,7 @@ Rows are ranked by dominant-scope cost; each row states its observation method.
 | Preset / geometry | Windows / clean | Blended px/f | Dominant ms/f | Render ms/f | fps | Method |
 |---|--:|--:|--:|--:|--:|---|
 | 2  | 67/66 | unavailable | 26.060 | 29.404 | 16.03 | modal-call-count hold |
-| 1  | 38/37 | unavailable | 25.967 | 28.287 | 16.80 | modal-call-count hold |
+| 1  | 38/37 | unavailable | 25.967 | 28.287 | n/a | startup window (includes setup frame 1) |
 | 3  | 68/67 | unavailable | 25.310 | 28.438 | 16.07 | modal-call-count hold |
 | 4  | 65/65 | unavailable | 25.109 | 27.402 | 16.03 | modal-call-count hold |
 
@@ -214,7 +214,6 @@ README cells: peak 🟢 32.584 (4), spilled 🟢 0/3807 (0.00%).
 
 README setup frame 1: 53.448 ms. Captured 2026-11-04 23:48 America/Los_Angeles.
 
-Pullback shader: also affected by the 1a3244da8..dc2954193 cached-phase/color fixes; this delta does not isolate layout.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 
@@ -243,7 +242,7 @@ effect=AlienBrain  windows=238
 INVALID: AlienBrain
 ```
 
-Validation flags: [FAIL] cycle returns to its first index (peak idx 4, 3 distinct); [FAIL] all 4 presets visited (3). The reported cadence is supported by direct per-frame render telemetry; unobserved wrap and cycle-counter exactness are not claimed.
+Validation flags: [FAIL] cycle returns to its first index (peak idx 4, 3 distinct); [FAIL] all 4 presets visited (3). The reported cadence is supported by direct per-frame render telemetry; an unobserved wrap is not claimed.
 
 ## Harness
 

@@ -167,7 +167,6 @@ README cells: peak 🟢 37.926, spilled 🟢 0/927 (0.00%).
 
 README setup frame 1: 56.868 ms. Captured 2026-11-04 23:56 America/Los_Angeles.
 
-Also affected by the 1a3244da8..dc2954193 placement/render fixes; this delta does not isolate layout.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 

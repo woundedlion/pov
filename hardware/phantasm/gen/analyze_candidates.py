@@ -20,7 +20,7 @@ Errors are split: 'refill-fixable' clearance/hole errors against a zone (they cl
 on a KiCad zone refill) vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track
 clearance), which disqualify a candidate from the recommended pick. A candidate
 whose DRC did not produce a result reports as NOT GATED and is likewise
-ineligible, as is one with vias below the fabrication floor. Project-rule and zone floors
+ineligible, as is one with vias below the fabrication floor or any footprint off F.Cu. Project-rule and zone floors
 run independently of KiCad availability; refusals report as RULES.
 
 Scoring favors fewer fast-net vias and shorter fast nets. Placement distances
@@ -397,7 +397,8 @@ def main(argv=None):
               " shorts/crossings/opens and track-to-track clearance;"
               f" 'SMALL VIAS' = below {MIN_STANDARD_VIA_DIAMETER_MM:g}/"
               f"{MIN_STANDARD_VIA_DRILL_MM:.2f} mm; 'NOT GATED' = no DRC result,"
-              " candidate can't be recommended.")
+              " candidate can't be recommended; 'BACK-SIDE FOOTPRINTS' = a footprint"
+              " not on F.Cu; 'RULES' = project/zone floor refusal; both ineligible.")
 
     print("\n" + "=" * 76)
     print("CRITICAL NETS  -  length(mm) / vias / layers")

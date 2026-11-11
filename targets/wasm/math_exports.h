@@ -159,7 +159,7 @@ static void bind_math_exports() {
         return out;
       }));
 
-  // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
+  // Lissajous curve (lissajous_math.js lissajous), via core/math/spherical.h.
   emscripten::function(
       "lissajous", emscripten::optional_override(
                        [](float m1, float m2, float a, float t) -> XYZValue {

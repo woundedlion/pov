@@ -141,7 +141,7 @@ class EmbedLandTests(unittest.TestCase):
 
 
 class UnplacedBoardLandTests(unittest.TestCase):
-    """The unplaced board is the placement/routing input, so it is where a land
+    """The unplaced boards are the placement/routing input, so they are where a land
     deviation would reach fabrication."""
 
     def test_one_land_per_footprint_library_id(self):
@@ -194,7 +194,7 @@ class PowerInletTests(unittest.TestCase):
 
 class TeensyLibraryTests(unittest.TestCase):
     """A board embeds its own copy of every footprint, so the generator, the
-    library and both committed boards each pin the Teensy footprint."""
+    library and every committed board each pin the Teensy footprint."""
 
     def library_lands(self):
         return pad_lands(

@@ -200,7 +200,6 @@ README cells: peak 🟢 53.649 (9), spilled 🟢 0/4767 (0.00%).
 
 README setup frame 1: 43.112 ms. Captured 2026-11-05 00:03 America/Los_Angeles.
 
-Pullback shader: also affected by the 1a3244da8..dc2954193 cached-phase/color fixes; this delta does not isolate layout.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 
@@ -230,7 +229,7 @@ effect=HyperLattice  windows=298
 INVALID: HyperLattice
 ```
 
-Validation flags: [FAIL] cycle returns to its first index (peak idx 9, 8 distinct); [FAIL] all 9 presets visited (8). The reported cadence is supported by direct per-frame render telemetry; unobserved wrap and cycle-counter exactness are not claimed.
+Validation flags: [FAIL] cycle returns to its first index (peak idx 9, 8 distinct); [FAIL] all 9 presets visited (8). The reported cadence is supported by direct per-frame render telemetry; an unobserved wrap is not claimed.
 
 ## Harness
 

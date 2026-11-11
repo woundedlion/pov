@@ -251,7 +251,6 @@ README cells: peak 🟢 53.505 (12), spilled 🟢 0/2863 (0.00%).
 
 README setup frame 1: 6.712 ms. Captured 2026-11-04 23:32 America/Los_Angeles.
 
-This capture measures the generated hot-code layout against the 11-04 matched sweep; see the sweep scorecard for the delta.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 
@@ -280,7 +279,7 @@ effect=MeshFeedback  windows=179
 INVALID: MeshFeedback
 ```
 
-Validation flags: [FAIL] cycle returns to its first index (peak idx 12, 11 distinct); [FAIL] all 12 presets visited (11). The reported cadence is supported by direct per-frame render telemetry; unobserved wrap and cycle-counter exactness are not claimed.
+Validation flags: [FAIL] cycle returns to its first index (peak idx 12, 11 distinct); [FAIL] all 12 presets visited (11). The reported cadence is supported by direct per-frame render telemetry; an unobserved wrap is not claimed.
 
 ## Harness
 

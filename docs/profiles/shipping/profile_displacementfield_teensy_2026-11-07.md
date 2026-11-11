@@ -232,7 +232,7 @@ README setup frame 1: 18.485 ms. Captured 2026-11-07 23:11 America/Los_Angeles.
 - `filter_blend` first-caller parenting can hide its subtree under an inactive parent when enabled. It is disabled here; per-pixel scope overhead is avoided and no blend counts are claimed.
 - Shipping selective-O3 regions cover ball-field evaluators and the distorted ring-stack scan. This is the shipping `-Os` configuration, not a global-O3 comparison.
 - No preset dwell, transition-speed or ordered-cycle override was used. The default one-hour profile epoch prevents reset during the 150 s capture.
-- Tracked source was clean during build/capture. Two unrelated untracked specifications were present: `docs/specs/phantasm_wide_canvas.md` and `docs/specs/test_machinery_simplification.md`; neither participates in firmware compilation. Source status and tracked diff are retained beside the ELF artifacts.
+- Tracked source was clean during build/capture. Two unrelated untracked specifications were present during capture; neither participates in firmware compilation. Source status and tracked diff are retained beside the ELF artifacts.
 - Parser validation passed every check across 148 windows, including monotonic frame numbering, all presets, wrap, complete telemetry, render-versus-wall and cycle/wall exactness. Mixed-parent/duplicate-name diagnostics are informational and prevent exclusive-cost interpretation.
 
 ## Harness

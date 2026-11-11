@@ -440,7 +440,7 @@ constexpr double MESHFEEDBACK_INFILL_CUT_BOUND = 1.55;
 constexpr double MESHFEEDBACK_LATITUDE_BOUND = 1.28;
 
 /**
- * @brief The wormhole presets, whose warps turn the pole caps furthest, step
+ * @brief The tight and wiggling wormhole presets step
  *        across the arm cuts and between adjacent pole-cap rows about as far
  *        as between the pixels beside them.
  */

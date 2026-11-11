@@ -175,7 +175,6 @@ README cells: peak 🟢 57.896 (8), spilled 🟢 0/1247 (0.00%).
 
 README setup frame 1: 0.389 ms. Captured 2026-11-04 23:16 America/Los_Angeles.
 
-This capture measures the generated hot-code layout against the 11-04 matched sweep; see the sweep scorecard for the delta.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 
@@ -204,7 +203,7 @@ effect=MindSplatter  windows=78
 INVALID: MindSplatter
 ```
 
-Validation flags: [FAIL] cycle returns to its first index (peak idx 8, 7 distinct); [FAIL] all 8 presets visited (7). The reported cadence is supported by direct per-frame render telemetry; unobserved wrap and cycle-counter exactness are not claimed.
+Validation flags: [FAIL] cycle returns to its first index (peak idx 8, 7 distinct); [FAIL] all 8 presets visited (7). The reported cadence is supported by direct per-frame render telemetry; an unobserved wrap is not claimed.
 
 ## Harness
 

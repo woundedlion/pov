@@ -190,7 +190,6 @@ README cells: peak 🟢 51.758, spilled 🟢 0/927 (0.00%).
 
 README setup frame 1: 78.463 ms. Captured 2026-11-04 23:58 America/Los_Angeles.
 
-Pullback shader: also affected by the 1a3244da8..dc2954193 cached-phase/color fixes; this delta does not isolate layout.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 

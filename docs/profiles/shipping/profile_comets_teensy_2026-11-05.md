@@ -202,7 +202,6 @@ README cells: peak 🟢 30.637 (12), spilled 🟢 0/1887 (0.00%).
 
 README setup frame 1: 0.860 ms. Captured 2026-11-04 23:28 America/Los_Angeles.
 
-This capture measures the generated hot-code layout against the 11-04 matched sweep; see the sweep scorecard for the delta.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 
@@ -231,7 +230,7 @@ effect=Comets  windows=118
 INVALID: Comets
 ```
 
-Validation flags: [FAIL] cycle returns to its first index (peak idx 12, 11 distinct); [FAIL] all 12 presets visited (11). The reported cadence is supported by direct per-frame render telemetry; unobserved wrap and cycle-counter exactness are not claimed.
+Validation flags: [FAIL] cycle returns to its first index (peak idx 12, 11 distinct); [FAIL] all 12 presets visited (11). The reported cadence is supported by direct per-frame render telemetry; an unobserved wrap is not claimed.
 
 ## Harness
 

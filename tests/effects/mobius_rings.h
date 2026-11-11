@@ -2,16 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-/** @brief Optional device clipping and endpoint scenarios. */
-struct MobiusRingsRenderOptions {
-  int segment = -1;
-  bool hold = false;
-  bool wrap = false;
-  int count_change = 0;
-};
-
 /** @file
  * @brief MobiusRings white-box cases. */
+
+/** @brief Optional device clipping and endpoint scenarios. */
+struct MobiusRingsRenderOptions {
+  int segment = -1;     ///< Segment index; values below 4 select the first arm.
+  bool hold = false;    ///< Hold the endpoint.
+  bool wrap = false;    ///< Cross the phase wrap.
+  int count_change = 0; ///< Ring-count fade direction.
+};
 
 /** @brief White-box accessor for MobiusRings' numeric geometry. */
 struct MobiusRingsWhiteBox {

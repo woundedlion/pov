@@ -201,7 +201,6 @@ README cells: peak 🟢 59.311 (16), spilled 🟢 0/4863 (0.00%).
 
 README setup frame 1: 16.664 ms. Captured 2026-11-04 23:39 America/Los_Angeles.
 
-This capture measures the generated hot-code layout against the 11-04 matched sweep; see the sweep scorecard for the delta.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 

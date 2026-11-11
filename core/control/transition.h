@@ -86,12 +86,12 @@ enum class EffectRestoreCapability : uint8_t {
  *   that forced the most recent rollback or fail-safe.
  */
 enum class EffectTransitionStatus : uint8_t {
-  OK,          /**< Step accepted. */
-  BUSY,        /**< A transition is past fade-out, or the adapter is busy. */
-  UNAVAILABLE, /**< Malformed request, or the adapter is unavailable. */
-  INVALID_RESTORE,      /**< Restore token unusable. */
-  INVALID_HANDOFF,      /**< Handoff state unusable. */
-  RESOURCE_REJECTED,    /**< Incoming effect could not be constructed. */
+  OK,   /**< Step accepted. */
+  BUSY, /**< A transition is between CLEAR_PRESENTED and FADING_BACK, or the adapter is busy. */
+  UNAVAILABLE,       /**< Malformed request, or the adapter is unavailable. */
+  INVALID_RESTORE,   /**< Restore token unusable. */
+  INVALID_HANDOFF,   /**< Handoff state unusable. */
+  RESOURCE_REJECTED, /**< Incoming effect could not be constructed. */
   FIRST_FRAME_REJECTED, /**< Incoming effect could not render its first frame. */
   RESTORE_REJECTED,     /**< Rollback failed or had no restorable outgoing. */
 };
@@ -256,7 +256,7 @@ public:
    * @param next Destination effect, preset and fade length.
    * @param next_handoff Continuity state the incoming effect will import.
    * @return OK once armed; UNAVAILABLE for an empty effect_id or zero
-   *         fade_ticks; BUSY from any state past FADING_OUT; otherwise
+   *         fade_ticks; BUSY while a transition is between CLEAR_PRESENTED and FADING_BACK; otherwise
    *         whatever the adapter's preflight() refused with.
    * @details Accepted only from STEADY_OUT, STEADY_IN, FADING_OUT and
    *   CLEAR_FAILSAFE. Re-requesting during FADING_OUT re-aims the in-flight

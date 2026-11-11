@@ -131,7 +131,7 @@ Rows are ranked by dominant-scope cost; each row states its observation method.
 | Preset / geometry | Windows / clean | Blended px/f | Dominant ms/f | Render ms/f | fps | Method |
 |---|--:|--:|--:|--:|--:|---|
 | 2  | 65/65 | unavailable | 29.196 | 31.267 | 16.03 | modal-call-count hold |
-| 1  | 38/37 | unavailable | 27.744 | 29.770 | 16.78 | modal-call-count hold |
+| 1  | 38/37 | unavailable | 27.744 | 29.770 | n/a | startup window (includes setup frame 1) |
 
 | Preset | Peak render ms | Spilled/frames | Cadence fps |
 |---|--:|--:|--:|
@@ -180,7 +180,6 @@ README cells: peak 🟢 32.874 (2), spilled 🟢 0/1647 (0.00%).
 
 README setup frame 1: 53.328 ms. Captured 2026-11-04 23:03 America/Los_Angeles.
 
-Pullback shader: also affected by the 1a3244da8..dc2954193 cached-phase/color fixes; this delta does not isolate layout.
 
 Native/WASM results are not a matched hardware timing baseline; the unchanged comparison set remains in the aggregate index.
 
@@ -209,7 +208,7 @@ effect=MobiusGrid  windows=103
 INVALID: MobiusGrid
 ```
 
-Validation flags: [FAIL] cycle returns to its first index (peak idx 2, 1 distinct); [FAIL] all 2 presets visited (1). The reported cadence is supported by direct per-frame render telemetry; unobserved wrap and cycle-counter exactness are not claimed.
+Validation flags: [FAIL] cycle returns to its first index (peak idx 2, 1 distinct); [FAIL] all 2 presets visited (1). The reported cadence is supported by direct per-frame render telemetry; an unobserved wrap is not claimed.
 
 ## Harness
 

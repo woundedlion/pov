@@ -4,7 +4,6 @@
  */
 
 /** @brief Sparse enum values and their parameter specification. */
-/** @brief Sparse enum values and their parameter specification. */
 namespace sparse_parameter_tests {
 inline constexpr const char *LABELS[] = {"Zero", "One", "Six"};
 inline constexpr const int64_t IDS[] = {0, 1, 6};
