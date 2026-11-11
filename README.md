@@ -1774,6 +1774,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table
 │   ├── teensy_size_trail.py    Per-commit firmware size trail: ELF section parser, recorder, regression report
 │   ├── teensy_cold_build.sh    Cold `pio run -v` over every environment, teed for the warning gate
+│   ├── profile_variants.sh     Shared profile variant names and build flags for size and cold-build gates
 │   ├── teensy_warnings.py      Cold-build first-party warning gate
 │   ├── include_paths.py        Canonical first-party include-path gate
 │   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks

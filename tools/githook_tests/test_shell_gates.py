@@ -43,7 +43,8 @@ class ShellGateTests(unittest.TestCase):
     def cold_build_script(self):
         script = self.root / "tools" / "teensy_cold_build.sh"
         script.parent.mkdir()
-        for name in (script.name, "device_lock.sh", "device_lock_guard.py", "find_python.sh"):
+        for name in (script.name, "device_lock.sh", "device_lock_guard.py",
+                     "find_python.sh", "profile_variants.sh"):
             shutil.copyfile(REPO / "tools" / name, script.parent / name)
         return script
 
@@ -203,7 +204,10 @@ class ShellGateTests(unittest.TestCase):
     def test_cold_build_gates_profile_variants_and_preserves_their_failures(self):
         script = self.cold_build_script()
         calls = self.root / "calls.log"
-        flags = re.findall(r"PLATFORMIO_BUILD_FLAGS='([^']*)'", script.read_text())
+        flags = ['-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PC']
+        flags += re.findall(
+            r"^\s*'(-D HS_PROFILE_TARGET=[^']*)'",
+            (self.root / "tools" / "profile_variants.sh").read_text(), re.MULTILINE)
         self.assertTrue(flags)
         expected = ["|run -v"] + [f"{flag}|run -v -e profile" for flag in flags]
         for failure in range(len(expected) + 1):

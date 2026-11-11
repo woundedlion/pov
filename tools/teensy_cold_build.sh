@@ -22,6 +22,8 @@ esac
 . "$(dirname "$0")/device_lock.sh"
 TREE=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 cd "$TREE"
+# shellcheck source=tools/profile_variants.sh
+. tools/profile_variants.sh
 hs_exit_traps
 acquire_tree_lock || exit "$?"
 
@@ -30,7 +32,6 @@ rm -rf .pio/build_cache .pio/build
 pio run -v 2>&1 | tee "$log"
 PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PC' \
   pio run -v -e profile 2>&1 | tee -a "$log"
-PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=GridWarp -D HS_PROBE_BREAKDOWN -D HS_PLOT_COUNTS -D HS_PROFILE_PLOT_RENDER_COUNTS -D HS_PROFILE_PULLBACK_PROJECTION -D HS_PROFILE_PC -D HS_PROFILE_MODULATION_SOURCE=1 -D HS_PROFILE_MODULATION_MECHANIC=0 -D HS_SCAN_METRICS' \
-  pio run -v -e profile 2>&1 | tee -a "$log"
-PLATFORMIO_BUILD_FLAGS='-D HS_PROFILE_TARGET=MindSplatter -D HS_PROFILE_PLOT_STALLS' \
-  pio run -v -e profile 2>&1 | tee -a "$log"
+for flags in "${HS_PROFILE_VARIANT_FLAGS[@]}"; do
+  PLATFORMIO_BUILD_FLAGS="$flags" pio run -v -e profile 2>&1 | tee -a "$log"
+done
