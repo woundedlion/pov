@@ -1,7 +1,7 @@
 # PHANTASM revision 1.1 - routed project and technical reference
 
-This directory contains the routed rev 1.1 project. For the current rev 1.2
-Quilter upload and regeneration commands, see the [rev 1.2 project](../1.2/README.md).
+This directory contains the routed rev 1.1 project. For the current rev 1.2 Quilter upload, see the [rev 1.2 project](../1.2/README.md);
+regeneration commands are in the [board index](../README.md).
 Paths below are relative to this directory unless a command explicitly runs
 from the repository root.
 
@@ -68,7 +68,7 @@ The routed board's six affected ground vias are re-spaced, with their connected
 trace and zone fills updated; DRC reports no hole-spacing violations.
 
 The corrected placement and routing remain in `phantasm.kicad_pcb`. Start a new
-routing job with the current [rev 1.2 project](../README.md). A fresh
+routing job with the current [rev 1.2 project](../1.2/README.md). A fresh
 `../gen/pcb.py` run creates a placement draft: it reserves space for reference
 labels, keeps the back legend between the Teensy's pad rows, and separates
 the connector labels from their outlines. It packs every part, including terminals

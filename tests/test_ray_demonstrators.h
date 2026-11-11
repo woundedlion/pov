@@ -1015,9 +1015,8 @@ inline void test_wide_shell_march_gathers_layers_behind_start() {
 /**
  * @brief The wide shell march matches a brute-force neighborhood composite in
  *        3D and in a 4D slice.
- * @details Channels differ by at most 24 codes except for at most 1/2000 rays
- *          at tangent silhouettes; budget-cut rays match a distance-ordered
- *          prefix of the neighborhood.
+ * @details No ray may differ by more than 24 codes; budget-cut rays match
+ *          a distance-ordered prefix of the neighborhood.
  */
 inline void test_wide_shell_march_matches_neighborhood() {
   PaletteFixture<GradientPalette> fixture;

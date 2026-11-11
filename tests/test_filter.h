@@ -93,8 +93,8 @@ struct FeedbackWhiteBox {
 namespace filter_tests {
 
 static_assert(hs::H_OFFSET == 0,
-              "test_filter.h assumes row H-1 is the south pole; the legacy "
-              "offset-3 mapping belongs in tests/test_h_offset_renorm.h");
+              "test_filter.h assumes row H-1 is the south pole; the "
+              "offset-3 mapping is covered by tests/test_h_offset_renorm.h");
 
 template <typename P>
 concept RawFramePlotter = requires(P &pipeline, Canvas &canvas) {

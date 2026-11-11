@@ -6,8 +6,7 @@
  * @brief Comets white-box cases. */
 
 /**
- * @brief White-box accessor for Comets' Lissajous-loop closing snap.
- * @details Every authored entry must close: path_fn(domain) == path_fn(0).
+ * @brief White-box accessor for Comets paths, palette wipes and trail rendering.
  */
 struct CometsWhiteBox {
   /**

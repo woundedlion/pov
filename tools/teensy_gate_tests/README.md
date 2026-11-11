@@ -48,10 +48,12 @@ firmware link. Their sizes are illustrative: used and free figures need not sum
 to the region totals. The `broken_*` set stays hand-built by construction: it
 encodes link outcomes a real build never produces.
 
-The `real/*` fixtures are verbatim output from actual `[env:holosphere]` and
+The `real/*` fixtures are output from actual `[env:holosphere]` and
 `[env:phantasm]` builds (`teensy_size`, `readelf -sW`/`-SW`, `size -A`,
 `pio run -v`), so the parsers are exercised against exact toolchain formatting
-alongside the hand-built pass path.
+alongside the hand-built pass path. In the three `pio run -v` captures, the
+Windows home directory was rewritten to `C:\Users\dev`; nothing else was edited. In the three `pio run -v` captures, the
+Windows home directory was rewritten to `C:\Users\dev`; nothing else was edited.
 
 The Phantasm quartet was captured on 2026-10-10 from a pre-landing
 working tree; the ELF SHA256 below identifies the image.

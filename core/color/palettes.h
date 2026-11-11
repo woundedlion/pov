@@ -22,7 +22,7 @@
  * @brief X-macro roster of the named procedural palettes.
  * @param X Macro applied as X(name, A, B, C, D), where each coefficient vec3 is
  *          a parenthesized triple unpacked by HS_PALETTE_VEC3.
- * @details Source of truth for the browser tool's mirror of this table.
+ * @details Exported to the browser by `named_procedural_palettes()` (targets/wasm/math_exports.h).
  */
 #define HS_PROCEDURAL_PALETTE_LIST(X)                                          \
   X(DARK_RAINBOW, (0.367f, 0.367f, 0.367f), (0.500f, 0.500f, 0.500f),          \

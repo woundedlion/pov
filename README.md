@@ -1622,7 +1622,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── test_main.cpp Shared native module CLI, CI levers and exit policy
 │   ├── test_targets.cmake Dependency-local module objects and executable registries
 │   ├── run_color_tests.cpp Color tests with palette recipe dependencies
-│   ├── run_conway_effect_tests.cpp Conway effect integration cases for Hankin and Islamic meshes
+│   ├── run_conway_effect_tests.cpp Conway morph, continuity, soak and op-chain modules
 │   ├── run_hyper_lattice_tests.cpp HyperLattice effect tests
 │   ├── run_mindsplatter_tests.cpp MindSplatter effect cases and oracles
 │   ├── run_plot_parity_tests.cpp Plot and scan effect render property tests

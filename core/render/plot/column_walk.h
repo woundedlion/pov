@@ -115,7 +115,7 @@ struct EdgeBatch {
                   size_t,
                   float); /**< Writes an edge's endpoint registers into the
                                 walk's fragments from its frame-end
-                                vertices and index. */
+                                vertices, index and frame-end length in radians. */
   const math::Vector
       *vertices; /**< Frame-end positions for motion.size() vertices. */
   const Spacetime::Worldlines<>

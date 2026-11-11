@@ -20,8 +20,8 @@ inline void case_mesh_face_loop_side_limit() {
 
 /**
  * @brief Death case: CompiledHankin::clone rejects a self-aliased destination.
- * @details Each vector is rebound from the arena before the copy, so a
- *          self-clone memcpy's a block onto itself from a stale source pointer.
+ * @details clone() resets dst before copying, so a self-clone empties
+ *          the source and yields an empty pattern.
  */
 inline void case_hankin_clone_aliases_dst() {
   static uint8_t buf[1024];

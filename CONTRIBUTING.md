@@ -138,7 +138,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
   case in `tests/test_death.h` pins it or a `// no death case: <reason>`
   comment on its line or the line above waives it (a host-unreachable guard).
 - **`.githooks/pre-push`** — checks new guards in each pushed range the same
-  way, then runs `tools/local_ci.sh --commit` on each pushed
+  way, then runs `tools/local_ci.sh --commit` on each pushed ref's tip
   commit: every `ci.yml` job this machine can run, through the same
   `tools/ci/` scripts the workflow calls, each lane stopping at its first failure
   (the fast-math optimized flavour stays in CI: its bit patterns differ here),

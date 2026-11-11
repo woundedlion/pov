@@ -1,6 +1,6 @@
 #!/bin/sh
-# Check new guards in each pushed range, then run the local CI over each commit
-# being pushed; see tools/local_ci.sh.
+# Check new guards in each pushed range, then run local CI on each pushed ref's tip
+# commit; see tools/local_ci.sh.
 set -eu
 
 local_ci="$(git rev-parse --show-toplevel)/tools/local_ci.sh"

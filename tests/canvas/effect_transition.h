@@ -16,6 +16,7 @@
       return;                                                                  \
   } while (0)
 
+/** @brief Controllable adapter for effect-transition state-machine cases. */
 struct TransitionAdapter : hs::EffectTransitionAdapter {
   hs::EffectTransitionStatus preflight_status = hs::EffectTransitionStatus::OK;
   hs::EffectTransitionStatus construct_status = hs::EffectTransitionStatus::OK;
@@ -98,6 +99,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   }
 };
 
+/** @brief Fenced teardown commits after the incoming frame publishes. */
 inline void test_effect_transition_fenced_commit() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
@@ -215,6 +217,7 @@ inline void test_effect_transition_fences_hold() {
   }
 }
 
+/** @brief Replacement requests preserve pause and restore state. */
 inline void test_effect_transition_replacement_pause_and_restore() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
@@ -295,6 +298,7 @@ inline void test_effect_transition_restore_none_enters_failsafe() {
   HS_EXPECT_EQ(none.envelopes.back(), 1.0f);
 }
 
+/** @brief A shorter replacement preserves completed fade progress. */
 inline void test_effect_transition_shorter_replacement_preserves_progress() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
@@ -315,6 +319,7 @@ inline void test_effect_transition_shorter_replacement_preserves_progress() {
   HS_EXPECT_EQ(adapter.envelopes.back(), 0.0f);
 }
 
+/** @brief A failed restoration permits a later transition retry. */
 inline void test_effect_transition_failsafe_retry() {
   TransitionAdapter adapter;
   adapter.capability = hs::EffectRestoreCapability::NONE;
@@ -357,6 +362,7 @@ inline void test_effect_transition_failsafe_retry() {
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
 }
 
+/** @brief Refused requests leave the active transition unchanged. */
 inline void test_effect_transition_refusal_branches() {
   TransitionAdapter adapter;
   hs::EffectTransitionController controller(adapter);
