@@ -138,15 +138,12 @@ struct ProjectionKernelResult {
  * @return The same direction expressed in [-pi, pi). The range is half-open:
  *         the antimeridian always lands on -pi, so a caller partitioning the
  *         range gets it on the negative side only.
+ * @details After the pi shift, negative sums are at least half an ulp of
+ *         TWO_PI_F, whose odd mantissa rounds them below the period.
  */
 inline float wrap_longitude(float longitude) {
-  const float SHIFTED = longitude + math::PI_F;
-  float wrapped = fabsf(SHIFTED) < math::TWO_PI_F
-                      ? SHIFTED
-                      : fmodf(SHIFTED, math::TWO_PI_F);
-  if (wrapped < 0.0f)
-    wrapped += math::TWO_PI_F;
-  return wrapped - math::PI_F;
+  return math::wrap_positive_closed(longitude + math::PI_F, math::TWO_PI_F) -
+         math::PI_F;
 }
 
 /**

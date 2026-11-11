@@ -17,6 +17,28 @@
 namespace math {
 
 /**
+ * @brief Wraps into [0, period]; requires a positive period.
+ * @details Returns period only when a negative value within half an ulp of
+ *   zero rounds up in the fold.
+ * @tparam T Floating-point type.
+ * @param value Value to wrap.
+ * @param period Positive period.
+ * @return `value` modulo `period`, in [0, period].
+ */
+template <typename T>
+__attribute__((always_inline)) inline T wrap_positive_closed(T value,
+                                                             T period) {
+  static_assert(std::is_floating_point_v<T>);
+  // Strict bounds retain fmod's signed zero at exact multiples.
+  T result = std::isfinite(period) && std::fabs(value) < period
+                 ? value
+                 : std::fmod(value, period);
+  if (result < 0)
+    result += period;
+  return result;
+}
+
+/**
  * @brief Wraps into [0, period); requires a positive period.
  * @tparam T Arithmetic type.
  * @param value Value to wrap.
@@ -25,12 +47,7 @@ namespace math {
  */
 template <typename T> inline T wrap_positive(T value, T period) {
   if constexpr (std::is_floating_point_v<T>) {
-    // Strict bounds retain fmod's signed zero at exact multiples.
-    T result = std::isfinite(period) && value > -period && value < period
-                   ? value
-                   : std::fmod(value, period);
-    if (result < 0)
-      result += period;
+    const T result = wrap_positive_closed(value, period);
     return result >= period ? T{0} : result;
   } else {
     const T result = static_cast<T>(value % period);

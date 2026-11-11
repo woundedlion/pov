@@ -106,6 +106,11 @@ inline void test_wrap_longitude_range() {
   HS_EXPECT_EQ(wrap_longitude(math::PI_F), -math::PI_F);
   HS_EXPECT_EQ(wrap_longitude(-math::PI_F), -math::PI_F);
   HS_EXPECT_EQ(wrap_longitude(3.0f * math::PI_F), -math::PI_F);
+  const float BELOW_CUT = wrap_longitude(
+      std::nextafter(-math::PI_F, -std::numeric_limits<float>::infinity()));
+  HS_EXPECT_LT(BELOW_CUT, math::PI_F);
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(BELOW_CUT),
+               std::bit_cast<uint32_t>(math::PI_F) - 2u);
 }
 
 /** @brief Longitude reduction retains fmod rounding at cuts and large inputs. */
