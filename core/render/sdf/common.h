@@ -112,8 +112,10 @@ scan_polygon_turn(float turn, float scale, bool &pos, bool &neg) {
 
 /** @brief Projected polygon vertex and its outgoing edge. */
 struct ConvexEdge2D {
-  float x, y;   ///< Projected vertex.
-  float ex, ey; ///< Outgoing edge vector.
+  float x;  ///< Projected vertex x.
+  float y;  ///< Projected vertex y.
+  float ex; ///< Outgoing edge vector x.
+  float ey; ///< Outgoing edge vector y.
 };
 
 /** @brief Builds convex half-planes and returns the origin's interior radius.
