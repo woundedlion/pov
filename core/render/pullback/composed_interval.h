@@ -59,7 +59,7 @@ template <typename Frame> class FrameInterval {
       return std::memcmp(&a.params.template get<"projection">(),
                          &b.params.template get<"projection">(),
                          sizeof(b.params.template get<"projection">())) == 0;
-    return false;
+    return true;
   }
 
   /** @brief Borrows shared Mobius exponentials for this sampled context.
