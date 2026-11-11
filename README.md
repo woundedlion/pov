@@ -1387,6 +1387,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── base_mesh.h             Base mesh identities, bounds, and authoring labels
 │   │   ├── solid_generators.h      Solid tables/builder/generators umbrella, shared constants, and finalize_solid
 │   │   ├── solid_tables.h          Static mesh tables and their consistency checks
+│   │   ├── solid_support.h         Truncation/snub constants, finalize_solid and static-table materialization
 │   │   ├── solid_builder.h         Fluent Conway and Hankin mesh builder
 │   │   ├── procedural_solids.h     Named procedural solid generators
 │   │   ├── solids.h                Solid registries, authored Recipes, and the name/index lookups

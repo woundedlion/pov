@@ -2,14 +2,21 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/render/sdf/face.h.
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include "core/math/geometry.h"
+#include "core/render/sdf/common.h"
 
 /**
  * @file face_lut.h
  * @brief Congruence-class canonical distance LUTs: ClassLut, its baker, and
  * the canonical-to-projection alignment helpers.
  */
+
+namespace SDF {
 
 // --- Congruence-class canonical distance LUTs --------------------------------
 // Optional static-mesh LUTs; see face_class_bake.h.
@@ -221,3 +228,5 @@ inline AlignCorr align_correlate(const float *canon_xy, int count,
              });
   return a;
 }
+
+} // namespace SDF

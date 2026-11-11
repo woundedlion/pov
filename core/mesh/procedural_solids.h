@@ -2,12 +2,20 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/mesh/solid_generators.h.
+#include "core/mesh/hankin.h"
+#include "core/mesh/solid_builder.h"
+#include "core/mesh/solid_support.h"
+#include "core/mesh/solid_tables.h"
 
 /** @file procedural_solids.h
  * @brief Platonic, Archimedean and Catalan solid generators, plus star-pattern constants.
  */
+
+namespace Solids {
+
+HS_O3_BEGIN
 
 namespace Platonic {
 /**
@@ -331,3 +339,7 @@ static_assert(TRUNCATE_T_NEAR == 5.0f * D2R);
 static_assert(TRUNCATE_T_FAR == 50.0f * D2R);
 
 } // namespace IslamicStarPatterns
+
+HS_O3_END
+
+} // namespace Solids

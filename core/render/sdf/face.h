@@ -20,6 +20,7 @@
 #include "core/platform/constants.h"
 #include "core/render/clip.h"
 #include "core/render/sdf/common.h"
+#include "core/render/sdf/face_lut.h"
 
 /**
  * @file face.h
@@ -29,7 +30,6 @@
 
 namespace SDF {
 
-#include "core/render/sdf/face_lut.h"
 /** @brief Gnomonic coordinates with a sign-preserving horizon clamp.
  * @param v Direction to project.
  * @param center Projection axis.

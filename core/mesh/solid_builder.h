@@ -2,12 +2,22 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
-// Included by core/mesh/solid_generators.h.
+#include <cstddef>
+#include "core/memory.h"
+#include "core/mesh/conway.h"
+#include "core/mesh/hankin.h"
+#include "core/mesh/mesh.h"
+#include "core/mesh/relax_bakes_generated.h"
 
 /** @file solid_builder.h
  * @brief Fluent Conway-operator chain builder over a ping-pong arena pair.
  */
+
+namespace Solids {
+
+HS_O3_BEGIN
 
 #if defined(HS_RELAX_BAKE_VERIFY)
 /** @brief Payloads relax_baked() has re-derived and matched this run. */
@@ -285,3 +295,7 @@ public:
    */
   HS_FLASH_MEMBER PolyMesh build() { return std::move(mesh); }
 };
+
+HS_O3_END
+
+} // namespace Solids
