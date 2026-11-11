@@ -705,9 +705,8 @@ private:
 
     const float th2 = thickness2;
     float bound2 = fminf(best2, th2);
-    const int sweep_o = lut_n / 2 + 1; // covers every knot on both arms
-    const bool budget_capped = MAX_SEARCH_CELLS < sweep_o;
     const int max_o = search_cell_cap(lut_n);
+    const bool budget_capped = max_o < lut_n / 2 + 1;
     for (int o = 1; o <= max_o; ++o) {
       // A segment past a frontier knot can't beat that knot's |u|.
       bool right = ur * ur < bound2;
