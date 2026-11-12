@@ -2,6 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 
 /**
  * @file cycle_counting.h
@@ -9,7 +10,10 @@
  *        timers and ISR cycle statistics.
  */
 
-// Included by core/platform/profiling.h.
+#include "core/platform/diagnostics.h"
+
+#include <cstdint>
+#include <cstring>
 
 // ---------------------------------------------------------------------------
 // Cycle-counting instrumentation
