@@ -131,8 +131,7 @@ public:
       record_node_faces(seed_base);
     });
     classify_mesh_topology(hankin_mesh);
-    record_node_palettes();
-    resolve_host_faces();
+    land_palettes();
     // First cycle has no predecessor to crossfade from.
     strap_from = palette_idx;
 
@@ -172,6 +171,24 @@ private:
   static constexpr int STRAP_BLEND_FRAMES = 20;
 
   MeshPaletteBank palette_bank;
+
+  /** @brief Records node palettes and resolves host and star-rim palettes. */
+  HS_FLASH_MEMBER void land_palettes() {
+    record_node_palettes();
+    resolve_host_faces();
+  }
+
+  /**
+   * @brief Records node and rim palettes and arms the new cycle's strap crossfade.
+   * @param prev_idx Slot -> palette assignment the previous cycle displayed.
+   * @param prev_used Slots the previous cycle put on screen at all.
+   */
+  HS_FLASH_MEMBER void
+  land_palettes(const std::array<int, NUM_PALETTES> &prev_idx,
+                const bool (&prev_used)[NUM_PALETTES]) {
+    land_palettes();
+    prepare_strap_crossfade(prev_idx, prev_used);
+  }
 
   /**
    * @brief Classifies mesh faces into topology groups.
@@ -317,8 +334,7 @@ private:
    * @details A strap-bearing slot opens at its previous cycle's displayed
    * color, or with no on-screen predecessor at the host palette of its first
    * emitted strap face, and glides to its fresh target. A slot whose opening
-   * color already equals its target does not arm. resolve_host_faces must
-   * precede it.
+   * color already equals its target does not arm.
    */
   HS_FLASH_MEMBER void
   prepare_strap_crossfade(const std::array<int, NUM_PALETTES> &prev_idx,
@@ -595,7 +611,6 @@ private:
    * lives inside — the rim it opens from and collapses back onto.
    * @details The host is the base face whose centroid is nearest the
    * rosette's unit centroid at the sweep peak (angle PI_F / 2).
-   * record_node_palettes must precede it.
    */
   HS_FLASH_MEMBER void resolve_host_faces() {
     const size_t faces = compiled_hankin.face_counts.size();
@@ -646,7 +661,6 @@ private:
    * @details The sweep starts one frame after the sprite and the sprite runs
    * one frame longer, so the first and last draws render the exact angle-0
    * bookends. Both share the pause flag.
-   * @note resolve_host_faces must have run for this cycle's mesh.
    */
   HS_FLASH_MEMBER void start_hankin_cycle() {
     hankin_cycle_frame = 0;
@@ -876,9 +890,7 @@ private:
             landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
       }
     }
-    record_node_palettes();
-    resolve_host_faces();
-    prepare_strap_crossfade(swept_idx, swept_used);
+    land_palettes(swept_idx, swept_used);
     pending_landing = nullptr;
 
     // Bookend-out: the next cycle's first drawn sample is exactly angle 0.
