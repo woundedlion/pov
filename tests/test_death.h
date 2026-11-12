@@ -1834,6 +1834,10 @@ inline const Case *all_cases(int &n) {
            case_scan_deformation_without_azimuth, "core/render/scan/mesh.h",
            "(canvas.column_basis()->azimuth) mesh deformation needs column "
            "azimuth state"},
+          {"scan_motion_without_azimuth", case_scan_motion_without_azimuth,
+           "core/render/scan/mesh_motion.h",
+           "(canvas.column_basis() && canvas.column_basis()->azimuth) mesh motion "
+           "planning needs the frame's column-time azimuth state"},
           {"scan_mesh_face_index_out_of_range",
            case_scan_mesh_face_index_out_of_range, "core/render/scan/mesh.h",
            "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "

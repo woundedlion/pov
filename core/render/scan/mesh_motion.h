@@ -372,6 +372,8 @@ HS_FLASH_MEMBER MotionPlan plan_motion(const Canvas &canvas,
   if (pick_moving_faces<W>(canvas, mesh, plan.moving, bound, plan.columns,
                            radii) == 0)
     return plan;
+  HS_CHECK(canvas.column_basis() && canvas.column_basis()->azimuth,
+           "mesh motion planning needs the frame's column-time azimuth state");
   for (int k = 0; k < ripples.active_count(); ++k) {
     plan.during[k].prepare(ripples.active_params(k));
     plan.during[k].widen(ripples.active_params(k));

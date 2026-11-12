@@ -324,6 +324,47 @@ inline void case_scan_deformation_without_azimuth() {
                           scratch_arena_a, 0.1f, vertex, [] {});
 }
 
+/** @brief Moving mesh planning rejects an absent column azimuth table. */
+inline void case_scan_motion_without_azimuth() {
+  constexpr int W = 32, H = 16;
+  uint8_t geometry_storage[1024], frame_storage[32768], start_storage[4096];
+  Arena geometry(geometry_storage, sizeof(geometry_storage));
+  Arena frame(frame_storage, sizeof(frame_storage));
+  Arena start(start_storage, sizeof(start_storage));
+  MeshState mesh;
+  mesh.vertices.bind(geometry, 3);
+  mesh.vertices.push_back(math::X_AXIS);
+  mesh.vertices.push_back(math::Y_AXIS);
+  mesh.vertices.push_back(math::Z_AXIS);
+  mesh.face_counts.bind(geometry, 1);
+  mesh.face_counts.push_back(3);
+  mesh.face_offsets.bind(geometry, 1);
+  mesh.face_offsets.push_back(0);
+  mesh.faces.bind(geometry, 3);
+  for (uint16_t index = 0; index < 3; ++index)
+    mesh.faces.push_back(index);
+  const auto rotation = math::make_rotation(math::Z_AXIS, 0.2f);
+  math::Vector previous[3];
+  for (size_t index = 0; index < 3; ++index)
+    previous[index] = math::rotate(mesh.vertices[index], rotation);
+  const Scan::ModelPath path{mesh.vertices.data(), previous};
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  math::Orientation<> orientation;
+  auto basis = Scan::prepare_column_basis<W, H>(frame, orientation, true);
+  Scan::ColumnBasisScope scope(canvas, basis);
+  const Scan::NoRipples ripples;
+  const auto camera = Scan::EndpointCamera::none();
+  {
+    ScratchScope frame_scope(frame), start_scope(start);
+    const auto plan = Scan::plan_motion<W>(canvas, mesh, path, 0.2f, ripples,
+                                           camera, frame, start);
+    HS_EXPECT_TRUE(plan.active);
+  }
+  basis.azimuth = nullptr;
+  Scan::plan_motion<W>(canvas, mesh, path, 0.2f, ripples, camera, frame, start);
+}
+
 /** @brief Solid rasterization rejects an installed column-time basis. */
 inline void case_scan_solid_with_column_time() {
   constexpr int W = 32, H = 16;
