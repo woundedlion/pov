@@ -696,10 +696,9 @@ private:
                                : Scan::ColumnBasis{};
     const auto basis = math::make_basis(orientation.get(), math::X_AXIS);
     Surface near, far;
-    near.bind(scratch_arena_a, int(params.sides), Plot::STAR_INNER_RATIO,
+    near.bind(scratch_arena_a, SURFACE_SIDES, Plot::STAR_INNER_RATIO,
               intervals);
-    far.bind(scratch_arena_a, int(params.sides), Plot::STAR_INNER_RATIO,
-             intervals);
+    far.bind(scratch_arena_a, SURFACE_SIDES, Plot::STAR_INNER_RATIO, intervals);
     Scan::RadialSurfaceCandidateMask<> near_mask, far_mask;
     if constexpr (MASK) {
       near_mask.bind(scratch_arena_b);
