@@ -131,6 +131,28 @@ class CommitJobs(unittest.TestCase):
         self.assertIn("already passed local CI", done.stdout)
         self.assertFalse((self.tree / "build/ran-job").exists())
 
+    def test_head_is_resolved_in_the_callers_checkout(self):
+        (self.repo / "marker").write_text("next", encoding="utf-8")
+        git_run(self.repo, "add", "marker", env=self.env)
+        git_run(self.repo, "commit", "--quiet", "-m", "next", env=self.env)
+        tip = git_run(self.repo, "rev-parse", "HEAD", env=self.env).stdout.strip()
+        done = self.run_ci("HEAD", "--", "lint")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual((self.tree / "build/ran-job").read_text().strip(), tip)
+
+    def test_head_uses_the_resolved_commit_in_the_passed_record(self):
+        self.passed.write_text(self.sha + "\n", encoding="utf-8")
+        done = self.run_ci("HEAD")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn(f"{self.sha} already passed local CI", done.stdout)
+        self.assertFalse((self.tree / "build/ran-job").exists())
+
+    def test_invalid_revision_is_refused_before_checkout(self):
+        done = self.run_ci("not-a-revision", "--", "lint")
+        self.assertEqual(done.returncode, 2, done.stdout + done.stderr)
+        self.assertEqual(git_run(self.tree, "rev-parse", "HEAD", env=self.env).stdout.strip(),
+                         self.sha)
+
     def test_teensy_size_compiles_profile_variants_only_without_the_cold_build(self):
         stubs = self.repo / "tools/ci"
         stubs.mkdir()

@@ -273,6 +273,10 @@ run_commits() {
   fi
 
   for sha in "${commits[@]}"; do
+    sha="$(git rev-parse --verify --quiet "$sha^{commit}")" || {
+      echo "local_ci: invalid commit argument" >&2
+      return 2
+    }
     if [ "${#jobs[@]}" -eq 0 ] && [ -f "$passed" ] && grep -qx "$sha" "$passed"; then
       echo "local_ci: $sha already passed local CI."
       continue
