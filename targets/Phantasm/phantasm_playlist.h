@@ -52,7 +52,7 @@
   X(GnomonicStars, 30)                                                         \
   X(GSReactionDiffusion, 30)                                                   \
   X(AlienCore, 30)                                                             \
-  X(HankinSolids, 170)                                                         \
+  X(HankinSolids, hs_full_cycle_seconds<HankinSolids>())                       \
   X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
   X(AlienOcean, 30)                                                            \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
@@ -235,9 +235,3 @@ static_assert(!hs_in_phantasm_effect_list("ShaderChain") &&
                   hs_phantasm_exclusions_are_omitted(),
               "HS_PHANTASM_EFFECT_LIST must exclude ShaderChain and "
               "every HS_PHANTASM_EXCLUDED_EFFECTS entry");
-
-static_assert(
-    static_cast<size_t>(hs_phantasm_duration_seconds("HankinSolids")) ==
-    (HankinSolids<HS_PRESET_WINDOW_W, HS_PRESET_WINDOW_H>::FULL_CYCLE_FRAMES +
-     HS_SHOW_FRAMES_PER_SECOND - 1) /
-        HS_SHOW_FRAMES_PER_SECOND);

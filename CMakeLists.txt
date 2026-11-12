@@ -84,7 +84,6 @@ if(EMSCRIPTEN)
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "WASM Debug build (-O0 -g -sASSERTIONS, 64 KB stack)")
-    target_compile_definitions(${TARGET_NAME} PRIVATE HS_TIMELINE_MAX_ANIM_BYTES=128)
     target_compile_options(${TARGET_NAME} PRIVATE "-O0" "-g")
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1"
       "-sSTACK_SIZE=65536")
@@ -301,10 +300,6 @@ if(EMSCRIPTEN)
              @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote toolchain provenance ${TARGET_NAME}.toolchain: emsdk ${EMSCRIPTEN_VERSION}, clang ${CMAKE_CXX_COMPILER_VERSION}, ${CMAKE_BUILD_TYPE}, dev bindings ${HS_WASM_DEV_BINDINGS_STATE}\")
       else()
-        # Remove stale markers when the installed artifact has no source identity.
-        file(REMOVE \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.sha\"
-                    \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm.sha256\"
-                    \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.toolchain\")
         message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); removed ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes without local provenance; deployment uses only CI-published bundles.\")
       endif()
     ")

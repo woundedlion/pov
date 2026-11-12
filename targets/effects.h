@@ -132,6 +132,27 @@ constexpr size_t hs_preset_window_frames() {
 }
 
 /**
+ * @brief Rounds a frame count up to whole show seconds.
+ * @param frames Duration in frames.
+ * @return Whole seconds covering the frames.
+ */
+constexpr int hs_show_seconds(size_t frames) {
+  return static_cast<int>((frames + HS_SHOW_FRAMES_PER_SECOND - 1) /
+                          HS_SHOW_FRAMES_PER_SECOND);
+}
+
+/**
+ * @brief Show duration covering an effect's full cycle.
+ * @tparam EffectT Effect class template exposing FULL_CYCLE_FRAMES.
+ * @return Whole seconds covering the cycle.
+ */
+template <template <int, int> class EffectT>
+constexpr int hs_full_cycle_seconds() {
+  return hs_show_seconds(
+      EffectT<HS_PRESET_WINDOW_W, HS_PRESET_WINDOW_H>::FULL_CYCLE_FRAMES);
+}
+
+/**
  * @brief Show duration that gives every preset one full dwell.
  * @tparam EffectT Effect class template whose preset cadence sizes the window.
  * @return Whole seconds covering every dwell and the intervening segues.
@@ -143,8 +164,7 @@ constexpr int hs_preset_window_seconds() {
   static_assert(FRAMES == (hs_preset_window_frames<EffectT, MAX_W, MAX_H>()),
                 "preset cadence varies with canvas size, so a show duration "
                 "read at one resolution no longer covers the rendered one");
-  return static_cast<int>((FRAMES + HS_SHOW_FRAMES_PER_SECOND - 1) /
-                          HS_SHOW_FRAMES_PER_SECOND);
+  return hs_show_seconds(FRAMES);
 }
 
 /** Shader promotion product group; the device show order is

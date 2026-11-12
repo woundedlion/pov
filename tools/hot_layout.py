@@ -38,7 +38,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from cpp_roster import macro_body
+from cpp_roster import macro_body, named_rows
 from teensy_gate import parse_readelf_symbols, sibling_tool
 
 #: Instruction-cache line size in bytes.
@@ -347,7 +347,7 @@ def mangled_identifiers(name: str) -> set[str]:
 
 def parse_effect_classes(text: str) -> list[str]:
     """Class names of the X(Class, ...) rows of an effect list macro."""
-    return re.findall(r"\bX\(\s*(\w+)\s*,", text)
+    return named_rows(text)
 
 
 def parse_effect_list(text: str, macro: str) -> list[str]:

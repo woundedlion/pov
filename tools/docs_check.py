@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
-from cpp_roster import macro_body
+from cpp_roster import macro_body, named_rows
 from doc_coverage import CPP_LEXEMES, doxyfile_entries
 from git_files import git_nul_list
 
@@ -116,7 +116,6 @@ _PHANTASM_ROSTER_MACRO = "HS_PHANTASM_EFFECT_LIST"
 # The shader promotion product group lives beside HS_EFFECT_LIST.
 _PRODUCT_GROUP_MACRO = "HS_SHADER_PRODUCT_GROUP"
 # HS_PHANTASM_EFFECT_LIST spells a row `X(Name, seconds)`.
-_NAMED_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*,")
 # The effects reference spells the product group's cardinality in words and
 # tables every composed effect with its preset count.
 _EFFECTS_REFERENCE = "docs/effects.md"
@@ -945,8 +944,7 @@ def doxyfile_predefined_issues(predefined: list[tuple[int, str]],
 
 def phantasm_roster(source: str) -> set[str]:
     """Returns the effect names in HS_PHANTASM_EFFECT_LIST."""
-    return set(_NAMED_ROSTER_ENTRY_RE.findall(
-        (macro_body(source, _PHANTASM_ROSTER_MACRO) or "")))
+    return set(named_rows(macro_body(source, _PHANTASM_ROSTER_MACRO) or ""))
 
 
 def shader_product_group(source: str) -> set[str]:

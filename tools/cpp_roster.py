@@ -8,6 +8,11 @@ import re
 _COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 
 
+def named_rows(body: str) -> list[str]:
+    """Return names from X(Name, ...) roster rows."""
+    return re.findall(r"\bX\(\s*(\w+)\s*,", body)
+
+
 def macro_body(source: str, macro: str) -> str | None:
     """Return a comment-free, line-spliced body, or None if absent."""
     head = re.search(r"(?m)^[ \t]*#[ \t]*define[ \t]+" + re.escape(macro)

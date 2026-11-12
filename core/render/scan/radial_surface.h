@@ -472,9 +472,9 @@ public:
           }
           if (end_value <= 0.0f) {
             count<COUNT>(stats, &Stats::roots);
-            const float start_value_value = predicate(p, i, end_edge, event);
+            const float end_event_value = predicate(p, i, end_edge, event);
             return solve<DERIVATIVES>(p, i, end_edge, event, 1.0f,
-                                      start_value_value);
+                                      end_event_value);
           }
         }
       }
