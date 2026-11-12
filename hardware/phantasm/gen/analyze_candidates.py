@@ -177,9 +177,9 @@ def analyze(path):
     if not revision:
         raise ValueError(f"{path}: no title_block rev")
     if revision == "1.3":
-        raise ValueError("rev 1.3 prototype has no validated differential-bus scoring model")
+        raise ValueError(f"{path}: rev 1.3 prototype has no validated differential-bus scoring model")
     if revision not in ("1.1", "1.2"):
-        raise ValueError(f"unsupported board revision: {revision}")
+        raise ValueError(f"{path}: unsupported board revision: {revision}")
     required = CRIT if revision == "1.2" else [n for n in CRIT if n != "SYNC_TX"]
     segs = F(root, "segment")
     arcs = F(root, "arc")
