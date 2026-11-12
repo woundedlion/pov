@@ -1984,16 +1984,17 @@ for module ownership and local validation commands.
 │       │   └── shader_documents.js Shader document import, validation, preview selection, editing, and export
 │       └── solids/             Solids tool
 │           ├── solid_build.js  WASM MeshOps orchestration: base and op-chain builds, face classes, readback
-│           ├── solid_codegen.js Op dispatch and C++ generation
+│           ├── solid_codegen.js Solid naming and C++ function generation
 │           ├── solid_geometry.js Face normals, convexity, fan and geodesic tessellation, and unique edges
 │           ├── solid_op_order.js Op-chain drag slots, preview positions, and committed order
+│           ├── solid_op_params.js Op definitions, parameter grids, seeding, recipe parsing, and topology keys
 │           ├── solid_op_rows.js DOM construction for one op-chain row
 │           ├── solid_registry_codegen.js Generates the solids.h registry entry, OpStep table, and authored Recipe
 │           ├── solid_render.js Builds face, vertex, edge, normal, and index-label scene objects from a mesh
 │           ├── solid_saved_cards.js Saved-card DOM, safe text/thumbnail metadata, and injected restore/delete/copy/warning actions
 │           ├── solid_saved_store.js Saved-solid storage, rejected backups, import merging, and thumbnail capacity
 │           ├── solids_page.js  Page module for tools/solids.html
-│           └── solid_validation.js Sacrificial-module chain validation, add-op gate, and commit queue
+│           └── solid_validation.js Op validation and dispatch, sacrificial-module chain validation, add-op gate, and commit queue
 ├── generated/                  Installed engine outputs
 ├── tools/                      Stable public HTML entry points and tool stylesheets
 ├── styles/                     Simulator CSS, Tailwind source and self-hosted fonts
