@@ -895,9 +895,19 @@ HS_HOT_INLINE inline bool make_bump_path(const BumpParams &params,
   path.reach_to = reach_to;
   path.cos_reach = cosf(fminf(reach, math::PI_F));
   const math::Vector chord = path.to - path.from;
-  cover.reach = reach + 0.5f * sqrtf(math::dot(chord, chord)) + 1e-4f;
-  path.cos_cover = cosf(fminf(cover.reach, math::PI_F));
-  cover.centre = (path.from + path.to).normalized();
+  constexpr float COVER_PAD = 1e-4f;
+  constexpr float MID_EPS = 1e-3f;
+  const math::Vector midpoint = path.from + path.to;
+  if (math::dot(midpoint, midpoint) < MID_EPS * MID_EPS) {
+    cover.centre = path.to;
+    cover.reach = math::PI_F;
+    path.cos_cover = -1.0f;
+  } else {
+    const float half_chord = 0.5f * sqrtf(math::dot(chord, chord));
+    cover.reach = reach + asinf(fminf(half_chord, 1.0f)) + COVER_PAD;
+    path.cos_cover = cosf(fminf(cover.reach, math::PI_F));
+    cover.centre = midpoint.normalized();
+  }
   return true;
 }
 

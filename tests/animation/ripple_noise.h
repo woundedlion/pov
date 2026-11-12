@@ -442,3 +442,54 @@ inline void test_bump_path_endpoints_and_inactive_outputs() {
   params.envelope = 1.0f;
   HS_EXPECT_TRUE(Animation::make_bump_path(params, {}, AXIS, path, cover));
 }
+
+/** @brief Swept bump covers contain intermediate centres and footprint boundaries. */
+inline void test_bump_cover_contains_swept_footprint() {
+  uint32_t seed = 0x82f7a12u;
+  const auto unit = [&]() {
+    seed = seed * 1664525u + 1013904223u;
+    return float(seed >> 8) / 16777216.0f;
+  };
+  const auto direction = [&]() {
+    return math::Vector(2.0f * unit() - 1.0f, 2.0f * unit() - 1.0f,
+                        2.0f * unit() - 1.0f)
+        .normalized();
+  };
+  for (int trial = 0; trial < 300; ++trial) {
+    const auto from = direction();
+    auto tangent = math::cross(from, direction()).normalized();
+    float separation = math::PI_F * unit();
+    if (trial < 8)
+      separation = trial == 0 ? 0.0f : math::PI_F - powf(10.0f, -float(trial));
+    Animation::BumpParams params;
+    params.radius = 0.05f + 1.5f * unit();
+    params.previous_envelope = unit();
+    params.envelope = unit();
+    params.previous_center = from;
+    params.center =
+        (from * cosf(separation) + tangent * sinf(separation)).normalized();
+    Animation::BumpPath path{};
+    Animation::BumpCover cover{};
+    HS_EXPECT_TRUE(Animation::make_bump_path(
+        params, {}, math::Vector(0.0f, 1.0f, 0.0f), path, cover));
+    HS_EXPECT_NEAR(path.cos_cover, cosf(fminf(cover.reach, math::PI_F)), 1e-6f);
+    for (int step = 0; step <= 128; ++step) {
+      const float t = float(step) / 128.0f;
+      const auto c_raw = path.from + (path.to - path.from) * t;
+      if (math::dot(c_raw, c_raw) < math::EPS_NORMALIZE_SQ)
+        continue;
+      const auto centre = c_raw.normalized();
+      const float reach =
+          path.reach_from + (path.reach_to - path.reach_from) * t;
+      const auto offset = math::cross(centre, direction()).normalized();
+      const auto p = centre * cosf(reach) + offset * sinf(reach);
+      const float distance =
+          acosf(hs::clamp(math::dot(p, cover.centre), -1.0f, 1.0f));
+      HS_EXPECT_LE(distance, cover.reach + 3e-4f);
+      const float centre_distance =
+          acosf(hs::clamp(math::dot(centre, cover.centre), -1.0f, 1.0f));
+      if (cover.reach < math::PI_F)
+        HS_EXPECT_LE(centre_distance + reach, cover.reach + 3e-4f);
+    }
+  }
+}

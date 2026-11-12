@@ -55,6 +55,7 @@ namespace animation_tests {
 inline int run_animation_tests() {
   hs_test::ModuleFixture fixture("animation");
   HS_RUN(test_bump_path_endpoints_and_inactive_outputs);
+  HS_RUN(test_bump_cover_contains_swept_footprint);
 
   // Module-scoped fake-canvas fixture.
   hs_test::StubEffect fake_fx(8, 8);
