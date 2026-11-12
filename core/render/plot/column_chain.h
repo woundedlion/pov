@@ -47,10 +47,16 @@ public:
    * @param canvas Destination canvas.
    * @param reach Bound on a point-routed sample's displacement from its frame
    * end, radians.
+   * @param prepared_poses Shared column-time poses for a screen sink.
+   * @param prepared_sweep Rotation bound of the shared poses, radians.
    */
-  HS_HOT_INLINE ColumnChainDraw(Arena &arena, PipelineT &pipeline,
-                                Canvas &canvas, float reach)
-      : chunk(arena), setup(Mesh::column_draw_setup<W, H>(pipeline, canvas)),
+  HS_HOT_INLINE
+  ColumnChainDraw(Arena &arena, PipelineT &pipeline, Canvas &canvas,
+                  float reach,
+                  const Spacetime::PoseTable *prepared_poses = nullptr,
+                  float prepared_sweep = 0.0f)
+      : chunk(arena), setup(Mesh::column_draw_setup<W, H>(
+                          pipeline, canvas, prepared_poses, prepared_sweep)),
         pipeline(pipeline), canvas(canvas) {
     geometry.source_positions = false;
     geometry.chained = true;
@@ -114,10 +120,11 @@ public:
   }
 
 private:
-  Mesh::ColumnDrawSetup<W, H> setup; /**< Frame-fixed column-walk inputs. */
-  PointRoute<W, H> route;            /**< Prepared steady-edge point route. */
-  PipelineT &pipeline;               /**< Column-walk pipeline. */
-  Canvas &canvas;                    /**< Destination canvas. */
+  const Mesh::ColumnDrawSetup<W, H>
+      setup;              /**< Frame-fixed column-walk inputs. */
+  PointRoute<W, H> route; /**< Prepared steady-edge point route. */
+  PipelineT &pipeline;    /**< Column-walk pipeline. */
+  Canvas &canvas;         /**< Destination canvas. */
 };
 
 } // namespace Plot

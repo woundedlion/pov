@@ -652,12 +652,13 @@ private:
     const math::RotationMatrix start_pose = poses.at(0);
     const math::RotationMatrix end_pose = poses.at(poses.times());
     filters.prepare(canvas);
-    Plot::PointRoute<W, H> points_route;
-    points_route.prepare(canvas, stretch * cap + 2.0f * shift + spin);
 
     ScratchScope chunk_scope(scratch_arena_a);
-    Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, TrailVertex> chunk(
-        scratch_arena_a);
+    Plot::ColumnChainDraw<W, H, COLUMN_CHUNK_VERTICES, decltype(timed_filters),
+                          TrailVertex>
+        draw(scratch_arena_a, timed_filters, canvas,
+             stretch * cap + 2.0f * shift + spin, &poses, spin);
+    auto &chunk = draw.chunk;
     static_assert(TRAIL_POINTS <= COLUMN_CHUNK_VERTICES,
                   "a whole trail must fit one begin_chain");
     auto *trail = scratch_arena_a.allocate_n<TrailVertex>(TRAIL_POINTS);
@@ -689,16 +690,10 @@ private:
       chunk.position(slot) = warped[source];
       chunk.template attribute<0>(slot) = trail[source];
     };
-    Plot::GeometryCallback geometry;
-    geometry.evaluate = path;
-    geometry.vertex_path = vertex_path;
-    geometry.source_positions = false;
-    geometry.chained = true;
-    const auto setup =
-        Plot::Mesh::column_draw_setup<W, H>(timed_filters, canvas);
+    draw.geometry.evaluate = path;
+    draw.geometry.vertex_path = vertex_path;
     auto flush = [&]() HS_HOT_INLINE {
-      chunk.template flush<W, H>(timed_filters, canvas, setup, color, geometry,
-                                 chunk_motion);
+      draw.flush(color, chunk_motion);
       chunk_motion = 0.0f;
     };
 
@@ -767,9 +762,8 @@ private:
       for (int j = points - 1; j > 0; --j) {
         if (!(visible & (1u << j)))
           continue;
-        chunk.template plot_edge<W, H, true>(
-            points_route, filters, canvas,
-            {static_cast<uint16_t>(j), static_cast<uint16_t>(j - 1)},
+        draw.template plot_edge<true>(
+            filters, {static_cast<uint16_t>(j), static_cast<uint16_t>(j - 1)},
             {starts[j], starts[j - 1]}, {world[j], world[j - 1]}, STEADY_POINTS,
             [&](float s)
                 HS_HOT_INLINE { return shade(trail[j], trail[j - 1], s); },
