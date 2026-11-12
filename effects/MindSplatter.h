@@ -138,6 +138,13 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_MSP_WARMUP)
+    while (profile_warmup != 0) {
+      step_state(canvas);
+      warp_history.capture(mobius.b);
+      --profile_warmup;
+    }
+#endif
     step_state(canvas);
     draw_particles(canvas);
     warp_history.capture(mobius.b);
@@ -200,6 +207,10 @@ public:
   }
 
 private:
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_MSP_WARMUP)
+  /** @brief State-only steps remaining before the first profile render. */
+  unsigned profile_warmup = HS_PROFILE_MSP_WARMUP;
+#endif
   HS_HOT_INLINE void step_state(Canvas &canvas) {
     {
       HS_PROFILE(msp_timeline_step);

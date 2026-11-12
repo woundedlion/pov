@@ -49,6 +49,7 @@
 //                            one hour at RPM)
 //   HS_PROFILE_ORDERED_CYCLE random-next cyclers advance in order instead
 //   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init
+//   HS_PROFILE_MSP_WARMUP   MindSplatter state-only steps in its first draw
 //   HS_PROFILE_PRESET        zero-based fixed preset selected after init
 //   HS_PROFILE_AUTO_RESUME   resume choreography after selecting that preset
 //   HS_PROFILE_PRESET_TRANSITION begin its segue; use with HS_PROFILE_AUTO_RESUME
