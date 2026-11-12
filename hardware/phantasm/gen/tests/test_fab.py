@@ -18,7 +18,7 @@ import heal_clearance  # noqa: E402
 import sexp  # noqa: E402
 from constraints import NEW_LAYOUT_RULES  # noqa: E402
 from kicad_common import F, property_value  # noqa: E402
-from kicad_env import footprints_by_ref  # noqa: E402
+from kicad_env import expected_nodes, footprints_by_ref  # noqa: E402
 
 
 def checked_rule_count(project):
@@ -1039,13 +1039,6 @@ class CommandLineTests(unittest.TestCase):
 class NetlistSpecTests(unittest.TestCase):
     """The fab run holds its own netlist export to check.py's named-net table."""
 
-    @staticmethod
-    def spec_nodes():
-        """EXPECT_REV_1_2 -> {net: [(ref, pin)]}; a symmetric key names the ref alone."""
-        return {name: [tuple(key.split(".")) if "." in key else (key, "1")
-                       for key in sorted(keys)]
-                for name, keys in fab.netlist_spec.EXPECT_REV_1_2.items()}
-
     def validate(self, nets):
         blocks = "".join(
             '(net (name "{}") {})'.format(
@@ -1061,18 +1054,18 @@ class NetlistSpecTests(unittest.TestCase):
                 return fab.validate_netlist_spec(path)
 
     def test_accepts_the_specified_partition(self):
-        self.assertEqual(self.validate(self.spec_nodes()),
+        self.assertEqual(self.validate(expected_nodes()),
                          len(fab.netlist_spec.EXPECT_REV_1_2))
 
     def test_rejects_a_net_missing_a_member(self):
-        nets = self.spec_nodes()
+        nets = expected_nodes()
         nets["SYNC_BUS"].pop()
         with self.assertRaisesRegex(fab.NetlistSpecError,
                                     "does not match the electrical"):
             self.validate(nets)
 
     def test_rejects_a_permuted_pinout(self):
-        nets = self.spec_nodes()
+        nets = expected_nodes()
         nets["DATA_IN"] = [("U_MCU", "11"), ("U1", "5")]
         with self.assertRaisesRegex(fab.NetlistSpecError,
                                     "does not match the electrical"):

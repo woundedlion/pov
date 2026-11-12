@@ -513,9 +513,7 @@ inline void draw_lit_cap_shapes(Pipeline<W, H> &pipeline, Canvas &canvas,
                                 const std::vector<math::Basis> &bases,
                                 const math::Quaternion &placement, bool lit) {
   const auto place = [&](const math::Basis &b) {
-    return math::Basis{math::rotate(b.u, placement),
-                       math::rotate(b.v, placement),
-                       math::rotate(b.w, placement)};
+    return math::rotate(b, placement);
   };
   for (size_t i = 0; i < bases.size(); ++i) {
     const auto star_basis = math::get_antipode(place(bases[i]), 0.04f);
@@ -543,6 +541,7 @@ inline void draw_lit_cap_shapes(Pipeline<W, H> &pipeline, Canvas &canvas,
  */
 template <int W, int H> inline void check_lit_caps(float angle) {
   HS_CONTEXT(W == 96 ? "lit caps 96" : "lit caps 288");
+  HS_CONTEXT("angle milliradians", static_cast<int>(angle * 1000.0f));
   const ScopedPoleLod lod(0.0f);
   const BasisMotion motion = tilted_motion(angle);
   constexpr int SHAPES = 160;
@@ -557,13 +556,7 @@ template <int W, int H> inline void check_lit_caps(float angle) {
   };
   const std::vector<Pixel> lit = draw(true);
   const std::vector<Pixel> swept = draw(false);
-  int differing = 0, drawn = 0;
-  for (size_t i = 0; i < lit.size(); ++i) {
-    differing += !(lit[i] == swept[i]);
-    drawn += !is_black(swept[i]);
-  }
-  HS_EXPECT_EQ(differing, 0);
-  HS_EXPECT_GT(drawn, 4 * SHAPES);
+  HS_EXPECT_GT(expect_frames_within("lit caps", lit, swept, 0), 4 * SHAPES);
 
   auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
   const Scan::ColumnBasis time =
@@ -709,7 +702,9 @@ inline void check_swept_proxies(const BasisMotion &motion) {
 inline void test_swept_proxies_keep_lit_pixels() {
   const BasisMotion tilt{math::Quaternion(),
                          math::make_rotation(math::X_AXIS, 0.3f)};
+  int index = 0;
   for (const BasisMotion &motion : {tilted_motion(0.3f), tilt}) {
+    HS_CONTEXT("motion", index++);
     check_swept_proxies<96, 48>(motion);
     check_swept_proxies<288, 144>(motion);
   }

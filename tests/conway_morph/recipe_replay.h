@@ -176,14 +176,7 @@ inline ChainPeaks replay_build_chain(const char *name,
     // skipped: abandon the chain instead of writing past the handoff arrays.
     if (prev_faces > MAX_FACES)
       return peaks;
-    {
-      size_t off = 0;
-      for (size_t f = 0; f < prev_faces; ++f) {
-        const int n = cur.face_counts[f];
-        prev_centroid[f] = face_centroid_unit(cur, off, n);
-        off += n;
-      }
-    }
+    MeshOps::face_centroids_into(cur, prev_centroid);
     if (k == 0) {
       MeshPaletteBank::assign_by_class(seed_slot.topology.data(), prev_faces,
                                        slots, prev_pal_buf);

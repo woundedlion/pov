@@ -257,6 +257,36 @@ inline void test_particle_surface_motion_contract() {
   check.template operator()<true>();
 }
 
+/** @brief Divergence between generic and signed-axis particle paths. */
+struct AxisDivergence {
+  float position = 0, velocity = 0, norm = 0;
+  double angle = 0;
+  int seed_mismatches = 0;
+
+  void add(const auto &a, const auto &b) {
+    seed_mismatches += a.color_seed != b.color_seed;
+    position = hs_test::fold_worst(position,
+                                   max_component_delta(a.position, b.position));
+    velocity = hs_test::fold_worst(velocity,
+                                   max_component_delta(a.velocity, b.velocity));
+    angle =
+        hs_test::fold_worst(angle, chord_angle_between(a.position, b.position));
+    norm = hs_test::fold_worst(
+        norm, std::abs(math::dot(a.position, a.position) - 1.0f));
+    norm = hs_test::fold_worst(
+        norm, std::abs(math::dot(b.position, b.position) - 1.0f));
+  }
+
+  void expect_within(float component_bound, float norm_bound) const {
+    const double angle_bound = 2.0 * std::sqrt(3.0) * component_bound;
+    HS_EXPECT_EQ(seed_mismatches, 0);
+    HS_EXPECT_LE(position, component_bound);
+    HS_EXPECT_LE(velocity, component_bound);
+    HS_EXPECT_LE(angle, angle_bound);
+    HS_EXPECT_LE(norm, norm_bound);
+  }
+};
+
 /** @brief Bounds one-step signed-axis physics against the generic path. */
 inline void test_particle_system_signed_axis_one_step_equivalence() {
   constexpr int COUNT = 256;
@@ -292,42 +322,21 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   specialized.step(fake_canvas());
   HS_EXPECT_EQ(reference.active(), COUNT);
   HS_EXPECT_EQ(reference.active(), specialized.active());
-  float max_position_error = 0.0f;
-  float max_velocity_error = 0.0f;
-  double max_angle_error = 0.0;
-  float max_norm_drift = 0.0f;
-  int color_seed_mismatches = 0;
+  AxisDivergence divergence;
   int life_mismatches = 0;
   for (size_t i = 0; i < reference.active(); ++i) {
     const auto &a = reference.pool[i];
     const auto &b = specialized.pool[i];
-    color_seed_mismatches += a.color_seed != b.color_seed;
     life_mismatches += a.life != b.life;
-    max_position_error = hs_test::fold_worst(
-        max_position_error, max_component_delta(a.position, b.position));
-    max_velocity_error = hs_test::fold_worst(
-        max_velocity_error, max_component_delta(a.velocity, b.velocity));
-    max_angle_error = hs_test::fold_worst(
-        max_angle_error, chord_angle_between(a.position, b.position));
-    max_norm_drift = hs_test::fold_worst(
-        max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
-    max_norm_drift = hs_test::fold_worst(
-        max_norm_drift, std::abs(math::dot(b.position, b.position) - 1.0f));
+    divergence.add(a, b);
   }
   std::printf("axis one-step particles=%u pos=%.9g vel=%.9g angle=%.9g "
               "norm=%.9g\n",
-              reference.active(), max_position_error, max_velocity_error,
-              max_angle_error, max_norm_drift);
-  // Components within COMPONENT_BOUND give a chord of at most
-  // sqrt(3)*COMPONENT_BOUND; normalizing each endpoint at most doubles it.
+              reference.active(), divergence.position, divergence.velocity,
+              divergence.angle, divergence.norm);
   constexpr float COMPONENT_BOUND = 2e-7f;
-  const double angle_bound = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
-  HS_EXPECT_EQ(color_seed_mismatches, 0);
   HS_EXPECT_EQ(life_mismatches, 0);
-  HS_EXPECT_LE(max_position_error, COMPONENT_BOUND);
-  HS_EXPECT_LE(max_velocity_error, COMPONENT_BOUND);
-  HS_EXPECT_LE(max_angle_error, angle_bound);
-  HS_EXPECT_LE(max_norm_drift, 1e-6f);
+  divergence.expect_within(COMPONENT_BOUND, 1e-6f);
 }
 
 /** @brief Pins signed-axis kill, horizon, and cross-axis fallback boundaries. */
@@ -444,12 +453,8 @@ inline void test_particle_system_signed_axis_trajectory() {
     specialized.spawn(pos, velocity, static_cast<uint16_t>(i));
   }
 
-  float max_position_error = 0.0f;
-  float max_velocity_error = 0.0f;
-  double max_angle_error = 0.0;
-  float max_norm_drift = 0.0f;
+  AxisDivergence divergence;
   int active_mismatches = 0;
-  int color_seed_mismatches = 0;
   size_t compared_particle_steps = 0;
   for (int step = 0; step < STEPS; ++step) {
     reference.step(fake_canvas());
@@ -459,33 +464,18 @@ inline void test_particle_system_signed_axis_trajectory() {
     for (size_t i = 0; i < reference.active(); ++i) {
       const auto &a = reference.pool[i];
       const auto &b = specialized.pool[i];
-      color_seed_mismatches += a.color_seed != b.color_seed;
-      max_position_error = hs_test::fold_worst(
-          max_position_error, max_component_delta(a.position, b.position));
-      max_velocity_error = hs_test::fold_worst(
-          max_velocity_error, max_component_delta(a.velocity, b.velocity));
-      max_angle_error = hs_test::fold_worst(
-          max_angle_error, chord_angle_between(a.position, b.position));
-      max_norm_drift = hs_test::fold_worst(
-          max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
-      max_norm_drift = hs_test::fold_worst(
-          max_norm_drift, std::abs(math::dot(b.position, b.position) - 1.0f));
+      divergence.add(a, b);
     }
   }
   std::printf(
       "axis trajectory steps=%d particles=%u compared=%zu pos=%.9g vel=%.9g "
       "angle=%.9g norm=%.9g\n",
-      STEPS, reference.active(), compared_particle_steps, max_position_error,
-      max_velocity_error, max_angle_error, max_norm_drift);
+      STEPS, reference.active(), compared_particle_steps, divergence.position,
+      divergence.velocity, divergence.angle, divergence.norm);
   HS_EXPECT_EQ(active_mismatches, 0);
-  HS_EXPECT_EQ(color_seed_mismatches, 0);
   HS_EXPECT_GE(compared_particle_steps, size_t{2000});
   constexpr float COMPONENT_BOUND = 1e-5f;
-  const double angle_bound = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
-  HS_EXPECT_LE(max_position_error, COMPONENT_BOUND);
-  HS_EXPECT_LE(max_velocity_error, COMPONENT_BOUND);
-  HS_EXPECT_LE(max_angle_error, angle_bound);
-  HS_EXPECT_LE(max_norm_drift, 8e-6f);
+  divergence.expect_within(COMPONENT_BOUND, 8e-6f);
 }
 
 /** @brief Point storage preserves directions, tangent motion, and lifetime. */

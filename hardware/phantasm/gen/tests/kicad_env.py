@@ -51,6 +51,23 @@ GENERATES = not GENERATION_BLOCKERS
 GENERATES_REASON = "; ".join(GENERATION_BLOCKERS)
 
 
+def expected_nodes():
+    """EXPECT_REV_1_2 -> {net: [(ref, pin), ...]}, numbering symmetric terminals 1, 2."""
+    seq, nets = {}, {}
+    for name, keys in sorted(check.EXPECT_REV_1_2.items()):
+        nodes = []
+        for key in sorted(keys):
+            if "." in key:
+                ref, pin = key.split(".", 1)
+            else:
+                ref = key
+                seq[ref] = seq.get(ref, 0) + 1
+                pin = str(seq[ref])
+            nodes.append((ref, pin))
+        nets[name] = nodes
+    return nets
+
+
 def generate_schematic(out, revision=board.B.REVISION):
     """Generate a schematic into `out`; return its path."""
     with contextlib.redirect_stdout(io.StringIO()):

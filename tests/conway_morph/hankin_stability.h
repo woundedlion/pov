@@ -304,9 +304,7 @@ inline void test_opleg_hankin_sweep_smoke() {
     PolyMesh arrival;
     Animation::OpLeg::arrival_mesh(landing, arrival, arrival_arena);
     std::vector<math::Vector> seed_centers(seed.face_counts.size());
-    for (size_t f = 0, off = 0; f < seed.face_counts.size();
-         off += seed.face_counts[f], ++f)
-      seed_centers[f] = face_centroid_unit(seed, off, seed.face_counts[f]);
+    MeshOps::face_centroids_into(seed, seed_centers.data());
     HS_EXPECT_GE(arrival.face_counts.size(), landing.primary_faces);
     for (size_t f = 0, off = 0;
          f < landing.primary_faces && f < arrival.face_counts.size();

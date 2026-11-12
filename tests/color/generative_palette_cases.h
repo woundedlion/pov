@@ -59,7 +59,7 @@ inline float quantized_hue_error(const Pixel &pixel) {
         continue;
       const OKLab moved = linear16_to_oklab(shifted);
       worst =
-          fmaxf(worst, fabsf(wrap_angle_pi(atan2f(moved.b, moved.a) - hue)));
+          fmaxf(worst, fabsf(wrap_hue_delta(atan2f(moved.b, moved.a) - hue)));
     }
     bound += worst;
   }
@@ -112,8 +112,8 @@ inline void test_generative_palette_triadic_keys_are_a_third_turn_apart() {
         for (int i = 0; i < 3; ++i) {
           const Pixel &from = keys[i];
           const Pixel &to = keys[(i + 1) % 3];
-          HS_EXPECT_NEAR(fabsf(wrap_angle_pi(pixel_to_oklch(to).h -
-                                             pixel_to_oklch(from).h)),
+          HS_EXPECT_NEAR(fabsf(wrap_hue_delta(pixel_to_oklch(to).h -
+                                              pixel_to_oklch(from).h)),
                          THIRD_TURN,
                          quantized_hue_error(from) + quantized_hue_error(to) +
                              2.0f * ease_error);
@@ -696,7 +696,7 @@ inline void test_generative_palette_morph_gray_key_is_continuous() {
         const auto expected = endpoint.diagnose(coordinate);
         const auto actual = morph.diagnose(coordinate);
         HS_EXPECT_GT(expected.C, 0.01f);
-        HS_EXPECT_NEAR(wrap_angle_pi(actual.h_path - expected.h_path), 0.0f,
+        HS_EXPECT_NEAR(wrap_hue_delta(actual.h_path - expected.h_path), 0.0f,
                        0.02f);
       }
     }

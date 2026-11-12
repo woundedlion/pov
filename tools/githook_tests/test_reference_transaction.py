@@ -82,6 +82,14 @@ class ReferenceTransactionHook(unittest.TestCase):
 
     # ── End to end, through git's own transaction ────────────────────────────
 
+    def test_other_branches_can_rewind_and_delete(self):
+        self.git("update-ref", "refs/heads/ahead", self.base)
+        self.assertEqual(self.rev("refs/heads/ahead"), self.base)
+        self.git("update-ref", "-d", "refs/heads/other")
+        self.assertNotEqual(self.git("rev-parse", "--verify", "refs/heads/other",
+                                     check=False).returncode, 0)
+        self.assertEqual(self.log_text(), "")
+
     def test_fast_forward_of_master_is_allowed(self):
         self.assertEqual(self.git("update-ref", MASTER, self.two,
                                   check=False).returncode, 0)

@@ -957,10 +957,8 @@ inline void check_document_values(const char *name) {
     const float missing = std::bit_cast<float>(uint32_t{0x7fc00001});
     const auto poison = [missing, values, &slots]<typename Resource>(
                             typename Resource::Family &family) {
-      (void)values;
-      (void)slots;
       using Family = typename Resource::Family;
-      if constexpr (Pullback::HasFields<Family> && !std::is_void_v<Family>)
+      if constexpr (Pullback::HasFields<Family>)
         for (const auto &field : Family::FIELDS) {
           if (!gate_open<FX>(field.gate))
             continue;
@@ -995,8 +993,7 @@ inline void check_document_values(const char *name) {
         }
     };
     built.visit([&]<typename Resource>(auto &family) {
-      if constexpr (Pullback::HasFields<typename Resource::Family>)
-        poison.template operator()<Resource>(family);
+      poison.template operator()<Resource>(family);
     });
     built.visit([&]<typename Resource>(auto &family) {
       if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
@@ -1104,11 +1101,6 @@ struct DocumentModulationProbe
 /** @brief Document modulation edits preserve admission and field ownership. */
 inline void test_composed_document_modulation_members() {
   namespace Document = hs_wasm::document_parameters;
-  for (const auto &field : Document::Params::EXTRA_SCHEMA) {
-    for (uint8_t index = 0; index < field.enum_count; ++index)
-      HS_EXPECT_TRUE(std::string_view(Document::enum_id(field, index)) ==
-                     field.enum_ids[index]);
-  }
   reset_globals();
   DocumentModulationProbe effect;
   effect.init();

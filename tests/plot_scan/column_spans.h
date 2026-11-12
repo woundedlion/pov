@@ -378,24 +378,10 @@ inline void test_mesh_edge_gate_pixel_parity() {
       Plot::Mesh::draw<W, H>(filters, c, posed, edges, shade);
     };
 
-    std::vector<Pixel> ref(static_cast<size_t>(W) * H);
-    {
-      hs_test::StubEffect fx(W, H);
-      render(fx);
-      fx.advance_display();
-      hs_test::capture_frame<W, H>(fx, ref);
-    }
-
-    for (auto &cl : CLIPS) {
-      hs_test::StubEffect fx(W, H);
-      fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
-      render(fx);
-      fx.advance_display();
-      const RenderBandDiff diff = render_band_diff<W>(fx, ref);
-      expect_render_band_parity("mesh edge gate", diff);
-      lit_total += diff.lit;
-      margin_lit_total += diff.margin_lit;
-    }
+    const RenderBandDiff total =
+        expect_clip_band_parity<W, H>("mesh edge gate", render, CLIPS);
+    lit_total += total.lit;
+    margin_lit_total += total.margin_lit;
   }
   HS_EXPECT_GT(lit_total, 200);
   HS_EXPECT_GT(margin_lit_total, 20);
@@ -560,25 +546,11 @@ inline void test_rasterize_column_cull_pixel_parity() {
                                 : Plot::RasterProjection{}});
     };
 
-    std::vector<Pixel> ref(static_cast<size_t>(W) * H);
-    {
-      hs_test::StubEffect fx(W, H);
-      render(fx);
-      fx.advance_display();
-      hs_test::capture_frame<W, H>(fx, ref);
-    }
-
-    for (auto &cl : CLIPS) {
-      hs_test::StubEffect fx(W, H);
-      fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
-      render(fx);
-      fx.advance_display();
-      const RenderBandDiff diff = render_band_diff<W>(fx, ref);
-      lit_total += diff.lit;
-      margin_lit_total += diff.margin_lit;
-      row_margin_lit_total += diff.row_margin_lit;
-      expect_render_band_parity("raster column cull", diff);
-    }
+    const RenderBandDiff total =
+        expect_clip_band_parity<W, H>("raster column cull", render, CLIPS);
+    lit_total += total.lit;
+    margin_lit_total += total.margin_lit;
+    row_margin_lit_total += total.row_margin_lit;
   }
   HS_EXPECT_GT(lit_total, 200);
   HS_EXPECT_GT(margin_lit_total, 20);

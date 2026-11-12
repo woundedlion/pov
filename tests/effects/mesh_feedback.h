@@ -439,11 +439,11 @@ constexpr double MESHFEEDBACK_INFILL_CUT_BOUND = 1.55;
 /** @brief Largest latitude step ratio allowed across the pole caps. */
 constexpr double MESHFEEDBACK_LATITUDE_BOUND = 1.28;
 
-/** @brief Wormhole cap seam bound. */
+/** @brief Tight/wiggling wormhole cap seam bound. */
 constexpr double MESHFEEDBACK_WORMHOLE_CAP_BOUND = 1.1;
-/** @brief Wormhole infill seam bound. */
+/** @brief Tight/wiggling wormhole infill seam bound. */
 constexpr double MESHFEEDBACK_WORMHOLE_INFILL_BOUND = 1.2;
-/** @brief Wormhole latitude seam bound. */
+/** @brief Tight/wiggling wormhole latitude seam bound. */
 constexpr double MESHFEEDBACK_WORMHOLE_LATITUDE_BOUND = 1.2;
 
 /**
@@ -459,7 +459,20 @@ inline void test_meshfeedback_all_presets_arm_cut_steps() {
     for (uint32_t seed : {0u, 11u}) {
       const MeshFeedbackCutSteps steps = meshfeedback_cut_steps(preset, seed);
       print_meshfeedback_cut_steps(preset, seed, steps);
-      if (preset == 10 || preset == 11) {
+      const auto matches_style = [&](const Feedback::Style &expected) {
+        const auto &style =
+            MeshFeedbackWhiteBox::MF::PRESETS[preset].params.style;
+        return style.fade == expected.fade &&
+               style.hue_shift == expected.hue_shift &&
+               style.scale == expected.scale &&
+               style.amplitude == expected.amplitude &&
+               style.frequency == expected.frequency &&
+               style.speed == expected.speed &&
+               style.space_fn == expected.space_fn &&
+               style.color_fn == expected.color_fn;
+      };
+      if (matches_style(Feedback::Style::TightWormhole()) ||
+          matches_style(Feedback::Style::WigglingWormhole())) {
         HS_CONTEXT("preset", preset);
         HS_EXPECT_LT(steps.cap, MESHFEEDBACK_WORMHOLE_CAP_BOUND);
         HS_EXPECT_LT(steps.infill, MESHFEEDBACK_WORMHOLE_INFILL_BOUND);

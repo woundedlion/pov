@@ -244,6 +244,47 @@ inline void expect_render_band_parity(const char *label,
   HS_EXPECT_EQ(diff.diff, 0);
 }
 
+/** @brief Compares clipped render bands with a full-canvas reference.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam Render Render callback type.
+ * @tparam N Clip count.
+ * @param label Failure context.
+ * @param render Draws into a stub effect.
+ * @param clips Display rectangles.
+ * @param minimum_lit Per-clip exclusive lit floor, or -1 to omit it.
+ * @return Summed comparison counts. */
+template <int W, int H, typename Render, size_t N>
+inline RenderBandDiff
+expect_clip_band_parity(const char *label, Render &&render,
+                        const std::array<std::array<int, 4>, N> &clips,
+                        int minimum_lit = -1) {
+  std::vector<Pixel> reference(static_cast<size_t>(W) * H);
+  {
+    hs_test::StubEffect fx(W, H);
+    render(fx);
+    fx.advance_display();
+    hs_test::capture_frame<W, H>(fx, reference);
+  }
+  RenderBandDiff total;
+  for (const auto &clip : clips) {
+    hs_test::StubEffect fx(W, H);
+    fx.set_clip(clip[0], clip[1], clip[2], clip[3]);
+    render(fx);
+    fx.advance_display();
+    const RenderBandDiff diff = render_band_diff<W>(fx, reference);
+    expect_render_band_parity(label, diff);
+    if (minimum_lit >= 0)
+      HS_EXPECT_GT(diff.lit, minimum_lit);
+    total.lit += diff.lit;
+    total.margin_lit += diff.margin_lit;
+    total.row_margin_lit += diff.row_margin_lit;
+    total.diff += diff.diff;
+    total.margin_diff += diff.margin_diff;
+  }
+  return total;
+}
+
 /** @brief Counts qualifying pixels lacking a wrapped 3x3 neighbour.
  * @param from Source frame.
  * @param to Neighbour frame.

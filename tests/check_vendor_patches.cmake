@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.29)
 include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
 
 # Pin FastNoiseLite.h patches, upstream version and body digest against
@@ -5,7 +6,6 @@ include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
 # -D args: HEADER (FastNoiseLite.h), CONFIG (FastNoiseLite_config.h).
 
 # Match the top-level CMake policy version in script mode.
-cmake_minimum_required(VERSION 3.29)
 
 set(VENDORED_VERSION "1.1.1")
 # SHA-256 of the vendored body over LF bytes. Recompute with

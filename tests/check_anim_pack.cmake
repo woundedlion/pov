@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.29)
 include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
 
 # Audit concrete animation declarations against LARGEST_CONCRETE_ANIM_SIZE.
@@ -13,7 +14,6 @@ include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
 # -D args: CORE_DIR (path to core/), ANIM_HEADER (path to animation.h);
 # or FIXTURE_DIR alone for the self-test.
 
-cmake_minimum_required(VERSION 3.29)
 
 if(DEFINED FIXTURE_DIR)
   file(MAKE_DIRECTORY "${FIXTURE_DIR}")

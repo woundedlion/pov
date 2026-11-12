@@ -363,11 +363,25 @@ inline void case_opleg_incomplete_palette_handoff() {
 
 /** @brief Prepared bridge data requires the opening geometric handoff. */
 inline void case_opleg_incompatible_prepared_bridge() {
-  Animation::OpLeg::BridgePreparation prepared;
-  death_construct_opleg<4096>(
-      Animation::OpLeg::ParamSweepSpec{
-          .t_end = 0.5f, .sweep_frames = 1, .prepared = &prepared},
-      death_opleg_handoff());
+  using Animation::OpLeg;
+  static uint8_t seed_storage[64 * 1024], leg_storage[128 * 1024];
+  Arena seed_arena(seed_storage, sizeof(seed_storage));
+  Arena leg_arena(leg_storage, sizeof(leg_storage));
+  PolyMesh seed;
+  build_solid<Solids::Cube>(seed, seed_arena);
+  OpLeg::BridgePreparation prepared;
+  const uint8_t PALETTES[6]{};
+  auto handoff = death_opleg_handoff();
+  handoff.prev_face_palette = PALETTES;
+  handoff.prev_faces = std::size(PALETTES);
+  handoff.prev_face_centroid = nullptr;
+  OpLeg leg(OpLeg::SweepSeed::borrow(seed),
+            OpLeg::ParamSweepSpec{.t_end = 0.5f,
+                                  .sweep_frames = 1,
+                                  .bridge_provenance = true,
+                                  .prepared = &prepared},
+            leg_arena, death_opleg_draw, handoff);
+  (void)leg.landing();
 }
 
 /** @brief Prepared bridge hosts must name faces in the departed mesh. */

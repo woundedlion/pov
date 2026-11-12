@@ -750,6 +750,8 @@ template <typename Position> struct PolarFaceCase {
 inline void check_polar_face_sweep(size_t points, float notch, bool north,
                                    float turn, bool grow = false,
                                    float tilt = 0.0f) {
+  HS_CONTEXT("turn, tilt milliradians", static_cast<int>(turn * 1000.0f),
+             static_cast<int>(tilt * 1000.0f));
   constexpr int W = 288;
   constexpr float SPIN = 0.2f, TIP = 0.4f, WOBBLE = 3.0f * math::PI_F / 180.0f;
   HS_CONTEXT("star points", static_cast<long long>(points));

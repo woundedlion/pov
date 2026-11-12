@@ -484,14 +484,10 @@ inline void test_opleg_medial_leg_smoke() {
     const size_t prev_faces = ambo_p.face_counts.size();
     std::vector<uint8_t> pal(prev_faces);
     std::vector<math::Vector> centroid(prev_faces);
-    size_t off = 0;
-    for (size_t f = 0; f < prev_faces; ++f) {
+    MeshOps::face_centroids_into(ambo_p, centroid.data());
+    for (size_t f = 0; f < prev_faces; ++f)
       pal[f] =
           static_cast<uint8_t>(MeshPaletteBank::slot_of(ambo_p.topology[f]));
-      const int n = ambo_p.face_counts[f];
-      centroid[f] = face_centroid_unit(ambo_p, off, n);
-      off += n;
-    }
 
     OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                   .prev_face_palette = pal.data(),
@@ -553,73 +549,74 @@ inline Animation::OpLeg::ParamSweepSpec dual_closing_sweep(int sweep_frames) {
 
 /**
  * @brief Checks the medial leg's landing against the departed palettes.
- * @param landing2 Medial leg landing.
- * @param pal2 Departed ambo(P) palettes, one per medial face.
+ * @param landing Medial leg landing.
+ * @param departed_palettes Departed ambo(P) palettes, one per medial face.
  * @param preserve_palettes Whether landed palettes must equal departed ones.
  * @return False when the landing lacks the arrival data the seam reads.
  */
-inline bool check_medial_landing(const Animation::OpLeg::Landing &landing2,
-                                 const std::vector<uint8_t> &pal2,
+inline bool check_medial_landing(const Animation::OpLeg::Landing &landing,
+                                 const std::vector<uint8_t> &departed_palettes,
                                  bool preserve_palettes) {
-  const size_t nf = pal2.size();
-  HS_EXPECT_EQ(landing2.faces, nf);
-  HS_EXPECT_TRUE(landing2.arrival_topology != nullptr);
-  HS_EXPECT_TRUE(landing2.arrival_point != nullptr);
-  HS_EXPECT_TRUE(landing2.from_palette != nullptr);
-  if (landing2.faces != nf || !landing2.arrival_topology ||
-      !landing2.arrival_point || !landing2.from_palette)
+  const size_t nf = departed_palettes.size();
+  HS_EXPECT_EQ(landing.faces, nf);
+  HS_EXPECT_TRUE(landing.arrival_topology != nullptr);
+  HS_EXPECT_TRUE(landing.arrival_point != nullptr);
+  HS_EXPECT_TRUE(landing.from_palette != nullptr);
+  if (landing.faces != nf || !landing.arrival_topology ||
+      !landing.arrival_point || !landing.from_palette)
     return false;
-  HS_EXPECT_EQ(landing2.arrival_topology->face_counts.size(), nf);
-  if (landing2.arrival_topology->face_counts.size() != nf)
+  HS_EXPECT_EQ(landing.arrival_topology->face_counts.size(), nf);
+  if (landing.arrival_topology->face_counts.size() != nf)
     return false;
   for (size_t f = 0; f < nf; ++f) {
-    HS_EXPECT_EQ(landing2.from_palette[f], pal2[f]);
+    HS_EXPECT_EQ(landing.from_palette[f], departed_palettes[f]);
     if (preserve_palettes)
-      HS_EXPECT_EQ(landing2.landed_palette(f), pal2[f]);
+      HS_EXPECT_EQ(landing.landed_palette(f), departed_palettes[f]);
   }
   return true;
 }
 
 /**
  * @brief Reads a landing's arrival faces: landed palettes and unit centroids.
- * @param landing2 Landing with arrival topology and points.
- * @param pal3 Receives each arrival face's landed palette; sized to the face
+ * @param landing Landing with arrival topology and points.
+ * @param arrival_palettes Receives each arrival face's landed palette; sized to the face
  * count.
- * @param cen3 Receives each arrival face's unit centroid; sized like @p pal3.
+ * @param arrival_centroids Receives each arrival face's unit centroid; sized like @p arrival_palettes.
  */
-inline void read_arrival_faces(const Animation::OpLeg::Landing &landing2,
-                               std::vector<uint8_t> &pal3,
-                               std::vector<math::Vector> &cen3) {
-  const PolyMesh &arrival = *landing2.arrival_topology;
+inline void read_arrival_faces(const Animation::OpLeg::Landing &landing,
+                               std::vector<uint8_t> &arrival_palettes,
+                               std::vector<math::Vector> &arrival_centroids) {
+  const PolyMesh &arrival = *landing.arrival_topology;
   size_t off = 0;
-  for (size_t f = 0; f < pal3.size(); ++f) {
+  for (size_t f = 0; f < arrival_palettes.size(); ++f) {
     math::Vector c(0.0f, 0.0f, 0.0f);
     for (int j = 0; j < arrival.face_counts[f]; ++j) {
       const size_t v = arrival.faces[off + j];
-      c = c + landing2.arrival_point[v].decode().normalized();
+      c = c + landing.arrival_point[v].decode().normalized();
     }
-    cen3[f] = c.normalized();
-    pal3[f] = landing2.landed_palette(f);
+    arrival_centroids[f] = c.normalized();
+    arrival_palettes[f] = landing.landed_palette(f);
     off += arrival.face_counts[f];
   }
 }
 
 /**
- * @brief Derives the seam permutation from exact geometry: ambo(@p D) has the
+ * @brief Derives the seam permutation from exact geometry: ambo(@p dual) has the
  *        closing leg's face order and the seam's exact positions.
- * @param D Classified dual mesh.
- * @param cen3 Unit centroids of the medial leg's arrival faces.
+ * @param dual Classified dual mesh.
+ * @param arrival_centroids Unit centroids of the medial leg's arrival faces.
  * @param temp Scratch arena for the ambo operator.
  * @param perm Receives, per closing face, the nearest arrival face.
- * @return False when ambo(@p D)'s face count differs from the arrival's.
+ * @return False when ambo(@p dual)'s face count differs from the arrival's.
  */
-inline bool derive_seam_permutation(const PolyMesh &D,
-                                    const std::vector<math::Vector> &cen3,
-                                    Arena &temp, std::vector<int> &perm) {
+inline bool
+derive_seam_permutation(const PolyMesh &dual,
+                        const std::vector<math::Vector> &arrival_centroids,
+                        Arena &temp, std::vector<int> &perm) {
   constexpr float SEAM_MATCH_TOL = 0.02f;
-  const size_t nf = cen3.size();
+  const size_t nf = arrival_centroids.size();
   Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-  PolyMesh ambo_d = MeshOps::ambo(D, aux, temp);
+  PolyMesh ambo_d = MeshOps::ambo(dual, aux, temp);
   HS_EXPECT_EQ(ambo_d.face_counts.size(), nf);
   if (ambo_d.face_counts.size() != nf)
     return false;
@@ -633,7 +630,7 @@ inline bool derive_seam_permutation(const PolyMesh &D,
     size_t best = 0;
     float bd = 1e9f;
     for (size_t m = 0; m < nf; ++m) {
-      const float d = math::distance_between(c, cen3[m]);
+      const float d = math::distance_between(c, arrival_centroids[m]);
       if (d < bd) {
         bd = d;
         best = m;
@@ -652,34 +649,33 @@ inline bool derive_seam_permutation(const PolyMesh &D,
 }
 
 /**
- * @brief Checks the closing leg's block-transposed face order: D-faces are the
- *        medial's P-vertex orbits in emission order; D-vertex orbit faces land
+ * @brief Checks the closing leg's block-transposed face order: dual-faces are the
+ *        medial's P-vertex orbits in emission order; dual-vertex orbit faces land
  *        in the medial's P-face block.
- * @param landing3 Closing leg landing.
+ * @param landing Closing leg landing.
  * @param perm Seam permutation, closing face -> medial arrival face.
- * @param pal3 Medial arrival palettes.
- * @param PF Primal face count.
- * @param DF Dual face count.
+ * @param arrival_palettes Medial arrival palettes.
+ * @param primal_faces Primal face count.
+ * @param dual_faces Dual face count.
  * @param preserve_palettes Whether landed palettes must follow the permutation.
  * @return The medial arrival palettes in closing face order.
  */
-inline std::vector<uint8_t>
-check_closing_blocks(const Animation::OpLeg::Landing &landing3,
-                     const std::vector<int> &perm,
-                     const std::vector<uint8_t> &pal3, size_t PF, size_t DF,
-                     bool preserve_palettes) {
-  const size_t nf = pal3.size();
+inline std::vector<uint8_t> check_closing_blocks(
+    const Animation::OpLeg::Landing &landing, const std::vector<int> &perm,
+    const std::vector<uint8_t> &arrival_palettes, size_t primal_faces,
+    size_t dual_faces, bool preserve_palettes) {
+  const size_t nf = arrival_palettes.size();
   std::vector<uint8_t> closing_palettes(nf);
   int block1_viol = 0, block2_viol = 0, from_mismatch = 0;
   for (size_t l = 0; l < nf; ++l) {
-    closing_palettes[l] = pal3[perm[l]];
+    closing_palettes[l] = arrival_palettes[perm[l]];
     if (preserve_palettes)
-      HS_EXPECT_EQ(landing3.landed_palette(l), closing_palettes[l]);
-    if (l < DF && perm[l] != static_cast<int>(PF + l))
+      HS_EXPECT_EQ(landing.landed_palette(l), closing_palettes[l]);
+    if (l < dual_faces && perm[l] != static_cast<int>(primal_faces + l))
       ++block1_viol;
-    if (l >= DF && perm[l] >= static_cast<int>(PF))
+    if (l >= dual_faces && perm[l] >= static_cast<int>(primal_faces))
       ++block2_viol;
-    if (landing3.from_palette[l] != pal3[perm[l]])
+    if (landing.from_palette[l] != arrival_palettes[perm[l]])
       ++from_mismatch;
   }
   HS_EXPECT_EQ(block1_viol, 0);
@@ -691,32 +687,33 @@ check_closing_blocks(const Animation::OpLeg::Landing &landing3,
 /**
  * @brief A closing leg handed per-face palettes with arrival centroids maps
  *        them through the seam permutation.
- * @param D Classified dual mesh.
- * @param bookend3 Bookend classes of @p D.
- * @param cen3 Unit centroids of the medial leg's arrival faces.
+ * @param dual Classified dual mesh.
+ * @param bookend Bookend classes of @p dual.
+ * @param arrival_centroids Unit centroids of the medial leg's arrival faces.
  * @param perm Seam permutation, closing face -> medial arrival face.
  * @param bank Palette bank the handoff names.
  * @param cb Draw callback.
- * @param SWEEP Closing sweep frames.
+ * @param sweep_frames Closing sweep frames.
  */
 inline void check_geometric_closing(
-    const PolyMesh &D, const Animation::OpLeg::BookendClasses &bookend3,
-    const std::vector<math::Vector> &cen3, const std::vector<int> &perm,
-    const MeshPaletteBank &bank, Animation::OpLeg::MorphDrawFn cb, int SWEEP) {
+    const PolyMesh &dual, const Animation::OpLeg::BookendClasses &bookend,
+    const std::vector<math::Vector> &arrival_centroids,
+    const std::vector<int> &perm, const MeshPaletteBank &bank,
+    Animation::OpLeg::MorphDrawFn cb, int sweep_frames) {
   using Animation::OpLeg;
-  const size_t nf = cen3.size();
+  const size_t nf = arrival_centroids.size();
   Arena geometric_arena(morph_aux_buf, sizeof(morph_aux_buf));
   std::vector<uint8_t> geometric_palette(nf);
   for (size_t f = 0; f < nf; ++f)
     geometric_palette[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-  OpLeg::PaletteHandoff geometric_handoff{.bank = &bank.bank,
-                                          .prev_face_palette =
-                                              geometric_palette.data(),
-                                          .prev_faces = nf,
-                                          .prev_face_centroid = cen3.data()};
-  OpLeg geometric_closing(OpLeg::SweepSeed::borrow(D),
-                          dual_closing_sweep(SWEEP), geometric_arena, cb,
-                          geometric_handoff, bookend3);
+  OpLeg::PaletteHandoff geometric_handoff{
+      .bank = &bank.bank,
+      .prev_face_palette = geometric_palette.data(),
+      .prev_faces = nf,
+      .prev_face_centroid = arrival_centroids.data()};
+  OpLeg geometric_closing(OpLeg::SweepSeed::borrow(dual),
+                          dual_closing_sweep(sweep_frames), geometric_arena, cb,
+                          geometric_handoff, bookend);
   const OpLeg::Landing &geometric_landing = geometric_closing.landing();
   HS_EXPECT_EQ(geometric_landing.faces, nf);
   HS_EXPECT_TRUE(geometric_landing.from_palette != nullptr);

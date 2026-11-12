@@ -483,6 +483,11 @@ inline void test_authored_dynamic_modulation_controls() {
   hs_test::reset_globals();
   DynamicModulationControlsProbe effect;
   effect.init();
+  const auto readonly = [&](const char *id) {
+    const auto *parameter = effect.getParameters().find(id);
+    HS_EXPECT(parameter != nullptr, id);
+    return parameter != nullptr && parameter->readonly;
+  };
   for (size_t index = 0; index < Modulation::Controls::EXTRA_SCHEMA.size();
        ++index) {
     const auto &field = Modulation::Controls::EXTRA_SCHEMA[index];
@@ -501,8 +506,8 @@ inline void test_authored_dynamic_modulation_controls() {
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("modulation-source", 1),
                ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(effect.getParameters().find("pattern-scale")->readonly);
-  HS_EXPECT_FALSE(effect.getParameters().find("sine-frequency")->readonly);
+  HS_EXPECT_TRUE(readonly("pattern-scale"));
+  HS_EXPECT_FALSE(readonly("sine-frequency"));
   HS_EXPECT_EQ(effect.updateParameter("sine-frequency", 2.3f),
                ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(effect.configuration().sine.frequency, 2.3f, 1e-6f);
@@ -510,10 +515,10 @@ inline void test_authored_dynamic_modulation_controls() {
                ParamSetResult::READONLY);
   HS_EXPECT_EQ(effect.updateParameter("modulation-source", 0),
                ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(effect.getParameters().find("pattern-noise-basis")->readonly);
+  HS_EXPECT_TRUE(readonly("pattern-noise-basis"));
   HS_EXPECT_EQ(effect.updateParameter("pattern-noise-variant", 1),
                ParamSetResult::APPLIED);
-  HS_EXPECT_FALSE(effect.getParameters().find("pattern-noise-basis")->readonly);
+  HS_EXPECT_FALSE(readonly("pattern-noise-basis"));
   HS_EXPECT_EQ(effect.updateParameter("pattern-noise-basis", 2),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("pattern-contrast", 0.7f),
@@ -531,9 +536,8 @@ inline void test_authored_dynamic_modulation_controls() {
   recipe.source = Pattern::SourceKind::SPHERE_INTERFERENCE;
   recipe.evaluation = Pattern::Evaluation::DIRECT;
   HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
-  HS_EXPECT_TRUE(effect.getParameters().find("pattern-scale")->readonly);
-  HS_EXPECT_FALSE(
-      effect.getParameters().find("interference-frequency-b")->readonly);
+  HS_EXPECT_TRUE(readonly("pattern-scale"));
+  HS_EXPECT_FALSE(readonly("interference-frequency-b"));
   HS_EXPECT_EQ(effect.updateParameter("interference-frequency-b", 4.0f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.configuration().interference.frequency_b, 4.0f);
@@ -550,8 +554,7 @@ inline void test_authored_dynamic_modulation_controls() {
         config.source = Pattern::SourceKind::DISPLACEMENT;
         return ParamSetResult::APPLIED;
       }) == ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(
-      effect.getParameters().find("interference-frequency-b")->readonly);
+  HS_EXPECT_TRUE(readonly("interference-frequency-b"));
 }
 
 /** @brief Composed fixture for nested polynomial controls. */

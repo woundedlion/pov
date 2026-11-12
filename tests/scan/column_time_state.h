@@ -53,13 +53,7 @@ template <int W, int H> inline void check_timed_shader(float lod) {
   };
   const std::vector<Pixel> drawn = render_stub_frame<W, H>(timed);
   const std::vector<Pixel> expected = render_state_oracle<W, H>(held);
-  int lit = 0, mismatched = 0;
-  for (size_t i = 0; i < expected.size(); ++i) {
-    lit += !is_black(expected[i]);
-    mismatched += !(drawn[i] == expected[i]);
-  }
-  HS_EXPECT_EQ(mismatched, 0);
-  HS_EXPECT_GT(lit, 300);
+  HS_EXPECT_GT(expect_frames_within("timed shader", drawn, expected, 0), 300);
   const size_t SEAM = static_cast<size_t>(H / 2) * W + W / 2;
   HS_EXPECT_GT(drawn[SEAM - 1].r, drawn[SEAM].r);
 
@@ -372,10 +366,7 @@ inline void test_drift_matches_shape_at_column_centre() {
                 math::make_rotation(axis, -angle * (1.0f - u));
             for (const math::Vector &c : centres) {
               const math::Basis basis = math::make_basis(math::Quaternion(), c);
-              shape(pipeline, canvas,
-                    math::Basis{math::rotate(basis.u, back),
-                                math::rotate(basis.v, back),
-                                math::rotate(basis.w, back)});
+              shape(pipeline, canvas, math::rotate(basis, back));
             }
           });
     };

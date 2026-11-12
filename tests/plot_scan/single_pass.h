@@ -965,25 +965,8 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
         {.projection = Plot::RasterProjection::geodesic(visible)});
   };
 
-  std::vector<Pixel> reference(static_cast<size_t>(W) * H);
-  {
-    hs_test::StubEffect fx(W, H);
-    render(fx);
-    fx.advance_display();
-    hs_test::capture_frame<W, H>(fx, reference);
-  }
-
   constexpr auto QUADRANTS = quadrant_clips<W, H>();
-  int margin_lit = 0;
-  for (const auto &quadrant : QUADRANTS) {
-    hs_test::StubEffect fx(W, H);
-    fx.set_clip(quadrant[0], quadrant[1], quadrant[2], quadrant[3]);
-    render(fx);
-    fx.advance_display();
-    const RenderBandDiff diff = render_band_diff<W>(fx, reference);
-    margin_lit += diff.margin_lit;
-    HS_EXPECT_GT(diff.lit, 10);
-    expect_render_band_parity("single-pass direct AA", diff);
-  }
-  HS_EXPECT_GT(margin_lit, 10);
+  const RenderBandDiff total = expect_clip_band_parity<W, H>(
+      "single-pass direct AA", render, QUADRANTS, 10);
+  HS_EXPECT_GT(total.margin_lit, 10);
 }

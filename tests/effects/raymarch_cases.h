@@ -8,7 +8,6 @@
 /** @brief White-box accessor for Raymarch's torus proportions. */
 struct RaymarchWhiteBox {
   using RM = Raymarch<DEFAULT_W, DEFAULT_H>;
-  static constexpr int MAX_POINTS = RM::MAX_POINTS;
   static constexpr float MAJOR = RM::MAJOR_K;
   static constexpr float MINOR = RM::MINOR_K;
   static constexpr float TWIST = RM::TWIST_K;

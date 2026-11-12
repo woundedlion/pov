@@ -13,7 +13,6 @@ struct DreamBallsWhiteBox {
   static constexpr int FADE_WINDOW = DB::FADE_WINDOW;
   static constexpr size_t SOLID_COUNT = DB::SOLID_COUNT;
   static constexpr size_t MAX_SOLID_EDGES = Solids::MAX_SOLID_EDGES;
-  static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
   template <int W, int H>
   static constexpr size_t SCRATCH_A_PEAK =
       DreamBalls<W, H>::SCRATCH_A_PEAK_BYTES;
@@ -236,9 +235,6 @@ struct DreamBallsWhiteBox {
   }
   static const Palette *preset_palette(const DB &db, int idx) {
     return db.preset_palettes[idx];
-  }
-  static const Palette *blood_stream_falloff(const DB &db) {
-    return &db.blood_stream_falloff;
   }
   static bool solid_loaded(const DB &db, size_t idx) {
     return !db.loaded_solids[idx].mesh_state.vertices.is_empty();

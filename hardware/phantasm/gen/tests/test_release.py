@@ -360,7 +360,7 @@ class ReleaseTests(unittest.TestCase):
     @unittest.skipUnless(GENERATES, GENERATES_REASON)
     def test_kicad_refill_preserves_rev_1_2_fabrication_options(self):
         project = self.root / "refilled"
-        release.snapshot(release.CANDIDATE.parent, project)
+        release.snapshot(committed_project("1.2"), project)
         before = release.fabrication_options(project, "1.2")
         subprocess.run([fab.kicad_cli(), "pcb", "drc", "--refill-zones", "--save-board",
                         "--format", "json", "-o", str(self.root / "drc.json"),
@@ -381,7 +381,7 @@ class ReleaseTests(unittest.TestCase):
 
     def fabrication_board(self):
         board = self.project / "phantasm.kicad_pcb"
-        shutil.copyfile(release.CANDIDATE.parent / "phantasm.kicad_pcb", board)
+        shutil.copyfile(committed_project("1.2") / "phantasm.kicad_pcb", board)
         return board
 
     def test_valid_finish_and_stackup_fixture(self):

@@ -23,10 +23,9 @@ import shorts   # noqa: E402
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES,  # noqa: E402
                          RULE_MINIMUMS)
 from kicad_common import F  # noqa: E402
-from kicad_env import generate_schematic  # noqa: E402
+from kicad_env import STOCK_SYMBOLS, generate_schematic  # noqa: E402
 from pin_landing import dangling_pins, pin_positions  # noqa: E402
 
-STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
 
 PROJECT_FILES = ("phantasm.kicad_sch", "phantasm.kicad_sym", "sym-lib-table",
                  "phantasm.kicad_pro")

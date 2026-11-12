@@ -262,12 +262,7 @@ inline void check_step_leg_smoke(
   const size_t prev_faces = fixture.prev_faces;
   const auto *prev_pal = fixture.prev_pal;
   math::Vector *prev_centroid = leg_arena.allocate_n<math::Vector>(prev_faces);
-  size_t off = 0;
-  for (size_t f = 0; f < prev_faces; ++f) {
-    const int n = seed.face_counts[f];
-    prev_centroid[f] = face_centroid_unit(seed, off, n);
-    off += n;
-  }
+  MeshOps::face_centroids_into(seed, prev_centroid);
 
   OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                 .prev_face_palette = prev_pal,

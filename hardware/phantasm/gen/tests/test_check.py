@@ -8,26 +8,9 @@ from unittest import mock
 GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
-from kicad_env import committed_board_nets  # noqa: E402
+from kicad_env import committed_board_nets, expected_nodes  # noqa: E402
 import check  # noqa: E402
 import sexp  # noqa: E402
-
-
-def expected_nodes():
-    """EXPECT_REV_1_2 -> {net: [(ref, pin), ...]}, numbering symmetric terminals 1, 2."""
-    seq, nets = {}, {}
-    for name, keys in sorted(check.EXPECT_REV_1_2.items()):
-        nodes = []
-        for key in sorted(keys):
-            if "." in key:
-                ref, pin = key.split(".", 1)
-            else:
-                ref = key
-                seq[ref] = seq.get(ref, 0) + 1
-                pin = str(seq[ref])
-            nodes.append((ref, pin))
-        nets[name] = nodes
-    return nets
 
 
 def netlist(nets):

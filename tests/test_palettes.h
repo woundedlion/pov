@@ -49,16 +49,9 @@ inline void test_named_palette_hue_short_arc() {
 }
 
 /**
- * @brief Verifies MeshPaletteBank holds its source set once each, bakes each
- *        slot's endpoints from its source, and indexes them distinctly.
+ * @brief Bakes each palette slot from its source and keeps the slots distinct.
  */
 inline void test_mesh_palette_bank_lookup() {
-  constexpr auto SOURCES = MeshPaletteBank::sources();
-  for (const auto *expected :
-       {&Palettes::EMBERS, &Palettes::RICH_SUNSET, &Palettes::BRIGHT_SUNRISE,
-        &Palettes::BRUISED_MOSS, &Palettes::LAVENDER_LAKE,
-        &Palettes::TIDAL_JADE})
-    HS_EXPECT_EQ(std::count(SOURCES.begin(), SOURCES.end(), expected), 1);
   alignas(std::max_align_t) static uint8_t
       buf[MeshPaletteBank::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));

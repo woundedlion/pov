@@ -183,27 +183,28 @@ template <typename T> T &param_as(In::ChainProgram &program, size_t index) {
   return *reinterpret_cast<T *>(program.param_block(index));
 }
 
-/** @brief Requires the requested state type to match its erased block.
- * @tparam T State type.
- * @param program Compiled chain.
- * @param index Operator index. */
+/** @brief Requires the requested type to match its erased block.
+ * @tparam T Block type.
+ * @param layout Erased block layout.
+ * @param block Block address. */
 template <typename T>
-void check_state_layout(const In::ChainProgram &program, size_t index) {
-  const auto &layout = program.ops()[index].op->runtime.state;
-  const void *state = program.state_block(index);
+void check_block_layout(const In::BlockLayout &layout, const void *block) {
   const bool matches = layout.size == sizeof(T) && layout.align == alignof(T) &&
-                       reinterpret_cast<uintptr_t>(state) % alignof(T) == 0;
+                       reinterpret_cast<uintptr_t>(block) % alignof(T) == 0;
   HS_EXPECT_TRUE(matches);
-  HS_CHECK(matches, "shader-chain fixture state type mismatch");
+  HS_CHECK(matches, "shader-chain fixture block type mismatch");
 }
 
 template <typename T> T &state_as(In::ChainProgram &program, size_t index) {
-  check_state_layout<T>(program, index);
+  check_block_layout<T>(program.ops()[index].op->runtime.state,
+                        program.state_block(index));
   return *static_cast<T *>(program.state_block(index));
 }
 
 template <typename T>
 const T &prepared_as(const In::ChainProgram &program, size_t index) {
+  check_block_layout<T>(program.ops()[index].op->runtime.prepared,
+                        program.prepared_block(index));
   return *reinterpret_cast<const T *>(program.prepared_block(index));
 }
 
@@ -213,7 +214,8 @@ template <typename T> T &prepared_as(In::ChainProgram &program, size_t index) {
 
 template <typename T>
 const T &state_as(const In::ChainProgram &program, size_t index) {
-  check_state_layout<T>(program, index);
+  check_block_layout<T>(program.ops()[index].op->runtime.state,
+                        program.state_block(index));
   return *static_cast<const T *>(program.state_block(index));
 }
 
