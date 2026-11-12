@@ -440,13 +440,9 @@ private:
                                   camera, scratch_arena_b, scratch_arena_b);
     }
     HS_PROFILE(hk_mesh_scan);
-    Scan::deform_mesh<W, H>(
-        canvas, rotated_mesh, plan.active, plan.columns, plan.moving,
-        plan.start, scratch_arena_b, bound,
-        [&](size_t i, float u) HS_HOT_INLINE {
-          return Scan::capture_position(plan, placed, ripples, camera, i, u);
-        },
-        [&]() HS_HOT_INLINE { scan(rotated_mesh); });
+    Scan::deform_planned<W, H>(canvas, rotated_mesh, plan, &placed, ripples,
+                               camera, scratch_arena_b, bound,
+                               [&]() HS_HOT_INLINE { scan(rotated_mesh); });
   }
 
   /**

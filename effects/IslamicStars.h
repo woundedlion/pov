@@ -586,13 +586,9 @@ private:
             opacity, previous_opacity ? previous_opacity[fi] : opacity);
         fragment_shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
       };
-      Scan::deform_mesh<W, H>(
-          canvas, transformed_state, plan.active, plan.columns, plan.moving,
-          plan.start, scratch_arena_a, bound,
-          [&](size_t i, float u) HS_HOT_INLINE {
-            return Scan::capture_position(plan, path, ripple_gen, camera, i, u);
-          },
-          [&]() HS_HOT_INLINE {
+      Scan::deform_planned<W, H>(
+          canvas, transformed_state, plan, &path, ripple_gen, camera,
+          scratch_arena_a, bound, [&]() HS_HOT_INLINE {
             Scan::Mesh::draw_specialized<W, H>(
                 filters, canvas, transformed_state, fragment_shader,
                 scratch_arena_a, nullptr, select_face);
@@ -683,17 +679,12 @@ private:
              : Scan::MotionPlan{};
     const SegueT &seg = carousel.segue();
     // Per-face scan scratch must remain disjoint from the mesh in scratch_a.
-    Scan::deform_mesh<W, H>(
-        canvas, mesh, plan.active, plan.columns, plan.moving, plan.start,
-        scratch_arena_b, bound,
-        [&](size_t i, float u) HS_HOT_INLINE {
-          return Scan::capture_position(plan, *path, ripple_gen, camera, i, u);
-        },
-        [&]() HS_HOT_INLINE {
-          Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, mesh, sh, 1.0f,
-                                               seg.opacity(1.0f),
-                                               scratch_arena_b);
-        });
+    Scan::deform_planned<W, H>(canvas, mesh, plan, path, ripple_gen, camera,
+                               scratch_arena_b, bound, [&]() HS_HOT_INLINE {
+                                 Scan::Mesh::draw_opleg_shading<W, H>(
+                                     filters, canvas, mesh, sh, 1.0f,
+                                     seg.opacity(1.0f), scratch_arena_b);
+                               });
   }
 
   /** @brief One snapping preset per playback roster shape. */

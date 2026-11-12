@@ -321,6 +321,38 @@ capture_position(const MotionPlan &plan, const ModelPath &path,
 }
 
 /**
+ * @brief Scans a mesh with its planned model and ripple motion.
+ * @tparam W Display width.
+ * @tparam H Display height.
+ * @tparam Path Model-space vertex path type.
+ * @tparam Pool Ripple pool exposing active_count() and active_params().
+ * @tparam ScanFn Callable () scanning the mesh into the canvas's open window.
+ * @param canvas Canvas with column-time state when the plan is active.
+ * @param mesh Endpoint mesh, overwritten by the captured vertices.
+ * @param plan Frame's ripple cache and motion selection.
+ * @param path Model-space vertex path; may be null when the plan is inactive.
+ * @param ripples The pool the plan was made with.
+ * @param camera The draw's camera at the current endpoint.
+ * @param scratch Arena for face selection and vertex placement tables.
+ * @param reach Bound on vertex motion in radians.
+ * @param scan Scans the mesh with its current vertices and selected faces.
+ */
+template <int W, int H, typename Path, typename Pool, typename ScanFn>
+HS_HOT_INLINE void deform_planned(Canvas &canvas, MeshState &mesh,
+                                  const MotionPlan &plan, const Path *path,
+                                  const Pool &ripples,
+                                  const EndpointCamera &camera, Arena &scratch,
+                                  float reach, ScanFn &&scan) {
+  deform_mesh<W, H>(
+      canvas, mesh, plan.active, plan.columns, plan.moving, plan.start, scratch,
+      reach,
+      [&](size_t i, float u) HS_HOT_INLINE {
+        return capture_position(plan, *path, ripples, camera, i, u);
+      },
+      static_cast<ScanFn &&>(scan));
+}
+
+/**
  * @brief Plans the vertex deformation of one mesh draw.
  * @tparam W Canvas width in pixels.
  * @tparam Pool Ripple pool exposing active_count() and active_params().
