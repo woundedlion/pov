@@ -229,13 +229,7 @@ struct Ring {
   __attribute__((always_inline)) float stroke_alpha(float d) const {
     if (d < cos_min || d > cos_max)
       return 0.0f;
-    float dist;
-    if (inv_sin_target != 0) {
-      dist = std::abs(d - cos_target) * inv_sin_target;
-    } else {
-      float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
-      dist = std::abs(polar - target_angle);
-    }
+    const float dist = centerline_distance(d);
     float sd = dist - thickness;
     if (sd >= 0.0f || thickness <= 0.0f)
       return 0.0f;
@@ -257,13 +251,7 @@ struct Ring {
       return;
     }
 
-    float dist = 0;
-    if (inv_sin_target != 0) {
-      dist = std::abs(d - cos_target) * inv_sin_target;
-    } else {
-      float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
-      dist = std::abs(polar - target_angle);
-    }
+    const float dist = centerline_distance(d);
 
     float t = 0.0f;
     if constexpr (ComputeUVs) {
@@ -271,6 +259,14 @@ struct Ring {
     }
 
     res = DistanceResult(dist - thickness, t, dist, 0.0f, thickness);
+  }
+
+private:
+  __attribute__((always_inline)) float centerline_distance(float d) const {
+    if (inv_sin_target != 0)
+      return std::abs(d - cos_target) * inv_sin_target;
+    const float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
+    return std::abs(polar - target_angle);
   }
 };
 

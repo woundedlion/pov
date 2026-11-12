@@ -219,52 +219,63 @@ constexpr bool hs_effect_name_eq(const char *a, const char *b) {
   return *a == *b;
 }
 
-/**
- * @brief True when `name` is one of the HS_EFFECT_LIST class names.
- * @param name Effect class name to look up.
- * @return True when listed.
- */
-constexpr bool hs_in_effect_list(const char *name) {
-#define HS_EFFECT_NAME_MATCH(cls) || hs_effect_name_eq(name, #cls)
-  return false HS_EFFECT_LIST(HS_EFFECT_NAME_MATCH);
-#undef HS_EFFECT_NAME_MATCH
-}
+#define HS_EFFECT_NAME_ENTRY(cls) #cls,
+/// Engine roster class names.
+inline constexpr const char *const HS_EFFECT_NAMES[] = {
+    HS_EFFECT_LIST(HS_EFFECT_NAME_ENTRY)};
+/// Shader product class names.
+inline constexpr const char *const HS_SHADER_PRODUCT_NAMES[] = {
+    HS_SHADER_PRODUCT_GROUP(HS_EFFECT_NAME_ENTRY)};
+#undef HS_EFFECT_NAME_ENTRY
 
 /**
- * @brief Occurrences of `name` in HS_SHADER_PRODUCT_GROUP.
- * @param name Effect class name to count.
+ * @brief Counts an effect name in a name array.
+ * @tparam N Array length.
+ * @param names Names to search.
+ * @param name Effect class name.
  * @return Number of matching entries.
  */
-constexpr int hs_shader_product_group_count(const char *name) {
-#define HS_SHADER_PRODUCT_NAME_COUNT(cls)                                      \
-  +(hs_effect_name_eq(name, #cls) ? 1 : 0)
-  return 0 HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_COUNT);
-#undef HS_SHADER_PRODUCT_NAME_COUNT
+template <size_t N>
+constexpr int hs_name_count(const char *const (&names)[N], const char *name) {
+  int count = 0;
+  for (const char *entry : names)
+    count += hs_effect_name_eq(entry, name);
+  return count;
 }
 
 /**
- * @brief True when no HS_SHADER_PRODUCT_GROUP name appears twice.
- * @return True when every entry is distinct.
+ * @brief Tests whether all names are distinct.
+ * @tparam N Array length.
+ * @param names Names to test.
+ * @return True when no name appears twice.
  */
-constexpr bool hs_shader_product_group_is_distinct() {
-#define HS_SHADER_PRODUCT_NAME_ONCE(cls)                                       \
-  &&(hs_shader_product_group_count(#cls) == 1)
-  return true HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_ONCE);
-#undef HS_SHADER_PRODUCT_NAME_ONCE
+template <size_t N>
+constexpr bool hs_names_distinct(const char *const (&names)[N]) {
+  for (const char *name : names)
+    if (hs_name_count(names, name) != 1)
+      return false;
+  return true;
 }
 
 /**
- * @brief True when every HS_SHADER_PRODUCT_GROUP name is in HS_EFFECT_LIST.
- * @return True when the group is a roster subset.
+ * @brief Tests whether every name belongs to another array.
+ * @tparam N Candidate array length.
+ * @tparam M Superset array length.
+ * @param names Candidate subset.
+ * @param superset Names admitting the subset.
+ * @return True when every candidate is admitted.
  */
-constexpr bool hs_shader_product_group_is_subset() {
-#define HS_SHADER_PRODUCT_NAME_ON_ROSTER(cls) &&hs_in_effect_list(#cls)
-  return true HS_SHADER_PRODUCT_GROUP(HS_SHADER_PRODUCT_NAME_ON_ROSTER);
-#undef HS_SHADER_PRODUCT_NAME_ON_ROSTER
+template <size_t N, size_t M>
+constexpr bool hs_names_subset(const char *const (&names)[N],
+                               const char *const (&superset)[M]) {
+  for (const char *name : names)
+    if (hs_name_count(superset, name) == 0)
+      return false;
+  return true;
 }
 
-static_assert(hs_shader_product_group_is_distinct(),
+static_assert(hs_names_distinct(HS_SHADER_PRODUCT_NAMES),
               "HS_SHADER_PRODUCT_GROUP names an effect twice");
-static_assert(hs_shader_product_group_is_subset(),
+static_assert(hs_names_subset(HS_SHADER_PRODUCT_NAMES, HS_EFFECT_NAMES),
               "HS_SHADER_PRODUCT_GROUP names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the group off-roster");

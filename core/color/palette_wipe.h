@@ -12,6 +12,16 @@
 #include "core/color/baked_palette.h"
 
 /**
+ * @brief Tests whether a palette wipe rebakes on its next step.
+ * @param pending Whether the wipe was armed this frame.
+ * @param frames_remaining Number of remaining rebake frames.
+ * @return True after the arming frame while rebake frames remain.
+ */
+inline bool wipe_rebakes_this_step(bool pending, int frames_remaining) {
+  return !pending && frames_remaining > 0;
+}
+
+/**
  * @brief Steps a palette cross-fade rebake for one frame.
  * @tparam Source Palette type exposing Color4 get(float) const.
  * @param wipe_pending Set when a wipe was just armed; consumes the arming frame.
@@ -26,7 +36,7 @@ inline void step_wipe_rebake(bool &wipe_pending, int &wipe_frames_remaining,
                              BakedPaletteStorage &baked, const Source &source) {
   if (wipe_pending) {
     wipe_pending = false;
-  } else if (wipe_frames_remaining > 0) {
+  } else if (wipe_rebakes_this_step(wipe_pending, wipe_frames_remaining)) {
     baked.rebake(source);
     --wipe_frames_remaining;
   }
@@ -50,6 +60,11 @@ struct PaletteWipe {
    * @return Whether rebake frames remain.
    */
   bool in_flight() const { return frames_remaining > 0; }
+
+  /** @return Whether the next step rebakes the palette. */
+  bool rebakes_this_step() const {
+    return wipe_rebakes_this_step(pending, frames_remaining);
+  }
 
   /**
    * @brief Captures the cross-fade endpoints and opens the rebake window.

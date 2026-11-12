@@ -67,20 +67,27 @@ inline constexpr float DISPLAY_SOUTH_PHI =
     HS_DISPLAY_PROFILE == 0 ? PI_F : (HS_DISPLAY_SOUTH_FRACTION * PI_F);
 #endif
 
+/**
+ * @brief Last-row latitude of a pole-to-pole mapping with virtual south rows.
+ * @param height Physical LED row count; greater than one.
+ * @param offset Virtual south rows; non-negative.
+ * @return Last physical row's polar angle, radians.
+ */
+constexpr float pole_to_pole_south_phi(int height, int offset) {
+  return offset == 0 ? PI_F : PI_F * (height - 1) / (height + offset - 1);
+}
+
 /** @brief Uniform latitude mapping between the first and last LED centers. */
 class LatitudeGeometry {
 public:
 #if defined(HS_TEST_H_OFFSET)
   /**
-   * @brief Constructs a latitude mapping from the active display profile.
+   * @brief Constructs the HS_TEST_H_OFFSET pole-to-pole latitude mapping.
    * @param height LED row count; > 1.
    */
   constexpr explicit LatitudeGeometry(int height)
       : LatitudeGeometry(height, 0.0f,
-                         HS_TEST_H_OFFSET == 0
-                             ? PI_F
-                             : PI_F * (height - 1) /
-                                   (height + HS_TEST_H_OFFSET - 1)) {}
+                         pole_to_pole_south_phi(height, HS_TEST_H_OFFSET)) {}
 #elif HS_RUNTIME_DISPLAY_GEOMETRY
   /**
    * @brief Constructs a latitude mapping from the active display profile.
@@ -170,10 +177,8 @@ template <int H, int HOffset = -1> struct DisplayGeometry {
   /// Polar angle of row 0, radians.
   static constexpr float NORTH_PHI = OFFSET >= 0 ? 0.0f : DISPLAY_NORTH_PHI;
   /// Polar angle of row H-1, radians.
-  static constexpr float SOUTH_PHI = OFFSET == 0 ? PI_F
-                                     : OFFSET > 0
-                                         ? PI_F *(H - 1) / (H + OFFSET - 1)
-                                         : DISPLAY_SOUTH_PHI;
+  static constexpr float SOUTH_PHI =
+      OFFSET >= 0 ? pole_to_pole_south_phi(H, OFFSET) : DISPLAY_SOUTH_PHI;
   static_assert(NORTH_PHI >= 0.0f && SOUTH_PHI <= PI_F &&
                 NORTH_PHI < SOUTH_PHI);
   /// Polar-angle step between adjacent rows, radians.

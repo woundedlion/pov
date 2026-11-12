@@ -427,6 +427,12 @@ public:
       global_timeline_events[i].animation()->collapse_orientation();
     }
 
+    const auto keep = [&](TimelineEvent &event, int index) {
+      if (index != write_idx)
+        event.move_into(global_timeline_events[write_idx]);
+      ++write_idx;
+    };
+
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
 
@@ -453,29 +459,18 @@ public:
           // cancel() (or finish()); complete the event now.
           if (anim->done() && !anim->repeats()) {
             anim->post_callback();
-            HS_CHECK(!e.pinned || anim->is_canceled(),
-                     "pinned animation completed while paused; only cancel() "
-                     "may destroy a pinned event");
-            e.completed = !e.retired && !e.pinned && anim->orientation_id();
-            if (!e.completed) {
-              e.destroy();
+            if (!retire(e, anim))
               continue;
-            }
           }
         }
-        if (i != write_idx)
-          e.move_into(global_timeline_events[write_idx]);
-        ++write_idx;
+        keep(e, i);
         continue;
       }
 
       if (e.remaining_delay > 0)
         --e.remaining_delay;
       if (e.remaining_delay > 0) {
-        if (i != write_idx) {
-          e.move_into(global_timeline_events[write_idx]);
-        }
-        write_idx++;
+        keep(e, i);
         continue;
       }
 
@@ -486,7 +481,7 @@ public:
 
       // Completion & Cleanup
       bool is_done = anim->done();
-      bool keep = true;
+      bool retain = true;
 
       if (is_done) {
         bool does_repeat = anim->repeats();
@@ -497,31 +492,15 @@ public:
           // leaves it done and non-repeating; completing it here keeps the
           // removal branch from firing .then() a second time next frame.
           if (anim->done() && !anim->repeats())
-            keep = false;
+            retain = false;
         } else {
-          keep = false;
+          retain = false;
           anim->post_callback();
         }
       }
 
-      if (keep) {
-        if (i != write_idx) {
-          e.move_into(global_timeline_events[write_idx]);
-        }
-        write_idx++;
-      } else {
-        HS_CHECK(!e.pinned || anim->is_canceled(),
-                 "pinned animation completed; only cancel() may destroy a "
-                 "pinned event");
-        e.completed = !e.retired && !e.pinned && anim->orientation_id();
-        if (e.completed) {
-          if (i != write_idx)
-            e.move_into(global_timeline_events[write_idx]);
-          ++write_idx;
-        } else {
-          e.destroy();
-        }
-      }
+      if (retain || retire(e, anim))
+        keep(e, i);
     }
 
     // Move events added during callbacks into the gap left by completed ones;
@@ -565,6 +544,16 @@ public:
   static constexpr int MAX_COLLAPSE_IDS = 16;
 
 private:
+  static bool retire(TimelineEvent &e, IAnimation *anim) {
+    HS_CHECK(!e.pinned || anim->is_canceled(),
+             "pinned animation completed; only cancel() may destroy a "
+             "pinned event");
+    e.completed = !e.retired && !e.pinned && anim->orientation_id();
+    if (!e.completed)
+      e.destroy();
+    return e.completed;
+  }
+
   static bool event_paused(const TimelineEvent &event) {
     return event.paused && *event.paused;
   }

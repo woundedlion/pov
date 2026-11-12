@@ -201,7 +201,7 @@ public:
 
     // A wipe rebakes the LUT once per frame after its arming frame.
     const bool palette_moves =
-        !Spacetime::flat_surface() && wipe.in_flight() && !wipe.pending;
+        !Spacetime::flat_surface() && wipe.rebakes_this_step();
     {
       HS_PROFILE(cm_wipe_rebake);
       if (palette_moves)

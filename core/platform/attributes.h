@@ -71,8 +71,6 @@
  *  @brief `HS_FLASH_MEMBER` via .text.hot.*, without marking the code cold. */
 /** @def HS_SIZE_FLASH_MEMBER
  * @brief Size-optimized non-inlined setup code in cached flash. */
-/** @def HS_COLD_MEMBER
- *  @brief Compatibility alias of `HS_FLASH_MEMBER`. */
 /** @def HS_HOT_ITCM_MEMBER
  *  @brief Non-inlined selectively optimized hot function resident in ITCM. */
 /** @def HS_ITCM_MEMBER
@@ -99,7 +97,6 @@
 #define HS_SIZE_FLASH_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif
-#define HS_COLD_MEMBER HS_FLASH_MEMBER
 
 /** @def HS_HOT_INLINE
  *  @brief always_inline in optimized builds. At -O0 inlined bodies keep their

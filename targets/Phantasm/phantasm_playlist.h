@@ -89,29 +89,11 @@ inline constexpr uint64_t HS_PHANTASM_EFFECT_SEEDS[] = {
     HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_SEED_ONE)};
 #undef HS_PHANTASM_SEED_ONE
 
-/**
- * @brief True when `name` is one of the HS_PHANTASM_EFFECT_LIST class names.
- * @param name Effect class name to look up.
- * @return True when listed.
- */
-constexpr bool hs_in_phantasm_effect_list(const char *name) {
-#define HS_PHANTASM_NAME_MATCH(cls, duration_seconds)                          \
-  || hs_effect_name_eq(name, #cls)
-  return false HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_MATCH);
-#undef HS_PHANTASM_NAME_MATCH
-}
-
-/**
- * @brief Occurrences of `name` in HS_PHANTASM_EFFECT_LIST.
- * @param name Effect class name to count.
- * @return Number of matching entries.
- */
-constexpr int hs_phantasm_effect_list_count(const char *name) {
-#define HS_PHANTASM_NAME_COUNT(cls, duration_seconds)                          \
-  +(hs_effect_name_eq(name, #cls) ? 1 : 0)
-  return 0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_COUNT);
-#undef HS_PHANTASM_NAME_COUNT
-}
+#define HS_PHANTASM_NAME_ENTRY(cls, duration_seconds) #cls,
+/// Device playlist class names.
+inline constexpr const char *const HS_PHANTASM_NAMES[] = {
+    HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ENTRY)};
+#undef HS_PHANTASM_NAME_ENTRY
 
 /**
  * @brief Show duration HS_PHANTASM_EFFECT_LIST assigns `name`, 0 when absent.
@@ -123,28 +105,6 @@ constexpr int hs_phantasm_duration_seconds(const char *name) {
   +(hs_effect_name_eq(name, #cls) ? (duration_seconds) : 0)
   return 0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_DURATION);
 #undef HS_PHANTASM_NAME_DURATION
-}
-
-/**
- * @brief True when no HS_PHANTASM_EFFECT_LIST name appears twice.
- * @return True when every entry is distinct.
- */
-constexpr bool hs_phantasm_effect_list_is_distinct() {
-#define HS_PHANTASM_NAME_ONCE(cls, duration_seconds)                           \
-  &&(hs_phantasm_effect_list_count(#cls) == 1)
-  return true HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ONCE);
-#undef HS_PHANTASM_NAME_ONCE
-}
-
-/**
- * @brief True when every HS_PHANTASM_EFFECT_LIST name is in HS_EFFECT_LIST.
- * @return True when the playlist is a roster subset.
- */
-constexpr bool hs_phantasm_effect_list_is_subset() {
-#define HS_PHANTASM_NAME_ON_ROSTER(cls, duration_seconds)                      \
-  &&hs_in_effect_list(#cls)
-  return true HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ON_ROSTER);
-#undef HS_PHANTASM_NAME_ON_ROSTER
 }
 
 /**
@@ -172,53 +132,31 @@ constexpr int HS_PHANTASM_EXCLUDED_COUNT =
     0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_COUNT_ADD);
 #undef HS_PHANTASM_EXCLUDED_COUNT_ADD
 
-/** @brief Counts occurrences of an effect name in the exclusions.
- * @param name Effect class name.
- * @return Number of matching exclusions. */
-constexpr int hs_phantasm_excluded_effect_count(const char *name) {
-#define HS_PHANTASM_EXCLUDED_NAME_MATCH(cls)                                   \
-  +(hs_effect_name_eq(name, #cls) ? 1 : 0)
-  return 0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_NAME_MATCH);
-#undef HS_PHANTASM_EXCLUDED_NAME_MATCH
-}
-
-/** @brief Checks that each excluded effect appears once.
- * @return True when all exclusions are distinct. */
-constexpr bool hs_phantasm_exclusions_are_distinct() {
-#define HS_PHANTASM_EXCLUDED_NAME_ONCE(cls)                                    \
-  &&(hs_phantasm_excluded_effect_count(#cls) == 1)
-  return true HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_NAME_ONCE);
-#undef HS_PHANTASM_EXCLUDED_NAME_ONCE
-}
-
-/**
- * @brief True when every excluded name is in HS_EFFECT_LIST.
- * @return True when all exclusions are roster effects.
- */
-constexpr bool hs_phantasm_exclusions_are_on_roster() {
-#define HS_PHANTASM_EXCLUSION_ON_ROSTER(cls) &&hs_in_effect_list(#cls)
-  return true HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUSION_ON_ROSTER);
-#undef HS_PHANTASM_EXCLUSION_ON_ROSTER
-}
+#define HS_PHANTASM_EXCLUDED_NAME_ENTRY(cls) #cls,
+/// Roster names omitted from the device playlist.
+inline constexpr const char *const HS_PHANTASM_EXCLUDED_NAMES[] = {
+    HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_NAME_ENTRY)};
+#undef HS_PHANTASM_EXCLUDED_NAME_ENTRY
 
 /**
  * @brief True when no excluded name appears in HS_PHANTASM_EFFECT_LIST.
  * @return True when every exclusion is absent from the playlist.
  */
 constexpr bool hs_phantasm_exclusions_are_omitted() {
-#define HS_PHANTASM_EXCLUSION_OMITTED(cls) &&!hs_in_phantasm_effect_list(#cls)
-  return true HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUSION_OMITTED);
-#undef HS_PHANTASM_EXCLUSION_OMITTED
+  for (const char *name : HS_PHANTASM_EXCLUDED_NAMES)
+    if (hs_name_count(HS_PHANTASM_NAMES, name) != 0)
+      return false;
+  return true;
 }
 
 // Segmented playlist roster admission.
-static_assert(hs_phantasm_effect_list_is_distinct(),
+static_assert(hs_names_distinct(HS_PHANTASM_NAMES),
               "HS_PHANTASM_EFFECT_LIST names an effect twice — the duplicate "
               "is masking an omitted effect");
-static_assert(hs_phantasm_effect_list_is_subset(),
+static_assert(hs_names_subset(HS_PHANTASM_NAMES, HS_EFFECT_NAMES),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(hs_phantasm_exclusions_are_distinct(),
+static_assert(hs_names_distinct(HS_PHANTASM_EXCLUDED_NAMES),
               "HS_PHANTASM_EXCLUDED_EFFECTS names an effect twice");
 static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT -
                                               HS_PHANTASM_EXCLUDED_COUNT -
@@ -227,11 +165,11 @@ static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT -
               "(full roster minus the build-gated ShaderChain and "
               "the HS_PHANTASM_EXCLUDED_EFFECTS entries)");
 static_assert((!HS_ENABLE_CHAIN_INTERPRETER ||
-               hs_in_effect_list("ShaderChain")) &&
-                  hs_phantasm_exclusions_are_on_roster(),
+               hs_name_count(HS_EFFECT_NAMES, "ShaderChain") != 0) &&
+                  hs_names_subset(HS_PHANTASM_EXCLUDED_NAMES, HS_EFFECT_NAMES),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
-static_assert(!hs_in_phantasm_effect_list("ShaderChain") &&
+static_assert(hs_name_count(HS_PHANTASM_NAMES, "ShaderChain") == 0 &&
                   hs_phantasm_exclusions_are_omitted(),
               "HS_PHANTASM_EFFECT_LIST must exclude ShaderChain and "
               "every HS_PHANTASM_EXCLUDED_EFFECTS entry");

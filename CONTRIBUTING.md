@@ -64,7 +64,7 @@ plus `tools/phantasm.ld`, follow the
 `hardware/` direction rules. Linker imports use GNU ld `INCLUDE` syntax.
 
 Use `HS_FLASH_MEMBER` for internal cold inline, template and COMDAT functions.
-`HS_COLD_MEMBER` is an alias of `HS_FLASH_MEMBER`. `HS_ITCM_MEMBER` marks a
+`HS_ITCM_MEMBER` marks a
 non-inlined function kept in ITCM at the translation unit's optimization; on
 host it expands to nothing, unlike `HS_NOINLINE_NOCLONE`.
 

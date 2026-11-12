@@ -246,6 +246,13 @@ HS_HOT_ITCM_MEMBER inline float grid(const PlanePosition &coordinate,
                   params.pattern_mix);
 }
 
+/// Square root of three.
+inline constexpr float SQRT_3 = 1.7320508075688772f;
+/// Reciprocal of the square root of three.
+inline constexpr float INV_SQRT_3 = 0.5773502691896258f;
+/// Half the square root of three.
+inline constexpr float HALF_SQRT_3 = 0.8660254037844386f;
+
 /** @brief Signed distance to a centred square, rounded past its corners.
  * @param x Cell-local x.
  * @param y Cell-local y.
@@ -268,8 +275,6 @@ HS_HOT_INLINE inline float square_distance(float x, float y, float radius) {
  * @param radius Hexagon inradius.
  * @return Negative inside, positive outside. */
 HS_HOT_INLINE inline float hexagon_distance(float x, float y, float radius) {
-  constexpr float HALF_SQRT_3 = 0.8660254037844386f;
-  constexpr float INV_SQRT_3 = 0.5773502691896258f;
   float across = fabsf(y);
   float along = fabsf(x);
   const float fold = fminf(0.5f * along - HALF_SQRT_3 * across, 0.0f);
@@ -288,7 +293,6 @@ HS_HOT_INLINE inline float hexagon_distance(float x, float y, float radius) {
  * @param radius Triangle inradius.
  * @return Negative inside, positive outside. */
 HS_HOT_INLINE inline float triangle_distance(float x, float y, float radius) {
-  constexpr float SQRT_3 = 1.7320508075688772f;
   const float half_side = SQRT_3 * radius;
   float px = fabsf(x) - half_side;
   float py = y + radius;
@@ -342,8 +346,6 @@ HS_HOT_INLINE inline float cell_primitive(float x, float y,
  * @param y Receives the offset's y, in periods. */
 HS_HOT_INLINE inline void nearest_hexagonal_offset(float u, float v, float &x,
                                                    float &y) {
-  constexpr float SQRT_3 = 1.7320508075688772f;
-  constexpr float INV_SQRT_3 = 0.5773502691896258f;
   const float row = v * INV_SQRT_3;
   const float ax = math::wrap_t(u + 0.5f) - 0.5f;
   const float ay = SQRT_3 * (math::wrap_t(row + 0.5f) - 0.5f);
@@ -363,8 +365,6 @@ HS_HOT_INLINE inline void nearest_hexagonal_offset(float u, float v, float &x,
  * @param y Receives the offset's y, in cell units. */
 HS_HOT_INLINE inline void triangular_cell_offset(float u, float v, float &x,
                                                  float &y) {
-  constexpr float SQRT_3 = 1.7320508075688772f;
-  constexpr float INV_SQRT_3 = 0.5773502691896258f;
   const float b = 2.0f * INV_SQRT_3 * v;
   const float fa = math::wrap_t(u - 0.5f * b);
   const float fb = math::wrap_t(b);
@@ -440,7 +440,6 @@ HS_O3_FN inline float distance_to_lattice_line(float coordinate) {
     @return Distance in cell units; one half at a cell centre. */
 template <TessellationKind Kind>
 HS_HOT_INLINE inline float tessellation_edge_distance(float u, float v) {
-  constexpr float HALF_SQRT_3 = 0.8660254037844386f;
   if constexpr (Kind == TessellationKind::SQUARE) {
     const float cell_x = math::wrap_t(u + 0.5f) - 0.5f;
     const float cell_y = math::wrap_t(v + 0.5f) - 0.5f;
