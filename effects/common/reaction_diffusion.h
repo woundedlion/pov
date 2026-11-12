@@ -525,7 +525,7 @@ protected:
    * @tparam FlashNodes Bind the generated flash positions without an arena copy.
    * @details Reserves the RD_N nodes, fills the static Fibonacci lattice, builds
    * the cubemap lookup, and installs the orientation random walk. Call after
-   * configure_arenas() and the derived class's persistent allocations.
+   * configure_rd_arenas() and the derived class's persistent allocations.
    */
   template <bool FlashNodes = false> HS_FLASH_MEMBER void init_lattice() {
     HS_CHECK(
@@ -534,7 +534,7 @@ protected:
                 ReactionGraph::CubemapLUT::BYTES + alignof(math::Vector) +
                 alignof(ReactionGraph::CubemapLUT::Texel),
         "ReactionDiffusion: persistent arena not sized for the shared node "
-        "array and cubemap LUT; configure_arenas() must run before init_lattice()");
+        "array and cubemap LUT; configure_rd_arenas() must run before init_lattice()");
     ReactionGraph::validate_neighbor_runs();
     if constexpr (FlashNodes) {
       nodes = ReactionGraph::node_positions;

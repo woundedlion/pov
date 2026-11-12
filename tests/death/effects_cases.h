@@ -340,7 +340,24 @@ struct UninitializedReactionLattice
   void init() override {}
   void render(Canvas &) {}
   using ReactionDiffusionBase::orient_lattice;
+  using ReactionDiffusionBase::init_lattice;
 };
+
+inline void check_reaction_lattice_arena_companion() {
+  reset_globals();
+  {
+    UninitializedReactionLattice effect;
+    effect.init_lattice();
+    HS_EXPECT_GT(persistent_arena.get_offset(), 0u);
+  }
+  reset_globals();
+}
+
+inline void case_reaction_lattice_arena_missing() {
+  configure_arenas(0, 0, 0);
+  UninitializedReactionLattice effect;
+  effect.init_lattice();
+}
 
 inline void case_reaction_lattice_uninitialized() {
   UninitializedReactionLattice effect;

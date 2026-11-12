@@ -737,6 +737,15 @@ inline const Case *all_cases(int &n) {
           {"shader_chain_missing_colorize", case_shader_chain_missing_colorize,
            "workbench/shader/chain_host.h",
            "(false) ShaderChain: compiled program has no colorize entry"},
+          {"reaction_lattice_arena_missing",
+           case_reaction_lattice_arena_missing,
+           "effects/common/reaction_diffusion.h",
+           "(persistent_arena.get_capacity() - persistent_arena.get_offset() >= "
+           "(FlashNodes ? 0 : RD_N * sizeof(math::Vector)) + "
+           "ReactionGraph::CubemapLUT::BYTES + alignof(math::Vector) + "
+           "alignof(ReactionGraph::CubemapLUT::Texel)) "
+           "ReactionDiffusion: persistent arena not sized for the shared node "
+           "array and cubemap LUT; configure_rd_arenas() must run before init_lattice()"},
           {"reaction_lattice_uninitialized",
            case_reaction_lattice_uninitialized,
            "effects/common/reaction_diffusion.h",
@@ -1071,8 +1080,7 @@ inline const Case *all_cases(int &n) {
            true},
           {"arena_span_reset", case_arena_span_reset, "core/memory/span.h",
            "(!stamp.arena_reset()) ArenaSpan use-after-free!", true},
-          {"arena_span_cleared", case_arena_span_cleared,
-           "core/memory/span.h", "(!source_vec || source_vec->rebind_generation == source_rebind_generation) ArenaSpan source vector rebound or cleared under span!",
+          {"arena_span_cleared", case_arena_span_cleared, "core/memory/span.h", "(!source_vec || source_vec->rebind_generation == source_rebind_generation) ArenaSpan source vector rebound or cleared under span!",
            true},
           {"arena_span_rewound", case_arena_span_rewound, "core/memory/span.h",
            "(!stamp.block_uncovered(elements, bytes)) ArenaSpan use-after-free (arena rewound below span)!",
@@ -1921,8 +1929,7 @@ inline const Case *all_cases(int &n) {
           {"chain_zero_alignment", case_chain_zero_alignment,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-          {"chain_non_power_alignment",
-           case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+          {"chain_non_power_alignment", case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
           {"chain_overaligned_block", case_chain_overaligned_block,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
@@ -3095,6 +3102,7 @@ inline int run_death_tests() {
   }
   check_shader_chain_colorize_companion();
   check_islamicstars_landing_handoff_companion();
+  check_reaction_lattice_arena_companion();
   check_hyperlattice_trace_companion();
   check_catalog_field_curve_companion();
   if (shard.role == ShardSpec::Role::SHARD)
