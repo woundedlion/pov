@@ -300,7 +300,6 @@ template <> struct sdf_max_spans<Star> {
 template <> struct sdf_max_spans<Line> {
   static constexpr size_t value = 1; ///< Max spans per row.
 };
-// Face replays its azimuth-coverage span from FaceScratchBuffer::intervals.
 /// Face replays up to two azimuth-coverage spans per row.
 template <> struct sdf_max_spans<Face> {
   static constexpr size_t value = 2; ///< Max spans per row.

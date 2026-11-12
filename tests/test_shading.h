@@ -267,7 +267,7 @@ inline void test_shade_blinn_phong() {
                  1e-6f);
   HS_EXPECT_NEAR(term(UP, DOWN, 0, 1, 0), 0.0f, 1e-6f);
 
-  // Fresnel rim: 1 at grazing view, 0 head-on and from behind.
+  // Fresnel rim: 1 at grazing view and from behind, 0 head-on.
   HS_EXPECT_NEAR(term(SIDE, UP, 0, 0, 1), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(term(UP, UP, 0, 0, 1), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(term(DOWN, UP, 0, 0, 1), 1.0f, 1e-6f);

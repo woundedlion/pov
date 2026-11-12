@@ -350,7 +350,7 @@ The setup-inclusive red counts remain visible even when later frames meet the st
 - No full preset cycle is involved: GridSpace has one authored preset and the harness applies one recipe override per capture.
 - Raw logs, envdumps, source-copy manifests, build logs and ELF artifacts are local outputs. Base commit IDs identify ancestry but do not make dirty capture inputs reproducible from a fresh clone.
 
-This direct-lightness recapture also bypassed effect admission and predates the baked-noise-only GridSpace policy; it does not qualify direct noise for shipping.
+The final recapture described below also bypassed effect admission and predates the baked-noise-only GridSpace policy; it does not qualify direct noise for shipping.
 
 The final temporal-column storage implementation was recaptured on COM4 using
 host `0448cff3c039f64c8dba5253266e17df065c2083`: configured-single noise,

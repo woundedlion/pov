@@ -252,8 +252,6 @@ inline void case_scan_moving_face_index_max() {
 
 /**
  * @brief Death case: a class bake naming a class the class table does not hold.
- * @details ArenaVector::operator[] only asserts; Scan::Mesh bounds the id
- *          per face.
  */
 inline void case_scan_mesh_class_id_out_of_range() {
   constexpr int W = 32, H = 16;

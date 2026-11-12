@@ -470,7 +470,7 @@ public:
                                                 "octave-contour"};
   static_assert(std::size(VARIANT_IDS) ==
                 static_cast<size_t>(Pattern::NoiseVariant::OCTAVE_CONTOUR) + 1);
-  /// Modulation parameter schema appended to the palette controls.
+  /// Modulation parameter schema: source, mechanic and selector rows.
   static constexpr auto EXTRA_SCHEMA = [] {
     std::array<ParamFieldInfo, SLOT_COUNT> out{};
     const char *ids[] = {"modulation-amount",

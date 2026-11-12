@@ -393,7 +393,7 @@ private:
    * @brief Builds the vertex directions, per-vertex orientation quaternions,
    *        and nearest-neighbour gaps of the selected base solid.
    * @details Generates the solid from the registry into the scratch arenas
-   *          (reclaimed on scope exit) via the shared HS_COLD builder, so draw_fn
+   *          (reclaimed on scope exit), so draw_fn
    *          can size every torus to its own local gap.
    */
   HS_FLASH_MEMBER void build_points() {

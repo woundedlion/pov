@@ -288,7 +288,8 @@ inline void test_palette_rgb_cache_bake_reuse() {
   reused.bake(current);
   HS_EXPECT_TRUE(current.rgb_nodes == nullptr);
 }
-/** @brief Literal endpoints and missing RGB views retain the ordinary palette paths. */
+/** @brief The start endpoint uses the ordinary palette path; the end and interior
+ * use the shared base, sampling Lab nodes when RGB views are missing. */
 inline void test_palette_rgb_cache_shared_base_endpoints() {
   using FX = AshCloud<96, 20>;
   using Policy = Pullback::Color::GeneratedPalette<Pullback::ColorProvider<

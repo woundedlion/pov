@@ -24,11 +24,12 @@ HS_O3_BEGIN
  */
 template <int W, int H> class AntiAlias : public Is2D {
 public:
-  /** @brief Tap-position error of splatting a linearly moving sample at one time.
- * @param x Column of the splat.
- * @param dx,dy Column and row motion over the frame.
- * @return Bound, in pixels, on how far a tap's own-time position lies from
- *         the splat's: the motion over the farther tap column's lag. */
+  /** @brief Tap-position error of splatting a linearly moving sample
+   *         at one time.
+   * @param x Column of the splat.
+   * @param dx,dy Column and row motion over the frame.
+   * @return Bound, in pixels, on how far a tap's own-time position lies from
+   *         the splat's: the motion over the farther tap column's lag. */
   HS_HOT_INLINE static inline float tap_motion_error(float x, float dx,
                                                      float dy) {
     const float fraction = x - floorf(x);

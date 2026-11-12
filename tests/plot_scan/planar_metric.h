@@ -102,7 +102,8 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
 
 /**
  * @brief planar_arc_length matches a fine libm quadrature of the edge.
- * @details Most edges must bow past their great-circle chord.
+ * @details Enough edges must bow past their great-circle chord to separate
+ *          the planar metric from the geodesic one.
  */
 inline void test_planar_arc_length_matches_fine_quadrature() {
   hs::random().seed(0xD41A);

@@ -30,8 +30,8 @@ struct SimHandoff : pov::EffectHandoff<SimEffect> {
 /**
  * @brief One simulated board: its SyncBoard engine plus the host-side state the
  *        simulator models around it.
- * @details The modeled state covers crystal offset/phase, the masked-IRQ latch,
- *          symbol-drop and EMI windows, the foreground build/commit model, and
+ * @details The modeled state covers crystal offset/phase, the masked-IRQ windows
+ *          and latch, the symbol-drop window, the foreground build/commit model, and
  *          probes.
  */
 struct SimBoard {

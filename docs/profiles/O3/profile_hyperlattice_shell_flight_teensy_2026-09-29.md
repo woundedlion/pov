@@ -14,7 +14,7 @@ Portable raw captures, validation, summaries and build provenance are in the evi
 | Image | `profile_o3`; newlib-nano, DMA LEDs, experimental geometry enabled |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
 | Effect | HyperLattice 288×144, source `5ebb5655c52ddc654b899935af5c5574035b3c82` |
-| Method | Four fixed-preset runs, 30 s each, window 16. Camera and palette move. Exact runtime telemetry excludes frame 1 only; scope trees use complete windows after frame 1. No transition or cycle capture. |
+| Method | Two fixed-preset runs (indices 5 and 6), 30 s each, window 16; the paired report holds the matching runs on the other image. Camera and palette move. Exact runtime telemetry excludes frame 1 only; scope trees use complete windows after frame 1. No transition or cycle capture. |
 | Reproduce | `HS_PROFILE_TREE=<tree> HS_TEENSY_PORT=COM4 bash tools/profile_one.sh HyperLattice profile_o3 30 16 "-D HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -D HS_PROFILE_PRESET=<index>"` |
 
 Each instrumented capture attests the default Phantasm image, which passes its size/layout gate.

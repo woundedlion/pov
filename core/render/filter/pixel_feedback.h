@@ -2347,9 +2347,9 @@ private:
   }
 
   /**
-   * @brief Bilinearly samples the Canvas front buffer (previous frame).
+   * @brief Bilinearly samples a frame buffer.
    * @param field Spherical topology and interpolation policy.
-   * @param prev Base of the previous-frame buffer, row-major with stride W.
+   * @param prev Base of the frame buffer sampled, row-major with stride W.
    * @param poles Shared values for every aliased column of the pole rows.
    * @param bx Fractional column in [-W, 2W).
    * @param by Fractional row; north crossings reflect with a half-turn.
@@ -2593,7 +2593,8 @@ private:
   }
 
   ::Feedback::Style *feedback_style; /**< Bound feedback Style (non-owning). */
-  bool enabled = true;               /**< When false, flush() is skipped. */
+  /** When false, flush() only clears a stale drawing buffer. */
+  bool enabled = true;
   /** Split frame flush_split() holds for finish(), or null. */
   FlushContext *held = nullptr;
   /** scratch_arena_a offset finish() rewinds to. */

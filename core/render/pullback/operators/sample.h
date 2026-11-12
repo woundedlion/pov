@@ -137,8 +137,8 @@ inline float projection_coverage(uint8_t coverage_mode,
   return ProjectionCoverage::Weight::apply(provenance, ctx);
 }
 
-/** @brief The parameters every Sample crossing family carries: the edge-fade
-    width and the weight and coverage enum8s. */
+/** @brief The parameters every plane-to-field Sample crossing family carries:
+    the edge-fade width and the weight and coverage enum8s. */
 struct SampleCrossingParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;

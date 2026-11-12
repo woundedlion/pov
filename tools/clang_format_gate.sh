@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # clang-format --dry-run --Werror over the whole tracked first-party C++ set.
 #
-# The pathspec and exclusion regex are pinned to the tools/commit_checks.sh copy
-# by tools/build_pins.py --check. xargs on an empty list exits 0, so the
+# tools/build_pins.py --check pins the pathspec and exclusion regex to the
+# extension set and exclusion regex tools/commit_checks.sh uses.
+# xargs on an empty list exits 0, so the
 # selection is asserted non-empty.
 #
 # usage: clang_format_gate.sh

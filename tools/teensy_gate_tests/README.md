@@ -36,7 +36,7 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `real/holosphere_size_a.txt` | Verbatim `size -A` for the fallback bucketing path. |
 | `real/phantasm_teensy_size.txt` | Verbatim `teensy_size` for `[env:phantasm]` — the calibrated region totals the end-to-end `evaluate()` test runs against. |
 | `real/phantasm_teensy_size_historical.txt` | Retained earlier `teensy_size` output for the calibrated bank-headroom regression. |
-| `real/phantasm_readelf_syms.txt` | `readelf -sW` rows for the layout symbols the historical full-table budget names, excerpted verbatim from the full table (the whole dump is ~600 KB). |
+| `real/phantasm_readelf_syms.txt` | `readelf -sW` rows for the layout symbols the historical full-table budget names, excerpted verbatim from the full table. |
 | `real/phantasm_readelf_secs.txt` | Verbatim `readelf -SW`; also pins `.ARM.exidx` to flash, where `tools/phantasm.ld` routes it. |
 | `real/phantasm_size_a.txt` | Verbatim `size -A` for the fallback bucketing path. |
 

@@ -877,7 +877,7 @@ struct StatelessModel : ValueStateModel<EmptyState> {
  * @brief Derives one OperatorDescriptor from a typed operator model.
  * @details Every derivable field comes from the member that owns it: carriers
  * from Input/Output, block layouts from sizeof/alignof, the schema from the
- * family FIELDS and TOPOLOGY tables, the callbacks as typed-to-erased
+ * family FIELDS, TOPOLOGY and EXTRA_SCHEMA tables, the callbacks as typed-to-erased
  * trampolines, and approximation metadata from the model's declarations.
  * @tparam Model The operator model.
  * @return The model's descriptor.

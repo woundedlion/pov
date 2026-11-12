@@ -23,7 +23,7 @@
  * @brief Concrete chain-interpreter operator models: erased adapters over the
  *        shared carrier kernels, with param-block-backed policy math. The
  *        per-family headers carry the family batches; this header aggregates
- *        them and keeps the camera rotation and colorize exit operators.
+ *        them and keeps the camera rotation, colorize and modulation operators.
  */
 
 namespace Pullback {
