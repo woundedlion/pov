@@ -1880,13 +1880,13 @@ inline const Case *all_cases(int &n) {
            "(rec.class_id < bake->classes.size()) mesh class bake face record "
            "names an unknown class"},
           {"scan_ring_stack_too_many_slots",
-           case_scan_ring_stack_too_many_slots, "core/render/scan/shapes.h",
+           case_scan_ring_stack_too_many_slots, "core/render/scan/ring_stack.h",
            "(n_slots <= INT8_MAX) ring stack exceeds the signed slot index range"},
           {"scan_ring_stack_too_many_rings",
-           case_scan_ring_stack_too_many_rings, "core/render/scan/shapes.h",
+           case_scan_ring_stack_too_many_rings, "core/render/scan/ring_stack.h",
            "(n_rings <= Table::MAX_RINGS) ring stack exceeds the candidate table's ring index range"},
           {"scan_ring_stack_callback_ring", case_scan_ring_stack_callback_ring,
-           "core/render/scan/shapes.h",
+           "core/render/scan/ring_stack.h",
            "(shapes[s].knots != nullptr) ring stack rings must be knot rings"},
           // pullback
           {"catalog_curve_midpoint", case_catalog_curve_midpoint,

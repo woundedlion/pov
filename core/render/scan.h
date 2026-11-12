@@ -11,6 +11,7 @@
 
 #include "core/render/scan/raster.h"
 #include "core/render/scan/shapes.h"
+#include "core/render/scan/ring_stack.h"
 #include "core/render/scan/mesh.h"
 #include "core/render/scan/shader.h"
 #include "core/render/scan/volume.h"
