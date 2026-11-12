@@ -294,3 +294,26 @@ inline void test_column_poses_match_endpoint_slerp() {
   HS_EXPECT_EQ(visited, W / 2);
   HS_EXPECT_LT(worst, 1e-6f);
 }
+
+/** @brief Rotation vectors carry endpoint points across short and signed steps. */
+inline void test_rotation_vector_endpoints() {
+  const math::Quaternion previous = math::make_rotation(math::X_AXIS, 0.7f);
+  const math::Vector point = math::Vector(0.3f, 0.4f, 0.5f).normalized();
+  for (float angle : {0.0f, 1e-7f, 0.4f, 2.9f}) {
+    for (float sign : {-1.0f, 1.0f}) {
+      const math::Quaternion current =
+          sign * (math::make_rotation(math::Y_AXIS, angle) * previous);
+      const math::Vector turn = Spacetime::rotation_vector(previous, current);
+      const math::Vector from = math::rotate(point, previous);
+      const math::Vector expected = math::rotate(point, current);
+      const math::Vector actual = Spacetime::rotate_by(from, turn);
+      HS_EXPECT_NEAR(math::dot(actual - expected, actual - expected), 0.0f,
+                     1e-10f);
+      const math::Quaternion history[] = {previous, current};
+      const auto bound = Spacetime::history_turn(history, 2);
+      HS_EXPECT_EQ(bound.arc,
+                   Spacetime::rotation_angle(current * previous.conjugate()));
+      HS_EXPECT_EQ(bound.rate, bound.arc);
+    }
+  }
+}

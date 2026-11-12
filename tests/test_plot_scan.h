@@ -121,6 +121,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(hs_test::test_temporal_oracle_uses_whole_frame_endpoint_budget);
   HS_RUN(test_column_chunk_capacity_boundary);
   HS_RUN(test_retained_endpoint_lifecycle);
+  HS_RUN(test_rotation_vector_endpoints);
   HS_RUN(test_timed_projected_entry_bypasses_world);
   HS_RUN(test_timed_edge_endpoint_registers);
   HS_RUN(test_timed_mesh_endpoint_cache);

@@ -21,6 +21,34 @@
 namespace Spacetime {
 
 /**
+ * @brief Rotation angle of a unit quaternion step, in radians.
+ * @param step Rotation quaternion.
+ * @return The angle in [0, PI].
+ */
+HS_HOT_INLINE inline float rotation_angle(const math::Quaternion &step) {
+  return 2.0f * asinf(fminf(sqrtf(math::dot(step.v, step.v)), 1.0f));
+}
+
+/**
+ * @brief Shortest rotation carrying the previous pose to the current pose.
+ * @param previous Previous unit orientation.
+ * @param current Current unit orientation.
+ * @return Axis scaled by the rotation angle in radians.
+ */
+HS_HOT_INLINE inline math::Vector
+rotation_vector(const math::Quaternion &previous,
+                const math::Quaternion &current) {
+  math::Quaternion step = current * previous.conjugate();
+  if (step.r < 0.0f)
+    step = -step;
+  const float half_sine = sqrtf(math::dot(step.v, step.v));
+  const float angle = rotation_angle(step);
+  if (half_sine > 1e-6f)
+    return step.v * (angle / half_sine);
+  return step.v * 2.0f;
+}
+
+/**
  * @brief Whether every history pose has exactly the last pose's components.
  * @param history Unit poses, oldest first.
  * @param count History length, at least 1.
@@ -128,8 +156,7 @@ HS_FLASH_INLINE inline HistoryTurn history_turn(const math::Quaternion *history,
   float arc = 0.0f, fastest = 0.0f;
   for (int i = 1; i < count; ++i) {
     const math::Quaternion step = history[i] * history[i - 1].conjugate();
-    const float angle =
-        2.0f * asinf(fminf(sqrtf(math::dot(step.v, step.v)), 1.0f));
+    const float angle = rotation_angle(step);
     arc += angle;
     fastest = fmaxf(fastest, angle);
   }

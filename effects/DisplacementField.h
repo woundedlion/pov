@@ -529,15 +529,7 @@ private:
                             std::fabs(amplitude)) > FIELD_AMPLITUDE_CUT;
     if (!noise && n_balls == 0)
       return false;
-    math::Quaternion step = current * previous.conjugate();
-    if (step.r < 0.0f)
-      step = -step;
-    const float half_sine = sqrtf(math::dot(step.v, step.v));
-    const float angle = 2.0f * asinf(fminf(half_sine, 1.0f));
-    if (half_sine > 1e-6f)
-      sweep.turn = step.v * (angle / half_sine);
-    else
-      sweep.turn = step.v * 2.0f;
+    sweep.turn = Spacetime::rotation_vector(previous, current);
     return true;
   }
 
