@@ -909,6 +909,24 @@ inline void test_collapsing_faces_land_on_host_palette() {
   HS_EXPECT_GT(checked, 0);
 }
 
+/** @brief Checks the first frame's handed-off and newborn palette colors. */
+inline void expect_frame_one_shading(const ShadingSnapshot &snap,
+                                     const Animation::OpLeg::Landing &landing,
+                                     const uint8_t *pal,
+                                     const MeshPaletteBank &bank) {
+  for (size_t f = 0; f < snap.colors.size(); ++f) {
+    const uint8_t to =
+        landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
+    const uint8_t from = f < landing.primary_faces ? pal[f] : to;
+    HS_EXPECT_LT(from, Animation::OpLeg::PALETTES);
+    if (from >= Animation::OpLeg::PALETTES)
+      continue;
+    for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
+      expect_color_eq(snap.colors[f][s],
+                      bank.bank.entries[from].get(RAMP_SAMPLES[s]));
+  }
+}
+
 /**
  * @brief Verifies the crossfade endpoints on an emission-order leg (cube ->
  *        truncated_cube): frame 1 (w = 0) shades every surviving face from the
@@ -967,19 +985,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   // Frame 1: p = 1/SWEEP < 20%, so w == 0 — the mapped from-state, exactly.
   step_and_snapshot(anim, fx, snap);
   HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
-  for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to =
-        landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
-    const uint8_t from = f < landing.primary_faces
-                             ? pal[f]
-                             : to; // newborn faces skip the crossfade
-    HS_EXPECT_LT(from, Animation::OpLeg::PALETTES);
-    if (from >= Animation::OpLeg::PALETTES)
-      continue;
-    for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
-      expect_color_eq(snap.colors[f][s],
-                      bank.bank.entries[from].get(RAMP_SAMPLES[s]));
-  }
+  expect_frame_one_shading(snap, landing, pal, bank);
 
   for (int f = 1; f < SWEEP / 2; ++f)
     step_and_snapshot(anim, fx, snap);
@@ -1078,17 +1084,7 @@ inline void test_palette_mapping_total_all_edges() {
     HS_EXPECT_EQ(snap.colors.size(), landing.faces);
     if (snap.colors.size() != landing.faces)
       continue;
-    for (size_t f = 0; f < snap.colors.size(); ++f) {
-      const uint8_t to =
-          landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
-      const uint8_t from = f < landing.primary_faces ? pal[f] : to;
-      HS_EXPECT_LT(from, Animation::OpLeg::PALETTES);
-      if (from >= Animation::OpLeg::PALETTES)
-        continue;
-      for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
-        expect_color_eq(snap.colors[f][s],
-                        bank.bank.entries[from].get(RAMP_SAMPLES[s]));
-    }
+    expect_frame_one_shading(snap, landing, pal, bank);
 
     if (hs_test::stats().failed != failed_before)
       std::printf("    [mapping] edge %d: %s -> %s\n", ei,
@@ -1678,6 +1674,7 @@ constexpr uint32_t STRAP_SWEEP_EPOCHS[] = {1, 2, 3, 5, 8, 13, 15};
 
 /** Destination arrivals validated per swept seed. */
 constexpr int STRAP_SWEEP_ARRIVALS[] = {6, 6, 18, 6, 18, 26, 26};
+static_assert(std::size(STRAP_SWEEP_EPOCHS) == std::size(STRAP_SWEEP_ARRIVALS));
 
 /**
  * @brief Seed-swept strap continuity: across STRAP_SWEEP_EPOCHS, every strap

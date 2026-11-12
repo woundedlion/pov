@@ -63,6 +63,13 @@ struct IslamicBuildProbe {
   static void invalid_bridge_continuation(IS &e) {
     e.schedule_dual_bridge(IS::BuildContinuation::DUAL_DONE);
   }
+  static Animation::OpLeg::PaletteHandoff
+  landing_handoff(IS &e, const Animation::OpLeg::Landing &landing, size_t faces,
+                  Arena &scratch) {
+    e.build_landing = &landing;
+    return e.landing_handoff(faces, scratch,
+                             Animation::OpLeg::FaceCorrespondence::GEOMETRIC);
+  }
 
   template <int W, int H>
   static void set_trans_speed(IslamicStars<W, H> &e, float v) {

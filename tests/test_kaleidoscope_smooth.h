@@ -23,7 +23,7 @@ using KaleidoscopeSmoothWhiteBox =
 /**
  * @brief Smooth exports the expected identity and stage resources.
  */
-inline void test_kaleidoscope_smooth_identity_and_presets() {
+inline void test_kaleidoscope_smooth_identity_and_controls() {
   using WB = KaleidoscopeSmoothWhiteBox;
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "kaleidoscope-smooth");
@@ -102,7 +102,7 @@ inline void test_kaleidoscope_smooth_chain_equivalence() {
 
 inline int run_kaleidoscope_smooth_tests() {
   ModuleFixture fixture("kaleidoscope_smooth");
-  HS_RUN(test_kaleidoscope_smooth_identity_and_presets);
+  HS_RUN(test_kaleidoscope_smooth_identity_and_controls);
   HS_RUN(test_kaleidoscope_smooth_transition_contract);
   HS_RUN(test_kaleidoscope_smooth_chain_equivalence);
   return fixture.result();

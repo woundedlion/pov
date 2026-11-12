@@ -43,9 +43,8 @@ inline void test_twist_displacement_paths() {
   const auto native = In::Op::LensTwist::run(input, ctx, frame.twist, prepared);
   HS_EXPECT_NEAR(typed.path_length, expected, 2e-3f);
   HS_EXPECT_NEAR(native.path_length, expected, 2e-3f);
-  const double A = lenses::TWIST_DISTRIBUTION * 0.999;
-  const double angle =
-      0.5 * lenses::TWIST_ANGLE * (A == 0 ? 0.5 : atanh(A * 0.5) / atanh(A));
+  const double angle = twist_reference_angle(lenses::TWIST_ANGLE,
+                                             lenses::TWIST_DISTRIBUTION, 0.5);
   const auto fixed = lens_path_stage<PB::Lens::Twist>(input, frame);
   HS_EXPECT_NEAR(fixed.path_length, 0.125 + acos(0.25 + 0.75 * cos(angle)),
                  3e-3f);

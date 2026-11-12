@@ -7,6 +7,15 @@
 // Headless rasterize() harness.
 // ---------------------------------------------------------------------------
 
+/** @brief Scoped override of the raster step budget. */
+struct ScopedStepBudget {
+  decltype(Plot::g_step_budget_override) saved = Plot::g_step_budget_override;
+  explicit ScopedStepBudget(decltype(saved) budget) {
+    Plot::g_step_budget_override = budget;
+  }
+  ~ScopedStepBudget() { Plot::g_step_budget_override = saved; }
+};
+
 /** @brief One planar star or flower contour to stroke. */
 struct PlanarShapeCase {
   math::Quaternion orientation;

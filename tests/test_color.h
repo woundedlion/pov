@@ -9,6 +9,7 @@
 #include <array>
 #include <bit>
 #include <cmath>
+#include <numbers>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

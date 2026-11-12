@@ -280,6 +280,40 @@ inline void case_islamicstars_bridge_continuation() {
   effects_tests::IslamicBuildProbe::invalid_bridge_continuation(effect);
 }
 
+/** @brief A landing carries the departed face's palette into the next leg. */
+inline void check_islamicstars_landing_handoff_companion() {
+  using WB = effects_tests::IslamicBuildProbe;
+  hs_test::reset_globals();
+  WB::IS effect;
+  const uint16_t topology[] = {0};
+  const uint8_t palettes[] = {5};
+  const Animation::OpLeg::Landing landing{.topology = topology,
+                                          .faces = 1,
+                                          .from_palette = palettes,
+                                          .preserve_palette = true};
+  uint8_t storage[64];
+  Arena scratch(storage, sizeof(storage));
+  const auto handoff = WB::landing_handoff(effect, landing, 1, scratch);
+  HS_EXPECT_EQ(handoff.prev_faces, 1u);
+  HS_EXPECT_EQ(handoff.prev_face_palette[0], 5);
+}
+
+/** @brief A landing must cover every face in the departed mesh. */
+inline void case_islamicstars_landing_handoff_short() {
+  using WB = effects_tests::IslamicBuildProbe;
+  hs_test::reset_globals();
+  WB::IS effect;
+  const uint16_t topology[] = {0};
+  const uint8_t palettes[] = {5};
+  const Animation::OpLeg::Landing landing{.topology = topology,
+                                          .faces = 1,
+                                          .from_palette = palettes,
+                                          .preserve_palette = true};
+  uint8_t storage[64];
+  Arena scratch(storage, sizeof(storage));
+  (void)WB::landing_handoff(effect, landing, opaque(size_t{2}), scratch);
+}
+
 /** @brief Death case: a Hankin step has no eagerly generated endpoint. */
 inline void case_islamicstars_hankin_eager_endpoint() {
   using WB = effects_tests::IslamicBuildProbe;

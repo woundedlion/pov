@@ -117,7 +117,10 @@ inline void test_sphere_face_linear_table() {
   for (int face = 0; face < Pattern::SphereLutView::FACE_COUNT; ++face)
     for (float u : {-1.0f, -0.25f, 1.0f})
       for (float v : {-1.0f, 0.25f, 1.0f}) {
-        const float expected = (face * 10 + (u + v + 2) * 11.5f) / 127.0f;
+        const float expected =
+            (face * 10 +
+             (u + v + 2) * ((Pattern::SphereLutView::FACE_STEPS - 1) * 0.5f)) /
+            127.0f;
         HS_EXPECT_NEAR(Pattern::sample_sphere_lut_face(view, face, u, v),
                        expected, 2e-7f);
       }

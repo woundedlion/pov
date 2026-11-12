@@ -11,7 +11,9 @@ import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 from pin_landing import dangling_pins, pin_positions, placed_pins  # noqa: E402
 
-SCHEMATIC = GEN.parent / "1.1" / "phantasm.kicad_sch"
+from committed_boards import committed_project  # noqa: E402
+
+SCHEMATIC = committed_project() / "phantasm.kicad_sch"
 
 ORIGIN = (10.0, 20.0)
 LOCAL = (2.0, 1.0)  # library frame, y up

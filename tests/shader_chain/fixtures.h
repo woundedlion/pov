@@ -5,6 +5,13 @@
 
 // --- fixtures -------------------------------------------------------------
 
+/** @brief Closed-form twist angle at a signed height. */
+inline double twist_reference_angle(double total, double distribution,
+                                    double height) {
+  const double a = distribution * lenses::TWIST_PROFILE_MAX;
+  return 0.5 * total * (a == 0.0 ? height : atanh(a * height) / atanh(a));
+}
+
 /** @brief Requires an operator lookup to succeed before descriptor access. */
 inline const In::OperatorDescriptor *require_operator(std::string_view id) {
   const auto *op = In::find_operator(id);

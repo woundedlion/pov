@@ -13,7 +13,9 @@ import connectivity  # noqa: E402
 import pcb  # noqa: E402
 import sexp  # noqa: E402
 
-ROUTED = GEN.parent / "1.1" / "phantasm.kicad_pcb"
+from committed_boards import committed_board  # noqa: E402
+
+ROUTED = committed_board()
 
 # One F.Cu track between two SMD pads, plus a second pad pair the track misses.
 BOARD = """(kicad_pcb

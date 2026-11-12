@@ -152,76 +152,65 @@ inline void case_pullback_column_nonunit_direction() {
   (void)result;
 }
 
+/** @brief Prepares an operator with an invalid enum field. */
+template <typename Op, auto Field>
+inline void prepare_operator_with(uint8_t value = 0xff) {
+  typename Op::Params params;
+  params.*Field = opaque(value);
+  typename Op::State state;
+  Pullback::Interp::FrameContext context{};
+  (void)Op::prepare(context, params, state);
+}
+
 /** @brief Death case: a Sample operator rejects an unknown coverage mode. */
 inline void case_pullback_operator_invalid_coverage_mode() {
-  Pullback::Interp::Op::GridSampleParams params;
-  params.coverage_mode = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::SourceClockState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::SampleGridV4::prepare(context, params, state);
+  prepare_operator_with<
+      Pullback::Interp::Op::SampleGridV4,
+      &Pullback::Interp::Op::GridSampleParams::coverage_mode>();
 }
 
 /** @brief Death case: a Sample operator rejects an unknown weight mode. */
 inline void case_pullback_operator_invalid_weight_mode() {
-  Pullback::Interp::Op::GridSampleParams params;
-  params.weight_mode = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::SourceClockState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::SampleGridV4::prepare(context, params, state);
+  prepare_operator_with<Pullback::Interp::Op::SampleGridV4,
+                        &Pullback::Interp::Op::GridSampleParams::weight_mode>();
 }
 
 /** @brief Death case: a warp operator rejects an unknown envelope. */
 inline void case_pullback_operator_invalid_warp_envelope() {
-  Pullback::Interp::Op::WaveShearWarpParams params;
-  params.envelope = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::WarpPhaseState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::WarpWaveShear::prepare(context, params, state);
+  prepare_operator_with<Pullback::Interp::Op::WarpWaveShear,
+                        &Pullback::Interp::Op::WaveShearWarpParams::envelope>();
 }
 
 /** @brief Death case: the polar chart rejects an unknown polar mode. */
 inline void case_pullback_operator_invalid_polar_mode() {
-  Pullback::Interp::Op::PolarChartParams params;
-  params.mode = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::WarpPhaseState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::WarpPolarChart::prepare(context, params, state);
+  prepare_operator_with<Pullback::Interp::Op::WarpPolarChart,
+                        &Pullback::Interp::Op::PolarChartParams::mode>();
 }
 
 /** @brief Death case: the polar chart rejects an out-of-range harmonic. */
 inline void case_pullback_operator_invalid_polar_harmonic() {
-  Pullback::Interp::Op::PolarChartParams params;
-  params.harmonic = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::WarpPhaseState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::WarpPolarChart::prepare(context, params, state);
+  prepare_operator_with<Pullback::Interp::Op::WarpPolarChart,
+                        &Pullback::Interp::Op::PolarChartParams::harmonic>();
 }
 
 /** @brief Death case: the curl-flow operator rejects an unknown integrator. */
 inline void case_pullback_operator_invalid_curl_integrator() {
-  Pullback::Interp::Op::CurlFlowWarpParams params;
-  params.integrator = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::NoisePhaseState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::WarpCurlFlow::prepare(context, params, state);
+  prepare_operator_with<
+      Pullback::Interp::Op::WarpCurlFlow,
+      &Pullback::Interp::Op::CurlFlowWarpParams::integrator>();
 }
 
 /** @brief Death case: the curl displacement rejects an unknown integrator. */
 inline void case_pullback_operator_invalid_surface_integrator() {
-  Pullback::Interp::Op::CurlDisplaceParams params;
-  params.integrator = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::NoisePhaseState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state);
+  prepare_operator_with<
+      Pullback::Interp::Op::DisplaceCurl,
+      &Pullback::Interp::Op::CurlDisplaceParams::integrator>();
 }
 
 /** @brief Death case: the curl displacement rejects an unknown tangent limit. */
 inline void case_pullback_operator_invalid_tangent_limit() {
-  Pullback::Interp::Op::CurlDisplaceParams params;
-  params.limit = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::NoisePhaseState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state);
+  prepare_operator_with<Pullback::Interp::Op::DisplaceCurl,
+                        &Pullback::Interp::Op::CurlDisplaceParams::limit>();
 }
 
 /** @brief Ripple advance rejects an oversized burst. */
@@ -259,75 +248,55 @@ inline void case_pullback_operator_invalid_field_kind() {
 
 /** @brief Rejects an unknown Bonne hemisphere. */
 inline void case_pullback_operator_invalid_bonne_hemisphere() {
-  Pullback::Interp::Op::ProjectBonneV3::Params params;
-  params.hemisphere = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ProjectBonneV3::State state;
-  Pullback::Interp::FrameContext context{};
-  Pullback::Interp::Op::ProjectBonneV3::prepare(context, params, state);
+  prepare_operator_with<
+      Pullback::Interp::Op::ProjectBonneV3,
+      &Pullback::Interp::Op::ProjectBonneV3::Params::hemisphere>();
 }
 
 /** @brief Death case: the gnomonic projection rejects an unknown hemisphere. */
 inline void case_pullback_operator_invalid_gnomonic_hemisphere() {
-  Pullback::Interp::Op::GnomonicChainParams params;
-  params.hemisphere = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ProjectGnomonic::State state;
-  Pullback::Interp::FrameContext context{};
-  Pullback::Interp::Op::ProjectGnomonic::prepare(context, params, state);
+  prepare_operator_with<
+      Pullback::Interp::Op::ProjectGnomonic,
+      &Pullback::Interp::Op::GnomonicChainParams::hemisphere>();
 }
 
 inline void case_pullback_operator_invalid_airocean_layout() {
-  Pullback::Interp::Op::ProjectAiroceanV3::Params params;
-  params.layout = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::ProjectAiroceanV3::State state;
-  Pullback::Interp::FrameContext context{};
-  Pullback::Interp::Op::ProjectAiroceanV3::prepare(context, params, state);
+  prepare_operator_with<
+      Pullback::Interp::Op::ProjectAiroceanV3,
+      &Pullback::Interp::Op::ProjectAiroceanV3::Params::layout>();
 }
 
 inline void case_pullback_operator_invalid_peirce_layout() {
-  Pullback::Interp::Op::ProjectPeirceV3::Params params;
-  params.layout =
-      opaque<uint8_t>(std::size(Pullback::Interp::Op::PEIRCE_LAYOUT_IDS));
-  Pullback::Interp::Op::ProjectPeirceV3::State state;
-  Pullback::Interp::FrameContext context{};
-  Pullback::Interp::Op::ProjectPeirceV3::prepare(context, params, state);
+  prepare_operator_with<Pullback::Interp::Op::ProjectPeirceV3,
+                        &Pullback::Interp::Op::ProjectPeirceV3::Params::layout>(
+      std::size(Pullback::Interp::Op::PEIRCE_LAYOUT_IDS));
 }
 
 /** @brief Death case: a noise-driven operator rejects an unknown basis. */
 inline void case_pullback_operator_invalid_noise_basis() {
-  Pullback::Interp::Op::CurlDisplaceParams params;
-  params.basis = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::NoisePhaseState state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state);
+  prepare_operator_with<Pullback::Interp::Op::DisplaceCurl,
+                        &Pullback::Interp::Op::CurlDisplaceParams::basis>();
 }
 
 /** @brief Death case: the tessellation source rejects an unknown kind. */
 inline void case_pullback_operator_invalid_tessellation_kind() {
-  Pullback::Interp::Op::TessellationSampleParams params;
-  params.kind = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::SampleTessellation::State state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::SampleTessellation::prepare(context, params,
-                                                          state);
+  prepare_operator_with<
+      Pullback::Interp::Op::SampleTessellation,
+      &Pullback::Interp::Op::TessellationSampleParams::kind>();
 }
 
 /** @brief Death case: the tessellation source rejects an unknown fill. */
 inline void case_pullback_operator_invalid_tessellation_fill() {
-  Pullback::Interp::Op::TessellationSampleParams params;
-  params.fill = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::SampleTessellation::State state;
-  Pullback::Interp::FrameContext context{};
-  (void)Pullback::Interp::Op::SampleTessellation::prepare(context, params,
-                                                          state);
+  prepare_operator_with<
+      Pullback::Interp::Op::SampleTessellation,
+      &Pullback::Interp::Op::TessellationSampleParams::fill>();
 }
 
 /** @brief Death case: the kaleidoscope lens rejects an unknown symmetry. */
 inline void case_pullback_operator_invalid_kaleidoscope_symmetry() {
-  Pullback::Interp::Op::KaleidoscopeChainParams params;
-  params.symmetry = opaque<uint8_t>(0xff);
-  Pullback::Interp::Op::LensKaleidoscope::State state;
-  Pullback::Interp::FrameContext context{};
-  Pullback::Interp::Op::LensKaleidoscope::prepare(context, params, state);
+  prepare_operator_with<
+      Pullback::Interp::Op::LensKaleidoscope,
+      &Pullback::Interp::Op::KaleidoscopeChainParams::symmetry>();
 }
 
 /** @brief Authored kaleidoscope dispatch rejects an unknown symmetry. */

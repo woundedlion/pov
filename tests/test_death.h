@@ -849,6 +849,12 @@ inline const Case *all_cases(int &n) {
            "done == BuildContinuation::DTD_AFTER_BRIDGE1 || "
            "done == BuildContinuation::DTD_AFTER_BRIDGE2) "
            "RecipeBuild: invalid dual bridge continuation"},
+          {"islamicstars_landing_handoff_short",
+           case_islamicstars_landing_handoff_short,
+           "core/animation/recipe_build.h",
+           "(faces <= MAX_BUILD_FACES && build_landing && "
+           "build_landing->faces >= faces) "
+           "RecipeBuild: landing does not cover the departed mesh"},
           {"islamicstars_hankin_eager_endpoint",
            case_islamicstars_hankin_eager_endpoint,
            "core/animation/recipe_build.h",
@@ -3088,6 +3094,7 @@ inline int run_death_tests() {
     return fixture.result();
   }
   check_shader_chain_colorize_companion();
+  check_islamicstars_landing_handoff_companion();
   check_hyperlattice_trace_companion();
   check_catalog_field_curve_companion();
   if (shard.role == ShardSpec::Role::SHARD)

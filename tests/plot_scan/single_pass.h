@@ -311,11 +311,7 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
     return Capture{pipeline.plotted, hs::g_scan_metrics.plot_backstop_hits};
   };
 
-  struct RestoreBudget {
-    decltype(Plot::g_step_budget_override) saved = Plot::g_step_budget_override;
-    ~RestoreBudget() { Plot::g_step_budget_override = saved; }
-  } restore_budget;
-  Plot::g_step_budget_override = BUDGET;
+  const ScopedStepBudget budget(BUDGET);
   const Capture single = draw(true);
   const Capture cached = draw(false);
 
@@ -355,11 +351,7 @@ inline void test_rasterize_second_backstop_stops_and_plots_terminal() {
   const math::Vector endpoints[] = {a, b};
   Fragments points;
   bind_trail(points, endpoints);
-  struct RestoreBudget {
-    decltype(Plot::g_step_budget_override) saved = Plot::g_step_budget_override;
-    ~RestoreBudget() { Plot::g_step_budget_override = saved; }
-  } restore_budget;
-  Plot::g_step_budget_override = BUDGET;
+  const ScopedStepBudget budget(BUDGET);
   hs_test::StubEffect effect(W, H);
   CapturePipeline pipeline;
   hs::g_scan_metrics.reset();

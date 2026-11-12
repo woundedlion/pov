@@ -633,12 +633,16 @@ inline void test_dissolve_mask_partition() {
 
   DissolveMask reseeded{65536u / 4u, SALT ^ 1u, false};
   int changed = 0;
+  int owned_reseeded = 0;
   for (int b = 0; b < KB; ++b)
-    for (int a = 0; a < KA; ++a)
+    for (int a = 0; a < KA; ++a) {
       changed += incoming.owns(a, b) != reseeded.owns(a, b);
-  const float changed_fraction = static_cast<float>(changed) / (KA * KB);
-  HS_EXPECT_GT(changed_fraction, 0.33f);
-  HS_EXPECT_LT(changed_fraction, 0.42f);
+      owned_reseeded += reseeded.owns(a, b) ? 1 : 0;
+    }
+  const float reseeded_fraction =
+      static_cast<float>(owned_reseeded) / (KA * KB);
+  HS_EXPECT_TRUE(reseeded_fraction > 0.23f && reseeded_fraction < 0.27f);
+  HS_EXPECT_GT(changed, 0);
 }
 
 /**

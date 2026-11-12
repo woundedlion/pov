@@ -118,7 +118,6 @@ inline void test_pattern_sphere_skewed_axes() {
   GridParams grid;
   grid.frequency = 0.25f;
   grid.frequency_b = 0.5f;
-  grid.offset_b = 0.25f;
   grid.axis = math::Vector(0.0f, 2.0f, 0.0f);
   grid.offset = -0.17f;
   grid.offset_b = 0.23f;
@@ -163,7 +162,6 @@ inline void test_pattern_sphere_admission() {
   GridParams grid;
   grid.frequency = 0.25f;
   grid.frequency_b = 0.5f;
-  grid.offset_b = 0.25f;
   grid.axis = math::Vector(0.0f, 2.0f, 0.0f);
   grid.axis_b = math::Vector(0.0f, -4.0f, 0.0f);
   grid.offset = -0.17f;

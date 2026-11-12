@@ -9,18 +9,18 @@ import unittest
 
 
 GEN_DIR = Path(__file__).resolve().parent.parent
-REPO_ROOT = GEN_DIR.parents[2]
 sys.path.insert(0, str(GEN_DIR))
 
 import board_metadata   # noqa: E402
 import fab   # noqa: E402
+from committed_boards import committed_board, committed_project  # noqa: E402
 
 
 class BoardMetadataTests(unittest.TestCase):
     def cli_fixture(self):
         root = Path(self.enterContext(tempfile.TemporaryDirectory()))
         board = root / "board.kicad_pcb"
-        board.write_bytes((GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb").read_bytes())
+        board.write_bytes(committed_board().read_bytes())
         readme = root / "README.md"
         stale = f"before\n{board_metadata.FACTS_START}\nstale\n{board_metadata.FACTS_END}\nafter\n"
         readme.write_text(stale, encoding="utf-8")
@@ -70,7 +70,7 @@ class BoardMetadataTests(unittest.TestCase):
         self.assertIs(type(caught.exception.__cause__), ValueError)
 
     def test_knockout_silkscreen_does_not_change_outline(self):
-        source = (GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb").read_text(encoding="utf-8")
+        source = committed_board().read_text(encoding="utf-8")
         baseline = board_metadata.parse_board(source)
         source = source.replace('(kicad_pcb', '(kicad_pcb (gr_text "X" '
                                 '(at 0 0) (layer "F.SilkS" knockout))', 1)
@@ -78,7 +78,7 @@ class BoardMetadataTests(unittest.TestCase):
 
     def test_cross_arm_width_is_capped_independently_of_arm_length(self):
         metadata = board_metadata.load_board(
-            GEN_DIR.parent / "1.1" / "phantasm.kicad_pcb")
+            committed_board())
         board_metadata.validate_mechanical_width(metadata)
         board_metadata.validate_mechanical_width(replace(
             metadata, width_mm=Decimal("100"), height_mm=Decimal("35")))
@@ -111,7 +111,7 @@ class BoardMetadataTests(unittest.TestCase):
 
     def test_extracts_committed_routed_board(self):
         metadata = board_metadata.load_board(
-            REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
+            committed_board()
         )
 
         self.assertEqual(
@@ -142,7 +142,7 @@ class BoardMetadataTests(unittest.TestCase):
 
     def test_pour_count_matches_the_fab_gate(self):
         """The facts block and gen/fab.py must count copper the same way."""
-        board = REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
+        board = committed_board()
         metadata = board_metadata.load_board(board)
 
         self.assertEqual(metadata.copper_pours,
@@ -272,10 +272,10 @@ class BoardMetadataTests(unittest.TestCase):
 
     def test_rejects_readme_drift(self):
         metadata = board_metadata.load_board(
-            REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
+            committed_board()
         )
         facts = board_metadata.render_facts(metadata)
-        readme = (REPO_ROOT / "hardware" / "phantasm" / "1.1" / "README.md").read_text(encoding="utf-8")
+        readme = (committed_project() / "README.md").read_text(encoding="utf-8")
         current = f"| Track segments | {metadata.track_segments} |"
         stale = readme.replace(
             current,

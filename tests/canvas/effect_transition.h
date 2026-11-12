@@ -5,17 +5,6 @@
 
 // Effect transition controller state and adapter outcomes.
 
-#define EXPECT_MIN_SIZE_OR_RETURN(container, minimum)                          \
-  do {                                                                         \
-    const std::size_t size = (container).size();                               \
-    const std::size_t want = static_cast<std::size_t>(minimum);                \
-    hs_test::report_cmp(size >= want, size, want,                              \
-                        #container ".size() >= " #minimum, __func__, __FILE__, \
-                        __LINE__);                                             \
-    if (size < want)                                                           \
-      return;                                                                  \
-  } while (0)
-
 /** @brief Controllable adapter for effect-transition state-machine cases. */
 struct TransitionAdapter : hs::EffectTransitionAdapter {
   hs::EffectTransitionStatus preflight_status = hs::EffectTransitionStatus::OK;
@@ -56,7 +45,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   void set_output_envelope(float value) override { envelopes.push_back(value); }
   bool presentation_complete() const override { return fenced; }
   void publish_outgoing_frame() override {
-    EXPECT_MIN_SIZE_OR_RETURN(envelopes, 1);
+    HS_EXPECT_MIN_SIZE_OR_RETURN(envelopes, 1);
     HS_EXPECT_EQ(envelopes.back(), 0.0f);
     outgoing_published = true;
   }
@@ -118,7 +107,7 @@ inline void test_effect_transition_fenced_commit() {
   adapter.preflight_status = hs::EffectTransitionStatus::OK;
   controller.tick();
   controller.tick();
-  EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 4);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 4);
   HS_EXPECT_EQ(adapter.envelopes[1], 1.0f);
   HS_EXPECT_EQ(adapter.envelopes[2], 0.5f);
   HS_EXPECT_EQ(adapter.envelopes[3], 0.0f);
@@ -145,7 +134,7 @@ inline void test_effect_transition_fenced_commit() {
   controller.tick();
   controller.tick();
   controller.tick();
-  EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 3);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 3);
   HS_EXPECT_EQ(adapter.envelopes[adapter.envelopes.size() - 3], 0.0f);
   HS_EXPECT_EQ(adapter.envelopes[adapter.envelopes.size() - 2], 0.5f);
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
@@ -238,7 +227,7 @@ inline void test_effect_transition_replacement_pause_and_restore() {
   HS_EXPECT_EQ(adapter.envelopes.size(), envelope_count);
   controller.set_paused(false);
   controller.tick();
-  EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
   HS_EXPECT_EQ(adapter.envelopes.back(), 0.5f);
   controller.tick();
   controller.tick();
@@ -281,20 +270,20 @@ inline void test_effect_transition_restore_none_enters_failsafe() {
   HS_EXPECT_TRUE(none.failsafe);
   HS_EXPECT_EQ(failing.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
-  EXPECT_MIN_SIZE_OR_RETURN(none.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(none.envelopes, 1);
   HS_EXPECT_EQ(none.envelopes.back(), 0.0f);
 
   none.construct_status = hs::EffectTransitionStatus::OK;
   HS_EXPECT_EQ(failing.request(REQUEST), hs::EffectTransitionStatus::OK);
   HS_EXPECT_EQ(failing.current_state(),
                hs::EffectTransitionState::CONSTRUCTING);
-  EXPECT_MIN_SIZE_OR_RETURN(none.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(none.envelopes, 1);
   HS_EXPECT_EQ(none.envelopes.back(), 0.0f);
   for (int i = 0; i < 8; ++i)
     failing.tick();
   HS_EXPECT_TRUE(none.committed);
   HS_EXPECT_EQ(failing.current_state(), hs::EffectTransitionState::STEADY_IN);
-  EXPECT_MIN_SIZE_OR_RETURN(none.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(none.envelopes, 1);
   HS_EXPECT_EQ(none.envelopes.back(), 1.0f);
 }
 
@@ -307,7 +296,7 @@ inline void test_effect_transition_shorter_replacement_preserves_progress() {
   HS_EXPECT_EQ(controller.request(INITIAL), hs::EffectTransitionStatus::OK);
   for (int i = 0; i < 55; ++i)
     controller.tick();
-  EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
   HS_EXPECT_NEAR(adapter.envelopes.back(), 0.1f, 1e-6f);
 
   const hs::EffectTransitionRequest REPLACEMENT{
@@ -315,7 +304,7 @@ inline void test_effect_transition_shorter_replacement_preserves_progress() {
       hs::EffectTransitionOrigin::AUTOMATIC, 1};
   HS_EXPECT_EQ(controller.request(REPLACEMENT), hs::EffectTransitionStatus::OK);
   controller.tick();
-  EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
   HS_EXPECT_EQ(adapter.envelopes.back(), 0.0f);
 }
 
@@ -358,7 +347,7 @@ inline void test_effect_transition_failsafe_retry() {
   HS_EXPECT_TRUE(adapter.incoming_published);
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::STEADY_IN);
-  EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
 }
 
@@ -417,7 +406,7 @@ inline void test_effect_transition_refusal_branches() {
   controller.tick();
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::STEADY_OUT);
-  EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
   HS_EXPECT_FALSE(adapter.committed);
   HS_EXPECT_EQ(controller.failure(),
@@ -445,7 +434,7 @@ inline void test_effect_transition_refusal_branches() {
                hs::EffectTransitionState::CLEAR_FAILSAFE);
   HS_EXPECT_EQ(controller.failure(),
                hs::EffectTransitionStatus::INVALID_RESTORE);
-  EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(adapter.envelopes, 1);
   HS_EXPECT_EQ(adapter.envelopes.back(), 0.0f);
 
   TransitionAdapter frame;
@@ -464,8 +453,6 @@ inline void test_effect_transition_refusal_branches() {
   HS_EXPECT_EQ(second.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
   HS_EXPECT_EQ(second.failure(), hs::EffectTransitionStatus::RESTORE_REJECTED);
-  EXPECT_MIN_SIZE_OR_RETURN(frame.envelopes, 1);
+  HS_EXPECT_MIN_SIZE_OR_RETURN(frame.envelopes, 1);
   HS_EXPECT_EQ(frame.envelopes.back(), 0.0f);
 }
-
-#undef EXPECT_MIN_SIZE_OR_RETURN

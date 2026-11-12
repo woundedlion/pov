@@ -115,6 +115,29 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertNotEqual(self.git("update-ref", "-d", MASTER,
                                      check=False).returncode, 0)
 
+    def test_seven_character_token_floor(self):
+        line = f"{self.one} {self.base} {MASTER}"
+        self.token.write_text(self.base[:6], encoding="utf-8")
+        self.assertEqual(self.hook(line).returncode, 1)
+        self.assertTrue(self.token.exists())
+        self.token.write_text(self.base[:7], encoding="utf-8")
+        self.assertEqual(self.hook(line).returncode, 0)
+        self.assertFalse(self.token.exists())
+
+    def test_any_token_authorizes_a_rewind(self):
+        self.token.write_text("ANY", encoding="utf-8")
+        self.assertEqual(self.hook(f"{self.one} {self.base} {MASTER}").returncode, 0)
+        self.assertFalse(self.token.exists())
+
+    def test_deletion_token_names_current_commit(self):
+        line = f"{self.one} {ZERO} {MASTER}"
+        self.token.write_text(ZERO[:7], encoding="utf-8")
+        self.assertEqual(self.hook(line).returncode, 1)
+        self.assertTrue(self.token.exists())
+        self.token.write_text(self.one, encoding="utf-8")
+        self.assertEqual(self.hook(line).returncode, 0)
+        self.assertFalse(self.token.exists())
+
     # ── Directly, for the lines git will not produce on demand ───────────────
 
     def test_a_token_for_another_commit_does_not_authorize(self):

@@ -93,10 +93,11 @@ struct FrameRun {
 };
 
 template <int W, int H, int FRAMES, typename Toggle>
-std::array<FrameRun, 2> render_toggled(Toggle toggle) {
+std::array<FrameRun, 2> render_toggled(bool flat, Toggle toggle) {
   std::array<FrameRun, 2> runs;
   for (int reference = 0; reference < 2; ++reference) {
     reset_globals();
+    Spacetime::set_flat_surface(flat);
     hs::set_mock_time(0, 0);
     auto &run = runs[reference];
     run.pixels.reserve(static_cast<size_t>(W) * H * FRAMES);
@@ -114,6 +115,7 @@ std::array<FrameRun, 2> render_toggled(Toggle toggle) {
           run.pixels.push_back(effect.get_pixel(x, y));
     }
   }
+  Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
   return runs;
 }
@@ -456,9 +458,10 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
   constexpr int FRAMES = 16;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
-  const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
-    WB::use_reference_orientation(effect, value);
-  });
+  const auto runs =
+      render_toggled<W, H, FRAMES>(true, [](MS &effect, bool value) {
+        WB::use_reference_orientation(effect, value);
+      });
   const FrameRun &matrix = runs[0];
   const FrameRun &reference = runs[1];
   const FrameErrorStats diff = compare_buffers(reference.pixels, matrix.pixels);
@@ -604,9 +607,10 @@ inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
   constexpr int FRAMES = 16;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
-  const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
-    WB::use_reference_vertex_pass(effect, value);
-  });
+  const auto runs =
+      render_toggled<W, H, FRAMES>(true, [](MS &effect, bool value) {
+        WB::use_reference_vertex_pass(effect, value);
+      });
   const FrameErrorStats diff = compare_buffers(runs[1].pixels, runs[0].pixels);
   std::printf("fused vertex framebuffer samples=%zu lit=%zu different=%zu\n",
               runs[1].pixels.size(), diff.lit_reference_pixels,
@@ -625,9 +629,10 @@ inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
   constexpr int FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
-  const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
-    WB::use_reference_hole_kernel(effect, value);
-  });
+  const auto runs =
+      render_toggled<W, H, FRAMES>(true, [](MS &effect, bool value) {
+        WB::use_reference_hole_kernel(effect, value);
+      });
   const FrameErrorStats diff = compare_buffers(runs[1].pixels, runs[0].pixels);
   std::printf("hole kernel framebuffer samples=%zu lit=%zu different=%zu "
               "coverage=%zu max_channel=%u total_channel=%llu\n",
@@ -670,9 +675,10 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
   constexpr int FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
-  const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
-    WB::use_reference_signed_axis_physics(effect, value);
-  });
+  const auto runs =
+      render_toggled<W, H, FRAMES>(false, [](MS &effect, bool value) {
+        WB::use_reference_signed_axis_physics(effect, value);
+      });
   const FrameRun &specialized = runs[0];
   const FrameRun &reference = runs[1];
   HS_EXPECT_EQ(reference.active.size(), specialized.active.size());

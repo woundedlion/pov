@@ -164,9 +164,6 @@ inline void test_hankin_sweep_vertex_stability() {
 
     std::vector<HankinSolve> arrival;
     hankin_solve(compiled, site.theta_star, arrival);
-    std::vector<math::Vector> packed_arrival;
-    for (const auto &point : arrival)
-      packed_arrival.push_back(math::Snorm3::encode(point.pos).decode());
 
     Arena leg_arena(morph_aux_buf, sizeof(morph_aux_buf));
     Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -238,8 +235,10 @@ inline void test_hankin_sweep_vertex_stability() {
         HS_EXPECT_VEC(drawn_frames.back()[vertex], bookend.vertices[vertex],
                       1e-6f);
     for (size_t i = 0; i < arrival.size(); ++i)
-      HS_EXPECT_LE(
-          (packed_arrival[i].normalized() - arrival[i].pos).magnitude(), 3e-5f);
+      HS_EXPECT_LE((drawn_frames.back()[compiled.static_vertices.size() + i] -
+                    arrival[i].pos)
+                       .magnitude(),
+                   3e-5f);
   }
 }
 
@@ -293,13 +292,7 @@ inline void test_opleg_hankin_sweep_smoke() {
     HS_EXPECT_TRUE(landing.topology != nullptr);
 
     hs_test::StubEffect fx(288, 144);
-    for (int f = 0; f < SWEEP; ++f) {
-      {
-        Canvas c(fx);
-        anim.step(c);
-      }
-      fx.advance_display();
-    }
+    hs_test::drive_leg(anim, fx, SWEEP);
     HS_EXPECT_EQ(probe.drawn, (size_t)SWEEP);
     HS_EXPECT_EQ(probe.faces, landing.faces);
     HS_EXPECT_LT(probe.worst_step, MAX_STEP_CHORD);

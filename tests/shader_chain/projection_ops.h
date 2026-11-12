@@ -435,7 +435,7 @@ inline void test_shader_chain_parity_project_ops() {
                 PeirceProjMirror>::PROVIDER_VALID<ProjMirrorBinding>);
   for_each_value_set([&](ValueSet set) {
     run_project_parity<PB::Projection::FoldedSinusoidal<MeridianProjMirror>,
-                       In::Op::MeridianProjectChainParams>(
+                       In::Op::ProjectFoldedSinusoidal::Params>(
         In::Op::ProjectFoldedSinusoidal::ID, set);
     run_project_parity<PB::Projection::Equirectangular<MeridianProjMirror>,
                        In::Op::MeridianProjectChainParams>(

@@ -337,6 +337,10 @@ inline void test_temporal_clock_sampling() {
   to.palette_oscillation_phase = 0.98f;
   for (int variant = 0; variant < 3; ++variant) {
     if (variant == 1) {
+      from.palette_mapping = Pullback::Color::PaletteMappingWeights::single(
+          Pullback::Color::PaletteMapping::LINEAR);
+      to.palette_mapping = Pullback::Color::PaletteMappingWeights::single(
+          Pullback::Color::PaletteMapping::CUP);
       to.params.template get<"source">().cell_scale = 2.7f;
       to.params.template get<"outer_warp">().rotation_rate = 0.3f;
       to.params.template get<"color">().palette_mapping =
@@ -359,6 +363,10 @@ inline void test_temporal_clock_sampling() {
           HS_EXPECT_NEAR(a.v.y, b.v.y, 1e-7f);
           HS_EXPECT_NEAR(a.v.z, b.v.z, 1e-7f);
         };
+        HS_EXPECT_EQ(actual.palette_mapping.exact,
+                     expected.palette_mapping.exact);
+        HS_EXPECT_TRUE(actual.palette_mapping.values ==
+                       expected.palette_mapping.values);
         check_rotation(actual.projection_conjugate,
                        expected.projection_conjugate);
         check_rotation(actual.outer_conjugate, expected.outer_conjugate);

@@ -580,8 +580,10 @@ inline void test_radial_surface_edge_aa() {
   float worst_error = 0, worst_x = 0, worst_y = 0;
   uint32_t worse = 0;
   const auto shade = arrival_ramp(N);
-  for (int x = -20; x <= 20; ++x)
-    for (int y = -20; y <= 20; ++y) {
+  constexpr int SPAN = 20;
+  constexpr int PIXELS = (2 * SPAN + 1) * (2 * SPAN + 1);
+  for (int x = -SPAN; x <= SPAN; ++x)
+    for (int y = -SPAN; y <= SPAN; ++y) {
       const Surface::Point p{x * .05f, y * .05f};
       const auto color =
           aa.sample(surface, p, {.05f, 0}, {0, .05f},
@@ -609,11 +611,11 @@ inline void test_radial_surface_edge_aa() {
   HS_EXPECT_GT(stats.clips, 0u);
   HS_EXPECT_LT(worst_error, .1f);
   HS_EXPECT_LT(aa_error, point_error);
-  HS_EXPECT_LT(aa_error / 1681, 0.005);
+  HS_EXPECT_LT(aa_error / PIXELS, 0.005);
   HS_EXPECT_LE(worse, 10u);
   std::printf(
       "  radial edge quality: aa_mae=%.8f point_mae=%.8f worst=%.6f at=(%.4f,%.4f) worse=%u\n",
-      aa_error / 1681, point_error / 1681, worst_error, worst_x, worst_y,
+      aa_error / PIXELS, point_error / PIXELS, worst_error, worst_x, worst_y,
       worse);
   std::printf(
       "  radial edge AA: pixels=%llu edge=%llu point=%llu outside=%llu total=%llu\n",

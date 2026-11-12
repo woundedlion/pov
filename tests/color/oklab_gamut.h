@@ -359,6 +359,13 @@ inline void oklab_to_linear_rgb_ref(double L, double a, double b, double &r,
   bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
 }
 
+/** @brief Whether a linear RGB reference is inside the gamut tolerance. */
+inline bool linear_ref_in_gamut(double r, double g, double b) {
+  constexpr double LO_B = -1e-4, HI_B = 1.0 + 1e-4;
+  return r >= LO_B && r <= HI_B && g >= LO_B && g <= HI_B && b >= LO_B &&
+         b <= HI_B;
+}
+
 /**
  * @brief Estimates first-exit chroma from a sampled ray in double precision.
  * @param L Lightness held fixed.
@@ -371,12 +378,10 @@ inline void oklab_to_linear_rgb_ref(double L, double a, double b, double &r,
  *          interval narrower than the sampling step can be missed.
  */
 inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
-  const double LO_B = -1e-4, HI_B = 1.0 + 1e-4;
   auto inside = [&](double c) {
     double r, g, b;
     oklab_to_linear_rgb_ref(L, ad * c, bd * c, r, g, b);
-    return r >= LO_B && r <= HI_B && g >= LO_B && g <= HI_B && b >= LO_B &&
-           b <= HI_B;
+    return linear_ref_in_gamut(r, g, b);
   };
   const int COARSE = 512;
   int hit = -1;
@@ -468,7 +473,7 @@ inline void expect_clip_lands_on_first_exit(const char *path) {
   float worst_deficit = 0.0f, worst_oversat = -1.0f;
   size_t samples = 0, residues = 0;
   auto probe = [&](double lightness, double degrees, double chroma) {
-    const double hue = degrees * 3.14159265358979323846 / 180.0;
+    const double hue = degrees * std::numbers::pi / 180.0;
     const double ad = std::cos(hue), bd = std::sin(hue);
     const OKLab mapped = gamut_clip_preserve_chroma(
         {static_cast<float>(lightness), static_cast<float>(ad * chroma),
@@ -497,16 +502,14 @@ inline void expect_clip_lands_on_first_exit(const char *path) {
   }
   // A ray that leaves the gamut and re-enters it before the chroma cap.
   const double DISCONNECTED_L = 0.165, DISCONNECTED_DEG = 263.75;
-  const double DISCONNECTED_HUE =
-      DISCONNECTED_DEG * 3.14159265358979323846 / 180.0;
+  const double DISCONNECTED_HUE = DISCONNECTED_DEG * std::numbers::pi / 180.0;
   bool left_gamut = false, reentered = false;
   for (int i = 1; i <= 4096 && !reentered; ++i) {
     const double c = CHROMA_IN[0] * i / 4096;
     double r, g, b;
     oklab_to_linear_rgb_ref(DISCONNECTED_L, std::cos(DISCONNECTED_HUE) * c,
                             std::sin(DISCONNECTED_HUE) * c, r, g, b);
-    const bool inside = r >= -1e-4 && r <= 1.0 + 1e-4 && g >= -1e-4 &&
-                        g <= 1.0 + 1e-4 && b >= -1e-4 && b <= 1.0 + 1e-4;
+    const bool inside = linear_ref_in_gamut(r, g, b);
     left_gamut |= !inside;
     reentered = left_gamut && inside;
   }
@@ -795,7 +798,7 @@ inline void test_hue_sincos_matches_libm() {
     const float turns = i / 192.0f + 0.0013f;
     float cosine, sine;
     hue_sincos(turns, cosine, sine);
-    const double angle = 2.0 * 3.14159265358979323846 * turns;
+    const double angle = 2.0 * std::numbers::pi * turns;
     HS_EXPECT_NEAR(cosine, static_cast<float>(std::cos(angle)), 2e-3f);
     HS_EXPECT_NEAR(sine, static_cast<float>(std::sin(angle)), 2e-3f);
   }

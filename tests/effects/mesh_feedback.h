@@ -439,22 +439,12 @@ constexpr double MESHFEEDBACK_INFILL_CUT_BOUND = 1.55;
 /** @brief Largest latitude step ratio allowed across the pole caps. */
 constexpr double MESHFEEDBACK_LATITUDE_BOUND = 1.28;
 
-/**
- * @brief The tight and wiggling wormhole presets step
- *        across the arm cuts and between adjacent pole-cap rows about as far
- *        as between the pixels beside them.
- */
-inline void test_meshfeedback_polar_rows_step_evenly() {
-  const ScopedTemporalSampling column_basis(true);
-  for (size_t preset : {size_t{10}, size_t{11}})
-    for (uint32_t seed : {0u, 11u}) {
-      const MeshFeedbackCutSteps steps = meshfeedback_cut_steps(preset, seed);
-      print_meshfeedback_cut_steps(preset, seed, steps);
-      HS_EXPECT_LT(steps.cap, 1.1);
-      HS_EXPECT_LT(steps.infill, 1.2);
-      HS_EXPECT_LT(steps.latitude, 1.2);
-    }
-}
+/** @brief Wormhole cap seam bound. */
+constexpr double MESHFEEDBACK_WORMHOLE_CAP_BOUND = 1.1;
+/** @brief Wormhole infill seam bound. */
+constexpr double MESHFEEDBACK_WORMHOLE_INFILL_BOUND = 1.2;
+/** @brief Wormhole latitude seam bound. */
+constexpr double MESHFEEDBACK_WORMHOLE_LATITUDE_BOUND = 1.2;
 
 /**
  * @brief Every MeshFeedback preset steps across the arm cuts, and between
@@ -469,6 +459,12 @@ inline void test_meshfeedback_all_presets_arm_cut_steps() {
     for (uint32_t seed : {0u, 11u}) {
       const MeshFeedbackCutSteps steps = meshfeedback_cut_steps(preset, seed);
       print_meshfeedback_cut_steps(preset, seed, steps);
+      if (preset == 10 || preset == 11) {
+        HS_CONTEXT("preset", preset);
+        HS_EXPECT_LT(steps.cap, MESHFEEDBACK_WORMHOLE_CAP_BOUND);
+        HS_EXPECT_LT(steps.infill, MESHFEEDBACK_WORMHOLE_INFILL_BOUND);
+        HS_EXPECT_LT(steps.latitude, MESHFEEDBACK_WORMHOLE_LATITUDE_BOUND);
+      }
       worst.middle = std::max(worst.middle, steps.middle);
       worst.cap = std::max(worst.cap, steps.cap);
       worst.infill = std::max(worst.infill, steps.infill);

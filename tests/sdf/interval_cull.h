@@ -9,37 +9,46 @@
 // ============================================================================
 
 /**
- * @brief Records every pixel scan_region visits for a shape, as rasterize() drives it.
+ * @brief Records pixels emitted by an interval scan.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @tparam Shape SDF shape type providing the cull and interval interface.
- * @param shape Shape whose culled coverage is being captured.
+ * @tparam Intervals Horizontal interval provider.
+ * @param bounds Vertical scan bounds.
+ * @param intervals Horizontal interval provider.
  * @param visited Output flag grid (W*H), set to 1 for each visited pixel.
  * @details Drives the full canvas with no clip.
  */
-template <int W, int H, typename Shape>
-inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
+template <int W, int H, typename Intervals>
+inline void scan_visited(SDF::Bounds bounds, Intervals &&intervals,
+                         std::vector<uint8_t> &visited) {
   visited.assign(static_cast<size_t>(W) * H, 0);
-  auto bounds = shape.template get_vertical_bounds<H>();
   int y_lo = std::max(0, bounds.y_min);
   int y_hi = std::min(H - 1, bounds.y_max);
   if (y_lo > y_hi)
     return;
-  Scan::scan_region<W, H>(
-      y_lo, y_hi,
+  Scan::scan_region<W, H>(y_lo, y_hi, std::forward<Intervals>(intervals),
+                          [&](int wx, int y, const math::Vector &, int run) {
+                            HS_EXPECT_GE(wx, 0);
+                            HS_EXPECT_LE(wx + run, W);
+                            HS_EXPECT_GE(y, 0);
+                            HS_EXPECT_LT(y, H);
+                            for (int i = 0; i < run; ++i)
+                              if (wx + i >= 0 && wx + i < W && y >= 0 && y < H)
+                                visited[static_cast<size_t>(y) * W + wx + i] =
+                                    1;
+                            return run;
+                          });
+}
+
+/** @brief Records the culled pixels visited for a shape. */
+template <int W, int H, typename Shape>
+inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
+  scan_visited<W, H>(
+      shape.template get_vertical_bounds<H>(),
       [&](int y, auto &&out) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
-      [&](int wx, int y, const math::Vector &, int run) {
-        HS_EXPECT_GE(wx, 0);
-        HS_EXPECT_LE(wx + run, W);
-        HS_EXPECT_GE(y, 0);
-        HS_EXPECT_LT(y, H);
-        for (int i = 0; i < run; ++i)
-          if (wx + i >= 0 && wx + i < W && y >= 0 && y < H)
-            visited[static_cast<size_t>(y) * W + wx + i] = 1;
-        return run;
-      });
+      visited);
 }
 
 /** @brief Selected and visited pixel counts for a cull coverage check. */
@@ -924,15 +933,9 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
 template <int W, int H>
 inline void face_fixed_pad_visited(const SDF::PreparedFace &face,
                                    std::vector<uint8_t> &visited) {
-  visited.assign(static_cast<size_t>(W) * H, 0);
-  auto bounds = face.template get_vertical_bounds<H>();
-  const int y_lo = std::max(0, bounds.y_min);
-  const int y_hi = std::min(H - 1, bounds.y_max);
-  if (y_lo > y_hi)
-    return;
   const float PAD = SDF::face_azimuth_pad(W);
-  Scan::scan_region<W, H>(
-      y_lo, y_hi,
+  scan_visited<W, H>(
+      face.template get_vertical_bounds<H>(),
       [&](int, auto &&out) {
         if (face.full_width)
           return false;
@@ -942,16 +945,7 @@ inline void face_fixed_pad_visited(const SDF::PreparedFace &face,
         }
         return true;
       },
-      [&](int wx, int y, const math::Vector &, int run) {
-        HS_EXPECT_GE(wx, 0);
-        HS_EXPECT_LE(wx + run, W);
-        HS_EXPECT_GE(y, 0);
-        HS_EXPECT_LT(y, H);
-        for (int i = 0; i < run; ++i)
-          if (wx + i >= 0 && wx + i < W)
-            visited[static_cast<size_t>(y) * W + wx + i] = 1;
-        return run;
-      });
+      visited);
 }
 
 /** @brief Counts paintable pixels missed by fixed and per-row azimuth pads. */

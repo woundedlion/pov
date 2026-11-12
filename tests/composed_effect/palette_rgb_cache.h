@@ -91,7 +91,7 @@ inline void test_palette_lab_reference_endpoint_lifetime() {
   HS_EXPECT_EQ(actual, expected);
 }
 
-/** @brief Final hue nodes equal the hue-rotation table of a full-chroma palette. */
+/** @brief Final hue nodes agree with a full-chroma palette's hue-rotation table. */
 inline void test_palette_rgb_cache_matches_hue_rotation_table() {
   const GenerativePalette source(
       PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
@@ -112,10 +112,9 @@ inline void test_palette_rgb_cache_matches_hue_rotation_table() {
   prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(table),
                            palette);
   for (size_t node = 0; node < HueRotationLutView::SIZE; ++node) {
+    HS_CONTEXT("node", node);
     const Pixel rgb = cache.nodes[HueRotationLutView::SIZE + node];
-    HS_EXPECT_EQ(rgb.r, table[node].r);
-    HS_EXPECT_EQ(rgb.g, table[node].g);
-    HS_EXPECT_EQ(rgb.b, table[node].b);
+    HS_EXPECT_EQ(rgb, table[node]);
   }
   HueRotationGamutMask reference;
   HueRotationGamutBuilder builder(&reference);

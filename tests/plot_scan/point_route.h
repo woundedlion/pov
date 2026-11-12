@@ -451,7 +451,7 @@ inline void test_point_route_gate_keeps_visible_taps() {
                                                     {0, 144, 30, 250}}};
   int drawn = 0;
   for (bool timed : {true, false}) {
-    Spacetime::set_flat_surface(!timed);
+    const ScopedTemporalSampling sampling(timed);
     const std::vector<Pixel> full = render(nullptr, false);
     for (const auto &clip : CLIPS) {
       const std::vector<Pixel> got = render(&clip, false);
@@ -466,7 +466,6 @@ inline void test_point_route_gate_keeps_visible_taps() {
       }
     }
   }
-  Spacetime::set_flat_surface(false);
   HS_EXPECT_GT(drawn, 1000);
 }
 
@@ -549,7 +548,7 @@ inline void test_steady_edge_plots_lattice_points() {
  *         a dual-signature shader retains the timed overload. */
 inline void test_steady_edge_untimed_shading_reuses_color() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   int once_calls = 0, timed_calls = 0, dual_once = 0, dual_timed = 0, lit = 0;
   /** @brief Tracks which shading signature the steady route selects. */
   struct DualShade {
@@ -611,7 +610,7 @@ inline void test_steady_edge_untimed_shading_reuses_color() {
 /** @brief A curved point entering the render rows survives polar rejection. */
 inline void test_point_route_curved_cap_enters_clip() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   for (bool south : {false, true}) {
     hs_test::StubEffect effect(W, H);
     effect.set_clip(36, 108, 0, W);
@@ -641,7 +640,7 @@ inline void test_point_route_polar_sweep_support() {
   constexpr int W = 288, H = 144;
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   for (float velocity : {72.0f, 120.0f}) {
     std::vector<Pixel> actual;
     for (bool reference : {false, true}) {

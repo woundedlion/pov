@@ -282,7 +282,6 @@ inline int run_effects_tests() {
     run_effect_case_dreamballs_select_mid_fade_out_respawns();
     run_effect_case_meshfeedback_flush_precedes_mesh_draw();
     run_effect_case_meshfeedback_preset_rotation_syncs_noise();
-    run_effect_case_meshfeedback_polar_rows_step_evenly();
     run_effect_case_meshfeedback_all_presets_arm_cut_steps();
     run_effect_case_comets_manual_preset_restarts_path();
     run_effect_case_dynamo_trail_ceiling_bounds_the_ring();

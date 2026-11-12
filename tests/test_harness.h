@@ -721,3 +721,14 @@ inline int end_module(const ModuleScope &m) {
     if (hs_size != hs_want)                                                    \
       return;                                                                  \
   } while (0)
+
+#define HS_EXPECT_MIN_SIZE_OR_RETURN(container, minimum)                       \
+  do {                                                                         \
+    const std::size_t hs_size = (container).size();                            \
+    const std::size_t hs_want = static_cast<std::size_t>(minimum);             \
+    hs_test::report_cmp(hs_size >= hs_want, hs_size, hs_want,                  \
+                        #container ".size() >= " #minimum, __func__, __FILE__, \
+                        __LINE__);                                             \
+    if (hs_size < hs_want)                                                     \
+      return;                                                                  \
+  } while (0)

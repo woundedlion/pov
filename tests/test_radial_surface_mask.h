@@ -44,7 +44,8 @@ inline void check_radial_surface_mask(float padding) {
   uint32_t probes = 0, misses = 0, marked = 0, total = 0;
   uint64_t interval_bits = 0;
   uint32_t candidates = 0, pieces = 0, writes = 0;
-  for (int phase = 0; phase < 6; ++phase) {
+  constexpr int PHASES = 6;
+  for (int phase = 0; phase < PHASES; ++phase) {
     ScratchScope scope(scratch_arena_a);
     std::array<typename Surface::Knot, INTERVALS + 1> knots;
     for (int i = 0; i <= INTERVALS; ++i) {
@@ -112,7 +113,7 @@ inline void check_radial_surface_mask(float padding) {
   HS_EXPECT_LT(interval_bits, static_cast<uint64_t>(marked) * 4u);
   std::printf("  mean interval groups per marked cell: %.6f\n",
               static_cast<double>(interval_bits) / marked);
-  HS_EXPECT_LE(candidates, 6u * (3u * INTERVALS + 2u));
+  HS_EXPECT_LE(candidates, PHASES * (3u * INTERVALS + 2u));
   std::printf(
       "  mask %dx%d N=%d pad=%g: probes=%u misses=%u marked=%u/%u candidates=%u pieces=%u row_writes=%u bytes=%zu\n",
       RADIAL, ANGULAR, INTERVALS, pad, probes, misses, marked, total,

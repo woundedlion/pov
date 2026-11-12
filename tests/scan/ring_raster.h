@@ -231,17 +231,9 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
     }
     flat.advance_display();
 
-    for (int y = 0; y < H; ++y) {
-      for (int x = 0; x < W; ++x) {
-        const Pixel &a = expected[y * W + x];
-        const Pixel &b = flat.get_pixel(x, y);
-        HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r), 1);
-        HS_EXPECT_NEAR(static_cast<int>(a.g), static_cast<int>(b.g), 1);
-        HS_EXPECT_NEAR(static_cast<int>(a.b), static_cast<int>(b.b), 1);
-      }
-    }
-    // Both paths drawing nothing would satisfy every comparison above.
-    HS_EXPECT_GT(count_lit(expected), (size_t)0);
+    std::vector<Pixel> actual;
+    capture_frame<W, H>(flat, actual);
+    HS_EXPECT_GT(expect_frames_within("flat ring", actual, expected, 1), 0);
   };
 
   check(false);
@@ -577,12 +569,7 @@ inline void test_fused_walks_ignore_pole_lod() {
     Render::pole_lod_aggressiveness = 4.0f;
     HS_EXPECT_GT(Scan::pole_lod_run(1.0f), 1);
     draw(decimated);
-    for (size_t i = 0; i < undecimated.size(); ++i) {
-      HS_EXPECT_EQ(undecimated[i].r, decimated[i].r);
-      HS_EXPECT_EQ(undecimated[i].g, decimated[i].g);
-      HS_EXPECT_EQ(undecimated[i].b, decimated[i].b);
-    }
-    HS_EXPECT_GT(count_lit(undecimated), (size_t)200);
+    HS_EXPECT_GT(expect_frames_within(label, decimated, undecimated, 0), 200);
   };
   expect_knob_independent("ring group", draw_group);
   expect_knob_independent("distorted ring stack", draw_stack);

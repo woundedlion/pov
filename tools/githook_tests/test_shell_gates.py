@@ -208,7 +208,7 @@ class ShellGateTests(unittest.TestCase):
         flags += re.findall(
             r"^\s*'(-D HS_PROFILE_TARGET=[^']*)'",
             (self.root / "tools" / "profile_variants.sh").read_text(), re.MULTILINE)
-        self.assertTrue(flags)
+        self.assertTrue(flags[1:], "no variants parsed from profile_variants.sh")
         expected = ["|run -v"] + [f"{flag}|run -v -e profile" for flag in flags]
         for failure in range(len(expected) + 1):
             with self.subTest(failure=failure):

@@ -578,10 +578,7 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
             comps[ref] = (ref, str(footprint[1]), "", False)
             if sexp.val(footprint, "locked", []) == ["yes"]:
                 locked.add(ref)
-            at = sexp.val(footprint, "at")
-            placed[ref] = (
-                float(at[0]), float(at[1]),
-                float(at[2]) if len(at) > 2 else 0.0)
+            placed[ref] = footprint_pose(footprint)
         fixed = pcb.fixed_placements(comps)
         self.assertEqual(locked - {"H1", "H2", "H3", "H4"}, set(fixed))
         for ref, (x, y, rot) in fixed.items():

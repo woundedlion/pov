@@ -172,43 +172,40 @@ inline uint8_t *topology_byte(In::ChainProgram &program, size_t index,
   return nullptr;
 }
 
+/** @brief Dispatches a coverage mode to its typed policy. */
+template <typename EdgeP, typename Fn>
+inline void with_coverage_policy(In::Op::ProjectionCoverageMode coverage,
+                                 Fn &&fn) {
+  switch (coverage) {
+  case In::Op::ProjectionCoverageMode::NONE:
+    fn.template operator()<PB::ProjectionCoverage::None>();
+    break;
+  case In::Op::ProjectionCoverageMode::WEIGHT:
+    fn.template operator()<PB::ProjectionCoverage::Weight>();
+    break;
+  case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
+    fn.template operator()<PB::ProjectionCoverage::WeightSquared>();
+    break;
+  case In::Op::ProjectionCoverageMode::EDGE_FADE:
+    fn.template operator()<PB::ProjectionCoverage::EdgeFade<EdgeP>>();
+    break;
+  case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
+    fn.template operator()<PB::ProjectionCoverage::EdgeFadeSquared<EdgeP>>();
+    break;
+  }
+}
+
 template <typename SourceP, typename WeightP>
 inline void run_sample_coverage_cases(In::ChainProgram &program,
                                       const In::FrameContext &ctx,
                                       uint8_t coverage) {
-  using EdgeP = PB::ProjectionCoverage::EdgeFade<SampleEdgeMirror>;
-  switch (static_cast<In::Op::ProjectionCoverageMode>(coverage)) {
-  case In::Op::ProjectionCoverageMode::NONE:
-    expect_sample_op_parity<typename PB::Stage::Sample<
-        SourceP, WeightP,
-        PB::ProjectionCoverage::None>::template Bind<SampleMirrorBinding>>(
-        program, ctx);
-    break;
-  case In::Op::ProjectionCoverageMode::WEIGHT:
-    expect_sample_op_parity<typename PB::Stage::Sample<
-        SourceP, WeightP,
-        PB::ProjectionCoverage::Weight>::template Bind<SampleMirrorBinding>>(
-        program, ctx);
-    break;
-  case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
-    expect_sample_op_parity<typename PB::Stage::Sample<
-        SourceP, WeightP, PB::ProjectionCoverage::WeightSquared>::
-                                template Bind<SampleMirrorBinding>>(program,
-                                                                    ctx);
-    break;
-  case In::Op::ProjectionCoverageMode::EDGE_FADE:
-    expect_sample_op_parity<typename PB::Stage::Sample<
-        SourceP, WeightP, EdgeP>::template Bind<SampleMirrorBinding>>(program,
-                                                                      ctx);
-    break;
-  case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
-    expect_sample_op_parity<typename PB::Stage::Sample<
-        SourceP, WeightP,
-        PB::ProjectionCoverage::EdgeFadeSquared<SampleEdgeMirror>>::
-                                template Bind<SampleMirrorBinding>>(program,
-                                                                    ctx);
-    break;
-  }
+  with_coverage_policy<SampleEdgeMirror>(
+      static_cast<In::Op::ProjectionCoverageMode>(coverage),
+      [&]<typename Policy>() {
+        expect_sample_op_parity<typename PB::Stage::Sample<
+            SourceP, WeightP, Policy>::template Bind<SampleMirrorBinding>>(
+            program, ctx);
+      });
 }
 
 /** Runs the full weight-by-coverage topology matrix of the sample crossing at
@@ -690,26 +687,9 @@ inline void run_grid_coverage_cases(In::ChainProgram &program,
                                     const In::FrameContext &ctx,
                                     In::Op::ProjectionCoverageMode coverage) {
   constexpr auto ENV = PB::Color::BrightnessEnvelope::NONE;
-  switch (coverage) {
-  case In::Op::ProjectionCoverageMode::NONE:
-    expect_parity<WeightP, PB::ProjectionCoverage::None, ENV>(program, ctx);
-    break;
-  case In::Op::ProjectionCoverageMode::WEIGHT:
-    expect_parity<WeightP, PB::ProjectionCoverage::Weight, ENV>(program, ctx);
-    break;
-  case In::Op::ProjectionCoverageMode::WEIGHT_SQUARED:
-    expect_parity<WeightP, PB::ProjectionCoverage::WeightSquared, ENV>(program,
-                                                                       ctx);
-    break;
-  case In::Op::ProjectionCoverageMode::EDGE_FADE:
-    expect_parity<WeightP, PB::ProjectionCoverage::EdgeFade<MirrorValue>, ENV>(
-        program, ctx);
-    break;
-  case In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED:
-    expect_parity<WeightP, PB::ProjectionCoverage::EdgeFadeSquared<MirrorValue>,
-                  ENV>(program, ctx);
-    break;
-  }
+  with_coverage_policy<MirrorValue>(coverage, [&]<typename Policy>() {
+    expect_parity<WeightP, Policy, ENV>(program, ctx);
+  });
 }
 
 inline void run_sample_variant(In::ChainProgram &program,
@@ -732,12 +712,8 @@ inline void test_shader_chain_parity_sample_variants() {
     const In::FrameContext ctx = shared_resources().context();
     for (const In::Op::WeightMode weight :
          {In::Op::WeightMode::NONE, In::Op::WeightMode::PROJECTION})
-      for (const In::Op::ProjectionCoverageMode coverage :
-           {In::Op::ProjectionCoverageMode::NONE,
-            In::Op::ProjectionCoverageMode::WEIGHT,
-            In::Op::ProjectionCoverageMode::WEIGHT_SQUARED,
-            In::Op::ProjectionCoverageMode::EDGE_FADE,
-            In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED}) {
+      for (uint8_t c = 0; c < std::size(In::Op::COVERAGE_MODE_IDS); ++c) {
+        const auto coverage = static_cast<In::Op::ProjectionCoverageMode>(c);
         HS_CONTEXT("weight / coverage", int(weight), int(coverage));
         run_sample_variant(program, ctx, weight, coverage);
       }

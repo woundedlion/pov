@@ -17,7 +17,7 @@ RUNNER = Path(__file__).resolve().parents[1] / "run_python_tests.py"
 
 
 class PythonRunner(unittest.TestCase):
-    def run_fixture(self, source=None, extra=None, helper=False, excluded=None, args=()):
+    def run_fixture(self, source=None, extra=None, excluded=None, args=()):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             git_run(root, "init", "--quiet")
@@ -31,8 +31,6 @@ class PythonRunner(unittest.TestCase):
                 track("new_suite/test_sample.py", source)
             if extra is not None:
                 track("new_suite/test_extra.py", extra)
-            if helper:
-                track("new_suite/tests/data/helper.py", "# fixture helper\n")
             if excluded is not None:
                 track("excluded_suite/test_excluded.py", excluded)
             return subprocess.run([sys.executable, str(RUNNER), "--root", str(root), *args],

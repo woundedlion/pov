@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 
 foreach(_compiled IN ITEMS
-    perf_bench_Os srgb_decode_gen)
+    perf_bench_Os srgb_decode_gen test_render_hashes sdf_periodic_benchmark)
   if(NOT _compiled IN_LIST COVERED_TARGETS)
     message(FATAL_ERROR "excluded_targets lost compile coverage for ${_compiled}")
   endif()

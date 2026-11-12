@@ -406,9 +406,8 @@ inline void test_shader_chain_lens_controls() {
         const double ay = cos(phi);
         const double az = sin(phi) * sin(lambda);
         const double h = input.dir.x * ax + input.dir.y * ay + input.dir.z * az;
-        const double a = distribution * 0.999;
         const double angle =
-            0.5 * params.twist_angle * (a == 0.0 ? h : atanh(a * h) / atanh(a));
+            twist_reference_angle(params.twist_angle, distribution, h);
         const double c = cos(angle);
         const double s = sin(angle);
         HS_EXPECT_NEAR(result.dir.x,
@@ -552,10 +551,8 @@ inline void test_shader_chain_twist_closed_form() {
       const auto ctx = shared_resources().context();
       const auto prepared = In::Op::LensTwist::prepare(ctx, params, {});
       const auto result = In::Op::LensTwist::run(INPUT, ctx, params, prepared);
-      const double a = distribution * 0.999;
       const double angle =
-          0.5 * total_angle *
-          (a == 0.0 ? INPUT.dir.y : atanh(a * INPUT.dir.y) / atanh(a));
+          twist_reference_angle(total_angle, distribution, INPUT.dir.y);
       HS_EXPECT_NEAR(result.dir.x,
                      INPUT.dir.x * cos(angle) - INPUT.dir.z * sin(angle),
                      2.5e-3);
