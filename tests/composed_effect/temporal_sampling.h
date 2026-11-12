@@ -25,7 +25,12 @@ inline Frame sample_frame_reference(const Frame &from, const Frame &to,
       math::slerp(from.projection_conjugate, to.projection_conjugate, fraction);
   frame.outer_conjugate =
       math::slerp(from.outer_conjugate, to.outer_conjugate, fraction);
-  frame.params = Pullback::interpolate(from.params, to.params, fraction);
+  frame.params.visit([&]<typename Resource>(auto &family) {
+    const auto &start = from.params.template get<Resource::KEY>();
+    const auto &end = to.params.template get<Resource::KEY>();
+    if (std::memcmp(&start, &end, sizeof(end)) != 0)
+      family = Pullback::interpolate(start, end, fraction);
+  });
   frame.palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
       from.palette_mapping, to.palette_mapping, fraction);
   frame.palette_oscillation_phase =
@@ -2042,6 +2047,28 @@ inline void test_composed_default_gradient_preparation() {
       const auto foreign = ForeignPolicy::apply(
           direction, frame, ForeignProvider::prepare(frame));
       expect_displacement(foreign, expected);
+    }
+  }
+}
+
+/** @brief Constant logarithmic parameter families retain their endpoint bits. */
+inline void test_temporal_constant_families_are_exact() {
+  using FX = GridSpace<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  auto from = ComposedFrameWhiteBox::frame(effect);
+  from.params.template get<"color">().mapping_frequency = 3.1f;
+  auto to = from;
+  for (bool mixed : {false, true}) {
+    if (mixed)
+      to.params.template get<"source">().cell_scale += 0.5f;
+    const Pullback::FrameInterval interval(from, to);
+    for (float fraction : {0.0f, 0.1f, 0.5f, 0.9f, 1.0f}) {
+      const auto actual = interval.at(fraction);
+      const auto &expected = to.params.template get<"color">();
+      const auto &color = actual.params.template get<"color">();
+      HS_EXPECT_EQ(std::memcmp(&color, &expected, sizeof(color)), 0);
     }
   }
 }

@@ -44,7 +44,6 @@ template <typename Frame> class FrameInterval {
   ComposedDetail::ResourceStorage<ComposedDetail::ResourceMobiusInterval,
                                   typename Params::ResourceTypes>
       mobius_intervals;
-  Params interior_params;
   bool constant_params;
   uint32_t constant_families = 0;
   float oscillation_delta;
@@ -83,7 +82,7 @@ public:
   HS_FLASH_INLINE FrameInterval(const Frame &a, const Frame &b)
       : from(a), to(b),
         projection(a.projection_conjugate, b.projection_conjugate),
-        outer(a.outer_conjugate, b.outer_conjugate), interior_params(b.params),
+        outer(a.outer_conjugate, b.outer_conjugate),
         constant_params(std::memcmp(&a.params, &b.params, sizeof(Params)) == 0),
         oscillation_delta(Spacetime::ClockInterval::prepare_delta(
             a.palette_oscillation_phase, b.palette_oscillation_phase, 1.0f)),
@@ -105,14 +104,12 @@ public:
         }(static_cast<typename Params::ResourceTypes *>(nullptr)) <= 32,
         "constant_families holds one bit per parameter family");
     int family = 0;
-    interior_params.visit(
-        [&]<typename Resource>(auto &value) __attribute__((always_inline)) {
+    b.params.visit(
+        [&]<typename Resource>(const auto &) __attribute__((always_inline)) {
           const auto &start = a.params.template get<Resource::KEY>();
           const auto &end = b.params.template get<Resource::KEY>();
-          if (constant_params || std::memcmp(&start, &end, sizeof(end)) == 0) {
-            value = interpolate(start, end, 0.5f);
+          if (constant_params || std::memcmp(&start, &end, sizeof(end)) == 0)
             constant_families |= 1u << family;
-          }
           ++family;
         });
     b.params.visit([&]<typename Resource>(const auto &) {
@@ -229,17 +226,14 @@ public:
     }
     frame.projection_conjugate = projection.sample(fraction);
     frame.outer_conjugate = outer.sample(fraction);
-    if (constant_params) {
-      frame.params = interior_params;
-    } else {
+    if (!constant_params) {
       int family = 0;
       frame.params.visit(
           [&]<typename Resource>(auto &value) __attribute__((always_inline)) {
-            value = constant_families & (1u << family)
-                        ? interior_params.template get<Resource::KEY>()
-                        : interpolate(from.params.template get<Resource::KEY>(),
-                                      to.params.template get<Resource::KEY>(),
-                                      fraction);
+            if (!(constant_families & (1u << family)))
+              value = interpolate(from.params.template get<Resource::KEY>(),
+                                  to.params.template get<Resource::KEY>(),
+                                  fraction);
             ++family;
           });
     }
