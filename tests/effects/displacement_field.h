@@ -192,8 +192,8 @@ struct DisplacementFieldWhiteBox {
     const math::Basis basis =
         math::make_basis(math::Quaternion(), math::X_AXIS);
     const float delta = 2.0f * math::PI_F / knots;
-    typename DisplacementField<W, H>::RingKnotWalk walk{
-        basis, cosf(theta), sinf(theta), cosf(delta), sinf(delta)};
+    SDF::KnotWalk walk{basis, cosf(theta), sinf(theta), cosf(delta),
+                       sinf(delta)};
     std::vector<math::Vector> points;
     for (int knot = 0; knot < knots; ++knot) {
       points.push_back(walk.position());

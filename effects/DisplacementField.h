@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include "core/render/sdf/ring_knots.h"
+
 /**
  * @file DisplacementField.h
  * @brief Stack of soft-stroked rings displaced by a noise and falling-ball
@@ -943,42 +945,6 @@ private:
     }
   }
 
-  /** @brief A ring's colatitude and knot-step trig, passed in VFP registers. */
-  struct KnotStep {
-    float cos_t; /**< Cosine of the ring colatitude. */
-    float sin_t; /**< Sine of the ring colatitude. */
-    float cos_d; /**< Cosine of one knot cell's azimuth step. */
-    float sin_d; /**< Sine of one knot cell's azimuth step. */
-  };
-
-  /**
-   * @brief Steps a ring's knot positions around its azimuth by the
-   * angle-addition recurrence, starting at knot 0.
-   */
-  struct RingKnotWalk {
-    const math::Basis &basis; /**< Ring frame; basis.v is the stack axis. */
-    float cos_t;              /**< Cosine of the ring colatitude. */
-    float sin_t;              /**< Sine of the ring colatitude. */
-    float cos_d;              /**< Cosine of one knot cell's azimuth step. */
-    float sin_d;              /**< Sine of one knot cell's azimuth step. */
-    float cos_a = 1.0f;       /**< Cosine of the current knot's azimuth. */
-    float sin_a = 0.0f;       /**< Sine of the current knot's azimuth. */
-
-    /** @brief Unit position of the current knot. */
-    HS_HOT_INLINE math::Vector position() const {
-      return ((basis.v * cos_t) +
-              ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t)
-          .normalized();
-    }
-
-    /** @brief Moves to the next knot. */
-    HS_HOT_INLINE void advance() {
-      const float next_cos = cos_a * cos_d - sin_a * sin_d;
-      sin_a = sin_a * cos_d + cos_a * sin_d;
-      cos_a = next_cos;
-    }
-  };
-
   /** @brief Marks knots whose supported geometry can cross an arm boundary.
    * @param basis Ring frame.
    * @param step Ring and knot-step trigonometry.
@@ -991,7 +957,7 @@ private:
    * bounded segment search. Its full displaced polar band is tested against
    * the arm plane widened by frame rotation and one column. */
   HS_HOT_FLASH_MEMBER void mark_boundary(const math::Basis &basis,
-                                         KnotStep step, float theta, int n,
+                                         SDF::KnotStep step, float theta, int n,
                                          float displacement, float motion,
                                          SweepCache &cache) {
     const float low = fmaxf(0.0f, theta - displacement - params.thickness);
@@ -1027,7 +993,7 @@ private:
     const float target_high = threshold(epsilon, false);
     const float radius = sqrtf(basis.u.z * basis.u.z + basis.w.z * basis.w.z);
     const float cosine = cosf(delta), sine = sinf(delta);
-    RingKnotWalk walk{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
+    SDF::KnotWalk walk{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
     for (int k = 0; k < n; ++k, walk.advance()) {
       const float center = basis.u.z * walk.cos_a + basis.w.z * walk.sin_a;
       const float tangent = basis.w.z * walk.cos_a - basis.u.z * walk.sin_a;
@@ -1124,7 +1090,7 @@ private:
   template <bool SWEPT = false>
   HS_HOT_FLASH_MEMBER void
   bake_noise_octaves(const Animation::NoiseProductParams &np,
-                     const math::Basis &basis, KnotStep step, float theta,
+                     const math::Basis &basis, SDF::KnotStep step, float theta,
                      int lut_n, uint32_t visible, int n_local, float *slut,
                      const Sweep *sweep = nullptr) {
     constexpr int D1 = OCTAVE1_STRIDE;
@@ -1145,7 +1111,7 @@ private:
     }
 
     HS_PROFILE(df_octave_noise);
-    RingKnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
+    SDF::KnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
     for (int x = 0; x < lut_n; ++x, knots.advance()) {
       const bool vis = knot_visible[x] != 0;
 #if HS_ENABLE_TEST_HOOKS
@@ -1212,20 +1178,10 @@ private:
         }
         return oct[index];
       };
-      const int r = k % d;
-      if (r == 0)
-        return value(k);
-      const int b = k - r;
-      const float t = static_cast<float>(r) / d;
-      const float p0 = value(wrap(b - d)), p1 = value(b),
-                  p2 = value(wrap(b + d)), p3 = value(wrap(b + 2 * d));
-      return p1 + 0.5f * t *
-                      (p2 - p0 +
-                       t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 +
-                            t * (3.0f * (p1 - p2) + p3 - p0)));
+      return SDF::catmull_rom_strided(value, d, k, lut_n);
     };
-    RingKnotWalk final_walk{basis, step.cos_t, step.sin_t, step.cos_d,
-                            step.sin_d};
+    SDF::KnotWalk final_walk{basis, step.cos_t, step.sin_t, step.cos_d,
+                             step.sin_d};
     for (int x = 0; x < lut_n; ++x, final_walk.advance()) {
       if (!knot_visible[x])
         continue;
@@ -1284,7 +1240,7 @@ private:
    */
   template <bool SWEPT = false>
   HS_HOT_FLASH_MEMBER void
-  bake_ball_spans(const math::Basis &basis, KnotStep step, float theta,
+  bake_ball_spans(const math::Basis &basis, SDF::KnotStep step, float theta,
                   int lut_n, uint32_t visible, int n_local, float *slut,
                   const Sweep *sweep = nullptr) {
     // Covers the recurrence's drift from the analytic knot azimuth and the
@@ -1293,7 +1249,7 @@ private:
     float *num = octave1;
     float *den = octave2;
     mark_visible_knots(lut_n, visible);
-    RingKnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
+    SDF::KnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
     for (int x = 0; x < lut_n; ++x, knots.advance()) {
       if (knot_visible[x]) {
 #if HS_ENABLE_TEST_HOOKS

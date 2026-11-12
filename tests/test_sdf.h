@@ -11,6 +11,7 @@
 #include <cstdio>
 
 #include "core/render/sdf.h"
+#include "core/render/sdf/ring_knots.h"
 #include "core/mesh/solids.h"
 #include "core/render/sdf/volume.h"
 #include "core/render/sdf/face_class_bake.h"
@@ -56,6 +57,52 @@ inline math::Basis equator_basis() {
 #include "tests/sdf/interval_cull.h"
 #include "tests/sdf/face_oracles.h"
 
+/** @brief Knot recurrence follows analytic ring positions over a full turn. */
+inline void test_knot_walk_positions() {
+  const math::Basis basis =
+      math::make_basis(math::make_rotation(math::X_AXIS, 0.4f), math::Y_AXIS);
+  for (int n : {24, 96, 288}) {
+    for (float theta : {0.01f, 0.7f, 1.57f, 3.0f}) {
+      const float delta = 2.0f * math::PI_F / n;
+      SDF::KnotWalk walk{basis, cosf(theta), sinf(theta), cosf(delta),
+                         sinf(delta)};
+      for (int k = 0; k < n; ++k, walk.advance()) {
+        const float a = k * delta;
+        const math::Vector expected =
+            basis.v * cosf(theta) +
+            (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(theta);
+        const math::Vector error = walk.position() - expected;
+        HS_EXPECT_NEAR(math::dot(error, error), 0.0f, 1e-9f);
+      }
+    }
+  }
+}
+
+/** @brief Strided interpolation preserves grid, linear interior and periodic seams. */
+inline void test_catmull_rom_strided_properties() {
+  constexpr int N = 32;
+  for (int d : {1, 2, 4, 8}) {
+    const auto linear = [](int k) { return 2.0f * k + 3.0f; };
+    for (int k = 0; k < N; ++k) {
+      const float actual = SDF::catmull_rom_strided(linear, d, k, N);
+      if (k % d == 0 || (k >= d && k + 2 * d < N))
+        HS_EXPECT_EQ(actual, linear(k));
+    }
+    for (int offset : {0, 8, 16}) {
+      const auto periodic = [offset](int k) {
+        return sinf((k + offset) * (2.0f * math::PI_F / N));
+      };
+      const auto shifted = [offset](int k) {
+        return sinf(((k + offset + N / 2) % N) * (2.0f * math::PI_F / N));
+      };
+      for (int k = 0; k < N; ++k)
+        HS_EXPECT_NEAR(
+            SDF::catmull_rom_strided(periodic, d, (k + N / 2) % N, N),
+            SDF::catmull_rom_strided(shifted, d, k, N), 2e-6f);
+    }
+  }
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -67,6 +114,8 @@ inline math::Basis equator_basis() {
 inline int run_sdf_tests() {
   hs_test::ModuleFixture fixture("sdf");
 
+  HS_RUN(test_knot_walk_positions);
+  HS_RUN(test_catmull_rom_strided_properties);
   HS_RUN(test_fold_phi_in_range);
   HS_RUN(test_virtual_grid_equal_height_geometry);
   HS_RUN(test_fold_phi_negative_reflects);

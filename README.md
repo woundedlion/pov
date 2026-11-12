@@ -1509,6 +1509,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume, lattice, framework, lattice_field,
 │   │   │                            periodic_surface, periodic_shells)
+│   │   │   ├── ring_knots.h       Ring knot walk and periodic strided interpolation
 │   │   │   ├── face_lut.h              Canonical face distance LUTs
 │   │   │   ├── face_geometry.h         Face construction and distance operations
 │   │   │   ├── octet_trace.h       Front-to-back ray traces of the 3D and 4D octet trusses
