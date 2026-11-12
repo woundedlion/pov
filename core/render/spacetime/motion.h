@@ -145,9 +145,9 @@ constexpr Interpolant choose_interpolant(const PathBound &bound,
  *         turn.
  */
 constexpr Interpolant choose_turn_interpolant(float angle, float tolerance) {
-  return angle <= 0.5f * math::PI_F &&
-                 PathBound::rotation(angle).normalized_chord_error() <=
-                     tolerance
+  const float a = angle < 0.0f ? -angle : angle;
+  return a <= 0.5f * math::PI_F &&
+                 PathBound::rotation(a).normalized_chord_error() <= tolerance
              ? Interpolant::CHORD
              : Interpolant::ARC;
 }

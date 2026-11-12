@@ -80,6 +80,10 @@ inline void check_interpolants(Exact &&exact, const Spacetime::PathBound &bound,
 /** @brief Rigid rotation: the chord bound holds and is tight, and the arc
  *         about the rotation axis is exact. */
 inline void test_interpolants_bound_rotation() {
+  static_assert(Spacetime::choose_turn_interpolant(-2.5f, 1.0f) ==
+                Spacetime::Interpolant::ARC);
+  static_assert(Spacetime::choose_turn_interpolant(-0.1f, 1.0f) ==
+                Spacetime::Interpolant::CHORD);
   const math::Vector axis = math::Vector(0.2f, 1.0f, -0.3f).normalized();
   for (const float angle : {0.01f, 0.1f, 0.4f, -0.7f}) {
     for (const float lift : {0.0f, 0.5f, 0.9f}) {
