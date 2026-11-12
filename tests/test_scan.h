@@ -160,6 +160,7 @@ inline int run_scan_tests() {
   HS_RUN(test_ring_stack_pool_lifecycle_and_bounds);
   HS_RUN(test_knot_alternates_interleaved_storage_footprint);
   HS_RUN(test_swept_ring_stack_boundary_is_conservative);
+  HS_RUN(test_sweep_fraction_matches_half_turn_windows);
   HS_RUN(test_swept_ring_stack_matches_independent_windows);
   HS_RUN(test_distorted_ring_stack_empty_clip_skips_table);
   HS_RUN(test_fused_walks_ignore_pole_lod);

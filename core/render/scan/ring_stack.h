@@ -814,7 +814,7 @@ struct SweptRingStack {
    */
   HS_HOT_INLINE static float sweep_fraction(const math::Vector &p,
                                             float middle) {
-    float u = math::fast_atan2(p.z, p.x) * (1.0f / math::PI_F);
+    float u = math::half_turns(p);
     u -= floorf(u);
     if (u - middle >= 0.5f)
       u -= 1.0f;

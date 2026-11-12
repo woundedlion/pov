@@ -246,6 +246,33 @@ inline void test_swept_ring_stack_boundary_is_conservative() {
   HS_EXPECT_GT(unmarked_knots, 0);
 }
 
+/** @brief Sweep times follow half-turn columns within each clamped window. */
+inline void test_sweep_fraction_matches_half_turn_windows() {
+  constexpr double PI_EXACT = 3.14159265358979323846;
+  for (int k = 0; k < 1001; ++k) {
+    const double angle = 2.0 * PI_EXACT * (k + 0.173) / 1001;
+    const math::Vector p(static_cast<float>(std::cos(angle)), 0.0f,
+                         static_cast<float>(std::sin(angle)));
+    for (float middle : {0.25f, 0.75f}) {
+      double u =
+          std::atan2(static_cast<double>(p.z), static_cast<double>(p.x)) /
+          PI_EXACT;
+      u -= std::floor(u);
+      if (std::fabs(std::fabs(u - middle) - 0.5) < 1.3e-3)
+        continue;
+      if (u - middle >= 0.5)
+        u -= 1.0;
+      else if (middle - u > 0.5)
+        u += 1.0;
+      const float expected = static_cast<float>(std::clamp(u, 0.0, 1.0));
+      const float actual = Scan::SweptRingStack::sweep_fraction(p, middle);
+      HS_EXPECT_NEAR(actual, expected, 1.3e-3f);
+      HS_EXPECT_GE(actual, 0.0f);
+      HS_EXPECT_LE(actual, 1.0f);
+    }
+  }
+}
+
 /** @brief Alternate storage preserves caller allocation order and aligned footprints. */
 inline void test_knot_alternates_interleaved_storage_footprint() {
   constexpr int KNOTS = 65, SLOTS = 3, CAPACITY = 128;
