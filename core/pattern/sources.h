@@ -724,7 +724,7 @@ struct PlaneSpiral : StationarySource<SpiralSourceParams> {
                                    cos_latitude * std::sin(longitude)};
       const math::Vector local =
           math::rotate(direction, prepared.center_conjugate);
-      const float radius = std::acos(std::clamp(local.y, -1.0f, 1.0f));
+      const float radius = std::acos(hs::clamp(local.y, -1.0f, 1.0f));
       const float azimuth =
           prepared.arms == 0.0f ? 0.0f : math::fast_atan2(local.z, local.x);
       return math::fast_sinf(prepared.pattern_freq * radius -
