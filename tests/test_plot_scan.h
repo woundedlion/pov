@@ -115,6 +115,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
  */
 inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
+  HS_RUN(test_cap_ring_arc_contains_cap_knots);
 
   HS_RUN(hs_test::test_reference_row_displacement_is_analytic);
   HS_RUN(hs_test::test_temporal_oracle_displacement_branches);

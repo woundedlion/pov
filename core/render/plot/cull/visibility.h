@@ -16,6 +16,50 @@
 
 namespace Plot {
 
+/** @brief A wrapped knot interval intersecting a spherical cap. */
+struct KnotArc {
+  int first;  ///< First knot, wrapped into the ring.
+  int count;  ///< Number of consecutive knots.
+  bool empty; ///< Whether the cap excludes the ring.
+};
+
+/** @brief Conservatively bounds a cap's footprint on a ring.
+ * @param cos_t,sin_t Ring colatitude cosine and sine.
+ * @param axial Cap centre projected onto the ring axis.
+ * @param radial Cap centre's radial projection length.
+ * @param azimuth Cap centre's azimuth in radians.
+ * @param cos_radius Cosine of the cap radius.
+ * @param n Number of ring knots.
+ * @param margin Cosine-space numerical padding.
+ * @return Padded wrapped interval of knots that can intersect the cap. */
+HS_HOT_INLINE inline KnotArc cap_ring_arc(float cos_t, float sin_t, float axial,
+                                          float radial, float azimuth,
+                                          float cos_radius, int n,
+                                          float margin) {
+  const float a_term = cos_t * axial;
+  const float b_term = sin_t * radial;
+  int first = 0;
+  int count = n;
+  if (b_term > margin) {
+    const float q = (cos_radius - margin - a_term) / b_term;
+    if (q >= 1.0f)
+      return {0, 0, true};
+    if (q > -1.0f) {
+      const float cells_per_radian = n / (2.0f * math::PI_F);
+      const float half = acosf(q) * cells_per_radian;
+      const float center = azimuth * cells_per_radian;
+      first = static_cast<int>(floorf(center - half)) - 1;
+      count = static_cast<int>(ceilf(center + half)) + 1 - first + 1;
+      if (count > n)
+        count = n;
+      first = first % n;
+      if (first < 0)
+        first += n;
+    }
+  }
+  return {first, count, false};
+}
+
 /** @brief Tests a transformed geodesic against a motion-padded region.
  * @tparam W,H Canvas dimensions.
  * @param region Exact clip and angular motion bound.

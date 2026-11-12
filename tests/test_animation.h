@@ -7,6 +7,7 @@
 #pragma once
 
 #include "core/animation/orientation.h"
+#include "core/animation/transformer.h"
 #include "core/math/mobius.h"
 #include <array>
 #include <cstring>
@@ -53,6 +54,7 @@ namespace animation_tests {
  */
 inline int run_animation_tests() {
   hs_test::ModuleFixture fixture("animation");
+  HS_RUN(test_bump_path_endpoints_and_inactive_outputs);
 
   // Module-scoped fake-canvas fixture.
   hs_test::StubEffect fake_fx(8, 8);

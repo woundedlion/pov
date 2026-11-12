@@ -318,25 +318,7 @@ private:
     }
   };
 
-  /**
-   * @brief A ball's path over the frame, in the frame the stack holds at the
-   * current endpoint.
-   */
-  struct BallPath {
-    math::Vector from; ///< Center at the previous endpoint.
-    math::Vector to;   ///< Center at the current endpoint.
-    float axis_from;   ///< `from` along the stack axis.
-    float axis_to;     ///< `to` along the stack axis.
-    float reach_from;  ///< Footprint radius at the previous endpoint.
-    float reach_to;    ///< Footprint radius at the current endpoint.
-    float cos_reach;   ///< Cosine of the larger footprint radius.
-    float cos_cover;   ///< Cosine of the cap covering the whole path.
-  };
-
   static constexpr float SWEEP_QUARTER = 0.25f; ///< Quarter-frame split.
-  static constexpr float FIELD_AMPLITUDE_CUT =
-      0.001f;                                     ///< Inactive field amplitude.
-  static constexpr float FIELD_REACH_CUT = 1e-3f; ///< Inactive field reach.
 
   /** @brief Whether a knot retains the opposite frame endpoint. */
   HS_HOT_INLINE static bool retains_endpoint(float t) {
@@ -387,44 +369,14 @@ private:
     return knot_fraction(p, sweep.middle);
   }
 
-  /**
-   * @brief One ball's displacement of a ring point at a frame fraction.
-   * @param p The point where the stack holds it at the current endpoint.
-   * @param bp The ball's params.
-   * @param path The ball's path over the frame.
-   * @param theta Ring colatitude.
-   * @param t Frame fraction.
-   * @return The ball's field at @p p, with its center and footprint
-   *         interpolated to @p t.
-   */
-  HS_HOT_INLINE static float ball_at(const math::Vector &p,
-                                     const Animation::BumpParams &bp,
-                                     const BallPath &path, float theta,
-                                     float t) {
-    const float reach = path.reach_from + (path.reach_to - path.reach_from) * t;
-    if (reach <= FIELD_REACH_CUT || bp.amplitude <= FIELD_AMPLITUDE_CUT)
-      return 0.0f;
-    const math::Vector c = path.from + (path.to - path.from) * t;
-    const float inverse = 1.0f / sqrtf(math::dot(c, c));
-    const float cos_d = math::dot(p, c) * inverse;
-    if (cos_d <= path.cos_reach)
-      return 0.0f;
-    const float d = math::fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-    if (!(d < reach))
-      return 0.0f;
-    const float colat = math::fast_acos(hs::clamp(
-        (path.axis_from + (path.axis_to - path.axis_from) * t) * inverse, -1.0f,
-        1.0f));
-    return bump_field_profile(bp, reach, d, hs::clamp(theta - colat, -d, d));
-  }
-
   /** @brief ball_field() with each ball at a frame fraction. */
   HS_O3_FN float ball_field_at(const math::Vector &p, const int *ks, int n,
                                float theta, float t) const {
     DominantFieldAccumulator accumulator;
     for (int j = 0; j < n; ++j) {
       const int k = ks[j];
-      accumulator.add(ball_at(p, *ball_params[k], ball_paths[k], theta, t));
+      accumulator.add(Animation::bump_field_at(p, *ball_params[k],
+                                               ball_paths[k], theta, t));
     }
     return accumulator.value();
   }
@@ -526,9 +478,9 @@ private:
     draw_history.capture(end);
     if (Spacetime::flat_surface() || !primed)
       return false;
-    const bool noise =
-        noise_live && fmaxf(std::fabs(sweep.noise_amplitude[0]),
-                            std::fabs(amplitude)) > FIELD_AMPLITUDE_CUT;
+    const bool noise = noise_live && fmaxf(std::fabs(sweep.noise_amplitude[0]),
+                                           std::fabs(amplitude)) >
+                                         Animation::FIELD_AMPLITUDE_CUT;
     if (!noise && n_balls == 0)
       return false;
     sweep.turn = Spacetime::rotation_vector(previous, current);
@@ -555,7 +507,7 @@ private:
         stack_flushes = 0;
 #endif
     ScratchScope sweep_guard(scratch_arena_a);
-    ball_paths = scratch_arena_a.allocate_n<BallPath>(MAX_BALLS);
+    ball_paths = scratch_arena_a.allocate_n<Animation::BumpPath>(MAX_BALLS);
     knot_times = scratch_arena_a.allocate_n<float>(W + 1);
     ring_colors = scratch_arena_a.allocate_n<Color4>(RING_SLOTS);
     for (int i = 0; i < params.num_rings; ++i)
@@ -565,28 +517,14 @@ private:
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
       ball_params[b] = &sp;
-      BallPath &path = ball_paths[b];
-      path.from = Spacetime::rotate_by(sp.previous_center, sweep.turn);
-      path.to = sp.center;
-      path.axis_from = math::dot(basis.v, path.from);
-      path.axis_to = math::dot(basis.v, path.to);
-      path.reach_from = sp.radius * sp.previous_envelope;
-      path.reach_to = sp.radius * sp.envelope;
-      const float reach = fmaxf(path.reach_from, path.reach_to);
-      if (reach <= FIELD_REACH_CUT) {
-        // No field at either endpoint, as before the fall's first step.
+      Animation::BumpCover cover;
+      if (!Animation::make_bump_path(sp, sweep.turn, basis.v, ball_paths[b],
+                                     cover)) {
         ball_colat[b] = 0.0f;
         ball_reach[b] = -1.0f;
         continue;
       }
-      path.cos_reach = cosf(fminf(reach, math::PI_F));
-      // Every center on the path lies within half its chord, padded for the
-      // arc, of the chord's midpoint.
-      const math::Vector chord = path.to - path.from;
-      const float cover = reach + 0.5f * sqrtf(math::dot(chord, chord)) + 1e-4f;
-      path.cos_cover = cosf(fminf(cover, math::PI_F));
-      const math::Vector mid = (path.from + path.to).normalized();
-      cache_ball_frame(b, basis, mid, cover, sp.radius);
+      cache_ball_frame(b, basis, cover.centre, cover.reach, sp.radius);
     }
     ScratchScope cache_guard(scratch_arena_b);
     SweepCache cache{
@@ -745,7 +683,7 @@ private:
                                  : 0.0f;
         const Animation::NoiseProductParams *octaves =
             noise_field.active_count() == 1 &&
-                    std::fabs(octave_amplitude) > FIELD_AMPLITUDE_CUT
+                    std::fabs(octave_amplitude) > Animation::FIELD_AMPLITUDE_CUT
                 ? &noise_field.active_params(0)
                 : nullptr;
         lut_n = noise_lut_samples(feature_scale, sin_t, octaves != nullptr);
@@ -1267,39 +1205,26 @@ private:
       }
     }
 
-    const float cells_per_radian = lut_n / (2.0f * math::PI_F);
     for (int j = 0; j < n_local; ++j) {
       const int k = ball_local[j];
       const Animation::BumpParams &bp = *ball_params[k];
-      const float a_term = step.cos_t * ball_cv[k];
-      const float b_term = step.sin_t * ball_rho[k];
-      int first = 0;
-      int count = lut_n;
       float cos_radius = bp.cos_radius;
       if constexpr (SWEPT)
         cos_radius = ball_paths[k].cos_cover;
-      if (b_term > COS_MARGIN) {
-        const float q = (cos_radius - COS_MARGIN - a_term) / b_term;
-        if (q >= 1.0f)
-          continue;
-        if (q > -1.0f) {
-          const float half = acosf(q) * cells_per_radian;
-          const float center = ball_azimuth[k] * cells_per_radian;
-          first = static_cast<int>(floorf(center - half)) - 1;
-          count = static_cast<int>(ceilf(center + half)) + 1 - first + 1;
-          if (count > lut_n)
-            count = lut_n;
-          first = first % lut_n;
-          if (first < 0)
-            first += lut_n;
-        }
-      }
+      const auto arc =
+          Plot::cap_ring_arc(step.cos_t, step.sin_t, ball_cv[k], ball_rho[k],
+                             ball_azimuth[k], cos_radius, lut_n, COS_MARGIN);
+      if (arc.empty)
+        continue;
+      const int first = arc.first;
+      const int count = arc.count;
       const float y = theta - ball_colat[k];
       for (int i = 0, xi = first; i < count; ++i) {
         if (knot_visible[xi]) {
           float f;
           if constexpr (SWEPT)
-            f = ball_at(knot_pos[xi], bp, ball_paths[k], theta, knot_times[xi]);
+            f = Animation::bump_field_at(knot_pos[xi], bp, ball_paths[k], theta,
+                                         knot_times[xi]);
           else
             f = bump_field_with_y(knot_pos[xi], bp, y);
           DominantFieldAccumulator::accumulate(num[xi], den[xi], f);
@@ -1308,8 +1233,8 @@ private:
             if (sweep->uses_cache() && sweep->cache->boundary[xi] &&
                 retains_endpoint(t)) {
               const float other = other_endpoint(t);
-              const float alternate =
-                  ball_at(knot_pos[xi], bp, ball_paths[k], theta, other);
+              const float alternate = Animation::bump_field_at(
+                  knot_pos[xi], bp, ball_paths[k], theta, other);
               DominantFieldAccumulator::accumulate(alternate_a[xi],
                                                    alternate_b[xi], alternate);
             }
@@ -1503,9 +1428,9 @@ private:
   bool drawn_colors_valid = false; ///< The last draw was swept.
   int drawn_ring_count = 0;        ///< Stack size of the last swept draw.
   // Frame scratch of a swept draw, null outside it.
-  BallPath *ball_paths = nullptr; ///< MAX_BALLS active-ball paths.
-  float *knot_times = nullptr;    ///< W + 1 frame fractions of baked knots.
-  Color4 *ring_colors = nullptr;  ///< RING_SLOTS current ring colors.
+  Animation::BumpPath *ball_paths = nullptr; ///< MAX_BALLS active-ball paths.
+  float *knot_times = nullptr;   ///< W + 1 frame fractions of baked knots.
+  Color4 *ring_colors = nullptr; ///< RING_SLOTS current ring colors.
 
   /** Noise row in PRESETS and PRESET_IDS. */
   static constexpr size_t NOISE_PRESET = 0;
@@ -2000,7 +1925,7 @@ private:
   static constexpr size_t SCRATCH_A_PEAK_BYTES = [] {
     ScratchFootprint peak;
     peak.template add<Scan::ColumnBasisTable<W, H>>(1);
-    peak.template add<BallPath>(MAX_BALLS);
+    peak.template add<Animation::BumpPath>(MAX_BALLS);
     peak.template add<float>(W + 1);
     peak.template add<Color4>(RING_SLOTS);
     peak.template add<uint32_t>(RING_SLOTS * SweepCache::WORDS);

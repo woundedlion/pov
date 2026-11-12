@@ -13,6 +13,7 @@
  */
 
 #include "core/animation/orientation.h"
+#include "core/render/spacetime/surface.h"
 #include "core/math/3dmath.h"
 #include "core/math/mobius.h"
 #include "core/engine/concepts.h"
@@ -844,6 +845,91 @@ bump_cap_hit(const math::Vector &v, const Animation::BumpParams &params,
   d = math::fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
   return d < r_eff;
 }
+
+namespace Animation {
+
+/** Inactive bump footprint radius. */
+inline constexpr float BUMP_REACH_CUT = 1e-3f;
+/** Inactive field amplitude. */
+inline constexpr float FIELD_AMPLITUDE_CUT = 0.001f;
+
+/** @brief A bump's endpoints in the current stack frame. */
+struct BumpPath {
+  math::Vector from; ///< Center at the previous endpoint.
+  math::Vector to;   ///< Center at the current endpoint.
+  float axis_from;   ///< `from` along the stack axis.
+  float axis_to;     ///< `to` along the stack axis.
+  float reach_from;  ///< Footprint radius at the previous endpoint.
+  float reach_to;    ///< Footprint radius at the current endpoint.
+  float cos_reach;   ///< Cosine of the larger footprint radius.
+  float cos_cover;   ///< Cosine of the cap covering the whole path.
+};
+
+/** @brief A cap enclosing a bump's swept footprint. */
+struct BumpCover {
+  math::Vector centre; ///< Cover centre on the unit sphere.
+  float reach;         ///< Angular cover radius.
+};
+
+/** @brief Builds a bump path and its enclosing cap.
+ * @param params Bump endpoint geometry.
+ * @param turn Rotation vector carrying the previous stack to the current one.
+ * @param axis Current stack axis.
+ * @param path Receives the active path.
+ * @param cover Receives the enclosing cap.
+ * @return Whether either endpoint has an active footprint; otherwise outputs are unchanged. */
+HS_HOT_INLINE inline bool make_bump_path(const BumpParams &params,
+                                         const math::Vector &turn,
+                                         const math::Vector &axis,
+                                         BumpPath &path, BumpCover &cover) {
+  const float reach_from = params.radius * params.previous_envelope;
+  const float reach_to = params.radius * params.envelope;
+  const float reach = fmaxf(reach_from, reach_to);
+  if (reach <= BUMP_REACH_CUT)
+    return false;
+  path.from = Spacetime::rotate_by(params.previous_center, turn);
+  path.to = params.center;
+  path.axis_from = math::dot(axis, path.from);
+  path.axis_to = math::dot(axis, path.to);
+  path.reach_from = reach_from;
+  path.reach_to = reach_to;
+  path.cos_reach = cosf(fminf(reach, math::PI_F));
+  const math::Vector chord = path.to - path.from;
+  cover.reach = reach + 0.5f * sqrtf(math::dot(chord, chord)) + 1e-4f;
+  path.cos_cover = cosf(fminf(cover.reach, math::PI_F));
+  cover.centre = (path.from + path.to).normalized();
+  return true;
+}
+
+/** @brief Evaluates the bump at an interpolated frame fraction.
+ * @param p Unit sample point in the current stack frame.
+ * @param bp Bump profile parameters.
+ * @param path Frame endpoint geometry.
+ * @param theta Sample colatitude about the stack axis.
+ * @param t Frame fraction in [0, 1].
+ * @return Signed polar displacement in radians. */
+HS_HOT_INLINE inline float bump_field_at(const math::Vector &p,
+                                         const Animation::BumpParams &bp,
+                                         const BumpPath &path, float theta,
+                                         float t) {
+  const float reach = path.reach_from + (path.reach_to - path.reach_from) * t;
+  if (reach <= BUMP_REACH_CUT || bp.amplitude <= FIELD_AMPLITUDE_CUT)
+    return 0.0f;
+  const math::Vector c = path.from + (path.to - path.from) * t;
+  const float inverse = 1.0f / sqrtf(math::dot(c, c));
+  const float cos_d = math::dot(p, c) * inverse;
+  if (cos_d <= path.cos_reach)
+    return 0.0f;
+  const float d = math::fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+  if (!(d < reach))
+    return 0.0f;
+  const float colat = math::fast_acos(hs::clamp(
+      (path.axis_from + (path.axis_to - path.axis_from) * t) * inverse, -1.0f,
+      1.0f));
+  return bump_field_profile(bp, reach, d, hs::clamp(theta - colat, -d, d));
+}
+
+} // namespace Animation
 
 /**
  * @brief Evaluates a bump using a caller-provided signed ring offset.

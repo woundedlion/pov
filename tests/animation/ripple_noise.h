@@ -397,3 +397,48 @@ inline void test_random_walk_stays_unit_and_travels() {
   }
   HS_EXPECT_GT(parted, 0.01);
 }
+
+/** @brief Swept bumps match their endpoint profiles and preserve rejected outputs. */
+inline void test_bump_path_endpoints_and_inactive_outputs() {
+  const math::Vector AXIS(0.0f, 1.0f, 0.0f);
+  Animation::BumpParams params;
+  params.radius = 0.6f;
+  params.amplitude = 0.9f;
+  params.previous_center = math::Vector(1.0f, 0.0f, 0.0f);
+  params.center = math::Vector(0.0f, 0.0f, 1.0f);
+  params.previous_envelope = 0.4f;
+  params.envelope = 0.8f;
+  Animation::BumpPath path{};
+  Animation::BumpCover cover{};
+  HS_EXPECT_TRUE(Animation::make_bump_path(params, {}, AXIS, path, cover));
+  for (int endpoint = 0; endpoint < 2; ++endpoint) {
+    const auto centre = endpoint ? params.center : params.previous_center;
+    const float reach =
+        params.radius * (endpoint ? params.envelope : params.previous_envelope);
+    for (int sample = 1; sample < 10; ++sample) {
+      const float d = reach * sample / 10.0f;
+      const auto p = centre * cosf(d) + AXIS * sinf(d);
+      const float theta = math::fast_acos(p.y);
+      const float actual_d =
+          math::fast_acos(hs::clamp(math::dot(p, centre), -1.0f, 1.0f));
+      const float expected = bump_field_profile(
+          params, reach, actual_d,
+          hs::clamp(theta - math::PI_F * 0.5f, -actual_d, actual_d));
+      HS_EXPECT_NEAR(
+          Animation::bump_field_at(p, params, path, theta, float(endpoint)),
+          expected, 1e-6f);
+    }
+  }
+  const auto saved = path;
+  const auto saved_cover = cover;
+  params.previous_envelope = params.envelope = 0.0f;
+  HS_EXPECT_FALSE(Animation::make_bump_path(params, {}, AXIS, path, cover));
+  HS_EXPECT_EQ(path.reach_from, saved.reach_from);
+  HS_EXPECT_EQ(path.from.x, saved.from.x);
+  HS_EXPECT_EQ(cover.reach, saved_cover.reach);
+  params.previous_envelope = 1.0f;
+  HS_EXPECT_TRUE(Animation::make_bump_path(params, {}, AXIS, path, cover));
+  params.previous_envelope = 0.0f;
+  params.envelope = 1.0f;
+  HS_EXPECT_TRUE(Animation::make_bump_path(params, {}, AXIS, path, cover));
+}

@@ -64,3 +64,26 @@ inline void test_column_chunk_capacity_boundary() {
     HS_EXPECT_EQ(flushes, chained ? size_t{1} : size_t{2});
   }
 }
+
+/** @brief Cap-ring intervals contain every knot inside the cap. */
+inline void test_cap_ring_arc_contains_cap_knots() {
+  constexpr int N = 96;
+  for (int trial = 0; trial < 500; ++trial) {
+    const float theta = math::PI_F * float(trial % 43) / 42.0f;
+    const float polar = math::PI_F * float((trial * 17) % 47) / 46.0f;
+    const float azimuth = 2.0f * math::PI_F * float((trial * 23) % 53) / 53.0f;
+    const float radius = math::PI_F * float((trial * 13) % 59) / 58.0f;
+    const float cosine = cosf(radius);
+    const auto arc = Plot::cap_ring_arc(cosf(theta), sinf(theta), cosf(polar),
+                                        sinf(polar), azimuth, cosine, N, 1e-5f);
+    for (int k = 0; k < N; ++k) {
+      const float a = 2.0f * math::PI_F * k / N;
+      const float product = cosf(theta) * cosf(polar) +
+                            sinf(theta) * sinf(polar) * cosf(a - azimuth);
+      if (product > cosine) {
+        HS_EXPECT_FALSE(arc.empty);
+        HS_EXPECT_LT((k - arc.first + N) % N, arc.count);
+      }
+    }
+  }
+}
