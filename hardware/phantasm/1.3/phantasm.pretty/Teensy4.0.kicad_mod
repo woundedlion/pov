@@ -55,6 +55,16 @@
 		(fill none)
 		(layer "Dwgs.User")
 	)
+	(fp_text user "USB"
+		(at -17.3 0 90)
+		(layer "F.SilkS")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
 	(zone
 		(layer "F.Cu")
 		(uuid "1b6bad6d-7eda-5123-ace6-4268ea69722b")

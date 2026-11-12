@@ -222,7 +222,8 @@ The back silkscreen carries the ID truth table, N=8 line, revision stamp,
 writable board-ID field, and the TERM=CABLE ENDS, SHLD=M and CUT TEENSY
 VIN-VUSB legends. Each top-bank connector has its complete pin legend and
 title on the back, aligned to the rotated physical pads.
-The Teensy module outline is on the fab layer. Component graphics that cross
+The Teensy module outline is on the fab layer; a front-silkscreen USB mark
+identifies the module's USB end for assembly. Component graphics that cross
 the board-edge silk margin are retained on the fab layer rather than printed
 off-board; their pads and courtyards are unchanged.
 

@@ -86,6 +86,28 @@ class PrototypeContractTests(unittest.TestCase):
         self.assertEqual(board.parse_args([]).revision, "1.2")
         self.assertEqual(pcb.parse_args([]).revision, "1.2")
 
+    def test_teensy_usb_end_has_a_fabricated_orientation_mark(self):
+        for source, footprint in (
+                ("generator", None),
+                ("library", sexp.parse_one((PROTOTYPE / "phantasm.pretty" /
+                                           "Teensy4.0.kicad_mod").read_text(encoding="utf-8"))),
+                ("board", footprints_by_ref(self.board)["U_MCU"])):
+            with self.subTest(source=source):
+                if footprint is None:
+                    token = pcb._GENERATION.set(("1.3", None))
+                    try:
+                        footprint = pcb.teensy_footprint()
+                    finally:
+                        pcb._GENERATION.reset(token)
+                marks = [text for text in F(footprint, "fp_text")
+                         if text[1:3] == ["user", "USB"]
+                         and sexp.val(text, "layer") == ["F.SilkS"]]
+                self.assertTrue(marks)
+                left_pad = min(float(sexp.val(pad, "at")[0])
+                               for pad in F(footprint, "pad"))
+                self.assertTrue(any(float(sexp.val(mark, "at")[0]) < left_pad
+                                    for mark in marks))
+
     def test_positional_schematic_revision_mismatch_is_rejected(self):
         root = sexp.parse_one('(export (design (sheet (name "/") (title_block (rev "1.2")))))')
         with mock.patch.object(check, "export_netlist", return_value=root), \

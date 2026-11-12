@@ -356,10 +356,9 @@ def teensy_footprint():
             '\t(fp_rect (start -18.5 -9.5) (end 18.5 9.5) (stroke (width 0.05) (type solid))'
             ' (fill none) (layer "F.CrtYd"))\n'
             '\t(fp_rect (start -30 -5) (end -18.5 5) (stroke (width 0.25) (type dash))'
-            ' (fill none) (layer "Dwgs.User"))')
-    if outline_layer == 'F.SilkS':
-        body += ('\n\t(fp_text user "USB" (at -17.3 0 90) (layer "F.SilkS")'
-                 ' (effects (font (size 1 1) (thickness 0.15))))')
+            ' (fill none) (layer "Dwgs.User"))'
+            '\n\t(fp_text user "USB" (at -17.3 0 90) (layer "F.SilkS")'
+            ' (effects (font (size 1 1) (thickness 0.15))))')
     keepout = component_keepout("USB mating plug", -30, -5, -18.5, 5, uid())
     model = (
         f'\t(model {sexp.quote(TEENSY_MODEL_PATH)}\n'
