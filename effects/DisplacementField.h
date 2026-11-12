@@ -1907,23 +1907,9 @@ private:
                 "DisplacementField persistent footprint exceeds the default "
                 "partition; retune RING_SLOTS/MAX_BALLS or carve arenas");
 
-  /** @brief Aligned byte extent of temporary arena allocations. */
-  struct ScratchFootprint {
-    size_t bytes = 0;
-    /** @brief Appends a typed allocation to the footprint.
-     * @tparam T Tenant type.
-     * @param count Number of elements. */
-    template <typename T> constexpr void add(size_t count) {
-      static_assert(
-          alignof(T) <= alignof(std::max_align_t),
-          "DisplacementField scratch tenant exceeds arena-base alignment");
-      bytes = (bytes + alignof(T) - 1) / alignof(T) * alignof(T) +
-              count * sizeof(T);
-    }
-  };
   /** @brief Peak swept staging with the column basis live in scratch A. */
   static constexpr size_t SCRATCH_A_PEAK_BYTES = [] {
-    ScratchFootprint peak;
+    ArenaFootprint peak;
     peak.template add<Scan::ColumnBasisTable<W, H>>(1);
     peak.template add<Animation::BumpPath>(MAX_BALLS);
     peak.template add<float>(W + 1);
@@ -1939,7 +1925,7 @@ private:
   /** @brief Alternate shifts with nested candidate-table arrays in scratch B.
    */
   static constexpr size_t SCRATCH_B_PEAK_BYTES = [] {
-    ScratchFootprint peak;
+    ArenaFootprint peak;
     peak.template add<float>(SweepCache::CAPACITY);
     peak.template add<float>(CandidateTable::CHUNKS);
     peak.template add<float>(CandidateTable::CHUNKS);

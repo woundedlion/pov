@@ -1414,6 +1414,22 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
 // Runner
 // ============================================================================
 
+/** @brief Footprint offsets match sequential arena allocations. */
+inline void test_arena_footprint_alignment() {
+  constexpr ArenaFootprint EXPECTED = [] {
+    ArenaFootprint footprint;
+    footprint.add<uint8_t>(3);
+    footprint.add<double>(2);
+    footprint.add<uint16_t>(5);
+    return footprint;
+  }();
+  Arena arena(test_buf_a, sizeof(test_buf_a));
+  arena.allocate_n<uint8_t>(3);
+  arena.allocate_n<double>(2);
+  arena.allocate_n<uint16_t>(5);
+  HS_EXPECT_EQ(EXPECTED.bytes, arena.get_offset());
+}
+
 /**
  * @brief Runs every memory test case in this module.
  * @return The module failure count.
@@ -1421,6 +1437,7 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
 inline int run_memory_tests() {
   hs_test::ModuleFixture fixture("memory");
 
+  HS_RUN(test_arena_footprint_alignment);
   HS_RUN(test_arena_construction);
   HS_RUN(test_arena_basic_allocation);
   HS_RUN(test_arena_alignment);

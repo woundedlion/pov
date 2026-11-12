@@ -14,6 +14,20 @@
 // Core Arena Allocator
 // ============================================================================
 
+/** @brief Aligned byte extent of temporary arena allocations. */
+struct ArenaFootprint {
+  size_t bytes = 0; ///< Sequential aligned allocation extent.
+  /** @brief Appends a typed allocation to the footprint.
+   * @tparam T Tenant type.
+   * @param count Number of elements. */
+  template <typename T> constexpr void add(size_t count) {
+    static_assert(alignof(T) <= alignof(std::max_align_t),
+                  "arena footprint tenant exceeds arena-base alignment");
+    bytes =
+        (bytes + alignof(T) - 1) / alignof(T) * alignof(T) + count * sizeof(T);
+  }
+};
+
 /**
  * @brief Records an ArenaVector block abandoned by a move-assignment or a grow.
  * @param bytes Size of the abandoned block.
