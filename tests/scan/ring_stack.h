@@ -81,7 +81,7 @@ inline void test_swept_ring_stack_matches_independent_windows() {
       auto pending = pool.next();
       alternates.begin_ring(i);
       for (int k = 0; k < N; ++k) {
-        const float early = 0.03f * sinf(math::TWO_PI_F * k / N);
+        const float early = 0.01f + 0.03f * sinf(math::TWO_PI_F * k / N);
         const float late = -early;
         alternates.retain(k, early, late, 0.25f, pending.shift_row);
         pending.hue_row[k] = Pixel(30000 + i * 10000, 20000, 40000);
@@ -111,7 +111,8 @@ inline void test_swept_ring_stack_matches_independent_windows() {
       }
       void operator()(int k, float shift) {
         HS_EXPECT_EQ(k, knots);
-        HS_EXPECT_NEAR(shift, -0.03f * sinf(math::TWO_PI_F * k / N), 1e-7f);
+        HS_EXPECT_NEAR(shift, -(0.01f + 0.03f * sinf(math::TWO_PI_F * k / N)),
+                       1e-7f);
         ++knots;
       }
       void finish() {
@@ -133,7 +134,7 @@ inline void test_swept_ring_stack_matches_independent_windows() {
                 for (int i = 0; i < 2; ++i) {
                   float *row = pool.shift_row(i);
                   for (int k = 0; k < N; ++k)
-                    row[k] = -0.03f * sinf(math::TWO_PI_F * k / N);
+                    row[k] = -(0.01f + 0.03f * sinf(math::TWO_PI_F * k / N));
                   row[N] = row[0];
                 }
               TimeWindowScope window(canvas, window_index * W / 4,

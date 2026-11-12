@@ -493,3 +493,53 @@ inline void test_bump_cover_contains_swept_footprint() {
     }
   }
 }
+
+/** @brief Bump paths reject at the reach cut without changing either output. */
+inline void test_bump_path_reach_cut_and_rejected_outputs() {
+  const auto fields = [](const Animation::BumpPath &path,
+                         const Animation::BumpCover &cover) {
+    return std::array<float, 16>{
+        path.from.x,     path.from.y,    path.from.z,    path.to.x,
+        path.to.y,       path.to.z,      path.axis_from, path.axis_to,
+        path.reach_from, path.reach_to,  path.cos_reach, path.cos_cover,
+        cover.centre.x,  cover.centre.y, cover.centre.z, cover.reach};
+  };
+  const float CUT = Animation::BUMP_REACH_CUT;
+  const std::array<float, 4> REACHES{
+      0.0f, std::nextafter(CUT, 0.0f), CUT,
+      std::nextafter(CUT, std::numeric_limits<float>::infinity())};
+  for (float radius : {0.5f, 1.0f, 2.0f}) {
+    for (float from : REACHES) {
+      for (float to : REACHES) {
+        Animation::BumpParams params;
+        params.radius = radius;
+        params.previous_envelope = from / radius;
+        params.envelope = to / radius;
+        params.previous_center = math::Vector(1.0f, 0.0f, 0.0f);
+        params.center = math::Vector(0.0f, 0.0f, 1.0f);
+        Animation::BumpPath path{{1.0f, 2.0f, 3.0f},
+                                 {4.0f, 5.0f, 6.0f},
+                                 7.0f,
+                                 8.0f,
+                                 9.0f,
+                                 10.0f,
+                                 11.0f,
+                                 12.0f};
+        Animation::BumpCover cover{{13.0f, 14.0f, 15.0f}, 16.0f};
+        const auto before = fields(path, cover);
+        const bool expected = from > CUT || to > CUT;
+        const bool active = Animation::make_bump_path(
+            params, {}, math::Vector(0.0f, 1.0f, 0.0f), path, cover);
+        HS_EXPECT_EQ(active, expected);
+        if (expected) {
+          HS_EXPECT_EQ(path.reach_from, from);
+          HS_EXPECT_EQ(path.reach_to, to);
+        } else {
+          const auto after = fields(path, cover);
+          for (size_t field = 0; field < before.size(); ++field)
+            HS_EXPECT_EQ(after[field], before[field]);
+        }
+      }
+    }
+  }
+}

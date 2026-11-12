@@ -5,10 +5,12 @@
  * Unit tests for plotting, column scans, clipping and space-time helpers.
  */
 #pragma once
+#include <array>
 #include "tests/pixel_test_util.h"
 #include "tests/temporal_oracle.h"
 
 #include "core/animation/orientation.h"
+#include "core/animation/transformer.h"
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/animation/animation.h" // Segue::Dissolve
@@ -116,6 +118,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
   HS_RUN(test_cap_ring_arc_contains_cap_knots);
+  HS_RUN(test_swept_bump_arc_contains_footprint_knots);
 
   HS_RUN(hs_test::test_reference_row_displacement_is_analytic);
   HS_RUN(hs_test::test_temporal_oracle_displacement_branches);
