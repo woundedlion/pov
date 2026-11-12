@@ -1063,6 +1063,8 @@ struct Mesh {
            FragmentShaderT &fragment_shader, Arena &scratch_arena,
            const MeshOps::MeshClassBake *bake,
            FaceShaderSetupT &face_shader_setup) {
+    if constexpr (std::is_same_v<FragmentShaderT, FragmentShaderRef>)
+      check_fragment_shader(fragment_shader);
     const Scan::ColumnBasis *own = canvas.column_basis();
     if (own)
       check_mesh_pass(own->mesh, mesh.num_faces(), mesh.vertices.size());
@@ -1285,10 +1287,6 @@ struct Mesh {
             FaceShaderSetupT &face_shader_setup) {
     check_canvas_dims<W, H>(canvas);
     check_pipeline_prepared(pipeline, canvas);
-    // the per-face wrapper is never null; check the erased shader it wraps
-    if constexpr (std::is_same_v<FragmentShaderT, FragmentShaderRef>)
-      check_fragment_shader(fragment_shader);
-
     ScratchScope scope(scratch_arena);
     auto *storage = new_face_storage(scratch_arena);
     if (!math::TrigLUT<W, H>::initialized)
