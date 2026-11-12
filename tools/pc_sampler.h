@@ -47,8 +47,21 @@ inline uint32_t interrupted_pc(const uint32_t *msp, const uint32_t *psp,
 }
 
 /**
+ * @brief Reconstructs the latest compare match from handler service time.
+ * @param service_cycles Core cycle counter at handler entry.
+ * @param latency_counts Timer counts since the compare match.
+ * @param cycles_per_count Core cycles per timer count.
+ * @return Compare-match core cycle counter, modulo uint32_t.
+ */
+constexpr uint32_t pc_match_cycles(uint32_t service_cycles,
+                                   uint32_t latency_counts,
+                                   uint32_t cycles_per_count) {
+  return service_cycles - latency_counts * cycles_per_count;
+}
+
+/**
  * @brief Timer periods that elapsed without a serviced tick.
- * @param elapsed_cycles Core cycles since the previous serviced tick.
+ * @param elapsed_cycles Core cycles between consecutive compare matches.
  * @param period_cycles Nominal tick period in core cycles (nonzero).
  * @return Elapsed periods, rounded to nearest, beyond the one that fired.
  */
@@ -318,8 +331,10 @@ static_assert(PC_TIMER_HZ % HS_PROFILE_PC_HZ == 0 && HS_PROFILE_PC_HZ >= 1000 &&
 
 /** @brief The sampler's histogram and counters (zero-initialized .bss). */
 inline PcSampler<HS_PROFILE_PC_BINS, HS_PROFILE_PC_BIN_SHIFT> g_pc_sampler;
-/** @brief Cycle counter at the previous serviced tick. */
-inline uint32_t g_pc_last_tick_cycles;
+/** @brief Cycle counter at the previous timer compare match. */
+inline uint32_t g_pc_last_match_cycles;
+/** @brief Core cycles per GPT2 count. */
+inline uint32_t g_pc_cycles_per_count;
 /** @brief Tick period in core cycles. */
 inline uint32_t g_pc_period_cycles;
 /** @brief millis() when the sampler started. */
@@ -340,9 +355,11 @@ hs_pc_sampler_tick(const uint32_t *msp, const uint32_t *psp,
   const uint32_t start = ARM_DWT_CYCCNT;
   const uint32_t latency = GPT2_CNT;
   GPT2_SR = GPT_SR_OF1;
-  const uint32_t lost = hs::pc_lost_ticks(start - hs::g_pc_last_tick_cycles,
+  const uint32_t match =
+      hs::pc_match_cycles(start, latency, hs::g_pc_cycles_per_count);
+  const uint32_t lost = hs::pc_lost_ticks(match - hs::g_pc_last_match_cycles,
                                           hs::g_pc_period_cycles);
-  hs::g_pc_last_tick_cycles = start;
+  hs::g_pc_last_match_cycles = match;
   hs::g_pc_sampler.tick(hs::pc_sample_gate() != 0, latency, lost, exc_return,
                         hs::interrupted_pc(msp, psp, exc_return));
   hs::g_pc_sampler.note_service(ARM_DWT_CYCCNT - start);
@@ -379,9 +396,10 @@ HS_FLASH_INLINE inline void pc_sampler_begin() {
   attachInterruptVector(IRQ_GPT2, hs_pc_sampler_isr);
   NVIC_SET_PRIORITY(IRQ_GPT2, PC_SAMPLER_IRQ_PRIORITY);
   g_pc_period_cycles = F_CPU_ACTUAL / HS_PROFILE_PC_HZ;
+  g_pc_cycles_per_count = F_CPU_ACTUAL / PC_TIMER_HZ;
   g_pc_start_ms = millis();
-  g_pc_last_tick_cycles = ARM_DWT_CYCCNT;
   NVIC_ENABLE_IRQ(IRQ_GPT2);
+  g_pc_last_match_cycles = ARM_DWT_CYCCNT;
   GPT2_CR |= GPT_CR_EN;
 }
 

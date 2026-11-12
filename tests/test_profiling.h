@@ -638,6 +638,27 @@ inline void test_pc_interrupted_pc_selects_stack() {
   HS_EXPECT_EQ(hs::interrupted_pc(msp, psp, 0xFFFFFFEDu), 0x60005678u);
 }
 
+/** @brief Compare-match accounting ignores service latency and cycle wrap. */
+inline void test_pc_match_cycles_remove_latency() {
+  constexpr uint32_t PERIOD = 60000;
+  constexpr uint32_t CYCLES_PER_COUNT = 25;
+  for (uint32_t base : {100000u, UINT32_MAX - 100000u}) {
+    for (uint32_t previous_latency : {0u, 1440u}) {
+      for (uint32_t latency : {0u, 1440u}) {
+        for (uint32_t lost : {0u, 1u, 3u}) {
+          const uint32_t previous =
+              hs::pc_match_cycles(base + previous_latency * CYCLES_PER_COUNT,
+                                  previous_latency, CYCLES_PER_COUNT);
+          const uint32_t current = hs::pc_match_cycles(
+              base + (lost + 1) * PERIOD + latency * CYCLES_PER_COUNT, latency,
+              CYCLES_PER_COUNT);
+          HS_EXPECT_EQ(hs::pc_lost_ticks(current - previous, PERIOD), lost);
+        }
+      }
+    }
+  }
+}
+
 /**
  * @brief Verifies lost periods round the elapsed time to whole periods and
  *        exclude the period that fired.
@@ -895,6 +916,7 @@ inline int run_profiling_tests() {
   HS_RUN(test_isr_window_logging_latency);
   HS_RUN(test_pc_interrupted_pc_selects_stack);
   HS_RUN(test_pc_lost_ticks_rounds_to_periods);
+  HS_RUN(test_pc_match_cycles_remove_latency);
   HS_RUN(test_pc_latency_buckets);
   HS_RUN(test_pc_histogram_bins_and_capacity);
   HS_RUN(test_pc_sampler_classifies_ticks);
