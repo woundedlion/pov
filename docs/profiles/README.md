@@ -48,7 +48,7 @@ full-roster image.
 
 ## Shipping/O3 captures
 
-● marks shipping captures updated in the 2026-11-05 sweep or the DisplacementField re-capture on 2026-11-07.
+● marks shipping captures updated in the 2026-11-05 sweep or the DisplacementField re-capture on 2026-11-12.
 
 Rows rank by shipping spill fraction, then shipping steady peak render. Shipping peak and spilled exclude setup frame 1, listed separately; subsequent transitions remain included. Both peaks are render, never wall time; spilled counts frames exceeding 62.5 ms.
 Shipping colours are binary: 🟢 zero spill; 🔴 any spill. O3 columns retain their
@@ -73,8 +73,8 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [Iridescence](shipping/profile_iridescence_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 49.094 | 91.161 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-11-05 00:22 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-11-05.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🟢 48.568 | 24.927 | 🔴 279.686 | 🟢 0/447 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-11-04 22:59<br>O3 2026-09-30 19:15 |
 | [Involution](shipping/profile_involution_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 47.347 | 83.449 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-11-05 00:15 |
+| [DisplacementField](shipping/profile_displacementfield_teensy_2026-11-12.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) § ● | `df_timeline_step` | 🟢 45.164 (2) | 18.393 | 🟢 57.45 | 🟢 0/3015 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-11-12 11:23<br>O3 2026-09-19 22:19 |
 | [Galaxies](shipping/profile_galaxies_teensy_2026-11-05.md) ● | `gx_particle_step` | 🟢 45.126 | 1.482 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-11-04 22:44 |
-| [DisplacementField](shipping/profile_displacementfield_teensy_2026-11-07.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) § ● | `df_timeline_step` | 🟢 45.107 (2) | 18.485 | 🟢 57.45 | 🟢 0/2367 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-11-07 23:11<br>O3 2026-09-19 22:19 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-11-05.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) ● | `bz_render` | 🟢 44.574 | 76.467 | 🟢 48.65 | 🟢 0/927 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-11-04 22:48<br>O3 2026-08-26 01:16 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-11-05.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § ● | `fx_shader_draw` | 🟢 42.739 (2) | 64.707 | 🟢 38.94 (3) | 🟢 0/1647 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-11-05 00:26<br>O3 2026-08-26 02:49 |
 | [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-11-05.md) / [O3](O3/profile_kaleidoscopemandala_teensy_2026-08-26.md) § ● | `fx_shader_draw` | 🟢 42.737 (2) | 62.398 | 🟢 36.86 (3) | 🟢 0/1631 (0.00%) | 🟢 0/2368 (0%) | +13,656 B | +11,440 B | ship 2026-11-04 23:53<br>O3 2026-08-26 03:17 |

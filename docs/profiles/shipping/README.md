@@ -22,8 +22,8 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [Iridescence](profile_iridescence_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 49.094 | 91.161 | 🟢 0/927 (0.00%) | 2026-11-05 00:22 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-11-05.md) ● | `grd_render` | 🟢 48.568 | 24.927 | 🟢 0/447 (0.00%) | 2026-11-04 22:59 |
 | [Involution](profile_involution_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 47.347 | 83.449 | 🟢 0/927 (0.00%) | 2026-11-05 00:15 |
+| [DisplacementField](profile_displacementfield_teensy_2026-11-12.md) § ● | `df_timeline_step` | 🟢 45.164 (2) | 18.393 | 🟢 0/3015 (0.00%) | 2026-11-12 11:23 |
 | [Galaxies](profile_galaxies_teensy_2026-11-05.md) ● | `gx_particle_step` | 🟢 45.126 | 1.482 | 🟢 0/927 (0.00%) | 2026-11-04 22:44 |
-| [DisplacementField](profile_displacementfield_teensy_2026-11-07.md) § ● | `df_timeline_step` | 🟢 45.107 (2) | 18.485 | 🟢 0/2367 (0.00%) | 2026-11-07 23:11 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-11-05.md) ● | `bz_render` | 🟢 44.574 | 76.467 | 🟢 0/927 (0.00%) | 2026-11-04 22:48 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-11-05.md) § ● | `fx_shader_draw` | 🟢 42.739 (2) | 64.707 | 🟢 0/1647 (0.00%) | 2026-11-05 00:26 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-11-05.md) § ● | `fx_shader_draw` | 🟢 42.737 (2) | 62.398 | 🟢 0/1631 (0.00%) | 2026-11-04 23:53 |
@@ -49,7 +49,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 Per-effect reports retain preset coverage and strict validator diagnostics. Per-frame render telemetry supports cadence figures without a claim of an unobserved wrap or fully validated cycle-counter exactness.
 
-● marks shipping captures updated in the 2026-11-05 sweep or the DisplacementField re-capture on 2026-11-07.
+● marks shipping captures updated in the 2026-11-05 sweep or the DisplacementField re-capture on 2026-11-12.
 
 § Cyclers carry one aligned line per parser ownership colour bucket, red first;
 (N) counts observed ownership entries. Buckets include transitions and exclude setup frame 1.
