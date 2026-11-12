@@ -12,7 +12,7 @@ Point-in-time architecture snapshot. Raw capture: final-kaleidoscopesmooth-profi
 | Image | `profile_o3`: `-O3`, `-ffast-math -fno-finite-math-only`; global optimization |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
 | Effect | KaleidoscopeSmooth 288×144, single-entry playlist, source `76ea80495cef34aa347431bb0aaabb5aa9d3ee55` |
-| Method | `HS_PROFILE`, 16-frame windows, 260 s capture; `HS_PROFILE_EPOCH_REVS=2400` (300 s epoch); runtime 2–4138, setup frame 1 excluded; counter summaries 17–4128, excluding the entire startup-containing window |
+| Method | `HS_PROFILE`, 16-frame windows, 260 s capture; `HS_PROFILE_EPOCH_REVS=2400` (ignored; default one-hour epoch); runtime 2–4138, setup frame 1 excluded; counter summaries 17–4128, excluding the entire startup-containing window |
 | Reproduce | `tools/profile_one.sh KaleidoscopeSmooth profile_o3 260 16 -D HS_PROFILE_EPOCH_REVS=2400` |
 
 Image size: `FLASH: code:85736, data:156616, headers:8528` /
@@ -140,7 +140,7 @@ Preparation over the complete post-startup windows averages 853.200 us/f versus 
 - CYCCNT free-runs, so every scope absorbs ISR preemption and nested scopes overlap their parents.
 - No `filter_blend` subtree or exact blend count was recorded in these captures.
 - Shipping uses the composed shade and generated-palette HS_O3 functions; the global-O3 twin optimizes all compiled code.
-- Only the epoch is stretched to 300 s; dwell and transition settings remain authored.
+- The listed epoch override was ignored; the image ran the default one-hour epoch. Dwell and transition settings remain authored.
 - Captured source identity is recorded above; see the archive source-reachability note. Build flags, source status and hashes are not retained in the repository; later documentation edits do not change that source identity.
 - Counter summaries omit the startup-containing window; exact cadence excludes only actual setup frame 1 and retains all following live frames.
 

@@ -14,7 +14,7 @@ Raw capture: `after-o3.log.txt` (archive removed). Replaces `profile_shapeshifte
 | Image | `profile_o3`; global -O3 -ffast-math reference |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
 | Effect | ShapeShifter 288×144, single-entry playlist, clean tip `799ed81d189a2b007cb15dc227704606c72abc4f` |
-| Method | `HS_PROFILE`, window 16, 155 s, epoch 1600 revolutions (200 s). Exact runtime frames 2–2458, frame 1 excluded. Complete-window scope/ISR summaries cover 17–2448. |
+| Method | `HS_PROFILE`, window 16, 155 s, default one-hour epoch (the listed 1600-revolution override was ignored). Exact runtime frames 2–2458, frame 1 excluded. Complete-window scope/ISR summaries cover 17–2448. |
 | Reproduce | From checkout `799ed81d1`: `HS_PROFILE_TREE="$PWD" HS_TEENSY_PORT=COM4 bash tools/profile_one.sh ShapeShifter profile_o3 155 16 '-D HS_PROFILE_EPOCH_REVS=1600'` |
 
 Image size: `FLASH: code:106400, data:152028, headers:8836` / `RAM1: variables:315072, code:74152, padding:24152, free:110912` / `RAM2: variables:520064, free:4224`.
@@ -109,7 +109,7 @@ No matched WASM/native timing capture was used.
 - No `filter_blend` population is present here; generally it inherits its first active parent and disappears beneath an inactive parent.
 - Deep per-pixel profiling is disabled; scope overhead remains in the measurements.
 - Shipping uses selective O3 in Plot cull/raster and shape scanning; global O3 is a compiler reference, not the full-roster shipping policy.
-- Epoch extension prevents reinitialization; it does not compress dwell or change per-frame work.
+- The listed epoch override was ignored; the image ran the default one-hour epoch, with no dwell compression.
 - Runtime totals include trailing complete per-frame records beyond the last dumped scope window.
 
 ## Harness

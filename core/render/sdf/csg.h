@@ -695,10 +695,9 @@ template <typename A, typename B> struct Intersection {
  * Place the child within the canonical wedge centered on the derived u axis,
  * with azimuth in [-sector/2, sector/2]. Geometry outside that wedge is clipped.
  *
- * UV semantics: distance() evaluates the child at the *folded* point, so the
- * child's UV registers (DistanceResult.t / Fragment::v0) are sector-local — t
- * measures azimuth within one sector and resets at every sector boundary (each
- * copy reuses the child's full UV range).
+ * distance() evaluates the child at the folded point, so the child's
+ * registers (t / Fragment::v0) keep the child's own meaning and every copy
+ * reuses the child's full range.
  */
 template <typename Shape> struct AngularRepeat {
   const Shape &shape; /**< Child shape being repeated. */

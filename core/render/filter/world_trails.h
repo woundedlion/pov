@@ -205,7 +205,8 @@ public:
   size_t size() const { return count; }
 
   /** @brief Source samples submitted since storage initialization.
-   * @return Monotonic count modulo the uint32 range, including expired samples and replacements. */
+   * @return Monotonic count modulo the uint32 range, including expired
+   * samples and replacements. */
   uint32_t records() const { return recorded_samples; }
 
 private:

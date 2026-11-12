@@ -213,11 +213,13 @@ private:
 
   /**
    * @brief Blends the distorted previous frame into the current frame.
-   * @param cv Target canvas (reads cv.prev, writes the back (current-draw) buffer).
+   * @param cv Target canvas (reads cv.prev, writes the back (current-draw)
+   * buffer).
    * @param alpha Global blend alpha in [0, 1].
    * @details Computes a coarse warp field via the Style's space_fn, bilinearly
    * upsamples it, then composites the warped previous frame, honoring the
-   * segment's cylindrical clip. Clears a stale drawing buffer unless column time reads it as the frame two back; a disabled filter only clears it.
+   * segment's cylindrical clip. Clears a stale drawing buffer unless column
+   * time reads it as the frame two back; a disabled filter only clears it.
    */
   HS_O3_BEGIN
   void flush(Canvas &cv, float alpha) {

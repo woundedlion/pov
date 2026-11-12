@@ -106,7 +106,7 @@ capture is the comparison baseline.
 - `filter_blend` parents under the first scope that enters it; its subtree is hidden in
   windows where that parent has zero calls, and calls approximate blended pixels.
 - The paired shipping image traverses the selective-O3 `Scan::Shader` and shared math/color hot paths used by this effect; global O3 compiles the entire single-effect image.
-- The capture uses `-D HS_PROFILE_EPOCH_REVS=1600` to keep the full cycle inside one effect epoch; it changes dwell/epoch length, not per-frame render cost.
+- The capture listed `-D HS_PROFILE_EPOCH_REVS=1600`, but that image ignored the epoch override and ran the default one-hour epoch.
 - Provenance records O3 source `63268c3768ae91c8e2b47acd728db641570179eb` and paired shipping source
   `63268c3768ae91c8e2b47acd728db641570179eb`; no uncommitted working-tree state is recorded.
 

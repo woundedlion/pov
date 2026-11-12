@@ -1,6 +1,6 @@
 """Rank Quilter autoplace/autoroute candidates by signal integrity.
 
-Parses each candidate's `phantasm.kicad_pcb` (KiCad 10 s-expr) directly
+Parses each candidate's single `.kicad_pcb` (KiCad 10 s-expr) directly
 -- no KiCad needed -- and scores the fast nets (the 24 MHz SPI DATA/CLK to the
 strip, DATA_IN/CLK_IN from the Teensy, their DATA_SRC/CLK_SRC stubs, and the
 sync nets SYNC_BUS, FRAME_SYNC, SYNC_TX and SYNC_SRC).
@@ -12,9 +12,9 @@ With no args it globs `<builder.REVISION>/candidates/*Candidate[ _-]*` using the
 default revision. Extract Quilter archives into that directory. Pass explicit
 folders or .kicad_pcb files for other revisions.
 
-A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
-must name an existing file). With no KiCad on the pin installed the ranking still
-runs, ungated.
+A DRC gate runs kicad-cli on each candidate. KICAD_CLI overrides discovery
+and must name an existing kicad-cli of the pinned KiCad release; a mismatched
+override is fatal. With no pinned KiCad installed the ranking still runs, ungated.
 
 Errors are split: 'refill-fixable' clearance/hole errors against a zone (they clear
 on a KiCad zone refill) vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track

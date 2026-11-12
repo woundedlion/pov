@@ -198,11 +198,6 @@ with no firmware-relevant tree difference. Capture `0156d0d7490355` maps to
 landed `2b9b2a15c`. Capture `7baf3cc4307` maps to landed `35420268b` on a
 different base (319 differing files); it cannot be treated as the same tree.
 Capture `17390a7a1` is unpublished: it is `d8bfc08f7` plus one profiling scope.
-The canonical shipping source `49bb199f4` is unpublished. Its landed
-equivalent `b49317e21` differs in firmware: `walk_uniform_edge_columns()`
-has 32-byte alignment in `core/render/plot/column_walk.h`, and
-`HankinSolids::SCRATCH_A_BYTES` is 26 KiB instead of 24 KiB. It is not a
-firmware-identical substitute for the captured source.
 Capture `0df961b818ae` is unrecoverable. The unpublished capture hashes
 are not reachable from the published branch. The historical KaleidoscopeSmooth shipping
 capture additionally used an unretained source patch, so its recorded base

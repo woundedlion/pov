@@ -182,7 +182,8 @@ No matched WASM/native timing is used; this is the live device result.
 - Every live frame is retained, including geometry builds and transitions.
   One capture per revision/config does not establish a confidence interval.
 - Ordered profiling replaces random edge choice with the fixed 30-leg tour;
-  it preserves each selected leg's drawing work. The epoch is stretched only.
+  it preserves each selected leg's drawing work. The listed epoch override
+  was ignored; the image ran the default one-hour epoch.
 
 ## Harness
 

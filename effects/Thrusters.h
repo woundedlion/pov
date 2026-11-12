@@ -54,8 +54,6 @@ public:
    * @details Adds a persistent ring sprite plus a random thruster-fire timer.
    */
   HS_FLASH_MEMBER void init() override {
-    // Radius 0 and 2 both collapse the ring to a point (ring_vec and its
-    // antipode), so the slider stops short of each end.
     register_described_params<&Thrusters::parameter_fields>(params);
 
     // Inigo Quilez cosine palette: color(t) = bias + amp*cos(2π(freq*t + phase)).
@@ -424,6 +422,7 @@ private:
    *  @return Tuple of `Control::Field` descriptors, one per parameter. */
   static constexpr auto parameter_fields() {
     return std::tuple{
+        // Radius 0 and 2 collapse the ring to ring_vec and its antipode.
         Control::Field<Params, float>{.id = "radius",
                                       .member = &Params::radius,
                                       .name = "Radius",

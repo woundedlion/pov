@@ -10,7 +10,7 @@ Point-in-time architecture snapshot. Raw capture: aligned-board4-kaleidoscopesmo
 | Image | `profile`: `-Os`, `-ffast-math -fno-finite-math-only`; the composed shade and generated-palette HS_O3 functions |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
 | Effect | KaleidoscopeSmooth 288×144, single-entry playlist, source `0156d0d7490355ea99cab406f4704a128a55ccbf` plus an unretained source patch (supporting artifact removed) |
-| Method | `HS_PROFILE`, 16-frame windows, 260 s capture; `HS_PROFILE_EPOCH_REVS=2400` (300 s epoch); runtime 2–4137, setup frame 1 excluded; counter summaries 17–4128, excluding the entire startup-containing window |
+| Method | `HS_PROFILE`, 16-frame windows, 260 s capture; `HS_PROFILE_EPOCH_REVS=2400` (ignored; default one-hour epoch); runtime 2–4137, setup frame 1 excluded; counter summaries 17–4128, excluding the entire startup-containing window |
 | Reproduce | `tools/profile_one.sh KaleidoscopeSmooth profile 260 16 -D HS_PROFILE_EPOCH_REVS=2400` |
 
 Image size: `FLASH: code:70688, data:156636, headers:8196` /
@@ -138,7 +138,7 @@ Preparation over the complete post-startup windows averages 1536.384 us/f versus
 - CYCCNT free-runs, so every scope absorbs ISR preemption and nested scopes overlap their parents.
 - No `filter_blend` subtree or exact blend count was recorded in these captures.
 - Shipping uses the composed shade and generated-palette HS_O3 functions; the global-O3 twin optimizes all compiled code.
-- Only the epoch is stretched to 300 s; dwell and transition settings remain authored.
+- The listed epoch override was ignored; the image ran the default one-hour epoch. Dwell and transition settings remain authored.
 - Captured source is the base SHA above plus a source patch that is no longer retained; the source diff hash is 783e073d58c6daf2ebaac200edc4f0fbee222ef9a9e5d462a84ec36d4d08b7d3. This capture does not represent an unmodified committed tree. Build flags, source status and hashes are not retained in the repository; later documentation edits do not change that source identity.
 - Counter summaries omit the startup-containing window; exact cadence excludes only actual setup frame 1 and retains all following live frames.
 

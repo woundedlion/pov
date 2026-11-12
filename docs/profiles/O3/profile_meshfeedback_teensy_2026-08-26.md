@@ -124,7 +124,7 @@ capture is the comparison baseline.
 - `filter_blend` parents under `mf_mesh_draw`; its subtree is hidden in
   windows where that parent has zero calls, and calls approximate blended pixels.
 - The paired shipping image traverses selective-O3 mesh/scan/filter hot paths identified by the counter tree; global O3 compiles the entire single-effect image.
-- The capture uses `-D HS_PROFILE_EPOCH_REVS=3400` to keep the full cycle inside one effect epoch; it changes dwell/epoch length, not per-frame render cost.
+- The capture listed `-D HS_PROFILE_EPOCH_REVS=3400`, but that image ignored the epoch override and ran the default one-hour epoch.
 - Provenance records O3 source `63268c3768ae91c8e2b47acd728db641570179eb` and paired shipping source
   `20ca3cb48892795a4575dd9d16d31a699f79df75`; no uncommitted working-tree state is recorded.
 

@@ -116,7 +116,7 @@ capture is the comparison baseline.
 - `filter_blend` parents under `cm_draw_trail`; its subtree is hidden in
   windows where that parent has zero calls, and calls approximate blended pixels.
 - No effect-local selective-O3 boundary is exposed by this counter tree; the paired selective-O3 capture is the shipping reference, while global O3 compiles every translation unit.
-- The capture uses `-D HS_PROFILE_EPOCH_REVS=2400` to keep the full cycle inside one effect epoch; it changes dwell/epoch length, not per-frame render cost.
+- The capture listed `-D HS_PROFILE_EPOCH_REVS=2400`, but that image ignored the epoch override and ran the default one-hour epoch.
 - Provenance records O3 source `63268c3768ae91c8e2b47acd728db641570179eb` and paired shipping source
   `63268c3768ae91c8e2b47acd728db641570179eb`; no uncommitted working-tree state is recorded.
 

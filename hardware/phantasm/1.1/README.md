@@ -87,8 +87,9 @@ zero JLCDFM findings. Run KiCad DRC and JLCDFM on every new routed package.
 
 The `pcb-tests` CI job runs the generator suite under pinned KiCad 10.0.4,
 including schematic generation, committed-board parity and DRC, and
-generated-board DRC. Metadata checks also run in CI. ERC and fabrication
-exports run locally through `../gen/fab.py` when the package is regenerated.
+generated-board DRC. Metadata checks also run in CI. The job also runs ERC
+and a full rev 1.1 release export and verification (`../gen/tests/test_release.py`);
+it is skipped when no PCB input changed.
 
 - **N=8 firmware:** `pio run -e phantasm8` compiles and links the optional
   eight-board profile; this is firmware validation, not rotor qualification.

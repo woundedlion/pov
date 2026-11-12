@@ -19,7 +19,7 @@ C:/work/temp/review31-fix/aa-candidate.provenance
 | Image | `profile` env, `-Os` plus shipping selective `HS_O3` regions, including direct-AA and scan primitives |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
 | Effect | ShapeShifter 288×144, single-entry playlist |
-| Method | Baseline then candidate; 155 seconds each, window 16, epoch 1600 revolutions, full nine-preset cycle |
+| Method | Baseline then candidate; 155 seconds each, window 16, default one-hour epoch (listed 1600-revolution override ignored), full nine-preset cycle |
 | Reproduce | Set `HS_PROFILE_TREE` to each source checkout, `HS_TEENSY_PORT=COM3`, distinct `HS_PROFILE_OUT`; run `bash tools/profile_one.sh ShapeShifter profile 155 16 -D HS_PROFILE_EPOCH_REVS=1600` |
 
 Captured source commits:
@@ -132,7 +132,7 @@ README cells: peak 🟢 54.821 (9), spilled 🟢 0/2447 (0.00%).
 - All scopes include ISR time because CYCCNT free-runs.
 - One pass per image cannot resolve run-to-run uncertainty; the +0.19% aggregate change is not attributed to the optimization.
 - Per-pixel scope overhead would affect a count/stall image; neither capture enables those counters. `filter_blend` parenting can hide its subtree when the first parent's call count is zero; no such counter is present here.
-- Both runs use shipping selective-O3 direct-AA and scan regions, with no dwell compression. The longer epoch only prevents reinitialization within the full cycle.
+- Both runs use shipping selective-O3 direct-AA and scan regions, with no dwell compression. The listed epoch override was ignored; both images ran the default one-hour epoch.
 - This captures a mixed ShapeShifter workload rather than an isolated integer-plot benchmark. It does not establish a Galaxies performance figure.
 - Captured source hashes `df2b955eb` and `eeda8b0a3` identify unreferenced pre-report commits that may be garbage-collected. The published equivalent is `e2452bd06`, matched by subject and code diff; later documentation and parser changes are outside the measured images.
 
