@@ -2,6 +2,12 @@
 
 Every spec carries its own status banner; the lines below repeat it.
 
+## Rendering
+
+| Document | Status and scope |
+|---|---|
+| [displacement_field_core_extraction.md](displacement_field_core_extraction.md) | IMPLEMENTED. Shared ring-stack pool, swept knot alternates, bump paths and arena footprints; native, render, visual and device qualification recorded. |
+
 ## Phantasm hardware
 
 | Document | Status and scope |

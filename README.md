@@ -1842,7 +1842,23 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── teensy_upload.py      Verifies the pinned headless tool and selects the claimed serial/USB identity
 │   ├── setup_teensy_uploader.py  Installs the hash-pinned Windows uploader and release provenance
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
-├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the DreamBalls orbit-bound derivation (dreamballs_orbit_bound.md), the hue lookup qualification record (hue_lut_qualification.md and .json), the design specs (indexed in docs/specs/README.md), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
+├── docs/                       Engine references, design contracts, profiles and screenshots
+│   ├── doxygen-custom.css             API reference theme overrides
+│   ├── doxygen-theme.cfg              API reference theme configuration
+│   ├── dreamballs_orbit_bound.md      DreamBalls orbit-bound derivation
+│   ├── effects.md                     Per-effect reference
+│   ├── hue_lut_qualification.json     Hue lookup qualification measurements
+│   ├── hue_lut_qualification.md       Hue lookup qualification record
+│   ├── phantasm_circuit.svg           Phantasm circuit diagram
+│   ├── profiles/                      On-device timing reports and indices
+│   ├── screenshots/                   Effect gallery
+│   ├── specs/                         Design contracts and qualification records
+│   │   ├── README.md                                 Design specification index
+│   │   ├── displacement_field_core_extraction.md     Shared ring-stack extraction and qualification
+│   │   ├── palette_pattern_modulation.md             Palette and pattern modulation contract
+│   │   ├── phantasm_frame_sync_spec.md               Multi-board frame synchronization
+│   │   └── phantasm_pcb_spec.md                      Phantasm carrier board contract
+│   └── subsystems.md                  Engine subsystem reference
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22.15, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
