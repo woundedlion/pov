@@ -17,7 +17,7 @@ namespace hs_test::effects_tests {
 struct DisplacementFieldWhiteBox {
   static bool sweep_uses_cache(bool present) {
     using Field = DisplacementField<96, 20>;
-    static Field::SweepCache cache;
+    static Field::Alternates cache;
     Field::Sweep sweep{};
     sweep.cache = present ? &cache : nullptr;
     return sweep.uses_cache();

@@ -275,24 +275,16 @@ private:
     return mode;
   }
 
-  /** @brief Alternate sweep-window shifts and shading state. */
-  struct SweepCache {
-    static constexpr int CAPACITY = 3840;       ///< Packed alternate shifts.
-    static constexpr int WORDS = (W + 31) / 32; ///< Mask words per ring.
-    float *values;            ///< Second-window shifts in ring and knot order.
-    uint32_t *masks;          ///< Per-ring alternate masks.
-    uint16_t *starts;         ///< First alternate per mask word.
-    HueMode *modes;           ///< Per-ring hue sampling mode.
-    Color4 *colors;           ///< Second-window colors.
-    float *alphas;            ///< Second-window fragment alpha.
-    uint8_t *boundary;        ///< Current ring's conservative boundary set.
-    int ring = 0;             ///< Current ring index.
-    int count = 0;            ///< Retained alternates.
-    bool table_ready = false; ///< Candidate table includes both windows.
+  static constexpr int ALTERNATE_CAPACITY = 3840; ///< Packed alternate shifts.
+  using Alternates = Scan::KnotAlternates<W>;
+  /** @brief Second-window hue and opacity state. */
+  struct SecondWindowShading {
+    HueMode *modes; ///< Per-ring hue sampling mode.
+    Color4 *colors; ///< Second-window colors.
+    float *alphas;  ///< Second-window fragment alpha.
   };
-  static_assert(SweepCache::CAPACITY >= W,
-                "DisplacementField: one ring's knots must fit the alternate "
-                "buffer");
+  Alternates alternates; ///< Current frame's alternate knots and counters.
+  SecondWindowShading shading; ///< Current frame's late shading rows.
 
   /**
    * @brief A frame's endpoints for a draw that evaluates the displacement
@@ -305,7 +297,7 @@ private:
     float noise_time[2]; ///< Noise time at the previous and current endpoint.
     float noise_amplitude[2];    ///< Noise amplitude at both endpoints.
     float opacity[2];            ///< Sprite opacity at both endpoints.
-    SweepCache *cache = nullptr; ///< Single-pass alternate storage.
+    Alternates *cache = nullptr; ///< Single-pass alternate storage.
     float middle = 0.5f;         ///< Middle sweep fraction of the drawn window.
 
     /** @brief Whether alternate samples use the cache. */
@@ -318,45 +310,9 @@ private:
     }
   };
 
-  static constexpr float SWEEP_QUARTER = 0.25f; ///< Quarter-frame split.
-
-  /** @brief Whether a knot retains the opposite frame endpoint. */
-  HS_HOT_INLINE static bool retains_endpoint(float t) {
-    return t < SWEEP_QUARTER || t >= 1.0f - SWEEP_QUARTER;
-  }
-
-  /** @brief Opposite frame endpoint for a retained sample time. */
-  HS_HOT_INLINE static float other_endpoint(float t) {
-    return t < 0.5f ? 1.0f : 0.0f;
-  }
-
-  /** @brief Sweep windows a swept draw splits the half-turn into. */
-  static constexpr int SWEEP_WINDOWS = 2;
-  static_assert(SWEEP_WINDOWS == 2,
-                "the alternate cache holds one other-window value per knot");
-  static_assert(W % (2 * SWEEP_WINDOWS) == 0,
-                "DisplacementField: sweep windows must tile the half-turn");
-
-  /**
-   * @brief Frame fraction at which a swept draw evaluates a ring point.
-   * @param p The point where the stack holds it at the current endpoint.
-   * @param middle Middle sweep fraction of the drawn window.
-   * @return The sweep fraction of the column showing @p p, taken within half
-   *         a frame of @p middle and clamped to the frame.
-   * @details The window's columns read only points near them, so points
-   * shown across an arm boundary from the window take the boundary's time.
-   */
-  HS_HOT_INLINE static float knot_fraction(const math::Vector &p,
-                                           float middle) {
-    float u = math::fast_atan2(p.z, p.x) * (1.0f / math::PI_F);
-    u -= floorf(u);
-    if (u - middle >= 0.5f)
-      u -= 1.0f;
-    else if (middle - u > 0.5f)
-      u += 1.0f;
-    return hs::clamp(u, 0.0f, 1.0f);
-  }
-
+  static constexpr float SWEEP_QUARTER = Scan::SweptRingStack::QUARTER;
+  static constexpr int SWEEP_WINDOWS = Scan::SweptRingStack::WINDOWS;
+  using ScanSweep = Scan::SweptRingStack;
   /** @brief Returns a knot's sweep fraction, or the reference column's time.
    * @param p Knot position at the current endpoint.
    * @param sweep Frame endpoints and window midpoint. */
@@ -366,7 +322,7 @@ private:
     if (force_column_reference)
       return sweep.middle;
 #endif
-    return knot_fraction(p, sweep.middle);
+    return ScanSweep::sweep_fraction(p, sweep.middle);
   }
 
   /** @brief ball_field() with each ball at a frame fraction. */
@@ -503,8 +459,8 @@ private:
                                       const Scan::ColumnBasis &column_basis,
                                       int n_balls, Sweep &sweep) {
 #if HS_ENABLE_TEST_HOOKS
-    primary_knots = duplicate_knots = alternate_noise_samples = primary_bakes =
-        stack_flushes = 0;
+    primary_knots = alternate_noise_samples = primary_bakes = 0;
+    alternates.duplicate_knots = alternates.stack_flushes = 0;
 #endif
     ScratchScope sweep_guard(scratch_arena_a);
     ball_paths = scratch_arena_a.allocate_n<Animation::BumpPath>(MAX_BALLS);
@@ -527,14 +483,13 @@ private:
       cache_ball_frame(b, basis, cover.centre, cover.reach, sp.radius);
     }
     ScratchScope cache_guard(scratch_arena_b);
-    SweepCache cache{
-        scratch_arena_b.allocate_n<float>(SweepCache::CAPACITY),
-        scratch_arena_a.make_n<uint32_t>(RING_SLOTS * SweepCache::WORDS),
-        scratch_arena_a.make_n<uint16_t>(RING_SLOTS * SweepCache::WORDS),
-        scratch_arena_a.make_n<HueMode>(RING_SLOTS),
-        scratch_arena_a.allocate_n<Color4>(RING_SLOTS),
-        scratch_arena_a.allocate_n<float>(RING_SLOTS),
-        scratch_arena_a.allocate_n<uint8_t>(W + 1)};
+    Alternates &cache = alternates;
+    cache.allocate(scratch_arena_b, scratch_arena_a, RING_SLOTS,
+                   ALTERNATE_CAPACITY, [&](Arena &arena) {
+                     shading = {arena.make_n<HueMode>(RING_SLOTS),
+                                arena.allocate_n<Color4>(RING_SLOTS),
+                                arena.allocate_n<float>(RING_SLOTS)};
+                   });
     sweep.cache = &cache;
     active_cache = &cache;
 #if HS_ENABLE_TEST_ORACLES
@@ -638,15 +593,13 @@ private:
             sweep->uses_cache() ? SWEEP_QUARTER : sweep->middle;
         color = before.lerp(now, middle);
         if (sweep->uses_cache()) {
-          sweep->cache->colors[i] = before.lerp(now, 1.0f - SWEEP_QUARTER);
-          sweep->cache->alphas[i] =
-              sweep->cache->colors[i].alpha *
+          shading.colors[i] = before.lerp(now, 1.0f - SWEEP_QUARTER);
+          shading.alphas[i] =
+              shading.colors[i].alpha *
               (sweep->opacity[0] + (sweep->opacity[1] - sweep->opacity[0]) *
                                        (1.0f - SWEEP_QUARTER)) *
               params.alpha;
-          sweep->cache->ring = i;
-          sweep->cache->starts[i * SweepCache::WORDS] =
-              static_cast<uint16_t>(sweep->cache->count);
+          sweep->cache->begin_ring(i);
         }
         ring_opacity = sweep->opacity[0] +
                        (sweep->opacity[1] - sweep->opacity[0]) * middle;
@@ -730,18 +683,21 @@ private:
         const float sin_d = sinf(dphi);
         if constexpr (SWEPT) {
           if (sweep->uses_cache()) {
-            SweepCache &cache = *sweep->cache;
+            Alternates &cache = *sweep->cache;
             // A ring retains at most one alternate per knot.
-            if (cache.count + lut_n > SweepCache::CAPACITY) {
+            if (!cache.fits(lut_n)) {
               scan_swept_stack(canvas, cache);
               rings.begin_frame(&cache);
-              cache.starts[i * SweepCache::WORDS] = 0;
+              cache.begin_ring(i);
               const typename RingPool::Pending fresh = rings.next();
               slut = fresh.shift_row;
               hlut = fresh.hue_row;
             }
-            mark_boundary(basis, {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
-                          band + noise_bound, column_basis.sweep_arc, cache);
+            ScanSweep::mark_arm_boundary<W>(
+                basis, {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
+                band + noise_bound, params.thickness, column_basis.sweep_arc,
+                2 * std::max(OCTAVE1_STRIDE, OCTAVE2_STRIDE) - 1,
+                cache.boundary);
           }
         }
 
@@ -773,7 +729,7 @@ private:
             lut_n, visible, (band + noise_bound) * params.hue_scale);
         if constexpr (SWEPT)
           if (sweep->uses_cache())
-            sweep->cache->modes[i] = mode;
+            shading.modes[i] = mode;
         if (mode.use_table)
           hue_table.bind(hue_base, mode.domain, mode.cyclic);
         if (mode.precompute) {
@@ -809,13 +765,8 @@ private:
 
       if constexpr (SWEPT) {
         if (sweep->uses_cache()) {
-          SweepCache &cache = *sweep->cache;
-          int index = cache.starts[i * SweepCache::WORDS];
-          for (int word = 0; word < SweepCache::WORDS; ++word) {
-            cache.starts[i * SweepCache::WORDS + word] =
-                static_cast<uint16_t>(index);
-            index += std::popcount(cache.masks[i * SweepCache::WORDS + word]);
-          }
+          Alternates &cache = *sweep->cache;
+          cache.finish_ring(i);
         }
       }
       rings.commit(i, color.alpha * ring_opacity * params.alpha, lut_n, basis,
@@ -845,27 +796,53 @@ private:
    * @param canvas Render target.
    * @param cache The frame's alternate shifts, holding the committed rings'.
    */
-  HS_HOT_FLASH_MEMBER void scan_swept_stack(Canvas &canvas, SweepCache &cache) {
-    if (rings.size() > 0) {
-      RingShader ring_shader{&rings};
-      HS_PROFILE(df_fused_scan);
-      for (int k = 0; k < SWEEP_WINDOWS; ++k) {
-        if (k)
-          apply_second_window(cache);
-        TimeWindowScope window(canvas, k * W / (2 * SWEEP_WINDOWS),
-                               (k + 1) * W / (2 * SWEEP_WINDOWS));
-        Scan::DistortedRingStack::draw<W, H>(
-            filters, canvas, params.num_rings, rings.shapes(), rings.slot_map(),
-            rings.size(), *candidates, ring_shader);
+  HS_HOT_FLASH_MEMBER void scan_swept_stack(Canvas &canvas, Alternates &cache) {
+    RingShader ring_shader{&rings};
+    struct Reshade {
+      DisplacementField &effect;
+      Pixel *hues = nullptr;
+      HueMode mode{};
+      HueRotateBase base{};
+      Pixel zero_hue{};
+      bool zero_ready = false;
+      int n = 0;
+      int ring = 0;
+      int slot = 0;
+
+      HS_HOT_INLINE void begin(int i, int s) {
+        ring = i;
+        slot = s;
+        hues = effect.rings.mutable_hue_row(slot);
+        n = static_cast<int>(effect.rings.lut_columns(slot));
+        mode = effect.shading.modes[i];
+        base = make_hue_rotate_base(effect.shading.colors[i]);
+        if (mode.use_table)
+          effect.hue_table.bind(base, mode.domain, mode.cyclic);
+        zero_ready = false;
       }
-    }
-    rings.release();
-#if HS_ENABLE_TEST_HOOKS
-    duplicate_knots += cache.count;
-    ++stack_flushes;
-#endif
-    cache.count = 0;
-    cache.table_ready = false;
+      HS_HOT_INLINE void operator()(int k, float shift) {
+        const float amount = std::fabs(shift) * effect.params.hue_scale;
+        if (amount == 0.0f) {
+          if (!zero_ready) {
+            zero_hue = mode.use_table ? effect.hue_table.sample_lazy(amount)
+                                      : hue_rotate(base, amount).color;
+            zero_ready = true;
+          }
+          hues[k] = zero_hue;
+        } else {
+          hues[k] = mode.use_table ? effect.hue_table.sample_lazy(amount)
+                                   : hue_rotate(base, amount).color;
+        }
+      }
+      HS_HOT_INLINE void finish() {
+        hues[n] = hues[0];
+        effect.rings.set_alpha(slot, effect.shading.alphas[ring]);
+      }
+    };
+    HS_PROFILE(df_fused_scan);
+    ScanSweep::scan_two_windows<W, H>(filters, canvas, params.num_rings, rings,
+                                      cache, *candidates, ring_shader,
+                                      Reshade{*this});
   }
 
   /**
@@ -880,128 +857,6 @@ private:
       const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
       for (; x < x_end; ++x)
         knot_visible[x] = v;
-    }
-  }
-
-  /** @brief Marks knots whose supported geometry can cross an arm boundary.
-   * @param basis Ring frame.
-   * @param step Ring and knot-step trigonometry.
-   * @param theta Ring colatitude.
-   * @param n Knot count.
-   * @param displacement Bound on polar displacement.
-   * @param motion Frame rotation bound in radians.
-   * @param cache Receives the boundary mask.
-   * @details The supported azimuth interval covers the spline stencil and
-   * bounded segment search. Its full displaced polar band is tested against
-   * the arm plane widened by frame rotation and one column. */
-  HS_HOT_FLASH_MEMBER void mark_boundary(const math::Basis &basis,
-                                         SDF::KnotStep step, float theta, int n,
-                                         float displacement, float motion,
-                                         SweepCache &cache) {
-    const float low = fmaxf(0.0f, theta - displacement - params.thickness);
-    const float high =
-        fminf(math::PI_F, theta + displacement + params.thickness);
-    const float min_sine = fmaxf(sqrtf(SDF::DistortedRing::POLE_SIN2_FLOOR),
-                                 fminf(sinf(low), sinf(high)));
-    const float cell = math::TWO_PI_F / n;
-    const float search =
-        SDF::DistortedRing::search_reach_cells(params.thickness, min_sine, n);
-    constexpr int SUPPORT = 2 * std::max(OCTAVE1_STRIDE, OCTAVE2_STRIDE) - 1;
-    const float delta = fminf(math::PI_F, (search + SUPPORT) * cell);
-    const float epsilon =
-        sinf(fminf(math::PI_F / 2, motion + math::TWO_PI_F / W)) + 1e-4f;
-    const float axis = basis.v.z;
-    const bool pole =
-        (low == 0.0f || high == math::PI_F) && std::fabs(axis) <= epsilon;
-    auto threshold = [&](float edge, bool minimum) HS_HOT_INLINE {
-      auto at = [&](float angle) HS_HOT_INLINE {
-        return (edge - axis * cosf(angle)) / fmaxf(1e-6f, sinf(angle));
-      };
-      float value =
-          minimum ? fminf(at(low), at(high)) : fmaxf(at(low), at(high));
-      const float cosine = axis / edge;
-      if (std::fabs(cosine) < 1.0f) {
-        const float angle = acosf(cosine);
-        if (angle > low && angle < high)
-          value = minimum ? fminf(value, at(angle)) : fmaxf(value, at(angle));
-      }
-      return value;
-    };
-    const float target_low = threshold(-epsilon, true);
-    const float target_high = threshold(epsilon, false);
-    const float radius = sqrtf(basis.u.z * basis.u.z + basis.w.z * basis.w.z);
-    const float cosine = cosf(delta), sine = sinf(delta);
-    SDF::KnotWalk walk{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
-    for (int k = 0; k < n; ++k, walk.advance()) {
-      const float center = basis.u.z * walk.cos_a + basis.w.z * walk.sin_a;
-      const float tangent = basis.w.z * walk.cos_a - basis.u.z * walk.sin_a;
-      float lo = center * cosine - std::fabs(tangent * sine);
-      float hi = center * cosine + std::fabs(tangent * sine);
-      if (center >= radius * cosine)
-        hi = radius;
-      if (center <= -radius * cosine)
-        lo = -radius;
-      cache.boundary[k] =
-          pole || (lo <= target_high + 1e-4f && hi >= target_low - 1e-4f);
-    }
-  }
-
-  /** @brief Retains a knot's opposite-window value and installs its early value.
-   * @param k Knot index.
-   * @param primary Value in the knot's own sweep window.
-   * @param alternate Value in the other window.
-   * @param time Knot's own sweep fraction.
-   * @param row Early-window row.
-   * @param cache Packed late-window values. */
-  HS_HOT_INLINE void retain_alternate(int k, float primary, float alternate,
-                                      float time, float *row,
-                                      SweepCache &cache) {
-    row[k] = primary;
-    if (primary == alternate)
-      return;
-    cache.masks[cache.ring * SweepCache::WORDS + k / 32] |= uint32_t{1}
-                                                            << (k % 32);
-    row[k] = time < 0.5f ? primary : alternate;
-    cache.values[cache.count++] = time < 0.5f ? alternate : primary;
-  }
-
-  /** @brief Installs late-window shifts and shades its knot rows.
-   * @param cache Frame's packed alternate shifts and colors. */
-  HS_HOT_FLASH_MEMBER void apply_second_window(const SweepCache &cache) {
-    for (int i = 0; i < params.num_rings; ++i) {
-      const int slot = rings.slot_of(i);
-      if (slot < 0)
-        continue;
-      const int n = static_cast<int>(rings.lut_columns(slot));
-      float *row = rings.shift_row(slot);
-      Pixel *hues = rings.mutable_hue_row(slot);
-      const uint32_t *mask = cache.masks + i * SweepCache::WORDS;
-      int index = cache.starts[i * SweepCache::WORDS];
-      const HueMode &mode = cache.modes[i];
-      const HueRotateBase base = make_hue_rotate_base(cache.colors[i]);
-      if (mode.use_table)
-        hue_table.bind(base, mode.domain, mode.cyclic);
-      Pixel zero_hue;
-      bool zero_ready = false;
-      for (int k = 0; k < n; ++k) {
-        if (mask[k / 32] & (uint32_t{1} << (k % 32)))
-          row[k] = cache.values[index++];
-        const float amount = std::fabs(row[k]) * params.hue_scale;
-        if (amount == 0.0f) {
-          if (!zero_ready) {
-            zero_hue = mode.use_table ? hue_table.sample_lazy(amount)
-                                      : hue_rotate(base, amount).color;
-            zero_ready = true;
-          }
-          hues[k] = zero_hue;
-        } else {
-          hues[k] = mode.use_table ? hue_table.sample_lazy(amount)
-                                   : hue_rotate(base, amount).color;
-        }
-      }
-      row[n] = row[0];
-      hues[n] = hues[0];
-      rings.set_alpha(slot, cache.alphas[i]);
     }
   }
 
@@ -1074,12 +929,12 @@ private:
           if (sweep->uses_cache() && (g1 || g2)) {
             alternate_a[x] = g1 ? octave1[x] : 0.0f;
             alternate_b[x] = g2 ? octave2[x] : 0.0f;
-            if (sweep->cache->boundary[x] && retains_endpoint(t)) {
+            if (sweep->cache->boundary[x] && ScanSweep::retains_endpoint(t)) {
 #if HS_ENABLE_TEST_HOOKS
               alternate_noise_samples +=
                   static_cast<int>(g1) + static_cast<int>(g2);
 #endif
-              const float other = other_endpoint(t);
+              const float other = ScanSweep::other_endpoint(t);
               const math::Vector aq =
                   Spacetime::rotate_by(p, sweep->turn * (other - 1.0f));
               const float at =
@@ -1137,7 +992,8 @@ private:
         if (sweep->uses_cache() && sweep->cache->boundary[x]) {
           late = !late;
           const float t = knot_times[x];
-          const float other = retains_endpoint(t) ? other_endpoint(t) : t;
+          const float other =
+              ScanSweep::retains_endpoint(t) ? ScanSweep::other_endpoint(t) : t;
           const float amp =
               sweep->noise_amplitude[0] +
               (sweep->noise_amplitude[1] - sweep->noise_amplitude[0]) * other;
@@ -1148,7 +1004,7 @@ private:
           const float alternate =
               ball + amp * sample(octave1, alternate_a, D1, x) *
                          sample(octave2, alternate_b, D2, x);
-          retain_alternate(x, primary, alternate, t, slut, *sweep->cache);
+          sweep->cache->retain(x, primary, alternate, t, slut);
           continue;
         }
       }
@@ -1231,8 +1087,8 @@ private:
           if constexpr (SWEPT) {
             const float t = knot_times[xi];
             if (sweep->uses_cache() && sweep->cache->boundary[xi] &&
-                retains_endpoint(t)) {
-              const float other = other_endpoint(t);
+                ScanSweep::retains_endpoint(t)) {
+              const float other = ScanSweep::other_endpoint(t);
               const float alternate = Animation::bump_field_at(
                   knot_pos[xi], bp, ball_paths[k], theta, other);
               DominantFieldAccumulator::accumulate(alternate_a[xi],
@@ -1252,11 +1108,11 @@ private:
         if constexpr (SWEPT) {
           const float t = knot_times[x];
           if (sweep->uses_cache() && sweep->cache->boundary[x] &&
-              retains_endpoint(t)) {
+              ScanSweep::retains_endpoint(t)) {
             const float alternate = DominantFieldAccumulator::resolve(
                                         alternate_a[x], alternate_b[x]) +
                                     noise_field.field(knot_pos[x]);
-            retain_alternate(x, slut[x], alternate, t, slut, *sweep->cache);
+            sweep->cache->retain(x, slut[x], alternate, t, slut);
           }
         }
       }
@@ -1493,224 +1349,11 @@ private:
   static constexpr int RING_SLOTS = std::min(
       72, H); /**< Baked-ring pool capacity and Rings slider maximum. */
 
-  /**
-   * @brief The frame's drawn rings: placement-built DistortedRings with their
-   * shift and hue rows, shading values and the ring-to-slot map.
-   * @details A frame runs begin_frame(), then next() and commit() per drawn
-   * ring, then release(). next() changes no state, so a ring abandoned after
-   * its bake costs nothing; only commit() constructs a ring and counts it.
-   */
-  class RingPool {
-    union RingSlot {
-      char empty;
-      SDF::DistortedRing ring;
-      RingSlot() : empty{} {}
-      ~RingSlot() {}
-    };
-    static_assert(sizeof(RingSlot) == sizeof(SDF::DistortedRing));
+  Alternates *active_cache = nullptr; ///< Active swept draw; not retained.
+  using RingPool = Scan::RingStackPool<RING_SLOTS, W + 1>;
+  using RingShader = Scan::HueRowShader<RingPool>;
+  RingPool rings; /**< Rings drawn this frame. */
 
-  public:
-    static constexpr int SLOTS = RING_SLOTS; /**< Slot capacity. */
-    static constexpr int ROW = W + 1;    /**< Entries per shift or hue row. */
-    static constexpr int8_t CULLED = -1; /**< slot_of() for an undrawn ring. */
-    static_assert(SLOTS <= INT8_MAX,
-                  "the ring-to-slot map is int8_t with CULLED = -1; a larger "
-                  "pool wraps slot indices negative");
-    using ShapeStorage = std::array<RingSlot, SLOTS>; /**< Ring storage. */
-    /** @brief Persistent bytes init_storage() takes, alignment included. */
-    static constexpr size_t BYTES =
-        SLOTS * ROW * (sizeof(float) + sizeof(Pixel)) +
-        SLOTS * (2 * sizeof(float) + sizeof(int8_t)) + sizeof(ShapeStorage) +
-        3 * alignof(float) + alignof(Pixel) + alignof(int8_t) +
-        alignof(ShapeStorage);
-
-    /** @brief The rows of the next free slot. */
-    struct Pending {
-      float *shift_row; /**< ROW centerline shifts; entry lut_n repeats entry
-                           0 to close the polyline. */
-      Pixel *hue_row;   /**< ROW hue-rotated ring colors. */
-    };
-
-    /** @brief Constructed rings indexed by slot. */
-    struct ShapeView {
-      ShapeStorage *storage; ///< Pool slots; not owned.
-      const RingPool *pool;  ///< Slot map and alternate storage.
-      /** @brief Bounds both sweep-window values of a knot.
-       * @param slot Constructed ring slot.
-       * @param knot Knot index.
-       * @param lo Receives the smaller shift.
-       * @param hi Receives the larger shift. */
-      void knot_range(int slot, int knot, float &lo, float &hi) const {
-        lo = hi = (*storage)[slot].ring.knots[knot];
-        if (!pool->cache)
-          return;
-        const int ring = pool->ring_by_slot[slot];
-        const auto &cache = *pool->cache;
-        const uint32_t *mask = cache.masks + ring * SweepCache::WORDS;
-        const uint32_t bit = uint32_t{1} << (knot % 32);
-        if (!(mask[knot / 32] & bit))
-          return;
-        int index = cache.starts[ring * SweepCache::WORDS + knot / 32];
-        index += std::popcount(mask[knot / 32] & (bit - 1));
-        lo = fminf(lo, cache.values[index]);
-        hi = fmaxf(hi, cache.values[index]);
-      }
-      /** @return Whether the frame's shared candidate table is filled. */
-      bool table_ready() const {
-        return pool->cache && pool->cache->table_ready;
-      }
-      /** @brief Retains the candidate table across sweep windows. */
-      void table_built() const {
-        if (pool->cache)
-          pool->cache->table_ready = true;
-      }
-      /**
-       * @brief Ring constructed in a slot.
-       * @param index Slot index in [0, SLOTS).
-       * @return The slot's ring.
-       */
-      SDF::DistortedRing &operator[](size_t index) const {
-        return (*storage)[index].ring;
-      }
-    };
-
-    /** @brief Allocates the slots from @p arena; hue rows start zeroed. */
-    HS_FLASH_MEMBER void init_storage(Arena &arena) {
-      shift_rows = arena.allocate_n<float>(SLOTS * ROW);
-      // Zeroed, not raw: a culled azimuth chunk leaves its columns unbaked.
-      hue_rows = arena.make_n<Pixel>(SLOTS * ROW);
-      alphas = arena.allocate_n<float>(SLOTS);
-      columns = arena.allocate_n<float>(SLOTS);
-      slot_by_ring = arena.allocate_n<int8_t>(SLOTS);
-      storage = arena.make<ShapeStorage>();
-    }
-
-    /** @brief Starts a frame with every ring culled; the pool must be empty. */
-    HS_NOINLINE_NOCLONE void begin_frame(SweepCache *frame_cache = nullptr) {
-      cache = frame_cache;
-      HS_CHECK(size() == 0,
-               "DisplacementField: ring pool begins a frame with live rings");
-      for (int i = 0; i < SLOTS; ++i)
-        slot_by_ring[i] = CULLED;
-    }
-
-    /** @brief The next free slot's rows; repeated calls return the same rows. */
-    HS_HOT_INLINE Pending next() const {
-      HS_CHECK(count < SLOTS, "DisplacementField: ring pool is full");
-      return {shift_rows + count * ROW, hue_rows + count * ROW};
-    }
-
-    /**
-     * @brief Constructs a ring in the slot next() returned and maps @p ring
-     * to it; the pool must not be full.
-     * @param ring Ring index in the stack.
-     * @param frag_alpha Fragment alpha the shader applies to the ring.
-     * @param lut_n Bake columns in the slot's rows.
-     * @param ring_args DistortedRing constructor arguments.
-     */
-    template <typename... RingArgs>
-    HS_HOT_FLASH_MEMBER void commit(int ring, float frag_alpha, int lut_n,
-                                    RingArgs &&...ring_args) {
-      const int s = count;
-      ::new (static_cast<void *>(&(*storage)[s].ring))
-          SDF::DistortedRing(std::forward<RingArgs>(ring_args)...);
-      columns[s] = static_cast<float>(lut_n);
-      alphas[s] = frag_alpha;
-      slot_by_ring[ring] = static_cast<int8_t>(s);
-      ring_by_slot[s] = ring;
-      if (cache) {
-        auto &shape = (*storage)[s].ring;
-        float low = 0.0f, high = 0.0f;
-        for (int k = 0; k < lut_n; ++k) {
-          float lo, hi;
-          shapes().knot_range(s, k, lo, hi);
-          low = fminf(low, lo);
-          high = fmaxf(high, hi);
-        }
-        shape.set_knot_band(low, high);
-      }
-      count = s + 1;
-    }
-
-    /**
-     * @brief Destroys every committed ring and empties the pool.
-     * @details The device ScalarFn member is not trivially destructible.
-     */
-    void release() {
-      for (int s = 0; s < count; ++s) {
-        (*storage)[s].ring.~DistortedRing();
-#if HS_ENABLE_TEST_HOOKS
-        ++destroyed;
-#endif
-      }
-      count = 0;
-    }
-
-    /** @brief Committed rings this frame. */
-    int size() const { return count; }
-    /** @brief Slot of @p ring, or CULLED. */
-    int8_t slot_of(int ring) const { return slot_by_ring[ring]; }
-    /** @brief The ring-to-slot map, SLOTS entries. */
-    const int8_t *slot_map() const { return slot_by_ring; }
-    /** @brief The committed rings. */
-    ShapeView shapes() const { return {storage, this}; }
-    /** @brief Hue row of slot @p s. */
-    HS_HOT_INLINE const Pixel *hue_row(int s) const {
-      return hue_rows + s * ROW;
-    }
-    /** @brief Bake column count of slot @p s. */
-    HS_HOT_INLINE float lut_columns(int s) const { return columns[s]; }
-    /** @brief Fragment alpha of slot @p s. */
-    HS_HOT_INLINE float frag_alpha(int s) const { return alphas[s]; }
-
-    /** @brief Replaces one slot's fragment alpha. */
-    void set_alpha(int slot, float alpha) { alphas[slot] = alpha; }
-    /** @return Writable shift row of a committed slot. */
-    float *shift_row(int slot) { return shift_rows + slot * ROW; }
-    /** @return Writable hue row of a committed slot. */
-    Pixel *mutable_hue_row(int slot) { return hue_rows + slot * ROW; }
-
-  private:
-    SweepCache *cache = nullptr;     ///< Current frame's alternate shifts.
-    int ring_by_slot[SLOTS]{};       ///< Authored ring index of each slot.
-    float *shift_rows = nullptr;     /**< SLOTS shift rows. */
-    Pixel *hue_rows = nullptr;       /**< SLOTS hue rows. */
-    float *alphas = nullptr;         /**< Per-slot fragment alpha. */
-    float *columns = nullptr;        /**< Per-slot bake column count. */
-    int8_t *slot_by_ring = nullptr;  /**< Ring index to slot, or CULLED. */
-    ShapeStorage *storage = nullptr; /**< Placement storage for the rings. */
-    int count = 0;                   /**< Committed rings. */
-#if HS_ENABLE_TEST_HOOKS
-  public:
-    int destroyed = 0; /**< Rings release() has destroyed. */
-#endif
-  };
-  SweepCache *active_cache = nullptr; ///< Active swept draw; not retained.
-  RingPool rings;                     /**< Rings drawn this frame. */
-
-  /**
-   * @brief Shades a stack fragment from its slot's hue row.
-   * @details v2 is the stroke coverage the scan applies again on plot, so the
-   * ring edge ramps as coverage squared. The stack hands v0 over in [0, 1).
-   */
-  struct RingShader {
-    const RingPool *pool; ///< The frame's drawn rings.
-
-    /**
-     * @brief Shades one fragment.
-     * @param s Slot of the ring lighting the fragment.
-     * @param f Fragment to shade; v0 is the ring azimuth in [0, 1).
-     */
-    HS_HOT_INLINE void operator()(int s, const math::Vector &,
-                                  Fragment &f) const {
-      const Pixel *hue = pool->hue_row(s);
-      float x = f.v0 * pool->lut_columns(s);
-      int j = static_cast<int>(x);
-      f.color = Color4(
-          hue[j].lerp16(hue[j + 1], frac_to_q16(math::quintic_kernel(x - j))),
-          pool->frag_alpha(s) * f.v2);
-    }
-  };
   using CandidateTable = Scan::DistortedRingStack::CandidateTable<W, H>;
   CandidateTable *candidates =
       nullptr; /**< Fused scan's per-frame ring candidate map. */
@@ -1758,10 +1401,8 @@ private:
 #if HS_ENABLE_TEST_HOOKS
   int primary_knots =
       0; ///< Primary visible field knots in the last swept frame.
-  int duplicate_knots = 0;         ///< Distinct retained alternate shifts.
   int alternate_noise_samples = 0; ///< Additional scalar octave evaluations.
   int primary_bakes = 0; ///< Non-flat rings baked in the last swept frame.
-  int stack_flushes = 0; ///< Stack scans in the last swept frame.
   int hue_table_uses = 0;
 #endif
 
@@ -1914,19 +1555,21 @@ private:
     peak.template add<Animation::BumpPath>(MAX_BALLS);
     peak.template add<float>(W + 1);
     peak.template add<Color4>(RING_SLOTS);
-    peak.template add<uint32_t>(RING_SLOTS * SweepCache::WORDS);
-    peak.template add<uint16_t>(RING_SLOTS * SweepCache::WORDS);
-    peak.template add<HueMode>(RING_SLOTS);
-    peak.template add<Color4>(RING_SLOTS);
-    peak.template add<float>(RING_SLOTS);
-    peak.template add<uint8_t>(W + 1);
+    ArenaFootprint values;
+    Alternates::add_footprint(values, peak, RING_SLOTS, ALTERNATE_CAPACITY,
+                              [](ArenaFootprint &table) {
+                                table.add<HueMode>(RING_SLOTS);
+                                table.add<Color4>(RING_SLOTS);
+                                table.add<float>(RING_SLOTS);
+                              });
     return peak.bytes;
   }();
   /** @brief Alternate shifts with nested candidate-table arrays in scratch B.
    */
   static constexpr size_t SCRATCH_B_PEAK_BYTES = [] {
     ArenaFootprint peak;
-    peak.template add<float>(SweepCache::CAPACITY);
+    ArenaFootprint table;
+    Alternates::add_footprint(peak, table, RING_SLOTS, ALTERNATE_CAPACITY);
     peak.template add<float>(CandidateTable::CHUNKS);
     peak.template add<float>(CandidateTable::CHUNKS);
     return peak.bytes;

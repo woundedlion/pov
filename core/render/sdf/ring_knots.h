@@ -34,7 +34,7 @@ struct KnotWalk {
   float cos_a = 1.0f;       /**< Cosine of the current knot's azimuth. */
   float sin_a = 0.0f;       /**< Sine of the current knot's azimuth. */
 
-  /** @brief Unit position of the current knot. */
+  /** @return Unit position of the current knot. */
   HS_HOT_INLINE math::Vector position() const {
     return ((basis.v * cos_t) + ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t)
         .normalized();

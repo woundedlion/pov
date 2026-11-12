@@ -460,3 +460,66 @@ inline void case_radial_surface_mask_negative_motion() {
   mask.bind(scratch_arena_a);
   (void)mask.prepare(surface, 0.0f, opaque(-0.01f));
 }
+
+/** @brief Constructs one flat knot ring in a pool.
+ * @param pool Pool receiving the ring. */
+template <typename Pool> inline void commit_stack_ring(Pool &pool) {
+  auto row = pool.next();
+  for (int k = 0; k <= 16; ++k)
+    row.shift_row[k] = 0.0f;
+  const auto basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  pool.commit(0, 1.0f, 16, basis, 0.5f, 0.03f, row.shift_row, 16, 0.0f,
+              nullptr);
+}
+/** @brief A ring pool cannot begin over live rings. */
+inline void case_scan_ring_pool_live_begin() {
+  using Pool = Scan::RingStackPool<1, 33>;
+  alignas(std::max_align_t) uint8_t buf[Pool::BYTES];
+  Arena arena(buf, sizeof(buf));
+  Pool pool;
+  pool.init_storage(arena);
+  pool.begin_frame();
+  commit_stack_ring(pool);
+  pool.begin_frame();
+}
+/** @brief A full ring pool has no pending slot. */
+inline void case_scan_ring_pool_full() {
+  using Pool = Scan::RingStackPool<1, 33>;
+  alignas(std::max_align_t) uint8_t buf[Pool::BYTES];
+  Arena arena(buf, sizeof(buf));
+  Pool pool;
+  pool.init_storage(arena);
+  pool.begin_frame();
+  commit_stack_ring(pool);
+  static_cast<void>(pool.next());
+}
+/** @brief Alternate storage must fit a complete knot row. */
+inline void case_scan_alternates_small_capacity() {
+  alignas(std::max_align_t) uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  Scan::KnotAlternates<32> alternates;
+  alternates.allocate(arena, arena, 2, 32);
+  alternates.allocate(arena, arena, 2, opaque(31));
+}
+/** @brief Bound alternates must cover every pool slot. */
+inline void case_scan_ring_pool_few_alternate_slots() {
+  using Pool = Scan::RingStackPool<2, 33>;
+  alignas(std::max_align_t) uint8_t buf[Pool::BYTES + 4096];
+  Arena arena(buf, sizeof(buf));
+  typename Pool::Alternates alternates;
+  alternates.allocate(arena, arena, 2, 32);
+  Pool pool;
+  pool.init_storage(arena);
+  pool.begin_frame(&alternates);
+  alternates.allocate(arena, arena, opaque(1), 32);
+  pool.begin_frame(&alternates);
+}
+
+/** @brief Packed offsets must fit the prefix representation. */
+inline void case_scan_alternates_prefix_overflow() {
+  alignas(std::max_align_t) uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  Scan::KnotAlternates<32> alternates;
+  alternates.allocate(arena, arena, 1, 32);
+  alternates.allocate(arena, arena, 1, opaque(65536));
+}

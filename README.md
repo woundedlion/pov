@@ -1720,6 +1720,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pov_sync/          Sections included by test_pov_sync.h
 │   ├── ray_events/        Sections included by test_ray_events.h
 │   ├── scan/              Sections included by test_scan.h
+│   │   └── ring_stack.h  Ring pool and two-window scan properties
 │   ├── test_shapeshifter_surface.h  Continuous-surface seams and image parity
 │   ├── test_radial_surface.h  Independent swept-edge and coverage oracles
 │   ├── test_radial_surface_mask.h  Static and temporal candidate-mask coverage

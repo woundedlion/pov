@@ -39,12 +39,12 @@ struct DisplacementFieldWhiteBox {
    * @param effect Effect after a default swept frame. */
   template <int W, int H>
   static void check_single_pass(const DisplacementField<W, H> &effect) {
-    HS_EXPECT_EQ(effect.stack_flushes, 1);
+    HS_EXPECT_EQ(effect.alternates.stack_flushes, 1);
     HS_EXPECT_LE(effect.primary_bakes, effect.params.num_rings);
-    HS_EXPECT_GT(effect.duplicate_knots, 0);
+    HS_EXPECT_GT(effect.alternates.duplicate_knots, 0);
     std::printf(
         "  [single pass] primary=%d alternate=%d octave-extra=%d rings=%d\n",
-        effect.primary_knots, effect.duplicate_knots,
+        effect.primary_knots, effect.alternates.duplicate_knots,
         effect.alternate_noise_samples, effect.primary_bakes);
   }
 
@@ -65,7 +65,7 @@ struct DisplacementFieldWhiteBox {
    * @return The frame's stack scans. */
   template <int W, int H>
   static int stack_flushes(const DisplacementField<W, H> &effect) {
-    return effect.stack_flushes;
+    return effect.alternates.stack_flushes;
   }
 
   /** @brief The frame turn a swept draw derives from two endpoints.
