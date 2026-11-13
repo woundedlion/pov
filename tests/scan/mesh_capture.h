@@ -275,6 +275,55 @@ inline void build_single_face(MeshState &mesh, size_t count,
   mesh.face_offsets.push_back(0);
 }
 
+/** @brief A ripple crossing between disjoint endpoint bands stays moving. */
+inline void test_ripple_interior_motion_plan() {
+  constexpr int W = 288, H = 144;
+  struct Pool {
+    Animation::RippleParams wave;
+    int active_count() const { return 1; }
+    const Animation::RippleParams &active_params(int) const { return wave; }
+  } pool;
+  pool.wave.center = math::Y_AXIS;
+  pool.wave.previous_phase = 0.895f;
+  pool.wave.phase = 1.105f;
+  pool.wave.previous_amplitude = pool.wave.amplitude = 0.014f;
+  pool.wave.thickness = 0.1f;
+  pool.wave.decay = 0.0f;
+  pool.wave.sync();
+  const math::Vector source[] = {
+      {sinf(1.0f) * cosf(0.6f), cosf(1.0f), sinf(1.0f) * sinf(0.6f)},
+      {sinf(1.02f) * cosf(0.65f), cosf(1.02f), sinf(1.02f) * sinf(0.65f)},
+      {sinf(0.98f) * cosf(0.7f), cosf(0.98f), sinf(0.98f) * sinf(0.7f)}};
+  ScratchScope scope_a(scratch_arena_a), scope_b(scratch_arena_b);
+  MeshState mesh;
+  build_single_face(mesh, 3, [&](size_t i) { return source[i]; });
+  const Scan::ModelPath path{source};
+  const float bound = Scan::motion_bound(path, 3, pool);
+  HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(bound));
+  const auto expected_middle =
+      ripple_params_transform(source[0], pool.wave.during_step(0.5f));
+  HS_EXPECT_GT(hs_test::chord_angle_between(expected_middle, source[0]),
+               Scan::HELD_VERTEX_ARC<W>);
+  render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
+    const auto camera = Scan::EndpointCamera::none();
+    const auto plan =
+        Scan::plan_motion<W>(canvas, mesh, path, bound, pool, camera,
+                             scratch_arena_b, scratch_arena_a);
+    HS_EXPECT_TRUE(plan.active);
+    HS_EXPECT_TRUE(plan.moving && (plan.moving[0] & Scan::VERTEX_MOVES));
+    if (!plan.active || !plan.during)
+      return;
+    const auto begin =
+        Scan::capture_position(plan, path, pool, camera, 0, 0.0f);
+    const auto end = Scan::capture_position(plan, path, pool, camera, 0, 1.0f);
+    const auto middle =
+        Scan::capture_position(plan, path, pool, camera, 0, 0.5f);
+    HS_EXPECT_TRUE(begin == source[0]);
+    HS_EXPECT_TRUE(end == source[0]);
+    HS_EXPECT_LE(hs_test::chord_angle_between(middle, expected_middle), 1e-6);
+  });
+}
+
 /** @brief Faces clear of the arm boundaries scan once, unwindowed, each
  *  vertex captured once on its own side and shared by the faces around it. */
 inline void test_mesh_capture_reuse() {

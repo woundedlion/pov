@@ -197,7 +197,7 @@ inline constexpr float MOTION_UNIT = math::PI_F / 65535.0f;
  * @param leg_arc The model's largest motion (radians).
  * @param moving Receives 1 for each vertex the model moves more than
  *        HELD_VERTEX_ARC, or that stands within @p leg_arc of a moving
- *        ripple's band at either end of its step; 0 for the others.
+ *        ripple's swept band; 0 for the others.
  * @param motion Receives each vertex's model motion over the frame, in
  *        MOTION_UNIT arcs rounded up.
  * @param arena Arena holding the bands for the call.
@@ -370,7 +370,8 @@ HS_HOT_INLINE void deform_planned(Canvas &canvas, MeshState &mesh,
  *         holds.
  * @details The faces the clip can see with a moving vertex are picked; the
  * largest vertex motion activates deformation. A picked face whose vertices
- * all move at most HELD_VERTEX_ARC draws once. A placed vertex strays from
+ * all move at most HELD_VERTEX_ARC draws once. A ripple crossing disjoint
+ * endpoint supports retains the full frame motion bound. A placed vertex strays from
  * the current endpoint by at most its motion plus the bend of its path
  * between the endpoints, which a column of arc covers. Each candidate vertex
  * is evaluated once, at the frame's start; the scan captures it from its
@@ -406,7 +407,11 @@ HS_FLASH_MEMBER MotionPlan plan_motion(const Canvas &canvas,
     return plan;
   HS_CHECK(canvas.column_basis() && canvas.column_basis()->azimuth,
            "mesh motion planning needs the frame's column-time azimuth state");
+  bool interior_crossing = false;
   for (int k = 0; k < ripples.active_count(); ++k) {
+    const auto &p = ripples.active_params(k);
+    interior_crossing |= fabsf(p.phase - p.previous_phase) >
+                         4.0f * p.half_width() + 2.0f * leg_arc;
     plan.during[k].prepare(ripples.active_params(k));
     plan.during[k].widen(ripples.active_params(k));
   }
@@ -429,19 +434,20 @@ HS_FLASH_MEMBER MotionPlan plan_motion(const Canvas &canvas,
     const math::Vector &end = mesh.vertices[i];
     const float c = math::dot(start, end);
     min_cos = fminf(min_cos, c);
-    if (!(c < held_cos)) {
+    if (!(c < held_cos) && !interior_crossing) {
       plan.moving[i] = 0;
       continue;
     }
     // Its model motion over the frame, with the steps of the ripples whose
     // bands it stands in.
     float reach = model_arc;
-    for (int b = 0; b < band_count; b += 2)
-      if (bands[b].holds(end) || bands[b + 1].holds(end))
+    for (int b = 0; b < band_count; ++b)
+      if (bands[b].holds(end))
         reach += bands[b].step;
     plan.moving[i] = vertex_flags(reach);
   }
-  const float arc = acosf(hs::clamp(min_cos, -1.0f, 1.0f));
+  const float arc =
+      interior_crossing ? bound : acosf(hs::clamp(min_cos, -1.0f, 1.0f));
   if (drop_held_faces(mesh, plan.moving, plan.columns) == 0)
     return plan;
   plan.active = mesh_motion_active<W>(arc);

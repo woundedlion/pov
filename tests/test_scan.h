@@ -227,6 +227,7 @@ inline int run_scan_tests() {
   HS_RUN(test_mesh_capture_vertex);
   HS_RUN(test_vertex_arc_and_reach_flags);
   HS_RUN(test_vertex_reach_levels_and_demotion);
+  HS_RUN(test_ripple_interior_motion_plan);
   HS_RUN(test_face_capture_interval_polar_reach);
   HS_RUN(test_mesh_capture_reuse);
   HS_RUN(test_mesh_seam_face_copies);

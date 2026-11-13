@@ -11,7 +11,7 @@
 #include <type_traits>
 
 namespace RippleMotion {
-/** @brief A band about a ripple's front at one end of its step. */
+/** @brief A band covering a ripple's front over its step. */
 struct RippleBand {
   math::Vector center; ///< Ripple center.
   float cos_near;      ///< Cosine of the band's inner edge.
@@ -30,8 +30,7 @@ struct RippleBand {
 };
 
 /**
- * @brief The bands about the active ripples that step this frame, one per
- *        end of each step, in pairs.
+ * @brief The swept bands of the active ripples that step this frame.
  * @tparam Pool Active ripple pool.
  * @param pool Pool exposing active_count() and active_params().
  * @param leg_arc The model's largest motion (radians).
@@ -42,18 +41,17 @@ struct RippleBand {
 template <typename Pool>
 HS_FLASH_MEMBER RippleBand *ripple_bands(const Pool &pool, float leg_arc,
                                          Arena &arena, int &count) {
-  RippleBand *bands = arena.allocate_n<RippleBand>(2 * pool.active_count() + 1);
+  RippleBand *bands = arena.allocate_n<RippleBand>(pool.active_count() + 1);
   count = 0;
   for (int k = 0; k < pool.active_count(); ++k) {
     const Animation::RippleParams &p = pool.active_params(k);
     if (p.step_arc() == 0.0f)
       continue;
-    for (const float phase : {p.previous_phase, p.phase}) {
-      const float reach = 2.0f * p.half_width() + leg_arc;
-      bands[count++] = {
-          p.center, cosf(hs::clamp(phase - reach, 0.0f, math::PI_F)),
-          cosf(hs::clamp(phase + reach, 0.0f, math::PI_F)), p.step_arc()};
-    }
+    const float reach = 2.0f * p.half_width() + leg_arc;
+    const float near = fminf(p.previous_phase, p.phase) - reach;
+    const float far = fmaxf(p.previous_phase, p.phase) + reach;
+    bands[count++] = {p.center, cosf(hs::clamp(near, 0.0f, math::PI_F)),
+                      cosf(hs::clamp(far, 0.0f, math::PI_F)), p.step_arc()};
   }
   return bands;
 }
