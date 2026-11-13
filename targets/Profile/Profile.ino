@@ -77,6 +77,8 @@
 //   HS_PROFILE_PC            samples the program counter during render and
 //                            dumps the histogram once, HS_PROFILE_PC_MS after
 //                            setup; tools/pc_profile.py symbolizes it.
+//   HS_PROFILE_PC_SKIP_FRAMES initial draws excluded from PC sampling (default 0).
+//   HS_PROFILE_PC_FRAMES      maximum sampled draws (default 0, unlimited).
 
 #if defined(HS_PROFILE_PLOT_RENDER_COUNTS) && defined(HS_PROFILE_PLOT_STALLS)
 #error "Plot count and stall captures require separate images"
@@ -99,6 +101,15 @@
 
 #ifdef HS_PROFILE_PC
 #include "tools/pc_sampler.h"
+#ifndef HS_PROFILE_PC_SKIP_FRAMES
+/** @brief Initial effect draws excluded from the PC histogram. */
+#define HS_PROFILE_PC_SKIP_FRAMES 0
+#endif
+#ifndef HS_PROFILE_PC_FRAMES
+/** @brief Maximum effect draws included in the PC histogram; zero is unlimited. */
+#define HS_PROFILE_PC_FRAMES 0
+#endif
+static_assert(HS_PROFILE_PC_SKIP_FRAMES >= 0 && HS_PROFILE_PC_FRAMES >= 0);
 #endif
 
 #if defined(HS_PROFILE_AUTO_RESUME) && !defined(HS_PROFILE_PRESET)
@@ -225,7 +236,8 @@ public:
       const auto begin = sample_clocks();
       {
 #ifdef HS_PROFILE_PC
-        hs::PcSampleGate render_gate(true);
+        hs::PcSampleGate render_gate(hs::pc_sample_frame(
+            total_frames, HS_PROFILE_PC_SKIP_FRAMES, HS_PROFILE_PC_FRAMES));
 #endif
         HS_PROFILE_TARGET<W, H>::draw_frame();
       }
@@ -713,6 +725,9 @@ FLASHMEM void setup() {
   hs::log("profile role: segment=%d timing=%s", POV::segment_index(),
           PROFILE_SEGMENT_ID >= 0 ? "standalone" : "synchronized");
 #ifdef HS_PROFILE_PC
+  hs::log("pc sample frames: skip=%lu count=%lu",
+          static_cast<unsigned long>(HS_PROFILE_PC_SKIP_FRAMES),
+          static_cast<unsigned long>(HS_PROFILE_PC_FRAMES));
   hs::pc_sampler_begin();
 #endif
   // A strapped-nonzero board comes up downstream: dark in ACQUIRE, waiting on a

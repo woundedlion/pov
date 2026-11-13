@@ -20,6 +20,16 @@
 
 namespace hs {
 
+/** @brief Whether the next render belongs to the sampled frame range.
+ * @param completed Frames already rendered by the effect instance.
+ * @param skip Initial frames excluded from sampling.
+ * @param count Maximum sampled frames; zero leaves the range open.
+ * @return Whether the completed count is inside the requested range. */
+constexpr bool pc_sample_frame(uint32_t completed, uint32_t skip,
+                               uint32_t count = 0) {
+  return completed >= skip && (count == 0 || completed - skip < count);
+}
+
 /** @brief EXC_RETURN bit set when the interrupted context stacked on PSP. */
 inline constexpr uint32_t EXC_RETURN_PSP = 1u << 2;
 /** @brief EXC_RETURN bit set when the exception returns to Thread mode. */

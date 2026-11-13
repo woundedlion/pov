@@ -888,6 +888,25 @@ inline void test_sampled_counter_retirement() {
   HS_EXPECT_EQ(child.count, 1u);
 }
 
+/** @brief Frame gating excludes exactly the requested initial renders. */
+inline void test_pc_sample_frame_skip() {
+  for (uint32_t skip : {0u, 1u, 17u, 160u}) {
+    uint32_t sampled = 0;
+    for (uint32_t completed = 0; completed < skip + 3; ++completed) {
+      hs::PcSampleGate gate(hs::pc_sample_frame(completed, skip));
+      sampled += hs::pc_sample_gate() != 0;
+    }
+    HS_EXPECT_EQ(sampled, 3u);
+    for (uint32_t count : {1u, 2u, 16u, 64u}) {
+      uint32_t bounded = 0;
+      for (uint32_t completed = 0; completed < skip + count + 3; ++completed)
+        bounded += hs::pc_sample_frame(completed, skip, count);
+      HS_EXPECT_EQ(bounded, count);
+    }
+    HS_EXPECT_EQ(hs::pc_sample_gate(), 0u);
+  }
+}
+
 /**
  * @brief Runs the profiling test cases.
  * @return The module's failure count.
@@ -923,6 +942,7 @@ inline int run_profiling_tests() {
   HS_RUN(test_pc_sampler_dump_format);
   HS_RUN(test_pc_sampler_dump_without_ticks);
   HS_RUN(test_pc_sample_gate_nests);
+  HS_RUN(test_pc_sample_frame_skip);
 
   return fixture.result();
 }
