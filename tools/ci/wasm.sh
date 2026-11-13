@@ -21,6 +21,15 @@ cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
 cmake --build --preset wasm-release --target pullback_capture_wasm 2>&1 \
   | tee -a build/wasm-release-build.log
 
+python tools/pullback_capture.py --manifest-dir tests/data/pullback \
+  --operations-output "$scratch/ops.bin"
+for resolution in 96x20 288x144; do
+  node build/wasm-release/pullback_capture_wasm.cjs --resolution "$resolution" \
+    --operations "$scratch/ops.bin" "$scratch/wasm-release-$resolution.bin"
+done
+python tools/pullback_capture.py --manifest-dir tests/data/pullback \
+  --configuration wasm-release --backend-audit "$scratch"/wasm-release-*.bin
+
 # Compile coverage for debug-only code and developer bindings.
 cmake --preset wasm-debug -DDAYDREAM_DIR="$dd" -DHS_WASM_DEV_BINDINGS=ON
 cmake --build --preset wasm-debug 2>&1 | tee build/wasm-debug-build.log
