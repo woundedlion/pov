@@ -220,6 +220,29 @@ class CheckTool(unittest.TestCase):
 class InstallSet(unittest.TestCase):
     """Repository sources copied into the sibling Daydream checkout."""
 
+    def test_installed_sources_preserves_quoted_regex_groups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("README.md", "other.txt", "data/keep.json", "data/keep.mjs",
+                         "data/skip.json", "data/a.json", "data/b.json",
+                         "data/nested/keep.json"):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("fixture", encoding="utf-8")
+            (root / "CMakeLists.txt").write_text(r'''
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
+        DESTINATION "${DAYDREAM_DIR}")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/"
+        DESTINATION "${DAYDREAM_DIR}/data"
+        FILES_MATCHING PATTERN "*.json"
+        PATTERN "skip.json" EXCLUDE REGEX "/(a|b)\.json$" EXCLUDE)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/other.txt"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}")
+''', encoding="utf-8")
+            with unittest.mock.patch.object(bp, "ROOT", root):
+                self.assertEqual(bp.installed_sources(), [
+                    "README.md", "data/keep.json", "data/nested/keep.json"])
+
     def test_an_unpinned_file_is_reported(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

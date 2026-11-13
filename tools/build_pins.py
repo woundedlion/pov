@@ -301,10 +301,10 @@ ENGINE_RANGES = (
 )
 
 
-# install(FILES|DIRECTORY) rules, matched to the first closing paren -- neither
-# form nests one. The cross-repo install set is the subset destined for
-# DAYDREAM_DIR; install(CODE) writes only files generated at install time.
-INSTALL_RULE = re.compile(r"install\(\s*(FILES|DIRECTORY)\s(.*?)\)", re.DOTALL)
+# DAYDREAM_DIR install rules; quoted arguments may contain parentheses.
+INSTALL_RULE = re.compile(
+    r'install\(\s*(FILES|DIRECTORY)\s((?:"(?:\\.|[^"\\])*"|[^"\)])*)\)',
+    re.DOTALL)
 INSTALL_SOURCE = re.compile(r"\$\{CMAKE_CURRENT_SOURCE_DIR\}/([^\"\s]+)")
 INSTALL_PATTERN = re.compile(
     r'\b(PATTERN|REGEX)\s+"([^"]+)"(?:\s+(EXCLUDE))?')
