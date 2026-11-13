@@ -279,13 +279,8 @@ public:
    */
   HS_FLASH_MEMBER void step() {
     HS_PROFILE(palette_cycle_step);
-    if (!advance_clock(true)) {
-      if (provider != nullptr && display_dirty) {
-        rebake_display(*from_slot);
-        display_dirty = false;
-      }
+    if (!advance_clock(true))
       return;
-    }
     if (display_interval > 1 && !display_dirty && frame % display_interval != 0)
       return;
     const float w = fade_weight();
