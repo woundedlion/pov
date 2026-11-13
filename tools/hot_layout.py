@@ -727,6 +727,8 @@ class _Planner:
         lines, _ = self._gated_lines(keys, self.address)
         if not lines:
             return 0
+        if self._fits(keys, self.address):
+            return 0
         room = [MAX_LINES_PER_SET] * CACHE_SETS
         for effect in {e for _, effects in lines for e in effects}:
             counts = self.lines[effect]
@@ -738,7 +740,7 @@ class _Planner:
             offset = (line - first) % CACHE_SETS
             need[offset] = need.get(offset, 0) + 1
         start = first % CACHE_SETS
-        for shift in range(CACHE_SETS):
+        for shift in range(1, CACHE_SETS):
             base = start + shift
             if all(count <= room[(base + offset) % CACHE_SETS]
                    for offset, count in need.items()):

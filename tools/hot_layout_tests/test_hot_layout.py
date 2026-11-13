@@ -421,6 +421,20 @@ class PlannerFallbacks(unittest.TestCase):
         self.assertEqual(planner.placed[cold[1]], (0x60008000, 0x60008020))
         self.assertEqual(planner.placed[keys[0]][0], 0x60008020)
 
+    def test_shared_final_line_keeps_the_current_placement(self):
+        program, keys, hot_sets, alignments = self.synthetic_program([16], cold_sizes=[16])
+        start = 0x60008010
+        planner = hl._Planner(program, hot_sets, alignments, start, {})
+        line = start // hl.CACHE_LINE_BYTES
+        index = line % hl.CACHE_SETS
+        planner.lines["0"][index] = hl.MAX_LINES_PER_SET
+        planner.last["0"] = line
+        self.assertTrue(planner._fits(keys, start))
+        self.assertEqual(planner._shift(keys), 0)
+        self.assertEqual(planner.run(), keys)
+        self.assertEqual(planner.placed[keys[0]], (start, start + 16))
+        self.assertEqual(planner.lines["0"][index], hl.MAX_LINES_PER_SET)
+
     def test_constrained_unit_splits_into_single_section_placements(self):
         program, keys, hot_sets, alignments = self.synthetic_program([32, 32])
         planner = hl._Planner(program, hot_sets, alignments, 0x60008000, {})
