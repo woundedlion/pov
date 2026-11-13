@@ -19,12 +19,6 @@ def playlist_shows(source: str) -> list[str]:
             if kind == "show"]
 
 
-def playlist_excludes(source: str) -> list[str]:
-    """Return the effect names of the playlist's exclude rows."""
-    return [name for kind, name in _PLAYLIST_ROW_RE.findall(source)
-            if kind == "exclude"]
-
-
 def named_rows(body: str) -> list[str]:
     """Return names from X(Name, ...) roster rows."""
     return re.findall(r"\bX\(\s*(\w+)\s*,", body)
