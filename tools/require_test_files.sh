@@ -45,7 +45,11 @@ if [ "$javascript" -eq 1 ]; then
   done
   scan=$(mktemp)
   trap 'rm -f "$scan"' EXIT
-  find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prune -o -type f -print0 >"$scan"
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    git ls-files -z --cached --others --exclude-standard >"$scan"
+  else
+    find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prune -o -type f -print0 >"$scan"
+  fi
   while IFS= read -r -d '' candidate; do
     candidate=${candidate#./}
     case "$candidate" in

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env, require_tool
+from git_test_env import git_run, isolated_env, require_tool
 
 REPO = Path(__file__).resolve().parents[2]
 CHECK = REPO / "tools" / "require_test_files.sh"
@@ -57,6 +57,24 @@ class RequireTestFiles(unittest.TestCase):
         done = self.run_check("tools/empty_tests/*.test.mjs")
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
         self.assertIn("no test files match", done.stdout)
+
+    def test_git_discovery_ignores_nested_checkouts_but_checks_untracked_tests(self):
+        require_tool(self, "git")
+        git_run(self.tree, "init", "--quiet", env=ENV)
+        (self.tree / ".gitignore").write_text(".worktrees/\n", encoding="utf-8")
+        nested = self.tree / ".worktrees" / "peer"
+        nested.mkdir(parents=True)
+        (nested / ".git").write_text("gitdir: unused\n", encoding="utf-8")
+        (nested / "hidden.test.mjs").write_text("", encoding="utf-8")
+        git_run(self.tree, "add", ".gitignore", "tools", env=ENV)
+        done = self.run_check("tools/sample_tests/*.test.mjs")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+
+        (self.tree / "untracked.test.mjs").write_text("", encoding="utf-8")
+        done = self.run_check("tools/sample_tests/*.test.mjs")
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+        self.assertIn("untracked.test.mjs", done.stdout)
+        self.assertNotIn("hidden.test.mjs", done.stdout)
 
 
 if __name__ == "__main__":
