@@ -14,7 +14,7 @@ namespace Scan {
 /// Angle past a swept face's edges within which its column pairs shade: a
 /// column of antialiasing with slack.
 template <int W>
-inline constexpr float SWEEP_ROW_REACH = 1.25f * math::TWO_PI_F / W;
+inline constexpr float SWEEP_ROW_REACH = SDF::face_azimuth_pad(W);
 
 HS_O3_BEGIN
 
