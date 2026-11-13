@@ -803,6 +803,13 @@ inline math::Vector noise_transform(const math::Vector &v,
   return (v + surface_distortion).normalized();
 }
 
+namespace Animation {
+/** Inactive bump footprint radius. */
+inline constexpr float BUMP_REACH_CUT = 1e-3f;
+/** Inactive field amplitude. */
+inline constexpr float FIELD_AMPLITUDE_CUT = 0.001f;
+} // namespace Animation
+
 /**
  * @brief Computes the bump profile from prepared local cap geometry.
  * @param params Bump field geometry and gain.
@@ -837,7 +844,8 @@ __attribute__((always_inline)) inline bool
 bump_cap_hit(const math::Vector &v, const Animation::BumpParams &params,
              float &r_eff, float &d) {
   r_eff = params.radius * params.envelope;
-  if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
+  if (r_eff <= Animation::BUMP_REACH_CUT ||
+      params.amplitude <= Animation::FIELD_AMPLITUDE_CUT)
     return false;
   float cos_d = math::dot(v, params.center);
   if (cos_d <= params.cos_radius)
@@ -847,11 +855,6 @@ bump_cap_hit(const math::Vector &v, const Animation::BumpParams &params,
 }
 
 namespace Animation {
-
-/** Inactive bump footprint radius. */
-inline constexpr float BUMP_REACH_CUT = 1e-3f;
-/** Inactive field amplitude. */
-inline constexpr float FIELD_AMPLITUDE_CUT = 0.001f;
 
 /** @brief A bump's endpoints in the current stack frame. */
 struct BumpPath {
@@ -1000,7 +1003,7 @@ inline float bump_field(const math::Vector &v,
  */
 inline float noise_product_field(const math::Vector &v,
                                  const Animation::NoiseProductParams &params) {
-  if (std::fabs(params.amplitude) <= 0.001f)
+  if (std::fabs(params.amplitude) <= Animation::FIELD_AMPLITUDE_CUT)
     return 0.0f;
   float n1 = params.octave1(v, params.time);
   float n2 = params.octave2(v, params.time);
