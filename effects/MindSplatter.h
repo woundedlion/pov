@@ -733,7 +733,7 @@ private:
    * walk draws the rest in chunks. Either shades a sample with its edge
    * ends' interpolated progress and fade.
    */
-  HS_HOT_ITCM_MEMBER void draw_column_trails(Canvas &canvas) {
+  HS_HOT_FLASH_MEMBER void draw_column_trails(Canvas &canvas) {
     const float cos_event_horizon = math::fast_cosf(EVENT_HORIZON);
     const math::Complex previous_warp = warp_history.start(mobius.b);
     const FrameWarp warp{previous_warp,
