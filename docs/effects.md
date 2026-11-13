@@ -270,7 +270,7 @@ authored preset.
 
 ### GridWorms
 
-An animated axial twist pulls a primitive lattice into flowing worms before the camera rotates it. A folded gnomonic projection wraps the lattice around the sphere; a maximum-chroma analogous palette uses cup mapping, and a direct directional-sine field shifts hue in the projection frame. Its single `grid-worms` preset preserves the saved shader's lens-before-camera order. GridWorms runs for 60 seconds immediately after GridSpace in the Phantasm playlist and is available in the simulator and effect library.
+An animated axial twist pulls a primitive lattice into flowing worms before the camera rotates it. A folded gnomonic projection wraps the lattice around the sphere; a maximum-chroma analogous palette uses cup mapping, and a direct directional-sine field shifts hue in the projection frame. Its single `grid-worms` preset preserves the saved shader's lens-before-camera order. GridWorms runs for 30 seconds immediately after GridSpace in the Phantasm playlist and is available in the simulator and effect library.
 
 **Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, lens1.Twist Angle (rad), lens1.Twist Distribution, lens1.Axis Phi (rad), lens1.Axis Lambda (rad), lens1.Speed, lens1.Drift, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Modulation Amount, Pattern Frequency, Pattern Speed
 
@@ -282,7 +282,7 @@ An animated axial twist pulls a primitive lattice into flowing worms before the 
 
 ### GridWarp
 
-A wandering camera turns the sphere beneath a toroidal degree-8, order-4 harmonic potential flow that warps an equirectangular grid. A cycling analogous palette uses cup mapping; displacement-driven hue precedes a baked-cube noise hue layer. Its single `grid-warp` preset plays for 60 seconds in the Phantasm playlist.
+A wandering camera turns the sphere beneath a toroidal degree-8, order-4 harmonic potential flow that warps an equirectangular grid. A cycling analogous palette uses cup mapping; displacement-driven hue precedes a baked-cube noise hue layer. Its single `grid-warp` preset plays for 30 seconds in the Phantasm playlist.
 
 **Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Camera Wander, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, `displace.term-1..4-{type,kind,l,m,amplitude,phase}`, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulate.Modulation Amount, modulate1.Modulation Amount, modulate1.Pattern Scale, modulate1.Pattern Speed
 
@@ -294,7 +294,7 @@ A wandering camera turns the sphere beneath a toroidal degree-8, order-4 harmoni
 
 ### LiquidWindows
 
-A dodecahedral poloidal potential flow folds an equirectangular grid into rounded liquid windows. A cycling analogous palette uses cup mapping, and displacement-driven hue tracks the flow's path length. Its single `liquid-windows` preset plays for 60 seconds in the Phantasm playlist.
+A dodecahedral poloidal potential flow folds an equirectangular grid into rounded liquid windows. A cycling analogous palette uses cup mapping, and displacement-driven hue tracks the flow's path length. Its single `liquid-windows` preset plays for 30 seconds in the Phantasm playlist.
 
 **Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, `displace.term-1..4-{type,kind,l,m,amplitude,phase}`, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, modulate.Modulation Amount
 
@@ -306,7 +306,7 @@ A dodecahedral poloidal potential flow folds an equirectangular grid into rounde
 
 ### Iridescence
 
-A dodecahedral poloidal potential flow folds an equirectangular grid beneath the procedural embers palette. A baked-cube noise lightness lift precedes a baked-cube noise hue layer. Its single `iridescence` preset plays for 60 seconds in the Phantasm playlist.
+A dodecahedral poloidal potential flow folds an equirectangular grid beneath the procedural embers palette. A baked-cube noise lightness lift precedes a baked-cube noise hue layer. Its single `iridescence` preset plays for 30 seconds in the Phantasm playlist.
 
 **Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, `displace.term-1..4-{type,kind,l,m,amplitude,phase}`, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, modulate.Modulation Amount, modulate.Pattern Scale, modulate.Pattern Speed, modulate2.Modulation Amount, modulate2.Pattern Scale, modulate2.Pattern Speed
 
@@ -737,7 +737,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
 
-These 23 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori plays for 60 seconds in Phantasm. GridWorms follows GridSpace for 60 seconds. Single-preset entries in `targets/Phantasm/phantasm_playlist.def` carry a show window of 30 or 60 seconds. The Phantasm playlist omits JewelMelt, KaleidoscopeMelt and KaleidoscopeStainedGlass. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends.
+These 23 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Millefiori plays for 60 seconds in Phantasm. GridWorms follows GridSpace for 30 seconds. Single-preset entries in `targets/Phantasm/phantasm_playlist.def` carry a show window of 30 or 60 seconds. The Phantasm playlist omits JewelMelt, KaleidoscopeMelt and KaleidoscopeStainedGlass. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends.
 
 The [device profile archive](profiles/README.md) and its indexes contain shipping captures, global-O3 references and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. The reports identify source, frame scope, trailing exclusions and validator diagnostics. Measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 

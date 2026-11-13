@@ -117,17 +117,17 @@ g5_ship)
   run AlienOcean profile 30 32
   run AlienCore profile 30 32
   run KaleidoscopeMandala profile 105 32
-  run GridSpace profile 60 32
-  run GridWorms profile 60 32
+  run GridSpace profile 30 32
+  run GridWorms profile 30 32
   run Millefiori profile 60 32
   run HyperLattice profile 340 16
   run ChromaticLichen profile 30 32
   run MermaidSkin profile 30 32
   run AshCloud profile 60 32
-  run Involution profile 60 32
-  run LiquidWindows profile 60 32
-  run GridWarp profile 60 32
-  run Iridescence profile 60 32
+  run Involution profile 30 32
+  run LiquidWindows profile 30 32
+  run GridWarp profile 30 32
+  run Iridescence profile 30 32
   ;;
 g6_ship)
   run KaleidoscopeHexOil profile 105 16
