@@ -128,6 +128,10 @@ SECTIONS
 		*(.text._ZN8Pullback16OuterCameraStateILb1EEC[12]Ev)
 		*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)
 		*(.text._ZN9ParamHost21use_parameter_storageEP8ParamDefj)
+		/* MindSplatter startup raster specializations. */
+		*(.text._ZN4PlotL9rasterizeILi288ELi144E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)
+		*(.text._ZN4Plot14ParticleSystem9draw_implILi288ELi144E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)
+		*(.text._ZZN4Plot14ParticleSystem12sample_trailILi3ELb1E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)
 		/* Half-edge topology construction: the edge-record sort family and
 		 * mesh normalize also serve per-frame truncate/expand sweeps. */
 		*(.text.*HalfEdgePairRecord*)

@@ -47,7 +47,10 @@ foreach(route IN ITEMS
     "*(.text._ZN8Pullback18FrameIntervalStateI*C[12]Ev)"
     "*(.text._ZN9ParamHost21use_parameter_storageEP8ParamDefj)"
     "*(.text._ZN12POVSegmentedI*17configure_segmentEv)"
-    "*(.text._ZN4math18init_geometry_lutsILi288ELi144EEEvv)")
+    "*(.text._ZN4math18init_geometry_lutsILi288ELi144EEEvv)"
+    "*(.text._ZN4PlotL9rasterizeILi288ELi144E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)"
+    "*(.text._ZN4Plot14ParticleSystem9draw_implILi288ELi144E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)"
+    "*(.text._ZZN4Plot14ParticleSystem12sample_trailILi3ELb1E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)")
   string(REPLACE "${route}" "" changed "${baseline}")
   check_routing("missing_setup_${setup_route_index}" "${changed}"
     "no longer routed by .text.code")
