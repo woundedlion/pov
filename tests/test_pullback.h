@@ -1219,6 +1219,24 @@ inline void test_pullback_provider_contracts() {
   HS_EXPECT_EQ(carried.path_length, 4.0f);
 }
 
+/** @brief Rectangular repeats reduce finite displacements beyond int range. */
+inline void test_pullback_rectangular_repeat_large_displacements() {
+  const auto repeat =
+      Pullback::Warp::prepare_repeat({0.3f, 0.0f}, {0.0f, 0.7f});
+  for (float scale : {0.0f, 0.25f, 0x1p31f, 0x1p32f})
+    for (float sign : {-1.0f, 1.0f}) {
+      const math::Complex delta{sign * scale * repeat.a.re,
+                                -sign * scale * repeat.b.im};
+      const auto fixed = Pullback::Warp::repeat_offset<
+          Pullback::Warp::RepeatReduction::RECTANGULAR>(delta, repeat);
+      const auto dynamic = Pullback::Warp::repeat_offset(delta, repeat);
+      HS_EXPECT_NEAR(fixed.re, std::remainder(delta.re, repeat.a.re), 1e-6f);
+      HS_EXPECT_NEAR(fixed.im, std::remainder(delta.im, repeat.b.im), 1e-6f);
+      HS_EXPECT_EQ(fixed.re, dynamic.re);
+      HS_EXPECT_EQ(fixed.im, dynamic.im);
+    }
+}
+
 /** @brief Affine providers require a repeat lattice alongside their scalars. */
 inline void test_pullback_affine_provider_repeat_contract() {
   struct AffineState {
@@ -2157,6 +2175,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_affine_forms_match_general);
   HS_RUN(test_pullback_stage_combinators);
   HS_RUN(test_pullback_provider_contracts);
+  HS_RUN(test_pullback_rectangular_repeat_large_displacements);
   HS_RUN(test_pullback_affine_provider_repeat_contract);
   HS_RUN(test_pullback_concrete_catalog);
   HS_RUN(test_pullback_square_cells_formula);

@@ -713,10 +713,15 @@ closest_repeat_offset(const math::Complex &delta,
 template <RepeatReduction Reduction>
 __attribute__((always_inline)) inline math::Complex
 repeat_offset(const math::Complex &delta, const PreparedRepeat &repeat) {
-  if constexpr (Reduction == RepeatReduction::RECTANGULAR)
-    return {math::centered_remainder(delta.re, repeat.a.re),
-            math::centered_remainder(delta.im, repeat.b.im)};
-  else if constexpr (Reduction == RepeatReduction::GENERAL)
+  if constexpr (Reduction == RepeatReduction::RECTANGULAR) {
+    const auto reduce_axis = [](float value, float period) {
+      if (fabsf(value) < period * 0x1p31f)
+        return math::centered_remainder(value, period);
+      return std::remainder(value, period);
+    };
+    return {reduce_axis(delta.re, repeat.a.re),
+            reduce_axis(delta.im, repeat.b.im)};
+  } else if constexpr (Reduction == RepeatReduction::GENERAL)
     return closest_repeat_offset(delta, repeat);
   else
     return delta;
@@ -728,15 +733,8 @@ repeat_offset(const math::Complex &delta, const PreparedRepeat &repeat) {
     @return @p delta reduced as `repeat.reduction` selects. */
 __attribute__((always_inline)) inline math::Complex
 repeat_offset(const math::Complex &delta, const PreparedRepeat &repeat) {
-  if (repeat.reduction == RepeatReduction::RECTANGULAR) {
-    const auto reduce_axis = [](float value, float period) {
-      if (fabsf(value) < period * 0x1p31f)
-        return math::centered_remainder(value, period);
-      return std::remainder(value, period);
-    };
-    return {reduce_axis(delta.re, repeat.a.re),
-            reduce_axis(delta.im, repeat.b.im)};
-  }
+  if (repeat.reduction == RepeatReduction::RECTANGULAR)
+    return repeat_offset<RepeatReduction::RECTANGULAR>(delta, repeat);
   if (repeat.reduction == RepeatReduction::GENERAL)
     return repeat_offset<RepeatReduction::GENERAL>(delta, repeat);
   return delta;
