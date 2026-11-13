@@ -1281,15 +1281,7 @@ public:
    * @return Column and row after the world stages. */
   HS_HOT_INLINE math::PixelCoords probe(Canvas &cv, const math::Vector &v,
                                         float t) {
-    if constexpr (Head::is_2d)
-      return math::vector_to_pixel<W, H>(v);
-    else if constexpr (requires { Head::at_time(cv, v, t); })
-      return next.probe(cv, Head::at_time(cv, v, t), t);
-    else {
-      static_assert(Head::world_transform_is_identity || Head::has_history,
-                    "timed world transforms must supply at_time");
-      return next.probe(cv, v, t);
-    }
+    return math::vector_to_pixel<W, H>(world_at(cv, v, t));
   }
 
   /** @brief The world stages' poses by column time.
