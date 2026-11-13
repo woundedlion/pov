@@ -14,7 +14,8 @@
 #                configured with the tests preset when it has no cache yet
 #   [cmake configure args...]  extra arguments for those configures
 # Without --report: exits 0 when every hash matches, 1 when any differs, and
-# 2 when the base prints no render hashes. Modules the base lacks are skipped.
+# 2 when the base prints no render hashes, and 3 when a build fails.
+# Modules the base lacks are skipped.
 set -euo pipefail
 
 usage="usage: render_diff.sh [--report] <base> [build-dir] [cmake configure args...]"
@@ -62,10 +63,18 @@ checkout_base() {
 
 # Configures (once) and builds the hash target of the tree at $1 in $2.
 build_tree() {
-  [ -f "$2/CMakeCache.txt" ] ||
-    (cd "$1" && cmake --preset tests -B "$2" -DHS_INSTALL_GIT_HOOKS=OFF \
-      "${configure_args[@]}" >/dev/null)
-  cmake --build "$2" --target "$target" >/dev/null
+  local log
+  log="$scratch/build-$(basename "$1").log"
+  if {
+    { [ -f "$2/CMakeCache.txt" ] ||
+      (cd "$1" && cmake --preset tests -B "$2" -DHS_INSTALL_GIT_HOOKS=OFF \
+        "${configure_args[@]}"); } &&
+      cmake --build "$2" --target "$target"
+  } >"$log" 2>&1; then
+    return 0
+  fi
+  tail -n 60 "$log" >&2
+  return 3
 }
 
 # Prints the render-hash lines of the build at $1 for every module the
@@ -143,7 +152,7 @@ fi
 
 checkout_base
 echo "render_diff: building $base ($sha) in $dir"
-build_tree "$dir" "$dir/build/tests"
+build_tree "$dir" "$dir/build/tests" || exit 3
 "$dir/build/tests/tests/run_tests" --list > "$scratch/modules"
 run_hashes "$dir/build/tests" "$scratch/modules" > "$scratch/base"
 if [ ! -s "$scratch/base" ]; then
@@ -151,7 +160,7 @@ if [ ! -s "$scratch/base" ]; then
   exit 2
 fi
 echo "render_diff: building the working tree in $tip_build"
-build_tree "$root" "$tip_build"
+build_tree "$root" "$tip_build" || exit 3
 run_hashes "$tip_build" "$scratch/modules" > "$scratch/tip"
 if diff -u --label "$base" --label "working tree" "$scratch/base" "$scratch/tip"; then
   echo "render_diff: $(wc -l < "$scratch/tip") render(s) unchanged."
