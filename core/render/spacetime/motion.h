@@ -173,6 +173,26 @@ struct PathBound {
     return {cosh_d * v * v, 1.5f * cosh_d * v * v * v};
   }
 
+  /** @brief Bounds one minus image height during a linear plane translation.
+   * @param shift Translation distance over the frame.
+   * @param image_y Image height at frame end.
+   * @return Upper bound on one minus height throughout the frame. */
+  HS_HOT_INLINE static float translation_deficit(float shift, float image_y) {
+    return shift < 1.0f
+               ? fminf(2.0f, fmaxf(0.0f, 1.0f - image_y) / (1.0f - shift))
+               : 2.0f;
+  }
+
+  /** @brief Exact derivative envelopes for a translated stationary source.
+   * @param shift Translation distance over the frame.
+   * @param image_y Image height at frame end.
+   * @return Bounds on second and third Cartesian derivatives. */
+  HS_HOT_INLINE static PathBound translated_point(float shift, float image_y) {
+    const float s = translation_deficit(shift, image_y);
+    const float speed = shift * s;
+    return {sqrtf(2.0f * s) * shift * speed, 3.0f * shift * speed * speed};
+  }
+
   /**
    * @brief Bound on the chord's distance from the path.
    * @return An eighth of the second-derivative bound.

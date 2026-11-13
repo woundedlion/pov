@@ -301,8 +301,13 @@ inline void test_interpolants_bound_warped_great_circle() {
     m.b1z = scale * sin(start + sweep);
     const double shift = hypot(m.b1x - m.b0x, m.b1z - m.b0z);
     const double reach = std::max(hypot(m.b0x, m.b0z), hypot(m.b1x, m.b1z));
-    const auto bound = Spacetime::PathBound::warped_great_circle(
-        float(m.turn), float(shift), float(reach));
+    double end[3];
+    position(m, 1.0, end);
+    const auto bound =
+        m.turn == 0.0 ? Spacetime::PathBound::translated_point(float(shift),
+                                                               float(end[1]))
+                      : Spacetime::PathBound::warped_great_circle(
+                            float(m.turn), float(shift), float(reach));
     constexpr double STEP = 1e-2;
     double second = 0.0, third = 0.0;
     for (int i = 0; i <= 20; ++i) {

@@ -683,8 +683,12 @@ private:
       return warp.at(chunk.template attribute<0>(i), t);
     };
     auto vertex_path = [&](size_t i) HS_HOT_FLASH_MEMBER {
-      return Spacetime::PathBound::warped_great_circle(
-          chunk.template attribute<0>(i).turn, shift, reach);
+      const float turn = chunk.template attribute<0>(i).turn;
+      return turn == 0.0f
+                 ? Spacetime::PathBound::translated_point(shift,
+                                                          chunk.position(i).y)
+                 : Spacetime::PathBound::warped_great_circle(turn, shift,
+                                                             reach);
     };
     auto shade = [](const TrailVertex &head, const TrailVertex &tail,
                     float s) HS_HOT_INLINE {
