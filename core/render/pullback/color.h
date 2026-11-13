@@ -678,6 +678,26 @@ apply_perceptual_scalar(ColorSample &sample, float scalar,
         accumulate_lift(sample.pending_lift, scalar, mechanic);
 }
 
+/** @brief Applies a prepared column phase to a color carrier.
+ * @tparam Phase Prepared modulation phase type.
+ * @tparam SinePhase Whether directional-sine phase sampling is supported.
+ * @param sample Carrier to update.
+ * @param prepared Layer state.
+ * @param scratch Cached analytic samples for this phase. */
+template <typename Phase, bool SinePhase>
+HS_HOT_FLASH_MEMBER inline void apply_phase_modulation(ColorSample &sample,
+                                                       const Phase &prepared,
+                                                       PhaseScratch &scratch)
+  requires std::is_base_of_v<PhaseModulationState, Phase>
+{
+  if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
+    return;
+  apply_perceptual_scalar(sample,
+                          Color::sample_phase_scalar<Phase, SinePhase>(
+                              sample.field, prepared, scratch),
+                          prepared.mechanic);
+}
+
 /** @brief Applies one modulation mechanic to a color carrier.
  * @param sample Carrier to update.
  * @param scalar Source value.
@@ -794,6 +814,37 @@ restore_cached_palette_base_near_gamut_gate(ColorSample &sample,
   return true;
 }
 
+/** @brief Finishes perceptual color outside the canonical gamut gate.
+ * @param lab Cached perceptual base.
+ * @param hue Deferred hue rotation in turns.
+ * @param lift Deferred lightness lift.
+ * @param gain Final RGB brightness gain.
+ * @param alpha Straight alpha.
+ * @param result Receives the finished color when the gamut gate is clear.
+ * @return Whether the cached base supplied the finished color. */
+HS_HOT_ITCM_MEMBER inline bool try_finish_palette_lab(OKLab lab, float hue,
+                                                      float lift, float gain,
+                                                      float alpha,
+                                                      Color4 &result) {
+  if (gain == 0.0f) {
+    result = Color4(Pixel(0, 0, 0), alpha);
+    return true;
+  }
+  const auto lab_value = rotated_palette_lab(lab, hue, lift);
+  auto output = oklab_to_linear_rgb(lab_value);
+  if (near_palette_gamut_gate(output))
+    return false;
+  if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab_value));
+  }
+  if (gain != 1.0f) {
+    apply_brightness_gain(output, gain);
+  }
+  result = Color4(linrgb_to_pixel(output), alpha);
+  return true;
+}
+
 /** @brief Finishes perceptual color with canonical gamut-gate fallback.
  * @tparam Canonical Canonical finished-color callback.
  * @param lab Cached perceptual base.
@@ -807,20 +858,10 @@ template <typename Canonical>
 HS_HOT_INLINE inline Color4 finish_palette_lab(OKLab lab, float hue, float lift,
                                                float gain, float alpha,
                                                Canonical &&canonical) {
-  if (gain == 0.0f)
-    return Color4(Pixel(0, 0, 0), alpha);
-  const auto lab_value = rotated_palette_lab(lab, hue, lift);
-  auto output = oklab_to_linear_rgb(lab_value);
-  if (near_palette_gamut_gate(output))
-    return canonical();
-  if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
-    HS_PROFILE_DEEP(gamut_clip);
-    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab_value));
-  }
-  if (gain != 1.0f) {
-    apply_brightness_gain(output, gain);
-  }
-  return Color4(linrgb_to_pixel(output), alpha);
+  Color4 result;
+  if (try_finish_palette_lab(lab, hue, lift, gain, alpha, result))
+    return result;
+  return canonical();
 }
 
 /** @brief Finishes a guarded cached carrier using one raw RGB evaluation.
@@ -853,6 +894,50 @@ inline constexpr std::array<ApproximationMetric, 3> MODULATION_LUT_METRICS{{
 }};
 static_assert(HueRotationGamutMask::MAX_CHANNEL_SPAN ==
               2 * MODULATION_LUT_METRICS[0].limit);
+
+/** @brief Samples canonical modulation endpoints at shared coordinates.
+ * @param sample Shared field coordinates.
+ * @param modulation Prepared modulation endpoints.
+ * @return Previous and current endpoint scalars. */
+HS_HOT_ITCM_MEMBER inline std::pair<float, float>
+sample_fused_scalars(const FieldSample &sample,
+                     const ModulationState &modulation) {
+  if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
+    return {sample.path_length, sample.path_length};
+  HS_AUDIT_CHECK(modulation.previous && modulation.current);
+  const auto direction = Pattern::SphereDirection::admit(sample.sphere);
+  if (modulation.paired_cube_ready) {
+    const auto tap = Pattern::prepare_sphere_lut_sample(direction);
+    return {Pattern::bounded_scalar(tap.sample(modulation.previous->cube)),
+            Pattern::bounded_scalar(tap.sample(modulation.current->cube))};
+  }
+  return Modulation::sample_pair(*modulation.previous, *modulation.current,
+                                 direction);
+}
+
+/** @brief Restores the canonical RGB-first palette base.
+ * @param result Deferred carrier to restore.
+ * @param prepared Prepared palette endpoints.
+ * @param fraction Current endpoint weight. */
+HS_HOT_ITCM_MEMBER inline void
+restore_palette_base(ColorSample &result,
+                     const TemporalGeneratedPaletteState &prepared,
+                     float fraction) {
+  const Pixel a =
+      prepared.previous.palette->get_color(result.palette_coordinate);
+  const Pixel b =
+      prepared.current.palette->get_color(result.palette_coordinate);
+  const Pixel *const a_table = prepared.previous.hue_rotation.active
+                                   ? prepared.previous.hue_rotation.data
+                                   : nullptr;
+  const Pixel *const b_table = prepared.current.hue_rotation.active
+                                   ? prepared.current.hue_rotation.data
+                                   : nullptr;
+  result.color.color = a.lerp16(b, frac_to_q16(fraction));
+  result.hue_rotation = a == b && a_table == b_table ? b_table : nullptr;
+  result.hue_rotation_gamut =
+      result.hue_rotation ? prepared.current.hue_rotation.gamut_mask : nullptr;
+}
 
 /** @brief Palette sampling shared by endpoint and cache configuration.
  * @tparam TEMPORAL Whether previous palettes are retained.
@@ -972,26 +1057,6 @@ struct GeneratedPaletteCore {
   }
 
 private:
-  /** @brief Samples the original modulation endpoints at shared coordinates.
-   * @param sample Shared field coordinates.
-   * @param modulation Prepared modulation endpoints.
-   * @return Previous and current endpoint scalars. */
-  HS_HOT_INLINE static std::pair<float, float>
-  sample_fused_scalars(const FieldSample &sample,
-                       const ModulationState &modulation) {
-    if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
-      return {sample.path_length, sample.path_length};
-    HS_AUDIT_CHECK(modulation.previous && modulation.current);
-    const auto direction = Pattern::SphereDirection::admit(sample.sphere);
-    if (modulation.paired_cube_ready) {
-      const auto tap = Pattern::prepare_sphere_lut_sample(direction);
-      return {Pattern::bounded_scalar(tap.sample(modulation.previous->cube)),
-              Pattern::bounded_scalar(tap.sample(modulation.current->cube))};
-    }
-    return Modulation::sample_pair(*modulation.previous, *modulation.current,
-                                   direction);
-  }
-
   /** @brief Resolves one canonical deferred hue endpoint.
    * @param scalar Source scalar.
    * @param amount Hue turns per source unit.
@@ -1113,21 +1178,7 @@ private:
   HS_HOT_INLINE static void restore_fused_palette_base(ColorSample &result,
                                                        const Prepared &prepared,
                                                        float fraction) {
-    const Pixel a =
-        prepared.previous.palette->get_color(result.palette_coordinate);
-    const Pixel b =
-        prepared.current.palette->get_color(result.palette_coordinate);
-    const Pixel *const a_table = prepared.previous.hue_rotation.active
-                                     ? prepared.previous.hue_rotation.data
-                                     : nullptr;
-    const Pixel *const b_table = prepared.current.hue_rotation.active
-                                     ? prepared.current.hue_rotation.data
-                                     : nullptr;
-    result.color.color = a.lerp16(b, frac_to_q16(fraction));
-    result.hue_rotation = a == b && a_table == b_table ? b_table : nullptr;
-    result.hue_rotation_gamut = result.hue_rotation
-                                    ? prepared.current.hue_rotation.gamut_mask
-                                    : nullptr;
+    Color::restore_palette_base(result, prepared, fraction);
   }
 
 public:
@@ -1536,17 +1587,13 @@ template <typename State> struct Modulate : ApproximationDefaults {
    * @param prepared Layer state.
    * @param scratch Cached analytic samples for this phase. */
   template <typename FrameState>
-  HS_HOT_FLASH_MEMBER static void
+  HS_HOT_INLINE static void
   apply_phase_in_place(ColorSample &sample, const FrameState &frame,
                        const Prepared &prepared, PhaseScratch &scratch)
     requires std::is_base_of_v<PhaseModulationState, Prepared>
   {
     (void)frame;
-    if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
-      return;
-    apply_perceptual_scalar(
-        sample, sample_phase_scalar(sample.field, prepared, scratch),
-        prepared.mechanic);
+    apply_phase_modulation<Prepared, SINE_PHASE>(sample, prepared, scratch);
   }
   /** @brief Applies the column's interpolated analytic source once.
    * @tparam FrameState Frame context.
