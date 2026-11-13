@@ -288,7 +288,7 @@ protected:
 
   /** @return The preset being left while a fade is before its midpoint, else
    *          the committed preset. */
-  size_t displayed_preset_index() const override {
+  HS_SIZE_FLASH_MEMBER size_t displayed_preset_index() const override {
     return transition.active && transition.fades && !transition.adopted
                ? transition.from_index
                : preset_index;
