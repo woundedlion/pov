@@ -498,6 +498,68 @@ inline void case_scan_ring_pool_full() {
   commit_stack_ring(pool);
   static_cast<void>(pool.next());
 }
+/** @brief Ring commits reject invalid indices and full pools.
+ * @tparam Failure Negative index, one-past-end index, or full pool. */
+template <int Failure> inline void ring_pool_commit_bounds() {
+  using Pool = Scan::RingStackPool<1, 33>;
+  alignas(std::max_align_t) uint8_t buf[Pool::BYTES];
+  Arena arena(buf, sizeof(buf));
+  Pool pool;
+  pool.init_storage(arena);
+  pool.begin_frame();
+  commit_stack_ring(pool);
+  death_admitted();
+  if constexpr (Failure != 2) {
+    pool.release();
+    pool.begin_frame();
+  }
+  const auto basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  pool.commit(opaque(Failure == 0   ? -1
+                     : Failure == 1 ? 1
+                                    : 0),
+              1.0f, 16, basis, 0.5f, 0.03f, pool.shift_row(0), 16, 0.0f,
+              nullptr);
+}
+
+/** @brief Rejects a negative ring index. */
+inline void case_scan_ring_pool_commit_negative() {
+  ring_pool_commit_bounds<0>();
+}
+
+/** @brief Rejects a ring index past the pool map. */
+inline void case_scan_ring_pool_commit_index() { ring_pool_commit_bounds<1>(); }
+
+/** @brief Rejects a commit into a full ring pool. */
+inline void case_scan_ring_pool_commit_full() { ring_pool_commit_bounds<2>(); }
+
+/** @brief Swept ring counts cannot exceed the pool's map capacity. */
+inline void case_scan_swept_ring_pool_capacity() {
+  constexpr int W = 32, H = 16;
+  using Pool = Scan::RingStackPool<1, W + 1>;
+  alignas(std::max_align_t) uint8_t buf[Pool::BYTES + 4096];
+  Arena arena(buf, sizeof(buf));
+  Pool pool;
+  pool.init_storage(arena);
+  typename Pool::Alternates alternates;
+  alternates.allocate(arena, arena, 1, W);
+  pool.begin_frame(&alternates);
+  DeathEffect effect(W, H);
+  Canvas canvas(effect);
+  Pipeline<W, H> pipeline;
+  Scan::DistortedRingStack::CandidateTable<W, H> table;
+  Scan::HueRowShader<Pool> shader{&pool};
+  struct Reshade {
+    void begin(int, int) {}
+    void operator()(int, float) {}
+    void finish() {}
+  };
+  Scan::SweptRingStack::scan_two_windows<W, H>(
+      pipeline, canvas, 1, pool, alternates, table, shader, Reshade{});
+  death_admitted();
+  Scan::SweptRingStack::scan_two_windows<W, H>(
+      pipeline, canvas, opaque(2), pool, alternates, table, shader, Reshade{});
+}
+
 /** @brief Alternate storage must fit a complete knot row. */
 inline void case_scan_alternates_small_capacity() {
   alignas(std::max_align_t) uint8_t buf[4096];

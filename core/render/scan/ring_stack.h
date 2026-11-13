@@ -676,7 +676,7 @@ public:
   /**
      * @brief Constructs a ring in the slot next() returned and maps @p ring
      * to it; the pool must not be full.
-     * @param ring Ring index in the stack.
+     * @param ring Ring index in [0, SLOTS).
      * @param frag_alpha Fragment alpha the shader applies to the ring.
      * @param lut_n Bake columns in the slot's rows.
      * @param ring_args DistortedRing constructor arguments.
@@ -684,6 +684,8 @@ public:
   template <typename... RingArgs>
   HS_HOT_FLASH_MEMBER void commit(int ring, float frag_alpha, int lut_n,
                                   RingArgs &&...ring_args) {
+    HS_CHECK(ring >= 0 && ring < SLOTS && count < SLOTS,
+             "ring stack pool commit exceeds capacity");
     const int s = count;
     ::new (static_cast<void *>(&(*storage)[s].ring))
         SDF::DistortedRing(std::forward<RingArgs>(ring_args)...);
@@ -911,6 +913,8 @@ struct SweptRingStack {
   scan_two_windows(PipelineT &pipeline, Canvas &canvas, int n_rings, Pool &pool,
                    Alternates &alternates, Table &table, Shader &shader,
                    Reshade reshade) {
+    HS_CHECK(n_rings >= 0 && n_rings <= Pool::SLOTS,
+             "swept ring stack exceeds pool capacity");
     static_assert(W % (2 * WINDOWS) == 0,
                   "sweep windows must tile the half-turn");
     if (pool.size() > 0) {
