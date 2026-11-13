@@ -14,6 +14,8 @@ show(Iridescence, 30)
 show(GridWarp, 30)
 show(Involution, 30)
 show(Millefiori, 60)
+show(JewelMelt, 60)
+show(KaleidoscopeMelt, 60)
 show(GridSpace, 30)
 show(GridWorms, 30)
 show(Galaxies, 60)
@@ -49,9 +51,7 @@ show(SphericalHarmonics)
 show(CosmicEyeball, 60)
 show(KaleidoscopeSmooth)
 
-exclude(JewelMelt)
 exclude(KaleidoscopeStainedGlass)
-exclude(KaleidoscopeMelt)
 exclude(Dynamo) // 96x20 only
 exclude(MobiusRings) // 96x20 only
 exclude(RingShower)

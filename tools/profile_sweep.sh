@@ -135,6 +135,8 @@ g6_ship)
   run KaleidoscopeHexBright profile 105 32
   run KaleidoscopeFlowers profile 173 16
   run CosmicEyeball profile 60 32
+  run JewelMelt profile 60 32
+  run KaleidoscopeMelt profile 60 32
   ;;
 esac
 if [ ${#FAILED[@]} -gt 0 ]; then
