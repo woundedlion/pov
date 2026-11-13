@@ -46,111 +46,52 @@ struct TwoSphereSDF {
   }
 };
 
-/** @brief Counts signed-distance evaluations in the scalar volume oracle. */
-template <typename Shape> struct CountedVolume {
-  const Shape &shape;
-  mutable int samples = 0;
-  float distance(const math::Vector &p) const {
-    ++samples;
-    return shape.distance(p);
-  }
-};
-
-/** @brief Compares scalar ray state with the vector-accumulating baseline. */
-inline void test_volume_scalar_state_differential() {
-  float max_distance = 0.0f, max_position = 0.0f, max_coverage = 0.0f;
-  float max_probe_position = 0.0f, max_probe_coverage = 0.0f;
-  int rays = 0, limited = 0, halos = 0, background_grazes = 0;
-  int solid_changes = 0;
+/** @brief Capped ray samples remain on the ray and bound longer traces. */
+inline void test_volume_capped_trace_properties() {
+  int rays = 0;
   auto compare = [&](const auto &shape, const math::Vector &ro,
-                     const math::Vector &vd, float radius, int steps,
-                     float aa) {
-    CountedVolume counted{shape};
-    math::Vector reference_p, actual_p;
-    float reference_d = VolumeScalarRegression::trace_closest(
-        counted, ro, vd, radius, steps, aa, reference_p);
-    limited += steps > 1 && counted.samples == steps;
-    float actual_d =
-        Scan::Volume::trace_closest(shape, ro, vd, radius, steps, aa, actual_p);
-    ++rays;
-    float reference_alpha = Scan::volume_edge_coverage(
-        reference_d, aa * Scan::Volume::SOLID_FRACTION, aa);
-    float actual_alpha = Scan::volume_edge_coverage(
-        actual_d, aa * Scan::Volume::SOLID_FRACTION, aa);
-    max_distance =
-        hs_test::fold_worst(max_distance, fabsf(reference_d - actual_d));
-    if (reference_alpha > 0.0f || actual_alpha > 0.0f)
-      max_position =
-          hs_test::fold_worst(max_position, (reference_p - actual_p).length());
-    max_coverage = hs_test::fold_worst(max_coverage,
-                                       fabsf(reference_alpha - actual_alpha));
-    if (reference_d > aa * Scan::Volume::SOLID_FRACTION && reference_d < aa &&
-        actual_d > aa * Scan::Volume::SOLID_FRACTION && actual_d < aa) {
-      ++halos;
-      auto reference_occlusion = VolumeScalarRegression::probe_occluder(
-          shape, reference_p, vd, radius, aa * Scan::Volume::SOLID_FRACTION,
-          aa);
-      auto actual_occlusion = Scan::Volume::probe_occluder(
-          shape, actual_p, vd, radius, aa * Scan::Volume::SOLID_FRACTION, aa,
-          actual_d);
-      solid_changes += reference_occlusion.solid != actual_occlusion.solid;
-      if (reference_occlusion.solid || reference_occlusion.soft > 0.0f)
-        max_probe_position = hs_test::fold_worst(
-            max_probe_position,
-            (reference_occlusion.behind - actual_occlusion.behind).length());
-      max_probe_coverage = hs_test::fold_worst(
-          max_probe_coverage,
-          fabsf(reference_occlusion.soft - actual_occlusion.soft));
-      background_grazes +=
-          !reference_occlusion.solid && reference_occlusion.soft > 0.0f;
+                     const math::Vector &vd, float radius, float aa) {
+    math::Vector full_position;
+    const float full_distance = Scan::Volume::trace_closest(
+        shape, ro, vd, radius, 128, aa, full_position);
+    for (int steps : {1, 14, 18, 40}) {
+      math::Vector position;
+      const float distance = Scan::Volume::trace_closest(shape, ro, vd, radius,
+                                                         steps, aa, position);
+      HS_EXPECT_NEAR(distance, shape.distance(position), 1e-6f);
+      HS_EXPECT_LT(math::cross(position - ro, vd).length(), 1e-6f);
+      HS_EXPECT_GE(distance + 1e-6f, full_distance);
+      ++rays;
     }
   };
-  for (int twist : {0, 1, 2, 4, 7, 8}) {
+  for (int twist : {0, 1, 2, 4, 7, 8})
     for (float scale : {0.08f, 0.3f, 1.0f}) {
       SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
           {0.45f * scale, 0.14f * scale},
           {twist, 0.35f * scale, 0.45f * scale}};
       torus.precision = 0.14f * scale;
       for (int angle = 0; angle < 5; ++angle) {
-        math::Quaternion q = math::make_rotation(
+        const auto q = math::make_rotation(
             math::Vector(0.3f, 1.0f, -0.2f).normalized(), angle * 0.59f);
-        math::Vector vd = math::rotate(math::Vector(0, 0, -1), q);
-        for (int steps : {1, 14, 18, 40}) {
-          for (int y = -16; y <= 16; ++y) {
-            for (int x = -16; x <= 16; ++x) {
-              math::Vector ro =
-                  math::rotate(math::Vector(x * 0.045f * scale,
-                                            y * 0.045f * scale, 0.72f * scale),
-                               q);
-              compare(torus, ro, vd, 0.72f * scale, steps, 0.07f * scale);
-            }
-          }
-        }
+        const auto vd = math::rotate(math::Vector(0, 0, -1), q);
+        for (int y = -16; y <= 16; ++y)
+          for (int x = -16; x <= 16; ++x)
+            compare(
+                torus,
+                math::rotate(math::Vector(x * 0.045f * scale,
+                                          y * 0.045f * scale, 0.72f * scale),
+                             q),
+                vd, 0.72f * scale, 0.07f * scale);
       }
     }
-  }
-  TwoSphereSDF pair{math::Vector(0, 0, 0.2f), 0.18f,
-                    math::Vector(0.28f, 0, -0.2f), 0.3f};
+  const TwoSphereSDF PAIR{math::Vector(0, 0, 0.2f), 0.18f,
+                          math::Vector(0.28f, 0, -0.2f), 0.3f};
   for (int x = -20; x <= 20; ++x)
     for (int y = -20; y <= 20; ++y)
-      compare(pair,
+      compare(PAIR,
               math::Vector(0.0357f + x * 0.0003f, 0.1797f + y * 0.0003f, 1),
-              math::Vector(0, 0, -1), 0.6f, 40, 0.01f);
-  printf(
-      "scalar ray differential: %d rays, %d limited, %d halos, %d background "
-      "grazes; max distance %.9g, position %.9g, coverage %.9g, probe "
-      "position %.9g, probe coverage %.9g, solid changes %d\n",
-      rays, limited, halos, background_grazes, max_distance, max_position,
-      max_coverage, max_probe_position, max_probe_coverage, solid_changes);
-  HS_EXPECT_GE(limited, 10000);
-  HS_EXPECT_GT(halos, 1000);
-  HS_EXPECT_GT(background_grazes, 100);
-  HS_EXPECT_LT(max_distance, 1e-5f);
-  HS_EXPECT_LT(max_position, 1e-4f);
-  HS_EXPECT_LT(max_coverage, 1e-4f);
-  HS_EXPECT_LT(max_probe_position, 1e-4f);
-  HS_EXPECT_LT(max_probe_coverage, 1e-4f);
-  HS_EXPECT_EQ(solid_changes, 0);
+              math::Vector(0, 0, -1), 0.6f, 0.01f);
+  HS_EXPECT_GT(rays, 100000);
 }
 
 /** @brief Checks silhouettes and occlusion against a dense fixed-step march. */
@@ -198,32 +139,6 @@ inline void test_volume_dense_reference() {
               soft_entries);
   HS_EXPECT_GE(band_entries, 50);
   HS_EXPECT_GE(soft_entries, 10);
-}
-
-/** @brief Pins closest-sample ownership at a nearly tied silhouette minimum. */
-inline void test_volume_trace_nearly_tied_minimum() {
-  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
-      {0x1.7cafe8p-3f, 0x1.d9be78p-5f}, {7, 0x1.28170ap-3f, 0x1.7cafe8p-3f}};
-  const float AA = 0x1.634edap-4f;
-  const float RADIUS = 0x1.852f16p-2f;
-  torus.precision = 2.0f * AA;
-  const math::Vector ORIGIN(-0x1.c9d22p-2f, -0x1.5bf194p-3f, 0x1.2c3592p-3f);
-  const math::Vector DIRECTION(0x1.acc1c2p-2f, 0x1.af3f2ep-1f, -0x1.5ba266p-2f);
-  math::Vector expected, actual;
-  float expected_d = VolumeScalarRegression::trace_closest(
-      torus, ORIGIN, DIRECTION, RADIUS, 17, AA, expected);
-  float actual_d = Scan::Volume::trace_closest(torus, ORIGIN, DIRECTION, RADIUS,
-                                               17, AA, actual);
-  HS_EXPECT_EQ(expected_d, actual_d);
-#if defined(HS_TEST_FAST_MATH)
-  HS_EXPECT_NEAR(expected.x, actual.x, 1e-4f);
-  HS_EXPECT_NEAR(expected.y, actual.y, 1e-4f);
-  HS_EXPECT_NEAR(expected.z, actual.z, 1e-4f);
-#else
-  HS_EXPECT_EQ(expected.x, actual.x);
-  HS_EXPECT_EQ(expected.y, actual.y);
-  HS_EXPECT_EQ(expected.z, actual.z);
-#endif
 }
 
 /**

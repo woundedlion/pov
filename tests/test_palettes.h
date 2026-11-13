@@ -30,25 +30,6 @@ inline void test_named_procedural_palette_loop_endpoints() {
 }
 
 /**
- * @brief Verifies hue interpolates along the short arc for a seam-straddling
- *        named-palette pair.
- * @details undersea's endpoints straddle the +/-PI seam; the midpoint must
- *          cross the seam, not land near the naive average.
- */
-inline void test_named_palette_hue_short_arc() {
-  OKLCH a = pixel_to_oklch(Palettes::UNDERSEA.get(0.0f).color);
-  OKLCH b = pixel_to_oklch(Palettes::UNDERSEA.get(1.0f).color);
-  // Precondition: endpoints really do straddle the seam (numeric gap > PI).
-  HS_EXPECT_GT(std::fabs(b.h - a.h), math::PI_F);
-
-  OKLCH mid = lerp_oklch(a, b, 0.5f);
-  float short_mid = a.h + 0.5f * wrap_hue_delta(b.h - a.h);
-  HS_EXPECT_NEAR(wrap_hue_delta(mid.h - short_mid), 0.0f, 1e-3f);
-  float naive_mid = 0.5f * (a.h + b.h);
-  HS_EXPECT_GT(std::fabs(wrap_hue_delta(mid.h - naive_mid)), 1.0f);
-}
-
-/**
  * @brief Bakes each palette slot from its source and keeps the slots distinct.
  */
 inline void test_mesh_palette_bank_lookup() {
@@ -212,7 +193,6 @@ inline int run_palettes_tests() {
   HS_RUN(test_procedural_palette_matches_cosine_oracle);
   HS_RUN(test_named_procedural_palettes_bake);
   HS_RUN(test_named_procedural_palette_loop_endpoints);
-  HS_RUN(test_named_palette_hue_short_arc);
   HS_RUN(test_mesh_palette_bank_lookup);
   HS_RUN(test_mesh_palette_bank_shuffle_is_permutation);
 

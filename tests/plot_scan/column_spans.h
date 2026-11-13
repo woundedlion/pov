@@ -406,7 +406,7 @@ inline void test_rasterize_short_edge_windows() {
   const math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(1, 0, 0));
   for (bool planar : {false, true}) {
-    for (float distance : {0.0f, 0.0001f}) {
+    for (float distance : {0.0f, 0.0001f, 0.02f}) {
       ScratchScope scope(plot_arena());
       Fragments points;
       points.bind(plot_arena(), 2);

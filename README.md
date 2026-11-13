@@ -1728,6 +1728,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── test_radial_surface.h  Independent swept-edge and coverage oracles
 │   ├── test_radial_surface_mask.h  Static and temporal candidate-mask coverage
 │   ├── sdf/               Sections included by test_sdf.h
+│   ├── shader_chain_fixture.h Shared shader-chain program and effect fixtures
 │   ├── shader_chain/      Sections included by test_shader_chain.h
 │   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor for its tests
 │   └── composed_chain_fixture.h   Document-built chain and compiled composed frame parity

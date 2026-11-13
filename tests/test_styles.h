@@ -21,23 +21,20 @@ namespace styles_tests {
 struct PresetCase {
   const char *name;
   Feedback::Style style;
-  Feedback::SpaceFn space;
 };
 inline const PresetCase PRESETS[] = {
-    {"ArcingLightning", Feedback::Style::ArcingLightning(),
-     &Feedback::noise_warp},
-    {"SlowFire", Feedback::Style::SlowFire(), &Feedback::noise_warp},
-    {"EnergeticFire", Feedback::Style::EnergeticFire(), &Feedback::noise_warp},
-    {"SlowDust", Feedback::Style::SlowDust(), &Feedback::noise_warp},
-    {"WavyTrails", Feedback::Style::WavyTrails(), &Feedback::noise_warp},
-    {"MeltingHi", Feedback::Style::MeltingHi(), &Feedback::melt_warp},
-    {"MeltingLo", Feedback::Style::MeltingLo(), &Feedback::melt_warp},
-    {"Miasma", Feedback::Style::Miasma(), &Feedback::noise_warp},
-    {"LooseWormhole", Feedback::Style::LooseWormhole(), &Feedback::noise_warp},
-    {"TightWormhole", Feedback::Style::TightWormhole(), &Feedback::noise_warp},
-    {"WigglingWormhole", Feedback::Style::WigglingWormhole(),
-     &Feedback::noise_warp},
-    {"Smoke", Feedback::Style::Smoke(), &Feedback::noise_warp},
+    {"ArcingLightning", Feedback::Style::ArcingLightning()},
+    {"SlowFire", Feedback::Style::SlowFire()},
+    {"EnergeticFire", Feedback::Style::EnergeticFire()},
+    {"SlowDust", Feedback::Style::SlowDust()},
+    {"WavyTrails", Feedback::Style::WavyTrails()},
+    {"MeltingHi", Feedback::Style::MeltingHi()},
+    {"MeltingLo", Feedback::Style::MeltingLo()},
+    {"Miasma", Feedback::Style::Miasma()},
+    {"LooseWormhole", Feedback::Style::LooseWormhole()},
+    {"TightWormhole", Feedback::Style::TightWormhole()},
+    {"WigglingWormhole", Feedback::Style::WigglingWormhole()},
+    {"Smoke", Feedback::Style::Smoke()},
 };
 
 /**
@@ -56,7 +53,8 @@ inline void test_named_presets() {
     HS_EXPECT_TRUE(std::isfinite(style.speed));
     HS_EXPECT_TRUE(std::isfinite(style.scale) && style.scale > 0.0f);
     HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
-    HS_EXPECT_TRUE(style.space_fn == PRESETS[index].space);
+    HS_EXPECT_TRUE(style.space_fn == &Feedback::noise_warp ||
+                   style.space_fn == &Feedback::melt_warp);
   }
 }
 

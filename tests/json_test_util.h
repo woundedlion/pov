@@ -202,11 +202,43 @@ struct JsonParser {
     }
     value.kind = JsonValue::Kind::NUMBER;
     char *end = nullptr;
-    const std::string number(source.substr(position, 64));
-    value.number = std::strtod(number.c_str(), &end);
-    if (end == number.c_str())
+    const size_t start = position;
+    auto digit = [&](size_t index) {
+      return index < source.size() && source[index] >= '0' &&
+             source[index] <= '9';
+    };
+    if (source[position] == '-')
+      ++position;
+    if (position < source.size() && source[position] == '0')
+      ++position;
+    else if (digit(position) && source[position] != '0') {
+      while (digit(position))
+        ++position;
+    } else {
       failed = true;
-    position += static_cast<size_t>(end - number.c_str());
+      return value;
+    }
+    if (position < source.size() && source[position] == '.') {
+      ++position;
+      if (!digit(position))
+        failed = true;
+      while (digit(position))
+        ++position;
+    }
+    if (position < source.size() &&
+        (source[position] == 'e' || source[position] == 'E')) {
+      ++position;
+      if (position < source.size() &&
+          (source[position] == '+' || source[position] == '-'))
+        ++position;
+      if (!digit(position))
+        failed = true;
+      while (digit(position))
+        ++position;
+    }
+    const std::string number(source.substr(start, position - start));
+    value.number = std::strtod(number.c_str(), &end);
+    failed |= end != number.c_str() + number.size();
     return value;
   }
 };

@@ -592,3 +592,13 @@ inline void case_scan_alternates_prefix_overflow() {
   alternates.allocate(arena, arena, 1, 32);
   alternates.allocate(arena, arena, 1, opaque(65536));
 }
+
+/** @brief Covered crossings admit their capacity and reject one more insertion. */
+inline void case_covered_crossings_overflow() {
+  std::array<float, 2> distances{}, coverages{};
+  Raycast::CoveredCrossings<2> crossings(distances, coverages);
+  crossings.insert(2.0f, 1.0f);
+  crossings.insert(1.0f, 0.5f);
+  death_admitted();
+  crossings.insert(opaque(3.0f), 1.0f);
+}

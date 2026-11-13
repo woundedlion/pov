@@ -9,7 +9,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <vector>
 
 #include "core/render/spacetime.h"

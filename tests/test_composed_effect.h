@@ -34,14 +34,21 @@
 #include "tests/composed_effect/catalog_policies.h"
 #include "tests/composed_effect/keyed_rotations.h"
 #include "tests/json_test_util.h"
+#include "tests/shader_chain_fixture.h"
 #include "tests/vec_test_util.h"
 #include "targets/wasm/document_parameters.h"
 
 namespace hs_test::composed_chain_tests {
-template <typename FX>
+struct ExportNoop {
+  template <typename... Args> void operator()(Args &&...) const {}
+};
+template <typename FX, typename BeforeCompare = ExportNoop,
+          typename AfterStatic = ExportNoop>
 void verify_export(size_t preset, int channel_tolerance = 1,
-                   float alpha_tolerance = 1e-6f);
-}
+                   float alpha_tolerance = 1e-6f,
+                   BeforeCompare before_compare = {},
+                   AfterStatic after_static = {});
+} // namespace hs_test::composed_chain_tests
 
 namespace hs_test {
 namespace composed_effect_tests {
@@ -1442,6 +1449,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_mobius_grid_segmented_matches_single_engine);
   HS_RUN(test_alien_brain_preset_dwell);
   HS_RUN(test_mobius_grid_circular_animation);
+  HS_RUN(test_json_number_grammar);
   HS_RUN(test_catalog_semantic_export);
   HS_RUN(test_modulation_schema_defaults_match_controls);
   HS_RUN(test_composed_hand_registered_families);

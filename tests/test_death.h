@@ -33,7 +33,7 @@
 #include "tests/effects/fixture.h"
 #include "tests/test_effects.h"
 #include "tests/test_shapeshifter_oracle.h"
-#include "tests/test_shader_chain.h"
+#include "tests/shader_chain_fixture.h"
 #include "tests/test_hyper_lattice.h"
 #include "tests/test_harness.h"
 
@@ -1888,6 +1888,10 @@ inline const Case *all_cases(int &n) {
               {"star_mismatched_chart", case_star_mismatched_chart,
                "core/render/plot/shapes.h",
                "(chart_matches) Star: edge chart does not match inputs"},
+              {"covered_crossings_overflow", case_covered_crossings_overflow,
+               "core/render/ray/shade.h",
+               "(count < CAPACITY) CoveredCrossings overflow", false,
+               "death: admitted"},
               // scan
               {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds,
                "core/render/scan/shader.h",

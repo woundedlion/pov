@@ -70,5 +70,45 @@ inline void test_grid_worms_twist_clocks() {
 
 /** @brief Authored GridWorms pixels and controls match its document-built chain. */
 inline void test_grid_worms_document_pipeline() {
-  composed_chain_tests::verify_export<GridWorms<SMALL_W, SMALL_H>>(0);
+  using FX = GridWorms<SMALL_W, SMALL_H>;
+  using namespace shader_chain_tests;
+  auto before_compare = [](auto &own) {
+    own.outer_conjugate =
+        math::make_rotation(math::Vector(0.3f, 0.7f, -0.2f).normalized(), 0.8f)
+            .conjugate();
+  };
+  auto after_static = [](auto &program, const auto &context, const auto &own,
+                         auto &effect, int channel_tolerance,
+                         float alpha_tolerance) {
+    auto blocks = std::make_unique<TemporalBlocks>();
+    program.bind_temporal_storage(blocks->history, blocks->column);
+    program.prepare(context);
+    program.capture_history();
+    auto &twist =
+        shader_chain_tests::state_as<In::Op::TwistOrbitState>(program, 0);
+    const auto &twist_params =
+        shader_chain_tests::param_as<In::Op::TwistChainParams>(program, 0);
+    In::Op::LensTwist::advance(twist, twist_params);
+    ComposedFrameWhiteBox::advance(effect);
+    auto next = ComposedFrameWhiteBox::frame(effect);
+    next.outer_conjugate = own.outer_conjugate;
+    const auto &clock = next.resources.template get<"lens1">();
+    HS_EXPECT_EQ(twist.phi, clock.phi);
+    HS_EXPECT_EQ(twist.lambda, clock.lambda);
+    HS_EXPECT_TRUE(program.history_continuous());
+    for (const float fraction : {0.0f, 0.125f, 0.5f, 0.875f, 1.0f}) {
+      const auto column = Pullback::FrameInterval(own, next).at(fraction);
+      const auto frame = FX::RenderPipeline::prepare(column);
+      program.prepare_column(context, context, fraction);
+      for (const auto &view : sweep_views()) {
+        const auto expected = FX::shade(view, frame);
+        const auto actual =
+            program.evaluate_column(view, context, context, fraction);
+        expect_color_within(actual, expected, channel_tolerance,
+                            alpha_tolerance);
+      }
+    }
+  };
+  composed_chain_tests::verify_export<FX>(0, 1, 1e-6f, before_compare,
+                                          after_static);
 }

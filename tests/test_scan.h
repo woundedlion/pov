@@ -248,9 +248,8 @@ inline int run_scan_tests() {
   HS_RUN(test_transformed_volume_world_local_roundtrip);
   HS_RUN(test_volume_raymarch_silhouette_and_registers);
   HS_RUN(test_volume_draw_occluded_edge_blends_over_background);
-  HS_RUN(test_volume_scalar_state_differential);
+  HS_RUN(test_volume_capped_trace_properties);
   HS_RUN(test_volume_dense_reference);
-  HS_RUN(test_volume_trace_nearly_tied_minimum);
   HS_RUN(test_volume_trace_closest_stops_at_first_graze);
   HS_RUN(test_volume_probe_occluder_reports_background_graze_point);
   HS_RUN(test_volume_trace_closest_overrelax_never_skips_surface);

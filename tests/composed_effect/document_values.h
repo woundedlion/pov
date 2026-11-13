@@ -73,6 +73,23 @@ inline void test_modulation_schema_defaults_match_controls() {
   }
 }
 
+/** @brief JSON numbers reject C numeric extensions and accept decimal grammar. */
+inline void test_json_number_grammar() {
+  for (const char *text :
+       {"0", "-0", "123", "-123", "0.5", "1e-05", "1e+30", "-12.34E+5"}) {
+    JsonParser parser{text};
+    const auto value = parser.parse_value();
+    HS_EXPECT_TRUE(parser.complete());
+    HS_EXPECT_EQ(value.kind, JsonValue::Kind::NUMBER);
+  }
+  for (const char *text : {"inf", "infinity", "nan", "-nan", "0x1p3", "+1",
+                           ".5", "5.", "01", "-01", "1e", "1e+", "-", "1e-"}) {
+    JsonParser parser{text};
+    parser.parse_value();
+    HS_EXPECT_FALSE(parser.complete());
+  }
+}
+
 /** @brief
  * Exported catalog JSON agrees with the engine operator table and schemas.
  */

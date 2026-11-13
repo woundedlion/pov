@@ -6,37 +6,13 @@
  */
 #pragma once
 
-#include "core/math/mobius.h"
-#include <bit>
-#include <cstdio>
-#include <cstring>
-#include <memory>
-#include <limits>
-#include <numbers>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <variant>
-#include <vector>
-
-#include "core/render/pullback/catalog_export.h"
-#include "core/render/pullback/interpreter.h"
+#include "tests/shader_chain_fixture.h"
 #include "effects/AlienCore.h"
 #include "effects/GridWorms.h"
 #include "effects/MobiusGrid.h"
-#include "tests/composed_frame_fixture.h"
-#include "tests/json_test_util.h"
-#include "tests/pixel_test_util.h"
-#include "tests/test_fixture.h"
-#include "tests/vec_test_util.h"
-#include "tests/test_harness.h"
-#include "workbench/shader/chain_host.h"
 
 namespace hs_test {
 namespace shader_chain_tests {
-
-namespace PB = Pullback;
-namespace In = Pullback::Interp;
 
 // Admission-rule constants mirrored by scripts/shader_workbench.mjs.
 
@@ -45,8 +21,6 @@ static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::EULER1) == 1);
 static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT2) == 2);
 static_assert(In::Op::curl_intervals(In::Op::CurlIntegrator::MIDPOINT4) == 4);
 
-#include "tests/shader_chain/fixtures.h"
-#include "tests/shader_chain/effect_fixture.h"
 #include "tests/shader_chain/default_chain_mirror.h"
 #include "tests/shader_chain/lifecycle.h"
 #include "tests/shader_chain/program_cases.h"

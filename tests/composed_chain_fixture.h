@@ -8,7 +8,7 @@
 #pragma once
 
 #include "tests/test_composed_effect.h"
-#include "tests/test_shader_chain.h"
+#include "tests/shader_chain_fixture.h"
 
 namespace hs_test::composed_chain_tests {
 
@@ -17,10 +17,12 @@ namespace hs_test::composed_chain_tests {
  * @param preset Preset index.
  * @param channel_tolerance Maximum channel difference; defaults to 1.
  * @param alpha_tolerance Maximum alpha difference; defaults to 1e-6f.
+ * @param before_compare Adjusts the composed frame before parity comparison.
+ * @param after_static Runs effect-specific temporal checks after static parity.
  * @details Defaults are declared in tests/test_composed_effect.h. */
-template <typename FX>
-void verify_export(size_t preset, int channel_tolerance,
-                   float alpha_tolerance) {
+template <typename FX, typename BeforeCompare, typename AfterStatic>
+void verify_export(size_t preset, int channel_tolerance, float alpha_tolerance,
+                   BeforeCompare before_compare, AfterStatic after_static) {
   using namespace composed_effect_tests;
   using namespace shader_chain_tests;
   HS_CONTEXT(FX::EFFECT_ID.data());
@@ -86,10 +88,7 @@ void verify_export(size_t preset, int channel_tolerance,
   for (int frame = 0; frame < 3; ++frame)
     ComposedFrameWhiteBox::advance(effect);
   auto own = ComposedFrameWhiteBox::frame(effect);
-  if constexpr (std::is_same_v<FX, GridWorms<SMALL_W, SMALL_H>>)
-    own.outer_conjugate =
-        math::make_rotation(math::Vector(0.3f, 0.7f, -0.2f).normalized(), 0.8f)
-            .conjugate();
+  before_compare(own);
   for (size_t index = 0; index < program.ops().size(); ++index) {
     const auto &op = program.ops()[index];
     const std::string_view id = op.op->operator_id;
@@ -230,36 +229,8 @@ void verify_export(size_t preset, int channel_tolerance,
                (expected.color.r || expected.color.g || expected.color.b);
   }
   HS_EXPECT_GT(visible, 0u);
-  if constexpr (std::is_same_v<FX, GridWorms<SMALL_W, SMALL_H>>) {
-    auto blocks = std::make_unique<TemporalBlocks>();
-    program.bind_temporal_storage(blocks->history, blocks->column);
-    program.prepare(context);
-    program.capture_history();
-    auto &twist =
-        shader_chain_tests::state_as<In::Op::TwistOrbitState>(program, 0);
-    const auto &twist_params =
-        shader_chain_tests::param_as<In::Op::TwistChainParams>(program, 0);
-    In::Op::LensTwist::advance(twist, twist_params);
-    ComposedFrameWhiteBox::advance(effect);
-    auto next = ComposedFrameWhiteBox::frame(effect);
-    next.outer_conjugate = own.outer_conjugate;
-    const auto &clock = next.resources.template get<"lens1">();
-    HS_EXPECT_EQ(twist.phi, clock.phi);
-    HS_EXPECT_EQ(twist.lambda, clock.lambda);
-    HS_EXPECT_TRUE(program.history_continuous());
-    for (const float fraction : {0.0f, 0.125f, 0.5f, 0.875f, 1.0f}) {
-      const auto column = Pullback::FrameInterval(own, next).at(fraction);
-      const auto frame = FX::RenderPipeline::prepare(column);
-      program.prepare_column(context, context, fraction);
-      for (const auto &view : sweep_views()) {
-        const auto expected = FX::shade(view, frame);
-        const auto actual =
-            program.evaluate_column(view, context, context, fraction);
-        expect_color_within(actual, expected, channel_tolerance,
-                            alpha_tolerance);
-      }
-    }
-  }
+  after_static(program, context, own, effect, channel_tolerance,
+               alpha_tolerance);
 }
 
 } // namespace hs_test::composed_chain_tests
