@@ -756,7 +756,7 @@ jobs:
           if [ "$EVENT" != workflow_dispatch ] && [ -n "$BASE" ] &&
              [ "$BASE" != 0000000000000000000000000000000000000000 ] &&
              git fetch --quiet --depth=1 origin "$BASE" &&
-             ! git diff --name-only "$BASE" HEAD |
+             ! git diff --name-only --no-renames "$BASE" HEAD |
                grep -E "$PCB_INPUTS" >/dev/null; then
             run=false
             echo "No PCB inputs changed since $BASE; skipping the PCB suite."
