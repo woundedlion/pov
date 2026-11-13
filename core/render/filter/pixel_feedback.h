@@ -177,8 +177,6 @@ public:
    * sampling on FeedbackFadeTable::BYTES more.
    */
   HS_FLASH_MEMBER void init_storage(Arena &arena) {
-    // Projected from the same incremental-rotation positions populate() hands
-    // out, so the per-frame offset subtracts them exactly.
     const int cap_cells =
         polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
         CACHE_COLUMNS;
@@ -186,6 +184,8 @@ public:
     HS_CHECK(cap_cells <= CACHE_CAP_CELLS,
              "feedback: %d polar cap cells exceed the %d reserved", cap_cells,
              CACHE_CAP_CELLS);
+    // Projected from the same incremental-rotation positions populate() hands
+    // out, so the per-frame offset subtracts them exactly.
     warp_cache.template init_storage<CACHE_CELLS>(
         arena, CACHE_FIELD, cap_cells,
         [](const math::Vector &position,

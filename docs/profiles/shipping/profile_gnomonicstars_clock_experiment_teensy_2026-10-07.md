@@ -1,6 +1,6 @@
 # GnomonicStars on-device profile — Teensy 4.0, segmented mode (2026-10-07, **selective -O3**)
 
-Historical A-B-A characterization of the bounded-clock prototype. The user subsequently approved the measured performance cost, and the production fix adopts bounded channel phases. This supplement compares a clean instrument-only baseline with eight bounded double-precision channel phases; it does not replace the canonical GnomonicStars shipping profile.
+Historical A-B-A characterization of the bounded-clock prototype. The measured cost was accepted; production adopts bounded channel phases. This supplement compares a clean instrument-only baseline with eight bounded double-precision channel phases; it does not replace the canonical GnomonicStars shipping profile.
 
 The measured `animation_mobius_step` scope costs **13.591323 us/frame** in B1 versus **14.263004 us/frame** pooled across A1/A2: **-0.671682 us (-4.709%)**. This is a net scope measurement including eight trig calls, scope overhead and interrupt time. It does not isolate the added clock arithmetic. The complete render is **+9.056578 us/frame** across post-setup frames; the experiment provides no whole-frame performance gain claim.
 
@@ -20,7 +20,7 @@ The production implementation clones phase storage when copying an animation and
 | Candidate B | `2619870dd2cc9528433e55e7f2e2b1ff687414ea`, same baseline plus bounded Mobius channels and regression tests |
 | Compiler | Arm GNU 15.2.Rel1, GCC 15.2.1 20251203 |
 
-Capture order was A1 → B1 → A2. A2's first upload attempt returned Teensy Loader busy while another board was active; a normal supported-wrapper retry completed. The successful A2 capture alone enters this comparison. Each source tree was clean. The native candidate animation suite passed 25,823 assertions; removing channel wrapping produced 76 intended failures (reported by the capture owner).
+Capture order was A1 → B1 → A2. A2's first upload attempt returned Teensy Loader busy while another board was active; a normal supported-wrapper retry completed. The successful A2 capture alone enters this comparison. Each source tree was clean. The native candidate animation suite passed 25,823 assertions; removing channel wrapping produced 76 intended failures.
 
 Raw captures and their sidecars are under `C:/work/temp/finding4-profile-20261007/`:
 
@@ -189,7 +189,7 @@ GnomonicStars is a legitimate case with the most proposed clock work: eight inde
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=GnomonicStars`, `HS_PROFILE_WINDOW=32`. The capture owner used the supported wrapper separately with `HS_PROFILE_TREE` pointing to each clean baseline/candidate worktree and `HS_TEENSY_PORT=COM3`:
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=GnomonicStars`, `HS_PROFILE_WINDOW=32`. Captures used the supported wrapper separately with `HS_PROFILE_TREE` pointing to each clean baseline/candidate worktree and `HS_TEENSY_PORT=COM3`:
 
 ```sh
 HS_PROFILE_TREE=<tree> HS_TEENSY_PORT=COM3 bash tools/profile_one.sh GnomonicStars profile 70 32

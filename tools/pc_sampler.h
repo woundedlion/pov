@@ -97,7 +97,7 @@ template <size_t CAPACITY, unsigned BIN_SHIFT> class PcHistogram {
   static_assert(CAPACITY >= 2 && (CAPACITY & (CAPACITY - 1)) == 0,
                 "PcHistogram capacity must be a power of two >= 2");
   static_assert(BIN_SHIFT >= 1 && BIN_SHIFT <= 16,
-                "PcHistogram bins span 2 to 64 KiB");
+                "PcHistogram bins span 2 B to 64 KiB");
 
 public:
   static constexpr uint32_t BIN_BYTES = 1u << BIN_SHIFT; /**< Bin size. */

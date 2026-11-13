@@ -347,7 +347,7 @@ inline void test_ripple_active_rotates_on_sphere() {
   p.phase = math::PI_F * 0.5f; // wavelet peak at d == 90°
   p.decay = 0.0f;
   p.thickness = 1.0f;
-  // Default thresholds (min=1, max=-1) disable the fast reject.
+  // Default cos_near=1, cos_far=-1 disable the fast reject.
 
   math::Vector v =
       math::Vector(1, 0, 0); // 90° from center → at the wavelet peak
@@ -417,7 +417,7 @@ inline void test_ripple_decay_attenuates() {
   base.amplitude = 0.5f;
   base.phase = math::PI_F * 0.5f; // wavelet peak at d == 90°
   base.thickness = 1.0f;
-  // Default thresholds (min=1, max=-1) disable the fast reject.
+  // Default cos_near=1, cos_far=-1 disable the fast reject.
   const math::Vector V = math::Vector(1, 0, 0);
 
   auto moved = [&](float decay) {
@@ -585,7 +585,7 @@ inline void test_ripple_small_angle_series_matches_exact() {
   p.phase = math::PI_F * 0.5f; // wavelet peak at d == 90 degrees
   p.decay = 0.0f;
   p.thickness = 1.0f;
-  // Default thresholds (min=1, max=-1) disable the fast reject.
+  // Default cos_near=1, cos_far=-1 disable the fast reject.
   const math::Vector V = math::Vector(1, 0, 0);
   const math::Vector axis = math::cross(p.center, V).normalized();
 

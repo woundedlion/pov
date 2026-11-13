@@ -1881,6 +1881,12 @@ selected `tests/` files, which the exhaustive check exempts.
 
 ### 9.2 daydream (web simulator)
 
+The module map below describes the documentation snapshot pinned by `daydream`
+in `tools/build_pins.py`, which the exhaustive-tree gate validates. Later simulator revisions split application assembly into `app_*`
+modules and renderer features into `driver_*` modules. The
+[frontend development guide](https://github.com/woundedlion/daydream/blob/master/docs/development.md)
+describes current module ownership.
+
 Handwritten browser modules live under `src/`, grouped by responsibility.
 The public simulator and design-tool pages retain their existing URLs.
 Holosphere installs runtime assets and their provenance under `generated/`;

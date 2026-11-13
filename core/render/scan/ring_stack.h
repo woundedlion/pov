@@ -831,8 +831,8 @@ struct SweptRingStack {
    * @param theta Ring colatitude.
    * @param n Knot count.
    * @param displacement Bound on polar displacement.
-   * @param motion Frame rotation bound in radians.
    * @param thickness Stroke half-width.
+   * @param motion Frame rotation bound in radians.
    * @param support_cells Spline stencil reach in cells.
    * @param out Receives the boundary mask.
    * @details The supported azimuth interval covers the spline stencil and

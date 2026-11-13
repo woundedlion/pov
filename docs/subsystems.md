@@ -389,8 +389,7 @@ half-turn phase, independent of the rendering clip. This introduces up to one
 frame of animation delay while making the endpoint of one sweep meet the start
 of the next. The first draw uses one state for both endpoints.
 
-`Scan::Shader::draw_column_times` prepares the pipeline once per sweep time,
-for both columns lit at it, and reuses it across rows. Orientations use spherical interpolation; parameters use their
+Orientations use spherical interpolation; parameters use their
 declared interpolation curves; clocks follow their shortest periodic arc.
 Retained palette and hue tables supply two colorizer samples at the same
 interpolated geometry, with their results blended in time. By default
@@ -418,6 +417,8 @@ A composed Mobius lens interpolates its `MobiusGeneratorParams` with
 `FieldCurve::LERP`. `Animation::LensPhase` publishes angle and magnitude; column
 sampling follows the shortest arc in angle and linearly interpolates magnitude.
 `FrameInterval` shares the generator exponential through `mobius_intervals`.
+`Pullback::FrameInterval` prepares the composed field's endpoint intervals
+and evaluates them with `at(t)`.
 
 The chain interpreter retains the previous endpoint as a mirror of the
 committed program's param and state blocks. Each column samples every
@@ -445,13 +446,6 @@ amplitude linearly. A morph rollover continues the outgoing harmonic pair at
 full blend into the incoming pair at zero blend; harmonic indices are never
 interpolated. A manual preset changes the morph epoch, so that frame takes the
 current morph in every column while the spin keeps its sweep time.
-
-
-`Pullback::FrameInterval` prepares the composed field's endpoint intervals
-and evaluates them with `at(t)`. `Spacetime::ClockInterval` and
-`Spacetime::sample_clock` interpolate periodic clocks along their shortest
-arc; `Spacetime::sample_frame` delegates a manual frame's interpolation to
-its static `sample` function.
 
 #### Stepped simulations
 
@@ -1766,7 +1760,7 @@ A burst terminates when the wire stays quiet past the **gap timeout** (4 columns
 | Burst gap timeout | t_GAP | 4 | 1.736 ms | 1,041,667 | **> pitch + M** ⇒ a mask can't split one burst |
 | Glitch filter (min edge spacing) | t_GF | — | 100 µs | 60,000 | edges closer than this are EMI — rejected |
 | Master late-censor budget | t_LATE | ½ | 217 µs | 130,208 | first pulse later than this ⇒ skip whole symbol |
-| ACQUIRE quiet-before guard | t_QB | 16 | 6.94 ms | 4,166,667 | a hard snap requires this much prior silence |
+| ACQUIRE isolation guard | t_QB | 16 | 6.94 ms | 4,166,667 | quiet on both sides of an ACQUIRE snap |
 | Beacon interdigit timeout | t_BID | 24 | 10.4 ms | 6,250,000 | stale partial beacon frame dropped after this |
 | Half-revolution | — | 144 | 62.5 ms | 37,500,000 | one image / one flip interval |
 | Revolution | — | 288 | 125 ms | 75,000,000 | two flips, two boundary symbols |
@@ -1823,12 +1817,12 @@ Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial f
                      gate rejections
                      (~2 revolutions)
 
- ACQUIRE : accept any *valid* symbol unconditionally (hard snap), but only
-           on a burst preceded by ≥ t_QB (16 col) of wire silence — so a
-           beacon digit train can't capture a just-rebooted board mid-frame.
-           The train's FIRST digit is preceded by silence exactly as a
-           boundary symbol is, so it can still be mistaken once; the
-           reject_fallback rejection threshold bounds the recovery (spec §9.1 mis-snap row).
+ ACQUIRE : a valid burst preceded by ≥ t_QB (16 col) of wire silence becomes
+           a candidate. After t_QB of trailing silence, it hard-snaps at its
+           saved first-edge time. A following burst cancels the candidate,
+           so a complete beacon train supplies identity without capturing
+           phase. An isolated count left by a truncated or forged train can
+           still mis-snap; reject_fallback bounds recovery (spec §9.1).
            Renders black until it has BOTH phase (a snap) AND identity
            (beacon).
  LOCKED  : accept a valid symbol only if implied correction ≤ G (4 col) AND
