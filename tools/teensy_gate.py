@@ -357,28 +357,8 @@ def _check_derived_component_ceiling(
         f"{to_boundary:,} B to the next bank boundary.")
 
 
-def evaluate(
-    env: str,
-    budget: dict,
-    sizes: dict[str, RegionSizes],
-    symbols: list[Symbol],
-    sections: dict[str, tuple[str, int]] | None = None,
-) -> GateResult:
-    """Apply a target's budget to its measured sizes + symbols."""
-    sections = sections or {}
-    result = GateResult(env=env)
+def _evaluate_region_budgets(env, budget, sizes, result):
     v = result.violations
-
-    # A budget carrying neither key would satisfy every loop vacuously; that
-    # is a hard failure.
-    if not budget.get("regions") and not budget.get("symbols"):
-        v.append(Violation(
-            "budget-empty",
-            f"{env}: budget declares no 'regions' and no 'symbols' - every "
-            f"check would pass vacuously (key typo or truncated entry?). An "
-            f"empty budget is a hard failure, never a silent pass."))
-
-    # --- Region ceilings + DTCM stack-headroom floor ---
     for region, spec in budget.get("regions", {}).items():
         measured = sizes.get(region)
         if measured is None:
@@ -428,7 +408,9 @@ def evaluate(
                     result, env, region, spec, cname, cmeasured,
                     measured.get("components", {}), derived)
 
-    # --- Layout invariants: symbol -> region (+ magnitude) ---
+
+def _evaluate_layout_symbols(env, budget, symbols, sections, result):
+    v = result.violations
     for key, spec in budget.get("symbols", {}).items():
         name = spec["name"]
         # Only DEFINED rows count; readelf -s can also list a same-named UND row.
@@ -472,6 +454,30 @@ def evaluate(
                 f"{env}: '{key}' ({name}) is {sym.size:,} B, above its "
                 f"{hi:,} B cap (e.g. an 8 MiB host arena leak)."))
 
+
+def evaluate(
+    env: str,
+    budget: dict,
+    sizes: dict[str, RegionSizes],
+    symbols: list[Symbol],
+    sections: dict[str, tuple[str, int]] | None = None,
+) -> GateResult:
+    """Apply a target's budget to its measured sizes + symbols."""
+    sections = sections or {}
+    result = GateResult(env=env)
+    v = result.violations
+
+    # A budget carrying neither key would satisfy every loop vacuously; that
+    # is a hard failure.
+    if not budget.get("regions") and not budget.get("symbols"):
+        v.append(Violation(
+            "budget-empty",
+            f"{env}: budget declares no 'regions' and no 'symbols' - every "
+            f"check would pass vacuously (key typo or truncated entry?). An "
+            f"empty budget is a hard failure, never a silent pass."))
+
+    _evaluate_region_budgets(env, budget, sizes, result)
+    _evaluate_layout_symbols(env, budget, symbols, sections, result)
     return result
 
 

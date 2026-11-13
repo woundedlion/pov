@@ -103,101 +103,87 @@ SMD06_HAND = "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 C06 = "Capacitor_SMD:C_0603_1608Metric"
 
 
-def register_symbols(b, revision):
-    def make_power(net):
-        node = copy.deepcopy(sexp.get_symbol("power", "+5V"))
-        B.rename_subsymbols(node, "+5V", net)
-        for c in node:
-            if isinstance(c, list) and c and c[0] == "property":
-                if c[1] == "Value":
-                    c[2] = net
-                elif c[1] == "Description":
-                    c[2] = f'Power symbol creates a global label with name "{net}"'
-        return b.register_custom(node, f"phantasm:{net}")
+def register_power_symbol(b, net):
+    node = copy.deepcopy(sexp.get_symbol("power", "+5V"))
+    B.rename_subsymbols(node, "+5V", net)
+    for c in node:
+        if isinstance(c, list) and c and c[0] == "property":
+            if c[1] == "Value":
+                c[2] = net
+            elif c[1] == "Description":
+                c[2] = f'Power symbol creates a global label with name "{net}"'
+    return b.register_custom(node, f"phantasm:{net}")
 
 
-    def make_teensy():
-        """Teensy 4.0 symbol with every numbered pad in the carrier footprint."""
-        # (display-name, pad number), grouped by side.
-        LEFT = [("D11/MOSI", "11"), ("D13/SCK", "13"), ("D3", "3"),
-                ("D4", "4"), ("D5", "5"),
-                ("D1/TX1", "1"), ("D21", "21"), ("D22", "22"), ("D23", "23")]
-        RIGHT = [("VIN", "VIN"), ("3V3", "3V3"), ("GND", "GND")]
-        UNUSED = ["0", "2", "6", "7", "8", "9", "10", "12",
-                  "14", "15", "16", "17", "18", "19", "20"]
-        bodyx = 13.97
-        pitch = 5.08
-        name2num = {}
-        pins = []
+def register_teensy_symbol(b):
+    """Teensy 4.0 symbol with every numbered pad in the carrier footprint."""
+    # (display-name, pad number), grouped by side.
+    LEFT = [("D11/MOSI", "11"), ("D13/SCK", "13"), ("D3", "3"),
+            ("D4", "4"), ("D5", "5"),
+            ("D1/TX1", "1"), ("D21", "21"), ("D22", "22"), ("D23", "23")]
+    RIGHT = [("VIN", "VIN"), ("3V3", "3V3"), ("GND", "GND")]
+    UNUSED = ["0", "2", "6", "7", "8", "9", "10", "12",
+              "14", "15", "16", "17", "18", "19", "20"]
+    bodyx = 13.97
+    pitch = 5.08
+    name2num = {}
+    pins = []
 
-        def addpin(name, number, x, y, ang, etype):
-            name2num[name] = number
-            pins.append(
-                f'\t\t(pin {etype} line (at {x} {y} {ang}) (length 5.08)\n'
-                f'\t\t\t(name "{name}" (effects (font (size 1.27 1.27))))\n'
-                f'\t\t\t(number "{number}" (effects (font (size 1.27 1.27)))))')
+    def addpin(name, number, x, y, ang, etype):
+        name2num[name] = number
+        pins.append(
+            f'\t\t(pin {etype} line (at {x} {y} {ang}) (length 5.08)\n'
+            f'\t\t\t(name "{name}" (effects (font (size 1.27 1.27))))\n'
+            f'\t\t\t(number "{number}" (effects (font (size 1.27 1.27)))))')
 
-        topL = (len(LEFT) - 1) / 2 * pitch
-        for i, (name, num) in enumerate(LEFT):
-            addpin(name, num, -(bodyx + 5.08), round(topL - i * pitch, 2), 0, "passive")
-        topR = (len(RIGHT) - 1) / 2 * pitch
-        for i, (name, num) in enumerate(RIGHT):
-            et = {"VIN": "power_in", "GND": "power_in", "3V3": "power_out"}[name]
-            addpin(name, num, (bodyx + 5.08), round(topR - i * pitch, 2), 180, et)
+    topL = (len(LEFT) - 1) / 2 * pitch
+    for i, (name, num) in enumerate(LEFT):
+        addpin(name, num, -(bodyx + 5.08), round(topL - i * pitch, 2), 0, "passive")
+    topR = (len(RIGHT) - 1) / 2 * pitch
+    for i, (name, num) in enumerate(RIGHT):
+        et = {"VIN": "power_in", "GND": "power_in", "3V3": "power_out"}[name]
+        addpin(name, num, (bodyx + 5.08), round(topR - i * pitch, 2), 180, et)
 
-        unused_y = [30.48 - i * 2.54 for i in range(7)]
-        unused_y += [-17.78 - i * 2.54 for i in range(8)]
-        for num, y in zip(UNUSED, unused_y):
-            addpin(f"D{num}", num, bodyx + 5.08, round(y, 2), 180, "passive")
+    unused_y = [30.48 - i * 2.54 for i in range(7)]
+    unused_y += [-17.78 - i * 2.54 for i in range(8)]
+    for num, y in zip(UNUSED, unused_y):
+        addpin(f"D{num}", num, bodyx + 5.08, round(y, 2), 180, "passive")
 
-        half = 40.64
-        text = (
-            '(symbol "phantasm:Teensy4.0"\n'
-            '\t(pin_names (offset 1.016))\n'
-            '\t(exclude_from_sim no) (in_bom yes) (on_board yes)\n'
-            f'\t(property "Reference" "U" (at {-bodyx} {half + 2.54} 0)\n'
-            '\t\t(effects (font (size 1.27 1.27)) (justify left)))\n'
-            f'\t(property "Value" "Teensy4.0" (at {-bodyx} {-half - 2.54} 0)\n'
-            '\t\t(effects (font (size 1.27 1.27)) (justify left)))\n'
-            '\t(property "Footprint" "phantasm:Teensy4.0" (at 0 0 0)\n'
-            '\t\t(effects (font (size 1.27 1.27)) (hide yes)))\n'
-            '\t(property "Datasheet" "" (at 0 0 0)\n'
-            '\t\t(effects (font (size 1.27 1.27)) (hide yes)))\n'
-            '\t(symbol "Teensy4.0_0_1"\n'
-            f'\t\t(rectangle (start {-bodyx} {half}) (end {bodyx} {-half})\n'
-            '\t\t\t(stroke (width 0.254) (type default)) (fill (type background))))\n'
-            '\t(symbol "Teensy4.0_1_1"\n'
-            + "\n".join(pins) + ")\n)\n")
-        node = sexp.parse(text)[0]
-        return b.register_custom(node, "phantasm:Teensy4.0"), name2num, UNUSED
+    half = 40.64
+    text = (
+        '(symbol "phantasm:Teensy4.0"\n'
+        '\t(pin_names (offset 1.016))\n'
+        '\t(exclude_from_sim no) (in_bom yes) (on_board yes)\n'
+        f'\t(property "Reference" "U" (at {-bodyx} {half + 2.54} 0)\n'
+        '\t\t(effects (font (size 1.27 1.27)) (justify left)))\n'
+        f'\t(property "Value" "Teensy4.0" (at {-bodyx} {-half - 2.54} 0)\n'
+        '\t\t(effects (font (size 1.27 1.27)) (justify left)))\n'
+        '\t(property "Footprint" "phantasm:Teensy4.0" (at 0 0 0)\n'
+        '\t\t(effects (font (size 1.27 1.27)) (hide yes)))\n'
+        '\t(property "Datasheet" "" (at 0 0 0)\n'
+        '\t\t(effects (font (size 1.27 1.27)) (hide yes)))\n'
+        '\t(symbol "Teensy4.0_0_1"\n'
+        f'\t\t(rectangle (start {-bodyx} {half}) (end {bodyx} {-half})\n'
+        '\t\t\t(stroke (width 0.254) (type default)) (fill (type background))))\n'
+        '\t(symbol "Teensy4.0_1_1"\n'
+        + "\n".join(pins) + ")\n)\n")
+    node = sexp.parse(text)[0]
+    return b.register_custom(node, "phantasm:Teensy4.0"), name2num, UNUSED
 
 
-    make_power("+5V_RAW"); make_power("+5V_LOGIC")
-    TEENSY, TPN, UNUSED_TEENSY_PINS = make_teensy()
-
-    for lib, name in [("power", "GND"), ("power", "+3V3"), ("power", "PWR_FLAG"),
-                      ("Device", "R"), ("Device", "C"), ("Device", "C_Polarized"),
-                      ("Device", "FerriteBead"), ("Device", "Fuse"), ("Device", "D_Zener"),
-                      ("Transistor_FET", "Q_PMOS_GSD"),
-                      ("Connector_Generic", "Conn_01x02"),
-                      ("Connector_Generic", "Conn_01x03"),
-                      ("Jumper", "SolderJumper_2_Open"), ("74xx", "74AHCT125")]:
-        if revision != "1.3" or name != "D_Zener":
-            b.ensure_lib(lib, name)
-
-    if revision == "1.3":
-        b.ensure_lib("Connector_Generic", "Conn_01x04")
-        node = b.resolve("Interface_UART", "THVD1450D")
-        B.rename_subsymbols(node, "THVD1450D", "THVD2410DR")
-        for prop in [item for item in node if isinstance(item, list) and item and item[0] == "property"]:
-            if prop[1] == "Value":
-                prop[2] = "THVD2410DR"
-            elif prop[1] == "Description":
-                prop[2] = "500-kbps 70-V fault-protected RS-485 transceiver, SOIC-8"
-            elif prop[1] == "Datasheet":
-                prop[2] = "https://www.ti.com/lit/ds/symlink/thvd2410.pdf"
-        b.register_custom(node, "phantasm:THVD2410DR")
-        protection = '''(symbol "phantasm:CDSOT23-SM712"
+def register_revision13_symbols(b):
+    b.ensure_lib("Connector_Generic", "Conn_01x04")
+    node = b.resolve("Interface_UART", "THVD1450D")
+    B.rename_subsymbols(node, "THVD1450D", "THVD2410DR")
+    for prop in [item for item in node if isinstance(item, list) and item and item[0] == "property"]:
+        if prop[1] == "Value":
+            prop[2] = "THVD2410DR"
+        elif prop[1] == "Description":
+            prop[2] = "500-kbps 70-V fault-protected RS-485 transceiver, SOIC-8"
+        elif prop[1] == "Datasheet":
+            prop[2] = "https://www.ti.com/lit/ds/symlink/thvd2410.pdf"
+    b.register_custom(node, "phantasm:THVD2410DR")
+    protection = '''(symbol "phantasm:CDSOT23-SM712"
 	(pin_names (offset 0.5)) (in_bom yes) (on_board yes)
 	(property "Reference" "D" (at 0 7.62 0)
 		(effects (font (size 1.27 1.27))))
@@ -224,7 +210,25 @@ def register_symbols(b, revision):
 		(pin passive line (at 0 -7.62 90) (length 2.54)
 			(name "GND" (effects (font (size 1.27 1.27))))
 			(number "3" (effects (font (size 1.27 1.27)))))))'''
-        b.register_custom(sexp.parse_one(protection), "phantasm:CDSOT23-SM712")
+    b.register_custom(sexp.parse_one(protection), "phantasm:CDSOT23-SM712")
+
+
+def register_symbols(b, revision):
+    register_power_symbol(b, "+5V_RAW"); register_power_symbol(b, "+5V_LOGIC")
+    TEENSY, TPN, UNUSED_TEENSY_PINS = register_teensy_symbol(b)
+
+    for lib, name in [("power", "GND"), ("power", "+3V3"), ("power", "PWR_FLAG"),
+                      ("Device", "R"), ("Device", "C"), ("Device", "C_Polarized"),
+                      ("Device", "FerriteBead"), ("Device", "Fuse"), ("Device", "D_Zener"),
+                      ("Transistor_FET", "Q_PMOS_GSD"),
+                      ("Connector_Generic", "Conn_01x02"),
+                      ("Connector_Generic", "Conn_01x03"),
+                      ("Jumper", "SolderJumper_2_Open"), ("74xx", "74AHCT125")]:
+        if revision != "1.3" or name != "D_Zener":
+            b.ensure_lib(lib, name)
+
+    if revision == "1.3":
+        register_revision13_symbols(b)
     return TEENSY, TPN, UNUSED_TEENSY_PINS
 
 

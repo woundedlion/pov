@@ -178,160 +178,186 @@ class Window:
         return (None, False) if r is None else (r, False)
 
 
+class _CaptureParser:
+    """State for streamed frames, window dumps and preset markers."""
+
+    def __init__(self, path):
+        self.path = path
+        self.windows = []
+        self.cur = None
+        self.active_marker = None    # in force for the window being dumped
+        self.deferred_marker = None  # seen mid-window; applies from the next boundary
+        self.frame_owner = None      # preset owning the frames streaming right now
+        self.effect = None
+        self.pending_frames = []
+        self.last_frame = None
+        self.pending_markers = []
+        self.marker_since_frame = None
+        self.restarted_in_frame_stream = False
+
+    def _read_frame(self, m):
+        frame = int(m.group(1))
+        if self.last_frame is not None and frame <= self.last_frame:
+            self.frame_owner = self.active_marker = self.marker_since_frame
+            self.deferred_marker = None
+            self.pending_frames.clear()
+            self.restarted_in_frame_stream = True
+        self.marker_since_frame = None
+        self.last_frame = frame
+        # A marker logged since the last frame line names the preset the
+        # advance switched TO; this frame is its first (on an effect that
+        # rebuilds on advance, the one that pays the rebuild).
+        if self.deferred_marker is not None:
+            self.frame_owner = self.deferred_marker
+        self.pending_frames.append(
+            tuple(int(m.group(i)) for i in (1, 2, 3)) + (self.frame_owner,))
+
+    def _start_window(self, m):
+        f_start, f_end = int(m.group(4)), int(m.group(5))
+        # frames = f_end - f_start + 1 divides every per-frame figure.
+        if f_end < f_start:
+            raise ValueError(
+                f"{self.path}: window header frames {f_start}-{f_end} ends "
+                f"before it starts")
+        self.effect = self.effect or m.group(1)
+        nw = Window(m.group(1), int(m.group(2)), int(m.group(3)),
+                    f_start, f_end, int(m.group(6)))
+        # Frame numbers restarting = the effect was rebuilt (epoch);
+        # the old marker no longer applies.
+        if self.cur and nw.f_start <= self.cur.f_start and not self.restarted_in_frame_stream:
+            self.active_marker = self.deferred_marker = self.frame_owner = None
+        self.restarted_in_frame_stream = False
+        self.cur = nw
+        self.cur.marker = self.active_marker
+        self.cur.marker_events = self.pending_markers
+        self.pending_markers = []
+        if self.deferred_marker is not None:
+            self.active_marker, self.deferred_marker = self.deferred_marker, None
+        # The per-frame lines stream before their window's dump.
+        self.cur.frame_rows = [f for f in self.pending_frames
+                          if nw.f_start <= f[0] <= nw.f_end]
+        self.pending_frames = []
+        self.windows.append(self.cur)
+
+    def _read_window_data(self, line):
+        m = WALL_RE.search(line)
+        if m and self.cur:
+            self.cur.wall = tuple(int(m.group(i)) for i in range(1, 5))
+            return True
+        m = RENDER_RE.search(line)
+        if m and self.cur:
+            self.cur.render = (int(m.group(1)), int(m.group(2)))
+            return True
+        m = SCAN_RE.match(line)
+        if m and self.cur:
+            self.cur.scan = dict(zip(SCAN_FIELDS,
+                                (int(g) for g in m.groups())))
+            return True
+        m = PROBE_CYC_RE.match(line)
+        if m and self.cur:
+            self.cur.probe = dict(self.cur.probe or {})
+            self.cur.probe.update(zip(PROBE_CYC_FIELDS,
+                                 (int(g) for g in m.groups())))
+            return True
+        m = PROBE_CNT_RE.match(line)
+        if m and self.cur:
+            self.cur.probe = dict(self.cur.probe or {})
+            self.cur.probe.update(zip(PROBE_CNT_FIELDS,
+                                 (int(g) for g in m.groups())))
+            return True
+        m = PLOT_RE.match(line)
+        if m and self.cur:
+            self.cur.plot = dict(zip(PLOT_FIELDS,
+                                (int(g) for g in m.groups())))
+            return True
+        matched_msp_counts = False
+        for regex, fields in ((MSP_PARTICLE_RE, MSP_PARTICLE_FIELDS),
+                              (MSP_GATE_RE, MSP_GATE_FIELDS),
+                              (MSP_RENDER_RE, MSP_RENDER_FIELDS),
+                              (MSP_AA_RE, MSP_AA_FIELDS)):
+            m = regex.match(line)
+            if m and self.cur:
+                self.cur.msp_counts = dict(self.cur.msp_counts or {})
+                self.cur.msp_counts.update(zip(fields,
+                                          (int(g) if g is not None else 0 for g in m.groups())))
+                matched_msp_counts = True
+                break
+        if matched_msp_counts:
+            return True
+        m = MSP_STALL_RE.match(line)
+        if m and self.cur:
+            self.cur.msp_stalls.setdefault(m.group(1), {}).update(dict(
+                zip(("batches", "cyc", "cpi", "lsu", "exc"),
+                    (int(g) for g in m.groups()[1:]))))
+            return True
+        m = MSP_STALL_ALIASED_RE.match(line)
+        if m and self.cur:
+            self.cur.msp_stalls.setdefault(m.group(1), {})["wrapped"] = True
+            return True
+        if self.cur and re.fullmatch(r"ISR window=\d+ us", line):
+            self.cur.has_isr_window = True
+            return True
+        m = COUNTER_RE.match(line)
+        if m and self.cur:
+            label = m.group(2)
+            self.cur.counters[label] = dict(
+                us=int(m.group(3)),
+                calls=int(m.group(5)), cyc=int(m.group(6)),
+                tags=tuple(m.group(7).split()))
+            return True
+        return False
+
+    def _read_marker(self, line):
+        for key, rgx in MARKER_RES:
+            mm = rgx.match(line.strip())
+            if not mm:
+                continue
+            mk = _marker(key, mm)
+            self.marker_since_frame = mk
+            if self.cur is None:
+                self.pending_markers.append(mk)
+            else:
+                self.cur.marker_events.append(mk)
+            self.deferred_marker = mk
+            if not self.pending_frames:
+                # Between windows: no outgoing frames to protect.
+                self.active_marker = mk
+            break
+
+    def finish(self):
+        if len(self.windows) > 1 and (
+                (not self.windows[-1].has_isr_window and
+                 any(w.has_isr_window for w in self.windows[:-1])) or
+                (not self.windows[-1].counters and any(w.counters for w in self.windows[:-1]))):
+            cut = self.windows.pop()
+            print(f"{self.path}: dropped the trailing window (frames {cut.f_start}-"
+                  f"{cut.f_end}): its dump was cut off", file=sys.stderr)
+        return self.windows, self.effect
+
+    def read_line(self, line):
+        m = FRAME_RE.match(line)
+        if m:
+            self._read_frame(m)
+            return
+        m = HEADER_RE.search(line)
+        if m:
+            self._start_window(m)
+            return
+        if not self._read_window_data(line):
+            self._read_marker(line)
+
+
 def parse_capture(path):
-    """Return (windows, effect_name). Markers are attached to trailing windows.
+    """Return windows and the effect name, attaching markers to trailing windows.
 
     A marker logged mid-window takes effect at the next window boundary; one
     logged between windows applies immediately.
     """
-    windows = []
-    cur = None
-    active_marker = None    # in force for the window being dumped
-    deferred_marker = None  # seen mid-window; applies from the next boundary
-    frame_owner = None      # preset owning the frames streaming right now
-    effect = None
-    pending_frames = []
-    last_frame = None
-    pending_markers = []
-    marker_since_frame = None
-    restarted_in_frame_stream = False
+    parser = _CaptureParser(path)
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
-            line = line.rstrip("\n")
-            m = FRAME_RE.match(line)
-            if m:
-                frame = int(m.group(1))
-                if last_frame is not None and frame <= last_frame:
-                    frame_owner = active_marker = marker_since_frame
-                    deferred_marker = None
-                    pending_frames.clear()
-                    restarted_in_frame_stream = True
-                marker_since_frame = None
-                last_frame = frame
-                # A marker logged since the last frame line names the preset the
-                # advance switched TO; this frame is its first (on an effect that
-                # rebuilds on advance, the one that pays the rebuild).
-                if deferred_marker is not None:
-                    frame_owner = deferred_marker
-                pending_frames.append(
-                    tuple(int(m.group(i)) for i in (1, 2, 3)) + (frame_owner,))
-                continue
-            m = HEADER_RE.search(line)
-            if m:
-                f_start, f_end = int(m.group(4)), int(m.group(5))
-                # frames = f_end - f_start + 1 divides every per-frame figure.
-                if f_end < f_start:
-                    raise ValueError(
-                        f"{path}: window header frames {f_start}-{f_end} ends "
-                        f"before it starts")
-                effect = effect or m.group(1)
-                nw = Window(m.group(1), int(m.group(2)), int(m.group(3)),
-                            f_start, f_end, int(m.group(6)))
-                # Frame numbers restarting = the effect was rebuilt (epoch);
-                # the old marker no longer applies.
-                if cur and nw.f_start <= cur.f_start and not restarted_in_frame_stream:
-                    active_marker = deferred_marker = frame_owner = None
-                restarted_in_frame_stream = False
-                cur = nw
-                cur.marker = active_marker
-                cur.marker_events = pending_markers
-                pending_markers = []
-                if deferred_marker is not None:
-                    active_marker, deferred_marker = deferred_marker, None
-                # The per-frame lines stream before their window's dump.
-                cur.frame_rows = [f for f in pending_frames
-                                  if nw.f_start <= f[0] <= nw.f_end]
-                pending_frames = []
-                windows.append(cur)
-                continue
-            m = WALL_RE.search(line)
-            if m and cur:
-                cur.wall = tuple(int(m.group(i)) for i in range(1, 5))
-                continue
-            m = RENDER_RE.search(line)
-            if m and cur:
-                cur.render = (int(m.group(1)), int(m.group(2)))
-                continue
-            m = SCAN_RE.match(line)
-            if m and cur:
-                cur.scan = dict(zip(SCAN_FIELDS,
-                                    (int(g) for g in m.groups())))
-                continue
-            m = PROBE_CYC_RE.match(line)
-            if m and cur:
-                cur.probe = dict(cur.probe or {})
-                cur.probe.update(zip(PROBE_CYC_FIELDS,
-                                     (int(g) for g in m.groups())))
-                continue
-            m = PROBE_CNT_RE.match(line)
-            if m and cur:
-                cur.probe = dict(cur.probe or {})
-                cur.probe.update(zip(PROBE_CNT_FIELDS,
-                                     (int(g) for g in m.groups())))
-                continue
-            m = PLOT_RE.match(line)
-            if m and cur:
-                cur.plot = dict(zip(PLOT_FIELDS,
-                                    (int(g) for g in m.groups())))
-                continue
-            matched_msp_counts = False
-            for regex, fields in ((MSP_PARTICLE_RE, MSP_PARTICLE_FIELDS),
-                                  (MSP_GATE_RE, MSP_GATE_FIELDS),
-                                  (MSP_RENDER_RE, MSP_RENDER_FIELDS),
-                                  (MSP_AA_RE, MSP_AA_FIELDS)):
-                m = regex.match(line)
-                if m and cur:
-                    cur.msp_counts = dict(cur.msp_counts or {})
-                    cur.msp_counts.update(zip(fields,
-                                              (int(g) if g is not None else 0 for g in m.groups())))
-                    matched_msp_counts = True
-                    break
-            if matched_msp_counts:
-                continue
-            m = MSP_STALL_RE.match(line)
-            if m and cur:
-                cur.msp_stalls.setdefault(m.group(1), {}).update(dict(
-                    zip(("batches", "cyc", "cpi", "lsu", "exc"),
-                        (int(g) for g in m.groups()[1:]))))
-                continue
-            m = MSP_STALL_ALIASED_RE.match(line)
-            if m and cur:
-                cur.msp_stalls.setdefault(m.group(1), {})["wrapped"] = True
-                continue
-            if cur and re.fullmatch(r"ISR window=\d+ us", line):
-                cur.has_isr_window = True
-                continue
-            m = COUNTER_RE.match(line)
-            if m and cur:
-                label = m.group(2)
-                cur.counters[label] = dict(
-                    us=int(m.group(3)),
-                    calls=int(m.group(5)), cyc=int(m.group(6)),
-                    tags=tuple(m.group(7).split()))
-                continue
-            for key, rgx in MARKER_RES:
-                mm = rgx.match(line.strip())
-                if not mm:
-                    continue
-                mk = _marker(key, mm)
-                marker_since_frame = mk
-                if cur is None:
-                    pending_markers.append(mk)
-                else:
-                    cur.marker_events.append(mk)
-                deferred_marker = mk
-                if not pending_frames:
-                    # Between windows: no outgoing frames to protect.
-                    active_marker = mk
-                break
-    if len(windows) > 1 and (
-            (not windows[-1].has_isr_window and
-             any(w.has_isr_window for w in windows[:-1])) or
-            (not windows[-1].counters and any(w.counters for w in windows[:-1]))):
-        cut = windows.pop()
-        print(f"{path}: dropped the trailing window (frames {cut.f_start}-"
-              f"{cut.f_end}): its dump was cut off", file=sys.stderr)
-    return windows, effect
+            parser.read_line(line.rstrip("\n"))
+    return parser.finish()
 
 
 def _marker(key, mm):

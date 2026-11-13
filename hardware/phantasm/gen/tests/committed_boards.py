@@ -3,7 +3,7 @@
 from pathlib import Path
 
 
-ROUTED_REVISION = "1.1"
+from constraints import ROUTED_REVISION
 PROJECTS = Path(__file__).resolve().parents[2]
 
 

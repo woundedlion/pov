@@ -332,6 +332,133 @@ def default_candidates():
     return sorted(path for path in glob.glob(pattern) if os.path.isdir(path))
 
 
+def _print_overall_routing(results):
+    drc_ran = any(results[k]["drc"]["status"] != DRC_MISSING for k in results)
+    print("=" * 76)
+    print("OVERALL ROUTING" + ("  +  DRC GATE" if drc_ran else "  (DRC skipped: no usable kicad-cli)"))
+    print("=" * 76)
+    hdr = (
+        f"{'Cand':>6} {'tracks':>7} {'vias':>5} {'small':>5} "
+        f"{'totLen(mm)':>11} {'GNDvias':>8}"
+    )
+    if drc_ran:
+        hdr += f" {'DRCerr':>7} {'unconn':>6}  flag"
+    print(hdr)
+    for k in sorted(results):
+        r = results[k]
+        line = (
+            f"{k:>6} {r['nseg']:>7} {r['nvia']:>5} {r['small_vias']:>5} "
+            f"{r['total_len']:>11.1f} {r['gnd_vias']:>8}"
+        )
+        if drc_ran:
+            dc = r["drc"]
+            flag = GATE_TEXT[gate_tag(r)]
+            if dc["status"] != DRC_OK:
+                line += f" {'?':>7} {'?':>6}  {flag}"
+            else:
+                err, unc = dc["errors"], dc["unconnected"]
+                line += f" {err:>7} {unc:>6}  {flag}"
+        print(line)
+    if drc_ran:
+        print("  note: 'refill-fixable' = clearance/hole errors against a zone, which clear"
+              " on a KiCad zone refill (Quilter omits via antipads); 'REAL FAULTS' ="
+              " shorts/crossings/opens and track-to-track clearance;"
+              f" 'SMALL VIAS' = below {MIN_STANDARD_VIA_DIAMETER_MM:g}/"
+              f"{MIN_STANDARD_VIA_DRILL_MM:.2f} mm; 'NOT GATED' = no DRC result,"
+              " candidate can't be recommended; 'BACK-SIDE FOOTPRINTS' = a footprint"
+              " not on F.Cu; 'RULES' = project/zone floor refusal; both ineligible.")
+
+
+
+def _print_critical_nets(results):
+    print("\n" + "=" * 76)
+    print("CRITICAL NETS  -  length(mm) / vias / layers")
+    print("=" * 76)
+    for net in CRIT:
+        if not any(net in results[k]["netlen"] or net in results[k]["netvias"] for k in results):
+            continue
+        print(f"\n--- {net} ---")
+        print(f"{'Cand':>6} {'len':>8} {'vias':>5} {'segs':>5}  layers")
+        for k in sorted(results):
+            r = results[k]
+            ly = ",".join(sorted(r["netlayers"].get(net, set())))
+            print(f"{k:>6} {r['netlen'].get(net,0):>8.1f} {r['netvias'].get(net,0):>5} "
+                  f"{r['netseg'].get(net,0):>5}  {ly}")
+
+
+
+def _print_fast_net_summary(results):
+    print("\n" + "=" * 76)
+    print("FAST-NET SUMMARY  (the SI levers)")
+    print("=" * 76)
+    print(f"{'Cand':>6} {'SPIvias':>8} {'SYNCvias':>9} {'critLen':>9} "
+          f"{'vias/stitched':>14}")
+    for k in sorted(results):
+        r = results[k]
+        print(f"{k:>6} {r['spi_vias']:>8} {r['sync_vias']:>9} {r['crit_len']:>9.1f} "
+              f"{r['crit_vias']:>7}/{r['crit_vias_stitched']:<6}")
+
+
+
+def _print_pair_skew(results):
+    print("\n" + "=" * 76)
+    print("PAIR SKEW (mm)")
+    print("=" * 76)
+    hdr = "  ".join(f"{a}-{b}" for a, b in PAIRS)
+    print(f"{'Cand':>6}  {hdr}")
+    for k in sorted(results):
+        r = results[k]
+        cells = []
+        for a, b in PAIRS:
+            cells.append(f"{abs(r['netlen'].get(a,0)-r['netlen'].get(b,0)):>7.1f}")
+        print(f"{k:>6}  " + "   ".join(cells))
+
+
+
+def _print_placement_distances(results):
+    print("\n" + "=" * 76)
+    print("PLACEMENT DISTANCES (mm; inspection only, unscored)")
+    print("=" * 76)
+    print(f"{'Cand':>6} {'decap->U1':>10} {'term->U1':>9} {'R_S->U1':>9} {'divider':>8}")
+    for k in sorted(results):
+        e = results[k]["ergo"]
+        print(f"{k:>6} {e['decap_u1']:>10.1f} {e['term_u1']:>9.1f} "
+              f"{e['rs_u1']:>9.1f} {e['divider']:>8.1f}")
+
+
+
+def _print_candidate_ranking(results):
+    print("\n" + "=" * 76)
+    print("SIGNAL-INTEGRITY SCORE (rough, 0-10)")
+    print("=" * 76)
+    print(f"{'Cand':>6} {'SignalInteg':>12}  DRC")
+    ranked = []
+    for k in sorted(results):
+        ranked.append((score(results[k]), k))
+
+    def drc_tag(k):
+        return gate_tag(results[k])
+
+    for si, k in sorted(ranked, reverse=True):
+        print(f"{k:>6} {si:>12.1f}  {drc_tag(k)}")
+    if ranked:
+        # A candidate must pass both the via and DRC gates.
+        eligible = [t for t in ranked if drc_tag(t[1]) in ("ok", "refill")]
+        if eligible:
+            best = max(eligible)[1]
+            note = "" if max(eligible) == max(ranked) else \
+                f"  (top geometric scorer Candidate {max(ranked)[1]} was ineligible: " \
+                f"{drc_tag(max(ranked)[1])} -- skipped)"
+        else:
+            print("\nNo eligible candidate: " + ", ".join(
+                f"Candidate {k}: {drc_tag(k)}" for _, k in ranked))
+            return 1
+        print(f"\n>> best by signal integrity: Candidate {best}{note}")
+        print("   verify by eye -- these are auto-routed; refill zones + DRC, then"
+              " hand-polish the winner. 'refill'-tagged DRC clears on a KiCad zone refill.")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("paths", nargs="*", help="candidate directories or boards")
@@ -365,115 +492,12 @@ def main(argv=None):
             return 1
         R[name]["drc"] = run_drc(f)
 
-    drc_ran = any(R[k]["drc"]["status"] != DRC_MISSING for k in R)
-    print("=" * 76)
-    print("OVERALL ROUTING" + ("  +  DRC GATE" if drc_ran else "  (DRC skipped: no usable kicad-cli)"))
-    print("=" * 76)
-    hdr = (
-        f"{'Cand':>6} {'tracks':>7} {'vias':>5} {'small':>5} "
-        f"{'totLen(mm)':>11} {'GNDvias':>8}"
-    )
-    if drc_ran:
-        hdr += f" {'DRCerr':>7} {'unconn':>6}  flag"
-    print(hdr)
-    for k in sorted(R):
-        r = R[k]
-        line = (
-            f"{k:>6} {r['nseg']:>7} {r['nvia']:>5} {r['small_vias']:>5} "
-            f"{r['total_len']:>11.1f} {r['gnd_vias']:>8}"
-        )
-        if drc_ran:
-            dc = r["drc"]
-            flag = GATE_TEXT[gate_tag(r)]
-            if dc["status"] != DRC_OK:
-                line += f" {'?':>7} {'?':>6}  {flag}"
-            else:
-                err, unc = dc["errors"], dc["unconnected"]
-                line += f" {err:>7} {unc:>6}  {flag}"
-        print(line)
-    if drc_ran:
-        print("  note: 'refill-fixable' = clearance/hole errors against a zone, which clear"
-              " on a KiCad zone refill (Quilter omits via antipads); 'REAL FAULTS' ="
-              " shorts/crossings/opens and track-to-track clearance;"
-              f" 'SMALL VIAS' = below {MIN_STANDARD_VIA_DIAMETER_MM:g}/"
-              f"{MIN_STANDARD_VIA_DRILL_MM:.2f} mm; 'NOT GATED' = no DRC result,"
-              " candidate can't be recommended; 'BACK-SIDE FOOTPRINTS' = a footprint"
-              " not on F.Cu; 'RULES' = project/zone floor refusal; both ineligible.")
-
-    print("\n" + "=" * 76)
-    print("CRITICAL NETS  -  length(mm) / vias / layers")
-    print("=" * 76)
-    for net in CRIT:
-        if not any(net in R[k]["netlen"] or net in R[k]["netvias"] for k in R):
-            continue
-        print(f"\n--- {net} ---")
-        print(f"{'Cand':>6} {'len':>8} {'vias':>5} {'segs':>5}  layers")
-        for k in sorted(R):
-            r = R[k]
-            ly = ",".join(sorted(r["netlayers"].get(net, set())))
-            print(f"{k:>6} {r['netlen'].get(net,0):>8.1f} {r['netvias'].get(net,0):>5} "
-                  f"{r['netseg'].get(net,0):>5}  {ly}")
-
-    print("\n" + "=" * 76)
-    print("FAST-NET SUMMARY  (the SI levers)")
-    print("=" * 76)
-    print(f"{'Cand':>6} {'SPIvias':>8} {'SYNCvias':>9} {'critLen':>9} "
-          f"{'vias/stitched':>14}")
-    for k in sorted(R):
-        r = R[k]
-        print(f"{k:>6} {r['spi_vias']:>8} {r['sync_vias']:>9} {r['crit_len']:>9.1f} "
-              f"{r['crit_vias']:>7}/{r['crit_vias_stitched']:<6}")
-
-    print("\n" + "=" * 76)
-    print("PAIR SKEW (mm)")
-    print("=" * 76)
-    hdr = "  ".join(f"{a}-{b}" for a, b in PAIRS)
-    print(f"{'Cand':>6}  {hdr}")
-    for k in sorted(R):
-        r = R[k]
-        cells = []
-        for a, b in PAIRS:
-            cells.append(f"{abs(r['netlen'].get(a,0)-r['netlen'].get(b,0)):>7.1f}")
-        print(f"{k:>6}  " + "   ".join(cells))
-
-    print("\n" + "=" * 76)
-    print("PLACEMENT DISTANCES (mm; inspection only, unscored)")
-    print("=" * 76)
-    print(f"{'Cand':>6} {'decap->U1':>10} {'term->U1':>9} {'R_S->U1':>9} {'divider':>8}")
-    for k in sorted(R):
-        e = R[k]["ergo"]
-        print(f"{k:>6} {e['decap_u1']:>10.1f} {e['term_u1']:>9.1f} "
-              f"{e['rs_u1']:>9.1f} {e['divider']:>8.1f}")
-
-    print("\n" + "=" * 76)
-    print("SIGNAL-INTEGRITY SCORE (rough, 0-10)")
-    print("=" * 76)
-    print(f"{'Cand':>6} {'SignalInteg':>12}  DRC")
-    ranked = []
-    for k in sorted(R):
-        ranked.append((score(R[k]), k))
-
-    def drc_tag(k):
-        return gate_tag(R[k])
-
-    for si, k in sorted(ranked, reverse=True):
-        print(f"{k:>6} {si:>12.1f}  {drc_tag(k)}")
-    if ranked:
-        # A candidate must pass both the via and DRC gates.
-        eligible = [t for t in ranked if drc_tag(t[1]) in ("ok", "refill")]
-        if eligible:
-            best = max(eligible)[1]
-            note = "" if max(eligible) == max(ranked) else \
-                f"  (top geometric scorer Candidate {max(ranked)[1]} was ineligible: " \
-                f"{drc_tag(max(ranked)[1])} -- skipped)"
-        else:
-            print("\nNo eligible candidate: " + ", ".join(
-                f"Candidate {k}: {drc_tag(k)}" for _, k in ranked))
-            return 1
-        print(f"\n>> best by signal integrity: Candidate {best}{note}")
-        print("   verify by eye -- these are auto-routed; refill zones + DRC, then"
-              " hand-polish the winner. 'refill'-tagged DRC clears on a KiCad zone refill.")
-    return 0
+    _print_overall_routing(R)
+    _print_critical_nets(R)
+    _print_fast_net_summary(R)
+    _print_pair_skew(R)
+    _print_placement_distances(R)
+    return _print_candidate_ranking(R)
 
 
 if __name__ == "__main__":

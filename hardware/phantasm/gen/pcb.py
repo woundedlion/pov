@@ -28,7 +28,7 @@ from constraints import (GROUND_PLANE_LAYERS, ZONE_DEFAULTS, UNPLACED_RULES,
                          is_hand_assembled, MAX_BOARD_WIDTH_MM,
                          MIN_SOLDER_MASK_WEB_MM, NEW_LAYOUT_RULES)
 from kicad_common import atomic_write_text, property_value
-from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
+from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_points,
                           export_netlist, kicad_cli, require_writable, rotate_point)
 from parts_rev13 import PARTS as REV13_PARTS
 
@@ -593,10 +593,6 @@ def move_clipped_silkscreen_to_fab(node, length):
 
 # ---------------------------------------------------------------- layout
 # Skyline strip-packer: minimise board length within the fixed width cap.
-def _arc_points(start, mid, end):
-    return [start, mid, end, *arc_extrema(start, mid, end)]
-
-
 def _on_layers(node, layers):
     if layers is None:
         return True
@@ -643,7 +639,7 @@ def fp_bbox(node, pads_only=False, graphic_layers=None):
             values = [sexp.val(c, key) for key in ("start", "mid", "end")]
             if all(values):
                 points = [(float(value[0]), float(value[1])) for value in values]
-                for x, y in _arc_points(*points):
+                for x, y in arc_points(*points):
                     xs.append(x); ys.append(y)
         elif c[0] in ("fp_rect", "fp_line", "fp_poly"):
             for k in ("start", "end", "center"):
@@ -932,6 +928,75 @@ def _stack(refs, bxs, x0, edge, gap, place, y0=0.0):
     return x0 + w, y - gap - y0
 
 
+def _skyline_free_x(sky, yb, h):            # leftmost x a [yb,yb+h] slot can start at
+    x = 0.0
+    for s0, s1, sx in sky:
+        if s1 > yb + 1e-9 and s0 < yb + h - 1e-9:
+            x = max(x, sx)
+    return x
+
+def _skyline_best_position(sky, usable, h):             # (x, yb) bottom-left slot for a band of height h
+    cands = {0.0}
+    for s0, s1, _ in sky:
+        cands.add(s0); cands.add(s1 - h)
+    best = None
+    for yb in sorted(cands):
+        if yb < -1e-6 or yb + h > usable + 1e-6:
+            continue
+        r = (_skyline_free_x(sky, yb, h), yb)
+        if best is None or r < best:
+            best = r
+    return best
+
+def _skyline_reserve(sky, yb, w, h, x):    # raise the skyline over [yb,yb+h] to x+w
+    out = []
+    for s0, s1, sx in sky:
+        if s1 <= yb or s0 >= yb + h:
+            out.append((s0, s1, sx)); continue
+        if s0 < yb:
+            out.append((s0, yb, sx))
+        out.append((max(s0, yb), min(s1, yb + h), x + w))
+        if s1 > yb + h:
+            out.append((yb + h, s1, sx))
+    out.sort()
+    merged = []
+    for seg in out:
+        if merged and abs(merged[-1][2] - seg[2]) < 1e-6 \
+                and abs(merged[-1][1] - seg[0]) < 1e-6:
+            merged[-1] = (merged[-1][0], seg[1], seg[2])
+        else:
+            merged.append(seg)
+    return merged
+
+def _pack_interior(bxs, pinned, edge, gap, usable, sky, place):
+    interior = sorted((r for r in bxs if r not in pinned),
+                      key=lambda r: -max(bxs[r][2] - bxs[r][0], bxs[r][3] - bxs[r][1]))
+    for ref in interior:
+        bb = bxs[ref]
+        rots = (0, 90) if _rotatable(ref) else (0,)
+        choice = None
+        for rot in rots:
+            rb = _rot_bb(bb, rot)
+            wg, hg = rb[2] - rb[0] + gap, rb[3] - rb[1] + gap
+            if hg > usable + 1e-6:
+                continue
+            bp = _skyline_best_position(sky, usable, hg)
+            if bp is None:
+                continue
+            x, yb = bp
+            if choice is None or x < choice[0] - 1e-9:
+                choice = (x, yb, rot, rb, wg, hg)
+        if choice is None:        # too tall even rotated — force rot 0 at the end
+            rb = _rot_bb(bb, 0)
+            wg, hg = rb[2] - rb[0] + gap, rb[3] - rb[1] + gap
+            x = max(s[2] for s in sky); yb = 0.0
+            choice = (x, yb, 0, rb, wg, hg)
+        x, yb, rot, rb, wg, hg = choice
+        place[ref] = (round(edge + x - rb[0], 3), round(edge + yb - rb[1], 3), rot)
+        sky = _skyline_reserve(sky, yb, wg, hg, x)
+    return sky
+
+
 def pack(bxs, width, edge=1.0, gap=1.2):
     """Connectors pinned to the ends + skyline (bottom-left-fill) interior pack.
     Board WIDTH is fixed; minimise LENGTH. Returns ({ref:(x,y,rot)}, length mm).
@@ -946,87 +1011,22 @@ def pack(bxs, width, edge=1.0, gap=1.2):
     place = {}
     sky = [(0.0, usable, 0.0)]    # skyline over the width: (y0, y1, x_right)
 
-    def free_x(yb, h):            # leftmost x a [yb,yb+h] slot can start at
-        x = 0.0
-        for s0, s1, sx in sky:
-            if s1 > yb + 1e-9 and s0 < yb + h - 1e-9:
-                x = max(x, sx)
-        return x
-
-    def best_pos(h):             # (x, yb) bottom-left slot for a band of height h
-        cands = {0.0}
-        for s0, s1, _ in sky:
-            cands.add(s0); cands.add(s1 - h)
-        best = None
-        for yb in sorted(cands):
-            if yb < -1e-6 or yb + h > usable + 1e-6:
-                continue
-            r = (free_x(yb, h), yb)
-            if best is None or r < best:
-                best = r
-        return best
-
-    def reserve(yb, w, h, x):    # raise the skyline over [yb,yb+h] to x+w
-        out = []
-        for s0, s1, sx in sky:
-            if s1 <= yb or s0 >= yb + h:
-                out.append((s0, s1, sx)); continue
-            if s0 < yb:
-                out.append((s0, yb, sx))
-            out.append((max(s0, yb), min(s1, yb + h), x + w))
-            if s1 > yb + h:
-                out.append((yb + h, s1, sx))
-        out.sort()
-        merged = []
-        for seg in out:
-            if merged and abs(merged[-1][2] - seg[2]) < 1e-6 \
-                    and abs(merged[-1][1] - seg[0]) < 1e-6:
-                merged[-1] = (merged[-1][0], seg[1], seg[2])
-            else:
-                merged.append(seg)
-        return merged
-
     # hub-end screw heads: block their squares before anything is placed
     half = MOUNTING_RESERVE_HALF_SIDE
     for cy in (MOUNTING_HOLE_INSET, width - MOUNTING_HOLE_INSET):
         yb = max(0.0, cy - half - edge)
         yt = min(usable, cy + half - edge)
         if yt > yb:
-            sky = reserve(yb, 2 * half, yt - yb, MOUNTING_HOLE_INSET - half - edge)
+            sky = _skyline_reserve(sky, yb, 2 * half, yt - yb, MOUNTING_HOLE_INSET - half - edge)
 
     # hub connectors: column at the left edge; reserve it so the interior packs right
     if hub:
         hubh = _column_height(hub, bxs, gap) + gap
-        x0, y0 = best_pos(hubh) or (free_x(0.0, hubh), 0.0)
+        x0, y0 = _skyline_best_position(sky, usable, hubh) or (_skyline_free_x(sky, 0.0, hubh), 0.0)
         hubw, _ = _stack(hub, bxs, x0, edge, gap, place, y0)
-        sky = reserve(y0, hubw + gap, hubh, 0.0)
+        sky = _skyline_reserve(sky, y0, hubw + gap, hubh, 0.0)
 
-    # interior parts: Teensy + SMD + jumpers, bottom-left skyline pack
-    interior = sorted((r for r in bxs if r not in pinned),
-                      key=lambda r: -max(bxs[r][2] - bxs[r][0], bxs[r][3] - bxs[r][1]))
-    for ref in interior:
-        bb = bxs[ref]
-        rots = (0, 90) if _rotatable(ref) else (0,)
-        choice = None
-        for rot in rots:
-            rb = _rot_bb(bb, rot)
-            wg, hg = rb[2] - rb[0] + gap, rb[3] - rb[1] + gap
-            if hg > usable + 1e-6:
-                continue
-            bp = best_pos(hg)
-            if bp is None:
-                continue
-            x, yb = bp
-            if choice is None or x < choice[0] - 1e-9:
-                choice = (x, yb, rot, rb, wg, hg)
-        if choice is None:        # too tall even rotated — force rot 0 at the end
-            rb = _rot_bb(bb, 0)
-            wg, hg = rb[2] - rb[0] + gap, rb[3] - rb[1] + gap
-            x = max(s[2] for s in sky); yb = 0.0
-            choice = (x, yb, 0, rb, wg, hg)
-        x, yb, rot, rb, wg, hg = choice
-        place[ref] = (round(edge + x - rb[0], 3), round(edge + yb - rb[1], 3), rot)
-        sky = reserve(yb, wg, hg, x)
+    sky = _pack_interior(bxs, pinned, edge, gap, usable, sky, place)
 
     # Strip and sync connectors occupy the far edge; power occupies the hub.
     right = max(s[2] for s in sky)
@@ -1062,29 +1062,7 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
     return place
 
 
-@revision_context
-def main(unplaced=False, force=False, force_teensy_library=False):
-    selected, output_dir = _GENERATION.get()
-    if selected == "1.3" and not unplaced:
-        sys.exit("ERROR revision 1.3 has a fixed placement and requires --unplaced")
-    layout = REVISION_LAYOUTS[selected]
-    out, sch = schematic_generator.revision_paths(selected, output_dir)
-    reset_uid_sequence()
-    if unplaced:
-        require_writable(os.path.join(out, UNPLACED_FILE), force, UNPLACED_REASON)
-    else:
-        require_writable(os.path.join(out, DRAFT_FILE), force)
-    nlroot = export_netlist(kicad_cli(), sch)
-    revision = check.netlist_revision(nlroot)
-    if revision != selected:
-        sys.exit(f"ERROR schematic revision {revision} does not match generator "
-                 f"revision {selected}; regenerate the schematic first")
-    if not check.check(check.netlist_nets(nlroot), revision):
-        sys.exit("ERROR schematic does not match the electrical specification")
-    pad_net, netid = build_nets(nlroot)
-    paths = build_paths(nlroot)                   # ref -> schematic-symbol path
-    comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components(sch)}
-    # footprint bounding boxes -> skyline-pack to minimise length
+def _place_components(comps, layout, selected, unplaced):
     bxs = {}
     pad_bxs = {}
     crt_bxs = {}
@@ -1094,7 +1072,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         pad_bxs[ref] = fp_bbox(node, pads_only=True)
         crt_bxs[ref] = fp_bbox(node, graphic_layers=COURTYARD_LAYERS)
     if unplaced:
-        L = QUILTER_LENGTH
+        length = QUILTER_LENGTH
         fixed = fixed_placements(comps)
         edge_map = layout["edge_placements"]
         missing_edges = sorted(ref for ref, placement in edge_map.items()
@@ -1103,37 +1081,42 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         if missing_edges:
             sys.exit("ERROR connectors require verified edge placements: "
                      + ", ".join(missing_edges))
-        staged = unplaced_layout(bxs, L, PCB_W)
-        PLACE = {r: fixed.get(r, staged[r]) for r in bxs}
+        staged = unplaced_layout(bxs, length, PCB_W)
+        placements = {r: fixed.get(r, staged[r]) for r in bxs}
         # the staged grid sits below the outline by design; only locked parts are on it
         bounded = list(fixed)
-        OUTFILE = UNPLACED_FILE
+        outfile = UNPLACED_FILE
         status = 'UNROUTED' if selected == '1.3' else 'UNPLACED'
-        NOTE = (f'PHANTASM segment board {status}  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
+        note = (f'PHANTASM segment board {status}  -  {fmt(length)}x{fmt(PCB_W)}mm outline '
                 f'(width <={fmt(PCB_W_MAX)}mm); mechanical and signal-integrity '
                 'placements locked')
     else:
-        PLACE, L = pack(bxs, PCB_W)
+        placements, length = pack(bxs, PCB_W)
         bounded = list(bxs)
-        OUTFILE = DRAFT_FILE
-        NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm '
+        outfile = DRAFT_FILE
+        note = (f'PHANTASM segment board  -  {fmt(length)}x{fmt(PCB_W)}mm '
                 f'(width <={fmt(PCB_W_MAX)}mm, R-MECH-6); '
                 'skyline-packed draft, route in Pcbnew')
+    return placements, length, bounded, outfile, note, (fixed if unplaced else {}), pad_bxs, crt_bxs
 
-    outside = outline_overflows(PLACE, pad_bxs, L, bounded)
+
+def _validate_placements(placements, pad_bxs, crt_bxs, length, bounded):
+    outside = outline_overflows(placements, pad_bxs, length, bounded)
     if outside:
-        sys.exit(f"ERROR placements outside the {fmt(L)}x{fmt(PCB_W)}mm outline: "
+        sys.exit(f"ERROR placements outside the {fmt(length)}x{fmt(PCB_W)}mm outline: "
                  + ", ".join(outside))
 
-    clashes = keepout_clashes(PLACE, crt_bxs, L)
+    clashes = keepout_clashes(placements, crt_bxs, length)
     if clashes:
         sys.exit("ERROR footprints inside a mounting-hole reservation: "
                  + ", ".join(clashes))
 
-    HOLES = mounting_holes(L)
+
+def _embed_components(placements, length, comps, pad_net, netid, paths, unplaced, fixed, layout, selected):
+    holes = mounting_holes(length)
     foot_nodes = []
     consumed = set()
-    for ref, (x, y, rot) in PLACE.items():
+    for ref, (x, y, rot) in placements.items():
         _, fp, val, dnp = comps[ref]
         lock = unplaced and ref in fixed
         foot_nodes.append(embed(fp, ref, val, x, y, rot, pad_net, netid,
@@ -1145,21 +1128,24 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             if selected == "1.3" or ref == "J1":
                 trim_terminal_silkscreen(foot_nodes[-1], y if rot == 270 else x)
         if selected == "1.3":
-            move_clipped_silkscreen_to_fab(foot_nodes[-1], L)
-    for ref, (x, y) in HOLES.items():
+            move_clipped_silkscreen_to_fab(foot_nodes[-1], length)
+    for ref, (x, y) in holes.items():
         foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
                                 x, y, 0, pad_net, netid, locked=unplaced,
                                 hide_reference=True, consumed=consumed))
     if unplaced and selected == "1.3":
-        validate_front_access(foot_nodes, L)
+        validate_front_access(foot_nodes, length)
     # A netlist pin with no pad of that name would drop its connection silently;
     # refs that were never embedded drop their nets by design.
-    embedded = set(PLACE) | set(HOLES)
+    embedded = set(placements) | set(holes)
     orphan = sorted(k for k in pad_net if k[0] in embedded and k not in consumed)
     if orphan:
         sys.exit("ERROR unmatched netlist pins (no footprint pad of that name): "
                  + ", ".join(f"{r}.{p}" for r, p in orphan))
+    return foot_nodes
 
+
+def _board_text(selected, netid, length, note, unplaced, fixed, foot_nodes, placements, layout):
     lines = []
     lines.append("(kicad_pcb")
     lines.append(f"\t(version {sexp.PCB_FORMAT})")
@@ -1190,9 +1176,9 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     for nm, i in sorted(netid.items(), key=lambda kv: kv[1]):
         lines.append(f'\t(net {i} {sexp.quote(nm)})')
     # board outline (Edge.Cuts)
-    lines.append(f'\t(gr_rect (start 0 0) (end {fmt(L)} {fmt(PCB_W)}) '
+    lines.append(f'\t(gr_rect (start 0 0) (end {fmt(length)} {fmt(PCB_W)}) '
                  '(stroke (width 0.15) (type solid)) (fill none) (layer "Edge.Cuts") '
-                 f'(uuid "{uid()}"))')
+                 f'(uuid "{uid(site="pcb.py:main")}"))')
     # inner reference planes over the whole outline (R-SI-1), left unfilled for
     # the router to pour
     if GROUND_NET not in netid:
@@ -1202,7 +1188,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append(f'\t\t(net {netid[GROUND_NET]})')
         lines.append(f'\t\t(net_name "{GROUND_NET}")')
         lines.append(f'\t\t(layer "{layer}")')
-        lines.append(f'\t\t(uuid "{uid()}")')
+        lines.append(f'\t\t(uuid "{uid(site="pcb.py:main")}")')
         lines.append(f'\t\t(name "{GROUND_NET} plane {layer}")')
         lines.append('\t\t(hatch edge 0.5)')
         lines.append(f'\t\t(connect_pads (clearance {UNPLACED_RULES["min_clearance"]:g}))')
@@ -1210,16 +1196,16 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append(f'\t\t(fill yes (thermal_gap {ZONE_DEFAULTS["thermal_gap"]:g}) '
                      f'(thermal_bridge_width {ZONE_DEFAULTS["thermal_bridge_width"]:g}))')
         lines.append('\t\t(polygon (pts '
-                     f'(xy 0 0) (xy {fmt(L)} 0) '
-                     f'(xy {fmt(L)} {fmt(PCB_W)}) (xy 0 {fmt(PCB_W)})))')
+                     f'(xy 0 0) (xy {fmt(length)} 0) '
+                     f'(xy {fmt(length)} {fmt(PCB_W)}) (xy 0 {fmt(PCB_W)})))')
         lines.append('\t)')
-    for ref, (kx0, ky0, kx1, ky1) in keepout_rects(L).items():
+    for ref, (kx0, ky0, kx1, ky1) in keepout_rects(length).items():
         lines.append('\t(zone')
         lines.append('\t\t(net 0)')
         lines.append('\t\t(net_name "")')
         lines.append('\t\t(layers '
                      + " ".join(f'"{nm}"' for nm in copper_layer_names()) + ')')
-        lines.append(f'\t\t(uuid "{uid()}")')
+        lines.append(f'\t\t(uuid "{uid(site="pcb.py:main")}")')
         lines.append(f'\t\t(name "{ref} screw head")')
         lines.append('\t\t(hatch full 0.5)')
         lines.append('\t\t(connect_pads (clearance 0))')
@@ -1232,19 +1218,19 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                      f'(xy {fmt(kx0)} {fmt(ky0)}) (xy {fmt(kx1)} {fmt(ky0)}) '
                      f'(xy {fmt(kx1)} {fmt(ky1)}) (xy {fmt(kx0)} {fmt(ky1)})))')
         lines.append('\t)')
-    lines.append(f'\t(gr_text {sexp.quote(NOTE)}'
-                 f' (at 4 -4 0) (layer "Cmts.User") (uuid "{uid()}") '
+    lines.append(f'\t(gr_text {sexp.quote(note)}'
+                 f' (at 4 -4 0) (layer "Cmts.User") (uuid "{uid(site="pcb.py:main")}") '
                  '(effects (font (size 2 2) (thickness 0.3)) (justify left bottom)))')
     if unplaced:
         usb_label_y = fmt(fixed["U_MCU"][1] - 0.2)
         lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 {usb_label_y} 90)'
-                     f' (layer "Dwgs.User") (uuid "{uid()}") '
+                     f' (layer "Dwgs.User") (uuid "{uid(site="pcb.py:main")}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
-        silk_marks = pin_silk_marks(layout, fixed, L, selected)
+        silk_marks = pin_silk_marks(layout, fixed, length, selected)
         for text, x, y, angle, layer in silk_marks:
             justify = " (justify mirror)" if layer == "B.SilkS" else ""
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
-                         f' (layer "{layer}") (uuid "{uid()}") '
+                         f' (layer "{layer}") (uuid "{uid(site="pcb.py:main")}") '
                          f'(effects (font (size 0.8 0.8) (thickness 0.15)){justify}))')
         for ref, label in (("J1", "PWR"), ("J2", "LED OUT"),
                            ("J3A", "SYNC IN"), ("J3B", "SYNC OUT")):
@@ -1259,15 +1245,15 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                 angle = 90
             lines.append(f'\t(gr_text {sexp.quote(label)} '
                          f'(at {fmt(label_x)} {fmt(label_y)} {angle}) '
-                         f'(layer "B.SilkS") (uuid "{uid()}") '
+                         f'(layer "B.SilkS") (uuid "{uid(site="pcb.py:main")}") '
                          '(effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))')
-    legend_x = PLACE["U_MCU"][0]
+    legend_x = placements["U_MCU"][0]
     for text, y, size in layout["back_silk"]:
         text_x = layout["back_silk_x"].get(text, legend_x)
         if isinstance(text_x, str):
             text_x = fixed[text_x][0]
         lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(text_x)} {fmt(y)} 0)'
-                     f' (layer "B.SilkS") (uuid "{uid()}") '
+                     f' (layer "B.SilkS") (uuid "{uid(site="pcb.py:main")}") '
                      f'(effects (font (size {fmt(size)} {fmt(size)})'
                      f' (thickness {fmt(max(0.15, size*0.15))})) (justify mirror)))')
     for fn in foot_nodes:
@@ -1275,7 +1261,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     if unplaced:
         lines.extend(local_routes(foot_nodes))
     lines.append(")")
-    # --- custom footprint library (Teensy) + fp-lib-table ---
+    return "\n".join(lines) + "\n"
+
+
+def _prepare_teensy_library(out, force_teensy_library):
     pretty = os.path.join(out, "phantasm.pretty")
     mod = teensy_footprint()
     mod[1] = "Teensy4.0"
@@ -1292,14 +1281,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     if existing_mod_text != mod_text:
         require_writable(mod_path, force_teensy_library, TEENSY_LIBRARY_REASON,
                          flag="--force-teensy-library")
-    outpath = os.path.join(out, OUTFILE)
-    os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    atomic_write_text(outpath, "\n".join(lines) + "\n")
-    project_path = os.path.splitext(outpath)[0] + ".kicad_pro"
-    with open(sch, encoding="utf-8") as f:
-        root_uuid = sexp.val(sexp.parse_one(f.read()), "uuid", [""])[0]
-    schematic_generator.write_project(project_path, root_uuid, unplaced=unplaced)
+    return pretty, mod_path, mod_text, existing_mod_text
 
+
+def _write_footprint_library(out, pretty, mod_path, mod_text, existing_mod_text, selected, layout):
     os.makedirs(pretty, exist_ok=True)
     if existing_mod_text != mod_text:
         atomic_write_text(mod_path, mod_text)
@@ -1327,7 +1312,50 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         atomic_write_text(fplt, '(fp_lib_table\n\t(version 7)\n'
                 '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.pretty")'
                 '(options "")(descr "PHANTASM custom footprints"))\n)\n')
-    print(f"wrote {OUTFILE}  footprints:{len(foot_nodes)} nets:{len(netid)} length:{fmt(L)}mm")
+
+
+@revision_context
+def main(unplaced=False, force=False, force_teensy_library=False):
+    selected, output_dir = _GENERATION.get()
+    if selected == "1.3" and not unplaced:
+        sys.exit("ERROR revision 1.3 has a fixed placement and requires --unplaced")
+    layout = REVISION_LAYOUTS[selected]
+    out, sch = schematic_generator.revision_paths(selected, output_dir)
+    reset_uid_sequence()
+    if unplaced:
+        require_writable(os.path.join(out, UNPLACED_FILE), force, UNPLACED_REASON)
+    else:
+        require_writable(os.path.join(out, DRAFT_FILE), force)
+    nlroot = export_netlist(kicad_cli(), sch)
+    revision = check.netlist_revision(nlroot)
+    if revision != selected:
+        sys.exit(f"ERROR schematic revision {revision} does not match generator "
+                 f"revision {selected}; regenerate the schematic first")
+    if not check.check(check.netlist_nets(nlroot), revision):
+        sys.exit("ERROR schematic does not match the electrical specification")
+    pad_net, netid = build_nets(nlroot)
+    paths = build_paths(nlroot)                   # ref -> schematic-symbol path
+    comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components(sch)}
+    (placements, length, bounded, outfile, note, fixed,
+     pad_bxs, crt_bxs) = _place_components(comps, layout, selected, unplaced)
+    _validate_placements(placements, pad_bxs, crt_bxs, length, bounded)
+    foot_nodes = _embed_components(placements, length, comps, pad_net, netid, paths,
+                                  unplaced, fixed, layout, selected)
+    board_text = _board_text(selected, netid, length, note, unplaced, fixed,
+                             foot_nodes, placements, layout)
+    pretty, mod_path, mod_text, existing_mod_text = _prepare_teensy_library(
+        out, force_teensy_library)
+    outpath = os.path.join(out, outfile)
+    os.makedirs(os.path.dirname(outpath), exist_ok=True)
+    atomic_write_text(outpath, board_text)
+    project_path = os.path.splitext(outpath)[0] + ".kicad_pro"
+    with open(sch, encoding="utf-8") as f:
+        root_uuid = sexp.val(sexp.parse_one(f.read()), "uuid", [""])[0]
+    schematic_generator.write_project(project_path, root_uuid, unplaced=unplaced)
+
+    _write_footprint_library(out, pretty, mod_path, mod_text, existing_mod_text,
+                             selected, layout)
+    print(f"wrote {outfile}  footprints:{len(foot_nodes)} nets:{len(netid)} length:{fmt(length)}mm")
 
 
 def parse_args(argv=None):

@@ -10,8 +10,9 @@ import sys
 
 import sexp
 import connectivity
+from constraints import ROUTED_REVISION
 from constraints import MAX_BOARD_WIDTH_MM
-from kicad_common import F, arc_extrema, is_copper_pour
+from kicad_common import F, arc_points, is_copper_pour
 
 
 FACTS_START = "<!-- BEGIN ROUTED PCB FACTS -->"
@@ -74,11 +75,11 @@ def _rounded_decimal(value):
 
 def _arc_points(node):
     declared = [_point(node, key) for key in ("start", "mid", "end")]
-    extrema = arc_extrema(
+    points = arc_points(
         *[(float(x), float(y)) for x, y in declared],
         collinear_error=MetadataError("Edge.Cuts arc points are collinear"))
     return declared + [(_rounded_decimal(x), _rounded_decimal(y))
-                       for x, y in extrema]
+                       for x, y in points[3:]]
 
 
 def _check_no_footprint_outline(root):
@@ -329,7 +330,7 @@ def validate_mechanical_width(metadata):
 
 
 def main(argv=None):
-    base = Path(__file__).resolve().parent.parent / "1.1"
+    base = Path(__file__).resolve().parent.parent / ROUTED_REVISION
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--board", type=Path, default=base / "phantasm.kicad_pcb")
     parser.add_argument("--readme", type=Path, default=base / "README.md")

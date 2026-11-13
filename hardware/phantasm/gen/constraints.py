@@ -1,5 +1,7 @@
 """Shared PHANTASM fabrication constraints (millimeters) and assembly policy."""
 
+ROUTED_REVISION = "1.1"
+
 def is_hand_assembled(footprint, value):
     """Whether a part is excluded from machine assembly."""
     return (any(token in footprint for token in EXCLUDE_FP_SUBSTR)

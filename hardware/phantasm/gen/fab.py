@@ -67,6 +67,7 @@ from fab_gates import (
     validate_zone_geometry as validate_zone_geometry,
 )
 from connectivity import footprint_reference
+from constraints import ROUTED_REVISION
 from constraints import (DEFAULT_CLASS_MINIMUMS as DEFAULT_CLASS_MINIMUMS,
                          RULE_MINIMUMS as RULE_MINIMUMS, rule_checks as rule_checks,
                          is_hand_assembled, MIN_SOLDER_MASK_WEB_MM,
@@ -74,7 +75,7 @@ from constraints import (DEFAULT_CLASS_MINIMUMS as DEFAULT_CLASS_MINIMUMS,
 from kicad_common import F, kicad_cli, require_annotated_export
 
 GEN = os.path.dirname(os.path.abspath(__file__))
-PROJ = os.path.join(os.path.dirname(GEN), "1.1")
+PROJ = os.path.join(os.path.dirname(GEN), ROUTED_REVISION)
 PCB = os.path.join(PROJ, "phantasm.kicad_pcb")
 SCH = os.path.join(PROJ, "phantasm.kicad_sch")
 PRO = os.path.join(PROJ, "phantasm.kicad_pro")
@@ -1058,7 +1059,7 @@ def validate_assembly_metadata(posrows, assembled):
 
 
 def fabrication_revision(value):
-    if value != "1.1":
+    if value != ROUTED_REVISION:
         raise argparse.ArgumentTypeError(
             f"rev {value}: routing, protection and revision-specific BOM are not validated; "
             "the exporter supports rev 1.1 only")
@@ -1067,7 +1068,7 @@ def fabrication_revision(value):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--revision", choices=("1.1",), type=fabrication_revision, default="1.1",
+    parser.add_argument("--revision", choices=(ROUTED_REVISION,), type=fabrication_revision, default=ROUTED_REVISION,
                         help="rev 1.1 only; other revisions have no validated fabrication package")
     parser.add_argument(
         "--verify", action="store_true",
@@ -1119,13 +1120,13 @@ def output_lock(directory):
         os.remove(path)
 
 
-def main(revision="1.1"):
+def main(revision=ROUTED_REVISION):
     os.makedirs(OUT, exist_ok=True)
     with output_lock(OUT):
         fabricate(revision)
 
 
-def fabricate(revision="1.1", validate_only=False, refill_zones=True):
+def _validate_fabrication_board(revision):
     print(f"kicad-cli: {kicad_cli()}")
     if not os.path.exists(PCB):
         sys.exit(f"board not found: {PCB}")
@@ -1151,7 +1152,7 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
     print("[2/9] Via geometry")
     try:
         num_vias = validate_via_geometry(
-            PCB, min_vias=MIN_BOARD_VIAS if revision == "1.1" else 1, board=board)
+            PCB, min_vias=MIN_BOARD_VIAS if revision == ROUTED_REVISION else 1, board=board)
     except ViaGeometryError as exc:
         sys.exit(str(exc))
     print(
@@ -1169,6 +1170,10 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
         f"  zone geometry: {num_zones} copper pours relieve their pads and "
         f"meet the {MIN_ZONE_GAP_MM:g} mm gap and "
         f"{MIN_THERMAL_SPOKE_MM:g} mm spoke / {MIN_ZONE_WIDTH_MM:g} mm fill minimums")
+    return board
+
+
+def _validate_fabrication_reports(refill_zones):
     print("[4/9] DRC + ERC reports and schematic parity")
     try:
         num_floors = validate_project_rules(PRO)
@@ -1197,6 +1202,8 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
     print(f"  parity: board matches schematic, {num_parity} known "
           f"differences -> {parity_rpt}")
 
+
+def _prepare_fabrication_assembly(board, revision):
     print("[5/9] Netlist + centroid")
     net = os.path.join(OUT, "_fab.net")
     run_export("netlist", [kicad_cli(), "sch", "export", "netlist", "--format",
@@ -1234,6 +1241,97 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
         validate_part_catalog(assembly_metadata)
     except PartCatalogError as exc:
         sys.exit(str(exc))
+    return comps, assembled, assembly_metadata
+
+
+def _write_assembly_files(staged, comps, assembled, assembly_metadata):
+    print("[8/9] BOM + CPL")
+    groups = {}
+    for r in assembled:
+        lcsc = assembly_metadata[r]["lcsc"]
+        key = (comps[r]["value"], comps[r]["footprint"].split(":")[-1], lcsc)
+        groups.setdefault(key, []).append(r)
+    with open(os.path.join(staged, "phantasm-BOM.csv"), "w", newline='',
+              encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #",
+                    "Manufacturer", "Manufacturer Part Number", "Description"])
+        for (v, f, lcsc), refs in sorted(groups.items()):
+            part = PART_BY_LCSC[lcsc]
+            w.writerow([
+                v,
+                ",".join(sorted(refs)),
+                f,
+                lcsc,
+                part["manufacturer"],
+                part["mpn"],
+                part["description"],
+            ])
+    with open(os.path.join(staged, "phantasm-CPL.csv"), "w", newline='',
+              encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
+        for r in assembled:
+            p = assembly_metadata[r]
+            rot = f"{cpl_rotation(r, p['rotation']):.6f}"
+            w.writerow([r, p["pos_x"], p["pos_y"], p["side"], rot])
+    return groups
+
+
+def _export_fabrication_plots(staged, board, refill_zones):
+    print("[6/9] Gerbers")
+    run_export("gerber", [kicad_cli(), "pcb", "export", "gerbers",
+                          *(["--check-zones"] if refill_zones else []), "--layers", GERBER_LAYERS,
+                          "-o", staged + os.sep, PCB])
+    print("[7/9] Drill")
+    # Absolute origin, matching the gerbers and the centroid.
+    run_export("drill", [kicad_cli(), "pcb", "export", "drill", "--format",
+                         "excellon", "--drill-origin", "absolute",
+                         "--excellon-units", "mm", "--excellon-separate-th",
+                         "-o", staged + os.sep, PCB])
+
+    # Before the package is assembled: every staged artifact must carry a
+    # creation stamp, and a failure has to leave jlc/ untouched.
+    try:
+        stamped = normalize_fab_timestamps(staged)
+    except TimestampNormalizationError as exc:
+        sys.exit(str(exc))
+    try:
+        holes = validate_fab_content(staged, board)
+    except FabContentError as exc:
+        sys.exit(str(exc))
+
+    try:
+        zip_members(os.listdir(staged), board_zip_members(board))
+    except UploadPackageError as exc:
+        sys.exit(str(exc))
+    return stamped, holes
+
+
+def _promote_fabrication_package(staged, board):
+    print("[9/9] JLC upload zip")
+    zpath = os.path.join(staged, ARCHIVE)
+    try:
+        members = zip_members(os.listdir(staged), board_zip_members(board))
+    except UploadPackageError as exc:
+        sys.exit(str(exc))
+    write_upload_zip(staged, members, zpath)
+
+    manifest_path = os.path.join(staged, SUMS_FILE)
+    with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(package_manifest(staged, members, os.path.basename(zpath)))
+
+    try:
+        promote_package(staged, JLC)
+    except UploadPackageError as exc:
+        sys.exit(str(exc))
+
+
+def fabricate(revision=ROUTED_REVISION, validate_only=False, refill_zones=True):
+    board = _validate_fabrication_board(revision)
+    _validate_fabrication_reports(refill_zones)
+
+    comps, assembled, assembly_metadata = _prepare_fabrication_assembly(board, revision)
 
     if validate_only:
         return
@@ -1249,80 +1347,10 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
                 and not os.path.islink(stranded):
             shutil.rmtree(stranded)
     with tempfile.TemporaryDirectory(prefix=STAGE_PREFIX, dir=OUT) as staged:
-        print("[6/9] Gerbers")
-        run_export("gerber", [kicad_cli(), "pcb", "export", "gerbers",
-                              *(["--check-zones"] if refill_zones else []), "--layers", GERBER_LAYERS,
-                              "-o", staged + os.sep, PCB])
-        print("[7/9] Drill")
-        # Absolute origin, matching the gerbers and the centroid.
-        run_export("drill", [kicad_cli(), "pcb", "export", "drill", "--format",
-                             "excellon", "--drill-origin", "absolute",
-                             "--excellon-units", "mm", "--excellon-separate-th",
-                             "-o", staged + os.sep, PCB])
+        stamped, holes = _export_fabrication_plots(staged, board, refill_zones)
+        groups = _write_assembly_files(staged, comps, assembled, assembly_metadata)
 
-        # Before the package is assembled: every staged artifact must carry a
-        # creation stamp, and a failure has to leave jlc/ untouched.
-        try:
-            stamped = normalize_fab_timestamps(staged)
-        except TimestampNormalizationError as exc:
-            sys.exit(str(exc))
-        try:
-            holes = validate_fab_content(staged, board)
-        except FabContentError as exc:
-            sys.exit(str(exc))
-
-        try:
-            zip_members(os.listdir(staged), board_zip_members(board))
-        except UploadPackageError as exc:
-            sys.exit(str(exc))
-
-        print("[8/9] BOM + CPL")
-        groups = {}
-        for r in assembled:
-            lcsc = assembly_metadata[r]["lcsc"]
-            key = (comps[r]["value"], comps[r]["footprint"].split(":")[-1], lcsc)
-            groups.setdefault(key, []).append(r)
-        with open(os.path.join(staged, "phantasm-BOM.csv"), "w", newline='',
-                  encoding="utf-8") as fh:
-            w = csv.writer(fh)
-            w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #",
-                        "Manufacturer", "Manufacturer Part Number", "Description"])
-            for (v, f, lcsc), refs in sorted(groups.items()):
-                part = PART_BY_LCSC[lcsc]
-                w.writerow([
-                    v,
-                    ",".join(sorted(refs)),
-                    f,
-                    lcsc,
-                    part["manufacturer"],
-                    part["mpn"],
-                    part["description"],
-                ])
-        with open(os.path.join(staged, "phantasm-CPL.csv"), "w", newline='',
-                  encoding="utf-8") as fh:
-            w = csv.writer(fh)
-            w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
-            for r in assembled:
-                p = assembly_metadata[r]
-                rot = f"{cpl_rotation(r, p['rotation']):.6f}"
-                w.writerow([r, p["pos_x"], p["pos_y"], p["side"], rot])
-
-        print("[9/9] JLC upload zip")
-        zpath = os.path.join(staged, ARCHIVE)
-        try:
-            members = zip_members(os.listdir(staged), board_zip_members(board))
-        except UploadPackageError as exc:
-            sys.exit(str(exc))
-        write_upload_zip(staged, members, zpath)
-
-        manifest_path = os.path.join(staged, SUMS_FILE)
-        with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(package_manifest(staged, members, os.path.basename(zpath)))
-
-        try:
-            promote_package(staged, JLC)
-        except UploadPackageError as exc:
-            sys.exit(str(exc))
+        _promote_fabrication_package(staged, board)
     zpath = os.path.join(JLC, ARCHIVE)
     manifest_path = os.path.join(JLC, SUMS_FILE)
     print(f"  creation stamps: {len(stamped)} artifact(s) normalized to {FAB_TIMESTAMP}")

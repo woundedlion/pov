@@ -95,17 +95,18 @@ def reset_uid_sequence():
     _uid_seq.clear()
 
 
-def uid():
+def uid(*, site=None):
     """UUID derived from the calling function and its occurrence count.
 
     Comprehensions and generator expressions use the enclosing function.
-    The key is source file + function name + occurrence.
+    The key is source file + function name + occurrence; an explicit site overrides the source location.
     """
-    frame = sys._getframe(1)
-    while frame.f_code.co_name.startswith("<") and frame.f_back is not None:
-        frame = frame.f_back
-    code = frame.f_code
-    site = f"{os.path.basename(code.co_filename)}:{code.co_name}"
+    if site is None:
+        frame = sys._getframe(1)
+        while frame.f_code.co_name.startswith("<") and frame.f_back is not None:
+            frame = frame.f_back
+        code = frame.f_code
+        site = f"{os.path.basename(code.co_filename)}:{code.co_name}"
     n = _uid_seq[site] = _uid_seq.get(site, 0) + 1
     return str(_uuid.uuid5(UID_NAMESPACE, f"{site}#{n}"))
 
@@ -170,6 +171,11 @@ def rotate_point(point, degrees):
     x, y = point
     # KiCad footprint rotation is counter-clockwise on a y-down canvas.
     return x * cos + y * sin, -x * sin + y * cos
+
+
+def arc_points(start, mid, end, *, collinear_error=None):
+    """Declared arc points followed by its axis-aligned extrema."""
+    return [start, mid, end, *arc_extrema(start, mid, end, collinear_error)]
 
 
 def arc_extrema(start, mid, end, collinear_error=None):

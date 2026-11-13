@@ -15,6 +15,7 @@ import os
 import sys
 
 import sexp
+from constraints import ROUTED_REVISION
 from kicad_common import F, arc_extrema, is_copper_pour, net_name, property_value, rotate_point
 
 # Copper that lands this close counts as touching. KiCad snaps track ends to
@@ -381,7 +382,7 @@ def report(broken):
 
 def main(argv=None):
     default = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "1.1",
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ROUTED_REVISION,
         "phantasm.kicad_pcb")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("board", nargs="?", default=default)
