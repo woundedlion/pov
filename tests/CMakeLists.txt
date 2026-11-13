@@ -33,8 +33,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # The native-clang toolchain may fall back to an unversioned `clang` from PATH;
 # refuse anything older than 18.
-if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  message(FATAL_ERROR "The native test suite requires Clang; set CMAKE_CXX_COMPILER to clang++.")
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  message(FATAL_ERROR
+    "The native test suite requires upstream LLVM Clang 18 or newer; point "
+    "CMAKE_CXX_COMPILER at LLVM clang++, or use the emsdk's compiler.")
 endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
   message(FATAL_ERROR
