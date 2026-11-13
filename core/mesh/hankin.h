@@ -132,24 +132,24 @@ enum class BaseVertices : uint8_t {
  * @param compiled Receives faces and instructions.
  * @param he_to_midpoint_idx Midpoint index per half edge.
  * @param he_to_dynamic_idx Receives dynamic indices. */
-HS_COLD static void emit_hankin_stars(HalfEdgeMesh &he_mesh,
+HS_COLD static void emit_hankin_stars(const HalfEdgeMesh &he_mesh,
                                       CompiledHankin &compiled,
                                       const uint16_t *he_to_midpoint_idx,
                                       uint16_t *he_to_dynamic_idx) {
   for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
-    HEFace &face = he_mesh.faces[i];
+    const HEFace &face = he_mesh.faces[i];
     int count = 0;
     face_loop(he_mesh, face.half_edge,
               static_cast<int>(he_mesh.half_edges.size()),
               [&](uint16_t he_idx) {
                 count += 2;
-                HalfEdge &curr_he = he_mesh.half_edges[he_idx];
+                const HalfEdge &curr_he = he_mesh.half_edges[he_idx];
                 uint16_t prev_idx = curr_he.prev;
 
                 int idx_m1 = he_to_midpoint_idx[prev_idx];
                 int idx_m2 = he_to_midpoint_idx[he_idx];
 
-                HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
+                const HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
 
                 uint16_t i_corner = prev_he.vertex;
                 uint16_t i_prev = he_mesh.half_edges[prev_he.prev].vertex;
@@ -180,7 +180,7 @@ HS_COLD static void emit_hankin_stars(HalfEdgeMesh &he_mesh,
  * @param i_value Source half-edge count.
  * @param he_to_midpoint_idx Midpoint index per half edge.
  * @param he_to_dynamic_idx Dynamic index per half edge. */
-HS_COLD static void emit_hankin_rosettes(HalfEdgeMesh &he_mesh,
+HS_COLD static void emit_hankin_rosettes(const HalfEdgeMesh &he_mesh,
                                          CompiledHankin &compiled,
                                          Arena &temp_arena, size_t v,
                                          size_t i_value,
