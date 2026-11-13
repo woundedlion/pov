@@ -67,12 +67,14 @@ class CommitJobs(unittest.TestCase):
         git_run(self.repo, "init", "--quiet", env=self.env)
         (self.repo / "tools").mkdir()
         shutil.copyfile(LOCAL_CI, self.repo / "tools/local_ci.sh")
+        (self.repo / "tools/ci").mkdir()
+        shutil.copyfile(REPO / "tools/ci/common.sh", self.repo / "tools/ci/common.sh")
         workflow = self.repo / ".github/workflows"
         workflow.mkdir(parents=True)
         shutil.copyfile(REPO / ".github/workflows/ci.yml", workflow / "ci.yml")
         (self.repo / ".gitignore").write_text(".pio/\nbuild/\n", encoding="utf-8")
         (self.repo / "package-lock.json").write_text("{}\n", encoding="utf-8")
-        git_run(self.repo, "add", "tools/local_ci.sh", ".github/workflows/ci.yml",
+        git_run(self.repo, "add", "tools/local_ci.sh", "tools/ci/common.sh", ".github/workflows/ci.yml",
                 ".gitignore", "package-lock.json", env=self.env)
         git_run(self.repo, "commit", "--quiet", "-m", "fixture", env=self.env)
         self.sha = git_run(self.repo, "rev-parse", "HEAD", env=self.env).stdout.strip()
@@ -155,7 +157,7 @@ class CommitJobs(unittest.TestCase):
 
     def test_teensy_size_compiles_profile_variants_only_without_the_cold_build(self):
         stubs = self.repo / "tools/ci"
-        stubs.mkdir()
+        stubs.mkdir(exist_ok=True)
         (stubs / "teensy_size.sh").write_text('echo "$#" > build/teensy-size-args\n',
                                              encoding="utf-8", newline="\n")
         (stubs / "teensy_warnings.sh").write_text("true\n", encoding="utf-8", newline="\n")

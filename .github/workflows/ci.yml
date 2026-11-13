@@ -1002,14 +1002,8 @@ jobs:
         run: |
           WF=.github/workflows/ci.yml
 
-          # Job keys are the two-space-indented keys after jobs:.
-          awk '
-            /^jobs:[[:space:]]*(#.*)?$/ { injobs = 1; next }
-            injobs && /^[^[:space:]]/ { injobs = 0 }
-            injobs && /^  [A-Za-z0-9_-]+:[[:space:]]*(#.*)?$/ {
-              sub(/^  /, ""); sub(/:[[:space:]]*(#.*)?$/, ""); print
-            }
-          ' "$WF" | grep -vx ci-green | sort > /tmp/ci-jobs.txt
+          . tools/ci/common.sh
+          ci_job_keys "$WF" | grep -vx ci-green | sort > /tmp/ci-jobs.txt
           # An empty extraction would make the comparison pass vacuously.
           [ -s /tmp/ci-jobs.txt ] || {
             echo "::error file=$WF::no top-level job keys parsed, so the needs check proves nothing"

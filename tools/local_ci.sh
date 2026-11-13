@@ -153,14 +153,9 @@ runner_of() { table | awk -F'|' -v job="$1" '$1 == job { print $2 }'; }
 
 check_table() {
   local workflow="${HS_CI_WORKFLOW:-.github/workflows/ci.yml}" missing extra
-  # Job keys are the two-space-indented keys after jobs:.
-  awk '
-    /^jobs:[[:space:]]*(#.*)?$/ { injobs = 1; next }
-    injobs && /^[^[:space:]]/ { injobs = 0 }
-    injobs && /^  [A-Za-z0-9_-]+:[[:space:]]*(#.*)?$/ {
-      sub(/^  /, ""); sub(/:[[:space:]]*(#.*)?$/, ""); print
-    }
-  ' "$workflow" | grep -vx ci-green | sort > "$scratch/workflow-jobs"
+  # shellcheck source=tools/ci/common.sh
+  . tools/ci/common.sh
+  ci_job_keys "$workflow" | grep -vx ci-green | sort > "$scratch/workflow-jobs"
   [ -s "$scratch/workflow-jobs" ] || { echo "local_ci: no jobs parsed from $workflow" >&2; return 1; }
   table | cut -d'|' -f1 | sort > "$scratch/table-jobs"
   missing="$(comm -23 "$scratch/workflow-jobs" "$scratch/table-jobs")"
