@@ -161,6 +161,30 @@ struct PhaseScratch {
   bool cube_tap_ready = false;         ///< Whether `cube_tap` is resolved.
 };
 
+/** @brief Blends normalized hue endpoints over the shortest unit-period arc.
+ * @param previous Retained hue in [0, 1).
+ * @param current Current hue in [0, 1).
+ * @param fraction Current endpoint weight.
+ * @return Wrapped hue, or the selected endpoint outside the interior. */
+HS_HOT_INLINE inline float blend_unit_hue(float previous, float current,
+                                          float fraction) {
+  if (previous == current || fraction <= 0.0f)
+    return previous;
+  if (fraction >= 1.0f)
+    return current;
+  HS_AUDIT_CHECK(previous >= 0.0f && previous < 1.0f && current >= 0.0f &&
+                 current < 1.0f);
+  float delta = current - previous;
+  if (delta < -0.5f)
+    delta += 1.0f;
+  if (delta >= 0.5f)
+    delta -= 1.0f;
+  float result = previous + delta * fraction;
+  if (result < 0.0f)
+    result += 1.0f;
+  return result >= 1.0f ? result - 1.0f : result;
+}
+
 /** @brief Blends retained deferred state into the current carrier.
  * @param a Retained endpoint.
  * @param b Current endpoint, updated in place.
@@ -181,10 +205,7 @@ blend_color_samples_in_place(const ColorSample &a, ColorSample &b,
                          a.palette_coordinate == b.palette_coordinate;
   b.color = Color4(a.color.color.lerp16(b.color.color, frac_to_q16(fraction)),
                    hs::lerp(a.color.alpha, b.color.alpha, fraction));
-  b.pending_hue = a.pending_hue == b.pending_hue
-                      ? a.pending_hue
-                      : interp::shortest_periodic(a.pending_hue, b.pending_hue,
-                                                  fraction, 1.0f);
+  b.pending_hue = blend_unit_hue(a.pending_hue, b.pending_hue, fraction);
   b.pending_lift = hs::lerp(a.pending_lift, b.pending_lift, fraction);
   b.brightness_gain = hs::lerp(a.brightness_gain, b.brightness_gain, fraction);
   if (!same_base) {

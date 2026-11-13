@@ -1460,8 +1460,9 @@ inline void test_pullback_unit_hue_blending() {
       1.0f,
       2.0f};
   const auto check = [](float a, float b, float fraction) {
-    const float expected = interp::shortest_periodic(a, b, fraction, 1.0f);
-    const float actual = Pullback::Color::blend_unit_hue(a, b, fraction);
+    const float expected =
+        a == b ? a : interp::shortest_periodic(a, b, fraction, 1.0f);
+    const float actual = Pullback::blend_unit_hue(a, b, fraction);
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual),
                  std::bit_cast<uint32_t>(expected));
   };

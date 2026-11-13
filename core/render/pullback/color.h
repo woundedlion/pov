@@ -479,30 +479,6 @@ inline Color4 finish(const ColorSample &sample) {
   return finish_color_sample(sample);
 }
 
-/** @brief Blends normalized hue endpoints over the shortest unit-period arc.
- * @param previous Retained hue in [0, 1).
- * @param current Current hue in [0, 1).
- * @param fraction Current endpoint weight.
- * @return Wrapped hue, or the selected endpoint outside the interior. */
-HS_HOT_INLINE inline float blend_unit_hue(float previous, float current,
-                                          float fraction) {
-  if (fraction <= 0.0f)
-    return previous;
-  if (fraction >= 1.0f)
-    return current;
-  HS_AUDIT_CHECK(previous >= 0.0f && previous < 1.0f && current >= 0.0f &&
-                 current < 1.0f);
-  float delta = current - previous;
-  if (delta < -0.5f)
-    delta += 1.0f;
-  if (delta >= 0.5f)
-    delta -= 1.0f;
-  float result = previous + delta * fraction;
-  if (result < 0.0f)
-    result += 1.0f;
-  return result >= 1.0f ? result - 1.0f : result;
-}
-
 /** @brief One color modulation's prepared endpoint pair. */
 struct ModulationState {
   const Modulation::Prepared *current = nullptr;  ///< Current spatial source.
@@ -1155,8 +1131,7 @@ private:
    * @return Blended hue in turns. */
   HS_HOT_INLINE static float blend_fused_hue(float previous, float current,
                                              float fraction) {
-    return previous == current ? previous
-                               : blend_unit_hue(previous, current, fraction);
+    return blend_unit_hue(previous, current, fraction);
   }
 
   /** @brief Resolves the canonical shortest-path endpoint hue blend.
