@@ -1497,7 +1497,13 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── raster_config.h         rasterize() configuration, options, scratch budgets and per-step helpers
 │   │   │   ├── raster_walk.h           Raster sample setup, shading, plotting and planar arc registers
 │   │   │   ├── polar_walk.h            Column-time strokes in display-pole equidistant charts
-│   │   │   ├── column_walk.h           Geometry callbacks and column-time edge walk
+│   │   │   ├── column_walk.h           Umbrella for geometry callbacks and the column-time edge walk
+│   │   │   ├── column_geometry.h       Geometry callbacks, edge batches and meridian crossings
+│   │   │   ├── column_bounds.h         Swept edge culling and column walk frame bounds
+│   │   │   ├── edge_worldsheet.h       Moving edge paths, world bases and column plans
+│   │   │   ├── column_taps.h           Column walk state and timed sample taps
+│   │   │   ├── column_edge_walk.h      Column-time edge lattice walking
+│   │   │   ├── column_edge_batch.h     Column-time mesh edge batch rasterization
 │   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
 │   │   │   ├── column_chain.h          Chained edges drawn at column times through a point route and column-walk chunks
 │   │   │   └── cull/                   Cull region, edge samplers, span tests and visibility gates behind cull.h

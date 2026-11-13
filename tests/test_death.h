@@ -1790,13 +1790,13 @@ inline const Case *all_cases(int &n) {
                "(large < DEDUP_CAPACITY) Mesh edge dedup: vertex index "},
               {"plot_column_edge_start_out_of_range",
                case_plot_column_edge_start_out_of_range,
-               "core/render/plot/column_walk.h",
+               "core/render/plot/column_edge_batch.h",
                "(pair.u < batch.motion.size() && pair.v < batch.motion.size()) "
                "column walk: edge",
                false, "death: admitted"},
               {"plot_column_edge_end_out_of_range",
                case_plot_column_edge_end_out_of_range,
-               "core/render/plot/column_walk.h",
+               "core/render/plot/column_edge_batch.h",
                "(pair.u < batch.motion.size() && pair.v < batch.motion.size()) "
                "column walk: edge",
                false, "death: admitted"},
