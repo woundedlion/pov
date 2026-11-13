@@ -139,14 +139,9 @@ compute_inradius(const FaceScratchBuffer &scratch,
     for (int i = 0; i < count; ++i) {
       const math::Vector &v1 = scratch.poly_2d[i];
       const math::Vector &edge = scratch.edge_vectors[i];
-      float t = 0.0f;
-      const float inv_edge_len_sq = scratch.inv_edge_lengths_sq[i];
-      if (inv_edge_len_sq > 0.0f) {
-        t = math::dot(-v1, edge) * inv_edge_len_sq;
-        t = __builtin_fmaxf(0.0f, __builtin_fminf(1.0f, t));
-      }
-      math::Vector closest = v1 + edge * t;
-      const float distance_sq = math::dot(closest, closest);
+      const float distance_sq =
+          segment_dsq(v1.x, v1.y, edge.x, edge.y,
+                      scratch.inv_edge_lengths_sq[i], 0.0f, 0.0f);
       min_edge_dist_sq = __builtin_fminf(distance_sq, min_edge_dist_sq);
     }
   const float min_edge_dist =
@@ -557,17 +552,9 @@ PoleHit pole_hit(float ppx, float ppy) const {
   const float tol = radius * POLE_BOUNDARY_TOL;
   const float tol_sq = tol * tol;
   for (int i = 0; i < count; ++i) {
-    const float ax = ppx - poly_2d[i].x;
-    const float ay = ppy - poly_2d[i].y;
-    if (ax * ax + ay * ay <= tol_sq)
-      return PoleHit::BOUNDARY;
-    const float t =
-        hs::clamp((ax * edge_vectors[i].x + ay * edge_vectors[i].y) *
-                      inv_edge_lengths_sq[i],
-                  0.0f, 1.0f);
-    const float dx = ax - t * edge_vectors[i].x;
-    const float dy = ay - t * edge_vectors[i].y;
-    if (dx * dx + dy * dy <= tol_sq)
+    if (segment_dsq(poly_2d[i].x, poly_2d[i].y, edge_vectors[i].x,
+                    edge_vectors[i].y, inv_edge_lengths_sq[i], ppx,
+                    ppy) <= tol_sq)
       return PoleHit::BOUNDARY;
   }
   return pole_inside_polygon(ppx, ppy) ? PoleHit::INTERIOR : PoleHit::NONE;
