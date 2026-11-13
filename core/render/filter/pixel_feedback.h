@@ -808,12 +808,10 @@ private:
       select_poles(ctx.back, ctx.back_poles);
       // An unchanged cached field keeps its spans.
       const bool stored = reused && spans.reach;
-      if (!(stored && spans.valid &&
-            spans.pole_half_res == ctx.pole_half_res)) {
+      if (!(stored && spans.valid)) {
         int16_t *reach = stored ? spans.reach : scratch.allocate_n<int16_t>(H);
         measure_reach(grid, ctx.warp, ctx.end, rows, reach);
         spans.valid = stored;
-        spans.pole_half_res = ctx.pole_half_res;
         ctx.reach = reach;
       } else {
         ctx.reach = spans.reach;
@@ -2625,9 +2623,8 @@ private:
   WarpCache warp_cache; /**< Persistent warp field and lattice origins. */
   /** @brief Persistent measure_reach() spans of the cached warp field. */
   struct Spans {
-    int16_t *reach = nullptr;   ///< Per row, the reach behind each arm.
-    float pole_half_res = 0.0f; ///< Style::pole_half_res they were measured at.
-    bool valid = false;         ///< Whether they belong to the cached field.
+    int16_t *reach = nullptr; ///< Per row, the reach behind each arm.
+    bool valid = false;       ///< Whether they belong to the cached field.
   } spans;
   FadeTable fade_table; /**< Persistent per-elapsed-time transforms. */
 
