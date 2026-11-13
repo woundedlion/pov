@@ -190,3 +190,65 @@ inline void test_sparse_parameter_updates() {
   HS_EXPECT_EQ(fx.updateParameter("Sparse", -99.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(mode, SparseMode::ZERO);
 }
+
+/** @brief Signed and wide enum registrations retain their descriptors and IDs. */
+inline void test_sparse_integer_registration_metadata() {
+  enum class SignedMode : int8_t { LOW = -4, HIGH = 7 };
+  enum class WideMode : uint32_t { LOW = 0, HIGH = 4294967040u };
+  static constexpr const char *LABELS[] = {"Low", "High"};
+  static constexpr const char *EXPORTS[] = {"Mode::LOW", "Mode::HIGH"};
+  static constexpr int64_t SIGNED_IDS[] = {-4, 7};
+  static constexpr int64_t WIDE_IDS[] = {0, 4294967040LL};
+  TestEffect fx(4, 4);
+  SignedMode signed_mode = SignedMode::LOW;
+  WideMode wide_mode = WideMode::HIGH;
+  const auto generation = fx.getParameterSchemaGeneration();
+  fx.register_param("Signed", &signed_mode,
+                    ParamSpec<SignedMode>{.min = -4,
+                                          .max = 7,
+                                          .animated = true,
+                                          .preset = false,
+                                          .options = LABELS,
+                                          .export_options = EXPORTS,
+                                          .option_count = 2,
+                                          .option_values = SIGNED_IDS});
+  fx.register_param("Wide", &wide_mode,
+                    ParamSpec<WideMode>{.min = 0,
+                                        .max = 4294967040LL,
+                                        .options = LABELS,
+                                        .export_options = EXPORTS,
+                                        .option_count = 2,
+                                        .option_values = WIDE_IDS});
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), generation + 2);
+  const auto &parameters = fx.getParameters();
+  HS_EXPECT_SIZE_OR_RETURN(parameters, size_t(2));
+  HS_EXPECT_STREQ(parameters.begin()[0].name, "Signed");
+  HS_EXPECT_STREQ(parameters.begin()[1].name, "Wide");
+  HS_REQUIRED_PARAM(SIGNED, fx, "Signed");
+  HS_REQUIRED_PARAM(WIDE, fx, "Wide");
+  HS_EXPECT_EQ(SIGNED->target, &signed_mode);
+  HS_EXPECT_EQ(SIGNED->target_type, ParamDef::TargetType::INT_I8);
+  HS_EXPECT_EQ(SIGNED->min, -4.0f);
+  HS_EXPECT_EQ(SIGNED->max, 7.0f);
+  HS_EXPECT_EQ(SIGNED->options, LABELS);
+  HS_EXPECT_EQ(SIGNED->export_options, EXPORTS);
+  HS_EXPECT_EQ(SIGNED->option_values, SIGNED_IDS);
+  HS_EXPECT_TRUE(SIGNED->animated);
+  HS_EXPECT_FALSE(SIGNED->preset);
+  HS_EXPECT_EQ(WIDE->target, &wide_mode);
+  HS_EXPECT_EQ(WIDE->target_type, ParamDef::TargetType::INT_U32);
+  HS_EXPECT_EQ(WIDE->max, 4294967040.0f);
+  HS_EXPECT_EQ(WIDE->get(), 4294967040.0f);
+  HS_EXPECT_EQ(WIDE->options, LABELS);
+  HS_EXPECT_EQ(WIDE->export_options, EXPORTS);
+  HS_EXPECT_EQ(WIDE->option_values, WIDE_IDS);
+  HS_EXPECT_FALSE(WIDE->animated);
+  HS_EXPECT_TRUE(WIDE->preset);
+  HS_EXPECT_EQ(fx.updateParameter("Signed", 0.0f),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(signed_mode, SignedMode::LOW);
+  HS_EXPECT_EQ(fx.updateParameter("Signed", 7.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(signed_mode, SignedMode::HIGH);
+  HS_EXPECT_EQ(fx.updateParameter("Wide", 0.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(wide_mode, WideMode::LOW);
+}

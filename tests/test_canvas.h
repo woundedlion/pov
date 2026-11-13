@@ -1404,6 +1404,7 @@ inline int run_canvas_tests() {
   HS_RUN(test_sparse_parameter_schema_rejections);
   HS_RUN(test_sparse_parameter_factory_and_float_fields);
   HS_RUN(test_sparse_parameter_updates);
+  HS_RUN(test_sparse_integer_registration_metadata);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   HS_RUN(test_parameter_spec_preserves_requested_float);
 #endif

@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <span>
 #include <type_traits>
@@ -38,6 +39,44 @@ struct ComposedFrameWhiteBox;
  */
 
 namespace Pullback {
+
+namespace ComposedDetail {
+
+/** @brief Descriptor type retained by a parameter family's scalar field table.
+ * @tparam Family Parameter family. */
+template <typename Family>
+using ScalarField =
+    typename std::remove_cvref_t<decltype(Family::FIELDS)>::value_type;
+
+/** @brief Visits named scalar registrations admitted by a family's gate mask.
+ * @tparam Family Parameter family.
+ * @param family Live parameter values.
+ * @param gates Bit per admitted field gate.
+ * @param context Registration callback context.
+ * @param register_field Registers one admitted descriptor and its target. */
+template <typename Family>
+HS_SIZE_FLASH_MEMBER inline void register_scalar_family(
+    Family &family, uint32_t gates, void *context,
+    void (*register_field)(void *, const ScalarField<Family> &, float *,
+                           const ParamSpec<float> &)) {
+  static_assert(
+      [] {
+        for (const auto &field : Family::FIELDS)
+          if (static_cast<unsigned>(field.gate) >=
+              std::numeric_limits<uint32_t>::digits)
+            return false;
+        return true;
+      }(),
+      "family registration gates must fit the mask");
+  for (const auto &field : Family::FIELDS)
+    if (field.name != nullptr &&
+        (gates & (uint32_t{1} << static_cast<unsigned>(field.gate)))) {
+      const auto spec = field.description().spec;
+      register_field(context, field, &(family.*field.member), spec);
+    }
+}
+
+} // namespace ComposedDetail
 
 /**
  * @brief A complete composed effect: the shared lifecycle plus a pipeline
@@ -741,25 +780,49 @@ protected:
       return ParameterStage::PROJECTION;
   }
 
+  /** @brief Registers one admitted scalar field and assigns its pipeline group.
+   * @tparam Resource Parameter resource.
+   * @tparam T Parameter family.
+   * @param context Owning effect.
+   * @param field Field descriptor.
+   * @param target Live scalar.
+   * @param spec Registration range and policies. */
+  template <typename Resource, typename T>
+  HS_SIZE_FLASH_MEMBER static void
+  register_scalar_field(void *context,
+                        const ComposedDetail::ScalarField<T> &field,
+                        float *target, const ParamSpec<float> &spec) {
+    auto &effect = *static_cast<ComposedEffect *>(context);
+    effect.register_param(
+        effect.template resource_parameter_name<Resource>(field.name), target,
+        spec);
+    ParameterStage stage = resource_parameter_stage<Resource>();
+    if constexpr (Resource::KIND == ResourceKind::PROJECTION) {
+      if (field.member == &T::camera_wander)
+        stage = ParameterStage::CAMERA;
+      else if (field.member == &T::spin_rate || field.member == &T::wander)
+        stage = ParameterStage::PROJECTION_FRAME;
+    }
+    effect.set_parameter_stage(stage);
+  }
+
   /** @brief Registers the named descriptors of one independent instance.
    *  @tparam Resource The instance's parameter resource.
    *  @tparam T Parameter family type.
    *  @param family Live family the sliders write. */
   template <typename Resource, typename T>
   HS_SIZE_FLASH_MEMBER void register_fields(T &family) {
-    for (const auto &field : T::FIELDS)
-      if (field.name != nullptr && field_gate_open<Resource>(field.gate)) {
-        this->register_param(resource_parameter_name<Resource>(field.name),
-                             &(family.*field.member), field.description().spec);
-        ParameterStage stage = resource_parameter_stage<Resource>();
-        if constexpr (Resource::KIND == ResourceKind::PROJECTION) {
-          if (field.member == &T::camera_wander)
-            stage = ParameterStage::CAMERA;
-          else if (field.member == &T::spin_rate || field.member == &T::wander)
-            stage = ParameterStage::PROJECTION_FRAME;
-        }
-        set_parameter_stage(stage);
-      }
+    if constexpr (T::FIELDS.size() > 0) {
+      constexpr uint32_t GATES = [] {
+        uint32_t gates = 0;
+        for (const auto &field : T::FIELDS)
+          if (field_gate_open<Resource>(field.gate))
+            gates |= uint32_t{1} << static_cast<unsigned>(field.gate);
+        return gates;
+      }();
+      ComposedDetail::register_scalar_family(
+          family, GATES, this, &register_scalar_field<Resource, T>);
+    }
     if constexpr (requires { T::TOPOLOGY; })
       for (const auto &field : T::TOPOLOGY) {
         if (!ComposedDetail::resource_topology_open<SpecT, Resource>(field.id))

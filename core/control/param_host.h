@@ -339,101 +339,94 @@ protected:
                                            const ParamSpec<T> &spec) {
     HS_CHECK(name != nullptr, "register_param: null parameter name");
     HS_CHECK(ptr != nullptr, "register_param: null target name=%s", name);
-    const auto min = spec.min;
-    const auto max = spec.max;
-    const char *const *options = spec.options;
-    const int option_count = spec.option_count;
-    HS_CHECK((options == nullptr) == (option_count == 0),
-             "register_param: inconsistent options and count name=%s", name);
-    HS_CHECK(spec.export_options == nullptr || options != nullptr,
-             "register_param: export labels require options name=%s", name);
-    HS_CHECK(spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE ||
-                 spec.initial_value ==
-                     ParamInitialValue::PRESERVE_REQUESTED_FLOAT,
-             "register_param: invalid initial-value policy name=%s", name);
-    if (options != nullptr && spec.option_values.empty())
-      HS_CHECK(option_count > 0 && min == 0 && max == option_count - 1,
-               "register_param: option range does not match labels name=%s",
-               name);
-
-    ParamDef::TargetType target_type;
-    if constexpr (std::is_same_v<T, float>) {
-      HS_CHECK(
-          min <= max,
-          "register_param: min must be <= max name=%s min_bits=%08lx max_bits=%08lx",
-          name, static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
-          static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
-      HS_CHECK(std::isfinite(min) && std::isfinite(max),
-               "register_param: bounds must be finite name=%s", name);
-      const bool preserve =
-          spec.initial_value == ParamInitialValue::PRESERVE_REQUESTED_FLOAT;
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-      HS_CHECK(
-          !preserve || options == nullptr,
-          "register_param: preserving requested values requires a non-enum float name=%s",
-          name);
-#else
-      HS_CHECK(
-          !preserve,
-          "register_param: preserving requested values requires the GUI bridge name=%s",
-          name);
-#endif
-      if (preserve)
-        HS_CHECK(std::isfinite(*ptr),
-                 "register_param: requested value must be finite name=%s",
-                 name);
-      else
-        HS_CHECK(
-            *ptr >= min && *ptr <= max,
-            "register_param: default *ptr outside [min,max] name=%s value_bits=%08lx min_bits=%08lx max_bits=%08lx",
-            name, static_cast<unsigned long>(std::bit_cast<uint32_t>(*ptr)),
-            static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
-            static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
-      HS_CHECK(options == nullptr || *ptr == roundf(*ptr),
-               "register_param: enum initial value must be whole name=%s",
-               name);
-      target_type = ParamDef::TargetType::FLOAT;
+    if constexpr (!std::is_same_v<T, float> && !std::is_same_v<T, bool>) {
+      using Integer = typename ParamInteger<T>::Type;
+      const ParamSpec<int32_t> description{.min = spec.min,
+                                           .max = spec.max,
+                                           .animated = spec.animated,
+                                           .readonly = spec.readonly,
+                                           .preset = spec.preset,
+                                           .options = spec.options,
+                                           .export_options =
+                                               spec.export_options,
+                                           .option_count = spec.option_count,
+                                           .option_values = spec.option_values,
+                                           .initial_value = spec.initial_value};
+      register_integer_param(
+          name, ptr, static_cast<int64_t>(*ptr), description,
+          static_cast<int64_t>(std::numeric_limits<Integer>::min()),
+          static_cast<int64_t>(std::numeric_limits<Integer>::max()),
+          std::is_enum_v<T>, integer_target_type<Integer>());
     } else {
-      HS_CHECK(
-          spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE,
-          "register_param: preserving requested values requires a non-enum float name=%s",
-          name);
-      if constexpr (std::is_same_v<T, bool>) {
+      const auto min = spec.min;
+      const auto max = spec.max;
+      const char *const *options = spec.options;
+      const int option_count = spec.option_count;
+      validate_parameter_spec(name, spec);
+
+      ParamDef::TargetType target_type;
+      if constexpr (std::is_same_v<T, float>) {
+        HS_CHECK(
+            min <= max,
+            "register_param: min must be <= max name=%s min_bits=%08lx max_bits=%08lx",
+            name, static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
+            static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
+        HS_CHECK(std::isfinite(min) && std::isfinite(max),
+                 "register_param: bounds must be finite name=%s", name);
+        const bool preserve =
+            spec.initial_value == ParamInitialValue::PRESERVE_REQUESTED_FLOAT;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+        HS_CHECK(
+            !preserve || options == nullptr,
+            "register_param: preserving requested values requires a non-enum float name=%s",
+            name);
+#else
+        HS_CHECK(
+            !preserve,
+            "register_param: preserving requested values requires the GUI bridge name=%s",
+            name);
+#endif
+        if (preserve)
+          HS_CHECK(std::isfinite(*ptr),
+                   "register_param: requested value must be finite name=%s",
+                   name);
+        else
+          HS_CHECK(
+              *ptr >= min && *ptr <= max,
+              "register_param: default *ptr outside [min,max] name=%s value_bits=%08lx min_bits=%08lx max_bits=%08lx",
+              name, static_cast<unsigned long>(std::bit_cast<uint32_t>(*ptr)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
+        HS_CHECK(options == nullptr || *ptr == roundf(*ptr),
+                 "register_param: enum initial value must be whole name=%s",
+                 name);
+        target_type = ParamDef::TargetType::FLOAT;
+      } else {
         HS_CHECK(
             options == nullptr && min == 0 && max == 1,
             "register_param: bool range must be [0,1] without options name=%s",
             name);
         target_type = ParamDef::TargetType::BOOL;
-      } else {
-        using Integer = typename ParamInteger<T>::Type;
-        validate_integer_registration(
-            name, min, max, static_cast<int64_t>(*ptr),
-            static_cast<int64_t>(std::numeric_limits<Integer>::min()),
-            static_cast<int64_t>(std::numeric_limits<Integer>::max()),
-            std::is_enum_v<T>, options, option_count,
-            spec.option_values.empty());
-        target_type = integer_target_type<Integer>();
       }
-    }
-    HS_CHECK(spec.valid_option_values(*ptr),
-             "register_param: invalid explicit option values name=%s", name);
-    validate_option_labels(name, options, spec.export_options, option_count);
-    auto &def = append_parameter(name);
-    def.target = ptr;
-    def.min = static_cast<float>(min);
-    def.max = static_cast<float>(max);
-    def.target_type = target_type;
-    def.options = options;
+      validate_initial_option_value(name, spec, ptr);
+      validate_option_labels(name, options, spec.export_options, option_count);
+      auto &def = append_parameter(name);
+      def.target = ptr;
+      def.min = static_cast<float>(min);
+      def.max = static_cast<float>(max);
+      def.target_type = target_type;
+      def.options = options;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    def.export_options = spec.export_options;
+      def.export_options = spec.export_options;
 #endif
-    def.option_values =
-        spec.option_values.empty() ? nullptr : spec.option_values.data();
-    def.option_count = option_count;
-    def.animated = spec.animated;
-    def.readonly = spec.readonly;
-    def.preset = spec.preset;
-    parameters.bump_schema_generation();
+      def.option_values =
+          spec.option_values.empty() ? nullptr : spec.option_values.data();
+      def.option_count = option_count;
+      def.animated = spec.animated;
+      def.readonly = spec.readonly;
+      def.preset = spec.preset;
+      parameters.bump_schema_generation();
+    }
   }
 
   void register_param(const char *, float *, int, int) = delete;
@@ -814,6 +807,73 @@ private:
             ENTRY.name, target, static_cast<int32_t>(SPEC.min),
             static_cast<int32_t>(SPEC.max), compact_policy(SPEC));
     }
+  }
+
+  template <typename T>
+  HS_SIZE_FLASH_MEMBER static void
+  validate_parameter_spec(const char *name, const ParamSpec<T> &spec) {
+    const auto min = spec.min;
+    const auto max = spec.max;
+    const char *const *options = spec.options;
+    const int option_count = spec.option_count;
+    HS_CHECK((options == nullptr) == (option_count == 0),
+             "register_param: inconsistent options and count name=%s", name);
+    HS_CHECK(spec.export_options == nullptr || options != nullptr,
+             "register_param: export labels require options name=%s", name);
+    HS_CHECK(spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE ||
+                 spec.initial_value ==
+                     ParamInitialValue::PRESERVE_REQUESTED_FLOAT,
+             "register_param: invalid initial-value policy name=%s", name);
+    if (options != nullptr && spec.option_values.empty())
+      HS_CHECK(option_count > 0 && min == 0 && max == option_count - 1,
+               "register_param: option range does not match labels name=%s",
+               name);
+    if constexpr (!std::is_same_v<T, float>)
+      HS_CHECK(
+          spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE,
+          "register_param: preserving requested values requires a non-enum float name=%s",
+          name);
+  }
+
+  template <typename T, typename Initial>
+  HS_SIZE_FLASH_MEMBER static void
+  validate_initial_option_value(const char *name, const ParamSpec<T> &spec,
+                                const Initial *ptr) {
+    HS_CHECK(spec.valid_option_values(*ptr),
+             "register_param: invalid explicit option values name=%s", name);
+  }
+
+  HS_SIZE_FLASH_MEMBER void
+  register_integer_param(const char *name, void *ptr, int64_t value,
+                         const ParamSpec<int32_t> &spec, int64_t target_min,
+                         int64_t target_max, bool enum_target,
+                         ParamDef::TargetType target_type) {
+    const auto min = spec.min;
+    const auto max = spec.max;
+    const char *const *options = spec.options;
+    const int option_count = spec.option_count;
+    validate_parameter_spec(name, spec);
+    validate_integer_registration(name, min, max, value, target_min, target_max,
+                                  enum_target, options, option_count,
+                                  spec.option_values.empty());
+    validate_initial_option_value(name, spec, &value);
+    validate_option_labels(name, options, spec.export_options, option_count);
+    auto &def = append_parameter(name);
+    def.target = ptr;
+    def.min = static_cast<float>(min);
+    def.max = static_cast<float>(max);
+    def.target_type = target_type;
+    def.options = options;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    def.export_options = spec.export_options;
+#endif
+    def.option_values =
+        spec.option_values.empty() ? nullptr : spec.option_values.data();
+    def.option_count = option_count;
+    def.animated = spec.animated;
+    def.readonly = spec.readonly;
+    def.preset = spec.preset;
+    parameters.bump_schema_generation();
   }
 
   HS_FLASH_MEMBER static void validate_integer_registration(

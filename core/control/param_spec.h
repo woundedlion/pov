@@ -66,11 +66,13 @@ template <typename T> struct ParamSpec {
 
   /**
    * @brief Checks explicit IDs, their bounds, and the selected initial ID.
+   * @tparam Initial Target value type.
    * @param initial Target's initial value.
    * @return True when `option_values` is empty or consistent with the labels,
    *         includes `min` and `max`, and includes `initial`.
    */
-  HS_FLASH_MEMBER constexpr bool valid_option_values(T initial) const {
+  template <typename Initial>
+  HS_FLASH_MEMBER constexpr bool valid_option_values(Initial initial) const {
     if (option_values.empty())
       return true;
     if (options == nullptr || option_count <= 0 ||
