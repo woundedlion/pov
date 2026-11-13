@@ -54,28 +54,6 @@ struct ShapeShifterParams {
   bool opposite{}; ///< Toggles the rotation sense past the equator.
   AlphaFalloff alpha_falloff{}; ///< Per-contour alpha function.
   RadiusSpacing spacing{};      ///< Radial distribution of the contours.
-
-  constexpr ShapeShifterParams() = default;
-  /**
-   * @brief Constructs a preset from every field.
-   * @param shape Plot primitive.
-   * @param count Contour count.
-   * @param sides Side count.
-   * @param function Phase waveform.
-   * @param amplitude Peak contour rotation, in radians.
-   * @param speed Sweep rate.
-   * @param opposite Whether to toggle the far-side rotation sense.
-   * @param alpha_falloff Per-contour alpha function.
-   * @param spacing Radial distribution.
-   */
-  constexpr ShapeShifterParams(ShapeType shape, float count, float sides,
-                               PhaseFunction function, float amplitude,
-                               float speed, bool opposite,
-                               AlphaFalloff alpha_falloff,
-                               RadiusSpacing spacing)
-      : shape(shape), count(count), sides(sides), function(function),
-        amplitude(amplitude), speed(speed), opposite(opposite),
-        alpha_falloff(alpha_falloff), spacing(spacing) {}
 };
 
 /**
@@ -1350,36 +1328,95 @@ private:
            candidate.spacing == RadiusSpacing::SCREEN_BALANCED;
   }
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
-      {{ShapeType::PLANAR_STAR, 288.0f, 7.745f, PhaseFunction::SINE, 1.0f,
-        0.016f, false, AlphaFalloff::TOWARD_EQUATOR,
-        RadiusSpacing::SCREEN_BALANCED},
+      {{.shape = ShapeType::PLANAR_STAR,
+        .count = 288.0f,
+        .sides = 7.745f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 1.0f,
+        .speed = 0.016f,
+        .opposite = false,
+        .alpha_falloff = AlphaFalloff::TOWARD_EQUATOR,
+        .spacing = RadiusSpacing::SCREEN_BALANCED},
        DEPARTURE},
-      {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, PhaseFunction::SINE,
-        1.0f, 0.0318f, false, AlphaFalloff::CONSTANT_HALF,
-        RadiusSpacing::UNIFORM},
+      {{.shape = ShapeType::SPHERICAL_POLYGON,
+        .count = 74.644997f,
+        .sides = 3.0f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 1.0f,
+        .speed = 0.0318f,
+        .opposite = false,
+        .alpha_falloff = AlphaFalloff::CONSTANT_HALF,
+        .spacing = RadiusSpacing::UNIFORM},
        DEPARTURE},
-      {{ShapeType::PLANAR_STAR, 43.327999f, 6.562f, PhaseFunction::SINE, 1.0f,
-        0.0142f, false, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM},
+      {{.shape = ShapeType::PLANAR_STAR,
+        .count = 43.327999f,
+        .sides = 6.562f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 1.0f,
+        .speed = 0.0142f,
+        .opposite = false,
+        .alpha_falloff = AlphaFalloff::TOWARD_EQUATOR,
+        .spacing = RadiusSpacing::UNIFORM},
        DEPARTURE},
-      {{ShapeType::FLOWER, 70.0f, 3.0f, PhaseFunction::SINE, 1.0f, 0.0186f,
-        false, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+      {{.shape = ShapeType::FLOWER,
+        .count = 70.0f,
+        .sides = 3.0f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 1.0f,
+        .speed = 0.0186f,
+        .opposite = false,
+        .alpha_falloff = AlphaFalloff::CONSTANT_HALF,
+        .spacing = RadiusSpacing::UNIFORM},
        DEPARTURE},
-      {{ShapeType::PLANAR_STAR, 72.0f, 4.417f, PhaseFunction::SINE, 1.0f,
-        0.0077f, false, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM},
+      {{.shape = ShapeType::PLANAR_STAR,
+        .count = 72.0f,
+        .sides = 4.417f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 1.0f,
+        .speed = 0.0077f,
+        .opposite = false,
+        .alpha_falloff = AlphaFalloff::TOWARD_EQUATOR,
+        .spacing = RadiusSpacing::UNIFORM},
        DEPARTURE},
-      {{ShapeType::SPHERICAL_POLYGON, 128.0f, 5.561f, PhaseFunction::SINE, 4.0f,
-        0.0405f, true, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+      {{.shape = ShapeType::SPHERICAL_POLYGON,
+        .count = 128.0f,
+        .sides = 5.561f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 4.0f,
+        .speed = 0.0405f,
+        .opposite = true,
+        .alpha_falloff = AlphaFalloff::CONSTANT_HALF,
+        .spacing = RadiusSpacing::UNIFORM},
        DEPARTURE},
-      {{ShapeType::SPHERICAL_POLYGON, 144.0f, 4.001f, PhaseFunction::SINE,
-        2.377f, 0.027086f, false, AlphaFalloff::CONSTANT_HALF,
-        RadiusSpacing::UNIFORM},
+      {{.shape = ShapeType::SPHERICAL_POLYGON,
+        .count = 144.0f,
+        .sides = 4.001f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 2.377f,
+        .speed = 0.027086f,
+        .opposite = false,
+        .alpha_falloff = AlphaFalloff::CONSTANT_HALF,
+        .spacing = RadiusSpacing::UNIFORM},
        DEPARTURE},
-      {{ShapeType::SPHERICAL_POLYGON, 144.0f, 3.195f, PhaseFunction::SINE,
-        7.0696f, 0.0113f, false, AlphaFalloff::CONSTANT_HALF,
-        RadiusSpacing::UNIFORM},
+      {{.shape = ShapeType::SPHERICAL_POLYGON,
+        .count = 144.0f,
+        .sides = 3.195f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 7.0696f,
+        .speed = 0.0113f,
+        .opposite = false,
+        .alpha_falloff = AlphaFalloff::CONSTANT_HALF,
+        .spacing = RadiusSpacing::UNIFORM},
        DEPARTURE},
-      {{ShapeType::FLOWER, 72.0f, 3.0f, PhaseFunction::SINE, 1.8721f, 0.00752f,
-        true, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+      {{.shape = ShapeType::FLOWER,
+        .count = 72.0f,
+        .sides = 3.0f,
+        .function = PhaseFunction::SINE,
+        .amplitude = 1.8721f,
+        .speed = 0.00752f,
+        .opposite = true,
+        .alpha_falloff = AlphaFalloff::CONSTANT_HALF,
+        .spacing = RadiusSpacing::UNIFORM},
        DEPARTURE},
   }};
   static_assert(surface_params(PRESETS[0].params));
