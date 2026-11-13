@@ -210,7 +210,7 @@ run_lane() {
     case "$runner" in skip:*) continue ;; esac
     start=$SECONDS
     # A separate process keeps errexit live inside the job function.
-    if bash "$0" --run-one "$runner" > "$logs/$job.log" 2>&1; then
+    if bash "$self" --run-one "$runner" > "$logs/$job.log" 2>&1; then
       echo "PASS $job ($((SECONDS - start)) s)"
     else
       echo "FAIL $job ($((SECONDS - start)) s); log: $PWD/$logs/$job.log"
@@ -315,6 +315,7 @@ check_new_guards() {
   python tests/check_death_pins.py . --new-guards "$base" "$tip"
 }
 
+self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 cd "$(git rev-parse --show-toplevel)"
