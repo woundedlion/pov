@@ -19,10 +19,9 @@ inline std::optional<JsonValue> load_promoted_document() {
     return std::nullopt;
   JsonParser parser{text};
   JsonValue document = parser.parse_value();
-  parser.skip_space();
-  HS_EXPECT_EQ(parser.position, text.size());
-  HS_EXPECT_FALSE(parser.failed);
-  if (parser.failed || parser.position != text.size())
+  const bool complete = parser.complete();
+  HS_EXPECT_TRUE(complete);
+  if (!complete)
     return std::nullopt;
   return document;
 }
@@ -83,9 +82,7 @@ inline void test_catalog_semantic_export() {
   Catalog::append_catalog_json(text);
   JsonParser parser{text};
   const JsonValue root = parser.parse_value();
-  parser.skip_space();
-  HS_EXPECT_FALSE(parser.failed);
-  HS_EXPECT_EQ(parser.position, text.size());
+  HS_EXPECT_TRUE(parser.complete());
   const auto member = [](const JsonValue &object,
                          const char *name) -> const JsonValue & {
     const JsonValue *value = object.find(name);
@@ -713,7 +710,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
 inline void test_document_numeric_resource_selection() {
   using FX = MobiusGrid<SMALL_W, SMALL_H>;
   FX::Params built;
-  DocumentSlot slot{"warp2", "projection", "warp.mirror.v2", SlotRole::WARP, 1};
+  DocumentSlot slot{"warp2", "projection", "warp.mirror-tile.v2",
+                    SlotRole::WARP, 1};
   JsonValue value;
   value.kind = JsonValue::Kind::NUMBER;
   value.number = 4.0;

@@ -214,10 +214,7 @@ inline void test_galaxies_black_hole_core_toggle() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
-  const auto *toggle = required_param(fx, "Black Hole");
-
-  if (!toggle)
-    return;
+  HS_REQUIRED_PARAM(toggle, fx, "Black Hole");
   HS_EXPECT(toggle->is_bool(), "Black Hole is a toggle");
   HS_EXPECT_EQ(toggle->get(), 0.0f);
 
@@ -389,10 +386,7 @@ inline void test_galaxies_arm_sharpness() {
   reset_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
-  const auto *sharpness = required_param(fx, "Arm Sharpness");
-
-  if (!sharpness)
-    return;
+  HS_REQUIRED_PARAM(sharpness, fx, "Arm Sharpness");
   WB::set_pitch(fx, 0.5f);
   for (int arms : {1, 2, 5}) {
     WB::set_arms(fx, arms);
@@ -550,10 +544,7 @@ inline void test_galaxies_live_particle_count() {
   reset_globals();
   Galaxies<SMALL_W, SMALL_H> fx;
   fx.init();
-  const auto *count = required_param(fx, "Particles");
-
-  if (!count)
-    return;
+  HS_REQUIRED_PARAM(count, fx, "Particles");
   HS_EXPECT(count->readonly, "Particles telemetry is read-only");
   HS_EXPECT_EQ(count->min, 0.0f);
   HS_EXPECT_EQ(count->max, static_cast<float>(WB::system(fx).pool.capacity()));

@@ -7,6 +7,18 @@
 // MeshFeedback: draw ordering, base-mesh selection, export arity and storage
 // ---------------------------------------------------------------------------
 
+/** @brief Compares the preset-controlled feedback fields.
+ * @param a First style.
+ * @param b Second style.
+ * @return True when their preset fields agree. */
+inline bool same_preset_style(const Feedback::Style &a,
+                              const Feedback::Style &b) {
+  return a.fade == b.fade && a.hue_shift == b.hue_shift && a.scale == b.scale &&
+         a.amplitude == b.amplitude && a.frequency == b.frequency &&
+         a.speed == b.speed && a.space_fn == b.space_fn &&
+         a.color_fn == b.color_fn;
+}
+
 /** @brief White-box accessor for MeshFeedback's style / noise / preset state. */
 struct MeshFeedbackWhiteBox {
   using MF = MeshFeedback<SMALL_W, SMALL_H>;
@@ -172,10 +184,7 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
   const auto matches_preset = [&fx](size_t idx) {
     const Feedback::Style &s = WB::style(fx);
     const Feedback::Style &p = MF::PRESETS[idx].params.style;
-    return s.fade == p.fade && s.hue_shift == p.hue_shift &&
-           s.scale == p.scale && s.amplitude == p.amplitude &&
-           s.frequency == p.frequency && s.speed == p.speed &&
-           s.space_fn == p.space_fn && s.color_fn == p.color_fn;
+    return same_preset_style(s, p);
   };
 
   int switches = 0, desynced = 0, wrong_preset = 0;
@@ -221,10 +230,7 @@ inline void test_meshfeedback_base_mesh_selector() {
   MF effect;
   effect.init();
 
-  const auto *base_mesh = required_param(effect, "Base Mesh");
-
-  if (!base_mesh)
-    return;
+  HS_REQUIRED_PARAM(base_mesh, effect, "Base Mesh");
 
   HS_EXPECT_EQ(base_mesh->option_count,
                static_cast<int>(Solids::BASE_MESH_COUNT));
@@ -462,14 +468,7 @@ inline void test_meshfeedback_all_presets_arm_cut_steps() {
       const auto matches_style = [&](const Feedback::Style &expected) {
         const auto &style =
             MeshFeedbackWhiteBox::MF::PRESETS[preset].params.style;
-        return style.fade == expected.fade &&
-               style.hue_shift == expected.hue_shift &&
-               style.scale == expected.scale &&
-               style.amplitude == expected.amplitude &&
-               style.frequency == expected.frequency &&
-               style.speed == expected.speed &&
-               style.space_fn == expected.space_fn &&
-               style.color_fn == expected.color_fn;
+        return same_preset_style(style, expected);
       };
       if (matches_style(Feedback::Style::TightWormhole()) ||
           matches_style(Feedback::Style::WigglingWormhole())) {

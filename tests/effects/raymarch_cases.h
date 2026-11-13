@@ -314,10 +314,7 @@ inline void test_raymarch_preset_and_placement_solids() {
 
   hs_test::expect_params_in_range(effect, "Raymarch preset");
 
-  const auto *base_solid = required_param(effect, "Base Solid");
-
-  if (!base_solid)
-    return;
+  HS_REQUIRED_PARAM(base_solid, effect, "Base Solid");
   HS_EXPECT_TRUE(base_solid->animated);
   HS_EXPECT_TRUE(base_solid->preset);
   HS_EXPECT_EQ(base_solid->option_count,

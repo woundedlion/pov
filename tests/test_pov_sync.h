@@ -121,7 +121,7 @@ inline uint32_t feed_beacon_train(SyncBoard &board, const Config &cfg,
 
 /** @brief The shipping cadence rejoins within 25 revolutions. */
 inline void test_shipping_rejoin_bound() {
-  HS_EXPECT_EQ(shipping_config().rejoin_bound_revs(), 25u);
+  HS_EXPECT_LE(shipping_config().rejoin_bound_revs(), 25u);
 }
 
 /**

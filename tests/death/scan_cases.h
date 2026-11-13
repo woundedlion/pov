@@ -38,6 +38,23 @@ inline void scan_mesh_invalid_fixture(bool omit_offsets) {
       pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch);
 }
 
+/** @brief Binds a single axis triangle in the supplied arena.
+ * @param mesh Receives the triangle.
+ * @param arena Owns its vertex and face storage. */
+inline void build_death_triangle(MeshState &mesh, Arena &arena) {
+  mesh.vertices.bind(arena, 3);
+  mesh.vertices.push_back(math::X_AXIS);
+  mesh.vertices.push_back(math::Y_AXIS);
+  mesh.vertices.push_back(math::Z_AXIS);
+  mesh.face_counts.bind(arena, 1);
+  mesh.face_counts.push_back(3);
+  mesh.face_offsets.bind(arena, 1);
+  mesh.face_offsets.push_back(0);
+  mesh.faces.bind(arena, 3);
+  for (uint16_t index = 0; index < 3; ++index)
+    mesh.faces.push_back(index);
+}
+
 /** @brief Selects a valid mesh before rejecting malformed face data. */
 inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index,
                                         bool omit_offsets = false) {
@@ -46,17 +63,7 @@ inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index,
   Arena geometry(geometry_storage, sizeof(geometry_storage));
   Arena frame(frame_storage, sizeof(frame_storage));
   MeshState mesh;
-  mesh.vertices.bind(geometry, 3);
-  mesh.vertices.push_back(math::X_AXIS);
-  mesh.vertices.push_back(math::Y_AXIS);
-  mesh.vertices.push_back(math::Z_AXIS);
-  mesh.face_counts.bind(geometry, 1);
-  mesh.face_counts.push_back(3);
-  mesh.face_offsets.bind(geometry, 1);
-  mesh.face_offsets.push_back(0);
-  mesh.faces.bind(geometry, 3);
-  for (uint16_t index = 0; index < 3; ++index)
-    mesh.faces.push_back(index);
+  build_death_triangle(mesh, geometry);
   DeathEffect fx(W, H);
   Canvas canvas(fx);
   Scan::ColumnBasis basis;
@@ -261,17 +268,7 @@ inline void case_scan_mesh_class_id_out_of_range() {
   Arena scratch(scratch_buf, sizeof(scratch_buf));
 
   MeshState mesh;
-  mesh.vertices.bind(geom, 3);
-  mesh.vertices.push_back(math::Vector(1.0f, 0.0f, 0.0f));
-  mesh.vertices.push_back(math::Vector(0.0f, 1.0f, 0.0f));
-  mesh.vertices.push_back(math::Vector(0.0f, 0.0f, 1.0f));
-  mesh.face_counts.bind(geom, 1);
-  mesh.face_counts.push_back(static_cast<uint8_t>(3));
-  mesh.face_offsets.bind(geom, 1);
-  mesh.face_offsets.push_back(static_cast<uint16_t>(0));
-  mesh.faces.bind(geom, 3);
-  for (uint16_t v = 0; v < 3; ++v)
-    mesh.faces.push_back(v);
+  build_death_triangle(mesh, geom);
 
   MeshOps::MeshClassBake bake;
   bake.classes.bind(geom, 1);
@@ -332,17 +329,7 @@ inline void case_scan_motion_without_azimuth() {
   Arena frame(frame_storage, sizeof(frame_storage));
   Arena start(start_storage, sizeof(start_storage));
   MeshState mesh;
-  mesh.vertices.bind(geometry, 3);
-  mesh.vertices.push_back(math::X_AXIS);
-  mesh.vertices.push_back(math::Y_AXIS);
-  mesh.vertices.push_back(math::Z_AXIS);
-  mesh.face_counts.bind(geometry, 1);
-  mesh.face_counts.push_back(3);
-  mesh.face_offsets.bind(geometry, 1);
-  mesh.face_offsets.push_back(0);
-  mesh.faces.bind(geometry, 3);
-  for (uint16_t index = 0; index < 3; ++index)
-    mesh.faces.push_back(index);
+  build_death_triangle(mesh, geometry);
   const auto rotation = math::make_rotation(math::Z_AXIS, 0.2f);
   math::Vector previous[3];
   for (size_t index = 0; index < 3; ++index)

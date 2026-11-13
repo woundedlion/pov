@@ -49,6 +49,12 @@ struct JsonParser {
       ++position;
   }
 
+  /** @brief True when parsing succeeded through the document's trailing space. */
+  bool complete() {
+    skip_space();
+    return !failed && position == source.size();
+  }
+
   bool consume(char expected) {
     skip_space();
     if (position < source.size() && source[position] == expected) {

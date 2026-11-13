@@ -56,21 +56,8 @@ inline Frame sample_frame_reference(const Frame &from, const Frame &to,
         clock.rotation = Spacetime::sample_clock(a.rotation, b.rotation,
                                                  fraction, math::TWO_PI_F);
     } else if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE) {
-      if constexpr (std::is_same_v<
-                        typename Resource::Family,
-                        Pullback::SphereAnimation::BurstRippleParams>) {
-        const uint32_t delta = b.frames - a.frames;
-        for (auto &wave : clock.waves)
-          wave.age -= delta * (1.0f - fraction);
-        clock.radial_fraction = delta == 1 ? fraction : 1.0f;
-        if (delta > 1 ||
-            std::memcmp(&family, &from.params.template get<Resource::KEY>(),
-                        sizeof(family)) != 0 ||
-            std::memcmp(&family, &to.params.template get<Resource::KEY>(),
-                        sizeof(family)) != 0)
-          clock.radial_tables = nullptr;
-      } else if constexpr (std::is_same_v<typename Resource::Family,
-                                          Pullback::PeriodicRippleParams>)
+      if constexpr (std::is_same_v<typename Resource::Family,
+                                   Pullback::PeriodicRippleParams>)
         clock.phase =
             Spacetime::sample_clock(a.phase, b.phase, fraction, family.period);
       else

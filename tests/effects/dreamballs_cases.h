@@ -367,10 +367,7 @@ inline void test_dreamballs_base_mesh_selector() {
   WB::DB db;
   db.init();
 
-  const auto *base_mesh = required_param(db, "Base Mesh");
-
-  if (!base_mesh)
-    return;
+  HS_REQUIRED_PARAM(base_mesh, db, "Base Mesh");
 
   constexpr int EXPECTED_SOLIDS =
       static_cast<int>(Solids::PLATONIC_COUNT + Solids::ARCHIMEDEAN_COUNT +
@@ -585,11 +582,8 @@ inline void test_dreamballs_weave_topology_schema() {
   reset_globals();
   WB::DB db;
   db.init();
-  const auto *topology = required_param(db, "Weave Topology");
-  const auto *gap = required_param(db, "Weave Gap");
-
-  if (!topology || !gap)
-    return;
+  HS_REQUIRED_PARAM(topology, db, "Weave Topology");
+  HS_REQUIRED_PARAM(gap, db, "Weave Gap");
 
   HS_EXPECT_EQ(topology->option_count, 3);
   HS_EXPECT_EQ(std::string_view(topology->options[0]), "Automatic");

@@ -634,9 +634,7 @@ inline void test_shader_chain_slot_and_hash_contract() {
 inline JsonValue parse_catalog(const std::string &text) {
   JsonParser parser{text};
   JsonValue root = parser.parse_value();
-  parser.skip_space();
-  HS_EXPECT_FALSE(parser.failed);
-  HS_EXPECT_EQ(parser.position, text.size());
+  HS_EXPECT_TRUE(parser.complete());
   return root;
 }
 

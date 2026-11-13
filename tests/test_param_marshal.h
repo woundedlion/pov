@@ -336,7 +336,6 @@ inline void check_convenience_registrations() {
 /** @brief The GUI bridge's default hooks report the requested value, no
  *  advisory and no warning, and a display mirror can be dropped. */
 inline void check_gui_bridge_defaults() {
-#if HS_ENABLE_PARAM_GUI_BRIDGE
   struct BridgeHost : ParamHost {
     using ParamHost::mirror_parameter_display_state;
     using ParamHost::register_param;
@@ -362,7 +361,6 @@ inline void check_gui_bridge_defaults() {
   HS_EXPECT_TRUE(def->display_target == &displayed.level);
   host.show_requested_parameter_value("Level");
   HS_EXPECT_TRUE(def->display_target == nullptr);
-#endif
 }
 
 struct FloatOptionParams {

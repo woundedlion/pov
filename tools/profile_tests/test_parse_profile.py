@@ -1128,6 +1128,17 @@ class FirmwareConstants(unittest.TestCase):
         self.assertIsNotNone(fps, "HS_SHOW_FRAMES_PER_SECOND not found in targets/effects.h")
         self.assertEqual(pp.DISPLAY_WINDOW_US * int(fps[1]), 1_000_000)
 
+    def test_shell_show_rates_match_firmware(self):
+        effects = (REPO / "targets" / "effects.h").read_text(encoding="utf-8")
+        fps = re.search(r"constexpr int HS_SHOW_FRAMES_PER_SECOND = (\d+);", effects)
+        self.assertIsNotNone(fps)
+        for name in ("profile_one.sh", "profile_sweep.sh"):
+            with self.subTest(script=name):
+                script = (REPO / "tools" / name).read_text(encoding="utf-8")
+                rate = re.search(r"^SHOW_FRAMES_PER_S=(\d+)$", script, re.M)
+                self.assertIsNotNone(rate)
+                self.assertEqual(int(rate[1]), int(fps[1]))
+
     def test_cpu_clock_is_the_device_clock(self):
         ini = (REPO / "platformio.ini").read_text(encoding="utf-8")
         f_cpu = re.search(r"^board_build\.f_cpu = (\d+)L", ini, re.M)
