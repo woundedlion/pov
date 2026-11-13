@@ -47,6 +47,20 @@ REV13_GENERATED_PROJECT_FILES = GENERATED_PROJECT_FILES + (
 
 
 class PrototypeContractTests(unittest.TestCase):
+    def test_terminal_library_edges_follow_each_reference_pose(self):
+        layout = {
+            "edge_placements": {"J1": (10, 3.43, 270), "J2": (4.2, 20, 0)},
+            "terminal_by_ref": {"J1": "terminal:two", "J2": "terminal:three"},
+        }
+        self.assertEqual(pcb.terminal_edge_distances(layout),
+                         {"terminal:two": 3.43, "terminal:three": 4.2})
+        layout["edge_placements"]["J3"] = (30, 3.43, 270)
+        layout["terminal_by_ref"]["J3"] = "terminal:two"
+        self.assertEqual(pcb.terminal_edge_distances(layout)["terminal:two"], 3.43)
+        layout["edge_placements"]["J3"] = (30, 5, 270)
+        with self.assertRaisesRegex(ValueError, "terminal:two.*conflicting"):
+            pcb.terminal_edge_distances(layout)
+
     def test_power_properties_and_signal_labels_clear_the_symbol_bodies(self):
         self.assertEqual(sexp.val(self.schematic, "paper"), ["A2"])
         for symbol in F(self.schematic, "symbol"):

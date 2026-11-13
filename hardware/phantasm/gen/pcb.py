@@ -842,6 +842,18 @@ def fixed_placements(comps):
     return fixed
 
 
+def terminal_edge_distances(layout):
+    """Resolve one board-edge distance per terminal library footprint."""
+    distances = {}
+    for ref, (x, y, rot) in layout["edge_placements"].items():
+        libid = layout["terminal_by_ref"][ref]
+        distance = y if rot == 270 else x
+        if libid in distances and distances[libid] != distance:
+            raise ValueError(f"terminal library {libid} has conflicting board-edge distances")
+        distances[libid] = distance
+    return distances
+
+
 def pin_silk_marks(layout, fixed, length, revision):
     """Resolve jumper and terminal-pin silkscreen labels."""
     silk_marks = [(label, fixed[x][0] if isinstance(x, str) else x, y, angle, layer)
@@ -1291,6 +1303,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     os.makedirs(pretty, exist_ok=True)
     if existing_mod_text != mod_text:
         atomic_write_text(mod_path, mod_text)
+    edge_distances = terminal_edge_distances(layout) if selected == "1.3" else {}
     for libid in layout["terminal_libids"]:
         name = libid.split(":", 1)[1] + ".kicad_mod"
         source_dir = terminal_library_dir(libid)
@@ -1300,7 +1313,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             with open(source, encoding="utf-8") as f:
                 terminal = sexp.parse_one(f.read())
             reserve_terminal_wire_access(terminal)
-            trim_terminal_silkscreen(terminal, next(iter(layout["edge_placements"].values()))[1])
+            trim_terminal_silkscreen(terminal, edge_distances[libid])
             atomic_write_text(destination, sexp.dumps(terminal) + "\n")
         elif os.path.abspath(source) != os.path.abspath(destination):
             with open(source, encoding="utf-8") as f:
