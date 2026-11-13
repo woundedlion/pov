@@ -5,7 +5,7 @@
 #pragma once
 
 /** @file motion.h
- * @brief Worldline interpolants and analytic path bounds.
+ * @brief Rotation vectors, worldline interpolants and analytic path bounds.
  */
 
 #include "core/math/3dmath.h"
@@ -14,6 +14,82 @@
 #include <cstdint>
 
 namespace Spacetime {
+
+/// Longest rotation rotate_by() takes by its series coefficients, radians.
+inline constexpr float SHORT_TURN_ANGLE = 0.25f;
+
+/** @brief Rodrigues coefficients of a rotation by angle `a`. */
+struct TurnCoefficients {
+  float sine;    ///< sin(a) / a.
+  float versine; ///< (1 - cos(a)) / a^2.
+};
+
+/**
+ * @brief Rodrigues coefficients of a rotation past SHORT_TURN_ANGLE.
+ * @param angle_sq Squared rotation angle, below pi squared.
+ * @return The coefficients, from the series at the angle halved until it is
+ *         short, doubled back by the double-angle formulas.
+ */
+HS_FLASH_MEMBER inline TurnCoefficients long_turn_coefficients(float angle_sq) {
+  const float angle = sqrtf(angle_sq);
+  float half = angle;
+  int doublings = 0;
+  while (half > SHORT_TURN_ANGLE) {
+    half *= 0.5f;
+    ++doublings;
+  }
+  const float h2 = half * half;
+  float s = half * (1.0f - h2 * (1.0f / 6.0f - h2 / 120.0f));
+  float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f - h2 / 720.0f));
+  float versine = 1.0f - c;
+  for (int i = 0; i < doublings; ++i) {
+    versine = 2.0f * s * s;
+    const float next = c * c - s * s;
+    s = 2.0f * s * c;
+    c = next;
+  }
+  return {s / angle, versine / angle_sq};
+}
+
+/**
+ * @brief Rodrigues coefficients of a rotation shorter than a half turn.
+ * @param angle_sq Squared rotation angle.
+ * @return Series coefficients up to SHORT_TURN_ANGLE, long_turn_coefficients()
+ *         past it.
+ */
+HS_HOT_INLINE inline TurnCoefficients turn_coefficients(float angle_sq) {
+  if (angle_sq <= SHORT_TURN_ANGLE * SHORT_TURN_ANGLE)
+    // Series for sin(a) / a and (1 - cos(a)) / a^2.
+    return {1.0f - angle_sq * (1.0f / 6.0f - angle_sq / 120.0f),
+            0.5f - angle_sq * (1.0f / 24.0f - angle_sq / 720.0f)};
+  return long_turn_coefficients(angle_sq);
+}
+
+/**
+ * @brief Rotates a direction by a rotation vector with its coefficients.
+ * @param p Direction to rotate.
+ * @param rotation Axis times angle.
+ * @param k The rotation's coefficients, as turn_coefficients() gives them.
+ * @return @p p rotated by Rodrigues' formula.
+ */
+HS_HOT_INLINE inline math::Vector rotate_by(const math::Vector &p,
+                                            const math::Vector &rotation,
+                                            const TurnCoefficients &k) {
+  const math::Vector across = math::cross(rotation, p);
+  return p + across * k.sine + math::cross(rotation, across) * k.versine;
+}
+
+/**
+ * @brief Rotates a direction by a rotation vector.
+ * @param p Direction to rotate.
+ * @param rotation Axis times angle, shorter than a half turn.
+ * @return @p p rotated by Rodrigues' formula.
+ */
+HS_HOT_INLINE inline math::Vector rotate_by(const math::Vector &p,
+                                            const math::Vector &rotation) {
+  return rotate_by(p, rotation,
+                   turn_coefficients(math::dot(rotation, rotation)));
+}
 
 /** @brief How a vertex's path over the frame is interpolated. */
 enum class Interpolant : uint8_t {

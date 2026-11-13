@@ -13,7 +13,7 @@
  */
 
 #include "core/animation/orientation.h"
-#include "core/render/spacetime/surface.h"
+#include "core/render/spacetime/motion.h"
 #include "core/math/3dmath.h"
 #include "core/math/mobius.h"
 #include "core/engine/concepts.h"
