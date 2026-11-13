@@ -78,7 +78,11 @@ else()
     "*(.text._ZN9Spacetime12FrameHistoryI*C2Ev)"
     "*(.text._ZN13PaletteCyclerC[12]Ev)"
     "*(.text._ZN8Pullback16OuterCameraStateILb1EEC[12]Ev)"
-    "*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)")
+    "*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)"
+    "*(.text._ZN8Pullback18FrameIntervalStateI*C[12]Ev)"
+    "*(.text._ZN9ParamHost21use_parameter_storageEP8ParamDefj)"
+    "*(.text._ZN12POVSegmentedI*17configure_segmentEv)"
+    "*(.text._ZN4math18init_geometry_lutsILi288ELi144EEEvv)")
   foreach(_spec IN LISTS _flash_text)
     string(FIND "${_script}" "${_spec}" _spec_at)
     if(_spec_at LESS _code_at OR NOT _spec_at LESS _progmem_at)

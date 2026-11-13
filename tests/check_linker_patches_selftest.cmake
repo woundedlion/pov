@@ -43,7 +43,11 @@ set(setup_route_index 0)
 foreach(route IN ITEMS
     "*(.text._ZN13PaletteCyclerC[12]Ev)"
     "*(.text._ZN8Pullback16OuterCameraStateILb1EEC[12]Ev)"
-    "*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)")
+    "*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)"
+    "*(.text._ZN8Pullback18FrameIntervalStateI*C[12]Ev)"
+    "*(.text._ZN9ParamHost21use_parameter_storageEP8ParamDefj)"
+    "*(.text._ZN12POVSegmentedI*17configure_segmentEv)"
+    "*(.text._ZN4math18init_geometry_lutsILi288ELi144EEEvv)")
   string(REPLACE "${route}" "" changed "${baseline}")
   check_routing("missing_setup_${setup_route_index}" "${changed}"
     "no longer routed by .text.code")

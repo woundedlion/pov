@@ -123,9 +123,11 @@ SECTIONS
 		*(.text._ZN8Pullback14ComposedEffectI*5StateC2Ev)
 		*(.text._ZN9Spacetime12FrameHistoryI*C1Ev)
 		*(.text._ZN9Spacetime12FrameHistoryI*C2Ev)
+		*(.text._ZN8Pullback18FrameIntervalStateI*C[12]Ev)
 		*(.text._ZN13PaletteCyclerC[12]Ev)
 		*(.text._ZN8Pullback16OuterCameraStateILb1EEC[12]Ev)
 		*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)
+		*(.text._ZN9ParamHost21use_parameter_storageEP8ParamDefj)
 		/* Half-edge topology construction: the edge-record sort family and
 		 * mesh normalize also serve per-frame truncate/expand sweeps. */
 		*(.text.*HalfEdgePairRecord*)
@@ -179,6 +181,8 @@ SECTIONS
 		*(.text.set_arm_clock)
 		*(.text._ZN8SPIClass5beginEv)
 		*(.text._ZN8SPIClass16beginTransactionE*)
+		*(.text._ZN12POVSegmentedI*17configure_segmentEv)
+		*(.text._ZN4math18init_geometry_lutsILi288ELi144EEEvv)
 		*(.text.*construct_profiled*)
 		*(.text._ZN2hs12CycleCounter8log_nodeE*)
 		*(.text._ZN4math6detail15upsample_framesE*)
