@@ -854,133 +854,22 @@ inline constexpr std::array<ApproximationMetric, 3> MODULATION_LUT_METRICS{{
 static_assert(HueRotationGamutMask::MAX_CHANNEL_SPAN ==
               2 * MODULATION_LUT_METRICS[0].limit);
 
-/** @brief Generated-palette policy with retained immutable endpoints.
- * @tparam State Palette resource provider. */
-template <typename State> struct GeneratedPalette : ApproximationDefaults {
-  using SharedBaseOwner = GeneratedPalette<State>;  ///< Cache-contract owner.
-  using CachedPhaseOwner = GeneratedPalette<State>; ///< Direct finish owner.
-  static constexpr bool PHASE_BLEND_BASE = true;    ///< Common field controls.
-  /** @brief Checks the generated-palette provider contract.
-   * @tparam Binding Frame binding. */
-  template <typename Binding>
-  static constexpr bool PROVIDER_VALID =
-      Detail::ProviderFor<State, Binding> &&
-      requires(const typename Binding::FrameState &frame) {
-        {
-          State::mapping_weights(frame)
-        } -> std::same_as<PaletteMappingWeights>;
-        { State::mapping_frequency(frame) } -> std::same_as<float>;
-        { State::mapping_phase(frame) } -> std::same_as<float>;
-        { State::oscillation_depth(frame) } -> std::same_as<float>;
-        { State::oscillation_phase(frame) } -> std::same_as<float>;
-        { State::palette(frame) } -> std::same_as<const BakedPalette &>;
-        { State::hue_rotation(frame) } -> std::same_as<HueRotationLutView>;
-        {
-          State::brightness_envelope(frame)
-        } -> std::same_as<BrightnessEnvelope>;
-        { State::brightness_bottom(frame) } -> std::same_as<float>;
-        { State::brightness_top(frame) } -> std::same_as<float>;
-        { State::opacity_low(frame) } -> std::same_as<float>;
-        { State::opacity_high(frame) } -> std::same_as<float>;
-      };
-  static constexpr bool TEMPORAL =
-      requires(const typename State::Binding::FrameState &frame) {
-        State::temporal_resources(frame);
-      }; ///< Whether previous palettes are retained.
-  static constexpr bool LAB_CACHE =
-      requires(const typename State::Binding::FrameState &frame) {
-        State::palette_lab_lut(frame);
-      }; ///< Whether an RGB-first base cache is available.
-  static constexpr bool FUSED_TEMPORAL_COLOR = [] {
-    if constexpr (requires { State::FUSED_TEMPORAL_COLOR; })
-      return State::FUSED_TEMPORAL_COLOR;
-    else
-      return false;
-  }(); ///< Whether the effect admits one-carrier endpoint color blending.
-  static constexpr bool APPROXIMATE =
-      LAB_CACHE; ///< Optional base approximation.
-  static constexpr ApproximationOracleId ORACLE =
-      LAB_CACHE ? ApproximationOracleId::PALETTE_RGB_BLEND_TO_LAB_LUT
-                : ApproximationOracleId::NONE; ///< Exact RGB-first reference.
-  static constexpr auto METRICS = [] {
-    if constexpr (LAB_CACHE)
-      return std::array<ApproximationMetric, 3>{
-          {{ApproximationDomain::COLOR_CHANNEL,
-            ApproximationAggregation::MAXIMUM, 7000.0f, "channel code"},
-           {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
-            256.0f, "channel code"},
-           {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
-            4000.0f, "channel code"}}};
-    else
-      return std::array<ApproximationMetric, 0>{};
-  }(); ///< Base-cache qualification bounds.
+/** @brief Palette sampling shared by endpoint and cache configuration.
+ * @tparam TEMPORAL Whether previous palettes are retained.
+ * @tparam LAB_CACHE Whether an RGB-first base cache is available.
+ * @tparam FUSED_TEMPORAL_COLOR Whether endpoint modulation may be fused. */
+template <bool TEMPORAL, bool LAB_CACHE, bool FUSED_TEMPORAL_COLOR>
+struct GeneratedPaletteCore {
   using Prepared =
       std::conditional_t<TEMPORAL, TemporalGeneratedPaletteState,
                          GeneratedPaletteState>; ///< Endpoint state.
-  /** @brief Finishes an eligible cached phase without a deferred carrier.
-   * @tparam Layer Canonical phase modulation policy.
-   * @param sample Shared field coordinates.
-   * @param prepared Prepared palette endpoints.
-   * @param modulation Prepared column phase.
-   * @param output Receives the final straight-alpha color.
-   * @return Whether the RGB cache supplied the final color. */
-  template <typename Layer>
-  HS_HOT_INLINE static bool
-  shade_cached_phase(const FieldSample &sample, const Prepared &prepared,
-                     const typename Layer::Prepared &modulation, Color4 &output)
-    requires(TEMPORAL && LAB_CACHE &&
-             std::is_base_of_v<PhaseModulationState, typename Layer::Prepared>)
-  {
-    return Color::shade_cached_phase<typename Layer::Prepared,
-                                     Layer::SINE_PHASE>(sample, prepared,
-                                                        modulation, output);
-  }
-  /** @brief Prepares immutable endpoint controls.
-   * @tparam FrameState Frame context.
-   * @param frame Current frame.
-   * @return Prepared palette endpoints. */
-  template <typename FrameState>
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    GeneratedPaletteState current{
-        State::mapping_weights(frame),
-        State::mapping_frequency(frame),
-        oscillated_mapping_offset(State::mapping_phase(frame),
-                                  State::oscillation_depth(frame),
-                                  State::oscillation_phase(frame)),
-        &State::palette(frame),
-        State::hue_rotation(frame),
-        State::brightness_envelope(frame),
-        State::brightness_bottom(frame),
-        State::brightness_top(frame),
-        State::opacity_low(frame),
-        State::opacity_high(frame)};
-    if constexpr (TEMPORAL) {
-      const auto resources = State::temporal_resources(frame);
-      auto previous = current;
-      previous.palette = resources.palette;
-      previous.hue_rotation.data = resources.hue_rotation;
-      previous.hue_rotation.gamut_mask = resources.hue_rotation_gamut;
-      TemporalGeneratedPaletteState result{current, previous,
-                                           resources.fraction};
-      if constexpr (LAB_CACHE)
-        if (const auto *cache = State::palette_lab_lut(frame))
-          result.lab = cache->view(resources.fraction);
-      return result;
-    } else
-      return current;
-  }
   /** @brief Produces one color endpoint.
-   * @tparam FrameState Frame context.
    * @param sample Field coordinates.
-   * @param frame Frame context.
    * @param prepared Prepared endpoints.
    * @param previous Selects the retained endpoint.
    * @return Color carrier. */
-  template <typename FrameState>
   static ColorSample apply_endpoint(const FieldSample &sample,
-                                    const FrameState &frame,
                                     const Prepared &prepared, bool previous) {
-    (void)frame;
     if constexpr (TEMPORAL)
       return apply_generated_palette(sample, previous ? prepared.previous
                                                       : prepared.current);
@@ -990,18 +879,13 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     }
   }
   /** @brief Samples both palettes with their shared mapping and gain controls.
-   * @tparam FrameState Frame context.
    * @param sample Shared field coordinates.
-   * @param frame Frame context.
    * @param prepared Prepared endpoints.
    * @return Retained endpoint followed by current endpoint. */
-  template <typename FrameState>
   static std::pair<ColorSample, ColorSample>
-  apply_pair(const FieldSample &sample, const FrameState &frame,
-             const Prepared &prepared)
+  apply_pair(const FieldSample &sample, const Prepared &prepared)
     requires TEMPORAL
   {
-    (void)frame;
     const auto &state = prepared.current;
     const float value = palette_mapping_coordinate(sample.value, state.mapping,
                                                    state.mapping_frequency,
@@ -1039,40 +923,32 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     return apply_palette_endpoint_impl(sample, state, value, opacity, gain);
   }
   /** @brief Tries one cached base without fetching either palette.
-   * @tparam FrameState Frame context.
    * @param sample Shared field coordinates.
-   * @param frame Frame context.
    * @param prepared Prepared endpoint controls and cache view.
    * @param output Receives the cached color carrier.
    * @return Whether the cache supplied the base. */
-  template <typename FrameState>
-  HS_HOT_INLINE static bool
-  apply_shared_base(const FieldSample &sample, const FrameState &frame,
-                    const Prepared &prepared, ColorSample &output)
+  HS_HOT_INLINE static bool apply_shared_base(const FieldSample &sample,
+                                              const Prepared &prepared,
+                                              ColorSample &output)
     requires(TEMPORAL && LAB_CACHE)
   {
-    (void)frame;
     if (!prepared.lab.low || prepared.fraction <= 0.0f ||
         prepared.fraction > 1.0f)
       return false;
-    apply_shared_base_ready(sample, frame, prepared, output);
+    apply_shared_base_ready(sample, prepared, output);
     return true;
   }
 
   /** @brief Produces a cached base after column eligibility was checked.
-   * @tparam FrameState Frame context.
    * @param sample Shared field coordinates.
-   * @param frame Frame context.
    * @param prepared Prepared eligible cache view.
    * @param output Receives the cached color carrier.
    * @pre The base view is active and its fraction is inside (0, 1]. */
-  template <typename FrameState>
-  HS_HOT_INLINE static void
-  apply_shared_base_ready(const FieldSample &sample, const FrameState &frame,
-                          const Prepared &prepared, ColorSample &output)
+  HS_HOT_INLINE static void apply_shared_base_ready(const FieldSample &sample,
+                                                    const Prepared &prepared,
+                                                    ColorSample &output)
     requires(TEMPORAL && LAB_CACHE)
   {
-    (void)frame;
     const auto &state = prepared.current;
     const float value = palette_mapping_coordinate(sample.value, state.mapping,
                                                    state.mapping_frequency,
@@ -1148,28 +1024,25 @@ private:
   }
 
   /** @brief Blends palette and modulation endpoints into one color carrier.
-   * @tparam FrameState Frame context.
    * @param result Fresh color carrier to populate.
    * @param sample Shared field coordinates.
-   * @param frame Frame context.
    * @param prepared Prepared palette endpoints.
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight. */
-  template <typename FrameState>
   HS_HOT_INLINE static void
   prepare_fused_modulation(ColorSample &result, const FieldSample &sample,
-                           const FrameState &frame, const Prepared &prepared,
+                           const Prepared &prepared,
                            const ModulationState &modulation, float fraction)
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
     if (fraction <= 0.0f || fraction >= 1.0f) {
-      result = apply_endpoint(sample, frame, prepared, fraction <= 0.0f);
+      result = apply_endpoint(sample, prepared, fraction <= 0.0f);
       apply_modulation_in_place(result, modulation, fraction <= 0.0f);
       return;
     }
     const bool cached = [&] {
       if constexpr (LAB_CACHE)
-        return apply_shared_base(sample, frame, prepared, result);
+        return apply_shared_base(sample, prepared, result);
       else
         return false;
     }();
@@ -1259,23 +1132,18 @@ private:
 
 public:
   /** @brief Blends palette and modulation endpoints into one guarded carrier.
-   * @tparam FrameState Frame context.
    * @param sample Shared field coordinates.
-   * @param frame Frame context.
    * @param prepared Prepared palette endpoints.
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight.
    * @return Deferred color after canonical endpoint blending. */
-  template <typename FrameState>
   HS_HOT_ITCM_MEMBER static ColorSample
-  apply_fused_modulation(const FieldSample &sample, const FrameState &frame,
-                         const Prepared &prepared,
+  apply_fused_modulation(const FieldSample &sample, const Prepared &prepared,
                          const ModulationState &modulation, float fraction)
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
     ColorSample result;
-    prepare_fused_modulation(result, sample, frame, prepared, modulation,
-                             fraction);
+    prepare_fused_modulation(result, sample, prepared, modulation, fraction);
     if constexpr (LAB_CACHE)
       restore_cached_palette_base_near_gamut_gate(result, [&] {
         restore_fused_palette_base(result, prepared, fraction);
@@ -1284,17 +1152,13 @@ public:
   }
 
   /** @brief Shades fused endpoints without returning a deferred carrier.
-   * @tparam FrameState Frame context.
    * @param sample Shared field coordinates.
-   * @param frame Frame context.
    * @param prepared Prepared palette endpoints.
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight.
    * @return Final straight-alpha color. */
-  template <typename FrameState>
   HS_HOT_ITCM_MEMBER static Color4
-  shade_fused_modulation(const FieldSample &sample, const FrameState &frame,
-                         const Prepared &prepared,
+  shade_fused_modulation(const FieldSample &sample, const Prepared &prepared,
                          const ModulationState &modulation, float fraction)
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
@@ -1362,8 +1226,7 @@ public:
             });
       }
     ColorSample result;
-    prepare_fused_modulation(result, sample, frame, prepared, modulation,
-                             fraction);
+    prepare_fused_modulation(result, sample, prepared, modulation, fraction);
     if constexpr (LAB_CACHE)
       return finish_fused_color(result, [&] {
         restore_fused_palette_base(result, prepared, fraction);
@@ -1373,15 +1236,239 @@ public:
   }
 
   /** @brief Produces the current color endpoint.
+   * @param sample Field coordinates.
+   * @param prepared Prepared endpoints.
+   * @return Color carrier. */
+  static ColorSample apply(const FieldSample &sample,
+                           const Prepared &prepared) {
+    return apply_endpoint(sample, prepared, false);
+  }
+};
+
+/** @brief Generated-palette policy with retained immutable endpoints.
+ * @tparam State Palette resource provider. */
+template <typename State> struct GeneratedPalette : ApproximationDefaults {
+  using SharedBaseOwner = GeneratedPalette<State>;  ///< Cache-contract owner.
+  using CachedPhaseOwner = GeneratedPalette<State>; ///< Direct finish owner.
+  static constexpr bool PHASE_BLEND_BASE = true;    ///< Common field controls.
+  /** @brief Checks the generated-palette provider contract.
+   * @tparam Binding Frame binding. */
+  template <typename Binding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ProviderFor<State, Binding> &&
+      requires(const typename Binding::FrameState &frame) {
+        {
+          State::mapping_weights(frame)
+        } -> std::same_as<PaletteMappingWeights>;
+        { State::mapping_frequency(frame) } -> std::same_as<float>;
+        { State::mapping_phase(frame) } -> std::same_as<float>;
+        { State::oscillation_depth(frame) } -> std::same_as<float>;
+        { State::oscillation_phase(frame) } -> std::same_as<float>;
+        { State::palette(frame) } -> std::same_as<const BakedPalette &>;
+        { State::hue_rotation(frame) } -> std::same_as<HueRotationLutView>;
+        {
+          State::brightness_envelope(frame)
+        } -> std::same_as<BrightnessEnvelope>;
+        { State::brightness_bottom(frame) } -> std::same_as<float>;
+        { State::brightness_top(frame) } -> std::same_as<float>;
+        { State::opacity_low(frame) } -> std::same_as<float>;
+        { State::opacity_high(frame) } -> std::same_as<float>;
+      };
+  static constexpr bool TEMPORAL =
+      requires(const typename State::Binding::FrameState &frame) {
+        State::temporal_resources(frame);
+      }; ///< Whether previous palettes are retained.
+  static constexpr bool LAB_CACHE =
+      requires(const typename State::Binding::FrameState &frame) {
+        State::palette_lab_lut(frame);
+      }; ///< Whether an RGB-first base cache is available.
+  static constexpr bool FUSED_TEMPORAL_COLOR = [] {
+    if constexpr (requires { State::FUSED_TEMPORAL_COLOR; })
+      return State::FUSED_TEMPORAL_COLOR;
+    else
+      return false;
+  }(); ///< Whether the effect admits one-carrier endpoint color blending.
+  static constexpr bool APPROXIMATE =
+      LAB_CACHE; ///< Optional base approximation.
+  static constexpr ApproximationOracleId ORACLE =
+      LAB_CACHE ? ApproximationOracleId::PALETTE_RGB_BLEND_TO_LAB_LUT
+                : ApproximationOracleId::NONE; ///< Exact RGB-first reference.
+  static constexpr auto METRICS = [] {
+    if constexpr (LAB_CACHE)
+      return std::array<ApproximationMetric, 3>{
+          {{ApproximationDomain::COLOR_CHANNEL,
+            ApproximationAggregation::MAXIMUM, 7000.0f, "channel code"},
+           {ApproximationDomain::COLOR_CHANNEL, ApproximationAggregation::MEAN,
+            256.0f, "channel code"},
+           {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
+            4000.0f, "channel code"}}};
+    else
+      return std::array<ApproximationMetric, 0>{};
+  }(); ///< Base-cache qualification bounds.
+  using Core = GeneratedPaletteCore<TEMPORAL, LAB_CACHE,
+                                    FUSED_TEMPORAL_COLOR>; ///< Sampling core.
+  using Prepared = typename Core::Prepared;                ///< Endpoint state.
+  /** @brief Finishes an eligible cached phase without a deferred carrier.
+   * @tparam Layer Canonical phase modulation policy.
+   * @param sample Shared field coordinates.
+   * @param prepared Prepared palette endpoints.
+   * @param modulation Prepared column phase.
+   * @param output Receives the final straight-alpha color.
+   * @return Whether the RGB cache supplied the final color. */
+  template <typename Layer>
+  HS_HOT_INLINE static bool
+  shade_cached_phase(const FieldSample &sample, const Prepared &prepared,
+                     const typename Layer::Prepared &modulation, Color4 &output)
+    requires(TEMPORAL && LAB_CACHE &&
+             std::is_base_of_v<PhaseModulationState, typename Layer::Prepared>)
+  {
+    return Color::shade_cached_phase<typename Layer::Prepared,
+                                     Layer::SINE_PHASE>(sample, prepared,
+                                                        modulation, output);
+  }
+  /** @brief Prepares immutable endpoint controls.
+   * @tparam FrameState Frame context.
+   * @param frame Current frame.
+   * @return Prepared palette endpoints. */
+  template <typename FrameState>
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    GeneratedPaletteState current{
+        State::mapping_weights(frame),
+        State::mapping_frequency(frame),
+        oscillated_mapping_offset(State::mapping_phase(frame),
+                                  State::oscillation_depth(frame),
+                                  State::oscillation_phase(frame)),
+        &State::palette(frame),
+        State::hue_rotation(frame),
+        State::brightness_envelope(frame),
+        State::brightness_bottom(frame),
+        State::brightness_top(frame),
+        State::opacity_low(frame),
+        State::opacity_high(frame)};
+    if constexpr (TEMPORAL) {
+      const auto resources = State::temporal_resources(frame);
+      auto previous = current;
+      previous.palette = resources.palette;
+      previous.hue_rotation.data = resources.hue_rotation;
+      previous.hue_rotation.gamut_mask = resources.hue_rotation_gamut;
+      TemporalGeneratedPaletteState result{current, previous,
+                                           resources.fraction};
+      if constexpr (LAB_CACHE)
+        if (const auto *cache = State::palette_lab_lut(frame))
+          result.lab = cache->view(resources.fraction);
+      return result;
+    } else
+      return current;
+  }
+  /** @brief Produces one color endpoint.
+   * @tparam FrameState Frame context.
+   * @param sample Field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared endpoints.
+   * @param previous Selects the retained endpoint.
+   * @return Color carrier. */
+  template <typename FrameState>
+  HS_HOT_INLINE static ColorSample
+  apply_endpoint(const FieldSample &sample, const FrameState &frame,
+                 const Prepared &prepared, bool previous) {
+    (void)frame;
+    return Core::apply_endpoint(sample, prepared, previous);
+  }
+  /** @brief Samples both palettes with their shared mapping and gain controls.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared endpoints.
+   * @return Retained endpoint followed by current endpoint. */
+  template <typename FrameState>
+  HS_HOT_INLINE static std::pair<ColorSample, ColorSample>
+  apply_pair(const FieldSample &sample, const FrameState &frame,
+             const Prepared &prepared)
+    requires TEMPORAL
+  {
+    (void)frame;
+    return Core::apply_pair(sample, prepared);
+  }
+  /** @brief Tries one cached base without fetching either palette.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared endpoint controls and cache view.
+   * @param output Receives the cached color carrier.
+   * @return Whether the cache supplied the base. */
+  template <typename FrameState>
+  HS_HOT_INLINE static bool
+  apply_shared_base(const FieldSample &sample, const FrameState &frame,
+                    const Prepared &prepared, ColorSample &output)
+    requires(TEMPORAL && LAB_CACHE)
+  {
+    (void)frame;
+    return Core::apply_shared_base(sample, prepared, output);
+  }
+  /** @brief Produces a cached base after column eligibility was checked.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared eligible cache view.
+   * @param output Receives the cached color carrier.
+   * @pre The base view is active and its fraction is inside (0, 1]. */
+  template <typename FrameState>
+  HS_HOT_INLINE static void
+  apply_shared_base_ready(const FieldSample &sample, const FrameState &frame,
+                          const Prepared &prepared, ColorSample &output)
+    requires(TEMPORAL && LAB_CACHE)
+  {
+    (void)frame;
+    Core::apply_shared_base_ready(sample, prepared, output);
+  }
+  /** @brief Blends palette and modulation endpoints into one guarded carrier.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared palette endpoints.
+   * @param modulation Prepared modulation endpoints.
+   * @param fraction Current endpoint weight.
+   * @return Deferred color after canonical endpoint blending. */
+  template <typename FrameState>
+  HS_HOT_INLINE static ColorSample
+  apply_fused_modulation(const FieldSample &sample, const FrameState &frame,
+                         const Prepared &prepared,
+                         const ModulationState &modulation, float fraction)
+    requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
+  {
+    (void)frame;
+    return Core::apply_fused_modulation(sample, prepared, modulation, fraction);
+  }
+  /** @brief Shades fused endpoints without returning a deferred carrier.
+   * @tparam FrameState Frame context.
+   * @param sample Shared field coordinates.
+   * @param frame Frame context.
+   * @param prepared Prepared palette endpoints.
+   * @param modulation Prepared modulation endpoints.
+   * @param fraction Current endpoint weight.
+   * @return Final straight-alpha color. */
+  template <typename FrameState>
+  HS_HOT_INLINE static Color4
+  shade_fused_modulation(const FieldSample &sample, const FrameState &frame,
+                         const Prepared &prepared,
+                         const ModulationState &modulation, float fraction)
+    requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
+  {
+    (void)frame;
+    return Core::shade_fused_modulation(sample, prepared, modulation, fraction);
+  }
+  /** @brief Produces the current color endpoint.
    * @tparam FrameState Frame context.
    * @param sample Field coordinates.
    * @param frame Frame context.
    * @param prepared Prepared endpoints.
    * @return Color carrier. */
   template <typename FrameState>
-  static ColorSample apply(const FieldSample &sample, const FrameState &frame,
-                           const Prepared &prepared) {
-    return apply_endpoint(sample, frame, prepared, false);
+  HS_HOT_INLINE static ColorSample apply(const FieldSample &sample,
+                                         const FrameState &frame,
+                                         const Prepared &prepared) {
+    (void)frame;
+    return Core::apply(sample, prepared);
   }
 };
 
