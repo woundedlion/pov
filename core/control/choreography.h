@@ -297,7 +297,7 @@ protected:
   using Effect::register_described_params;
 
   /** @brief Registers the derived effect's typed parameter descriptions. */
-  HS_FLASH_MEMBER void register_described_params() {
+  HS_SIZE_FLASH_MEMBER void register_described_params() {
     register_described_params<&ChoreographedEffect::parameter_fields_of>(
         params);
   }
@@ -330,7 +330,7 @@ protected:
    * @param H Canvas height in pixels.
    * @param cfg Effect configuration.
    */
-  HS_FLASH_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
+  HS_SIZE_FLASH_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
       : Effect(W, H, cfg) {
     static_assert(
         std::is_same_v<typename decltype(Derived::choreography_hooks())::Owner,
@@ -431,7 +431,7 @@ protected:
    * @brief Sets the preset count and registers a timeline-clear hook that
    *        cancels transitions. Call once from init().
    */
-  HS_FLASH_MEMBER void begin_choreography() {
+  HS_SIZE_FLASH_MEMBER void begin_choreography() {
     configure_presets(preset_count_of());
     timeline.add_clear_hook(this, [](void *context) {
       auto &effect = *static_cast<ChoreographedEffect *>(context);

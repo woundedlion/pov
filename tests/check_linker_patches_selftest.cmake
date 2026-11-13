@@ -39,4 +39,14 @@ string(REPLACE "*libgcc.a:*(.text .text.*)" "" changed "${baseline}")
 check_routing(missing_library "${changed}" "libgcc.*no longer routed by .text.code")
 string(REPLACE "*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))" "" changed "${baseline}")
 check_routing(missing_rodata "${changed}" "no longer routed by .text.progmem")
+set(setup_route_index 0)
+foreach(route IN ITEMS
+    "*(.text._ZN13PaletteCyclerC[12]Ev)"
+    "*(.text._ZN8Pullback16OuterCameraStateILb1EEC[12]Ev)"
+    "*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)")
+  string(REPLACE "${route}" "" changed "${baseline}")
+  check_routing("missing_setup_${setup_route_index}" "${changed}"
+    "no longer routed by .text.code")
+  math(EXPR setup_route_index "${setup_route_index} + 1")
+endforeach()
 message(STATUS "linker routing controls passed")

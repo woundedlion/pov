@@ -335,8 +335,8 @@ protected:
    * @param spec Range, options and flags.
    */
   template <typename T>
-  HS_FLASH_MEMBER void register_param(const char *name, T *ptr,
-                                      const ParamSpec<T> &spec) {
+  HS_SIZE_FLASH_MEMBER void register_param(const char *name, T *ptr,
+                                           const ParamSpec<T> &spec) {
     HS_CHECK(name != nullptr, "register_param: null parameter name");
     HS_CHECK(ptr != nullptr, "register_param: null target name=%s", name);
     const auto min = spec.min;
@@ -449,7 +449,7 @@ protected:
    * @param owner Aggregate the registered parameters target.
    */
   template <auto DESCRIBE, typename Owner>
-  HS_FLASH_MEMBER void register_described_params(Owner &owner) {
+  HS_SIZE_FLASH_MEMBER void register_described_params(Owner &owner) {
     if constexpr (requires { typename std::bool_constant<(DESCRIBE(), true)>; })
       register_described_entries<DESCRIBE>(
           owner,

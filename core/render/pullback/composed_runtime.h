@@ -204,7 +204,7 @@ public:
   }
 
   /** @brief Constructs the effect at W x H with its lens column-strobe mode. */
-  HS_FLASH_MEMBER ComposedEffect()
+  HS_SIZE_FLASH_MEMBER ComposedEffect()
       : Choreography(W, H, {.strobe = Metadata::STROBE_COLUMNS}) {}
 
   /**

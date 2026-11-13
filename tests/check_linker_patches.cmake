@@ -75,7 +75,10 @@ else()
     "*(.text._ZN8Pullback14ComposedEffectI*5StateC1Ev)"
     "*(.text._ZN8Pullback14ComposedEffectI*5StateC2Ev)"
     "*(.text._ZN9Spacetime12FrameHistoryI*C1Ev)"
-    "*(.text._ZN9Spacetime12FrameHistoryI*C2Ev)")
+    "*(.text._ZN9Spacetime12FrameHistoryI*C2Ev)"
+    "*(.text._ZN13PaletteCyclerC[12]Ev)"
+    "*(.text._ZN8Pullback16OuterCameraStateILb1EEC[12]Ev)"
+    "*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)")
   foreach(_spec IN LISTS _flash_text)
     string(FIND "${_script}" "${_spec}" _spec_at)
     if(_spec_at LESS _code_at OR NOT _spec_at LESS _progmem_at)
