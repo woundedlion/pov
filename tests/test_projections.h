@@ -20,6 +20,8 @@ namespace projections_tests {
 
 using namespace projections;
 
+inline constexpr float INV_SQRT_TWO = 0.7071067811865475f;
+
 constexpr float PEIRCE_QUARTER_PERIOD = 1.8540746773013719f;
 static_assert(std::size(AIROCEAN_CENTERS) == AIROCEAN_FACE_COUNT);
 static_assert(std::size(AIROCEAN_NORMALS) == AIROCEAN_FACE_COUNT);
@@ -353,7 +355,6 @@ inline void test_peirce_fast_square_rounded_pole_cap() {
 
 /** @brief The fast Peirce kernel matches exact values and metadata at seams and poles. */
 inline void test_peirce_fast_square_on_seams_and_poles() {
-  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   check_peirce_fast_square_matches_exact(math::Vector(0.0f, 1.0f, 0.0f));
   check_peirce_fast_square_matches_exact(math::Vector(0.0f, -1.0f, 0.0f));
   for (int latitude_step = -7; latitude_step <= 7; ++latitude_step) {
@@ -378,7 +379,6 @@ inline void test_peirce_fast_square_on_seams_and_poles() {
 inline void test_peirce_fast_square_ties_the_diagonal_band_to_its_seam() {
   // Inside peirce_sector_longitude's snap band the exact kernel folds the
   // azimuth onto the boundary; diagonal_tie labels those samples as the seam.
-  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float OFFSETS[] = {-1.0e-6f, -1.0e-7f, 1.0e-7f, 1.0e-6f};
   constexpr int QUADRANT_X[] = {1, -1, -1, 1};
   constexpr int QUADRANT_Z[] = {1, 1, -1, -1};
@@ -403,7 +403,6 @@ inline void test_peirce_fast_square_ties_the_diagonal_band_to_its_seam() {
 
 /** @brief Peirce edge distance vanishes at the map's four singularities. */
 inline void test_peirce_edge_distance_locates_the_singularities() {
-  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   // acos saturates at the singularity, so a float direction there lands one
   // sqrt-of-epsilon step out rather than exactly on zero.
   constexpr float SATURATION = 1e-3f;
@@ -444,7 +443,6 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
 
 /** @brief Square coordinates are the diamond rotated by pi/4 with the same region. */
 inline void test_peirce_square_is_the_rotated_diamond() {
-  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   for (int latitude_step = -8; latitude_step <= 8; ++latitude_step) {
     const float latitude = latitude_step * (0.5f * math::PI_F / 8.0f);
     for (int longitude_step = 0; longitude_step < 12; ++longitude_step) {

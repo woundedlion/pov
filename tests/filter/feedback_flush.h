@@ -7,6 +7,28 @@
 // Feedback rendering and spherical-field interpolation
 // ============================================================================
 
+/** @brief Owns one feedback style and its pipeline. */
+template <int W, int H> struct FeedbackFixture {
+  ::Feedback::Style style; ///< Filter configuration.
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipeline; ///< Borrows style.
+
+  explicit FeedbackFixture(const ::Feedback::Style &configured)
+      : style(configured), pipeline(Filter::Pixel::Feedback<W, H>(style)) {}
+  FeedbackFixture(const FeedbackFixture &) = delete;
+  FeedbackFixture &operator=(const FeedbackFixture &) = delete;
+};
+
+/** @brief Creates unity-fade feedback with optional style edits. */
+template <int W, int H, typename Overrides = std::identity>
+FeedbackFixture<W, H> feedback_fixture(Overrides overrides = {}) {
+  ::Feedback::Style style{};
+  style.noise = nullptr;
+  style.fade = 1.0f;
+  style.downsample = 4;
+  (void)overrides(style);
+  return FeedbackFixture<W, H>(style);
+}
+
 /** @brief Flushes one feedback frame and advances its display buffer. */
 inline void flush_once(hs_test::StubEffect &fx, auto &pipe) {
   {
@@ -88,12 +110,7 @@ inline void check_feedback_pole_sample(int row) {
   constexpr int W = 32, H = 16;
   constexpr Pixel POLE(12000, 30000, 50000);
   hs_test::StubEffect fx(W, H);
-  ::Feedback::Style style{};
-  style.noise = nullptr;
-  style.fade = 1.0f;
-  style.downsample = 4;
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>();
   {
     Canvas canvas(fx);
     canvas(W / 3, row) = POLE;
@@ -130,13 +147,8 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   const ScopedTemporalSampling one_frame(false);
   hs_test::StubEffect fx(W, H);
 
-  ::Feedback::Style style{};
-  style.noise = nullptr; // unbound noise_warp is the identity
-  style.fade = 1.0f;
-  style.downsample = 4;
-  style.pole_half_res = 1.0f;
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>(
+      [&](::Feedback::Style &style) { style.pole_half_res = 1.0f; });
 
   {
     Canvas c(fx);
@@ -203,12 +215,7 @@ inline void test_feedback_infill_rows_filter_within_arms() {
   const ScopedTemporalSampling column_time(true);
   hs_test::StubEffect fx(W, H);
 
-  ::Feedback::Style style{};
-  style.noise = nullptr; // unbound noise_warp is the identity
-  style.fade = 1.0f;
-  style.downsample = 4;
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>();
 
   constexpr int ROWS[] = {1, H - 2};
   {
@@ -246,13 +253,8 @@ inline void test_feedback_half_res_rows_interpolate_across_cuts() {
   const ScopedTemporalSampling column_time(true);
   hs_test::StubEffect fx(W, H);
 
-  ::Feedback::Style style{};
-  style.noise = nullptr; // unbound noise_warp is the identity
-  style.fade = 1.0f;
-  style.downsample = 4;
-  style.pole_half_res = 1.0f;
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>(
+      [&](::Feedback::Style &style) { style.pole_half_res = 1.0f; });
 
   constexpr int ROWS[] = {4, H - 5};
   auto field = [](int x) {
@@ -329,15 +331,11 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
 
   // Zero hue_shift isolates the spatial warp; with noise unbound melt_warp is
   // deterministic. speed=6 gives a multi-pixel southward shift.
-  ::Feedback::Style style{};
-  style.space_fn = &::Feedback::melt_warp;
-  style.noise = nullptr;
-  style.speed = 6.0f;
-  style.fade = 0.9f;
-  style.downsample = 4;
-
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+    style.space_fn = &::Feedback::melt_warp;
+    style.speed = 6.0f;
+    style.fade = 0.9f;
+  });
 
   // Frame 1: a full-width bright band (3 rows thick) becomes the "previous" frame.
   constexpr int R = 40; // band center, southern hemisphere
@@ -460,13 +458,10 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
 
-  ::Feedback::Style style{};
-  style.space_fn = &north_cap_rotation_warp;
-  style.fade = 1.0f;
-  style.downsample = DOWNSAMPLE;
-
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+    style.space_fn = &north_cap_rotation_warp;
+    style.downsample = DOWNSAMPLE;
+  });
 
   seed_row_ramp<W, H>(fx, ROW_SCALE);
 
@@ -502,13 +497,10 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
 
-  ::Feedback::Style style{};
-  style.space_fn = &animated_cap_rotation_warp;
-  style.fade = 1.0f;
-  style.downsample = DOWNSAMPLE;
-
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+    style.space_fn = &animated_cap_rotation_warp;
+    style.downsample = DOWNSAMPLE;
+  });
 
   for (float angle : {0.15f, 0.35f, -0.25f}) {
     animated_cap_rotation_angle = angle;
@@ -533,12 +525,9 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
 inline void test_feedback_poles_resolve_one_source_longitude() {
   constexpr int W = 64, H = 64;
   hs_test::StubEffect fx(W, H);
-  ::Feedback::Style style{};
-  style.space_fn = &north_cap_rotation_warp;
-  style.fade = 1.0f;
-  style.downsample = 4;
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+    style.space_fn = &north_cap_rotation_warp;
+  });
 
   {
     Canvas c(fx);
@@ -572,13 +561,10 @@ inline void test_feedback_half_res_warp_uses_pair_midpoint() {
   std::array<Pixel, W> full{};
   for (bool half_res : {false, true}) {
     hs_test::StubEffect fx(W, H);
-    ::Feedback::Style style{};
-    style.space_fn = &midpoint_test_warp;
-    style.fade = 1.0f;
-    style.downsample = 4;
-    style.pole_half_res = half_res ? 2.0f : 0.0f;
-    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-        Filter::Pixel::Feedback<W, H>(style)};
+    auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+      style.space_fn = &midpoint_test_warp;
+      style.pole_half_res = half_res ? 2.0f : 0.0f;
+    });
     {
       Canvas c(fx);
       for (int y = 0; y < H; ++y)
@@ -626,14 +612,11 @@ inline void test_feedback_spherical_ring_control_rows() {
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
 
-  ::Feedback::Style style{};
-  style.space_fn = &metric_row_test_warp;
-  style.fade = 1.0f;
-  style.downsample = DOWNSAMPLE;
-  style.pole_half_res = 0.0f; // every column holds its own sample
-
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+    style.space_fn = &metric_row_test_warp;
+    style.downsample = DOWNSAMPLE;
+    style.pole_half_res = 0.0f;
+  });
 
   seed_row_ramp<W, H>(fx, ROW_SCALE);
 
@@ -662,16 +645,9 @@ inline void test_feedback_init_storage_matches_storage_bytes() {
   style.space_fn = &metric_row_test_warp;
   style.downsample = 4;
 
-  constexpr size_t STORAGE = Filter::Pixel::Feedback<W, H>::STORAGE_BYTES;
-  constexpr size_t ALLOCATIONS =
-      Filter::Pixel::Feedback<W, H>::STORAGE_ALLOCATIONS;
   ScratchScope persistent_scope(persistent_arena);
   Filter::Pixel::Feedback<W, H> storage_probe(style);
-  const size_t before = persistent_arena.get_offset();
-  storage_probe.init_storage(persistent_arena);
-  const size_t allocated = persistent_arena.get_offset() - before;
-  HS_EXPECT_GE(allocated, STORAGE);
-  HS_EXPECT_LT(allocated, STORAGE + ALLOCATIONS * alignof(std::max_align_t));
+  check_feedback_storage_footprint(storage_probe, persistent_arena);
 }
 
 /**
@@ -875,13 +851,10 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
 
-  ::Feedback::Style style{};
-  style.space_fn = &opposed_seam_warp;
-  style.fade = 1.0f;
-  style.downsample = DOWNSAMPLE;
-
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+    style.space_fn = &opposed_seam_warp;
+    style.downsample = DOWNSAMPLE;
+  });
 
   seed_row_ramp<W, H>(fx, ROW_SCALE);
 
@@ -915,19 +888,16 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   Animation::NoiseParams noise;
   ScratchScope persistent_scope(persistent_arena);
 
-  ::Feedback::Style style{};
-  style.space_fn = &::Feedback::noise_warp;
-  style.noise = &noise;
-  style.amplitude = 10.0f;
-  style.frequency = 0.2f;
-  style.speed = 0.0f;
-  style.scale = 8.0f;
-  style.fade = 1.0f;
-  style.downsample = DOWNSAMPLE;
-  style.sync_noise();
-
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+    style.space_fn = &::Feedback::noise_warp;
+    style.noise = &noise;
+    style.amplitude = 10.0f;
+    style.frequency = 0.2f;
+    style.speed = 0.0f;
+    style.scale = 8.0f;
+    style.downsample = DOWNSAMPLE;
+    style.sync_noise();
+  });
   pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
   // The reference is the exact target row; the lattice interpolates it.
   // Column 0 sits on a polar sample; other columns interpolate between the
@@ -1136,14 +1106,9 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   const ScopedTemporalSampling one_frame(false);
   hs_test::StubEffect fx(W, H);
 
-  ::Feedback::Style style{};
-  style.space_fn = &antipodal_ripple_warp;
-  style.fade = 1.0f;
-  style.noise = nullptr;
-  style.downsample = 4;
-
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-      Filter::Pixel::Feedback<W, H>(style)};
+  auto [style, pipe] = feedback_fixture<W, H>([&](::Feedback::Style &style) {
+    style.space_fn = &antipodal_ripple_warp;
+  });
 
   // Frame 1: seam-continuous longitude encoding becomes the "previous" frame.
   {
@@ -1194,12 +1159,11 @@ inline void test_feedback_translucent_flush_matches_opaque_blend() {
     const ScopedTemporalSampling sampling(false);
     ScopedArenaSplit split(4096, 131072, 131072);
     StubEffect effect(W, H);
-    ::Feedback::Style style{};
-    style.fade = 0.83f;
-    style.downsample = 4;
-    style.pole_half_res = 0;
-    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipeline{
-        Filter::Pixel::Feedback<W, H>(style)};
+    auto [style, pipeline] =
+        feedback_fixture<W, H>([&](::Feedback::Style &style) {
+          style.fade = 0.83f;
+          style.pole_half_res = 0;
+        });
     {
       Canvas canvas(effect);
       for (int y = 0; y < H; ++y)
@@ -1254,14 +1218,13 @@ inline void test_feedback_custom_color_receives_elapsed_fade() {
     ScopedArenaSplit split(4096, 131072, 131072);
     const ScopedTemporalSampling sampling(temporal);
     StubEffect effect(W, H);
-    ::Feedback::Style style{};
-    style.fade = 0.8f;
-    style.downsample = 4;
-    style.pole_half_res = 0;
-    style.space_fn = &FeedbackFadeProbe::warp;
-    style.color_fn = &FeedbackFadeProbe::color;
-    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipeline{
-        Filter::Pixel::Feedback<W, H>(style)};
+    auto [style, pipeline] =
+        feedback_fixture<W, H>([&](::Feedback::Style &style) {
+          style.fade = 0.8f;
+          style.pole_half_res = 0;
+          style.space_fn = &FeedbackFadeProbe::warp;
+          style.color_fn = &FeedbackFadeProbe::color;
+        });
     {
       Canvas canvas(effect);
       for (int y = 0; y < H; ++y)

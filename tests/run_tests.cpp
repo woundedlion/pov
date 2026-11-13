@@ -7,6 +7,10 @@
  */
 #include "tests/module_registry.h"
 
+// Roster rows are X("name", entry_point, true|false); names and entry points
+// contain letters, digits and underscores; entries may be namespace-qualified.
+// CMake reads this block up to
+// HS_TEST_MODULE_ENTRY; rows may wrap with whitespace and continuation slashes.
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", run_3dmath_tests, false)                                         \
   X("concepts", run_concepts_tests, false)                                     \

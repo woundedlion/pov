@@ -3,6 +3,20 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @brief Longitude step in radians for a display width. */
+template <int W> inline constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
+
+/** @brief Samples an unnormalized great-circle arc using libm.
+ * @param start Arc origin.
+ * @param tangent Unit tangent at the origin.
+ * @param angle Angular distance in radians.
+ * @return Analytic arc sample. */
+inline math::Vector sample_reference_arc(const math::Vector &start,
+                                         const math::Vector &tangent,
+                                         float angle) {
+  return start * cosf(angle) + tangent * sinf(angle);
+}
+
 // ---------------------------------------------------------------------------
 // Local arena for sampling.
 // ---------------------------------------------------------------------------

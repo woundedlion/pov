@@ -9,6 +9,28 @@ function(hs_strip_cxx_noise variable)
   set(${variable} "${_text}" PARENT_SCOPE)
 endfunction()
 
+# Return name|entry|effects_tier rows from the dispatcher macro block.
+function(hs_parse_test_roster path output)
+  file(READ "${path}" _text)
+  hs_strip_cxx_noise(_text KEEP_STRINGS)
+  string(FIND "${_text}" "#define HS_TEST_MODULE_LIST(X)" _begin)
+  string(FIND "${_text}" "#define HS_TEST_MODULE_ENTRY" _end)
+  if(_begin LESS 0 OR _end LESS _begin)
+    message(FATAL_ERROR "cannot find the HS_TEST_MODULE_LIST block in ${path}")
+  endif()
+  math(EXPR _span "${_end} - ${_begin}")
+  string(SUBSTRING "${_text}" ${_begin} ${_span} _roster)
+  string(REGEX MATCHALL "X\\(\"[A-Za-z0-9_]+\",[ \t\r\n\\]*[A-Za-z0-9_:]+,[ \t\r\n\\]*(true|false)\\)"
+    _rows "${_roster}")
+  set(_records "")
+  foreach(_row IN LISTS _rows)
+    string(REGEX REPLACE "X\\(\"([A-Za-z0-9_]+)\",[ \t\r\n\\]*([A-Za-z0-9_:]+),[ \t\r\n\\]*(true|false)\\)"
+      "\\1|\\2|\\3" _record "${_row}")
+    list(APPEND _records "${_record}")
+  endforeach()
+  set(${output} "${_records}" PARENT_SCOPE)
+endfunction()
+
 # Expand module-owned section headers into their owning test header.
 
 function(hs_test_section_owner part owner_output explicit_output)

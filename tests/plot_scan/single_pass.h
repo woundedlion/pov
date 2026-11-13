@@ -122,7 +122,6 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
  */
 inline void test_rasterize_single_pass_planar_matches_two_pass() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -154,7 +153,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
 
   HS_EXPECT_GT(single.plotted.size(), (size_t)10);
   HS_EXPECT_LE(max_consecutive_gap(single.plotted, /*wrap=*/false),
-               1.5f * BASE_STEP);
+               1.5f * BASE_STEP<W>);
   for (const math::Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   if (single.plotted.empty())
@@ -168,7 +167,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + 2);
   HS_EXPECT_GE(single.plotted.size() + 2, cached.plotted.size());
   for (const math::Vector &p : single.plotted) {
-    HS_EXPECT_LE(nearest_angle(p, cached.plotted), BASE_STEP);
+    HS_EXPECT_LE(nearest_angle(p, cached.plotted), BASE_STEP<W>);
   }
 }
 
@@ -177,7 +176,6 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
  */
 inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -210,7 +208,7 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
 
   HS_EXPECT_GT(single.plotted.size(), (size_t)20);
   HS_EXPECT_LE(max_consecutive_gap(single.plotted, /*wrap=*/true),
-               1.5f * BASE_STEP);
+               1.5f * BASE_STEP<W>);
   for (const math::Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + points.size());
@@ -219,25 +217,24 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
     return;
   HS_EXPECT_LE(
       math::angle_between(single.plotted.front(), single.plotted.back()),
-      1.5f * BASE_STEP);
+      1.5f * BASE_STEP<W>);
   const math::Vector seam_delta = single.plotted.back() - points[0].pos;
   HS_EXPECT_GT(math::dot(seam_delta, seam_delta), 1e-10f);
   for (const math::Vector &p : single.plotted) {
-    HS_EXPECT_LE(nearest_angle(p, cached.plotted), BASE_STEP);
+    HS_EXPECT_LE(nearest_angle(p, cached.plotted), BASE_STEP<W>);
   }
 }
 
 /** @brief Endpoint-aware single-pass steps match constant-speed replay. */
 inline void test_rasterize_single_pass_balances_terminal_interval() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 2);
 
   math::Vector start(1.0f, 0.0f, 0.0f);
   math::Vector tangent(0.0f, 0.0f, 1.0f);
-  float desired_step = Plot::screen_step<W, H>(start, tangent, BASE_STEP);
+  float desired_step = Plot::screen_step<W, H>(start, tangent, BASE_STEP<W>);
   float arc = desired_step * 1.01f;
   Fragment a, b;
   a.pos = start;
@@ -278,7 +275,6 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
  */
 inline void test_rasterize_step_budget_backstop_finishes_segment() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   constexpr size_t BUDGET = 16;
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -330,7 +326,7 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
                    1e-3f);
     HS_EXPECT_LE(capture->plotted.size(), 2 * BUDGET);
     HS_EXPECT_LE(max_consecutive_gap(capture->plotted, /*wrap=*/false),
-                 2.5f * BASE_STEP);
+                 2.5f * BASE_STEP<W>);
   }
   const float single_gap = max_consecutive_gap(single.plotted, /*wrap=*/false);
   const float cached_gap = max_consecutive_gap(cached.plotted, /*wrap=*/false);
@@ -391,16 +387,13 @@ inline void test_rasterize_default_sampling_policy_parity() {
       Plot::planar_chart_basis(math::get_antipode(shape_basis, RADIUS).first.v);
 
   auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
-    hs_test::StubEffect fx(W, H);
-    AlphaCapturePipeline pipeline;
-    Canvas canvas(fx);
     auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
     };
-    Plot::rasterize<W, H,
-                    Plot::RasterConfig{.single_pass = true,
-                                       .sampling_policy = Policy}>(
-        pipeline, canvas, points, shader,
+    auto pipeline = capture_raster_policy<
+        W, H,
+        Plot::RasterConfig{.single_pass = true, .sampling_policy = Policy}>(
+        points, shader,
         {.projection = Plot::RasterProjection::planar(planar_basis),
          .omit_end = true,
          .balanced_sampling = Policy == Plot::RasterSamplingPolicy::BALANCED});
@@ -466,7 +459,6 @@ inline void test_rasterize_balanced_sampling_scope() {
 /** @brief Balanced long edges trade sample density for alpha-weighted coverage. */
 inline void test_rasterize_balanced_sampling_density_and_alpha() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = 2.0f * math::PI_F / W;
   const math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   ScratchScope sc(plot_arena());
@@ -491,10 +483,10 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   const Plot::PlanarEdgeSampler sampler = planar_sampler(a.pos, b.pos, basis);
   const Plot::SamplePT first = sampler.one_pass(0.0f);
   const float default_step =
-      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP);
+      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP<W>);
   const float candidate_step =
-      std::min(BASE_STEP, default_step * (Plot::BALANCED_SCREEN_STEP_PX /
-                                          Plot::SCREEN_STEP_PX));
+      std::min(BASE_STEP<W>, default_step * (Plot::BALANCED_SCREEN_STEP_PX /
+                                             Plot::SCREEN_STEP_PX));
   HS_EXPECT_TRUE(!standard.alphas.empty() && !balanced.alphas.empty());
   if (standard.alphas.empty() || balanced.alphas.empty())
     return;
@@ -526,19 +518,18 @@ inline void test_rasterize_balanced_pole_guard() {
   constexpr float POLICY_TOL = 1e-4f;
   auto shader = white_shader(0.4f);
   auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
-    AlphaCapturePipeline result;
-    hs_test::StubEffect fx(W, H);
-    Canvas canvas(fx);
-    Plot::rasterize<W, H,
-                    Plot::RasterConfig{.single_pass = true,
-                                       .derive_planar_arc_registers = false,
-                                       .interpolate_registers = false,
-                                       .sampling_policy = Policy}>(
-        result, canvas, points, shader,
-        {.projection = Plot::RasterProjection::planar(basis),
-         .balanced_sampling =
-             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
-    return result;
+    auto pipeline =
+        capture_raster_policy<W, H,
+                              Plot::RasterConfig{.single_pass = true,
+                                                 .derive_planar_arc_registers =
+                                                     false,
+                                                 .interpolate_registers = false,
+                                                 .sampling_policy = Policy}>(
+            points, shader,
+            {.projection = Plot::RasterProjection::planar(basis),
+             .balanced_sampling =
+                 Policy == Plot::RasterSamplingPolicy::SELECTABLE});
+    return pipeline;
   };
   const auto pipeline =
       capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
@@ -561,7 +552,6 @@ inline void test_rasterize_balanced_pole_guard() {
  */
 inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = 2.0f * math::PI_F / W;
   constexpr float POLICY_TOL = 1e-4f;
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -573,20 +563,19 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   points.push_back(b);
 
   auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
-    hs_test::StubEffect fx(W, H);
-    AlphaCapturePipeline pipeline;
-    Canvas canvas(fx);
     Plot::g_planar_full_samples = 0;
     Plot::g_planar_position_samples = 0;
     auto shader = white_shader(0.4f);
-    Plot::rasterize<W, H,
-                    Plot::RasterConfig{.single_pass = true,
-                                       .derive_planar_arc_registers = false,
-                                       .interpolate_registers = false,
-                                       .sampling_policy = Policy}>(
-        pipeline, canvas, points, shader,
-        {.balanced_sampling =
-             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
+    auto pipeline =
+        capture_raster_policy<W, H,
+                              Plot::RasterConfig{.single_pass = true,
+                                                 .derive_planar_arc_registers =
+                                                     false,
+                                                 .interpolate_registers = false,
+                                                 .sampling_policy = Policy}>(
+            points, shader,
+            {.balanced_sampling =
+                 Policy == Plot::RasterSamplingPolicy::SELECTABLE});
     HS_EXPECT_EQ(Plot::g_planar_full_samples, uint32_t{0});
     HS_EXPECT_EQ(Plot::g_planar_position_samples, uint32_t{0});
     return pipeline;
@@ -606,12 +595,12 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
                                           es.total};
   const Plot::SamplePT first = sampler(0.0f);
   const float default_step =
-      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP);
-  HS_EXPECT_GT(default_step, BASE_STEP * Plot::MIN_POLE_SCALE *
+      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP<W>);
+  HS_EXPECT_GT(default_step, BASE_STEP<W> * Plot::MIN_POLE_SCALE *
                                  Plot::BALANCED_POLE_GUARD_SCALE);
   const float candidate_step =
-      std::min(BASE_STEP, default_step * (Plot::BALANCED_SCREEN_STEP_PX /
-                                          Plot::SCREEN_STEP_PX));
+      std::min(BASE_STEP<W>, default_step * (Plot::BALANCED_SCREEN_STEP_PX /
+                                             Plot::SCREEN_STEP_PX));
   HS_EXPECT_GT(candidate_step, default_step);
   HS_EXPECT_TRUE(!standard.alphas.empty() && !balanced.alphas.empty());
   if (standard.alphas.empty() || balanced.alphas.empty())
@@ -639,7 +628,6 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
  */
 inline void test_rasterize_balanced_high_alpha_saturates() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = 2.0f * math::PI_F / W;
   constexpr float ALPHA = 0.95f;
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -651,17 +639,15 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
   points.push_back(b);
 
   auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
-    hs_test::StubEffect fx(W, H);
-    AlphaCapturePipeline pipeline;
-    Canvas canvas(fx);
     auto shader = white_shader(ALPHA);
-    Plot::rasterize<W, H,
-                    Plot::RasterConfig{.single_pass = true,
-                                       .sampling_policy = Policy}>(
-        pipeline, canvas, points, shader,
-        {.omit_end = true,
-         .balanced_sampling =
-             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
+    auto pipeline =
+        capture_raster_policy<W, H,
+                              Plot::RasterConfig{.single_pass = true,
+                                                 .sampling_policy = Policy}>(
+            points, shader,
+            {.omit_end = true,
+             .balanced_sampling =
+                 Policy == Plot::RasterSamplingPolicy::SELECTABLE});
     return pipeline;
   };
   const AlphaCapturePipeline standard =
@@ -674,12 +660,12 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
                                           es.total};
   const Plot::SamplePT first = sampler(0.0f);
   const float default_step =
-      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP);
-  HS_EXPECT_GT(default_step, BASE_STEP * Plot::MIN_POLE_SCALE *
+      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP<W>);
+  HS_EXPECT_GT(default_step, BASE_STEP<W> * Plot::MIN_POLE_SCALE *
                                  Plot::BALANCED_POLE_GUARD_SCALE);
   HS_EXPECT_LE(default_step *
                    (Plot::BALANCED_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX),
-               BASE_STEP);
+               BASE_STEP<W>);
   HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
   HS_EXPECT_GT(balanced.alphas.size(), size_t{4});
   for (float alpha : standard.alphas)

@@ -115,6 +115,23 @@ constexpr std::array<std::array<int, 4>, 4> quadrant_wedge_clips() {
            {0, H, 0, 8}}};
 }
 
+/** @brief Captures raster samples for one compile-time sampling configuration.
+ * @tparam Config Rasterizer configuration.
+ * @param points Polyline to rasterize.
+ * @param shader Fragment shader.
+ * @param options Projection, endpoint and sampling controls.
+ * @return Recorded sample positions and alphas. */
+template <int W, int H, Plot::RasterConfig Config, typename Shader>
+AlphaCapturePipeline capture_raster_policy(const Fragments &points,
+                                           Shader shader,
+                                           const Plot::RasterOptions &options) {
+  hs_test::StubEffect fx(W, H);
+  AlphaCapturePipeline pipeline;
+  Canvas canvas(fx);
+  Plot::rasterize<W, H, Config>(pipeline, canvas, points, shader, options);
+  return pipeline;
+}
+
 /**
  * @brief Captures a single-pass planar raster of white alpha-0.4 fragments.
  * @tparam Policy Sampling policy; SELECTABLE also enables balanced sampling.
@@ -125,15 +142,11 @@ constexpr std::array<std::array<int, 4>, 4> quadrant_wedge_clips() {
 template <int W, int H, Plot::RasterSamplingPolicy Policy>
 inline AlphaCapturePipeline
 capture_planar_alpha_policy(const Fragments &points, const math::Basis &basis) {
-  hs_test::StubEffect fx(W, H);
-  AlphaCapturePipeline pipeline;
-  Canvas canvas(fx);
-  Plot::rasterize<
+  return capture_raster_policy<
       W, H, Plot::RasterConfig{.single_pass = true, .sampling_policy = Policy}>(
-      pipeline, canvas, points, white_shader(0.4f),
+      points, white_shader(0.4f),
       {.projection = Plot::RasterProjection::planar(basis),
        .balanced_sampling = Policy == Plot::RasterSamplingPolicy::SELECTABLE});
-  return pipeline;
 }
 
 /**

@@ -48,7 +48,6 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
  */
 inline void test_rasterize_open_segment_gap_free() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -70,7 +69,7 @@ inline void test_rasterize_open_segment_gap_free() {
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)10);
   // Adaptive sub-stepping caps each advance at ~base_step (slack for quantization).
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
-               1.5f * BASE_STEP);
+               1.5f * BASE_STEP<W>);
   HS_EXPECT_TRUE(!pipe.plotted.empty());
   if (pipe.plotted.empty())
     return;
@@ -87,7 +86,6 @@ inline void test_rasterize_open_segment_gap_free() {
  */
 inline void test_rasterize_closed_loop_gap_free_no_dup() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -113,7 +111,7 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)20);
   // Continuity all the way around, including the last->first seam.
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/true),
-               1.5f * BASE_STEP);
+               1.5f * BASE_STEP<W>);
   // No vertex plotted twice: consecutive samples stay distinct.
   for (size_t i = 0; i < pipe.plotted.size(); ++i) {
     const math::Vector delta =
@@ -172,7 +170,6 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
  */
 inline void test_rasterize_planar_segment_gap_free_arclength() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -203,7 +200,7 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   if (pipe.plotted.empty())
     return;
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
-               1.5f * BASE_STEP);
+               1.5f * BASE_STEP<W>);
   // Endpoints land within PlanarEdgeSampler's project/unproject round-trip error.
   HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-2f);
   HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-2f);

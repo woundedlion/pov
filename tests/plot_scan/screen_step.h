@@ -15,7 +15,6 @@
  */
 inline void test_screen_step_matches_analytic_unclamped() {
   constexpr int W = 288, H = 144;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   const float KX = W / (2.0f * math::PI_F);
   const float KY = math::DisplayGeometry<H>::ROWS_PER_RADIAN;
 
@@ -52,19 +51,19 @@ inline void test_screen_step_matches_analytic_unclamped() {
       {pos_off, tan_mixed},
   };
 
-  const float LO = BASE_STEP * Plot::MIN_POLE_SCALE;
+  const float LO = BASE_STEP<W> * Plot::MIN_POLE_SCALE;
   for (const Case &c : cases) {
     float speed = screen_speed(c.pos, c.tan);
     float expected = Plot::SCREEN_STEP_PX / speed;
     // Unclamped regime guard: the analytic step sits strictly inside the window.
     HS_EXPECT_GT(expected, LO);
-    HS_EXPECT_LT(expected, BASE_STEP);
+    HS_EXPECT_LT(expected, BASE_STEP<W>);
 
-    float got = Plot::screen_step<W, H>(c.pos, c.tan, BASE_STEP);
+    float got = Plot::screen_step<W, H>(c.pos, c.tan, BASE_STEP<W>);
     HS_EXPECT_NEAR(got, expected, expected * 2e-3f);
 
     // Speed squares the tangent, so the sign drops out.
-    float flipped = Plot::screen_step<W, H>(c.pos, c.tan * -1.0f, BASE_STEP);
+    float flipped = Plot::screen_step<W, H>(c.pos, c.tan * -1.0f, BASE_STEP<W>);
     HS_EXPECT_NEAR(flipped, got, 1e-6f);
   }
 }
@@ -78,7 +77,6 @@ inline void test_screen_step_matches_analytic_unclamped() {
  */
 inline void test_edge_fits_one_dot_is_conservative() {
   constexpr int W = 288, H = 144;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs::random().seed(20260720);
 
   int accepted = 0;
@@ -100,7 +98,7 @@ inline void test_edge_fits_one_dot_is_conservative() {
     if (t.length() < 1e-3f)
       continue;
     t = t.normalized();
-    float theta = BASE_STEP * std::pow(10.0f, hs::rand_f(-4.0f, 0.5f));
+    float theta = BASE_STEP<W> * std::pow(10.0f, hs::rand_f(-4.0f, 0.5f));
     math::Vector b = (a * std::cos(theta) + t * std::sin(theta)).normalized();
 
     if (!Plot::edge_fits_one_dot<W, H>(a, b))
@@ -111,7 +109,7 @@ inline void test_edge_fits_one_dot_is_conservative() {
     HS_EXPECT_GE(total, math::EPS_GEOMETRIC);
     math::Vector axis = math::cross(a, b).normalized();
     math::Vector v_perp = math::cross(axis, a);
-    float first_step = Plot::screen_step<W, H>(a, v_perp, BASE_STEP);
+    float first_step = Plot::screen_step<W, H>(a, v_perp, BASE_STEP<W>);
     HS_EXPECT_LE(total, first_step);
   }
   HS_EXPECT_GT(accepted, 500);

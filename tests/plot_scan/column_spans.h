@@ -140,7 +140,7 @@ inline void test_col_span_covers_arc() {
     constexpr int N = 1000;
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      math::Vector p = a * cosf(ang * t) + vperp * sinf(ang * t);
+      math::Vector p = sample_reference_arc(a, vperp, ang * t);
       ++geodesic_samples;
       geodesic_escapes += !contains(s, len, col_of(p));
     }
@@ -175,7 +175,7 @@ inline void test_col_span_covers_arc() {
     constexpr int N = 1000;
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      math::Vector p = a * cosf(math::PI_F * t) + vperp * sinf(math::PI_F * t);
+      math::Vector p = sample_reference_arc(a, vperp, math::PI_F * t);
       ++antipodal_samples;
       antipodal_escapes += !contains(s, len, col_of(p));
     }
@@ -302,7 +302,7 @@ inline void test_edge_visible_in_clip_is_conservative() {
         for (int k = 1; k <= SAMPLES && !reached; ++k) {
           const float angle = es.total * (static_cast<float>(k) / SAMPLES);
           reached =
-              taps_in_clip<TW, TH>(cr, a * cosf(angle) + tangent * sinf(angle));
+              taps_in_clip<TW, TH>(cr, sample_reference_arc(a, tangent, angle));
         }
       }
       HS_EXPECT_TRUE(got || !reached);
@@ -949,7 +949,7 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
           const auto tangent = math::cross(span.axis, a);
           for (int sample = 0; sample <= 4096; ++sample) {
             const float angle = span.total * (sample / 4096.0f);
-            const auto sample_pos = a * cosf(angle) + tangent * sinf(angle);
+            const auto sample_pos = sample_reference_arc(a, tangent, angle);
             HS_EXPECT_FALSE((taps_in_clip<W, H>(cr, sample_pos)));
           }
         }

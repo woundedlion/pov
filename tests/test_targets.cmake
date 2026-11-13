@@ -1,3 +1,5 @@
+include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
+
 # Native module objects are shared by the umbrella and dependency-local runners.
 add_library(hs_test_process OBJECT process_setup.cpp)
 _hs_warnings(hs_test_process)
@@ -58,13 +60,11 @@ set(_hs_module_targets run_tests hs_test_main)
 
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp" ${_hs_test_group_sources})
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp" _hs_roster_source)
-string(REGEX MATCHALL "X\\(\"[A-Za-z0-9_]+\",[ \t\r\n\\]*[A-Za-z0-9_]+,[ \t\r\n\\]*(true|false)\\)"
-  _hs_roster_rows "${_hs_roster_source}")
+hs_parse_test_roster("${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp" _hs_roster_rows)
 # render_hashes renders every roster effect at every preset, the costliest
 # group to compile, and only prints hashes for tools/render_diff.sh: it stays
 # out of run_tests and the default build, and excluded_targets compiles it.
-list(APPEND _hs_roster_rows "X(\"render_hashes\", run_render_hashes_tests, false)")
+list(APPEND _hs_roster_rows "render_hashes|run_render_hashes_tests|false")
 set(_hs_group_source_render_hashes "${CMAKE_CURRENT_SOURCE_DIR}/run_render_hashes_tests.cpp")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_hs_group_source_render_hashes}")
 _hs_case_object(render_hashes "${_hs_group_source_render_hashes}")
@@ -82,7 +82,7 @@ function(_hs_module_executable target)
   set(_declarations "")
   set(_rows "")
   foreach(_row IN LISTS _hs_roster_rows)
-    string(REGEX REPLACE "X\\(\"([A-Za-z0-9_]+)\",[ \t\r\n\\]*([A-Za-z0-9_]+),[ \t\r\n\\]*(true|false)\\)" "\\1;\\2;\\3" _fields "${_row}")
+    string(REPLACE "|" ";" _fields "${_row}")
     list(GET _fields 0 _name)
     list(GET _fields 1 _entry)
     list(GET _fields 2 _tier)

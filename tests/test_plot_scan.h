@@ -5,6 +5,8 @@
  * Unit tests for plotting, column scans, clipping and space-time helpers.
  */
 #pragma once
+#include <cstdio>
+#include <optional>
 #include <array>
 #include "tests/pixel_test_util.h"
 #include "tests/temporal_oracle.h"

@@ -67,7 +67,7 @@ inline void test_row_span_covers_arc_bulge() {
       math::Vector p =
           planar ? Plot::azimuthal_unproject(p1.x + (p2.x - p1.x) * t,
                                              p1.y + (p2.y - p1.y) * t, basis)
-                 : (a * cosf(ang * t) + vperp * sinf(ang * t));
+                 : (sample_reference_arc(a, vperp, ang * t));
       float r = row_of(p);
       t_lo = std::min(t_lo, r);
       t_hi = std::max(t_hi, r);
@@ -109,7 +109,7 @@ inline void test_row_span_covers_arc_bulge() {
     constexpr int N = 2000;
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      math::Vector p = a * cosf(math::PI_F * t) + vperp * sinf(math::PI_F * t);
+      math::Vector p = sample_reference_arc(a, vperp, math::PI_F * t);
       float r = row_of(p);
       t_lo = std::min(t_lo, r);
       t_hi = std::max(t_hi, r);

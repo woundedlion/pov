@@ -5,6 +5,7 @@
  * Unit tests for core/render/filter.h.
  */
 #pragma once
+#include <functional>
 
 #include "tests/vec_test_util.h"
 

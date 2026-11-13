@@ -29,16 +29,7 @@ foreach(_inc IN LISTS _all_includes)
   endif()
 endforeach()
 
-# Count roster rows inside the HS_TEST_MODULE_LIST block only.
-string(FIND "${_text}" "#define HS_TEST_MODULE_LIST(X)" _begin)
-string(FIND "${_text}" "#define HS_TEST_MODULE_ENTRY" _end)
-if(_begin LESS 0 OR _end LESS _begin)
-  message(FATAL_ERROR
-    "cannot find the HS_TEST_MODULE_LIST block in ${SRC}")
-endif()
-math(EXPR _span "${_end} - ${_begin}")
-string(SUBSTRING "${_text}" ${_begin} ${_span} _roster)
-string(REGEX MATCHALL "X\\(\"[A-Za-z0-9_]+\"" _rows "${_roster}")
+hs_parse_test_roster("${SRC}" _rows)
 
 list(LENGTH _includes _ninc)
 list(LENGTH _rows _nrow)
@@ -50,11 +41,11 @@ if(NOT _ninc EQUAL _nrow)
     "silently; add the row or drop the orphaned include.")
 endif()
 
-string(REGEX MATCHALL "X\\(\"[A-Za-z0-9_]+\",[ \t\r\n\\]*[A-Za-z0-9_:]+"
-  _function_rows "${_roster}")
 set(_roster_functions "")
-foreach(_row IN LISTS _function_rows)
-  string(REGEX REPLACE ".*[ ,:](run_[A-Za-z0-9_]+_tests)$" "\\1" _function "${_row}")
+foreach(_row IN LISTS _rows)
+  string(REPLACE "|" ";" _fields "${_row}")
+  list(GET _fields 1 _function)
+  string(REGEX REPLACE "^.*::" "" _function "${_function}")
   if(_function IN_LIST _roster_functions)
     message(FATAL_ERROR "duplicate module entry point in roster: ${_function}")
   endif()

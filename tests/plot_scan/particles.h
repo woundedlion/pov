@@ -701,7 +701,6 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
  */
 inline void test_particle_system_subpixel_trail_dot_parity() {
   constexpr int W = 96, H = 48;
-  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   hs::random().seed(20260720);
 
   StubSystem sys;
@@ -717,7 +716,7 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
     for (int k = 0; k < 12; ++k) {
       p.history.record(v);
       const math::Vector step = rand_cube_vector();
-      v = (v + step * (BASE_STEP * 0.2f)).normalized();
+      v = (v + step * (BASE_STEP<W> * 0.2f)).normalized();
     }
     sys.pool.push_back(p);
   }

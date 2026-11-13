@@ -142,6 +142,22 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
   HS_EXPECT_TRUE(cache.holds(moved));
 }
 
+/** @brief Checks feedback storage including per-allocation alignment padding.
+ * @param feedback Filter whose cache storage is initialized.
+ * @param arena Arena supplying persistent storage.
+ * @return Allocated byte count. */
+template <typename Feedback>
+size_t check_feedback_storage_footprint(Feedback &feedback, Arena &arena) {
+  const size_t before = arena.get_offset();
+  feedback.init_storage(arena);
+  const size_t allocated = arena.get_offset() - before;
+  HS_EXPECT_GE(allocated, Feedback::STORAGE_BYTES);
+  HS_EXPECT_LT(allocated,
+               Feedback::STORAGE_BYTES +
+                   Feedback::STORAGE_ALLOCATIONS * alignof(std::max_align_t));
+  return allocated;
+}
+
 /** @brief Persistent feedback allocation follows lattice samples rather than rectangular cells. */
 inline void test_feedback_cache_storage_matches_lattice_samples() {
   reset_globals();
@@ -155,9 +171,8 @@ inline void test_feedback_cache_storage_matches_lattice_samples() {
   HS_EXPECT_EQ(Feedback::CACHE_ORIGIN_SAMPLES, FIELD.sample_count());
   ::Feedback::Style style{};
   Feedback feedback(style);
-  const size_t before = persistent_arena.get_offset();
-  feedback.init_storage(persistent_arena);
-  HS_EXPECT_EQ(persistent_arena.get_offset() - before, Feedback::STORAGE_BYTES);
+  HS_EXPECT_EQ(check_feedback_storage_footprint(feedback, persistent_arena),
+               Feedback::STORAGE_BYTES);
   std::printf("  feedback origins: cells=%d samples=%d saved=%zu bytes\n",
               CELLS, FIELD.sample_count(),
               (CELLS - FIELD.sample_count()) * sizeof(Layout::Coordinates));

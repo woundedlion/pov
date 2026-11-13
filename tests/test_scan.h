@@ -6,6 +6,11 @@
  * callbacks, and pixel sinks.
  */
 #pragma once
+#include <limits>
+#include <functional>
+#include <optional>
+#include <array>
+#include <cstdio>
 
 #include "core/render/scan.h"
 #include "core/render/scan/mesh_motion.h"
