@@ -38,6 +38,10 @@ class PythonRunner(unittest.TestCase):
             return subprocess.run([sys.executable, str(RUNNER), "--root", str(root), *args],
                                   capture_output=True, text=True, check=False, env=isolated_env())
 
+    def test_windows_abort_status_is_a_failure(self):
+        result = self.run_fixture("import os\nos._exit(3)\n", extra=LIVE)
+        self.assertNotEqual(result.returncode, 0)
+
     def test_empty_suite_fails(self):
         result = self.run_fixture("# no cases\n")
         self.assertNotEqual(result.returncode, 0)

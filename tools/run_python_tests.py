@@ -13,7 +13,7 @@ from git_files import git_nul_list
 
 # Exit status of a --only run whose cases all skipped; a directory fails when
 # every one of its files reports it.
-ALL_SKIPPED = 3
+ALL_SKIPPED = 77
 
 
 def run_suite(parser, root, suite, only):
