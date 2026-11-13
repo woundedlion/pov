@@ -585,11 +585,8 @@ private:
 
   /// Squared distance in the projection plane to an edge.
   HS_HOT_INLINE static float edge_squared(const Edge &e, float px, float py) {
-    const float wx = px - e.x, wy = py - e.y;
-    const float s =
-        hs::clamp((wx * e.ex + wy * e.ey) * e.inv_length2, 0.0f, 1.0f);
-    const float bx = wx - e.ex * s, by = wy - e.ey * s;
-    return bx * bx + by * by;
+    return SDF::PreparedFace::segment_dsq(e.x, e.y, e.ex, e.ey, e.inv_length2,
+                                          px, py);
   }
 
   /// Squared distance in the projection plane to the nearest edge.

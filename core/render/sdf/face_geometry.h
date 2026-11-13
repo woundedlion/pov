@@ -859,10 +859,21 @@ template <int W, int H> float azimuth_pad_at_row(int y) const {
  * @return Squared point-to-segment distance. */
 HS_HOT_INLINE static float segment_dsq(const EdgePacked &edge, float px,
                                        float py) {
-  const float wx = px - edge.vx, wy = py - edge.vy;
-  const float t =
-      hs::clamp((wx * edge.ex + wy * edge.ey) * edge.inv_len_sq, 0.0f, 1.0f);
-  const float bx = wx - edge.ex * t, by = wy - edge.ey * t;
+  return segment_dsq(edge.vx, edge.vy, edge.ex, edge.ey, edge.inv_len_sq, px,
+                     py);
+}
+
+/** @brief Squared distance to a clamped planar segment.
+ * @param vx,vy Segment start.
+ * @param ex,ey Segment displacement.
+ * @param inv_length2 Inverse squared length; zero selects the start.
+ * @param px,py Query point.
+ * @return Squared point-to-segment distance. */
+HS_HOT_INLINE static float segment_dsq(float vx, float vy, float ex, float ey,
+                                       float inv_length2, float px, float py) {
+  const float wx = px - vx, wy = py - vy;
+  const float t = hs::clamp((wx * ex + wy * ey) * inv_length2, 0.0f, 1.0f);
+  const float bx = wx - ex * t, by = wy - ey * t;
   return bx * bx + by * by;
 }
 
