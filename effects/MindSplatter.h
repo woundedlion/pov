@@ -252,7 +252,7 @@ private:
 
   /** @brief Most lattice points of a steady trail edge the point route
    *         plots in place of the column walk. */
-  static constexpr int STEADY_POINTS = 4;
+  static constexpr int STEADY_POINTS = 8;
 
   /** @brief A timed trail vertex's source motion and shading inputs. */
   struct TrailVertex {
@@ -779,7 +779,7 @@ private:
             {starts[j], starts[j - 1]}, {world[j], world[j - 1]}, STEADY_POINTS,
             [&](float s)
                 HS_HOT_INLINE { return shade(trail[j], trail[j - 1], s); },
-            store, flush_edge);
+            store, flush_edge, nullptr, true);
       }
     }
     flush();
