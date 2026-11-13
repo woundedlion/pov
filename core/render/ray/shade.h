@@ -121,6 +121,7 @@ public:
    *  @param coverage Positive crossing coverage.
    *  @pre count is below CAPACITY. */
   HS_HOT_INLINE void insert(float t, float coverage) {
+    HS_AUDIT_CHECK(count < CAPACITY, "CoveredCrossings overflow");
     int slot = count++;
     for (; slot > 0 && distances[slot - 1] > t; --slot) {
       distances[slot] = distances[slot - 1];
