@@ -12,3 +12,11 @@
 
 [valid underscore](#snake_case-heading)
 [dropped underscore](#snakecase-heading)
+
+## `Persist<T>`
+
+[valid template argument](#persistt)
+
+## ``Pair<T, `U`>``
+
+[valid multi-backtick span](#pairt-u)
