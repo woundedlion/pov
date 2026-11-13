@@ -4,143 +4,62 @@
  */
 #pragma once
 
+#include <iterator>
+
 #include "targets/effects.h"
 
 /**
  * @file phantasm_playlist.h
- * @brief Phantasm device playlist: the HS_PHANTASM_EFFECT_LIST X-macro with
- *        per-entry show durations, plus its roster drift guards.
- *
- * Tooling parses the macro body out of this file's source text.
+ * @brief Phantasm device playlist tables derived from phantasm_playlist.def,
+ *        plus its roster drift guards.
  */
 
-/**
- * @brief Phantasm playlist: HS_EFFECT_LIST minus the build-gated ShaderChain
- *        and the HS_PHANTASM_EXCLUDED_EFFECTS entries.
- * @param X Function-like macro applied to each effect type name and its show
- *          duration in seconds.
- * @details Entry order is the device show order, independent of
- *   HS_EFFECT_LIST.
- */
-#define HS_PHANTASM_EFFECT_LIST(X)                                             \
-  X(LiquidWindows, 60)                                                         \
-  X(GridWarp, 60)                                                              \
-  X(Iridescence, 60)                                                           \
-  X(Involution, 60)                                                            \
-  X(HopfFibration, 60)                                                         \
-  X(Millefiori, 60)                                                            \
-  X(Galaxies, 60)                                                              \
-  X(DreamBalls, hs_preset_window_seconds<DreamBalls>())                        \
-  X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
-  X(MeshFeedback, hs_preset_window_seconds<MeshFeedback>())                    \
-  X(ShapeShifter, hs_preset_window_seconds<ShapeShifter>())                    \
-  X(MindSplatter, hs_preset_window_seconds<MindSplatter>())                    \
-  X(Raymarch, 30)                                                              \
-  X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
-  X(GridSpace, 60)                                                             \
-  X(GridWorms, 60)                                                             \
-  X(IslamicStars, hs_preset_window_seconds<IslamicStars>())                    \
-  X(BZReactionDiffusion, 60)                                                   \
-  X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
-  X(AshCloud, 60)                                                              \
-  X(Fishbowl, 60)                                                              \
-  X(Comets, hs_preset_window_seconds<Comets>())                                \
-  X(ChromaticLichen, 30)                                                       \
-  X(MermaidSkin, 30)                                                           \
-  X(DisplacementField, hs_preset_window_seconds<DisplacementField>())          \
-  X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
-  X(GnomonicStars, 30)                                                         \
-  X(GSReactionDiffusion, 30)                                                   \
-  X(AlienCore, 30)                                                             \
-  X(HankinSolids, hs_full_cycle_seconds<HankinSolids>())                       \
-  X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
-  X(AlienOcean, 30)                                                            \
-  X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
-  X(PetalFlow, 30)                                                             \
-  X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
-  X(RingSpin, 60)                                                              \
-  X(SphericalHarmonics, hs_preset_window_seconds<SphericalHarmonics>())        \
-  X(CosmicEyeball, 60)                                                         \
-  X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())
+/** @brief Device playlist class names, in show order. */
+inline constexpr const char *const HS_PHANTASM_NAMES[] = {
+#define HS_PHANTASM_ROW(name, duration_seconds) #name,
+#include "targets/Phantasm/phantasm_playlist_rows.h"
+};
 
-/**
- * @brief Expands to +1 so HS_PHANTASM_EFFECT_LIST sums into an entry count.
- * @param name Effect type name (unused).
- * @param duration_seconds Show duration in seconds (unused).
- */
-#define HS_PHANTASM_EFFECT_COUNT_ADD(name, duration_seconds) +1
-/**
- * @brief Number of entries in HS_PHANTASM_EFFECT_LIST.
- */
+/** @brief Number of show rows in the playlist. */
 constexpr int HS_PHANTASM_EFFECT_COUNT =
-    0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_EFFECT_COUNT_ADD);
-#undef HS_PHANTASM_EFFECT_COUNT_ADD
+    static_cast<int>(std::size(HS_PHANTASM_NAMES));
 
-/**
- * @brief Expands to one HS_PHANTASM_EFFECT_SEEDS initializer.
- * @param name Effect class template name, instantiated at `<W, H>`.
- * @param duration_seconds Show duration in seconds (unused).
- */
-#define HS_PHANTASM_SEED_ONE(name, duration_seconds)                           \
-  hs::stable_effect_seed(hs::effect_seed_key<name<W, H>>(#name)),
-/** @brief Device playlist seeds in roster order. */
+/** @brief Device playlist seeds in show order. */
 template <int W, int H>
 inline constexpr uint64_t HS_PHANTASM_EFFECT_SEEDS[] = {
-    HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_SEED_ONE)};
-#undef HS_PHANTASM_SEED_ONE
-
-#define HS_PHANTASM_NAME_ENTRY(cls, duration_seconds) #cls,
-/// Device playlist class names.
-inline constexpr const char *const HS_PHANTASM_NAMES[] = {
-    HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ENTRY)};
-#undef HS_PHANTASM_NAME_ENTRY
+#define HS_PHANTASM_ROW(name, duration_seconds)                                \
+  hs::stable_effect_seed(hs::effect_seed_key<name<W, H>>(#name)),
+#include "targets/Phantasm/phantasm_playlist_rows.h"
+};
 
 /**
- * @brief Show duration HS_PHANTASM_EFFECT_LIST assigns `name`, 0 when absent.
+ * @brief Show duration the playlist assigns `name`, 0 when absent.
  * @param name Effect class name to look up.
  * @return Duration in seconds.
  */
 constexpr int hs_phantasm_duration_seconds(const char *name) {
-#define HS_PHANTASM_NAME_DURATION(cls, duration_seconds)                       \
-  +(hs_effect_name_eq(name, #cls) ? (duration_seconds) : 0)
-  return 0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_DURATION);
-#undef HS_PHANTASM_NAME_DURATION
+  int seconds = 0;
+#define HS_PHANTASM_ROW(cls, duration_seconds)                                 \
+  if (hs_effect_name_eq(name, #cls))                                           \
+    seconds = (duration_seconds);
+#include "targets/Phantasm/phantasm_playlist_rows.h"
+  return seconds;
 }
 
-/**
- * @brief Roster effects the Phantasm playlist omits.
- * @param X Function-like macro applied to each excluded effect class name.
- * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
- *          Other exclusions are product curation.
- */
-#define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
-  X(JewelMelt)                                                                 \
-  X(KaleidoscopeStainedGlass)                                                  \
-  X(KaleidoscopeMelt)                                                          \
-  X(Dynamo)                                                                    \
-  X(MobiusRings)                                                               \
-  X(RingShower)                                                                \
-  X(Thrusters)
-
-/**
- * @brief Expands to +1 so HS_PHANTASM_EXCLUDED_EFFECTS sums into a count.
- * @param cls Effect class name (unused).
- */
-#define HS_PHANTASM_EXCLUDED_COUNT_ADD(cls) +1
-/** @brief Number of HS_PHANTASM_EXCLUDED_EFFECTS entries. */
-constexpr int HS_PHANTASM_EXCLUDED_COUNT =
-    0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_COUNT_ADD);
-#undef HS_PHANTASM_EXCLUDED_COUNT_ADD
-
-#define HS_PHANTASM_EXCLUDED_NAME_ENTRY(cls) #cls,
-/// Roster names omitted from the device playlist.
+/** @brief Roster names the playlist excludes. Dynamo, MobiusRings and
+ *  Thrusters are low-resolution only; other exclusions are product curation. */
 inline constexpr const char *const HS_PHANTASM_EXCLUDED_NAMES[] = {
-    HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_NAME_ENTRY)};
-#undef HS_PHANTASM_EXCLUDED_NAME_ENTRY
+#define HS_PHANTASM_EXCLUDED_ROW(name) #name,
+#include "targets/Phantasm/phantasm_playlist_rows.h"
+};
+
+/** @brief Number of exclude rows in the playlist. */
+constexpr int HS_PHANTASM_EXCLUDED_COUNT =
+    static_cast<int>(std::size(HS_PHANTASM_EXCLUDED_NAMES));
 
 /**
- * @brief True when no excluded name appears in HS_PHANTASM_EFFECT_LIST.
- * @return True when every exclusion is absent from the playlist.
+ * @brief True when no excluded name is also shown.
+ * @return True when every exclusion is absent from the show rows.
  */
 constexpr bool hs_phantasm_exclusions_are_omitted() {
   for (const char *name : HS_PHANTASM_EXCLUDED_NAMES)
@@ -151,25 +70,25 @@ constexpr bool hs_phantasm_exclusions_are_omitted() {
 
 // Segmented playlist roster admission.
 static_assert(hs_names_distinct(HS_PHANTASM_NAMES),
-              "HS_PHANTASM_EFFECT_LIST names an effect twice — the duplicate "
+              "phantasm_playlist.def shows an effect twice — the duplicate "
               "is masking an omitted effect");
 static_assert(hs_names_subset(HS_PHANTASM_NAMES, HS_EFFECT_NAMES),
-              "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
+              "phantasm_playlist.def shows an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
 static_assert(hs_names_distinct(HS_PHANTASM_EXCLUDED_NAMES),
-              "HS_PHANTASM_EXCLUDED_EFFECTS names an effect twice");
+              "phantasm_playlist.def excludes an effect twice");
 static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT -
                                               HS_PHANTASM_EXCLUDED_COUNT -
                                               HS_ENABLE_CHAIN_INTERPRETER,
-              "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus the build-gated ShaderChain and "
-              "the HS_PHANTASM_EXCLUDED_EFFECTS entries)");
+              "phantasm_playlist.def out of sync with HS_EFFECT_LIST: every "
+              "roster effect but the build-gated ShaderChain needs a show or "
+              "an exclude row");
 static_assert((!HS_ENABLE_CHAIN_INTERPRETER ||
                hs_name_count(HS_EFFECT_NAMES, "ShaderChain") != 0) &&
                   hs_names_subset(HS_PHANTASM_EXCLUDED_NAMES, HS_EFFECT_NAMES),
-              "Phantasm exclusion names a non-roster effect — a rename left "
-              "the exclusion guard below vacuous");
+              "phantasm_playlist.def excludes a non-roster effect — a rename "
+              "left the exclusion guard below vacuous");
 static_assert(hs_name_count(HS_PHANTASM_NAMES, "ShaderChain") == 0 &&
                   hs_phantasm_exclusions_are_omitted(),
-              "HS_PHANTASM_EFFECT_LIST must exclude ShaderChain and "
-              "every HS_PHANTASM_EXCLUDED_EFFECTS entry");
+              "phantasm_playlist.def must not show ShaderChain or an excluded "
+              "effect");

@@ -1,7 +1,7 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-39 effects in `HS_PHANTASM_EFFECT_LIST`. All 39 have canonical reports: 39 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
+39 effects in `targets/Phantasm/phantasm_playlist.def`. All 39 have canonical reports: 39 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
 the 62.5 ms display window. Rows rank by spill fraction, then steady peak render.
 🟢 zero spill; 🔴 any spill.
 

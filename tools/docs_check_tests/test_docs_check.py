@@ -259,11 +259,11 @@ class TestDocumentationChecker(unittest.TestCase):
                         "  X(SphericalHarmonics)\n"
                         "#define HS_SHADER_PRODUCT_GROUP(X) \\\n"
                         "  X(Comets)                   \\\n"
-                        "  X(SphericalHarmonics)\n"
-                        "#define HS_PHANTASM_EFFECT_LIST(X) \\\n"
-                        "  X(Comets, 120)                  \\\n"
-                        "  X(SphericalHarmonics,                      \\\n"
-                        "    hs_preset_window_seconds<SphericalHarmonics>())\n")
+                        "  X(SphericalHarmonics)\n")
+    _PLAYLIST_DEF = ("// show(Commented, 60)\n"
+                     "show(Comets, 120)\n"
+                     "show(SphericalHarmonics)\n"
+                     "exclude(Dynamo) // 96x20 only\n")
 
     @staticmethod
     def _roster_prose(roster, playlist, sync):
@@ -285,7 +285,7 @@ class TestDocumentationChecker(unittest.TestCase):
         return dc.roster_claim_issues(
             {PurePosixPath("README.md"): prose, self._SPEC: prose,
              self._EFFECTS: self._effects_prose(2, 2)},
-            dc.effect_roster(header), dc.phantasm_roster(header),
+            dc.effect_roster(header), dc.phantasm_roster(self._PLAYLIST_DEF),
             dc.shader_product_group(header))
 
     def test_roster_prose_counts_are_checked_against_the_macros(self):
@@ -293,11 +293,11 @@ class TestDocumentationChecker(unittest.TestCase):
         messages = [issue.message for issue in issues]
         self.assertEqual(len(messages), 4)
         self.assertIn("stated as 3, HS_EFFECT_LIST names 2", messages[0])
-        self.assertIn("stated as 4, HS_PHANTASM_EFFECT_LIST names 2",
+        self.assertIn("stated as 4, phantasm_playlist.def names 2",
                       messages[1])
-        self.assertIn("stated as 5, HS_PHANTASM_EFFECT_LIST names 2",
+        self.assertIn("stated as 5, phantasm_playlist.def names 2",
                       messages[2])
-        self.assertIn("stated as 5, HS_PHANTASM_EFFECT_LIST names 2",
+        self.assertIn("stated as 5, phantasm_playlist.def names 2",
                       messages[3])
         self.assertEqual(issues[3].path, self._SPEC.as_posix())
 

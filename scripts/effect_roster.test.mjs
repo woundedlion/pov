@@ -90,19 +90,17 @@ test('parseEffectRoster throws on an empty roster rather than reporting none', (
     /parsed to zero effects/);
 });
 
-test('parsePhantasmEffectRoster accepts literal and derived durations', () => {
-  const src = '#define HS_PHANTASM_EFFECT_LIST(X) \\\n'
-    + '  X(Alpha, 120) \\\n'
-    + '  X(Beta, \\\n'
-    + '    hs_preset_window_seconds<Beta>())\n';
+test('parsePhantasmEffectRoster returns show rows with and without seconds, in order', () => {
+  const src = '/*\n * header\n */\n// show(Commented, 60)\n'
+    + 'show(Alpha, 120)\n'
+    + '  show( Beta )  // one cycle\n'
+    + 'exclude(Gamma)\n';
   assert.deepEqual(parsePhantasmEffectRoster(src), ['Alpha', 'Beta']);
 });
 
-test('parsePhantasmEffectRoster throws when the macro is missing or empty', () => {
-  assert.throws(() => parsePhantasmEffectRoster('X(Alpha, 120)\n'),
-    /Could not locate HS_PHANTASM_EFFECT_LIST/);
-  assert.throws(() => parsePhantasmEffectRoster(
-    '#define HS_PHANTASM_EFFECT_LIST(X)\n'), /parsed to zero effects/);
+test('parsePhantasmEffectRoster throws when there are no show rows', () => {
+  assert.throws(() => parsePhantasmEffectRoster('exclude(Alpha)\n'), /has no show rows/);
+  assert.throws(() => parsePhantasmEffectRoster(''), /has no show rows/);
 });
 
 test('the loaders agree on the checked-in roster', async () => {
@@ -120,8 +118,8 @@ test('RingShower remains in the full roster and is excluded from Phantasm', asyn
 
 test('Millefiori plays for sixty seconds and Galaxies appears once in Phantasm', async () => {
   const phantasm = await loadPhantasmEffectRoster();
-  const source = await readFile(new URL('../targets/Phantasm/phantasm_playlist.h', import.meta.url), 'utf8');
-  assert.match(source, /X\(Millefiori, 60\)/);
+  const source = await readFile(new URL('../targets/Phantasm/phantasm_playlist.def', import.meta.url), 'utf8');
+  assert.match(source, /^show\(Millefiori, 60\)$/m);
   assert.equal(phantasm.filter(name => name === 'Galaxies').length, 1);
 });
 
@@ -137,14 +135,9 @@ test('nested roster macros must identify known workbench-only rows', () => {
   assert.throws(() => parseEffectRoster(rosterOf('garbage')), /Unknown effect roster row/);
 });
 
-test('Phantasm roster rejects unknown rows and ignores nested duration calls', () => {
-  assert.throws(() => parsePhantasmEffectRoster(
-    '#define HS_PHANTASM_EFFECT_LIST(X) X(Alpha, 120) HS_PHANTASM_EXTRA(X)\n'),
-  /Unknown Phantasm roster row/);
-  assert.deepEqual(parsePhantasmEffectRoster(
-    '#define HS_PHANTASM_EFFECT_LIST(X) X(Alpha, HS_MAX(a, b)) X(Beta, 120)\n'),
-  ['Alpha', 'Beta']);
-  assert.throws(() => parsePhantasmEffectRoster(
-    '#define HS_PHANTASM_EFFECT_LIST(X) X(Alpha, HS_MAX(a, b)\n'),
-  /Unclosed Phantasm roster row/);
+test('Phantasm playlist rejects misspelled, unclosed and two-per-line rows', () => {
+  for (const row of ['shwo(Alpha, 60)', 'show(Alpha, 60', 'show(Alpha, 60) show(Beta)',
+    'show(Alpha, sixty)', 'X(Alpha, 60)'])
+    assert.throws(() => parsePhantasmEffectRoster(`show(Ok)\n${row}\n`),
+      /Unknown Phantasm playlist row/, row);
 });

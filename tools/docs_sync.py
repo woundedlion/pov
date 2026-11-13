@@ -164,7 +164,7 @@ def source_counts(root: Path) -> dict[str, int]:
     if header.is_file() and playlist.is_file():
         source = header.read_text(encoding="utf-8")
         counts = {"HS_EFFECT_LIST": len(dc.effect_roster(source)),
-                  "HS_PHANTASM_EFFECT_LIST": len(dc.phantasm_roster(playlist.read_text(encoding="utf-8"))),
+                  dc.PHANTASM_PLAYLIST_SOURCE.name: len(dc.phantasm_roster(playlist.read_text(encoding="utf-8"))),
                   "HS_SHADER_PRODUCT_GROUP": len(dc.shader_product_group(source))}
     return counts
 

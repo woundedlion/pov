@@ -111,25 +111,11 @@
 /// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
 constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
 
-/** Canvas the preset cadence is read at, so targets with different
+/** Canvas cycle lengths are read at, so targets with different
  * CANVAS_W/CANVAS_H agree on a show length. */
-inline constexpr int HS_PRESET_WINDOW_W = 96;
-/** Height half of the cadence-reading canvas (see HS_PRESET_WINDOW_W). */
-inline constexpr int HS_PRESET_WINDOW_H = 20;
-
-/**
- * @brief Frames covering every preset dwell and the intervening segues.
- * @tparam EffectT Effect class template whose preset cadence sizes the window.
- * @tparam W Canvas width the cadence constants are read at.
- * @tparam H Canvas height the cadence constants are read at.
- * @return Whole frames.
- */
-template <template <int, int> class EffectT, int W, int H>
-constexpr size_t hs_preset_window_frames() {
-  using EffectType = EffectT<W, H>;
-  static_assert(EffectType::authored_preset_count() > 0);
-  return EffectType::cycle_frames();
-}
+inline constexpr int HS_CYCLE_CANVAS_W = 96;
+/** Height half of the cycle-reading canvas (see HS_CYCLE_CANVAS_W). */
+inline constexpr int HS_CYCLE_CANVAS_H = 20;
 
 /**
  * @brief Rounds a frame count up to whole show seconds.
@@ -142,33 +128,23 @@ constexpr int hs_show_seconds(size_t frames) {
 }
 
 /**
- * @brief Show duration covering an effect's full cycle.
- * @tparam EffectT Effect class template exposing FULL_CYCLE_FRAMES.
+ * @brief Show duration of one cycle of an effect, as its cycle_frames()
+ *        defines it.
+ * @tparam EffectT Effect class template exposing a consteval cycle_frames().
  * @return Whole seconds covering the cycle.
  */
-template <template <int, int> class EffectT>
-constexpr int hs_full_cycle_seconds() {
-  return hs_show_seconds(
-      EffectT<HS_PRESET_WINDOW_W, HS_PRESET_WINDOW_H>::FULL_CYCLE_FRAMES);
-}
-
-/**
- * @brief Show duration that gives every preset one full dwell.
- * @tparam EffectT Effect class template whose preset cadence sizes the window.
- * @return Whole seconds covering every dwell and the intervening segues.
- */
-template <template <int, int> class EffectT>
-constexpr int hs_preset_window_seconds() {
-  constexpr size_t FRAMES = hs_preset_window_frames<EffectT, HS_PRESET_WINDOW_W,
-                                                    HS_PRESET_WINDOW_H>();
-  static_assert(FRAMES == (hs_preset_window_frames<EffectT, MAX_W, MAX_H>()),
-                "preset cadence varies with canvas size, so a show duration "
+template <template <int, int> class EffectT> constexpr int hs_cycle_seconds() {
+  constexpr size_t FRAMES =
+      EffectT<HS_CYCLE_CANVAS_W, HS_CYCLE_CANVAS_H>::cycle_frames();
+  static_assert(FRAMES > 0, "a show row needs a nonempty cycle");
+  static_assert(FRAMES == EffectT<MAX_W, MAX_H>::cycle_frames(),
+                "cycle length varies with canvas size, so a show duration "
                 "read at one resolution no longer covers the rendered one");
   return hs_show_seconds(FRAMES);
 }
 
 /** Shader promotion product group; the device show order is
- * HS_PHANTASM_EFFECT_LIST's. */
+ * targets/Phantasm/phantasm_playlist.def's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
   X(AlienBrain)                                                                \
   X(AlienOcean)                                                                \

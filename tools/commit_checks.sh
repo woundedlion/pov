@@ -250,7 +250,7 @@ EOF
   "$PYTHON_BIN" "$SNAPSHOT/tools/include_paths.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/encoding_check.py" --root "$SNAPSHOT"
 
-  if printf '%s\n' "$CHANGED" | grep -Eq '^docs/profiles/|^scripts/(check_profiles|effect_roster|exit)\.mjs$|^targets/(effects\.h|Phantasm/phantasm_playlist\.h)$|^\.githooks/pre-commit$|^tools/commit_checks\.sh$'; then
+  if printf '%s\n' "$CHANGED" | grep -Eq '^docs/profiles/|^scripts/(check_profiles|effect_roster|exit)\.mjs$|^targets/(effects\.h|Phantasm/phantasm_playlist\.(h|def))$|^\.githooks/pre-commit$|^tools/commit_checks\.sh$'; then
     if ! command -v node >/dev/null 2>&1; then
       echo "[$LABEL] node not found; profile archive checks need the pinned Node version."
       exit 1

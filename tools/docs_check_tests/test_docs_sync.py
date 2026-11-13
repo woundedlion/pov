@@ -76,7 +76,7 @@ class RepositorySync(unittest.TestCase):
         header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n", encoding="utf-8")
         playlist = self.root / dc.PHANTASM_PLAYLIST_SOURCE
         playlist.parent.mkdir(parents=True)
-        playlist.write_text("#define HS_PHANTASM_EFFECT_LIST(X) \\\n    X(One, 10)\n", encoding="utf-8")
+        playlist.write_text("show(One, 10)\nexclude(Two)\n", encoding="utf-8")
         readme = self.root / "README.md"
         readme.write_text("The playlist contains 99 effects today.\n", encoding="utf-8")
         self.git("add", "README.md", str(dc.EFFECT_ROSTER_SOURCE), str(dc.PHANTASM_PLAYLIST_SOURCE))

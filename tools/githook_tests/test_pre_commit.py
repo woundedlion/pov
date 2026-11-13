@@ -157,8 +157,8 @@ class PreCommitHook(unittest.TestCase):
         (targets / "effects.h").write_text(
             "#define HS_EFFECT_LIST(X) X(Example) X(Galaxies)\n",
             encoding="utf-8", newline="\n")
-        (targets / "Phantasm" / "phantasm_playlist.h").write_text(
-            "#define HS_PHANTASM_EFFECT_LIST(X) X(Example, 1) X(Galaxies, 1)\n",
+        (targets / "Phantasm" / "phantasm_playlist.def").write_text(
+            "show(Example, 1)\nshow(Galaxies, 1)\n",
             encoding="utf-8", newline="\n")
         profiles = self.repo / "docs" / "profiles"
         reports = {name: f"profile_{name.lower()}_teensy_2026-09-28.md"

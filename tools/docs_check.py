@@ -23,7 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
-from cpp_roster import macro_body, named_rows
+from cpp_roster import (PHANTASM_PLAYLIST_SOURCE as _PLAYLIST_PATH, macro_body,
+                        playlist_shows)
 from doc_coverage import CPP_LEXEMES, doxyfile_entries
 from git_files import git_nul_list
 
@@ -110,10 +111,9 @@ _EFFECT_ROSTER_MACRO = "HS_EFFECT_LIST"
 # before matching.
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
-# The device playlist: the roster minus HS_PHANTASM_EXCLUDED_EFFECTS.
-PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
-# HS_PHANTASM_EFFECT_LIST spells a row `X(Name, seconds)`.
-_PHANTASM_ROSTER_MACRO = "HS_PHANTASM_EFFECT_LIST"
+# The device playlist: the roster minus its exclude rows.
+PHANTASM_PLAYLIST_SOURCE = PurePosixPath(_PLAYLIST_PATH)
+_PLAYLIST = PHANTASM_PLAYLIST_SOURCE.name
 # The shader promotion product group lives beside HS_EFFECT_LIST.
 _PRODUCT_GROUP_MACRO = "HS_SHADER_PRODUCT_GROUP"
 # The effects reference spells the product group's cardinality in words and
@@ -135,12 +135,12 @@ CARDINALITY_CLAIMS = (
      re.compile(r"compile-time roster and tests carry (\d+) firmware-capable"),
      "HS_EFFECT_LIST", "the firmware-capable roster size"),
     ("README.md", re.compile(r"\bcontains (\d+) effects\b"),
-     "HS_PHANTASM_EFFECT_LIST", "the effects-reference playlist size"),
+     _PLAYLIST, "the effects-reference playlist size"),
     ("README.md", re.compile(r"\b(\d+)-entry roster\b"),
-     "HS_PHANTASM_EFFECT_LIST", "the frame-sync playlist size"),
+     _PLAYLIST, "the frame-sync playlist size"),
     ("docs/specs/phantasm_frame_sync_spec.md",
      re.compile(r"\b(\d+)-entry roster\b"),
-     "HS_PHANTASM_EFFECT_LIST", "the frame-sync playlist size"),
+     _PLAYLIST, "the frame-sync playlist size"),
     (_EFFECTS_REFERENCE,
      re.compile(r"\bThese ([\w-]+) effects form the product-only\b"),
      "HS_SHADER_PRODUCT_GROUP", "the composed roster size"),
@@ -944,8 +944,8 @@ def doxyfile_predefined_issues(predefined: list[tuple[int, str]],
 
 
 def phantasm_roster(source: str) -> set[str]:
-    """Returns the effect names in HS_PHANTASM_EFFECT_LIST."""
-    return set(named_rows(macro_body(source, _PHANTASM_ROSTER_MACRO) or ""))
+    """Returns the effect names of the playlist's show rows."""
+    return set(playlist_shows(source))
 
 
 def shader_product_group(source: str) -> set[str]:
@@ -973,14 +973,14 @@ def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
     """Checks prose roster cardinalities against their source macros."""
     if not playlist:
         return [Issue(PHANTASM_PLAYLIST_SOURCE.as_posix(), 1,
-                      "no HS_PHANTASM_EFFECT_LIST, so every playlist count "
+                      "no show rows, so every playlist count "
                       "restated in prose goes unchecked")]
     if not products:
         return [Issue(EFFECT_ROSTER_SOURCE.as_posix(), 1,
                       "no HS_SHADER_PRODUCT_GROUP, so every product count "
                       "restated in prose goes unchecked")]
     counts = {"HS_EFFECT_LIST": len(roster),
-              "HS_PHANTASM_EFFECT_LIST": len(playlist),
+              _PLAYLIST: len(playlist),
               "HS_SHADER_PRODUCT_GROUP": len(products)}
     issues = []
     for document, pattern, macro, subject in CARDINALITY_CLAIMS:

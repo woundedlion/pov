@@ -72,9 +72,9 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `hardware/pov_segmente
 | Boards (N)          | 4        | seg 0 = phase reference / conductor   |
 | Effect duration     | 30–306 s | per-effect; 240–2,448 revolutions  |
 
-**Effect duration is per-entry, not uniform.** `HS_PHANTASM_EFFECT_LIST`
-(`targets/Phantasm/phantasm_playlist.h`) carries a duration in seconds beside
-every roster name; `targets/Phantasm/Phantasm.ino` turns that column into
+**Effect duration is per-entry, not uniform.** Each show row of
+`targets/Phantasm/phantasm_playlist.def` carries a duration in seconds, or the
+effect's own cycle length; `targets/Phantasm/Phantasm.ino` turns that column into
 `EFFECT_REVOLUTIONS[]` as `seconds · RPM / 60`, `run_show()` installs that
 table in the sync `Config`, and the master counts down that entry's own budget.
 Preset-cycle frame budgets convert at the nominal 16 fps; slower rendering
@@ -703,7 +703,7 @@ or first-frame failure remains clear and fail-stops on Phantasm; it never
 re-publishes a partial frame or the destination identity. Content clocks may
 pause, but the synchronization-owned envelope and its commit deadlines do not.
 
-Because all boards iterate the **same** `HS_PHANTASM_EFFECT_LIST` order, the epoch mark
+Because all boards iterate the **same** playlist order, the epoch mark
 need only say "advance," not "advance to N." The absolute index rides the §6.4
 beacon instead, which both verifies each advance after the fact and lets a
 late-booting board establish it without assuming "everyone started at 0

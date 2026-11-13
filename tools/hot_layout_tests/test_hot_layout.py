@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import hot_layout as hl
 import docs_check as dc
+from cpp_roster import PHANTASM_PLAYLIST_SOURCE
 
 PHANTASM = hl.Origin(r".pio\build\phantasm\src\targets\Phantasm\Phantasm.ino.cpp.o")
 LIBM = hl.Origin("C:/toolchain/hard/libm.a", "libm_a-sf_sin.o")
@@ -174,27 +175,40 @@ class EffectNames(unittest.TestCase):
 
     def test_effect_list_macro_body(self):
         text = ("#define OTHER(X) X(Nope, 1)\n"
-                "#define HS_PHANTASM_EFFECT_LIST(X)  \\\n"
-                "  X(LiquidWindows, 60)              \\\n"
-                "  X(DreamBalls, hs_preset_window_seconds<DreamBalls>())\n"
+                "#define HS_EXAMPLE_LIST(X)  \\\n"
+                "  X(LiquidWindows, 60)      \\\n"
+                "  X(DreamBalls, cycle<DreamBalls>())\n"
                 "  X(After, 1)\n")
-        self.assertEqual(hl.parse_effect_list(text, "HS_PHANTASM_EFFECT_LIST"),
+        self.assertEqual(hl.parse_effect_list(text, "HS_EXAMPLE_LIST"),
                          ["LiquidWindows", "DreamBalls"])
 
-    def test_roster_consumers_share_comments_whitespace_and_macro_extent(self):
+    def test_playlist_consumers_share_show_rows_in_order(self):
         text = "\n".join([
-            '#define HS_PHANTASM_EFFECT_LIST(X) X( Comets , 120) /* X(Hidden, 60) */ \\',
-            ' /* X(MultiLine, 30) \\',
-            ' */ X( DreamBalls, 60)',
-            ' X(After, 1)',
+            "// show(Hidden, 60)",
+            "show( Comets , 120) // trailing note",
+            "  show(DreamBalls)",
+            "exclude(Dynamo)",
+            "",
         ])
-        self.assertEqual(hl.parse_effect_list(text, "HS_PHANTASM_EFFECT_LIST"),
-                         ["Comets", "DreamBalls"])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, PHANTASM_PLAYLIST_SOURCE)
+            path.parent.mkdir(parents=True)
+            path.write_text(text, encoding="utf-8")
+            self.assertEqual(hl.phantasm_playlist(directory),
+                             ["Comets", "DreamBalls"])
         self.assertEqual(dc.phantasm_roster(text), {"Comets", "DreamBalls"})
 
     def test_missing_macro_raises(self):
         with self.assertRaises(hl.LayoutError):
-            hl.parse_effect_list("", "HS_PHANTASM_EFFECT_LIST")
+            hl.parse_effect_list("", "HS_EXAMPLE_LIST")
+
+    def test_playlist_without_show_rows_raises(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, PHANTASM_PLAYLIST_SOURCE)
+            path.parent.mkdir(parents=True)
+            path.write_text("exclude(Dynamo)\n", encoding="utf-8")
+            with self.assertRaises(hl.LayoutError):
+                hl.phantasm_playlist(directory)
 
 
 def _program(functions, references, data=(), objects=None):

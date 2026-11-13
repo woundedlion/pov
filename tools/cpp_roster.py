@@ -1,11 +1,28 @@
 # Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0
-"""Extract continued X-macro bodies for roster consumers."""
+"""Extract roster rows from continued X-macro bodies and the playlist .def."""
 
 import re
 
 
 _COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
+# A playlist row starts its line, so `//` lines never match.
+_PLAYLIST_ROW_RE = re.compile(r"^[ \t]*(show|exclude)\([ \t]*(\w+)", re.MULTILINE)
+
+#: The Phantasm playlist, relative to the repository root.
+PHANTASM_PLAYLIST_SOURCE = "targets/Phantasm/phantasm_playlist.def"
+
+
+def playlist_shows(source: str) -> list[str]:
+    """Return the effect names of the playlist's show rows, in show order."""
+    return [name for kind, name in _PLAYLIST_ROW_RE.findall(source)
+            if kind == "show"]
+
+
+def playlist_excludes(source: str) -> list[str]:
+    """Return the effect names of the playlist's exclude rows."""
+    return [name for kind, name in _PLAYLIST_ROW_RE.findall(source)
+            if kind == "exclude"]
 
 
 def named_rows(body: str) -> list[str]:

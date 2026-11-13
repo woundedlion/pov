@@ -3,10 +3,10 @@
 # Phantasm-playlist profiling sweep: one group of sequential profile_one.sh
 # calls per invocation. A failed capture is recorded, the group carries on, and
 # the run exits non-zero listing the failures. The groups' union is checked
-# against HS_PHANTASM_EFFECT_LIST first; `check` runs only that (no board).
+# against the playlist's show rows first; `check` runs only that (no board).
 set -uo pipefail
 P="$(dirname "$0")/profile_one.sh"
-PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
+PLAYLIST_DEF="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.def"
 FAILED=()
 GROUP=${1:-}
 CAPTURE_BOOT_MARGIN_S=2
@@ -21,12 +21,11 @@ check|g[1-6]_ship) ;;
   ;;
 esac
 
-# The firmware playlist, in HS_PHANTASM_EFFECT_LIST order. X-row spelling
-# mirrored by tools/docs_check.py.
+# The firmware playlist's show rows, in show order. Row spelling mirrored by
+# tools/cpp_roster.py.
 playlist_roster() {
-  tr -d '\r' < "$PLAYLIST_H" \
-    | sed -n '/^#define HS_PHANTASM_EFFECT_LIST(X)/,/[^\\]$/p' \
-    | sed -nE 's/^[[:space:]]*X\([[:space:]]*([A-Za-z0-9_]+)[[:space:]]*,.*/\1/p'
+  tr -d '\r' < "$PLAYLIST_DEF" \
+    | sed -nE 's/^[[:space:]]*show\([[:space:]]*([A-Za-z0-9_]+).*/\1/p'
 }
 
 # Enumerate the reachable groups without flashing a board.
@@ -44,7 +43,7 @@ check_roster() {
     return 1
   fi
   if [ -z "$playlist" ]; then
-    echo "profile_sweep: parsed no effects from $PLAYLIST_H — the roster scan broke" >&2
+    echo "profile_sweep: parsed no show rows from $PLAYLIST_DEF — the roster scan broke" >&2
     return 1
   fi
   if ! missing="$(comm -23 <(printf '%s\n' "$playlist") <(printf '%s\n' "$swept"))" ||
@@ -53,13 +52,13 @@ check_roster() {
     return 1
   fi
   if [ -n "$missing" ] || [ -n "$extra" ]; then
-    [ -n "$missing" ] && echo "profile_sweep: in HS_PHANTASM_EFFECT_LIST but in no group: $missing" >&2
-    [ -n "$extra" ] && echo "profile_sweep: swept but not in HS_PHANTASM_EFFECT_LIST: $extra" >&2
+    [ -n "$missing" ] && echo "profile_sweep: shown by the playlist but in no group: $missing" >&2
+    [ -n "$extra" ] && echo "profile_sweep: swept but not shown by the playlist: $extra" >&2
     echo "profile_sweep: add the effect to a group below (with its duration and window)," >&2
     echo "or drop it if the playlist no longer carries it." >&2
     return 1
   fi
-  echo "profile_sweep: $(printf '%s\n' "$playlist" | wc -l | tr -d ' ') effect(s) match HS_PHANTASM_EFFECT_LIST"
+  echo "profile_sweep: $(printf '%s\n' "$playlist" | wc -l | tr -d ' ') effect(s) match the playlist"
 }
 
 # run <Effect> <env> <seconds> <window> [extra flags]

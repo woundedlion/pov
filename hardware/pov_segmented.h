@@ -251,7 +251,7 @@ public:
    * the same boundary. Downstream boards join via the index beacon.
    *
    * @tparam R            Roster length, deduced from `factories`.
-   * @param factories     One constructor per roster entry (HS_PHANTASM_EFFECT_LIST
+   * @param factories     One constructor per roster entry (playlist show
    *                      order — identical on every board). Its length is the
    *                      roster length.
    * @param effect_revolutions Optional duration for each roster entry, in

@@ -75,6 +75,11 @@ public:
     }
     return frames;
   }();
+  /** @brief Frames in one cycle: every leg of the tetrahedron sweep.
+   * @return FULL_CYCLE_FRAMES. */
+  static consteval size_t cycle_frames() {
+    return static_cast<size_t>(FULL_CYCLE_FRAMES);
+  }
 
   /**
    * @brief Constructs the effect with a W x H canvas and empty filter pipeline.

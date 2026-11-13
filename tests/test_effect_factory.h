@@ -400,7 +400,7 @@ inline void test_factory_tables() {
 /** @brief Verifies Phantasm and the registry derive the same per-effect seed. */
 inline void test_phantasm_seed_identity() {
   size_t index = 0;
-#define HS_VERIFY_PHANTASM_SEED(name, duration_seconds)                        \
+#define HS_PHANTASM_ROW(name, duration_seconds)                                \
   do {                                                                         \
     const FactoryEntry *entry = hs_wasm::find_factory_entry<288, 144>(#name);  \
     HS_EXPECT_TRUE(entry != nullptr);                                          \
@@ -410,8 +410,7 @@ inline void test_phantasm_seed_identity() {
       HS_EXPECT_EQ((HS_PHANTASM_EFFECT_SEEDS<288, 144>[index]), golden->seed); \
     ++index;                                                                   \
   } while (false);
-  HS_PHANTASM_EFFECT_LIST(HS_VERIFY_PHANTASM_SEED)
-#undef HS_VERIFY_PHANTASM_SEED
+#include "targets/Phantasm/phantasm_playlist_rows.h"
 }
 
 /** @brief Each installation seed path restarts every roster effect's stream. */

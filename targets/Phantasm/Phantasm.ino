@@ -29,28 +29,19 @@ void loop();
 namespace {
 // Generated from the Phantasm playlist roster; table order is identical on
 // every board (spec §6.1).
-/**
- * @brief Expands to one EFFECT_FACTORIES entry.
- * @param name Effect class template name.
- * @param duration_seconds Show duration in seconds (unused).
- */
-#define HS_FACTORY_ONE(name, duration_seconds)                                 \
-  &construct_effect<name<CANVAS_W, CANVAS_H>>,
+/** @brief One constructor per show row. */
 const POV::EffectFactory EFFECT_FACTORIES[] = {
-    HS_PHANTASM_EFFECT_LIST(HS_FACTORY_ONE)};
-#undef HS_FACTORY_ONE
+#define HS_PHANTASM_ROW(name, duration_seconds)                                \
+  &construct_effect<name<CANVAS_W, CANVAS_H>>,
+#include "targets/Phantasm/phantasm_playlist_rows.h"
+};
 
-/**
- * @brief Expands to one EFFECT_REVOLUTIONS entry: the duration in
- *        revolutions at RPM.
- * @param name Effect class name (unused).
- * @param duration_seconds Show duration in seconds.
- */
-#define HS_DURATION_ONE(name, duration_seconds)                                \
-  static_cast<uint32_t>(duration_seconds) * RPM / 60,
+/** @brief Each show row's duration in revolutions at RPM. */
 constexpr uint32_t EFFECT_REVOLUTIONS[] = {
-    HS_PHANTASM_EFFECT_LIST(HS_DURATION_ONE)};
-#undef HS_DURATION_ONE
+#define HS_PHANTASM_ROW(name, duration_seconds)                                \
+  static_cast<uint32_t>(duration_seconds) * RPM / 60,
+#include "targets/Phantasm/phantasm_playlist_rows.h"
+};
 
 constexpr auto &EFFECT_SEEDS = HS_PHANTASM_EFFECT_SEEDS<CANVAS_W, CANVAS_H>;
 

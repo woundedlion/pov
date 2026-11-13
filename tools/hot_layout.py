@@ -38,7 +38,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from cpp_roster import macro_body, named_rows
+from cpp_roster import (PHANTASM_PLAYLIST_SOURCE, macro_body, named_rows,
+                        playlist_shows)
 from teensy_gate import parse_readelf_symbols, sibling_tool
 
 #: Instruction-cache line size in bytes.
@@ -969,8 +970,11 @@ def roster(root: str) -> list[str]:
 
 def phantasm_playlist(root: str) -> list[str]:
     """Effect classes of the Phantasm device playlist."""
-    text = Path(root, "targets/Phantasm/phantasm_playlist.h").read_text(encoding="utf-8")
-    return parse_effect_list(text, "HS_PHANTASM_EFFECT_LIST")
+    text = Path(root, PHANTASM_PLAYLIST_SOURCE).read_text(encoding="utf-8")
+    names = playlist_shows(text)
+    if not names:
+        raise LayoutError(f"no show rows in {PHANTASM_PLAYLIST_SOURCE}")
+    return names
 
 
 def main(argv: list[str] | None = None) -> int:

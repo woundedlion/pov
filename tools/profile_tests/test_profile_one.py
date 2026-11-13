@@ -55,12 +55,11 @@ class ProfileSweepTests(unittest.TestCase):
                     self.assertIn("unknown group invalid", result.stderr)
 
     def test_playlist_and_sweep_roster_divergence_fails(self):
-        source = (REPO / "targets/Phantasm/phantasm_playlist.h").read_text(encoding="utf-8")
-        first = re.search(r"(?m)^\s*X\(\s*(\w+)\s*,[^\n]*\n", source)
+        source = (REPO / "targets/Phantasm/phantasm_playlist.def").read_text(encoding="utf-8")
+        first = re.search(r"(?m)^[ \t]*show\([ \t]*(\w+)[^\n]*\n", source)
         self.assertIsNotNone(first)
         removed = first.group(1)
-        extra = re.sub(r"(#define HS_PHANTASM_EFFECT_LIST\(X\)[^\n]*\n)",
-                       lambda match: match.group(0) + "    X(UnscheduledFixture, 10) \\\n", source)
+        extra = source + "show(UnscheduledFixture, 10)\n"
         missing = source[:first.start()] + source[first.end():]
         for header, effect in ((source, None), (extra, "UnscheduledFixture"), (missing, removed)):
             with self.subTest(effect=effect), tempfile.TemporaryDirectory() as directory:
@@ -69,7 +68,7 @@ class ProfileSweepTests(unittest.TestCase):
                 (root / "targets/Phantasm").mkdir(parents=True)
                 sweep = root / "tools/profile_sweep.sh"
                 shutil.copyfile(REPO / "tools/profile_sweep.sh", sweep)
-                (root / "targets/Phantasm/phantasm_playlist.h").write_text(header, encoding="utf-8")
+                (root / "targets/Phantasm/phantasm_playlist.def").write_text(header, encoding="utf-8")
                 result = subprocess.run(["bash", sweep.as_posix(), "check"],
                                         capture_output=True, text=True, env=isolated_env())
                 if effect is None:
