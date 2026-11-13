@@ -76,6 +76,41 @@ struct PetalFlowWhiteBox {
     fx.advance_display();
     return capture_mean_channel<DEFAULT_W, DEFAULT_H>(fx);
   }
+  /** @brief Renders a slider edit through frame advancement or an explicit sweep.
+   * @param parameter Edited slider.
+   * @param value New slider value.
+   * @param advance Runs production ring advancement.
+   * @param sweep Explicit-reference travel is retained.
+   * @return Row-major linear luminance. */
+  static std::vector<float> render_parameter_edit(const char *parameter,
+                                                  float value, bool advance,
+                                                  bool sweep) {
+    reset_globals();
+    PF fx;
+    fx.init();
+    for (auto &ring : fx.rings)
+      ring.active = false;
+    constexpr float PREVIOUS_RHO = 1.25f;
+    fx.rings[0] = {PREVIOUS_RHO, 0.25f, true, false};
+    fx.history_params = fx.params;
+    fx.history_ready = true;
+    HS_EXPECT_EQ(fx.updateParameter(parameter, value), ParamSetResult::APPLIED);
+    const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);
+    fx.orientation.set(start_pose);
+    fx.orientation.push(math::make_rotation(math::Y_AXIS, 0.012f) * start_pose);
+    {
+      Canvas canvas(fx);
+      if (advance) {
+        fx.update_and_draw_rings(canvas);
+      } else {
+        fx.rings[0].rho += fx.move_dist();
+        fx.draw_ring(canvas, fx.rings[0],
+                     sweep ? PREVIOUS_RHO : fx.rings[0].rho);
+      }
+    }
+    fx.advance_display();
+    return capture_mean_channel<DEFAULT_W, DEFAULT_H>(fx);
+  }
   static float gap(const PF &pf) { return pf.gap_accumulator; }
   static float start_rho() { return PF::START_RHO; }
   static float speed_max() { return PF::SPEED_MAX; }
@@ -160,4 +195,30 @@ inline void test_petalflow_spawn_gap_bounded() {
   HS_EXPECT_GE(worst_burst, 2); // the multi-spawn branch actually ran
   HS_EXPECT_LE(worst_active, WB::rings_on_path());
   HS_EXPECT_LE(WB::rings_on_path(), WB::max_rings());
+}
+
+/** @brief Speed and opacity edits retain ring travel while shape edits collapse it. */
+inline void test_petalflow_parameter_edit_continuity() {
+  const ScopedTemporalSampling temporal_sampling(true);
+  struct Edit {
+    const char *name;
+    float value;
+    bool sweep;
+  };
+  for (const Edit edit :
+       {Edit{"Speed", 20.0f, true}, Edit{"Alpha", 0.7f, true},
+        Edit{"Twist", 1.4f, false}, Edit{"Density", 2.0f, false}}) {
+    const auto actual = PetalFlowWhiteBox::render_parameter_edit(
+        edit.name, edit.value, true, false);
+    const auto expected = PetalFlowWhiteBox::render_parameter_edit(
+        edit.name, edit.value, false, edit.sweep);
+    const auto wrong = PetalFlowWhiteBox::render_parameter_edit(
+        edit.name, edit.value, false, !edit.sweep);
+    double difference = 0.0;
+    for (size_t i = 0; i < actual.size(); ++i) {
+      HS_EXPECT_NEAR(actual[i], expected[i], 1e-6f);
+      difference += std::abs(double(wrong[i]) - expected[i]);
+    }
+    HS_EXPECT_GT(difference, 0.01);
+  }
 }

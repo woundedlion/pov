@@ -19,6 +19,10 @@ void run_effect_case_petalflow_temporal_source_oracle() {
   HS_RUN(run_case, test_petalflow_temporal_source_oracle);
 }
 
+void run_effect_case_petalflow_parameter_edit_continuity() {
+  HS_RUN(run_case, test_petalflow_parameter_edit_continuity);
+}
+
 void run_effect_case_petalflow_spawn_gap_bounded() {
   HS_RUN(run_case, test_petalflow_spawn_gap_bounded);
 }
@@ -37,6 +41,7 @@ int run_petal_flow_tests() {
   using namespace effects_tests;
   ModuleFixture fixture("effects");
   run_effect_case_petalflow_temporal_source_oracle();
+  run_effect_case_petalflow_parameter_edit_continuity();
   if (effects_full_suite()) {
     run_effect_case_petalflow_spawn_gap_bounded();
     run_effect_case_petalflow_last_free_slot();

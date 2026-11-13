@@ -287,8 +287,6 @@ private:
   HS_HOT_FLASH_MEMBER void update_and_draw_rings(Canvas &canvas) {
     const bool continuous =
         history_ready && history_params.twist_factor == params.twist_factor &&
-        history_params.speed == params.speed &&
-        history_params.alpha == params.alpha &&
         history_params.density == params.density;
     const float move = move_dist();
     const bool visible = params.alpha >= MIN_VISIBLE_ALPHA;
