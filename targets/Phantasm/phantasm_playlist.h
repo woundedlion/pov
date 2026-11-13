@@ -83,9 +83,11 @@ static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT -
               "phantasm_playlist.def out of sync with HS_EFFECT_LIST: every "
               "roster effect but the build-gated ShaderChain needs a show or "
               "an exclude row");
-static_assert((!HS_ENABLE_CHAIN_INTERPRETER ||
-               hs_name_count(HS_EFFECT_NAMES, "ShaderChain") != 0) &&
-                  hs_names_subset(HS_PHANTASM_EXCLUDED_NAMES, HS_EFFECT_NAMES),
+static_assert(!HS_ENABLE_CHAIN_INTERPRETER ||
+                  hs_name_count(HS_EFFECT_NAMES, "ShaderChain") != 0,
+              "HS_EFFECT_LIST must include HS_CHAIN_INTERPRETER_EFFECT when "
+              "the chain interpreter is enabled");
+static_assert(hs_names_subset(HS_PHANTASM_EXCLUDED_NAMES, HS_EFFECT_NAMES),
               "phantasm_playlist.def excludes a non-roster effect — a rename "
               "left the exclusion guard below vacuous");
 static_assert(hs_name_count(HS_PHANTASM_NAMES, "ShaderChain") == 0 &&
