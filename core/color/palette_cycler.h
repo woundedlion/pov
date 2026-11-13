@@ -279,8 +279,13 @@ public:
    */
   HS_FLASH_MEMBER void step() {
     HS_PROFILE(palette_cycle_step);
-    if (!advance_clock(true))
+    if (!advance_clock(true)) {
+      if (provider != nullptr && display_dirty) {
+        rebake_display(*from_slot);
+        display_dirty = false;
+      }
       return;
+    }
     if (display_interval > 1 && !display_dirty && frame % display_interval != 0)
       return;
     const float w = fade_weight();
@@ -328,12 +333,11 @@ public:
    *  rebuild is already pending, which the next step() serves at the new
    *  chroma. */
   HS_FLASH_MEMBER void set_generated_chroma(float chroma) {
-    HS_CHECK(from_slot != nullptr && to_slot != nullptr && morph != nullptr,
-             "PaletteCycler chroma needs a generated cycle");
-    from_slot->set_constant_chroma(chroma);
-    to_slot->set_constant_chroma(chroma);
-    if (display_dirty)
+    const bool pending = display_dirty;
+    defer_generated_chroma(chroma);
+    if (pending)
       return;
+    display_dirty = false;
     if (!fade_active) {
       rebake_display(*from_slot);
       return;
@@ -341,6 +345,17 @@ public:
     const float weight = fade_weight();
     morph->morph_palettes(*from_slot, *to_slot, weight);
     rebake_display(*morph);
+  }
+
+  /** @brief Sets generated endpoint chroma for the next step() rebuild.
+   * @param chroma Gamut-relative chroma in [0, 1].
+   * @details Valid after init_generated(). */
+  HS_FLASH_MEMBER void defer_generated_chroma(float chroma) {
+    HS_CHECK(from_slot != nullptr && to_slot != nullptr && morph != nullptr,
+             "PaletteCycler chroma needs a generated cycle");
+    from_slot->set_constant_chroma(chroma);
+    to_slot->set_constant_chroma(chroma);
+    display_dirty = true;
   }
 
   /** @brief Index of the roster entry currently dwelt on or faded away from.
@@ -722,16 +737,16 @@ public:
   }
 
   /**
-   * @brief Sets the shared chroma on all three cycles.
+   * @brief Sets shared chroma for the next visible cycle step.
    * @param chroma Chroma control in [0, 1].
    */
   HS_FLASH_MEMBER void set_chroma(float chroma) {
     if (chroma == this->chroma)
       return;
     this->chroma = chroma;
-    triadic.set_generated_chroma(chroma);
-    complementary.set_generated_chroma(chroma);
-    analogous.set_generated_chroma(chroma);
+    triadic.defer_generated_chroma(chroma);
+    complementary.defer_generated_chroma(chroma);
+    analogous.defer_generated_chroma(chroma);
   }
 
   /**

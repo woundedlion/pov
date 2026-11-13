@@ -543,6 +543,40 @@ inline void test_palette_cycler_bake_generation() {
   HS_EXPECT_GT(generated.bake_generation(), hidden_generation);
 }
 
+/** @brief Deferred chroma updates bake once at the next sampled phase. */
+inline void test_palette_cycler_deferred_chroma() {
+  for (const int dwell : {0, 5}) {
+    for (const int steps : {0, 2, 6}) {
+      alignas(std::max_align_t) static uint8_t
+          buf[2 * PaletteCycler::required_arena_bytes()];
+      Arena arena(buf, sizeof(buf));
+      int calls_a = 0, calls_b = 0;
+      PaletteCycler immediate, deferred;
+      immediate.init_generated(arena, {.next = scripted_next_palette,
+                                       .context = &calls_a,
+                                       .dwell_frames = dwell,
+                                       .fade_frames = 4});
+      deferred.init_generated(arena, {.next = scripted_next_palette,
+                                      .context = &calls_b,
+                                      .dwell_frames = dwell,
+                                      .fade_frames = 4});
+      for (int i = 0; i < steps; ++i) {
+        immediate.step();
+        deferred.step();
+      }
+      const uint32_t generation = deferred.bake_generation();
+      immediate.set_generated_chroma(0.4f);
+      deferred.defer_generated_chroma(0.4f);
+      HS_EXPECT_EQ(deferred.bake_generation(), generation);
+      immediate.step();
+      deferred.step();
+      HS_EXPECT_EQ(deferred.bake_generation(), generation + 1);
+      HS_EXPECT_EQ(calls_a, calls_b);
+      expect_baked_equal(deferred.palette(), immediate.palette());
+    }
+  }
+}
+
 /** @brief Palette cycler zero dwell chains fades. */
 inline void test_palette_cycler_zero_dwell_chains_fades() {
   const GenerativePalette a(PaletteRecipes::balanced_analogous(0.2f));

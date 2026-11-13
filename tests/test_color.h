@@ -263,6 +263,7 @@ inline int run_color_tests() {
   HS_RUN(test_palette_cycler_key_morph_cycle);
   HS_RUN(test_palette_cycler_heterogeneous_crossfade);
   HS_RUN(test_palette_cycler_pause_and_static);
+  HS_RUN(test_palette_cycler_deferred_chroma);
   HS_RUN(test_palette_cycler_zero_dwell_chains_fades);
   HS_RUN(test_palette_cycler_generated_cycle);
   HS_RUN(test_palette_cycler_generated_display_cadence);

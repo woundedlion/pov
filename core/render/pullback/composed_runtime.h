@@ -1417,7 +1417,7 @@ private:
     if (palette_chroma == chroma)
       return;
     palette_chroma = chroma;
-    palette_cycler.set_generated_chroma(palette_chroma);
+    palette_cycler.defer_generated_chroma(palette_chroma);
   }
 
   /**
