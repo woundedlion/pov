@@ -364,6 +364,43 @@ public:
     motion_prepared = false;
   }
 
+  /** @brief Bounds samples on one screen axis.
+   * @param count Number of sample intervals.
+   * @param start Segment start coordinate.
+   * @param delta Segment coordinate delta.
+   * @param low,high Padded clip bounds.
+   * @return Inclusive sample-index bounds, inverted when empty. */
+  static HS_HOT_INLINE std::pair<float, float>
+  sample_axis_range(float count, float start, float delta, float low,
+                    float high) {
+    if (fabsf(delta) < 1e-4f)
+      return {0.0f, start < low - 1.0f || start > high + 1.0f ? -1.0f : count};
+    const float scale = count / delta;
+    const float s_lo = (low - start) * scale;
+    const float s_hi = (high - start) * scale;
+    return {fmaxf(0.0f, fminf(s_lo, s_hi) - 1.0f),
+            fminf(count, fmaxf(s_lo, s_hi) + 1.0f)};
+  }
+
+  /** @brief Bounds samples against the wrapped column band.
+   * @param band Screen-space clip band.
+   * @param count Number of sample intervals.
+   * @param x Segment start column.
+   * @param dx Segment column delta.
+   * @param padding Motion padding in pixels.
+   * @return Inclusive sample-index bounds, inverted when empty. */
+  static HS_HOT_INLINE std::pair<float, float>
+  sample_column_range(const ClipBand<W, H> &band, float count, float x,
+                      float dx, float padding) {
+    if (!band.x_active || fabsf(dx) >= W * 0.25f ||
+        fabsf(dx) >= W - 2.0f * band.x_half)
+      return {0.0f, count};
+    const float shift = W * rintf((x + 0.5f * dx - band.x_center) / W);
+    return sample_axis_range(count, x, dx,
+                             band.x_center - band.x_half + shift - padding,
+                             band.x_center + band.x_half + shift + padding);
+  }
+
   /** @brief Bounds sample indices whose splats may reach the clip band.
    * @param band Screen-space clip band.
    * @param count Number of sample intervals.
@@ -374,28 +411,46 @@ public:
   static HS_HOT_INLINE std::pair<float, float>
   sample_band_range(const ClipBand<W, H> &band, float count, float x, float y,
                     float dx, float dy, float x_pad, float y_pad) {
-    float lo = 0.0f, hi = count;
-    auto restrict_range = [&](float start, float delta, float low, float high)
-                              HS_HOT_INLINE {
-                                if (fabsf(delta) < 1e-4f) {
-                                  if (start < low - 1.0f || start > high + 1.0f)
-                                    hi = -1.0f;
-                                  return;
-                                }
-                                const float scale = count / delta;
-                                const float s_lo = (low - start) * scale;
-                                const float s_hi = (high - start) * scale;
-                                lo = fmaxf(lo, fminf(s_lo, s_hi) - 1.0f);
-                                hi = fminf(hi, fmaxf(s_lo, s_hi) + 1.0f);
-                              };
-    restrict_range(y, dy, band.row_lo - y_pad, band.row_hi + y_pad);
-    if (band.x_active && fabsf(dx) < W * 0.25f &&
-        fabsf(dx) < W - 2.0f * band.x_half) {
-      const float shift = W * rintf((x + 0.5f * dx - band.x_center) / W);
-      restrict_range(x, dx, band.x_center - band.x_half + shift - x_pad,
-                     band.x_center + band.x_half + shift + x_pad);
-    }
-    return {lo, hi};
+    const auto row = sample_axis_range(count, y, dy, band.row_lo - y_pad,
+                                       band.row_hi + y_pad);
+    const auto col = sample_column_range(band, count, x, dx, x_pad);
+    return {fmaxf(row.first, col.first), fminf(row.second, col.second)};
+  }
+
+  /** @brief Bounds samples over the full frame's chord motion.
+   * @param band Screen-space clip band.
+   * @param count Number of sample intervals.
+   * @param from0,to0 Frame-start chord endpoints.
+   * @param from1,to1 Frame-end chord endpoints.
+   * @param padding Quadratic motion bounds in pixels.
+   * @return Inclusive sample-index bounds, inverted when empty. */
+  static HS_HOT_INLINE std::pair<float, float> sample_swept_band_range(
+      const ClipBand<W, H> &band, float count, const math::PixelCoords &from0,
+      const math::PixelCoords &to0, const math::PixelCoords &from1,
+      const math::PixelCoords &to1, const math::PixelCoords &padding) {
+    const auto row0 =
+        sample_axis_range(count, from0.y, to0.y - from0.y,
+                          band.row_lo - padding.y, band.row_hi + padding.y);
+    const auto row1 =
+        sample_axis_range(count, from1.y, to1.y - from1.y,
+                          band.row_lo - padding.y, band.row_hi + padding.y);
+    const auto col0 =
+        sample_column_range(band, count, from0.x, to0.x - from0.x, padding.x);
+    const auto col1 =
+        sample_column_range(band, count, from1.x, to1.x - from1.x, padding.x);
+    const float x_motion =
+        fmaxf(fabsf(from1.x - from0.x), fabsf(to1.x - to0.x));
+    const float y_motion =
+        fmaxf(fabsf(from1.y - from0.y), fabsf(to1.y - to0.y));
+    const bool across_rows =
+        y_motion >= band.row_hi - band.row_lo + 2.0f * padding.y;
+    const bool across_columns = x_motion >= 2.0f * (band.x_half + padding.x);
+    const float row_lo = across_rows ? 0.0f : fminf(row0.first, row1.first);
+    const float row_hi = across_rows ? count : fmaxf(row0.second, row1.second);
+    const float col_lo = across_columns ? 0.0f : fminf(col0.first, col1.first);
+    const float col_hi =
+        across_columns ? count : fmaxf(col0.second, col1.second);
+    return {fmaxf(row_lo, col_lo), fminf(row_hi, col_hi)};
   }
 
   /**
@@ -644,18 +699,8 @@ public:
           std::max(1, static_cast<int>(ceilf(length / target_step)));
       const float sample_count = static_cast<float>(samples);
       const float inv_samples = 1.0f / sample_count;
-      float first = sample_count, last = 0.0f;
-      auto widen = [&](float x0, float y0, float sdx,
-                       float sdy) __attribute__((always_inline)) {
-        const auto [lo, hi] = sample_band_range(band, sample_count, x0, y0, sdx,
-                                                sdy, x_pad, y_pad);
-        if (hi >= lo) {
-          first = fminf(first, lo);
-          last = fmaxf(last, hi);
-        }
-      };
-      widen(from1.x, from1.y, dx1, dy1);
-      widen(from0.x, from0.y, dx0, dy0);
+      const auto [first, last] = sample_swept_band_range(
+          band, sample_count, from0, to0, from1, to1, {x_pad, y_pad});
       if (last < first)
         return;
       const int sample_begin = static_cast<int>(ceilf(fmaxf(first, 0.0f)));

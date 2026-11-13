@@ -1409,6 +1409,69 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
       clipped_counts.chord_fast_samples + clipped_counts.chord_screen_samples);
 }
 
+/** @brief Mid-arm clips preserve fast flower motion through clip corners. */
+inline void test_timed_flower_mid_arm_clip_preserves_motion() {
+  using Chords = Plot::PlanarChords<ORACLE_W, ORACLE_H>;
+  const ClipRegion clip{ORACLE_H / 4, 3 * ORACLE_H / 4, ORACLE_W / 4,
+                        3 * ORACLE_W / 4};
+  const auto band = Plot::ClipBand<ORACLE_W, ORACLE_H>::of(clip);
+  const float left = band.x_center - band.x_half;
+  const math::PixelCoords from0{left + 3.0f, band.row_lo - 1.1f};
+  const math::PixelCoords from1{left - 2.1f, band.row_lo + 3.0f};
+  const math::PixelCoords to0{from0.x + 0.01f, from0.y};
+  const math::PixelCoords to1{from1.x + 0.01f, from1.y};
+  const auto [first, last] =
+      Chords::sample_swept_band_range(band, 1.0f, from0, to0, from1, to1, {});
+  int visible = 0;
+  for (int frame = 0; frame <= 100; ++frame) {
+    const float t = frame / 100.0f;
+    const float x = from0.x + (from1.x - from0.x) * t;
+    const float y = from0.y + (from1.y - from0.y) * t;
+    if (x >= left && x <= band.x_center + band.x_half && y >= band.row_lo &&
+        y <= band.row_hi) {
+      ++visible;
+      HS_EXPECT_LE(first, 0.0f);
+      HS_EXPECT_GE(last, 0.0f);
+    }
+  }
+  HS_EXPECT_GT(visible, 0);
+  const float right = band.x_center + band.x_half;
+  for (const auto ends :
+       {std::pair{math::PixelCoords{left + 3.0f, band.row_lo - 3.0f},
+                  math::PixelCoords{left + 3.0f, band.row_hi + 3.0f}},
+        std::pair{math::PixelCoords{left - 3.0f, band.row_lo + 3.0f},
+                  math::PixelCoords{right + 3.0f, band.row_lo + 3.0f}}}) {
+    const auto wide = Chords::sample_swept_band_range(
+        band, 1.0f, ends.first, ends.first, ends.second, ends.second, {});
+    HS_EXPECT_LE(wide.first, 0.0f);
+    HS_EXPECT_GE(wide.second, 0.0f);
+  }
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::FLOWER;
+  state.count = 70;
+  state.sides = 3;
+  for (float step : {0.0186f, 0.045f}) {
+    for (float phase : {0.0f, 0.37f, 0.8f, 1.4f}) {
+      state.phase = phase;
+      state.clip = {0, ORACLE_H, 0, ORACLE_W};
+      const auto full = render_timed_contours(state, {.step = step});
+      state.clip = {ORACLE_H / 4, 3 * ORACLE_H / 4, ORACLE_W / 4,
+                    3 * ORACLE_W / 4};
+      const auto clipped = render_timed_contours(state, {.step = step});
+      double energy = 0.0;
+      double error = 0.0;
+      for (int y = state.clip.y0; y < state.clip.y1; ++y)
+        for (int x = state.clip.x0; x < state.clip.x1; ++x) {
+          const size_t i = static_cast<size_t>(y) * ORACLE_W + x;
+          energy += full[i];
+          error += std::abs(double(clipped[i]) - full[i]);
+        }
+      HS_EXPECT_GT(energy, 0.0);
+      HS_EXPECT_NEAR(error, 0.0, 1e-5);
+    }
+  }
+}
+
 /** @brief A clipped timed dense star samples its polar columns. */
 inline void test_timed_dense_star_clip_samples_polar_columns() {
   OracleState state;
@@ -1546,6 +1609,7 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_timed_contours_match_frozen_columns);
   HS_RUN(test_timed_presets_match_frozen_columns);
   HS_RUN(test_timed_flower_clip_culls_anchor_intervals);
+  HS_RUN(test_timed_flower_mid_arm_clip_preserves_motion);
   HS_RUN(test_timed_dense_star_clip_samples_polar_columns);
   HS_RUN(test_count_slider_matches_draw_limit);
   HS_RUN(test_buffer_comparator_statistics);
