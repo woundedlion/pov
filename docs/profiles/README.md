@@ -1,12 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **39 effects in the Phantasm image**, captured on
+On-device timing for the **41 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Shipping reports cover all 39 effects: 39 completed captures.
+Shipping reports cover all 41 effects: 41 completed captures.
 
 Recorded capture revisions retain their original IDs. The
 [source revision crosswalk](source_revisions.json) preserves each one-to-one
@@ -48,7 +48,7 @@ full-roster image.
 
 ## Shipping/O3 captures
 
-● marks shipping captures updated in the 2026-11-05 sweep or the DisplacementField re-capture on 2026-11-12.
+● marks shipping captures updated in the 2026-11-05 sweep, the DisplacementField re-capture on 2026-11-12, or the JewelMelt, KaleidoscopeMelt and AshCloud captures on 2026-11-13.
 
 Rows rank by shipping spill fraction, then shipping steady peak render. Shipping peak and spilled exclude setup frame 1, listed separately; subsequent transitions remain included. Both peaks are render, never wall time; spilled counts frames exceeding 62.5 ms.
 Shipping colours are binary: 🟢 zero spill; 🔴 any spill. O3 columns retain their
@@ -59,16 +59,18 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-11-05.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 59.311 (16) | 16.664 | 🟢 49.112 (23) | 🟢 0/4863 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-11-04 23:39<br>O3 2026-09-28 16:50 |
-| [AshCloud](shipping/profile_ashcloud_teensy_2026-11-05.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 58.057 | 80.859 | 🔴 79.81 | 🟢 0/927 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-11-05 08:38<br>O3 2026-08-26 02:45 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-11-05.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles` | 🟢 57.896 (8) | 0.389 | 🟢 54.539 (8) | 🟢 0/1247 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-11-04 23:16<br>O3 2026-10-01 09:22 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-11-05.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) ● | `hf_render_trails` | 🟢 57.199 | 0.646 | 🟢 46.52 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-11-04 23:01<br>O3 2026-08-26 01:27 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-11-05.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 57.031 (9) | 78.200 | 🟢 60.05 (9) | 🟢 0/4271 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-11-04 23:13<br>O3 2026-09-25 07:29 |
+| [AshCloud](shipping/profile_ashcloud_teensy_2026-11-13.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 55.703 | 85.409 | 🔴 79.81 | 🟢 0/991 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-11-13 07:04<br>O3 2026-08-26 02:45 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-11-05.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) ● | `rs_draw_rings` | 🟢 53.875 | 3.399 | 🟢 50.750 | 🟢 0/927 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-11-04 23:07<br>O3 2026-09-24 20:18 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-11-05.md) / [O3](O3/profile_hyperlattice_architecture_teensy_2026-10-01.md) § ● | `hl_shader_draw` | 🟢 53.649 (9) | 43.112 | 🟢 36.975 (3) | 🟢 0/4767 (0.00%) | 🟢 0/2696 (0.00%) | +9,616 B | +4,912 B | ship 2026-11-05 00:03<br>O3 2026-10-01 09:26 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-11-05.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § ● | `mf_feedback_flush` | 🟢 53.505 (12) | 6.712 | 🟢 58.32 (13) | 🟢 0/2863 (0.00%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-11-04 23:32<br>O3 2026-08-26 02:10 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-11-05.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) ● | `rm_shader_draw` | 🟢 52.693 | 93.551 | 🟢 56.04 | 🟢 0/447 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-11-04 23:06<br>O3 2026-09-20 23:07 |
+| [JewelMelt](shipping/profile_jewelmelt_teensy_2026-11-13.md) ● | `fx_shader_draw` | 🟢 52.303 | 79.887 | — | 🟢 0/991 (0.00%) | — | — | — | ship 2026-11-13 07:02 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-11-05.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § ● | `db_timeline_step` | 🟢 52.024 (10) | 52.869 | 🟢 34.32 (11) | 🟢 0/3167 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-11-04 23:43<br>O3 2026-08-26 02:19 |
 | [Millefiori](shipping/profile_millefiori_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 51.758 | 78.463 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-11-04 23:58 |
+| [KaleidoscopeMelt](shipping/profile_kaleidoscopemelt_teensy_2026-11-13.md) ● | `fx_shader_draw` | 🟢 50.140 | 77.194 | — | 🟢 0/991 (0.00%) | — | — | — | ship 2026-11-13 07:06 |
 | [GridWarp](shipping/profile_gridwarp_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 49.281 | 74.267 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-11-05 00:19 |
 | [Iridescence](shipping/profile_iridescence_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 49.094 | 91.161 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-11-05 00:22 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-11-05.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🟢 48.568 | 24.927 | 🔴 279.686 | 🟢 0/447 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-11-04 22:59<br>O3 2026-09-30 19:15 |
@@ -217,18 +219,14 @@ Integer direct-AA validation: [ShapeShifter paired capture](shipping/profile_sha
 
 ## Effects excluded from the Phantasm image
 
-JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower remain in the full roster. KaleidoscopeMelt’s current capture covers all four segment roles; the other rows retain their archived measurements. ● marks captures taken after the 2026-10-06 re-capture.
+KaleidoscopeStainedGlass and RingShower remain in the full roster; their rows retain their archived measurements.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [JewelMelt selective o3](excluded/profile_jewelmelt_selective_o3_teensy_2026-11-03.md) ● | `fx_shader_draw` | 🔴 77.642 | 🔴 351/351 (100.00%) | 2026-11-03 22:26 |
-| [KaleidoscopeMelt selective o3](excluded/profile_kaleidoscopemelt_selective_o3_teensy_2026-10-31.md) ● | `fx_shader_draw` | 🟢 55.668 | 🟢 0/8188 (0.00%) | 2026-10-31 03:55 |
 | [KaleidoscopeStainedGlass selective o3](excluded/profile_kaleidoscopestainedglass_selective_o3_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
 | [KaleidoscopeStainedGlass global o3](excluded/profile_kaleidoscopestainedglass_global_o3_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
 | [RingShower selective o3](excluded/profile_ringshower_selective_o3_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 | [RingShower global o3](excluded/profile_ringshower_global_o3_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
-
-KaleidoscopeMelt aggregates ongoing frames from roles 0–3; its report lists startup frame 1 and full-pass spills for every role.
 
 Low-resolution-only (96×20) effects:
 

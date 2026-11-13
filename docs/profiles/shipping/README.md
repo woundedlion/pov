@@ -1,23 +1,25 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-39 effects in `targets/Phantasm/phantasm_playlist.def`. All 39 have canonical reports: 39 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
+41 effects in `targets/Phantasm/phantasm_playlist.def`. All 41 have canonical reports: 41 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
 the 62.5 ms display window. Rows rank by spill fraction, then steady peak render.
 🟢 zero spill; 🔴 any spill.
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Captured |
 |---|---|--:|--:|--:|---|
 | [IslamicStars](profile_islamicstars_teensy_2026-11-05.md) § ● | `is_timeline_step` | 🟢 59.311 (16) | 16.664 | 🟢 0/4863 (0.00%) | 2026-11-04 23:39 |
-| [AshCloud](profile_ashcloud_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 58.057 | 80.859 | 🟢 0/927 (0.00%) | 2026-11-05 08:38 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-11-05.md) § ● | `msp_draw_particles` | 🟢 57.896 (8) | 0.389 | 🟢 0/1247 (0.00%) | 2026-11-04 23:16 |
 | [HopfFibration](profile_hopffibration_teensy_2026-11-05.md) ● | `hf_render_trails` | 🟢 57.199 | 0.646 | 🟢 0/927 (0.00%) | 2026-11-04 23:01 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-11-05.md) § ● | `ss_draw_all` | 🟢 57.031 (9) | 78.200 | 🟢 0/4271 (0.00%) | 2026-11-04 23:13 |
+| [AshCloud](profile_ashcloud_teensy_2026-11-13.md) ● | `fx_shader_draw` | 🟢 55.703 | 85.409 | 🟢 0/991 (0.00%) | 2026-11-13 07:04 |
 | [RingSpin](profile_ringspin_teensy_2026-11-05.md) ● | `rs_draw_rings` | 🟢 53.875 | 3.399 | 🟢 0/927 (0.00%) | 2026-11-04 23:07 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-11-05.md) § ● | `hl_shader_draw` | 🟢 53.649 (9) | 43.112 | 🟢 0/4767 (0.00%) | 2026-11-05 00:03 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-11-05.md) § ● | `mf_feedback_flush` | 🟢 53.505 (12) | 6.712 | 🟢 0/2863 (0.00%) | 2026-11-04 23:32 |
 | [Raymarch](profile_raymarch_teensy_2026-11-05.md) ● | `rm_shader_draw` | 🟢 52.693 | 93.551 | 🟢 0/447 (0.00%) | 2026-11-04 23:06 |
+| [JewelMelt](profile_jewelmelt_teensy_2026-11-13.md) ● | `fx_shader_draw` | 🟢 52.303 | 79.887 | 🟢 0/991 (0.00%) | 2026-11-13 07:02 |
 | [DreamBalls](profile_dreamballs_teensy_2026-11-05.md) § ● | `db_timeline_step` | 🟢 52.024 (10) | 52.869 | 🟢 0/3167 (0.00%) | 2026-11-04 23:43 |
 | [Millefiori](profile_millefiori_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 51.758 | 78.463 | 🟢 0/927 (0.00%) | 2026-11-04 23:58 |
+| [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-11-13.md) ● | `fx_shader_draw` | 🟢 50.140 | 77.194 | 🟢 0/991 (0.00%) | 2026-11-13 07:06 |
 | [GridWarp](profile_gridwarp_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 49.281 | 74.267 | 🟢 0/927 (0.00%) | 2026-11-05 00:19 |
 | [Iridescence](profile_iridescence_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 49.094 | 91.161 | 🟢 0/927 (0.00%) | 2026-11-05 00:22 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-11-05.md) ● | `grd_render` | 🟢 48.568 | 24.927 | 🟢 0/447 (0.00%) | 2026-11-04 22:59 |
@@ -51,7 +53,7 @@ MindSplatter’s green row covers its warm-up pass; see the [preset-2 coverage c
 
 Per-effect reports retain preset coverage and strict validator diagnostics. Per-frame render telemetry supports cadence figures without a claim of an unobserved wrap or fully validated cycle-counter exactness.
 
-● marks shipping captures updated in the 2026-11-05 sweep or the DisplacementField re-capture on 2026-11-12.
+● marks shipping captures updated in the 2026-11-05 sweep, the DisplacementField re-capture on 2026-11-12, or the JewelMelt, KaleidoscopeMelt and AshCloud captures on 2026-11-13.
 
 § Cyclers carry one aligned line per parser ownership colour bucket, red first;
 (N) counts observed ownership entries. Buckets include transitions and exclude setup frame 1.
