@@ -1208,7 +1208,7 @@ public:
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight.
    * @return Final straight-alpha color. */
-  HS_HOT_ITCM_MEMBER static Color4
+  HS_HOT_FLASH_MEMBER static Color4
   shade_fused_modulation(const FieldSample &sample, const Prepared &prepared,
                          const ModulationState &modulation, float fraction)
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
