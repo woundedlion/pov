@@ -14,7 +14,7 @@ namespace {
 // Costs PALETTE_COUNT * LUT_SIZE * sizeof(Pixel) of flash, and the same again
 // in the WASM data segment.
 constexpr int PALETTE_COUNT = 256;
-constexpr int LUT_SIZE = 64;
+constexpr int LUT_SIZE = 32;
 
 } // namespace
 
@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
          " *   cmake --build --preset tests --target "
          "regenerate_mindsplatter_palette\n"
          " *\n"
-         " * MindSplatter's trail palette bank: one 64-entry triadic LUT per\n"
+         " * MindSplatter's trail palette bank: one 32-entry triadic LUT per\n"
          " * base hue, compiled from EffectPaletteRecipes::mind_splatter.\n"
          " */\n"
          "#pragma once\n\n"
