@@ -248,6 +248,29 @@ inline void test_push_front_rvalue() {
   HS_EXPECT_EQ(*buf[0], 99);
 }
 
+/** @brief Verifies a refused push preserves the full buffer. */
+inline void test_try_push_back_preserves_full_buffer() {
+  StaticCircularBuffer<int, 2> buffer;
+  const int FIRST = 7;
+  HS_EXPECT_TRUE(buffer.try_push_back(FIRST));
+  HS_EXPECT_TRUE(buffer.try_push_back(9));
+  HS_EXPECT_FALSE(buffer.try_push_back(11));
+  HS_EXPECT_EQ(buffer.front(), 7);
+  HS_EXPECT_EQ(buffer.back(), 9);
+  buffer.pop_front();
+  HS_EXPECT_TRUE(buffer.try_push_back(13));
+  HS_EXPECT_EQ(buffer.front(), 9);
+  HS_EXPECT_EQ(buffer.back(), 13);
+  StaticCircularBuffer<std::unique_ptr<int>, 1> owning;
+  HS_EXPECT_TRUE(owning.try_push_back(std::make_unique<int>(7)));
+  auto payload = std::make_unique<int>(11);
+  HS_EXPECT_FALSE(owning.try_push_back(std::move(payload)));
+  HS_EXPECT_TRUE(payload != nullptr);
+  if (payload)
+    HS_EXPECT_EQ(*payload, 11);
+  HS_EXPECT_EQ(*owning.front(), 7);
+}
+
 // ============================================================================
 // emplace_back / emplace_front
 // ============================================================================
@@ -991,29 +1014,6 @@ inline void test_is_linear_tracks_head() {
   HS_EXPECT_EQ(buf.front(), 5);
 }
 
-/** @brief Verifies a refused push preserves the full buffer. */
-inline void test_try_push_back_preserves_full_buffer() {
-  StaticCircularBuffer<int, 2> buffer;
-  const int FIRST = 7;
-  HS_EXPECT_TRUE(buffer.try_push_back(FIRST));
-  HS_EXPECT_TRUE(buffer.try_push_back(9));
-  HS_EXPECT_FALSE(buffer.try_push_back(11));
-  HS_EXPECT_EQ(buffer.front(), 7);
-  HS_EXPECT_EQ(buffer.back(), 9);
-  buffer.pop_front();
-  HS_EXPECT_TRUE(buffer.try_push_back(13));
-  HS_EXPECT_EQ(buffer.front(), 9);
-  HS_EXPECT_EQ(buffer.back(), 13);
-  StaticCircularBuffer<std::unique_ptr<int>, 1> owning;
-  HS_EXPECT_TRUE(owning.try_push_back(std::make_unique<int>(7)));
-  auto payload = std::make_unique<int>(11);
-  HS_EXPECT_FALSE(owning.try_push_back(std::move(payload)));
-  HS_EXPECT_TRUE(payload != nullptr);
-  if (payload)
-    HS_EXPECT_EQ(*payload, 11);
-  HS_EXPECT_EQ(*owning.front(), 7);
-}
-
 // ============================================================================
 // Runner
 // ============================================================================
@@ -1025,7 +1025,6 @@ inline void test_try_push_back_preserves_full_buffer() {
 inline int run_static_circular_buffer_tests() {
   hs_test::ModuleFixture fixture("scb");
 
-  HS_RUN(test_try_push_back_preserves_full_buffer);
   HS_RUN(test_default_state);
   HS_RUN(test_initializer_list_within_capacity);
   HS_RUN(test_initializer_list_at_capacity);
@@ -1038,6 +1037,7 @@ inline int run_static_circular_buffer_tests() {
   HS_RUN(test_capacity_one);
   HS_RUN(test_push_back_rvalue);
   HS_RUN(test_push_front_rvalue);
+  HS_RUN(test_try_push_back_preserves_full_buffer);
 
   HS_RUN(test_emplace_back_constructs_in_place);
   HS_RUN(test_emplace_front_constructs_in_place);
