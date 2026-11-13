@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import teensy_gate
+import teensy_size_trail
 import teensy_warnings
 
 # Table rows: (region, key, label). key is a teensy_size component, "free", or
@@ -96,6 +97,13 @@ def main(argv: list[str] | None = None) -> int:
     cmd = [pio, "run"]
     for env in envs:
         cmd += ["-e", env]
+    build_tree = None
+    if record_trail:
+        try:
+            build_tree = teensy_size_trail.working_tree()
+        except teensy_size_trail.GitError as exc:
+            print(f"[size-trail] cannot capture build inputs ({exc}); recording skipped.",
+                  file=sys.stderr)
     # teensy_size prints to stderr; one ordered stream lets split_by_env
     # attribute its lines.
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
@@ -108,9 +116,9 @@ def main(argv: list[str] | None = None) -> int:
         lines.append(line.rstrip("\n"))
     rc = proc.wait()
 
-    if record_trail and rc == 0:
+    if build_tree is not None and rc == 0:
         subprocess.call([sys.executable, str(Path(__file__).with_name(
-            "teensy_size_trail.py")), "record", "--built",
+            "teensy_size_trail.py")), "record", "--built", "--tree", build_tree,
             *[f"--env={env}" for env in envs]])
     try:
         order, sizes_by_env = collect_sizes(lines)

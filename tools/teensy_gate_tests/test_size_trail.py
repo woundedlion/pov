@@ -572,6 +572,34 @@ class RecordInputs(unittest.TestCase):
             with git_fixture(root):
                 self.assertEqual(captured["tree"], tst.working_tree(root))
 
+    def test_prebuild_tree_discards_sizes_after_a_midbuild_edit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ini = root / "platformio.ini"
+            ini.write_text("original", encoding="utf-8")
+            init_and_commit(root, "platformio.ini")
+            elf = root / "build" / "phantasm" / tst.ELF_NAME
+            elf.parent.mkdir(parents=True)
+            elf.write_bytes(make_elf({".text.itcm": 17}))
+            pending = root / "pending.json"
+            trail = root / "trail.tsv"
+            with git_fixture(root):
+                tree = tst.working_tree()
+                ini.write_text("edited during build", encoding="utf-8")
+                self.assertEqual(tst.main([
+                    "record", "--built", "--tree", tree, "--env", "phantasm",
+                    "--build-dir", str(root / "build"), "--out", str(pending)]), 0)
+                captured = json.loads(pending.read_text(encoding="utf-8"))
+                self.assertEqual(captured["tree"], tree)
+                self.assertEqual(captured["envs"]["phantasm"]["itcm"], 17)
+                tst._git(["add", "--", "platformio.ini"])
+                tst._git(["commit", "-m", "midbuild edit"])
+                self.assertEqual(tst.main([
+                    "commit", "--pending", str(pending), "--trail", str(trail),
+                    "--repo", str(root)]), 1)
+            self.assertFalse(pending.exists())
+            self.assertFalse(trail.exists())
+
     def test_non_firmware_edits_preserve_capture(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -592,7 +620,7 @@ class RecordInputs(unittest.TestCase):
                 (root / path).write_text("changed", encoding="utf-8")
             with git_fixture(root):
                 args = types.SimpleNamespace(env=["phantasm"], build_dir=root / "build",
-                                             out=pending, built=False)
+                                             out=pending, built=False, tree=None)
                 self.assertEqual(tst.cmd_record(args), 0)
                 self.assertEqual(json.loads(pending.read_text())["envs"]["phantasm"]["itcm"], 17)
                 (root / "targets/wasm/x.h").write_text("later", encoding="utf-8")

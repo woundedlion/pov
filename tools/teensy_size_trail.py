@@ -440,7 +440,7 @@ def cmd_record(args) -> int:
     out = Path(args.out) if args.out else default_pending()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"envs": found,
-                               "tree": working_tree()},
+                               "tree": args.tree or working_tree()},
                               indent=1, sort_keys=True) + "\n",
                    encoding="utf-8", newline="\n")
     print(f"[size-trail] recorded {', '.join(sorted(found))} -> {out}")
@@ -676,6 +676,7 @@ def build_parser() -> argparse.ArgumentParser:
     rec = sub.add_parser("record", help="parse built ELFs into a pending record")
     rec.add_argument("--build-dir", default=".pio/build")
     rec.add_argument("--out", help=f"default: <git-dir>/{PENDING_NAME}")
+    rec.add_argument("--tree", help="build-input tree captured before the build")
     rec.add_argument("--built", action="store_true",
                      help="record after a successful build, including unchanged cached ELFs")
     rec.add_argument("--env", action="append",

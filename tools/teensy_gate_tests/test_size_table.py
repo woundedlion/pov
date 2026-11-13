@@ -132,16 +132,52 @@ class Main(unittest.TestCase):
                 process = self._FakePio([], build_status)
                 process.wait = lambda: events.append("built") or build_status
                 with mock.patch.object(tst.shutil, "which", return_value="pio"), \
+                        mock.patch.object(tst.teensy_size_trail, "working_tree",
+                                          side_effect=lambda: events.append("snapshot") or "pre-build") as snapshot, \
                         mock.patch.object(tst.subprocess, "Popen", return_value=process) as build, \
                         mock.patch.object(tst.subprocess, "call", side_effect=lambda argv: events.append(argv) or 1), \
                         contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(tst.main(["--record-trail"]), build_status)
                 self.assertEqual(build.call_args.args[0], ["pio", "run"])
-                expected = ["built"]
+                snapshot.assert_called_once_with()
+                expected = ["snapshot", "built"]
                 if build_status == 0:
                     expected.append([sys.executable, str(TOOLS / "teensy_size_trail.py"),
-                                     "record", "--built"])
+                                     "record", "--built", "--tree", "pre-build"])
                 self.assertEqual(events, expected)
+
+    def test_failed_snapshot_builds_without_recording(self):
+        errors = io.StringIO()
+        with mock.patch.object(tst.shutil, "which", return_value="pio"), \
+                mock.patch.object(tst.teensy_size_trail, "working_tree",
+                                  side_effect=tst.teensy_size_trail.GitError("no git tree")), \
+                mock.patch.object(tst.subprocess, "Popen", return_value=self._FakePio([], 0)) as build, \
+                mock.patch.object(tst.subprocess, "call") as record, \
+                contextlib.redirect_stderr(errors):
+            self.assertEqual(tst.main(["--record-trail"]), 0)
+        build.assert_called_once()
+        record.assert_not_called()
+        self.assertIn("recording skipped", errors.getvalue())
+
+    def test_record_uses_the_snapshot_from_before_the_build(self):
+        source_tree = "pre-build"
+
+        def build(*args, **kwargs):
+            nonlocal source_tree
+            source_tree = "edited-during-build"
+            return self._FakePio([], 0)
+
+        with mock.patch.object(tst.shutil, "which", return_value="pio"), \
+                mock.patch.object(tst.teensy_size_trail, "working_tree",
+                                  side_effect=lambda: source_tree) as snapshot, \
+                mock.patch.object(tst.subprocess, "Popen", side_effect=build), \
+                mock.patch.object(tst.subprocess, "call", return_value=0) as record:
+            self.assertEqual(tst.main(["--record-trail"]), 0)
+        snapshot.assert_called_once_with()
+        self.assertEqual(source_tree, "edited-during-build")
+        self.assertEqual(record.call_args.args[0], [
+            sys.executable, str(TOOLS / "teensy_size_trail.py"),
+            "record", "--built", "--tree", "pre-build"])
 
     def test_no_argument_builds_every_platformio_environment(self):
         # A bare `pio run` is what keeps a new environment size-gated with no
@@ -162,12 +198,13 @@ class Main(unittest.TestCase):
         with mock.patch.object(tst.shutil, "which", return_value="pio"), \
                 mock.patch.object(tst.subprocess, "Popen", return_value=self._FakePio([], 0)) as build, \
                 mock.patch.object(tst.subprocess, "call", return_value=0) as record, \
+                mock.patch.object(tst.teensy_size_trail, "working_tree", return_value="pre-build"), \
                 contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(tst.main(["--record-trail", "phantasm", "bench"]), 0)
         self.assertEqual(build.call_args.args[0], ["pio", "run", "-e", "phantasm", "-e", "bench"])
         self.assertEqual(record.call_args.args[0],
                          [sys.executable, str(TOOLS / "teensy_size_trail.py"),
-                          "record", "--built", "--env=phantasm", "--env=bench"])
+                          "record", "--built", "--tree", "pre-build", "--env=phantasm", "--env=bench"])
 
     def test_record_trail_survives_a_malformed_size_summary(self):
         lines = _env_chunk("phantasm", extra=[
@@ -176,12 +213,13 @@ class Main(unittest.TestCase):
         with mock.patch.object(tst.shutil, "which", return_value="pio"), \
                 mock.patch.object(tst.subprocess, "Popen", return_value=self._FakePio(lines, 0)), \
                 mock.patch.object(tst.subprocess, "call", return_value=0) as record, \
+                mock.patch.object(tst.teensy_size_trail, "working_tree", return_value="pre-build"), \
                 contextlib.redirect_stdout(io.StringIO()), \
                 contextlib.redirect_stderr(errors):
             self.assertEqual(tst.main(["--record-trail", "phantasm"]), 0)
         record.assert_called_once_with([
             sys.executable, str(TOOLS / "teensy_size_trail.py"),
-            "record", "--built", "--env=phantasm"])
+            "record", "--built", "--tree", "pre-build", "--env=phantasm"])
         self.assertIn("table omitted", errors.getvalue())
 
 
