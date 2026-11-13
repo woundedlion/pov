@@ -468,23 +468,31 @@ struct EdgeWorldsheet {
     return std::max(1, int(pieces + 0.5f));
   }
 
+  /** @brief Selects one lattice count for both ends of a frame.
+   * @param start,end Endpoint lengths in screen steps.
+   * @return The larger rounded count, at least one. */
+  HS_HOT_INLINE static int frame_lattice(float start, float end) {
+    return lattice(fmaxf(start, end));
+  }
+
   /** @brief The lattice an edge keeps over the whole frame.
    * @tparam W,H Display dimensions.
    * @param starts Unit endpoints at the frame's start.
    * @param ends Unit endpoints at the frame's end.
    * @param most Largest count of interest.
    * @param end_to_start Rigid rotation from frame end to start, when known.
+   * @param frame_constant Allows differing endpoint counts, using their maximum.
    * @param arcs Receive the edge's arcs at the frame's end and, for a count
    * of at most @p most, its start.
-   * @return The walk's lattice intervals when the edge's length rounds to
-   * the same count, at most @p most, at both ends of the frame, and so at
-   * every time between; zero otherwise. */
+   * @return The admitted count at most @p most, or zero. */
   template <int W, int H>
   HS_HOT_FLASH_MEMBER static int
   steady_lattice(const math::Vector (&starts)[2], const math::Vector (&ends)[2],
                  int most, GeodesicEdgeSampler (&arcs)[2],
-                 const math::RotationMatrix *end_to_start = nullptr) {
-    return steady_lattice_count<W, H>(starts, ends, most, arcs, end_to_start);
+                 const math::RotationMatrix *end_to_start = nullptr,
+                 bool frame_constant = false) {
+    return steady_lattice_count<W, H>(starts, ends, most, arcs, end_to_start,
+                                      frame_constant);
   }
 
   /** @brief Finds a steady lattice through the ITCM entry.
@@ -493,30 +501,33 @@ struct EdgeWorldsheet {
    * @param most Largest count of interest.
    * @param arcs Receive the edge's arcs at the frame's end and start.
    * @param end_to_start Rigid rotation from frame end to start, when known.
-   * @return The common lattice count at most @p most, or zero. */
+   * @param frame_constant Allows differing endpoint counts, using their maximum.
+   * @return The admitted count at most @p most, or zero. */
   template <int W, int H>
   HS_HOT_ITCM_MEMBER static int
   steady_lattice_resident(const math::Vector (&starts)[2],
                           const math::Vector (&ends)[2], int most,
                           GeodesicEdgeSampler (&arcs)[2],
-                          const math::RotationMatrix *end_to_start = nullptr) {
-    return steady_lattice_count<W, H>(starts, ends, most, arcs, end_to_start);
+                          const math::RotationMatrix *end_to_start = nullptr,
+                          bool frame_constant = false) {
+    return steady_lattice_count<W, H>(starts, ends, most, arcs, end_to_start,
+                                      frame_constant);
   }
 
 private:
-  /** @brief Finds the lattice count shared by both frame endpoints.
+  /** @brief Admits matching or frame-constant endpoint lattice counts.
    * @tparam W,H Display dimensions.
    * @param starts,ends Unit endpoints at the frame's start and end.
    * @param most Largest count of interest.
    * @param arcs Receive the edge's arcs at the frame's end and start.
    * @param end_to_start Rigid rotation from frame end to start, when known.
-   * @return The common lattice count at most @p most, or zero. */
+   * @param frame_constant Allows differing endpoint counts, using their maximum.
+   * @return The admitted count at most @p most, or zero. */
   template <int W, int H>
-  HS_HOT_INLINE static int
-  steady_lattice_count(const math::Vector (&starts)[2],
-                       const math::Vector (&ends)[2], int most,
-                       GeodesicEdgeSampler (&arcs)[2],
-                       const math::RotationMatrix *end_to_start) {
+  HS_HOT_INLINE static int steady_lattice_count(
+      const math::Vector (&starts)[2], const math::Vector (&ends)[2], int most,
+      GeodesicEdgeSampler (&arcs)[2], const math::RotationMatrix *end_to_start,
+      bool frame_constant) {
     arcs[1] = arc(ends[0], ends[1]);
     const int count = lattice(pieces_of<W, H>(arcs[1]));
     if (count > most)
@@ -526,7 +537,11 @@ private:
                                         end_to_start->apply(arcs[1].v_perp),
                                         arcs[1].total_dist}
                   : arc(starts[0], starts[1]);
-    return lattice(pieces_of<W, H>(arcs[0])) == count ? count : 0;
+    const float first = pieces_of<W, H>(arcs[0]);
+    if (!frame_constant)
+      return lattice(first) == count ? count : 0;
+    const int maximum = frame_lattice(first, float(count));
+    return maximum <= most ? maximum : 0;
   }
 
 public:

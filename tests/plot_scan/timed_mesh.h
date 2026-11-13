@@ -726,9 +726,8 @@ inline void test_column_directional_spacing_certificate() {
   HS_EXPECT_GT(Plot::g_column_lattice_checks, 10000u);
 }
 
-/** @brief An edge's steady lattice is its walk lattice when the count holds
- *         at both frame ends, and lattice points lie on the arc where the
- *         walk places them. */
+/** @brief Frame-constant admission covers both endpoint counts and samples
+ *         each endpoint arc at the same fractions. */
 inline void test_column_steady_lattice() {
   constexpr int W = 288, H = 144;
   using Frame = Plot::EdgeWorldsheet;
@@ -751,27 +750,36 @@ inline void test_column_steady_lattice() {
                                     math::rotate(b, motion)};
     const math::Vector ends[2] = {a, b};
     Plot::GeodesicEdgeSampler arcs[2];
-    const int got = Frame::steady_lattice<W, H>(starts, ends, 4, arcs);
+    const int got =
+        Frame::steady_lattice<W, H>(starts, ends, 4, arcs, nullptr, true);
     const math::RotationMatrix end_to_start(motion);
     Plot::GeodesicEdgeSampler carried[2];
-    const int transported =
-        Frame::steady_lattice<W, H>(starts, ends, 4, carried, &end_to_start);
+    const int transported = Frame::steady_lattice<W, H>(
+        starts, ends, 4, carried, &end_to_start, true);
     if (transported > 0) {
       ++transported_trials;
       const math::Vector expected =
           math::rotate(Frame::lattice_point(arcs[1], 0.37f), motion);
       const math::Vector actual = Frame::lattice_point(carried[0], 0.37f);
-      HS_EXPECT_EQ(transported,
-                   Frame::lattice(Frame::pieces_of<W, H>(carried[0])));
+      const int first = Frame::lattice(Frame::pieces_of<W, H>(carried[0]));
+      const int last = Frame::lattice(Frame::pieces_of<W, H>(carried[1]));
+      HS_EXPECT_GE(transported, first);
+      HS_EXPECT_GE(transported, last);
+      HS_EXPECT_TRUE(transported == first || transported == last);
       HS_EXPECT_LT((actual - expected).magnitude(), 0.0002f);
     }
     const int start_count = Frame::lattice(
         Frame::pieces_of<W, H>(Frame::arc(starts[0], starts[1])));
     const int end_count =
         Frame::lattice(Frame::pieces_of<W, H>(Frame::arc(ends[0], ends[1])));
-    const int want = start_count == end_count && end_count <= 4 ? end_count : 0;
-    HS_EXPECT_EQ(got, want);
-    steady += want != 0;
+    if (start_count > 4 || end_count > 4) {
+      HS_EXPECT_EQ(got, 0);
+    } else {
+      HS_EXPECT_GE(got, start_count);
+      HS_EXPECT_GE(got, end_count);
+      HS_EXPECT_TRUE(got == start_count || got == end_count);
+    }
+    steady += got != 0;
     unsteady += start_count != end_count;
     beyond += end_count > 4;
     if (got == 0)

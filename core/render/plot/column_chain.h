@@ -78,6 +78,7 @@ public:
    * @param store Vertex data writer.
    * @param flush Chunk draw operation.
    * @param end_to_start Known rigid rotation from frame end to start.
+   * @param frame_constant Allows differing endpoint counts, using their maximum.
    */
   template <bool RESIDENT = false, typename Sink, typename Shade,
             typename Store, typename Flush>
@@ -85,10 +86,11 @@ public:
   plot_edge(Sink &sink, Mesh::Edge source, const math::Vector (&starts)[2],
             const math::Vector (&ends)[2], int most, const Shade &shade,
             const Store &store, const Flush &flush,
-            const math::RotationMatrix *end_to_start = nullptr) {
-    chunk.template plot_edge<W, H, RESIDENT>(route, sink, canvas, source,
-                                             starts, ends, most, shade, store,
-                                             flush, end_to_start);
+            const math::RotationMatrix *end_to_start = nullptr,
+            bool frame_constant = false) {
+    chunk.template plot_edge<W, H, RESIDENT>(
+        route, sink, canvas, source, starts, ends, most, shade, store, flush,
+        end_to_start, frame_constant);
   }
 
   /**

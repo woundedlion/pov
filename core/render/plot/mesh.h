@@ -565,25 +565,26 @@ struct Mesh {
    * @param most Largest lattice plotted as points.
    * @param end_to_start Rigid rotation from frame end to start, when known.
    * @param shade Sample color.
+   * @param frame_constant Allows differing endpoint counts, using their maximum.
    * @return Whether the edge was plotted; otherwise the column walk draws it.
-   * @details The column walk spaces such an edge's samples at fixed fractions
-   * over the whole frame, so each is a single sample moving between its
-   * places on the edge at the frame's ends. Lattice points before the end
-   * vertex are plotted, as a chained walk plots them. */
+   * @details Samples follow fixed arc fractions between their frame endpoints.
+   * The frame-constant policy may differ from the column walk's local count.
+   * Lattice points before the end vertex are plotted, as in a chained walk. */
   template <int W, int H, bool RESIDENT = false, typename Sink, typename Shade>
   HS_HOT_FLASH_MEMBER static bool
   plot_steady_edge(const PointRoute<W, H> &route, Sink &sink, Canvas &canvas,
                    const math::Vector (&starts)[2],
                    const math::Vector (&ends)[2], int most, Shade &&shade,
-                   const math::RotationMatrix *end_to_start = nullptr) {
+                   const math::RotationMatrix *end_to_start = nullptr,
+                   bool frame_constant = false) {
     GeodesicEdgeSampler arcs[2];
     const int steady = [&]() HS_HOT_INLINE {
       if constexpr (RESIDENT)
         return EdgeWorldsheet::steady_lattice_resident<W, H>(
-            starts, ends, most, arcs, end_to_start);
+            starts, ends, most, arcs, end_to_start, frame_constant);
       else
-        return EdgeWorldsheet::steady_lattice<W, H>(starts, ends, most, arcs,
-                                                    end_to_start);
+        return EdgeWorldsheet::steady_lattice<W, H>(
+            starts, ends, most, arcs, end_to_start, frame_constant);
     }();
     if (steady == 0)
       return false;
@@ -847,7 +848,8 @@ struct Mesh {
      * @param shade Edge sample color.
      * @param store Vertex data writer.
      * @param flush Chunk draw operation.
-     * @param end_to_start Known rigid rotation from frame end to start. */
+     * @param end_to_start Known rigid rotation from frame end to start.
+     * @param frame_constant Allows differing endpoint counts, using their maximum. */
     template <int W, int H, bool RESIDENT = false, typename Sink,
               typename Shade, typename Store, typename Flush>
     HS_HOT_INLINE void
@@ -855,9 +857,11 @@ struct Mesh {
               Edge source, const math::Vector (&starts)[2],
               const math::Vector (&ends)[2], int most, const Shade &shade,
               const Store &store, const Flush &flush,
-              const math::RotationMatrix *end_to_start = nullptr) {
+              const math::RotationMatrix *end_to_start = nullptr,
+              bool frame_constant = false) {
       if (!plot_steady_edge<W, H, RESIDENT>(route, sink, canvas, starts, ends,
-                                            most, shade, end_to_start))
+                                            most, shade, end_to_start,
+                                            frame_constant))
         append(source, store, flush);
     }
 
