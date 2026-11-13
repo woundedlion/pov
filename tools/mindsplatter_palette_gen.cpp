@@ -40,7 +40,9 @@ int main(int argc, char **argv) {
          " *   cmake --build --preset tests --target "
          "regenerate_mindsplatter_palette\n"
          " *\n"
-         " * MindSplatter's trail palette bank: one 32-entry triadic LUT per\n"
+         " * MindSplatter's trail palette bank: one "
+      << LUT_SIZE
+      << "-entry triadic LUT per\n"
          " * base hue, compiled from EffectPaletteRecipes::mind_splatter.\n"
          " */\n"
          "#pragma once\n\n"
