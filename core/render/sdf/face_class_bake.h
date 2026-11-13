@@ -7,6 +7,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
+#include <tuple>
 
 #include "core/math/3dmath.h"
 #include "core/memory.h"
@@ -59,6 +60,266 @@ inline bool polygon_is_concave(const float *xy, int count) {
     SDF::scan_polygon_turn(cr, scale, pos, neg);
   }
   return pos && neg;
+}
+
+/** @brief Centers the face polygon in its gnomonic tangent plane.
+ * @param mesh Source vertex storage.
+ * @param idx Face vertex indices.
+ * @param count Face vertex count.
+ * @param v_value Source vertex count.
+ * @param zx Receives centered x coordinates.
+ * @param zy Receives centered y coordinates.
+ * @return Sum of squared centered coordinates. */
+HS_COLD static float project_bake_face(const MeshState &mesh,
+                                       const uint16_t *idx, int count,
+                                       size_t v_value, float *zx, float *zy) {
+  math::Vector center(0, 0, 0);
+  for (int k = 0; k < count; ++k) {
+    HS_CHECK(static_cast<size_t>(idx[k]) < v_value,
+             "mesh face vertex index out of range");
+    center = center + mesh.vertices[idx[k]];
+  }
+  center = math::normalized_or(
+      center, math::normalized_or(mesh.vertices[idx[0]], math::X_AXIS));
+  math::Vector u = math::perpendicular_axis(center);
+  math::Vector w = math::cross(center, u).normalized();
+  float mx = 0.0f, my = 0.0f;
+  for (int k = 0; k < count; ++k) {
+    const math::Vector &v = mesh.vertices[idx[k]];
+    SDF::gnomonic_project(v, center, u, w, zx[k], zy[k]);
+    mx += zx[k];
+    my += zy[k];
+  }
+  mx /= count;
+  my /= count;
+  float zz = 0.0f;
+  for (int k = 0; k < count; ++k) {
+    zx[k] -= mx;
+    zy[k] -= my;
+    zz += zx[k] * zx[k] + zy[k] * zy[k];
+  }
+
+  return zz;
+}
+
+/** @brief Finds the least-residual alignment among matching topology classes.
+ * @param out Founded congruence classes.
+ * @param topo Face topology id.
+ * @param count Face vertex count.
+ * @param zx Centered x coordinates.
+ * @param zy Centered y coordinates.
+ * @param zz Squared coordinate sum.
+ * @return Class index, cyclic offset, reflection, residual and correlation. */
+HS_COLD static std::tuple<int, int, bool, float, SDF::AlignCorr>
+align_bake_face(const MeshClassBake &out, uint16_t topo, int count,
+                const float *zx, const float *zy, float zz) {
+  int best_class = -1, best_off = 0;
+  bool best_refl = false;
+  float best_res_sq = FLT_MAX;
+  SDF::AlignCorr best_alignment{};
+  for (size_t c = 0; c < out.classes.size(); ++c) {
+    const CongruenceClass &cls = out.classes[c];
+    if (cls.topo_id != topo || cls.n_verts != count)
+      continue;
+    for (int refl = 0; refl < 2; ++refl) {
+      for (int off = 0; off < count; ++off) {
+        SDF::AlignCorr a =
+            SDF::align_correlate(cls.canon_xy, count, off, refl != 0,
+                                 [&](int j, float &gx, float &gy) {
+                                   gx = zx[j];
+                                   gy = zy[j];
+                                 });
+        float res_sq = std::max(
+            cls.canon_sq + zz - 2.0f * sqrtf(a.rr * a.rr + a.ri * a.ri), 0.0f);
+        if (res_sq < best_res_sq) {
+          best_res_sq = res_sq;
+          best_class = static_cast<int>(c);
+          best_off = off;
+          best_refl = refl != 0;
+          best_alignment = a;
+        }
+      }
+    }
+  }
+
+  return {best_class, best_off, best_refl, best_res_sq, best_alignment};
+}
+
+/** @brief Checks residual and runtime deviation limits for a class binding.
+ * @param out Founded congruence classes.
+ * @param best_class Candidate class index, or minus one.
+ * @param best_off Candidate cyclic offset.
+ * @param best_refl Candidate reflection.
+ * @param best_res_sq Candidate squared residual.
+ * @param best_alignment Candidate correlation.
+ * @param eps_plane Plane-space RMS tolerance.
+ * @param count Face vertex count.
+ * @param zx Centered x coordinates.
+ * @param zy Centered y coordinates.
+ * @return Whether the face can use the candidate class. */
+HS_COLD static bool bake_face_bindable(const MeshClassBake &out, int best_class,
+                                       int best_off, bool best_refl,
+                                       float best_res_sq,
+                                       const SDF::AlignCorr &best_alignment,
+                                       float eps_plane, int count,
+                                       const float *zx, const float *zy) {
+  bool bindable = false;
+  if (best_class >= 0 && best_res_sq <= eps_plane * eps_plane * count) {
+    const float *canon = out.classes[best_class].canon_xy;
+    const float r2 = best_alignment.rr * best_alignment.rr +
+                     best_alignment.ri * best_alignment.ri;
+    if (r2 > SDF::ALIGN_MIN_CORR_SQ * best_alignment.cc * best_alignment.zz) {
+      const float inv_r = 1.0f / sqrtf(r2);
+      const float c = best_alignment.rr * inv_r, s = best_alignment.ri * inv_r;
+      float max_dev_sq = 0.0f;
+      const auto [min_x, max_x, min_y, max_y] =
+          SDF::canonical_polygon_box(canon, count);
+      SDF::align_walk(
+          count, best_off, best_refl,
+          [&](int j, float &x, float &y) {
+            x = zx[j];
+            y = zy[j];
+          },
+          [&](int k, float x, float y) {
+            const float cx = canon[2 * k], cy = canon[2 * k + 1];
+            const float dx = cx - (c * x - s * y), dy = cy - (s * x + c * y);
+            max_dev_sq = std::max(max_dev_sq, dx * dx + dy * dy);
+          });
+      const auto [half_x, half_y] =
+          SDF::canonical_lut_half_extents(min_x, max_x, min_y, max_y);
+      // The finest allowed grid has the smallest runtime deviation cap.
+      const float STEP = 2.0f / (CLASS_LUT_MAX_N - 1);
+      const float cap_sq = SDF::ALIGN_MAX_DEV_DIAGS * SDF::ALIGN_MAX_DEV_DIAGS *
+                           STEP * STEP * (half_x * half_x + half_y * half_y);
+      bindable = max_dev_sq <= cap_sq;
+    }
+  }
+  return bindable;
+}
+
+/** @brief Founds a congruence class from the centered face polygon.
+ * @param out Receives the class.
+ * @param persistent Canonical polygon storage.
+ * @param count Face vertex count.
+ * @param zx Centered x coordinates.
+ * @param zy Centered y coordinates.
+ * @param zz Squared coordinate sum.
+ * @param topo Face topology id.
+ * @param rec Receives the new class binding. */
+HS_COLD static void found_bake_class(MeshClassBake &out, Arena &persistent,
+                                     int count, const float *zx,
+                                     const float *zy, float zz, uint16_t topo,
+                                     FaceClassRec &rec) {
+  float *canon = persistent.allocate_n<float>(2 * count);
+  for (int k = 0; k < count; ++k) {
+    canon[2 * k] = zx[k];
+    canon[2 * k + 1] = zy[k];
+  }
+  CongruenceClass cls;
+  cls.canon_xy = canon;
+  cls.canon_sq = zz;
+  cls.n_verts = count;
+  cls.topo_id = topo;
+  cls.members = 1;
+  cls.concave = polygon_is_concave(canon, count);
+  rec = {static_cast<uint8_t>(out.classes.size()), 0, 0};
+  out.classes.push_back(cls);
+}
+
+/** @brief Orders shared concave classes by descending membership.
+ * @param out Founded congruence classes.
+ * @param order Receives class indices.
+ * @return Number of eligible classes. */
+HS_COLD static int order_bake_luts(const MeshClassBake &out, int *order) {
+  int n_elig = 0;
+  for (size_t c = 0; c < out.classes.size(); ++c) {
+    const CongruenceClass &cls = out.classes[c];
+    if (cls.members < 2 || !cls.concave)
+      continue;
+    int pos = n_elig++;
+    while (pos > 0 && out.classes[order[pos - 1]].members < cls.members) {
+      order[pos] = order[pos - 1];
+      --pos;
+    }
+    order[pos] = static_cast<int>(c);
+  }
+
+  return n_elig;
+}
+
+/** @brief Chooses a LUT grid within the target diagonal and remaining budget.
+ * @param cls Canonical class polygon.
+ * @param target_diag Target cell diagonal.
+ * @param budget Remaining LUT byte budget.
+ * @return Grid side, payload bytes and whether resolution was degraded. */
+HS_COLD static std::tuple<int, size_t, bool>
+select_bake_grid(const CongruenceClass &cls, float target_diag, size_t budget) {
+  bool degraded = false;
+  // including the canonical LUT margin).
+  const auto [min_x, max_x, min_y, max_y] =
+      SDF::canonical_polygon_box(cls.canon_xy, cls.n_verts);
+  const auto [half_x, half_y] =
+      SDF::canonical_lut_half_extents(min_x, max_x, min_y, max_y);
+  int n = static_cast<int>(hs::clamp(
+      ceilf(2.0f * sqrtf(half_x * half_x + half_y * half_y) / target_diag) +
+          1.0f,
+      static_cast<float>(CLASS_LUT_MIN_N),
+      static_cast<float>(CLASS_LUT_MAX_N)));
+  size_t bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
+  if (bytes > budget) {
+    n = static_cast<int>(sqrtf(static_cast<float>(budget) / sizeof(int16_t)));
+    n = std::min(n, CLASS_LUT_MAX_N); // staging buffer is CLASS_LUT_MAX_N²
+    bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
+    if (n < CLASS_LUT_MIN_N)
+      return {n, bytes, false};
+    degraded = true;
+  }
+  return {n, bytes, degraded};
+}
+
+/** @brief Estimates sign-pure LUT coverage inside the class cull disk.
+ * @param cls Canonical class polygon.
+ * @param lut Staged distance LUT descriptor.
+ * @param n Grid side.
+ * @param staging Staged quantized distances.
+ * @return Predicted safe interpolation fraction. */
+HS_COLD static float predict_bake_hit_share(const CongruenceClass &cls,
+                                            const SDF::ClassLut &lut, int n,
+                                            const int16_t *staging) {
+  float circ_sq = 0.0f;
+  for (int k = 0; k < cls.n_verts; ++k) {
+    float r2 = cls.canon_xy[2 * k] * cls.canon_xy[2 * k] +
+               cls.canon_xy[2 * k + 1] * cls.canon_xy[2 * k + 1];
+    circ_sq = std::max(circ_sq, r2);
+  }
+  float max_dist = sqrtf(circ_sq) + SDF::BOUNDS_MARGIN_WIDE;
+  float max_dist_sq = max_dist * max_dist;
+  float step_x = (2.0f * lut.half_x) / (n - 1);
+  float step_y = (2.0f * lut.half_y) / (n - 1);
+  const int32_t safe_q = static_cast<int32_t>(
+      lut.safe_dist * (1.0f + SDF::ALIGN_MAX_DEV_DIAGS) / lut.dequant);
+  int in_disk = 0, safe = 0;
+  for (int gy = 0; gy + 1 < n; ++gy) {
+    float ccy = (lut.cy - lut.half_y) + (gy + 0.5f) * step_y;
+    for (int gx = 0; gx + 1 < n; ++gx) {
+      float ccx = (lut.cx - lut.half_x) + (gx + 0.5f) * step_x;
+      if (ccx * ccx + ccy * ccy > max_dist_sq)
+        continue;
+      ++in_disk;
+      int q00 = staging[gy * n + gx], q10 = staging[gy * n + gx + 1];
+      int q01 = staging[(gy + 1) * n + gx],
+          q11 = staging[(gy + 1) * n + gx + 1];
+      bool same_sign = (q00 > 0) == (q10 > 0) && (q00 > 0) == (q01 > 0) &&
+                       (q00 > 0) == (q11 > 0);
+      int min_q = std::min(
+          {std::abs(q00), std::abs(q10), std::abs(q01), std::abs(q11)});
+      if (same_sign && min_q > safe_q)
+        ++safe;
+    }
+  }
+  float safe_frac = in_disk > 0 ? static_cast<float>(safe) / in_disk : 0.0f;
+
+  return safe_frac;
 }
 
 /**
@@ -134,97 +395,16 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     HS_CHECK(static_cast<size_t>(fo[f]) + count <= fi_size,
              "mesh face span exceeds face index array");
     const uint16_t *idx = fi + fo[f];
-    math::Vector center(0, 0, 0);
-    for (int k = 0; k < count; ++k) {
-      HS_CHECK(static_cast<size_t>(idx[k]) < v_value,
-               "mesh face vertex index out of range");
-      center = center + mesh.vertices[idx[k]];
-    }
-    center = math::normalized_or(
-        center, math::normalized_or(mesh.vertices[idx[0]], math::X_AXIS));
-    math::Vector u = math::perpendicular_axis(center);
-    math::Vector w = math::cross(center, u).normalized();
-    float mx = 0.0f, my = 0.0f;
-    for (int k = 0; k < count; ++k) {
-      const math::Vector &v = mesh.vertices[idx[k]];
-      SDF::gnomonic_project(v, center, u, w, zx[k], zy[k]);
-      mx += zx[k];
-      my += zy[k];
-    }
-    mx /= count;
-    my /= count;
-    float zz = 0.0f;
-    for (int k = 0; k < count; ++k) {
-      zx[k] -= mx;
-      zy[k] -= my;
-      zz += zx[k] * zx[k] + zy[k] * zy[k];
-    }
+    const float zz = project_bake_face(mesh, idx, count, v_value, zx, zy);
 
     // Best alignment against every same-topology class rep.
     const uint16_t topo = topology[f];
-    int best_class = -1, best_off = 0;
-    bool best_refl = false;
-    float best_res_sq = FLT_MAX;
-    SDF::AlignCorr best_alignment{};
-    for (size_t c = 0; c < out.classes.size(); ++c) {
-      const CongruenceClass &cls = out.classes[c];
-      if (cls.topo_id != topo || cls.n_verts != count)
-        continue;
-      for (int refl = 0; refl < 2; ++refl) {
-        for (int off = 0; off < count; ++off) {
-          SDF::AlignCorr a =
-              SDF::align_correlate(cls.canon_xy, count, off, refl != 0,
-                                   [&](int j, float &gx, float &gy) {
-                                     gx = zx[j];
-                                     gy = zy[j];
-                                   });
-          float res_sq = std::max(cls.canon_sq + zz -
-                                      2.0f * sqrtf(a.rr * a.rr + a.ri * a.ri),
-                                  0.0f);
-          if (res_sq < best_res_sq) {
-            best_res_sq = res_sq;
-            best_class = static_cast<int>(c);
-            best_off = off;
-            best_refl = refl != 0;
-            best_alignment = a;
-          }
-        }
-      }
-    }
+    const auto [best_class, best_off, best_refl, best_res_sq, best_alignment] =
+        align_bake_face(out, topo, count, zx, zy, zz);
 
-    bool bindable = false;
-    if (best_class >= 0 && best_res_sq <= eps_plane * eps_plane * count) {
-      const float *canon = out.classes[best_class].canon_xy;
-      const float r2 = best_alignment.rr * best_alignment.rr +
-                       best_alignment.ri * best_alignment.ri;
-      if (r2 > SDF::ALIGN_MIN_CORR_SQ * best_alignment.cc * best_alignment.zz) {
-        const float inv_r = 1.0f / sqrtf(r2);
-        const float c = best_alignment.rr * inv_r,
-                    s = best_alignment.ri * inv_r;
-        float max_dev_sq = 0.0f;
-        const auto [min_x, max_x, min_y, max_y] =
-            SDF::canonical_polygon_box(canon, count);
-        SDF::align_walk(
-            count, best_off, best_refl,
-            [&](int j, float &x, float &y) {
-              x = zx[j];
-              y = zy[j];
-            },
-            [&](int k, float x, float y) {
-              const float cx = canon[2 * k], cy = canon[2 * k + 1];
-              const float dx = cx - (c * x - s * y), dy = cy - (s * x + c * y);
-              max_dev_sq = std::max(max_dev_sq, dx * dx + dy * dy);
-            });
-        const auto [half_x, half_y] =
-            SDF::canonical_lut_half_extents(min_x, max_x, min_y, max_y);
-        // The finest allowed grid has the smallest runtime deviation cap.
-        const float STEP = 2.0f / (CLASS_LUT_MAX_N - 1);
-        const float cap_sq = SDF::ALIGN_MAX_DEV_DIAGS *
-                             SDF::ALIGN_MAX_DEV_DIAGS * STEP * STEP *
-                             (half_x * half_x + half_y * half_y);
-        bindable = max_dev_sq <= cap_sq;
-      }
-    }
+    const bool bindable =
+        bake_face_bindable(out, best_class, best_off, best_refl, best_res_sq,
+                           best_alignment, eps_plane, count, zx, zy);
     if (bindable) {
       rec = {static_cast<uint8_t>(best_class), static_cast<uint8_t>(best_off),
              static_cast<uint8_t>(best_refl ? 1 : 0)};
@@ -240,21 +420,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       continue; // degrade to NO_CLASS (exact path)
     }
 
-    // Found a new class from this face's own centered projection.
-    float *canon = persistent.allocate_n<float>(2 * count);
-    for (int k = 0; k < count; ++k) {
-      canon[2 * k] = zx[k];
-      canon[2 * k + 1] = zy[k];
-    }
-    CongruenceClass cls;
-    cls.canon_xy = canon;
-    cls.canon_sq = zz;
-    cls.n_verts = count;
-    cls.topo_id = topo;
-    cls.members = 1;
-    cls.concave = polygon_is_concave(canon, count);
-    rec = {static_cast<uint8_t>(out.classes.size()), 0, 0};
-    out.classes.push_back(cls);
+    found_bake_class(out, persistent, count, zx, zy, zz, topo, rec);
   }
   out.worst_residual_px = worst_res_px;
 
@@ -262,19 +428,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     if (out.classes[c].members >= 2)
       out.shared_faces += out.classes[c].members;
 
-  // LUT build: concave shared classes, largest first until the budget is spent.
-  int n_elig = 0;
-  for (size_t c = 0; c < out.classes.size(); ++c) {
-    const CongruenceClass &cls = out.classes[c];
-    if (cls.members < 2 || !cls.concave)
-      continue;
-    int pos = n_elig++;
-    while (pos > 0 && out.classes[order[pos - 1]].members < cls.members) {
-      order[pos] = order[pos - 1];
-      --pos;
-    }
-    order[pos] = static_cast<int>(c);
-  }
+  const int n_elig = order_bake_luts(out, order);
 
   size_t budget = budget_bytes;
   const float target_diag = LUT_TARGET_DIAG_PX * pixel_width;
@@ -294,70 +448,22 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   for (int e = 0; e < n_elig; ++e) {
     CongruenceClass &cls = out.classes[order[e]];
     out.concave_faces += cls.members;
-    // Size the grid so the cell diagonal lands on target_diag (the box gains
-    // including the canonical LUT margin).
-    const auto [min_x, max_x, min_y, max_y] =
-        SDF::canonical_polygon_box(cls.canon_xy, cls.n_verts);
-    const auto [half_x, half_y] =
-        SDF::canonical_lut_half_extents(min_x, max_x, min_y, max_y);
-    int n = static_cast<int>(hs::clamp(
-        ceilf(2.0f * sqrtf(half_x * half_x + half_y * half_y) / target_diag) +
-            1.0f,
-        static_cast<float>(CLASS_LUT_MIN_N),
-        static_cast<float>(CLASS_LUT_MAX_N)));
-    // Degrade resolution before dropping a class.
-    size_t bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
-    if (bytes > budget) {
-      n = static_cast<int>(sqrtf(static_cast<float>(budget) / sizeof(int16_t)));
-      n = std::min(n, CLASS_LUT_MAX_N); // staging buffer is CLASS_LUT_MAX_N²
-      bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
-      if (n < CLASS_LUT_MIN_N) {
-        ++dropped_classes;
-        dropped_faces += cls.members;
-        continue;
-      }
-      ++degraded_classes;
+    const auto [n, bytes, degraded] =
+        select_bake_grid(cls, target_diag, budget);
+    if (n < CLASS_LUT_MIN_N) {
+      ++dropped_classes;
+      dropped_faces += cls.members;
+      continue;
     }
+    if (degraded)
+      ++degraded_classes;
     // Local until accepted: the persistent class must never hold a descriptor
     // pointing at the scratch staging buffer.
     SDF::ClassLut lut;
     SDF::build_canonical_distance_lut(cls.canon_xy, cls.n_verts, n, staging,
                                       lut);
 
-    // Predicted hit share: fraction of cells inside the cull disk whose four
-    // corners are sign-pure and beyond the interpolation guard.
-    float circ_sq = 0.0f;
-    for (int k = 0; k < cls.n_verts; ++k) {
-      float r2 = cls.canon_xy[2 * k] * cls.canon_xy[2 * k] +
-                 cls.canon_xy[2 * k + 1] * cls.canon_xy[2 * k + 1];
-      circ_sq = std::max(circ_sq, r2);
-    }
-    float max_dist = sqrtf(circ_sq) + SDF::BOUNDS_MARGIN_WIDE;
-    float max_dist_sq = max_dist * max_dist;
-    float step_x = (2.0f * lut.half_x) / (n - 1);
-    float step_y = (2.0f * lut.half_y) / (n - 1);
-    const int32_t safe_q = static_cast<int32_t>(
-        lut.safe_dist * (1.0f + SDF::ALIGN_MAX_DEV_DIAGS) / lut.dequant);
-    int in_disk = 0, safe = 0;
-    for (int gy = 0; gy + 1 < n; ++gy) {
-      float ccy = (lut.cy - lut.half_y) + (gy + 0.5f) * step_y;
-      for (int gx = 0; gx + 1 < n; ++gx) {
-        float ccx = (lut.cx - lut.half_x) + (gx + 0.5f) * step_x;
-        if (ccx * ccx + ccy * ccy > max_dist_sq)
-          continue;
-        ++in_disk;
-        int q00 = staging[gy * n + gx], q10 = staging[gy * n + gx + 1];
-        int q01 = staging[(gy + 1) * n + gx],
-            q11 = staging[(gy + 1) * n + gx + 1];
-        bool same_sign = (q00 > 0) == (q10 > 0) && (q00 > 0) == (q01 > 0) &&
-                         (q00 > 0) == (q11 > 0);
-        int min_q = std::min(
-            {std::abs(q00), std::abs(q10), std::abs(q01), std::abs(q11)});
-        if (same_sign && min_q > safe_q)
-          ++safe;
-      }
-    }
-    float safe_frac = in_disk > 0 ? static_cast<float>(safe) / in_disk : 0.0f;
+    const float safe_frac = predict_bake_hit_share(cls, lut, n, staging);
 
     if (safe_frac < MIN_CLASS_HIT_SHARE) {
       ++lowq_classes;

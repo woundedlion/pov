@@ -904,6 +904,146 @@ face_corner_angle_deg(const math::Vector &prev, const math::Vector &curr,
   return ang * 180.0f / math::PI_F;
 }
 
+/** @brief Hashes vertex counts and sorted corner angles.
+ * @param face_counts Per-face vertex counts.
+ * @param face_count Number of faces.
+ * @param faces Flat vertex-index stream.
+ * @param vertices Source positions.
+ * @param scratch_a Angle scratch storage.
+ * @param face_hashes Receives base hashes.
+ * @param final_hashes Receives initial hashes. */
+HS_HOT_INLINE static inline void hash_face_geometry(
+    const uint8_t *face_counts, size_t face_count, const uint16_t *faces,
+    const ArenaVector<math::Vector> &vertices, Arena &scratch_a,
+    ArenaVector<uint32_t> &face_hashes, ArenaVector<uint32_t> &final_hashes) {
+  int max_count = 0;
+  for (size_t i = 0; i < face_count; ++i) {
+    int c = face_counts[i];
+    if (c > max_count)
+      max_count = c;
+  }
+
+  int *angles = scratch_a.allocate_n<int>(max_count);
+
+  const size_t vertex_count = vertices.size();
+  size_t offset = 0;
+  for (size_t i = 0; i < face_count; ++i) {
+    int count = face_counts[i];
+
+    // Pre-fold hash: count + sorted whole-degree interior angles. Degenerate
+    // faces hash on count alone.
+    if (count >= 3) {
+      for (int k = 0; k < count; ++k) {
+        HS_CHECK(faces[offset + k] < vertex_count,
+                 "mesh face index out of range");
+      }
+      for (int k = 0; k < count; ++k) {
+        const int prev_k = k == 0 ? count - 1 : k - 1;
+        const int next_k = k + 1 == count ? 0 : k + 1;
+        const math::Vector &prev = vertices[faces[offset + prev_k]];
+        const math::Vector &curr = vertices[faces[offset + k]];
+        const math::Vector &next = vertices[faces[offset + next_k]];
+        angles[k] = static_cast<int>(
+            std::round(face_corner_angle_deg(prev, curr, next)));
+      }
+      for (int k = 1; k < count; ++k) {
+        const int x = angles[k];
+        int j = k;
+        for (; j > 0 && x < angles[j - 1]; --j)
+          angles[j] = angles[j - 1];
+        angles[j] = x;
+      }
+    }
+    const uint32_t h = face_topology_base_hash(count, angles);
+    face_hashes.push_back(h);
+    final_hashes.push_back(h);
+    offset += count;
+  }
+}
+
+/** @brief Folds paired-edge neighbor classes into the face hashes.
+ * @param face_counts Per-face vertex counts.
+ * @param face_count Number of faces.
+ * @param faces Flat vertex-index stream.
+ * @param index_count Number of indices.
+ * @param vertices Source positions.
+ * @param scratch_a Half-edge scratch storage.
+ * @param scratch_b Pairing-record scratch storage.
+ * @param face_hashes Base hashes.
+ * @param final_hashes Receives neighbor-folded hashes. */
+HS_HOT_INLINE static inline void
+fold_neighbor_hashes(const uint8_t *face_counts, size_t face_count,
+                     const uint16_t *faces, size_t index_count,
+                     const ArenaVector<math::Vector> &vertices,
+                     Arena &scratch_a, Arena &scratch_b,
+                     const ArenaVector<uint32_t> &face_hashes,
+                     ArenaVector<uint32_t> &final_hashes) {
+  ScratchScope temp_topo(scratch_a);
+
+  HS_CHECK(vertices.size() <= MeshLimits::MAX_VERTICES &&
+               index_count <= MeshLimits::MAX_HALF_EDGES &&
+               face_count <= MeshLimits::MAX_FACES,
+           "classify_faces_by_topology exceeds 16-bit index range");
+
+  uint16_t *he_to_face = scratch_a.allocate_n<uint16_t>(index_count);
+  uint16_t *pair_array = scratch_a.allocate_n<uint16_t>(index_count);
+  std::fill_n(pair_array, index_count, HE_NONE);
+
+  {
+    ScratchScope temp_records(scratch_b);
+    HalfEdgePairRecord *records =
+        scratch_b.allocate_n<HalfEdgePairRecord>(index_count);
+
+    size_t he_idx = 0;
+    size_t face_offset = 0;
+    for (size_t fi = 0; fi < face_count; ++fi) {
+      int count = face_counts[fi];
+      if (count < 3) {
+        // Reserve a degenerate face's half-edge slots with the never-pair
+        // sentinel, keeping indexing aligned and a 2-gon unpaired.
+        for (int k = 0; k < count; ++k) {
+          fill_edge_record(records[he_idx], HE_NONE, HE_NONE,
+                           static_cast<uint16_t>(he_idx));
+          he_to_face[he_idx] = static_cast<uint16_t>(fi);
+          he_idx++;
+        }
+        face_offset += count;
+        continue;
+      }
+      for (int k = 0; k < count; ++k) {
+        uint16_t u = faces[face_offset + k];
+        uint16_t v = faces[face_offset + (k + 1 == count ? 0 : k + 1)];
+        fill_edge_record(records[he_idx], u, v, static_cast<uint16_t>(he_idx));
+        he_to_face[he_idx] = static_cast<uint16_t>(fi);
+        he_idx++;
+      }
+      face_offset += count;
+    }
+
+    pair_half_edges(records, index_count, [&](uint16_t a, uint16_t b) {
+      pair_array[a] = b;
+      pair_array[b] = a;
+    });
+  }
+
+  // The wrapping sum makes class identity the multiset of neighbour hashes,
+  // not their cyclic order.
+  size_t offset = 0;
+  for (size_t fi = 0; fi < face_count; ++fi) {
+    int count = face_counts[fi];
+    uint32_t neighbor_acc = 0;
+    for (int k = 0; k < count; ++k) {
+      uint16_t p_idx = pair_array[offset + k];
+      if (p_idx != HE_NONE) {
+        neighbor_acc +=
+            neighbor_topology_contribution(face_hashes[he_to_face[p_idx]]);
+      }
+    }
+    final_hashes[fi] = fold_face_topology_hash(face_hashes[fi], neighbor_acc);
+    offset += count;
+  }
+}
+
 /**
  * @brief Colors faces by vertex count, interior angles and neighbor topology.
  * @param face_counts Flat per-face vertex counts.
@@ -953,117 +1093,11 @@ classify_faces_impl(const uint8_t *face_counts, size_t face_count,
   ArenaVector<uint32_t> final_hashes;
   final_hashes.bind(scratch_a, face_count);
 
-  int max_count = 0;
-  for (size_t i = 0; i < face_count; ++i) {
-    int c = face_counts[i];
-    if (c > max_count)
-      max_count = c;
-  }
+  hash_face_geometry(face_counts, face_count, faces, vertices, scratch_a,
+                     face_hashes, final_hashes);
 
-  int *angles = scratch_a.allocate_n<int>(max_count);
-
-  const size_t vertex_count = vertices.size();
-  size_t offset = 0;
-  for (size_t i = 0; i < face_count; ++i) {
-    int count = face_counts[i];
-
-    // Pre-fold hash: count + sorted whole-degree interior angles. Degenerate
-    // faces hash on count alone.
-    if (count >= 3) {
-      for (int k = 0; k < count; ++k) {
-        HS_CHECK(faces[offset + k] < vertex_count,
-                 "mesh face index out of range");
-      }
-      for (int k = 0; k < count; ++k) {
-        const int prev_k = k == 0 ? count - 1 : k - 1;
-        const int next_k = k + 1 == count ? 0 : k + 1;
-        const math::Vector &prev = vertices[faces[offset + prev_k]];
-        const math::Vector &curr = vertices[faces[offset + k]];
-        const math::Vector &next = vertices[faces[offset + next_k]];
-        angles[k] = static_cast<int>(
-            std::round(face_corner_angle_deg(prev, curr, next)));
-      }
-      for (int k = 1; k < count; ++k) {
-        const int x = angles[k];
-        int j = k;
-        for (; j > 0 && x < angles[j - 1]; --j)
-          angles[j] = angles[j - 1];
-        angles[j] = x;
-      }
-    }
-    const uint32_t h = face_topology_base_hash(count, angles);
-    face_hashes.push_back(h);
-    final_hashes.push_back(h);
-    offset += count;
-  }
-
-  {
-    ScratchScope temp_topo(scratch_a);
-
-    HS_CHECK(vertices.size() <= MeshLimits::MAX_VERTICES &&
-                 index_count <= MeshLimits::MAX_HALF_EDGES &&
-                 face_count <= MeshLimits::MAX_FACES,
-             "classify_faces_by_topology exceeds 16-bit index range");
-
-    uint16_t *he_to_face = scratch_a.allocate_n<uint16_t>(index_count);
-    uint16_t *pair_array = scratch_a.allocate_n<uint16_t>(index_count);
-    std::fill_n(pair_array, index_count, HE_NONE);
-
-    {
-      ScratchScope temp_records(scratch_b);
-      HalfEdgePairRecord *records =
-          scratch_b.allocate_n<HalfEdgePairRecord>(index_count);
-
-      size_t he_idx = 0;
-      size_t face_offset = 0;
-      for (size_t fi = 0; fi < face_count; ++fi) {
-        int count = face_counts[fi];
-        if (count < 3) {
-          // Reserve a degenerate face's half-edge slots with the never-pair
-          // sentinel, keeping indexing aligned and a 2-gon unpaired.
-          for (int k = 0; k < count; ++k) {
-            fill_edge_record(records[he_idx], HE_NONE, HE_NONE,
-                             static_cast<uint16_t>(he_idx));
-            he_to_face[he_idx] = static_cast<uint16_t>(fi);
-            he_idx++;
-          }
-          face_offset += count;
-          continue;
-        }
-        for (int k = 0; k < count; ++k) {
-          uint16_t u = faces[face_offset + k];
-          uint16_t v = faces[face_offset + (k + 1 == count ? 0 : k + 1)];
-          fill_edge_record(records[he_idx], u, v,
-                           static_cast<uint16_t>(he_idx));
-          he_to_face[he_idx] = static_cast<uint16_t>(fi);
-          he_idx++;
-        }
-        face_offset += count;
-      }
-
-      pair_half_edges(records, index_count, [&](uint16_t a, uint16_t b) {
-        pair_array[a] = b;
-        pair_array[b] = a;
-      });
-    }
-
-    // The wrapping sum makes class identity the multiset of neighbour hashes,
-    // not their cyclic order.
-    offset = 0;
-    for (size_t fi = 0; fi < face_count; ++fi) {
-      int count = face_counts[fi];
-      uint32_t neighbor_acc = 0;
-      for (int k = 0; k < count; ++k) {
-        uint16_t p_idx = pair_array[offset + k];
-        if (p_idx != HE_NONE) {
-          neighbor_acc +=
-              neighbor_topology_contribution(face_hashes[he_to_face[p_idx]]);
-        }
-      }
-      final_hashes[fi] = fold_face_topology_hash(face_hashes[fi], neighbor_acc);
-      offset += count;
-    }
-  }
+  fold_neighbor_hashes(face_counts, face_count, faces, index_count, vertices,
+                       scratch_a, scratch_b, face_hashes, final_hashes);
 
   /**
    * @brief Sortable pairing of a face's final topology hash with its index.

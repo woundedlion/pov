@@ -606,7 +606,7 @@ cached_phase_color(const FieldSample &sample,
                 palette_opacity(sample, state));
 }
 
-/** @brief Samples a cached RGB palette with the accumulated phase hue.
+/** @brief Finishes a cached RGB phase through its flash-resident entry point.
  * @param sample Field coordinates and coverage.
  * @param prepared Cached interval base and palette controls.
  * @param hue Accumulated hue in turns.

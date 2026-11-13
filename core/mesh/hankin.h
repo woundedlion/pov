@@ -127,6 +127,102 @@ enum class BaseVertices : uint8_t {
   BORROW,     /**< Alias the source mesh's vertices. */
 };
 
+/** @brief Emits star faces and their dynamic vertex instructions.
+ * @param he_mesh Closed source topology.
+ * @param compiled Receives faces and instructions.
+ * @param he_to_midpoint_idx Midpoint index per half edge.
+ * @param he_to_dynamic_idx Receives dynamic indices. */
+HS_COLD static void emit_hankin_stars(HalfEdgeMesh &he_mesh,
+                                      CompiledHankin &compiled,
+                                      const uint16_t *he_to_midpoint_idx,
+                                      uint16_t *he_to_dynamic_idx) {
+  for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
+    HEFace &face = he_mesh.faces[i];
+    int count = 0;
+    face_loop(he_mesh, face.half_edge,
+              static_cast<int>(he_mesh.half_edges.size()),
+              [&](uint16_t he_idx) {
+                count += 2;
+                HalfEdge &curr_he = he_mesh.half_edges[he_idx];
+                uint16_t prev_idx = curr_he.prev;
+
+                int idx_m1 = he_to_midpoint_idx[prev_idx];
+                int idx_m2 = he_to_midpoint_idx[he_idx];
+
+                HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
+
+                uint16_t i_corner = prev_he.vertex;
+                uint16_t i_prev = he_mesh.half_edges[prev_he.prev].vertex;
+                uint16_t i_next = curr_he.vertex;
+
+                compiled.dynamic_instructions.push_back(
+                    {i_corner, i_prev, i_next, narrow_index(idx_m1),
+                     narrow_index(idx_m2)});
+
+                uint16_t dyn_idx =
+                    narrow_index(compiled.dynamic_instructions.size() - 1);
+                he_to_dynamic_idx[he_idx] = dyn_idx;
+
+                compiled.faces.push_back(narrow_index(idx_m1));
+                compiled.faces.push_back(
+                    narrow_index(compiled.static_offset + dyn_idx));
+              });
+
+    compiled.face_counts.push_back(narrow_face_count(count));
+  }
+}
+
+/** @brief Emits a rosette around each source vertex.
+ * @param he_mesh Closed source topology.
+ * @param compiled Receives rosette faces.
+ * @param temp_arena Orbit scratch storage.
+ * @param v Source vertex count.
+ * @param i_value Source half-edge count.
+ * @param he_to_midpoint_idx Midpoint index per half edge.
+ * @param he_to_dynamic_idx Dynamic index per half edge. */
+HS_COLD static void emit_hankin_rosettes(HalfEdgeMesh &he_mesh,
+                                         CompiledHankin &compiled,
+                                         Arena &temp_arena, size_t v,
+                                         size_t i_value,
+                                         const uint16_t *he_to_midpoint_idx,
+                                         const uint16_t *he_to_dynamic_idx) {
+  bool *visited_verts = temp_arena.allocate_n<bool>(v);
+  std::fill_n(visited_verts, v, false);
+
+  // Per-orbit scratch: two indices (midpoint, dynamic vertex) per orbit step.
+  uint16_t *face_indices = temp_arena.allocate_n<uint16_t>(2 * i_value);
+
+  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+    uint16_t he_start_idx = static_cast<uint16_t>(i);
+    const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
+    // Rosette origin: he_start's tail vertex.
+    uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
+    if (visited_verts[origin_idx])
+      continue;
+    visited_verts[origin_idx] = true;
+
+    int count = 0;
+
+    vertex_orbit<OrbitDir::PAIR_NEXT>(
+        he_mesh, he_start_idx, [&](uint16_t curr_idx) {
+          HS_CHECK(count + 2 <= (int)(2 * i_value),
+                   "Hankin rosette winding overflow");
+          face_indices[count++] = he_to_midpoint_idx[curr_idx];
+          const uint16_t next_edge_idx =
+              he_mesh.half_edges[he_mesh.half_edges[curr_idx].pair].next;
+          face_indices[count++] = narrow_index(
+              compiled.static_offset + he_to_dynamic_idx[next_edge_idx]);
+        });
+
+    // count = 2 * vertex degree; degree 2 (quad rosette) is legal.
+    HS_CHECK(count >= 4, "Hankin rosette winding has degree < 2");
+    compiled.face_counts.push_back(narrow_face_count(count));
+    for (int k = count - 1; k >= 0; --k) {
+      compiled.faces.push_back(face_indices[k]);
+    }
+  }
+}
+
 /**
  * @brief Bakes the angle-independent Hankin topology for a mesh.
  * @param mesh Input closed-manifold mesh to derive the pattern from.
@@ -187,78 +283,10 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
 
     compiled.static_offset = static_cast<int>(compiled.static_vertices.size());
 
-    // Star faces
-    for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
-      HEFace &face = he_mesh.faces[i];
-      int count = 0;
-      face_loop(he_mesh, face.half_edge,
-                static_cast<int>(he_mesh.half_edges.size()),
-                [&](uint16_t he_idx) {
-                  count += 2;
-                  HalfEdge &curr_he = he_mesh.half_edges[he_idx];
-                  uint16_t prev_idx = curr_he.prev;
+    emit_hankin_stars(he_mesh, compiled, he_to_midpoint_idx, he_to_dynamic_idx);
 
-                  int idx_m1 = he_to_midpoint_idx[prev_idx];
-                  int idx_m2 = he_to_midpoint_idx[he_idx];
-
-                  HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
-
-                  uint16_t i_corner = prev_he.vertex;
-                  uint16_t i_prev = he_mesh.half_edges[prev_he.prev].vertex;
-                  uint16_t i_next = curr_he.vertex;
-
-                  compiled.dynamic_instructions.push_back(
-                      {i_corner, i_prev, i_next, narrow_index(idx_m1),
-                       narrow_index(idx_m2)});
-
-                  uint16_t dyn_idx =
-                      narrow_index(compiled.dynamic_instructions.size() - 1);
-                  he_to_dynamic_idx[he_idx] = dyn_idx;
-
-                  compiled.faces.push_back(narrow_index(idx_m1));
-                  compiled.faces.push_back(
-                      narrow_index(compiled.static_offset + dyn_idx));
-                });
-
-      compiled.face_counts.push_back(narrow_face_count(count));
-    }
-
-    // Rosette faces
-    bool *visited_verts = temp_arena.allocate_n<bool>(v);
-    std::fill_n(visited_verts, v, false);
-
-    // Per-orbit scratch: two indices (midpoint, dynamic vertex) per orbit step.
-    uint16_t *face_indices = temp_arena.allocate_n<uint16_t>(2 * i_value);
-
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      uint16_t he_start_idx = static_cast<uint16_t>(i);
-      const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
-      // Rosette origin: he_start's tail vertex.
-      uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
-      if (visited_verts[origin_idx])
-        continue;
-      visited_verts[origin_idx] = true;
-
-      int count = 0;
-
-      vertex_orbit<OrbitDir::PAIR_NEXT>(
-          he_mesh, he_start_idx, [&](uint16_t curr_idx) {
-            HS_CHECK(count + 2 <= (int)(2 * i_value),
-                     "Hankin rosette winding overflow");
-            face_indices[count++] = he_to_midpoint_idx[curr_idx];
-            const uint16_t next_edge_idx =
-                he_mesh.half_edges[he_mesh.half_edges[curr_idx].pair].next;
-            face_indices[count++] = narrow_index(
-                compiled.static_offset + he_to_dynamic_idx[next_edge_idx]);
-          });
-
-      // count = 2 * vertex degree; degree 2 (quad rosette) is legal.
-      HS_CHECK(count >= 4, "Hankin rosette winding has degree < 2");
-      compiled.face_counts.push_back(narrow_face_count(count));
-      for (int k = count - 1; k >= 0; --k) {
-        compiled.faces.push_back(face_indices[k]);
-      }
-    }
+    emit_hankin_rosettes(he_mesh, compiled, temp_arena, v, i_value,
+                         he_to_midpoint_idx, he_to_dynamic_idx);
   }
 
   compiled.topology_key = MeshOps::connectivity_key(

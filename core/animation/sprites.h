@@ -672,6 +672,108 @@ private:
     return true;
   }
 
+  /** @brief Applies the paired signed-axis attractor impulses.
+   * @param p Particle receiving impulses.
+   * @param pos Current surface position.
+   * @param max_delta Angular step cap.
+   * @return Whether the particle survives. */
+  __attribute__((always_inline)) bool
+  apply_signed_axis_pairs(ParticleType &p, const math::Vector &pos,
+                          float max_delta) {
+    const float pos_sq = math::dot(pos, pos);
+    const float coordinates[] = {pos.x, pos.y, pos.z};
+    for (size_t pair = 0; pair < 3; ++pair) {
+      HS_PLOT_STALL_START(axis_pair_start);
+      const auto &plus = attractors[pair * 2];
+      const auto &minus = attractors[pair * 2 + 1];
+      const float q = coordinates[pair];
+      float cross_sq;
+      if (pair == 0)
+        cross_sq = pos.y * pos.y + pos.z * pos.z;
+      else if (pair == 1)
+        cross_sq = pos.x * pos.x + pos.z * pos.z;
+      else
+        cross_sq = pos.x * pos.x + pos.y * pos.y;
+      const float plus_delta = q - 1.0f;
+      const float minus_delta = q + 1.0f;
+      const float dist_plus_sq = plus_delta * plus_delta + cross_sq;
+      const float dist_minus_sq = minus_delta * minus_delta + cross_sq;
+      const float plus_kill_sq = plus.kill_radius * plus.kill_radius;
+      const float minus_kill_sq = minus.kill_radius * minus.kill_radius;
+      const float plus_horizon_sq = plus.event_horizon * plus.event_horizon;
+      const float minus_horizon_sq = minus.event_horizon * minus.event_horizon;
+      const bool common_far = dist_plus_sq > ATTRACTOR_MIN_DISTANCE_SQ &&
+                              dist_minus_sq > ATTRACTOR_MIN_DISTANCE_SQ &&
+                              dist_plus_sq >= plus_horizon_sq &&
+                              dist_minus_sq >= minus_horizon_sq &&
+                              dist_plus_sq >= plus_kill_sq &&
+                              dist_minus_sq >= minus_kill_sq;
+
+      if (!common_far) {
+        const bool survived =
+            apply_signed_axis_attractor(p.life, p.velocity, pos, max_delta,
+                                        gravity, plus,
+                                        {pos_sq, q, cross_sq, dist_plus_sq}) &&
+            apply_signed_axis_attractor(p.life, p.velocity, pos, max_delta,
+                                        gravity, minus,
+                                        {pos_sq, -q, cross_sq, dist_minus_sq});
+        HS_PLOT_STALL_STOP(signed_axis_physics, axis_pair_start);
+        if (!survived) {
+          return false;
+        }
+        continue;
+      }
+
+      const float plus_force_sq = dist_plus_sq + plus.softening_sq;
+      const float minus_force_sq = dist_minus_sq + minus.softening_sq;
+      const float inv_pair = 1.0f / (plus_force_sq * minus_force_sq);
+      const float inv_plus = minus_force_sq * inv_pair;
+      const float inv_minus = plus_force_sq * inv_pair;
+      if (cross_sq < math::EPS_NORMALIZE_SQ) {
+        const float force =
+            gravity * (plus.strength * inv_plus + minus.strength * inv_minus);
+        p.velocity += math::cross(math::Vector(force, 0, 0), pos);
+      } else {
+        math::Vector tangent(-pos.x * q, -pos.y * q, -pos.z * q);
+        if (pair == 0)
+          tangent.x += pos_sq;
+        else if (pair == 1)
+          tangent.y += pos_sq;
+        else
+          tangent.z += pos_sq;
+        const float inv_cross = 1.0f / sqrtf(cross_sq);
+        const float scale =
+            gravity * inv_cross *
+            (plus.strength * inv_plus - minus.strength * inv_minus);
+        p.velocity += tangent * scale;
+      }
+      HS_PLOT_STALL_STOP(signed_axis_physics, axis_pair_start);
+    }
+    return true;
+  }
+
+  /** @brief Advances position and carried velocity by the capped rotation.
+   * @param p Particle to move.
+   * @param pos Current surface position.
+   * @param max_delta Angular step cap. */
+  __attribute__((always_inline)) void
+  advance_particle_motion(ParticleType &p, const math::Vector &pos,
+                          float max_delta) {
+    HS_PLOT_STALL_START(axis_motion_start);
+    const float speed_sq = math::dot(p.velocity, p.velocity);
+    math::Vector axis = math::cross(pos, p.velocity);
+    const float axis_sq = math::dot(axis, axis);
+    constexpr float MOTION_MIN_SQ = MOTION_MIN_SPEED * MOTION_MIN_SPEED;
+    if (speed_sq > MOTION_MIN_SQ && axis_sq > MOTION_MIN_SQ) {
+      const float speed = fminf(sqrtf(speed_sq), max_delta);
+      axis *= 1.0f / sqrtf(axis_sq);
+      const math::Quaternion dq = math::make_rotation(axis, speed);
+      p.velocity = math::rotate(p.velocity, dq);
+      p.set_position(math::rotate(pos, dq));
+    }
+    HS_PLOT_STALL_STOP(signed_axis_physics, axis_motion_start);
+  }
+
   /**
    * @brief Advances one particle on the sphere surface for one frame.
    * @param p The particle to advance (modified in place).
@@ -700,78 +802,7 @@ private:
         use_signed_axis = use_signed_axis && !reference_signed_axis_physics;
 #endif
         if (use_signed_axis) {
-          const float pos_sq = math::dot(pos, pos);
-          const float coordinates[] = {pos.x, pos.y, pos.z};
-          for (size_t pair = 0; pair < 3; ++pair) {
-            HS_PLOT_STALL_START(axis_pair_start);
-            const auto &plus = attractors[pair * 2];
-            const auto &minus = attractors[pair * 2 + 1];
-            const float q = coordinates[pair];
-            float cross_sq;
-            if (pair == 0)
-              cross_sq = pos.y * pos.y + pos.z * pos.z;
-            else if (pair == 1)
-              cross_sq = pos.x * pos.x + pos.z * pos.z;
-            else
-              cross_sq = pos.x * pos.x + pos.y * pos.y;
-            const float plus_delta = q - 1.0f;
-            const float minus_delta = q + 1.0f;
-            const float dist_plus_sq = plus_delta * plus_delta + cross_sq;
-            const float dist_minus_sq = minus_delta * minus_delta + cross_sq;
-            const float plus_kill_sq = plus.kill_radius * plus.kill_radius;
-            const float minus_kill_sq = minus.kill_radius * minus.kill_radius;
-            const float plus_horizon_sq =
-                plus.event_horizon * plus.event_horizon;
-            const float minus_horizon_sq =
-                minus.event_horizon * minus.event_horizon;
-            const bool common_far = dist_plus_sq > ATTRACTOR_MIN_DISTANCE_SQ &&
-                                    dist_minus_sq > ATTRACTOR_MIN_DISTANCE_SQ &&
-                                    dist_plus_sq >= plus_horizon_sq &&
-                                    dist_minus_sq >= minus_horizon_sq &&
-                                    dist_plus_sq >= plus_kill_sq &&
-                                    dist_minus_sq >= minus_kill_sq;
-
-            if (!common_far) {
-              const bool survived =
-                  apply_signed_axis_attractor(
-                      p.life, p.velocity, pos, max_delta, gravity, plus,
-                      {pos_sq, q, cross_sq, dist_plus_sq}) &&
-                  apply_signed_axis_attractor(
-                      p.life, p.velocity, pos, max_delta, gravity, minus,
-                      {pos_sq, -q, cross_sq, dist_minus_sq});
-              HS_PLOT_STALL_STOP(signed_axis_physics, axis_pair_start);
-              if (!survived) {
-                active = false;
-                break;
-              }
-              continue;
-            }
-
-            const float plus_force_sq = dist_plus_sq + plus.softening_sq;
-            const float minus_force_sq = dist_minus_sq + minus.softening_sq;
-            const float inv_pair = 1.0f / (plus_force_sq * minus_force_sq);
-            const float inv_plus = minus_force_sq * inv_pair;
-            const float inv_minus = plus_force_sq * inv_pair;
-            if (cross_sq < math::EPS_NORMALIZE_SQ) {
-              const float force = gravity * (plus.strength * inv_plus +
-                                             minus.strength * inv_minus);
-              p.velocity += math::cross(math::Vector(force, 0, 0), pos);
-            } else {
-              math::Vector tangent(-pos.x * q, -pos.y * q, -pos.z * q);
-              if (pair == 0)
-                tangent.x += pos_sq;
-              else if (pair == 1)
-                tangent.y += pos_sq;
-              else
-                tangent.z += pos_sq;
-              const float inv_cross = 1.0f / sqrtf(cross_sq);
-              const float scale =
-                  gravity * inv_cross *
-                  (plus.strength * inv_plus - minus.strength * inv_minus);
-              p.velocity += tangent * scale;
-            }
-            HS_PLOT_STALL_STOP(signed_axis_physics, axis_pair_start);
-          }
+          active = apply_signed_axis_pairs(p, pos, max_delta);
         } else {
           active = apply_attractors(p, pos, max_delta);
         }
@@ -780,19 +811,7 @@ private:
       }
 
       if (active) {
-        HS_PLOT_STALL_START(axis_motion_start);
-        const float speed_sq = math::dot(p.velocity, p.velocity);
-        math::Vector axis = math::cross(pos, p.velocity);
-        const float axis_sq = math::dot(axis, axis);
-        constexpr float MOTION_MIN_SQ = MOTION_MIN_SPEED * MOTION_MIN_SPEED;
-        if (speed_sq > MOTION_MIN_SQ && axis_sq > MOTION_MIN_SQ) {
-          const float speed = fminf(sqrtf(speed_sq), max_delta);
-          axis *= 1.0f / sqrtf(axis_sq);
-          const math::Quaternion dq = math::make_rotation(axis, speed);
-          p.velocity = math::rotate(p.velocity, dq);
-          p.set_position(math::rotate(pos, dq));
-        }
-        HS_PLOT_STALL_STOP(signed_axis_physics, axis_motion_start);
+        advance_particle_motion(p, pos, max_delta);
       }
     }
 
