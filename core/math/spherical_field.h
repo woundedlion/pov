@@ -254,14 +254,7 @@ public:
    *   density of the row relative to the equator.
    */
   static constexpr float latitude_sine(int y) {
-    float phi = Geometry::row_to_phi(static_cast<float>(y));
-    if (phi > math::PI_F * 0.5f)
-      phi = math::PI_F - phi;
-    const float phi2 = phi * phi;
-    return phi *
-           (1.0f + phi2 * (-1.0f / 6.0f +
-                           phi2 * (1.0f / 120.0f + phi2 * (-1.0f / 5040.0f +
-                                                           phi2 / 362880.0f))));
+    return math::constexpr_sin(Geometry::row_to_phi(static_cast<float>(y)));
   }
 
   /**

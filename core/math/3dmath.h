@@ -126,6 +126,20 @@ HS_O3_FN HS_HOT_INLINE inline float smooth_ramp(float edge0, float edge1,
 }
 
 /**
+ * @brief Taylor sine through degree nine, folded about pi/2.
+ * @param x Angle in [0, pi], in radians.
+ * @return Approximate sine of x.
+ */
+constexpr float constexpr_sin(float x) {
+  if (x > PI_F * 0.5f)
+    x = PI_F - x;
+  const float x2 = x * x;
+  return x * (1.0f + x2 * (-1.0f / 6.0f +
+                           x2 * (1.0f / 120.0f +
+                                 x2 * (-1.0f / 5040.0f + x2 / 362880.0f))));
+}
+
+/**
  * @brief Compile-time square root by Newton-Raphson.
  * @param x Radicand.
  * @return sqrt(x) to within one ulp, or 0 for a non-positive @p x.

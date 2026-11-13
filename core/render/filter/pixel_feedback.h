@@ -2644,16 +2644,9 @@ public:
         const float low = y * PITCH, high = 0.25f * math::PI_F + y * PITCH;
         if (low <= 0.5f * math::PI_F && high >= 0.5f * math::PI_F)
           return 1.0f;
-        // Taylor sine through x^9 overestimates on [0, pi / 2].
-        auto sine = [](float x) {
-          x = x > 0.5f * math::PI_F ? math::PI_F - x : x;
-          const float x2 = x * x;
-          return x * (1.0f - x2 / 6.0f *
-                                 (1.0f - x2 / 20.0f *
-                                             (1.0f - x2 / 42.0f *
-                                                         (1.0f - x2 / 72.0f))));
-        };
-        return std::min(1.0f, std::max(sine(low), sine(high)) + 1.0e-4f);
+        return std::min(1.0f, std::max(math::constexpr_sin(low),
+                                       math::constexpr_sin(high)) +
+                                  1.0e-4f);
       });
 #else
   static constexpr int CACHE_ORIGIN_SAMPLES = CACHE_FIELD.sample_count();
