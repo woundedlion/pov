@@ -422,3 +422,13 @@ public:
                              &MeshFeedback::adopt_params>>{};
   }
 };
+
+static_assert(
+    [] {
+      using Effect = MeshFeedback<96, 20>;
+      for (const auto &row : Effect::PRESETS)
+        if (!Control::valid_fields(row.params, Effect::parameter_fields()))
+          return false;
+      return true;
+    }(),
+    "MeshFeedback preset is outside a registered slider range");
