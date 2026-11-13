@@ -111,17 +111,42 @@ def _base_name(signature: str) -> str:
 _UNDEF_RE = re.compile(r"^\s*#\s*undef\s+(\w+)", re.M)
 
 
+_QUOTED_INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"([^"]+)"', re.M)
+
+
 def undefined_macros(text: str) -> frozenset[str]:
     """Return the macros a source file `#undef`s."""
     return frozenset(_UNDEF_RE.findall(text))
+
+
+def scaffold_macros(path: Path, root: Path) -> frozenset[str]:
+    """Return the macros `path` or a quoted header it includes `#undef`s.
+
+    An X-macro rows header that undefines its row macros makes each including
+    file's definition of them local scaffolding. Includes resolve against
+    `root` and then the including file's directory.
+    """
+    def read(source: Path) -> str:
+        return source.read_text(encoding="utf-8", errors="replace")
+
+    if not path.is_file():
+        return frozenset()
+    text = read(path)
+    names = set(undefined_macros(text))
+    for header in _QUOTED_INCLUDE_RE.findall(text):
+        for candidate in (root / header, path.parent / header):
+            if candidate.is_file():
+                names |= undefined_macros(read(candidate))
+                break
+    return frozenset(names)
 
 
 def exempt(item: Undocumented, local_macros: frozenset[str] = frozenset()
            ) -> bool:
     """Whether the symbol belongs to a class that needs no comment of its own.
 
-    `local_macros` names the macros the item's file `#undef`s; such a macro is
-    file-local scaffolding (an X-macro helper, say).
+    `local_macros` names the macros the item's file or its rows header
+    `#undef`s; such a macro is file-local scaffolding (an X-macro helper, say).
     """
     name = _base_name(item.name)
     if item.kind == "macro definition" and name in local_macros:
@@ -154,10 +179,7 @@ def locations(items: list[Undocumented], root: Path | None = None
         if root is None:
             return frozenset()
         if path not in macros:
-            source = root / path
-            macros[path] = undefined_macros(source.read_text(
-                encoding="utf-8", errors="replace")) if source.is_file() \
-                else frozenset()
+            macros[path] = scaffold_macros(root / path, root)
         return macros[path]
 
     seen: dict[tuple[str, int], Undocumented] = {}

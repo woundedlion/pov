@@ -43,6 +43,25 @@ class TestExempt(unittest.TestCase):
             "operator==(const Vec &b) const", "function", "Vec")))
 
 
+class TestScaffoldMacros(unittest.TestCase):
+    def test_macro_undefined_by_an_included_rows_header_is_exempt(self):
+        row = cov.Undocumented("t/a.h", 3, "ROW(name)", "macro definition", "a.h")
+        other = cov.Undocumented("t/a.h", 5, "KEEP(name)", "macro definition", "a.h")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "t").mkdir()
+            (root / "t/rows.h").write_text("ROW(x)\n#undef ROW\n", encoding="utf-8")
+            (root / "t/a.h").write_text(
+                '#define ROW(name) #name,\n#include "t/rows.h"\n'
+                "#define KEEP(name) name\n", encoding="utf-8")
+            self.assertEqual(cov.locations([row, other], root), [other])
+            (root / "t/a.h").write_text(
+                '#define ROW(name) #name,\n#include "rows.h"\n', encoding="utf-8")
+            self.assertEqual(cov.locations([row], root), [])
+            (root / "t/rows.h").write_text("ROW(x)\n", encoding="utf-8")
+            self.assertEqual(cov.locations([row], root), [row])
+
+
 class TestMain(unittest.TestCase):
     def test_tool_errors_are_distinct_from_coverage_failures(self):
         for error in (OSError("missing executable"), subprocess.CalledProcessError(1, "git")):
