@@ -384,9 +384,8 @@ inline void lint_animated_pause(FX &effect, const char *name) {
  * @param frame_fold Optional out-param receiving an FNV-1a checksum folded over
  * every displayed frame. Ignored when nullptr.
  * @param lit Optional output: whether any displayed frame contains a lit pixel.
- * @details Resets every shared global the smoke path does (RNG seed, arenas,
- * Timeline, pole-LOD knob, scan counters) and pins the mock clock to the frame
- * cadence, so two calls start from an identical state.
+ * @details Calls reset_globals() and pins the mock clock to the frame cadence,
+ * so two calls start from an identical state.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void render_capture(std::vector<Pixel> &out, int frames,

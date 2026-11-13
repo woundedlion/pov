@@ -2678,6 +2678,7 @@ public:
   /**
    * @brief scratch_arena_a bytes a composite or finish() takes past the
    *        frame it holds, and releases before returning.
+   * @pre Style downsample is at most CACHE_DOWNSAMPLE.
    * @return finish()'s sample windows, visited rows and sweep states, each
    *         allocation padded; sweep_deep()'s states are fewer.
    */

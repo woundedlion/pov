@@ -4,7 +4,7 @@ Reads a `profile`/`profile_o3` capture (tools/profile_capture.py). Modes:
 
   windows    per-window per-frame cost for one scope; footer = peak render + spilled
   presets    per-preset table from each preset's clean-hold (modal call count) windows
-  buckets    per-preset cadence buckets; each preset owns its following transition
+  buckets    per-preset cadence buckets; a preset owns frames from its marker to the next, including its incoming transition
   metrics    scan-probe counts and path split (-D HS_SCAN_METRICS; counts only)
   probe      per-probe stage cycle split (-D HS_PROBE_BREAKDOWN; ratios only)
   plot       per-window Plot workload (-D HS_PLOT_COUNTS; counts only)

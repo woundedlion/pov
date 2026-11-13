@@ -861,7 +861,7 @@ def pin_silk_marks(layout, fixed, length, revision):
 
 
 def local_routes(footprints):
-    """Pre-route the locked receive filter and VIN bypass on front copper."""
+    """Pre-route the revision's locked local tracks and ground-via stubs on front copper."""
     by_ref = {connectivity.footprint_reference(footprint): footprint
               for footprint in footprints}
 

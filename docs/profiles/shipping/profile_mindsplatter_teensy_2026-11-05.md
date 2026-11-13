@@ -180,6 +180,12 @@ Native/WASM results are not a matched hardware timing baseline; the unchanged co
 
 ## Caveats
 
+- The 1,248-frame pass ends before the post-wrap preset-2 entry. Its preset-2
+  row is a warm-up visit with a partly filled scene, not steady-load coverage.
+  Full-cycle validation needs at least 1,500 frames or
+  `-D HS_PROFILE_MSP_WARMUP=1280`; a later full-cycle capture observed spills
+  on that entry. The green aggregate covers only this recorded pass.
+
 - All scopes absorb ISR time because CYCCNT free-runs.
 - `filter_blend` first-caller parenting and per-pixel scope overhead apply when enabled.
 - Shipping selective `HS_O3` draw paths are active; no additional dwell-compression knobs were used.

@@ -198,7 +198,8 @@ The shipping memory/layout gates pass. RAM1 code increases by 144 bytes
 (192328 to 192472), RAM1 variables remain 313760 bytes, FLASH code increases
 by 392 bytes (1180440 to 1180832), and FLASH data remains 790784 bytes.
 DTCM free space remains 13920 bytes; owned cache, node and view sizes are
-unchanged. Capture artifacts retain the exact source diffs and ELF hashes.
+unchanged. The record retains commit SHAs and ELF hashes. Capture artifacts
+were local to the qualifying machine and are not kept in the repository.
 The restoration-removal negative companion fails two assertions. Focused Release
 WASM draw peaks are 432/812/432 bytes for AlienBrain/AshCloud/JewelMelt at both
 supported resolutions over 120 frames each; initialization peaks at 1120 bytes.
@@ -224,8 +225,9 @@ Each pair uses the same board, preset 0 and 1087 live frames with zero steady
 spills. Setup remains separate in the machine-readable record. The 3500
 screen worsens JewelMelt and AshCloud peaks; the 7000 screen also loses on
 JewelMelt and stops there. Neither change is retained. Mean gains do not
-compensate for these peak regressions. Source diffs, ELF hashes, captures and
-qualification logs remain in the recorded artifact paths.
+compensate for these peak regressions. The record retains commit SHAs and ELF
+hashes; source diffs, captures and qualification logs were local to the qualifying
+machine and are not kept in the repository.
 
 ## Historical original-to-accurate study
 
@@ -286,5 +288,6 @@ indirect costs from global code placement, caches or memory. The final merged
 peak/spill comparisons above cover AlienBrain, JewelMelt and AshCloud.
 
 [Machine-readable qualification and artifact hashes](hue_lut_qualification.json)
-preserve each study's source and capture provenance. Profile clock annotation
+preserve each study's commit SHAs and hashes. The capture artifacts were local
+to the qualifying machine and are not kept in the repository. Profile clock annotation
 and reach instrumentation are excluded from the production patch.

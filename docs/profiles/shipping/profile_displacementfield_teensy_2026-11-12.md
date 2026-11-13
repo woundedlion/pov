@@ -32,7 +32,7 @@ Exactness cross-check: frames 2113–2128, root 598,269,370 cycles ÷ 600 MHz = 
 
 Complete counter windows cover 3008 frames across 188 windows. Mean live render is 36.674 ms/frame. The worst `df_timeline_step` window averages 44.164 ms/frame (frames 2113–2128).
 
-At 480 RPM each half revolution is 62.5 ms, yielding 16 fps when rendering fits one window. The effect renders one quadrant, 72×144 = 10,368 pixels. Noise, balls and transitions all fit this cadence. `canvas_buffer_wait` is the round-up idle to the next display flip.
+At 480 RPM each half revolution is 62.5 ms, yielding 16 fps when rendering fits one window. The effect renders one quadrant, 144×72 = 10,368 pixels. Noise, balls and transitions all fit this cadence. `canvas_buffer_wait` is the round-up idle to the next display flip.
 
 ## Phase-by-phase readout
 

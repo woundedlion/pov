@@ -1333,7 +1333,8 @@ The simulator's `daydream/src/shared/` directory holds browser utilities shared 
 ### 9.1 Holosphere (engine + firmware)
 
 The generated engine map omits `.gitattributes` and `.gitignore`; these tracked
-files define line-ending policy and working-artifact exclusions.
+files define line-ending policy and working-artifact exclusions. It lists only
+selected `tests/` files, which the exhaustive check exempts.
 
 <!-- docs-check: tree exhaustive -->
 ```

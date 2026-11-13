@@ -12,6 +12,12 @@
 
 namespace hs_test::composed_chain_tests {
 
+/** @brief Compares a document-built chain with its composed effect.
+ * @tparam FX Composed effect type.
+ * @param preset Preset index.
+ * @param channel_tolerance Maximum channel difference; defaults to 1.
+ * @param alpha_tolerance Maximum alpha difference; defaults to 1e-6f.
+ * @details Defaults are declared in tests/test_composed_effect.h. */
 template <typename FX>
 void verify_export(size_t preset, int channel_tolerance,
                    float alpha_tolerance) {

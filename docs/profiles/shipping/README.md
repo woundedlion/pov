@@ -47,6 +47,8 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [AlienCore](profile_aliencore_teensy_2026-11-05.md) ● | `fx_shader_draw` | 🟢 25.172 | 40.847 | 🟢 0/447 (0.00%) | 2026-11-04 23:50 |
 | [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-11-05.md) § ● | `sh_rasterize` | 🟢 12.951 (24) | 21.277 | 🟢 0/1503 (0.00%) | 2026-11-04 23:24 |
 
+MindSplatter’s green row covers its warm-up pass; see the [preset-2 coverage caveat](profile_mindsplatter_teensy_2026-11-05.md#caveats).
+
 Per-effect reports retain preset coverage and strict validator diagnostics. Per-frame render telemetry supports cadence figures without a claim of an unobserved wrap or fully validated cycle-counter exactness.
 
 ● marks shipping captures updated in the 2026-11-05 sweep or the DisplacementField re-capture on 2026-11-12.

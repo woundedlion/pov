@@ -5,7 +5,6 @@ include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
 # core/vendor/FastNoiseLite_config.h.
 # -D args: HEADER (FastNoiseLite.h), CONFIG (FastNoiseLite_config.h).
 
-# Match the top-level CMake policy version in script mode.
 
 set(VENDORED_VERSION "1.1.1")
 # SHA-256 of the vendored body over LF bytes. Recompute with

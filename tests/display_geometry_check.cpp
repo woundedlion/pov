@@ -17,8 +17,7 @@ constexpr int H = 144;
 using Geometry = math::DisplayGeometry<H>;
 
 /**
- * @brief Calibrated and ideal latitude profiles preserve their endpoint
- * mapping.
+ * @brief Calibrated latitude geometry preserves its endpoint mapping.
  */
 void test_coordinates() {
   HS_CONTEXT("resolution", W, H);
@@ -70,7 +69,7 @@ void test_pole_crossing() {
   }
 }
 
-/** @brief Pole-adjacent splats retain coverage across the cap profiles. */
+/** @brief Splats adjacent to the calibrated endpoint rings retain coverage. */
 void test_splat_coverage() {
   Filter::Screen::AntiAlias<W, H> aa;
   for (float y : {-1.25f, -0.75f, -0.5f, -0.25f, 0.0f, H - 1.0f, H - 0.75f,
@@ -93,7 +92,7 @@ void test_splat_coverage() {
   }
 }
 
-/** @brief The blur follows calibrated and ideal latitude coverage. */
+/** @brief The blur's energy follows the calibrated endpoint rings. */
 void test_blur_coverage() {
   for (float factor : {0.0f, 0.5f, 1.0f}) {
     Filter::Screen::Blur<W, H> blur(factor);

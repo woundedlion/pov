@@ -98,6 +98,8 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [AlienCore](shipping/profile_aliencore_teensy_2026-11-05.md) / [O3](O3/profile_aliencore_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 25.172 | 40.847 | 🟢 20.10 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-11-04 23:50<br>O3 2026-08-26 02:30 |
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-11-05.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § ● | `sh_rasterize` | 🟢 12.951 (24) | 21.277 | 🟢 11.70 (24) | 🟢 0/1503 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-11-04 23:24<br>O3 2026-08-26 01:57 |
 
+MindSplatter’s green row covers its warm-up pass; see the [preset-2 coverage caveat](shipping/profile_mindsplatter_teensy_2026-11-05.md#caveats).
+
 Per-effect reports retain preset coverage and strict validator diagnostics. Per-frame render telemetry supports cadence figures without a claim of an unobserved wrap or fully validated cycle-counter exactness.
 
 § Cyclers carry one aligned line per parser ownership colour bucket, red first;
