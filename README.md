@@ -1519,6 +1519,14 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │                            world_trails, screen_anti_alias,
 │   │   │                            screen_direct_aa_sink, screen_trails, screen_blur,
 │   │   │                            pixel_chromatic_shift, pixel_feedback)
+│   │   │   ├── feedback_column_time.h      Elapsed column time, fade tables and held-lane records
+│   │   │   ├── pixel_feedback.h            Feedback interface and storage bounds; umbrella over pixel_feedback/
+│   │   │   └── pixel_feedback/             Feedback implementation by rendering phase
+│   │   │       ├── frame.h                 Frame preparation and spherical warp fields
+│   │   │       ├── rows.h                  Row compositing and lane resolution
+│   │   │       ├── sweeps.h                Temporal sweeps and composite dispatch
+│   │   │       ├── reconstruction.h        Reach bounds and row reconstruction
+│   │   │       └── sampling.h              Frame sampling and held-pixel taps
 │   │   ├── sdf.h                   Umbrella over six SDF headers: common, shapes, rings, csg, face and volume
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume, lattice, framework, lattice_field,

@@ -189,6 +189,30 @@ private:
 #endif
 };
 
+namespace detail {
+
+/** @brief Where a lane's source lies relative to its target's arm. */
+enum class Side : uint8_t {
+  WITHIN, ///< Within the arm: the previous frame.
+  BEHIND, ///< Behind the arm's first column: the stale frame before it.
+  AHEAD,  ///< From the arm's last column on: the frame being drawn.
+};
+
+/** @brief Lane columns of a row whose sources read the frame as plotted. */
+struct AheadSpan {
+  int16_t first; ///< First such column past each arm's first; HALF if none.
+  int16_t last;  ///< Last such column, -1 if none; finish() extends it to
+                 ///< the last lane whose step completes a held column.
+};
+
+/** @brief Persistent measure_reach() spans of the cached warp field. */
+struct Spans {
+  int16_t *reach = nullptr; ///< Per row, the reach behind each arm.
+  bool valid = false;       ///< Whether they belong to the cached field.
+};
+
+} // namespace detail
+
 } // namespace Pixel
 
 } // namespace Filter
