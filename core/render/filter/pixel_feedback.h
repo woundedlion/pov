@@ -1325,6 +1325,24 @@ private:
     float slope_y; ///< Row offset change across the cell.
   };
 
+  /** @brief Resolves a cartesian cell lane from its pixel position.
+   * @param x,y Target pixel.
+   * @param sub Column within the coarse cell.
+   * @param lane_offset Half-resolution column offset.
+   * @param inverse_downsample Reciprocal coarse-cell width.
+   * @param cell Interpolated cell offsets.
+   * @return Resolved source and arm side. */
+  static HS_HOT_INLINE Lane cartesian_lane(int x, int y, int sub,
+                                           float lane_offset,
+                                           float inverse_downsample,
+                                           const CellOffsets &cell) {
+    const float fx = (sub + lane_offset) * inverse_downsample;
+    const float target = x + lane_offset;
+    const float dx = cell.left_x + cell.slope_x * fx;
+    const float dy = cell.left_y + cell.slope_y * fx;
+    return resolve_lane(target, ColumnTime::arm_start(x), target + dx, y + dy);
+  }
+
   /**
    * @brief A cell's offsets blended between its two rings, its nodes at
    *        their lit times.
@@ -1483,15 +1501,11 @@ private:
       int x, int end, int y, int sub, int stride, float lane_offset,
       const CellOffsets &cell, bool plain_store) {
     const float inverse_downsample = 1.0f / ctx.grid.downsample;
-    const float row = static_cast<float>(y);
     const uint16_t alpha = frac_to_q16(ctx.alpha);
     while (x < end) {
-      const float fx = (sub + lane_offset) * inverse_downsample;
-      const float ddx = cell.left_x + cell.slope_x * fx;
-      const float ddy = cell.left_y + cell.slope_y * fx;
-      const float target = x + lane_offset;
       const int arm = ColumnTime::arm_start(x);
-      Lane lane = resolve_lane(target, arm, target + ddx, row + ddy);
+      Lane lane =
+          cartesian_lane(x, y, sub, lane_offset, inverse_downsample, cell);
       ::Pixel p(0, 0, 0);
       if (lane.side == Side::AHEAD && ctx.cover) {
         hold_lane(ctx, y, arm, x);
@@ -1567,7 +1581,8 @@ private:
     }
     const bool pair = pair_lane(ctx, g, x);
     const float lane_offset = pair ? 0.5f : 0.0f;
-    const float fx = (x - cx0 * downsample + lane_offset) / downsample;
+    const float inverse_downsample = 1.0f / downsample;
+    const float fx = (x - cx0 * downsample + lane_offset) * inverse_downsample;
     const float target = x + lane_offset;
     const int arm = ColumnTime::arm_start(x);
     if (g.polar) {
@@ -1575,9 +1590,8 @@ private:
           CapPlane::polar_lane(cell.cap, x, row.cap_angle, g.north, pair, fx);
       return resolve_lane(target, arm, at.x, at.y);
     }
-    const CellOffsets &o = cell.offsets;
-    return resolve_lane(target, arm, target + o.left_x + o.slope_x * fx,
-                        y + o.left_y + o.slope_y * fx);
+    return cartesian_lane(x, y, x - cx0 * downsample, lane_offset,
+                          inverse_downsample, cell.offsets);
   }
 
   /**
@@ -1695,8 +1709,9 @@ private:
             continue;
           if (held) {
             Lane lane = sweep_lane(ctx, g, y, x, rows[y]);
-            // no death case: a lane resolves as it did before the plots
-            HS_CHECK(lane.side == Side::AHEAD,
+            // no death case: held sources stay at the cut within float roundoff
+            HS_CHECK(lane.side == Side::AHEAD ||
+                         lane.read.x >= arm + HALF - 1.0f - 1.0e-3f,
                      "feedback held lane %d of row %d no longer reads ahead", x,
                      y);
             // A column is final once every lane its reconstruction reads is

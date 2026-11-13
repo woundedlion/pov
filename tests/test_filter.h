@@ -28,6 +28,41 @@
 
 namespace hs_test {
 struct FeedbackWhiteBox {
+  /** @brief Cartesian composite and finish agree at the arm cut. */
+  static void test_cartesian_cut_roundoff() {
+    constexpr int W = 288, H = 16, X = 143, Y = 8, DOWNSAMPLE = 4;
+    using Feedback = Filter::Pixel::Feedback<W, H>;
+    ::Feedback::Style style{};
+    Feedback feedback(style);
+    typename Feedback::FlushContext ctx{
+        {DOWNSAMPLE,
+         typename Feedback::SphereField{DOWNSAMPLE},
+         W / DOWNSAMPLE,
+         0,
+         {}}};
+    std::array<typename Feedback::RowGeometry, H> rows{};
+    std::array<typename Feedback::AheadSpan, H> spans{};
+    std::array<uint16_t, W * H> cover{};
+    std::array<Pixel, W> output{};
+    rows[Y].wide = true;
+    ctx.rows = rows.data();
+    ctx.ahead_span = spans.data();
+    ctx.cover = cover.data();
+    ctx.alpha = 1.0f;
+    const typename Feedback::CellOffsets offsets{0.2f, -0.200005f / 0.75f, 0.0f,
+                                                 0.0f};
+    feedback.composite_resolved_cell(ctx, nullptr, output.data(), X, X + 1, Y,
+                                     X % DOWNSAMPLE, 1, 0.0f, offsets, true);
+    const int slot = feedback.cover_slot(rows[Y], 0, X);
+    HS_EXPECT_TRUE((cover[slot] & Feedback::AHEAD_BIT) != 0);
+    typename Feedback::SweepRow sweep{};
+    sweep.cell_cx[0] = X / DOWNSAMPLE;
+    sweep.cell[0].offsets = offsets;
+    const auto lane = feedback.sweep_lane(ctx, rows[Y], Y, X, sweep);
+    HS_EXPECT_TRUE(lane.side == Feedback::Side::AHEAD);
+    HS_EXPECT_EQ(lane.read.x, static_cast<float>(X));
+  }
+
   template <int W, int H>
   static bool holds(const Filter::Pixel::Feedback<W, H> &feedback,
                     const Canvas &canvas) {
@@ -233,6 +268,7 @@ inline int run_filter_tests() {
   HS_RUN(test_direct_antialias_sink_framebuffer_parity);
   HS_RUN(test_direct_antialias_sink_stale_clip);
   HS_RUN(test_feedback_flush_blends_prev_frame);
+  HS_RUN(FeedbackWhiteBox::test_cartesian_cut_roundoff);
   HS_RUN(test_feedback_translucent_flush_matches_opaque_blend);
   HS_RUN(test_feedback_custom_color_receives_elapsed_fade);
   HS_RUN(test_feedback_x_clips_match_full_frame);
