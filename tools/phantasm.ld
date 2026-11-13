@@ -124,6 +124,7 @@ SECTIONS
 		*(.text._ZN9Spacetime12FrameHistoryI*C1Ev)
 		*(.text._ZN9Spacetime12FrameHistoryI*C2Ev)
 		*(.text._ZN8Pullback18FrameIntervalStateI*C[12]Ev)
+		hs_hot_layout_startup_ctors_start = .;
 		*(.text._ZN8Pullback10FrameStateI*C[12]Ev)
 		*(.text._ZN8Pullback10Modulation8PreparedC[12]Ev)
 		*(.text._ZN8Pullback10Modulation9ResourcesILb[01]EEC[12]Ev)
@@ -145,14 +146,17 @@ SECTIONS
 		*(.text._ZN6Filter6Screen19DirectAntiAliasSinkILi288ELi144EEC[12]Ev)
 		*(.text._ZN4math11OrientationILi4EEC[12]Ev)
 		*(.text._ZN4math11OrientationILi16EEC[12]Ev)
+		hs_hot_layout_startup_ctors_end = .;
 		*(.text._ZN13PaletteCyclerC[12]Ev)
 		*(.text._ZN8Pullback16OuterCameraStateILb1EEC[12]Ev)
 		*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)
 		*(.text._ZN9ParamHost21use_parameter_storageEP8ParamDefj)
 		/* MindSplatter startup raster specializations. */
+		hs_hot_layout_startup_raster_start = .;
 		*(.text._ZN4PlotL9rasterizeILi288ELi144E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)
 		*(.text._ZN4Plot14ParticleSystem9draw_implILi288ELi144E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)
 		*(.text._ZZN4Plot14ParticleSystem12sample_trailILi3ELb1E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)
+		hs_hot_layout_startup_raster_end = .;
 		/* Half-edge topology construction: the edge-record sort family and
 		 * mesh normalize also serve per-frame truncate/expand sweeps. */
 		*(.text.*HalfEdgePairRecord*)

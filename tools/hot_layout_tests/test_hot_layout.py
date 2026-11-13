@@ -211,14 +211,71 @@ class EffectNames(unittest.TestCase):
                 hl.phantasm_playlist(directory)
 
 
-def _program(functions, references, data=(), objects=None):
+def _program(functions, references, data=(), objects=None, startup_ranges=()):
     """Program with one input section per function, kind from its section name."""
     sections = []
     for name, address, size, section, origin in functions:
         output = hl.ITCM_OUTPUT if address < hl.ITCM_END else hl.FLASH_OUTPUT
         sections.append(hl.Section(output, section, origin, address, size))
     return hl.Program([hl.Function(f[0], f[1], f[2]) for f in functions],
-                      sections, references, data, objects)
+                      sections, references, data, objects, startup_ranges)
+
+
+class StartupRoots(unittest.TestCase):
+    def _fixture(self, start, ranges=()):
+        return _program([
+            ("_ZN5Alpha5startEv", start, 32, ".text._ZN5Alpha5startEv", PHANTASM),
+            ("_ZN6Shared5startEv", start + 32, 32, ".text._ZN6Shared5startEv", PHANTASM),
+            ("_ZN5Alpha4initEv", 0x60010040, 32, ".text._ZN5Alpha4initEv", PHANTASM),
+            ("_ZN6Shared4coldEv", 0x60020000, 64, ".text.unlikely._ZN6Shared4coldEv", PHANTASM),
+            ("_ZN6Shared3hotEv", 0x60030000, 96, ".text.hot._ZN6Shared3hotEv", PHANTASM),
+            ("_ZN5Alpha4drawEv", 0x60040000, 16, ".text.hot._ZN5Alpha4drawEv", PHANTASM),
+        ], [(start + 4, start + 32), (start + 36, 0x60020000),
+            (0x60020004, 0x60030000)], startup_ranges=ranges)
+
+    def test_relocation_preserves_descendant_ranking_without_placing_startup(self):
+        expected = [(0, ".text.hot._ZN5Alpha4drawEv"),
+                    (2, ".text.unlikely._ZN6Shared4coldEv"),
+                    (3, ".text.hot._ZN6Shared3hotEv")]
+        for start, ranges in ((0x1000, ()), (0x60010000, ((0x60010000, 0x60010040),))):
+            with self.subTest(start=start):
+                program = self._fixture(start, ranges)
+                hot = program.hot_set("Alpha", [])
+                self.assertEqual([(level, key[1]) for level, key in hot.ranked], expected)
+                self.assertEqual([key[1] for key in hot.gated], [name for _, name in expected])
+                self.assertFalse(program.placeable(start))
+                self.assertFalse(program.placeable(start + 32))
+                self.assertEqual(program.kind[0x60010040], hl.SETUP)
+        program = self._fixture(0x60010000)
+        self.assertEqual(program.kind[0x60010000], hl.SETUP)
+        self.assertEqual([key[1] for key in program.hot_set("Alpha", []).gated],
+                         [".text.hot._ZN5Alpha4drawEv"])
+
+    def test_load_program_reads_optional_linker_ranges(self):
+        begin, end = hl.STARTUP_RANGE_SYMBOLS[0]
+        text = ("Linker script and memory map\n.text.code 0x60010000 0x40\n"
+                " .text._ZN5Alpha5startEv 0x60010000 0x20 x.o\n"
+                f" 0x60010000 {begin} = .\n 0x60010020 {end} = .\n")
+        symbols = "1: 60010001 32 FUNC GLOBAL DEFAULT 2 _ZN5Alpha5startEv\n"
+        tools = mock.Mock(run=mock.Mock(side_effect=[symbols, ""]))
+        with tempfile.TemporaryDirectory() as directory:
+            elf, link_map = Path(directory, "image.elf"), Path(directory, "image.map")
+            elf.write_bytes(bytes(64))
+            link_map.write_text(text, encoding="utf-8")
+            program, _ = hl.load_program(tools, str(elf), str(link_map))
+        self.assertEqual(program.kind[0x60010000], hl.STARTUP)
+        self.assertEqual(program.roots(("Alpha",)), [0x60010000])
+        self.assertFalse(program.placeable(0x60010000))
+
+    def test_range_metadata_accepts_empty_and_rejects_incomplete_or_reversed_ranges(self):
+        begin, end = hl.STARTUP_RANGE_SYMBOLS[0]
+        self.assertEqual(hl.startup_ranges({}), ())
+        self.assertEqual(hl.startup_ranges({begin: 0x60010000, end: 0x60010000}),
+                         ((0x60010000, 0x60010000),))
+        with self.assertRaisesRegex(hl.LayoutError, "incomplete startup range"):
+            hl.startup_ranges({begin: 0x60010000})
+        with self.assertRaisesRegex(hl.LayoutError, "invalid startup range"):
+            hl.startup_ranges({begin: 0x60010020, end: 0x60010000})
 
 
 class HotSets(unittest.TestCase):

@@ -39,6 +39,17 @@ string(REPLACE "*libgcc.a:*(.text .text.*)" "" changed "${baseline}")
 check_routing(missing_library "${changed}" "libgcc.*no longer routed by .text.code")
 string(REPLACE "*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))" "" changed "${baseline}")
 check_routing(missing_rodata "${changed}" "no longer routed by .text.progmem")
+foreach(range IN ITEMS ctors raster)
+  foreach(bound IN ITEMS start end)
+    string(REPLACE "hs_hot_layout_startup_${range}_${bound} = .;" "" changed "${baseline}")
+    check_routing("missing_startup_${range}_${bound}" "${changed}"
+      "startup ${range} range must enclose its routing block")
+  endforeach()
+  string(REPLACE "hs_hot_layout_startup_${range}_end = .;"
+    "*(.text.unrelated)\nhs_hot_layout_startup_${range}_end = .;" changed "${baseline}")
+  check_routing("extra_startup_${range}_route" "${changed}"
+    "startup ${range} range must contain exactly its routing block")
+endforeach()
 set(setup_route_index 0)
 foreach(route IN ITEMS
     "*(.text._ZN13PaletteCyclerC[12]Ev)"

@@ -796,6 +796,10 @@ gives the bound for a family, and the kernel is emitted in flash.
 On Phantasm the radial query, edge AA and candidate-mask kernels are hot
 flash code, placed with the rest of each effect's hot set by the generated
 instruction-cache layout (`tools/hot_layout.py`).
+Explicit startup ranges in the linker script remain roots and traversal nodes
+for the static hot-code graph after relocation from ITCM to flash. Their code
+stays outside the planned hot set; the planner retains reachable hot and library
+code and directly called cold code.
 
 **ShapeShifter P1.** ShapeShifter routes its authored dense planar-star preset
 through this kernel and keeps every other preset on its contour paths. The

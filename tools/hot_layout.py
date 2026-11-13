@@ -13,13 +13,14 @@ linked image and fails when any effect exceeds `MAX_LINES_PER_SET`.
 
 An effect's roots are the functions whose mangled names name its class or its
 `<Class>Spec`, plus the POVSegmented driver. Its hot set is the transitive
-closure over direct branches and code-address literals, through ITCM, hot,
-cold and toolchain-library code and linker veneers, and through the flash
+closure over direct branches and code-address literals, through ITCM, startup,
+hot, cold and toolchain-library code and linker veneers, and through the flash
 objects a function references that are at least half function pointers,
 restricted to flash `.text.hot*` sections, toolchain-library sections and
-cold sections that hot or ITCM code calls. Members rank by call depth from
-the roots, then by depth-first call order; the gated set takes them in rank
-order, skipping any that would exceed `GATED_BYTES`.
+cold sections that hot, ITCM or startup code calls. Explicit linker startup
+ranges retain roots and traversal without placing the startup code. Members
+rank by call depth from the roots, then by depth-first call order; the gated
+set takes them in rank order, skipping any that would exceed `GATED_BYTES`.
 
 Run:  python tools/hot_layout.py check --elf firmware.elf --map firmware.map
 """
@@ -63,6 +64,11 @@ PLAN_ROUNDS = 32
 FRAGMENT_NAME = "phantasm_hot_layout.ld"
 #: Linker symbol tools/phantasm.ld defines where the fragment starts.
 START_SYMBOL = "hs_hot_layout_start"
+#: Linker ranges whose startup code retains its graph role after leaving ITCM.
+STARTUP_RANGE_SYMBOLS = (
+    ("hs_hot_layout_startup_ctors_start", "hs_hot_layout_startup_ctors_end"),
+    ("hs_hot_layout_startup_raster_start", "hs_hot_layout_startup_raster_end"),
+)
 #: Toolchain archives whose code the layout may place: arithmetic, libm, and
 #: the libc memory primitives (`libc_a-mem*.o`).
 LIBRARY_ARCHIVES = ("libm.a", "libgcc.a")
@@ -83,12 +89,13 @@ COLD = "cold"
 LIBRARY = "library"
 VENEER = "veneer"
 SETUP = "setup"
+STARTUP = "startup"
 #: Kinds the closure walks through.
-TRAVERSED = frozenset({ITCM, HOT, COLD, LIBRARY, VENEER})
+TRAVERSED = frozenset({ITCM, HOT, COLD, LIBRARY, VENEER, STARTUP})
 #: Kinds the layout places.
 PLACED = frozenset({HOT, LIBRARY})
 #: Kinds that root an effect when its name names the effect.
-ROOTED = frozenset({ITCM, HOT, COLD})
+ROOTED = frozenset({ITCM, HOT, COLD, STARTUP})
 
 
 class LayoutError(Exception):
@@ -368,7 +375,8 @@ class Program:
     def __init__(self, functions: list[Function], sections: list[Section],
                  references: list[tuple[int, int]],
                  data: list[tuple[int, int]] = (),
-                 objects: dict[int, tuple[int, list[int]]] | None = None):
+                 objects: dict[int, tuple[int, list[int]]] | None = None,
+                 startup_ranges: tuple[tuple[int, int], ...] = ()):
         self.functions = sorted(functions, key=lambda f: f.address)
         self.starts = [f.address for f in self.functions]
         self.by_address = {f.address: f for f in functions}
@@ -377,6 +385,7 @@ class Program:
         self.by_key = {s.key: s for s in self.sections}
         self.section_of = {f.address: self._containing_section(f.address)
                            for f in self.functions}
+        self.startup_ranges = startup_ranges
         self.kind = {f.address: self._classify(f) for f in self.functions}
         objects = objects or {}
         object_starts = sorted(objects)
@@ -430,6 +439,8 @@ class Program:
         section = self.section_of[function.address]
         if section is None or section.output != FLASH_OUTPUT:
             return SETUP
+        if any(start <= function.address < end for start, end in self.startup_ranges):
+            return STARTUP
         if section.name.startswith(".text.hot"):
             return HOT
         origin = section.origin
@@ -441,10 +452,10 @@ class Program:
         return SETUP
 
     def _hot_called(self) -> set[int]:
-        """Cold functions that hot or ITCM code calls, directly or through a veneer."""
+        """Cold functions called by hot, ITCM or startup code, including through veneers."""
         found: set[int] = set()
         for caller, callees in self.edges.items():
-            if self.kind[caller] not in (HOT, ITCM):
+            if self.kind[caller] not in (HOT, ITCM, STARTUP):
                 continue
             for callee in callees:
                 if self.kind[callee] == VENEER:
@@ -907,6 +918,20 @@ class Toolchain:
         return result.stdout
 
 
+def startup_ranges(symbols: dict[str, int]) -> tuple[tuple[int, int], ...]:
+    """Explicit startup graph ranges, or none for links without the metadata."""
+    ranges = []
+    for begin, end in STARTUP_RANGE_SYMBOLS:
+        if begin not in symbols and end not in symbols:
+            continue
+        if begin not in symbols or end not in symbols:
+            raise LayoutError(f"incomplete startup range: {begin}, {end}")
+        if not FLASH_START <= symbols[begin] <= symbols[end]:
+            raise LayoutError(f"invalid startup range: {begin}, {end}")
+        ranges.append((symbols[begin], symbols[end]))
+    return tuple(ranges)
+
+
 def load_program(tools: Toolchain, elf: str, map_path: str) -> tuple[Program, dict[str, int]]:
     """Program model and map symbols of a linked image."""
     sections, symbols = parse_map(Path(map_path).read_text(encoding="utf-8", errors="replace"))
@@ -918,7 +943,7 @@ def load_program(tools: Toolchain, elf: str, map_path: str) -> tuple[Program, di
     objects = parse_objects(symbol_table)
     words = read_words(Path(elf).read_bytes(), objects)
     contents = {start: (size, words[start]) for start, size in objects if start in words}
-    return Program(functions, sections, references, data, contents), symbols
+    return Program(functions, sections, references, data, contents, startup_ranges(symbols)), symbols
 
 
 def load_alignments(tools: Toolchain, keys: set[tuple[Origin, str]],
