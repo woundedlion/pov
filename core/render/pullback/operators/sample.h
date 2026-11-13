@@ -486,11 +486,8 @@ struct SampleSphericalNoise : PhaseClockModel<NoisePhaseState> {
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    return Pattern::SphereNoise::prepare(
-        {params.noise_scale, params.noise_time_rate,
-         static_cast<math::NoiseBasis>(params.basis), params.noise_contrast,
-         Pattern::NoiseVariant::OCTAVE_CONTOUR},
-        {state.phase}, state.noise);
+    return Pattern::SphereNoise::prepare(Source::sphere_noise_recipe(params),
+                                         {state.phase}, state.noise);
   }
   static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &, const Prepared &prepared) {

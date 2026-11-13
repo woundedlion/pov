@@ -40,7 +40,8 @@ inline void test_shader_chain_spherical_noise_policy() {
   clock.noise = &state.noise;
   clock.noise_time = state.phase;
   const auto oracle_noise = make_oracle_noise("source", Model::ID, 1.0f);
-  for (uint8_t basis = 0; basis < 3; ++basis) {
+  for (uint8_t basis = 0;
+       basis <= static_cast<uint8_t>(math::NoiseBasis::RIDGED3); ++basis) {
     params.basis = basis;
     const auto prepared = Model::prepare({}, params, state);
     const auto typed = Fixture::Stage::template prepare<Binding>(frame);

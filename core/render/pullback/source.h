@@ -203,6 +203,16 @@ struct SphericalNoiseSourceParams : NoiseSourceParams {
 static_assert(field_ids_unique<SphericalNoiseSourceParams>());
 static_assert(field_defaults_in_range<SphericalNoiseSourceParams>());
 
+/** @brief Canonical sphere-noise recipe from source controls.
+ * @param params Sphere-domain source controls.
+ * @return Octave-contour noise recipe. */
+inline Pattern::NoiseParams
+sphere_noise_recipe(const SphericalNoiseSourceParams &params) {
+  return {params.noise_scale, params.noise_time_rate,
+          static_cast<math::NoiseBasis>(params.basis), params.noise_contrast,
+          Pattern::NoiseVariant::OCTAVE_CONTOUR};
+}
+
 /** @brief Spherical cell layout and scalar controls. */
 struct SphericalCellsSourceParams : Pattern::SphereCellsParams {
   static constexpr const char *OPERATOR_ID =
@@ -703,11 +713,9 @@ template <typename State> struct SphericalNoise : ApproximationDefaults {
    * @return Prepared noise source. */
   static Prepared prepare(const FrameState &frame) {
     const auto &params = State::params(frame);
-    return Pattern::SphereNoise::prepare(
-        {params.noise_scale, params.noise_time_rate,
-         static_cast<math::NoiseBasis>(params.basis), params.noise_contrast,
-         Pattern::NoiseVariant::OCTAVE_CONTOUR},
-        {State::noise_time(frame)}, State::noise(frame));
+    return Pattern::SphereNoise::prepare(sphere_noise_recipe(params),
+                                         {State::noise_time(frame)},
+                                         State::noise(frame));
   }
 
   /** @brief Samples the signed spherical noise field.
