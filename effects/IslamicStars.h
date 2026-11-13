@@ -769,18 +769,12 @@ private:
                    budget.scratch_b);
   }
 
-  /**
-   * @brief Generates @p entry into the carousel's back slot, makes it the
-   *        front, and schedules its segue, ripple burst and the next spawn.
-   * @param entry Solid spawned; its recipe, if any, drives the build chain.
+  /** @brief Admits a recipe whose lowered steps support build morphs.
+   * @param entry Solid being spawned.
+   * @return Admitted recipe, or null for whole-solid generation.
    */
-  HS_FLASH_MEMBER void spawn_entry(const Solids::Entry &entry) {
-    build_entry = &entry;
-    int back = 1 - carousel.front_index();
-    // The spawned mesh's shuffled palette order, consumed by class ordinal.
-    std::array<int, NUM_PALETTES> palette_slots;
-    MeshPaletteBank::shuffle_indices(palette_slots);
-
+  HS_FLASH_MEMBER const Solids::Recipe *
+  prepare_spawn_recipe(const Solids::Entry &entry) {
     // A recipe with a lowered step outside admitted recipe-morph coverage
     // falls back to the whole-generate path, seed solid and all.
     const Solids::Recipe *recipe = entry.recipe;
@@ -799,41 +793,16 @@ private:
       }
     }
 
-    auto draw_fn = [this, back](Canvas &canvas, float phase) {
-      this->draw_sprite(canvas, phase, back);
-    };
+    return recipe;
+  }
 
-    // Sequential segues leave no active sprite; the build rebuilds and selects
-    // the back slot before drawing resumes.
-    auto rebake = [this](Arena &arena) { reclaim_persistent(arena); };
-    if (recipe)
-      carousel.compact_drop_all(rebake);
-    else
-      carousel.compact_keep_front(back, rebake);
-
-    resplit_for_spawn(recipe != nullptr);
-
-    hs::generate(persistent_arena, [&](Arena &target, Arena &a,
-                                       Arena &b) HS_FLASH_MEMBER {
-      if (recipe) {
-        // The build starts from the recipe's seed solid; the chain is swept
-        // on screen leg by leg. The seed is also held as the first leg's
-        // persistent PolyMesh.
-        build_seed = Solids::finalize_solid(
-            Solids::simple_registry[recipe->seed].generate(a, b), target);
-        carousel.slot(back).clear();
-        MeshOps::compile(build_seed, carousel.slot(back), target,
-                         scratch_arena_a);
-      } else {
-        PolyMesh mesh = entry.generate(a, b);
-        carousel.slot(back).clear();
-        MeshOps::compile(mesh, carousel.slot(back), target, scratch_arena_a);
-      }
-    });
-
-    MeshOps::classify_faces_by_topology(carousel.slot(back), scratch_arena_a,
-                                        scratch_arena_b, persistent_arena);
-
+  /** @brief Assigns shuffled palettes to the spawned topology classes.
+   * @param back Carousel slot being spawned.
+   * @param palette_slots Shuffled palette indices by topology class.
+   */
+  HS_FLASH_MEMBER void
+  assign_spawn_palettes(int back,
+                        const std::array<int, NUM_PALETTES> &palette_slots) {
     // Colours of the spawned mesh (a build's seed, or the whole solid): the
     // shuffled palette order consumed by class ordinal — class ids are dense,
     // so class c is the c-th cohort.
@@ -846,15 +815,18 @@ private:
                                        spawned_faces, palette_slots,
                                        slot_face_palette[back]);
     }
+  }
 
-    // Flip front eagerly for the overlapping sprite.
-    carousel.set_front(back);
-    phase_history[back].reset();
-
-    // Segues with a spatial anchor get a fresh random one per transition.
-    if constexpr (requires(SegueT &s, const math::Vector &v) { s.retarget(v); })
-      carousel.segue().retarget(math::random_vector());
-
+  /** @brief Schedules a spawned shape's segue, build and ripple sequence.
+   * @param entry Spawned solid.
+   * @param recipe Admitted build recipe, or null.
+   * @param back Spawned carousel slot.
+   */
+  HS_FLASH_MEMBER void schedule_spawn(const Solids::Entry &entry,
+                                      const Solids::Recipe *recipe, int back) {
+    auto draw_fn = [this, back](Canvas &canvas, float phase) {
+      this->draw_sprite(canvas, phase, back);
+    };
     // Per-shape choreography: segue in, hold, ripple, settle, segue out. Trans
     // Speed divides every stage length, floored at 1 frame (ripple duration
     // at 8).
@@ -904,6 +876,64 @@ private:
                           Animation::PeriodicTimer(
                               0, [this](Canvas &) { this->advance_shape(); }),
                           plateau_hold.gate());
+  }
+
+  /**
+   * @brief Generates @p entry into the carousel's back slot, makes it the
+   *        front, and schedules its segue, ripple burst and the next spawn.
+   * @param entry Solid spawned; its recipe, if any, drives the build chain.
+   */
+  HS_FLASH_MEMBER void spawn_entry(const Solids::Entry &entry) {
+    build_entry = &entry;
+    int back = 1 - carousel.front_index();
+    // The spawned mesh's shuffled palette order, consumed by class ordinal.
+    std::array<int, NUM_PALETTES> palette_slots;
+    MeshPaletteBank::shuffle_indices(palette_slots);
+
+    const Solids::Recipe *recipe = prepare_spawn_recipe(entry);
+
+    // Sequential segues leave no active sprite; the build rebuilds and selects
+    // the back slot before drawing resumes.
+    auto rebake = [this](Arena &arena) { reclaim_persistent(arena); };
+    if (recipe)
+      carousel.compact_drop_all(rebake);
+    else
+      carousel.compact_keep_front(back, rebake);
+
+    resplit_for_spawn(recipe != nullptr);
+
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a,
+                                       Arena &b) HS_FLASH_MEMBER {
+      if (recipe) {
+        // The build starts from the recipe's seed solid; the chain is swept
+        // on screen leg by leg. The seed is also held as the first leg's
+        // persistent PolyMesh.
+        build_seed = Solids::finalize_solid(
+            Solids::simple_registry[recipe->seed].generate(a, b), target);
+        carousel.slot(back).clear();
+        MeshOps::compile(build_seed, carousel.slot(back), target,
+                         scratch_arena_a);
+      } else {
+        PolyMesh mesh = entry.generate(a, b);
+        carousel.slot(back).clear();
+        MeshOps::compile(mesh, carousel.slot(back), target, scratch_arena_a);
+      }
+    });
+
+    MeshOps::classify_faces_by_topology(carousel.slot(back), scratch_arena_a,
+                                        scratch_arena_b, persistent_arena);
+
+    assign_spawn_palettes(back, palette_slots);
+
+    // Flip front eagerly for the overlapping sprite.
+    carousel.set_front(back);
+    phase_history[back].reset();
+
+    // Segues with a spatial anchor get a fresh random one per transition.
+    if constexpr (requires(SegueT &s, const math::Vector &v) { s.retarget(v); })
+      carousel.segue().retarget(math::random_vector());
+
+    schedule_spawn(entry, recipe, back);
   }
 
 public:

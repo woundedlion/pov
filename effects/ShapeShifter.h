@@ -326,11 +326,11 @@ private:
     twist_ready = true;
   }
 
-  float phase_direction(float radius) const {
+  float phase_sign_contour(float radius) const {
     return !params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
-  float star_phase_direction(float radius) const {
+  float phase_sign_star(float radius) const {
     return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
@@ -556,8 +556,8 @@ private:
                                                bool continuous_star,
                                                const Color4 &pair_color,
                                                float global_alpha) const {
-    const float direction = continuous_star ? star_phase_direction(radius)
-                                            : phase_direction(radius);
+    const float direction =
+        continuous_star ? phase_sign_star(radius) : phase_sign_contour(radius);
     const float contour_phase = direction * params.amplitude * waveform[i];
     Color4 shaded_color = pair_color;
     shaded_color.alpha *= global_alpha;

@@ -409,15 +409,15 @@ private:
     return warp;
   }
 
-  /** @brief Draws the warped grid through column-time vertex captures.
-   * @param canvas Destination frame.
-   * @param start,end Retained animation endpoints. */
-  HS_HOT_FLASH_MEMBER void
-  draw_timed_grid(Canvas &canvas, const Endpoint &start, const Endpoint &end) {
-    ScratchScope frame_scope(scratch_arena_b);
-    auto *north = scratch_arena_b.allocate_n<NorthHole>(W / 2 + 1);
-    auto *south = scratch_arena_b.allocate_n<SouthHole>(W / 2 + 1);
-    const Spacetime::TemporalRotation rotation(start.rotation, end.rotation);
+  /** @brief Prepares each column's warped pole-hole filters.
+   * @param start,end Retained animation endpoints.
+   * @param rotation Frame rotation interpolation.
+   * @param north,south Receives per-column pole-hole filters.
+   */
+  HS_O3_FN HS_HOT_INLINE void
+  prepare_grid_holes(const Endpoint &start, const Endpoint &end,
+                     const Spacetime::TemporalRotation &rotation,
+                     NorthHole *north, SouthHole *south) {
     for (int c = 0; c <= W / 2; ++c) {
       const float t = static_cast<float>(c) / (W / 2);
       const auto warp = warp_at(start, end, t);
@@ -431,6 +431,157 @@ private:
           math::rotate(math::mobius_transform(-math::Y_AXIS, warp), q),
           math::X_AXIS));
     }
+  }
+
+  /** @brief Draws one grid curve, splitting a wrapped phase at its seam.
+   * @param canvas Render target.
+   * @param start,end Retained animation endpoints.
+   * @param rotation Frame rotation interpolation.
+   * @param bound Warp and rotation derivative bounds.
+   * @param shift Warp translation distance.
+   * @param reach Maximum endpoint translation magnitude.
+   * @param turn Frame orientation angle, radians.
+   * @param motion Warp and rotation displacement bound.
+   * @param phase_delta Wrapped palette phase advance.
+   * @param north,south Per-column pole-hole filters.
+   * @param axis Ring or meridian grid axis.
+   * @param i Curve index.
+   * @param first_num,num Endpoint curve counts.
+   */
+  HS_O3_FN HS_HOT_INLINE void draw_timed_grid_curve(
+      Canvas &canvas, const Endpoint &start, const Endpoint &end,
+      const Spacetime::TemporalRotation &rotation,
+      const Spacetime::PathBound &bound, float shift, float reach, float turn,
+      float motion, float phase_delta, NorthHole *north, SouthHole *south,
+      int axis, int i, float first_num, float num) {
+    auto &sink = filters.template after<SouthHole>();
+    const bool had_curve = i < ceilf(first_num);
+    const bool has_curve = i < ceilf(num);
+    float first_index = static_cast<float>(i) / fmaxf(first_num, 1e-6f);
+    float last_index = static_cast<float>(i) / fmaxf(num, 1e-6f);
+    float wrap_first =
+        axis == 0 ? math::wrap(first_index + start.phase, 1.0f) : first_index;
+    float wrap_last =
+        axis == 0 ? math::wrap(last_index + end.phase, 1.0f) : last_index;
+    if (!had_curve) {
+      wrap_first = wrap_last;
+      first_index = last_index;
+    }
+    if (!has_curve) {
+      wrap_last = wrap_first;
+      last_index = first_index;
+    }
+    const bool wraps = axis == 0 && fabsf(wrap_last - wrap_first) > 0.5f;
+    if (wraps)
+      wrap_last = wrap_first + std::remainder(wrap_last - wrap_first, 1.0f);
+    for (int part = 0; part < (wraps ? 2 : 1); ++part) {
+      ScratchScope curve_scope(scratch_arena_a);
+      const float offset = part == 0                ? 0.0f
+                           : wrap_last > wrap_first ? -1.0f
+                                                    : 1.0f;
+      const float first = wrap_first + offset;
+      const float last = wrap_last + offset;
+      const float source_rate =
+          (last - first) * (axis == 0 ? CONFORMAL_LOG_RANGE : math::PI_F);
+      const auto source_path =
+          Spacetime::PathBound::warped_great_circle(source_rate, shift, reach);
+      const float rate =
+          turn + fabsf(source_rate) * (2.0f + reach * reach) + 2.0f * shift;
+      const Spacetime::PathBound curve_bound{
+          bound.second + 2.0f * source_path.second,
+          bound.third + 4.0f * source_path.third + rate * rate * rate};
+      const float curve_displacement =
+          motion + fabsf(source_rate) * (2.0f + reach * reach);
+      auto ring_basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+      if (axis == 0 && CONFORMAL_LOG_MIN + last * CONFORMAL_LOG_RANGE < 0.0f)
+        ring_basis.u = -ring_basis.u;
+      auto evaluate = [&](size_t vertex, float t) HS_HOT_INLINE {
+        const float coordinate = first + (last - first) * t;
+        const auto direction = curve_directions[vertex];
+        math::Vector source;
+        if (axis == 0) {
+          const float radius = ring_polar(coordinate);
+          source =
+              ring_basis.v * cosf(radius) + (ring_basis.u * direction.cosine +
+                                             ring_basis.w * direction.sine) *
+                                                sinf(radius);
+        } else {
+          const float angle = coordinate * math::PI_F;
+          const math::Vector normal(cosf(angle), 0.0f, -sinf(angle));
+          source = math::cross(normal, math::Y_AXIS) * direction.cosine +
+                   math::Y_AXIS * direction.sine;
+        }
+        return math::normalized_or(
+            math::rotate(math::mobius_transform(source.normalized(),
+                                                warp_at(start, end, t)),
+                         rotation.sample(t)),
+            math::X_AXIS);
+      };
+      auto *vertices = scratch_arena_a.allocate_n<math::Vector>(CURVE_SIDES);
+      ArenaVector<Plot::Mesh::Edge> edges;
+      edges.bind(scratch_arena_a, CURVE_SIDES);
+      for (int k = 0; k < CURVE_SIDES; ++k) {
+        vertices[k] = evaluate(k, 1.0f);
+        edges.push_back({static_cast<uint16_t>(k),
+                         static_cast<uint16_t>((k + 1) % CURVE_SIDES)});
+      }
+      const float opacity = hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
+      const float first_opacity =
+          hs::clamp(first_num - static_cast<float>(i), 0.0f, 1.0f);
+      auto shader = [&](const math::Vector &v, Fragment &f,
+                        float t) HS_HOT_INLINE {
+        const float source_coordinate = first + (last - first) * t;
+        if (axis == 0 &&
+            (source_coordinate < 0.0f || source_coordinate >= 1.0f)) {
+          f.color.alpha = 0.0f;
+          return;
+        }
+        const float phase = start.phase + phase_delta * t;
+        const float coordinate =
+            axis == 0
+                ? hs::lerp(first_index, last_index, t)
+                : conformal_coord(math::fast_sinf(((f.v2 + f.v0) / CURVE_SIDES +
+                                                   0.5f / CURVE_SIDES) *
+                                                  2.0f * math::PI_F),
+                                  phase);
+        f.color = baked_palette.get(coordinate);
+        f.color.alpha *= hs::lerp(first_opacity, opacity, t) *
+                         hs::lerp(start.alpha, end.alpha, t);
+        const int column =
+            std::clamp(static_cast<int>(t * (W / 2) + 0.5f), 0, W / 2);
+        auto &north_hole = north[column];
+        auto &south_hole = south[column];
+        float alpha = 0.0f;
+        north_hole.plot(v, f.color.color, f.age, f.color.alpha,
+                        [&](const math::Vector &p, const Pixel &color,
+                            float age, float a) HS_HOT_INLINE {
+                          south_hole.plot(p, color, age, a,
+                                          [&](const math::Vector &,
+                                              const Pixel &, float, float a2)
+                                              HS_HOT_INLINE { alpha = a2; });
+                        });
+        f.color.alpha = alpha;
+      };
+      auto geometry = Plot::GeometryCallback::exact(evaluate);
+      geometry.path = curve_bound;
+      geometry.chained = true;
+      geometry.rigid_lattice = true;
+      Plot::Mesh::draw_column_edges<W, H>(
+          sink, canvas, Plot::Mesh::VertexSpan{{vertices, CURVE_SIDES}}, edges,
+          shader, geometry, curve_displacement);
+    }
+  }
+
+  /** @brief Draws the warped grid through column-time vertex captures.
+   * @param canvas Destination frame.
+   * @param start,end Retained animation endpoints. */
+  HS_HOT_FLASH_MEMBER void
+  draw_timed_grid(Canvas &canvas, const Endpoint &start, const Endpoint &end) {
+    ScratchScope frame_scope(scratch_arena_b);
+    auto *north = scratch_arena_b.allocate_n<NorthHole>(W / 2 + 1);
+    auto *south = scratch_arena_b.allocate_n<SouthHole>(W / 2 + 1);
+    const Spacetime::TemporalRotation rotation(start.rotation, end.rotation);
+    prepare_grid_holes(start, end, rotation, north, south);
     const float shift = (end.warp.b - start.warp.b).magnitude();
     const float reach = fmaxf(start.warp.b.magnitude(), end.warp.b.magnitude());
     const float turn =
@@ -444,132 +595,14 @@ private:
         warp_path.third + motion * motion * motion +
             3.0f * turn * warp_path.second};
     const float phase_delta = std::remainder(end.phase - start.phase, 1.0f);
-    auto &sink = filters.template after<SouthHole>();
     for (int axis = 0; axis < 2; ++axis) {
       const float first_num = axis == 0 ? start.rings : start.lines;
       const float num = axis == 0 ? end.rings : end.lines;
       const int count = static_cast<int>(ceilf(fmaxf(first_num, num)));
       for (int i = 0; i < count; ++i) {
-        const bool had_curve = i < ceilf(first_num);
-        const bool has_curve = i < ceilf(num);
-        float first_index = static_cast<float>(i) / fmaxf(first_num, 1e-6f);
-        float last_index = static_cast<float>(i) / fmaxf(num, 1e-6f);
-        float wrap_first = axis == 0
-                               ? math::wrap(first_index + start.phase, 1.0f)
-                               : first_index;
-        float wrap_last =
-            axis == 0 ? math::wrap(last_index + end.phase, 1.0f) : last_index;
-        if (!had_curve) {
-          wrap_first = wrap_last;
-          first_index = last_index;
-        }
-        if (!has_curve) {
-          wrap_last = wrap_first;
-          last_index = first_index;
-        }
-        const bool wraps = axis == 0 && fabsf(wrap_last - wrap_first) > 0.5f;
-        if (wraps)
-          wrap_last = wrap_first + std::remainder(wrap_last - wrap_first, 1.0f);
-        for (int part = 0; part < (wraps ? 2 : 1); ++part) {
-          ScratchScope curve_scope(scratch_arena_a);
-          const float offset = part == 0                ? 0.0f
-                               : wrap_last > wrap_first ? -1.0f
-                                                        : 1.0f;
-          const float first = wrap_first + offset;
-          const float last = wrap_last + offset;
-          const float source_rate =
-              (last - first) * (axis == 0 ? CONFORMAL_LOG_RANGE : math::PI_F);
-          const auto source_path = Spacetime::PathBound::warped_great_circle(
-              source_rate, shift, reach);
-          const float rate =
-              turn + fabsf(source_rate) * (2.0f + reach * reach) + 2.0f * shift;
-          const Spacetime::PathBound curve_bound{
-              bound.second + 2.0f * source_path.second,
-              bound.third + 4.0f * source_path.third + rate * rate * rate};
-          const float curve_displacement =
-              motion + fabsf(source_rate) * (2.0f + reach * reach);
-          auto ring_basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
-          if (axis == 0 &&
-              CONFORMAL_LOG_MIN + last * CONFORMAL_LOG_RANGE < 0.0f)
-            ring_basis.u = -ring_basis.u;
-          auto evaluate = [&](size_t vertex, float t) HS_HOT_INLINE {
-            const float coordinate = first + (last - first) * t;
-            const auto direction = curve_directions[vertex];
-            math::Vector source;
-            if (axis == 0) {
-              const float radius = ring_polar(coordinate);
-              source = ring_basis.v * cosf(radius) +
-                       (ring_basis.u * direction.cosine +
-                        ring_basis.w * direction.sine) *
-                           sinf(radius);
-            } else {
-              const float angle = coordinate * math::PI_F;
-              const math::Vector normal(cosf(angle), 0.0f, -sinf(angle));
-              source = math::cross(normal, math::Y_AXIS) * direction.cosine +
-                       math::Y_AXIS * direction.sine;
-            }
-            return math::normalized_or(
-                math::rotate(math::mobius_transform(source.normalized(),
-                                                    warp_at(start, end, t)),
-                             rotation.sample(t)),
-                math::X_AXIS);
-          };
-          auto *vertices =
-              scratch_arena_a.allocate_n<math::Vector>(CURVE_SIDES);
-          ArenaVector<Plot::Mesh::Edge> edges;
-          edges.bind(scratch_arena_a, CURVE_SIDES);
-          for (int k = 0; k < CURVE_SIDES; ++k) {
-            vertices[k] = evaluate(k, 1.0f);
-            edges.push_back({static_cast<uint16_t>(k),
-                             static_cast<uint16_t>((k + 1) % CURVE_SIDES)});
-          }
-          const float opacity =
-              hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
-          const float first_opacity =
-              hs::clamp(first_num - static_cast<float>(i), 0.0f, 1.0f);
-          auto shader = [&](const math::Vector &v, Fragment &f,
-                            float t) HS_HOT_INLINE {
-            const float source_coordinate = first + (last - first) * t;
-            if (axis == 0 &&
-                (source_coordinate < 0.0f || source_coordinate >= 1.0f)) {
-              f.color.alpha = 0.0f;
-              return;
-            }
-            const float phase = start.phase + phase_delta * t;
-            const float coordinate =
-                axis == 0 ? hs::lerp(first_index, last_index, t)
-                          : conformal_coord(
-                                math::fast_sinf(((f.v2 + f.v0) / CURVE_SIDES +
-                                                 0.5f / CURVE_SIDES) *
-                                                2.0f * math::PI_F),
-                                phase);
-            f.color = baked_palette.get(coordinate);
-            f.color.alpha *= hs::lerp(first_opacity, opacity, t) *
-                             hs::lerp(start.alpha, end.alpha, t);
-            const int column =
-                std::clamp(static_cast<int>(t * (W / 2) + 0.5f), 0, W / 2);
-            auto &north_hole = north[column];
-            auto &south_hole = south[column];
-            float alpha = 0.0f;
-            north_hole.plot(
-                v, f.color.color, f.age, f.color.alpha,
-                [&](const math::Vector &p, const Pixel &color, float age,
-                    float a) HS_HOT_INLINE {
-                  south_hole.plot(
-                      p, color, age, a,
-                      [&](const math::Vector &, const Pixel &, float, float a2)
-                          HS_HOT_INLINE { alpha = a2; });
-                });
-            f.color.alpha = alpha;
-          };
-          auto geometry = Plot::GeometryCallback::exact(evaluate);
-          geometry.path = curve_bound;
-          geometry.chained = true;
-          geometry.rigid_lattice = true;
-          Plot::Mesh::draw_column_edges<W, H>(
-              sink, canvas, Plot::Mesh::VertexSpan{{vertices, CURVE_SIDES}},
-              edges, shader, geometry, curve_displacement);
-        }
+        draw_timed_grid_curve(canvas, start, end, rotation, bound, shift, reach,
+                              turn, motion, phase_delta, north, south, axis, i,
+                              first_num, num);
       }
     }
   }

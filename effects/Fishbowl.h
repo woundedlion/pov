@@ -335,19 +335,16 @@ public:
 
 private:
   friend struct ::hs_test::effects_tests::FishbowlWhiteBox;
-  /** @brief Renders the recorded trail and retains its warped endpoints.
-   * @param canvas Target frame.
-   * @param was_full Whether recording evicted the oldest frame.
-   * @param previous_phase Palette phase before the frame advance. */
-  HS_HOT_FLASH_MEMBER void render_trail(Canvas &canvas, bool was_full,
-                                        float previous_phase) {
-    ScratchScope scratch_a_guard(scratch_arena_a);
-    ArenaVector<TrailVertex> vertices(scratch_arena_a, MAX_FRAGMENTS);
-    auto *history_indices = scratch_arena_a.allocate_n<uint16_t>(MAX_FRAGMENTS);
-    const float fill_scale = palette_fill_scale(node->trail.length());
-
+  /** @brief Builds adaptive trail vertices and their history indices.
+   * @param vertices Receives adaptive trail samples.
+   * @param history_indices Receives each sample's retained-history index.
+   * @param fill_scale Trail palette-coordinate scale.
+   * @return Number of active trail records.
+   */
+  HS_O3_FN HS_HOT_INLINE size_t
+  build_trail_vertices(ArenaVector<TrailVertex> &vertices,
+                       uint16_t *history_indices, float fill_scale) {
     size_t active = 0;
-    const bool growing = node->trail.get(node->trail.length() - 1).length() > 1;
     {
       HS_PROFILE(fish_build_vertices);
       math::Quaternion previous_q;
@@ -401,6 +398,43 @@ private:
       });
     }
 
+    return active;
+  }
+
+  /** @brief Retains current endpoints and returns the trail's motion bound.
+   * @param vertices Current samples; receives frame-start positions.
+   * @param history_indices Retained-history index for each sample.
+   * @return Maximum endpoint angular displacement, radians.
+   */
+  HS_O3_FN HS_HOT_INLINE float
+  retain_trail_endpoints(ArenaVector<TrailVertex> &vertices,
+                         const uint16_t *history_indices) {
+    float bound = 0.0f;
+    for (size_t i = 0; i < vertices.size(); ++i) {
+      const auto current = vertices[i].pos;
+      const size_t index = history_indices[i];
+      vertices[i].pos = warped_history[index].decode();
+      bound = fmaxf(bound, math::angle_between(vertices[i].pos, current));
+      warped_history[index] = math::Snorm3::encode(current);
+    }
+    return bound;
+  }
+
+  /** @brief Renders the recorded trail and retains its warped endpoints.
+   * @param canvas Target frame.
+   * @param was_full Whether recording evicted the oldest frame.
+   * @param previous_phase Palette phase before the frame advance. */
+  HS_HOT_FLASH_MEMBER void render_trail(Canvas &canvas, bool was_full,
+                                        float previous_phase) {
+    ScratchScope scratch_a_guard(scratch_arena_a);
+    ArenaVector<TrailVertex> vertices(scratch_arena_a, MAX_FRAGMENTS);
+    auto *history_indices = scratch_arena_a.allocate_n<uint16_t>(MAX_FRAGMENTS);
+    const float fill_scale = palette_fill_scale(node->trail.length());
+
+    const bool growing = node->trail.get(node->trail.length() - 1).length() > 1;
+    const size_t active =
+        build_trail_vertices(vertices, history_indices, fill_scale);
+
     const bool timed = !Spacetime::flat_surface();
     Fragments points;
     math::Vector *ends = nullptr;
@@ -412,14 +446,7 @@ private:
       points.bind(scratch_arena_a, vertices.size() + 1);
       Plot::Multiline::sample(points, vertices);
     }
-    float bound = 0.0f;
-    for (size_t i = 0; i < vertices.size(); ++i) {
-      const auto current = vertices[i].pos;
-      const size_t index = history_indices[i];
-      vertices[i].pos = warped_history[index].decode();
-      bound = fmaxf(bound, math::angle_between(vertices[i].pos, current));
-      warped_history[index] = math::Snorm3::encode(current);
-    }
+    const float bound = retain_trail_endpoints(vertices, history_indices);
     const float phase_delta =
         cycle_phase != previous_phase ? palette_speed : 0.0f;
     const float palette_shift = phase_delta / params.scale_factor -

@@ -8,6 +8,7 @@
  * @brief Column-time strokes in a display pole's equidistant chart.
  */
 
+#include <limits>
 #include "core/math/pixel_mapping.h"
 #include "core/render/spacetime.h"
 #include "core/render/canvas.h"

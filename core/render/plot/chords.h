@@ -423,41 +423,11 @@ public:
     float *const y_chart = chart_y_storage;
     project_closed(points, vertices);
 
-    auto walk_segment =
-        [&](const math::PixelCoords &from,
-            const math::PixelCoords &to) __attribute__((always_inline)) {
-          const float x_start = from.x;
-          const float y_start = from.y;
-          const float segment_dx = to.x - x_start;
-          const float segment_dy = to.y - y_start;
-          const float length =
-              sqrtf(segment_dx * segment_dx + segment_dy * segment_dy);
-          const int samples =
-              std::max(1, static_cast<int>(ceilf(length / TARGET_STEP)));
-          const float sample_count = static_cast<float>(samples);
-          const float inv_samples = 1.0f / sample_count;
-          // Sample index range whose splat can reach the band; plot() masks the
-          // taps, so a range wider than exact only costs time.
-          const auto [first, last] =
-              sample_band_range(band, sample_count, x_start, y_start,
-                                segment_dx, segment_dy, 0.0f, 0.0f);
-          if (last < first)
-            return;
-          const int sample_begin = static_cast<int>(ceilf(fmaxf(first, 0.0f)));
-          const int sample_end =
-              static_cast<int>(fminf(floorf(last) + 1.0f, sample_count));
-          const float step_ratio =
-              fminf(TARGET_STEP, length * inv_samples) / SCREEN_STEP_PX;
-          const float sample_alpha =
-              fminf(1.0f, ALPHA_GAIN *
-                              balanced_sample_alpha(color.alpha, step_ratio));
-          for (int sample = sample_begin; sample < sample_end; ++sample) {
-            const float t = static_cast<float>(sample) * inv_samples;
-            const float x = math::fast_wrap(x_start + segment_dx * t, W);
-            const float y = y_start + segment_dy * t;
-            pipeline.plot(canvas, x, y, color.color, 0.0f, sample_alpha);
-          }
-        };
+    auto walk_static_segment_call =
+        [&](const math::PixelCoords &from, const math::PixelCoords &to)
+            __attribute__((always_inline)) {
+              walk_static_segment(pipeline, canvas, color, from, to);
+            };
 
     for (int edge = 0; edge < vertices; ++edge) {
       const float dx = x_chart[edge + 1] - x_chart[edge];
@@ -501,7 +471,7 @@ public:
               Geometry::SOUTH_POLE_ROW - POLE_GUARD_ROWS) {
         HS_PROFILE_DEEP(plot_chord_walk);
         for (int k = 0; k < anchor_intervals; ++k)
-          walk_segment(anchors[k], anchors[k + 1]);
+          walk_static_segment_call(anchors[k], anchors[k + 1]);
         continue;
       }
 
@@ -521,7 +491,7 @@ public:
       };
       for (int k = 0; k < anchor_intervals;) {
         if (!near_pole(k)) {
-          walk_segment(anchors[k], anchors[k + 1]);
+          walk_static_segment_call(anchors[k], anchors[k + 1]);
           ++k;
           continue;
         }
@@ -955,6 +925,45 @@ public:
   }
 
 private:
+  /** @brief Emits a static chart segment on its screen lattice. */
+  template <typename PipelineT>
+  HS_O3_FN HS_HOT_INLINE void
+  walk_static_segment(PipelineT &pipeline, Canvas &canvas, const Color4 &color,
+                      const math::PixelCoords &from,
+                      const math::PixelCoords &to) {
+
+    const float x_start = from.x;
+    const float y_start = from.y;
+    const float segment_dx = to.x - x_start;
+    const float segment_dy = to.y - y_start;
+    const float length =
+        sqrtf(segment_dx * segment_dx + segment_dy * segment_dy);
+    const int samples =
+        std::max(1, static_cast<int>(ceilf(length / TARGET_STEP)));
+    const float sample_count = static_cast<float>(samples);
+    const float inv_samples = 1.0f / sample_count;
+    // Sample index range whose splat can reach the band; plot() masks the
+    // taps, so a range wider than exact only costs time.
+    const auto [first, last] =
+        sample_band_range(band, sample_count, x_start, y_start, segment_dx,
+                          segment_dy, 0.0f, 0.0f);
+    if (last < first)
+      return;
+    const int sample_begin = static_cast<int>(ceilf(fmaxf(first, 0.0f)));
+    const int sample_end =
+        static_cast<int>(fminf(floorf(last) + 1.0f, sample_count));
+    const float step_ratio =
+        fminf(TARGET_STEP, length * inv_samples) / SCREEN_STEP_PX;
+    const float sample_alpha = fminf(
+        1.0f, ALPHA_GAIN * balanced_sample_alpha(color.alpha, step_ratio));
+    for (int sample = sample_begin; sample < sample_end; ++sample) {
+      const float t = static_cast<float>(sample) * inv_samples;
+      const float x = math::fast_wrap(x_start + segment_dx * t, W);
+      const float y = y_start + segment_dy * t;
+      pipeline.plot(canvas, x, y, color.color, 0.0f, sample_alpha);
+    }
+  }
+
   /** @brief Projects a closed chart and repeats its first vertex.
    * @param points Vertex positions including the closing repeat.
    * @param vertices Distinct vertex count. */

@@ -483,6 +483,117 @@ struct Volume {
                       frag_fn, max_steps, aa_width, &columns);
   }
 
+  /** @brief Shades the nearest volume sample and its occluded AA background.
+   * @param pipeline Destination plotting pipeline.
+   * @param canvas Destination canvas.
+   * @param px Pixel column.
+   * @param py Pixel row.
+   * @param shape Local-space volume shape.
+   * @param shade Fragment shader.
+   * @param closest_local Nearest sampled local position.
+   * @param local_vd Unit local ray direction.
+   * @param bounds_radius Bounding radius.
+   * @param aa_width AA clearance width.
+   * @param closest_d Nearest sampled clearance. */
+  template <typename Pipeline, typename Shape, typename Shade>
+  HS_HOT_INLINE static void
+  composite_volume_sample(Pipeline pipeline, Canvas &canvas, int px, int py,
+                          const Shape &shape, Shade &&shade,
+                          const math::Vector &closest_local,
+                          const math::Vector &local_vd, float bounds_radius,
+                          float aa_width, float closest_d) {
+    Fragment frag;
+    frag.pos = closest_local;
+    frag.size = closest_d;
+    shade(px, closest_local, frag);
+
+    // One-sided AA with quintic kernel
+    float hit_threshold = aa_width * SOLID_FRACTION;
+    float edge_alpha;
+
+    if (closest_d <= hit_threshold) {
+      // FAST PATH: Solid hit. No probe needed.
+      edge_alpha = 1.0f;
+    } else {
+      // SLOW PATH: fuzzy AA border. Standard one-sided AA coverage...
+      edge_alpha = volume_edge_coverage(closest_d, hit_threshold, aa_width);
+
+      // ...then probe behind the halo for a surface this edge occludes.
+      Occluder occ =
+          probe_occluder(shape, closest_local, local_vd, bounds_radius,
+                         hit_threshold, aa_width, closest_d);
+      const float bg_coverage = occ.solid ? 1.0f : occ.soft;
+      if (bg_coverage > MIN_ALPHA) {
+        Fragment bg;
+        bg.pos = occ.behind;
+        bg.size = occ.distance;
+        shade(px, occ.behind, bg);
+        if (bg.color.alpha * bg_coverage > MIN_ALPHA) {
+          HS_PROFILE_DEEP(vol_plot);
+          pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
+                        bg.color.alpha * bg_coverage);
+        }
+      }
+    }
+
+    if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
+      HS_PROFILE_DEEP(vol_plot);
+      pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
+                    frag.color.alpha * edge_alpha);
+    }
+  }
+
+  /** @brief Culls the world-space ray and transforms its origin into the volume.
+   * @param px Pixel column.
+   * @param p World pixel position.
+   * @param shape Local-space volume shape.
+   * @param ray Fixed world ray direction.
+   * @param ray_local Fixed local ray direction.
+   * @param columns Per-column placements.
+   * @param bounds_r2 Squared bounding radius.
+   * @param start_offset Ray start offset.
+   * @param local_ro Receives the local ray origin.
+   * @param local_vd Receives the local ray direction.
+   * @return Whether the ray can reach the volume. */
+  template <int W, bool COLUMNS, typename Shape>
+  HS_HOT_INLINE static bool
+  prepare_volume_ray(int px, const math::Vector &p, const Shape &shape,
+                     const math::Vector &ray, const math::Vector &ray_local,
+                     const VolumeColumns<W> *columns, float bounds_r2,
+                     float start_offset, math::Vector &local_ro,
+                     math::Vector &local_vd) {
+    [[maybe_unused]] const typename VolumeColumns<W>::Column *column = nullptr;
+    math::Vector vd = ray;
+    local_vd = ray_local;
+    if constexpr (COLUMNS) {
+      column = &columns->at(px);
+      vd = -column->center;
+      local_vd = column->local_vd;
+    }
+    // Back-face cull
+    float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
+    if (facing >= 0.0f)
+      return false;
+
+    // Orthographic ray-sphere cull
+    float pp_x = p.x - facing * vd.x;
+    float pp_y = p.y - facing * vd.y;
+    float pp_z = p.z - facing * vd.z;
+    if (pp_x * pp_x + pp_y * pp_y + pp_z * pp_z > bounds_r2)
+      return false;
+
+    // Orthographic ray origin: outside the unit sphere
+    math::Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
+                    pp_z - vd.z * start_offset);
+
+    // Only the origin is transformed per pixel; local_vd is shared.
+    if constexpr (COLUMNS)
+      local_ro = column->to_local.apply(ro - column->center);
+    else
+      local_ro = shape.origin_to_local(ro);
+    return true;
+  }
+
   /**
    * @brief Marching body shared by the fixed and per-column draws.
    * @tparam W Canvas width in pixels.
@@ -560,37 +671,11 @@ struct Volume {
     };
     auto march_pixel = [&](int px, int py,
                            const math::Vector &p) HS_HOT_INLINE {
-      [[maybe_unused]] const typename VolumeColumns<W>::Column *column =
-          nullptr;
-      math::Vector vd = ray;
-      math::Vector local_vd = ray_local;
-      if constexpr (COLUMNS) {
-        column = &columns->at(px);
-        vd = -column->center;
-        local_vd = column->local_vd;
-      }
-      // Back-face cull
-      float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
-      if (facing >= 0.0f)
+      math::Vector local_ro, local_vd;
+      if (!prepare_volume_ray<W, COLUMNS>(px, p, shape, ray, ray_local, columns,
+                                          bounds_r2, start_offset, local_ro,
+                                          local_vd))
         return 1;
-
-      // Orthographic ray-sphere cull
-      float pp_x = p.x - facing * vd.x;
-      float pp_y = p.y - facing * vd.y;
-      float pp_z = p.z - facing * vd.z;
-      if (pp_x * pp_x + pp_y * pp_y + pp_z * pp_z > bounds_r2)
-        return 1;
-
-      // Orthographic ray origin: outside the unit sphere
-      math::Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
-                      pp_z - vd.z * start_offset);
-
-      // Only the origin is transformed per pixel; local_vd is shared.
-      math::Vector local_ro;
-      if constexpr (COLUMNS)
-        local_ro = column->to_local.apply(ro - column->center);
-      else
-        local_ro = shape.origin_to_local(ro);
       math::Vector closest_local;
 
       // --- Sphere tracing in local space ---
@@ -602,46 +687,9 @@ struct Volume {
       if (closest_d >= aa_width)
         return 1;
 
-      // --- Fragment shading ---
-      Fragment frag;
-      frag.pos = closest_local;
-      frag.size = closest_d;
-      shade(px, closest_local, frag);
-
-      // One-sided AA with quintic kernel
-      float hit_threshold = aa_width * SOLID_FRACTION;
-      float edge_alpha;
-
-      if (closest_d <= hit_threshold) {
-        // FAST PATH: Solid hit. No probe needed.
-        edge_alpha = 1.0f;
-      } else {
-        // SLOW PATH: fuzzy AA border. Standard one-sided AA coverage...
-        edge_alpha = volume_edge_coverage(closest_d, hit_threshold, aa_width);
-
-        // ...then probe behind the halo for a surface this edge occludes.
-        Occluder occ =
-            probe_occluder(shape, closest_local, local_vd, bounds_radius,
-                           hit_threshold, aa_width, closest_d);
-        const float bg_coverage = occ.solid ? 1.0f : occ.soft;
-        if (bg_coverage > MIN_ALPHA) {
-          Fragment bg;
-          bg.pos = occ.behind;
-          bg.size = occ.distance;
-          shade(px, occ.behind, bg);
-          if (bg.color.alpha * bg_coverage > MIN_ALPHA) {
-            HS_PROFILE_DEEP(vol_plot);
-            pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
-                          bg.color.alpha * bg_coverage);
-          }
-        }
-      }
-
-      if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
-        HS_PROFILE_DEEP(vol_plot);
-        pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
-                      frag.color.alpha * edge_alpha);
-      }
+      composite_volume_sample(pipeline, canvas, px, py, shape, shade,
+                              closest_local, local_vd, bounds_radius, aa_width,
+                              closest_d);
       return 1;
     };
     if constexpr (COLUMNS)

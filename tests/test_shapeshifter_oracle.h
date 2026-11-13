@@ -204,8 +204,8 @@ struct ShapeShifterWhiteBox {
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * effect.spaced_radius_t[i];
       const float direction = continuous_star
-                                  ? effect.star_phase_direction(radius)
-                                  : effect.phase_direction(radius);
+                                  ? effect.phase_sign_star(radius)
+                                  : effect.phase_sign_contour(radius);
       const float contour_phase =
           direction * effect.params.amplitude *
           effect.evaluate(function, radius_t + effect.phase);
@@ -239,12 +239,12 @@ struct ShapeShifterWhiteBox {
     return effect.phase;
   }
 
-  static float phase_direction(const OracleEffect &effect, float radius) {
-    return effect.phase_direction(radius);
+  static float phase_sign_contour(const OracleEffect &effect, float radius) {
+    return effect.phase_sign_contour(radius);
   }
 
-  static float star_phase_direction(const OracleEffect &effect, float radius) {
-    return effect.star_phase_direction(radius);
+  static float phase_sign_star(const OracleEffect &effect, float radius) {
+    return effect.phase_sign_star(radius);
   }
 
   static float alpha_falloff_at(OracleEffect::AlphaFalloff falloff,
@@ -1033,20 +1033,16 @@ inline void test_opposite_halves_direction() {
     effect.init();
     HS_EXPECT_EQ(effect.updateParameter("Opposite", 0.0f),
                  ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, 0.5f), 1.0f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, 1.5f), -1.0f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::star_phase_direction(effect, 0.5f),
-                 1.0f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::star_phase_direction(effect, 1.5f),
-                 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_sign_contour(effect, 0.5f), 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_sign_contour(effect, 1.5f), -1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_sign_star(effect, 0.5f), 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_sign_star(effect, 1.5f), 1.0f);
     HS_EXPECT_EQ(effect.updateParameter("Opposite", 1.0f),
                  ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, 0.5f), 1.0f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, 1.5f), 1.0f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::star_phase_direction(effect, 0.5f),
-                 1.0f);
-    HS_EXPECT_EQ(ShapeShifterWhiteBox::star_phase_direction(effect, 1.5f),
-                 -1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_sign_contour(effect, 0.5f), 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_sign_contour(effect, 1.5f), 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_sign_star(effect, 0.5f), 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_sign_star(effect, 1.5f), -1.0f);
   }
   Timeline().clear();
 

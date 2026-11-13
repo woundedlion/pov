@@ -627,6 +627,98 @@ private:
     }
   };
 
+  /** @brief Places a trail's source and warped endpoint samples.
+   * @tparam Particle Particle carrying the trail history.
+   * @param p Trail particle.
+   * @param trail_len Recorded history length.
+   * @param points History plus live-tip sample count.
+   * @param warp Retained warp endpoints.
+   * @param translation Frame-end warp.
+   * @param end_pose Frame-end orientation.
+   * @param trail Receives source positions.
+   * @param warped Receives warped positions.
+   * @param world Receives normalized world positions.
+   */
+  template <typename Particle>
+  HS_O3_FN HS_HOT_INLINE void prepare_trail_sources(
+      const Particle &p, int trail_len, int points, const FrameWarp &warp,
+      const math::MobiusParams &translation,
+      const math::RotationMatrix &end_pose, TrailVertex *trail,
+      math::Vector *warped, math::Vector *world) {
+    for (int j = 0; j < points; ++j) {
+      trail[j].origin =
+          j < trail_len ? p.history.get(static_cast<size_t>(j)) : p.position;
+      warped[j] = warp.active
+                      ? math::mobius_transform(trail[j].origin, translation)
+                      : trail[j].origin;
+      world[j] = Plot::EdgeWorldsheet::normalize(end_pose.apply(warped[j]));
+    }
+  }
+
+  /** @brief Finds the trail edges whose swept bounds reach the canvas.
+   * @tparam Cull Swept-edge culler.
+   * @param cull Canvas culler.
+   * @param world World endpoint positions.
+   * @param points Sample count.
+   * @param pad Angular motion bound, radians.
+   * @return Bit j marks the edge from j to j-1.
+   */
+  template <typename Cull>
+  HS_O3_FN HS_HOT_INLINE uint32_t visible_trail_edges(const Cull &cull,
+                                                      const math::Vector *world,
+                                                      int points, float pad) {
+    uint32_t visible = 0;
+    for (int j = points - 1; j > 0; --j) {
+      const math::Vector pair[2] = {world[j], world[j - 1]};
+      if (!cull.rejects(pair, 2, pad))
+        visible |= 1u << j;
+    }
+    return visible;
+  }
+
+  /** @brief Prepares the visible trail's fade, motion and start samples.
+   * @tparam Particle Particle carrying trail motion.
+   * @param p Trail particle.
+   * @param points Sample count.
+   * @param visible Visible-edge bit mask.
+   * @param life Normalized particle life.
+   * @param cos_event_horizon Hole angular cutoff cosine.
+   * @param turn Head turn over the frame, radians.
+   * @param speed Particle angular speed.
+   * @param palette Trail palette samples.
+   * @param warp Retained warp endpoints.
+   * @param start_pose Frame-start orientation.
+   * @param trail Receives shading and motion attributes.
+   * @param starts Receives frame-start world positions.
+   */
+  template <typename Particle>
+  HS_O3_FN HS_HOT_INLINE void prepare_trail_attributes(
+      const Particle &p, int points, uint32_t visible, float life,
+      float cos_event_horizon, float turn, float speed, const Pixel *palette,
+      const FrameWarp &warp, const math::RotationMatrix &start_pose,
+      TrailVertex *trail, math::Vector *starts) {
+    const float denominator = static_cast<float>(points - 1);
+    for (int j = 0; j < points; ++j) {
+      if (!(visible & ((1u << j) | (2u << j))))
+        continue;
+      const float hole =
+          active_base_mesh == BaseMesh::CUBE
+              ? octahedral_hole_alpha(trail[j].origin, cos_event_horizon)
+              : attractor_hole_alpha(trail[j].origin, cos_event_horizon);
+      trail[j].back = {};
+      trail[j].turn = 0.0f;
+      if (j == points - 1 && turn != 0.0f) {
+        trail[j].turn = turn;
+        trail[j].back = p.velocity * (1.0f / speed);
+      }
+      trail[j].progress = static_cast<float>(j) / denominator;
+      trail[j].fade = life * hole;
+      trail[j].palette = palette;
+      starts[j] = Plot::EdgeWorldsheet::normalize(
+          start_pose.apply(warp.at(trail[j], 0.0f)));
+    }
+  }
+
   /**
    * @brief Draws every trail at its columns' times.
    * @param canvas Target canvas.
@@ -729,46 +821,18 @@ private:
                              : 0.0f;
       const float motion = stretch * turn + 2.0f * shift;
       const float pad = motion + spin;
-      for (int j = 0; j < points; ++j) {
-        trail[j].origin =
-            j < trail_len ? p.history.get(static_cast<size_t>(j)) : p.position;
-        warped[j] = warp.active
-                        ? math::mobius_transform(trail[j].origin, translation)
-                        : trail[j].origin;
-        world[j] = Plot::EdgeWorldsheet::normalize(end_pose.apply(warped[j]));
-      }
+      prepare_trail_sources(p, trail_len, points, warp, translation, end_pose,
+                            trail, warped, world);
       if (cull.rejects_chain(world, points, pad))
         continue;
-      uint32_t visible = 0;
-      for (int j = points - 1; j > 0; --j) {
-        const math::Vector pair[2] = {world[j], world[j - 1]};
-        if (!cull.rejects(pair, 2, pad))
-          visible |= 1u << j;
-      }
+      const uint32_t visible = visible_trail_edges(cull, world, points, pad);
       if (visible == 0)
         continue;
       const float life = fminf(static_cast<float>(p.life) * inv_max_life, 1.0f);
       const Pixel *palette = MINDSPLATTER_PALETTES[p.color_seed >> 8];
-      const float denominator = static_cast<float>(points - 1);
-      for (int j = 0; j < points; ++j) {
-        if (!(visible & ((1u << j) | (2u << j))))
-          continue;
-        const float hole =
-            active_base_mesh == BaseMesh::CUBE
-                ? octahedral_hole_alpha(trail[j].origin, cos_event_horizon)
-                : attractor_hole_alpha(trail[j].origin, cos_event_horizon);
-        trail[j].back = {};
-        trail[j].turn = 0.0f;
-        if (j == points - 1 && turn != 0.0f) {
-          trail[j].turn = turn;
-          trail[j].back = p.velocity * (1.0f / speed);
-        }
-        trail[j].progress = static_cast<float>(j) / denominator;
-        trail[j].fade = life * hole;
-        trail[j].palette = palette;
-        starts[j] = Plot::EdgeWorldsheet::normalize(
-            start_pose.apply(warp.at(trail[j], 0.0f)));
-      }
+      prepare_trail_attributes(p, points, visible, life, cos_event_horizon,
+                               turn, speed, palette, warp, start_pose, trail,
+                               starts);
       chunk.begin_chain(static_cast<size_t>(points), flush);
       chunk_motion = fmaxf(chunk_motion, motion);
       auto flush_edge = [&]() HS_HOT_INLINE {

@@ -268,6 +268,109 @@ public:
            const uint32_t (*effect_revolutions)[R] = nullptr,
            const uint64_t (*stable_effect_seeds)[R] = nullptr,
            bool standalone = false) {
+    pov::sync::Config cfg = configure_show<R>(effect_revolutions, standalone);
+
+    // ── Foreground: construct effects on request, render, report ────────
+    Effect *cur = nullptr;
+    uint32_t built_gen = 0;
+    uint32_t last_overrun = led_controller.get_overrun_count();
+    unsigned long last_report = millis();
+    // The K-revolution construction budget, in the flywheel's own timebase.
+    const uint32_t commit_budget_cycles =
+        cfg.col_cycles(static_cast<int32_t>(cfg.commit_revs) * CANVAS_W);
+    const uint32_t cycles_per_us = F_CPU_ACTUAL / 1000000u;
+    uint32_t poll_prev_cycles = ARM_DWT_CYCCNT;
+
+    for (;;) {
+      const uint32_t poll_cycles = ARM_DWT_CYCCNT;
+      const uint32_t bw = sync.build_word();
+      const uint32_t gen = pov::sync::SyncBoard::build_gen_of(bw);
+      if (gen != built_gen) {
+        const uint32_t build_start_cycles = ARM_DWT_CYCCNT;
+        const int32_t effect_index = pov::sync::SyncBoard::build_index_of(bw);
+        const unsigned long t0 = micros();
+        cur = pov::rebuild_effect(
+            handoff, gen,
+            [&] {
+              HS_CHECK(micros() - t0 < 100000UL,
+                       "flywheel ISR failed to release the live effect");
+            },
+            [&] { delete cur; },
+            [&] {
+              // Per-effect RNG seed from the synchronized effect index (spec §2).
+              HS_CHECK(effect_index >= 0 && effect_index < R,
+                       "sync published an out-of-roster effect index");
+              hs::seed_effect_stream(
+                  stable_effect_seeds
+                      ? (*stable_effect_seeds)[effect_index]
+                      : hs::epoch_seed(static_cast<uint32_t>(effect_index)));
+              Effect *effect = factories[effect_index]();
+              validate_show_effect(effect);
+              pov::prime_segment_frame(
+                  *effect, pov::segment_clip(segment, true, S, N, CANVAS_W),
+                  prepare_segment_clip);
+              return effect;
+            },
+            [&](auto publish) {
+              const uint32_t primask = hs::save_disable_interrupts();
+              publish();
+              hs::restore_interrupts(primask);
+            });
+        built_gen = gen;
+        // `build` includes release, teardown, construction, and the first frame;
+        // `window` starts at the previous poll, before the request arrived.
+        const uint32_t done_cycles = ARM_DWT_CYCCNT;
+        const unsigned long window_us =
+            (done_cycles - poll_prev_cycles) / cycles_per_us;
+        const unsigned long budget_us = commit_budget_cycles / cycles_per_us;
+        if (hs::debug)
+          hs::log("build idx=%ld build=%lu window=%lu budget=%lu margin=%ld us",
+                  (long)effect_index,
+                  (unsigned long)((done_cycles - build_start_cycles) /
+                                  cycles_per_us),
+                  window_us, budget_us, (long)budget_us - (long)window_us);
+      }
+      poll_prev_cycles = poll_cycles;
+
+      if (cur && handoff.consumed(built_gen)) {
+        const unsigned long f0 = micros();
+        cur->draw_frame();
+        if (hs::debug) {
+          Serial.print("ft ");
+          Serial.println(micros() - f0);
+        }
+      }
+
+      // Health telemetry (spec §8.6): foreground-polled 1 Hz heartbeat.
+      if (hs::debug && millis() - last_report >= 1000UL) {
+        report_sync_health(last_report, last_overrun);
+      }
+    }
+  }
+
+private:
+  /** @brief Checks the segmented driver's effect geometry contract.
+   * @param effect Constructed effect.
+   */
+  HS_HOT_INLINE static void validate_show_effect(const Effect *effect) {
+    HS_CHECK(effect->height() == ROWS,
+             "POVSegmented: effect canvas height must equal S/2 (ROWS)");
+    HS_CHECK(effect->width() == CANVAS_W,
+             "POVSegmented: effect canvas width must equal CANVAS_W");
+    HS_CHECK(!effect->overrides_get_pixel(),
+             "POVSegmented: effect must not override get_pixel(); the "
+             "segmented pack_column path bypasses it");
+  }
+
+  /** @brief Configures the sync bus and starts the flywheel timer.
+   * @tparam R Roster length.
+   * @param effect_revolutions Optional per-effect revolution durations.
+   * @param standalone Use local timing without the sync transmitter.
+   * @return Validated sync timing configuration.
+   */
+  template <int R>
+  HS_HOT_INLINE static pov::sync::Config
+  configure_show(const uint32_t (*effect_revolutions)[R], bool standalone) {
     // F_CPU_ACTUAL, not F_CPU: the flywheel timebase counts ARM_DWT_CYCCNT
     // ticks, which run at the clock the core actually booted to.
     pov::sync::Config cfg =
@@ -307,121 +410,44 @@ public:
     HS_CHECK(timer.begin(flywheel_isr, COLUMN_US / float(OVERSAMPLE)),
              "flywheel IntervalTimer failed to start (no PIT channel)");
 
-    // ── Foreground: construct effects on request, render, report ────────
-    Effect *cur = nullptr;
-    uint32_t built_gen = 0;
-    uint32_t last_overrun = led_controller.get_overrun_count();
-    unsigned long last_report = millis();
-    // The K-revolution construction budget, in the flywheel's own timebase.
-    const uint32_t commit_budget_cycles =
-        cfg.col_cycles(static_cast<int32_t>(cfg.commit_revs) * CANVAS_W);
-    const uint32_t cycles_per_us = F_CPU_ACTUAL / 1000000u;
-    uint32_t poll_prev_cycles = ARM_DWT_CYCCNT;
+    return cfg;
+  }
 
-    for (;;) {
-      const uint32_t poll_cycles = ARM_DWT_CYCCNT;
-      const uint32_t bw = sync.build_word();
-      const uint32_t gen = pov::sync::SyncBoard::build_gen_of(bw);
-      if (gen != built_gen) {
-        const uint32_t build_start_cycles = ARM_DWT_CYCCNT;
-        const int32_t effect_index = pov::sync::SyncBoard::build_index_of(bw);
-        const unsigned long t0 = micros();
-        cur = pov::rebuild_effect(
-            handoff, gen,
-            [&] {
-              HS_CHECK(micros() - t0 < 100000UL,
-                       "flywheel ISR failed to release the live effect");
-            },
-            [&] { delete cur; },
-            [&] {
-              // Per-effect RNG seed from the synchronized effect index (spec §2).
-              HS_CHECK(effect_index >= 0 && effect_index < R,
-                       "sync published an out-of-roster effect index");
-              hs::seed_effect_stream(
-                  stable_effect_seeds
-                      ? (*stable_effect_seeds)[effect_index]
-                      : hs::epoch_seed(static_cast<uint32_t>(effect_index)));
-              Effect *effect = factories[effect_index]();
-              HS_CHECK(
-                  effect->height() == ROWS,
-                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
-              HS_CHECK(effect->width() == CANVAS_W,
-                       "POVSegmented: effect canvas width must equal CANVAS_W");
-              HS_CHECK(
-                  !effect->overrides_get_pixel(),
-                  "POVSegmented: effect must not override get_pixel(); the "
-                  "segmented pack_column path bypasses it");
-              pov::prime_segment_frame(
-                  *effect, pov::segment_clip(segment, true, S, N, CANVAS_W),
-                  prepare_segment_clip);
-              return effect;
-            },
-            [&](auto publish) {
-              const uint32_t primask = hs::save_disable_interrupts();
-              publish();
-              hs::restore_interrupts(primask);
-            });
-        built_gen = gen;
-        // `build` includes release, teardown, construction, and the first frame;
-        // `window` starts at the previous poll, before the request arrived.
-        const uint32_t done_cycles = ARM_DWT_CYCCNT;
-        const unsigned long window_us =
-            (done_cycles - poll_prev_cycles) / cycles_per_us;
-        const unsigned long budget_us = commit_budget_cycles / cycles_per_us;
-        if (hs::debug)
-          hs::log("build idx=%ld build=%lu window=%lu budget=%lu margin=%ld us",
-                  (long)effect_index,
-                  (unsigned long)((done_cycles - build_start_cycles) /
-                                  cycles_per_us),
-                  window_us, budget_us, (long)budget_us - (long)window_us);
-      }
-      poll_prev_cycles = poll_cycles;
-
-      if (cur && handoff.consumed(built_gen)) {
-        const unsigned long f0 = micros();
-        cur->draw_frame();
-        if (hs::debug) {
-          Serial.print("ft ");
-          Serial.println(micros() - f0);
-        }
-      }
-
-      // Health telemetry (spec §8.6): foreground-polled 1 Hz heartbeat.
-      if (hs::debug && millis() - last_report >= 1000UL) {
-        last_report = millis();
-        const pov::sync::Telemetry tm = sync.telemetry_snapshot();
-        // Each line fits hs::log's 256-byte buffer with saturated counters.
-        hs::log("sync coast=%lu stall=%lu epi=%lu lock=%lu flip=%lu acc=%lu "
-                "rej=%lu inv=%lu",
-                (unsigned long)tm.max_coast_halves,
-                (unsigned long)tm.master_stalls,
-                (unsigned long)tm.epochs_refractory_ignored,
-                (unsigned long)tm.lock_transitions, (unsigned long)tm.flips,
-                (unsigned long)tm.symbols_accepted,
-                (unsigned long)tm.symbols_rejected_gate,
-                (unsigned long)tm.symbols_discarded_invalid);
-        hs::log("sync emit cens=%lu abrt=%lu bdrop=%lu bbusy=%lu blate=%lu "
-                "sdrop=%lu bok=%lu brej=%lu fix=%lu rmis=%lu",
-                (unsigned long)tm.emit_censored, (unsigned long)tm.emit_aborted,
-                (unsigned long)tm.beacons_overrun_dropped,
-                (unsigned long)tm.beacons_busy_dropped,
-                (unsigned long)tm.beacons_late_dropped,
-                (unsigned long)tm.boundary_bursts_dropped,
-                (unsigned long)tm.beacons_ok,
-                (unsigned long)tm.beacons_rejected,
-                (unsigned long)tm.beacon_index_corrections,
-                (unsigned long)tm.beacon_rev_mismatches);
-        const uint32_t overruns = led_controller.get_overrun_count();
-        if (overruns != last_overrun) {
-          Serial.print("overrun ");
-          Serial.println(overruns);
-          last_overrun = overruns;
-        }
-      }
+  /** @brief Reports sync telemetry and changed DMA overrun counts.
+   * @param last_report Receives the heartbeat timestamp.
+   * @param last_overrun Last reported DMA overrun count.
+   */
+  HS_HOT_INLINE static void report_sync_health(unsigned long &last_report,
+                                               uint32_t &last_overrun) {
+    last_report = millis();
+    const pov::sync::Telemetry tm = sync.telemetry_snapshot();
+    // Each line fits hs::log's 256-byte buffer with saturated counters.
+    hs::log("sync coast=%lu stall=%lu epi=%lu lock=%lu flip=%lu acc=%lu "
+            "rej=%lu inv=%lu",
+            (unsigned long)tm.max_coast_halves, (unsigned long)tm.master_stalls,
+            (unsigned long)tm.epochs_refractory_ignored,
+            (unsigned long)tm.lock_transitions, (unsigned long)tm.flips,
+            (unsigned long)tm.symbols_accepted,
+            (unsigned long)tm.symbols_rejected_gate,
+            (unsigned long)tm.symbols_discarded_invalid);
+    hs::log("sync emit cens=%lu abrt=%lu bdrop=%lu bbusy=%lu blate=%lu "
+            "sdrop=%lu bok=%lu brej=%lu fix=%lu rmis=%lu",
+            (unsigned long)tm.emit_censored, (unsigned long)tm.emit_aborted,
+            (unsigned long)tm.beacons_overrun_dropped,
+            (unsigned long)tm.beacons_busy_dropped,
+            (unsigned long)tm.beacons_late_dropped,
+            (unsigned long)tm.boundary_bursts_dropped,
+            (unsigned long)tm.beacons_ok, (unsigned long)tm.beacons_rejected,
+            (unsigned long)tm.beacon_index_corrections,
+            (unsigned long)tm.beacon_rev_mismatches);
+    const uint32_t overruns = led_controller.get_overrun_count();
+    if (overruns != last_overrun) {
+      Serial.print("overrun ");
+      Serial.println(overruns);
+      last_overrun = overruns;
     }
   }
 
-private:
   // ── Hardware ID ─────────────────────────────────────────────────────
 
   /**

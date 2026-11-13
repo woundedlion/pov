@@ -57,6 +57,156 @@ static inline void count_particle_exact_gate_fallback() {
  *  v3: Normalized TTL
  */
 struct ParticleSystem {
+  /** @brief Materializes history samples and the optional live tip.
+ * @param p Particle with history and live position.
+ * @param trail_len History length.
+ * @param point_count Total samples including the live tip.
+ * @param append_live_tip Whether to emit the current position.
+ * @param v2 Per-particle register value.
+ * @param particle_life Normalized remaining life.
+ * @param has_deferred_shader Whether original positions must be retained.
+ * @param vertex_shader Position shader.
+ * @param trail Receives sampled fragments.
+ * @param orig Receives original positions for deferred shading. */
+  template <int SAMPLE_STRIDE, bool FuseVertex, typename ParticleT,
+            typename VertexShaderFn>
+  static HS_HOT_INLINE void
+  sample_trail(const ParticleT &p, size_t trail_len, size_t point_count,
+               bool append_live_tip, float v2, float particle_life,
+               bool has_deferred_shader, VertexShaderFn &vertex_shader,
+               Fragments &trail, ArenaVector<math::Vector> &orig) {
+
+    HS_PROFILE(plot_ps_tween);
+#ifdef HS_PROFILE_PLOT_STALLS
+    hs::DwtStallBatch history_batch(hs::g_plot_stalls.history_vertex);
+#endif
+    auto emit = [&](const math::Vector &v, float t) {
+      trail.emplace_back(
+          Fragment{.pos = v, .v0 = t, .v2 = v2, .v3 = particle_life});
+      if constexpr (FuseVertex)
+        vertex_shader(trail.back());
+      if (has_deferred_shader)
+        orig.push_back(v);
+#ifdef HS_PROFILE_PLOT_STALLS
+      history_batch.step();
+#endif
+    };
+    if constexpr (SAMPLE_STRIDE == 1) {
+      p.history.tween(emit);
+    } else {
+      const float denominator = static_cast<float>(point_count - 1);
+      for (size_t j = 0; j < trail_len; ++j)
+        emit(p.history.get(j), static_cast<float>(j) / denominator);
+      if (append_live_tip)
+        emit(p.position, 1.0f);
+    }
+#ifdef HS_PROFILE_PLOT_STALLS
+    history_batch.finish();
+#endif
+  }
+
+  /** @brief Classifies a trail's visible edges and shared projections.
+ * @param pipeline Plotting sink.
+ * @param canvas Destination and active clip.
+ * @param cartesian_clip Hoisted Cartesian admission bounds.
+ * @param trail Position-shaded trail.
+ * @param vis Receives edge visibility bits.
+ * @param projections Receives shared point projections.
+ * @return Whether any trail edge survives. */
+  template <int W, int H, bool HoistableCull, typename PipelineT>
+  static HS_HOT_INLINE bool
+  prepare_trail_visibility(PipelineT &pipeline, Canvas &canvas,
+                           const CartesianQuadrantClip &cartesian_clip,
+                           Fragments &trail, std::span<const uint8_t> &vis,
+                           PointProjections &projections) {
+    const auto &cr = canvas.clip();
+    const auto xc = cr.x_clip();
+
+    HS_PROFILE(plot_ps_gate);
+    const size_t edges = trail.size() - 1;
+    auto *bits = scratch_arena_a.allocate_n<uint8_t>(edges);
+    bool any = false;
+    if constexpr (HoistableCull) {
+      CartesianTrailGateResult cartesian_result;
+      {
+        HS_PROFILE(plot_ps_cartesian_gate);
+        cartesian_result = cartesian_quadrant_trail_gate(cartesian_clip, trail);
+      }
+      count_cartesian_trail_gate_result(cartesian_result);
+      if (cartesian_result != CartesianTrailGateResult::EXACT_FALLBACK)
+        return false;
+
+      // Per-point rows/columns are shared by every edge; a conservative
+      // whole-trail bound rejects fully-invisible trails first.
+      const TrailGatePrologue pro = trail_gate_prologue<W, H>(cr, xc, trail);
+      if (pro.rejected)
+        return false;
+      const float *rows = pro.rows;
+      const float *cols = pro.cols;
+      // rasterize's single-dot shortcut takes both projections or neither.
+      if (cols != nullptr) {
+        projections = PointProjections::paired({rows, trail.size()},
+                                               {cols, trail.size()});
+      }
+
+      for (size_t e = 0; e < edges; ++e) {
+        HS_PLOT_STALL_START(edge_gate_start);
+        const math::Vector &ea = trail[e].pos;
+        const math::Vector &eb = trail[e + 1].pos;
+        const bool one_dot = edge_fits_one_dot<W, H>(ea, eb);
+        count_particle_edge_class(one_dot);
+        if (one_dot) {
+          bool v = antialiased_dot_visible_in_clip<W, H>(
+              cr, xc, rows[e], cols != nullptr ? cols[e] : 0.0f);
+          if (e + 1 == edges)
+            v = v ||
+                antialiased_dot_visible_in_clip<W, H>(
+                    cr, xc, rows[e + 1], cols != nullptr ? cols[e + 1] : 0.0f);
+          bits[e] = RasterOptions::EDGE_CLASSIFIED |
+                    RasterOptions::EDGE_ONE_DOT |
+                    (v ? RasterOptions::EDGE_VISIBLE : uint8_t{0});
+          if (!v)
+            HS_PLOT_RENDER_COUNT(edge_rejects);
+          any = any || v;
+          HS_PLOT_STALL_STOP(trail_gate, edge_gate_start);
+          continue;
+        }
+        bool v;
+        const RawGeodesicGateResult raw = raw_geodesic_edge_gate<W, H>(
+            cr, xc, rows[e], rows[e + 1], cols != nullptr ? cols[e] : 0.0f,
+            cols != nullptr ? cols[e + 1] : 0.0f, ea, eb);
+        if (raw != RawGeodesicGateResult::EXACT_FALLBACK) {
+          v = raw == RawGeodesicGateResult::VISIBLE;
+        } else {
+          count_particle_exact_gate_fallback();
+          const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
+          v = exact_geodesic_edge_visible_hoisted<W, H>(cr, xc, rows, cols, e,
+                                                        ea, eb, es);
+        }
+        bits[e] = RasterOptions::EDGE_CLASSIFIED |
+                  (v ? RasterOptions::EDGE_VISIBLE : uint8_t{0});
+        if (!v)
+          HS_PLOT_RENDER_COUNT(edge_rejects);
+        any = any || v;
+        HS_PLOT_STALL_STOP(trail_gate, edge_gate_start);
+      }
+    } else {
+      for (size_t e = 0; e < edges; ++e) {
+        bits[e] = edge_visible_in_clip<W, H>(pipeline, cr, xc, trail[e].pos,
+                                             trail[e + 1].pos, nullptr)
+                      ? RasterOptions::EDGE_VISIBLE
+                      : uint8_t{0};
+        any = any || bits[e] != 0;
+      }
+    }
+    if (!any)
+      return false;
+    HS_PLOT_RENDER_COUNT(visible_trails);
+    vis = {bits, edges};
+
+    return true;
+  }
+
   /** @brief Sampling stride declared by the particle system, or 1.
    *  @tparam SystemT Particle-system type.
    *  @return Trail sample stride. */
@@ -126,7 +276,6 @@ struct ParticleSystem {
     // Segment-clip state for the trail-level deferred-shader gate.
     const auto &cr = canvas.clip();
     const bool clip_active = !cr.is_full();
-    const auto xc = cr.x_clip();
     CartesianQuadrantClip cartesian_clip;
     if constexpr (HoistableCull)
       cartesian_clip = make_cartesian_quadrant_clip<W, H>(cr);
@@ -170,35 +319,9 @@ struct ParticleSystem {
       ArenaVector<math::Vector> orig;
       if (has_deferred_shader)
         orig.bind(scratch_arena_a, point_count);
-      {
-        HS_PROFILE(plot_ps_tween);
-#ifdef HS_PROFILE_PLOT_STALLS
-        hs::DwtStallBatch history_batch(hs::g_plot_stalls.history_vertex);
-#endif
-        auto emit = [&](const math::Vector &v, float t) {
-          trail.emplace_back(
-              Fragment{.pos = v, .v0 = t, .v2 = v2, .v3 = particle_life});
-          if constexpr (FuseVertex)
-            vertex_shader(trail.back());
-          if (has_deferred_shader)
-            orig.push_back(v);
-#ifdef HS_PROFILE_PLOT_STALLS
-          history_batch.step();
-#endif
-        };
-        if constexpr (SAMPLE_STRIDE == 1) {
-          p.history.tween(emit);
-        } else {
-          const float denominator = static_cast<float>(point_count - 1);
-          for (size_t j = 0; j < trail_len; ++j)
-            emit(p.history.get(j), static_cast<float>(j) / denominator);
-          if (append_live_tip)
-            emit(p.position, 1.0f);
-        }
-#ifdef HS_PROFILE_PLOT_STALLS
-        history_batch.finish();
-#endif
-      }
+      sample_trail<SAMPLE_STRIDE, FuseVertex>(
+          p, trail_len, point_count, append_live_tip, v2, particle_life,
+          has_deferred_shader, vertex_shader, trail, orig);
 
       if constexpr (!FuseVertex) {
         HS_PROFILE(plot_ps_vertex);
@@ -210,91 +333,10 @@ struct ParticleSystem {
       // rasterize.
       std::span<const uint8_t> vis;
       PointProjections projections;
-      if (clip_active) {
-        HS_PROFILE(plot_ps_gate);
-        const size_t edges = trail.size() - 1;
-        auto *bits = scratch_arena_a.allocate_n<uint8_t>(edges);
-        bool any = false;
-        if constexpr (HoistableCull) {
-          CartesianTrailGateResult cartesian_result;
-          {
-            HS_PROFILE(plot_ps_cartesian_gate);
-            cartesian_result =
-                cartesian_quadrant_trail_gate(cartesian_clip, trail);
-          }
-          count_cartesian_trail_gate_result(cartesian_result);
-          if (cartesian_result != CartesianTrailGateResult::EXACT_FALLBACK)
-            continue;
-
-          // Per-point rows/columns are shared by every edge; a conservative
-          // whole-trail bound rejects fully-invisible trails first.
-          const TrailGatePrologue pro =
-              trail_gate_prologue<W, H>(cr, xc, trail);
-          if (pro.rejected)
-            continue;
-          const float *rows = pro.rows;
-          const float *cols = pro.cols;
-          // rasterize's single-dot shortcut takes both projections or neither.
-          if (cols != nullptr) {
-            projections = PointProjections::paired({rows, trail.size()},
-                                                   {cols, trail.size()});
-          }
-
-          for (size_t e = 0; e < edges; ++e) {
-            HS_PLOT_STALL_START(edge_gate_start);
-            const math::Vector &ea = trail[e].pos;
-            const math::Vector &eb = trail[e + 1].pos;
-            const bool one_dot = edge_fits_one_dot<W, H>(ea, eb);
-            count_particle_edge_class(one_dot);
-            if (one_dot) {
-              bool v = antialiased_dot_visible_in_clip<W, H>(
-                  cr, xc, rows[e], cols != nullptr ? cols[e] : 0.0f);
-              if (e + 1 == edges)
-                v = v || antialiased_dot_visible_in_clip<W, H>(
-                             cr, xc, rows[e + 1],
-                             cols != nullptr ? cols[e + 1] : 0.0f);
-              bits[e] = RasterOptions::EDGE_CLASSIFIED |
-                        RasterOptions::EDGE_ONE_DOT |
-                        (v ? RasterOptions::EDGE_VISIBLE : uint8_t{0});
-              if (!v)
-                HS_PLOT_RENDER_COUNT(edge_rejects);
-              any = any || v;
-              HS_PLOT_STALL_STOP(trail_gate, edge_gate_start);
-              continue;
-            }
-            bool v;
-            const RawGeodesicGateResult raw = raw_geodesic_edge_gate<W, H>(
-                cr, xc, rows[e], rows[e + 1], cols != nullptr ? cols[e] : 0.0f,
-                cols != nullptr ? cols[e + 1] : 0.0f, ea, eb);
-            if (raw != RawGeodesicGateResult::EXACT_FALLBACK) {
-              v = raw == RawGeodesicGateResult::VISIBLE;
-            } else {
-              count_particle_exact_gate_fallback();
-              const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
-              v = exact_geodesic_edge_visible_hoisted<W, H>(cr, xc, rows, cols,
-                                                            e, ea, eb, es);
-            }
-            bits[e] = RasterOptions::EDGE_CLASSIFIED |
-                      (v ? RasterOptions::EDGE_VISIBLE : uint8_t{0});
-            if (!v)
-              HS_PLOT_RENDER_COUNT(edge_rejects);
-            any = any || v;
-            HS_PLOT_STALL_STOP(trail_gate, edge_gate_start);
-          }
-        } else {
-          for (size_t e = 0; e < edges; ++e) {
-            bits[e] = edge_visible_in_clip<W, H>(pipeline, cr, xc, trail[e].pos,
-                                                 trail[e + 1].pos, nullptr)
-                          ? RasterOptions::EDGE_VISIBLE
-                          : uint8_t{0};
-            any = any || bits[e] != 0;
-          }
-        }
-        if (!any)
-          continue;
-        HS_PLOT_RENDER_COUNT(visible_trails);
-        vis = {bits, edges};
-      }
+      if (clip_active &&
+          !prepare_trail_visibility<W, H, HoistableCull>(
+              pipeline, canvas, cartesian_clip, trail, vis, projections))
+        continue;
       if (!clip_active)
         HS_PLOT_RENDER_COUNT(visible_trails);
 

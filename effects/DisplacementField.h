@@ -100,8 +100,8 @@ public:
     candidates = persistent_arena.allocate_n<CandidateTable>(1);
     octave1 = persistent_arena.allocate_n<float>(W + 1);
     octave2 = persistent_arena.allocate_n<float>(W + 1);
-    alternate_a = persistent_arena.allocate_n<float>(W + 1);
-    alternate_b = persistent_arena.allocate_n<float>(W + 1);
+    alternate_scratch[0] = persistent_arena.allocate_n<float>(W + 1);
+    alternate_scratch[1] = persistent_arena.allocate_n<float>(W + 1);
     knot_visible = persistent_arena.allocate_n<uint8_t>(W + 1);
     knot_pos = persistent_arena.allocate_n<math::Vector>(W + 1);
     knot_near = persistent_arena.allocate_n<uint8_t>(W + 1);
@@ -531,6 +531,156 @@ private:
     return palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
   }
 
+  /** @brief Collects the balls whose support reaches a ring.
+   * @param theta Ring colatitude, radians.
+   * @param n_balls Active ball count.
+   * @param band Receives the maximum ball reach.
+   * @param ball_feature Receives the maximum ball feature scale.
+   * @return Number of selected ball indices in ball_local.
+   */
+  HS_HOT_INLINE int select_ring_balls(float theta, int n_balls, float &band,
+                                      float &ball_feature) {
+    int n_local = 0;
+    for (int b = 0; b < n_balls; ++b) {
+      if (std::fabs(theta - ball_colat[b]) < ball_reach[b] + BALL_TOUCH_EPS) {
+        ball_local[n_local++] = b;
+        band = fmaxf(band, ball_reach[b]);
+        ball_feature = fmaxf(ball_feature, ball_scale[b]);
+      }
+    }
+    return n_local;
+  }
+
+  /** @brief Resolves one ring's endpoint color and sweep opacity.
+   * @tparam SWEPT Whether shading spans retained endpoints.
+   * @param i Ring index.
+   * @param n_rings Stack size.
+   * @param sweep Retained frame endpoints; read only when SWEPT.
+   * @param ring_opacity Receives the ring opacity.
+   * @return Interpolated ring color.
+   */
+  template <bool SWEPT>
+  HS_HOT_INLINE Color4 prepare_ring_shading(int i, int n_rings,
+                                            const Sweep *sweep,
+                                            float &ring_opacity) {
+    Color4 color;
+    if constexpr (SWEPT) {
+      const Color4 now = ring_colors[i];
+      const Color4 before = drawn_colors_valid ? drawn_colors[i] : now;
+      const float middle = sweep->uses_cache() ? SWEEP_QUARTER : sweep->middle;
+      color = before.lerp(now, middle);
+      if (sweep->uses_cache()) {
+        shading.colors[i] = before.lerp(now, 1.0f - SWEEP_QUARTER);
+        shading.alphas[i] =
+            shading.colors[i].alpha *
+            (sweep->opacity[0] +
+             (sweep->opacity[1] - sweep->opacity[0]) * (1.0f - SWEEP_QUARTER)) *
+            params.alpha;
+        sweep->cache->begin_ring(i);
+      }
+      ring_opacity =
+          sweep->opacity[0] + (sweep->opacity[1] - sweep->opacity[0]) * middle;
+    } else {
+      color = ring_color(i, n_rings);
+    }
+    return color;
+  }
+
+  /** @brief Shades visible ring knots and closes their lookup rows.
+   * @tparam SWEPT Whether shading spans retained endpoints.
+   * @param i Ring index.
+   * @param lut_n Knot count.
+   * @param visible Visible bake chunks.
+   * @param band Maximum ball reach.
+   * @param noise_bound Noise displacement bound.
+   * @param hue_base Base ring color.
+   * @param slut Baked displacement knots.
+   * @param hlut Receives knot colors.
+   * @param sweep Retained frame endpoints; read only when SWEPT.
+   */
+  template <bool SWEPT>
+  HS_HOT_INLINE void fill_ring_hues(int i, int lut_n, uint32_t visible,
+                                    float band, float noise_bound,
+                                    const HueRotateBase &hue_base, float *slut,
+                                    Pixel *hlut, const Sweep *sweep) {
+    // Culled chunks keep hlut stale; the padded `visible` mask keeps
+    // rasterized pixels off their columns. Their shifts are zeroed:
+    // DistortedRing scans every knot for its shift bounds.
+    float max_shift = 0.0f;
+    Plot::for_each_chunk_span<BAKE_CHUNKS>(
+        lut_n, visible,
+        [&](int begin, int end) HS_HOT_INLINE {
+          for (int x = begin; x < end; ++x)
+            max_shift = fmaxf(max_shift, std::fabs(slut[x]));
+        },
+        [&](int begin, int end) HS_HOT_INLINE {
+          for (int x = begin; x < end; ++x)
+            slut[x] = 0.0f;
+        });
+
+    const HueMode mode = select_hue_mode(
+        lut_n, visible, (band + noise_bound) * params.hue_scale);
+    if constexpr (SWEPT)
+      if (sweep->uses_cache())
+        shading.modes[i] = mode;
+    if (mode.use_table)
+      hue_table.bind(hue_base, mode.domain, mode.cyclic);
+    if (mode.precompute) {
+      HS_PROFILE(df_hue_table_prep);
+      hue_table.prepare(hue_table.knots_through(max_shift * params.hue_scale));
+    }
+    Pixel zero_hue;
+    if (params.hue_scale == 0.0f)
+      zero_hue = hue_rotate(hue_base, 0.0f).color;
+
+    auto hue_for_shift = [&](float shift) HS_HOT_INLINE {
+      if (params.hue_scale == 0.0f)
+        return zero_hue;
+      const float amount = std::fabs(shift) * params.hue_scale;
+      if (mode.precompute)
+        return hue_table.sample(amount);
+      if (mode.use_table)
+        return hue_table.sample_lazy(amount);
+      return hue_rotate(hue_base, amount).color;
+    };
+
+    Plot::for_each_chunk_span<BAKE_CHUNKS>(
+        lut_n, visible,
+        [&](int begin, int end) HS_HOT_INLINE {
+          for (int x = begin; x < end; ++x)
+            hlut[x] = hue_for_shift(slut[x]);
+        },
+        [](int, int) HS_HOT_INLINE {});
+    slut[lut_n] = slut[0];
+    hlut[lut_n] = hlut[0];
+  }
+
+  /** @brief Scans committed ring geometry and releases its pool.
+   * @tparam SWEPT Whether the draw uses retained endpoints.
+   * @param canvas Render target.
+   * @param n_rings Stack size.
+   * @param sweep Retained frame endpoints; read only when SWEPT.
+   */
+  template <bool SWEPT>
+  HS_HOT_INLINE void finish_draw_pass(Canvas &canvas, int n_rings,
+                                      const Sweep *sweep) {
+    if (rings.size() == 0)
+      return;
+
+    if constexpr (SWEPT) {
+      if (sweep->uses_cache()) {
+        scan_swept_stack(canvas, *sweep->cache);
+        return;
+      }
+    }
+    RingShader ring_shader{&rings};
+    HS_PROFILE(df_fused_scan);
+    Scan::DistortedRingStack::draw<W, H>(
+        filters, canvas, n_rings, rings.shapes(), rings.slot_map(),
+        rings.size(), *candidates, ring_shader);
+    rings.release();
+  }
+
   /**
    * @brief Bakes and scans the rings of one pass over the stack.
    * @tparam SWEPT Whether knots are baked at their sweep times.
@@ -569,41 +719,16 @@ private:
       int n_local = 0;
       float band = 0.0f;
       float ball_feature = 0.0f;
-      for (int b = 0; b < n_balls; ++b) {
-        if (std::fabs(theta - ball_colat[b]) < ball_reach[b] + BALL_TOUCH_EPS) {
-          ball_local[n_local++] = b;
-          band = fmaxf(band, ball_reach[b]);
-          ball_feature = fmaxf(ball_feature, ball_scale[b]);
-        }
-      }
+      n_local = select_ring_balls(theta, n_balls, band, ball_feature);
 
       if (try_cull && !Plot::cap_may_touch_clip<H>(clip(), basis.v,
                                                    theta + band + noise_bound +
                                                        params.thickness + pad))
         continue;
 
-      Color4 color;
       float ring_opacity = opacity;
-      if constexpr (SWEPT) {
-        const Color4 now = ring_colors[i];
-        const Color4 before = drawn_colors_valid ? drawn_colors[i] : now;
-        const float middle =
-            sweep->uses_cache() ? SWEEP_QUARTER : sweep->middle;
-        color = before.lerp(now, middle);
-        if (sweep->uses_cache()) {
-          shading.colors[i] = before.lerp(now, 1.0f - SWEEP_QUARTER);
-          shading.alphas[i] =
-              shading.colors[i].alpha *
-              (sweep->opacity[0] + (sweep->opacity[1] - sweep->opacity[0]) *
-                                       (1.0f - SWEEP_QUARTER)) *
-              params.alpha;
-          sweep->cache->begin_ring(i);
-        }
-        ring_opacity = sweep->opacity[0] +
-                       (sweep->opacity[1] - sweep->opacity[0]) * middle;
-      } else {
-        color = ring_color(i, n_rings);
-      }
+      Color4 color =
+          prepare_ring_shading<SWEPT>(i, n_rings, sweep, ring_opacity);
       HueRotateBase hue_base = make_hue_rotate_base(color);
 
       const typename RingPool::Pending rows = rings.next();
@@ -708,57 +833,8 @@ private:
                                  lut_n, visible, n_local, slut, sweep);
         }
 
-        // Culled chunks keep hlut stale; the padded `visible` mask keeps
-        // rasterized pixels off their columns. Their shifts are zeroed:
-        // DistortedRing scans every knot for its shift bounds.
-        float max_shift = 0.0f;
-        Plot::for_each_chunk_span<BAKE_CHUNKS>(
-            lut_n, visible,
-            [&](int begin, int end) HS_HOT_INLINE {
-              for (int x = begin; x < end; ++x)
-                max_shift = fmaxf(max_shift, std::fabs(slut[x]));
-            },
-            [&](int begin, int end) HS_HOT_INLINE {
-              for (int x = begin; x < end; ++x)
-                slut[x] = 0.0f;
-            });
-
-        const HueMode mode = select_hue_mode(
-            lut_n, visible, (band + noise_bound) * params.hue_scale);
-        if constexpr (SWEPT)
-          if (sweep->uses_cache())
-            shading.modes[i] = mode;
-        if (mode.use_table)
-          hue_table.bind(hue_base, mode.domain, mode.cyclic);
-        if (mode.precompute) {
-          HS_PROFILE(df_hue_table_prep);
-          hue_table.prepare(
-              hue_table.knots_through(max_shift * params.hue_scale));
-        }
-        Pixel zero_hue;
-        if (params.hue_scale == 0.0f)
-          zero_hue = hue_rotate(hue_base, 0.0f).color;
-
-        auto hue_for_shift = [&](float shift) HS_HOT_INLINE {
-          if (params.hue_scale == 0.0f)
-            return zero_hue;
-          const float amount = std::fabs(shift) * params.hue_scale;
-          if (mode.precompute)
-            return hue_table.sample(amount);
-          if (mode.use_table)
-            return hue_table.sample_lazy(amount);
-          return hue_rotate(hue_base, amount).color;
-        };
-
-        Plot::for_each_chunk_span<BAKE_CHUNKS>(
-            lut_n, visible,
-            [&](int begin, int end) HS_HOT_INLINE {
-              for (int x = begin; x < end; ++x)
-                hlut[x] = hue_for_shift(slut[x]);
-            },
-            [](int, int) HS_HOT_INLINE {});
-        slut[lut_n] = slut[0];
-        hlut[lut_n] = hlut[0];
+        fill_ring_hues<SWEPT>(i, lut_n, visible, band, noise_bound, hue_base,
+                              slut, hlut, sweep);
       }
 
       if constexpr (SWEPT) {
@@ -771,21 +847,7 @@ private:
                    radius, params.thickness, slut, lut_n, 0.0f, nullptr);
     }
 
-    if (rings.size() == 0)
-      return;
-
-    if constexpr (SWEPT) {
-      if (sweep->uses_cache()) {
-        scan_swept_stack(canvas, *sweep->cache);
-        return;
-      }
-    }
-    RingShader ring_shader{&rings};
-    HS_PROFILE(df_fused_scan);
-    Scan::DistortedRingStack::draw<W, H>(
-        filters, canvas, n_rings, rings.shapes(), rings.slot_map(),
-        rings.size(), *candidates, ring_shader);
-    rings.release();
+    finish_draw_pass<SWEPT>(canvas, n_rings, sweep);
   }
 
   /**
@@ -858,6 +920,103 @@ private:
     }
   }
 
+  /** @brief Marks knots within the octave splines' visible support.
+   * @param lut_n Knot count.
+   */
+  HS_O3_FN HS_HOT_INLINE void mark_near_octave_knots(int lut_n) {
+    constexpr int D1 = OCTAVE1_STRIDE;
+    constexpr int D2 = OCTAVE2_STRIDE;
+    auto wrap = [lut_n](int k) HS_HOT_INLINE {
+      return k < 0 ? k + lut_n : k >= lut_n ? k - lut_n : k;
+    };
+    // knot_near[x]: a visible knot lies within the widest spline reach of x.
+    constexpr int REACH = 2 * (D1 > D2 ? D1 : D2) - 1;
+    int in_window = 0;
+    for (int o = -REACH; o <= REACH; ++o)
+      in_window += knot_visible[wrap(o)];
+    for (int x = 0; x < lut_n; ++x) {
+      knot_near[x] = in_window > 0;
+      in_window +=
+          knot_visible[wrap(x + REACH + 1)] - knot_visible[wrap(x - REACH)];
+    }
+  }
+
+  /** @brief Samples octave grids and primary ball shifts at knot times.
+   * @tparam SWEPT Whether knots take their sweep times.
+   * @param np Noise octave parameters.
+   * @param basis Ring frame.
+   * @param step Knot recurrence coefficients.
+   * @param theta Ring colatitude, radians.
+   * @param lut_n Knot count.
+   * @param n_local Selected ball count.
+   * @param slut Receives primary ball shifts.
+   * @param sweep Retained frame endpoints; read only when SWEPT.
+   */
+  template <bool SWEPT>
+  HS_O3_FN HS_HOT_INLINE void
+  sample_noise_knots(const Animation::NoiseProductParams &np,
+                     const math::Basis &basis, SDF::KnotStep step, float theta,
+                     int lut_n, int n_local, float *slut, const Sweep *sweep) {
+    constexpr int D1 = OCTAVE1_STRIDE;
+    constexpr int D2 = OCTAVE2_STRIDE;
+    float *octave_a = alternate_scratch[0];
+    float *octave_b = alternate_scratch[1];
+    SDF::KnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
+    for (int x = 0; x < lut_n; ++x, knots.advance()) {
+      const bool vis = knot_visible[x] != 0;
+#if HS_ENABLE_TEST_HOOKS
+      primary_knots += vis;
+#endif
+      const bool near = knot_near[x] != 0;
+      const bool g1 = near && x % D1 == 0;
+      const bool g2 = D2 == 1 ? vis : near && x % D2 == 0;
+      if (vis || g1 || g2) {
+        math::Vector p = knots.position();
+        if constexpr (SWEPT) {
+          const float t = sample_fraction(p, *sweep);
+          knot_times[x] = t;
+          const math::Vector q =
+              Spacetime::rotate_by(p, sweep->turn * (t - 1.0f));
+          const float time = sweep->noise_time[0] +
+                             (sweep->noise_time[1] - sweep->noise_time[0]) * t;
+          if (g1)
+            octave1[x] = np.octave1(q, time);
+          if (g2)
+            octave2[x] = np.octave2(q, time);
+          if (sweep->uses_cache() && (g1 || g2)) {
+            octave_a[x] = g1 ? octave1[x] : 0.0f;
+            octave_b[x] = g2 ? octave2[x] : 0.0f;
+            if (sweep->cache->boundary[x] && ScanSweep::retains_endpoint(t)) {
+#if HS_ENABLE_TEST_HOOKS
+              alternate_noise_samples +=
+                  static_cast<int>(g1) + static_cast<int>(g2);
+#endif
+              const float other = ScanSweep::other_endpoint(t);
+              const math::Vector aq =
+                  Spacetime::rotate_by(p, sweep->turn * (other - 1.0f));
+              const float at =
+                  sweep->noise_time[0] +
+                  (sweep->noise_time[1] - sweep->noise_time[0]) * other;
+              if (g1)
+                octave_a[x] = np.octave1(aq, at);
+              if (g2)
+                octave_b[x] = np.octave2(aq, at);
+            }
+          }
+          if (vis)
+            slut[x] = ball_field_at(p, ball_local, n_local, theta, t);
+        } else {
+          if (g1)
+            octave1[x] = np.octave1(p, np.time);
+          if (g2)
+            octave2[x] = np.octave2(p, np.time);
+          if (vis)
+            slut[x] = ball_field(p, ball_local, n_local, theta);
+        }
+      }
+    }
+  }
+
   /**
    * @brief Bakes one ring's centerline shifts with each noise octave sampled on
    *        its own knot grid.
@@ -884,78 +1043,16 @@ private:
                      const math::Basis &basis, SDF::KnotStep step, float theta,
                      int lut_n, uint32_t visible, int n_local, float *slut,
                      const Sweep *sweep = nullptr) {
+    float *octave_a = alternate_scratch[0];
+    float *octave_b = alternate_scratch[1];
     constexpr int D1 = OCTAVE1_STRIDE;
     constexpr int D2 = OCTAVE2_STRIDE;
     mark_visible_knots(lut_n, visible);
-    auto wrap = [lut_n](int k) HS_HOT_INLINE {
-      return k < 0 ? k + lut_n : k >= lut_n ? k - lut_n : k;
-    };
-    // knot_near[x]: a visible knot lies within the widest spline reach of x.
-    constexpr int REACH = 2 * (D1 > D2 ? D1 : D2) - 1;
-    int in_window = 0;
-    for (int o = -REACH; o <= REACH; ++o)
-      in_window += knot_visible[wrap(o)];
-    for (int x = 0; x < lut_n; ++x) {
-      knot_near[x] = in_window > 0;
-      in_window +=
-          knot_visible[wrap(x + REACH + 1)] - knot_visible[wrap(x - REACH)];
-    }
+    mark_near_octave_knots(lut_n);
 
     HS_PROFILE(df_octave_noise);
-    SDF::KnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
-    for (int x = 0; x < lut_n; ++x, knots.advance()) {
-      const bool vis = knot_visible[x] != 0;
-#if HS_ENABLE_TEST_HOOKS
-      primary_knots += vis;
-#endif
-      const bool near = knot_near[x] != 0;
-      const bool g1 = near && x % D1 == 0;
-      const bool g2 = D2 == 1 ? vis : near && x % D2 == 0;
-      if (vis || g1 || g2) {
-        math::Vector p = knots.position();
-        if constexpr (SWEPT) {
-          const float t = sample_fraction(p, *sweep);
-          knot_times[x] = t;
-          const math::Vector q =
-              Spacetime::rotate_by(p, sweep->turn * (t - 1.0f));
-          const float time = sweep->noise_time[0] +
-                             (sweep->noise_time[1] - sweep->noise_time[0]) * t;
-          if (g1)
-            octave1[x] = np.octave1(q, time);
-          if (g2)
-            octave2[x] = np.octave2(q, time);
-          if (sweep->uses_cache() && (g1 || g2)) {
-            alternate_a[x] = g1 ? octave1[x] : 0.0f;
-            alternate_b[x] = g2 ? octave2[x] : 0.0f;
-            if (sweep->cache->boundary[x] && ScanSweep::retains_endpoint(t)) {
-#if HS_ENABLE_TEST_HOOKS
-              alternate_noise_samples +=
-                  static_cast<int>(g1) + static_cast<int>(g2);
-#endif
-              const float other = ScanSweep::other_endpoint(t);
-              const math::Vector aq =
-                  Spacetime::rotate_by(p, sweep->turn * (other - 1.0f));
-              const float at =
-                  sweep->noise_time[0] +
-                  (sweep->noise_time[1] - sweep->noise_time[0]) * other;
-              if (g1)
-                alternate_a[x] = np.octave1(aq, at);
-              if (g2)
-                alternate_b[x] = np.octave2(aq, at);
-            }
-          }
-          if (vis)
-            slut[x] = ball_field_at(p, ball_local, n_local, theta, t);
-        } else {
-          if (g1)
-            octave1[x] = np.octave1(p, np.time);
-          if (g2)
-            octave2[x] = np.octave2(p, np.time);
-          if (vis)
-            slut[x] = ball_field(p, ball_local, n_local, theta);
-        }
-      }
-    }
+    sample_noise_knots<SWEPT>(np, basis, step, theta, lut_n, n_local, slut,
+                              sweep);
 
     bool late = false;
     auto sample = [&](const float *oct, const float *alternate, int d,
@@ -984,8 +1081,8 @@ private:
       if constexpr (SWEPT)
         late = knot_times[x] >= 0.5f;
       const float primary = slut[x] + amplitude *
-                                          sample(octave1, alternate_a, D1, x) *
-                                          sample(octave2, alternate_b, D2, x);
+                                          sample(octave1, octave_a, D1, x) *
+                                          sample(octave2, octave_b, D2, x);
       if constexpr (SWEPT) {
         if (sweep->uses_cache() && sweep->cache->boundary[x]) {
           late = !late;
@@ -999,9 +1096,9 @@ private:
               n_local ? ball_field_at(final_walk.position(), ball_local,
                                       n_local, theta, other)
                       : 0.0f;
-          const float alternate =
-              ball + amp * sample(octave1, alternate_a, D1, x) *
-                         sample(octave2, alternate_b, D2, x);
+          const float alternate = ball + amp *
+                                             sample(octave1, octave_a, D1, x) *
+                                             sample(octave2, octave_b, D2, x);
           sweep->cache->retain(x, primary, alternate, t, slut);
           continue;
         }
@@ -1035,6 +1132,8 @@ private:
   bake_ball_spans(const math::Basis &basis, SDF::KnotStep step, float theta,
                   int lut_n, uint32_t visible, int n_local, float *slut,
                   const Sweep *sweep = nullptr) {
+    float *ball_num = alternate_scratch[0];
+    float *ball_den = alternate_scratch[1];
     // Covers the recurrence's drift from the analytic knot azimuth and the
     // float slop in the cap dot product.
     constexpr float COS_MARGIN = 2e-4f;
@@ -1054,7 +1153,7 @@ private:
         den[x] = 0.0f;
         if constexpr (SWEPT) {
           if (sweep->uses_cache())
-            alternate_a[x] = alternate_b[x] = 0.0f;
+            ball_num[x] = ball_den[x] = 0.0f;
         }
       }
     }
@@ -1089,8 +1188,8 @@ private:
               const float other = ScanSweep::other_endpoint(t);
               const float alternate = Animation::bump_field_at(
                   knot_pos[xi], bp, ball_paths[k], theta, other);
-              DominantFieldAccumulator::accumulate(alternate_a[xi],
-                                                   alternate_b[xi], alternate);
+              DominantFieldAccumulator::accumulate(ball_num[xi], ball_den[xi],
+                                                   alternate);
             }
           }
         }
@@ -1107,9 +1206,9 @@ private:
           const float t = knot_times[x];
           if (sweep->uses_cache() && sweep->cache->boundary[x] &&
               ScanSweep::retains_endpoint(t)) {
-            const float alternate = DominantFieldAccumulator::resolve(
-                                        alternate_a[x], alternate_b[x]) +
-                                    noise_field.field(knot_pos[x]);
+            const float alternate =
+                DominantFieldAccumulator::resolve(ball_num[x], ball_den[x]) +
+                noise_field.field(knot_pos[x]);
             sweep->cache->retain(x, slut[x], alternate, t, slut);
           }
         }
@@ -1359,10 +1458,7 @@ private:
       nullptr; /**< W + 1 envelope-octave samples on its knot grid. */
   float *octave2 =
       nullptr; /**< W + 1 detail-octave samples on its knot grid. */
-  float *alternate_a =
-      nullptr; ///< Alternate-window octave 1 or ball numerator per knot.
-  float *alternate_b =
-      nullptr; ///< Alternate-window octave 2 or ball denominator per knot.
+  float *alternate_scratch[2] = {}; ///< Reused alternate-window field channels.
   uint8_t *knot_visible =
       nullptr; /**< W + 1 flags: knot lies in a visible bake chunk. */
   math::Vector *knot_pos =
