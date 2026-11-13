@@ -57,7 +57,12 @@ export function declarationFromCatalogField(label, field, operator) {
     storage: 'binary32',
     unit: periodic !== null ? periodic.unit
       : (operator === 'sphere.lens.twist.v2' && field.id === 'twist-angle')
-        || (operator === 'sample.spiral.v3' && field.id === 'center-polar') ? 'radian'
+        || ['orientation-polar', 'center-polar', 'axis-phi'].includes(field.id) ? 'radian'
+      : field.id === 'drift' && [
+        'sphere.displace.potential.v1', 'sphere.displace.rossby-haurwitz.v1', 'sphere.lens.twist.v2',
+      ].includes(operator) ? 'radian-per-frame'
+      : operator === 'sphere.displace.ripple.v2' && field.id === 'period' ? 'frame'
+      : operator === 'sphere.displace.ripple.v2' && field.id === 'burst-rate' ? 'per-frame'
       : field.id.endsWith('speed')
         ? ((operator.startsWith('sample.') && ['speed', 'angle-speed'].includes(field.id))
           || (operator === 'sphere.displace.symmetric.v2' && field.id === 'speed')

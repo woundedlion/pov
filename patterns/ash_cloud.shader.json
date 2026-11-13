@@ -264,7 +264,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "ratio"
+        "unit": "per-frame"
       },
       {
         "classification": "preset",
@@ -339,7 +339,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "ratio"
+        "unit": "frame"
       },
       {
         "classification": "preset",

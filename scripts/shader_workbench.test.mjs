@@ -1228,7 +1228,7 @@ test('catalog declarations map every numeric interpolation curve', () => {
     /unknown catalog curve/);
 });
 
-test('catalog declarations preserve source and clock speed units', () => {
+test('catalog declarations preserve angular and frame units', () => {
   for (const [operator, id, unit] of [
     ['sample.grid.v1', 'speed', 'radian-per-frame'],
     ['sample.grid.v1', 'angle-speed', 'radian-per-frame'],
@@ -1237,6 +1237,17 @@ test('catalog declarations preserve source and clock speed units', () => {
     ['sphere.rotate.v1', 'spin-speed', 'radian-per-frame'],
     ['sphere.displace.symmetric.v2', 'speed', 'radian-per-frame'],
     ['color.modulate.v1', 'pattern-speed', 'turn-per-frame'],
+    ['sphere.lens.twist.v2', 'twist-angle', 'radian'],
+    ['sphere.lens.twist.v2', 'axis-phi', 'radian'],
+    ['sphere.displace.potential.v1', 'orientation-polar', 'radian'],
+    ['sphere.displace.ripple.v2', 'center-polar', 'radian'],
+    ['sample.spiral.v3', 'center-polar', 'radian'],
+    ['sphere.displace.potential.v1', 'drift', 'radian-per-frame'],
+    ['sphere.displace.rossby-haurwitz.v1', 'drift', 'radian-per-frame'],
+    ['sphere.lens.twist.v2', 'drift', 'radian-per-frame'],
+    ['sample.twin-wave.v3', 'drift', 'ratio'],
+    ['sphere.displace.ripple.v2', 'period', 'frame'],
+    ['sphere.displace.ripple.v2', 'burst-rate', 'per-frame'],
   ]) {
     const field = { id, curve: 'lerp', min: -1, max: 1, default: 0 };
     assert.equal(declarationFromCatalogField('stage', field, operator).unit, unit);

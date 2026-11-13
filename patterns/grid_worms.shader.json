@@ -254,7 +254,7 @@
           "kind": "LINEAR"
         },
         "storage": "binary32",
-        "unit": "ratio"
+        "unit": "radian-per-frame"
       },
       {
         "classification": "preset",
