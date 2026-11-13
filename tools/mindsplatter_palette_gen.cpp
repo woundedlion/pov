@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
       << LUT_SIZE
       << ";\n\n"
          "// clang-format off\n"
-         "inline const Pixel MINDSPLATTER_PALETTES"
+         "alignas(32) inline const Pixel MINDSPLATTER_PALETTES"
          "[MINDSPLATTER_PALETTE_COUNT][MINDSPLATTER_PALETTE_LUT_SIZE] "
          "HS_PROGMEM_UNIQUE(MINDSPLATTER_PALETTES) = {\n";
 
@@ -82,7 +82,9 @@ int main(int argc, char **argv) {
   out << "};\n"
          "// clang-format on\n\n"
          "static_assert(sizeof(MINDSPLATTER_PALETTES) == "
-      << PALETTE_COUNT << " * " << LUT_SIZE << " * sizeof(Pixel));\n";
+      << PALETTE_COUNT << " * " << LUT_SIZE
+      << " * sizeof(Pixel));\n"
+         "static_assert(sizeof(MINDSPLATTER_PALETTES[0]) % 32 == 0);\n";
 
   // Closed explicitly: the destructor's flush swallows its own failure, and a
   // short write would leave a truncated header behind an exit status of 0.
