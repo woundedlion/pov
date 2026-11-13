@@ -13,16 +13,12 @@
 #include <utility>
 #include "core/render/sdf.h"
 #include "core/render/shading.h"
-#include "core/render/sdf/face_classes.h"
-#include "core/mesh/mesh_state.h"
 #include "core/color/color.h"
 #include "core/render/filter/pipeline.h"
 #include "core/containers/static_circular_buffer.h"
 #include "core/render/canvas.h"
 #include "core/platform/platform.h"
 #include "core/render/scan/raster.h"
-#include "core/render/scan/swept_face.h"
-#include "core/render/spacetime/crossing.h"
 
 /**
  * @file face_raster.h

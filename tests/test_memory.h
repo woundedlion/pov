@@ -109,6 +109,22 @@ inline void test_arena_alignment() {
   }
 }
 
+/** @brief Footprint offsets match sequential arena allocations. */
+inline void test_arena_footprint_alignment() {
+  constexpr ArenaFootprint EXPECTED = [] {
+    ArenaFootprint footprint;
+    footprint.add<uint8_t>(3);
+    footprint.add<double>(2);
+    footprint.add<uint16_t>(5);
+    return footprint;
+  }();
+  Arena arena(test_buf_a, sizeof(test_buf_a));
+  arena.allocate_n<uint8_t>(3);
+  arena.allocate_n<double>(2);
+  arena.allocate_n<uint16_t>(5);
+  HS_EXPECT_EQ(EXPECTED.bytes, arena.get_offset());
+}
+
 /** @brief Verifies make() aligns storage and perfectly forwards arguments. */
 inline void test_arena_make_constructs() {
   Arena a(test_buf_a, sizeof(test_buf_a));
@@ -1413,22 +1429,6 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
 // ============================================================================
 // Runner
 // ============================================================================
-
-/** @brief Footprint offsets match sequential arena allocations. */
-inline void test_arena_footprint_alignment() {
-  constexpr ArenaFootprint EXPECTED = [] {
-    ArenaFootprint footprint;
-    footprint.add<uint8_t>(3);
-    footprint.add<double>(2);
-    footprint.add<uint16_t>(5);
-    return footprint;
-  }();
-  Arena arena(test_buf_a, sizeof(test_buf_a));
-  arena.allocate_n<uint8_t>(3);
-  arena.allocate_n<double>(2);
-  arena.allocate_n<uint16_t>(5);
-  HS_EXPECT_EQ(EXPECTED.bytes, arena.get_offset());
-}
 
 /**
  * @brief Runs every memory test case in this module.

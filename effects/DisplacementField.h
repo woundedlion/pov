@@ -5,8 +5,6 @@
  */
 #pragma once
 
-#include "core/render/sdf/ring_knots.h"
-
 /**
  * @file DisplacementField.h
  * @brief Stack of soft-stroked rings displaced by a noise and falling-ball
@@ -14,9 +12,9 @@
  */
 
 #include "core/color/hue_rotation_row.h"
+#include "core/render/sdf/ring_knots.h"
 #include "core/platform/effect_identity.h"
 #include <numeric>
-#include <bit>
 
 #include "core/animation/orientation.h"
 #include "effects/common/palette_recipes.h"
