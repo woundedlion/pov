@@ -146,13 +146,13 @@ echo "render_diff: building $base ($sha) in $dir"
 build_tree "$dir" "$dir/build/tests"
 "$dir/build/tests/tests/run_tests" --list > "$scratch/modules"
 run_hashes "$dir/build/tests" "$scratch/modules" > "$scratch/base"
-echo "render_diff: building the working tree in $tip_build"
-build_tree "$root" "$tip_build"
-run_hashes "$tip_build" "$scratch/modules" > "$scratch/tip"
 if [ ! -s "$scratch/base" ]; then
   echo "render_diff: $base prints no render hashes; pick a newer base." >&2
   exit 2
 fi
+echo "render_diff: building the working tree in $tip_build"
+build_tree "$root" "$tip_build"
+run_hashes "$tip_build" "$scratch/modules" > "$scratch/tip"
 if diff -u --label "$base" --label "working tree" "$scratch/base" "$scratch/tip"; then
   echo "render_diff: $(wc -l < "$scratch/tip") render(s) unchanged."
 else
