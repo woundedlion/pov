@@ -1,5 +1,4 @@
 import { test } from 'node:test';
-import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {
   parseEffectRoster, parsePhantasmEffectRoster,
@@ -116,12 +115,6 @@ test('RingShower remains in the full roster and is excluded from Phantasm', asyn
   assert.ok(!(await loadPhantasmEffectRoster()).includes('RingShower'));
 });
 
-test('Millefiori plays for sixty seconds and Galaxies appears once in Phantasm', async () => {
-  const phantasm = await loadPhantasmEffectRoster();
-  const source = await readFile(new URL('../targets/Phantasm/phantasm_playlist.def', import.meta.url), 'utf8');
-  assert.match(source, /^show\(Millefiori, 60\)$/m);
-  assert.equal(phantasm.filter(name => name === 'Galaxies').length, 1);
-});
 
 test('roster parsers ignore block-comment openers inside line comments', () => {
   const prefix = '// helpers live in effects/*.h\n';

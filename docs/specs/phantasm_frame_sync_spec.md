@@ -70,7 +70,7 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `hardware/pov_segmente
 | Half-revolution     | 62.5 ms  | one full image (two arms, 180°)    |
 | Frame rate          | 16 fps   | 2 flips/rev                        |
 | Boards (N)          | 4        | seg 0 = phase reference / conductor   |
-| Effect duration     | 30–306 s | per-effect; 240–2,448 revolutions  |
+| Effect duration     | per entry | set by `phantasm_playlist.def`     |
 
 **Effect duration is per-entry, not uniform.** Each show row of
 `targets/Phantasm/phantasm_playlist.def` carries a duration in seconds, or the
@@ -79,14 +79,12 @@ effect's own cycle length; `targets/Phantasm/Phantasm.ino` turns that column int
 table in the sync `Config`, and the master counts down that entry's own budget.
 Preset-cycle frame budgets convert at the nominal 16 fps; slower rendering
 can leave a cycle unfinished when its revolution budget expires.
-Across the 39-entry roster the durations run 30 s
-(240 revolutions for single-look effects) to 306 s (2,448
-revolutions, `IslamicStars`); 60 s / 480 revolutions is
-the most common value but carries no special status in the protocol. Every
+Durations vary across the 39-entry roster and carry no special status in
+the protocol. Every
 fixed revolution budget below — the R = 3 announce repeats, the K = 2
 construction window, the ~16-rev epoch refractory, the 16-rev beacon cadence,
 the 25-rev rejoin bound — is absolute, so each consumes a much larger share of
-a 240-revolution effect than of a 960-revolution one.
+a short entry than of a long one.
 
 **Rotor model — open-loop (load-bearing).** There is no hall/index/encoder
 input anywhere; both drivers synthesize column timing at a *fixed* frequency
@@ -734,7 +732,7 @@ together."
 
 ### 6.3 Epoch reliability (resolved — four stacked mechanisms)
 
-Epoch is rare (once per roster entry, 30–306 s) but a *missed* epoch is very
+Epoch is rare (once per roster entry) but a *missed* epoch is very
 visible (one segment
 stuck on the previous effect). Four mechanisms stack, each catching what the
 previous one cannot:
@@ -761,8 +759,8 @@ previous one cannot:
 2. **Absolute index on the beacon (§6.4):** a board that *does* miss every
    repeat — or that booted late, or rebooted mid-show — corrects at the next
    beacon *pair* (§6.3.4), normally the rev-1/rev-2 post-commit beacons ~250 ms
-   later, instead of staying on the wrong effect for the rest of that entry
-   (up to 300 s). No board ever
+   later, instead of staying on the wrong effect for the rest of that entry.
+   No board ever
    *assumes* index 0; the "all boot together at 0" assumption is gone. (A
    beacon-corrected joiner starts the effect's history
    fresh mid-flight — stateless and stateful alike, since there is no frame
@@ -1015,8 +1013,7 @@ Constants: gate G = 4 col, `reject_fallback` = 4 rejections, EPOCH repeats R = 3
 construction window K = 2 revs (commit at B + repeats + K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
-4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; one effect = 240 revs
-= 30 s at the shortest roster entry and 2,448 revs = 306 s at the longest.
+4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s.
 The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
 are suppressed for the whole commit window, so the gap across a commit is an
 entry's revolutions after its last beacon + 3 (EPOCH announce revs) + K + 1
@@ -1035,7 +1032,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); boundary misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected — except the ZERO→ZERO_EPOCH case, budgeted in the spurious-EPOCH row |
 | Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
 | Mis-snap despite the gate / corrupted timebase (incl. isolated forged burst during ACQUIRE) | one board off by up to W/2 | About 780 col (340 ms), allowing `reject_fallback` rejections at half-revolution pace, the suspect window, and a new isolated boundary with trailing quiet | A forged or truncated train can leave an isolated valid count. A complete beacon train cancels its head's acquisition candidate. |
-| Dropped render (effect misses the 62.5 ms budget) | stale half until a completed frame reaches its matching window; `t` seam vs neighbors | next epoch reset (remainder of effect, up to 300 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
+| Dropped render (effect misses the 62.5 ms budget) | stale half until a completed frame reaches its matching window; `t` seam vs neighbors | next epoch reset (remainder of the entry); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase at the first isolated boundary after its trailing quiet window, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel wake-ups stop) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
