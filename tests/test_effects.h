@@ -95,6 +95,7 @@ inline int run_effects_tests() {
   run_effect_case_dreamballs_column_work_is_bounded();
   run_effect_case_dream_balls_white_box_check_orbit_bounds();
   run_effect_case_petalflow_temporal_source_oracle();
+  run_effect_case_petalflow_parameter_edit_continuity();
   run_effect_case_meshfeedback_temporal_source_oracle();
   run_effect_case_meshfeedback_stationary_timed_source();
   run_effect_case_parameter_lint_failure_guards();

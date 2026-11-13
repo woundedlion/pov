@@ -46,8 +46,8 @@ template <typename FX, typename BeforeCompare = ExportNoop,
           typename AfterStatic = ExportNoop>
 void verify_export(size_t preset, int channel_tolerance = 1,
                    float alpha_tolerance = 1e-6f,
-                   BeforeCompare before_compare = {},
-                   AfterStatic after_static = {});
+                   BeforeCompare before_compare = BeforeCompare(),
+                   AfterStatic after_static = AfterStatic());
 } // namespace hs_test::composed_chain_tests
 
 namespace hs_test {
