@@ -342,7 +342,6 @@ class ReleaseTests(unittest.TestCase):
             self.assertFalse(output.exists())
         with self.assertRaisesRegex(ValueError, "outside the release"):
             release.record_order(self.destination, digest, details, self.destination / "order.json")
-        output = self.root / "order.json"
         with self.assertRaisesRegex(ValueError, "reviewed package"):
             release.record_order(self.destination, "bad", details, output)
         self.assertFalse(output.exists())

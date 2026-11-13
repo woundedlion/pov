@@ -47,6 +47,11 @@ REV13_GENERATED_PROJECT_FILES = GENERATED_PROJECT_FILES + (
 
 
 class PrototypeContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.schematic = sexp.parse_one((PROTOTYPE / "phantasm.kicad_sch").read_text(encoding="utf-8"))
+        cls.board = sexp.parse_one((PROTOTYPE / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
+
     def test_terminal_library_edges_follow_each_reference_pose(self):
         layout = {
             "edge_placements": {"J1": (10, 3.43, 270), "J2": (4.2, 20, 0)},
@@ -91,10 +96,6 @@ class PrototypeContractTests(unittest.TestCase):
         self.assertEqual(sexp.val(F(properties["Footprint"], "effects")[0], "hide"), ["yes"])
         self.assertEqual(list(map(float, sexp.val(properties["Value"], "at")[:2])), [2.54, -7.62])
 
-    @classmethod
-    def setUpClass(cls):
-        cls.schematic = sexp.parse_one((PROTOTYPE / "phantasm.kicad_sch").read_text(encoding="utf-8"))
-        cls.board = sexp.parse_one((PROTOTYPE / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
 
     def test_default_generation_target_is_1_2(self):
         self.assertEqual(board.parse_args([]).revision, "1.2")
