@@ -55,6 +55,7 @@ def main():
     excluded = {str(directory) for directory in args.exclude}
     files = sorted({(str(Path(path).parent), Path(path).name) for path in paths
                     if Path(path).name.startswith("test")
+                    and (root / path).is_file()
                     and str(Path(path).parent) not in excluded})
     if not files:
         parser.error("no tracked Python test suites discovered")

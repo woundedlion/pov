@@ -76,6 +76,18 @@ class RequireTestFiles(unittest.TestCase):
         self.assertIn("untracked.test.mjs", done.stdout)
         self.assertNotIn("hidden.test.mjs", done.stdout)
 
+    def test_unstaged_deleted_test_is_not_required(self):
+        require_tool(self, "git")
+        git_run(self.tree, "init", "--quiet", env=ENV)
+        deleted = self.tree / "deleted.test.mjs"
+        deleted.write_text("", encoding="utf-8")
+        git_run(self.tree, "add", "deleted.test.mjs", "tools", env=ENV)
+        git_run(self.tree, "commit", "--quiet", "-m", "fixture", env=ENV)
+        deleted.unlink()
+        done = self.run_check("tools/sample_tests/*.test.mjs")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertNotIn("unreachable", done.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

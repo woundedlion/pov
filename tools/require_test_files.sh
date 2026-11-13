@@ -56,6 +56,7 @@ if [ "$javascript" -eq 1 ]; then
       *.test.js|*.test.mjs|*.test.cjs|*.test.ts|*.spec.js|*.spec.mjs|*.spec.cjs|*.spec.ts) ;;
       *) continue ;;
     esac
+    [ -e "$candidate" ] || continue
     reached=0
     for file in "${files[@]}"; do
       if [ "$candidate" = "${file#./}" ]; then

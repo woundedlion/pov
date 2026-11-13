@@ -17,7 +17,7 @@ RUNNER = Path(__file__).resolve().parents[1] / "run_python_tests.py"
 
 
 class PythonRunner(unittest.TestCase):
-    def run_fixture(self, source=None, extra=None, excluded=None, args=()):
+    def run_fixture(self, source=None, extra=None, excluded=None, args=(), deleted=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             git_run(root, "init", "--quiet")
@@ -31,6 +31,8 @@ class PythonRunner(unittest.TestCase):
                 track("new_suite/test_sample.py", source)
             if extra is not None:
                 track("new_suite/test_extra.py", extra)
+                if deleted:
+                    (root / "new_suite/test_extra.py").unlink()
             if excluded is not None:
                 track("excluded_suite/test_excluded.py", excluded)
             return subprocess.run([sys.executable, str(RUNNER), "--root", str(root), *args],
@@ -42,6 +44,11 @@ class PythonRunner(unittest.TestCase):
         self.assertIn("no test cases discovered in", result.stderr)
         self.assertIn("test_sample.py", result.stderr)
         self.assertNotIn("Traceback", result.stderr)
+
+    def test_unstaged_deleted_test_is_not_discovered(self):
+        result = self.run_fixture(LIVE, extra=LIVE, deleted=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("test_extra.py", result.stderr)
 
     def test_entirely_skipped_suite_fails(self):
         skipped = ("import unittest\n@unittest.skip('fixture')\n"

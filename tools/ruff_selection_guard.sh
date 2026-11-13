@@ -35,7 +35,8 @@ import subprocess
 import sys
 expected = subprocess.check_output(
     ["git", "ls-files", "-z", "--", "*.py"], text=True).split("\0")
-expected = {pathlib.Path(path).resolve() for path in expected if path}
+expected = {pathlib.Path(path).resolve() for path in expected
+            if path and pathlib.Path(path).is_file()}
 selected = {pathlib.Path(path).resolve()
             for path in pathlib.Path(sys.argv[1]).read_text().splitlines() if path}
 missing = sorted(expected - selected)
