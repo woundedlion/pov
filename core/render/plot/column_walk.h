@@ -447,7 +447,16 @@ struct EdgeWorldsheet {
    * keeps a zero tangent. */
   HS_HOT_INLINE static GeodesicEdgeSampler arc(const math::Vector &a,
                                                const math::Vector &b) {
-    const auto span = make_geodesic_edge_span(a, b);
+    const math::Vector chord = a - b;
+    const float chord2 = math::dot(chord, chord);
+    const float total =
+        chord2 <= 0.0625f
+            ? sqrtf(chord2) *
+                  (1.0f + chord2 * (1.0f / 24.0f +
+                                    chord2 * (3.0f / 640.0f +
+                                              chord2 * (5.0f / 7168.0f))))
+            : unit_arc_length(a, b);
+    const auto span = make_geodesic_edge_span(a, b, total);
     return {a, span.have_axis ? math::cross(span.axis, a) : math::Vector{},
             span.total};
   }

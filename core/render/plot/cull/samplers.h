@@ -453,15 +453,17 @@ inline uint32_t g_geodesic_edge_span_builds = 0;
  * @brief Computes the shared geodesic edge setup once per edge.
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
+ * @param total Arc length between the endpoints.
  * @return The edge's span setup.
  */
 static HS_HOT_INLINE inline GeodesicEdgeSpan
-make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
+make_geodesic_edge_span(const math::Vector &a, const math::Vector &b,
+                        float total) {
 #if HS_ENABLE_TEST_ORACLES
   ++g_geodesic_edge_span_builds;
 #endif
   GeodesicEdgeSpan es;
-  es.total = unit_arc_length(a, b);
+  es.total = total;
   if (es.total < EPS_GEODESIC_SEGMENT) {
     es.antipodal = false;
     es.axis = math::Vector(0.0f, 0.0f, 0.0f);
@@ -481,6 +483,14 @@ make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
   es.azimuth_bounded = std::abs(es.axis.y) >= AXIS_Y_EPS;
   es.have_axis = true;
   return es;
+}
+
+/** @brief Computes the span and arc length of a geodesic edge.
+ * @param a,b Unit edge endpoints.
+ * @return The edge's span setup. */
+static HS_HOT_INLINE inline GeodesicEdgeSpan
+make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
+  return make_geodesic_edge_span(a, b, unit_arc_length(a, b));
 }
 
 /**

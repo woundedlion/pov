@@ -684,9 +684,11 @@ inline void test_geometry_callback_aggregate_contract() {
 inline void test_point_route_small_chord_certificate() {
   constexpr int W = 288, H = 144;
   int accepted = 0, rejected = 0;
-  for (float row : {0.1f, 0.5f, 2.0f, 5.0f, 20.0f, 70.0f})
+  for (float row :
+       {0.1f, 0.5f, 2.0f, 5.0f, 20.0f, 50.0f, 70.0f, 100.0f, 130.0f, 143.9f})
     for (float heading : {0.0f, 0.5f, 1.57f})
-      for (float angle : {0.0001f, 0.001f, 0.003f, 0.02f, 0.08f, 0.4f}) {
+      for (float angle :
+           {0.0001f, 0.001f, 0.003f, 0.02f, 0.04f, 0.06f, 0.08f, 0.1f, 0.4f}) {
         const auto path =
             point_route_path(140.0f, row, heading, angle, 0.0f, math::Y_AXIS);
         const auto a = path.at(0.0f), b = path.at(1.0f);
@@ -697,6 +699,9 @@ inline void test_point_route_small_chord_certificate() {
         } else
           ++rejected;
       }
+  const math::Vector equator(1.0f, 0.0f, 0.0f);
+  const math::Vector turned(cosf(0.08f), 0.0f, sinf(0.08f));
+  HS_EXPECT_TRUE((Plot::PointRoute<W, H>::small_chord(equator, turned)));
   HS_EXPECT_GT(accepted, 30);
   HS_EXPECT_GT(rejected, 30);
 }
@@ -745,4 +750,38 @@ inline void test_point_route_piece_tap_policy() {
                                    color, 0.3f, 0.1f);
   HS_EXPECT_EQ(sink.splats, 1);
   HS_EXPECT_GT(sink.taps, 0);
+}
+
+/** @brief Hidden trajectories are rejected after capture and before solving. */
+inline void test_point_route_culls_hidden_paths() {
+  constexpr int W = 288, H = 144;
+  const ScopedTemporalSampling sampling(true);
+  for (const auto band :
+       {std::array<int, 3>{0, 144, 154}, std::array<int, 3>{220, 260, 210},
+        std::array<int, 3>{20, 260, 274}}) {
+    hs_test::StubEffect effect(W, H);
+    effect.set_clip(0, H, band[0], band[1]);
+    Canvas canvas(effect);
+    Filter::Screen::DirectAntiAliasSink<W, H> sink;
+    sink.prepare(canvas);
+    Plot::PointRoute<W, H> route;
+    route.prepare(canvas, 0.5f);
+    const auto a = math::pixel_to_vector<W, H>(float(band[2]), 70.0f);
+    const auto b = math::pixel_to_vector<W, H>(float(band[2] + 1), 70.0f);
+    unsigned captures = 0, shades = 0;
+    Spacetime::geometry_counters = {};
+    route.plot(
+        sink, canvas, b,
+        [&] {
+          ++captures;
+          return a;
+        },
+        [&] {
+          ++shades;
+          return Color4(Pixel(65535, 65535, 65535), 1.0f);
+        });
+    HS_EXPECT_EQ(captures, 1u);
+    HS_EXPECT_EQ(shades, 0u);
+    HS_EXPECT_EQ(Spacetime::geometry_counters.point_capture_solves, 0u);
+  }
 }

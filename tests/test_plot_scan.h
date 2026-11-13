@@ -123,6 +123,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(hs_test::test_reference_row_displacement_is_analytic);
   HS_RUN(hs_test::test_temporal_oracle_displacement_branches);
   HS_RUN(hs_test::test_temporal_oracle_uses_whole_frame_endpoint_budget);
+  HS_RUN(test_column_short_arc_length);
   HS_RUN(test_column_chunk_capacity_boundary);
   HS_RUN(test_retained_endpoint_lifecycle);
   HS_RUN(test_rotation_vector_endpoints);
@@ -168,6 +169,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_point_route_matches_column_oracle);
   HS_RUN(test_point_route_curved_poles_preserve_support);
   HS_RUN(test_point_route_gate_keeps_visible_taps);
+  HS_RUN(test_point_route_culls_hidden_paths);
   HS_RUN(test_point_route_shades_at_pass_time);
   HS_RUN(test_steady_edge_plots_lattice_points);
   HS_RUN(test_steady_edge_untimed_shading_reuses_color);

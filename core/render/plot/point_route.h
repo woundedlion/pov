@@ -178,6 +178,21 @@ public:
     plot_point<Sink, Start, Shade, false>(sink, canvas, end, start, shade, {});
   }
 
+  /** @brief Routes a batch of straight trajectories through one resident entry.
+   * @tparam Sink,Samples Destination and sample enumerator.
+   * @param sink,canvas Destination.
+   * @param samples Calls its visitor with each endpoint, start evaluator and shader. */
+  template <typename Sink, typename Samples>
+  HS_HOT_ITCM_MEMBER void plot_resident_batch(Sink &sink, Canvas &canvas,
+                                              Samples &&samples) const {
+    samples([&](const math::Vector &end, auto &start, auto &shade)
+                HS_HOT_INLINE {
+                  plot_point<Sink, std::remove_reference_t<decltype(start)>,
+                             std::remove_reference_t<decltype(shade)>, false>(
+                      sink, canvas, end, start, shade, {});
+                });
+  }
+
 private:
   /** @brief Routes a trajectory through the prepared point samples.
    * @tparam Sink,Start,Shade Destination, trajectory and shading callables.
@@ -208,6 +223,8 @@ private:
       return;
     }
     const math::Vector origin = start();
+    if (!reaches_path_columns(origin, end, offset))
+      return;
     const bool north = origin.y > north_limit && end.y > north_limit;
     const bool south = origin.y < south_limit && end.y < south_limit;
     if (north || south) {
@@ -298,8 +315,9 @@ public:
    * @param origin,end Unit frame endpoints.
    * @return Whether projected_acceleration() is at most eight BEND_PIXELS.
    * @details For squared chord length m2 <= 0.01, both physical second
-   * derivatives are bounded by 2 m2 / (norm2 rho). Squaring the certificate
-   * avoids projection, roots and divisions on accepted chords. */
+   * derivatives are bounded by 2 m2 / (norm2 rho). A second certificate
+   * bounds longitude by its horizontal cross product and bounds each
+   * latitude term by half the limit. Both certificates use squared bounds. */
   HS_HOT_INLINE static bool small_chord(const math::Vector &origin,
                                         const math::Vector &end) {
     const math::Vector delta = end - origin;
@@ -311,7 +329,22 @@ public:
                           end.x * end.x + end.z * end.z) -
                         0.25f * horizontal2);
     const float gain = math::ROWS_PER_RADIAN<H> / (4.0f * BEND_PIXELS);
-    return m2 <= 0.01f && m2 * m2 * (gain * gain) <= rho2 * norm2 * norm2;
+    if (m2 <= 0.01f && m2 * m2 * (gain * gain) <= rho2 * norm2 * norm2)
+      return true;
+    if (!(rho2 > 0.0f && norm2 > 0.0f))
+      return false;
+    const float cross = origin.x * delta.z - origin.z * delta.x;
+    const float cross2 = cross * cross;
+    const float dot0 = origin.x * delta.x + origin.z * delta.z;
+    const float dot_max = fmaxf(fabsf(dot0), fabsf(dot0 + horizontal2));
+    const float y = fmaxf(fabsf(origin.y), fabsf(end.y));
+    const float limit = 8.0f * BEND_PIXELS / math::ROWS_PER_RADIAN<H>;
+    const float limit2 = limit * limit;
+    const float rho6 = rho2 * rho2 * rho2;
+    const float norm4 = norm2 * norm2;
+    return 4.0f * cross2 * dot_max * dot_max <= limit2 * norm2 * rho6 &&
+           cross2 * cross2 * y * y <= 0.25f * limit2 * norm4 * rho6 &&
+           m2 * m2 * m2 <= 0.25f * limit2 * norm4 * norm4;
   }
 
   /**
@@ -458,6 +491,25 @@ private:
     const bool before_high = p.x * high_z - p.z * high_x >= -column_reach;
     return column_test == ColumnTest::BOTH ? after_low && before_high
                                            : after_low || before_high;
+  }
+
+  /** @brief Whether a quadratic path can enter the prepared column band.
+   * @param start,end Unit endpoints.
+   * @param offset Midpoint departure from their chord.
+   * @return False when a separating meridian excludes the entire path. */
+  HS_HOT_INLINE bool reaches_path_columns(const math::Vector &start,
+                                          const math::Vector &end,
+                                          const math::Vector &offset) const {
+    if (column_test == ColumnTest::NONE)
+      return true;
+    const auto after = [&](float x, float z) HS_HOT_INLINE {
+      return fmaxf(x * start.z - z * start.x, x * end.z - z * end.x) +
+                 fmaxf(0.0f, x * offset.z - z * offset.x) >=
+             0.0f;
+    };
+    const bool low = after(low_x, low_z);
+    const bool high = after(-high_x, -high_z);
+    return column_test == ColumnTest::BOTH ? low && high : low || high;
   }
 
   /**

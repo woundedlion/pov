@@ -587,29 +587,33 @@ struct Mesh {
     }();
     if (steady == 0)
       return false;
-    for (int k = 0; k < steady; ++k) {
-      const float s = static_cast<float>(k) / static_cast<float>(steady);
-      const math::Vector end =
-          k == 0 ? ends[0] : EdgeWorldsheet::lattice_point(arcs[1], s);
-      auto start = [&]() HS_HOT_INLINE {
-        return k == 0         ? starts[0]
-               : end_to_start ? end_to_start->apply(end)
-                              : EdgeWorldsheet::lattice_point(arcs[0], s);
-      };
-      auto plot = [&](auto &color) HS_HOT_INLINE {
-        if constexpr (RESIDENT)
-          route.plot_resident(sink, canvas, end, start, color);
-        else
-          route.plot(sink, canvas, end, start, color);
-      };
-      if constexpr (std::is_invocable_v<Shade &, float, float>) {
-        auto color = [&](float time) HS_HOT_INLINE { return shade(s, time); };
-        plot(color);
-      } else {
-        auto color = [&]() HS_HOT_INLINE { return shade(s); };
-        plot(color);
+    auto samples = [&](const auto &visit) HS_HOT_INLINE {
+      for (int k = 0; k < steady; ++k) {
+        const float s = static_cast<float>(k) / static_cast<float>(steady);
+        const math::Vector end =
+            k == 0 ? ends[0] : EdgeWorldsheet::lattice_point(arcs[1], s);
+        auto start = [&]() HS_HOT_INLINE {
+          return k == 0         ? starts[0]
+                 : end_to_start ? end_to_start->apply(end)
+                                : EdgeWorldsheet::lattice_point(arcs[0], s);
+        };
+        auto plot = [&](auto &color)
+                        HS_HOT_INLINE { visit(end, start, color); };
+        if constexpr (std::is_invocable_v<Shade &, float, float>) {
+          auto color = [&](float time) HS_HOT_INLINE { return shade(s, time); };
+          plot(color);
+        } else {
+          auto color = [&]() HS_HOT_INLINE { return shade(s); };
+          plot(color);
+        }
       }
-    }
+    };
+    if constexpr (RESIDENT)
+      route.plot_resident_batch(sink, canvas, samples);
+    else
+      samples(
+          [&](const math::Vector &end, auto &start, auto &color)
+              HS_HOT_INLINE { route.plot(sink, canvas, end, start, color); });
     return true;
   }
 

@@ -810,7 +810,7 @@ inline void test_plot_steady_edge_matches_point_route() {
     const math::RotationMatrix transform(rotation);
     const math::Vector starts[2] = {math::rotate(ends[0], rotation),
                                     math::rotate(ends[1], rotation)};
-    auto render = [&](bool carried) {
+    auto render = [&](int carried) {
       hs_test::StubEffect effect(W, H);
       Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> sink;
       {
@@ -820,7 +820,10 @@ inline void test_plot_steady_edge_matches_point_route() {
         auto shade = [](float, float) {
           return Color4(Pixel(65535, 32768, 16384), 0.3f);
         };
-        if (carried) {
+        if (carried == 2) {
+          HS_EXPECT_TRUE((Plot::Mesh::plot_steady_edge<W, H, true>(
+              route, sink, canvas, starts, ends, 16, shade, &transform)));
+        } else if (carried) {
           HS_EXPECT_TRUE((Plot::Mesh::plot_steady_edge<W, H>(
               route, sink, canvas, starts, ends, 16, shade, &transform)));
         } else {
@@ -842,10 +845,12 @@ inline void test_plot_steady_edge_matches_point_route() {
       capture_frame<W, H>(effect, pixels);
       return pixels;
     };
-    const auto reference = render(false), candidate = render(true);
+    const auto reference = render(0), candidate = render(1),
+               resident = render(2);
     uint32_t energy = 0;
     for (size_t i = 0; i < reference.size(); ++i) {
       energy += reference[i].r;
+      HS_EXPECT_TRUE(candidate[i] == resident[i]);
       HS_EXPECT_LE(abs(int(reference[i].r) - int(candidate[i].r)), 32);
     }
     HS_EXPECT_GT(energy, 1000u);
@@ -1231,4 +1236,35 @@ inline void test_column_plan_covers_lit_columns() {
   HS_EXPECT_GT(slack_count, lit_passes * 3 / 4);
   HS_EXPECT_GT(skipped, empty_passes * 9 / 10);
   HS_EXPECT(mean < 2.5f, "walks start close to their lit runs");
+}
+
+/** @brief Short arc lengths agree with the scale-invariant geometric angle. */
+inline void test_column_short_arc_length() {
+  constexpr float LENGTH_ERROR = 3e-6f;
+  for (float latitude : {0.03f, 0.4f, 1.2f, 2.6f}) {
+    const math::Vector a(sinf(latitude), cosf(latitude), 0.0f);
+    for (float heading : {0.0f, 0.7f, 1.4f}) {
+      const math::Vector axis =
+          math::cross(a, math::Vector(cosf(heading), 0.0f, sinf(heading)))
+              .normalized();
+      for (float angle :
+           {0.0f, 0.0002f, 0.0015f, 0.005f, 0.02f, 0.08f, 0.16f, 0.24f}) {
+        const math::Vector b =
+            math::rotate(a, math::make_rotation(axis, angle));
+        for (float scale : {0.999999f, 1.0f, 1.000001f}) {
+          const math::Vector start = a * scale;
+          const math::Vector end = b * (2.0f - scale);
+          const math::Vector pole = math::cross(start, end);
+          const float exact = atan2f(pole.magnitude(), math::dot(start, end));
+          const auto arc = Plot::EdgeWorldsheet::arc(start, end);
+          HS_EXPECT_LE(fabsf(arc.total_dist - exact), LENGTH_ERROR);
+          if (angle >= 0.0015f) {
+            const auto point = Plot::EdgeWorldsheet::lattice_point(arc, 1.0f);
+            HS_EXPECT_LE((point - b).magnitude() * math::ROWS_PER_RADIAN<144>,
+                         0.002f);
+          }
+        }
+      }
+    }
+  }
 }

@@ -602,10 +602,9 @@ private:
   /** @brief The warp over one frame: its translation b moves, its other
    *         coefficients stay the identity's. */
   struct FrameWarp {
-    math::MobiusParams end; /**< The warp at the frame's end. */
-    math::Complex start;    /**< Translation at the frame's start. */
-    math::Complex step;     /**< Translation change over the frame. */
-    bool active;            /**< Whether b is nonzero at either end. */
+    math::Complex start; /**< Translation at the frame's start. */
+    math::Complex step;  /**< Translation change over the frame. */
+    bool active;         /**< Whether b is nonzero at either end. */
 
     /** @brief A trail vertex's warped source position at a frame fraction.
      * @param vertex The vertex.
@@ -622,7 +621,7 @@ private:
       }
       if (!active)
         return source;
-      math::MobiusParams warp = end;
+      math::MobiusParams warp;
       warp.b = math::Complex(start.re + step.re * t, start.im + step.im * t);
       return math::mobius_transform(source, warp);
     }
@@ -645,11 +644,13 @@ private:
   HS_HOT_ITCM_MEMBER void draw_column_trails(Canvas &canvas) {
     const float cos_event_horizon = math::fast_cosf(EVENT_HORIZON);
     const math::Complex previous_warp = warp_history.start(mobius.b);
-    const FrameWarp warp{mobius, previous_warp,
+    const FrameWarp warp{previous_warp,
                          math::Complex(mobius.b.re - previous_warp.re,
                                        mobius.b.im - previous_warp.im),
                          previous_warp.re != 0.0f || previous_warp.im != 0.0f ||
                              mobius.b.re != 0.0f || mobius.b.im != 0.0f};
+    math::MobiusParams translation;
+    translation.b = mobius.b;
     const float shift = warp.step.magnitude();
     const float reach = fmaxf(warp.start.magnitude(), mobius.b.magnitude());
     const float cosh_d = 1.0f + 0.5f * reach * reach;
@@ -728,7 +729,7 @@ private:
         trail[j].origin =
             j < trail_len ? p.history.get(static_cast<size_t>(j)) : p.position;
         warped[j] = warp.active
-                        ? math::mobius_transform(trail[j].origin, mobius)
+                        ? math::mobius_transform(trail[j].origin, translation)
                         : trail[j].origin;
         world[j] = Plot::EdgeWorldsheet::normalize(end_pose.apply(warped[j]));
       }
