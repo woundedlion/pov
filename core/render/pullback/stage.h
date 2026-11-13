@@ -1098,6 +1098,39 @@ struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
   using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
   using ColorPolicy = ColorPolicyT;          ///< The color policy.
 
+  /** @brief Samples a phase outside the displacement and chamber-cache paths.
+   * @tparam Phase Prepared phase state.
+   * @param field Source coordinates and displacement travel.
+   * @param prepared Ready column phase.
+   * @return Source scalar before its mechanic. */
+  template <typename Phase>
+  HS_FLASH_MEMBER static float sample_phase_fallback(const FieldSample &field,
+                                                     const Phase &prepared) {
+    return ColorPolicyT::sample_phase_scalar(field, prepared);
+  }
+
+  /** @brief Samples displacement or chamber noise with an outlined fallback.
+   * @tparam Phase Prepared phase state.
+   * @param field Source coordinates and displacement travel.
+   * @param prepared Ready column phase.
+   * @return Source scalar before its mechanic. */
+  template <typename Phase>
+  HS_HOT_INLINE static float
+  sample_cached_phase_scalar(const FieldSample &field, const Phase &prepared) {
+    if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
+      return field.path_length;
+    if constexpr (std::is_same_v<Phase, Color::ChamberPhaseModulationState>) {
+      float scalar;
+      if (prepared.source == Pattern::SourceKind::NOISE &&
+          prepared.noise_previous && prepared.noise_current &&
+          Modulation::sample_chamber_noise(
+              field.sphere, prepared.noise_to_chamber, *prepared.noise_previous,
+              *prepared.noise_current, prepared.noise_fraction, scalar))
+        return scalar;
+    }
+    return sample_phase_fallback(field, prepared);
+  }
+
   /** @brief Checks a policy's optional shared-phase state.
    * @tparam Binding Pipeline binding.
    * @param prepared Layer state.

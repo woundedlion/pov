@@ -246,9 +246,8 @@ public:
       const auto &prepared = std::get<Index>(frame.prepared);
       if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
         return;
-      using Policy =
-          typename Pipeline::template NodeAt<Index>::Descriptor::ColorPolicy;
-      const float scalar = Policy::sample_phase_scalar(covered, prepared);
+      using Stage = typename Pipeline::template NodeAt<Index>::Descriptor;
+      const float scalar = Stage::sample_cached_phase_scalar(covered, prepared);
       hue = Pullback::Color::accumulate_hue(hue, scalar, prepared.mechanic);
     };
     apply_hue.template operator()<6>();

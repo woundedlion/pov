@@ -636,6 +636,14 @@ HS_HOT_INLINE inline bool try_dodecahedral_table(const math::Vector &input,
                                 DodecahedralTable::GROUP.values.data());
 }
 
+/** @brief Folds a rejected table direction through ordered reflections.
+ * @param input Unit direction.
+ * @return The symmetry-equivalent chamber direction. */
+HS_FLASH_MEMBER inline math::Vector
+dodecahedral_table_fallback(const math::Vector &input) {
+  return dodecahedral_kaleidoscope_lens(input);
+}
+
 /** @brief Folds by a validated matrix, using ordered reflections near walls.
  * @param input Unit direction.
  * @param matrices Nonnull immutable group matrix array.
@@ -648,7 +656,7 @@ dodecahedral_table_lens(const math::Vector &input,
   math::Vector result;
   return try_dodecahedral_table(input, result, matrices, faces)
              ? result
-             : dodecahedral_kaleidoscope_lens(input);
+             : dodecahedral_table_fallback(input);
 }
 
 /** @brief Folds with explicit matrices and flash-resident classifiers.

@@ -350,7 +350,7 @@ struct DodecahedralTableKaleidoscope : DodecahedralKaleidoscope {
           faces = frame.dodecahedral_faces;
         return lenses::dodecahedral_table_lens(input, matrices, faces);
       }
-    return lenses::dodecahedral_kaleidoscope_lens(input);
+    return lenses::dodecahedral_table_fallback(input);
   }
 };
 
