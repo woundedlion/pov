@@ -90,7 +90,7 @@ def check_includes(root: Path, files: list[str],
                     in_layer = name.startswith(prefix) if prefix.endswith("/") else name == prefix
                     if in_layer and canonical.startswith(forbidden):
                         diagnostics.append(f'{name}:{line}: forbidden include "{canonical}" from {prefix}')
-            if canonical in known and include != canonical:
+            if include != canonical:
                 diagnostics.append(f'{name}:{line}: include "{canonical}" '
                                    f'instead of "{include}"')
     return diagnostics
