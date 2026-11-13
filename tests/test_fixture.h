@@ -215,9 +215,9 @@ inline bool require_ci_smoke_frames() {
  */
 constexpr unsigned long FRAME_MS = 33;
 /**
- * @brief Per-frame clock advance in microseconds, paired with FRAME_MS.
+ * @brief Per-frame clock advance in microseconds.
  */
-constexpr unsigned long FRAME_US = 33000;
+constexpr unsigned long FRAME_US = FRAME_MS * 1000;
 
 /**
  * @brief Pins the mock clock to frame @p f of the canonical sweep cadence.

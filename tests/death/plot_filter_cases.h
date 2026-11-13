@@ -793,6 +793,7 @@ inline void case_worldline_frame_capacity() {
   Spacetime::Worldlines<> lines;
   lines.bind(arena, 1);
   lines.begin_frame(1, false);
+  death_admitted();
   lines.begin_frame(opaque<size_t>(2), false);
 }
 
@@ -808,6 +809,7 @@ inline void case_point_route_without_prepare() {
   const auto start = [&] { return POINT; };
   const auto shade = [] { return Color4(Pixel(1, 0, 0), 1.0f); };
   valid.plot(pipe, canvas, POINT, start, shade);
+  death_admitted();
   Plot::PointRoute<W, H> unprepared;
   unprepared.plot(pipe, canvas, POINT, start, shade);
 }
@@ -821,6 +823,7 @@ inline void case_pipeline_ref_timed_erase_not_prepared() {
   ready.prepare(canvas);
   PipelineRef valid(ready, canvas, Spacetime::Timed{});
   (void)valid;
+  death_admitted();
   Filter::Screen::DirectAntiAliasSink<W, H> unprepared;
   PipelineRef invalid(unprepared, canvas, Spacetime::Timed{});
   (void)invalid;

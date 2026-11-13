@@ -404,6 +404,7 @@ inline MeshFeedbackCutSteps meshfeedback_cut_steps(size_t preset,
       double beside = 0.0;
       for (int k = 1; k <= BESIDE; ++k)
         beside += step[(cut + k) % W] + step[(cut + W - k) % W];
+      HS_EXPECT_GT(beside, 0.0);
       worst = std::max(worst, step[cut] * 2 * BESIDE / beside);
     }
     return worst;
@@ -416,7 +417,8 @@ inline MeshFeedbackCutSteps meshfeedback_cut_steps(size_t preset,
     const double beside = (row_steps[y - 2] + row_steps[y - 1] +
                            row_steps[y + 1] + row_steps[y + 2]) /
                           4.0;
-    const double step = beside > 0.0 ? row_steps[y] / beside : 0.0;
+    HS_EXPECT_GT(beside, 0.0);
+    const double step = row_steps[y] / beside;
     if (step > latitude) {
       latitude = step;
       latitude_row = y;

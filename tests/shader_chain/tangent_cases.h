@@ -238,7 +238,8 @@ inline void test_symmetric_frame_rotation() {
     HS_EXPECT_NEAR(actual.y, expected.y, tolerance);
     HS_EXPECT_NEAR(actual.z, expected.z, tolerance);
   };
-  for (uint8_t symmetry = 0; symmetry < 9; ++symmetry)
+  for (uint8_t symmetry = 0;
+       symmetry < std::size(PB::Surface::AUTHORED_SYMMETRY_IDS); ++symmetry)
     for (uint8_t kind = 0; kind < 2; ++kind) {
       Symmetric::Params params;
       params.symmetry = symmetry;
@@ -496,7 +497,7 @@ inline void test_tangent_operator_admission() {
     HS_EXPECT_TRUE(In::Op::DisplaceRossbyHaurwitz::validate(r) != nullptr);
   }
   In::Op::SymmetricDisplaceParams s;
-  s.symmetry = 9;
+  s.symmetry = std::size(PB::Surface::AUTHORED_SYMMETRY_IDS);
   HS_EXPECT_TRUE(In::Op::DisplaceSymmetric::validate(s) != nullptr);
 }
 
@@ -540,7 +541,8 @@ inline void test_tangent_periodic_samples_are_admissible() {
 
 /** @brief Admitted field boundaries stay finite under every stepping scheme. */
 inline void test_tangent_admitted_domain() {
-  for (uint8_t symmetry = 0; symmetry < 9; ++symmetry)
+  for (uint8_t symmetry = 0;
+       symmetry < std::size(PB::Surface::AUTHORED_SYMMETRY_IDS); ++symmetry)
     for (uint8_t kind = 0; kind < 2; ++kind)
       for (uint8_t integrator = 0; integrator < 3; ++integrator) {
         In::Op::SymmetricDisplaceParams params;

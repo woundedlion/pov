@@ -266,21 +266,12 @@ inline void test_lattice_prepare_validates_wire_radius_per_geometry() {
   }
 }
 
-/** @brief Prepares octet trace settings over shared crossing scratch. */
-inline SDF::LatticeTrace::Prepared
-prepare_octet_trace(SDF::LatticeTrace::Settings settings) {
-  static SDF::OctetTrace::CrossingStorage crossings;
-  settings.crossings = &crossings;
-  return SDF::LatticeTrace::prepare(settings);
-}
-
 inline void test_octet_prepared_projection() {
   using Domain = Raycast::SamplingDomain;
   reset_globals();
   namespace Trace = SDF::LatticeTrace;
-  DepthPaletteFixture palette;
-  Trace::Settings settings;
-  settings.palette = &palette.palette.view();
+  TraceFixture fixture;
+  Trace::Settings &settings = fixture.settings;
   settings.pixel_half_angle = .5f * math::coarse_pixel_pitch<288, 144>();
   const auto expect_same = [](const Raycast::ShadedTrace &actual,
                               const Raycast::ShadedTrace &expected) {
@@ -319,7 +310,7 @@ inline void test_octet_prepared_projection() {
         settings.wire_radius = .055f * cell;
         for (float radial : {0.0f, .7f, 2.3f}) {
           settings.radial_start = radial;
-          auto prepared = prepare_octet_trace(settings);
+          auto prepared = Trace::prepare(settings);
           HS_EXPECT_TRUE(prepared.valid);
           const auto &camera = prepared.camera;
           for (float near : {0.0f, .19f}) {
@@ -401,9 +392,8 @@ inline void test_octet_prepared_projection() {
 inline void test_octet_4d_canonical_trace() {
   reset_globals();
   namespace Trace = SDF::LatticeTrace;
-  DepthPaletteFixture palette;
-  Trace::Settings settings;
-  settings.palette = &palette.palette.view();
+  TraceFixture fixture;
+  Trace::Settings &settings = fixture.settings;
   settings.pixel_half_angle = .5f * math::coarse_pixel_pitch<288, 144>();
   settings.domain = Raycast::SamplingDomain::SLICE_4D;
   hs::Pcg32 rng(0x0c7e74du);
@@ -423,7 +413,7 @@ inline void test_octet_4d_canonical_trace() {
     for (int a = 0; a < 4; ++a)
       for (int b = a + 1; b < 4; ++b)
         math::rotate_plane(settings.embedding, a, b, uniform(0.0f, 6.3f));
-    const auto prepared = prepare_octet_trace(settings);
+    const auto prepared = Trace::prepare(settings);
     HS_EXPECT_TRUE(prepared.valid);
     const auto &camera = prepared.camera;
     for (int ray = 0; ray < 400; ++ray) {
@@ -456,9 +446,8 @@ inline void test_octet_4d_canonical_trace() {
 inline void test_octet_4d_canonical_boundary_directions() {
   reset_globals();
   namespace Trace = SDF::LatticeTrace;
-  DepthPaletteFixture palette;
-  Trace::Settings settings;
-  settings.palette = &palette.palette.view();
+  TraceFixture fixture;
+  Trace::Settings &settings = fixture.settings;
   settings.pixel_half_angle = .5f * math::coarse_pixel_pitch<288, 144>();
   settings.domain = Raycast::SamplingDomain::SLICE_4D;
   settings.center = {{.255f, .465f, .645f, .375f}};
@@ -478,7 +467,7 @@ inline void test_octet_4d_canonical_boundary_directions() {
     settings.embedding = math::Mat4::identity();
     math::rotate_plane(settings.embedding, 0, 3, frame * math::PI_F / 16);
     settings.radial_start = frame % 2 ? .5f : 0.0f;
-    const auto prepared = prepare_octet_trace(settings);
+    const auto prepared = Trace::prepare(settings);
     HS_EXPECT_TRUE(prepared.valid);
     for (const auto &view : directions) {
       const auto &camera = prepared.camera;
@@ -508,9 +497,8 @@ inline void test_octet_trace_sorted_matches_events() {
   using Domain = Raycast::SamplingDomain;
   reset_globals();
   namespace Trace = SDF::LatticeTrace;
-  DepthPaletteFixture palette;
-  Trace::Settings settings;
-  settings.palette = &palette.palette.view();
+  TraceFixture fixture;
+  Trace::Settings &settings = fixture.settings;
   settings.pixel_half_angle = .5f * math::coarse_pixel_pitch<288, 144>();
   hs::Pcg32 rng(0x50f7ed5u);
   const auto uniform = [&rng](float low, float high) {
@@ -551,7 +539,7 @@ inline void test_octet_trace_sorted_matches_events() {
         for (int b = a + 1; b < 4; ++b)
           if (domain == Domain::SLICE_4D || b < 3)
             math::rotate_plane(settings.embedding, a, b, uniform(0.0f, 6.3f));
-      const auto prepared = prepare_octet_trace(settings);
+      const auto prepared = Trace::prepare(settings);
       HS_EXPECT_TRUE(prepared.valid);
       const auto &camera = prepared.camera;
       Raycast::TraceLimits starved_candidates = prepared.limits;

@@ -187,7 +187,6 @@ struct DisplacementFieldWhiteBox {
     return effect.balls.active_count();
   }
 
-  template <int W, int H>
   static std::vector<math::Vector> knot_positions(float theta, int knots) {
     const math::Basis basis =
         math::make_basis(math::Quaternion(), math::X_AXIS);
@@ -1087,8 +1086,7 @@ inline void test_displacement_field_knot_walk_unit_near_ball() {
   constexpr float OFFSET = 0.0015f;
   const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
   for (int knots : {32, 144, 288}) {
-    const auto points =
-        DisplacementFieldWhiteBox::knot_positions<288, 144>(THETA, knots);
+    const auto points = DisplacementFieldWhiteBox::knot_positions(THETA, knots);
     for (const auto &point : points) {
       HS_EXPECT_NEAR(math::dot(point, point), 1.0f, 3e-7f);
       const math::Vector tangent = (point - basis.v * cosf(THETA)).normalized();

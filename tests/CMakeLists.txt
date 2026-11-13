@@ -38,7 +38,7 @@ if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     "The native test suite requires upstream LLVM Clang 18 or newer; point "
     "CMAKE_CXX_COMPILER at LLVM clang++, or use the emsdk's compiler.")
 endif()
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
+if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
   message(FATAL_ERROR
     "Clang ${CMAKE_CXX_COMPILER_VERSION} is below the 18 this suite is built "
     "against. Point CMAKE_CXX_COMPILER at a newer clang++, or let "
@@ -47,7 +47,7 @@ endif()
 
 # Clang < 19 needs relaxed template-template matching opted in for the
 # harness's `template <int, int> class E` parameters; Clang 20 removed the flag.
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19)
+if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19)
   add_compile_options(-frelaxed-template-template-args)
 endif()
 

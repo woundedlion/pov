@@ -229,12 +229,93 @@ template <int W, int H> struct RotatingFeedbackScene {
   }
 };
 
+/** @brief Feedback style for the analytic rotation oracles.
+ * @param fade Per-frame fade.
+ * @return Rotation-only feedback style. */
+inline ::Feedback::Style rotation_feedback_style(float fade) {
+  ::Feedback::Style style{};
+  style.space_fn = &rotation_feedback_warp;
+  style.fade = fade;
+  style.hue_shift = 0.0f;
+  return style;
+}
+
+/** @brief Seeds both column-time history frames.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param fx Effect whose history is seeded.
+ * @param scene Analytic content source. */
+template <int W, int H>
+void seed_column_basis_history(hs_test::StubEffect &fx,
+                               const RotatingFeedbackScene<W, H> &scene) {
+  for (int frame = -1; frame <= 0; ++frame) {
+    {
+      Canvas c(fx);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          const auto rgb = scene.column_basis(frame, x, y);
+          c(x, y) = Pixel(quantize_feedback_channel(rgb[0]),
+                          quantize_feedback_channel(rgb[1]),
+                          quantize_feedback_channel(rgb[2]));
+        }
+    }
+    fx.advance_display();
+  }
+}
+
 /** @brief Error of a feedback run against the column-time oracle. */
 struct ColumnTimeOracleError {
   float bulk; ///< Mean channel error away from the arm cuts.
   float cut;  ///< Mean channel error of the columns beside the cuts.
   float seam; ///< Perceived step across the cuts over the steps beside them.
 };
+
+/** @brief Scores a displayed frame against an analytic pixel oracle.
+ * @tparam W Canvas width.
+ * @tparam Want Analytic pixel callback type.
+ * @param fx Displayed effect.
+ * @param previous Previous displayed frame.
+ * @param first_row First compared row.
+ * @param end_row One past the final compared row.
+ * @param want Expected channel values at a column and row.
+ * @return Bulk, cut and seam errors. */
+template <int W, typename Want>
+ColumnTimeOracleError
+column_time_oracle_error(const hs_test::StubEffect &fx,
+                         const std::vector<Pixel> &previous, int first_row,
+                         int end_row, Want &&want) {
+  constexpr int HALF = W / 2;
+  constexpr int NEAR_CUT = 6;
+  double bulk = 0.0, cut = 0.0;
+  int bulk_count = 0, cut_count = 0;
+  for (int x = 0; x < W; ++x) {
+    double error = 0.0;
+    for (int y = first_row; y < end_row; ++y) {
+      const Pixel p = fx.get_pixel(x, y);
+      const auto expected = want(x, y);
+      error += (fabs(p.r - expected[0]) + fabs(p.g - expected[1]) +
+                fabs(p.b - expected[2])) /
+               (3.0 * 65535.0);
+    }
+    error /= end_row - first_row;
+    if (std::min(x % HALF, HALF - x % HALF) < NEAR_CUT) {
+      cut += error;
+      ++cut_count;
+    } else {
+      bulk += error;
+      ++bulk_count;
+    }
+  }
+  double across = 0.0, beside = 0.0;
+  for (int y = first_row; y < end_row; ++y)
+    accumulate_arm_cut_seam_steps<W>(
+        [&](int x) { return feedback_oracle_luminance(previous[y * W + x]); },
+        [&](int x) { return feedback_oracle_luminance(fx.get_pixel(x, y)); },
+        NEAR_CUT - 1, across, beside);
+  return {static_cast<float>(bulk / bulk_count),
+          static_cast<float>(cut / cut_count),
+          static_cast<float>(across / beside)};
+}
 
 /**
  * @brief Runs the feedback filter on an analytic rotation and compares every
@@ -255,28 +336,12 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
   hs_test::ScopedArenaSplit split(1u << 20, 1u << 18, DEFAULT_SCRATCH_B_SIZE);
   hs_test::StubEffect fx(
       W, H, pipeline_config<Pipeline<W, H, Filter::Pixel::Feedback<W, H>>>());
-  ::Feedback::Style style{};
-  style.space_fn = &rotation_feedback_warp;
-  style.fade = scene.fade;
-  style.hue_shift = 0.0f;
+  auto style = rotation_feedback_style(scene.fade);
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
   feedback_frame_rotation = math::make_rotation(scene.axis, scene.omega);
 
-  // Reads behind a backward cut reach two frames back.
-  for (int seed = -1; seed <= 0; ++seed) {
-    {
-      Canvas c(fx);
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x) {
-          const auto rgb = scene.column_basis(seed, x, y);
-          c(x, y) = Pixel(quantize_feedback_channel(rgb[0]),
-                          quantize_feedback_channel(rgb[1]),
-                          quantize_feedback_channel(rgb[2]));
-        }
-    }
-    fx.advance_display();
-  }
+  seed_column_basis_history<W, H>(fx, scene);
   std::vector<Pixel> previous(W * H);
   for (int frame = 1; frame <= frames; ++frame) {
     for (int y = 0; y < H; ++y)
@@ -290,38 +355,9 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
     fx.advance_display();
   }
 
-  constexpr int HALF = W / 2;
-  constexpr int NEAR_CUT = 6;
-  double bulk = 0.0, cut = 0.0;
-  int bulk_count = 0, cut_count = 0;
-  for (int x = 0; x < W; ++x) {
-    double error = 0.0;
-    for (int y = first_row; y < end_row; ++y) {
-      const Pixel p = fx.get_pixel(x, y);
-      const auto want = scene.column_basis(frames, x, y);
-      error +=
-          (fabs(p.r - want[0]) + fabs(p.g - want[1]) + fabs(p.b - want[2])) /
-          (3.0 * 65535.0);
-    }
-    error /= end_row - first_row;
-    if (std::min(x % HALF, HALF - x % HALF) < NEAR_CUT) {
-      cut += error;
-      ++cut_count;
-    } else {
-      bulk += error;
-      ++bulk_count;
-    }
-  }
-
-  double across = 0.0, beside = 0.0;
-  for (int y = first_row; y < end_row; ++y)
-    accumulate_arm_cut_seam_steps<W>(
-        [&](int x) { return feedback_oracle_luminance(previous[y * W + x]); },
-        [&](int x) { return feedback_oracle_luminance(fx.get_pixel(x, y)); },
-        NEAR_CUT - 1, across, beside);
-  return {static_cast<float>(bulk / bulk_count),
-          static_cast<float>(cut / cut_count),
-          static_cast<float>(across / beside)};
+  return column_time_oracle_error<W>(
+      fx, previous, first_row, end_row,
+      [&](int x, int y) { return scene.column_basis(frames, x, y); });
 }
 
 /**
@@ -406,10 +442,7 @@ SourcedOracleError run_sourced_oracle(const SourcedFeedbackScene<W, H> &scene,
   hs_test::ScopedArenaSplit split(1u << 20, 1u << 18, DEFAULT_SCRATCH_B_SIZE);
   hs_test::StubEffect fx(
       W, H, pipeline_config<Pipeline<W, H, Filter::Pixel::Feedback<W, H>>>());
-  ::Feedback::Style style{};
-  style.space_fn = &rotation_feedback_warp;
-  style.fade = scene.fade;
-  style.hue_shift = 0.0f;
+  auto style = rotation_feedback_style(scene.fade);
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
   feedback_frame_rotation = math::make_rotation(math::Y_AXIS, scene.omega);
@@ -440,45 +473,27 @@ SourcedOracleError run_sourced_oracle(const SourcedFeedbackScene<W, H> &scene,
     fx.advance_display();
   }
 
+  const auto error = column_time_oracle_error<W>(
+      fx, previous, first_row, end_row,
+      [&](int x, int y) { return scene.truth(x, y); });
   constexpr int HALF = W / 2;
-  constexpr int NEAR_CUT = 6;
   constexpr int RAMP_COLUMNS = 12;
-  double bulk = 0.0, cut = 0.0, start = 0.0, end = 0.0;
-  int bulk_count = 0, cut_count = 0;
+  double start = 0.0, end = 0.0;
   for (int x = 0; x < W; ++x) {
-    double error = 0.0, shown = 0.0, wanted = 0.0;
+    double shown = 0.0, wanted = 0.0;
     for (int y = first_row; y < end_row; ++y) {
       const Pixel p = fx.get_pixel(x, y);
       const auto want = scene.truth(x, y);
-      error +=
-          (fabs(p.r - want[0]) + fabs(p.g - want[1]) + fabs(p.b - want[2])) /
-          (3.0 * 65535.0);
       shown += double(p.r) + p.g + p.b;
       wanted += double(want[0]) + want[1] + want[2];
     }
-    error /= end_row - first_row;
     const int column = x % HALF;
     if (column < RAMP_COLUMNS)
       start += shown / wanted;
     else if (column >= HALF - RAMP_COLUMNS)
       end += shown / wanted;
-    if (std::min(column, HALF - column) < NEAR_CUT) {
-      cut += error;
-      ++cut_count;
-    } else {
-      bulk += error;
-      ++bulk_count;
-    }
   }
-  double across = 0.0, beside = 0.0;
-  for (int y = first_row; y < end_row; ++y)
-    accumulate_arm_cut_seam_steps<W>(
-        [&](int x) { return feedback_oracle_luminance(previous[y * W + x]); },
-        [&](int x) { return feedback_oracle_luminance(fx.get_pixel(x, y)); },
-        NEAR_CUT - 1, across, beside);
-  return {static_cast<float>(bulk / bulk_count),
-          static_cast<float>(cut / cut_count),
-          static_cast<float>(across / beside), static_cast<float>(start / end)};
+  return {error.bulk, error.cut, error.seam, static_cast<float>(start / end)};
 }
 
 /**
@@ -572,28 +587,10 @@ inline void test_feedback_split_frame_covers_forward_bands() {
   using AntiAlias = Filter::Screen::AntiAlias<W, H>;
   hs_test::StubEffect fx(
       W, H, pipeline_config<Pipeline<W, H, AntiAlias, Terminal>>());
-  ::Feedback::Style style{};
-  style.space_fn = &rotation_feedback_warp;
-  style.fade = 0.85f;
-  style.hue_shift = 0.0f;
+  auto style = rotation_feedback_style(0.85f);
   // Backward about the axis, so sources lie ahead of their targets.
   feedback_frame_rotation = math::make_rotation(math::Y_AXIS, -0.15f);
   const RotatingFeedbackScene<W, H> SCENE{math::Y_AXIS, -0.15f, 0.85f};
-  auto seed_history = [&]() {
-    for (int frame = -1; frame <= 0; ++frame) {
-      {
-        Canvas c(fx);
-        for (int y = 0; y < H; ++y)
-          for (int x = 0; x < W; ++x) {
-            const auto rgb = SCENE.column_basis(frame, x, y);
-            c(x, y) = Pixel(quantize_feedback_channel(rgb[0]),
-                            quantize_feedback_channel(rgb[1]),
-                            quantize_feedback_channel(rgb[2]));
-          }
-      }
-      fx.advance_display();
-    }
-  };
   auto snapshot = [&](Canvas &c) {
     std::vector<Pixel> pixels(W * H);
     for (int i = 0; i < W * H; ++i)
@@ -605,7 +602,7 @@ inline void test_feedback_split_frame_covers_forward_bands() {
   // plots the same through the stages before the terminal.
   auto check = [&](const char *name, Terminal &terminal, auto &&begin,
                    auto &&held_draw, auto &&plain_draw) {
-    seed_history();
+    seed_column_basis_history<W, H>(fx, SCENE);
     {
       Canvas c(fx);
       begin(c);

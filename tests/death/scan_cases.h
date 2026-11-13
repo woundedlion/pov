@@ -380,6 +380,7 @@ inline void case_scan_solid_with_column_time() {
   const SDF::PlanarPolygon shape(basis, 0.2f, 5, 0.0f);
   const Color4 color(Pixel(1, 0, 0), 1.0f);
   Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color);
+  death_admitted();
   Scan::ColumnBasis time;
   Scan::ColumnBasisScope scope(canvas, time);
   Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color);
@@ -503,6 +504,7 @@ inline void case_scan_alternates_small_capacity() {
   Arena arena(buf, sizeof(buf));
   Scan::KnotAlternates<32> alternates;
   alternates.allocate(arena, arena, 2, 32);
+  death_admitted();
   alternates.allocate(arena, arena, 2, opaque(31));
 }
 /** @brief Bound alternates must cover every pool slot. */
@@ -515,6 +517,7 @@ inline void case_scan_ring_pool_few_alternate_slots() {
   Pool pool;
   pool.init_storage(arena);
   pool.begin_frame(&alternates);
+  death_admitted();
   alternates.allocate(arena, arena, opaque(1), 32);
   pool.begin_frame(&alternates);
 }

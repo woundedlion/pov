@@ -157,6 +157,7 @@ inline void case_timeline_pinned_after_cancelled_perpetual() {
       Timeline::Pin::UNPINNED);
   tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = true}),
              Timeline::Pin::PINNED);
+  death_admitted();
   predecessor->cancel();
   tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = true}),
              Timeline::Pin::PINNED);
@@ -805,6 +806,7 @@ inline void case_plateau_boundary_full_timeline() {
   Timeline timeline;
   Segue::PlateauHold hold;
   hold.arm_plateau_end(timeline, 1);
+  death_admitted();
   while (Timeline::remaining() > 0)
     (void)timeline.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}));
   hold.arm_plateau_end(timeline, 1);

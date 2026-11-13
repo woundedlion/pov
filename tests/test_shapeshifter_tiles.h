@@ -73,12 +73,12 @@ template <typename Render>
 inline void expect_mosaic_matches(OracleState state, Render render,
                                   std::span<const OracleClip> clips,
                                   bool approximate = false) {
-  const OracleFrame full = capture_frame(state, render);
+  const OracleFrame full = render_oracle_frame(state, render);
   OracleFrame tiled;
   tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
   for (const OracleClip &clip : clips) {
     state.clip = clip;
-    copy_clip(tiled, capture_frame(state, render), clip);
+    copy_clip(tiled, render_oracle_frame(state, render), clip);
   }
   if (approximate) {
     const uint64_t energy = frame_energy(full);

@@ -35,6 +35,14 @@ class TestParse(unittest.TestCase):
             "function", "SDF::WireLattice"))
 
 
+    def test_incomplete_warning_keeps_continuation(self):
+        text = (f"{PREFIX}/core/a.h:12: warning: The following parameter of "
+                "f(int x) is not documented:\n  parameter 'x'\n")
+        self.assertEqual(cov.parse(text, ROOT), [cov.Undocumented(
+            "core/a.h", 12, "The following parameter of f(int x) is not "
+            "documented: parameter 'x'", "warning", "")])
+
+
 class TestExempt(unittest.TestCase):
     def test_ordinary_operator_is_not_exempt(self):
         self.assertFalse(cov.exempt(item(
@@ -76,6 +84,19 @@ class TestMain(unittest.TestCase):
              contextlib.redirect_stderr(io.StringIO()) as errors:
             self.assertEqual(cov.main([]), 2)
         self.assertIn("doxygen", errors.getvalue())
+
+    def test_incomplete_parameter_warning_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "a.h").write_text("/** @file */", encoding="utf-8")
+            text = (f"{root.as_posix()}/a.h:12: warning: The following parameter "
+                    "of f(int x) is not documented:\n  parameter 'x'\n")
+            with mock.patch.object(cov, "source_files", return_value=["a.h"]), \
+                 mock.patch.object(cov, "run_doxygen", return_value=text), \
+                 contextlib.redirect_stdout(io.StringIO()) as output, \
+                 contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(cov.main(["--root", str(root)]), 1)
+            self.assertIn("parameter 'x'", output.getvalue())
 
     def test_complete_input_passes_and_missing_file_block_fails(self):
         with tempfile.TemporaryDirectory() as directory:

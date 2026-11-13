@@ -33,6 +33,7 @@ inline void case_particle_enable_signed_axis_invalid_positions() {
                                    -math::Y_AXIS, math::Z_AXIS, -math::Z_AXIS})
     ps.add_attractor(axis, 1.0f, 0.01f, 0.1f);
   ps.set_signed_axis_attractors(true);
+  death_admitted();
   ps.set_signed_axis_attractors(false);
   ps.attractors[0].position = math::Y_AXIS;
   ps.set_signed_axis_attractors(true);

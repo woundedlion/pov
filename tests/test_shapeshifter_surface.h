@@ -213,9 +213,7 @@ inline void surface_mask_case(OracleEffect &effect, const char *name) {
         HS_EXPECT_EQ(Scan::RadialChartWork::footprints,
                      mask ? stats.mask_hits : stats.pixels);
         effect.advance_display();
-        for (int y = 0; y < ORACLE_H; ++y)
-          for (int x = 0; x < ORACLE_W; ++x)
-            images[mask].pixels.push_back(effect.get_pixel(x, y));
+        hs_test::capture_frame<ORACLE_W, ORACLE_H>(effect, images[mask].pixels);
         if (mask) {
           std::printf(
               "SURFACE_MASK %s timed=%d board=%d pixels=%llu hits=%llu edges=%llu intervals=%llu max=%d prepares=%llu candidates=%llu pieces=%llu writes=%llu\n",
@@ -310,8 +308,8 @@ inline void test_surface_preset_dispatch() {
         });
     HS_EXPECT_EQ(comparison.error.different_pixels, size_t{0});
     HS_EXPECT_GT(frame_energy(comparison.candidate), uint64_t{0});
-    const auto frozen =
-        capture_frame(state, [moving](OracleEffect &effect, Canvas &canvas) {
+    const auto frozen = render_oracle_frame(
+        state, [moving](OracleEffect &effect, Canvas &canvas) {
           moving(effect);
           const ScopedTemporalSampling sampling(true);
           ShapeShifterWhiteBox::surface_kernel(effect, canvas, false);
@@ -345,9 +343,7 @@ inline void test_surface_lobe_outliers() {
           }
           effect.advance_display();
           OracleFrame image;
-          for (int y = 0; y < ORACLE_H; ++y)
-            for (int x = 0; x < ORACLE_W; ++x)
-              image.pixels.push_back(effect.get_pixel(x, y));
+          hs_test::capture_frame<ORACLE_W, ORACLE_H>(effect, image.pixels);
           if (tile < 0)
             full = image;
           else {
@@ -485,7 +481,7 @@ inline void test_surface_max_amplitude() {
   state.orientation = math::make_rotation(math::X_AXIS, .27f);
   for (bool timed : {false, true}) {
     const auto image =
-        capture_frame(state, [&](OracleEffect &effect, Canvas &canvas) {
+        render_oracle_frame(state, [&](OracleEffect &effect, Canvas &canvas) {
           const ScopedTemporalSampling sampling(timed);
           scratch_arena_a.reset_high_water_mark();
           scratch_arena_b.reset_high_water_mark();

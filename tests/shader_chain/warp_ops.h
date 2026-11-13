@@ -846,28 +846,35 @@ template <typename Model> inline void expect_warp_plane_bound() {
           corner & (size_t{1} << field) ? descriptor.max : descriptor.min;
     }
     if constexpr (std::is_same_v<Model, In::Op::WarpVectorNoise>) {
-      for (uint8_t basis = 0; basis < 3; ++basis)
-        for (uint8_t envelope = 0; envelope < 3; ++envelope) {
+      for (uint8_t basis = 0; basis < std::size(In::Op::NOISE_BASIS_IDS);
+           ++basis)
+        for (uint8_t envelope = 0;
+             envelope < std::size(In::Op::WARP_ENVELOPE_IDS); ++envelope) {
           params.basis = basis;
           params.envelope = envelope;
           probe(params);
         }
     } else if constexpr (std::is_same_v<Model, In::Op::WarpWaveShear>) {
-      for (uint8_t envelope = 0; envelope < 3; ++envelope) {
+      for (uint8_t envelope = 0;
+           envelope < std::size(In::Op::WARP_ENVELOPE_IDS); ++envelope) {
         HS_CONTEXT("envelope", envelope);
         params.envelope = envelope;
         probe(params);
       }
     } else if constexpr (std::is_same_v<Model, In::Op::WarpPolarChart>) {
       for (uint8_t mode = 0; mode < 2; ++mode)
-        for (uint8_t harmonic : {uint8_t{0}, uint8_t{15}}) {
+        for (uint8_t harmonic :
+             {uint8_t{0}, uint8_t{PB::Warp::MAX_POLAR_HARMONIC - 1}}) {
           params.mode = mode;
           params.harmonic = harmonic;
           probe(params);
         }
     } else if constexpr (std::is_same_v<Model, In::Op::WarpCurlFlow>) {
-      for (uint8_t basis = 0; basis < 3; ++basis)
-        for (uint8_t integrator = 0; integrator < 3; ++integrator) {
+      for (uint8_t basis = 0; basis < std::size(In::Op::NOISE_BASIS_IDS);
+           ++basis)
+        for (uint8_t integrator = 0;
+             integrator < std::size(In::Op::CurlFlowWarpParams::INTEGRATOR_IDS);
+             ++integrator) {
           params.basis = basis;
           params.integrator = integrator;
           probe(params);

@@ -218,7 +218,7 @@ inline void run_sample_op_matrix(In::ChainProgram &program,
   HS_EXPECT_TRUE(weight != nullptr && coverage != nullptr);
   if (!weight || !coverage)
     return;
-  for (uint8_t w = 0; w < 2; ++w)
+  for (uint8_t w = 0; w < std::size(In::Op::WEIGHT_MODE_IDS); ++w)
     for (uint8_t c = 0; c < std::size(In::Op::COVERAGE_MODE_IDS); ++c) {
       HS_CONTEXT("weight / coverage", w, c);
       *weight = w;
@@ -726,9 +726,11 @@ void run_colorize_variant(In::ChainProgram &program,
                           const In::FrameContext &ctx) {
   auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
   params.envelope_mode = static_cast<uint8_t>(EnvelopeV);
-  for (uint8_t palette_mode = 0; palette_mode < 3; ++palette_mode) {
+  for (uint8_t palette_mode = 0;
+       palette_mode < std::size(In::Op::PALETTE_MODE_IDS); ++palette_mode) {
     params.palette_mode = palette_mode;
-    for (uint8_t mapping = 0; mapping < 4; ++mapping) {
+    for (uint8_t mapping = 0; mapping < std::size(In::Op::PALETTE_MAPPING_IDS);
+         ++mapping) {
       params.mapping_mode = mapping;
       expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
                     EnvelopeV>(program, ctx);

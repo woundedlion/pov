@@ -276,6 +276,7 @@ inline void case_param_spec_invalid_option_values() {
                                 .option_count = 3,
                                 .option_values = IDS};
   fx.register_param("valid", &valid, spec);
+  death_admitted();
   fx.register_param("gap", &gap, spec);
 }
 

@@ -12,7 +12,7 @@ inline void test_palette_rgb_cache_axes_and_wrap() {
   base.active = true;
   PaletteRgbHueLut cache;
   for (int t = 0; t < 3; ++t)
-    for (int v = 0; v < 64; ++v)
+    for (int v = 0; v < PaletteLabLut::VALUES; ++v)
       for (int h = 0; h < HueRotationLutView::HUE_STEPS; ++h)
         cache.nodes[t * HueRotationLutView::SIZE +
                     v * HueRotationLutView::HUE_STEPS + h] =
@@ -218,17 +218,18 @@ inline void test_palette_rgb_cache_bake_reuse() {
   PaletteLabLut previous;
   previous.active = true;
   for (int time = 0; time < 3; ++time)
-    for (int value = 0; value < 64; ++value)
-      previous.nodes[time * 64 + value] = {.4f + .1f * time + .001f * value,
-                                           .06f, .04f};
+    for (int value = 0; value < PaletteLabLut::VALUES; ++value)
+      previous.nodes[time * PaletteLabLut::VALUES + value] = {
+          .4f + .1f * time + .001f * value, .06f, .04f};
   PaletteRgbHueLut old_rgb;
   old_rgb.bake(previous);
   PaletteLabLut current;
   current.active = true;
   for (int time = 0; time < 3; ++time)
-    for (int value = 0; value < 64; ++value)
-      current.nodes[time * 64 + value] = {
-          previous.nodes[128 + value].L + .02f * time, .06f, .04f};
+    for (int value = 0; value < PaletteLabLut::VALUES; ++value)
+      current.nodes[time * PaletteLabLut::VALUES + value] = {
+          previous.nodes[2 * PaletteLabLut::VALUES + value].L + .02f * time,
+          .06f, .04f};
   auto reference_base = current;
   PaletteRgbHueLut reference, reused;
   reference.bake(reference_base);
@@ -239,10 +240,11 @@ inline void test_palette_rgb_cache_bake_reuse() {
   for (size_t row = 0; row < reference.masks.size(); ++row)
     HS_EXPECT_EQ(reference.masks[row].bits, reused.masks[row].bits);
   for (int time : {0, 1, 2})
-    for (int value : {0, 31, 63})
+    for (int value :
+         {0, PaletteLabLut::VALUES / 2 - 1, PaletteLabLut::VALUES - 1})
       for (int hue : {0, 1, 7, 15}) {
         const auto expected = linrgb_to_pixel(hue_rotate_lut_gamut_rgb(
-            current.nodes[time * 64 + value],
+            current.nodes[time * PaletteLabLut::VALUES + value],
             float(hue) / HueRotationLutView::HUE_STEPS));
         const auto actual =
             reused.nodes[time * HueRotationLutView::SIZE +
@@ -270,7 +272,7 @@ inline void test_palette_rgb_cache_bake_reuse() {
   HS_EXPECT_EQ(std::memcmp(reference.nodes.data(), reused.nodes.data(),
                            sizeof(reference.nodes)),
                0);
-  current.nodes[0] = previous.nodes[128];
+  current.nodes[0] = previous.nodes[2 * PaletteLabLut::VALUES];
   reference_base = current;
   reference.bake(reference_base);
   PaletteRgbHueLut wrong_binding;
@@ -331,9 +333,9 @@ inline void test_palette_rgb_cache_midpoint_reuse() {
     PaletteLabLut base;
     base.active = true;
     for (int time = 0; time < 3; ++time)
-      for (int value = 0; value < 64; ++value)
-        base.nodes[time * 64 + value] = {.6f + shift + (time - 1) * step,
-                                         .08f + .0001f * value, .03f};
+      for (int value = 0; value < PaletteLabLut::VALUES; ++value)
+        base.nodes[time * PaletteLabLut::VALUES + value] = {
+            .6f + shift + (time - 1) * step, .08f + .0001f * value, .03f};
     return base;
   };
   auto original = make_base(0.0f, STEP);
@@ -355,7 +357,8 @@ inline void test_palette_rgb_cache_midpoint_reuse() {
   auto shifted = make_base(1.6f * REUSE, STEP);
   PaletteRgbHueLut third;
   third.bake(shifted, &next, &second);
-  HS_EXPECT_EQ(third.baked_midpoint[0].L, shifted.nodes[64].L);
+  HS_EXPECT_EQ(third.baked_midpoint[0].L,
+               shifted.nodes[PaletteLabLut::VALUES].L);
   HS_EXPECT_FALSE(std::equal(old_pixels.begin() + HueRotationLutView::SIZE,
                              old_pixels.begin() + 2 * HueRotationLutView::SIZE,
                              third.nodes.begin() + HueRotationLutView::SIZE));
@@ -365,11 +368,14 @@ inline void test_palette_rgb_cache_midpoint_reuse() {
   HS_EXPECT_FALSE(discontinuous.rgb_midpoint);
   HS_EXPECT_FALSE(third.midpoint_active);
   for (int time : {0, 1, 2}) {
-    const auto lab = discontinuous.nodes[time * 64 + 31];
+    const auto lab = discontinuous.nodes[time * PaletteLabLut::VALUES +
+                                         (PaletteLabLut::VALUES / 2 - 1)];
     const auto expected = linrgb_to_pixel(
         hue_rotate_lut_gamut_rgb(lab, 5.f / HueRotationLutView::HUE_STEPS));
     const auto actual = third.nodes[time * HueRotationLutView::SIZE +
-                                    31 * HueRotationLutView::HUE_STEPS + 5];
+                                    (PaletteLabLut::VALUES / 2 - 1) *
+                                        HueRotationLutView::HUE_STEPS +
+                                    5];
     HS_EXPECT_EQ(actual.r, expected.r);
     HS_EXPECT_EQ(actual.g, expected.g);
     HS_EXPECT_EQ(actual.b, expected.b);
@@ -662,9 +668,10 @@ inline void test_palette_rgb_midpoint_only_storage() {
     auto &a = full_bases[slot];
     a.active = true;
     for (int time = 0; time < 3; ++time)
-      for (int value = 0; value < 64; ++value)
-        a.nodes[time * 64 + value] = {.5f + frame * .0002f + (time - 1) * .001f,
-                                      .04f + value * .0001f, .03f};
+      for (int value = 0; value < PaletteLabLut::VALUES; ++value)
+        a.nodes[time * PaletteLabLut::VALUES + value] = {
+            .5f + frame * .0002f + (time - 1) * .001f, .04f + value * .0001f,
+            .03f};
     small_bases[slot] = a;
     generic[slot].bake(a, frame ? &full_bases[previous] : nullptr,
                        frame ? &generic[previous] : nullptr);
@@ -699,7 +706,8 @@ inline void test_palette_rgb_midpoint_only_fallback() {
   PaletteRgbHueLutImpl<true> cache;
   cache.bake(base);
   const auto saved = cache.nodes;
-  base.nodes[128].L += 2 * PaletteRgbHueLutImpl<true>::MAX_INTERVAL_DELTA;
+  base.nodes[2 * PaletteLabLut::VALUES].L +=
+      2 * PaletteRgbHueLutImpl<true>::MAX_INTERVAL_DELTA;
   auto full_base = base;
   PaletteRgbHueLut full;
   full.bake(full_base);

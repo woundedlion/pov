@@ -1503,28 +1503,9 @@ inline void test_sync_pulse_latched_dark_none_defers_low() {
  */
 inline void test_sync_pulse_resubmit_defers_low() {
   SyncPinTrace t;
-  SubmitGate submit_gate;
-  EffectHandoff<WakeEffect> handoff;
-  WakeEffect effect;
-  handoff.publish(&effect, 1u);
-  handoff.apply_wake({.commit = true, .wire_gen = 1u});
-  submit_gate.settle(SubmitAction::COLUMN, false);
-  pov::run_wake_sequence(
-      t.gate, submit_gate, handoff,
-      pov::WakeHooks{
-          .tick =
-              [] { return WakeActions{.pulse = true, .render_column = -1}; },
-          .wire_gen = [] { return 1u; },
-          .drive_sync = [&t](bool level) { t.drive(level); },
-          .commit_failure = [] {},
-          .set_envelope = [](WakeEffect *, int32_t) {},
-          .submit =
-              [](SubmitAction action, WakeEffect *, int32_t) {
-                HS_EXPECT_EQ(action, SubmitAction::RESUBMIT);
-                return true;
-              },
-      });
-  HS_EXPECT_FALSE(submit_gate.resubmit_pending());
+  t.submit_gate.settle(SubmitAction::COLUMN, false);
+  t.wake(true, true, SubmitAction::RESUBMIT, -1);
+  HS_EXPECT_FALSE(t.submit_gate.resubmit_pending());
   HS_EXPECT_TRUE(t.high);
   HS_EXPECT_TRUE(t.gate.low_deferred());
   t.wake(false, false);

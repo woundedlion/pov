@@ -457,7 +457,7 @@ inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
       carousel.segue().retarget(math::Y_AXIS);
     else {
       carousel.segue().num_classes = 2;
-      for (int i = 0; i < 16; ++i)
+      for (int i = 0; i < Segue::Breakdown::MAX_CLASSES; ++i)
         carousel.segue().rank[i] = static_cast<uint8_t>(i);
     }
     carousel.fill_face_phases(base, transformed, 0.5f, phases);

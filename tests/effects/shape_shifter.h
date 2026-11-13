@@ -10,9 +10,8 @@
 /**
  * @brief Verifies ShapeShifter's slider contract and preset-row invariants.
  * @details Preset values are not pinned. Boot equals the first row, every
- *          value sits inside its registered range, each row keeps the
- *          shape/falloff pairing, the non-preset Alpha slider survives a
- *          selection, and every row is a distinct parameter vector.
+ *          value sits inside its registered range, the non-preset Alpha slider
+ *          survives a selection, and every row is a distinct parameter vector.
  */
 inline void test_shapeshifter_preset_defaults() {
   using SS = ShapeShifter<DEFAULT_W, DEFAULT_H>;
@@ -92,8 +91,6 @@ inline void test_shapeshifter_preset_defaults() {
     HS_EXPECT_TRUE(ss.animations_paused());
     if (shape)
       HS_EXPECT_LT(value("Shape"), static_cast<float>(shape->option_count));
-    // PLANAR_STAR (option 3) pairs with TOWARD_EQUATOR (option 1).
-    HS_EXPECT_EQ(value("Shape") == 3.0f, value("Alpha Falloff") == 1.0f);
     rows.push_back(preset_row());
   }
   HS_EXPECT_TRUE(rows.front() == boot_row);

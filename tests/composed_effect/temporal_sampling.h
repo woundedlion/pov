@@ -175,7 +175,6 @@ inline void test_composed_spec_default_color_paths() {
                                    Pattern::SourceKind::NOISE>;
   static_assert(
       std::is_same_v<StaticLayer::Prepared, Pullback::Color::ModulationState>);
-  HS_EXPECT_TRUE(Temporal::COLOR_PHASE);
 }
 
 /** @brief

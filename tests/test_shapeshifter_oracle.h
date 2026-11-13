@@ -397,7 +397,8 @@ inline OracleState dense_star_state() {
  * @details Temporal sampling is off: these oracles judge the shapes' still
  * geometry, which the timed route draws at each column's time. */
 template <typename Render>
-inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
+inline OracleFrame render_oracle_frame(const OracleState &state,
+                                       Render &&render) {
   reset_globals();
   const ScopedTemporalSampling sampling(false);
   hs::set_mock_time(0, 0);
@@ -414,11 +415,7 @@ inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
     }
     effect.advance_display();
     frame.backstop_hits = hs::g_scan_metrics.plot_backstop_hits;
-    frame.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
-    for (int y = 0; y < ORACLE_H; ++y)
-      for (int x = 0; x < ORACLE_W; ++x)
-        frame.pixels[static_cast<size_t>(y) * ORACLE_W + x] =
-            effect.get_pixel(x, y);
+    hs_test::capture_frame<ORACLE_W, ORACLE_H>(effect, frame.pixels);
   }
   Timeline().clear();
   hs::clear_mock_time();
@@ -437,10 +434,10 @@ inline RenderComparison compare_renders(const OracleState &state,
                                         ReferenceRender &&reference_render,
                                         CandidateRender &&candidate_render) {
   RenderComparison comparison;
-  comparison.reference =
-      capture_frame(state, std::forward<ReferenceRender>(reference_render));
-  comparison.candidate =
-      capture_frame(state, std::forward<CandidateRender>(candidate_render));
+  comparison.reference = render_oracle_frame(
+      state, std::forward<ReferenceRender>(reference_render));
+  comparison.candidate = render_oracle_frame(
+      state, std::forward<CandidateRender>(candidate_render));
   comparison.error =
       compare_buffers(comparison.reference.pixels, comparison.candidate.pixels);
   return comparison;
@@ -713,9 +710,10 @@ inline void test_star_projection_policies_render_different_edges() {
   state.phase = 0.17f;
   state.orientation =
       math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
-  const OracleFrame planar = capture_frame(state, candidate_renderer());
+  const OracleFrame planar = render_oracle_frame(state, candidate_renderer());
   state.shape = OracleEffect::ShapeType::SPHERICAL_STAR;
-  const OracleFrame spherical = capture_frame(state, candidate_renderer());
+  const OracleFrame spherical =
+      render_oracle_frame(state, candidate_renderer());
   HS_EXPECT_GT(
       compare_buffers(planar.pixels, spherical.pixels).different_pixels,
       size_t{100});
@@ -736,9 +734,11 @@ inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
     state.phase = 0.23f;
     state.orientation =
         math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
-    const OracleFrame uniform = capture_frame(state, candidate_renderer());
+    const OracleFrame uniform =
+        render_oracle_frame(state, candidate_renderer());
     state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
-    const OracleFrame balanced = capture_frame(state, candidate_renderer());
+    const OracleFrame balanced =
+        render_oracle_frame(state, candidate_renderer());
     HS_EXPECT_GT(
         compare_buffers(uniform.pixels, balanced.pixels).different_pixels,
         size_t{100});
@@ -919,7 +919,8 @@ inline void test_high_count_planar_star_caps_cover_chart_centers() {
       state.phase = 0.125f;
       state.alpha = 0.274f;
       state.orientation = orientation;
-      const OracleFrame frame = capture_frame(state, candidate_renderer());
+      const OracleFrame frame =
+          render_oracle_frame(state, candidate_renderer());
       const math::Vector near = math::rotate(math::X_AXIS, orientation);
       const math::Vector far = -near;
       HS_EXPECT_GE(minimum_energy_around(frame, near, 1.5f), MIN_CAP_ENERGY);
@@ -950,7 +951,7 @@ inline void test_high_count_spherical_star_contours_reach_display_north() {
     state.phase = phase;
     state.alpha = 0.274f;
     state.orientation = math::Quaternion();
-    const OracleFrame frame = capture_frame(state, candidate_renderer());
+    const OracleFrame frame = render_oracle_frame(state, candidate_renderer());
     HS_EXPECT_LE(first_covered_north_row(frame), 1);
   }
 }
@@ -1052,9 +1053,10 @@ inline void test_opposite_halves_direction() {
   state.count = 6;
   state.sides = 7;
   state.phase = 0.23f;
-  const OracleFrame unchecked = capture_frame(state, candidate_renderer());
+  const OracleFrame unchecked =
+      render_oracle_frame(state, candidate_renderer());
   state.opposite = true;
-  const OracleFrame checked = capture_frame(state, candidate_renderer());
+  const OracleFrame checked = render_oracle_frame(state, candidate_renderer());
   HS_EXPECT_GT(
       compare_buffers(unchecked.pixels, checked.pixels).different_pixels,
       static_cast<size_t>(0));

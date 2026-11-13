@@ -60,10 +60,6 @@ struct HankinSolidsWhiteBox {
   static FrameHandoff handoff(int frame, int previous) {
     return EffectT::frame_handoff(frame, previous);
   }
-  static void set_angle(EffectT &effect, float angle) {
-    MeshOps::update_hankin(effect.compiled_hankin, effect.hankin_mesh,
-                           persistent_arena, angle);
-  }
   /** @brief Arms every slot's strap crossfade from the next bank palette. */
   static void arm_strap_crossfade(EffectT &effect) {
     for (int s = 0; s < PALETTES; ++s)
@@ -392,7 +388,7 @@ inline void test_hankinsolids_handoffs_shade_at_column_time() {
   reset_globals();
   WB::EffectT effect;
   effect.init();
-  WB::set_angle(effect, 0.6f);
+  WB::rebuild(effect, 0.6f);
   WB::arm_strap_crossfade(effect);
   for (const int frame : {3, 40, 78}) {
     HS_CONTEXT("cycle frame", frame);
@@ -473,7 +469,7 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
   reset_globals();
   WB::EffectT effect;
   effect.init();
-  WB::set_angle(effect, 0.6f);
+  WB::rebuild(effect, 0.6f);
   constexpr int RAMPS = 3;
   constexpr float FROM_WEIGHT = 0.3f, TO_WEIGHT = 0.6f;
   const uint8_t RAMP_FROM[RAMPS] = {0, 1, 2};

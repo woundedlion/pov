@@ -155,6 +155,7 @@ inline void case_palette_cycler_restore_incompatible() {
   const GenerativePalette from;
   cycler.restore_generated({.next_sequence = 2, .fade_active = true}, from,
                            from);
+  death_admitted();
   PaletteRecipe recipe;
   recipe.domain = PaletteDomain::MIRROR;
   const GenerativePalette to(recipe);

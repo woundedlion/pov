@@ -492,6 +492,9 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
 
   HS_EXPECT_NEAR(ring.max_distortion, 0.18f, 1e-6f);
   HS_EXPECT_NEAR(ring.max_thickness, 0.23f, 1e-6f);
+  HS_EXPECT_NEAR(ring.cos_max_limit, cosf(TARGET - 0.03f - THICKNESS), 1e-6f);
+  HS_EXPECT_NEAR(ring.cos_min_limit, cosf(TARGET + 0.18f + THICKNESS), 1e-6f);
+  HS_EXPECT_LT(ring.cos_max_limit, cosf(TARGET - ring.max_thickness));
   for (int k : {0, 4, 8}) {
     float t = static_cast<float>(k % LUT_N) / LUT_N;
     float azimuth = 2.0f * math::PI_F * t;

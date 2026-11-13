@@ -310,6 +310,7 @@ inline void case_authored_kaleidoscope_invalid_symmetry() {
 inline void case_pullback_operator_invalid_modulation_source() {
   Pullback::Interp::Op::ModulationParams params;
   (void)Pullback::Modulation::init(params.modulation);
+  death_admitted();
   params.modulation.source =
       static_cast<Pattern::SourceKind>(opaque<uint8_t>(0xff));
   (void)Pullback::Modulation::init(params.modulation);
