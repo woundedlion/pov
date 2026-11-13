@@ -62,7 +62,7 @@ class ProfileSweepTests(unittest.TestCase):
         extra = re.sub(r"(#define HS_PHANTASM_EFFECT_LIST\(X\)[^\n]*\n)",
                        lambda match: match.group(0) + "    X(UnscheduledFixture, 10) \\\n", source)
         missing = source[:first.start()] + source[first.end():]
-        for header, effect in ((extra, "UnscheduledFixture"), (missing, removed)):
+        for header, effect in ((source, None), (extra, "UnscheduledFixture"), (missing, removed)):
             with self.subTest(effect=effect), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 (root / "tools").mkdir()
@@ -72,8 +72,11 @@ class ProfileSweepTests(unittest.TestCase):
                 (root / "targets/Phantasm/phantasm_playlist.h").write_text(header, encoding="utf-8")
                 result = subprocess.run(["bash", sweep.as_posix(), "check"],
                                         capture_output=True, text=True, env=isolated_env())
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn(effect, result.stderr)
+                if effect is None:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(effect, result.stderr)
 
     def test_roster_tool_failures_cannot_report_success(self):
         sweep = (REPO / "tools" / "profile_sweep.sh").as_posix()

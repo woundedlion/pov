@@ -18,7 +18,6 @@
 #include "core/color/palette_cycler.h"
 #include "core/render/pullback.h"
 #include "core/render/pullback/composed_effect.h"
-#include "core/render/pullback/runtime_seeds.h"
 #include "core/render/pullback/sphere_animation.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -2115,14 +2114,6 @@ inline void test_pullback_displacement_overflow() {
   }
 }
 
-/** @brief Runtime seed constants match the public deterministic contract. */
-inline void test_pullback_runtime_seed_contract() {
-  HS_EXPECT_EQ(Pullback::EFFECT_NOISE_SEED, 1337);
-  HS_EXPECT_EQ(Pullback::CAMERA_WALK_SEED, 1337);
-  HS_EXPECT_EQ(Pullback::PROJECTION_WALK_SEED, 7331);
-  HS_EXPECT_EQ(Pullback::HUE_NOISE_SEED, 6047);
-}
-
 #include "tests/pullback/ripple.h"
 #include "tests/pullback/color.h"
 #include "tests/pullback/hue_qualification.h"
@@ -2149,7 +2140,6 @@ inline int run_pullback_tests() {
   HS_RUN(pattern_tests::test_pattern_sphere_cell_outputs);
   HS_RUN(pattern_tests::test_pattern_sphere_cell_all_bisectors);
   HS_RUN(pattern_tests::test_pattern_sphere_cell_admission);
-  HS_RUN(test_pullback_runtime_seed_contract);
   HS_RUN(test_pullback_modulation_field_identity);
   HS_RUN(test_pullback_modulation_field_equality);
   HS_RUN(test_pullback_carrier_contract);

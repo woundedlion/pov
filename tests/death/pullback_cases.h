@@ -76,6 +76,7 @@ template <auto Field> void prepare_palette_with_invalid() {
   context.palettes.fill(&palette);
   (void)Op::prepare(context, params, state);
   params.*Field = opaque<uint8_t>(0xff);
+  death_admitted();
   (void)Op::prepare(context, params, state);
 }
 

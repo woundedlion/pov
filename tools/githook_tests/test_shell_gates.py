@@ -225,24 +225,6 @@ class ShellGateTests(unittest.TestCase):
                                  failure or len(expected))
                 self.assertFalse((self.root / ".profile-lock").exists())
 
-    def test_profile_sweep_detects_a_missing_playlist_member_without_hardware(self):
-        tools = self.root / "tools"
-        tools.mkdir()
-        script = tools / "profile_sweep.sh"
-        shutil.copyfile(REPO / "tools" / script.name, script)
-        playlist = self.root / "targets" / "Phantasm" / "phantasm_playlist.h"
-        playlist.parent.mkdir(parents=True)
-        shutil.copyfile(REPO / "targets" / "Phantasm" / playlist.name, playlist)
-        valid = self.gate(script.name, "check", script=script)
-        self.assertEqual(valid.returncode, 0, valid.stdout + valid.stderr)
-        text = playlist.read_text(encoding="utf-8")
-        text = text.replace("#define HS_PHANTASM_EFFECT_LIST(X)",
-                            "#define HS_PHANTASM_EFFECT_LIST(X) \\\n  X(FixtureMissingEffect, 1) ", 1)
-        playlist.write_text(text, encoding="utf-8", newline="\n")
-        bad = self.gate(script.name, "check", script=script)
-        self.assertNotEqual(bad.returncode, 0)
-        self.assertIn("FixtureMissingEffect", bad.stderr)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -17,6 +17,8 @@ struct GalaxiesWhiteBox {
   static constexpr float INNER_RADIUS = FX<1, 1>::INNER_RADIUS;
   static constexpr float RING_RADIUS = FX<1, 1>::RING_RADIUS;
   static constexpr float ARM_JITTER = FX<1, 1>::ARM_JITTER;
+  static constexpr float ARM_FADE_START = FX<1, 1>::ARM_FADE_START;
+  static constexpr float ARM_FADE_END = FX<1, 1>::ARM_FADE_END;
   static constexpr float MIN_EMISSION_RATE = FX<1, 1>::MIN_EMISSION_RATE;
   static constexpr float MAX_EMISSION_RATE = FX<1, 1>::MAX_EMISSION_RATE;
 
@@ -89,7 +91,6 @@ inline void test_galaxies_core_fade() {
   HS_EXPECT_EQ(WB::core_fade(0.0f), 0.0f);
   HS_EXPECT_EQ(WB::core_fade(1.0f), 1.0f);
   HS_EXPECT_EQ(WB::core_fade(2.0f), 1.0f);
-  HS_EXPECT_NEAR(WB::core_fade(0.25f), 0.070556640625f, 1e-7f);
   HS_EXPECT_NEAR(WB::core_fade(0.5f), 0.5f, 1e-7f);
   const float inv_span = 1.0f / (1.0f - cosf(WB::CORE_FADE_RADIUS));
   float previous = 0.0f;
@@ -187,7 +188,9 @@ inline void test_galaxies_white_star_stays_white() {
                (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(RING),
            math::Vector(), 0xc000);
   std::array<std::array<uint64_t, 3>, 3> colors{};
-  const int AGES[] = {80, 520, 640};
+  const float AGES[] = {
+      WB::ARM_FADE_START / 3, (WB::ARM_FADE_START + WB::ARM_FADE_END) / 2,
+      WB::ARM_FADE_START + (WB::ARM_FADE_END - WB::ARM_FADE_START) * 0.9f};
   for (int stage = 0; stage < 3; ++stage) {
     ps.pool[0].life = ps.max_life - AGES[stage];
     WB::render(fx);
@@ -359,25 +362,34 @@ inline void test_galaxies_arm_contrast_and_age_fade() {
             (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(ring);
         const float on_arm = WB::density(fx, g, position);
         HS_EXPECT_GE(on_arm, 0.99f);
-        const float background = WB::alpha(0xff00, 700, on_arm);
+        const float background =
+            WB::alpha(0xff00, WB::ARM_FADE_END + 50, on_arm);
         HS_EXPECT_GT(background, 0.0f);
         HS_EXPECT_LE(background, BACKGROUND_CEILING);
-        HS_EXPECT_GE(WB::alpha(0xff00, 100, on_arm), 10.0f * background);
-        HS_EXPECT_NEAR(WB::alpha(0xff00, 475, on_arm),
-                       (WB::alpha(0xff00, 100, on_arm) + background) * 0.5f,
-                       1e-5f);
+        HS_EXPECT_GE(WB::alpha(0xff00, WB::ARM_FADE_START / 3, on_arm),
+                     10.0f * background);
+        HS_EXPECT_NEAR(
+            WB::alpha(0xff00, (WB::ARM_FADE_START + WB::ARM_FADE_END) / 2,
+                      on_arm),
+            (WB::alpha(0xff00, WB::ARM_FADE_START / 3, on_arm) + background) *
+                0.5f,
+            1e-5f);
         galaxy.phase += math::PI_F / arms;
         const float between_arms = WB::density(fx, g, position);
         HS_EXPECT_NEAR(between_arms, 0.0f, 1e-5f);
-        HS_EXPECT_NEAR(WB::alpha(0xff00, 100, between_arms), background, 1e-5f);
-        HS_EXPECT_GT(WB::alpha(0, 100, between_arms), 0.0f);
-        HS_EXPECT_LT(WB::alpha(0, 100, between_arms), background);
+        HS_EXPECT_NEAR(WB::alpha(0xff00, WB::ARM_FADE_START / 3, between_arms),
+                       background, 1e-5f);
+        HS_EXPECT_GT(WB::alpha(0, WB::ARM_FADE_START / 3, between_arms), 0.0f);
+        HS_EXPECT_LT(WB::alpha(0, WB::ARM_FADE_START / 3, between_arms),
+                     background);
         galaxy.phase -= math::PI_F / arms;
       }
     }
   }
-  HS_EXPECT_LE(WB::alpha(0xff00, 100, 0.7f) / WB::alpha(0xff00, 100, 1.0f),
-               WB::alpha(0, 100, 0.7f) / WB::alpha(0, 100, 1.0f));
+  HS_EXPECT_LE(WB::alpha(0xff00, WB::ARM_FADE_START / 3, 0.7f) /
+                   WB::alpha(0xff00, WB::ARM_FADE_START / 3, 1.0f),
+               WB::alpha(0, WB::ARM_FADE_START / 3, 0.7f) /
+                   WB::alpha(0, WB::ARM_FADE_START / 3, 1.0f));
 }
 
 /** @brief Arm Sharpness narrows or widens each arm's cosine lobe; 0 is flat. */

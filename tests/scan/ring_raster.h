@@ -579,10 +579,7 @@ inline void test_fused_walks_ignore_pole_lod() {
 inline void test_scalar_ring_draw_options() {
   constexpr int W = 96, H = 48;
   const auto render = [](const Scan::RingDrawOptions &options) {
-    StubEffect effect(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(effect);
+    return render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
       const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
       const auto shift = [](float t) {
         return .08f * sinf(2 * math::TWO_PI_F * t);
@@ -593,11 +590,7 @@ inline void test_scalar_ring_draw_options() {
             fragment.color = Color4(Pixel(25000, 15000, 5000), 1.0f);
           },
           options);
-    }
-    effect.advance_display();
-    std::vector<Pixel> pixels;
-    capture_frame<W, H>(effect, pixels);
-    return pixels;
+    });
   };
   const auto default_value = render({});
   const size_t lit = count_lit(default_value);

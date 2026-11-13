@@ -1468,8 +1468,8 @@ inline void test_single_shell() {
   };
   const std::vector<HL::TraceHit> two = layers(HL::ShellCount::TWO);
   const std::vector<HL::TraceHit> one = layers(HL::ShellCount::ONE);
-  HS_EXPECT_EQ(two.size(), size_t{2});
-  HS_EXPECT_EQ(one.size(), size_t{1});
+  HS_EXPECT_SIZE_OR_RETURN(two, 2);
+  HS_EXPECT_SIZE_OR_RETURN(one, 1);
   HS_EXPECT_EQ(one.front().distance, two.front().distance);
   HS_EXPECT_GT(one.front().coverage, 0.0f);
   HS_EXPECT_LT(one.front().coverage, two.front().coverage);

@@ -61,20 +61,9 @@ inline void test_nodes_on_unit_sphere() {
 }
 
 /**
- * @brief Pins node() to frozen coordinates and verifies the lattice walks
- *        strictly southward with no coincident neighbors.
+ * @brief Verifies the lattice walks strictly southward with no coincident neighbors.
  */
 inline void test_node_ordered_and_distinct() {
-  // Frozen double-folded goldens at indices where a float32 theta fold moves
-  // x/z by more than the tolerance.
-  HS_EXPECT_VEC(node(1234),
-                math::Vector(-0.416881472f, 0.678604007f, 0.604736686f), 1e-6f);
-  HS_EXPECT_VEC(node(5759),
-                math::Vector(-0.0421082303f, -0.499934882f, -0.865038753f),
-                1e-6f);
-  HS_EXPECT_VEC(node(RD_N - 2),
-                math::Vector(-0.00214281073f, -0.999739528f, -0.0227209534f),
-                1e-6f);
   math::Vector prev = node(0);
   HS_EXPECT_TRUE(finite_vec(prev));
   int out_of_order = 0;

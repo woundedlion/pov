@@ -179,7 +179,7 @@ inline void check_star_faces_first_in_base_face_order() {
   const size_t f = base.face_counts.size();
   const size_t v = base.vertices.size();
   const auto static_offset = static_cast<uint16_t>(compiled.static_offset);
-  HS_EXPECT_EQ(compiled.face_counts.size(), f + v);
+  HS_EXPECT_SIZE_OR_RETURN(compiled.face_counts, f + v);
 
   size_t off = 0;
   size_t base_off = 0;

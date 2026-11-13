@@ -18,6 +18,7 @@ inline void case_shader_palette_invalid_named_index() {
       resources.prepare(arena, params, params.palette_chroma).get(.5f).alpha ==
           1.0f,
       "valid named palette companion failed");
+  death_admitted();
   params.palette_name_b = opaque(uint8_t{255});
   (void)resources.prepare(arena, params, params.palette_chroma);
 }
@@ -30,6 +31,7 @@ inline void case_shader_palette_invalid_name() {
   params.palette_type =
       static_cast<uint8_t>(Pullback::Interp::Op::PaletteType::PROCEDURAL);
   (void)resources.prepare(persistent_arena, params, params.palette_chroma);
+  death_admitted();
   params.palette_name = opaque<uint8_t>(255);
   (void)resources.prepare(persistent_arena, params, params.palette_chroma);
 }
@@ -42,6 +44,7 @@ inline void case_shader_palette_invalid_type() {
   params.palette_type =
       static_cast<uint8_t>(Pullback::Interp::Op::PaletteType::PROCEDURAL);
   (void)resources.prepare(persistent_arena, params, params.palette_chroma);
+  death_admitted();
   params.palette_type = opaque<uint8_t>(static_cast<uint8_t>(
       Pullback::Interp::Op::PaletteType::CYCLING_GENERATED));
   (void)resources.prepare(persistent_arena, params, params.palette_chroma);
@@ -97,6 +100,7 @@ inline void reject_palette_display_interval(int interval, int fade_frames) {
                                 .dwell_frames = 0,
                                 .fade_frames = fade_frames,
                                 .display_interval_frames = 2});
+  death_admitted();
   cycler.init_generated(arena, {.next = provider,
                                 .dwell_frames = 0,
                                 .fade_frames = fade_frames,
@@ -239,6 +243,7 @@ inline void case_gradient_stops_unsorted() {
 template <typename T> void reject_null_driver() {
   float driver = 0.0f;
   (void)T(&driver);
+  death_admitted();
   (void)T(opaque<const float *>(nullptr));
 }
 
@@ -300,6 +305,7 @@ inline void case_composition_iridescentshade_null() {
 /** @brief InsetModifier rejects an invalid range. */
 inline void case_composition_inset_bounds() {
   (void)InsetModifier(0.0f, 1.0f);
+  death_admitted();
   (void)InsetModifier(1.0f, 1.0f);
 }
 
@@ -307,6 +313,7 @@ inline void case_composition_inset_bounds() {
 inline void case_composition_sparkle_threshold() {
   float driver = 0.0f;
   (void)SparkleShade(&driver, 1.0f, 0.5f);
+  death_admitted();
   (void)SparkleShade(&driver, 1.0f, 1.0f);
 }
 
@@ -314,6 +321,7 @@ inline void case_composition_sparkle_threshold() {
 inline void case_composition_chroma_depth() {
   float driver = 0.0f;
   (void)ChromaPulseShade(&driver, 1.0f);
+  death_admitted();
   (void)ChromaPulseShade(&driver, -1.0f);
 }
 
@@ -321,18 +329,21 @@ inline void case_composition_chroma_depth() {
 inline void case_composition_grain_amplitude() {
   float driver = 0.0f;
   (void)LightnessGrainShade(&driver, 1.0f, 1.0f);
+  death_admitted();
   (void)LightnessGrainShade(&driver, 1.0f, 2.0f);
 }
 
 /** @brief EdgeFadeShade rejects an invalid range. */
 inline void case_composition_edge_fade() {
   (void)EdgeFadeShade(0.5f);
+  death_admitted();
   (void)EdgeFadeShade(0.0f);
 }
 
 /** @brief EdgeAlphaShade rejects an invalid range. */
 inline void case_composition_edge_alpha() {
   (void)EdgeAlphaShade(0.5f);
+  death_admitted();
   (void)EdgeAlphaShade(0.0f);
 }
 
@@ -344,6 +355,7 @@ inline void case_composition_null_source() {
   StaticPalette<GenerativePalette, Coords<CycleModifier>, Colors<EdgeFadeShade>>
       palette;
   palette.bind(&source, &coord, &color);
+  death_admitted();
   palette.bind(nullptr, &coord, &color);
 }
 
@@ -355,6 +367,7 @@ inline void case_composition_null_coord() {
   StaticPalette<GenerativePalette, Coords<CycleModifier>, Colors<EdgeFadeShade>>
       palette;
   palette.bind(&source, &coord, &color);
+  death_admitted();
   palette.bind(&source, nullptr, &color);
 }
 
@@ -366,6 +379,7 @@ inline void case_composition_null_color() {
   StaticPalette<GenerativePalette, Coords<CycleModifier>, Colors<EdgeFadeShade>>
       palette;
   palette.bind(&source, &coord, &color);
+  death_admitted();
   palette.bind(&source, &coord, nullptr);
 }
 
@@ -375,6 +389,7 @@ inline void case_composition_facade_construct() {
       StaticPalette<GenerativePalette, Coords<>, Colors<>, false>;
   Composition palette;
   PaletteFacade<Composition> valid(&palette);
+  death_admitted();
   (void)PaletteFacade<Composition>(opaque<const Composition *>(nullptr));
 }
 
@@ -384,5 +399,6 @@ inline void case_composition_facade_bind() {
       StaticPalette<GenerativePalette, Coords<>, Colors<>, false>;
   Composition palette;
   PaletteFacade<Composition> valid(&palette);
+  death_admitted();
   valid.bind(nullptr);
 }

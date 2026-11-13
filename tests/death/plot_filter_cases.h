@@ -27,6 +27,7 @@ inline void plot_column_edge_index_fixture(bool bad_start) {
                                       0.0f);
   edges[0] = bad_start ? Plot::Mesh::Edge{opaque<uint16_t>(2), 1}
                        : Plot::Mesh::Edge{0, opaque<uint16_t>(2)};
+  death_admitted();
   Plot::Mesh::draw_column_edges<W, H>(sink, canvas, mesh, edges, shader, {},
                                       0.0f);
 }

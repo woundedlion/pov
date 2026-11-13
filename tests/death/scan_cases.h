@@ -78,6 +78,7 @@ inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index,
       Scan::pick_moving_faces<W>(canvas, mesh, moving, 0.0f, columns);
   };
   select();
+  death_admitted();
   if (omit_offsets)
     mesh.face_offsets.clear();
   else
@@ -291,6 +292,7 @@ inline void case_scan_mesh_visibility_dimensions() {
   pass.visibility_face_count = 1;
   pass.visibility_vertex_count = 3;
   Scan::check_mesh_pass(pass, 1, 3);
+  death_admitted();
   Scan::check_mesh_pass(pass, 2, 3);
 }
 
@@ -302,6 +304,7 @@ inline void case_scan_mesh_selection_dimensions() {
   pass.selection_face_count = 1;
   pass.selection_vertex_count = 3;
   Scan::check_mesh_pass(pass, 1, 3);
+  death_admitted();
   Scan::check_mesh_pass(pass, 1, 4);
 }
 
@@ -317,6 +320,7 @@ inline void case_scan_deformation_without_azimuth() {
   const auto vertex = [](size_t, float) { return math::Vector(1, 0, 0); };
   Scan::deform_mesh<W, H>(canvas, mesh, false, COLUMNS, nullptr, nullptr,
                           scratch_arena_a, 0.1f, vertex, [] {});
+  death_admitted();
   Scan::deform_mesh<W, H>(canvas, mesh, true, COLUMNS, nullptr, nullptr,
                           scratch_arena_a, 0.1f, vertex, [] {});
 }
@@ -346,7 +350,8 @@ inline void case_scan_motion_without_azimuth() {
     ScratchScope frame_scope(frame), start_scope(start);
     const auto plan = Scan::plan_motion<W>(canvas, mesh, path, 0.2f, ripples,
                                            camera, frame, start);
-    HS_EXPECT_TRUE(plan.active);
+    if (plan.active)
+      death_admitted();
   }
   basis.azimuth = nullptr;
   Scan::plan_motion<W>(canvas, mesh, path, 0.2f, ripples, camera, frame, start);

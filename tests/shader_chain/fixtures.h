@@ -180,7 +180,13 @@ inline FastNoiseLite make_oracle_noise(std::string_view instance,
 }
 
 template <typename T> T &param_as(In::ChainProgram &program, size_t index) {
-  return *reinterpret_cast<T *>(program.param_block(index));
+  const auto &layout = program.ops()[index].op->runtime.param;
+  void *block = program.param_block(index);
+  const bool matches = layout.size >= sizeof(T) && layout.align >= alignof(T) &&
+                       reinterpret_cast<uintptr_t>(block) % alignof(T) == 0;
+  HS_EXPECT_TRUE(matches);
+  HS_CHECK(matches, "shader-chain fixture parameter prefix type mismatch");
+  return *static_cast<T *>(block);
 }
 
 /** @brief Requires the requested type to match its erased block.

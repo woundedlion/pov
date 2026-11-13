@@ -6,22 +6,26 @@
 
 inline void case_modulation_hue_nonfinite() {
   (void)ColorModulation::HueRotation::prepare({0.5f});
+  death_admitted();
   (void)ColorModulation::HueRotation::prepare(
       {opaque(std::numeric_limits<float>::infinity())});
 }
 inline void case_modulation_unit_amount_invalid() {
   (void)ColorModulation::Opacity::prepare({0.5f});
+  death_admitted();
   (void)ColorModulation::Opacity::prepare({opaque(2.0f)});
 }
 inline void case_modulation_unknown_prepare() {
   ColorModulation::Params params;
   ColorModulation::validate(params);
+  death_admitted();
   params.kind = static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255}));
   ColorModulation::validate(params);
 }
 inline void case_modulation_invalid_initialization() {
   ColorModulation::Config config;
   (void)Pullback::Modulation::init(config);
+  death_admitted();
   config.enabled = false;
   config.version = opaque(uint16_t{0});
   (void)Pullback::Modulation::init(config);
@@ -30,6 +34,7 @@ inline void case_modulation_invalid_synchronization() {
   ColorModulation::Config config;
   auto state = Pullback::Modulation::init(config);
   Pullback::Modulation::synchronize(state, config);
+  death_admitted();
   config.version = opaque(uint16_t{0});
   Pullback::Modulation::synchronize(state, config);
 }
@@ -38,6 +43,7 @@ inline void case_modulation_invalid_preparation() {
   const auto state = Pullback::Modulation::init(config);
   Pullback::Modulation::Resources<> resources;
   (void)resources.prepare(config, state);
+  death_admitted();
   config.version = opaque(uint16_t{0});
   (void)resources.prepare(config, state);
 }
@@ -56,6 +62,7 @@ inline void case_modulation_retain_table_size() {
   static Pullback::Modulation::Prepared destination;
   source.cube = {cube, true};
   (void)Pullback::Modulation::retain(&source, destination, table);
+  death_admitted();
   (void)Pullback::Modulation::retain(
       &source, destination, std::span<int8_t>(table, opaque(size_t{1})));
 }
@@ -67,6 +74,7 @@ inline void case_modulation_retain_linear_cube() {
   static Pullback::Modulation::Prepared destination;
   source.cube = {cube, true};
   (void)Pullback::Modulation::retain(&source, destination, table);
+  death_admitted();
   source.cube.linear_data = opaque(static_cast<const float *>(linear));
   (void)Pullback::Modulation::retain(&source, destination, table);
 }
@@ -95,6 +103,7 @@ inline void case_modulation_missing_endpoint() {
   Pullback::Interp::FrameContext context;
   context.modulations = std::span(&endpoint, 1);
   (void)Op::prepare(context, params, state);
+  death_admitted();
   context.modulations = {};
   (void)Op::prepare(context, params, state);
 }

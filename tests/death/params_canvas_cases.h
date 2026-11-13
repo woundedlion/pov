@@ -398,6 +398,7 @@ inline void case_render_x_window_bad_arm() {
   for (int arm : {-1, 0, 1}) {
     TimeWindowScope valid(canvas, 0, 4, opaque(arm));
   }
+  death_admitted();
   TimeWindowScope invalid(canvas, 0, 4, opaque(2));
 }
 

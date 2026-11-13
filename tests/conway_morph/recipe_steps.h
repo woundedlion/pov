@@ -61,9 +61,12 @@ inline constexpr StepLegSite SNUB_LEG_SITES[] = {
 template <const Solids::Recipe &RECIPE>
 inline constexpr StepLegSite relax_leg_site(const char *name) {
   for (size_t i = 0; i < RECIPE.count; ++i)
-    if (RECIPE.steps[i].op == Solids::Op::RELAX)
+    if (RECIPE.steps[i].op == Solids::Op::RELAX) {
+      if (!RECIPE.steps[i].bake)
+        throw "relax_leg_site: RELAX step has no bake";
       return {name, recipe_step_seed<RECIPE, Solids::Op::RELAX>, 0.0f,
               RECIPE.steps[i].bake};
+    }
   throw "relax_leg_site: recipe has no RELAX step";
 }
 

@@ -1020,9 +1020,8 @@ inline void test_feedback_polar_rows_hit_their_targets() {
 inline void test_feedback_warp_cache_matches_uncached() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
   constexpr int FRAMES = 8;
-  // Frames 3 and 4 share a band, so frame 4's seed change is the only key
-  // difference between them and lands on a populated cache entry.
-  constexpr int CLIP_BEGIN[FRAMES] = {20, 20, 24, 40, 40, 20, 36, 24};
+  // Frames 2-4 isolate amplitude and seed edits on a populated cache entry.
+  constexpr int CLIP_BEGIN[FRAMES] = {20, 20, 24, 24, 24, 20, 36, 24};
 
   // Only one Effect may be alive at a time (shared static buffers), so the
   // two pipelines run sequentially over recorded frames.

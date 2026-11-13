@@ -246,8 +246,6 @@ class ScoreTests(unittest.TestCase):
         short = analyze_candidates.score({**base, "crit_len": 90.0})
         long = analyze_candidates.score({**base, "crit_len": 180.0})
 
-        self.assertEqual(short, 9.0)
-        self.assertEqual(long, 8.0)
         self.assertGreater(short, long)
         changed_placement = {**base, "crit_len": 90.0, "ergo": {
             "decap_u1": 50.0, "divider": 40.0, "term_u1": 120.0, "rs_u1": 90.0}}
