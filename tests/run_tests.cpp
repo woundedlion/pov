@@ -8,7 +8,8 @@
 #include "tests/module_registry.h"
 
 // Roster rows are X("name", entry_point, true|false); names and entry points
-// contain letters, digits and underscores; entries may be namespace-qualified.
+// contain letters, digits and underscores. Entry points are unqualified names
+// in hs_test::module_runners.
 // CMake reads this block up to
 // HS_TEST_MODULE_ENTRY; rows may wrap with whitespace and continuation slashes.
 #define HS_TEST_MODULE_LIST(X)                                                 \

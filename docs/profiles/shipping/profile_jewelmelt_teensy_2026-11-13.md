@@ -1,7 +1,7 @@
 # JewelMelt on-device profile — Teensy 4.0, segmented mode (2026-11-13, **selective -O3**)
 
 Point-in-time snapshot (regenerate with `just profile JewelMelt`).
-Raw capture: `build/prof/jewelmelt_ship41b.log` in `C:/work/temp/Holosphere-20261112-ashcloud-itcm`. Captured 2026-11-13 07:02 America/Los_Angeles on COM4 (serial 6362390). First shipping-roster report. Replaces `excluded/profile_jewelmelt_selective_o3_teensy_2026-11-03.md`.
+Raw capture: `build/prof/jewelmelt_ship41b.log` in `C:/work/temp/Holosphere-20261112-ashcloud-itcm`. Captured 2026-11-13 07:02 America/Los_Angeles on COM4 (serial 6362390). First shipping-roster report. Replaces profile_jewelmelt_selective_o3_teensy_2026-11-03.md (excluded set).
 
 ## Setup
 

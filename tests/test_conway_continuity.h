@@ -930,8 +930,8 @@ inline void expect_frame_one_shading(const ShadingSnapshot &snap,
 /**
  * @brief Verifies the crossfade endpoints on an emission-order leg (cube ->
  *        truncated_cube): frame 1 (w = 0) shades every surviving face from the
- *        handed-off palette and every newborn face from its target; the final
- *        mid-leg departs from the handed-off palette, and the final frame
+ *        handed-off palette and every newborn face from its target; a
+ *        mid-leg frame departs from the handed-off palette, and the final frame
  *        (w = 1) shades every face from the landed target assignment.
  */
 inline void test_crossfade_exact_at_endpoints_emission() {

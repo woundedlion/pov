@@ -780,7 +780,7 @@ inline void test_noise_cross_hemisphere_cap() {
 }
 
 // ============================================================================
-// Transformer<> manager — composition, live edits and pinned repeats
+// Transformer<> empty-pool identity
 // ============================================================================
 
 /**
@@ -1050,7 +1050,7 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
 }
 
 // ============================================================================
-// Transformer<> non-pinned slot recycling survives timeline compaction
+// Transformer<> slot release on rejection and compaction
 // ============================================================================
 
 /** @brief A full timeline releases a rejected transformer's pool slot. */

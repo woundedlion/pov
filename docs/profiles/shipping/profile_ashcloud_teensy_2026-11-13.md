@@ -1,7 +1,7 @@
 # AshCloud on-device profile — Teensy 4.0, segmented mode (2026-11-13, **selective -O3**)
 
 Point-in-time snapshot (regenerate with `just profile AshCloud`).
-Raw capture: `build/prof/ashcloud_ship41b.log` in `C:/work/temp/Holosphere-20261112-ashcloud-itcm`. Captured 2026-11-13 07:04 America/Los_Angeles on COM4 (serial 6362390). Replaces `shipping/profile_ashcloud_teensy_2026-11-05.md`.
+Raw capture: `build/prof/ashcloud_ship41b.log` in `C:/work/temp/Holosphere-20261112-ashcloud-itcm`. Captured 2026-11-13 07:04 America/Los_Angeles on COM4 (serial 6362390). Replaces profile_ashcloud_teensy_2026-11-05.md.
 
 ## Setup
 

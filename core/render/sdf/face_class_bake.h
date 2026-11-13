@@ -255,7 +255,6 @@ HS_COLD static int order_bake_luts(const MeshClassBake &out, int *order) {
 HS_COLD static std::tuple<int, size_t, bool>
 select_bake_grid(const CongruenceClass &cls, float target_diag, size_t budget) {
   bool degraded = false;
-  // including the canonical LUT margin).
   const auto [min_x, max_x, min_y, max_y] =
       SDF::canonical_polygon_box(cls.canon_xy, cls.n_verts);
   const auto [half_x, half_y] =

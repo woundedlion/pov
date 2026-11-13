@@ -102,7 +102,7 @@ Preparation over the complete post-startup windows averages 3671.752 us/f versus
 
 - CYCCNT free-runs, so every scope absorbs ISR preemption and nested scopes overlap their parents.
 - No `filter_blend` subtree or exact blend count was recorded in these captures.
-- Shipping uses the composed shade and generated-palette HS_O3 functions; noise-contour source; the global-O3 twin optimizes all compiled code.
+- Shipping uses the composed shade and generated-palette HS_O3 functions; the global-O3 twin optimizes all compiled code.
 - No ordered-cycle or transition-speed override was used; dwell and transition settings remain authored.
 - Captured source identity is recorded above; see the archive source-reachability note. Build flags, source status and hashes are not retained in the repository; later documentation edits do not change that source identity.
 - Counter summaries omit the startup-containing window; exact cadence excludes only actual setup frame 1 and retains all following live frames.

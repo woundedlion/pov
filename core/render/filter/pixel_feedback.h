@@ -2555,8 +2555,8 @@ private:
   static constexpr int filter_window_bound(int y) {
     constexpr int WIDEST = (W & 1) ? W : W - 1;
 #if HS_RUNTIME_DISPLAY_GEOMETRY
-    // math::set_display_geometry() puts the far end at least three quarters
-    // of a turn from each pole, so a row d rows from an end lies at least
+    // math::set_display_geometry() puts the far end at least 3 pi / 4
+    // from each pole, so a row d rows from an end lies at least
     // d * (3 pi / 4) / (H - 1) from its pole; a - a^3 / 6 bounds that angle's
     // sine from below.
     const int rows = std::min(y, H - 1 - y);

@@ -1,7 +1,7 @@
 # KaleidoscopeMelt on-device profile — Teensy 4.0, segmented mode (2026-11-13, **selective -O3**)
 
 Point-in-time snapshot (regenerate with `just profile KaleidoscopeMelt`).
-Raw capture: `build/prof/kaleidoscopemelt_ship41b.log` in `C:/work/temp/Holosphere-20261112-ashcloud-itcm`. Captured 2026-11-13 07:06 America/Los_Angeles on COM4 (serial 6362390). First shipping-roster report. Replaces `excluded/profile_kaleidoscopemelt_selective_o3_teensy_2026-10-31.md`.
+Raw capture: `build/prof/kaleidoscopemelt_ship41b.log` in `C:/work/temp/Holosphere-20261112-ashcloud-itcm`. Captured 2026-11-13 07:06 America/Los_Angeles on COM4 (serial 6362390). First shipping-roster report. Replaces profile_kaleidoscopemelt_selective_o3_teensy_2026-10-31.md (excluded set).
 
 ## Setup
 

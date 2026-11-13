@@ -59,7 +59,7 @@ if(EMSCRIPTEN)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/wasm_cache_key.cmake"
     VERBATIM)
 
-  # WASM reserves two chain arenas plus ShaderChain's shared color resources.
+  # The WASM arena holds ShaderChain's persistent footprint; chain_host.h asserts the fit.
   target_compile_definitions(${TARGET_NAME} PRIVATE
     HS_RUNTIME_DISPLAY_GEOMETRY=1
     HS_DISPLAY_PROFILE=0

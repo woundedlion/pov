@@ -53,10 +53,14 @@ constexpr unsigned long CI_MIN_BUFFER_FREE_WATCHDOG_US = 30000000UL;
 /**
  * @brief Verifies the environment carries the depth levers a CI run must set.
  * @param effects_invocation Whether this invocation runs an effects module.
- * @return 0 when every lever this invocation needs is set, else 1.
+ * @return 0 when every required lever is set and no narrowing lever is set,
+ * else 1.
  * @details Unset levers default to the shallow local tier, so under CI an
  * unset or blank lever is a failure. HS_EFFECTS_FULL and
  * HS_REQUIRE_EFFECTS_FULL are required only when an effects module runs.
+ * HS_RING_TEMPORAL_SCENARIO, HS_SURFACE_LOBE_DIAGNOSTICS and
+ * HS_SURFACE_DARK_DIAGNOSTICS must be unset; HS_ISLAMICSTARS_ONLY and
+ * HS_MESH_CAPTURE_ONLY must be unset or blank when an effects module runs.
  */
 static int check_ci_levers(bool effects_invocation) {
   if (!hs_test::runs_in_ci())
@@ -184,8 +188,9 @@ static int check_modules(int argc, char **argv) {
  * remaining args (if any) name the modules to run, or
  * --list/-h/--help/--check-modules.
  * @return 0 on success, 1 if any test failed, a case was skipped under
- * HS_SKIPS_ARE_ERRORS, or a required CI depth lever is missing, 2 on an unknown
- * module name or an invalid death-child invocation, 3 on a --check-modules divergence.
+ * HS_SKIPS_ARE_ERRORS, a required CI depth lever is missing or a narrowing
+ * lever is set, 2 on an unknown module name or an invalid death-child
+ * invocation, 3 on a --check-modules divergence.
  * @details Dispatches marked death-harness children, else runs the full
  * roster or only the modules named on argv.
  */

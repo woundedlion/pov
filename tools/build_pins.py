@@ -232,8 +232,8 @@ SHARED_LITERALS = {
     ),
     "format-globs": " ".join(f"'*.{ext}'" for ext in FORMAT_EXTENSIONS),
     "format-extensions": r"\.(" + "|".join(FORMAT_EXTENSIONS) + r")$",
-    # A flag list (platformio.ini's build_flags, ci.yml's matrix entry) and the
-    # CMake quoted-argument form of the same pair.
+    # A flag list (platformio.ini's build_flags) and the CMake quoted-argument
+    # form of the same pair.
     "float-flags": " ".join(FLOAT_FLAGS),
     "float-test-flags": " ".join(FAST_MATH_TEST_FLAGS),
     "float-flags-cmake": " ".join(f'"{flag}"' for flag in FLOAT_FLAGS),

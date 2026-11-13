@@ -623,8 +623,8 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
 
 /**
  * @brief A near-opaque balanced stroke saturates every sample's alpha at 1.
- * @details A high-latitude geodesic keeps the default step under 0.8 base
- * steps, so the balanced ratio is the full 1.25 on every sample.
+ * @details A high-latitude geodesic keeps every sample at the full balanced
+ * ratio.
  */
 inline void test_rasterize_balanced_high_alpha_saturates() {
   constexpr int W = 128, H = 64;
