@@ -199,8 +199,8 @@ class ReleaseTests(unittest.TestCase):
                 (Path(fab.OUT) / "phantasm-drc.json").write_text("failed DRC")
                 raise SystemExit("injected gate failure")
             changed = {"source_change": self.project,
-                       "evaluated_change": Path(fab.PROJ),
-                       "snapshot_change": Path(fab.PROJ).parent / "source"}.get(fail)
+                       "evaluated_change": Path(fab.PCB).parent,
+                       "snapshot_change": Path(fab.PCB).parent.parent / "source"}.get(fail)
             if changed is not None:
                 (changed / "phantasm.kicad_pro").write_text(f"edit-{fail}", encoding="utf-8")
             if not validate_only:

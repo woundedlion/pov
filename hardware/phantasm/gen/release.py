@@ -65,7 +65,7 @@ def check_candidate(project):
 
 @contextlib.contextmanager
 def project_context(project, output, revision):
-    values = {"PROJ": str(project), "OUT": str(output), "JLC": str(output / "jlc"),
+    values = {"OUT": str(output), "JLC": str(output / "jlc"),
               "PCB": str(project / f"{PROJECT}.kicad_pcb"),
               "SCH": str(project / f"{PROJECT}.kicad_sch"),
               "PRO": str(project / f"{PROJECT}.kicad_pro")}
