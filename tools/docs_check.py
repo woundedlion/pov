@@ -112,10 +112,10 @@ _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
 # The device playlist: the roster minus HS_PHANTASM_EXCLUDED_EFFECTS.
 PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
+# HS_PHANTASM_EFFECT_LIST spells a row `X(Name, seconds)`.
 _PHANTASM_ROSTER_MACRO = "HS_PHANTASM_EFFECT_LIST"
 # The shader promotion product group lives beside HS_EFFECT_LIST.
 _PRODUCT_GROUP_MACRO = "HS_SHADER_PRODUCT_GROUP"
-# HS_PHANTASM_EFFECT_LIST spells a row `X(Name, seconds)`.
 # The effects reference spells the product group's cardinality in words and
 # tables every composed effect with its preset count.
 _EFFECTS_REFERENCE = "docs/effects.md"

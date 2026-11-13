@@ -929,8 +929,9 @@ private:
   };
 
   // init() takes the palette cycler's generated arena, the external ParamDef
-  // array, one State and qualified parameter names from the persistent arena.
-  // A temporal effect's first draw_frame() clones one palette bake.
+  // array, one State, qualified parameter names and, on device, the full
+  // gamut LUT from the persistent arena. An authored-palette effect's first
+  // draw_frame() bakes one palette; a temporal effect's clones one palette bake.
   static constexpr size_t FOOTPRINT_BYTES =
       (SpecT::CACHE_FULL_GAMUT_LUT
            ? gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)

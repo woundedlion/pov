@@ -49,7 +49,8 @@ struct ShapeShifterParams {
   float sides{};            ///< Polygon or star side count, truncated.
   PhaseFunction function{}; ///< Waveform sampled across the contour radii.
   float amplitude{};        ///< Peak contour rotation, in radians.
-  /// Sweep rate; the waveform phase advances speed / amplitude turns per frame.
+  /// Sweep rate; phase advances speed / amplitude turns per frame, capped at
+  /// half a turn.
   float speed{};
   bool opposite{}; ///< Toggles the rotation sense past the equator.
   AlphaFalloff alpha_falloff{}; ///< Per-contour alpha function.

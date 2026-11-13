@@ -233,10 +233,10 @@ The landed release WASM engine was built and installed into the local daydream s
 The local bundle records `0586276c44359c972d462dd87e4fb3d2e031f4b1-dirty` because the shared checkout retains unrelated spec work. The device captures use the clean source revision above; the installed engine is a local development snapshot.
 
 ```bash
-HS_PROFILE_TREE=/c/work/temp/holosphere-melt-final-20261031 \
+HS_PROFILE_TREE=<tree> \
 HS_TEENSY_PORT=COM4 HS_UPLOAD_BACKEND=headless HS_DEVICE_WAIT=600 \
 HS_PROFILE_OUT=/c/work/Holosphere/build/prof/kaleidoscopemelt_integrated_final_role3_20261031_ship.log \
-bash /c/work/temp/Holosphere-uploader-repair-20261030/tools/profile_one.sh \
+bash tools/profile_one.sh \
   KaleidoscopeMelt profile 130 32 "-D HS_PROFILE_SEGMENT_ID=3"
 ```
 

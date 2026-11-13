@@ -22,7 +22,7 @@ Image size:
 - `RAM1: variables:315296, code:65992, padding:32312   free for local variables:110688`
 - `RAM2: variables:520064  free for malloc/new:4224`
 
-Exactness cross-check: frames 737–768, root 1,199,063,475 cycles ÷ 600 MHz versus measured wall sum 1,998,445 µs agree within **2.9 ppm** (`parse_profile.py ... validate`). Both before/after headers name DisplacementField and the expected configuration, begin at frame 1, and contain 34 complete monotonic windows with no epoch reset. Raw capture mtimes: before `2026-09-19T22:14:55.050687`, after `2026-09-19T22:19:46.075714` (local). Build identity, source status, ELF/map attestations and parser outputs are retained beside the archived logs.
+Exactness cross-check: frames 737–768, root 1,199,063,475 cycles ÷ 600 MHz versus measured wall sum 1,998,445 µs agree within **2.9 ppm** (`parse_profile.py ... validate`). Both before/after headers name DisplacementField and the expected configuration, begin at frame 1, and contain 34 complete monotonic windows with no epoch reset. Raw capture mtimes: before `2026-09-19T22:14:55.050687`, after `2026-09-19T22:19:46.075714` (local). Build identity, source status, ELF/map attestations and parser outputs are no longer retained (supporting artifact removed).
 
 ## Frame cadence
 

@@ -4,7 +4,7 @@ Point-in-time supplemental snapshot of the two authored experimental shell prese
 
 Paired report: [global O3](../O3/profile_hyperlattice_shell_flight_teensy_2026-09-29.md).
 
-Portable raw captures, validation, summaries and build provenance are in the evidence directory (supporting artifact removed).
+Raw captures, validation, summaries and build provenance are no longer retained (supporting artifact removed).
 
 ## Setup
 

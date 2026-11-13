@@ -12,7 +12,7 @@ Raw capture: `C:/work/temp/holosphere-full-sweep-20261105/build/prof/kaleidoscop
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
 | Effect | KaleidoscopeHexOil, 288×144, single-entry playlist, source `e00f48da5cb4dec7b67bd32e5f6179186904f3bb` |
 | Method | 105 s, 16-frame counter windows; stock sweep flags |
-| Reproduce | `HS_PROFILE_TREE=C:/work/temp/Holosphere-20261105-push-sweep HS_TEENSY_PORT=COM4 HS_DEVICE_WAIT=3600 bash tools/profile_one.sh KaleidoscopeHexOil profile 105 16` |
+| Reproduce | `HS_PROFILE_TREE=<tree> HS_TEENSY_PORT=COM4 HS_DEVICE_WAIT=3600 bash tools/profile_one.sh KaleidoscopeHexOil profile 105 16` |
 
 Image size:
 

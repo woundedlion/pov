@@ -4,8 +4,10 @@ Global-O3 capture. Current [shipping report](../shipping/profile_mindsplatter_te
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh MindSplatter profile_o3 110 16`). Raw capture:
 `build/prof/mindsplatter_o3.log`, captured 2026-08-26 07:45 local. This refresh replaces the
 earlier 01:49 capture with the final clean cadence-reclaim image.
-Its `.provenance`, `_envdump.txt`, and `_build.log` sidecars identify the exact
-source, compiler flags, ELF hashes, and image sizes used below.
+Its `.provenance`, `_envdump.txt`, and `_build.log` sidecars are no longer
+retained (supporting artifact removed). The recorded source commit is
+unrecoverable; the exact source, compiler flags and ELF hashes cannot be
+re-established from this report.
 
 ## Setup
 

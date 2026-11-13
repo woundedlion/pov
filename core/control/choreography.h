@@ -49,7 +49,8 @@
  *
  * Optional hook bindings:
  * - `blend_params(progress)`: writes a Lerp's interpolated parameters; the
- *   default interpolates the fields parameter_fields() describes.
+ *   default interpolates the described fields (`PARAMETER_FIELDS`, else
+ *   `Params::FIELDS`).
  * - `set_preset_opacity(value)`: receives a Fade's opacity; required for Fade.
  * - `adopt_params(target)`: installs new parameters; bind it to update state
  *   computed from them.

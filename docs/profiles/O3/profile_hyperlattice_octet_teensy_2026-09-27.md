@@ -142,7 +142,7 @@ No matched host timing is claimed. The original optimization baseline and every 
 - Fixed-preset pinning pauses preset choreography, not camera or palette motion. There is no dwell compression.
 - Results cover the authored preset and recorded camera frames. Other slider values and later camera trajectories may cost more.
 - Normalized-coordinate reassociation changes floating-point rounding slightly; native oracle, symmetry, boundary, grazing-ray and rendering comparisons constrain the differences.
-- Source commits and any working-tree patch are preserved in the harness provenance/artifacts. No unrelated working-tree changes are included.
+- Build flags, source status and any working-tree patch are not retained in the repository (supporting artifact removed).
 
 ## Harness
 

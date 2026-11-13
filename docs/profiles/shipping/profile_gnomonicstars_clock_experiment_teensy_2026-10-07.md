@@ -192,16 +192,16 @@ GnomonicStars is a legitimate case with the most proposed clock work: eight inde
 `targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=GnomonicStars`, `HS_PROFILE_WINDOW=32`. The capture owner used the supported wrapper separately with `HS_PROFILE_TREE` pointing to each clean baseline/candidate worktree and `HS_TEENSY_PORT=COM3`:
 
 ```sh
-bash tools/profile_one.sh GnomonicStars profile 70 32
+HS_PROFILE_TREE=<tree> HS_TEENSY_PORT=COM3 bash tools/profile_one.sh GnomonicStars profile 70 32
 ```
 
 Read-only validation and comparison:
 
 ```sh
 python tools/parse_profile.py <completed-log> validate
-python C:/work/temp/finding4-profile-20261007/analyze.py
-python C:/work/temp/finding4-profile-20261007/compare.py
-python C:/work/temp/finding4-profile-20261007/build_comparison_report.py
+# python C:/work/temp/finding4-profile-20261007/analyze.py (supporting artifact removed)
+# python C:/work/temp/finding4-profile-20261007/compare.py (supporting artifact removed)
+# python C:/work/temp/finding4-profile-20261007/build_comparison_report.py (supporting artifact removed)
 ```
 
 Only completed, successfully validated captures were analyzed. This supplement preserves the historical float-clock baseline and bounded-clock prototype at their recorded source snapshots. The [current canonical report](profile_gnomonicstars_teensy_2026-11-05.md) measures the production bounded channel phases.
