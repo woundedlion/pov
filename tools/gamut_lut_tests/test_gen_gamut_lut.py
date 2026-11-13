@@ -57,18 +57,18 @@ class TestGamutLutMirrors(unittest.TestCase):
                   "  return x &&;\n"
                   "}\n")
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "3dmath.h"
+            path = Path(directory) / "fast_math.h"
             path.write_text(source, encoding="utf-8")
             error = io.StringIO()
             with contextlib.redirect_stderr(error):
                 result = generator.check_diamond_angle_mirror(path)
         self.assertFalse(result)
-        self.assertIn("could not parse 3dmath.h diamond_angle()", error.getvalue())
+        self.assertIn("could not parse fast_math.h diamond_angle()", error.getvalue())
         self.assertIn("re-derive the mirror", error.getvalue())
 
     def test_refinement_slack_and_matrix_contract_mutations_are_rejected(self):
         color_path = ROOT / "core/color/color_space.h"
-        math_path = ROOT / "core/math/3dmath.h"
+        math_path = ROOT / "core/math/fast_math.h"
         source = color_path.read_text(encoding="utf-8")
         mutations = (
             (r"(GAMUT_SCAN_STEPS\s*=\s*)4", r"\g<1>5", "GAMUT_SCAN_STEPS differs"),
@@ -93,7 +93,7 @@ class TestGamutLutMirrors(unittest.TestCase):
                     self.assertIn(diagnostic, errors.getvalue())
 
     def test_parseable_angle_semantic_drift_is_rejected(self):
-        original = ROOT / "core/math/3dmath.h"
+        original = ROOT / "core/math/fast_math.h"
         source = original.read_text(encoding="utf-8")
         self.assertTrue(generator.check_diamond_angle_mirror(original))
         changed, count = re.subn(r"(\bfloat\s+diamond_angle\([^)]*\)\s*\{)",
@@ -105,7 +105,7 @@ class TestGamutLutMirrors(unittest.TestCase):
         self.assertEqual(count, 1)
         legacy = legacy.replace("__builtin_fabsf", "std::fabs")
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "3dmath.h"
+            path = Path(directory) / "fast_math.h"
             path.write_text(legacy, encoding="utf-8")
             self.assertTrue(generator.check_diamond_angle_mirror(path))
             path.write_text(changed, encoding="utf-8")
@@ -135,7 +135,7 @@ class TestGamutLutMirrors(unittest.TestCase):
             ("4.0767416621f, -3.3077115913f",
              "-3.3077115913f, 4.0767416621f"),
         )
-        math_h = ROOT / "core" / "math" / "3dmath.h"
+        math_h = ROOT / "core" / "math" / "fast_math.h"
         self.assertTrue(generator.check_mirrors(
             ROOT / "core" / "color" / "color_space.h", math_h))
         for original, replacement in mutations:

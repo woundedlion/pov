@@ -1,6 +1,6 @@
 # Run tools/gen_gamut_lut.py --check: pins the OKLab matrices and gamut slack
 # mirrored in the generator against core/color/color_space.h and its diamond angle
-# against core/math/3dmath.h, then regenerates the table and diffs it against
+# against core/math/fast_math.h, then regenerates the table and diffs it against
 # the committed core/color/gamut_lut.h in full.
 # Skips with SKIP_CODE when numpy is unavailable, or fails under
 # REQUIRE_GENERATORS.
@@ -27,7 +27,7 @@ if(CACHE_FILE AND NOT REQUIRE_GENERATORS)
   get_filename_component(_tools "${GENERATOR}" DIRECTORY)
   get_filename_component(_root "${_tools}" DIRECTORY)
   set(_inputs "${GENERATOR}" "${CMAKE_CURRENT_LIST_FILE}"
-      "${_root}/core/color/color_space.h" "${_root}/core/math/3dmath.h"
+      "${_root}/core/color/color_space.h" "${_root}/core/math/fast_math.h"
       "${_root}/core/color/gamut_lut.h")
   set(_signature "${PYTHON_EXE};${_runtime};${CMAKE_HOST_SYSTEM}")
   foreach(_input IN LISTS _inputs)

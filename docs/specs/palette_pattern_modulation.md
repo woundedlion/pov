@@ -211,7 +211,7 @@ is internal acceleration, not a user-facing 2D palette.
 ScalarCoordinate and Position3D bindings remain future work. For SphereDirection,
 the boundary admits vectors whose computed
 float squared length is finite and at least `math::EPS_NORMALIZE_SQ` (currently
-1e-12), matching [Vector normalization](../../core/math/3dmath.h). Explicitly
+1e-12), matching [Vector normalization](../../core/math/vector.h). Explicitly
 check finiteness before normalization; the existing lower-bound check alone
 does not reject infinity. Apply this admission to directions and source axes.
 Construct the unit SphereDirection tag only at this validated boundary.

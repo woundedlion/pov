@@ -100,7 +100,7 @@ def diamond_direction(t):
 
 
 def diamond_angle(y, x):
-    """Diamond pseudo-angle of (x, y) in [0, 4); mirrors 3dmath.h
+    """Diamond pseudo-angle of (x, y) in [0, 4); mirrors fast_math.h
     diamond_angle(), the parameterization the runtime cell lookup indexes by."""
     d = np.abs(x) + np.abs(y)
     r = y / np.where(d < 1e-20, 1.0, d)
@@ -435,12 +435,12 @@ def check_angle_roundtrip():
         return True
     sys.stderr.write("diamond_direction() no longer inverts diamond_angle()"
                      " (worst error %g)\n  re-derive both from"
-                     " core/math/3dmath.h\n" % err)
+                     " core/math/fast_math.h\n" % err)
     return False
 
 
 def check_diamond_angle_mirror(math_h_path):
-    """Diffs the mirrored diamond angle against 3dmath.h's, parsed to a callable."""
+    """Diffs the mirrored diamond angle against fast_math.h's, parsed to a callable."""
     with open(math_h_path, "r", encoding="utf-8") as f:
         text = f.read()
     try:
@@ -459,7 +459,7 @@ def check_diamond_angle_mirror(math_h_path):
         cpp = _cpp_float_fn(_function_body(text, sig.group(0)),
                             params, constants=constants)
     except ValueError as exc:
-        sys.stderr.write("could not parse 3dmath.h diamond_angle(): %s\n"
+        sys.stderr.write("could not parse fast_math.h diamond_angle(): %s\n"
                          "  re-derive the mirror above from that definition\n"
                          % exc)
         return False
@@ -476,14 +476,14 @@ def check_diamond_angle_mirror(math_h_path):
               for xi, yi, mi in zip(x, y, mirror))
     if err <= 1e-12:
         return True
-    sys.stderr.write("diamond_angle() mirror drift against 3dmath.h"
+    sys.stderr.write("diamond_angle() mirror drift against fast_math.h"
                      " (worst error %g)\n" % err)
     return False
 
 
 def check_mirrors(color_h_path, math_h_path):
     """Diffs the mirrored OKLab matrices and gamut epsilon against color_space.h, and
-    the mirrored diamond angle against 3dmath.h."""
+    the mirrored diamond angle against fast_math.h."""
     with open(color_h_path, "r", encoding="utf-8") as f:
         text = f.read()
 
@@ -592,11 +592,11 @@ def main():
     parser.add_argument(
         "--check", action="store_true",
         help="diff a fresh table against the header and pin the mirrored"
-             " constants against color_space.h and 3dmath.h instead of writing")
+             " constants against color_space.h and fast_math.h instead of writing")
     args = parser.parse_args()
 
     color_h = os.path.join(root, "core", "color", "color_space.h")
-    math_h = os.path.join(root, "core", "math", "3dmath.h")
+    math_h = os.path.join(root, "core", "math", "fast_math.h")
 
     if args.check:
         ok = check_angle_roundtrip()

@@ -534,7 +534,7 @@ add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
 
 # Pin core/color/gamut_lut.h against its generator, the generator's copies of the
 # OKLab matrices and the gamut slack against core/color/color_space.h, and its
-# diamond angle against core/math/3dmath.h.
+# diamond angle against core/math/fast_math.h.
 add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${Python3_EXECUTABLE}
     -DGENERATOR=${HS_ROOT}/tools/gen_gamut_lut.py

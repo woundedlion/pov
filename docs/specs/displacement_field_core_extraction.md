@@ -46,7 +46,7 @@ of it depends on noise or falling balls:
   change over a frame. `mark_boundary` reads `SDF::DistortedRing` internals
   (`POLE_SIN2_FLOOR`, `search_reach_cells`).
 - **Duplicates of core helpers.** `knot_fraction` (`:367`) repeats
-  `math::half_turns` (`core/math/3dmath.h` (baseline lines 498)). `prepare_sweep`'s step angle
+  `math::half_turns` (`core/math/fast_math.h`). `prepare_sweep`'s step angle
   (`:532-540`) repeats `Spacetime::history_turn`
   (`core/render/spacetime/pose_table.h` (baseline lines 129-131)).
 - **A core field with no core consumer for its endpoint state.** `BumpParams`

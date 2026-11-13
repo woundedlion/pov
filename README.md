@@ -1368,7 +1368,13 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── memory.h / memory.cpp       Arena and container umbrella, storage and reset definitions
 │   ├── memory/                    Arena, vector, span, scratch, persistence, and generation sections
 │   ├── math/                   Vector/quaternion math and scalar curves
-│   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex primitives, fast-math approximations, value noise, Snorm3
+│   │   ├── 3dmath.h                   Umbrella for 3D math primitives and kernels
+│   │   ├── scalar_noise.h             Scalar constants, interpolation kernels, and value noise
+│   │   ├── vector.h                   Cartesian and spherical vectors with Snorm3 direction packing
+│   │   ├── fast_math.h                Scalar approximations and Cartesian-to-spherical conversion
+│   │   ├── quaternion_complex.h       Quaternion and complex number types
+│   │   ├── rotation_math.h            Vector and quaternion arithmetic and rotation construction
+│   │   ├── rotation_interpolation.h   Trigonometric kernels and spherical rotation interpolation
 │   │   ├── 4dmath.h                Vec4 / Mat4 four-dimensional primitives + coordinate-plane rotation
 │   │   ├── rotate.h                Angle wrapping helpers and canvas-pixel → sphere Projection
 │   │   ├── geometry.h              Umbrella for periodic math, pixel mapping, and spherical helpers

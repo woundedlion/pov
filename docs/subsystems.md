@@ -1296,7 +1296,7 @@ Color modifiers (`shade(Color4, float) -> Color4`):
 | `IridescentShade` | Adds a thin-film cosine sheen with per-channel phase offsets, saturating at white |
 
 The noise-driven modifiers sample the deterministic `value_noise_1d`/`value_noise_2d`
-hash lattice (`3dmath.h`) with a per-instance seed, so two modifiers on the same
+hash lattice (`core/math/scalar_noise.h`) with a per-instance seed, so two modifiers on the same
 driver decorrelate by seed. Frame-constant work memoizes against the driver
 value (`HueSpinShade`'s rotation matrix, `ChromaPulseShade`'s pulse factor,
 `DriftModifier`'s walk offset). The OKLab shades still pay a per-sample
@@ -1875,7 +1875,7 @@ plot, scan, and pullback paths. They do not own a canvas or effect lifecycle.
 
 | Headers | Surface |
 |---|---|
-| `core/math/3dmath.h`, `core/math/4dmath.h` | Vectors, matrices, complex arithmetic, fast scalar approximations, and four-dimensional rotations. |
+| `core/math/3dmath.h`, `core/math/4dmath.h` | Umbrella for 3D math parts, plus four-dimensional vectors, matrices, and rotations. |
 | `core/math/geometry.h` | Umbrella for periodic, pixel-mapping, and spherical helpers. |
 | `core/math/periodic.h` | Periodic coordinates and index wrapping. |
 | `core/math/pixel_mapping.h` | Sphere/pixel coordinates using the calibrated LED-center latitude profile. |
