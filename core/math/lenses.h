@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <utility>
 
 #include "core/platform/platform.h"
@@ -549,6 +550,74 @@ constexpr auto make_face(std::index_sequence<Rows...>) {
 template <int Face> constexpr auto make_face() {
   return make_face<Face>(std::make_index_sequence<FACE_STEPS>{});
 }
+/** @brief Consecutive identical classifier cells. */
+struct ClassifierRun {
+  uint8_t count; ///< Cells covered by the run.
+  uint8_t value; ///< Reflection-group index.
+};
+static_assert(sizeof(ClassifierRun) == 2);
+
+/** @brief Encodes one cube-face classifier as bounded runs.
+ * @tparam Face Cube-face index.
+ * @return Consecutive row-major cell runs. */
+template <int Face> constexpr auto make_face_runs() {
+  constexpr auto CELLS = make_face<Face>();
+  constexpr size_t COUNT = [] {
+    const auto cells = make_face<Face>();
+    size_t count = 0;
+    uint8_t value = 255;
+    int length = 0;
+    for (uint8_t cell : cells) {
+      if (length == 0 || value != cell || length == 255) {
+        ++count;
+        value = cell;
+        length = 0;
+      }
+      ++length;
+    }
+    return count;
+  }();
+  std::array<ClassifierRun, COUNT> result{};
+  size_t count = 0;
+  for (uint8_t cell : CELLS) {
+    if (count == 0 || result[count - 1].value != cell ||
+        result[count - 1].count == 255)
+      result[count++] = {1, cell};
+    else
+      ++result[count - 1].count;
+  }
+  return result;
+}
+
+/** @brief Encoded classifiers in cube-face orientation order. */
+extern const std::array<std::span<const ClassifierRun>, 6> CLASSIFIER_RUNS;
+
+/** @brief Expands exact face-major classifiers into caller-owned storage.
+ * @param destination All cube-face classifiers in orientation order. */
+HS_SIZE_FLASH_MEMBER inline void
+unpack_faces(std::span<uint8_t, 6 * FACE_STEPS * FACE_STEPS> destination) {
+  size_t offset = 0;
+  for (const auto runs : CLASSIFIER_RUNS)
+    for (const auto run : runs) {
+      std::fill_n(destination.data() + offset, run.count, run.value);
+      offset += run.count;
+    }
+}
+
+/** @brief Reads one classifier from its encoded flash map.
+ * @param face Cube-face index in [0, 6).
+ * @param cell Row-major cell index within the face.
+ * @return Reflection-group index. */
+HS_SIZE_FLASH_MEMBER inline uint8_t face_classifier(int face, size_t cell) {
+  for (const auto run : CLASSIFIER_RUNS[face]) {
+    if (cell < run.count)
+      return run.value;
+    cell -= run.count;
+  }
+  return 255;
+}
+
+#ifndef ARDUINO
 /** @brief Classifier map on the +X cube face. */
 extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_0;
 /** @brief Classifier map on the -X cube face. */
@@ -563,6 +632,7 @@ extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_4;
 extern const std::array<uint8_t, FACE_STEPS * FACE_STEPS> FACE_5;
 /** @brief Classifier maps in cube-face orientation order. */
 extern const std::array<const uint8_t *, 6> FACES;
+#endif
 } // namespace DodecahedralTable
 
 /** @brief Attempts a chamber-validated reflection matrix from a coarse cube cell.
@@ -602,8 +672,13 @@ try_dodecahedral_table(const math::Vector &input, math::Vector &result,
       std::min(static_cast<int>((u * inverse + 1.0f) * (0.5f * N)), N - 1);
   const int y =
       std::min(static_cast<int>((v * inverse + 1.0f) * (0.5f * N)), N - 1);
-  const uint8_t index = faces ? faces[face * N * N + y * N + x]
-                              : DodecahedralTable::FACES[face][y * N + x];
+  const uint8_t index =
+      faces ? faces[face * N * N + y * N + x]
+#ifdef ARDUINO
+            : DodecahedralTable::face_classifier(face, y * N + x);
+#else
+            : DodecahedralTable::FACES[face][y * N + x];
+#endif
   if (index >= DodecahedralTable::GROUP.count)
     return false;
   const auto &m = matrices[index];

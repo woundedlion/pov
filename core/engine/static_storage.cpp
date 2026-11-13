@@ -17,6 +17,27 @@
  */
 
 namespace lenses::DodecahedralTable {
+namespace {
+/** @brief Run-encoded classifier maps. */
+constinit const auto FACE_RUNS_0 HS_PROGMEM_UNIQUE(dodecahedral_fold_runs0) =
+    make_face_runs<0>();
+constinit const auto FACE_RUNS_1 HS_PROGMEM_UNIQUE(dodecahedral_fold_runs1) =
+    make_face_runs<1>();
+constinit const auto FACE_RUNS_2 HS_PROGMEM_UNIQUE(dodecahedral_fold_runs2) =
+    make_face_runs<2>();
+constinit const auto FACE_RUNS_3 HS_PROGMEM_UNIQUE(dodecahedral_fold_runs3) =
+    make_face_runs<3>();
+constinit const auto FACE_RUNS_4 HS_PROGMEM_UNIQUE(dodecahedral_fold_runs4) =
+    make_face_runs<4>();
+constinit const auto FACE_RUNS_5 HS_PROGMEM_UNIQUE(dodecahedral_fold_runs5) =
+    make_face_runs<5>();
+} // namespace
+constinit const std::array<std::span<const ClassifierRun>, 6>
+    CLASSIFIER_RUNS HS_PROGMEM_UNIQUE(dodecahedral_fold_runs) = {
+        FACE_RUNS_0, FACE_RUNS_1, FACE_RUNS_2,
+        FACE_RUNS_3, FACE_RUNS_4, FACE_RUNS_5};
+
+#ifndef ARDUINO
 constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
     FACE_0 HS_PROGMEM_UNIQUE(dodecahedral_fold_face0) = make_face<0>();
 constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
@@ -32,6 +53,7 @@ constinit const std::array<uint8_t, FACE_STEPS * FACE_STEPS>
 constinit const std::array<const uint8_t *, 6> FACES HS_PROGMEM_UNIQUE(
     dodecahedral_fold_faces) = {FACE_0.data(), FACE_1.data(), FACE_2.data(),
                                 FACE_3.data(), FACE_4.data(), FACE_5.data()};
+#endif
 } // namespace lenses::DodecahedralTable
 
 /** @brief NOLOAD DMAMEM storage; Timeline clears every slot at runtime. */

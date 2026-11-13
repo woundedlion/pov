@@ -223,14 +223,8 @@ public:
       std::memcpy(state->dodecahedral_matrices.data(),
                   lenses::DodecahedralTable::GROUP.values.data(),
                   sizeof(state->dodecahedral_matrices));
-    if constexpr (SpecT::CACHE_DODECAHEDRAL_FACES) {
-      constexpr size_t FACE_SIZE = lenses::DodecahedralTable::FACE_STEPS *
-                                   lenses::DodecahedralTable::FACE_STEPS;
-      for (size_t face = 0; face < lenses::DodecahedralTable::FACES.size();
-           ++face)
-        std::memcpy(state->dodecahedral_faces.data() + face * FACE_SIZE,
-                    lenses::DodecahedralTable::FACES[face], FACE_SIZE);
-    }
+    if constexpr (SpecT::CACHE_DODECAHEDRAL_FACES)
+      lenses::DodecahedralTable::unpack_faces(state->dodecahedral_faces);
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);

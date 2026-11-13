@@ -1227,10 +1227,12 @@ optional owner is included in the existing persistent-footprint budget; the
 parameter schema and global arena size are unchanged.
 `CACHE_DODECAHEDRAL_FACES` also retains the face-major 64-by-64 classifier maps
 (24,576 exact bytes). Frames borrow that immutable array through
-`dodecahedral_faces`, with the same history lifetime as the matrices. Null face
-views use the flash classifiers; the original flash entry points remain
-available. AshCloud's compact RGB midpoint owner frees 49,152 bytes before both
-lookup copies are enabled. Neither lookup copy introduces a new approximation.
+`dodecahedral_faces`, with the same history lifetime as the matrices. Device
+flash stores run-encoded classifiers, expanded into the existing cache during
+initialization. Null face views read the encoded flash maps on device; host
+builds retain the raw classifier arrays. AshCloud's compact RGB midpoint owner
+frees 49,152 bytes before both lookup copies are enabled. Neither lookup copy
+introduces a new approximation.
 
 The feedback flush's colour path (`hue_fade_apply`, `hue_fade_apply2`) does not walk the bracket: `lms_cbrt_transform_rgb_lut` (two pixels at a time in `lms_cbrt_transform_rgb2_lut`) rescales an out-of-gamut pixel's chroma straight onto the armed grid's cell minimum through `lms_cbrt_scale_to_gamut_lut`, so a clipped trail pixel costs one grid read. The sampled cell minimum has no certified deficit bound against the exact boundary. The feedback loop re-clips every bright trail pixel each frame, which is where the per-pixel walk was spent.
 

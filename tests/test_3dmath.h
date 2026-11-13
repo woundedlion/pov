@@ -2060,6 +2060,9 @@ inline void test_dodecahedral_group_generation() {
 inline void test_dodecahedral_classifier_generation() {
   namespace table = lenses::DodecahedralTable;
   constexpr int N = table::FACE_STEPS;
+  std::array<uint8_t, 6 * N * N> unpacked;
+  unpacked.fill(255);
+  table::unpack_faces(unpacked);
   for (int face = 0; face < 6; ++face)
     for (int y = 0; y < N; ++y) {
       const auto row = table::make_row(face, y);
@@ -2075,6 +2078,8 @@ inline void test_dodecahedral_classifier_generation() {
             input, lenses::DODECAHEDRAL_MIRRORS);
         HS_EXPECT_LT(row[x], table::GROUP.count);
         HS_EXPECT_EQ(row[x], table::FACES[face][y * N + x]);
+        HS_EXPECT_EQ(unpacked[face * N * N + y * N + x], row[x]);
+        HS_EXPECT_EQ(table::face_classifier(face, y * N + x), row[x]);
         if (row[x] < table::GROUP.count) {
           const auto &matrix = table::GROUP.values[row[x]];
           const math::Vector actual = dodecahedral_apply(matrix, input);
