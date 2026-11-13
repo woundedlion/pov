@@ -58,7 +58,7 @@ struct HopfWhiteBox {
       fx.render_trails(canvas);
     }
     fx.advance_display();
-    return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
+    return capture_mean_channel<DEFAULT_W, DEFAULT_H>(fx);
   }
 
   static size_t fiber_count() { return HF::ACTUAL_FIBERS; }

@@ -132,7 +132,7 @@ struct RingTemporalOracle {
    * @return Row-major luminance. */
   template <typename FX> static std::vector<float> pixels(FX &effect) {
     effect.advance_display();
-    return capture_luminance<DEFAULT_W, DEFAULT_H>(effect);
+    return capture_mean_channel<DEFAULT_W, DEFAULT_H>(effect);
   }
 
   /** @brief Compares full and segmented draws with frozen columns.

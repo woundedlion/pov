@@ -826,8 +826,13 @@ inline void test_mindsplatter_temporal_trail_oracle() {
   for (const float spacing : {1.0f, 6.0f}) {
     HS_CONTEXT("spacing", static_cast<int>(spacing));
     uint32_t setups = 0;
-    WB::render_temporal_trails(true, 1.0f, 0.0f, 0.012f, 0.03f, spacing,
-                               &setups);
+    WB::render_temporal_trails({.timed = true,
+                                .fraction = 1.0f,
+                                .displacement = 0.0f,
+                                .turn = 0.012f,
+                                .shift = 0.03f,
+                                .spacing = spacing,
+                                .setups = &setups});
     if (spacing == 1.0f)
       HS_EXPECT_EQ(setups, 0u);
     else
@@ -839,8 +844,12 @@ inline void test_mindsplatter_temporal_trail_oracle() {
         hs_test::seam_compare_render<288, 144>(
             [turn, shift, spacing](bool timed, float fraction,
                                    float displacement) {
-              return WB::render_temporal_trails(timed, fraction, displacement,
-                                                turn, shift, spacing);
+              return WB::render_temporal_trails({.timed = timed,
+                                                 .fraction = fraction,
+                                                 .displacement = displacement,
+                                                 .turn = turn,
+                                                 .shift = shift,
+                                                 .spacing = spacing});
             },
             "MindSplatter trails");
       }

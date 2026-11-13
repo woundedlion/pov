@@ -46,14 +46,19 @@ inline void test_timed_tiles_match_full_frame() {
     HS_CONTEXT("preset", static_cast<int>(i + 1));
     OracleState state = preset_state(i);
     const float step = preset_phase_step(i);
-    const auto full = render_timed_contours(state, step, true, 1.0f, 0.0f);
+    const auto full = render_timed_contours(
+        state,
+        {.step = step, .timed = true, .fraction = 1.0f, .displacement = 0.0f});
     double energy = 0;
     for (float luminance : full)
       energy += luminance;
     HS_EXPECT_GT(energy, 0.0);
     for (const auto &clip : QUADRANTS) {
       state.clip = clip;
-      const auto tile = render_timed_contours(state, step, true, 1.0f, 0.0f);
+      const auto tile = render_timed_contours(state, {.step = step,
+                                                      .timed = true,
+                                                      .fraction = 1.0f,
+                                                      .displacement = 0.0f});
       for (int y = clip.y0; y < clip.y1; ++y)
         for (int x = clip.x0; x < clip.x1; ++x)
           HS_EXPECT_NEAR(tile[y * ORACLE_W + x], full[y * ORACLE_W + x], 1e-5f);

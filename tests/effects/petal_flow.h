@@ -74,7 +74,7 @@ struct PetalFlowWhiteBox {
       }
     }
     fx.advance_display();
-    return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
+    return capture_mean_channel<DEFAULT_W, DEFAULT_H>(fx);
   }
   static float gap(const PF &pf) { return pf.gap_accumulator; }
   static float start_rho() { return PF::START_RHO; }

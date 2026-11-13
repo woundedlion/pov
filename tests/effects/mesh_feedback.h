@@ -73,7 +73,7 @@ struct MeshFeedbackWhiteBox {
     fx.advance_display();
     if (pixels)
       capture_frame<DEFAULT_W, DEFAULT_H>(fx, *pixels);
-    return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
+    return capture_mean_channel<DEFAULT_W, DEFAULT_H>(fx);
   }
 
   static const Feedback::Style &style(const MF &fx) { return fx.params.style; }

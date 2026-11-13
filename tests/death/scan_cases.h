@@ -55,9 +55,19 @@ inline void build_death_triangle(MeshState &mesh, Arena &arena) {
     mesh.faces.push_back(index);
 }
 
-/** @brief Selects a valid mesh before rejecting malformed face data. */
-inline void scan_selector_index_fixture(bool visibility, uint16_t bad_index,
-                                        bool omit_offsets = false) {
+/** @brief Controls the scan selector and malformed face data. */
+struct ScanSelectorIndexOptions {
+  bool visibility = false; ///< Selects visibility instead of moving faces.
+  uint16_t bad_index = 0;  ///< Invalid face vertex index.
+  bool omit_offsets =
+      false; ///< Removes face offsets instead of corrupting an index.
+};
+
+/** @brief Selects a valid mesh before rejecting malformed face data.
+ * @param options Selector and malformed face data controls. */
+inline void
+scan_selector_index_fixture(const ScanSelectorIndexOptions &options) {
+  const auto &[visibility, bad_index, omit_offsets] = options;
   constexpr int W = 32, H = 16;
   uint8_t geometry_storage[1024], frame_storage[4096];
   Arena geometry(geometry_storage, sizeof(geometry_storage));
@@ -225,12 +235,14 @@ inline void case_scan_mesh_missing_offsets() {
 
 /** @brief Visibility selection rejects a mesh without face offsets. */
 inline void case_scan_visibility_missing_offsets() {
-  scan_selector_index_fixture(true, 2, true);
+  scan_selector_index_fixture(
+      {.visibility = true, .bad_index = 2, .omit_offsets = true});
 }
 
 /** @brief Moving-face selection rejects a mesh without face offsets. */
 inline void case_scan_moving_missing_offsets() {
-  scan_selector_index_fixture(false, 2, true);
+  scan_selector_index_fixture(
+      {.visibility = false, .bad_index = 2, .omit_offsets = true});
 }
 
 /** @brief Death case: a face index past the vertex pool must trap. */
@@ -240,22 +252,22 @@ inline void case_scan_mesh_face_index_out_of_range() {
 
 /** @brief Visibility selection rejects an index just past the vertex pool. */
 inline void case_scan_visibility_face_index_out_of_range() {
-  scan_selector_index_fixture(true, 3);
+  scan_selector_index_fixture({.visibility = true, .bad_index = 3});
 }
 
 /** @brief Visibility selection rejects the largest face index. */
 inline void case_scan_visibility_face_index_max() {
-  scan_selector_index_fixture(true, UINT16_MAX);
+  scan_selector_index_fixture({.visibility = true, .bad_index = UINT16_MAX});
 }
 
 /** @brief Moving-face selection rejects an index just past the vertex pool. */
 inline void case_scan_moving_face_index_out_of_range() {
-  scan_selector_index_fixture(false, 3);
+  scan_selector_index_fixture({.visibility = false, .bad_index = 3});
 }
 
 /** @brief Moving-face selection rejects the largest face index. */
 inline void case_scan_moving_face_index_max() {
-  scan_selector_index_fixture(false, UINT16_MAX);
+  scan_selector_index_fixture({.visibility = false, .bad_index = UINT16_MAX});
 }
 
 /**

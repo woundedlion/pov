@@ -25,19 +25,24 @@ struct DreamBallsWhiteBox {
     return effect.pose_history.initialized;
   }
   static void spawn(DB &effect) { effect.spawn_sprite(); }
+  /** @brief Controls a timed or frozen DreamBalls scene. */
+  struct TemporalSceneRenderOptions {
+    bool timed = true;            ///< Selects the production callback draw.
+    float fraction = 1.0f;        ///< Frozen frame fraction.
+    float displacement = 0.0f;    ///< Reference row displacement.
+    bool woven = false;           ///< Selects transported weave framing.
+    bool newborn = false;         ///< Selects the first visible sprite fade.
+    bool frozen_geometry = false; ///< Holds geometry and opacity constant.
+    float spin = 0.012f;          ///< Pose rotation over the frame, radians.
+  };
+
   /** @brief Renders an orbiting source or its independently frozen endpoint.
-   * @param timed Selects the production callback draw.
-   * @param fraction Frozen frame fraction.
-   * @param displacement Reference row displacement.
-   * @param woven Selects transported weave framing.
-   * @param newborn Selects the first visible sprite fade.
-   * @param frozen_geometry Holds geometry and opacity constant.
-   * @param spin Pose rotation over the frame, radians.
-   * @return Linear framebuffer luminance. */
+   * @param options Scene and frozen-reference controls.
+   * @return Row-major normalized mean RGB channels. */
   static std::vector<float>
-  render_temporal_scene(bool timed, float fraction, float displacement,
-                        bool woven, bool newborn = false,
-                        bool frozen_geometry = false, float spin = 0.012f) {
+  render_temporal_scene(const TemporalSceneRenderOptions &options) {
+    const auto &[timed, fraction, displacement, woven, newborn, frozen_geometry,
+                 spin] = options;
     using FX = DreamBalls<DEFAULT_W, DEFAULT_H>;
     reset_globals();
     FX fx;
@@ -134,7 +139,7 @@ struct DreamBallsWhiteBox {
       }
     }
     fx.advance_display();
-    return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
+    return capture_mean_channel<DEFAULT_W, DEFAULT_H>(fx);
   }
 
   /** @brief Bhaskara orbit captures satisfy their displacement and chord bounds. */
@@ -705,7 +710,13 @@ inline void test_dreamballs_temporal_source_oracle() {
     auto render = [woven, newborn, spin](bool timed, float fraction,
                                          float displacement) {
       return DreamBallsWhiteBox::render_temporal_scene(
-          timed, fraction, displacement, woven, newborn, false, spin);
+          {.timed = timed,
+           .fraction = fraction,
+           .displacement = displacement,
+           .woven = woven,
+           .newborn = newborn,
+           .frozen_geometry = false,
+           .spin = spin});
     };
     hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(
         render,
@@ -724,7 +735,12 @@ inline void test_dreamballs_column_work_is_bounded() {
     for (bool stationary : {false, true}) {
       Spacetime::geometry_counters = {};
       const auto pixels = DreamBallsWhiteBox::render_temporal_scene(
-          true, 1.0f, 0.0f, woven, false, stationary);
+          {.timed = true,
+           .fraction = 1.0f,
+           .displacement = 0.0f,
+           .woven = woven,
+           .newborn = false,
+           .frozen_geometry = stationary});
       float energy = 0.0f;
       for (float value : pixels) {
         HS_EXPECT(std::isfinite(value), "frame luminance is finite");
@@ -738,8 +754,13 @@ inline void test_dreamballs_column_work_is_bounded() {
       HS_EXPECT_LT(counts.column_boundary_samples * 8, counts.column_samples);
     }
   Spacetime::geometry_counters = {};
-  DreamBallsWhiteBox::render_temporal_scene(true, 1.0f, 0.0f, true, false,
-                                            false, FAST_SPIN);
+  DreamBallsWhiteBox::render_temporal_scene({.timed = true,
+                                             .fraction = 1.0f,
+                                             .displacement = 0.0f,
+                                             .woven = true,
+                                             .newborn = false,
+                                             .frozen_geometry = false,
+                                             .spin = FAST_SPIN});
   const auto &spun = Spacetime::geometry_counters;
   HS_EXPECT_GT(spun.column_path_evaluations, 0u);
   HS_EXPECT_GT(spun.endpoint_evaluations, 0u);

@@ -181,7 +181,7 @@ struct MobiusRingsWhiteBox {
         }
     }
     fx.advance_display();
-    return capture_luminance<W, H>(fx);
+    return capture_mean_channel<W, H>(fx);
   }
 
   /** @brief Warps, pole fades and colour follow both arm cuts in both directions. */

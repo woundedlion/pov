@@ -49,28 +49,24 @@ struct MindSplatterWhiteBox {
     return effect.warp_history.start(end);
   }
 
+  /** @brief Controls a frozen or column-timed trail render. */
+  struct TemporalTrailRenderOptions {
+    bool timed = true;          ///< Uses the production temporal draw.
+    float fraction = 1.0f;      ///< Frozen frame fraction.
+    float displacement = 0.0f;  ///< Frozen-reference offset in pixels.
+    float turn = 0.0f;          ///< Head turn over the frame, radians.
+    float shift = 0.0f;         ///< Warp translation over the frame.
+    float spacing = 1.0f;       ///< Columns between trail anchors.
+    uint32_t *setups = nullptr; ///< Receives column setup count.
+  };
+
   /** @brief Renders production column trails or their frozen geometry.
-   * @param timed Uses the production temporal draw.
-   * @param fraction Frozen frame fraction.
-   * @param displacement Vertical frozen-reference offset in pixels.
-   * @param turn Each head's turn over the frame, radians.
-   * @param shift Warp translation change over the frame.
-   * @param spacing Columns between a trail's anchors.
-   * @param setups Receives the production draw's column setups, when given.
-   * @return Row-major linear luminance.
-   * @details Four particles on the equator carry full trails under a moving
-   * warp and orientation. The frozen reference draws each trail through the
-   * column walk without motion: anchors under the warp at @p fraction, the
-   * head turned back by the rest of its step, under the pose at @p fraction.
-   * Anchors a column apart are steady single samples, which the point route
-   * plots to its own tolerance, so their displaced reference also moves a
-   * column's @p displacement along the rows.
-   */
-  static std::vector<float> render_temporal_trails(bool timed, float fraction,
-                                                   float displacement,
-                                                   float turn, float shift,
-                                                   float spacing,
-                                                   uint32_t *setups = nullptr) {
+   * @param options Trail motion and frozen-reference controls.
+   * @return Row-major normalized mean RGB channels. */
+  static std::vector<float>
+  render_temporal_trails(const TemporalTrailRenderOptions &options) {
+    const auto &[timed, fraction, displacement, turn, shift, spacing, setups] =
+        options;
     reset_globals();
     MS fx;
     fx.init();
@@ -165,7 +161,7 @@ struct MindSplatterWhiteBox {
       }
     }
     fx.advance_display();
-    return capture_luminance<288, 144>(fx);
+    return capture_mean_channel<288, 144>(fx);
   }
 
   static constexpr uint32_t REPLAY_MAGIC = 0x3152534du;

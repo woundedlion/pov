@@ -142,7 +142,7 @@ inline std::vector<float> surface_kernel_motion(const SurfaceMotionCase &pose,
     }
     if (timed || fraction == 1) {
       effect.advance_display();
-      out = capture_luminance<ORACLE_W, ORACLE_H>(effect);
+      out = capture_mean_channel<ORACLE_W, ORACLE_H>(effect);
     }
   }
   Timeline().clear();

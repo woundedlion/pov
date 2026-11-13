@@ -125,7 +125,7 @@ struct FishbowlWhiteBox {
       }
     }
     fx.advance_display();
-    return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
+    return capture_mean_channel<DEFAULT_W, DEFAULT_H>(fx);
   }
 
   using EffectType = Fishbowl<SMALL_W, SMALL_H>;

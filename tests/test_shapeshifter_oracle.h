@@ -1211,27 +1211,23 @@ inline void test_count_slider_matches_draw_limit() {
   Timeline().clear();
 }
 
-/** @brief Renders a timed contour stack or its frozen frame.
- * @param state Shape, count, sides and amplitude.
- * @param step Waveform phase advance over the frame, turns.
- * @param timed Uses the production temporal draw.
- * @param fraction Frozen frame fraction.
- * @param displacement Frozen-reference shift in rows and columns.
- * @param walked Receives the production draw's column-walk setups, when
- * given.
- * @return Row-major linear luminance.
- * @details The orientation turns about a tilted axis over the frame and the
- * waveform phase advances by @p step. The frozen frame holds the phase and
- * the orientation of @p fraction, turned @p displacement columns about the
- * vertical and @p displacement rows along the meridians of @p fraction's
- * columns, and draws through the same timed route with no motion. Chord and
- * point samples are single samples at the point route's tolerance, held to a
- * reference displaced along both. */
-inline std::vector<float> render_timed_contours(const OracleState &state,
-                                                float step, bool timed,
-                                                float fraction,
-                                                float displacement,
-                                                uint32_t *walked = nullptr) {
+/** @brief Controls a timed or frozen contour render. */
+struct TimedContourRenderOptions {
+  float step = 0.0f;          ///< Waveform phase advance over the frame.
+  bool timed = true;          ///< Uses the production temporal draw.
+  float fraction = 1.0f;      ///< Frozen frame fraction.
+  float displacement = 0.0f;  ///< Frozen-reference shift in rows and columns.
+  uint32_t *walked = nullptr; ///< Receives column-walk setup count.
+};
+
+/** @brief Renders production contours or their frozen geometry.
+ * @param state Source geometry and rendering state.
+ * @param options Phase motion and frozen-reference controls.
+ * @return Row-major normalized mean RGB channels. */
+inline std::vector<float>
+render_timed_contours(const OracleState &state,
+                      const TimedContourRenderOptions &options) {
+  const auto &[step, timed, fraction, displacement, walked] = options;
   reset_globals();
   const ScopedTemporalSampling sampling(true);
   hs::set_mock_time(0, 0);
@@ -1276,7 +1272,7 @@ inline std::vector<float> render_timed_contours(const OracleState &state,
         *walked = Spacetime::geometry_counters.column_draw_setups;
     }
     effect.advance_display();
-    luminance = capture_luminance<ORACLE_W, ORACLE_H>(effect);
+    luminance = capture_mean_channel<ORACLE_W, ORACLE_H>(effect);
   }
   Timeline().clear();
   hs::clear_mock_time();
@@ -1311,7 +1307,11 @@ inline void test_timed_contours_match_frozen_columns() {
     state.amplitude = test.amplitude;
     state.phase = 0.37f;
     uint32_t walked = 0;
-    render_timed_contours(state, test.step, true, 1.0f, 0.0f, &walked);
+    render_timed_contours(state, {.step = test.step,
+                                  .timed = true,
+                                  .fraction = 1.0f,
+                                  .displacement = 0.0f,
+                                  .walked = &walked});
     const bool geodesic = test.shape == ShapeType::SPHERICAL_POLYGON ||
                           test.shape == ShapeType::SPHERICAL_STAR;
     HS_CONTEXT("shape", static_cast<int>(test.shape));
@@ -1323,8 +1323,10 @@ inline void test_timed_contours_match_frozen_columns() {
     }
     hs_test::seam_compare_render<ORACLE_W, ORACLE_H>(
         [&](bool timed, float fraction, float displacement) {
-          return render_timed_contours(state, test.step, timed, fraction,
-                                       displacement);
+          return render_timed_contours(state, {.step = test.step,
+                                               .timed = timed,
+                                               .fraction = fraction,
+                                               .displacement = displacement});
         },
         test.name);
   }
@@ -1339,8 +1341,10 @@ inline void test_timed_presets_match_frozen_columns() {
     HS_CONTEXT("preset", static_cast<int>(i + 1));
     hs_test::seam_compare_render<ORACLE_W, ORACLE_H>(
         [&](bool timed, float fraction, float displacement) {
-          return render_timed_contours(state, step, timed, fraction,
-                                       displacement);
+          return render_timed_contours(state, {.step = step,
+                                               .timed = timed,
+                                               .fraction = fraction,
+                                               .displacement = displacement});
         },
         name.c_str());
     state.orientation =
@@ -1374,10 +1378,14 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
   state.count = 70;
   state.sides = 3;
   state.phase = 0.37f;
-  const auto full = render_timed_contours(state, 0.0186f, true, 1.0f, 0.0f);
+  const auto full = render_timed_contours(
+      state,
+      {.step = 0.0186f, .timed = true, .fraction = 1.0f, .displacement = 0.0f});
   const auto full_counts = Spacetime::geometry_counters;
   state.clip = {0, ORACLE_H / 2, 0, ORACLE_W / 2};
-  const auto clipped = render_timed_contours(state, 0.0186f, true, 1.0f, 0.0f);
+  const auto clipped = render_timed_contours(
+      state,
+      {.step = 0.0186f, .timed = true, .fraction = 1.0f, .displacement = 0.0f});
   const auto clipped_counts = Spacetime::geometry_counters;
   HS_EXPECT_GT(clipped_counts.chord_fast_samples, 0u);
   HS_EXPECT_GT(clipped_counts.chord_intervals_culled, 0u);
@@ -1410,7 +1418,9 @@ inline void test_timed_dense_star_clip_samples_polar_columns() {
   state.count = 288;
   state.sides = 7;
   state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
-  render_timed_contours(state, 0.016f, true, 1.0f, 0.0f);
+  render_timed_contours(
+      state,
+      {.step = 0.016f, .timed = true, .fraction = 1.0f, .displacement = 0.0f});
   const auto star_counts = Spacetime::geometry_counters;
   HS_EXPECT_GT(star_counts.polar_column_samples, 0u);
   std::printf("  dense star clip: intervals=%u culled=%u coherent=%u screen=%u "

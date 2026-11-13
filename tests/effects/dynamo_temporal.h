@@ -218,7 +218,7 @@ struct DynamoTemporalOracle {
       }
     }
     effect.advance_display();
-    return capture_luminance<W, H>(effect);
+    return capture_mean_channel<W, H>(effect);
   }
 
   /** @brief Checks moving copies across both arm cuts at one resolution.
