@@ -2107,7 +2107,7 @@ inline const Case *all_cases(int &n) {
           {"pullback_operator_invalid_gnomonic_hemisphere",
            case_pullback_operator_invalid_gnomonic_hemisphere,
            "core/render/pullback/operators/project.h",
-           "(params.hemisphere <= static_cast<uint8_t>(Projection::GnomonicHemisphere::BACK)) project.gnomonic: invalid hemisphere"},
+           "(params.hemisphere <= static_cast<uint8_t>(Projection::GnomonicHemisphere::MIRRORED)) project.gnomonic: invalid hemisphere"},
           {"pullback_operator_invalid_curl_integrator",
            case_pullback_operator_invalid_curl_integrator,
            "core/render/pullback/operators/warp.h",

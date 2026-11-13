@@ -434,6 +434,53 @@ inline void test_pullback_projection_traits() {
           DIRECTION, 1.0f, Pullback::Projection::GnomonicHemisphere::FOLDED)
           .provenance.traits,
       cut_singular_folded);
+  HS_EXPECT_EQ(
+      Pullback::Projection::gnomonic(
+          DIRECTION, 1.0f, Pullback::Projection::GnomonicHemisphere::MIRRORED)
+          .provenance.traits,
+      cut_singular_folded);
+}
+
+/** @brief Mirrored gnomonic preserves translation direction across the equator. */
+inline void test_pullback_gnomonic_mirrored_translation() {
+  using Pullback::Projection::gnomonic;
+  using Pullback::Projection::GnomonicHemisphere;
+  for (const float sign : {-1.0f, 1.0f}) {
+    const math::Vector DIRECTION(0.36f, sign * 0.8f, -0.48f);
+    const auto mirrored =
+        gnomonic(DIRECTION, 1.0f, GnomonicHemisphere::MIRRORED);
+    const auto folded = gnomonic(DIRECTION, 1.0f, GnomonicHemisphere::FOLDED);
+    HS_EXPECT_NEAR(mirrored.coords.re, 0.45f, 1e-6f);
+    HS_EXPECT_NEAR(mirrored.coords.im, -0.6f, 1e-6f);
+    HS_EXPECT_NEAR(folded.coords.re, sign * 0.45f, 1e-6f);
+    HS_EXPECT_NEAR(folded.coords.im, sign * -0.6f, 1e-6f);
+    HS_EXPECT_EQ(mirrored.provenance.domain_coverage, 1.0f);
+    HS_EXPECT_EQ(mirrored.provenance.region_id, sign < 0.0f ? 1 : 0);
+    HS_EXPECT_EQ(mirrored.provenance.component_id, sign < 0.0f ? 1 : 0);
+    HS_EXPECT_EQ(mirrored.provenance.value_weight,
+                 folded.provenance.value_weight);
+    HS_EXPECT_EQ(mirrored.provenance.fade_edge_distance, 0.8f);
+    const auto horizon = gnomonic(math::Vector(1.0f, sign * 1e-6f, 0.0f), 1.0f,
+                                  GnomonicHemisphere::MIRRORED);
+    HS_EXPECT_NEAR(horizon.coords.re, 1000.0f, 1e-3f);
+    HS_EXPECT_LT(horizon.provenance.value_weight, 1e-10f);
+
+    for (const float translation : {0.0f, 0.25f}) {
+      Pullback::Warp::PreparedAffineSlot prepared{};
+      prepared.affine.translation_x = translation;
+      prepared.affine.translation_y = -2.0f * translation;
+      const math::Vector MOVING_FEATURE =
+          math::Vector(0.25f + translation, sign, -0.5f - 2.0f * translation)
+              .normalized();
+      const auto projected =
+          gnomonic(MOVING_FEATURE, 1.0f, GnomonicHemisphere::MIRRORED);
+      const auto source =
+          Pullback::Warp::affine_coords<Pullback::Warp::AffineForm::TRANSLATES>(
+              projected.coords, prepared);
+      HS_EXPECT_NEAR(source.re, 0.25f, 1e-6f);
+      HS_EXPECT_NEAR(source.im, -0.5f, 1e-6f);
+    }
+  }
 }
 
 /** @brief Pipeline validation accepts valid stages and rejects invalid contracts. */
@@ -2108,6 +2155,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_carrier_contract);
   HS_RUN(test_pullback_registered_curve_subset);
   HS_RUN(test_pullback_projection_traits);
+  HS_RUN(test_pullback_gnomonic_mirrored_translation);
   HS_RUN(test_pullback_validation_predicates);
   HS_RUN(test_pullback_evaluation_order);
   HS_RUN(test_pullback_placement_transparency);

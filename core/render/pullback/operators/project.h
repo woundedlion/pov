@@ -256,9 +256,10 @@ struct ProjectEquirectangular
 /** @brief Hemisphere topology values, in Projection::GnomonicHemisphere
     order. */
 inline constexpr const char *GNOMONIC_HEMISPHERE_IDS[] = {"folded", "front",
-                                                          "back"};
+                                                          "back", "mirrored"};
 static_assert(std::size(GNOMONIC_HEMISPHERE_IDS) ==
-              static_cast<size_t>(Projection::GnomonicHemisphere::BACK) + 1);
+              static_cast<size_t>(Projection::GnomonicHemisphere::MIRRORED) +
+                  1);
 
 /** @brief Parameter family of project.gnomonic.v2. */
 struct GnomonicChainParams : ProjectChainParams {
@@ -286,7 +287,7 @@ struct ProjectGnomonic : ProjectOpModel<ProjectGnomonic, GnomonicChainParams> {
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
     HS_CHECK(params.hemisphere <=
-                 static_cast<uint8_t>(Projection::GnomonicHemisphere::BACK),
+                 static_cast<uint8_t>(Projection::GnomonicHemisphere::MIRRORED),
              "project.gnomonic: invalid hemisphere");
     return ProjectOpModel::prepare(ctx, params, state);
   }

@@ -550,8 +550,11 @@ inline void test_shader_chain_schema_projection() {
   const In::ParamFieldInfo &gnomonic_hemisphere =
       gnomonic.schema[gnomonic.schema_count - 1];
   HS_EXPECT_STREQ(gnomonic_hemisphere.id, "hemisphere");
-  HS_EXPECT_EQ(gnomonic_hemisphere.enum_count, 3);
+  HS_EXPECT_EQ(gnomonic_hemisphere.enum_count, 4);
   HS_EXPECT_STREQ(gnomonic_hemisphere.enum_ids[0], "folded");
+  HS_EXPECT_STREQ(gnomonic_hemisphere.enum_ids[1], "front");
+  HS_EXPECT_STREQ(gnomonic_hemisphere.enum_ids[2], "back");
+  HS_EXPECT_STREQ(gnomonic_hemisphere.enum_ids[3], "mirrored");
   const auto *bonne_found = require_operator("project.bonne.v3");
   if (!bonne_found)
     return;

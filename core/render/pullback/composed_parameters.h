@@ -361,7 +361,8 @@ struct AtlasProjectionParams : ProjectionParams {
   static constexpr const char *LAYOUT_IDS[] = {"diamond", "square",
                                                "horizontal", "vertical"};
   /// Catalog ids of the hemisphere modes.
-  static constexpr const char *HEMISPHERE_IDS[] = {"folded", "front", "back"};
+  static constexpr const char *HEMISPHERE_IDS[] = {"folded", "front", "back",
+                                                   "mirrored"};
   /// Frame, layout and hemisphere selectors.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<AtlasProjectionParams>{

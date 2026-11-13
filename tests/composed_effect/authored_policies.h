@@ -357,7 +357,7 @@ inline void verify_authored_projection() {
                                                          : 1;
   const int HEMISPHERES = Kind == ProjectionKind::GNOMONIC ||
                                   Kind == ProjectionKind::GNOMONIC_FOLDED
-                              ? 3
+                              ? 4
                           : Kind == ProjectionKind::BONNE ? 2
                                                           : 1;
   for (int layout = 0; layout < LAYOUTS; ++layout)

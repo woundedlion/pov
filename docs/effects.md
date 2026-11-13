@@ -808,6 +808,12 @@ same way from a quarter-turn about X that takes -Z onto -Y, which puts the
 chart pole on the sphere's -Z axis. A composed Spec without an authored frame
 parameter selects it with `TILTED_PROJECTION_FRAME`.
 
+Gnomonic **Hemisphere** selects Folded, Front, Back or Mirrored. Folded
+overlays antipodal points using `(x / y, z / y)`. Mirrored reflects the lower
+hemisphere across the projection equator using `(x / |y|, z / |y|)`, so affine
+translations move both halves in the same direction. Both modes retain the
+equatorial singularity and its fade. Front and Back display only that half.
+
 Planar-warp **Speed** advances its wrapped phase in cycles per frame.
 
 **Tessellation** (`sample.tessellation.v3`) is a static cell field. **Kind**

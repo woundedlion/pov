@@ -478,7 +478,8 @@
           "values": [
             "folded",
             "front",
-            "back"
+            "back",
+            "mirrored"
           ]
         },
         "id": "project.hemisphere",

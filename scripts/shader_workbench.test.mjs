@@ -299,6 +299,51 @@ test('legacy projection frame domains expand without changing authored selection
   assert.deepEqual(document, before);
 });
 
+test('legacy gnomonic hemisphere domains expand and accept mirrored selections', async () => {
+  const document = JSON.parse(await readFile(
+    new URL('../patterns/alien_core.shader.json', import.meta.url), 'utf8'));
+  const rename = (id) => id.startsWith('project.') ? `chart.${id.slice('project.'.length)}` : id;
+  document.descriptor.chain.find(({ label }) => label === 'project').label = 'chart';
+  for (const parameter of document.descriptor.parameters) parameter.id = rename(parameter.id);
+  document.descriptor.serialization.fields = document.descriptor.serialization.fields.map(rename);
+  for (const preset of document.preset_bank.presets)
+    preset.values = Object.fromEntries(Object.entries(preset.values).map(([id, value]) => [rename(id), value]));
+  const hemisphere = document.descriptor.parameters.find(({ id }) => id === 'chart.hemisphere');
+  hemisphere.domain.values = ['folded', 'front', 'back'];
+  for (const selection of hemisphere.domain.values) {
+    hemisphere.default = selection;
+    for (const preset of document.preset_bank.presets) preset.values[hemisphere.id] = selection;
+    const before = structuredClone(document);
+    const result = compile(document);
+    assert.equal(result.status, 'VALID', JSON.stringify(result.diagnostics));
+    const upgraded = result.document.descriptor.parameters.find(({ id }) => id === hemisphere.id);
+    assert.deepEqual(upgraded.domain.values, ['folded', 'front', 'back', 'mirrored']);
+    assert.equal(upgraded.default, selection);
+    assert.deepEqual(result.document.preset_bank, before.preset_bank);
+    assert.deepEqual(document, before);
+    upgraded.default = 'mirrored';
+    for (const preset of result.document.preset_bank.presets) preset.values[hemisphere.id] = 'mirrored';
+    assert.equal(compile(result.document).status, 'VALID');
+  }
+});
+
+test('gnomonic hemisphere migration rejects malformed enum domains', async () => {
+  const document = JSON.parse(await readFile(
+    new URL('../patterns/alien_core.shader.json', import.meta.url), 'utf8'));
+  const index = document.descriptor.parameters.findIndex(({ id }) => id === 'project.hemisphere');
+  for (const values of [
+    ['back', 'front', 'folded'],
+    ['folded', 'front'],
+    ['folded', 'front', 'side'],
+  ]) {
+    document.descriptor.parameters[index].domain.values = values;
+    const result = compile(document);
+    assert.equal(result.status, 'INVALID');
+    assert.ok(result.diagnostics.some(({ code, path }) => code === 'ENUM_DOMAIN_MISMATCH' &&
+      path === `$.descriptor.parameters[${index}].domain.values`));
+  }
+});
+
 test('sparse imports enforce the runtime parameter budget at its exact boundary', () => {
   const budget = CATALOG.budgets.max_params;
   const base = example();

@@ -73,9 +73,9 @@ struct ProjectionParams {
 static_assert(field_ids_unique<ProjectionParams>());
 static_assert(field_defaults_in_range<ProjectionParams>());
 
-/** @brief Half of the sphere a `Gnomonic` projection images; FOLDED
-    overlays both halves. */
-enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
+/** @brief Gnomonic hemisphere selection; MIRRORED reflects y < 0 across
+    the equator, while FOLDED overlays antipodes. */
+enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK, MIRRORED };
 
 /** @brief `ProjectionProvenance::flags` value set on every folded sinusoidal sample.
  * @details Flags are kernel-specific; test traits against
@@ -236,7 +236,8 @@ equirectangular(const math::Vector &input, float central_meridian,
 }
 
 /**
- * @brief Gnomonic projection (x / y, z / y), singular on the y = 0 circle.
+ * @brief Gnomonic projection (x / y, z / y), or (x / |y|, z / |y|) in
+ *        mirrored mode, singular on the y = 0 circle.
  * @param input Unit direction in the projection frame; |y| is floored at
  *        `GNOMONIC_AXIS_EPS`.
  * @param singularity_fade Attenuation sharpness, as in
@@ -251,11 +252,14 @@ gnomonic(const math::Vector &input, float singularity_fade,
   float y = input.y;
   if (fabsf(y) < GNOMONIC_AXIS_EPS)
     y = y < 0.0f ? -GNOMONIC_AXIS_EPS : GNOMONIC_AXIS_EPS;
+  if (hemisphere == GnomonicHemisphere::MIRRORED)
+    y = fabsf(y);
   const math::Complex coords(input.x / y, input.z / y);
+  const bool folded = hemisphere == GnomonicHemisphere::FOLDED ||
+                      hemisphere == GnomonicHemisphere::MIRRORED;
   const bool in_domain =
-      hemisphere == GnomonicHemisphere::FOLDED ||
-      (hemisphere == GnomonicHemisphere::FRONT ? input.y >= 0.0f
-                                               : input.y < 0.0f);
+      folded || (hemisphere == GnomonicHemisphere::FRONT ? input.y >= 0.0f
+                                                         : input.y < 0.0f);
   return {coords,
           {.region_id = static_cast<uint8_t>(input.y < 0.0f),
            .component_id = static_cast<uint8_t>(input.y < 0.0f),
@@ -270,9 +274,8 @@ gnomonic(const math::Vector &input, float singularity_fade,
            .traits = projections::projection_traits(
                projections::ProjectionTrait::CUT,
                projections::ProjectionTrait::SINGULAR,
-               hemisphere == GnomonicHemisphere::FOLDED
-                   ? projections::ProjectionTrait::FOLDED
-                   : projections::ProjectionTrait::NONE),
+               folded ? projections::ProjectionTrait::FOLDED
+                      : projections::ProjectionTrait::NONE),
            .edge_class = 0,
            .domain_coverage = in_domain ? 1.0f : 0.0f}};
 }

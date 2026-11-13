@@ -341,6 +341,7 @@ inline void catalog_assignments_project_gnomonic_v2() {
   params.hemisphere = 0;
   params.hemisphere = 1;
   params.hemisphere = 2;
+  params.hemisphere = 3;
   (void)params;
 }
 

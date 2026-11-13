@@ -504,6 +504,7 @@ inline void test_shader_chain_parity_project_hemispheres() {
     run_gnomonic_variant<Hemisphere::FOLDED>(program, ctx);
     run_gnomonic_variant<Hemisphere::FRONT>(program, ctx);
     run_gnomonic_variant<Hemisphere::BACK>(program, ctx);
+    run_gnomonic_variant<Hemisphere::MIRRORED>(program, ctx);
     program.clear();
 
     if (!arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
