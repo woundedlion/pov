@@ -884,7 +884,7 @@ Preset pause holds automatic preset and phase progression while rendering and am
 | `core/animation/trails.h` | Recorded history | `Trail` and its `OrientationTrail`/`VectorTrail` aliases — index 0 is the oldest snapshot and `length()-1` the newest, the ordering the JS simulator mirrors — plus `QuantizedVectorTrail`, the `TrailBody` per-body aggregate, and the `tween`/`deep_tween` traversals |
 | `core/animation/sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
 | [timeline.h](../core/animation/timeline.h) | Scheduling | `TimelineEvent`, `Timeline` |
-| `opleg.h` | One Conway-chain morph leg, swept per frame | `OpLeg` |
+| `opleg.h` | Conway-chain morph leg umbrella | `OpLeg` interface and state; `core/animation/opleg/specs.h`, `core/animation/opleg/build.h`, `core/animation/opleg/frame.h`, `core/animation/opleg/sweep.h`, `core/animation/opleg/swaps.h` and `core/animation/opleg/ramps.h` separate specifications, construction, drawing, sweeps, swaps and palettes |
 | `segue.h` | How one mesh hands the sphere to the next | the `Segue` policies |
 | `carousel.h` | Two persistent mesh slots + arena compaction | `MeshCarousel` |
 

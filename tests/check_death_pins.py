@@ -122,8 +122,8 @@ def guard_matches(guard, pin):
 
 
 GUARD_RENAME_PINS = (
-    ('core/animation/opleg.h', '(vertex < V) OpLeg: dual face index out of range', '(vertex < v) OpLeg: dual face index out of range'),
-    ('core/animation/opleg.h', '(out == V) OpLeg: dual corners incomplete', '(out == v) OpLeg: dual corners incomplete'),
+    ('core/animation/opleg/sweep.h', '(vertex < V) OpLeg: dual face index out of range', '(vertex < v) OpLeg: dual face index out of range'),
+    ('core/animation/opleg/sweep.h', '(out == V) OpLeg: dual corners incomplete', '(out == v) OpLeg: dual corners incomplete'),
     ('core/mesh/conway.h', '(static_cast<size_t>(faces[offset + k]) < V) kis: face vertex index out of range', '(static_cast<size_t>(faces[offset + k]) < v) kis: face vertex index out of range'),
     ('core/mesh/conway.h', '(V <= UINT16_MAX) reconcile_vertices: endpoint exceeds index capacity', '(v <= UINT16_MAX) reconcile_vertices: endpoint exceeds index capacity'),
     ('core/mesh/hankin.h', '((I / 2) + I <= MeshLimits::MAX_VERTICES) Hankin output vertex count exceeds int16_t index range (oversized source mesh?)', '((i_value / 2) + i_value <= MeshLimits::MAX_VERTICES) Hankin output vertex count exceeds int16_t index range (oversized source mesh?)'),

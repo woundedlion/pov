@@ -1554,7 +1554,14 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   ├── trails.h                OrientationTrail/VectorTrail/QuantizedVectorTrail history + tween/deep_tween traversal
 │   │   ├── sprites.h               Sprite draw envelope, Particle/ParticleSystem
 │   │   ├── timeline.h              TimelineEvent inline storage + the Timeline scheduler
-│   │   ├── opleg.h                 Conway-chain morph legs: OpLeg
+│   │   ├── opleg.h                 OpLeg umbrella: morph leg interface and state
+│   │   ├── opleg/                  Morph leg implementation parts
+│   │   │   ├── specs.h             Morph specifications, handoffs and phase types
+│   │   │   ├── build.h             Leg construction and prepared dual bridges
+│   │   │   ├── frame.h             Frame drawing and sweep sampling
+│   │   │   ├── sweep.h             Conway preparation and endpoint provenance
+│   │   │   ├── swaps.h             Gated swaps and arrival classification
+│   │   │   └── ramps.h             Palette mapping, frame shading and arena lifetime
 │   │   ├── recipe_build.h          Recipe-leg scheduling and palette handoffs
 │   │   ├── preset_departure.h      Automatic preset departure policies
 │   │   ├── segue.h                 Mesh-to-mesh transition policies: the Segue library

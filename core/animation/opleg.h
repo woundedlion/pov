@@ -19,6 +19,7 @@
 #include "core/mesh/conway.h"
 #include "core/mesh/conway_graph.h"
 #include "core/mesh/hankin.h"
+#include "core/animation/opleg/specs.h"
 
 namespace Animation {
 
@@ -49,29 +50,16 @@ public:
                 "MAX_BLEND_PAIRS must fit in it");
 
   /** Leg kind selected by the constructor. */
-  enum class LegKind : uint8_t {
-    CONWAY_SWEEP,
-    HANKIN_SWEEP,
-    RELAX_SLERP,
-    MEDIAL_SLERP,
-    GATED_SWAP
-  };
+  using LegKind = detail::LegKind;
 
   /** Partition operator a GATED_SWAP leg swaps to. */
-  enum class SwapOp : uint8_t { KIS, DUAL };
+  using SwapOp = detail::SwapOp;
 
   /**
    * @brief Graph-edge Conway sweep: the edge's single op swept between the
    * edge's endpoint parameters.
    */
-  struct EdgeSweepSpec {
-    const ConwayGraph::EdgeSpec *edge =
-        nullptr;           /**< Graph edge being traversed. */
-    bool reverse = false;  /**< True when traversing to_node -> from_node. */
-    int sweep_frames = 0;  /**< Operator-sweep frames (N). */
-    int settle_frames = 0; /**< Relax-slerp frames (S); positive on a settling
-                              edge, 0 otherwise. */
-  };
+  using EdgeSweepSpec = detail::EdgeSweepSpec;
 
   /** @brief Immutable classification and newborn hosts of an opening dual bridge. */
   struct BridgePreparation {
@@ -97,28 +85,8 @@ public:
    * @param seed Immutable bridge seed.
    * @param arena Storage for the prepared classes.
    * @return Arrival classes and departed hosts for newborn palette slots. */
-  HS_FLASH_MEMBER static BridgePreparation prepare_bridge(const PolyMesh &seed,
-                                                          Arena &arena) {
-    ScratchScope a(scratch_arena_a);
-    ScratchScope b(scratch_arena_b);
-    PolyMesh arrival = MeshOps::truncate(seed, scratch_arena_a, scratch_arena_b,
-                                         ConwayGraph::T_TRUNCATE_PINCH_LOWER);
-    MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
-                                        scratch_arena_b, arena);
-    BridgePreparation prepared;
-    prepared.topology = std::move(arrival.topology);
-    prepared.hosts.fill(UINT16_MAX);
-    const auto *previous = face_centroids(seed, scratch_arena_a);
-    const auto *centroids = face_centroids(arrival, scratch_arena_a);
-    for (size_t f = seed.face_counts.size(); f < prepared.topology.size();
-         ++f) {
-      const int slot = MeshPaletteBank::slot_of(prepared.topology[f]);
-      if (prepared.hosts[slot] == UINT16_MAX)
-        prepared.hosts[slot] = static_cast<uint16_t>(
-            nearest_point(centroids[f], previous, seed.face_counts.size()));
-    }
-    return prepared;
-  }
+  inline HS_FLASH_MEMBER static BridgePreparation
+  prepare_bridge(const PolyMesh &seed, Arena &arena);
 
   /**
    * @brief Recipe-step Conway sweep: one primitive op swept t_start -> t_end
@@ -176,51 +144,22 @@ public:
   };
 
   /** @brief Hankin contact-angle sweep on a fixed seed. */
-  struct HankinSweepSpec {
-    float theta_start = 0.0f; /**< Contact angle at frame 0, radians;
-                                 negatives clamp to 0, and it enters only as
-                                 the opening slerp fraction theta_start /
-                                 theta_end, floored at K_EPS. */
-    float theta_end = 0.0f;   /**< Arrival contact angle, radians; floored at
-                                 THETA_EPS. */
-    int sweep_frames = 0;     /**< Angle-sweep frames (N). */
-  };
+  using HankinSweepSpec = detail::HankinSweepSpec;
 
   /**
    * @brief Relax leg: every vertex slerps from its seed position to its
    * relaxed one.
    */
-  struct RelaxSpec {
-    int iterations = 0; /**< Spring-relaxation passes of the arrival form. */
-    const MeshOps::RelaxBake *bake =
-        nullptr; /**< Shipped converged relaxation to land on; null instead
-                    runs `iterations` live steps, and one of the two is
-                    required. */
-    int sweep_frames = 0; /**< Slerp frames (N). */
-  };
+  using RelaxSpec = detail::RelaxSpec;
 
   /** @brief Medial-slerp leg (the Conway-dual bridge's middle leg). */
-  struct MedialSpec {
-    int sweep_frames = 0; /**< Slerp frames (N). */
-  };
+  using MedialSpec = detail::MedialSpec;
 
   /** @brief Reconcile leg closing a smooth kis/needle path. */
-  struct ReconcileSpec {
-    const math::Vector *to_positions =
-        nullptr;          /**< Authored vertex positions, one per seed vertex
-                    (index-corresponded through the caller's bijection); slerp
-                    endpoints. */
-    size_t to_count = 0;  /**< Number of authored endpoint positions. */
-    int sweep_frames = 0; /**< Slerp frames (N). */
-  };
+  using ReconcileSpec = detail::ReconcileSpec;
 
   /** @brief Gated-swap leg: a partition op with no sweep. */
-  struct GatedSwapSpec {
-    SwapOp op = SwapOp::KIS; /**< Partition operator applied at the swap
-                                frame. */
-    int gate_frames = 0;     /**< Frames on each side of the swap (F_gate); the
-                            leg runs 2 * gate_frames + 1 frames. */
-  };
+  using GatedSwapSpec = detail::GatedSwapSpec;
 
   /** Floor on a hankin leg's arrival contact angle (the T_EPS analog): the
    * arrival angle divides the opening angle into the leg's opening slerp
@@ -341,11 +280,7 @@ public:
   using BlendWeightFn = float (*)(int frame, int duration);
 
   /** @brief Face-order relationship between departed and swept meshes. */
-  enum class FaceCorrespondence : uint8_t {
-    GEOMETRIC,    /**< Matches departed faces by centroid geometry. */
-    IDENTITY,     /**< Carries palettes by unchanged face emission order. */
-    DUAL_CLOSING, /**< Maps the dual bridge closing faces to the departed mesh. */
-  };
+  using FaceCorrespondence = detail::FaceCorrespondence;
 
   /**
    * @brief Palette provenance of the departed node.
@@ -353,19 +288,7 @@ public:
    * from, in emission order; read only during construction. Supplying
    * prev_face_centroid makes the mapping geometric.
    */
-  struct PaletteHandoff {
-    const BakedPaletteBank *bank =
-        nullptr; /**< The effect's baked source LUTs. */
-    const uint8_t *prev_face_palette =
-        nullptr;           /**< Per-face palette of the departed base mesh. */
-    size_t prev_faces = 0; /**< Face count of the departed base mesh. */
-    const math::Vector *prev_face_centroid =
-        nullptr; /**< Unit centroid per departed base face; enables the
-                    geometric provenance mapping. */
-    FaceCorrespondence correspondence =
-        FaceCorrespondence::GEOMETRIC;    /**< Palette provenance mapping. */
-    bool preserve_without_births = false; /**< Hold colors without births. */
-  };
+  using PaletteHandoff = detail::PaletteHandoff;
 
   /**
    * @brief Bookend grouping of the arrival node.
@@ -374,10 +297,7 @@ public:
    * converge to one color by w = 1. A null topology keys targets on the swept
    * classification instead. Palette-preserving legs retain departed colors.
    */
-  struct BookendClasses {
-    const uint16_t *topology = nullptr; /**< Bookend class per arrival face. */
-    size_t faces = 0;                   /**< Arrival base-mesh face count. */
-  };
+  using BookendClasses = detail::BookendClasses;
 
   /**
    * @brief Leg-static arrival data the effect's completion consumes.
@@ -447,39 +367,13 @@ public:
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
-  HS_FLASH_MEMBER
+  inline HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const EdgeSweepSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = math::ease_in_out_sin)
-      : OpLeg(spec.sweep_frames + spec.settle_frames, easing_fn, draw) {
-    HS_CHECK(spec.edge, "OpLeg: edge sweep carries no graph edge");
-    const ConwayGraph::EdgeSpec &edge = *spec.edge;
-    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(spec.settle_frames >= 0 && edge.settle == (spec.settle_frames > 0),
-             "OpLeg: settle frames disagree with the edge");
-    Transients &tr = init_transients(LegKind::CONWAY_SWEEP, spec.sweep_frames,
-                                     arena, handoff, blend_fn);
-
-    bind_sweep_seed(tr, seed, arena);
-    tr.op = edge.op;
-    tr.reverse = spec.reverse;
-    tr.settle_frames = spec.settle_frames;
-
-    tr.t_start = ConwayGraph::clamp_edge_endpoint(
-        edge, spec.reverse ? edge.t_to : edge.t_from);
-    tr.t_end = ConwayGraph::clamp_edge_endpoint(edge, spec.reverse ? edge.t_from
-                                                                   : edge.t_to);
-    tr.twist_start = spec.reverse ? edge.twist_to : edge.twist_from;
-    tr.twist_end = spec.reverse ? edge.twist_from : edge.twist_to;
-
-    init_conway(handoff, bookend, arena,
-                {.settle = edge.settle,
-                 .jitterbug = ConwayGraph::is_jitterbug_edge(edge)});
-    seal_transients();
-  }
+        EasingFn easing_fn = math::ease_in_out_sin);
 
   /**
    * @brief Constructs a recipe-step Conway sweep leg: one primitive op swept
@@ -494,68 +388,13 @@ public:
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
-  HS_FLASH_MEMBER
+  inline HS_FLASH_MEMBER
   OpLeg(SweepSeed source, const ParamSweepSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = math::ease_in_out_sin)
-      : OpLeg(spec.sweep_frames, easing_fn, draw) {
-    HS_CHECK(spec.sweep_frames >= 1,
-             "OpLeg: parameter sweep needs a positive sweep length");
-    Transients &tr = init_transients(LegKind::CONWAY_SWEEP, spec.sweep_frames,
-                                     arena, handoff, blend_fn);
-
-    bind_sweep_seed(tr, source, arena);
-    tr.op = spec.op;
-
-    // Truncate births below T_EPS when the larger endpoint is below
-    // T_EPS / TRUNCATE_BIRTH_FRAC.
-    const bool truncate = spec.op == ConwayGraph::MorphOp::TRUNCATE;
-    // A far-side truncate leg (an endpoint > 0.5) sweeps through the ambo
-    // pinch on the constant-topology truncate branch; a near-side leg is
-    // capped below ambo.
-    const bool far_side = truncate && std::max(spec.t_start, spec.t_end) > 0.5f;
-    HS_CHECK(!truncate || std::max(spec.t_start, spec.t_end) > 0.0f,
-             "OpLeg: truncate sweep needs a positive endpoint");
-    const float trunc_floor =
-        ConwayGraph::truncate_birth_floor(std::max(spec.t_start, spec.t_end));
-    tr.t_start =
-        clamp_sweep_param(spec.t_start, truncate, far_side, trunc_floor);
-    tr.t_end = clamp_sweep_param(spec.t_end, truncate, far_side, trunc_floor);
-    tr.twist_start = spec.twist_start;
-    tr.twist_end = spec.twist_end;
-
-    if (spec.prepared) {
-      HS_CHECK(spec.bridge_provenance && truncate && spec.t_start == 0.0f &&
-                   spec.t_end == 0.5f && !bookend.topology &&
-                   handoff.prev_face_centroid != nullptr &&
-                   handoff.correspondence == FaceCorrespondence::GEOMETRIC &&
-                   handoff.prev_faces == source.mesh.face_counts.size(),
-               "OpLeg: incompatible prepared bridge");
-      tr.topo.bind(arena, spec.prepared->topology.size());
-      tr.topo.append_bulk(spec.prepared->topology.data(),
-                          spec.prepared->topology.size());
-      ScratchScope a(scratch_arena_a);
-      auto *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
-      for (size_t f = 0; f < tr.topo.size(); ++f) {
-        const size_t host =
-            f < handoff.prev_faces
-                ? f
-                : spec.prepared->hosts[MeshPaletteBank::slot_of(tr.topo[f])];
-        HS_CHECK(host < handoff.prev_faces,
-                 "OpLeg: prepared bridge host out of range");
-        from[f] = handoff.prev_face_palette[host];
-      }
-      build_palette_mapping(tr, source.mesh, handoff, bookend, arena, nullptr,
-                            tr.seed_faces, from);
-    } else {
-      init_conway(handoff, bookend, arena,
-                  {.bridge_provenance = spec.bridge_provenance});
-    }
-    seal_transients();
-  }
+        EasingFn easing_fn = math::ease_in_out_sin);
 
   template <typename... Args>
   OpLeg(PolyMesh &&, const ParamSweepSpec &, Args &&...) = delete;
@@ -576,74 +415,13 @@ public:
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep angle.
    */
-  HS_FLASH_MEMBER
+  inline HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const HankinSweepSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = math::ease_in_out_sin)
-      : OpLeg(spec.sweep_frames, easing_fn, draw) {
-    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    Transients &tr = init_transients(LegKind::HANKIN_SWEEP, spec.sweep_frames,
-                                     arena, handoff, blend_fn);
-
-    tr.seed_faces = seed.face_counts.size();
-
-    // Hankin legs sweep the slerp fraction from each star point's collapsed
-    // corner, not the contact angle.
-    HS_CHECK(spec.theta_start <= spec.theta_end,
-             "OpLeg: hankin leg sweeps back to a smaller contact angle");
-    const float theta_hi = std::max(spec.theta_end, THETA_EPS);
-    tr.t_start = std::max(std::max(spec.theta_start, 0.0f) / theta_hi, K_EPS);
-    tr.t_end = 1.0f;
-
-    {
-      ScratchScope sa(scratch_arena_a);
-      ScratchScope sb(scratch_arena_b);
-
-      MeshOps::compile_hankin(seed, tr.hankin, arena, scratch_arena_a,
-                              MeshOps::BaseVertices::BORROW);
-
-      PolyMesh arrival;
-      MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
-
-      // Hoist classes before the snorm16 pack unless the exact bookend already
-      // supplies them; quantization can split classifier angle buckets.
-      tr.topo_is_bookend =
-          hoist_arrival_topology(arrival, bookend, arena, tr.topo);
-
-      // Only the star points are stored; the midpoint prefix is already in the
-      // compiled topology.
-      const size_t statics = tr.hankin.static_vertices.size();
-      HS_CHECK(arrival.vertices.size() >= statics,
-               "OpLeg hankin: arrival has fewer vertices than statics");
-      const size_t dyn = arrival.vertices.size() - statics;
-      tr.hk_final.bind(arena, dyn);
-      for (size_t i = 0; i < dyn; ++i)
-        tr.hk_final.push_back(
-            math::Snorm3::encode(arrival.vertices[statics + i]));
-      tr.landing.hankin = &tr.hankin;
-      tr.landing.star_point = tr.hk_final.data();
-      tr.landing.star_points = tr.hk_final.size();
-
-      const math::Vector *start_centroid = nullptr;
-      PolyMesh start_mesh;
-      if (handoff.prev_face_centroid) {
-        hankin_at(tr, start_mesh, scratch_arena_b, tr.t_start);
-        HS_CHECK(start_mesh.face_counts.size() == tr.topo.size(),
-                 "OpLeg: start face count differs from arrival");
-        start_centroid = face_centroids(start_mesh, scratch_arena_b);
-      }
-
-      // Star faces are emitted first, in base-face order, so the seed's face
-      // count is the emission-order prefix corresponding 1:1 to it.
-      const size_t survivors = tr.seed_faces;
-      build_palette_mapping(tr, arrival, handoff, bookend, arena,
-                            start_centroid, survivors);
-    }
-    seal_transients();
-  }
+        EasingFn easing_fn = math::ease_in_out_sin);
 
   template <typename... Args>
   OpLeg(PolyMesh &&, const HankinSweepSpec &, Args &&...) = delete;
@@ -666,54 +444,13 @@ public:
    * @note relax preserves vertex count and vertex order, so the leg needs no
    * correspondence pass and its topology is constant by construction.
    */
-  HS_FLASH_MEMBER
+  inline HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const RelaxSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = math::ease_in_out_sin)
-      : OpLeg(spec.sweep_frames, easing_fn, draw) {
-    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(spec.bake || spec.iterations >= 1,
-             "OpLeg: relax leg needs a positive iteration count");
-    Transients &tr = init_transients(LegKind::RELAX_SLERP, spec.sweep_frames,
-                                     arena, handoff, blend_fn);
-
-    // relax_at slerps out of the seed vertices every frame, so the seed stays
-    // in the leg arena; only its per-face class ids are dead here.
-    clone_geometry(seed, tr.seed, arena);
-    tr.seed_faces = seed.face_counts.size();
-    tr.t_start = 0.0f;
-    tr.t_end = 1.0f;
-
-    {
-      ScratchScope sa(scratch_arena_a);
-      ScratchScope sb(scratch_arena_b);
-
-      PolyMesh arrival =
-          spec.bake ? MeshOps::relax_baked(tr.seed, scratch_arena_a, *spec.bake)
-                    : MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b,
-                                     spec.iterations);
-      HS_CHECK(arrival.vertices.size() == tr.seed.vertices.size(),
-               "OpLeg: relax changed the vertex count");
-      tr.relaxed.bind(arena, arrival.vertices.size());
-      tr.relaxed.append_bulk(arrival.vertices.data(), arrival.vertices.size());
-
-      tr.topo_is_bookend =
-          hoist_arrival_topology(arrival, bookend, arena, tr.topo);
-
-      // The opening frame is the seed verbatim, so its face centroids are the
-      // provenance source.
-      const math::Vector *start_centroid = nullptr;
-      if (handoff.prev_face_centroid)
-        start_centroid = face_centroids(tr.seed, scratch_arena_a);
-
-      build_palette_mapping(tr, arrival, handoff, bookend, arena,
-                            start_centroid, tr.seed_faces);
-    }
-    seal_transients();
-  }
+        EasingFn easing_fn = math::ease_in_out_sin);
 
   /**
    * @brief Constructs the Conway-dual bridge's medial leg: builds the shared
@@ -734,66 +471,13 @@ public:
    * across the slerp. A degree-2 seed vertex makes the s=1 positions
    * many-to-one but leaves the faces well-formed.
    */
-  HS_FLASH_MEMBER
+  inline HS_FLASH_MEMBER
   OpLeg(const PolyMesh &seed, const MedialSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = math::ease_in_out_sin)
-      : OpLeg(spec.sweep_frames, easing_fn, draw) {
-    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    Transients &tr = init_transients(LegKind::MEDIAL_SLERP, spec.sweep_frames,
-                                     arena, handoff, blend_fn);
-
-    tr.t_start = 0.0f;
-    tr.t_end = 1.0f;
-
-    {
-      ScratchScope sa(scratch_arena_a);
-      ScratchScope sb(scratch_arena_b);
-
-      // Classify full-precision scratch points before packing persistent endpoints;
-      // snorm16 quantization can split symmetry orbits.
-      PolyMesh med;
-      ArenaVector<math::Vector> med_b;
-      MeshOps::medial(seed, med, med_b, scratch_arena_a, scratch_arena_b);
-      tr.seed_faces = med.face_counts.size();
-      HS_CHECK(med_b.size() == med.vertices.size(),
-               "OpLeg: medial vertex sets differ in size");
-
-      const size_t medial_verts = med.vertices.size();
-      copy_topology(tr.seed, arena, med.face_counts, med.faces);
-      tr.medial_a.bind(arena, medial_verts);
-      tr.medial_b.bind(arena, medial_verts);
-      for (size_t i = 0; i < medial_verts; ++i) {
-        tr.medial_a.push_back(math::Snorm3::encode(med.vertices[i]));
-        tr.medial_b.push_back(math::Snorm3::encode(med_b[i]));
-      }
-
-      // The opening frame is ambo(P) verbatim (the packed a_e), so med's s=0
-      // vertices are the geometric provenance source; snapshot their centroids
-      // before the in-place overwrite below.
-      const math::Vector *start_centroid = nullptr;
-      if (handoff.prev_face_centroid)
-        start_centroid = face_centroids(med, scratch_arena_a);
-
-      // Prepare the s=1 arrival (ambo(dual(P))) in place. The exact bookend can
-      // supply its classes; otherwise the full-precision mesh is classified.
-      for (size_t i = 0; i < medial_verts; ++i)
-        med.vertices[i] = med_b[i];
-
-      tr.topo_is_bookend = hoist_arrival_topology(med, bookend, arena, tr.topo);
-      tr.landing.arrival_topology = &tr.seed;
-      tr.landing.arrival_point = tr.medial_b.data();
-      tr.landing.arrival_points = tr.medial_b.size();
-
-      // Every medial face survives the whole bridge.
-      build_palette_mapping(tr, med, handoff, bookend, arena, start_centroid,
-                            tr.seed_faces);
-    }
-    seal_transients();
-  }
+        EasingFn easing_fn = math::ease_in_out_sin);
 
   /**
    * @brief Constructs the reconcile leg closing a smooth kis/needle path: slerps
@@ -814,60 +498,13 @@ public:
    * @note Connectivity is held fixed and only the positions move (the
    * MEDIAL_SLERP step path); the caller owns the nearest-vertex correspondence.
    */
-  HS_FLASH_MEMBER
+  inline HS_FLASH_MEMBER
   OpLeg(const PolyMesh &from_mesh, const ReconcileSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = math::ease_in_out_sin)
-      : OpLeg(spec.sweep_frames, easing_fn, draw) {
-    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(spec.to_positions, "OpLeg: reconcile leg carries no endpoints");
-    HS_CHECK(spec.to_count == from_mesh.vertices.size(),
-             "OpLeg: reconcile endpoint count must match seed vertices");
-    Transients &tr = init_transients(LegKind::MEDIAL_SLERP, spec.sweep_frames,
-                                     arena, handoff, blend_fn);
-
-    tr.t_start = 0.0f;
-    tr.t_end = 1.0f;
-
-    {
-      ScratchScope sa(scratch_arena_a);
-      ScratchScope sb(scratch_arena_b);
-
-      const size_t n = from_mesh.vertices.size();
-      tr.seed_faces = from_mesh.face_counts.size();
-      copy_topology(tr.seed, arena, from_mesh.face_counts, from_mesh.faces);
-      // Both endpoint sets are unit-sphere directions, snorm16-packed.
-      tr.medial_a.bind(arena, n);
-      tr.medial_b.bind(arena, n);
-      for (size_t i = 0; i < n; ++i) {
-        tr.medial_a.push_back(math::Snorm3::encode(from_mesh.vertices[i]));
-        tr.medial_b.push_back(math::Snorm3::encode(spec.to_positions[i]));
-      }
-
-      // Arrival: the identity connectivity carrying the authored positions.
-      PolyMesh arrival;
-      arrival.vertices.bind(scratch_arena_a, n);
-      arrival.vertices.append_bulk(spec.to_positions, n);
-      copy_topology(arrival, scratch_arena_a, from_mesh.face_counts,
-                    from_mesh.faces);
-
-      tr.topo_is_bookend =
-          hoist_arrival_topology(arrival, bookend, arena, tr.topo);
-
-      // The opening frame is the identity mesh verbatim (the packed a_e), so its
-      // face centroids are the geometric provenance source.
-      const math::Vector *start_centroid = nullptr;
-      if (handoff.prev_face_centroid)
-        start_centroid = face_centroids(from_mesh, scratch_arena_a);
-
-      build_palette_mapping(tr, arrival, handoff, bookend, arena,
-                            start_centroid, tr.seed_faces);
-    }
-    seal_transients();
-  }
+        EasingFn easing_fn = math::ease_in_out_sin);
 
   /**
    * @brief Constructs a gated-swap leg: a partition op with no sweep, drawn as
@@ -883,23 +520,11 @@ public:
    * @note The compiled face count is constant on each side of the swap and
    * changes exactly once, at it.
    */
-  HS_FLASH_MEMBER
-  OpLeg(const PolyMesh &seed, const GatedSwapSpec &spec, Arena &arena,
-        MorphDrawFn draw, const PaletteHandoff &handoff,
-        const BookendClasses &bookend = BookendClasses{.topology = nullptr,
-                                                       .faces = 0})
-      : OpLeg(2 * spec.gate_frames + 1, math::ease_in_out_sin, draw) {
-    HS_CHECK(spec.gate_frames >= 1, "OpLeg needs a positive gate length");
-    Transients &tr = init_transients(LegKind::GATED_SWAP, spec.gate_frames,
-                                     arena, handoff, classic_blend);
-
-    MeshOps::clone(seed, tr.seed, arena);
-    tr.seed_faces = seed.face_counts.size();
-    tr.swap_op = spec.op;
-
-    init_gated(handoff, bookend, arena);
-    seal_transients();
-  }
+  inline HS_FLASH_MEMBER OpLeg(const PolyMesh &seed, const GatedSwapSpec &spec,
+                               Arena &arena, MorphDrawFn draw,
+                               const PaletteHandoff &handoff,
+                               const BookendClasses &bookend = BookendClasses{
+                                   .topology = nullptr, .faces = 0});
 
   /**
    * @brief Draws the leg's current frame: an op sweep plus settle, hankin,
@@ -907,10 +532,7 @@ public:
    * compile, palette pre-blend, draw.
    * @param canvas The canvas passed through to the draw callback.
    */
-  HS_FLASH_MEMBER void step(Canvas &canvas) override {
-    AnimationBase::step(canvas);
-    draw_frame(canvas);
-  }
+  inline HS_FLASH_MEMBER void step(Canvas &canvas) override;
 
   /**
    * @brief Redraws the current morph frame without advancing the leg.
@@ -918,9 +540,7 @@ public:
    *       pausing freezes progression, not morph rendering cost.
    * @param canvas The canvas passed through to the draw callback.
    */
-  HS_FLASH_MEMBER void step_paused(Canvas &canvas) override {
-    draw_frame(canvas);
-  }
+  inline HS_FLASH_MEMBER void step_paused(Canvas &canvas) override;
 
 private:
   /**
@@ -932,55 +552,7 @@ private:
   HS_FLASH_INLINE OpLeg(int duration, EasingFn easing_fn, MorphDrawFn draw)
       : AnimationBase(duration, false), easing_fn(easing_fn), draw_fn(draw) {}
 
-  HS_FLASH_MEMBER void draw_frame(Canvas &canvas) {
-    check_alive();
-    Transients &tr = *buf;
-    const int frame = static_cast<int>(
-        std::min<uint32_t>(t, static_cast<uint32_t>(duration)));
-
-    if (tr.kind == LegKind::GATED_SWAP) {
-      step_gated(canvas, frame);
-      return;
-    }
-
-    ScratchScope sa(scratch_arena_a);
-    ScratchScope sb(scratch_arena_b);
-
-    PolyMesh swept;
-    const size_t a_before = scratch_arena_a.get_offset();
-    const size_t b_before = scratch_arena_b.get_offset();
-    {
-      HS_PROFILE(hk_conway_sweep);
-      swept_at(tr, frame, swept);
-    }
-    // The swept vertices of the frame drawn last, for the draw to move from;
-    // a leg that sweeps vertex by vertex hands its path instead.
-    const bool moved = tr.drawn && tr.drawn_frame != frame;
-    const bool per_vertex = tr.kind != LegKind::CONWAY_SWEEP;
-    math::Vector *drawn = nullptr;
-    if (moved && !per_vertex && swept.vertices.size() == tr.drawn_vertices &&
-        previous_fits(swept.vertices.size(),
-                      scratch_arena_a.get_offset() - a_before,
-                      scratch_arena_b.get_offset() - b_before)) {
-      HS_PROFILE(hk_conway_previous);
-      drawn = scratch_arena_a.allocate_n<math::Vector>(tr.drawn_vertices);
-      ScratchScope prior_a(scratch_arena_a);
-      ScratchScope prior_b(scratch_arena_b);
-      PolyMesh prior;
-      swept_at(tr, tr.drawn_frame, prior);
-      if (prior.vertices.size() == tr.drawn_vertices)
-        std::memcpy(drawn, prior.vertices.data(),
-                    tr.drawn_vertices * sizeof(math::Vector));
-      else
-        drawn = nullptr;
-    }
-    const int previous_frame = tr.drawn_frame;
-    tr.drawn_frame = frame;
-    tr.drawn_vertices = swept.vertices.size();
-
-    finish_frame(canvas, swept, tr.blend_fn(frame, duration), false, drawn,
-                 moved && per_vertex ? previous_frame : -1, frame);
-  }
+  inline HS_FLASH_MEMBER void draw_frame(Canvas &canvas);
 
   /// Bytes an arena keeps free beyond a sweep's own share for alignment.
   static constexpr size_t PREVIOUS_SLACK = 256;
@@ -996,16 +568,8 @@ private:
    * scratch_arena_b for a second sweep's scratch; a leg whose frames do not
    * fit draws without its previous vertices.
    */
-  HS_FLASH_MEMBER static bool previous_fits(size_t vertices, size_t sweep_a,
-                                            size_t sweep_b) {
-    const size_t need_a =
-        vertices * sizeof(math::Vector) + 2 * sweep_a + PREVIOUS_SLACK;
-    const size_t need_b = sweep_b + PREVIOUS_SLACK;
-    return scratch_arena_a.get_capacity() - scratch_arena_a.get_offset() >=
-               need_a &&
-           scratch_arena_b.get_capacity() - scratch_arena_b.get_offset() >=
-               need_b;
-  }
+  inline HS_FLASH_MEMBER static bool
+  previous_fits(size_t vertices, size_t sweep_a, size_t sweep_b);
 
   /**
    * @brief One vertex of a per-vertex leg's swept mesh at a fractional leg
@@ -1024,12 +588,7 @@ private:
    * @param frame Leg frame in [0, duration].
    * @return The parameter swept_vertex_at() reads.
    */
-  HS_FLASH_MEMBER float sweep_parameter(float frame) const {
-    const Transients &tr = *buf;
-    const float progress =
-        hs::clamp(easing_fn(frame / static_cast<float>(duration)), 0.0f, 1.0f);
-    return tr.t_start + (tr.t_end - tr.t_start) * sweep_phase(tr, progress).k;
-  }
+  inline HS_FLASH_MEMBER float sweep_parameter(float frame) const;
 
   /**
    * @brief One vertex of a per-vertex leg's swept mesh at a sweep parameter.
@@ -1037,21 +596,7 @@ private:
    * @param k Sweep parameter, as sweep_parameter() gives it.
    * @return The vertex; a hankin, relax or medial leg's only.
    */
-  HS_FLASH_MEMBER math::Vector swept_vertex_at(size_t i, float k) const {
-    const Transients &tr = *buf;
-    if (tr.kind == LegKind::HANKIN_SWEEP) {
-      const size_t statics = tr.hankin.static_vertices.size();
-      if (i < statics)
-        return tr.hankin.static_vertices[i];
-      return k >= 1.0f ? hankin_vertex_at<true>(tr, i - statics, k)
-                       : hankin_vertex_at<false>(tr, i - statics, k);
-    }
-    if (tr.kind == LegKind::RELAX_SLERP)
-      return k >= 1.0f ? relax_vertex_at<true>(tr, i, k)
-                       : relax_vertex_at<false>(tr, i, k);
-    return k >= 1.0f ? medial_vertex_at<true>(tr, i, k)
-                     : medial_vertex_at<false>(tr, i, k);
-  }
+  inline HS_FLASH_MEMBER math::Vector swept_vertex_at(size_t i, float k) const;
 
 public:
   /**
@@ -1073,18 +618,8 @@ public:
    * arrival angle. @p out is reset first, dropping any prior binding and class
    * ids.
    */
-  HS_FLASH_MEMBER static void arrival_mesh(const Landing &landing,
-                                           PolyMesh &out, Arena &arena) {
-    HS_CHECK(landing.hankin, "OpLeg: leg carries no baked arrival");
-    out = PolyMesh();
-    const CompiledHankin &hk = *landing.hankin;
-    const size_t statics = hk.static_vertices.size();
-    out.vertices.bind(arena, statics + landing.star_points);
-    out.vertices.append_bulk(hk.static_vertices.data(), statics);
-    for (size_t i = 0; i < landing.star_points; ++i)
-      out.vertices.push_back(landing.star_point[i].decode().normalized());
-    copy_topology(out, arena, hk.face_counts, hk.faces);
-  }
+  inline HS_FLASH_MEMBER static void arrival_mesh(const Landing &landing,
+                                                  PolyMesh &out, Arena &arena);
 
   /**
    * @brief Mid-leg crossfade weight, the swept ctors' default:
@@ -1109,14 +644,7 @@ public:
    * shorter than the window still opens on the zero plateau.
    * @return Crossfade weight in [0, 1].
    */
-  static float trailing_blend(int frame, int duration, int window) {
-    const int win = std::max(1, std::min(window, duration - 1));
-    const int from_end = duration - frame;
-    if (from_end >= win)
-      return 0.0f;
-    return math::cubic_kernel(static_cast<float>(win - from_end) /
-                              static_cast<float>(win));
-  }
+  inline static float trailing_blend(int frame, int duration, int window);
 
   /**
    * @brief Trailing blend over the default TRAILING_BLEND_FRAMES window;
@@ -1195,46 +723,23 @@ private:
   };
 
   /** @brief Split of a swept leg's eased progress into its two stages. */
-  struct SweepPhase {
-    float k;            /**< Operator-sweep fraction in [0, 1]. */
-    float settle_alpha; /**< Relax-slerp fraction in [0, 1]. */
-  };
+  using SweepPhase = detail::SweepPhase;
 
   /**
    * @brief Sweep and settle fractions at one leg frame.
    * @details One eased clock spans sweep and settle; reverse legs un-settle
    * first.
    */
-  __attribute__((always_inline)) SweepPhase sweep_phase(const Transients &tr,
-                                                        float progress) const {
-    float k = progress;
-    float settle_alpha = 0.0f;
-    if (tr.settle_frames > 0) {
-      float split = (tr.reverse ? tr.settle_frames : tr.sweep_frames) /
-                    static_cast<float>(duration);
-      if (!tr.reverse) {
-        k = std::min(progress / split, 1.0f);
-        settle_alpha = std::max(0.0f, (progress - split) / (1.0f - split));
-      } else {
-        settle_alpha = 1.0f - std::min(progress / split, 1.0f);
-        k = std::max(0.0f, (progress - split) / (1.0f - split));
-      }
-    }
-    return {k, settle_alpha};
-  }
+  inline __attribute__((always_inline)) SweepPhase
+  sweep_phase(const Transients &tr, float progress) const;
 
   /**
    * @brief Builds a Conway leg's swept mesh at one parameter, slerped toward
    * the relaxed endpoint by @p settle_alpha.
    */
-  __attribute__((always_inline)) static void
+  inline __attribute__((always_inline)) static void
   conway_at(const Transients &tr, PolyMesh &out, Arena &target, Arena &temp,
-            float t, float twist, float settle_alpha) {
-    HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
-    out = run_op(tr.op, *tr.seed_ref, target, temp, t, twist);
-    if (settle_alpha > 0.0f)
-      settle_toward_relaxed(tr, out, settle_alpha);
-  }
+            float t, float twist, float settle_alpha);
 
   /**
    * @brief Builds a swept leg's mesh at one leg frame.
@@ -1242,44 +747,13 @@ private:
    * @param frame Leg frame in [0, duration].
    * @param out Output mesh, allocated from scratch_arena_a.
    */
-  HS_FLASH_MEMBER void swept_at(const Transients &tr, int frame,
-                                PolyMesh &out) const {
-    // Clamp easing to the compiled topology-constant interval.
-    const float progress = hs::clamp(
-        easing_fn(static_cast<float>(frame) / static_cast<float>(duration)),
-        0.0f, 1.0f);
-    const SweepPhase phase = sweep_phase(tr, progress);
-    float tp = tr.t_start + (tr.t_end - tr.t_start) * phase.k;
-    float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * phase.k;
-    if (tr.kind == LegKind::HANKIN_SWEEP)
-      hankin_at(tr, out, scratch_arena_a, tp);
-    else if (tr.kind == LegKind::RELAX_SLERP)
-      relax_at(tr, out, scratch_arena_a, tp);
-    else if (tr.kind == LegKind::MEDIAL_SLERP)
-      medial_at(tr, out, scratch_arena_a, tp);
-    else
-      conway_at(tr, out, scratch_arena_a, scratch_arena_b, tp, tw,
-                phase.settle_alpha);
-  }
+  inline HS_FLASH_MEMBER void swept_at(const Transients &tr, int frame,
+                                       PolyMesh &out) const;
 
   /** @brief Slerps a swept mesh's vertices toward the relaxed endpoint. */
-  __attribute__((always_inline)) static void
+  inline __attribute__((always_inline)) static void
   settle_toward_relaxed(const Transients &tr, PolyMesh &swept,
-                        float settle_alpha) {
-    HS_CHECK(swept.vertices.size() == tr.relaxed.size(),
-             "OpLeg relax: swept vertices %lu != relaxed vertices %lu",
-             static_cast<unsigned long>(swept.vertices.size()),
-             static_cast<unsigned long>(tr.relaxed.size()));
-    // Alpha 1 copies the relaxed endpoint verbatim, so the settled bookend is
-    // bitwise it.
-    if (settle_alpha >= 1.0f)
-      for (size_t i = 0; i < swept.vertices.size(); ++i)
-        swept.vertices[i] = tr.relaxed[i];
-    else
-      for (size_t i = 0; i < swept.vertices.size(); ++i)
-        swept.vertices[i] =
-            math::slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
-  }
+                        float settle_alpha);
 
   /**
    * @brief Clamps a recipe-step sweep endpoint into its op's
@@ -1289,40 +763,15 @@ private:
    * @param far_side Whether a truncate leg sweeps past ambo.
    * @param trunc_floor Truncate's birth floor for this leg.
    */
-  __attribute__((always_inline)) static float
-  clamp_sweep_param(float t, bool truncate, bool far_side, float trunc_floor) {
-    t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
-    if (truncate)
-      t = std::min(t, far_side ? ConwayGraph::T_TRUNCATE_FAR_MAX
-                               : ConwayGraph::T_TRUNCATE_PINCH_LOWER);
-    return t;
-  }
+  inline __attribute__((always_inline)) static float
+  clamp_sweep_param(float t, bool truncate, bool far_side, float trunc_floor);
 
-  HS_FLASH_MEMBER Transients &init_transients(LegKind kind, int sweep_frames,
-                                              Arena &arena,
-                                              const PaletteHandoff &handoff,
-                                              BlendWeightFn blend_fn) {
-    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-                 handoff.prev_faces > 0,
-             "OpLeg: incomplete palette handoff");
-    Transients &tr = bind_transients(arena);
-    tr.kind = kind;
-    tr.sweep_frames = sweep_frames;
-    tr.bank = handoff.bank;
-    tr.blend_fn = blend_fn;
-    return tr;
-  }
+  inline HS_FLASH_MEMBER Transients &
+  init_transients(LegKind kind, int sweep_frames, Arena &arena,
+                  const PaletteHandoff &handoff, BlendWeightFn blend_fn);
 
-  HS_FLASH_MEMBER static void bind_sweep_seed(Transients &tr, SweepSeed source,
-                                              Arena &arena) {
-    if (source.borrowed) {
-      tr.seed_ref = &source.mesh;
-    } else {
-      clone_geometry(source.mesh, tr.seed, arena);
-      tr.seed_ref = &tr.seed;
-    }
-    tr.seed_faces = source.mesh.face_counts.size();
-  }
+  inline HS_FLASH_MEMBER static void
+  bind_sweep_seed(Transients &tr, SweepSeed source, Arena &arena);
 
   /** @brief Visits dual corners in first-seen face-walk order.
    * @tparam Emit Corner consumer.
@@ -1330,59 +779,15 @@ private:
    * @param arena Scratch storage for visited vertices.
    * @param emit Receives each vertex index and its first host face. */
   template <typename Emit>
-  HS_FLASH_MEMBER static void first_seen_corners(const PolyMesh &dual,
-                                                 Arena &arena, Emit &&emit) {
-    const size_t v = dual.vertices.size();
-    bool *seen = arena.allocate_n<bool>(v);
-    std::fill_n(seen, v, false);
-    size_t out = 0, off = 0;
-    for (size_t face = 0; face < dual.face_counts.size(); ++face) {
-      for (int j = 0; j < dual.face_counts[face]; ++j) {
-        const uint16_t vertex = dual.faces[off + j];
-        HS_CHECK(vertex < v, "OpLeg: dual face index out of range");
-        if (seen[vertex])
-          continue;
-        seen[vertex] = true;
-        emit(vertex, static_cast<int>(face));
-        ++out;
-      }
-      off += dual.face_counts[face];
-    }
-    HS_CHECK(out == v, "OpLeg: dual corners incomplete");
-  }
+  inline HS_FLASH_MEMBER static void
+  first_seen_corners(const PolyMesh &dual, Arena &arena, Emit &&emit);
 
-  HS_FLASH_MEMBER static const uint8_t *
+  inline HS_FLASH_MEMBER static const uint8_t *
   dual_closing_palettes(const PolyMesh &dual, const PaletteHandoff &handoff,
-                        Arena &scratch) {
-    const size_t dual_faces = dual.face_counts.size();
-    const size_t primal_faces = dual.vertices.size();
-    HS_CHECK(!handoff.prev_face_centroid &&
-                 handoff.prev_faces == dual_faces + primal_faces,
-             "OpLeg: invalid structural dual handoff");
-
-    uint8_t *from = scratch.allocate_n<uint8_t>(handoff.prev_faces);
-    for (size_t f = 0; f < dual_faces; ++f)
-      from[f] = handoff.prev_face_palette[primal_faces + f];
-
-    size_t out = dual_faces;
-    first_seen_corners(dual, scratch, [&](uint16_t vertex, int) {
-      from[out++] = handoff.prev_face_palette[vertex];
-    });
-    return from;
-  }
+                        Arena &scratch);
 
   /** @brief Per-leg switches for init_conway. */
-  struct ConwayLegFlags {
-    /** Whether the leg relax-slerps: at arrival on a forward leg, at
-     * departure on a reverse leg. */
-    bool settle = false;
-    /** Whether the leg is the jitterbug bridge (vertex-orbit faces survive
-     * into the node mesh). */
-    bool jitterbug = false;
-    /** Dual-bridge provenance: start centroids come from the leg's own start
-     * mesh when closing, or arrival mesh when opening. */
-    bool bridge_provenance = false;
-  };
+  using ConwayLegFlags = detail::ConwayLegFlags;
 
   /**
    * @brief Shared CONWAY_SWEEP construction tail: arrival classification
@@ -1396,94 +801,19 @@ private:
    * tr.twist_start/twist_end endpoints and tr.settle_frames already set by the
    * calling constructor.
    */
-  HS_FLASH_MEMBER void init_conway(const PaletteHandoff &handoff,
-                                   const BookendClasses &bookend, Arena &arena,
-                                   const ConwayLegFlags &flags) {
-    const bool settle = flags.settle;
-    const bool jitterbug = flags.jitterbug;
-    const bool bridge_provenance = flags.bridge_provenance;
-    Transients &tr = *buf;
-    ScratchScope sa(scratch_arena_a);
-    ScratchScope sb(scratch_arena_b);
-    HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
-    const PolyMesh &seed = *tr.seed_ref;
-    const uint8_t *forced_from = nullptr;
-    if (handoff.correspondence == FaceCorrespondence::DUAL_CLOSING)
-      forced_from = dual_closing_palettes(seed, handoff, scratch_arena_a);
-
-    if (
-#if HS_ENABLE_TEST_HOOKS
-        !test_classify_partial_bookend &&
-#endif
-        forced_from && bookend.topology &&
-        bookend.faces == seed.face_counts.size() && !settle) {
-      tr.topo.bind(arena, seed.face_counts.size() + seed.vertices.size());
-      for (size_t f = 0; f < seed.face_counts.size() + seed.vertices.size();
-           ++f)
-        tr.topo.push_back(0);
-      build_palette_mapping(tr, seed, handoff, bookend, arena, nullptr,
-                            tr.seed_faces, forced_from);
-      return;
-    }
-
-    // Closing-bridge face blocks transpose the handoff order; use the start
-    // mesh's own centroids, built before arrival to avoid co-resident scratch.
-    const math::Vector *start_centroid = nullptr;
-    const bool closing_bridge = bridge_provenance &&
-                                handoff.prev_face_centroid &&
-                                tr.t_start > tr.t_end;
-    if (closing_bridge)
-      start_centroid = closing_bridge_centroids(tr, seed, handoff);
-
-    PolyMesh arrival = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
-                              tr.t_end, tr.twist_end);
-    PolyMesh *classified = &arrival;
-    PolyMesh relaxed_mesh;
-    if (settle)
-      classified =
-          hoist_settle_endpoint(tr, seed, arrival, arena, relaxed_mesh);
-    tr.topo_is_bookend =
-        hoist_arrival_topology(*classified, bookend, arena, tr.topo);
-
-    PolyMesh start_mesh;
-    if (handoff.prev_face_centroid) {
-      if (bridge_provenance) {
-        // Opening bridge leg: centroids are read only for its newborn faces,
-        // where the arrival's own centroids stand in for the birth mesh.
-        if (!start_centroid)
-          start_centroid = face_centroids(*classified, scratch_arena_a);
-      } else {
-        start_centroid =
-            opening_frame_centroids(tr, seed, relaxed_mesh, settle, start_mesh);
-      }
-    }
-
-    build_palette_mapping(tr, *classified, handoff, bookend, arena,
-                          start_centroid, survivor_faces(tr, seed, jitterbug),
-                          forced_from);
-  }
+  inline HS_FLASH_MEMBER void init_conway(const PaletteHandoff &handoff,
+                                          const BookendClasses &bookend,
+                                          Arena &arena,
+                                          const ConwayLegFlags &flags);
 
   /**
    * @brief Start-parameter face centroids of a closing dual-bridge leg.
    * @return Centroids in the leg's own start emission order, one per handoff
    * face, allocated from scratch_arena_a.
    */
-  __attribute__((always_inline)) static const math::Vector *
+  inline __attribute__((always_inline)) static const math::Vector *
   closing_bridge_centroids(const Transients &tr, const PolyMesh &seed,
-                           const PaletteHandoff &handoff) {
-    math::Vector *cen =
-        scratch_arena_a.allocate_n<math::Vector>(handoff.prev_faces);
-    {
-      ScratchScope ta(scratch_arena_a);
-      ScratchScope tb(scratch_arena_b);
-      PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
-                              tr.t_start, tr.twist_start);
-      HS_CHECK(start.face_counts.size() == handoff.prev_faces,
-               "OpLeg: closing bridge start faces differ from the handoff");
-      MeshOps::face_centroids_into(start, cen);
-    }
-    return cen;
-  }
+                           const PaletteHandoff &handoff);
 
   /**
    * @brief Relaxes a settling leg's endpoint into tr.relaxed.
@@ -1492,27 +822,9 @@ private:
    * form on a forward leg, which lands on it; @p arrival on a reverse leg,
    * which un-settles at the start parameter.
    */
-  __attribute__((always_inline)) static PolyMesh *
+  inline __attribute__((always_inline)) static PolyMesh *
   hoist_settle_endpoint(Transients &tr, const PolyMesh &seed, PolyMesh &arrival,
-                        Arena &arena, PolyMesh &relaxed_mesh) {
-    PolyMesh *classified = &arrival;
-    if (!tr.reverse) {
-      relaxed_mesh = MeshOps::relax(arrival, scratch_arena_b, scratch_arena_a,
-                                    ConwayGraph::SETTLE_RELAX_ITERATIONS);
-      classified = &relaxed_mesh;
-    } else {
-      PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
-                              tr.t_start, tr.twist_start);
-      relaxed_mesh = MeshOps::relax(start, scratch_arena_b, scratch_arena_a,
-                                    ConwayGraph::SETTLE_RELAX_ITERATIONS);
-    }
-    tr.relaxed.bind(arena, relaxed_mesh.vertices.size());
-    tr.relaxed.append_bulk(relaxed_mesh.vertices.data(),
-                           relaxed_mesh.vertices.size());
-    HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
-             "OpLeg: relax changed the vertex count");
-    return classified;
-  }
+                        Arena &arena, PolyMesh &relaxed_mesh);
 
   /**
    * @brief Face centroids of the mesh a Conway leg's first frame draws, the
@@ -1522,20 +834,10 @@ private:
    * @param start_mesh Receives the t_start mesh when it is the one drawn.
    * @return Centroids allocated from scratch_arena_a.
    */
-  __attribute__((always_inline)) static const math::Vector *
+  inline __attribute__((always_inline)) static const math::Vector *
   opening_frame_centroids(const Transients &tr, const PolyMesh &seed,
                           const PolyMesh &relaxed_mesh, bool settle,
-                          PolyMesh &start_mesh) {
-    const PolyMesh *start = &relaxed_mesh;
-    if (!(settle && tr.reverse)) {
-      start_mesh = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
-                          tr.t_start, tr.twist_start);
-      start = &start_mesh;
-    }
-    HS_CHECK(start->face_counts.size() == tr.topo.size(),
-             "OpLeg: start face count differs from arrival");
-    return face_centroids(*start, scratch_arena_a);
-  }
+                          PolyMesh &start_mesh);
 
   /**
    * @brief Emission-order prefix of a Conway leg corresponding 1:1 to a node
@@ -1557,69 +859,16 @@ private:
    * arrival classifications are held separately and the leg's face-count
    * invariant is checked against whichever side the frame draws.
    */
-  HS_FLASH_MEMBER void init_gated(const PaletteHandoff &handoff,
-                                  const BookendClasses &bookend, Arena &arena) {
-    Transients &tr = *buf;
-    ScratchScope sa(scratch_arena_a);
-    ScratchScope sb(scratch_arena_b);
-
-    MeshOps::classify_faces_by_topology(tr.seed, scratch_arena_a,
-                                        scratch_arena_b, arena);
-    tr.seed_topo = std::move(tr.seed.topology);
-    HS_CHECK(tr.seed_topo.size() == tr.seed.face_counts.size(),
-             "OpLeg: gated seed classification is not one class per face");
-    HS_CHECK(handoff.prev_faces == tr.seed.face_counts.size(),
-             "OpLeg: gated swap departs from a mesh that is not its seed");
-
-    PolyMesh arrival = swap_at(tr, scratch_arena_a, scratch_arena_b);
-    MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
-                                        scratch_arena_b, arena);
-    tr.topo = std::move(arrival.topology);
-    HS_CHECK(tr.topo.size() == arrival.face_counts.size(),
-             "OpLeg: gated arrival classification is not one class per face");
-
-    // Provenance across the swap: the children inherit their parent face's
-    // (kis) or nearest orbit face's (dual) palette — colour locality.
-    uint8_t *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
-    if (tr.swap_op == SwapOp::KIS)
-      kis_provenance(tr, arrival, handoff, from);
-    else
-      dual_provenance(tr, arrival, handoff, from);
-
-    build_palette_mapping(tr, arrival, handoff, bookend, arena,
-                          /*start_centroid=*/nullptr,
-                          tr.seed.face_counts.size(), from);
-
-    // Seed-side table: the closing half draws at blend weight 0, so only each
-    // pair's from palette is ever sampled and an identity pair suffices.
-    const size_t seed_faces = tr.seed.face_counts.size();
-    tr.seed_face_ramp.bind(arena, seed_faces);
-    for (size_t f = 0; f < seed_faces; ++f) {
-      const uint8_t pal = handoff.prev_face_palette[f];
-      HS_CHECK(pal < PALETTES, "OpLeg palette: index out of range");
-      tr.seed_face_ramp.push_back(intern_seed_ramp(tr, pal));
-    }
-  }
+  inline HS_FLASH_MEMBER void init_gated(const PaletteHandoff &handoff,
+                                         const BookendClasses &bookend,
+                                         Arena &arena);
 
   /**
    * @brief Index of the seed-side identity ramp for a departed palette,
    * appending one on first use.
    */
-  __attribute__((always_inline)) static uint8_t intern_seed_ramp(Transients &tr,
-                                                                 uint8_t pal) {
-    int ramp = -1;
-    for (int r = 0; r < tr.seed_num_ramps; ++r) {
-      if (tr.seed_ramp_pal[r] == pal) {
-        ramp = r;
-        break;
-      }
-    }
-    if (ramp < 0) {
-      ramp = tr.seed_num_ramps++;
-      tr.seed_ramp_pal[ramp] = pal;
-    }
-    return static_cast<uint8_t>(ramp);
-  }
+  inline __attribute__((always_inline)) static uint8_t
+  intern_seed_ramp(Transients &tr, uint8_t pal);
 
   /**
    * @brief Steps a gated-swap leg: the seed or the partitioned mesh, then the
@@ -1629,28 +878,7 @@ private:
    * with 0 the paused initial state; the swap and opening side draws
    * [gate + 1, 2 * gate + 1].
    */
-  HS_FLASH_MEMBER void step_gated(Canvas &canvas, int frame) {
-    Transients &tr = *buf;
-    const bool seed_side = frame <= tr.sweep_frames;
-
-    ScratchScope sa(scratch_arena_a);
-    ScratchScope sb(scratch_arena_b);
-
-    PolyMesh swapped;
-    {
-      HS_PROFILE(hk_gate_swap);
-      if (!seed_side)
-        swapped = swap_at(tr, scratch_arena_a, scratch_arena_b);
-    }
-    const PolyMesh &mesh = seed_side ? tr.seed : swapped;
-
-    // Colour holds at the departed palettes until the final frames.
-    finish_frame(
-        canvas, mesh,
-        trailing_blend(frame, duration,
-                       std::min(TRAILING_BLEND_FRAMES, tr.sweep_frames)),
-        seed_side);
-  }
+  inline HS_FLASH_MEMBER void step_gated(Canvas &canvas, int frame);
 
   /**
    * @brief Applies the leg's partition operator to its seed.
@@ -1659,11 +887,8 @@ private:
    * @param temp Arena holding the operator's transient scratch.
    * @return The partitioned mesh.
    */
-  HS_FLASH_MEMBER static PolyMesh swap_at(const Transients &tr, Arena &target,
-                                          Arena &temp) {
-    return tr.swap_op == SwapOp::KIS ? MeshOps::kis(tr.seed, target, temp)
-                                     : MeshOps::dual(tr.seed, target, temp);
-  }
+  inline HS_FLASH_MEMBER static PolyMesh swap_at(const Transients &tr,
+                                                 Arena &target, Arena &temp);
 
   /**
    * @brief Per-face from-palettes across a kis swap: every child triangle
@@ -1675,20 +900,9 @@ private:
    * @details kis emits its parent's children consecutively, one per parent
    * side, so the mapping is exact.
    */
-  HS_FLASH_MEMBER static void kis_provenance(const Transients &tr,
-                                             const PolyMesh &arrival,
-                                             const PaletteHandoff &handoff,
-                                             uint8_t *from) {
-    size_t f = 0;
-    for (size_t p = 0; p < tr.seed.face_counts.size(); ++p) {
-      for (int k = 0; k < tr.seed.face_counts[p]; ++k) {
-        HS_CHECK(f < arrival.face_counts.size(), "OpLeg: kis child overflow");
-        from[f++] = handoff.prev_face_palette[p];
-      }
-    }
-    HS_CHECK(f == arrival.face_counts.size(),
-             "OpLeg: kis child count differs from the seed's side count");
-  }
+  inline HS_FLASH_MEMBER static void
+  kis_provenance(const Transients &tr, const PolyMesh &arrival,
+                 const PaletteHandoff &handoff, uint8_t *from);
 
   /**
    * @brief Per-face from-palettes across a dual swap: each dual face takes the
@@ -1702,108 +916,33 @@ private:
    * by source face, and a dual face's vertex list is exactly its source
    * vertex's face orbit.
    */
-  HS_FLASH_MEMBER static void dual_provenance(const Transients &tr,
-                                              const PolyMesh &arrival,
-                                              const PaletteHandoff &handoff,
-                                              uint8_t *from) {
-    size_t off = 0;
-    for (size_t f = 0; f < arrival.face_counts.size(); ++f) {
-      const int n = arrival.face_counts[f];
-      const math::Vector c = math::normalized_or(
-          MeshOps::face_vertex_sum(arrival.vertices.data(),
-                                   arrival.faces.data(), off, n),
-          arrival.vertices[arrival.faces[off]]);
-
-      // The orbit's own source vertex: the dual face's centroid lies in that
-      // vertex's cell, so the nearest seed vertex is it.
-      const math::Vector v = tr.seed.vertices[nearest_point(
-          c, tr.seed.vertices.data(), tr.seed.vertices.size())];
-      const uint16_t best_face = nearest_orbit_vertex(arrival, off, n, v);
-      HS_CHECK(best_face < handoff.prev_faces,
-               "OpLeg: dual face index outside the departed face list");
-      from[f] = handoff.prev_face_palette[best_face];
-      off += n;
-    }
-  }
+  inline HS_FLASH_MEMBER static void
+  dual_provenance(const Transients &tr, const PolyMesh &arrival,
+                  const PaletteHandoff &handoff, uint8_t *from);
 
   /**
    * @brief Index of the vertex of the face at @p off (with @p n sides)
    * nearest @p v; the first wins a tie.
    */
-  __attribute__((always_inline)) static uint16_t
+  inline __attribute__((always_inline)) static uint16_t
   nearest_orbit_vertex(const PolyMesh &mesh, size_t off, int n,
-                       const math::Vector &v) {
-    uint16_t best = mesh.faces[off];
-    float best_sq = 1e9f;
-    for (int k = 0; k < n; ++k) {
-      const uint16_t j = mesh.faces[off + k];
-      const math::Vector d = mesh.vertices[j] - v;
-      const float dsq = math::dot(d, d);
-      if (dsq < best_sq) {
-        best_sq = dsq;
-        best = j;
-      }
-    }
-    return best;
-  }
+                       const math::Vector &v);
 
   /**
    * @brief Runs the edge's operator on the seed at one parameter value.
    */
-  HS_FLASH_MEMBER static PolyMesh run_op(ConwayGraph::MorphOp op,
-                                         const PolyMesh &seed, Arena &target,
-                                         Arena &temp, float t, float twist) {
-    switch (op) {
-    case ConwayGraph::MorphOp::TRUNCATE:
-      // Nudge t = 0.5 off the ambo short-circuit so a far-side leg keeps the
-      // truncate topology.
-      return MeshOps::truncate(seed, target, temp,
-                               ConwayGraph::truncate_off_pinch(t));
-    case ConwayGraph::MorphOp::EXPAND:
-      return MeshOps::expand(seed, target, temp, t);
-    case ConwayGraph::MorphOp::CHAMFER:
-      return MeshOps::chamfer(seed, target, temp, t);
-    default:
-      return MeshOps::snub(seed, target, temp, t, twist);
-    }
-  }
+  inline HS_FLASH_MEMBER static PolyMesh run_op(ConwayGraph::MorphOp op,
+                                                const PolyMesh &seed,
+                                                Arena &target, Arena &temp,
+                                                float t, float twist);
 
   /**
    * @brief Hoists arrival classes or reserves a partial bookend's face slots.
    * @return Whether the bookend classification was reused verbatim.
    */
-  HS_FLASH_MEMBER static bool
+  inline HS_FLASH_MEMBER static bool
   hoist_arrival_topology(PolyMesh &arrival, const BookendClasses &bookend,
-                         Arena &arena, ArenaVector<uint16_t> &topology) {
-    const size_t faces = arrival.face_counts.size();
-    bool reuse = bookend.topology != nullptr;
-#if HS_ENABLE_TEST_HOOKS
-    reuse = reuse && (!test_classify_partial_bookend || bookend.faces == faces);
-#endif
-    if (reuse) {
-      topology.bind(arena, faces);
-      if (bookend.faces == faces) {
-        topology.append_bulk(bookend.topology, faces);
-        return true;
-      }
-      // resolve_target_topology replaces every partial-bookend face slot.
-      for (size_t f = 0; f < faces; ++f)
-        topology.push_back(0);
-      return false;
-    }
-#if HS_ENABLE_TEST_HOOKS
-    test_classified_faces += faces;
-    test_classified_corners += arrival.faces.size();
-#endif
-    MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
-                                        scratch_arena_b, arena);
-    topology = std::move(arrival.topology);
-    HS_CHECK(topology.size() == faces,
-             "OpLeg bookend: topology size %lu != face count %lu",
-             static_cast<unsigned long>(topology.size()),
-             static_cast<unsigned long>(faces));
-    return false;
-  }
+                         Arena &arena, ArenaVector<uint16_t> &topology);
 
   /**
    * @brief Compile the swept mesh, check its face count against the hoisted
@@ -1822,46 +961,10 @@ private:
    * compiling keeps every vertex in place.
    * @param current_frame The leg frame being drawn, or -1 for a gated draw.
    */
-  HS_FLASH_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
-                                    float w, bool seed_side = false,
-                                    math::Vector *drawn = nullptr,
-                                    int previous_frame = -1,
-                                    int current_frame = -1) {
-    Transients &tr = *buf;
-    const ArenaVector<uint16_t> &topo = seed_side ? tr.seed_topo : tr.topo;
-    const ArenaVector<uint8_t> &face_ramp =
-        seed_side ? tr.seed_face_ramp : tr.face_ramp;
-
-    MeshState compiled;
-    {
-      HS_PROFILE(hk_conway_compile);
-      MeshOps::compile(swept, compiled, scratch_arena_a, scratch_arena_b);
-    }
-    HS_CHECK(compiled.face_counts.size() == topo.size(),
-             "OpLeg: sweep changed the compiled face count");
-
-    const float previous_w = tr.drawn ? tr.drawn_weight : w;
-    tr.drawn = true;
-    tr.drawn_weight = w;
-    Shading sh{blend_ramps(tr, w, seed_side), face_ramp.data(),
-               face_ramp.size()};
-    if (!seed_side) {
-      sh.bank = tr.bank;
-      sh.ramp_from = tr.ramp_from;
-      sh.ramp_to = tr.ramp_to;
-    }
-    sh.weight = w;
-    sh.previous_weight = previous_w;
-    if (compiled.vertices.size() == swept.vertices.size()) {
-      sh.previous_vertices = drawn;
-      if (previous_frame >= 0) {
-        sh.leg = this;
-        sh.drawn_frame = static_cast<float>(previous_frame);
-        sh.frame = static_cast<float>(current_frame);
-      }
-    }
-    draw_fn(canvas, compiled, sh);
-  }
+  inline HS_FLASH_MEMBER void
+  finish_frame(Canvas &canvas, const PolyMesh &swept, float w,
+               bool seed_side = false, math::Vector *drawn = nullptr,
+               int previous_frame = -1, int current_frame = -1);
 
   /**
    * @brief Bakes this frame's ramp per interned pair into scratch_arena_b.
@@ -1870,25 +973,8 @@ private:
    * @param seed_side Bake the seed-side identity ramps instead.
    * @return One LUT per ramp index, scratch-backed.
    */
-  __attribute__((always_inline)) static BakedPalette *
-  blend_ramps(const Transients &tr, float w, bool seed_side) {
-    const int num_ramps = seed_side ? tr.seed_num_ramps : tr.num_ramps;
-    BakedPalette *ramps = scratch_arena_b.make_n<BakedPalette>(num_ramps);
-    for (int r = 0; r < num_ramps; ++r) {
-      if (seed_side) {
-        ramps[r] = tr.bank->entries[tr.seed_ramp_pal[r]];
-        continue;
-      }
-      const BakedPalette &from = tr.bank->entries[tr.ramp_from[r]];
-      const BakedPalette &to = tr.bank->entries[tr.ramp_to[r]];
-      if (tr.ramp_from[r] == tr.ramp_to[r]) {
-        ramps[r] = to;
-      } else {
-        ramps[r] = bake_palette_blend(scratch_arena_b, from, to, w);
-      }
-    }
-    return ramps;
-  }
+  inline __attribute__((always_inline)) static BakedPalette *
+  blend_ramps(const Transients &tr, float w, bool seed_side);
 
   /**
    * @brief One dynamic Hankin vertex at an arrival or sweep fraction.
@@ -1899,15 +985,8 @@ private:
    * @return Unit-sphere vertex position.
    */
   template <bool ARRIVAL>
-  __attribute__((always_inline)) static math::Vector
-  hankin_vertex_at(const Transients &tr, size_t i, float k) {
-    if constexpr (ARRIVAL)
-      return tr.hk_final[i].decode().normalized();
-    return math::slerp(
-        tr.hankin.corner(tr.hankin.dynamic_instructions[i].v_corner)
-            .normalized(),
-        tr.hk_final[i].decode(), k);
-  }
+  inline __attribute__((always_inline)) static math::Vector
+  hankin_vertex_at(const Transients &tr, size_t i, float k);
 
   /**
    * @brief One relax vertex at an arrival or sweep fraction.
@@ -1918,12 +997,8 @@ private:
    * @return Unit-sphere vertex position.
    */
   template <bool ARRIVAL>
-  __attribute__((always_inline)) static math::Vector
-  relax_vertex_at(const Transients &tr, size_t i, float k) {
-    if constexpr (ARRIVAL)
-      return tr.relaxed[i];
-    return math::slerp(tr.seed.vertices[i], tr.relaxed[i], k);
-  }
+  inline __attribute__((always_inline)) static math::Vector
+  relax_vertex_at(const Transients &tr, size_t i, float k);
 
   /**
    * @brief One medial vertex at an arrival or sweep fraction.
@@ -1934,12 +1009,8 @@ private:
    * @return Unit-sphere vertex position.
    */
   template <bool ARRIVAL>
-  __attribute__((always_inline)) static math::Vector
-  medial_vertex_at(const Transients &tr, size_t i, float k) {
-    if constexpr (ARRIVAL)
-      return tr.medial_b[i].decode().normalized();
-    return math::slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k);
-  }
+  inline __attribute__((always_inline)) static math::Vector
+  medial_vertex_at(const Transients &tr, size_t i, float k);
 
   /**
    * @brief Copies a leg's constant topology into the swept mesh.
@@ -1948,15 +1019,10 @@ private:
    * @param face_counts Per-face side counts.
    * @param faces Flat per-face vertex index list.
    */
-  HS_FLASH_MEMBER static void
+  inline HS_FLASH_MEMBER static void
   copy_topology(PolyMesh &out, Arena &arena,
                 const ArenaVector<uint8_t> &face_counts,
-                const ArenaVector<uint16_t> &faces) {
-    out.face_counts.bind(arena, face_counts.size());
-    out.face_counts.append_bulk(face_counts.data(), face_counts.size());
-    out.faces.bind(arena, faces.size());
-    out.faces.append_bulk(faces.data(), faces.size());
-  }
+                const ArenaVector<uint16_t> &faces);
 
   /**
    * @brief Deep-copies a seed's geometry, leaving its class ids behind.
@@ -1964,12 +1030,8 @@ private:
    * @param dst Destination mesh, populated in place.
    * @param arena Arena backing the destination arrays.
    */
-  HS_FLASH_MEMBER static void clone_geometry(const PolyMesh &src, PolyMesh &dst,
-                                             Arena &arena) {
-    dst.vertices.bind(arena, src.vertices.size());
-    dst.vertices.append_bulk(src.vertices.data(), src.vertices.size());
-    copy_topology(dst, arena, src.face_counts, src.faces);
-  }
+  inline HS_FLASH_MEMBER static void
+  clone_geometry(const PolyMesh &src, PolyMesh &dst, Arena &arena);
 
   /**
    * @brief Builds a hankin leg's swept mesh at one slerp fraction.
@@ -1978,22 +1040,8 @@ private:
    * @param arena Arena backing the output vectors.
    * @param k Slerp fraction in [0, 1].
    */
-  HS_FLASH_MEMBER static void hankin_at(const Transients &tr, PolyMesh &out,
-                                        Arena &arena, float k) {
-    const CompiledHankin &hk = tr.hankin;
-    const size_t statics = hk.static_vertices.size();
-    const size_t dyn = tr.hk_final.size();
-    out.vertices.bind(arena, statics + dyn);
-    out.vertices.append_bulk(hk.static_vertices.data(), statics);
-    if (k >= 1.0f) {
-      for (size_t i = 0; i < dyn; ++i)
-        out.vertices.push_back(hankin_vertex_at<true>(tr, i, k));
-    } else {
-      for (size_t i = 0; i < dyn; ++i)
-        out.vertices.push_back(hankin_vertex_at<false>(tr, i, k));
-    }
-    copy_topology(out, arena, hk.face_counts, hk.faces);
-  }
+  inline HS_FLASH_MEMBER static void
+  hankin_at(const Transients &tr, PolyMesh &out, Arena &arena, float k);
 
   /**
    * @brief Builds a relax leg's swept mesh at one slerp fraction.
@@ -2002,17 +1050,8 @@ private:
    * @param arena Arena backing the output vectors.
    * @param k Slerp fraction in [0, 1].
    */
-  HS_FLASH_MEMBER static void relax_at(const Transients &tr, PolyMesh &out,
-                                       Arena &arena, float k) {
-    const size_t n = tr.relaxed.size();
-    out.vertices.bind(arena, n);
-    if (k >= 1.0f)
-      out.vertices.append_bulk(tr.relaxed.data(), n);
-    else
-      for (size_t i = 0; i < n; ++i)
-        out.vertices.push_back(relax_vertex_at<false>(tr, i, k));
-    copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
-  }
+  inline HS_FLASH_MEMBER static void
+  relax_at(const Transients &tr, PolyMesh &out, Arena &arena, float k);
 
   /**
    * @brief Builds a medial leg's swept mesh at one slerp fraction, decoding the
@@ -2023,19 +1062,8 @@ private:
    * @param k Slerp fraction in [0, 1]; slerp() renormalizes the near-unit
    * decoded inputs, so the quantization is absorbed into the direction blend.
    */
-  HS_FLASH_MEMBER static void medial_at(const Transients &tr, PolyMesh &out,
-                                        Arena &arena, float k) {
-    const size_t n = tr.medial_a.size();
-    out.vertices.bind(arena, n);
-    if (k >= 1.0f) {
-      for (size_t i = 0; i < n; ++i)
-        out.vertices.push_back(medial_vertex_at<true>(tr, i, k));
-    } else {
-      for (size_t i = 0; i < n; ++i)
-        out.vertices.push_back(medial_vertex_at<false>(tr, i, k));
-    }
-    copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
-  }
+  inline HS_FLASH_MEMBER static void
+  medial_at(const Transients &tr, PolyMesh &out, Arena &arena, float k);
 
   /**
    * @brief Unit-sphere vertex-average centroid of every face.
@@ -2043,12 +1071,8 @@ private:
    * @param arena Arena receiving the centroid array.
    * @return One unit vector per face, in emission order.
    */
-  HS_FLASH_MEMBER static const math::Vector *face_centroids(const PolyMesh &m,
-                                                            Arena &arena) {
-    math::Vector *out = arena.allocate_n<math::Vector>(m.face_counts.size());
-    MeshOps::face_centroids_into(m, out);
-    return out;
-  }
+  inline HS_FLASH_MEMBER static const math::Vector *
+  face_centroids(const PolyMesh &m, Arena &arena);
 
   /**
    * @brief Index of the departed face nearest to a start-face centroid.
@@ -2056,83 +1080,28 @@ private:
    * @param handoff Departed-node provenance (centroids non-null).
    * @return Index into the handoff arrays.
    */
-  HS_FLASH_MEMBER static size_t
-  nearest_prev_face(const math::Vector &c, const PaletteHandoff &handoff) {
-    return nearest_point(c, handoff.prev_face_centroid, handoff.prev_faces);
-  }
+  inline HS_FLASH_MEMBER static size_t
+  nearest_prev_face(const math::Vector &c, const PaletteHandoff &handoff);
 
   /**
    * @brief Index of the point in @p points[0, n) nearest @p c by squared
    * distance; the first wins a tie.
    */
-  __attribute__((always_inline)) static size_t
-  nearest_point(const math::Vector &c, const math::Vector *points, size_t n) {
-    size_t best = 0;
-    float best_d = 1e9f;
-    for (size_t j = 0; j < n; ++j) {
-      const math::Vector d = c - points[j];
-      const float dsq = math::dot(d, d);
-      if (dsq < best_d) {
-        best_d = dsq;
-        best = j;
-      }
-    }
-    return best;
-  }
+  inline __attribute__((always_inline)) static size_t
+  nearest_point(const math::Vector &c, const math::Vector *points, size_t n);
 
   /**
    * @brief Crossfade weight at fraction p of the leg (classic_blend's curve).
    */
-  static float blend_weight(float p) {
-    constexpr float IN = 0.2f, OUT = 0.8f;
-    if (p <= IN)
-      return 0.0f;
-    if (p >= OUT)
-      return 1.0f;
-    return math::cubic_kernel((p - IN) / (OUT - IN));
-  }
+  inline static float blend_weight(float p);
 
   // always_inline: an out-of-line copy inherits no cold attribute from its
   // HS_FLASH_MEMBER caller and would land in ITCM.
-  __attribute__((always_inline)) static const uint16_t *resolve_target_topology(
-      Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
-      const BookendClasses &bookend, Arena &arena, size_t survivors) {
-    const size_t total = tr.topo.size();
-    HS_CHECK(!bookend.topology || bookend.faces == total ||
-                 bookend.faces == survivors,
-             "OpLeg: bookend face count matches neither mapping");
-    // A hoisted bookend classification already covers every face.
-    if (!bookend.topology || tr.topo_is_bookend) {
-      tr.target_topo.clear();
-      return tr.topo.data();
-    }
-
-    const size_t landed = bookend.faces;
-    const bool structural_closing =
-        handoff.correspondence == FaceCorrespondence::DUAL_CLOSING;
-    int *corner_host = nullptr;
-    if (structural_closing && landed < total)
-      corner_host = dual_corner_hosts(tr, landed, total);
-    const math::Vector *arrival_centroid =
-        landed < total && !structural_closing
-            ? face_centroids(arrival, scratch_arena_a)
-            : nullptr;
-    tr.target_topo.bind(arena, total);
-    for (size_t f = 0; f < total; ++f) {
-      if (f < landed) {
-        tr.target_topo.push_back(bookend.topology[f]);
-        continue;
-      }
-      if (structural_closing) {
-        tr.target_topo.push_back(bookend.topology[corner_host[f - landed]]);
-        continue;
-      }
-      const size_t host =
-          nearest_point(arrival_centroid[f], arrival_centroid, landed);
-      tr.target_topo.push_back(bookend.topology[host]);
-    }
-    return tr.target_topo.data();
-  }
+  inline __attribute__((always_inline)) static const uint16_t *
+  resolve_target_topology(Transients &tr, const PolyMesh &arrival,
+                          const PaletteHandoff &handoff,
+                          const BookendClasses &bookend, Arena &arena,
+                          size_t survivors);
 
   /**
    * @brief Landed host face of each corner face on a closing leg.
@@ -2142,20 +1111,8 @@ private:
    * seed's face walk; the face whose walk first reaches that vertex is the
    * corner's host.
    */
-  __attribute__((always_inline)) static int *
-  dual_corner_hosts(const Transients &tr, size_t landed, size_t total) {
-    HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
-    const PolyMesh &dual = *tr.seed_ref;
-    const size_t corners = total - landed;
-    HS_CHECK(landed == dual.face_counts.size() &&
-                 corners == dual.vertices.size(),
-             "OpLeg: closing-leg blocks differ from the dual seed");
-    int *corner_host = scratch_arena_a.allocate_n<int>(corners);
-    size_t out = 0;
-    first_seen_corners(dual, scratch_arena_a,
-                       [&](uint16_t, int host) { corner_host[out++] = host; });
-    return corner_host;
-  }
+  inline __attribute__((always_inline)) static int *
+  dual_corner_hosts(const Transients &tr, size_t landed, size_t total);
 
   /** @brief Per-face from-palette selection of one palette mapping. */
   struct DepartedPalettes {
@@ -2178,65 +1135,22 @@ private:
      * @param to The face's landed palette, the fallback for a newborn face,
      * which skips the crossfade.
      */
-    __attribute__((always_inline)) uint8_t for_face(size_t f,
-                                                    uint8_t to) const {
-      uint8_t from = to;
-      if (forced_from) {
-        from = forced_from[f];
-      } else if (handoff.correspondence == FaceCorrespondence::IDENTITY) {
-        HS_CHECK(handoff.prev_faces == total,
-                 "OpLeg: identity handoff face count differs");
-        from = handoff.prev_face_palette[f];
-      } else if (full_correspondence) {
-        from = claim_nearest(f);
-      } else if (start_centroid) { // prev_faces == survivors
-        if (f < handoff.prev_faces)
-          from = handoff.prev_face_palette[f];
-        else
-          from = newborn(f);
-      } else if (f < handoff.prev_faces) {
-        from = handoff.prev_face_palette[f];
-      }
-      return from;
-    }
+    inline __attribute__((always_inline)) uint8_t for_face(size_t f,
+                                                           uint8_t to) const;
 
     /** @brief Palette of the departed face nearest @p f's start centroid,
      * claimed so no other face maps to it. */
-    __attribute__((always_inline)) uint8_t claim_nearest(size_t f) const {
-      const size_t j = nearest_prev_face(start_centroid[f], handoff);
-      const math::Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
-      HS_CHECK(!prev_used[j] && math::dot(d, d) < PROVENANCE_TOL_SQ,
-               "OpLeg: start face has no unique departed counterpart");
-      prev_used[j] = true;
-      return handoff.prev_face_palette[j];
-    }
+    inline __attribute__((always_inline)) uint8_t claim_nearest(size_t f) const;
 
     /** @brief Newborn face @p f's from-palette, shared across its palette
      * slot and taken from the slot's first face's nearest departed face. */
-    __attribute__((always_inline)) uint8_t newborn(size_t f) const {
-      const int slot = MeshPaletteBank::slot_of(target_topo[f]);
-      if (newborn_from[slot] < 0)
-        newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
-            start_centroid[f], handoff)];
-      return static_cast<uint8_t>(newborn_from[slot]);
-    }
+    inline __attribute__((always_inline)) uint8_t newborn(size_t f) const;
   };
 
   // always_inline: an out-of-line copy inherits no cold attribute from its
   // HS_FLASH_MEMBER caller and would land in ITCM.
-  __attribute__((always_inline)) static uint8_t
-  intern_palette_ramp(Transients &tr, uint8_t from, uint8_t to) {
-    for (int r = 0; r < tr.num_ramps; ++r)
-      if (tr.ramp_from[r] == from && tr.ramp_to[r] == to)
-        return static_cast<uint8_t>(r);
-
-    HS_CHECK(tr.num_ramps < MAX_BLEND_PAIRS,
-             "OpLeg: distinct palette pairs exceed the blend budget");
-    const int ramp = tr.num_ramps++;
-    tr.ramp_from[ramp] = from;
-    tr.ramp_to[ramp] = to;
-    return static_cast<uint8_t>(ramp);
-  }
+  inline __attribute__((always_inline)) static uint8_t
+  intern_palette_ramp(Transients &tr, uint8_t from, uint8_t to);
 
   /**
    * @brief Builds the per-face from-palettes, the
@@ -2257,132 +1171,38 @@ private:
    * departure each newborn palette slot inherits its first face's nearest
    * departed palette.
    */
-  HS_FLASH_MEMBER void
+  inline HS_FLASH_MEMBER void
   build_palette_mapping(Transients &tr, const PolyMesh &arrival,
                         const PaletteHandoff &handoff,
                         const BookendClasses &bookend, Arena &arena,
                         const math::Vector *start_centroid, size_t survivors,
-                        const uint8_t *forced_from = nullptr) {
-    const size_t total = tr.topo.size();
-    const size_t primary = tr.seed_faces;
-    const bool preserve_palette = handoff.preserve_without_births &&
-                                  tr.kind != LegKind::GATED_SWAP &&
-                                  handoff.prev_faces == total;
-    tr.landing.faces = total;
-    tr.landing.primary_faces = primary;
-    tr.landing.preserve_palette = preserve_palette;
-
-    // Surviving faces keep bookend classes; collapsed slivers take their
-    // arrival host's class.
-    const uint16_t *target_topo = resolve_target_topology(
-        tr, arrival, handoff, bookend, arena, survivors);
-    tr.landing.topology = target_topo;
-
-    for (int i = 0; i < PALETTES; ++i)
-      tr.landing.to_palette[i] = static_cast<uint8_t>(i);
-    if (!preserve_palette)
-      hs::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end());
-
-    // The whole face list corresponds, or an emission prefix (survivors or
-    // seed primaries) does and the remaining faces are births.
-    HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == survivors ||
-                 handoff.prev_faces == primary,
-             "OpLeg: handoff face count matches no mapping");
-
-    // Full-correspondence geometric mapping: nearest departed centroid,
-    // pinned as a bijection within tolerance.
-    const bool full_correspondence =
-        start_centroid && handoff.prev_faces == total;
-    bool *prev_used = nullptr;
-    if (full_correspondence) {
-      prev_used = scratch_arena_a.allocate_n<bool>(handoff.prev_faces);
-      std::fill_n(prev_used, handoff.prev_faces, false);
-    }
-    // Newborn palette slots share the from-palette of their first face.
-    int newborn_from[PALETTES];
-    for (int i = 0; i < PALETTES; ++i)
-      newborn_from[i] = -1;
-    const DepartedPalettes departed{
-        handoff, forced_from,         start_centroid, target_topo,
-        total,   full_correspondence, prev_used,      newborn_from};
-
-    uint8_t *from_palette = arena.allocate_n<uint8_t>(total);
-    tr.landing.from_palette = from_palette;
-
-    tr.face_ramp.bind(arena, total);
-    for (size_t f = 0; f < total; ++f) {
-      uint8_t to =
-          tr.landing.to_palette[MeshPaletteBank::slot_of(target_topo[f])];
-      const uint8_t from = departed.for_face(f, to);
-      if (preserve_palette)
-        to = from;
-      HS_CHECK(from < PALETTES && to < PALETTES,
-               "OpLeg: crossfade ramp endpoint outside the palette bank");
-      from_palette[f] = from;
-
-      tr.face_ramp.push_back(intern_palette_ramp(tr, from, to));
-    }
-    tr.landing.blend_pairs = tr.num_ramps;
-
-    HS_CHECK(ramps_fit_scratch(tr),
-             "OpLeg: blended palette LUTs exceed scratch_arena_b");
-  }
+                        const uint8_t *forced_from = nullptr);
 
   /**
    * @brief Whether the per-frame scratch peak fits scratch_arena_b: the ramp
    * array plus one baked LUT per non-identity pair.
    */
-  __attribute__((always_inline)) static bool
-  ramps_fit_scratch(const Transients &tr) {
-    int blended = 0;
-    for (int r = 0; r < tr.num_ramps; ++r)
-      if (tr.ramp_from[r] != tr.ramp_to[r])
-        ++blended;
-    return static_cast<size_t>(tr.num_ramps) * sizeof(BakedPalette) +
-               static_cast<size_t>(blended) *
-                   BakedPalette::required_arena_bytes() <=
-           scratch_arena_b.get_capacity();
-  }
+  inline __attribute__((always_inline)) static bool
+  ramps_fit_scratch(const Transients &tr);
 
   /**
    * @brief Allocates the leg's Transients.
    * @param arena Leg arena backing the leg's state.
    * @return The fresh Transients.
    */
-  Transients &bind_transients(Arena &arena) {
-    buf = arena.make<Transients>();
-    leg_arena = &arena;
-    live_end = arena.get_offset();
-#ifndef NDEBUG
-    stamp.record(arena);
-    live_bytes = sizeof(Transients);
-#endif
-    return *buf;
-  }
+  inline Transients &bind_transients(Arena &arena);
 
   /**
    * @brief Stamps the watermark check_alive() tests past the leg's last
    * allocation.
    */
-  void seal_transients() {
-#ifndef NDEBUG
-    live_bytes += leg_arena->get_offset() - live_end;
-#endif
-    live_end = leg_arena->get_offset();
-  }
+  inline void seal_transients();
 
   /**
    * @brief Traps if the leg arena was reclaimed while the leg is still live.
    * @details The debug block stamp also detects a rewind followed by refill.
    */
-  void check_alive() const {
-    HS_CHECK(leg_arena->get_offset() >= live_end,
-             "OpLeg: leg arena rewound under a live leg");
-#ifndef NDEBUG
-    HS_CHECK(stamp.block_alive(buf, live_bytes),
-             "OpLeg: leg arena storage reclaimed under a live leg");
-#endif
-  }
+  inline void check_alive() const;
 
   Transients *buf = nullptr;  /**< Pointer to arena-allocated leg state. */
   Arena *leg_arena = nullptr; /**< Arena backing buf and the Transients
@@ -2397,3 +1217,9 @@ private:
 };
 
 } // namespace Animation
+
+#include "core/animation/opleg/build.h"
+#include "core/animation/opleg/frame.h"
+#include "core/animation/opleg/sweep.h"
+#include "core/animation/opleg/swaps.h"
+#include "core/animation/opleg/ramps.h"
