@@ -120,8 +120,7 @@ gamut-lut:
 # Build every firmware environment and check first-party warnings.
 teensy-warnings:
     {{ python_command }} tools/build_pins.py --check-tool platformio
-    bash tools/teensy_cold_build.sh teensy_build.log
-    {{ python_command }} tools/teensy_warnings.py --build-log teensy_build.log
+    bash tools/ci/teensy_warnings.sh
 
 # Regenerate documentation maps and derived reference data.
 docs-sync:
@@ -191,9 +190,8 @@ python-test:
     {{ python_command }} tools/run_python_tests.py
 
 # Python tests, routed candidate provenance, and PCB metadata.
-python-ci: python-test
-    {{ python_command }} hardware/phantasm/gen/release.py check-candidates
-    {{ python_command }} hardware/phantasm/gen/board_metadata.py --check
+python-ci:
+    bash tools/ci/python_tests.sh
 
 # Windows only: build, flash, and capture one effect under the device lock.
 profile effect="DisplacementField" seconds="150" $HS_PROFILE_DEEP="0":
@@ -210,15 +208,11 @@ pcb:
 # Validate generated color lookup tables.
 color-lut-check:
     {{ python_command }} tools/build_pins.py --check-tool clang-format
-    cmake -E make_directory build/provenance
-    {{ python_command }} scripts/generate_luts.py -o build/provenance/color_luts.h
-    cmake -E compare_files core/color/color_luts.h build/provenance/color_luts.h
+    bash tools/ci/lut_provenance.sh
 
 # Validate the generated reaction graph.
 reaction-graph-check:
-    cmake -E make_directory build/provenance
-    {{ python_command }} scripts/generate_reaction_graph.py -o build/provenance/reaction_graph.cpp
-    cmake -E compare_files core/spatial/reaction_graph.cpp build/provenance/reaction_graph.cpp
+    bash tools/ci/reaction_graph_provenance.sh
 
 # Validate the generated sRGB decoder tables.
 srgb-decode-check:
@@ -231,8 +225,7 @@ srgb-decode-check:
 
 # Validate promoted shader document provenance.
 patterns-check:
-    node scripts/generate_promoted_shader_documents.mjs --check
-    node scripts/generate_composed_presets.mjs --check
+    bash tools/ci/patterns_provenance.sh
 
 # Run the Node tooling suite.
 scripts-test:
