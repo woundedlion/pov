@@ -328,7 +328,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
   // 1.0002 margin keeps the sqrt-free cull strictly conservative.
   const float BASE_REJECT_RAD = PIXEL_WIDTH * 1.0002f;
   const float BASE_REJECT_DSQ = BASE_REJECT_RAD * BASE_REJECT_RAD;
-  [[maybe_unused]] const float plane_stretch = report_stretch(shape);
+  [[maybe_unused]] const SlackScale slack_scale = block_slack_scale(shape);
   const float shade_reach = (probe_flags & SDF::PreparedFace::PROBE_LINEAR)
                                 ? PIXEL_WIDTH
                                 : tanf(PIXEL_WIDTH);
@@ -342,10 +342,8 @@ HS_HOT_INLINE inline void rasterize_face_body(
       float lod_reach = Render::pole_lod_aggressiveness * PIXEL_WIDTH;
       if constexpr (COLUMN_TIME)
         lod_reach += column_rotation * (Render::POLE_LOD_MAX_RUN - 1);
-      const float block_reach = std::min(
-          PIXEL_WIDTH +
-              lod_reach * SDF::arc_stretch<SDF::PreparedFace> * plane_stretch,
-          SDF::reject_margin<SDF::PreparedFace>);
+      const float block_reach = std::min(PIXEL_WIDTH + slack_scale(lod_reach),
+                                         SDF::reject_margin<SDF::PreparedFace>);
       float block_radius =
           shape.circumradius() +
           ((probe_flags & SDF::PreparedFace::PROBE_LINEAR) ? block_reach
@@ -375,12 +373,11 @@ HS_HOT_INLINE inline void rasterize_face_body(
     float reject_plane = BASE_REJECT_RAD;
     if constexpr (pole_lod_blocks<SDF::PreparedFace>) {
       if constexpr (COLUMN_TIME)
-        block_slack = (pole_lod_slack<W, SDF::PreparedFace>(stride, sp) +
-                       column_rotation * static_cast<float>(stride - 1) *
-                           SDF::arc_stretch<SDF::PreparedFace>)*plane_stretch;
-      else
         block_slack =
-            pole_lod_slack<W, SDF::PreparedFace>(stride, sp) * plane_stretch;
+            slack_scale(pole_lod_arc<W>(stride, sp),
+                        column_rotation * static_cast<float>(stride - 1));
+      else
+        block_slack = slack_scale(pole_lod_arc<W>(stride, sp));
       // the block test reads d, so the cull must not sentinel a probe inside
       // its threshold
       const float reject_rad = (PIXEL_WIDTH + block_slack) * 1.0002f;

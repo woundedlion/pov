@@ -108,25 +108,17 @@ __attribute__((always_inline)) inline int pole_lod_block_anchor(int x,
 }
 
 /**
- * @brief Clearance beyond a walk's own threshold at which one probe vouches for
- *        a whole pole-LOD block.
+ * @brief Latitude-parallel arc from a pole-LOD block's first column to its
+ *        last.
  * @tparam W Canvas width in pixels.
- * @tparam ShapeT Shape the probe read distance() from.
- * @param run Columns in the block; 1 yields no slack.
+ * @param run Columns in the block; 1 yields no arc.
  * @param sin_phi Sine of the row's colatitude.
- * @return Slack in the same units the walk's distance() reports.
- * @details Latitude-parallel arc from a block's first column to its last -- a block
- *          of longitude, foreshortened by sin(phi) -- times the shape's own
- *          change-per-arc factor (SDF::arc_stretch). A probe farther than this
- *          from the surface cannot change side anywhere in the block. A walk
- *          whose reporting stretches further still (a gnomonic projection
- *          stretches by 1 + r^2) scales the result by its own factor.
+ * @return The block's longitude span foreshortened by sin(phi), in radians.
  */
-template <int W, typename ShapeT>
-__attribute__((always_inline)) inline float pole_lod_slack(int run,
-                                                           float sin_phi) {
-  return static_cast<float>(run - 1) * (2.0f * math::PI_F / W) * sin_phi *
-         SDF::arc_stretch<std::remove_cvref_t<ShapeT>>;
+template <int W>
+__attribute__((always_inline)) inline float pole_lod_arc(int run,
+                                                         float sin_phi) {
+  return static_cast<float>(run - 1) * (2.0f * math::PI_F / W) * sin_phi;
 }
 
 /**
@@ -247,6 +239,62 @@ report_stretch(const SDF::AngularRepeat<Shape> &shape) {
 }
 
 /**
+ * @brief Factor from a pole-LOD block's angular slack to the units a shape's
+ *        distance() reports.
+ * @details The shape's change-per-arc factor (SDF::arc_stretch) times its
+ * report stretch (report_stretch). A probe farther from the surface than the
+ * scaled arc cannot change side anywhere in the block. Only block_slack_scale
+ * constructs one.
+ */
+class SlackScale {
+public:
+  /**
+   * @brief Scales an arc.
+   * @param arc Angular slack, radians.
+   * @return Slack in the shape's report units.
+   */
+  HS_HOT_INLINE float operator()(float arc) const {
+    return arc * arc_factor * report;
+  }
+  /**
+   * @brief Scales the sum of a block's arc and the basis turn across it.
+   * @param arc Latitude-parallel block arc, radians.
+   * @param turn Extra arc the evaluated directions turn, radians.
+   * @return Slack in the shape's report units.
+   */
+  HS_HOT_INLINE float operator()(float arc, float turn) const {
+    return (arc * arc_factor + turn * arc_factor) * report;
+  }
+
+private:
+  float arc_factor; ///< SDF::arc_stretch of the shape.
+  float report;     ///< report_stretch of the shape.
+
+  /**
+   * @brief Captures both factors.
+   * @param arc_factor SDF::arc_stretch of the shape.
+   * @param report report_stretch of the shape.
+   */
+  HS_HOT_INLINE SlackScale(float arc_factor, float report)
+      : arc_factor(arc_factor), report(report) {}
+
+  template <typename ShapeT>
+  friend SlackScale block_slack_scale(const ShapeT &shape);
+};
+
+/**
+ * @brief Pole-LOD slack factor of a shape.
+ * @tparam ShapeT Shape the probe reads distance() from.
+ * @param shape Shape whose report stretch scales the slack.
+ * @return The shape's slack factor.
+ */
+template <typename ShapeT>
+HS_HOT_INLINE SlackScale block_slack_scale(const ShapeT &shape) {
+  return SlackScale(SDF::arc_stretch<std::remove_cvref_t<ShapeT>>,
+                    report_stretch(shape));
+}
+
+/**
  * @brief Whether a walk over a shape may settle a whole pole-LOD block from one
  *        probe of it.
  * @tparam ShapeT Shape the probe reads distance() from.
@@ -292,7 +340,7 @@ template <int W, typename ShapeT>
 __attribute__((always_inline)) inline float
 pole_lod_block_slack(int run, float p_y, const ShapeT &shape) {
   const float sin_phi = sqrtf(fmaxf(0.0f, 1.0f - p_y * p_y));
-  return pole_lod_slack<W, ShapeT>(run, sin_phi) * report_stretch(shape);
+  return block_slack_scale(shape)(pole_lod_arc<W>(run, sin_phi));
 }
 
 /**
@@ -764,9 +812,7 @@ inline int process_pixel(int x, int y, const math::Vector &p,
         else
           return pole_lod_block_slack<W>(
                      max_run, block_y > 1.0f ? p.y : block_y, shape) +
-                 block_turn *
-                     SDF::arc_stretch<std::remove_cvref_t<decltype(shape)>> *
-                     report_stretch(shape);
+                 block_slack_scale(shape)(block_turn);
       }();
       const BlockSettle settle = pole_lod_settle_with_slack<SOLID>(
           d, threshold, block_slack, shape, probe);
