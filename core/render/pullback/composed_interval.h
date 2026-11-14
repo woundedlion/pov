@@ -4,6 +4,11 @@
  */
 #pragma once
 
+#include <optional>
+#include <type_traits>
+#include <variant>
+#include "core/memory.h"
+#include "core/platform/cycle_counting.h"
 #include "core/render/pullback/composed_policies.h"
 
 /** @file composed_interval.h
@@ -407,3 +412,111 @@ struct FrameHistory<Frame, true, Hue> : HueRotationGamutStorage<Hue> {
 };
 
 } // namespace Spacetime
+
+namespace Pullback {
+
+/**
+ * @brief Retained endpoint, column-time interval and interval palette caches
+ *        of one composed effect.
+ * @details The storage types are bases and members of the runtime State,
+ * which every operation receives.
+ * @tparam Traits The effect's `ComposedTraits`.
+ */
+template <typename Traits> class ComposedIntervalCache {
+  using FrameState = typename Traits::FrameState;
+  using Params = typename Traits::Params;
+  using SpecT = typename Traits::Spec;
+  static constexpr bool TEMPORAL_SAMPLING = Traits::TEMPORAL_SAMPLING;
+  static constexpr bool PALETTE_LAB_CACHE = Traits::PALETTE_LAB_CACHE;
+  static constexpr bool PALETTE_RGB_CACHE = Traits::PALETTE_RGB_CACHE;
+
+public:
+  /// Retained previous endpoint and its owned color resources.
+  using History = Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
+                                          Traits::HUE_ROTATION_LUT>;
+  /// Ping-pong interval palette bases.
+  using LabLuts =
+      OptionalPaletteLabLut<PALETTE_LAB_CACHE, SpecT::PALETTE_LAB_VALUES>;
+  /// Ping-pong final hue tables over the interval bases.
+  using RgbLuts = OptionalPaletteRgbLut<PALETTE_RGB_CACHE,
+                                        SpecT::PALETTE_RGB_MIDPOINT_ONLY>;
+  /// Column context the sampler writes.
+  using Column =
+      std::conditional_t<TEMPORAL_SAMPLING, FrameState, std::monostate>;
+  /// Interval sampler between the retained and current endpoints.
+  using Interval = std::conditional_t<TEMPORAL_SAMPLING,
+                                      std::optional<FrameInterval<FrameState>>,
+                                      std::monostate>;
+
+  /** @brief Retains the first endpoint when nothing is retained yet.
+   * @tparam Storage Runtime State deriving from `History`.
+   * @param storage Arena-owned interval storage.
+   * @param current This draw's frame. */
+  template <typename Storage>
+  static HS_O3_FN HS_HOT_INLINE void begin(Storage &storage,
+                                           const FrameState &current) {
+    History &history = storage;
+    if (!history.initialized)
+      history.capture(current, persistent_arena);
+  }
+
+  /**
+   * @brief Bakes the interval palette caches when both endpoints qualify and
+   *        opens the interval sampler.
+   * @tparam Storage Runtime State deriving from `History`, `LabLuts` and
+   *         `RgbLuts`, with an `interval` member.
+   * @tparam Eligible Predicate admitting one endpoint's controls to caching.
+   * @param storage Arena-owned interval storage.
+   * @param current This draw's frame; receives the baked base cache.
+   * @param eligible Endpoint control predicate.
+   * @return The sampler from the retained to the current endpoint.
+   */
+  template <typename Storage, typename Eligible>
+  static HS_O3_FN HS_HOT_INLINE const FrameInterval<FrameState> &
+  bake(Storage &storage, FrameState &current, Eligible &&eligible) {
+    const History &history = storage;
+    if constexpr (PALETTE_LAB_CACHE) {
+      if (eligible(current.params) && eligible(history.previous.params) &&
+          Color::same_palette_controls(
+              history.previous.params.template get<"color">(),
+              current.params.template get<"color">())) {
+        HS_PROFILE(fx_palette_base_bake);
+        storage.palette_lab_slot ^= 1;
+        auto &cache = storage.palette_lab_luts[storage.palette_lab_slot];
+        cache.bake(*history.previous.palette, *current.palette);
+        if constexpr (PALETTE_RGB_CACHE) {
+          bool hue_only = true;
+          current.params.visit([&]<typename Resource>(const auto &family) {
+            if constexpr (Resource::KIND == ResourceKind::MODULATION)
+              if (!ColorModulation::hue_only(family.modulation.enabled,
+                                             family.modulation.mechanic))
+                hue_only = false;
+          });
+          if (hue_only) {
+            HS_PROFILE(fx_palette_rgb_bake);
+            storage.palette_rgb_luts[storage.palette_lab_slot].bake(
+                cache, &storage.palette_lab_luts[storage.palette_lab_slot ^ 1],
+                &storage.palette_rgb_luts[storage.palette_lab_slot ^ 1]);
+          }
+        }
+        current.palette_lab_lut = &cache;
+      }
+    }
+    storage.interval.emplace(history.previous, current);
+    return *storage.interval;
+  }
+
+  /** @brief Closes the interval and retains this draw's endpoint.
+   * @tparam Storage Runtime State deriving from `History`, with an
+   *         `interval` member.
+   * @param storage Arena-owned interval storage.
+   * @param current This draw's frame. */
+  template <typename Storage>
+  static HS_O3_FN HS_HOT_INLINE void capture(Storage &storage,
+                                             const FrameState &current) {
+    storage.interval.reset();
+    static_cast<History &>(storage).capture(current, persistent_arena);
+  }
+};
+
+} // namespace Pullback

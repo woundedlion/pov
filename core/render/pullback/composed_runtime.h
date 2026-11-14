@@ -90,6 +90,7 @@ class ComposedEffect
       std::conditional_t<Ownership == Control::HookOwnership::INHERITED,
                          ComposedEffect, Derived>>;
   using Registration = ComposedRegistration<ComposedEffect, Traits>;
+  using IntervalCache = ComposedIntervalCache<Traits>;
   friend Choreography;
   friend Registration;
   friend ComposedAdmission<ComposedEffect>;
@@ -270,43 +271,12 @@ public:
     prepare_frame(state->current);
     const FrameState &current = state->current;
     if constexpr (TEMPORAL_SAMPLING) {
-      auto &history =
-          static_cast<Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
-                                              HUE_ROTATION_LUT> &>(*state);
-      if (!history.initialized)
-        history.capture(current, persistent_arena);
+      IntervalCache::begin(*state, current);
       if (!Spacetime::flat_surface()) {
-        if constexpr (PALETTE_LAB_CACHE) {
-          if (palette_cache_controls_eligible(current.params) &&
-              palette_cache_controls_eligible(history.previous.params) &&
-              Color::same_palette_controls(
-                  history.previous.params.template get<"color">(),
-                  current.params.template get<"color">())) {
-            HS_PROFILE(fx_palette_base_bake);
-            state->palette_lab_slot ^= 1;
-            auto &cache = state->palette_lab_luts[state->palette_lab_slot];
-            cache.bake(*history.previous.palette, *current.palette);
-            if constexpr (PALETTE_RGB_CACHE) {
-              bool hue_only = true;
-              current.params.visit([&]<typename Resource>(const auto &family) {
-                if constexpr (Resource::KIND == ResourceKind::MODULATION)
-                  if (!ColorModulation::hue_only(family.modulation.enabled,
-                                                 family.modulation.mechanic))
-                    hue_only = false;
-              });
-              if (hue_only) {
-                HS_PROFILE(fx_palette_rgb_bake);
-                state->palette_rgb_luts[state->palette_lab_slot].bake(
-                    cache,
-                    &state->palette_lab_luts[state->palette_lab_slot ^ 1],
-                    &state->palette_rgb_luts[state->palette_lab_slot ^ 1]);
-              }
-            }
-            state->current.palette_lab_lut = &cache;
-          }
-        }
-        state->interval.emplace(history.previous, current);
-        const auto &sampler = *state->interval;
+        const auto &sampler = IntervalCache::bake(
+            *state, state->current, [](const Params &value) {
+              return palette_cache_controls_eligible(value);
+            });
         HS_PROFILE(fx_shader_draw);
         Scan::Shader::draw_column_times<W, H>(
             canvas,
@@ -335,8 +305,7 @@ public:
       } else {
         draw_current_columns(canvas, current);
       }
-      state->interval.reset();
-      history.capture(current, persistent_arena);
+      IntervalCache::capture(*state, current);
     } else {
       draw_current_columns(canvas, current);
     }
@@ -586,13 +555,11 @@ private:
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
         OuterCameraNoise<Metadata::OUTER_CAMERA>,
         OptionalHueRotationLut<HUE_ROTATION_LUT>,
-        OptionalPaletteLabLut<PALETTE_LAB_CACHE, SpecT::PALETTE_LAB_VALUES>,
+        IntervalCache::LabLuts,
         OptionalDodecahedralMatrices<SpecT::CACHE_DODECAHEDRAL_MATRICES>,
         OptionalDodecahedralFaces<SpecT::CACHE_DODECAHEDRAL_FACES>,
-        OptionalPaletteRgbLut<PALETTE_RGB_CACHE,
-                              SpecT::PALETTE_RGB_MIDPOINT_ONLY>,
-        Spacetime::FrameHistory<FrameState, TEMPORAL_SAMPLING,
-                                HUE_ROTATION_LUT>,
+        IntervalCache::RgbLuts,
+        IntervalCache::History,
         Registration::Storage {
     ComposedDetail::ResourceStorage<RuntimeResource,
                                     typename Params::ResourceTypes>
@@ -604,10 +571,8 @@ private:
     std::conditional_t<SpecT::PERSISTENT_PREPARED_FRAME, std::optional<Frame>,
                        std::monostate>
         prepared;
-    std::conditional_t<TEMPORAL_SAMPLING, FrameState, std::monostate> column;
-    std::conditional_t<TEMPORAL_SAMPLING,
-                       std::optional<FrameInterval<FrameState>>, std::monostate>
-        interval;
+    typename IntervalCache::Column column;
+    typename IntervalCache::Interval interval;
   };
 
   /// Persistent-arena bytes one instance claims.
