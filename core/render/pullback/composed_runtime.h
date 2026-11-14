@@ -24,6 +24,7 @@
 #include "core/render/pullback/composed_admission.h"
 #include "core/render/pullback/composed_descriptors.h"
 #include "core/render/pullback/composed_interval.h"
+#include "core/render/pullback/composed_palette.h"
 #include "core/render/pullback/composed_registration.h"
 #include "core/render/pullback/composed_traits.h"
 #include "core/render/pullback/runtime_seeds.h"
@@ -208,13 +209,7 @@ public:
             INSTANCE_SEED);
       }
     });
-    palette_cycler.init_generated(
-        persistent_arena, {.next = next_palette,
-                           .context = this,
-                           .dwell_frames = GeneratedPaletteBank::DWELL_FRAMES,
-                           .fade_frames = GeneratedPaletteBank::FADE_FRAMES,
-                           .easing = math::ease_in_out_sin,
-                           .display_interval_frames = 2});
+    palette.init();
     if constexpr (ANIMATED_PROJECTION) {
       constexpr int32_t SEED = [] {
         if constexpr (AUTHORED_TOPOLOGY &&
@@ -270,8 +265,7 @@ public:
       step_choreography();
       advance_runtime();
       update_spatial_frames();
-      update_palette_chroma();
-      palette_cycler.step();
+      palette.step();
     }
     prepare_frame(state->current);
     const FrameState &current = state->current;
@@ -495,25 +489,21 @@ protected:
    *  @param target Parameters to adopt. */
   HS_FLASH_MEMBER void adopt_params(const Params &target) {
     params = target;
-    palette_mapping = Pullback::Color::PaletteMappingWeights::single(
-        target.template get<"color">().palette_mapping);
+    palette.adopt(target.template get<"color">());
     this->refresh_modulation_controls();
   }
 
   /** @brief Re-derives the palette mapping weights after a slider write. */
   HS_FLASH_MEMBER void parameter_written() override {
     Choreography::parameter_written();
-    palette_mapping = Pullback::Color::PaletteMappingWeights::single(
-        this->params.template get<"color">().palette_mapping);
+    palette.adopt(this->params.template get<"color">());
     this->refresh_modulation_controls();
   }
 
   /** @brief Captures the palette-mapping endpoints of an arming crossfade.
    *  @param target Crossfade's destination parameters. */
   HS_FLASH_MEMBER void transition_armed(const Params &target) {
-    mapping_from = palette_mapping;
-    mapping_to = Pullback::Color::PaletteMappingWeights::single(
-        target.template get<"color">().palette_mapping);
+    palette.arm(target.template get<"color">());
   }
 
   /**
@@ -523,8 +513,7 @@ protected:
   HS_FLASH_MEMBER void blend_params(float progress) {
     Pullback::interpolate_into(params, transition.from, transition.to,
                                progress);
-    palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
-        mapping_from, mapping_to, progress);
+    palette.blend(progress);
     this->refresh_modulation_controls();
   }
 
@@ -713,9 +702,7 @@ private:
                   requires { Derived::CAMERA_SPIN_RATE; })
       this->camera_spin =
           fmodf(this->camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
-    palette_oscillation_phase = math::wrap_t(
-        palette_oscillation_phase +
-        this->params.template get<"color">().phase_oscillation_speed);
+    palette.advance();
   }
 
   HS_FLASH_MEMBER void update_spatial_frames() {
@@ -755,21 +742,6 @@ private:
     }
   }
 
-  /** @brief The hue-rotation LUT base, or null when no hue mode reads one. */
-  const Pixel *hue_rotation_lut_data() const {
-    if constexpr (HUE_ROTATION_LUT)
-      return state->hue_rotation_lut.data();
-    else
-      return nullptr;
-  }
-
-  const HueRotationGamutMask *hue_rotation_gamut_data() const {
-    if constexpr (HUE_ROTATION_LUT)
-      return &state->hue_rotation_gamut;
-    else
-      return nullptr;
-  }
-
   /** @brief Checks the authored cache qualification domain.
    * @param value Frame parameters.
    * @return Whether the color controls admit interval caching. */
@@ -796,26 +768,9 @@ private:
    */
   HS_FLASH_MEMBER void prepare_frame(FrameState &frame) {
     HS_PROFILE(fx_prepare_frame);
-    const BakedPalette &palette = selected_palette();
-    uint32_t palette_generation = palette_cycler.bake_generation() << 1;
-    if constexpr (AUTHORED_PALETTE)
-      if (params.template get<"color">().palette_type !=
-          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED))
-        palette_generation =
-            (state->authored_palette.bake_generation() << 1) | 1U;
-    if constexpr (HUE_ROTATION_LUT)
-      if (state->hue_rotation_lut_bake != palette_generation) {
-        Pullback::Color::prepare_hue_rotation_lut(
-            std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
-                state->hue_rotation_lut),
-            palette, &state->hue_rotation_gamut);
-        state->hue_rotation_lut_bake = palette_generation;
-      }
+    palette.prepare(frame, *state);
     frame.projection_conjugate = this->frame_conjugate();
     frame.outer_conjugate = this->camera_conjugate();
-    frame.palette = &palette;
-    frame.hue_rotation_lut = hue_rotation_lut_data();
-    frame.hue_rotation_gamut = hue_rotation_gamut_data();
     frame.palette_lab_lut = nullptr;
     if constexpr (SpecT::CACHE_DODECAHEDRAL_MATRICES)
       frame.dodecahedral_matrices = state->dodecahedral_matrices.data();
@@ -827,8 +782,6 @@ private:
       frame.dodecahedral_faces = nullptr;
     frame.params = params;
     frame.resources = {};
-    frame.palette_mapping = palette_mapping;
-    frame.palette_oscillation_phase = palette_oscillation_phase;
     this->params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       if constexpr (std::is_same_v<typename Resource::Family,
@@ -876,77 +829,12 @@ private:
     }
   }
 
-  /** @brief Resolves the current authored or cycling source. @return Palette table. */
-  const BakedPalette &selected_palette() {
-    if constexpr (AUTHORED_PALETTE) {
-      const auto &color = params.template get<"color">();
-      if (color.palette_type !=
-          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED))
-        return state->authored_palette.prepare(persistent_arena, color,
-                                               color.palette_chroma);
-    }
-    return palette_cycler.palette();
-  }
-
-  /** @brief Current generated-cycle harmony. @return Selected hue relationship. */
-  HS_FLASH_MEMBER PaletteHarmony cycling_harmony() const {
-    if constexpr (AUTHORED_PALETTE) {
-      constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
-      const auto mode = params.template get<"color">().palette_mode;
-      HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
-      return HARMONIES[mode];
-    } else
-      return SpecT::HARMONY;
-  }
-
-  HS_FLASH_MEMBER void update_palette_chroma() {
-    const float chroma = this->params.template get<"color">().palette_chroma;
-    if constexpr (AUTHORED_PALETTE) {
-      const auto harmony = cycling_harmony();
-      if (palette_harmony != harmony) {
-        GeneratedPaletteBank::restore_cycler(palette_cycler,
-                                             palette_cycler.generated_clock(),
-                                             palette_hue, harmony, chroma);
-        palette_harmony = harmony;
-      }
-    }
-    if (palette_chroma == chroma)
-      return;
-    palette_chroma = chroma;
-    palette_cycler.defer_generated_chroma(palette_chroma);
-  }
-
-  /**
-   * @brief Generator the palette cycler calls for each palette in the cycle.
-   * @details Advances the hue on every palette after the first, so the cycle
-   * opens on `palette_hue`, which starts at 0 and moves only here.
-   * @param context The ComposedEffect instance, as registered with the cycler.
-   * @param sequence Zero-based index of the palette being generated.
-   * @param out Receives the recipe to bake.
-   */
-  static void next_palette(void *context, uint32_t sequence,
-                           GenerativePalette &out) {
-    ComposedEffect &effect = *static_cast<ComposedEffect *>(context);
-    GeneratedPaletteBank::next_palette(
-        effect.palette_hue, sequence, effect.cycling_harmony(),
-        effect.params.template get<"color">().palette_chroma, out);
-  }
-
   State *state = nullptr;
-  Pullback::Color::PaletteMappingWeights palette_mapping =
-      Pullback::Color::PaletteMappingWeights::single(
-          this->params.template get<"color">().palette_mapping);
-  Pullback::Color::PaletteMappingWeights mapping_from;
-  Pullback::Color::PaletteMappingWeights mapping_to;
   ComposedDetail::ResourceStorage<ComposedDetail::ResourceRuntimeClock,
                                   typename Params::ResourceTypes>
       clocks;
   bool projection_frame_paused = false;
-  float palette_oscillation_phase = 0.0f;
-  float palette_chroma = -1.0f;
-  uint32_t palette_hue = 0;
-  PaletteHarmony palette_harmony = SpecT::HARMONY;
-  PaletteCycler palette_cycler;
+  ComposedPalette<Traits> palette{this->params.template get<"color">()};
 };
 
 } // namespace Pullback

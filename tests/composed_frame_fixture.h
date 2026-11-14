@@ -26,7 +26,7 @@ struct ComposedFrameWhiteBox {
   template <typename FX> static void advance(FX &effect) {
     effect.advance_runtime();
     effect.update_spatial_frames();
-    effect.update_palette_chroma();
+    effect.palette.update_chroma();
   }
 
   template <typename FX> static typename FX::FrameState frame(FX &effect) {
@@ -71,7 +71,7 @@ struct ComposedFrameWhiteBox {
 
   template <typename FX> static void advance_palette(FX &effect, int steps) {
     for (int step = 0; step < steps; ++step)
-      effect.palette_cycler.step();
+      effect.palette.cycler.step();
   }
 };
 

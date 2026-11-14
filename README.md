@@ -1467,6 +1467,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── composed_traits.h       Composed-effect policy constants, derived types and spec rules
 │   │   │   ├── composed_registration.h Composed-effect slider, folder and modulation-control registration
 │   │   │   ├── composed_admission.h    Composed-effect GUI write and modulation-document admission
+│   │   │   ├── composed_palette.h      Composed-effect palette cycle, mapping weights and per-frame palette resolution
 │   │   │   ├── composed_interval.h     Retained endpoints and column-time sampling
 │   │   │   ├── modulation.h            Pattern state ownership and prepared sphere binding
 │   │   │   ├── modulation_temporal.h   Endpoint retention, identity and completed straight-alpha blending
