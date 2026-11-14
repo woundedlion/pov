@@ -281,6 +281,32 @@ _hs_sanitize(case_context_check)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/test_targets.cmake)
 
+# Each test fragment header compiles on its own, twice-included, in a module
+# group's compile context.
+set(_fragment_header_sources)
+file(GLOB _fragment_headers CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/sdf/*.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shader_chain/*.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/color/*.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/pullback/*.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/pattern/*.h")
+foreach(_header_path IN LISTS _fragment_headers)
+  file(RELATIVE_PATH _header "${CMAKE_CURRENT_SOURCE_DIR}" "${_header_path}")
+  string(REGEX REPLACE "[/.]" "_" _stem "${_header}")
+  set(_source "${CMAKE_CURRENT_BINARY_DIR}/fragment_header_${_stem}.cpp")
+  file(CONFIGURE OUTPUT "${_source}"
+    CONTENT "#include \"tests/${_header}\"\n#include \"tests/${_header}\"\n")
+  list(APPEND _fragment_header_sources "${_source}")
+endforeach()
+add_library(test_fragment_header_checks OBJECT ${_fragment_header_sources})
+target_link_libraries(test_fragment_header_checks PRIVATE hs_test_support)
+target_include_directories(test_fragment_header_checks PRIVATE ${HS_ROOT}
+                           ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(test_fragment_header_checks PRIVATE
+                           ${_hs_module_definitions})
+_hs_warnings(test_fragment_header_checks)
+add_dependencies(run_tests test_fragment_header_checks)
+
 add_executable(mindsplatter_palette_gen
   ${HS_ROOT}/tools/mindsplatter_palette_gen.cpp
   ${HS_ENGINE_SOURCES})
