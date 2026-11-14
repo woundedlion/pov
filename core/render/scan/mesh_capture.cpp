@@ -109,38 +109,82 @@ HS_HOT_FLASH_MEMBER FaceKind polar_kind(const SweptMesh &d, size_t face,
                                                         : POLAR_FACE;
 }
 
-/// Vertex state: its endpoint stands in the first half of its arm's sweep.
-constexpr uint8_t VERTEX_EARLY = 1;
-/// Vertex state: its endpoint stands on the second arm, past half a turn.
-constexpr uint8_t VERTEX_ARM1 = 2;
-/// Vertex state: the pool holds its capture on its own arm.
-constexpr uint8_t POOL_OWN = 4;
-/// Vertex state: the pool holds its capture across the arm boundary nearer
-/// its endpoint.
-constexpr uint8_t POOL_ACROSS = 8;
+/** @brief A vertex's classification and capture-pool bits. */
+struct VertexState {
+  /// Its endpoint stands in the first half of its arm's sweep.
+  static constexpr uint8_t EARLY = 1;
+  /// Its endpoint stands on the second arm, past half a turn.
+  static constexpr uint8_t ARM1 = 2;
+  /// The pool holds its capture on its own arm.
+  static constexpr uint8_t POOL_OWN = 4;
+  /// The pool holds its capture across the arm boundary nearer its endpoint.
+  static constexpr uint8_t POOL_ACROSS = 8;
+  /// Classification has stored the vertex's endpoint tables.
+  static constexpr uint8_t SEEN = 16;
+  /// Its reach can carry it half a right angle about the polar axis, so it
+  /// holds at its endpoint.
+  static constexpr uint8_t HELD = 32;
+  /// The pool holds its capture nearest a quarter of the arm.
+  static constexpr uint8_t POOL_FIRST_HALF = 64;
+  /// The pool holds its capture nearest three quarters of the arm.
+  static constexpr uint8_t POOL_SECOND_HALF = 128;
+  /// The endpoint's arm and half, kept when the pool is relabelled.
+  static constexpr uint8_t CLASS_MASK = EARLY | ARM1;
+  /// Every capture the pool can hold.
+  static constexpr uint8_t POOL_MASK =
+      POOL_OWN | POOL_ACROSS | POOL_FIRST_HALF | POOL_SECOND_HALF;
 
-/// Vertex state: classification has stored the vertex's endpoint tables.
-constexpr uint8_t VERTEX_SEEN = 16;
-/// Vertex state: its reach can carry it half a right angle about the
-/// polar axis, so it holds at its endpoint.
-constexpr uint8_t VERTEX_HELD = 32;
-/// Vertex state: the pool holds its capture nearest a quarter of the arm.
-constexpr uint8_t POOL_FIRST_HALF = 64;
-/// Vertex state: the pool holds its capture nearest three quarters of the
-/// arm.
-constexpr uint8_t POOL_SECOND_HALF = 128;
+  uint8_t bits; ///< The set flags.
+
+  /** @brief The state classification gives a vertex.
+   * @param arm1 Its endpoint stands on the second arm.
+   * @param early Its endpoint stands in the first half of its arm's sweep.
+   * @param held It holds at its endpoint.
+   * @return SEEN with the given class bits and an empty pool. */
+  static VertexState classified(bool arm1, bool early, bool held) {
+    return {uint8_t(SEEN | (arm1 ? ARM1 : uint8_t(0)) |
+                    (early ? EARLY : uint8_t(0)) | (held ? HELD : uint8_t(0)))};
+  }
+
+  /** @brief Whether any of the flags is set.
+   * @param flags Flags to test.
+   * @return True when the state holds one of @p flags. */
+  bool any(uint8_t flags) const { return bits & flags; }
+  /** @brief Whether its endpoint stands in the first half of its arm.
+   * @return EARLY. */
+  bool early() const { return any(EARLY); }
+  /** @brief Whether its endpoint stands on the second arm.
+   * @return ARM1. */
+  bool arm1() const { return any(ARM1); }
+  /** @brief Whether it holds at its endpoint.
+   * @return HELD. */
+  bool held() const { return any(HELD); }
+  /** @brief Whether classification has stored its endpoint tables.
+   * @return SEEN. */
+  bool seen() const { return any(SEEN); }
+  /** @brief Whether the pool holds any of its captures.
+   * @return Any POOL_MASK flag. */
+  bool pooled() const { return any(POOL_MASK); }
+  /** @brief Adds pool flags.
+   * @param pool Flags of captures the pool holds. */
+  void add(uint8_t pool) { bits |= pool; }
+  /** @brief Replaces the pool's labels after the pool takes a new capture.
+   * @param pool Flags of the captures the pool now holds. */
+  void relabel(uint8_t pool) { bits = (bits & CLASS_MASK) | pool; }
+};
+static_assert(sizeof(VertexState) == 1);
 
 /// Half turns per unit of a stored vertex azimuth.
 constexpr float TURNS_SCALE = 1.0f / 32768.0f;
 
 /** @brief One deformation scan's per-vertex and per-face tables. */
 struct FaceTables {
-  uint8_t *kinds;  ///< FaceKind per face.
-  uint8_t *state;  ///< Vertex state bits per vertex.
-  uint16_t *turns; ///< Endpoint azimuth per classified vertex, in half turns
-                   ///< from -1, scaled by 1 / TURNS_SCALE.
-  uint16_t *ends;  ///< Endpoint column per classified vertex
-                   ///< (vertex_column() at u = 1).
+  uint8_t *kinds;     ///< FaceKind per face.
+  VertexState *state; ///< State per vertex.
+  uint16_t *turns;    ///< Endpoint azimuth per classified vertex, in half turns
+                      ///< from -1, scaled by 1 / TURNS_SCALE.
+  uint16_t *ends;     ///< Endpoint column per classified vertex
+                      ///< (vertex_column() at u = 1).
 };
 
 /**
@@ -164,18 +208,20 @@ HS_HOT_INLINE float vertex_turns(const FaceTables &tables, size_t i) {
 HS_O3_FN HS_HOT_INLINE bool capture_pool_matches(const SweptMesh &d,
                                                  const FaceTables &tables,
                                                  size_t i, float centre) {
-  const uint8_t state = tables.state[i];
-  if (!(state & (POOL_OWN | POOL_ACROSS | POOL_FIRST_HALF | POOL_SECOND_HALF)))
+  const VertexState state = tables.state[i];
+  if (!state.pooled())
     return false;
   const float start = d.start[i] * (1.0f / 65536.0f);
   const float first = unwrap_capture(start, centre);
-  const bool early = state & VERTEX_EARLY;
-  return ((state & POOL_OWN) &&
+  const bool early = state.early();
+  return (state.any(VertexState::POOL_OWN) &&
           first == unwrap_capture(start, early ? 0.25f : 0.75f)) ||
-         ((state & POOL_ACROSS) &&
+         (state.any(VertexState::POOL_ACROSS) &&
           first == unwrap_capture(start, early ? 1.25f : -0.25f)) ||
-         ((state & POOL_FIRST_HALF) && first == unwrap_capture(start, 0.25f)) ||
-         ((state & POOL_SECOND_HALF) && first == unwrap_capture(start, 0.75f));
+         (state.any(VertexState::POOL_FIRST_HALF) &&
+          first == unwrap_capture(start, 0.25f)) ||
+         (state.any(VertexState::POOL_SECOND_HALF) &&
+          first == unwrap_capture(start, 0.75f));
 }
 
 /**
@@ -207,19 +253,20 @@ HS_HOT_FLASH_MEMBER math::Vector capture_branch(const SweptMesh &d,
 HS_HOT_FLASH_MEMBER void place_vertex(const SweptMesh &d,
                                       const FaceTables &tables, size_t i,
                                       bool across) {
-  uint8_t &state = tables.state[i];
-  const uint8_t pool = across ? POOL_ACROSS : POOL_OWN;
-  if (!d.moving[i] || (state & (pool | VERTEX_HELD)))
+  VertexState &state = tables.state[i];
+  const uint8_t pool =
+      across ? VertexState::POOL_ACROSS : VertexState::POOL_OWN;
+  if (!d.moving[i] || state.any(pool | VertexState::HELD))
     return;
-  const bool early = state & VERTEX_EARLY;
+  const bool early = state.early();
   const float centre =
       across ? (early ? 1.25f : -0.25f) : (early ? 0.25f : 0.75f);
   if (capture_pool_matches(d, tables, i, centre)) {
-    state |= pool;
+    state.add(pool);
     return;
   }
   d.mesh.vertices[i] = capture_branch(d, tables, centre, i);
-  state = (state & (VERTEX_EARLY | VERTEX_ARM1)) | pool;
+  state.relabel(pool);
 }
 
 /**
@@ -234,18 +281,18 @@ HS_HOT_FLASH_MEMBER void place_vertex(const SweptMesh &d,
  */
 HS_HOT_FLASH_MEMBER void
 place_half(const SweptMesh &d, const FaceTables &tables, size_t i, int half) {
-  uint8_t &state = tables.state[i];
-  const uint8_t pool = half ? POOL_SECOND_HALF : POOL_FIRST_HALF;
-  if (!d.moving[i] || (state & (pool | VERTEX_HELD)))
+  VertexState &state = tables.state[i];
+  const uint8_t pool =
+      half ? VertexState::POOL_SECOND_HALF : VertexState::POOL_FIRST_HALF;
+  if (!d.moving[i] || state.any(pool | VertexState::HELD))
     return;
-  const bool own = bool(state & VERTEX_EARLY) == (half == 0);
+  const bool own = state.early() == (half == 0);
   if (capture_pool_matches(d, tables, i, half ? 0.75f : 0.25f)) {
-    state |= pool | (own ? POOL_OWN : uint8_t(0));
+    state.add(pool | (own ? VertexState::POOL_OWN : uint8_t(0)));
     return;
   }
   d.mesh.vertices[i] = capture_branch(d, tables, half ? 0.75f : 0.25f, i);
-  state = (state & (VERTEX_EARLY | VERTEX_ARM1)) | pool |
-          (own ? POOL_OWN : uint8_t(0));
+  state.relabel(pool | (own ? VertexState::POOL_OWN : uint8_t(0)));
 }
 
 /**
@@ -261,11 +308,11 @@ place_half(const SweptMesh &d, const FaceTables &tables, size_t i, int half) {
  */
 HS_HOT_FLASH_MEMBER math::Vector
 vertex_at(const SweptMesh &d, const FaceTables &tables, size_t i, float time) {
-  if (!d.moving[i] || (tables.state[i] & VERTEX_HELD))
+  if (!d.moving[i] || tables.state[i].held())
     return d.mesh.vertices[i];
   const float turns = vertex_turns(tables, i);
   const float shift = roundf(time - (turns - floorf(turns)));
-  const bool early = tables.state[i] & VERTEX_EARLY;
+  const bool early = tables.state[i].early();
   if (shift == 0.0f || shift == (early ? 1.0f : -1.0f)) {
     place_vertex(d, tables, i, shift != 0.0f);
     return d.mesh.vertices[i];
@@ -309,8 +356,8 @@ HS_HOT_FLASH_MEMBER FaceKind classify_face(const SweptMesh &d, size_t face,
     nearest = fminf(nearest, axial);
     const float motion = vertex_reach(d.moving[i]);
     reach = fmaxf(reach, motion);
-    uint8_t &state = tables.state[i];
-    if (!(state & VERTEX_SEEN)) {
+    VertexState &state = tables.state[i];
+    if (!state.seen()) {
       const float angle = math::half_turns(v);
       const float turns = angle < 1.0f ? angle : angle - 2.0f;
       tables.turns[i] = static_cast<uint16_t>(
@@ -322,9 +369,8 @@ HS_HOT_FLASH_MEMBER FaceKind classify_face(const SweptMesh &d, size_t face,
             vertex_column(v, *d.canvas.column_basis(), 1.0f, d.canvas.width());
         held = motion + sweep >= sqrtf(axial) * (math::PI_F / 4.0f);
       }
-      state = VERTEX_SEEN | (turns < 0.0f ? VERTEX_ARM1 : uint8_t(0)) |
-              (turns - floorf(turns) < 0.5f ? VERTEX_EARLY : uint8_t(0)) |
-              (held ? VERTEX_HELD : uint8_t(0));
+      state = VertexState::classified(turns < 0.0f,
+                                      turns - floorf(turns) < 0.5f, held);
     }
     const float turns = vertex_turns(tables, i);
     angles[k] = turns < 0.0f ? turns + 2.0f : turns;
@@ -402,7 +448,7 @@ HS_HOT_FLASH_MEMBER void draw_arm_copy(const SweptMesh &d,
   uint16_t *order = d.scratch.allocate_n<uint16_t>(2 * count);
   float *times = d.scratch.allocate_n<float>(2 * count);
   const auto on_arm = [&](size_t k) HS_HOT_INLINE {
-    return bool(tables.state[indices[k]] & VERTEX_ARM1) == (arm == 1);
+    return tables.state[indices[k]].arm1() == (arm == 1);
   };
   const auto turns = [&](size_t k) HS_HOT_INLINE {
     return vertex_turns(tables, indices[k]);
@@ -585,8 +631,7 @@ HS_HOT_FLASH_MEMBER bool place_pass(const SweptMesh &d,
         place_half(d, tables, i, arm);
       else
         place_vertex(d, tables, i,
-                     kind == SEAM_FACE &&
-                         bool(tables.state[i] & VERTEX_ARM1) != (arm == 1));
+                     kind == SEAM_FACE && tables.state[i].arm1() != (arm == 1));
     }
   }
   return any;
@@ -600,11 +645,11 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &d) {
   const int width = d.canvas.width(), half = width / 2;
   ScratchScope guard(d.scratch);
   const FaceTables tables{d.scratch.allocate_n<uint8_t>(faces),
-                          d.scratch.allocate_n<uint8_t>(vertices),
+                          d.scratch.allocate_n<VertexState>(vertices),
                           d.scratch.allocate_n<uint16_t>(vertices),
                           d.scratch.allocate_n<uint16_t>(vertices)};
   const float sweep = d.canvas.column_basis()->sweep_arc;
-  std::fill_n(tables.state, vertices, uint8_t(0));
+  std::fill_n(tables.state, vertices, VertexState{0});
 #if HS_ENABLE_TEST_HOOKS
   ++mesh_capture_counters.deformations;
   for (size_t i = 0; i < vertices; ++i)
