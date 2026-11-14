@@ -90,13 +90,7 @@ public:
     ball_cache.init_storage(persistent_arena);
     rings.init_storage(persistent_arena);
     candidates = persistent_arena.allocate_n<CandidateTable>(1);
-    octave1 = persistent_arena.allocate_n<float>(W + 1);
-    octave2 = persistent_arena.allocate_n<float>(W + 1);
-    alternate_scratch[0] = persistent_arena.allocate_n<float>(W + 1);
-    alternate_scratch[1] = persistent_arena.allocate_n<float>(W + 1);
-    knot_visible = persistent_arena.allocate_n<uint8_t>(W + 1);
-    knot_pos = persistent_arena.allocate_n<math::Vector>(W + 1);
-    knot_near = persistent_arena.allocate_n<uint8_t>(W + 1);
+    knot_baker.init_storage(persistent_arena);
     drawn_colors = persistent_arena.allocate_n<Color4>(RING_SLOTS);
     chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
@@ -264,6 +258,8 @@ private:
     float noise_amplitude[2]; ///< Noise amplitude at both endpoints.
     float opacity[2];         ///< Sprite opacity at both endpoints.
     float middle = 0.5f;      ///< Middle sweep fraction of the drawn window.
+    /// Boundary-knot shifts a cached bake retains; null otherwise.
+    Alternates *alternates = nullptr;
   };
 
   static constexpr float SWEEP_QUARTER = Scan::SweptRingStack::QUARTER;
@@ -425,13 +421,14 @@ private:
                                       const Scan::ColumnBasis &column_basis,
                                       int n_balls, Sweep &sweep) {
 #if HS_ENABLE_TEST_HOOKS
-    primary_knots = alternate_noise_samples = primary_bakes = 0;
+    knot_baker.primary_knots = knot_baker.alternate_noise_samples = 0;
+    primary_bakes = 0;
     alternates.duplicate_knots = alternates.stack_flushes = 0;
 #endif
     ScratchScope sweep_guard(scratch_arena_a);
     ball_cache.paths =
         scratch_arena_a.allocate_n<Animation::BumpPath>(MAX_BALLS);
-    knot_times = scratch_arena_a.allocate_n<float>(W + 1);
+    knot_baker.knot_times = scratch_arena_a.allocate_n<float>(W + 1);
     ring_colors = scratch_arena_a.allocate_n<Color4>(RING_SLOTS);
     for (int i = 0; i < params.num_rings; ++i)
       ring_colors[i] = ring_color(i, params.num_rings);
@@ -464,14 +461,17 @@ private:
                                          sweep);
     else
 #endif
+    {
+      sweep.alternates = &alternates;
       draw_pass<SweptCached>(canvas, basis, column_basis, sweep.opacity[1],
                              n_balls, &sweep);
+    }
     for (int i = 0; i < params.num_rings; ++i)
       drawn_colors[i] = ring_colors[i];
     drawn_colors_valid = true;
     drawn_ring_count = params.num_rings;
     ball_cache.paths = nullptr;
-    knot_times = nullptr;
+    knot_baker.knot_times = nullptr;
     ring_colors = nullptr;
   }
 
@@ -772,12 +772,13 @@ private:
         }
 
         if (octaves) {
-          bake_noise_octaves<Bake>(*octaves, basis,
-                                   {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
-                                   visible, n_local, slut, sweep);
+          knot_baker.template bake_noise<Bake>(
+              ball_cache, *octaves, basis, {cos_t, sin_t, cos_d, sin_d}, theta,
+              lut_n, visible, n_local, slut, sweep);
         } else {
-          bake_ball_spans<Bake>(basis, {cos_t, sin_t, cos_d, sin_d}, theta,
-                                lut_n, visible, n_local, slut, sweep);
+          knot_baker.template bake_balls<Bake>(
+              ball_cache, noise_field, basis, {cos_t, sin_t, cos_d, sin_d},
+              theta, lut_n, visible, n_local, slut, sweep);
         }
 
         fill_ring_hues<Bake>(i, lut_n, visible, band, noise_bound, hue_base,
@@ -846,311 +847,6 @@ private:
     ScanSweep::scan_two_windows<W, H>(filters, canvas, params.num_rings, rings,
                                       cache, *candidates, ring_shader,
                                       Reshade{*this});
-  }
-
-  /**
-   * @brief Sets knot_visible[x] to whether knot x lies in a visible chunk.
-   * @param lut_n Knot count.
-   * @param visible Visible-chunk mask, one bit per bake chunk.
-   */
-  HS_HOT_INLINE void mark_visible_knots(int lut_n, uint32_t visible) {
-    int x = 0;
-    for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
-      const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
-      for (; x < x_end; ++x)
-        knot_visible[x] = v;
-    }
-  }
-
-  /** @brief Marks knots within the octave splines' visible support.
-   * @param lut_n Knot count.
-   */
-  HS_O3_FN HS_HOT_INLINE void mark_near_octave_knots(int lut_n) {
-    constexpr int D1 = OCTAVE1_STRIDE;
-    constexpr int D2 = OCTAVE2_STRIDE;
-    auto wrap = [lut_n](int k) HS_HOT_INLINE {
-      return k < 0 ? k + lut_n : k >= lut_n ? k - lut_n : k;
-    };
-    // knot_near[x]: a visible knot lies within the widest spline reach of x.
-    constexpr int REACH = 2 * (D1 > D2 ? D1 : D2) - 1;
-    int in_window = 0;
-    for (int o = -REACH; o <= REACH; ++o)
-      in_window += knot_visible[wrap(o)];
-    for (int x = 0; x < lut_n; ++x) {
-      knot_near[x] = in_window > 0;
-      in_window +=
-          knot_visible[wrap(x + REACH + 1)] - knot_visible[wrap(x - REACH)];
-    }
-  }
-
-  /** @brief Samples octave grids and primary ball shifts at knot times.
-   * @tparam Bake Bake policy.
-   * @param np Noise octave parameters.
-   * @param basis Ring frame.
-   * @param step Knot recurrence coefficients.
-   * @param theta Ring colatitude, radians.
-   * @param lut_n Knot count.
-   * @param n_local Selected ball count.
-   * @param slut Receives primary ball shifts.
-   * @param sweep Retained frame endpoints; read only when swept.
-   */
-  template <class Bake>
-  HS_O3_FN HS_HOT_INLINE void
-  sample_noise_knots(const Animation::NoiseProductParams &np,
-                     const math::Basis &basis, SDF::KnotStep step, float theta,
-                     int lut_n, int n_local, float *slut, const Sweep *sweep) {
-    constexpr int D1 = OCTAVE1_STRIDE;
-    constexpr int D2 = OCTAVE2_STRIDE;
-    float *octave_a = alternate_scratch[0];
-    float *octave_b = alternate_scratch[1];
-    SDF::KnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
-    for (int x = 0; x < lut_n; ++x, knots.advance()) {
-      const bool vis = knot_visible[x] != 0;
-#if HS_ENABLE_TEST_HOOKS
-      primary_knots += vis;
-#endif
-      const bool near = knot_near[x] != 0;
-      const bool g1 = near && x % D1 == 0;
-      const bool g2 = D2 == 1 ? vis : near && x % D2 == 0;
-      if (vis || g1 || g2) {
-        math::Vector p = knots.position();
-        if constexpr (Bake::SWEPT) {
-          const float t = Bake::fraction(p, *sweep);
-          knot_times[x] = t;
-          const math::Vector q =
-              Spacetime::rotate_by(p, sweep->turn * (t - 1.0f));
-          const float time = sweep->noise_time[0] +
-                             (sweep->noise_time[1] - sweep->noise_time[0]) * t;
-          if (g1)
-            octave1[x] = np.octave1(q, time);
-          if (g2)
-            octave2[x] = np.octave2(q, time);
-          if (Bake::CACHED && (g1 || g2)) {
-            octave_a[x] = g1 ? octave1[x] : 0.0f;
-            octave_b[x] = g2 ? octave2[x] : 0.0f;
-            if (alternates.boundary[x] && ScanSweep::retains_endpoint(t)) {
-#if HS_ENABLE_TEST_HOOKS
-              alternate_noise_samples +=
-                  static_cast<int>(g1) + static_cast<int>(g2);
-#endif
-              const float other = ScanSweep::other_endpoint(t);
-              const math::Vector aq =
-                  Spacetime::rotate_by(p, sweep->turn * (other - 1.0f));
-              const float at =
-                  sweep->noise_time[0] +
-                  (sweep->noise_time[1] - sweep->noise_time[0]) * other;
-              if (g1)
-                octave_a[x] = np.octave1(aq, at);
-              if (g2)
-                octave_b[x] = np.octave2(aq, at);
-            }
-          }
-          if (vis)
-            slut[x] = ball_cache.field_at(p, n_local, theta, t);
-        } else {
-          if (g1)
-            octave1[x] = np.octave1(p, np.time);
-          if (g2)
-            octave2[x] = np.octave2(p, np.time);
-          if (vis)
-            slut[x] = ball_cache.field(p, n_local, theta);
-        }
-      }
-    }
-  }
-
-  /**
-   * @brief Bakes one ring's centerline shifts with each noise octave sampled on
-   *        its own knot grid.
-   * @param np The noise field's single active entity.
-   * @param basis Ring frame; basis.v is the stack axis.
-   * @param step Trig of theta and of one knot cell's azimuth step.
-   * @param theta Ring colatitude.
-   * @param lut_n Knot count, a multiple of OCTAVE_GRID.
-   * @param visible Visible-chunk mask, one bit per bake chunk.
-   * @param n_local Balls that can reach the ring (`BallRingCache::local`).
-   * @param slut Receives the shift of every knot in a visible chunk.
-   * @details The two octaves use OCTAVE1_STRIDE and OCTAVE2_STRIDE knot spacing
-   * and fill between samples with a Catmull-Rom spline over four grid knots, so a
-   * grid knot is evaluated when any visible knot lies within two strides of it.
-   * Knot positions come from the same azimuth recurrence as the exact bake.
-   * A swept bake samples each knot where the stack held it at the knot's
-   * time, at the noise time and amplitude of that time.
-   * @tparam Bake Bake policy.
-   * @param sweep The frame's endpoints; read only when swept.
-   */
-  template <class Bake = Unswept>
-  HS_HOT_FLASH_MEMBER void
-  bake_noise_octaves(const Animation::NoiseProductParams &np,
-                     const math::Basis &basis, SDF::KnotStep step, float theta,
-                     int lut_n, uint32_t visible, int n_local, float *slut,
-                     const Sweep *sweep = nullptr) {
-    float *octave_a = alternate_scratch[0];
-    float *octave_b = alternate_scratch[1];
-    constexpr int D1 = OCTAVE1_STRIDE;
-    constexpr int D2 = OCTAVE2_STRIDE;
-    mark_visible_knots(lut_n, visible);
-    mark_near_octave_knots(lut_n);
-
-    HS_PROFILE(df_octave_noise);
-    sample_noise_knots<Bake>(np, basis, step, theta, lut_n, n_local, slut,
-                             sweep);
-
-    bool late = false;
-    auto sample = [&](const float *oct, const float *alternate, int d,
-                      int k) HS_HOT_INLINE {
-      auto value = [&](int index) HS_HOT_INLINE {
-        if constexpr (Bake::CACHED) {
-          if ((late && knot_times[index] < SWEEP_QUARTER) ||
-              (!late && knot_times[index] >= 1.0f - SWEEP_QUARTER))
-            return alternate[index];
-        }
-        return oct[index];
-      };
-      return SDF::catmull_rom_strided(value, d, k, lut_n);
-    };
-    SDF::KnotWalk final_walk{basis, step.cos_t, step.sin_t, step.cos_d,
-                             step.sin_d};
-    for (int x = 0; x < lut_n; ++x, final_walk.advance()) {
-      if (!knot_visible[x])
-        continue;
-      float amplitude = np.amplitude;
-      if constexpr (Bake::SWEPT)
-        amplitude = sweep->noise_amplitude[0] +
-                    (sweep->noise_amplitude[1] - sweep->noise_amplitude[0]) *
-                        knot_times[x];
-      if constexpr (Bake::CACHED)
-        late = knot_times[x] >= 0.5f;
-      const float primary = slut[x] + amplitude *
-                                          sample(octave1, octave_a, D1, x) *
-                                          sample(octave2, octave_b, D2, x);
-      if constexpr (Bake::CACHED) {
-        if (alternates.boundary[x]) {
-          late = !late;
-          const float t = knot_times[x];
-          const float other =
-              ScanSweep::retains_endpoint(t) ? ScanSweep::other_endpoint(t) : t;
-          const float amp =
-              sweep->noise_amplitude[0] +
-              (sweep->noise_amplitude[1] - sweep->noise_amplitude[0]) * other;
-          const float ball = n_local
-                                 ? ball_cache.field_at(final_walk.position(),
-                                                       n_local, theta, other)
-                                 : 0.0f;
-          const float alternate = ball + amp *
-                                             sample(octave1, octave_a, D1, x) *
-                                             sample(octave2, octave_b, D2, x);
-          alternates.retain(x, primary, alternate, t, slut);
-          continue;
-        }
-      }
-      slut[x] = primary;
-    }
-  }
-
-  /**
-   * @brief Bakes one ring's centerline shifts from the balls, each evaluated
-   *        only across the knots its cap can cover.
-   * @param basis Ring frame; basis.v is the stack axis.
-   * @param step Trig of theta and of one knot cell's azimuth step.
-   * @param theta Ring colatitude.
-   * @param lut_n Knot count.
-   * @param visible Visible-chunk mask, one bit per bake chunk.
-   * @param n_local Balls that can reach the ring (`BallRingCache::local`).
-   * @param slut Receives the shift of every knot in a visible chunk.
-   * @details On the ring, a ball's cap test dot(p, center) > cos_radius reads
-   * cos_t * cv + sin_t * rho * cos(a - a0) > cos_radius, which holds on one
-   * azimuth arc around a0. Knots off every padded arc get exactly the zero a
-   * rejected ball adds, and each knot folds its balls in selection order, so
-   * the shifts match evaluating every ball at every knot. A swept bake moves
-   * each ball along its path to the knot's time, inside the arc of the cap
-   * covering the path.
-   * @tparam Bake Bake policy.
-   * @param sweep The frame's endpoints; read only when swept.
-   */
-  template <class Bake = Unswept>
-  HS_HOT_FLASH_MEMBER void
-  bake_ball_spans(const math::Basis &basis, SDF::KnotStep step, float theta,
-                  int lut_n, uint32_t visible, int n_local, float *slut,
-                  const Sweep *sweep = nullptr) {
-    float *ball_num = alternate_scratch[0];
-    float *ball_den = alternate_scratch[1];
-    // Covers the recurrence's drift from the analytic knot azimuth and the
-    // float slop in the cap dot product.
-    constexpr float COS_MARGIN = 2e-4f;
-    float *num = octave1;
-    float *den = octave2;
-    mark_visible_knots(lut_n, visible);
-    SDF::KnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
-    for (int x = 0; x < lut_n; ++x, knots.advance()) {
-      if (knot_visible[x]) {
-#if HS_ENABLE_TEST_HOOKS
-        ++primary_knots;
-#endif
-        knot_pos[x] = knots.position();
-        if constexpr (Bake::SWEPT)
-          knot_times[x] = Bake::fraction(knot_pos[x], *sweep);
-        num[x] = 0.0f;
-        den[x] = 0.0f;
-        if constexpr (Bake::CACHED)
-          ball_num[x] = ball_den[x] = 0.0f;
-      }
-    }
-
-    for (int j = 0; j < n_local; ++j) {
-      const int k = ball_cache.local[j];
-      const Animation::BumpParams &bp = *ball_cache.params[k];
-      float cos_radius = bp.cos_radius;
-      if constexpr (Bake::SWEPT)
-        cos_radius = ball_cache.paths[k].cos_cover;
-      const auto arc = Plot::cap_ring_arc(
-          step.cos_t, step.sin_t, ball_cache.cv[k], ball_cache.rho[k],
-          ball_cache.azimuth[k], cos_radius, lut_n, COS_MARGIN);
-      if (arc.empty)
-        continue;
-      const int first = arc.first;
-      const int count = arc.count;
-      const float y = theta - ball_cache.colat[k];
-      for (int i = 0, xi = first; i < count; ++i) {
-        if (knot_visible[xi]) {
-          float f;
-          if constexpr (Bake::SWEPT)
-            f = Animation::bump_field_at(knot_pos[xi], bp, ball_cache.paths[k],
-                                         theta, knot_times[xi]);
-          else
-            f = bump_field_with_y(knot_pos[xi], bp, y);
-          DominantFieldAccumulator::accumulate(num[xi], den[xi], f);
-          if constexpr (Bake::CACHED) {
-            const float t = knot_times[xi];
-            if (alternates.boundary[xi] && ScanSweep::retains_endpoint(t)) {
-              const float other = ScanSweep::other_endpoint(t);
-              const float alternate = Animation::bump_field_at(
-                  knot_pos[xi], bp, ball_cache.paths[k], theta, other);
-              DominantFieldAccumulator::accumulate(ball_num[xi], ball_den[xi],
-                                                   alternate);
-            }
-          }
-        }
-        if (++xi == lut_n)
-          xi = 0;
-      }
-    }
-
-    for (int x = 0; x < lut_n; ++x)
-      if (knot_visible[x]) {
-        slut[x] = DominantFieldAccumulator::resolve(num[x], den[x]) +
-                  noise_field.field(knot_pos[x]);
-        if constexpr (Bake::CACHED) {
-          const float t = knot_times[x];
-          if (alternates.boundary[x] && ScanSweep::retains_endpoint(t)) {
-            const float alternate =
-                DominantFieldAccumulator::resolve(ball_num[x], ball_den[x]) +
-                noise_field.field(knot_pos[x]);
-            alternates.retain(x, slut[x], alternate, t, slut);
-          }
-        }
-      }
   }
 
   /**
@@ -1258,8 +954,9 @@ private:
 
   BallDropTransformer<MAX_BALLS>
       balls; /**< Falling-ball displacement fields. */
-  NoiseProductTransformer<1>
-      noise_field; /**< Two-octave noise displacement field. */
+  /// Two-octave noise displacement field type.
+  using NoiseField = NoiseProductTransformer<1>;
+  NoiseField noise_field; /**< Two-octave noise displacement field. */
 
   GenerativePalette
       palette; /**< Active palette (mutated by an in-flight ColorWipe). */
@@ -1279,7 +976,6 @@ private:
   bool drawn_colors_valid = false; ///< The last draw was swept.
   int drawn_ring_count = 0;        ///< Stack size of the last swept draw.
   // Frame scratch of a swept draw, null outside it.
-  float *knot_times = nullptr;   ///< W + 1 frame fractions of baked knots.
   Color4 *ring_colors = nullptr; ///< RING_SLOTS current ring colors.
 
   /** Noise row in PRESETS and PRESET_IDS. */
@@ -1439,17 +1135,6 @@ private:
   using CandidateTable = Scan::DistortedRingStack::CandidateTable<W, H>;
   CandidateTable *candidates =
       nullptr; /**< Fused scan's per-frame ring candidate map. */
-  float *octave1 =
-      nullptr; /**< W + 1 envelope-octave samples on its knot grid. */
-  float *octave2 =
-      nullptr; /**< W + 1 detail-octave samples on its knot grid. */
-  float *alternate_scratch[2] = {}; ///< Reused alternate-window field channels.
-  uint8_t *knot_visible =
-      nullptr; /**< W + 1 flags: knot lies in a visible bake chunk. */
-  math::Vector *knot_pos =
-      nullptr; /**< W + 1 knot positions of the ring being ball-baked. */
-  uint8_t *knot_near =
-      nullptr; /**< W + 1 flags: a visible knot lies within spline reach. */
   float *chunk_cos =
       nullptr; /**< cos of each bake chunk's mid-azimuth; baked once at init. */
   float *chunk_sin =
@@ -1582,14 +1267,371 @@ private:
     }
   };
   BallRingCache ball_cache; ///< Active-ball ring-frame cache.
+
+  /** @brief Bakes one ring's knot shifts: the visible-knot masks, the octave
+   * grids and the ball spans, at the bake policy's knot times. */
+  struct RingKnotBaker {
+    float *octave1 =
+        nullptr; /**< W + 1 envelope-octave samples on its knot grid. */
+    float *octave2 =
+        nullptr; /**< W + 1 detail-octave samples on its knot grid. */
+    float *alternate_scratch[2] = {}; ///< Reused alternate-window field
+                                      ///< channels.
+    uint8_t *knot_visible =
+        nullptr; /**< W + 1 flags: knot lies in a visible bake chunk. */
+    math::Vector *knot_pos =
+        nullptr; /**< W + 1 knot positions of the ring being ball-baked. */
+    uint8_t *knot_near =
+        nullptr; /**< W + 1 flags: a visible knot lies within spline reach. */
+    /// W + 1 frame fractions of baked knots; null outside a swept draw.
+    float *knot_times = nullptr;
+#if HS_ENABLE_TEST_HOOKS
+    int primary_knots =
+        0; ///< Primary visible field knots in the last swept frame.
+    int alternate_noise_samples = 0; ///< Additional scalar octave evaluations.
+#endif
+
+    /** @brief Persistent bytes init_storage() takes, alignment included. */
+    static constexpr size_t BYTES =
+        (W + 1) *
+            (4 * sizeof(float) + 2 * sizeof(uint8_t) + sizeof(math::Vector)) +
+        4 * alignof(float) + 2 * alignof(uint8_t) + alignof(math::Vector);
+
+    /** @brief Allocates the knot rows.
+     * @param arena Persistent storage arena. */
+    HS_FLASH_MEMBER void init_storage(Arena &arena) {
+      octave1 = arena.allocate_n<float>(W + 1);
+      octave2 = arena.allocate_n<float>(W + 1);
+      alternate_scratch[0] = arena.allocate_n<float>(W + 1);
+      alternate_scratch[1] = arena.allocate_n<float>(W + 1);
+      knot_visible = arena.allocate_n<uint8_t>(W + 1);
+      knot_pos = arena.allocate_n<math::Vector>(W + 1);
+      knot_near = arena.allocate_n<uint8_t>(W + 1);
+    }
+
+    /**
+     * @brief Sets knot_visible[x] to whether knot x lies in a visible chunk.
+     * @param lut_n Knot count.
+     * @param visible Visible-chunk mask, one bit per bake chunk.
+     */
+    HS_HOT_INLINE void mark_visible_knots(int lut_n, uint32_t visible) {
+      int x = 0;
+      for (int c = 0; c < BAKE_CHUNKS; ++c) {
+        const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
+        const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
+        for (; x < x_end; ++x)
+          knot_visible[x] = v;
+      }
+    }
+
+    /** @brief Marks knots within the octave splines' visible support.
+     * @param lut_n Knot count.
+     */
+    HS_O3_FN HS_HOT_INLINE void mark_near_octave_knots(int lut_n) {
+      constexpr int D1 = OCTAVE1_STRIDE;
+      constexpr int D2 = OCTAVE2_STRIDE;
+      auto wrap = [lut_n](int k) HS_HOT_INLINE {
+        return k < 0 ? k + lut_n : k >= lut_n ? k - lut_n : k;
+      };
+      // knot_near[x]: a visible knot lies within the widest spline reach of x.
+      constexpr int REACH = 2 * (D1 > D2 ? D1 : D2) - 1;
+      int in_window = 0;
+      for (int o = -REACH; o <= REACH; ++o)
+        in_window += knot_visible[wrap(o)];
+      for (int x = 0; x < lut_n; ++x) {
+        knot_near[x] = in_window > 0;
+        in_window +=
+            knot_visible[wrap(x + REACH + 1)] - knot_visible[wrap(x - REACH)];
+      }
+    }
+
+    /** @brief Samples octave grids and primary ball shifts at knot times.
+     * @tparam Bake Bake policy.
+     * @param balls The frame's ball cache with the ring's selection.
+     * @param np Noise octave parameters.
+     * @param basis Ring frame.
+     * @param step Knot recurrence coefficients.
+     * @param theta Ring colatitude, radians.
+     * @param lut_n Knot count.
+     * @param n_local Selected ball count.
+     * @param slut Receives primary ball shifts.
+     * @param sweep Retained frame endpoints; read only when swept.
+     */
+    template <class Bake>
+    HS_O3_FN HS_HOT_INLINE void sample_noise_knots(
+        const BallRingCache &balls, const Animation::NoiseProductParams &np,
+        const math::Basis &basis, SDF::KnotStep step, float theta, int lut_n,
+        int n_local, float *slut, const Sweep *sweep) {
+      constexpr int D1 = OCTAVE1_STRIDE;
+      constexpr int D2 = OCTAVE2_STRIDE;
+      float *octave_a = alternate_scratch[0];
+      float *octave_b = alternate_scratch[1];
+      SDF::KnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d,
+                          step.sin_d};
+      for (int x = 0; x < lut_n; ++x, knots.advance()) {
+        const bool vis = knot_visible[x] != 0;
+#if HS_ENABLE_TEST_HOOKS
+        primary_knots += vis;
+#endif
+        const bool near = knot_near[x] != 0;
+        const bool g1 = near && x % D1 == 0;
+        const bool g2 = D2 == 1 ? vis : near && x % D2 == 0;
+        if (vis || g1 || g2) {
+          math::Vector p = knots.position();
+          if constexpr (Bake::SWEPT) {
+            const float t = Bake::fraction(p, *sweep);
+            knot_times[x] = t;
+            const math::Vector q =
+                Spacetime::rotate_by(p, sweep->turn * (t - 1.0f));
+            const float time =
+                sweep->noise_time[0] +
+                (sweep->noise_time[1] - sweep->noise_time[0]) * t;
+            if (g1)
+              octave1[x] = np.octave1(q, time);
+            if (g2)
+              octave2[x] = np.octave2(q, time);
+            if (Bake::CACHED && (g1 || g2)) {
+              octave_a[x] = g1 ? octave1[x] : 0.0f;
+              octave_b[x] = g2 ? octave2[x] : 0.0f;
+              if (sweep->alternates->boundary[x] &&
+                  ScanSweep::retains_endpoint(t)) {
+#if HS_ENABLE_TEST_HOOKS
+                alternate_noise_samples +=
+                    static_cast<int>(g1) + static_cast<int>(g2);
+#endif
+                const float other = ScanSweep::other_endpoint(t);
+                const math::Vector aq =
+                    Spacetime::rotate_by(p, sweep->turn * (other - 1.0f));
+                const float at =
+                    sweep->noise_time[0] +
+                    (sweep->noise_time[1] - sweep->noise_time[0]) * other;
+                if (g1)
+                  octave_a[x] = np.octave1(aq, at);
+                if (g2)
+                  octave_b[x] = np.octave2(aq, at);
+              }
+            }
+            if (vis)
+              slut[x] = balls.field_at(p, n_local, theta, t);
+          } else {
+            if (g1)
+              octave1[x] = np.octave1(p, np.time);
+            if (g2)
+              octave2[x] = np.octave2(p, np.time);
+            if (vis)
+              slut[x] = balls.field(p, n_local, theta);
+          }
+        }
+      }
+    }
+
+    /**
+     * @brief Bakes one ring's centerline shifts with each noise octave sampled on
+     *        its own knot grid.
+     * @param balls The frame's ball cache with the ring's selection.
+     * @param np The noise field's single active entity.
+     * @param basis Ring frame; basis.v is the stack axis.
+     * @param step Trig of theta and of one knot cell's azimuth step.
+     * @param theta Ring colatitude.
+     * @param lut_n Knot count, a multiple of OCTAVE_GRID.
+     * @param visible Visible-chunk mask, one bit per bake chunk.
+     * @param n_local Balls that can reach the ring (`BallRingCache::local`).
+     * @param slut Receives the shift of every knot in a visible chunk.
+     * @details The two octaves use OCTAVE1_STRIDE and OCTAVE2_STRIDE knot spacing
+     * and fill between samples with a Catmull-Rom spline over four grid knots, so a
+     * grid knot is evaluated when any visible knot lies within two strides of it.
+     * Knot positions come from the same azimuth recurrence as the exact bake.
+     * A swept bake samples each knot where the stack held it at the knot's
+     * time, at the noise time and amplitude of that time.
+     * @tparam Bake Bake policy.
+     * @param sweep The frame's endpoints; read only when swept.
+     */
+    template <class Bake = Unswept>
+    HS_HOT_FLASH_MEMBER void
+    bake_noise(const BallRingCache &balls,
+               const Animation::NoiseProductParams &np,
+               const math::Basis &basis, SDF::KnotStep step, float theta,
+               int lut_n, uint32_t visible, int n_local, float *slut,
+               const Sweep *sweep = nullptr) {
+      float *octave_a = alternate_scratch[0];
+      float *octave_b = alternate_scratch[1];
+      constexpr int D1 = OCTAVE1_STRIDE;
+      constexpr int D2 = OCTAVE2_STRIDE;
+      mark_visible_knots(lut_n, visible);
+      mark_near_octave_knots(lut_n);
+
+      HS_PROFILE(df_octave_noise);
+      sample_noise_knots<Bake>(balls, np, basis, step, theta, lut_n, n_local,
+                               slut, sweep);
+
+      bool late = false;
+      auto sample = [&](const float *oct, const float *alternate, int d,
+                        int k) HS_HOT_INLINE {
+        auto value = [&](int index) HS_HOT_INLINE {
+          if constexpr (Bake::CACHED) {
+            if ((late && knot_times[index] < SWEEP_QUARTER) ||
+                (!late && knot_times[index] >= 1.0f - SWEEP_QUARTER))
+              return alternate[index];
+          }
+          return oct[index];
+        };
+        return SDF::catmull_rom_strided(value, d, k, lut_n);
+      };
+      SDF::KnotWalk final_walk{basis, step.cos_t, step.sin_t, step.cos_d,
+                               step.sin_d};
+      for (int x = 0; x < lut_n; ++x, final_walk.advance()) {
+        if (!knot_visible[x])
+          continue;
+        float amplitude = np.amplitude;
+        if constexpr (Bake::SWEPT)
+          amplitude = sweep->noise_amplitude[0] +
+                      (sweep->noise_amplitude[1] - sweep->noise_amplitude[0]) *
+                          knot_times[x];
+        if constexpr (Bake::CACHED)
+          late = knot_times[x] >= 0.5f;
+        const float primary = slut[x] + amplitude *
+                                            sample(octave1, octave_a, D1, x) *
+                                            sample(octave2, octave_b, D2, x);
+        if constexpr (Bake::CACHED) {
+          if (sweep->alternates->boundary[x]) {
+            late = !late;
+            const float t = knot_times[x];
+            const float other = ScanSweep::retains_endpoint(t)
+                                    ? ScanSweep::other_endpoint(t)
+                                    : t;
+            const float amp =
+                sweep->noise_amplitude[0] +
+                (sweep->noise_amplitude[1] - sweep->noise_amplitude[0]) * other;
+            const float ball = n_local ? balls.field_at(final_walk.position(),
+                                                        n_local, theta, other)
+                                       : 0.0f;
+            const float alternate =
+                ball + amp * sample(octave1, octave_a, D1, x) *
+                           sample(octave2, octave_b, D2, x);
+            sweep->alternates->retain(x, primary, alternate, t, slut);
+            continue;
+          }
+        }
+        slut[x] = primary;
+      }
+    }
+
+    /**
+     * @brief Bakes one ring's centerline shifts from the balls, each evaluated
+     *        only across the knots its cap can cover.
+     * @param balls The frame's ball cache with the ring's selection.
+     * @param noise Noise field added to every knot.
+     * @param basis Ring frame; basis.v is the stack axis.
+     * @param step Trig of theta and of one knot cell's azimuth step.
+     * @param theta Ring colatitude.
+     * @param lut_n Knot count.
+     * @param visible Visible-chunk mask, one bit per bake chunk.
+     * @param n_local Balls that can reach the ring (`BallRingCache::local`).
+     * @param slut Receives the shift of every knot in a visible chunk.
+     * @details On the ring, a ball's cap test dot(p, center) > cos_radius reads
+     * cos_t * cv + sin_t * rho * cos(a - a0) > cos_radius, which holds on one
+     * azimuth arc around a0. Knots off every padded arc get exactly the zero a
+     * rejected ball adds, and each knot folds its balls in selection order, so
+     * the shifts match evaluating every ball at every knot. A swept bake moves
+     * each ball along its path to the knot's time, inside the arc of the cap
+     * covering the path.
+     * @tparam Bake Bake policy.
+     * @param sweep The frame's endpoints; read only when swept.
+     */
+    template <class Bake = Unswept>
+    HS_HOT_FLASH_MEMBER void
+    bake_balls(const BallRingCache &balls, const NoiseField &noise,
+               const math::Basis &basis, SDF::KnotStep step, float theta,
+               int lut_n, uint32_t visible, int n_local, float *slut,
+               const Sweep *sweep = nullptr) {
+      float *ball_num = alternate_scratch[0];
+      float *ball_den = alternate_scratch[1];
+      // Covers the recurrence's drift from the analytic knot azimuth and the
+      // float slop in the cap dot product.
+      constexpr float COS_MARGIN = 2e-4f;
+      float *num = octave1;
+      float *den = octave2;
+      mark_visible_knots(lut_n, visible);
+      SDF::KnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d,
+                          step.sin_d};
+      for (int x = 0; x < lut_n; ++x, knots.advance()) {
+        if (knot_visible[x]) {
+#if HS_ENABLE_TEST_HOOKS
+          ++primary_knots;
+#endif
+          knot_pos[x] = knots.position();
+          if constexpr (Bake::SWEPT)
+            knot_times[x] = Bake::fraction(knot_pos[x], *sweep);
+          num[x] = 0.0f;
+          den[x] = 0.0f;
+          if constexpr (Bake::CACHED)
+            ball_num[x] = ball_den[x] = 0.0f;
+        }
+      }
+
+      for (int j = 0; j < n_local; ++j) {
+        const int k = balls.local[j];
+        const Animation::BumpParams &bp = *balls.params[k];
+        float cos_radius = bp.cos_radius;
+        if constexpr (Bake::SWEPT)
+          cos_radius = balls.paths[k].cos_cover;
+        const auto arc = Plot::cap_ring_arc(step.cos_t, step.sin_t, balls.cv[k],
+                                            balls.rho[k], balls.azimuth[k],
+                                            cos_radius, lut_n, COS_MARGIN);
+        if (arc.empty)
+          continue;
+        const int first = arc.first;
+        const int count = arc.count;
+        const float y = theta - balls.colat[k];
+        for (int i = 0, xi = first; i < count; ++i) {
+          if (knot_visible[xi]) {
+            float f;
+            if constexpr (Bake::SWEPT)
+              f = Animation::bump_field_at(knot_pos[xi], bp, balls.paths[k],
+                                           theta, knot_times[xi]);
+            else
+              f = bump_field_with_y(knot_pos[xi], bp, y);
+            DominantFieldAccumulator::accumulate(num[xi], den[xi], f);
+            if constexpr (Bake::CACHED) {
+              const float t = knot_times[xi];
+              if (sweep->alternates->boundary[xi] &&
+                  ScanSweep::retains_endpoint(t)) {
+                const float other = ScanSweep::other_endpoint(t);
+                const float alternate = Animation::bump_field_at(
+                    knot_pos[xi], bp, balls.paths[k], theta, other);
+                DominantFieldAccumulator::accumulate(ball_num[xi], ball_den[xi],
+                                                     alternate);
+              }
+            }
+          }
+          if (++xi == lut_n)
+            xi = 0;
+        }
+      }
+
+      for (int x = 0; x < lut_n; ++x)
+        if (knot_visible[x]) {
+          slut[x] = DominantFieldAccumulator::resolve(num[x], den[x]) +
+                    noise.field(knot_pos[x]);
+          if constexpr (Bake::CACHED) {
+            const float t = knot_times[x];
+            if (sweep->alternates->boundary[x] &&
+                ScanSweep::retains_endpoint(t)) {
+              const float alternate =
+                  DominantFieldAccumulator::resolve(ball_num[x], ball_den[x]) +
+                  noise.field(knot_pos[x]);
+              sweep->alternates->retain(x, slut[x], alternate, t, slut);
+            }
+          }
+        }
+    }
+  };
+  RingKnotBaker knot_baker; ///< Knot rows of the ring being baked.
 #if HS_ENABLE_TEST_ORACLES
   bool force_exact_hue = false; ///< Rotate every knot's hue exactly.
   SweepBake sweep_bake = SweepBake::SINGLE_PASS; ///< Swept bake under test.
 #endif
 #if HS_ENABLE_TEST_HOOKS
-  int primary_knots =
-      0; ///< Primary visible field knots in the last swept frame.
-  int alternate_noise_samples = 0; ///< Additional scalar octave evaluations.
   int primary_bakes = 0; ///< Non-flat rings baked in the last swept frame.
   int hue_table_uses = 0;
 #endif
@@ -1701,11 +1743,6 @@ private:
                 "DisplacementField Thickness default falls outside its "
                 "W-scaled slider range at this build resolution");
 
-  /** @brief Persistent bytes of the knot bake scratch, alignment included. */
-  static constexpr size_t KNOT_SCRATCH_BYTES =
-      (W + 1) *
-          (4 * sizeof(float) + 2 * sizeof(uint8_t) + sizeof(math::Vector)) +
-      4 * alignof(float) + 2 * alignof(uint8_t) + alignof(math::Vector);
   /** @brief Persistent bytes of the last swept draw's ring colors. */
   static constexpr size_t COLOR_HISTORY_BYTES =
       RING_SLOTS * sizeof(Color4) + alignof(Color4);
@@ -1723,7 +1760,7 @@ private:
       alignof(typename decltype(noise_field)::Entity) + alignof(int);
   /** @brief Every persistent allocation init() makes. */
   static constexpr size_t FOOTPRINT_BYTES =
-      RingPool::BYTES + HueTable::BYTES + KNOT_SCRATCH_BYTES +
+      RingPool::BYTES + HueTable::BYTES + RingKnotBaker::BYTES +
       BallRingCache::BYTES + COLOR_HISTORY_BYTES + CHUNK_TRIG_BYTES +
       CANDIDATE_BYTES + FIELD_BYTES;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,

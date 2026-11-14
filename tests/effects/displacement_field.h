@@ -44,8 +44,8 @@ struct DisplacementFieldWhiteBox {
     HS_EXPECT_GT(effect.alternates.duplicate_knots, 0);
     std::printf(
         "  [single pass] primary=%d alternate=%d octave-extra=%d rings=%d\n",
-        effect.primary_knots, effect.alternates.duplicate_knots,
-        effect.alternate_noise_samples, effect.primary_bakes);
+        effect.knot_baker.primary_knots, effect.alternates.duplicate_knots,
+        effect.knot_baker.alternate_noise_samples, effect.primary_bakes);
   }
 
   /** @brief Turns the stack so its rings circle the arm-boundary plane's
@@ -257,14 +257,15 @@ struct DisplacementFieldWhiteBox {
     }
     std::array<float, W> shifts{};
     const float STEP = math::TWO_PI_F / W;
-    effect.bake_ball_spans(basis,
-                           {cosf(theta), sinf(theta), cosf(STEP), sinf(STEP)},
-                           theta, W, effect.CHUNK_MASK, N, shifts.data());
+    effect.knot_baker.bake_balls(
+        effect.ball_cache, effect.noise_field, basis,
+        {cosf(theta), sinf(theta), cosf(STEP), sinf(STEP)}, theta, W,
+        effect.CHUNK_MASK, N, shifts.data());
     int displaced = 0;
     for (int x = 0; x < W; ++x) {
       const float expected =
-          effect.ball_cache.field(effect.knot_pos[x], N, theta) +
-          effect.noise_field.field(effect.knot_pos[x]);
+          effect.ball_cache.field(effect.knot_baker.knot_pos[x], N, theta) +
+          effect.noise_field.field(effect.knot_baker.knot_pos[x]);
       HS_EXPECT_NEAR(shifts[x], expected, 1e-6f);
       displaced += std::abs(expected) > 1e-5f;
     }
@@ -391,14 +392,15 @@ struct DisplacementFieldWhiteBox {
 
   /** @brief Bakes one fully visible ring through the octave-grid noise path. */
   template <int W, int H>
-  static void bake_noise_octaves(DisplacementField<W, H> &effect,
-                                 const Animation::NoiseProductParams &np,
-                                 const math::Basis &basis, float theta,
-                                 int lut_n, float *slut) {
+  static void bake_noise(DisplacementField<W, H> &effect,
+                         const Animation::NoiseProductParams &np,
+                         const math::Basis &basis, float theta, int lut_n,
+                         float *slut) {
     const float dphi = 2.0f * math::PI_F / lut_n;
-    effect.bake_noise_octaves(
-        np, basis, {cosf(theta), sinf(theta), cosf(dphi), sinf(dphi)}, theta,
-        lut_n, DisplacementField<W, H>::CHUNK_MASK, 0, slut);
+    effect.knot_baker.bake_noise(
+        effect.ball_cache, np, basis,
+        {cosf(theta), sinf(theta), cosf(dphi), sinf(dphi)}, theta, lut_n,
+        DisplacementField<W, H>::CHUNK_MASK, 0, slut);
   }
 };
 
@@ -647,8 +649,8 @@ inline void test_displacement_field_octave_bake_tracks_noise() {
       const float theta = math::PI_F * (ring + 1) / 25.0f;
       const int lut_n = DisplacementFieldWhiteBox::noise_lut_samples(
           effect, np.scale1 + np.scale2, sinf(theta));
-      DisplacementFieldWhiteBox::bake_noise_octaves(effect, np, basis, theta,
-                                                    lut_n, slut.data());
+      DisplacementFieldWhiteBox::bake_noise(effect, np, basis, theta, lut_n,
+                                            slut.data());
       for (int x = 0; x < lut_n; ++x) {
         const float a = 2.0f * math::PI_F * x / lut_n;
         const math::Vector p =
