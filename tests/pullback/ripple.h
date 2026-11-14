@@ -2,9 +2,19 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Pullback periodic and burst ripple preparation and sampling tests.
  */
+
+#include "core/render/pullback.h"
+#include "core/render/pullback/composed_providers.h"
+#include "core/render/pullback/sphere_animation.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::pullback_tests {
 
 /** @brief Supplied centers preserve the periodic wave's other prepared fields. */
 inline void test_pullback_ripple_supplied_center() {
@@ -934,3 +944,5 @@ inline void test_pullback_radial_ripple_geometry() {
     }
   }
 }
+
+} // namespace hs_test::pullback_tests

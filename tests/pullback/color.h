@@ -2,9 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Pullback palette, Lab cache and modulation finishing tests.
  */
+
+#include "core/render/pullback.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::pullback_tests {
 
 /** @brief Owns temporal palette endpoints and optional extra arena storage. */
 template <size_t Extra = 0> struct TemporalPalettes {
@@ -2100,3 +2108,5 @@ inline void test_pullback_modulation_field_equality() {
   unknown.config.source = static_cast<SourceKind>(255);
   HS_EXPECT_FALSE(same_field(unknown, unknown));
 }
+
+} // namespace hs_test::pullback_tests

@@ -24,6 +24,9 @@
 #include "tests/test_harness.h"
 #include "tests/pattern/fields.h"
 #include "tests/pixel_test_util.h"
+#include "tests/pullback/ripple.h"
+#include "tests/pullback/color.h"
+#include "tests/pullback/hue_qualification.h"
 
 namespace hs_test {
 namespace pullback_tests {
@@ -2132,10 +2135,6 @@ inline void test_pullback_displacement_overflow() {
       HS_EXPECT_EQ(distance, sqrtf(squared));
   }
 }
-
-#include "tests/pullback/ripple.h"
-#include "tests/pullback/color.h"
-#include "tests/pullback/hue_qualification.h"
 
 /** @brief Runs pullback tests. */
 inline int run_pullback_tests() {

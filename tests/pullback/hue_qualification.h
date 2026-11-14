@@ -2,7 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file @brief Cached hue modulation qualification over cycling palettes. */
+
+#include "tests/pullback/color.h"
+#include "core/render/pullback.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::pullback_tests {
 
 /** @brief Cached hue modulation meets channel bounds across reachable palette intervals. */
 inline void test_pullback_cached_hue_qualification() {
@@ -113,3 +122,5 @@ inline void test_pullback_cached_hue_qualification() {
         HS_EXPECT_LE(mean, Layer::METRICS[1].limit);
       }
 }
+
+} // namespace hs_test::pullback_tests
