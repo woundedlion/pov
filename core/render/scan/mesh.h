@@ -730,12 +730,13 @@ HS_HOT_INLINE math::Vector capture_vertex(uint16_t start, uint16_t end,
   // this one is found too; its first-arm branch is the column's own time.
   const float half = width / 2.0f;
   float u = first;
-  Spacetime::crossings(
-      width, (first - travel) * half, (first + 2.0f * travel) * half, -1.0f,
-      2.0f, false, false, [&](const Spacetime::Crossing &pass) HS_HOT_INLINE {
-        if (pass.arm == 0)
-          u = pass.time;
-      });
+  Spacetime::crossings(width, (first - travel) * half,
+                       (first + 2.0f * travel) * half, -1.0f, 2.0f,
+                       Spacetime::FrameEnds::NEITHER,
+                       [&](const Spacetime::Crossing &pass) HS_HOT_INLINE {
+                         if (pass.arm == 0)
+                           u = pass.time;
+                       });
   return vertex(u);
 }
 

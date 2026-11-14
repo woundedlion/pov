@@ -89,7 +89,8 @@ inline void check_linear_passes(float x0, float x1, float t0, float t1,
              std::llround(x1 * 100.0f));
   HS_CONTEXT("span x100", std::llround(t0 * 100.0f), std::llround(t1 * 100.0f));
   PassList solved;
-  Spacetime::crossings<W>(x0, x1, t0, t1, false, false, solved);
+  Spacetime::crossings<W>(x0, x1, t0, t1, Spacetime::FrameEnds::NEITHER,
+                          solved);
   const auto truth = brute_force_passes<W>(
       [&](double t) {
         return x0 + (static_cast<double>(x1) - x0) * (t - t0) / (t1 - t0);
@@ -130,11 +131,14 @@ inline void test_arm_passes_match_brute_force() {
 inline void test_arm_passes_extend_to_frame_ends() {
   constexpr int W = 288;
   PassList outruns;
-  Spacetime::crossings<W>(10.0f, 100.0f, 0.0f, 0.5f, true, true, outruns);
+  Spacetime::crossings<W>(10.0f, 100.0f, 0.0f, 0.5f, Spacetime::FrameEnds::BOTH,
+                          outruns);
   HS_EXPECT_EQ(outruns.passes.size(), size_t{0});
   PassList without, with;
-  Spacetime::crossings<W>(-0.5f, -0.3f, 0.0f, 1.0f, false, true, without);
-  Spacetime::crossings<W>(-0.5f, -0.3f, 0.0f, 1.0f, true, true, with);
+  Spacetime::crossings<W>(-0.5f, -0.3f, 0.0f, 1.0f, Spacetime::FrameEnds::END,
+                          without);
+  Spacetime::crossings<W>(-0.5f, -0.3f, 0.0f, 1.0f, Spacetime::FrameEnds::BOTH,
+                          with);
   HS_EXPECT_EQ(static_cast<int>(without.passes.size()), 1);
   HS_EXPECT_EQ(static_cast<int>(with.passes.size()), 2);
   bool extended = false;
@@ -142,12 +146,15 @@ inline void test_arm_passes_extend_to_frame_ends() {
     extended = extended || (pass.arm == 0 && pass.time == 0.0f);
   HS_EXPECT_TRUE(extended);
   PassList far;
-  Spacetime::crossings<W>(-1.5f, -1.3f, 0.0f, 1.0f, true, true, far);
+  Spacetime::crossings<W>(-1.5f, -1.3f, 0.0f, 1.0f, Spacetime::FrameEnds::BOTH,
+                          far);
   for (const auto &pass : far.passes)
     HS_EXPECT_NE(pass.arm, 0);
   PassList no_end, with_end, past_end;
-  Spacetime::crossings<W>(144.0f, 144.2f, 0.0f, 1.0f, true, false, no_end);
-  Spacetime::crossings<W>(144.0f, 144.2f, 0.0f, 1.0f, true, true, with_end);
+  Spacetime::crossings<W>(144.0f, 144.2f, 0.0f, 1.0f,
+                          Spacetime::FrameEnds::START, no_end);
+  Spacetime::crossings<W>(144.0f, 144.2f, 0.0f, 1.0f,
+                          Spacetime::FrameEnds::BOTH, with_end);
   HS_EXPECT_SIZE_OR_RETURN(no_end.passes, 1);
   HS_EXPECT_EQ(no_end.passes[0].arm, 1);
   HS_EXPECT_EQ(no_end.passes[0].time, 0.0f);
@@ -156,7 +163,8 @@ inline void test_arm_passes_extend_to_frame_ends() {
   for (const auto &pass : with_end.passes)
     end_extended |= pass.arm == 0 && pass.time == 1.0f;
   HS_EXPECT_TRUE(end_extended);
-  Spacetime::crossings<W>(144.0f, 145.5f, 0.0f, 1.0f, true, true, past_end);
+  Spacetime::crossings<W>(144.0f, 145.5f, 0.0f, 1.0f,
+                          Spacetime::FrameEnds::BOTH, past_end);
   for (const auto &pass : past_end.passes)
     HS_EXPECT_NE(pass.arm, 0);
 }
