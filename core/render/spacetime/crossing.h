@@ -13,6 +13,7 @@
 #include "core/math/3dmath.h"
 #include "core/math/pixel_mapping.h"
 #include "core/platform/attributes.h"
+#include "core/platform/platform.h"
 #include <cmath>
 #include <utility>
 
@@ -132,8 +133,13 @@ HS_HOT_INLINE float quadratic_screen_time(float origin, float velocity,
                                           float curve, float arm_start) {
   const float distance = origin - arm_start;
   const float approach = W / 2.0f - velocity + curve;
-  return 2.0f * distance /
-         (approach + sqrtf(approach * approach - 4.0f * curve * distance));
+  const float discriminant = approach * approach - 4.0f * curve * distance;
+  HS_AUDIT_CHECK(discriminant >= 0.0f,
+                 "quadratic_screen_time: trajectory never meets the arm");
+  const float time = 2.0f * distance / (approach + sqrtf(discriminant));
+  HS_AUDIT_CHECK(time >= 0.0f && time <= 1.0f,
+                 "quadratic_screen_time: crossing outside the frame");
+  return time;
 }
 
 /** @brief One arm pass of a point moving linearly in screen space. */

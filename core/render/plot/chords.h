@@ -11,6 +11,7 @@
  */
 
 #include <array>
+#include <optional>
 
 #include "core/memory.h"
 #include "core/math/display_geometry.h"
@@ -673,184 +674,6 @@ public:
     }
 
     const float velocity = contour_speed * math::ROWS_PER_RADIAN<H>;
-    auto walk_segment = [&](const math::PixelCoords &from0,
-                            const math::PixelCoords &to0,
-                            const math::PixelCoords &from1,
-                            const math::PixelCoords &to1,
-                            const math::PixelCoords &from_mid,
-                            const math::PixelCoords &to_mid, float density,
-                            float curve_bend) __attribute__((always_inline)) {
-      auto sample_alpha = [&](float ratio) HS_HOT_INLINE {
-        return stroke_sample_alpha(color.alpha, ratio, density,
-                                   reference_chords);
-      };
-      const math::PixelCoords from_curve{
-          2.0f * (from0.x + from1.x - 2.0f * from_mid.x),
-          2.0f * (from0.y + from1.y - 2.0f * from_mid.y)};
-      const math::PixelCoords to_curve{2.0f * (to0.x + to1.x - 2.0f * to_mid.x),
-                                       2.0f *
-                                           (to0.y + to1.y - 2.0f * to_mid.y)};
-      const float x_pad = 0.25f * fmaxf(fabsf(from_curve.x), fabsf(to_curve.x));
-      const float y_pad = 0.25f * fmaxf(fabsf(from_curve.y), fabsf(to_curve.y));
-      const float dx1 = to1.x - from1.x, dy1 = to1.y - from1.y;
-      const float dx0 = to0.x - from0.x, dy0 = to0.y - from0.y;
-      const float length = sqrtf(dx1 * dx1 + dy1 * dy1);
-      const int samples =
-          std::max(1, static_cast<int>(ceilf(length / target_step)));
-      const float sample_count = static_cast<float>(samples);
-      const float inv_samples = 1.0f / sample_count;
-      const auto [first, last] = sample_swept_band_range(
-          band, sample_count, from0, to0, from1, to1, {x_pad, y_pad});
-      if (last < first)
-        return;
-      const int sample_begin = static_cast<int>(ceilf(fmaxf(first, 0.0f)));
-      const int sample_end =
-          static_cast<int>(fminf(floorf(last) + 1.0f, sample_count));
-      const float step_ratio =
-          fminf(target_step, length * inv_samples) / SCREEN_STEP_PX;
-      const Color4 sample_color(color.color, sample_alpha(step_ratio));
-      constexpr float HALF = W / 2.0f;
-      const int arm = static_cast<int>(floorf(from0.x / HALF));
-      const float arm_start = arm * HALF;
-      const float low = fminf(fminf(from0.x, to0.x), fminf(from1.x, to1.x));
-      const float high = fmaxf(fmaxf(from0.x, to0.x), fmaxf(from1.x, to1.x));
-      const float mx0 = from1.x - from0.x;
-      const float my0 = from1.y - from0.y;
-      const float dmx = dx1 - dx0, dmy = dy1 - dy0;
-      const float variation2 = dmx * dmx + dmy * dmy;
-      const float nearest =
-          variation2 > 0.0f
-              ? hs::clamp(-(dx0 * dmx + dy0 * dmy) / variation2, 0.0f, 1.0f)
-              : 0.0f;
-      const float near_x = dx0 + dmx * nearest, near_y = dy0 + dmy * nearest;
-      const float dx_mid = to_mid.x - from_mid.x,
-                  dy_mid = to_mid.y - from_mid.y;
-      const float curve_x = 0.5f * (dx0 + dx1 - 2.0f * dx_mid);
-      const float curve_y = 0.5f * (dy0 + dy1 - 2.0f * dy_mid);
-      const float span_bend = sqrtf(curve_x * curve_x + curve_y * curve_y);
-      const float start_length = sqrtf(dx0 * dx0 + dy0 * dy0);
-      const float lower =
-          fmaxf(0.0f, sqrtf(near_x * near_x + near_y * near_y) - span_bend);
-      const float upper = fmaxf(start_length, length) + span_bend;
-      const bool steady_count =
-          std::max(1, int(ceilf(lower / target_step))) == samples &&
-          std::max(1, int(ceilf(upper / target_step))) == samples;
-      const float curve_dx = to_curve.x - from_curve.x;
-      const float curve_dy = to_curve.y - from_curve.y;
-      const float denominator = HALF - fmaxf(mx0 + fabsf(from_curve.x),
-                                             mx0 + dmx + fabsf(to_curve.x));
-      const float first_derivative =
-          denominator > 0.0f
-              ? (fmaxf(fabsf(dx0), fabsf(dx1)) + 0.25f * fabsf(curve_dx)) /
-                    denominator
-              : std::numeric_limits<float>::infinity();
-      const float time_bend =
-          denominator > 0.0f
-              ? (2.0f * (fabsf(dmx) + fabsf(curve_dx)) * first_derivative +
-                 2.0f * fmaxf(fabsf(from_curve.x), fabsf(to_curve.x)) *
-                     first_derivative * first_derivative) /
-                    (8.0f * denominator)
-              : std::numeric_limits<float>::infinity();
-      if (low - x_pad > arm_start + 1.0f &&
-          high + x_pad < arm_start + HALF - 1.0f &&
-          (velocity + 4.0f * curve_bend) * time_bend <= CHORD_TIME_BEND_PX &&
-          steady_count) {
-        Spacetime::count_geometry<
-            &Spacetime::GeometryCounters::chord_capture_solves>(2);
-        const float t0 = Spacetime::quadratic_screen_time<W>(
-            from0.x, mx0, from_curve.x, arm_start);
-        const float dt = Spacetime::quadratic_screen_time<W>(
-                             to0.x, mx0 + dmx, to_curve.x, arm_start) -
-                         t0;
-        const float k0 = t0 * (t0 - 1.0f);
-        const float k1 = dt * (2.0f * t0 - 1.0f);
-        const float k2 = dt * dt;
-        const float x0 = from0.x + mx0 * t0 + from_curve.x * k0;
-        const float x1 =
-            dx0 + mx0 * dt + dmx * t0 + from_curve.x * k1 + curve_dx * k0;
-        const float x2 = dmx * dt + from_curve.x * k2 + curve_dx * k1;
-        const float x3 = curve_dx * k2;
-        const float y0 = from0.y + my0 * t0 + from_curve.y * k0;
-        const float y1 =
-            dy0 + my0 * dt + dmy * t0 + from_curve.y * k1 + curve_dy * k0;
-        const float y2 = dmy * dt + from_curve.y * k2 + curve_dy * k1;
-        const float y3 = curve_dy * k2;
-        const float alpha_start = sample_alpha(
-            fminf(target_step, start_length * inv_samples) / SCREEN_STEP_PX);
-        const float alpha_middle = sample_alpha(
-            fminf(target_step,
-                  sqrtf(dx_mid * dx_mid + dy_mid * dy_mid) * inv_samples) /
-            SCREEN_STEP_PX);
-        const float alpha_curve =
-            2.0f * (alpha_start + sample_color.alpha - 2.0f * alpha_middle);
-        for (int sample = sample_begin; sample < sample_end; ++sample) {
-          Spacetime::count_geometry<
-              &Spacetime::GeometryCounters::chord_fast_samples>();
-          const float u = static_cast<float>(sample) * inv_samples;
-          const float x = x0 + u * (x1 + u * (x2 + u * x3));
-          const float time = t0 + dt * u;
-          const float alpha = alpha_start +
-                              (sample_color.alpha - alpha_start) * time +
-                              alpha_curve * time * (time - 1.0f);
-          const float y = y0 + u * (y1 + u * (y2 + u * y3));
-          const float vx = mx0 + dmx * u +
-                           (from_curve.x + curve_dx * u) * (2.0f * time - 1.0f);
-          const float vy = my0 + dmy * u +
-                           (from_curve.y + curve_dy * u) * (2.0f * time - 1.0f);
-          PointRoute<W, H>::emit(pipeline, canvas, {{x, y}, time},
-                                 {sample_color.color, alpha}, vx, vy);
-        }
-        return;
-      }
-      const int owner_begin = static_cast<int>(floorf(low - x_pad - 1.0f));
-      const int owner_end = static_cast<int>(ceilf(high + x_pad + 1.0f));
-      for_each_render_column<W>(
-          canvas, owner_begin, owner_end - owner_begin + 1,
-          [&](int owner, int column, float t) HS_HOT_INLINE {
-            const float bend = t * (t - 1.0f);
-            const math::PixelCoords at_from{
-                from0.x + (from1.x - from0.x) * t + from_curve.x * bend,
-                from0.y + (from1.y - from0.y) * t + from_curve.y * bend};
-            const math::PixelCoords at_to{
-                to0.x + (to1.x - to0.x) * t + to_curve.x * bend,
-                to0.y + (to1.y - to0.y) * t + to_curve.y * bend};
-            const float dx = at_to.x - at_from.x, dy = at_to.y - at_from.y;
-            const float span = sqrtf(dx * dx + dy * dy);
-            const int count =
-                std::max(1, static_cast<int>(ceilf(span / target_step)));
-            const float inverse = 1.0f / static_cast<float>(count);
-            float lo = 0.0f, hi = static_cast<float>(count - 1);
-            auto restrict = [&](float start_at, float delta, float lower,
-                                float upper) HS_HOT_INLINE {
-              if (fabsf(delta) < 1e-6f) {
-                if (start_at < lower || start_at > upper)
-                  hi = -1.0f;
-              } else {
-                const float scale = static_cast<float>(count) / delta;
-                const float a = (lower - start_at) * scale,
-                            b = (upper - start_at) * scale;
-                lo = fmaxf(lo, fminf(a, b));
-                hi = fminf(hi, fmaxf(a, b));
-              }
-            };
-            restrict(at_from.x, dx, float(owner) - 1.0f, float(owner) + 1.0f);
-            restrict(at_from.y, dy, band.row_lo, band.row_hi);
-            const int begin = static_cast<int>(ceilf(lo));
-            const int end = static_cast<int>(floorf(hi));
-            const float alpha = sample_alpha(
-                fminf(target_step, span * inverse) / SCREEN_STEP_PX);
-            for (int sample = begin; sample <= end; ++sample) {
-              Spacetime::count_geometry<
-                  &Spacetime::GeometryCounters::chord_screen_samples>();
-              const float u = static_cast<float>(sample) * inverse;
-              float x = at_from.x + dx * u;
-              x += W * rintf((float(column) - x) / W);
-              pipeline.plot_column_at(canvas, {x, at_from.y + dy * u}, column,
-                                      color.color, 0.0f, alpha, t);
-            }
-          });
-    };
-
     for (int edge = 0; edge < vertices; ++edge) {
       const float dx = x_chart[edge + 1] - x_chart[edge];
       const float dy = y_chart[edge + 1] - y_chart[edge];
@@ -935,8 +758,11 @@ public:
                            radial_bend > POLAR_RADIAL_BEND_PX;
         if (!polar) {
           polar_from_ready = false;
-          walk_segment(start_from, start_to, end_from, end_to, mid_from, mid_to,
-                       density, bend);
+          walk_chord(pipeline, canvas,
+                     ChordMotion::of(start_from, start_to, end_from, end_to,
+                                     mid_from, mid_to),
+                     {color, reference_chords, target_step, velocity, density},
+                     bend);
         } else {
           const bool north = row_lo + row_hi < Geometry::NORTH_POLE_ROW +
                                                    Geometry::SOUTH_POLE_ROW;
@@ -968,6 +794,375 @@ public:
   }
 
 private:
+  /** @brief Quadratic screen motion of one chord over the frame. */
+  struct ChordMotion {
+    math::PixelCoords from0;      ///< Chord start at frame start.
+    math::PixelCoords to0;        ///< Chord end at frame start.
+    math::PixelCoords from1;      ///< Chord start at frame end.
+    math::PixelCoords to1;        ///< Chord end at frame end.
+    math::PixelCoords from_mid;   ///< Chord start at mid-frame.
+    math::PixelCoords to_mid;     ///< Chord end at mid-frame.
+    math::PixelCoords from_curve; ///< Chord start's coefficient of t(t - 1).
+    math::PixelCoords to_curve;   ///< Chord end's coefficient of t(t - 1).
+
+    /** @brief Captures a chord's motion from its three screen captures.
+     * @param from0,to0 Frame-start endpoints.
+     * @param from1,to1 Frame-end endpoints.
+     * @param from_mid,to_mid Mid-frame endpoints.
+     * @return The chord's motion, columns unwrapped as given. */
+    static HS_HOT_INLINE ChordMotion of(const math::PixelCoords &from0,
+                                        const math::PixelCoords &to0,
+                                        const math::PixelCoords &from1,
+                                        const math::PixelCoords &to1,
+                                        const math::PixelCoords &from_mid,
+                                        const math::PixelCoords &to_mid) {
+      return {from0,
+              to0,
+              from1,
+              to1,
+              from_mid,
+              to_mid,
+              {2.0f * (from0.x + from1.x - 2.0f * from_mid.x),
+               2.0f * (from0.y + from1.y - 2.0f * from_mid.y)},
+              {2.0f * (to0.x + to1.x - 2.0f * to_mid.x),
+               2.0f * (to0.y + to1.y - 2.0f * to_mid.y)}};
+    }
+
+    /** @brief Smallest endpoint column over the frame captures.
+     *  @return Unwrapped column. */
+    HS_HOT_INLINE float low() const {
+      return fminf(fminf(from0.x, to0.x), fminf(from1.x, to1.x));
+    }
+
+    /** @brief Largest endpoint column over the frame captures.
+     *  @return Unwrapped column. */
+    HS_HOT_INLINE float high() const {
+      return fmaxf(fmaxf(from0.x, to0.x), fmaxf(from1.x, to1.x));
+    }
+  };
+
+  /** @brief Stroke registers shared by a chord's samples. */
+  struct ChordStroke {
+    const Color4 &color;   ///< Stroke color; alpha is balanced per step.
+    bool reference_chords; ///< Unit density and balanced opacity.
+    float target_step;     ///< Sample spacing, pixels.
+    float velocity;        ///< Contour speed bound, rows per frame.
+    float density;         ///< Reference samples per unit lattice length.
+
+    /** @brief Sample opacity at a step.
+     *  @param ratio Step taken over SCREEN_STEP_PX.
+     *  @return Opacity. */
+    HS_HOT_INLINE float alpha(float ratio) const {
+      return stroke_sample_alpha(color.alpha, ratio, density, reference_chords);
+    }
+  };
+
+  /** @brief Frame-end sample lattice of a chord and the part of it that may
+   *  reach the clip band. */
+  struct SampleRange {
+    float x_pad;       ///< Column bound on the quadratic departure, pixels.
+    float length;      ///< Frame-end chord length, pixels.
+    int samples;       ///< Sample intervals along the chord.
+    float inv_samples; ///< Reciprocal of samples.
+    int begin;         ///< First sample that may reach the band.
+    int end;           ///< One past the last sample that may reach the band.
+  };
+
+  /** @brief Samples a moving chord can splat into the band over the frame.
+   * @param band Screen-space clip band.
+   * @param motion Chord motion.
+   * @param target_step Sample spacing, pixels.
+   * @return The chord's sample range, or none when no sample can reach the
+   * band. */
+  static HS_HOT_INLINE std::optional<SampleRange>
+  sample_range(const ClipBand<W, H> &band, const ChordMotion &motion,
+               float target_step) {
+    const math::PixelCoords &from_curve = motion.from_curve,
+                            &to_curve = motion.to_curve;
+    const float x_pad = 0.25f * fmaxf(fabsf(from_curve.x), fabsf(to_curve.x));
+    const float y_pad = 0.25f * fmaxf(fabsf(from_curve.y), fabsf(to_curve.y));
+    const float dx1 = motion.to1.x - motion.from1.x,
+                dy1 = motion.to1.y - motion.from1.y;
+    const float length = sqrtf(dx1 * dx1 + dy1 * dy1);
+    const int samples =
+        std::max(1, static_cast<int>(ceilf(length / target_step)));
+    const float sample_count = static_cast<float>(samples);
+    const float inv_samples = 1.0f / sample_count;
+    const auto [first, last] =
+        sample_swept_band_range(band, sample_count, motion.from0, motion.to0,
+                                motion.from1, motion.to1, {x_pad, y_pad});
+    if (last < first)
+      return std::nullopt;
+    return SampleRange{
+        x_pad,
+        length,
+        samples,
+        inv_samples,
+        static_cast<int>(ceilf(fmaxf(first, 0.0f))),
+        static_cast<int>(fminf(floorf(last) + 1.0f, sample_count))};
+  }
+
+  /** @brief Certificate that each of a chord's samples solves its column
+   *  crossing in closed form.
+   *  @details Only certify() constructs one: the chord stays inside one arm,
+   *  its crossing-time bend stays within CHORD_TIME_BEND_PX, and its sample
+   *  count holds over the frame, so both endpoints meet
+   *  `Spacetime::quadratic_screen_time`'s precondition. */
+  class ChordFastPath {
+  public:
+    const float t0;        ///< Chord start's crossing fraction.
+    const float dt;        ///< Chord end's crossing fraction minus t0.
+    const float arm_start; ///< Unwrapped first column of the arm pass.
+
+    /** @brief Certifies a chord for the closed-form emitter.
+     * @param motion Chord motion.
+     * @param range Chord samples that may reach the band.
+     * @param target_step Sample spacing, pixels.
+     * @param velocity Contour speed bound, rows per frame.
+     * @param curve_bend Physical temporal departure, row pitches.
+     * @return Both endpoints' crossing fractions, or none when the chord
+     * fails the certificate. */
+    static HS_HOT_INLINE std::optional<ChordFastPath>
+    certify(const ChordMotion &motion, const SampleRange &range,
+            float target_step, float velocity, float curve_bend) {
+      const math::PixelCoords &from0 = motion.from0, &to0 = motion.to0,
+                              &from1 = motion.from1, &to1 = motion.to1;
+      const math::PixelCoords &from_curve = motion.from_curve,
+                              &to_curve = motion.to_curve;
+      const float x_pad = range.x_pad, length = range.length;
+      const int samples = range.samples;
+      const float dx1 = to1.x - from1.x, dy1 = to1.y - from1.y;
+      const float dx0 = to0.x - from0.x, dy0 = to0.y - from0.y;
+      constexpr float HALF = W / 2.0f;
+      const int arm = static_cast<int>(floorf(from0.x / HALF));
+      const float arm_start = arm * HALF;
+      const float low = motion.low();
+      const float high = motion.high();
+      const float mx0 = from1.x - from0.x;
+      const float dmx = dx1 - dx0, dmy = dy1 - dy0;
+      const float variation2 = dmx * dmx + dmy * dmy;
+      const float nearest =
+          variation2 > 0.0f
+              ? hs::clamp(-(dx0 * dmx + dy0 * dmy) / variation2, 0.0f, 1.0f)
+              : 0.0f;
+      const float near_x = dx0 + dmx * nearest, near_y = dy0 + dmy * nearest;
+      const float dx_mid = motion.to_mid.x - motion.from_mid.x,
+                  dy_mid = motion.to_mid.y - motion.from_mid.y;
+      const float curve_x = 0.5f * (dx0 + dx1 - 2.0f * dx_mid);
+      const float curve_y = 0.5f * (dy0 + dy1 - 2.0f * dy_mid);
+      const float span_bend = sqrtf(curve_x * curve_x + curve_y * curve_y);
+      const float start_length = sqrtf(dx0 * dx0 + dy0 * dy0);
+      const float lower =
+          fmaxf(0.0f, sqrtf(near_x * near_x + near_y * near_y) - span_bend);
+      const float upper = fmaxf(start_length, length) + span_bend;
+      const bool steady_count =
+          std::max(1, int(ceilf(lower / target_step))) == samples &&
+          std::max(1, int(ceilf(upper / target_step))) == samples;
+      const float curve_dx = to_curve.x - from_curve.x;
+      const float denominator = HALF - fmaxf(mx0 + fabsf(from_curve.x),
+                                             mx0 + dmx + fabsf(to_curve.x));
+      const float first_derivative =
+          denominator > 0.0f
+              ? (fmaxf(fabsf(dx0), fabsf(dx1)) + 0.25f * fabsf(curve_dx)) /
+                    denominator
+              : std::numeric_limits<float>::infinity();
+      const float time_bend =
+          denominator > 0.0f
+              ? (2.0f * (fabsf(dmx) + fabsf(curve_dx)) * first_derivative +
+                 2.0f * fmaxf(fabsf(from_curve.x), fabsf(to_curve.x)) *
+                     first_derivative * first_derivative) /
+                    (8.0f * denominator)
+              : std::numeric_limits<float>::infinity();
+      if (low - x_pad > arm_start + 1.0f &&
+          high + x_pad < arm_start + HALF - 1.0f &&
+          (velocity + 4.0f * curve_bend) * time_bend <= CHORD_TIME_BEND_PX &&
+          steady_count) {
+        HS_AUDIT_CHECK(denominator > 0.0f);
+        Spacetime::count_geometry<
+            &Spacetime::GeometryCounters::chord_capture_solves>(2);
+        const float t0 = Spacetime::quadratic_screen_time<W>(
+            from0.x, mx0, from_curve.x, arm_start);
+        const float dt = Spacetime::quadratic_screen_time<W>(
+                             to0.x, mx0 + dmx, to_curve.x, arm_start) -
+                         t0;
+        return ChordFastPath(t0, dt, arm_start);
+      }
+      return std::nullopt;
+    }
+
+  private:
+    /** @brief Binds a certified chord's crossing fractions.
+     * @param start Chord start's crossing fraction.
+     * @param delta Chord end's crossing fraction minus @p start.
+     * @param arm Unwrapped first column of the arm pass. */
+    ChordFastPath(float start, float delta, float arm)
+        : t0(start), dt(delta), arm_start(arm) {}
+  };
+
+  /** @brief Strokes one moving chord, each sample at its column's time.
+   * @tparam PipelineT Screen-space plot sink.
+   * @param pipeline,canvas Destination.
+   * @param motion Chord motion.
+   * @param stroke Stroke registers.
+   * @param curve_bend Physical temporal departure, row pitches. */
+  template <typename PipelineT>
+  HS_HOT_INLINE void
+  walk_chord(PipelineT &pipeline, Canvas &canvas, const ChordMotion &motion,
+             const ChordStroke &stroke, float curve_bend) const {
+    const std::optional<SampleRange> range =
+        sample_range(band, motion, stroke.target_step);
+    if (!range)
+      return;
+    if (const std::optional<ChordFastPath> path = ChordFastPath::certify(
+            motion, *range, stroke.target_step, stroke.velocity, curve_bend)) {
+      emit_fast(pipeline, canvas, motion, *range, stroke, *path);
+      return;
+    }
+    emit_columns(pipeline, canvas, band, motion, range->x_pad, stroke);
+  }
+
+  /** @brief Emits a certified chord's samples at their solved crossings.
+   * @tparam PipelineT Screen-space plot sink.
+   * @param pipeline,canvas Destination.
+   * @param motion Chord motion.
+   * @param range Chord samples that may reach the band.
+   * @param stroke Stroke registers.
+   * @param path The chord's certificate. */
+  template <typename PipelineT>
+  static HS_HOT_INLINE void
+  emit_fast(PipelineT &pipeline, Canvas &canvas, const ChordMotion &motion,
+            const SampleRange &range, const ChordStroke &stroke,
+            const ChordFastPath &path) {
+    const math::PixelCoords &from0 = motion.from0, &to0 = motion.to0,
+                            &from1 = motion.from1, &to1 = motion.to1;
+    const math::PixelCoords &from_curve = motion.from_curve,
+                            &to_curve = motion.to_curve;
+    const float target_step = stroke.target_step;
+    const float inv_samples = range.inv_samples;
+    const float t0 = path.t0, dt = path.dt;
+    const float dx1 = to1.x - from1.x, dy1 = to1.y - from1.y;
+    const float dx0 = to0.x - from0.x, dy0 = to0.y - from0.y;
+    const float step_ratio =
+        fminf(target_step, range.length * inv_samples) / SCREEN_STEP_PX;
+    const Color4 sample_color(stroke.color.color, stroke.alpha(step_ratio));
+    const float mx0 = from1.x - from0.x;
+    const float my0 = from1.y - from0.y;
+    const float dmx = dx1 - dx0, dmy = dy1 - dy0;
+    const float dx_mid = motion.to_mid.x - motion.from_mid.x,
+                dy_mid = motion.to_mid.y - motion.from_mid.y;
+    const float start_length = sqrtf(dx0 * dx0 + dy0 * dy0);
+    const float curve_dx = to_curve.x - from_curve.x;
+    const float curve_dy = to_curve.y - from_curve.y;
+    const float k0 = t0 * (t0 - 1.0f);
+    const float k1 = dt * (2.0f * t0 - 1.0f);
+    const float k2 = dt * dt;
+    const float x0 = from0.x + mx0 * t0 + from_curve.x * k0;
+    const float x1 =
+        dx0 + mx0 * dt + dmx * t0 + from_curve.x * k1 + curve_dx * k0;
+    const float x2 = dmx * dt + from_curve.x * k2 + curve_dx * k1;
+    const float x3 = curve_dx * k2;
+    const float y0 = from0.y + my0 * t0 + from_curve.y * k0;
+    const float y1 =
+        dy0 + my0 * dt + dmy * t0 + from_curve.y * k1 + curve_dy * k0;
+    const float y2 = dmy * dt + from_curve.y * k2 + curve_dy * k1;
+    const float y3 = curve_dy * k2;
+    const float alpha_start = stroke.alpha(
+        fminf(target_step, start_length * inv_samples) / SCREEN_STEP_PX);
+    const float alpha_middle = stroke.alpha(
+        fminf(target_step,
+              sqrtf(dx_mid * dx_mid + dy_mid * dy_mid) * inv_samples) /
+        SCREEN_STEP_PX);
+    const float alpha_curve =
+        2.0f * (alpha_start + sample_color.alpha - 2.0f * alpha_middle);
+    for (int sample = range.begin; sample < range.end; ++sample) {
+      Spacetime::count_geometry<
+          &Spacetime::GeometryCounters::chord_fast_samples>();
+      const float u = static_cast<float>(sample) * inv_samples;
+      const float x = x0 + u * (x1 + u * (x2 + u * x3));
+      HS_AUDIT_CHECK(x >= path.arm_start && x <= path.arm_start + W / 2.0f,
+                     "PlanarChords: fast sample left its arm");
+      const float time = t0 + dt * u;
+      const float alpha = alpha_start +
+                          (sample_color.alpha - alpha_start) * time +
+                          alpha_curve * time * (time - 1.0f);
+      const float y = y0 + u * (y1 + u * (y2 + u * y3));
+      const float vx =
+          mx0 + dmx * u + (from_curve.x + curve_dx * u) * (2.0f * time - 1.0f);
+      const float vy =
+          my0 + dmy * u + (from_curve.y + curve_dy * u) * (2.0f * time - 1.0f);
+      PointRoute<W, H>::emit(pipeline, canvas, {{x, y}, time},
+                             {sample_color.color, alpha}, vx, vy);
+    }
+  }
+
+  /** @brief Emits a chord's samples column by column, each column's chord
+   *  evaluated at that column's time.
+   * @tparam PipelineT Screen-space plot sink with owned-column taps.
+   * @param pipeline,canvas Destination.
+   * @param band Screen-space clip band.
+   * @param motion Chord motion.
+   * @param x_pad Column bound on the quadratic departure, pixels.
+   * @param stroke Stroke registers. */
+  template <typename PipelineT>
+  static HS_HOT_INLINE void emit_columns(PipelineT &pipeline, Canvas &canvas,
+                                         const ClipBand<W, H> &band,
+                                         const ChordMotion &motion, float x_pad,
+                                         const ChordStroke &stroke) {
+    const math::PixelCoords &from0 = motion.from0, &to0 = motion.to0,
+                            &from1 = motion.from1, &to1 = motion.to1;
+    const math::PixelCoords &from_curve = motion.from_curve,
+                            &to_curve = motion.to_curve;
+    const float target_step = stroke.target_step;
+    const int owner_begin =
+        static_cast<int>(floorf(motion.low() - x_pad - 1.0f));
+    const int owner_end = static_cast<int>(ceilf(motion.high() + x_pad + 1.0f));
+    for_each_render_column<W>(
+        canvas, owner_begin, owner_end - owner_begin + 1,
+        [&](int owner, int column, float t) HS_HOT_INLINE {
+          const float bend = t * (t - 1.0f);
+          const math::PixelCoords at_from{
+              from0.x + (from1.x - from0.x) * t + from_curve.x * bend,
+              from0.y + (from1.y - from0.y) * t + from_curve.y * bend};
+          const math::PixelCoords at_to{
+              to0.x + (to1.x - to0.x) * t + to_curve.x * bend,
+              to0.y + (to1.y - to0.y) * t + to_curve.y * bend};
+          const float dx = at_to.x - at_from.x, dy = at_to.y - at_from.y;
+          const float span = sqrtf(dx * dx + dy * dy);
+          const int count =
+              std::max(1, static_cast<int>(ceilf(span / target_step)));
+          const float inverse = 1.0f / static_cast<float>(count);
+          float lo = 0.0f, hi = static_cast<float>(count - 1);
+          auto restrict = [&](float start_at, float delta, float lower,
+                              float upper) HS_HOT_INLINE {
+            if (fabsf(delta) < 1e-6f) {
+              if (start_at < lower || start_at > upper)
+                hi = -1.0f;
+            } else {
+              const float scale = static_cast<float>(count) / delta;
+              const float a = (lower - start_at) * scale,
+                          b = (upper - start_at) * scale;
+              lo = fmaxf(lo, fminf(a, b));
+              hi = fminf(hi, fmaxf(a, b));
+            }
+          };
+          restrict(at_from.x, dx, float(owner) - 1.0f, float(owner) + 1.0f);
+          restrict(at_from.y, dy, band.row_lo, band.row_hi);
+          const int begin = static_cast<int>(ceilf(lo));
+          const int end = static_cast<int>(floorf(hi));
+          const float alpha =
+              stroke.alpha(fminf(target_step, span * inverse) / SCREEN_STEP_PX);
+          for (int sample = begin; sample <= end; ++sample) {
+            Spacetime::count_geometry<
+                &Spacetime::GeometryCounters::chord_screen_samples>();
+            const float u = static_cast<float>(sample) * inverse;
+            float x = at_from.x + dx * u;
+            x += W * rintf((float(column) - x) / W);
+            pipeline.plot_column_at(canvas, {x, at_from.y + dy * u}, column,
+                                    stroke.color.color, 0.0f, alpha, t);
+          }
+        });
+  }
+
   /** @brief Emits a static chart segment on its screen lattice. */
   template <typename PipelineT>
   HS_O3_FN HS_HOT_INLINE void
