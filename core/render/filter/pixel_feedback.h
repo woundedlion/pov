@@ -1256,31 +1256,62 @@ private:
     return slots;
   }();
 
-  /** @brief Traps while a split frame awaits finish(). */
-  HS_FLASH_MEMBER void require_unheld() const {
-    HS_CHECK(!held, "feedback: a split frame was never finished");
-  }
+  /** @brief The split frame flush_split() holds for finish(), and the least
+   *  column past an arm's first that it holds. */
+  struct SplitHold {
+    /** Split frame held for finish(), or null. */
+    FlushContext *held = nullptr;
+    /** scratch_arena_a offset release() rewinds to. */
+    size_t held_mark = 0;
+    /** Least held column past an arm's first in the held frame; HALF holds
+     *  no column. */
+    int held_floor = HALF;
+    /** The same per row. */
+    uint8_t row_floor[H] = {};
+    static_assert(HALF <= UINT8_MAX, "Feedback<W,H>: row_floor holds HALF");
 
-  /** @brief Releases the held frame and its scratch. */
-  HS_FLASH_MEMBER void end_split() {
-    held = nullptr;
-    held_floor = HALF;
-    scratch_arena_a.set_offset(held_mark);
-  }
+    /** @brief Clears the floors before a split frame's composite. */
+    void open() {
+      held_floor = HALF;
+      std::memset(row_floor, HALF, sizeof(row_floor));
+    }
+
+    /** @brief Lowers the floors to a held column.
+     *  @param y Row.
+     *  @param column Column past its arm's first. */
+    HS_HOT_INLINE void lower(int y, int column) {
+      held_floor = std::min(held_floor, column);
+      row_floor[y] = static_cast<uint8_t>(std::min<int>(row_floor[y], column));
+    }
+
+    /** @brief Whether the composite held no column. */
+    bool empty() const { return held_floor == HALF; }
+
+    /** @brief Holds a split frame for finish().
+     *  @param ctx The frame, allocated from scratch_arena_a.
+     *  @param mark scratch_arena_a offset before the frame's allocations. */
+    void hold(FlushContext &ctx, size_t mark) {
+      held = &ctx;
+      held_mark = mark;
+    }
+
+    /** @brief Releases the held frame and its scratch. */
+    HS_FLASH_MEMBER void release() {
+      held = nullptr;
+      held_floor = HALF;
+      scratch_arena_a.set_offset(held_mark);
+    }
+
+    /** @brief Traps while a split frame awaits finish(). */
+    HS_FLASH_MEMBER void require_unheld() const {
+      HS_CHECK(!held, "feedback: a split frame was never finished");
+    }
+  };
 
   ::Feedback::Style *feedback_style; /**< Bound feedback Style (non-owning). */
   /** When false, flush() only clears a stale drawing buffer. */
   bool enabled = true;
-  /** Split frame flush_split() holds for finish(), or null. */
-  FlushContext *held = nullptr;
-  /** scratch_arena_a offset finish() rewinds to. */
-  size_t held_mark = 0;
-  /** Least held column past an arm's first in the held frame; HALF holds no
-   *  column. */
-  int held_floor = HALF;
-  /** The same per row. */
-  uint8_t row_floor[H] = {};
-  static_assert(HALF <= UINT8_MAX, "Feedback<W,H>: row_floor holds HALF");
+  SplitHold split_hold; /**< Held split frame and its floors. */
   WarpCache warp_cache; /**< Persistent warp field and lattice origins. */
   using Spans = detail::Spans;
   Spans spans;

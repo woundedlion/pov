@@ -429,8 +429,7 @@ Feedback<W, H>::hold_lane(const FlushContext &ctx, int y, int arm, int x) {
              "feedback row %d column %d is held outside its coverage", y,
              arm + column);
     ctx.cover[slot] |= bits;
-    held_floor = std::min(held_floor, column);
-    row_floor[y] = static_cast<uint8_t>(std::min<int>(row_floor[y], column));
+    split_hold.lower(y, column);
   };
   open(k, AHEAD_BIT);
   AheadSpan &span = ctx.ahead_span[y];

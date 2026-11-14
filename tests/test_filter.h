@@ -89,22 +89,25 @@ struct FeedbackWhiteBox {
   template <int W, int H>
   static int held_slot(const Filter::Pixel::Feedback<W, H> &feedback, int y,
                        int x) {
-    if (!feedback.held)
+    if (!feedback.split_hold.held)
       return -1;
-    const int slot =
-        feedback.cover_slot(feedback.held->rows[y], x < W / 2 ? 0 : W / 2, x);
-    return slot >= 0 && (feedback.held->cover[slot] & 0xFFFE) != 0 ? slot : -1;
+    const int slot = feedback.cover_slot(feedback.split_hold.held->rows[y],
+                                         x < W / 2 ? 0 : W / 2, x);
+    return slot >= 0 && (feedback.split_hold.held->cover[slot] & 0xFFFE) != 0
+               ? slot
+               : -1;
   }
   /** @brief Held pixels a split frame's taps reached. */
   template <int W, int H>
   static int covered(const Filter::Pixel::Feedback<W, H> &feedback) {
-    if (!feedback.held)
+    if (!feedback.split_hold.held)
       return 0;
     int count = 0;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
         const int slot = held_slot(feedback, y, x);
-        count += slot >= 0 && (feedback.held->cover[slot] & 0xFFFE) != 0xFFFE;
+        count += slot >= 0 &&
+                 (feedback.split_hold.held->cover[slot] & 0xFFFE) != 0xFFFE;
       }
     return count;
   }
@@ -121,18 +124,18 @@ struct FeedbackWhiteBox {
         const int slot = held_slot(feedback, y, x);
         if (slot < 0)
           continue;
-        const uint16_t t = feedback.held->cover[slot] & 0xFFFE;
+        const uint16_t t = feedback.split_hold.held->cover[slot] & 0xFFFE;
         auto swap = [t](uint16_t covered, uint16_t was, uint16_t now) {
           const int32_t v = int32_t(covered) - int32_t(lerp_q16(0, was, t)) +
                             int32_t(lerp_q16(0, now, t));
           return static_cast<uint16_t>(std::min(std::max(v, 0), 65535));
         };
-        Pixel &dst = feedback.held->current[y * W + x];
+        Pixel &dst = feedback.split_hold.held->current[y * W + x];
         const Pixel &k = known[y * W + x], &u = under[y * W + x];
         dst = Pixel(swap(dst.r, k.r, u.r), swap(dst.g, k.g, u.g),
                     swap(dst.b, k.b, u.b));
       }
-    feedback.end_split();
+    feedback.split_hold.release();
   }
 };
 

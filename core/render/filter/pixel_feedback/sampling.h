@@ -98,14 +98,15 @@ Feedback<W, H>::plot_near_arm_end(float x, int column, float y,
                                   PassFnT &pass) {
   const int row = Filter::round_row<H>(y);
   const int arm = ColumnTime::arm_start(column);
-  const int slot =
-      row < 0 || row >= H ? -1 : cover_slot(held->rows[row], arm, column);
+  const int slot = row < 0 || row >= H
+                       ? -1
+                       : cover_slot(split_hold.held->rows[row], arm, column);
   if (slot < 0) {
     pass(x, y, color, age, alpha);
     return;
   }
-  ::Pixel &dst = held->current[row * W + column];
-  uint16_t &cover = held->cover[slot];
+  ::Pixel &dst = split_hold.held->current[row * W + column];
+  uint16_t &cover = split_hold.held->cover[slot];
   const uint16_t ahead = cover & AHEAD_BIT;
   if (alpha >= 1.0f) {
     dst = color;

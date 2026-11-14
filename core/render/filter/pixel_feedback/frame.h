@@ -18,9 +18,9 @@ inline HS_HOT_INLINE void Feedback<W, H>::plot(float x, float y,
                                                float alpha, PassFnT &&pass) {
   const int column = Filter::round_wrap_column<W>(x);
   const int past = column - ColumnTime::arm_start(column);
-  if (past >= held_floor) [[unlikely]] {
+  if (past >= split_hold.held_floor) [[unlikely]] {
     const int row = Filter::round_row<H>(y);
-    if (row >= 0 && row < H && past >= row_floor[row]) {
+    if (row >= 0 && row < H && past >= split_hold.row_floor[row]) {
       plot_near_arm_end(x, column, y, color, age, alpha, pass);
       return;
     }
@@ -79,7 +79,7 @@ inline void Feedback<W, H>::flush(Canvas &cv, float alpha) {
 HS_O3_END
 
 template <int W, int H> inline bool Feedback<W, H>::disabled(Canvas &cv) {
-  require_unheld();
+  split_hold.require_unheld();
   if (enabled)
     return false;
   if (cv.keeps_stale_pixels())
@@ -95,28 +95,26 @@ inline HS_FLASH_MEMBER void Feedback<W, H>::flush_split(Canvas &cv,
   const size_t mark = scratch_arena_a.get_offset();
   FlushContext &ctx = *scratch_arena_a.make<FlushContext>(
       prepare_flush(cv, alpha, scratch_arena_a, true));
-  held_floor = HALF;
-  std::memset(row_floor, HALF, sizeof(row_floor));
+  split_hold.open();
   composite_frame(cv, ctx);
-  if (held_floor == HALF) {
+  if (split_hold.empty()) {
     scratch_arena_a.set_offset(mark);
     return;
   }
-  held = &ctx;
-  held_mark = mark;
+  split_hold.hold(ctx, mark);
 }
 
 template <int W, int H>
 inline HS_FLASH_MEMBER void Feedback<W, H>::finish(Canvas &) {
-  if (!held)
+  if (!split_hold.held)
     return;
-  FlushContext &ctx = *held;
+  FlushContext &ctx = *split_hold.held;
   select_poles(ctx.current, ctx.current_poles);
   {
     HS_PROFILE(feedback_forward);
     composite_pass(ctx, true);
   }
-  end_split();
+  split_hold.release();
 }
 
 HS_O3_BEGIN
