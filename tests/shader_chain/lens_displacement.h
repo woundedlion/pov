@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+#include "effects/GridWorms.h"
+#include "effects/MobiusGrid.h"
+#include "tests/shader_chain/sphere_ops.h"
+
+namespace hs_test::shader_chain_tests {
 
 // Deforming-lens displacement and fold invariance.
 
@@ -189,3 +197,5 @@ inline void test_lens_displacement_metadata() {
   HS_EXPECT_TRUE(PB::ComposedDetail::MetadataFor<MobiusGridSpec>::PATH_TRACKED);
   HS_EXPECT_FALSE(PB::ComposedDetail::MetadataFor<GridWormsSpec>::PATH_TRACKED);
 }
+
+} // namespace hs_test::shader_chain_tests

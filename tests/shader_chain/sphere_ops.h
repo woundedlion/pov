@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+
+namespace hs_test::shader_chain_tests {
 
 // --- sphere-op mirrors ----------------------------------------------------
 
@@ -563,3 +568,5 @@ inline void test_shader_chain_twist_closed_form() {
     }
   }
 }
+
+} // namespace hs_test::shader_chain_tests

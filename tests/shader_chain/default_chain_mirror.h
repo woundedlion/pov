@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+
+namespace hs_test::shader_chain_tests {
 
 // --- template mirror of DEFAULT_CHAIN -----------------------------------
 
@@ -185,3 +190,5 @@ inline PB::PlaneSample projected_input(In::ChainProgram &program,
       program, ctx, 0, PB::SphereSample{view, 0.0f});
   return run_entry<PB::PlaneSample>(program, ctx, 1, rotated);
 }
+
+} // namespace hs_test::shader_chain_tests

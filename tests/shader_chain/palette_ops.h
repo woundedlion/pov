@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+
+namespace hs_test::shader_chain_tests {
 
 /** @brief Authored palette families drive rendered colors and survive snapshots. */
 inline void test_shader_chain_palette_selection() {
@@ -142,3 +147,5 @@ inline void test_shader_chain_authored_palette_history() {
   HS_EXPECT_EQ(prepared.palette, ctx.palettes[0]);
   hs::clear_mock_time();
 }
+
+} // namespace hs_test::shader_chain_tests

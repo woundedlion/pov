@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+#include "tests/shader_chain/default_chain_mirror.h"
+
+namespace hs_test::shader_chain_tests {
 
 // --- field-op mirrors -----------------------------------------------------
 
@@ -131,3 +137,5 @@ inline void test_shader_chain_parity_field_ops() {
         In::Op::ValueCutoutChainParams>(In::Op::CoverageValueCutout::ID, set);
   });
 }
+
+} // namespace hs_test::shader_chain_tests

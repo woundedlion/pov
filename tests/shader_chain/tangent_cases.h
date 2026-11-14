@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+
+namespace hs_test::shader_chain_tests {
 
 // Fixed-step field admission, clocks and advisories.
 
@@ -704,3 +709,5 @@ inline void test_tangent_dynamic_advisory() {
                ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(requested_param(effect, "field.strength"), math::PI_F, 1e-6f);
 }
+
+} // namespace hs_test::shader_chain_tests

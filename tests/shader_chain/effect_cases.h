@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+#include "effects/AlienCore.h"
+
+namespace hs_test::shader_chain_tests {
 
 // Composed frame parity and ShaderChain effect lifecycle.
 
@@ -852,3 +858,5 @@ inline void test_shader_chain_operator_states_sample_clocks() {
   HS_EXPECT_TRUE(modulate != nullptr &&
                  modulate->runtime.sample_state == nullptr);
 }
+
+} // namespace hs_test::shader_chain_tests

@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+#include "tests/shader_chain/default_chain_mirror.h"
+#include "tests/shader_chain/lifecycle.h"
+
+namespace hs_test::shader_chain_tests {
 
 // Transactional refusals, migration, determinism and budgets.
 
@@ -604,3 +611,5 @@ inline void test_shader_chain_param_names_and_budget() {
   HS_EXPECT_EQ(program.used_bytes(), expected_bytes);
   program.clear();
 }
+
+} // namespace hs_test::shader_chain_tests

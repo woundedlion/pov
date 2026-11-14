@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+#include "tests/shader_chain/lifecycle_cases.h"
+
+namespace hs_test::shader_chain_tests {
 
 /** @file spherical_sources.h
  * @brief Spherical source carriers, composed policies and instance clocks. */
@@ -236,3 +242,5 @@ inline void test_shader_chain_spherical_noise_lifecycle() {
   HS_EXPECT_EQ(state_as<Model::State>(program, 0).phase, 0.0f);
   HS_EXPECT_TRUE(state_as<Model::State>(program, 0).noise_seed != seed);
 }
+
+} // namespace hs_test::shader_chain_tests

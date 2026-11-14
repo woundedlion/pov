@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+
+namespace hs_test::shader_chain_tests {
 
 // --- projection-op mirrors ------------------------------------------------
 
@@ -517,3 +522,5 @@ inline void test_shader_chain_parity_project_hemispheres() {
     run_bonne_variant<false>(program, ctx);
   });
 }
+
+} // namespace hs_test::shader_chain_tests

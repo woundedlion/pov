@@ -37,7 +37,594 @@ namespace hs_test::shader_chain_tests {
 namespace PB = Pullback;
 namespace In = Pullback::Interp;
 
-#include "tests/shader_chain/fixtures.h"
-#include "tests/shader_chain/effect_fixture.h"
+// --- fixtures -------------------------------------------------------------
+
+/** @brief Closed-form twist angle at a signed height. */
+inline double twist_reference_angle(double total, double distribution,
+                                    double height) {
+  const double a = distribution * lenses::TWIST_PROFILE_MAX;
+  return 0.5 * total * (a == 0.0 ? height : atanh(a * height) / atanh(a));
+}
+
+/** @brief Requires an operator lookup to succeed before descriptor access. */
+inline const In::OperatorDescriptor *require_operator(std::string_view id) {
+  const auto *op = In::find_operator(id);
+  HS_EXPECT_TRUE(op != nullptr);
+  return op;
+}
+
+/** @brief Requires a registered parameter before reading its value. */
+template <typename FX>
+inline const ParamDef *require_param(const FX &effect, const char *name) {
+  const auto *param = effect.getParameters().find(name);
+  HS_EXPECT_TRUE(param != nullptr);
+  return param;
+}
+
+/** @brief Reads a required requested value, returning NaN on a missing parameter. */
+template <typename FX>
+inline float requested_param(const FX &effect, const char *name) {
+  const auto *param = require_param(effect, name);
+  return param ? param->get_requested()
+               : std::numeric_limits<float>::quiet_NaN();
+}
+
+inline constexpr const char *MISMATCHED_TOPOLOGY_IDS[] = {"first", "second"};
+
+struct MismatchedTopologyDefaults {
+  uint8_t mode = 1;
+  static constexpr auto TOPOLOGY = std::array{
+      In::TopologyField<MismatchedTopologyDefaults>{
+          "mode", &MismatchedTopologyDefaults::mode, MISMATCHED_TOPOLOGY_IDS,
+          0},
+  };
+};
+
+/** Schema field of @p op with id @p field_id, or null. */
+inline const In::ParamFieldInfo *schema_field(const In::OperatorDescriptor &op,
+                                              std::string_view field_id) {
+  for (const In::ParamFieldInfo &field : op.schema_span())
+    if (std::string_view(field.id) == field_id)
+      return &field;
+  return nullptr;
+}
+
+/** @brief Storage for a program's history and sampled-column states. */
+struct TemporalBlocks {
+  alignas(std::max_align_t) uint8_t history[In::CHAIN_ARENA_BYTES];
+  alignas(std::max_align_t) uint8_t column[In::CHAIN_ARENA_BYTES];
+};
+
+/** Two program arenas plus the program bound over them. */
+struct ProgramFixture {
+  alignas(std::max_align_t) uint8_t block_a[In::CHAIN_ARENA_BYTES];
+  alignas(std::max_align_t) uint8_t block_b[In::CHAIN_ARENA_BYTES];
+  In::ChainProgram program;
+
+  explicit ProgramFixture(
+      size_t capacity = In::CHAIN_ARENA_BYTES,
+      std::span<const In::OperatorDescriptor> table =
+          std::span<const In::OperatorDescriptor>(In::OPERATOR_TABLE)) {
+    program.bind_storage(block_a, block_b, capacity, table);
+  }
+};
+
+struct GradientSource {
+  uint16_t base;
+  Color4 get(float t) const {
+    return Color4(Pixel(static_cast<uint16_t>(base + t * 40000.0f),
+                        static_cast<uint16_t>(t * 30000.0f),
+                        static_cast<uint16_t>(50000.0f - t * 40000.0f)),
+                  1.0f);
+  }
+};
+
+/** Engine-owned shared color resources the FrameContext borrows. */
+struct ColorResources {
+  alignas(std::max_align_t) uint8_t
+      palette_bytes[3 * BakedPalette::required_arena_bytes() + 64];
+  BakedPaletteStorage palettes[3];
+  std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue_rotation{};
+  PB::Modulation::Resources<> modulation;
+  std::array<PB::Modulation::Endpoint, 1> endpoints;
+
+  ColorResources() {
+    Arena arena(palette_bytes, sizeof(palette_bytes));
+    palettes[0].bake(arena, GradientSource{1000});
+    palettes[1].bake(arena, GradientSource{9000});
+    palettes[2].bake(arena, GradientSource{21000});
+    PB::Color::prepare_hue_rotation_lut(
+        std::span<Pixel, PB::Color::HueRotationLutView::SIZE>(hue_rotation),
+        palettes[0]);
+    ColorModulation::Config config;
+    config.seed = 4211;
+    config.noise.scale = 1.5f;
+    modulation.prepare(config, {.phase = {.25f}, .initialized = true});
+    endpoints[0] = {"modulation", &modulation.prepared};
+  }
+
+  In::FrameContext context() const {
+    In::FrameContext ctx;
+    ctx.palettes = {&palettes[0].view(), &palettes[1].view(),
+                    &palettes[2].view()};
+    ctx.hue_rotation_lut = hue_rotation.data();
+    ctx.modulations = endpoints;
+    return ctx;
+  }
+};
+
+/** @brief Returns the shared baked palette and hue lookup resources. */
+inline const ColorResources &shared_resources() {
+  static const ColorResources resources;
+  return resources;
+}
+
+/** @brief Owned request labels for the eighteen-affine-warp growth boundary. */
+struct AffineWarpChain {
+  static constexpr int WARPS = 18;
+  static constexpr int ADMITTED = 4;
+  static constexpr float MIN_SCALE = 1.0f / 64.0f;
+  std::array<std::string, WARPS> ids, scale_x, scale_y;
+  std::array<In::ChainEntryRequest, WARPS + 3> chain{};
+
+  AffineWarpChain() {
+    chain[0] = {"project", In::Op::ProjectStereographic::ID};
+    for (int index = 0; index < WARPS; ++index) {
+      ids[index] = "warp" + std::to_string(index);
+      scale_x[index] = ids[index] + ".scale-x";
+      scale_y[index] = ids[index] + ".scale-y";
+      chain[index + 1] = {ids[index], In::Op::WarpAffineV4::ID};
+    }
+    chain[WARPS + 1] = {"sample", In::Op::SampleGridV4::ID};
+    chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
+  }
+};
+
+inline constexpr auto &DEFAULT_CHAIN = SHADER_CHAIN_DEFAULT_CHAIN;
+
+static_assert(DEFAULT_CHAIN[0].operator_id == "sphere.rotate.v2");
+static_assert(DEFAULT_CHAIN[2].operator_id == "sample.grid.v4");
+
+/** @brief Returns direction samples for operator parity sweeps. */
+inline std::array<math::Vector, 14> sweep_views() {
+  std::array<math::Vector, 14> views = {
+      math::Vector(0, 1, 0),         math::Vector(0, -1, 0),
+      math::Vector(1, 0, 0),         math::Vector(-1, 0, 0),
+      math::Vector(0, 0, 1),         math::Vector(0, 0, -1),
+      math::Vector(1, 1, 1),         math::Vector(-1, 1, -1),
+      math::Vector(1, -2, 0.5f),     math::Vector(-0.3f, 0.9f, 0.6f),
+      math::Vector(0.05f, 0.99f, 0), math::Vector(0.05f, -0.99f, 0),
+      math::Vector(2, 0.1f, -1),     math::Vector(-1, -1, 2),
+  };
+  for (math::Vector &view : views)
+    view = view.normalized();
+  return views;
+}
+
+/** @brief OpenSimplex2 noise seeded from the instance hash of @p instance
+    and @p operator_id, as an operator's authored oracle. */
+inline FastNoiseLite make_oracle_noise(std::string_view instance,
+                                       std::string_view operator_id,
+                                       float frequency) {
+  FastNoiseLite noise;
+  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  noise.SetSeed(static_cast<int32_t>(In::instance_hash(instance, operator_id)));
+  noise.SetFrequency(frequency);
+  return noise;
+}
+
+template <typename T> T &param_as(In::ChainProgram &program, size_t index) {
+  const auto &layout = program.ops()[index].op->runtime.param;
+  void *block = program.param_block(index);
+  const bool matches = layout.size >= sizeof(T) && layout.align >= alignof(T) &&
+                       reinterpret_cast<uintptr_t>(block) % alignof(T) == 0;
+  HS_EXPECT_TRUE(matches);
+  HS_CHECK(matches, "shader-chain fixture parameter prefix type mismatch");
+  return *static_cast<T *>(block);
+}
+
+/** @brief Requires the requested type to match its erased block.
+ * @tparam T Block type.
+ * @param layout Erased block layout.
+ * @param block Block address. */
+template <typename T>
+void check_block_layout(const In::BlockLayout &layout, const void *block) {
+  const bool matches = layout.size == sizeof(T) && layout.align == alignof(T) &&
+                       reinterpret_cast<uintptr_t>(block) % alignof(T) == 0;
+  HS_EXPECT_TRUE(matches);
+  HS_CHECK(matches, "shader-chain fixture block type mismatch");
+}
+
+template <typename T> T &state_as(In::ChainProgram &program, size_t index) {
+  check_block_layout<T>(program.ops()[index].op->runtime.state,
+                        program.state_block(index));
+  return *static_cast<T *>(program.state_block(index));
+}
+
+template <typename T>
+const T &prepared_as(const In::ChainProgram &program, size_t index) {
+  check_block_layout<T>(program.ops()[index].op->runtime.prepared,
+                        program.prepared_block(index));
+  return *reinterpret_cast<const T *>(program.prepared_block(index));
+}
+
+template <typename T> T &prepared_as(In::ChainProgram &program, size_t index) {
+  return const_cast<T &>(prepared_as<T>(std::as_const(program), index));
+}
+
+template <typename T>
+const T &state_as(const In::ChainProgram &program, size_t index) {
+  check_block_layout<T>(program.ops()[index].op->runtime.state,
+                        program.state_block(index));
+  return *static_cast<const T *>(program.state_block(index));
+}
+
+/** @brief Compares color carriers exactly. */
+inline bool color4_identical(const Color4 &a, const Color4 &b) {
+  return a.color.r == b.color.r && a.color.g == b.color.g &&
+         a.color.b == b.color.b &&
+         std::memcmp(&a.alpha, &b.alpha, sizeof(float)) == 0;
+}
+
+// Member-wise: struct padding bytes are not compared.
+/** @brief Compares sphere carriers exactly. */
+inline bool sphere_identical(const PB::SphereSample &a,
+                             const PB::SphereSample &b) {
+  const auto &[dir, path_length] = a;
+  return float_identical(dir.x, b.dir.x) && float_identical(dir.y, b.dir.y) &&
+         float_identical(dir.z, b.dir.z) &&
+         float_identical(path_length, b.path_length);
+}
+
+/** @brief Compares plane carriers exactly. */
+inline bool plane_identical(const PB::PlaneSample &a,
+                            const PB::PlaneSample &b) {
+  const auto &[coords, provenance, sphere, path_length] = a;
+  const auto &[region_id, component_id, boundary_flags, fade_edge_distance,
+               value_weight, flags, traits, edge_class, domain_coverage] =
+      provenance;
+  return float_identical(coords.re, b.coords.re) &&
+         float_identical(coords.im, b.coords.im) &&
+         region_id == b.provenance.region_id &&
+         component_id == b.provenance.component_id &&
+         boundary_flags == b.provenance.boundary_flags &&
+         float_identical(fade_edge_distance, b.provenance.fade_edge_distance) &&
+         float_identical(value_weight, b.provenance.value_weight) &&
+         flags == b.provenance.flags && traits == b.provenance.traits &&
+         edge_class == b.provenance.edge_class &&
+         float_identical(domain_coverage, b.provenance.domain_coverage) &&
+         float_identical(sphere.x, b.sphere.x) &&
+         float_identical(sphere.y, b.sphere.y) &&
+         float_identical(sphere.z, b.sphere.z) &&
+         float_identical(path_length, b.path_length);
+}
+
+/** @brief Compares field carriers exactly. */
+inline bool field_identical(const PB::FieldSample &a,
+                            const PB::FieldSample &b) {
+  static_assert(sizeof(PB::FieldSample) == 6 * sizeof(float));
+  return float_identical(a.value, b.value) &&
+         float_identical(a.coverage, b.coverage) &&
+         float_identical(a.sphere.x, b.sphere.x) &&
+         float_identical(a.sphere.y, b.sphere.y) &&
+         float_identical(a.sphere.z, b.sphere.z) &&
+         float_identical(a.path_length, b.path_length);
+}
+
+/** @brief Whether @p s is finite with direction squared length greater than 0.25. */
+inline bool carrier_live(const PB::SphereSample &s) {
+  return std::isfinite(s.dir.x) && std::isfinite(s.dir.y) &&
+         std::isfinite(s.dir.z) && std::isfinite(s.path_length) &&
+         math::dot(s.dir, s.dir) > 0.25f;
+}
+
+/** @brief Whether @p s is finite with positive domain coverage. */
+inline bool carrier_live(const PB::PlaneSample &s) {
+  return std::isfinite(s.coords.re) && std::isfinite(s.coords.im) &&
+         std::isfinite(s.path_length) && s.provenance.domain_coverage > 0.0f;
+}
+
+/** @brief Whether @p s is finite with positive coverage. */
+inline bool carrier_live(const PB::FieldSample &s) {
+  return std::isfinite(s.value) && std::isfinite(s.path_length) &&
+         s.coverage > 0.0f;
+}
+
+/** @brief Whether @p c is a finite, visible, non-black color. */
+inline bool carrier_live(const Color4 &c) {
+  return std::isfinite(c.alpha) && c.alpha > 0.0f &&
+         (c.color.r | c.color.g | c.color.b) != 0;
+}
+
+/**
+ * @brief Storage for an erased runtime parameter or state block.
+ * @param bytes Required byte capacity.
+ * @return Aligned storage covering the requested size.
+ */
+inline std::vector<std::max_align_t> erased_block(size_t bytes) {
+  return std::vector<std::max_align_t>((bytes + sizeof(std::max_align_t) - 1) /
+                                       sizeof(std::max_align_t));
+}
+
+/** @brief Every field of a runtime snapshot as raw 32-bit words, led by the
+ *  alternative index. */
+inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
+  std::vector<uint32_t> words{static_cast<uint32_t>(snap.index())};
+  const auto put = [&](auto value) {
+    static_assert(sizeof(value) == sizeof(uint32_t));
+    words.push_back(std::bit_cast<uint32_t>(value));
+  };
+  const auto put_vec = [&](const math::Vector &v) {
+    put(v.x);
+    put(v.y);
+    put(v.z);
+  };
+  const auto put_walk = [&](const In::SpatialWalkSnapshot &w) {
+    put(w.noise_seed);
+    put(w.walk_time);
+    put_vec(w.position);
+    put_vec(w.direction);
+    put(w.wander.r);
+    put_vec(w.wander.v);
+    put(w.angular_velocity);
+    put(w.spin_phase);
+  };
+  std::visit(
+      [&](const auto &v) {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, In::SpatialWalkSnapshot>) {
+          static_assert(sizeof(T) == 14 * sizeof(uint32_t));
+          put_walk(v);
+        } else if constexpr (std::is_same_v<T, In::SourceClockSnapshot>) {
+          static_assert(sizeof(T) == 3 * sizeof(uint32_t));
+          put(v.primary);
+          put(v.secondary);
+          put(v.angle);
+        } else if constexpr (std::is_same_v<T, In::NoiseClockSnapshot>) {
+          static_assert(sizeof(T) == 2 * sizeof(uint32_t));
+          put(v.phase);
+          put(v.noise_seed);
+        } else if constexpr (std::is_same_v<T, In::RippleClockSnapshot>) {
+          static_assert(
+              sizeof(T) ==
+              (4 + 2 * std::tuple_size_v<decltype(T::waves)>)*sizeof(uint32_t));
+          put(v.phase);
+          put(v.seed);
+          put(v.burst_count);
+          put(v.frames);
+          for (const auto &wave : v.waves) {
+            put(wave.age);
+            put(wave.burst);
+          }
+        } else if constexpr (std::is_same_v<T, In::PhaseClockSnapshot>) {
+          static_assert(sizeof(T) == sizeof(uint32_t));
+          put(v.phase);
+        } else if constexpr (std::is_same_v<T, In::AffineClockSnapshot>) {
+          static_assert(sizeof(T) == 2 * sizeof(uint32_t));
+          put(v.phase);
+          put(v.rotation);
+        } else if constexpr (std::is_same_v<T, In::ColorClockSnapshot>) {
+          static_assert(sizeof(T) == sizeof(uint32_t));
+          put(v.oscillation_phase);
+        } else if constexpr (std::is_same_v<T, In::ModulationClockSnapshot>) {
+          const auto &[modulation] = v;
+          const auto &[source, version, phase, initialized] = modulation;
+          put(static_cast<uint32_t>(source));
+          put(static_cast<uint32_t>(version));
+          static_assert(sizeof(phase) == sizeof(uint32_t));
+          put(phase.phase_turns);
+          put(static_cast<uint32_t>(initialized));
+        } else {
+          static_assert(std::is_same_v<T, std::monostate>);
+        }
+      },
+      snap);
+  return words;
+}
+
+/** @brief Selects defaults or a tabled parameter endpoint. */
+enum class ValueSet { DEFAULTS, MINIMUMS, MAXIMUMS };
+
+/** @brief Failure-context label for a value set. */
+inline const char *value_set_name(ValueSet set) {
+  switch (set) {
+  case ValueSet::MINIMUMS:
+    return "minimums";
+  case ValueSet::MAXIMUMS:
+    return "maximums";
+  default:
+    return "defaults";
+  }
+}
+
+/** @brief Applies tabled endpoints; DEFAULTS leaves the family unchanged. */
+template <typename T> void apply_value_set(T &params, ValueSet set) {
+  if (set == ValueSet::DEFAULTS)
+    return;
+  for (const auto &field : T::FIELDS)
+    params.*(field.member) = set == ValueSet::MINIMUMS ? field.min : field.max;
+}
+
+/** @brief The value set of the enclosing for_each_value_set iteration;
+    DEFAULTS outside one. */
+inline ValueSet &active_value_set() {
+  static ValueSet set = ValueSet::DEFAULTS;
+  return set;
+}
+
+/** @brief Calls @p fn with each ValueSet under its failure-context label. */
+template <typename Fn> void for_each_value_set(Fn &&fn) {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
+    active_value_set() = set;
+    fn(set);
+  }
+  active_value_set() = ValueSet::DEFAULTS;
+}
+
+/** @brief Expects @p live swept views to be nonzero except under MINIMUMS,
+    whose endpoints may legitimately render nothing. */
+inline void expect_live_sweep(int live) {
+  if (active_value_set() != ValueSet::MINIMUMS)
+    HS_EXPECT_GT(live, 0);
+}
+
+/** @brief Calls @p fn with a fresh program for each ValueSet, clearing the
+    program afterwards. */
+template <typename Fn> void for_each_value_set_program(Fn &&fn) {
+  for_each_value_set([&](ValueSet set) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    fn(fixture->program, set);
+    fixture->program.clear();
+  });
+}
+
+/** @brief Expects successful compilation and reports whether it succeeded. */
+inline bool expect_compiled(const In::ChainRefusal &result) {
+  HS_EXPECT_EQ(result.code, In::ChainStatus::OK);
+  return result.code == In::ChainStatus::OK;
+}
+
+/** @brief Compiles and initializes each typed block, then advances the chain.
+ * @return True when compilation succeeds; false after reporting a refusal. */
+template <typename... Params>
+bool arm_chain(In::ChainProgram &program,
+               std::span<const In::ChainEntryRequest> chain, int frames,
+               ValueSet set) {
+  if (!expect_compiled(program.compile(chain)))
+    return false;
+  size_t index = 0;
+  (apply_value_set(param_as<Params>(program, index++), set), ...);
+  for (int frame = 0; frame < frames; ++frame)
+    program.advance();
+  return true;
+}
+
+/** @brief Runs the prepared erased entry @p index on @p input.
+    @return The entry's @p OutCarrier output. */
+template <typename OutCarrier, typename InCarrier>
+OutCarrier run_entry(In::ChainProgram &program, const In::FrameContext &ctx,
+                     size_t index, const InCarrier &input) {
+  alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+  program.ops()[index].op->runtime.run(&input, out, ctx,
+                                       program.param_block(index),
+                                       program.prepared_block(index));
+  if constexpr (std::is_same_v<OutCarrier, Color4>)
+    return PB::finish_color_sample(
+        *std::launder(reinterpret_cast<PB::ColorSample *>(out)));
+  else
+    return *std::launder(reinterpret_cast<OutCarrier *>(out));
+}
+
+/** @brief Runs the prepared erased entries [0, @p count) over @p sphere; entry
+    0 is the SPHERE->PLANE crossing and the rest are PLANE endomorphisms.
+    @return The plane carrier after entry @p count - 1. */
+inline PB::PlaneSample run_to_plane(In::ChainProgram &program,
+                                    const In::FrameContext &ctx,
+                                    const PB::SphereSample &sphere,
+                                    size_t count) {
+  PB::PlaneSample plane = run_entry<PB::PlaneSample>(program, ctx, 0, sphere);
+  for (size_t index = 1; index < count; ++index)
+    plane = run_entry<PB::PlaneSample>(program, ctx, index, plane);
+  return plane;
+}
+
+/** Erased-vs-bound parity of the prepared entry @p index: on @p input_of
+    each swept view, the erased op and @p BoundStage yield identical
+    @p OutCarrier values, at least one of them live except under the MINIMUMS
+    value set (see `expect_live_sweep`). */
+template <typename BoundStage, typename OutCarrier, typename Mirror,
+          typename InputFn>
+void expect_op_parity(In::ChainProgram &program, const In::FrameContext &ctx,
+                      size_t index, const Mirror &mirror, InputFn input_of,
+                      bool (*identical)(const OutCarrier &,
+                                        const OutCarrier &)) {
+  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
+  int view_index = 0;
+  int live = 0;
+  for (const math::Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
+    const auto input = input_of(view);
+    const OutCarrier erased = run_entry<OutCarrier>(program, ctx, index, input);
+    const OutCarrier reference = BoundStage::run(input, mirror, prepared);
+    HS_EXPECT_TRUE(identical(erased, reference));
+    live += carrier_live(erased) ? 1 : 0;
+  }
+  expect_live_sweep(live);
+}
+
+// ShaderChain effect white-box fixture.
+
+/** Reaches the effect's committed program, palette state, and hue bakes. */
+struct ShaderChainWhiteBox {
+  using FX = ShaderChain<96, 20>;
+
+  static const In::ChainProgram &program(const FX &effect) {
+    return effect.program;
+  }
+  static In::ChainProgram &program(FX &effect) { return effect.program; }
+  static int colorize_index(FX &effect) {
+    return effect.find_colorize_tap().index;
+  }
+  static void advance_without_render(FX &effect) { effect.advance_clocks(); }
+  /** The generated palette bank's current state. */
+  static GeneratedPaletteBank::Snapshot palette_bank(const FX &effect) {
+    return effect.generated_palettes.snapshot();
+  }
+  static Pixel palette_color(const FX &effect, float value) {
+    return effect.generated_palettes.palette(In::Op::PaletteMode::TRIADIC)
+        .get(value)
+        .color;
+  }
+
+  /** The committed colorize instance's parameter block. */
+  static In::Op::GeneratedPaletteParams &color_params(FX &effect) {
+    return *reinterpret_cast<In::Op::GeneratedPaletteParams *>(
+        effect.program.param_block(static_cast<size_t>(effect.colorize.index)));
+  }
+  static size_t modulation_index(const FX &effect,
+                                 std::string_view label = "modulation") {
+    for (size_t index = 0; index < effect.program.ops().size(); ++index)
+      if (std::string_view(effect.program.ops()[index].instance) == label)
+        return index;
+    HS_CHECK(false, "missing test modulation node");
+    return 0;
+  }
+  /** @brief Appends a named modulation node if absent. */
+  static void ensure_modulation(FX &effect, const char *label = "modulation") {
+    for (const auto &op : effect.program.ops())
+      if (std::string_view(op.instance) == label)
+        return;
+    std::vector<In::ChainEntryRequest> chain;
+    for (const auto &op : effect.program.ops())
+      chain.push_back({op.instance, op.op->operator_id});
+    chain.push_back({label, In::Op::ModulateColorV1::ID});
+    HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  }
+  /** @brief Existing node's parameter block; traps when absent. */
+  static In::Op::ModulationParams &
+  modulation_params(FX &effect, const char *label = "modulation") {
+    return *reinterpret_cast<In::Op::ModulationParams *>(
+        effect.program.param_block(modulation_index(effect, label)));
+  }
+  static const In::Op::ModulationClockState &
+  modulation_clocks(const FX &effect, std::string_view label = "modulation") {
+    return *static_cast<const In::Op::ModulationClockState *>(
+        effect.program.state_block(modulation_index(effect, label)));
+  }
+  static auto &layer_resources(FX &effect, std::string_view key) {
+    return effect.modulation_resources(key);
+  }
+  /** The retained previous frame context, its palettes and hue tables owned
+      by the effect. */
+  static const In::FrameContext &previous_context(const FX &effect) {
+    return effect.resources->context.previous;
+  }
+  /** The frame snapshot draw_frame() hands the program, hue bakes included. */
+  static In::FrameContext frame_context(FX &effect) {
+    return effect.make_frame_context(effect.colorize);
+  }
+};
 
 } // namespace hs_test::shader_chain_tests

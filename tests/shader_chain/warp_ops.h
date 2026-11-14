@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+#include "tests/shader_chain/default_chain_mirror.h"
+
+namespace hs_test::shader_chain_tests {
 
 // --- warp-op mirrors ------------------------------------------------------
 
@@ -902,3 +908,5 @@ inline void test_shader_chain_warp_plane_bound() {
   expect_warp_plane_bound<In::Op::WarpPolarChart>();
   expect_warp_plane_bound<In::Op::WarpCurlFlow>();
 }
+
+} // namespace hs_test::shader_chain_tests

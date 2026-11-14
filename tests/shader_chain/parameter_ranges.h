@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+
+namespace hs_test::shader_chain_tests {
 
 /** @brief Finds a numeric range and checks the emitted interval contract. */
 inline std::array<float, 2> parameter_range(ShaderChainWhiteBox::FX &effect,
@@ -196,3 +201,5 @@ inline void test_shader_chain_harmonic_ranges() {
   HS_EXPECT_EQ(parameter_range(effect, "field.term-1-l")[0], 7.0f);
   HS_EXPECT_EQ(parameter_range(effect, "field.term-1-m")[1], 8.0f);
 }
+
+} // namespace hs_test::shader_chain_tests

@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/shader_chain_fixture.h"
+
+namespace hs_test::shader_chain_tests {
 
 // --- lifecycle test models ------------------------------------------------
 
@@ -230,3 +235,5 @@ inline std::span<const In::OperatorDescriptor> extended_table() {
   };
   return TABLE;
 }
+
+} // namespace hs_test::shader_chain_tests
