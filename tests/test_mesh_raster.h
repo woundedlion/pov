@@ -1256,21 +1256,98 @@ inline void test_face_cap_zero_vertex() {
                Scan::UNBOUNDED_FACE_CAP);
 }
 
-/** @brief A seeing-time bounds pose accepts a matching render clip. */
+/**
+ * @brief A seeing-time bounds pose keeps every lit row of the posed face and
+ *        culls clip bands outside its padded latitude band.
+ */
 inline void test_face_bounds_pose_with_clip() {
   constexpr int W = 32, H = 16;
   const math::Vector VERTICES[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   const uint16_t INDICES[] = {0, 1, 2};
-  SDF::FaceScratchBuffer scratch;
-  const SDF::FaceBoundsPose POSE{math::X_AXIS, math::Y_AXIS, math::Z_AXIS, 0.0f,
-                                 nullptr};
-  hs_test::StubEffect effect(W, H);
-  Canvas canvas(effect);
-  SDF::PreparedFace face(VERTICES, INDICES, scratch, math::LatitudeGeometry(H),
-                         H, &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN, &POSE);
-  HS_EXPECT_EQ(face.count, 3);
-  const auto bounds = face.get_vertical_bounds<H>();
-  HS_EXPECT_LE(bounds.y_min, bounds.y_max);
+  const float tilt_cos = cosf(0.5f), tilt_sin = sinf(0.5f);
+  // The second pose lifts the X-Z edge's midpoint above both its endpoints.
+  const float lift_cos = cosf(1.2f), lift_sin = sinf(1.2f);
+  const math::Vector MIDPOINT = (math::X_AXIS + math::Z_AXIS).normalized();
+  const SDF::FaceBoundsPose POSES[] = {
+      {math::X_AXIS,
+       {0.0f, tilt_cos, -tilt_sin},
+       {0.0f, tilt_sin, tilt_cos},
+       0.0f,
+       nullptr},
+      {(math::X_AXIS - math::Z_AXIS).normalized(),
+       MIDPOINT * lift_sin - math::Y_AXIS * lift_cos,
+       MIDPOINT * lift_cos + math::Y_AXIS * lift_sin, 0.0f, nullptr}};
+  const math::LatitudeGeometry geometry(H);
+  const float pad = math::TWO_PI_F / W +
+                    (geometry.row_to_phi(1) - geometry.row_to_phi(0)) + 1e-3f;
+  for (size_t index = 0; index < std::size(POSES); ++index) {
+    HS_CONTEXT("pose", static_cast<int>(index));
+    const SDF::FaceBoundsPose &pose = POSES[index];
+    // The face is the positive octant: a bounds-frame direction is inside
+    // when its endpoint-space preimage has all components positive.
+    bool lit_row[H] = {};
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const math::Vector view(
+            math::Spherical(x * math::TWO_PI_F / W, geometry.row_to_phi(y)));
+        const math::Vector p =
+            pose.x * view.x + pose.y * view.y + pose.z * view.z;
+        lit_row[y] |= p.x > 0.0f && p.y > 0.0f && p.z > 0.0f;
+      }
+    float phi_lo = math::PI_F, phi_hi = 0.0f;
+    constexpr int STEPS = 64;
+    for (int i = 0; i <= STEPS; ++i)
+      for (int j = 0; i + j <= STEPS; ++j) {
+        const math::Vector point =
+            pose.project((math::X_AXIS * float(i) + math::Y_AXIS * float(j) +
+                          math::Z_AXIS * float(STEPS - i - j))
+                             .normalized());
+        const float phi = acosf(hs::clamp(point.y, -1.0f, 1.0f));
+        phi_lo = fminf(phi_lo, phi);
+        phi_hi = fmaxf(phi_hi, phi);
+      }
+    const auto padded = [&](int y) {
+      const float phi = geometry.row_to_phi(y);
+      return phi >= phi_lo - pad && phi <= phi_hi + pad;
+    };
+    int culled = 0;
+    const auto check_band = [&](int start, int end) {
+      HS_CONTEXT("clip rows", start, end);
+      hs_test::StubEffect effect(W, H);
+      effect.set_clip(start, end, 0, W);
+      Canvas canvas(effect);
+      const ClipRegion &clip = canvas.clip();
+      SDF::FaceScratchBuffer scratch;
+      SDF::PreparedFace face(VERTICES, INDICES, scratch, geometry, H, &clip,
+                             nullptr, SDF::BOUNDS_MARGIN, &pose);
+      bool band_lit = false, band_padded = false;
+      for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
+        band_lit |= lit_row[y];
+        band_padded |= padded(y);
+      }
+      if (face.count == 0) {
+        ++culled;
+        HS_EXPECT_FALSE(band_lit);
+        return;
+      }
+      HS_EXPECT_TRUE(band_padded);
+      HS_EXPECT_EQ(face.count, 3);
+      const auto bounds = face.get_vertical_bounds<H>();
+      for (int y = 0; y < H; ++y) {
+        HS_CONTEXT("row", y);
+        if (lit_row[y]) {
+          HS_EXPECT_GE(y, bounds.y_min);
+          HS_EXPECT_LE(y, bounds.y_max);
+        }
+        if (y >= bounds.y_min && y <= bounds.y_max)
+          HS_EXPECT_TRUE(padded(y));
+      }
+    };
+    check_band(0, H);
+    for (int y0 = 0; y0 < H; y0 += 2)
+      check_band(y0, y0 + 2);
+    HS_EXPECT_GT(culled, 0);
+  }
 }
 
 /**

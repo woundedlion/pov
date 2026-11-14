@@ -1875,6 +1875,45 @@ inline void test_regular_patterns() {
       const size_t differing =
           compare_buffers(reference, actual).different_pixels;
       HS_EXPECT_GT(differing, size_t{0});
+      // Quarter turns in adjacent coordinate planes and primitive lattice
+      // translations generate the pattern's symmetries; each leaves the
+      // traced view unchanged.
+      auto base = HyperLatticeWhiteBox::drawn(effect);
+      base.center = {};
+      base.frame.rotation_phase = {};
+      const bool octet = configuration.pattern == Effect::Pattern::OCTET;
+      const int dimensions =
+          configuration.domain == HL::LatticeMode::SLICE_4D ? 4 : 3;
+      const float unit = base.frame.params.cell_size *
+                         (octet ? SDF::OctetFramework4::HALF_CUBE : 1.0f);
+      std::vector<HyperLatticeWhiteBox::Drawn> images;
+      for (const int plane : {0, 2, 5})
+        if (plane < dimensions * (dimensions - 1) / 2) {
+          images.push_back(base);
+          images.back().frame.rotation_phase[plane] = math::PI_F / 2;
+        }
+      for (int axis = 0; axis < dimensions; ++axis) {
+        images.push_back(base);
+        auto &center = images.back().center;
+        center[axis] = unit;
+        if (octet && axis + 1 < dimensions)
+          center[axis + 1] = unit;
+        else if (octet)
+          center = {{unit, -unit, 0.0f, 0.0f}};
+      }
+      constexpr int STRIDE = 3;
+      size_t lit = 0;
+      for (int y = 0; y < 20; ++y)
+        for (int x = 0; x < 96; x += STRIDE) {
+          HS_CONTEXT("pixel", x, y);
+          const Pixel expected = traced_pixel<96, 20>(base, x, y);
+          lit += !is_black(expected);
+          for (const auto &image : images)
+            HS_EXPECT_LE(
+                max_channel_gap(traced_pixel<96, 20>(image, x, y), expected),
+                MAX_SHADE_CHANNEL_DELTA);
+        }
+      HS_EXPECT_GT(lit, size_t{0});
     }
   }
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 6), ParamSetResult::APPLIED);
