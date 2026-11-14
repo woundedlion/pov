@@ -31,8 +31,8 @@ struct DisplacementFieldWhiteBox {
    * @param mode Zero for single pass, one for window bakes, two for columns. */
   template <int W, int H>
   static void sweep_mode(DisplacementField<W, H> &effect, int mode) {
-    effect.force_window_bakes = mode != 0;
-    effect.force_column_reference = mode == 2;
+    using SweepBake = typename DisplacementField<W, H>::SweepBake;
+    effect.sweep_bake = static_cast<SweepBake>(mode);
   }
 
   /** @brief Checks one setup per non-flat ring and reports the last frame's work.
