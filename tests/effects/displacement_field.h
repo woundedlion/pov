@@ -93,9 +93,9 @@ struct DisplacementFieldWhiteBox {
     effect.preset_count = 0;
     effect.preset_index =
         leaving_noise ? effect.NOISE_PRESET : effect.BALLS_PRESET;
-    effect.noise_hold = 0;
-    effect.master_gain = 0.0f;
-    effect.ball_phase_left = 0;
+    effect.phases.noise_hold = 0;
+    effect.phases.master_gain = 0.0f;
+    effect.phases.ball_phase_left = 0;
   }
 
   /** @brief Forces the slowest default fall and a spawn on the window's last frame.
@@ -103,8 +103,8 @@ struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static void force_last_slow_ball(DisplacementField<W, H> &effect) {
     effect.params.ball_speed_max = effect.params.ball_speed_min;
-    if (effect.ball_phase_left == 1)
-      effect.spawn_cooldown = 0.0f;
+    if (effect.phases.ball_phase_left == 1)
+      effect.phases.spawn_cooldown = 0.0f;
   }
 
   /** @brief Requests preview progress without an active frame canvas.
@@ -117,16 +117,16 @@ struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static void start_noise_fade(DisplacementField<W, H> &effect, bool fade_out) {
     if (fade_out) {
-      effect.master_gain = 1.0f;
-      effect.noise_hold = 1;
+      effect.phases.master_gain = 1.0f;
+      effect.phases.noise_hold = 1;
     } else {
-      effect.enter_noise();
+      effect.phases.enter_noise(effect.timeline);
     }
   }
 
   template <int W, int H>
   static float gain(const DisplacementField<W, H> &effect) {
-    return effect.master_gain;
+    return effect.phases.master_gain;
   }
 
   template <int W, int H>
@@ -136,7 +136,7 @@ struct DisplacementFieldWhiteBox {
 
   template <int W, int H>
   static int hold(const DisplacementField<W, H> &effect) {
-    return effect.noise_hold;
+    return effect.phases.noise_hold;
   }
 
   template <int W, int H> static constexpr int fade_frames() {
@@ -166,7 +166,7 @@ struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static void enter_balls(DisplacementField<W, H> &effect) {
     effect.preset_index = effect.BALLS_PRESET;
-    effect.enter_balls();
+    effect.phases.enter_balls();
     effect.spawn_ball();
   }
 
@@ -174,12 +174,12 @@ struct DisplacementFieldWhiteBox {
   static void fill_ball_pool(DisplacementField<W, H> &effect) {
     effect.params.ball_speed_min = effect.params.ball_speed_max = 3.0f;
     effect.preset_index = effect.BALLS_PRESET;
-    effect.enter_balls();
+    effect.phases.enter_balls();
     for (int i = 0; i <= effect.MAX_BALLS; ++i)
       effect.spawn_ball();
     HS_EXPECT_EQ(effect.balls.active_count(), effect.MAX_BALLS);
-    HS_EXPECT_TRUE(effect.logged_pool_full);
-    effect.ball_phase_left = 0;
+    HS_EXPECT_TRUE(effect.phases.logged_pool_full);
+    effect.phases.ball_phase_left = 0;
   }
 
   template <int W, int H>
@@ -208,7 +208,7 @@ struct DisplacementFieldWhiteBox {
 
   template <int W, int H>
   static int ball_window(const DisplacementField<W, H> &effect) {
-    return effect.ball_phase_left;
+    return effect.phases.ball_phase_left;
   }
 
   template <int W, int H>
@@ -223,7 +223,7 @@ struct DisplacementFieldWhiteBox {
 
   template <int W, int H>
   static void expire_balls(DisplacementField<W, H> &effect) {
-    effect.ball_phase_left = 0;
+    effect.phases.ball_phase_left = 0;
   }
 
   template <int W, int H>
@@ -321,7 +321,7 @@ struct DisplacementFieldWhiteBox {
                               float hue_scale) {
     effect.params.num_rings = rings;
     effect.params.hue_scale = hue_scale;
-    effect.master_gain = 1.0f;
+    effect.phases.master_gain = 1.0f;
   }
 
   /** @brief Drives the ring stack to its widest registered footprint. */
