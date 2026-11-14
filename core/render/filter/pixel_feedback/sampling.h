@@ -62,12 +62,12 @@ template <int W, int H>
 inline HS_HOT_FLASH_MEMBER typename Feedback<W, H>::Sample
 Feedback<W, H>::sample_across(const FlushContext &ctx, int arm, float x,
                               float y) const {
-  const SphereField &field = ctx.grid.field;
+  const SphereField &field = ctx.geometry.grid.field;
   const bool behind = x < arm;
-  const ::Pixel *low = behind ? ctx.back : ctx.previous;
-  const ::Pixel *high = behind ? ctx.previous : ctx.current;
-  const auto &low_poles = behind ? ctx.back_poles : ctx.poles;
-  const auto &high_poles = behind ? ctx.poles : ctx.current_poles;
+  const ::Pixel *low = behind ? ctx.frames.back : ctx.frames.previous;
+  const ::Pixel *high = behind ? ctx.frames.previous : ctx.frames.current;
+  const auto &low_poles = behind ? ctx.poles.back : ctx.poles.previous;
+  const auto &high_poles = behind ? ctx.poles.previous : ctx.poles.current;
   const float first = static_cast<float>(behind ? arm : arm + HALF);
   if (x >= first)
     return sample_bilinear_prev(field, high, high_poles, x, y);
@@ -98,15 +98,16 @@ Feedback<W, H>::plot_near_arm_end(float x, int column, float y,
                                   PassFnT &pass) {
   const int row = Filter::round_row<H>(y);
   const int arm = ColumnTime::arm_start(column);
-  const int slot = row < 0 || row >= H
-                       ? -1
-                       : cover_slot(split_hold.held->rows[row], arm, column);
+  const int slot =
+      row < 0 || row >= H
+          ? -1
+          : cover_slot(split_hold.held->geometry.rows[row], arm, column);
   if (slot < 0) {
     pass(x, y, color, age, alpha);
     return;
   }
-  ::Pixel &dst = split_hold.held->current[row * W + column];
-  uint16_t &cover = split_hold.held->cover[slot];
+  ::Pixel &dst = split_hold.held->frames.current[row * W + column];
+  uint16_t &cover = split_hold.held->coverage.cover[slot];
   const uint16_t ahead = cover & AHEAD_BIT;
   if (alpha >= 1.0f) {
     dst = color;

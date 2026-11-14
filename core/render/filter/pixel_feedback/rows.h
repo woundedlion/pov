@@ -20,28 +20,28 @@ inline void Feedback<W, H>::composite_pixels(const FlushContext &ctx,
                                              TransformPixelT &&transform_pixel,
                                              TransformPairT &&transform_pair,
                                              bool starts) {
-  const CoarseGrid &grid = ctx.grid;
-  const RenderBand &band = ctx.band;
+  const CoarseGrid &grid = ctx.geometry.grid;
+  const RenderBand &band = ctx.geometry.band;
   const int downsample = grid.downsample;
   const int coarse_columns = grid.columns;
   const int row_begin = band.y_begin;
   const int row_end = band.y_end;
   const float inverse_downsample = 1.0f / grid.downsample;
-  const bool black_skips_color = ctx.black_skips_color;
-  const auto blend = blend_alpha(ctx.alpha);
-  const bool opaque = ctx.alpha >= 1.0f;
-  const ::Pixel *previous = ctx.previous;
-  ::Pixel *current = ctx.current;
-  ::Pixel *filtered_row = ctx.filtered_row;
-  const auto &poles = ctx.poles;
-  const bool column_time = ctx.column_time;
+  const bool black_skips_color = ctx.color.black_skips;
+  const auto blend = blend_alpha(ctx.color.alpha);
+  const bool opaque = ctx.color.alpha >= 1.0f;
+  const ::Pixel *previous = ctx.frames.previous;
+  ::Pixel *current = ctx.frames.current;
+  ::Pixel *filtered_row = ctx.frames.filtered_row;
+  const auto &poles = ctx.poles.previous;
+  const bool column_time = ctx.color.column_time;
   const int unit_level = column_time ? FadeTable::UNIT_LEVEL : 0;
   // Cells crossing an arm cut resolve per pixel.
   const bool straddled_cells = HALF % downsample != 0;
   constexpr float LEVELS_PER_COLUMN =
       FadeTable::STEPS_PER_FRAME * ColumnTime::INVERSE_HALF;
   for (int y = row_begin; y < row_end; ++y) {
-    const RowGeometry &g = ctx.rows[y];
+    const RowGeometry &g = ctx.geometry.rows[y];
     const int row = y * W;
     if (g.pole) {
       if (!starts)
@@ -103,10 +103,10 @@ inline void Feedback<W, H>::composite_pixels(const FlushContext &ctx,
               const float last =
                   column + downsample +
                   fmaxf(offsets.left_x, offsets.left_x + offsets.slope_x);
-              if (ctx.back && last <= -1.0f &&
+              if (ctx.frames.back && last <= -1.0f &&
                   first - column >= -static_cast<float>(HALF)) {
-                source = ctx.back;
-                source_poles = &ctx.back_poles;
+                source = ctx.frames.back;
+                source_poles = &ctx.poles.back;
               } else {
                 cell_resolved |= !(first >= 0.0f && last < HALF - 1.0f);
               }
@@ -235,22 +235,23 @@ inline HS_FLASH_MEMBER void
 Feedback<W, H>::composite_pole_row(const FlushContext &ctx, int y,
                                    const RowGeometry &g,
                                    PixelTransform transform_pixel) {
-  const CoarseGrid &grid = ctx.grid;
+  const CoarseGrid &grid = ctx.geometry.grid;
   // no death case: a pole's latitude sine is zero
   HS_CHECK(g.polar, "feedback pole row %d lies outside the polar rings", y);
   const CapCell cell = polar_cell(ctx, g, 0, 0);
   const auto at = CapPlane::polar_lane(cell, 0, 0.0f, g.north, false, 0.0f);
-  const int level = ctx.column_time ? FadeTable::UNIT_LEVEL : 0;
-  const Sample s =
-      sample_bilinear_prev(grid.field, ctx.previous, ctx.poles, at.x, at.y);
+  const int level = ctx.color.column_time ? FadeTable::UNIT_LEVEL : 0;
+  const Sample s = sample_bilinear_prev(grid.field, ctx.frames.previous,
+                                        ctx.poles.previous, at.x, at.y);
   ::Pixel p(0, 0, 0);
-  if (!skip_near_black(s, ctx.black_skips_color))
+  if (!skip_near_black(s, ctx.color.black_skips))
     p = transform_pixel(s.r, s.g, s.b, level);
-  ::Pixel *output = ctx.current + y * W;
-  const auto blend = blend_alpha(ctx.alpha);
-  const bool plain_store = ctx.alpha >= 1.0f;
-  for (int r = 0; r < ctx.runs.count; ++r)
-    for (int x = ctx.runs.items[r].begin; x < ctx.runs.items[r].end; ++x)
+  ::Pixel *output = ctx.frames.current + y * W;
+  const auto blend = blend_alpha(ctx.color.alpha);
+  const bool plain_store = ctx.color.alpha >= 1.0f;
+  for (int r = 0; r < ctx.geometry.runs.count; ++r)
+    for (int x = ctx.geometry.runs.items[r].begin;
+         x < ctx.geometry.runs.items[r].end; ++x)
       output[x] = plain_store ? p : blend(output[x], p);
 }
 
@@ -258,21 +259,23 @@ template <int W, int H>
 inline HS_HOT_FLASH_MEMBER void
 Feedback<W, H>::filter_infill_row(const FlushContext &ctx, int y,
                                   bool deferred) {
-  ::Pixel *current = ctx.current + y * W;
+  ::Pixel *current = ctx.frames.current + y * W;
   if (!deferred)
-    std::memcpy(ctx.filtered_row, current, W * sizeof(::Pixel));
-  const bool opaque = ctx.alpha >= 1.0f;
-  const uint16_t alpha = frac_to_q16(ctx.alpha);
+    std::memcpy(ctx.frames.filtered_row, current, W * sizeof(::Pixel));
+  const bool opaque = ctx.color.alpha >= 1.0f;
+  const uint16_t alpha = frac_to_q16(ctx.color.alpha);
   auto store = [&](int x, const ::Pixel &pixel) HS_HOT_INLINE {
     ::Pixel &dst = current[x];
     dst = opaque ? pixel : dst.lerp16(pixel, alpha);
   };
-  if (ctx.column_time)
-    ctx.grid.field.template reconstruct_longitude_arms<PixelAccumulator>(
-        ctx.filtered_row, y, store);
+  if (ctx.color.column_time)
+    ctx.geometry.grid.field
+        .template reconstruct_longitude_arms<PixelAccumulator>(
+            ctx.frames.filtered_row, y, store);
   else
-    ctx.grid.field.template reconstruct_longitude_row<PixelAccumulator>(
-        ctx.filtered_row, y, store);
+    ctx.geometry.grid.field
+        .template reconstruct_longitude_row<PixelAccumulator>(
+            ctx.frames.filtered_row, y, store);
 }
 
 template <int W, int H>
@@ -280,15 +283,15 @@ inline HS_HOT_FLASH_MEMBER void Feedback<W, H>::composite_polar_row(
     const FlushContext &ctx, int xs, int xe, int y, const RowGeometry &g,
     ::Pixel *output, int stride, float lane_offset, bool defer_filter,
     PixelTransform transform_pixel) {
-  const CoarseGrid &grid = ctx.grid;
+  const CoarseGrid &grid = ctx.geometry.grid;
   const int downsample = grid.downsample;
   const int coarse_columns = grid.columns;
   const float inverse_downsample = 1.0f / downsample;
   const float cap_angle = cap_angle_of(y, g.north);
   const bool half_res = stride == 2;
-  const bool black_skips_color = ctx.black_skips_color;
-  const auto blend = blend_alpha(ctx.alpha);
-  const bool plain_store = ctx.alpha >= 1.0f || defer_filter;
+  const bool black_skips_color = ctx.color.black_skips;
+  const auto blend = blend_alpha(ctx.color.alpha);
+  const bool plain_store = ctx.color.alpha >= 1.0f || defer_filter;
   {
     int cx0 = xs / downsample;
     int sub = xs - cx0 * downsample;
@@ -308,9 +311,9 @@ inline HS_HOT_FLASH_MEMBER void Feedback<W, H>::composite_polar_row(
       const float target = x + lane_offset;
       const int arm = ColumnTime::arm_start(x);
       Lane lane{ColumnTime::read(target, at.x, at.y), Side::WITHIN};
-      if (ctx.column_time)
+      if (ctx.color.column_time)
         lane = resolve_lane(target, arm, at.x, at.y);
-      if (lane.side == Side::AHEAD && ctx.cover) {
+      if (lane.side == Side::AHEAD && ctx.coverage.cover) {
         hold_lane(ctx, y, arm, x);
         dst = ::Pixel(0, 0, 0);
       } else {
@@ -319,7 +322,7 @@ inline HS_HOT_FLASH_MEMBER void Feedback<W, H>::composite_polar_row(
         if (!skip_near_black(s, black_skips_color))
           p = transform_pixel(
               s.r, s.g, s.b,
-              ctx.column_time ? FadeTable::level(lane.read.elapsed) : 0);
+              ctx.color.column_time ? FadeTable::level(lane.read.elapsed) : 0);
         dst = plain_store ? p : blend(dst, p);
       }
 
@@ -338,9 +341,10 @@ template <int W, int H>
 inline HS_HOT_INLINE typename Feedback<W, H>::CapCell
 Feedback<W, H>::polar_cell(const FlushContext &ctx, const RowGeometry &g,
                            int cx0, int cx1) {
-  const CapOffset *caps0 = polar_caps(ctx.warp, ctx, g.field_y0);
-  const CapOffset *caps1 = polar_caps(ctx.warp, ctx, g.field_y1);
-  const WarpField &right = arm_edge(ctx, cx1) ? ctx.end : ctx.warp;
+  const CapOffset *caps0 = polar_caps(ctx.geometry.warp, ctx, g.field_y0);
+  const CapOffset *caps1 = polar_caps(ctx.geometry.warp, ctx, g.field_y1);
+  const WarpField &right =
+      arm_edge(ctx, cx1) ? ctx.geometry.end : ctx.geometry.warp;
   return CapPlane::decode_cell(
       caps0[cx0], caps1[cx0], polar_caps(right, ctx, g.field_y0)[cx1],
       polar_caps(right, ctx, g.field_y1)[cx1], 1.0f - g.wy1, g.wy1);
@@ -364,12 +368,13 @@ Feedback<W, H>::cell_offsets(const FlushContext &ctx, int row0, int row1,
                              int cx0, int cx1, float wy0, float wy1,
                              int &reach) {
   constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
-  const WarpField &right = arm_edge(ctx, cx1) ? ctx.end : ctx.warp;
+  const WarpField &right =
+      arm_edge(ctx, cx1) ? ctx.geometry.end : ctx.geometry.warp;
   const int i00 = row0 + cx0, i10 = row0 + cx1;
   const int i01 = row1 + cx0, i11 = row1 + cx1;
-  const int d00 = ctx.warp.x_offsets[i00];
+  const int d00 = ctx.geometry.warp.x_offsets[i00];
   const int u10 = unwrap_near(right.x_offsets[i10], d00);
-  const int u01 = unwrap_near(ctx.warp.x_offsets[i01], d00);
+  const int u01 = unwrap_near(ctx.geometry.warp.x_offsets[i01], d00);
   const int u11 = unwrap_near(right.x_offsets[i11], d00);
   reach = std::max(std::max(std::abs(d00), std::abs(u10)),
                    std::max(std::abs(u01), std::abs(u11)));
@@ -379,7 +384,8 @@ Feedback<W, H>::cell_offsets(const FlushContext &ctx, int row0, int row1,
   o.slope_x = (static_cast<float>(u10) * wy0 + static_cast<float>(u11) * wy1) *
                   INVERSE_WARP_SCALE -
               o.left_x;
-  o.left_y = (ctx.warp.y_offsets[i00] * wy0 + ctx.warp.y_offsets[i01] * wy1) *
+  o.left_y = (ctx.geometry.warp.y_offsets[i00] * wy0 +
+              ctx.geometry.warp.y_offsets[i01] * wy1) *
              INVERSE_WARP_SCALE;
   o.slope_y = (right.y_offsets[i10] * wy0 + right.y_offsets[i11] * wy1) *
                   INVERSE_WARP_SCALE -
@@ -406,21 +412,21 @@ template <int W, int H>
 inline HS_HOT_INLINE typename Feedback<W, H>::Sample
 Feedback<W, H>::sample_lane(const FlushContext &ctx, int arm,
                             Lane &lane) const {
-  const bool across = lane.side == Side::BEHIND  ? ctx.back != nullptr
-                      : lane.side == Side::AHEAD ? ctx.cover != nullptr
+  const bool across = lane.side == Side::BEHIND  ? ctx.frames.back != nullptr
+                      : lane.side == Side::AHEAD ? ctx.coverage.cover != nullptr
                                                  : false;
   if (across)
     return sample_across(ctx, arm, lane.read.x, lane.read.y);
   if (lane.side != Side::WITHIN)
     lane.read.elapsed += lane.side == Side::AHEAD ? 1.0f : -1.0f;
-  return sample_bilinear_prev(ctx.grid.field, ctx.previous, ctx.poles,
-                              lane.read.x, lane.read.y);
+  return sample_bilinear_prev(ctx.geometry.grid.field, ctx.frames.previous,
+                              ctx.poles.previous, lane.read.x, lane.read.y);
 }
 
 template <int W, int H>
 inline HS_HOT_FLASH_MEMBER void
 Feedback<W, H>::hold_lane(const FlushContext &ctx, int y, int arm, int x) {
-  const RowGeometry &g = ctx.rows[y];
+  const RowGeometry &g = ctx.geometry.rows[y];
   const int k = x - arm;
   auto open = [&](int column, uint16_t bits) {
     const int slot = cover_slot(g, arm, arm + column);
@@ -428,11 +434,11 @@ Feedback<W, H>::hold_lane(const FlushContext &ctx, int y, int arm, int x) {
     HS_CHECK(slot >= 0,
              "feedback row %d column %d is held outside its coverage", y,
              arm + column);
-    ctx.cover[slot] |= bits;
+    ctx.coverage.cover[slot] |= bits;
     split_hold.lower(y, column);
   };
   open(k, AHEAD_BIT);
-  AheadSpan &span = ctx.ahead_span[y];
+  AheadSpan &span = ctx.coverage.ahead_span[y];
   span.first = static_cast<int16_t>(std::min<int>(span.first, k));
   span.last = static_cast<int16_t>(std::max<int>(span.last, k));
   int lo = k, hi = k;
@@ -456,19 +462,19 @@ inline HS_HOT_FLASH_MEMBER int Feedback<W, H>::composite_resolved_cell(
     const FlushContext &ctx, PixelTransform transform_pixel, ::Pixel *output,
     int x, int end, int y, int sub, int stride, float lane_offset,
     const CellOffsets &cell, bool plain_store) {
-  const float inverse_downsample = 1.0f / ctx.grid.downsample;
-  const uint16_t alpha = frac_to_q16(ctx.alpha);
+  const float inverse_downsample = 1.0f / ctx.geometry.grid.downsample;
+  const uint16_t alpha = frac_to_q16(ctx.color.alpha);
   while (x < end) {
     const int arm = ColumnTime::arm_start(x);
     Lane lane =
         cartesian_lane(x, y, sub, lane_offset, inverse_downsample, cell);
     ::Pixel p(0, 0, 0);
-    if (lane.side == Side::AHEAD && ctx.cover) {
+    if (lane.side == Side::AHEAD && ctx.coverage.cover) {
       hold_lane(ctx, y, arm, x);
       output[x] = p;
     } else {
       const Sample s = sample_lane(ctx, arm, lane);
-      if (!skip_near_black(s, ctx.black_skips_color))
+      if (!skip_near_black(s, ctx.color.black_skips))
         p = transform_pixel(s.r, s.g, s.b, FadeTable::level(lane.read.elapsed));
       ::Pixel &dst = output[x];
       dst = plain_store ? p : dst.lerp16(p, alpha);

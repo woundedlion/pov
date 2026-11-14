@@ -18,8 +18,8 @@ template <int W, int H>
 inline typename Feedback<W, H>::SweepRow *
 Feedback<W, H>::sweep_rows(const FlushContext &ctx, Arena &arena) {
   SweepRow *rows = arena.allocate_n<SweepRow>(H);
-  for (int y = ctx.band.y_begin; y < ctx.band.y_end; ++y) {
-    const RowGeometry &g = ctx.rows[y];
+  for (int y = ctx.geometry.band.y_begin; y < ctx.geometry.band.y_end; ++y) {
+    const RowGeometry &g = ctx.geometry.rows[y];
     rows[y].cap_angle = g.polar ? cap_angle_of(y, g.north) : 0.0f;
     rows[y].cell_cx[0] = rows[y].cell_cx[1] = -1;
   }
@@ -30,7 +30,7 @@ template <int W, int H>
 inline HS_HOT_INLINE typename Feedback<W, H>::Lane
 Feedback<W, H>::sweep_lane(const FlushContext &ctx, const RowGeometry &g, int y,
                            int x, SweepRow &row) const {
-  const CoarseGrid &grid = ctx.grid;
+  const CoarseGrid &grid = ctx.geometry.grid;
   const int downsample = grid.downsample;
   const int cx0 = x / downsample;
   const int side = x >= HALF;
@@ -68,8 +68,8 @@ Feedback<W, H>::sweep_deep(const FlushContext &ctx,
   ScratchScope scope(scratch_arena_a);
   SweepRow *rows = sweep_rows(ctx, scope.get_arena());
   for (int c = begin; c < end; ++c)
-    for (int y = ctx.band.y_begin; y < ctx.band.y_end; ++y)
-      if (ctx.reach[y] > HALF / 2 && c < ctx.reach[y])
+    for (int y = ctx.geometry.band.y_begin; y < ctx.geometry.band.y_end; ++y)
+      if (ctx.frames.reach[y] > HALF / 2 && c < ctx.frames.reach[y])
         behind_lane(ctx, transform_pixel, y, c, rows[y]);
 }
 
@@ -78,21 +78,21 @@ inline HS_HOT_FLASH_MEMBER void
 Feedback<W, H>::behind_lane(const FlushContext &ctx,
                             PixelTransform transform_pixel, int y, int c,
                             SweepRow &row) {
-  const RowGeometry &g = ctx.rows[y];
+  const RowGeometry &g = ctx.geometry.rows[y];
   if (g.pairs && (c & 1) && c < HALF - 2)
     return;
   for (int arm = 0; arm < W; arm += HALF) {
     const int x = arm + c;
     Lane lane = sweep_lane(ctx, g, y, x, row);
-    ::Pixel &dst = ctx.current[y * W + x];
-    if (lane.side == Side::AHEAD && ctx.cover) {
+    ::Pixel &dst = ctx.frames.current[y * W + x];
+    if (lane.side == Side::AHEAD && ctx.coverage.cover) {
       hold_lane(ctx, y, arm, x);
       dst = ::Pixel(0, 0, 0);
       continue;
     }
     const Sample s = sample_lane(ctx, arm, lane);
     ::Pixel p(0, 0, 0);
-    if (!skip_near_black(s, ctx.black_skips_color))
+    if (!skip_near_black(s, ctx.color.black_skips))
       p = transform_pixel(s.r, s.g, s.b, FadeTable::level(lane.read.elapsed));
     dst = p;
   }
@@ -102,25 +102,25 @@ template <int W, int H>
 inline HS_HOT_FLASH_MEMBER void
 Feedback<W, H>::sweep_ahead(const FlushContext &ctx,
                             PixelTransform transform_pixel) {
-  const RenderBand &band = ctx.band;
+  const RenderBand &band = ctx.geometry.band;
   ScratchScope scope(scratch_arena_a);
   int window_slots = 0;
   for (int y = band.y_begin; y < band.y_end; ++y)
-    window_slots += 2 * finish_window(ctx.rows[y]);
+    window_slots += 2 * finish_window(ctx.geometry.rows[y]);
   ::Pixel *windows = window_slots > 0
                          ? scope.get_arena().make_n<::Pixel>(window_slots)
                          : nullptr;
   // The rows holding a lane; each span's last becomes the last lane whose
   // step completes a held column.
-  AheadSpan *spans = ctx.ahead_span;
+  AheadSpan *spans = ctx.coverage.ahead_span;
   int16_t *visit_rows = scope.get_arena().allocate_n<int16_t>(H);
   SweepRow *rows = sweep_rows(ctx, scope.get_arena());
   int count = 0, begin = HALF, end = -1;
   for (int y = band.y_begin; y < band.y_end; ++y) {
-    const AheadSpan span = ctx.ahead_span[y];
+    const AheadSpan span = ctx.coverage.ahead_span[y];
     if (span.first > span.last)
       continue;
-    const RowGeometry &g = ctx.rows[y];
+    const RowGeometry &g = ctx.geometry.rows[y];
     const int last =
         g.infill  ? std::min(HALF - 1, span.last + 2 * g.reach)
         : g.pairs ? (span.last + 2 >= HALF - 2 ? HALF - 1 : span.last + 2)
@@ -135,14 +135,14 @@ Feedback<W, H>::sweep_ahead(const FlushContext &ctx,
       const int y = visit_rows[i];
       if (c < spans[y].first || c > spans[y].last)
         continue;
-      const RowGeometry &g = ctx.rows[y];
+      const RowGeometry &g = ctx.geometry.rows[y];
       if (g.pairs && (c & 1) && c < HALF - 2)
         continue;
       for (int arm = 0, side = 0; arm < W; arm += HALF, ++side) {
         const int x = arm + c;
         ::Pixel p(0, 0, 0);
         const int slot = cover_slot(g, arm, x);
-        const bool held = slot >= 0 && (ctx.cover[slot] & AHEAD_BIT);
+        const bool held = slot >= 0 && (ctx.coverage.cover[slot] & AHEAD_BIT);
         if (!held && !g.pairs && !g.infill)
           continue;
         if (held) {
@@ -157,14 +157,15 @@ Feedback<W, H>::sweep_ahead(const FlushContext &ctx,
           // source rows.
           const int row0 =
               hs::clamp(static_cast<int>(std::floor(lane.read.y)), 0, H - 1);
-          const int reach = std::max<int>(
-              ctx.rows[row0].reach, ctx.rows[std::min(row0 + 1, H - 1)].reach);
+          const int reach =
+              std::max<int>(ctx.geometry.rows[row0].reach,
+                            ctx.geometry.rows[std::min(row0 + 1, H - 1)].reach);
           const float limit = static_cast<float>(arm + c + HALF - 2 - reach);
           if (lane.read.x > limit)
             lane.read = ColumnTime::read(
                 x + (pair_lane(ctx, g, x) ? 0.5f : 0.0f), limit, lane.read.y);
           const Sample s = sample_across(ctx, arm, lane.read.x, lane.read.y);
-          if (!skip_near_black(s, ctx.black_skips_color))
+          if (!skip_near_black(s, ctx.color.black_skips))
             p = transform_pixel(s.r, s.g, s.b,
                                 FadeTable::level(lane.read.elapsed));
         }
@@ -225,26 +226,26 @@ template <int W, int H>
 inline HS_HOT_INLINE void Feedback<W, H>::add_under(const FlushContext &ctx,
                                                     int y, int arm, int x,
                                                     const ::Pixel &under) {
-  const int slot = cover_slot(ctx.rows[y], arm, x);
+  const int slot = cover_slot(ctx.geometry.rows[y], arm, x);
   if (slot < 0)
     return;
-  const uint16_t t = ctx.cover[slot] & TRANSMITTANCE_BITS;
+  const uint16_t t = ctx.coverage.cover[slot] & TRANSMITTANCE_BITS;
   if (t == 0)
     return;
   auto add = [t](uint16_t covered, uint16_t below) {
     return static_cast<uint16_t>(
         std::min<uint32_t>(covered + lerp_q16(0, below, t), 65535u));
   };
-  ::Pixel &dst = ctx.current[y * W + x];
+  ::Pixel &dst = ctx.frames.current[y * W + x];
   dst = ::Pixel(add(dst.r, under.r), add(dst.g, under.g), add(dst.b, under.b));
 }
 
 template <int W, int H>
 inline HS_HOT_INLINE void Feedback<W, H>::composite_frame(Canvas &cv,
                                                           FlushContext &ctx) {
-  if (cv.keeps_stale_pixels() && !ctx.back)
+  if (cv.keeps_stale_pixels() && !ctx.frames.back)
     cv.clear_buffer();
-  if (ctx.mode == FlushMode::SKIP)
+  if (ctx.color.mode == FlushMode::SKIP)
     return;
   HS_PROFILE(feedback_composite);
   composite_pass(ctx, false);
@@ -260,7 +261,7 @@ Feedback<W, H>::composite_phase(const FlushContext &ctx, bool finish,
     sweep_ahead(ctx, transform_pixel);
     return;
   }
-  if (ctx.back) {
+  if (ctx.frames.back) {
     sweep_deep(ctx, transform_pixel, 0, HALF / 2);
     composite_pixels<PAIR_PIXELS>(ctx, transform_pixel, transform_pair, true);
     sweep_deep(ctx, transform_pixel, HALF / 2, HALF);
@@ -271,7 +272,8 @@ Feedback<W, H>::composite_phase(const FlushContext &ctx, bool finish,
 template <int W, int H>
 inline HS_FLASH_MEMBER __attribute__((flatten)) void
 Feedback<W, H>::composite_plain(const FlushContext &ctx, bool finish) {
-  const float *fades = ctx.column_time ? ctx.fades.fades : &ctx.fade;
+  const float *fades =
+      ctx.color.column_time ? ctx.color.fades.fades : &ctx.color.fade;
   auto plain = [&](float r, float g, float b, int level) {
     const float fade = fades[level];
     return ::Pixel(quantize16(r * fade), quantize16(g * fade),
@@ -283,7 +285,8 @@ Feedback<W, H>::composite_plain(const FlushContext &ctx, bool finish) {
 template <int W, int H>
 inline HS_FLASH_MEMBER __attribute__((flatten)) void
 Feedback<W, H>::composite_general(const FlushContext &ctx, bool finish) {
-  const float *fades = ctx.column_time ? ctx.fades.fades : &ctx.fade;
+  const float *fades =
+      ctx.color.column_time ? ctx.color.fades.fades : &ctx.color.fade;
   auto general = [&](float r, float g, float b, int level) {
     return feedback_style->color_fn(
         ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fades[level],

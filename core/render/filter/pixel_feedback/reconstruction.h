@@ -18,16 +18,16 @@ Feedback<W, H>::row_lanes(const FlushContext &ctx, const RowGeometry &g, int y,
                           bool starts) {
   ColumnRuns runs{};
   if (starts) {
-    if (ctx.reach[y] <= HALF / 2)
+    if (ctx.frames.reach[y] <= HALF / 2)
       for (int arm = 0; arm < W; arm += HALF)
-        runs.items[runs.count++] = {arm, arm + ctx.reach[y]};
-  } else if (!ctx.back) {
-    runs = ctx.runs;
-  } else if (ctx.reach[y] < HALF) {
+        runs.items[runs.count++] = {arm, arm + ctx.frames.reach[y]};
+  } else if (!ctx.frames.back) {
+    runs = ctx.geometry.runs;
+  } else if (ctx.frames.reach[y] < HALF) {
     for (int arm = 0; arm < W; arm += HALF)
-      runs.items[runs.count++] = {arm + ctx.reach[y], arm + HALF};
+      runs.items[runs.count++] = {arm + ctx.frames.reach[y], arm + HALF};
   }
-  if (!(ctx.column_time && g.pairs))
+  if (!(ctx.color.column_time && g.pairs))
     return runs;
   ColumnRuns split{};
   for (int r = 0; r < runs.count; ++r) {
@@ -168,12 +168,12 @@ template <int W, int H>
 inline HS_HOT_FLASH_MEMBER void
 Feedback<W, H>::expand_half_res_row(const FlushContext &ctx, ::Pixel *output,
                                     int y) {
-  const ColumnRuns &runs = ctx.runs;
-  if (!ctx.column_time || runs.count != 2 || runs.items[0].begin != 0 ||
+  const ColumnRuns &runs = ctx.geometry.runs;
+  if (!ctx.color.column_time || runs.count != 2 || runs.items[0].begin != 0 ||
       runs.items[1].end != W) {
     for (int r = 0; r < runs.count; ++r) {
       const ColumnRun run = runs.items[r];
-      if (!ctx.column_time) {
+      if (!ctx.color.column_time) {
         reconstruct_half_res_run(output, run.begin, run.end);
         continue;
       }
@@ -191,7 +191,7 @@ Feedback<W, H>::expand_half_res_row(const FlushContext &ctx, ::Pixel *output,
     }
     return;
   }
-  const ::Pixel *previous_row = ctx.previous + y * W;
+  const ::Pixel *previous_row = ctx.frames.previous + y * W;
   for (int arm = 0; arm < W; arm += HALF) {
     const int other = arm == 0 ? HALF : 0;
     const ::Pixel before = pair_average(previous_row[other + HALF - 2],

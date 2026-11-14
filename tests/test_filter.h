@@ -36,20 +36,20 @@ struct FeedbackWhiteBox {
     ::Feedback::Style style{};
     Feedback feedback(style);
     typename Feedback::FlushContext ctx{
-        {DOWNSAMPLE,
-         typename Feedback::SphereField{DOWNSAMPLE},
-         W / DOWNSAMPLE,
-         0,
-         {}}};
+        {{DOWNSAMPLE,
+          typename Feedback::SphereField{DOWNSAMPLE},
+          W / DOWNSAMPLE,
+          0,
+          {}}}};
     std::array<typename Feedback::RowGeometry, H> rows{};
     std::array<typename Feedback::AheadSpan, H> spans{};
     std::array<uint16_t, W * H> cover{};
     std::array<Pixel, W> output{};
     rows[Y].wide = true;
-    ctx.rows = rows.data();
-    ctx.ahead_span = spans.data();
-    ctx.cover = cover.data();
-    ctx.alpha = 1.0f;
+    ctx.geometry.rows = rows.data();
+    ctx.coverage.ahead_span = spans.data();
+    ctx.coverage.cover = cover.data();
+    ctx.color.alpha = 1.0f;
     const typename Feedback::CellOffsets offsets{0.2f, -0.200005f / 0.75f, 0.0f,
                                                  0.0f};
     feedback.composite_resolved_cell(ctx, nullptr, output.data(), X, X + 1, Y,
@@ -79,10 +79,10 @@ struct FeedbackWhiteBox {
   static void expand_clipped_row(Pixel *output, int begin, int end) {
     using Feedback = Filter::Pixel::Feedback<W, H>;
     typename Feedback::FlushContext ctx{
-        {1, typename Feedback::SphereField{1}, 0, 0, {}}};
-    ctx.column_time = true;
-    ctx.runs.items[0] = {begin, end};
-    ctx.runs.count = 1;
+        {{1, typename Feedback::SphereField{1}, 0, 0, {}}}};
+    ctx.color.column_time = true;
+    ctx.geometry.runs.items[0] = {begin, end};
+    ctx.geometry.runs.count = 1;
     Feedback::expand_half_res_row(ctx, output, 0);
   }
   /** @brief The coverage slot of a held pixel, or -1 for an unheld one. */
@@ -91,9 +91,10 @@ struct FeedbackWhiteBox {
                        int x) {
     if (!feedback.split_hold.held)
       return -1;
-    const int slot = feedback.cover_slot(feedback.split_hold.held->rows[y],
-                                         x < W / 2 ? 0 : W / 2, x);
-    return slot >= 0 && (feedback.split_hold.held->cover[slot] & 0xFFFE) != 0
+    const int slot = feedback.cover_slot(
+        feedback.split_hold.held->geometry.rows[y], x < W / 2 ? 0 : W / 2, x);
+    return slot >= 0 && (feedback.split_hold.held->coverage.cover[slot] &
+                         0xFFFE) != 0
                ? slot
                : -1;
   }
@@ -106,8 +107,8 @@ struct FeedbackWhiteBox {
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
         const int slot = held_slot(feedback, y, x);
-        count += slot >= 0 &&
-                 (feedback.split_hold.held->cover[slot] & 0xFFFE) != 0xFFFE;
+        count += slot >= 0 && (feedback.split_hold.held->coverage.cover[slot] &
+                               0xFFFE) != 0xFFFE;
       }
     return count;
   }
@@ -124,13 +125,14 @@ struct FeedbackWhiteBox {
         const int slot = held_slot(feedback, y, x);
         if (slot < 0)
           continue;
-        const uint16_t t = feedback.split_hold.held->cover[slot] & 0xFFFE;
+        const uint16_t t =
+            feedback.split_hold.held->coverage.cover[slot] & 0xFFFE;
         auto swap = [t](uint16_t covered, uint16_t was, uint16_t now) {
           const int32_t v = int32_t(covered) - int32_t(lerp_q16(0, was, t)) +
                             int32_t(lerp_q16(0, now, t));
           return static_cast<uint16_t>(std::min(std::max(v, 0), 65535));
         };
-        Pixel &dst = feedback.split_hold.held->current[y * W + x];
+        Pixel &dst = feedback.split_hold.held->frames.current[y * W + x];
         const Pixel &k = known[y * W + x], &u = under[y * W + x];
         dst = Pixel(swap(dst.r, k.r, u.r), swap(dst.g, k.g, u.g),
                     swap(dst.b, k.b, u.b));

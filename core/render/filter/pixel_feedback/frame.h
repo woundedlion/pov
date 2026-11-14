@@ -107,7 +107,7 @@ inline HS_FLASH_MEMBER void Feedback<W, H>::finish(Canvas &) {
   if (!split_hold.held)
     return;
   FlushContext &ctx = *split_hold.held;
-  select_poles(ctx.current, ctx.current_poles);
+  select_poles(ctx.frames.current, ctx.poles.current);
   {
     HS_PROFILE(feedback_forward);
     composite_pass(ctx, true);
@@ -352,25 +352,26 @@ Feedback<W, H>::prepare_flush(Canvas &cv, float alpha, Arena &scratch,
            "feedback style scalars never reached the bound NoiseParams; call "
            "Style::sync_noise() after changing them");
 
-  FlushContext ctx{make_coarse_grid(cv)};
+  FlushContext ctx{{make_coarse_grid(cv)}};
   {
     HS_PROFILE(feedback_litscan);
     if (!any_pixel_lit(cv))
       return ctx;
   }
 
-  const CoarseGrid &grid = ctx.grid;
-  ctx.band = make_render_band(cv.clip(), grid);
-  const RenderBand &band = ctx.band;
+  const CoarseGrid &grid = ctx.geometry.grid;
+  ctx.geometry.band = make_render_band(cv.clip(), grid);
+  const RenderBand &band = ctx.geometry.band;
   bool reused = false;
   WarpField prior{};
-  ctx.end = acquire_warp_field(scratch, grid, band, reused, prior);
-  ctx.warp = ctx.end;
-  ctx.filtered_row = (!band.x_clip.active && (split || grid.downsample > 1 ||
-                                              !SphereField::HAS_NORTH_POLE ||
-                                              !SphereField::HAS_SOUTH_POLE))
-                         ? scratch.allocate_n<::Pixel>(W)
-                         : nullptr;
+  ctx.geometry.end = acquire_warp_field(scratch, grid, band, reused, prior);
+  ctx.geometry.warp = ctx.geometry.end;
+  ctx.frames.filtered_row =
+      (!band.x_clip.active &&
+       (split || grid.downsample > 1 || !SphereField::HAS_NORTH_POLE ||
+        !SphereField::HAS_SOUTH_POLE))
+          ? scratch.allocate_n<::Pixel>(W)
+          : nullptr;
 
   const float fade = feedback_style->fade;
   // Guard the float-to-int conversion independently of the check condition.
@@ -378,58 +379,59 @@ Feedback<W, H>::prepare_flush(Canvas &cv, float alpha, Arena &scratch,
            "feedback fade %d/1000 must be in [0, 1]",
            (fade > -1.0e6f && fade < 1.0e6f) ? static_cast<int>(fade * 1000.0f)
                                              : static_cast<int>(INT32_MIN));
-  ctx.fade = fade;
-  ctx.alpha = alpha;
+  ctx.color.fade = fade;
+  ctx.color.alpha = alpha;
   feedback_style->sync_hue();
-  ctx.column_time = !Spacetime::flat_surface();
-  if (ctx.column_time && prior.x_offsets != ctx.end.x_offsets) {
-    blend_lit_times(grid, band, ctx.end, prior);
-    ctx.warp = prior;
+  ctx.color.column_time = !Spacetime::flat_surface();
+  if (ctx.color.column_time && prior.x_offsets != ctx.geometry.end.x_offsets) {
+    blend_lit_times(grid, band, ctx.geometry.end, prior);
+    ctx.geometry.warp = prior;
   }
-  if (ctx.column_time)
-    ctx.fades = fade_table.acquire(*feedback_style, scratch);
+  if (ctx.color.column_time)
+    ctx.color.fades = fade_table.acquire(*feedback_style, scratch);
   const bool hue_fade = feedback_style->color_fn == &::Feedback::hue_fade;
-  ctx.black_skips_color = hue_fade;
-  ctx.pole_half_res = feedback_style->pole_half_res;
+  ctx.color.black_skips = hue_fade;
+  ctx.poles.half_res = feedback_style->pole_half_res;
   if (grid.polar.rows() > 0 && !math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  ctx.previous = cv.prev_data();
-  ctx.current = cv.data();
-  select_poles(ctx.previous, ctx.poles);
-  ctx.runs = make_column_runs(band.x_clip, ctx.column_time);
+  ctx.frames.previous = cv.prev_data();
+  ctx.frames.current = cv.data();
+  select_poles(ctx.frames.previous, ctx.poles.previous);
+  ctx.geometry.runs = make_column_runs(band.x_clip, ctx.color.column_time);
   RowGeometry *rows = scratch.allocate_n<RowGeometry>(H);
   describe_rows(ctx, rows);
-  ctx.rows = rows;
+  ctx.geometry.rows = rows;
   const bool clipped = band.x_clip.active || band.y_begin > 0 || band.y_end < H;
-  if (ctx.column_time && cv.keeps_stale_pixels() && alpha >= 1.0f && !clipped) {
-    ctx.back = ctx.current;
-    select_poles(ctx.back, ctx.back_poles);
+  if (ctx.color.column_time && cv.keeps_stale_pixels() && alpha >= 1.0f &&
+      !clipped) {
+    ctx.frames.back = ctx.frames.current;
+    select_poles(ctx.frames.back, ctx.poles.back);
     const auto measure = [&](int16_t *reach) __attribute__((always_inline)) {
-      measure_reach(grid, ctx.warp, ctx.end, rows, reach);
+      measure_reach(grid, ctx.geometry.warp, ctx.geometry.end, rows, reach);
     };
     if (reused) {
-      ctx.reach = warp_cache.reach(measure);
+      ctx.frames.reach = warp_cache.reach(measure);
     } else {
       int16_t *reach = scratch.allocate_n<int16_t>(H);
       measure(reach);
-      ctx.reach = reach;
+      ctx.frames.reach = reach;
     }
     if (split) {
-      ctx.cover = scratch.allocate_n<uint16_t>(COVER_SLOTS);
-      std::memset(ctx.cover, 0, COVER_SLOTS * sizeof(uint16_t));
-      ctx.ahead_span = scratch.allocate_n<AheadSpan>(H);
+      ctx.coverage.cover = scratch.allocate_n<uint16_t>(COVER_SLOTS);
+      std::memset(ctx.coverage.cover, 0, COVER_SLOTS * sizeof(uint16_t));
+      ctx.coverage.ahead_span = scratch.allocate_n<AheadSpan>(H);
       for (int y = 0; y < H; ++y)
-        ctx.ahead_span[y] = {static_cast<int16_t>(HALF), -1};
+        ctx.coverage.ahead_span[y] = {static_cast<int16_t>(HALF), -1};
     }
   }
 
   const bool hue_identity =
       feedback_style->hue_ca == 1.0f && feedback_style->hue_sa == 0.0f;
   if (hue_fade && !hue_identity) {
-    ::Feedback::scale_hue_matrix(feedback_style->hue_k, fade, ctx.hue_k);
-    ctx.mode = FlushMode::HUE;
+    ::Feedback::scale_hue_matrix(feedback_style->hue_k, fade, ctx.color.hue_k);
+    ctx.color.mode = FlushMode::HUE;
   } else {
-    ctx.mode = hue_fade ? FlushMode::PLAIN : FlushMode::GENERAL;
+    ctx.color.mode = hue_fade ? FlushMode::PLAIN : FlushMode::GENERAL;
   }
   return ctx;
 }
@@ -466,11 +468,11 @@ Feedback<W, H>::blend_lit_times(const CoarseGrid &grid, const RenderBand &band,
 template <int W, int H>
 inline HS_FLASH_MEMBER void
 Feedback<W, H>::describe_rows(const FlushContext &ctx, RowGeometry *rows) {
-  const CoarseGrid &grid = ctx.grid;
-  const RenderBand &band = ctx.band;
+  const CoarseGrid &grid = ctx.geometry.grid;
+  const RenderBand &band = ctx.geometry.band;
   const PolarRings &polar = grid.polar;
-  const bool opaque = ctx.alpha >= 1.0f;
-  const float half_res_sine = half_res_limit(ctx.pole_half_res);
+  const bool opaque = ctx.color.alpha >= 1.0f;
+  const float half_res_sine = half_res_limit(ctx.poles.half_res);
   std::memset(rows, 0, H * sizeof(RowGeometry));
   int field_y0 = band.field_y_begin;
   int field_y1 = field_y0 + (field_y0 < band.field_y_end ? 1 : 0);

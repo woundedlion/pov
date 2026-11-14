@@ -330,8 +330,9 @@ private:
 
   using AheadSpan = detail::AheadSpan;
 
-  /** @brief Per-frame composite inputs prepare_flush() resolves. */
-  struct FlushContext {
+  /** @brief A frame's layout: its coarse grid, render band, warp fields,
+   *  column runs and row geometry. */
+  struct FlushGeometry {
     CoarseGrid grid;
     RenderBand band{};
     /// The warp field, each node at its column's lit time.
@@ -339,20 +340,38 @@ private:
     /// The field at each arm's end, which the right nodes of the arm's last
     /// cells read; @c warp itself when the field holds still.
     WarpField end{};
-    ::Pixel *filtered_row = nullptr;
+    ColumnRuns runs{};
+    /// Per row, its interpolation and reconstruction.
+    const RowGeometry *rows = nullptr;
+  };
+
+  /** @brief The frame buffers a composite reads and writes. */
+  struct FlushFrames {
     const ::Pixel *previous = nullptr;
     ::Pixel *current = nullptr;
-    ::Pixel poles[SphereField::POLE_STORAGE_COUNT]{};
+    ::Pixel *filtered_row = nullptr;
     /// The drawing buffer's stale frame, two frames back, which holds the
     /// content behind each arm's backward cut; null when it was cleared.
     const ::Pixel *back = nullptr;
-    /// Shared pole values of the stale frame.
-    ::Pixel back_poles[SphereField::POLE_STORAGE_COUNT]{};
     /// Per row, the even column count from each arm's first whose lanes may
     /// read behind its backward cut. Null without @c back.
     const int16_t *reach = nullptr;
-    /// Per row, its interpolation and reconstruction.
-    const RowGeometry *rows = nullptr;
+  };
+
+  /** @brief Shared pole values of each frame a composite reads. */
+  struct PoleSet {
+    ::Pixel previous[SphereField::POLE_STORAGE_COUNT]{};
+    /// The stale frame's.
+    ::Pixel back[SphereField::POLE_STORAGE_COUNT]{};
+    /// The frame being drawn's, set by finish().
+    ::Pixel current[SphereField::POLE_STORAGE_COUNT]{};
+    /// Row pitches two columns subtend less than on the rows that composite
+    /// column pairs (Feedback::Style::pole_half_res).
+    float half_res = 0.0f;
+  };
+
+  /** @brief A split frame's coverage of its held pixels. */
+  struct Coverage {
     /// Per coverage slot, the transmittance of the taps plotted over the
     /// pixel in its upper 15 bits, zero where the pixel is final, and in its
     /// low bit whether the lane's source reads the frame as plotted. Null
@@ -360,19 +379,28 @@ private:
     uint16_t *cover = nullptr;
     /// Per row, the lanes whose sources read the frame as plotted.
     AheadSpan *ahead_span = nullptr;
-    /// Shared pole values of the frame being drawn, set by finish().
-    ::Pixel current_poles[SphereField::POLE_STORAGE_COUNT]{};
-    ColumnRuns runs{};
+  };
+
+  /** @brief A frame's colour transform and blend. */
+  struct ColorTransform {
     float alpha = 0.0f;
     float fade = 0.0f;
-    float pole_half_res = 0.0f;
-    bool black_skips_color = false;
-    /// Whether pixels read their sources at their elapsed column time.
-    bool column_time = false;
-    FlushMode mode = FlushMode::SKIP;
     float hue_k[9] = {};
     /// Per-elapsed-time transforms; read only with column_time.
     FadeTable::View fades{};
+    bool black_skips = false;
+    /// Whether pixels read their sources at their elapsed column time.
+    bool column_time = false;
+    FlushMode mode = FlushMode::SKIP;
+  };
+
+  /** @brief Per-frame composite inputs prepare_flush() resolves. */
+  struct FlushContext {
+    FlushGeometry geometry;
+    FlushFrames frames{};
+    PoleSet poles{};
+    Coverage coverage{};
+    ColorTransform color{};
   };
 
   __attribute__((always_inline)) CoarseGrid
@@ -534,13 +562,14 @@ private:
    *  column. */
   static HS_HOT_INLINE const CapOffset *
   polar_caps(const WarpField &field, const FlushContext &ctx, int field_y) {
-    return field.cell_caps + ctx.grid.polar.row(field_y) * ctx.grid.columns;
+    return field.cell_caps +
+           ctx.geometry.grid.polar.row(field_y) * ctx.geometry.grid.columns;
   }
 
   /** @brief Whether a coarse column is an arm's first, whose node a cell
    *  ending there reads from the field at the arm's end. */
   static HS_HOT_INLINE bool arm_edge(const FlushContext &ctx, int cx) {
-    return cx * ctx.grid.downsample % HALF == 0;
+    return cx * ctx.geometry.grid.downsample % HALF == 0;
   }
 
   /** @brief A polar row's cell, its nodes at their lit times. */
@@ -778,9 +807,10 @@ private:
    *        plotted instead of compositing from the previous frames.
    */
   void composite_pass(const FlushContext &ctx, bool finish) {
-    switch (ctx.mode) {
+    switch (ctx.color.mode) {
     case FlushMode::HUE: {
-      const float *k = ctx.column_time ? ctx.fades.hue_k : ctx.hue_k;
+      const float *k =
+          ctx.color.column_time ? ctx.color.fades.hue_k : ctx.color.hue_k;
       composite_phase<true>(
           ctx, finish,
           [&](float r, float g, float b, int level) {
@@ -837,7 +867,7 @@ private:
   static HS_HOT_INLINE bool pair_lane(const FlushContext &ctx,
                                       const RowGeometry &g, int x) {
     return g.pairs &&
-           !(ctx.column_time && x - ColumnTime::arm_start(x) >= HALF - 2);
+           !(ctx.color.column_time && x - ColumnTime::arm_start(x) >= HALF - 2);
   }
 
   /**
@@ -1197,7 +1227,7 @@ private:
    * @param g The column's row geometry.
    * @param arm First column of the column's arm.
    * @param x Column.
-   * @return Index into FlushContext::cover, or -1 for a column too far from
+   * @return Index into Coverage::cover, or -1 for a column too far from
    *         its arm's end to have one.
    */
   static HS_HOT_INLINE int cover_slot(const RowGeometry &g, int arm, int x) {
