@@ -35,14 +35,6 @@ enum class FrameEnds : uint8_t {
   BOTH = 3,    ///< Both ends.
 };
 
-/** @brief FrameEnds from a flag per end.
- * @param start Includes the start.
- * @param end Includes the end.
- * @return The ends. */
-constexpr FrameEnds frame_ends(bool start, bool end) {
-  return static_cast<FrameEnds>(int(start) | int(end) << 1);
-}
-
 /** @brief Whether ends include the span's start.
  * @param ends Span ends.
  * @return True for START and BOTH. */
@@ -123,24 +115,23 @@ HS_HOT_INLINE void crossings(float x0, float x1, float t0, float t1,
  * @param columns Unwrapped column at each knot `i / (knots - 1)`, each within
  *        a quarter turn of the one before.
  * @param knots Knot count, at least 2.
- * @param frame_start Whether crossings() includes FrameEnds::START for the
- *        first piece.
- * @param frame_end Whether crossings() includes FrameEnds::END for the last
- *        piece.
+ * @param ends Span ends included by crossings(); START applies to the first
+ *        piece and END to the last.
  * @param emit Receives each pass of each piece, its `along` relative to that
  *        piece; a pass at an inner knot is emitted once.
  */
 template <int W, typename Emit>
 HS_HOT_INLINE void piecewise_crossings(const float *columns, int knots,
-                                       bool frame_start, bool frame_end,
-                                       Emit &&emit) {
+                                       FrameEnds ends, Emit &&emit) {
   const int pieces = knots - 1;
   for (int i = 0; i < pieces; ++i)
     crossings<W>(
         columns[i], columns[i + 1],
         static_cast<float>(i) / static_cast<float>(pieces),
         static_cast<float>(i + 1) / static_cast<float>(pieces),
-        frame_ends(frame_start && i == 0, frame_end && i + 1 == pieces), emit);
+        static_cast<FrameEnds>(int(includes_start(ends) && i == 0) |
+                               int(includes_end(ends) && i + 1 == pieces) << 1),
+        emit);
 }
 
 /** @brief Solves a monotone quadratic screen trajectory's arm time.
@@ -177,22 +168,18 @@ struct ScreenCrossing {
  * @param a,b Projected positions at fractions @p t0 and @p t1, columns
  *        unwrapped against each other.
  * @param t0,t1 Frame fractions the trajectory spans, `t0 < t1`.
- * @param frame_start Whether crossings() includes FrameEnds::START.
- * @param frame_end Whether crossings() includes FrameEnds::END.
+ * @param ends As crossings().
  * @param emit Receives each arm pass, its time and position on the
  *        trajectory. */
 template <int W, typename Emit>
 HS_HOT_INLINE void screen_crossings(const math::PixelCoords &a,
                                     const math::PixelCoords &b, float t0,
-                                    float t1, bool frame_start, bool frame_end,
-                                    Emit &&emit) {
+                                    float t1, FrameEnds ends, Emit &&emit) {
   const float dx = b.x - a.x, dy = b.y - a.y;
-  crossings<W>(
-      a.x, b.x, t0, t1, frame_ends(frame_start, frame_end),
-      [&](const Crossing &pass) HS_HOT_INLINE {
-        emit(ScreenCrossing{{a.x + dx * pass.along, a.y + dy * pass.along},
-                            pass.time});
-      });
+  crossings<W>(a.x, b.x, t0, t1, ends, [&](const Crossing &pass) HS_HOT_INLINE {
+    emit(ScreenCrossing{{a.x + dx * pass.along, a.y + dy * pass.along},
+                        pass.time});
+  });
 }
 
 /** @brief Arm passes of a screen trajectory linear over the whole frame,
@@ -206,7 +193,8 @@ HS_HOT_INLINE void screen_crossings(const math::PixelCoords &a,
 template <int W, typename Emit>
 HS_HOT_INLINE void screen_crossings(const math::PixelCoords &a,
                                     const math::PixelCoords &b, Emit &&emit) {
-  screen_crossings<W>(a, b, 0.0f, 1.0f, true, true, std::forward<Emit>(emit));
+  screen_crossings<W>(a, b, 0.0f, 1.0f, FrameEnds::BOTH,
+                      std::forward<Emit>(emit));
 }
 
 /** @brief A point's longitude over a span, modelled as linear in time. */
@@ -276,8 +264,7 @@ HS_HOT_INLINE bool model_track(const math::Vector &from, const math::Vector &to,
  * @tparam Emit Callable `(const Crossing &)`.
  * @param track Track over the span, as model_track() gives it.
  * @param t0,t1 Frame fractions the track spans.
- * @param frame_start Whether crossings() includes FrameEnds::START.
- * @param frame_end Whether crossings() includes FrameEnds::END.
+ * @param ends As crossings().
  * @param emit Receives each pass; the point's true pass lies within
  *        `track.guard` columns of the emitted one.
  * @details Uses `track.guard` as the reach at the frame ends so model
@@ -285,11 +272,9 @@ HS_HOT_INLINE bool model_track(const math::Vector &from, const math::Vector &to,
  */
 template <int W, typename Emit>
 HS_HOT_INLINE void track_crossings(const LongitudeTrack &track, float t0,
-                                   float t1, bool frame_start, bool frame_end,
-                                   Emit &&emit) {
-  crossings<W>(track.origin, track.origin + track.travel, t0, t1,
-               frame_ends(frame_start, frame_end), std::forward<Emit>(emit),
-               track.guard);
+                                   float t1, FrameEnds ends, Emit &&emit) {
+  crossings<W>(track.origin, track.origin + track.travel, t0, t1, ends,
+               std::forward<Emit>(emit), track.guard);
 }
 
 } // namespace Spacetime

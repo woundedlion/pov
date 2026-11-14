@@ -522,7 +522,7 @@ public:
     if (known)
       for (const auto &track : tracks)
         Spacetime::track_crossings<W>(
-            track, 0.0f, 1.0f, true, true,
+            track, 0.0f, 1.0f, Spacetime::FrameEnds::BOTH,
             [&](const Spacetime::Crossing &pass) HS_HOT_INLINE {
               const int arm = pass.arm & 1;
               const float sweep_column = pass.time * HALF;

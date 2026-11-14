@@ -174,7 +174,8 @@ inline void test_piecewise_arm_passes_match_brute_force() {
   constexpr int W = 288;
   const float KNOTS[] = {10.0f, 12.0f, 9.0f};
   PassList solved;
-  Spacetime::piecewise_crossings<W>(KNOTS, 3, false, false, solved);
+  Spacetime::piecewise_crossings<W>(KNOTS, 3, Spacetime::FrameEnds::NEITHER,
+                                    solved);
   const auto truth = brute_force_passes<W>(
       [&](double t) {
         return t < 0.5 ? 10.0 + 4.0 * t : 12.0 - 6.0 * (t - 0.5);
@@ -187,18 +188,22 @@ inline void test_piecewise_arm_passes_match_brute_force() {
   // A pass exactly at the inner knot: x = 72 at t = 1/2 meets arm 0.
   const float THROUGH[] = {70.0f, 72.0f, 74.0f};
   PassList knot;
-  Spacetime::piecewise_crossings<W>(THROUGH, 3, false, false, knot);
+  Spacetime::piecewise_crossings<W>(THROUGH, 3, Spacetime::FrameEnds::NEITHER,
+                                    knot);
   HS_EXPECT_EQ(static_cast<int>(knot.passes.size()), 1);
   PassList frame_end;
-  Spacetime::piecewise_crossings<W>(THROUGH, 3, false, true, frame_end);
+  Spacetime::piecewise_crossings<W>(THROUGH, 3, Spacetime::FrameEnds::END,
+                                    frame_end);
   HS_EXPECT_SIZE_OR_RETURN(frame_end.passes, 1);
   const float STARTING[] = {71.0f, 71.5f, 72.0f};
   PassList frame_start;
-  Spacetime::piecewise_crossings<W>(STARTING, 3, true, false, frame_start);
+  Spacetime::piecewise_crossings<W>(STARTING, 3, Spacetime::FrameEnds::START,
+                                    frame_start);
   HS_EXPECT_SIZE_OR_RETURN(frame_start.passes, 1);
   const float LATER_KNOTS[] = {100.0f, 110.0f, 130.0f};
   PassList later;
-  Spacetime::piecewise_crossings<W>(LATER_KNOTS, 3, false, false, later);
+  Spacetime::piecewise_crossings<W>(LATER_KNOTS, 3,
+                                    Spacetime::FrameEnds::NEITHER, later);
   const auto later_truth = brute_force_passes<W>(
       [](double t) {
         return t < 0.5 ? 100.0 + 20.0 * t : 110.0 + 40.0 * (t - 0.5);
@@ -247,7 +252,8 @@ inline bool check_track_passes(const std::function<math::Vector(double)> &exact,
   const auto truth = brute_force_passes<W>(track_column, t0, t1);
   PassList solved;
   Spacetime::track_crossings<W>(track, static_cast<float>(t0),
-                                static_cast<float>(t1), true, true, solved);
+                                static_cast<float>(t1),
+                                Spacetime::FrameEnds::BOTH, solved);
   const double window = track.guard / HALF;
   for (const TruePass &want : truth) {
     bool found = false;

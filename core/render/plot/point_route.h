@@ -579,7 +579,7 @@ private:
         Spacetime::count_geometry<
             &Spacetime::GeometryCounters::point_capture_solves>();
         Spacetime::screen_crossings<W>(
-            from, to, t0, t1, true, true,
+            from, to, t0, t1, Spacetime::FrameEnds::BOTH,
             [&](const Spacetime::ScreenCrossing &capture) HS_HOT_INLINE {
               emit(sink, canvas, capture, shade(capture.time), dx, dy, t0, t1);
             });
