@@ -200,6 +200,18 @@ struct ColumnBand {
     return {static_cast<float>(first() - 1), static_cast<float>(end<W>())};
   }
 
+  /** @brief Bounding half-planes of the tap-reach columns widened by
+   *         @p slack radians on each side.
+   *  @tparam W Canvas width in columns.
+   *  @param slack Radians added on each side.
+   *  @return The half-planes of tap_reach() in longitude, widened. */
+  template <int W> HS_HOT_INLINE HalfPlanes tap_half_planes(float slack) const {
+    const ColumnSpan reach = tap_reach<W>();
+    const float start = reach.lo * math::RADIANS_PER_COLUMN<W> - slack;
+    const float end = reach.hi * math::RADIANS_PER_COLUMN<W> + slack;
+    return {start, end, end - start};
+  }
+
   /** @brief Bounding half-planes of the band's column cells widened by
    *         @p margin columns on each side.
    *  @tparam W Canvas width in columns.

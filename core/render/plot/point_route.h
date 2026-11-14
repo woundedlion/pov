@@ -103,23 +103,19 @@ public:
     // Tap columns floor(x) and floor(x) + 1 reach [first, last) for x in
     // [first - 1, last), widened by fast_atan2's error.
     const ClipRegion::XClip columns = clip.x_clip();
-    column_test = ColumnTest::NONE;
+    column_test = MeridianTest::NONE;
     if (!columns.active)
       return;
-    const int last_column = columns.wrap ? columns.re + W : columns.re;
-    const float low =
-        float(columns.rs - 1) * math::RADIANS_PER_COLUMN<W> - COLUMN_SLACK;
-    const float high =
-        float(last_column) * math::RADIANS_PER_COLUMN<W> + COLUMN_SLACK;
-    if (high - low >= math::TWO_PI_F)
+    const HalfPlanes planes =
+        ColumnBand::of(columns).tap_half_planes<W>(COLUMN_SLACK);
+    if (planes.test() == MeridianTest::NONE)
       return;
-    low_x = cosf(low);
-    low_z = sinf(low);
-    high_x = cosf(high);
-    high_z = sinf(high);
+    low_x = cosf(planes.start);
+    low_z = sinf(planes.start);
+    high_x = cosf(planes.end);
+    high_z = sinf(planes.end);
     column_reach = reach;
-    column_test =
-        high - low <= math::PI_F ? ColumnTest::BOTH : ColumnTest::EITHER;
+    column_test = planes.test();
   }
 
   /**
@@ -471,13 +467,6 @@ private:
   static constexpr float COLUMN_SLACK =
       2.0f * static_cast<float>(math::FAST_ATAN2_MAX_ERROR);
 
-  /** @brief How the column gate combines its two meridian halfspaces. */
-  enum class ColumnTest : uint8_t {
-    NONE,   ///< Every column is drawn.
-    BOTH,   ///< The drawn columns span at most half a turn.
-    EITHER, ///< The drawn columns span more than half a turn.
-  };
-
   /**
    * @brief Whether a point within the prepared motion of @p p may write a
    *        tap inside the clip.
@@ -490,12 +479,12 @@ private:
   HS_HOT_INLINE bool reaches_clip(const math::Vector &p) const {
     if (p.y > y_max || p.y < y_min)
       return false;
-    if (column_test == ColumnTest::NONE)
+    if (column_test == MeridianTest::NONE)
       return true;
     const bool after_low = low_x * p.z - low_z * p.x >= -column_reach;
     const bool before_high = p.x * high_z - p.z * high_x >= -column_reach;
-    return column_test == ColumnTest::BOTH ? after_low && before_high
-                                           : after_low || before_high;
+    return column_test == MeridianTest::BOTH ? after_low && before_high
+                                             : after_low || before_high;
   }
 
   /** @brief Whether a quadratic path can enter the prepared column band.
@@ -505,7 +494,7 @@ private:
   HS_HOT_INLINE bool reaches_path_columns(const math::Vector &start,
                                           const math::Vector &end,
                                           const math::Vector &offset) const {
-    if (column_test == ColumnTest::NONE)
+    if (column_test == MeridianTest::NONE)
       return true;
     const auto after = [&](float x, float z) HS_HOT_INLINE {
       return fmaxf(x * start.z - z * start.x, x * end.z - z * end.x) +
@@ -514,7 +503,7 @@ private:
     };
     const bool low = after(low_x, low_z);
     const bool high = after(-high_x, -high_z);
-    return column_test == ColumnTest::BOTH ? low && high : low || high;
+    return column_test == MeridianTest::BOTH ? low && high : low || high;
   }
 
   /**
@@ -695,7 +684,7 @@ private:
   float high_x = 0.0f;       ///< Unit x of the band's last bounding meridian.
   float high_z = 0.0f;       ///< Unit z of the band's last bounding meridian.
   float column_reach = 0.0f; ///< Motion admitted outside the meridians.
-  ColumnTest column_test = ColumnTest::NONE; ///< Column gate combination.
+  MeridianTest column_test = MeridianTest::NONE; ///< Column gate combination.
   bool timed = false; ///< Whether the frame is drawn at column time.
 };
 
