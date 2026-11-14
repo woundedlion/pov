@@ -70,6 +70,27 @@ inline constexpr float COLUMN_ARC_PARAMETER_PAD = 1e-5f;
  * which a column holding an edge end splats its taps at its own time. */
 inline constexpr float COLUMN_SINGLE_TAP_ERROR = 0.02f;
 
+/** @brief Visits each unclipped render column of an unwrapped column run at
+ * its own frame time.
+ * @tparam W Canvas width in columns.
+ * @tparam F Callable `(int owner, int column, float t)`.
+ * @param canvas Canvas whose render clip skips columns.
+ * @param first First unwrapped column.
+ * @param count Run length; none when not positive.
+ * @param visit Receives each unwrapped column, its wrapped column and the
+ * frame fraction that column is lit at. */
+template <int W, class F>
+HS_HOT_INLINE inline void
+for_each_render_column(const Canvas &canvas, int first, int count, F &&visit) {
+  for (int i = 0; i < count; ++i) {
+    const int owner = first + i;
+    const int column = math::fast_wrap(owner, W);
+    if (canvas.render_x_clip().clipped(column))
+      continue;
+    visit(owner, column, Spacetime::SamplingSurface<W>::time(column));
+  }
+}
+
 /** @brief Intersects a geodesic basis with a forward meridian.
  * @param start_side,end_side Endpoint distances from the meridian plane.
  * @param tangent_side Start tangent distance from the meridian plane.

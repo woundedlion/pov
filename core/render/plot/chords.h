@@ -804,53 +804,51 @@ public:
       }
       const int owner_begin = static_cast<int>(floorf(low - x_pad - 1.0f));
       const int owner_end = static_cast<int>(ceilf(high + x_pad + 1.0f));
-      for (int owner = owner_begin; owner <= owner_end; ++owner) {
-        const int column = math::fast_wrap(owner, W);
-        if (canvas.render_x_clip().clipped(column))
-          continue;
-        const float t = Spacetime::SamplingSurface<W>::time(column);
-        const float bend = t * (t - 1.0f);
-        const math::PixelCoords at_from{
-            from0.x + (from1.x - from0.x) * t + from_curve.x * bend,
-            from0.y + (from1.y - from0.y) * t + from_curve.y * bend};
-        const math::PixelCoords at_to{
-            to0.x + (to1.x - to0.x) * t + to_curve.x * bend,
-            to0.y + (to1.y - to0.y) * t + to_curve.y * bend};
-        const float dx = at_to.x - at_from.x, dy = at_to.y - at_from.y;
-        const float span = sqrtf(dx * dx + dy * dy);
-        const int count =
-            std::max(1, static_cast<int>(ceilf(span / target_step)));
-        const float inverse = 1.0f / static_cast<float>(count);
-        float lo = 0.0f, hi = static_cast<float>(count - 1);
-        auto restrict = [&](float start_at, float delta, float lower,
-                            float upper) HS_HOT_INLINE {
-          if (fabsf(delta) < 1e-6f) {
-            if (start_at < lower || start_at > upper)
-              hi = -1.0f;
-          } else {
-            const float scale = static_cast<float>(count) / delta;
-            const float a = (lower - start_at) * scale,
-                        b = (upper - start_at) * scale;
-            lo = fmaxf(lo, fminf(a, b));
-            hi = fminf(hi, fmaxf(a, b));
-          }
-        };
-        restrict(at_from.x, dx, float(owner) - 1.0f, float(owner) + 1.0f);
-        restrict(at_from.y, dy, band.row_lo, band.row_hi);
-        const int begin = static_cast<int>(ceilf(lo));
-        const int end = static_cast<int>(floorf(hi));
-        const float alpha =
-            sample_alpha(fminf(target_step, span * inverse) / SCREEN_STEP_PX);
-        for (int sample = begin; sample <= end; ++sample) {
-          Spacetime::count_geometry<
-              &Spacetime::GeometryCounters::chord_screen_samples>();
-          const float u = static_cast<float>(sample) * inverse;
-          float x = at_from.x + dx * u;
-          x += W * rintf((float(column) - x) / W);
-          pipeline.plot_column_at(canvas, {x, at_from.y + dy * u}, column,
-                                  color.color, 0.0f, alpha, t);
-        }
-      }
+      for_each_render_column<W>(
+          canvas, owner_begin, owner_end - owner_begin + 1,
+          [&](int owner, int column, float t) HS_HOT_INLINE {
+            const float bend = t * (t - 1.0f);
+            const math::PixelCoords at_from{
+                from0.x + (from1.x - from0.x) * t + from_curve.x * bend,
+                from0.y + (from1.y - from0.y) * t + from_curve.y * bend};
+            const math::PixelCoords at_to{
+                to0.x + (to1.x - to0.x) * t + to_curve.x * bend,
+                to0.y + (to1.y - to0.y) * t + to_curve.y * bend};
+            const float dx = at_to.x - at_from.x, dy = at_to.y - at_from.y;
+            const float span = sqrtf(dx * dx + dy * dy);
+            const int count =
+                std::max(1, static_cast<int>(ceilf(span / target_step)));
+            const float inverse = 1.0f / static_cast<float>(count);
+            float lo = 0.0f, hi = static_cast<float>(count - 1);
+            auto restrict = [&](float start_at, float delta, float lower,
+                                float upper) HS_HOT_INLINE {
+              if (fabsf(delta) < 1e-6f) {
+                if (start_at < lower || start_at > upper)
+                  hi = -1.0f;
+              } else {
+                const float scale = static_cast<float>(count) / delta;
+                const float a = (lower - start_at) * scale,
+                            b = (upper - start_at) * scale;
+                lo = fmaxf(lo, fminf(a, b));
+                hi = fminf(hi, fmaxf(a, b));
+              }
+            };
+            restrict(at_from.x, dx, float(owner) - 1.0f, float(owner) + 1.0f);
+            restrict(at_from.y, dy, band.row_lo, band.row_hi);
+            const int begin = static_cast<int>(ceilf(lo));
+            const int end = static_cast<int>(floorf(hi));
+            const float alpha = sample_alpha(
+                fminf(target_step, span * inverse) / SCREEN_STEP_PX);
+            for (int sample = begin; sample <= end; ++sample) {
+              Spacetime::count_geometry<
+                  &Spacetime::GeometryCounters::chord_screen_samples>();
+              const float u = static_cast<float>(sample) * inverse;
+              float x = at_from.x + dx * u;
+              x += W * rintf((float(column) - x) / W);
+              pipeline.plot_column_at(canvas, {x, at_from.y + dy * u}, column,
+                                      color.color, 0.0f, alpha, t);
+            }
+          });
     };
 
     for (int edge = 0; edge < vertices; ++edge) {

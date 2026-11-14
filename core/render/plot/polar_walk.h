@@ -12,6 +12,7 @@
 #include "core/math/pixel_mapping.h"
 #include "core/render/spacetime.h"
 #include "core/render/canvas.h"
+#include "core/render/plot/column_geometry.h"
 #include "core/render/plot/cull.h"
 #include "core/render/plot/raster.h"
 
@@ -99,174 +100,175 @@ template <int W, int H> struct PolarWalk {
     const float gain =
         density / step *
         balanced_sample_alpha(color.alpha, step / SCREEN_STEP_PX);
-    for (int i = 0; i < count; ++i) {
-      const int column = math::fast_wrap(first + i, W);
-      if (canvas.render_x_clip().clipped(column))
-        continue;
-      const float t = Spacetime::SamplingSurface<W>::time(column);
-      Spacetime::count_geometry<
-          &Spacetime::GeometryCounters::polar_column_visits>();
-      const auto from = a.at(t), to = b.at(t);
-      Spacetime::count_geometry<
-          &Spacetime::GeometryCounters::polar_geometry_samples>();
-      const float dx = math::TrigLUT<W, H>::cos_theta(column);
-      const float dy = math::TrigLUT<W, H>::sin_theta[column];
-      const float ex = to.x - from.x, ey = to.y - from.y;
-      const float along = from.x * dx + from.y * dy;
-      const float across = from.y * dx - from.x * dy;
-      const float ea = ex * dx + ey * dy;
-      const float ec = ey * dx - ex * dy;
-      float s = 0.0f;
-      crossing(from, to, dx, dy, s);
-      const float radius = along + s * ea;
-      const float slope =
-          fabsf(ec) > 1e-9f
-              ? fabsf(radius * ea / ec) * math::RADIANS_PER_COLUMN<W>
-              : std::numeric_limits<float>::infinity();
-      const bool forward_sector =
-          radius > 0.0f && slope <= 1.0f && along > 0.0f && along + ea > 0.0f;
-      auto emit = [&](float row, float x, float alpha) HS_HOT_INLINE {
-        Spacetime::count_geometry<
-            &Spacetime::GeometryCounters::polar_column_samples>();
-        sink.plot_column_at(canvas, {x, pole + sign * row}, column, color.color,
-                            0.0f, alpha, t);
-      };
-      if (!balanced && forward_sector) {
-        auto integral = [](float x) HS_HOT_INLINE {
-          x = hs::clamp(x, -1.0f, 1.0f);
-          return x < 0.0f ? 0.5f * (x + 1.0f) * (x + 1.0f)
-                          : 1.0f - 0.5f * (1.0f - x) * (1.0f - x);
-        };
-        const float x0 = across / (along * math::RADIANS_PER_COLUMN<W>);
-        const float x1 =
-            (across + ec) / ((along + ea) * math::RADIANS_PER_COLUMN<W>);
-        const float mass = integral(x1) - integral(x0);
-        const float coverage = fabsf(mass);
-        if (coverage > 0.0f) {
-          auto moment = [](float x) HS_HOT_INLINE {
-            x = hs::clamp(x, -1.0f, 1.0f);
-            return x * x * (0.5f - fabsf(x) / 3.0f);
+    for_each_render_column<W>(
+        canvas, first, count, [&](int, int column, float t) HS_HOT_INLINE {
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::polar_column_visits>();
+          const auto from = a.at(t), to = b.at(t);
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::polar_geometry_samples>();
+          const float dx = math::TrigLUT<W, H>::cos_theta(column);
+          const float dy = math::TrigLUT<W, H>::sin_theta[column];
+          const float ex = to.x - from.x, ey = to.y - from.y;
+          const float along = from.x * dx + from.y * dy;
+          const float across = from.y * dx - from.x * dy;
+          const float ea = ex * dx + ey * dy;
+          const float ec = ey * dx - ex * dy;
+          float s = 0.0f;
+          crossing(from, to, dx, dy, s);
+          const float radius = along + s * ea;
+          const float slope =
+              fabsf(ec) > 1e-9f
+                  ? fabsf(radius * ea / ec) * math::RADIANS_PER_COLUMN<W>
+                  : std::numeric_limits<float>::infinity();
+          const bool forward_sector = radius > 0.0f && slope <= 1.0f &&
+                                      along > 0.0f && along + ea > 0.0f;
+          auto emit = [&](float row, float x, float alpha) HS_HOT_INLINE {
+            Spacetime::count_geometry<
+                &Spacetime::GeometryCounters::polar_column_samples>();
+            sink.plot_column_at(canvas, {x, pole + sign * row}, column,
+                                color.color, 0.0f, alpha, t);
           };
-          const float mean = (moment(x1) - moment(x0)) / mass;
-          const float offset = mean * math::RADIANS_PER_COLUMN<W>;
-          const float denominator = ec - offset * ea;
-          const float u =
-              hs::clamp((offset * along - across) / denominator, 0.0f, 1.0f);
-          const float x = from.x + ex * u, y = from.y + ey * u;
-          const float screen_rate = sqrtf(1.0f + slope * slope);
-          const float horizontal = radius * math::RADIANS_PER_COLUMN<W>;
-          const float physical_rate =
-              sqrtf(horizontal * horizontal + slope * slope);
-          const float min_pitch = math::RADIANS_PER_COLUMN<W> *
-                                  math::ROWS_PER_RADIAN<H> * MIN_POLE_SCALE;
-          const float pitch_scale = fminf(1.0f, SCREEN_STEP_PX * physical_rate /
-                                                    (screen_rate * min_pitch));
-          emit(sqrtf(x * x + y * y), float(column),
-               fminf(1.0f, gain * (SCREEN_STEP_PX / step) * screen_rate *
-                               coverage * pitch_scale));
-        }
-        continue;
-      }
-      // Intersect the segment with the column's triangular AA support sector.
-      float lo = 0.0f, hi = 1.0f;
-      const float tangent = tanf(math::RADIANS_PER_COLUMN<W>);
-      auto restrict = [&](float v, float delta) HS_HOT_INLINE {
-        if (fabsf(delta) < 1e-9f) {
-          if (v < 0.0f)
-            hi = -1.0f;
-        } else if (delta > 0.0f)
-          lo = fmaxf(lo, -v / delta);
-        else
-          hi = fminf(hi, -v / delta);
-      };
-      restrict(along * tangent - across, ea * tangent - ec);
-      restrict(along * tangent + across, ea * tangent + ec);
-      if (hi <= lo)
-        continue;
-      struct SamplePlan {
-        int samples;
-        float inverse;
-        float alpha;
-      };
-      const auto sample_plan = [&](float radial) HS_HOT_INLINE {
-        const float angle =
-            math::centered_remainder(math::precise_atan2(to.y, to.x) -
-                                         math::precise_atan2(from.y, from.x),
-                                     math::TWO_PI_F) /
-            math::RADIANS_PER_COLUMN<W>;
-        const float length = sqrtf(angle * angle + radial * radial);
-        const int samples = std::max(static_cast<int>(ceilf(length / step)), 1);
-        const float inverse = 1.0f / samples;
-        const float ratio = fminf(step, length * inverse) / SCREEN_STEP_PX;
-        return SamplePlan{
-            samples, inverse,
-            stroke_sample_alpha(color.alpha, ratio, density, balanced)};
-      };
-      if (forward_sector) {
-        const float radial = sqrtf(to.x * to.x + to.y * to.y) -
-                             sqrtf(from.x * from.x + from.y * from.y);
-        const auto [samples, inverse, alpha] = sample_plan(radial);
-        const int begin = std::max(0, static_cast<int>(ceilf(lo * samples)));
-        const int end =
-            std::min(samples - 1, static_cast<int>(floorf(hi * samples)));
-        for (int sample = begin; sample <= end; ++sample) {
-          const float u = sample * inverse;
-          const float x = from.x + ex * u, y = from.y + ey * u;
-          const float forward = along + ea * u;
-          if (forward <= 0.0f)
-            continue;
-          const float column_at =
-              float(column) + math::precise_atan2(across + ec * u, forward) /
+          if (!balanced && forward_sector) {
+            auto integral = [](float x) HS_HOT_INLINE {
+              x = hs::clamp(x, -1.0f, 1.0f);
+              return x < 0.0f ? 0.5f * (x + 1.0f) * (x + 1.0f)
+                              : 1.0f - 0.5f * (1.0f - x) * (1.0f - x);
+            };
+            const float x0 = across / (along * math::RADIANS_PER_COLUMN<W>);
+            const float x1 =
+                (across + ec) / ((along + ea) * math::RADIANS_PER_COLUMN<W>);
+            const float mass = integral(x1) - integral(x0);
+            const float coverage = fabsf(mass);
+            if (coverage > 0.0f) {
+              auto moment = [](float x) HS_HOT_INLINE {
+                x = hs::clamp(x, -1.0f, 1.0f);
+                return x * x * (0.5f - fabsf(x) / 3.0f);
+              };
+              const float mean = (moment(x1) - moment(x0)) / mass;
+              const float offset = mean * math::RADIANS_PER_COLUMN<W>;
+              const float denominator = ec - offset * ea;
+              const float u = hs::clamp((offset * along - across) / denominator,
+                                        0.0f, 1.0f);
+              const float x = from.x + ex * u, y = from.y + ey * u;
+              const float screen_rate = sqrtf(1.0f + slope * slope);
+              const float horizontal = radius * math::RADIANS_PER_COLUMN<W>;
+              const float physical_rate =
+                  sqrtf(horizontal * horizontal + slope * slope);
+              const float min_pitch = math::RADIANS_PER_COLUMN<W> *
+                                      math::ROWS_PER_RADIAN<H> * MIN_POLE_SCALE;
+              const float pitch_scale =
+                  fminf(1.0f, SCREEN_STEP_PX * physical_rate /
+                                  (screen_rate * min_pitch));
+              emit(sqrtf(x * x + y * y), float(column),
+                   fminf(1.0f, gain * (SCREEN_STEP_PX / step) * screen_rate *
+                                   coverage * pitch_scale));
+            }
+            return;
+          }
+          // Intersect the segment with the column's triangular AA support sector.
+          float lo = 0.0f, hi = 1.0f;
+          const float tangent = tanf(math::RADIANS_PER_COLUMN<W>);
+          auto restrict = [&](float v, float delta) HS_HOT_INLINE {
+            if (fabsf(delta) < 1e-9f) {
+              if (v < 0.0f)
+                hi = -1.0f;
+            } else if (delta > 0.0f)
+              lo = fmaxf(lo, -v / delta);
+            else
+              hi = fminf(hi, -v / delta);
+          };
+          restrict(along * tangent - across, ea * tangent - ec);
+          restrict(along * tangent + across, ea * tangent + ec);
+          if (hi <= lo)
+            return;
+          struct SamplePlan {
+            int samples;
+            float inverse;
+            float alpha;
+          };
+          const auto sample_plan = [&](float radial) HS_HOT_INLINE {
+            const float angle = math::centered_remainder(
+                                    math::precise_atan2(to.y, to.x) -
+                                        math::precise_atan2(from.y, from.x),
+                                    math::TWO_PI_F) /
+                                math::RADIANS_PER_COLUMN<W>;
+            const float length = sqrtf(angle * angle + radial * radial);
+            const int samples =
+                std::max(static_cast<int>(ceilf(length / step)), 1);
+            const float inverse = 1.0f / samples;
+            const float ratio = fminf(step, length * inverse) / SCREEN_STEP_PX;
+            return SamplePlan{
+                samples, inverse,
+                stroke_sample_alpha(color.alpha, ratio, density, balanced)};
+          };
+          if (forward_sector) {
+            const float radial = sqrtf(to.x * to.x + to.y * to.y) -
+                                 sqrtf(from.x * from.x + from.y * from.y);
+            const auto [samples, inverse, alpha] = sample_plan(radial);
+            const int begin =
+                std::max(0, static_cast<int>(ceilf(lo * samples)));
+            const int end =
+                std::min(samples - 1, static_cast<int>(floorf(hi * samples)));
+            for (int sample = begin; sample <= end; ++sample) {
+              const float u = sample * inverse;
+              const float x = from.x + ex * u, y = from.y + ey * u;
+              const float forward = along + ea * u;
+              if (forward <= 0.0f)
+                continue;
+              const float column_at =
+                  float(column) +
+                  math::precise_atan2(across + ec * u, forward) /
+                      math::RADIANS_PER_COLUMN<W>;
+              emit(sqrtf(x * x + y * y), column_at, alpha);
+            }
+            return;
+          }
+          const float norm = ex * ex + ey * ey;
+          if (norm < 1e-12f)
+            return;
+          const float foot = -(from.x * ex + from.y * ey) / norm;
+          auto radius_at = [&](float u) HS_HOT_INLINE {
+            const float x = from.x + ex * u, y = from.y + ey * u;
+            return sqrtf(x * x + y * y);
+          };
+          const float rlo = radius_at(lo), rhi = radius_at(hi);
+          const float rmin = radius_at(hs::clamp(foot, lo, hi));
+          const float rmax = fmaxf(rlo, rhi);
+          const float distance2 = fmaxf(
+              0.0f, from.x * from.x + from.y * from.y - foot * foot * norm);
+          float radial_step = step, radial_phase = 0.0f,
+                alpha = stroke_sample_alpha(color.alpha, step / SCREEN_STEP_PX,
+                                            density, balanced);
+          const float first_radius = radius_at(0.0f);
+          const float last_radius = radius_at(1.0f);
+          if ((foot <= 0.0f || foot >= 1.0f) &&
+              fabsf(last_radius - first_radius) > 1e-6f) {
+            const float dr = last_radius - first_radius;
+            const auto plan = sample_plan(dr);
+            radial_step = fabsf(dr) * plan.inverse;
+            radial_phase = first_radius;
+            alpha = plan.alpha;
+          }
+          for (int row =
+                   static_cast<int>(ceilf((rmin - radial_phase) / radial_step));
+               radial_phase + row * radial_step <= rmax; ++row) {
+            const float r = radial_phase + row * radial_step;
+            const float offset = sqrtf(fmaxf(0.0f, (r * r - distance2) / norm));
+            for (int branch = 0; branch < 2; ++branch) {
+              const float u = foot + (branch ? offset : -offset);
+              if (u < lo || u >= hi || (branch && offset == 0.0f))
+                continue;
+              const float forward = along + ea * u;
+              if (forward <= 0.0f)
+                continue;
+              const float x = float(column) +
+                              math::precise_atan2(across + ec * u, forward) /
                                   math::RADIANS_PER_COLUMN<W>;
-          emit(sqrtf(x * x + y * y), column_at, alpha);
-        }
-        continue;
-      }
-      const float norm = ex * ex + ey * ey;
-      if (norm < 1e-12f)
-        continue;
-      const float foot = -(from.x * ex + from.y * ey) / norm;
-      auto radius_at = [&](float u) HS_HOT_INLINE {
-        const float x = from.x + ex * u, y = from.y + ey * u;
-        return sqrtf(x * x + y * y);
-      };
-      const float rlo = radius_at(lo), rhi = radius_at(hi);
-      const float rmin = radius_at(hs::clamp(foot, lo, hi));
-      const float rmax = fmaxf(rlo, rhi);
-      const float distance2 =
-          fmaxf(0.0f, from.x * from.x + from.y * from.y - foot * foot * norm);
-      float radial_step = step, radial_phase = 0.0f,
-            alpha = stroke_sample_alpha(color.alpha, step / SCREEN_STEP_PX,
-                                        density, balanced);
-      const float first_radius = radius_at(0.0f);
-      const float last_radius = radius_at(1.0f);
-      if ((foot <= 0.0f || foot >= 1.0f) &&
-          fabsf(last_radius - first_radius) > 1e-6f) {
-        const float dr = last_radius - first_radius;
-        const auto plan = sample_plan(dr);
-        radial_step = fabsf(dr) * plan.inverse;
-        radial_phase = first_radius;
-        alpha = plan.alpha;
-      }
-      for (int row =
-               static_cast<int>(ceilf((rmin - radial_phase) / radial_step));
-           radial_phase + row * radial_step <= rmax; ++row) {
-        const float r = radial_phase + row * radial_step;
-        const float offset = sqrtf(fmaxf(0.0f, (r * r - distance2) / norm));
-        for (int branch = 0; branch < 2; ++branch) {
-          const float u = foot + (branch ? offset : -offset);
-          if (u < lo || u >= hi || (branch && offset == 0.0f))
-            continue;
-          const float forward = along + ea * u;
-          if (forward <= 0.0f)
-            continue;
-          const float x =
-              float(column) + math::precise_atan2(across + ec * u, forward) /
-                                  math::RADIANS_PER_COLUMN<W>;
-          emit(r, x, alpha);
-        }
-      }
-    }
+              emit(r, x, alpha);
+            }
+          }
+        });
   }
 
 private:

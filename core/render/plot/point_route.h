@@ -16,6 +16,7 @@
 #include "core/platform/attributes.h"
 #include "core/render/canvas.h"
 #include "core/render/filter/screen_anti_alias.h"
+#include "core/render/plot/column_geometry.h"
 #include "core/render/spacetime.h"
 #include "core/render/spacetime/crossing.h"
 
@@ -442,21 +443,25 @@ private:
       sink.plot(canvas, static_cast<int>(x), static_cast<int>(y), color, age,
                 alpha);
     };
-    for (int column = 0; column < W; ++column) {
-      const float t = Spacetime::SamplingSurface<W>::time(column);
-      const auto point =
-          (origin + (end - origin) * t + offset * (4.0f * t * (1.0f - t)))
-              .normalized();
-      const auto position = math::vector_to_pixel<W, H>(point);
-      const auto taps =
-          Filter::Screen::splat_taps<W, H>(position.x, position.y);
-      if ((column != taps.x0 && column != taps.x1) ||
-          (!taps.y0_physical && !taps.y1_physical))
-        continue;
-      const auto &color = shade(t);
-      Splat::column_taps(position.x, position.y, color.color, 0.0f, color.alpha,
-                         column, pass);
-    }
+    for_each_render_column<W>(
+        canvas, 0, W, [&](int, int column, float t) HS_HOT_INLINE {
+          const auto point =
+              (origin + (end - origin) * t + offset * (4.0f * t * (1.0f - t)))
+                  .normalized();
+          const auto position = math::vector_to_pixel<W, H>(point);
+          const auto taps =
+              Filter::Screen::splat_taps<W, H>(position.x, position.y);
+          if ((column != taps.x0 && column != taps.x1) ||
+              (!taps.y0_physical && !taps.y1_physical))
+            return;
+          const auto &color = shade(t);
+          if constexpr (requires { requires Sink::column_taps_ready; })
+            sink.plot_column_at(canvas, position, column, color.color, 0.0f,
+                                color.alpha, t);
+          else
+            Splat::column_taps(position.x, position.y, color.color, 0.0f,
+                               color.alpha, column, pass);
+        });
   }
 
   /// Arc added to the gated rows for fast_acos's error.
@@ -664,16 +669,16 @@ private:
                                static_cast<int>(ceilf((arm + t0) * HALF)));
     const int last = std::min(static_cast<int>(floorf(center + radius)),
                               static_cast<int>(ceilf((arm + t1) * HALF)) - 1);
-    for (int unwrapped = first; unwrapped <= last; ++unwrapped) {
-      const int column = math::fast_wrap(unwrapped, W);
-      const float at = Spacetime::SamplingSurface<W>::time(column);
-      const float lag = at - capture.time;
-      float x = position.x + dx * lag;
-      if (x < -float(W) || x >= 2.0f * W)
-        x = math::centered_remainder(x, float(W));
-      Splat::column_taps(x, position.y + dy * lag, c.color, 0.0f, c.alpha,
-                         column, pass);
-    }
+    for_each_render_column<W>(canvas, first, last - first + 1,
+                              [&](int, int column, float at) HS_HOT_INLINE {
+                                const float lag = at - capture.time;
+                                float x = position.x + dx * lag;
+                                if (x < -float(W) || x >= 2.0f * W)
+                                  x = math::centered_remainder(x, float(W));
+                                Splat::column_taps(x, position.y + dy * lag,
+                                                   c.color, 0.0f, c.alpha,
+                                                   column, pass);
+                              });
   }
 
 private:
