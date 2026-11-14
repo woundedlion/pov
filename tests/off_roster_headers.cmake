@@ -17,6 +17,7 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "pixel_test_util.h"
   "pole_geometry_test_util.h"
   "pov_tiling_test_util.h"
+  "prepared_face_test_access.h"
   "test_fixture.h"
   "test_h_offset_renorm.h"
   "test_harness.h"
