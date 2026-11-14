@@ -1513,6 +1513,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── column_edge_batch.h     Column-time mesh edge batch rasterization
 │   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
 │   │   │   ├── column_chain.h          Chained edges drawn at column times through a point route and column-walk chunks
+│   │   │   ├── contour_layout.h        Concentric contour radii, waveform and draw-order tables
 │   │   │   └── cull/                   Cull region, edge samplers, span tests and visibility gates behind cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
 │   │   │                            umbrella over filter/

@@ -108,6 +108,8 @@ struct OracleFrame {
 struct ShapeShifterWhiteBox {
   /** @brief Kernel family used by footprint oracles. */
   using Surface = OracleEffect::Surface;
+  /** @brief Contour tables of the oracle effect. */
+  using Layout = Plot::ContourLayout<OracleEffect::MAX_SHAPES>;
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
   static constexpr float NYQUIST_PHASE_STEP = OracleEffect::NYQUIST_PHASE_STEP;
   static constexpr size_t SURFACE_SCRATCH_A_BYTES =
@@ -199,13 +201,14 @@ struct ShapeShifterWhiteBox {
     const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
     for (int ordinal = 0; ordinal < count; ++ordinal) {
       const int i = continuous_star ? count - ordinal - 1
-                                    : effect.folded_draw_indices[ordinal];
+                                    : effect.layout.draw_index(ordinal);
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      const float radius = 2.0f * effect.spaced_radius_t[i];
-      const float direction = continuous_star
-                                  ? effect.phase_sign_star(radius)
-                                  : effect.phase_sign_contour(radius);
+      const float radius = 2.0f * effect.layout.spaced_radius_t(i);
+      const float direction =
+          continuous_star
+              ? Layout::phase_sign_star(effect.params.opposite, radius)
+              : Layout::phase_sign_contour(effect.params.opposite, radius);
       const float contour_phase =
           direction * effect.params.amplitude *
           effect.evaluate(function, radius_t + effect.phase);
@@ -240,11 +243,11 @@ struct ShapeShifterWhiteBox {
   }
 
   static float phase_sign_contour(const OracleEffect &effect, float radius) {
-    return effect.phase_sign_contour(radius);
+    return Layout::phase_sign_contour(effect.params.opposite, radius);
   }
 
   static float phase_sign_star(const OracleEffect &effect, float radius) {
-    return effect.phase_sign_star(radius);
+    return Layout::phase_sign_star(effect.params.opposite, radius);
   }
 
   static float alpha_falloff_at(OracleEffect::AlphaFalloff falloff,
@@ -253,13 +256,13 @@ struct ShapeShifterWhiteBox {
   }
 
   static float screen_balanced_radius_t(float radius_t) {
-    return OracleEffect::screen_balanced_radius_t(radius_t);
+    return Plot::screen_balanced_radius_t(radius_t);
   }
 
   static std::vector<int> folded_draw_order(int count) {
     std::vector<int> order;
     for (int ordinal = 0; ordinal < count; ++ordinal)
-      order.push_back(OracleEffect::folded_draw_index(count, ordinal));
+      order.push_back(Layout::folded_draw_index(count, ordinal));
     return order;
   }
 

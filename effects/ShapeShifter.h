@@ -14,6 +14,7 @@
 #include "core/animation/orientation.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
+#include "core/render/plot/contour_layout.h"
 #include "core/render/scan/radial_surface_renderer.h"
 #include "core/render/scan/radial_surface_candidate_mask.h"
 
@@ -26,13 +27,7 @@ struct ShapeShifterWhiteBox;
 /** @brief Tunable rendering state stored by each ShapeShifter preset. */
 struct ShapeShifterParams {
   /** @brief Plot primitives available through the Shape slider. */
-  enum class ShapeType : uint8_t {
-    PLANAR_POLYGON,
-    SPHERICAL_POLYGON,
-    FLOWER,
-    PLANAR_STAR,
-    SPHERICAL_STAR
-  };
+  using ShapeType = Plot::ContourShape;
 
   /** @brief Waveforms available through the Function slider. */
   enum class PhaseFunction : uint8_t { SINE, TRIANGLE, SAWTOOTH, SQUARE };
@@ -121,15 +116,7 @@ public:
         *this);
     this->register_described_params();
 
-    spaced_radius_t = persistent_arena.allocate_n<float>(MAX_SHAPES);
-    phase_sin = persistent_arena.allocate_n<float>(MAX_SHAPES);
-    phase_cos = persistent_arena.allocate_n<float>(MAX_SHAPES);
-    waveform = persistent_arena.allocate_n<float>(MAX_SHAPES);
-    folded_draw_indices = persistent_arena.allocate_n<uint16_t>(MAX_SHAPES);
-    planar_star_radius_trig =
-        persistent_arena
-            .allocate_n<Plot::Star<Plot::PlanarProjection>::RadiusTrig>(
-                MAX_SHAPES);
+    layout.init_storage(persistent_arena);
     star_chords.init_storage(persistent_arena, STAR_VERTICES);
     timed_filters.init_storage(persistent_arena);
     flower_split.init_storage(persistent_arena, FLOWER_MAX_POINTS);
@@ -326,29 +313,6 @@ private:
     twist_ready = true;
   }
 
-  float phase_sign_contour(float radius) const {
-    return !params.opposite && radius > 1.0f ? -1.0f : 1.0f;
-  }
-
-  float phase_sign_star(float radius) const {
-    return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
-  }
-
-  static constexpr float folded_radius_t(float radius_t) {
-    return radius_t <= 0.5f ? radius_t : 1.0f - radius_t;
-  }
-
-  static constexpr int folded_draw_index(int count, int ordinal) {
-    if ((count & 1) != 0) {
-      if (ordinal == 0)
-        return count / 2;
-      const int offset = (ordinal + 1) / 2;
-      return (ordinal & 1) != 0 ? count / 2 + offset : count / 2 - offset;
-    }
-    const int offset = ordinal / 2;
-    return (ordinal & 1) == 0 ? count / 2 + offset : (count - 1) / 2 - offset;
-  }
-
   static float alpha_falloff_at(AlphaFalloff falloff, float radius_t,
                                 int count) {
     if (falloff == AlphaFalloff::CONSTANT_HALF)
@@ -356,9 +320,9 @@ private:
     const int steps_to_equator = (count - 1) / 2;
     if (steps_to_equator == 0)
       return 1.0f;
-    const float distance_from_pole =
-        hs::clamp(folded_radius_t(radius_t) * static_cast<float>(count) - 0.5f,
-                  0.0f, static_cast<float>(steps_to_equator));
+    const float distance_from_pole = hs::clamp(
+        Plot::folded_radius_t(radius_t) * static_cast<float>(count) - 0.5f,
+        0.0f, static_cast<float>(steps_to_equator));
     const float equator_alpha = 2.0f / static_cast<float>(count);
     return 1.0f - (1.0f - equator_alpha) * distance_from_pole /
                       static_cast<float>(steps_to_equator);
@@ -374,40 +338,8 @@ private:
     }
   };
 
-  /** Maps contour quantiles to the screen-space sampling envelope. */
-  HS_FLASH_MEMBER static float screen_balanced_radius_t(float radius_t) {
-    constexpr float DENSITY_FLOOR = 0.5f;
-    constexpr float BREAK_ANGLE = math::PI_F / 6.0f;
-    constexpr float DENSITY_INTEGRAL = 1.1278247916f;
-    constexpr float BREAK_QUANTILE =
-        DENSITY_FLOOR * BREAK_ANGLE / DENSITY_INTEGRAL;
-    const bool far_side = radius_t > 0.5f;
-    const float u = 2.0f * folded_radius_t(radius_t);
-    const float theta = u < BREAK_QUANTILE
-                            ? u * DENSITY_INTEGRAL / DENSITY_FLOOR
-                            : acosf(DENSITY_INTEGRAL * (1.0f - u));
-    const float folded = theta / math::PI_F;
-    return far_side ? 1.0f - folded : folded;
-  }
-
   HS_FLASH_MEMBER void prepare_count(int count) {
-    HS_CHECK(count >= 1 && count <= MAX_SHAPES,
-             "ShapeShifter: contour count %d outside table capacity", count);
-    const bool screen_balanced =
-        params.spacing == RadiusSpacing::SCREEN_BALANCED;
-    for (int i = 0; i < count; ++i) {
-      const float radius_t =
-          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      phase_sin[i] = sinf(2.0f * math::PI_F * radius_t);
-      phase_cos[i] = cosf(2.0f * math::PI_F * radius_t);
-      spaced_radius_t[i] =
-          screen_balanced ? screen_balanced_radius_t(radius_t) : radius_t;
-      planar_star_radius_trig[i] =
-          Plot::Star<Plot::PlanarProjection>::radius_trig(2.0f *
-                                                          spaced_radius_t[i]);
-      folded_draw_indices[i] =
-          static_cast<uint16_t>(folded_draw_index(count, i));
-    }
+    layout.prepare(count, params.spacing == RadiusSpacing::SCREEN_BALANCED);
 
     MirrorModifier mirror;
     AlphaFalloffModifier constant{AlphaFalloff::CONSTANT_HALF};
@@ -431,21 +363,10 @@ private:
     prepared_spacing = params.spacing;
   }
 
-  HS_FLASH_MEMBER void prepare_waveform(PhaseFunction function, int count) {
-    if (function == PhaseFunction::SINE) {
-      const float phase_angle = 2.0f * math::PI_F * phase;
-      const float phase_sine = sinf(phase_angle);
-      const float phase_cosine = cosf(phase_angle);
-      for (int i = 0; i < count; ++i)
-        waveform[i] = phase_sin[i] * phase_cosine + phase_cos[i] * phase_sine;
-      return;
-    }
-
-    for (int i = 0; i < count; ++i) {
-      const float radius_t =
-          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      waveform[i] = evaluate(function, radius_t + phase);
-    }
+  void prepare_waveform(PhaseFunction function, int count) {
+    layout.prepare_waveform(
+        phase, count, function == PhaseFunction::SINE,
+        [function](float t) { return evaluate(function, t); });
   }
 
   const BakedPalette &selected_palette() const {
@@ -480,51 +401,14 @@ private:
                                                   int count, int sides,
                                                   const BakedPalette &palette) {
     const float radius_t = 0.5f / static_cast<float>(count);
-    draw_planar_star_pole_cap(canvas, basis, spaced_radius_t[0], radius_t,
-                              sides, palette);
+    draw_planar_star_pole_cap(canvas, basis, layout.spaced_radius_t(0),
+                              radius_t, sides, palette);
     // At count 1 both caps resolve to identical arguments; drawing the second
     // would composite the same pixels twice.
     if (count == 1)
       return;
-    draw_planar_star_pole_cap(canvas, basis, spaced_radius_t[count - 1],
+    draw_planar_star_pole_cap(canvas, basis, layout.spaced_radius_t(count - 1),
                               1.0f - radius_t, sides, palette);
-  }
-
-  /** @brief A contour's ordered slot and geometric radius. */
-  struct ContourSlot {
-    int i;          ///< Contour index.
-    float radius_t; ///< Palette coordinate.
-    float radius;   ///< Geometric radius.
-  };
-
-  /** @brief A contour's phase and shaded color. */
-  struct ContourShading {
-    float direction;     ///< Signed phase direction.
-    float contour_phase; ///< Waveform displacement.
-    Color4 shaded_color; ///< Stroke color and opacity.
-  };
-
-  /** @brief Selects a contour and refreshes its paired palette color.
-   * @param ordinal Draw-order position.
-   * @param count Number of contours.
-   * @param continuous_star Whether contours have independent colors.
-   * @param palette Palette sampled by radius.
-   * @param pair_color Current paired palette color.
-   * @return Contour index and radii. */
-  HS_HOT_INLINE ContourSlot contour_slot(int ordinal, int count,
-                                         bool continuous_star,
-                                         const BakedPalette &palette,
-                                         Color4 &pair_color) const {
-    const int i =
-        continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
-    const float radius_t =
-        (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-    const bool starts_pair = (count & 1) != 0
-                                 ? ordinal == 0 || (ordinal & 1) != 0
-                                 : (ordinal & 1) == 0;
-    if (continuous_star || starts_pair)
-      pair_color = palette.get(radius_t);
-    return {i, radius_t, 2.0f * spaced_radius_t[i]};
   }
 
   /** @brief Tests a planar star contour's cap against the clip.
@@ -545,25 +429,6 @@ private:
                                        sinf(t2));
   }
 
-  /** @brief Evaluates a contour's phase and opacity.
-   * @param i Contour index.
-   * @param radius Contour radius.
-   * @param continuous_star Whether phase follows the spherical-star rule.
-   * @param pair_color Selected palette color.
-   * @param global_alpha Frame opacity.
-   * @return Phase direction, displacement and shaded color. */
-  HS_HOT_INLINE ContourShading contour_shading(int i, float radius,
-                                               bool continuous_star,
-                                               const Color4 &pair_color,
-                                               float global_alpha) const {
-    const float direction =
-        continuous_star ? phase_sign_star(radius) : phase_sign_contour(radius);
-    const float contour_phase = direction * params.amplitude * waveform[i];
-    Color4 shaded_color = pair_color;
-    shaded_color.alpha *= global_alpha;
-    return {direction, contour_phase, shaded_color};
-  }
-
   /**
    * @brief Draws the default P1 surface or the selected midpoint-sampled contours.
    * @param canvas Target canvas.
@@ -581,11 +446,8 @@ private:
     const bool dense_contours =
         static_cast<float>(count) >= DENSE_CONTOUR_COUNT;
     const bool planar_star = shape == ShapeType::PLANAR_STAR;
-    if (planar_star && sides != prepared_planar_star_sides) {
-      planar_star_step_trig =
-          Plot::Star<Plot::PlanarProjection>::step_trig(sides);
-      prepared_planar_star_sides = sides;
-    }
+    if (planar_star)
+      layout.prepare_star_sides(sides);
     if (surface_route()) {
       draw_surface_all(canvas, palette, !Spacetime::flat_surface());
       return;
@@ -615,15 +477,16 @@ private:
     const float global_alpha = alpha * preset_opacity;
     const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
     for (int ordinal = 0; ordinal < count; ++ordinal) {
-      const ContourSlot slot =
-          contour_slot(ordinal, count, continuous_star, palette, pair_color);
+      const Plot::ContourSlot slot =
+          layout.slot(ordinal, count, continuous_star, palette, pair_color);
       const int i = slot.i;
       const float radius = slot.radius;
       if (planar_star &&
           !planar_star_cap_visible(clip, near_cap, far_cap, radius, 0.0f))
         continue;
-      const ContourShading shading =
-          contour_shading(i, radius, continuous_star, pair_color, global_alpha);
+      const Plot::ContourShading shading =
+          layout.shading(i, radius, continuous_star, params.opposite,
+                         params.amplitude, pair_color, global_alpha);
       const float contour_phase = shading.contour_phase;
       const Color4 shaded_color = shading.shaded_color;
       auto shader = [&](const math::Vector &, Fragment &fragment) {
@@ -699,7 +562,7 @@ private:
     const float opacity = alpha * preset_opacity;
     for (int i = 0; i <= intervals; ++i) {
       const float q = .5f * i / intervals;
-      radii[i] = math::PI_F * screen_balanced_radius_t(q);
+      radii[i] = math::PI_F * Plot::screen_balanced_radius_t(q);
       sines[i] = sinf(math::TWO_PI_F * q);
       cosines[i] = cosf(math::TWO_PI_F * q);
       const auto color = palette.get(1 - q);
@@ -990,13 +853,14 @@ private:
 
     Color4 pair_color;
     for (int ordinal = 0; ordinal < count; ++ordinal) {
-      const ContourSlot slot =
-          contour_slot(ordinal, count, continuous_star, palette, pair_color);
+      const Plot::ContourSlot slot =
+          layout.slot(ordinal, count, continuous_star, palette, pair_color);
       const int i = slot.i;
       const float radius_t = slot.radius_t;
       const float radius = slot.radius;
-      const ContourShading shading =
-          contour_shading(i, radius, continuous_star, pair_color, global_alpha);
+      const Plot::ContourShading shading =
+          layout.shading(i, radius, continuous_star, params.opposite,
+                         params.amplitude, pair_color, global_alpha);
       const float direction = shading.direction;
       const float contour_phase = shading.contour_phase;
       const Color4 shaded_color = shading.shaded_color;
@@ -1031,8 +895,8 @@ private:
                                                      projection_basis);
           Plot::Star<Plot::PlanarProjection>::sample_chart_positions(
               ring, star_chords.chart_x(), star_chords.chart_y(), world_basis,
-              radius, sides, contour_phase, planar_star_radius_trig[i],
-              planar_star_step_trig, *chart);
+              radius, sides, contour_phase, layout.radius_trig(i),
+              layout.star_step_trig(), *chart);
         } else {
           if (shape == ShapeType::FLOWER) {
             projection_basis = Plot::planar_chart_basis(
@@ -1181,8 +1045,8 @@ private:
         *Plot::PlanarProjection::edge_basis(basis, radius, projection_basis);
     Plot::Star<Plot::PlanarProjection>::sample_chart_positions(
         points, star_chords.chart_x(), star_chords.chart_y(), basis, radius,
-        sides, phase, planar_star_radius_trig[contour_index],
-        planar_star_step_trig, planar_basis);
+        sides, phase, layout.radius_trig(contour_index),
+        layout.star_step_trig(), planar_basis);
     star_chords.draw_closed(plot_filters, canvas, points, sides * 2,
                             planar_basis, color, fragment_shader);
   }
@@ -1431,15 +1295,7 @@ private:
                     Filter::Screen::AntiAlias<W, H>()};
   BakedPaletteStorage baked_constant;
   BakedPaletteStorage baked_toward_equator;
-  float *spaced_radius_t = nullptr;
-  float *phase_sin = nullptr;
-  float *phase_cos = nullptr;
-  float *waveform = nullptr;
-  uint16_t *folded_draw_indices = nullptr;
-  Plot::Star<Plot::PlanarProjection>::RadiusTrig *planar_star_radius_trig =
-      nullptr;
-  Plot::Star<Plot::PlanarProjection>::StepTrig planar_star_step_trig{};
-  int prepared_planar_star_sides = 0;
+  Plot::ContourLayout<MAX_SHAPES> layout;
   Plot::PlanarChords<W, H> star_chords;
   Plot::PlanarBandSplit<W, H> flower_split;
   Plot::ClipBand<W, H> flower_band;
@@ -1498,8 +1354,7 @@ private:
                     257 * sizeof(uint16_t) + 32 <=
                 SURFACE_SCRATCH_B_BYTES);
   static constexpr size_t FOOTPRINT_BYTES =
-      MAX_SHAPES * (4 * sizeof(float) + sizeof(uint16_t) +
-                    sizeof(Plot::Star<Plot::PlanarProjection>::RadiusTrig)) +
+      Plot::ContourLayout<MAX_SHAPES>::storage_bytes() +
       2 * BakedPalette::required_arena_bytes() +
       Plot::PlanarChords<W, H>::storage_bytes(STAR_VERTICES) +
       Plot::PlanarBandSplit<W, H>::storage_bytes(FLOWER_MAX_POINTS) +
