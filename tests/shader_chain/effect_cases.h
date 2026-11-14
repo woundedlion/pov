@@ -252,17 +252,29 @@ inline void test_shader_chain_projection_plane_bound() {
       return;
     param_as<In::Op::ProjectChainParams>(program, 0).frame =
         static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
-    const auto ctx = shared_resources().context();
-    program.prepare(ctx);
     HS_EXPECT_TRUE(op.runtime.plane_bound != nullptr);
     if (op.runtime.plane_bound == nullptr)
       continue;
-    const float bound =
-        op.runtime.plane_bound(program.param_block(0), 0.0f, {});
-    for (const math::Vector &view : views) {
-      const PB::PlaneSample plane = run_entry<PB::PlaneSample>(
-          program, ctx, 0, PB::SphereSample{view, 0.0f});
-      HS_EXPECT_LE(std::hypot(plane.coords.re, plane.coords.im), bound);
+    const auto ctx = shared_resources().context();
+    enum class Corner { DEFAULT, MIN, MAX };
+    for (Corner corner : {Corner::DEFAULT, Corner::MIN, Corner::MAX}) {
+      HS_CONTEXT("corner", static_cast<int>(corner));
+      for (uint16_t index = 0;
+           corner != Corner::DEFAULT && index < op.schema_count; ++index) {
+        const In::ParamFieldInfo &field = op.schema[index];
+        if (field.enum_count == 0)
+          *static_cast<float *>(
+              op.runtime.param_address(program.param_block(0), index)) =
+              corner == Corner::MIN ? field.min : field.max;
+      }
+      program.prepare(ctx);
+      const float bound =
+          op.runtime.plane_bound(program.param_block(0), 0.0f, {});
+      for (const math::Vector &view : views) {
+        const PB::PlaneSample plane = run_entry<PB::PlaneSample>(
+            program, ctx, 0, PB::SphereSample{view, 0.0f});
+        HS_EXPECT_LE(std::hypot(plane.coords.re, plane.coords.im), bound);
+      }
     }
   }
   HS_EXPECT_GT(projections, 0u);

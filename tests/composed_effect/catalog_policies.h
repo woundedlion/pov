@@ -114,7 +114,9 @@ template <typename Family, typename Model> void check_warp() {
   constexpr int MODE_COUNT = requires {
     params.mode;
   } ? std::size(Pullback::Warp::AuthoredPolarParams::MODE_IDS) : 1;
-  constexpr int HARMONIC_COUNT = requires { params.harmonic; } ? 16 : 1;
+  constexpr int HARMONIC_COUNT = requires {
+    params.harmonic;
+  } ? std::size(Pullback::Warp::AuthoredPolarParams::HARMONIC_IDS) : 1;
   constexpr int INTEGRATOR_COUNT = requires {
     params.integrator;
   } ? std::size(Pullback::Warp::AuthoredCurlFlowParams::INTEGRATOR_IDS) : 1;

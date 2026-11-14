@@ -661,14 +661,17 @@ inline void test_sim_variable_effect_durations() {
   HS_EXPECT_TRUE(
       sim.run_until(all_boards_on(1), double(effect_revolutions[0]) + 6));
 
-  sim.run_revs(45.0);
+  // Mid-window between a default-length commit (40 + R + K) and the roster's
+  // (52 + R + K).
+  constexpr double PROBE_REVS = 50.0;
+  sim.run_revs(PROBE_REVS);
   for (auto &b : sim.boards)
     HS_EXPECT_EQ(b.live_index, 1);
 
   HS_EXPECT_TRUE(sim.run_until(
       all_boards_on(2),
       double(effect_revolutions[1] + cfg.epoch_repeats + cfg.commit_revs) -
-          45.0 + 1.0));
+          PROBE_REVS + 1.0));
 }
 
 /** Two-entry roster whose commit window opens the widest beacon gap. */

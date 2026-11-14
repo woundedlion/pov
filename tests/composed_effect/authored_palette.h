@@ -159,14 +159,43 @@ inline void test_composed_authored_palette_harmony_clock() {
   }
 }
 
-/** @brief Authored palettes reject unknown palette types and brightness envelopes. */
+/** @brief Authored palettes admit each selector's last ordinal and reject the
+ *  next one. */
 inline void test_composed_authored_palette_admission() {
-  AuthoredPaletteProbe::Params params{};
-  auto invalid = params;
-  invalid.template get<"color">().palette_type = 255;
-  HS_EXPECT_FALSE(AuthoredPaletteProbe::valid_params(invalid));
-  invalid = params;
-  invalid.template get<"color">().brightness_envelope =
-      static_cast<Pullback::Color::BrightnessEnvelope>(255);
-  HS_EXPECT_FALSE(AuthoredPaletteProbe::valid_params(invalid));
+  using Color = Pullback::Color::AuthoredColorParams;
+  struct Selector {
+    const char *name;
+    uint8_t first_invalid;
+    void (*set)(Color &, uint8_t);
+  };
+  const Selector selectors[] = {
+      {"palette_type", uint8_t(AuthoredPaletteType::MUTATING) + 1,
+       [](Color &c, uint8_t v) { c.palette_type = v; }},
+      {"palette_mode", uint8_t(std::size(Pullback::Color::PALETTE_MODE_IDS)),
+       [](Color &c, uint8_t v) { c.palette_mode = v; }},
+      {"palette_harmony", uint8_t(PaletteHarmony::SQUARE) + 1,
+       [](Color &c, uint8_t v) { c.palette_harmony = v; }},
+      {"palette_lightness_curve", uint8_t(AxisCurve::CUP) + 1,
+       [](Color &c, uint8_t v) { c.palette_lightness_curve = v; }},
+      {"palette_name", uint8_t(std::size(AUTHORED_PALETTE_NAME_IDS)),
+       [](Color &c, uint8_t v) { c.palette_name = v; }},
+      {"palette_name_b", uint8_t(std::size(AUTHORED_PALETTE_NAME_IDS)),
+       [](Color &c, uint8_t v) { c.palette_name_b = v; }},
+      {"brightness_envelope",
+       uint8_t(Pullback::Color::BrightnessEnvelope::DESCENDING) + 1,
+       [](Color &c, uint8_t v) {
+         c.brightness_envelope =
+             static_cast<Pullback::Color::BrightnessEnvelope>(v);
+       }},
+  };
+  for (const Selector &selector : selectors) {
+    HS_CONTEXT(selector.name);
+    for (uint8_t value :
+         {uint8_t(selector.first_invalid - 1), selector.first_invalid}) {
+      AuthoredPaletteProbe::Params params{};
+      selector.set(params.template get<"color">(), value);
+      HS_EXPECT_EQ(AuthoredPaletteProbe::valid_params(params),
+                   value < selector.first_invalid);
+    }
+  }
 }

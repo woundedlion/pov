@@ -420,8 +420,10 @@ inline std::array<double, hs_wasm::MESHOP_BOUNDS_COUNT> mesh_op_peak_growth{};
  * @param target Arena receiving the output mesh; reset here.
  * @param temp Arena for the operator's intermediates; reset here.
  * @param finalized Arena standing in for the bridge's tooling arena; reset here.
- * @details Fails when a declared factor or byte-per-element budget is below the
- *          measured value.
+ * @details Fails when a declared element factor or byte-per-element budget is
+ *          below the measured value, or when the final output's widest face
+ *          exceeds what the declared degree and valence factors allow.
+ *          Intermediate stages are not measured.
  */
 inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
                                  Arena &target, Arena &temp, Arena &finalized) {
@@ -476,6 +478,33 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
 }
 
 /**
+ * @brief Builds a bipyramid: two poles of valence @p n over an @p n-gon equator.
+ * @param arena Arena the mesh is bound in.
+ * @param n Equator vertex count.
+ * @return The bipyramid, all triangles.
+ */
+inline PolyMesh build_bipyramid(Arena &arena, uint16_t n) {
+  PolyMesh bipyramid;
+  bipyramid.vertices.bind(arena, n + 2);
+  bipyramid.face_counts.bind(arena, 2 * n);
+  bipyramid.faces.bind(arena, 6 * n);
+  bipyramid.vertices.push_back(math::Vector(0, 1, 0));
+  bipyramid.vertices.push_back(math::Vector(0, -1, 0));
+  for (uint16_t i = 0; i < n; ++i) {
+    const float angle = math::TWO_PI_F * i / n;
+    bipyramid.vertices.push_back(math::Vector(cosf(angle), 0, sinf(angle)));
+  }
+  for (uint16_t i = 0; i < n; ++i) {
+    const uint16_t here = i + 2, next = (i + 1) % n + 2;
+    for (uint16_t vertex : {uint16_t{0}, next, here, uint16_t{1}, here, next})
+      bipyramid.faces.push_back(vertex);
+    bipyramid.face_counts.push_back(3);
+    bipyramid.face_counts.push_back(3);
+  }
+  return bipyramid;
+}
+
+/**
  * @brief Runs every roster operator against one solid.
  * @tparam Solid Solids::* descriptor to build the input from.
  * @param input Arena the input solid is rebuilt in.
@@ -523,24 +552,7 @@ inline void test_mesh_op_growth_factors() {
   probe_solid_growth<Solids::Dodecahedron>(input, target, temp, finalized);
 
   input.reset();
-  PolyMesh bipyramid;
-  constexpr uint16_t N = 16;
-  bipyramid.vertices.bind(input, N + 2);
-  bipyramid.face_counts.bind(input, 2 * N);
-  bipyramid.faces.bind(input, 6 * N);
-  bipyramid.vertices.push_back(math::Vector(0, 1, 0));
-  bipyramid.vertices.push_back(math::Vector(0, -1, 0));
-  for (uint16_t i = 0; i < N; ++i) {
-    const float angle = math::TWO_PI_F * i / N;
-    bipyramid.vertices.push_back(math::Vector(cosf(angle), 0, sinf(angle)));
-  }
-  for (uint16_t i = 0; i < N; ++i) {
-    const uint16_t here = i + 2, next = (i + 1) % N + 2;
-    for (uint16_t vertex : {uint16_t{0}, next, here, uint16_t{1}, here, next})
-      bipyramid.faces.push_back(vertex);
-    bipyramid.face_counts.push_back(3);
-    bipyramid.face_counts.push_back(3);
-  }
+  const PolyMesh bipyramid = build_bipyramid(input, 16);
   for (const MeshOpProbe &probe : MESH_OP_PROBES)
     check_mesh_op_growth(probe, bipyramid, target, temp, finalized);
   target.reset();
@@ -580,6 +592,67 @@ inline void test_mesh_op_declared_factor_boundaries() {
           row.bounds.face_degree, row.bounds.valence, 255));
     }
   }
+}
+
+/** @brief Every operator the face-degree guard admits at the 255-side limit runs
+ *  without any stage, intermediate or final, tripping narrow_face_count. */
+inline void test_mesh_op_face_degree_guard_boundary() {
+  constexpr size_t MAX = 255;
+  constexpr uint16_t OVER = MAX + 1;
+  size_t max_growth = 0;
+  for (const auto &row : hs_wasm::MESHOP_BOUNDS)
+    max_growth = std::max(max_growth, row.bounds.elements);
+  const size_t bytes =
+      hs_wasm::TOOLING_SCRATCH_BYTES_PER_MESH_ELEMENT * max_growth * 6 * OVER;
+  std::vector<uint8_t> input_bytes(bytes), target_bytes(bytes),
+      temp_bytes(bytes);
+  Arena input(input_bytes.data(), input_bytes.size());
+  Arena target(target_bytes.data(), target_bytes.size());
+  Arena temp(temp_bytes.data(), temp_bytes.size());
+
+  const auto probe_at_guard = [&](const char *label, const PolyMesh &in) {
+    HS_CONTEXT(label);
+    std::vector<uint32_t> incidence(in.vertices.size());
+    const size_t in_degree = hs_wasm::mesh_max_face_degree(
+        in.get_face_counts_data(), in.get_face_counts_size());
+    const size_t in_valence = hs_wasm::mesh_max_vertex_valence(
+        in.get_faces_data(), in.get_faces_size(), incidence.data(),
+        in.vertices.size());
+    HS_EXPECT_GE(std::max(in_degree, in_valence), MAX);
+    size_t admitted = 0, rejected = 0;
+    for (const MeshOpProbe &probe : MESH_OP_PROBES) {
+      HS_CONTEXT(probe.name);
+      const hs_wasm::MeshOpBoundsEntry *row =
+          hs_wasm::find_mesh_op_bounds(probe.name);
+      HS_EXPECT_TRUE(row != nullptr);
+      if (row == nullptr)
+        continue;
+      if (hs_wasm::mesh_op_face_degree_overflows(in_degree, in_valence,
+                                                 row->bounds.face_degree,
+                                                 row->bounds.valence, MAX)) {
+        ++rejected;
+        continue;
+      }
+      ++admitted;
+      target.reset();
+      temp.reset();
+      const PolyMesh out = probe.run(in, target, temp);
+      HS_EXPECT_GT(out.get_faces_size(), 0u);
+    }
+    HS_EXPECT_GT(admitted, 0u);
+    HS_EXPECT_GT(rejected, 0u);
+  };
+
+  input.reset();
+  probe_at_guard("valence 256", build_bipyramid(input, OVER));
+  input.reset();
+  const PolyMesh bipyramid = build_bipyramid(input, MAX);
+  probe_at_guard("valence 255", bipyramid);
+  target.reset();
+  temp.reset();
+  const PolyMesh prism = MeshOps::dual(bipyramid, target, temp);
+  input.reset();
+  probe_at_guard("face degree 255", Solids::finalize_solid(prism, input));
 }
 
 /** @brief Checks actual mesh growth near the uint16_t element ceiling. */
@@ -673,6 +746,7 @@ inline int run_wasm_predicates_tests() {
   HS_RUN(test_mesh_op_probes_match_roster);
   HS_RUN(test_mesh_op_growth_factors);
   HS_RUN(test_mesh_op_declared_factor_boundaries);
+  HS_RUN(test_mesh_op_face_degree_guard_boundary);
   HS_RUN(test_mesh_op_growth_near_capacity);
   HS_RUN(test_hankin_angle_domain);
   HS_RUN(test_finite_float_clamp);

@@ -34,18 +34,6 @@ inline bool is_black(const Pixel &p) {
   return p.r == 0 && p.g == 0 && p.b == 0;
 }
 
-/**
- * @brief Tests whether a pixel has exactly the given channel values.
- * @param p Pixel to inspect.
- * @param r Expected red channel value.
- * @param g Expected green channel value.
- * @param b Expected blue channel value.
- * @return True if all three channels match exactly.
- */
-inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
-  return p.r == r && p.g == g && p.b == b;
-}
-
 #define HS_EXPECT_PIXEL(actual, red, green, blue)                              \
   HS_EXPECT_LE(max_channel_gap((actual), Pixel((red), (green), (blue))),       \
                hs_test::FAST_MATH_CODE_SLACK)

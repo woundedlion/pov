@@ -548,7 +548,7 @@ inline void test_palette_cycler_deferred_chroma() {
   for (const int dwell : {0, 5}) {
     for (const int steps : {0, 2, 6}) {
       alignas(std::max_align_t) static uint8_t
-          buf[2 * PaletteCycler::required_arena_bytes()];
+          buf[2 * PaletteCycler::generated_arena_bytes()];
       Arena arena(buf, sizeof(buf));
       int calls_a = 0, calls_b = 0;
       PaletteCycler immediate, deferred;

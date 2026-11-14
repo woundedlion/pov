@@ -14,6 +14,7 @@ void check_timed_spatial_copies(Stage &stage, Reference reference) {
   StubEffect effect(288, 144);
   Canvas canvas(effect);
   const math::Vector source = math::Vector(0.3f, 0.5f, 0.7f).normalized();
+  const math::Vector second = math::Vector(-0.6f, 0.2f, 0.4f).normalized();
   const math::Basis BASIS{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   const Pixel COLOR(73, 91, 129);
   std::vector<math::Vector> expected;
@@ -58,11 +59,11 @@ void check_timed_spatial_copies(Stage &stage, Reference reference) {
     for (bool planar : {false, true}) {
       int culled = 0;
       const bool visible = stage.cull_edge_timed(
-          source, source, planar ? &BASIS : nullptr,
+          source, second, planar ? &BASIS : nullptr,
           [&](const math::Vector &a, const math::Vector &b,
               const math::Basis *transformed) {
             check_reference(a, source);
-            check_reference(b, source);
+            check_reference(b, second);
             HS_EXPECT_EQ(transformed != nullptr, planar);
             if (transformed) {
               check_reference(transformed->u, BASIS.u);

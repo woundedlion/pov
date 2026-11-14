@@ -450,6 +450,19 @@ inline void classify_in_scratch(PolyMesh &mesh, Arena &target) {
 }
 
 /**
+ * @brief Class-keyed palette slot of each face of a classified mesh.
+ * @param mesh Mesh with a topology key per face.
+ * @return One palette slot per face, in face order.
+ */
+inline std::vector<uint8_t> topology_palettes(const PolyMesh &mesh) {
+  const size_t nf = mesh.face_counts.size();
+  std::vector<uint8_t> pal2(nf);
+  for (size_t f = 0; f < nf; ++f)
+    pal2[f] = static_cast<uint8_t>(MeshPaletteBank::slot_of(mesh.topology[f]));
+  return pal2;
+}
+
+/**
  * @brief Drives a MEDIAL_SLERP leg to completion through OpLeg on every DUAL-leg
  *        seed: constant compiled face count, bounded per-frame motion, a total
  *        palette mapping, and a landing describing the whole medial face list.
@@ -482,12 +495,9 @@ inline void test_opleg_medial_leg_smoke() {
     PolyMesh ambo_p = Solids::finalize_solid(MeshOps::ambo(p, leg, temp), leg);
     classify_in_scratch(ambo_p, leg);
     const size_t prev_faces = ambo_p.face_counts.size();
-    std::vector<uint8_t> pal(prev_faces);
+    const std::vector<uint8_t> pal = topology_palettes(ambo_p);
     std::vector<math::Vector> centroid(prev_faces);
     MeshOps::face_centroids_into(ambo_p, centroid.data());
-    for (size_t f = 0; f < prev_faces; ++f)
-      pal[f] =
-          static_cast<uint8_t>(MeshPaletteBank::slot_of(ambo_p.topology[f]));
 
     OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                   .prev_face_palette = pal.data(),
@@ -519,19 +529,6 @@ inline void test_opleg_medial_leg_smoke() {
                 site.name, landing.faces, SWEEP, (double)probe.worst_step,
                 hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
-}
-
-/**
- * @brief Class-keyed palette slot of each face of a classified mesh.
- * @param mesh Mesh with a topology key per face.
- * @return One palette slot per face, in face order.
- */
-inline std::vector<uint8_t> topology_palettes(const PolyMesh &mesh) {
-  const size_t nf = mesh.face_counts.size();
-  std::vector<uint8_t> pal2(nf);
-  for (size_t f = 0; f < nf; ++f)
-    pal2[f] = static_cast<uint8_t>(MeshPaletteBank::slot_of(mesh.topology[f]));
-  return pal2;
 }
 
 /**

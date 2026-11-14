@@ -46,6 +46,20 @@ struct TwoSphereSDF {
   }
 };
 
+/**
+ * @brief Foreground sphere offset in front of a larger background sphere whose
+ *        silhouettes cross at SILHOUETTE_CORNER.
+ */
+inline const TwoSphereSDF OCCLUDING_PAIR{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
+                                         math::Vector(0.28f, 0.0f, -0.20f),
+                                         0.30f};
+
+/**
+ * @brief Orthographic ray origin at the silhouette crossing of OCCLUDING_PAIR,
+ *        offset outward of both circles by ~0.0033.
+ */
+inline const math::Vector SILHOUETTE_CORNER(0.0357f, 0.1797f, 1.0f);
+
 /** @brief Capped ray samples remain on the ray and bound longer traces. */
 inline void test_volume_capped_trace_properties() {
   int rays = 0;
@@ -84,12 +98,10 @@ inline void test_volume_capped_trace_properties() {
                 vd, 0.72f * scale, 0.07f * scale);
       }
     }
-  const TwoSphereSDF PAIR{math::Vector(0, 0, 0.2f), 0.18f,
-                          math::Vector(0.28f, 0, -0.2f), 0.3f};
   for (int x = -20; x <= 20; ++x)
     for (int y = -20; y <= 20; ++y)
-      compare(PAIR,
-              math::Vector(0.0357f + x * 0.0003f, 0.1797f + y * 0.0003f, 1),
+      compare(OCCLUDING_PAIR,
+              SILHOUETTE_CORNER + math::Vector(x * 0.0003f, y * 0.0003f, 0),
               math::Vector(0, 0, -1), 0.6f, 0.01f);
   HS_EXPECT_GT(rays, 100000);
 }
@@ -131,9 +143,8 @@ inline void test_volume_dense_reference() {
     float offset = i * 0.0005f;
     compare(SphereSDF{0.3f}, math::Vector(0.3f + offset, 0, 0.7f), 0.7f);
     compare(SDF::Torus{0.3f, 0.1f}, math::Vector(0.4f + offset, 0, 0.7f), 0.7f);
-    TwoSphereSDF pair{math::Vector(0, 0, 0.2f), 0.18f,
-                      math::Vector(0.28f, 0, -0.2f), 0.3f};
-    compare(pair, math::Vector(0.0357f + offset, 0.1797f, 1), 0.6f);
+    compare(OCCLUDING_PAIR, SILHOUETTE_CORNER + math::Vector(offset, 0, 0),
+            0.6f);
   }
   std::printf("  dense volume oracle band=%d soft=%d\n", band_entries,
               soft_entries);
@@ -278,9 +289,7 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
   const float BOUNDS_RADIUS = 0.65f;
   const float AA_WIDTH = 0.08f;
 
-  TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
-                     math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
-  Scan::TransformedVolume vol(shape, CENTER, math::Quaternion());
+  Scan::TransformedVolume vol(OCCLUDING_PAIR, CENTER, math::Quaternion());
 
   hs_test::StubEffect fx(W, H);
   VolumeSink sink;
@@ -353,11 +362,8 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
 inline void test_volume_probe_occluder_reports_background_graze_point() {
   const float AA_WIDTH = 0.01f;
   const float HIT_THRESHOLD = AA_WIDTH * Scan::Volume::SOLID_FRACTION;
-  TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
-                     math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
-
-  // Silhouette-crossing corner, offset outward of both circles by ~0.0033.
-  const math::Vector RO(0.0357f, 0.1797f, 1.0f);
+  const TwoSphereSDF &shape = OCCLUDING_PAIR;
+  const math::Vector &RO = SILHOUETTE_CORNER;
   const math::Vector VD(0.0f, 0.0f, -1.0f);
 
   math::Vector closest_local;
