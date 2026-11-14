@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Temporal crossing captures against their analytic surface.
+ */
 
 /** @brief Quadratic captures meet their analytic column-time surface. */
 inline void test_quadratic_screen_capture_meets_surface() {

@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief sRGB and linear LUTs against the float reference.
+ */
 #pragma once
 
 #include "core/color/color.h"

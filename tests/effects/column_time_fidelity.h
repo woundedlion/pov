@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Recorded fidelity modes and engagement checks.
+ */
 
 // ---------------------------------------------------------------------------
 // Column-time scan effects draw differently with temporal sampling on.

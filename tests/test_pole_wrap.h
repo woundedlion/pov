@@ -1,12 +1,13 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+/** @file
+ * @brief pole_wrap tap-reflection cases, run under both offset builds.
  *
- * pole_wrap tap-reflection cases, run under both offset builds.
- *
- * The south-pole contract differs by hs::H_OFFSET: at 0 the last rendered row
- * is the pole; at offset 3 the rows below it are a virtual gap that holds no
- * data.
+ * The south-pole contract differs by hs::H_OFFSET: at 0 the last rendered
+ * row is the pole; at offset 3 the rows below it are a virtual gap that
+ * holds no data.
  */
 #pragma once
 

@@ -1,9 +1,10 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Host unit tests for the WASM boundary predicates and mesh-operator growth
- * factors.
+ */
+/** @file
+ * @brief Host unit tests for the WASM boundary predicates and mesh-operator
+ * growth factors.
  */
 #pragma once
 

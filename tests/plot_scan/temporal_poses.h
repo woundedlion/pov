@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Retained temporal endpoint poses.
+ */
 
 /** @brief Retained endpoints collapse at birth, reset and flat draws, then resume from the last flat endpoint. */
 inline void test_retained_endpoint_lifecycle() {

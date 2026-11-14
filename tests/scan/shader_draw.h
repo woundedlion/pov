@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Scan::Shader drawing, bounding-sphere setup and alpha cutoff.
+ */
 
 // ============================================================================
 // Scan::Shader drawing, BoundingSphere setup, and MIN_ALPHA cutoff

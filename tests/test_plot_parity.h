@@ -1,8 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Render properties of the plot and scan filter-pipeline effects.
+ */
+/** @file
+ * @brief Render properties of the plot and scan filter-pipeline effects.
  */
 #pragma once
 

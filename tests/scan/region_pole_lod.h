@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Face and region scans, seams, pole LOD and region clip arcs.
+ */
 
 // ============================================================================
 // Scan::rasterize_face vs scan_region, seams, pole LOD, region clip arc

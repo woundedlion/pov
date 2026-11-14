@@ -1,8 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Unit tests for the core/animation subsystem.
+ */
+/** @file
+ * @brief Unit tests for the core/animation subsystem.
  */
 #pragma once
 

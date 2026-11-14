@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Topology constancy over open morph intervals.
+ */
 
 // ---------------------------------------------------------------------------
 // Topology-constancy sweep: connectivity is fixed on the open interval,

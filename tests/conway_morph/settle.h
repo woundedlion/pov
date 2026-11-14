@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Settle correspondence of relaxed vertex order.
+ */
 
 // ---------------------------------------------------------------------------
 // Settle correspondence: relax output vertex order is the identity over

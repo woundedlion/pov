@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief LED driver and POV test modules.
+ */
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 

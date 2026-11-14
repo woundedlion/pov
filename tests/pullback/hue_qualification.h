@@ -3,7 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
-/** @file @brief Cached hue modulation qualification over cycling palettes. */
+/** @file
+ * @brief Cached hue modulation qualification over cycling palettes.
+ */
 
 #include "tests/pullback/color.h"
 #include "core/render/pullback.h"

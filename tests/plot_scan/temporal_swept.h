@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Swept temporal bounds from frame-end captures.
+ */
 
 /** @brief Swept heights and half-planes from frame-end captures bound every
  *         point of a rotating edge's arcs over the frame. */

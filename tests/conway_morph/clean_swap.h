@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Clean-swap invisibility at boundary swaps.
+ */
 
 // ---------------------------------------------------------------------------
 // Clean-swap invisibility: the boundary swaps exchange geometrically

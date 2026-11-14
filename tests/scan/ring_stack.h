@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Ring pool and two-window scan properties.
+ */
 
 /** @brief Pool slots count only committed rings and survive alternate lookup. */
 inline void test_ring_stack_pool_lifecycle_and_bounds() {

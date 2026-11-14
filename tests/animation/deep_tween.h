@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief deep_tween traversal across the global_t span.
+ */
 
 // ============================================================================
 // deep_tween (global_t span)

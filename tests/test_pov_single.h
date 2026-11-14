@@ -1,8 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Host unit tests for the single-board POV index math
+ */
+/** @file
+ * @brief Host unit tests for the single-board POV index math
  * (hardware/pov_single_map.h).
  */
 #pragma once

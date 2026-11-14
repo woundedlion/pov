@@ -1,9 +1,11 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Hue-difference wrap for OKLCH hue assertions, independent of wrap_angle_pi so
- * a hue assertion never compares the module under test against itself.
+ */
+/** @file
+ * @brief Hue-difference wrap for OKLCH hue assertions, independent of
+ * wrap_angle_pi so a hue assertion never compares the module under test
+ * against itself.
  */
 #pragma once
 

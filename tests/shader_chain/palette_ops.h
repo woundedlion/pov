@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Shader-chain palette selection and snapshot tests.
+ */
 #pragma once
 
 #include "tests/shader_chain_fixture.h"

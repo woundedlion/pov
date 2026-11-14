@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Plot::PointRoute column-time points against a per-column oracle.
+ */
 
 // ---------------------------------------------------------------------------
 // Plot::PointRoute: closed-form column-time points against a per-column oracle.

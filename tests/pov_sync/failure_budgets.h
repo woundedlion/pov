@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief POV sync failure-mode artifact bounds and recovery times.
+ */
 
 // ── §9.1 failure-mode budget: artifact bounds and recovery times ────────────
 

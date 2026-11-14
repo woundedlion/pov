@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Column-time shader, drift and forced-table state.
+ */
 
 // ============================================================================
 // Column-time state: shaders, drift and forced tables at each column's time

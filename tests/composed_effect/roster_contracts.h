@@ -2,6 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Roster-wide slider, snapshot, choreography, interpolation and
+ * document contracts.
+ */
 
 // ============================================================================
 // Roster-wide slider, snapshot, choreography, interpolation and document contracts

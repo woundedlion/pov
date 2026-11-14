@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Column chunk slot reservation tests.
+ */
 
 /** @brief Chained edges share the last slot; unchained edges reserve both slots. */
 inline void test_column_chunk_capacity_boundary() {
