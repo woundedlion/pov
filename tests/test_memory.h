@@ -247,6 +247,23 @@ inline void test_arena_reset() {
   HS_EXPECT_EQ(a.get_high_water_mark(), hwm);
 }
 
+/** @brief reset() rewinds to the reset floor; rebind() clears the floor. */
+inline void test_arena_reset_floor() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  a.allocate(100);
+  a.set_reset_floor();
+  const size_t floor = a.get_offset();
+  HS_EXPECT_EQ(a.get_reset_floor(), floor);
+  a.allocate(50);
+  a.reset();
+  HS_EXPECT_EQ(a.get_offset(), floor);
+  a.rebind(test_buf_a, sizeof(test_buf_a));
+  HS_EXPECT_EQ(a.get_reset_floor(), (size_t)0);
+  a.allocate(10);
+  a.reset();
+  HS_EXPECT_EQ(a.get_offset(), (size_t)0);
+}
+
 /**
  * @brief Verifies set_offset() rewinds the arena to a previously saved offset
  *        (manual scratch).
@@ -930,6 +947,25 @@ inline void test_arena_block_stamp_reset_and_rewind() {
   HS_EXPECT_FALSE(stamp.block_reissued(fresh, 64));
   HS_EXPECT_FALSE(stamp.block_alive(fresh, 64));
 }
+
+/** @brief Blocks below the reset floor outlive reset(); blocks above do not. */
+inline void test_arena_block_stamp_reset_floor() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  ArenaBlockStamp stamp;
+  stamp.record(a);
+  void *kept = a.allocate(64);
+  a.set_reset_floor();
+  void *dropped = a.allocate(64);
+  a.reset();
+  a.allocate(64);
+  HS_EXPECT_TRUE(stamp.block_alive(kept, 64));
+  HS_EXPECT_FALSE(stamp.block_alive(dropped, 64));
+
+  a.rebind(test_buf_a, sizeof(test_buf_a));
+  a.allocate(128);
+  a.set_reset_floor();
+  HS_EXPECT_FALSE(stamp.block_alive(kept, 64));
+}
 #endif
 
 /**
@@ -1448,6 +1484,7 @@ inline int run_memory_tests() {
   HS_RUN(test_arena_high_water_mark);
   HS_RUN(test_arena_lifetime_high_water_mark);
   HS_RUN(test_arena_reset);
+  HS_RUN(test_arena_reset_floor);
   HS_RUN(test_arena_set_offset);
   HS_RUN(test_arena_fills_to_capacity);
   HS_RUN(test_arena_rebind);
@@ -1487,8 +1524,11 @@ inline int run_memory_tests() {
   HS_RUN(test_arenavec_rebind_grows);
 #ifndef NDEBUG
   HS_RUN(test_arena_block_stamp_reset_and_rewind);
+  HS_RUN(test_arena_block_stamp_reset_floor);
 #else
   skip_case("test_arena_block_stamp_reset_and_rewind",
+            "requires debug arena tracking");
+  skip_case("test_arena_block_stamp_reset_floor",
             "requires debug arena tracking");
 #endif
   HS_RUN(test_arenavec_zero_capacity);

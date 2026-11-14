@@ -138,6 +138,18 @@ inline void case_arena_set_offset_forward() {
   a.set_offset(opaque<size_t>(4)); // forward, still under capacity -> HS_CHECK
 }
 
+/** @brief Death case: a rewind below the reset floor must trap. */
+inline void case_arena_rewind_below_reset_floor() {
+  static uint8_t buf[256];
+  Arena a(buf, sizeof(buf));
+  a.allocate(opaque<size_t>(64), opaque<size_t>(1));
+  a.set_reset_floor();
+  a.allocate(opaque<size_t>(32), opaque<size_t>(1));
+  a.set_offset(opaque<size_t>(64));
+  death_admitted();
+  a.set_offset(opaque<size_t>(32));
+}
+
 /**
  * @brief Death case: non-LIFO ScratchScope teardown must trap.
  * @details Destroying the outer scope first rewinds the offset below the inner

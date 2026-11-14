@@ -141,7 +141,9 @@ public:
     device_persistent_budget = GENERATED_BUDGET.device_persistent();
 
     ripple_gen.init_storage(persistent_arena);
-    claim_face_palettes(persistent_arena);
+    for (uint8_t *&pal : slot_face_palette)
+      pal = persistent_arena.allocate_n<uint8_t>(MAX_BUILD_FACES);
+    persistent_arena.set_reset_floor();
     palette_bank.bake_all(persistent_arena);
 
     ripple_gen.template_params.amplitude = RIPPLE_AMP_MAX;
@@ -335,37 +337,18 @@ private:
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank;
-  /** Per-slot per-face palette ids (persistent-arena backed, MAX_BUILD_FACES
-   * each); compaction re-claims the same addresses, so the contents survive
-   * the reset. */
+  /** Per-slot per-face palette ids (MAX_BUILD_FACES each), below the
+   * persistent arena's reset floor, so they survive compaction. */
   uint8_t *slot_face_palette[2] = {};
   /** Per-slot segue phase of the last sprite callback. */
   Spacetime::Retained<float> phase_history[2];
 
   /**
-   * @brief Claims the two per-slot face-palette arrays from the arena.
-   * @param arena Persistent arena the arrays live in.
-   * @details Must directly follow the ripple pool's claim so the arrays
-   * re-land at their original addresses (asserted).
-   */
-  void claim_face_palettes(Arena &arena) {
-    for (uint8_t *&pal : slot_face_palette) {
-      uint8_t *prev = pal;
-      pal = arena.allocate_n<uint8_t>(MAX_BUILD_FACES);
-      HS_CHECK(prev == nullptr || prev == pal,
-               "IslamicStars: face-palette array moved across the compaction");
-    }
-  }
-
-  /**
-   * @brief Rebake callback for every persistent compaction: the ripple pool
-   * first (its slots re-land at their init_storage addresses), then the
-   * face-palette arrays, then the palette bank.
+   * @brief Rebake callback for every persistent compaction. The ripple pool
+   * and face-palette arrays sit below the reset floor and survive it.
    * @param arena The freshly reset persistent arena.
    */
   HS_FLASH_MEMBER void reclaim_persistent(Arena &arena) {
-    ripple_gen.reclaim_storage(arena);
-    claim_face_palettes(arena);
     palette_bank.bake_all(arena);
   }
 

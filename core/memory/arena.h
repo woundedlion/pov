@@ -74,8 +74,10 @@ class Arena {
   size_t offset;
   size_t high_water_mark;
   size_t lifetime_high_water_mark;
+  size_t reset_floor = 0;
 #ifndef NDEBUG
   uint32_t generation = 0;
+  uint32_t floor_generation = 0;
   size_t rewind_floor = SIZE_MAX;
   uint64_t rewind_seq = 0;
   struct Rewind {
@@ -245,6 +247,8 @@ public:
    * reserved. Alignment is not re-checked; allocate() pads from the true address.
    */
   void set_offset(size_t new_offset) {
+    HS_AUDIT_CHECK(new_offset >= reset_floor,
+                   "Arena::set_offset below the reset floor");
     HS_CHECK(new_offset <= offset,
              "Arena::set_offset: %lu is not a rewind from %lu",
              static_cast<unsigned long>(new_offset),
@@ -266,18 +270,33 @@ public:
   }
 
   /**
-   * @brief Rewind to empty, reclaiming all allocations at once.
+   * @brief Rewind to the reset floor, reclaiming every allocation above it.
    * @details Bumps the debug generation so any live ArenaVector/ArenaSpan into
-   * the old contents faults.
+   * the old contents faults. Without set_reset_floor() the floor is zero.
    */
   void reset() {
-    offset = 0;
+    offset = reset_floor;
 #ifndef NDEBUG
     generation++;
     rewind_floor = SIZE_MAX;
     rewind_history_size = 0;
 #endif
   }
+
+  /**
+   * @brief Keeps the current allocations across reset().
+   * @details reset() rewinds to this offset from then on; a rewind below it
+   * traps in audit builds, and rebind() clears it.
+   */
+  void set_reset_floor() {
+    reset_floor = offset;
+#ifndef NDEBUG
+    floor_generation = generation;
+#endif
+  }
+
+  /** @return Offset reset() rewinds to. */
+  size_t get_reset_floor() const { return reset_floor; }
 
   /**
    * @brief Point the arena at a different buffer/capacity and reset to empty.
@@ -288,6 +307,7 @@ public:
     buffer = buf;
     capacity = new_capacity;
     offset = 0;
+    reset_floor = 0;
     fold_lifetime_peak();
     high_water_mark = 0;
 #ifndef NDEBUG
@@ -343,6 +363,21 @@ public:
    *         the last reset/rebind.
    */
   size_t get_rewind_floor() const { return rewind_floor; }
+
+  /**
+   * @brief Tests whether the reset floor preserves a block across reset().
+   * @param p First byte of the block.
+   * @param bytes Block length in bytes.
+   * @param birth Generation the block was allocated in.
+   * @return True iff the block was allocated in the generation that set the
+   *         floor and lies entirely below it.
+   */
+  bool below_reset_floor(const void *p, size_t bytes, uint32_t birth) const {
+    uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
+    uintptr_t q = reinterpret_cast<uintptr_t>(p);
+    return birth == floor_generation && bytes > 0 && q >= base &&
+           (q - base) <= reset_floor && bytes <= reset_floor - (q - base);
+  }
 
   /**
    * @brief Returns the count of rewinds this arena has performed.
@@ -476,10 +511,13 @@ struct ArenaBlockStamp {
    * @brief Whether the stamped block remains owned and live.
    * @param p First byte of the block.
    * @param bytes Block length in bytes.
-   * @return True unless the arena was reset or the block uncovered or reissued.
+   * @return True unless the arena was reset past the block, or the block was
+   *         uncovered or reissued.
    */
   bool block_alive(const void *p, size_t bytes) const {
-    return !arena_reset() && !block_uncovered(p, bytes) &&
+    const bool reset_past = arena_reset() && !source_arena->below_reset_floor(
+                                                 p, bytes, birth_generation);
+    return !reset_past && !block_uncovered(p, bytes) &&
            !block_reissued(p, bytes);
   }
 };

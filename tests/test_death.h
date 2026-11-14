@@ -1173,6 +1173,11 @@ inline const Case *all_cases(int &n) {
               {"arena_set_offset_forward", case_arena_set_offset_forward,
                "core/memory/arena.h",
                "(new_offset <= offset) Arena::set_offset: "},
+              {"arena_rewind_below_reset_floor",
+               case_arena_rewind_below_reset_floor, "core/memory/arena.h",
+               "(new_offset >= reset_floor) Arena::set_offset below the reset "
+               "floor",
+               false, "death: admitted"},
               {"scratch_scope_non_lifo", case_scratch_scope_non_lifo,
                "core/memory/scratch.h",
                "(arena.get_offset() >= saved_offset) ScratchScope: non-LIFO teardown"},
