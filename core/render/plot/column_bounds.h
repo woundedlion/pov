@@ -155,26 +155,13 @@ private:
     if (mode == 2 && Spacetime::swept_beyond(points, count, pad, first) &&
         Spacetime::swept_beyond(points, count, pad, second))
       return true;
-    float highest = points[0].y, lowest = points[0].y;
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; ++i)
       if (points[i].y >= bottom && points[i].y <= top)
         return false;
-      highest = fmaxf(highest, points[i].y);
-      lowest = fminf(lowest, points[i].y);
-    }
-    highest += pad;
-    lowest -= pad;
-    if ((highest <= 0.0f && highest < bottom) ||
-        (lowest >= 0.0f && lowest > top)) {
-      float least = 1.0f;
-      for (int i = 0; i < count; ++i)
-        for (int j = i + 1; j < count; ++j)
-          least = fminf(least, math::dot(points[i], points[j]));
-      return least > 2.0f * pad;
-    }
+    const Spacetime::SweptHull hull = Spacetime::swept_hull(points, count, pad);
     float low, high;
-    return Spacetime::swept_heights(points, count, pad, low, high) &&
-           (high < bottom || low > top);
+    hull.heights(low, high);
+    return hull.bounded() && (high < bottom || low > top);
   }
 };
 
