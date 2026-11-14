@@ -49,14 +49,13 @@ template <int W, int H> struct ClipBand {
   HS_FLASH_MEMBER static ClipBand of(const ClipRegion &clip) {
     ClipBand band;
     const ClipRegion::XClip x_clip = clip.x_clip();
+    const ColumnBand columns = ColumnBand::of(x_clip);
     band.row_lo = static_cast<float>(clip.render_y_start() - 1);
     band.row_hi = static_cast<float>(clip.render_y_end());
     band.x_active = x_clip.active;
-    const float band_start = static_cast<float>(x_clip.rs - 1);
-    const float band_end =
-        static_cast<float>(x_clip.wrap ? x_clip.re + W : x_clip.re);
-    band.x_center = 0.5f * (band_start + band_end);
-    band.x_half = 0.5f * (band_end - band_start);
+    const ColumnSpan reach = columns.tap_reach<W>();
+    band.x_center = reach.centre();
+    band.x_half = reach.half();
     return band;
   }
 

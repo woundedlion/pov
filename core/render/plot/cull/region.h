@@ -113,6 +113,53 @@ inline constexpr int CLIP_CUT_COL_PAD = COL_FOOTPRINT + 1;
  */
 inline constexpr int CLIP_CUT_ROW_PAD = 1;
 
+/** @brief A column interval, unwrapped past the width. */
+struct ColumnSpan {
+  float lo; ///< First column.
+  float hi; ///< Last column.
+
+  /** @return The interval's centre column. */
+  HS_HOT_INLINE float centre() const { return 0.5f * (lo + hi); }
+  /** @return The interval's half-width in columns. */
+  HS_HOT_INLINE float half() const { return 0.5f * (hi - lo); }
+};
+
+/**
+ * @brief A view of a clip's render columns [first(), end<W>()), crossing the
+ *        seam when the end passes the width.
+ * @details Culls pad the band in one of two column conventions. Tap reach: a
+ * sample at fractional column x splats into floor(x) and floor(x) + 1, so
+ * samples in (first() - 1, end<W>()) reach the band. Cell centres: column c
+ * covers [c - 0.5, c + 0.5].
+ */
+struct ColumnBand {
+  const ClipRegion::XClip &columns; ///< Render-band column predicate.
+
+  /** @brief The render band of a column predicate.
+   *  @param xc Render-band column predicate; must outlive the band.
+   *  @return The band. */
+  HS_HOT_INLINE static ColumnBand of(const ClipRegion::XClip &xc) {
+    return {xc};
+  }
+
+  /** @return The first render column, in [0, w). */
+  HS_HOT_INLINE int first() const { return columns.rs; }
+
+  /** @brief The exclusive end column, unwrapped past the width.
+   *  @tparam W Canvas width in columns.
+   *  @return The wrapped end, plus W when the band crosses the seam. */
+  template <int W> HS_HOT_INLINE int end() const {
+    return columns.wrap ? columns.re + W : columns.re;
+  }
+
+  /** @brief The columns whose samples' taps reach the band.
+   *  @tparam W Canvas width in columns.
+   *  @return (first() - 1, end<W>()). */
+  template <int W> HS_HOT_INLINE ColumnSpan tap_reach() const {
+    return {static_cast<float>(first() - 1), static_cast<float>(end<W>())};
+  }
+};
+
 /**
  * @brief The clip a draw culls against: the exact clip widened by how far
  *        the draw's samples stray from their end positions over the frame.
