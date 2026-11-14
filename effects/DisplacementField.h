@@ -646,13 +646,15 @@ private:
           const Spacetime::TimeWindow &window = canvas.time_window();
           {
             HS_PROFILE(df_chunk_cull);
+            const Plot::CapClip cap = Plot::CapClip::of(clip());
             visible = Plot::chunk_mask_where<BAKE_CHUNKS>(
                 [&](const math::Vector &mid, float reach,
                     float sin_reach) HS_HOT_INLINE {
                   return (Bake::CACHED || Plot::cap_may_touch_window<W>(
                                               window, mid, reach, sin_reach)) &&
-                         (!try_cull || Plot::cap_may_touch_clip<H>(
-                                           clip(), mid, reach, sin_reach));
+                         (!try_cull ||
+                          Plot::cap_may_touch<H>(
+                              cap, Plot::CapQuery::at(mid, reach, sin_reach)));
                 },
                 basis, theta, cos_t, sin_t, band_r, params.thickness, chunk_cos,
                 chunk_sin);

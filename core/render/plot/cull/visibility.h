@@ -346,11 +346,13 @@ inline constexpr float CAP_ACOS_PAD =
 inline constexpr float CAP_ATAN2_PAD =
     static_cast<float>(math::FAST_ATAN2_MAX_ERROR);
 
-/** @brief Longitude bounds shared by caps tested against one clip. */
+/** @brief Longitude bounds shared by caps tested against one clip or
+ *         window. */
 struct CapColumns {
-  float longitude;  /**< Clip midpoint longitude, radians. */
+  float longitude;  /**< Midpoint longitude, radians. */
   float half_width; /**< Half-width including one column of pad, radians. */
-  bool active;      /**< Whether the clip restricts longitude. */
+  bool active;      /**< Whether the bounds restrict longitude. */
+  float period;     /**< Longitude period of the bounds, radians. */
 };
 
 /**
@@ -361,10 +363,26 @@ struct CapColumns {
 HS_HOT_INLINE inline CapColumns cap_columns(const ClipRegion &cr) {
   const auto columns = cr.x_clip();
   if (!columns.active)
-    return {0, 0, false};
+    return {0, 0, false, math::TWO_PI_F};
   const float width = static_cast<float>(columns.length(cr.w));
   return {(columns.rs + width * 0.5f) * math::TWO_PI_F / cr.w,
-          (width * 0.5f + 1.0f) * math::TWO_PI_F / cr.w, true};
+          (width * 0.5f + 1.0f) * math::TWO_PI_F / cr.w, true, math::TWO_PI_F};
+}
+
+/**
+ * @brief A render-x window's longitude bounds, folded onto half a turn.
+ * @tparam W Even canvas width.
+ * @param window Render-x window.
+ * @return Bounds of the window's two runs, which lie half a turn apart.
+ */
+template <int W>
+HS_HOT_INLINE inline CapColumns
+cap_window_columns(const Spacetime::TimeWindow &window) {
+  constexpr float COLUMN = math::TWO_PI_F / W;
+  return {static_cast<float>(window.begin + window.end) * 0.5f * COLUMN,
+          (static_cast<float>(window.end - window.begin) * 0.5f + 1.0f) *
+              COLUMN,
+          window.active, math::PI_F};
 }
 
 /**
@@ -385,10 +403,10 @@ HS_HOT_INLINE inline CapCenter cap_column_center(const CapColumns &columns,
   center.column_half_width = columns.half_width;
   const float longitude = math::fast_atan2(dir.z, dir.x);
   center.column_distance =
-      fabsf(math::wrap_t((longitude - columns.longitude) / math::TWO_PI_F +
+      fabsf(math::wrap_t((longitude - columns.longitude) / columns.period +
                          0.5f) -
             0.5f) *
-      math::TWO_PI_F;
+      columns.period;
   return center;
 }
 
@@ -491,14 +509,79 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const CapCenter &center,
 }
 
 /**
+ * @brief Conservatively tests a cap against longitude bounds, deriving its
+ *        wedge only when it can miss them.
+ * @param columns Longitude bounds.
+ * @param dir Unit cap center direction.
+ * @param beta Center colatitude, radians.
+ * @param t2 Cap radius clamped to PI, radians.
+ * @param sin_half_angle sinf(t2).
+ * @return False only when the cap misses the bounds.
+ */
+HS_HOT_INLINE inline bool cap_may_touch_columns(const CapColumns &columns,
+                                                const math::Vector &dir,
+                                                float beta, float t2,
+                                                float sin_half_angle) {
+  if (!columns.active || cap_reaches_pole(beta, t2))
+    return true;
+  return cap_may_touch_clip_columns(cap_column_center(columns, dir, beta), t2,
+                                    sin_half_angle);
+}
+
+/** @brief A render clip and its longitude bounds, shared by the caps tested
+ *         against it. */
+struct CapClip {
+  const ClipRegion &clip; /**< Render clip whose lifetime covers the tests. */
+  CapColumns columns;     /**< The clip's longitude bounds. */
+
+  /** @brief Hoists a clip's longitude bounds.
+   * @param cr Render clip.
+   * @return The clip with its bounds. */
+  HS_HOT_INLINE static CapClip of(const ClipRegion &cr) {
+    return {cr, cap_columns(cr)};
+  }
+};
+
+/** @brief A cap to test against a CapClip: its center, angular radius and
+ *         the sine of its radius. */
+struct CapQuery {
+  math::Vector dir;     /**< Unit center; read only when not hoisted. */
+  CapCenter center;     /**< Center colatitude, and the longitude wedge when
+                           hoisted. */
+  float half_angle;     /**< Radius including stroke/AA pad, radians. */
+  float sin_half_angle; /**< sinf(min(half_angle, PI)). */
+  bool hoisted;         /**< The wedge was derived against the tested clip. */
+
+  /** @brief A cap about a direction; the test derives its wedge.
+   * @param dir Unit cap center direction.
+   * @param half_angle Cap angular radius including stroke/AA pad, radians.
+   * @param sin_half_angle sinf(min(half_angle, PI)).
+   * @return The query. */
+  HS_HOT_INLINE static CapQuery at(const math::Vector &dir, float half_angle,
+                                   float sin_half_angle) {
+    return {dir,
+            {math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f)), 0, 0, 0, false},
+            half_angle,
+            sin_half_angle,
+            false};
+  }
+
+  /** @brief A cap about a center hoisted against the tested clip.
+   * @param center Center from make_cap_center() on the same clip.
+   * @param half_angle Cap angular radius including stroke/AA pad, radians.
+   * @param sin_half_angle sinf(min(half_angle, PI)).
+   * @return The query. */
+  HS_HOT_INLINE static CapQuery at(const CapCenter &center, float half_angle,
+                                   float sin_half_angle) {
+    return {{}, center, half_angle, sin_half_angle, true};
+  }
+};
+
+/**
  * @brief Conservative test: can a spherical cap reach a clip's render region?
  * @tparam H Canvas height in rows.
- * @tparam Columns Render clip or hoisted longitude bounds.
- * @param cr Clip region to test against.
- * @param columns Clip longitude bounds.
- * @param dir Cap center direction (unit vector).
- * @param half_angle Cap angular radius including stroke/AA pad (radians).
- * @param sin_half_angle sinf(min(half_angle, PI)).
+ * @param cap Clip and its longitude bounds.
+ * @param query The cap.
  * @return False only when no fragment inside the cap can land in the clip's
  * render region; true is always safe.
  * @details Rows: the cap's polar range about the display's Y axis is
@@ -509,29 +592,23 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const CapCenter &center,
  * slack. The angles come from fast_acos and fast_atan2, each comparison
  * widened past their error bounds.
  */
-template <int H, typename Columns>
-HS_HOT_INLINE inline bool
-cap_may_touch_clip(const ClipRegion &cr, const Columns &columns,
-                   const math::Vector &dir, float half_angle,
-                   float sin_half_angle) {
-  const float beta = math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f));
+template <int H>
+HS_HOT_INLINE inline bool cap_may_touch(const CapClip &cap,
+                                        const CapQuery &query) {
   return cap_may_touch_clip_rows<H>(
-      cr, beta, half_angle, [&](float t2) HS_HOT_INLINE {
-        const bool columns_active = [&] {
-          if constexpr (requires { columns.active; })
-            return columns.active;
-          else
-            return cr.x_clip().active;
-        }();
-        if (!columns_active || cap_reaches_pole(beta, t2))
-          return true;
-        return cap_may_touch_clip_columns(cap_column_center(columns, dir, beta),
-                                          t2, sin_half_angle);
+      cap.clip, query.center.beta, query.half_angle,
+      [&](float t2) HS_HOT_INLINE {
+        if (query.hoisted)
+          return cap_may_touch_clip_columns(query.center, t2,
+                                            query.sin_half_angle);
+        return cap_may_touch_columns(cap.columns, query.dir, query.center.beta,
+                                     t2, query.sin_half_angle);
       });
 }
 
 /**
- * @brief Tests a cap deriving the clip longitude bounds on demand.
+ * @brief Tests a cap against a render clip, deriving the clip's longitude
+ *        bounds only when the rows and poles leave the test undecided.
  * @tparam H Canvas height.
  * @param cr Render clip.
  * @param dir Unit cap center.
@@ -542,7 +619,14 @@ cap_may_touch_clip(const ClipRegion &cr, const Columns &columns,
 template <int H>
 inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
                                float half_angle, float sin_half_angle) {
-  return cap_may_touch_clip<H>(cr, cr, dir, half_angle, sin_half_angle);
+  const float beta = math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f));
+  return cap_may_touch_clip_rows<H>(
+      cr, beta, half_angle, [&](float t2) HS_HOT_INLINE {
+        if (!cr.x_clip().active || cap_reaches_pole(beta, t2))
+          return true;
+        return cap_may_touch_clip_columns(cap_column_center(cr, dir, beta), t2,
+                                          sin_half_angle);
+      });
 }
 
 /**
@@ -656,7 +740,7 @@ chunk_mask_where(CapTest &&reaches, const math::Basis &basis, float theta,
  * @param thickness Stroke angular width used to widen chunk ownership.
  * @param chunk_cos CHUNKS midpoint azimuth cosines.
  * @param chunk_sin CHUNKS midpoint azimuth sines, paired with chunk_cos.
- * @return chunk_mask_where() with cap_may_touch_clip() as the test.
+ * @return chunk_mask_where() with cap_may_touch() as the test.
  */
 template <int H, int CHUNKS>
 HS_HOT_INLINE inline uint32_t
@@ -664,9 +748,10 @@ visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
                    float theta, float cos_t, float sin_t, float band_r,
                    float thickness, const float *chunk_cos,
                    const float *chunk_sin) {
+  const CapClip cap = CapClip::of(clip);
   return chunk_mask_where<CHUNKS>(
       [&](const math::Vector &mid, float reach, float sin_reach) HS_HOT_INLINE {
-        return cap_may_touch_clip<H>(clip, mid, reach, sin_reach);
+        return cap_may_touch<H>(cap, CapQuery::at(mid, reach, sin_reach));
       },
       basis, theta, cos_t, sin_t, band_r, thickness, chunk_cos, chunk_sin);
 }
@@ -692,23 +777,9 @@ cap_may_touch_window(const Spacetime::TimeWindow &window,
                      float sin_half_angle) {
   if (!window.active)
     return true;
-  const float t2 = fminf(half_angle, math::PI_F);
-  const float y = hs::clamp(dir.y, -1.0f, 1.0f);
-  const float beta = math::fast_acos(y);
-  if (cap_reaches_pole(beta, t2))
-    return true;
-  const float dlam =
-      cap_longitude_half_width(sin_half_angle, sqrtf(1.0f - y * y));
-  constexpr float COLUMN = math::TWO_PI_F / W;
-  const float half_width =
-      (static_cast<float>(window.end - window.begin) * 0.5f + 1.0f) * COLUMN;
-  const float middle =
-      static_cast<float>(window.begin + window.end) * 0.5f * COLUMN;
-  const float longitude = math::fast_atan2(dir.z, dir.x);
-  const float distance =
-      fabsf(math::wrap_t((longitude - middle) / math::PI_F + 0.5f) - 0.5f) *
-      math::PI_F;
-  return distance <= dlam + half_width + CAP_ACOS_PAD + CAP_ATAN2_PAD;
+  return cap_may_touch_columns(cap_window_columns<W>(window), dir,
+                               math::fast_acos(hs::clamp(dir.y, -1.0f, 1.0f)),
+                               fminf(half_angle, math::PI_F), sin_half_angle);
 }
 
 /**
@@ -727,11 +798,9 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
 }
 
 /** @brief Clip and swept radius shared by a draw's moving caps. */
-struct SweptCapClip {
-  const ClipRegion &clip; /**< Render clip whose lifetime covers the draw. */
-  CapColumns columns;     /**< Hoisted longitude bounds. */
-  float reach;            /**< Swept radius including raster fringe. */
-  float sin_reach;        /**< Sine of reach. */
+struct SweptCapClip : CapClip {
+  float reach;     /**< Swept radius including raster fringe. */
+  float sin_reach; /**< Sine of reach. */
 };
 
 /**
@@ -749,7 +818,7 @@ make_swept_cap_clip(const ClipRegion &cr, float half_angle, float sweep) {
   constexpr float FRINGE =
       2.0f * std::max(math::PI_F / (H - 1), math::TWO_PI_F / W);
   const float reach = fminf(half_angle + sweep + FRINGE, math::PI_F);
-  return {cr, cap_columns(cr), reach, math::fast_sinf(reach)};
+  return {CapClip::of(cr), reach, math::fast_sinf(reach)};
 }
 
 /**
@@ -762,8 +831,7 @@ make_swept_cap_clip(const ClipRegion &cr, float half_angle, float sweep) {
 template <int H>
 HS_NOINLINE_NOCLONE bool cap_may_touch_clip(const SweptCapClip &cap,
                                             const math::Vector &center) {
-  return cap_may_touch_clip<H>(cap.clip, cap.columns, center, cap.reach,
-                               cap.sin_reach);
+  return cap_may_touch<H>(cap, CapQuery::at(center, cap.reach, cap.sin_reach));
 }
 
 /**
@@ -782,7 +850,7 @@ HS_FLASH_INLINE inline bool
 swept_cap_may_touch_clip(const ClipRegion &cr, const Center &center,
                          float half_angle, float sweep) {
   const auto cap = make_swept_cap_clip<W, H>(cr, half_angle, sweep);
-  return cap_may_touch_clip<H>(cr, center, cap.reach, cap.sin_reach);
+  return cap_may_touch<H>(cap, CapQuery::at(center, cap.reach, cap.sin_reach));
 }
 
 /// Outcome of cartesian_quadrant_trail_gate().
