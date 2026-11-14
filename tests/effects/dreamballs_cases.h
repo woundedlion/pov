@@ -5,7 +5,10 @@
 
 // DreamBalls geometry and lifecycle coverage.
 
-/** @brief White-box accessor for DreamBalls' private preset-cycle bookkeeping. */
+/**
+ * @brief White-box access to DreamBalls' preset cycle, weave topology, orbit
+ *        bounds and temporal-scene oracle.
+ */
 struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
   static constexpr int PRESETS = static_cast<int>(DB::PRESETS.size());

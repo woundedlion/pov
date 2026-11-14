@@ -519,7 +519,7 @@ Feedback<W, H>::describe_rows(const FlushContext &ctx, RowGeometry *rows) {
     g.cover_base = static_cast<uint16_t>(cover_base);
     cover_base += 2 * cover_columns(g);
   }
-  // no death case: COVER_ROWS bounds every display geometry's wide rows
+  // no death case: CAP_EXTENT bounds every display geometry's wide rows
   HS_CHECK(cover_base <= COVER_SLOTS, "feedback coverage needs %d slots of %d",
            cover_base, COVER_SLOTS);
 }

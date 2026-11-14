@@ -6,11 +6,12 @@
  * @brief HopfFibration white-box cases. */
 
 /**
- * @brief White-box accessor for HopfFibration's S3-lift + stereographic
- *        projection.
+ * @brief White-box access to HopfFibration's projection, fiber state, trail
+ *        trim and temporal-trail oracle.
  * @details Sets the private per-frame cache (tumble sines/cosines, fold/flow/
  *          tumble-y phases) and a fiber's base coordinates, then calls the real
- *          projection.
+ *          S3-lift + stereographic projection. Also renders the production
+ *          trail against its frozen column reference.
  */
 struct HopfWhiteBox {
   using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;

@@ -5,7 +5,10 @@
 /** @file
  * @brief Raymarch white-box cases. */
 
-/** @brief White-box accessor for Raymarch's torus proportions. */
+/**
+ * @brief White-box access to Raymarch's torus proportions, column-time drawing,
+ *        palette/spin/hue-noise phases, volume counts and placement solid.
+ */
 struct RaymarchWhiteBox {
   using RM = Raymarch<DEFAULT_W, DEFAULT_H>;
   static constexpr float MAJOR = RM::MAJOR_K;

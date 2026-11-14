@@ -57,8 +57,8 @@ public:
    * @tparam Args Effect constructor argument types.
    * @param duration The time in seconds to run the effect.
    * @param args Arguments forwarded to the effect constructor.
-   * @details Fills the scanline LUTs for E's resolution before the first
-   * frame, so the ISR never observes a half-filled table.
+   * @details Fills E's scanline LUTs before construction, so the first frame
+   * does not pay the lazy fill.
    */
   template <typename E, typename... Args>
   static void show(unsigned long duration, Args &&...args) {

@@ -6,8 +6,8 @@
  * @brief PetalFlow white-box cases. */
 
 /**
- * @brief White-box accessor for PetalFlow's spawn-gap accumulator and hue
- *        cursor.
+ * @brief White-box access to PetalFlow's spawn gap, hue cursor and ring pool,
+ *        plus its temporal-ring oracle and parameter-edit frames.
  */
 struct PetalFlowWhiteBox {
   using PF = PetalFlow<DEFAULT_W, DEFAULT_H>;
