@@ -50,6 +50,12 @@ class TestExempt(unittest.TestCase):
         self.assertFalse(cov.exempt(item(
             "operator==(const Vec &b) const", "function", "Vec")))
 
+    def test_module_entry_point_is_exempt(self):
+        self.assertTrue(cov.exempt(item(
+            "run_sdf_tests()", "function", "hs_test::sdf_tests")))
+        self.assertFalse(cov.exempt(item(
+            "run_sdf_cases()", "function", "hs_test::sdf_tests")))
+
 
 class TestScaffoldMacros(unittest.TestCase):
     def test_macro_undefined_by_an_included_rows_header_is_exempt(self):
@@ -109,6 +115,47 @@ class TestMain(unittest.TestCase):
                 self.assertEqual(cov.main(["--root", str(root)]), 0)
                 (root / "a.h").write_text("", encoding="utf-8")
                 self.assertEqual(cov.main(["--root", str(root)]), 1)
+
+
+class TestAllowlist(unittest.TestCase):
+    def run_main(self, root, sources, text, allowed, paths=()):
+        (root / "allow.txt").write_text(
+            "# comment\n" + "".join(f"{path}\n" for path in allowed),
+            encoding="utf-8")
+        with mock.patch.object(cov, "source_files", return_value=sources), \
+             mock.patch.object(cov, "run_doxygen", return_value=text), \
+             contextlib.redirect_stdout(io.StringIO()) as output, \
+             contextlib.redirect_stderr(io.StringIO()):
+            status = cov.main(["--root", str(root), "--allowlist", "allow.txt",
+                               *paths])
+        return status, output.getvalue()
+
+    def test_listed_findings_pass_and_unlisted_or_stale_entries_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("a.h", "b.h"):
+                (root / name).write_text("/** @file */", encoding="utf-8")
+            text = (f"{root.as_posix()}/a.h:3: warning: Member f() (function) "
+                    "of namespace n is not documented.")
+            self.assertEqual(
+                self.run_main(root, ["a.h", "b.h"], text, ["a.h"])[0], 0)
+            status, output = self.run_main(root, ["a.h", "b.h"], text, [])
+            self.assertEqual(status, 1)
+            self.assertIn("a.h:3", output)
+            status, output = self.run_main(root, ["a.h", "b.h"], text,
+                                           ["a.h", "b.h"])
+            self.assertEqual(status, 1)
+            self.assertIn("b.h:1: allowlisted but has no findings", output)
+
+    def test_scoped_run_ignores_findings_outside_its_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "a.h").write_text("/** @file */", encoding="utf-8")
+            text = (f"{root.as_posix()}/core/b.h:3: warning: Member f() "
+                    "(function) of namespace n is not documented.")
+            self.assertEqual(
+                self.run_main(root, ["a.h"], text, [], ["a.h"])[0], 0)
+            self.assertEqual(self.run_main(root, ["a.h"], text, [])[0], 1)
 
 
 class TestSilentDeclarations(unittest.TestCase):

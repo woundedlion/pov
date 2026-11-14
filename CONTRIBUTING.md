@@ -268,8 +268,11 @@ protected branch's `CI green` status is the authoritative correctness gate.
   missing an `@param` or `@return`. It exempts only defaulted or deleted
   members, assignment operators, container aliases, per-model
   `Pullback::Interp::Op` contract members, effect-spec overrides of
-  `Pullback::Spec` fields, trait-specialization `Type` results, and macros
-  the same file `#undef`s.
+  `Pullback::Spec` fields, trait-specialization `Type` results, test-module
+  `run_*_tests` entry points, and macros the same file `#undef`s. The same job
+  runs it over `tests/` with `--allowlist
+  tools/ci/doc_coverage_tests_allowlist.txt`: a listed file's findings pass, a
+  listed file with none fails, and paths only leave the list.
 - **License headers:** `python tools/license_check.py`. The staged-tree
   pre-commit check and `just license-headers` run it; `just python-test` runs
   the checker's unit tests.

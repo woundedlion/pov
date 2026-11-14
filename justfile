@@ -136,6 +136,7 @@ docs-check:
 docs-coverage:
     {{ python_command }} tools/build_pins.py --check-tool doxygen
     {{ python_command }} tools/doc_coverage.py
+    {{ python_command }} tools/doc_coverage.py --allowlist tools/ci/doc_coverage_tests_allowlist.txt tests
 
 # Build the themed Doxygen API reference.
 docs: docs-check _doxygen-theme _doxyfile-local

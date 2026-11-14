@@ -56,6 +56,8 @@ CONTAINER_ALIASES = frozenset({
 })
 
 _DEFAULTED_RE = re.compile(r"=\s*(?:default|delete)\s*$")
+# Test-module entry point boilerplate.
+_MODULE_ENTRY_RE = re.compile(r"run_\w+_tests")
 
 
 @dataclass(frozen=True)
@@ -152,7 +154,8 @@ def exempt(item: Undocumented, local_macros: frozenset[str] = frozenset()
     if item.kind == "macro definition" and name in local_macros:
         return True
     if item.kind == "function" and (_DEFAULTED_RE.search(item.name)
-                                    or name == "operator="):
+                                    or name == "operator="
+                                    or _MODULE_ENTRY_RE.fullmatch(name)):
         return True
     if item.kind == "typedef" and name in CONTAINER_ALIASES:
         return True
@@ -291,6 +294,19 @@ def silent_declarations(path: str, text: str) -> list[Undocumented]:
     return found
 
 
+def read_allowlist(path: Path) -> list[str]:
+    """Return the repository paths an allowlist file names.
+
+    One path per line; blank lines and `#` comments are ignored.
+    """
+    entries = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        entry = raw.partition("#")[0].strip()
+        if entry:
+            entries.append(entry)
+    return entries
+
+
 def linker_filter_setting() -> str:
     """Return the Doxygen linker filter using this Python interpreter."""
     interpreter = Path(sys.executable).as_posix().replace('"', '\\"')
@@ -341,6 +357,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--doxygen", default=os.environ.get("DOXYGEN", "doxygen"),
                         help="doxygen executable (default: $DOXYGEN or doxygen)")
     parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--allowlist", type=Path,
+                        help="file of paths whose findings are tolerated; a "
+                             "listed path with no findings fails")
     parser.add_argument("--linker-source", type=Path,
                         help="emit a linker script as verbatim Doxygen input")
     parser.add_argument("--linker-filter", action="store_true",
@@ -362,9 +381,21 @@ def main(argv: list[str] | None = None) -> int:
         for path in sources:
             found += silent_declarations(path, read_source(args.root, path))
         items = locations(found, args.root)
+        if args.paths:
+            selected = set(sources)
+            items = [item for item in items if item.path in selected]
+        allowed = (read_allowlist(args.root / args.allowlist)
+                   if args.allowlist is not None else [])
     except (OSError, subprocess.CalledProcessError) as exc:
         print(f"[doc-coverage] tooling error: {exc}", file=sys.stderr)
         return 2
+    failing = set(files) | {item.path for item in items}
+    stale = sorted(set(allowed) - failing)
+    files = [path for path in files if path not in allowed]
+    items = [item for item in items if item.path not in allowed]
+    for path in stale:
+        print(f"{path}:1: allowlisted but has no findings; remove its "
+              f"{args.allowlist.as_posix()} entry")
     for path in files:
         print(f"{path}:1: missing @file block")
     for item in items:
@@ -374,11 +405,13 @@ def main(argv: list[str] | None = None) -> int:
             continue
         what = item.name if not item.scope else f"{item.scope}::{item.name}"
         print(f"{where}: undocumented {item.kind} {what}")
-    if files or items:
+    if files or items or stale:
         print(f"[doc-coverage] FAIL - {len(files)} file(s) without @file, "
-              f"{len(items)} undocumented or incomplete symbol(s)", file=sys.stderr)
+              f"{len(items)} undocumented or incomplete symbol(s), "
+              f"{len(stale)} stale allowlist entr(ies)", file=sys.stderr)
         return 1
-    print("[doc-coverage] PASS")
+    suffix = f" ({len(allowed)} allowlisted file(s))" if allowed else ""
+    print(f"[doc-coverage] PASS{suffix}")
     return 0
 
 
