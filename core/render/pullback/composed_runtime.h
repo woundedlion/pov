@@ -23,6 +23,7 @@
 #include "core/memory.h"
 #include "core/render/pullback/composed_descriptors.h"
 #include "core/render/pullback/composed_interval.h"
+#include "core/render/pullback/composed_traits.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/render/scan.h"
 #include "core/render/spacetime.h"
@@ -109,9 +110,11 @@ class ComposedEffect
           std::conditional_t<Ownership == Control::HookOwnership::INHERITED,
                              ComposedEffect<W, H, Derived, SpecT, Ownership>,
                              Derived>>,
-      private ProjectionWalkState<SpecT::ANIMATED_PROJECTION &&
-                                  ParamsFor<SpecT>::template HAS<"projection">>,
+      public ComposedTraits<W, SpecT>,
+      private ProjectionWalkState<
+          ComposedTraits<W, SpecT>::ANIMATED_PROJECTION>,
       private OuterCameraState<MetadataFor<SpecT>::OUTER_CAMERA> {
+  using Traits = ComposedTraits<W, SpecT>;
   using ParamsT = ParamsFor<SpecT>;
   using Choreography = ChoreographedEffect<
       Derived, ParamsT,
@@ -123,105 +126,26 @@ class ComposedEffect
 #endif
 
 public:
-  using Params = ParamsT; ///< Keyed parameter storage derived from the Spec.
-  using ColorFamily = std::remove_cvref_t<
-      decltype(std::declval<Params &>()
-                   .template get<"color">())>; ///< Color controls.
-  static constexpr bool AUTHORED_PALETTE =
-      std::is_same_v<ColorFamily,
-                     Color::AuthoredColorParams>; ///< Full authored sources.
-  using Spec = SpecT;                  ///< The effect's ranked stage Spec.
-  using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
-  /// Whether runtime identities follow authored nodes.
-  static constexpr bool AUTHORED_TOPOLOGY = SpecT::AUTHORED_TOPOLOGY;
-  /// Whether the effect samples time across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
-  /// Whether eligible color modulations sample one phase per column.
-  static constexpr bool COLOR_PHASE = ComposedDetail::COLOR_PHASE<SpecT>;
-  /// Whether the palette retains interval OKLab bases.
-  static constexpr bool PALETTE_LAB_CACHE =
-      ComposedDetail::PALETTE_LAB_CACHE<SpecT>;
-  static_assert(Metadata::ColorModes::LAB_CACHE == PALETTE_LAB_CACHE,
-                "palette base cache policy must match its runtime storage");
-  static_assert(Metadata::ColorModes::FUSED_TEMPORAL_COLOR ==
-                    SpecT::FUSED_TEMPORAL_COLOR,
-                "temporal color fusion policy must match its spec");
-  /// Whether the palette retains final hue colors over its interval bases.
-  static constexpr bool PALETTE_RGB_CACHE =
-      SpecT::PALETTE_RGB_CACHE && PALETTE_LAB_CACHE &&
-      SpecT::PALETTE_LAB_VALUES == HueRotationLutView::VALUE_STEPS &&
-      Metadata::BRIGHTNESS == Color::BrightnessEnvelope::NONE;
-  static_assert(!SpecT::PALETTE_RGB_MIDPOINT_ONLY || PALETTE_RGB_CACHE,
-                "midpoint-only storage requires an interval RGB cache");
-  static_assert(!SpecT::PHASE_NOISE_CACHE ||
-                    (COLOR_PHASE &&
-                     std::is_base_of_v<Lens::DodecahedralKaleidoscope,
-                                       typename Metadata::LensPolicy>),
-                "phase noise cache requires a temporal dodecahedral chamber");
-  static_assert(!SpecT::CACHE_DODECAHEDRAL_MATRICES ||
-                    std::is_base_of_v<Lens::DodecahedralTableKaleidoscope,
-                                      typename Metadata::LensPolicy>,
-                "cached dodecahedral matrices require a dodecahedral lens");
-  static_assert(!SpecT::CACHE_DODECAHEDRAL_FACES ||
-                    std::is_base_of_v<Lens::DodecahedralTableKaleidoscope,
-                                      typename Metadata::LensPolicy>,
-                "cached cube classifiers require a dodecahedral lens");
-  static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
-                "Column-time sampling requires an even two-arm canvas width");
-  /// Frame context, including retained color resources when sampling time.
-  using FrameState = std::conditional_t<
-      TEMPORAL_SAMPLING, FrameIntervalState<ParamsT, SpecT::PHASE_NOISE_CACHE>,
-      Pullback::FrameState<ParamsT, SpecT::PHASE_NOISE_CACHE>>;
-  using Binding = Pullback::Binding<FrameState, SpecT>; ///< Pipeline binding.
-  /// Whether projection controls are present.
-  static constexpr bool HAS_FRAME_PARAMS = Params::template HAS<"projection">;
+  using typename Traits::ColorFamily;
+  using typename Traits::Frame;
+  using typename Traits::FrameState;
+  using typename Traits::Metadata;
+  using typename Traits::Params;
+  using typename Traits::RenderPipeline;
   /// Whether the projection orientation follows a random walk and spin.
-  static constexpr bool ANIMATED_PROJECTION =
-      SpecT::ANIMATED_PROJECTION && HAS_FRAME_PARAMS;
-  static_assert(!SpecT::TILTED_PROJECTION_FRAME ||
-                    (ANIMATED_PROJECTION &&
-                     !requires(ParamsT p) {
-                       p.template get<"projection">().frame;
-                     }),
-                "TILTED_PROJECTION_FRAME needs an animated projection without "
-                "an authored frame parameter");
+  static constexpr bool ANIMATED_PROJECTION = Traits::ANIMATED_PROJECTION;
+  /// Whether the color controls carry full authored sources.
+  static constexpr bool AUTHORED_PALETTE = Traits::AUTHORED_PALETTE;
+  /// Whether runtime identities follow authored nodes.
+  static constexpr bool AUTHORED_TOPOLOGY = Traits::AUTHORED_TOPOLOGY;
   /// Whether the effect retains palette hue tables.
-  static constexpr bool HUE_ROTATION_LUT =
-      Metadata::MODULATION && SpecT::HUE_ROTATION_LUT;
-  /**
-   * @brief Whether any resource of a kind samples a noise field.
-   * @tparam Kind Resource kind to test.
-   * @return True when a `Kind` resource satisfies
-   *         `ComposedDetail::RESOURCE_NOISE`.
-   */
-  template <ResourceKind Kind> static consteval bool has_noise() {
-    bool result = false;
-    Params{}.visit([&]<typename Resource>(const auto &) {
-      if constexpr (Resource::KIND == Kind &&
-                    ComposedDetail::RESOURCE_NOISE<Resource>)
-        result = true;
-    });
-    return result;
-  }
-  /// Whether a surface resource samples noise.
-  static constexpr bool HAS_SURFACE_NOISE = has_noise<ResourceKind::SURFACE>();
-  /// Whether a warp resource samples noise.
-  static constexpr bool HAS_WARP_NOISE = has_noise<ResourceKind::WARP>();
-  /// Whether a source resource samples noise.
-  static constexpr bool HAS_SOURCE_NOISE = has_noise<ResourceKind::SOURCE>();
-  /// The Spec's pipeline bound to this effect's frame.
-  using RenderPipeline = typename SpecT::template Pipeline<Binding>;
-  static_assert(!SpecT::FACTORED_COLUMNS || RenderPipeline::LINEAR_COLUMNS,
-                "factored columns require a rotation/projection prefix");
-  static_assert((Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE &&
-                 Metadata::COVERAGE !=
-                     ProjectionCoverageMode::EDGE_FADE_SQUARED) ||
-                    Metadata::EDGE_DISTANCE_AVAILABLE,
-                "edge-fade coverage requires projection edge distance");
-  static_assert(!Metadata::DISPLACEMENT || Metadata::PATH_TRACKED,
-                "displacement modulation requires pipeline path tracking");
-  /// Prepared per-frame state the pipeline shades from.
-  using Frame = typename RenderPipeline::Frame;
+  static constexpr bool HUE_ROTATION_LUT = Traits::HUE_ROTATION_LUT;
+  /// Whether the palette retains interval OKLab bases.
+  static constexpr bool PALETTE_LAB_CACHE = Traits::PALETTE_LAB_CACHE;
+  /// Whether the palette retains final hue colors over its interval bases.
+  static constexpr bool PALETTE_RGB_CACHE = Traits::PALETTE_RGB_CACHE;
+  /// Whether the effect samples time across each two-arm half-turn.
+  static constexpr bool TEMPORAL_SAMPLING = Traits::TEMPORAL_SAMPLING;
 
   /** @brief Per-field noise seeds; an effect shadows one to decorrelate its
       field from the shared spatial phase. */
@@ -615,10 +539,8 @@ public:
 #endif
 
 protected:
-  /** Descriptors the arena-backed parameter array holds; every slider an effect
-      registers has to fit. */
-  static constexpr size_t PARAM_CAPACITY =
-      ComposedDetail::parameter_count<SpecT>(typename Params::ResourceTypes{});
+  /// Descriptors the arena-backed parameter array holds.
+  static constexpr size_t PARAM_CAPACITY = Traits::PARAM_CAPACITY;
 
   using Choreography::anims_paused;
   using Choreography::params;
@@ -975,21 +897,9 @@ private:
         interval;
   };
 
-  // init() takes the palette cycler's generated arena, the external ParamDef
-  // array, one State, qualified parameter names and, on device, the full
-  // gamut LUT from the persistent arena. An authored-palette effect's first
-  // draw_frame() bakes one palette; a temporal effect's clones one palette bake.
+  /// Persistent-arena bytes one instance claims.
   static constexpr size_t FOOTPRINT_BYTES =
-      (SpecT::CACHE_FULL_GAMUT_LUT
-           ? gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)
-           : 0) +
-      PaletteCycler::generated_arena_bytes() +
-      (AUTHORED_PALETTE ? BakedPalette::required_arena_bytes() : 0) +
-      PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State) +
-      (TEMPORAL_SAMPLING ? BakedPalette::required_arena_bytes() : 0) +
-      alignof(ParamDef) +
-      ComposedDetail::parameter_name_bytes<SpecT>(
-          typename Params::ResourceTypes{});
+      Traits::template footprint_bytes<State>();
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "Pullback::ComposedEffect persistent footprint exceeds the default "
