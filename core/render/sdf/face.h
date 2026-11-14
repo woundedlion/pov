@@ -504,8 +504,448 @@ struct PreparedFace {
     return true;
   }
 
-#include "core/render/sdf/face_geometry.h"
+  /**
+   * @brief Latitude-band reject for the face.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices.
+   * @param geometry Display latitude mapping.
+   * @param height Canvas height in rows.
+   * @param bounds_margin Angular padding around the vertical bounds.
+   * @param clip Optional render-row clip.
+   * @return True when the padded face cannot overlap the canvas or render clip.
+   */
+  __attribute__((always_inline)) static bool
+  phi_band_rejects(std::span<const math::Vector> vertices,
+                   std::span<const uint16_t> indices,
+                   const math::LatitudeGeometry &geometry, int height,
+                   float bounds_margin, const ClipRegion *clip);
+
+  /**
+   * @brief Builds the local tangent frame, gnomonic 2D projection, and 3D
+   * arrays.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices.
+   * @param scratch Scratch storage receiving poly_2d and verts_3d.
+   * @details Sets basis_u/w, poly_2d (with circumradius), and the local 3D
+   * vertex array.
+   */
+  __attribute__((always_inline)) void
+  setup_frame_and_polygon(std::span<const math::Vector> vertices,
+                          std::span<const uint16_t> indices,
+                          FaceScratchBuffer &scratch);
+
+  /**
+   * @brief Builds projected edge vectors and their reciprocals.
+   * @param scratch Face geometry receiving the edge tables.
+   */
+  __attribute__((always_inline)) void compute_edges(FaceScratchBuffer &scratch);
+
+  /**
+   * @brief Computes the face "size" (inradius) from the projected polygon.
+   * @param scratch Scratch storage holding poly_2d, per-edge vectors and
+   * reciprocal squared lengths (inv_edge_lengths_sq) from compute_edges,
+   * which must run first.
+   * @param convex_radius Origin-to-boundary distance from accepted half-planes,
+   * or a negative value for the segment walk.
+   * @details size = minimum distance from the projected centroid to any edge,
+   * floored to a fraction of the circumradius for degenerate slivers. A large
+   * face converts it to radians, matching the metric distance() reports.
+   */
+  __attribute__((always_inline)) void
+  compute_inradius(const FaceScratchBuffer &scratch,
+                   float convex_radius = -1.0f);
+
+  /**
+   * @brief Packs per-edge data contiguously for the distance() fallback.
+   * @param scratch Scratch storage receiving packed_edges.
+   */
+  __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch);
+
+  /**
+   * @brief Detects a convex 2D projection and builds its edge half-planes.
+   * @param scratch Scratch storage receiving half_planes.
+   * @param area2 Twice the polygon's signed area, from the collapsed-face cull.
+   * @return Origin-to-boundary distance for an admitted convex polygon, else -1.
+   * @details The maximum edge half-plane distance is exact inside a convex
+   * polygon and in exterior edge slabs; vertex cones use endpoint distance.
+   * Concave, self-intersecting, degenerate-edged, or wrongly-oriented polygons
+   * leave convex false and distance() on the exact walk.
+   */
+  __attribute__((always_inline)) float
+  build_half_planes(FaceScratchBuffer &scratch, float area2);
+
+  /**
+   * @brief Builds the angular sector table for the concave sector walk.
+   * @param scratch Scratch storage receiving the unwrapped vertex
+   * pseudo-angles.
+   * @details Qualifies non-convex faces with at least SECTOR_MIN_COUNT
+   * vertices that are star-shaped about the projected centroid (vertex
+   * pseudo-angles strictly monotonic over one full turn, with every edge
+   * facing the origin). Otherwise sector_ok stays false.
+   */
+  __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch);
+
+  /**
+   * @brief Builds vertex-row crossing masks for exact non-convex probes.
+   * @param scratch Buffer whose y-walk cache is populated.
+   */
+  __attribute__((always_inline)) void build_y_walk(FaceScratchBuffer &scratch);
+
+  /**
+   * @brief Aligns the current projection to a canonical class shape and binds
+   *        its distance LUT.
+   * @param lut Canonical-frame LUT for the face's congruence class.
+   * @param canon_xy Canonical centered 2D polygon, x/y pairs.
+   * @param vert_offset Cyclic offset aligning mesh vertex order to canonical.
+   * @param reflected True for the mirror family.
+   * @return False when the correlation is degenerate or a vertex deviates past
+   *         ALIGN_MAX_DEV_DIAGS; the face then keeps the exact path.
+   * @details One complex correlation over the vertices recovers the in-plane
+   * rotation placing the canonical shape at the face's least-squares pose.
+   * Rotational-symmetry ambiguity is harmless (the LUT is invariant under the
+   * shape's symmetry group).
+   */
+  HS_FLASH_MEMBER bool bind_class_lut(const ClassLut *lut,
+                                      const float *canon_xy, int vert_offset,
+                                      bool reflected);
+
+  /**
+   * @brief Fills the scratch vertex azimuths the interval pass consumes.
+   * @param scratch Scratch storage holding verts_3d and receiving thetas.
+   */
+  __attribute__((always_inline)) void
+  compute_thetas(FaceScratchBuffer &scratch) const;
+
+  /**
+   * @brief Computes the face's azimuth coverage intervals.
+   * @param scratch Scratch storage holding thetas and receiving intervals.
+   * @details Finds the largest angular gap between vertices; if it exceeds pi
+   * the face does not wrap, so the complementary horizontal interval(s) are
+   * emitted, else it spans full width. Coarse: only the single largest gap is
+   * excised.
+   */
+  __attribute__((always_inline)) void
+  compute_azimuth_intervals(FaceScratchBuffer &scratch);
+
+  /**
+   * @brief Necessary condition for apply_pole_containment to fire.
+   * @return True when a pole falls within the gnomonic circumcircle of the
+   *         face's vertices (one test covers both poles); false rules out
+   *         pole containment.
+   */
+  __attribute__((always_inline)) bool pole_within_circumcircle() const;
+
+  /**
+   * @brief Ray-crossing test of a projected pole against the 2D face polygon.
+   * @param ppx Projected pole x in the face's 2D basis.
+   * @param ppy Projected pole y in the face's 2D basis.
+   * @return true if (ppx, ppy) lies inside the polygon.
+   */
+  __attribute__((always_inline)) bool pole_inside_polygon(float ppx,
+                                                          float ppy) const;
+
+  /** How a projected pole sits against the 2D face polygon. */
+  enum class PoleHit {
+    NONE,     /**< Outside the closed region. */
+    BOUNDARY, /**< Within POLE_BOUNDARY_TOL of a vertex or an edge. */
+    INTERIOR  /**< Strictly inside, off the boundary band. */
+  };
+
+  /**
+   * @brief Classifies a projected pole against the 2D face polygon.
+   * @param ppx Projected pole x in the face's 2D basis.
+   * @param ppy Projected pole y in the face's 2D basis.
+   * @return Where the pole falls relative to the closed polygon.
+   * @details The boundary band is tested first: a pole exactly on a vertex or
+   * edge would otherwise leave pole_inside_polygon's crossing parity to
+   * rounding.
+   */
+  PoleHit pole_hit(float ppx, float ppy) const;
+
+  /**
+   * @brief Extends the vertical bounds when the face reaches a pole.
+   * @param height Canvas height in rows.
+   * @details A face enclosing a pole wraps every azimuth, so it takes full
+   * width outright. A face that only meets the pole on its boundary keeps its
+   * azimuth wedge, which get_horizontal_intervals widens per row.
+   */
+  __attribute__((always_inline)) void apply_pole_containment(int height);
+
+  /**
+   * @brief Refines phi bounds with an edge's great-circle arc extremum.
+   * @param n Normalized great-circle plane normal of the edge.
+   * @param v1 First edge endpoint (on the unit sphere).
+   * @param v2 Second edge endpoint (on the unit sphere).
+   * @param min_phi In/out running minimum phi.
+   * @param max_phi In/out running maximum phi.
+   * @details The extremum of an edge's arc may lie between its endpoints;
+   * project the pole-tangent onto the plane and, if it falls inside the arc,
+   * fold its phi into the bounds.
+   */
+  static __attribute__((always_inline)) void
+  refine_phi_from_arc_extremum(const math::Vector &n, const math::Vector &v1,
+                               const math::Vector &v2, float &min_phi,
+                               float &max_phi);
+
+  /**
+   * @brief Snaps phi bounds to a pole when the face's planes enclose it.
+   * @param scratch Scratch storage holding the compacted great-circle planes.
+   * @param planes_count Number of valid planes.
+   * @param center Normalized face centroid.
+   * @param min_phi In/out phi minimum, set to 0 if the north pole is enclosed.
+   * @param max_phi In/out phi maximum, set to PI if the south pole is enclosed.
+   */
+  static __attribute__((always_inline)) void
+  snap_phi_for_pole_planes(const FaceScratchBuffer &scratch, int planes_count,
+                           const math::Vector &center, float &min_phi,
+                           float &max_phi);
+
+  /**
+   * @brief Vertical bounds (arc extrema + pole-plane snap) for every face.
+   * @param scratch Scratch storage holding verts_3d; receives the compacted
+   * great-circle planes.
+   * @param count Vertex/edge count.
+   * @param center Normalized face centroid.
+   * @param geometry Display latitude mapping.
+   * @param height Canvas height in rows.
+   * @param y_min_out Output: first covered row.
+   * @param y_max_out Output: last covered row.
+   * @param bounds_margin Angular padding around the vertical bounds.
+   */
+  HS_HOT_FLASH_MEMBER static void
+  compute_full_bounds(FaceScratchBuffer &scratch, int count,
+                      const math::Vector &center,
+                      const math::LatitudeGeometry &geometry, int height,
+                      int &y_min_out, int &y_max_out, float bounds_margin);
+
+  /**
+   * @brief Returns the face's precomputed inclusive row bounds.
+   * @tparam H Canvas height in rows; must match the construction height the
+   * bounds were computed for.
+   * @return The stored {y_min, y_max} bounds.
+   */
+  template <int H> Bounds get_vertical_bounds() const;
+
+  /**
+   * @brief Reports whether rounded azimuth intervals change across a row band.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @param y_lo First row in the band.
+   * @param y_hi Last row in the band.
+   * @return True when the band requires per-row interval construction.
+   */
+  template <int W, int H>
+  bool horizontal_intervals_vary_by_row(int y_lo, int y_hi) const;
+
+  /**
+   * @brief Whether two rows emit the same rounded azimuth intervals.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param first_y First raster row.
+   * @param second_y Second raster row.
+   * @return True when both rows emit identical column intervals.
+   */
+  template <int W, int H>
+  bool horizontal_intervals_equal_rows(int first_y, int second_y) const;
+
+  /**
+   * @brief Emits the face's azimuth-coverage intervals for a row.
+   * @tparam W Canvas width in columns; must match the clip width the
+   * construction-time azimuth cull ran against.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y Row index, which sets the pole widening.
+   * @param out Sink accepting (float start, float end).
+   * @return True when the row was handled, possibly with no intervals outside
+   *   the face's rows; false requests a full scan.
+   * @details The pad is an azimuth angle, so it holds a whole pixel of AA reach
+   * only at the equator; at colatitude phi one pad p of great-circle reach
+   * subtends asin(p / sin phi), reaching the whole row once sin phi <= p.
+   */
+  template <int W, int H, typename OutputIt>
+  bool get_horizontal_intervals(int y, OutputIt out) const;
+
+  /**
+   * @brief Returns the latitude-adjusted AA padding for one raster row.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param y Raster row.
+   * @return Azimuth padding in radians.
+   */
+  template <int W, int H> float azimuth_pad_at_row(int y) const;
+
+  /** @brief Squared distance to a clamped packed segment.
+   * @param edge Packed segment; a zero inverse length selects its start.
+   * @param px,py Query point in the tangent plane.
+   * @return Squared point-to-segment distance. */
+  HS_HOT_INLINE static float segment_dsq(const EdgePacked &edge, float px,
+                                         float py);
+
+  /** @brief Squared distance to a clamped planar segment.
+   * @param vx,vy Segment start.
+   * @param ex,ey Segment displacement.
+   * @param inv_length2 Inverse squared length; zero selects the start.
+   * @param px,py Query point.
+   * @return Squared point-to-segment distance. */
+  HS_HOT_INLINE static float segment_dsq(float vx, float vy, float ex, float ey,
+                                         float inv_length2, float px, float py);
+
+  /**
+   * @brief Signed planar distance through convex edge slabs and vertex cones.
+   * @param px Gnomonic x of the query point.
+   * @param py Gnomonic y of the query point.
+   * @param reject_distance Distances at or above this cutoff may be capped.
+   * @return Signed distance in the tangent plane (negative inside).
+   */
+  HS_O3_FN float plane_dist_convex(float px, float py,
+                                   float reject_distance = FLT_MAX) const;
+
+  /**
+   * @brief Squared planar distance via the exact per-edge walk.
+   * @param px Gnomonic x of the query point.
+   * @param py Gnomonic y of the query point.
+   * @param inside_out Set true when the query lies inside the polygon; carries
+   * the sign the squared return cannot.
+   * @return Squared distance to the nearest edge, in the tangent plane.
+   */
+  HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const;
+
+  /**
+   * @brief Exact squared distance and parity by sorted vertex-row traversal.
+   * @details Checks all edges crossing the query row, then incident edges at
+   * neighboring vertex rows. Unvisited segments lie outside the visited strip;
+   * its vertical gaps bound their distance. Requires a populated y-walk cache.
+   * @param px Gnomonic x of the query point.
+   * @param py Gnomonic y of the query point.
+   * @param inside_out Set true when the query lies inside the polygon.
+   * @return Squared distance to the nearest edge, in the tangent plane.
+   */
+  HS_O3_FN HS_NOINLINE_NOCLONE float plane_dsq_y_walk(float px, float py,
+                                                      bool &inside_out) const;
+
+  /**
+   * @brief Squared planar distance via the concave sector walk.
+   * @param px Gnomonic x of the query point.
+   * @param py Gnomonic y of the query point.
+   * @param inside_out Set true when the query lies inside the polygon; carries
+   * the sign the squared return cannot.
+   * @param reject_dsq Outside squared distances at or above this threshold
+   * may return the threshold; FLT_MAX keeps the distance exact.
+   * @param column_sector Optional sector carried between probes of one column.
+   * @return Squared distance to the nearest edge, capped outside when requested.
+   * @details Searches the fan sector and its neighbors, certifying the minimum
+   * against the omitted edges' angular wedge and radial bound, expanding until
+   * certified or every segment has been evaluated. Requires sector_ok.
+   */
+  HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out,
+                                  float reject_dsq = FLT_MAX,
+                                  int *column_sector = nullptr) const;
+
+  /** @brief Face has a congruence-class distance LUT (bind_class_lut). */
+  static constexpr uint32_t PROBE_HAS_LUT = 1u << 0;
+
+  /** @brief Use convex half-plane distance. */
+  static constexpr uint32_t PROBE_CONVEX = 1u << 1;
+
+  /** @brief Use the sector-indexed edge walk. */
+  static constexpr uint32_t PROBE_SECTOR = 1u << 2;
+
+  /** @brief Reject against a compact projected rectangle. */
+  static constexpr uint32_t PROBE_PLANE_BOX = 1u << 4;
+
+  /** @brief Return distances in the gnomonic plane. */
+  static constexpr uint32_t PROBE_LINEAR = 1u << 3;
+
+  /** @return Packed distance-path flags for repeated probes of this face. */
+  uint32_t probe_flags() const;
+
+  /**
+   * @brief Computes signed distance to the face, writing into res.
+   * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = raw_dist = the signed edge distance,
+   *        size = max(inradius, 0.25 * circumradius), both in gnomonic plane units on a linear_dist
+   *        face and in radians otherwise.
+   * @param reject_dsq Squared plane distance at/above which an outside probe
+   *        is reported as the far sentinel without taking the square root.
+   *        Must be conservative: only probes the caller rejects on dist may
+   *        cross it. FLT_MAX disables the cull. Consulted only on a
+   *        linear_dist face's edge-walk path; large faces and the convex
+   *        half-plane path ignore it.
+   * @note Distances live in the face's gnomonic tangent plane. Small faces
+   *       (linear_dist) report the plane distance directly; large faces convert
+   *       via fast_atan2(plane, 1). Do not treat raw_dist as a metric geodesic
+   *       angle.
+   */
+  template <bool ComputeUVs = true>
+  HS_O3_FN void distance(const math::Vector &p, DistanceResult &res,
+                         float reject_dsq = FLT_MAX) const;
+
+  /**
+   * @brief Evaluates distance with cached flags, recomputing the radial cull cosine.
+   * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
+   * @param p Unit query direction.
+   * @param res Output distance result.
+   * @param reject_dsq Conservative squared plane-distance rejection threshold.
+   * @param probe_flags Flags captured by probe_flags() after geometry/LUT updates.
+   * @details The five-argument overload accepts a cached cosine for repeated
+   * probes.
+   */
+  template <bool ComputeUVs = true>
+  HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
+                                    float reject_dsq,
+                                    uint32_t probe_flags) const;
+
+  /**
+   * @brief Computes distance using flags captured by probe_flags().
+   * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
+   * @param p Point on sphere (normalized).
+   * @param res Output distance result.
+   * @param reject_dsq Conservative squared distance rejection threshold,
+   *        honored only when PROBE_LINEAR is set and the probe lands outside;
+   *        the PROBE_CONVEX path ignores it.
+   * @param probe_flags Distance-path flags captured after the face's last LUT
+   *        binding or geometry update.
+   * @param min_cos Cosine of the radial cull angle.
+   * @param reject_plane Cutoff at which the caller rejects a planar distance.
+   *        Convex distances at or above it may be capped; PROBE_PLANE_BOX
+   *        returns FAR_SENTINEL when its box distance reaches it.
+   *        FLT_MAX disables both shortcuts.
+   */
+  template <bool ComputeUVs = true>
+  HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
+                                    float reject_dsq, uint32_t probe_flags,
+                                    float min_cos,
+                                    float reject_plane = FLT_MAX) const;
+
+  /**
+   * @brief Evaluates a direction already expressed in the face's frame.
+   * @tparam ComputeUVs Accepted for interface parity.
+   * @param cos_angle Direction dotted with the face center.
+   * @param u Direction dotted with basis_u.
+   * @param w Direction dotted with basis_w.
+   * @param res Output distance result.
+   * @param reject_dsq Conservative squared planar rejection threshold.
+   * @param probe_flags Cached distance-path flags.
+   * @param min_cos Cosine of the radial cull angle.
+   * @param reject_plane Cutoff the caller rejects on; convex distances may be
+   * capped and PROBE_PLANE_BOX may return FAR_SENTINEL at or above it.
+   * FLT_MAX disables both shortcuts.
+   * @param column_sector Optional sector carried down a projected column.
+   */
+  template <bool ComputeUVs = true>
+  HS_O3_FN HS_HOT_INLINE void
+  distance_projected(float cos_angle, float u, float w, DistanceResult &res,
+                     float reject_dsq, uint32_t probe_flags, float min_cos,
+                     float reject_plane = FLT_MAX,
+                     int *column_sector = nullptr) const;
 };
+
+} // namespace SDF
+
+#include "core/render/sdf/face_geometry.h"
+
+namespace SDF {
 
 /** @brief Draw-scoped face tables and prepared geometry. */
 struct FaceStorage {
