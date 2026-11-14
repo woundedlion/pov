@@ -2089,6 +2089,45 @@ inline void test_dodecahedral_classifier_generation() {
     }
 }
 
+/** @brief Runtime cube-face maps and runs reproduce canonical classifiers. */
+inline void test_dodecahedral_classifier_run_generation() {
+  namespace table = lenses::DodecahedralTable;
+  const auto verify = []<int Face>() {
+    using Cells = decltype(table::make_face<Face>());
+    using Runs = decltype(table::make_face_runs<Face>());
+    Cells (*volatile make_cells)() = table::make_face<Face>;
+    Runs (*volatile make_runs)() = table::make_face_runs<Face>;
+    const auto cells = make_cells();
+    const auto runs = make_runs();
+    size_t offset = 0;
+    uint8_t previous_value = 255, previous_count = 255;
+    for (const auto run : runs) {
+      HS_CONTEXT("cube face", Face);
+      HS_CONTEXT("run offset", offset);
+      HS_EXPECT_GT(run.count, 0);
+      HS_EXPECT_LT(run.value, table::GROUP.count);
+      if (run.value == previous_value)
+        HS_EXPECT_EQ(previous_count, 255);
+      HS_EXPECT_LE(offset + run.count,
+                   size_t(table::FACE_STEPS * table::FACE_STEPS));
+      for (int cell = 0; cell < run.count; ++cell, ++offset)
+        if (offset < cells.size()) {
+          HS_EXPECT_EQ(cells[offset], table::FACES[Face][offset]);
+          HS_EXPECT_EQ(run.value, cells[offset]);
+        }
+      previous_value = run.value;
+      previous_count = run.count;
+    }
+    HS_EXPECT_EQ(offset, size_t(table::FACE_STEPS * table::FACE_STEPS));
+  };
+  verify.template operator()<0>();
+  verify.template operator()<1>();
+  verify.template operator()<2>();
+  verify.template operator()<3>();
+  verify.template operator()<4>();
+  verify.template operator()<5>();
+}
+
 /**
  * @brief The specialized dodecahedral fold agrees with generic mirror
  * folding.
@@ -2426,6 +2465,7 @@ inline int run_3dmath_tests() {
   HS_RUN(test_dodecahedral_kaleidoscope_specialization);
   HS_RUN(test_dodecahedral_group_generation);
   HS_RUN(test_dodecahedral_classifier_generation);
+  HS_RUN(test_dodecahedral_classifier_run_generation);
   HS_RUN(test_tetrahedral_after_dodecahedral);
 
   HS_RUN(test_fast_atan2);
