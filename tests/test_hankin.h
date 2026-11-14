@@ -670,6 +670,131 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
 }
 
 // ---------------------------------------------------------------------------
+// solve_hankin_vertex conditioning
+// ---------------------------------------------------------------------------
+
+inline uint8_t hankin_corner_buf[1024];
+
+/** @brief One hand-compiled Hankin corner at +Z on the unit sphere. */
+struct CraftedHankinCorner {
+  Arena arena{hankin_corner_buf, sizeof(hankin_corner_buf)}; ///< Storage.
+  CompiledHankin compiled;                ///< Corner and midpoint arrays.
+  HankinInstruction instr{0, 1, 2, 0, 1}; ///< The corner's only vertex.
+
+  /**
+   * @brief Places the previous and next corners.
+   * @param d_prev Arc distance from the corner to the previous corner.
+   * @param d_next Arc distance from the corner to the next corner.
+   * @param alpha Azimuth between the two neighbours, in radians.
+   */
+  CraftedHankinCorner(float d_prev, float d_next, float alpha) {
+    const math::Vector corner(0.0f, 0.0f, 1.0f);
+    const math::Vector prev(sinf(d_prev) * cosf(alpha * 0.5f),
+                            sinf(d_prev) * sinf(alpha * 0.5f), cosf(d_prev));
+    const math::Vector next(sinf(d_next) * cosf(alpha * 0.5f),
+                            -sinf(d_next) * sinf(alpha * 0.5f), cosf(d_next));
+    compiled.base_vertices.bind(arena, 3);
+    compiled.base_vertices.push_back(corner);
+    compiled.base_vertices.push_back(prev);
+    compiled.base_vertices.push_back(next);
+    compiled.static_vertices.bind(arena, 2);
+    compiled.static_vertices.push_back((prev + corner).normalized());
+    compiled.static_vertices.push_back((corner + next).normalized());
+    compiled.corner_src = ArenaSpan<math::Vector>(compiled.base_vertices);
+  }
+
+  /**
+   * @brief Solves the corner's star point.
+   * @param angle Contact angle in radians.
+   * @param flat Collapse to the corner.
+   * @return The solve.
+   */
+  MeshOps::HankinSolve solve(float angle, bool flat = false) const {
+    return MeshOps::solve_hankin_vertex(compiled, instr, flat,
+                                        cosf(angle * 0.5f), sinf(angle * 0.5f));
+  }
+
+  /** @return The normalized edge-midpoint mean. */
+  math::Vector fallback() const {
+    return (compiled.static_vertices[0] + compiled.static_vertices[1])
+        .normalized();
+  }
+};
+
+/** @brief Crafted corners reach every solve branch with its geometry. */
+inline void test_solve_hankin_vertex_branches() {
+  constexpr float D2R = Solids::IslamicStarPatterns::D2R;
+  const math::Vector corner(0.0f, 0.0f, 1.0f);
+  {
+    CraftedHankinCorner skewed(0.3f, 0.9f, 90.0f * D2R);
+    const MeshOps::HankinSolve intersect = skewed.solve(20.0f * D2R);
+    HS_EXPECT_EQ(int(intersect.branch), int(MeshOps::HankinBranch::INTERSECT));
+    HS_EXPECT_LT(intersect.far_ratio, MeshOps::STAR_FAR_BLEND_START_RATIO_SQ);
+
+    const MeshOps::HankinSolve blended = skewed.solve(41.0f * D2R);
+    HS_EXPECT_EQ(int(blended.branch), int(MeshOps::HankinBranch::BLENDED));
+    HS_EXPECT_GT(blended.far_ratio, MeshOps::STAR_FAR_BLEND_START_RATIO_SQ);
+    HS_EXPECT_GT(
+        std::sqrt(math::distance_squared(blended.pos, skewed.fallback())),
+        1e-3f);
+
+    const MeshOps::HankinSolve fallback = skewed.solve(46.0f * D2R);
+    HS_EXPECT_EQ(int(fallback.branch), int(MeshOps::HankinBranch::FALLBACK));
+    HS_EXPECT_GE(fallback.far_ratio, MeshOps::STAR_FAR_RATIO_SQ);
+    HS_EXPECT_VEC(fallback.pos, skewed.fallback(), 1e-6f);
+
+    const MeshOps::HankinSolve flat = skewed.solve(20.0f * D2R, true);
+    HS_EXPECT_EQ(int(flat.branch), int(MeshOps::HankinBranch::COLLAPSED));
+    HS_EXPECT_VEC(flat.pos, corner, 1e-6f);
+  }
+  {
+    CraftedHankinCorner degenerate(0.0f, 0.9f, 90.0f * D2R);
+    const MeshOps::HankinSolve collapsed = degenerate.solve(20.0f * D2R);
+    HS_EXPECT_EQ(int(collapsed.branch), int(MeshOps::HankinBranch::COLLAPSED));
+    HS_EXPECT_VEC(collapsed.pos, corner, 1e-6f);
+  }
+}
+
+/**
+ * @brief Star points stay continuous in the contact angle across the
+ *        conditioning ramps: an 8x finer sweep shrinks the largest step at
+ *        least 4x.
+ */
+inline void test_solve_hankin_vertex_ramps_are_continuous() {
+  constexpr float D2R = Solids::IslamicStarPatterns::D2R;
+  struct Shape {
+    float d_prev, d_next, alpha_degrees;
+  };
+  // Skewed corners whose sweeps cross the parallel gate, the far blend and,
+  // near zero plane cross, the anchor ramps.
+  constexpr Shape SHAPES[] = {
+      {0.3f, 0.9f, 90.0f}, {0.45f, 0.5f, 108.0f}, {0.35f, 0.6f, 120.0f}};
+  constexpr int COARSE = 300;
+  constexpr int REFINE = 8;
+  const auto largest_step = [](const CraftedHankinCorner &shape, int steps) {
+    constexpr float LO = 1.0f * D2R, HI = 89.0f * D2R;
+    math::Vector previous = shape.solve(LO).pos;
+    float largest = 0.0f;
+    for (int i = 1; i <= steps; ++i) {
+      const math::Vector pos = shape.solve(LO + (HI - LO) * i / steps).pos;
+      largest = hs_test::fold_worst(
+          largest, std::sqrt(math::distance_squared(previous, pos)));
+      previous = pos;
+    }
+    return largest;
+  };
+  for (const Shape &shape : SHAPES) {
+    HS_CONTEXT("alpha_degrees", static_cast<long long>(shape.alpha_degrees));
+    CraftedHankinCorner corner(shape.d_prev, shape.d_next,
+                               shape.alpha_degrees * D2R);
+    const float coarse = largest_step(corner, COARSE);
+    const float fine = largest_step(corner, COARSE * REFINE);
+    HS_EXPECT_GT(coarse, 0.0f);
+    HS_EXPECT_LE(fine * (REFINE / 2), coarse);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CompiledHankin::clone
 // ---------------------------------------------------------------------------
 
@@ -913,6 +1038,8 @@ inline int run_hankin_tests() {
 
   HS_RUN(test_update_hankin_resonance_star_points_stay_local);
   HS_RUN(test_update_hankin_near_parallel_angle_is_continuous);
+  HS_RUN(test_solve_hankin_vertex_branches);
+  HS_RUN(test_solve_hankin_vertex_ramps_are_continuous);
 
   HS_RUN(test_compiled_hankin_clone_deep_copies);
   HS_RUN(test_compiled_hankin_clear);

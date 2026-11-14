@@ -295,25 +295,45 @@ compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
       compiled.faces.data(), compiled.faces.size());
 }
 
-/** Squared ratio endpoints of the far-intersection blend. The ratio ramp is
+/** Chord ratio at the start of the far-intersection blend. The ratio ramp is
  * scaled by the parallel gate, so the edge-midpoint fallback fully replaces
  * the intersection from the far ratio onward only on near-parallel planes. */
-inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ = 2.25f;
+inline constexpr float STAR_FAR_BLEND_START_RATIO = 1.5f;
+/// Squared ratio at the start of the far-intersection blend.
+inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ =
+    STAR_FAR_BLEND_START_RATIO * STAR_FAR_BLEND_START_RATIO;
+/// Chord ratio at the far end of the blend.
+inline constexpr float STAR_FAR_RATIO = 2.0f;
 /// Squared ratio at the far end of the blend.
-inline constexpr float STAR_FAR_RATIO_SQ = 4.0f;
-/** Plane-cross squared floor below which fallback is always mixed in. */
+inline constexpr float STAR_FAR_RATIO_SQ = STAR_FAR_RATIO * STAR_FAR_RATIO;
+/** Raw chord ratio at the start of the conditioning ramp. */
+inline constexpr float HANKIN_CONDITIONED_NEAR_RATIO = 1.2f;
+/// Squared raw chord ratio at the start of the conditioning ramp.
+inline constexpr float HANKIN_CONDITIONED_NEAR_RATIO_SQ =
+    HANKIN_CONDITIONED_NEAR_RATIO * HANKIN_CONDITIONED_NEAR_RATIO;
+/** Raw chord ratio at full conditioning. */
+inline constexpr float HANKIN_CONDITIONED_FAR_RATIO = 3.0f;
+/// Squared raw chord ratio at full conditioning.
+inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ =
+    HANKIN_CONDITIONED_FAR_RATIO * HANKIN_CONDITIONED_FAR_RATIO;
+/* plane_cross_sq = |cross(n_hankin1, n_hankin2)|^2 is the squared sine of the
+ * angle between the two contact planes. */
+/** Plane-cross floor below which fallback is always mixed in (about 1 degree
+ * between the planes). */
 inline constexpr float HANKIN_PARALLEL_REGULARIZATION_SQ = 3.0e-4f;
-/** Plane-cross squared threshold below which far points are anchored. */
+/** Plane-cross threshold below which far points are anchored (about 8
+ * degrees). */
 inline constexpr float HANKIN_CONDITIONED_CLEAR_SQ = 2.0e-2f;
-/** Raw chord ratio squared at the start of the conditioning ramp. */
-inline constexpr float HANKIN_CONDITIONED_NEAR_RATIO_SQ = 1.44f;
-/** Raw chord ratio squared at full conditioning. */
-inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
-/** plane_cross_sq (= |cross(n_hankin1, n_hankin2)|^2) window gating the
- * far-star fallback: fully on below LO (near-parallel planes), off above HI. */
+/** Plane-cross window gating the far-star fallback: fully on below LO (about
+ * 13 degrees, near-parallel planes), off above HI. */
 inline constexpr float HANKIN_PARALLEL_GATE_LO_SQ = 0.05f;
-/// Gate window upper end; the fallback is off above it.
+/// Gate window upper end (about 33 degrees); the fallback is off above it.
 inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
+static_assert(STAR_FAR_RATIO_SQ > STAR_FAR_BLEND_START_RATIO_SQ);
+static_assert(HANKIN_CONDITIONED_FAR_RATIO_SQ >
+              HANKIN_CONDITIONED_NEAR_RATIO_SQ);
+static_assert(HANKIN_CONDITIONED_CLEAR_SQ > HANKIN_PARALLEL_REGULARIZATION_SQ);
+static_assert(HANKIN_PARALLEL_GATE_HI_SQ > HANKIN_PARALLEL_GATE_LO_SQ);
 
 /** Branch used to position one dynamic Hankin vertex. */
 enum class HankinBranch : uint8_t { INTERSECT, COLLAPSED, FALLBACK, BLENDED };
