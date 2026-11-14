@@ -19,6 +19,8 @@
 #include "core/memory.h"
 #include "core/platform/attributes.h"
 #include "core/platform/platform.h"
+#include "core/render/clip.h"
+#include "core/render/plot/cull.h"
 #include "core/render/plot/shapes.h"
 
 namespace Plot {
@@ -31,6 +33,15 @@ enum class ContourShape : uint8_t {
   PLANAR_STAR,
   SPHERICAL_STAR
 };
+
+/** @brief Most sides, petals or star points a contour takes. */
+inline constexpr int CONTOUR_MAX_SIDES = 16;
+/** @brief Most vertices a contour takes. */
+inline constexpr int CONTOUR_MAX_VERTICES = 2 * CONTOUR_MAX_SIDES;
+/** @brief Contour count from which star edges switch to screen-step-balanced
+ *  sampling: the dense planar-star path, and the balanced policy for
+ *  spherical stars. */
+inline constexpr float DENSE_CONTOUR_COUNT = 32.0f;
 
 /** @brief Folds a pole-to-pole radius fraction onto its nearer pole.
  * @param radius_t Radius fraction in [0, 1].
@@ -54,6 +65,27 @@ inline HS_FLASH_MEMBER float screen_balanced_radius_t(float radius_t) {
                                          : acosf(DENSITY_INTEGRAL * (1.0f - u));
   const float folded = theta / math::PI_F;
   return far_side ? 1.0f - folded : folded;
+}
+
+/** @brief Tests a planar star contour's cap against the clip.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param clip Drawing clip.
+ * @param near_cap,far_cap Cap centers at the two poles.
+ * @param radius Contour radius.
+ * @param pad Angular motion padding.
+ * @return Whether the contour can touch the clip. */
+template <int W, int H>
+HS_HOT_INLINE bool
+planar_star_cap_visible(const ClipRegion &clip, const CapCenter &near_cap,
+                        const CapCenter &far_cap, float radius, float pad) {
+  constexpr float AA_PAD = 2.0f * math::PI_F / W;
+  const bool far_side = radius > 1.0f;
+  const float cap_radius = far_side ? 2.0f - radius : radius;
+  const float half_angle = cap_radius * (math::PI_F / 2.0f) + AA_PAD + pad;
+  const float t2 = fminf(half_angle, math::PI_F);
+  return cap_may_touch_clip<H>(clip, far_side ? far_cap : near_cap, t2,
+                               sinf(t2));
 }
 
 /** @brief A contour's ordered slot and geometric radius. */
