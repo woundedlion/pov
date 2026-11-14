@@ -405,50 +405,131 @@ struct Params {
   static constexpr std::array<Field<Params>, 0> FIELDS{}; ///< Nested controls.
 };
 
+/**
+ * @brief X-macro roster of the color.modulate.v1 control slots, in schema
+ *        order.
+ * @param F Float row: F(slot, id, member, sources, octave, min, max, def,
+ *          curve).
+ * @param E Selector row: E(slot, id, member, sources, octave, ids, def).
+ * @details `member` is the field path in `ColorModulation::Config`. `sources`
+ * is a `Controls::SourceMask`; an `octave` row is live only for
+ * octave-contour noise. Ids are wire format.
+ */
+#define HS_MODULATION_SLOTS(F, E)                                              \
+  F(MODULATION_AMOUNT, "modulation-amount", mechanic.amount, ANY_SOURCE,       \
+    false, -4.0f, 4.0f, 0.0f, LERP)                                            \
+  F(PATTERN_SCALE, "pattern-scale", noise.scale, NOISE_SOURCE, false,          \
+    Pattern::MIN_NOISE_SCALE, Pattern::MAX_NOISE_SCALE, 1.0f, LOG_POSITIVE)    \
+  F(PATTERN_SPEED, "pattern-speed", noise.speed, NOISE_SOURCE, false,          \
+    -Pattern::MAX_NOISE_SPEED, Pattern::MAX_NOISE_SPEED, 0.0f, LERP)           \
+  F(PATTERN_CONTRAST, "pattern-contrast", noise.contrast, NOISE_SOURCE, true,  \
+    0.0f, Pattern::MAX_NOISE_CONTRAST, 0.0f, LERP)                             \
+  F(SINE_AXIS_X, "sine-axis-x", sine.axis.x, SINE_SOURCE, false, -64.0f,       \
+    64.0f, 0.0f, LERP)                                                         \
+  F(SINE_AXIS_Y, "sine-axis-y", sine.axis.y, SINE_SOURCE, false, -64.0f,       \
+    64.0f, 1.0f, LERP)                                                         \
+  F(SINE_AXIS_Z, "sine-axis-z", sine.axis.z, SINE_SOURCE, false, -64.0f,       \
+    64.0f, 0.0f, LERP)                                                         \
+  F(SINE_FREQUENCY, "sine-frequency", sine.frequency, SINE_SOURCE, false,      \
+    0.0f, Pattern::MAX_AXIAL_FREQUENCY, 1.0f, LERP)                            \
+  F(SINE_OFFSET, "sine-offset", sine.offset, SINE_SOURCE, false, -64.0f,       \
+    64.0f, 0.0f, LERP)                                                         \
+  F(SINE_SPEED, "sine-speed", sine.speed, SINE_SOURCE, false,                  \
+    -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED, 0.0f, LERP)     \
+  F(INTERFERENCE_AXIS_X, "interference-axis-x", interference.axis.x,           \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+  F(INTERFERENCE_AXIS_Y, "interference-axis-y", interference.axis.y,           \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 1.0f, LERP)                     \
+  F(INTERFERENCE_AXIS_Z, "interference-axis-z", interference.axis.z,           \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+  F(INTERFERENCE_FREQUENCY, "interference-frequency", interference.frequency,  \
+    INTERFERENCE_SOURCE, false, 0.0f, Pattern::MAX_AXIAL_FREQUENCY, 1.0f,      \
+    LERP)                                                                      \
+  F(INTERFERENCE_OFFSET, "interference-offset", interference.offset,           \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+  F(INTERFERENCE_SPEED, "interference-speed", interference.speed,              \
+    INTERFERENCE_SOURCE, false, -Pattern::MAX_ANALYTIC_SPEED,                  \
+    Pattern::MAX_ANALYTIC_SPEED, 0.0f, LERP)                                   \
+  F(INTERFERENCE_AXIS_B_X, "interference-axis-b-x", interference.axis_b.x,     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 1.0f, LERP)                     \
+  F(INTERFERENCE_AXIS_B_Y, "interference-axis-b-y", interference.axis_b.y,     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+  F(INTERFERENCE_AXIS_B_Z, "interference-axis-b-z", interference.axis_b.z,     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+  F(INTERFERENCE_FREQUENCY_B, "interference-frequency-b",                      \
+    interference.frequency_b, INTERFERENCE_SOURCE, false, 0.0f,                \
+    Pattern::MAX_AXIAL_FREQUENCY, 1.0f, LERP)                                  \
+  F(INTERFERENCE_OFFSET_B, "interference-offset-b", interference.offset_b,     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+  F(GRID_AXIS_X, "grid-axis-x", grid.axis.x, GRID_SOURCE, false, -64.0f,       \
+    64.0f, 0.0f, LERP)                                                         \
+  F(GRID_AXIS_Y, "grid-axis-y", grid.axis.y, GRID_SOURCE, false, -64.0f,       \
+    64.0f, 1.0f, LERP)                                                         \
+  F(GRID_AXIS_Z, "grid-axis-z", grid.axis.z, GRID_SOURCE, false, -64.0f,       \
+    64.0f, 0.0f, LERP)                                                         \
+  F(GRID_FREQUENCY, "grid-frequency", grid.frequency, GRID_SOURCE, false,      \
+    0.0f, Pattern::MAX_AXIAL_FREQUENCY, 1.0f, LERP)                            \
+  F(GRID_OFFSET, "grid-offset", grid.offset, GRID_SOURCE, false, -64.0f,       \
+    64.0f, 0.0f, LERP)                                                         \
+  F(GRID_SPEED, "grid-speed", grid.speed, GRID_SOURCE, false,                  \
+    -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED, 0.0f, LERP)     \
+  F(GRID_AXIS_B_X, "grid-axis-b-x", grid.axis_b.x, GRID_SOURCE, false, -64.0f, \
+    64.0f, 1.0f, LERP)                                                         \
+  F(GRID_AXIS_B_Y, "grid-axis-b-y", grid.axis_b.y, GRID_SOURCE, false, -64.0f, \
+    64.0f, 0.0f, LERP)                                                         \
+  F(GRID_AXIS_B_Z, "grid-axis-b-z", grid.axis_b.z, GRID_SOURCE, false, -64.0f, \
+    64.0f, 0.0f, LERP)                                                         \
+  F(GRID_FREQUENCY_B, "grid-frequency-b", grid.frequency_b, GRID_SOURCE,       \
+    false, 0.0f, Pattern::MAX_AXIAL_FREQUENCY, 1.0f, LERP)                     \
+  F(GRID_OFFSET_B, "grid-offset-b", grid.offset_b, GRID_SOURCE, false, -64.0f, \
+    64.0f, 0.0f, LERP)                                                         \
+  E(MODULATION_ENABLED, "modulation-enabled", enabled, ANY_SOURCE, false,      \
+    ENABLED_IDS, 1)                                                            \
+  E(MODULATION_SOURCE, "modulation-source", source, ANY_SOURCE, false,         \
+    SOURCE_IDS, 0)                                                             \
+  E(MODULATION_EVALUATION, "modulation-evaluation", evaluation, ANY_SOURCE,    \
+    false, EVALUATION_IDS, 1)                                                  \
+  E(MODULATION_MECHANIC, "modulation-mechanic", mechanic.kind, ANY_SOURCE,     \
+    false, MECHANIC_IDS, 0)                                                    \
+  E(PATTERN_NOISE_BASIS, "pattern-noise-basis", noise.basis, NOISE_SOURCE,     \
+    true, BASIS_IDS, 0)                                                        \
+  E(PATTERN_NOISE_VARIANT, "pattern-noise-variant", noise.variant,             \
+    NOISE_SOURCE, false, VARIANT_IDS, 0)
+
 /** @brief Controls of one color.modulate.v1 operator. */
 struct Controls {
 private:
+#define HS_MODULATION_SLOT_ENUM(SLOT, ...) SLOT,
   enum Slot : size_t {
-    MODULATION_AMOUNT,
-    PATTERN_SCALE,
-    PATTERN_SPEED,
-    PATTERN_CONTRAST,
-    SINE_AXIS_X,
-    SINE_AXIS_Y,
-    SINE_AXIS_Z,
-    SINE_FREQUENCY,
-    SINE_OFFSET,
-    SINE_SPEED,
-    INTERFERENCE_AXIS_X,
-    INTERFERENCE_AXIS_Y,
-    INTERFERENCE_AXIS_Z,
-    INTERFERENCE_FREQUENCY,
-    INTERFERENCE_OFFSET,
-    INTERFERENCE_SPEED,
-    INTERFERENCE_AXIS_B_X,
-    INTERFERENCE_AXIS_B_Y,
-    INTERFERENCE_AXIS_B_Z,
-    INTERFERENCE_FREQUENCY_B,
-    INTERFERENCE_OFFSET_B,
-    GRID_AXIS_X,
-    GRID_AXIS_Y,
-    GRID_AXIS_Z,
-    GRID_FREQUENCY,
-    GRID_OFFSET,
-    GRID_SPEED,
-    GRID_AXIS_B_X,
-    GRID_AXIS_B_Y,
-    GRID_AXIS_B_Z,
-    GRID_FREQUENCY_B,
-    GRID_OFFSET_B,
-    MODULATION_ENABLED,
-    MODULATION_SOURCE,
-    MODULATION_EVALUATION,
-    MODULATION_MECHANIC,
-    PATTERN_NOISE_BASIS,
-    PATTERN_NOISE_VARIANT,
-    SLOT_COUNT
+    HS_MODULATION_SLOTS(HS_MODULATION_SLOT_ENUM, HS_MODULATION_SLOT_ENUM)
+        SLOT_COUNT
   };
+#undef HS_MODULATION_SLOT_ENUM
+  /// Sources whose recipe reads a slot, one bit per `Pattern::SourceKind`.
+  enum SourceMask : uint8_t {
+    ANY_SOURCE = 0, ///< Live for every source, including displacement.
+    NOISE_SOURCE = 1u << static_cast<unsigned>(Pattern::SourceKind::NOISE),
+    SINE_SOURCE =
+        1u << static_cast<unsigned>(Pattern::SourceKind::DIRECTIONAL_SINE),
+    INTERFERENCE_SOURCE =
+        1u << static_cast<unsigned>(Pattern::SourceKind::SPHERE_INTERFERENCE),
+    GRID_SOURCE =
+        1u << static_cast<unsigned>(Pattern::SourceKind::SPHERE_SMOOTH_GRID)
+  };
+  /** @brief Whether a slot's source mask admits a recipe.
+   * @param c Current source and mechanic recipe.
+   * @param sources Slot source mask.
+   * @param octave Whether the slot needs octave-contour noise.
+   * @return Whether the recipe reads the slot. */
+  static constexpr bool live(const ColorModulation::Config &c,
+                             SourceMask sources, bool octave) {
+    if (sources == ANY_SOURCE)
+      return true;
+    const auto source = static_cast<unsigned>(c.source);
+    if (source >= 8 || !(sources & (1u << source)))
+      return false;
+    return !octave || c.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR;
+  }
 
 public:
   ColorModulation::Config modulation = [] {
@@ -484,144 +565,22 @@ public:
                                                 "octave-contour"};
   static_assert(std::size(VARIANT_IDS) ==
                 static_cast<size_t>(Pattern::NoiseVariant::OCTAVE_CONTOUR) + 1);
+#define HS_MODULATION_FLOAT_ROW(SLOT, ID, MEMBER, SOURCES, OCTAVE, MIN, MAX,   \
+                                DEF, CURVE)                                    \
+  ParamFieldInfo{ID,    nullptr, MIN, MAX,     DEF,     FieldCurve::CURVE,     \
+                 false, 0,       0,   nullptr, nullptr, 0},
+#define HS_MODULATION_ENUM_ROW(SLOT, ID, MEMBER, SOURCES, OCTAVE, IDS, DEF)    \
+  ParamFieldInfo{ID,      nullptr,                                             \
+                 0,       0,                                                   \
+                 0,       FieldCurve::SNAP,                                    \
+                 true,    static_cast<uint8_t>(std::size(IDS)),                \
+                 DEF,     IDS,                                                 \
+                 nullptr, 0},
   /// Modulation parameter schema: source, mechanic and selector rows.
-  static constexpr auto EXTRA_SCHEMA = [] {
-    std::array<ParamFieldInfo, SLOT_COUNT> out{};
-    const char *ids[] = {"modulation-amount",
-                         "pattern-scale",
-                         "pattern-speed",
-                         "pattern-contrast",
-                         "sine-axis-x",
-                         "sine-axis-y",
-                         "sine-axis-z",
-                         "sine-frequency",
-                         "sine-offset",
-                         "sine-speed",
-                         "interference-axis-x",
-                         "interference-axis-y",
-                         "interference-axis-z",
-                         "interference-frequency",
-                         "interference-offset",
-                         "interference-speed",
-                         "interference-axis-b-x",
-                         "interference-axis-b-y",
-                         "interference-axis-b-z",
-                         "interference-frequency-b",
-                         "interference-offset-b",
-                         "grid-axis-x",
-                         "grid-axis-y",
-                         "grid-axis-z",
-                         "grid-frequency",
-                         "grid-offset",
-                         "grid-speed",
-                         "grid-axis-b-x",
-                         "grid-axis-b-y",
-                         "grid-axis-b-z",
-                         "grid-frequency-b",
-                         "grid-offset-b"};
-    static_assert(std::size(ids) == MODULATION_ENABLED);
-    for (size_t i = MODULATION_AMOUNT; i < MODULATION_ENABLED; ++i)
-      out[i] = {ids[i], nullptr, -64.0f, 64.0f,   0.0f,    FieldCurve::LERP,
-                false,  0,       0,      nullptr, nullptr, 0};
-    out[MODULATION_AMOUNT].min = -4.0f;
-    out[MODULATION_AMOUNT].max = 4.0f;
-    out[PATTERN_SCALE].min = Pattern::MIN_NOISE_SCALE;
-    out[PATTERN_SCALE].max = Pattern::MAX_NOISE_SCALE;
-    out[PATTERN_SCALE].def = 1.0f;
-    out[PATTERN_SCALE].curve = FieldCurve::LOG_POSITIVE;
-    out[PATTERN_SPEED].min = -Pattern::MAX_NOISE_SPEED;
-    out[PATTERN_SPEED].max = Pattern::MAX_NOISE_SPEED;
-    for (size_t i : {SINE_SPEED, INTERFERENCE_SPEED, GRID_SPEED}) {
-      out[i].min = -Pattern::MAX_ANALYTIC_SPEED;
-      out[i].max = Pattern::MAX_ANALYTIC_SPEED;
-    }
-    out[PATTERN_CONTRAST].min = 0.0f;
-    out[PATTERN_CONTRAST].max = Pattern::MAX_NOISE_CONTRAST;
-    for (size_t i : {SINE_AXIS_Y, SINE_FREQUENCY, INTERFERENCE_AXIS_Y,
-                     INTERFERENCE_FREQUENCY, INTERFERENCE_AXIS_B_X,
-                     INTERFERENCE_FREQUENCY_B, GRID_AXIS_Y, GRID_FREQUENCY,
-                     GRID_AXIS_B_X, GRID_FREQUENCY_B})
-      out[i].def = 1.0f;
-    for (size_t i :
-         {SINE_FREQUENCY, INTERFERENCE_FREQUENCY, INTERFERENCE_FREQUENCY_B,
-          GRID_FREQUENCY, GRID_FREQUENCY_B}) {
-      out[i].min = 0.0f;
-      out[i].max = Pattern::MAX_AXIAL_FREQUENCY;
-    }
-    out[MODULATION_ENABLED] = {"modulation-enabled",
-                               nullptr,
-                               0,
-                               0,
-                               0,
-                               FieldCurve::SNAP,
-                               true,
-                               std::size(ENABLED_IDS),
-                               1,
-                               ENABLED_IDS,
-                               nullptr,
-                               0};
-    out[MODULATION_SOURCE] = {"modulation-source",
-                              nullptr,
-                              0,
-                              0,
-                              0,
-                              FieldCurve::SNAP,
-                              true,
-                              std::size(SOURCE_IDS),
-                              0,
-                              SOURCE_IDS,
-                              nullptr,
-                              0};
-    out[MODULATION_EVALUATION] = {"modulation-evaluation",
-                                  nullptr,
-                                  0,
-                                  0,
-                                  0,
-                                  FieldCurve::SNAP,
-                                  true,
-                                  std::size(EVALUATION_IDS),
-                                  1,
-                                  EVALUATION_IDS,
-                                  nullptr,
-                                  0};
-    out[MODULATION_MECHANIC] = {"modulation-mechanic",
-                                nullptr,
-                                0,
-                                0,
-                                0,
-                                FieldCurve::SNAP,
-                                true,
-                                std::size(MECHANIC_IDS),
-                                0,
-                                MECHANIC_IDS,
-                                nullptr,
-                                0};
-    out[PATTERN_NOISE_BASIS] = {"pattern-noise-basis",
-                                nullptr,
-                                0,
-                                0,
-                                0,
-                                FieldCurve::SNAP,
-                                true,
-                                std::size(BASIS_IDS),
-                                0,
-                                BASIS_IDS,
-                                nullptr,
-                                0};
-    out[PATTERN_NOISE_VARIANT] = {"pattern-noise-variant",
-                                  nullptr,
-                                  0,
-                                  0,
-                                  0,
-                                  FieldCurve::SNAP,
-                                  true,
-                                  std::size(VARIANT_IDS),
-                                  0,
-                                  VARIANT_IDS,
-                                  nullptr,
-                                  0};
-    return out;
-  }();
+  static constexpr std::array<ParamFieldInfo, SLOT_COUNT> EXTRA_SCHEMA{
+      HS_MODULATION_SLOTS(HS_MODULATION_FLOAT_ROW, HS_MODULATION_ENUM_ROW)};
+#undef HS_MODULATION_FLOAT_ROW
+#undef HS_MODULATION_ENUM_ROW
   /** @brief Mutable canonical control addresses.
    * @param index Index in the appended schema.
    * @return Canonical configuration field address. */
@@ -634,55 +593,14 @@ public:
    * @return Address in the supplied recipe. */
   HS_FLASH_MEMBER static void *address(ColorModulation::Config &c,
                                        size_t index) {
-    float *addresses[] = {&c.mechanic.amount,
-                          &c.noise.scale,
-                          &c.noise.speed,
-                          &c.noise.contrast,
-                          &c.sine.axis.x,
-                          &c.sine.axis.y,
-                          &c.sine.axis.z,
-                          &c.sine.frequency,
-                          &c.sine.offset,
-                          &c.sine.speed,
-                          &c.interference.axis.x,
-                          &c.interference.axis.y,
-                          &c.interference.axis.z,
-                          &c.interference.frequency,
-                          &c.interference.offset,
-                          &c.interference.speed,
-                          &c.interference.axis_b.x,
-                          &c.interference.axis_b.y,
-                          &c.interference.axis_b.z,
-                          &c.interference.frequency_b,
-                          &c.interference.offset_b,
-                          &c.grid.axis.x,
-                          &c.grid.axis.y,
-                          &c.grid.axis.z,
-                          &c.grid.frequency,
-                          &c.grid.offset,
-                          &c.grid.speed,
-                          &c.grid.axis_b.x,
-                          &c.grid.axis_b.y,
-                          &c.grid.axis_b.z,
-                          &c.grid.frequency_b,
-                          &c.grid.offset_b};
-    static_assert(std::size(addresses) == MODULATION_ENABLED);
-    if (index < std::size(addresses))
-      return addresses[index];
+#define HS_MODULATION_SLOT_ADDRESS(SLOT, ID, MEMBER, ...)                      \
+  case SLOT:                                                                   \
+    return &c.MEMBER;
     switch (index) {
-    case MODULATION_ENABLED:
-      return &c.enabled;
-    case MODULATION_SOURCE:
-      return &c.source;
-    case MODULATION_EVALUATION:
-      return &c.evaluation;
-    case MODULATION_MECHANIC:
-      return &c.mechanic.kind;
-    case PATTERN_NOISE_BASIS:
-      return &c.noise.basis;
-    case PATTERN_NOISE_VARIANT:
-      return &c.noise.variant;
+      HS_MODULATION_SLOTS(HS_MODULATION_SLOT_ADDRESS,
+                          HS_MODULATION_SLOT_ADDRESS)
     }
+#undef HS_MODULATION_SLOT_ADDRESS
     HS_CHECK(false, "invalid modulation field index");
     return nullptr;
   }
@@ -692,26 +610,13 @@ public:
    * @return Whether the control accepts native parameter writes. */
   HS_FLASH_MEMBER static bool active(const ColorModulation::Config &c,
                                      size_t index) {
-    if (index >= EXTRA_SCHEMA.size())
-      return false;
-    if (index == MODULATION_AMOUNT ||
-        (index >= MODULATION_ENABLED && index <= MODULATION_MECHANIC))
-      return true;
-    switch (c.source) {
-    case Pattern::SourceKind::NOISE:
-      if (index == PATTERN_CONTRAST || index == PATTERN_NOISE_BASIS)
-        return c.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR;
-      return index == PATTERN_SCALE || index == PATTERN_SPEED ||
-             index == PATTERN_NOISE_VARIANT;
-    case Pattern::SourceKind::DIRECTIONAL_SINE:
-      return index >= SINE_AXIS_X && index <= SINE_SPEED;
-    case Pattern::SourceKind::SPHERE_INTERFERENCE:
-      return index >= INTERFERENCE_AXIS_X && index <= INTERFERENCE_OFFSET_B;
-    case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-      return index >= GRID_AXIS_X && index <= GRID_OFFSET_B;
-    case Pattern::SourceKind::DISPLACEMENT:
-      return false;
+#define HS_MODULATION_SLOT_LIVE(SLOT, ID, MEMBER, SOURCES, OCTAVE, ...)        \
+  case SLOT:                                                                   \
+    return live(c, SOURCES, OCTAVE);
+    switch (index) {
+      HS_MODULATION_SLOTS(HS_MODULATION_SLOT_LIVE, HS_MODULATION_SLOT_LIVE)
     }
+#undef HS_MODULATION_SLOT_LIVE
     return false;
   }
 
