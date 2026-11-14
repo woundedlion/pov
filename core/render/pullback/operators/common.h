@@ -91,35 +91,44 @@ using SphereAnimation::advance_walk;
 using SphereAnimation::temporal_interval;
 using SphereAnimation::temporal_sample;
 
-/** @brief Instance state of the noise-driven operators: the owned field plus
-    the loop phase PhaseClockModel advances.
- * @details Column-time samples may lie outside [0, 1). */
-struct NoisePhaseState {
-  FastNoiseLite noise;    ///< Instance-owned noise field.
-  float phase = 0.0f;     ///< Loop phase modulo 1.
-  int32_t noise_seed = 0; ///< Seed of `noise`.
+/** @brief One wrapped phase clock.
+ * @details Column-time samples may lie outside [0, `Period`).
+ * @tparam Period Phase period. */
+template <float Period> struct PeriodicPhase {
+  float phase = 0.0f; ///< Phase modulo `Period`.
 };
 
-/** @brief Prepares the clocks between consecutive endpoints.
+/** @brief Prepares the clock between consecutive endpoints.
+ * @tparam Period Phase period.
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-inline Spacetime::ClockInterval temporal_interval(const NoisePhaseState &from,
-                                                  const NoisePhaseState &to) {
-  return {from.phase, to.phase, 1.0f};
+template <float Period>
+inline Spacetime::ClockInterval
+temporal_interval(const PeriodicPhase<Period> &from,
+                  const PeriodicPhase<Period> &to) {
+  return {from.phase, to.phase, Period};
 }
 
-/** @brief Applies the prepared clocks to a column state.
+/** @brief Applies the prepared clock to a column state.
+ * @tparam Period Phase period.
  * @tparam Params Operator parameter block.
  * @param out Copy of the current state.
  * @param interval Prepared frame interval.
  * @param fraction Frame fraction in [0, 1]. */
-template <typename Params>
-void temporal_sample(NoisePhaseState &out,
-                     const Spacetime::ClockInterval &interval, const Params &,
-                     float fraction) {
+template <float Period, typename Params>
+inline void temporal_sample(PeriodicPhase<Period> &out,
+                            const Spacetime::ClockInterval &interval,
+                            const Params &, float fraction) {
   out.phase = interval.sample(fraction);
 }
+
+/** @brief Instance state of the noise-driven operators: the owned field plus
+    the loop phase PhaseClockModel advances. */
+struct NoisePhaseState : PeriodicPhase<1.0f> {
+  FastNoiseLite noise;    ///< Instance-owned noise field.
+  int32_t noise_seed = 0; ///< Seed of `noise`.
+};
 
 /** @brief Value-state operator with one normalized loop clock. */
 template <typename StateT> struct PhaseClockModel : ValueStateModel<StateT> {

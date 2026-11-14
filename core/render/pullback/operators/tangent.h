@@ -37,32 +37,8 @@ field_fold_strength(const math::tangent_field::PotentialField &field) {
                                             field.lipschitz_bound());
 }
 
-/** @brief Accumulated azimuthal drift clock. */
-struct FieldPhaseState {
-  float phase = 0.0f; ///< Azimuthal phase, radians modulo 2pi.
-};
-
-/** @brief Retains field drift endpoints.
- * @param from Previous clock.
- * @param to Current clock.
- * @return Prepared circular interval. */
-inline Spacetime::ClockInterval temporal_interval(const FieldPhaseState &from,
-                                                  const FieldPhaseState &to) {
-  return {from.phase, to.phase, math::TWO_PI_F};
-}
-
-/** @brief Samples field drift at column time.
- * @tparam Params Operator controls.
- * @param out Column clock.
- * @param interval Retained endpoints.
- * @param fraction Column fraction.
- */
-template <typename Params>
-inline void temporal_sample(FieldPhaseState &out,
-                            const Spacetime::ClockInterval &interval,
-                            const Params &, float fraction) {
-  out.phase = interval.sample(fraction);
-}
+/** @brief Accumulated azimuthal drift clock, in radians. */
+struct FieldPhaseState : PeriodicPhase<math::TWO_PI_F> {};
 
 /** @brief Canonical scalar-potential term controls. */
 using PotentialTermParams = Surface::PotentialTermParams;

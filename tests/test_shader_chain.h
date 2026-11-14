@@ -675,7 +675,7 @@ inline void test_shader_chain_snapshot_refusals() {
   for (const auto &value : {In::SourceClockSnapshot{0.25f, 1.0f, 0.0f},
                             In::SourceClockSnapshot{0.25f, 0.0f, 1.0f},
                             In::SourceClockSnapshot{7.0f}}) {
-    In::Op::FieldPhaseState field_state{.phase = 0.5f};
+    In::Op::FieldPhaseState field_state{0.5f};
     HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::FieldPhaseState>::restore(
         field_state, value));
     HS_EXPECT_EQ(field_state.phase, 0.5f);

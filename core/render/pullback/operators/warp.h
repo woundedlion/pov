@@ -50,32 +50,8 @@ inline float warp_envelope(uint8_t envelope,
                         static_cast<WarpEnvelope>(envelope));
 }
 
-/** @brief Phase clock of the single-clock warp operators.
- * @details Column-time samples may lie outside [0, 1). */
-struct WarpPhaseState {
-  float phase = 0.0f; ///< Loop phase modulo 1.
-};
-
-/** @brief Prepares the clocks between consecutive endpoints.
- * @param from Previous state.
- * @param to Current state.
- * @return Prepared interval. */
-inline Spacetime::ClockInterval temporal_interval(const WarpPhaseState &from,
-                                                  const WarpPhaseState &to) {
-  return {from.phase, to.phase, 1.0f};
-}
-
-/** @brief Applies the prepared clocks to a column state.
- * @tparam Params Operator parameter block.
- * @param out Copy of the current state.
- * @param interval Prepared frame interval.
- * @param fraction Frame fraction in [0, 1]. */
-template <typename Params>
-void temporal_sample(WarpPhaseState &out,
-                     const Spacetime::ClockInterval &interval, const Params &,
-                     float fraction) {
-  out.phase = interval.sample(fraction);
-}
+/** @brief Phase clock of the single-clock warp operators. */
+struct WarpPhaseState : PeriodicPhase<1.0f> {};
 
 /** @brief Path-length topology values: off, on. */
 inline constexpr const char *AFFINE_PATH_LENGTH_IDS[] = {"off", "on"};
