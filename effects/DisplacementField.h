@@ -87,15 +87,7 @@ public:
   void init() override {
     configure_presets(PRESET_IDS.size());
     hue_table.knots = persistent_arena.allocate_n<Pixel>(HueTable::KNOTS);
-    ball_colat = persistent_arena.allocate_n<float>(MAX_BALLS);
-    ball_reach = persistent_arena.allocate_n<float>(MAX_BALLS);
-    ball_scale = persistent_arena.allocate_n<float>(MAX_BALLS);
-    ball_params =
-        persistent_arena.allocate_n<const Animation::BumpParams *>(MAX_BALLS);
-    ball_local = persistent_arena.allocate_n<int>(MAX_BALLS);
-    ball_cv = persistent_arena.allocate_n<float>(MAX_BALLS);
-    ball_rho = persistent_arena.allocate_n<float>(MAX_BALLS);
-    ball_azimuth = persistent_arena.allocate_n<float>(MAX_BALLS);
+    ball_cache.init_storage(persistent_arena);
     rings.init_storage(persistent_arena);
     candidates = persistent_arena.allocate_n<CandidateTable>(1);
     octave1 = persistent_arena.allocate_n<float>(W + 1);
@@ -207,18 +199,6 @@ private:
                   LUT_MIN_SAMPLES, W);
     return octave_path ? (samples + OCTAVE_GRID - 1) / OCTAVE_GRID * OCTAVE_GRID
                        : samples;
-  }
-
-  /** @brief Evaluates the active ball fields using cached ring geometry. */
-  HS_O3_FN float ball_field(const math::Vector &p, const int *ks, int n,
-                            float theta) const {
-    DominantFieldAccumulator accumulator;
-    for (int j = 0; j < n; ++j) {
-      const int k = ks[j];
-      float f = bump_field_with_y(p, *ball_params[k], theta - ball_colat[k]);
-      accumulator.add(f);
-    }
-    return accumulator.value();
   }
 
   struct HueMode {
@@ -345,41 +325,6 @@ private:
   };
 #endif
 
-  /** @brief ball_field() with each ball at a frame fraction. */
-  HS_O3_FN float ball_field_at(const math::Vector &p, const int *ks, int n,
-                               float theta, float t) const {
-    DominantFieldAccumulator accumulator;
-    for (int j = 0; j < n; ++j) {
-      const int k = ks[j];
-      accumulator.add(Animation::bump_field_at(p, *ball_params[k],
-                                               ball_paths[k], theta, t));
-    }
-    return accumulator.value();
-  }
-
-  /**
-   * @brief Caches one ball's bounds in the ring frame.
-   * @param b Ball index.
-   * @param basis Ring frame.
-   * @param centre Ball bound centre.
-   * @param reach Angular bound radius.
-   * @param radius Ball radius.
-   */
-  HS_HOT_INLINE void cache_ball_frame(int b, const math::Basis &basis,
-                                      const math::Vector &centre, float reach,
-                                      float radius) {
-    const float cv = math::dot(basis.v, centre);
-    ball_colat[b] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
-    ball_reach[b] = reach;
-    ball_scale[b] = 2.0f / radius;
-    const float cu = math::dot(basis.u, centre);
-    const float cw = math::dot(basis.w, centre);
-    ball_cv[b] = cv;
-    ball_rho[b] = sqrtf(cu * cu + cw * cw);
-    const float a0 = atan2f(cw, cu);
-    ball_azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
-  }
-
   /**
    * @brief Bakes every ring over the active ball pool, then rasterizes the
    * stack in one fused scan.
@@ -418,8 +363,8 @@ private:
     drawn_colors_valid = false;
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
-      ball_params[b] = &sp;
-      cache_ball_frame(b, basis, sp.center, sp.field_bound(), sp.radius);
+      ball_cache.params[b] = &sp;
+      ball_cache.cache_frame(b, basis, sp.center, sp.field_bound(), sp.radius);
     }
     draw_pass<Unswept>(canvas, basis, column_basis, opacity, n_balls, nullptr);
   }
@@ -484,7 +429,8 @@ private:
     alternates.duplicate_knots = alternates.stack_flushes = 0;
 #endif
     ScratchScope sweep_guard(scratch_arena_a);
-    ball_paths = scratch_arena_a.allocate_n<Animation::BumpPath>(MAX_BALLS);
+    ball_cache.paths =
+        scratch_arena_a.allocate_n<Animation::BumpPath>(MAX_BALLS);
     knot_times = scratch_arena_a.allocate_n<float>(W + 1);
     ring_colors = scratch_arena_a.allocate_n<Color4>(RING_SLOTS);
     for (int i = 0; i < params.num_rings; ++i)
@@ -493,15 +439,14 @@ private:
       drawn_colors_valid = false;
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
-      ball_params[b] = &sp;
+      ball_cache.params[b] = &sp;
       Animation::BumpCover cover;
-      if (!Animation::make_bump_path(sp, sweep.turn, basis.v, ball_paths[b],
-                                     cover)) {
-        ball_colat[b] = 0.0f;
-        ball_reach[b] = -1.0f;
+      if (!Animation::make_bump_path(sp, sweep.turn, basis.v,
+                                     ball_cache.paths[b], cover)) {
+        ball_cache.exclude(b);
         continue;
       }
-      cache_ball_frame(b, basis, cover.centre, cover.reach, sp.radius);
+      ball_cache.cache_frame(b, basis, cover.centre, cover.reach, sp.radius);
     }
     ScratchScope cache_guard(scratch_arena_b);
     alternates.allocate(scratch_arena_b, scratch_arena_a, RING_SLOTS,
@@ -525,7 +470,7 @@ private:
       drawn_colors[i] = ring_colors[i];
     drawn_colors_valid = true;
     drawn_ring_count = params.num_rings;
-    ball_paths = nullptr;
+    ball_cache.paths = nullptr;
     knot_times = nullptr;
     ring_colors = nullptr;
   }
@@ -560,26 +505,6 @@ private:
    */
   HS_FLASH_MEMBER Color4 ring_color(int i, int n_rings) const {
     return palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
-  }
-
-  /** @brief Collects the balls whose support reaches a ring.
-   * @param theta Ring colatitude, radians.
-   * @param n_balls Active ball count.
-   * @param band Receives the maximum ball reach.
-   * @param ball_feature Receives the maximum ball feature scale.
-   * @return Number of selected ball indices in ball_local.
-   */
-  HS_HOT_INLINE int select_ring_balls(float theta, int n_balls, float &band,
-                                      float &ball_feature) {
-    int n_local = 0;
-    for (int b = 0; b < n_balls; ++b) {
-      if (std::fabs(theta - ball_colat[b]) < ball_reach[b] + BALL_TOUCH_EPS) {
-        ball_local[n_local++] = b;
-        band = fmaxf(band, ball_reach[b]);
-        ball_feature = fmaxf(ball_feature, ball_scale[b]);
-      }
-    }
-    return n_local;
   }
 
   /** @brief Resolves one ring's endpoint color and sweep opacity.
@@ -744,7 +669,7 @@ private:
       int n_local = 0;
       float band = 0.0f;
       float ball_feature = 0.0f;
-      n_local = select_ring_balls(theta, n_balls, band, ball_feature);
+      n_local = ball_cache.select_ring(theta, n_balls, band, ball_feature);
 
       if (try_cull && !Plot::cap_may_touch_clip<H>(clip(), basis.v,
                                                    theta + band + noise_bound +
@@ -1022,14 +947,14 @@ private:
             }
           }
           if (vis)
-            slut[x] = ball_field_at(p, ball_local, n_local, theta, t);
+            slut[x] = ball_cache.field_at(p, n_local, theta, t);
         } else {
           if (g1)
             octave1[x] = np.octave1(p, np.time);
           if (g2)
             octave2[x] = np.octave2(p, np.time);
           if (vis)
-            slut[x] = ball_field(p, ball_local, n_local, theta);
+            slut[x] = ball_cache.field(p, n_local, theta);
         }
       }
     }
@@ -1044,7 +969,7 @@ private:
    * @param theta Ring colatitude.
    * @param lut_n Knot count, a multiple of OCTAVE_GRID.
    * @param visible Visible-chunk mask, one bit per bake chunk.
-   * @param n_local Balls that can reach the ring (ball_local).
+   * @param n_local Balls that can reach the ring (`BallRingCache::local`).
    * @param slut Receives the shift of every knot in a visible chunk.
    * @details The two octaves use OCTAVE1_STRIDE and OCTAVE2_STRIDE knot spacing
    * and fill between samples with a Catmull-Rom spline over four grid knots, so a
@@ -1109,10 +1034,10 @@ private:
           const float amp =
               sweep->noise_amplitude[0] +
               (sweep->noise_amplitude[1] - sweep->noise_amplitude[0]) * other;
-          const float ball =
-              n_local ? ball_field_at(final_walk.position(), ball_local,
-                                      n_local, theta, other)
-                      : 0.0f;
+          const float ball = n_local
+                                 ? ball_cache.field_at(final_walk.position(),
+                                                       n_local, theta, other)
+                                 : 0.0f;
           const float alternate = ball + amp *
                                              sample(octave1, octave_a, D1, x) *
                                              sample(octave2, octave_b, D2, x);
@@ -1132,12 +1057,12 @@ private:
    * @param theta Ring colatitude.
    * @param lut_n Knot count.
    * @param visible Visible-chunk mask, one bit per bake chunk.
-   * @param n_local Balls that can reach the ring (ball_local).
+   * @param n_local Balls that can reach the ring (`BallRingCache::local`).
    * @param slut Receives the shift of every knot in a visible chunk.
    * @details On the ring, a ball's cap test dot(p, center) > cos_radius reads
    * cos_t * cv + sin_t * rho * cos(a - a0) > cos_radius, which holds on one
    * azimuth arc around a0. Knots off every padded arc get exactly the zero a
-   * rejected ball adds, and each knot folds its balls in ball_local order, so
+   * rejected ball adds, and each knot folds its balls in selection order, so
    * the shifts match evaluating every ball at every knot. A swept bake moves
    * each ball along its path to the knot's time, inside the arc of the cap
    * covering the path.
@@ -1174,25 +1099,25 @@ private:
     }
 
     for (int j = 0; j < n_local; ++j) {
-      const int k = ball_local[j];
-      const Animation::BumpParams &bp = *ball_params[k];
+      const int k = ball_cache.local[j];
+      const Animation::BumpParams &bp = *ball_cache.params[k];
       float cos_radius = bp.cos_radius;
       if constexpr (Bake::SWEPT)
-        cos_radius = ball_paths[k].cos_cover;
-      const auto arc =
-          Plot::cap_ring_arc(step.cos_t, step.sin_t, ball_cv[k], ball_rho[k],
-                             ball_azimuth[k], cos_radius, lut_n, COS_MARGIN);
+        cos_radius = ball_cache.paths[k].cos_cover;
+      const auto arc = Plot::cap_ring_arc(
+          step.cos_t, step.sin_t, ball_cache.cv[k], ball_cache.rho[k],
+          ball_cache.azimuth[k], cos_radius, lut_n, COS_MARGIN);
       if (arc.empty)
         continue;
       const int first = arc.first;
       const int count = arc.count;
-      const float y = theta - ball_colat[k];
+      const float y = theta - ball_cache.colat[k];
       for (int i = 0, xi = first; i < count; ++i) {
         if (knot_visible[xi]) {
           float f;
           if constexpr (Bake::SWEPT)
-            f = Animation::bump_field_at(knot_pos[xi], bp, ball_paths[k], theta,
-                                         knot_times[xi]);
+            f = Animation::bump_field_at(knot_pos[xi], bp, ball_cache.paths[k],
+                                         theta, knot_times[xi]);
           else
             f = bump_field_with_y(knot_pos[xi], bp, y);
           DominantFieldAccumulator::accumulate(num[xi], den[xi], f);
@@ -1201,7 +1126,7 @@ private:
             if (alternates.boundary[xi] && ScanSweep::retains_endpoint(t)) {
               const float other = ScanSweep::other_endpoint(t);
               const float alternate = Animation::bump_field_at(
-                  knot_pos[xi], bp, ball_paths[k], theta, other);
+                  knot_pos[xi], bp, ball_cache.paths[k], theta, other);
               DominantFieldAccumulator::accumulate(ball_num[xi], ball_den[xi],
                                                    alternate);
             }
@@ -1354,7 +1279,6 @@ private:
   bool drawn_colors_valid = false; ///< The last draw was swept.
   int drawn_ring_count = 0;        ///< Stack size of the last swept draw.
   // Frame scratch of a swept draw, null outside it.
-  Animation::BumpPath *ball_paths = nullptr; ///< MAX_BALLS active-ball paths.
   float *knot_times = nullptr;   ///< W + 1 frame fractions of baked knots.
   Color4 *ring_colors = nullptr; ///< RING_SLOTS current ring colors.
 
@@ -1524,12 +1448,6 @@ private:
       nullptr; /**< W + 1 flags: knot lies in a visible bake chunk. */
   math::Vector *knot_pos =
       nullptr; /**< W + 1 knot positions of the ring being ball-baked. */
-  float *ball_cv =
-      nullptr; /**< MAX_BALLS ball-center components along the stack axis. */
-  float *ball_rho =
-      nullptr; /**< MAX_BALLS ball-center distances from the stack axis. */
-  float *ball_azimuth =
-      nullptr; /**< MAX_BALLS ball-center azimuths in the ring frame. */
   uint8_t *knot_near =
       nullptr; /**< W + 1 flags: a visible knot lies within spline reach. */
   float *chunk_cos =
@@ -1538,16 +1456,132 @@ private:
       nullptr; /**< sin of each bake chunk's mid-azimuth; baked once at init. */
   using HueTable = HueRotationRow<HUE_TABLE_SIZE>;
   HueTable hue_table; /**< Hue table of the ring being baked. */
-  float *ball_colat =
-      nullptr; /**< MAX_BALLS active-ball center colatitudes about the stack axis (radians), rebuilt per frame. */
-  float *ball_reach =
-      nullptr; /**< MAX_BALLS active-ball support extents (radians): both the reach prefilter bound and the per-ring band bound. */
-  float *ball_scale =
-      nullptr; /**< MAX_BALLS active-ball LUT feature scales (2/radius). */
-  const Animation::BumpParams **ball_params =
-      nullptr; /**< Active-ball params validated and cached once per frame. */
-  int *ball_local =
-      nullptr; /**< MAX_BALLS scratch: active indices of the balls that can reach the current ring. */
+
+  /** @brief The active balls' bounds in the ring frame and the selection of
+   * those reaching the ring being baked. */
+  struct BallRingCache {
+    float *colat = nullptr; /**< MAX_BALLS centre colatitudes about the stack
+                                 axis (radians). */
+    float *reach = nullptr; /**< MAX_BALLS support extents (radians): both the
+                                 reach prefilter bound and the per-ring band
+                                 bound. */
+    float *scale = nullptr; /**< MAX_BALLS LUT feature scales (2/radius). */
+    const Animation::BumpParams **params =
+        nullptr;          /**< MAX_BALLS params, validated once per frame. */
+    int *local = nullptr; /**< MAX_BALLS indices of the balls reaching the
+                               current ring. */
+    float *cv = nullptr;  /**< MAX_BALLS centre components along the stack
+                               axis. */
+    float *rho =
+        nullptr; /**< MAX_BALLS centre distances from the stack axis. */
+    float *azimuth = nullptr; /**< MAX_BALLS centre azimuths in the ring
+                                   frame. */
+    /// MAX_BALLS paths over a swept frame; null outside a swept draw.
+    Animation::BumpPath *paths = nullptr;
+
+    /** @brief Persistent bytes init_storage() takes, alignment included. */
+    static constexpr size_t BYTES =
+        MAX_BALLS * (6 * sizeof(float) + sizeof(int) +
+                     sizeof(const Animation::BumpParams *)) +
+        6 * alignof(float) + alignof(int) +
+        alignof(const Animation::BumpParams *);
+
+    /** @brief Allocates the per-ball arrays.
+     * @param arena Persistent storage arena. */
+    HS_FLASH_MEMBER void init_storage(Arena &arena) {
+      colat = arena.allocate_n<float>(MAX_BALLS);
+      reach = arena.allocate_n<float>(MAX_BALLS);
+      scale = arena.allocate_n<float>(MAX_BALLS);
+      params = arena.allocate_n<const Animation::BumpParams *>(MAX_BALLS);
+      local = arena.allocate_n<int>(MAX_BALLS);
+      cv = arena.allocate_n<float>(MAX_BALLS);
+      rho = arena.allocate_n<float>(MAX_BALLS);
+      azimuth = arena.allocate_n<float>(MAX_BALLS);
+    }
+
+    /**
+     * @brief Caches one ball's bounds in the ring frame.
+     * @param b Ball index.
+     * @param basis Ring frame.
+     * @param centre Ball bound centre.
+     * @param bound Angular bound radius.
+     * @param radius Ball radius.
+     */
+    HS_HOT_INLINE void cache_frame(int b, const math::Basis &basis,
+                                   const math::Vector &centre, float bound,
+                                   float radius) {
+      const float c = math::dot(basis.v, centre);
+      colat[b] = math::fast_acos(hs::clamp(c, -1.0f, 1.0f));
+      reach[b] = bound;
+      scale[b] = 2.0f / radius;
+      const float cu = math::dot(basis.u, centre);
+      const float cw = math::dot(basis.w, centre);
+      cv[b] = c;
+      rho[b] = sqrtf(cu * cu + cw * cw);
+      const float a0 = atan2f(cw, cu);
+      azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
+    }
+
+    /** @brief Keeps a ball out of every ring's selection.
+     * @param b Ball index. */
+    HS_HOT_INLINE void exclude(int b) {
+      colat[b] = 0.0f;
+      reach[b] = -1.0f;
+    }
+
+    /** @brief Collects the balls whose support reaches a ring into local.
+     * @param theta Ring colatitude, radians.
+     * @param n_balls Active ball count.
+     * @param band Receives the maximum ball reach.
+     * @param feature Receives the maximum ball feature scale.
+     * @return Number of selected ball indices.
+     */
+    HS_HOT_INLINE int select_ring(float theta, int n_balls, float &band,
+                                  float &feature) {
+      int n_local = 0;
+      for (int b = 0; b < n_balls; ++b) {
+        if (std::fabs(theta - colat[b]) < reach[b] + BALL_TOUCH_EPS) {
+          local[n_local++] = b;
+          band = fmaxf(band, reach[b]);
+          feature = fmaxf(feature, scale[b]);
+        }
+      }
+      return n_local;
+    }
+
+    /** @brief The selected balls' dominant field at a ring point.
+     * @param p Ring point.
+     * @param n Selected ball count.
+     * @param theta Ring colatitude, radians.
+     * @return Dominant ball displacement. */
+    HS_O3_FN float field(const math::Vector &p, int n, float theta) const {
+      DominantFieldAccumulator accumulator;
+      for (int j = 0; j < n; ++j) {
+        const int k = local[j];
+        float f = bump_field_with_y(p, *params[k], theta - colat[k]);
+        accumulator.add(f);
+      }
+      return accumulator.value();
+    }
+
+    /** @brief field() with each ball along its path at a frame fraction.
+     * @param p Ring point.
+     * @param n Selected ball count.
+     * @param theta Ring colatitude, radians.
+     * @param t Frame fraction.
+     * @return Dominant ball displacement. */
+    HS_O3_FN float field_at(const math::Vector &p, int n, float theta,
+                            float t) const {
+      DominantFieldAccumulator accumulator;
+      for (int j = 0; j < n; ++j) {
+        const int k = local[j];
+        accumulator.add(
+            Animation::bump_field_at(p, *params[k], paths[k], theta, t));
+      }
+      return accumulator.value();
+    }
+  };
+  BallRingCache ball_cache; ///< Active-ball ring-frame cache.
 #if HS_ENABLE_TEST_ORACLES
   bool force_exact_hue = false; ///< Rotate every knot's hue exactly.
   SweepBake sweep_bake = SweepBake::SINGLE_PASS; ///< Swept bake under test.
@@ -1672,12 +1706,6 @@ private:
       (W + 1) *
           (4 * sizeof(float) + 2 * sizeof(uint8_t) + sizeof(math::Vector)) +
       4 * alignof(float) + 2 * alignof(uint8_t) + alignof(math::Vector);
-  /** @brief Persistent bytes of the per-frame ball cache. */
-  static constexpr size_t BALL_CACHE_BYTES =
-      MAX_BALLS * (6 * sizeof(float) + sizeof(int) +
-                   sizeof(const Animation::BumpParams *)) +
-      6 * alignof(float) + alignof(int) +
-      alignof(const Animation::BumpParams *);
   /** @brief Persistent bytes of the last swept draw's ring colors. */
   static constexpr size_t COLOR_HISTORY_BYTES =
       RING_SLOTS * sizeof(Color4) + alignof(Color4);
@@ -1696,7 +1724,7 @@ private:
   /** @brief Every persistent allocation init() makes. */
   static constexpr size_t FOOTPRINT_BYTES =
       RingPool::BYTES + HueTable::BYTES + KNOT_SCRATCH_BYTES +
-      BALL_CACHE_BYTES + COLOR_HISTORY_BYTES + CHUNK_TRIG_BYTES +
+      BallRingCache::BYTES + COLOR_HISTORY_BYTES + CHUNK_TRIG_BYTES +
       CANDIDATE_BYTES + FIELD_BYTES;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "DisplacementField persistent footprint exceeds the default "

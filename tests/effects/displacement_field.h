@@ -243,16 +243,17 @@ struct DisplacementFieldWhiteBox {
                    const math::Basis &basis, float theta) {
     for (size_t i = 0; i < N; ++i) {
       const auto &ball = balls[i];
-      effect.ball_params[i] = &ball;
-      effect.ball_local[i] = static_cast<int>(i);
+      effect.ball_cache.params[i] = &ball;
+      effect.ball_cache.local[i] = static_cast<int>(i);
       const float cv = math::dot(basis.v, ball.center);
       const float cu = math::dot(basis.u, ball.center);
       const float cw = math::dot(basis.w, ball.center);
-      effect.ball_cv[i] = cv;
-      effect.ball_rho[i] = sqrtf(cu * cu + cw * cw);
-      effect.ball_colat[i] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
+      effect.ball_cache.cv[i] = cv;
+      effect.ball_cache.rho[i] = sqrtf(cu * cu + cw * cw);
+      effect.ball_cache.colat[i] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
       const float azimuth = atan2f(cw, cu);
-      effect.ball_azimuth[i] = azimuth < 0 ? azimuth + math::TWO_PI_F : azimuth;
+      effect.ball_cache.azimuth[i] =
+          azimuth < 0 ? azimuth + math::TWO_PI_F : azimuth;
     }
     std::array<float, W> shifts{};
     const float STEP = math::TWO_PI_F / W;
@@ -262,7 +263,7 @@ struct DisplacementFieldWhiteBox {
     int displaced = 0;
     for (int x = 0; x < W; ++x) {
       const float expected =
-          effect.ball_field(effect.knot_pos[x], effect.ball_local, N, theta) +
+          effect.ball_cache.field(effect.knot_pos[x], N, theta) +
           effect.noise_field.field(effect.knot_pos[x]);
       HS_EXPECT_NEAR(shifts[x], expected, 1e-6f);
       displaced += std::abs(expected) > 1e-5f;
