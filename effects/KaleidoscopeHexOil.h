@@ -24,10 +24,10 @@ template <typename FX> struct ComposedWhiteBox;
 /** @brief Stage spec for `KaleidoscopeHexOil`. */
 struct KaleidoscopeHexOilSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool TILTED_PROJECTION_FRAME = true;
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED_TILTED;
   /**
    * @brief Stage chain: camera rotation, hexagonal-prism kaleidoscope lens, direct surface displacement, stereographic projection, affine warp, spiral source, generated palette,
    *  displacement hue modulation.

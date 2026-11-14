@@ -457,7 +457,7 @@ then quantizes once to RGB16. A unit gain preserves the unscaled quantization;
 zero gain returns exact black with the original alpha. Hue-table samples retain
 their existing RGB16 brightness scaling.
 
-`Spec::TEMPORAL_COLOR_PHASE`, on by default for temporal specs without fused
+`TemporalPolicy::phase()`, the column-time policy without fused
 color, moves eligible authored modulation providers to a
 different interior color-time model. Blend the base palette RGB and alpha first,
 sample eligible spatial sources at the shortest interpolated column phase, then
@@ -478,7 +478,7 @@ model.
 Both models compose hue and lift before one final gamut mapping. Alpha is
 unchanged because the admitted shared mechanics preserve it.
 
-`Spec::PHASE_NOISE_CACHE` optionally approximates AshCloud's direct configured-single
+`PhaseNoise::CHAMBER_CACHE`, passed to `TemporalPolicy::phase()`, approximates AshCloud's direct configured-single
 noise within a dodecahedral chamber. It leaves the authored source, evaluation
 strategy, parameters and document topology unchanged. Each endpoint bakes a
 floating scalar patch in the chamber's x/y, z/y chart. Baking rotates each chart
@@ -521,8 +521,8 @@ exposes this additional internal approximation through
 bound its additional chamber-cache error; qualification is finite capture
 coverage, not a universal bound for all future frames and color controls.
 
-`Spec::PALETTE_LAB_CACHE`, on by default wherever phase sampling or fused color
-is active, supplies the eligible shared tail with a
+`PaletteCache::LAB`, which every interval cache selection of `TemporalPolicy`
+includes, supplies the eligible shared tail with a
 palette-aware base cache. Each node first blends the previous/current RGB16
 palette samples with the canonical Q16 weight, then converts that RGB to OKLab.
 The cache has 64 palette-coordinate nodes and three time rows (zero, half and
@@ -1062,14 +1062,14 @@ no widened color, gamut, alpha or determinism bounds.
 
 ### Interval final hue RGB cache
 
-`Spec::PALETTE_RGB_CACHE` stores final hue colors for the shared RGB-first
-palette base and is on by default. It takes effect with a `PALETTE_LAB_CACHE`
-of 64 values and the NONE brightness envelope, for intervals whose active modulations are
+`PaletteCache::LAB_RGB` stores final hue colors for the shared RGB-first
+palette base and is the default of `TemporalPolicy::phase()`. It requires
+`PALETTE_LAB_VALUES` of 64 and the NONE brightness envelope, and applies to intervals whose active modulations are
 hue-only. Its nodes are the hue-rotation table's: OKLab rotation and gamut
 mapping on the same 64-value by 16-hue grid, sampled bilinearly, at every
 source chroma. The owner holds two 64-value by 16-periodic-hue by 3-time tables storing RGB16 code units as float vectors
 (73,728 bytes of color samples), plus 1,536 bytes of retained Lab midpoint keys.
-`Spec::PALETTE_RGB_MIDPOINT_ONLY` selects one stored row per owner instead; the
+`PaletteCache::LAB_RGB_MIDPOINT` selects one stored row per owner instead; the
 physical midpoint row is zero and the two owners retain 24,576 sample bytes,
 saving 49,152 bytes. `PaletteRgbHueLut` keeps its generic three-row API;
 `PaletteRgbHueLutImpl<true>` supplies the compact owner used by AshCloud.

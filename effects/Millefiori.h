@@ -20,9 +20,11 @@
 /** @brief Pullback stage spec for `Millefiori`. */
 struct MillefioriSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
-  static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool TILTED_PROJECTION_FRAME = true;
-  static constexpr bool TEMPORAL_SAMPLING = true; ///< Sample column endpoints.
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED_TILTED;
+  /// Sample column endpoints.
+  static constexpr auto TEMPORAL =
+      Pullback::TemporalPolicy::phase(Pullback::PaletteCache::LAB);
   static constexpr bool RIPPLE_RADIAL_TABLE = true; ///< Cache radial transfers.
   /** @brief Authored ripple, kaleidoscope and lattice stage chain.
    * @tparam B Frame binding. */

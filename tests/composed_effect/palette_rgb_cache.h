@@ -185,7 +185,8 @@ inline void test_palette_rgb_cache_runtime_lifetime() {
     return;
   const Pixel *previous = first.palette_lab_lut->rgb_nodes;
   constexpr size_t RGB_SIZE =
-      PaletteRgbHueLutImpl<AshCloudSpec::PALETTE_RGB_MIDPOINT_ONLY>::RGB_TIMES *
+      PaletteRgbHueLutImpl<
+          AshCloud<96, 20>::PALETTE_RGB_MIDPOINT_ONLY>::RGB_TIMES *
       HueRotationLutView::SIZE;
   std::array<Pixel, RGB_SIZE> saved;
   std::copy_n(previous, RGB_SIZE, saved.begin());
@@ -655,8 +656,9 @@ inline void test_palette_lab_cache_palette_control_step() {
 
 /** @brief Compact midpoint rows and retained keys match the generic owner exactly. */
 inline void test_palette_rgb_midpoint_only_storage() {
-  static_assert(!Pullback::Spec::PALETTE_RGB_MIDPOINT_ONLY);
-  static_assert(AshCloudSpec::PALETTE_RGB_MIDPOINT_ONLY);
+  static_assert(Pullback::Spec::TEMPORAL.cache() !=
+                Pullback::PaletteCache::LAB_RGB_MIDPOINT);
+  static_assert(AshCloud<96, 20>::PALETTE_RGB_MIDPOINT_ONLY);
   static_assert(sizeof(Pullback::OptionalPaletteRgbLut<true>) -
                     sizeof(Pullback::OptionalPaletteRgbLut<true, true>) ==
                 25080);

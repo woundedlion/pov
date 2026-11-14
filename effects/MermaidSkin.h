@@ -20,9 +20,10 @@
 /** @brief Stage spec for `MermaidSkin`. */
 struct MermaidSkinSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
-  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED;
   /**
    * @brief Stage chain: camera rotation, surface-noise displacement, folded sinusoidal projection, grid source, generated palette,
    *  noise hue modulation.

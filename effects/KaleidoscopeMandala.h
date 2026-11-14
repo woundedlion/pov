@@ -20,9 +20,9 @@
 /** @brief Stage spec for `KaleidoscopeMandala`. */
 struct KaleidoscopeMandalaSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   /**
    * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens, folded gnomonic projection, wave-shear warp, mirror warp, affine warp, grid source, generated palette,
    *  noise hue modulation.

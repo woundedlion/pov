@@ -744,7 +744,7 @@ constexpr bool field_gate_open(FieldGate gate) {
   case FieldGate::OUTER_CAMERA:
     return MetadataFor<Spec>::OUTER_CAMERA;
   case FieldGate::ANIMATED_PROJECTION:
-    return Spec::ANIMATED_PROJECTION;
+    return Spec::PROJECTION_MOTION != ProjectionMotion::STATIC;
   case FieldGate::CENTRAL_MERIDIAN:
     return uses_central_meridian(MetadataFor<Spec>::PROJECTION);
   case FieldGate::SINGULARITY_FADE:

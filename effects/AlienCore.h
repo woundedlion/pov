@@ -19,9 +19,9 @@
 /** @brief Pullback stage spec for `AlienCore`. */
 struct AlienCoreSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   /**
    * @brief Stage chain: camera rotation, glitch lens, projection, mirror warp,
    *  affine warp, edge-valued grid source, generated palette,

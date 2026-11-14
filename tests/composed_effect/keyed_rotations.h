@@ -15,8 +15,8 @@ namespace hs_test::keyed_rotation_tests {
 
 /** @brief Two independent camera rotations over a planar source. */
 struct RotationProbeSpec : Pullback::Spec {
-  static constexpr bool ANIMATED_PROJECTION = false;
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::RotationProvider<B, "first">>,

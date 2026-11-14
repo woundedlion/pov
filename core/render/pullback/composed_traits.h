@@ -13,6 +13,7 @@
 #include "core/memory.h"
 #include "core/render/pullback/composed_descriptors.h"
 #include "core/render/pullback/composed_interval.h"
+#include "core/render/pullback/composed_spec_policies.h"
 
 /** @file composed_traits.h
  * @brief `ComposedTraits`, the compile-time policy of a composed effect.
@@ -39,56 +40,77 @@ template <int W, typename SpecT> struct ComposedTraits {
   /// Whether runtime identities follow authored nodes.
   static constexpr bool AUTHORED_TOPOLOGY = SpecT::AUTHORED_TOPOLOGY;
   /// Whether the effect samples time across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
+  static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL.sampling();
   /// Whether eligible color modulations sample one phase per column.
   static constexpr bool COLOR_PHASE = ComposedDetail::COLOR_PHASE<SpecT>;
+  /// Whether an eligible final temporal color layer is fused.
+  static constexpr bool FUSED_TEMPORAL_COLOR =
+      ComposedDetail::FUSED_TEMPORAL_COLOR<SpecT>;
   /// Whether the palette retains interval OKLab bases.
   static constexpr bool PALETTE_LAB_CACHE =
       ComposedDetail::PALETTE_LAB_CACHE<SpecT>;
   static_assert(Metadata::ColorModes::LAB_CACHE == PALETTE_LAB_CACHE,
                 "palette base cache policy must match its runtime storage");
   static_assert(Metadata::ColorModes::FUSED_TEMPORAL_COLOR ==
-                    SpecT::FUSED_TEMPORAL_COLOR,
+                    FUSED_TEMPORAL_COLOR,
                 "temporal color fusion policy must match its spec");
   /// Whether the palette retains final hue colors over its interval bases.
   static constexpr bool PALETTE_RGB_CACHE =
-      SpecT::PALETTE_RGB_CACHE && PALETTE_LAB_CACHE &&
-      SpecT::PALETTE_LAB_VALUES == HueRotationLutView::VALUE_STEPS &&
-      Metadata::BRIGHTNESS == Color::BrightnessEnvelope::NONE;
-  static_assert(!SpecT::PALETTE_RGB_MIDPOINT_ONLY || PALETTE_RGB_CACHE,
-                "midpoint-only storage requires an interval RGB cache");
-  static_assert(!SpecT::PHASE_NOISE_CACHE ||
-                    (COLOR_PHASE &&
-                     std::is_base_of_v<Lens::DodecahedralKaleidoscope,
-                                       typename Metadata::LensPolicy>),
-                "phase noise cache requires a temporal dodecahedral chamber");
-  static_assert(!SpecT::CACHE_DODECAHEDRAL_MATRICES ||
+      SpecT::TEMPORAL.cache() == PaletteCache::LAB_RGB ||
+      SpecT::TEMPORAL.cache() == PaletteCache::LAB_RGB_MIDPOINT;
+  /// Whether the final hue cache stores only one admitted midpoint row.
+  static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
+      SpecT::TEMPORAL.cache() == PaletteCache::LAB_RGB_MIDPOINT;
+  static_assert(!PALETTE_RGB_CACHE ||
+                    (SpecT::PALETTE_LAB_VALUES ==
+                         HueRotationLutView::VALUE_STEPS &&
+                     Metadata::BRIGHTNESS == Color::BrightnessEnvelope::NONE),
+                "final hue caches require the hue-rotation value grid and no "
+                "brightness envelope");
+  /// Whether chamber direct noise is cached at temporal endpoints.
+  static constexpr bool PHASE_NOISE_CACHE =
+      SpecT::TEMPORAL.noise() == PhaseNoise::CHAMBER_CACHE;
+  static_assert(!PHASE_NOISE_CACHE ||
+                    std::is_base_of_v<Lens::DodecahedralKaleidoscope,
+                                      typename Metadata::LensPolicy>,
+                "phase noise cache requires a dodecahedral chamber");
+  /// Whether the dodecahedral reflection matrices are copied into RAM.
+  static constexpr bool CACHE_DODECAHEDRAL_MATRICES =
+      SpecT::DODECAHEDRAL_CACHE.matrices;
+  /// Whether the dodecahedral cube classifiers are copied into RAM.
+  static constexpr bool CACHE_DODECAHEDRAL_FACES =
+      SpecT::DODECAHEDRAL_CACHE.faces;
+  static_assert(!CACHE_DODECAHEDRAL_MATRICES ||
                     std::is_base_of_v<Lens::DodecahedralTableKaleidoscope,
                                       typename Metadata::LensPolicy>,
                 "cached dodecahedral matrices require a dodecahedral lens");
-  static_assert(!SpecT::CACHE_DODECAHEDRAL_FACES ||
+  static_assert(!CACHE_DODECAHEDRAL_FACES ||
                     std::is_base_of_v<Lens::DodecahedralTableKaleidoscope,
                                       typename Metadata::LensPolicy>,
                 "cached cube classifiers require a dodecahedral lens");
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
                 "Column-time sampling requires an even two-arm canvas width");
   /// Frame context, including retained color resources when sampling time.
-  using FrameState = std::conditional_t<
-      TEMPORAL_SAMPLING, FrameIntervalState<Params, SpecT::PHASE_NOISE_CACHE>,
-      Pullback::FrameState<Params, SpecT::PHASE_NOISE_CACHE>>;
+  using FrameState =
+      std::conditional_t<TEMPORAL_SAMPLING,
+                         FrameIntervalState<Params, PHASE_NOISE_CACHE>,
+                         Pullback::FrameState<Params, PHASE_NOISE_CACHE>>;
   using Binding = Pullback::Binding<FrameState, SpecT>; ///< Pipeline binding.
   /// Whether projection controls are present.
   static constexpr bool HAS_FRAME_PARAMS = Params::template HAS<"projection">;
   /// Whether the projection orientation follows a random walk and spin.
   static constexpr bool ANIMATED_PROJECTION =
-      SpecT::ANIMATED_PROJECTION && HAS_FRAME_PARAMS;
-  static_assert(!SpecT::TILTED_PROJECTION_FRAME ||
+      SpecT::PROJECTION_MOTION != ProjectionMotion::STATIC && HAS_FRAME_PARAMS;
+  /// Whether the projection frame spins and wanders on the tilted base.
+  static constexpr bool TILTED_PROJECTION_FRAME =
+      SpecT::PROJECTION_MOTION == ProjectionMotion::ANIMATED_TILTED;
+  static_assert(!TILTED_PROJECTION_FRAME ||
                     (ANIMATED_PROJECTION &&
                      !requires(Params p) {
                        p.template get<"projection">().frame;
                      }),
-                "TILTED_PROJECTION_FRAME needs an animated projection without "
-                "an authored frame parameter");
+                "ANIMATED_TILTED motion needs projection controls without an "
+                "authored frame parameter");
   /// Whether the effect retains palette hue tables.
   static constexpr bool HUE_ROTATION_LUT =
       Metadata::MODULATION && SpecT::HUE_ROTATION_LUT;

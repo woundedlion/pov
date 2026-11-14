@@ -20,11 +20,12 @@
 /** @brief Stage spec for `GridWorms`. */
 struct GridWormsSpec : Pullback::Spec {
   /// Samples animation at each column time.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   /// Generated palette harmony.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   /// Projection-frame spin and wander.
-  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED;
   /** @brief Twist, camera, folded projection, lattice, palette and sine hue.
    * @tparam B Effect binding. */
   template <typename B>

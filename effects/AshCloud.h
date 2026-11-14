@@ -25,20 +25,18 @@ struct AshCloudInlineEuler : Pullback::Surface::Euler {
 
 /** @brief Pullback stage spec for `AshCloud`. */
 struct AshCloudSpec : Pullback::Spec {
-  /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
-  static constexpr bool CACHE_DODECAHEDRAL_FACES =
-      true; ///< Copies cube classifiers into RAM.
-  static constexpr bool CACHE_DODECAHEDRAL_MATRICES =
-      true; ///< Copies reflection matrices into RAM.
-  static constexpr bool PHASE_NOISE_CACHE = true; ///< Cached chamber noise.
-  static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
-      true; ///< Uses one admitted RGB midpoint.
+  /// Samples column times over one RGB midpoint row and cached chamber noise.
+  static constexpr auto TEMPORAL =
+      Pullback::TemporalPolicy::phase(Pullback::PaletteCache::LAB_RGB_MIDPOINT,
+                                      Pullback::PhaseNoise::CHAMBER_CACHE);
+  /// Copies the reflection matrices and cube classifiers into RAM.
+  static constexpr Pullback::DodecahedralCache DODECAHEDRAL_CACHE = {
+      .matrices = true, .faces = true};
   static constexpr bool RIPPLE_RADIAL_TABLE =
       true; ///< Cached ripple transfers.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool TILTED_PROJECTION_FRAME = true;
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED_TILTED;
   /**
    * @brief Stage chain: camera rotation, burst ripples, surface curl,
    * dodecahedral kaleidoscope lens, projection, square-cell source, value cutout,

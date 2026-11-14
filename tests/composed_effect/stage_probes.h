@@ -124,7 +124,9 @@ inline void test_composed_analytic_modulation_sliders() {
 
 template <bool Animated, bool Modulated = false>
 struct RippleProbeSpec : Pullback::Spec {
-  static constexpr bool ANIMATED_PROJECTION = Animated;
+  static constexpr auto PROJECTION_MOTION =
+      Animated ? Pullback::ProjectionMotion::ANIMATED
+               : Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -207,7 +209,7 @@ inline void test_composed_path_modulation_admission() {
 
 /** @brief Iso transfer and edge coverage use independent named value resources. */
 struct KeyedValueSpec : Pullback::Spec {
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
@@ -376,7 +378,7 @@ inline void test_composed_affine_form_sliders() {
 }
 
 struct RepeatedStagesSpec : Pullback::Spec {
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -633,7 +635,7 @@ inline void test_composed_periodic_ripple_surface() {
 }
 
 template <typename SourceT> struct NoiseSourceProbeSpec : Pullback::Spec {
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,

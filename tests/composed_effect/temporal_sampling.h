@@ -81,7 +81,8 @@ inline Frame sample_frame_reference(const Frame &from, const Frame &to,
 template <bool Persistent, bool Temporal>
 struct PreparedFrameProbeSpec : GridSpaceSpec {
   static constexpr bool PERSISTENT_PREPARED_FRAME = Persistent;
-  static constexpr bool TEMPORAL_SAMPLING = Temporal;
+  static constexpr auto TEMPORAL = Temporal ? Pullback::TemporalPolicy::phase()
+                                            : Pullback::TemporalPolicy::off();
 };
 
 /** @brief
@@ -1365,8 +1366,8 @@ inline void test_mobius_grid_segmented_matches_single_engine() {
 
 /** @brief Two independently clocked baked modulation layers. */
 struct StackedModulationSpec : Pullback::Spec {
-  static constexpr bool TEMPORAL_SAMPLING = true;
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,

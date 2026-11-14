@@ -597,10 +597,9 @@ template <typename FX>
 inline bool check_project_text(std::string_view field_id,
                                std::string_view text) {
   if (field_id == "frame") {
-    HS_EXPECT_TRUE(text == (!FX::ANIMATED_PROJECTION ? "identity"
-                            : FX::Spec::TILTED_PROJECTION_FRAME
-                                ? "spin-wander-tilted"
-                                : "spin-wander"));
+    HS_EXPECT_TRUE(text == (!FX::ANIMATED_PROJECTION      ? "identity"
+                            : FX::TILTED_PROJECTION_FRAME ? "spin-wander-tilted"
+                                                          : "spin-wander"));
     return true;
   }
   if (field_id == "hemisphere") {
@@ -1082,7 +1081,7 @@ inline void check_document_values(const char *name) {
 /** @brief Composed fixture with a fixed smooth-grid modulation and a noise
  * modulation. */
 struct DocumentModulationSpec : Pullback::Spec {
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,

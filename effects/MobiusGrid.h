@@ -20,10 +20,11 @@
 /** @brief Stage spec for `MobiusGrid`. */
 struct MobiusGridSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::COMPLEMENTARY;
-  static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool TILTED_PROJECTION_FRAME = true;
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED_TILTED;
   /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL =
+      Pullback::TemporalPolicy::phase(Pullback::PaletteCache::LAB);
   /**
    * @brief Stage chain: camera rotation, Mobius lens, stereographic projection, mirror warp, twin-wave source, generated palette,
    *  displacement hue modulation.

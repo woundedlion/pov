@@ -1462,6 +1462,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── composed_providers.h    Composed-effect provider bindings
 │   │   │   ├── composed_parameters.h   Composed-effect parameter interpolation and validation, runtime storage mixins and Spec kind enums
 │   │   │   ├── composed_policies.h     Composed-effect stage policies
+│   │   │   ├── composed_spec_policies.h Composed-effect Spec runtime policies: temporal sampling, palette caches, projection motion
 │   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
 │   │   │   ├── composed_runtime.h      Composed-effect runtime
 │   │   │   ├── composed_traits.h       Composed-effect policy constants, derived types and spec rules

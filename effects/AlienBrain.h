@@ -20,10 +20,10 @@
 /** @brief Pullback stage spec for `AlienBrain`. */
 struct AlienBrainSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool TILTED_PROJECTION_FRAME = true;
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED_TILTED;
   /**
    * @brief Stage chain: camera rotation, glitch lens, projection, wave-shear warp,
    *  affine warp, grid source, generated palette,

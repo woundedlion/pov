@@ -37,7 +37,7 @@ public:
   struct Owned
       : ComposedDetail::ResourceNoise<Resource>,
         ComposedDetail::ResourcePhaseNoiseCache<
-            Resource, SpecT::PHASE_NOISE_CACHE &&
+            Resource, Traits::PHASE_NOISE_CACHE &&
                           ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>>,
         ComposedDetail::ResourceRippleRadialTable<
             Resource, SpecT::RIPPLE_RADIAL_TABLE &&
@@ -209,7 +209,7 @@ public:
               &owned->template get<Resource::KEY>()
                    .modulation_resources.prepare(config, clock);
         resource.previous_modulation = resource.modulation;
-        if constexpr (SpecT::PHASE_NOISE_CACHE &&
+        if constexpr (Traits::PHASE_NOISE_CACHE &&
                       ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>) {
           if (!Spacetime::flat_surface()) {
             auto &state = owned->template get<Resource::KEY>();

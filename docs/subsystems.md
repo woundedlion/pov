@@ -381,7 +381,7 @@ instantaneous drawing selection.
 
 #### Retained fields and pullbacks
 
-Composed effects opt into `Pullback::Spec::TEMPORAL_SAMPLING` when their state
+Composed effects opt into column-time sampling through `Pullback::Spec::TEMPORAL` when their state
 supports continuous interpolation; the whole roster enables it. Each column
 samples between the previous and current animation
 states at `(x % (W / 2)) / float(W / 2)`. Both opposing arms use the same
@@ -393,7 +393,7 @@ Orientations use spherical interpolation; parameters use their
 declared interpolation curves; clocks follow their shortest periodic arc.
 Retained palette and hue tables supply two colorizer samples at the same
 interpolated geometry, with their results blended in time. By default
-(`TEMPORAL_COLOR_PHASE`, `PALETTE_LAB_CACHE`), eligible modulation layers
+(`TemporalPolicy::phase()` with an interval `PaletteCache`), eligible modulation layers
 instead sample one interpolated phase per column over a cached OKLab palette
 base, which holds through preset Lerps of mapping, brightness and opacity
 controls. Noise tables are baked once per frame. Effects without this opt-in retain the frame-wide path
@@ -1214,7 +1214,7 @@ The clip reads the 256 × 128 flash master by default. An effect that clips per 
 
 `MeshFeedback::init()` and every composed effect whose spec keeps the default `CACHE_FULL_GAMUT_LUT` arm the full 256 × 128 grid on device, using `gamut_lut_bytes(256, 128)` = 131,074 B of persistent arena. Composed specs select this allocation with `CACHE_FULL_GAMUT_LUT`; its size is included in the static persistent-footprint budget. The one-argument `gamut_scale_to_boundary_lut()` uses an armed full-resolution copy and retains the flash master when a coarse copy is armed. The Shader workbench and `ShaderChain` do not allocate a gamut copy.
 
-`CACHE_DODECAHEDRAL_MATRICES` copies the canonical 120 reflection matrices
+`DodecahedralCache::matrices` copies the canonical 120 reflection matrices
 (4,320 bytes) into the composed effect's persistent state at initialization.
 Frames borrow that immutable array through `dodecahedral_matrices`; retained
 history and column intervals preserve the borrow. AshCloud uses the RAM matrices
@@ -1223,7 +1223,7 @@ arithmetic and wall fallback. Literal endpoints and static draws retain the
 canonical reflection path. Missing cache views use the flash matrices. The
 optional owner is included in the existing persistent-footprint budget; the
 parameter schema and global arena size are unchanged.
-`CACHE_DODECAHEDRAL_FACES` also retains the face-major 64-by-64 classifier maps
+`DodecahedralCache::faces` also retains the face-major 64-by-64 classifier maps
 (24,576 exact bytes). Frames borrow that immutable array through
 `dodecahedral_faces`, with the same history lifetime as the matrices. Device
 flash stores run-encoded classifiers, expanded into the existing cache during

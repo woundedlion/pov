@@ -439,7 +439,7 @@ public:
       OptionalPaletteLabLut<PALETTE_LAB_CACHE, SpecT::PALETTE_LAB_VALUES>;
   /// Ping-pong final hue tables over the interval bases.
   using RgbLuts = OptionalPaletteRgbLut<PALETTE_RGB_CACHE,
-                                        SpecT::PALETTE_RGB_MIDPOINT_ONLY>;
+                                        Traits::PALETTE_RGB_MIDPOINT_ONLY>;
   /// Column context the sampler writes.
   using Column =
       std::conditional_t<TEMPORAL_SAMPLING, FrameState, std::monostate>;

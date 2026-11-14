@@ -20,9 +20,10 @@
 /** @brief Pullback stage spec for `GridSpace`. */
 struct GridSpaceSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr bool ANIMATED_PROJECTION = true;
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED;
   /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   /**
    * @brief Stage chain: camera rotation, projection, affine warp, square-cell
    *  source, iso-contour transfer, generated palette,

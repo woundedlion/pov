@@ -157,11 +157,11 @@ public:
         "composed modulation presets must retain source and mechanic");
     this->begin_choreography();
     state = persistent_arena.make<State>();
-    if constexpr (SpecT::CACHE_DODECAHEDRAL_MATRICES)
+    if constexpr (Traits::CACHE_DODECAHEDRAL_MATRICES)
       std::memcpy(state->dodecahedral_matrices.data(),
                   lenses::DodecahedralTable::GROUP.values.data(),
                   sizeof(state->dodecahedral_matrices));
-    if constexpr (SpecT::CACHE_DODECAHEDRAL_FACES)
+    if constexpr (Traits::CACHE_DODECAHEDRAL_FACES)
       lenses::DodecahedralTable::unpack_faces(state->dodecahedral_faces);
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
@@ -499,8 +499,8 @@ private:
         OuterCameraNoise<Metadata::OUTER_CAMERA>,
         OptionalHueRotationLut<HUE_ROTATION_LUT>,
         IntervalCache::LabLuts,
-        OptionalDodecahedralMatrices<SpecT::CACHE_DODECAHEDRAL_MATRICES>,
-        OptionalDodecahedralFaces<SpecT::CACHE_DODECAHEDRAL_FACES>,
+        OptionalDodecahedralMatrices<Traits::CACHE_DODECAHEDRAL_MATRICES>,
+        OptionalDodecahedralFaces<Traits::CACHE_DODECAHEDRAL_FACES>,
         IntervalCache::RgbLuts,
         IntervalCache::History,
         Registration::Storage {
@@ -542,7 +542,7 @@ private:
   bool projection_frame_tilted() const {
     if constexpr (requires { params.template get<"projection">().frame; })
       return params.template get<"projection">().frame == 2;
-    return SpecT::TILTED_PROJECTION_FRAME;
+    return Traits::TILTED_PROJECTION_FRAME;
   }
 
   /** @brief Steps the resource clocks, the projection and camera spins and
@@ -602,11 +602,11 @@ private:
     frame.projection_conjugate = this->frame_conjugate();
     frame.outer_conjugate = this->camera_conjugate();
     frame.palette_lab_lut = nullptr;
-    if constexpr (SpecT::CACHE_DODECAHEDRAL_MATRICES)
+    if constexpr (Traits::CACHE_DODECAHEDRAL_MATRICES)
       frame.dodecahedral_matrices = state->dodecahedral_matrices.data();
     else
       frame.dodecahedral_matrices = nullptr;
-    if constexpr (SpecT::CACHE_DODECAHEDRAL_FACES)
+    if constexpr (Traits::CACHE_DODECAHEDRAL_FACES)
       frame.dodecahedral_faces = state->dodecahedral_faces.data();
     else
       frame.dodecahedral_faces = nullptr;

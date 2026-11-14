@@ -472,7 +472,7 @@ inline void test_authored_projection_bindings_match_operators() {
 
 /** @brief Composed fixture with a flexible modulation recipe. */
 struct DynamicModulationControlsSpec : Pullback::Spec {
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -596,7 +596,7 @@ inline void test_authored_dynamic_modulation_controls() {
 
 /** @brief Composed fixture for nested polynomial controls. */
 struct PotentialControlsSpec : Pullback::Spec {
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -687,7 +687,7 @@ inline void test_authored_potential_nested_controls() {
 template <Pullback::ResourceKey Key, bool Authored>
 struct SourceSeedSpec : Pullback::Spec {
   static constexpr bool AUTHORED_TOPOLOGY = Authored;
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,

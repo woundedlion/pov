@@ -5,6 +5,7 @@
 #pragma once
 
 #include "core/render/pullback/composed_parameters.h"
+#include "core/render/pullback/composed_spec_policies.h"
 
 /** @file composed_policies.h
  * @brief Composed-effect authored controls and policy selectors keyed on
@@ -22,32 +23,15 @@ struct Spec {
       false; ///< Uses canonical authored node identities.
   /// Hue harmony of generated palettes.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  /// Whether the projection frame random-walks and spins.
-  static constexpr bool ANIMATED_PROJECTION = true;
-  /// Whether the animated projection frame spins and wanders on the tilted
-  /// base, projection_frame_base(true), instead of the identity; authored as
-  /// the `spin-wander-tilted` frame.
-  static constexpr bool TILTED_PROJECTION_FRAME = false;
-  /// Whether columns sample consecutive frame states across a half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = false;
-  /// Samples eligible color-source phases once after palette interpolation;
-  /// effective only with `TEMPORAL_SAMPLING` and without fusion.
-  static constexpr bool TEMPORAL_COLOR_PHASE = true;
-  /// Fuses an eligible final temporal color layer.
-  static constexpr bool FUSED_TEMPORAL_COLOR = false;
+  /// Motion of the projection frame.
+  static constexpr ProjectionMotion PROJECTION_MOTION =
+      ProjectionMotion::ANIMATED;
+  /// Column-time sampling, color fusion and interval palette caches. Final
+  /// hue caches need the hue-rotation table's value grid and the NONE
+  /// brightness envelope.
+  static constexpr TemporalPolicy TEMPORAL = TemporalPolicy::off();
   /// Bakes palette-coordinate by hue-rotation tables.
   static constexpr bool HUE_ROTATION_LUT = true;
-  /// Caches RGB-first interval palette blends in OKLab; effective only with
-  /// column phase sampling or fused temporal color.
-  static constexpr bool PALETTE_LAB_CACHE = true;
-  /// Caches palette colors after hue rotation and gamut mapping; effective
-  /// only with a palette LAB cache on the hue-rotation table's value grid and
-  /// the NONE brightness envelope.
-  static constexpr bool PALETTE_RGB_CACHE = true;
-  /// Caches direct noise over the dodecahedral chamber at temporal endpoints.
-  static constexpr bool PHASE_NOISE_CACHE = false;
-  static constexpr bool PALETTE_RGB_MIDPOINT_ONLY =
-      false; ///< Stores one admitted RGB midpoint.
   /// Limits interval caches to the initial color and modulation controls.
   static constexpr bool INITIAL_CACHE_CONTROLS_ONLY = false;
   /// Palette-coordinate nodes per cached time row.
@@ -60,10 +44,9 @@ struct Spec {
   static constexpr bool PERSISTENT_PREPARED_FRAME = true;
   /// Keeps the full-resolution gamut table in device persistent storage.
   static constexpr bool CACHE_FULL_GAMUT_LUT = true;
-  /// Copies immutable dodecahedral reflection matrices into persistent storage.
-  static constexpr bool CACHE_DODECAHEDRAL_MATRICES = false;
-  static constexpr bool CACHE_DODECAHEDRAL_FACES =
-      false; ///< Copies cube classifiers into persistent storage.
+  /// Dodecahedral tables copied into persistent storage; needs a
+  /// dodecahedral table lens.
+  static constexpr DodecahedralCache DODECAHEDRAL_CACHE = {};
 };
 
 /** @brief Catalog identity of one projection algorithm.

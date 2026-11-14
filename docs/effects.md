@@ -806,7 +806,7 @@ Spin/Wander matches Identity. Setting both rates back to zero holds the
 accumulated orientation. Spin/Wander Tilted (`spin-wander-tilted`) advances the
 same way from a quarter-turn about X that takes -Z onto -Y, which puts the
 chart pole on the sphere's -Z axis. A composed Spec without an authored frame
-parameter selects it with `TILTED_PROJECTION_FRAME`.
+parameter selects it with `ProjectionMotion::ANIMATED_TILTED`.
 
 Gnomonic **Hemisphere** selects Folded, Front, Back or Mirrored. Folded
 overlays antipodal points using `(x / y, z / y)`. Mirrored reflects the lower

@@ -20,11 +20,11 @@
 /** @brief Stage spec for `GridWarp`. */
 struct GridWarpSpec : Pullback::Spec {
   /// Samples animation at each column time.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   /// Generated palette harmony.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   /// Identity projection frame.
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   /** @brief Camera, potential flow, equirectangular grid, palette,
    *         displacement hue and noise hue.
    * @tparam B Effect binding. */

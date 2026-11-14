@@ -7,7 +7,7 @@
 
 /** @brief Owned matrices retain their exact bytes through history and interval copies. */
 inline void test_dodecahedral_matrix_cache_lifetime() {
-  static_assert(!Pullback::Spec::CACHE_DODECAHEDRAL_MATRICES);
+  static_assert(!Pullback::Spec::DODECAHEDRAL_CACHE.matrices);
   static_assert(sizeof(Pullback::OptionalDodecahedralMatrices<false>) == 1);
   static_assert(sizeof(Pullback::OptionalDodecahedralMatrices<true>) == 4320);
   reset_globals();
@@ -108,7 +108,7 @@ inline void test_dodecahedral_matrix_cache_lens_binding() {
 
 /** @brief Face maps retain exact classifier bytes through frame history. */
 inline void test_dodecahedral_face_cache_lifetime() {
-  static_assert(!Pullback::Spec::CACHE_DODECAHEDRAL_FACES);
+  static_assert(!Pullback::Spec::DODECAHEDRAL_CACHE.faces);
   static_assert(sizeof(Pullback::OptionalDodecahedralFaces<false>) == 1);
   static_assert(sizeof(Pullback::OptionalDodecahedralFaces<true>) == 24576);
   reset_globals();

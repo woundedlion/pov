@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include "core/render/pullback/composed_resources.h"
+#include "core/render/pullback/composed_spec_policies.h"
 #include "core/render/pullback.h"
 #include "core/render/pullback/authored_lens.h"
 #include "core/render/pullback/tangent_surface.h"
@@ -126,14 +127,17 @@ namespace ComposedDetail {
  * @tparam SpecT Effect spec. */
 template <typename SpecT>
 inline constexpr bool COLOR_PHASE =
-    SpecT::TEMPORAL_SAMPLING && SpecT::TEMPORAL_COLOR_PHASE &&
-    !SpecT::FUSED_TEMPORAL_COLOR;
+    SpecT::TEMPORAL.color() == TemporalColor::PHASE;
+/** @brief Whether a spec fuses an eligible final temporal color layer.
+ * @tparam SpecT Effect spec. */
+template <typename SpecT>
+inline constexpr bool FUSED_TEMPORAL_COLOR =
+    SpecT::TEMPORAL.color() == TemporalColor::FUSED;
 /** @brief Whether a spec's palette exposes interval OKLab base caches.
  * @tparam SpecT Effect spec. */
 template <typename SpecT>
 inline constexpr bool PALETTE_LAB_CACHE =
-    SpecT::PALETTE_LAB_CACHE && SpecT::TEMPORAL_SAMPLING &&
-    (COLOR_PHASE<SpecT> || SpecT::FUSED_TEMPORAL_COLOR);
+    SpecT::TEMPORAL.cache() != PaletteCache::NONE;
 } // namespace ComposedDetail
 
 /**
@@ -699,10 +703,10 @@ struct ValueProvider {
  * @tparam LabCacheV Whether the provider exposes an interval base cache.
  * @tparam FusedV Whether the final temporal color layer may be fused.
  */
-template <typename BindingT, Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool LabCacheV =
-              ComposedDetail::PALETTE_LAB_CACHE<typename BindingT::Spec>,
-          bool FusedV = BindingT::Spec::FUSED_TEMPORAL_COLOR>
+template <
+    typename BindingT, Pullback::Color::BrightnessEnvelope BrightnessV,
+    bool LabCacheV = ComposedDetail::PALETTE_LAB_CACHE<typename BindingT::Spec>,
+    bool FusedV = ComposedDetail::FUSED_TEMPORAL_COLOR<typename BindingT::Spec>>
 struct ColorProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
@@ -1012,7 +1016,7 @@ template <typename B,
           Color::BrightnessEnvelope Brightness =
               Color::BrightnessEnvelope::NONE,
           bool LabCache = ComposedDetail::PALETTE_LAB_CACHE<typename B::Spec>,
-          bool Fused = B::Spec::FUSED_TEMPORAL_COLOR>
+          bool Fused = ComposedDetail::FUSED_TEMPORAL_COLOR<typename B::Spec>>
 struct AuthoredColorProvider : ColorProvider<B, Brightness, LabCache, Fused> {
   /// Bound column or frame state.
   using FrameState = typename B::FrameState;

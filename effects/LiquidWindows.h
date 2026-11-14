@@ -20,11 +20,11 @@
 /** @brief Stage spec for `LiquidWindows`. */
 struct LiquidWindowsSpec : Pullback::Spec {
   /// Samples animation at each column time.
-  static constexpr bool TEMPORAL_SAMPLING = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   /// Generated palette harmony.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   /// Identity projection frame.
-  static constexpr bool ANIMATED_PROJECTION = false;
+  static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   /** @brief Potential flow, equirectangular grid, palette and displacement hue.
    * @tparam B Effect binding. */
   template <typename B>

@@ -23,10 +23,8 @@ template <typename FX> struct ComposedWhiteBox;
 
 /** @brief Pullback stage spec for `KaleidoscopeMelt`. */
 struct KaleidoscopeMeltSpec : Pullback::Spec {
-  /// Samples animation continuously across each two-arm half-turn.
-  static constexpr bool TEMPORAL_SAMPLING = true;
-  /// Fuses eligible temporal color endpoints.
-  static constexpr bool FUSED_TEMPORAL_COLOR = true;
+  /// Samples column times and fuses eligible temporal color endpoints.
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::fused();
   /// Disables palette-coordinate hue tables.
   static constexpr bool HUE_ROTATION_LUT = false;
   /// Palette-coordinate nodes per cached time row.
@@ -34,8 +32,8 @@ struct KaleidoscopeMeltSpec : Pullback::Spec {
   /// Restricts interval caches to the initial authored controls.
   static constexpr bool INITIAL_CACHE_CONTROLS_ONLY = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
-  static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr bool TILTED_PROJECTION_FRAME = true;
+  static constexpr auto PROJECTION_MOTION =
+      Pullback::ProjectionMotion::ANIMATED_TILTED;
   /**
    * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens,
    *  surface-noise displacement, projection, square-cell source, generated
