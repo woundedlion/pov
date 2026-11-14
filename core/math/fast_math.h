@@ -245,8 +245,24 @@ HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
     o[i] = n[i] * (pre[i] * suf[i]) * inv;
 }
 
-// Forward declarations
-inline float fast_acos(float x);
+/** @brief Absolute angular error bound in radians on [-1, 1]. */
+inline constexpr double FAST_ACOS_MAX_ERROR = 1e-4;
+/// Measured peak error used by narrow annular bounds.
+inline constexpr float FAST_ACOS_PEAK_ERROR = 5.1e-5f;
+
+/**
+ * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.
+ * @param x Input value, expected in [-1, 1] (clamped internally).
+ * @return The arc cosine in radians; zero for NaN.
+ * @details Peak abs error ~5.0e-5 rad.
+ */
+__attribute__((always_inline)) inline float fast_acos(float x) {
+  const float ax = fminf(std::abs(x), 1.0f);
+  float result =
+      sqrtf(1.0f - ax) *
+      (1.5707963f + ax * (-0.2132209f + ax * (0.0777570f + ax * -0.0215124f)));
+  return x < 0.0f ? PI_F - result : result;
+}
 
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);

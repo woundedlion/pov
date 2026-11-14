@@ -10,25 +10,6 @@
 
 namespace math {
 
-/** @brief Absolute angular error bound in radians on [-1, 1]. */
-inline constexpr double FAST_ACOS_MAX_ERROR = 1e-4;
-/// Measured peak error used by narrow annular bounds.
-inline constexpr float FAST_ACOS_PEAK_ERROR = 5.1e-5f;
-
-/**
- * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.
- * @param x Input value, expected in [-1, 1] (clamped internally).
- * @return The arc cosine in radians; zero for NaN.
- * @details Peak abs error ~5.0e-5 rad.
- */
-__attribute__((always_inline)) inline float fast_acos(float x) {
-  const float ax = fminf(std::abs(x), 1.0f);
-  float result =
-      sqrtf(1.0f - ax) *
-      (1.5707963f + ax * (-0.2132209f + ax * (0.0777570f + ax * -0.0215124f)));
-  return x < 0.0f ? PI_F - result : result;
-}
-
 /**
  * @brief Fast exp for non-positive arguments.
  * @param x Argument; the domain is x <= 0.

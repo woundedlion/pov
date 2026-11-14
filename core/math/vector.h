@@ -204,6 +204,58 @@ struct Vector {
 };
 
 /**
+ * @brief Vector addition.
+ * @param v1 First vector.
+ * @param v2 Second vector.
+ * @return The resulting vector.
+ */
+__attribute__((always_inline)) constexpr Vector operator+(const Vector &v1,
+                                                          const Vector &v2) {
+  return Vector(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+}
+
+/**
+ * @brief Vector subtraction.
+ * @param v1 First vector.
+ * @param v2 Second vector.
+ * @return The resulting vector.
+ */
+__attribute__((always_inline)) constexpr Vector operator-(const Vector &v1,
+                                                          const Vector &v2) {
+  return Vector(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
+}
+
+/**
+ * @brief Scalar multiplication (vector * scalar).
+ * @param v Vector.
+ * @param s Scalar.
+ * @return The resulting vector.
+ */
+__attribute__((always_inline)) constexpr Vector operator*(const Vector &v,
+                                                          float s) {
+  return Vector(s * v.x, s * v.y, s * v.z);
+}
+
+/**
+ * @brief Scalar multiplication (scalar * vector).
+ * @param s Scalar.
+ * @param v Vector.
+ * @return The resulting vector.
+ */
+constexpr Vector operator*(float s, const Vector &v) { return v * s; }
+
+/**
+ * @brief Scalar division of a vector.
+ * @param v Vector.
+ * @param s Scalar; a zero divisor is guarded only by an audit check.
+ * @return The resulting vector.
+ */
+constexpr Vector operator/(const Vector &v, float s) {
+  HS_AUDIT_CHECK(s != 0.0f);
+  return Vector(v.x / s, v.y / s, v.z / s);
+}
+
+/**
  * @brief Normalizes, returning `fallback` when the vector is degenerate (zero
  * length) instead of trapping.
  * @param v The vector to normalize.

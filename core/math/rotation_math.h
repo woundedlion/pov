@@ -31,53 +31,6 @@ __attribute__((always_inline)) inline Vector rotate(const Vector &v,
 }
 
 /**
- * @brief Vector addition.
- * @param v1 First vector.
- * @param v2 Second vector.
- * @return The resulting vector.
- */
-__attribute__((always_inline)) constexpr Vector operator+(const Vector &v1,
-                                                          const Vector &v2) {
-  return Vector(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
-}
-
-/**
- * @brief Vector subtraction.
- * @param v1 First vector.
- * @param v2 Second vector.
- * @return The resulting vector.
- */
-__attribute__((always_inline)) constexpr Vector operator-(const Vector &v1,
-                                                          const Vector &v2) {
-  return Vector(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
-}
-
-/**
- * @brief Scalar multiplication (vector * scalar).
- * @param v Vector.
- * @param s Scalar.
- * @return The resulting vector.
- */
-__attribute__((always_inline)) constexpr Vector operator*(const Vector &v,
-                                                          float s) {
-  return Vector(s * v.x, s * v.y, s * v.z);
-}
-
-/**
- * @brief Scalar multiplication (scalar * vector).
- * @param s Scalar.
- * @param v Vector.
- * @return The resulting vector.
- */
-constexpr Vector operator*(float s, const Vector &v) { return v * s; }
-
-// No release-build s == 0 trap (yields ±Inf/NaN); only an audit check.
-constexpr Vector operator/(const Vector &v, float s) {
-  HS_AUDIT_CHECK(s != 0.0f);
-  return Vector(v.x / s, v.y / s, v.z / s);
-}
-
-/**
  * @brief Calculates the dot product of two vectors.
  * @param v1 First vector.
  * @param v2 Second vector.
@@ -201,84 +154,6 @@ inline float angle_between(const Vector &v1, const Vector &v2) {
            "angle_between: degenerate vector");
   float d = dot(v1, v2) / sqrtf(m1 * m2);
   return fast_acos(hs::clamp(d, -1.0f, 1.0f));
-}
-
-/**
- * @brief Quaternion addition.
- * @param q1 First quaternion.
- * @param q2 Second quaternion.
- * @return The resulting quaternion.
- */
-constexpr Quaternion operator+(const Quaternion &q1, const Quaternion &q2) {
-  return Quaternion(q1.r + q2.r, q1.v + q2.v);
-}
-
-/**
- * @brief Quaternion subtraction.
- * @param q1 First quaternion.
- * @param q2 Second quaternion.
- * @return The resulting quaternion.
- */
-constexpr Quaternion operator-(const Quaternion &q1, const Quaternion &q2) {
-  return Quaternion(q1.r - q2.r, q1.v - q2.v);
-}
-
-/**
- * @brief Quaternion multiplication (Hamilton product).
- * @details Per component, (r1 r2 - v1.v2, r1 v2 + r2 v1 + v1 x v2), with
- * no helper calls between the multiply-adds.
- * @param q1 First quaternion.
- * @param q2 Second quaternion.
- * @return The resulting quaternion.
- */
-constexpr Quaternion operator*(const Quaternion &q1, const Quaternion &q2) {
-  const float r1 = q1.r, x1 = q1.v.x, y1 = q1.v.y, z1 = q1.v.z;
-  const float r2 = q2.r, x2 = q2.v.x, y2 = q2.v.y, z2 = q2.v.z;
-  return Quaternion(r1 * r2 - ((x1 * x2 + y1 * y2) + z1 * z2),
-                    (r1 * x2 + r2 * x1) + (y1 * z2 - z1 * y2),
-                    (r1 * y2 + r2 * y1) + (z1 * x2 - x1 * z2),
-                    (r1 * z2 + r2 * z1) + (x1 * y2 - y1 * x2));
-}
-
-/**
- * @brief Scalar multiplication (quaternion * scalar).
- * @param q Quaternion.
- * @param s Scalar.
- * @return The resulting quaternion.
- */
-constexpr Quaternion operator*(const Quaternion &q, float s) {
-  return Quaternion(q.r * s, q.v * s);
-}
-
-/**
- * @brief Scalar multiplication (scalar * quaternion).
- * @param s Scalar.
- * @param q Quaternion.
- * @return The resulting quaternion.
- */
-constexpr Quaternion operator*(float s, const Quaternion &q) { return q * s; }
-
-/**
- * @brief Scalar division.
- * @param q Quaternion.
- * @param s Scalar.
- * @return The resulting quaternion.
- * @details A zero divisor is guarded only by an audit check.
- */
-constexpr Quaternion operator/(const Quaternion &q, float s) {
-  HS_AUDIT_CHECK(s != 0.0f);
-  return Quaternion(q.r / s, q.v / s);
-}
-
-/**
- * @brief Calculates the dot product of two quaternions.
- * @param q1 First quaternion.
- * @param q2 Second quaternion.
- * @return The dot product (scalar).
- */
-constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
-  return (q1.r * q2.r) + (q1.v.x * q2.v.x) + (q1.v.y * q2.v.y) +
-         (q1.v.z * q2.v.z);
 }
 
 /**
