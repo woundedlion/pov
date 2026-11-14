@@ -107,11 +107,7 @@ public:
       deep_tween_frames(ring.trail, [&](size_t record, size_t first,
                                         const math::Quaternion *qs,
                                         const float *ts, int count) {
-        constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
-        static_assert(SUB_CAP <= Scan::RingGroup::MAX_RINGS);
-        Color4 colors[SUB_CAP];
-        SDF::Ring shapes[SUB_CAP];
-        math::Vector previous[SUB_CAP];
+        TrailSlots trail_slots;
         int slots = 0;
         const float pixel_w = math::coarse_pixel_pitch<W, H>();
         constexpr float MIN_SLOT_ALPHA = 0.001f;
@@ -128,11 +124,12 @@ public:
           float th =
               ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
               params.thickness;
-          shapes[slots] =
+          trail_slots.shapes[slots] =
               SDF::Ring(math::make_basis(qs[j], math::Y_AXIS), 1.0f, th);
-          colors[slots] = c;
+          trail_slots.colors[slots] = c;
           if (temporal)
-            previous[slots] = previous_axis(ring.trail, record, first + j);
+            trail_slots.previous[slots] =
+                previous_axis(ring.trail, record, first + j);
           ++slots;
         }
         if (slots == 0)
@@ -140,11 +137,11 @@ public:
 
         HS_PROFILE(rs_ring_scan);
         Scan::RingGroup::draw<W, H>(
-            filters, canvas, shapes, slots,
+            filters, canvas, trail_slots.shapes, slots,
             [&](int s, const math::Vector &, Fragment &f) {
-              f.color = colors[s];
+              f.color = trail_slots.colors[s];
             },
-            params.debug_bb, temporal ? previous : nullptr);
+            params.debug_bb, temporal ? trail_slots.previous : nullptr);
       });
     }
   }
@@ -194,6 +191,19 @@ private:
      */
     Ring(const BakedPalette *p) : palette(p) {}
   };
+
+  /// Trail sub-positions per fused ring scan.
+  static constexpr int SUB_CAP = decltype(Ring::orientation)::CAPACITY;
+  static_assert(SUB_CAP <= Scan::RingGroup::MAX_RINGS);
+
+  /** @brief Stack-resident slots of one fused ring scan. */
+  struct TrailSlots {
+    Color4 colors[SUB_CAP];         /**< Colour per slot. */
+    SDF::Ring shapes[SUB_CAP];      /**< Ring geometry per slot. */
+    math::Vector previous[SUB_CAP]; /**< Axis per slot a frame ago. */
+  };
+  static_assert(sizeof(TrailSlots) <= 512,
+                "RingSpin trail slots must stay a small stack struct");
 
   Timeline timeline;
   Pipeline<W, H> filters;
