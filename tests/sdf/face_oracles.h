@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/sdf/common.h"
+
+namespace hs_test::sdf_tests {
 
 // ============================================================================
 // Face distance vs an independent exact oracle
@@ -905,3 +910,5 @@ inline void test_face_handle_reuses_arena_storage() {
     }
   }
 }
+
+} // namespace hs_test::sdf_tests

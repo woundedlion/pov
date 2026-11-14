@@ -2,7 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/sdf/common.h"
 #include "core/math/scalar_kernels.h"
+
+namespace hs_test::sdf_tests {
 
 // ============================================================================
 // Interval-cull conservativeness: the cull may over-visit but must never drop
@@ -1133,3 +1138,5 @@ inline void test_union_noncoaxial_fringe() {
                                       "non-coaxial union");
   }
 }
+
+} // namespace hs_test::sdf_tests

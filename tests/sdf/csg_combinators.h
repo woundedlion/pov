@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/sdf/common.h"
+
+namespace hs_test::sdf_tests {
 
 // ============================================================================
 // Union — min of distances
@@ -812,3 +817,5 @@ inline void test_union_preserves_full_width_fallback() {
   check(MockFullWidthShape{});
   check(MockEmitThenFullWidthShape{});
 }
+
+} // namespace hs_test::sdf_tests

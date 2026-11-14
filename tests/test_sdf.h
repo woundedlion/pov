@@ -6,32 +6,12 @@
  */
 #pragma once
 
-#include <algorithm>
-#include <array>
-#include <cstdio>
-
-#include "core/render/sdf.h"
-#include "core/render/sdf/ring_knots.h"
-#include "core/mesh/solids.h"
-#include "core/render/sdf/volume.h"
-#include "core/render/sdf/face_class_bake.h"
-#include "core/render/scan.h"
-#include "core/math/geometry.h"
-#include "tests/prepared_face_test_access.h"
-#include "tests/vec_test_util.h"
-#include "tests/test_fixture.h"
-#include "tests/test_harness.h"
-
-#include <cfloat>
-#include <cmath>
-#include <cstring>
-#include <iterator>
-#include <limits>
-#include <numbers>
-#include <span>
-#include <type_traits>
-#include <utility>
-#include <vector>
+#include "tests/sdf/common.h"
+#include "tests/sdf/primitives.h"
+#include "tests/sdf/warped_volume.h"
+#include "tests/sdf/csg_combinators.h"
+#include "tests/sdf/interval_cull.h"
+#include "tests/sdf/face_oracles.h"
 
 namespace hs_test {
 namespace sdf_tests {
@@ -42,21 +22,6 @@ struct RejectMarginShape {
 };
 static_assert(SDF::reject_margin<RejectMarginShape> == 0.125f);
 static_assert(SDF::reject_margin<int> == 0.0f);
-
-/**
- * @brief Builds the canonical equator-facing basis: v = +Y, u = +X, w = +Z.
- * @return A Basis oriented so its pole points along +Y.
- */
-inline math::Basis equator_basis() {
-  return math::Basis{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
-                     math::Vector(0, 0, 1)};
-}
-
-#include "tests/sdf/primitives.h"
-#include "tests/sdf/warped_volume.h"
-#include "tests/sdf/csg_combinators.h"
-#include "tests/sdf/interval_cull.h"
-#include "tests/sdf/face_oracles.h"
 
 /** @brief Knot recurrence follows analytic ring positions over a full turn. */
 inline void test_knot_walk_positions() {

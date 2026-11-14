@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/sdf/common.h"
+
+namespace hs_test::sdf_tests {
 
 // ============================================================================
 // WarpedVolume + Warp::Twist (domain warp, Lipschitz bound, normal correction)
@@ -350,3 +355,5 @@ inline void test_twist_correct_normal_matches_field_gradient() {
     HS_EXPECT_VEC(wv.normal(p), grad.normalized(), 5e-3f);
   }
 }
+
+} // namespace hs_test::sdf_tests

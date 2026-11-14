@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/sdf/common.h"
+
+namespace hs_test::sdf_tests {
 
 /** @brief Equal virtual and physical heights retain exact pole-to-pole spacing. */
 inline void test_virtual_grid_equal_height_geometry() {
@@ -1132,3 +1137,5 @@ inline void test_torus_normal_points_outward_on_top() {
   math::Vector n = t.normal(math::Vector(2.0f, 0.5f, 0));
   HS_EXPECT_VEC(n, math::Vector(0, 1, 0), 1e-4f);
 }
+
+} // namespace hs_test::sdf_tests
