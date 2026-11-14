@@ -200,6 +200,14 @@ struct ColumnBand {
     return {static_cast<float>(first() - 1), static_cast<float>(end<W>())};
   }
 
+  /** @brief The columns a cut is placed at, @p pad outside the band.
+   *  @tparam W Canvas width in columns.
+   *  @param pad Columns between the band and each cut.
+   *  @return The low and high cut columns, wrapped into [0, W). */
+  template <int W> HS_HOT_INLINE std::array<int, 2> cut_columns(int pad) const {
+    return {math::wrap(first() - pad, W), math::wrap(columns.re + pad, W)};
+  }
+
   /** @brief Bounding half-planes of the tap-reach columns widened by
    *         @p slack radians on each side.
    *  @tparam W Canvas width in columns.

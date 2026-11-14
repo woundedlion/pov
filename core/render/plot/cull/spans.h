@@ -292,9 +292,10 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
   cb.rows = cr.render_y_start() > 0 || cr.render_y_end() < cr.h;
 
   if (cb.cols) {
-    const int cols[2] = {xc.rs - CLIP_CUT_COL_PAD, xc.re + CLIP_CUT_COL_PAD};
+    const std::array<int, 2> cols =
+        ColumnBand::of(xc).cut_columns<W>(CLIP_CUT_COL_PAD);
     for (int i = 0; i < 2; ++i) {
-      const int c = math::wrap(cols[i], W);
+      const int c = cols[i];
       cb.col_x[i] = math::TrigLUT<W, H>::cos_theta(c);
       cb.col_z[i] = math::TrigLUT<W, H>::sin_theta[c];
     }
