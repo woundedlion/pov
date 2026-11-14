@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/render/plot/column_walk.h"
 #include "core/render/render_policy.h"
 #include <algorithm>
 #include <concepts>

@@ -4,6 +4,13 @@
  */
 #pragma once
 
+#include <algorithm>
+#include "core/engine/concepts.h"
+#include "core/render/canvas.h"
+#include "core/render/clip.h"
+#include "core/render/pipeline_ref.h"
+#include "core/render/shading.h"
+#include "core/render/plot/raster_config.h"
 #include "core/render/plot/edge_worldsheet.h"
 
 /** @file column_taps.h @brief Column walk state and timed sample taps. */

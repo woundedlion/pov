@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include "core/mesh/hankin.h"
 #include "core/mesh/solid_builder.h"
 #include "core/mesh/solid_support.h"
 #include "core/mesh/solid_tables.h"

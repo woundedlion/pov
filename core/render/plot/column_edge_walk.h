@@ -4,6 +4,11 @@
  */
 #pragma once
 
+#include <algorithm>
+#include "core/render/filter/screen_anti_alias.h"
+#include "core/render/plot/cull/samplers.h"
+#include "core/render/plot/raster_config.h"
+#include "core/render/shading.h"
 #include "core/render/plot/column_taps.h"
 
 /** @file column_edge_walk.h @brief Column-time edge lattice walking. */

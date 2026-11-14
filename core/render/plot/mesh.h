@@ -3,6 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
+#include "core/render/plot/column_walk.h"
 #include <algorithm>
 #include <cstdint>
 #include <tuple>

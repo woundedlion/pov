@@ -4,6 +4,10 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <limits>
+#include "core/render/filter/screen_anti_alias.h"
+#include "core/render/plot/cull/samplers.h"
 #include "core/render/plot/column_bounds.h"
 
 /** @file edge_worldsheet.h @brief Moving edge paths, world bases and column plans. */

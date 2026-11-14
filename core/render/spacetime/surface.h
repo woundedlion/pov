@@ -11,7 +11,6 @@
 #include "core/math/3dmath.h"
 #include "core/platform/attributes.h"
 #include "core/render/canvas.h"
-#include "core/render/spacetime/motion.h"
 #include <cmath>
 
 namespace Spacetime {

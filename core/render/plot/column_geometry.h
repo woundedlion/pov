@@ -4,6 +4,10 @@
  */
 #pragma once
 
+#include "core/engine/concepts.h"
+#include "core/memory.h"
+#include "core/render/shading.h"
+#include "core/render/plot/cull/samplers.h"
 #include "core/render/canvas.h"
 #include "core/render/filter/screen_anti_alias.h"
 #include "core/render/plot/raster_config.h"

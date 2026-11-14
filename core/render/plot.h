@@ -9,6 +9,7 @@
  * @brief The curve rasterizer: umbrella over render/plot/.
  */
 
+#include "core/render/plot/column_walk.h"
 #include "core/render/plot/cull.h"
 #include "core/render/plot/raster.h"
 #include "core/render/plot/shapes.h"

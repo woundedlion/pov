@@ -4,6 +4,9 @@
  */
 #pragma once
 
+#include "core/render/canvas.h"
+#include "core/render/clip.h"
+#include "core/render/spacetime/swept_bound.h"
 #include "core/render/plot/column_geometry.h"
 
 /** @file column_bounds.h @brief Swept edge culling and column walk frame bounds. */

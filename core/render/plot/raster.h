@@ -879,5 +879,3 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 HS_O3_END
 
 } // namespace Plot
-
-#include "core/render/plot/column_walk.h"

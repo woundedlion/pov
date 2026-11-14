@@ -4,6 +4,12 @@
  */
 #pragma once
 
+#include "core/engine/concepts.h"
+#include "core/memory.h"
+#include "core/render/canvas.h"
+#include "core/render/pipeline_ref.h"
+#include "core/render/shading.h"
+#include "core/render/plot/raster_config.h"
 #include "core/render/plot/column_edge_walk.h"
 
 /** @file column_edge_batch.h @brief Column-time mesh edge batch rasterization. */
