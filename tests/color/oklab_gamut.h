@@ -2,6 +2,18 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/color/color.h"
+#include "core/memory.h"
+#include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+#include <numbers>
+
+namespace hs_test::color_tests {
 
 // ============================================================================
 // OKLab / OKLCH round-trips
@@ -888,3 +900,5 @@ inline void test_hue_rotate_base_matches_direct() {
     }
   }
 }
+
+} // namespace hs_test::color_tests

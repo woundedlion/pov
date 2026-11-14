@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/color/color.h"
+#include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::color_tests {
 
 // ============================================================================
 // sRGB <-> linear LUTs vs. float reference
@@ -115,3 +124,5 @@ inline void test_srgb_linear_roundtrip_float() {
     HS_EXPECT_NEAR(back * 255.0f, static_cast<float>(s), 0.5f);
   }
 }
+
+} // namespace hs_test::color_tests

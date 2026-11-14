@@ -2,6 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/color/color.h"
+#include "core/color/generative_palette.h"
+#include "core/memory.h"
+#include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::color_tests {
 
 // ============================================================================
 // Gradient::get
@@ -718,3 +729,5 @@ inline void test_baked_palette_rebake_crossfade() {
   out.rebake_crossfade(from, to, std::numeric_limits<float>::quiet_NaN());
   expect_baked_equal(out, to);
 }
+
+} // namespace hs_test::color_tests

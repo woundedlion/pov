@@ -2,6 +2,19 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/pattern/noise.h"
+#include "core/pattern/sphere_lut.h"
+#include "tests/test_harness.h"
+
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <cstring>
+
+namespace hs_test::pattern_tests {
+
 // Scalar cube storage and source-reference tests.
 
 /** @brief Compares cube bakes with direct noise over the same face directions. */
@@ -385,3 +398,5 @@ inline void test_sphere_noise_bake_qualification() {
     }
   }
 }
+
+} // namespace hs_test::pattern_tests

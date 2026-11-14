@@ -2,6 +2,20 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/color/color.h"
+#include "core/color/generative_palette.h"
+#include "core/color/palette_cycler.h"
+#include "core/memory.h"
+#include "tests/color/gradient_bake.h"
+#include "effects/common/palette_recipes.h"
+#include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::color_tests {
 
 // ============================================================================
 // PaletteCycler
@@ -893,3 +907,5 @@ inline void test_palette_cycler_sampled_restore_and_catchup() {
   expected.bake(arena, quarter);
   expect_baked_equal(sampled.palette(), expected);
 }
+
+} // namespace hs_test::color_tests

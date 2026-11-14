@@ -32,9 +32,6 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
-namespace hs_test {
-namespace color_tests {
-
 #include "tests/color/pixel_blend.h"
 #include "tests/color/oklab_gamut.h"
 #include "tests/color/srgb_transfer.h"
@@ -44,6 +41,9 @@ namespace color_tests {
 #include "tests/color/palette_layer.h"
 #include "tests/color/modulation.h"
 #include "tests/pattern/sphere_lut.h"
+
+namespace hs_test {
+namespace color_tests {
 
 /** @brief
  * Large positive and negative angles match the remainder-based signed wrap.
@@ -294,12 +294,12 @@ inline int run_color_tests() {
   HS_RUN(test_color_modulation_whole_turn_identity);
   HS_RUN(test_color_modulation_amount_domains);
   HS_RUN(test_pattern_modulated_palette);
-  HS_RUN(test_sphere_lut_seamless_across_faces);
-  HS_RUN(test_sphere_lut_all_edges);
-  HS_RUN(test_sphere_noise_bake_qualification);
-  HS_RUN(test_sphere_face_linear_table);
-  HS_RUN(test_sphere_bake_cache);
-  HS_RUN(test_sphere_bakes_match_reference);
+  HS_RUN(pattern_tests::test_sphere_lut_seamless_across_faces);
+  HS_RUN(pattern_tests::test_sphere_lut_all_edges);
+  HS_RUN(pattern_tests::test_sphere_noise_bake_qualification);
+  HS_RUN(pattern_tests::test_sphere_face_linear_table);
+  HS_RUN(pattern_tests::test_sphere_bake_cache);
+  HS_RUN(pattern_tests::test_sphere_bakes_match_reference);
 
   // Clamp-before-cast / NaN-saturation checks, shared with the fast-math pass.
   const int before_clamp = hs_test::stats().passed + hs_test::stats().failed;

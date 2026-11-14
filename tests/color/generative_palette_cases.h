@@ -4,6 +4,19 @@
  *
  * Generative-palette tests and the EffectPaletteRecipes roster contract.
  */
+#pragma once
+
+#include "core/color/color.h"
+#include "core/color/generative_palette.h"
+#include "core/memory.h"
+#include "tests/color/gradient_bake.h"
+#include "effects/common/palette_recipes.h"
+#include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::color_tests {
 
 inline constexpr PaletteHarmony ALL_PALETTE_HARMONIES[] = {
     PaletteHarmony::MONOCHROMATIC,
@@ -1001,3 +1014,5 @@ inline void test_generative_palette_snapshot_key_clamps_count() {
   HS_EXPECT_EQ(oversized_last.chroma, bounded_last.chroma);
   HS_EXPECT_EQ(oversized_last.h, bounded_last.h);
 }
+
+} // namespace hs_test::color_tests

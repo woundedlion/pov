@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/color/color.h"
+#include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::color_tests {
 
 // ============================================================================
 // lerp16
@@ -286,3 +295,5 @@ inline void test_pixel_quarter_accumulation_rounds_per_sample() {
                  static_cast<uint16_t>(sum > 65535u ? 65535u : sum));
   }
 }
+
+} // namespace hs_test::color_tests

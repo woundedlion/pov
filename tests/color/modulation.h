@@ -2,6 +2,18 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/color/color.h"
+#include "core/color/modulation.h"
+#include "core/color/hue_rotation_lut.h"
+#include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::color_tests {
+
 // Generic mechanics, identities and palette composition tests.
 
 /** @brief Mechanics preserve exact identities and straight-alpha masks. */
@@ -178,3 +190,5 @@ inline void test_color_modulation_amount_domains() {
   }
   HS_EXPECT_FALSE(valid({static_cast<Mechanic>(255), 0.0f}));
 }
+
+} // namespace hs_test::color_tests

@@ -2,7 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/color/color.h"
+#include "core/color/composition.h"
+#include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
 #include "core/math/scalar_noise.h"
+
+namespace hs_test::color_tests {
 
 // ============================================================================
 // Palette layer: source palettes, modifiers, compositions, and wrappers
@@ -740,3 +750,5 @@ inline void test_palette_shade_coord_policy() {
   unwrapped_lookup.bind(&grad, &rev, &report);
   HS_EXPECT_NEAR(unwrapped_lookup.get(0.25f).alpha, 0.75f, 1e-5f);
 }
+
+} // namespace hs_test::color_tests
