@@ -5,10 +5,9 @@
 #pragma once
 
 /** @file frame.h
- * @brief Conway morph frame drawing and sweep sampling. */
+ * @brief Conway morph frame drawing. */
 
 #include "core/animation/opleg.h"
-#include "core/animation/opleg/build.h"
 #include <cstring>
 
 namespace Animation {
@@ -81,30 +80,6 @@ OpLeg::previous_fits(size_t vertices, size_t sweep_a, size_t sweep_b) {
              need_a &&
          scratch_arena_b.get_capacity() - scratch_arena_b.get_offset() >=
              need_b;
-}
-
-inline HS_FLASH_MEMBER float OpLeg::sweep_parameter(float frame) const {
-  const Transients &tr = *buf;
-  const float progress =
-      hs::clamp(easing_fn(frame / static_cast<float>(duration)), 0.0f, 1.0f);
-  return tr.t_start + (tr.t_end - tr.t_start) * sweep_phase(tr, progress).k;
-}
-
-inline HS_FLASH_MEMBER math::Vector OpLeg::swept_vertex_at(size_t i,
-                                                           float k) const {
-  const Transients &tr = *buf;
-  if (tr.kind == LegKind::HANKIN_SWEEP) {
-    const size_t statics = tr.hankin.static_vertices.size();
-    if (i < statics)
-      return tr.hankin.static_vertices[i];
-    return k >= 1.0f ? hankin_vertex_at<true>(tr, i - statics, k)
-                     : hankin_vertex_at<false>(tr, i - statics, k);
-  }
-  if (tr.kind == LegKind::RELAX_SLERP)
-    return k >= 1.0f ? relax_vertex_at<true>(tr, i, k)
-                     : relax_vertex_at<false>(tr, i, k);
-  return k >= 1.0f ? medial_vertex_at<true>(tr, i, k)
-                   : medial_vertex_at<false>(tr, i, k);
 }
 
 inline HS_FLASH_MEMBER void OpLeg::arrival_mesh(const Landing &landing,

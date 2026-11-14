@@ -8,7 +8,6 @@
  * @brief Gated morph swaps and topology classification. */
 
 #include "core/animation/opleg.h"
-#include "core/animation/opleg/sweep.h"
 
 namespace Animation {
 
@@ -153,25 +152,6 @@ inline __attribute__((always_inline)) uint16_t OpLeg::nearest_orbit_vertex(
     }
   }
   return best;
-}
-
-inline HS_FLASH_MEMBER PolyMesh OpLeg::run_op(ConwayGraph::MorphOp op,
-                                              const PolyMesh &seed,
-                                              Arena &target, Arena &temp,
-                                              float t, float twist) {
-  switch (op) {
-  case ConwayGraph::MorphOp::TRUNCATE:
-    // Nudge t = 0.5 off the ambo short-circuit so a far-side leg keeps the
-    // truncate topology.
-    return MeshOps::truncate(seed, target, temp,
-                             ConwayGraph::truncate_off_pinch(t));
-  case ConwayGraph::MorphOp::EXPAND:
-    return MeshOps::expand(seed, target, temp, t);
-  case ConwayGraph::MorphOp::CHAMFER:
-    return MeshOps::chamfer(seed, target, temp, t);
-  default:
-    return MeshOps::snub(seed, target, temp, t, twist);
-  }
 }
 
 inline HS_FLASH_MEMBER bool

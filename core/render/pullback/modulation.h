@@ -511,8 +511,8 @@ public:
                 false,  0,       0,      nullptr, nullptr, 0};
     out[MODULATION_AMOUNT].min = -4.0f;
     out[MODULATION_AMOUNT].max = 4.0f;
-    out[PATTERN_SCALE].min = 1.0f / 64.0f;
-    out[PATTERN_SCALE].max = 64.0f;
+    out[PATTERN_SCALE].min = Pattern::MIN_NOISE_SCALE;
+    out[PATTERN_SCALE].max = Pattern::MAX_NOISE_SCALE;
     out[PATTERN_SCALE].def = 1.0f;
     out[PATTERN_SCALE].curve = FieldCurve::LOG_POSITIVE;
     out[PATTERN_SPEED].min = -Pattern::MAX_NOISE_SPEED;
@@ -522,7 +522,7 @@ public:
       out[i].max = Pattern::MAX_ANALYTIC_SPEED;
     }
     out[PATTERN_CONTRAST].min = 0.0f;
-    out[PATTERN_CONTRAST].max = 8.0f;
+    out[PATTERN_CONTRAST].max = Pattern::MAX_NOISE_CONTRAST;
     for (size_t i : {SINE_AXIS_Y, SINE_FREQUENCY, INTERFERENCE_AXIS_Y,
                      INTERFERENCE_FREQUENCY, INTERFERENCE_AXIS_B_X,
                      INTERFERENCE_FREQUENCY_B, GRID_AXIS_Y, GRID_FREQUENCY,
@@ -530,8 +530,10 @@ public:
       out[i].def = 1.0f;
     for (size_t i :
          {SINE_FREQUENCY, INTERFERENCE_FREQUENCY, INTERFERENCE_FREQUENCY_B,
-          GRID_FREQUENCY, GRID_FREQUENCY_B})
+          GRID_FREQUENCY, GRID_FREQUENCY_B}) {
       out[i].min = 0.0f;
+      out[i].max = Pattern::MAX_AXIAL_FREQUENCY;
+    }
     out[MODULATION_ENABLED] = {"modulation-enabled",
                                nullptr,
                                0,
@@ -754,10 +756,10 @@ control_fields(Config &config) {
   switch (config.source) {
   case Pattern::SourceKind::NOISE:
     fields[1] = {source_scale_label(config.source), &config.noise.scale,
-                 1.0f / 64.0f,
+                 Pattern::MIN_NOISE_SCALE,
                  config.evaluation == Pattern::Evaluation::BAKED_CUBE
                      ? Pattern::MAX_BAKED_NOISE_SCALE
-                     : 64.0f};
+                     : Pattern::MAX_NOISE_SCALE};
     fields[2] = {SPEED_LABEL, &config.noise.speed, -Pattern::MAX_NOISE_SPEED,
                  Pattern::MAX_NOISE_SPEED};
     break;

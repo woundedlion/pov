@@ -1194,11 +1194,8 @@ struct Mesh {
       if constexpr (!std::is_same_v<FaceShaderSetupT, std::nullptr_t>)
         face_shader_setup(sweep.face, face.size());
       // A time-aware shader shades at the pair's time while its state moves.
-      [[maybe_unused]] bool per_column = TIMED_SHADER;
-      if constexpr (TIMED_SHADER) {
-        if constexpr (requires { fragment_shader.moves(); })
-          per_column = fragment_shader.moves();
-      }
+      [[maybe_unused]] const bool per_column =
+          shades_per_column<TIMED_SHADER>(fragment_shader);
       const math::Vector &e = time.azimuth[x];
       const math::Vector &v = time.up[x];
       [[maybe_unused]] bool counted = false;

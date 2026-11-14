@@ -1,9 +1,8 @@
 """Union-find connectivity check over raw schematic geometry.
 Reports electrical groups that merge two DIFFERENT named nets (labels / power)."""
 import argparse
-import os
 import sys
-import builder
+import constraints
 import sexp
 from kicad_common import F, property_value
 
@@ -11,8 +10,6 @@ from kicad_common import F, property_value
 # and never form one, so they are removed before counting nets in a group.
 FLAG_NET = "PWR_FLAG"
 
-DEFAULT_SCH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), builder.REVISION, "phantasm.kicad_sch")
 
 def R(v):
     return (round(float(v[0]), 3), round(float(v[1]), 3))
@@ -143,12 +140,10 @@ def analyze(root):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--revision", choices=("1.1", "1.2", "1.3"), default=None)
+    parser.add_argument("--revision", choices=constraints.SCHEMATIC_REVISIONS, default=None)
     parser.add_argument("schematic", nargs="?")
     args = parser.parse_args(argv)
-    path = args.schematic or (DEFAULT_SCH if args.revision is None else os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        args.revision, "phantasm.kicad_sch"))
+    path = args.schematic or constraints.revision_schematic(args.revision)
     try:
         with open(path, encoding="utf-8") as fh:
             root = sexp.parse_one(fh.read())

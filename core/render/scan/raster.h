@@ -462,6 +462,22 @@ struct ColumnShader {
 };
 
 /**
+ * @brief Whether a column-time shader runs once per column.
+ * @tparam TIMED Whether the shader reads its column's sweep time.
+ * @tparam S Fragment shader type.
+ * @param shader The draw's fragment shader.
+ * @return TIMED, refined by the shader's moves() when it has one.
+ */
+template <bool TIMED, typename S>
+HS_HOT_INLINE inline bool shades_per_column([[maybe_unused]] S &shader) {
+  if constexpr (TIMED) {
+    if constexpr (requires { shader.moves(); })
+      return shader.moves();
+  }
+  return TIMED;
+}
+
+/**
  * @brief Anti-aliased coverage of a solid shape at a signed distance.
  * @param d Signed distance to the surface, negative inside.
  * @param pixel_width Angular width of one column, the AA half-reach.

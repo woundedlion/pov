@@ -734,6 +734,15 @@ private:
   sweep_phase(const Transients &tr, float progress) const;
 
   /**
+   * @brief Sweep phase at a leg frame, from its clamped, eased progress.
+   * @param tr Leg transients.
+   * @param frame Leg frame in [0, duration].
+   * @return sweep_phase() of the frame's progress.
+   */
+  inline __attribute__((always_inline)) SweepPhase
+  phase_at(const Transients &tr, float frame) const;
+
+  /**
    * @brief Builds a Conway leg's swept mesh at one parameter, slerped toward
    * the relaxed endpoint by @p settle_alpha.
    */

@@ -1,6 +1,18 @@
 """Shared PHANTASM fabrication constraints (millimeters) and assembly policy."""
+import os
+
+import builder
 
 ROUTED_REVISION = "1.1"
+
+SCHEMATIC_REVISIONS = ("1.1", "1.2", "1.3")
+
+
+def revision_schematic(revision=None):
+    """Committed schematic path for a revision, defaulting to the generator's."""
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        revision or builder.REVISION, "phantasm.kicad_sch")
+
 
 def is_hand_assembled(footprint, value):
     """Whether a part is excluded from machine assembly."""

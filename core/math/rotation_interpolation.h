@@ -159,6 +159,24 @@ __attribute__((always_inline)) inline void poly_sincosf_0_pi(float x, float &s,
 }
 
 /**
+ * @brief cos(s) and sin(s)/s of a short arc s, from its square.
+ * @param arc_sq Squared arc, radians squared.
+ * @param cosine Output cos(s).
+ * @param sinc Output sin(s)/s.
+ * @details Both carried to their degree-6 Taylor terms: truncation error is
+ * under ~1e-7 within half a radian and grows as the eighth power of the arc
+ * beyond it. Nothing here clamps the arc; callers must bound it.
+ */
+__attribute__((always_inline)) inline void
+small_arc_cos_sinc(float arc_sq, float &cosine, float &sinc) {
+  cosine =
+      1.0f +
+      arc_sq * (-0.5f + arc_sq * (1.0f / 24.0f + arc_sq * (-1.0f / 720.0f)));
+  sinc = 1.0f + arc_sq * (-1.0f / 6.0f + arc_sq * (1.0f / 120.0f +
+                                                   arc_sq * (-1.0f / 5040.0f)));
+}
+
+/**
  * @brief Normalized linear interpolation between two directions.
  * @param a Starting direction.
  * @param b Ending direction.

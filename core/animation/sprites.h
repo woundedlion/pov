@@ -295,14 +295,9 @@ particle_step_start(const math::Vector &position, const math::Vector &velocity,
     step_sq = motion_cap * motion_cap;
     along = motion_cap / sqrtf(speed_sq);
   }
-  const float cosine =
-      1.0f -
-      step_sq * (0.5f - step_sq * (1.0f / 24.0f - step_sq * (1.0f / 720.0f)));
-  const float sine_per_speed =
-      along *
-      (1.0f - step_sq * (1.0f / 6.0f - step_sq * (1.0f / 120.0f -
-                                                  step_sq * (1.0f / 5040.0f))));
-  return position * cosine - velocity * sine_per_speed;
+  float cosine, sinc;
+  math::small_arc_cos_sinc(step_sq, cosine, sinc);
+  return position * cosine - velocity * (along * sinc);
 }
 
 /**

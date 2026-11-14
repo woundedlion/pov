@@ -319,11 +319,8 @@ HS_HOT_INLINE inline void rasterize_face_body(
       COLUMN_TIME &&
       Spacetime::reads_time<FragmentShaderT, const math::Vector &, Fragment &>;
   // A time-aware shader runs per column only while its state moves.
-  [[maybe_unused]] bool per_column = TIMED_SHADER;
-  if constexpr (TIMED_SHADER) {
-    if constexpr (requires { fragment_shader.moves(); })
-      per_column = fragment_shader.moves();
-  }
+  [[maybe_unused]] const bool per_column =
+      shades_per_column<TIMED_SHADER>(fragment_shader);
 
   SDF::DistanceResult res;
   Fragment frag;

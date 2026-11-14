@@ -202,14 +202,9 @@ HS_HOT_INLINE inline bool rotate_group(const math::Vector &start,
     return false;
   const math::Vector axis = cross * (1.0f / sqrtf(cross_sq));
   if (fabsf(angle) <= GROUP_ROTATION_POLYNOMIAL_MAX) {
-    const float squared = angle * angle;
-    const float cosine =
-        1.0f + squared * (-0.5f +
-                          squared * (1.0f / 24.0f - squared * (1.0f / 720.0f)));
-    const float sine =
-        angle * (1.0f + squared * (-1.0f / 6.0f +
-                                   squared * (1.0f / 120.0f -
-                                              squared * (1.0f / 5040.0f))));
+    float cosine, sinc;
+    math::small_arc_cos_sinc(angle * angle, cosine, sinc);
+    const float sine = angle * sinc;
     output = start * cosine + math::cross(axis, start) * sine;
   } else
     output = rotate(start, axis, angle);

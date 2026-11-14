@@ -505,23 +505,16 @@ inline constexpr float EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT = 0.250001f;
  * @param tangent Tangent at @p v; its length is the arc travelled in radians,
  *   and must not exceed half a radian (checked only in audit builds).
  * @return The unit point reached after that arc.
- * @details cos and sin/x carried to their degree-6 Taylor terms: truncation
- *   error is under ~1e-7 within half a radian and grows as the eighth power of
- *   the arc beyond it. Nothing here clamps the arc; callers must bound it.
+ * @details Uses the small_arc_cos_sinc() series, which nothing here clamps;
+ *   callers must bound the arc.
  */
 HS_O3_FN HS_HOT_INLINE inline math::Vector
 sphere_exp_map_half_radian(const math::Vector &v, const math::Vector &tangent) {
   const float distance_sq = math::dot(tangent, tangent);
   HS_AUDIT_CHECK(distance_sq <= EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT,
                  "sphere_exp_map_half_radian arc past its half-radian domain");
-  const float cosine =
-      1.0f + distance_sq *
-                 (-0.5f + distance_sq *
-                              (1.0f / 24.0f + distance_sq * (-1.0f / 720.0f)));
-  const float sinc =
-      1.0f + distance_sq * (-1.0f / 6.0f +
-                            distance_sq * (1.0f / 120.0f +
-                                           distance_sq * (-1.0f / 5040.0f)));
+  float cosine, sinc;
+  small_arc_cos_sinc(distance_sq, cosine, sinc);
   return cosine * v + sinc * tangent;
 }
 

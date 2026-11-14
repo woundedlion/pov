@@ -8,7 +8,6 @@
  * @brief Morph palette mapping, frame shading and arena lifetime. */
 
 #include "core/animation/opleg.h"
-#include "core/animation/opleg/swaps.h"
 
 namespace Animation {
 
@@ -69,92 +68,6 @@ OpLeg::blend_ramps(const Transients &tr, float w, bool seed_side) {
     }
   }
   return ramps;
-}
-
-template <bool ARRIVAL>
-inline __attribute__((always_inline)) math::Vector
-OpLeg::hankin_vertex_at(const Transients &tr, size_t i, float k) {
-  if constexpr (ARRIVAL)
-    return tr.hk_final[i].decode().normalized();
-  return math::slerp(
-      tr.hankin.corner(tr.hankin.dynamic_instructions[i].v_corner).normalized(),
-      tr.hk_final[i].decode(), k);
-}
-
-template <bool ARRIVAL>
-inline __attribute__((always_inline)) math::Vector
-OpLeg::relax_vertex_at(const Transients &tr, size_t i, float k) {
-  if constexpr (ARRIVAL)
-    return tr.relaxed[i];
-  return math::slerp(tr.seed.vertices[i], tr.relaxed[i], k);
-}
-
-template <bool ARRIVAL>
-inline __attribute__((always_inline)) math::Vector
-OpLeg::medial_vertex_at(const Transients &tr, size_t i, float k) {
-  if constexpr (ARRIVAL)
-    return tr.medial_b[i].decode().normalized();
-  return math::slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k);
-}
-
-inline HS_FLASH_MEMBER void
-OpLeg::copy_topology(PolyMesh &out, Arena &arena,
-                     const ArenaVector<uint8_t> &face_counts,
-                     const ArenaVector<uint16_t> &faces) {
-  out.face_counts.bind(arena, face_counts.size());
-  out.face_counts.append_bulk(face_counts.data(), face_counts.size());
-  out.faces.bind(arena, faces.size());
-  out.faces.append_bulk(faces.data(), faces.size());
-}
-
-inline HS_FLASH_MEMBER void OpLeg::clone_geometry(const PolyMesh &src,
-                                                  PolyMesh &dst, Arena &arena) {
-  dst.vertices.bind(arena, src.vertices.size());
-  dst.vertices.append_bulk(src.vertices.data(), src.vertices.size());
-  copy_topology(dst, arena, src.face_counts, src.faces);
-}
-
-inline HS_FLASH_MEMBER void
-OpLeg::hankin_at(const Transients &tr, PolyMesh &out, Arena &arena, float k) {
-  const CompiledHankin &hk = tr.hankin;
-  const size_t statics = hk.static_vertices.size();
-  const size_t dyn = tr.hk_final.size();
-  out.vertices.bind(arena, statics + dyn);
-  out.vertices.append_bulk(hk.static_vertices.data(), statics);
-  if (k >= 1.0f) {
-    for (size_t i = 0; i < dyn; ++i)
-      out.vertices.push_back(hankin_vertex_at<true>(tr, i, k));
-  } else {
-    for (size_t i = 0; i < dyn; ++i)
-      out.vertices.push_back(hankin_vertex_at<false>(tr, i, k));
-  }
-  copy_topology(out, arena, hk.face_counts, hk.faces);
-}
-
-inline HS_FLASH_MEMBER void OpLeg::relax_at(const Transients &tr, PolyMesh &out,
-                                            Arena &arena, float k) {
-  const size_t n = tr.relaxed.size();
-  out.vertices.bind(arena, n);
-  if (k >= 1.0f)
-    out.vertices.append_bulk(tr.relaxed.data(), n);
-  else
-    for (size_t i = 0; i < n; ++i)
-      out.vertices.push_back(relax_vertex_at<false>(tr, i, k));
-  copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
-}
-
-inline HS_FLASH_MEMBER void
-OpLeg::medial_at(const Transients &tr, PolyMesh &out, Arena &arena, float k) {
-  const size_t n = tr.medial_a.size();
-  out.vertices.bind(arena, n);
-  if (k >= 1.0f) {
-    for (size_t i = 0; i < n; ++i)
-      out.vertices.push_back(medial_vertex_at<true>(tr, i, k));
-  } else {
-    for (size_t i = 0; i < n; ++i)
-      out.vertices.push_back(medial_vertex_at<false>(tr, i, k));
-  }
-  copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
 }
 
 inline HS_FLASH_MEMBER const math::Vector *

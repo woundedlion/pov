@@ -4,10 +4,10 @@ Nodes are keyed on (ref, pin), so a connector or IC pinout permutation fails the
 gate as loudly as a short or a break does.
 """
 import argparse
-import os
 import sys
 
 import builder
+import constraints
 import sexp
 from kicad_common import F, export_netlist, kicad_cli
 
@@ -158,12 +158,10 @@ def check(got, revision=builder.REVISION):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--revision", choices=("1.1", "1.2", "1.3"), default=None)
+    parser.add_argument("--revision", choices=constraints.SCHEMATIC_REVISIONS, default=None)
     parser.add_argument("schematic", nargs="?")
     args = parser.parse_args(argv)
-    path = args.schematic or os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        args.revision or builder.REVISION, "phantasm.kicad_sch")
+    path = args.schematic or constraints.revision_schematic(args.revision)
     root = export_netlist(kicad_cli(), path)
     try:
         revision = netlist_revision(root)

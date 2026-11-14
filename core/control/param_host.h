@@ -410,22 +410,8 @@ protected:
       }
       validate_initial_option_value(name, spec, ptr);
       validate_option_labels(name, options, spec.export_options, option_count);
-      auto &def = append_parameter(name);
-      def.target = ptr;
-      def.min = static_cast<float>(min);
-      def.max = static_cast<float>(max);
-      def.target_type = target_type;
-      def.options = options;
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-      def.export_options = spec.export_options;
-#endif
-      def.option_values =
-          spec.option_values.empty() ? nullptr : spec.option_values.data();
-      def.option_count = option_count;
-      def.animated = spec.animated;
-      def.readonly = spec.readonly;
-      def.preset = spec.preset;
-      parameters.bump_schema_generation();
+      fill_parameter(append_parameter(name), ptr, static_cast<float>(min),
+                     static_cast<float>(max), target_type, spec);
     }
   }
 
@@ -858,18 +844,36 @@ private:
                                   spec.option_values.empty());
     validate_initial_option_value(name, spec, &value);
     validate_option_labels(name, options, spec.export_options, option_count);
-    auto &def = append_parameter(name);
-    def.target = ptr;
-    def.min = static_cast<float>(min);
-    def.max = static_cast<float>(max);
+    fill_parameter(append_parameter(name), ptr, static_cast<float>(min),
+                   static_cast<float>(max), target_type, spec);
+  }
+
+  /**
+   * @brief Fills a freshly appended descriptor from its spec and bumps the
+   *        schema generation.
+   * @tparam S Spec value type.
+   * @param def Descriptor append_parameter() returned.
+   * @param target Target member.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   * @param target_type Storage type of @p target.
+   * @param spec Options and policy flags.
+   */
+  template <typename S>
+  HS_SIZE_FLASH_MEMBER void
+  fill_parameter(ParamDef &def, void *target, float min, float max,
+                 ParamDef::TargetType target_type, const ParamSpec<S> &spec) {
+    def.target = target;
+    def.min = min;
+    def.max = max;
     def.target_type = target_type;
-    def.options = options;
+    def.options = spec.options;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     def.export_options = spec.export_options;
 #endif
     def.option_values =
         spec.option_values.empty() ? nullptr : spec.option_values.data();
-    def.option_count = option_count;
+    def.option_count = spec.option_count;
     def.animated = spec.animated;
     def.readonly = spec.readonly;
     def.preset = spec.preset;

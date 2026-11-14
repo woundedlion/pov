@@ -5,10 +5,9 @@
 #pragma once
 
 /** @file sweep.h
- * @brief Conway sweep preparation and endpoint provenance. */
+ * @brief Conway sweep preparation, sampling and endpoint provenance. */
 
 #include "core/animation/opleg.h"
-#include "core/animation/opleg/frame.h"
 
 namespace Animation {
 
@@ -30,6 +29,33 @@ OpLeg::sweep_phase(const Transients &tr, float progress) const {
   return {k, settle_alpha};
 }
 
+inline __attribute__((always_inline)) OpLeg::SweepPhase
+OpLeg::phase_at(const Transients &tr, float frame) const {
+  // Clamp easing to the compiled topology-constant interval.
+  const float progress =
+      hs::clamp(easing_fn(frame / static_cast<float>(duration)), 0.0f, 1.0f);
+  return sweep_phase(tr, progress);
+}
+
+inline HS_FLASH_MEMBER PolyMesh OpLeg::run_op(ConwayGraph::MorphOp op,
+                                              const PolyMesh &seed,
+                                              Arena &target, Arena &temp,
+                                              float t, float twist) {
+  switch (op) {
+  case ConwayGraph::MorphOp::TRUNCATE:
+    // Nudge t = 0.5 off the ambo short-circuit so a far-side leg keeps the
+    // truncate topology.
+    return MeshOps::truncate(seed, target, temp,
+                             ConwayGraph::truncate_off_pinch(t));
+  case ConwayGraph::MorphOp::EXPAND:
+    return MeshOps::expand(seed, target, temp, t);
+  case ConwayGraph::MorphOp::CHAMFER:
+    return MeshOps::chamfer(seed, target, temp, t);
+  default:
+    return MeshOps::snub(seed, target, temp, t, twist);
+  }
+}
+
 inline __attribute__((always_inline)) void
 OpLeg::conway_at(const Transients &tr, PolyMesh &out, Arena &target,
                  Arena &temp, float t, float twist, float settle_alpha) {
@@ -41,11 +67,7 @@ OpLeg::conway_at(const Transients &tr, PolyMesh &out, Arena &target,
 
 inline HS_FLASH_MEMBER void OpLeg::swept_at(const Transients &tr, int frame,
                                             PolyMesh &out) const {
-  // Clamp easing to the compiled topology-constant interval.
-  const float progress = hs::clamp(
-      easing_fn(static_cast<float>(frame) / static_cast<float>(duration)), 0.0f,
-      1.0f);
-  const SweepPhase phase = sweep_phase(tr, progress);
+  const SweepPhase phase = phase_at(tr, static_cast<float>(frame));
   float tp = tr.t_start + (tr.t_end - tr.t_start) * phase.k;
   float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * phase.k;
   if (tr.kind == LegKind::HANKIN_SWEEP)
@@ -57,6 +79,114 @@ inline HS_FLASH_MEMBER void OpLeg::swept_at(const Transients &tr, int frame,
   else
     conway_at(tr, out, scratch_arena_a, scratch_arena_b, tp, tw,
               phase.settle_alpha);
+}
+
+inline HS_FLASH_MEMBER float OpLeg::sweep_parameter(float frame) const {
+  const Transients &tr = *buf;
+  return tr.t_start + (tr.t_end - tr.t_start) * phase_at(tr, frame).k;
+}
+
+inline HS_FLASH_MEMBER math::Vector OpLeg::swept_vertex_at(size_t i,
+                                                           float k) const {
+  const Transients &tr = *buf;
+  if (tr.kind == LegKind::HANKIN_SWEEP) {
+    const size_t statics = tr.hankin.static_vertices.size();
+    if (i < statics)
+      return tr.hankin.static_vertices[i];
+    return k >= 1.0f ? hankin_vertex_at<true>(tr, i - statics, k)
+                     : hankin_vertex_at<false>(tr, i - statics, k);
+  }
+  if (tr.kind == LegKind::RELAX_SLERP)
+    return k >= 1.0f ? relax_vertex_at<true>(tr, i, k)
+                     : relax_vertex_at<false>(tr, i, k);
+  return k >= 1.0f ? medial_vertex_at<true>(tr, i, k)
+                   : medial_vertex_at<false>(tr, i, k);
+}
+
+template <bool ARRIVAL>
+inline __attribute__((always_inline)) math::Vector
+OpLeg::hankin_vertex_at(const Transients &tr, size_t i, float k) {
+  if constexpr (ARRIVAL)
+    return tr.hk_final[i].decode().normalized();
+  return math::slerp(
+      tr.hankin.corner(tr.hankin.dynamic_instructions[i].v_corner).normalized(),
+      tr.hk_final[i].decode(), k);
+}
+
+template <bool ARRIVAL>
+inline __attribute__((always_inline)) math::Vector
+OpLeg::relax_vertex_at(const Transients &tr, size_t i, float k) {
+  if constexpr (ARRIVAL)
+    return tr.relaxed[i];
+  return math::slerp(tr.seed.vertices[i], tr.relaxed[i], k);
+}
+
+template <bool ARRIVAL>
+inline __attribute__((always_inline)) math::Vector
+OpLeg::medial_vertex_at(const Transients &tr, size_t i, float k) {
+  if constexpr (ARRIVAL)
+    return tr.medial_b[i].decode().normalized();
+  return math::slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k);
+}
+
+inline HS_FLASH_MEMBER void
+OpLeg::copy_topology(PolyMesh &out, Arena &arena,
+                     const ArenaVector<uint8_t> &face_counts,
+                     const ArenaVector<uint16_t> &faces) {
+  out.face_counts.bind(arena, face_counts.size());
+  out.face_counts.append_bulk(face_counts.data(), face_counts.size());
+  out.faces.bind(arena, faces.size());
+  out.faces.append_bulk(faces.data(), faces.size());
+}
+
+inline HS_FLASH_MEMBER void OpLeg::clone_geometry(const PolyMesh &src,
+                                                  PolyMesh &dst, Arena &arena) {
+  dst.vertices.bind(arena, src.vertices.size());
+  dst.vertices.append_bulk(src.vertices.data(), src.vertices.size());
+  copy_topology(dst, arena, src.face_counts, src.faces);
+}
+
+inline HS_FLASH_MEMBER void
+OpLeg::hankin_at(const Transients &tr, PolyMesh &out, Arena &arena, float k) {
+  const CompiledHankin &hk = tr.hankin;
+  const size_t statics = hk.static_vertices.size();
+  const size_t dyn = tr.hk_final.size();
+  out.vertices.bind(arena, statics + dyn);
+  out.vertices.append_bulk(hk.static_vertices.data(), statics);
+  if (k >= 1.0f) {
+    for (size_t i = 0; i < dyn; ++i)
+      out.vertices.push_back(hankin_vertex_at<true>(tr, i, k));
+  } else {
+    for (size_t i = 0; i < dyn; ++i)
+      out.vertices.push_back(hankin_vertex_at<false>(tr, i, k));
+  }
+  copy_topology(out, arena, hk.face_counts, hk.faces);
+}
+
+inline HS_FLASH_MEMBER void OpLeg::relax_at(const Transients &tr, PolyMesh &out,
+                                            Arena &arena, float k) {
+  const size_t n = tr.relaxed.size();
+  out.vertices.bind(arena, n);
+  if (k >= 1.0f)
+    out.vertices.append_bulk(tr.relaxed.data(), n);
+  else
+    for (size_t i = 0; i < n; ++i)
+      out.vertices.push_back(relax_vertex_at<false>(tr, i, k));
+  copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
+}
+
+inline HS_FLASH_MEMBER void
+OpLeg::medial_at(const Transients &tr, PolyMesh &out, Arena &arena, float k) {
+  const size_t n = tr.medial_a.size();
+  out.vertices.bind(arena, n);
+  if (k >= 1.0f) {
+    for (size_t i = 0; i < n; ++i)
+      out.vertices.push_back(medial_vertex_at<true>(tr, i, k));
+  } else {
+    for (size_t i = 0; i < n; ++i)
+      out.vertices.push_back(medial_vertex_at<false>(tr, i, k));
+  }
+  copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
 }
 
 inline __attribute__((always_inline)) void

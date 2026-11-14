@@ -519,10 +519,10 @@ inline void check_authored_slider_registration(const FX &effect) {
                      unit ? 1.0f : 4.0f);
       switch (config.source) {
       case Pattern::SourceKind::NOISE:
-        require_target(&config.noise.scale, 1.0f / 64.0f,
+        require_target(&config.noise.scale, Pattern::MIN_NOISE_SCALE,
                        config.evaluation == Pattern::Evaluation::BAKED_CUBE
-                           ? 8.0f
-                           : 64.0f);
+                           ? Pattern::MAX_BAKED_NOISE_SCALE
+                           : Pattern::MAX_NOISE_SCALE);
         require_target(&config.noise.speed, -Pattern::MAX_NOISE_SPEED,
                        Pattern::MAX_NOISE_SPEED);
         break;
