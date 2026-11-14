@@ -327,13 +327,18 @@ inline constexpr float HANKIN_CONDITIONED_CLEAR_SQ = 2.0e-2f;
 /** Plane-cross window gating the far-star fallback: fully on below LO (about
  * 13 degrees, near-parallel planes), off above HI. */
 inline constexpr float HANKIN_PARALLEL_GATE_LO_SQ = 0.05f;
-/// Gate window upper end (about 33 degrees); the fallback is off above it.
+/// Gate window upper end (about 33 degrees); the parallel gate is off above it.
 inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
+/** Squared corner chord where the antipodal-choice fade starts (cosine 1/8). */
+inline constexpr float HANKIN_HEMISPHERE_BLEND_START_SQ = 1.75f;
+/** Squared corner chord at the equator, where the intersection weight is zero. */
+inline constexpr float HANKIN_HEMISPHERE_LIMIT_SQ = 2.0f;
 static_assert(STAR_FAR_RATIO_SQ > STAR_FAR_BLEND_START_RATIO_SQ);
 static_assert(HANKIN_CONDITIONED_FAR_RATIO_SQ >
               HANKIN_CONDITIONED_NEAR_RATIO_SQ);
 static_assert(HANKIN_CONDITIONED_CLEAR_SQ > HANKIN_PARALLEL_REGULARIZATION_SQ);
 static_assert(HANKIN_PARALLEL_GATE_HI_SQ > HANKIN_PARALLEL_GATE_LO_SQ);
+static_assert(HANKIN_HEMISPHERE_LIMIT_SQ > HANKIN_HEMISPHERE_BLEND_START_SQ);
 
 /** Branch used to position one dynamic Hankin vertex. */
 enum class HankinBranch : uint8_t { INTERSECT, COLLAPSED, FALLBACK, BLENDED };
@@ -418,15 +423,22 @@ solve_hankin_vertex(const CompiledHankin &compiled,
       math::normalized_or(oriented_intersect + fallback * anchor, fallback);
   // Near-parallel contact planes fling the intersection geodesically far
   // from the corner, yielding a sliver face that renders as a long line.
-  const float ratio_sq = math::distance_squared(intersect, cn) / local_sq;
+  const float corner_chord_sq = math::distance_squared(intersect, cn);
+  const float ratio_sq = corner_chord_sq / local_sq;
   // parallel_gate: 0 above HI (planes well-separated), 1 below LO
   // (near-parallel).
   const float parallel_gate =
       blend_above(-plane_cross_sq, -HANKIN_PARALLEL_GATE_HI_SQ,
                   -HANKIN_PARALLEL_GATE_LO_SQ);
-  const float fallback_blend =
+  float fallback_blend =
       blend_above(ratio_sq, STAR_FAR_BLEND_START_RATIO_SQ, STAR_FAR_RATIO_SQ) *
       parallel_gate;
+  if (corner_chord_sq > HANKIN_HEMISPHERE_BLEND_START_SQ) {
+    fallback_blend =
+        fmaxf(fallback_blend,
+              blend_above(corner_chord_sq, HANKIN_HEMISPHERE_BLEND_START_SQ,
+                          HANKIN_HEMISPHERE_LIMIT_SQ));
+  }
   if (fallback_blend > 0.0f) {
     return {fallback_blend >= 1.0f
                 ? fallback
@@ -484,9 +496,10 @@ HS_COLD static void solve_hankin_vertices(const CompiledHankin &compiled,
  *   points. The construction is pi-periodic. Angles in (pi/2, pi) modulo pi
  *   tilt the contact planes away from the corner and place star points outside
  *   their face.
- * @details A corner whose contact planes are near-parallel has no nearby
- *   intersection; its star point falls back to the edge-midpoint mean instead
- *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
+ * @details Far intersections of near-parallel contact planes blend toward
+ *   the edge-midpoint mean. Intersections approaching the corner's equator
+ *   also fade to that mean, with zero intersection weight at the antipodal
+ *   choice boundary.
  */
 template <MeshLike MeshT>
 HS_FLASH_MEMBER inline void update_hankin(const CompiledHankin &compiled,

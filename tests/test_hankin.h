@@ -757,19 +757,19 @@ inline void test_solve_hankin_vertex_branches() {
 
 /**
  * @brief Star points stay continuous in the contact angle across the
- *        conditioning ramps: an 8x finer sweep shrinks the largest step at
- *        least 4x.
+ *        conditioning ramps and antipodal choice: an 8x finer sweep shrinks
+ *        the largest step at least 4x.
  */
 inline void test_solve_hankin_vertex_ramps_are_continuous() {
   constexpr float D2R = Solids::IslamicStarPatterns::D2R;
   struct Shape {
     float d_prev, d_next, alpha_degrees;
   };
-  // Skewed corners whose sweeps cross the parallel gate, the far blend and,
-  // near zero plane cross, the anchor ramps.
-  constexpr Shape SHAPES[] = {
-      {0.3f, 0.9f, 90.0f}, {0.45f, 0.5f, 108.0f}, {0.35f, 0.6f, 120.0f}};
-  constexpr int COARSE = 300;
+  constexpr Shape SHAPES[] = {{0.3f, 0.9f, 90.0f},
+                              {0.45f, 0.5f, 108.0f},
+                              {0.35f, 0.6f, 120.0f},
+                              {0.2f, 1.0f, 60.0f}};
+  constexpr int COARSE = 1200;
   constexpr int REFINE = 8;
   const auto largest_step = [](const CraftedHankinCorner &shape, int steps) {
     constexpr float LO = 1.0f * D2R, HI = 89.0f * D2R;
