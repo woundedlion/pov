@@ -1766,6 +1766,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── run_effect_cases_spherical_harmonics.cpp Spherical harmonics case wrappers and focused runner
 │   ├── hd107s_test_util.h Shared HD107S calibration reset helper
 │   ├── probe_test_util.h  Captured-failure probes that restore harness state
+│   ├── prepared_face_test_access.h White-box SDF::PreparedFace accessor for its tests
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── pattern/           Source and cube cases owned by test_pullback.h and test_color.h
 │   ├── plot_scan/         Sections included by test_plot_scan.h

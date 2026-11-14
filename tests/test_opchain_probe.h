@@ -70,7 +70,7 @@ inline bool face_is_culled(const PolyMesh &m, size_t off, int n) {
       std::span<const uint16_t>(m.faces.data() + off, static_cast<size_t>(n)),
       probe_face_scratch, PROBE_HV, PROBE_H, nullptr, nullptr,
       SDF::BOUNDS_MARGIN);
-  return face.y_min > face.y_max;
+  return face.culled();
 }
 
 // ---------------------------------------------------------------------------

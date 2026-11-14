@@ -13,6 +13,7 @@
 #include "core/render/scan.h"
 #include "tests/test_fixture.h"
 #include "tests/pole_geometry_test_util.h"
+#include "tests/prepared_face_test_access.h"
 #include "tests/test_harness.h"
 #include "tests/test_pole_wrap.h"
 
@@ -55,7 +56,7 @@ template <int W, int H> inline void test_face_bounds_use_virtual_height() {
     HS_EXPECT_EQ(actual.y_min, expected.y_min);
     HS_EXPECT_EQ(actual.y_max, expected.y_max);
     HS_EXPECT_LT(actual.y_max, H);
-    centroid = math::vector_to_pixel<W, H>(face.center);
+    centroid = math::vector_to_pixel<W, H>(face.centroid());
     Scan::rasterize_face<W, H>(pipeline, canvas, face, face_white);
   }
   effect.advance_display();
@@ -87,14 +88,14 @@ inline void test_face_rejects_only_the_virtual_south_rows() {
                            SDF::BOUNDS_MARGIN);
     const SDF::Bounds bounds = face.get_vertical_bounds<H>();
     if (virtual_only) {
-      HS_EXPECT_EQ(face.count, 0);
+      HS_EXPECT_EQ(face.vertex_count(), 0);
       HS_EXPECT_GT(bounds.y_min, bounds.y_max);
-      HS_EXPECT_TRUE(face.scratch_owner == nullptr);
+      HS_EXPECT_TRUE(PreparedFaceTestAccess::scratch_owner(face) == nullptr);
     } else {
-      HS_EXPECT_EQ(face.count, 3);
+      HS_EXPECT_EQ(face.vertex_count(), 3);
       HS_EXPECT_LE(bounds.y_min, H - 1);
       HS_EXPECT_EQ(bounds.y_max, H - 1);
-      HS_EXPECT_TRUE(face.scratch_owner == &scratch);
+      HS_EXPECT_TRUE(PreparedFaceTestAccess::scratch_owner(face) == &scratch);
     }
   }
 }

@@ -412,8 +412,8 @@ inline void test_pole_lod_shading_matches_undecimated() {
       SDF::PreparedFace face(std::span<const math::Vector>(verts, 3),
                              std::span<const uint16_t>(idx, 3), scratch, HV, H,
                              &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN);
-      HS_EXPECT_TRUE(face.linear_dist);
-      HS_EXPECT_GT(face.max_dist_sq, 0.25f);
+      HS_EXPECT_TRUE(PreparedFaceTestAccess::linear_dist(face));
+      HS_EXPECT_GT(face.cull_radius_sq(), 0.25f);
       auto shader = [&](const math::Vector &, Fragment &f) { f.color = color; };
       if (fused)
         Scan::rasterize_face<W, H, Pipeline<W, H>>(pipe, canvas, face, shader);
@@ -536,8 +536,8 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
                                std::span<const uint16_t>(indices, 8), scratch,
                                H + hs::H_OFFSET, H, &canvas.clip(), nullptr,
                                SDF::BOUNDS_MARGIN);
-        HS_EXPECT_FALSE(face.convex);
-        HS_EXPECT_EQ(face.linear_dist, fc.rho < 0.2f);
+        HS_EXPECT_FALSE(face.is_convex());
+        HS_EXPECT_EQ(PreparedFaceTestAccess::linear_dist(face), fc.rho < 0.2f);
         auto shade = [](const math::Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 45000, 30000), 1.0f);
         };
@@ -690,8 +690,8 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
   const SDF::PreparedFace far(far_vertices, INDICES, far_scratch,
                               math::LatitudeGeometry(H), H, nullptr, nullptr,
                               math::TWO_PI_F / W);
-  HS_EXPECT_TRUE(face.convex);
-  HS_EXPECT_TRUE(far.convex);
+  HS_EXPECT_TRUE(face.is_convex());
+  HS_EXPECT_TRUE(far.is_convex());
   const auto triangle_distance = [&](int x, int y) {
     const auto p = math::pixel_to_vector<W, H>(x, y);
     const double inv = 1.0 / math::dot(p, basis.v);
@@ -779,18 +779,20 @@ inline void test_face_cull_sentinel_respects_static_margin() {
                                    nullptr, SDF::BOUNDS_MARGIN);
       std::array<OraclePoint2D, 3> polygon;
       for (int i = 0; i < 3; ++i)
-        polygon[i] = {face.poly_2d[i].x, face.poly_2d[i].y};
+        polygon[i] = {PreparedFaceTestAccess::poly_2d(face)[i].x,
+                      PreparedFaceTestAccess::poly_2d(face)[i].y};
       SDF::DistanceResult report;
-      face.distance<false>(face.center, report);
+      face.distance<false>(face.centroid(), report);
       HS_EXPECT_LT(report.dist, 0.0f);
-      const float plane_radius = face.max_dist + 1e-4f;
+      const float plane_radius = PreparedFaceTestAccess::max_dist(face) + 1e-4f;
       for (int i = 0; i < 32; ++i) {
         const float angle = math::TWO_PI_F * i / 32;
         const OraclePoint2D query{plane_radius * cosf(angle),
                                   plane_radius * sinf(angle)};
-        const auto direction = (face.center + face.basis_u * float(query.x) +
-                                face.basis_w * float(query.y))
-                                   .normalized();
+        const auto direction =
+            (face.centroid() + face.tangent_u() * float(query.x) +
+             face.tangent_w() * float(query.y))
+                .normalized();
         face.distance<false>(direction, report);
         HS_EXPECT_EQ(report.dist, SDF::FAR_SENTINEL);
         const double exact = polygon_distance_oracle(polygon, query);

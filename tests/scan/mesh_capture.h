@@ -88,7 +88,8 @@ inline void test_capture_window_faces() {
     const SDF::Face face(vertices, INDICES, *storage, math::LatitudeGeometry(H),
                          H, &CLIP, nullptr, math::TWO_PI_F / W);
     const auto &shape = face.prepared();
-    HS_EXPECT_LE(shape.y_min, shape.y_max);
+    HS_EXPECT_LE(PreparedFaceTestAccess::y_min(shape),
+                 PreparedFaceTestAccess::y_max(shape));
     HS_EXPECT_FALSE(Scan::face_meets_window(
         shape, Spacetime::TimeWindow{0, W / 4, true}, CLIP));
     HS_EXPECT_TRUE(Scan::face_meets_window(

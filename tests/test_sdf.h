@@ -17,6 +17,7 @@
 #include "core/render/sdf/face_class_bake.h"
 #include "core/render/scan.h"
 #include "core/math/geometry.h"
+#include "tests/prepared_face_test_access.h"
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

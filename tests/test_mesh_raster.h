@@ -20,6 +20,7 @@
 #include "core/render/scan.h"
 #include "core/mesh/solids.h"
 #include "tests/pixel_test_util.h"
+#include "tests/prepared_face_test_access.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/vec_test_util.h"
@@ -197,10 +198,10 @@ inline void test_wide_face_preserves_near_horizon_interior() {
                            std::span<const uint16_t>(INDICES, 4), scratch,
                            H + hs::H_OFFSET, H, &canvas.clip(), nullptr,
                            SDF::BOUNDS_MARGIN);
-    const float cosine = math::dot(probe, face.center);
+    const float cosine = math::dot(probe, face.centroid());
     HS_EXPECT_GT(cosine, 0.0f);
     HS_EXPECT_LT(cosine, 0.01f);
-    HS_EXPECT_GT(face.radius, 100.0f);
+    HS_EXPECT_GT(face.circumradius(), 100.0f);
     HS_EXPECT_LT(fabsf(math::dot(probe, u) / cosine), 200.0f);
     HS_EXPECT_LT(fabsf(math::dot(probe, w) / cosine), 200.0f);
     HS_EXPECT_LT(SDF::distance_of(face, probe).dist, 0.0f);
@@ -1097,16 +1098,17 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
                            face_scratch, H + hs::H_OFFSET, H, nullptr, nullptr,
                            SDF::BOUNDS_MARGIN);
     // A culled face never reached the turn test.
-    if (face.count == 0)
+    if (face.vertex_count() == 0)
       continue;
-    convex_seen += face.convex ? 1u : 0u;
+    convex_seen += face.is_convex() ? 1u : 0u;
     xy.clear();
-    for (int k = 0; k < face.count; ++k) {
-      xy.push_back(face.poly_2d[k].x);
-      xy.push_back(face.poly_2d[k].y);
+    for (int k = 0; k < face.vertex_count(); ++k) {
+      xy.push_back(PreparedFaceTestAccess::poly_2d(face)[k].x);
+      xy.push_back(PreparedFaceTestAccess::poly_2d(face)[k].y);
     }
-    const bool concave = MeshOps::polygon_is_concave(xy.data(), face.count);
-    HS_EXPECT_FALSE(face.convex && concave);
+    const bool concave =
+        MeshOps::polygon_is_concave(xy.data(), face.vertex_count());
+    HS_EXPECT_FALSE(face.is_convex() && concave);
     // The budget is spent per concave class, so a flagged class must hold no
     // face the rasterizer serves convex. The converse does not hold: a corner
     // turning within a hair of TURN_EPS_SQ reads convex on the class
@@ -1118,7 +1120,7 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
         return;
     }
     if (rec.class_id != MeshOps::NO_CLASS && bake.classes[rec.class_id].concave)
-      HS_EXPECT_FALSE(face.convex);
+      HS_EXPECT_FALSE(face.is_convex());
     ++checked;
     concave_seen += concave ? 1u : 0u;
   }
@@ -1325,13 +1327,13 @@ inline void test_face_bounds_pose_with_clip() {
         band_lit |= lit_row[y];
         band_padded |= padded(y);
       }
-      if (face.count == 0) {
+      if (face.vertex_count() == 0) {
         ++culled;
         HS_EXPECT_FALSE(band_lit);
         return;
       }
       HS_EXPECT_TRUE(band_padded);
-      HS_EXPECT_EQ(face.count, 3);
+      HS_EXPECT_EQ(face.vertex_count(), 3);
       const auto bounds = face.get_vertical_bounds<H>();
       for (int y = 0; y < H; ++y) {
         HS_CONTEXT("row", y);

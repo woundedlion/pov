@@ -140,7 +140,8 @@ inline void case_sdf_bind_class_lut_offset_out_of_range() {
                          nullptr, nullptr, SDF::BOUNDS_MARGIN);
   static const float CANON_XY[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
   SDF::ClassLut lut;
-  (void)face.bind_class_lut(&lut, CANON_XY, opaque(7), false);
+  (void)PreparedFaceTestAccess::bind_class_lut(face, &lut, CANON_XY, opaque(7),
+                                               false);
 }
 
 /**
@@ -295,8 +296,8 @@ inline void case_face_handle_retargeted_by_early_cull() {
   (void)copy.get_vertical_bounds<H>();
 }
 
-/** @brief Mutable geometry binding rejects a retargeted face handle. */
-inline void case_face_handle_mutable_retargeted() {
+/** @brief Class-LUT binding rejects a retargeted face handle. */
+inline void case_face_handle_lut_bind_retargeted() {
   constexpr int H = 20;
   const math::Vector VERTS[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   const uint16_t INDICES[] = {0, 1, 2};
@@ -306,7 +307,7 @@ inline void case_face_handle_mutable_retargeted() {
   SDF::Face second(VERTS, INDICES, storage, math::LatitudeGeometry(H), H,
                    nullptr, nullptr, SDF::BOUNDS_MARGIN);
   (void)second;
-  (void)first.prepared();
+  (void)first.bind_class_lut(nullptr, nullptr, 0, false);
 }
 
 /**

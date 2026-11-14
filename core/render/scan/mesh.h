@@ -962,7 +962,7 @@ struct Mesh {
                                                  raster_shader);
       }
     } else {
-      face_shader_setup(i, shape.size);
+      face_shader_setup(i, shape.inradius());
       {
         HS_PROFILE(scan_mesh_raster);
         if (sweep > 0.0f)
@@ -1028,11 +1028,11 @@ struct Mesh {
                        storage, math::LatitudeGeometry(H), H, &cr, pads,
                        bounds_margin, seeing ? &pose : nullptr);
     }();
-    SDF::PreparedFace &shape = face.prepared();
+    const SDF::PreparedFace &shape = face.prepared();
 #if HS_ENABLE_TEST_HOOKS
     ++mesh_capture_counters.face_setups;
 #endif
-    if (shape.y_min > shape.y_max ||
+    if (shape.culled() ||
         (window.active && !face_meets_window(shape, window, cr)))
       return;
     auto *projections =
@@ -1353,12 +1353,12 @@ struct Mesh {
                          &cr, azimuth_pads, bounds_margin,
                          seeing ? &pose : nullptr, true);
       }();
-      SDF::PreparedFace &shape = face.prepared();
+      const SDF::PreparedFace &shape = face.prepared();
 #if HS_ENABLE_TEST_HOOKS
       ++mesh_capture_counters.face_setups;
 #endif
 
-      if (shape.y_min > shape.y_max ||
+      if (shape.culled() ||
           (window.active && !face_meets_window(shape, window, cr)))
         continue;
 
@@ -1368,9 +1368,9 @@ struct Mesh {
           HS_CHECK(rec.class_id < bake->classes.size(),
                    "mesh class bake face record names an unknown class");
           const MeshOps::CongruenceClass &cls = bake->classes[rec.class_id];
-          if (cls.lut.data && cls.n_verts == shape.count)
-            shape.bind_class_lut(&cls.lut, cls.canon_xy, rec.vert_offset,
-                                 rec.reflected != 0);
+          if (cls.lut.data && cls.n_verts == shape.vertex_count())
+            face.bind_class_lut(&cls.lut, cls.canon_xy, rec.vert_offset,
+                                rec.reflected != 0);
         }
       }
 

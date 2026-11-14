@@ -800,7 +800,8 @@ inline void test_face_hemisphere_clip_covers_fringe() {
                                             GEOMETRY, H, &clip, nullptr,
                                             BOUNDS_MARGIN);
             const bool early_rejected = reference.phi_band_rejects(
-                verts, idx, reference.build_geometry, H, BOUNDS_MARGIN, &clip);
+                verts, idx, PreparedFaceTestAccess::build_geometry(reference),
+                H, BOUNDS_MARGIN, &clip);
             early_rejects += early_rejected;
             std::vector<uint8_t> visited;
             cull_visited<W, H>(clipped, visited);
@@ -838,11 +839,12 @@ inline void test_face_azimuth_cull_matches_boundary_column() {
   std::array<float, H> pads;
   pads.fill(0.05f);
   SDF::Interval interval{0x1.e3930ap-1f, 1.1f};
-  face.intervals = std::span<SDF::Interval>(&interval, 1);
-  face.full_width = false;
-  face.y_min = Y;
-  face.y_max = Y;
-  face.build_azimuth_pads = pads.data();
+  PreparedFaceTestAccess::intervals(face) =
+      std::span<SDF::Interval>(&interval, 1);
+  PreparedFaceTestAccess::full_width(face) = false;
+  PreparedFaceTestAccess::y_min(face) = Y;
+  PreparedFaceTestAccess::y_max(face) = Y;
+  PreparedFaceTestAccess::build_azimuth_pads(face) = pads.data();
   int start = -1, end = -1;
   HS_EXPECT_TRUE((face.get_horizontal_intervals<W, H>(Y, [&](float a, float b) {
     start = static_cast<int>(a);
@@ -938,9 +940,9 @@ inline void face_fixed_pad_visited(const SDF::PreparedFace &face,
   scan_visited<W, H>(
       face.template get_vertical_bounds<H>(),
       [&](int, auto &&out) {
-        if (face.full_width)
+        if (PreparedFaceTestAccess::full_width(face))
           return false;
-        for (const auto &iv : face.intervals) {
+        for (const auto &iv : PreparedFaceTestAccess::intervals(face)) {
           out(floorf((iv.start - PAD) * W / math::TWO_PI_F),
               ceilf((iv.end + PAD) * W / math::TWO_PI_F));
         }
@@ -1047,12 +1049,12 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
                          GEOMETRY, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   // Pins the setup on the BOUNDARY branch: !full_width alone also holds for a
   // face that misses the pole entirely.
-  const float inv_c = 1.0f / std::abs(face.center.y);
-  const float sgn = face.center.y > 0 ? 1.0f : -1.0f;
-  HS_EXPECT_TRUE(face.pole_hit(sgn * face.basis_u.y * inv_c,
-                               sgn * face.basis_w.y * inv_c) ==
+  const float inv_c = 1.0f / std::abs(face.centroid().y);
+  const float sgn = face.centroid().y > 0 ? 1.0f : -1.0f;
+  HS_EXPECT_TRUE(face.pole_hit(sgn * face.tangent_u().y * inv_c,
+                               sgn * face.tangent_w().y * inv_c) ==
                  SDF::PreparedFace::PoleHit::BOUNDARY);
-  HS_EXPECT_TRUE(!face.full_width);
+  HS_EXPECT_TRUE(!PreparedFaceTestAccess::full_width(face));
 
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipeline;

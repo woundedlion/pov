@@ -35,6 +35,7 @@
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/shader_chain_fixture.h"
 #include "tests/test_hyper_lattice.h"
+#include "tests/prepared_face_test_access.h"
 #include "tests/test_harness.h"
 
 #include "core/math/3dmath.h"
@@ -2408,8 +2409,8 @@ inline const Case *all_cases(int &n) {
                case_face_handle_retargeted_by_early_cull,
                "core/render/sdf/face.h",
                "(claim == storage->generation) SDF::Face storage was retargeted"},
-              {"face_handle_mutable_retargeted",
-               case_face_handle_mutable_retargeted, "core/render/sdf/face.h",
+              {"face_handle_lut_bind_retargeted",
+               case_face_handle_lut_bind_retargeted, "core/render/sdf/face.h",
                "(claim == storage->generation) SDF::Face storage was retargeted"},
               {"face_scratch_retargeted", case_face_scratch_retargeted,
                "core/render/sdf/face_geometry.h",

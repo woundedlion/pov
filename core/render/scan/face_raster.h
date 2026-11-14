@@ -80,13 +80,13 @@ struct FaceProjectionColumn {
    */
   HS_HOT_INLINE void prepare(const SDF::PreparedFace &face,
                              const math::Vector &e, const math::Vector &v) {
-    azimuth[0] = math::dot(e, face.center);
-    azimuth[1] = math::dot(e, face.basis_u);
-    azimuth[2] = math::dot(e, face.basis_w);
-    up[0] = math::dot(v, face.center);
-    up[1] = math::dot(v, face.basis_u);
-    up[2] = math::dot(v, face.basis_w);
-    claim = face.scratch_claim;
+    azimuth[0] = math::dot(e, face.centroid());
+    azimuth[1] = math::dot(e, face.tangent_u());
+    azimuth[2] = math::dot(e, face.tangent_w());
+    up[0] = math::dot(v, face.centroid());
+    up[1] = math::dot(v, face.tangent_u());
+    up[2] = math::dot(v, face.tangent_w());
+    claim = face.claim();
     sector = -1;
   }
 };
@@ -332,9 +332,9 @@ HS_HOT_INLINE inline void rasterize_face_body(
   const float shade_reach = (probe_flags & SDF::PreparedFace::PROBE_LINEAR)
                                 ? PIXEL_WIDTH
                                 : tanf(PIXEL_WIDTH);
-  float radial_cull = shape.radius + shade_reach;
+  float radial_cull = shape.circumradius() + shade_reach;
   if (probe_flags & SDF::PreparedFace::PROBE_HAS_LUT)
-    radial_cull += (shape.lut_q_safe + 1) * shape.lut_dequant;
+    radial_cull += shape.lut_pad();
   const float min_cos = 1.0f / sqrtf(1.0f + radial_cull * radial_cull);
   [[maybe_unused]] float block_min_cos = min_cos;
   if constexpr (pole_lod_blocks<SDF::PreparedFace>) {
@@ -347,11 +347,11 @@ HS_HOT_INLINE inline void rasterize_face_body(
               lod_reach * SDF::arc_stretch<SDF::PreparedFace> * plane_stretch,
           SDF::reject_margin<SDF::PreparedFace>);
       float block_radius =
-          shape.radius + ((probe_flags & SDF::PreparedFace::PROBE_LINEAR)
-                              ? block_reach
-                              : tanf(block_reach));
+          shape.circumradius() +
+          ((probe_flags & SDF::PreparedFace::PROBE_LINEAR) ? block_reach
+                                                           : tanf(block_reach));
       if (probe_flags & SDF::PreparedFace::PROBE_HAS_LUT)
-        block_radius += (shape.lut_q_safe + 1) * shape.lut_dequant;
+        block_radius += shape.lut_pad();
       block_min_cos = 1.0f / sqrtf(1.0f + block_radius * block_radius);
     }
   }
@@ -428,7 +428,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
         if constexpr (COLUMN_TIME) {
           const int column = x - arm_offset;
           FaceProjectionColumn &projection = projections[column];
-          if (projection.claim != shape.scratch_claim)
+          if (projection.claim != shape.claim())
             projection.prepare(shape, azimuth[column], up[column]);
           shape.template distance_projected<true>(
               arm_sp * projection.azimuth[0] + cp * projection.up[0],
@@ -443,7 +443,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
         const float d = res.dist;
 #if HS_ENABLE_TEST_HOOKS
         if (face_audit_candidate && d < PIXEL_WIDTH)
-          face_audit_candidate(face_audit_index, x, y, d, shape.convex);
+          face_audit_candidate(face_audit_index, x, y, d, shape.is_convex());
 #endif
 
         // Columns this one shade covers: a canvas-aligned block within the run

@@ -22,6 +22,7 @@
 #include "core/math/geometry.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
+#include "tests/prepared_face_test_access.h"
 #include "tests/volume_reference.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

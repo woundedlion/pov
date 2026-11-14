@@ -199,7 +199,7 @@ __attribute__((always_inline)) inline float report_stretch(const SDF::Line &) {
  *  @return 1 + `max_dist_sq`. */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::PreparedFace &shape) {
-  return 1.0f + shape.max_dist_sq;
+  return 1.0f + shape.cull_radius_sq();
 }
 /** @brief Reports projection stretch through a checked face handle.
  * @param shape Prepared face handle.
@@ -530,10 +530,10 @@ template <> struct PreparedDistance<SDF::PreparedFace> {
    * @param shape Face whose geometry and LUT bindings remain fixed.
    */
   explicit PreparedDistance(const SDF::PreparedFace &shape)
-      : min_cos(1.0f / sqrtf(1.0f + shape.max_dist_sq)),
+      : min_cos(1.0f / sqrtf(1.0f + shape.cull_radius_sq())),
         flags(shape.probe_flags()),
-        horizontal_radius(sqrtf(shape.center.x * shape.center.x +
-                                shape.center.z * shape.center.z)) {}
+        horizontal_radius(sqrtf(shape.centroid().x * shape.centroid().x +
+                                shape.centroid().z * shape.centroid().z)) {}
 
   /**
    * @brief Evaluates distance with captured leaf state.
@@ -559,7 +559,7 @@ template <> struct PreparedDistance<SDF::PreparedFace> {
   void prepare_row(const SDF::PreparedFace &shape, float widened_threshold,
                    float sin_phi, float cos_phi) {
     threshold = widened_threshold;
-    const float latitude_cos = shape.center.y * cos_phi;
+    const float latitude_cos = shape.centroid().y * cos_phi;
     // Enclose trig-table and dot-product rounding at the row's cosine extrema.
     const float extent =
         horizontal_radius * fabsf(sin_phi) + 8.0f * FLT_EPSILON;
