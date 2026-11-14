@@ -26,6 +26,9 @@ import builder          # noqa: E402
 import check            # noqa: E402
 import fab              # noqa: E402
 import connectivity     # noqa: E402
+import pcb_footprints  # noqa: E402
+import pcb_layouts  # noqa: E402
+import pcb_model  # noqa: E402
 import pcb              # noqa: E402
 from rev11_placements import QUILTER_FIXED, QUILTER_FIXED_FOOTPRINTS  # noqa: E402
 import sexp             # noqa: E402
@@ -132,11 +135,11 @@ class TerminalFootprintTests(unittest.TestCase):
             local = Path(directory) / "local"
             local.mkdir()
             (local / "custom.kicad_mod").write_text('(footprint "custom")', encoding="utf-8")
-            with mock.patch.object(pcb, "_MOD_CACHE", {}), \
-                    mock.patch.object(pcb, "FP_DIR", str(stock)), \
-                    mock.patch.object(pcb, "LOCAL_FOOTPRINT_DIR", str(local)):
+            with mock.patch.object(pcb_footprints, "_MOD_CACHE", {}), \
+                    mock.patch.object(pcb_footprints, "FP_DIR", str(stock)), \
+                    mock.patch.object(pcb_footprints, "LOCAL_FOOTPRINT_DIR", str(local)):
                 self.assertEqual(str(pcb.load_mod("Fixture:sample")[1]), "sample")
-                with mock.patch.object(pcb, "FP_DIR", str(stock / "missing")):
+                with mock.patch.object(pcb_footprints, "FP_DIR", str(stock / "missing")):
                     with self.assertRaisesRegex(RuntimeError, "KICAD_FOOTPRINT_DIR") as caught:
                         pcb.load_mod("Fixture:sample")
                     for pattern in sexp.kicad_data_dir_patterns("footprints"):
@@ -144,17 +147,14 @@ class TerminalFootprintTests(unittest.TestCase):
                     self.assertEqual(str(pcb.load_mod("phantasm:custom")[1]), "custom")
 
     def test_revision_13_rejects_legacy_connector_footprints(self):
-        token = pcb._GENERATION.set(("1.3", "test"))
-        try:
-            comps = {ref: (ref, pcb.REVISION_LAYOUTS["1.3"]["terminal_by_ref"][ref], "", False)
-                     for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
-            self.assertEqual(pcb.fixed_placements(comps), pcb.TERMINAL_EDGE_PLACEMENTS_1_3)
-            comps = {ref: (ref, QUILTER_FIXED_FOOTPRINTS[ref], "", False)
-                     for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
-            self.assertFalse(pcb.TERMINAL_EDGE_PLACEMENTS_1_3.keys() &
-                             pcb.fixed_placements(comps).keys())
-        finally:
-            pcb._GENERATION.reset(token)
+        ctx = pcb.generation_context("1.3")
+        comps = {ref: (ref, pcb.REVISION_LAYOUTS["1.3"]["terminal_by_ref"][ref], "", False)
+                 for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
+        self.assertEqual(pcb.fixed_placements(comps, ctx), pcb.TERMINAL_EDGE_PLACEMENTS_1_3)
+        comps = {ref: (ref, QUILTER_FIXED_FOOTPRINTS[ref], "", False)
+                 for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
+        self.assertFalse(pcb.TERMINAL_EDGE_PLACEMENTS_1_3.keys() &
+                         pcb.fixed_placements(comps, ctx).keys())
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
@@ -603,26 +603,26 @@ class ConnectorEdgePlacementGateTests(unittest.TestCase):
     def test_missing_connector_placement_is_rejected(self):
         fixed_placements = pcb.fixed_placements
 
-        def without_led(comps):
-            fixed = fixed_placements(comps)
+        def without_led(comps, ctx=None):
+            fixed = fixed_placements(comps, ctx)
             fixed.pop("J2")
             return fixed
 
         out = self.enterContext(tempfile.TemporaryDirectory())
-        with mock.patch.object(pcb, "fixed_placements", without_led), \
+        with mock.patch.object(pcb_layouts, "fixed_placements", without_led), \
                 self.assertRaisesRegex(SystemExit, "connectors require verified edge placements: J2"):
             generate(out, unplaced=True)
 
     def test_legacy_connector_coordinates_are_rejected(self):
         fixed_placements = pcb.fixed_placements
 
-        def legacy_led(comps):
-            fixed = fixed_placements(comps)
+        def legacy_led(comps, ctx=None):
+            fixed = fixed_placements(comps, ctx)
             fixed["J2"] = QUILTER_FIXED["J2"]
             return fixed
 
         out = self.enterContext(tempfile.TemporaryDirectory())
-        with mock.patch.object(pcb, "fixed_placements", legacy_led), \
+        with mock.patch.object(pcb_layouts, "fixed_placements", legacy_led), \
                 self.assertRaisesRegex(SystemExit, "connectors require verified edge placements: J2"):
             generate(out, unplaced=True)
 
@@ -634,7 +634,7 @@ class ConnectorEdgePlacementGateTests(unittest.TestCase):
                     for ref, fp, value, dnp in components(schematic)]
 
         out = self.enterContext(tempfile.TemporaryDirectory())
-        with mock.patch.object(pcb, "schematic_components", legacy_led), \
+        with mock.patch.object(pcb_model, "schematic_components", legacy_led), \
                 self.assertRaisesRegex(SystemExit, "connectors require verified edge placements: J2"):
             generate(out, unplaced=True)
 
@@ -650,7 +650,7 @@ class OrphanPadTests(unittest.TestCase):
             return pad_net | {("U_MCU", "999"): pcb.GROUND_NET}, netid
 
         out = self.enterContext(tempfile.TemporaryDirectory())
-        with mock.patch.object(pcb, "build_nets", with_a_ghost_pin), \
+        with mock.patch.object(pcb_model, "build_nets", with_a_ghost_pin), \
                 self.assertRaises(SystemExit) as caught:
             generate(out)
         self.assertIn("U_MCU.999", str(caught.exception))

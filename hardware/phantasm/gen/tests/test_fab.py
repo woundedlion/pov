@@ -1,3 +1,4 @@
+from dataclasses import fields
 import contextlib
 import io
 import json
@@ -14,6 +15,7 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import fab  # noqa: E402
+from constraints import ZONE_DEFAULTS, ZONE_FAB_MINIMUMS  # noqa: E402
 import heal_clearance  # noqa: E402
 import sexp  # noqa: E402
 from constraints import NEW_LAYOUT_RULES  # noqa: E402
@@ -207,6 +209,12 @@ class ZoneGeometryTests(unittest.TestCase):
                 + fill.format(gap=thermal_gap, bridge=bridge_width) + ")" + footprint + ")",
                 encoding="utf-8")
             return fab.validate_zone_geometry(pcb, min_pours=1, plane_layers=())
+
+    def test_generator_defaults_meet_each_fabrication_floor(self):
+        for field in fields(ZONE_FAB_MINIMUMS):
+            with self.subTest(feature=field.name):
+                self.assertGreaterEqual(getattr(ZONE_DEFAULTS, field.name),
+                                        getattr(ZONE_FAB_MINIMUMS, field.name))
 
     def test_accepts_zone_feature_minimums(self):
         self.assertEqual(self.validate("0.13", "0.3"), 1)

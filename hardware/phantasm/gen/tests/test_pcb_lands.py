@@ -11,6 +11,8 @@ sys.path.insert(0, str(GEN_DIR))
 
 import fab  # noqa: E402
 import connectivity  # noqa: E402
+import pcb_footprints  # noqa: E402
+import pcb_model  # noqa: E402
 import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
@@ -118,16 +120,16 @@ class EmbedLandTests(unittest.TestCase):
 
     def setUp(self):
         fixture_root = self.enterContext(tempfile.TemporaryDirectory())
-        self.enterContext(unittest.mock.patch.object(pcb, "FP_DIR", fixture_root))
-        self.cache_key = (os.path.join(pcb.FP_DIR, "Test.pretty"), CHIP_LIBID)
-        pcb._MOD_CACHE[self.cache_key] = sexp.parse(CHIP_MOD)[0]
-        self.addCleanup(pcb._MOD_CACHE.pop, self.cache_key, None)
+        self.enterContext(unittest.mock.patch.object(pcb_footprints, "FP_DIR", fixture_root))
+        self.cache_key = (os.path.join(pcb_footprints.FP_DIR, "Test.pretty"), CHIP_LIBID)
+        pcb_footprints._MOD_CACHE[self.cache_key] = sexp.parse(CHIP_MOD)[0]
+        self.addCleanup(pcb_footprints._MOD_CACHE.pop, self.cache_key, None)
 
     def test_embedded_footprint_leaves_the_cached_library_node_alone(self):
-        before = sexp.dumps(pcb._MOD_CACHE[self.cache_key])
+        before = sexp.dumps(pcb_footprints._MOD_CACHE[self.cache_key])
         node = pcb.embedded_footprint("R1", CHIP_LIBID)
         node.append([sexp.Sym("scratch")])
-        self.assertEqual(sexp.dumps(pcb._MOD_CACHE[self.cache_key]), before)
+        self.assertEqual(sexp.dumps(pcb_footprints._MOD_CACHE[self.cache_key]), before)
         self.assertEqual(sexp.dumps(pcb.embedded_footprint("R1", CHIP_LIBID)),
                          before)
 
@@ -175,7 +177,7 @@ class PowerInletTests(unittest.TestCase):
                  "phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
 
     def test_schematic_ships_the_unkeyed_header(self):
-        with unittest.mock.patch.object(pcb, "SCH", str(ROUTED.with_suffix(".kicad_sch"))):
+        with unittest.mock.patch.object(pcb_model, "SCH", str(ROUTED.with_suffix(".kicad_sch"))):
             footprints = {ref: fp for ref, fp, _, _ in pcb.schematic_components()}
         self.assertEqual(footprints["J1"], self.SHIPPED)
 
@@ -203,7 +205,7 @@ class TeensyLibraryTests(unittest.TestCase):
     def test_generator_matches_the_committed_library(self):
         committed = sexp.parse(TEENSY_LIBRARY.read_text(encoding="utf-8"))[0]
         zone_uuid = str(F(F(committed, "zone")[0], "uuid")[0][1])
-        with unittest.mock.patch.object(pcb, "uid", return_value=zone_uuid):
+        with unittest.mock.patch.object(pcb_footprints, "uid", return_value=zone_uuid):
             generated = pcb.teensy_footprint()
         self.assertEqual(pad_lands(generated), self.library_lands())
         generated[1] = "Teensy4.0"
@@ -226,7 +228,7 @@ class SchematicFootprintTests(unittest.TestCase):
     def components(self, text):
         path = Path(self.enterContext(tempfile.TemporaryDirectory())) / "s.kicad_sch"
         path.write_text(text, encoding="utf-8")
-        self.enterContext(unittest.mock.patch.object(pcb, "SCH", str(path)))
+        self.enterContext(unittest.mock.patch.object(pcb_model, "SCH", str(path)))
         return pcb.schematic_components()
 
     def test_blank_teensy_footprint_is_rejected(self):

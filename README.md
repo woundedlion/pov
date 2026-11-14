@@ -1620,6 +1620,30 @@ selected `tests/` files, which the exhaustive check exempts.
 │       ├── 1.2/                    Rev 1.2 Quilter input and unvalidated routed candidate
 │       ├── 1.3/                    Experimental differential-sync schematic and unrouted PCB with locked placement
 │       └── gen/                    Python design/fabrication tools (`just pcb` runs `fab.py` only)
+│           ├── analyze_candidates.py       Routed-candidate assembly and topology analysis
+│           ├── board.py                    Revisioned schematic generation
+│           ├── board_metadata.py           Committed PCB metadata validation
+│           ├── builder.py                  Schematic construction primitives
+│           ├── check.py                    Electrical specification checks
+│           ├── connectivity.py             Copper geometry and connectivity gates
+│           ├── constraints.py              Fabrication floors and assembly policy
+│           ├── fab.py                      Fabrication and assembly export
+│           ├── fab_gates.py                Fabrication geometry validation
+│           ├── footprints/                 Hand-maintained terminal footprints
+│           ├── heal_clearance.py           Separate-copy clearance repair
+│           ├── heal_zones.py               Separate-copy zone-feature repair
+│           ├── kicad_common.py             KiCad discovery and shared geometry helpers
+│           ├── parts_rev13.py              Differential-sync component properties
+│           ├── pcb.py                      PCB generation orchestration and compatibility exports
+│           ├── pcb_emit.py                 Deterministic board serialization
+│           ├── pcb_model.py                Board generation data and shared stackup constants
+│           ├── pcb_pack.py                 Pure placement packing and board reservation geometry
+│           ├── pcb_layouts.py              Revision placements, labels and locked local routes
+│           ├── pcb_footprints.py           Footprint loading, land overrides and embedding
+│           ├── release.py                  Revisioned fabrication release lifecycle
+│           ├── sexp.py                     KiCad s-expression parsing and serialization
+│           ├── shorts.py                   Schematic geometry short-circuit checks
+│           └── tests/                      Generator and fabrication tests
 │
 ├── targets/                    Per-target entry points
 │   ├── effects.h               Effect roster — includes every effect header + HS_EFFECT_LIST

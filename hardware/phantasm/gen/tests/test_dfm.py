@@ -130,14 +130,11 @@ class NewProjectMarginsTests(unittest.TestCase):
     def test_changed_footprints_do_not_inherit_fixed_placements(self):
         comps = {ref: (ref, libid, "", False)
                  for ref, libid in pcb.REVISION_LAYOUTS["1.2"]["terminal_by_ref"].items()}
-        token = pcb._GENERATION.set(("1.2", "test"))
-        try:
-            self.assertEqual(set(pcb.fixed_placements(comps)), set(comps))
-            for ref in comps:
-                changed = dict(comps, **{ref: (ref, "Different:Footprint", "", False)})
-                self.assertNotIn(ref, pcb.fixed_placements(changed))
-        finally:
-            pcb._GENERATION.reset(token)
+        ctx = pcb.generation_context("1.2")
+        self.assertEqual(set(pcb.fixed_placements(comps, ctx)), set(comps))
+        for ref in comps:
+            changed = dict(comps, **{ref: (ref, "Different:Footprint", "", False)})
+            self.assertNotIn(ref, pcb.fixed_placements(changed, ctx))
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)

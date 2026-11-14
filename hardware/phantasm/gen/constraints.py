@@ -1,4 +1,5 @@
 """Shared PHANTASM fabrication constraints (millimeters) and assembly policy."""
+from dataclasses import dataclass, replace
 import os
 
 import builder
@@ -20,11 +21,17 @@ def is_hand_assembled(footprint, value):
             or any(token in value for token in EXCLUDE_VAL_SUBSTR))
 
 
-ZONE_DEFAULTS = {
-    "min_thickness": 0.25,
-    "thermal_gap": 0.5,
-    "thermal_bridge_width": 0.5,
-}
+@dataclass(frozen=True)
+class ZoneFloors:
+    """Minimum fill thickness, thermal gap and spoke width in millimeters."""
+
+    min_thickness: float
+    thermal_gap: float
+    thermal_bridge_width: float
+
+
+ZONE_DEFAULTS = ZoneFloors(0.25, 0.5, 0.5)
+
 
 GROUND_PLANE_LAYERS = ("In1.Cu", "In2.Cu")
 
@@ -50,6 +57,11 @@ MIN_THERMAL_GAP_MM = 0.3
 MIN_THERMAL_SPOKE_MM = 0.4
 MAX_BOARD_WIDTH_MM = 35.0
 MIN_VIA_TO_VIA_COPPER_SPACING_MM = 0.15
+
+ZONE_FAB_MINIMUMS = ZoneFloors(
+    RULE_MINIMUMS["min_track_width"], MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM)
+KEEPOUT_FLOORS = replace(ZONE_FAB_MINIMUMS, min_thickness=ZONE_DEFAULTS.min_thickness)
+
 
 DEFAULT_CLASS_MINIMUMS = {
     "via_diameter": RULE_MINIMUMS["min_via_diameter"],

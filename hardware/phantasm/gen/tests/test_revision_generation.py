@@ -109,11 +109,8 @@ class PrototypeContractTests(unittest.TestCase):
                 ("board", footprints_by_ref(self.board)["U_MCU"])):
             with self.subTest(source=source):
                 if footprint is None:
-                    token = pcb._GENERATION.set(("1.3", None))
-                    try:
-                        footprint = pcb.teensy_footprint()
-                    finally:
-                        pcb._GENERATION.reset(token)
+                    ctx = pcb.generation_context("1.3")
+                    footprint = pcb.teensy_footprint(ctx)
                 marks = [text for text in F(footprint, "fp_text")
                          if text[1:3] == ["user", "USB"]
                          and sexp.val(text, "layer") == ["F.SilkS"]]
@@ -289,7 +286,6 @@ class PrototypeContractTests(unittest.TestCase):
                 mock.patch.object(pcb, "kicad_cli", return_value="unused"):
             with self.assertRaisesRegex(SystemExit, "schematic revision 1.2.*revision 1.3"):
                 pcb.main(unplaced=True, revision="1.3", output_dir=out)
-        self.assertEqual(pcb._GENERATION.get(), ("1.2", None))
 
     def test_revision_13_requires_fixed_placement(self):
         with tempfile.TemporaryDirectory() as out:

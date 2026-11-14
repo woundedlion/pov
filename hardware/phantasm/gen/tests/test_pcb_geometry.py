@@ -10,6 +10,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pcb
+import pcb_footprints
 import sexp
 from kicad_env import footprints_by_ref
 from kicad_common import F
@@ -150,10 +151,10 @@ class IdStrapSilkscreenTests(unittest.TestCase):
 
     def test_generator_keeps_jp_id2_outline_on_silkscreen(self):
         fixture_root = self.enterContext(tempfile.TemporaryDirectory())
-        self.enterContext(mock.patch.object(pcb, "FP_DIR", fixture_root))
+        self.enterContext(mock.patch.object(pcb_footprints, "FP_DIR", fixture_root))
         source = footprints_by_ref(self.boards[ROUTED])["JP_ID0"]
         libid = "Test:Jumper"
-        with mock.patch.dict(pcb._MOD_CACHE, {(os.path.join(pcb.FP_DIR, "Test.pretty"), libid): source}):
+        with mock.patch.dict(pcb_footprints._MOD_CACHE, {(os.path.join(pcb_footprints.FP_DIR, "Test.pretty"), libid): source}):
             generated = pcb.embed(libid, "JP_ID2", "Jumper", 0, 0, 0,
                                   {}, {})
         self.assertEqual(len(_silk_outline(generated)), 8)

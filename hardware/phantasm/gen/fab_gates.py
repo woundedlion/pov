@@ -1,14 +1,14 @@
 """KiCad board, project and DRC report validation without fabrication exports."""
 
 import json
+from dataclasses import asdict
 import math
 
 import sexp
 from connectivity import copper_layers, footprint_reference, zone_layers
 from constraints import (DEFAULT_CLASS_MINIMUMS, GROUND_PLANE_LAYERS,
-                         MIN_SOLDER_MASK_WEB_MM, MIN_THERMAL_GAP_MM,
-                         MIN_THERMAL_SPOKE_MM, MIN_VIA_TO_VIA_COPPER_SPACING_MM,
-                         RULE_MINIMUMS, rule_checks)
+                         MIN_SOLDER_MASK_WEB_MM, MIN_VIA_TO_VIA_COPPER_SPACING_MM,
+                         RULE_MINIMUMS, ZONE_FAB_MINIMUMS, rule_checks)
 from kicad_common import F, is_copper_pour, net_name, net_name_resolver
 
 MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
@@ -17,20 +17,16 @@ MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
 MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
 
 
-MIN_ZONE_GAP_MM = MIN_THERMAL_GAP_MM
+MIN_ZONE_GAP_MM = ZONE_FAB_MINIMUMS.thermal_gap
 
 
-MIN_ZONE_WIDTH_MM = RULE_MINIMUMS["min_track_width"]
+MIN_ZONE_WIDTH_MM = ZONE_FAB_MINIMUMS.min_thickness
 
 
 ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
 
 
-ZONE_FEATURE_MINIMUMS = {
-    "min_thickness": MIN_ZONE_WIDTH_MM,
-    "thermal_gap": MIN_ZONE_GAP_MM,
-    "thermal_bridge_width": MIN_THERMAL_SPOKE_MM,
-}
+ZONE_FEATURE_MINIMUMS = asdict(ZONE_FAB_MINIMUMS)
 
 
 MIN_BOARD_VIAS = 99

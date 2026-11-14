@@ -6,6 +6,7 @@ using the output. A board needing no repair is copied unchanged.
 Output is refused in candidate.json or SHA256SUMS.txt directories and release.json trees.
 """
 import argparse
+from dataclasses import asdict
 import math
 from pathlib import Path
 import sys
@@ -36,7 +37,7 @@ def heal_zones(source):
     for zone in zones:
         fill = single_field(zone, "fill")
         zone_changed = False
-        for name, minimum in ZONE_DEFAULTS.items():
+        for name, minimum in asdict(ZONE_DEFAULTS).items():
             field = single_field(zone if name == "min_thickness" else fill, name)
             try:
                 value = float(field[1]) if len(field) == 2 else float("nan")
