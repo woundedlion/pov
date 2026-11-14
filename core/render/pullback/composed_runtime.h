@@ -21,6 +21,7 @@
 #include "core/math/mobius.h"
 #include "core/math/noise_field.h"
 #include "core/memory.h"
+#include "core/render/pullback/composed_admission.h"
 #include "core/render/pullback/composed_descriptors.h"
 #include "core/render/pullback/composed_interval.h"
 #include "core/render/pullback/composed_registration.h"
@@ -74,6 +75,7 @@ class ComposedEffect
                              ComposedEffect<W, H, Derived, SpecT, Ownership>,
                              Derived>>,
       public ComposedTraits<W, SpecT>,
+      public ComposedAdmission<ComposedEffect<W, H, Derived, SpecT, Ownership>>,
       private ComposedRegistration<
           ComposedEffect<W, H, Derived, SpecT, Ownership>,
           ComposedTraits<W, SpecT>>,
@@ -89,6 +91,7 @@ class ComposedEffect
   using Registration = ComposedRegistration<ComposedEffect, Traits>;
   friend Choreography;
   friend Registration;
+  friend ComposedAdmission<ComposedEffect>;
 #if HS_ENABLE_TEST_HOOKS
   friend struct hs_test::ComposedFrameWhiteBox;
 #endif
@@ -443,57 +446,13 @@ public:
     return admitted;
   }
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Visits current typed modulation resources without retaining them.
-   * @tparam Visitor Receives the exact resource key and immutable recipe.
-   * @param visitor Synchronous resource visitor. */
-  template <typename Visitor>
-  void visit_document_modulations(Visitor &&visitor) const {
-    this->params.visit([&]<typename Resource>(const auto &family) {
-      if constexpr (Resource::KIND == ResourceKind::MODULATION)
-        visitor(Resource::KEY.view(), family.modulation);
-    });
-  }
-
-  /** @brief Admits an edit to one current modulation resource.
-   * @tparam Editor Edits a candidate and returns its write result.
-   * @param resource Exact resource key.
-   * @param editor Synchronous candidate editor.
-   * @return The editor's result, or a resource/admission refusal. */
-  template <typename Editor>
-  ParamSetResult edit_document_modulation(std::string_view resource,
-                                          Editor &&editor) {
-    ParamSetResult result = ParamSetResult::UNKNOWN_PARAM;
-    this->params.visit([&]<typename Resource>(auto &family) {
-      if constexpr (Resource::KIND == ResourceKind::MODULATION) {
-        if (Resource::KEY.view() != resource)
-          return;
-        auto candidate = family.modulation;
-        result = editor(candidate);
-        if (result != ParamSetResult::APPLIED)
-          return;
-        if ((!Resource::Family::DYNAMIC &&
-             !Modulation::same_topology(family.modulation, candidate)) ||
-            !Modulation::admitted(candidate)) {
-          result = ParamSetResult::INADMISSIBLE;
-          return;
-        }
-        family.modulation = candidate;
-        this->setAnimationsPaused(true);
-        parameter_written();
-      }
-    });
-    return result;
-  }
-
   /**
    * @brief Warning text for a slider whose last write was refused.
    * @param name Parameter name.
    * @return The family warning for the last refused parameter, else null.
    */
   const char *parameter_warning(const char *name) const override {
-    return refused_name != nullptr && std::strcmp(name, refused_name) == 0
-               ? refused_warning
-               : nullptr;
+    return this->refused_parameter_warning(name);
   }
 #endif
 #if HS_ENABLE_TEST_HOOKS
@@ -522,37 +481,8 @@ protected:
    */
   bool parameter_write_admitted(const ParamDef &parameter,
                                 float value) override {
-    bool admitted = true;
-    this->params.visit([&]<typename Resource>(const auto &family) {
-      if constexpr (Resource::KIND == ResourceKind::LENS ||
-                    Resource::KIND == ResourceKind::SURFACE ||
-                    Resource::KIND == ResourceKind::COLOR ||
-                    Resource::KIND == ResourceKind::MODULATION) {
-        const uintptr_t begin = reinterpret_cast<uintptr_t>(&family);
-        const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
-        if (target >= begin && target - begin < sizeof(family)) {
-          auto candidate = family;
-          ParamDef proposed = parameter;
-          proposed.target =
-              reinterpret_cast<unsigned char *>(&candidate) + (target - begin);
-          this->write_parameter_unchecked(proposed, value);
-          refused_warning = Pullback::refusal(candidate);
-          admitted = refused_warning == nullptr;
-        }
-      }
-    });
-    if (!admitted) {
-      refused_name = parameter.name;
-      return false;
-    }
-    refused_name = nullptr;
-    return true;
+    return this->admit_parameter_write(parameter, value);
   }
-
-  /// Name of the last refused parameter, or null after an admitted write.
-  const char *refused_name = nullptr;
-  /// Warning associated with the last refused family write.
-  const char *refused_warning = nullptr;
 #endif
 
   using Choreography::register_animated_param;
