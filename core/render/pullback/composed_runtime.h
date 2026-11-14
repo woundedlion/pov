@@ -22,6 +22,7 @@
 #include "core/math/noise_field.h"
 #include "core/memory.h"
 #include "core/render/pullback/composed_admission.h"
+#include "core/render/pullback/composed_clocks.h"
 #include "core/render/pullback/composed_descriptors.h"
 #include "core/render/pullback/composed_interval.h"
 #include "core/render/pullback/composed_palette.h"
@@ -91,6 +92,7 @@ class ComposedEffect
                          ComposedEffect, Derived>>;
   using Registration = ComposedRegistration<ComposedEffect, Traits>;
   using IntervalCache = ComposedIntervalCache<Traits>;
+  using Clocks = ComposedClocks<Traits>;
   friend Choreography;
   friend Registration;
   friend ComposedAdmission<ComposedEffect>;
@@ -164,52 +166,7 @@ public:
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    this->params.visit([&]<typename Resource>(auto &) {
-      if constexpr (Resource::KIND == ResourceKind::ROTATION) {
-        constexpr auto INSTANCE =
-            AUTHORED_TOPOLOGY ? authored_instance_label(Resource::KEY.view())
-                              : Resource::KEY.view();
-        constexpr uint32_t SEED = instance_hash(INSTANCE, "sphere.rotate.v2");
-        SphereAnimation::init_walk(
-            clocks.template get<Resource::KEY>().rotation_walk,
-            static_cast<int32_t>(SEED));
-      }
-      if constexpr (std::is_same_v<typename Resource::Family,
-                                   SphereAnimation::BurstRippleParams>) {
-        constexpr auto INSTANCE =
-            AUTHORED_TOPOLOGY ? authored_instance_label(Resource::KEY.view())
-                              : Resource::KEY.view();
-        state->resources.template get<Resource::KEY>().ripples.seed =
-            instance_hash(INSTANCE, "sphere.displace.ripple.v2");
-      }
-      if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
-        constexpr int32_t SEED = Resource::KIND == ResourceKind::WARP
-                                     ? Derived::WARP_NOISE_SEED
-                                 : Resource::KIND == ResourceKind::SOURCE
-                                     ? Derived::SOURCE_NOISE_SEED
-                                     : Derived::SURFACE_NOISE_SEED;
-        constexpr int32_t INSTANCE_SEED = [] {
-          if constexpr (AUTHORED_TOPOLOGY) {
-            constexpr auto OPERATOR =
-                ComposedDetail::noise_operator_id<typename Resource::Family>();
-            static_assert(
-                !OPERATOR.empty(),
-                "authored noise resource requires a catalog operator identity");
-            return static_cast<int32_t>(instance_hash(
-                authored_instance_label(Resource::KEY.view()), OPERATOR));
-          } else if constexpr (ComposedDetail::fixed_noise_qualified<Resource>(
-                                   typename Params::ResourceTypes{})) {
-            constexpr uint32_t HASH = fnv1a(Resource::KEY.view());
-            return static_cast<int32_t>(static_cast<uint32_t>(SEED) ^ HASH);
-          } else {
-            return SEED;
-          }
-        }();
-        Pullback::init_effect_noise(
-            state->resources.template get<Resource::KEY>().noise,
-            INSTANCE_SEED);
-      }
-    });
+    clocks.template seed<Derived>(state->resources);
     palette.init();
     if constexpr (ANIMATED_PROJECTION) {
       constexpr int32_t SEED = [] {
@@ -537,20 +494,6 @@ private:
     return supported;
   }
 
-  /** @brief Owned per-resource state with optional ripple transfer curves.
-   * @tparam Resource Keyed resource. */
-  template <typename Resource>
-  struct RuntimeResource
-      : ComposedDetail::ResourceNoise<Resource>,
-        ComposedDetail::ResourcePhaseNoiseCache<
-            Resource, SpecT::PHASE_NOISE_CACHE &&
-                          ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>>,
-        ComposedDetail::ResourceRippleRadialTable<
-            Resource, SpecT::RIPPLE_RADIAL_TABLE &&
-                          std::is_same_v<typename Resource::Family,
-                                         SphereAnimation::BurstRippleParams>> {
-  };
-
   struct State
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
         OuterCameraNoise<Metadata::OUTER_CAMERA>,
@@ -561,9 +504,7 @@ private:
         IntervalCache::RgbLuts,
         IntervalCache::History,
         Registration::Storage {
-    ComposedDetail::ResourceStorage<RuntimeResource,
-                                    typename Params::ResourceTypes>
-        resources;
+    typename Clocks::Storage resources;
     std::conditional_t<AUTHORED_PALETTE, AuthoredPaletteResources,
                        std::monostate>
         authored_palette;
@@ -604,59 +545,10 @@ private:
     return SpecT::TILTED_PROJECTION_FRAME;
   }
 
-  /**
-   * @brief Steps every phase clock the effect's parameter families define.
-   * @details Each clock is compiled in only when its field exists. Affine
-   * rotations accumulate independently for each affine warp.
-   */
+  /** @brief Steps the resource clocks, the projection and camera spins and
+      the palette wobble. */
   HS_FLASH_MEMBER void advance_runtime() {
-    this->params.visit([&]<typename Resource>(
-                           const auto &family) HS_HOT_INLINE {
-      auto &clock = clocks.template get<Resource::KEY>();
-      if constexpr (Resource::KIND == ResourceKind::ROTATION) {
-        SphereAnimation::advance_walk(clock.rotation_walk, family.wander,
-                                      family.spin_speed);
-        clock.wander = clock.rotation_walk.wander;
-        clock.spin_phase = clock.rotation_walk.spin_phase;
-        clock.conjugate =
-            (math::make_rotation(math::Y_AXIS, clock.spin_phase) * clock.wander)
-                .conjugate();
-      } else if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-        Pattern::advance_clocks(family, clock.primary, clock.secondary,
-                                clock.angle);
-        if constexpr (requires { family.noise_time_rate; })
-          clock.noise_time =
-              Pattern::advance_noise_phase(clock.noise_time, family);
-      } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
-        if constexpr (std::is_same_v<typename Resource::Family,
-                                     SphereAnimation::BurstRippleParams>)
-          SphereAnimation::advance_ripple(
-              state->resources.template get<Resource::KEY>().ripples, family);
-        else if constexpr (std::is_same_v<typename Resource::Family,
-                                          PeriodicRippleParams>)
-          Surface::advance_ripple_phase(clock.phase, family);
-        else if constexpr (constexpr float PERIOD = Surface::phase_period<
-                               typename Resource::Family>();
-                           PERIOD != 1.0f) {
-          if constexpr (requires { family.drift; })
-            clock.phase =
-                Surface::advance_field_phase(clock.phase, family.drift, PERIOD);
-          else
-            clock.phase =
-                Surface::advance_field_phase(clock.phase, family.speed, PERIOD);
-        } else
-          clock.phase = math::wrap_t(clock.phase + family.speed);
-      } else if constexpr (Resource::KIND == ResourceKind::TWIST) {
-        Lens::advance_twist(clock, family);
-      } else if constexpr (Resource::KIND == ResourceKind::MODULATION) {
-        Modulation::advance(clock.modulation_clock, family.modulation);
-      } else if constexpr (Resource::KIND == ResourceKind::WARP) {
-        if constexpr (std::is_base_of_v<AffineParams,
-                                        typename Resource::Family>)
-          Warp::advance_affine_rotation(clock.rotation, family);
-        clock.phase = math::wrap_t(clock.phase + family.speed);
-      }
-    });
+    clocks.advance();
     if constexpr (ANIMATED_PROJECTION)
       if (projection_frame_active())
         this->projection_spin =
@@ -747,47 +639,7 @@ private:
       frame.dodecahedral_faces = nullptr;
     frame.params = params;
     frame.resources = {};
-    this->params.visit([&]<typename Resource>(const auto &) {
-      auto &resource = frame.resources.template get<Resource::KEY>();
-      if constexpr (std::is_same_v<typename Resource::Family,
-                                   SphereAnimation::BurstRippleParams>) {
-        auto &owned = state->resources.template get<Resource::KEY>();
-        static_cast<SphereAnimation::RippleState &>(resource) = owned.ripples;
-        if constexpr (SpecT::RIPPLE_RADIAL_TABLE) {
-          SphereAnimation::prepare_radial_tables(
-              frame.params.template get<Resource::KEY>(), owned.ripples,
-              owned.radial_tables, true);
-          resource.radial_tables = &owned.radial_tables;
-        }
-      } else
-        static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
-            clocks.template get<Resource::KEY>();
-      if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>)
-        resource.noise = &state->resources.template get<Resource::KEY>().noise;
-      if constexpr (Resource::KIND == ResourceKind::MODULATION) {
-        const auto &config =
-            this->params.template get<Resource::KEY>().modulation;
-        auto &clock = clocks.template get<Resource::KEY>().modulation_clock;
-        Modulation::synchronize(clock, config);
-        resource.modulation_clock = clock;
-        if constexpr (Resource::Family::DYNAMIC ||
-                      Resource::Family::SOURCE !=
-                          Pattern::SourceKind::DISPLACEMENT)
-          resource.modulation =
-              &state->resources.template get<Resource::KEY>()
-                   .modulation_resources.prepare(config, clock);
-        resource.previous_modulation = resource.modulation;
-        if constexpr (SpecT::PHASE_NOISE_CACHE &&
-                      ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>) {
-          if (!Spacetime::flat_surface()) {
-            auto &owned = state->resources.template get<Resource::KEY>();
-            resource.phase_noise_current = owned.phase_noise.prepare(
-                *resource.modulation, frame.projection_conjugate);
-            resource.phase_noise_previous = resource.phase_noise_current;
-          }
-        }
-      }
-    });
+    clocks.prepare_views(frame);
     if constexpr (TEMPORAL_SAMPLING) {
       frame.temporal = {frame.palette, frame.hue_rotation_lut, 1.0f};
       frame.temporal.hue_rotation_gamut = frame.hue_rotation_gamut;
@@ -795,9 +647,7 @@ private:
   }
 
   State *state = nullptr;
-  ComposedDetail::ResourceStorage<ComposedDetail::ResourceRuntimeClock,
-                                  typename Params::ResourceTypes>
-      clocks;
+  Clocks clocks{this->params};
   bool projection_frame_paused = false;
   ComposedPalette<Traits> palette{this->params.template get<"color">()};
 };
