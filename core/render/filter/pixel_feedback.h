@@ -1312,9 +1312,8 @@ private:
   /** When false, flush() only clears a stale drawing buffer. */
   bool enabled = true;
   SplitHold split_hold; /**< Held split frame and its floors. */
-  WarpCache warp_cache; /**< Persistent warp field and lattice origins. */
-  using Spans = detail::Spans;
-  Spans spans;
+  WarpCache warp_cache; /**< Persistent warp field, lattice origins and
+                           reach. */
   FadeTable fade_table; /**< Persistent per-elapsed-time transforms. */
 
 public:

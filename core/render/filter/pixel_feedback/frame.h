@@ -61,8 +61,6 @@ inline HS_FLASH_MEMBER void Feedback<W, H>::init_storage(Arena &arena) {
         return lattice_origin(CACHE_FIELD, position, point);
       });
   fade_table.init_storage(arena);
-  spans.reach = arena.allocate_n<int16_t>(H);
-  spans.valid = false;
 }
 
 HS_O3_BEGIN
@@ -367,8 +365,6 @@ Feedback<W, H>::prepare_flush(Canvas &cv, float alpha, Arena &scratch,
   bool reused = false;
   WarpField prior{};
   ctx.end = acquire_warp_field(scratch, grid, band, reused, prior);
-  if (!reused)
-    spans.valid = false;
   ctx.warp = ctx.end;
   ctx.filtered_row = (!band.x_clip.active && (split || grid.downsample > 1 ||
                                               !SphereField::HAS_NORTH_POLE ||
@@ -408,15 +404,15 @@ Feedback<W, H>::prepare_flush(Canvas &cv, float alpha, Arena &scratch,
   if (ctx.column_time && cv.keeps_stale_pixels() && alpha >= 1.0f && !clipped) {
     ctx.back = ctx.current;
     select_poles(ctx.back, ctx.back_poles);
-    // An unchanged cached field keeps its spans.
-    const bool stored = reused && spans.reach;
-    if (!(stored && spans.valid)) {
-      int16_t *reach = stored ? spans.reach : scratch.allocate_n<int16_t>(H);
+    const auto measure = [&](int16_t *reach) __attribute__((always_inline)) {
       measure_reach(grid, ctx.warp, ctx.end, rows, reach);
-      spans.valid = stored;
-      ctx.reach = reach;
+    };
+    if (reused) {
+      ctx.reach = warp_cache.reach(measure);
     } else {
-      ctx.reach = spans.reach;
+      int16_t *reach = scratch.allocate_n<int16_t>(H);
+      measure(reach);
+      ctx.reach = reach;
     }
     if (split) {
       ctx.cover = scratch.allocate_n<uint16_t>(COVER_SLOTS);

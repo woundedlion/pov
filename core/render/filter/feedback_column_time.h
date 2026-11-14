@@ -205,12 +205,6 @@ struct AheadSpan {
                  ///< the last lane whose step completes a held column.
 };
 
-/** @brief Persistent measure_reach() spans of the cached warp field. */
-struct Spans {
-  int16_t *reach = nullptr; ///< Per row, the reach behind each arm.
-  bool valid = false;       ///< Whether they belong to the cached field.
-};
-
 } // namespace detail
 
 } // namespace Pixel

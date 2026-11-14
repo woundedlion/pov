@@ -27,7 +27,8 @@ namespace Pixel {
  * key only after its fill returns. Two buffer sets alternate, so a field
  * refilled for a later noise time keeps the one before it as its prior. The
  * cache also holds the projected origin of every lattice sample of its layout,
- * filled once by init_storage().
+ * filled once by init_storage(), and the per-row reach measured from the
+ * cached field, which every fill invalidates.
  */
 template <int W, int H> class FeedbackWarpCache {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -89,7 +90,9 @@ public:
              arena.allocate_n<int16_t>(CELL_COUNT),
              cap_cells > 0 ? arena.allocate_n<CapOffset>(cap_cells) : nullptr};
     origin_points = arena.allocate_n<Coordinates>(field.sample_count());
+    reach_rows = arena.allocate_n<int16_t>(H);
     valid = false;
+    reach_valid = false;
 #ifndef NDEBUG
     stamp.record(arena);
 #endif
@@ -114,6 +117,23 @@ public:
    *  or nullptr before init_storage().
    *  @return Origin array. */
   const Coordinates *origins() const { return origin_points; }
+
+  /**
+   * @brief The per-row reach of the cached field, measured through
+   * @p measure unless measured since the last fill.
+   * @param measure Called as measure(reach) with H entries to write.
+   * @return The stored reach.
+   * @pre The cache holds the field the caller composites, and init_storage()
+   *      has run.
+   */
+  template <typename MeasureFnT>
+  __attribute__((always_inline)) const int16_t *reach(MeasureFnT &&measure) {
+    if (!reach_valid) {
+      measure(reach_rows);
+      reach_valid = true;
+    }
+    return reach_rows;
+  }
 
   /**
    * @brief Returns buffers holding the field for @p key, filling them through
@@ -154,6 +174,7 @@ public:
       *prior = follows ? sets[current ^ 1] : buffers;
     if (key)
       valid = false;
+    reach_valid = false;
 #if HS_ENABLE_TEST_HOOKS
     if (key)
       ++cached_fills;
@@ -200,6 +221,8 @@ private:
   Buffers sets[2] = {}; /**< Arena-owned alternating fields. */
   int current = 0;      /**< Set holding the stored key's. */
   Coordinates *origin_points = nullptr; /**< Arena-owned lattice origins. */
+  int16_t *reach_rows = nullptr; /**< Arena-owned per-row reach, H entries. */
+  bool reach_valid = false; /**< Whether reach_rows holds the stored field's. */
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state when the buffers were allocated. */
   int stamped_cells = 0; /**< Cells in each per-cell buffer. */
