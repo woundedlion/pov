@@ -446,7 +446,7 @@ def cmd_windows(windows, scope):
     print(f"# aggregate: {kind} {worst_peak:.2f} ms "
           f"(frames {worst_peak_w.f_start}-{worst_peak_w.f_end}), "
           f"spilled {agg_spill}/{agg_frames} frames"
-          f"{'' if exact_run and not short_windows else ' (wall-derived, +-1)'}")
+          f"{'' if exact_run and not short_windows else ' (wall-derived upper bound)'}")
     return 0
 
 
@@ -616,7 +616,7 @@ def cmd_buckets(windows, scope, gate):
               f"ms{mark}, spilled {sum(r[3] for r in sel)}")
     if not exact_run:
         print("#   ~ = window-mean placeholder (understates the true peak); "
-              "spilled is wall-derived, +-1. Re-capture for exact peaks.")
+              "spilled is a wall-derived upper bound. Re-capture for exact peaks.")
     if short_windows:
         print(f"#   {short_windows} window(s) had incomplete frame telemetry. "
               "Preset attribution is by window and spill counts for those "

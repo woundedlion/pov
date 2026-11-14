@@ -52,7 +52,7 @@ class PresetAttribution(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(pp.cmd_windows([window], "fx_buffer_wait"), 0)
         self.assertIn("1 window(s) had incomplete frame telemetry", output.getvalue())
-        self.assertIn("spilled 1/2 frames (wall-derived, +-1)", output.getvalue())
+        self.assertIn("spilled 1/2 frames (wall-derived upper bound)", output.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(pp.cmd_buckets([window], "fx_buffer_wait", None), 0)
         self.assertIn("Preset attribution is by window", output.getvalue())
