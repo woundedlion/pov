@@ -468,55 +468,12 @@ HS_HOT_INLINE inline void rasterize_face_body(
           }
         }
 
-        if (d >= PIXEL_WIDTH) {
-          x += span;
-          continue;
-        }
-        HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
-        HS_PROBE_COUNT(n_alpha);
-        HS_PROBE_MARK(hs_ta);
-        const float alpha = solid_coverage(d, PIXEL_WIDTH);
-        HS_PROBE_SPAN(alpha, hs_ta);
-        if (alpha <= MIN_ALPHA) {
-          x += span;
-          continue;
-        }
-        HS_PROFILE_DEEP(raster_shade);
-        const auto load = [&]() HS_HOT_INLINE {
-          if constexpr (MinimalFragment) {
-#ifndef NDEBUG
-            frag.poison_inputs();
-#endif
-            frag.v1 = res.raw_dist;
-          } else {
-            load_fragment(frag, res, p, 0.0f);
-          }
-        };
-        const auto plot_column = [&](int px, float a) HS_HOT_INLINE {
-          plot_admitted(pipeline, canvas, px, y, frag.color.color, frag.age, a);
-        };
-        const auto shade_once = [&]() HS_HOT_INLINE {
-          load();
-          fragment_shader(p, frag);
-          if (frag.color.alpha > MIN_ALPHA) {
-            const float a = frag.color.alpha * alpha;
-            for (int px = x; px < x + span; ++px)
-              plot_column(px, a);
-          }
-        };
-        if constexpr (TIMED_SHADER) {
-          if (per_column) {
-            for (int px = x; px < x + span; ++px) {
-              load();
-              fragment_shader(p, frag, Spacetime::SamplingSurface<W>::time(px));
-              if (frag.color.alpha > MIN_ALPHA)
-                plot_column(px, frag.color.alpha * alpha);
-            }
-          } else {
-            shade_once();
-          }
-        } else {
-          shade_once();
+        float alpha;
+        if (solid_admit<W>(d, alpha)) {
+          HS_PROFILE_DEEP(raster_shade);
+          shade_solid_span<W, TIMED_SHADER, MinimalFragment, true>(
+              pipeline, canvas, x, x, span, y, p, res, frag, fragment_shader,
+              alpha, per_column);
         }
         x += span;
       }

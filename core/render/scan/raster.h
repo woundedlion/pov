@@ -507,6 +507,26 @@ struct ColumnShader {
    * @param shader Shader invoked per covered column.
    */
   ColumnShader(TimedShaderRef shader) : timed(shader), reads_time(true) {}
+
+  /**
+   * @brief Runs the plain shader.
+   * @param p Shaded direction.
+   * @param frag Fragment to shade.
+   */
+  HS_HOT_INLINE void operator()(const math::Vector &p, Fragment &frag) const {
+    plain(p, frag);
+  }
+
+  /**
+   * @brief Runs the time-aware shader.
+   * @param p Shaded direction.
+   * @param frag Fragment to shade.
+   * @param time Column's sweep fraction.
+   */
+  HS_HOT_INLINE void operator()(const math::Vector &p, Fragment &frag,
+                                float time) const {
+    timed(p, frag, time);
+  }
 };
 
 /**
@@ -538,6 +558,134 @@ __attribute__((always_inline)) inline float solid_coverage(float d,
   if (d <= -pixel_width)
     return 1.0f;
   return math::quintic_kernel(0.5f - d / (2.0f * pixel_width));
+}
+
+/**
+ * @brief Admits a solid sample for shading and resolves its coverage.
+ * @tparam W Canvas width in pixels; one column is the AA half-reach.
+ * @param d Signed distance to the surface, negative inside.
+ * @param alpha Receives the coverage when @p d is inside the AA reach.
+ * @return Whether the sample is inside the AA reach with coverage above
+ *         MIN_ALPHA.
+ * @details Counts each sample inside the AA reach as a shade candidate.
+ */
+template <int W> HS_HOT_INLINE inline bool solid_admit(float d, float &alpha) {
+  constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
+  if (d >= PIXEL_WIDTH)
+    return false;
+  HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
+  HS_PROBE_COUNT(n_alpha);
+  HS_PROBE_MARK(hs_ta);
+  alpha = solid_coverage(d, PIXEL_WIDTH);
+  HS_PROBE_SPAN(alpha, hs_ta);
+  return alpha > MIN_ALPHA;
+}
+
+/**
+ * @brief Bounding-box debug tint of a shaded color.
+ * @param color Shaded color.
+ * @return @p color halfway to white.
+ */
+HS_HOT_INLINE inline Pixel debug_tint(const Pixel &color) {
+  return color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
+}
+
+/**
+ * @brief Plots one color across consecutive columns of a row.
+ * @tparam ADMITTED Whether the columns are admitted, so plot_admitted() may
+ *         skip the sink's bounds checks.
+ * @tparam PipelineT Plotting sink type.
+ * @param pipeline Plotting sink.
+ * @param canvas Destination canvas.
+ * @param x First column.
+ * @param span Column count.
+ * @param y Row.
+ * @param color Sample color.
+ * @param age Sample age.
+ * @param alpha Sample coverage.
+ */
+template <bool ADMITTED, typename PipelineT>
+HS_HOT_INLINE inline void plot_span(PipelineT &pipeline, Canvas &canvas, int x,
+                                    int span, int y, const Pixel &color,
+                                    float age, float alpha) {
+  for (int column = x; column < x + span; ++column) {
+    if constexpr (ADMITTED)
+      plot_admitted(pipeline, canvas, column, y, color, age, alpha);
+    else
+      pipeline.plot(canvas, column, y, color, age, alpha);
+  }
+}
+
+/**
+ * @brief Shades an admitted solid sample and plots it across a column span.
+ * @tparam W Canvas width in pixels.
+ * @tparam TIMED Whether @p shader has a time-aware form.
+ * @tparam MINIMAL Whether only `v1` is loaded; see rasterize_face.
+ * @tparam ADMITTED Whether the span's columns are admitted; see plot_span.
+ * @tparam PipelineT Plotting sink type.
+ * @tparam ShaderT Fragment shader type.
+ * @param pipeline Plotting sink.
+ * @param canvas Destination canvas.
+ * @param x First column of the span.
+ * @param time_x @p x or its arm twin, whichever the caller indexes cheaper;
+ *        sweep times count from it.
+ * @param span Columns the sample covers.
+ * @param y Row.
+ * @param p Shaded direction.
+ * @param result Distance query of @p p.
+ * @param frag Fragment scratch.
+ * @param shader Fragment shader.
+ * @param alpha Coverage from solid_admit().
+ * @param per_column Whether the time-aware form shades each column at its
+ *        sweep time; read only with TIMED.
+ * @param debug Whether to tint the shaded color and plot at full coverage.
+ * @details Each column shaded on its own receives freshly loaded inputs, so
+ * a shader's writes to its input registers never reach another column.
+ */
+template <int W, bool TIMED, bool MINIMAL, bool ADMITTED, typename PipelineT,
+          typename ShaderT>
+HS_HOT_INLINE inline void
+shade_solid_span(PipelineT &pipeline, Canvas &canvas, int x, int time_x,
+                 int span, int y, const math::Vector &p,
+                 const SDF::DistanceResult &result, Fragment &frag,
+                 ShaderT &shader, float alpha, [[maybe_unused]] bool per_column,
+                 bool debug = false) {
+  const auto load = [&]() HS_HOT_INLINE {
+    if constexpr (MINIMAL) {
+#ifndef NDEBUG
+      frag.poison_inputs();
+#endif
+      frag.v1 = result.raw_dist;
+    } else {
+      load_fragment(frag, result, p, 0.0f);
+    }
+  };
+  const auto finish = [&]() HS_HOT_INLINE {
+    if (debug) {
+      frag.color.color = debug_tint(frag.color.color);
+      frag.color.alpha = 1.0f;
+      alpha = 1.0f;
+    }
+  };
+  const int step = TIMED && per_column ? 1 : span;
+  int column = x;
+  do {
+    load();
+    if constexpr (TIMED) {
+      if (per_column)
+        shader(p, frag,
+               Spacetime::SamplingSurface<W>::time(time_x + (column - x)));
+      else
+        shader(p, frag);
+    } else {
+      shader(p, frag);
+    }
+    finish();
+    if (frag.color.alpha > MIN_ALPHA)
+      plot_span<ADMITTED>(pipeline, canvas, column, step, y, frag.color.color,
+                          frag.age, frag.color.alpha * alpha);
+    column += step;
+  } while (column < x + span);
 }
 
 /**
@@ -822,66 +970,44 @@ inline int process_pixel(int x, int y, const math::Vector &p,
     }
   }
 
-  if (debug_bb || d < threshold) {
+  constexpr bool COLUMN_SHADER = std::is_same_v<ShaderFn, ColumnShader>;
+  if constexpr (SOLID) {
     float alpha = 1.0f;
-
-    if constexpr (SOLID) {
-      alpha = solid_coverage(d, PIXEL_WIDTH);
-    } else {
-      // Inward-only ramp over the winning leaf's half-width: d=0 is the tube
-      // edge (alpha 0), d=-size the centerline (alpha 1).
-      float aa_thickness = result_scratch.size;
-      if (aa_thickness > 0) {
-        alpha = math::quintic_kernel(-d / aa_thickness);
-      } else {
-        alpha = 0.0f;
-      }
-    }
-
-    if (!debug_bb && alpha <= MIN_ALPHA)
+    if (!solid_admit<W>(d, alpha) && !debug_bb)
       return span;
-
-    constexpr bool COLUMN_SHADER = std::is_same_v<ShaderFn, ColumnShader>;
     bool per_column = false;
     if constexpr (COLUMN_SHADER)
       per_column = fragment_shader.reads_time;
-    const auto shade = [&](int column) HS_HOT_INLINE {
-      load_fragment(frag_scratch, result_scratch, p, SOLID ? 0.0f : alpha);
+    shade_solid_span<W, COLUMN_SHADER, false, false>(
+        pipeline, canvas, x, x, span, y, p, result_scratch, frag_scratch,
+        fragment_shader, alpha, per_column, debug_bb);
+  } else if (debug_bb || d < threshold) {
+    // Inward-only ramp over the winning leaf's half-width: d=0 is the tube
+    // edge (alpha 0), d=-size the centerline (alpha 1).
+    const float aa_thickness = result_scratch.size;
+    float alpha =
+        aa_thickness > 0 ? math::quintic_kernel(-d / aa_thickness) : 0.0f;
+    if (!debug_bb && alpha <= MIN_ALPHA)
+      return span;
 
-      if constexpr (COLUMN_SHADER) {
-        if (per_column)
-          fragment_shader.timed(p, frag_scratch,
-                                Spacetime::SamplingSurface<W>::time(column));
-        else
-          fragment_shader.plain(p, frag_scratch);
-      } else {
+    load_fragment(frag_scratch, result_scratch, p, alpha);
+    if constexpr (COLUMN_SHADER) {
+      if (fragment_shader.reads_time)
+        fragment_shader(p, frag_scratch,
+                        Spacetime::SamplingSurface<W>::time(x));
+      else
         fragment_shader(p, frag_scratch);
-      }
-
-      if (debug_bb) {
-        frag_scratch.color.color = frag_scratch.color.color.lerp16(
-            Pixel(65535, 65535, 65535), 65535 / 2);
-        frag_scratch.color.alpha = 1.0f;
-        alpha = 1.0f;
-      }
-    };
-
-    if (per_column) {
-      for (int i = 0; i < span; ++i) {
-        shade(x + i);
-        if (frag_scratch.color.alpha > MIN_ALPHA)
-          pipeline.plot(canvas, x + i, y, frag_scratch.color.color,
-                        frag_scratch.age, frag_scratch.color.alpha * alpha);
-      }
     } else {
-      shade(x);
-      if (frag_scratch.color.alpha > MIN_ALPHA) {
-        const float a = frag_scratch.color.alpha * alpha;
-        for (int i = 0; i < span; ++i)
-          pipeline.plot(canvas, x + i, y, frag_scratch.color.color,
-                        frag_scratch.age, a);
-      }
+      fragment_shader(p, frag_scratch);
     }
+    if (debug_bb) {
+      frag_scratch.color.color = debug_tint(frag_scratch.color.color);
+      frag_scratch.color.alpha = 1.0f;
+      alpha = 1.0f;
+    }
+    if (frag_scratch.color.alpha > MIN_ALPHA)
+      pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age,
+                    frag_scratch.color.alpha * alpha);
   }
   return span;
 }
@@ -1798,7 +1924,7 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   auto probe = prepare_distance(shape);
   Pixel plot_color = color.color;
   if (effective_debug)
-    plot_color = plot_color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
+    plot_color = debug_tint(plot_color);
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
@@ -1807,8 +1933,8 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       },
       [&](int x, int y, const math::Vector &p, int max_run) {
         if (effective_debug) {
-          for (int i = 0; i < max_run; ++i)
-            pipeline.plot(canvas, x + i, y, plot_color, 0, 1.0f);
+          plot_span<false>(pipeline, canvas, x, max_run, y, plot_color, 0,
+                           1.0f);
           return max_run;
         }
 
@@ -1846,16 +1972,10 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
               span = max_run;
           }
         }
-        if (d >= PIXEL_WIDTH)
-          return span;
-
-        const float coverage = solid_coverage(d, PIXEL_WIDTH);
-        if (coverage <= MIN_ALPHA)
-          return span;
-
-        const float alpha = color.alpha * coverage;
-        for (int i = 0; i < span; ++i)
-          pipeline.plot(canvas, x + i, y, plot_color, 0, alpha);
+        float coverage;
+        if (solid_admit<W>(d, coverage))
+          plot_span<false>(pipeline, canvas, x, span, y, plot_color, 0,
+                           color.alpha * coverage);
         return span;
       },
       xc);

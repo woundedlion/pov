@@ -1170,7 +1170,6 @@ struct Mesh {
     };
     const Scan::SweepWedge wedge =
         Scan::SweepWedge::of(sweep, SWEEP_ROW_REACH<W> + time.sweep_arc);
-    constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
     constexpr bool TIMED_SHADER =
         Spacetime::reads_time<FragmentShaderT, const math::Vector &,
                               Fragment &>;
@@ -1222,28 +1221,11 @@ struct Mesh {
           ++mesh_capture_counters.sweep_probes;
 #endif
           face.probe(p, res);
-          const float d = res.dist;
-          if (d >= PIXEL_WIDTH)
-            continue;
-          HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
-          const float alpha = solid_coverage(d, PIXEL_WIDTH);
-          if (alpha <= MIN_ALPHA)
-            continue;
-          load_fragment(frag, res, p, 0.0f);
-          bool shaded = false;
-          if constexpr (TIMED_SHADER) {
-            if (per_column) {
-              fragment_shader(p, frag, Spacetime::SamplingSurface<W>::time(x));
-              shaded = true;
-            }
-          }
-          if (!shaded)
-            fragment_shader(p, frag);
-          if (frag.color.alpha <= MIN_ALPHA)
-            continue;
-          const float a = frag.color.alpha * alpha;
-          plot_admitted(pipeline, canvas, column, y, frag.color.color, frag.age,
-                        a);
+          float alpha;
+          if (solid_admit<W>(res.dist, alpha))
+            shade_solid_span<W, TIMED_SHADER, false, true>(
+                pipeline, canvas, column, x, 1, y, p, res, frag,
+                fragment_shader, alpha, per_column);
         }
       }
     }
