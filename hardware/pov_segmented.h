@@ -352,7 +352,7 @@ private:
   /** @brief Checks the segmented driver's effect geometry contract.
    * @param effect Constructed effect.
    */
-  HS_HOT_INLINE static void validate_show_effect(const Effect *effect) {
+  HS_FLASH_MEMBER static void validate_show_effect(const Effect *effect) {
     HS_CHECK(effect->height() == ROWS,
              "POVSegmented: effect canvas height must equal S/2 (ROWS)");
     HS_CHECK(effect->width() == CANVAS_W,
@@ -369,7 +369,7 @@ private:
    * @return Validated sync timing configuration.
    */
   template <int R>
-  HS_HOT_INLINE static pov::sync::Config
+  HS_FLASH_MEMBER static pov::sync::Config
   configure_show(const uint32_t (*effect_revolutions)[R], bool standalone) {
     // F_CPU_ACTUAL, not F_CPU: the flywheel timebase counts ARM_DWT_CYCCNT
     // ticks, which run at the clock the core actually booted to.
@@ -417,8 +417,8 @@ private:
    * @param last_report Receives the heartbeat timestamp.
    * @param last_overrun Last reported DMA overrun count.
    */
-  HS_HOT_INLINE static void report_sync_health(unsigned long &last_report,
-                                               uint32_t &last_overrun) {
+  HS_SIZE_FLASH_MEMBER static void
+  report_sync_health(unsigned long &last_report, uint32_t &last_overrun) {
     last_report = millis();
     const pov::sync::Telemetry tm = sync.telemetry_snapshot();
     // Each line fits hs::log's 256-byte buffer with saturated counters.
