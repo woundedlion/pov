@@ -384,13 +384,8 @@ def fp_bbox(node, pads_only=False, graphic_layers=None):
         if c[0] == "pad":
             if str(c[3]) == "custom":
                 copper = connectivity.pad_copper(c, (0, 0), 0, ["F.Cu"])
-                if isinstance(copper, connectivity.Polygon):
-                    for x, y in copper.polygon:
-                        xs.append(x); ys.append(y)
-                else:
-                    x, y = copper.start
-                    r = copper.radius
-                    xs += [x - r, x + r]; ys += [y - r, y + r]
+                x0, y0, x1, y1 = connectivity.copper_bounds(copper)
+                xs += [x0, x1]; ys += [y0, y1]
                 continue
             at = sexp.val(c, "at"); sz = sexp.val(c, "size")
             x = float(at[0]); y = float(at[1])

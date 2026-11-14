@@ -4,9 +4,8 @@ Unions the copper geometry -- tracks (straight and arc), vias, pads and zone
 fills that touch on a shared layer, per net -- rather than pad net attributes. A
 net whose pads land in more than one island is an open.
 
-Rectangular lands use rotated rectangles; custom lands use primitive bounding
-boxes, and circular/oval lands use circumscribed discs. Pad approximations err
-towards passing; arc chords can report false opens or false connections.
+Lands retain their copper outlines; curved track chords deviate by at most
+TOUCH_TOLERANCE from the arc centreline.
 This gate checks copper continuity; kicad-cli DRC owns clearance.
 """
 import argparse
@@ -16,7 +15,7 @@ import sys
 
 import sexp
 from constraints import ROUTED_REVISION
-from kicad_common import F, arc_extrema, is_copper_pour, net_name, property_value, rotate_point
+from kicad_common import F, is_copper_pour, net_name, property_value, rotate_point
 
 # Copper that lands this close counts as touching. KiCad snaps track ends to
 # pad and via anchors, so the slack absorbs export rounding, not a real gap.
@@ -100,23 +99,17 @@ class Capsule:
     def touches(self, other):
         if self.layers.isdisjoint(other.layers):
             return False
-        if isinstance(other, Polygon):
+        if isinstance(other, (Polygon, CopperUnion, Ring)):
             return other.touches(self)
         gap = _segment_distance(self.start, self.end, other.start, other.end)
         return gap <= self.radius + other.radius + TOUCH_TOLERANCE
 
 
 class Polygon:
-    """A copper outline: one layer of a pour fill, or a rectangular pad land.
+    """A filled polygon Minkowski-grown by a circular radius."""
 
-    A pour voids around a through-hole pad and reaches it through thermal
-    spokes, so the pad centre sits outside the fill while the annulus overlaps
-    it. Overlap is therefore "a point inside" OR "the fill boundary runs through
-    the item".
-    """
-
-    def __init__(self, polygon, layers):
-        self.polygon, self.layers = polygon, layers
+    def __init__(self, polygon, layers, radius=0):
+        self.polygon, self.layers, self.radius = polygon, layers, radius
 
     def edges(self):
         return zip(self.polygon, self.polygon[1:] + self.polygon[:1])
@@ -124,6 +117,8 @@ class Polygon:
     def touches(self, other):
         if self.layers.isdisjoint(other.layers):
             return False
+        if isinstance(other, (CopperUnion, Ring)):
+            return other.touches(self)
         if isinstance(other, Polygon):
             if any(_point_in_polygon(p, self.polygon) for p in other.polygon):
                 return True
@@ -131,13 +126,114 @@ class Polygon:
                 return True
             # Two pours can overlap edge-on with no vertex of either inside the
             # other (a cross), which neither containment pass sees.
-            return any(_segment_distance(a, b, c, d) <= TOUCH_TOLERANCE
+            return any(_segment_distance(a, b, c, d) <= self.radius + other.radius + TOUCH_TOLERANCE
                        for a, b in self.edges() for c, d in other.edges())
         if any(_point_in_polygon(p, self.polygon) for p in other.points()):
             return True
-        reach = other.radius + TOUCH_TOLERANCE
+        reach = self.radius + other.radius + TOUCH_TOLERANCE
         return any(_segment_distance(other.start, other.end, a, b) <= reach
                    for a, b in self.edges())
+
+
+class CopperUnion:
+    """Copper occupied by the union of a custom pad's anchor and primitives."""
+
+    def __init__(self, shapes, layers):
+        """Store member shapes sharing the pad's layer set."""
+        self.shapes, self.layers = shapes, layers
+
+    def touches(self, other):
+        """Whether any member touches the other copper on a shared layer."""
+        if self.layers.isdisjoint(other.layers):
+            return False
+        return any(shape.touches(other) for shape in self.shapes)
+
+
+class Ring:
+    """An unfilled circular primitive with a finite stroke width."""
+
+    def __init__(self, centre, radius, half_stroke, layers):
+        """Store the circle centre, centreline radius and half stroke width."""
+        self.centre, self.radius = centre, radius
+        self.half_stroke, self.layers = half_stroke, layers
+
+    def touches(self, other):
+        """Intersect radial intervals of connected copper with the ring."""
+        if self.layers.isdisjoint(other.layers):
+            return False
+        if isinstance(other, CopperUnion):
+            return other.touches(self)
+        if isinstance(other, Ring):
+            distance = math.dist(self.centre, other.centre)
+            gap = max(0, distance - self.radius - other.radius,
+                      abs(self.radius - other.radius) - distance)
+            return gap <= self.half_stroke + other.half_stroke + TOUCH_TOLERANCE
+        if isinstance(other, Polygon):
+            near = (0 if _point_in_polygon(self.centre, other.polygon) else
+                    min(_point_segment_distance(self.centre, a, b) for a, b in other.edges()))
+            far = max(math.dist(self.centre, p) for p in other.polygon)
+        else:
+            near = _point_segment_distance(self.centre, other.start, other.end)
+            far = max(math.dist(self.centre, p) for p in (other.start, other.end))
+        return (max(0, near - other.radius) <= self.radius + self.half_stroke + TOUCH_TOLERANCE
+                and far + other.radius >= self.radius - self.half_stroke - TOUCH_TOLERANCE)
+
+
+def arc_polyline(start, mid, end):
+    """Preserve declared arc points and bound each chord's radial error."""
+    bx, by = mid[0] - start[0], mid[1] - start[1]
+    cx, cy = end[0] - start[0], end[1] - start[1]
+    determinant = 2 * (bx * cy - by * cx)
+    if abs(determinant) < 1e-12:
+        return [start, mid, end]
+    b_sq, c_sq = bx * bx + by * by, cx * cx + cy * cy
+    ux = (cy * b_sq - by * c_sq) / determinant
+    uy = (bx * c_sq - cx * b_sq) / determinant
+    centre = (start[0] + ux, start[1] + uy)
+    radius = math.hypot(ux, uy)
+    angles = [math.atan2(y - centre[1], x - centre[0]) for x, y in (start, mid, end)]
+    first, middle, last = angles
+    direction = 1 if (middle - first) % math.tau <= (last - first) % math.tau else -1
+    max_step = min(math.pi, 4 * math.asin(math.sqrt(min(1, TOUCH_TOLERANCE / (2 * radius)))))
+    points = [start]
+    for a, b, finish in ((first, middle, mid), (middle, last, end)):
+        sweep = ((b - a) * direction) % math.tau
+        count = max(1, math.ceil(sweep / max_step))
+        for i in range(1, count):
+            angle = a + direction * sweep * i / count
+            points.append((centre[0] + radius * math.cos(angle),
+                           centre[1] + radius * math.sin(angle)))
+        points.append(finish)
+    return points
+
+
+def primitive_copper(primitive, layers, transform):
+    """Copper occupied by a custom graphic, preserving fill and stroke geometry."""
+    kind = str(primitive[0])
+    half_stroke = float(sexp.val(primitive, "width", [0])[0]) / 2
+    filled = str(sexp.val(primitive, "fill", ["none"])[0]) in {"yes", "solid"}
+    if kind == "gr_circle":
+        centre = transform(_xy(sexp.val(primitive, "center")))
+        radius = math.dist(centre, transform(_xy(sexp.val(primitive, "end"))))
+        return ([Capsule(centre, centre, radius + half_stroke, layers)] if filled
+                else [Ring(centre, radius, half_stroke, layers)])
+    if kind == "gr_arc":
+        points = arc_polyline(*(_xy(sexp.val(primitive, key)) for key in ("start", "mid", "end")))
+    elif kind == "gr_line":
+        points = [_xy(sexp.val(primitive, key)) for key in ("start", "end")]
+    elif kind == "gr_rect":
+        (x0, y0), (x1, y1) = (_xy(sexp.val(primitive, key)) for key in ("start", "end"))
+        points = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    elif kind == "gr_poly":
+        points = [_xy(vertex[1:]) for vertex in F(F(primitive, "pts")[0], "xy")]
+    else:
+        raise ValueError(f"unsupported custom pad primitive: {kind}")
+    points = [transform(p) for p in points]
+    if kind in {"gr_rect", "gr_poly"}:
+        if filled:
+            return [Polygon(points, layers, half_stroke)]
+        points.append(points[0])
+    return [Capsule(a, b, half_stroke, layers) for a, b in zip(points, points[1:])]
 
 
 def _rectangle(centre, width, height, degrees):
@@ -148,67 +244,72 @@ def _rectangle(centre, width, height, degrees):
                          ((-dx, -dy), (dx, -dy), (dx, dy), (-dx, dy)))]
 
 
+def copper_bounds(item):
+    """Axis-aligned bounds of a land or a custom pad's primitive union."""
+    if isinstance(item, CopperUnion):
+        bounds = [copper_bounds(shape) for shape in item.shapes]
+        return (min(b[0] for b in bounds), min(b[1] for b in bounds),
+                max(b[2] for b in bounds), max(b[3] for b in bounds))
+    if isinstance(item, Ring):
+        points, radius = [item.centre], item.radius + item.half_stroke
+    elif isinstance(item, Polygon):
+        points, radius = item.polygon, item.radius
+    else:
+        points, radius = [item.start, item.end], item.radius
+    xs, ys = zip(*points)
+    return min(xs) - radius, min(ys) - radius, max(xs) + radius, max(ys) + radius
+
+
 def pad_copper(pad, origin, rotation, stack):
-    """Rectangular and custom lands use rotated bounding boxes; others use discs."""
+    """Copper land in board coordinates, with absolute KiCad pad orientation."""
     placement = sexp.val(pad, "at")
     offset = rotate_point(_xy(placement), rotation)
     centre = (origin[0] + offset[0], origin[1] + offset[1])
     width, height = _xy(sexp.val(pad, "size"))
+    angle = float(placement[2]) if len(placement) > 2 else 0.0
     shape = str(pad[3])
     names = [str(value) for value in sexp.val(pad, "layers")]
     layers = (set(stack) if "*.Cu" in names
               else {name for name in names if name.endswith(".Cu")})
-    if shape in {"rect", "roundrect", "trapezoid"}:
-        # A pad angle is absolute: KiCad folds the footprint rotation into it.
-        angle = float(placement[2]) if len(placement) > 2 else 0.0
-        # A trapezoid's rect_delta pushes corners outside (size); box them in.
-        skew = sexp.val(pad, "rect_delta")
-        if skew:
-            width, height = (width + abs(float(skew[1])),
-                             height + abs(float(skew[0])))
-        return Polygon(_rectangle(centre, width, height, angle), layers)
-    radius = (max(width, height) / 2 if shape in {"circle", "oval"}
-              else math.hypot(width, height) / 2)
+
+    def transform(point):
+        """Map pad-local geometry into board coordinates."""
+        x, y = rotate_point(point, angle)
+        return centre[0] + x, centre[1] + y
+
+    if shape == "circle":
+        return Capsule(centre, centre, width / 2, layers)
+    if shape == "oval":
+        radius = min(width, height) / 2
+        delta = (width / 2 - radius, height / 2 - radius)
+        return Capsule(transform((-delta[0], -delta[1])), transform(delta), radius, layers)
+    if shape in {"rect", "roundrect"}:
+        ratio = float(sexp.val(pad, "roundrect_rratio", [0.25])[0]) if shape == "roundrect" else 0
+        radius = min(width, height) * ratio
+        if not 0 <= ratio <= 0.5:
+            raise ValueError(f"invalid roundrect radius ratio: {ratio}")
+        return Polygon(_rectangle(centre, width - 2 * radius, height - 2 * radius, angle),
+                       layers, radius)
+    if shape == "trapezoid":
+        dx, dy = width / 2, height / 2
+        sx, sy = (float(v) / 2 for v in sexp.val(pad, "rect_delta", [0, 0]))
+        corners = ((-dx + sy, -dy - sx), (dx - sy, -dy + sx),
+                   (dx + sy, dy - sx), (-dx - sy, dy + sx))
+        return Polygon([transform(point) for point in corners], layers)
     if shape == "custom":
+        options = F(pad, "options")
+        anchor = str(sexp.val(options[0], "anchor", ["circle"])[0]) if options else "circle"
+        if anchor == "rect":
+            shapes = [Polygon(_rectangle(centre, width, height, angle), layers)]
+        elif anchor == "circle":
+            shapes = [Capsule(centre, centre, width / 2, layers)]
+        else:
+            raise ValueError(f"unsupported custom pad anchor: {anchor}")
         blocks = F(pad, "primitives")
-        points = []
         for primitive in (blocks[0][1:] if blocks else []):
-            if not isinstance(primitive, list) or not primitive:
-                continue
-            stroke = sexp.val(primitive, "width")
-            half_stroke = float(stroke[0]) / 2 if stroke else 0.0
-            if str(primitive[0]) == "gr_circle":
-                cx, cy = _xy(sexp.val(primitive, "center"))
-                rim = _xy(sexp.val(primitive, "end"))
-                reach = math.dist((cx, cy), rim) + half_stroke
-                points.extend(((cx - reach, cy - reach),
-                               (cx + reach, cy + reach)))
-            elif str(primitive[0]) in {"gr_rect", "gr_line", "gr_arc"}:
-                vertices = [_xy(sexp.val(primitive, key))
-                            for key in ("start", "end")]
-                if str(primitive[0]) == "gr_arc":
-                    start, end = vertices
-                    mid = _xy(sexp.val(primitive, "mid"))
-                    vertices = [start, end, mid, *arc_extrema(start, mid, end)]
-                for x, y in vertices:
-                    points.extend(((x - half_stroke, y - half_stroke),
-                                   (x + half_stroke, y + half_stroke)))
-            elif str(primitive[0]) == "gr_poly":
-                for vertex in F(F(primitive, "pts")[0], "xy"):
-                    x, y = _xy(vertex[1:])
-                    points.extend(((x - half_stroke, y - half_stroke),
-                                   (x + half_stroke, y + half_stroke)))
-        if points:
-            xs, ys = zip(*points)
-            left, right = min(-width / 2, *xs), max(width / 2, *xs)
-            bottom, top = min(-height / 2, *ys), max(height / 2, *ys)
-            angle = float(placement[2]) if len(placement) > 2 else 0.0
-            corners = ((left, bottom), (right, bottom),
-                       (right, top), (left, top))
-            return Polygon([(centre[0] + x, centre[1] + y)
-                            for x, y in (rotate_point(p, angle) for p in corners)],
-                           layers)
-    return Capsule(centre, centre, radius, layers)
+            shapes.extend(primitive_copper(primitive, layers, transform))
+        return CopperUnion(shapes, layers)
+    raise ValueError(f"unsupported pad shape: {shape}")
 
 
 def via_capsule(via, stack):
@@ -227,18 +328,11 @@ def segment_capsule(segment):
 
 
 def arc_capsules(arc):
-    """A curved track as its two chords, start->mid and mid->end.
-
-    Chords lie inside the arc by the sagitta: convex-side gaps are overstated,
-    concave-side gaps understated. This approximation can report false opens
-    or false connections between endpoints; endpoint positions are exact.
-    """
+    """Subdivide a track arc with centreline sagitta at most TOUCH_TOLERANCE."""
     radius = float(sexp.val(arc, "width")[0]) / 2
     layers = {str(sexp.val(arc, "layer")[0])}
-    start, mid, end = (_xy(sexp.val(arc, key))
-                       for key in ("start", "mid", "end"))
-    return [Capsule(start, mid, radius, layers),
-            Capsule(mid, end, radius, layers)]
+    points = arc_polyline(*(_xy(sexp.val(arc, key)) for key in ("start", "mid", "end")))
+    return [Capsule(a, b, radius, layers) for a, b in zip(points, points[1:])]
 
 
 def footprint_reference(footprint):
@@ -267,12 +361,50 @@ def zone_layers(zone, stack):
     return layers
 
 
+def land_components(land):
+    """Keep disconnected custom primitives in separate electrical islands."""
+    if not isinstance(land, CopperUnion):
+        return [land]
+    roots = islands(land.shapes)
+    groups = {}
+    for index, shape in zip(roots, land.shapes):
+        groups.setdefault(index, []).append(shape)
+    result = []
+    for shapes in groups.values():
+        layers = set(land.layers)
+        for shape in shapes:
+            shape.layers = layers
+        result.append(CopperUnion(shapes, layers))
+    return result
+
+
+def flag_enabled(node, name):
+    """Read a KiCad boolean, including the legacy empty-node spelling."""
+    fields = F(node, name)
+    return bool(fields) and (len(fields[0]) == 1 or str(fields[0][1]) == "yes")
+
+
+def pad_presence(pad, land, stack, nonzone_copper):
+    """Retain end layers, saved zone flashes and direct non-zone connections."""
+    declared = set(land.layers)
+    if str(pad[2]) != "thru_hole" or not flag_enabled(pad, "remove_unused_layers"):
+        return declared
+    present = {str(layer) for layer in sexp.val(pad, "zone_layer_connections", [])}
+    if flag_enabled(pad, "keep_end_layers"):
+        present.update((stack[0], stack[-1]))
+    for other in nonzone_copper:
+        if other is not land and land.touches(other):
+            present.update(declared.intersection(other.layers))
+    return declared.intersection(present)
+
+
 def board_copper(root):
     """Returns copper, netted pads, and native net-id-to-name mappings."""
     if not isinstance(root, list) or not root or str(root[0]) != "kicad_pcb":
         raise ValueError("document is not a kicad_pcb")
     stack = copper_layers(root)
     copper, pads = {}, {}
+    pad_policies = []
     # A `(net id "name")` declaration is itself the node net_id and net_name
     # look up as a child, so read it through a one-element parent.
     names = {}
@@ -294,9 +426,12 @@ def board_copper(root):
             net = net_id(pad)
             if net is None:
                 continue
-            item = pad_copper(pad, origin, rotation, stack)
-            copper.setdefault(net, []).append(item)
-            pads.setdefault(net, []).append(((reference, str(pad[1])), item))
+            land = pad_copper(pad, origin, rotation, stack)
+            components = land_components(land)
+            for item in components:
+                copper.setdefault(net, []).append(item)
+                pads.setdefault(net, []).append(((reference, str(pad[1])), item))
+                pad_policies.append((net, pad, item))
     for segment in F(root, "segment"):
         net = net_id(segment)
         if net is not None:
@@ -309,6 +444,10 @@ def board_copper(root):
         net = net_id(via)
         if net is not None:
             copper.setdefault(net, []).append(via_capsule(via, stack))
+    presence = [(item, pad_presence(pad, item, stack, copper[net]))
+                for net, pad, item in pad_policies]
+    for item, layers in presence:
+        item.layers.intersection_update(layers)
     for zone in F(root, "zone"):
         net = net_id(zone)
         if net is None or not is_copper_pour(zone):
