@@ -1465,6 +1465,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
 │   │   │   ├── composed_runtime.h      Composed-effect runtime
 │   │   │   ├── composed_traits.h       Composed-effect policy constants, derived types and spec rules
+│   │   │   ├── composed_registration.h Composed-effect slider, folder and modulation-control registration
 │   │   │   ├── composed_interval.h     Retained endpoints and column-time sampling
 │   │   │   ├── modulation.h            Pattern state ownership and prepared sphere binding
 │   │   │   ├── modulation_temporal.h   Endpoint retention, identity and completed straight-alpha blending

@@ -355,21 +355,9 @@ template <typename Family> struct ClockState<Family, ResourceKind::MODULATION> {
 template <typename Resource,
           bool Spatial = Resource::KIND == ResourceKind::MODULATION>
 struct ResourceModulation {};
-/** @brief Optional registered names of a flexible modulation recipe.
- * @tparam Resource Keyed resource.
- * @tparam Enabled Whether the recipe permits topology changes. */
-template <typename Resource, bool Enabled> struct ResourceModulationControls {};
-/** @brief Registered names used to refresh active-control flags.
- * @tparam Resource Flexible modulation resource. */
-template <typename Resource> struct ResourceModulationControls<Resource, true> {
-  std::array<const char *, Modulation::Controls::EXTRA_SCHEMA.size()>
-      modulation_control_names{}; ///< Persistent registered names.
-};
 /** @brief Modulation resource storage.
  * @tparam Resource Authored modulation resource. */
-template <typename Resource>
-struct ResourceModulation<Resource, true>
-    : ResourceModulationControls<Resource, Resource::Family::DYNAMIC> {
+template <typename Resource> struct ResourceModulation<Resource, true> {
   static constexpr bool SPATIAL =
       Resource::Family::SPATIAL; ///< Spatial capability.
   std::conditional_t<SPATIAL,
