@@ -1491,6 +1491,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── mesh_capture.cpp    Per-face column-time capture of deforming meshes
 │   │   │   ├── mesh_motion.h     Motion planning for meshes on model paths under ripples
 │   │   │   ├── swept_face.h      Column-time polygon sweep state and meridian crossings
+│   │   │   ├── radial_star_surface.h  Twisted radial star continuum drawn as one surface
 │   │   │   ├── radial_surface.h  Bounded first-arrival star-family queries
 │   │   │   ├── radial_surface_boundary.h  Canonical first-arrival boundary candidates
 │   │   │   ├── radial_surface_candidate_mask.h  Candidate interval groups per chart cell

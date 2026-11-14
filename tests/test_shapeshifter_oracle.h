@@ -107,7 +107,7 @@ struct OracleFrame {
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
   /** @brief Kernel family used by footprint oracles. */
-  using Surface = OracleEffect::Surface;
+  using Surface = OracleEffect::Surface::Family;
   /** @brief Contour tables of the oracle effect. */
   using Layout = Plot::ContourLayout<OracleEffect::MAX_SHAPES>;
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
@@ -341,12 +341,13 @@ struct ShapeShifterWhiteBox {
                              Scan::SurfaceAreaStats *stats = nullptr,
                              float displacement = 0, bool mask = true) {
     e.prepare_count(288);
+    const Scan::SurfaceFrame frame = e.surface_frame(e.selected_palette());
     if (mask)
-      e.template draw_surface_all<true, true>(canvas, e.selected_palette(),
-                                              timed, stats, displacement);
+      OracleEffect::Surface::draw<true, true>(canvas, frame, timed, stats,
+                                              displacement);
     else
-      e.template draw_surface_all<true, false>(canvas, e.selected_palette(),
-                                               timed, stats, displacement);
+      OracleEffect::Surface::draw<true, false>(canvas, frame, timed, stats,
+                                               displacement);
   }
   static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
   static constexpr int preset_dwell_frames() {
