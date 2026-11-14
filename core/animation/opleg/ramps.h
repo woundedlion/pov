@@ -7,6 +7,7 @@
 /** @file ramps.h
  * @brief Morph palette mapping, frame shading and arena lifetime. */
 
+#include "core/math/scalar_kernels.h"
 #include "core/animation/opleg.h"
 
 namespace Animation {

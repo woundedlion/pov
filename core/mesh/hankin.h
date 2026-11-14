@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include "core/mesh/mesh.h"
 
 /**

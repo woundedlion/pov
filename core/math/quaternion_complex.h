@@ -6,6 +6,7 @@
 
 /** @file quaternion_complex.h @brief Quaternion and complex number types. */
 
+#include <limits>
 #include "core/math/fast_math.h"
 
 namespace math {

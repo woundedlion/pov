@@ -7,6 +7,8 @@
 /** @file sphere_cells.h
  * @brief Scalar spherical Voronoi patterns over canonical point layouts. */
 
+#include "core/math/scalar_noise.h"
+#include "core/math/scalar_kernels.h"
 #include <array>
 #include <span>
 

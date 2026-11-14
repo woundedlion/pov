@@ -6,7 +6,10 @@
 
 /** @file vector.h @brief Cartesian and spherical vector types and snorm16 direction packing. */
 
-#include "core/math/scalar_noise.h"
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include "core/math/math_constants.h"
 
 namespace math {
 

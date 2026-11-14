@@ -8,6 +8,7 @@
  * @brief Recipe-compiled perceptual palettes and stock recipes.
  */
 
+#include "core/math/scalar_kernels.h"
 #include "core/math/3dmath.h"
 #include "core/color/palette.h"
 #include "core/color/palette_recipe.h"

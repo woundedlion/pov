@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include "core/render/pullback/contract.h"
 #include "core/render/pullback/fields.h"
 #include "core/math/3dmath.h"

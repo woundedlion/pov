@@ -10,6 +10,7 @@
  *        laid out as separate tiles in a plane.
  */
 
+#include "core/math/scalar_kernels.h"
 #include <array>
 #include <cmath>
 #include <cstddef>

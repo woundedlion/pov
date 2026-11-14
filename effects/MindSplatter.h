@@ -11,6 +11,7 @@
  *        attractors through a Mobius warp.
  */
 
+#include "core/math/scalar_kernels.h"
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"

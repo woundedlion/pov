@@ -1369,7 +1369,9 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── memory/                    Arena, vector, span, scratch, persistence, and generation sections
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                   Umbrella for 3D math primitives and kernels
-│   │   ├── scalar_noise.h             Scalar constants, interpolation kernels, and value noise
+│   │   ├── math_constants.h           Scalar mathematical constants and geometric tolerances
+│   │   ├── scalar_kernels.h           Scalar curves and interpolation kernels
+│   │   ├── scalar_noise.h             Scalar hash and value noise
 │   │   ├── vector.h                   Cartesian and spherical vectors with Snorm3 direction packing
 │   │   ├── fast_math.h                Scalar approximations and Cartesian-to-spherical conversion
 │   │   ├── quaternion_complex.h       Quaternion and complex number types

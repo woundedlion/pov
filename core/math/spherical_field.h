@@ -10,6 +10,7 @@
  *        latitude rings over the sphere.
  */
 
+#include "core/math/scalar_kernels.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>

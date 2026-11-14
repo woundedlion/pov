@@ -6,6 +6,7 @@
 
 /** @file fast_math.h @brief Scalar approximations and Cartesian-to-spherical conversion. */
 
+#include <cstring>
 #include "core/math/vector.h"
 
 namespace math {

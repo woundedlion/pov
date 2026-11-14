@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include "core/math/3dmath.h"
 #include "core/color/palette_selection.h"
 #include "core/render/pullback/contract.h"

@@ -7,6 +7,7 @@
 /** @file shade.h
  * @brief Depth appearance, layer compositing and subray filtering. */
 
+#include "core/math/scalar_kernels.h"
 #include <array>
 #include <type_traits>
 #include "core/color/baked_palette.h"

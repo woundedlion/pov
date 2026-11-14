@@ -2,6 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#include "core/math/scalar_kernels.h"
 #include "core/engine/engine.h"
 #include "core/math/display_geometry.h"
 #include "core/render/filter/pixel_feedback.h"

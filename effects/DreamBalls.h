@@ -11,6 +11,7 @@
  *        presets.
  */
 
+#include "core/math/scalar_kernels.h"
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/control/choreography.h"

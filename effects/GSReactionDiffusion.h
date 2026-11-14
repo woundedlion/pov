@@ -10,6 +10,7 @@
  * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
  */
 
+#include "core/math/scalar_noise.h"
 #include "core/platform/effect_identity.h"
 #include <cstring>
 #include <algorithm>

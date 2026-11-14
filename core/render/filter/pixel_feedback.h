@@ -3,6 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
+#include "core/math/scalar_kernels.h"
 #include <algorithm>
 #include <array>
 #include <bitset>

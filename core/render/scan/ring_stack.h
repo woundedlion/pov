@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include "core/render/scan/shapes.h"
 #include "core/render/sdf/ring_knots.h"
 #include <bit>

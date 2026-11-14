@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include <array>
 
 #include "core/animation/orientation.h"

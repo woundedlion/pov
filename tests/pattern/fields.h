@@ -7,6 +7,7 @@
 /** @file fields.h
  * @brief Typed field admission, source formulas and clocks. */
 
+#include "core/math/scalar_noise.h"
 #include <bit>
 #include <limits>
 #include <numbers>

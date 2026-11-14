@@ -7,6 +7,7 @@
 /** @file frame.h
  * @brief Conway morph frame drawing. */
 
+#include "core/math/scalar_kernels.h"
 #include "core/animation/opleg.h"
 #include <cstring>
 

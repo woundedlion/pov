@@ -8,6 +8,7 @@
  * @brief Perceptual color spaces, gamut mapping, and blending.
  */
 
+#include "core/math/scalar_kernels.h"
 #include "core/color/pixel.h"
 #include "core/color/gamut_lut.h"
 #include "core/math/3dmath.h"

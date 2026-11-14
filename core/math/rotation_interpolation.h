@@ -6,6 +6,7 @@
 
 /** @file rotation_interpolation.h @brief Trigonometric kernels and spherical rotation interpolation. */
 
+#include <limits>
 #include "core/math/rotation_math.h"
 
 namespace math {

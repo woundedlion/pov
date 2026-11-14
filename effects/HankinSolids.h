@@ -10,6 +10,7 @@
  * @brief Hankin interlace patterns over Platonic and Archimedean solids.
  */
 
+#include "core/math/scalar_kernels.h"
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"

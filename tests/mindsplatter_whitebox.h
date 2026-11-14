@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"
 #include "effects/MindSplatter.h"

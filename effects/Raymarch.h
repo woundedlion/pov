@@ -10,6 +10,7 @@
  * @brief Twisted-torus SDFs ray-marched at every vertex of a selectable solid.
  */
 
+#include "core/math/scalar_kernels.h"
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "effects/common/palette_recipes.h"

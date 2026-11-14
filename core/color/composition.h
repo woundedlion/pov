@@ -8,6 +8,8 @@
  * @brief Coordinate and color modifiers and static palette composition.
  */
 
+#include "core/math/scalar_noise.h"
+#include "core/math/scalar_kernels.h"
 #include "core/math/3dmath.h"
 #include <tuple>
 #include "core/color/palette.h"

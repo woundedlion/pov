@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include <cmath>
 #include "core/render/filter/pipeline.h"
 #include "core/math/geometry.h"

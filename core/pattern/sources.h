@@ -7,6 +7,7 @@
 /** @file sources.h
  * @brief Shared analytic source kernels and pure preparation. */
 
+#include "core/math/scalar_kernels.h"
 #include "core/pattern/field.h"
 #include "core/math/geometry.h"
 #include "core/math/periodic.h"

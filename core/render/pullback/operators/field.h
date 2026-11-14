@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include "core/math/3dmath.h"
 #include "core/platform/build_features.h"
 

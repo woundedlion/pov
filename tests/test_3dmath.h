@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include "core/math/scalar_noise.h"
+#include "core/math/scalar_kernels.h"
 #include "core/math/3dmath.h"
 #include "core/math/4dmath.h"
 #include "core/math/lenses.h"

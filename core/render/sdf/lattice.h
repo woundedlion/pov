@@ -7,6 +7,7 @@
 /** @file lattice.h
  * @brief Prepared periodic lattice crossings and shading. */
 
+#include "core/math/scalar_kernels.h"
 #include <array>
 #include "core/math/4dmath.h"
 #include "core/math/periodic.h"

@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include <algorithm>
 #include <optional>
 #include <type_traits>
