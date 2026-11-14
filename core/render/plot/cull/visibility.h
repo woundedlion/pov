@@ -361,12 +361,11 @@ struct CapColumns {
  * @return Longitude bounds reusable for every cap center.
  */
 HS_HOT_INLINE inline CapColumns cap_columns(const ClipRegion &cr) {
-  const auto columns = cr.x_clip();
-  if (!columns.active)
+  const ClipRegion::XClip xc = cr.x_clip();
+  if (!xc.active)
     return {0, 0, false, math::TWO_PI_F};
-  const float width = static_cast<float>(columns.length(cr.w));
-  return {(columns.rs + width * 0.5f) * math::TWO_PI_F / cr.w,
-          (width * 0.5f + 1.0f) * math::TWO_PI_F / cr.w, true, math::TWO_PI_F};
+  const CentreHalf band = ColumnBand::of(xc).centre_half<1>(cr.w);
+  return {band.centre, band.half, true, math::TWO_PI_F};
 }
 
 /**

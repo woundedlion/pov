@@ -124,6 +124,12 @@ struct ColumnSpan {
   HS_HOT_INLINE float half() const { return 0.5f * (hi - lo); }
 };
 
+/** @brief Centre and half-width of a padded longitude band. */
+struct CentreHalf {
+  float centre; ///< Band centre longitude, radians, unwrapped past a turn.
+  float half;   ///< Band half-width, radians.
+};
+
 /**
  * @brief A view of a clip's render columns [first(), end<W>()), crossing the
  *        seam when the end passes the width.
@@ -145,6 +151,11 @@ struct ColumnBand {
   /** @return The first render column, in [0, w). */
   HS_HOT_INLINE int first() const { return columns.rs; }
 
+  /** @brief Columns in the band.
+   *  @param w Canvas width in columns.
+   *  @return The band length, counting past the seam; @p w when inactive. */
+  HS_HOT_INLINE int count(int w) const { return columns.length(w); }
+
   /** @brief The exclusive end column, unwrapped past the width.
    *  @tparam W Canvas width in columns.
    *  @return The wrapped end, plus W when the band crosses the seam. */
@@ -157,6 +168,17 @@ struct ColumnBand {
    *  @return (first() - 1, end<W>()). */
   template <int W> HS_HOT_INLINE ColumnSpan tap_reach() const {
     return {static_cast<float>(first() - 1), static_cast<float>(end<W>())};
+  }
+
+  /** @brief Longitude centre and half-width of the band widened by PAD
+   *         columns on each side.
+   *  @tparam PAD Columns added on each side.
+   *  @param w Canvas width in columns.
+   *  @return The padded band's centre and half-width, radians. */
+  template <int PAD> HS_HOT_INLINE CentreHalf centre_half(int w) const {
+    const float width = static_cast<float>(count(w));
+    return {(first() + width * 0.5f) * math::TWO_PI_F / w,
+            (width * 0.5f + PAD) * math::TWO_PI_F / w};
   }
 };
 
