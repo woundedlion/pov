@@ -103,9 +103,9 @@ struct DistortedRingStack {
     constexpr float BIN_SCALE = Table::BINS / math::PI_F;
     for (auto &cell : table.cells)
       cell = typename Table::Range{255, 0};
-    ScratchScope scratch(scratch_arena_b);
-    float *clo = scratch_arena_b.allocate_n<float>(C);
-    float *chi = scratch_arena_b.allocate_n<float>(C);
+    float clo[C], chi[C];
+    static_assert(sizeof(clo) + sizeof(chi) <= 1024,
+                  "chunk bounds must stay a small stack table");
     for (int i = 0; i < n_rings; ++i) {
       const int s = slot_by_ring[i];
       if (s < 0)

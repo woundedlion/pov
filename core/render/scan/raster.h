@@ -1181,6 +1181,7 @@ inline constexpr bool fits_top_span_cap =
  *        supplies p, and a birth fraction skips the columns lit before it.
  *        Each arm is walked separately, so no pole-LOD block spans an arm
  *        boundary.
+ * @param scratch Arena holding the per-row interval buffers for the scan.
  * @param reach Optional callable (int x), invoked under COLUMN_TIME before
  *        column x's basis entries are read for a pixel.
  */
@@ -1189,12 +1190,13 @@ template <int W, int H, bool COLUMN_TIME, bool INLINE_WALK, typename IntervalFn,
 HS_HOT_INLINE inline void
 scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
                  PixelFn &pixel_fn, ClipRegion::XClip xc,
-                 const Scan::ColumnBasis *time, ReachFn reach = {}) {
+                 const Scan::ColumnBasis *time, Arena &scratch,
+                 ReachFn reach = {}) {
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
 
   // Scratch arena owns row intervals; seam splitting needs twice their capacity.
-  ScratchScope scratch(scratch_arena_b);
+  ScratchScope scope(scratch);
   using IntervalBuf = StaticCircularBuffer<SDF::Interval, TOP_SPAN_CAP>;
   using NormBuf = StaticCircularBuffer<SDF::Interval, 2 * TOP_SPAN_CAP>;
   static_assert(IntervalBuf::CAPACITY >= SDF::MergedIntervalBuffer::CAPACITY,
@@ -1202,8 +1204,8 @@ scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
                 "emission (|A|+|B|)");
   static_assert(NormBuf::CAPACITY == 2 * IntervalBuf::CAPACITY,
                 "norm must hold 2 spans per input interval (seam split)");
-  auto &intervals = *scratch_arena_b.make<IntervalBuf>();
-  auto &norm = *scratch_arena_b.make<NormBuf>();
+  auto &intervals = *scratch.make<IntervalBuf>();
+  auto &norm = *scratch.make<NormBuf>();
 
   const float *cos_theta =
       math::TrigLUT<W, H>::cos_theta_data(); // cos via +W/4
@@ -1306,6 +1308,7 @@ scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
  *                 the whole offer, else 1 (never 0).
  * @param xc Column-arc clip; pixel runs are intersected with the arc before
  *           walking, so pixel_fn is never called for a clipped column.
+ * @param scratch Arena holding the per-row interval buffers for the scan.
  * @details Near-pole rows offer only full canvas-aligned blocks of
  * pole_lod_run(sin(phi)) columns; a block a clip or span edge truncates is
  * walked per column.
@@ -1315,9 +1318,10 @@ scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
 inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
-                        PixelFn &&pixel_fn, ClipRegion::XClip xc = {}) {
+                        PixelFn &&pixel_fn, ClipRegion::XClip xc = {},
+                        Arena &scratch = scratch_arena_b) {
   scan_region_body<W, H, false, false>(y_min, y_max, get_intervals, pixel_fn,
-                                       xc, nullptr);
+                                       xc, nullptr, scratch);
 }
 
 /**
@@ -1338,15 +1342,17 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
  *        its slack.
  * @param reach Optional callable (int x), invoked before column x's basis
  *        entries are read for a pixel.
+ * @param scratch Arena holding the per-row interval buffers for the scan.
  */
 template <int W, int H, typename IntervalFn, typename PixelFn,
           typename ReachFn = std::nullptr_t>
 inline void
 scan_region_column_time(int y_min, int y_max, IntervalFn &&get_intervals,
                         PixelFn &&pixel_fn, ClipRegion::XClip xc,
-                        const Scan::ColumnBasis &time, ReachFn reach = {}) {
+                        const Scan::ColumnBasis &time, ReachFn reach = {},
+                        Arena &scratch = scratch_arena_b) {
   scan_region_body<W, H, true, false>(y_min, y_max, get_intervals, pixel_fn, xc,
-                                      &time, reach);
+                                      &time, scratch, reach);
 }
 
 /**
@@ -1363,14 +1369,16 @@ scan_region_column_time(int y_min, int y_max, IntervalFn &&get_intervals,
  * @param pixel_fn See scan_region.
  * @param xc Column-arc clip.
  * @param time Column-time state, read only with COLUMN_TIME.
+ * @param scratch Arena holding the per-row interval buffers for the scan.
  */
 template <int W, int H, bool COLUMN_TIME, typename IntervalFn, typename PixelFn>
 HS_HOT_FLASH_MEMBER void
 scan_region_flash(int y_min, int y_max, IntervalFn &&get_intervals,
                   PixelFn &&pixel_fn, ClipRegion::XClip xc,
-                  const Scan::ColumnBasis *time) {
+                  const Scan::ColumnBasis *time,
+                  Arena &scratch = scratch_arena_b) {
   scan_region_body<W, H, COLUMN_TIME, true>(y_min, y_max, get_intervals,
-                                            pixel_fn, xc, time);
+                                            pixel_fn, xc, time, scratch);
 }
 
 /**

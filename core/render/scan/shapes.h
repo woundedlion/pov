@@ -651,13 +651,15 @@ struct RingGroup {
    * @param shader Per-ring fragment shader.
    * @param time Column-time state with a rotated basis, or null.
    * @param previous_normals Per-slot axes at the previous endpoint, or null.
+   * @param scratch Arena holding the column-time axis and band tables.
    */
   template <int W, int H, bool COLUMN_TIME, bool INLINE_WALK,
             typename PipelineT, typename RingShaderT>
   HS_HOT_INLINE static void
   draw_body(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes, int n,
             RingShaderT &shader, const Scan::ColumnBasis *time,
-            const math::Vector *previous_normals) {
+            const math::Vector *previous_normals,
+            Arena &scratch = scratch_arena_b) {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
 
@@ -666,7 +668,7 @@ struct RingGroup {
     [[maybe_unused]] float sweep = 0.0f;
     [[maybe_unused]] float slot_sweep[MAX_RINGS] = {};
     [[maybe_unused]] float max_slot_sweep = 0.0f;
-    ScratchScope scratch(scratch_arena_b);
+    ScratchScope scope(scratch);
     [[maybe_unused]] float *axis_terms = nullptr;
     [[maybe_unused]] ColumnBand *column_bands = nullptr;
     if constexpr (COLUMN_TIME) {
@@ -745,10 +747,10 @@ struct RingGroup {
                              cover_cos_min);
     }
     if constexpr (COLUMN_TIME) {
-      axis_terms = scratch_arena_b.allocate_n<float>(2 * n * (W / 2));
+      axis_terms = scratch.allocate_n<float>(2 * n * (W / 2));
       fill_column_axes<W, H>(axis_terms, shapes, n, azimuth, up,
                              previous_normals);
-      column_bands = scratch_arena_b.allocate_n<ColumnBand>(W / 2);
+      column_bands = scratch.allocate_n<ColumnBand>(W / 2);
       fill_column_bands(column_bands, axis_terms, W / 2, n, mid, cover_cos_min,
                         cover_cos_max);
     }
