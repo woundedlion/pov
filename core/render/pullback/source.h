@@ -192,7 +192,7 @@ struct ProjectedNoiseSourceParams : NoiseSourceParams {};
 struct SphericalNoiseSourceParams : NoiseSourceParams {
   uint8_t basis =
       static_cast<uint8_t>(math::NoiseBasis::SIMPLEX); ///< Octave basis.
-  static constexpr const char *OPERATOR_ID =
+  static constexpr char OPERATOR_ID[] =
       "sample.spherical-noise.v1"; ///< Catalog identity.
   /// Noise basis selector.
   static constexpr auto TOPOLOGY =

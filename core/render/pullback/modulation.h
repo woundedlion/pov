@@ -381,6 +381,20 @@ struct Params {
   static constexpr auto EVALUATION = EvaluationV; ///< Storage strategy.
   static constexpr bool DYNAMIC =
       DynamicV; ///< Whether presets may change topology.
+  /// Whether the fixed source is directly evaluated noise.
+  static constexpr bool DIRECT_NOISE =
+      !DynamicV && SourceV == Pattern::SourceKind::NOISE &&
+      EvaluationV == Pattern::Evaluation::DIRECT;
+  /// Whether the fixed source is a baked noise cube.
+  static constexpr bool CUBE_NOISE =
+      !DynamicV && SourceV == Pattern::SourceKind::NOISE &&
+      EvaluationV == Pattern::Evaluation::BAKED_CUBE;
+  /// Whether the source may sample sphere space.
+  static constexpr bool SPATIAL =
+      DynamicV || SourceV != Pattern::SourceKind::DISPLACEMENT;
+  /// Whether the source may bake a sphere cube.
+  static constexpr bool CUBE_STORAGE =
+      DynamicV || EvaluationV == Pattern::Evaluation::BAKED_CUBE;
   Config modulation = [] {
     Config value;
     value.source = SourceV;

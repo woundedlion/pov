@@ -816,17 +816,15 @@ template <typename BindingT, ResourceKey Key, Pattern::SourceKind SourceV,
 struct ModulationProvider {
   using Binding = BindingT;                        ///< Pipeline binding.
   using FrameState = typename Binding::FrameState; ///< Frame context.
+  using SourceParams = Modulation::Params<SourceV, EvaluationV,
+                                          DynamicV>; ///< Source family.
   static constexpr bool CACHED_NOISE = [] {
     if constexpr (requires { FrameState::PHASE_NOISE_CACHE; })
-      return FrameState::PHASE_NOISE_CACHE && !DynamicV &&
-             SourceV == Pattern::SourceKind::NOISE &&
-             EvaluationV == Pattern::Evaluation::DIRECT;
+      return FrameState::PHASE_NOISE_CACHE && SourceParams::DIRECT_NOISE;
     return false;
   }(); ///< Whether this source borrows chamber patches.
   /// Whether endpoint noise cubes may share the column color tail.
-  static constexpr bool CUBE_PHASE =
-      !DynamicV && SourceV == Pattern::SourceKind::NOISE &&
-      EvaluationV == Pattern::Evaluation::BAKED_CUBE;
+  static constexpr bool CUBE_PHASE = SourceParams::CUBE_NOISE;
   using PhasePrepared = std::conditional_t<
       CACHED_NOISE, Color::ChamberPhaseModulationState,
       std::conditional_t<CUBE_PHASE, Color::CubePhaseModulationState,

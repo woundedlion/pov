@@ -371,13 +371,9 @@ template <typename Resource>
 struct ResourceModulation<Resource, true>
     : ResourceModulationControls<Resource, Resource::Family::DYNAMIC> {
   static constexpr bool SPATIAL =
-      Resource::Family::DYNAMIC ||
-      Resource::Family::SOURCE !=
-          Pattern::SourceKind::DISPLACEMENT; ///< Spatial capability.
+      Resource::Family::SPATIAL; ///< Spatial capability.
   std::conditional_t<SPATIAL,
-                     Modulation::Resources<Resource::Family::DYNAMIC ||
-                                           Resource::Family::EVALUATION ==
-                                               Pattern::Evaluation::BAKED_CUBE>,
+                     Modulation::Resources<Resource::Family::CUBE_STORAGE>,
                      std::monostate>
       modulation_resources; ///< Source cache.
 };
@@ -398,9 +394,7 @@ template <typename Resource> struct ResourceModulationView<Resource, true> {
 template <typename Resource>
 inline constexpr bool RESOURCE_DIRECT_NOISE = [] {
   if constexpr (Resource::KIND == ResourceKind::MODULATION)
-    return !Resource::Family::DYNAMIC &&
-           Resource::Family::SOURCE == Pattern::SourceKind::NOISE &&
-           Resource::Family::EVALUATION == Pattern::Evaluation::DIRECT;
+    return Resource::Family::DIRECT_NOISE;
   return false;
 }();
 
@@ -436,14 +430,10 @@ struct ResourceModulationHistory {};
  * @tparam Resource Keyed modulation resource. */
 template <typename Resource> struct ResourceModulationHistory<Resource, true> {
   static constexpr bool SPATIAL =
-      Resource::Family::DYNAMIC ||
-      Resource::Family::SOURCE !=
-          Pattern::SourceKind::DISPLACEMENT; ///< Source capability.
+      Resource::Family::SPATIAL; ///< Source capability.
   std::conditional_t<SPATIAL, Modulation::Prepared, std::monostate>
       modulation; ///< Retained inputs.
-  std::array<int8_t, SPATIAL && (Resource::Family::DYNAMIC ||
-                                 Resource::Family::EVALUATION ==
-                                     Pattern::Evaluation::BAKED_CUBE)
+  std::array<int8_t, SPATIAL && Resource::Family::CUBE_STORAGE
                          ? Pattern::SphereLutView::SIZE
                          : 0>
       table{}; ///< Retained cube.
@@ -453,41 +443,50 @@ template <typename Resource> struct ResourceModulationHistory<Resource, true> {
 template <typename Resource>
 struct ResourceClock : ClockState<typename Resource::Family, Resource::KIND> {};
 
-/// Whether `Resource`'s family samples a FastNoiseLite field.
-template <typename Resource>
-inline constexpr bool RESOURCE_NOISE =
-    std::is_base_of_v<Warp::VectorNoiseParams, typename Resource::Family> ||
-    std::is_base_of_v<Warp::CurlFlowParams, typename Resource::Family> ||
-    std::is_base_of_v<Source::ProjectedNoiseSourceParams,
-                      typename Resource::Family> ||
-    std::is_base_of_v<Source::SphericalNoiseSourceParams,
-                      typename Resource::Family> ||
-    std::is_base_of_v<Surface::SurfaceNoiseParams, typename Resource::Family> ||
-    std::is_base_of_v<Surface::DirectSurfaceParams, typename Resource::Family>;
+/** @brief One noise-consuming parameter family and its catalog identity.
+ * @tparam Base Family base class; derived families match it.
+ * @tparam Id Versioned operator identity. */
+template <typename Base, ResourceKey Id> struct NoiseFamily {
+  using Type = Base;                                ///< Matched base family.
+  static constexpr std::string_view ID = Id.view(); ///< Operator identity.
+};
+
+/// Families that sample a FastNoiseLite field, in match order.
+using NoiseFamilies = Detail::TypeList<
+    NoiseFamily<Warp::VectorNoiseParams, "warp.vector-noise.v2">,
+    NoiseFamily<Warp::CurlFlowParams, "warp.curl-flow.v2">,
+    NoiseFamily<Source::ProjectedNoiseSourceParams,
+                "sample.projected-noise.v2">,
+    NoiseFamily<Source::SphericalNoiseSourceParams,
+                Source::SphericalNoiseSourceParams::OPERATOR_ID>,
+    NoiseFamily<Surface::SurfaceNoiseParams, "sphere.displace.curl.v2">,
+    NoiseFamily<Surface::DirectSurfaceParams, "sphere.displace.direct.v2">>;
+
+/** @brief Identity of the first `NoiseFamilies` row `Family` derives from.
+ * @tparam Family Parameter family.
+ * @tparam Rows `NoiseFamily` rows.
+ * @return The row's operator identity, or empty when no row matches. */
+template <typename Family, typename... Rows>
+consteval std::string_view noise_row_id(Detail::TypeList<Rows...>) {
+  std::string_view id;
+  ((id.empty() && std::is_base_of_v<typename Rows::Type, Family>
+        ? void(id = Rows::ID)
+        : void()),
+   ...);
+  return id;
+}
 
 /** @brief Catalog identity of a noise-consuming parameter family.
  * @tparam Family Parameter family.
  * @return Versioned operator identity, or empty for a non-noise family. */
 template <typename Family> consteval std::string_view noise_operator_id() {
-  if constexpr (requires { Family::OPERATOR_ID; })
-    return Family::OPERATOR_ID;
-  else if constexpr (std::is_base_of_v<Warp::VectorNoiseParams, Family>)
-    return "warp.vector-noise.v2";
-  else if constexpr (std::is_base_of_v<Warp::CurlFlowParams, Family>)
-    return "warp.curl-flow.v2";
-  else if constexpr (std::is_base_of_v<Source::ProjectedNoiseSourceParams,
-                                       Family>)
-    return "sample.projected-noise.v2";
-  else if constexpr (std::is_base_of_v<Source::SphericalNoiseSourceParams,
-                                       Family>)
-    return "sample.spherical-noise.v1";
-  else if constexpr (std::is_base_of_v<Surface::SurfaceNoiseParams, Family>)
-    return "sphere.displace.curl.v2";
-  else if constexpr (std::is_base_of_v<Surface::DirectSurfaceParams, Family>)
-    return "sphere.displace.direct.v2";
-  else
-    return {};
+  return noise_row_id<Family>(NoiseFamilies{});
 }
+
+/// Whether `Resource`'s family samples a FastNoiseLite field.
+template <typename Resource>
+inline constexpr bool RESOURCE_NOISE =
+    !noise_operator_id<typename Resource::Family>().empty();
 
 /** @brief Persistent ripple scheduler, empty for other families.
  * @tparam Resource Keyed resource.
