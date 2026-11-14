@@ -130,6 +130,36 @@ struct CentreHalf {
   float half;   ///< Band half-width, radians.
 };
 
+/** @brief How a longitude band's two bounding half-planes combine. */
+enum class MeridianTest : uint8_t {
+  NONE,   ///< The band spans the turn; every longitude passes.
+  BOTH,   ///< The band spans at most half a turn; it lies in both.
+  EITHER, ///< The band spans more than half a turn; it lies in either.
+};
+
+/** @brief A longitude band's bounding meridian half-planes. */
+struct HalfPlanes {
+  float start; ///< Band start longitude, radians.
+  float end;   ///< Band end longitude, radians.
+  float width; ///< Band width, radians.
+
+  /** @return How the half-planes combine: none for a band of a full turn. */
+  HS_HOT_INLINE MeridianTest test() const {
+    if (width >= 2.0f * math::PI_F)
+      return MeridianTest::NONE;
+    return width <= math::PI_F ? MeridianTest::BOTH : MeridianTest::EITHER;
+  }
+
+  /** @return Normal of the start meridian's half-plane holding the band. */
+  HS_HOT_INLINE math::Vector first() const {
+    return {-sinf(start), 0.0f, cosf(start)};
+  }
+  /** @return Normal of the end meridian's half-plane holding the band. */
+  HS_HOT_INLINE math::Vector second() const {
+    return {sinf(end), 0.0f, -cosf(end)};
+  }
+};
+
 /**
  * @brief A view of a clip's render columns [first(), end<W>()), crossing the
  *        seam when the end passes the width.
@@ -168,6 +198,21 @@ struct ColumnBand {
    *  @return (first() - 1, end<W>()). */
   template <int W> HS_HOT_INLINE ColumnSpan tap_reach() const {
     return {static_cast<float>(first() - 1), static_cast<float>(end<W>())};
+  }
+
+  /** @brief Bounding half-planes of the band's column cells widened by
+   *         @p margin columns on each side.
+   *  @tparam W Canvas width in columns.
+   *  @param margin Columns added on each side.
+   *  @return The half-planes of [first() - 0.5 - margin, first() + count(W) -
+   *          0.5 + margin] in column units. */
+  template <int W>
+  HS_HOT_INLINE HalfPlanes cell_half_planes(float margin) const {
+    const float start =
+        (float(first()) - 0.5f - margin) * math::RADIANS_PER_COLUMN<W>;
+    const float width =
+        (float(count(W)) + 2.0f * margin) * math::RADIANS_PER_COLUMN<W>;
+    return {start, start + width, width};
   }
 
   /** @brief Longitude centre and half-width of the band widened by PAD

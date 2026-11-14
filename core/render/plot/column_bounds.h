@@ -36,21 +36,17 @@ template <int W> struct SweptEdgeCull {
     if (!columns.active)
       return;
     constexpr float MARGIN = 2.0f;
-    const float start =
-        (float(columns.rs) - 0.5f - MARGIN) * math::RADIANS_PER_COLUMN<W>;
-    const float width = (float(columns.length(W)) + 2.0f * MARGIN) *
-                        math::RADIANS_PER_COLUMN<W>;
-    if (width >= 2.0f * math::PI_F)
-      return;
-    const float end = start + width;
-    if (width <= math::PI_F) {
+    const HalfPlanes planes =
+        ColumnBand::of(columns).cell_half_planes<W>(MARGIN);
+    const MeridianTest test = planes.test();
+    if (test == MeridianTest::BOTH) {
       mode = 1;
-      first = {-sinf(start), 0.0f, cosf(start)};
-      second = {sinf(end), 0.0f, -cosf(end)};
-    } else {
+      first = planes.first();
+      second = planes.second();
+    } else if (test == MeridianTest::EITHER) {
       mode = 2;
-      first = {-sinf(end), 0.0f, cosf(end)};
-      second = {sinf(start), 0.0f, -cosf(start)};
+      first = {-sinf(planes.end), 0.0f, cosf(planes.end)};
+      second = {sinf(planes.start), 0.0f, -cosf(planes.start)};
     }
   }
 
