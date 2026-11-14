@@ -1515,6 +1515,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
 │   │   │   ├── column_chain.h          Chained edges drawn at column times through a point route and column-walk chunks
 │   │   │   ├── contour_layout.h        Concentric contour radii, waveform and draw-order tables
+│   │   │   ├── flat_contour_stack.h    Concentric contours rasterized at the frame-end orientation
 │   │   │   ├── timed_contour_stack.h   Concentric twisting contours drawn at column times
 │   │   │   └── cull/                   Cull region, edge samplers, span tests and visibility gates behind cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:

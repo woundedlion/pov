@@ -15,6 +15,7 @@
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/render/plot/contour_layout.h"
+#include "core/render/plot/flat_contour_stack.h"
 #include "core/render/plot/timed_contour_stack.h"
 #include "core/render/scan/radial_star_surface.h"
 
@@ -115,7 +116,7 @@ public:
     layout.init_storage(persistent_arena);
     star_chords.init_storage(persistent_arena, Plot::CONTOUR_MAX_VERTICES);
     timed_stack.init_storage(persistent_arena);
-    flower_split.init_storage(persistent_arena, FLOWER_MAX_POINTS);
+    flat_stack.init_storage(persistent_arena);
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT));
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::X_AXIS, noise,
                                              {}, hs::rand_int(0, 65536)));
@@ -422,8 +423,6 @@ private:
         hs::clamp(static_cast<int>(params.sides), static_cast<int>(SIDES_MIN),
                   static_cast<int>(SIDES_MAX));
     const ShapeType shape = selected_shape();
-    const bool dense_contours =
-        static_cast<float>(count) >= Plot::DENSE_CONTOUR_COUNT;
     const bool planar_star = shape == ShapeType::PLANAR_STAR;
     if (planar_star)
       layout.prepare_star_sides(sides);
@@ -450,43 +449,11 @@ private:
         draw_pole_caps_at_columns(canvas, count, sides, palette);
       return;
     }
-    const math::Basis basis = math::make_basis(orientation.get(), math::X_AXIS);
-    const ClipRegion &clip = canvas.clip();
-    Plot::CapCenter near_cap{}, far_cap{};
-    if (planar_star) {
-      near_cap = Plot::make_cap_center(clip, basis.v);
-      far_cap = Plot::make_cap_center(clip, -basis.v);
-    }
-
-    if (planar_star && dense_contours)
-      star_chords.prepare(clip);
-    if (shape == ShapeType::FLOWER)
-      flower_band = Plot::ClipBand<W, H>::of(clip);
-
-    Color4 pair_color;
-    const float global_alpha = alpha * preset_opacity;
-    const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
-    for (int ordinal = 0; ordinal < count; ++ordinal) {
-      const Plot::ContourSlot slot =
-          layout.slot(ordinal, count, continuous_star, palette, pair_color);
-      const int i = slot.i;
-      const float radius = slot.radius;
-      if (planar_star && !Plot::planar_star_cap_visible<W, H>(
-                             clip, near_cap, far_cap, radius, 0.0f))
-        continue;
-      const Plot::ContourShading shading =
-          layout.shading(i, radius, continuous_star, params.opposite,
-                         params.amplitude, pair_color, global_alpha);
-      const float contour_phase = shading.contour_phase;
-      const Color4 shaded_color = shading.shaded_color;
-      auto shader = [&](const math::Vector &, Fragment &fragment) {
-        fragment.color = shaded_color;
-      };
-      dispatch_plot(canvas, basis, shape, radius, sides, shader, contour_phase,
-                    shaded_color, i, dense_contours);
-    }
+    flat_stack.draw(canvas, plot_filters, star_chords, layout, frame);
     if (planar_star)
-      draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
+      draw_planar_star_pole_caps(
+          canvas, math::make_basis(orientation.get(), math::X_AXIS), count,
+          sides, palette);
   }
 
   /** @brief The continuous star surface's inputs for this frame.
@@ -544,199 +511,6 @@ private:
       return wrapped < 0.5f ? 1.0f : -1.0f;
     }
     return 0.0f;
-  }
-
-  static constexpr Plot::RasterConfig SAMPLED_RASTER_CONFIG{
-      .single_pass = true,
-      .derive_planar_arc_registers = false,
-      .interpolate_registers = false,
-      .sampling_policy = Plot::RasterSamplingPolicy::SELECTABLE};
-
-  /**
-   * @brief Plot-rasterizes an open polyline sampled into scratch storage.
-   * @tparam F Fragment-shader callable type.
-   * @param canvas Target canvas.
-   * @param capacity Fragment slots to bind for the sampler.
-   * @param planar_basis Azimuthal-equidistant chart for the edges, or nullptr
-   * for geodesic edges.
-   * @param balanced_sampling Selects the balanced raster sampling policy.
-   * @param fragment_shader Per-fragment shader.
-   * @param fill Callable that samples the primitive into the bound fragments.
-   */
-  template <typename F>
-  HS_HOT_FLASH_MEMBER void
-  draw_sampled(Canvas &canvas, size_t capacity, const math::Basis *planar_basis,
-               bool balanced_sampling, const F &fragment_shader, auto &&fill) {
-    ScratchScope guard(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, capacity);
-    fill(points);
-    Plot::rasterize<W, H, SAMPLED_RASTER_CONFIG>(
-        plot_filters, canvas, points, fragment_shader,
-        {.projection = planar_basis
-                           ? Plot::RasterProjection::planar(*planar_basis)
-                           : Plot::RasterProjection{},
-         .omit_end = true,
-         .balanced_sampling = balanced_sampling});
-  }
-
-  /**
-   * @brief Strokes a planar star with Plot::PlanarChords.
-   * @tparam F Fragment-shader callable type.
-   * @param canvas Target canvas.
-   * @param basis Shared shape basis.
-   * @param radius Shape radius in [0, 2].
-   * @param sides Star point count.
-   * @param fragment_shader Per-fragment shader, used by the pole runs.
-   * @param color Contour color.
-   * @param phase Star rotation in radians.
-   * @param contour_index Contour slot in the baked radius-trig table.
-   * @details Used from Plot::DENSE_CONTOUR_COUNT contours up.
-   */
-  template <typename F>
-  HS_FLASH_MEMBER void
-  draw_dense_planar_star(Canvas &canvas, const math::Basis &basis, float radius,
-                         int sides, const F &fragment_shader,
-                         const Color4 &color, float phase, int contour_index) {
-    ScratchScope guard(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, static_cast<size_t>(sides * 2 + 2));
-    math::Basis projection_basis;
-    const math::Basis &planar_basis =
-        *Plot::PlanarProjection::edge_basis(basis, radius, projection_basis);
-    Plot::Star<Plot::PlanarProjection>::sample_chart_positions(
-        points, star_chords.chart_x(), star_chords.chart_y(), basis, radius,
-        sides, phase, layout.radius_trig(contour_index),
-        layout.star_step_trig(), planar_basis);
-    star_chords.draw_closed(plot_filters, canvas, points, sides * 2,
-                            planar_basis, color, fragment_shader);
-  }
-
-  /** @brief Each of the 2 * sides flower edges takes FLOWER_PIECE_BUDGET / sides
-   *  pieces, for at most 2 * FLOWER_PIECE_BUDGET pieces per flower. */
-  static constexpr int FLOWER_PIECE_BUDGET = 24;
-  static constexpr int FLOWER_MAX_POINTS =
-      Plot::PlanarBandSplit<W, H>::max_points(2, FLOWER_PIECE_BUDGET);
-  static_assert(2 * static_cast<int>(SIDES_MAX) <= 2 * FLOWER_PIECE_BUDGET);
-
-  /**
-   * @brief Rasterizes a flower with its petal edges split against the clip
-   *        band by Plot::PlanarBandSplit.
-   * @tparam F Fragment-shader callable type.
-   * @param canvas Target canvas.
-   * @param basis Shared shape basis.
-   * @param planar_basis The flower's azimuthal-equidistant chart.
-   * @param radius Shape radius in [0, 2].
-   * @param sides Petal count.
-   * @param fragment_shader Per-fragment shader.
-   * @param phase Flower rotation in radians.
-   */
-  template <typename F>
-  HS_FLASH_MEMBER void
-  draw_banded_flower(Canvas &canvas, const math::Basis &basis,
-                     const math::Basis &planar_basis, float radius, int sides,
-                     const F &fragment_shader, float phase) {
-    const int edges = sides * 2;
-    const int pieces = std::max(1, FLOWER_PIECE_BUDGET / sides);
-    ScratchScope guard(scratch_arena_a);
-    Fragments ring;
-    ring.bind(scratch_arena_a, static_cast<size_t>(edges + 1));
-    Plot::Flower::sample(ring, basis, radius, sides, phase);
-    Fragments path;
-    path.bind(scratch_arena_a,
-              static_cast<size_t>(
-                  Plot::PlanarBandSplit<W, H>::max_points(edges, pieces)));
-    const std::span<const uint8_t> flags = flower_split.split(
-        path, ring, edges, pieces, planar_basis, flower_band);
-    Plot::rasterize<W, H, SAMPLED_RASTER_CONFIG>(
-        plot_filters, canvas, path, fragment_shader,
-        {.projection = Plot::RasterProjection::planar(planar_basis, flags),
-         .omit_end = true});
-  }
-
-  /**
-   * @brief Samples the selected primitive and draws it.
-   * @tparam F Fragment-shader callable type.
-   * @param canvas Target canvas.
-   * @param basis Shared shape basis.
-   * @param shape Primitive to draw.
-   * @param radius Shape radius in [0, 2]; above 1 the shape wraps past the
-   * pole and is charted about the antipode.
-   * @param sides Polygon side, flower petal, or star point count.
-   * @param fragment_shader Per-fragment shader.
-   * @param shape_phase Primitive rotation in radians.
-   * @param shape_color Color applied to this shape.
-   * @param contour_index Index of this contour in the stack.
-   * @param dense_contours Whether the stack is at or above Plot::DENSE_CONTOUR_COUNT
-   * contours, selecting the screen-step-balanced star paths.
-   * @details Cold (flash); the hot work is inside Plot::rasterize.
-   */
-  template <typename F>
-  HS_FLASH_MEMBER void
-  dispatch_plot(Canvas &canvas, const math::Basis &basis, ShapeType shape,
-                float radius, int sides, const F &fragment_shader,
-                float shape_phase, const Color4 &shape_color, int contour_index,
-                bool dense_contours) {
-    HS_PROFILE(ss_plot_dispatch);
-    switch (shape) {
-    case ShapeType::PLANAR_POLYGON: {
-      math::Basis projection_basis;
-      const math::Basis &planar_basis =
-          *Plot::PlanarProjection::edge_basis(basis, radius, projection_basis);
-      draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis, false,
-                   fragment_shader, [&](Fragments &points) {
-                     Plot::Polygon<Plot::PlanarProjection>::sample(
-                         points, basis, radius, sides, shape_phase);
-                   });
-      break;
-    }
-    case ShapeType::SPHERICAL_POLYGON:
-      draw_sampled(canvas, static_cast<size_t>(sides + 2), nullptr, false,
-                   fragment_shader, [&](Fragments &points) {
-                     Plot::Polygon<Plot::GeodesicProjection>::sample(
-                         points, basis, radius, sides, shape_phase);
-                   });
-      break;
-    case ShapeType::FLOWER: {
-      math::Basis planar_basis =
-          Plot::planar_chart_basis(math::get_antipode(basis, radius).first.v);
-      if (flower_band.x_active) {
-        draw_banded_flower(canvas, basis, planar_basis, radius, sides,
-                           fragment_shader, shape_phase);
-        break;
-      }
-      draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
-                   false, fragment_shader, [&](Fragments &points) {
-                     Plot::Flower::sample(points, basis, radius, sides,
-                                          shape_phase);
-                   });
-      break;
-    }
-    case ShapeType::PLANAR_STAR: {
-      if (dense_contours) {
-        draw_dense_planar_star(canvas, basis, radius, sides, fragment_shader,
-                               shape_color, shape_phase, contour_index);
-        break;
-      }
-      math::Basis projection_basis;
-      const math::Basis &planar_basis =
-          *Plot::PlanarProjection::edge_basis(basis, radius, projection_basis);
-      draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
-                   false, fragment_shader, [&](Fragments &points) {
-                     Plot::Star<Plot::PlanarProjection>::sample_positions(
-                         points, basis, radius, sides, shape_phase);
-                   });
-      break;
-    }
-    case ShapeType::SPHERICAL_STAR:
-      draw_sampled(
-          canvas, static_cast<size_t>(sides * 2 + 2), nullptr, dense_contours,
-          fragment_shader, [&](Fragments &points) {
-            Plot::Star<Plot::GeodesicProjection>::sample_continuous_positions(
-                points, basis, radius, sides, shape_phase);
-          });
-      break;
-    }
   }
 
   static constexpr size_t PRESET_COUNT = 9;
@@ -856,8 +630,8 @@ private:
   BakedPaletteStorage baked_toward_equator;
   Plot::ContourLayout<MAX_SHAPES> layout;
   Plot::PlanarChords<W, H> star_chords;
-  Plot::PlanarBandSplit<W, H> flower_split;
-  Plot::ClipBand<W, H> flower_band;
+  /** @brief Contours drawn at the frame's end orientation. */
+  Plot::FlatContourStack<W, H> flat_stack;
   int prepared_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
   float alpha = 1.0f;
@@ -876,20 +650,13 @@ private:
   float twist_step = 0.0f;  ///< Waveform phase advance over this frame, turns.
   bool twist_ready = false; ///< Whether the phase continues the last frame.
 
-  static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
-                !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
   static constexpr size_t SURFACE_SCRATCH_A_BYTES = 32 * 1024;
   static constexpr size_t SURFACE_SCRATCH_B_BYTES = 32 * 1024;
   static_assert(Plot::TimedContourStack<W, H>::scratch_a_bytes() <=
                     SURFACE_SCRATCH_A_BYTES,
                 "ShapeShifter column storage exceeds scratch_a");
-  static constexpr size_t SCRATCH_A_PEAK_BYTES = std::max(
-      (2 * static_cast<size_t>(SIDES_MAX) + 2) * sizeof(Fragment) +
-          alignof(Fragment) + Plot::PlanarChords<W, H>::scratch_a_bytes(),
-      (2 * static_cast<size_t>(SIDES_MAX) + 1 + FLOWER_MAX_POINTS) *
-              sizeof(Fragment) +
-          2 * alignof(Fragment));
-  static_assert(SCRATCH_A_PEAK_BYTES <= SURFACE_SCRATCH_A_BYTES,
+  static_assert(Plot::FlatContourStack<W, H>::scratch_a_bytes() <=
+                    SURFACE_SCRATCH_A_BYTES,
                 "ShapeShifter nested contour buffers exceed scratch_a");
   using Surface = Scan::RadialStarSurface<W, H, SURFACE_SIDES>;
   static_assert(Surface::scratch_a_bytes() <= SURFACE_SCRATCH_A_BYTES);
@@ -898,7 +665,7 @@ private:
       Plot::ContourLayout<MAX_SHAPES>::storage_bytes() +
       2 * BakedPalette::required_arena_bytes() +
       Plot::PlanarChords<W, H>::storage_bytes(Plot::CONTOUR_MAX_VERTICES) +
-      Plot::PlanarBandSplit<W, H>::storage_bytes(FLOWER_MAX_POINTS) +
+      Plot::FlatContourStack<W, H>::storage_bytes() +
       Plot::TimedContourStack<W, H>::storage_bytes();
   static_assert(FOOTPRINT_BYTES <=
                     ArenaSplit{SURFACE_SCRATCH_A_BYTES, SURFACE_SCRATCH_B_BYTES}
