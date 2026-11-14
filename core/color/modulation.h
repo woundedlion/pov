@@ -135,6 +135,20 @@ inline bool valid(const Params &params) {
                                     : params.kind == Mechanic::HUE_ROTATION &&
                                           Pattern::finite(params.amount);
 }
+/** @brief Tests whether an enabled layer changes color.
+ * @param enabled Layer enable.
+ * @param params Mechanic controls.
+ * @return Whether the layer is enabled with nonzero strength. */
+HS_HOT_INLINE inline bool active(bool enabled, const Params &params) {
+  return enabled && params.amount != 0.0f;
+}
+/** @brief Tests whether a layer is inert or only rotates hue.
+ * @param enabled Layer enable.
+ * @param params Mechanic controls.
+ * @return Whether the layer leaves everything but hue unchanged. */
+HS_HOT_INLINE inline bool hue_only(bool enabled, const Params &params) {
+  return !active(enabled, params) || params.kind == Mechanic::HUE_ROTATION;
+}
 /** @brief Validates a selected mechanic.
  * @param params Selected mechanic controls. */
 inline void validate(const Params &params) {

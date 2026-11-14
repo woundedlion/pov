@@ -161,6 +161,13 @@ struct PhaseScratch {
   bool cube_tap_ready = false;         ///< Whether `cube_tap` is resolved.
 };
 
+/** @brief Whether a frame fraction is an interval weight in (0, 1].
+ * @param fraction Frame fraction.
+ * @return Whether the fraction lies in (0, 1]. */
+HS_HOT_INLINE constexpr bool interval_fraction(float fraction) {
+  return fraction > 0.0f && fraction <= 1.0f;
+}
+
 /** @brief Blends normalized hue endpoints over the shortest unit-period arc.
  * @param previous Retained hue in [0, 1).
  * @param current Current hue in [0, 1).
@@ -1891,14 +1898,14 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
       using Palette = typename CurrentNode::Descriptor::ColorPolicy;
       using Layer = typename NodeAt<Index + 1>::Descriptor::ColorPolicy;
       Color4 result;
-      if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction <= 1.0f &&
+      if (interval_fraction(ctx.temporal.fraction) &&
           Palette::template shade_cached_phase<Layer>(
               input, std::get<Index>(prepared), std::get<Index + 1>(prepared),
               result))
         return result;
     }
     if constexpr (fused_color_tail_supported<Index, Input>()) {
-      if (ctx.temporal.fraction > 0.0f && ctx.temporal.fraction <= 1.0f) {
+      if (interval_fraction(ctx.temporal.fraction)) {
         using Palette = typename CurrentNode::Descriptor::ColorPolicy;
         using Instrumentation = typename Binding::Instrumentation;
         const auto start = Instrumentation::mark();

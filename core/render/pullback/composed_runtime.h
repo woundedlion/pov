@@ -401,10 +401,8 @@ public:
               bool hue_only = true;
               current.params.visit([&]<typename Resource>(const auto &family) {
                 if constexpr (Resource::KIND == ResourceKind::MODULATION)
-                  if (family.modulation.enabled &&
-                      family.modulation.mechanic.amount != 0.0f &&
-                      family.modulation.mechanic.kind !=
-                          ColorModulation::Mechanic::HUE_ROTATION)
+                  if (!ColorModulation::hue_only(family.modulation.enabled,
+                                                 family.modulation.mechanic))
                     hue_only = false;
               });
               if (hue_only) {

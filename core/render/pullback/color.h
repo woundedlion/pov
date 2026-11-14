@@ -513,6 +513,80 @@ struct ModulationState {
       false; ///< Immutable endpoints admit shared cube taps.
 };
 
+/** @brief Interval-base cache tier of a borrowed palette view. */
+enum class CacheTier : uint8_t {
+  NONE, ///< No OKLab rows, or only one RGB hue table.
+  LAB,  ///< OKLab rows without RGB hue tables.
+  RGB   ///< OKLab rows with both RGB hue tables.
+};
+
+/** @brief Cache tier of a borrowed palette view.
+ * @param lab Interval cache view.
+ * @return The view's tier. */
+HS_HOT_INLINE inline CacheTier cache_tier(const PaletteLabTimeView &lab) {
+  if (!lab.low)
+    return CacheTier::NONE;
+  if (lab.rgb_low && lab.rgb_high)
+    return CacheTier::RGB;
+  return !lab.rgb_low && !lab.rgb_high ? CacheTier::LAB : CacheTier::NONE;
+}
+
+/** @brief Whether a modulation layer changes color.
+ * @param modulation Layer controls.
+ * @return Whether the layer is enabled with nonzero strength. */
+HS_HOT_INLINE inline bool modulation_active(const ModulationState &modulation) {
+  return ColorModulation::active(modulation.enabled, modulation.mechanic);
+}
+
+/** @brief Whether a modulation layer is inert or only rotates hue.
+ * @param modulation Layer controls.
+ * @return Whether the layer leaves everything but hue unchanged. */
+HS_HOT_INLINE inline bool hue_only(const ModulationState &modulation) {
+  return ColorModulation::hue_only(modulation.enabled, modulation.mechanic);
+}
+
+/** @brief Finishing route of a cached palette followed by one layer. */
+enum class CachedColorPath : uint8_t {
+  CANONICAL,       ///< Canonical endpoint blending.
+  RGB_PHASE,       ///< RGB hue tables at one column phase.
+  LAB_ENDPOINT,    ///< OKLab rows at the current endpoint.
+  LAB_HUE_INTERVAL ///< OKLab rows with an interpolated hue.
+};
+
+/** @brief Selects the cached finishing route of a palette and one layer.
+ * @param prepared Palette endpoints and cache view.
+ * @param modulation Layer controls.
+ * @param fraction Column endpoint weight.
+ * @param phase_ready Whether the layer admits one shared column phase.
+ * @return The admitted route, or CANONICAL. */
+HS_HOT_INLINE inline CachedColorPath
+cached_color_path(const TemporalGeneratedPaletteState &prepared,
+                  const ModulationState &modulation, float fraction,
+                  bool phase_ready) {
+  const bool flat =
+      prepared.current.brightness_envelope == BrightnessEnvelope::NONE;
+  switch (cache_tier(prepared.lab)) {
+  case CacheTier::RGB:
+    return interval_fraction(prepared.fraction) && flat && phase_ready &&
+                   hue_only(modulation)
+               ? CachedColorPath::RGB_PHASE
+               : CachedColorPath::CANONICAL;
+  case CacheTier::LAB:
+    if (fraction == 1.0f && prepared.fraction == 1.0f && flat &&
+        hue_only(modulation))
+      return CachedColorPath::LAB_ENDPOINT;
+    if (fraction == prepared.fraction && fraction > 0.0f && fraction < 1.0f &&
+        modulation_active(modulation) &&
+        modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
+        flat)
+      return CachedColorPath::LAB_HUE_INTERVAL;
+    return CachedColorPath::CANONICAL;
+  case CacheTier::NONE:
+    break;
+  }
+  return CachedColorPath::CANONICAL;
+}
+
 /** @brief Eligible spatial source prepared at the column phase. */
 struct PhaseModulationState : ModulationState {
   /// Interpolated axial phases; a directional sine uses the first wave.
@@ -655,16 +729,12 @@ shade_cached_phase(const FieldSample &sample,
                    const Phase &modulation, Color4 &output)
   requires std::is_base_of_v<PhaseModulationState, Phase>
 {
-  if (!prepared.lab.low || !prepared.lab.rgb_low || !prepared.lab.rgb_high ||
-      prepared.fraction <= 0.0f || prepared.fraction > 1.0f ||
-      prepared.current.brightness_envelope != BrightnessEnvelope::NONE ||
-      !modulation.ready ||
-      (modulation.enabled && modulation.mechanic.amount != 0.0f &&
-       modulation.mechanic.kind != ColorModulation::Mechanic::HUE_ROTATION))
+  if (cached_color_path(prepared, modulation, prepared.fraction,
+                        modulation.ready) != CachedColorPath::RGB_PHASE)
     return false;
   PhaseScratch scratch;
   const float hue =
-      modulation.enabled && modulation.mechanic.amount != 0.0f
+      modulation_active(modulation)
           ? accumulate_hue(0.0f,
                            Color::sample_phase_scalar<Phase, SinePhase>(
                                sample, modulation, scratch),
@@ -1168,7 +1238,7 @@ private:
     float current_hue = 0.0f;
     float previous_lift = 0.0f;
     float current_lift = 0.0f;
-    if (modulation.enabled && modulation.mechanic.amount != 0.0f) {
+    if (modulation_active(modulation)) {
       const auto scalars = sample_fused_scalars(sample, modulation);
       const auto apply = [&](Color4 &color, float &hue, float &lift,
                              float scalar) {
@@ -1237,19 +1307,15 @@ public:
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
     if constexpr (LAB_CACHE)
-      if (fraction == 1.0f && prepared.fraction == 1.0f && prepared.lab.low &&
-          !prepared.lab.rgb_low && !prepared.lab.rgb_high &&
-          prepared.current.brightness_envelope == BrightnessEnvelope::NONE &&
-          (!modulation.enabled || modulation.mechanic.amount == 0.0f ||
-           modulation.mechanic.kind ==
-               ColorModulation::Mechanic::HUE_ROTATION)) {
+      switch (cached_color_path(prepared, modulation, fraction, false)) {
+      case CachedColorPath::LAB_ENDPOINT: {
         const auto &state = prepared.current;
         const float value = palette_mapping_coordinate(
             sample.value, state.mapping, state.mapping_frequency,
             state.mapping_offset);
         const float opacity = palette_opacity(sample, state);
         const float hue = [&] {
-          if (!modulation.enabled || modulation.mechanic.amount == 0.0f)
+          if (!modulation_active(modulation))
             return 0.0f;
           const float scalar = [&] {
             if (modulation.source == Pattern::SourceKind::DISPLACEMENT)
@@ -1274,13 +1340,7 @@ public:
               return finish_color_sample(canonical);
             });
       }
-    if constexpr (LAB_CACHE)
-      if (prepared.lab.low && fraction == prepared.fraction &&
-          !prepared.lab.rgb_low && !prepared.lab.rgb_high && fraction > 0.0f &&
-          fraction < 1.0f && modulation.enabled &&
-          modulation.mechanic.amount != 0.0f &&
-          modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
-          prepared.current.brightness_envelope == BrightnessEnvelope::NONE) {
+      case CachedColorPath::LAB_HUE_INTERVAL: {
         const auto scalars = sample_fused_scalars(sample, modulation);
         const auto &state = prepared.current;
         const float value = palette_mapping_coordinate(
@@ -1298,6 +1358,10 @@ public:
               restore_fused_palette_base(canonical, prepared, fraction);
               return finish_color_sample(canonical);
             });
+      }
+      case CachedColorPath::CANONICAL:
+      case CachedColorPath::RGB_PHASE:
+        break;
       }
     ColorSample result;
     prepare_fused_modulation(result, sample, prepared, modulation, fraction);
