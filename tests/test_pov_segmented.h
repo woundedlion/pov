@@ -805,23 +805,35 @@ inline bool phase_frame_keeps_offband(const PhaseEffect &effect,
 }
 
 struct PhaseRun {
+  int frames = 0;
   int mismatches = 0;
-  int blocked_draws = 0;
   int offband_kept = 0;
 };
 
 /**
- * @brief Scores the displayed frame's clip phase and its off-band residue.
+ * @brief Scores one displayed frame's clip phase and off-band residue.
+ * @param result Run totals.
+ * @param effect Effect after the flip.
+ * @param stamp Stamp of the displayed frame.
+ * @param arm_a_left Arm the displayed window sweeps.
+ * @param expect_mismatch Whether the frame was clipped for another window.
+ * @param clipped_clear Whether the effect clears only its clip.
  * @details The residue is read only from a correctly phased frame: a
  * mispainted half puts fresh pixels where the seed is sampled.
  */
 inline void score_phase_frame(PhaseRun &result, const PhaseEffect &effect,
-                              uint16_t stamp, bool arm_a_left) {
-  if (!phase_frame_matches(effect, stamp, arm_a_left)) {
+                              uint16_t stamp, bool arm_a_left,
+                              bool expect_mismatch, bool clipped_clear) {
+  ++result.frames;
+  const bool mismatch = !phase_frame_matches(effect, stamp, arm_a_left);
+  HS_EXPECT_EQ(mismatch, expect_mismatch);
+  if (mismatch) {
     ++result.mismatches;
     return;
   }
-  if (phase_frame_keeps_offband(effect, arm_a_left))
+  const bool offband = phase_frame_keeps_offband(effect, arm_a_left);
+  HS_EXPECT_EQ(offband, clipped_clear);
+  if (offband)
     ++result.offband_kept;
 }
 
@@ -839,7 +851,8 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
   effect.draw_frame();
   effect.advance_display();
 
-  set_phase_clip(effect, true);
+  bool selected_arm = true;
+  set_phase_clip(effect, selected_arm);
   effect.draw_frame();
   if (post_wait)
     effect.set_buffer_ready_hook(prepare_phase_clip);
@@ -847,18 +860,24 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
 
   handoff.set_window_left(true);
   effect.advance_display();
-  score_phase_frame(result, effect, effect.last_stamp(), true);
+  {
+    HS_CONTEXT("flip", 0LL);
+    score_phase_frame(result, effect, effect.last_stamp(), true, false,
+                      clipped_clear);
+  }
 
+  selected_arm = pov::upcoming_window_arm_a_left(handoff.window_left());
   if (!post_wait)
-    set_phase_clip(effect,
-                   pov::upcoming_window_arm_a_left(handoff.window_left()));
+    set_phase_clip(effect, selected_arm);
   effect.draw_frame();
 
   for (int flip = 1; flip < 16; ++flip) {
+    HS_CONTEXT("flip", static_cast<long long>(flip));
     const uint16_t queued_stamp = effect.last_stamp();
+    const bool queued_arm = selected_arm;
+    selected_arm = pov::upcoming_window_arm_a_left(handoff.window_left());
     if (!post_wait)
-      set_phase_clip(effect,
-                     pov::upcoming_window_arm_a_left(handoff.window_left()));
+      set_phase_clip(effect, selected_arm);
 
     std::atomic<bool> draw_returned{false};
     const unsigned long spins_before = Canvas::buffer_free_spin_count();
@@ -881,15 +900,15 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
       std::this_thread::yield();
     }
     HS_EXPECT_FALSE(wait_timed_out);
-    if (!draw_returned.load(std::memory_order_acquire))
-      ++result.blocked_draws;
+    HS_EXPECT_FALSE(draw_returned.load(std::memory_order_acquire));
 
     const bool zero_crossing = (flip % 2) == 0;
     handoff.set_window_left(zero_crossing);
     effect.advance_display();
     foreground.join();
 
-    score_phase_frame(result, effect, queued_stamp, zero_crossing);
+    score_phase_frame(result, effect, queued_stamp, zero_crossing,
+                      !post_wait && queued_arm != zero_crossing, clipped_clear);
   }
 
   effect.set_buffer_ready_hook(nullptr);
@@ -899,25 +918,24 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
 
 /**
  * @brief Verifies segment clipping is selected after buffer acquisition.
- * @details Sampling before a blocked draw produces the alternating-window
- * phase error. The clip-only clear leaves the seed outside the band intact
- * where the whole-buffer clear erases it.
+ * @details Every draw blocks on the displayed buffer. A clip sampled before
+ * the block targets the window the draw began in, so it shows the
+ * alternating-window phase error; the buffer-ready hook never does. The
+ * clip-only clear leaves the seed outside the band intact where the
+ * whole-buffer clear erases it.
  */
 inline void test_clip_phase_after_buffer_release() {
   const PhaseRun pre_wait = run_phase_scheduler(false, false);
-  HS_EXPECT_EQ(pre_wait.blocked_draws, 15);
-  HS_EXPECT_EQ(pre_wait.mismatches, 14);
+  HS_EXPECT_GT(pre_wait.mismatches, 0);
   HS_EXPECT_EQ(pre_wait.offband_kept, 0);
 
   const PhaseRun generic = run_phase_scheduler(true, false);
-  HS_EXPECT_EQ(generic.blocked_draws, 15);
   HS_EXPECT_EQ(generic.mismatches, 0);
   HS_EXPECT_EQ(generic.offband_kept, 0);
 
   const PhaseRun clipped_clear = run_phase_scheduler(true, true);
-  HS_EXPECT_EQ(clipped_clear.blocked_draws, 15);
   HS_EXPECT_EQ(clipped_clear.mismatches, 0);
-  HS_EXPECT_EQ(clipped_clear.offband_kept, 16);
+  HS_EXPECT_EQ(clipped_clear.offband_kept, clipped_clear.frames);
 }
 
 /**
