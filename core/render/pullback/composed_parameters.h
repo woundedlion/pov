@@ -151,6 +151,31 @@ inline bool valid(const Color::AuthoredColorParams &p) {
              std::size(Color::BRIGHTNESS_ENVELOPE_IDS);
 }
 
+/// Warning for a refused color family.
+inline constexpr const char *INVALID_COLOR_CONFIGURATION =
+    "invalid color configuration";
+
+/** @brief Warning naming why a family is refused.
+ * @details Modulation families report `Modulation::INVALID_CONFIGURATION`,
+ * color families `INVALID_COLOR_CONFIGURATION`, families declaring a
+ * `RANGE_WARNING` that warning, and other families
+ * `Surface::FIELD_RANGE_WARNING`.
+ * @tparam Family Parameter family.
+ * @param family Family to check.
+ * @return Null when `valid(family)`, otherwise the family's warning. */
+template <typename Family> inline const char *refusal(const Family &family) {
+  if (valid(family))
+    return nullptr;
+  if constexpr (requires { family.modulation; })
+    return Modulation::INVALID_CONFIGURATION;
+  else if constexpr (std::is_base_of_v<ColorParams, Family>)
+    return INVALID_COLOR_CONFIGURATION;
+  else if constexpr (requires { Family::RANGE_WARNING; })
+    return Family::RANGE_WARNING;
+  else
+    return Surface::FIELD_RANGE_WARNING;
+}
+
 /**
  * @brief Whether every family of a parameter set is in range.
  * @tparam Resources The set's parameter resources.

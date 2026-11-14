@@ -220,6 +220,43 @@ inline void test_authored_potential_interpolation_and_admission() {
   HS_EXPECT_EQ(Pullback::interpolate(from, to, 1.0f).terms[0].m, uint8_t(2));
 }
 
+/** @brief Refused families name their own family's warning. */
+inline void test_family_refusal_warnings() {
+  using namespace Pullback;
+  HS_EXPECT_TRUE(refusal(ColorParams{}) == nullptr);
+  ColorParams color;
+  color.palette_mapping = static_cast<Color::PaletteMapping>(9);
+  HS_EXPECT_STREQ(refusal(color), "invalid color configuration");
+  Color::AuthoredColorParams authored;
+  HS_EXPECT_TRUE(refusal(authored) == nullptr);
+  authored.palette_mode = 7;
+  HS_EXPECT_STREQ(refusal(authored), "invalid color configuration");
+  Modulation::Params<Pattern::SourceKind::NOISE, Pattern::Evaluation::DIRECT>
+      modulation;
+  HS_EXPECT_TRUE(refusal(modulation) == nullptr);
+  modulation.modulation.version = 0xff;
+  HS_EXPECT_STREQ(refusal(modulation), Modulation::INVALID_CONFIGURATION);
+  Lens::MobiusGeneratorParams mobius;
+  HS_EXPECT_TRUE(refusal(mobius) == nullptr);
+  mobius.spin_x = 100.0f;
+  HS_EXPECT_STREQ(refusal(mobius), Lens::MobiusGeneratorParams::RANGE_WARNING);
+  Lens::GlitchParams glitch;
+  glitch.polar_multiplier = 100.0f;
+  HS_EXPECT_STREQ(refusal(glitch), Lens::GlitchParams::RANGE_WARNING);
+  Lens::KaleidoscopeParams kaleidoscope;
+  HS_EXPECT_TRUE(refusal(kaleidoscope) == nullptr);
+  kaleidoscope.symmetry = 50;
+  HS_EXPECT_STREQ(refusal(kaleidoscope),
+                  Lens::KaleidoscopeParams::RANGE_WARNING);
+  PotentialParams potential;
+  HS_EXPECT_TRUE(refusal(potential) == nullptr);
+  potential.terms[0].m = 2;
+  HS_EXPECT_STREQ(refusal(potential), Surface::FIELD_RANGE_WARNING);
+  SurfaceNoiseParams noise;
+  noise.strength = 1.0f;
+  HS_EXPECT_STREQ(refusal(noise), Surface::FIELD_RANGE_WARNING);
+}
+
 /** @brief Authored noise policies honor every basis, stepper and limit. */
 inline void test_authored_surface_noise_topology() {
   using namespace Pullback;

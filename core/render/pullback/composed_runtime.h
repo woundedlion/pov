@@ -646,16 +646,8 @@ protected:
           proposed.target =
               reinterpret_cast<unsigned char *>(&candidate) + (target - begin);
           this->write_parameter_unchecked(proposed, value);
-          admitted = Pullback::valid(candidate);
-          if (!admitted) {
-            if constexpr (Resource::KIND == ResourceKind::COLOR ||
-                          Resource::KIND == ResourceKind::MODULATION)
-              refused_warning = Modulation::INVALID_CONFIGURATION;
-            else if constexpr (Resource::KIND == ResourceKind::LENS)
-              refused_warning = Lens::MobiusGeneratorParams::RANGE_WARNING;
-            else
-              refused_warning = "invalid surface configuration";
-          }
+          refused_warning = Pullback::refusal(candidate);
+          admitted = refused_warning == nullptr;
         }
       }
     });

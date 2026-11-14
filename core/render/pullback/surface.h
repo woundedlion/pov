@@ -23,6 +23,10 @@ namespace Pullback {
 
 namespace Surface {
 
+/** @brief Rejected field configuration diagnostic. */
+inline constexpr const char *FIELD_RANGE_WARNING =
+    "Field parameters must be finite and within their scalar and harmonic domains.";
+
 /**
  * @brief Surface parameters for the sphere-space curl displacement
  *        (Pullback::Surface::CurlNoise).

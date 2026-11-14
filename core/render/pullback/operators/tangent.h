@@ -25,8 +25,7 @@ using Surface::HARMONIC_ORDER_IDS;
 /** @brief Rossby wave-order values; the stored index represents R = index + 1. */
 inline constexpr auto &ROSSBY_ORDER_IDS = Surface::AUTHORED_ROSSBY_ORDER_IDS;
 /** @brief Rejected field configuration diagnostic. */
-inline constexpr const char *FIELD_RANGE_WARNING =
-    "Field parameters must be finite and within their scalar and harmonic domains.";
+using Surface::FIELD_RANGE_WARNING;
 
 /** @brief Conservative strength before a fixed-step map can fold.
  * @param field Prepared tangent field.

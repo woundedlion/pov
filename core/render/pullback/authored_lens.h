@@ -16,6 +16,9 @@ namespace Pullback::Lens {
 struct GlitchParams {
   float polar_multiplier = 2.0f;   ///< Polar-angle multiplier.
   float azimuth_multiplier = 3.0f; ///< Azimuth-angle multiplier.
+  /// Refusal message for multipliers outside their authored range.
+  static constexpr char RANGE_WARNING[] =
+      "Glitch multipliers are outside their authored range.";
   /// Polar and azimuth angle controls.
   static constexpr auto FIELDS = std::array{
       Field<GlitchParams>{"polar-multiplier", &GlitchParams::polar_multiplier,
@@ -66,6 +69,9 @@ struct FixedKaleidoscopeParams {
 /** @brief Authored kaleidoscope symmetry. */
 struct KaleidoscopeParams {
   uint8_t symmetry = 0; ///< Shared kaleidoscope symmetry index.
+  /// Refusal message for an undeclared symmetry.
+  static constexpr char RANGE_WARNING[] =
+      "Kaleidoscope symmetry is not a declared group.";
   /// The kaleidoscope has no scalar controls.
   static constexpr std::array<Field<KaleidoscopeParams>, 0> FIELDS{};
   /// Catalog ids in symmetry-index order.
