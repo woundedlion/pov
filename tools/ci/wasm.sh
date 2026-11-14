@@ -34,11 +34,17 @@ python tools/pullback_capture.py --manifest-dir tests/data/pullback \
 cmake --preset wasm-debug -DDAYDREAM_DIR="$dd" -DHS_WASM_DEV_BINDINGS=ON
 cmake --build --preset wasm-debug 2>&1 | tee build/wasm-debug-build.log
 
-# Compile coverage for the strict-FP capture configuration.
+# Build the strict-FP configuration and audit its pullback capture.
 cmake --preset wasm-strict-fp -DDAYDREAM_DIR="$dd"
 cmake --build --preset wasm-strict-fp 2>&1 | tee build/wasm-strict-fp-build.log
 cmake --build --preset wasm-strict-fp --target pullback_capture_wasm 2>&1 \
   | tee -a build/wasm-strict-fp-build.log
+for resolution in 96x20 288x144; do
+  node build/wasm-strict-fp/pullback_capture_wasm.cjs --resolution "$resolution" \
+    --operations "$scratch/ops.bin" "$scratch/wasm-strict-fp-$resolution.bin"
+done
+python tools/pullback_capture.py --manifest-dir tests/data/pullback \
+  --configuration wasm-strict-fp --backend-audit "$scratch"/wasm-strict-fp-*.bin
 
 # Reject first-party warnings in all three configurations; sysroot warnings are excluded.
 logs=(build/wasm-release-build.log build/wasm-debug-build.log build/wasm-strict-fp-build.log)
