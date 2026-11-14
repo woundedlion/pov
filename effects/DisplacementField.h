@@ -91,7 +91,7 @@ public:
     rings.init_storage(persistent_arena);
     candidates = persistent_arena.allocate_n<CandidateTable>(1);
     knot_baker.init_storage(persistent_arena);
-    drawn_colors = persistent_arena.allocate_n<Color4>(RING_SLOTS);
+    swept.init_storage(persistent_arena);
     chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
@@ -237,14 +237,6 @@ private:
 
   static constexpr int ALTERNATE_CAPACITY = 3840; ///< Packed alternate shifts.
   using Alternates = Scan::KnotAlternates<W>;
-  /** @brief Second-window hue and opacity state. */
-  struct SecondWindowShading {
-    HueMode *modes; ///< Per-ring hue sampling mode.
-    Color4 *colors; ///< Second-window colors.
-    float *alphas;  ///< Second-window fragment alpha.
-  };
-  Alternates alternates; ///< Current frame's alternate knots and counters.
-  SecondWindowShading shading; ///< Current frame's late shading rows.
 
   /**
    * @brief A frame's endpoints for a draw that evaluates the displacement
@@ -273,7 +265,7 @@ private:
   };
 
   /** @brief Bake policy: one pass at column times; boundary knots retain the
-   * opposite window's shift in `alternates`. */
+   * opposite window's shift in `Sweep::alternates`. */
   struct SweptCached {
     static constexpr bool SWEPT = true;  ///< Knots take their sweep times.
     static constexpr bool CACHED = true; ///< Boundary knots retain alternates.
@@ -339,7 +331,7 @@ private:
     math::Basis basis = math::make_basis(orientation.get(), STACK_AXIS);
     const math::Quaternion &current = orientation.get();
     const math::Quaternion previous =
-        draw_history.start(DrawEndpoint{.pose = current}).pose;
+        swept.history.start({.pose = current}).pose;
     ScratchScope column_guard(scratch_arena_a);
     const Scan::ColumnBasis column_basis =
         Scan::prepare_column_basis<W, H>(scratch_arena_a, previous, current);
@@ -350,59 +342,18 @@ private:
             ? balls.active_count()
             : 0;
     Sweep sweep;
-    const bool swept =
-        prepare_sweep(previous, current, opacity, n_balls, sweep);
-    if (swept) {
+    if (swept.prepare(noise_field, previous, current, opacity, n_balls,
+                      sweep)) {
       draw_swept(canvas, basis, column_basis, n_balls, sweep);
       return;
     }
-    drawn_colors_valid = false;
+    swept.drawn_colors_valid = false;
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
       ball_cache.params[b] = &sp;
       ball_cache.cache_frame(b, basis, sp.center, sp.field_bound(), sp.radius);
     }
     draw_pass<Unswept>(canvas, basis, column_basis, opacity, n_balls, nullptr);
-  }
-
-  /**
-   * @brief Reads the frame's endpoints and retains the current ones for the
-   * next draw.
-   * @param previous Stack orientation at the previous endpoint.
-   * @param current Stack orientation at the current endpoint.
-   * @param opacity Sprite opacity this frame.
-   * @param n_balls Active balls drawn this frame.
-   * @param sweep Receives the endpoints.
-   * @return Whether the frame draws swept: temporal sampling is on, a
-   *         previous draw supplies the first endpoint and a displacement field
-   *         is present.
-   */
-  HS_FLASH_MEMBER bool prepare_sweep(const math::Quaternion &previous,
-                                     const math::Quaternion &current,
-                                     float opacity, int n_balls, Sweep &sweep) {
-    const bool noise_live = noise_field.active_count() == 1;
-    const float time = noise_live ? noise_field.active_params(0).time : 0.0f;
-    const float amplitude =
-        noise_live ? noise_field.active_params(0).amplitude : 0.0f;
-    const bool primed = draw_history.initialized;
-    const DrawEndpoint end{current, time, amplitude, opacity};
-    const DrawEndpoint start = draw_history.start(end);
-    sweep.noise_time[0] = start.noise_time;
-    sweep.noise_time[1] = time;
-    sweep.noise_amplitude[0] = start.noise_amplitude;
-    sweep.noise_amplitude[1] = amplitude;
-    sweep.opacity[0] = start.opacity;
-    sweep.opacity[1] = opacity;
-    draw_history.capture(end);
-    if (Spacetime::flat_surface() || !primed)
-      return false;
-    const bool noise = noise_live && fmaxf(std::fabs(sweep.noise_amplitude[0]),
-                                           std::fabs(amplitude)) >
-                                         Animation::FIELD_AMPLITUDE_CUT;
-    if (!noise && n_balls == 0)
-      return false;
-    sweep.turn = Spacetime::rotation_vector(previous, current);
-    return true;
   }
 
   /**
@@ -423,17 +374,15 @@ private:
 #if HS_ENABLE_TEST_HOOKS
     knot_baker.primary_knots = knot_baker.alternate_noise_samples = 0;
     primary_bakes = 0;
-    alternates.duplicate_knots = alternates.stack_flushes = 0;
+    swept.alternates.duplicate_knots = swept.alternates.stack_flushes = 0;
 #endif
     ScratchScope sweep_guard(scratch_arena_a);
     ball_cache.paths =
         scratch_arena_a.allocate_n<Animation::BumpPath>(MAX_BALLS);
     knot_baker.knot_times = scratch_arena_a.allocate_n<float>(W + 1);
-    ring_colors = scratch_arena_a.allocate_n<Color4>(RING_SLOTS);
-    for (int i = 0; i < params.num_rings; ++i)
-      ring_colors[i] = ring_color(i, params.num_rings);
-    if (drawn_ring_count != params.num_rings)
-      drawn_colors_valid = false;
+    swept.stage_colors(scratch_arena_a, params.num_rings,
+                       [this](int i, int n)
+                           HS_HOT_INLINE { return ring_color(i, n); });
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
       ball_cache.params[b] = &sp;
@@ -446,12 +395,7 @@ private:
       ball_cache.cache_frame(b, basis, cover.centre, cover.reach, sp.radius);
     }
     ScratchScope cache_guard(scratch_arena_b);
-    alternates.allocate(scratch_arena_b, scratch_arena_a, RING_SLOTS,
-                        ALTERNATE_CAPACITY, [&](Arena &arena) {
-                          shading = {arena.make_n<HueMode>(RING_SLOTS),
-                                     arena.allocate_n<Color4>(RING_SLOTS),
-                                     arena.allocate_n<float>(RING_SLOTS)};
-                        });
+    swept.allocate_alternates(scratch_arena_b, scratch_arena_a);
 #if HS_ENABLE_TEST_ORACLES
     if (sweep_bake == SweepBake::COLUMN_REFERENCE)
       draw_windows<SweptWindowed<true>>(canvas, basis, column_basis, n_balls,
@@ -462,17 +406,13 @@ private:
     else
 #endif
     {
-      sweep.alternates = &alternates;
+      sweep.alternates = &swept.alternates;
       draw_pass<SweptCached>(canvas, basis, column_basis, sweep.opacity[1],
                              n_balls, &sweep);
     }
-    for (int i = 0; i < params.num_rings; ++i)
-      drawn_colors[i] = ring_colors[i];
-    drawn_colors_valid = true;
-    drawn_ring_count = params.num_rings;
+    swept.retain_colors(params.num_rings);
     ball_cache.paths = nullptr;
     knot_baker.knot_times = nullptr;
-    ring_colors = nullptr;
   }
 
 #if HS_ENABLE_TEST_ORACLES
@@ -520,25 +460,11 @@ private:
                                             const Sweep *sweep,
                                             float &ring_opacity) {
     Color4 color;
-    if constexpr (Bake::SWEPT) {
-      const Color4 now = ring_colors[i];
-      const Color4 before = drawn_colors_valid ? drawn_colors[i] : now;
-      const float middle = Bake::CACHED ? SWEEP_QUARTER : sweep->middle;
-      color = before.lerp(now, middle);
-      if constexpr (Bake::CACHED) {
-        shading.colors[i] = before.lerp(now, 1.0f - SWEEP_QUARTER);
-        shading.alphas[i] =
-            shading.colors[i].alpha *
-            (sweep->opacity[0] +
-             (sweep->opacity[1] - sweep->opacity[0]) * (1.0f - SWEEP_QUARTER)) *
-            params.alpha;
-        alternates.begin_ring(i);
-      }
-      ring_opacity =
-          sweep->opacity[0] + (sweep->opacity[1] - sweep->opacity[0]) * middle;
-    } else {
+    if constexpr (Bake::SWEPT)
+      color = swept.template ring_shading<Bake>(i, *sweep, params.alpha,
+                                                ring_opacity);
+    else
       color = ring_color(i, n_rings);
-    }
     return color;
   }
 
@@ -576,7 +502,7 @@ private:
     const HueMode mode = select_hue_mode(
         lut_n, visible, (band + noise_bound) * params.hue_scale);
     if constexpr (Bake::CACHED)
-      shading.modes[i] = mode;
+      swept.shading.modes[i] = mode;
     if (mode.use_table)
       hue_table.bind(hue_base, mode.domain, mode.cyclic);
     if (mode.precompute) {
@@ -620,7 +546,7 @@ private:
       return;
 
     if constexpr (Bake::CACHED) {
-      scan_swept_stack(canvas, alternates);
+      scan_swept_stack(canvas);
       return;
     }
     RingShader ring_shader{&rings};
@@ -660,7 +586,7 @@ private:
     const float noise_feature =
         noise_bound > 0.0f ? params.scale1 + params.scale2 : 0.0f;
 
-    rings.begin_frame(Bake::CACHED ? &alternates : nullptr);
+    rings.begin_frame(Bake::CACHED ? &swept.alternates : nullptr);
 
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
@@ -755,11 +681,11 @@ private:
         const float sin_d = sinf(dphi);
         if constexpr (Bake::CACHED) {
           // A ring retains at most one alternate per knot.
-          if (!alternates.reserve_ring(lut_n)) {
-            scan_swept_stack(canvas, alternates);
-            rings.begin_frame(&alternates);
-            alternates.begin_ring(i);
-            alternates.reserve_ring(lut_n);
+          if (!swept.alternates.reserve_ring(lut_n)) {
+            scan_swept_stack(canvas);
+            rings.begin_frame(&swept.alternates);
+            swept.alternates.begin_ring(i);
+            swept.alternates.reserve_ring(lut_n);
             const typename RingPool::Pending fresh = rings.next();
             slut = fresh.shift_row;
             hlut = fresh.hue_row;
@@ -768,7 +694,7 @@ private:
               basis, {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
               band + noise_bound, params.thickness, column_basis.sweep_arc,
               2 * std::max(OCTAVE1_STRIDE, OCTAVE2_STRIDE) - 1,
-              alternates.boundary);
+              swept.alternates.boundary);
         }
 
         if (octaves) {
@@ -786,7 +712,7 @@ private:
       }
 
       if constexpr (Bake::CACHED)
-        alternates.finish_ring(i);
+        swept.alternates.finish_ring(i);
       rings.commit(i, color.alpha * ring_opacity * params.alpha, lut_n, basis,
                    radius, params.thickness, slut, lut_n, 0.0f, nullptr);
     }
@@ -794,59 +720,12 @@ private:
     finish_draw_pass<Bake>(canvas, n_rings);
   }
 
-  /**
-   * @brief Scans the committed rings in both sweep windows and empties the
+  /** @brief Scans the committed rings in both sweep windows and empties the
    * pool and the alternate buffer.
-   * @param canvas Render target.
-   * @param cache The frame's alternate shifts, holding the committed rings'.
-   */
-  HS_HOT_FLASH_MEMBER void scan_swept_stack(Canvas &canvas, Alternates &cache) {
-    RingShader ring_shader{&rings};
-    struct Reshade {
-      DisplacementField &effect;
-      Pixel *hues = nullptr;
-      HueMode mode{};
-      HueRotateBase base{};
-      Pixel zero_hue{};
-      bool zero_ready = false;
-      int n = 0;
-      int ring = 0;
-      int slot = 0;
-
-      HS_HOT_INLINE void begin(int i, int s) {
-        ring = i;
-        slot = s;
-        hues = effect.rings.mutable_hue_row(slot);
-        n = static_cast<int>(effect.rings.lut_columns(slot));
-        mode = effect.shading.modes[i];
-        base = make_hue_rotate_base(effect.shading.colors[i]);
-        if (mode.use_table)
-          effect.hue_table.bind(base, mode.domain, mode.cyclic);
-        zero_ready = false;
-      }
-      HS_HOT_INLINE void operator()(int k, float shift) {
-        const float amount = std::fabs(shift) * effect.params.hue_scale;
-        if (amount == 0.0f) {
-          if (!zero_ready) {
-            zero_hue = mode.use_table ? effect.hue_table.sample_lazy(amount)
-                                      : hue_rotate(base, amount).color;
-            zero_ready = true;
-          }
-          hues[k] = zero_hue;
-        } else {
-          hues[k] = mode.use_table ? effect.hue_table.sample_lazy(amount)
-                                   : hue_rotate(base, amount).color;
-        }
-      }
-      HS_HOT_INLINE void finish() {
-        hues[n] = hues[0];
-        effect.rings.set_alpha(slot, effect.shading.alphas[ring]);
-      }
-    };
-    HS_PROFILE(df_fused_scan);
-    ScanSweep::scan_two_windows<W, H>(filters, canvas, params.num_rings, rings,
-                                      cache, *candidates, ring_shader,
-                                      Reshade{*this});
+   * @param canvas Render target. */
+  HS_HOT_INLINE void scan_swept_stack(Canvas &canvas) {
+    swept.scan(filters, canvas, params.num_rings, rings, *candidates, hue_table,
+               params.hue_scale);
   }
 
   /**
@@ -903,7 +782,7 @@ private:
     } else {
       timeline.cancel_owner(&phases.events);
       timeline.cancel_owner(&balls);
-      draw_history.reset();
+      swept.history.reset();
       phases.cut_to(change.to == NOISE_PRESET);
     }
     return true;
@@ -963,20 +842,6 @@ private:
   GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
   GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
   math::Orientation<> orientation;
-  /** @brief Ring-stack pose and shading controls at one sprite draw. */
-  struct DrawEndpoint {
-    math::Quaternion pose;        ///< Stack orientation used by the draw.
-    float noise_time = 0.0f;      ///< Noise field phase.
-    float noise_amplitude = 0.0f; ///< Noise displacement amplitude.
-    float opacity = 0.0f;         ///< Sprite opacity multiplier.
-  };
-  Spacetime::Retained<DrawEndpoint> draw_history; ///< Last ring-stack draw.
-  Color4 *drawn_colors =
-      nullptr; ///< RING_SLOTS ring colors of the last swept draw.
-  bool drawn_colors_valid = false; ///< The last draw was swept.
-  int drawn_ring_count = 0;        ///< Stack size of the last swept draw.
-  // Frame scratch of a swept draw, null outside it.
-  Color4 *ring_colors = nullptr; ///< RING_SLOTS current ring colors.
 
   /** Noise row in PRESETS and PRESET_IDS. */
   static constexpr size_t NOISE_PRESET = 0;
@@ -1627,6 +1492,221 @@ private:
     }
   };
   RingKnotBaker knot_baker; ///< Knot rows of the ring being baked.
+
+  /** @brief Column-time draw state: the retained endpoints and ring colors,
+   * the frame's boundary-knot alternates with their second-window shading,
+   * and the two-window stack scan. */
+  struct SweptRingStackDraw {
+    /** @brief Ring-stack pose and shading controls at one sprite draw. */
+    struct DrawEndpoint {
+      math::Quaternion pose;        ///< Stack orientation used by the draw.
+      float noise_time = 0.0f;      ///< Noise field phase.
+      float noise_amplitude = 0.0f; ///< Noise displacement amplitude.
+      float opacity = 0.0f;         ///< Sprite opacity multiplier.
+    };
+    /** @brief Second-window hue and opacity state. */
+    struct SecondWindowShading {
+      HueMode *modes; ///< Per-ring hue sampling mode.
+      Color4 *colors; ///< Second-window colors.
+      float *alphas;  ///< Second-window fragment alpha.
+    };
+
+    Spacetime::Retained<DrawEndpoint> history; ///< Last ring-stack draw.
+    Alternates alternates; ///< Current frame's alternate knots and counters.
+    SecondWindowShading shading; ///< Current frame's late shading rows.
+    Color4 *drawn_colors =
+        nullptr; ///< RING_SLOTS ring colors of the last swept draw.
+    bool drawn_colors_valid = false; ///< The last draw was swept.
+    int drawn_ring_count = 0;        ///< Stack size of the last swept draw.
+    /// RING_SLOTS current ring colors; null outside a swept draw.
+    Color4 *ring_colors = nullptr;
+
+    /** @brief Persistent bytes init_storage() takes, alignment included. */
+    static constexpr size_t BYTES =
+        RING_SLOTS * sizeof(Color4) + alignof(Color4);
+
+    /** @brief Allocates the retained ring colors.
+     * @param arena Persistent storage arena. */
+    HS_FLASH_MEMBER void init_storage(Arena &arena) {
+      drawn_colors = arena.allocate_n<Color4>(RING_SLOTS);
+    }
+
+    /**
+     * @brief Reads the frame's endpoints and retains the current ones for the
+     * next draw.
+     * @param field Noise field at the current endpoint.
+     * @param previous Stack orientation at the previous endpoint.
+     * @param current Stack orientation at the current endpoint.
+     * @param opacity Sprite opacity this frame.
+     * @param n_balls Active balls drawn this frame.
+     * @param sweep Receives the endpoints.
+     * @return Whether the frame draws swept: temporal sampling is on, a
+     *         previous draw supplies the first endpoint and a displacement field
+     *         is present.
+     */
+    HS_FLASH_MEMBER bool prepare(const NoiseField &field,
+                                 const math::Quaternion &previous,
+                                 const math::Quaternion &current, float opacity,
+                                 int n_balls, Sweep &sweep) {
+      const bool noise_live = field.active_count() == 1;
+      const float time = noise_live ? field.active_params(0).time : 0.0f;
+      const float amplitude =
+          noise_live ? field.active_params(0).amplitude : 0.0f;
+      const bool primed = history.initialized;
+      const DrawEndpoint end{current, time, amplitude, opacity};
+      const DrawEndpoint start = history.start(end);
+      sweep.noise_time[0] = start.noise_time;
+      sweep.noise_time[1] = time;
+      sweep.noise_amplitude[0] = start.noise_amplitude;
+      sweep.noise_amplitude[1] = amplitude;
+      sweep.opacity[0] = start.opacity;
+      sweep.opacity[1] = opacity;
+      history.capture(end);
+      if (Spacetime::flat_surface() || !primed)
+        return false;
+      const bool noise =
+          noise_live &&
+          fmaxf(std::fabs(sweep.noise_amplitude[0]), std::fabs(amplitude)) >
+              Animation::FIELD_AMPLITUDE_CUT;
+      if (!noise && n_balls == 0)
+        return false;
+      sweep.turn = Spacetime::rotation_vector(previous, current);
+      return true;
+    }
+
+    /** @brief Stages the current endpoint's ring colors.
+     * @tparam RingColor Callable (ring, n_rings) -> Color4.
+     * @param arena Swept-frame scratch.
+     * @param n_rings Stack size.
+     * @param ring_color Palette color of a ring. */
+    template <typename RingColor>
+    HS_HOT_INLINE void stage_colors(Arena &arena, int n_rings,
+                                    RingColor ring_color) {
+      ring_colors = arena.allocate_n<Color4>(RING_SLOTS);
+      for (int i = 0; i < n_rings; ++i)
+        ring_colors[i] = ring_color(i, n_rings);
+      if (drawn_ring_count != n_rings)
+        drawn_colors_valid = false;
+    }
+
+    /** @brief Allocates the frame's alternates and second-window shading.
+     * @param values Packed alternate storage.
+     * @param tables Alternate lookup and shading storage. */
+    HS_HOT_INLINE void allocate_alternates(Arena &values, Arena &tables) {
+      alternates.allocate(values, tables, RING_SLOTS, ALTERNATE_CAPACITY,
+                          [&](Arena &arena) {
+                            shading = {arena.make_n<HueMode>(RING_SLOTS),
+                                       arena.allocate_n<Color4>(RING_SLOTS),
+                                       arena.allocate_n<float>(RING_SLOTS)};
+                          });
+    }
+
+    /** @brief Resolves one ring's color and opacity over the sweep; a cached
+     * bake also stages the ring's second-window shading and alternates.
+     * @tparam Bake A swept bake policy.
+     * @param i Ring index.
+     * @param sweep The frame's endpoints.
+     * @param alpha Overall ring opacity multiplier.
+     * @param ring_opacity Receives the ring opacity.
+     * @return Interpolated ring color. */
+    template <class Bake>
+    HS_HOT_INLINE Color4 ring_shading(int i, const Sweep &sweep, float alpha,
+                                      float &ring_opacity) {
+      const Color4 now = ring_colors[i];
+      const Color4 before = drawn_colors_valid ? drawn_colors[i] : now;
+      const float middle = Bake::CACHED ? SWEEP_QUARTER : sweep.middle;
+      const Color4 color = before.lerp(now, middle);
+      if constexpr (Bake::CACHED) {
+        shading.colors[i] = before.lerp(now, 1.0f - SWEEP_QUARTER);
+        shading.alphas[i] =
+            shading.colors[i].alpha *
+            (sweep.opacity[0] +
+             (sweep.opacity[1] - sweep.opacity[0]) * (1.0f - SWEEP_QUARTER)) *
+            alpha;
+        alternates.begin_ring(i);
+      }
+      ring_opacity =
+          sweep.opacity[0] + (sweep.opacity[1] - sweep.opacity[0]) * middle;
+      return color;
+    }
+
+    /** @brief Retains the staged ring colors for the next swept draw.
+     * @param n_rings Stack size. */
+    HS_HOT_INLINE void retain_colors(int n_rings) {
+      for (int i = 0; i < n_rings; ++i)
+        drawn_colors[i] = ring_colors[i];
+      drawn_colors_valid = true;
+      drawn_ring_count = n_rings;
+      ring_colors = nullptr;
+    }
+
+    /**
+     * @brief Scans the committed rings in both sweep windows and empties the
+     * pool and the alternate buffer.
+     * @param filters Scan pipeline.
+     * @param canvas Render target.
+     * @param n_rings Stack size.
+     * @param rings Committed rings of the frame.
+     * @param candidates Fused scan's candidate table.
+     * @param hue_table Hue table rebound per late ring.
+     * @param hue_scale Hue turns per radian of displacement.
+     */
+    HS_HOT_FLASH_MEMBER void scan(Pipeline<W, H> &filters, Canvas &canvas,
+                                  int n_rings, RingPool &rings,
+                                  CandidateTable &candidates,
+                                  HueTable &hue_table, float hue_scale) {
+      RingShader ring_shader{&rings};
+      struct Reshade {
+        RingPool &rings;
+        const SecondWindowShading &shading;
+        HueTable &hue_table;
+        float hue_scale;
+        Pixel *hues = nullptr;
+        HueMode mode{};
+        HueRotateBase base{};
+        Pixel zero_hue{};
+        bool zero_ready = false;
+        int n = 0;
+        int ring = 0;
+        int slot = 0;
+
+        HS_HOT_INLINE void begin(int i, int s) {
+          ring = i;
+          slot = s;
+          hues = rings.mutable_hue_row(slot);
+          n = static_cast<int>(rings.lut_columns(slot));
+          mode = shading.modes[i];
+          base = make_hue_rotate_base(shading.colors[i]);
+          if (mode.use_table)
+            hue_table.bind(base, mode.domain, mode.cyclic);
+          zero_ready = false;
+        }
+        HS_HOT_INLINE void operator()(int k, float shift) {
+          const float amount = std::fabs(shift) * hue_scale;
+          if (amount == 0.0f) {
+            if (!zero_ready) {
+              zero_hue = mode.use_table ? hue_table.sample_lazy(amount)
+                                        : hue_rotate(base, amount).color;
+              zero_ready = true;
+            }
+            hues[k] = zero_hue;
+          } else {
+            hues[k] = mode.use_table ? hue_table.sample_lazy(amount)
+                                     : hue_rotate(base, amount).color;
+          }
+        }
+        HS_HOT_INLINE void finish() {
+          hues[n] = hues[0];
+          rings.set_alpha(slot, shading.alphas[ring]);
+        }
+      };
+      HS_PROFILE(df_fused_scan);
+      ScanSweep::scan_two_windows<W, H>(
+          filters, canvas, n_rings, rings, alternates, candidates, ring_shader,
+          Reshade{rings, shading, hue_table, hue_scale});
+    }
+  };
+  SweptRingStackDraw swept; ///< Column-time draw state.
 #if HS_ENABLE_TEST_ORACLES
   bool force_exact_hue = false; ///< Rotate every knot's hue exactly.
   SweepBake sweep_bake = SweepBake::SINGLE_PASS; ///< Swept bake under test.
@@ -1743,9 +1823,6 @@ private:
                 "DisplacementField Thickness default falls outside its "
                 "W-scaled slider range at this build resolution");
 
-  /** @brief Persistent bytes of the last swept draw's ring colors. */
-  static constexpr size_t COLOR_HISTORY_BYTES =
-      RING_SLOTS * sizeof(Color4) + alignof(Color4);
   /** @brief Persistent bytes of the chunk mid-azimuth trig tables. */
   static constexpr size_t CHUNK_TRIG_BYTES =
       2 * BAKE_CHUNKS * sizeof(float) + 2 * alignof(float);
@@ -1761,7 +1838,7 @@ private:
   /** @brief Every persistent allocation init() makes. */
   static constexpr size_t FOOTPRINT_BYTES =
       RingPool::BYTES + HueTable::BYTES + RingKnotBaker::BYTES +
-      BallRingCache::BYTES + COLOR_HISTORY_BYTES + CHUNK_TRIG_BYTES +
+      BallRingCache::BYTES + SweptRingStackDraw::BYTES + CHUNK_TRIG_BYTES +
       CANDIDATE_BYTES + FIELD_BYTES;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "DisplacementField persistent footprint exceeds the default "

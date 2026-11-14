@@ -14,7 +14,7 @@
 struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static bool history_ready(const DisplacementField<W, H> &effect) {
-    return effect.draw_history.initialized;
+    return effect.swept.history.initialized;
   }
   /** @brief Holds the stack still with narrow, rapidly flowing noise.
    * @param effect Effect before its frame draw. */
@@ -39,12 +39,13 @@ struct DisplacementFieldWhiteBox {
    * @param effect Effect after a default swept frame. */
   template <int W, int H>
   static void check_single_pass(const DisplacementField<W, H> &effect) {
-    HS_EXPECT_EQ(effect.alternates.stack_flushes, 1);
+    HS_EXPECT_EQ(effect.swept.alternates.stack_flushes, 1);
     HS_EXPECT_LE(effect.primary_bakes, effect.params.num_rings);
-    HS_EXPECT_GT(effect.alternates.duplicate_knots, 0);
+    HS_EXPECT_GT(effect.swept.alternates.duplicate_knots, 0);
     std::printf(
         "  [single pass] primary=%d alternate=%d octave-extra=%d rings=%d\n",
-        effect.knot_baker.primary_knots, effect.alternates.duplicate_knots,
+        effect.knot_baker.primary_knots,
+        effect.swept.alternates.duplicate_knots,
         effect.knot_baker.alternate_noise_samples, effect.primary_bakes);
   }
 
@@ -65,7 +66,7 @@ struct DisplacementFieldWhiteBox {
    * @return The frame's stack scans. */
   template <int W, int H>
   static int stack_flushes(const DisplacementField<W, H> &effect) {
-    return effect.alternates.stack_flushes;
+    return effect.swept.alternates.stack_flushes;
   }
 
   /** @brief The frame turn a swept draw derives from two endpoints.
@@ -78,9 +79,10 @@ struct DisplacementFieldWhiteBox {
   static math::Vector sweep_turn(DisplacementField<W, H> &effect,
                                  const math::Quaternion &previous,
                                  const math::Quaternion &current) {
-    effect.draw_history.capture({.pose = previous});
+    effect.swept.history.capture({.pose = previous});
     typename DisplacementField<W, H>::Sweep sweep;
-    HS_EXPECT_TRUE(effect.prepare_sweep(previous, current, 1.0f, 0, sweep));
+    HS_EXPECT_TRUE(effect.swept.prepare(effect.noise_field, previous, current,
+                                        1.0f, 0, sweep));
     return sweep.turn;
   }
 
