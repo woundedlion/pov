@@ -479,6 +479,42 @@ HS_HOT_INLINE inline float palette_opacity(const FieldSample &sample,
   return sample.coverage *
          hs::lerp(state.opacity_low, state.opacity_high, sample.value);
 }
+/** @brief Maps a sampled field value onto the palette coordinate.
+ * @param sample Sampled field.
+ * @param state Palette mapping controls.
+ * @return Prepared palette coordinate. */
+HS_HOT_INLINE inline float palette_value(const FieldSample &sample,
+                                         const GeneratedPaletteState &state) {
+  return palette_mapping_coordinate(sample.value, state.mapping,
+                                    state.mapping_frequency,
+                                    state.mapping_offset);
+}
+/** @brief Resolves the envelope brightness gain at the sampled field value.
+ * @param sample Sampled field.
+ * @param state Palette envelope controls.
+ * @return Final brightness gain. */
+HS_HOT_INLINE inline float palette_gain(const FieldSample &sample,
+                                        const GeneratedPaletteState &state) {
+  return brightness_envelope_gain(sample.value, state.brightness_envelope,
+                                  state.brightness_bottom,
+                                  state.brightness_top);
+}
+/** @brief Palette controls shared by every endpoint of one sample. */
+struct PaletteSampleControls {
+  float value;   ///< Prepared palette coordinate.
+  float opacity; ///< Coverage-scaled opacity.
+  float gain;    ///< Final brightness gain.
+};
+/** @brief Resolves the palette coordinate, opacity and gain of a sample.
+ * @param sample Sampled field and coverage.
+ * @param state Palette controls.
+ * @return Shared endpoint controls. */
+HS_HOT_INLINE inline PaletteSampleControls
+palette_controls(const FieldSample &sample,
+                 const GeneratedPaletteState &state) {
+  return {palette_value(sample, state), palette_opacity(sample, state),
+          palette_gain(sample, state)};
+}
 /** @brief Maps a sampled field into the color carrier.
  * @param sample Sampled field.
  * @param state Palette controls and resources.
@@ -486,14 +522,9 @@ HS_HOT_INLINE inline float palette_opacity(const FieldSample &sample,
 HS_HOT_ITCM_MEMBER inline ColorSample
 apply_generated_palette(const FieldSample &sample,
                         const GeneratedPaletteState &state) {
-  const float value =
-      palette_mapping_coordinate(sample.value, state.mapping,
-                                 state.mapping_frequency, state.mapping_offset);
-  const float opacity = palette_opacity(sample, state);
-  const float gain =
-      brightness_envelope_gain(sample.value, state.brightness_envelope,
-                               state.brightness_bottom, state.brightness_top);
-  return apply_palette_endpoint_impl(sample, state, value, opacity, gain);
+  const auto controls = palette_controls(sample, state);
+  return apply_palette_endpoint_impl(sample, state, controls.value,
+                                     controls.opacity, controls.gain);
 }
 /** @brief Completes deferred color adjustments.
  * @param sample Color carrier.
@@ -696,11 +727,9 @@ HS_HOT_INLINE inline Color4
 cached_phase_color(const FieldSample &sample,
                    const TemporalGeneratedPaletteState &prepared, float hue) {
   const auto &state = prepared.current;
-  const float value =
-      palette_mapping_coordinate(sample.value, state.mapping,
-                                 state.mapping_frequency, state.mapping_offset);
-  return Color4(PaletteRgbHueLut::sample(prepared.lab, value, hue),
-                palette_opacity(sample, state));
+  return Color4(
+      PaletteRgbHueLut::sample(prepared.lab, palette_value(sample, state), hue),
+      palette_opacity(sample, state));
 }
 
 /** @brief Finishes a cached RGB phase through its flash-resident entry point.
@@ -1065,24 +1094,20 @@ struct GeneratedPaletteCore {
     requires TEMPORAL
   {
     const auto &state = prepared.current;
-    const float value = palette_mapping_coordinate(sample.value, state.mapping,
-                                                   state.mapping_frequency,
-                                                   state.mapping_offset);
-    const float opacity = palette_opacity(sample, state);
-    const float gain =
-        brightness_envelope_gain(sample.value, state.brightness_envelope,
-                                 state.brightness_bottom, state.brightness_top);
+    const auto controls = palette_controls(sample, state);
     if constexpr (LAB_CACHE) {
-      const auto endpoint =
-          [&](const GeneratedPaletteState &endpoint_state) HS_HOT_INLINE {
-            return apply_cache_fallback_endpoint(sample, endpoint_state, value,
-                                                 opacity, gain);
-          };
+      const auto endpoint = [&](const GeneratedPaletteState &endpoint_state)
+                                HS_HOT_INLINE {
+                                  return apply_cache_fallback_endpoint(
+                                      sample, endpoint_state, controls.value,
+                                      controls.opacity, controls.gain);
+                                };
       return {endpoint(prepared.previous), endpoint(state)};
     } else {
-      return {apply_palette_endpoint(sample, prepared.previous, value, opacity,
-                                     gain),
-              apply_palette_endpoint(sample, state, value, opacity, gain)};
+      return {apply_palette_endpoint(sample, prepared.previous, controls.value,
+                                     controls.opacity, controls.gain),
+              apply_palette_endpoint(sample, state, controls.value,
+                                     controls.opacity, controls.gain)};
     }
   }
   /** @brief Samples a canonical endpoint for a cache-enabled fallback.
@@ -1128,18 +1153,13 @@ struct GeneratedPaletteCore {
     requires(TEMPORAL && LAB_CACHE)
   {
     const auto &state = prepared.current;
-    const float value = palette_mapping_coordinate(sample.value, state.mapping,
-                                                   state.mapping_frequency,
-                                                   state.mapping_offset);
-    const float opacity = palette_opacity(sample, state);
-    output.color = Color4(Pixel(0, 0, 0), opacity);
+    const float value = palette_value(sample, state);
+    output.color = Color4(Pixel(0, 0, 0), palette_opacity(sample, state));
     output.field = sample;
     output.hue_rotation = nullptr;
     output.palette_coordinate = value;
     output.pending_hue = 0.0f;
-    output.brightness_gain =
-        brightness_envelope_gain(sample.value, state.brightness_envelope,
-                                 state.brightness_bottom, state.brightness_top);
+    output.brightness_gain = palette_gain(sample, state);
     output.pending_lift = 0.0f;
     output.cached_rgb =
         prepared.lab.rgb_low && prepared.lab.rgb_high ? &prepared.lab : nullptr;
@@ -1213,9 +1233,7 @@ private:
       previous_table = current_table = nullptr;
     } else {
       const auto &state = prepared.current;
-      const float value = palette_mapping_coordinate(
-          sample.value, state.mapping, state.mapping_frequency,
-          state.mapping_offset);
+      const float value = palette_value(sample, state);
       const float opacity = palette_opacity(sample, state);
       previous = prepared.previous.palette->get(value);
       current = state.palette->get(value);
@@ -1230,9 +1248,7 @@ private:
       result.hue_rotation = current_table;
       result.hue_rotation_gamut = prepared.current.hue_rotation.gamut_mask;
       result.palette_coordinate = value;
-      result.brightness_gain = brightness_envelope_gain(
-          sample.value, state.brightness_envelope, state.brightness_bottom,
-          state.brightness_top);
+      result.brightness_gain = palette_gain(sample, state);
     }
     float previous_hue = 0.0f;
     float current_hue = 0.0f;
@@ -1310,9 +1326,7 @@ public:
       switch (cached_color_path(prepared, modulation, fraction, false)) {
       case CachedColorPath::LAB_ENDPOINT: {
         const auto &state = prepared.current;
-        const float value = palette_mapping_coordinate(
-            sample.value, state.mapping, state.mapping_frequency,
-            state.mapping_offset);
+        const float value = palette_value(sample, state);
         const float opacity = palette_opacity(sample, state);
         const float hue = [&] {
           if (!modulation_active(modulation))
@@ -1343,9 +1357,7 @@ public:
       case CachedColorPath::LAB_HUE_INTERVAL: {
         const auto scalars = sample_fused_scalars(sample, modulation);
         const auto &state = prepared.current;
-        const float value = palette_mapping_coordinate(
-            sample.value, state.mapping, state.mapping_frequency,
-            state.mapping_offset);
+        const float value = palette_value(sample, state);
         const float opacity = palette_opacity(sample, state);
         const float hue =
             fused_pending_hue(scalars, modulation.mechanic.amount, fraction);
