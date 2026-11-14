@@ -453,6 +453,88 @@ inline void test_column_basis_blocks_cover_their_rotation() {
   check_column_basis_blocks<288, 144>();
 }
 
+/** @brief Time-aware shader that can overwrite its input registers. */
+struct ClobberingColumnShader {
+  bool clobber = false;          ///< Overwrite the registers after shading.
+  int *repeats = nullptr;        ///< Counts one direction shaded at two times.
+  math::Vector last{2.0f, 0, 0}; ///< Direction of the previous call.
+  float last_time = -1.0f;       ///< Sweep fraction of the previous call.
+
+  /**
+   * @brief Shades from the edge register and the sweep fraction.
+   * @param p Shaded direction.
+   * @param f Fragment whose `v1` is read and whose colour is written.
+   * @param u Sweep fraction of the shaded column.
+   */
+  void operator()(const math::Vector &p, Fragment &f, float u) {
+    const float edge = hs::clamp(f.v1 * 4.0f, -1.0f, 1.0f);
+    f.color = Color4(Pixel(static_cast<uint16_t>(30000 + 25000 * edge),
+                           static_cast<uint16_t>(60000 * u), 12000),
+                     1.0f);
+    *repeats +=
+        p.x == last.x && p.y == last.y && p.z == last.z && u != last_time;
+    last = p;
+    last_time = u;
+    if (clobber) {
+      f.v0 = f.v1 = f.v3 = f.size = 1.0f;
+      f.age = 3.0f;
+    }
+  }
+
+  /**
+   * @brief Shades at the current endpoint.
+   * @param p Shaded direction.
+   * @param f Fragment whose `v1` is read and whose colour is written.
+   */
+  void operator()(const math::Vector &p, Fragment &f) { (*this)(p, f, 1.0f); }
+};
+
+/**
+ * @brief A time-aware solid shader's writes to its input registers never
+ *        reach another column of a pole-LOD block shaded per column.
+ */
+inline void test_column_shader_inputs_reload_per_column() {
+  constexpr int W = 288, H = 144;
+  const ScopedPoleLod lod(1.0f);
+  const BasisMotion motion{math::make_rotation(math::X_AXIS, -0.05f),
+                           math::Quaternion()};
+  const math::Vector centre(sinf(0.5f), cosf(0.5f), 0.0f);
+  ScratchScope scope(scratch_arena_a);
+  MeshState mesh;
+  build_basis_fan(mesh, scratch_arena_a, centre, 0.35f);
+  std::vector<math::Vector> base(mesh.vertices.begin(), mesh.vertices.end());
+  const auto frame = [&](bool on_mesh, bool clobber, int &repeats) {
+    return render_column_basis<W, H>(motion, [&](Pipeline<W, H> &pipeline,
+                                                 Canvas &canvas,
+                                                 const math::Quaternion &q) {
+      ClobberingColumnShader shader{clobber, &repeats};
+      if (on_mesh) {
+        for (size_t i = 0; i < base.size(); ++i)
+          mesh.vertices[i] = math::rotate(base[i], q);
+        auto setup = [](size_t, float) {};
+        Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                           scratch_arena_b, nullptr, setup);
+      } else {
+        const auto antipode =
+            math::get_antipode(math::make_basis(q, centre), 0.35f);
+        const SDF::Star star(antipode.first, antipode.second, 5, 0.0f, false);
+        Scan::rasterize<W, H>(pipeline, canvas, star, TimedShaderRef(shader));
+      }
+    });
+  };
+  for (const bool on_mesh : {true, false}) {
+    const char *label = on_mesh ? "mesh" : "star";
+    HS_CONTEXT(label);
+    int repeats = 0;
+    const std::vector<Pixel> kept = frame(on_mesh, false, repeats);
+    HS_EXPECT_GT(repeats, 0);
+    int clobbered_repeats = 0;
+    const std::vector<Pixel> clobbered =
+        frame(on_mesh, true, clobbered_repeats);
+    HS_EXPECT_GT(expect_frames_within(label, clobbered, kept, 0), 1000);
+  }
+}
+
 /** @brief SDF::Star bounded only by its swept() proxy. */
 struct SweptOnlyStar : SDF::Star {
   /**

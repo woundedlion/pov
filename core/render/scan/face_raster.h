@@ -482,18 +482,21 @@ HS_HOT_INLINE inline void rasterize_face_body(
           continue;
         }
         HS_PROFILE_DEEP(raster_shade);
-        if constexpr (MinimalFragment) {
+        const auto load = [&]() HS_HOT_INLINE {
+          if constexpr (MinimalFragment) {
 #ifndef NDEBUG
-          frag.poison_inputs();
+            frag.poison_inputs();
 #endif
-          frag.v1 = res.raw_dist;
-        } else {
-          load_fragment(frag, res, p, 0.0f);
-        }
+            frag.v1 = res.raw_dist;
+          } else {
+            load_fragment(frag, res, p, 0.0f);
+          }
+        };
         const auto plot_column = [&](int px, float a) HS_HOT_INLINE {
           plot_admitted(pipeline, canvas, px, y, frag.color.color, frag.age, a);
         };
         const auto shade_once = [&]() HS_HOT_INLINE {
+          load();
           fragment_shader(p, frag);
           if (frag.color.alpha > MIN_ALPHA) {
             const float a = frag.color.alpha * alpha;
@@ -504,6 +507,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
         if constexpr (TIMED_SHADER) {
           if (per_column) {
             for (int px = x; px < x + span; ++px) {
+              load();
               fragment_shader(p, frag, Spacetime::SamplingSurface<W>::time(px));
               if (frag.color.alpha > MIN_ALPHA)
                 plot_column(px, frag.color.alpha * alpha);

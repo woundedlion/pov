@@ -203,6 +203,7 @@ inline int run_scan_tests() {
   HS_RUN(test_column_basis_follows_history_path);
   HS_RUN(test_column_basis_segments_and_endpoints);
   HS_RUN(test_column_basis_blocks_cover_their_rotation);
+  HS_RUN(test_column_shader_inputs_reload_per_column);
   HS_RUN(test_point_birth_skips_earlier_columns);
   HS_RUN(test_lit_caps_keep_swept_frames);
   HS_RUN(test_lit_caps_follow_history_rate);
