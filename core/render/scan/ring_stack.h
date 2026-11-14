@@ -522,6 +522,17 @@ public:
   HS_HOT_INLINE bool fits(int lut_n) const {
     return count + lut_n <= capacity();
   }
+  /** @brief Reserves packed space for the current ring's retained values.
+   * @param lut_n Row knot count; at most KNOTS.
+   * @return Whether the row fits; on success retain() may pack up to
+   *         @p lut_n values. */
+  HS_HOT_INLINE bool reserve_ring(int lut_n) {
+    HS_CHECK(lut_n <= KNOTS, "knot alternates row exceeds KNOTS");
+    if (!fits(lut_n))
+      return false;
+    ring_end = count + lut_n;
+    return true;
+  }
   /** @brief Retains a differing late-window value and installs the early value.
    * @param k Knot index.
    * @param primary Value in the knot's window.
@@ -533,6 +544,8 @@ public:
     row[k] = primary;
     if (primary == alternate)
       return;
+    HS_AUDIT_CHECK(unsigned(k) < unsigned(KNOTS) && count < ring_end,
+                   "knot alternate outside the reserved ring");
     masks[ring * WORDS + k / 32] |= uint32_t{1} << (k % 32);
     row[k] = time < 0.5f ? primary : alternate;
     values[count++] = time < 0.5f ? alternate : primary;
@@ -564,12 +577,14 @@ public:
   /** @brief Empties packed values and invalidates the candidate table. */
   void reset() {
     count = 0;
+    ring_end = 0;
     table_ready = false;
   }
 
 private:
   int slot_count = 0;     ///< Allocated ring count.
   int value_capacity = 0; ///< Packed-value capacity.
+  int ring_end = 0;       ///< Packed-value bound of the reserved ring.
 };
 /**
    * @tparam SlotCount Slot capacity.

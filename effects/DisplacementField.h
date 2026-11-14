@@ -808,10 +808,11 @@ private:
           if (sweep->uses_cache()) {
             Alternates &cache = *sweep->cache;
             // A ring retains at most one alternate per knot.
-            if (!cache.fits(lut_n)) {
+            if (!cache.reserve_ring(lut_n)) {
               scan_swept_stack(canvas, cache);
               rings.begin_frame(&cache);
               cache.begin_ring(i);
+              cache.reserve_ring(lut_n);
               const typename RingPool::Pending fresh = rings.next();
               slut = fresh.shift_row;
               hlut = fresh.hue_row;

@@ -593,6 +593,32 @@ inline void case_scan_alternates_prefix_overflow() {
   alternates.allocate(arena, arena, 1, opaque(65536));
 }
 
+/** @brief A reserved alternate row must not exceed KNOTS. */
+inline void case_scan_alternates_row_exceeds_knots() {
+  alignas(std::max_align_t) uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  Scan::KnotAlternates<32> alternates;
+  alternates.allocate(arena, arena, 1, 64);
+  alternates.begin_ring(0);
+  alternates.reserve_ring(32);
+  death_admitted();
+  alternates.reserve_ring(opaque(33));
+}
+
+/** @brief Retained alternates must stay inside the reserved ring. */
+inline void case_scan_alternates_retain_past_reserve() {
+  alignas(std::max_align_t) uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  Scan::KnotAlternates<32> alternates;
+  alternates.allocate(arena, arena, 1, 64);
+  float row[33] = {};
+  alternates.begin_ring(0);
+  alternates.reserve_ring(1);
+  alternates.retain(0, 0.0f, 1.0f, 0.25f, row);
+  death_admitted();
+  alternates.retain(opaque(1), 0.0f, 1.0f, 0.25f, row);
+}
+
 /** @brief Covered crossings admit their capacity and reject one more insertion. */
 inline void case_covered_crossings_overflow() {
   std::array<float, 2> distances{}, coverages{};

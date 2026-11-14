@@ -2068,6 +2068,17 @@ inline const Case *all_cases(int &n) {
                case_scan_alternates_prefix_overflow,
                "core/render/scan/ring_stack.h",
                "(capacity <= UINT16_MAX) knot alternates capacity exceeds prefix range"},
+              {"scan_alternates_row_exceeds_knots",
+               case_scan_alternates_row_exceeds_knots,
+               "core/render/scan/ring_stack.h",
+               "(lut_n <= KNOTS) knot alternates row exceeds KNOTS", false,
+               "death: admitted"},
+              {"scan_alternates_retain_past_reserve",
+               case_scan_alternates_retain_past_reserve,
+               "core/render/scan/ring_stack.h",
+               "(unsigned(k) < unsigned(KNOTS) && count < ring_end) knot "
+               "alternate outside the reserved ring",
+               false, "death: admitted"},
               // pullback
               {"catalog_curve_midpoint", case_catalog_curve_midpoint,
                "core/render/pullback/catalog_export.h",

@@ -21,6 +21,7 @@ inline void test_ring_stack_pool_lifecycle_and_bounds() {
   HS_EXPECT_EQ(pool.next().shift_row, pending.shift_row);
   HS_EXPECT_EQ(pool.size(), 0);
   alternates.begin_ring(1);
+  HS_EXPECT_TRUE(alternates.reserve_ring(N));
   for (int k = 0; k < N; ++k)
     pending.shift_row[k] = 0.01f;
   alternates.retain(1, 0.01f, 0.07f, 0.2f, pending.shift_row);
@@ -56,6 +57,8 @@ inline void test_ring_stack_pool_lifecycle_and_bounds() {
   HS_EXPECT_EQ(alternates.count, 2);
   HS_EXPECT_TRUE(alternates.fits(N - 2));
   HS_EXPECT_FALSE(alternates.fits(N - 1));
+  HS_EXPECT_FALSE(alternates.reserve_ring(N - 1));
+  HS_EXPECT_TRUE(alternates.reserve_ring(N - 2));
   alternates.reset();
   HS_EXPECT_EQ(alternates.count, 0);
   HS_EXPECT_FALSE(alternates.table_ready);
@@ -80,6 +83,7 @@ inline void test_swept_ring_stack_matches_independent_windows() {
     for (int i = 0; i < 2; ++i) {
       auto pending = pool.next();
       alternates.begin_ring(i);
+      HS_EXPECT_TRUE(alternates.reserve_ring(N));
       for (int k = 0; k < N; ++k) {
         const float early = 0.01f + 0.03f * sinf(math::TWO_PI_F * k / N);
         const float late = -early;
