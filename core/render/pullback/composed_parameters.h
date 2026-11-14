@@ -273,6 +273,31 @@ template <> struct OuterCameraState<true> {
   /// Inverse outer-camera orientation.
   /// @return Conjugate of the accumulated spin and wander.
   math::Quaternion camera_conjugate() const { return outer_conjugate; }
+
+  /** @brief Accumulates the camera's Y spin.
+   * @param rate Radians per frame. */
+  HS_O3_FN HS_HOT_INLINE void advance_camera_spin(float rate) {
+    camera_spin = fmodf(camera_spin + rate, math::TWO_PI_F);
+  }
+
+  /** @brief Absorbs the walk's frame delta and rebuilds the inverse camera.
+   * @tparam Spin Whether the camera spins about Y.
+   * @param wander Fraction of the walk delta absorbed. */
+  template <bool Spin>
+  HS_O3_FN HS_HOT_INLINE void update_camera_frame(float wander) {
+    const math::Quaternion outer = outer_walk.get();
+    const math::Quaternion outer_delta =
+        outer * outer_walk_previous.conjugate();
+    outer_walk_previous = outer;
+    outer_wander = math::absorb_rotation_delta(outer_delta.normalized(), wander,
+                                               outer_wander);
+    if constexpr (Spin)
+      outer_conjugate =
+          (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)
+              .conjugate();
+    else
+      outer_conjugate = outer_wander.conjugate();
+  }
 };
 
 /** @brief Persistent projection-walk state; empty when disabled. */
@@ -295,6 +320,28 @@ template <> struct ProjectionWalkState<true> {
   /** @brief Inverse projection frame rotation.
       @return `projection_conjugate`. */
   math::Quaternion frame_conjugate() const { return projection_conjugate; }
+
+  /** @brief Accumulates the projection's Y spin.
+   * @param rate Radians per frame. */
+  HS_O3_FN HS_HOT_INLINE void advance_projection_spin(float rate) {
+    projection_spin = fmodf(projection_spin + rate, math::TWO_PI_F);
+  }
+
+  /** @brief Absorbs the walk's frame delta and rebuilds the inverse frame.
+   * @param wander Fraction of the walk delta absorbed.
+   * @param tilted Whether the frame spins on projection_frame_base(true). */
+  HS_O3_FN HS_HOT_INLINE void update_projection_frame(float wander,
+                                                      bool tilted) {
+    const math::Quaternion projection = projection_walk.get();
+    const math::Quaternion projection_delta =
+        projection * projection_walk_previous.conjugate();
+    projection_walk_previous = projection;
+    projection_wander = math::absorb_rotation_delta(
+        projection_delta.normalized(), wander, projection_wander);
+    projection_conjugate = (math::make_rotation(math::Y_AXIS, projection_spin) *
+                            projection_frame_base(tilted) * projection_wander)
+                               .conjugate();
+  }
 };
 
 /** @brief Sphere-to-plane projection of a composed effect's Stage::Project. */

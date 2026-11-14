@@ -551,51 +551,24 @@ private:
     clocks.advance();
     if constexpr (ANIMATED_PROJECTION)
       if (projection_frame_active())
-        this->projection_spin =
-            fmodf(this->projection_spin +
-                      this->params.template get<"projection">().spin_rate,
-                  math::TWO_PI_F);
+        this->advance_projection_spin(
+            this->params.template get<"projection">().spin_rate);
     if constexpr (Metadata::OUTER_CAMERA &&
                   requires { Derived::CAMERA_SPIN_RATE; })
-      this->camera_spin =
-          fmodf(this->camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
+      this->advance_camera_spin(Derived::CAMERA_SPIN_RATE);
     palette.advance();
   }
 
   HS_FLASH_MEMBER void update_spatial_frames() {
-    if constexpr (ANIMATED_PROJECTION) {
-      if (projection_frame_active()) {
-        const math::Quaternion projection = this->projection_walk.get();
-        const math::Quaternion projection_delta =
-            projection * this->projection_walk_previous.conjugate();
-        this->projection_walk_previous = projection;
-        this->projection_wander = math::absorb_rotation_delta(
-            projection_delta.normalized(),
+    if constexpr (ANIMATED_PROJECTION)
+      if (projection_frame_active())
+        this->update_projection_frame(
             this->params.template get<"projection">().wander,
-            this->projection_wander);
-        this->projection_conjugate =
-            (math::make_rotation(math::Y_AXIS, this->projection_spin) *
-             projection_frame_base(projection_frame_tilted()) *
-             this->projection_wander)
-                .conjugate();
-      }
-    }
+            projection_frame_tilted());
     if constexpr (Metadata::OUTER_CAMERA) {
-      const math::Quaternion outer = this->outer_walk.get();
-      const math::Quaternion outer_delta =
-          outer * this->outer_walk_previous.conjugate();
-      this->outer_walk_previous = outer;
-      this->outer_wander = math::absorb_rotation_delta(
-          outer_delta.normalized(),
-          this->params.template get<"projection">().camera_wander,
-          this->outer_wander);
-      if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
-        this->outer_conjugate =
-            (math::make_rotation(math::Y_AXIS, this->camera_spin) *
-             this->outer_wander)
-                .conjugate();
-      else
-        this->outer_conjugate = this->outer_wander.conjugate();
+      constexpr bool SPIN = requires { Derived::CAMERA_SPIN_RATE; };
+      this->template update_camera_frame<SPIN>(
+          this->params.template get<"projection">().camera_wander);
     }
   }
 
