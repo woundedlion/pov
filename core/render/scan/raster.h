@@ -185,13 +185,12 @@ __attribute__((always_inline)) inline float report_stretch(const SDF::Line &) {
   return 1.0f;
 }
 /** @brief SDF::PreparedFace reports gnomonic-plane distance, whose angular-step stretch
- *         grows as 1 + r^2. This factor uses max_dist_sq, though a class-LUT
- *         pad can admit ordinary and block probes past max_dist.
- *  @param shape Face whose `max_dist_sq` bounds the stretch.
- *  @return 1 + `max_dist_sq`. */
+ *         grows as 1 + r^2 out to the farthest probe it reports.
+ *  @param shape Face whose report radius bounds the stretch.
+ *  @return 1 + `SDF::PreparedFace::report_radius_sq()`. */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::PreparedFace &shape) {
-  return 1.0f + shape.cull_radius_sq();
+  return 1.0f + shape.report_radius_sq();
 }
 /** @brief Reports projection stretch through a checked face handle.
  * @param shape Prepared face handle.

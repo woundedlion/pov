@@ -72,6 +72,7 @@ PreparedFace::setup_frame_and_polygon(std::span<const math::Vector> vertices,
   radius = sqrtf(max_r2);
   max_dist = radius + BOUNDS_MARGIN_WIDE;
   max_dist_sq = max_dist * max_dist;
+  report_reach_sq = max_dist_sq;
 
   scratch.poly_2d[count] = scratch.poly_2d[0];
   poly_2d = std::span<math::Vector>(scratch.poly_2d.data(), count + 1);
@@ -356,6 +357,8 @@ inline HS_FLASH_MEMBER bool PreparedFace::bind_class_lut(const ClassLut *lut,
   lut_dequant = lut->dequant;
   lut_q_safe = static_cast<int32_t>((lut->safe_dist + max_dev) / lut->dequant);
   lut_data = lut->data;
+  const float report_reach = max_dist + lut_pad();
+  report_reach_sq = report_reach * report_reach;
   return true;
 }
 

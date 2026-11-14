@@ -265,6 +265,10 @@ private:
                     claiming one. */
   uint32_t scratch_claim = 0; /**< Claim this face took on that buffer. */
 
+  /// Squared plane radius bounding every probe the face reports, class-LUT pad
+  /// included.
+  float report_reach_sq = 0.0f;
+
 public:
   /** @return Normalized face centroid, the gnomonic projection axis. */
   const math::Vector &centroid() const { return center; }
@@ -281,6 +285,9 @@ public:
   float circumradius() const { return radius; }
   /** @return Squared radial cull radius in the 2D projection. */
   float cull_radius_sq() const { return max_dist_sq; }
+  /** @return Squared plane radius bounding every probe the face reports: the
+   *          cull radius, widened by the class-LUT pad once one is bound. */
+  float report_radius_sq() const { return report_reach_sq; }
   /** @return Plane-unit reach of the bound class LUT past the polygon; read
    *          only when probe_flags() has PROBE_HAS_LUT. */
   float lut_pad() const { return (lut_q_safe + 1) * lut_dequant; }

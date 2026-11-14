@@ -1980,6 +1980,12 @@ inline const Case *all_cases(int &n) {
                "pass.visibility_vertex_count == vertices)) mesh visibility "
                "dimensions disagree with the mesh",
                false, "death: admitted"},
+              {"scan_face_block_probe_past_report_radius",
+               case_scan_face_block_probe_past_report_radius,
+               "core/render/scan/face_raster.h",
+               "(px * px + py * py <= shape.report_radius_sq()) "
+               "rasterize_face: block probe past the report radius",
+               false, "death: admitted"},
               {"scan_mesh_selection_dimensions",
                case_scan_mesh_selection_dimensions,
                "core/render/scan/face_raster.h",

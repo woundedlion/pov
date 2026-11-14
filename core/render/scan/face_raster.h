@@ -437,6 +437,18 @@ HS_HOT_INLINE inline void rasterize_face_body(
           shape.template distance_with_flags<true>(
               p, res, reject_dsq, probe_flags, probe_min_cos, convex_reject);
         }
+#if HS_ENABLE_STRUCTURAL_AUDITS
+        if (probe_min_cos != min_cos) {
+          const float cos_angle = math::dot(p, shape.centroid());
+          if (cos_angle >= probe_min_cos) {
+            const float px = math::dot(p, shape.tangent_u()) / cos_angle;
+            const float py = math::dot(p, shape.tangent_w()) / cos_angle;
+            HS_AUDIT_CHECK(
+                px * px + py * py <= shape.report_radius_sq(),
+                "rasterize_face: block probe past the report radius");
+          }
+        }
+#endif
         const float d = res.dist;
 #if HS_ENABLE_TEST_HOOKS
         if (face_audit_candidate && d < PIXEL_WIDTH)

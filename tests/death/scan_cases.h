@@ -308,6 +308,38 @@ inline void case_scan_mesh_visibility_dimensions() {
   Scan::check_mesh_pass(pass, 2, 3);
 }
 
+/** @brief Traps when a pole-LOD block probe lands past the face's report
+ *         radius. */
+inline void case_scan_face_block_probe_past_report_radius() {
+  constexpr int W = 96, H = 64, HV = H + hs::H_OFFSET;
+  Render::pole_lod_aggressiveness = 1.0f;
+  const math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
+  math::Vector verts[6];
+  uint16_t idx[6];
+  for (int i = 0; i < 6; ++i) {
+    const float a = (2.0f * math::PI_F * i) / 6.0f;
+    verts[i] = (basis.v * cosf(0.6f) +
+                (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(0.6f))
+                   .normalized();
+    idx[i] = static_cast<uint16_t>(i);
+  }
+  static hs_test::StubEffect fx(W, H);
+  static Pipeline<W, H> pipeline;
+  static SDF::FaceScratchBuffer scratch;
+  Canvas canvas(fx);
+  SDF::PreparedFace face(std::span<const math::Vector>(verts, 6),
+                         std::span<const uint16_t>(idx, 6), scratch, HV, H,
+                         &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN);
+  auto shader = [](const math::Vector &, Fragment &f) {
+    f.color = Color4(Pixel(60000, 45000, 30000), 1.0f);
+  };
+  Scan::rasterize_face<W, H, Pipeline<W, H>>(pipeline, canvas, face, shader);
+  death_admitted();
+  PreparedFaceTestAccess::report_reach_sq(face) = 0.0f;
+  Scan::rasterize_face<W, H, Pipeline<W, H>>(pipeline, canvas, face, shader);
+}
+
 /** @brief Traps when a deformation pass belongs to a differently sized mesh. */
 inline void case_scan_mesh_selection_dimensions() {
   uint8_t selected = 0;

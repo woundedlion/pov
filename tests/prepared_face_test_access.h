@@ -103,6 +103,10 @@ struct PreparedFaceTestAccess {
   template <PreparedFaceRef F> static auto &lut_q_safe(F &f) {
     return f.lut_q_safe;
   }
+  /** @brief Squared report radius. @param f Face. @return Field. */
+  template <PreparedFaceRef F> static auto &report_reach_sq(F &f) {
+    return f.report_reach_sq;
+  }
   /** @brief Scratch buffer the spans view. @param f Face. @return Field. */
   template <PreparedFaceRef F> static auto &scratch_owner(F &f) {
     return f.scratch_owner;
