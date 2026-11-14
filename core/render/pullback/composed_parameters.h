@@ -118,22 +118,28 @@ inline bool valid(const PotentialParams &value) {
   return Fields::valid(value) && Surface::valid_terms(value);
 }
 
+/** @brief Whether a palette mapping is a declared curve.
+ * @param mapping Curve to check.
+ * @return True for a `Color::PaletteMapping` enumerator. */
+inline bool valid_palette_mapping(Color::PaletteMapping mapping) {
+  return static_cast<uint8_t>(mapping) <=
+         static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE);
+}
+
 /**
  * @brief Whether a colour family's fields and palette mapping are in range.
  * @param p Colour family to check.
  * @return True when every field and the mapping enumerator are valid.
  */
 inline bool valid(const ColorParams &p) {
-  return Pullback::Fields::valid(p) &&
-         static_cast<uint8_t>(p.palette_mapping) <=
-             static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE);
+  return Pullback::Fields::valid(p) && valid_palette_mapping(p.palette_mapping);
 }
 
 /** @brief Validates authored source controls and selectors.
  * @param p Authored color family.
  * @return Whether all controls and selector ordinals are valid. */
 inline bool valid(const Color::AuthoredColorParams &p) {
-  return valid(static_cast<const ColorParams &>(p)) && Fields::valid(p) &&
+  return Fields::valid(p) && valid_palette_mapping(p.palette_mapping) &&
          p.palette_type <=
              static_cast<uint8_t>(AuthoredPaletteType::MUTATING) &&
          p.palette_mode < std::size(Color::PALETTE_MODE_IDS) &&
@@ -141,7 +147,8 @@ inline bool valid(const Color::AuthoredColorParams &p) {
          p.palette_lightness_curve <= static_cast<uint8_t>(AxisCurve::CUP) &&
          p.palette_name < std::size(AUTHORED_PALETTE_NAME_IDS) &&
          p.palette_name_b < std::size(AUTHORED_PALETTE_NAME_IDS) &&
-         p.brightness_envelope <= Color::BrightnessEnvelope::DESCENDING;
+         static_cast<size_t>(p.brightness_envelope) <
+             std::size(Color::BRIGHTNESS_ENVELOPE_IDS);
 }
 
 /**

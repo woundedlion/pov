@@ -1451,9 +1451,7 @@ private:
   /** @brief Current generated-cycle harmony. @return Selected hue relationship. */
   HS_FLASH_MEMBER PaletteHarmony cycling_harmony() const {
     if constexpr (AUTHORED_PALETTE) {
-      constexpr PaletteHarmony HARMONIES[] = {PaletteHarmony::TRIADIC,
-                                              PaletteHarmony::COMPLEMENTARY,
-                                              PaletteHarmony::ANALOGOUS};
+      constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
       const auto mode = params.template get<"color">().palette_mode;
       HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
       return HARMONIES[mode];

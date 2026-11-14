@@ -64,20 +64,13 @@ struct Rotate : ValueStateModel<SpatialWalkState> {
   }
 };
 
-/** @brief Which frame palette the colorize operator reads; indexes
-    `FrameContext::palettes`. */
-enum class PaletteMode : uint8_t {
-  TRIADIC = 0,       ///< Triadic-harmony palette.
-  COMPLEMENTARY = 1, ///< Complementary-harmony palette.
-  ANALOGOUS = 2      ///< Analogous-harmony palette.
-};
+/// Which frame palette the colorize operator reads.
+using PaletteMode = Color::PaletteMode;
 /// Brightness envelope of the colorize operator.
 using EnvelopeMode = Color::BrightnessEnvelope;
 
 /// Wire ids of `PaletteMode`, by enumerator value.
 inline constexpr auto &PALETTE_MODE_IDS = Color::PALETTE_MODE_IDS;
-static_assert(std::size(PALETTE_MODE_IDS) ==
-              static_cast<size_t>(PaletteMode::ANALOGOUS) + 1);
 static_assert(std::size(PALETTE_MODE_IDS) == FrameContext{}.palettes.size(),
               "frame palette storage must cover every palette mode");
 /// Wire ids of `Color::PaletteMapping`, by enumerator value.
@@ -87,8 +80,6 @@ static_assert(std::size(PALETTE_MAPPING_IDS) ==
               static_cast<size_t>(Color::PaletteMapping::REVERSE) + 1);
 /// Wire ids of `EnvelopeMode`, by enumerator value.
 inline constexpr auto &BRIGHTNESS_ENVELOPE_IDS = Color::BRIGHTNESS_ENVELOPE_IDS;
-static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
-              static_cast<size_t>(EnvelopeMode::DESCENDING) + 1);
 
 /// Authored palette source family.
 using PaletteType = ::AuthoredPaletteType;

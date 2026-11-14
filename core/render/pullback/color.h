@@ -23,12 +23,23 @@ namespace Pullback {
 
 namespace Color {
 
-/// Palette harmony mode wire values.
+/** @brief Which cycling generated palette a colour stage reads; indexes
+    `FrameContext::palettes`. */
+enum class PaletteMode : uint8_t {
+  TRIADIC = 0,       ///< Triadic-harmony palette.
+  COMPLEMENTARY = 1, ///< Complementary-harmony palette.
+  ANALOGOUS = 2      ///< Analogous-harmony palette.
+};
+/// Palette harmony mode wire values, by `PaletteMode` value.
 inline constexpr const char *PALETTE_MODE_IDS[] = {"triadic", "complementary",
                                                    "analogous"};
-/// Brightness envelope wire values.
-inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
-    "none", "cup", "bell", "ascending", "descending"};
+static_assert(std::size(PALETTE_MODE_IDS) ==
+              static_cast<size_t>(PaletteMode::ANALOGOUS) + 1);
+/// Hue relationship of each `PaletteMode`, by value.
+inline constexpr PaletteHarmony PALETTE_MODE_HARMONIES[] = {
+    PaletteHarmony::TRIADIC, PaletteHarmony::COMPLEMENTARY,
+    PaletteHarmony::ANALOGOUS};
+static_assert(std::size(PALETTE_MODE_HARMONIES) == std::size(PALETTE_MODE_IDS));
 
 /** @brief Applies sinusoidal oscillation to a mapping phase.
  *  @param phase Base mapping phase.
@@ -56,6 +67,11 @@ enum class BrightnessEnvelope : uint8_t {
   ASCENDING = 3, ///< Rises linearly with the value.
   DESCENDING = 4 ///< Falls linearly with the value.
 };
+/// Brightness envelope wire values, by `BrightnessEnvelope` value.
+inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
+    "none", "cup", "bell", "ascending", "descending"};
+static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
+              static_cast<size_t>(BrightnessEnvelope::DESCENDING) + 1);
 
 /// Gate of the brightness controls: live for every envelope but NONE.
 inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
@@ -203,6 +219,10 @@ constexpr auto palette_selection_fields(TopologyGate generated = {},
   };
 }
 
+/// Number of numeric palette-selection fields.
+inline constexpr size_t PALETTE_SELECTION_FIELD_COUNT =
+    palette_selection_fields<AuthoredPaletteSelection, false>().size();
+
 /** @brief Full authored palette controls for composed pipelines. */
 struct AuthoredColorParams : ColorParams, AuthoredPaletteSelection {
   uint8_t palette_mode =
@@ -211,7 +231,8 @@ struct AuthoredColorParams : ColorParams, AuthoredPaletteSelection {
       BrightnessEnvelope::NONE; ///< Value envelope.
   /// Numeric palette selection and mapping controls.
   static const std::array<Field<AuthoredColorParams>,
-                          ColorParams::FIELDS.size() + 14>
+                          ColorParams::FIELDS.size() +
+                              PALETTE_SELECTION_FIELD_COUNT>
       FIELDS;
   /** @brief Copies the controls both palette endpoints read from the sampled
    *         column frame.
@@ -224,7 +245,8 @@ struct AuthoredColorParams : ColorParams, AuthoredPaletteSelection {
 };
 // ARM GCC needs the complete class for secondary-base member offsets.
 inline constexpr std::array<Field<AuthoredColorParams>,
-                            ColorParams::FIELDS.size() + 14>
+                            ColorParams::FIELDS.size() +
+                                PALETTE_SELECTION_FIELD_COUNT>
     AuthoredColorParams::FIELDS = concat_fields<AuthoredColorParams>(
         ColorParams::FIELDS,
         palette_selection_fields<AuthoredColorParams, true>());
