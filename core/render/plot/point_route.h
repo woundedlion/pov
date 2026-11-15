@@ -100,14 +100,12 @@ public:
     y_max = first_row > 0 ? north_limit + reach : INF;
     y_min = last_row < H ? south_limit - reach : -INF;
 
-    // Tap columns floor(x) and floor(x) + 1 reach [first, last) for x in
-    // [first - 1, last), widened by fast_atan2's error.
     const ClipRegion::XClip columns = clip.x_clip();
     column_test = MeridianTest::NONE;
     if (!columns.active)
       return;
     const HalfPlanes planes =
-        ColumnBand::of(columns).tap_half_planes<W>(COLUMN_SLACK);
+        ColumnBand::of(columns).half_planes<W>(COLUMN_SLACK);
     if (planes.test() == MeridianTest::NONE)
       return;
     low_x = cosf(planes.start);

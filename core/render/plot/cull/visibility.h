@@ -350,7 +350,7 @@ inline constexpr float CAP_ATAN2_PAD =
  *         window. */
 struct CapColumns {
   float longitude;  /**< Midpoint longitude, radians. */
-  float half_width; /**< Half-width including one column of pad, radians. */
+  float half_width; /**< Conservative longitude half-width, radians. */
   bool active;      /**< Whether the bounds restrict longitude. */
   float period;     /**< Longitude period of the bounds, radians. */
 };
@@ -364,7 +364,7 @@ HS_HOT_INLINE inline CapColumns cap_columns(const ClipRegion &cr) {
   const ClipRegion::XClip xc = cr.x_clip();
   if (!xc.active)
     return {0, 0, false, math::TWO_PI_F};
-  const CentreHalf band = ColumnBand::of(xc).centre_half<1>(cr.w);
+  const CentreHalf band = ColumnBand::of(xc).centre_half(cr.w);
   return {band.centre, band.half, true, math::TWO_PI_F};
 }
 

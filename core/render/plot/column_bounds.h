@@ -18,7 +18,7 @@ HS_O3_BEGIN
 /** @brief Rejects edges whose swept arcs miss a draw's rows and columns.
  * @tparam W Display width.
  * @details Rows use the column walk's own sample cut; columns use the render
- * band widened by two columns on each side. */
+ * band's conservative cull span. */
 template <int W> struct SweptEdgeCull {
   float top;           /**< Highest unit-sphere y the walk emits. */
   float bottom;        /**< Lowest unit-sphere y the walk emits. */
@@ -35,9 +35,7 @@ template <int W> struct SweptEdgeCull {
       : top(top_y), bottom(bottom_y) {
     if (!columns.active)
       return;
-    constexpr float MARGIN = 2.0f;
-    const HalfPlanes planes =
-        ColumnBand::of(columns).cell_half_planes<W>(MARGIN);
+    const HalfPlanes planes = ColumnBand::of(columns).half_planes<W>();
     const MeridianTest test = planes.test();
     if (test == MeridianTest::BOTH) {
       mode = 1;

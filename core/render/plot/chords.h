@@ -26,8 +26,8 @@
 namespace Plot {
 
 /**
- * @brief Screen rows and unwrapped columns a splat must touch to reach a clip
- *        region, and the conservative reach test for chart-straight pieces.
+ * @brief Conservative screen rows and unwrapped columns for splats reaching
+ *        a clip region, and the reach test for chart-straight pieces.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
@@ -53,7 +53,7 @@ template <int W, int H> struct ClipBand {
     band.row_lo = static_cast<float>(clip.render_y_start() - 1);
     band.row_hi = static_cast<float>(clip.render_y_end());
     band.x_active = x_clip.active;
-    const ColumnSpan reach = columns.tap_reach<W>();
+    const ColumnSpan reach = columns.span(W);
     band.x_center = reach.centre();
     band.x_half = reach.half();
     return band;

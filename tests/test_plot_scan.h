@@ -139,6 +139,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_column_basis_crossing_orientation);
   HS_RUN(test_column_walk_arm_boundary_coverage);
   HS_RUN(test_column_walk_terminal_on_shrinking_edge);
+  HS_RUN(test_column_bands_contain_tap_reach);
   HS_RUN(test_column_edge_cull_is_conservative);
   HS_RUN(test_column_edge_cull_keeps_padded_point_sets);
   HS_RUN(test_column_edge_cull_honors_render_margin);

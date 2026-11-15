@@ -3,6 +3,110 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @brief Cull bands contain tap reach and padded cells at every seam position.
+ * @tparam W Canvas width in columns. */
+template <int W> inline void check_column_band_containment() {
+  HS_CONTEXT("width", W);
+  constexpr float COLUMN = math::RADIANS_PER_COLUMN<W>;
+  int checked = 0;
+  for (int rs = 0; rs < W; ++rs) {
+    for (int count = 0; count < W; ++count) {
+      const int end = rs + count;
+      const ClipRegion::XClip xc{rs, end % W, true, end >= W};
+      const auto band = Plot::ColumnBand::of(xc);
+      const auto tap = band.template tap_reach<W>();
+      const auto span = band.span(W);
+      const auto planes = band.template half_planes<W>();
+      const auto centre = band.centre_half(W);
+      const float cell_start = (float(rs) - 2.5f) * COLUMN;
+      const float cell_end = cell_start + (float(count) + 4.0f) * COLUMN;
+      const float cap_centre = (rs + float(count) * 0.5f) * math::TWO_PI_F / W;
+      const float cap_half = (float(count) * 0.5f + 1.0f) * math::TWO_PI_F / W;
+      const bool contains =
+          tap.lo <= rs - 1 && tap.hi >= end && span.lo <= rs - 2.5f &&
+          span.hi >= end + 1.5f && planes.start <= cell_start &&
+          planes.end >= cell_end && planes.start <= (rs - 1) * COLUMN &&
+          planes.end >= end * COLUMN &&
+          centre.centre - centre.half <= cell_start &&
+          centre.centre + centre.half >= cell_end &&
+          centre.centre - centre.half <= cap_centre - cap_half &&
+          centre.centre + centre.half >= cap_centre + cap_half;
+      if (!contains) {
+        HS_CONTEXT("band", rs, count);
+        HS_EXPECT_TRUE(contains);
+        return;
+      }
+      ++checked;
+    }
+  }
+  HS_EXPECT_EQ(checked, W * W);
+}
+
+/** @brief Each clip consumer's band contains the anti-alias tap reach.
+ * @tparam W Canvas width in columns. */
+template <int W> inline void check_column_band_consumers() {
+  constexpr int H = 20;
+  constexpr float COLUMN = math::RADIANS_PER_COLUMN<W>;
+  hs_test::StubEffect effect(W, H);
+  Plot::PointRoute<W, H> route;
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  for (int rs = 0; rs < W; ++rs) {
+    for (int count : {1, W / 4, W / 2, W - rs}) {
+      if (rs + count > W)
+        continue;
+      for (int margin : {0, 1, 4}) {
+        effect.advance_display();
+        effect.set_margin(margin);
+        effect.set_clip(0, H, rs, rs + count);
+        Canvas canvas(effect);
+        const auto xc = canvas.clip().x_clip();
+        if (!xc.active)
+          continue;
+        const int end = xc.re + (xc.wrap ? W : 0);
+        const auto clip = Plot::ClipBand<W, H>::of(canvas.clip());
+        const auto cap = Plot::cap_columns(canvas.clip());
+        const auto cuts = Plot::ColumnBand::of(xc).template cut_columns<W>(
+            Plot::CLIP_CUT_COL_PAD);
+        const auto cull = Plot::SweptEdgeCull<W>::template of<H>(canvas);
+        route.prepare(canvas, 0.0f);
+        sink.prepare(canvas);
+        HS_CONTEXT("band", rs, count);
+        HS_CONTEXT("margin", margin);
+        HS_EXPECT_LE(clip.x_center - clip.x_half, xc.rs - 2.5f);
+        HS_EXPECT_GE(clip.x_center + clip.x_half, end + 1.5f);
+        HS_EXPECT_LE(cap.longitude - cap.half_width, (xc.rs - 2.5f) * COLUMN);
+        HS_EXPECT_GE(cap.longitude + cap.half_width, (end + 1.5f) * COLUMN);
+        HS_EXPECT_EQ(cuts[0], math::wrap(xc.rs - Plot::CLIP_CUT_COL_PAD, W));
+        HS_EXPECT_EQ(cuts[1], math::wrap(end + Plot::CLIP_CUT_COL_PAD, W));
+        for (float column : {float(xc.rs) - 2.25f, float(xc.rs) - 0.75f,
+                             float(end) - 0.25f, float(end) + 1.25f}) {
+          const math::Vector p(cosf(column * COLUMN), 0.0f,
+                               sinf(column * COLUMN));
+          HS_EXPECT_FALSE(cull.rejects(&p, 1, 0.0f));
+          bool shaded = false;
+          route.plot(
+              sink, canvas, p, [&] { return p; },
+              [&] {
+                shaded = true;
+                return Color4{};
+              });
+          HS_EXPECT_TRUE(shaded);
+        }
+      }
+    }
+  }
+}
+
+/** @brief Shipped widths retain every cull band's tap and cell coverage. */
+inline void test_column_bands_contain_tap_reach() {
+  check_column_band_containment<16>();
+  check_column_band_containment<96>();
+  check_column_band_containment<288>();
+  check_column_band_consumers<16>();
+  check_column_band_consumers<96>();
+  check_column_band_consumers<288>();
+}
+
 /** @brief Accepts points in the row band whose owner or either neighbour is unclipped. */
 template <int W>
 inline bool reaches_band(const math::Vector &p,

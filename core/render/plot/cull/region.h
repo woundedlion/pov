@@ -163,10 +163,8 @@ struct HalfPlanes {
 /**
  * @brief A view of a clip's render columns [first(), end<W>()), crossing the
  *        seam when the end passes the width.
- * @details Culls pad the band in one of two column conventions. Tap reach: a
- * sample at fractional column x splats into floor(x) and floor(x) + 1, so
- * samples in (first() - 1, end<W>()) reach the band. Cell centres: column c
- * covers [c - 0.5, c + 0.5].
+ * @details The cull span is [first() - 3, first() + count(w) + 2]. It
+ * contains the anti-alias tap reach and the padded column cells.
  */
 struct ColumnBand {
   const ClipRegion::XClip &columns; ///< Render-band column predicate.
@@ -208,42 +206,33 @@ struct ColumnBand {
     return {math::wrap(first() - pad, W), math::wrap(columns.re + pad, W)};
   }
 
-  /** @brief Bounding half-planes of the tap-reach columns widened by
-   *         @p slack radians on each side.
+  /** @brief Conservative cull columns, unwrapped past the seam.
+   *  @param w Canvas width in columns.
+   *  @return The render band widened by COL_FOOTPRINT below and COL_PAD above. */
+  HS_HOT_INLINE ColumnSpan span(int w) const {
+    return {static_cast<float>(first() - COL_FOOTPRINT),
+            static_cast<float>(first() + count(w) + COL_PAD)};
+  }
+
+  /** @brief Bounding meridians of the cull span, with angular slack.
    *  @tparam W Canvas width in columns.
    *  @param slack Radians added on each side.
-   *  @return The half-planes of tap_reach() in longitude, widened. */
-  template <int W> HS_HOT_INLINE HalfPlanes tap_half_planes(float slack) const {
-    const ColumnSpan reach = tap_reach<W>();
-    const float start = reach.lo * math::RADIANS_PER_COLUMN<W> - slack;
-    const float end = reach.hi * math::RADIANS_PER_COLUMN<W> + slack;
+   *  @return The widened span's half-planes. */
+  template <int W>
+  HS_HOT_INLINE HalfPlanes half_planes(float slack = 0.0f) const {
+    const ColumnSpan bounds = span(W);
+    const float start = bounds.lo * math::RADIANS_PER_COLUMN<W> - slack;
+    const float end = bounds.hi * math::RADIANS_PER_COLUMN<W> + slack;
     return {start, end, end - start};
   }
 
-  /** @brief Bounding half-planes of the band's column cells widened by
-   *         @p margin columns on each side.
-   *  @tparam W Canvas width in columns.
-   *  @param margin Columns added on each side.
-   *  @return The half-planes of [first() - 0.5 - margin, first() + count(W) -
-   *          0.5 + margin] in column units. */
-  template <int W>
-  HS_HOT_INLINE HalfPlanes cell_half_planes(float margin) const {
-    const float start =
-        (float(first()) - 0.5f - margin) * math::RADIANS_PER_COLUMN<W>;
-    const float width =
-        (float(count(W)) + 2.0f * margin) * math::RADIANS_PER_COLUMN<W>;
-    return {start, start + width, width};
-  }
-
-  /** @brief Longitude centre and half-width of the band widened by PAD
-   *         columns on each side.
-   *  @tparam PAD Columns added on each side.
+  /** @brief Longitude centre and half-width of the cull span.
    *  @param w Canvas width in columns.
-   *  @return The padded band's centre and half-width, radians. */
-  template <int PAD> HS_HOT_INLINE CentreHalf centre_half(int w) const {
-    const float width = static_cast<float>(count(w));
-    return {(first() + width * 0.5f) * math::TWO_PI_F / w,
-            (width * 0.5f + PAD) * math::TWO_PI_F / w};
+   *  @return The span's centre and half-width, radians. */
+  HS_HOT_INLINE CentreHalf centre_half(int w) const {
+    const ColumnSpan bounds = span(w);
+    return {bounds.centre() * math::TWO_PI_F / w,
+            bounds.half() * math::TWO_PI_F / w};
   }
 };
 
