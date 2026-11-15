@@ -3,43 +3,86 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-/** @brief Cull bands contain tap reach and padded cells at every seam position.
+/** @brief Per-site widths retain old bands and taps on the shared centre.
  * @tparam W Canvas width in columns. */
 template <int W> inline void check_column_band_containment() {
   HS_CONTEXT("width", W);
   constexpr float COLUMN = math::RADIANS_PER_COLUMN<W>;
-  int checked = 0;
+  int point_failures = 0, swept_failures = 0, cap_failures = 0,
+      clip_failures = 0;
+  float max_rounding = 0.0f;
+  float max_cap_rounding = 0.0f;
   for (int rs = 0; rs < W; ++rs) {
     for (int count = 0; count < W; ++count) {
       const int end = rs + count;
       const ClipRegion::XClip xc{rs, end % W, true, end >= W};
       const auto band = Plot::ColumnBand::of(xc);
+      const auto point = band.span(W, band.point_half(W));
+      const auto swept = band.span(W, band.swept_half(W));
+      const auto cap = band.span(W, band.cap_half(W));
+      const auto clip = band.span(W, band.clip_half(W));
       const auto tap = band.template tap_reach<W>();
-      const auto span = band.span(W);
-      const auto planes = band.template half_planes<W>();
-      const auto centre = band.centre_half(W);
+      const auto planes = band.template half_planes<W>(
+          band.swept_half(W), Plot::ColumnBand::SWEPT_ROUNDING);
       const float cell_start = (float(rs) - 2.5f) * COLUMN;
       const float cell_end = cell_start + (float(count) + 4.0f) * COLUMN;
-      const float cap_centre = (rs + float(count) * 0.5f) * math::TWO_PI_F / W;
-      const float cap_half = (float(count) * 0.5f + 1.0f) * math::TWO_PI_F / W;
-      const bool contains =
-          tap.lo <= rs - 1 && tap.hi >= end && span.lo <= rs - 2.5f &&
-          span.hi >= end + 1.5f && planes.start <= cell_start &&
-          planes.end >= cell_end && planes.start <= (rs - 1) * COLUMN &&
-          planes.end >= end * COLUMN &&
-          centre.centre - centre.half <= cell_start &&
-          centre.centre + centre.half >= cell_end &&
-          centre.centre - centre.half <= cap_centre - cap_half &&
-          centre.centre + centre.half >= cap_centre + cap_half;
-      if (!contains) {
-        HS_CONTEXT("band", rs, count);
-        HS_EXPECT_TRUE(contains);
-        return;
+      max_rounding = fmaxf(max_rounding, cell_end - swept.hi * COLUMN);
+      point_failures += !(point.lo <= rs - 1 && point.hi >= end &&
+                          point.lo <= tap.lo && point.hi >= tap.hi);
+      swept_failures += !(swept.lo <= rs - 2.5f && swept.hi >= end + 1.5f &&
+                          swept.lo <= tap.lo && swept.hi >= tap.hi &&
+                          planes.start <= cell_start && planes.end >= cell_end);
+      cap_failures += !(cap.lo <= rs - 1 && cap.hi >= end + 1 &&
+                        cap.lo <= tap.lo && cap.hi >= tap.hi);
+      clip_failures += !(clip.lo <= rs - 3 && clip.hi >= end + 2 &&
+                         clip.lo <= tap.lo && clip.hi >= tap.hi);
+      ClipRegion region;
+      region.w = W;
+      region.h = 20;
+      region.y_end = 20;
+      region.x_start = rs;
+      region.x_end = end % W;
+      region.margin = 0;
+      const auto clip_gate = Plot::ClipBand<W, 20>::of(region);
+      const auto cap_gate = Plot::cap_columns(region);
+      const float old_cap_centre =
+          (rs + float(count) * 0.5f) * math::TWO_PI_F / W;
+      const float old_cap_half =
+          (float(count) * 0.5f + 1.0f) * math::TWO_PI_F / W;
+      const float cap_lo = cap_gate.longitude - cap_gate.half_width;
+      const float cap_hi = cap_gate.longitude + cap_gate.half_width;
+      max_cap_rounding =
+          fmaxf(max_cap_rounding, old_cap_centre + old_cap_half - cap_hi);
+      HS_EXPECT_LE(cap_lo - Plot::CAP_ATAN2_PAD, old_cap_centre - old_cap_half);
+      HS_EXPECT_GE(cap_hi + Plot::CAP_ATAN2_PAD, old_cap_centre + old_cap_half);
+      HS_EXPECT_EQ(clip_gate.x_center, band.centre(W));
+      HS_EXPECT_EQ((clip_gate.x_half + Plot::ClipBand<W, 20>::PAD),
+                   (count + 5) * 0.5f);
+      const Plot::SweptEdgeCull<W> cull(xc, 1.0f, -1.0f);
+      for (float angle :
+           {cell_start, cell_end, (rs - 1) * COLUMN, end * COLUMN}) {
+        const math::Vector p(cosf(angle), 0.0f, sinf(angle));
+        HS_EXPECT_FALSE(cull.rejects(&p, 1, 0.0f));
       }
-      ++checked;
+      for (float column :
+           {float(rs - 3), float(end + 2), float(rs - 1), float(end)}) {
+        const math::PixelCoords p{column, 10.0f};
+        HS_EXPECT_TRUE(clip_gate.may_reach(p, p, 0.0f));
+      }
+      const auto cuts = band.template cut_columns<W>(Plot::CLIP_CUT_COL_PAD);
+      HS_EXPECT_EQ(cuts[0], math::wrap(rs - Plot::CLIP_CUT_COL_PAD, W));
+      HS_EXPECT_EQ(cuts[1], math::wrap(end + Plot::CLIP_CUT_COL_PAD, W));
+      HS_EXPECT_EQ(band.centre(W), rs + (count - 1) * 0.5f);
     }
   }
-  HS_EXPECT_EQ(checked, W * W);
+  HS_EXPECT_EQ(point_failures, 0);
+  HS_EXPECT_EQ(swept_failures, 0);
+  HS_EXPECT_EQ(cap_failures, 0);
+  HS_EXPECT_EQ(clip_failures, 0);
+  HS_EXPECT_EQ(max_rounding, 0x1p-20f);
+  HS_EXPECT_LE(max_cap_rounding, 0x1p-19f);
+  // Product errors sum to 2^-21; the sum and endpoint round by 2^-21 each.
+  HS_EXPECT_GE(Plot::ColumnBand::SWEPT_ROUNDING - 0x1p-21f, 3.0f * 0x1p-21f);
 }
 
 /** @brief Each clip consumer's band contains the anti-alias tap reach.
@@ -75,8 +118,9 @@ template <int W> inline void check_column_band_consumers() {
         HS_CONTEXT("margin", margin);
         HS_EXPECT_LE(clip.x_center - COLUMN_HALF, xc.rs - 2.5f);
         HS_EXPECT_GE(clip.x_center + COLUMN_HALF, end + 1.5f);
-        HS_EXPECT_LE(cap.longitude - cap.half_width, (xc.rs - 2.5f) * COLUMN);
-        HS_EXPECT_GE(cap.longitude + cap.half_width, (end + 1.5f) * COLUMN);
+        HS_EXPECT_LE(cap.longitude - cap.half_width, (xc.rs - 1) * COLUMN);
+        HS_EXPECT_GE(cap.longitude + cap.half_width + Plot::CAP_ATAN2_PAD,
+                     (end + 1) * COLUMN);
         HS_EXPECT_EQ(cuts[0], math::wrap(xc.rs - Plot::CLIP_CUT_COL_PAD, W));
         HS_EXPECT_EQ(cuts[1], math::wrap(end + Plot::CLIP_CUT_COL_PAD, W));
         for (float column : {float(xc.rs) - 2.25f, float(xc.rs) - 0.75f,
@@ -86,6 +130,8 @@ template <int W> inline void check_column_band_consumers() {
           const math::PixelCoords projected{column, H * 0.5f};
           HS_EXPECT_TRUE(clip.may_reach(projected, projected, 0.0f));
           HS_EXPECT_FALSE(cull.rejects(&p, 1, 0.0f));
+          if (column < xc.rs - 1 || column > end)
+            continue;
           bool shaded = false;
           route.plot(
               sink, canvas, p, [&] { return p; },

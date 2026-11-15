@@ -163,8 +163,7 @@ struct HalfPlanes {
 /**
  * @brief A view of a clip's render columns [first(), end<W>()), crossing the
  *        seam when the end passes the width.
- * @details The cull span is [first() - 3, first() + count(w) + 2]. It
- * contains the anti-alias tap reach and the padded column cells.
+ * @details Every site uses first() + (count(w) - 1) / 2 as its centre.
  */
 struct ColumnBand {
   const ClipRegion::XClip &columns; ///< Render-band column predicate.
@@ -206,33 +205,55 @@ struct ColumnBand {
     return {math::wrap(first() - pad, W), math::wrap(columns.re + pad, W)};
   }
 
-  /** @brief Conservative cull columns, unwrapped past the seam.
+  /** @brief Centre shared by the column culls.
    *  @param w Canvas width in columns.
-   *  @return The render band widened by COL_FOOTPRINT below and COL_PAD above. */
-  HS_HOT_INLINE ColumnSpan span(int w) const {
-    return {static_cast<float>(first() - COL_FOOTPRINT),
-            static_cast<float>(first() + count(w) + COL_PAD)};
+   *  @return The midpoint of the first and last render columns. */
+  HS_HOT_INLINE float centre(int w) const {
+    return first() + (static_cast<float>(count(w)) - 1.0f) * 0.5f;
   }
 
-  /** @brief Bounding meridians of the cull span, with angular slack.
+  /** @param w Canvas width. @return Point-route half-width in columns. */
+  HS_HOT_INLINE float point_half(int w) const { return (count(w) + 1) * 0.5f; }
+
+  /** @param w Canvas width. @return Swept-cell half-width in columns. */
+  HS_HOT_INLINE float swept_half(int w) const { return (count(w) + 4) * 0.5f; }
+
+  /** @param w Canvas width. @return Cap half-width in columns. */
+  HS_HOT_INLINE float cap_half(int w) const { return (count(w) + 3) * 0.5f; }
+
+  /** @param w Canvas width. @return Clip half-width including chart padding. */
+  HS_HOT_INLINE float clip_half(int w) const { return (count(w) + 5) * 0.5f; }
+
+  /** @brief Columns at a site's half-width, unwrapped past the seam.
+   *  @param w Canvas width. @param half Half-width in columns.
+   *  @return Symmetric interval about centre(w). */
+  HS_HOT_INLINE ColumnSpan span(int w, float half) const {
+    const float mid = centre(w);
+    return {mid - half, mid + half};
+  }
+
+  /** @brief Rounding allowance for the swept-cell endpoint evaluation. */
+  static constexpr float SWEPT_ROUNDING = 0x1p-19f;
+
+  /** @brief Bounding meridians at a site's half-width, with angular slack.
    *  @tparam W Canvas width in columns.
+   *  @param half Half-width in columns.
    *  @param slack Radians added on each side.
    *  @return The widened span's half-planes. */
   template <int W>
-  HS_HOT_INLINE HalfPlanes half_planes(float slack = 0.0f) const {
-    const ColumnSpan bounds = span(W);
+  HS_HOT_INLINE HalfPlanes half_planes(float half, float slack = 0.0f) const {
+    const ColumnSpan bounds = span(W, half);
     const float start = bounds.lo * math::RADIANS_PER_COLUMN<W> - slack;
     const float end = bounds.hi * math::RADIANS_PER_COLUMN<W> + slack;
     return {start, end, end - start};
   }
 
-  /** @brief Longitude centre and half-width of the cull span.
+  /** @brief Longitude centre and half-width at a site's half-width.
    *  @param w Canvas width in columns.
+   *  @param half Half-width in columns.
    *  @return The span's centre and half-width, radians. */
-  HS_HOT_INLINE CentreHalf centre_half(int w) const {
-    const ColumnSpan bounds = span(w);
-    return {bounds.centre() * math::TWO_PI_F / w,
-            bounds.half() * math::TWO_PI_F / w};
+  HS_HOT_INLINE CentreHalf centre_half(int w, float half) const {
+    return {centre(w) * math::TWO_PI_F / w, half * math::TWO_PI_F / w};
   }
 };
 

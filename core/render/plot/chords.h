@@ -55,9 +55,8 @@ template <int W, int H> struct ClipBand {
     band.x_active = x_clip.active;
     if (!band.x_active)
       return band;
-    const ColumnSpan reach = columns.span(W);
-    band.x_center = reach.centre();
-    band.x_half = reach.half() - PAD;
+    band.x_center = columns.centre(W);
+    band.x_half = columns.clip_half(W) - PAD;
     return band;
   }
 

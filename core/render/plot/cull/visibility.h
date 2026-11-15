@@ -335,7 +335,7 @@ struct CapCenter {
   float sin_beta; /**< Sine of beta when columns_active. */
   float
       column_distance; /**< Wrapped distance to the clip longitude, radians. */
-  float column_half_width; /**< Clip half-width including one column of pad. */
+  float column_half_width; /**< Conservative clip half-width, radians. */
   bool columns_active;     /**< The clip restricts longitude. */
 };
 
@@ -364,7 +364,8 @@ HS_HOT_INLINE inline CapColumns cap_columns(const ClipRegion &cr) {
   const ClipRegion::XClip xc = cr.x_clip();
   if (!xc.active)
     return {0, 0, false, math::TWO_PI_F};
-  const CentreHalf band = ColumnBand::of(xc).centre_half(cr.w);
+  const ColumnBand columns = ColumnBand::of(xc);
+  const CentreHalf band = columns.centre_half(cr.w, columns.cap_half(cr.w));
   return {band.centre, band.half, true, math::TWO_PI_F};
 }
 

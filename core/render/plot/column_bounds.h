@@ -35,7 +35,9 @@ template <int W> struct SweptEdgeCull {
       : top(top_y), bottom(bottom_y) {
     if (!columns.active)
       return;
-    const HalfPlanes planes = ColumnBand::of(columns).half_planes<W>();
+    const ColumnBand band = ColumnBand::of(columns);
+    const HalfPlanes planes =
+        band.half_planes<W>(band.swept_half(W), ColumnBand::SWEPT_ROUNDING);
     const MeridianTest test = planes.test();
     if (test == MeridianTest::BOTH) {
       mode = 1;

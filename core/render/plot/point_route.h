@@ -104,8 +104,9 @@ public:
     column_test = MeridianTest::NONE;
     if (!columns.active)
       return;
+    const ColumnBand band = ColumnBand::of(columns);
     const HalfPlanes planes =
-        ColumnBand::of(columns).half_planes<W>(COLUMN_SLACK);
+        band.half_planes<W>(band.point_half(W), COLUMN_SLACK);
     if (planes.test() == MeridianTest::NONE)
       return;
     low_x = cosf(planes.start);
