@@ -27,8 +27,9 @@ template <int W> inline void check_column_band_containment() {
       const float cell_start = (float(rs) - 2.5f) * COLUMN;
       const float cell_end = cell_start + (float(count) + 4.0f) * COLUMN;
       max_rounding = fmaxf(max_rounding, cell_end - swept.hi * COLUMN);
-      point_failures += !(point.lo <= rs - 1 && point.hi >= end &&
-                          point.lo <= tap.lo && point.hi >= tap.hi);
+      point_failures +=
+          !(tap.lo <= rs - 1 && tap.hi >= end && point.lo <= rs - 1 &&
+            point.hi >= end && point.lo <= tap.lo && point.hi >= tap.hi);
       swept_failures += !(swept.lo <= rs - 2.5f && swept.hi >= end + 1.5f &&
                           swept.lo <= tap.lo && swept.hi >= tap.hi &&
                           planes.start <= cell_start && planes.end >= cell_end);

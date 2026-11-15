@@ -209,20 +209,20 @@ struct ColumnBand {
    *  @param w Canvas width in columns.
    *  @return The midpoint of the first and last render columns. */
   HS_HOT_INLINE float centre(int w) const {
-    return first() + (static_cast<float>(count(w)) - 1.0f) * 0.5f;
+    return first() + static_cast<float>(count(w)) * 0.5f - 0.5f;
   }
 
   /** @param w Canvas width. @return Point-route half-width in columns. */
-  HS_HOT_INLINE float point_half(int w) const { return (count(w) + 1) * 0.5f; }
+  HS_HOT_INLINE float point_half(int w) const { return count(w) * 0.5f + 0.5f; }
 
   /** @param w Canvas width. @return Swept-cell half-width in columns. */
-  HS_HOT_INLINE float swept_half(int w) const { return (count(w) + 4) * 0.5f; }
+  HS_HOT_INLINE float swept_half(int w) const { return count(w) * 0.5f + 2.0f; }
 
   /** @param w Canvas width. @return Cap half-width in columns. */
-  HS_HOT_INLINE float cap_half(int w) const { return (count(w) + 3) * 0.5f; }
+  HS_HOT_INLINE float cap_half(int w) const { return count(w) * 0.5f + 1.5f; }
 
   /** @param w Canvas width. @return Clip half-width including chart padding. */
-  HS_HOT_INLINE float clip_half(int w) const { return (count(w) + 5) * 0.5f; }
+  HS_HOT_INLINE float clip_half(int w) const { return count(w) * 0.5f + 2.5f; }
 
   /** @brief Columns at a site's half-width, unwrapped past the seam.
    *  @param w Canvas width. @param half Half-width in columns.
