@@ -64,6 +64,7 @@ template <int W> inline void check_column_band_consumers() {
           continue;
         const int end = xc.re + (xc.wrap ? W : 0);
         const auto clip = Plot::ClipBand<W, H>::of(canvas.clip());
+        const float COLUMN_HALF = clip.x_half + Plot::ClipBand<W, H>::PAD;
         const auto cap = Plot::cap_columns(canvas.clip());
         const auto cuts = Plot::ColumnBand::of(xc).template cut_columns<W>(
             Plot::CLIP_CUT_COL_PAD);
@@ -72,8 +73,8 @@ template <int W> inline void check_column_band_consumers() {
         sink.prepare(canvas);
         HS_CONTEXT("band", rs, count);
         HS_CONTEXT("margin", margin);
-        HS_EXPECT_LE(clip.x_center - clip.x_half, xc.rs - 2.5f);
-        HS_EXPECT_GE(clip.x_center + clip.x_half, end + 1.5f);
+        HS_EXPECT_LE(clip.x_center - COLUMN_HALF, xc.rs - 2.5f);
+        HS_EXPECT_GE(clip.x_center + COLUMN_HALF, end + 1.5f);
         HS_EXPECT_LE(cap.longitude - cap.half_width, (xc.rs - 2.5f) * COLUMN);
         HS_EXPECT_GE(cap.longitude + cap.half_width, (end + 1.5f) * COLUMN);
         HS_EXPECT_EQ(cuts[0], math::wrap(xc.rs - Plot::CLIP_CUT_COL_PAD, W));
@@ -82,6 +83,8 @@ template <int W> inline void check_column_band_consumers() {
                              float(end) - 0.25f, float(end) + 1.25f}) {
           const math::Vector p(cosf(column * COLUMN), 0.0f,
                                sinf(column * COLUMN));
+          const math::PixelCoords projected{column, H * 0.5f};
+          HS_EXPECT_TRUE(clip.may_reach(projected, projected, 0.0f));
           HS_EXPECT_FALSE(cull.rejects(&p, 1, 0.0f));
           bool shaded = false;
           route.plot(

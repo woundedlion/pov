@@ -35,7 +35,7 @@ template <int W, int H> struct ClipBand {
   float row_lo = 0.0f;   ///< Lowest row, one above the render region.
   float row_hi = 0.0f;   ///< Exclusive end row of the render region.
   float x_center = 0.0f; ///< Band centre column, unwrapped past W.
-  float x_half = 0.0f;   ///< Band half-width in columns.
+  float x_half = 0.0f;   ///< Half-width before chart padding, in columns.
   bool x_active = false; ///< Whether the clip limits columns.
 
   /** @brief Rows and columns a splat and the fast-trig pixel map reach past a
@@ -53,9 +53,11 @@ template <int W, int H> struct ClipBand {
     band.row_lo = static_cast<float>(clip.render_y_start() - 1);
     band.row_hi = static_cast<float>(clip.render_y_end());
     band.x_active = x_clip.active;
+    if (!band.x_active)
+      return band;
     const ColumnSpan reach = columns.span(W);
     band.x_center = reach.centre();
-    band.x_half = reach.half();
+    band.x_half = reach.half() - PAD;
     return band;
   }
 
