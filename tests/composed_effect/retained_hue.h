@@ -15,7 +15,13 @@ namespace hs_test::composed_effect_tests {
 struct RetainedHueField
     : Pullback::Stage::Contract<RetainedHueField, Pullback::SphereSample,
                                 Pullback::FieldSample> {
+  /** @brief Policy dependencies of the field carrier. */
   using Policies = std::tuple<>;
+  /** @brief Builds a field sample directly from the view direction.
+   * @tparam Binding Pipeline frame binding.
+   * @param input Sphere sample carrying the view direction.
+   * @return Field value and provenance derived from the input direction.
+   */
   template <typename Binding>
   static Pullback::FieldSample run(const Pullback::SphereSample &input,
                                    const typename Binding::FrameState &,
@@ -26,23 +32,39 @@ struct RetainedHueField
 
 /** @brief Owned palette history and direct endpoints for hue retention checks. */
 struct RetainedHueFixture {
+  /** @brief Effect owning the fixture resources. */
   using FX = GridWorms<SMALL_W, SMALL_H>;
+  /** @brief Generated palette policy bound to the fixture frame. */
   using Palette = Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
       typename FX::Binding, Pullback::Color::BrightnessEnvelope::NONE>>;
+  /** @brief Modulation provider bound to the fixture frame. */
   using Provider =
       Pullback::ModulationProvider<typename FX::Binding, "modulation",
                                    Pattern::SourceKind::DIRECTIONAL_SINE,
                                    Pattern::Evaluation::DIRECT>;
+  /** @brief Prepared modulation policy of the fixture. */
   using Layer = Pullback::Color::Modulate<Provider>;
+  /** @brief Color-stage pipeline evaluated over the retained endpoints. */
   using Tail = Pullback::Pipeline<typename FX::Binding, RetainedHueField,
                                   Pullback::Stage::Colorize<Palette>,
                                   Pullback::Stage::Modulate<Layer>>;
+  /** @brief Effect instance owning the prepared resources. */
   FX effect = make_effect();
-  FX::FrameState current{}, previous{};
+  /** @brief Current prepared frame endpoint. */
+  FX::FrameState current{},
+      /** @brief Retained previous frame endpoint. */ previous{};
+  /** @brief Owned palette and hue history for the previous frame. */
   Spacetime::FrameHistory<FX::FrameState, true, true> history;
-  Pullback::Modulation::Config before{}, after{};
-  Pullback::Modulation::Resources<false> old_source, new_source;
+  /** @brief Previous modulation controls. */
+  Pullback::Modulation::Config before{},
+      /** @brief Current modulation controls. */ after{};
+  /** @brief Previous modulation resources. */
+  Pullback::Modulation::Resources<false> old_source,
+      /** @brief Current modulation resources. */ new_source;
 
+  /** @brief Resets shared test state before constructing the fixture effect.
+   * @return Uninitialized effect after resetting the shared test state.
+   */
   static FX make_effect() {
     reset_globals();
     return FX{};

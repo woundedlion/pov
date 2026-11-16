@@ -23,9 +23,16 @@ namespace hs_test::composed_effect_tests {
  * @brief AshCloud shared-column dispatch and camera qualification. */
 
 namespace ashcloud_shared_tests {
+/** @brief Effect owning the fixture resources. */
 using FX = AshCloud<288, 144>;
+/** @brief Typed stage sequence evaluated by the probe. */
 using Pipeline = FX::RenderPipeline;
 
+/** @brief Evaluates shared cached color stages without factoring the camera.
+ * @param view Unit view direction.
+ * @param frame Frame context supplying the prepared resources.
+ * @return Canonical color after the shared cached stages.
+ */
 inline Color4 unfactored_shared(const math::Vector &view,
                                 const FX::Frame &frame) {
   const auto rotated =

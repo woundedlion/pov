@@ -17,23 +17,36 @@ namespace hs_test::composed_effect_tests {
 
 namespace In = Pullback::Interp;
 
+/** @brief Discovery binding used to derive authored policies. */
 using ReachBinding = Pullback::ComposedDetail::DiscoveryBinding;
 
+/** @brief Whether the family derives an authored source policy.
+ * @tparam Family Authored parameter family.
+ */
 template <typename Family>
 concept DerivableSource = requires {
   typename Pullback::SourcePolicyFor<Family, ReachBinding>::Type;
 };
 
+/** @brief Whether the family derives an authored warp policy.
+ * @tparam Family Authored parameter family.
+ */
 template <typename Family>
 concept DerivableWarp = requires {
   typename Pullback::WarpPolicyFor<Family, ReachBinding, "warp", false>::Type;
 };
 
+/** @brief Whether the family derives an authored surface policy.
+ * @tparam Family Authored parameter family.
+ */
 template <typename Family>
 concept DerivableSurface = requires {
   typename Pullback::SurfacePolicyFor<Family, ReachBinding, false>::Type;
 };
 
+/** @brief Whether the family derives an authored lens policy.
+ * @tparam Family Authored parameter family.
+ */
 template <typename Family>
 concept DerivableLens =
     requires { typename Pullback::LensPolicyFor<Family, ReachBinding>::Type; };

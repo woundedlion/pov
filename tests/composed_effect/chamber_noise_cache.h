@@ -141,16 +141,29 @@ inline void test_chamber_noise_cache_admission() {
 
 /** @brief Owned prepared noise endpoints and rewritten chart patches. */
 struct ChamberNoiseEndpointFixture {
+  /** @brief Effect owning the fixture resources. */
   using FX = AshCloud<96, 20>;
+  /** @brief Modulation provider bound to the fixture frame. */
   using Provider = Pullback::ModulationProvider<FX::Binding, "modulation",
                                                 Pattern::SourceKind::NOISE,
                                                 Pattern::Evaluation::DIRECT>;
+  /** @brief Effect instance owning the prepared resources. */
   FX effect = make_effect();
-  FX::FrameState from{}, to{};
+  /** @brief Previous prepared frame endpoint. */
+  FX::FrameState from{}, /** @brief Current prepared frame endpoint. */ to{};
+  /** @brief Modulation controls shared by the endpoint preparations. */
   Pullback::Modulation::Config config;
-  Pullback::Modulation::Resources<false> previous, current;
+  /** @brief Previous modulation resources. */
+  Pullback::Modulation::Resources<false> previous,
+      /** @brief Current modulation resources. */ current;
+  /** @brief Retained chart-patch cache. */
   Pullback::Modulation::ChamberNoiseCache cache;
-  Pullback::Modulation::ChamberNoiseView a{}, b{};
+  /** @brief Previous prepared chart view. */
+  Pullback::Modulation::ChamberNoiseView a{},
+      /** @brief Current prepared chart view. */ b{};
+  /** @brief Resets shared test state before constructing the fixture effect.
+   * @return Uninitialized effect after resetting the shared test state.
+   */
   static FX make_effect() {
     reset_globals();
     return FX{};

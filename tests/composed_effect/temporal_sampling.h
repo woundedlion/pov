@@ -82,9 +82,12 @@ inline Frame sample_frame_reference(const Frame &from, const Frame &to,
 /** @brief
  * GridSpace spec with independently selectable persistence and temporal
  * sampling.
+ * @tparam Persistent Whether prepared frame storage is persistent.
+ * @tparam Temporal Whether column-time sampling is enabled.
  */
 template <bool Persistent, bool Temporal>
 struct PreparedFrameProbeSpec : GridSpaceSpec {
+  /** @brief Whether prepared frame storage survives between draws. */
   static constexpr bool PERSISTENT_PREPARED_FRAME = Persistent;
   static constexpr auto TEMPORAL = Temporal ? Pullback::TemporalPolicy::phase()
                                             : Pullback::TemporalPolicy::off();
@@ -92,6 +95,8 @@ struct PreparedFrameProbeSpec : GridSpaceSpec {
 
 /** @brief
  * GridSpace-derived probe for comparing prepared-frame storage choices.
+ * @tparam Persistent Whether prepared frame storage is persistent.
+ * @tparam Temporal Whether column-time sampling is enabled.
  */
 template <bool Persistent, bool Temporal>
 class PreparedFrameProbe
@@ -104,13 +109,23 @@ class PreparedFrameProbe
                                PreparedFrameProbeSpec<Persistent, Temporal>>;
 
 public:
+  /** @brief Stable effect identity of the probe. */
   static constexpr std::string_view EFFECT_ID = "prepared-frame-probe";
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"probe"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr auto initial_params() {
     return GridSpace<SMALL_W, SMALL_H>::initial_params();
   }
+  /** @brief Binds the probe choreography customizations.
+   * @return Type-only list of choreography bindings.
+   */
   static consteval auto choreography_hooks() {
     return Base::choreography_hooks()
         .template extend<
@@ -122,6 +137,10 @@ public:
 
 /** @brief
  * Renders probe pixels with the requested frame storage and sampling mode.
+ * @tparam Temporal Whether column-time sampling is enabled.
+ * @tparam Persistent Whether prepared frame storage is persistent.
+ * @param sampling Whether column-time sampling is enabled.
+ * @return Rendered frame pixels for the selected storage and sampling policy.
  */
 template <bool Persistent, bool Temporal>
 inline std::vector<Pixel> prepared_frame_pixels(bool sampling) {
@@ -197,7 +216,9 @@ inline void test_composed_persistent_prepared_frame() {
   }
 }
 
+/** @brief GridSpace specification enabling factored column shaders. */
 struct FactoredGridSpaceSpec : GridSpaceSpec {
+  /** @brief Whether the probe prepares a factored column shader. */
   static constexpr bool FACTORED_COLUMNS = true;
 };
 
@@ -206,12 +227,21 @@ class TemporalShadeProbe
     : public Pullback::ComposedEffect<96, 20, TemporalShadeProbe,
                                       FactoredGridSpaceSpec> {
 public:
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"custom-shade"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr Params initial_params() {
     return GridSpace<96, 20>::initial_params();
   }
+  /** @brief Binds the probe choreography customizations.
+   * @return Type-only list of choreography bindings.
+   */
   static consteval auto choreography_hooks() {
     return Pullback::ComposedEffect<96, 20, TemporalShadeProbe,
                                     FactoredGridSpaceSpec>::choreography_hooks()
@@ -220,6 +250,9 @@ public:
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
                                  &TemporalShadeProbe::initial_params>>();
   }
+  /** @brief Returns the marker color used to detect custom shading.
+   * @return Constant marker color and opacity.
+   */
   static Color4 shade(const math::Vector &, const Frame &) {
     return Color4(Pixel(1000, 2000, 3000), 0.5f);
   }
@@ -234,13 +267,22 @@ class FactoredColumnProbe
     : public Pullback::ComposedEffect<96, 20, FactoredColumnProbe,
                                       FactoredGridSpaceSpec> {
 public:
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "factored-columns"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr Params initial_params() {
     return GridSpace<96, 20>::initial_params();
   }
+  /** @brief Binds the probe choreography customizations.
+   * @return Type-only list of choreography bindings.
+   */
   static consteval auto choreography_hooks() {
     return Pullback::ComposedEffect<96, 20, FactoredColumnProbe,
                                     FactoredGridSpaceSpec>::choreography_hooks()
@@ -908,7 +950,13 @@ template <typename FX> typename FX::FrameState drawn_frame(FX &effect) {
   return frame;
 }
 
-/** @brief Binds a caller-owned palette cache to the retained interval. */
+/** @brief Binds a caller-owned palette cache to the retained interval.
+ * @tparam Cache Retained palette cache type.
+ * @param current Current frame receiving the retained palette view.
+ * @param previous Previous frame owning retained palette state.
+ * @param reference_cache Caller-owned storage for the blended palette cache.
+ * @tparam Frame Composed temporal frame context.
+ */
 template <typename Frame, typename Cache>
 inline void bind_retained_lab_reference(Frame &current, const Frame &previous,
                                         std::optional<Cache> &reference_cache) {
@@ -1261,10 +1309,16 @@ inline void test_mobius_grid_lens_follows_phase() {
   hs::clear_mock_time();
 }
 
+/** @brief Lens provider counting parameter reads during interval preparation. */
 struct MobiusIntervalProbeProvider
     : Pullback::LensProvider<Pullback::Binding<
           typename MobiusGrid<SMALL_W, SMALL_H>::FrameState>> {
+  /** @brief Parameter reads observed during interval preparation. */
   static inline int parameter_queries = 0;
+  /** @brief Returns lens controls while recording the parameter lookup.
+   * @param frame Frame context supplying the prepared resources.
+   * @return Lens parameter block borrowed from the frame.
+   */
   static const Pullback::MobiusGeneratorParams &
   params(const FrameState &frame) {
     ++parameter_queries;
@@ -1373,6 +1427,9 @@ inline void test_mobius_grid_segmented_matches_single_engine() {
 struct StackedModulationSpec : Pullback::Spec {
   static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -1396,11 +1453,18 @@ struct StackedModulationSpec : Pullback::Spec {
 struct StackedModulationProbe
     : Pullback::ComposedEffect<96, 20, StackedModulationProbe,
                                StackedModulationSpec> {
+  /** @brief Composed-effect base supplying the runtime resources. */
   using Base = Pullback::ComposedEffect<96, 20, StackedModulationProbe,
                                         StackedModulationSpec>;
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"stack"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr Params initial_params() {
     Params value;
     auto &a = value.template get<"modulation">().modulation;
@@ -1412,6 +1476,9 @@ struct StackedModulationProbe
     b.seed = 811;
     return value;
   }
+  /** @brief Binds the probe choreography customizations.
+   * @return Type-only list of choreography bindings.
+   */
   static consteval auto choreography_hooks() {
     return Base::choreography_hooks()
         .template extend<

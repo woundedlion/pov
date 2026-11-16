@@ -17,6 +17,9 @@ namespace hs_test::keyed_rotation_tests {
 struct RotationProbeSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
   static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::RotationProvider<B, "first">>,
@@ -34,9 +37,13 @@ struct RotationProbeSpec : Pullback::Spec {
 struct RotationProbe
     : Pullback::ComposedEffect<96, 20, RotationProbe, RotationProbeSpec,
                                Control::HookOwnership::INHERITED> {
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"slow", "fast"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS = [] {
     Params slow{};
     slow.template get<"first">() = {.wander = 0.2f, .spin_speed = 0.01f};

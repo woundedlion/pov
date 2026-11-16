@@ -44,9 +44,23 @@
 #include "targets/wasm/document_parameters.h"
 
 namespace hs_test::composed_chain_tests {
+/** @brief Callback that leaves export comparisons unchanged. */
 struct ExportNoop {
+  /** @brief Accepts export callback arguments without changing state.
+   * @tparam Args Callback argument types.
+   */
   template <typename... Args> void operator()(Args &&...) const {}
 };
+/** @brief Compares a preset render with its exported interpreter chain.
+ * @tparam AfterStatic Post-static-comparison callback type.
+ * @tparam BeforeCompare Pre-comparison callback type.
+ * @tparam FX Composed-effect specialization.
+ * @param preset Preset index to compare.
+ * @param channel_tolerance Maximum channel-code difference accepted by the render comparison.
+ * @param alpha_tolerance Maximum opacity difference accepted by the render comparison.
+ * @param before_compare Callback invoked before comparing the rendered frames.
+ * @param after_static Callback invoked after comparing static shading.
+ */
 template <typename FX, typename BeforeCompare = ExportNoop,
           typename AfterStatic = ExportNoop>
 void verify_export(size_t preset, int channel_tolerance = 1,
@@ -60,9 +74,11 @@ namespace hs_test::composed_effect_tests {
 #if HS_TEST_FAST_MATH
 inline constexpr int DOCUMENT_CHANNEL_TOLERANCE = 2;
 #else
+/** @brief Allowed channel-code difference for document-render parity. */
 inline constexpr int DOCUMENT_CHANNEL_TOLERANCE = 1;
 #endif
 
+/** @brief Warp resources whose display labels can collide. */
 using CollidingWarpNames = Pullback::ComposedDetail::ResourceList<
     Pullback::ParameterResource<"outer_warp", Pullback::WaveShearParams,
                                 Pullback::ResourceKind::WARP>,
@@ -73,14 +89,23 @@ using effects_tests::preset_params;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
+/** @brief AshCloud specialization exposing projection coverage. */
 using CoverageFixture = AshCloud<SMALL_W, SMALL_H>;
+/** @brief CosmicEyeball specialization exposing displacement path tracking. */
 using TrackedFixture = CosmicEyeball<SMALL_W, SMALL_H>;
 
+/** @brief Runtime traits of a composed-effect specialization.
+ * @tparam FX Composed-effect specialization.
+ */
 template <typename FX> struct TraitsOf {
+  /** @brief Authored specification supplying the runtime traits. */
   using Spec = typename FX::Spec;
+  /** @brief Palette harmony declared by the specification. */
   static constexpr PaletteHarmony HARMONY = Spec::HARMONY;
+  /** @brief Brightness envelope derived from the effect stages. */
   static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
       FX::Metadata::BRIGHTNESS;
+  /** @brief Placement of surface displacement derived from the stages. */
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
       FX::Metadata::SURFACE_PLACEMENT;
 };
@@ -97,7 +122,9 @@ constexpr const char *MOBIUS_SLIDERS[] = {"Spin X", "Spin Y", "Spin Z",
 
 /** @brief A hand-registered color slider and the field descriptor it writes. */
 struct ColorSliderBinding {
+  /** @brief Registered display label of the color control. */
   const char *slider;
+  /** @brief Identifier of the parameter field written by the slider. */
   const char *field_id;
 };
 
@@ -118,11 +145,20 @@ constexpr ColorSliderBinding COLOR_SLIDER_BINDINGS[] = {
     {"Opacity at Value 1", "value-opacity-high"}};
 
 /** @brief Instance key, path tracking, next stage and form of an affine warp
- * stage. */
+ * stage.
+ * @tparam Stage Stage policy to inspect.
+ */
 template <typename Stage> struct AffineStageTracking {
   static constexpr bool AFFINE = false; ///< Not an affine warp stage.
 };
-/** @brief An affine warp stage over a keyed warp provider. */
+/** @brief An affine warp stage over a keyed warp provider.
+ * @tparam B Pipeline binding.
+ * @tparam Key Authored resource key.
+ * @tparam Family Authored parameter family.
+ * @tparam Track Whether the warp contributes displacement path length.
+ * @tparam SourceKey Key of the sampled source following the affine warp.
+ * @tparam Form Affine operations compiled into the stage.
+ */
 template <typename B, Pullback::ResourceKey Key, typename Family, bool Track,
           Pullback::ResourceKey SourceKey, Pullback::AffineForm Form>
 struct AffineStageTracking<Pullback::Stage::Warp<Pullback::Warp::AffineFrame<
@@ -135,7 +171,11 @@ struct AffineStageTracking<Pullback::Stage::Warp<Pullback::Warp::AffineFrame<
 };
 
 /** @brief Whether @p FX's affine stage keyed @p Key reads field @p id.
- * @return True for any field of a key no affine stage carries. */
+ * @return True for any field of a key no affine stage carries.
+ * @tparam Key Authored resource key.
+ * @tparam FX Composed-effect specialization.
+ * @param id Identifier of the parameter field.
+ */
 template <typename FX, Pullback::ResourceKey Key>
 constexpr bool affine_field_read(std::string_view id) {
   using Leaves = Pullback::ComposedDetail::PipelineLeaves<
@@ -181,7 +221,11 @@ constexpr bool affine_field_read(std::string_view id) {
   return read;
 }
 
-/** @brief Whether @p FX opens a gated field's slider. */
+/** @brief Whether @p FX opens a gated field's slider.
+ * @tparam FX Composed-effect specialization.
+ * @param gate Visibility gate of the slider.
+ * @return Whether the effect opens the slider visibility gate.
+ */
 template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
   switch (gate) {
   case Pullback::FieldGate::ALWAYS:
@@ -216,7 +260,11 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
   return false;
 }
 
-/** @brief The descriptor carrying @p id in a family's table, or null. */
+/** @brief The descriptor carrying @p id in a family's table, or null.
+ * @param id Identifier of the parameter field.
+ * @return Matching field descriptor, or null.
+ * @tparam Family Authored parameter family.
+ */
 template <Pullback::HasFields Family>
 inline const Pullback::Field<Family> *find_field(const char *id) {
   for (const auto &field : Family::FIELDS)
@@ -226,13 +274,24 @@ inline const Pullback::Field<Family> *find_field(const char *id) {
 }
 
 /** @brief Whether @p FX registers a slider for a field of the @p Key
- * resource. */
+ * resource.
+ * @tparam Field Field descriptor type.
+ * @tparam Key Authored resource key.
+ * @tparam FX Composed-effect specialization.
+ * @param field Descriptor whose visibility is being checked.
+ * @return Whether the effect registers a slider for the field.
+ */
 template <typename FX, Pullback::ResourceKey Key, typename Field>
 constexpr bool field_open(const Field &field) {
   return gate_open<FX>(field.gate) && affine_field_read<FX, Key>(field.id);
 }
 
-/** @brief Sliders a family contributes through register_fields(). */
+/** @brief Sliders a family contributes through register_fields().
+ * @tparam Key Authored resource key.
+ * @tparam Family Authored parameter family.
+ * @tparam FX Composed-effect specialization.
+ * @return Number of registered sliders contributed by the family.
+ */
 template <typename FX, typename Family, Pullback::ResourceKey Key = "">
 constexpr size_t named_field_count() {
   size_t count = 0;
@@ -243,7 +302,11 @@ constexpr size_t named_field_count() {
   return count;
 }
 
-/** @brief Sliders a warp slot contributes: the slot speed plus its own. */
+/** @brief Sliders a warp slot contributes: the slot speed plus its own.
+ * @tparam Key Authored resource key.
+ * @tparam FX Composed-effect specialization.
+ * @return Number of sliders contributed by the warp slot.
+ */
 template <typename FX, Pullback::ResourceKey Key>
 constexpr size_t warp_slot_count() {
   using Family = typename FX::Params::template Family<Key>;
@@ -260,6 +323,9 @@ constexpr size_t warp_slot_count() {
  * @param registered Whether the base runs register_fields() on this family.
  * @details A named field must own exactly one slider, present on the gate its
  * descriptor names and carrying the descriptor's bounds.
+ * @tparam FX Composed-effect specialization.
+ * @tparam Family Authored parameter family.
+ * @tparam Key Authored resource key.
  */
 template <typename FX, typename Family, Pullback::ResourceKey Key = "">
 inline void verify_family_sliders(const ParamList &params, bool registered) {
@@ -279,7 +345,12 @@ inline void verify_family_sliders(const ParamList &params, bool registered) {
     }
 }
 
-/** @brief Checks a warp slot's speed slider against the slot's descriptor. */
+/** @brief Checks a warp slot's speed slider against the slot's descriptor.
+ * @tparam Key Authored resource key.
+ * @tparam FX Composed-effect specialization.
+ * @param params Registered control list.
+ * @param slot_name Registered name of the warp slot.
+ */
 template <typename FX, Pullback::ResourceKey Key>
 inline void verify_warp_slot(const ParamList &params, const char *slot_name) {
   using Family = typename FX::Params::template Family<Key>;
@@ -296,7 +367,11 @@ inline void verify_warp_slot(const ParamList &params, const char *slot_name) {
   verify_family_sliders<FX, Family, Key>(params, PRESENT);
 }
 
-/** @brief Bitwise-compares every tabled field of one parameter family. */
+/** @brief Bitwise-compares every tabled field of one parameter family.
+ * @param actual Observed parameter family.
+ * @param expected Reference parameter family.
+ * @tparam Family Authored parameter family.
+ */
 template <Pullback::HasFields Family>
 inline void verify_family_equal(const Family &actual, const Family &expected) {
   for (const auto &field : Family::FIELDS) {
@@ -336,7 +411,11 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
   }
 }
 
-/** @brief Bitwise-compares a whole parameter set, family by family. */
+/** @brief Bitwise-compares a whole parameter set, family by family.
+ * @tparam Params Composed parameter block type.
+ * @param actual Observed composed parameter set.
+ * @param expected Reference composed parameter set.
+ */
 template <typename Params>
 inline void verify_params_equal(const Params &actual, const Params &expected) {
   actual.visit([&]<typename Resource>(const auto &family) {
@@ -356,6 +435,7 @@ inline void verify_params_equal(const Params &actual, const Params &expected) {
  * @param captured Values each field must move off.
  * @details The midpoint, or the lower quartile where the midpoint is the
  * captured value.
+ * @tparam Family Authored parameter family.
  */
 template <Pullback::HasFields Family>
 inline void move_off_captured(Family &family, const Family &captured) {
@@ -372,6 +452,8 @@ inline void move_off_captured(Family &family, const Family &captured) {
  * @brief Checks that a restore refuses each field of one family out of range.
  * @param effect Effect under test.
  * @param captured An admissible snapshot each poisoned copy starts from.
+ * @tparam FX Composed-effect specialization.
+ * @tparam Resource Keyed parameter resource being checked.
  */
 template <typename FX, typename Resource>
 inline void
@@ -394,7 +476,10 @@ verify_family_rejection(FX &effect,
   }
 }
 
-/** @brief Authored fields register one control at their native storage address. */
+/** @brief Authored fields register one control at their native storage address.
+ * @tparam FX Composed-effect specialization.
+ * @param effect Initialized composed effect.
+ */
 template <typename FX>
 inline void check_authored_slider_registration(const FX &effect) {
   const auto &params = effect.getParameters();
@@ -536,7 +621,11 @@ inline void check_authored_slider_registration(const FX &effect) {
   HS_EXPECT_EQ(params.size(), expected);
 }
 
-/** @brief Requires exactly the listed registered sliders. */
+/** @brief Requires exactly the listed registered sliders.
+ * @param params Registered control list.
+ * @param expected Exact required slider labels.
+ * @param terms Additional required potential-term slider labels.
+ */
 inline void expect_exact_sliders(const ParamList &params,
                                  std::span<const char *const> expected,
                                  std::span<const char *const> terms = {}) {
@@ -549,6 +638,7 @@ inline void expect_exact_sliders(const ParamList &params,
   HS_EXPECT_EQ(params.size(), params.capacity());
 }
 
+/** @brief Display labels of controls belonging to one potential term. */
 inline constexpr const char *POTENTIAL_TERM_SLIDERS[] = {
     "displace.term-1-type",      "displace.term-1-kind",
     "displace.term-1-l",         "displace.term-1-m",

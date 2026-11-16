@@ -16,7 +16,10 @@ namespace hs_test::composed_effect_tests {
 // Promoted shader documents: document-value parity
 // ============================================================================
 
-/** @brief Reads and parses the promoted document for an effect identity. */
+/** @brief Reads and parses the promoted document for an effect identity.
+ * @tparam FX Composed-effect specialization.
+ * @return Parsed document, or no value when reading or parsing fails.
+ */
 template <typename FX>
 inline std::optional<JsonValue> load_promoted_document() {
   std::string name(FX::EFFECT_ID);
@@ -35,13 +38,19 @@ inline std::optional<JsonValue> load_promoted_document() {
   return document;
 }
 
-/** @brief Returns a promoted document's `descriptor.chain`, or null. */
+/** @brief Returns a promoted document's `descriptor.chain`, or null.
+ * @param document Parsed promoted shader document.
+ * @return Chain array, or null when absent.
+ */
 inline const JsonValue *document_chain(const JsonValue &document) {
   const JsonValue *descriptor = document.find("descriptor");
   return descriptor != nullptr ? descriptor->find("chain") : nullptr;
 }
 
-/** @brief Returns a promoted document's `preset_bank.presets`, or null. */
+/** @brief Returns a promoted document's `preset_bank.presets`, or null.
+ * @param document Parsed promoted shader document.
+ * @return Preset array, or null when absent.
+ */
 inline const JsonValue *document_presets(const JsonValue &document) {
   const JsonValue *bank = document.find("preset_bank");
   return bank != nullptr ? bank->find("presets") : nullptr;
@@ -176,15 +185,22 @@ enum class SlotRole : uint8_t {
 
 /** @brief One document chain entry, classified by its operator id. */
 struct DocumentSlot {
+  /** @brief Authored display label of the chain entry. */
   std::string label;
+  /** @brief Native resource key named by the chain entry. */
   std::string resource_key;
+  /** @brief Catalog operator identifier of the chain entry. */
   std::string operator_id;
+  /** @brief Parameter-family role of the chain entry. */
   SlotRole role = SlotRole::UNKNOWN;
   int warp_side = 0; /**< 0 = outer warp family, 1 = inner warp family,
                           2 = affine source-motion family. */
 };
 
-/** @brief Native resource addressed by a document chain entry. */
+/** @brief Native resource addressed by a document chain entry.
+ * @param slot Chain entry identifying the native resource.
+ * @return Resource key used by the native parameter set.
+ */
 inline std::string_view document_resource_key(const DocumentSlot &slot) {
   if (!slot.resource_key.empty())
     return slot.resource_key;
@@ -207,7 +223,10 @@ inline std::string_view document_resource_key(const DocumentSlot &slot) {
   }
 }
 
-/** @brief Maps a catalog operator ID prefix to its slot role. */
+/** @brief Maps a catalog operator ID prefix to its slot role.
+ * @param operator_id Catalog operator identifier.
+ * @return Role selected by the operator identity prefix.
+ */
 inline SlotRole classify_operator(std::string_view operator_id) {
   if (operator_id.starts_with("sphere.rotate."))
     return SlotRole::CAMERA;
@@ -230,7 +249,13 @@ inline SlotRole classify_operator(std::string_view operator_id) {
   return SlotRole::UNKNOWN;
 }
 
-/** @brief Writes @p value into the family field tabled under @p id, if any. */
+/** @brief Writes @p value into the family field tabled under @p id, if any.
+ * @tparam Family Authored parameter family.
+ * @param family Parameter family receiving the assigned value.
+ * @param id Identifier of the parameter field.
+ * @param value Value to assign.
+ * @return Whether the family contains the named field.
+ */
 template <typename Family>
 inline bool assign_field(Family &family, std::string_view id, float value) {
   if constexpr (Pullback::HasFields<Family>) {
@@ -261,7 +286,13 @@ inline bool assign_field(Family &family, std::string_view id, float value) {
   return false;
 }
 
-/** @brief Assigns a generator field by chain ID. */
+/** @brief Assigns a generator field by chain ID.
+ * @tparam Params Composed parameter block type.
+ * @param params Composed parameters receiving the generator value.
+ * @param id Identifier of the parameter field.
+ * @param value Value to assign.
+ * @return Whether the named generator field was assigned.
+ */
 template <typename Params>
 inline bool assign_mobius(Params &params, std::string_view id, float value) {
   if constexpr (std::is_same_v<typename Params::template Family<"lens">,
@@ -300,7 +331,10 @@ inline Pullback::AffineForm document_affine_form(const JsonValue &values,
   return form;
 }
 
-/** @brief PALETTE_MODE_IDS entry for @p harmony, or null. */
+/** @brief PALETTE_MODE_IDS entry for @p harmony, or null.
+ * @param harmony Palette harmony selector.
+ * @return Authored palette mode identifier, or null.
+ */
 constexpr const char *palette_mode_id(PaletteHarmony harmony) {
   switch (harmony) {
   case PaletteHarmony::TRIADIC:
@@ -317,7 +351,10 @@ constexpr const char *palette_mode_id(PaletteHarmony harmony) {
   }
 }
 
-/** @brief Maps a typed lens policy to its authored symmetry ID. */
+/** @brief Maps a typed lens policy to its authored symmetry ID.
+ * @tparam Lens Typed lens policy.
+ * @return Authored symmetry identifier of the lens policy.
+ */
 template <typename Lens> constexpr std::string_view lens_symmetry_id() {
   if constexpr (std::is_same_v<Lens, Pullback::Lens::Kaleidoscope>)
     return "azimuthal";
@@ -351,6 +388,11 @@ template <typename Lens> constexpr std::string_view lens_symmetry_id() {
  * @return False when the key addresses nothing this effect owns.
  * @details Writes through the owning family's field table, so a document key
  * the engine does not table fails loudly.
+ * @tparam FX Composed-effect specialization.
+ * @param built Destination composed parameter block.
+ * @param slot Chain entry identifying the native resource.
+ * @param field_id Document field identifier.
+ * @param number Numeric document value to assign.
  */
 template <typename FX>
 inline bool apply_document_number(typename FX::Params &built,
@@ -414,6 +456,11 @@ inline bool apply_document_number(typename FX::Params &built,
  * @brief Writes a topology entry through the slot resource's TOPOLOGY or
  *        extra-schema enum tables.
  * @return Whether any table took @p text.
+ * @tparam FX Composed-effect specialization.
+ * @param built Destination composed parameter block.
+ * @param slot Chain entry identifying the native resource.
+ * @param field_id Document field identifier.
+ * @param text Authored string value.
  */
 template <typename FX>
 inline bool
@@ -459,6 +506,11 @@ assign_document_topology(typename FX::Params &built, const DocumentSlot &slot,
  * @brief Writes a modulation enum entry into the modulation resource named by
  *        the slot label.
  * @return Whether the modulation schema took @p text.
+ * @tparam FX Composed-effect specialization.
+ * @param built Destination composed parameter block.
+ * @param slot Chain entry identifying the native resource.
+ * @param field_id Document field identifier.
+ * @param text Authored string value.
  */
 template <typename FX>
 inline bool
@@ -491,6 +543,10 @@ assign_modulation_topology(typename FX::Params &built, const DocumentSlot &slot,
  * @brief Applies a colorize string entry: authored palette selections are
  *        written, fixed palette topology is checked against the traits.
  * @return False when the key addresses nothing this effect owns.
+ * @tparam FX Composed-effect specialization.
+ * @param built Destination composed parameter block.
+ * @param field_id Document field identifier.
+ * @param text Authored string value.
  */
 template <typename FX>
 inline bool apply_colorize_text(typename FX::Params &built,
@@ -561,6 +617,9 @@ inline bool apply_colorize_text(typename FX::Params &built,
  * @brief Checks a sample string entry against the effect's coverage and
  *        tessellation constants.
  * @return False when the key addresses nothing this effect owns.
+ * @tparam FX Composed-effect specialization.
+ * @param field_id Document field identifier.
+ * @param text Authored string value.
  */
 template <typename FX>
 inline bool check_sample_text(std::string_view field_id,
@@ -601,6 +660,9 @@ inline bool check_sample_text(std::string_view field_id,
  * @brief Checks a projection string entry against the effect's projection
  *        frame and hemisphere.
  * @return False when the key addresses nothing this effect owns.
+ * @tparam FX Composed-effect specialization.
+ * @param field_id Document field identifier.
+ * @param text Authored string value.
  */
 template <typename FX>
 inline bool check_project_text(std::string_view field_id,
@@ -623,6 +685,9 @@ inline bool check_project_text(std::string_view field_id,
 /**
  * @brief Checks a lens symmetry entry against the compiled lens stages.
  * @return False when the key addresses nothing this effect owns.
+ * @tparam FX Composed-effect specialization.
+ * @param field_id Document field identifier.
+ * @param text Authored string value.
  */
 template <typename FX>
 inline bool check_lens_text(std::string_view field_id, std::string_view text) {
@@ -649,6 +714,10 @@ inline bool check_lens_text(std::string_view field_id, std::string_view text) {
  * @brief Checks a warp or surface string entry against the compiled affine
  *        path tracking and the operator's fixed topology defaults.
  * @return False when the key addresses nothing this effect owns.
+ * @tparam FX Composed-effect specialization.
+ * @param slot Chain entry identifying the native resource.
+ * @param field_id Document field identifier.
+ * @param text Authored string value.
  */
 template <typename FX>
 inline bool check_warp_text(const DocumentSlot &slot, std::string_view field_id,
@@ -697,6 +766,11 @@ inline bool check_warp_text(const DocumentSlot &slot, std::string_view field_id,
  * @return False when the key addresses nothing this effect owns.
  * @details String entries are chain topology: the ones with a composed-effect
  * equivalent are checked against the derived topology.
+ * @tparam FX Composed-effect specialization.
+ * @param built Destination composed parameter block.
+ * @param slot Chain entry identifying the native resource.
+ * @param field_id Document field identifier.
+ * @param value Parsed document value to assign or validate.
  */
 template <typename FX>
 inline bool
@@ -1091,6 +1165,9 @@ inline void check_document_values(const char *name) {
  * modulation. */
 struct DocumentModulationSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -1116,8 +1193,11 @@ struct DocumentModulationProbe
     : Pullback::ComposedEffect<SMALL_W, SMALL_H, DocumentModulationProbe,
                                DocumentModulationSpec,
                                Control::HookOwnership::INHERITED> {
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
 };
 

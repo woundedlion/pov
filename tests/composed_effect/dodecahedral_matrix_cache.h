@@ -47,7 +47,10 @@ inline void test_dodecahedral_matrix_cache_lifetime() {
                0);
 }
 
-/** @brief Checks a seeded million-direction sweep against flash folding. */
+/** @brief Checks a seeded million-direction sweep against flash folding.
+ * @param seed Initial state of the deterministic direction generator.
+ * @param cached_fold Fold operation using the cached rotation matrices.
+ */
 inline void expect_fold_parity(uint32_t seed, auto cached_fold) {
   uint32_t random = seed;
   const auto next = [&]() {

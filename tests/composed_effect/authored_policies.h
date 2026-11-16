@@ -11,6 +11,9 @@ namespace hs_test::composed_effect_tests {
 /** @file authored_policies.h
  * @brief Authored displacement, projection and modulation bindings. */
 
+/** @brief Parameter set carrying one authored surface family.
+ * @tparam Family Authored parameter family.
+ */
 template <typename Family>
 using AuthoredSurfaceParams = Pullback::ComposedDetail::ParameterSet<
     Pullback::ComposedDetail::ResourceList<Pullback::ParameterResource<
@@ -65,10 +68,16 @@ inline void test_authored_interpolation_destination_aliases() {
   }
 }
 
+/** @brief Frame state containing an authored surface resource.
+ * @tparam Family Authored parameter family.
+ */
 template <typename Family>
 using AuthoredSurfaceFrame =
     Pullback::FrameIntervalState<AuthoredSurfaceParams<Family>>;
 
+/** @brief Animated surface provider bound to the authored frame.
+ * @tparam Family Authored parameter family.
+ */
 template <typename Family>
 using AuthoredSurfaceProvider =
     Pullback::SurfaceProvider<Pullback::Binding<AuthoredSurfaceFrame<Family>>,
@@ -362,6 +371,10 @@ inline void test_authored_dynamic_modulation_storage() {
   HS_EXPECT_EQ(retained.table.size(), size_t(Pattern::SphereLutView::SIZE));
 }
 
+/** @brief Compares an authored projection with its catalog operator.
+ * @tparam Operator Catalog projection operator.
+ * @tparam Kind Projection kind represented by the authored policy.
+ */
 template <Pullback::ProjectionKind Kind, typename Operator>
 inline void verify_authored_projection() {
   using namespace Pullback;
@@ -478,6 +491,9 @@ inline void test_authored_projection_bindings_match_operators() {
 /** @brief Composed fixture with a flexible modulation recipe. */
 struct DynamicModulationControlsSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -501,8 +517,11 @@ struct DynamicModulationControlsProbe
     : Pullback::ComposedEffect<8, 8, DynamicModulationControlsProbe,
                                DynamicModulationControlsSpec,
                                Control::HookOwnership::INHERITED> {
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr auto PRESETS = [] {
     std::array<PresetEntry<Params>, 2> rows{};
     rows[0].params.template get<"modulation">().modulation.mechanic.amount =
@@ -602,6 +621,9 @@ inline void test_authored_dynamic_modulation_controls() {
 /** @brief Composed fixture for nested polynomial controls. */
 struct PotentialControlsSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -622,8 +644,11 @@ struct PotentialControlsProbe
     : Pullback::ComposedEffect<8, 8, PotentialControlsProbe,
                                PotentialControlsSpec,
                                Control::HookOwnership::INHERITED> {
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
   /** @brief Live potential controls.
    * @return Mutable polynomial parameter family. */
@@ -691,8 +716,12 @@ inline void test_authored_potential_nested_controls() {
  * @tparam Authored Whether to use authored node identities. */
 template <Pullback::ResourceKey Key, bool Authored>
 struct SourceSeedSpec : Pullback::Spec {
+  /** @brief Compile-time topology used to seed authored resource state. */
   static constexpr bool AUTHORED_TOPOLOGY = Authored;
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
@@ -718,12 +747,17 @@ struct SourceSeedProbe
     : Pullback::ComposedEffect<8, 8, SourceSeedProbe<Key, Authored>,
                                SourceSeedSpec<Key, Authored>,
                                Control::HookOwnership::INHERITED> {
+  /** @brief Composed-effect base supplying the runtime resources. */
   using Base = Pullback::ComposedEffect<8, 8, SourceSeedProbe<Key, Authored>,
                                         SourceSeedSpec<Key, Authored>,
                                         Control::HookOwnership::INHERITED>;
+  /** @brief Parameter block exposed by the probe. */
   using Params = typename Base::Params;
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
   /** @brief Authored node label corresponding to a source resource.
    * @param resource Semantic resource key.
@@ -734,6 +768,11 @@ struct SourceSeedProbe
   }
 };
 
+/** @brief Checks the seed adopted by an authored source resource.
+ * @tparam Key Authored resource key.
+ * @param expected_seed Noise seed expected in the prepared source.
+ * @tparam Authored Whether the source uses authored topology seeding.
+ */
 template <Pullback::ResourceKey Key, bool Authored>
 inline void verify_source_seed(uint32_t expected_seed) {
   hs_test::reset_globals();
@@ -751,7 +790,11 @@ inline void verify_source_seed(uint32_t expected_seed) {
 
 /** @brief Projection frame seeded from an authored projection node. */
 struct ProjectionSeedSpec : Pullback::Spec {
+  /** @brief Compile-time topology used to seed authored resource state. */
   static constexpr bool AUTHORED_TOPOLOGY = true;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
@@ -770,8 +813,11 @@ struct ProjectionSeedSpec : Pullback::Spec {
 struct ProjectionSeedProbe
     : Pullback::ComposedEffect<8, 8, ProjectionSeedProbe, ProjectionSeedSpec,
                                Control::HookOwnership::INHERITED> {
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr std::array<PresetEntry<Params>, 1> PRESETS{};
   /** @brief Authored label of the projection node.
    * @param resource Semantic resource key.

@@ -19,8 +19,12 @@ namespace hs_test::composed_effect_tests {
  * FNV-1a accumulator over parameter family and member layout metadata.
  */
 struct ParameterLayoutHash {
+  /** @brief Current FNV-1a accumulator. */
   uint64_t value = 14695981039346656037ULL;
 
+  /** @brief Hashes an integer in least-significant-byte order.
+   * @param number Unsigned integer added to the layout hash.
+   */
   void number(uint64_t number) {
     for (unsigned i = 0; i < 8; ++i) {
       value = fnv1a64_byte(value, static_cast<uint8_t>(number));
@@ -28,12 +32,22 @@ struct ParameterLayoutHash {
     }
   }
 
+  /** @brief Hashes the byte length and content of a string.
+   * @param text Text bytes included in the layout hash.
+   */
   void text(std::string_view text) {
     number(text.size());
     for (const unsigned char ch : text)
       value = fnv1a64_byte(value, ch);
   }
 
+  /** @brief Hashes a named member, its type and its offset from the root.
+   * @tparam Member Member type.
+   * @tparam Root Containing parameter type.
+   * @param root Containing parameter object.
+   * @param member Member whose type and offset are hashed.
+   * @param name Stable name of the parameter member.
+   */
   template <typename Root, typename Member>
   void member(const Root &root, const Member &member, std::string_view name) {
     text(name);
@@ -170,25 +184,37 @@ struct ParameterLayoutHash {
   }
 };
 
+/** @brief Numeric layout fixture storing a before b. */
 struct SchemaFieldsAB {
-  float a, b;
+  /** @brief Numeric fields whose member offsets enter the layout hash. */
+  float a, /** @brief Numeric field b in the layout fixture. */ b;
+  /** @brief Named fields included in the layout hash. */
   static constexpr auto FIELDS = std::array{
       Pullback::Field<SchemaFieldsAB>{"a", &SchemaFieldsAB::a, nullptr, 0, 1},
       Pullback::Field<SchemaFieldsAB>{"b", &SchemaFieldsAB::b, nullptr, 0, 1}};
 };
+/** @brief Numeric layout fixture storing b before a. */
 struct SchemaFieldsBA {
-  float b, a;
+  /** @brief Numeric fields whose member offsets enter the layout hash. */
+  float b, /** @brief Numeric field a in the reordered fixture. */ a;
+  /** @brief Named fields included in the layout hash. */
   static constexpr auto FIELDS = std::array{
       Pullback::Field<SchemaFieldsBA>{"a", &SchemaFieldsBA::a, nullptr, 0, 1},
       Pullback::Field<SchemaFieldsBA>{"b", &SchemaFieldsBA::b, nullptr, 0, 1}};
 };
 
+/** @brief Modulation header with the enable flag before the selector. */
 struct SchemaModulationHeaderAB {
+  /** @brief Whether the modulation fixture is enabled. */
   bool enabled;
+  /** @brief Modulation source selector. */
   Pattern::SourceKind source;
 };
+/** @brief Modulation header with the selector before the enable flag. */
 struct SchemaModulationHeaderBA {
+  /** @brief Modulation source selector. */
   Pattern::SourceKind source;
+  /** @brief Whether the modulation fixture is enabled. */
   bool enabled;
 };
 
@@ -218,7 +244,10 @@ inline void test_parameter_layout_reorder() {
   HS_EXPECT_NE(boolean_type.value, enum_type.value);
 }
 
-/** @brief Hashes named parameter fields and their offsets in the snapshot. */
+/** @brief Hashes named parameter fields and their offsets in the snapshot.
+ * @tparam Params Composed parameter block type.
+ * @return Hash of the parameter block size and named member layout.
+ */
 template <typename Params> uint64_t parameter_layout_hash() {
   const Params PARAMS{};
   ParameterLayoutHash hash;
@@ -232,12 +261,17 @@ template <typename Params> uint64_t parameter_layout_hash() {
 
 /** @brief Schema version, byte size and field layout of a persisted snapshot. */
 struct ParameterSchemaPin {
+  /** @brief Effect identity of the schema pin. */
   const char *effect;
+  /** @brief Version declared for the serialized parameter block. */
   uint32_t schema_version;
+  /** @brief Byte size of the serialized parameter block. */
   size_t params_bytes;
+  /** @brief Expected hash of named member types and offsets. */
   uint64_t layout_hash;
 };
 
+/** @brief Persisted schema versions and native parameter-layout hashes. */
 constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"Involution", 5, 520, 14928048846491712631ULL},
     {"AlienBrain", 5, 284, 7611044476778441529ULL},
@@ -265,7 +299,10 @@ constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
 
 };
 
-/** @brief Pins one specialization's schema version to its field layout. */
+/** @brief Pins one specialization's schema version to its field layout.
+ * @tparam E Effect template instantiated for the schema check.
+ * @param name Effect identity used to locate the schema pin.
+ */
 template <template <int, int> class E>
 inline void check_parameter_schema_pin(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;

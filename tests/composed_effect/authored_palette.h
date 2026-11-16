@@ -11,7 +11,11 @@ namespace hs_test::composed_effect_tests {
 /** @file
  * @brief Authored palette source and cycling harmony contracts. */
 
+/** @brief Palette-source pipeline for authored palette controls. */
 struct AuthoredPaletteSpec : Pullback::Spec {
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -23,12 +27,20 @@ struct AuthoredPaletteSpec : Pullback::Spec {
           Pullback::AuthoredColorProvider<B>>>>;
 };
 
+/** @brief Composed effect exposing authored palette controls. */
 struct AuthoredPaletteProbe
     : Pullback::ComposedEffect<SMALL_W, SMALL_H, AuthoredPaletteProbe,
                                AuthoredPaletteSpec> {
+  /** @brief Composed-effect base supplying the runtime resources. */
   using Base = Pullback::ComposedEffect<SMALL_W, SMALL_H, AuthoredPaletteProbe,
                                         AuthoredPaletteSpec>;
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr Params initial_params() { return {}; }
+  /** @brief Binds the probe choreography customizations.
+   * @return Type-only list of choreography bindings.
+   */
   static consteval auto choreography_hooks() {
     return Base::choreography_hooks()
         .template extend<
@@ -36,9 +48,12 @@ struct AuthoredPaletteProbe
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
                                  &AuthoredPaletteProbe::initial_params>>();
   }
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "authored-palette"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
 };
 

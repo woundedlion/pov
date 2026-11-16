@@ -64,10 +64,14 @@ void copy_numeric(To &to, const From &from) {
 template <typename Family, Pullback::ResourceKind Kind,
           Pullback::ResourceKey Key = "probe">
 struct StageFrame {
+  /** @brief Keyed parameter resource discovered by the fixture. */
   using Resource = Pullback::ParameterResource<Key, Family, Kind>;
+  /** @brief Parameter block exposed by the probe. */
   using Params = Pullback::ComposedDetail::ParameterSet<
       Pullback::ComposedDetail::ResourceList<Resource>>;
+  /** @brief Frame context containing the authored resource state. */
   using Frame = Pullback::FrameIntervalState<Params>;
+  /** @brief Pipeline binding of the fixture frame. */
   using Binding = Pullback::Binding<Frame>;
 };
 
@@ -184,13 +188,18 @@ template <typename Family, typename Model> void check_warp() {
  * @tparam SourceFamily Tessellation source family. */
 template <typename SourceFamily = Pullback::SquareCellsParams>
 struct LatticeAffineFrame {
+  /** @brief Authored affine parameter resource. */
   using Warp = Pullback::ParameterResource<"probe", Pullback::AffineParams,
                                            Pullback::ResourceKind::WARP>;
+  /** @brief Authored sample parameter resource. */
   using Source = Pullback::ParameterResource<"source", SourceFamily,
                                              Pullback::ResourceKind::SOURCE>;
+  /** @brief Parameter block exposed by the probe. */
   using Params = Pullback::ComposedDetail::ParameterSet<
       Pullback::ComposedDetail::ResourceList<Warp, Source>>;
+  /** @brief Frame context containing the authored resource state. */
   using Frame = Pullback::FrameIntervalState<Params>;
+  /** @brief Pipeline binding of the fixture frame. */
   using Binding = Pullback::Binding<Frame>;
 };
 

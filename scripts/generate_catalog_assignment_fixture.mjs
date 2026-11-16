@@ -83,7 +83,8 @@ export function catalogAssignmentFixture(catalog) {
         lines.push(`  params.${member.slice('native.'.length)} = ${literal};`);
       }
     };
-    lines.push('', `inline void catalog_assignments_${operator.id.replaceAll(/[.-]/g, '_')}() {`,
+    lines.push('', `/** @brief Compiles catalog assignments for ${operator.id}. */`,
+      `inline void catalog_assignments_${operator.id.replaceAll(/[.-]/g, '_')}() {`,
       `  ${FAMILIES[operator.id]} params;`);
     emit(presetAssignments(document, values, { authoredTopology: true }));
     for (const field of operator.params.filter(field => field.topology))

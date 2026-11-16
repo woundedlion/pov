@@ -17,6 +17,9 @@ namespace hs_test::composed_effect_tests {
 
 /** @brief Direct analytic modulation on the GridSpace stage pipeline. */
 struct AnalyticModulationSpec : Pullback::Spec {
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -47,12 +50,19 @@ struct AnalyticModulationSpec : Pullback::Spec {
 struct AnalyticModulationProbe
     : Pullback::ComposedEffect<SMALL_W, SMALL_H, AnalyticModulationProbe,
                                AnalyticModulationSpec> {
+  /** @brief Composed-effect base supplying the runtime resources. */
   using Base =
       Pullback::ComposedEffect<SMALL_W, SMALL_H, AnalyticModulationProbe,
                                AnalyticModulationSpec>;
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"analytic"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr Params initial_params() {
     Params params{};
     auto &config = params.template get<"modulation">().modulation;
@@ -61,6 +71,9 @@ struct AnalyticModulationProbe
     config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
     return params;
   }
+  /** @brief Binds the probe choreography customizations.
+   * @return Type-only list of choreography bindings.
+   */
   static consteval auto choreography_hooks() {
     return Base::choreography_hooks()
         .template extend<
@@ -130,11 +143,18 @@ inline void test_composed_analytic_modulation_sliders() {
                  0.875f, 0.0f);
 }
 
+/** @brief Ripple displacement with selectable projection motion and modulation.
+ * @tparam Animated Whether the projection orientation animates.
+ * @tparam Modulated Whether the pipeline includes noise modulation.
+ */
 template <bool Animated, bool Modulated = false>
 struct RippleProbeSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION =
       Animated ? Pullback::ProjectionMotion::ANIMATED
                : Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -163,17 +183,30 @@ struct RippleProbeSpec : Pullback::Spec {
                          void>>;
 };
 
+/** @brief Composed ripple effect for projection and modulation checks.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam AnimatedProjection Whether the projection orientation animates.
+ * @tparam Modulated Whether the pipeline includes noise modulation.
+ */
 template <int W, int H, bool AnimatedProjection = false, bool Modulated = false>
 class RippleProbe : public Pullback::ComposedEffect<
                         W, H, RippleProbe<W, H, AnimatedProjection, Modulated>,
                         RippleProbeSpec<AnimatedProjection, Modulated>> {
 public:
+  /** @brief Parameter block exposed by the probe. */
   using Params =
       Pullback::ParamsFor<RippleProbeSpec<AnimatedProjection, Modulated>>;
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"ripple"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
 
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"surface">().period = 80.0f;
@@ -218,6 +251,9 @@ inline void test_composed_path_modulation_admission() {
 /** @brief Iso transfer and edge coverage use independent named value resources. */
 struct KeyedValueSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
@@ -236,12 +272,16 @@ struct KeyedValueSpec : Pullback::Spec {
               B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
+/** @brief Composed effect with independent contour and edge resources. */
 struct KeyedValueProbe
     : Pullback::ComposedEffect<SMALL_W, SMALL_H, KeyedValueProbe,
                                KeyedValueSpec,
                                Control::HookOwnership::INHERITED> {
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"keyed"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
 };
 
@@ -293,7 +333,11 @@ inline void test_composed_keyed_parameters() {
   HS_EXPECT_EQ(visited, 2u);
 }
 
+/** @brief Affine warp bound to an explicitly keyed sampled source. */
 struct AffineNamedSourceSpec : Pullback::Spec {
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
@@ -329,6 +373,9 @@ inline void test_composed_affine_named_source() {
 
 /** @brief A general-form affine warp before a source with no lattice. */
 struct AffineFallbackLatticeSpec : Pullback::Spec {
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
@@ -385,8 +432,12 @@ inline void test_composed_affine_form_sliders() {
   HS_EXPECT_EQ(params.size(), params.capacity());
 }
 
+/** @brief Pipeline containing repeated independently keyed stages. */
 struct RepeatedStagesSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -410,15 +461,26 @@ struct RepeatedStagesSpec : Pullback::Spec {
           Pullback::Color::GeneratedPalette<Pullback::ColorProvider<
               B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
+/** @brief Composed effect exposing repeated-stage parameters.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ */
 template <int W, int H>
 class RepeatedStagesProbe
     : public Pullback::ComposedEffect<W, H, RepeatedStagesProbe<W, H>,
                                       RepeatedStagesSpec> {
 public:
+  /** @brief Parameter block exposed by the probe. */
   using Params = Pullback::ParamsFor<RepeatedStagesSpec>;
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"repeated"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"warp_a">().speed = 0.003f;
@@ -537,11 +599,18 @@ inline void test_composed_repeated_instances() {
   verify_params_equal(effect.serialize_parameters().params, changed.params);
 }
 
+/** @brief Arena and timeline storage retained by projection-walk setup. */
 struct ProjectionWalkFootprint {
+  /** @brief Persistent arena extent after effect initialization. */
   size_t arena_bytes;
+  /** @brief Timeline events retained after effect initialization. */
   int timeline_events;
 };
 
+/** @brief Measures retained arena and timeline storage after probe initialization.
+ * @tparam AnimatedProjection Whether the projection orientation animates.
+ * @return Persistent bytes and timeline events retained by the probe.
+ */
 template <bool AnimatedProjection>
 ProjectionWalkFootprint measure_projection_walk_footprint() {
   reset_globals();
@@ -642,8 +711,14 @@ inline void test_composed_periodic_ripple_surface() {
   hs::clear_mock_time();
 }
 
+/** @brief Authored noise-source pipeline selected by the probe.
+ * @tparam SourceT Noise source parameter family.
+ */
 template <typename SourceT> struct NoiseSourceProbeSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
+  /** @brief Typed stage sequence evaluated by the probe.
+   * @tparam B Pipeline binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -659,17 +734,30 @@ template <typename SourceT> struct NoiseSourceProbeSpec : Pullback::Spec {
               B, Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
+/** @brief Composed effect exposing a fixed authored noise seed.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam SourceT Noise source parameter family.
+ */
 template <int W, int H, typename SourceT>
 class NoiseSourceProbe
     : public Pullback::ComposedEffect<W, H, NoiseSourceProbe<W, H, SourceT>,
                                       NoiseSourceProbeSpec<SourceT>> {
 public:
+  /** @brief Parameter block exposed by the probe. */
   using Params = Pullback::ParamsFor<NoiseSourceProbeSpec<SourceT>>;
+  /** @brief Stable identifiers exported for the probe presets. */
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"noise"};
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /** @brief Fixed seed of the probe source noise. */
   static constexpr int SOURCE_NOISE_SEED = 1337;
 
+  /** @brief Builds the initial controls of the probe.
+   * @return Initial parameter block.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"source">().noise_scale = 8.0f;
@@ -692,6 +780,10 @@ public:
   }
 };
 
+/** @brief Projected-noise specialization of the source probe.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ */
 template <int W, int H>
 using NoHueProbe = NoiseSourceProbe<W, H, Pullback::ProjectedNoiseSourceParams>;
 
@@ -722,12 +814,15 @@ inline void test_composed_noise_source() {
 }
 /** @brief Parameter set of the ChoreographedEffect probes: one animated float. */
 struct ChoreoProbeParams {
+  /** @brief Normalized level controlled by the probe choreography. */
   float level = 0.0f;
 };
 
 /**
  * @brief Probe pinning a Segue::Preset::Fade departure.
  * @details Records every set_preset_opacity sample and the parameter level.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
  */
 template <int W, int H>
 class FadeChoreoProbe
@@ -737,28 +832,41 @@ class FadeChoreoProbe
   friend Choreography;
 
 public:
+  /** @brief Parameter block exposed by the probe. */
   using Params = ChoreoProbeParams;
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Transition applied when the current preset departs. */
   static constexpr Segue::Preset::Fade DEPARTURE{8};
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
+  /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr std::array<PresetEntry<Params>, 3> PRESETS = {
       {{{0.25f}, DEPARTURE}, {{0.5f}, DEPARTURE}, {{0.75f}, DEPARTURE}}};
 
+  /** @brief Checks whether the probe level lies in its accepted range.
+   * @param p Candidate probe controls.
+   * @return Whether the probe accepts the level.
+   */
   static bool valid_params(const Params &p) {
     return p.level >= 0.0f && p.level <= 1.0f;
   }
 
   FadeChoreoProbe() : Choreography(W, H) {}
 
+  /** @brief Starts the probe choreography. */
   void init() override { this->begin_choreography(); }
 
+  /** @brief Steps the probe timeline and preset choreography. */
   void draw_frame() override {
     Canvas canvas(*this);
     this->timeline.step(canvas);
     this->step_choreography();
   }
 
-  /** @brief Live level, which a preset change snaps. */
+  /** @brief Live level, which a preset change snaps.
+   * @return Current normalized choreography level.
+   */
   float level() const { return this->params.level; }
 
   int opacity_samples = 0;     /**< Opacity samples the base fed. */
@@ -795,6 +903,9 @@ public:
  * @brief Probe pinning the Segue::Preset::Lerp transition hooks.
  * @details Counts transition_armed and blend_params calls and writes the blend
  * itself, so a cancelled crossfade shows up as a blend that stops writing.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam Animated Whether the lerp transition animates its blend.
  */
 template <int W, int H, bool Animated = true>
 class LerpChoreoProbe
@@ -805,19 +916,29 @@ class LerpChoreoProbe
   friend Choreography;
 
 public:
+  /** @brief Parameter block exposed by the probe. */
   using Params = ChoreoProbeParams;
+  /** @brief Version of the serialized parameter schema. */
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** @brief Transition applied when the current preset departs. */
   static constexpr Segue::Preset::Lerp DEPARTURE{8, math::ease_linear};
+  /** @brief Frames spent on each preset before automatic selection. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
+  /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
       {{{0.0f}, DEPARTURE}, {{1.0f}, DEPARTURE}}};
 
+  /** @brief Checks whether the probe level lies in its accepted range.
+   * @param p Candidate probe controls.
+   * @return Whether the probe accepts the level.
+   */
   static bool valid_params(const Params &p) {
     return p.level >= 0.0f && p.level <= 1.0f;
   }
 
   LerpChoreoProbe() : Choreography(W, H) {}
 
+  /** @brief Starts the probe choreography. */
   void init() override {
     if constexpr (Animated)
       this->register_animated_param("Level", &this->params.level, 0.0f, 1.0f);
@@ -826,13 +947,16 @@ public:
     this->begin_choreography();
   }
 
+  /** @brief Steps the probe timeline and preset choreography. */
   void draw_frame() override {
     Canvas canvas(*this);
     this->timeline.step(canvas);
     this->step_choreography();
   }
 
-  /** @brief Live level, which the blend rewrites every frame it runs. */
+  /** @brief Live level, which the blend rewrites every frame it runs.
+   * @return Current normalized choreography level.
+   */
   float level() const { return this->params.level; }
 
   int armed_count = 0;        /**< transition_armed calls seen. */
