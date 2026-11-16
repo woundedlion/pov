@@ -33,6 +33,7 @@
 #include "core/render/pullback/operators/table.h"
 #include "tests/test_fixture.h"
 #include "tests/composed_frame_fixture.h"
+#include "tests/composed_effect/float_bits.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_harness.h"
 #include "tests/composed_effect/catalog_policies.h"
@@ -115,8 +116,6 @@ constexpr ColorSliderBinding COLOR_SLIDER_BINDINGS[] = {
     {"Brightness Top", "brightness-top"},
     {"Opacity at Value 0", "value-opacity-low"},
     {"Opacity at Value 1", "value-opacity-high"}};
-
-inline uint32_t bits(float value) { return std::bit_cast<uint32_t>(value); }
 
 /** @brief Instance key, path tracking, next stage and form of an affine warp
  * stage. */

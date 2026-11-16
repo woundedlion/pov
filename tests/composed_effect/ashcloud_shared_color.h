@@ -4,7 +4,18 @@
  */
 #pragma once
 
-#include "tests/composed_effect/context.h"
+#include "effects/AshCloud.h"
+#include "tests/composed_effect/float_bits.h"
+#include "tests/composed_frame_fixture.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <tuple>
 
 namespace hs_test::composed_effect_tests {
 
