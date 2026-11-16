@@ -254,6 +254,8 @@ inline void test_show_cycle_fits_device_split() {
   using Fx = HankinSolids<288, 144>;
   Fx fx;
   fx.init();
+  HS_EXPECT_LE(persistent_arena.get_high_water_mark(),
+               Fx::DEVICE_PERSISTENT_BYTES);
   // Measured with room past the split so an overrun reports instead of
   // trapping.
   constexpr size_t MEASURE = 1024 * 1024;
