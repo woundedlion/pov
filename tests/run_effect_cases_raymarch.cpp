@@ -4,6 +4,7 @@
  */
 /** @file
  * @brief Raymarch test entry points. */
+#include "core/math/scalar_kernels.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 #include "effects/Raymarch.h"

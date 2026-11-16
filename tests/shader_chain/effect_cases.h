@@ -9,7 +9,7 @@
 
 namespace hs_test::shader_chain_tests {
 
-// Composed frame parity and ShaderChain effect lifecycle.
+// ShaderChain effect parity, parameter admission and column-time sampling.
 
 inline void test_shader_chain_composed_frame_parity() {
   using FX = AlienCore<96, 20>;
@@ -218,72 +218,6 @@ inline void test_shader_chain_edge_distance_admission() {
   HS_EXPECT_TRUE(effect.parameter_warning("warp.envelope") != nullptr);
   HS_EXPECT_EQ(requested_param(effect, "sample.coverage-mode"),
                accepted_coverage);
-}
-
-/** @brief Projections stay within their declared plane bound. */
-inline void test_shader_chain_projection_plane_bound() {
-  std::vector<math::Vector> views;
-  for (const math::Vector &view : sweep_views())
-    views.push_back(view);
-  for (const math::Vector &view :
-       {math::Vector(1e-4f, 1, 0), math::Vector(0, 1, 1e-4f),
-        math::Vector(1, 1e-6f, 0), math::Vector(0, -1e-6f, 1)})
-    views.push_back(view.normalized());
-  const float near_pole_y = std::nextafter(1.0f, 0.0f);
-  views.emplace_back(sqrtf(1.0f + PB::DIRECTION_NORM_SQUARED_TOLERANCE -
-                           near_pole_y * near_pole_y),
-                     near_pole_y, 0.0f);
-  constexpr int SWEEP = 4096;
-  for (int index = 0; index < SWEEP; ++index) {
-    const float y = 1.0f - 2.0f * (index + 0.5f) / SWEEP;
-    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
-    const float angle = 2.39996323f * static_cast<float>(index);
-    views.push_back(
-        math::Vector(radius * cosf(angle), y, radius * sinf(angle)));
-  }
-  size_t projections = 0;
-  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
-    if (op.input != In::CarrierId::SPHERE || op.output != In::CarrierId::PLANE)
-      continue;
-    HS_CONTEXT(op.operator_id);
-    ++projections;
-    auto fixture = std::make_unique<ProgramFixture>();
-    auto &program = fixture->program;
-    const In::ChainEntryRequest chain[] = {
-        {"project", op.operator_id},
-        {"sample", In::Op::SampleGridV4::ID},
-        {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
-    };
-    if (!expect_compiled(program.compile(chain)))
-      return;
-    param_as<In::Op::ProjectChainParams>(program, 0).frame =
-        static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
-    HS_EXPECT_TRUE(op.runtime.plane_bound != nullptr);
-    if (op.runtime.plane_bound == nullptr)
-      continue;
-    const auto ctx = shared_resources().context();
-    enum class Corner { DEFAULT, MIN, MAX };
-    for (Corner corner : {Corner::DEFAULT, Corner::MIN, Corner::MAX}) {
-      HS_CONTEXT("corner", static_cast<int>(corner));
-      for (uint16_t index = 0;
-           corner != Corner::DEFAULT && index < op.schema_count; ++index) {
-        const In::ParamFieldInfo &field = op.schema[index];
-        if (field.enum_count == 0)
-          *static_cast<float *>(
-              op.runtime.param_address(program.param_block(0), index)) =
-              corner == Corner::MIN ? field.min : field.max;
-      }
-      program.prepare(ctx);
-      const float bound =
-          op.runtime.plane_bound(program.param_block(0), 0.0f, {});
-      for (const math::Vector &view : views) {
-        const PB::PlaneSample plane = run_entry<PB::PlaneSample>(
-            program, ctx, 0, PB::SphereSample{view, 0.0f});
-        HS_EXPECT_LE(std::hypot(plane.coords.re, plane.coords.im), bound);
-      }
-    }
-  }
-  HS_EXPECT_GT(projections, 0u);
 }
 
 /** @brief A chain whose combined plane growth could overflow is refused on
@@ -794,69 +728,6 @@ inline void test_shader_chain_column_params_interpolate() {
   const auto &prepared =
       prepared_as<PB::Color::GeneratedPaletteState>(program, 3);
   HS_EXPECT_NEAR(prepared.mapping_offset, 0.5f, 1e-6f);
-}
-
-/** @brief Stateful operators sample clocks or retain complete color endpoints. */
-inline void test_shader_chain_operator_states_sample_clocks() {
-  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
-    HS_CONTEXT(op.operator_id);
-    HS_EXPECT_TRUE(op.runtime.sample_params != nullptr);
-    HS_EXPECT_TRUE(op.runtime.state.size == sizeof(In::EmptyState) ||
-                   op.runtime.sample_state != nullptr ||
-                   std::string_view(op.operator_id) ==
-                       In::Op::ModulateColorV1::ID);
-  }
-  const float TWO_PI = math::TWO_PI_F;
-  In::Op::SpatialWalkState walk_from, walk_to, walk;
-  walk_from.spin_phase = TWO_PI - 0.1f;
-  walk_to.spin_phase = 0.1f;
-  walk_from.wander = math::make_rotation(math::X_AXIS, 0.2f);
-  walk_to.wander = -math::make_rotation(math::X_AXIS, 0.4f);
-  walk = walk_to;
-  In::Op::temporal_sample(walk, In::Op::temporal_interval(walk_from, walk_to),
-                          In::Op::RotateChainParams{}, 0.25f);
-  HS_EXPECT_NEAR(std::remainder(walk.spin_phase, TWO_PI), -0.05f, 1e-5f);
-  HS_EXPECT_NEAR(std::fabs(math::dot(walk.wander,
-                                     math::make_rotation(math::X_AXIS, 0.25f))),
-                 1.0f, 1e-6f);
-  In::Op::SourceClockState source_from{TWO_PI - 0.2f, 0.2f, 3.0f};
-  In::Op::SourceClockState source_to{0.2f, TWO_PI - 0.2f, 3.4f};
-  In::Op::SourceClockState source = source_to;
-  In::Op::temporal_sample(
-      source, In::Op::temporal_interval(source_from, source_to), 0, 0.5f);
-  HS_EXPECT_NEAR(std::remainder(source.primary, TWO_PI), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(std::remainder(source.secondary, TWO_PI), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(source.angle, 3.2f, 1e-5f);
-  In::Op::WarpPhaseState warp_from{0.9f}, warp_to{0.1f}, warp = warp_to;
-  In::Op::temporal_sample(warp, In::Op::temporal_interval(warp_from, warp_to),
-                          0, 0.5f);
-  HS_EXPECT_NEAR(std::remainder(warp.phase, 1.0f), 0.0f, 1e-6f);
-  In::Op::AffineClockState affine_from{0.95f, TWO_PI - 0.1f};
-  In::Op::AffineClockState affine_to{0.05f, 0.1f};
-  In::Op::AffineClockState affine = affine_to;
-  In::Op::temporal_sample(
-      affine, In::Op::temporal_interval(affine_from, affine_to), 0, 0.5f);
-  HS_EXPECT_NEAR(std::remainder(affine.phase, 1.0f), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(std::remainder(affine.rotation, TWO_PI), 0.0f, 1e-5f);
-  In::Op::RipplePhaseState ripple_from, ripple_to;
-  ripple_to.frames = 1;
-  ripple_to.waves[0].age = 30.0f;
-  auto ripple = ripple_to;
-  In::Op::RippleChainParams ripple_params;
-  In::Op::temporal_sample(ripple,
-                          In::Op::temporal_interval(ripple_from, ripple_to),
-                          ripple_params, 0.5f);
-  HS_EXPECT_NEAR(ripple.waves[0].age, 29.5f, 1e-5f);
-  In::Op::ColorClockState color_from, color_to;
-  color_from.oscillation_phase = 0.8f;
-  color_to.oscillation_phase = 0.2f;
-  In::Op::ColorClockState color = color_to;
-  In::Op::temporal_sample(
-      color, In::Op::temporal_interval(color_from, color_to), 0, 0.5f);
-  HS_EXPECT_NEAR(std::remainder(color.oscillation_phase, 1.0f), 0.0f, 1e-6f);
-  const auto *modulate = require_operator(In::Op::ModulateColorV1::ID);
-  HS_EXPECT_TRUE(modulate != nullptr &&
-                 modulate->runtime.sample_state == nullptr);
 }
 
 } // namespace hs_test::shader_chain_tests

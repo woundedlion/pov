@@ -48,3 +48,7 @@ class CourtyardBoundsTests(unittest.TestCase):
             '(end -0.8 -0.6) (layer "F.CrtYd")))')[0]
         for actual, expected in zip(courtyard_box(footprint), (-1.0, -0.6, 0.8, 1.0)):
             self.assertAlmostEqual(actual, expected)
+
+
+if __name__ == "__main__":
+    unittest.main()

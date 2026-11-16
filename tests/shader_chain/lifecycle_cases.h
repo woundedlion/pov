@@ -12,32 +12,6 @@ namespace hs_test::shader_chain_tests {
 
 // Transactional refusals, migration, determinism and budgets.
 
-using SweepColors =
-    std::array<Color4, std::tuple_size_v<decltype(sweep_views())>>;
-
-/** Renders the sweep into @p out for a byte-identity comparison. */
-inline void snapshot_render(In::ChainProgram &program,
-                            const In::FrameContext &ctx, SweepColors &out) {
-  const auto views = sweep_views();
-  for (size_t index = 0; index < views.size(); ++index)
-    out[index] = program.evaluate(views[index], ctx);
-}
-
-/** @brief Expects @p actual to match @p expected byte for byte. */
-inline void expect_sweep_identical(const SweepColors &actual,
-                                   const SweepColors &expected) {
-  for (size_t index = 0; index < actual.size(); ++index) {
-    HS_CONTEXT("view", static_cast<int>(index));
-    HS_EXPECT_TRUE(color4_identical(actual[index], expected[index]));
-  }
-}
-
-/** @brief Expects at least one swept color to be live. */
-inline void expect_sweep_live(const SweepColors &colors) {
-  HS_EXPECT_TRUE(std::any_of(colors.begin(), colors.end(),
-                             [](const Color4 &c) { return carrier_live(c); }));
-}
-
 inline void expect_refusal(In::ChainProgram &program,
                            std::span<const In::ChainEntryRequest> request,
                            In::ChainStatus expected, int16_t expected_index,
@@ -610,6 +584,69 @@ inline void test_shader_chain_param_names_and_budget() {
   }
   HS_EXPECT_EQ(program.used_bytes(), expected_bytes);
   program.clear();
+}
+
+/** @brief Stateful operators sample clocks or retain complete color endpoints. */
+inline void test_shader_chain_operator_states_sample_clocks() {
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
+    HS_CONTEXT(op.operator_id);
+    HS_EXPECT_TRUE(op.runtime.sample_params != nullptr);
+    HS_EXPECT_TRUE(op.runtime.state.size == sizeof(In::EmptyState) ||
+                   op.runtime.sample_state != nullptr ||
+                   std::string_view(op.operator_id) ==
+                       In::Op::ModulateColorV1::ID);
+  }
+  const float TWO_PI = math::TWO_PI_F;
+  In::Op::SpatialWalkState walk_from, walk_to, walk;
+  walk_from.spin_phase = TWO_PI - 0.1f;
+  walk_to.spin_phase = 0.1f;
+  walk_from.wander = math::make_rotation(math::X_AXIS, 0.2f);
+  walk_to.wander = -math::make_rotation(math::X_AXIS, 0.4f);
+  walk = walk_to;
+  In::Op::temporal_sample(walk, In::Op::temporal_interval(walk_from, walk_to),
+                          In::Op::RotateChainParams{}, 0.25f);
+  HS_EXPECT_NEAR(std::remainder(walk.spin_phase, TWO_PI), -0.05f, 1e-5f);
+  HS_EXPECT_NEAR(std::fabs(math::dot(walk.wander,
+                                     math::make_rotation(math::X_AXIS, 0.25f))),
+                 1.0f, 1e-6f);
+  In::Op::SourceClockState source_from{TWO_PI - 0.2f, 0.2f, 3.0f};
+  In::Op::SourceClockState source_to{0.2f, TWO_PI - 0.2f, 3.4f};
+  In::Op::SourceClockState source = source_to;
+  In::Op::temporal_sample(
+      source, In::Op::temporal_interval(source_from, source_to), 0, 0.5f);
+  HS_EXPECT_NEAR(std::remainder(source.primary, TWO_PI), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(std::remainder(source.secondary, TWO_PI), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(source.angle, 3.2f, 1e-5f);
+  In::Op::WarpPhaseState warp_from{0.9f}, warp_to{0.1f}, warp = warp_to;
+  In::Op::temporal_sample(warp, In::Op::temporal_interval(warp_from, warp_to),
+                          0, 0.5f);
+  HS_EXPECT_NEAR(std::remainder(warp.phase, 1.0f), 0.0f, 1e-6f);
+  In::Op::AffineClockState affine_from{0.95f, TWO_PI - 0.1f};
+  In::Op::AffineClockState affine_to{0.05f, 0.1f};
+  In::Op::AffineClockState affine = affine_to;
+  In::Op::temporal_sample(
+      affine, In::Op::temporal_interval(affine_from, affine_to), 0, 0.5f);
+  HS_EXPECT_NEAR(std::remainder(affine.phase, 1.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(std::remainder(affine.rotation, TWO_PI), 0.0f, 1e-5f);
+  In::Op::RipplePhaseState ripple_from, ripple_to;
+  ripple_to.frames = 1;
+  ripple_to.waves[0].age = 30.0f;
+  auto ripple = ripple_to;
+  In::Op::RippleChainParams ripple_params;
+  In::Op::temporal_sample(ripple,
+                          In::Op::temporal_interval(ripple_from, ripple_to),
+                          ripple_params, 0.5f);
+  HS_EXPECT_NEAR(ripple.waves[0].age, 29.5f, 1e-5f);
+  In::Op::ColorClockState color_from, color_to;
+  color_from.oscillation_phase = 0.8f;
+  color_to.oscillation_phase = 0.2f;
+  In::Op::ColorClockState color = color_to;
+  In::Op::temporal_sample(
+      color, In::Op::temporal_interval(color_from, color_to), 0, 0.5f);
+  HS_EXPECT_NEAR(std::remainder(color.oscillation_phase, 1.0f), 0.0f, 1e-6f);
+  const auto *modulate = require_operator(In::Op::ModulateColorV1::ID);
+  HS_EXPECT_TRUE(modulate != nullptr &&
+                 modulate->runtime.sample_state == nullptr);
 }
 
 } // namespace hs_test::shader_chain_tests

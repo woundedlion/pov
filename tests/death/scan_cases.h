@@ -235,14 +235,12 @@ inline void case_scan_mesh_missing_offsets() {
 
 /** @brief Visibility selection rejects a mesh without face offsets. */
 inline void case_scan_visibility_missing_offsets() {
-  scan_selector_index_fixture(
-      {.visibility = true, .bad_index = 2, .omit_offsets = true});
+  scan_selector_index_fixture({.visibility = true, .omit_offsets = true});
 }
 
 /** @brief Moving-face selection rejects a mesh without face offsets. */
 inline void case_scan_moving_missing_offsets() {
-  scan_selector_index_fixture(
-      {.visibility = false, .bad_index = 2, .omit_offsets = true});
+  scan_selector_index_fixture({.visibility = false, .omit_offsets = true});
 }
 
 /** @brief Death case: a face index past the vertex pool must trap. */

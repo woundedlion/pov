@@ -93,12 +93,12 @@ inline void expect_mesh_seam_continuous(const MeshSeamSteps &steps,
   if (steps.arm_samples == 0 || steps.interior_samples == 0)
     return;
   std::printf(
-      "  [%s] mean seam step %.3f x neighbors; mid-arm %.3f; samples %d/%d and %d/%d\n",
-      label, steps.arm_ratios / steps.arm_samples,
-      steps.interior_ratios / steps.interior_samples, steps.arm_samples,
-      steps.frames, steps.interior_samples, steps.frames);
-  std::printf("  mean across arms %.3f\n",
-              steps.mean_arm_ratios / steps.arm_samples);
+      "  [%s] worst-arm seam step %.3f <= %.3f; mean seam step %.3f <= %.3f; "
+      "mid-arm %.3f <= %.3f; samples %d/%d and %d/%d\n",
+      label, steps.arm_ratios / steps.arm_samples, arm_bound,
+      steps.mean_arm_ratios / steps.arm_samples, mean_bound,
+      steps.interior_ratios / steps.interior_samples, interior_bound,
+      steps.arm_samples, steps.frames, steps.interior_samples, steps.frames);
   HS_EXPECT_LE(steps.mean_arm_ratios / steps.arm_samples, mean_bound);
   HS_EXPECT_LE(steps.arm_ratios / steps.arm_samples, arm_bound);
   HS_EXPECT_LE(steps.interior_ratios / steps.interior_samples, interior_bound);

@@ -31,10 +31,6 @@ inline Color4 unfactored_shared(const math::Vector &view,
   return Pullback::finish_color_sample(color);
 }
 
-inline math::Vector direction(int x, float sine, float cosine) {
-  return {sine * math::TrigLUT<288, 144>::cos_theta(x), cosine,
-          sine * math::TrigLUT<288, 144>::sin_theta[x]};
-}
 } // namespace ashcloud_shared_tests
 
 /** @brief The shared color path is exact before camera factoring. */
@@ -57,8 +53,7 @@ inline void test_ash_cloud_shared_color_identity() {
       if (!shader.shared)
         continue;
       for (int y = 0; y < 144; y += 18) {
-        const auto view = direction(x, math::TrigLUT<288, 144>::sin_phi[y],
-                                    math::TrigLUT<288, 144>::cos_phi[y]);
+        const auto view = math::pixel_to_vector<288, 144>(x, y);
         const auto expected = FX::shade(view, *frame);
         const auto actual = unfactored_shared(view, *frame);
         HS_EXPECT_EQ(actual.color, expected.color);
@@ -99,7 +94,7 @@ inline void test_ash_cloud_shared_column_qualification() {
       for (int y = 0; y < 144; ++y) {
         const float sine = math::TrigLUT<288, 144>::sin_phi[y];
         const float cosine = math::TrigLUT<288, 144>::cos_phi[y];
-        const auto view = direction(x, sine, cosine);
+        const auto view = math::pixel_to_vector<288, 144>(x, y);
         const auto expected_value = FX::shade(view, *frame);
         const auto actual_value = shader(sine, cosine);
         mismatches += actual_value.color != expected_value.color ||
@@ -190,7 +185,8 @@ inline void test_ash_cloud_shared_column_fallbacks() {
       for (int y = 0; y < 144; ++y) {
         const float sine = math::TrigLUT<288, 144>::sin_phi[y];
         const float cosine = math::TrigLUT<288, 144>::cos_phi[y];
-        const auto expected = FX::shade(direction(x, sine, cosine), frame);
+        const auto expected =
+            FX::shade(math::pixel_to_vector<288, 144>(x, y), frame);
         const auto actual = shader(sine, cosine);
         HS_EXPECT_TRUE(actual.color == expected.color);
         HS_EXPECT_EQ(bits(actual.alpha), bits(expected.alpha));

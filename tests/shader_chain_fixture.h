@@ -336,6 +336,32 @@ inline bool carrier_live(const Color4 &c) {
          (c.color.r | c.color.g | c.color.b) != 0;
 }
 
+using SweepColors =
+    std::array<Color4, std::tuple_size_v<decltype(sweep_views())>>;
+
+/** Renders the sweep into @p out for a byte-identity comparison. */
+inline void snapshot_render(In::ChainProgram &program,
+                            const In::FrameContext &ctx, SweepColors &out) {
+  const auto views = sweep_views();
+  for (size_t index = 0; index < views.size(); ++index)
+    out[index] = program.evaluate(views[index], ctx);
+}
+
+/** @brief Expects @p actual to match @p expected byte for byte. */
+inline void expect_sweep_identical(const SweepColors &actual,
+                                   const SweepColors &expected) {
+  for (size_t index = 0; index < actual.size(); ++index) {
+    HS_CONTEXT("view", static_cast<int>(index));
+    HS_EXPECT_TRUE(color4_identical(actual[index], expected[index]));
+  }
+}
+
+/** @brief Expects at least one swept color to be live. */
+inline void expect_sweep_live(const SweepColors &colors) {
+  HS_EXPECT_TRUE(std::any_of(colors.begin(), colors.end(),
+                             [](const Color4 &c) { return carrier_live(c); }));
+}
+
 /**
  * @brief Storage for an erased runtime parameter or state block.
  * @param bytes Required byte capacity.

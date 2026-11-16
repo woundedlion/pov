@@ -258,6 +258,7 @@ inline int run_effects_tests() {
   run_effect_case_displacement_field_turn_follows_large_steps();
   run_effect_case_displacement_field_alternate_groups_match_windows();
   run_effect_case_glitch_lens_doubles_latitude_and_stays_smooth_at_fold();
+  run_effect_case_configured_glitch_general_path();
   run_effect_case_mobius_rings_conformal_and_counter_rotation();
   run_effect_case_mobius_rings_white_box_check_column_time_oracle();
   run_effect_case_mobius_rings_white_box_check_device_clip_work();

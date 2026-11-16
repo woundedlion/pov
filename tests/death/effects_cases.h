@@ -10,7 +10,13 @@ inline void check_shader_chain_colorize_companion() {
   reset_globals();
   WB::FX effect;
   effect.init();
-  HS_EXPECT_EQ(WB::colorize_index(effect), 3);
+  const int index = WB::colorize_index(effect);
+  const auto ops = WB::program(effect).ops();
+  HS_EXPECT_TRUE(index >= 0 && static_cast<size_t>(index) < ops.size());
+  if (index >= 0 && static_cast<size_t>(index) < ops.size())
+    HS_EXPECT_EQ(
+        std::string_view(ops[index].op->operator_id),
+        std::string_view(Pullback::Interp::Op::ColorizeGeneratedPaletteV4::ID));
   reset_globals();
 }
 

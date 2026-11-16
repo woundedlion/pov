@@ -264,16 +264,14 @@ inline float capture_centre(const math::Vector &end, int arm) {
 template <typename PositionFn>
 inline void build_single_face(MeshState &mesh, size_t count,
                               PositionFn &&position) {
-  mesh.vertices.bind(scratch_arena_a, count);
-  mesh.face_counts.bind(scratch_arena_a, 1);
-  mesh.face_offsets.bind(scratch_arena_a, 1);
-  mesh.faces.bind(scratch_arena_a, count);
+  std::vector<math::Vector> vertices(count);
+  std::vector<uint16_t> indices(count);
   for (uint16_t i = 0; i < count; ++i) {
-    mesh.vertices.push_back(position(i));
-    mesh.faces.push_back(i);
+    vertices[i] = position(i);
+    indices[i] = i;
   }
-  mesh.face_counts.push_back(static_cast<uint8_t>(count));
-  mesh.face_offsets.push_back(0);
+  const uint8_t COUNTS[] = {static_cast<uint8_t>(count)};
+  build_meshstate(mesh, scratch_arena_a, vertices, COUNTS, indices);
 }
 
 /** @brief A ripple crossing between disjoint endpoint bands stays moving. */
@@ -338,18 +336,12 @@ inline void test_mesh_capture_reuse() {
       return math::Vector(cosf(angle), i % 2 ? -0.1f : 0.1f, sinf(angle))
           .normalized();
     };
-    mesh.vertices.bind(scratch_arena_a, 4);
-    mesh.face_counts.bind(scratch_arena_a, 2);
-    mesh.face_offsets.bind(scratch_arena_a, 2);
-    mesh.faces.bind(scratch_arena_a, 6);
-    for (uint16_t i = 0; i < 4; ++i)
-      mesh.vertices.push_back(position(i, 1));
-    for (uint16_t i : {0, 1, 2, 2, 1, 3})
-      mesh.faces.push_back(i);
-    for (uint16_t f = 0; f < 2; ++f) {
-      mesh.face_counts.push_back(3);
-      mesh.face_offsets.push_back(static_cast<uint16_t>(3 * f));
-    }
+    std::array<math::Vector, 4> vertices;
+    for (size_t i = 0; i < vertices.size(); ++i)
+      vertices[i] = position(i, 1);
+    const uint8_t COUNTS[] = {3, 3};
+    const uint16_t INDICES[] = {0, 1, 2, 2, 1, 3};
+    build_meshstate(mesh, scratch_arena_a, vertices, COUNTS, INDICES);
     const uint8_t MOVING[4] = {1, 1, 1, 1};
     const uint16_t start = static_cast<uint16_t>((fraction - 0.06f) * (W / 2));
     const uint16_t columns[4] = {start, 20, start, 20};
@@ -510,21 +502,15 @@ inline void test_mesh_wide_face_copies() {
  * @param mesh Destination mesh, backed by scratch arena A.
  * @param rotation Longitude rotation in radians. */
 inline void build_shared_edge_mesh(MeshState &mesh, float rotation) {
-  mesh.vertices.bind(scratch_arena_a, 5);
-  for (const auto &v : {math::Vector(1, .3f, -.2f), math::Vector(1, -.2f, -.1f),
-                        math::Vector(1, .2f, .1f), math::Vector(1, -.3f, .2f),
-                        math::Vector(1, .5f, .3f)})
-    mesh.vertices.push_back(math::rotate(
-        v.normalized(), math::make_rotation(math::Vector(0, 1, 0), rotation)));
-  mesh.face_counts.bind(scratch_arena_a, 3);
-  mesh.face_offsets.bind(scratch_arena_a, 3);
-  mesh.faces.bind(scratch_arena_a, 9);
-  for (int f = 0; f < 3; ++f) {
-    mesh.face_counts.push_back(3);
-    mesh.face_offsets.push_back(3 * f);
-  }
-  for (uint16_t i : {0, 1, 2, 2, 1, 3, 0, 2, 4})
-    mesh.faces.push_back(i);
+  std::array vertices = {math::Vector(1, .3f, -.2f),
+                         math::Vector(1, -.2f, -.1f), math::Vector(1, .2f, .1f),
+                         math::Vector(1, -.3f, .2f), math::Vector(1, .5f, .3f)};
+  for (auto &vertex : vertices)
+    vertex = math::rotate(vertex.normalized(),
+                          math::make_rotation(math::Vector(0, 1, 0), rotation));
+  const uint8_t COUNTS[] = {3, 3, 3};
+  const uint16_t INDICES[] = {0, 1, 2, 2, 1, 3, 0, 2, 4};
+  build_meshstate(mesh, scratch_arena_a, vertices, COUNTS, INDICES);
 }
 
 /**
@@ -642,22 +628,17 @@ inline void test_moving_faces_outside_clip_rows_hold() {
   constexpr int W = 288, H = 144;
   ScratchScope guard(scratch_arena_a);
   MeshState mesh;
-  mesh.vertices.bind(scratch_arena_a, 9);
+  std::array<math::Vector, 9> vertices;
+  size_t index = 0;
   // North of the clip's last row, just south of it, and far south.
   for (const float y : {.8f, -.02f, -.8f})
     for (const auto &v :
          {math::Vector(1, y, -.1f), math::Vector(1, y - .05f, 0),
           math::Vector(1, y, .1f)})
-      mesh.vertices.push_back(v.normalized());
-  mesh.face_counts.bind(scratch_arena_a, 3);
-  mesh.face_offsets.bind(scratch_arena_a, 3);
-  mesh.faces.bind(scratch_arena_a, 9);
-  for (uint16_t f = 0; f < 3; ++f) {
-    mesh.face_counts.push_back(3);
-    mesh.face_offsets.push_back(static_cast<uint16_t>(3 * f));
-    for (uint16_t k = 0; k < 3; ++k)
-      mesh.faces.push_back(static_cast<uint16_t>(3 * f + k));
-  }
+      vertices[index++] = v.normalized();
+  const uint8_t COUNTS[] = {3, 3, 3};
+  const uint16_t INDICES[] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+  build_meshstate(mesh, scratch_arena_a, vertices, COUNTS, INDICES);
   auto pick = [&](int rows, uint8_t *moving, uint16_t *columns) {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(0, rows, 0, W);

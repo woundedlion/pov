@@ -4,6 +4,7 @@
  */
 /** @file
  * @brief Reaction diffusion gs test entry points. */
+#include "core/math/scalar_noise.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 #include "effects/GSReactionDiffusion.h"

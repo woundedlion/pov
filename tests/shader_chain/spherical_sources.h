@@ -5,7 +5,6 @@
 #pragma once
 
 #include "tests/shader_chain_fixture.h"
-#include "tests/shader_chain/lifecycle_cases.h"
 
 namespace hs_test::shader_chain_tests {
 

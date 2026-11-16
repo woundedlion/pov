@@ -211,12 +211,6 @@ inline void fill_basis_stack(DistortedRingArray<N> &rings, int8_t (&slots)[N],
  */
 inline void build_basis_octahedron(MeshState &mesh, Arena &arena) {
   build_meshstate_solid<Solids::Octahedron>(mesh, arena);
-  mesh.face_offsets.bind(arena, mesh.face_counts.size());
-  int offset = 0;
-  for (const uint8_t count : mesh.face_counts) {
-    mesh.face_offsets.push_back(static_cast<uint16_t>(offset));
-    offset += count;
-  }
 }
 
 /**
@@ -371,25 +365,22 @@ inline void build_basis_fan(MeshState &mesh, Arena &arena,
                             const math::Vector &centre, float radius) {
   constexpr int RIM = 6;
   const math::Basis frame = math::make_basis(math::Quaternion(), centre);
-  mesh.vertices.bind(arena, RIM + 1);
-  mesh.vertices.push_back(centre);
+  std::array<math::Vector, RIM + 1> vertices;
+  vertices[0] = centre;
+  std::array<uint8_t, RIM> counts;
+  std::array<uint16_t, 3 * RIM> indices;
   for (int i = 0; i < RIM; ++i) {
     const float azimuth = math::TWO_PI_F * i / RIM;
-    mesh.vertices.push_back(
+    vertices[i + 1] =
         (centre * cosf(radius) +
          (frame.u * cosf(azimuth) + frame.w * sinf(azimuth)) * sinf(radius))
-            .normalized());
+            .normalized();
+    counts[i] = 3;
+    indices[3 * i] = 0;
+    indices[3 * i + 1] = static_cast<uint16_t>(1 + i);
+    indices[3 * i + 2] = static_cast<uint16_t>(1 + (i + 1) % RIM);
   }
-  mesh.face_counts.bind(arena, RIM);
-  mesh.faces.bind(arena, 3 * RIM);
-  mesh.face_offsets.bind(arena, RIM);
-  for (int i = 0; i < RIM; ++i) {
-    mesh.face_counts.push_back(3);
-    mesh.face_offsets.push_back(static_cast<uint16_t>(3 * i));
-    mesh.faces.push_back(0);
-    mesh.faces.push_back(static_cast<uint16_t>(1 + i));
-    mesh.faces.push_back(static_cast<uint16_t>(1 + (i + 1) % RIM));
-  }
+  build_meshstate(mesh, arena, vertices, counts, indices);
 }
 
 /**

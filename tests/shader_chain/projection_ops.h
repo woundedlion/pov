@@ -523,4 +523,70 @@ inline void test_shader_chain_parity_project_hemispheres() {
   });
 }
 
+/** @brief Projections stay within their declared plane bound. */
+inline void test_shader_chain_projection_plane_bound() {
+  std::vector<math::Vector> views;
+  for (const math::Vector &view : sweep_views())
+    views.push_back(view);
+  for (const math::Vector &view :
+       {math::Vector(1e-4f, 1, 0), math::Vector(0, 1, 1e-4f),
+        math::Vector(1, 1e-6f, 0), math::Vector(0, -1e-6f, 1)})
+    views.push_back(view.normalized());
+  const float near_pole_y = std::nextafter(1.0f, 0.0f);
+  views.emplace_back(sqrtf(1.0f + PB::DIRECTION_NORM_SQUARED_TOLERANCE -
+                           near_pole_y * near_pole_y),
+                     near_pole_y, 0.0f);
+  constexpr int SWEEP = 4096;
+  for (int index = 0; index < SWEEP; ++index) {
+    const float y = 1.0f - 2.0f * (index + 0.5f) / SWEEP;
+    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
+    const float angle = 2.39996323f * static_cast<float>(index);
+    views.push_back(
+        math::Vector(radius * cosf(angle), y, radius * sinf(angle)));
+  }
+  size_t projections = 0;
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
+    if (op.input != In::CarrierId::SPHERE || op.output != In::CarrierId::PLANE)
+      continue;
+    HS_CONTEXT(op.operator_id);
+    ++projections;
+    auto fixture = std::make_unique<ProgramFixture>();
+    auto &program = fixture->program;
+    const In::ChainEntryRequest chain[] = {
+        {"project", op.operator_id},
+        {"sample", In::Op::SampleGridV4::ID},
+        {"color", In::Op::ColorizeGeneratedPaletteV4::ID},
+    };
+    if (!expect_compiled(program.compile(chain)))
+      return;
+    param_as<In::Op::ProjectChainParams>(program, 0).frame =
+        static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+    HS_EXPECT_TRUE(op.runtime.plane_bound != nullptr);
+    if (op.runtime.plane_bound == nullptr)
+      continue;
+    const auto ctx = shared_resources().context();
+    enum class Corner { DEFAULT, MIN, MAX };
+    for (Corner corner : {Corner::DEFAULT, Corner::MIN, Corner::MAX}) {
+      HS_CONTEXT("corner", static_cast<int>(corner));
+      for (uint16_t index = 0;
+           corner != Corner::DEFAULT && index < op.schema_count; ++index) {
+        const In::ParamFieldInfo &field = op.schema[index];
+        if (field.enum_count == 0)
+          *static_cast<float *>(
+              op.runtime.param_address(program.param_block(0), index)) =
+              corner == Corner::MIN ? field.min : field.max;
+      }
+      program.prepare(ctx);
+      const float bound =
+          op.runtime.plane_bound(program.param_block(0), 0.0f, {});
+      for (const math::Vector &view : views) {
+        const PB::PlaneSample plane = run_entry<PB::PlaneSample>(
+            program, ctx, 0, PB::SphereSample{view, 0.0f});
+        HS_EXPECT_LE(std::hypot(plane.coords.re, plane.coords.im), bound);
+      }
+    }
+  }
+  HS_EXPECT_GT(projections, 0u);
+}
+
 } // namespace hs_test::shader_chain_tests

@@ -48,6 +48,10 @@ void run_effect_case_glitch_lens_doubles_latitude_and_stays_smooth_at_fold() {
   HS_RUN(run_case, test_glitch_lens_doubles_latitude_and_stays_smooth_at_fold);
 }
 
+void run_effect_case_configured_glitch_general_path() {
+  HS_RUN(run_case, test_configured_glitch_general_path);
+}
+
 } // namespace hs_test::effects_tests
 
 namespace hs_test::module_runners {
@@ -65,6 +69,7 @@ int run_roster_tests() {
   run_effect_case_needs_full_frame_gate();
   run_effect_case_column_time_scans_engage_with_fidelity_on();
   run_effect_case_glitch_lens_doubles_latitude_and_stays_smooth_at_fold();
+  run_effect_case_configured_glitch_general_path();
   return fixture.result();
 }
 

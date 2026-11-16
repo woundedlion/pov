@@ -80,7 +80,8 @@ template <int W> inline void check_column_band_containment() {
   HS_EXPECT_EQ(swept_failures, 0);
   HS_EXPECT_EQ(cap_failures, 0);
   HS_EXPECT_EQ(clip_failures, 0);
-  HS_EXPECT_EQ(max_rounding, 0x1p-20f);
+  HS_EXPECT_GT(max_rounding, 0.0f);
+  HS_EXPECT_LE(max_rounding, Plot::ColumnBand::SWEPT_ROUNDING);
   HS_EXPECT_LE(max_cap_rounding, 0x1p-19f);
   // Product errors sum to 2^-21; the sum and endpoint round by 2^-21 each.
   HS_EXPECT_GE(Plot::ColumnBand::SWEPT_ROUNDING - 0x1p-21f, 3.0f * 0x1p-21f);

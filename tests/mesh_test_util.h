@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstring>
 #include <map>
+#include <span>
 #include <vector>
 #include "core/mesh/mesh.h"
 #include "core/mesh/solids.h"
@@ -288,23 +289,47 @@ inline math::Vector face_centroid_unit(const PolyMesh &m,
   return face_vertex_sum(m, face_idx_offset, count).normalized();
 }
 
+/** @brief Copies face-indexed geometry into renderer storage.
+ * @param mesh Destination mesh.
+ * @param arena Arena backing its arrays.
+ * @param vertices Vertex positions.
+ * @param face_counts Vertex count of each face.
+ * @param faces Concatenated face vertex indices. */
+inline void build_meshstate(MeshState &mesh, Arena &arena,
+                            std::span<const math::Vector> vertices,
+                            std::span<const uint8_t> face_counts,
+                            std::span<const uint16_t> faces) {
+  mesh.vertices.bind(arena, vertices.size());
+  mesh.face_counts.bind(arena, face_counts.size());
+  mesh.face_offsets.bind(arena, face_counts.size());
+  mesh.faces.bind(arena, faces.size());
+  for (const auto &vertex : vertices)
+    mesh.vertices.push_back(vertex);
+  size_t offset = 0;
+  for (const uint8_t count : face_counts) {
+    mesh.face_counts.push_back(count);
+    mesh.face_offsets.push_back(static_cast<uint16_t>(offset));
+    offset += count;
+  }
+  HS_EXPECT_EQ(offset, faces.size());
+  for (const uint16_t index : faces)
+    mesh.faces.push_back(index);
+}
+
 /** @brief Copies a fixed solid into mutable renderer storage, optionally omitting its last face. */
 template <typename Solid>
 inline void build_meshstate_solid(MeshState &mesh, Arena &arena,
                                   bool open = false) {
-  mesh.vertices.bind(arena, Solid::vertices.size());
-  for (const auto &vertex : Solid::vertices)
-    mesh.vertices.push_back(vertex);
   const size_t face_count = Solid::face_counts.size() - (open ? 1 : 0);
-  mesh.face_counts.bind(arena, face_count);
   size_t index_count = 0;
-  for (size_t face = 0; face < face_count; ++face) {
-    mesh.face_counts.push_back(Solid::face_counts[face]);
+  for (size_t face = 0; face < face_count; ++face)
     index_count += Solid::face_counts[face];
-  }
-  mesh.faces.bind(arena, index_count);
-  for (size_t i = 0; i < index_count; ++i)
-    mesh.faces.push_back(static_cast<uint16_t>(Solid::faces[i]));
+  std::vector<uint16_t> indices(index_count);
+  for (size_t index = 0; index < index_count; ++index)
+    indices[index] = static_cast<uint16_t>(Solid::faces[index]);
+  build_meshstate(
+      mesh, arena, Solid::vertices,
+      std::span<const uint8_t>(Solid::face_counts).first(face_count), indices);
 }
 
 /**

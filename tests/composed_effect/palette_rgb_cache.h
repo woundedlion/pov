@@ -597,11 +597,7 @@ inline void test_palette_lab_cache_through_lerp() {
     const auto cached = Pipeline::prepare(cached_state);
     const auto canonical = Pipeline::prepare(canonical_state);
     for (int y = 0; y < SMALL_H; ++y) {
-      const float sin_phi = math::TrigLUT<SMALL_W, SMALL_H>::sin_phi[y];
-      const math::Vector view(
-          sin_phi * math::TrigLUT<SMALL_W, SMALL_H>::cos_theta(x),
-          math::TrigLUT<SMALL_W, SMALL_H>::cos_phi[y],
-          sin_phi * math::TrigLUT<SMALL_W, SMALL_H>::sin_theta[x]);
+      const math::Vector view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, y);
       const Color4 actual = Pipeline::shade(view, cached);
       const Color4 expected = Pipeline::shade(view, canonical);
       alpha_error = std::max(alpha_error, fabsf(actual.alpha - expected.alpha));

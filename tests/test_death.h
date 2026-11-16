@@ -2929,7 +2929,8 @@ inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
   if (pid < 0)
     return -1;
   if (pid == 0) {
-    int capture = open(capture_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    int capture =
+        open(capture_path, O_WRONLY | O_CREAT | O_EXCL | O_TRUNC, 0600);
     if (capture >= 0) {
       dup2(capture, 1);
       dup2(capture, 2);

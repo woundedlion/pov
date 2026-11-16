@@ -57,3 +57,27 @@ inline void test_glitch_lens_doubles_latitude_and_stays_smooth_at_fold() {
   const math::Vector backward = center - below;
   HS_EXPECT_VEC(forward, backward, 1e-6f);
 }
+
+/** @brief Authored glitch multipliers preserve identity, continuity and unit length. */
+inline void test_configured_glitch_general_path() {
+  using namespace Pullback::Lens;
+  for (float polar : {0.2f, 0.6f, 1.1f, 1.8f, 2.5f, 2.9f}) {
+    for (float azimuth : {-2.7f, -1.4f, -0.2f, 0.8f, 2.1f, 3.0f}) {
+      const math::Vector input(sinf(polar) * cosf(azimuth), cosf(polar),
+                               sinf(polar) * sinf(azimuth));
+      const math::Vector identity = configured_glitch(
+          input, {.polar_multiplier = 1.0f, .azimuth_multiplier = 1.0f});
+      HS_EXPECT_VEC(identity, input, 1e-5f);
+      const math::Vector nearby =
+          configured_glitch(input, {.polar_multiplier = 2.0f,
+                                    .azimuth_multiplier = 3.0f + 1e-6f});
+      HS_EXPECT_VEC(nearby, lenses::glitch_lens(input), 1e-3f);
+      for (const GlitchParams params :
+           {GlitchParams{.polar_multiplier = 1.0f, .azimuth_multiplier = 1.0f},
+            GlitchParams{.polar_multiplier = 2.0f,
+                         .azimuth_multiplier = 3.0f + 1e-6f},
+            GlitchParams{.polar_multiplier = 1.3f, .azimuth_multiplier = 2.4f}})
+        HS_EXPECT_NEAR(configured_glitch(input, params).length(), 1.0f, 1e-5f);
+    }
+  }
+}
