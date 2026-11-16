@@ -70,7 +70,7 @@ struct ChamberNoisePatch {
     const float antipodal =
         (a.r + b.r) * (a.r + b.r) + math::dot(opposite, opposite);
     return fabsf(delta) <= MAX_CLOCK_STEP &&
-           std::min(distance, antipodal) <= MAX_PROJECTION_STEP_SQ;
+           fminf(distance, antipodal) <= MAX_PROJECTION_STEP_SQ;
   }
 
   /** @brief Exact identity of the source and endpoint projection.
