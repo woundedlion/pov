@@ -230,32 +230,31 @@ private:
                                      palette_idx, node_face_palette);
   }
 
-  /**
-   * @brief Strap-crossfade weight for a hankin-cycle frame: exactly 0 at the
-   * opening bookend draw, smoothstep to exactly 1 by STRAP_BLEND_FRAMES.
-   * @param cycle_frame Sprite draws since the cycle's opening bookend.
-   */
-  static float strap_blend_weight(int cycle_frame) {
-    if (cycle_frame <= 0)
+  /** @brief Clamped cubic ramp over a frame span.
+   * @param frames Elapsed frames.
+   * @param span Frames until the ramp reaches one.
+   * @return Ramp weight in [0, 1]. */
+  static HS_HOT_INLINE float ramp_weight(int frames, int span) {
+    if (frames <= 0)
       return 0.0f;
-    if (cycle_frame >= STRAP_BLEND_FRAMES)
+    if (frames >= span)
       return 1.0f;
-    return math::cubic_kernel(static_cast<float>(cycle_frame) /
-                              static_cast<float>(STRAP_BLEND_FRAMES));
+    return math::cubic_kernel(static_cast<float>(frames) /
+                              static_cast<float>(span));
   }
 
-  /**
-   * @brief Collapse-shaping weight: exactly 0 at a collapse point, smoothstep
-   * to exactly 1 by SHAPE_FRAMES away from it.
-   * @param frames_away Sprite frames between this draw and the collapse.
-   */
+  /** @brief Strap-crossfade weight.
+   * @param cycle_frame Frames since the opening bookend.
+   * @return Clamped blend weight. */
+  static float strap_blend_weight(int cycle_frame) {
+    return ramp_weight(cycle_frame, STRAP_BLEND_FRAMES);
+  }
+
+  /** @brief Collapse-shaping weight.
+   * @param frames_away Frames from the collapse.
+   * @return Clamped shape weight. */
   static float shape_weight(int frames_away) {
-    if (frames_away <= 0)
-      return 0.0f;
-    if (frames_away >= SHAPE_FRAMES)
-      return 1.0f;
-    return math::cubic_kernel(static_cast<float>(frames_away) /
-                              static_cast<float>(SHAPE_FRAMES));
+    return ramp_weight(frames_away, SHAPE_FRAMES);
   }
 
   using ShapeWeights = HankinSolidsDetail::ShapeWeights;
