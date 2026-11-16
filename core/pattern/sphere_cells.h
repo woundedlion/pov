@@ -59,6 +59,12 @@ struct SphereCells {
     float line_thickness = 0.0f; ///< Border half-width in mean cell spacings.
     float line_softness = 0.0f;  ///< Border fade width in mean cell spacings.
     SphereCellOutput output = SphereCellOutput::BORDERS; ///< Scalar output.
+
+    /** @brief Constructs empty prepared storage. */
+    Prepared() = default;
+    /** @brief Builds seed positions directly in the result storage.
+     * @param params Seed and output controls. */
+    explicit Prepared(const Params &params);
   };
 
   /** @brief Checks the finite bounded cell recipe.
@@ -77,52 +83,7 @@ struct SphereCells {
   /** @brief Resolves the canonical or generated unit seed positions.
    * @param params Seed and output controls.
    * @return Immutable cell pattern. */
-  static Prepared prepare(const Params &params) {
-    HS_CHECK(valid(params), "sphere cells: invalid parameters");
-    Prepared prepared;
-    prepared.seed = static_cast<uint32_t>(lroundf(params.seed));
-    prepared.output = static_cast<SphereCellOutput>(params.output);
-    prepared.line_thickness = params.line_thickness;
-    prepared.line_softness = params.line_softness;
-    std::span<const math::Vector> solid;
-    switch (static_cast<SphereCellLayout>(params.layout)) {
-    case SphereCellLayout::TETRAHEDRON:
-      solid = Solids::Tetrahedron::vertices;
-      break;
-    case SphereCellLayout::CUBE:
-      solid = Solids::Cube::vertices;
-      break;
-    case SphereCellLayout::OCTAHEDRON:
-      solid = Solids::Octahedron::vertices;
-      break;
-    case SphereCellLayout::DODECAHEDRON:
-      solid = Solids::Dodecahedron::vertices;
-      break;
-    case SphereCellLayout::ICOSAHEDRON:
-      solid = Solids::Icosahedron::vertices;
-      break;
-    case SphereCellLayout::FIBONACCI:
-    case SphereCellLayout::SCATTERED:
-      break;
-    }
-    if (!solid.empty()) {
-      prepared.count = static_cast<uint32_t>(solid.size());
-      std::copy(solid.begin(), solid.end(), prepared.centers.begin());
-    } else {
-      prepared.count = static_cast<uint32_t>(lroundf(params.count));
-      hs::Pcg32 random(prepared.seed);
-      for (size_t index = 0; index < prepared.count; ++index) {
-        prepared.centers[index] =
-            params.layout == static_cast<uint8_t>(SphereCellLayout::FIBONACCI)
-                ? math::fib_spiral(static_cast<int>(prepared.count), 0.5f,
-                                   static_cast<int>(index))
-                : math::random_vector(random);
-      }
-    }
-    prepared.distance_scale =
-        sqrtf(static_cast<float>(prepared.count) / (4.0f * math::PI_F));
-    return prepared;
-  }
+  static Prepared prepare(const Params &params) { return Prepared(params); }
 
   /** @brief Samples the cell borders, center falloff or stable cell value.
    * @param coordinate Unit sphere direction.
@@ -170,5 +131,49 @@ struct SphereCells {
                                            distance);
   }
 };
+
+inline SphereCells::Prepared::Prepared(const Params &params) {
+  HS_CHECK(valid(params), "sphere cells: invalid parameters");
+  seed = static_cast<uint32_t>(lroundf(params.seed));
+  output = static_cast<SphereCellOutput>(params.output);
+  line_thickness = params.line_thickness;
+  line_softness = params.line_softness;
+  std::span<const math::Vector> solid;
+  switch (static_cast<SphereCellLayout>(params.layout)) {
+  case SphereCellLayout::TETRAHEDRON:
+    solid = Solids::Tetrahedron::vertices;
+    break;
+  case SphereCellLayout::CUBE:
+    solid = Solids::Cube::vertices;
+    break;
+  case SphereCellLayout::OCTAHEDRON:
+    solid = Solids::Octahedron::vertices;
+    break;
+  case SphereCellLayout::DODECAHEDRON:
+    solid = Solids::Dodecahedron::vertices;
+    break;
+  case SphereCellLayout::ICOSAHEDRON:
+    solid = Solids::Icosahedron::vertices;
+    break;
+  case SphereCellLayout::FIBONACCI:
+  case SphereCellLayout::SCATTERED:
+    break;
+  }
+  if (!solid.empty()) {
+    count = static_cast<uint32_t>(solid.size());
+    std::copy(solid.begin(), solid.end(), centers.begin());
+  } else {
+    count = static_cast<uint32_t>(lroundf(params.count));
+    hs::Pcg32 random(seed);
+    for (size_t index = 0; index < count; ++index) {
+      centers[index] =
+          params.layout == static_cast<uint8_t>(SphereCellLayout::FIBONACCI)
+              ? math::fib_spiral(static_cast<int>(count), 0.5f,
+                                 static_cast<int>(index))
+              : math::random_vector(random);
+    }
+  }
+  distance_scale = sqrtf(static_cast<float>(count) / (4.0f * math::PI_F));
+}
 
 } // namespace Pattern
