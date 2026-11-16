@@ -51,7 +51,8 @@ jobs:
       - &install_clang_tools
         name: Install Clang + Ninja + ccache
         run: |
-          sudo apt-get install -y clang-22 ninja-build ccache
+          LLVM_APT_VERSION="$(python tools/build_pins.py clang-package)"
+          sudo apt-get install -y clang-22="$LLVM_APT_VERSION" ninja-build ccache
 
       - name: Restore ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -245,8 +246,8 @@ jobs:
 
       - name: Install Clang + LLVM + Ninja + ccache
         run: |
-          # LLVM profile tools and compiler must share a major version.
-          sudo apt-get install -y clang-22 llvm-22 ninja-build ccache
+          LLVM_APT_VERSION="$(python tools/build_pins.py clang-package)"
+          sudo apt-get install -y clang-22="$LLVM_APT_VERSION" llvm-22="$LLVM_APT_VERSION" ninja-build ccache
 
       - name: Restore ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -520,7 +521,8 @@ jobs:
 
       - name: Install Clang + Ninja
         run: |
-          sudo apt-get install -y clang-22 ninja-build
+          LLVM_APT_VERSION="$(python tools/build_pins.py clang-package)"
+          sudo apt-get install -y clang-22="$LLVM_APT_VERSION" ninja-build
 
       - *install_pinned_cmake
 

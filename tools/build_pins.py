@@ -53,6 +53,7 @@ PINS = {
     # PyPI's actionlint-py, whose version is the actionlint release plus a
     # packaging suffix.
     "actionlint": requirement_pin("actionlint", "actionlint-py"),
+    "clang-package": "1:22.1.8~++20260714014902+ca7933e47d3a-1~exp1~20260714135019.80",
     # The daydream revision used to validate the exhaustive documentation tree.
     "daydream": "03d875c26af50a49126e8a3bcd5ff212bb2c9147",
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
@@ -107,6 +108,7 @@ def workflow_files() -> tuple[Path, ...]:
 CONSUMERS = {
     ROOT / ".github/workflows/ci.yml": (
         "build_pins.py --github-output",
+        "build_pins.py clang-package",
         "python tools/build_pins.py --check-tool cmake",
     ),
     ROOT / "tools/ci/apply_doxygen_theme.sh": (

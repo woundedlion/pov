@@ -45,6 +45,21 @@ class AuthorityPresence(unittest.TestCase):
                                     for error in check()))
 
 
+class ClangPackagePins(unittest.TestCase):
+    def test_native_compilers_and_coverage_tools_install_the_exact_package(self):
+        workflow = (bp.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        installs = [line for line in workflow.splitlines()
+                    if "apt-get install" in line and "clang-22" in line]
+        self.assertEqual(len(installs), 3)
+        for line in installs:
+            packages = re.findall(r"\b(?:clang|llvm)-22[^ ]*", line)
+            self.assertTrue(packages)
+            self.assertTrue(all(value.endswith('="$LLVM_APT_VERSION"')
+                                for value in packages), line)
+        self.assertEqual(workflow.count(
+            'LLVM_APT_VERSION="$(python tools/build_pins.py clang-package)"'), 3)
+
+
 class RequirementPins(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
