@@ -1919,22 +1919,9 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     } else if constexpr (Index + 1 < NODE_COUNT &&
                          !std::same_as<typename CurrentNode::Output,
                                        ColorSample>) {
-      if constexpr (requires { CurrentNode::EMISSION; })
-        return shade_stage<Index + 1>(
-            CurrentNode::run(input, ctx, std::get<Index>(prepared)), ctx,
-            prepared);
-      else if constexpr (requires {
-                           CurrentNode::run_endpoint(
-                               input, ctx, std::get<Index>(prepared), false);
-                         })
-        return shade_stage<Index + 1>(
-            CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
-                                      false),
-            ctx, prepared);
-      else
-        return shade_stage<Index + 1>(
-            CurrentNode::run(input, ctx, std::get<Index>(prepared)), ctx,
-            prepared);
+      return shade_stage<Index + 1>(
+          run_stage_endpoint<Index>(input, ctx, prepared, false), ctx,
+          prepared);
     } else
       return finish_color_sample(run_stage<Index>(input, ctx, prepared));
   }
@@ -1986,6 +1973,144 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     }
   }
 
+  /** @brief Evaluates a node at the selected resource endpoint.
+   * @tparam Index Node to evaluate.
+   * @tparam Input Input carrier type.
+   * @param input Input carrier.
+   * @param ctx Frame context.
+   * @param prepared Per-node prepared state.
+   * @param retained Whether to use retained resources.
+   * @return The node's output carrier. */
+  template <size_t Index, typename Input>
+  HS_HOT_INLINE static auto
+  run_stage_endpoint(const Input &input, const FrameState &ctx,
+                     const PreparedTuple &prepared, bool retained) {
+    using CurrentNode = NodeAt<Index>;
+    if constexpr (requires { CurrentNode::EMISSION; })
+      if (!retained)
+        return CurrentNode::run(input, ctx, std::get<Index>(prepared));
+    if constexpr (requires {
+                    CurrentNode::run_endpoint(
+                        input, ctx, std::get<Index>(prepared), retained);
+                  })
+      return CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
+                                       retained);
+    else
+      return CurrentNode::run(input, ctx, std::get<Index>(prepared));
+  }
+
+  /** @brief Completes the suffix following one node's output.
+   * @tparam Index Node producing the output.
+   * @tparam Output Output carrier type.
+   * @param output Output carrier.
+   * @param ctx Frame context.
+   * @param prepared Per-node prepared state.
+   * @param retained Whether to use retained resources.
+   * @return Deferred final color. */
+  template <size_t Index, typename Output>
+  HS_HOT_INLINE static ColorSample
+  finish_stage_output(const Output &output, const FrameState &ctx,
+                      const PreparedTuple &prepared, bool retained) {
+    if constexpr (Index + 1 == NODE_COUNT)
+      return output;
+    else if constexpr (std::is_same_v<std::remove_cvref_t<Output>,
+                                      ColorSample>) {
+      ColorSample result = output;
+      run_color_tail<Index + 1>(result, ctx, prepared, retained);
+      return result;
+    } else
+      return run_stage<Index + 1>(output, ctx, prepared);
+  }
+
+  /** @brief Runs a color crossing with a paired endpoint policy.
+   * @tparam Index Color-crossing node.
+   * @tparam Input Input carrier type.
+   * @param input Input carrier.
+   * @param ctx Frame context.
+   * @param prepared Per-node prepared state.
+   * @param fraction Current endpoint weight below one.
+   * @return Blended deferred color. */
+  template <size_t Index, typename Input>
+  HS_HOT_INLINE static ColorSample
+  run_paired_color_crossing(const Input &input, const FrameState &ctx,
+                            const PreparedTuple &prepared, float fraction) {
+    using CurrentNode = NodeAt<Index>;
+    if (fraction <= 0.0f)
+      return finish_stage_output<Index>(
+          run_stage_endpoint<Index>(input, ctx, prepared, true), ctx, prepared,
+          true);
+    if constexpr (fused_color_tail_supported<Index, Input>()) {
+      using Palette = typename CurrentNode::Descriptor::ColorPolicy;
+      using Instrumentation = typename Binding::Instrumentation;
+      const auto start = Instrumentation::mark();
+      auto result = Palette::apply_fused_modulation(
+          input, ctx, std::get<Index>(prepared), std::get<Index + 1>(prepared),
+          fraction);
+      Instrumentation::template span<ProfileEvent::COLOR>(start);
+      return result;
+    }
+    if constexpr (requires { CurrentNode::PHASE_BLEND_BASE; }) {
+      if constexpr (CurrentNode::PHASE_BLEND_BASE && Index + 1 < NODE_COUNT &&
+                    phase_tail_supported<Index + 1>())
+        if (phase_tail_ready<Index + 1>(prepared)) {
+          auto pair =
+              CurrentNode::run_pair(input, ctx, std::get<Index>(prepared));
+          blend_color_samples_in_place(pair.first, pair.second, fraction);
+          run_phase_tail<Index + 1>(pair.second, ctx, prepared);
+          return pair.second;
+        }
+    }
+    auto pair = CurrentNode::run_pair(input, ctx, std::get<Index>(prepared));
+    if constexpr (Index + 1 < NODE_COUNT)
+      run_color_tail_pair<Index + 1>(pair.first, pair.second, ctx, prepared);
+    blend_color_samples_in_place(pair.first, pair.second, fraction);
+    return pair.second;
+  }
+
+  /** @brief Runs a color crossing at the frame's temporal fraction.
+   * @tparam Index Color-crossing node.
+   * @tparam Input Input carrier type.
+   * @param input Input carrier.
+   * @param ctx Frame context with a temporal fraction.
+   * @param prepared Per-node prepared state.
+   * @return Deferred final color. */
+  template <size_t Index, typename Input>
+  HS_HOT_INLINE static ColorSample
+  run_color_crossing(const Input &input, const FrameState &ctx,
+                     const PreparedTuple &prepared) {
+    using CurrentNode = NodeAt<Index>;
+    const float fraction = ctx.temporal.fraction;
+    if constexpr (shared_phase_base_supported<Index, Input>())
+      if (fraction > 0.0f && phase_tail_ready<Index + 1>(prepared)) {
+        ColorSample result;
+        if (CurrentNode::run_shared_base(input, ctx, std::get<Index>(prepared),
+                                         result)) {
+          run_phase_tail<Index + 1>(result, ctx, prepared);
+          return result;
+        }
+      }
+    if (fraction < 1.0f) {
+      if constexpr (requires {
+                      CurrentNode::run_pair(input, ctx,
+                                            std::get<Index>(prepared));
+                    })
+        return run_paired_color_crossing<Index>(input, ctx, prepared, fraction);
+      const ColorSample A = finish_stage_output<Index>(
+          run_stage_endpoint<Index>(input, ctx, prepared, true), ctx, prepared,
+          true);
+      if (fraction <= 0.0f)
+        return A;
+      const auto output =
+          run_stage_endpoint<Index>(input, ctx, prepared, false);
+      const ColorSample B =
+          finish_stage_output<Index>(output, ctx, prepared, false);
+      return blend_color_samples(A, B, fraction);
+    }
+    return finish_stage_output<Index>(
+        run_stage_endpoint<Index>(input, ctx, prepared, false), ctx, prepared,
+        false);
+  }
+
   /** @brief Runs nodes from @p Index to the last.
    * @tparam Index First node to run.
    * @tparam Input Carrier fed to it.
@@ -2000,90 +2125,14 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     using CurrentNode = NodeAt<Index>;
     static_assert(std::is_same_v<Input, typename CurrentNode::Input>,
                   "pullback pipeline: stage input mismatch");
-    const auto endpoint = [&](bool retained) HS_HOT_INLINE {
-      if constexpr (requires { CurrentNode::EMISSION; })
-        if (!retained)
-          return CurrentNode::run(input, ctx, std::get<Index>(prepared));
-      if constexpr (requires {
-                      CurrentNode::run_endpoint(
-                          input, ctx, std::get<Index>(prepared), retained);
-                    })
-        return CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
-                                         retained);
-      else
-        return CurrentNode::run(input, ctx, std::get<Index>(prepared));
-    };
-    const auto finish = [&](const auto &output, bool retained) HS_HOT_INLINE {
-      if constexpr (Index + 1 == NODE_COUNT)
-        return output;
-      else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(output)>,
-                                        ColorSample>) {
-        ColorSample result = output;
-        run_color_tail<Index + 1>(result, ctx, prepared, retained);
-        return result;
-      } else
-        return run_stage<Index + 1>(output, ctx, prepared);
-    };
     if constexpr (std::is_same_v<typename CurrentNode::Output, ColorSample> &&
                   !std::is_same_v<Input, ColorSample> &&
-                  requires { ctx.temporal.fraction; }) {
-      const float fraction = ctx.temporal.fraction;
-      if constexpr (shared_phase_base_supported<Index, Input>())
-        if (fraction > 0.0f && phase_tail_ready<Index + 1>(prepared)) {
-          ColorSample result;
-          if (CurrentNode::run_shared_base(input, ctx,
-                                           std::get<Index>(prepared), result)) {
-            run_phase_tail<Index + 1>(result, ctx, prepared);
-            return result;
-          }
-        }
-      if (fraction < 1.0f) {
-        if constexpr (requires {
-                        CurrentNode::run_pair(input, ctx,
-                                              std::get<Index>(prepared));
-                      }) {
-          if (fraction <= 0.0f)
-            return finish(endpoint(true), true);
-          if constexpr (fused_color_tail_supported<Index, Input>()) {
-            using Palette = typename CurrentNode::Descriptor::ColorPolicy;
-            using Instrumentation = typename Binding::Instrumentation;
-            const auto start = Instrumentation::mark();
-            auto result = Palette::apply_fused_modulation(
-                input, ctx, std::get<Index>(prepared),
-                std::get<Index + 1>(prepared), fraction);
-            Instrumentation::template span<ProfileEvent::COLOR>(start);
-            return result;
-          }
-          if constexpr (requires { CurrentNode::PHASE_BLEND_BASE; }) {
-            if constexpr (CurrentNode::PHASE_BLEND_BASE &&
-                          Index + 1 < NODE_COUNT &&
-                          phase_tail_supported<Index + 1>())
-              if (phase_tail_ready<Index + 1>(prepared)) {
-                auto pair = CurrentNode::run_pair(input, ctx,
-                                                  std::get<Index>(prepared));
-                blend_color_samples_in_place(pair.first, pair.second, fraction);
-                run_phase_tail<Index + 1>(pair.second, ctx, prepared);
-                return pair.second;
-              }
-          }
-          auto pair =
-              CurrentNode::run_pair(input, ctx, std::get<Index>(prepared));
-          if constexpr (Index + 1 < NODE_COUNT) {
-            run_color_tail_pair<Index + 1>(pair.first, pair.second, ctx,
-                                           prepared);
-          }
-          blend_color_samples_in_place(pair.first, pair.second, fraction);
-          return pair.second;
-        }
-        const ColorSample A = finish(endpoint(true), true);
-        if (fraction <= 0.0f)
-          return A;
-        const auto output = endpoint(false);
-        const ColorSample B = finish(output, false);
-        return blend_color_samples(A, B, fraction);
-      }
-    }
-    return finish(endpoint(false), false);
+                  requires { ctx.temporal.fraction; })
+      return run_color_crossing<Index>(input, ctx, prepared);
+    else
+      return finish_stage_output<Index>(
+          run_stage_endpoint<Index>(input, ctx, prepared, false), ctx, prepared,
+          false);
   }
 };
 

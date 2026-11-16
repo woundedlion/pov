@@ -314,6 +314,70 @@ template <typename Policy, ValueRole Role> consteval bool value_role_is() {
     return false;
 }
 
+/** @brief Policy entry point used by a single-policy stage. */
+enum class PolicyOperation {
+  APPLY,     ///< Maps an input carrier or value.
+  SAMPLE,    ///< Samples a source field.
+  PROJECT,   ///< Projects a sphere direction.
+  CONJUGATE, ///< Reads the view's conjugate orientation.
+};
+
+/** @brief Invokes one policy entry point.
+ * @tparam Operation Selected entry point.
+ * @tparam Policy Policy supplying the entry point.
+ * @tparam Args Argument types.
+ * @param args Entry-point arguments.
+ * @return The policy's result, preserving references. */
+template <PolicyOperation Operation, typename Policy, typename... Args>
+HS_HOT_INLINE decltype(auto) invoke_policy(Args &&...args) {
+  if constexpr (Operation == PolicyOperation::APPLY)
+    return Policy::apply(std::forward<Args>(args)...);
+  else if constexpr (Operation == PolicyOperation::SAMPLE)
+    return Policy::sample(std::forward<Args>(args)...);
+  else if constexpr (Operation == PolicyOperation::PROJECT)
+    return Policy::project(std::forward<Args>(args)...);
+  else
+    return Policy::conjugate(std::forward<Args>(args)...);
+}
+
+/** @brief Preparation and invocation for a stage's single policy.
+ * @tparam Derived Stage descriptor declaring one entry in Policies. */
+template <typename Derived> struct PreparedStage {
+  /** @brief Resolves the policy's frame state.
+   * @tparam Binding Pipeline binding.
+   * @param frame Frame state.
+   * @return Prepared policy state, or NoPrepared. */
+  template <typename Binding>
+  HS_FLASH_INLINE static auto
+  prepare(const typename Binding::FrameState &frame) {
+    using Policy = std::tuple_element_t<0, typename Derived::Policies>;
+    return prepare_policy<Policy>(frame);
+  }
+
+  /** @brief Invokes the policy with its optional prepared state.
+   * @tparam Operation Selected policy entry point.
+   * @tparam Frame Frame-state type.
+   * @tparam Prepared Prepared-state type.
+   * @tparam Args Input argument types.
+   * @param frame Frame state.
+   * @param prepared Prepared policy state.
+   * @param args Input arguments preceding frame state.
+   * @return The policy result, preserving references. */
+  template <PolicyOperation Operation, typename Frame, typename Prepared,
+            typename... Args>
+  HS_HOT_INLINE static decltype(auto)
+  invoke(const Frame &frame, const Prepared &prepared, Args &&...args) {
+    using Policy = std::tuple_element_t<0, typename Derived::Policies>;
+    static_assert(std::tuple_size_v<typename Derived::Policies> == 1);
+    if constexpr (PolicyPrepares<Policy, Frame>)
+      return invoke_policy<Operation, Policy>(std::forward<Args>(args)...,
+                                              frame, prepared);
+    else
+      return invoke_policy<Operation, Policy>(std::forward<Args>(args)...,
+                                              frame);
+  }
+};
+
 } // namespace Detail
 
 namespace Stage {
@@ -324,7 +388,8 @@ namespace Stage {
  */
 template <typename OrientationProvider>
 struct Rotate
-    : Contract<Rotate<OrientationProvider>, SphereSample, SphereSample> {
+    : Contract<Rotate<OrientationProvider>, SphereSample, SphereSample>,
+      Detail::PreparedStage<Rotate<OrientationProvider>> {
   /// Policies the stage binds.
   using Policies = std::tuple<OrientationProvider>;
   using Provider = OrientationProvider; ///< The orientation provider.
@@ -341,18 +406,6 @@ struct Rotate
                                           typename Binding::FrameState>();
 
   /**
-   * @brief Resolves the orientation provider's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<OrientationProvider>(frame);
-  }
-
-  /**
    * @brief Rotates the view direction by the provider's conjugate.
    * @tparam Binding Binding of the pipeline.
    * @param input Sphere carrier.
@@ -365,12 +418,9 @@ struct Rotate
   run(const SphereSample &input, const typename Binding::FrameState &frame,
       const Detail::PolicyPrepared<OrientationProvider,
                                    typename Binding::FrameState> &prepared) {
-    if constexpr (Detail::PolicyPrepares<OrientationProvider,
-                                         typename Binding::FrameState>)
-      return Kernel::rotate_dir(
-          input, OrientationProvider::conjugate(frame, prepared));
-    else
-      return Kernel::rotate_dir(input, OrientationProvider::conjugate(frame));
+    return Kernel::rotate_dir(
+        input, Rotate::template invoke<Detail::PolicyOperation::CONJUGATE>(
+                   frame, prepared));
   }
 };
 
@@ -380,7 +430,8 @@ struct Rotate
  */
 template <typename SurfacePolicyT>
 struct Displace
-    : Contract<Displace<SurfacePolicyT>, SphereSample, SphereSample> {
+    : Contract<Displace<SurfacePolicyT>, SphereSample, SphereSample>,
+      Detail::PreparedStage<Displace<SurfacePolicyT>> {
   using Policies = std::tuple<SurfacePolicyT>; ///< Policies the stage binds.
   using SurfacePolicy = SurfacePolicyT;        ///< The surface policy.
 
@@ -392,18 +443,6 @@ struct Displace
   static constexpr bool PROVIDER_VALID =
       Detail::apply_policy_callable<SurfacePolicyT, math::Vector, SurfaceResult,
                                     typename Binding::FrameState>();
-
-  /**
-   * @brief Resolves the surface policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<SurfacePolicyT>(frame);
-  }
 
   /**
    * @brief Displaces the view point and accumulates the step's path
@@ -421,12 +460,9 @@ struct Displace
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    SurfaceResult step;
-    if constexpr (Detail::PolicyPrepares<SurfacePolicyT,
-                                         typename Binding::FrameState>)
-      step = SurfacePolicyT::apply(input.dir, frame, prepared);
-    else
-      step = SurfacePolicyT::apply(input.dir, frame);
+    const SurfaceResult step =
+        Displace::template invoke<Detail::PolicyOperation::APPLY>(
+            frame, prepared, input.dir);
     const SphereSample output = Kernel::displace(input, step);
     Instrumentation::template span<ProfileEvent::SURFACE_DISPLACE>(start);
     return output;
@@ -440,7 +476,8 @@ struct Displace
  */
 template <typename LensPolicyT, bool TrackPath = true>
 struct Lens
-    : Contract<Lens<LensPolicyT, TrackPath>, SphereSample, SphereSample> {
+    : Contract<Lens<LensPolicyT, TrackPath>, SphereSample, SphereSample>,
+      Detail::PreparedStage<Lens<LensPolicyT, TrackPath>> {
   using Policies = std::tuple<LensPolicyT>; ///< Policies the stage binds.
   using LensPolicy = LensPolicyT;           ///< The lens policy.
   /// Whether the policy contributes displacement in this pipeline.
@@ -460,18 +497,6 @@ struct Lens
                                     typename Binding::FrameState>();
 
   /**
-   * @brief Resolves the lens policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<LensPolicyT>(frame);
-  }
-
-  /**
    * @brief Applies the lens to the view direction.
    * @tparam Binding Binding of the pipeline.
    * @param input Sphere carrier.
@@ -486,12 +511,9 @@ struct Lens
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    math::Vector lensed;
-    if constexpr (Detail::PolicyPrepares<LensPolicyT,
-                                         typename Binding::FrameState>)
-      lensed = LensPolicyT::apply(input.dir, frame, prepared);
-    else
-      lensed = LensPolicyT::apply(input.dir, frame);
+    const math::Vector lensed =
+        Lens::template invoke<Detail::PolicyOperation::APPLY>(frame, prepared,
+                                                              input.dir);
     const SphereSample output = Kernel::lens(input, lensed, PATH_TRACKED);
     Instrumentation::template span<ProfileEvent::LENS>(start);
     return output;
@@ -507,7 +529,8 @@ struct Lens
  */
 template <typename ProjectionPolicyT>
 struct Project
-    : Contract<Project<ProjectionPolicyT>, SphereSample, PlaneSample> {
+    : Contract<Project<ProjectionPolicyT>, SphereSample, PlaneSample>,
+      Detail::PreparedStage<Project<ProjectionPolicyT>> {
   using Policies = std::tuple<ProjectionPolicyT>; ///< Policies the stage binds.
   using ProjectionPolicy = ProjectionPolicyT;     ///< The projection policy.
 
@@ -531,18 +554,6 @@ struct Project
                                          typename Binding::FrameState>();
 
   /**
-   * @brief Resolves the projection policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<ProjectionPolicyT>(frame);
-  }
-
-  /**
    * @brief Rotates into the projection frame and projects.
    * @tparam Binding Binding of the pipeline.
    * @param input Sphere carrier.
@@ -561,13 +572,9 @@ struct Project
 
     const math::Vector local =
         math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
-    ProjectionResult result;
-    if constexpr (Detail::PolicyPrepares<ProjectionPolicyT,
-                                         typename Binding::FrameState>) {
-      result = ProjectionPolicyT::project(local, frame, prepared);
-    } else {
-      result = ProjectionPolicyT::project(local, frame);
-    }
+    const ProjectionResult result =
+        Project::template invoke<Detail::PolicyOperation::PROJECT>(
+            frame, prepared, local);
     const PlaneSample output = Kernel::project(input, local, result);
     Instrumentation::template span<ProfileEvent::PROJECTION>(start);
     return output;
@@ -579,7 +586,8 @@ struct Project
  * @tparam WarpPolicyT Warp policy advancing the working coordinate.
  */
 template <typename WarpPolicyT>
-struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample> {
+struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample>,
+              Detail::PreparedStage<Warp<WarpPolicyT>> {
   using Policies = std::tuple<WarpPolicyT>; ///< Policies the stage binds.
   using WarpPolicy = WarpPolicyT;           ///< The warp policy.
 
@@ -590,18 +598,6 @@ struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample> {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::warp_policy_callable<WarpPolicyT, typename Binding::FrameState>();
-
-  /**
-   * @brief Resolves the warp policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<WarpPolicyT>(frame);
-  }
 
   /**
    * @brief Advances the plane coordinate by one warp step.
@@ -618,13 +614,9 @@ struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample> {
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    WarpStepResult step;
-    if constexpr (Detail::PolicyPrepares<WarpPolicyT,
-                                         typename Binding::FrameState>)
-      step =
-          WarpPolicyT::apply(input.coords, input.provenance, frame, prepared);
-    else
-      step = WarpPolicyT::apply(input.coords, input.provenance, frame);
+    const WarpStepResult step =
+        Warp::template invoke<Detail::PolicyOperation::APPLY>(
+            frame, prepared, input.coords, input.provenance);
     const PlaneSample output = Kernel::warp(input, step);
     Instrumentation::template span<ProfileEvent::PLANAR_WARP>(start);
     return output;
@@ -760,7 +752,8 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
  */
 template <typename SourcePolicyT>
 struct SampleSphere
-    : Contract<SampleSphere<SourcePolicyT>, SphereSample, FieldSample> {
+    : Contract<SampleSphere<SourcePolicyT>, SphereSample, FieldSample>,
+      Detail::PreparedStage<SampleSphere<SourcePolicyT>> {
   using Policies = std::tuple<SourcePolicyT>; ///< Policies the stage binds.
   using SourcePolicy = SourcePolicyT;         ///< The scalar source policy.
 
@@ -773,18 +766,6 @@ struct SampleSphere
   static constexpr bool PROVIDER_VALID =
       Detail::sample_policy_callable<SourcePolicyT, SphereSample,
                                      typename Binding::FrameState>();
-
-  /**
-   * @brief Resolves the source policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<SourcePolicyT>(frame);
-  }
 
   /**
    * @brief Samples the spherical source and seeds the field carrier.
@@ -801,12 +782,9 @@ struct SampleSphere
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto source_span = Instrumentation::mark();
-    float raw;
-    if constexpr (Detail::PolicyPrepares<SourcePolicyT,
-                                         typename Binding::FrameState>)
-      raw = SourcePolicyT::sample(input, frame, prepared);
-    else
-      raw = SourcePolicyT::sample(input, frame);
+    const float raw =
+        SampleSphere::template invoke<Detail::PolicyOperation::SAMPLE>(
+            frame, prepared, input);
     const FieldSample output = Kernel::sample(input, raw);
     Instrumentation::template span<ProfileEvent::SOURCE>(source_span);
     return output;
@@ -818,8 +796,8 @@ struct SampleSphere
  * @tparam TransferPolicyT Transfer policy over the unit value.
  */
 template <typename TransferPolicyT>
-struct Transfer
-    : Contract<Transfer<TransferPolicyT>, FieldSample, FieldSample> {
+struct Transfer : Contract<Transfer<TransferPolicyT>, FieldSample, FieldSample>,
+                  Detail::PreparedStage<Transfer<TransferPolicyT>> {
   using Policies = std::tuple<TransferPolicyT>; ///< Policies the stage binds.
   using TransferPolicy = TransferPolicyT;       ///< The transfer policy.
 
@@ -833,18 +811,6 @@ struct Transfer
       Detail::value_role_is<TransferPolicyT, ValueRole::TRANSFER>() &&
       Detail::apply_policy_callable<TransferPolicyT, float, float,
                                     typename Binding::FrameState>();
-
-  /**
-   * @brief Resolves the transfer policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<TransferPolicyT>(frame);
-  }
 
   /**
    * @brief Replaces the field value with the transferred one.
@@ -861,12 +827,9 @@ struct Transfer
                                    typename Binding::FrameState> &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    float value;
-    if constexpr (Detail::PolicyPrepares<TransferPolicyT,
-                                         typename Binding::FrameState>)
-      value = TransferPolicyT::apply(input.value, frame, prepared);
-    else
-      value = TransferPolicyT::apply(input.value, frame);
+    const float value =
+        Transfer::template invoke<Detail::PolicyOperation::APPLY>(
+            frame, prepared, input.value);
     const FieldSample output = Kernel::transfer(input, value);
     Instrumentation::template span<ProfileEvent::MATERIAL>(start);
     return output;
@@ -884,7 +847,8 @@ struct Transfer
  */
 template <typename CoveragePolicyT>
 struct ApplyCoverage
-    : Contract<ApplyCoverage<CoveragePolicyT>, FieldSample, FieldSample> {
+    : Contract<ApplyCoverage<CoveragePolicyT>, FieldSample, FieldSample>,
+      Detail::PreparedStage<ApplyCoverage<CoveragePolicyT>> {
   using Policies = std::tuple<CoveragePolicyT>; ///< Policies the stage binds.
   using CoveragePolicy = CoveragePolicyT;       ///< The value-coverage policy.
 
@@ -898,18 +862,6 @@ struct ApplyCoverage
       Detail::value_role_is<CoveragePolicyT, ValueRole::COVERAGE>() &&
       Detail::apply_policy_callable<CoveragePolicyT, float, float,
                                     typename Binding::FrameState>();
-
-  /**
-   * @brief Resolves the coverage policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<CoveragePolicyT>(frame);
-  }
 
   /**
    * @brief Multiplies the value-dependent factor into the coverage.
@@ -926,12 +878,9 @@ struct ApplyCoverage
                                    typename Binding::FrameState> &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    float factor;
-    if constexpr (Detail::PolicyPrepares<CoveragePolicyT,
-                                         typename Binding::FrameState>)
-      factor = CoveragePolicyT::apply(input.value, frame, prepared);
-    else
-      factor = CoveragePolicyT::apply(input.value, frame);
+    const float factor =
+        ApplyCoverage::template invoke<Detail::PolicyOperation::APPLY>(
+            frame, prepared, input.value);
     const FieldSample output = Kernel::coverage(input, factor);
     Instrumentation::template span<ProfileEvent::MATERIAL>(start);
     return output;
@@ -943,7 +892,8 @@ struct ApplyCoverage
  * @tparam ColorPolicyT Color policy producing straight-alpha Color4.
  */
 template <typename ColorPolicyT>
-struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
+struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample>,
+                  Detail::PreparedStage<Colorize<ColorPolicyT>> {
   using FusedStageOwner = Colorize; ///< Stage admitting fused color endpoints.
   using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
   using ColorPolicy = ColorPolicyT;          ///< The color policy.
@@ -989,18 +939,6 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
                                     typename Binding::FrameState>();
 
   /**
-   * @brief Resolves the color policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<ColorPolicyT>(frame);
-  }
-
-  /**
    * @brief Colorizes the field carrier.
    * @tparam Binding Binding of the pipeline.
    * @param input Field carrier.
@@ -1015,13 +953,9 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    const auto result = [&] {
-      if constexpr (Detail::PolicyPrepares<ColorPolicyT,
-                                           typename Binding::FrameState>)
-        return ColorPolicyT::apply(input, frame, prepared);
-      else
-        return ColorPolicyT::apply(input, frame);
-    }();
+    const auto result =
+        Colorize::template invoke<Detail::PolicyOperation::APPLY>(
+            frame, prepared, input);
     Instrumentation::template span<ProfileEvent::COLOR>(start);
     if constexpr (std::is_same_v<decltype(result), const Color4>)
       return ColorSample{result, input};
@@ -1093,7 +1027,8 @@ struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, ColorSample> {
 /** @brief COLOR-to-COLOR modulation stage.
  * @tparam ColorPolicyT Ordered color operation. */
 template <typename ColorPolicyT>
-struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
+struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample>,
+                  Detail::PreparedStage<Modulate<ColorPolicyT>> {
   using FusedStageOwner = Modulate; ///< Stage admitting fused color endpoints.
   using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
   using ColorPolicy = ColorPolicyT;          ///< The color policy.
@@ -1188,18 +1123,6 @@ struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
                                     typename Binding::FrameState>();
 
   /**
-   * @brief Resolves the color policy's per-frame state.
-   * @tparam Binding Binding of the pipeline.
-   * @param frame Frame state.
-   * @return The prepared state, or NoPrepared when the policy declares none.
-   */
-  template <typename Binding>
-  HS_FLASH_INLINE static auto
-  prepare(const typename Binding::FrameState &frame) {
-    return Detail::prepare_policy<ColorPolicyT>(frame);
-  }
-
-  /**
    * @brief Modulates the color carrier.
    * @tparam Binding Binding of the pipeline.
    * @param input Color carrier.
@@ -1214,12 +1137,9 @@ struct Modulate : Contract<Modulate<ColorPolicyT>, ColorSample, ColorSample> {
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    ColorSample result;
-    if constexpr (Detail::PolicyPrepares<ColorPolicyT,
-                                         typename Binding::FrameState>)
-      result = ColorPolicyT::apply(input, frame, prepared);
-    else
-      result = ColorPolicyT::apply(input, frame);
+    const ColorSample result =
+        Modulate::template invoke<Detail::PolicyOperation::APPLY>(
+            frame, prepared, input);
     Instrumentation::template span<ProfileEvent::COLOR>(start);
     return result;
   }
