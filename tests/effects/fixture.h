@@ -67,8 +67,8 @@ constexpr int DEFAULT_H = 144;
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
 /** @brief Sets companion controls that make the probed parameter admissible. */
-template <typename Effect>
-inline void prepare_chain_parameter_probe(Effect &effect,
+template <typename FX>
+inline void prepare_chain_parameter_probe(FX &effect,
                                           std::string_view parameter) {
   const size_t separator = parameter.rfind('.');
   const std::string prefix(parameter.substr(0, separator + 1));

@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-/** @brief Per-site widths retain old bands and taps on the shared centre.
+/** @brief Per-site widths contain the required columns and taps about the shared centre.
  * @tparam W Canvas width in columns. */
 template <int W> inline void check_column_band_containment() {
   HS_CONTEXT("width", W);
@@ -46,16 +46,18 @@ template <int W> inline void check_column_band_containment() {
       region.margin = 0;
       const auto clip_gate = Plot::ClipBand<W, 20>::of(region);
       const auto cap_gate = Plot::cap_columns(region);
-      const float old_cap_centre =
+      const float required_cap_centre =
           (rs + float(count) * 0.5f) * math::TWO_PI_F / W;
-      const float old_cap_half =
+      const float required_cap_half =
           (float(count) * 0.5f + 1.0f) * math::TWO_PI_F / W;
       const float cap_lo = cap_gate.longitude - cap_gate.half_width;
       const float cap_hi = cap_gate.longitude + cap_gate.half_width;
-      max_cap_rounding =
-          fmaxf(max_cap_rounding, old_cap_centre + old_cap_half - cap_hi);
-      HS_EXPECT_LE(cap_lo - Plot::CAP_ATAN2_PAD, old_cap_centre - old_cap_half);
-      HS_EXPECT_GE(cap_hi + Plot::CAP_ATAN2_PAD, old_cap_centre + old_cap_half);
+      max_cap_rounding = fmaxf(
+          max_cap_rounding, required_cap_centre + required_cap_half - cap_hi);
+      HS_EXPECT_LE(cap_lo - Plot::CAP_ATAN2_PAD,
+                   required_cap_centre - required_cap_half);
+      HS_EXPECT_GE(cap_hi + Plot::CAP_ATAN2_PAD,
+                   required_cap_centre + required_cap_half);
       HS_EXPECT_EQ(clip_gate.x_center, band.centre(W));
       HS_EXPECT_EQ((clip_gate.x_half + Plot::ClipBand<W, 20>::PAD),
                    (count + 5) * 0.5f);
