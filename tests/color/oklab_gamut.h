@@ -613,13 +613,13 @@ inline void test_gamut_lut_downsample_preserves_bracket() {
   alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(A, NL)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, A, NL);
-  HS_EXPECT_TRUE(g_gamut_lut.angle_steps == A);
-  HS_EXPECT_TRUE(g_gamut_lut.l_steps == NL);
+  HS_EXPECT_TRUE(gamut_lut().angle_steps == A);
+  HS_EXPECT_TRUE(gamut_lut().l_steps == NL);
 
   for (int l = 0; l < NL; ++l)
     for (int a = 0; a < A; ++a) {
-      const uint16_t c_lo = g_gamut_lut.table[(l * A + a) * 2];
-      const uint16_t c_hi = g_gamut_lut.table[(l * A + a) * 2 + 1];
+      const uint16_t c_lo = gamut_lut().table[(l * A + a) * 2];
+      const uint16_t c_hi = gamut_lut().table[(l * A + a) * 2 + 1];
       HS_EXPECT_LE(c_lo, c_hi);
       for (int dl = 0; dl < SL; ++dl)
         for (int da = 0; da < SA; ++da) {
@@ -644,7 +644,7 @@ inline void test_gamut_boundary_scale_cache_matches_master() {
     init_gamut_lut(lut_arena, GAMUT_LUT_ANGLE_STEPS / DIVISOR,
                    GAMUT_LUT_L_STEPS / DIVISOR);
     if (DIVISOR == 1)
-      HS_EXPECT_EQ(std::memcmp(g_gamut_lut.table, GAMUT_LUT, sizeof(GAMUT_LUT)),
+      HS_EXPECT_EQ(std::memcmp(gamut_lut().table, GAMUT_LUT, sizeof(GAMUT_LUT)),
                    0);
     for (int lightness = 0; lightness <= 32; ++lightness)
       for (int hue = 0; hue < 128; ++hue)
@@ -667,13 +667,13 @@ inline void test_gamut_boundary_scale_cache_matches_master() {
 
 /** @brief Non-finite gamut coordinates saturate to bounded cell indices. */
 inline void test_gamut_cell_nonfinite_coordinates() {
-  const auto cell = gamut_cell(g_gamut_lut, NAN, NAN, NAN);
-  HS_EXPECT_EQ(cell.angle_index, g_gamut_lut.angle_steps - 1);
-  HS_EXPECT_EQ(cell.lightness_index, g_gamut_lut.l_steps - 1);
+  const auto cell = gamut_cell(gamut_lut(), NAN, NAN, NAN);
+  HS_EXPECT_EQ(cell.angle_index, gamut_lut().angle_steps - 1);
+  HS_EXPECT_EQ(cell.lightness_index, gamut_lut().l_steps - 1);
   for (float lightness : {-INFINITY, INFINITY}) {
-    const auto boundary = gamut_cell(g_gamut_lut, lightness, 1.0f, 0.0f);
+    const auto boundary = gamut_cell(gamut_lut(), lightness, 1.0f, 0.0f);
     HS_EXPECT_EQ(boundary.lightness_index,
-                 lightness < 0 ? 0 : g_gamut_lut.l_steps - 1);
+                 lightness < 0 ? 0 : gamut_lut().l_steps - 1);
   }
 }
 
@@ -700,10 +700,10 @@ inline void test_gamut_lut_release_and_passthrough() {
   // Just inside the boundary but past the cell minimum: refined, not reduced.
   OKLab near_edge = oklch_to_oklab({0.6f, 0.144f, 1.0f});
   const auto cell =
-      gamut_cell(g_gamut_lut, near_edge.L, near_edge.a, near_edge.b);
+      gamut_cell(gamut_lut(), near_edge.L, near_edge.a, near_edge.b);
   const size_t cell_offset =
-      (cell.lightness_index * g_gamut_lut.angle_steps + cell.angle_index) * 2;
-  const float c_lo = g_gamut_lut.table[cell_offset] * GAMUT_LUT_INV_SCALE;
+      (cell.lightness_index * gamut_lut().angle_steps + cell.angle_index) * 2;
+  const float c_lo = gamut_lut().table[cell_offset] * GAMUT_LUT_INV_SCALE;
   HS_EXPECT_GT(0.144f, c_lo);
   kept = gamut_clip_preserve_chroma(near_edge);
   HS_EXPECT_EQ(std::bit_cast<uint32_t>(kept.L),
@@ -721,9 +721,9 @@ inline void test_gamut_lut_release_and_passthrough() {
   // Released: the pointer must leave the arena rather than dangle into it, and
   // land on the full-resolution flash master.
   release_gamut_lut();
-  HS_EXPECT_TRUE(g_gamut_lut.table == GAMUT_LUT);
-  HS_EXPECT_EQ(g_gamut_lut.angle_steps, GAMUT_LUT_ANGLE_STEPS);
-  HS_EXPECT_EQ(g_gamut_lut.l_steps, GAMUT_LUT_L_STEPS);
+  HS_EXPECT_TRUE(gamut_lut().table == GAMUT_LUT);
+  HS_EXPECT_EQ(gamut_lut().angle_steps, GAMUT_LUT_ANGLE_STEPS);
+  HS_EXPECT_EQ(gamut_lut().l_steps, GAMUT_LUT_L_STEPS);
 
   // Off the master the clip still maps a past-cusp color in.
   OKLab mapped =
@@ -774,10 +774,10 @@ inline void test_gamut_lut_boundary_scale_rounding() {
  */
 inline void test_configure_arenas_releases_gamut_lut() {
   init_gamut_lut(persistent_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
-  HS_EXPECT_TRUE(g_gamut_lut.table != GAMUT_LUT);
+  HS_EXPECT_TRUE(gamut_lut().table != GAMUT_LUT);
 
   configure_arenas_default();
-  HS_EXPECT_TRUE(g_gamut_lut.table == GAMUT_LUT);
+  HS_EXPECT_TRUE(gamut_lut().table == GAMUT_LUT);
 }
 
 /**

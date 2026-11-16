@@ -1110,7 +1110,7 @@ configure_arenas(234 * 1024, 32 * 1024, 32 * 1024);  // 234 + 32 + 32 = 298 KiB
 A global that caches a pointer into arena storage registers an `ArenaResetHook` beside itself, and drops the pointer from the callback. `configure_arenas()` and `reset_persistent_arena()` (used by the mesh carousel's compaction) run the whole list before handing the storage out again, so the owner never has to be named by the allocator:
 
 ```cpp
-inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
+inline void release_gamut_lut() { detail::gamut_lut_state = GamutLut{}; }
 inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 ```
 

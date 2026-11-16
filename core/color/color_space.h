@@ -281,15 +281,23 @@ gamut_cell(const GamutLut &lut, float L, float a, float b) {
           static_cast<int>(hs::clamp(lightness, 0.0f, float(lut.l_steps - 1)))};
 }
 
+namespace detail {
+
 /**
  * @brief The single live boundary grid.
  * @details Points at the flash master until init_gamut_lut() arms an arena
  * copy; configure_arenas() restores the master. constinit because other
  * translation units' static initializers may clip through it.
  */
-inline constinit GamutLut g_gamut_lut;
+inline constinit GamutLut gamut_lut_state;
 
-/** @brief The full-resolution flash grid, whatever g_gamut_lut points at. */
+} // namespace detail
+
+/** @brief Borrows the active boundary grid.
+ * @return Read-only grid binding; initialization and reset may replace it. */
+inline const GamutLut &gamut_lut() { return detail::gamut_lut_state; }
+
+/** @brief The full-resolution flash grid. */
 inline constexpr GamutLut GAMUT_LUT_MASTER{};
 
 /** @brief Coarsest accepted downsample, an empirical clipping-quality limit.
@@ -349,14 +357,14 @@ HS_FLASH_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
     }
   }
 
-  g_gamut_lut = {dst, angle_steps, l_steps, angle_steps * 0.25f,
-                 static_cast<float>(l_steps)};
+  detail::gamut_lut_state = {dst, angle_steps, l_steps, angle_steps * 0.25f,
+                             static_cast<float>(l_steps)};
 }
 
 /**
  * @brief Drops any arena copy and points the clip path back at the flash master.
  */
-inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
+inline void release_gamut_lut() { detail::gamut_lut_state = GamutLut{}; }
 
 /**
  * @brief Registration that drops the copy when the persistent arena is handed
@@ -471,7 +479,7 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
  */
 HS_O3_FN __attribute__((noinline)) inline float
 gamut_max_chroma(float L, float a, float b) {
-  const GamutLut &lut = g_gamut_lut;
+  const GamutLut &lut = gamut_lut();
   L = hs::clamp(L, 0.0f, 1.0f);
   if (L == 0.0f || L == 1.0f)
     return 0.0f;
@@ -509,7 +517,7 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
  */
 HS_HOT_FLASH_MEMBER inline float
 gamut_continuous_chroma_sample(float L, float a, float b) {
-  // Not g_gamut_lut: this path consumes the stored minima directly, so a
+  // This path consumes the stored minima directly, so a
   // coarse grid's width is never narrowed back.
   const GamutLut &lut = GAMUT_LUT_MASTER;
   L = hs::clamp(L, 0.0f, 1.0f);
@@ -706,13 +714,13 @@ gamut_scale_to_boundary_lut(OKLab lab, const GamutLut &lut) {
  * @param b Out: linear blue.
  * @details Scales directly to the stored cell minimum instead of refining the
  * bracket. The sampled grid supplies no certified chroma-deficit bound against
- * the exact first exit. Reads g_gamut_lut.
+ * the exact first exit. Reads gamut_lut().
  */
 HS_O3_FN __attribute__((noinline)) inline void
 lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt, float &r,
                             float &g, float &b) {
   const OKLab lab = gamut_scale_to_boundary_lut(
-      lms_to_oklab(l_cbrt, m_cbrt, s_cbrt), g_gamut_lut);
+      lms_to_oklab(l_cbrt, m_cbrt, s_cbrt), gamut_lut());
   oklab_to_linear_rgb(lab, r, g, b);
 }
 
@@ -734,7 +742,7 @@ struct LmsChromaClip {
   }
 };
 
-/** @brief Gamut-clip policy: chroma scale read from `g_gamut_lut`. */
+/** @brief Gamut-clip policy: chroma scale read from `gamut_lut()`. */
 struct LmsLutClip {
   /**
    * @brief Maps an out-of-gamut cube-rooted LMS color into gamut.
@@ -1064,9 +1072,9 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
  */
 HS_HOT_ITCM_MEMBER inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   GamutLut lut = GAMUT_LUT_MASTER;
-  if (g_gamut_lut.angle_steps == GAMUT_LUT_ANGLE_STEPS &&
-      g_gamut_lut.l_steps == GAMUT_LUT_L_STEPS)
-    lut.table = g_gamut_lut.table;
+  if (gamut_lut().angle_steps == GAMUT_LUT_ANGLE_STEPS &&
+      gamut_lut().l_steps == GAMUT_LUT_L_STEPS)
+    lut.table = gamut_lut().table;
   return gamut_scale_to_boundary_lut(lab, lut);
 }
 
