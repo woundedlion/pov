@@ -61,13 +61,14 @@ struct ScanSelectorIndexOptions {
   uint16_t bad_index = 0;  ///< Invalid face vertex index.
   bool omit_offsets =
       false; ///< Removes face offsets instead of corrupting an index.
+  uint16_t bad_offset = 0; ///< Invalid start offset of the first face.
 };
 
 /** @brief Selects a valid mesh before rejecting malformed face data.
  * @param options Selector and malformed face data controls. */
 inline void
 scan_selector_index_fixture(const ScanSelectorIndexOptions &options) {
-  const auto &[visibility, bad_index, omit_offsets] = options;
+  const auto &[visibility, bad_index, omit_offsets, bad_offset] = options;
   constexpr int W = 32, H = 16;
   uint8_t geometry_storage[1024], frame_storage[4096];
   Arena geometry(geometry_storage, sizeof(geometry_storage));
@@ -91,6 +92,8 @@ scan_selector_index_fixture(const ScanSelectorIndexOptions &options) {
   death_admitted();
   if (omit_offsets)
     mesh.face_offsets.clear();
+  else if (bad_offset)
+    mesh.face_offsets[0] = opaque<uint16_t>(bad_offset);
   else
     mesh.faces[2] = opaque<uint16_t>(bad_index);
   select();
@@ -241,6 +244,16 @@ inline void case_scan_visibility_missing_offsets() {
 /** @brief Moving-face selection rejects a mesh without face offsets. */
 inline void case_scan_moving_missing_offsets() {
   scan_selector_index_fixture({.visibility = false, .omit_offsets = true});
+}
+
+/** @brief Visibility selection rejects a face span outside the index array. */
+inline void case_scan_visibility_face_span_out_of_range() {
+  scan_selector_index_fixture({.visibility = true, .bad_offset = 1});
+}
+
+/** @brief Moving-face selection rejects a face span outside the index array. */
+inline void case_scan_moving_face_span_out_of_range() {
+  scan_selector_index_fixture({.visibility = false, .bad_offset = 1});
 }
 
 /** @brief Death case: a face index past the vertex pool must trap. */

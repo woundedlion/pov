@@ -2067,6 +2067,18 @@ inline const Case *all_cases(int &n) {
                "core/render/scan/mesh.h",
                "(mesh.get_face_offsets_size() == mesh.num_faces()) solid mesh scan requires one "
                "face offset per face"},
+              {"scan_visibility_face_span_out_of_range",
+               case_scan_visibility_face_span_out_of_range,
+               "core/render/scan/mesh.h",
+               "(static_cast<size_t>(offsets[f]) + counts[f] <= indices) "
+               "mesh face span exceeds face index array",
+               false, "death: admitted"},
+              {"scan_moving_face_span_out_of_range",
+               case_scan_moving_face_span_out_of_range,
+               "core/render/scan/mesh.h",
+               "(static_cast<size_t>(offsets[f]) + counts[f] <= indices) "
+               "mesh face span exceeds face index array",
+               false, "death: admitted"},
               {"scan_visibility_missing_offsets",
                case_scan_visibility_missing_offsets, "core/render/scan/mesh.h",
                "(mesh.get_face_offsets_size() == mesh.num_faces()) solid mesh scan requires one "

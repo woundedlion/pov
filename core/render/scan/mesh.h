@@ -81,11 +81,19 @@ HS_HOT_INLINE void cap_lit_columns(const math::Vector &axis, float radius,
 }
 
 namespace detail {
-/** @brief Checks the offsets required by the solid mesh scan.
+/** @brief Checks offset count and audits the solid mesh scan's face spans.
  * @param mesh Mesh to scan. */
 HS_HOT_INLINE inline void check_face_offsets(const MeshState &mesh) {
   HS_CHECK(mesh.get_face_offsets_size() == mesh.num_faces(),
            "solid mesh scan requires one face offset per face");
+#if HS_ENABLE_STRUCTURAL_AUDITS
+  const size_t indices = mesh.get_faces_size();
+  const uint8_t *counts = mesh.get_face_counts_data();
+  const uint16_t *offsets = mesh.get_face_offsets_data();
+  for (size_t f = 0; f < mesh.num_faces(); ++f)
+    HS_AUDIT_CHECK(static_cast<size_t>(offsets[f]) + counts[f] <= indices,
+                   "mesh face span exceeds face index array");
+#endif
 }
 
 /**
