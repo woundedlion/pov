@@ -211,6 +211,44 @@ function metric(cell) {
   return JSON.stringify([color, values]);
 }
 
+const LEGACY_CAPTURE_METADATA_UNAVAILABLE = new Set([
+  'O3/profile_shapeshifter_teensy_2026-09-25.md',
+  'O3/profile_raymarch_teensy_2026-09-20.md',
+  'shipping/profile_hyperlattice_octet4d_teensy_2026-09-28.md',
+  'shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md',
+  'shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md',
+  'excluded/profile_mobiusrings_teensy_2026-10-13.md',
+]);
+const CAPTURE_STAMP_RE = /\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}\b/g;
+
+/** @brief Checks an index capture timestamp against the report's capture metadata. */
+function checkCapturedCell(cell, link, report, prefix, subject, errors) {
+  const segments = (cell ?? '').split(/<br\s*\/?>/i).map(value => value.trim());
+  const selected = prefix ? segments.find(value =>
+    new RegExp(`^${prefix}\\s`, 'i').test(value)) ?? cell : cell;
+  const stamp = /^(?:(?:ship|O3)\s+)?(\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?)$/i
+    .exec(selected)?.[1];
+  const date = stamp && new Date(stamp.replace(' ', 'T') +
+    (stamp.length === 10 ? 'T00:00:00Z' : ':00Z'));
+  if (!date || !Number.isFinite(date.getTime()) ||
+      !date.toISOString().replace('T', ' ').startsWith(stamp)) {
+    errors.push(`${subject} has an invalid captured timestamp for ${link}`);
+    return;
+  }
+  const known = report.split(/\r?\n/)
+    .filter(line => /raw[- ](?:log|capture).*mtime/i.test(line))
+    .flatMap(line => [...line.matchAll(CAPTURE_STAMP_RE)]
+      .map(match => match[0].replace('T', ' ')));
+  const captured = /\bcaptured(?:\s+local)?\s*(?::|\|)?\s*(?:\*\*)?(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?)/gi;
+  known.push(...[...report.matchAll(captured)].map(match => match[1].replace('T', ' ')));
+  if (!known.length) {
+    const path = link.includes('/') ? link : `${subject.replace(/ index$/, '')}/${link}`;
+    if (!LEGACY_CAPTURE_METADATA_UNAVAILABLE.has(path))
+      errors.push(`${subject} links ${link} but the report has no capture timestamp metadata`);
+  } else if (!known.includes(stamp))
+    errors.push(`${subject} captured timestamp differs from ${link} metadata`);
+}
+
 export function checkIndexCells(index, link, report, subject, errors) {
   const cells = /README cells:\s*peak\s+(.+?),\s*spilled\s+(.+?)\.?(?:\r?\n|$)/.exec(report);
   let headings = [];
@@ -233,6 +271,21 @@ export function checkIndexCells(index, link, report, subject, errors) {
     }
     if (metric(row[peak]) !== metric(cells[1])) errors.push(`${subject} peak differs from ${link} README cells`);
     if (metric(row[spill]) !== metric(cells[2])) errors.push(`${subject} spill differs from ${link} README cells`);
+    const setup = headings.findIndex(cell =>
+      new RegExp(`^${prefix ? prefix + ' ' : ''}setup frame 1 ms$`, 'i').test(cell));
+    if (/steady/i.test(headings[peak]) && setup < 0)
+      errors.push(`${subject} table links ${link} but has no setup-frame measurement column`);
+    if (setup >= 0) {
+      const value = /README setup frame 1:\s*(\d+(?:\.\d+)?)\s*ms\b/.exec(report)?.[1];
+      if (value === undefined)
+        errors.push(`${subject} links ${link} under setup-frame columns but the report has no "README setup frame 1:" value`);
+      else if (!/^\d+(?:\.\d+)?$/.test(row[setup]) || Number(row[setup]) !== Number(value))
+        errors.push(`${subject} setup frame 1 differs from ${link} README value`);
+    }
+    const captured = headings.findIndex(cell => /^Captured(?: local)?$/i.test(cell));
+    if (captured < 0)
+      errors.push(`${subject} table links ${link} but has no captured column`);
+    else checkCapturedCell(row[captured], link, report, prefix, subject, errors);
   }
 }
 

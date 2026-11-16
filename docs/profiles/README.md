@@ -21,6 +21,19 @@ with interrupts masked. ISR CPU shares use the separately logged `ISR window`
 interval between successive snapshots, including report output between them.
 The frame header's elapsed window excludes the preceding report output.
 
+The archive checker validates setup-frame values against each report's
+`README setup frame 1` value and capture timestamps against retained capture
+metadata. Six historical reports lack timestamp metadata:
+[ShapeShifter O3](O3/profile_shapeshifter_teensy_2026-09-25.md),
+[Raymarch O3](O3/profile_raymarch_teensy_2026-09-20.md),
+[Octet 4D](shipping/profile_hyperlattice_octet4d_teensy_2026-09-28.md),
+[Octet 3D](shipping/profile_hyperlattice_octet_preset3_teensy_2026-09-28.md),
+[Octet wide](shipping/profile_hyperlattice_octet_preset5_teensy_2026-09-28.md),
+and [MobiusRings](excluded/profile_mobiusrings_teensy_2026-10-13.md).
+For these fixed historical report paths only, capture cells receive
+calendar/time format checks. Their timestamp cells remain historical index
+metadata rather than values verified against the report or raw capture.
+
 ## Capture configurations
 
 The default profiling epoch is one hour. Images built before 2026-10-11

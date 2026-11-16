@@ -32,17 +32,18 @@ test('profile links validate supplements, anchors and missing targets', async t 
 });
 
 test('index cells compare paired and local peak and spill values', () => {
-  const report = 'README cells: peak 🟢 12.30 (2), spilled 🟢 0/10 (0.00%).\n';
-  const index = '| Effect | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled |\n' +
-    '| [A](shipping/a.md) / [O3](O3/a.md) | 🟢 12.3 (2) | 🟢 99 | 🟢 0/10 (0%) | 🟢 0/1 (0%) |\n';
+  const green = '\u{1f7e2}';
+  const report = `README cells: peak ${green} 12.30 (2), spilled ${green} 0/10 (0.00%).\nCaptured 2026-08-24 12:30.\n`;
+  const index = '| Effect | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | Captured |\n' +
+    `| [A](shipping/a.md) / [O3](O3/a.md) | ${green} 12.3 (2) | ${green} 99 | ${green} 0/10 (0%) | ${green} 0/1 (0%) | ship 2026-08-24 12:30<br>O3 2026-08-24 12:30 |\n`;
   const errors = [];
   checkIndexCells(index, 'shipping/a.md', report, 'main', errors);
   assert.deepEqual(errors, []);
   checkIndexCells(index, 'O3/a.md', report, 'main', errors);
   assert.equal(errors.length, 2);
-  const local = '| Effect | Peak ms | Spilled |\n| [A](a.md) | 🟢 12.3 (2) | 🟢 1/10 (10%) |\n';
+  const local = `| Effect | Peak ms | Spilled | Captured |\n| [A](a.md) | ${green} 12.3 (2) | ${green} 1/10 (10%) | 2026-08-24 12:30 |\n`;
   checkIndexCells(local, 'a.md', report, 'shipping', errors);
-  assert.ok(errors.at(-1).includes('spill differs'));
+  assert.ok(errors.some(error => error.includes('spill differs')));
 });
 
 test('table-linked measurements require README cells in the report', () => {
@@ -390,4 +391,46 @@ test('measurement heading drift fails instead of bypassing report comparison', (
     assert.equal(errors.length, 1);
     assert.match(errors[0], /has no .*peak\/spilled measurement columns/);
   }
+});
+
+test('index setup and capture fields reject drift and missing metadata', () => {
+  const report = 'README cells: peak 12.3, spilled 0/10.\n' +
+    'README setup frame 1: 20.5 ms. Captured 2026-08-24 12:30 local.\n';
+  const row = '| [A](shipping/a.md) | 12.3 | 20.5 | 0/10 | ship 2026-08-24 12:30 |\n';
+  const header = '| Effect | Ship peak steady ms | Ship setup frame 1 ms | Ship spilled | Captured |\n';
+  const check = (index, text = report) => {
+    const errors = [];
+    checkIndexCells(index, 'shipping/a.md', text, 'main', errors);
+    return errors;
+  };
+  assert.deepEqual(check(header + row), []);
+  for (const captured of ['| Captured | 2026-08-24 12:30, local |',
+    'Raw capture mtimes: after `2026-08-24T12:30:01` (local).']) {
+    assert.deepEqual(check(header + row, report.replace('Captured 2026-08-24 12:30 local.', captured)), []);
+  }
+  assert.ok(check((header + row).replace('Ship setup frame 1 ms', 'Initialization'))
+    .some(error => error.includes('no setup-frame measurement column')));
+  assert.ok(check(header + row.replace('20.5', '20.6')).some(error => error.includes('setup frame 1 differs')));
+  assert.ok(check(header + row.replace('12:30', '12:31')).some(error => error.includes('captured timestamp differs')));
+  assert.ok(check(header + row.replace('2026-08-24', '2026-02-30')).some(error => error.includes('invalid captured')));
+  assert.ok(check(header + row, report.replace('Captured ', 'Recorded '))
+    .some(error => error.includes('no capture timestamp metadata')));
+  assert.ok(check(header + row, report.replace('README setup frame 1:', 'Setup:'))
+    .some(error => error.includes('no "README setup frame 1:"')));
+  assert.ok(check((header + row).replace('Captured', 'Date'))
+    .some(error => error.includes('no captured column')));
+});
+
+test('only named legacy captures may lack timestamp metadata; their date format remains checked', () => {
+  const link = 'O3/profile_shapeshifter_teensy_2026-09-25.md';
+  const report = 'README cells: peak 12.3, spilled 0/10.\n';
+  const index = `| Effect | O3 peak ms | O3 spilled | Captured |\n| [A](${link}) | 12.3 | 0/10 | 2026-09-25 07:29 |\n`;
+  const errors = [];
+  checkIndexCells(index, link, report, 'legacy', errors);
+  assert.deepEqual(errors, []);
+  checkIndexCells(index.replace('07:29', '25:99'), link, report, 'legacy', errors);
+  assert.ok(errors.some(error => error.includes('invalid captured')));
+  const newer = link.replace('2026-09-25', '2026-09-26');
+  checkIndexCells(index.replaceAll(link, newer), newer, report, 'current', errors);
+  assert.ok(errors.some(error => error.includes('no capture timestamp metadata')));
 });
