@@ -60,6 +60,7 @@ inline int run_pov_sync_tests() {
 
   HS_RUN(test_sim_boot_and_phase);
   HS_RUN(test_sim_eight_board_boot_and_phase);
+  HS_RUN(test_sim_submit_overruns_recover);
   HS_RUN(test_sim_epoch_commit);
   HS_RUN(test_sim_variable_effect_durations);
   HS_RUN(test_sim_commit_beacon_gap);

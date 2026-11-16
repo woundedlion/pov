@@ -70,6 +70,13 @@ struct SimBoard {
   uint64_t t = 0; /**< Frames shown: flips since this effect went live. */
   uint64_t swap_g = 0;
   bool trapped = false; /**< Commit deadline missed (device would HS_CHECK). */
+  uint32_t reject_every =
+      0; /**< Reject every nth submission; zero disables faults. */
+  uint64_t submit_attempts = 0;   /**< Transport calls since boot. */
+  uint64_t submit_rejections = 0; /**< Injected transport overruns. */
+  uint64_t submit_acceptances =
+      0; /**< Accepted black, column and retry frames. */
+  uint64_t accepted_retries = 0; /**< Accepted RESUBMIT actions. */
   // Probes.
   uint64_t flips = 0;
   bool dark_now = true;
@@ -97,6 +104,10 @@ struct SimBoard {
     t = 0;
     swap_g = 0;
     trapped = false;
+    submit_attempts = 0;
+    submit_rejections = 0;
+    submit_acceptances = 0;
+    accepted_retries = 0;
     flips = 0;
     dark_now = true;
     engine_dark = true;
@@ -374,8 +385,20 @@ private:
                   b.envelope = b.board.effect_envelope(column, cfg.W);
                   b.envelope_column = column;
                 },
-            .submit = [](pov::SubmitAction, SimEffect *,
-                         int32_t) { return true; },
+            .submit =
+                [&](pov::SubmitAction action, SimEffect *, int32_t) {
+                  ++b.submit_attempts;
+                  const bool reject = b.reject_every != 0 &&
+                                      b.submit_attempts % b.reject_every == 0;
+                  if (reject) {
+                    ++b.submit_rejections;
+                  } else {
+                    ++b.submit_acceptances;
+                    if (action == pov::SubmitAction::RESUBMIT)
+                      ++b.accepted_retries;
+                  }
+                  return !reject;
+                },
         });
     const auto &w = b.handoff.last;
     if (w.adopted) {
@@ -568,6 +591,49 @@ inline void test_sim_eight_board_boot_and_phase() {
 }
 
 // ── Scenario: epoch commit — lockstep advance, dark window, deadline ───────
+
+/** @brief Periodic transport overruns retry while four and eight boards stay synchronized. */
+inline void test_sim_submit_overruns_recover() {
+  const Config cfg = test_config();
+  const int32_t PPM[8] = {0, 20, -20, 40, -35, 15, -10, 30};
+  for (int board_count : {4, 8}) {
+    HS_CONTEXT("boards", board_count);
+    Sim sim(cfg, board_count, PPM);
+    for (int i = 0; i < board_count; ++i)
+      sim.boards[i].reject_every = 3 + i % 2;
+    HS_EXPECT_TRUE(boot_join(sim, cfg));
+    HS_EXPECT_TRUE(sim.run_until(all_boards_on(1), cfg.revs_per_effect + 6.0));
+    HS_EXPECT_TRUE(run_to_master_column(sim, 72));
+    HS_EXPECT_TRUE(all_boards_locked(sim));
+    HS_EXPECT_LE(sim.max_phase_err(), LOCKED_PHASE_ERROR);
+    expect_swaps_aligned(sim);
+    std::array<uint64_t, 8> rejections{}, accepted{}, frames{};
+    for (int i = 0; i < board_count; ++i) {
+      auto &board = sim.boards[i];
+      HS_EXPECT_GT(board.submit_rejections, uint64_t{0});
+      HS_EXPECT_GT(board.accepted_retries, uint64_t{0});
+      HS_EXPECT_EQ(board.t, sim.boards[0].t);
+      HS_EXPECT_FALSE(board.trapped);
+      rejections[i] = board.submit_rejections;
+      accepted[i] = board.submit_acceptances;
+      frames[i] = board.t;
+      board.reject_every = 0;
+    }
+    sim.run_revs(2.0);
+    HS_EXPECT_TRUE(run_to_master_column(sim, 72));
+    HS_EXPECT_TRUE(all_boards_locked(sim));
+    HS_EXPECT_LE(sim.max_phase_err(), LOCKED_PHASE_ERROR);
+    for (int i = 0; i < board_count; ++i) {
+      const auto &board = sim.boards[i];
+      HS_EXPECT_EQ(board.submit_rejections, rejections[i]);
+      HS_EXPECT_GT(board.submit_acceptances, accepted[i]);
+      HS_EXPECT_GT(board.t, frames[i]);
+      HS_EXPECT_EQ(board.t, sim.boards[0].t);
+      HS_EXPECT_FALSE(board.submit_gate.resubmit_pending());
+      HS_EXPECT_FALSE(board.trapped);
+    }
+  }
+}
 
 /**
  * @brief Verifies epoch commit lockstep: boards hold the outgoing effect at
