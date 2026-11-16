@@ -8,6 +8,7 @@
 
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"
+#include "core/math/lenses.h"
 #include "core/animation/transformer.h"
 #include "core/render/canvas.h"
 #include "core/render/filter/feedback_style.h"
@@ -733,6 +734,63 @@ inline void test_noise_active_stays_on_sphere() {
     total_moved += displacement(r, v);
   }
   HS_EXPECT_GT(total_moved, 1e-2f);
+}
+
+/** @brief Authored feedback warp sweeps supply finite unit fold directions. */
+inline void test_feedback_warp_inputs_preserve_fold_contract() {
+  using Style = Feedback::Style;
+  const Style presets[] = {Style::ArcingLightning(), Style::SlowFire(),
+                           Style::EnergeticFire(),   Style::Smoke(),
+                           Style::SlowDust(),        Style::WavyTrails(),
+                           Style::MeltingHi(),       Style::MeltingLo(),
+                           Style::Miasma(),          Style::LooseWormhole(),
+                           Style::TightWormhole(),   Style::WigglingWormhole()};
+  const std::array<math::Vector, 3> *mirror_sets[] = {
+      &lenses::TETRAHEDRAL_MIRRORS,     &lenses::OCTAHEDRAL_MIRRORS,
+      &lenses::DODECAHEDRAL_MIRRORS,    &lenses::TRIANGULAR_PRISM_MIRRORS,
+      &lenses::SQUARE_PRISM_MIRRORS,    &lenses::PENTAGONAL_PRISM_MIRRORS,
+      &lenses::HEXAGONAL_PRISM_MIRRORS, &lenses::OCTAGONAL_PRISM_MIRRORS};
+  const math::Vector axes[] = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
+                               {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
+  Animation::NoiseParams noise;
+  size_t inputs = 0;
+  for (const Style &from : presets)
+    for (const Style &to : presets)
+      for (float t : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+        Style style;
+        style.noise = &noise;
+        style.lerp(from, to, t);
+        for (float time : {0.0f, 17.25f, 255.5f}) {
+          noise.time = time;
+          for (int sample = 0; sample < 30; ++sample) {
+            const math::Vector point =
+                sample < 6 ? axes[sample]
+                           : math::fib_spiral(24, 0.5f, sample - 6);
+            const math::Vector warped = style.space_fn(point, style);
+            ++inputs;
+            const bool finite = finite_vec(warped);
+            HS_EXPECT_TRUE(finite);
+            HS_EXPECT_NEAR(math::dot(warped, warped), 1.0f, 2e-4f);
+            if (!finite)
+              continue;
+            const auto check_fold = [](const math::Vector &folded,
+                                       const auto &mirrors) {
+              HS_EXPECT_TRUE(finite_vec(folded));
+              HS_EXPECT_NEAR(math::dot(folded, folded), 1.0f, 2e-4f);
+              for (const math::Vector &normal : mirrors)
+                HS_EXPECT_GE(math::dot(folded, normal), -2e-6f);
+            };
+            for (const auto *mirrors : mirror_sets)
+              check_fold(lenses::polyhedral_kaleidoscope_lens(warped, *mirrors),
+                         *mirrors);
+            check_fold(lenses::dodecahedral_kaleidoscope_lens(warped),
+                       lenses::DODECAHEDRAL_MIRRORS);
+            check_fold(lenses::dodecahedral_table_lens(warped),
+                       lenses::DODECAHEDRAL_MIRRORS);
+          }
+        }
+      }
+  HS_EXPECT_EQ(inputs, size_t{64800});
 }
 
 /**
@@ -2032,6 +2090,7 @@ inline int run_transformers_tests() {
   HS_RUN(test_transforms_nonfinite_passes_through_identity);
   HS_RUN(test_noise_zero_amplitude_is_identity);
   HS_RUN(test_noise_active_stays_on_sphere);
+  HS_RUN(test_feedback_warp_inputs_preserve_fold_contract);
   HS_RUN(test_noise_cross_hemisphere_cap);
   HS_RUN(test_transformer_no_entities_is_identity);
   HS_RUN(test_transformer_spawn_applies_and_composes);
