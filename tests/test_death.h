@@ -93,7 +93,7 @@ inline int run_death_tests() {
       "core/render/sdf/shapes.h", "(false) probe"));
 
   // The same sentinel proves the capture channel.
-  if (!breadcrumb_names_guard(child_output(), "tests/test_death.h",
+  if (!breadcrumb_names_guard(child_output(), "tests/death/registry.h",
                               "(false) death-harness trap-shape probe")) {
     report_unrunnable("cannot capture child output; which guard fired is "
                       "unverifiable",

@@ -17,7 +17,7 @@ inline void test_contour_layout_storage_alignment() {
   alignas(Layout::RadiusTrig) std::array<uint8_t, Layout::storage_bytes()>
       storage{};
   Arena arena(storage.data(), storage.size());
-  arena.allocate(1);
+  arena.allocate(1, alignof(uint8_t));
   Layout layout;
   layout.init_storage(arena);
   HS_EXPECT_LE(arena.get_offset(), Layout::storage_bytes());
