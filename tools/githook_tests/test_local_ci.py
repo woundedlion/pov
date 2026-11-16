@@ -172,6 +172,35 @@ class CommitJobs(unittest.TestCase):
                 self.assertEqual(
                     (self.tree / "build/teensy-size-args").read_text().strip(), variant_args)
 
+    def test_python_job_runs_for_external_suite_inputs(self):
+        script = self.repo / "tools/ci/python_tests.sh"
+        script.write_text('echo ran > build/python-ran\n', encoding="utf-8", newline="\n")
+        git_run(self.repo, "add", "tools/ci/python_tests.sh", env=self.env)
+        git_run(self.repo, "commit", "--quiet", "-m", "Python fixture", env=self.env)
+        (self.repo / "build").mkdir()
+        inputs = ("targets/effects.h", "targets/Phantasm/phantasm_target.h",
+                  "core/platform/effect_identity.h", "core/mesh/solids.h",
+                  "core/render/pullback/contract.h", "core/color/color_space.h",
+                  "core/math/fast_math.h", "tests/data/pullback/capture.json",
+                  "tests/test_harness.h", "effects/IslamicStars.h",
+                  "CMakeLists.txt", "README.md", "CONTRIBUTING.md", "LICENSE")
+        for relative in inputs:
+            with self.subTest(path=relative):
+                origin = git_run(self.repo, "rev-parse", "HEAD", env=self.env).stdout.strip()
+                git_run(self.repo, "update-ref", "refs/remotes/origin/master", origin, env=self.env)
+                path = self.repo / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("changed\n", encoding="utf-8")
+                git_run(self.repo, "add", "--", relative, env=self.env)
+                git_run(self.repo, "commit", "--quiet", "-m", "external input", env=self.env)
+                marker = self.repo / "build/python-ran"
+                marker.unlink(missing_ok=True)
+                done = subprocess.run(
+                    [self.bash, "tools/local_ci.sh", "--run-one", "job_python_tests"],
+                    cwd=self.repo, env=self.env, capture_output=True, text=True, check=False)
+                self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+                self.assertTrue(marker.is_file(), done.stdout + done.stderr)
+
     def test_missing_commits_or_jobs_and_unknown_jobs_fail(self):
         for args in ((), ("--", "lint"), (self.sha, "--"), (self.sha, "--", "unknown")):
             with self.subTest(args=args):

@@ -61,7 +61,7 @@ LANES=('windows-tests srgb-decode-provenance thread-sanitizer' 'python-tests' 'p
 export CMAKE_BUILD_PARALLEL_LEVEL=8 HS_PYTHON_TEST_WORKERS=4
 
 # Paths whose change runs the local Python suites; ci.yml runs them always.
-PYTHON_INPUTS='[.]py$|^tools/|^hardware/|^[.]githooks/|^[.]github/|^requirements/|^justfile$|^platformio[.]ini$'
+PYTHON_INPUTS='[.]py$|^tools/|^hardware/|^[.]githooks/|^[.]github/|^requirements/|^core/|^targets/|^effects/|^tests/|^justfile$|^platformio[.]ini$|^CMakeLists[.]txt$|^README[.]md$|^CONTRIBUTING[.]md$|^LICENSE$'
 
 job_lint() { just lint; }
 job_clang_format() { just clang-format; }
