@@ -69,7 +69,7 @@ private:
    */
   void check_alive() const {
     const size_t bytes = element_capacity * sizeof(T);
-    HS_CHECK(!stamp.arena_reset(), "ArenaVector use-after-free!");
+    HS_CHECK(!stamp.reset_past(elements, bytes), "ArenaVector use-after-free!");
     HS_CHECK(!stamp.block_uncovered(elements, bytes),
              "ArenaVector use-after-free (arena rewound below block)!");
     HS_CHECK(!stamp.block_reissued(elements, bytes),
@@ -186,7 +186,7 @@ public:
    * @param min_capacity Minimum element count to reserve.
    * @details If already bound with at least that capacity, resets size for reuse
    * and keeps the larger prior capacity. A grow reallocates a fresh block and
-   * abandons the old one until the next reset. Debug builds trap on arena reset or rewind below the block;
+   * abandons the old one until the next reset. Debug builds trap on reset past or rewind below the block;
    * structural-audit debug builds also trap on binding to a different arena.
    */
   void bind(Arena &arena, size_t min_capacity) {
@@ -199,12 +199,11 @@ public:
     HS_AUDIT_CHECK(
         (!bound || element_capacity == 0 ||
          (stamp.source_arena == &arena &&
-          stamp.birth_generation == arena.get_generation())),
+          !stamp.reset_past(elements, element_capacity * sizeof(T)))),
         "ArenaVector::bind() on a stale binding: move-assign a "
         "default-constructed ArenaVector before resetting or changing "
         "its arena");
 #endif
-    // Catches a rewind, which the generation check misses.
     check_alive();
     if (bound && element_capacity >= min_capacity) {
       element_count = 0;

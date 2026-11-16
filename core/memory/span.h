@@ -18,7 +18,7 @@
  * @brief A read-only, non-owning view into arena-allocated data.
  * @tparam T Element type viewed by the span.
  * @details Snapshots the source vector's elements pointer at construction.
- * Debug checks fault on an arena reset, a source-vector re-grow or clear, a
+ * Debug checks fault on a reset past the block, a source-vector re-grow or clear, a
  * rewind below the borrowed block, or reclamation and reissue of that block. A
  * move of the source vector is not tracked; re-take the span after growing or
  * moving its source. The span must not outlive the source vector object, which
@@ -36,12 +36,12 @@ template <typename T> class ArenaSpan {
 
   /**
    * @brief Debug-only stale-span check against arena and vector stamps.
-   * @details Traps on arena reset, source-vector rebind or clear, a rewind
+   * @details Traps on reset past the block, source-vector rebind or clear, a rewind
    * below the borrowed block, or reclamation and reissue of that block.
    */
   void check_alive() const {
     const size_t bytes = element_count * sizeof(T);
-    HS_CHECK(!stamp.arena_reset(), "ArenaSpan use-after-free!");
+    HS_CHECK(!stamp.reset_past(elements, bytes), "ArenaSpan use-after-free!");
     HS_CHECK(!source_vec ||
                  source_vec->rebind_generation == source_rebind_generation,
              "ArenaSpan source vector rebound or cleared under span!");
@@ -88,7 +88,7 @@ public:
    * @brief Constructs a span borrowing from an ArenaVector (explicit borrow).
    * @param source Vector to borrow data and (in debug) lifetime stamps from.
    * @details In debug builds the span inherits the vector's arena-generation
-   * stamp, so accessing it after the arena is reset/compacted trips the same
+   * stamp, so accessing it after the block is reset/compacted trips the same
    * use-after-free check the vector itself has.
    */
   explicit ArenaSpan(const ArenaVector<T> &source)

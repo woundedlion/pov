@@ -483,6 +483,15 @@ struct ArenaBlockStamp {
     return source_arena && source_arena->get_generation() != birth_generation;
   }
 
+  /** @brief Whether a reset reclaimed the stamped block.
+   * @param p First byte of the block.
+   * @param bytes Block length in bytes.
+   * @return True when a reset passed the block's retained extent. */
+  bool reset_past(const void *p, size_t bytes) const {
+    return arena_reset() &&
+           !source_arena->below_reset_floor(p, bytes, birth_generation);
+  }
+
   /**
    * @brief Whether a rewind dropped the arena's live extent below the block.
    * @param p First byte of the block.
@@ -515,9 +524,7 @@ struct ArenaBlockStamp {
    *         uncovered or reissued.
    */
   bool block_alive(const void *p, size_t bytes) const {
-    const bool reset_past = arena_reset() && !source_arena->below_reset_floor(
-                                                 p, bytes, birth_generation);
-    return !reset_past && !block_uncovered(p, bytes) &&
+    return !reset_past(p, bytes) && !block_uncovered(p, bytes) &&
            !block_reissued(p, bytes);
   }
 };

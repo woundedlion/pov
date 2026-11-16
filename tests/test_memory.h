@@ -966,6 +966,22 @@ inline void test_arena_block_stamp_reset_floor() {
   a.set_reset_floor();
   HS_EXPECT_FALSE(stamp.block_alive(kept, 64));
 }
+
+/** @brief Vectors and spans below the reset floor survive arena resets. */
+inline void test_arenavec_reset_floor() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  ArenaVector<int> v(a, 4);
+  v.push_back(42);
+  ArenaSpan<int> before(v);
+  a.set_reset_floor();
+  a.reset();
+  HS_EXPECT_EQ(v[0], 42);
+  HS_EXPECT_EQ(before[0], 42);
+  HS_EXPECT_EQ(ArenaSpan<int>(v).size(), size_t(1));
+  v.bind(a, 4);
+  v.push_back(7);
+  HS_EXPECT_EQ(v[0], 7);
+}
 #endif
 
 /**
@@ -1525,11 +1541,13 @@ inline int run_memory_tests() {
 #ifndef NDEBUG
   HS_RUN(test_arena_block_stamp_reset_and_rewind);
   HS_RUN(test_arena_block_stamp_reset_floor);
+  HS_RUN(test_arenavec_reset_floor);
 #else
   skip_case("test_arena_block_stamp_reset_and_rewind",
             "requires debug arena tracking");
   skip_case("test_arena_block_stamp_reset_floor",
             "requires debug arena tracking");
+  skip_case("test_arenavec_reset_floor", "requires debug arena tracking");
 #endif
   HS_RUN(test_arenavec_zero_capacity);
 
