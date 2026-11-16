@@ -109,6 +109,7 @@ public:
                                         const float *ts, int count) {
         TrailSlots trail_slots;
         int slots = 0;
+        const float PIXEL_WIDTH = math::coarse_pixel_pitch<W, H>();
         constexpr float MIN_SLOT_ALPHA = 0.001f;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];
@@ -120,7 +121,7 @@ public:
 
           // SDF::Ring takes a half-width; the band thickens at the trail
           // head and tail.
-          const float th = trail_half_width(t);
+          const float th = trail_half_width(t, PIXEL_WIDTH);
           trail_slots.shapes[slots] =
               SDF::Ring(math::make_basis(qs[j], math::Y_AXIS), 1.0f, th);
           trail_slots.colors[slots] = c;
@@ -149,12 +150,12 @@ private:
   /**
    * @brief Stroke half-width along the ring trail.
    * @param t Normalized position along the trail.
+   * @param pixel_width Angular pixel pitch in radians.
    * @return Angular half-width in radians.
    */
-  HS_HOT_INLINE float trail_half_width(float t) const {
-    constexpr float PIXEL_WIDTH = math::coarse_pixel_pitch<W, H>();
-    return ((t < 0.01f || t > 0.95f) ? 2.0f * PIXEL_WIDTH
-                                     : 1.0f * PIXEL_WIDTH) *
+  HS_HOT_INLINE float trail_half_width(float t, float pixel_width) const {
+    return ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_width
+                                     : 1.0f * pixel_width) *
            params.thickness;
   }
 
