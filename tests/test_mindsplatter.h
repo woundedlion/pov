@@ -230,6 +230,18 @@ inline void test_mindsplatter_replay_snapshot_exact() {
   using Snapshot = WB::ReplaySnapshot<W, H>;
 
   const Snapshot source = saturated_snapshot<W, H>();
+  using Transition = typename Snapshot::Transition;
+  Snapshot padded = source;
+  constexpr size_t ACTIVE_END = offsetof(Transition, active) + sizeof(bool);
+  constexpr size_t ELAPSED_BEGIN = offsetof(Transition, elapsed_frames);
+  static_assert(ACTIVE_END < ELAPSED_BEGIN);
+  for (size_t i = ACTIVE_END; i < ELAPSED_BEGIN; ++i)
+    padded.transition[i] ^= 0xff;
+  HS_EXPECT_TRUE(WB::same_snapshot(source, padded));
+  auto changed_transition = std::bit_cast<Transition>(padded.transition);
+  ++changed_transition.elapsed_frames;
+  padded.transition = WB::object_bytes(changed_transition);
+  HS_EXPECT_FALSE(WB::same_snapshot(source, padded));
 
   struct Replay {
     std::vector<Pixel> framebuffer;

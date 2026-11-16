@@ -299,4 +299,29 @@ inline void test_pixel_quarter_accumulation_rounds_per_sample() {
   }
 }
 
+/** @brief Frame recording samples pixels when only the display height differs. */
+inline void test_record_frame_respects_display_height() {
+  struct Display {
+    std::array<Pixel, 4> storage{};
+    std::array<Pixel, 4> sampled{Pixel(1, 2, 3), Pixel(4, 5, 6), Pixel(7, 8, 9),
+                                 Pixel(10, 11, 12)};
+    mutable int reads = 0;
+    bool overrides_get_pixel() const { return false; }
+    int width() const { return 2; }
+    int height() const { return 1; }
+    const Pixel *display_buffer() const { return storage.data(); }
+    Pixel get_pixel(int x, int y) const {
+      ++reads;
+      return sampled[static_cast<size_t>(y) * 2 + x];
+    }
+  } display;
+  RenderRun run;
+  record_frame<2, 2>(run, display);
+  HS_EXPECT_EQ(display.reads, 4);
+  HS_EXPECT_EQ(run.recorded, 1);
+  HS_EXPECT_EQ(run.frames.size(), display.sampled.size());
+  for (size_t i = 0; i < display.sampled.size(); ++i)
+    HS_EXPECT_EQ(run.frames[i], display.sampled[i]);
+}
+
 } // namespace hs_test::color_tests

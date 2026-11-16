@@ -241,7 +241,7 @@ inline void record_frame(RenderRun &run, const Fx &fx) {
   const size_t start = run.frames.size();
   run.frames.resize(start + PIXELS);
   const std::span<Pixel> frame(run.frames.data() + start, PIXELS);
-  if (fx.overrides_get_pixel() || fx.width() != W) {
+  if (fx.overrides_get_pixel() || fx.width() != W || fx.height() != H) {
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x)
         frame[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);

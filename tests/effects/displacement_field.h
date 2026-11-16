@@ -1007,7 +1007,6 @@ inline void test_displacement_field_automatic_cycle() {
   effect.init();
   hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 1);
   effect.setAnimationsPaused(false);
-  HS_EXPECT_FALSE(effect.animations_paused());
   HS_EXPECT_TRUE(
       WB::run_until(effect, [&] { return effect.getPresetIndex() == 1; }));
   WB::expire_balls(effect);

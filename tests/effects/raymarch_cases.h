@@ -250,14 +250,21 @@ inline void test_raymarch_hue_noise_at_column_time() {
     return WB::draw_at(fx, u, previous_spin, palette_step);
   });
   WB::bake_hue_noise(fx, noise);
+  const std::vector<Pixel> held = column_time_oracle<W, H>(
+      [&](float u) { return WB::draw_at(fx, u, previous_spin, palette_step); });
 
   int arm_gap = 0;
+  int held_arm_gap = 0;
   int lit = 0;
   double gap_sum = 0.0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x) {
       const Pixel &a = drawn[static_cast<size_t>(y) * W + x];
       const Pixel &b = expected[static_cast<size_t>(y) * W + x];
+      if (x % (W / 2) == 0)
+        held_arm_gap = std::max(
+            held_arm_gap,
+            srgb8_channel_gap(held[static_cast<size_t>(y) * W + x], b));
       if (is_black(a) && is_black(b))
         continue;
       const int gap = srgb8_channel_gap(a, b);
@@ -266,8 +273,11 @@ inline void test_raymarch_hue_noise_at_column_time() {
       if (x % (W / 2) == 0)
         arm_gap = std::max(arm_gap, gap);
     }
+  std::printf("  Raymarch noise: arm gap %d, held-endpoint gap %d\n", arm_gap,
+              held_arm_gap);
   HS_EXPECT_GT(lit, 100);
   HS_EXPECT_LE(arm_gap, RAYMARCH_NOISE_ARM_BOUND);
+  HS_EXPECT_GT(held_arm_gap, 8 * RAYMARCH_NOISE_ARM_BOUND);
   HS_EXPECT_LE(gap_sum / std::max(lit, 1), RAYMARCH_NOISE_MEAN_BOUND);
 }
 

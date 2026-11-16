@@ -153,6 +153,7 @@ inline void test_lms_transform_pair_matches_scalar() {
 inline int run_color_tests() {
   hs_test::ModuleFixture fixture("color");
   HS_RUN(test_pixel_quarter_accumulation_rounds_per_sample);
+  HS_RUN(test_record_frame_respects_display_height);
   HS_RUN(test_lms_transform_pair_matches_scalar);
   HS_RUN(test_baked_palette_storage_and_views);
   HS_RUN(test_baked_palette_constant_alpha);

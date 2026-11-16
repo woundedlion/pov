@@ -15,10 +15,12 @@
 #include "tests/test_fixture.h"
 
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <span>
 #include <type_traits>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -423,15 +425,76 @@ struct MindSplatterWhiteBox {
   template <int W, int H>
   static bool same_snapshot(const ReplaySnapshot<W, H> &a,
                             const ReplaySnapshot<W, H> &b) {
-    if (a.particles != b.particles || a.attractors != b.attractors ||
-        a.params != b.params || a.transition != b.transition ||
-        a.orientation != b.orientation || a.mobius != b.mobius)
+    using Snapshot = ReplaySnapshot<W, H>;
+    const auto vector_fields = [](const math::Vector &v) {
+      return std::tie(v.x, v.y, v.z);
+    };
+    const auto same_params = [](const auto &left, const auto &right) {
+      return std::apply(
+          [&](const auto &...field) {
+            return ((left.*(field.member) == right.*(field.member)) && ...);
+          },
+          MindSplatter<W, H>::parameter_fields());
+    };
+    if (a.particles.size() != b.particles.size() ||
+        a.attractors.size() != b.attractors.size())
       return false;
-    if (std::memcmp(a.emit_phases.data(), b.emit_phases.data(),
-                    sizeof(a.emit_phases)) != 0 ||
-        std::memcmp(&a.clip, &b.clip, sizeof(a.clip)) != 0 ||
-        std::memcmp(&a.friction, &b.friction, sizeof(a.friction)) != 0 ||
-        std::memcmp(&a.gravity, &b.gravity, sizeof(a.gravity)) != 0 ||
+    for (size_t i = 0; i < a.particles.size(); ++i) {
+      const auto pa =
+          std::bit_cast<typename Snapshot::Particle>(a.particles[i]);
+      const auto pb =
+          std::bit_cast<typename Snapshot::Particle>(b.particles[i]);
+      if (vector_fields(pa.position) != vector_fields(pb.position) ||
+          vector_fields(pa.velocity) != vector_fields(pb.velocity) ||
+          pa.color_seed != pb.color_seed || pa.life != pb.life ||
+          pa.history.length() != pb.history.length())
+        return false;
+      for (size_t j = 0; j < pa.history.length(); ++j)
+        if (vector_fields(pa.history.get(j)) !=
+            vector_fields(pb.history.get(j)))
+          return false;
+    }
+    for (size_t i = 0; i < a.attractors.size(); ++i) {
+      const auto aa =
+          std::bit_cast<typename Snapshot::Attractor>(a.attractors[i]);
+      const auto ab =
+          std::bit_cast<typename Snapshot::Attractor>(b.attractors[i]);
+      if (vector_fields(aa.position) != vector_fields(ab.position) ||
+          std::tie(aa.strength, aa.kill_radius, aa.event_horizon,
+                   aa.softening_sq) != std::tie(ab.strength, ab.kill_radius,
+                                                ab.event_horizon,
+                                                ab.softening_sq))
+        return false;
+    }
+    const auto ap = std::bit_cast<typename Snapshot::Params>(a.params);
+    const auto bp = std::bit_cast<typename Snapshot::Params>(b.params);
+    const auto at = std::bit_cast<typename Snapshot::Transition>(a.transition);
+    const auto bt = std::bit_cast<typename Snapshot::Transition>(b.transition);
+    if (!same_params(ap, bp) || !same_params(at.from, bt.from) ||
+        !same_params(at.to, bt.to) ||
+        std::tie(at.active, at.elapsed_frames, at.frames, at.fades, at.adopted,
+                 at.serial, at.from_index) !=
+            std::tie(bt.active, bt.elapsed_frames, bt.frames, bt.fades,
+                     bt.adopted, bt.serial, bt.from_index))
+      return false;
+    const auto ao = std::bit_cast<math::Orientation<>>(a.orientation);
+    const auto bo = std::bit_cast<math::Orientation<>>(b.orientation);
+    if (ao.length() != bo.length())
+      return false;
+    for (int i = 0; i < ao.length(); ++i) {
+      const auto qa = ao.get(i), qb = bo.get(i);
+      if (qa.r != qb.r || vector_fields(qa.v) != vector_fields(qb.v))
+        return false;
+    }
+    const auto mobius_fields = [](const math::MobiusParams &m) {
+      return std::tie(m.a.re, m.a.im, m.b.re, m.b.im, m.c.re, m.c.im, m.d.re,
+                      m.d.im);
+    };
+    const auto am = std::bit_cast<math::MobiusParams>(a.mobius);
+    const auto bm = std::bit_cast<math::MobiusParams>(b.mobius);
+    if (mobius_fields(am) != mobius_fields(bm) ||
+        a.emit_phases != b.emit_phases || a.clip != b.clip ||
+        a.friction != b.friction || a.gravity != b.gravity ||
         a.max_life != b.max_life || a.palette_sequence != b.palette_sequence ||
         a.active_base_mesh != b.active_base_mesh)
       return false;
