@@ -50,39 +50,29 @@ foreach(range IN ITEMS ctors raster)
   check_routing("extra_startup_${range}_route" "${changed}"
     "startup ${range} range must contain exactly its routing block")
 endforeach()
+set(setup_routes "")
+foreach(range IN ITEMS ctors raster)
+  string(FIND "${baseline}" "hs_hot_layout_startup_${range}_start = .;" start)
+  string(FIND "${baseline}" "hs_hot_layout_startup_${range}_end = .;" end)
+  math(EXPR length "${end} - ${start}")
+  string(SUBSTRING "${baseline}" ${start} ${length} block)
+  string(REGEX MATCHALL "\\*\\([^\n]*\\)" routes "${block}")
+  if(NOT routes)
+    message(FATAL_ERROR "startup ${range} contains no shipping routes")
+  endif()
+  list(APPEND setup_routes ${routes})
+endforeach()
+foreach(symbol IN ITEMS PaletteCycler OuterCameraState allocate_nI8ParamDef
+    FrameIntervalState use_parameter_storage configure_segment init_geometry_luts)
+  string(REGEX MATCHALL "\\*\\([^\n]*${symbol}[^\n]*\\)" routes "${baseline}")
+  if(NOT routes)
+    message(FATAL_ERROR "shipping linker script contains no ${symbol} route")
+  endif()
+  list(APPEND setup_routes ${routes})
+endforeach()
+list(REMOVE_DUPLICATES setup_routes)
 set(setup_route_index 0)
-foreach(route IN ITEMS
-    "*(.text._ZN13PaletteCyclerC[12]Ev)"
-    "*(.text._ZN8Pullback16OuterCameraStateILb1EEC[12]Ev)"
-    "*(.text._ZN5Arena10allocate_nI8ParamDefEEPT_j)"
-    "*(.text._ZN8Pullback18FrameIntervalStateI*C[12]Ev)"
-    "*(.text._ZN9ParamHost21use_parameter_storageEP8ParamDefj)"
-    "*(.text._ZN12POVSegmentedI*17configure_segmentEv)"
-    "*(.text._ZN4math18init_geometry_lutsILi288ELi144EEEvv)"
-    "*(.text._ZN4PlotL9rasterizeILi288ELi144E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)"
-    "*(.text._ZN4Plot14ParticleSystem9draw_implILi288ELi144E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)"
-    "*(.text._ZZN4Plot14ParticleSystem12sample_trailILi3ELb1E*ZN12MindSplatterILi288ELi144EE19draw_particles_with*)"
-    "*(.text._ZN8Pullback10FrameStateI*C[12]Ev)"
-    "*(.text._ZN8Pullback10Modulation8PreparedC[12]Ev)"
-    "*(.text._ZN8Pullback10Modulation9ResourcesILb[01]EEC[12]Ev)"
-    "*(.text._ZN8Pullback21OptionalPaletteLabLutILb1ELi64EEC[12]Ev)"
-    "*(.text._ZN8Pullback22OptionalHueRotationLutILb1EEC[12]Ev)"
-    "*(.text._ZN8Pullback15SphereAnimation12RadialTablesC[12]Ev)"
-    "*(.text._ZN8Pullback15SphereAnimation11RippleStateC[12]Ev)"
-    "*(.text._ZN8Pullback14ComposedDetail14ParameterBlockI*C[12]Ev)"
-    "*(.text._ZN8Pullback14ComposedDetail25ResourceModulationHistoryI*C[12]Ev)"
-    "*(.text._ZN8Pullback14ComposedDetail13ResourceFrameI*C[12]Ev)"
-    "*(.text._ZN8Pullback5Color24TemporalPaletteResourcesC[12]Ev)"
-    "*(.text._ZN8Pullback5Color21PaletteMappingWeightsC[12]Ev)"
-    "*(.text._ZN8Pullback16OuterCameraNoiseILb1EEC[12]Ev)"
-    "*(.text._ZN8Pullback19ProjectionWalkNoiseILb1EEC[12]Ev)"
-    "*(.text._ZN7Pattern15SphereBakeCacheI*C[12]Ev)"
-    "*(.text._ZN20HueRotationGamutMaskC[12]Ev)"
-    "*(.text._ZNSt5arrayI5PixelLj1024EEC[12]Ev)"
-    "*(.text._ZNSt5arrayI20PaletteRgbHueLutImplILb0EELj2EEC[12]Ev)"
-    "*(.text._ZN6Filter6Screen19DirectAntiAliasSinkILi288ELi144EEC[12]Ev)"
-    "*(.text._ZN4math11OrientationILi4EEC[12]Ev)"
-    "*(.text._ZN4math11OrientationILi16EEC[12]Ev)")
+foreach(route IN LISTS setup_routes)
   string(REPLACE "${route}" "" changed "${baseline}")
   check_routing("missing_setup_${setup_route_index}" "${changed}"
     "no longer routed by .text.code")

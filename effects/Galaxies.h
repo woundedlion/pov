@@ -230,8 +230,7 @@ private:
     // core and radial are orthonormal, so their cross is the unit tangent.
     const math::Vector tangent = math::cross(g.core, radial);
     const math::Vector outward = math::cross(tangent, pos);
-    const float speed = circular_orbit_speed(pos, outward, ring) *
-                        (params.orbit_speed / REFERENCE_ORBIT_SPEED) *
+    const float speed = orbit_speed(pos, outward, ring) *
                         (1.0f + hs::rand_f(-SPEED_JITTER, SPEED_JITTER));
     const uint16_t color_seed =
         static_cast<uint16_t>(index | (alpha_seed << 8));
@@ -295,6 +294,20 @@ private:
     if (tint < 50)
       return Color4(255, 245, 205);
     return Color4(255, 255, 255);
+  }
+
+  /**
+   * @brief Circular orbit speed scaled by the authored speed parameter.
+   * @param pos Particle position on the sphere.
+   * @param outward Outward radial tangent.
+   * @param ring Angular distance from the galaxy core.
+   * @return Unjittered tangential speed.
+   */
+  HS_HOT_INLINE float orbit_speed(const math::Vector &pos,
+                                  const math::Vector &outward,
+                                  float ring) const {
+    return circular_orbit_speed(pos, outward, ring) *
+           (params.orbit_speed / REFERENCE_ORBIT_SPEED);
   }
 
   /** @brief Circular speed from the net inward pull of all six cores. */

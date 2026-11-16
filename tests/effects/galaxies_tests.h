@@ -49,8 +49,7 @@ struct GalaxiesWhiteBox {
   template <int W, int H>
   static float orbit_speed(const Galaxies<W, H> &fx, const math::Vector &pos,
                            const math::Vector &outward, float ring) {
-    return fx.circular_orbit_speed(pos, outward, ring) *
-           (fx.params.orbit_speed / fx.REFERENCE_ORBIT_SPEED);
+    return fx.orbit_speed(pos, outward, ring);
   }
   template <int W, int H> static void set_arms(Galaxies<W, H> &fx, int arms) {
     fx.params.arms = arms;
