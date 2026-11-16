@@ -29,6 +29,39 @@
 
 namespace hs_test {
 struct FeedbackWhiteBox {
+  /** @brief Full uncached composites fit the advertised device-resolution budget. */
+  static void test_uncached_begin_frame_budget() {
+    constexpr int W = 288, H = 144;
+    using Feedback = Filter::Pixel::Feedback<W, H>;
+    const ScopedTemporalSampling sampling(true);
+    for (int downsample : {8, 16}) {
+      const size_t bytes = Feedback::uncached_scratch_bytes(downsample) +
+                           Feedback::FadeTable::BYTES;
+      const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - bytes -
+                                       DEFAULT_SCRATCH_B_SIZE,
+                                   bytes, DEFAULT_SCRATCH_B_SIZE);
+      ScratchScope persistent_scope(persistent_arena);
+      StubEffect effect(W, H, {.replaces_frame = true});
+      ::Feedback::Style style{};
+      style.noise = nullptr;
+      style.fade = 1.0f;
+      style.downsample = downsample;
+      Pipeline<W, H, Feedback> pipeline{Feedback(style)};
+      {
+        Canvas canvas(effect);
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x)
+            canvas(x, y) = Pixel(12000, 24000, 36000);
+      }
+      effect.advance_display();
+      Canvas canvas(effect);
+      HS_EXPECT_TRUE(canvas.keeps_stale_pixels());
+      pipeline.begin_frame(canvas, 1.0f);
+      HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), bytes);
+      HS_EXPECT_TRUE(canvas(8, 8).r > 0);
+    }
+  }
+
   /** @brief Uncached coarse fields fit their advertised scratch budget. */
   static void test_uncached_scratch_budget() {
     constexpr int W = 32, H = 32;
@@ -227,6 +260,7 @@ concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
  */
 inline int run_filter_tests() {
   hs_test::ModuleFixture fixture("filter");
+  HS_RUN(FeedbackWhiteBox::test_uncached_begin_frame_budget);
 
   HS_RUN(test_filter_trait_inheritance);
   HS_RUN(test_filter_domain_rank);

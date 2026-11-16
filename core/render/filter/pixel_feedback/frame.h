@@ -36,13 +36,18 @@ inline size_t Feedback<W, H>::uncached_scratch_bytes(int ds) {
   const SphereField field = field_for(ds);
   const int rings = field.ring_count();
   const PolarRings polar = polar_rings(field, rings);
-  return (2 * rings * columns + 2 * field.sample_count()) * sizeof(int16_t) +
-         (polar.rows() * columns + polar.samples) * sizeof(CapOffset) +
-         H * (sizeof(RowGeometry) + sizeof(int16_t)) +
-         ((ds > 1 || !SphereField::HAS_NORTH_POLE ||
-           !SphereField::HAS_SOUTH_POLE)
-              ? W * sizeof(::Pixel)
-              : 0);
+  const size_t retained =
+      2 * rings * columns * sizeof(int16_t) +
+      polar.rows() * columns * sizeof(CapOffset) +
+      H * (sizeof(RowGeometry) + sizeof(int16_t)) +
+      ((ds > 1 || !SphereField::HAS_NORTH_POLE || !SphereField::HAS_SOUTH_POLE)
+           ? W * sizeof(::Pixel)
+           : 0);
+  const size_t populate = 2 * field.sample_count() * sizeof(int16_t) +
+                          polar.samples * sizeof(CapOffset);
+  ArenaFootprint composite{retained};
+  composite.add<SweepRow>(H);
+  return std::max(retained + populate, composite.bytes);
 }
 
 template <int W, int H>
