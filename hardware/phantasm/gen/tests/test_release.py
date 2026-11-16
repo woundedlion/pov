@@ -174,9 +174,11 @@ class ReleaseTests(unittest.TestCase):
         second = release.fabrication_context(self.root / "other", self.root / "second", "1.1")
         defaults = (fab.PCB, fab.SCH, fab.PRO, fab.OUT, fab.JLC)
         with mock.patch.object(fab, "run", return_value=subprocess.CompletedProcess([], 0)) as run, \
+                mock.patch.object(fab, "kicad_cli", return_value="fixture-cli"), \
                 mock.patch.object(fab, "require_clean_erc", return_value=0):
             for context in (first, second, first):
                 self.assertEqual(fab.run_erc(str(self.root / "report.json"), context=context), 0)
+                self.assertEqual(run.call_args.args[0][0], "fixture-cli")
                 self.assertEqual(run.call_args.args[0][-1], context.sch)
                 self.assertEqual((fab.PCB, fab.SCH, fab.PRO, fab.OUT, fab.JLC), defaults)
 
