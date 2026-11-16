@@ -811,3 +811,33 @@ inline void case_plateau_boundary_full_timeline() {
     (void)timeline.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}));
   hold.arm_plateau_end(timeline, 1);
 }
+
+/** @brief Ripple rejects an infinite center. */
+inline void case_ripple_nonfinite_center() {
+  Animation::RippleParams params;
+  Animation::Ripple ripple(params, {opaque(INFINITY), 0.0f, 0.0f}, 0.2f, 4);
+}
+
+/** @brief BallDrop rejects an infinite normal. */
+inline void case_ball_drop_nonfinite_normal() {
+  Animation::BumpParams params;
+  params.radius = 0.5f;
+  math::Orientation<> orientation;
+  Animation::BallDrop<> drop(params, orientation,
+                             {opaque(INFINITY), 0.0f, 0.0f}, 0.0f, 4);
+}
+
+/** @brief RandomWalk rejects an infinite start direction. */
+inline void case_random_walk_nonfinite_start() {
+  math::Orientation<> orientation;
+  FastNoiseLite noise;
+  Animation::RandomWalk<32> walk(orientation, {opaque(INFINITY), 0.0f, 0.0f},
+                                 noise);
+}
+
+/** @brief Rotation rejects an infinite public axis. */
+inline void case_rotation_nonfinite_axis() {
+  math::Orientation<> orientation;
+  Animation::Rotation<32> rotation(orientation, {opaque(INFINITY), 0.0f, 0.0f},
+                                   0.5f, 4, math::ease_linear);
+}

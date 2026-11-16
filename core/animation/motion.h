@@ -360,7 +360,11 @@ public:
                          const math::Vector &axis, float angle, int duration,
                          EasingFn easing_fn, const Options &options = {})
       : Rotation(orientation, axis, angle, duration, easing_fn, options.repeat,
-                 options.space) {}
+                 options.space) {
+    HS_CHECK(std::isfinite(axis.x) && std::isfinite(axis.y) &&
+                 std::isfinite(axis.z),
+             "Rotation axis must be finite");
+  }
 
 private:
   /**
@@ -611,6 +615,9 @@ public:
       : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
         v(math::Vector(v_start).normalized()), options(options),
         noise_generator(noise) {
+    HS_CHECK(std::isfinite(v_start.x) && std::isfinite(v_start.y) &&
+                 std::isfinite(v_start.z),
+             "RandomWalk start direction must be finite");
     HS_CHECK(
         std::isfinite(options.speed) && std::isfinite(options.pivot_strength) &&
             std::isfinite(options.noise_scale) &&

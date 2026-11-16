@@ -204,6 +204,30 @@ inline const Case *all_cases(int &n) {
       cases[] =
           {
               // animation
+              {"ripple_nonfinite_center", case_ripple_nonfinite_center,
+               "core/animation/params.h",
+               "(std::isfinite(center.x) && "
+               "std::isfinite(center.y) && "
+               "std::isfinite(center.z)) "
+               "Ripple center must be finite"},
+              {"ball_drop_nonfinite_normal", case_ball_drop_nonfinite_normal,
+               "core/animation/params.h",
+               "(std::isfinite(normal.x) && "
+               "std::isfinite(normal.y) && "
+               "std::isfinite(normal.z)) "
+               "BallDrop normal must be finite"},
+              {"random_walk_nonfinite_start", case_random_walk_nonfinite_start,
+               "core/animation/motion.h",
+               "(std::isfinite(v_start.x) && "
+               "std::isfinite(v_start.y) && "
+               "std::isfinite(v_start.z)) "
+               "RandomWalk start direction must be finite"},
+              {"rotation_nonfinite_axis", case_rotation_nonfinite_axis,
+               "core/animation/motion.h",
+               "(std::isfinite(axis.x) && "
+               "std::isfinite(axis.y) && "
+               "std::isfinite(axis.z)) "
+               "Rotation axis must be finite"},
               {"lens_phase_nonfinite_scale", case_lens_phase_nonfinite_scale,
                "core/animation/params.h",
                "(std::isfinite(scale)) Lens phase scale must be finite"},
