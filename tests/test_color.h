@@ -36,7 +36,7 @@
 #include "tests/color/oklab_gamut.h"
 #include "tests/color/srgb_transfer.h"
 #include "tests/color/gradient_bake.h"
-#include "tests/color/authored_palette.h"
+#include "tests/color/authored_palette_cases.h"
 #include "tests/color/generative_palette_cases.h"
 #include "tests/color/palette_cycler_cases.h"
 #include "tests/color/palette_layer.h"

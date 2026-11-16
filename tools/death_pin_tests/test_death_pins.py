@@ -41,6 +41,14 @@ class DeathPinUniqueness(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "ordinary_case: pin identifies 2 guard sites"):
             self.check_fixture(duplicate, pin)
 
+    def test_registration_header_is_followed(self):
+        source = 'HS_CHECK(value > 0, "probe: positive");'
+        pin = "(value > 0) probe: positive"
+        table = '{"ordinary_case", case_ordinary_case, "core/guard.h", "' + pin + '"}'
+        self.assertIn("1 literal cases", self.check_fixture(
+            source, pin, table='#include "tests/death/registry.h"',
+            extra_sources={"tests/death/registry.h": table}))
+
     def test_missing_guard_is_rejected(self):
         pin = "(value > 0) probe: positive"
         self.check_fixture('HS_CHECK(value > 0, "probe: positive");', pin)

@@ -199,6 +199,21 @@ def renamed_guards(before, after, file):
     return matched
 
 
+def death_registration_text(read):
+    pending = ["tests/test_death.h"]
+    seen = set()
+    sources = []
+    while pending:
+        path = pending.pop()
+        if path in seen:
+            continue
+        seen.add(path)
+        text = read(path)
+        sources.append(text)
+        pending.extend(re.findall(r'^#include "(tests/death/[a-zA-Z0-9_/]+\.h)"', text, re.MULTILINE))
+    return "\n".join(sources)
+
+
 def new_guards(repo, base, tip):
     """List "path:line: guard" for each guard tip adds over base that no case pins."""
     directories = blobs(repo, tip, ["tests/guard_directories.txt"])[
@@ -215,7 +230,7 @@ def new_guards(repo, base, tip):
     existing = {compact(guard)
                 for text in base_sources.values()
                 for guard in guard_texts(text)}
-    case_pins = pins(blobs(repo, tip, ["tests/test_death.h"])["tests/test_death.h"])
+    case_pins = pins(death_registration_text(lambda path: blobs(repo, tip, [path])[path]))
     missing = []
     for path, text in blobs(repo, tip, changed).items():
         renames = renamed_guards(base_sources.get(path, ""), text, path)
@@ -247,7 +262,7 @@ def main():
         check_new_guards(args.root, *args.new_guards)
         return
     root = args.root
-    case_pins = pins((root / "tests/test_death.h").read_text(encoding="utf-8"))
+    case_pins = pins(death_registration_text(lambda path: (root / path).read_text(encoding="utf-8")))
     pinned_names = {Path(file).name for _, file, _ in case_pins}
     sources = {}
     asserts = []
