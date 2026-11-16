@@ -31,7 +31,7 @@ namespace hs_test {
 struct FeedbackWhiteBox {
   /** @brief Uncached coarse fields fit their advertised scratch budget. */
   static void test_uncached_scratch_budget() {
-    constexpr int W = 32, H = 16;
+    constexpr int W = 32, H = 32;
     using Feedback = Filter::Pixel::Feedback<W, H>;
     for (bool temporal : {false, true}) {
       const ScopedTemporalSampling sampling(temporal);
