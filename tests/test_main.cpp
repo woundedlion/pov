@@ -26,8 +26,8 @@ static void print_modules(std::FILE *out) {
  * @brief Reports whether this invocation runs an effects module.
  * @param argc Argument count as passed to main.
  * @param argv Argument vector as passed to main; names the modules to run.
- * @return True for an unfiltered run, or a filtered run naming an
- * effects-tier module.
+ * @return True when an effects-tier module is in the executable's roster for
+ * an unfiltered run, or is named on argv for a filtered run.
  */
 static bool runs_effects(int argc, char **argv) {
   if (argc <= 1) {

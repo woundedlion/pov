@@ -100,15 +100,19 @@ struct CoverageValueCutout : FieldEndoModel<ValueCutoutChainParams> {
 
 /** @brief Parameters of field.coverage.probability.v1. */
 struct ProbabilityCoverageParams {
-  float field_min = 0.0f;       ///< Field value mapped to zero drive.
-  float field_max = 1.0f;       ///< Field value mapped to unit drive.
-  float probability_min = 0.0f; ///< Lower lighting probability.
-  float probability_max = 1.0f; ///< Upper lighting probability.
-  float rate = 1.0f;            ///< Poisson events per frame at unit drive.
-  float mean = 0.5f;            ///< Normal threshold mean in drive units.
-  float deviation = 0.2f;       ///< Normal threshold standard deviation.
-  float seed = 0.0f;            ///< Additional integer random stream seed.
-  uint8_t distribution = 0;     ///< Uniform, Poisson or normal response.
+  float field_min =
+      0.0f; ///< Drive endpoint; the lower field endpoint maps to zero.
+  float field_max =
+      1.0f; ///< Drive endpoint; the upper field endpoint maps to one.
+  float probability_min =
+      0.0f; ///< Probability endpoint; the pair is sorted into bounds.
+  float probability_max =
+      1.0f;          ///< Probability endpoint; the pair is sorted into bounds.
+  float rate = 1.0f; ///< Poisson events per frame at unit drive.
+  float mean = 0.5f; ///< Normal threshold mean in drive units.
+  float deviation = 0.2f;   ///< Normal threshold standard deviation.
+  float seed = 0.0f;        ///< Additional integer random stream seed.
+  uint8_t distribution = 0; ///< Uniform, Poisson or normal response.
 
   /** @brief Distribution selector spellings. */
   static constexpr const char *DISTRIBUTIONS[] = {"uniform", "poisson",

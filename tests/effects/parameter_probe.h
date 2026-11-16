@@ -21,7 +21,7 @@ inline float parameter_probe_target(const ParamDef &def, float current) {
              : def.min + 0.75f * (def.max - def.min);
 }
 
-/** @brief Registered probe targets expose their expected parameters. */
+/** @brief Probes choose the farthest option, the opposite range quarter, or the flipped bool. */
 inline void test_parameter_probe_targets() {
   static constexpr const int64_t IDS[] = {0, 1, 6};
   ParamDef sparse;

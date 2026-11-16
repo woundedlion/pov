@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 /** @file
- * @brief Recorded fidelity modes and engagement checks.
+ * @brief Column-time scan engagement checks.
  */
 
 // ---------------------------------------------------------------------------

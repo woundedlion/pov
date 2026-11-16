@@ -84,7 +84,8 @@ the running module's registered controls. Fixed topology fields and
 Derived values are also exempt when the compiled controls used to derive them
 match the document.
 Affine parts a composed stage compiles out register no control and must stay
-inert: rates and offsets at zero, scales at identity, other fields finite.
+inert: rotation rate and shear at zero, translations strictly between -0.5 and
+0.5, scales at identity, and speed, repeat cells and lattice period finite.
 
 `kaleidoscope_melt.shader.json` is the editable source for the `KaleidoscopeMelt`
 effect. Its single preset combines a dodecahedral kaleidoscope lens, sphere-space

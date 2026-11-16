@@ -66,6 +66,14 @@ PREDEFINED             = FLASHMEM= \
                          HS_ENABLE_TEST_HOOKS=1 \
                          HS_ENABLE_TEST_ORACLES=1 \
                          HS_HOT_INLINE= \
+                         HS_COLD= \
+                         HS_FLASH_MEMBER= \
+                         HS_FLASH_INLINE= \
+                         HS_HOT_FLASH_MEMBER= \
+                         HS_HOT_ITCM_MEMBER= \
+                         HS_ITCM_MEMBER= \
+                         HS_SIZE_FLASH_MEMBER= \
+                         HS_NOINLINE_NOCLONE= \
                          HS_O3_BEGIN= \
                          HS_O3_END=
 

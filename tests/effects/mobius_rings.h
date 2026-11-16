@@ -7,7 +7,7 @@
 
 /** @brief Optional device clipping and endpoint scenarios. */
 struct MobiusRingsRenderOptions {
-  int segment = -1;     ///< Segment index; values below 4 select the first arm.
+  int segment = -1;     ///< -1: full frame; 0-3: first arm; 4-7: second arm.
   bool hold = false;    ///< Hold the endpoint.
   bool wrap = false;    ///< Cross the phase wrap.
   int count_change = 0; ///< Ring-count fade direction.

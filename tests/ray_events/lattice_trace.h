@@ -266,6 +266,7 @@ inline void test_lattice_prepare_validates_wire_radius_per_geometry() {
   }
 }
 
+/** @brief Projected octet events match world-space events and prepared shading. */
 inline void test_octet_prepared_projection() {
   using Domain = Raycast::SamplingDomain;
   reset_globals();
@@ -443,6 +444,7 @@ inline void test_octet_4d_canonical_trace() {
   HS_EXPECT_LE(differing, compared / 4000);
 }
 
+/** @brief Canonical 4D octet traces match axis, diagonal and near-axis events. */
 inline void test_octet_4d_canonical_boundary_directions() {
   reset_globals();
   namespace Trace = SDF::LatticeTrace;
