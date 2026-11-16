@@ -209,6 +209,9 @@ public:
     half = width / 2;
     rows = arena.allocate_n<math::Vector>(2 * (half + 1));
     stationary_frame = true;
+#if HS_ENABLE_STRUCTURAL_AUDITS
+    built = false;
+#endif
   }
 
   /**
@@ -225,6 +228,9 @@ public:
     store(0, history[0]);
     store(half, history[count - 1]);
     stationary_frame = history_stationary(history, count);
+#if HS_ENABLE_STRUCTURAL_AUDITS
+    built = true;
+#endif
   }
 
   /**
@@ -252,6 +258,7 @@ public:
    * @return The rotation at fraction `index / times()`.
    */
   HS_HOT_INLINE math::RotationMatrix at(int index) const {
+    HS_AUDIT_CHECK(built, "PoseTable::at: build() has not run");
     math::RotationMatrix pose;
     pose.r0 = rows[2 * index];
     pose.r1 = rows[2 * index + 1];
@@ -301,6 +308,9 @@ private:
   int half = 1;                 ///< Column times of the bound width.
   bool stationary_frame =
       true; ///< Every pose of the built history equals its last.
+#if HS_ENABLE_STRUCTURAL_AUDITS
+  bool built = false; ///< The bound rows contain a complete pose table.
+#endif
 };
 
 } // namespace Spacetime

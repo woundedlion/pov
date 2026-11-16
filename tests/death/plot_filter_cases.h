@@ -92,6 +92,35 @@ inline void case_pose_table_build_without_storage() {
   table.build(history, 1);
 }
 
+/** @brief Admits a built pose table, then reads its unbuilt rebound storage.
+ * @param rotate Selects the interpolated rotation read. */
+inline void pose_table_unbuilt_fixture(bool rotate) {
+  Spacetime::PoseTable table;
+  const math::Quaternion history[] = {math::Quaternion{}};
+  table.bind(scratch_arena_a, 32);
+  table.build(history, 1);
+  const auto read = [&] {
+    if (rotate)
+      (void)table.rotate(math::X_AXIS, 0.5f);
+    else
+      (void)table.at(0);
+  };
+  read();
+  table.bind(scratch_arena_a, 32);
+  death_admitted();
+  read();
+}
+
+/** @brief Pose-table lookup rejects unbuilt rebound storage. */
+inline void case_pose_table_at_before_build() {
+  pose_table_unbuilt_fixture(false);
+}
+
+/** @brief Pose-table rotation rejects unbuilt rebound storage. */
+inline void case_pose_table_rotate_before_build() {
+  pose_table_unbuilt_fixture(true);
+}
+
 /**
  * @brief Death case: a face vertex index past the edge-dedup bitset must trap.
  * @details The face-walk draw() overload traps on a vertex index beyond the
