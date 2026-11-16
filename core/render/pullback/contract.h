@@ -1920,7 +1920,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                          !std::same_as<typename CurrentNode::Output,
                                        ColorSample>) {
       return shade_stage<Index + 1>(
-          run_stage_endpoint<Index>(input, ctx, prepared, false), ctx,
+          run_stage_endpoint<Index, false>(input, ctx, prepared), ctx,
           prepared);
     } else
       return finish_color_sample(run_stage<Index>(input, ctx, prepared));
@@ -1975,51 +1975,53 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
 
   /** @brief Evaluates a node at the selected resource endpoint.
    * @tparam Index Node to evaluate.
+   * @tparam Retained Whether to use retained resources.
    * @tparam Input Input carrier type.
    * @param input Input carrier.
    * @param ctx Frame context.
    * @param prepared Per-node prepared state.
-   * @param retained Whether to use retained resources.
    * @return The node's output carrier. */
-  template <size_t Index, typename Input>
-  HS_HOT_INLINE static auto
-  run_stage_endpoint(const Input &input, const FrameState &ctx,
-                     const PreparedTuple &prepared, bool retained) {
+  template <size_t Index, bool Retained, typename Input>
+  HS_HOT_INLINE static auto run_stage_endpoint(const Input &input,
+                                               const FrameState &ctx,
+                                               const PreparedTuple &prepared) {
     using CurrentNode = NodeAt<Index>;
     if constexpr (requires { CurrentNode::EMISSION; })
-      if (!retained)
+      if constexpr (!Retained)
         return CurrentNode::run(input, ctx, std::get<Index>(prepared));
     if constexpr (requires {
                     CurrentNode::run_endpoint(
-                        input, ctx, std::get<Index>(prepared), retained);
+                        input, ctx, std::get<Index>(prepared), Retained);
                   })
       return CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
-                                       retained);
+                                       Retained);
     else
       return CurrentNode::run(input, ctx, std::get<Index>(prepared));
   }
 
-  /** @brief Completes the suffix following one node's output.
-   * @tparam Index Node producing the output.
-   * @tparam Output Output carrier type.
-   * @param output Output carrier.
+  /** @brief Evaluates a node and completes its suffix.
+   * @tparam Index Node to evaluate.
+   * @tparam Retained Whether to use retained resources.
+   * @tparam Input Input carrier type.
+   * @param input Input carrier.
    * @param ctx Frame context.
    * @param prepared Per-node prepared state.
-   * @param retained Whether to use retained resources.
    * @return Deferred final color. */
-  template <size_t Index, typename Output>
+  template <size_t Index, bool Retained, typename Input>
   HS_HOT_INLINE static ColorSample
-  finish_stage_output(const Output &output, const FrameState &ctx,
-                      const PreparedTuple &prepared, bool retained) {
+  run_stage_suffix(const Input &input, const FrameState &ctx,
+                   const PreparedTuple &prepared) {
+    using Output = typename NodeAt<Index>::Output;
     if constexpr (Index + 1 == NODE_COUNT)
+      return run_stage_endpoint<Index, Retained>(input, ctx, prepared);
+    else if constexpr (std::is_same_v<Output, ColorSample>) {
+      auto output = run_stage_endpoint<Index, Retained>(input, ctx, prepared);
+      run_color_tail<Index + 1>(output, ctx, prepared, Retained);
       return output;
-    else if constexpr (std::is_same_v<std::remove_cvref_t<Output>,
-                                      ColorSample>) {
-      ColorSample result = output;
-      run_color_tail<Index + 1>(result, ctx, prepared, retained);
-      return result;
     } else
-      return run_stage<Index + 1>(output, ctx, prepared);
+      return run_stage<Index + 1>(
+          run_stage_endpoint<Index, Retained>(input, ctx, prepared), ctx,
+          prepared);
   }
 
   /** @brief Runs a color crossing with a paired endpoint policy.
@@ -2036,9 +2038,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                             const PreparedTuple &prepared, float fraction) {
     using CurrentNode = NodeAt<Index>;
     if (fraction <= 0.0f)
-      return finish_stage_output<Index>(
-          run_stage_endpoint<Index>(input, ctx, prepared, true), ctx, prepared,
-          true);
+      return run_stage_suffix<Index, true>(input, ctx, prepared);
     if constexpr (fused_color_tail_supported<Index, Input>()) {
       using Palette = typename CurrentNode::Descriptor::ColorPolicy;
       using Instrumentation = typename Binding::Instrumentation;
@@ -2095,20 +2095,14 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                                             std::get<Index>(prepared));
                     })
         return run_paired_color_crossing<Index>(input, ctx, prepared, fraction);
-      const ColorSample A = finish_stage_output<Index>(
-          run_stage_endpoint<Index>(input, ctx, prepared, true), ctx, prepared,
-          true);
+      const ColorSample A = run_stage_suffix<Index, true>(input, ctx, prepared);
       if (fraction <= 0.0f)
         return A;
-      const auto output =
-          run_stage_endpoint<Index>(input, ctx, prepared, false);
       const ColorSample B =
-          finish_stage_output<Index>(output, ctx, prepared, false);
+          run_stage_suffix<Index, false>(input, ctx, prepared);
       return blend_color_samples(A, B, fraction);
     }
-    return finish_stage_output<Index>(
-        run_stage_endpoint<Index>(input, ctx, prepared, false), ctx, prepared,
-        false);
+    return run_stage_suffix<Index, false>(input, ctx, prepared);
   }
 
   /** @brief Runs nodes from @p Index to the last.
@@ -2130,9 +2124,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                   requires { ctx.temporal.fraction; })
       return run_color_crossing<Index>(input, ctx, prepared);
     else
-      return finish_stage_output<Index>(
-          run_stage_endpoint<Index>(input, ctx, prepared, false), ctx, prepared,
-          false);
+      return run_stage_suffix<Index, false>(input, ctx, prepared);
   }
 };
 
