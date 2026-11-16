@@ -2255,7 +2255,7 @@ public:
    * @param sine Sine of longitude.
    * @param equator Receives the rotated equatorial direction.
    * @param up Receives the rotated polar direction. */
-  HS_FLASH_INLINE HS_HOT_INLINE static void
+  HS_O3_FN HS_HOT_INLINE static void
   rotation_column_basis(const Frame &frame, float cosine, float sine,
                         math::Vector &equator, math::Vector &up)
     requires(ROTATION_COLUMNS)
