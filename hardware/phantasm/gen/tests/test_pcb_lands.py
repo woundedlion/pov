@@ -23,7 +23,7 @@ ROUTED = committed_board()
 TEENSY_LIBRARY = Path(pcb.LOCAL_FOOTPRINT_DIR) / "Teensy4.0.kicad_mod"
 
 # Chip-passive references whose library lands embed must leave untouched.
-LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_D1", "R_D2",
+LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_DE", "R_D1", "R_D2",
                      "R_LF", "R_TX", "C_SYNC", "C_DEC1", "C_DEC2", "C_LF", "F1", "FB")
 
 

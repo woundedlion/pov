@@ -23,7 +23,7 @@ Value. Verify assembly-house stock, substitutions and CPL rotations.
 | C_DEC1, C_DEC2, C_DEC3 | YAGEO **CC0603KRX7R9BB104** | 100 nF, 50 V, X7R, 10%, 0603 |
 | C_BULK3 | YAGEO **CC0603KRX7R8BB105** | 1 µF, 25 V, X7R, 10%, 0603 |
 | C_IN | Nichicon **UPW1H101MPD** | 100 µF, 50 V, 105°C, radial 8 × 11.5 mm, 3.5 mm lead pitch; retain mechanically |
-| R_TX, R_MEN, R_DATA_PD, R_CLK_PD | YAGEO **RC0603FR-0710KL** | 10 kΩ, 1%, 0603; TX pull-up, DE and LED-input pull-downs |
+| R_TX, R_DE, R_DATA_PD, R_CLK_PD | YAGEO **RC0603FR-0710KL** | 10 kΩ, 1%, 0603; TX pull-up, DE and LED-input pull-downs |
 | J3A, J3B | GCT **TBC05-04-1-G-G** | Four-position screw terminal; hand assembly and harness retention required |
 
 Component references: [TI transceiver](https://www.ti.com/lit/ds/symlink/thvd2410.pdf),

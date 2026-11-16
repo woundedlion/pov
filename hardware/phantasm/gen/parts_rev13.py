@@ -23,5 +23,5 @@ PARTS = {
        for ref in ("C_DEC1", "C_DEC2", "C_DEC3")},
     **{ref: part("YAGEO", "RC0603FR-0710KL",
                  "https://www.yageogroup.com/component-documentation/download/specsheet/RC0603FR-0710KL")
-       for ref in ("R_TX", "R_MEN", "R_DATA_PD", "R_CLK_PD")},
+       for ref in ("R_TX", "R_DE", "R_DATA_PD", "R_CLK_PD")},
 }

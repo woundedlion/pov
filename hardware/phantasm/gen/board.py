@@ -587,8 +587,10 @@ def strap_block(ctx):
     to_power = ctx.to_power
     to_label = ctx.to_label
     b.text((25, 245), "ID STRAPS / " + enable_net + " " + ("PULL-UP" if revision == "1.2" else "PULL-DOWN"), 2.2)
-    RMEN = place("Device:R", "R_MEN", "10k", 76.2, 261.62, fp=SMD06)
-    to_power(RMEN, "1", V3 if revision == "1.2" else GND); to_label(RMEN, "2", enable_net)
+    enable_resistor = place("Device:R", "R_MEN" if revision == "1.2" else "R_DE",
+                            "10k", 76.2, 261.62, fp=SMD06)
+    to_power(enable_resistor, "1", V3 if revision == "1.2" else GND)
+    to_label(enable_resistor, "2", enable_net)
     JID0 = place("Jumper:SolderJumper_2_Open", "JP_ID0", "ID0->GND", 127.0, 274.32,
                  fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(JID0, "1", "ID0"); to_power(JID0, "2", GND)

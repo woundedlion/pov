@@ -6618,7 +6618,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "0edf3aef-2311-5ea4-8100-f654cd33726a")
-		(property "Reference" "R_MEN"
+		(property "Reference" "R_DE"
 			(at 76.2 256.54 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6647,7 +6647,7 @@
 		(instances
 			(project "phantasm"
 				(path "/0060d4b9-1e71-57bc-bde8-9bde7b0cc02a"
-					(reference "R_MEN") (unit 1)
+					(reference "R_DE") (unit 1)
 				)
 			)
 		)

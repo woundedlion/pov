@@ -17,7 +17,7 @@ from kicad_common import F, export_netlist, kicad_cli
 # ref alone. Each such ref is expected on two nets, so a bridged or open
 # terminal still fails. D_BUS (CDSOD323-T08L) is a unidirectional TVS and is
 # pin-keyed: pin 1 cathode on SYNC_BUS, pin 2 anode on GND.
-SYMMETRIC = {"R1", "R2", "R_D1", "R_D2", "R_S", "R_PD", "R_MEN", "R_LF", "R_TX",
+SYMMETRIC = {"R1", "R2", "R_D1", "R_D2", "R_S", "R_PD", "R_MEN", "R_DE", "R_LF", "R_TX",
              "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "F1", "FB",
              "JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "R_A", "R_B", "R_TERM",
              "JP_TERM", "C_DEC3", "C_BULK3", "R_DATA_PD", "R_CLK_PD"}
@@ -72,7 +72,7 @@ EXPECT_REV_1_3["+5V_LOGIC"].update({"U1.10", "U1.13"})
 EXPECT_REV_1_3["+3V3"].discard("R_MEN")
 EXPECT_REV_1_3["+3V3"].update({"R_TX", "U_SYNC.8", "C_DEC3", "C_BULK3"})
 EXPECT_REV_1_3["FRAME_SYNC"] = {"U_MCU.3", "U_SYNC.1"}
-EXPECT_REV_1_3["SYNC_DE"] = {"U_MCU.5", "U_SYNC.3", "R_MEN"}
+EXPECT_REV_1_3["SYNC_DE"] = {"U_MCU.5", "U_SYNC.3", "R_DE"}
 EXPECT_REV_1_3["SYNC_TX"] = {"U_MCU.4", "U_SYNC.4", "R_TX"}
 EXPECT_REV_1_3["DATA_IN"] = {"U_MCU.11", "U1.5", "R_DATA_PD"}
 EXPECT_REV_1_3["CLK_IN"] = {"U_MCU.13", "U1.2", "R_CLK_PD"}
@@ -80,7 +80,7 @@ EXPECT_REV_1_3["DATA_SRC"] = {"U1.6", "R_D1"}
 EXPECT_REV_1_3["CLK_SRC"] = {"U1.3", "R_D2"}
 EXPECT_REV_1_3["SHIELD"] = {"J3A.4", "J3B.4", "JP_SHLD"}
 EXPECT_REV_1_3["GND"].difference_update({"C_SYNC", "D_BUS.2", "J3A.2", "J3B.2", "R2", "R_TX"})
-EXPECT_REV_1_3["GND"].update({"J3A.3", "J3B.3", "R_MEN", "U1.9", "U_SYNC.2", "U_SYNC.5",
+EXPECT_REV_1_3["GND"].update({"J3A.3", "J3B.3", "R_DE", "U1.9", "U_SYNC.2", "U_SYNC.5",
                               "C_DEC3", "C_BULK3", "D_SYNC.3", "R_DATA_PD", "R_CLK_PD"})
 EXPECT_REV_1_3.update({
     "SYNC_A": {"J3A.1", "J3B.1", "R_A", "D_SYNC.1", "R_TERM"},
