@@ -84,11 +84,11 @@ inline void test_ash_cloud_shared_color_identity() {
   }
 }
 
-/** @brief Most columns take the shared path, and its colors match canonical
- * colors within each math tier. */
+/** @brief Shared-column colors match canonical shades at the effects test tier. */
 inline void test_ash_cloud_shared_column_qualification() {
   using namespace ashcloud_shared_tests;
-  constexpr int FRAMES = 600, COLUMN_STRIDE = 18;
+  const int FRAMES = effects_full_suite() ? 600 : 16;
+  constexpr int COLUMN_STRIDE = 18;
   reset_globals();
   pin_frame_clock(0);
   FX effect;
@@ -142,7 +142,8 @@ inline void test_ash_cloud_shared_column_qualification() {
       }
     }
   }
-  constexpr uint64_t SAMPLED = uint64_t{FRAMES} * (288 / COLUMN_STRIDE) * 144;
+  const uint64_t SAMPLED =
+      static_cast<uint64_t>(FRAMES) * (288 / COLUMN_STRIDE) * 144;
   HS_EXPECT_GE(samples, SAMPLED * 9 / 10);
 #if HS_TEST_FAST_MATH
   HS_EXPECT_LE(maximum_rgb, 16);
@@ -155,8 +156,8 @@ inline void test_ash_cloud_shared_column_qualification() {
   HS_EXPECT_EQ(maximum_alpha, 0.0f);
 #endif
   std::printf(
-      "  AshCloud shared samples=%llu mismatches=%llu RGB max=%d mean=%.9g premultiplied=%d alpha=%.9g\n",
-      static_cast<unsigned long long>(samples),
+      "  AshCloud shared frames=%d samples=%llu mismatches=%llu RGB max=%d mean=%.9g premultiplied=%d alpha=%.9g\n",
+      FRAMES, static_cast<unsigned long long>(samples),
       static_cast<unsigned long long>(mismatches), maximum_rgb,
       double(sum) / (samples * 3), maximum_premultiplied,
       double(maximum_alpha));
