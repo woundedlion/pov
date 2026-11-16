@@ -36,6 +36,7 @@
 #include "tests/color/oklab_gamut.h"
 #include "tests/color/srgb_transfer.h"
 #include "tests/color/gradient_bake.h"
+#include "tests/color/authored_palette.h"
 #include "tests/color/generative_palette_cases.h"
 #include "tests/color/palette_cycler_cases.h"
 #include "tests/color/palette_layer.h"
@@ -155,6 +156,7 @@ inline int run_color_tests() {
   HS_RUN(test_lms_transform_pair_matches_scalar);
   HS_RUN(test_baked_palette_storage_and_views);
   HS_RUN(test_baked_palette_constant_alpha);
+  HS_RUN(test_authored_palette_inactive_fields_preserve_bake);
   HS_RUN(test_lerp16_endpoints);
   HS_RUN(test_lerp16_midpoint);
   HS_RUN(test_lerp16_rounds_to_nearest);

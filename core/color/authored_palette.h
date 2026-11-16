@@ -26,7 +26,8 @@ public:
    * @return View of the owned table. Rebakes update it in place. */
   HS_SIZE_FLASH_MEMBER __attribute__((flatten)) const BakedPalette &
   prepare(Arena &arena, const AuthoredPaletteSelection &params, float chroma) {
-    if (!initialized || !(params == previous) || chroma != previous_chroma) {
+    if (!initialized || !same_source(params, previous) ||
+        chroma != previous_chroma) {
       ScratchScope scratch(scratch_arena_a);
       Source *source = scratch_arena_a.make<Source>();
       using Type = AuthoredPaletteType;
@@ -93,6 +94,47 @@ public:
   }
 
 private:
+  /** @brief Compares controls read by the selected source.
+   * @param current Current selection.
+   * @param cached Previously baked selection.
+   * @return Whether the source recipe is unchanged and its indices valid. */
+  static bool same_source(const AuthoredPaletteSelection &current,
+                          const AuthoredPaletteSelection &cached) {
+    if (current.palette_type != cached.palette_type)
+      return false;
+    using Type = AuthoredPaletteType;
+    switch (static_cast<Type>(current.palette_type)) {
+    case Type::GENERATED:
+      return current.palette_hue == cached.palette_hue &&
+             current.palette_spread == cached.palette_spread &&
+             current.palette_harmony == cached.palette_harmony &&
+             current.palette_lightness_curve ==
+                 cached.palette_lightness_curve &&
+             current.palette_lightness == cached.palette_lightness &&
+             current.palette_lightness_range == cached.palette_lightness_range;
+    case Type::GRADIENT:
+      return current.gradient_start_r == cached.gradient_start_r &&
+             current.gradient_start_g == cached.gradient_start_g &&
+             current.gradient_start_b == cached.gradient_start_b &&
+             current.gradient_middle_r == cached.gradient_middle_r &&
+             current.gradient_middle_g == cached.gradient_middle_g &&
+             current.gradient_middle_b == cached.gradient_middle_b &&
+             current.gradient_end_r == cached.gradient_end_r &&
+             current.gradient_end_g == cached.gradient_end_g &&
+             current.gradient_end_b == cached.gradient_end_b;
+    case Type::PROCEDURAL:
+    case Type::MUTATING:
+      if (current.palette_name >= std::size(COEFFICIENTS) ||
+          current.palette_name_b >= std::size(COEFFICIENTS))
+        return false;
+      return current.palette_name == cached.palette_name &&
+             (static_cast<Type>(current.palette_type) == Type::PROCEDURAL ||
+              (current.palette_name_b == cached.palette_name_b &&
+               current.palette_mutation == cached.palette_mutation));
+    default:
+      return false;
+    }
+  }
   /** @brief Named cosine coefficients in roster order. */
   struct Coefficients {
     std::array<float, 3> a; ///< Bias.
