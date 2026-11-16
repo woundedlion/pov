@@ -779,11 +779,12 @@ UNCALIBRATED_NOTE = (
     "- run with teensy_size for an authoritative ceiling decision.")
 
 
-def size_format_annotation(exc: ValueError) -> str:
-    """The `::error::` line an unparseable size capture earns."""
+def size_format_annotation(exc: ValueError, github: bool = True) -> str:
+    """Describe an unparseable size capture in the requested diagnostic mode."""
+    prefix = "::error::teensy-gate: " if github else "teensy-gate: error: "
     source = ("teensy_size output" if isinstance(exc, TeensySizeFormatError)
               else "`size -A` output")
-    return (f"::error::teensy-gate: invalid {source} ({exc}). This is a "
+    return (f"{prefix}invalid {source} ({exc}). This is a "
             f"tooling/format error, not a size-budget violation.")
 
 
@@ -808,30 +809,32 @@ def run(env: str, budgets_path: str, size_text: str, *,
         from_teensy_size: bool, syms_text: str, secs_text: str,
         github: bool) -> tuple[list[str], int]:
     """Evaluate captured tool output; return report lines and gate exit status."""
+    error = "::error::teensy-gate: " if github else "teensy-gate: error: "
+    warning = "::warning::" if github else "teensy-gate: warning: "
     try:
         budgets = load_budgets(budgets_path)
     except BudgetSchemaError as exc:
-        return [f"::error::teensy-gate: invalid budgets schema in {budgets_path} "
+        return [f"{error}invalid budgets schema in {budgets_path} "
                 f"({exc}). This is a budgets-file error, not a size-budget "
                 "violation."], 2
     except (OSError, ValueError) as exc:
-        return [f"::error::teensy-gate: cannot load budgets from {budgets_path} "
+        return [f"{error}cannot load budgets from {budgets_path} "
                 f"({exc}). This is a budgets-file error, not a size-budget "
                 "violation."], 2
     if env not in budgets:
-        return [f"::error::no budget for env '{env}' in {budgets_path}"], 2
+        return [f"{error}no budget for env '{env}' in {budgets_path}"], 2
 
     try:
         sizes = (parse_teensy_size(size_text) if from_teensy_size
                  else fallback_sizes_from_size_a(size_text))
     except (TeensySizeFormatError, SizeAFormatError) as exc:
-        return [size_format_annotation(exc)], 2
+        return [size_format_annotation(exc, github)], 2
     if not any(region in sizes for region in ("flash", "ram1", "ram2")):
-        return ["::error::teensy-gate: parsed no FLASH/RAM1/RAM2 regions from "
+        return [f"{error}parsed no FLASH/RAM1/RAM2 regions from "
                 "the size output. This is a toolchain/format break, not a "
                 "size-budget violation."], 2
     if not from_teensy_size and declares_components(budgets[env]):
-        return [f"::error::teensy-gate: env '{env}' declares per-component "
+        return [f"{error}env '{env}' declares per-component "
                 "ceilings, which the `size -A` fallback cannot measure. "
                 "No component figure was read: this is a tooling break, "
                 "not a size-budget violation; re-run with teensy_size."], 2
@@ -842,11 +845,11 @@ def run(env: str, budgets_path: str, size_text: str, *,
                            uncalibrated=not from_teensy_size, github=github)
     lines = []
     if not from_teensy_size:
-        lines.append("::warning::teensy_size not found; using `size -A` fallback "
+        lines.append(f"{warning}teensy_size not found; using `size -A` fallback "
                      "(section alignment padding may differ; calibrate against teensy_size).")
     lines.append(report)
     if code == EXIT_UNCALIBRATED_PASS:
-        lines.append("::error::teensy-gate: PASS is UNCALIBRATED; install the "
+        lines.append(f"{error}PASS is UNCALIBRATED; install the "
                      "Teensy platform tools and re-run with teensy_size.")
     return lines, code
 
@@ -866,11 +869,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--readelf-secs", help="file with `readelf -S` output")
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
+    error = "::error::teensy-gate: " if args.github else "teensy-gate: error: "
 
     try:
         size_text = read_capture(args.teensy_size or args.size_a)
     except OSError as exc:
-        print(f"::error::teensy-gate: cannot read the captured size output "
+        print(f"{error}cannot read the captured size output "
               f"({exc}). This is a tooling error, not a size-budget violation.",
               file=sys.stderr)
         return 2
@@ -878,7 +882,7 @@ def main(argv: list[str] | None = None) -> int:
         syms_text = read_capture(args.readelf_syms)
         secs_text = read_capture(args.readelf_secs) if args.readelf_secs else ""
     except OSError as exc:
-        print(f"::error::teensy-gate: cannot read the captured readelf output "
+        print(f"{error}cannot read the captured readelf output "
               f"({exc}). This is a tooling error, not a size-budget violation.",
               file=sys.stderr)
         return 2

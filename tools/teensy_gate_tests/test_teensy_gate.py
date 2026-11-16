@@ -1188,7 +1188,9 @@ class TestSizeAFallback(unittest.TestCase):
                     sizes_flag, str(sizes),
                     "--readelf-syms", str(syms),
                 ])
-            return rc, buf.getvalue() + err.getvalue()
+            text = buf.getvalue() + err.getvalue()
+            self.assertNotIn("::", text)
+            return rc, text
 
 
 class TestNonUtf8Captures(unittest.TestCase):
@@ -1258,7 +1260,7 @@ class TestToolingFailureExits(unittest.TestCase):
     An uncaught exception would exit 1, the budget-violation code.
     """
 
-    def _run(self, **over):
+    def _run(self, github=False, **over):
         argv = {"--budgets": str(TOOLS / "teensy_budgets.json"),
                 "--teensy-size": str(FIX / "good_teensy_size.txt"),
                 "--readelf-syms": str(FIX / "good_readelf_syms.txt")}
@@ -1266,9 +1268,23 @@ class TestToolingFailureExits(unittest.TestCase):
         err, out = io.StringIO(), io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
             rc = tg.main(["--env", "holosphere"]
+                         + (["--github"] if github else [])
                          + [a for pair in argv.items() for a in pair
                             if pair[1] is not None])
-        return rc, err.getvalue() + out.getvalue()
+        text = err.getvalue() + out.getvalue()
+        if not github:
+            self.assertNotIn("::", text)
+        return rc, text
+
+    def test_github_diagnostics_are_opt_in(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gone = str(Path(tmp) / "gone.txt")
+            for github in (False, True):
+                with self.subTest(github=github):
+                    rc, text = self._run(github=github, **{"--teensy-size": gone})
+                    self.assertEqual(rc, 2, text)
+                    prefix = "::error::" if github else "teensy-gate: error: "
+                    self.assertTrue(text.startswith(prefix), text)
 
     def test_naming_both_size_sources_is_refused(self):
         # Two measurements of the same regions: taking one and ignoring the
