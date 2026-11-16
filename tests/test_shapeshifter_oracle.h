@@ -66,6 +66,20 @@ constexpr size_t MAX_STAR_HIGH_ERROR_PIXELS =
     static_cast<size_t>(MEASURED_STAR_HIGH_ERROR_PIXELS * WHOLE_FRAME_HEADROOM);
 using OracleEffect = ShapeShifter<ORACLE_W, ORACLE_H>;
 
+/** @brief Odd contour tables fit their budget from an unaligned arena offset. */
+inline void test_contour_layout_storage_alignment() {
+  using Layout = Plot::ContourLayout<3>;
+  alignas(Layout::RadiusTrig) std::array<uint8_t, Layout::storage_bytes()>
+      storage{};
+  Arena arena(storage.data(), storage.size());
+  arena.allocate(1);
+  Layout layout;
+  layout.init_storage(arena);
+  HS_EXPECT_LE(arena.get_offset(), Layout::storage_bytes());
+  layout.prepare(3, false);
+  HS_EXPECT_EQ(Layout::folded_draw_index(3, 0), 1);
+}
+
 /** @brief Display bounds used by one oracle render. */
 struct OracleClip {
   int y0 = 0;
@@ -1594,6 +1608,7 @@ inline void test_polar_walk_matches_rotated_chart() {
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
   if (hs_test::env_var("HS_SURFACE_DARK_DIAGNOSTICS")) {
+    HS_RUN(test_contour_layout_storage_alignment);
     HS_RUN(test_surface_footprint_darkening);
     return fixture.result();
   }

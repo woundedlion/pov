@@ -134,7 +134,8 @@ public:
   /** @brief Arena bytes init_storage() takes.
    *  @return Byte count. */
   static constexpr size_t storage_bytes() {
-    return MAX * (4 * sizeof(float) + sizeof(uint16_t) + sizeof(RadiusTrig));
+    return MAX * (4 * sizeof(float) + sizeof(uint16_t) + sizeof(RadiusTrig)) +
+           alignof(RadiusTrig);
   }
 
   /** @brief Binds the tables.
@@ -144,8 +145,8 @@ public:
     phase_sine = arena.allocate_n<float>(MAX);
     phase_cosine = arena.allocate_n<float>(MAX);
     wave = arena.allocate_n<float>(MAX);
-    draw_order = arena.allocate_n<uint16_t>(MAX);
     trig = arena.allocate_n<RadiusTrig>(MAX);
+    draw_order = arena.allocate_n<uint16_t>(MAX);
   }
 
   /** @brief Draw-order position to contour index, alternating outward from
