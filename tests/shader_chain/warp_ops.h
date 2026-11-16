@@ -4,6 +4,11 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <vector>
+
 #include "tests/shader_chain_fixture.h"
 #include "tests/shader_chain/default_chain_mirror.h"
 
@@ -802,6 +807,35 @@ template <typename Model> inline void expect_warp_plane_bound() {
                 {"bound", Model::ID, In::instance_hash("bound", Model::ID)});
   const In::FrameContext ctx = shared_resources().context();
   PB::TranslationLattice lattice{};
+  constexpr std::array INPUT_BOUNDS{0.0f, 0.25f, 1.0f, 4.0f, 32.0f};
+  const auto inputs = [&] {
+    std::array<std::vector<PB::PlaneSample>, INPUT_BOUNDS.size()> groups;
+    for (size_t group = 0; group < INPUT_BOUNDS.size(); ++group) {
+      auto &points = groups[group];
+      points.reserve(96);
+      for (float radius_fraction : {0.0f, 0.5f, 1.0f})
+        for (int direction = 0; direction < 32; ++direction) {
+          const double angle = 2.0 * std::acos(-1.0) * direction / 32;
+          PB::PlaneSample input{};
+          input.coords = {INPUT_BOUNDS[group] * radius_fraction *
+                              static_cast<float>(std::cos(angle)),
+                          INPUT_BOUNDS[group] * radius_fraction *
+                              static_cast<float>(std::sin(angle))};
+          input.provenance.value_weight = 1.0f;
+          input.provenance.fade_edge_distance = 2.0f;
+          input.sphere = math::UP;
+          const auto same_coords = [&](const PB::PlaneSample &other) {
+            return std::bit_cast<uint32_t>(input.coords.re) ==
+                       std::bit_cast<uint32_t>(other.coords.re) &&
+                   std::bit_cast<uint32_t>(input.coords.im) ==
+                       std::bit_cast<uint32_t>(other.coords.im);
+          };
+          if (!std::any_of(points.begin(), points.end(), same_coords))
+            points.push_back(input);
+        }
+    }
+    return groups;
+  }();
   const auto probe = [&](const Params &params) {
     for (float phase : {0.0f, 0.125f, 0.375f, 0.75f}) {
       state.phase = phase;
@@ -811,24 +845,13 @@ template <typename Model> inline void expect_warp_plane_bound() {
           state.rotation = rotation * math::PI_F / 4.0f;
         const auto prepared =
             prepare_with_lattice<Model>(ctx, params, state, lattice);
-        for (float input_bound : {0.0f, 0.25f, 1.0f, 4.0f, 32.0f}) {
-          const float bound =
-              plane_bound_with_lattice<Model>(params, input_bound, lattice);
-          for (float radius_fraction : {0.0f, 0.5f, 1.0f}) {
-            for (int direction = 0; direction < 32; ++direction) {
-              const double angle = 2.0 * std::acos(-1.0) * direction / 32;
-              PB::PlaneSample input{};
-              input.coords = {input_bound * radius_fraction *
-                                  static_cast<float>(std::cos(angle)),
-                              input_bound * radius_fraction *
-                                  static_cast<float>(std::sin(angle))};
-              input.provenance.value_weight = 1.0f;
-              input.provenance.fade_edge_distance = 2.0f;
-              input.sphere = math::UP;
-              const auto output = Model::run(input, ctx, params, prepared);
-              HS_EXPECT_LE(std::hypot(output.coords.re, output.coords.im),
-                           bound + 5e-5f * std::max(1.0f, bound));
-            }
+        for (size_t group = 0; group < INPUT_BOUNDS.size(); ++group) {
+          const float bound = plane_bound_with_lattice<Model>(
+              params, INPUT_BOUNDS[group], lattice);
+          for (const auto &input : inputs[group]) {
+            const auto output = Model::run(input, ctx, params, prepared);
+            HS_EXPECT_LE(std::hypot(output.coords.re, output.coords.im),
+                         bound + 5e-5f * std::max(1.0f, bound));
           }
         }
       }
