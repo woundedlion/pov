@@ -15,7 +15,6 @@
 #include "core/platform/attributes.h"
 #include "core/render/spacetime/surface.h"
 #include <algorithm>
-#include <array>
 #include <cmath>
 
 namespace Spacetime {
@@ -235,8 +234,8 @@ public:
    */
   template <int CAP>
   HS_FLASH_MEMBER void build(const math::Orientation<CAP> &orientation) {
-    std::array<math::Quaternion, CAP> history;
-    build(history.data(), copy_history(orientation, history.data()));
+    const auto history = orientation.history();
+    build(history.data(), static_cast<int>(history.size()));
   }
 
   /** @brief Whether every pose of the built history equals its last.

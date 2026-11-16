@@ -11,6 +11,7 @@
 #include "core/math/3dmath.h"
 #include <algorithm>
 #include <array>
+#include <span>
 
 namespace math {
 
@@ -63,6 +64,12 @@ template <int CAP = 4> class Orientation {
 
 public:
   static constexpr int CAPACITY = CAP; ///< Maximum frames held.
+  /** @brief Borrows the orientation's active history.
+   * @return Poses oldest first; valid until the orientation changes. */
+  std::span<const Quaternion> history() const {
+    return {orientations.data(), static_cast<size_t>(num_frames)};
+  }
+
   /**
    * @brief Default constructor (identity rotation).
    */
