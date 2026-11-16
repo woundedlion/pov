@@ -112,8 +112,9 @@ REGIONS: tuple[str, ...] = tuple(r for _, r in _SECTION_REGION) + ("ram1",)
 
 #: Firmware environments recorded together by default.
 _PLATFORMIO_INI = Path(__file__).resolve().parent.parent / "platformio.ini"
-DEFAULT_ENVIRONMENTS: tuple[str, ...] = (
-    declared_environments(_PLATFORMIO_INI))
+def default_environments() -> tuple[str, ...]:
+    """Firmware environments declared by the current project configuration."""
+    return declared_environments(_PLATFORMIO_INI)
 
 ELF_NAME = "firmware.elf"
 BUILD_INPUTS = (
@@ -122,6 +123,7 @@ BUILD_INPUTS = (
     "tools/cpp_roster.py", "tools/hot_layout.py", "tools/teensy_hot_layout.py",
     "tools/teensy_map.py", "tools/teensy_isystem.py", "tools/teensy_nano.py",
     "tools/teensy_gate.py", "tools/teensy_gate_extra.py",
+    "tools/teensy_budget_schema.py", "tools/teensy_memory.py",
     "tools/profile_isr_window.h",
     "tools/profile_clock.h",
     "tools/pc_sampler.h",
@@ -424,7 +426,7 @@ def working_tree(cwd: str | Path | None = None) -> str:
 
 
 def cmd_record(args) -> int:
-    envs = tuple(args.env) if args.env else DEFAULT_ENVIRONMENTS
+    envs = tuple(args.env) if args.env else default_environments()
     root = Path(_git(["rev-parse", "--show-toplevel"]))
     newest_input = None
     if not args.built:
@@ -582,7 +584,7 @@ def cmd_backfill(args) -> int:
         print(f"[size-trail] no worktree at {worktree}", file=sys.stderr)
         return 2
     trail = Path(args.trail) if args.trail else default_trail()
-    envs = tuple(args.env) if args.env else DEFAULT_ENVIRONMENTS
+    envs = tuple(args.env) if args.env else default_environments()
     build_dir = Path(args.build_dir) if args.build_dir else worktree / ".pio" / "build"
 
     try:
@@ -681,7 +683,7 @@ def build_parser() -> argparse.ArgumentParser:
                      help="record after a successful build, including unchanged cached ELFs")
     rec.add_argument("--env", action="append",
                      help="environment to record (repeatable); default "
-                          + ", ".join(DEFAULT_ENVIRONMENTS))
+                          + ", ".join(default_environments()))
     rec.set_defaults(func=cmd_record)
 
     com = sub.add_parser("commit", help="stamp the pending record and append it")

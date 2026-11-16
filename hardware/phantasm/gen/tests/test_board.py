@@ -7,6 +7,7 @@ import importlib
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -54,6 +55,27 @@ WIRE_OVER_PIN = DANGLING.replace(
     '\t(wire (pts (xy 95 103.81) (xy 105 103.81)))\n')
 
 
+
+
+class ImportBoundaryTests(unittest.TestCase):
+    def test_pcb_data_modules_do_not_import_the_schematic_generator(self):
+        code = (f"import sys;sys.path.insert(0,{str(GEN)!r});"
+                "import pcb_model,pcb_layouts;assert 'board' not in sys.modules;assert 'builder' not in sys.modules")
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([sys.executable, "-c", code], cwd=directory,
+                                    capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ci_configuration_imports_only_production_prerequisites(self):
+        config = GEN.parents[2] / "tools/ci/kicad_config.py"
+        code = ("import runpy,sys;"
+                f"runpy.run_path({str(config)!r});"
+                "assert 'kicad_env' not in sys.modules;"
+                "assert 'board' not in sys.modules;assert 'pcb' not in sys.modules")
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([sys.executable, "-c", code], cwd=directory,
+                                    capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class PowerPinAnchorTests(unittest.TestCase):

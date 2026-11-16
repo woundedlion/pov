@@ -6,8 +6,7 @@ from parts_rev13 import PARTS as REV13_PARTS
 from pcb_model import GROUND_NET
 from pcb_model import TERMINAL_LIBIDS
 from pcb_model import GenerationContext
-import builder
-import board as schematic_generator
+from revision_policy import DEFAULT_REVISION, RevisionLayout, revision_paths
 from pcb_pack import mounting_reserve_rects
 from pcb_model import silk_revision
 
@@ -84,24 +83,24 @@ TERMINAL_FIXED = {
 
 
 REVISION_LAYOUTS = {
-    "1.2": {
-        "edge_placements": TERMINAL_EDGE_PLACEMENTS,
-        "fixed": TERMINAL_FIXED,
-        "local_routes": (
+    "1.2": RevisionLayout(
+        edge_placements=TERMINAL_EDGE_PLACEMENTS,
+        fixed=TERMINAL_FIXED,
+        local_routes=(
             (("C_DEC1", "1"), ("U_MCU", "VIN"), ()),
             (("U_MCU", "3"), ("C_SYNC", "1"), ((19.15, 21.225),)),
             (("R1", "2"), ("C_SYNC", "1"), ()),
             (("R2", "1"), ("C_SYNC", "1"),
              ((20.7875, 21.2), (19.175, 21.2))),
         ),
-        "ground_routes": ((("C_DEC1", "2"), (11.55, 1.35)),
+        ground_routes=((("C_DEC1", "2"), (11.55, 1.35)),
                           (("C_SYNC", "2"), (19.925, 23.0)),
                           (("R2", "2"), (24.4125, 22.0))),
-        "jumper_marks": (("ID0", 54.3, 8.9, 90, "F.SilkS"),
+        jumper_marks=(("ID0", 54.3, 8.9, 90, "F.SilkS"),
                          ("ID1", 54.3, 11.9, 90, "F.SilkS"),
                          ("ID2", 54.3, 15.3, 90, "F.SilkS"),
                          ("SHLD", 54.3, 19.0, 90, "F.SilkS")),
-        "back_silk": [
+        back_silk=[
             ("ID  ID0   ID1   ROLE(N4)", 7.0, 0.9),
             ("0   OPEN  OPEN  MASTER", 9.0, 0.9),
             ("1   GND   OPEN  A-SOUTH", 11.0, 0.9),
@@ -112,25 +111,25 @@ REVISION_LAYOUTS = {
             ("BOARD ID: ____", 23.5, 2.0),
             (silk_revision("1.2"), 29.5, 1.0),
         ],
-        "back_silk_x": {"BOARD ID: ____": 25.5},
-        "sync_marks": "SGH",
-        "terminal_libids": TERMINAL_LIBIDS[:2],
-        "terminal_by_ref": {
+        back_silk_x={"BOARD ID: ____": 25.5},
+        sync_marks="SGH",
+        terminal_libids=TERMINAL_LIBIDS[:2],
+        terminal_by_ref={
             "J1": TERMINAL_LIBIDS[0],
             **dict.fromkeys(("J2", "J3A", "J3B"), TERMINAL_LIBIDS[1]),
         },
-        "part_properties": {},
-    },
-    "1.3": {
-        "edge_placements": TERMINAL_EDGE_PLACEMENTS_1_3,
-        "fixed": TERMINAL_FIXED_1_3,
-        "local_routes": ((("C_DEC1", "1"), ("U_MCU", "VIN"), ()),),
-        "ground_routes": ((("C_DEC1", "2"), (12.275, 10.95)),),
-        "jumper_marks": (("ID0", "JP_ID0", 8.93, 0, "B.SilkS"),
+        part_properties={},
+    ),
+    "1.3": RevisionLayout(
+        edge_placements=TERMINAL_EDGE_PLACEMENTS_1_3,
+        fixed=TERMINAL_FIXED_1_3,
+        local_routes=((("C_DEC1", "1"), ("U_MCU", "VIN"), ()),),
+        ground_routes=((("C_DEC1", "2"), (12.275, 10.95)),),
+        jumper_marks=(("ID0", "JP_ID0", 8.93, 0, "B.SilkS"),
                          ("ID1", "JP_ID1", 8.93, 0, "B.SilkS"),
                          ("ID2", "JP_ID2", 8.93, 0, "B.SilkS"),
                          ("SHLD", "JP_SHLD", 8.93, 0, "B.SilkS")),
-        "back_silk": [
+        back_silk=[
             ("TERM=CABLE ENDS", 7.0, 0.8),
             ("ID  ID0   ID1   ROLE(N4)", 17.0, 0.9),
             ("0   OPEN  OPEN  MASTER", 19.0, 0.9),
@@ -143,34 +142,34 @@ REVISION_LAYOUTS = {
             (silk_revision("1.3"), 31.0, 0.8),
             ("TERM", 8.93, 0.8),
         ],
-        "back_silk_x": {"BOARD ID: ____": 20.0, "TERM": "JP_TERM"},
-        "sync_marks": "ABGH",
-        "terminal_libids": TERMINAL_LIBIDS,
-        "terminal_by_ref": {
+        back_silk_x={"BOARD ID: ____": 20.0, "TERM": "JP_TERM"},
+        sync_marks="ABGH",
+        terminal_libids=TERMINAL_LIBIDS,
+        terminal_by_ref={
             "J1": TERMINAL_LIBIDS[0],
             "J2": TERMINAL_LIBIDS[1],
             **dict.fromkeys(("J3A", "J3B"), TERMINAL_LIBIDS[2]),
         },
-        "part_properties": REV13_PARTS,
-    },
+        part_properties=REV13_PARTS,
+    ),
 }
 
 
 def fixed_placements(comps, ctx=None):
     """Verified fixed origins for the context's component records."""
     layout = (ctx or generation_context()).layout
-    fixed = {ref: placement for ref, placement in layout["fixed"].items()
+    fixed = {ref: placement for ref, placement in layout.fixed.items()
              if ref in comps}
-    fixed.update({ref: placement for ref, placement in layout["edge_placements"].items()
-                  if ref in comps and comps[ref][1] == layout["terminal_by_ref"][ref]})
+    fixed.update({ref: placement for ref, placement in layout.edge_placements.items()
+                  if ref in comps and comps[ref][1] == layout.terminal_by_ref[ref]})
     return fixed
 
 
 def terminal_edge_distances(layout):
     """Resolve one board-edge distance per terminal library footprint."""
     distances = {}
-    for ref, (x, y, rot) in layout["edge_placements"].items():
-        libid = layout["terminal_by_ref"][ref]
+    for ref, (x, y, rot) in layout.edge_placements.items():
+        libid = layout.terminal_by_ref[ref]
         distance = y if rot == 270 else x
         if libid in distances and distances[libid] != distance:
             raise ValueError(f"terminal library {libid} has conflicting board-edge distances")
@@ -182,9 +181,9 @@ def pin_silk_marks(ctx, fixed, length):
     """Resolve jumper and terminal-pin silkscreen labels."""
     layout = ctx.layout
     silk_marks = [(label, fixed[x][0] if isinstance(x, str) else x, y, angle, layer)
-                  for label, x, y, angle, layer in layout["jumper_marks"]]
+                  for label, x, y, angle, layer in layout.jumper_marks]
     for ref, pin_marks in (("J1", "+-"), ("J2", "DGC"),
-                           ("J3A", layout["sync_marks"]), ("J3B", layout["sync_marks"])):
+                           ("J3A", layout.sync_marks), ("J3B", layout.sync_marks)):
         x, y, rot = fixed[ref]
         back = ref == "J1" or ctx.is_rev13 or any(
             x0 <= x + 4.5 <= x1 and y0 <= y + pin * 2.54 <= y1
@@ -213,7 +212,7 @@ def local_routes(ctx, footprints):
 
     layout = ctx.layout
     lines = []
-    for source, destination, bends in layout["local_routes"]:
+    for source, destination, bends in layout.local_routes:
         start, net = terminal(*source)
         end, other_net = terminal(*destination)
         if not net or net != other_net:
@@ -224,7 +223,7 @@ def local_routes(ctx, footprints):
                          f'(end {fmt(b[0])} {fmt(b[1])}) (width 0.2) '
                          f'(layer "F.Cu") (net {net[0]}) '
                          f'(uuid "{uid(site="pcb.py:local_routes")}") (locked yes))')
-    for source, end in layout["ground_routes"]:
+    for source, end in layout.ground_routes:
         start, net = terminal(*source)
         if str(net[-1]).lstrip("/") != GROUND_NET:
             raise ValueError(f"local ground via net mismatch: {source}")
@@ -238,9 +237,9 @@ def local_routes(ctx, footprints):
     return lines
 
 
-def generation_context(revision=builder.REVISION, unplaced=False, output_dir=None):
-    """Resolve revision policy and the schematic generator's output destination."""
+def generation_context(revision=DEFAULT_REVISION, unplaced=False, output_dir=None):
+    """Resolve the revision layout and output destination."""
     if revision not in REVISION_LAYOUTS:
         raise ValueError(f"unsupported board revision: {revision!r}")
-    out, _ = schematic_generator.revision_paths(revision, output_dir)
+    out, _ = revision_paths(revision, output_dir)
     return GenerationContext(revision, unplaced, REVISION_LAYOUTS[revision], out)

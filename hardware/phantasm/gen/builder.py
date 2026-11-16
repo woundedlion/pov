@@ -4,8 +4,7 @@ import math
 import sexp
 from kicad_common import uid, fmt
 
-#: Default revision selected by the schematic and PCB generators.
-REVISION = "1.2"
+from revision_policy import DEFAULT_REVISION as REVISION
 
 
 # ---------- transform: library local coords -> schematic screen coords ----------

@@ -1649,6 +1649,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │           ├── heal_clearance.py           Separate-copy clearance repair
 │           ├── heal_zones.py               Separate-copy zone-feature repair
 │           ├── kicad_common.py             KiCad discovery and shared geometry helpers
+│           ├── kicad_environment.py        Production generation prerequisites for CLI setup and tests
 │           ├── parts_rev13.py              Differential-sync component properties
 │           ├── pcb.py                      PCB generation orchestration and compatibility exports
 │           ├── pcb_emit.py                 Deterministic board serialization
@@ -1657,6 +1658,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │           ├── pcb_layouts.py              Revision placements, labels and locked local routes
 │           ├── pcb_footprints.py           Footprint loading, land overrides and embedding
 │           ├── release.py                  Revisioned fabrication release lifecycle
+│           ├── revision_policy.py          Typed revision paths, schematic choices and placement policy
 │           ├── sexp.py                     KiCad s-expression parsing and serialization
 │           ├── shorts.py                   Schematic geometry short-circuit checks
 │           └── tests/                      Generator and fabrication tests
@@ -1869,6 +1871,8 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── local_ci.sh             Local CI: the ci.yml jobs this machine can run plus the Windows suite, stop-at-first-failure; the pre-push hook runs it in a clean worktree of each pushed commit
 │   ├── render_diff.sh          Compares render hashes between a base commit and the working tree; the pixel no-op proof for refactors and the per-effect report CI publishes
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
+│   ├── teensy_budget_schema.py Read and validate firmware memory-budget declarations
+│   ├── teensy_memory.py        Shared Teensy 4 address regions and FlexRAM geometry
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate when a budgeted env relinks
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
 │   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table

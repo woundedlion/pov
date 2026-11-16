@@ -1002,8 +1002,9 @@ class CommandLineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, \
                 mock.patch.object(fab, "OUT", directory), \
                 mock.patch.object(fab, "fabricate") as fabricate:
+            context = fab.default_context()
             fab.main("1.2")
-        fabricate.assert_called_once_with("1.2")
+        fabricate.assert_called_once_with("1.2", context=context)
 
     def parse(self, argv):
         stdout, stderr = io.StringIO(), io.StringIO()

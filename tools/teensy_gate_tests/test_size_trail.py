@@ -25,6 +25,20 @@ from git_test_env import isolated_env  # noqa: E402
 import teensy_size_trail as tst   # noqa: E402
 
 
+class ImportBoundaryTests(unittest.TestCase):
+    def test_environment_discovery_is_deferred_until_requested(self):
+        code = (f"import sys;sys.path.insert(0,{str(TOOLS)!r});"
+                "import teensy_warnings;calls=[];"
+                "teensy_warnings.declared_environments=lambda path:"
+                "(calls.append(path) or ('probe',));"
+                "import teensy_size_trail as trail;assert calls==[];"
+                "assert trail.default_environments()==('probe',);assert len(calls)==1")
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([sys.executable, "-c", code], cwd=directory,
+                                    capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
 def fixture_env(env=None):
     """Isolate a fixture git call, keeping the caller's private index."""
     fixed = isolated_env()

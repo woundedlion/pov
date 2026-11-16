@@ -52,12 +52,19 @@ class RequirementPins(unittest.TestCase):
         self.root = Path(temporary.name)
         (self.root / "tools").mkdir()
         (self.root / "requirements").mkdir()
-        for name in ("build_pins.py", "teensy_gate.py"):
+        for name in ("build_pins.py", "teensy_budget_schema.py", "teensy_memory.py"):
             shutil.copyfile(TOOLS / name, self.root / "tools" / name)
         for path in (bp.ROOT / "requirements").glob("*.in"):
             shutil.copyfile(path, self.root / "requirements" / path.name)
         self.source = self.root / "requirements/ruff.in"
         self.lock = self.root / "requirements/ruff.txt"
+
+    def test_import_does_not_load_the_firmware_gate(self):
+        code = (f"import sys;sys.path.insert(0,{str(self.root / 'tools')!r});"
+                "import build_pins;assert 'teensy_gate' not in sys.modules")
+        result = subprocess.run([sys.executable, "-c", code], cwd=self.root,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def _run(self, *args, **kwargs):
         return subprocess.run(
@@ -270,10 +277,10 @@ class FlexRamGeometry(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         (self.root / "tools").mkdir()
-        for name in ("teensy_gate.py", "teensy_budgets.json", "phantasm.ld"):
+        for name in ("teensy_memory.py", "teensy_budgets.json", "phantasm.ld"):
             shutil.copyfile(bp.ROOT / "tools" / name, self.root / "tools" / name)
         self.linker = self.root / "tools/phantasm.ld"
-        self.gate = self.root / "tools/teensy_gate.py"
+        self.gate = self.root / "tools/teensy_memory.py"
 
     def check(self):
         with unittest.mock.patch.object(bp, "ROOT", self.root):

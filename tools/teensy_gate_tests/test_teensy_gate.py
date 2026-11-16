@@ -1402,6 +1402,7 @@ class TestGateExtra(unittest.TestCase):
         deps = [d for target, group in self.ge.env.dependencies
                 if target == elf for d in group]
         for name in ("teensy_budgets.json", "teensy_gate.py",
+                     "teensy_budget_schema.py", "teensy_memory.py",
                      "teensy_gate_extra.py", "phantasm.ld"):
             self.assertIn(str(TOOLS / name), deps)
 

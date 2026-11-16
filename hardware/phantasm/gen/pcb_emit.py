@@ -130,8 +130,8 @@ def annotations(ctx, placement, foot_nodes):
                          f'(layer "B.SilkS") (uuid "{uid(site="pcb.py:main")}") '
                          '(effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))')
     legend_x = placements["U_MCU"][0]
-    for text, y, size in layout["back_silk"]:
-        text_x = layout["back_silk_x"].get(text, legend_x)
+    for text, y, size in layout.back_silk:
+        text_x = layout.back_silk_x.get(text, legend_x)
         if isinstance(text_x, str):
             text_x = fixed[text_x][0]
         lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(text_x)} {fmt(y)} 0)'

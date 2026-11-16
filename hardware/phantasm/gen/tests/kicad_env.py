@@ -16,34 +16,12 @@ import sexp  # noqa: E402
 import check  # noqa: E402
 from connectivity import footprint_reference  # noqa: E402
 import kicad_common  # noqa: E402
-from kicad_common import F, kicad_cli, rotate_point  # noqa: E402
+from kicad_common import F, rotate_point  # noqa: E402
+from kicad_common import kicad_cli as kicad_cli  # noqa: E402
+from kicad_environment import generation_blockers  # noqa: E402
 
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
 STOCK_FOOTPRINTS = os.path.isdir(pcb.FP_DIR)
-
-
-def pinned_kicad_cli_error():
-    """None when a kicad-cli on the pin resolves, else why kicad_cli() exited."""
-    try:
-        kicad_cli()
-    except SystemExit as error:
-        return str(error)
-    return None
-
-
-def generation_blockers():
-    """Every missing prerequisite for generating, as human-readable causes."""
-    blockers = []
-    if not STOCK_SYMBOLS:
-        blockers.append(f"KiCad {sexp.KICAD_MAJOR} stock symbols not found; "
-                        "set KICAD_SYMBOL_DIR")
-    if not STOCK_FOOTPRINTS:
-        blockers.append(f"KiCad {sexp.KICAD_MAJOR} stock footprints not found; "
-                        "set KICAD_FOOTPRINT_DIR")
-    cli_error = pinned_kicad_cli_error()
-    if cli_error:
-        blockers.append(cli_error)
-    return blockers
 
 
 GENERATION_BLOCKERS = generation_blockers()

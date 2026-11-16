@@ -130,10 +130,10 @@ def place_components(ctx, netlist):
     if unplaced:
         length = QUILTER_LENGTH
         fixed = pcb_layouts.fixed_placements(comps, ctx)
-        edge_map = layout["edge_placements"]
+        edge_map = layout.edge_placements
         missing_edges = sorted(ref for ref, placement in edge_map.items()
                                if fixed.get(ref) != placement or ref not in comps or
-                               comps[ref][1] != layout["terminal_by_ref"][ref])
+                               comps[ref][1] != layout.terminal_by_ref[ref])
         if missing_edges:
             sys.exit("ERROR connectors require verified edge placements: "
                      + ", ".join(missing_edges))
@@ -201,7 +201,7 @@ def write_footprint_library(ctx, pretty, mod_path, mod_text, existing_mod_text):
     if existing_mod_text != mod_text:
         atomic_write_text(mod_path, mod_text)
     edge_distances = terminal_edge_distances(layout) if ctx.is_rev13 else {}
-    for libid in layout["terminal_libids"]:
+    for libid in layout.terminal_libids:
         name = libid.split(":", 1)[1] + ".kicad_mod"
         source_dir = terminal_library_dir(libid)
         source = os.path.join(source_dir, name)
@@ -229,12 +229,12 @@ def write_footprint_library(ctx, pretty, mod_path, mod_text, existing_mod_text):
 def main(unplaced=False, force=False, force_teensy_library=False,
          revision=builder.REVISION, output_dir=None):
     """Generate the selected revision's draft or fixed-placement project."""
-    ctx = generation_context(revision, unplaced, output_dir)
+    out, sch = schematic_generator.revision_paths(revision, output_dir)
+    ctx = generation_context(revision, unplaced, out)
     selected = ctx.revision
     if ctx.is_rev13 and not unplaced:
         sys.exit("ERROR revision 1.3 has a fixed placement and requires --unplaced")
     out = ctx.out_dir
-    _, sch = schematic_generator.revision_paths(selected, output_dir)
     reset_uid_sequence()
     if unplaced:
         require_writable(os.path.join(out, UNPLACED_FILE), force, UNPLACED_REASON)

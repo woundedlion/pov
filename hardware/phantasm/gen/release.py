@@ -1,7 +1,7 @@
 """Validate candidates and publish source-bound fabrication releases."""
 
 import argparse
-import contextlib
+from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 import json
@@ -63,23 +63,17 @@ def check_candidate(project):
     return status
 
 
-@contextlib.contextmanager
-def project_context(project, output, revision):
-    values = {"OUT": str(output), "JLC": str(output / "jlc"),
-              "PCB": str(project / f"{PROJECT}.kicad_pcb"),
-              "SCH": str(project / f"{PROJECT}.kicad_sch"),
-              "PRO": str(project / f"{PROJECT}.kicad_pro")}
-    if revision == "1.2":
-        values["KNOWN_PARITY_WARNING_COUNTS"] = pcb.GENERATED_LAND_DEVIATIONS.copy()
-        values["OPTIONAL_PARITY_WARNING_MAX"] = pcb.GENERATED_OPTIONAL_DEVIATIONS.copy()
-    previous = {key: getattr(fab, key) for key in values}
-    try:
-        for key, value in values.items():
-            setattr(fab, key, value)
-        yield
-    finally:
-        for key, value in previous.items():
-            setattr(fab, key, value)
+def fabrication_context(project, output, revision):
+    """Build independent paths and parity allowances for a release workspace."""
+    context = fab.default_context()
+    return replace(context, out=str(output), jlc=str(output / "jlc"),
+                   pcb=str(project / f"{PROJECT}.kicad_pcb"),
+                   sch=str(project / f"{PROJECT}.kicad_sch"),
+                   pro=str(project / f"{PROJECT}.kicad_pro"),
+                   known_parity_warning_counts=(pcb.GENERATED_LAND_DEVIATIONS.copy()
+                       if revision == "1.2" else context.known_parity_warning_counts),
+                   optional_parity_warning_max=(pcb.GENERATED_OPTIONAL_DEVIATIONS.copy()
+                       if revision == "1.2" else context.optional_parity_warning_max))
 
 
 def fabrication_options(project, revision):
@@ -193,8 +187,8 @@ def build(project, revision, destination=None):
                         str(evaluated / f"{PROJECT}.kicad_pcb")], check=True)
         evaluated_hashes = sources(evaluated)
         preflight(evaluated, revision)
-        with project_context(evaluated, output, revision):
-            fab.fabricate(revision=revision, validate_only=destination is None, refill_zones=False)
+        fab.fabricate(revision=revision, validate_only=destination is None,
+                      refill_zones=False, context=fabrication_context(evaluated, output, revision))
         if sources(evaluated) != evaluated_hashes or sources(source) != hashes or sources(project) != hashes:
             raise ValueError("sources changed during validation/export; release refused")
         if destination is None:

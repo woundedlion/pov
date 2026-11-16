@@ -470,6 +470,7 @@ class TestHotLayoutLink(unittest.TestCase):
         depends = {Path(d).name for _, deps in env.dependencies for d in deps}
         self.assertLessEqual(
             {"cpp_roster.py", "hot_layout.py", "teensy_gate.py",
+             "teensy_budget_schema.py", "teensy_memory.py",
              "teensy_hot_layout.py", "phantasm.ld"}, depends)
         for target, _ in env.dependencies:
             self.assertEqual(target, "$BUILD_DIR/firmware.elf")

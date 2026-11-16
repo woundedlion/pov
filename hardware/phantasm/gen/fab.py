@@ -18,10 +18,9 @@ The CLI exports only the committed, routed rev 1.1 board and holds
 gen/out/.fab.lock until it finishes; a second CLI run refuses while it
 exists. A lock left by a killed run must be removed by hand.
 
-release.py also calls fabricate() for rev 1.1 and 1.2, rebinding the project
-and output paths to its release workspace without taking the gen/out lock.
-LCSC_BY_REF, ROT_CORRECTION, PART_BY_LCSC and KNOWN_PARITY_ITEMS are shared
-by both revisions; the parity warning-count tables are rebound per revision.
+release.py calls fabricate() with an explicit project/output context for rev
+1.1 and 1.2 without taking the gen/out lock. LCSC_BY_REF, ROT_CORRECTION,
+PART_BY_LCSC and KNOWN_PARITY_ITEMS are shared by both revisions.
 
 kicad-cli is found via $KICAD_CLI, else the pinned release among common install
 paths; PATH is consulted only when no install-path kicad-cli exists.
@@ -29,6 +28,8 @@ paths; PATH is consulted only when no install-path kicad-cli exists.
 import argparse
 import contextlib
 import csv
+from dataclasses import dataclass
+from typing import Mapping
 import hashlib
 import json
 import math
@@ -684,25 +685,28 @@ def require_clean_erc(report_path):
     return count
 
 
-def run_erc(report_path):
+def run_erc(report_path, context=None):
     """Generate and require a clean schematic electrical-rule report."""
+    context = context or default_context()
     if os.path.exists(report_path):
         os.remove(report_path)
     result = run([kicad_cli(), "sch", "erc", "--severity-error", "--format", "json",
-                  "--exit-code-violations", "-o", report_path, SCH], check=False)
+                  "--exit-code-violations", "-o", report_path, context.sch], check=False)
     count = require_clean_erc(report_path)
     if result.returncode:
         raise ElectricalRuleError(f"kicad-cli erc exited {result.returncode} on a clean report: {report_path}")
     return count
 
 
-def run_drc(report_path, refill=False):
+
+def run_drc(report_path, refill=False, context=None):
     """Generate and require a clean error-severity DRC report."""
+    context = context or default_context()
     if os.path.exists(report_path):
         os.remove(report_path)
     result = run([kicad_cli(), "pcb", "drc", "--severity-error", "--format", "json",
                   "--exit-code-violations", *(["--refill-zones"] if refill else []),
-                  "-o", report_path, PCB],
+                  "-o", report_path, context.pcb],
                  check=False)
     counts = require_clean_drc(report_path)
     if result.returncode:
@@ -710,6 +714,7 @@ def run_drc(report_path, refill=False):
             f"kicad-cli drc exited {result.returncode} on a report that lists "
             f"no error-severity items: {report_path}")
     return counts
+
 
 
 class SchematicParityError(ValueError):
@@ -726,12 +731,13 @@ def parity_refs(entry):
     return refs
 
 
-def require_schematic_parity(report_path):
+def require_schematic_parity(report_path, context=None):
     """Return the parity item count or raise on any unexpected difference.
 
     Every KNOWN_PARITY_ITEMS entry must appear exactly once with its expected
     description.
     """
+    context = context or default_context()
     try:
         with open(report_path, encoding="utf-8") as fh:
             report = json.load(fh)
@@ -760,15 +766,15 @@ def require_schematic_parity(report_path):
         key = (kind, ref)
         warning_counts[key] = warning_counts.get(key, 0) + 1
     for kind, ref in sorted(set(warning_counts) |
-                            set(KNOWN_PARITY_WARNING_COUNTS)):
+                            set(context.known_parity_warning_counts)):
         actual = warning_counts.get((kind, ref), 0)
-        optional = OPTIONAL_PARITY_WARNING_MAX.get((kind, ref))
+        optional = context.optional_parity_warning_max.get((kind, ref))
         if optional is not None:
             if actual <= optional:
                 continue
             expected = f"at most {optional}"
         else:
-            expected = KNOWN_PARITY_WARNING_COUNTS.get((kind, ref), 0)
+            expected = context.known_parity_warning_counts.get((kind, ref), 0)
             if actual == expected:
                 continue
         target = (land_diagnostics if kind == "lib_footprint_mismatch"
@@ -802,7 +808,7 @@ def require_schematic_parity(report_path):
         messages = []
         if diagnostics:
             messages.append(
-                f"{PCB} no longer matches {SCH}; update {PCB} "
+                f"{context.pcb} no longer matches {context.sch}; update {context.pcb} "
                 "from its schematic in Pcbnew (Update PCB from Schematic), "
                 "re-route the affected nets and re-run DRC before shipping "
                 "these gerbers:\n  " +
@@ -819,21 +825,24 @@ def require_schematic_parity(report_path):
     return len(entries)
 
 
-def run_parity(report_path, refill=False):
+
+def run_parity(report_path, refill=False, context=None):
     """Generate and require a board that matches the committed schematic."""
+    context = context or default_context()
     if os.path.exists(report_path):
         os.remove(report_path)
     # KiCad reports parity items at warning severity, so they are invisible to
     # the error-severity DRC gate and need their own run.
     result = run([kicad_cli(), "pcb", "drc", "--schematic-parity", "--format", "json",
          "--severity-error", "--severity-warning",
-         *(["--refill-zones"] if refill else []), "-o", report_path, PCB],
+         *(["--refill-zones"] if refill else []), "-o", report_path, context.pcb],
         check=False)
-    count = require_schematic_parity(report_path)
+    count = require_schematic_parity(report_path, context=context)
     if result.returncode:
         raise SchematicParityError(
             f"kicad-cli parity check exited with status {result.returncode}")
     return count
+
 
 
 class NetlistSpecError(ValueError):
@@ -1120,18 +1129,41 @@ def output_lock(directory):
         os.remove(path)
 
 
-def main(revision=ROUTED_REVISION):
-    os.makedirs(OUT, exist_ok=True)
-    with output_lock(OUT):
-        fabricate(revision)
+@dataclass(frozen=True)
+class FabricationContext:
+    """Project paths and parity allowances for one export operation."""
+
+    pcb: str
+    sch: str
+    pro: str
+    out: str
+    jlc: str
+    known_parity_warning_counts: Mapping[tuple[str, str], int]
+    optional_parity_warning_max: Mapping[tuple[str, str], int]
 
 
-def _validate_fabrication_board(revision):
+def default_context():
+    """Snapshot the CLI's default project and current parity allowances."""
+    return FabricationContext(PCB, SCH, PRO, OUT, JLC,
+                              KNOWN_PARITY_WARNING_COUNTS.copy(),
+                              OPTIONAL_PARITY_WARNING_MAX.copy())
+
+
+def main(revision=ROUTED_REVISION, context=None):
+    context = context or default_context()
+    os.makedirs(context.out, exist_ok=True)
+    with output_lock(context.out):
+        fabricate(revision, context=context)
+
+
+
+def _validate_fabrication_board(revision, context=None):
+    context = context or default_context()
     print(f"kicad-cli: {kicad_cli()}")
-    if not os.path.exists(PCB):
-        sys.exit(f"board not found: {PCB}")
+    if not os.path.exists(context.pcb):
+        sys.exit(f"board not found: {context.pcb}")
     try:
-        board = read_board(PCB)
+        board = read_board(context.pcb)
     except BoardReadError as exc:
         sys.exit(str(exc))
     titles = F(board, "title_block")
@@ -1139,20 +1171,20 @@ def _validate_fabrication_board(revision):
         sys.exit(f"board revision does not match requested {revision}")
     print("[1/9] Plot origin + solder mask")
     try:
-        validate_plot_origin(PCB, board=board)
+        validate_plot_origin(context.pcb, board=board)
     except PlotOriginError as exc:
         sys.exit(str(exc))
     print("  plot origin: absolute board coordinates for gerbers, drill, "
           "and centroid")
     try:
-        validate_solder_mask(PCB, board=board)
+        validate_solder_mask(context.pcb, board=board)
     except SolderMaskError as exc:
         sys.exit(str(exc))
     print(f"  solder mask: {MIN_SOLDER_MASK_WEB_MM:g} mm minimum web; vias tented on both sides")
     print("[2/9] Via geometry")
     try:
         num_vias = validate_via_geometry(
-            PCB, min_vias=MIN_BOARD_VIAS if revision == ROUTED_REVISION else 1, board=board)
+            context.pcb, min_vias=MIN_BOARD_VIAS if revision == ROUTED_REVISION else 1, board=board)
     except ViaGeometryError as exc:
         sys.exit(str(exc))
     print(
@@ -1163,7 +1195,7 @@ def _validate_fabrication_board(revision):
         "copper spacing")
     print("[3/9] Zone geometry")
     try:
-        num_zones = validate_zone_geometry(PCB, board=board)
+        num_zones = validate_zone_geometry(context.pcb, board=board)
     except ZoneGeometryError as exc:
         sys.exit(str(exc))
     print(
@@ -1173,51 +1205,55 @@ def _validate_fabrication_board(revision):
     return board
 
 
-def _validate_fabrication_reports(refill_zones):
+
+def _validate_fabrication_reports(refill_zones, context=None):
+    context = context or default_context()
     print("[4/9] DRC + ERC reports and schematic parity")
     try:
-        num_floors = validate_project_rules(PRO)
+        num_floors = validate_project_rules(context.pro)
     except ProjectRulesError as exc:
         sys.exit(str(exc))
     print(f"  project rules: {num_floors} DRC floors meet the fabrication "
           "minimums")
-    rpt = os.path.join(OUT, "phantasm-drc.json")
+    rpt = os.path.join(context.out, "phantasm-drc.json")
     try:
-        num_violations, num_unconnected = run_drc(rpt, refill=refill_zones)
+        num_violations, num_unconnected = run_drc(rpt, refill=refill_zones, context=context)
     except DesignRuleError as exc:
         sys.exit(str(exc))
     print(f"  DRC: {num_violations} error-severity violations, "
           f"{num_unconnected} unconnected items -> {rpt}")
-    erc_rpt = os.path.join(OUT, "phantasm-erc.json")
+    erc_rpt = os.path.join(context.out, "phantasm-erc.json")
     try:
-        num_erc = run_erc(erc_rpt)
+        num_erc = run_erc(erc_rpt, context=context)
     except ElectricalRuleError as exc:
         sys.exit(str(exc))
     print(f"  ERC: {num_erc} error-severity violations -> {erc_rpt}")
-    parity_rpt = os.path.join(OUT, "phantasm-parity.json")
+    parity_rpt = os.path.join(context.out, "phantasm-parity.json")
     try:
-        num_parity = run_parity(parity_rpt, refill=refill_zones)
+        num_parity = run_parity(parity_rpt, refill=refill_zones, context=context)
     except SchematicParityError as exc:
         sys.exit(str(exc))
     print(f"  parity: board matches schematic, {num_parity} known "
           f"differences -> {parity_rpt}")
 
 
-def _prepare_fabrication_assembly(board, revision):
+
+def _prepare_fabrication_assembly(board, revision, context=None):
+    context = context or default_context()
     print("[5/9] Netlist + centroid")
-    net = os.path.join(OUT, "_fab.net")
+    net = os.path.join(context.out, "_fab.net")
     run_export("netlist", [kicad_cli(), "sch", "export", "netlist", "--format",
-                           "kicadsexpr", "-o", net, SCH])
+                           "kicadsexpr", "-o", net, context.sch])
     try:
         num_spec_nets = validate_netlist_spec(net)
     except NetlistSpecError as exc:
         sys.exit(str(exc))
     print(f"  netlist: {num_spec_nets} specified nets match member-for-member")
-    pos = os.path.join(OUT, "_fab_pos.csv")
+    pos = os.path.join(context.out, "_fab_pos.csv")
     # No --use-drill-file-origin: the CPL stays in the same absolute frame as
     # the gerbers and the drill file.
     run_export("centroid", [kicad_cli(), "pcb", "export", "pos", "--format", "csv",
-                            "--units", "mm", "-o", pos, PCB])
+                            "--units", "mm", "-o", pos, context.pcb])
     comps = parse_components(net)
     posrows = {}
     with open(pos, newline='', encoding="utf-8") as fh:
@@ -1242,6 +1278,7 @@ def _prepare_fabrication_assembly(board, revision):
     except PartCatalogError as exc:
         sys.exit(str(exc))
     return comps, assembled, assembly_metadata
+
 
 
 def _write_assembly_files(staged, comps, assembled, assembly_metadata):
@@ -1278,17 +1315,18 @@ def _write_assembly_files(staged, comps, assembled, assembly_metadata):
     return groups
 
 
-def _export_fabrication_plots(staged, board, refill_zones):
+def _export_fabrication_plots(staged, board, refill_zones, context=None):
+    context = context or default_context()
     print("[6/9] Gerbers")
     run_export("gerber", [kicad_cli(), "pcb", "export", "gerbers",
                           *(["--check-zones"] if refill_zones else []), "--layers", GERBER_LAYERS,
-                          "-o", staged + os.sep, PCB])
+                          "-o", staged + os.sep, context.pcb])
     print("[7/9] Drill")
     # Absolute origin, matching the gerbers and the centroid.
     run_export("drill", [kicad_cli(), "pcb", "export", "drill", "--format",
                          "excellon", "--drill-origin", "absolute",
                          "--excellon-units", "mm", "--excellon-separate-th",
-                         "-o", staged + os.sep, PCB])
+                         "-o", staged + os.sep, context.pcb])
 
     # Before the package is assembled: every staged artifact must carry a
     # creation stamp, and a failure has to leave jlc/ untouched.
@@ -1308,7 +1346,9 @@ def _export_fabrication_plots(staged, board, refill_zones):
     return stamped, holes
 
 
-def _promote_fabrication_package(staged, board):
+
+def _promote_fabrication_package(staged, board, context=None):
+    context = context or default_context()
     print("[9/9] JLC upload zip")
     zpath = os.path.join(staged, ARCHIVE)
     try:
@@ -1322,37 +1362,39 @@ def _promote_fabrication_package(staged, board):
         fh.write(package_manifest(staged, members, os.path.basename(zpath)))
 
     try:
-        promote_package(staged, JLC)
+        promote_package(staged, context.jlc)
     except UploadPackageError as exc:
         sys.exit(str(exc))
 
 
-def fabricate(revision=ROUTED_REVISION, validate_only=False, refill_zones=True):
-    board = _validate_fabrication_board(revision)
-    _validate_fabrication_reports(refill_zones)
 
-    comps, assembled, assembly_metadata = _prepare_fabrication_assembly(board, revision)
+def fabricate(revision=ROUTED_REVISION, validate_only=False, refill_zones=True, context=None):
+    context = context or default_context()
+    board = _validate_fabrication_board(revision, context=context)
+    _validate_fabrication_reports(refill_zones, context=context)
+
+    comps, assembled, assembly_metadata = _prepare_fabrication_assembly(board, revision, context=context)
 
     if validate_only:
         return
 
-    if os.path.lexists(JLC + ".previous"):
-        sys.exit(f"recover previous package before promotion: {JLC}.previous")
+    if os.path.lexists(context.jlc + ".previous"):
+        sys.exit(f"recover previous package before promotion: {context.jlc}.previous")
 
     # TemporaryDirectory only removes its own: an aborted run strands its
-    # staging directory under OUT, where nothing else clears it.
-    for name in os.listdir(OUT):
-        stranded = os.path.join(OUT, name)
+    # staging directory under context.out, where nothing else clears it.
+    for name in os.listdir(context.out):
+        stranded = os.path.join(context.out, name)
         if name.startswith(STAGE_PREFIX) and os.path.isdir(stranded) \
                 and not os.path.islink(stranded):
             shutil.rmtree(stranded)
-    with tempfile.TemporaryDirectory(prefix=STAGE_PREFIX, dir=OUT) as staged:
-        stamped, holes = _export_fabrication_plots(staged, board, refill_zones)
+    with tempfile.TemporaryDirectory(prefix=STAGE_PREFIX, dir=context.out) as staged:
+        stamped, holes = _export_fabrication_plots(staged, board, refill_zones, context=context)
         groups = _write_assembly_files(staged, comps, assembled, assembly_metadata)
 
-        _promote_fabrication_package(staged, board)
-    zpath = os.path.join(JLC, ARCHIVE)
-    manifest_path = os.path.join(JLC, SUMS_FILE)
+        _promote_fabrication_package(staged, board, context=context)
+    zpath = os.path.join(context.jlc, ARCHIVE)
+    manifest_path = os.path.join(context.jlc, SUMS_FILE)
     print(f"  creation stamps: {len(stamped)} artifact(s) normalized to {FAB_TIMESTAMP}")
     print(f"  export content: every plotted layer draws; {holes['plated']} "
           f"plated and {holes['unplated']} unplated holes match the board")
@@ -1365,6 +1407,7 @@ def fabricate(revision=ROUTED_REVISION, validate_only=False, refill_zones=True):
     if refill_zones:
         print(f"  commit it to {SHIPPED_SUMS} to record what was ordered, then "
               "re-check the package with fab.py --verify")
+
 
 
 if __name__ == "__main__":

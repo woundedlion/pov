@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+from types import SimpleNamespace
 
 GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
@@ -53,16 +54,16 @@ class PrototypeContractTests(unittest.TestCase):
         cls.board = sexp.parse_one((PROTOTYPE / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
 
     def test_terminal_library_edges_follow_each_reference_pose(self):
-        layout = {
-            "edge_placements": {"J1": (10, 3.43, 270), "J2": (4.2, 20, 0)},
-            "terminal_by_ref": {"J1": "terminal:two", "J2": "terminal:three"},
-        }
+        layout = SimpleNamespace(
+            edge_placements={"J1": (10, 3.43, 270), "J2": (4.2, 20, 0)},
+            terminal_by_ref={"J1": "terminal:two", "J2": "terminal:three"},
+        )
         self.assertEqual(pcb.terminal_edge_distances(layout),
                          {"terminal:two": 3.43, "terminal:three": 4.2})
-        layout["edge_placements"]["J3"] = (30, 3.43, 270)
-        layout["terminal_by_ref"]["J3"] = "terminal:two"
+        layout.edge_placements["J3"] = (30, 3.43, 270)
+        layout.terminal_by_ref["J3"] = "terminal:two"
         self.assertEqual(pcb.terminal_edge_distances(layout)["terminal:two"], 3.43)
-        layout["edge_placements"]["J3"] = (30, 5, 270)
+        layout.edge_placements["J3"] = (30, 5, 270)
         with self.assertRaisesRegex(ValueError, "terminal:two.*conflicting"):
             pcb.terminal_edge_distances(layout)
 

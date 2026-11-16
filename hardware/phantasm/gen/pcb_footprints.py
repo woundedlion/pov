@@ -301,7 +301,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
                     c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
             elif c[1] == "Value":
                 c[2] = value
-    properties = ctx.layout["part_properties"]
+    properties = ctx.layout.part_properties
     for name, value in properties.get(ref, {}).items():
         existing = next((p for p in F(node, "property") if p[1] == name), None)
         if existing is not None:
@@ -439,7 +439,7 @@ def embed_components(ctx, netlist, placement):
                                 hand_assembled=is_hand_assembled(fp, val),
                                 hide_reference=lock,
                                 consumed=consumed, ctx=ctx))
-        if unplaced and ref in layout["edge_placements"]:
+        if unplaced and ref in layout.edge_placements:
             if ctx.is_rev13 or ref == "J1":
                 trim_terminal_silkscreen(foot_nodes[-1], y if rot == 270 else x)
         if ctx.is_rev13:

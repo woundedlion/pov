@@ -160,14 +160,25 @@ class ReleaseTests(unittest.TestCase):
     def test_revision_context_does_not_leak_historical_allowances(self):
         original = fab.KNOWN_PARITY_WARNING_COUNTS
         original_optional = fab.OPTIONAL_PARITY_WARNING_MAX
-        with release.project_context(self.project, self.root, "1.2"):
-            self.assertEqual(fab.PRO, str(self.project / "phantasm.kicad_pro"))
-            self.assertEqual(fab.KNOWN_PARITY_WARNING_COUNTS,
-                             {("lib_footprint_mismatch", "D_BUS"): 1})
-            self.assertEqual(fab.OPTIONAL_PARITY_WARNING_MAX,
-                             {("lib_footprint_mismatch", "J1"): 1})
+        context = release.fabrication_context(self.project, self.root, "1.2")
+        self.assertEqual(context.pro, str(self.project / "phantasm.kicad_pro"))
+        self.assertEqual(context.known_parity_warning_counts,
+                         {("lib_footprint_mismatch", "D_BUS"): 1})
+        self.assertEqual(context.optional_parity_warning_max,
+                         {("lib_footprint_mismatch", "J1"): 1})
         self.assertIs(fab.KNOWN_PARITY_WARNING_COUNTS, original)
         self.assertIs(fab.OPTIONAL_PARITY_WARNING_MAX, original_optional)
+
+    def test_export_contexts_are_independent_when_interleaved(self):
+        first = release.fabrication_context(self.project, self.root / "first", "1.2")
+        second = release.fabrication_context(self.root / "other", self.root / "second", "1.1")
+        defaults = (fab.PCB, fab.SCH, fab.PRO, fab.OUT, fab.JLC)
+        with mock.patch.object(fab, "run", return_value=subprocess.CompletedProcess([], 0)) as run, \
+                mock.patch.object(fab, "require_clean_erc", return_value=0):
+            for context in (first, second, first):
+                self.assertEqual(fab.run_erc(str(self.root / "report.json"), context=context), 0)
+                self.assertEqual(run.call_args.args[0][-1], context.sch)
+                self.assertEqual((fab.PCB, fab.SCH, fab.PRO, fab.OUT, fab.JLC), defaults)
 
     @unittest.skipUnless(GENERATES, GENERATES_REASON)
     def test_real_revision_11_release_exports_and_verifies_package(self):
@@ -183,8 +194,8 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(set(archive.namelist()),
                              fab.board_zip_members(fab.read_board(stage / "phantasm.kicad_pcb")))
 
-    def write_package(self):
-        jlc = Path(fab.JLC)
+    def write_package(self, context):
+        jlc = Path(context.jlc)
         jlc.mkdir()
         for name in fab.ZIP_MEMBERS | set(fab.ASSEMBLY_MEMBERS):
             (jlc / name).write_text(name, encoding="utf-8")
@@ -206,21 +217,21 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn("--save-board", args)
             Path(args[-1]).write_text("refilled", encoding="utf-8")
         expected_revision = revision
-        def fabricate(revision, validate_only, refill_zones):
+        def fabricate(revision, validate_only, refill_zones, context):
             events.append("fabricate")
             self.assertEqual(revision, expected_revision)
             self.assertFalse(refill_zones)
-            self.assertEqual(Path(fab.PCB).read_text(), "refilled")
+            self.assertEqual(Path(context.pcb).read_text(), "refilled")
             if fail == "gate":
-                (Path(fab.OUT) / "phantasm-drc.json").write_text("failed DRC")
+                (Path(context.out) / "phantasm-drc.json").write_text("failed DRC")
                 raise SystemExit("injected gate failure")
             changed = {"source_change": self.project,
-                       "evaluated_change": Path(fab.PCB).parent,
-                       "snapshot_change": Path(fab.PCB).parent.parent / "source"}.get(fail)
+                       "evaluated_change": Path(context.pcb).parent,
+                       "snapshot_change": Path(context.pcb).parent.parent / "source"}.get(fail)
             if changed is not None:
                 (changed / "phantasm.kicad_pro").write_text(f"edit-{fail}", encoding="utf-8")
             if not validate_only:
-                self.write_package()
+                self.write_package(context)
         for name, replacement in (("preflight", preflight), ("fabrication_options", lambda *args: {"finish": "ENIG"})):
             stack.enter_context(mock.patch.object(release, name, side_effect=replacement))
         stack.enter_context(mock.patch.object(release.subprocess, "run", side_effect=refill))
@@ -306,7 +317,7 @@ class ReleaseTests(unittest.TestCase):
                 stack.enter_context(mock.patch.object(fab, "kicad_cli", return_value="fixture-cli"))
                 stack.enter_context(mock.patch.object(
                     fab, "fabricate",
-                    side_effect=lambda revision, validate_only, refill_zones: self.write_package()))
+                    side_effect=lambda revision, validate_only, refill_zones, context: self.write_package(context)))
                 stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
                 stderr = stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
                 destination = self.root / ("package-" + width)

@@ -26,7 +26,7 @@ if sys.version_info < (3, 11):
     raise SystemExit("build_pins requires Python 3.11 or newer")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import teensy_gate
+from teensy_budget_schema import load_budgets
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -546,7 +546,7 @@ def check_flexram_geometry() -> list[str]:
     """Tie the budget and gate constants to the linker script geometry."""
     budgets_path = ROOT / "tools/teensy_budgets.json"
     try:
-        budgets = teensy_gate.load_budgets(budgets_path)
+        budgets = load_budgets(budgets_path)
     except (OSError, ValueError) as exc:
         # BudgetSchemaError and JSON syntax errors are ValueErrors.
         return [f"tools/teensy_budgets.json: {exc}"]
@@ -559,12 +559,12 @@ def check_flexram_geometry() -> list[str]:
         return [f"tools/teensy_budgets.json: missing FlexRAM geometry: {exc}"]
     errors: list[str] = []
 
-    gate_text = read_scanned(ROOT / "tools/teensy_gate.py", errors)
+    gate_text = read_scanned(ROOT / "tools/teensy_memory.py", errors)
     if gate_text is not None:
         gate_match = re.search(r"^FLEXRAM_BANK_BYTES = (0x[0-9a-fA-F]+|\d+)$",
                                gate_text, re.MULTILINE)
         if gate_match is None or int(gate_match.group(1), 0) != bank_bytes:
-            errors.append("tools/teensy_gate.py: FlexRAM bank size differs "
+            errors.append("tools/teensy_memory.py: FlexRAM bank size differs "
                           "from teensy_budgets.json")
 
     shift = bank_bytes.bit_length() - 1

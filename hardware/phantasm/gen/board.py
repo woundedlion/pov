@@ -18,12 +18,12 @@ from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS
                          UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, apply_project_floors)
 from kicad_common import atomic_write_text
 from kicad_common import require_writable, reset_uid_sequence
-from parts_rev13 import PARTS as REV13_PARTS
+from revision_policy import (DEFAULT_OUT, DEFAULT_SCH, GENERATION_REVISIONS,
+                             circuit_policy, revision_paths as resolve_revision_paths)
 
-OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                   B.REVISION)
-SCH = os.path.join(OUT, "phantasm.kicad_sch")
-GENERATION_REVISIONS = ("1.2", "1.3")
+OUT = DEFAULT_OUT
+SCH = DEFAULT_SCH
+
 
 SCH_REASON = (
     "Regeneration replaces this revision's schematic, including any KiCad\n"
@@ -83,13 +83,7 @@ def write_project(path, root_uuid="", unplaced=None):
 
 def revision_paths(revision, output_dir=None):
     """Return the output directory and schematic path for a generation revision."""
-    if revision not in GENERATION_REVISIONS:
-        raise ValueError(f"unsupported board revision: {revision!r}")
-    out = output_dir or (OUT if revision == B.REVISION else os.path.join(
-        os.path.dirname(OUT), revision))
-    sch = SCH if output_dir is None and revision == B.REVISION else os.path.join(
-        out, "phantasm.kicad_sch")
-    return out, sch
+    return resolve_revision_paths(revision, output_dir, default_out=OUT, default_sch=SCH)
 
 
 GND = "GND"
@@ -214,6 +208,7 @@ def register_revision13_symbols(b):
 
 
 def register_symbols(b, revision):
+    policy = circuit_policy(revision)
     register_power_symbol(b, "+5V_RAW"); register_power_symbol(b, "+5V_LOGIC")
     TEENSY, TPN, UNUSED_TEENSY_PINS = register_teensy_symbol(b)
 
@@ -224,10 +219,10 @@ def register_symbols(b, revision):
                       ("Connector_Generic", "Conn_01x02"),
                       ("Connector_Generic", "Conn_01x03"),
                       ("Jumper", "SolderJumper_2_Open"), ("74xx", "74AHCT125")]:
-        if revision != "1.3" or name != "D_Zener":
+        if not policy.differential or name != "D_Zener":
             b.ensure_lib(lib, name)
 
-    if revision == "1.3":
+    if policy.differential:
         register_revision13_symbols(b)
     return TEENSY, TPN, UNUSED_TEENSY_PINS
 
@@ -236,29 +231,21 @@ class Circuit:
     def __init__(self, builder, revision):
         self.b = builder
         self.revision = revision
+        self.policy = circuit_policy(revision)
         self.power_index = 0
-        self.enable_net = "SYNC_DE" if revision == "1.3" else "MASTER_EN"
+        self.enable_net = self.policy.enable_net
         self.teensy, self.teensy_pins, self.unused_teensy_pins = register_symbols(builder, revision)
 
     def place(self, lib, ref, val, x, y, rot=0, unit=1, fp="", dnp=False, in_bom=True):
         symbol = self.b.place(B.Symbol(lib, ref, val, x, y, rot=rot, unit=unit,
                                  footprint=fp, dnp=dnp, in_bom=in_bom,
-                                 properties=REV13_PARTS.get(ref) if self.revision == "1.3" else None))
-        if self.revision == "1.3":
-            offsets = {
-                "U_MCU": {"Reference": (0, -45.72), "Value": (0, 45.72)},
-                "U_SYNC": {"Reference": (-5.08, -15.24), "Value": (8.89, -15.24)},
-                "D_SYNC": {"Reference": (0, -7.62), "Value": (15.24, 5.08)},
-                "U1": {"Value": (-12.7, 5.08)},
-                "Q_REV": {"Reference": (0, -10.16)},
-            }
-            symbol.property_positions.update(
-                (field, (symbol.x + dx, symbol.y + dy))
-                for field, (dx, dy) in offsets.get(ref, {}).items())
-            if ref == "U1" and unit == 5:
-                symbol.property_positions["Reference"] = (symbol.x - 12.7, symbol.y - 2.54)
-            if ref == "U1" and unit in (3, 4):
-                symbol.property_positions["Value"] = (symbol.x - 25.4, symbol.y + 5.08)
+                                 properties=self.policy.part_properties.get(ref)))
+        offsets = {**self.policy.property_offsets.get(ref, {}),
+                   **self.policy.unit_property_offsets.get((ref, unit), {})}
+        symbol.property_positions.update(
+            (field, (symbol.x + dx, symbol.y + dy))
+            for field, (dx, dy) in offsets.items())
+        if self.policy.differential:
             if lib.startswith("Connector_Generic:"):
                 pins = [symbol.pin(number) for number, _ in symbol.pin_uuids]
                 symbol.property_positions["Reference"] = (symbol.x, min(y for _, y in pins) - 2.54)
@@ -286,7 +273,7 @@ class Circuit:
 
 
     def to_power(self, s, num, kind, length=2.54):
-        if self.revision == "1.3":
+        if self.policy.differential:
             dy = s.pin_dir(num)[1]
             if (dy > 0 and kind != GND) or (dy < 0 and kind == GND):
                 length = max(length, 10.16)
@@ -296,7 +283,7 @@ class Circuit:
 
     def to_label(self, s, num, name, length=3.81):
         end = self.b.stub(s, num, length)
-        angle = 180 if self.revision == "1.3" and s.pin_dir(num)[0] < 0 else 0
+        angle = 180 if self.policy.differential and s.pin_dir(num)[0] < 0 else 0
         self.b.label(end, name, angle=angle)
 
 
@@ -344,16 +331,16 @@ class Circuit:
 
 def power_block(ctx):
     b = ctx.b
-    revision = ctx.revision
+    policy = ctx.policy
     place = ctx.place
     hw = ctx.hw
     vw = ctx.vw
     pwr_sym = ctx.pwr_sym
     to_power = ctx.to_power
     rail_drop = ctx.rail_drop
-    b.text((25, 25), "POWER ENTRY / PROTECTION / RAIL FILTER  " + (
-        "(logic budget 0.25 A; LED 4.3 A off-board)" if revision == "1.3" else
-        "(logic ~0.15 A; LED 4.3 A off-board)"), 2.2)
+    budget = f"budget {policy.logic_budget}" if policy.differential else policy.logic_budget
+    b.text((25, 25), "POWER ENTRY / PROTECTION / RAIL FILTER  " +
+           f"(logic {budget}; LED 4.3 A off-board)", 2.2)
     Y_LOG, Y_GND = 60.96, 96.52
 
     # --- light logic feed only; LED 4.3 A power is delivered off-board (spec 2.3) ---
@@ -411,7 +398,7 @@ def power_block(ctx):
 
 def logic_block(ctx):
     b = ctx.b
-    revision = ctx.revision
+    policy = ctx.policy
     enable_net = ctx.enable_net
     TEENSY = ctx.teensy
     TPN = ctx.teensy_pins
@@ -453,31 +440,31 @@ def logic_block(ctx):
                 fp="Package_SO:SOIC-14_3.9x8.7mm_P1.27mm")
     U1E = place("74xx:74AHCT125", "U1", "74AHCT125", 215.9, 137.16, unit=5,
                 fp="Package_SO:SOIC-14_3.9x8.7mm_P1.27mm")
-    data_y, clock_y = (167.64, 137.16) if revision == "1.3" else (137.16, 167.64)
+    data_y, clock_y = policy.data_y, policy.clock_y
     RD1 = place("Device:R", "R_D1", "33R", 177.8, data_y, rot=270, fp=SMD08)
     RD2 = place("Device:R", "R_D2", "33R", 177.8, clock_y, rot=270, fp=SMD08)
-    if revision == "1.2":
+    if not policy.differential:
         RS = place("Device:R", "R_S", "100R", 177.8, 198.12, rot=270, fp=SMD08_HAND)
-    channel_a, channel_b = ("CLK", "DATA") if revision == "1.3" else ("DATA", "CLK")
-    resistor_a, resistor_b = (RD2, RD1) if revision == "1.3" else (RD1, RD2)
+    channel_a, channel_b = policy.channels
+    resistor_a, resistor_b = (RD2, RD1) if policy.differential else (RD1, RD2)
     to_label(U1A, "2", f"{channel_a}_IN"); to_power(U1A, "1", GND)
     series_wire(U1A, "3", resistor_a, channel_a, f"{channel_a}_SRC")
     to_label(U1B, "5", f"{channel_b}_IN"); to_power(U1B, "4", GND)
     series_wire(U1B, "6", resistor_b, channel_b, f"{channel_b}_SRC")
-    if revision == "1.3":
+    if policy.differential:
         for ref, net, y in (("R_DATA_PD", "DATA_IN", 127.0), ("R_CLK_PD", "CLK_IN", 157.48)):
             pull = place("Device:R", ref, "10k", 111.76, y, fp=SMD06)
             to_label(pull, "1", net); to_power(pull, "2", GND)
     # ch C (SYNC)
-    if revision == "1.2":
+    if not policy.differential:
         to_label(U1C, "9", "SYNC_TX"); to_label(U1C, "10", "MASTER_EN"); series_wire(U1C, "8", RS, "SYNC_BUS", "SYNC_SRC")
     else:
         to_power(U1C, "9", GND); to_power(U1C, "10", "+5V_LOGIC")
         b.no_connect(U1C.pin("8"))
     RTX = place("Device:R", "R_TX", "10k", 111.76, 213.36, fp=SMD06)
-    to_label(RTX, "1", "SYNC_TX"); to_power(RTX, "2", GND if revision == "1.2" else V3)
+    to_label(RTX, "1", "SYNC_TX"); to_power(RTX, "2", policy.tx_idle_power)
     to_power(U1D, "12", GND)
-    if revision == "1.2":
+    if not policy.differential:
         # MASTER_EN is active-low; ch D enables the master's bus idle pull-down.
         to_label(U1D, "13", "MASTER_EN")
         to_label(U1D, "11", "SYNC_PULLDOWN")
@@ -580,16 +567,16 @@ def shield_block(ctx):
 
 def strap_block(ctx):
     b = ctx.b
-    revision = ctx.revision
+    policy = ctx.policy
     enable_net = ctx.enable_net
     place = ctx.place
     pwr_sym = ctx.pwr_sym
     to_power = ctx.to_power
     to_label = ctx.to_label
-    b.text((25, 245), "ID STRAPS / " + enable_net + " " + ("PULL-UP" if revision == "1.2" else "PULL-DOWN"), 2.2)
-    enable_resistor = place("Device:R", "R_MEN" if revision == "1.2" else "R_DE",
+    b.text((25, 245), "ID STRAPS / " + enable_net + " " + ("PULL-DOWN" if policy.differential else "PULL-UP"), 2.2)
+    enable_resistor = place("Device:R", policy.enable_ref,
                             "10k", 76.2, 261.62, fp=SMD06)
-    to_power(enable_resistor, "1", V3 if revision == "1.2" else GND)
+    to_power(enable_resistor, "1", policy.enable_power)
     to_label(enable_resistor, "2", enable_net)
     JID0 = place("Jumper:SolderJumper_2_Open", "JP_ID0", "ID0->GND", 127.0, 274.32,
                  fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
@@ -651,12 +638,13 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     out, sch = revision_paths(revision, output_dir)
     reset_uid_sequence()
     require_writable(sch, force, SCH_REASON)
+    policy = circuit_policy(revision)
     builder = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
-                        paper="A2" if revision == "1.3" else "A3", revision=revision)
+                        paper=policy.paper, revision=revision)
     ctx = Circuit(builder, revision)
     power_block(ctx)
     logic_block(ctx)
-    if revision == "1.2":
+    if not policy.differential:
         sync_rev12(ctx)
     else:
         sync_rev13(ctx)

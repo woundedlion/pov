@@ -284,9 +284,9 @@ class ZoneRefillTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "export"):
                     fab.fabricate(refill_zones=refill)
                 fab.run_drc.assert_called_once_with(
-                    str(Path(directory) / "phantasm-drc.json"), refill=refill)
+                    str(Path(directory) / "phantasm-drc.json"), refill=refill, context=fab.default_context())
                 fab.run_parity.assert_called_once_with(
-                    str(Path(directory) / "phantasm-parity.json"), refill=refill)
+                    str(Path(directory) / "phantasm-parity.json"), refill=refill, context=fab.default_context())
 
 
 class FabricationWiringTests(unittest.TestCase):

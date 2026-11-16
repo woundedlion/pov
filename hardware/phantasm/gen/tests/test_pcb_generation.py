@@ -148,7 +148,7 @@ class TerminalFootprintTests(unittest.TestCase):
 
     def test_revision_13_rejects_legacy_connector_footprints(self):
         ctx = pcb.generation_context("1.3")
-        comps = {ref: (ref, pcb.REVISION_LAYOUTS["1.3"]["terminal_by_ref"][ref], "", False)
+        comps = {ref: (ref, pcb.REVISION_LAYOUTS["1.3"].terminal_by_ref[ref], "", False)
                  for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
         self.assertEqual(pcb.fixed_placements(comps, ctx), pcb.TERMINAL_EDGE_PLACEMENTS_1_3)
         comps = {ref: (ref, QUILTER_FIXED_FOOTPRINTS[ref], "", False)
@@ -471,7 +471,7 @@ class TerminalEdgePlacementChecks:
                         self.assertGreaterEqual(
                             x + float(sexp.val(line, endpoint)[0]) - stroke_width / 2,
                             pcb.NEW_LAYOUT_RULES["min_silk_clearance"] - 1e-6)
-                module = pcb.load_mod(pcb.REVISION_LAYOUTS["1.2"]["terminal_by_ref"][ref])
+                module = pcb.load_mod(pcb.REVISION_LAYOUTS["1.2"].terminal_by_ref[ref])
                 outline = next(rect for rect in F(module, "fp_rect")
                                if sexp.val(rect, "layer") == ["F.SilkS"])
                 self.assertEqual(float(sexp.val(outline, "start")[0]), -3.37)

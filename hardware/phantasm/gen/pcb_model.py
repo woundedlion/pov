@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 import os
 import sys
-import board as schematic_generator
+from revision_policy import DEFAULT_OUT, RevisionLayout
 import sexp
 from constraints import (MAX_BOARD_WIDTH_MM)
 from kicad_common import property_value
@@ -12,7 +12,7 @@ from kicad_common import (fmt, F)
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
-OUT = schematic_generator.OUT
+OUT = DEFAULT_OUT
 
 
 TERMINAL_LIBIDS = tuple(
@@ -210,7 +210,7 @@ class GenerationContext:
 
     revision: str
     unplaced: bool
-    layout: dict
+    layout: RevisionLayout
     out_dir: str
 
     @property
