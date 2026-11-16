@@ -298,6 +298,17 @@ private:
     return result;
   }
 
+  static constexpr float STRAND_ALPHA = 0.5f;
+
+  /** @brief Samples the strand palette and opacity.
+   * @param v Strand direction.
+   * @return Strand color. */
+  HS_HOT_INLINE Color4 strand_color(const math::Vector &v) {
+    Color4 result = color(v, 0.0f);
+    result.alpha *= STRAND_ALPHA;
+    return result;
+  }
+
   /**
    * @brief Plots the strand for this sub-step.
    * @param canvas Target canvas to plot into.
@@ -318,8 +329,7 @@ private:
       if (i == 0) {
         auto from = math::pixel_to_vector<W, H>(static_cast<float>(nodes[i].x),
                                                 nodes[i].y);
-        Color4 c = color(from, 0);
-        c.alpha *= 0.5f;
+        const Color4 c = strand_color(from);
         filters.plot(canvas, from, c.color, age, c.alpha);
       } else {
         auto from = math::pixel_to_vector<W, H>(
@@ -327,8 +337,7 @@ private:
         auto to = math::pixel_to_vector<W, H>(static_cast<float>(nodes[i].x),
                                               nodes[i].y);
         auto fragment_shader = [this](const math::Vector &v, Fragment &f) {
-          f.color = color(v, 0);
-          f.color.alpha *= 0.5f;
+          f.color = strand_color(v);
         };
         Fragment f_from;
         f_from.pos = from;
@@ -380,10 +389,7 @@ private:
     Plot::PointRoute<W, H> point;
     point.prepare(canvas, sweep);
     auto shader = [this](const math::Vector &v, Fragment &f, float)
-                      HS_HOT_INLINE {
-                        f.color = color(v, 0.0f);
-                        f.color.alpha *= 0.5f;
-                      };
+                      HS_HOT_INLINE { f.color = strand_color(v); };
     Plot::GeometryCallback geometry;
     geometry.rigid_lattice = true;
     for (int copy = 0; copy < STRAND_COPIES; ++copy) {
@@ -399,11 +405,7 @@ private:
       point.plot(
           filters.template after<Filter::World::Orient>(), canvas, end,
           [&]() HS_HOT_INLINE { return start; },
-          [&]() HS_HOT_INLINE {
-            Color4 c = color(v, 0.0f);
-            c.alpha *= 0.5f;
-            return c;
-          },
+          [&]() HS_HOT_INLINE { return strand_color(v); },
           middle - (start + end) * 0.5f);
       trails.record_world_sample(v, age);
     }
