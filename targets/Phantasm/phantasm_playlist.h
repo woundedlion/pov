@@ -32,20 +32,6 @@ inline constexpr uint64_t HS_PHANTASM_EFFECT_SEEDS[] = {
 #include "targets/Phantasm/phantasm_playlist_rows.h"
 };
 
-/**
- * @brief Show duration the playlist assigns `name`, 0 when absent.
- * @param name Effect class name to look up.
- * @return Duration in seconds.
- */
-constexpr int hs_phantasm_duration_seconds(const char *name) {
-  int seconds = 0;
-#define HS_PHANTASM_ROW(cls, duration_seconds)                                 \
-  if (hs_effect_name_eq(name, #cls))                                           \
-    seconds = (duration_seconds);
-#include "targets/Phantasm/phantasm_playlist_rows.h"
-  return seconds;
-}
-
 /** @brief Roster names the playlist excludes. Dynamo, MobiusRings and
  *  Thrusters are low-resolution only; other exclusions are product curation. */
 inline constexpr const char *const HS_PHANTASM_EXCLUDED_NAMES[] = {

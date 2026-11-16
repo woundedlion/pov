@@ -1667,7 +1667,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── Phantasm/
 │   │   ├── Phantasm.ino        Phantasm entry — 4×Teensy playlist, per-effect seeds, sync config
 │   │   ├── phantasm_playlist.def Device playlist — one show or exclude row per line, in show order
-│   │   ├── phantasm_playlist.h Playlist names, seeds and durations from phantasm_playlist.def, roster drift guards
+│   │   ├── phantasm_playlist.h Playlist names and seeds from phantasm_playlist.def, roster drift guards
 │   │   ├── phantasm_playlist_rows.h Expands phantasm_playlist.def rows through the includer's row macros
 │   │   └── phantasm_target.h   Shared Phantasm-class boilerplate — TOTAL_PIXELS=288, RPM=480, LED transport, geometry, boot, effect construction
 │   ├── Profile/
