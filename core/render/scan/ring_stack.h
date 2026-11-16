@@ -405,19 +405,12 @@ struct DistortedRingStack {
           const float dd = res.dist;
           if (dd >= 0.0f)
             continue;
-          // process_pixel's stroke epilogue with a slot-aware shader.
           const float aa = res.size;
           const float alpha = aa > 0.0f ? math::quintic_kernel(-dd / aa) : 0.0f;
           if (alpha <= MIN_ALPHA)
             continue;
           Fragment frag;
-          frag.pos = p;
-          frag.v0 = res.t;
-          frag.v1 = res.raw_dist;
-          frag.v2 = alpha;
-          frag.v3 = res.aux;
-          frag.size = res.size;
-          frag.age = 0;
+          load_fragment(frag, res, p, alpha);
           shader(s, p, frag);
           if (frag.color.alpha <= MIN_ALPHA)
             continue;
