@@ -195,7 +195,7 @@ inline int run_color_tests() {
   HS_RUN(test_configure_arenas_releases_gamut_lut);
   HS_RUN(test_oklch_to_pixel_holds_hue_out_of_gamut);
 
-  HS_RUN(test_hue_sincos_matches_libm);
+  HS_RUN(test_hue_cos_sin_matches_libm);
   HS_RUN(test_hue_rotate_preserves_gray);
   HS_RUN(test_hue_rotate_full_turn_identity);
   HS_RUN(test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma);

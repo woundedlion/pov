@@ -1042,7 +1042,7 @@ inline Color4 composed_modulation_reference(Color4 base, float turns,
   OKLab lab = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
   lab.L += (1.0f - lab.L) * lift;
   float cosine, sine;
-  hue_sincos(turns, cosine, sine);
+  hue_cos_sin(turns, cosine, sine);
   const OKLab rotated{lab.L, lab.a * cosine - lab.b * sine,
                       lab.a * sine + lab.b * cosine};
   LinRGB output = oklab_to_linear_rgb_lut_gamut(rotated);

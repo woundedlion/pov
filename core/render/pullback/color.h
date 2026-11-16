@@ -905,7 +905,7 @@ HS_HOT_INLINE inline OKLab rotated_palette_lab(OKLab lab, float hue,
   lab.L += (1.0f - lab.L) * lift;
   float cosine;
   float sine;
-  hue_sincos(hue, cosine, sine);
+  hue_cos_sin(hue, cosine, sine);
   return rotate_chroma(lab, cosine, sine);
 }
 

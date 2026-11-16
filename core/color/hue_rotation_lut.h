@@ -183,7 +183,7 @@ prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
       const float amount =
           static_cast<float>(hue_index) / HueRotationLutView::HUE_STEPS;
       float cosine, sine;
-      hue_sincos(amount, cosine, sine);
+      hue_cos_sin(amount, cosine, sine);
       LinRGB raw;
       const Pixel node = rotate_hue_node(base.lab, cosine, sine, raw);
       if (gamut_mask)

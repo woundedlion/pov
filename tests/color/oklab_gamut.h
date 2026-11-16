@@ -800,16 +800,16 @@ inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
 // ============================================================================
 
 /**
- * @brief Verifies hue_sincos tracks libm cosine and sine of a turn angle.
+ * @brief Verifies hue_cos_sin tracks libm cosine and sine of a turn angle.
  * @details Covers turns outside [-0.5, 0.5) so the wrap is exercised; the
  *          approximation error stays under 2e-3.
  */
-inline void test_hue_sincos_matches_libm() {
+inline void test_hue_cos_sin_matches_libm() {
   for (int i = -192; i <= 384; ++i) {
     HS_CONTEXT("turn 192ths", i);
     const float turns = i / 192.0f + 0.0013f;
     float cosine, sine;
-    hue_sincos(turns, cosine, sine);
+    hue_cos_sin(turns, cosine, sine);
     const double angle = 2.0 * std::numbers::pi * turns;
     HS_EXPECT_NEAR(cosine, static_cast<float>(std::cos(angle)), 2e-3f);
     HS_EXPECT_NEAR(sine, static_cast<float>(std::sin(angle)), 2e-3f);

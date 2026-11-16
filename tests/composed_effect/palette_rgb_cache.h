@@ -85,7 +85,7 @@ inline void test_palette_lab_reference_endpoint_lifetime() {
   const Pixel expected =
       ColorModulation::HueRotation::apply(Color4(rgb, 1.0f), HUE, {1.0f}).color;
   float cosine, sine;
-  hue_sincos(HUE, cosine, sine);
+  hue_cos_sin(HUE, cosine, sine);
   const Pixel actual = PaletteLabLutBase::canonical_hue_color(
       reference.view(FRACTION), 0.37f, cosine, sine);
   HS_EXPECT_EQ(actual, expected);
@@ -121,7 +121,7 @@ inline void test_palette_rgb_cache_matches_hue_rotation_table() {
   for (int value = 0; value < HueRotationLutView::VALUE_STEPS; ++value)
     for (int hue = 0; hue < HueRotationLutView::HUE_STEPS; ++hue) {
       float cosine, sine;
-      hue_sincos(float(hue) / HueRotationLutView::HUE_STEPS, cosine, sine);
+      hue_cos_sin(float(hue) / HueRotationLutView::HUE_STEPS, cosine, sine);
       const auto &node =
           cache.nodes[HueRotationLutView::SIZE +
                       value * HueRotationLutView::HUE_STEPS + hue];

@@ -152,7 +152,7 @@ struct PaletteLabLutBase {
   HS_HOT_FLASH_MEMBER static LinRGB
   direct_hue_rgb(const PaletteLabTimeView &time, float value, float hue) {
     float cosine, sine;
-    hue_sincos(hue, cosine, sine);
+    hue_cos_sin(hue, cosine, sine);
     OKLab lab =
         rotate_chroma(PaletteLabLutBase::sample(time, value), cosine, sine);
     LinRGB raw = oklab_to_linear_rgb(lab);
@@ -298,8 +298,8 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
         return;
     std::array<float, HueRotationLutView::HUE_STEPS> cosines, sines;
     for (int hue = 0; hue < HueRotationLutView::HUE_STEPS; ++hue)
-      hue_sincos(float(hue) / HueRotationLutView::HUE_STEPS, cosines[hue],
-                 sines[hue]);
+      hue_cos_sin(float(hue) / HueRotationLutView::HUE_STEPS, cosines[hue],
+                  sines[hue]);
     if (base.rgb_midpoint && previous_base && previous && previous != this &&
         previous->midpoint_active &&
         previous_base->rgb_nodes == previous->nodes.data()) {

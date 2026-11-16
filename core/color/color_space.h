@@ -1093,7 +1093,7 @@ inline LinRGB oklab_to_linear_rgb_lut_gamut(OKLab lab) {
  * @details Not renormalized, unlike turn_to_unit_cos_sin(), so a rotation
  * built from it slightly scales the rotated vector.
  */
-inline void hue_sincos(float turns, float &cosine, float &sine) {
+inline void hue_cos_sin(float turns, float &cosine, float &sine) {
   const float x = 2.0f * (turns - floorf(turns + 0.5f));
   const auto sine_turn = [](float value) HS_HOT_INLINE {
     const float parabolic = 4.0f * value * (1.0f - fabsf(value));
@@ -1108,12 +1108,12 @@ inline void hue_sincos(float turns, float &cosine, float &sine) {
  * @param lab Perceptual input color.
  * @param amount Rotation in turns (0..1 = full turn).
  * @return Hue-rotated linear RGB before quantization.
- * @details Uses hue_sincos(), so chroma scales slightly with @p amount; each
+ * @details Uses hue_cos_sin(), so chroma scales slightly with @p amount; each
  * call rotates a fresh base, so the scaling never compounds.
  */
 inline LinRGB hue_rotate_lut_gamut_rgb(OKLab lab, float amount) {
   float cosine, sine;
-  hue_sincos(amount, cosine, sine);
+  hue_cos_sin(amount, cosine, sine);
   lab = rotate_chroma(lab, cosine, sine);
   return oklab_to_linear_rgb_lut_gamut(lab);
 }
