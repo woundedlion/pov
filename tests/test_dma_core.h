@@ -50,13 +50,12 @@ static_assert(dma::TRANSFER_WATCHDOG_US <
                   (60000000UL / (WATCHDOG_POLICY_RPM * 288)));
 
 /**
- * @brief Pin the per-column transfer bound: exact where the division is whole,
- * rounded UP otherwise.
+ * @brief Checks modeled LPSPI transfer durations and upward rounding.
  */
 inline void test_transfer_us_bound() {
   static_assert(dma::transfer_us(600, 240000000) ==
                 dma::transfer_us(600, 120000000));
-  // Phantasm segment: 72 px -> 600-byte composite at 24 MHz = 230 µs exactly.
+  // Modeled 600-byte composite at 24 MHz.
   HS_EXPECT_EQ(dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE, 24000000ul),
                230ul);
 

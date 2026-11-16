@@ -422,37 +422,51 @@ inline math::Vector animated_cap_rotation_warp(const math::Vector &v,
   return cap_rotation(v, animated_cap_rotation_angle);
 }
 
-struct FloatRowAccumulator {
-  float sum = 0.0f;
-
-  void add(float value) { sum += value; }
-  void remove(float value) { sum -= value; }
-  float average(int width) const { return sum / width; }
-};
-
+/** @brief Dense per-pixel projection and periodic box-filter reference.
+ * @tparam W Frame width.
+ * @tparam H Frame height.
+ * @param y Output row.
+ * @param downsample Number of dense cap rows at each end.
+ * @param style Feedback warp parameters.
+ * @return Expected source latitude at each longitude. */
 template <int W, int H>
 inline std::array<float, W>
 expected_feedback_source_row(int y, int downsample,
                              const ::Feedback::Style &style) {
-  using Layout = hs::SphericalFieldLayout<W, H>;
-  const Layout layout(downsample, downsample, downsample, W / downsample);
+  using Geometry = math::DisplayGeometry<H>;
+  const float ROW_RADIANS =
+      (Geometry::SOUTH_PHI - Geometry::NORTH_PHI) / (H - 1);
   std::array<float, W> source{};
   std::array<float, W> reconstructed{};
-  // Cap rows reconstruct each pixel's own target, so the reference is the
-  // exact warp target row before the infill filter.
-  for (int x = 0; x < W; ++x)
+  for (int x = 0; x < W; ++x) {
+    const math::Vector target =
+        style.space_fn(math::pixel_to_vector<W, H>(x, y), style);
     source[x] =
-        layout.project(style.space_fn(math::pixel_to_vector<W, H>(x, y), style))
-            .y;
-  // The render only longitude-filters the dense infill rows.
+        (std::acos(std::clamp(target.y, -1.0f, 1.0f)) - Geometry::NORTH_PHI) /
+        ROW_RADIANS;
+  }
   const bool north_infill =
-      y < downsample && (!Layout::HAS_NORTH_POLE || y > 0);
+      y < downsample && (!Geometry::HAS_NORTH_POLE || y > 0);
   const bool south_infill =
-      y >= H - downsample && (!Layout::HAS_SOUTH_POLE || y < H - 1);
+      y >= H - downsample && (!Geometry::HAS_SOUTH_POLE || y < H - 1);
   if (!north_infill && !south_infill)
     return source;
-  layout.template reconstruct_longitude_row<FloatRowAccumulator>(
-      source.data(), y, [&](int x, float value) { reconstructed[x] = value; });
+  const float SINE = std::sin(Geometry::NORTH_PHI + y * ROW_RADIANS);
+  int width = W;
+  if (SINE > 1.0f / W) {
+    const int ODD_WIDTH =
+        2 * (static_cast<int>(std::ceil(1.0f / SINE)) / 2) + 1;
+    if (ODD_WIDTH < W - 1)
+      width = ODD_WIDTH;
+  }
+  for (int x = 0; x < W; ++x) {
+    double sum = 0.0;
+    for (int tap = 0; tap < width; ++tap) {
+      const int source_x = (x + tap - width / 2 + W) % W;
+      sum += source[source_x];
+    }
+    reconstructed[x] = static_cast<float>(sum / width);
+  }
   return reconstructed;
 }
 
