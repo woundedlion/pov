@@ -634,6 +634,37 @@ planar_col_span(const math::Vector &a, const math::Basis &planar_basis,
   return true;
 }
 
+/** @brief Tests planar samples against row and column admission gates.
+ * @tparam W,H Rasterization resolution.
+ * @tparam RowGate,ColumnGate Row and column admission callbacks.
+ * @param a Unit-sphere edge start.
+ * @param b Unit-sphere edge end.
+ * @param planar_basis Basis used to unproject planar samples.
+ * @param span Interior samples and arc-gap bound.
+ * @param columns Whether horizontal clipping is active.
+ * @param row_gate Receives the conservative row bounds.
+ * @param column_gate Receives column start/length and the row bounds.
+ * @param end_sample Optional unprojected endpoint output.
+ * @return False only when a gate rejects the planar edge. */
+template <int W, int H, typename RowGate, typename ColumnGate>
+static HS_HOT_INLINE inline bool
+planar_span_reaches_clip(const math::Vector &a, const math::Vector &b,
+                         const math::Basis &planar_basis,
+                         const PlanarEdgeSpan &span, bool columns,
+                         RowGate row_gate, ColumnGate column_gate,
+                         math::Vector *end_sample = nullptr) {
+  float row_lo, row_hi;
+  planar_row_span<H>(a, b, span, row_lo, row_hi);
+  if (!row_gate(row_lo, row_hi))
+    return false;
+  if (!columns)
+    return true;
+  int col_s, col_len;
+  if (!planar_col_span<W>(a, planar_basis, span, col_s, col_len, end_sample))
+    return true;
+  return column_gate(col_s, col_len, row_lo, row_hi);
+}
+
 /**
  * @brief Tests planar edge visibility from an existing cull sample set.
  * @param cr Active raster clip region.
@@ -653,16 +684,13 @@ static inline bool planar_edge_visible_in_clip(
     const math::Vector &b, const math::Basis &planar_basis,
     const PlanarEdgeSpan &span, math::Vector *end_sample = nullptr) {
   HS_AUDIT_CHECK(end_sample == nullptr || xc.active);
-  float row_lo, row_hi;
-  int col_s, col_len;
-  planar_row_span<H>(a, b, span, row_lo, row_hi);
-  if (!cr.could_intersect_y(row_lo, row_hi))
-    return false;
-  if (!xc.active)
-    return true;
-  if (!planar_col_span<W>(a, planar_basis, span, col_s, col_len, end_sample))
-    return true;
-  return ClipRegion::arcs_overlap(xc.rs, xc.length(W), col_s, col_len, W);
+  return planar_span_reaches_clip<W, H>(
+      a, b, planar_basis, span, xc.active,
+      [&](float lo, float hi) { return cr.could_intersect_y(lo, hi); },
+      [&](int start, int length, float, float) {
+        return ClipRegion::arcs_overlap(xc.rs, xc.length(W), start, length, W);
+      },
+      end_sample);
 }
 
 /**

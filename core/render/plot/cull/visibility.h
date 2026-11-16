@@ -274,14 +274,15 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
       if (!bp)
         return geodesic_reaches_region<W, H>(region, ea, eb);
       const PlanarEdgeSpan span = make_planar_edge_span(ea, eb, *bp);
-      float lo, hi;
-      planar_row_span<H>(ea, eb, span, lo, hi);
-      if (!region.could_intersect_rows<H>(lo, hi))
-        return false;
-      int start, length;
-      return !xc.active || !planar_col_span<W>(ea, *bp, span, start, length) ||
-             region.arc_reaches_columns<W>(
-                 start, length, region.column_pad_rows<W, H>(lo, hi));
+      return planar_span_reaches_clip<W, H>(
+          ea, eb, *bp, span, xc.active,
+          [&](float lo, float hi) {
+            return region.could_intersect_rows<H>(lo, hi);
+          },
+          [&](int start, int length, float lo, float hi) {
+            return region.arc_reaches_columns<W>(
+                start, length, region.column_pad_rows<W, H>(lo, hi));
+          });
     }
     if (bp == nullptr) {
       // Geodesic: both span bounds share one edge setup (angle, arc pole).

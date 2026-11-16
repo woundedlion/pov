@@ -63,8 +63,7 @@ template <int CELLS> struct HueRotationRow {
    */
   HS_HOT_FLASH_MEMBER void prepare(int count = KNOTS) {
     for (int i = 0; i < count; ++i)
-      knots[i] =
-          hue_rotate(*base, domain * (static_cast<float>(i) / CELLS)).color;
+      knots[i] = bake_knot(i);
   }
 
   /** @brief Samples knots already baked by prepare().
@@ -82,15 +81,21 @@ template <int CELLS> struct HueRotationRow {
       const uint64_t bit = uint64_t{1} << (index & 63);
       uint64_t &word = valid[index >> 6];
       if (!(word & bit)) {
-        knots[index] =
-            hue_rotate(*base, domain * (static_cast<float>(index) / CELLS))
-                .color;
+        knots[index] = bake_knot(index);
         word |= bit;
       }
     });
   }
 
 private:
+  /** @brief Evaluates one knot of the bound hue domain.
+   * @param index Knot index.
+   * @return Hue-rotated bound color. */
+  HS_HOT_INLINE Pixel bake_knot(int index) const {
+    return hue_rotate(*base, domain * (static_cast<float>(index) / CELLS))
+        .color;
+  }
+
   /**
    * @brief Interpolates the table at a hue offset.
    * @tparam Ensure Knot preparation callback.

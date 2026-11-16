@@ -33,6 +33,7 @@
   X("ray_events", run_ray_event_tests, false)                                  \
   X("hyper_lattice", run_hyper_lattice_tests, false)                           \
   X("geometry", run_geometry_tests, false)                                     \
+  X("dedup", run_dedup_tests, false)                                           \
   X("spherical_field", run_spherical_field_tests, false)                       \
   X("spherical_harmonics", run_spherical_harmonics_tests, false)               \
   X("tangent_field", run_tangent_field_tests, false)                           \
