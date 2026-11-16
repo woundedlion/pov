@@ -239,8 +239,6 @@ async function main(probe) {
     revoked.revoke();
     const throwing = { get schemaVersion() { throw new Error('payload accessor'); } };
     try {
-      if (engine.getPresetCount() !== 0 || engine.getPresetIndex() !== -1)
-        fail('preset: an empty engine must report no selected preset');
       for (let attempt = 0; attempt < 4096; ++attempt) {
         for (const input of [throwing, revoked.proxy]) {
           if (palette.compileAndBakeV4(input).status.code === Module.PaletteCompileCode.OK
@@ -561,6 +559,8 @@ async function main(probe) {
           const [w2, h2] = RESOLUTIONS[RESOLUTIONS.length - 1];
           if (w2 !== w || h2 !== h) {
             if (engine.setResolution(w2, h2) !== RS.RESIZED) fail(`write-seam: setResolution(${w2}, ${h2}) did not report RESIZED`);
+            if (engine.getPresetCount() !== 0 || engine.getPresetIndex() !== -1)
+              fail('preset: an empty engine must report no selected preset');
             if (engine.setClip(0, w2, 0, h2) !== C.NO_EFFECT) {
               fail('write-seam: setClip with no effect set did not report NO_EFFECT');
             }
