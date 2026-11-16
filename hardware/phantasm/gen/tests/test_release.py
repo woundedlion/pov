@@ -102,6 +102,22 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 1)
         self.assertIn("final directories are forbidden", stderr.getvalue())
 
+    def test_cli_reports_index_and_key_errors_without_a_traceback(self):
+        for error in (IndexError("missing stackup"), KeyError("revision")):
+            with self.subTest(error=type(error).__name__), \
+                    mock.patch.object(release, "verify", side_effect=error), \
+                    contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as caught:
+                    release.main(["verify", str(self.destination)])
+                self.assertEqual(caught.exception.code, 1)
+                self.assertEqual(stderr.getvalue(), f"{error}\n")
+
+    def test_cli_prints_the_verified_release_digest(self):
+        with mock.patch.object(release, "verify", return_value="verified-digest"), \
+                contextlib.redirect_stdout(io.StringIO()) as stdout:
+            self.assertIsNone(release.main(["verify", str(self.destination)]))
+        self.assertEqual(stdout.getvalue(), "Release SHA256: verified-digest\n")
+
     def test_preflight_rejects_real_copper_open(self):
         project = self.root / "copper-open"
         release.snapshot(committed_project(), project)

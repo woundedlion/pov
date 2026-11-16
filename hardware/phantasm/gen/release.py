@@ -284,7 +284,7 @@ def main(argv=None):
         else:
             build(args.project.resolve(), args.revision,
                   args.output.resolve() if args.command == "release" else None)
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, IndexError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"{error}\n")
 
 
