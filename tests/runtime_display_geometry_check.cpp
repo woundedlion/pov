@@ -9,6 +9,7 @@
 #include "core/math/spherical_field.h"
 #include "effects/AshCloud.h"
 #include "effects/MeshFeedback.h"
+#include "tests/composed_effect/ashcloud_shared_color.h"
 #include "tests/composed_frame_fixture.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -17,11 +18,6 @@
 #include <cstdio>
 #include <limits>
 #include <string_view>
-
-namespace hs_test::composed_effect_tests {
-inline uint32_t bits(float value) { return std::bit_cast<uint32_t>(value); }
-#include "tests/composed_effect/ashcloud_shared_color.h"
-} // namespace hs_test::composed_effect_tests
 
 namespace {
 template <int W, int H> void check_geometry(float north, float south) {
