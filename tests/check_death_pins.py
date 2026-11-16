@@ -121,19 +121,8 @@ def guard_matches(guard, pin):
     return re.match("".join(pieces), pin) is not None
 
 
-GUARD_RENAME_PINS = (
-    ('core/animation/opleg/sweep.h', '(vertex < V) OpLeg: dual face index out of range', '(vertex < v) OpLeg: dual face index out of range'),
-    ('core/animation/opleg/sweep.h', '(out == V) OpLeg: dual corners incomplete', '(out == v) OpLeg: dual corners incomplete'),
-    ('core/mesh/conway.h', '(static_cast<size_t>(faces[offset + k]) < V) kis: face vertex index out of range', '(static_cast<size_t>(faces[offset + k]) < v) kis: face vertex index out of range'),
-    ('core/mesh/conway.h', '(V <= UINT16_MAX) reconcile_vertices: endpoint exceeds index capacity', '(v <= UINT16_MAX) reconcile_vertices: endpoint exceeds index capacity'),
-    ('core/mesh/hankin.h', '((I / 2) + I <= MeshLimits::MAX_VERTICES) Hankin output vertex count exceeds int16_t index range (oversized source mesh?)', '((i_value / 2) + i_value <= MeshLimits::MAX_VERTICES) Hankin output vertex count exceeds int16_t index range (oversized source mesh?)'),
-    ('core/mesh/hankin.h', '(count + 2 <= (int)(2 * I)) Hankin rosette winding overflow', '(count + 2 <= (int)(2 * i_value)) Hankin rosette winding overflow'),
-    ('core/render/sdf/face_class_bake.h', '(mesh.get_topology_size() == F) build_mesh_class_bake requires classify_faces_by_topology first', '(mesh.get_topology_size() == f_value) build_mesh_class_bake requires classify_faces_by_topology first'),
-    ('core/render/sdf/face_class_bake.h', '(mesh.get_face_offsets_size() == F) build_mesh_class_bake requires one face offset per face', '(mesh.get_face_offsets_size() == f_value) build_mesh_class_bake requires one face offset per face'),
-    ('core/render/sdf/face_class_bake.h', '(static_cast<size_t>(idx[k]) < V) mesh face vertex index out of range', '(static_cast<size_t>(idx[k]) < v_value) mesh face vertex index out of range'),
-    ('targets/wasm/engine_bindings.h', '(setEffect(NAME) == EffectSetResult::INSTALLED) Geometry rebuild must reinstall the current effect', '(setEffect(name) == EffectSetResult::INSTALLED) Geometry rebuild must reinstall the current effect'),
-    ('targets/wasm/engine_bindings.h', '(current_effect->synchronizePreset(PRESET)) Geometry rebuild must restore the selected preset', '(current_effect->synchronizePreset(preset)) Geometry rebuild must restore the selected preset'),
-)
+# Temporary aliases expire once their rename reaches upstream.
+GUARD_RENAME_PINS = ()
 
 
 SOURCE_SUFFIXES = (".h", ".cpp", ".ino")
