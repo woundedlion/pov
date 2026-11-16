@@ -29,6 +29,37 @@
 
 namespace hs_test {
 struct FeedbackWhiteBox {
+  /** @brief Uncached coarse fields fit their advertised scratch budget. */
+  static void test_uncached_scratch_budget() {
+    constexpr int W = 32, H = 16;
+    using Feedback = Filter::Pixel::Feedback<W, H>;
+    for (bool temporal : {false, true}) {
+      const ScopedTemporalSampling sampling(temporal);
+      ScratchScope persistent_scope(persistent_arena);
+      StubEffect effect(W, H, {.replaces_frame = true});
+      ::Feedback::Style style{};
+      style.noise = nullptr;
+      style.fade = 1.0f;
+      style.downsample = W / 2;
+      Feedback feedback(style);
+      feedback.fade_table.init_storage(persistent_arena);
+      const size_t bytes = Feedback::uncached_scratch_bytes(style.downsample);
+      std::vector<uint8_t> storage(bytes);
+      Arena scratch(storage.data(), storage.size());
+      {
+        Canvas canvas(effect);
+        canvas(8, 8) = Pixel(12000, 24000, 36000);
+      }
+      effect.advance_display();
+      Canvas canvas(effect);
+      const auto ctx = feedback.prepare_flush(canvas, 1.0f, scratch);
+      HS_EXPECT_TRUE(ctx.geometry.rows != nullptr);
+      if (temporal)
+        HS_EXPECT_TRUE(ctx.frames.reach != nullptr);
+      HS_EXPECT_LE(scratch.get_high_water_mark(), bytes);
+    }
+  }
+
   /** @brief Cartesian composite and finish agree at the arm cut. */
   static void test_cartesian_cut_roundoff() {
     constexpr int W = 288, H = 16, X = 143, Y = 8, DOWNSAMPLE = 4;
@@ -275,6 +306,7 @@ inline int run_filter_tests() {
   HS_RUN(test_direct_antialias_sink_stale_clip);
   HS_RUN(test_feedback_flush_blends_prev_frame);
   HS_RUN(FeedbackWhiteBox::test_cartesian_cut_roundoff);
+  HS_RUN(FeedbackWhiteBox::test_uncached_scratch_budget);
   HS_RUN(test_feedback_translucent_flush_matches_opaque_blend);
   HS_RUN(test_feedback_custom_color_receives_elapsed_fade);
   HS_RUN(test_feedback_x_clips_match_full_frame);
