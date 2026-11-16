@@ -129,6 +129,9 @@ class ShellGateTests(unittest.TestCase):
         (self.root / "omitted.js").touch()
         self.git("add", "--", "omitted.js")
         self.assertNotEqual(self.gate("eslint_selection_guard.sh").returncode, 0)
+        (self.root / "omitted.js").unlink()
+        deleted = self.gate("eslint_selection_guard.sh")
+        self.assertEqual(deleted.returncode, 0, deleted.stdout + deleted.stderr)
 
     def test_clang_format_requires_version_sources_and_success(self):
         major = int(INLINE_PINS["clang-format"].split(".")[0])

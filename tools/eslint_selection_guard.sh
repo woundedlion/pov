@@ -26,7 +26,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const expected = execFileSync('git', ['ls-files', '-z', '--', '*.js', '*.mjs', '*.cjs'],
-  { encoding: 'utf8' }).split('\0').filter(Boolean).map(name => path.resolve(name));
+  { encoding: 'utf8' }).split('\0').filter(Boolean).map(name => path.resolve(name))
+  .filter(name => fs.existsSync(name));
 let report;
 try {
   report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
