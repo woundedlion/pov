@@ -78,6 +78,24 @@ class IncludePathsTests(unittest.TestCase):
                     self.assertEqual(include_paths.check_includes(self.root, [source, target]), [
                         f'{source}:1: forbidden include "{target}" from {prefix}'])
 
+    def test_sampling_surface_rejects_direct_and_indirect_canvas_dependencies(self):
+        surface = "core/render/spacetime/surface.h"
+        adapter = "core/render/spacetime/adapter.h"
+        canvas = "core/render/canvas.h"
+        files = [surface, adapter, canvas]
+        for name in files:
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("#pragma once\n", encoding="utf-8")
+        (self.root / surface).write_text(f'#include "{adapter}"\n', encoding="utf-8")
+        self.assertEqual(include_paths.check_includes(self.root, files), [])
+        (self.root / adapter).write_text(f'#include "{canvas}"\n', encoding="utf-8")
+        self.assertEqual(include_paths.check_includes(self.root, files), [
+            f'{surface}:1: forbidden dependency "{canvas}" via {surface} -> {adapter} -> {canvas}'])
+        (self.root / surface).write_text(f'#include "{canvas}"\n', encoding="utf-8")
+        self.assertEqual(include_paths.check_includes(self.root, files), [
+            f'{surface}:1: forbidden dependency "{canvas}" via {surface} -> {canvas}'])
+
     def test_legacy_effect_and_vendor_dependency_exemptions(self):
         target = "effects/sample.h"
         self.check("#pragma once\n")

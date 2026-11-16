@@ -1559,7 +1559,8 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   ├── pipeline_ref.h          Borrowed PipelineRef, Plottable, and plot-provider dispatch
 │   │   ├── spacetime.h             Space-time umbrella (surface, worldlines, poses, fields); TemporalRotation, the Timed tag and geometry-callback work counters
 │   │   ├── spacetime/              Space-time geometry and surface-time shading
-│   │   │   ├── surface.h               SamplingSurface, flat-surface selection and simulation time slabs
+│   │   │   ├── surface.h               SamplingSurface, flat-surface selection and time-slab geometry
+│   │   │   ├── simulation.h            Canvas adapters for time-windowed simulation
 │   │   │   ├── motion.h                PathBound, Interpolant and Worldline
 │   │   │   ├── worldlines.h            Per-vertex captures and interpolant selection
 │   │   │   ├── pose_table.h            Orientation poses at shared surface times

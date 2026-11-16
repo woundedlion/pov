@@ -47,6 +47,30 @@ FORBIDDEN_PREFIXES = {
     "tools/phantasm.ld": ("effects/", "targets/", "workbench/", "tests/"),
 }
 
+FORBIDDEN_REACHABLE = {
+    "core/render/spacetime/surface.h": {"core/render/canvas.h"},
+}
+
+
+def check_reachable_includes(graph: dict[str, list[tuple[str, int]]]) -> list[str]:
+    """Return forbidden dependency paths through the parsed include graph."""
+    diagnostics = []
+    for source, forbidden in FORBIDDEN_REACHABLE.items():
+        pending = [(source, [], 1)]
+        visited = set()
+        while pending:
+            current, path, first_line = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            if current in forbidden:
+                route = " -> ".join([source, *path])
+                diagnostics.append(f'{source}:{first_line}: forbidden dependency '
+                                   f'"{current}" via {route}')
+            for target, line in reversed(graph.get(current, [])):
+                pending.append((target, [*path, target], line if not path else first_line))
+    return diagnostics
+
 
 def check_includes(root: Path, files: list[str],
                    sources: dict[str, bytes] | None = None) -> list[str]:
@@ -58,6 +82,7 @@ def check_includes(root: Path, files: list[str],
     """
     known = set(files)
     diagnostics = []
+    graph = {}
     for name in files if sources is None else sorted(sources):
         if Path(name).suffix not in SOURCE_SUFFIXES and name not in LINKER_SCRIPTS:
             continue
@@ -85,6 +110,7 @@ def check_includes(root: Path, files: list[str],
             if canonical is None:
                 continue
             line = text.count("\n", 0, match.start()) + 1
+            graph.setdefault(name, []).append((canonical, line))
             if name != "core/engine/effects_legacy.h":
                 for prefix, forbidden in FORBIDDEN_PREFIXES.items():
                     in_layer = name.startswith(prefix) if prefix.endswith("/") else name == prefix
@@ -93,7 +119,7 @@ def check_includes(root: Path, files: list[str],
             if include != canonical:
                 diagnostics.append(f'{name}:{line}: include "{canonical}" '
                                    f'instead of "{include}"')
-    return diagnostics
+    return diagnostics + check_reachable_includes(graph)
 
 
 def main(argv=None) -> int:

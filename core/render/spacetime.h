@@ -23,6 +23,7 @@
  */
 
 #include "core/render/spacetime/surface.h"
+#include "core/render/spacetime/simulation.h"
 #include "core/render/spacetime/worldlines.h"
 #include "core/render/spacetime/field.h"
 #include "core/render/spacetime/pose_table.h"

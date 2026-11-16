@@ -58,6 +58,10 @@ include directory; generated build headers use their build directory.
 layers for pattern and color modulation headers. Vendored core code and
 `core/engine/effects_legacy.h` are exempt from direction checks. The first-party
 `core/vendor/FastNoiseLite_config.h` follows the `core/` direction rules.
+The parsed include graph also keeps the pure sampling-surface header free of
+direct or indirect Canvas dependencies; Canvas simulation adapters live in
+`core/render/spacetime/simulation.h`. Staged checks inspect the changed subgraph;
+the whole-tree CI check validates complete dependency paths.
 The profiling headers `tools/pc_sampler.h`, `tools/profile_isr_window.h` and
 `tools/profile_clock.h`,
 plus `tools/phantasm.ld`, follow the
