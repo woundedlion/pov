@@ -602,16 +602,14 @@ public:
 
   /**
    * @brief Index of the effect's currently selected preset.
-   * @return The index, 0 when no effect is set — indistinguishable from a real
-   *         selection of preset 0, so a caller tells the two apart by
-   *         getPresetCount() != 0.
+   * @return The index, or -1 when no effect is set.
    * @details Also moves with engine-driven preset advancement, without any JS
    *          call.
    */
-  uint32_t getPresetIndex() const {
+  int32_t getPresetIndex() const {
     return current_effect
-               ? static_cast<uint32_t>(current_effect->getPresetIndex())
-               : 0;
+               ? static_cast<int32_t>(current_effect->getPresetIndex())
+               : -1;
   }
 
   /**
