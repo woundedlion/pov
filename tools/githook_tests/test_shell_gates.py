@@ -156,6 +156,33 @@ class ShellGateTests(unittest.TestCase):
         self.stub("clang-format", f"if [ \"$1\" = --version ]; then echo 'clang-format version {major}.0.0'; else exit 9; fi")
         self.assertNotEqual(self.gate("clang_format_gate.sh").returncode, 0)
 
+    def test_islamic_profile_shape_lookup_stays_inside_names_array(self):
+        self.env["HS_PROFILE_TREE"] = self.root.as_posix()
+        tools = self.root / "tools"
+        tools.mkdir()
+        script = tools / "profile_islamic_big.sh"
+        shutil.copyfile(REPO / "tools" / script.name, script)
+        (tools / "profile_one.sh").write_text('printf "%s\\n" "$@"\n',
+                                              encoding="utf-8", newline="\n")
+        effects = self.root / "effects"
+        effects.mkdir()
+        wanted = "truncatedIcosidodecahedron_truncate50d_ambo_dual"
+        for present in (True, False):
+            with self.subTest(present=present):
+                names = f'  "{wanted}",\n' if present else ""
+                (effects / "IslamicStars.h").write_text(
+                    'inline constexpr std::string_view SHAPE_NAMES[] = {\n'
+                    '  "first",\n' + names + '};\n' + f'  "{wanted}",\n',
+                    encoding="utf-8", newline="\n")
+                result = self.gate(script.name, script=script)
+                if present:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("-D HS_ISLAMICSTARS_PROFILE_SHAPE=1", result.stdout.splitlines())
+                    self.assertNotIn("2", result.stdout.splitlines())
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("profile shape is absent", result.stderr)
+
     def test_shellcheck_refuses_empty_selection_and_propagates_lint_failure(self):
         empty = self.gate("shellcheck_gate.sh")
         self.assertNotEqual(empty.returncode, 0)

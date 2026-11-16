@@ -15,9 +15,10 @@ export HS_PROFILE_EXPECT_SHAPE=truncatedIcosidodecahedron_truncate50d_ambo_dual
 TREE=${HS_PROFILE_TREE:-$(git -C "$(dirname "$0")" rev-parse --show-toplevel)}
 SHAPE=$(awk -v wanted="$HS_PROFILE_EXPECT_SHAPE" '
   /inline constexpr std::string_view SHAPE_NAMES\[\]/ { active=1; next }
+  active && /^[[:space:]]*};/ { exit }
   active && /^[[:space:]]*"/ {
     name=$0; sub(/^[^"]*"/, "", name); sub(/".*/, "", name)
-    if (name == wanted) print ordinal + 0
+    if (name == wanted) { print ordinal + 0; exit }
     ordinal++
     if ($0 ~ /};/) exit
   }
