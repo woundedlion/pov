@@ -1204,6 +1204,11 @@ inline const Case *all_cases(int &n) {
                "(new_offset >= reset_floor) Arena::set_offset below the reset "
                "floor",
                false, "death: admitted"},
+              {"arena_reset_floor_repeated", case_arena_reset_floor_repeated,
+               "core/memory/arena.h",
+               "(reset_floor == 0) Arena::set_reset_floor: "
+               "reset floor already set",
+               false, "death: admitted"},
               {"scratch_scope_non_lifo", case_scratch_scope_non_lifo,
                "core/memory/scratch.h",
                "(arena.get_offset() >= saved_offset) ScratchScope: non-LIFO teardown"},

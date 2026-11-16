@@ -286,9 +286,12 @@ public:
   /**
    * @brief Keeps the current allocations across reset().
    * @details reset() rewinds to this offset from then on; a rewind below it
-   * traps in audit builds, and rebind() clears it.
+   * traps in audit builds, and rebind() clears it. A nonempty floor may be
+   * established only once per rebind; an empty floor may be set again.
    */
   void set_reset_floor() {
+    HS_CHECK(reset_floor == 0,
+             "Arena::set_reset_floor: reset floor already set");
     reset_floor = offset;
 #ifndef NDEBUG
     floor_generation = generation;
