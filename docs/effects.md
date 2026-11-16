@@ -782,9 +782,22 @@ geodesic subdivision.
 | **Planar source** | Bands, Twin Wave, Spiral, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
 | **Spherical source** | Spherical Noise, Spherical Cells | Sphere → Field; noise scale, speed, contrast and basis; cell layout, count, seed, output and border controls |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
-| **Coverage** | Value Cutout | Field → Field; cutout threshold and softness; projection-based coverage belongs to planar sources |
+| **Coverage** | Value Cutout, Probability Coverage | Field → Field; deterministic cutout or per-frame stochastic coverage; projection-based coverage belongs to planar sources |
 | **Colorize** | Cycling-generated, generated, procedural, gradient, mutating | Field → Color; palette-source selection, family-gated palette controls, mapping, phase oscillation, brightness envelope and opacity |
 | **Modulation** | Pattern color modulation | Color → Color; ordered displacement, noise, sine, interference or grid layers affecting hue, lightness or opacity |
+
+Probability Coverage performs a binary lighting trial per direction per frame,
+multiplying existing coverage while retaining the field value for colorization.
+Field Min and Field Max map the field to a clamped drive in [0, 1]. Uniform uses
+that drive directly; Poisson uses the probability of at least one event,
+`1 - exp(-rate * drive)`; Normal uses the CDF of a normal threshold distribution
+truncated to [0, 1], with Mean and Deviation controls. Probability Min and
+Probability Max set the probability floor and ceiling. Both range pairs are
+sorted; equal field bounds form a step. Higher fields never reduce the chance
+of lighting. Seed changes the random stream; repeated evaluations within a frame
+agree, and runtime snapshots retain the frame clock. Each rendered frame rerolls
+the mask, including while automatic preset cycling is paused. Insert it with
+**+** in the shader tool's Field band before Colorize.
 
 Twist Lens exposes Twist Angle (rad), Twist Distribution, Axis Phi (rad), Axis
 Lambda (rad), Speed and Drift. Axis Phi and Axis Lambda place its origin; from

@@ -48,6 +48,7 @@ const FAMILIES = {
   'field.transfer.iso-contour.v2': 'Pullback::Transfer::IsoValueParams',
   'field.transfer.smooth-bands.v2': 'Pullback::Transfer::SmoothBandsParams',
   'field.coverage.value-cutout.v2': 'Pullback::ValueCoverage::CutoutValueParams',
+  'field.coverage.probability.v1': 'Pullback::Interp::Op::ProbabilityCoverageParams',
   'colorize.generated-palette.v4': 'Pullback::Color::AuthoredColorParams',
   'color.modulate.v1': 'Pullback::Modulation::Params<Pattern::SourceKind::NOISE, Pattern::Evaluation::BAKED_CUBE, true>',
 };

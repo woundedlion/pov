@@ -773,6 +773,23 @@ inline void catalog_assignments_field_coverage_value_cutout_v2() {
   (void)params;
 }
 
+inline void catalog_assignments_field_coverage_probability_v1() {
+  Pullback::Interp::Op::ProbabilityCoverageParams params;
+  params.field_min = 0.0f;
+  params.field_max = 1.0f;
+  params.probability_min = 0.0f;
+  params.probability_max = 1.0f;
+  params.rate = 1.0f;
+  params.mean = 0.5f;
+  params.deviation = 0.2f;
+  params.seed = 0.0f;
+  params.distribution = 0;
+  params.distribution = 0;
+  params.distribution = 1;
+  params.distribution = 2;
+  (void)params;
+}
+
 inline void catalog_assignments_colorize_generated_palette_v4() {
   Pullback::Color::AuthoredColorParams params;
   params.palette_chroma = 0.62f;

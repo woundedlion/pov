@@ -278,6 +278,10 @@ class ChainSnapshotCodec {
             out.set("oscillationPhase", state.oscillation_phase);
           } else if constexpr (std::is_same_v<State, ModulationClockSnapshot>) {
             out = modulation_clock(state.modulation);
+          } else if constexpr (std::is_same_v<State,
+                                              ProbabilityClockSnapshot>) {
+            out.set("seed", state.seed);
+            out.set("frame", state.frame);
           } else if constexpr (!std::is_same_v<State, std::monostate>)
             out.set("phase", state.phase);
           return out;
@@ -335,6 +339,12 @@ class ChainSnapshotCodec {
     } else if (kind == "modulation-clock-v1") {
       ModulationClockSnapshot state;
       if (!modulation_clock(value, state.modulation))
+        return false;
+      out = state;
+    } else if (kind == "probability-clock-v1") {
+      ProbabilityClockSnapshot state;
+      if (!integer(value, "seed", state.seed) ||
+          !integer(value, "frame", state.frame))
         return false;
       out = state;
     } else if (kind == "phase-clock-v1") {

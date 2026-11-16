@@ -659,10 +659,14 @@ async function main(probe) {
       const bindings = engine.getShaderChainBindings();
       try {
         const chain = bindings.getSnapshot().chain;
+        chain.splice(chain.findIndex(entry => entry.operator.startsWith('colorize.')), 0,
+          { instance: 'probability', operator: 'field.coverage.probability.v1' });
         chain.push({ instance: 'modulation', operator: 'color.modulate.v1' });
         if (bindings.setShaderChain(chain).code !== 'APPLIED')
           fail('chain-snapshot: modulation layer failed');
         const saved = bindings.getSnapshot();
+        if (!saved.runtime.some(entry => entry.kind === 'probability-clock-v1'))
+          fail('chain-snapshot: probability frame clock missing');
         engine.drawFrame();
         const expected = Array.from(engine.getPixels());
         if (bindings.restoreSnapshot(saved) !== R.APPLIED)
@@ -677,6 +681,15 @@ async function main(probe) {
             || JSON.stringify(bindings.getSnapshot()) !== before)
           fail('chain-snapshot: invalid restore disturbed state');
         for (const mutate of [
+          (snapshot) => {
+            snapshot.runtime.find(entry => entry.kind === 'probability-clock-v1').state.frame = -1;
+          },
+          (snapshot) => {
+            snapshot.runtime.find(entry => entry.kind === 'probability-clock-v1').state.seed = 0.5;
+          },
+          (snapshot) => {
+            snapshot.runtime.find(entry => entry.kind === 'probability-clock-v1').state.frame = 2 ** 32;
+          },
           (snapshot) => { snapshot.modulation[0].recipe.version = 99; },
           (snapshot) => { snapshot.modulation[0].recipe.source = 99; },
           (snapshot) => {

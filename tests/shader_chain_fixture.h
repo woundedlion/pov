@@ -384,6 +384,10 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           static_assert(sizeof(T) == 2 * sizeof(uint32_t));
           put(v.phase);
           put(v.noise_seed);
+        } else if constexpr (std::is_same_v<T, In::ProbabilityClockSnapshot>) {
+          static_assert(sizeof(T) == 2 * sizeof(uint32_t));
+          put(v.seed);
+          put(v.frame);
         } else if constexpr (std::is_same_v<T, In::RippleClockSnapshot>) {
           static_assert(
               sizeof(T) ==

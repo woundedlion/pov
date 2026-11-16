@@ -6,6 +6,7 @@
 
 #include "core/math/scalar_kernels.h"
 #include "core/math/3dmath.h"
+#include "core/math/scalar_noise.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -15,8 +16,7 @@
 
 /**
  * @file field.h
- * @brief FIELD-endomorphism operator models: the value transfers and the
- *        value-dependent coverage cut.
+ * @brief FIELD transfer and deterministic or stochastic coverage operators.
  */
 
 namespace Pullback {
@@ -95,6 +95,158 @@ struct CoverageValueCutout : FieldEndoModel<ValueCutoutChainParams> {
     return Kernel::coverage(
         input, ValueCoverage::value_cutout(input.value, params.cutout_threshold,
                                            params.cutout_softness));
+  }
+};
+
+/** @brief Parameters of field.coverage.probability.v1. */
+struct ProbabilityCoverageParams {
+  float field_min = 0.0f;       ///< Field value mapped to zero drive.
+  float field_max = 1.0f;       ///< Field value mapped to unit drive.
+  float probability_min = 0.0f; ///< Lower lighting probability.
+  float probability_max = 1.0f; ///< Upper lighting probability.
+  float rate = 1.0f;            ///< Poisson events per frame at unit drive.
+  float mean = 0.5f;            ///< Normal threshold mean in drive units.
+  float deviation = 0.2f;       ///< Normal threshold standard deviation.
+  float seed = 0.0f;            ///< Additional integer random stream seed.
+  uint8_t distribution = 0;     ///< Uniform, Poisson or normal response.
+
+  /** @brief Distribution selector spellings. */
+  static constexpr const char *DISTRIBUTIONS[] = {"uniform", "poisson",
+                                                  "normal"};
+  static constexpr auto FIELDS =
+      std::to_array<Field<ProbabilityCoverageParams>>({
+          {"field-min", &ProbabilityCoverageParams::field_min, "Field Min", 0,
+           1},
+          {"field-max", &ProbabilityCoverageParams::field_max, "Field Max", 0,
+           1},
+          {"probability-min", &ProbabilityCoverageParams::probability_min,
+           "Probability Min", 0, 1},
+          {"probability-max", &ProbabilityCoverageParams::probability_max,
+           "Probability Max", 0, 1},
+          {"rate",
+           &ProbabilityCoverageParams::rate,
+           "Poisson Rate",
+           0,
+           16,
+           FieldCurve::LERP,
+           FieldGate::ALWAYS,
+           {"distribution", live_values(1)}},
+          {"mean",
+           &ProbabilityCoverageParams::mean,
+           "Normal Mean",
+           0,
+           1,
+           FieldCurve::LERP,
+           FieldGate::ALWAYS,
+           {"distribution", live_values(2)}},
+          {"deviation",
+           &ProbabilityCoverageParams::deviation,
+           "Normal Deviation",
+           0.01f,
+           1,
+           FieldCurve::LOG_POSITIVE,
+           FieldGate::ALWAYS,
+           {"distribution", live_values(2)}},
+          {"seed", &ProbabilityCoverageParams::seed, "Seed", 0, 65535,
+           FieldCurve::SNAP},
+      });
+  static constexpr auto TOPOLOGY =
+      std::to_array<TopologyField<ProbabilityCoverageParams>>({
+          {"distribution", &ProbabilityCoverageParams::distribution,
+           DISTRIBUTIONS, 0},
+      });
+};
+static_assert(field_ids_unique<ProbabilityCoverageParams>());
+static_assert(field_defaults_in_range<ProbabilityCoverageParams>());
+
+/** @brief Instance seed and discrete frame clock of probability coverage. */
+struct ProbabilityClockState {
+  uint32_t seed = 0;  ///< Instance random stream.
+  uint32_t frame = 0; ///< Frames advanced, modulo 2^32.
+};
+
+/** @brief Empty interval for a discrete frame clock.
+ * @return An empty interval. */
+inline EmptyState temporal_interval(const ProbabilityClockState &,
+                                    const ProbabilityClockState &) {
+  return {};
+}
+
+/** @brief Holds the current frame's random stream across column times. */
+inline void temporal_sample(ProbabilityClockState &, const EmptyState &,
+                            const ProbabilityCoverageParams &, float) {}
+
+/** @brief FIELD coverage: independent Bernoulli trials driven by field value. */
+struct CoverageProbability : ValueStateModel<ProbabilityClockState> {
+  static constexpr const char *ID = "field.coverage.probability.v1";
+  static constexpr const char *NAME = "Probability Coverage";
+  using Input = FieldSample;
+  using Output = FieldSample;
+  using Params = ProbabilityCoverageParams;
+  /** @brief Frame seed and normal-distribution constants. */
+  struct Prepared {
+    uint32_t seed;      ///< Instance and authored stream seed.
+    uint32_t frame;     ///< Discrete frame index.
+    float normal_low;   ///< Error function at zero drive.
+    float normal_span;  ///< Error-function range across unit drive.
+    float normal_scale; ///< 1 / (deviation * sqrt(2)).
+  };
+
+  static void init(State &state, InstanceId id) { state.seed = id.stable_hash; }
+  static void advance(State &state, const Params &) { ++state.frame; }
+
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &state) {
+    Prepared out{state.seed ^ static_cast<uint32_t>(params.seed), state.frame,
+                 0, 1, 1};
+    if (params.distribution == 2) {
+      out.normal_scale = 1.0f / (params.deviation * sqrtf(2.0f));
+      out.normal_low = erff(-params.mean * out.normal_scale);
+      out.normal_span =
+          erff((1.0f - params.mean) * out.normal_scale) - out.normal_low;
+    }
+    return out;
+  }
+
+  /** @brief Lighting probability for a normalized field sample.
+   * @param value Input field value.
+   * @param params Distribution and range controls.
+   * @param prepared Frame constants.
+   * @return Probability in [0, 1], nondecreasing in @p value. */
+  static float probability(float value, const Params &params,
+                           const Prepared &prepared) {
+    const float LOW = std::min(params.field_min, params.field_max);
+    const float HIGH = std::max(params.field_min, params.field_max);
+    float drive = HIGH > LOW
+                      ? std::clamp((value - LOW) / (HIGH - LOW), 0.0f, 1.0f)
+                      : float(value >= HIGH);
+    if (params.distribution == 1)
+      drive = -expm1f(-params.rate * drive);
+    else if (params.distribution == 2)
+      drive = std::clamp((erff((drive - params.mean) * prepared.normal_scale) -
+                          prepared.normal_low) /
+                             prepared.normal_span,
+                         0.0f, 1.0f);
+    const float MINIMUM =
+        std::min(params.probability_min, params.probability_max);
+    const float MAXIMUM =
+        std::max(params.probability_min, params.probability_max);
+    return MINIMUM + (MAXIMUM - MINIMUM) * drive;
+  }
+
+  static FieldSample run(const FieldSample &input, const FrameContext &,
+                         const Params &params, const Prepared &prepared) {
+    uint32_t point = hs::FNV1A_32_BASIS;
+    for (const float coordinate :
+         {input.sphere.x, input.sphere.y, input.sphere.z}) {
+      const auto cell = static_cast<uint32_t>(
+          (std::clamp(coordinate, -1.0f, 1.0f) + 1.0f) * 32768.0f);
+      point = (point ^ cell) * hs::FNV1A_32_PRIME;
+    }
+    const float draw =
+        math::hash01(point, prepared.seed + prepared.frame * 0x9e3779b9U);
+    return Kernel::coverage(
+        input, float(draw < probability(input.value, params, prepared)));
   }
 };
 

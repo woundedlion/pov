@@ -9,6 +9,140 @@
 
 namespace hs_test::shader_chain_tests {
 
+/** @brief Distribution controls produce monotone lighting probabilities. */
+inline void test_shader_chain_probability_response() {
+  using Op = In::Op::CoverageProbability;
+  Op::Params params;
+  const In::FrameContext ctx;
+  Op::State state;
+  auto prepared = Op::prepare(ctx, params, state);
+  HS_EXPECT_NEAR(Op::probability(.25f, params, prepared), .25f, 1e-6f);
+  params.field_min = .2f;
+  params.field_max = .8f;
+  params.probability_min = .1f;
+  params.probability_max = .9f;
+  HS_EXPECT_NEAR(Op::probability(.35f, params, prepared), .3f, 1e-6f);
+  HS_EXPECT_NEAR(Op::probability(0, params, prepared), .1f, 1e-6f);
+  HS_EXPECT_NEAR(Op::probability(1, params, prepared), .9f, 1e-6f);
+  std::swap(params.field_min, params.field_max);
+  std::swap(params.probability_min, params.probability_max);
+  HS_EXPECT_NEAR(Op::probability(.35f, params, prepared), .3f, 1e-6f);
+  params.field_min = params.field_max = .5f;
+  HS_EXPECT_NEAR(Op::probability(.49f, params, prepared), .1f, 1e-6f);
+  HS_EXPECT_NEAR(Op::probability(.5f, params, prepared), .9f, 1e-6f);
+
+  params = {};
+  params.distribution = 1;
+  params.rate = 2;
+  prepared = Op::prepare(ctx, params, state);
+  HS_EXPECT_NEAR(Op::probability(.5f, params, prepared), .632120559f, 1e-6f);
+  params.rate = 0;
+  HS_EXPECT_EQ(Op::probability(1, params, prepared), 0);
+  params.distribution = 2;
+  params.deviation = .1f;
+  prepared = Op::prepare(ctx, params, state);
+  HS_EXPECT_NEAR(Op::probability(.3f, params, prepared), .022749858f, 1e-6f);
+  HS_EXPECT_NEAR(Op::probability(.5f, params, prepared), .5f, 1e-6f);
+  params.mean = .3f;
+  prepared = Op::prepare(ctx, params, state);
+  HS_EXPECT_GT(Op::probability(.3f, params, prepared), .49f);
+
+  for (uint8_t distribution = 0; distribution < 3; ++distribution)
+    for (float deviation : {.01f, .2f, 1.0f})
+      for (float mean : {0.0f, .5f, 1.0f}) {
+        params.distribution = distribution;
+        params.deviation = deviation;
+        params.mean = mean;
+        params.rate = 16;
+        prepared = Op::prepare(ctx, params, state);
+        float previous = 0;
+        for (int step = 0; step <= 100; ++step) {
+          const float probability =
+              Op::probability(step * .01f, params, prepared);
+          HS_EXPECT_TRUE(std::isfinite(probability));
+          HS_EXPECT_GE(probability, previous);
+          HS_EXPECT_LE(probability, 1);
+          previous = probability;
+        }
+      }
+}
+
+/** @brief Masks match event rates, reroll per frame and survive migration. */
+inline void test_shader_chain_probability_mask() {
+  using Op = In::Op::CoverageProbability;
+  const In::FrameContext ctx;
+  const In::InstanceId ID{"sparkles", Op::ID,
+                          In::instance_hash("sparkles", Op::ID)};
+  Op::State state;
+  Op::init(state, ID);
+  for (uint8_t distribution = 0; distribution < 3; ++distribution) {
+    Op::Params params;
+    params.distribution = distribution;
+    params.rate = 2;
+    const float EXPECTED = distribution == 1 ? .632120559f : .5f;
+    const auto prepared = Op::prepare(ctx, params, state);
+    Op::advance(state, params);
+    const auto next = Op::prepare(ctx, params, state);
+    auto seeded_params = params;
+    seeded_params.seed = 1;
+    const auto seeded = Op::prepare(ctx, seeded_params, state);
+    size_t lit = 0;
+    size_t changed = 0;
+    size_t stream_changed = 0;
+    constexpr size_t POINTS = 8192;
+    for (size_t index = 0; index < POINTS; ++index) {
+      const float ANGLE = math::TWO_PI_F * float(index) / float(POINTS);
+      const PB::FieldSample INPUT{.5f, .6f, {cosf(ANGLE), sinf(ANGLE), 0}, 3};
+      const auto output = Op::run(INPUT, ctx, params, prepared);
+      HS_EXPECT_TRUE(output.coverage == 0 || output.coverage == INPUT.coverage);
+      HS_EXPECT_EQ(output.value, INPUT.value);
+      HS_EXPECT_EQ(output.path_length, INPUT.path_length);
+      HS_EXPECT_EQ(output.sphere.x, INPUT.sphere.x);
+      HS_EXPECT_EQ(output.sphere.y, INPUT.sphere.y);
+      HS_EXPECT_EQ(output.sphere.z, INPUT.sphere.z);
+      HS_EXPECT_TRUE(
+          field_identical(output, Op::run(INPUT, ctx, params, prepared)));
+      lit += output.coverage > 0;
+      const auto following = Op::run(INPUT, ctx, params, next);
+      changed += output.coverage != following.coverage;
+      stream_changed += following.coverage !=
+                        Op::run(INPUT, ctx, seeded_params, seeded).coverage;
+      auto blocked = INPUT;
+      blocked.coverage = 0;
+      HS_EXPECT_EQ(Op::run(blocked, ctx, params, prepared).coverage, 0);
+    }
+    HS_EXPECT_NEAR(float(lit) / float(POINTS), EXPECTED, .025f);
+    HS_EXPECT_GT(changed, POINTS / 4);
+    HS_EXPECT_GT(stream_changed, POINTS / 4);
+    Op::State migrated;
+    HS_EXPECT_EQ(Op::migrate(migrated, state, ID), In::Status::OK);
+    HS_EXPECT_EQ(migrated.frame, state.frame);
+    HS_EXPECT_EQ(migrated.seed, state.seed);
+    const auto saved = In::RuntimeStateCodec<Op::State>::capture(state);
+    HS_EXPECT_TRUE(std::holds_alternative<In::ProbabilityClockSnapshot>(saved));
+    Op::advance(state, params);
+    HS_EXPECT_TRUE(In::RuntimeStateCodec<Op::State>::restore(state, saved));
+    HS_EXPECT_EQ(state.frame, migrated.frame);
+    HS_EXPECT_EQ(state.seed, migrated.seed);
+    const auto interval = In::Op::temporal_interval(Op::State{}, state);
+    for (float fraction : {0.0f, .5f, 1.0f}) {
+      auto column = state;
+      In::Op::temporal_sample(column, interval, params, fraction);
+      HS_EXPECT_EQ(column.frame, state.frame);
+      HS_EXPECT_EQ(column.seed, state.seed);
+    }
+  }
+  Op::Params params;
+  const auto prepared = Op::prepare(ctx, params, state);
+  HS_EXPECT_EQ(Op::run({0, 1, math::X_AXIS, 0}, ctx, params, prepared).coverage,
+               0);
+  HS_EXPECT_EQ(Op::run({1, 1, math::X_AXIS, 0}, ctx, params, prepared).coverage,
+               1);
+  state.frame = UINT32_MAX;
+  Op::advance(state, params);
+  HS_EXPECT_EQ(state.frame, 0u);
+}
+
 // --- field-op mirrors -----------------------------------------------------
 
 /** Mirror frame for the FIELD endomorphism batch. */

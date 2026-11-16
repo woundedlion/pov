@@ -836,6 +836,8 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_projection_frame_policy);
   HS_RUN(test_shader_chain_parity_project_hemispheres);
   HS_RUN(test_shader_chain_parity_field_ops);
+  HS_RUN(test_shader_chain_probability_response);
+  HS_RUN(test_shader_chain_probability_mask);
   HS_RUN(test_shader_chain_parity_warp_affine_mirror);
   HS_RUN(test_shader_chain_affine_lattice_wrap);
   HS_RUN(test_shader_chain_affine_lattice_distance);

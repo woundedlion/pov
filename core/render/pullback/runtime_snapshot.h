@@ -61,6 +61,11 @@ struct ColorClockSnapshot {
 struct ModulationClockSnapshot {
   Modulation::State modulation; ///< Typed source identity and phase.
 };
+/** @brief Captured per-frame probability sampling clock. */
+struct ProbabilityClockSnapshot {
+  uint32_t seed = 0;  ///< Instance sampling seed.
+  uint32_t frame = 0; ///< Sampling frame index.
+};
 
 /** @brief Any operator's captured runtime state; `std::monostate` for
     stateless operators. */
@@ -68,7 +73,7 @@ using RuntimeSnapshot =
     std::variant<std::monostate, SpatialWalkSnapshot, SourceClockSnapshot,
                  NoiseClockSnapshot, PhaseClockSnapshot, RippleClockSnapshot,
                  AffineClockSnapshot, ColorClockSnapshot,
-                 ModulationClockSnapshot>;
+                 ModulationClockSnapshot, ProbabilityClockSnapshot>;
 
 /**
  * @brief Versioned wire name of the snapshot's alternative.
@@ -84,7 +89,8 @@ inline const char *runtime_snapshot_kind(const RuntimeSnapshot &snapshot) {
                                    "ripple-burst-v1",
                                    "affine-clock-v1",
                                    "color-clock-v3",
-                                   "modulation-clock-v1"};
+                                   "modulation-clock-v1",
+                                   "probability-clock-v1"};
   static_assert(std::size(KINDS) == std::variant_size_v<RuntimeSnapshot>);
   return KINDS[snapshot.index()];
 }

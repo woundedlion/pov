@@ -54,6 +54,30 @@ inline bool snapshot_unit(const math::Quaternion &value) {
 }
 } // namespace Detail
 
+/** @brief Snapshot codec of the per-frame probability sampling clock. */
+template <> struct RuntimeStateCodec<Op::ProbabilityClockState> {
+  /** @brief Captures the sampling seed and frame.
+   * @param state Clock state.
+   * @return Probability clock snapshot. */
+  static RuntimeSnapshot capture(const Op::ProbabilityClockState &state) {
+    return ProbabilityClockSnapshot{state.seed, state.frame};
+  }
+
+  /** @brief Restores the sampling seed and frame.
+   * @param state Destination clock.
+   * @param snapshot Captured clock.
+   * @return False on a different snapshot kind. */
+  static bool restore(Op::ProbabilityClockState &state,
+                      const RuntimeSnapshot &snapshot) {
+    const auto *value = std::get_if<ProbabilityClockSnapshot>(&snapshot);
+    if (!value)
+      return false;
+    state.seed = value->seed;
+    state.frame = value->frame;
+    return true;
+  }
+};
+
 /** @brief Snapshot codec of Op::SpatialWalkState. */
 template <> struct RuntimeStateCodec<Op::SpatialWalkState> {
   /**
