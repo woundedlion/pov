@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <span>
 #include <type_traits>
 
@@ -41,9 +42,12 @@ struct FeedbackWhiteBox {
     for (int downsample : {8, 16}) {
       const size_t bytes = Feedback::uncached_scratch_bytes(downsample) +
                            Feedback::FadeTable::BYTES;
-      const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - bytes -
-                                       DEFAULT_SCRATCH_B_SIZE,
-                                   bytes, DEFAULT_SCRATCH_B_SIZE);
+      constexpr size_t ALIGNMENT = alignof(std::max_align_t);
+      const size_t PERSISTENT_BYTES =
+          (GLOBAL_ARENA_SIZE - bytes - DEFAULT_SCRATCH_B_SIZE) / ALIGNMENT *
+          ALIGNMENT;
+      const ScopedArenaSplit split(PERSISTENT_BYTES, bytes,
+                                   DEFAULT_SCRATCH_B_SIZE);
       ScratchScope persistent_scope(persistent_arena);
       StubEffect effect(W, H, {.replaces_frame = true});
       ::Feedback::Style style{};
