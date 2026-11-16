@@ -4,15 +4,12 @@
  */
 /** @file
  * @brief Comets test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/Comets.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/comets_cases.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_comets_white_box_check_paths_close() {
   HS_RUN(CometsWhiteBox::check_paths_close);

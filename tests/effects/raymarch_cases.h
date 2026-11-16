@@ -4,6 +4,13 @@
  */
 /** @file
  * @brief Raymarch white-box cases. */
+#pragma once
+
+#include "core/math/scalar_kernels.h"
+#include "effects/Raymarch.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief White-box access to Raymarch's torus proportions, column-time drawing,
@@ -493,3 +500,5 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
   // is the ring rim, so it must sit inside the cull sphere.
   HS_EXPECT_LT(static_cast<double>(WB::VIS), BOUND);
 }
+
+} // namespace hs_test::effects_tests

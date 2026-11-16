@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Effects cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Effects death fixtures and guard cases.
 
@@ -340,3 +348,5 @@ inline void case_reaction_lattice_uninitialized() {
   auto lattice = effect.orient_lattice();
   (void)lattice;
 }
+
+} // namespace hs_test::death_tests

@@ -4,6 +4,12 @@
  *
  * SphericalHarmonics white-box tests.
  */
+#pragma once
+
+#include "effects/SphericalHarmonics.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief White-box accessor for SphericalHarmonics' morph chain and shader inputs.
@@ -861,3 +867,5 @@ inline void test_sh_frame_sampler_rollover_and_sign() {
   snapped.source.morph_epoch = 1;
   HS_EXPECT_EQ(Spacetime::sample_frame(from, snapped, 0.25f).source.l1, lb);
 }
+
+} // namespace hs_test::effects_tests

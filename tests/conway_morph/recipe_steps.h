@@ -2,6 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/IslamicStars.h"
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/oracles.h"
+#include "tests/conway_morph/topology.h"
+
+#include <vector>
+#include <array>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Recipe-step leg kinds: truncate, snub and relax legs, sampled on the chain
@@ -612,3 +623,5 @@ inline void test_recipe_step_morphable_boundaries() {
       {.op = Op::RELAX,
        .bake = &Solids::RelaxBakes::dodecahedron_bevel20_converged}));
 }
+
+} // namespace hs_test::conway_morph_tests

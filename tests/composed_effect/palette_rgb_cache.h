@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
+
 /** @file palette_rgb_cache.h
  * @brief Interval palette-cache interpolation, admission, fallback and
  * ownership tests. */
@@ -718,3 +724,5 @@ inline void test_palette_rgb_midpoint_only_fallback() {
   HS_EXPECT_TRUE(base.view(.5f).low != nullptr);
   HS_EXPECT_EQ(std::memcmp(saved.data(), cache.nodes.data(), sizeof(saved)), 0);
 }
+
+} // namespace hs_test::composed_effect_tests

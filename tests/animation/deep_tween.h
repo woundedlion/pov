@@ -5,6 +5,15 @@
 /** @file
  * @brief deep_tween traversal across the global_t span.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/vec_test_util.h"
+#include "tests/test_harness.h"
+#include <vector>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // deep_tween (global_t span)
@@ -345,3 +354,5 @@ inline void test_quantized_vector_trail_roundtrip_and_ring() {
   HS_EXPECT_NEAR(ts[1], 0.5f, 1e-6f);
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
 }
+
+} // namespace hs_test::animation_tests

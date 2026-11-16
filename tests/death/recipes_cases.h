@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Recipes cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Recipes death cases.
 
@@ -68,3 +76,5 @@ inline void case_apply_step_bevel_no_depth() {
   PolyMesh mesh = Solids::build_recipe(recipe, a, b);
   (void)mesh.vertices.size();
 }
+
+} // namespace hs_test::death_tests

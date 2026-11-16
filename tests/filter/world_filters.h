@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief World filters test cases and fixtures. */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
+
 #include "core/math/scalar_kernels.h"
 
 // ============================================================================
@@ -884,3 +893,5 @@ inline void test_world_mobius_forces_full_frame() {
   HS_EXPECT_TRUE(
       (Pipeline<17, 9, Filter::World::Mobius>::any_crosses_segments));
 }
+
+} // namespace hs_test::filter_tests

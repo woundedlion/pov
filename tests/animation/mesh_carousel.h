@@ -2,6 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include "tests/mesh_test_util.h"
+#include <vector>
+#include <type_traits>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // MeshCarousel segues
@@ -935,3 +946,5 @@ inline void test_gold_convergence_grades_to_gold() {
     HS_EXPECT_GE(gc.opacity(i / 16.0f), gc.opacity((i - 1) / 16.0f));
   HS_EXPECT_NEAR(gc.opacity(1.0f), 1.0f, 1e-6f);
 }
+
+} // namespace hs_test::animation_tests

@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/IslamicStars.h"
+#include "tests/effects/fixture.h"
+#include "tests/effects/mesh_seam_oracle.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // IslamicStars build chain, recipes and arena budgets.
@@ -1226,3 +1233,5 @@ inline void test_islamicstars_build_legs_hand_their_path() {
   }
   HS_EXPECT_TRUE(moved);
 }
+
+} // namespace hs_test::effects_tests

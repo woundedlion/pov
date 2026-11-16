@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Plot::PointRoute column-time points against a per-column oracle.
  */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ---------------------------------------------------------------------------
 // Plot::PointRoute: closed-form column-time points against a per-column oracle.
@@ -788,3 +794,6 @@ inline void test_point_route_culls_hidden_paths() {
     HS_EXPECT_EQ(Spacetime::geometry_counters.point_capture_solves, 0u);
   }
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

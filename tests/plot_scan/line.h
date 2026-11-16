@@ -2,9 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Plot::Line sampling and drawing tests.
  */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/raster_fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Plot::Line::sample / draw
@@ -250,3 +258,6 @@ inline void test_plot_line_over_pole_reaches_row0() {
   if constexpr (HS_DISPLAY_PROFILE == 0)
     HS_EXPECT_GT(row0, (size_t)0);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

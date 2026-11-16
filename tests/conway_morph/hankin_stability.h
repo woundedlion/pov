@@ -2,6 +2,19 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/IslamicStars.h"
+#include "tests/conway_morph/fixture.h"
+#include "tests/vec_test_util.h"
+#include "tests/conway_morph/hankin.h"
+#include "tests/conway_morph/topology.h"
+
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Hankin-sweep displacement and face-normal bounds.
@@ -329,3 +342,5 @@ inline void test_opleg_hankin_sweep_smoke() {
     }
   }
 }
+
+} // namespace hs_test::conway_morph_tests

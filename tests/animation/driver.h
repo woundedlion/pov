@@ -5,6 +5,16 @@
 /** @file
  * @brief Driver animation tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include <limits>
+#include <type_traits>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Driver
@@ -82,3 +92,5 @@ inline void test_driver_nan_source_does_not_poison() {
   d.step(fake_canvas());
   HS_EXPECT_NEAR(v, 0.75f, 1e-5f);
 }
+
+} // namespace hs_test::animation_tests

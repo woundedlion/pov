@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/math/scalar_kernels.h"
+#include "effects/Galaxies.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // Galaxies: octahedral cores, spawn geometry and orbit physics.
@@ -586,3 +593,5 @@ inline void test_galaxies_live_particle_count() {
   HS_EXPECT_EQ(count->get(), static_cast<float>(WB::NUM_GALAXIES) * RATE);
   fx.advance_display();
 }
+
+} // namespace hs_test::effects_tests

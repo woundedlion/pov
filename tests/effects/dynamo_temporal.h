@@ -2,9 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-
 /** @file dynamo_temporal.h
  * @brief Dynamo column-time strands against independently frozen copies. */
+#pragma once
+
+#include "effects/Dynamo.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief Independent world-space reference for Dynamo's live and replayed strands. */
 struct DynamoTemporalOracle {
@@ -310,3 +315,5 @@ inline void test_dynamo_column_time_first_frame_and_reset() {
     }
   }
 }
+
+} // namespace hs_test::effects_tests

@@ -4,17 +4,13 @@
  */
 /** @file
  * @brief Rings test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/RingShower.h"
-#include "effects/Thrusters.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/ring_whitebox.h"
 #include "tests/effects/rings_temporal.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_ring_shower_white_box_check_temporal_rings() {
   HS_RUN(run_case, RingShowerWhiteBox::check_temporal_rings);

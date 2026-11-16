@@ -4,16 +4,12 @@
  */
 /** @file
  * @brief Raymarch test entry points. */
-#include "core/math/scalar_kernels.h"
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/Raymarch.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/raymarch_cases.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_raymarch_volume_random_walks_are_independent() {
   HS_RUN(run_case, test_raymarch_volume_random_walks_are_independent);

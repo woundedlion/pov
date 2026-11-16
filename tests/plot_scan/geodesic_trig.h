@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Geodesic trigonometric parity.
  */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // Geodesic trigonometric parity.
 
@@ -48,3 +54,6 @@ inline void test_geodesic_sincos_bit_parity() {
   HS_EXPECT_EQ(first_bad, -1.0f);
   HS_EXPECT_GT(probed, 500000);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

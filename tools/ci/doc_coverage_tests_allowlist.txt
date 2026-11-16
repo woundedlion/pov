@@ -30,7 +30,6 @@ tests/composed_effect/derivation_reach.h
 tests/composed_effect/document_values.h
 tests/composed_effect/dodecahedral_matrix_cache.h
 tests/composed_effect/generated_catalog_assignments.h
-tests/composed_effect/grid_worms.h
 tests/composed_effect/keyed_rotations.h
 tests/composed_effect/parameter_schema.h
 tests/composed_effect/retained_hue.h
@@ -174,9 +173,9 @@ tests/shader_chain_fixture.h
 tests/stack_measure.cpp
 tests/temporal_oracle.h
 tests/test_3dmath.h
-tests/test_canvas.h
+tests/canvas/context.h
 tests/test_color.h
-tests/test_composed_effect.h
+tests/composed_effect/context.h
 tests/test_concepts.h
 tests/test_conway.h
 tests/test_conway_continuity.h
@@ -187,7 +186,7 @@ tests/test_dma_core.h
 tests/test_easing_waves.h
 tests/test_effect_factory.h
 tests/test_effects_smoke.h
-tests/test_filter.h
+tests/filter/context.h
 tests/test_fixture.h
 tests/test_h_offset_renorm.h
 tests/test_hankin.h
@@ -208,9 +207,8 @@ tests/test_palettes.h
 tests/test_param_marshal.h
 tests/test_partition_seam.h
 tests/test_platform.h
-tests/test_plot_scan.h
 tests/test_pov_segmented.h
-tests/test_pov_sync.h
+tests/pov_sync/context.h
 tests/test_presets.h
 tests/test_profiling.h
 tests/test_projections.h
@@ -219,14 +217,14 @@ tests/test_radial_surface.h
 tests/test_radial_surface_mask.h
 tests/test_ray.h
 tests/test_ray_demonstrators.h
-tests/test_ray_events.h
+tests/ray_events/context.h
 tests/test_reaction_graph.h
-tests/test_scan.h
+tests/scan/context.h
 tests/test_sdf.h
 tests/test_sdf_patterns.h
 tests/test_shader_chain.h
 tests/test_shading.h
-tests/test_shapeshifter_oracle.h
+tests/shapeshifter_oracle/context.h
 tests/test_shapeshifter_surface.h
 tests/test_shapeshifter_tiles.h
 tests/test_solids.h

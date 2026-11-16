@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Segmented bounds test cases and fixtures. */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Segmented-mode rendering bound
@@ -237,3 +245,5 @@ inline void test_feedback_banded_diverges_from_full() {
   HS_EXPECT_TRUE(differs);
   HS_EXPECT_GT(full_bot_lit, 0);
 }
+
+} // namespace hs_test::filter_tests

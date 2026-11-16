@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/math/spherical.h"
+#include "effects/DisplacementField.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // DisplacementField phase machine, ball spans, span and hue-table bakes.
@@ -1469,3 +1476,5 @@ inline void test_displacement_field_retained_history_resets() {
   HS_EXPECT_TRUE(effect.selectPreset(1));
   HS_EXPECT_FALSE(DisplacementFieldWhiteBox::history_ready(effect));
 }
+
+} // namespace hs_test::effects_tests

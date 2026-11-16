@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
+
 /** @file
  * @brief Authored palette source and cycling harmony contracts. */
 
@@ -199,3 +205,5 @@ inline void test_composed_authored_palette_admission() {
     }
   }
 }
+
+} // namespace hs_test::composed_effect_tests

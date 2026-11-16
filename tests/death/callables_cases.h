@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
+
 /** @file
  * @brief Callables death cases.
  */
@@ -32,3 +38,5 @@ inline void case_empty_function_ref_call() {
   int v = f(opaque(7)); // empty invoke -> check_fail -> trap
   (void)v;
 }
+
+} // namespace hs_test::death_tests

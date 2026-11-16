@@ -2,6 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/test_harness.h"
+#include "core/mesh/mesh.h"
+#include "tests/mesh_test_util.h"
+#include <vector>
+#include <cstring>
+#include <cmath>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Shared oracles
@@ -165,3 +175,5 @@ inline void check_equal_up_to_vertex_order(const PolyMesh &got,
     HS_EXPECT_TRUE(matched);
   }
 }
+
+} // namespace hs_test::conway_morph_tests

@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+/** @file
+ * @brief Column cull plot/scan test declarations.
+ */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 /** @brief Per-site widths contain the required columns and taps about the shared centre.
  * @tparam W Canvas width in columns. */
@@ -432,3 +441,6 @@ inline void test_column_physical_north_cap() {
   HS_EXPECT_GT(visible, 10000u);
   HS_EXPECT_GT(rejected, 20u);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

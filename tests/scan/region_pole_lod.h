@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
+
 /** @file
  * @brief Face and region scans, seams, pole LOD and region clip arcs.
  */
@@ -806,3 +812,5 @@ inline void test_face_cull_sentinel_respects_static_margin() {
     }
   }
 }
+
+} // namespace hs_test::scan_tests

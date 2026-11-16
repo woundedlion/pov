@@ -1482,7 +1482,10 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── spatial_walk.h          Sphere spin and random-walk state
 │   │   │   ├── sphere_animation.h      Ripple burst scheduling
 │   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters
-│   │   │   └── operators/              Operator model, table, shared state, family adapters, and snapshot codecs
+│   │   │   ├── operators/              Operator model, table, shared state, family adapters, and snapshot codecs
+│   │   │   ├── color_controls.h  Palette control types and authored gamut contracts
+│   │   │   ├── color_state.h  Authored palette parameters and bounded control preparation
+│   │   │   └── palette_cache.h  Palette lookup tables and temporal cache qualification
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
 │   │   │                            shader, volume, column_basis)
@@ -1498,7 +1501,8 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── radial_surface_edge_aa.h  Local edge area coverage
 │   │   │   ├── radial_surface_math.h  Chart arithmetic and bounded angle evaluation
 │   │   │   ├── radial_surface_renderer.h  Column-time hemisphere surface shader
-│   │   │   └── radial_surface_types.h  Surface colors and optional work counters
+│   │   │   ├── radial_surface_types.h  Surface colors and optional work counters
+│   │   │   └── raster_support.h  Scan admission, shader dispatch and shape support
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
@@ -1718,14 +1722,14 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── run_shader_chain_tests.cpp ShaderChain and AlienCore cases
 │   ├── run_shapeshifter_tests.cpp ShapeShifter oracle and tile modules
 │   ├── engine_libraries.cmake Shared native engine objects by compatible compile context
-│   ├── animation/         Sections included by test_animation.h
-│   ├── canvas/            Sections included by test_canvas.h
-│   ├── color/             Sections included by test_color.h
+│   ├── animation/  Self-contained fixtures and cases for test_animation.h
+│   ├── canvas/  Self-contained fixtures and cases for test_canvas.h
+│   ├── color/  Self-contained fixtures and cases for test_color.h
 │   ├── data/              Pullback manifests and schema, frozen chain-capture corpus, and workbench fixture
-│   ├── composed_effect/   Sections included by test_composed_effect.h
-│   ├── conway_morph/      Sections included by test_conway_morph.h
-│   ├── death/             Sections included by test_death.h
-│   ├── effects/           Sections included by test_effects.h
+│   ├── composed_effect/  Self-contained fixtures and cases for test_composed_effect.h
+│   ├── conway_morph/  Self-contained fixtures and cases for test_conway_morph.h
+│   ├── death/  Self-contained fixtures and cases for test_death.h
+│   ├── effects/  Self-contained fixtures and cases for test_effects.h
 │   │   ├── ash_cloud.h Ash cloud cases
 │   │   ├── case_runners.h External effect case entry points
 │   │   ├── comets_cases.h Comets cases
@@ -1749,7 +1753,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   ├── roster_cases.h Cross-effect preset navigation and full-frame contracts
 │   │   ├── dynamo_temporal.h Live and replayed column-time strand oracles
 │   │   └── rings_temporal.h Frozen-column oracles for growing and warped rings
-│   ├── filter/            Sections included by test_filter.h
+│   ├── filter/  Self-contained fixtures and cases for test_filter.h
 │   │   └── temporal_copies.h Selected-copy timed transform parity
 │   ├── test_plot_parity.h Filter-pipeline effect render properties: lit, clipped equals full, temporal near frame-end
 │   ├── test_render_hashes.h Per-preset roster render hashes for `tools/render_diff.sh`
@@ -1779,22 +1783,26 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── prepared_face_test_access.h White-box SDF::PreparedFace accessor for its tests
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── pattern/           Source and cube cases owned by test_pullback.h and test_color.h
-│   ├── plot_scan/         Sections included by test_plot_scan.h
+│   ├── plot_scan/  Self-contained fixtures and cases for test_plot_scan.h
 │   │   ├── temporal_seam.h Projected-entry world bypass and tap timing
 │   │   └── timed_mesh.h    Timed source-mesh geometry and shader checks
-│   ├── pullback/          Sections included by test_pullback.h
-│   ├── pov_sync/          Sections included by test_pov_sync.h
-│   ├── ray_events/        Sections included by test_ray_events.h
-│   ├── scan/              Sections included by test_scan.h
+│   ├── pullback/  Self-contained fixtures and cases for test_pullback.h
+│   ├── pov_sync/  Self-contained fixtures and cases for test_pov_sync.h
+│   ├── ray_events/  Self-contained fixtures and cases for test_ray_events.h
+│   ├── scan/  Self-contained fixtures and cases for test_scan.h
 │   │   └── ring_stack.h  Ring pool and two-window scan properties
 │   ├── test_shapeshifter_surface.h  Continuous-surface seams and image parity
 │   ├── test_radial_surface.h  Independent swept-edge and coverage oracles
 │   ├── test_radial_surface_mask.h  Static and temporal candidate-mask coverage
-│   ├── sdf/               Sections included by test_sdf.h
+│   ├── sdf/  Self-contained fixtures and cases for test_sdf.h
 │   ├── shader_chain_fixture.h Shared shader-chain program and effect fixtures
-│   ├── shader_chain/      Sections included by test_shader_chain.h
+│   ├── shader_chain/  Self-contained fixtures and cases for test_shader_chain.h
 │   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor for its tests
-│   └── composed_chain_fixture.h   Document-built chain and compiled composed frame parity
+│   ├── composed_chain_fixture.h   Document-built chain and compiled composed frame parity
+│   ├── transformers/  Self-contained transformer fixtures and cases
+│   ├── shapeshifter_oracle/  Shared ShapeShifter oracle fixtures and baseline cases
+│   ├── contract_checks.cmake  Compile-time positive and negative engine contracts
+│   └── header_contracts.cmake  Independent compilation of each test header
 ├── patterns/                   Shader workbench source documents
 ├── scripts/                    Build + CI tooling
 │   ├── generate_luts.py        sRGB ↔ linear LUT generator of record (emits core/color/color_luts.h)
@@ -1908,7 +1916,9 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── teensy_flash.sh       Selects headless or vendor upload under the held board claim
 │   ├── teensy_upload.py      Verifies the pinned headless tool and selects the claimed serial/USB identity
 │   ├── setup_teensy_uploader.py  Installs the hash-pinned Windows uploader and release provenance
-│   └── upload_one.sh         Builds and flashes one image under the per-board lock
+│   ├── upload_one.sh         Builds and flashes one image under the per-board lock
+│   ├── docs_check_types.py  Shared documentation parser records
+│   └── docs_check_markdown.py  Markdown fences, visible text, anchors and links
 ├── docs/                       Engine references, design contracts, profiles and screenshots
 │   ├── doxygen-custom.css             API reference theme overrides
 │   ├── doxygen-theme.cfg              API reference theme configuration

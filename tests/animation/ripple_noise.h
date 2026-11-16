@@ -2,6 +2,20 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "core/animation/transformer.h"
+#include "tests/test_fixture.h"
+#include "tests/vec_test_util.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include <array>
+#include <vector>
+#include <limits>
+#include <type_traits>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Ripple / Noise (the Animation:: classes, distinct from the pure transforms)
@@ -543,3 +557,5 @@ inline void test_bump_path_reach_cut_and_rejected_outputs() {
     }
   }
 }
+
+} // namespace hs_test::animation_tests

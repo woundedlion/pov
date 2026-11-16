@@ -2,9 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Plot::screen_step adaptive-density sub-step tests.
  */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Plot::screen_step — adaptive-density sub-step
@@ -299,3 +306,6 @@ inline void test_screen_step_axes_match_stage_walk() {
   check(composed, tweened.length());
   check(replicated, 3);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

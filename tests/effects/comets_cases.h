@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief Comets white-box cases. */
+#pragma once
+
+#include "effects/Comets.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief White-box accessor for Comets paths, palette wipes and trail rendering.
@@ -324,3 +330,5 @@ inline void test_comets_palette_rolls_while_presets_paused() {
   HS_EXPECT_EQ(effect.getPresetIndex(), PRESET);
   HS_EXPECT_FALSE(same_palette_entries(WB::baked_palette(effect), initial));
 }
+
+} // namespace hs_test::effects_tests

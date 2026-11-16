@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Temporal motion interpolant bounds.
  */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 /** @brief Tolerance these bound checks hand the interpolant chooser, radians. */
 inline constexpr float MOTION_TOLERANCE = 0.2f * math::TWO_PI_F / 288.0f;
@@ -436,3 +442,6 @@ inline void test_rotation_chord_bound_covers_unit_vectors() {
   HS_EXPECT_LE(worst, bound);
   HS_EXPECT_GT(worst, 0.5f * bound);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

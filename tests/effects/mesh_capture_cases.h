@@ -4,6 +4,15 @@
  */
 /** @file
  * @brief Mesh effect capture and profile cases. */
+#pragma once
+
+#include "effects/HankinSolids.h"
+#include "effects/IslamicStars.h"
+#include "tests/effects/fixture.h"
+#include "tests/effects/hankin.h"
+#include "tests/effects/islamic_stars.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief Measures capture and scan work of the large scanned meshes under the
@@ -304,3 +313,5 @@ inline void run_islamicstars_cases() {
   HS_RUN(run_case, test_islamicstars_endpoint_groups);
   HS_RUN(run_case, test_islamicstars_peak_fits_scratch);
 }
+
+} // namespace hs_test::effects_tests

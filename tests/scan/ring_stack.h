@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
+
 /** @file
  * @brief Ring pool and two-window scan properties.
  */
@@ -317,3 +323,5 @@ inline void test_knot_alternates_interleaved_storage_footprint() {
   HS_EXPECT_EQ(plain_table.bytes,
                size_t{SLOTS * Alternates::WORDS * 6 + KNOTS + 1});
 }
+
+} // namespace hs_test::scan_tests

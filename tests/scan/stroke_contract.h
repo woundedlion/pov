@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Stroke contract test cases and fixtures. */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
+
 #include "core/math/scalar_kernels.h"
 
 // ============================================================================
@@ -323,3 +332,5 @@ inline void test_stroke_aa_is_monotone_ramp() {
   HS_EXPECT_TRUE(saw_zero);
   HS_EXPECT_TRUE(saw_mid);
 }
+
+} // namespace hs_test::scan_tests

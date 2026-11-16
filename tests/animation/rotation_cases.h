@@ -5,6 +5,17 @@
 /** @file
  * @brief Rotation subdivision and accumulated frame deltas.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/vec_test_util.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include "core/animation/transformer.h"
+#include <limits>
+
+namespace hs_test::animation_tests {
 
 // Rotation subdivision and accumulated frame deltas.
 
@@ -103,3 +114,5 @@ inline void test_rotation_and_motion_local_world_composition() {
                    SPACE == Animation::Space::Local ? local : world, 1e-5f);
   }
 }
+
+} // namespace hs_test::animation_tests

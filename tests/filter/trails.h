@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
+
 /** @file
  * @brief Trail quantization, capacity replacement and ttl lifecycle.
  */
@@ -614,3 +620,5 @@ inline void test_world_trails_timed_fanout_records_first_copy() {
   pipeline.plot_at(canvas, source, Pixel{}, 0.75f, 0.0f, 0.25f);
   HS_EXPECT_EQ(trails.records(), submitted + 1);
 }
+
+} // namespace hs_test::filter_tests

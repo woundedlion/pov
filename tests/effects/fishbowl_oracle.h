@@ -4,6 +4,13 @@
  */
 /** @file
  * @brief Fishbowl temporal oracle. */
+#pragma once
+
+#include "effects/Fishbowl.h"
+#include "tests/effects/fixture.h"
+#include "tests/effects/fishbowl_cases.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief Warped Fishbowl endpoints, births and palette match frozen columns. */
 inline void test_fishbowl_temporal_trail_oracle() {
@@ -18,3 +25,5 @@ inline void test_fishbowl_temporal_trail_oracle() {
                                                        "Fishbowl trail");
   }
 }
+
+} // namespace hs_test::effects_tests

@@ -4,15 +4,12 @@
  */
 /** @file
  * @brief Mesh feedback test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/MeshFeedback.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/mesh_feedback.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_meshfeedback_temporal_source_oracle() {
   HS_RUN(run_case, test_meshfeedback_temporal_source_oracle);

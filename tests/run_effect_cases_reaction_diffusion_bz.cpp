@@ -4,15 +4,12 @@
  */
 /** @file
  * @brief Reaction diffusion bz test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/BZReactionDiffusion.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/reaction_diffusion_bz.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_bz_q16_roundtrip() {
   HS_RUN(run_case, test_bz_q16_roundtrip);

@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Derivation reach test cases and fixtures. */
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
 
 // ============================================================================
 // Derivation reach of the composed layer over the operator catalog
@@ -191,3 +199,5 @@ static_assert(
                        Pullback::GlitchParams, ReachBinding, "lens2">::Type,
                    Pullback::Lens::ConfiguredGlitch<Pullback::KeyedLensProvider<
                        ReachBinding, Pullback::GlitchParams, "lens2">>>);
+
+} // namespace hs_test::composed_effect_tests

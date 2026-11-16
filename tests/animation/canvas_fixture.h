@@ -5,6 +5,11 @@
 /** @file
  * @brief Stand-in Canvas reference for animation tests.
  */
+#pragma once
+
+#include "core/render/canvas.h"
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Stand-in Canvas reference
@@ -29,3 +34,5 @@ inline Canvas *&fake_canvas_ptr() {
  * duration of the module but never dereferenced by the animations under test.
  */
 inline Canvas &fake_canvas() { return *fake_canvas_ptr(); }
+
+} // namespace hs_test::animation_tests

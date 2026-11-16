@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Volume march test cases and fixtures. */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
 
 // ============================================================================
 // Scan::Volume / TransformedVolume — orthographic ray-march
@@ -432,3 +440,5 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
   HS_EXPECT_GT(covered, 400);
   HS_EXPECT_GT(hits, covered);
 }
+
+} // namespace hs_test::scan_tests

@@ -5,6 +5,15 @@
 /** @file
  * @brief Motion repetition, reanchoring and co-driving.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include "core/animation/transformer.h"
+
+namespace hs_test::animation_tests {
 
 // Motion repetition, reanchoring and co-driving.
 
@@ -169,3 +178,5 @@ inline void test_motion_set_duration_below_position_rescales() {
   motion.step(fake_canvas());
   HS_EXPECT_TRUE(motion.done());
 }
+
+} // namespace hs_test::animation_tests

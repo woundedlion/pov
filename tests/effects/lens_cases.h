@@ -4,6 +4,13 @@
  */
 /** @file
  * @brief Lens numeric cases. */
+#pragma once
+
+#include "core/math/lenses.h"
+#include "core/render/pullback/authored_lens.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief Verifies glitch_lens maps unit directions to unit directions and
@@ -81,3 +88,5 @@ inline void test_configured_glitch_general_path() {
     }
   }
 }
+
+} // namespace hs_test::effects_tests

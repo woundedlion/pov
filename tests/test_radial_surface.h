@@ -7,6 +7,7 @@
 /** @file test_radial_surface.h
  * @brief First-arrival queries against independent swept-edge intersections. */
 
+#include "core/render/plot/shapes.h"
 #include <algorithm>
 #include <array>
 #include <bit>

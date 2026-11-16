@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
+
 /** @file ashcloud_shared_color.h
  * @brief AshCloud shared-column dispatch and camera qualification. */
 
@@ -194,3 +200,5 @@ inline void test_ash_cloud_shared_column_fallbacks() {
     }
   }
 }
+
+} // namespace hs_test::composed_effect_tests

@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Grid worms test cases and fixtures. */
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
 
 /** @brief Twist clocks advance independently of preset pause and sample across wraps. */
 inline void test_grid_worms_twist_clocks() {
@@ -112,3 +120,5 @@ inline void test_grid_worms_document_pipeline() {
   composed_chain_tests::verify_export<FX>(0, 1, 1e-6f, before_compare,
                                           after_static);
 }
+
+} // namespace hs_test::composed_effect_tests

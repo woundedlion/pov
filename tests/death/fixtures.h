@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Fixtures test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Death-test effect fixture.
 
@@ -59,3 +67,5 @@ struct DeathEffect : public Effect {
     register_int_param(n, p, min, max);
   }
 };
+
+} // namespace hs_test::death_tests

@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Column basis test cases and fixtures. */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
 
 // ============================================================================
 // Column-time rotated basis: scans against shapes rebuilt at column time
@@ -1413,3 +1421,5 @@ template <int W, int H> inline void test_volume_read_columns_cover_hits() {
   });
   HS_EXPECT_GT(hits, 0);
 }
+
+} // namespace hs_test::scan_tests

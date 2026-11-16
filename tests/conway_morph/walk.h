@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/test_harness.h"
+#include "core/mesh/conway_graph.h"
+#include <vector>
+#include <algorithm>
+#include <iterator>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Walk policy: shortest-path routing to uniformly random destinations, with a
@@ -169,3 +178,5 @@ inline void test_walk_policy_coverage_and_balance() {
                   seed, coverage_sweep, mx, mn);
   }
 }
+
+} // namespace hs_test::conway_morph_tests

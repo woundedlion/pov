@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Lattice trace test cases and fixtures. */
+
+#include "tests/ray_events/context.h"
+
+namespace hs_test::ray_event_tests {
 
 // ============================================================================
 // Lattice trace: cubic compositor and octet preparation parity
@@ -575,3 +583,5 @@ inline void test_octet_trace_sorted_matches_events() {
   HS_EXPECT_GT(candidate_exhausted, size_t{0});
   HS_EXPECT_GT(layer_exhausted, size_t{0});
 }
+
+} // namespace hs_test::ray_event_tests

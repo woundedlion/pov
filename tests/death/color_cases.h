@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Color cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Color death cases.
 
@@ -403,3 +411,5 @@ inline void case_composition_facade_bind() {
   death_admitted();
   valid.bind(nullptr);
 }
+
+} // namespace hs_test::death_tests

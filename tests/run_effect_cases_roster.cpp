@@ -4,17 +4,14 @@
  */
 /** @file
  * @brief Roster test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "targets/effects.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
-
-namespace hs_test::effects_tests {
 
 #include "tests/effects/roster_cases.h"
 #include "tests/effects/column_time_fidelity.h"
 #include "tests/effects/lens_cases.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_mesh_seam_dark_sample_guards() {
   HS_RUN(run_case, test_mesh_seam_dark_sample_guards);

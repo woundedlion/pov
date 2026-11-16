@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Memory cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Memory death cases.
 
@@ -453,3 +461,5 @@ inline void case_arena_span_reissued() {
   arena.allocate_n<int>(2);
   (void)view.size();
 }
+
+} // namespace hs_test::death_tests

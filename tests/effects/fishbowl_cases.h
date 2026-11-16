@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief Fishbowl white-box cases. */
+#pragma once
+
+#include "effects/Fishbowl.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief White-box accessor for Fishbowl's trail node. */
 struct FishbowlWhiteBox {
@@ -329,3 +335,5 @@ inline void test_fishbowl_scratch_estimate_covers_peak() {
   check_fishbowl_scratch_estimate_covers_peak<SMALL_W, SMALL_H>();
   check_fishbowl_scratch_estimate_covers_peak<DEFAULT_W, DEFAULT_H>();
 }
+
+} // namespace hs_test::effects_tests

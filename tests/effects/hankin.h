@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/HankinSolids.h"
+#include "tests/effects/fixture.h"
+#include "tests/effects/mesh_seam_oracle.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // HankinSolids white-box checks
@@ -669,3 +676,5 @@ inline void test_hankinsolids_morph_motion_is_seam_free() {
         return draw(nullptr);
       });
 }
+
+} // namespace hs_test::effects_tests

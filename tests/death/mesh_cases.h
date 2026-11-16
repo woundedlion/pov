@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
+
 /** @file
  * @brief Mesh death cases.
  */
@@ -811,3 +817,5 @@ inline void case_reconcile_aliased_arenas() {
   PolyMesh identity, authored, out;
   MeshOps::reconcile_vertices(identity, authored, out, arena, arena);
 }
+
+} // namespace hs_test::death_tests

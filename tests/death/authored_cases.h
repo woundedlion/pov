@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Authored cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Authored fixed-pipeline policy death cases.
 
@@ -112,3 +120,5 @@ inline void case_authored_sample_invalid_coverage_mode() {
   authored_sample_apply<Pullback::ProjectionCoverage::Authored>(
       [](auto &params) { params.coverage_mode = opaque<uint8_t>(0xff); });
 }
+
+} // namespace hs_test::death_tests

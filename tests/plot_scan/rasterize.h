@@ -2,6 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+/** @file
+ * @brief Rasterize plot/scan test declarations.
+ */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/raster_fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Plot::rasterize — control-flow coverage through a capturing pipeline
@@ -777,3 +788,6 @@ inline void test_rasterize_cull_follows_filter_orientation() {
   HS_EXPECT_EQ(banded,
                full); // routed cull keeps the edge; identical in the band
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

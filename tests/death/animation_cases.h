@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Animation cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+#include "tests/death/fixtures.h"
+
+namespace hs_test::death_tests {
 
 // Animation death cases.
 
@@ -841,3 +850,5 @@ inline void case_rotation_nonfinite_axis() {
   Animation::Rotation<32> rotation(orientation, {opaque(INFINITY), 0.0f, 0.0f},
                                    0.5f, 4, math::ease_linear);
 }
+
+} // namespace hs_test::death_tests

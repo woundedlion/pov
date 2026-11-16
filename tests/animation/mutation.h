@@ -5,6 +5,15 @@
 /** @file
  * @brief Mutation animation tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include <limits>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Mutation
@@ -57,3 +66,5 @@ inline void test_mutation_nonfinite_result_holds_prior_value() {
     HS_EXPECT_EQ(value, expected);
   }
 }
+
+} // namespace hs_test::animation_tests

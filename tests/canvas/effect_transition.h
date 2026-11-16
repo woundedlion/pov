@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Effect transition test cases and fixtures. */
+
+#include "tests/canvas/context.h"
+
+namespace hs_test::canvas_tests {
 
 // Effect transition controller state and adapter outcomes.
 
@@ -456,3 +464,5 @@ inline void test_effect_transition_refusal_branches() {
   HS_EXPECT_MIN_SIZE_OR_RETURN(frame.envelopes, 1);
   HS_EXPECT_EQ(frame.envelopes.back(), 0.0f);
 }
+
+} // namespace hs_test::canvas_tests

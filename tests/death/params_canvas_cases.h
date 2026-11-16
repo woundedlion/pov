@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Params canvas cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+#include "tests/death/fixtures.h"
+
+namespace hs_test::death_tests {
 
 // Params canvas death cases.
 
@@ -421,3 +430,5 @@ inline void case_effect_margin_equal_width() {
   StubEffect effect(32, 16);
   effect.set_margin(opaque(32));
 }
+
+} // namespace hs_test::death_tests

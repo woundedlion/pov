@@ -5,6 +5,13 @@
 /** @file
  * @brief Path::get_point sampling tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Path::get_point
@@ -102,3 +109,5 @@ inline void test_path_collapse_keeps_last() {
   HS_EXPECT_NEAR(b.y, last_before.y, 1e-5f);
   HS_EXPECT_NEAR(b.z, last_before.z, 1e-5f);
 }
+
+} // namespace hs_test::animation_tests

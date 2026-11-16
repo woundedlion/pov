@@ -4,6 +4,22 @@
  */
 /** @file
  * @brief Cross-effect control cases. */
+#pragma once
+
+#include "effects/MeshFeedback.h"
+#include "effects/Dynamo.h"
+#include "effects/SphericalHarmonics.h"
+#include "effects/RingSpin.h"
+#include "effects/MindSplatter.h"
+#include "effects/DreamBalls.h"
+#include "effects/Comets.h"
+#include "effects/ShapeShifter.h"
+#include "tests/effects/fixture.h"
+#include "tests/effects/mesh_seam_oracle.h"
+#include "tests/probe_test_util.h"
+#include "tests/effects/parameter_probe.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief Seam guards reject dark coverage and retain measured-frame ratios. */
 inline void test_mesh_seam_dark_sample_guards() {
@@ -174,3 +190,5 @@ inline void test_manual_preset_navigation() {
   check_manual_preset_navigation<MeshFeedback<SMALL_W, SMALL_H>>();
   check_manual_preset_navigation<ShapeShifter<SMALL_W, SMALL_H>>();
 }
+
+} // namespace hs_test::effects_tests

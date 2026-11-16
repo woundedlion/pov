@@ -5,6 +5,14 @@
 /** @file
  * @brief Bridge convergence across tetrahedral symmetry families.
  */
+#pragma once
+
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/oracles.h"
+
+#include <vector>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Bridge convergence: the tetrahedral edges that cross symmetry families.
@@ -125,3 +133,5 @@ inline void test_ambo_tetrahedron_is_regular_octahedron() {
   build_solid<Solids::Octahedron>(octahedron, temp);
   check_equal_up_to_vertex_order(a, octahedron, 1e-4f);
 }
+
+} // namespace hs_test::conway_morph_tests

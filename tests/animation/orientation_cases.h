@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test::animation_tests {
 
 // Orientation upsampling and collapse.
 
@@ -78,3 +85,5 @@ inline void test_orientation_sample_follows_history() {
   HS_EXPECT_NEAR(std::fabs(math::dot(still.sample(0.4f), still.get())), 1.0f,
                  1e-6f);
 }
+
+} // namespace hs_test::animation_tests

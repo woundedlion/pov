@@ -79,6 +79,9 @@ jobs:
       - name: Build
         run: cmake --build --preset tests
 
+      - name: Compile test headers independently
+        run: cmake --build --preset tests --target test_header_contracts
+
       - name: ccache stats
         if: always()
         continue-on-error: true

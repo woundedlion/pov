@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/oracles.h"
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Endpoint exactness: sweeping to an edge endpoint arrives at the
@@ -169,3 +175,5 @@ inline void test_edge_endpoints_match_registry() {
                   Solids::simple_registry[e.to_node].name);
   }
 }
+
+} // namespace hs_test::conway_morph_tests

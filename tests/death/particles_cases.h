@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Particles cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+#include "tests/death/fixtures.h"
+
+namespace hs_test::death_tests {
 
 // Particles death cases.
 
@@ -94,3 +103,5 @@ inline void case_particle_render_zero_lifetime() {
   Plot::ParticleSystem::draw<32, 16>(pipeline, canvas, ps,
                                      [](const math::Vector &, Fragment &) {});
 }
+
+} // namespace hs_test::death_tests

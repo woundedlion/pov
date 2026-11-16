@@ -4,22 +4,9 @@
  */
 #pragma once
 
-/** @brief Chooses a distant writable value for a parameter lint. */
-inline float parameter_probe_target(const ParamDef &def, float current) {
-  if (def.option_values != nullptr) {
-    float target = static_cast<float>(def.option_values[0]);
-    for (int i = 1; i < def.option_count; ++i) {
-      const float candidate = static_cast<float>(def.option_values[i]);
-      if (fabsf(candidate - current) > fabsf(target - current))
-        target = candidate;
-    }
-    return target;
-  }
-  return def.is_bool() ? (current > 0.5f ? 0.0f : 1.0f)
-         : (current - def.min) > (def.max - current)
-             ? def.min + 0.25f * (def.max - def.min)
-             : def.min + 0.75f * (def.max - def.min);
-}
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief Probes choose the farthest option, the opposite range quarter, or the flipped bool. */
 inline void test_parameter_probe_targets() {
@@ -70,3 +57,5 @@ inline void test_float_dropdown_lint() {
     HS_EXPECT_EQ(effect.shape, current);
   }
 }
+
+} // namespace hs_test::effects_tests

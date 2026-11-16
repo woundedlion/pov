@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Registry cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Registry death cases.
 
@@ -52,3 +60,5 @@ inline void case_effect_registry_stable_id_matches_name() {
       std::array{named_registration("DeathClassAlias", "death-first"),
                  named_registration("DeathOther", "DeathClassAlias")});
 }
+
+} // namespace hs_test::death_tests

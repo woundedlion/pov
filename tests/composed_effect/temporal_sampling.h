@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
 
 /** @file temporal_sampling.h
  * @brief Column-time interpolation and retained-resource tests.
@@ -2050,3 +2055,5 @@ inline void test_temporal_constant_families_are_exact() {
     }
   }
 }
+
+} // namespace hs_test::composed_effect_tests

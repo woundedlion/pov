@@ -2,6 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+/** @file
+ * @brief Row spans plot/scan test declarations.
+ */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Plot::geodesic_row_span / Plot::planar_row_span — arc-aware clip cull
@@ -236,3 +246,6 @@ inline void test_for_each_chunk_span_tiles_columns() {
     }
   }
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

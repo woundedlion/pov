@@ -2,6 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+/** @file
+ * @brief Column spans plot/scan test declarations.
+ */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/raster_fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Column-arc clipping, raster windows, and render-band parity tests
@@ -1245,3 +1256,6 @@ inline void test_chunk_mask_padding_exact_masks() {
   HS_EXPECT_EQ(mask(7, 0.0f, 0.0f), 0xffu);
   HS_EXPECT_EQ(mask(-1, EQUATOR, 2.0f), 0u);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

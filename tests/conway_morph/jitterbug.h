@@ -5,6 +5,14 @@
 /** @file
  * @brief Jitterbug bridge between the icosahedron and octahedron.
  */
+#pragma once
+
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/oracles.h"
+
+#include <algorithm>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Jitterbug bridge (icosahedron <-> octahedron on the tetra snub family):
@@ -125,3 +133,5 @@ inline void test_jitterbug_sweep_holds_topology() {
     HS_EXPECT_GE(min_edge, 0.019f);
   }
 }
+
+} // namespace hs_test::conway_morph_tests

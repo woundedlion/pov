@@ -2,9 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Single-pass planar edge rasterizer tests.
  */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/raster_fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // SinglePass rasterizer / PlanarEdgeSampler::one_pass
@@ -959,3 +967,6 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
       "single-pass direct AA", render, QUADRANTS, 10);
   HS_EXPECT_GT(total.margin_lit, 10);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

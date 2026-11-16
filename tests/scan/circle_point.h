@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Circle point test cases and fixtures. */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
 
 // ============================================================================
 // Circle/Point cap drawing, raster epilogues, and replicated clip parity
@@ -399,3 +407,5 @@ inline void test_replicated_clip_matches_full_frame() {
     }
   }
 }
+
+} // namespace hs_test::scan_tests

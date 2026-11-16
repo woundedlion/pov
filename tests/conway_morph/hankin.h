@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/topology.h"
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // MeshOps::hankin topology probe over sampled recipe prefixes.
@@ -81,3 +87,5 @@ inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
                   site.name, f0, compiled0, SAMPLES);
   }
 }
+
+} // namespace hs_test::conway_morph_tests

@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
+
 /** @file
  * @brief Screen::AntiAlias bilinear weight partition tests.
  */
@@ -193,3 +199,5 @@ inline void test_antialias_folds_north_boundary_row() {
           [&](float, float, const Pixel &, float, float) { ++virtual_taps; });
   HS_EXPECT_EQ(virtual_taps, 0);
 }
+
+} // namespace hs_test::filter_tests

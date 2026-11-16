@@ -2,6 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/vec_test_util.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include <array>
+#include <limits>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // ParticleSystem
@@ -621,3 +632,5 @@ inline void test_particle_system_emitter_dispatch() {
   ps.step(fake_canvas());
   HS_EXPECT_EQ(calls, 2); // runs every frame
 }
+
+} // namespace hs_test::animation_tests

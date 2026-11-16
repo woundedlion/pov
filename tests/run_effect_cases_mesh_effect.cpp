@@ -4,18 +4,14 @@
  */
 /** @file
  * @brief Mesh effect test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/HankinSolids.h"
-#include "effects/IslamicStars.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
-
-namespace hs_test::effects_tests {
 
 #include "tests/effects/hankin.h"
 #include "tests/effects/islamic_stars.h"
 #include "tests/effects/mesh_capture_cases.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_hankinsolids_handoff_history() {
   HS_RUN(run_case, test_hankinsolids_handoff_history);

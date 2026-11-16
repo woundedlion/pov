@@ -5,6 +5,13 @@
 /** @file
  * @brief Morph-frame scratch high-water gate.
  */
+#pragma once
+
+#include "effects/HankinSolids.h"
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/topology.h"
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Morph-frame scratch high-water gate at HankinSolids' shipping split. Host
@@ -90,3 +97,5 @@ inline void test_edge_morph_frames_fit_scratch_budget() {
       worst_b, Solids::simple_registry[wb.from_node].name,
       Solids::simple_registry[wb.to_node].name, (size_t)MORPH_SCRATCH_B_BUDGET);
 }
+
+} // namespace hs_test::conway_morph_tests

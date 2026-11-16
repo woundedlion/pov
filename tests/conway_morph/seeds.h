@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/test_harness.h"
+#include "core/mesh/conway.h"
+#include "core/mesh/solids.h"
+#include "tests/mesh_test_util.h"
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Seeds: the solids the edge table sweeps from.
@@ -84,3 +92,5 @@ inline PolyMesh build_morph_seed(MorphSeed s, Arena &target, Arena &temp) {
   }
   return m;
 }
+
+} // namespace hs_test::conway_morph_tests

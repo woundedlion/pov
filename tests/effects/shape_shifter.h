@@ -5,6 +5,12 @@
 /** @file
  * @brief ShapeShifter slider contract and preset rows.
  */
+#pragma once
+
+#include "effects/ShapeShifter.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // ShapeShifter slider contract and preset rows.
@@ -150,3 +156,5 @@ inline void test_shapeshifter_slider_selections_render() {
   sweep("Shape", SS::NUM_SHAPES);
   sweep("Function", SS::NUM_FUNCTIONS);
 }
+
+} // namespace hs_test::effects_tests

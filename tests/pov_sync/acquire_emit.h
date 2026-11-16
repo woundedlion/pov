@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/pov_sync/context.h"
+
+namespace hs_test::pov_sync_tests {
+
 /** @file
  * @brief POV sync acceptance gate and acquisition states.
  */
@@ -685,3 +691,5 @@ inline void test_master_epoch_train_bounded() {
   for (int32_t k = cfg.epoch_repeats + 1; k < PROBED_REVS; ++k)
     HS_EXPECT_EQ(pulses[k], 3);
 }
+
+} // namespace hs_test::pov_sync_tests

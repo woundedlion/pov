@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/lerp_fixture.h"
+#include <type_traits>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Borrow-contract guards (compile-time)
@@ -80,3 +89,5 @@ static_assert(!AcceptsScale<Animation::MobiusWarpBase<Animation::MobiusWarp>,
 static_assert(AcceptsScale<Animation::LensPhase, const float &>);
 static_assert(!AcceptsScale<Animation::LensPhase, const float>);
 } // namespace borrow_guard
+
+} // namespace hs_test::animation_tests

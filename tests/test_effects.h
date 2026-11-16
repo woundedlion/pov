@@ -11,9 +11,6 @@
 #include "tests/probe_test_util.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test {
-namespace effects_tests {
-
 #include "tests/effects/parameter_probe.h"
 #include "tests/effects/spherical_harmonics.h"
 #include "tests/effects/reaction_diffusion_gs_whitebox.h"
@@ -45,6 +42,9 @@ namespace effects_tests {
 #include "tests/effects/islamic_stars.h"
 #include "tests/effects/column_time_fidelity.h"
 #include "tests/effects/mesh_capture_cases.h"
+
+namespace hs_test {
+namespace effects_tests {
 
 /**
  * @brief Module entry point for the effects white-box suite.

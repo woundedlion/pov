@@ -4,15 +4,12 @@
  */
 /** @file
  * @brief Ring spin test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/RingSpin.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/ring_spin.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_ringspin_strobe_configuration_preserves_rendering() {
   HS_RUN(run_case, test_ringspin_strobe_configuration_preserves_rendering);

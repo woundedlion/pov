@@ -6,26 +6,30 @@
  */
 #pragma once
 
-#include <algorithm>
-#include <bit>
-#include <cmath>
-#include <cstdint>
-#include <cstring>
-#include <vector>
-#include "core/color/palettes.h"
-#include "core/mesh/conway.h"
-#include "core/mesh/conway_graph.h"
-#include "core/mesh/hankin.h"
-#include "core/mesh/recipe.h"
-#include "core/mesh/solids.h"
-#include "core/render/canvas.h"
-#include "effects/HankinSolids.h"
-#include "effects/IslamicStars.h"
-#include "tests/conway_test_util.h"
-#include "tests/mesh_test_util.h"
-#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "core/animation/animation.h"
+#include "core/mesh/mesh.h"
+
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/seeds.h"
+#include "tests/conway_morph/oracles.h"
+#include "tests/conway_morph/settle.h"
+#include "tests/conway_morph/bridge.h"
+#include "tests/conway_morph/jitterbug.h"
+#include "tests/conway_morph/clean_swap.h"
+#include "tests/conway_morph/endpoints.h"
+#include "tests/conway_morph/topology.h"
+#include "tests/conway_morph/scratch_budget.h"
+#include "tests/conway_morph/walk.h"
+#include "tests/conway_morph/profile_tour.h"
+#include "tests/conway_morph/recipe_steps.h"
+#include "tests/conway_morph/ambo_hankin.h"
+#include "tests/conway_morph/hankin.h"
+#include "tests/conway_morph/hankin_stability.h"
+#include "tests/conway_morph/medial.h"
+#include "tests/conway_morph/recipe_replay.h"
+#include "tests/conway_morph/reconcile.h"
 
 namespace hs_test {
 namespace conway_morph_tests {
@@ -45,56 +49,6 @@ static_assert(BorrowableSweepSeed<const PolyMesh &>);
 static_assert(!BorrowableSweepSeed<PolyMesh>);
 static_assert(!BorrowableSweepSeed<const PolyMesh>);
 
-inline uint8_t morph_target_buf[256 * 1024]; /**< Op output arena. */
-inline uint8_t morph_temp_buf[256 * 1024];   /**< Op scratch arena. */
-inline uint8_t morph_aux_buf[256 * 1024];    /**< Seed / second-result arena. */
-inline uint8_t morph_persist_buf[64 * 1024]; /**< Persistent-seed arena. */
-inline uint8_t morph_bank_buf[64 * 1024];    /**< Baked palette LUT arena. */
-
-/**
- * @brief Builds a site's persistent seed through the auxiliary arena halves.
- * @tparam Site Site providing a seed builder.
- * @param site Site whose seed is built.
- * @param persist Arena owning the returned seed.
- * @return Seed mesh owned by persist.
- */
-template <typename Site>
-inline PolyMesh finalize_site_seed(const Site &site, Arena &persist) {
-  constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
-  Arena a(morph_aux_buf, HALF);
-  Arena b(morph_aux_buf + HALF, HALF);
-  return hs_test::finalize_site_seed(site, persist, a, b);
-}
-
-/** @brief Production recipe timings exposed to replay fixtures. */
-struct RecipeLegLengths : Animation::RecipeBuild<RecipeLegLengths, 1, 1> {
-  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::HANKIN_LEG_FRAMES;
-  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::SWEEP_LEG_FRAMES;
-  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::RELAX_LEG_FRAMES;
-  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::clean_endpoint;
-  using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::make_build_leg;
-};
-
-using ConwayGraph::T_EPS;
-
-#include "tests/conway_morph/seeds.h"
-#include "tests/conway_morph/oracles.h"
-#include "tests/conway_morph/settle.h"
-#include "tests/conway_morph/bridge.h"
-#include "tests/conway_morph/jitterbug.h"
-#include "tests/conway_morph/clean_swap.h"
-#include "tests/conway_morph/endpoints.h"
-#include "tests/conway_morph/topology.h"
-#include "tests/conway_morph/scratch_budget.h"
-#include "tests/conway_morph/walk.h"
-#include "tests/conway_morph/profile_tour.h"
-#include "tests/conway_morph/recipe_steps.h"
-#include "tests/conway_morph/ambo_hankin.h"
-#include "tests/conway_morph/hankin.h"
-#include "tests/conway_morph/hankin_stability.h"
-#include "tests/conway_morph/medial.h"
-#include "tests/conway_morph/recipe_replay.h"
-#include "tests/conway_morph/reconcile.h"
 /**
  * @brief Runs all OpLeg operator-level tests.
  * @return The module's failure count.

@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Temporal capture test cases and fixtures. */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Explicit-time plotting and conservative orientation culling
@@ -472,3 +480,5 @@ inline void test_temporal_orientation_bound_is_conservative() {
   Spacetime::set_flat_surface(true);
   HS_EXPECT_NEAR(orient.sweep_arc(), 0.0f, 0.0f);
 }
+
+} // namespace hs_test::filter_tests

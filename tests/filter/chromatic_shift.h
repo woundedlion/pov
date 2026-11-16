@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
+
 /** @file
  * @brief Pixel::ChromaticShift channel-split tests.
  */
@@ -104,3 +110,5 @@ inline void test_chromatic_shift_fanout() {
   HS_EXPECT_NEAR(taps[2].x, 16.0f, 1e-5f);
   HS_EXPECT_NEAR(taps[3].x, 19.0f, 1e-5f);
 }
+
+} // namespace hs_test::filter_tests

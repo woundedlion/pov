@@ -4,17 +4,13 @@
  */
 /** @file
  * @brief Reaction diffusion gs test entry points. */
-#include "core/math/scalar_noise.h"
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/GSReactionDiffusion.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/reaction_diffusion_gs_whitebox.h"
 #include "tests/effects/reaction_diffusion_gs.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_gs_palette_is_opaque() {
   HS_RUN(run_case, test_gs_palette_is_opaque);

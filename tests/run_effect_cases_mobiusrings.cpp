@@ -4,15 +4,12 @@
  */
 /** @file
  * @brief Mobiusrings test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/MobiusRings.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/mobius_rings.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_mobius_rings_white_box_check_column_time_oracle() {
   HS_RUN(MobiusRingsWhiteBox::check_column_time_oracle);

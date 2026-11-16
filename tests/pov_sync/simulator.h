@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Simulator test cases and fixtures. */
+
+#include "tests/pov_sync/context.h"
+
+namespace hs_test::pov_sync_tests {
 
 // ── Multi-board simulator ───────────────────────────────────────────────────
 
@@ -1346,3 +1354,5 @@ inline void test_construction_window_predicates() {
     HS_EXPECT_FALSE(c.constructing(cfg));
   }
 }
+
+} // namespace hs_test::pov_sync_tests

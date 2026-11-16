@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Sparse parameter specs test cases and fixtures. */
+
+#include "tests/canvas/context.h"
+
+namespace hs_test::canvas_tests {
 
 /** @brief Sparse enum values and their parameter specification. */
 namespace sparse_parameter_tests {
@@ -252,3 +260,5 @@ inline void test_sparse_integer_registration_metadata() {
   HS_EXPECT_EQ(fx.updateParameter("Wide", 0.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(wide_mode, WideMode::LOW);
 }
+
+} // namespace hs_test::canvas_tests

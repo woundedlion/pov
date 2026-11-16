@@ -2,6 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+/** @file
+ * @brief Star flower plot/scan test declarations.
+ */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Plot::Star<Plot::PlanarProjection>::sample / Plot::Flower::sample
@@ -247,3 +257,6 @@ inline void test_flower_sample_unit_length_closed() {
     HS_EXPECT_NEAR(colat, colat0, 1e-3f);
   }
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

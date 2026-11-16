@@ -5,6 +5,20 @@
 /** @file
  * @brief Column-time scan engagement checks.
  */
+#pragma once
+
+#include "effects/HankinSolids.h"
+#include "effects/IslamicStars.h"
+#include "effects/GnomonicStars.h"
+#include "effects/ShapeShifter.h"
+#include "effects/Comets.h"
+#include "effects/Galaxies.h"
+#include "effects/DisplacementField.h"
+#include "effects/Raymarch.h"
+#include "effects/RingSpin.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // Column-time scan effects draw differently with temporal sampling on.
@@ -41,3 +55,5 @@ inline void test_column_time_scans_engage_with_fidelity_on() {
   check_column_time_scans_engage<Raymarch>("Raymarch");
   check_column_time_scans_engage<RingSpin>("RingSpin");
 }
+
+} // namespace hs_test::effects_tests

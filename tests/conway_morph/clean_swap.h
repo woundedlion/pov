@@ -5,6 +5,13 @@
 /** @file
  * @brief Clean-swap invisibility at boundary swaps.
  */
+#pragma once
+
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/oracles.h"
+#include "tests/conway_morph/seeds.h"
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Clean-swap invisibility: the boundary swaps exchange geometrically
@@ -74,3 +81,5 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
         1, PRIMARY_CORNER_TOL_SINGLE);
   }
 }
+
+} // namespace hs_test::conway_morph_tests

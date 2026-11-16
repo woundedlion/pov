@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Scan cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+#include "tests/death/fixtures.h"
+
+namespace hs_test::death_tests {
 
 // Scan and radial-surface death cases.
 
@@ -671,3 +680,5 @@ inline void case_covered_crossings_overflow() {
   death_admitted();
   crossings.insert(opaque(3.0f), 1.0f);
 }
+
+} // namespace hs_test::death_tests

@@ -5,6 +5,14 @@
 /** @file
  * @brief Topology constancy over open morph intervals.
  */
+#pragma once
+
+#include "tests/conway_morph/fixture.h"
+
+#include <vector>
+#include <algorithm>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Topology-constancy sweep: connectivity is fixed on the open interval,
@@ -204,3 +212,5 @@ inline void test_edge_sweeps_hold_topology() {
                   Solids::simple_registry[e.to_node].name);
   }
 }
+
+} // namespace hs_test::conway_morph_tests

@@ -4,16 +4,13 @@
  */
 /** @file
  * @brief Dynamo test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/Dynamo.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/dynamo_cases.h"
 #include "tests/effects/dynamo_temporal.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_dynamo_column_time_oracle() {
   HS_RUN(run_case, test_dynamo_column_time_oracle);

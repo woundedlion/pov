@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Retained temporal endpoint poses.
  */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 /** @brief Retained endpoints collapse at birth, reset and flat draws, then resume from the last flat endpoint. */
 inline void test_retained_endpoint_lifecycle() {
@@ -320,3 +326,6 @@ inline void test_rotation_vector_endpoints() {
     }
   }
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

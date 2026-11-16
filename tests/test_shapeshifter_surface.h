@@ -4,6 +4,10 @@
  */
 #pragma once
 
+#include "tests/shapeshifter_oracle/context.h"
+
+namespace hs_test::shapeshifter_oracle_tests {
+
 /** @file test_shapeshifter_surface.h
  * @brief Column-time and edge-mask parity for the continuous star preset. */
 
@@ -500,3 +504,5 @@ inline void test_surface_max_amplitude() {
                 int(timed), a, b);
   }
 }
+
+} // namespace hs_test::shapeshifter_oracle_tests

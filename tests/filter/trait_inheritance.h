@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
+
 /** @file
  * @brief Filter trait inheritance tests.
  */
@@ -298,3 +304,5 @@ inline void test_pipeline_config_widens_requirements() {
   static_assert(!RETAINED.strobe);
   static_assert(pipeline_config<Plain>({.strobe = true}).strobe);
 }
+
+} // namespace hs_test::filter_tests

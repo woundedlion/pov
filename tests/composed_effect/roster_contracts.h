@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/composed_effect/context.h"
+#include "tests/composed_effect/document_values.h"
+
+namespace hs_test::composed_effect_tests {
+
 /** @file
  * @brief Roster-wide slider, snapshot, choreography, interpolation and
  * document contracts.
@@ -233,3 +240,5 @@ inline void test_composed_hand_registered_families() {
   HS_EXPECT_EQ(std::size(COLOR_SLIDER_BINDINGS),
                Pullback::ColorParams::FIELDS.size());
 }
+
+} // namespace hs_test::composed_effect_tests

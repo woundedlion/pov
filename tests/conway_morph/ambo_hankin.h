@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/recipe_steps.h"
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Ambo-on-hankin probe: ambo legs on hankin meshes keep their face counts and
@@ -59,3 +65,5 @@ inline constexpr StepLegSite HANKIN_AMBO_SITES[] = {
 inline void test_ambo_leg_on_hankin_seed_holds_topology() {
   check_step_leg_sweep(StepLegKind::TRUNCATE, HANKIN_AMBO_SITES);
 }
+
+} // namespace hs_test::conway_morph_tests

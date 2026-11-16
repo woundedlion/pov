@@ -4,6 +4,13 @@
  */
 #pragma once
 
+/** @file
+ * @brief Retained hue test cases and fixtures. */
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
+
 /** @brief Field carrier for retained color-tail evaluation. */
 struct RetainedHueField
     : Pullback::Stage::Contract<RetainedHueField, Pullback::SphereSample,
@@ -251,3 +258,5 @@ inline void test_retained_palette_identity_rejects_changes() {
   HS_EXPECT_TRUE(history.previous.hue_rotation_gamut->bits ==
                  current.hue_rotation_gamut->bits);
 }
+
+} // namespace hs_test::composed_effect_tests

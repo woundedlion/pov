@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Protocol units test cases and fixtures. */
+
+#include "tests/pov_sync/context.h"
+
+namespace hs_test::pov_sync_tests {
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
@@ -1060,3 +1068,5 @@ inline void test_flywheel_position() {
     }
   }
 }
+
+} // namespace hs_test::pov_sync_tests

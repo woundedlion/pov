@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Temporal crossing captures against their analytic surface.
  */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 /** @brief Quadratic captures meet their analytic column-time surface. */
 inline void test_quadratic_screen_capture_meets_surface() {
@@ -348,3 +354,6 @@ inline void test_model_track_splits_or_refuses_near_poles() {
   HS_EXPECT_TRUE(check_track_passes(spin, 0.0, 0.5, half_deviation, track));
   HS_EXPECT_TRUE(check_track_passes(spin, 0.5, 1.0, half_deviation, track));
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Pipeline sink test cases and fixtures. */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Pipeline sink + get<T>()
@@ -142,3 +150,5 @@ inline void test_pipeline_get_returns_correct_filter() {
                 decltype(std::declval<Extended &>().template after<Blur>()),
                 Suffix &>);
 }
+
+} // namespace hs_test::filter_tests

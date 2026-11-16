@@ -5,27 +5,19 @@
 /** @file
  * @brief Type-erased Lerp animation tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include "tests/animation/lerp_fixture.h"
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Lerp (type-erased subject.lerp(start, target, t))
 // ============================================================================
-
-/**
- * @brief Minimal subject satisfying the lerp(start, target, t) interface
- * Animation::Lerp drives via type erasure.
- */
-struct Lerpable {
-  float value = 0.0f; /**< Interpolated scalar payload. */
-  /**
-   * @brief Linearly interpolates this subject's value between two endpoints.
-   * @param a Start subject (source value).
-   * @param b Target subject (destination value).
-   * @param t Interpolation parameter in [0, 1].
-   */
-  void lerp(const Lerpable &a, const Lerpable &b, float t) {
-    value = a.value + (b.value - a.value) * t;
-  }
-};
 
 /**
  * @brief Verifies Lerp drives its subject from start to target over `duration`
@@ -58,3 +50,5 @@ inline void test_lerp_midpoint() {
   l.step(fake_canvas()); // t=2 -> progress 0.50 -> 15.0
   HS_EXPECT_NEAR(subject.value, 15.0f, 1e-3f);
 }
+
+} // namespace hs_test::animation_tests

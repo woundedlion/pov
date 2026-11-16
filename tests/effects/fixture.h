@@ -194,7 +194,22 @@ inline void smoke_one(const char *name) {
   HS_EXPECT_EQ(dropped, 0u);
 }
 
-#include "tests/effects/parameter_probe.h"
+/** @brief Chooses a distant writable value for a parameter lint. */
+inline float parameter_probe_target(const ParamDef &def, float current) {
+  if (def.option_values != nullptr) {
+    float target = static_cast<float>(def.option_values[0]);
+    for (int i = 1; i < def.option_count; ++i) {
+      const float candidate = static_cast<float>(def.option_values[i]);
+      if (fabsf(candidate - current) > fabsf(target - current))
+        target = candidate;
+    }
+    return target;
+  }
+  return def.is_bool() ? (current > 0.5f ? 0.0f : 1.0f)
+         : (current - def.min) > (def.max - current)
+             ? def.min + 0.25f * (def.max - def.min)
+             : def.min + 0.75f * (def.max - def.min);
+}
 
 /**
  * @brief Runtime "registered-but-unread" lint for the live-art param system.
@@ -660,8 +675,6 @@ inline void clip_clear_parity_one(
   HS_EXPECT(lit > 0, "clip-clear parity must compare a lit render");
   hs::clear_mock_time();
 }
-
-#include "tests/effects/mesh_seam_oracle.h"
 
 /**
  * @brief Slab bands match the full frame after a simulation warm-up.

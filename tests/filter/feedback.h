@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
+
 /** @file
  * @brief Pixel::Feedback style binding and plot passthrough.
  */
@@ -180,3 +186,5 @@ inline void test_feedback_cache_storage_matches_lattice_samples() {
               CELLS, FIELD.sample_count(),
               (CELLS - FIELD.sample_count()) * sizeof(Layout::Coordinates));
 }
+
+} // namespace hs_test::filter_tests

@@ -2,6 +2,17 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+/** @file
+ * @brief Ring plot/scan test declarations.
+ */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/raster_fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Plot::Ring::sample
@@ -213,3 +224,6 @@ inline void test_ring_draw_accepts_direct_sink() {
 
   HS_EXPECT_GT(count_lit_canvas(fx), size_t{0});
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

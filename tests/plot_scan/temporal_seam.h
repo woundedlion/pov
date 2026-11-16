@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+/** @file
+ * @brief Temporal seam plot/scan test declarations.
+ */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 /** @brief Work counts from a diagnostic temporal world stage. */
 struct RigidWorkCounts {
@@ -114,3 +123,6 @@ inline void test_timed_projected_entry_bypasses_world() {
       }
   HS_EXPECT_GT(expected_taps, size_t{0});
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

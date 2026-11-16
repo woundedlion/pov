@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/BZReactionDiffusion.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // Belousov-Zhabotinsky reaction-diffusion: white-box dynamics coverage
@@ -723,3 +729,5 @@ inline void test_bz_lattice_basis_matches_rotated_lattice() {
   HS_EXPECT_LE(stats.max_absolute_error, 16u);
   HS_EXPECT_LT(stats.mean_absolute_error(), 0.05);
 }
+
+} // namespace hs_test::effects_tests

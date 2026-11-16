@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Swept temporal bounds from frame-end captures.
  */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 /** @brief Swept heights and half-planes from frame-end captures bound every
  *         point of a rotating edge's arcs over the frame. */
@@ -77,3 +83,6 @@ inline void test_swept_heights_refuse_wide_spreads() {
   HS_EXPECT_EQ(low, -1.0f);
   HS_EXPECT_EQ(high, 1.0f);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

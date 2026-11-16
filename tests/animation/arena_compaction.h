@@ -5,6 +5,15 @@
 /** @file
  * @brief MeshCarousel arena compaction tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/vec_test_util.h"
+#include "tests/mesh_test_util.h"
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // MeshCarousel arena compaction
@@ -112,3 +121,5 @@ inline void test_meshcarousel_compact_drop_all_frees_both_slots() {
   HS_EXPECT_LE(persistent_arena.get_offset(),
                (size_t)64 + alignof(std::max_align_t));
 }
+
+} // namespace hs_test::animation_tests

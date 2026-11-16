@@ -5,6 +5,17 @@
 /** @file
  * @brief Mobius warp animation tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include <array>
+#include <cstring>
+#include <limits>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Mobius warps
@@ -427,3 +438,5 @@ inline void test_lensphase_retains_last_finite_live_scale() {
     HS_EXPECT_TRUE(std::isfinite(angle));
   }
 }
+
+} // namespace hs_test::animation_tests

@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include "tests/vec_test_util.h"
 #include <cstdint>
 #include <span>
 #include "core/mesh/mesh.h"

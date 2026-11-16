@@ -2,9 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Plot::Multiline sampling tests.
  */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Plot::Multiline::sample
@@ -69,3 +76,6 @@ inline void test_multiline_sample_arclength_param() {
   HS_EXPECT_NEAR(seam.v1, 2.0f * math::PI_F, 1e-3f);
   HS_EXPECT_NEAR(seam.v2, 3.0f, 1e-6f);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

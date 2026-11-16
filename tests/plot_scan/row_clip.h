@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief ClipRegion row cull and cylindrical x-clip predicates.
  */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // ClipRegion row cull and cylindrical x-clip predicates (clip.h)
@@ -201,3 +207,6 @@ inline void test_clip_x_wrap_matches_modulo() {
     }
   }
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

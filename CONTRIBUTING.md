@@ -63,6 +63,12 @@ The profiling headers `tools/pc_sampler.h`, `tools/profile_isr_window.h` and
 plus `tools/phantasm.ld`, follow the
 `hardware/` direction rules. Linker imports use GNU ld `INCLUDE` syntax.
 
+Test headers own their namespaces and include their dependencies at file scope.
+Shared fixtures contain support declarations; case headers include only the
+fixtures and sibling declarations they use. `cmake --build --preset tests --target
+test_header_contracts` compiles each header independently with the host test
+configuration, and native CI runs that target.
+
 Use `HS_FLASH_MEMBER` for internal cold inline, template and COMDAT functions.
 `HS_ITCM_MEMBER` marks a
 non-inlined function kept in ITCM at the translation unit's optimization; on

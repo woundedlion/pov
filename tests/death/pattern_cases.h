@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Pattern cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
+
 // Pattern parameter and state admission traps.
 
 inline void case_pattern_sphere_cells_invalid_prepare() {
@@ -135,3 +144,5 @@ inline void case_pattern_cube_invalid_direction() {
   (void)Pattern::prepare_sphere_lut_sample(
       math::Vector(opaque(0.0f), 0.0f, 0.0f));
 }
+
+} // namespace hs_test::death_tests

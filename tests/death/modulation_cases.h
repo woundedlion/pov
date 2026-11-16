@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Modulation cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
+
 // Modulation configuration and prepared-resource admission traps.
 
 inline void case_modulation_hue_nonfinite() {
@@ -107,3 +116,5 @@ inline void case_modulation_missing_endpoint() {
   context.modulations = {};
   (void)Op::prepare(context, params, state);
 }
+
+} // namespace hs_test::death_tests

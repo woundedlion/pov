@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Parameter schema test cases and fixtures. */
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
 
 // ============================================================================
 // Parameter layout hash and schema pins
@@ -289,3 +297,5 @@ inline void test_composed_parameter_schema_pins() {
 #undef HS_COMPOSED_ROSTER_ONE
   HS_EXPECT_EQ(std::size(PARAMETER_SCHEMA_PINS), ROSTER);
 }
+
+} // namespace hs_test::composed_effect_tests

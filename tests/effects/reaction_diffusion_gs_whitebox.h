@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-
 /** @file
  * @brief Gray-Scott white-box accessors and reference shaders. */
+#pragma once
+
+#include "core/math/scalar_noise.h"
+#include "effects/GSReactionDiffusion.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief White-box accessor for GSReactionDiffusion's private fixed-point and
@@ -912,3 +918,5 @@ struct GSWhiteBox {
     return error;
   }
 };
+
+} // namespace hs_test::effects_tests

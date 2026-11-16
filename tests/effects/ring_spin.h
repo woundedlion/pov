@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief RingSpin white-box cases. */
+#pragma once
+
+#include "effects/RingSpin.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief White-box accessor for RingSpin's ring pool. */
 struct RingSpinWhiteBox {
@@ -103,3 +109,5 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
   fx.advance_display();
   HS_EXPECT_EQ((count_lit_region<DEFAULT_W, DEFAULT_H>(fx)), size_t{0});
 }
+
+} // namespace hs_test::effects_tests

@@ -5,6 +5,14 @@
 /** @file
  * @brief ColorWipe animation tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // ColorWipe
@@ -136,3 +144,5 @@ inline void test_colorwipe_paused_holds_keys() {
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L,
                  GenerativePalette::snapshot_key(target, 0).L, 1e-6f);
 }
+
+} // namespace hs_test::animation_tests

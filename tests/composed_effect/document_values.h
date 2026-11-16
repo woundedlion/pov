@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Document values test cases and fixtures. */
+
+#include "tests/composed_effect/context.h"
+#include "tests/composed_effect/derivation_reach.h"
+
+namespace hs_test::composed_effect_tests {
 
 // ============================================================================
 // Promoted shader documents: document-value parity
@@ -1214,3 +1223,5 @@ inline void test_composed_document_modulation_members() {
                  ParamSetResult::READONLY);
   }
 }
+
+} // namespace hs_test::composed_effect_tests

@@ -4,15 +4,12 @@
  */
 /** @file
  * @brief Displacement field test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/DisplacementField.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/displacement_field.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_displacement_field_retained_history_resets() {
   HS_RUN(run_case, test_displacement_field_retained_history_resets);

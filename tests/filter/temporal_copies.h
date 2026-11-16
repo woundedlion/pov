@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 /** @file temporal_copies.h
  * @brief Selected-copy timed transforms match spatial fan-out. */
@@ -132,3 +137,5 @@ inline void test_timed_vertex_replicate_selected_copy() {
   check_timed_spatial_copies(stage, reference);
   expect_timed_copy_clamps(stage, reference);
 }
+
+} // namespace hs_test::filter_tests

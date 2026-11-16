@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief AshCloud value-cutout cases. */
+#pragma once
+
+#include "effects/AshCloud.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief Pins that AshCloud's value cutout reaches the rendered frame.
@@ -31,3 +37,5 @@ inline void test_ash_cloud_value_cutout_gates_the_frame() {
   HS_EXPECT_GT(lit_pixels(0.0f), size_t{0});
   HS_EXPECT_EQ(lit_pixels(1.0f), size_t{0});
 }
+
+} // namespace hs_test::effects_tests

@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Ring raster test cases and fixtures. */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
 
 // ============================================================================
 // Scan::Ring::draw — SDF rasterize() path through a Pipeline sink
@@ -610,3 +618,5 @@ inline void test_scalar_ring_draw_options() {
   } else
     HS_EXPECT_EQ(suppressed_lit, lit);
 }
+
+} // namespace hs_test::scan_tests

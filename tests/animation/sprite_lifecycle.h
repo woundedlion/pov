@@ -5,6 +5,15 @@
 /** @file
  * @brief Sprite opacity envelope and paused-hold tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include <vector>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Sprite (opacity envelope + paused-hold)
@@ -210,3 +219,5 @@ inline void test_sprite_one_frame_and_eased_fade_out() {
   }
   HS_EXPECT_TRUE(sprite.done());
 }
+
+} // namespace hs_test::animation_tests

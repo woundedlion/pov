@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/MeshFeedback.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // MeshFeedback: draw ordering, base-mesh selection, export arity and storage
@@ -492,3 +498,5 @@ inline void test_meshfeedback_all_presets_arm_cut_steps() {
   HS_EXPECT_LT(worst.infill, MESHFEEDBACK_INFILL_CUT_BOUND);
   HS_EXPECT_LT(worst.latitude, MESHFEEDBACK_LATITUDE_BOUND);
 }
+
+} // namespace hs_test::effects_tests

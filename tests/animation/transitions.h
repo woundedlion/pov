@@ -5,6 +5,16 @@
 /** @file
  * @brief Transition animation tests.
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include <array>
+#include <vector>
+
+namespace hs_test::animation_tests {
 
 // ============================================================================
 // Transition
@@ -168,3 +178,5 @@ inline void test_progress_pause_and_eased_bounds() {
   HS_EXPECT_EQ(values[3], 1.0f);
   HS_EXPECT_TRUE(progress.done());
 }
+
+} // namespace hs_test::animation_tests

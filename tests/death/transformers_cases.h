@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Transformers cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Transformers death cases.
 
@@ -127,3 +135,5 @@ inline void case_transformer_pool_outlives_timeline() {
   tl->~Timeline();
   // ~RippleTransformer at scope exit -> HS_CHECK
 }
+
+} // namespace hs_test::death_tests

@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
+
 /** @file
  * @brief Screen::Blur kernel tests.
  */
@@ -247,3 +253,5 @@ inline void test_blur_pole_row_renormalizes() {
     HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
   }
 }
+
+} // namespace hs_test::filter_tests

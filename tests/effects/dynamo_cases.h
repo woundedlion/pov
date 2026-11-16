@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief Dynamo white-box cases. */
+#pragma once
+
+#include "effects/Dynamo.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief White-box accessor for Dynamo's leader drag, palette wipes and trail
@@ -213,3 +219,5 @@ inline void test_dynamo_emitted_points_counts_ring_seeds() {
     HS_EXPECT_EQ(seeded, static_cast<size_t>(WB::emitted_points(effect)));
   }
 }
+
+} // namespace hs_test::effects_tests

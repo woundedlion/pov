@@ -4,6 +4,11 @@
  */
 /** @file
  * @brief Mesh seam geometry and colour oracles. */
+#pragma once
+
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief Adjacent-column colour steps at the arm boundaries and mid-arm. */
 struct MeshSeamSteps {
@@ -535,3 +540,5 @@ inline float seam_vertex_tolerance(LateFn &&late, EarlyFn &&early,
          (seam_capture_slack(motion, turn, horizontal) + 2.0f / W) * motion +
          FLOAT_ROUNDING;
 }
+
+} // namespace hs_test::effects_tests

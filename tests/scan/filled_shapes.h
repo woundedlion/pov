@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Filled shapes test cases and fixtures. */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
 
 // ============================================================================
 // Scan::Star / PlanarPolygon / Flower — filled-shape placement oracle
@@ -316,3 +324,5 @@ inline void test_overlapping_fills_composite_blend() {
   HS_EXPECT_NEAR((int)p.g, (int)(GREEN * 0.5f), 2);
   HS_EXPECT_EQ((int)p.b, 0);
 }
+
+} // namespace hs_test::scan_tests

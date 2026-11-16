@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
 
 /** @file authored_policies.h
  * @brief Authored displacement, projection and modulation bindings. */
@@ -814,3 +819,5 @@ inline void test_authored_noise_seed_identity() {
     HS_EXPECT_NEAR(actual.GetNoiseSingle(point.x, point.y, point.z),
                    expected.GetNoiseSingle(point.x, point.y, point.z), 1e-6f);
 }
+
+} // namespace hs_test::composed_effect_tests

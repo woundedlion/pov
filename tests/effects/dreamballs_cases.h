@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/DreamBalls.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 // DreamBalls geometry and lifecycle coverage.
 
@@ -811,3 +817,5 @@ inline void test_dreamballs_retained_history_resets() {
   WB::spawn(effect);
   HS_EXPECT_FALSE(WB::history_ready(effect));
 }
+
+} // namespace hs_test::effects_tests

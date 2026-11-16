@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/scan/context.h"
+#include "tests/scan/column_basis.h"
+
+namespace hs_test::scan_tests {
 
 /** @file mesh_capture.h
  * @brief Mesh deformation capture and column-window replay tests. */
@@ -965,3 +971,5 @@ inline void test_mesh_polar_face_windows() {
   check_polar_face_windows(3, 0.05f, true, 0.02f);
   check_polar_face_windows(4, 0.2f, false, 0.0f);
 }
+
+} // namespace hs_test::scan_tests

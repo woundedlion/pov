@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
+
 /** @file
  * @brief Scan::Shader drawing, bounding-sphere setup and alpha cutoff.
  */
@@ -575,3 +581,5 @@ inline void test_simulate_in_slabs_orders_substeps_and_columns() {
     }
   }
 }
+
+} // namespace hs_test::scan_tests

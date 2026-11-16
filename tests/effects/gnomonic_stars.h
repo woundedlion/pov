@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief GnomonicStars white-box cases. */
+#pragma once
+
+#include "effects/GnomonicStars.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief White-box accessor for GnomonicStars' pixel-pitch star radius and its
@@ -242,3 +248,5 @@ inline void test_gnomonicstars_radius_px_covers_both_axes() {
   HS_EXPECT_LE(max_arc, (SPAN_PX + 2) * pixel_pitch);
   HS_EXPECT_GE(max_arc, (SPAN_PX - 2) * pixel_pitch);
 }
+
+} // namespace hs_test::effects_tests

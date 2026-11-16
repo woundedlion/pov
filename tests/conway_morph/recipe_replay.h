@@ -2,6 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/IslamicStars.h"
+#include "tests/conway_morph/fixture.h"
+
+#include <vector>
+#include <array>
+#include <algorithm>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Recipe chain build replay: chains are lowered and replayed leg by leg
@@ -533,3 +543,5 @@ inline void test_recipe_chain_build_replay() {
   HS_EXPECT_TRUE(sweep.production_schedule);
   HS_EXPECT_EQ(sweep.legs, (size_t)2);
 }
+
+} // namespace hs_test::conway_morph_tests

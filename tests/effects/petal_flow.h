@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief PetalFlow white-box cases. */
+#pragma once
+
+#include "effects/PetalFlow.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief White-box access to PetalFlow's spawn gap, hue cursor and ring pool,
@@ -222,3 +228,5 @@ inline void test_petalflow_parameter_edit_continuity() {
     HS_EXPECT_GT(difference, 0.01);
   }
 }
+
+} // namespace hs_test::effects_tests

@@ -2,6 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
+
 /** @file chamber_noise_cache.h
  * @brief Temporal chamber-noise ownership and sampling tests. */
 
@@ -502,3 +508,5 @@ inline void test_chamber_noise_cache_runtime_history() {
   HS_EXPECT_TRUE(b.patch->values == before_static_b);
   Spacetime::set_flat_surface(false);
 }
+
+} // namespace hs_test::composed_effect_tests

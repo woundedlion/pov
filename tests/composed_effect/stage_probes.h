@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Stage probes test cases and fixtures. */
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
 
 // ============================================================================
 // Stage and choreography probes on hand-built composed specs
@@ -1011,3 +1019,5 @@ inline void test_choreography_lerp_pause_policy() {
   HS_EXPECT_EQ(effect.blend_calls, edited_blends);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 }
+
+} // namespace hs_test::composed_effect_tests

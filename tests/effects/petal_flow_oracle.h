@@ -4,6 +4,13 @@
  */
 /** @file
  * @brief PetalFlow temporal oracle. */
+#pragma once
+
+#include "effects/PetalFlow.h"
+#include "tests/effects/fixture.h"
+#include "tests/effects/petal_flow.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief Production PetalFlow travel, twist, orientation and fade match frozen columns. */
 inline void test_petalflow_temporal_source_oracle() {
@@ -19,3 +26,5 @@ inline void test_petalflow_temporal_source_oracle() {
                     : (rho == 1.25f ? "PetalFlow dense" : "PetalFlow fade"));
   }
 }
+
+} // namespace hs_test::effects_tests

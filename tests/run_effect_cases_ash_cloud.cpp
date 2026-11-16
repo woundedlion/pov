@@ -4,15 +4,12 @@
  */
 /** @file
  * @brief Ash cloud test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/AshCloud.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/ash_cloud.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_ash_cloud_value_cutout_gates_the_frame() {
   HS_RUN(run_case, test_ash_cloud_value_cutout_gates_the_frame);

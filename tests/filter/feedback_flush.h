@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Feedback flush test cases and fixtures. */
+
+#include "tests/filter/context.h"
+#include "tests/filter/feedback.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Feedback rendering and spherical-field interpolation
@@ -1343,3 +1352,5 @@ inline void test_feedback_clipped_half_res_keeps_own_lanes() {
     HS_EXPECT_EQ(row[HALF - 1], second);
   }
 }
+
+} // namespace hs_test::filter_tests

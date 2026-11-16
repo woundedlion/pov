@@ -5,6 +5,14 @@
 /** @file
  * @brief Settle correspondence of relaxed vertex order.
  */
+#pragma once
+
+#include "tests/conway_morph/fixture.h"
+#include "tests/conway_morph/oracles.h"
+
+#include <vector>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Settle correspondence: relax output vertex order is the identity over
@@ -102,3 +110,5 @@ inline void test_position_legs_preserve_face_palettes() {
                                  .sweep_frames = FRAMES},
             target, draw, handoff));
 }
+
+} // namespace hs_test::conway_morph_tests

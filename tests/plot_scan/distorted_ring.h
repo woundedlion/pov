@@ -2,9 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Plot::DistortedRing sampling tests.
  */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Plot::DistortedRing::sample  — angle-addition identity (LUT) vs direct
@@ -81,3 +88,6 @@ inline void test_distorted_ring_shift_matches_fn_point() {
     HS_EXPECT_VEC(points[i].pos, direct, 2e-3f);
   }
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

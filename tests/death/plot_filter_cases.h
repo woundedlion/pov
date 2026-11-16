@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Plot filter cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+#include "tests/death/fixtures.h"
+
+namespace hs_test::death_tests {
 
 // Plot filter death cases.
 
@@ -857,3 +866,5 @@ inline void case_pipeline_ref_timed_erase_not_prepared() {
   PipelineRef invalid(unprepared, canvas, Spacetime::Timed{});
   (void)invalid;
 }
+
+} // namespace hs_test::death_tests

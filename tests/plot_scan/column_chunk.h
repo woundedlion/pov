@@ -2,9 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
 /** @file
  * @brief Column chunk slot reservation tests.
  */
+
+#include "tests/plot_scan/fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 /** @brief Chained edges share the last slot; unchained edges reserve both slots. */
 inline void test_column_chunk_capacity_boundary() {
@@ -223,3 +229,6 @@ inline void test_swept_bump_arc_contains_footprint_knots() {
   HS_EXPECT_GT(empty_arcs, 0);
   HS_EXPECT_GT(whole_arcs, 0);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

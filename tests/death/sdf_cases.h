@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Sdf cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+#include "tests/death/fixtures.h"
+
+namespace hs_test::death_tests {
 
 // SDF death cases.
 
@@ -398,3 +407,5 @@ inline void case_face_scratch_retargeted_by_culled_face() {
   (void)second;
   (void)first.get_vertical_bounds<H>();
 }
+
+} // namespace hs_test::death_tests

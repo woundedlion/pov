@@ -7,27 +7,8 @@
  */
 #pragma once
 
-#include "core/animation/orientation.h"
-#include "core/animation/transformer.h"
-#include "core/math/mobius.h"
-#include <array>
-#include <cstring>
-#include <cmath>
-#include <cstddef>
-#include <limits>
-#include <vector>
-#include "core/animation/animation.h"
-#include "core/render/canvas.h"
-#include "core/math/easing.h"
-#include "core/mesh/mesh.h" // PolyMesh, MeshOps::compile (mesh test fixtures)
-#include "tests/fd_capture_util.h"
-#include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
-#include "tests/vec_test_util.h"
-
-namespace hs_test {
-namespace animation_tests {
 
 #include "tests/animation/canvas_fixture.h"
 #include "tests/animation/paths.h"
@@ -49,6 +30,10 @@ namespace animation_tests {
 #include "tests/animation/color_wipe.h"
 #include "tests/animation/mobius.h"
 #include "tests/animation/ripple_noise.h"
+
+namespace hs_test {
+namespace animation_tests {
+
 /**
  * @brief Runs every animation test case in this module.
  * @return The module's failure count.

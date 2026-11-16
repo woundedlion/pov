@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include "core/mesh/recipe.h"
 #include "core/memory.h"
 #include "core/mesh/conway_graph.h"
 #include "core/mesh/solids.h"

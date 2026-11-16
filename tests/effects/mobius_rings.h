@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief MobiusRings white-box cases. */
+#pragma once
+
+#include "effects/MobiusRings.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief Optional device clipping and endpoint scenarios. */
 struct MobiusRingsRenderOptions {
@@ -318,3 +324,5 @@ inline void test_mobius_rings_conformal_and_counter_rotation() {
   math::Vector r = math::rotate(mid.normalized(), WB::counter_rotation(mid));
   HS_EXPECT_VEC(r, math::Z_AXIS, 1e-3f);
 }
+
+} // namespace hs_test::effects_tests

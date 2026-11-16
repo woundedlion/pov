@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/math/scalar_noise.h"
+#include "effects/GSReactionDiffusion.h"
+#include "tests/effects/fixture.h"
+#include "tests/effects/reaction_diffusion_gs_whitebox.h"
+
+namespace hs_test::effects_tests {
 
 // ---------------------------------------------------------------------------
 // Gray-Scott reaction-diffusion: white-box dynamics coverage
@@ -1399,3 +1407,5 @@ inline void test_gs_slab_noise_keeps_the_previous_bake() {
 inline void test_gs_segmented_slabs_match_full_frame() {
   expect_slab_bands_match_full_frame<GSWhiteBox::GS>(40);
 }
+
+} // namespace hs_test::effects_tests

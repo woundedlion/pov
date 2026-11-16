@@ -5,6 +5,14 @@
 /** @file
  * @brief Ordered-tour coverage, seed reconciliation and wrap.
  */
+#pragma once
+
+#include "tests/conway_morph/walk.h"
+
+#include "tests/test_harness.h"
+#include "core/mesh/conway_graph.h"
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Ordered-tour coverage, seed reconciliation and wrap.
@@ -50,3 +58,5 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
   std::printf("  [tour] %d legs per cycle, full coverage after %d\n",
               ORDERED_TOUR_LEN, coverage_leg);
 }
+
+} // namespace hs_test::conway_morph_tests

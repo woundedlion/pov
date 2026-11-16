@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/pov_sync/context.h"
+#include "tests/pov_sync/simulator.h"
+
+namespace hs_test::pov_sync_tests {
+
 /** @file
  * @brief POV sync failure-mode artifact bounds and recovery times.
  */
@@ -495,3 +502,5 @@ inline void test_joined_board_dark_through_commit_window() {
                  synced.output_envelope(cfg, x, WIDTH));
   }
 }
+
+} // namespace hs_test::pov_sync_tests

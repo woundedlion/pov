@@ -2,6 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "tests/scan/context.h"
+#include "tests/scan/column_basis.h"
+
+namespace hs_test::scan_tests {
+
 /** @file
  * @brief Column-time shader, drift and forced-table state.
  */
@@ -468,3 +475,5 @@ inline void test_settled_drift_matches_column_drift() {
   HS_EXPECT_VEC(odd.v, unmoved.v, 0.0f);
   HS_EXPECT_VEC(odd.w, unmoved.w, 0.0f);
 }
+
+} // namespace hs_test::scan_tests

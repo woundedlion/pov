@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/IslamicStars.h"
+#include "tests/conway_morph/fixture.h"
+
+#include <vector>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Smooth kis/needle reconcile: the identity meshes (dt / dtd) and the authored
@@ -154,3 +162,5 @@ inline void test_reconcile_bijection_wellposed() {
                   (double)worst_chord);
   }
 }
+
+} // namespace hs_test::conway_morph_tests

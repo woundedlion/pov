@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Math spatial cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Math spatial death cases.
 
@@ -431,3 +439,5 @@ inline void case_square_wave_invalid_duty() {
 inline void case_fib_spiral_zero_points() {
   (void)math::fib_spiral(opaque(0), .5f, 0);
 }
+
+} // namespace hs_test::death_tests

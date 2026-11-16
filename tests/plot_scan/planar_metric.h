@@ -2,6 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+/** @file
+ * @brief Planar metric plot/scan test declarations.
+ */
+
+#include "tests/plot_scan/fixture.h"
+#include "tests/plot_scan/sampling_fixture.h"
+
+namespace hs_test {
+namespace plot_scan_tests {
 
 // ============================================================================
 // Azimuthal-equidistant projection and dual-metric planar arc length.
@@ -243,3 +253,6 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
   }
   HS_EXPECT_GT(checked, 1500);
 }
+
+} // namespace plot_scan_tests
+} // namespace hs_test

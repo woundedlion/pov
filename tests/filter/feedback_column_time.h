@@ -2,6 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Feedback column time test cases and fixtures. */
+
+#include "core/render/plot/mesh.h"
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Feedback at column time: elapsed reads, the fade table, the analytic
@@ -707,3 +716,5 @@ inline void test_feedback_split_frame_covers_forward_bands() {
         });
   }
 }
+
+} // namespace hs_test::filter_tests

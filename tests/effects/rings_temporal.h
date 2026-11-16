@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/RingShower.h"
+#include "effects/Thrusters.h"
+#include "tests/effects/fixture.h"
+#include "tests/effects/ring_whitebox.h"
+
+namespace hs_test::effects_tests {
 
 /** @file rings_temporal.h
  * @brief Frozen-column oracles for growing and warped rings. */
@@ -511,3 +519,5 @@ inline void ThrustersWhiteBox::check_temporal_rings() {
                                       scenario != Scenario::THRUSTER_BIRTH);
     }
 }
+
+} // namespace hs_test::effects_tests

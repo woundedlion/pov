@@ -7,6 +7,7 @@
 /** @file radial_surface_math.h
  * @brief Chart arithmetic and accurate bounded angle evaluation. */
 
+#include "core/math/periodic.h"
 #include <cmath>
 #include "core/math/3dmath.h"
 

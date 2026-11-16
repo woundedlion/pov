@@ -4,6 +4,13 @@
  */
 /** @file
  * @brief Growing and warped ring white-box cases. */
+#pragma once
+
+#include "effects/RingShower.h"
+#include "effects/Thrusters.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /** @brief White-box accessor for the Thrusters warp curve and fire path. */
 struct ThrustersWhiteBox {
@@ -149,3 +156,5 @@ struct RingShowerWhiteBox {
     HS_EXPECT_LT(ring.radius_at(), RS::Ring::RADIUS_MAX);
   }
 };
+
+} // namespace hs_test::effects_tests

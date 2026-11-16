@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Canvas routing test cases and fixtures. */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // End-to-end pipeline routing through a live Canvas
@@ -397,3 +405,5 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
     HS_EXPECT_GT(integer_changed, 0);
   }
 }
+
+} // namespace hs_test::filter_tests

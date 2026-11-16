@@ -688,3 +688,5 @@ set_tests_properties(unit_effects_smoke unit_choreography_hooks
     unit_shapeshifter_lobes unit_shapeshifter_footprint PROPERTIES COST 80)
 set_tests_properties(unit_case_calls unit_conway_soak unit_shapeshifter_oracle
     unit_stack_budget unit_arena_budget unit_pullback PROPERTIES COST 50)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/header_contracts.cmake)

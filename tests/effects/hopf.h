@@ -4,6 +4,12 @@
  */
 /** @file
  * @brief HopfFibration white-box cases. */
+#pragma once
+
+#include "effects/HopfFibration.h"
+#include "tests/effects/fixture.h"
+
+namespace hs_test::effects_tests {
 
 /**
  * @brief White-box access to HopfFibration's projection, fiber state, trail
@@ -213,3 +219,5 @@ inline void test_hopf_temporal_trail_oracle() {
     hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render, "Hopf trail");
   }
 }
+
+} // namespace hs_test::effects_tests

@@ -2,6 +2,14 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+/** @file
+ * @brief Pullback cases test cases and fixtures. */
+
+#include "tests/death/context.h"
+
+namespace hs_test::death_tests {
 
 // Pullback death cases.
 
@@ -555,3 +563,5 @@ inline void case_chain_ready_before_prepare() {
   compile_temporal_chain(program, blocks, false);
   program.check_ready();
 }
+
+} // namespace hs_test::death_tests

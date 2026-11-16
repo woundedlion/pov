@@ -2,6 +2,16 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "core/animation/animation.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+#include "tests/animation/canvas_fixture.h"
+#include "tests/fd_capture_util.h"
+#include <limits>
+
+namespace hs_test::animation_tests {
 
 // Timeline scheduling, cancellation and storage lifecycle.
 
@@ -1184,3 +1194,5 @@ inline void test_timeline_overlapping_midstep_compaction() {
   for (float value : added)
     HS_EXPECT_EQ(value, 0.5f);
 }
+
+} // namespace hs_test::animation_tests

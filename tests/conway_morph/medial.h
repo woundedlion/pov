@@ -2,6 +2,20 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#pragma once
+
+#include "effects/IslamicStars.h"
+#include "tests/conway_morph/fixture.h"
+#include "tests/pixel_test_util.h"
+#include "tests/conway_morph/recipe_steps.h"
+#include "tests/conway_morph/topology.h"
+
+#include <vector>
+#include <bit>
+#include <cmath>
+#include <algorithm>
+
+namespace hs_test::conway_morph_tests {
 
 // ---------------------------------------------------------------------------
 // Medial (Conway-dual) bridge: MeshOps::medial yields one rectified
@@ -921,3 +935,5 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   check_opleg_dual_bridge_seam(false);
   check_opleg_dual_bridge_seam(true);
 }
+
+} // namespace hs_test::conway_morph_tests

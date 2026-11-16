@@ -4,16 +4,12 @@
  */
 /** @file
  * @brief Galaxies test entry points. */
-#include "core/math/scalar_kernels.h"
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/Galaxies.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/galaxies_tests.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_galaxies_spawn_along_spiral_with_orbital_velocity() {
   HS_RUN(run_case, test_galaxies_spawn_along_spiral_with_orbital_velocity);

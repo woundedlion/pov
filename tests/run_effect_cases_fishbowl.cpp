@@ -4,16 +4,13 @@
  */
 /** @file
  * @brief Fishbowl test entry points. */
-#include "core/animation/orientation.h"
-#include "core/engine/engine.h"
-#include "effects/Fishbowl.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/case_runners.h"
 
-namespace hs_test::effects_tests {
-
 #include "tests/effects/fishbowl_cases.h"
 #include "tests/effects/fishbowl_oracle.h"
+
+namespace hs_test::effects_tests {
 
 void run_effect_case_fishbowl_snapshot_admission() {
   HS_RUN(run_case, test_fishbowl_snapshot_admission);

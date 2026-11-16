@@ -1,0 +1,1164 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+#pragma once
+
+/** @file
+ * @brief Canvas module cases. */
+
+#include "tests/canvas/context.h"
+
+namespace hs_test::canvas_tests {
+
+static_assert(named_registration_policies<TestEffect>);
+static_assert(!positional_float_policy<TestEffect>);
+static_assert(!positional_bool_policy<TestEffect>);
+static_assert(!positional_integer_policy<TestEffect>);
+static_assert(!positional_enum_policy<TestEffect>);
+
+// ============================================================================
+// Construction
+// ============================================================================
+
+/**
+ * @brief Verifies a freshly constructed Effect reports its dimensions, starts
+ * fully black with a free display buffer, and has its clip set to the whole
+ * canvas.
+ */
+inline void test_construction_dims_and_clear() {
+  TestEffect fx(96, 20);
+  HS_EXPECT_EQ(fx.width(), 96);
+  HS_EXPECT_EQ(fx.height(), 20);
+  HS_EXPECT_TRUE(fx.strobe_columns());
+  HS_EXPECT_PIXEL(fx.get_pixel(10, 5), 0, 0, 0);
+  HS_EXPECT_TRUE(fx.buffer_free());
+  HS_EXPECT_TRUE(fx.clip().is_full());
+  HS_EXPECT_EQ(fx.clip().y_end, 20);
+  HS_EXPECT_EQ(fx.clip().x_end, 96);
+}
+
+/** @brief Column strobing defaults on and permits an explicit opt-out. */
+inline void test_effect_config_strobe_override() {
+  HS_EXPECT_TRUE(EffectConfig{}.strobe);
+  {
+    TestEffect fx(8, 4, {.strobe = false, .persist = true});
+    HS_EXPECT_FALSE(fx.strobe_columns());
+    HS_EXPECT_TRUE(fx.persists_pixels());
+  }
+  {
+    TestEffect fx(8, 4, {.strobe = true});
+    HS_EXPECT_TRUE(fx.strobe_columns());
+  }
+}
+
+/**
+ * @brief Verifies the smallest and largest supported dimensions are accepted.
+ */
+inline void test_construction_dimension_boundaries() {
+  {
+    TestEffect fx(1, 1);
+    HS_EXPECT_EQ(fx.width(), 1);
+    HS_EXPECT_EQ(fx.height(), 1);
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), 0, 0, 0);
+  }
+  {
+    TestEffect fx(MAX_W, MAX_H);
+    HS_EXPECT_EQ(fx.width(), MAX_W);
+    HS_EXPECT_EQ(fx.height(), MAX_H);
+    HS_EXPECT_PIXEL(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0);
+  }
+}
+
+/** @brief Output envelope scales RGB at zero, half and full brightness. */
+inline void test_output_envelope_endpoints() {
+  TestEffect fx(8, 8);
+  const Pixel SOURCE{65535, 32768, 1};
+  fx.set_output_envelope(0.0f);
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(SOURCE), 0, 0, 0);
+  fx.set_output_envelope(1.0f);
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(SOURCE), 65535, 32768, 1);
+  fx.set_output_envelope(0.5f);
+  HS_EXPECT_EQ(fx.output_envelope_u16(), uint16_t(32768));
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(SOURCE), 32768, 16384, 1);
+}
+
+/**
+ * @brief Preset advance, pause, synchronization and refusal preserve the
+ * expected state.
+ */
+inline void test_preset_state_machine() {
+  PresetTestEffect fx;
+  HS_EXPECT_EQ(fx.getPresetCount(), size_t(3));
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(0));
+
+  HS_EXPECT_TRUE(fx.advance());
+  HS_EXPECT_EQ(fx.applied_from, size_t(0));
+  HS_EXPECT_EQ(fx.applied_to, size_t(1));
+  HS_EXPECT_FALSE(fx.applied_manually);
+  HS_EXPECT_EQ(fx.committed_index, size_t(1));
+  HS_EXPECT_FALSE(fx.animations_paused());
+
+  HS_EXPECT_TRUE(fx.previousPreset());
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(0));
+  HS_EXPECT_TRUE(fx.applied_manually);
+  HS_EXPECT_TRUE(fx.animations_paused());
+
+  fx.setAnimationsPaused(false);
+  HS_EXPECT_TRUE(fx.synchronizePreset(2));
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(2));
+  HS_EXPECT_TRUE(fx.applied_synchronized);
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.commit_count, 3);
+  HS_EXPECT_TRUE(fx.synchronizePreset(2));
+  HS_EXPECT_EQ(fx.commit_count, 3);
+
+  fx.accept = false;
+  HS_EXPECT_FALSE(fx.selectPreset(1));
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(2));
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.commit_count, 3);
+
+  fx.accept = true;
+  const auto applied_to = fx.applied_to;
+  HS_EXPECT_FALSE(fx.selectPreset(3));
+  HS_EXPECT_EQ(fx.applied_to, applied_to);
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(2));
+  HS_EXPECT_EQ(fx.commit_count, 3);
+}
+
+// ============================================================================
+// Double-buffer state machine
+// ============================================================================
+
+/**
+ * @brief Verifies a drawn frame stays invisible until advance_display()
+ * promotes it.
+ * @details The display shows the old buffer while drawing and while the frame
+ * is merely queued.
+ */
+inline void test_frame_visible_only_after_advance_display() {
+  TestEffect fx(8, 8);
+
+  {
+    Canvas c(fx);
+    c(3, 3) = Pixel(100, 200, 300);
+    // Mid-frame: the display still shows the OLD (black) buffer.
+    HS_EXPECT_PIXEL(fx.get_pixel(3, 3), 0, 0, 0);
+  } // ~Canvas queues the frame
+
+  // Queued but not displayed: buffer busy, pixel still old.
+  HS_EXPECT_FALSE(fx.buffer_free());
+  HS_EXPECT_PIXEL(fx.get_pixel(3, 3), 0, 0, 0);
+
+  fx.advance_display();
+  HS_EXPECT_TRUE(fx.buffer_free());
+  HS_EXPECT_PIXEL(fx.get_pixel(3, 3), 100, 200, 300);
+}
+
+/**
+ * @brief Verifies that without persist, each frame draws into a freshly cleared
+ * buffer, so pixels from the previous frame do not survive into the next.
+ */
+inline void test_non_persist_frame_starts_cleared() {
+  TestEffect fx(8, 8);
+
+  {
+    Canvas c(fx);
+    c(1, 1) = Pixel(11, 0, 0);
+  }
+  fx.advance_display();
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 11, 0, 0);
+
+  // Non-persist clears the new buffer, so the first frame's pixel is gone.
+  {
+    Canvas c(fx);
+    c(2, 2) = Pixel(0, 22, 0);
+  }
+  fx.advance_display();
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 0, 22, 0);
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 0, 0, 0);
+
+  // Reuses the first frame's buffer.
+  {
+    Canvas c(fx);
+  }
+  fx.advance_display();
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 0, 0, 0);
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 0, 0, 0);
+}
+
+/** @brief Clip clearing touches the display rectangle but not its margin. */
+inline void test_clip_clear_exact_rectangle() {
+  TestEffect fx(8, 4);
+
+  prime_buffers(fx, Pixel(11, 22, 33), Pixel(44, 55, 66));
+
+  fx.set_clip(1, 3, 2, 6);
+  fx.set_margin(2);
+  {
+    Canvas c(fx);
+    for (int y = 0; y < 4; ++y) {
+      for (int x = 0; x < 8; ++x) {
+        const bool inside = y >= 1 && y < 3 && x >= 2 && x < 6;
+        HS_EXPECT_EQ(c(x, y), inside ? Pixel(0, 0, 0) : Pixel(11, 22, 33));
+      }
+    }
+  }
+  fx.advance_display();
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 1), 0, 0, 0);
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 11, 22, 33);
+}
+
+/** @brief Alternating POV clips clear the recycled buffer before publication. */
+inline void test_clip_clear_alternates_clips_and_buffers() {
+  TestEffect fx(8, 4);
+
+  prime_buffers(fx, Pixel(10, 0, 0), Pixel(0, 20, 0));
+
+  fx.set_clip(0, 4, 0, 4);
+  {
+    Canvas c(fx);
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 8; ++x)
+        HS_EXPECT_EQ(c(x, y), x < 4 ? Pixel(0, 0, 0) : Pixel(10, 0, 0));
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 4; ++x)
+        c(x, y) = Pixel(0, 0, 30);
+  }
+  fx.advance_display();
+
+  fx.set_clip(0, 4, 4, 8);
+  {
+    Canvas c(fx);
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 8; ++x)
+        HS_EXPECT_EQ(c(x, y), x >= 4 ? Pixel(0, 0, 0) : Pixel(0, 20, 0));
+  }
+  fx.advance_display();
+
+  fx.set_clip(0, 4, 0, 4);
+  {
+    Canvas c(fx);
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 8; ++x)
+        HS_EXPECT_EQ(c(x, y), x < 4 ? Pixel(0, 0, 0) : Pixel(10, 0, 0));
+  }
+}
+
+/** @brief A full display clip is equivalent to the generic full clear. */
+inline void test_clip_clear_full_clip_matches_full_clear() {
+  TestEffect fx(8, 4);
+  prime_buffers(fx, Pixel(10, 20, 30), Pixel(40, 50, 60));
+
+  Canvas c(fx);
+  for (int i = 0; i < 32; ++i)
+    HS_EXPECT_PIXEL(c(i), 0, 0, 0);
+}
+
+/** @brief A full-width band clears contiguously at the correct row offset. */
+inline void test_clip_clear_full_width_band() {
+  TestEffect fx(8, 4);
+  prime_buffers(fx, Pixel(10, 20, 30), Pixel(40, 50, 60));
+
+  fx.set_clip(1, 3, 0, 8);
+  Canvas c(fx);
+  for (int y = 0; y < 4; ++y)
+    for (int x = 0; x < 8; ++x)
+      HS_EXPECT_EQ(c(x, y),
+                   y >= 1 && y < 3 ? Pixel(0, 0, 0) : Pixel(10, 20, 30));
+}
+
+/** @brief Effect construction still fully zeroes both shared buffers. */
+inline void test_clip_clear_constructor_zeroes_both_buffers() {
+  {
+    TestEffect dirty(8, 4);
+    prime_buffers(dirty, Pixel(1, 2, 3), Pixel(4, 5, 6));
+  }
+
+  TestEffect fx(8, 4);
+  fx.set_clip(1, 3, 2, 6);
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      HS_EXPECT_PIXEL(c(i), 0, 0, 0);
+  }
+  fx.advance_display();
+  fx.set_clip(0, 1, 0, 1);
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      HS_EXPECT_PIXEL(c(i), 0, 0, 0);
+  }
+}
+
+/** @brief Clip clearing leaves persistent-frame copying unchanged. */
+inline void test_clip_clear_does_not_change_persistence() {
+  TestEffect fx(8, 4, {.persist = true});
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(7, 8, 9);
+  }
+  fx.advance_display();
+
+  fx.set_clip(1, 3, 2, 6);
+  Canvas c(fx);
+  for (int i = 0; i < 32; ++i)
+    HS_EXPECT_PIXEL(c(i), 7, 8, 9);
+}
+
+/**
+ * @brief Full-frame rendering alone does not clear the margin-expanded band.
+ */
+inline void test_clip_clear_full_frame_without_reads_keeps_margin() {
+  TestEffect fx(8, 4, {.full_frame = true});
+  prime_buffers(fx, Pixel(1, 2, 3), Pixel(4, 5, 6));
+
+  fx.set_clip(1, 3, 2, 6);
+  Canvas c(fx);
+  for (int y = 0; y < 4; ++y)
+    for (int x = 0; x < 8; ++x) {
+      const bool display_band = y >= 1 && y < 3 && x >= 2 && x < 6;
+      HS_EXPECT_EQ(c(x, y), display_band ? Pixel(0, 0, 0) : Pixel(1, 2, 3));
+    }
+}
+
+/** @brief A filter that reads outside the display band clears the whole buffer. */
+inline void test_clip_clear_outside_band_reader_clears_full_buffer() {
+  TestEffect fx(8, 4, {.reads_outside_band = true});
+  prime_buffers(fx, Pixel(1, 2, 3), Pixel(4, 5, 6));
+
+  fx.set_clip(1, 3, 2, 6);
+  Canvas c(fx);
+  for (int i = 0; i < 32; ++i)
+    HS_EXPECT_PIXEL(c(i), 0, 0, 0);
+}
+
+/**
+ * @brief Verifies that with persist_pixels set, each new frame inherits the
+ * previous frame's contents, so undrawn pixels retain their prior color.
+ */
+inline void test_persist_pixels_copies_previous_frame() {
+  TestEffect fx(8, 8);
+  fx.set_persist(true);
+
+  {
+    Canvas c(fx);
+    c(2, 2) = Pixel(10, 20, 30);
+  }
+  fx.advance_display();
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 10, 20, 30);
+
+  // With persist, the undrawn next frame carries the previous content over.
+  {
+    Canvas c(fx); /* draw nothing */
+  }
+  fx.advance_display();
+  HS_EXPECT_PIXEL(fx.get_pixel(2, 2), 10, 20, 30);
+}
+
+/**
+ * @brief Verifies the acquire/release double-buffer hand-off via its
+ * single-threaded state machine.
+ * @details The writer (main loop, cur) must never claim the buffer the display
+ * side (ISR, prev) is reading, and a queued-but-not-displayed frame must not
+ * disturb the live frame.
+ */
+inline void test_double_buffer_handoff_no_aliasing() {
+  TestEffect fx(8, 4);
+  const int N = 8 * 4;
+
+  // Capacity 4 (> the 2 expected) so a third/fourth buffer would be recorded.
+  const Pixel *seen[4] = {nullptr, nullptr, nullptr, nullptr};
+  int distinct = 0;
+  auto record_ptr = [&](const Pixel *p) {
+    for (int i = 0; i < distinct; ++i)
+      if (seen[i] == p)
+        return;
+    HS_EXPECT_TRUE(distinct < 4);
+    if (distinct < 4)
+      seen[distinct++] = p;
+  };
+
+  const Pixel COLORS[6] = {Pixel(10, 0, 0), Pixel(0, 20, 0), Pixel(0, 0, 30),
+                           Pixel(40, 0, 0), Pixel(0, 50, 0), Pixel(0, 0, 60)};
+
+  {
+    Canvas c(fx);
+    for (int i = 0; i < N; ++i)
+      c(i) = COLORS[0];
+  }
+  fx.advance_display();
+  record_ptr(fx.display_buffer());
+  HS_EXPECT_TRUE(fx.buffer_free());
+  HS_EXPECT_PIXEL(fx.get_pixel(0, 0), 10, 0, 0);
+
+  for (int f = 1; f < 6; ++f) {
+    const Pixel *display_before = fx.display_buffer();
+
+    // Draw the next frame but do NOT advance the display.
+    {
+      Canvas c(fx);
+      for (int i = 0; i < N; ++i)
+        c(i) = COLORS[f];
+    }
+
+    // Queued frame is invisible: the displayed pointer is unchanged and still
+    // shows the previous frame.
+    HS_EXPECT_FALSE(fx.buffer_free());
+    HS_EXPECT_EQ(fx.display_buffer(), display_before);
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), COLORS[f - 1].r, COLORS[f - 1].g,
+                    COLORS[f - 1].b);
+
+    fx.advance_display();
+
+    HS_EXPECT_TRUE(fx.buffer_free());
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), COLORS[f].r, COLORS[f].g, COLORS[f].b);
+    HS_EXPECT_NE(fx.display_buffer(), display_before);
+    record_ptr(fx.display_buffer());
+  }
+
+  HS_EXPECT_EQ(distinct, 2);
+}
+
+/**
+ * @brief Hammers the double-buffer hand-off under real producer/consumer
+ * contention, asserting no torn read and no out-of-order frame.
+ * @details Every frame must be displayed exactly once. The harness counters are
+ * single-threaded, so both threads record into atomics and the assertions run
+ * after join().
+ */
+inline void test_double_buffer_handoff_concurrent() {
+  hs::clear_mock_time(); // real wall clock keeps the ctor's spin watchdog live
+  TestEffect fx(8, 4);
+  const int N = 8 * 4;
+  const int FRAMES = 200;
+  // r holds the frame index (FRAMES < 65536, so r alone is a unique sentinel).
+  auto sentinel = [](int f) { return Pixel((uint16_t)f, 0, 0); };
+
+  std::atomic<bool> producer_done{false};
+  std::atomic<bool> torn_read{false};
+  std::atomic<bool> out_of_order{false};
+  std::atomic<int> promoted_frames{0};
+
+  std::thread producer([&] {
+    for (int f = 0; f < FRAMES; ++f) {
+      Canvas c(fx); // blocks until the consumer frees the buffer
+      for (int i = 0; i < N; ++i)
+        c(i) = sentinel(f);
+    } // ~Canvas queues the frame
+    producer_done.store(true, std::memory_order_release);
+  });
+
+  std::thread consumer([&] {
+    int last_sentinel = -1;
+    int promoted = 0;
+    while (promoted < FRAMES) {
+      if (fx.buffer_free()) {
+        // Nothing queued; if the producer has finished there is no more work.
+        if (producer_done.load(std::memory_order_acquire) && fx.buffer_free())
+          break;
+        std::this_thread::yield();
+        continue;
+      }
+      fx.advance_display();
+      ++promoted;
+      const Pixel *buf = fx.display_buffer();
+      int s = buf[0].r;
+      bool uniform = true;
+      for (int i = 1; i < N; ++i)
+        if (buf[i].r != s) {
+          uniform = false;
+          break;
+        }
+      if (!uniform)
+        torn_read.store(true, std::memory_order_relaxed);
+      if (s <= last_sentinel)
+        out_of_order.store(true, std::memory_order_relaxed);
+      last_sentinel = s;
+      promoted_frames.store(promoted, std::memory_order_relaxed);
+    }
+  });
+
+  producer.join();
+  consumer.join();
+
+  HS_EXPECT_FALSE(torn_read.load(std::memory_order_relaxed));
+  HS_EXPECT_FALSE(out_of_order.load(std::memory_order_relaxed));
+  // The gate admits no coalescing, so every queued frame is displayed once.
+  HS_EXPECT_EQ(promoted_frames.load(std::memory_order_relaxed), FRAMES);
+}
+
+/**
+ * @brief Verifies the Canvas ctor's buffer_free() spin-wait blocks until the
+ * display side frees the buffer.
+ * @details A helper thread plays the display ISR and records whether the ctor
+ * had returned before it advanced.
+ */
+inline void test_ctor_spin_waits_for_buffer_free() {
+  hs::clear_mock_time(); // use the real wall clock so the spin/watchdog are live
+  TestEffect fx(8, 8);
+
+  // Queue frame 0 WITHOUT advancing: the buffer is now busy.
+  {
+    Canvas c(fx);
+    c(0, 0) = Pixel(1, 2, 3);
+  }
+  HS_EXPECT_FALSE(fx.buffer_free());
+
+  std::atomic<bool> ctor_returned{false};
+  // Harness counters are single-threaded; assertions run after join().
+  std::atomic<bool> ctor_blocked_when_checked{false};
+
+  const unsigned long spins_before = Canvas::buffer_free_spin_count();
+  std::thread display_isr([&] {
+    // Wait until the ctor is observably spinning on buffer_free(); the
+    // ctor_returned exit keeps an inverted gate from hanging here.
+    while (Canvas::buffer_free_spin_count() == spins_before &&
+           !ctor_returned.load(std::memory_order_acquire))
+      std::this_thread::yield();
+    ctor_blocked_when_checked.store(
+        !ctor_returned.load(std::memory_order_acquire),
+        std::memory_order_relaxed);
+    fx.advance_display(); // the "ISR" frees the buffer
+  });
+
+  // Blocks in the ctor spin-wait until the helper advances the display.
+  {
+    Canvas c(fx);
+  }
+  ctor_returned.store(true, std::memory_order_release);
+
+  display_isr.join();
+  HS_EXPECT_TRUE(ctor_blocked_when_checked.load(std::memory_order_relaxed));
+  // Frame 0 is now the displayed buffer, so its pixel is live.
+  HS_EXPECT_PIXEL(fx.get_pixel(0, 0), 1, 2, 3);
+}
+
+// ============================================================================
+// Canvas access
+// ============================================================================
+
+/**
+ * @brief Verifies Canvas exposes 2D (x,y) and 1D (row-major index) writes that
+ * target the same buffer, and that prev() reads the previously displayed frame.
+ */
+inline void test_canvas_2d_and_1d_access_and_prev() {
+  TestEffect fx(8, 8);
+  {
+    Canvas c(fx);
+    HS_EXPECT_EQ(c.width(), 8);
+    HS_EXPECT_EQ(c.height(), 8);
+    c(1, 1) = Pixel(5, 6, 7);
+    c(2 * 8 + 3) = Pixel(8, 9, 10); // 1D index -> (x=3, y=2)
+    // prev() reads the previously displayed (black) buffer.
+    HS_EXPECT_PIXEL(c.prev(1, 1), 0, 0, 0);
+  }
+  fx.advance_display();
+  HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 5, 6, 7);
+  HS_EXPECT_PIXEL(fx.get_pixel(3, 2), 8, 9, 10);
+}
+
+// ============================================================================
+// Parameter system
+// ============================================================================
+
+/**
+ * @brief Verifies registered parameters expose their live type, value, and
+ *        min/max through getParameters().
+ * @details Also checks that find() of an unregistered name returns null.
+ */
+inline void test_register_float_and_bool_params() {
+  TestEffect fx(4, 4);
+  fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  fx.add_bool("Flag", &fx.flag, true);
+
+  const auto &params = fx.getParameters();
+  HS_EXPECT_SIZE_OR_RETURN(params, 2);
+
+  HS_REQUIRED_PARAM(sp, fx, "Speed");
+  HS_EXPECT_FALSE(sp->is_bool());
+  HS_EXPECT_NEAR(sp->get(), 1.5f, 1e-6f);
+  HS_EXPECT_NEAR(sp->min, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(sp->max, 10.0f, 1e-6f);
+
+  HS_REQUIRED_PARAM(fl, fx, "Flag");
+  HS_EXPECT_TRUE(fl->is_bool());
+  HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f);
+  HS_EXPECT_TRUE(fx.flag);
+
+  HS_EXPECT_EQ(params.find("Missing"), nullptr);
+}
+
+/**
+ * @brief Verifies updateParameter writes a float param by name, thresholds at
+ * 0.5 for bool params, and names the rejection reason (leaving values
+ * untouched) for unknown names or non-finite inputs.
+ */
+inline void test_update_parameter_by_name() {
+  TestEffect fx(4, 4);
+  fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  fx.add_bool("Flag", &fx.flag, false);
+
+  HS_EXPECT_EQ(fx.updateParameter("Speed", 99.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.speed, 10.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Speed", -5.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.speed, 0.0f);
+
+  HS_EXPECT_EQ(fx.updateParameter("Speed", 7.25f), ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
+
+  // Bool target uses a 0.5 threshold.
+  HS_EXPECT_EQ(fx.updateParameter("Flag", 0.2f), ParamSetResult::APPLIED);
+  HS_EXPECT_FALSE(fx.flag);
+  HS_EXPECT_EQ(fx.updateParameter("Flag", 0.8f), ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(fx.flag);
+
+  HS_EXPECT_EQ(fx.updateParameter("Flag", 0.5f), ParamSetResult::APPLIED);
+  HS_EXPECT_FALSE(fx.flag);
+  HS_EXPECT_EQ(fx.updateParameter("Flag", std::nextafter(0.5f, 1.0f)),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(fx.flag);
+
+  // Unknown name is a no-op reported as UNKNOWN_PARAM.
+  HS_EXPECT_EQ(fx.updateParameter("Nope", 99.0f),
+               ParamSetResult::UNKNOWN_PARAM);
+  HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
+
+  for (float value : {std::numeric_limits<float>::infinity(),
+                      -std::numeric_limits<float>::infinity()}) {
+    HS_EXPECT_EQ(fx.updateParameter("Speed", value),
+                 ParamSetResult::NON_FINITE);
+    HS_EXPECT_EQ(fx.speed, 7.25f);
+  }
+  // Non-finite values are rejected as NON_FINITE.
+  HS_EXPECT_EQ(
+      fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()),
+      ParamSetResult::NON_FINITE);
+  HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
+}
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+/** @brief Live display mirrors do not redirect parameter writes. */
+inline void test_parameter_display_mirror() {
+  struct State {
+    float speed;
+    TestMode mode;
+  };
+  static const char *const modes[] = {"None", "Warp", "Sparkle"};
+  static const char *const export_modes[] = {"TestMode::NONE", "TestMode::WARP",
+                                             "TestMode::SPARKLE"};
+  TestEffect fx(4, 4);
+  State requested{1.0f, TestMode::NONE};
+  State displayed{4.0f, TestMode::SPARKLE};
+  fx.add_float("Speed", &requested.speed, 0.0f, 10.0f);
+  fx.add_typed_enum("Mode", &requested.mode, modes, export_modes, 3);
+  fx.add_float("Global", &fx.speed, 0.0f, 10.0f);
+  fx.mirror_display(requested, displayed);
+  for (const char *name : {"Speed", "Mode", "Global"}) {
+    HS_REQUIRED_PARAM(parameter, fx, name);
+  }
+
+  HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Speed")->get_requested(), 1.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Mode")->get(), 2.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Mode")->get_requested(), 0.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Global")->get(), 1.5f);
+  HS_EXPECT_EQ(fx.getParameters().find("Global")->get_requested(), 1.5f);
+  HS_EXPECT_EQ(fx.updateParameter("Speed", 7.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(requested.speed, 7.0f);
+  HS_EXPECT_EQ(displayed.speed, 4.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Speed")->get_requested(), 7.0f);
+}
+
+#endif
+
+/**
+ * @brief Verifies the untrusted JS boundary cannot write readonly
+ * (engine-written telemetry) params.
+ */
+inline void test_update_parameter_rejects_readonly() {
+  TestEffect fx(4, 4);
+  float telemetry = 1.0f;
+  fx.add_float("Telemetry", &telemetry, 0.0f, 10.0f);
+  fx.mark_readonly("Telemetry");
+
+  HS_EXPECT_EQ(fx.updateParameter("Telemetry", 5.0f), ParamSetResult::READONLY);
+  HS_EXPECT_NEAR(telemetry, 1.0f, 1e-6f);
+
+  // An editable param in the same effect still writes.
+  fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Speed", 4.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(fx.speed, 4.0f, 1e-6f);
+}
+
+/**
+ * @brief Verifies enum registration derives its range from the option count and
+ * exposes the labels, and that updateParameter snaps writes to a valid index.
+ * @details Fractional writes round to the nearest option; out-of-range writes
+ *          clamp to the ends, so the target always holds a real option index.
+ */
+inline void test_register_and_update_enum_param() {
+  TestEffect fx(4, 4);
+  static const char *const modes[] = {"None", "Warp", "Sparkle"};
+  float mode = 1.0f;
+  fx.add_enum("Mode", &mode, modes, 3);
+
+  HS_REQUIRED_PARAM(def, fx, "Mode");
+  HS_EXPECT_TRUE(def->is_enum());
+  HS_EXPECT_FALSE(def->is_bool());
+  HS_EXPECT_EQ(def->option_count, 3);
+  HS_EXPECT_EQ(def->options, modes);
+  HS_EXPECT_NEAR(def->min, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(def->max, 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f);
+
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 1.49f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(mode, 1.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 1.5f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(mode, 2.0f);
+
+  // A fractional write snaps to the nearest option index.
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 1.7f), ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(mode, 2.0f, 1e-6f);
+
+  // Out-of-range writes clamp to the option range.
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 9.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(mode, 2.0f, 1e-6f);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", -3.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_NEAR(mode, 0.0f, 1e-6f);
+
+  // Plain params stay non-enum.
+  fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  HS_REQUIRED_PARAM(speed, fx, "Speed");
+  HS_EXPECT_FALSE(speed->is_enum());
+}
+
+/** @brief Verifies typed enums and preset-export metadata round-trip. */
+inline void test_typed_enum_and_global_param_metadata() {
+  TestEffect fx(4, 4);
+  static const char *const modes[] = {"None", "Warp", "Sparkle"};
+  static const char *const export_modes[] = {"TestMode::NONE", "TestMode::WARP",
+                                             "TestMode::SPARKLE"};
+  TestMode mode = TestMode::WARP;
+  fx.add_typed_enum("Mode", &mode, modes, export_modes, 3);
+  fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  const auto before_global = fx.getParameterSchemaGeneration();
+  fx.mark_global("Speed");
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), before_global + 1);
+  fx.mark_global("Speed");
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), before_global + 1);
+
+  HS_REQUIRED_PARAM(mode_def, fx, "Mode");
+  HS_REQUIRED_PARAM(speed_def, fx, "Speed");
+  HS_EXPECT_EQ(mode_def->get(), 1.0f);
+  HS_EXPECT_EQ(mode_def->export_options, export_modes);
+  HS_EXPECT_TRUE(mode_def->preset);
+  HS_EXPECT_FALSE(speed_def->preset);
+
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 1.8f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(mode, TestMode::SPARKLE);
+  HS_EXPECT_EQ(mode_def->get(), 2.0f);
+}
+
+/** @brief Verifies every supported enum storage width round-trips. */
+inline void test_typed_enum_storage_widths() {
+  TestEffect fx(4, 4);
+  static const char *const modes[] = {"None", "Warp", "Sparkle"};
+  static const char *const export_modes[] = {"NONE", "WARP", "SPARKLE"};
+  TestModeI8 i8 = TestModeI8::NONE;
+  TestModeU8 u8 = TestModeU8::NONE;
+  TestModeI16 i16 = TestModeI16::NONE;
+  TestModeU16 u16 = TestModeU16::NONE;
+  TestModeU32 u32 = TestModeU32::NONE;
+
+  fx.add_typed_enum("I8", &i8, modes, export_modes, 3);
+  fx.add_typed_enum("U8", &u8, modes, export_modes, 3);
+  fx.add_typed_enum("I16", &i16, modes, export_modes, 3);
+  fx.add_typed_enum("U16", &u16, modes, export_modes, 3);
+  fx.add_typed_enum("U32", &u32, modes, export_modes, 3);
+
+  for (const char *name : {"I8", "U8", "I16", "U16", "U32"}) {
+    HS_EXPECT_EQ(fx.updateParameter(name, 2.0f), ParamSetResult::APPLIED);
+    HS_REQUIRED_PARAM(PARAMETER, fx, name);
+    HS_EXPECT_EQ(PARAMETER->get(), 2.0f);
+  }
+  HS_EXPECT_EQ(i8, TestModeI8::SPARKLE);
+  HS_EXPECT_EQ(u8, TestModeU8::SPARKLE);
+  HS_EXPECT_EQ(i16, TestModeI16::SPARKLE);
+  HS_EXPECT_EQ(u16, TestModeU16::SPARKLE);
+  HS_EXPECT_EQ(u32, TestModeU32::SPARKLE);
+}
+
+/** @brief Typed descriptions admit independent policies for target kinds. */
+inline void test_typed_parameter_specs() {
+  TestEffect fx(4, 4);
+  static constexpr const char *MODES[] = {"None", "Warp", "Sparkle"};
+  static constexpr const char *EXPORT_MODES[] = {
+      "TestMode::NONE", "TestMode::WARP", "TestMode::SPARKLE"};
+  int16_t count = 4;
+  TestMode mode = TestMode::WARP;
+  uint8_t mode8 = 0;
+  float float_mode = 0.0f;
+  bool telemetry = true;
+  bool enabled = false;
+  uint32_t large_count = 4294967040u;
+  const uint32_t generation = fx.getParameterSchemaGeneration();
+
+  fx.register_param("Count", &count,
+                    ParamSpec<int16_t>{.min = -4,
+                                       .max = 20,
+                                       .animated = true,
+                                       .readonly = true,
+                                       .preset = false});
+  auto enum_spec = ParamSpec<TestMode>::enumerated(MODES, 3, EXPORT_MODES);
+  enum_spec.animated = true;
+  enum_spec.readonly = true;
+  fx.register_param("Mode", &mode, enum_spec);
+  fx.register_param("Mode8", &mode8, ParamSpec<uint8_t>::enumerated(MODES, 3));
+  auto float_spec = ParamSpec<float>::enumerated(MODES, 3);
+  float_spec.animated = true;
+  fx.register_param("FloatMode", &float_mode, float_spec);
+  fx.register_param("Telemetry", &telemetry, ParamSpec<bool>{.readonly = true});
+  fx.register_param("Enabled", &enabled, ParamSpec<bool>{.preset = false});
+  fx.register_param("LargeCount", &large_count,
+                    ParamSpec<uint32_t>{.min = 0, .max = 4294967040LL});
+
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), generation + 7);
+  const auto &parameters = fx.getParameters();
+  HS_EXPECT_SIZE_OR_RETURN(parameters, size_t(7));
+  HS_REQUIRED_PARAM(COUNT_PARAM, fx, "Count");
+  HS_REQUIRED_PARAM(MODE_PARAM, fx, "Mode");
+  HS_REQUIRED_PARAM(MODE8_PARAM, fx, "Mode8");
+  HS_REQUIRED_PARAM(ENABLED_PARAM, fx, "Enabled");
+  HS_REQUIRED_PARAM(LARGE_COUNT_PARAM, fx, "LargeCount");
+  HS_EXPECT_TRUE(COUNT_PARAM->readonly);
+  HS_EXPECT_TRUE(COUNT_PARAM->animated);
+  HS_EXPECT_FALSE(COUNT_PARAM->preset);
+  HS_EXPECT_EQ(MODE_PARAM->export_options, EXPORT_MODES);
+  HS_EXPECT_EQ(MODE8_PARAM->options, MODES);
+  HS_EXPECT_FALSE(MODE8_PARAM->animated);
+  HS_EXPECT_FALSE(ENABLED_PARAM->preset);
+  HS_EXPECT_EQ(LARGE_COUNT_PARAM->max, 4294967040.0f);
+  HS_EXPECT_EQ(fx.updateParameter("Count", 9.0f), ParamSetResult::READONLY);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 2.0f), ParamSetResult::READONLY);
+  HS_EXPECT_EQ(fx.updateParameter("Telemetry", 0.0f), ParamSetResult::READONLY);
+  HS_EXPECT_EQ(count, int16_t(4));
+  HS_EXPECT_EQ(mode, TestMode::WARP);
+  HS_EXPECT_TRUE(telemetry);
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.updateParameter("Mode8", 1.6f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(mode8, uint8_t(2));
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.updateParameter("LargeCount", 4294967296.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(large_count, 4294967040u);
+  HS_EXPECT_EQ(fx.updateParameter("Enabled", 1.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(enabled);
+  HS_EXPECT_EQ(fx.updateParameter("FloatMode", 1.6f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(float_mode, 2.0f);
+  HS_EXPECT_TRUE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), generation + 7);
+  HS_EXPECT_STREQ(parameters.begin()[0].name, "Count");
+  HS_EXPECT_STREQ(parameters.begin()[6].name, "LargeCount");
+}
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+/** @brief The GUI initial-value policy retains a request until its next edit. */
+inline void test_parameter_spec_preserves_requested_float() {
+  TestEffect fx(4, 4);
+  float requested = 7.0f;
+  fx.register_param(
+      "Requested", &requested,
+      ParamSpec<float>{.min = 0.0f,
+                       .max = 1.0f,
+                       .animated = true,
+                       .initial_value =
+                           ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
+  HS_REQUIRED_PARAM(def, fx, "Requested");
+  HS_EXPECT_EQ(requested, 7.0f);
+  HS_EXPECT_EQ(def->get_requested(), 7.0f);
+  HS_EXPECT_EQ(def->max, 1.0f);
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.updateParameter("Requested", 3.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(requested, 1.0f);
+  HS_EXPECT_TRUE(fx.animations_paused());
+}
+#endif
+
+/**
+ * @brief Verifies ParamList holds its full capacity of registered params.
+ */
+inline void test_paramlist_fills_to_capacity() {
+  // The storage the static arrays are sized from.
+  constexpr size_t FIXED_CAP = ParamList::FIXED_CAPACITY;
+  static_assert(FIXED_CAP <= 100, "the \"pNN\" names below hold two digits");
+
+  TestEffect fx(4, 4);
+  const size_t cap = fx.getParameters().capacity();
+  HS_EXPECT_EQ(cap, FIXED_CAP);
+  if (cap != FIXED_CAP)
+    return;
+
+  static float vals[FIXED_CAP];
+  // Unique names "pNN": register_param traps on duplicates, and ParamDef stores
+  // the char* by pointer, so the names need static storage.
+  static char names[FIXED_CAP][4];
+  for (size_t i = 0; i < cap; ++i) {
+    vals[i] = static_cast<float>(i);
+    names[i][0] = 'p';
+    names[i][1] = static_cast<char>('0' + i / 10);
+    names[i][2] = static_cast<char>('0' + i % 10);
+    names[i][3] = '\0';
+    fx.add_float(names[i], &vals[i], 0.0f, 100.0f);
+  }
+  HS_EXPECT_EQ(fx.getParameters().size(), cap);
+}
+
+/** @brief Parameter descriptor mutations advance the public schema token. */
+inline void test_paramlist_schema_generation() {
+  TestEffect fx(4, 4);
+  float value = 0.5f;
+  const uint32_t empty_generation = fx.getParameterSchemaGeneration();
+  fx.add_float("Value", &value, 0.0f, 1.0f);
+  const uint32_t registered_generation = fx.getParameterSchemaGeneration();
+  HS_EXPECT_EQ(registered_generation, empty_generation + 1);
+  fx.clear_params();
+  HS_EXPECT_EQ(fx.getParameters().size(), size_t(0));
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), registered_generation + 1);
+}
+
+// ============================================================================
+// Clip setters
+// ============================================================================
+
+/**
+ * @brief Verifies the clip setters write valid bounds through the canvas edge.
+ * @details set_clip sets all four bounds (and clears is_full), set_clip_x
+ * touches only x bounds, and set_margin sets margin.
+ */
+inline void test_clip_setters() {
+  TestEffect fx(96, 20);
+  fx.set_clip(2, 10, 5, 96);
+  HS_EXPECT_EQ(fx.clip().y_start, 2);
+  HS_EXPECT_EQ(fx.clip().y_end, 10);
+  HS_EXPECT_EQ(fx.clip().x_start, 5);
+  HS_EXPECT_EQ(fx.clip().x_end, 96);
+  HS_EXPECT_FALSE(fx.clip().is_full());
+
+  fx.set_clip_x(7, 96);
+  HS_EXPECT_EQ(fx.clip().x_start, 7);
+  HS_EXPECT_EQ(fx.clip().x_end, 96);
+  HS_EXPECT_EQ(fx.clip().y_start, 2);
+
+  fx.set_margin(3);
+  HS_EXPECT_EQ(fx.clip().margin, 3);
+}
+
+/** @brief Exact clip keys distinguish every field, including wide layouts. */
+inline void test_clip_content_key_is_exact() {
+  static_assert(sizeof(ClipRegion::Key<288, 144>) == sizeof(uint64_t));
+  static_assert(sizeof(ClipRegion::Key<576, 288>) == 2 * sizeof(uint64_t));
+  const ClipRegion BASE{.y_start = 2,
+                        .y_end = 10,
+                        .x_start = 5,
+                        .x_end = 96,
+                        .margin = 1,
+                        .w = 96,
+                        .h = 20};
+  constexpr std::array<int ClipRegion::*, 7> FIELDS{
+      &ClipRegion::y_start, &ClipRegion::y_end,  &ClipRegion::x_start,
+      &ClipRegion::x_end,   &ClipRegion::margin, &ClipRegion::w,
+      &ClipRegion::h};
+  HS_EXPECT_FALSE(BASE.content_key() == ClipRegion::Key<>{});
+  HS_EXPECT_EQ(BASE.content_key(), ClipRegion(BASE).content_key());
+  for (const auto FIELD : FIELDS) {
+    ClipRegion changed = BASE;
+    ++(changed.*FIELD);
+    HS_EXPECT_FALSE(BASE.content_key() == changed.content_key());
+  }
+  constexpr ClipRegion WIDE{.y_start = 2,
+                            .y_end = 280,
+                            .x_start = 5,
+                            .x_end = 576,
+                            .margin = 1,
+                            .w = 576,
+                            .h = 288};
+  constexpr auto WIDE_KEY = WIDE.content_key<576, 288>();
+  static_assert(WIDE_KEY.words[1] != 0);
+  HS_EXPECT_NE(WIDE_KEY.words[1], uint64_t{0});
+  for (const auto FIELD : FIELDS) {
+    ClipRegion changed = WIDE;
+    --(changed.*FIELD);
+    HS_EXPECT_FALSE((WIDE_KEY == changed.content_key<576, 288>()));
+  }
+  ClipRegion wide = WIDE;
+  wide.h = 32;
+  HS_EXPECT_FALSE((WIDE_KEY == wide.content_key<576, 288>()));
+}
+
+/** @brief Clip mutations refresh cached keys and restoring content restores its key. */
+inline void test_canvas_clip_key_tracks_mutators() {
+  TestEffect effect(96, 20);
+  const auto initial = effect.clip_key();
+  HS_EXPECT_EQ(initial, effect.clip().content_key());
+  effect.set_clip(2, 10, 5, 96);
+  const auto clipped = effect.clip_key();
+  HS_EXPECT_FALSE(clipped == initial);
+  HS_EXPECT_EQ(clipped, effect.clip().content_key());
+  effect.set_clip_x(7, 96);
+  HS_EXPECT_FALSE(effect.clip_key() == clipped);
+  HS_EXPECT_EQ(effect.clip_key(), effect.clip().content_key());
+  effect.set_clip_x(5, 96);
+  HS_EXPECT_EQ(effect.clip_key(), clipped);
+  effect.set_margin(3);
+  HS_EXPECT_FALSE(effect.clip_key() == clipped);
+  HS_EXPECT_EQ(effect.clip_key(), effect.clip().content_key());
+  effect.set_margin(1);
+  HS_EXPECT_EQ(effect.clip_key(), clipped);
+  effect.set_clip(0, 20, 0, 96);
+  HS_EXPECT_EQ(effect.clip_key(), initial);
+  Canvas canvas(effect);
+  HS_EXPECT_EQ(canvas.clip_key(), initial);
+}
+
+/** @brief Cached Canvas render bounds match ClipRegion containment. */
+inline void test_canvas_cached_render_clip_matches_region() {
+  constexpr int W = 8;
+  constexpr int H = 4;
+  struct ClipCase {
+    int y0, y1, x0, x1, margin;
+  };
+  constexpr std::array<ClipCase, 5> CASES{{
+      {0, H, 0, W, 0},
+      {1, 3, 2, 6, 0},
+      {1, 3, 0, 2, 2},
+      {2, 2, 4, 4, 0},
+      {1, 2, 3, 4, 4},
+  }};
+
+  TestEffect fx(W, H);
+  for (const ClipCase &c : CASES) {
+    fx.set_clip(c.y0, c.y1, c.x0, c.x1);
+    fx.set_margin(c.margin);
+    {
+      Canvas canvas(fx);
+      for (int x = 0; x < W; ++x)
+        HS_EXPECT_EQ(canvas.clip_contains_x(x), canvas.clip().contains_x(x));
+      for (int y = -1; y <= H; ++y)
+        HS_EXPECT_EQ(canvas.clip_contains_y(y), canvas.clip().contains_y(y));
+    }
+    fx.advance_display();
+  }
+}
+
+/**
+ * @brief Verifies EffectConfig::margin reaches ClipRegion::margin, floored at
+ *        the ClipRegion default, with zero required_margin at one column.
+ * @details A pipeline whose total_segment_margin folds to 0 must not shrink the
+ *          coverage a plain effect already has.
+ */
+inline void test_effect_config_margin() {
+  {
+    TestEffect fx(1, 20, {.required_margin = 3});
+    HS_EXPECT_EQ(fx.clip().margin, 0);
+  }
+  const int base = ClipRegion{}.margin;
+  {
+    TestEffect fx(96, 20, {.required_margin = 3});
+    HS_EXPECT_EQ(fx.clip().margin, 3);
+  }
+
+  {
+    TestEffect fx(96, 20);
+    HS_EXPECT_EQ(fx.clip().margin, base);
+  }
+  {
+    TestEffect fx(96, 20, {.margin = 0});
+    HS_EXPECT_EQ(fx.clip().margin, base);
+  }
+  {
+    TestEffect fx(96, 20, {.margin = 3});
+    HS_EXPECT_EQ(fx.clip().margin, 3);
+  }
+}
+
+/**
+ * @brief Verifies integer and floating-point coordinates retain their overload.
+ */
+inline void test_pipeline_ref_routes_screen_coordinate_overloads() {
+  StubPipe pipe;
+  PipelineRef pipeline(pipe);
+  TestEffect fx(8, 4);
+  Canvas canvas(fx);
+
+  pipeline.plot(canvas, -3, 7, Pixel(0, 0, 0), 0.0f, 0.0f);
+  HS_EXPECT_EQ(pipe.integer_hits, 1);
+  HS_EXPECT_EQ(pipe.float_hits, 0);
+  HS_EXPECT_EQ(pipe.integer_x, -3);
+  HS_EXPECT_EQ(pipe.integer_y, 7);
+
+  pipeline.plot(canvas, 1.25f, -2.5f, Pixel(0, 0, 0), 0.0f, 0.0f);
+  HS_EXPECT_EQ(pipe.integer_hits, 1);
+  HS_EXPECT_EQ(pipe.float_hits, 1);
+  HS_EXPECT_EQ(pipe.float_x, 1.25f);
+  HS_EXPECT_EQ(pipe.float_y, -2.5f);
+}
+
+/**
+ * @brief Verifies PipelineRef is constructible only from a plot() provider.
+ */
+inline void test_pipeline_ref_requires_plot_overloads() {
+  /** @brief Effect without an immediate plotting operation. */
+  struct NoPlot {};
+  struct PartialPlot {
+    void plot(Canvas &, float, float, const Pixel &, float, float) {}
+  };
+  static_assert(std::is_constructible_v<PipelineRef, StubPipe &>);
+  static_assert(!std::is_constructible_v<PipelineRef, int &>);
+  static_assert(!std::is_constructible_v<PipelineRef, NoPlot &>);
+  static_assert(!std::is_constructible_v<PipelineRef, PartialPlot &>);
+}
+
+/**
+ * @brief Verifies a PipelineRef copy remains bound to its original target.
+ */
+inline void test_pipeline_ref_copy_is_independent_of_source() {
+  StubPipe s1, s2;
+  PipelineRef a(s1);
+  PipelineRef b(a);
+  a = PipelineRef(s2);
+  {
+    TestEffect fx(8, 4);
+    Canvas c(fx);
+    b.plot(c, 2, 3, Pixel(0, 0, 0), 0.0f, 0.0f);
+  }
+  HS_EXPECT_EQ(s1.integer_hits, 1);
+  HS_EXPECT_EQ(s2.integer_hits, 0);
+}
+
+/** @brief Assigns and clears metadata only on the last registered parameter. */
+inline void test_parameter_group_registered_companion() {
+  struct GroupHost : ParamHost {
+    using ParamHost::register_param;
+    using ParamHost::set_last_parameter_group;
+  };
+  GroupHost host;
+  const ParameterGroup FIRST_GROUP{"first", "First", 0};
+  const ParameterGroup LAST_GROUP{"last", "Last", 1};
+  float first = 0.5f;
+  float last = 0.5f;
+  host.register_param("first", &first, 0.0f, 1.0f);
+  host.set_last_parameter_group(&FIRST_GROUP);
+  HS_EXPECT_EQ(host.getParameters().data()[0].group, &FIRST_GROUP);
+  host.register_param("last", &last, 0.0f, 1.0f);
+  host.set_last_parameter_group(&LAST_GROUP);
+  HS_EXPECT_EQ(host.getParameters().data()[0].group, &FIRST_GROUP);
+  HS_EXPECT_EQ(host.getParameters().data()[1].group, &LAST_GROUP);
+  host.set_last_parameter_group(nullptr);
+  HS_EXPECT_EQ(host.getParameters().data()[0].group, &FIRST_GROUP);
+  HS_EXPECT_EQ(host.getParameters().data()[1].group, nullptr);
+}
+} // namespace hs_test::canvas_tests
