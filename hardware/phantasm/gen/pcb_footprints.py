@@ -350,8 +350,9 @@ def trim_terminal_silkscreen(node, edge_distance):
 
 
 def move_clipped_silkscreen_to_fab(node, length):
-    """Keep component geometry that crosses the silk margin on the fab layer."""
+    """Move clipped graphics and their connected linework to the fab layer."""
     x, y, angle = map(float, sexp.val(node, "at"))
+    moved_lines = []
     for kind in ("fp_line", "fp_arc", "fp_circle", "fp_rect", "fp_poly"):
         for graphic in F(node, kind):
             if sexp.val(graphic, "layer") != ["F.SilkS"]:
@@ -363,6 +364,19 @@ def move_clipped_silkscreen_to_fab(node, length):
             if (x + x0 < margin - 1e-6 or y + y0 < margin - 1e-6
                     or x + x1 > length - margin + 1e-6 or y + y1 > PCB_W - margin + 1e-6):
                 F(graphic, "layer")[0][1] = "F.Fab"
+                if kind == "fp_line":
+                    moved_lines.append(graphic)
+    while moved_lines:
+        moved = moved_lines.pop()
+        start, end = (tuple(map(float, sexp.val(moved, key))) for key in ("start", "end"))
+        for graphic in F(node, "fp_line"):
+            if sexp.val(graphic, "layer") != ["F.SilkS"]:
+                continue
+            other_start, other_end = (tuple(map(float, sexp.val(graphic, key)))
+                                      for key in ("start", "end"))
+            if connectivity._segment_distance(start, end, other_start, other_end) == 0:
+                F(graphic, "layer")[0][1] = "F.Fab"
+                moved_lines.append(graphic)
 
 
 def _on_layers(node, layers):

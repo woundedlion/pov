@@ -20,6 +20,7 @@ import board  # noqa: E402
 import check  # noqa: E402
 import fab  # noqa: E402
 import pcb  # noqa: E402
+import pcb_footprints  # noqa: E402
 import sexp  # noqa: E402
 import shorts  # noqa: E402
 from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
@@ -52,6 +53,29 @@ class PrototypeContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.schematic = sexp.parse_one((PROTOTYPE / "phantasm.kicad_sch").read_text(encoding="utf-8"))
         cls.board = sexp.parse_one((PROTOTYPE / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
+
+    def test_clipped_silkscreen_moves_connected_linework(self):
+        node = sexp.parse_one('''(footprint "fixture" (at 0 10 0)
+          (fp_line (start 0.5 0) (end 0.5 0.2) (stroke (width 0.12)) (layer "F.SilkS"))
+          (fp_line (start 0.3 0) (end 0.5 0) (stroke (width 0.12)) (layer "F.SilkS"))
+          (fp_line (start 0.1 0) (end 0.3 0) (stroke (width 0.12)) (layer "F.SilkS"))
+          (fp_line (start 0.25 1) (end 0.5 1) (stroke (width 0.12)) (layer "F.SilkS"))
+          (fp_line (start 0.5 2) (end 0.5 3) (stroke (width 0.12)) (layer "F.Fab"))
+          (fp_line (start 0.5 3) (end 0.5 4) (stroke (width 0.12)) (layer "F.SilkS")))''')
+        pcb_footprints.move_clipped_silkscreen_to_fab(node, 50)
+        self.assertEqual([sexp.val(line, "layer")[0] for line in F(node, "fp_line")],
+                         ["F.Fab", "F.Fab", "F.Fab", "F.SilkS", "F.Fab", "F.SilkS"])
+
+    def test_input_capacitor_polarity_strokes_share_fab_layer(self):
+        footprint = footprints_by_ref(self.board)["C_IN"]
+        for start, end in (((-2.659698, -2.315), (-1.859698, -2.315)),
+                           ((-2.259698, -2.715), (-2.259698, -1.915))):
+            with self.subTest(start=start, end=end):
+                matching = [line for line in F(footprint, "fp_line")
+                            if tuple(map(float, sexp.val(line, "start"))) == start
+                            and tuple(map(float, sexp.val(line, "end"))) == end]
+                self.assertEqual(len(matching), 1)
+                self.assertEqual(sexp.val(matching[0], "layer"), ["F.Fab"])
 
     def test_terminal_library_edges_follow_each_reference_pose(self):
         layout = SimpleNamespace(

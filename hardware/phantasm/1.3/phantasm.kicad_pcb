@@ -1037,7 +1037,7 @@
 				(width 0.12)
 				(type solid)
 			)
-			(layer "F.SilkS")
+			(layer "F.Fab")
 		)
 		(fp_line
 			(start 1.75 -4.08)
