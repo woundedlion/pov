@@ -1032,7 +1032,7 @@ private:
       flight_step[axis] = params.speed * VELOCITY[axis];
     if (params.pattern != Pattern::CUBIC_WIRE) {
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
-        trace_center[axis] += params.speed * VELOCITY[axis];
+        trace_center[axis] += flight_step[axis];
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis) {
         float period = params.cell_size;
         if (params.pattern == Pattern::OCTET)
@@ -1041,8 +1041,7 @@ private:
       }
     } else
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
-        origin[axis] =
-            math::wrap_t(origin[axis] + params.speed * VELOCITY[axis]);
+        origin[axis] = math::wrap_t(origin[axis] + flight_step[axis]);
     for (int plane = 0; plane < 3; ++plane)
       rotation_phase[plane] = math::wrap(
           rotation_phase[plane] + params.spin_3d * RATE[plane], math::TWO_PI_F);
