@@ -1281,12 +1281,15 @@ inline void test_feedback_custom_color_receives_elapsed_fade() {
 /** @brief Plain and seam-wrapping feedback clips match a full warp inside their band. */
 inline void test_feedback_x_clips_match_full_frame() {
   constexpr int W = 64, H = 32;
+  static_assert(math::DisplayGeometry<H>::HAS_NORTH_POLE &&
+                math::DisplayGeometry<H>::HAS_SOUTH_POLE);
   constexpr Pixel UNTOUCHED(1234, 5678, 9012);
   struct Frame {
     std::vector<Pixel> pixels;
     std::vector<bool> inside;
   };
-  const auto render = [&](bool temporal, int first, int last) {
+  const auto render = [&](bool temporal, int first, int last, int y_begin,
+                          int y_end) {
     reset_globals();
     const ScopedTemporalSampling sampling(temporal);
     ScopedArenaSplit split(16384, 131072, 131072);
@@ -1311,14 +1314,17 @@ inline void test_feedback_x_clips_match_full_frame() {
     }
     effect.advance_display();
     const bool full = first == 0 && last == W;
+    const bool pole_band = y_end - y_begin == 1;
+    if (pole_band)
+      effect.set_margin(0);
     if (!full)
-      effect.set_clip(8, 24, first, last);
+      effect.set_clip(y_begin, y_end, first, last);
     Frame frame;
     {
       Canvas canvas(effect);
       const auto &clip = canvas.clip();
       if (!full)
-        HS_EXPECT_EQ(clip.x_clip().wrap, first == 0);
+        HS_EXPECT_EQ(clip.x_clip().wrap, first == 0 && !pole_band);
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           canvas(x, y) = UNTOUCHED;
@@ -1326,6 +1332,12 @@ inline void test_feedback_x_clips_match_full_frame() {
                                  y < clip.render_y_end() &&
                                  !clip.x_clip().clipped(x));
         }
+      {
+        ScratchScope poison(scratch_arena_a);
+        const size_t bytes =
+            scratch_arena_a.get_capacity() - scratch_arena_a.get_offset();
+        std::memset(scratch_arena_a.allocate_n<uint8_t>(bytes), 0xA5, bytes);
+      }
       (void)pipeline.begin_frame(canvas, 1.0f);
       HS_EXPECT_EQ(FeedbackWhiteBox::fills(feedback), size_t(full ? 1 : 0));
     }
@@ -1334,22 +1346,25 @@ inline void test_feedback_x_clips_match_full_frame() {
     return frame;
   };
   for (bool temporal : {false, true}) {
-    const auto full = render(temporal, 0, W);
-    for (const auto [first, last] : {std::pair{5, 21}, std::pair{0, 8}}) {
-      const auto clipped = render(temporal, first, last);
-      HS_EXPECT_SIZE_OR_RETURN(clipped.pixels, full.pixels.size());
-      size_t inside = 0, outside = 0;
-      for (size_t i = 0; i < full.pixels.size(); ++i) {
-        if (clipped.inside[i]) {
-          ++inside;
-          HS_EXPECT_EQ(clipped.pixels[i], full.pixels[i]);
-        } else {
-          ++outside;
-          HS_EXPECT_EQ(clipped.pixels[i], UNTOUCHED);
+    const auto full = render(temporal, 0, W, 0, H);
+    for (const auto [y_begin, y_end] :
+         {std::pair{0, 1}, std::pair{8, 24}, std::pair{H - 1, H}}) {
+      for (const auto [first, last] : {std::pair{5, 21}, std::pair{0, 8}}) {
+        const auto clipped = render(temporal, first, last, y_begin, y_end);
+        HS_EXPECT_SIZE_OR_RETURN(clipped.pixels, full.pixels.size());
+        size_t inside = 0, outside = 0;
+        for (size_t i = 0; i < full.pixels.size(); ++i) {
+          if (clipped.inside[i]) {
+            ++inside;
+            HS_EXPECT_EQ(clipped.pixels[i], full.pixels[i]);
+          } else {
+            ++outside;
+            HS_EXPECT_EQ(clipped.pixels[i], UNTOUCHED);
+          }
         }
+        HS_EXPECT_GT(inside, size_t{0});
+        HS_EXPECT_GT(outside, size_t{0});
       }
-      HS_EXPECT_GT(inside, size_t{0});
-      HS_EXPECT_GT(outside, size_t{0});
     }
   }
 }

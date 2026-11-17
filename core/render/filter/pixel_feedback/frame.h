@@ -157,6 +157,7 @@ Feedback<W, H>::make_render_band(const ClipRegion &clip,
            band.field_y_end);
 
   if (band.x_clip.active) {
+    band.coarse_columns_used[0] = true;
     for (int x = 0; x < W; ++x) {
       if (band.x_clip.clipped(x))
         continue;
