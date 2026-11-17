@@ -24,7 +24,7 @@ remain physical qualification gates. See the [rev 1.3 placement contract](1.3/RE
 | [1.1/](1.1/README.md) | Built and exhibited board; default firmware target, libraries, and technical reference |
 | `gen/` | Generators and validation tools |
 
-Regenerate the current project from the repository root, schematic first:
+Regenerate the rev 1.2 (generator default) project from the repository root, schematic first:
 
 ```sh
 python hardware/phantasm/gen/board.py --revision 1.2 --force

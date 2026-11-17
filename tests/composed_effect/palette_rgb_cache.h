@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/composed_effect/context.h"
-
-namespace hs_test::composed_effect_tests {
-
 /** @file palette_rgb_cache.h
  * @brief Interval palette-cache interpolation, admission, fallback and
  * ownership tests. */
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
 
 /** @brief Palette, periodic hue and time axes interpolate independently. */
 inline void test_palette_rgb_cache_axes_and_wrap() {

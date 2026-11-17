@@ -4,15 +4,15 @@
  */
 #pragma once
 
-#include "tests/composed_effect/context.h"
-#include "tests/composed_effect/document_values.h"
-
-namespace hs_test::composed_effect_tests {
-
 /** @file
  * @brief Roster-wide slider, snapshot, choreography, interpolation and
  * document contracts.
  */
+
+#include "tests/composed_effect/context.h"
+#include "tests/composed_effect/document_values.h"
+
+namespace hs_test::composed_effect_tests {
 
 // ============================================================================
 // Roster-wide slider, snapshot, choreography, interpolation and document contracts

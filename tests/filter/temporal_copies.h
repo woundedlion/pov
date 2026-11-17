@@ -4,12 +4,12 @@
  */
 #pragma once
 
+/** @file temporal_copies.h
+ * @brief Selected-copy timed transforms match spatial fan-out. */
+
 #include "tests/filter/context.h"
 
 namespace hs_test::filter_tests {
-
-/** @file temporal_copies.h
- * @brief Selected-copy timed transforms match spatial fan-out. */
 
 /** @brief Checks a selected copy against the corresponding ordinary emission.
  * @param stage Spatial replicator under test.

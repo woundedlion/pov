@@ -263,6 +263,12 @@ polyhedral_kaleidoscope_lens(math::Vector v,
 
 /**
  * @brief Applies the tetrahedral fold to a dodecahedral chamber direction.
+ * @details The dodecahedral x and z walls and OBLIQUE imply y >= 0; only
+ * the tetrahedral NORMAL wall can be violated. Its reflection preserves x.
+ * Since SECOND.x < 0, substituting the OBLIQUE-wall upper bound on x gives
+ * SECOND dot v' >= SECOND_Y * y + SECOND_Z * z, with positive coefficients.
+ * MIN_SAFE_Y keeps this bound above -POLYHEDRAL_MIRROR_EPS for the
+ * EPS-expanded walls; lower heights use the general fold.
  * @param v Unit direction inside the dodecahedral chamber.
  * @return The direction folded into the tetrahedral chamber.
  */

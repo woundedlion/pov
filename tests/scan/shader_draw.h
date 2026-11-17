@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/scan/context.h"
-
-namespace hs_test::scan_tests {
-
 /** @file
  * @brief Scan::Shader drawing, bounding-sphere setup and alpha cutoff.
  */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
 
 // ============================================================================
 // Scan::Shader drawing, BoundingSphere setup, and MIN_ALPHA cutoff

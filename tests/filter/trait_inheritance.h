@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/filter/context.h"
-
-namespace hs_test::filter_tests {
-
 /** @file
  * @brief Filter trait inheritance tests.
  */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Trait inheritance on representative filters

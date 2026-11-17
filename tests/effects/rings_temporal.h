@@ -4,15 +4,15 @@
  */
 #pragma once
 
+/** @file rings_temporal.h
+ * @brief Frozen-column oracles for growing and warped rings. */
+
 #include "effects/RingShower.h"
 #include "effects/Thrusters.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/ring_whitebox.h"
 
 namespace hs_test::effects_tests {
-
-/** @file rings_temporal.h
- * @brief Frozen-column oracles for growing and warped rings. */
 
 /** @brief Requires lit, matching intensity on opposite arms. */
 inline void expect_arm_symmetric(std::span<const float> pixels) {

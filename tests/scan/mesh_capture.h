@@ -4,13 +4,13 @@
  */
 #pragma once
 
+/** @file mesh_capture.h
+ * @brief Mesh deformation capture and column-window replay tests. */
+
 #include "tests/scan/context.h"
 #include "tests/scan/column_basis.h"
 
 namespace hs_test::scan_tests {
-
-/** @file mesh_capture.h
- * @brief Mesh deformation capture and column-window replay tests. */
 
 /**
  * @brief Renders a mesh draw under a held column basis into a fresh stub

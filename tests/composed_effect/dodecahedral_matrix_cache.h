@@ -4,12 +4,12 @@
  */
 #pragma once
 
+/** @file dodecahedral_matrix_cache.h
+ * @brief Runtime-owned dodecahedral matrix parity and lifetime tests. */
+
 #include "tests/composed_effect/context.h"
 
 namespace hs_test::composed_effect_tests {
-
-/** @file dodecahedral_matrix_cache.h
- * @brief Runtime-owned dodecahedral matrix parity and lifetime tests. */
 
 /** @brief Owned matrices retain their exact bytes through history and interval copies. */
 inline void test_dodecahedral_matrix_cache_lifetime() {

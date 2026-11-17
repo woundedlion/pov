@@ -4,12 +4,12 @@
  */
 #pragma once
 
+/** @file chamber_noise_cache.h
+ * @brief Temporal chamber-noise ownership and sampling tests. */
+
 #include "tests/composed_effect/context.h"
 
 namespace hs_test::composed_effect_tests {
-
-/** @file chamber_noise_cache.h
- * @brief Temporal chamber-noise ownership and sampling tests. */
 
 /** @brief Chamber patches retain old endpoints and match their complete source identity. */
 inline void test_chamber_noise_cache_bake_lifetime() {

@@ -726,6 +726,13 @@ private:
     const float arm_start; ///< Unwrapped first column of the arm pass.
 
     /** @brief Certifies a chord for the closed-form emitter.
+     * @details Padded motion stays one column inside an arm, and equal sample
+     * counts at the length bounds fix the frame's u lattice. first_derivative
+     * bounds |dt/du| by column displacement over the remaining arm width
+     * (denominator). time_bend bounds the linear crossing-time interpolation
+     * error max|t''| / 8 over u in [0,1], the h*h/8 remainder with h = 1.
+     * The derivative of 4*t*(1-t)*curve_bend adds at most 4*curve_bend to
+     * velocity; this speed bound times time_bend must fit CHORD_TIME_BEND_PX.
      * @param motion Chord motion.
      * @param range Chord samples that may reach the band.
      * @param target_step Sample spacing, pixels.

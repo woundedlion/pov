@@ -4,14 +4,14 @@
  */
 #pragma once
 
+/** @file
+ * @brief POV sync failure-mode artifact bounds and recovery times.
+ */
+
 #include "tests/pov_sync/context.h"
 #include "tests/pov_sync/simulator.h"
 
 namespace hs_test::pov_sync_tests {
-
-/** @file
- * @brief POV sync failure-mode artifact bounds and recovery times.
- */
 
 // ── §9.1 failure-mode budget: artifact bounds and recovery times ────────────
 

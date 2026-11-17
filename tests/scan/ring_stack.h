@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/scan/context.h"
-
-namespace hs_test::scan_tests {
-
 /** @file
  * @brief Ring pool and two-window scan properties.
  */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
 
 /** @brief Pool slots count only committed rings and survive alternate lookup. */
 inline void test_ring_stack_pool_lifecycle_and_bounds() {

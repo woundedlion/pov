@@ -4,12 +4,12 @@
  */
 #pragma once
 
+/** @file test_shapeshifter_surface.h
+ * @brief Column-time and edge-mask parity for the continuous star preset. */
+
 #include "tests/shapeshifter_oracle/context.h"
 
 namespace hs_test::shapeshifter_oracle_tests {
-
-/** @file test_shapeshifter_surface.h
- * @brief Column-time and edge-mask parity for the continuous star preset. */
 
 inline constexpr int RESET_POSE_FRAME = 77;
 inline constexpr int SHIPPING_POSE_FRAME = 410;

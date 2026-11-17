@@ -4,12 +4,12 @@
  */
 #pragma once
 
+/** @file
+ * @brief Authored palette source and cycling harmony contracts. */
+
 #include "tests/composed_effect/context.h"
 
 namespace hs_test::composed_effect_tests {
-
-/** @file
- * @brief Authored palette source and cycling harmony contracts. */
 
 /** @brief Palette-source pipeline for authored palette controls. */
 struct AuthoredPaletteSpec : Pullback::Spec {

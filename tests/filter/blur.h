@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/filter/context.h"
-
-namespace hs_test::filter_tests {
-
 /** @file
  * @brief Screen::Blur kernel tests.
  */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Screen::Blur::plot — kernel passthrough

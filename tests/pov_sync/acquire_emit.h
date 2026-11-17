@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/pov_sync/context.h"
-
-namespace hs_test::pov_sync_tests {
-
 /** @file
  * @brief POV sync acceptance gate and acquisition states.
  */
+
+#include "tests/pov_sync/context.h"
+
+namespace hs_test::pov_sync_tests {
 
 // ── Acceptance gate + acquisition states (§5.3) ─────────────────────────────
 

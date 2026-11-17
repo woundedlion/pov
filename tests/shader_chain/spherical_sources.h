@@ -4,12 +4,12 @@
  */
 #pragma once
 
+/** @file spherical_sources.h
+ * @brief Spherical source carriers, composed policies and instance clocks. */
+
 #include "tests/shader_chain_fixture.h"
 
 namespace hs_test::shader_chain_tests {
-
-/** @file spherical_sources.h
- * @brief Spherical source carriers, composed policies and instance clocks. */
 
 /** @brief Composed frame for one spherical source resource.
  * @tparam Family Source parameter family. */

@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/scan/context.h"
-
-namespace hs_test::scan_tests {
-
 /** @file
  * @brief Face and region scans, seams, pole LOD and region clip arcs.
  */
+
+#include "tests/scan/context.h"
+
+namespace hs_test::scan_tests {
 
 // ============================================================================
 // Scan::rasterize_face vs scan_region, seams, pole LOD, region clip arc

@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/filter/context.h"
-
-namespace hs_test::filter_tests {
-
 /** @file
  * @brief Pixel::Feedback style binding and plot passthrough.
  */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Pixel::Feedback — Style binding and plot passthrough (no flush / no Canvas)

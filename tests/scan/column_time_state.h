@@ -4,14 +4,14 @@
  */
 #pragma once
 
+/** @file
+ * @brief Column-time shader, drift and forced-table state.
+ */
+
 #include "tests/scan/context.h"
 #include "tests/scan/column_basis.h"
 
 namespace hs_test::scan_tests {
-
-/** @file
- * @brief Column-time shader, drift and forced-table state.
- */
 
 // ============================================================================
 // Column-time state: shaders, drift and forced tables at each column's time

@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/filter/context.h"
-
-namespace hs_test::filter_tests {
-
 /** @file
  * @brief Pixel::ChromaticShift channel-split tests.
  */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // Pixel::ChromaticShift::plot — channel-split fan-out

@@ -4,6 +4,9 @@
  */
 #pragma once
 
+/** @file ashcloud_shared_color.h
+ * @brief AshCloud shared-column dispatch and camera qualification. */
+
 #include "effects/AshCloud.h"
 #include "tests/composed_effect/float_bits.h"
 #include "tests/composed_frame_fixture.h"
@@ -18,9 +21,6 @@
 #include <tuple>
 
 namespace hs_test::composed_effect_tests {
-
-/** @file ashcloud_shared_color.h
- * @brief AshCloud shared-column dispatch and camera qualification. */
 
 namespace ashcloud_shared_tests {
 /** @brief Effect owning the fixture resources. */

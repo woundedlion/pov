@@ -300,21 +300,46 @@ private:
   static HS_HOT_INLINE float dot(Point a, Point b) {
     return a.x * b.x + a.y * b.y;
   }
+  /** @brief Boundary candidates and affine footprint state for edge coverage. */
   struct Detector {
-    Point p, dx, dy, shape0, shape1, boundary{}, second_boundary{};
-    typename Surface::QueryBounds query;
-    float theta, extent, angular, period, inverse_sector, h0, h1, radius,
-        edge_reach;
-    float a = 0, b = 0, c = 0, best_distance = 0, birth = 0;
-    float second_a = 0, second_b = 0, second_c = 0;
-    bool found = false, all = false, tip = false, paired = false,
-         terminal_back = false;
-    int last = -1, sides, cached_knot = -1, cached_sector = 0;
-    float cached_value = 0;
-    float first_candidate =
-        INFINITY; ///< Lower bound on intersecting candidate births.
-    uint32_t candidate_bits;
-    int candidate_shift;
+    Point p;                 ///< Pixel center in chart coordinates.
+    Point dx;                ///< Chart displacement for one pixel along u.
+    Point dy;                ///< Chart displacement for one pixel along v.
+    Point shape0;            ///< Even-edge dot(A, E) and squared edge length.
+    Point shape1;            ///< Odd-edge dot(A, E) and squared edge length.
+    Point boundary{};        ///< Primary chart boundary sample.
+    Point second_boundary{}; ///< Secondary chart boundary sample.
+    typename Surface::QueryBounds query; ///< Footprint containment bounds.
+    float theta;                         ///< Pixel center angle, radians.
+    float extent;  ///< Radius enclosing the affine footprint, chart units.
+    float angular; ///< Angular radius enclosing the footprint, radians.
+    float period;  ///< Star repetition angle, radians.
+    float inverse_sector; ///< Reciprocal angular width of a star-edge sector.
+    float h0;             ///< Even-edge determinant radial_cross(A, E).
+    float h1;             ///< Odd-edge determinant radial_cross(A, E).
+    float radius;         ///< Pixel center radius, chart units.
+    float edge_reach;     ///< Footprint extent times the unit-star edge length.
+    float a = 0;          ///< Primary line's u coefficient in a*u + b*v + c.
+    float b = 0;          ///< Primary line v coefficient, pixel coordinates.
+    float c = 0;          ///< Primary line constant, pixel coordinates.
+    float best_distance = 0; ///< Squared center-to-boundary distance.
+    float birth = 0;    ///< Primary boundary's source interval plus fraction.
+    float second_a = 0; ///< Secondary line u coefficient, pixel coordinates.
+    float second_b = 0; ///< Secondary line v coefficient, pixel coordinates.
+    float second_c = 0; ///< Secondary line constant, pixel coordinates.
+    bool found = false; ///< A primary boundary intersects the footprint.
+    bool all = false;   ///< Angular radius reaches half a star period.
+    bool tip = false; ///< The primary boundary follows an outer-tip trajectory.
+    bool paired = false; ///< A compatible secondary boundary is retained.
+    bool terminal_back = false; ///< Secondary boundary is a terminal sheet.
+    int last = -1;              ///< Last examined source interval.
+    int sides;                  ///< Number of outer vertices in the unit star.
+    int cached_knot = -1;       ///< Knot whose center predicate is cached.
+    int cached_sector = 0; ///< Star-edge sector of the cached center predicate.
+    float cached_value = 0;           ///< Cached signed center edge predicate.
+    float first_candidate = INFINITY; ///< Lower bound on candidate births.
+    uint32_t candidate_bits;          ///< Source-interval candidate mask.
+    int candidate_shift; ///< Log2 intervals represented by each candidate bit.
     HS_HOT_INLINE Detector(const Surface &surface, Point point, Point x,
                            Point y, float angle, const Prepared &prepared)
         : p(point), dx(x), dy(y), theta(angle),

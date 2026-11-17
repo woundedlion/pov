@@ -1133,6 +1133,7 @@ private:
       const ReactionGraph::CubemapLUT::Projection *projection) const {
     static_assert(B_CULL_THRESHOLD == B_COLOR_FLOOR);
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
+    // bRC: row R, left/right C; off-diagonals average diagonal inverse weights.
     float w00 = 0, w11 = 0;
     float b00 = 0, b01 = 0, b10 = 0, b11 = 0;
     uint16_t pigment;

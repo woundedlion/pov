@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/filter/context.h"
-
-namespace hs_test::filter_tests {
-
 /** @file
  * @brief Trail quantization, capacity replacement and ttl lifecycle.
  */
+
+#include "tests/filter/context.h"
+
+namespace hs_test::filter_tests {
 
 // ============================================================================
 // World/Screen::Trails: quantization, capacity replacement and ttl lifecycle

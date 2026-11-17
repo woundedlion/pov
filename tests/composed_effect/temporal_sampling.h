@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "tests/composed_effect/context.h"
-
-namespace hs_test::composed_effect_tests {
-
 /** @file temporal_sampling.h
  * @brief Column-time interpolation and retained-resource tests.
  */
+
+#include "tests/composed_effect/context.h"
+
+namespace hs_test::composed_effect_tests {
 
 /** @brief Samples spatial state and clocks between consecutive frame endpoints.
  * @tparam Frame Composed temporal frame context.

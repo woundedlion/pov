@@ -4,13 +4,13 @@
  */
 #pragma once
 
+/** @file authored_policies.h
+ * @brief Authored displacement, projection and modulation bindings. */
+
 #include "tests/composed_effect/context.h"
 #include "tests/composed_frame_fixture.h"
 
 namespace hs_test::composed_effect_tests {
-
-/** @file authored_policies.h
- * @brief Authored displacement, projection and modulation bindings. */
 
 /** @brief Parameter interpolation preserves both alias directions and recipe topology. */
 inline void test_authored_interpolation_destination_aliases() {
