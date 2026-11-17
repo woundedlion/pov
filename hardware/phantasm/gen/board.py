@@ -640,7 +640,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     require_writable(sch, force, SCH_REASON)
     policy = circuit_policy(revision)
     builder = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
-                        paper=policy.paper, revision=revision)
+                        paper=policy.paper, revision=revision, compact_fields=policy.compact_fields)
     ctx = Circuit(builder, revision)
     power_block(ctx)
     logic_block(ctx)

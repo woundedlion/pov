@@ -56,6 +56,7 @@ class CircuitPolicy:
     data_y: float
     clock_y: float
     channels: tuple[str, str]
+    compact_fields: bool = False
     part_properties: dict[str, dict[str, str]] = field(default_factory=dict)
     property_offsets: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
     unit_property_offsets: dict[tuple[str, int], dict[str, tuple[float, float]]] = field(default_factory=dict)
@@ -65,7 +66,7 @@ CIRCUIT_POLICIES = {
     "1.2": CircuitPolicy(False, "A3", "~0.15 A", "MASTER_EN", "R_MEN", "+3V3", "GND",
                           137.16, 167.64, ("DATA", "CLK")),
     "1.3": CircuitPolicy(True, "A2", "0.25 A", "SYNC_DE", "R_DE", "GND", "+3V3",
-                          167.64, 137.16, ("CLK", "DATA"), REV13_PARTS,
+                          167.64, 137.16, ("CLK", "DATA"), True, REV13_PARTS,
                           {"U_MCU": {"Reference": (0, -45.72), "Value": (0, 45.72)},
                            "U_SYNC": {"Reference": (-5.08, -15.24), "Value": (8.89, -15.24)},
                            "D_SYNC": {"Reference": (0, -7.62), "Value": (15.24, 5.08)},

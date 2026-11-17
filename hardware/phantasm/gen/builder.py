@@ -67,10 +67,11 @@ class Symbol:
 
 
 class Builder:
-    def __init__(self, title, paper="A3", revision=REVISION):
+    def __init__(self, title, paper="A3", revision=REVISION, *, compact_fields=False):
         self.title = title
         self.paper = paper
         self.revision = revision
+        self.compact_fields = compact_fields
         self.uuid = uid()
         self.symbols = []
         self.wires = []
@@ -241,10 +242,10 @@ class Builder:
         L.append(f'\t\t(uuid "{s.uuid}")')
         refx, refy = s.property_positions.get("Reference", (s.x, s.y - 5.08))
         valx, valy = s.property_positions.get("Value", (s.x, s.y + 5.08))
-        power_symbol = self.revision == "1.3" and s.ref.startswith("#")
+        power_symbol = self.compact_fields and s.ref.startswith("#")
         if power_symbol and s.value != "GND":
             valy = s.y - 5.08
-        angle = 90 if self.revision == "1.3" and s.rot % 180 else 0
+        angle = 90 if self.compact_fields and s.rot % 180 else 0
         L += _prop("Reference", s.ref, refx, refy, hide=power_symbol, angle=angle)
         L += _prop("Value", s.value, valx, valy, angle=angle,
                    hide=power_symbol and s.lib_id == "power:PWR_FLAG")
