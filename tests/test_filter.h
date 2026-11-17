@@ -142,6 +142,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_column_time_oracle);
   HS_RUN(test_feedback_sourced_column_time_oracle);
   HS_RUN(test_feedback_split_frame_covers_forward_bands);
+  HS_RUN(test_feedback_split_frame_clamps_custom_backward_warp);
 
   HS_RUN(test_world_trails_expired_seed_is_not_stored);
   HS_RUN(test_world_trails_timed_fanout_records_first_copy);

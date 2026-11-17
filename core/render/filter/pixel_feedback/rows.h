@@ -373,9 +373,14 @@ Feedback<W, H>::cell_offsets(const FlushContext &ctx, int row0, int row1,
   const int i00 = row0 + cx0, i10 = row0 + cx1;
   const int i01 = row1 + cx0, i11 = row1 + cx1;
   const int d00 = ctx.geometry.warp.x_offsets[i00];
-  const int u10 = unwrap_near(right.x_offsets[i10], d00);
-  const int u01 = unwrap_near(ctx.geometry.warp.x_offsets[i01], d00);
-  const int u11 = unwrap_near(right.x_offsets[i11], d00);
+  int u10 = right.x_offsets[i10];
+  int u01 = ctx.geometry.warp.x_offsets[i01];
+  int u11 = right.x_offsets[i11];
+  if (!ctx.color.column_time) {
+    u10 = unwrap_near(u10, d00);
+    u01 = unwrap_near(u01, d00);
+    u11 = unwrap_near(u11, d00);
+  }
   reach = std::max(std::max(std::abs(d00), std::abs(u10)),
                    std::max(std::abs(u01), std::abs(u11)));
   CellOffsets o;

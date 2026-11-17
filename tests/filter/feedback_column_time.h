@@ -17,6 +17,50 @@ namespace hs_test::filter_tests {
 // rotation oracle and arm-cut seams
 // ============================================================================
 
+/** @brief Split feedback renders custom offsets across the backward clamp. */
+inline void test_feedback_split_frame_clamps_custom_backward_warp() {
+  constexpr int W = 288, H = 32;
+  const ScopedTemporalSampling sampling(true);
+  for (const int downsample : {4, 8})
+    for (const float scale : {0.2f, 0.75f, 0.999f}) {
+      ScopedArenaSplit split(1u << 20, 1u << 18, DEFAULT_SCRATCH_B_SIZE);
+      StubEffect effect(
+          W, H,
+          pipeline_config<Pipeline<W, H, Filter::Pixel::Feedback<W, H>>>());
+      ::Feedback::Style style{};
+      style.space_fn = [](const math::Vector &v,
+                          const ::Feedback::Style &params) {
+        const math::Spherical point(v);
+        const float column = math::vector_to_column<W>(v);
+        const int cell =
+            static_cast<int>(floorf((column + 0.25f) / params.downsample));
+        const float shift =
+            (cell & 1) ? 0.1f * math::PI_F : -params.scale * math::PI_F;
+        return math::Vector(math::Spherical(point.theta + shift, point.phi));
+      };
+      style.scale = scale;
+      style.downsample = downsample;
+      Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+          Filter::Pixel::Feedback<W, H>(style)};
+      {
+        Canvas canvas(effect);
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x)
+            canvas(x, y) = Pixel(12000, 24000, 36000);
+      }
+      effect.advance_display();
+      for (int frame = 0; frame < 3; ++frame) {
+        {
+          Canvas canvas(effect);
+          pipe.begin_split_frame(canvas, 1.0f);
+          pipe.finish_frame(canvas);
+        }
+        effect.advance_display();
+        HS_EXPECT_GT((count_lit_region<W, H>(effect)), size_t{0});
+      }
+    }
+}
+
 /** @brief Shared source pattern for feedback oracles. */
 inline std::array<float, 3> feedback_oracle_pattern(const math::Vector &p) {
   return {0.5f + 0.35f * sinf(2.1f * p.x + 0.7f * p.z + 0.3f),

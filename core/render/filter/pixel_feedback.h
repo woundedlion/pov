@@ -614,6 +614,8 @@ private:
    * @param wy0,wy1 The rings' weights.
    * @param reach Receives the largest node column offset, WARP_SCALE units.
    * @return The cell's offsets.
+   * @details Column-time cells interpolate the capped offsets directly;
+   * frame-time cells unwrap the nodes onto their nearest branch.
    */
   static HS_HOT_INLINE CellOffsets cell_offsets(const FlushContext &ctx,
                                                 int row0, int row1, int cx0,
