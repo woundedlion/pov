@@ -687,9 +687,10 @@ inline void test_airocean_projection_stays_inside_its_face() {
           for (uint8_t edge = 0; edge < 3; ++edge)
             if (AIROCEAN_CUT_MASKS[face] & (1u << edge)) {
               const auto a = planar_vertex(face, edge);
-              const auto b = face == 14 && edge == 0
-                                 ? AIROCEAN_PLANAR_FACES[18][1]
-                                 : planar_vertex(face, edge + 1);
+              const auto b =
+                  face == AIROCEAN_SPLIT_FACE && edge == AIROCEAN_SPLIT_EDGE
+                      ? AIROCEAN_PLANAR_FACES[AIROCEAN_SPLIT_PARTNER][1]
+                      : planar_vertex(face, edge + 1);
               cut_distance = std::min(
                   cut_distance,
                   point_segment_distance({net.coords.re, net.coords.im}, a, b));
@@ -705,7 +706,9 @@ inline void test_airocean_projection_stays_inside_its_face() {
             net.edge_class == airocean_edge_identity(uint8_t(face), 0) ||
             net.edge_class == airocean_edge_identity(uint8_t(face), 1) ||
             net.edge_class == airocean_edge_identity(uint8_t(face), 2) ||
-            (face == 14 && net.edge_class == airocean_edge_identity(18, 0)));
+            (face == AIROCEAN_SPLIT_FACE &&
+             net.edge_class == airocean_edge_identity(AIROCEAN_SPLIT_PARTNER,
+                                                      AIROCEAN_SPLIT_EDGE)));
         HS_EXPECT_EQ(net.boundary_flags,
                      AIROCEAN_CUT_MASKS[face] != 0
                          ? projection_boundary(ProjectionBoundary::CUT)
@@ -741,9 +744,9 @@ inline void test_airocean_meridian_invariance() {
 
 /** @brief Face 14 selects cut or glued traits and edge identity on opposite edge halves. */
 inline void test_airocean_face14_half_cut_edge() {
-  const auto &a = AIROCEAN_FACES[14][0];
-  const auto &b = AIROCEAN_FACES[14][1];
-  const auto &c = AIROCEAN_FACES[14][2];
+  const auto &a = AIROCEAN_FACES[AIROCEAN_SPLIT_FACE][0];
+  const auto &b = AIROCEAN_FACES[AIROCEAN_SPLIT_FACE][1];
+  const auto &c = AIROCEAN_FACES[AIROCEAN_SPLIT_FACE][2];
   for (const float t : {0.25f, 0.75f}) {
     constexpr float INSET = 1e-4f;
     const math::Vector point(
@@ -752,11 +755,14 @@ inline void test_airocean_face14_half_cut_edge() {
         (1.0f - INSET) * ((1.0f - t) * a.y + t * b.y) + INSET * c.y);
     const auto net =
         airocean_projection_meridian(point.normalized(), 0.0f, false);
-    HS_EXPECT_EQ(net.region_id, 14);
+    HS_EXPECT_EQ(net.region_id, AIROCEAN_SPLIT_FACE);
     HS_EXPECT_EQ(net.traits,
                  projection_traits(t < 0.5f ? ProjectionTrait::CUT
                                             : ProjectionTrait::GLUED));
-    HS_EXPECT_EQ(net.edge_class, airocean_edge_identity(t < 0.5f ? 14 : 18, 0));
+    HS_EXPECT_EQ(net.edge_class,
+                 airocean_edge_identity(t < 0.5f ? AIROCEAN_SPLIT_FACE
+                                                 : AIROCEAN_SPLIT_PARTNER,
+                                        AIROCEAN_SPLIT_EDGE));
   }
 }
 

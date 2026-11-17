@@ -924,6 +924,23 @@ inline constexpr auto AIROCEAN_CUT_MASKS = [] {
   return masks;
 }();
 
+/** @brief Face carrying the split Airocean edge. */
+inline constexpr uint8_t AIROCEAN_SPLIT_FACE = 14;
+/** @brief Split edge within its face. */
+inline constexpr uint8_t AIROCEAN_SPLIT_EDGE = 0;
+/** @brief Face glued to the second half of the split edge. */
+inline constexpr uint8_t AIROCEAN_SPLIT_PARTNER = 18;
+static_assert([] {
+  const auto &a =
+      AIROCEAN_PLANAR_FACES[AIROCEAN_SPLIT_FACE][AIROCEAN_SPLIT_EDGE];
+  const auto &b =
+      AIROCEAN_PLANAR_FACES[AIROCEAN_SPLIT_FACE][(AIROCEAN_SPLIT_EDGE + 1) % 3];
+  const auto &midpoint = AIROCEAN_PLANAR_FACES[AIROCEAN_SPLIT_PARTNER][1];
+  const float dx = midpoint.x - (a.x + b.x) * 0.5f;
+  const float dy = midpoint.y - (a.y + b.y) * 0.5f;
+  return (dx < 0 ? -dx : dx) <= 1e-6f && (dy < 0 ? -dy : dy) <= 1e-6f;
+}());
+
 /**
  * @brief Per (face, edge), the identity of that unfolded planar edge.
  * @details The identity is `canonical_face * 3 + canonical_edge`, where the
@@ -1097,9 +1114,9 @@ airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
     }
     if (calculate_edge_distance && airocean_edge_is_cut(face, candidate)) {
       const float cut_distance_squared =
-          face == 14 && candidate == 0
-              ? point_segment_distance_squared(output, a,
-                                               AIROCEAN_PLANAR_FACES[18][1])
+          face == AIROCEAN_SPLIT_FACE && candidate == AIROCEAN_SPLIT_EDGE
+              ? point_segment_distance_squared(
+                    output, a, AIROCEAN_PLANAR_FACES[AIROCEAN_SPLIT_PARTNER][1])
               : distance_squared;
       cut_edge_distance_squared =
           fminf(cut_edge_distance_squared, cut_distance_squared);
@@ -1111,16 +1128,20 @@ airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
                          : NO_EDGE_DISTANCE;
   bool cut_edge = airocean_edge_is_cut(face, edge_class);
   uint8_t edge_identity = airocean_edge_identity(face, edge_class);
-  if (face == 14 && edge_class == 0) {
-    const AiroceanPoint &a = AIROCEAN_PLANAR_FACES[14][0];
-    const AiroceanPoint &b = AIROCEAN_PLANAR_FACES[14][1];
+  if (face == AIROCEAN_SPLIT_FACE && edge_class == AIROCEAN_SPLIT_EDGE) {
+    const AiroceanPoint &a =
+        AIROCEAN_PLANAR_FACES[AIROCEAN_SPLIT_FACE][AIROCEAN_SPLIT_EDGE];
+    const AiroceanPoint &b =
+        AIROCEAN_PLANAR_FACES[AIROCEAN_SPLIT_FACE]
+                             [(AIROCEAN_SPLIT_EDGE + 1) % 3];
     const float dx = b.x - a.x;
     const float dy = b.y - a.y;
     const float t =
         ((output.x - a.x) * dx + (output.y - a.y) * dy) / (dx * dx + dy * dy);
     cut_edge = t <= 0.5f;
     if (!cut_edge)
-      edge_identity = airocean_edge_identity(18, 0);
+      edge_identity =
+          airocean_edge_identity(AIROCEAN_SPLIT_PARTNER, AIROCEAN_SPLIT_EDGE);
   }
   if (horizontal)
     output = {AIROCEAN_NET_HEIGHT - output.y, output.x};
