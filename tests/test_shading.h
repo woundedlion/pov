@@ -189,29 +189,6 @@ inline void test_mesh_topology_slot_in_range_wraps() {
   HS_EXPECT_EQ((mesh_topology_slot<4>(f, TOPOLOGY, 3)), 1); // wrap(5, 4) == 1
 }
 
-/**
- * @brief Verifies an out-of-range or negative face index falls back to class 0
- *        rather than reading out of bounds.
- */
-inline void test_mesh_topology_slot_out_of_range_falls_back() {
-  const uint16_t TOPOLOGY[] = {3, 3, 3, 3};
-  Fragment over;
-  over.v2 = 9.0f; // >= num_faces -> class 0
-  HS_EXPECT_EQ((mesh_topology_slot<4>(over, TOPOLOGY, 3)), 0);
-
-  Fragment at_end;
-  at_end.v2 = 3.0f;
-  HS_EXPECT_EQ((mesh_topology_slot<4>(at_end, TOPOLOGY, 3)), 0);
-
-  Fragment last;
-  last.v2 = 2.0f;
-  HS_EXPECT_EQ((mesh_topology_slot<4>(last, TOPOLOGY, 3)), 3);
-
-  Fragment neg;
-  neg.v2 = -1.0f; // negative -> class 0
-  HS_EXPECT_EQ((mesh_topology_slot<4>(neg, TOPOLOGY, 3)), 0);
-}
-
 // --- shade_blinn_phong ------------------------------------------------------
 
 /**
@@ -522,7 +499,6 @@ inline int run_shading_tests() {
   HS_RUN(test_fragment_edge_dist_normal);
   HS_RUN(test_fragment_edge_dist_degenerate_face);
   HS_RUN(test_mesh_topology_slot_in_range_wraps);
-  HS_RUN(test_mesh_topology_slot_out_of_range_falls_back);
   HS_RUN(test_blinn_phong_half);
   HS_RUN(test_shade_blinn_phong);
   HS_RUN(test_shade_mesh_topology_segue);

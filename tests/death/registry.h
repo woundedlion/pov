@@ -1647,6 +1647,21 @@ inline const Case *all_cases(int &n) {
               {"planar_chords_sink_unprepared",
                case_planar_chords_sink_unprepared, "core/render/plot/chords.h",
                "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared for this canvas"},
+              {"mesh_topology_negative_face", case_mesh_topology_negative_face,
+               "core/render/shading.h",
+               "(face_idx >= 0 && face_idx < num_faces) "
+               "mesh topology face index out of range",
+               false, "death: admitted"},
+              {"mesh_topology_end_face", case_mesh_topology_end_face,
+               "core/render/shading.h",
+               "(face_idx >= 0 && face_idx < num_faces) "
+               "mesh topology face index out of range",
+               false, "death: admitted"},
+              {"mesh_topology_over_face", case_mesh_topology_over_face,
+               "core/render/shading.h",
+               "(face_idx >= 0 && face_idx < num_faces) "
+               "mesh topology face index out of range",
+               false, "death: admitted"},
               {"face_palette_shader_blend_without_palette",
                case_face_palette_shader_blend_without_palette,
                "core/render/shading.h",

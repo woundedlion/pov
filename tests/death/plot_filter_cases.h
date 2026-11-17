@@ -14,6 +14,33 @@ namespace hs_test::death_tests {
 
 // Plot filter death cases.
 
+/** @brief Topology shading rejects a face outside its declared table.
+ * @param face_index Invalid face index within the fixture's backing storage. */
+inline void mesh_topology_range_fixture(int face_index) {
+  const uint16_t BACKING[] = {0, 3, 1, 2, 0, 0, 0};
+  const uint16_t *topology = BACKING + 1;
+  Fragment fragment;
+  fragment.v2 = 0;
+  HS_EXPECT_EQ(mesh_topology_slot<4>(fragment, topology, 3), 3);
+  fragment.v2 = 2;
+  HS_EXPECT_EQ(mesh_topology_slot<4>(fragment, topology, 3), 2);
+  death_admitted();
+  fragment.v2 = opaque<float>(static_cast<float>(face_index));
+  volatile int slot = mesh_topology_slot<4>(fragment, topology, 3);
+  (void)slot;
+}
+
+/** @brief Topology shading rejects a negative face index. */
+inline void case_mesh_topology_negative_face() {
+  mesh_topology_range_fixture(-1);
+}
+
+/** @brief Topology shading rejects the table's exclusive end. */
+inline void case_mesh_topology_end_face() { mesh_topology_range_fixture(3); }
+
+/** @brief Topology shading rejects a face beyond the table. */
+inline void case_mesh_topology_over_face() { mesh_topology_range_fixture(4); }
+
 /** @brief Draws valid timed edges before rejecting an out-of-range endpoint. */
 inline void plot_column_edge_index_fixture(bool bad_start) {
   constexpr int W = 32, H = 16;

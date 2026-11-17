@@ -131,17 +131,17 @@ inline int mesh_face_index(const Fragment &f) { return static_cast<int>(f.v2); }
  * @brief Resolves a fragment's palette slot from its face's topology class.
  * @tparam NumPalettes Palette count; the class index wraps modulo this.
  * @param f Rasterized fragment; v2 carries the integer face index.
- * @param topology Per-face topology-class indices.
- * @param num_faces Length of `topology`; an out-of-range face index falls back
- * to class 0 rather than reading out of bounds.
+ * @param topology Topology-class indices covering every rasterized face.
+ * @param num_faces Length of `topology`; the face index must be in range.
  * @return The palette slot in [0, NumPalettes).
  */
 template <size_t NumPalettes>
 inline int mesh_topology_slot(const Fragment &f, const uint16_t *topology,
                               int num_faces) {
   int face_idx = mesh_face_index(f);
-  int topo_idx =
-      (face_idx >= 0 && face_idx < num_faces) ? topology[face_idx] : 0;
+  HS_AUDIT_CHECK(face_idx >= 0 && face_idx < num_faces,
+                 "mesh topology face index out of range");
+  int topo_idx = topology[face_idx];
   return math::wrap(topo_idx, static_cast<int>(NumPalettes));
 }
 
@@ -150,9 +150,8 @@ inline int mesh_topology_slot(const Fragment &f, const uint16_t *topology,
  * @tparam PaletteBank Indexable bank of palettes exposing `bank[i].get(t)`.
  * @tparam NumPalettes Palette count (deduced from `palette_idx`).
  * @param f Rasterized fragment; v2 carries the integer face index.
- * @param topology Per-face topology-class indices.
- * @param num_faces Length of `topology`; an out-of-range face index falls back
- * to class 0 rather than reading out of bounds.
+ * @param topology Topology-class indices covering every rasterized face.
+ * @param num_faces Length of `topology`; the face index must be in range.
  * @param palette_bank Bank of per-class palettes.
  * @param palette_idx Maps a topology class to a palette slot in the bank.
  * @param gain Multiplier on the edge-distance gradient before clamping to [0,1].
