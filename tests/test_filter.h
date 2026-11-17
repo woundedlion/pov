@@ -114,7 +114,10 @@ inline int run_filter_tests() {
   HS_RUN(FeedbackWhiteBox::test_uncached_scratch_budget);
   HS_RUN(test_feedback_translucent_flush_matches_opaque_blend);
   HS_RUN(test_feedback_custom_color_receives_elapsed_fade);
-  HS_RUN(test_feedback_x_clips_match_full_frame);
+  using FeedbackClipGeometry = math::DisplayGeometry<FEEDBACK_CLIP_HEIGHT>;
+  if (FeedbackClipGeometry::HAS_NORTH_POLE &&
+      FeedbackClipGeometry::HAS_SOUTH_POLE)
+    HS_RUN(test_feedback_x_clips_match_full_frame);
   HS_RUN(test_feedback_clipped_half_res_keeps_own_lanes);
   HS_RUN(test_feedback_north_pole_uses_single_physical_sample);
   HS_RUN(test_feedback_south_pole_uses_single_physical_sample);

@@ -1278,9 +1278,11 @@ inline void test_feedback_custom_color_receives_elapsed_fade() {
   }
 }
 
+inline constexpr int FEEDBACK_CLIP_HEIGHT = 32;
+
 /** @brief Plain and seam-wrapping feedback clips match a full warp inside their band. */
 inline void test_feedback_x_clips_match_full_frame() {
-  constexpr int W = 64, H = 32;
+  constexpr int W = 64, H = FEEDBACK_CLIP_HEIGHT;
   constexpr Pixel UNTOUCHED(1234, 5678, 9012);
   struct Frame {
     std::vector<Pixel> pixels;
