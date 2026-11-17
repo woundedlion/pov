@@ -79,6 +79,16 @@ class FindKicadCliTests(unittest.TestCase):
                     self.assertRaises(SystemExit):
                 kicad_common.find_kicad_cli()
 
+    def test_pinned_path_binary_survives_an_unpinned_stock_install(self):
+        stock = r"C:\Program Files\KiCad\9.0\bin\kicad-cli.exe"
+        with mock.patch.dict(os.environ, {}, clear=True), \
+                mock.patch.object(kicad_common.glob, "glob", return_value=[stock]), \
+                mock.patch.object(kicad_common.shutil, "which", return_value="kicad-cli"), \
+                mock.patch.object(kicad_common, "kicad_cli_version",
+                                  side_effect=lambda path: kicad_common.KICAD_VERSION
+                                  if path == "kicad-cli" else "9.0.0"):
+            self.assertEqual(kicad_common.find_kicad_cli(), "kicad-cli")
+
     def test_missing_override_fails_without_discovery(self):
         with tempfile.TemporaryDirectory() as directory:
             cli = str(Path(directory) / "missing-kicad-cli")

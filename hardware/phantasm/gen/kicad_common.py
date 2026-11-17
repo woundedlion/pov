@@ -58,18 +58,19 @@ def find_kicad_cli():
     pinned = [hit for hit in hits if kicad_cli_version(hit) == KICAD_VERSION]
     if pinned:
         return max(pinned, key=sexp.kicad_version_key)
+    path_cli = shutil.which("kicad-cli")
+    version = kicad_cli_version("kicad-cli") if path_cli is not None else None
+    if version == KICAD_VERSION:
+        return "kicad-cli"
     if hits:
         sys.exit(f"the fab gates are pinned to KiCad {KICAD_VERSION}, which is not "
                  "installed\n"
                  f"  found: {', '.join(hits)}\n"
                  f"  Install KiCad {KICAD_VERSION} or set KICAD_CLI to its "
                  "kicad-cli.")
-    if shutil.which("kicad-cli") is None:
+    if path_cli is None:
         sys.exit(f"no kicad-cli found; install KiCad {KICAD_VERSION} or set "
                  "KICAD_CLI to its kicad-cli.")
-    version = kicad_cli_version("kicad-cli")
-    if version == KICAD_VERSION:
-        return "kicad-cli"
     sys.exit(f"kicad-cli on PATH reports KiCad {version or 'unknown'}; the fab "
              f"gates require KiCad {KICAD_VERSION}\n"
              f"  Install KiCad {KICAD_VERSION} or set KICAD_CLI to its "
