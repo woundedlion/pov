@@ -447,7 +447,7 @@ public:
 
   float friction = 0.85f; /**< Per-frame velocity damping factor. */
   float gravity = 0.001f; /**< Base gravitational constant for attractors. */
-  float motion_cap = (2 * math::PI_F) / W; /**< Maximum radians per frame. */
+  float motion_cap = MAX_ROTATION_STEP<W>; /**< Maximum radians per frame. */
   uint16_t max_life = 600; /**< Default particle lifetime in frames. Writable
                                 after init(); re-derives live ages and applies to
                                 subsequent spawns. Lowering it below a live
