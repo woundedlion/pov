@@ -344,8 +344,7 @@ struct Mesh {
         for (int y = y_lo; y <= y_hi; ++y) {
           const float sp = side * math::TrigLUT<W, H>::sin_phi[y];
           const float cp = math::TrigLUT<W, H>::cos_phi[y];
-          const math::Vector p(sp * e.x + cp * v.x, sp * e.y + cp * v.y,
-                               sp * e.z + cp * v.z);
+          const math::Vector p = basis_direction(e, v, sp, cp);
 #if HS_ENABLE_TEST_HOOKS
           ++mesh_capture_counters.sweep_probes;
 #endif

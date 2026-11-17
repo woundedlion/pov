@@ -182,6 +182,18 @@ column_basis([[maybe_unused]] const PipelineT &pipeline, const Canvas &canvas) {
   return canvas.column_basis();
 }
 
+/** @brief Combines an arm-resolved latitude with a column basis.
+ * @param e Rotated azimuth vector.
+ * @param v Rotated up vector.
+ * @param s Signed sine of the colatitude for this arm.
+ * @param c Cosine of the colatitude.
+ * @return Rotated pixel direction. */
+__attribute__((always_inline)) inline math::Vector
+basis_direction(const math::Vector &e, const math::Vector &v, float s,
+                float c) {
+  return math::Vector(s * e.x + c * v.x, s * e.y + c * v.y, s * e.z + c * v.z);
+}
+
 /**
  * @brief Direction a column's rotated basis gives a pixel.
  * @tparam W Canvas width in columns.
@@ -202,8 +214,7 @@ rotated_direction(const math::Vector *azimuth, const math::Vector *up, int x,
   const float s = far_arm ? -sin_phi : sin_phi;
   const math::Vector &e = azimuth[column];
   const math::Vector &v = up[column];
-  return math::Vector(s * e.x + cos_phi * v.x, s * e.y + cos_phi * v.y,
-                      s * e.z + cos_phi * v.z);
+  return basis_direction(e, v, s, cos_phi);
 }
 
 /**

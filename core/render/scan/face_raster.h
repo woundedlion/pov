@@ -406,8 +406,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
         if constexpr (COLUMN_TIME) {
           const math::Vector &e = azimuth[x - arm_offset];
           const math::Vector &v = up[x - arm_offset];
-          p = math::Vector(arm_sp * e.x + cp * v.x, arm_sp * e.y + cp * v.y,
-                           arm_sp * e.z + cp * v.z);
+          p = basis_direction(e, v, arm_sp, cp);
         } else {
           p = math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]);
         }
