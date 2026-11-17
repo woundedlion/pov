@@ -999,7 +999,7 @@ class BucketOrdering(unittest.TestCase):
                      f"window=1000000 us ===")
         lines.append(f"frame wall us: min=0 avg=0 max=0 sum=0 ({frames} frames)")
         lines.append(f"frame render us: avg={render_us} max={render_us}")
-        lines.append(f"frame            {render_us * frames} us (100%)  "
+        lines.append(f"frame            {(render_us + 5_000) * frames} us (100%)  "
                      f"{frames} calls  1 cyc")
         lines.append(f"  shader         {shader_us_per_frame * frames} us (50%)  "
                      f"{frames} calls  1 cyc")
@@ -1031,6 +1031,13 @@ class BucketOrdering(unittest.TestCase):
         status, _, err = self._run(34_940, 39_650, scope="shadre")
         self.assertEqual(status, 2)
         self.assertIn("shadre", err)
+
+    def test_wall_and_wait_scopes_are_not_bounded_by_render(self):
+        for scope in ("frame", "fx_buffer_wait"):
+            with self.subTest(scope=scope):
+                status, _, err = self._run(1_000, 500, scope=scope)
+                self.assertEqual(status, 0)
+                self.assertEqual(err, "")
 
 
 class TaggedCounterRows(unittest.TestCase):

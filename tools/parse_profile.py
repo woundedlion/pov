@@ -624,7 +624,9 @@ def cmd_buckets(windows, scope, gate):
     if any(count == 0 for count, _ in holds.values()):
         print("#   ~ after a scope time = window shared by multiple presets.")
     # 0.01 ms absorbs the printed rounding, nothing more.
+    render_scope = scope != "frame" and not scope.endswith("buffer_wait")
     inverted = [(name, peak, holds[name][1]) for name, _, peak, _, _ in rows
+                if render_scope
                 if name in holds and holds[name][0] and
                 holds[name][1] > peak + 0.01]
     for name, peak, held in inverted:
