@@ -4,6 +4,8 @@
 import argparse
 import difflib
 import math
+import shlex
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -198,7 +200,16 @@ def main():
     if args.check:
         committed = args.output.read_text(encoding="utf-8")
         if committed != content:
-            print("".join(difflib.unified_diff(committed.splitlines(True), content.splitlines(True))))
+            command = "python tools/gen_tangent_field_constants.py"
+            if args.output != HEADER:
+                command += " " + shlex.quote(str(args.output))
+            print(f"{args.output} is out of sync with tools/gen_tangent_field_constants.py",
+                  file=sys.stderr)
+            print(f"Regenerate with: {command}", file=sys.stderr)
+            diff = difflib.unified_diff(committed.splitlines(keepends=True),
+                                        content.splitlines(keepends=True),
+                                        fromfile=str(args.output), tofile="generated")
+            sys.stderr.writelines(diff)
             raise SystemExit(1)
     else:
         args.output.write_text(content, encoding="utf-8", newline="\n")
