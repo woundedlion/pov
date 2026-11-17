@@ -1,10 +1,10 @@
 # Require every test case defined in a tests/*.h or tests/*.hpp header to be
 # reachable from its header's run_*_tests() entry point, and to reach an
 # HS_EXPECT assertion or static_assert directly or through helpers (helper
-# traversal accepts definitions of any return type). Death case_* registration
-# is checked by check_death_pins.py; the death harness verifies their traps at
-# runtime. run_*_cases are
-# case drivers; run_*_tests are module entry points.
+# traversal accepts definitions of any return type). Death case_* definitions
+# expanded into test_death.h need reachability but not assertion reach;
+# check_death_pins.py checks registration, and the harness verifies traps at
+# runtime. run_*_cases are case drivers; run_*_tests are module entry points.
 #
 # A case is a void/bool/int/size_t definition named test_*/check_*/case_*/
 # verify_*/expect_*, run_*_cases or a named sweep driver, with its head at
@@ -327,7 +327,8 @@ foreach(_hdr IN LISTS _headers)
   endwhile()
 
   foreach(_case IN LISTS _seen)
-    if(NOT _case IN_LIST _entries AND NOT _assertion_reached_${_header_key}_${_case})
+    if(NOT (_name STREQUAL "test_death.h" AND _case MATCHES "^case_") AND
+       NOT _case IN_LIST _entries AND NOT _assertion_reached_${_header_key}_${_case})
       list(APPEND _unasserted "${_name}:${_case}")
     endif()
     if(_case IN_LIST _entries)

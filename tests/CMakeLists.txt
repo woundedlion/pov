@@ -423,7 +423,8 @@ add_test(NAME unit_effect_case_parity_controls COMMAND ${CMAKE_COMMAND}
 
 # Check reachability and assertion reach for column-0 void/bool/int/size_t
 # cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Death
-# case_* registration is checked by check_death_pins.py.
+# case_* definitions expanded into test_death.h need reachability but not
+# assertion reach; check_death_pins.py checks registration.
 # Shared helpers resolve across tests/ and tools/; member definitions are
 # excluded.
 add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
