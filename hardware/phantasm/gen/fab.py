@@ -1403,8 +1403,9 @@ def fabricate(revision=ROUTED_REVISION, validate_only=False, refill_zones=True, 
     print(f"  package sha256: {sha256_file(zpath)}")
     print(f"  digest manifest: {manifest_path}")
     if refill_zones:
-        print(f"  commit it to {SHIPPED_SUMS} to record what was ordered, then "
-              "re-check the package with fab.py --verify")
+        print(f"  copy this manifest to {SHIPPED_SUMS} only if this exact package "
+              "is submitted for an order; a fresh export does not establish "
+              "previously ordered bytes")
 
 
 
