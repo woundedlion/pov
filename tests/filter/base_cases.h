@@ -5,13 +5,13 @@
 #pragma once
 
 /** @file
- * @brief Filter module cases. */
+ * @brief H_OFFSET precondition for the filter cases. */
 
 #include "tests/filter/context.h"
 
 namespace hs_test::filter_tests {
 
 static_assert(hs::H_OFFSET == 0,
-              "test_filter.h assumes row H-1 is the south pole; the "
+              "tests/filter/ cases assume row H-1 is the south pole; the "
               "offset-3 mapping is covered by tests/test_h_offset_renorm.h");
 } // namespace hs_test::filter_tests

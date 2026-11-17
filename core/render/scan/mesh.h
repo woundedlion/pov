@@ -527,8 +527,8 @@ moving_face_columns(const Canvas &canvas, const MeshState &mesh, float reach,
  * @tparam W Canvas width in pixels.
  * @param canvas Canvas with the frame's column-time state installed.
  * @param mesh The scanned mesh, at the current endpoint.
- * @param moving_vertices Nonzero per moving vertex; left nonzero only on the
- *        vertices of the picked faces.
+ * @param moving_vertices Nonzero per moving vertex on entry; receives 1 on
+ *        every vertex of a picked face, held ones included, and 0 elsewhere.
  * @param reach Bound on how far a placed vertex strays from the current
  *        endpoint over the frame (radians).
  * @param columns Receives per face two entries: the columns that can see a

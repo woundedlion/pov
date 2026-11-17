@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 /** @file
- * @brief lerp16 pixel blending tests.
+ * @brief Pixel blending, scaling, accumulation and frame-recording tests.
  */
 #pragma once
 

@@ -114,7 +114,7 @@ struct Contribution {
 struct TraceResult {
   TraceStatus status = TraceStatus::RANGE_COMPLETE; ///< Completion reason.
   TraceCounters counters; ///< Work spent by the trace.
-  /// Verified surface hit when `has_surface`, or the last layer of a layered trace.
+  /// Verified surface hit when `has_surface`; layered producers may leave it default.
   Contribution contribution;
   bool has_surface =
       false; /**< A verified single surface, not layered coverage. */

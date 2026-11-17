@@ -96,9 +96,9 @@ struct MirrorParams {
   float speed = 0.0f;    /**< Per-frame advance of the slot's phase. */
   float rotation = 0.0f; /**< Rotation of the fold lattice, in radians. */
   float cell_x =
-      1.0f; /**< X fold period in plane units; output spans [0, cell_x]. */
+      1.0f; /**< X fold period in plane units; fold-frame x spans [0, cell_x]. */
   float cell_y =
-      1.0f; /**< Y fold period in plane units; output spans [0, cell_y]. */
+      1.0f; /**< Y fold period in plane units; fold-frame y spans [0, cell_y]. */
   float offset_x = 0.0f; /**< Pre-fold translation along x; scrolls with the
                               slot's phase. */
   float offset_y = 0.0f; /**< Pre-fold translation along y; does not scroll. */

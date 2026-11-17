@@ -86,8 +86,8 @@ using Warp::WaveShearParams;
 template <typename ParamsT, bool PhaseNoise = false> struct FrameState {
   static constexpr bool PHASE_NOISE_CACHE =
       PhaseNoise; ///< Borrows chamber noise.
-  /** Conjugate of the projection orientation; identity unless the effect sets
-      `ANIMATED_PROJECTION`. */
+  /** Conjugate of the projection orientation; identity when the Spec's
+      `PROJECTION_MOTION` is `STATIC` or it has no projection family. */
   math::Quaternion projection_conjugate;
   /** Conjugate of the outer camera orientation. */
   math::Quaternion outer_conjugate;

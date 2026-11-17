@@ -959,9 +959,8 @@ PreparedFace::distance_projected(float cos_angle, float u, float w,
   bool lut_served = false;
   if (probe_flags & PROBE_HAS_LUT) {
     // Affine map into the canonical LUT grid, then a 4-tap bilinear fetch.
-    // Only sign-pure cells at least one cell diagonal from the boundary are
-    // served; the AA fringe and sign-unsafe cells fall back to the edge walk
-    // on the TRUE per-frame edges.
+    // The LUT serves sign-pure cells beyond a diagonal plus bind deviation;
+    // nearer probes, including the inner AA fringe, take the true-edge walk.
     float fx = lut_ax * px + lut_bx * py + lut_cx;
     float fy = lut_ay * px + lut_by * py + lut_cy;
     // Clamp is memory safety: the cull disk is not contained in the LUT box,

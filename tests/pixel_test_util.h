@@ -312,10 +312,11 @@ inline void expect_clip_matches_full(const char *label, const RenderRun &full,
   HS_EXPECT_GT(lit, size_t{0});
 }
 
-/** @brief Pixel bounds for segments 0-3 on the first arm and 4-7 on the second.
+/** @brief Board `segment % 4` bounds in a four-board display, with arm A
+ *         sweeping the left half (0-3) or the right half (4-7).
  * @tparam W Canvas width.
  * @tparam H Canvas height.
- * @param segment Arm-encoded segment index.
+ * @param segment Window-encoded board index.
  * @return Half-open row and column bounds. */
 template <int W, int H>
 inline pov::SegmentClip device_segment_clip(int segment) {

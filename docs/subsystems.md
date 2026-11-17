@@ -565,7 +565,7 @@ The rendering pipeline splits shape definitions from rasterization. `sdf.h` defi
 2. **`get_horizontal_intervals(y, out)`** — scanline intervals per row, or `false` to request a full-row scan. Handled rows skip empty columns without evaluating the distance function.
 3. **`distance<ComputeUVs>(p, result)`** — signed shape-distance value at a sphere-surface point `p`, plus texture coordinate and auxiliary data in `DistanceResult`. Chart-plane values are not exact spherical boundary distances.
 
-`scan.h` is an umbrella over `core/render/scan/`: `core/render/scan/raster.h` defines `Scan::rasterize()`, which drives the scanline loop and anti-aliasing; `core/render/scan/shapes.h`, `core/render/scan/mesh.h`, `core/render/scan/shader.h` and `core/render/scan/volume.h` hold the convenience wrappers that pair SDF shapes with the rasterizer.
+`scan.h` is an umbrella over `core/render/scan/`: `core/render/scan/raster.h` defines `Scan::rasterize()`, which drives the scanline loop and anti-aliasing; `core/render/scan/shapes.h`, `core/render/scan/ring_stack.h`, `core/render/scan/mesh.h`, `core/render/scan/shader.h` and `core/render/scan/volume.h` hold the convenience wrappers that pair SDF shapes with the rasterizer.
 
 `sdf.h` is an umbrella over six of the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `core/render/sdf/common.h`, the polygon, star, flower and line leaves in `core/render/sdf/shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `core/render/sdf/volume.h`. Including `sdf.h` pulls in all six; the lattice, trace, framework, periodic-surface and face-class headers are included directly by their consumers.
 
@@ -595,7 +595,7 @@ The 3D family marched by `Scan::Volume` lives in its own header. It shares the `
 | Shape | Description |
 |---|---|
 | `SDF::Torus` | 3D volumetric torus SDF with configurable major/minor radii (Cartesian ray-space, not a 2D sphere-surface shape) |
-| `SDF::Warp::Twist` | Domain warp composed with a volumetric SDF via `SDF::WarpedVolume<Shape, Warp>` — e.g. `WarpedVolume<Torus, Warp::Twist>` twists a torus by oscillating Y around the ring azimuth, with an analytic Lipschitz bound for safe sphere-tracing (used by Raymarch) |
+| `SDF::Warp::Twist` | Domain warp composed with a volumetric SDF via `SDF::WarpedVolume<Shape, Warp>` — e.g. `WarpedVolume<Torus, Warp::Twist>` twists a torus by oscillating Y around the ring azimuth, with an analytic Lipschitz bound for sphere-tracing, clamped near the polar axis (see `Warp::Twist::lipschitz()`, used by Raymarch) |
 
 ### CSG Operations (`sdf.h`)
 

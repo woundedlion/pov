@@ -55,9 +55,9 @@ with landed `HS_O3` hot-loop regions active.
 
 ### Global-O3 reference
 
-The [`profile_o3` report set](O3/README.md) replaces `-Os` globally with
-`-O3 -ffast-math`. It is a single-effect optimization ceiling, not a shippable
-full-roster image.
+The [`profile_o3` report set](O3/README.md) replaces `-Os` with global `-O3`;
+both images share the base `-ffast-math -fno-finite-math-only` flags. It is a
+single-effect optimization ceiling, not a shippable full-roster image.
 
 ## Shipping/O3 captures
 

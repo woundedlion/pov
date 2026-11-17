@@ -637,7 +637,7 @@ inline uint32_t minimum_energy_around(const OracleFrame &frame,
   return minimum;
 }
 
-/** @brief Finds the northernmost row with visible coverage. */
+/** @brief Finds the northernmost row with any nonzero energy. */
 inline int first_covered_north_row(const OracleFrame &frame) {
   for (int y = 0; y < 32; ++y)
     for (int x = 0; x < ORACLE_W; ++x) {

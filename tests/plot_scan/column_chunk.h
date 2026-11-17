@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Column chunk slot reservation tests.
+ * @brief Column chunk slot reservation and cap-ring arc coverage tests.
  */
 
 #include "tests/plot_scan/fixture.h"

@@ -1,8 +1,9 @@
 # Global-O3 reference profiles
 
 Ranked captures covering **32 effects** from the Phantasm image.
-These are single-effect `profile_o3` compiler-reference images built
-with global `-O3 -ffast-math`; they are not a shippable full-roster image.
+These are single-effect `profile_o3` compiler-reference images. `profile_o3`
+replaces `-Os` with global `-O3`; both images share the base
+`-ffast-math -fno-finite-math-only` flags. They are not a shippable full-roster image.
 
 Peak is worst-frame render time (never wall). Spilled is the fraction of frames
 whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction, then peak render.

@@ -35,9 +35,8 @@ namespace Plot {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details From DENSE_CONTOUR_COUNT contours up, planar stars stroke through
- * Plot::PlanarChords and spherical stars take balanced sampling. Flowers whose
- * petals cross the clip band's columns are split against it by
- * Plot::PlanarBandSplit.
+ * Plot::PlanarChords and spherical stars take balanced sampling. Under a clip
+ * that limits columns, flowers are split against the band by Plot::PlanarBandSplit.
  */
 template <int W, int H> class FlatContourStack {
 public:

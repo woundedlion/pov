@@ -236,10 +236,11 @@ inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
  * @tparam H Canvas height in pixels.
  * @details The still path subdivides each edge into at most
  * MAX_ANCHOR_INTERVALS azimuthal anchors and walks at TARGET_STEP screen pixels,
- * with no per-sample tangent or pole scaling. Edges and samples that cannot
- * reach the clip band are skipped
- * without moving any drawn sample. Anchor intervals within POLE_PIECE_ROWS of a
- * pole go to Plot::rasterize under PLANAR_CHORD_RASTER_CONFIG.
+ * with no per-sample tangent or pole scaling. Chord-walk edges and samples
+ * that cannot reach the clip band are skipped without moving any drawn sample.
+ * Anchor intervals within POLE_PIECE_ROWS of a pole go to Plot::rasterize under
+ * PLANAR_CHORD_RASTER_CONFIG. Under a column clip, Plot::PlanarBandSplit splits
+ * pole runs against the band, moving their samples by a fraction of a pixel.
  */
 template <int W, int H> class PlanarChords {
 public:

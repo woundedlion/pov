@@ -314,8 +314,8 @@ struct HankinWalkProbe {
   }
   /**
    * @brief Rebuilds the hankin mesh at `angle` and renders it through the
-   * production draw path at the current (unadvanced) orientation, with the
-   * given strap opening-fade weight.
+   * production draw path at the current (unadvanced) orientation with the
+   * given shape weights and cycle-frame palettes.
    * @details The timeline is not stepped, so the camera stays fixed across
    * calls.
    */
