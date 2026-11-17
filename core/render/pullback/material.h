@@ -282,6 +282,16 @@ struct WeightSquared : ApproximationDefaults {
 
 using Detail::edge_fade;
 
+/** @brief Squared attenuation toward a projection edge.
+ * @param provenance Projection metadata.
+ * @param width Fade band width in projection edge-distance units.
+ * @return Square of the edge-fade coverage. */
+HS_HOT_INLINE inline float
+edge_fade_squared(const ProjectionProvenance &provenance, float width) {
+  const float fade = edge_fade(provenance, width);
+  return fade * fade;
+}
+
 /**
  * @brief EdgeFade material policy.
  * @tparam State Provider with Binding and FrameState types and
@@ -325,8 +335,7 @@ template <typename State> struct EdgeFadeSquared : EdgeFade<State> {
   template <typename FrameState>
   static float apply(const ProjectionProvenance &provenance,
                      const FrameState &frame) {
-    const float coverage = EdgeFade<State>::apply(provenance, frame);
-    return coverage * coverage;
+    return edge_fade_squared(provenance, State::edge_width(frame));
   }
 };
 

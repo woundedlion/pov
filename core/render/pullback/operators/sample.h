@@ -127,10 +127,8 @@ inline float projection_coverage(uint8_t coverage_mode,
     return ProjectionCoverage::WeightSquared::apply(provenance, ctx);
   case ProjectionCoverageMode::EDGE_FADE:
     return ProjectionCoverage::edge_fade(provenance, edge_width);
-  case ProjectionCoverageMode::EDGE_FADE_SQUARED: {
-    const float fade = ProjectionCoverage::edge_fade(provenance, edge_width);
-    return fade * fade;
-  }
+  case ProjectionCoverageMode::EDGE_FADE_SQUARED:
+    return ProjectionCoverage::edge_fade_squared(provenance, edge_width);
   case ProjectionCoverageMode::WEIGHT:
     break;
   }
