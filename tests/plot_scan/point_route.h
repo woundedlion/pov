@@ -211,6 +211,31 @@ inline std::vector<Pixel> point_route_render(Canvas &canvas,
   return std::vector<Pixel>(canvas.data(), canvas.data() + W * H);
 }
 
+/** @brief Near-antipodal point motion terminates with bounded subdivision. */
+inline void test_point_route_near_antipodal_terminates() {
+  reset_globals();
+  constexpr int W = 64, H = 32;
+  const ScopedTemporalSampling sampling(true);
+  StubEffect effect(W, H);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  sink.prepare(canvas);
+  Plot::PointRoute<W, H> route;
+  route.prepare(canvas, 2.0f);
+  const math::Vector end = math::Vector(-1.0f, 0.0f, 0.0001f).normalized();
+  HS_EXPECT_FALSE(std::isfinite(
+      Plot::PointRoute<W, H>::projected_acceleration(math::X_AXIS, end)));
+  int shades = 0;
+  route.plot(
+      sink, canvas, end, [] { return math::X_AXIS; },
+      [&](float) {
+        ++shades;
+        return Color4(Pixel(65535, 65535, 65535), 1.0f);
+      });
+  HS_EXPECT_GT(shades, 0);
+  HS_EXPECT_LE(shades, 4 * W);
+}
+
 /** @brief Discrepancy between a route render and the oracle. */
 struct PointRouteError {
   float weight = 0.0f; ///< Largest per-pixel weight difference.

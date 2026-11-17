@@ -129,8 +129,8 @@ public:
    * @param canvas Destination canvas.
    * @param end World position at t = 1, unit length.
    * @param start Returns the world position at t = 0, unit length and within
-   *        the prepared motion of @p end; called only for timed points that
-   *        may reach the clip.
+   *        the prepared motion of @p end; per-frame motion must be less than
+   *        pi radians. Called only for timed points that may reach the clip.
    * @param shade Returns the point's color and opacity; pure, called only for
    *        points that are plotted: at most once, or at each pass's time when
    *        it takes the frame fraction.
@@ -545,8 +545,10 @@ private:
                     .normalized();
       const float acceleration =
           projected_acceleration(from_world, to_world, projection_floor);
-      const int pieces = static_cast<int>(ceilf(fmaxf(
-          1.0f, sqrtf(acceleration / (8.0f * (BEND_PIXELS - ignored_error))))));
+      const int pieces = static_cast<int>(ceilf(
+          fminf(float(W),
+                fmaxf(1.0f, sqrtf(acceleration /
+                                  (8.0f * (BEND_PIXELS - ignored_error)))))));
       const math::Vector span = to_world - from_world;
       const math::Vector start_world = from_world;
       const float step = (finish - begin) / float(pieces);
