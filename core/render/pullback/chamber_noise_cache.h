@@ -11,6 +11,15 @@
 
 namespace Pullback::Modulation {
 
+/** @brief Exact component equality of two quaternions.
+ * @param a First quaternion.
+ * @param b Second quaternion.
+ * @return Whether every component compares equal. */
+HS_HOT_INLINE inline bool exact_same(const math::Quaternion &a,
+                                     const math::Quaternion &b) {
+  return a.r == b.r && a.v.x == b.v.x && a.v.y == b.v.y && a.v.z == b.v.z;
+}
+
 /** @brief One immutable endpoint sampled on a rectangular chamber chart. */
 struct ChamberNoisePatch {
   static constexpr float QUALIFIED_SCALE =
@@ -82,9 +91,7 @@ struct ChamberNoisePatch {
     return active && eligible(source.config) && recipe == source.config.noise &&
            seed == source.config.seed &&
            phase == source.state.phase.phase_turns &&
-           projection.r == orientation.r && projection.v.x == orientation.v.x &&
-           projection.v.y == orientation.v.y &&
-           projection.v.z == orientation.v.z;
+           exact_same(projection, orientation);
   }
 
   /** @brief Bakes an endpoint without changing its direct source policy.
@@ -157,10 +164,7 @@ struct ChamberNoiseCache {
     if (patches[slot].matches(source, orientation))
       return {&patches[slot], orientation};
     const bool repeated = observed && observed_phase == phase &&
-                          observed_projection.r == orientation.r &&
-                          observed_projection.v.x == orientation.v.x &&
-                          observed_projection.v.y == orientation.v.y &&
-                          observed_projection.v.z == orientation.v.z;
+                          exact_same(observed_projection, orientation);
     if (repeated && !accepted)
       return {};
     accepted = !observed || ChamberNoisePatch::continuous(observed_phase,
