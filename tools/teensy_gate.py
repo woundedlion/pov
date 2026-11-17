@@ -19,7 +19,8 @@ from typing import NotRequired, TypedDict
 
 from teensy_memory import (FLASH_PROGRAM_BYTES as FLASH_PROGRAM_BYTES,
                            FLEXRAM_BANK_BYTES as FLEXRAM_BANK_BYTES,
-                           MEMORY_MAP as MEMORY_MAP)
+                           MEMORY_MAP as MEMORY_MAP,
+                           region_for_address as region_for_address)
 from teensy_budget_schema import (
     BudgetSchemaError as BudgetSchemaError,
     _strip_jsonc_comments as _strip_jsonc_comments,
@@ -38,14 +39,6 @@ def sibling_tool(compiler: str, suffix: str, search_path: str | None = None) -> 
         return "arm-none-eabi-" + suffix
     extension = ".exe" if resolved.lower().endswith(".exe") else ""
     return stem + "-" + suffix + extension
-
-
-def region_for_address(addr: int) -> str:
-    """Bucket a runtime address (VMA) into a Teensy 4 memory region, or 'OTHER'."""
-    for name, lo, hi in MEMORY_MAP:
-        if lo <= addr < hi:
-            return name
-    return "OTHER"
 
 
 # ---------------------------------------------------------------------------

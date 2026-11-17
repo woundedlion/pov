@@ -16,6 +16,14 @@ MEMORY_MAP: tuple[tuple[str, int, int], ...] = (
     ("FLASH", 0x60000000, 0x60200000),  # 2 MiB T4.0 flash
 )
 
+
+def region_for_address(addr: int) -> str:
+    """Bucket a runtime address (VMA) into a Teensy 4 memory region, or 'OTHER'."""
+    for name, lo, hi in MEMORY_MAP:
+        if lo <= addr < hi:
+            return name
+    return "OTHER"
+
 #: Program-image capacity of FLASH: the linker scripts' `LENGTH = 1984K`.
 FLASH_PROGRAM_BYTES = 0x1F0000
 

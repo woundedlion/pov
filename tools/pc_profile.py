@@ -30,7 +30,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from teensy_memory import MEMORY_MAP
+from teensy_memory import region_for_address
 
 TEXT_TYPES = frozenset("tTwW")
 
@@ -83,10 +83,7 @@ class Function:
 
 def region_of(address):
     """Memory region an address executes from."""
-    for name, lo, hi in MEMORY_MAP:
-        if lo <= address < hi:
-            return {"ITCM": "ITCM", "FLASH": "flash"}.get(name, "other")
-    return "other"
+    return {"ITCM": "ITCM", "FLASH": "flash"}.get(region_for_address(address), "other")
 
 
 def parse_fields(text, keys):
