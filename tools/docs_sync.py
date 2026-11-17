@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import fnmatch
+import functools
 import os
 import posixpath
 import re
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -51,14 +53,11 @@ def parse_rows(body: list[str]) -> list[Row]:
 
 
 def refresh_rows(rows: list[Row], entries: set[PurePosixPath],
-                 allowed: tuple[str, ...], unmapped: tuple[str, ...],
+                 allowed: Callable[[str], bool], unmapped: tuple[str, ...],
                  parent: str = "", covered: set[str] | None = None) -> list[Row]:
     def exists(name: str) -> bool:
         candidate = f"{parent}/{name}".lstrip("/").rstrip("/")
-        return (any(candidate == prefix.rstrip("/")
-                    or candidate.startswith(prefix) for prefix in allowed)
-                or any(fnmatch.fnmatchcase(path.as_posix(), candidate)
-                       for path in entries))
+        return dc._tree_entry_exists(candidate, entries, allowed)
 
     refreshed = []
     for row in rows:
@@ -136,8 +135,10 @@ def sync_trees(text: str, entries: set[PurePosixPath],
         target = checkouts.get(directive.checkout) if directive.checkout else entries
         if target is None:
             continue
-        allowed = (dc.CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
-                   if directive.checkout else dc.UNTRACKED_ALLOWED)
+        allowed = (functools.partial(
+            dc._checkout_allowance, checkout=directive.checkout,
+            prefixes=dc.CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ()), used=None)
+            if directive.checkout else functools.partial(dc._untracked_allowance, used=None))
         unmapped = () if directive.checkout else dc.TREE_UNMAPPED
         rows = parse_rows([line for _, line in fence.body])
         replacement = render_rows(refresh_rows(rows, target, allowed, unmapped))

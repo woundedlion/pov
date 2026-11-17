@@ -50,6 +50,14 @@ class TreeSync(unittest.TestCase):
         self.assertEqual(after, self.sync(after, paths))
         self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
 
+    def test_allowlisted_directory_uses_the_same_rule_in_sync_and_check(self):
+        text = ("<!-- docs-check: tree exhaustive -->\n```\n"
+                "\u2514\u2500\u2500 optional/     Generated content\n```\n")
+        with mock.patch.object(dc, "UNTRACKED_ALLOWED", ("optional/",)):
+            after = self.sync(text, set())
+            self.assertEqual(after, text)
+            self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, set()), [])
+
     def test_underindented_continuation_fails_without_truncating_text(self):
         text = ("<!-- docs-check: tree exhaustive -->\n```\n"
                 "└── core/\n    └── file.h   Keep this description\n"

@@ -194,7 +194,7 @@ def _cited(allowlist: str, entry: str) -> str:
 def _untracked_allowance(candidate: str, used: set[str] | None) -> bool:
     """Reports whether an UNTRACKED_ALLOWED prefix exempts candidate, recording it."""
     for prefix in UNTRACKED_ALLOWED:
-        if candidate.startswith(prefix):
+        if candidate == prefix.rstrip("/") or candidate.startswith(prefix):
             if used is not None:
                 used.add(_cited(_UNTRACKED_LIST, prefix))
             return True
