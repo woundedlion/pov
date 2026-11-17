@@ -121,7 +121,7 @@ def teensy_footprint(ctx=None):
     for i, nm in enumerate(BOTTOM):
         pads.append(f'\t(pad "{nm}" thru_hole oval (at {fmt(x0 + i*2.54)} 7.62) '
                     f'(size 1.7 1.7) (drill 1.0) (layers "*.Cu" "*.Mask"))')
-    outline_layer = 'F.Fab' if (ctx or generation_context()).is_rev13 else 'F.SilkS'
+    outline_layer = 'F.Fab' if (ctx or generation_context()).front_fixed_layout else 'F.SilkS'
     body = ('\t(fp_rect (start -18.5 -9.5) (end 18.5 9.5) (stroke (width 0.12) (type solid))'
             f' (fill none) (layer "{outline_layer}"))\n'
             '\t(fp_rect (start -18.5 -9.5) (end 18.5 9.5) (stroke (width 0.05) (type solid))'
@@ -245,7 +245,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           consumed=None, ctx=None):
     ctx = ctx or generation_context()
     node = embedded_footprint(ref, libid, ctx)
-    if ctx.is_rev13 and libid in TERMINAL_LIBIDS:
+    if ctx.front_fixed_layout and libid in TERMINAL_LIBIDS:
         reserve_terminal_wire_access(node)
     refresh_uuids(node)
     set_pad_orientations(node, rot)
@@ -454,15 +454,15 @@ def embed_components(ctx, netlist, placement):
                                 hide_reference=lock,
                                 consumed=consumed, ctx=ctx))
         if unplaced and ref in layout.edge_placements:
-            if ctx.is_rev13 or ref == "J1":
+            if ctx.front_fixed_layout or ref == "J1":
                 trim_terminal_silkscreen(foot_nodes[-1], y if rot == 270 else x)
-        if ctx.is_rev13:
+        if ctx.front_fixed_layout:
             move_clipped_silkscreen_to_fab(foot_nodes[-1], length)
     for ref, (x, y) in holes.items():
         foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
                                 x, y, 0, pad_net, netid, locked=unplaced,
                                 hide_reference=True, consumed=consumed, ctx=ctx))
-    if unplaced and ctx.is_rev13:
+    if unplaced and ctx.front_fixed_layout:
         validate_front_access(foot_nodes, length)
     # A netlist pin with no pad of that name would drop its connection silently;
     # refs that were never embedded drop their nets by design.

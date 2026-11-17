@@ -109,7 +109,7 @@ def place_components(ctx, netlist):
         # the staged grid sits below the outline by design; only locked parts are on it
         bounded = list(fixed)
         outfile = UNPLACED_FILE
-        status = 'UNROUTED' if ctx.is_rev13 else 'UNPLACED'
+        status = 'UNROUTED' if ctx.front_fixed_layout else 'UNPLACED'
         note = (f'PHANTASM segment board {status}  -  {fmt(length)}x{fmt(PCB_W)}mm outline '
                 f'(width <={fmt(PCB_W_MAX)}mm); mechanical and signal-integrity '
                 'placements locked')
@@ -167,13 +167,13 @@ def write_footprint_library(ctx, pretty, mod_path, mod_text, existing_mod_text):
     os.makedirs(pretty, exist_ok=True)
     if existing_mod_text != mod_text:
         atomic_write_text(mod_path, mod_text)
-    edge_distances = terminal_edge_distances(layout) if ctx.is_rev13 else {}
+    edge_distances = terminal_edge_distances(layout) if ctx.front_fixed_layout else {}
     for libid in layout.terminal_libids:
         name = libid.split(":", 1)[1] + ".kicad_mod"
         source_dir = terminal_library_dir(libid)
         source = os.path.join(source_dir, name)
         destination = os.path.join(pretty, name)
-        if ctx.is_rev13:
+        if ctx.front_fixed_layout:
             with open(source, encoding="utf-8") as f:
                 terminal = sexp.parse_one(f.read())
             reserve_terminal_wire_access(terminal)
@@ -199,7 +199,7 @@ def main(unplaced=False, force=False, force_teensy_library=False,
     out, sch = schematic_generator.revision_paths(revision, output_dir)
     ctx = generation_context(revision, unplaced, out)
     selected = ctx.revision
-    if ctx.is_rev13 and not unplaced:
+    if ctx.front_fixed_layout and not unplaced:
         sys.exit("ERROR revision 1.3 has a fixed placement and requires --unplaced")
     out = ctx.out_dir
     reset_uid_sequence()

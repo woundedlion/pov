@@ -29,6 +29,7 @@ def revision_paths(revision, output_dir=None, *, default_out=DEFAULT_OUT,
 class RevisionLayout:
     """Fixed component locations, local wiring and placement annotations."""
 
+    front_fixed_layout: bool
     edge_placements: dict[str, tuple[float, float, float]]
     fixed: dict[str, tuple[float, float, float]]
     local_routes: tuple

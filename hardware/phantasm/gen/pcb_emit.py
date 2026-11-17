@@ -117,7 +117,7 @@ def annotations(ctx, placement, foot_nodes):
         for ref, label in (("J1", "PWR"), ("J2", "LED OUT"),
                            ("J3A", "SYNC IN"), ("J3B", "SYNC OUT")):
             x, y, rot = fixed[ref]
-            if ctx.is_rev13:
+            if ctx.front_fixed_layout:
                 pins = len(F(next(fn for fn in foot_nodes
                                   if connectivity.footprint_reference(fn) == ref), "pad"))
                 label_x, label_y, angle = x - (pins - 1) * 1.27, 1.2, 0

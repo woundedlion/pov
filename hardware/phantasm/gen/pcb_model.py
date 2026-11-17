@@ -214,9 +214,9 @@ class GenerationContext:
     out_dir: str
 
     @property
-    def is_rev13(self):
+    def front_fixed_layout(self):
         """Whether the fixed differential-sync placement is selected."""
-        return self.revision == "1.3"
+        return self.layout.front_fixed_layout
 
 
 @dataclass(frozen=True)

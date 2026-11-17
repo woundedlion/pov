@@ -84,6 +84,7 @@ TERMINAL_FIXED = {
 
 REVISION_LAYOUTS = {
     "1.2": RevisionLayout(
+        front_fixed_layout=False,
         edge_placements=TERMINAL_EDGE_PLACEMENTS,
         fixed=TERMINAL_FIXED,
         local_routes=(
@@ -121,6 +122,7 @@ REVISION_LAYOUTS = {
         part_properties={},
     ),
     "1.3": RevisionLayout(
+        front_fixed_layout=True,
         edge_placements=TERMINAL_EDGE_PLACEMENTS_1_3,
         fixed=TERMINAL_FIXED_1_3,
         local_routes=((("C_DEC1", "1"), ("U_MCU", "VIN"), ()),),
@@ -185,11 +187,11 @@ def pin_silk_marks(ctx, fixed, length):
     for ref, pin_marks in (("J1", "+-"), ("J2", "DGC"),
                            ("J3A", layout.sync_marks), ("J3B", layout.sync_marks)):
         x, y, rot = fixed[ref]
-        back = ref == "J1" or ctx.is_rev13 or any(
+        back = ref == "J1" or ctx.front_fixed_layout or any(
             x0 <= x + 4.5 <= x1 and y0 <= y + pin * 2.54 <= y1
             for pin in range(len(pin_marks))
             for x0, y0, x1, y1 in mounting_reserve_rects(length).values())
-        offset = 2.2 if ctx.is_rev13 else (2 if ref == "J1" else (2.5 if back else 4.5))
+        offset = 2.2 if ctx.front_fixed_layout else (2 if ref == "J1" else (2.5 if back else 4.5))
         for pin, mark in enumerate(pin_marks):
             dx, dy = rotate_point((offset, pin * 2.54), rot)
             silk_marks.append((mark, x + dx, y + dy, 0, "B.SilkS" if back else "F.SilkS"))
