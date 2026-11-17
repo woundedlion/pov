@@ -22,6 +22,7 @@
 
 #include "core/platform/platform.h"
 #include "core/math/3dmath.h"
+#include "core/math/cube_projection.h"
 
 /**
  * @brief Lenses that remap a sphere direction to another sphere direction.
@@ -651,25 +652,8 @@ HS_HOT_INLINE inline bool
 try_dodecahedral_table(const math::Vector &input, math::Vector &result,
                        const DodecahedralTable::Matrix *matrices,
                        const uint8_t *faces) {
-  const float ax = fabsf(input.x), ay = fabsf(input.y), az = fabsf(input.z);
-  float major, u, v;
-  int face;
-  if (ax >= ay && ax >= az) {
-    major = ax;
-    face = input.x >= 0.0f ? 0 : 1;
-    u = input.x >= 0.0f ? input.z : -input.z;
-    v = input.y;
-  } else if (ay >= az) {
-    major = ay;
-    face = input.y >= 0.0f ? 2 : 3;
-    u = input.x;
-    v = input.y >= 0.0f ? input.z : -input.z;
-  } else {
-    major = az;
-    face = input.z >= 0.0f ? 4 : 5;
-    u = input.z >= 0.0f ? input.x : -input.x;
-    v = input.y;
-  }
+  const auto projection = math::project_cube_face(input);
+  const auto [face, u, v, major] = projection;
   if (!(major > 0.0f))
     return false;
   const float inverse = 1.0f / major;

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "core/pattern/field.h"
+#include "core/math/cube_projection.h"
 #include <span>
 #include <cstdint>
 
@@ -134,30 +135,10 @@ HS_HOT_INLINE inline float sample_sphere_lut_face(const SphereLutView &view,
  */
 HS_O3_FN HS_HOT_INLINE inline SphereLutSample
 prepare_sphere_lut_sample_unchecked(const math::Vector &direction) {
-  const float ax = fabsf(direction.x);
-  const float ay = fabsf(direction.y);
-  const float az = fabsf(direction.z);
-  int face;
-  float u;
-  float v;
-  if (ax >= ay && ax >= az) {
-    const float inverse = 1.0f / ax;
-    face = direction.x >= 0.0f ? 0 : 1;
-    u = (direction.x >= 0.0f ? direction.z : -direction.z) * inverse;
-    v = direction.y * inverse;
-  } else if (ay >= az) {
-    const float inverse = 1.0f / ay;
-    face = direction.y >= 0.0f ? 2 : 3;
-    u = direction.x * inverse;
-    v = (direction.y >= 0.0f ? direction.z : -direction.z) * inverse;
-  } else {
-    const float inverse = 1.0f / az;
-    face = direction.z >= 0.0f ? 4 : 5;
-    u = (direction.z >= 0.0f ? direction.x : -direction.x) * inverse;
-    v = direction.y * inverse;
-  }
-
-  return prepare_sphere_lut_face(face, u, v);
+  const auto projection = math::project_cube_face(direction);
+  const float inverse = 1.0f / projection.major;
+  return prepare_sphere_lut_face(projection.face, projection.u * inverse,
+                                 projection.v * inverse);
 }
 
 /** @brief Admits a raw direction and prepares its cube-map coordinates.
