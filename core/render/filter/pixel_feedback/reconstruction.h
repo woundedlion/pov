@@ -59,10 +59,12 @@ Feedback<W, H>::measure_reach(const CoarseGrid &grid, const WarpField &warp,
   auto pair_reach = [&](int k, int y0, int y1) HS_FLASH_MEMBER {
     const bool north = k + 1 < polar.north_rings;
     const bool polar_pair = north || k >= polar.south_ring;
+    const int first = y0 + rows[y0].pole;
+    const int last = y1 - rows[y1].pole;
     const float near =
-        north ? SphereField::Geometry::row_to_phi(static_cast<float>(y0))
+        north ? SphereField::Geometry::row_to_phi(static_cast<float>(first))
               : math::PI_F -
-                    SphereField::Geometry::row_to_phi(static_cast<float>(y1));
+                    SphereField::Geometry::row_to_phi(static_cast<float>(last));
     const int base = (polar_pair ? polar.row(k) : k) * columns;
     // The largest backward turn of `count` nodes; false when a polar node's
     // offset reaches the pole.
