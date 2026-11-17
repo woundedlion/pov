@@ -1058,7 +1058,7 @@ private:
    * @brief Prepares a traced frame over the effect's trace scratch.
    * @param context Frame state.
    * @param center Camera position in world units.
-   * @return Prepared trace state with the candidate and layer budgets.
+   * @return Prepared trace state.
    */
   HS_FLASH_INLINE HyperLatticeDetail::Trace::Prepared
   prepare_traced(const HyperLatticeDetail::FrameState &context,
@@ -1068,10 +1068,6 @@ private:
     settings.shell_layers = shell_layers;
     auto prepared = HyperLatticeDetail::Trace::prepare(settings);
     HS_CHECK(prepared.valid, "HyperLattice: trace settings rejected");
-    constexpr int MAX_CANDIDATES = 64;
-    constexpr int MAX_LAYERS = 32;
-    prepared.limits.max_candidates = MAX_CANDIDATES;
-    prepared.limits.max_layers = MAX_LAYERS;
     return prepared;
   }
 
