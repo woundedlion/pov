@@ -398,8 +398,9 @@ def tree_stem_paths(directory: str, stem: str,
     return matches or [posixpath.join(directory, stem)]
 
 
-def _tree_entry_exists(candidate: str, entries: set[PurePosixPath],
-                       allowed: Callable[[str], bool]) -> bool:
+def tree_entry_exists(candidate: str, entries: set[PurePosixPath],
+                      allowed: Callable[[str], bool]) -> bool:
+    """Whether a tree row names a tracked or explicitly allowed path."""
     if allowed(candidate):
         return True
     if "*" in candidate or "?" in candidate:
@@ -443,6 +444,22 @@ def _checkout_allowance(candidate: str, checkout: str,
                 used.add(_cited(checkout, prefix))
             return True
     return False
+
+
+def tree_scope(directive: TreeDirective, entries: set[PurePosixPath],
+               checkouts: dict[str, set[PurePosixPath]] | None,
+               used: set[str] | None = None
+) -> tuple[set[PurePosixPath], Callable[[str], bool], tuple[str, ...]] | None:
+    """Resolve a tree directive's paths, allowance and omitted-prefix policy."""
+    if directive.checkout:
+        target = (checkouts or {}).get(directive.checkout)
+        if target is None:
+            return None
+        allowed = functools.partial(
+            _checkout_allowance, checkout=directive.checkout,
+            prefixes=CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ()), used=used)
+        return target, allowed, ()
+    return entries, functools.partial(_untracked_allowance, used=used), TREE_UNMAPPED
 
 
 def _tree_rows(source: PurePosixPath, fence: Fence,
@@ -565,28 +582,19 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
             continue
         if seen is not None:
             seen.add((source, directive))
-        if directive.checkout:
-            target = (checkouts or {}).get(directive.checkout)
-            if target is None:
-                if skipped is not None:
-                    skipped.add(directive.checkout)
-                continue
-            prefixes = CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
-            allowed = functools.partial(_checkout_allowance,
-                                        checkout=directive.checkout,
-                                        prefixes=prefixes, used=used)
-            unmapped = ()
-        else:
-            target = entries
-            allowed = functools.partial(_untracked_allowance, used=used)
-            unmapped = TREE_UNMAPPED
+        scope = tree_scope(directive, entries, checkouts, used)
+        if scope is None:
+            if skipped is not None:
+                skipped.add(directive.checkout)
+            continue
+        target, allowed, unmapped = scope
         rows, row_issues = _tree_rows(source, fence, target)
         issues.extend(row_issues)
         issues.extend(
             Issue(source.as_posix(), line_number,
                   f"tree path {candidate!r} does not exist")
             for line_number, candidate in rows
-            if not _tree_entry_exists(candidate, target, allowed))
+            if not tree_entry_exists(candidate, target, allowed))
         if directive.exhaustive:
             issues.extend(_tree_omissions(source, fence, rows, target,
                                           unmapped, used))

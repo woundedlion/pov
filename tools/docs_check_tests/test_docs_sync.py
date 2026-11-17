@@ -67,6 +67,16 @@ class TreeSync(unittest.TestCase):
         valid = text.replace("│  under-indented", "        under-indented")
         self.assertEqual(self.sync(valid, entries("core/file.h")), valid)
 
+    def test_checkout_allowance_and_missing_checkout_share_the_checker_scope(self):
+        text = ("<!-- docs-check: tree sample exhaustive -->\n```\n"
+                "\u2514\u2500\u2500 optional/     Generated content\n```\n")
+        self.assertEqual(self.sync(text, set()), text)
+        with mock.patch.object(dc, "CHECKOUT_UNTRACKED_ALLOWED", {"sample": ("optional/",)}):
+            after = self.sync(text, set(), {"sample": set()})
+            self.assertEqual(after, text)
+            self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, set(),
+                                           checkouts={"sample": set()}), [])
+
 
 class RepositorySync(unittest.TestCase):
     def setUp(self):

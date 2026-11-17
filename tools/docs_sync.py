@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import fnmatch
-import functools
 import os
 import posixpath
 import re
@@ -57,7 +56,7 @@ def refresh_rows(rows: list[Row], entries: set[PurePosixPath],
                  parent: str = "", covered: set[str] | None = None) -> list[Row]:
     def exists(name: str) -> bool:
         candidate = f"{parent}/{name}".lstrip("/").rstrip("/")
-        return dc._tree_entry_exists(candidate, entries, allowed)
+        return dc.tree_entry_exists(candidate, entries, allowed)
 
     refreshed = []
     for row in rows:
@@ -132,14 +131,10 @@ def sync_trees(text: str, entries: set[PurePosixPath],
         directive = dc.tree_directive(fence.tag)
         if directive is None or not directive.exhaustive:
             continue
-        target = checkouts.get(directive.checkout) if directive.checkout else entries
-        if target is None:
+        scope = dc.tree_scope(directive, entries, checkouts)
+        if scope is None:
             continue
-        allowed = (functools.partial(
-            dc._checkout_allowance, checkout=directive.checkout,
-            prefixes=dc.CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ()), used=None)
-            if directive.checkout else functools.partial(dc._untracked_allowance, used=None))
-        unmapped = () if directive.checkout else dc.TREE_UNMAPPED
+        target, allowed, unmapped = scope
         rows = parse_rows([line for _, line in fence.body])
         replacement = render_rows(refresh_rows(rows, target, allowed, unmapped))
         if fence.body:
