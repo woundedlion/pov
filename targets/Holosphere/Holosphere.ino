@@ -46,9 +46,5 @@ FLASHMEM static void run_show_sequence() {
       120, RingSpin<CANVAS_W, CANVAS_H>::Strobe::DISABLED);
 }
 
-/** @brief Logs a heartbeat, then runs the show sequence. */
-void loop() {
-  Serial.println("Oh hi again");
-  delay(1000);
-  run_show_sequence();
-}
+/** @brief Runs consecutive show sequences. */
+void loop() { run_show_sequence(); }
