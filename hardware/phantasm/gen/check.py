@@ -6,7 +6,7 @@ gate as loudly as a short or a break does.
 import argparse
 import sys
 
-import builder
+from revision_policy import DEFAULT_REVISION
 import constraints
 import sexp
 from kicad_common import F, export_netlist, kicad_cli
@@ -131,7 +131,7 @@ def netlist_nets(root):
     return got
 
 
-def check(got, revision=builder.REVISION):
+def check(got, revision=DEFAULT_REVISION):
     """Report every net that differs from the revision's expected table; return True when all match.
 
     A named net absent from the revision's expected table is printed as an

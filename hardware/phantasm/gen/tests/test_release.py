@@ -130,7 +130,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(tracks)
         for node in tracks:
             board.remove(node)
-        path.write_text(release.pcb.sexp.dumps(board), encoding="utf-8")
+        path.write_text(release.sexp.dumps(board), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "OPEN DATA"):
             release.preflight(project, "1.1")
 
@@ -397,7 +397,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(release.fabrication_options(project, "1.2"), before)
 
     def test_generator_fabrication_options_match_vendor_stack(self):
-        self.assertEqual(release.pcb.BOARD_THICKNESS_MM, 1.6)
+        self.assertEqual(release.pcb_model.BOARD_THICKNESS_MM, 1.6)
         self.assertEqual(release.GENERATOR_COPPER_FINISH, "ENIG")
         self.assertEqual(release.GENERATOR_COPPER_STACKUP,
                          (("F.Cu", Decimal("0.035")), ("In1.Cu", Decimal("0.0152")),

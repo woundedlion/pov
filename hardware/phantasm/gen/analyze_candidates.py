@@ -8,7 +8,7 @@ sync nets SYNC_BUS, FRAME_SYNC, SYNC_TX and SYNC_SRC).
 Usage:
     python analyze_candidates.py [DIR ...]
 
-With no args it globs `<builder.REVISION>/candidates/*Candidate[ _-]*` using the
+With no args it globs `<DEFAULT_REVISION>/candidates/*Candidate[ _-]*` using the
 default revision. Extract Quilter archives into that directory. Pass explicit
 folders or .kicad_pcb files for other revisions.
 
@@ -37,12 +37,12 @@ import sys
 import tempfile
 
 import fab_gates
-import builder
+from revision_policy import DEFAULT_REVISION
 import sexp
 from kicad_common import F, kicad_cli, net_name, property_value
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CANDIDATES = os.path.join(os.path.dirname(HERE), builder.REVISION, "candidates")
+CANDIDATES = os.path.join(os.path.dirname(HERE), DEFAULT_REVISION, "candidates")
 
 # clearance/hole errors against a pour usually clear on a KiCad zone refill. The
 # same rule types also fire track-to-track, so the bucket is decided by the

@@ -14,7 +14,7 @@ import tempfile
 import board_metadata
 import connectivity
 import fab
-import pcb
+import pcb_model
 import sexp
 from constraints import GROUND_PLANE_LAYERS
 from kicad_common import F, is_copper_pour, net_name_resolver
@@ -26,7 +26,7 @@ SOURCE_SUFFIXES = {".kicad_pcb", ".kicad_pro", ".kicad_sch", ".kicad_sym",
 TABLES = {"fp-lib-table", "sym-lib-table"}
 CANDIDATE = Path(__file__).resolve().parents[1] / "1.2" / "routed"
 
-GENERATOR_STACKUP = sexp.parse("(stackup " + " ".join(pcb.STACKUP) + ")")[0]
+GENERATOR_STACKUP = sexp.parse("(stackup " + " ".join(pcb_model.STACKUP) + ")")[0]
 GENERATOR_COPPER_STACKUP = board_metadata.copper_stackup(GENERATOR_STACKUP)
 GENERATOR_DIELECTRICS = board_metadata.dielectric_stackup(GENERATOR_STACKUP)
 GENERATOR_COPPER_FINISH = str(sexp.val(GENERATOR_STACKUP, "copper_finish")[0])
@@ -70,9 +70,9 @@ def fabrication_context(project, output, revision):
                    pcb=str(project / f"{PROJECT}.kicad_pcb"),
                    sch=str(project / f"{PROJECT}.kicad_sch"),
                    pro=str(project / f"{PROJECT}.kicad_pro"),
-                   known_parity_warning_counts=(pcb.GENERATED_LAND_DEVIATIONS.copy()
+                   known_parity_warning_counts=(pcb_model.GENERATED_LAND_DEVIATIONS.copy()
                        if revision == "1.2" else context.known_parity_warning_counts),
-                   optional_parity_warning_max=(pcb.GENERATED_OPTIONAL_DEVIATIONS.copy()
+                   optional_parity_warning_max=(pcb_model.GENERATED_OPTIONAL_DEVIATIONS.copy()
                        if revision == "1.2" else context.optional_parity_warning_max))
 
 
@@ -81,7 +81,7 @@ def fabrication_options(project, revision):
     if revision == "1.2":
         if metadata.copper_finish != GENERATOR_COPPER_FINISH:
             raise ValueError(f"copper finish is {metadata.copper_finish!r}; rev 1.2 requires {GENERATOR_COPPER_FINISH}")
-        if (metadata.thickness_mm != Decimal(str(pcb.BOARD_THICKNESS_MM)) or
+        if (metadata.thickness_mm != Decimal(str(pcb_model.BOARD_THICKNESS_MM)) or
                 metadata.copper_stackup != GENERATOR_COPPER_STACKUP):
             raise ValueError("rev 1.2 requires the 1.6 mm four-layer generator copper stackup")
     board = fab.read_board(project / f"{PROJECT}.kicad_pcb")
