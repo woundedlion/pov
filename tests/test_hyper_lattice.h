@@ -273,6 +273,40 @@ inline void test_resolution_aware_wire_coverage() {
   HS_EXPECT_GT(high_outside, outside);
 }
 
+/** @brief Lattice AA covers the same crossing from either ray-start sphere. */
+inline void test_wire_coverage_counts_ray_start_radius() {
+  for (auto mode :
+       {SDF::Lattice::Domain::SPATIAL_3D, SDF::Lattice::Domain::SLICE_4D}) {
+    for (float radius : {.25f, 1.0f, 2.0f}) {
+      for (float cell : {.25f, 1.0f, 2.5f}) {
+        SDF::Lattice::Settings settings;
+        settings.mode = mode;
+        settings.cell_size = cell;
+        settings.sphere_radius = radius;
+        const auto shifted = SDF::Lattice::prepare(
+            settings, {}, math::Mat4::identity(), 4.0f, .1f);
+        settings.sphere_radius = 0.0f;
+        const auto centered = SDF::Lattice::prepare(
+            settings, {}, math::Mat4::identity(), 4.0f, .1f);
+        const math::Vec4 DIRECTION{{1.0f / cell, 0, 0, 0}};
+        const auto surface = SDF::Lattice::trace_plane<false>(
+            {{0, .08f, .08f, 0}}, DIRECTION, 0, 0, cell, shifted);
+        const auto camera = SDF::Lattice::trace_plane<false>(
+            {{-radius, .08f, .08f, 0}}, DIRECTION, 0, radius * cell, cell,
+            centered);
+        HS_EXPECT_GT(surface.coverage, 0.0f);
+        HS_EXPECT_LT(surface.coverage, 1.0f);
+        HS_EXPECT_NEAR(surface.coverage, camera.coverage, 1e-6f);
+        if (mode == SDF::Lattice::Domain::SLICE_4D) {
+          const auto specialized = SDF::Lattice::trace_plane<true>(
+              {{0, .08f, .08f, 0}}, DIRECTION, 0, 0, cell, shifted);
+          HS_EXPECT_NEAR(specialized.coverage, camera.coverage, 1e-6f);
+        }
+      }
+    }
+  }
+}
+
 inline void test_near_field_fade() {
   constexpr float RADIUS = 0.1f;
   constexpr float NEAR_START = 1.5f * RADIUS;
@@ -2025,6 +2059,7 @@ inline int run_hyper_lattice_tests() {
   HS_RUN(test_so4_rotation);
   HS_RUN(test_dimensional_rotation_wrap_is_continuous);
   HS_RUN(test_resolution_aware_wire_coverage);
+  HS_RUN(test_wire_coverage_counts_ray_start_radius);
   HS_RUN(test_near_field_fade);
   HS_RUN(test_far_shell_fade);
   HS_RUN(test_pause_does_not_stop_motion);

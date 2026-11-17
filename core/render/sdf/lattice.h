@@ -43,7 +43,7 @@ struct PreparedTrace {
   /// Embedding scaled by the inverse cell size.
   math::Mat4 world_to_lattice;
   float far_distance; ///< Ray distance beyond which crossings are cut.
-  /// Coverage-radius growth per unit of distance times plane step, in cells.
+  /// Coverage-radius growth per camera-centre distance times plane step, in cells.
   float aa_scale;
   float outer_radius_base;   ///< Wire radius plus softness, in cells.
   float sphere_radius_world; ///< Ray start offset in world units.
@@ -338,7 +338,9 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
   HS_PROFILE_DEEP(hl_plane_eval);
 
   const float coverage_outer_radius =
-      prepared.outer_radius_base + prepared.aa_scale * distance * plane_step;
+      prepared.outer_radius_base +
+      prepared.aa_scale * (distance + prepared.sphere_radius_world) *
+          plane_step;
   const float coverage_half_width =
       coverage_outer_radius - prepared.params.wire_radius;
   const float outer_radius_sq = coverage_outer_radius * coverage_outer_radius;
