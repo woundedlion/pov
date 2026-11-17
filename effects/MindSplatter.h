@@ -465,6 +465,8 @@ private:
    *          spawn is dropped at pool capacity.
    */
   std::array<float, MAX_EMITTERS> emit_phases;
+  static_assert(MINDSPLATTER_PALETTE_COUNT == UINT8_MAX + 1,
+                "palette_sequence wraps over the whole palette bank");
   uint8_t palette_sequence = 0;
   /**
    * @brief Per-emitter tangent-plane basis, rebuilt by
