@@ -570,7 +570,6 @@ def strap_block(ctx):
     policy = ctx.policy
     enable_net = ctx.enable_net
     place = ctx.place
-    pwr_sym = ctx.pwr_sym
     to_power = ctx.to_power
     to_label = ctx.to_label
     b.text((25, 245), "ID STRAPS / " + enable_net + " " + ("PULL-DOWN" if policy.differential else "PULL-UP"), 2.2)
@@ -589,7 +588,11 @@ def strap_block(ctx):
                  fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(JID2, "1", "ID2"); to_power(JID2, "2", GND)
 
-    # ============================================================ POWER FLAGS (ERC)
+
+def power_flag_block(ctx):
+    """Emit the rail-drive power flags for ERC."""
+    b = ctx.b
+    pwr_sym = ctx.pwr_sym
     b.text((220, 262), "POWER FLAGS (ERC)", 2.2)
     flag_index = 0
 
@@ -650,6 +653,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
         sync_rev13(ctx)
     shield_block(ctx)
     strap_block(ctx)
+    power_flag_block(ctx)
     write_outputs(builder, out, sch)
 
 
