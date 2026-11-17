@@ -695,6 +695,9 @@ public:
                                   RingArgs &&...ring_args) {
     HS_CHECK(ring >= 0 && ring < SLOTS && count < SLOTS,
              "ring stack pool commit exceeds capacity");
+    HS_CHECK(
+        lut_n >= 0 && lut_n < ROW,
+        "ring stack pool row cannot hold lut_n knots and the closing entry");
     const int s = count;
     ::new (static_cast<void *>(&(*storage)[s].ring))
         SDF::DistortedRing(std::forward<RingArgs>(ring_args)...);

@@ -643,6 +643,25 @@ inline void case_scan_alternates_prefix_overflow() {
   alternates.allocate(arena, arena, 1, opaque(65536));
 }
 
+/** @brief Committed ring rows reserve space for their closing entry. */
+inline void case_scan_ring_pool_row_exceeds_capacity() {
+  using Pool = Scan::RingStackPool<1, 17>;
+  alignas(std::max_align_t) uint8_t buf[Pool::BYTES];
+  Arena arena(buf, sizeof(buf));
+  Pool pool;
+  pool.init_storage(arena);
+  pool.begin_frame();
+  commit_stack_ring(pool);
+  if (pool.lut_columns(0) == 16)
+    death_admitted();
+  pool.release();
+  pool.begin_frame();
+  const auto basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  auto row = pool.next();
+  pool.commit(0, 1.0f, opaque(17), basis, 0.5f, 0.03f, row.shift_row, 16, 0.0f,
+              nullptr);
+}
+
 /** @brief A reserved alternate row must not exceed KNOTS. */
 inline void case_scan_alternates_row_exceeds_knots() {
   alignas(std::max_align_t) uint8_t buf[1024];
