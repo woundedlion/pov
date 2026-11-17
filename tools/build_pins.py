@@ -26,6 +26,8 @@ if sys.version_info < (3, 11):
     raise SystemExit("build_pins requires Python 3.11 or newer")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from doc_coverage import doxyfile_setting
+from generated_paths import GENERATED_PATHS, generated_path_pattern
 from teensy_budget_schema import load_budgets
 
 
@@ -225,12 +227,7 @@ SHARED_LITERALS = {
     # tables.
     "format-exclude": (
         r"(^|/)core/vendor/FastNoiseLite\.h$"
-        r"|(^|/)core/color/color_luts\.h$"
-        r"|(^|/)core/color/gamut_lut\.h$"
-        r"|(^|/)core/color/srgb_decode_lut\.h$"
-        r"|(^|/)effects/generated/"
-        r"|(^|/)core/mesh/relax_bakes_generated\.h$"
-        r"|(^|/)core/spatial/reaction_graph\.cpp$"
+        + "|" + generated_path_pattern(r"(^|/)")
     ),
     "format-globs": " ".join(f"'*.{ext}'" for ext in FORMAT_EXTENSIONS),
     "format-extensions": r"\.(" + "|".join(FORMAT_EXTENSIONS) + r")$",
@@ -500,6 +497,12 @@ def check_shared_literals() -> list[str]:
             errors.append(
                 f"{name} was not found in the scanned files"
             )
+    doxygen = read_scanned(ROOT / "Doxyfile", errors)
+    if doxygen is not None:
+        excluded = {path.rstrip("/") for path in doxyfile_setting(doxygen, "EXCLUDE")}
+        missing = {path.rstrip("/") for path in GENERATED_PATHS} - excluded
+        for path in sorted(missing):
+            errors.append(f"Doxyfile: EXCLUDE is missing generated path {path!r}")
     return errors
 
 

@@ -26,6 +26,7 @@ from urllib.parse import unquote, urlsplit
 from cpp_roster import (PHANTASM_PLAYLIST_SOURCE as _PLAYLIST_PATH, macro_body,
                         playlist_shows)
 from doc_coverage import CPP_LEXEMES, doxyfile_entries
+from generated_paths import generated_path_pattern
 from git_files import git_nul_list
 from docs_check_types import Fence, Issue
 from docs_check_markdown import (
@@ -844,11 +845,7 @@ SYMBOL_COMMENT_SUFFIXES = frozenset({".c", ".cc", ".cpp", ".h", ".hpp", ".inl",
                                      ".ino"})
 SCRIPT_SUFFIXES = frozenset({".cjs", ".js", ".mjs", ".mts", ".ts"})
 SYMBOL_COMMENT_EXCLUDED_RE = re.compile(
-    r"^core/vendor/|effects_legacy"
-    r"|^core/color/(?:color_luts|gamut_lut|srgb_decode_lut)\.h$"
-    r"|^effects/generated/"
-    r"|^core/mesh/relax_bakes_generated\.h$"
-    r"|^core/spatial/reaction_graph\.cpp$")
+    r"^core/vendor/|effects_legacy|" + generated_path_pattern("^"))
 # Other tracked text whose every word counts as code.
 _SYMBOL_INDEX_SUFFIXES = frozenset({
     "", ".cmake", ".def", ".in", ".ini", ".json", ".ld", ".py", ".sh",

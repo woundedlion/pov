@@ -1862,6 +1862,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate, repo-wide and per-directory
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
 │   ├── git_files.py            Shared safe-directory git argv and NUL-separated listings for repository tools
+│   ├── generated_paths.py      Generated source paths shared by formatting and documentation checks
 │   ├── git_test_env.py         Isolated Git environments for fixture repositories
 │   ├── scons_hook_test_env.py  Shared fake SCons environment for PlatformIO hook tests
 │   ├── find_python.sh          Shared POSIX probe for a runnable Python interpreter

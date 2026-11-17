@@ -32,6 +32,8 @@ class AuthorityPresence(unittest.TestCase):
                  "grep -vE '", "grep -v -E '"),
                 (bp.check_shared_literals, 'tools/commit_checks.sh',
                  'core.whitespace=', 'core.whitespace '),
+                (bp.check_shared_literals, 'Doxyfile',
+                 'core/color/color_luts.h', 'core/color/other_lut.h'),
                 (bp.check_inline_pins, 'requirements/ruff.in',
                  'ruff==', 'ruff >= ')):
             path = bp.ROOT / relative
@@ -67,7 +69,8 @@ class RequirementPins(unittest.TestCase):
         self.root = Path(temporary.name)
         (self.root / "tools").mkdir()
         (self.root / "requirements").mkdir()
-        for name in ("build_pins.py", "teensy_budget_schema.py", "teensy_memory.py"):
+        for name in ("build_pins.py", "doc_coverage.py", "generated_paths.py",
+                     "git_files.py", "teensy_budget_schema.py", "teensy_memory.py"):
             shutil.copyfile(TOOLS / name, self.root / "tools" / name)
         for path in (bp.ROOT / "requirements").glob("*.in"):
             shutil.copyfile(path, self.root / "requirements" / path.name)
