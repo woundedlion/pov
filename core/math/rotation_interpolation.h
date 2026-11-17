@@ -7,6 +7,7 @@
 /** @file rotation_interpolation.h @brief Trigonometric kernels and spherical rotation interpolation. */
 
 #include <limits>
+#include "core/math/periodic.h"
 #include "core/math/rotation_math.h"
 
 namespace math {
@@ -331,21 +332,6 @@ scaled_rotation_delta(const Quaternion &delta, float amount) {
 inline Quaternion absorb_rotation_delta(const Quaternion &delta, float amount,
                                         const Quaternion &accumulated) {
   return (scaled_rotation_delta(delta, amount) * accumulated).normalized();
-}
-
-/** @brief Reduces a bounded displacement with nearest-even period ties.
- * @param value Displacement with an integer-representable period quotient.
- * @param period Positive period.
- * @return Remainder in [-period/2, period/2]. */
-HS_HOT_INLINE inline float centered_remainder(float value, float period) {
-  const int quotient = static_cast<int>(value / period);
-  float result = value - static_cast<float>(quotient) * period;
-  const float half = period * 0.5f;
-  if (result > half || (result == half && (quotient & 1)))
-    result -= period;
-  else if (result < -half || (result == -half && (quotient & 1)))
-    result += period;
-  return result;
 }
 
 /**

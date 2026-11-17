@@ -16,6 +16,21 @@
 
 namespace math {
 
+/** @brief Reduces a bounded displacement with nearest-even period ties.
+ * @param value Displacement with an integer-representable period quotient.
+ * @param period Positive period.
+ * @return Remainder in [-period/2, period/2]. */
+HS_HOT_INLINE inline float centered_remainder(float value, float period) {
+  const int quotient = static_cast<int>(value / period);
+  float result = value - static_cast<float>(quotient) * period;
+  const float half = period * 0.5f;
+  if (result > half || (result == half && (quotient & 1)))
+    result -= period;
+  else if (result < -half || (result == -half && (quotient & 1)))
+    result += period;
+  return result;
+}
+
 /**
  * @brief Wraps into [0, period]; requires a positive period.
  * @details Returns period only when a negative value within half an ulp of
