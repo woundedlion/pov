@@ -20,12 +20,11 @@ HS_O3_BEGIN
  * @details Rows use the column walk's own sample cut; columns use the render
  * band's conservative cull span. */
 template <int W> struct SweptEdgeCull {
-  float top;           /**< Highest unit-sphere y the walk emits. */
-  float bottom;        /**< Lowest unit-sphere y the walk emits. */
-  math::Vector first;  /**< First longitude half-plane normal. */
-  math::Vector second; /**< Second longitude half-plane normal. */
-  int mode = 0; /**< 0: rows only; 1: hidden outside either half-plane; 2:
-                   hidden inside both. */
+  float top;                   /**< Highest unit-sphere y the walk emits. */
+  float bottom;                /**< Lowest unit-sphere y the walk emits. */
+  math::Vector outside_first;  /**< Outward start-meridian normal. */
+  math::Vector outside_second; /**< Outward end-meridian normal. */
+  MeridianTest test = MeridianTest::NONE; /**< Meridian combination rule. */
 
   /** @brief Prepares the bounds for one draw.
    * @param columns Render-band column predicate.
@@ -38,15 +37,10 @@ template <int W> struct SweptEdgeCull {
     const ColumnBand band = ColumnBand::of(columns);
     const HalfPlanes planes =
         band.half_planes<W>(band.swept_half(W), ColumnBand::SWEPT_ROUNDING);
-    const MeridianTest test = planes.test();
-    if (test == MeridianTest::BOTH) {
-      mode = 1;
-      first = planes.first();
-      second = planes.second();
-    } else if (test == MeridianTest::EITHER) {
-      mode = 2;
-      first = {-sinf(planes.end), 0.0f, cosf(planes.end)};
-      second = {sinf(planes.start), 0.0f, -cosf(planes.start)};
+    test = planes.test();
+    if (test != MeridianTest::NONE) {
+      outside_first = -planes.first();
+      outside_second = -planes.second();
     }
   }
 
@@ -145,11 +139,13 @@ private:
    * @return True when no drawn sample can be emitted. */
   HS_HOT_INLINE bool rejects_hull(const math::Vector *points, int count,
                                   float pad) const {
-    if (mode == 1 && (Spacetime::swept_beyond(points, count, pad, -first) ||
-                      Spacetime::swept_beyond(points, count, pad, -second)))
+    if (test == MeridianTest::BOTH &&
+        (Spacetime::swept_beyond(points, count, pad, outside_first) ||
+         Spacetime::swept_beyond(points, count, pad, outside_second)))
       return true;
-    if (mode == 2 && Spacetime::swept_beyond(points, count, pad, first) &&
-        Spacetime::swept_beyond(points, count, pad, second))
+    if (test == MeridianTest::EITHER &&
+        Spacetime::swept_beyond(points, count, pad, outside_first) &&
+        Spacetime::swept_beyond(points, count, pad, outside_second))
       return true;
     for (int i = 0; i < count; ++i)
       if (points[i].y >= bottom && points[i].y <= top)
