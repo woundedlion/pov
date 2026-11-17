@@ -21,6 +21,12 @@ namespace SHMath {
 /** @brief Largest degree represented by the fixed polynomial table. */
 inline constexpr int MAX_POLYNOMIAL_DEGREE = 8;
 
+/** @brief Flat index in a triangular table of harmonic modes.
+ * @param l Degree.
+ * @param m Nonnegative order within the degree.
+ * @return Index of mode (l, m). */
+constexpr int mode_index(int l, int m) { return l * (l + 1) / 2 + m; }
+
 /** @brief Offset of one parity-compressed Legendre polynomial.
  * @param l Degree.
  * @param m Nonnegative order.
@@ -42,7 +48,7 @@ inline constexpr auto LEGENDRE_OFFSETS HS_PROGMEM_UNIQUE(legendre_offsets) =
       std::array<uint8_t, 45> result{};
       for (int l = 0; l <= MAX_POLYNOMIAL_DEGREE; ++l)
         for (int m = 0; m <= l; ++m)
-          result[l * (l + 1) / 2 + m] =
+          result[mode_index(l, m)] =
               static_cast<uint8_t>(polynomial_offset(l, m));
       return result;
     }();
@@ -118,7 +124,7 @@ inline float legendre_seed(int m) {
 inline float reduced_legendre(int l, int m, float x) {
   if (l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l) {
     const int degree = l - m;
-    const int offset = LEGENDRE_OFFSETS[l * (l + 1) / 2 + m];
+    const int offset = LEGENDRE_OFFSETS[mode_index(l, m)];
     float value = LEGENDRE_COEFFICIENTS[offset + degree / 2];
     const float square = x * x;
     for (int i = degree / 2 - 1; i >= 0; --i)
@@ -154,7 +160,7 @@ HS_FLASH_INLINE inline float reduced_legendre_derivative(int l, int m,
   const int degree = l - m;
   if (degree == 0)
     return 0.0f;
-  const int offset = LEGENDRE_OFFSETS[l * (l + 1) / 2 + m];
+  const int offset = LEGENDRE_OFFSETS[mode_index(l, m)];
   const int parity = degree % 2;
   float value = degree * LEGENDRE_COEFFICIENTS[offset + degree / 2];
   for (int i = degree / 2 - 1; i >= (parity == 0 ? 1 : 0); --i)
@@ -236,7 +242,7 @@ spherical_harmonic_gradient_unchecked(int l, int m, const math::Vector &p,
   const math::Complex derivative =
       phase * previous * math::Complex(float(m), 0.0f);
   const int degree = l - m;
-  const int offset = LEGENDRE_OFFSETS[l * (l + 1) / 2 + m];
+  const int offset = LEGENDRE_OFFSETS[mode_index(l, m)];
   const float x = p.y;
   const float square = x * x;
   float series = LEGENDRE_COEFFICIENTS[offset + degree / 2];

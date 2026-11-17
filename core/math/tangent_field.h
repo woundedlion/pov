@@ -236,9 +236,10 @@ inline PreparedTerm prepare_term(const PotentialTerm &term,
     return result;
   TermConstants constants;
   if (term.type == TermType::MODE) {
-    HS_CHECK(term.l <= 8 && term.m <= term.l,
+    constexpr int L = SHMath::MAX_POLYNOMIAL_DEGREE;
+    HS_CHECK(term.l <= L && term.m <= term.l,
              "tangent field: invalid harmonic mode");
-    constants = MODE_CONSTANTS[term.l * (term.l + 1) / 2 + term.m];
+    constants = MODE_CONSTANTS[SHMath::mode_index(term.l, term.m)];
     result.scale = term.amplitude * SHMath::harmonic_scale(term.l, term.m) *
                    constants.scale;
     if (term.m != 0) {

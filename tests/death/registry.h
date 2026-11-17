@@ -826,7 +826,7 @@ inline const Case *all_cases(int &n) {
                   "core/math/spherical_harmonics.h", "(l >= 0 && l <= MAX_POLYNOMIAL_DEGREE && m >= 0 && m <= l) Legendre derivative: unsupported mode"},
               {"tangent_field_invalid_mode", case_tangent_field_invalid_mode,
                "core/math/tangent_field.h",
-               "(term.l <= 8 && term.m <= term.l) tangent field: invalid harmonic mode"},
+               "(term.l <= L && term.m <= term.l) tangent field: invalid harmonic mode"},
               {"square_wave_invalid_duty", case_square_wave_invalid_duty,
                "core/math/waves.h",
                "(duty_cycle >= 0.0f && duty_cycle <= 1.0f) square_wave: duty_cycle must be in [0,1]"},
