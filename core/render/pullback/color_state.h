@@ -430,7 +430,7 @@ HS_HOT_FLASH_MEMBER inline void apply_phase_modulation(ColorSample &sample,
                                                        PhaseScratch &scratch)
   requires std::is_base_of_v<PhaseModulationState, Phase>
 {
-  if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
+  if (!modulation_active(prepared))
     return;
   apply_perceptual_scalar(sample,
                           Color::sample_phase_scalar<Phase, SinePhase>(
@@ -459,7 +459,7 @@ apply_mechanic_scalar(ColorSample &sample, float scalar,
 HS_HOT_ITCM_MEMBER inline void
 apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
                           bool previous = false) {
-  if (!state.enabled || state.mechanic.amount == 0.0f)
+  if (!modulation_active(state))
     return;
   float scalar;
   if (state.source == Pattern::SourceKind::DISPLACEMENT)
@@ -480,7 +480,7 @@ apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
 HS_HOT_ITCM_MEMBER inline void
 apply_modulation_pair_in_place(ColorSample &previous, ColorSample &current,
                                const ModulationState &state) {
-  if (!state.enabled || state.mechanic.amount == 0.0f)
+  if (!modulation_active(state))
     return;
   if (state.source == Pattern::SourceKind::DISPLACEMENT ||
       previous.field.sphere != current.field.sphere) {

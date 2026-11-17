@@ -322,8 +322,8 @@ public:
             resource.phase_noise_current = {};
           }
         }
-        if (family.modulation.enabled &&
-            family.modulation.mechanic.amount != 0.0f &&
+        if (ColorModulation::active(family.modulation.enabled,
+                                    family.modulation.mechanic) &&
             resource.modulation != resource.previous_modulation)
           same_sources = same_sources && resource.modulation &&
                          resource.previous_modulation &&
