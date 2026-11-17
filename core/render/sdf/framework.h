@@ -753,6 +753,35 @@ struct OctetEvents : PlaneStreams<4> {
   }
 };
 
+/** @brief Clamped squared-distance numerator for one owned D4 strut class.
+ * @param across Reduced transverse residual in [-0.5, 0.5].
+ * @param rk Residual of the first orthogonal coordinate.
+ * @param rl Residual of the second orthogonal coordinate.
+ * @param flip Whether to move to the class's opposite coset.
+ * @param transverse Direction's transverse coefficient.
+ * @param dk Direction's first orthogonal component.
+ * @param dl Direction's second orthogonal component.
+ * @param denominator Squared direction length on the class's plane.
+ * @return Squared-distance numerator before division by @p denominator. */
+__attribute__((always_inline)) inline float
+d4_class_numerator(float across, float rk, float rl, bool flip,
+                   float transverse, float dk, float dl, float denominator) {
+  if (flip) {
+    const float cost = 0.5f - fabsf(across);
+    const float cost_k = 1.0f - 2.0f * fabsf(rk);
+    const float cost_l = 1.0f - 2.0f * fabsf(rl);
+    if (cost <= cost_k && cost <= cost_l)
+      across -= copysignf(1.0f, across);
+    else if (cost_k <= cost_l)
+      rk -= copysignf(1.0f, rk);
+    else
+      rl -= copysignf(1.0f, rl);
+  }
+  const float offset2 = 0.5f * across * across + rk * rk + rl * rl;
+  const float dot = across * transverse + rk * dk + rl * dl;
+  return fmaxf(0.0f, offset2 * denominator - dot * dot);
+}
+
 /**
  * @brief Single-owner D4 strut coverage at monotone plane crossings of an
  *        ambient 4D ray.
@@ -968,22 +997,9 @@ struct OctetEvents4 : PlaneStreams<8> {
       float rl = residual[strut.l];
       const float step = across > 0.5f ? 1.0f : across < -0.5f ? -1.0f : 0.0f;
       across -= step;
-      // The nearest vertex on this class's coset flips the cheapest coordinate.
-      if ((step != 0.0f) != odd) {
-        const float cost = 0.5f - fabsf(across);
-        const float cost_k = 1.0f - 2.0f * fabsf(rk);
-        const float cost_l = 1.0f - 2.0f * fabsf(rl);
-        if (cost <= cost_k && cost <= cost_l)
-          across -= copysignf(1.0f, across);
-        else if (cost_k <= cost_l)
-          rk -= copysignf(1.0f, rk);
-        else
-          rl -= copysignf(1.0f, rl);
-      }
-      const float offset2 = 0.5f * across * across + rk * rk + rl * rl;
-      const float dot =
-          across * strut.transverse + rk * strut.dk + rl * strut.dl;
-      const float n = fmaxf(0.0f, offset2 * strut.denominator - dot * dot);
+      const float n = d4_class_numerator(across, rk, rl, (step != 0.0f) != odd,
+                                         strut.transverse, strut.dk, strut.dl,
+                                         strut.denominator);
       if (n * denominator < numerator * strut.denominator) {
         numerator = n;
         denominator = strut.denominator;

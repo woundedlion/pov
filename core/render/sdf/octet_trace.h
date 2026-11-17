@@ -403,8 +403,8 @@ retain_octet_crossing(const OctetWalk4 &state, float sign,
   float denominator = 1.0f;
   for (size_t c = 0; c < CLASSES; ++c) {
     const auto &pair = pairs[c];
-    float rk = residual[pair.k];
-    float rl = residual[pair.l];
+    const float rk = residual[pair.k];
+    const float rl = residual[pair.l];
     // A class the plane bound clears cannot reach the support, and
     // neither can a farther class it would otherwise have beaten.
     if (bounds[c] > threshold)
@@ -417,23 +417,11 @@ retain_octet_crossing(const OctetWalk4 &state, float sign,
     // strict half-way comparisons give.
     const float shift = rintf(across);
     across -= shift;
-    if ((shift != 0.0f) != odd) {
-      const float cost = 0.5f - fabsf(across);
-      const float cost_k = 1.0f - 2.0f * fabsf(rk);
-      const float cost_l = 1.0f - 2.0f * fabsf(rl);
-      if (cost <= cost_k && cost <= cost_l)
-        across -= copysignf(1.0f, across);
-      else if (cost_k <= cost_l)
-        rk -= copysignf(1.0f, rk);
-      else
-        rl -= copysignf(1.0f, rl);
-    }
-    const float offset2 = 0.5f * across * across + rk * rk + rl * rl;
     const float transverse =
         0.5f * (state.components[pair.i] - sign * state.components[pair.j]);
-    const float dot = across * transverse + rk * state.components[pair.k] +
-                      rl * state.components[pair.l];
-    const float n = fmaxf(0.0f, offset2 * denominator_value - dot * dot);
+    const float n = d4_class_numerator(
+        across, rk, rl, (shift != 0.0f) != odd, transverse,
+        state.components[pair.k], state.components[pair.l], denominator_value);
     if (n * denominator < numerator * denominator_value) {
       numerator = n;
       denominator = denominator_value;
