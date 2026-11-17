@@ -176,7 +176,11 @@ template <int W, int H> class ProfiledEffect : public HS_PROFILE_TARGET<W, H> {
 #endif
 
 public:
-  ProfiledEffect() { capture_isr_stats(); }
+  ProfiledEffect() {
+    hs::CycleCounter::reset_all();
+    buffer_wait = hs::CycleCounter::find_suffix("_buffer_wait");
+    capture_isr_stats();
+  }
 
 #ifdef HS_PROFILE_MODULATION_SOURCE
   /** @brief Selects a bounded modulation recipe for segmented-driver timing. */
