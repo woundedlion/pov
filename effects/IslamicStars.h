@@ -100,10 +100,8 @@ public:
    *  @param p Parameter set to check.
    *  @return True if all fields are in range. */
   static constexpr bool valid_params(const Params &p) {
-    return p.burst_size >= 1 && p.burst_size <= BURST_MAX &&
-           p.ripple_duration >= RIPPLE_DURATION_MIN &&
-           p.ripple_duration <= RIPPLE_DURATION_MAX &&
-           p.trans_speed >= TRANS_SPEED_MIN && p.trans_speed <= TRANS_SPEED_MAX;
+    return Control::valid_fields(p, burst_fields()) &&
+           Control::valid_fields(p, timing_fields());
   }
 
 #ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
