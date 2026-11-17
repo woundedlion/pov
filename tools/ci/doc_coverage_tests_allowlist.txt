@@ -204,7 +204,6 @@ tests/test_ray.h
 tests/test_ray_demonstrators.h
 tests/ray_events/context.h
 tests/test_reaction_graph.h
-tests/scan/context.h
 tests/test_sdf.h
 tests/test_sdf_patterns.h
 tests/test_shader_chain.h
