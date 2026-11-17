@@ -706,13 +706,7 @@ constexpr uint64_t PROFILE_SEEDS[] = {hs::stable_effect_seed(
 
 static_assert(std::size(PROFILE_SEEDS) == std::size(EFFECT_FACTORIES));
 
-constexpr pov::sync::Config profile_config() {
-  auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1);
-  cfg.set_effect_revolutions(PROFILE_REVOLUTIONS);
-  return cfg;
-}
-
-static_assert(profile_config().valid() == nullptr,
+static_assert(phantasm_show_config(PROFILE_REVOLUTIONS).valid() == nullptr,
               "Profile pov::sync::Config invariants violated");
 } // namespace
 

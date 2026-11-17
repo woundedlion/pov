@@ -45,6 +45,18 @@ using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 /// flush before each DMA transfer.
 HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 
+/** @brief Configures a nominal-clock show from its authored durations.
+ * @tparam N Number of show entries.
+ * @param revolutions Duration of each entry in revolutions.
+ * @return Sync config with the entry durations set. */
+template <size_t N>
+constexpr pov::sync::Config
+phantasm_show_config(const uint32_t (&revolutions)[N]) {
+  auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, N);
+  cfg.set_effect_revolutions(revolutions);
+  return cfg;
+}
+
 namespace {
 
 /**

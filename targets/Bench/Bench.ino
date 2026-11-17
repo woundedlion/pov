@@ -50,13 +50,7 @@ constexpr uint32_t BENCH_REVOLUTIONS[] = {Pattern::CYCLE_FRAMES /
 
 static_assert(std::size(BENCH_REVOLUTIONS) == std::size(EFFECT_FACTORIES));
 
-constexpr pov::sync::Config bench_config() {
-  auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1);
-  cfg.set_effect_revolutions(BENCH_REVOLUTIONS);
-  return cfg;
-}
-
-static_assert(bench_config().valid() == nullptr,
+static_assert(phantasm_show_config(BENCH_REVOLUTIONS).valid() == nullptr,
               "Bench pov::sync::Config invariants violated");
 } // namespace
 

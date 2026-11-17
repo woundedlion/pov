@@ -50,15 +50,8 @@ static_assert(RPM % 60 == 0,
 static_assert(std::size(EFFECT_FACTORIES) == std::size(EFFECT_REVOLUTIONS));
 static_assert(std::size(EFFECT_FACTORIES) == std::size(EFFECT_SEEDS));
 
-constexpr pov::sync::Config show_config() {
-  auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W,
-                                        HS_PHANTASM_EFFECT_COUNT);
-  cfg.set_effect_revolutions(EFFECT_REVOLUTIONS);
-  return cfg;
-}
-
 // The boot check validates F_CPU_ACTUAL; this check uses the nominal F_CPU.
-static_assert(show_config().valid() == nullptr,
+static_assert(phantasm_show_config(EFFECT_REVOLUTIONS).valid() == nullptr,
               "Phantasm pov::sync::Config invariants violated");
 } // namespace
 
