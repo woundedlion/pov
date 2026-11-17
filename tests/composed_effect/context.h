@@ -516,12 +516,12 @@ verify_family_rejection(FX &effect,
   }
 }
 
-/** @brief Authored fields register one control at their native storage address.
+/** @brief Resource fields register one control at their native storage address.
  * @tparam FX Composed-effect specialization.
  * @param effect Initialized composed effect.
  */
 template <typename FX>
-inline void check_authored_slider_registration(const FX &effect) {
+inline void check_resource_slider_registration(const FX &effect) {
   const auto &params = effect.getParameters();
   size_t expected = 0;
   const auto require_target = [&](const void *target, float low, float high,
@@ -544,10 +544,19 @@ inline void check_authored_slider_registration(const FX &effect) {
     }
     ++expected;
   };
-  ComposedWhiteBox<FX>::params(effect).visit([&]<typename Resource>(
-                                                 const auto &family) {
+  ComposedFrameWhiteBox::params(effect).visit([&]<typename Resource>(
+                                                  const auto &family) {
     using Family = typename Resource::Family;
     for (const auto &field : Family::FIELDS) {
+      if constexpr (Resource::KIND == Pullback::ResourceKind::COLOR) {
+        constexpr bool AUTHORED_PALETTE =
+            std::is_same_v<Family, Pullback::Color::AuthoredColorParams>;
+        if (!AUTHORED_PALETTE && field.topology_gate.field &&
+            ((field.topology_gate.values >>
+              static_cast<unsigned>(FX::Metadata::BRIGHTNESS)) &
+             1U) == 0)
+          continue;
+      }
       if constexpr (Resource::KIND != Pullback::ResourceKind::COLOR)
         if ((!field.name && !(Resource::KIND == Pullback::ResourceKind::WARP &&
                               std::string_view(field.id) == "speed")) ||
@@ -577,33 +586,48 @@ inline void check_authored_slider_registration(const FX &effect) {
           static_cast<float>(
               std::size(Pullback::Interp::Op::PALETTE_MAPPING_IDS) - 1),
           true);
-      require_target(
-          &family.palette_mode, 0.0f,
-          static_cast<float>(std::size(Pullback::Color::PALETTE_MODE_IDS) - 1),
-          true);
-      require_target(
-          &family.palette_type, 0.0f,
-          static_cast<float>(std::size(AUTHORED_PALETTE_TYPE_IDS) - 1), true);
-      require_target(
-          &family.palette_harmony, 0.0f,
-          static_cast<float>(std::size(AUTHORED_PALETTE_HARMONY_IDS) - 1),
-          true);
-      require_target(&family.palette_lightness_curve, 0.0f,
-                     static_cast<float>(
-                         std::size(AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS) - 1),
-                     true);
-      require_target(
-          &family.palette_name, 0.0f,
-          static_cast<float>(std::size(AUTHORED_PALETTE_NAME_IDS) - 1), true);
-      require_target(
-          &family.palette_name_b, 0.0f,
-          static_cast<float>(std::size(AUTHORED_PALETTE_NAME_IDS) - 1), true);
-      require_target(
-          &family.brightness_envelope, 0.0f,
-          static_cast<float>(
-              std::size(Pullback::Color::BRIGHTNESS_ENVELOPE_IDS) - 1),
-          true);
+      if constexpr (std::is_same_v<Family,
+                                   Pullback::Color::AuthoredColorParams>) {
+        require_target(&family.palette_mode, 0.0f,
+                       static_cast<float>(
+                           std::size(Pullback::Color::PALETTE_MODE_IDS) - 1),
+                       true);
+        require_target(
+            &family.palette_type, 0.0f,
+            static_cast<float>(std::size(AUTHORED_PALETTE_TYPE_IDS) - 1), true);
+        require_target(
+            &family.palette_harmony, 0.0f,
+            static_cast<float>(std::size(AUTHORED_PALETTE_HARMONY_IDS) - 1),
+            true);
+        require_target(&family.palette_lightness_curve, 0.0f,
+                       static_cast<float>(
+                           std::size(AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS) - 1),
+                       true);
+        require_target(
+            &family.palette_name, 0.0f,
+            static_cast<float>(std::size(AUTHORED_PALETTE_NAME_IDS) - 1), true);
+        require_target(
+            &family.palette_name_b, 0.0f,
+            static_cast<float>(std::size(AUTHORED_PALETTE_NAME_IDS) - 1), true);
+        require_target(
+            &family.brightness_envelope, 0.0f,
+            static_cast<float>(
+                std::size(Pullback::Color::BRIGHTNESS_ENVELOPE_IDS) - 1),
+            true);
+      }
     }
+    if constexpr (requires(Family &value) {
+                    Family::EXTRA_SCHEMA;
+                    value.extra_address(size_t{});
+                  })
+      for (size_t index = 0; index < Family::EXTRA_SCHEMA.size(); ++index) {
+        const auto &field = Family::EXTRA_SCHEMA[index];
+        require_target(const_cast<Family &>(family).extra_address(index),
+                       field.enum_count ? 0.0f : field.min,
+                       field.enum_count ? float(field.enum_count - 1)
+                                        : field.max,
+                       field.enum_count != 0);
+      }
     if constexpr (Resource::KIND == Pullback::ResourceKind::MODULATION) {
       const auto &config = family.modulation;
       if constexpr (Family::DYNAMIC) {
@@ -659,40 +683,8 @@ inline void check_authored_slider_registration(const FX &effect) {
     }
   });
   HS_EXPECT_EQ(params.size(), expected);
-}
-
-/** @brief Requires exactly the listed registered sliders.
- * @param params Registered control list.
- * @param expected Exact required slider labels.
- * @param terms Additional required potential-term slider labels.
- */
-inline void expect_exact_sliders(const ParamList &params,
-                                 std::span<const char *const> expected,
-                                 std::span<const char *const> terms = {}) {
-  for (const auto names : {expected, terms})
-    for (const char *slider : names) {
-      HS_CONTEXT(slider);
-      HS_EXPECT_TRUE(params.find(slider) != nullptr);
-    }
-  HS_EXPECT_EQ(params.size(), expected.size() + terms.size());
   HS_EXPECT_EQ(params.size(), params.capacity());
 }
-
-/** @brief Display labels of controls belonging to one potential term. */
-inline constexpr const char *POTENTIAL_TERM_SLIDERS[] = {
-    "displace.term-1-type",      "displace.term-1-kind",
-    "displace.term-1-l",         "displace.term-1-m",
-    "displace.term-1-amplitude", "displace.term-1-phase",
-    "displace.term-2-type",      "displace.term-2-kind",
-    "displace.term-2-l",         "displace.term-2-m",
-    "displace.term-2-amplitude", "displace.term-2-phase",
-    "displace.term-3-type",      "displace.term-3-kind",
-    "displace.term-3-l",         "displace.term-3-m",
-    "displace.term-3-amplitude", "displace.term-3-phase",
-    "displace.term-4-type",      "displace.term-4-kind",
-    "displace.term-4-l",         "displace.term-4-m",
-    "displace.term-4-amplitude", "displace.term-4-phase",
-};
 
 /** @brief Pins the registered controls of one specialization.
  * @tparam E Composed effect template.
@@ -719,192 +711,13 @@ inline void check_slider_registration(const char *name) {
       HS_EXPECT_TRUE(slider->target != earlier->target);
   }
 
-  if constexpr (FX::Spec::AUTHORED_TOPOLOGY) {
-    check_authored_slider_registration(effect);
-    return;
-  }
-
-  if constexpr (std::is_same_v<FX, Iridescence<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"Pattern Freq",
-                                        "Speed",
-                                        "Complexity",
-                                        "Pattern Mix",
-                                        "Singularity Fade",
-                                        "Central Meridian",
-                                        "displace.Strength",
-                                        "displace.Orientation Azimuth",
-                                        "displace.Orientation Polar",
-                                        "displace.Drift",
-                                        "displace.integrator",
-                                        "Palette Chroma",
-                                        "Palette Mapping",
-                                        "Mapping Frequency",
-                                        "Mapping Phase",
-                                        "Phase Oscillation Depth",
-                                        "Phase Oscillation Speed",
-                                        "Brightness Bottom",
-                                        "Brightness Top",
-                                        "Opacity at Value 0",
-                                        "Opacity at Value 1",
-                                        "Palette Mode",
-                                        "Palette Type",
-                                        "Palette Harmony",
-                                        "Palette Lightness Curve",
-                                        "Palette Name",
-                                        "Palette Name B",
-                                        "Brightness Envelope",
-                                        "Palette Hue",
-                                        "Palette Spread",
-                                        "Palette Lightness",
-                                        "Palette Lightness Range",
-                                        "Palette Mutation",
-                                        "Gradient Start R",
-                                        "Gradient Start G",
-                                        "Gradient Start B",
-                                        "Gradient Middle R",
-                                        "Gradient Middle G",
-                                        "Gradient Middle B",
-                                        "Gradient End R",
-                                        "Gradient End G",
-                                        "Gradient End B",
-                                        "modulate.Modulation Amount",
-                                        "modulate.Pattern Scale",
-                                        "modulate.Pattern Speed",
-                                        "modulate2.Modulation Amount",
-                                        "modulate2.Pattern Scale",
-                                        "modulate2.Pattern Speed"};
-    expect_exact_sliders(params, EXPECTED, POTENTIAL_TERM_SLIDERS);
-    return;
-  }
-
-  if constexpr (std::is_same_v<FX, GridWarp<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"Pattern Freq",
-                                        "Speed",
-                                        "Complexity",
-                                        "Pattern Mix",
-                                        "Singularity Fade",
-                                        "Camera Wander",
-                                        "Central Meridian",
-                                        "displace.Strength",
-                                        "displace.Orientation Azimuth",
-                                        "displace.Orientation Polar",
-                                        "displace.Drift",
-                                        "displace.integrator",
-                                        "Palette Chroma",
-                                        "Palette Mapping",
-                                        "Mapping Frequency",
-                                        "Mapping Phase",
-                                        "Phase Oscillation Depth",
-                                        "Phase Oscillation Speed",
-                                        "Opacity at Value 0",
-                                        "Opacity at Value 1",
-                                        "modulate.Modulation Amount",
-                                        "modulate1.Modulation Amount",
-                                        "modulate1.Pattern Scale",
-                                        "modulate1.Pattern Speed"};
-    expect_exact_sliders(params, EXPECTED, POTENTIAL_TERM_SLIDERS);
-    return;
-  }
-
-  if constexpr (std::is_same_v<FX, LiquidWindows<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"Pattern Freq",
-                                        "Speed",
-                                        "Complexity",
-                                        "Pattern Mix",
-                                        "Singularity Fade",
-                                        "Central Meridian",
-                                        "displace.Strength",
-                                        "displace.Orientation Azimuth",
-                                        "displace.Orientation Polar",
-                                        "displace.Drift",
-                                        "displace.integrator",
-                                        "Palette Chroma",
-                                        "Palette Mapping",
-                                        "Mapping Frequency",
-                                        "Mapping Phase",
-                                        "Phase Oscillation Depth",
-                                        "Phase Oscillation Speed",
-                                        "Opacity at Value 0",
-                                        "Opacity at Value 1",
-                                        "modulate.Modulation Amount"};
-    expect_exact_sliders(params, EXPECTED, POTENTIAL_TERM_SLIDERS);
-    return;
-  }
-
-  if constexpr (std::is_same_v<FX, Millefiori<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"Cell Scale",
-                                        "Cell Radius",
-                                        "Cell Shape",
-                                        "Cell Softness",
-                                        "Camera Wander",
-                                        "Projection Spin Speed",
-                                        "Projection Wander",
-                                        "Singularity Fade",
-                                        "Planar Warp 1 Speed",
-                                        "Vortex Center X",
-                                        "Vortex Center Y",
-                                        "Vortex Radius",
-                                        "Vortex Turns",
-                                        "Vortex Center Orbit",
-                                        "displace.Ripple Duration",
-                                        "displace.Ripple Strength",
-                                        "displace.Ripple Decay",
-                                        "displace.Ripple Thickness",
-                                        "displace.Ripple Center Azimuth",
-                                        "displace.Ripple Center Polar",
-                                        "displace.Burst Rate",
-                                        "Palette Chroma",
-                                        "Palette Mapping",
-                                        "Mapping Frequency",
-                                        "Mapping Phase",
-                                        "Phase Oscillation Depth",
-                                        "Phase Oscillation Speed",
-                                        "Opacity at Value 0",
-                                        "Opacity at Value 1",
-                                        "Brightness Bottom",
-                                        "Brightness Top",
-                                        "field.Modulation Amount",
-                                        "field.Pattern Frequency",
-                                        "field.Pattern Speed",
-                                        "modulate.Modulation Amount"};
-    expect_exact_sliders(params, EXPECTED);
-    return;
-  }
-
-  if constexpr (std::is_same_v<FX, AshCloud<SMALL_W, SMALL_H>>) {
-    constexpr const char *EXPECTED[] = {"Cell Scale",
-                                        "Cell Radius",
-                                        "Cell Shape",
-                                        "Cell Softness",
-                                        "Camera Wander",
-                                        "Projection Spin Speed",
-                                        "Projection Wander",
-                                        "Singularity Fade",
-                                        "Surface Noise Scale",
-                                        "Surface Noise Strength",
-                                        "Surface Noise Speed",
-                                        "displace.Ripple Duration",
-                                        "displace.Ripple Strength",
-                                        "displace.Ripple Decay",
-                                        "displace.Ripple Thickness",
-                                        "displace.Ripple Center Azimuth",
-                                        "displace.Ripple Center Polar",
-                                        "displace.Burst Rate",
-                                        "Cutout Threshold",
-                                        "Cutout Softness",
-                                        "Palette Chroma",
-                                        "Palette Mapping",
-                                        "Mapping Frequency",
-                                        "Mapping Phase",
-                                        "Phase Oscillation Depth",
-                                        "Phase Oscillation Speed",
-                                        "Opacity at Value 0",
-                                        "Opacity at Value 1",
-                                        "modulation.Modulation Amount",
-                                        "modulation.Pattern Scale",
-                                        "modulation.Pattern Speed",
-                                        "modulate.Modulation Amount"};
-    expect_exact_sliders(params, EXPECTED);
+  if constexpr (FX::AUTHORED_TOPOLOGY ||
+                std::is_same_v<FX, Iridescence<SMALL_W, SMALL_H>> ||
+                std::is_same_v<FX, GridWarp<SMALL_W, SMALL_H>> ||
+                std::is_same_v<FX, LiquidWindows<SMALL_W, SMALL_H>> ||
+                std::is_same_v<FX, Millefiori<SMALL_W, SMALL_H>> ||
+                std::is_same_v<FX, AshCloud<SMALL_W, SMALL_H>>) {
+    check_resource_slider_registration(effect);
     return;
   }
 

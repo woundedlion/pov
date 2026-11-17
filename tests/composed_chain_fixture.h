@@ -43,6 +43,7 @@ void verify_export(size_t preset, int channel_tolerance, float alpha_tolerance,
       return;
     requests.push_back({label->text.c_str(), op->text.c_str()});
   }
+  const auto slots = document_slots<FX>(*chain);
   auto fixture = std::make_unique<ProgramFixture>();
   const auto compiled = fixture->program.compile(requests).code;
   HS_EXPECT_EQ(compiled, In::ChainStatus::OK);
@@ -143,11 +144,14 @@ void verify_export(size_t preset, int channel_tolerance, float alpha_tolerance,
     } else if (id == "warp.affine.v4" || id == "warp.wave-shear.v2" ||
                id == "warp.vortex.v2" || id == "warp.mirror-tile.v2" ||
                id == "warp.vector-noise.v2") {
-      const auto key = std::string_view(op.instance) == "warp2" ? "inner_warp"
-                       : std::string_view(op.instance) == "warp1" ||
-                               std::string_view(op.instance) == "warp"
-                           ? "outer_warp"
-                           : op.instance;
+      const auto slot =
+          std::find_if(slots.begin(), slots.end(), [&](const auto &entry) {
+            return entry.label == op.instance;
+          });
+      HS_EXPECT_TRUE(slot != slots.end());
+      if (slot == slots.end())
+        return;
+      const auto key = document_resource_key(*slot);
       own.params.visit([&]<typename Resource>(const auto &) {
         if constexpr (Resource::KIND == Pullback::ResourceKind::WARP) {
           if (Resource::KEY.view() != key)

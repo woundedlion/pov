@@ -115,8 +115,9 @@ inline void expect_pole_row_collapsed(hs_test::StubEffect &fx, int w, int y,
 }
 
 /** @brief Checks a pole row retains a lone sample and leaves its neighbor dark. */
-inline void check_feedback_pole_sample(int row) {
+inline void check_feedback_pole_sample(bool south) {
   constexpr int W = 32, H = 16;
+  const int row = south ? H - 1 : 0;
   constexpr Pixel POLE(12000, 30000, 50000);
   hs_test::StubEffect fx(W, H);
   auto [style, pipe] = feedback_fixture<W, H>();
@@ -133,12 +134,12 @@ inline void check_feedback_pole_sample(int row) {
 
 /** @brief Verifies the aliased north pole retains a lone physical sample. */
 inline void test_feedback_north_pole_uses_single_physical_sample() {
-  check_feedback_pole_sample(0);
+  check_feedback_pole_sample(false);
 }
 
 /** @brief Verifies the aliased south pole retains a lone physical sample. */
 inline void test_feedback_south_pole_uses_single_physical_sample() {
-  check_feedback_pole_sample(15);
+  check_feedback_pole_sample(true);
 }
 
 /**

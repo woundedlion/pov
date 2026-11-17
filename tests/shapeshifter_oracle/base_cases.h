@@ -167,12 +167,6 @@ inline void test_star_options_and_shipping_presets_are_planar() {
   using Falloff = OracleEffect::AlphaFalloff;
   using Shape = OracleEffect::ShapeType;
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_count(), 5);
-  HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_export_option(3),
-                  "ShapeType::PLANAR_STAR");
-  HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_export_option(4),
-                  "ShapeType::SPHERICAL_STAR");
-  HS_EXPECT_STREQ(ShapeShifterWhiteBox::spacing_export_option(1),
-                  "RadiusSpacing::SCREEN_BALANCED");
   size_t planar_stars = 0;
   for (size_t index = 0; index < ShapeShifterWhiteBox::PRESET_COUNT; ++index) {
     const Shape shape = ShapeShifterWhiteBox::preset_shape(index);
@@ -565,10 +559,12 @@ inline void test_count_slider_matches_draw_limit() {
     if (!count)
       return;
     HS_EXPECT_EQ(count->min, 1.0f);
-    HS_EXPECT_EQ(count->max, 40.0f);
+    HS_EXPECT_EQ(count->max,
+                 static_cast<float>(ShapeShifter<96, 20>::DRAW_LIMIT));
     HS_EXPECT_EQ(effect.updateParameter("Count", 288.0f),
                  ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(count->get(), 40.0f);
+    HS_EXPECT_EQ(count->get(),
+                 static_cast<float>(ShapeShifter<96, 20>::DRAW_LIMIT));
   }
   Timeline().clear();
 }

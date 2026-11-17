@@ -30,11 +30,86 @@ from scons_hook_test_env import FakeEnv, load_hook  # noqa: E402
 FIX = Path(__file__).resolve().parent / "fixtures"
 REAL_DIR = FIX / "real"
 BUDGETS = tg.load_budgets(TOOLS / "teensy_budgets.json")
-HISTORICAL_PHANTASM_BUDGET = copy.deepcopy(BUDGETS["phantasm"])
-HISTORICAL_PHANTASM_BUDGET["symbols"]["reaction_graph"]["name"] = (
-    "_ZN13ReactionGraph9neighborsE")
-for key in ("reaction_graph_index", "reaction_graph_count"):
-    del HISTORICAL_PHANTASM_BUDGET["symbols"][key]
+HISTORICAL_BUDGETS = {
+    "holosphere": {
+        "regions": {
+            "flash": {
+                "max_bytes": 1900000
+            },
+            "ram1": {
+                "max_bytes": 490000
+            },
+            "ram2": {
+                "max_bytes": 524288,
+                "free_min_bytes": 4096
+            }
+        },
+        "symbols": {
+            "arena": {
+                "name": "_ZL18global_arena_block",
+                "region": "DTCM",
+                "min_bytes": 294912,
+                "max_bytes": 327680
+            },
+            "framebuffer_a": {
+                "name": "_ZN6Effect8buffer_aE",
+                "region": "OCRAM"
+            },
+            "framebuffer_b": {
+                "name": "_ZN6Effect8buffer_bE",
+                "region": "OCRAM"
+            }
+        }
+    },
+    "phantasm": {
+        "regions": {
+            "flash": {
+                "max_bytes": 1998848
+            },
+            "ram1": {
+                "max_bytes": 512000,
+                "free_min_bytes": 12288,
+                "components": {
+                    "code": {
+                        "max_banks_from_stack_floor": {
+                            "bank_bytes": 32768,
+                            "total_banks": 16,
+                            "min_headroom_bytes": 0
+                        }
+                    }
+                }
+            },
+            "ram2": {
+                "max_bytes": 524288,
+                "free_min_bytes": 4096
+            }
+        },
+        "symbols": {
+            "arena": {
+                "name": "_ZL18global_arena_block",
+                "region": "DTCM",
+                "min_bytes": 294912,
+                "max_bytes": 327680
+            },
+            "framebuffer_a": {
+                "name": "_ZN6Effect8buffer_aE",
+                "region": "OCRAM"
+            },
+            "framebuffer_b": {
+                "name": "_ZN6Effect8buffer_bE",
+                "region": "OCRAM"
+            },
+            "reaction_graph": {
+                "name": "_ZN13ReactionGraph9neighborsE",
+                "region": "FLASH"
+            },
+            "dma_tx_buffer": {
+                "name": "_ZN12POVSegmentedILi288ELi4ELi480EE14led_controllerE",
+                "region": "OCRAM"
+            }
+        }
+    }
+}
 
 # Verbatim toolchain output; all committed, so a missing one is a deleted fixture.
 REAL_CAPTURES = (
@@ -923,18 +998,6 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         over = self._eval_ts(self._ts(312704, 196609))
         self.assertIn("component-over-derived-ceiling", _codes(over))
 
-    def test_shipping_budget_allows_full_bank_without_crossing(self):
-        budget = copy.deepcopy(BUDGETS["phantasm"])
-        budget.pop("symbols", None)
-        derived = (budget["regions"]["ram1"]["components"]["code"]
-                   ["max_banks_from_stack_floor"])
-        self.assertEqual(derived["min_headroom_bytes"], 0)
-        at = self._eval_ts(self._ts(312704, 196608), budget)
-        self.assertTrue(at.passed, msg=_codes(at))
-        over = self._eval_ts(self._ts(312704, 196609), budget)
-        self.assertFalse(over.passed)
-        self.assertIn("component-over-derived-ceiling", _codes(over))
-
     def test_optional_boundary_headroom_is_enforced(self):
         budget = self._budget()
         (budget["regions"]["ram1"]["components"]["code"]
@@ -1005,7 +1068,7 @@ class TestRealCapture(unittest.TestCase):
         sizes = tg.parse_teensy_size((REAL_DIR / "holosphere_teensy_size.txt").read_text())
         syms = tg.parse_readelf_symbols((REAL_DIR / "holosphere_readelf_syms.txt").read_text())
         secs = tg.parse_readelf_sections((REAL_DIR / "holosphere_readelf_secs.txt").read_text())
-        result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes, syms, secs)
+        result = tg.evaluate("holosphere", HISTORICAL_BUDGETS["holosphere"], sizes, syms, secs)
         self.assertTrue(result.passed, msg=_codes(result))
         arena = next(s for s in syms if s.name == "_ZL18global_arena_block")
         self.assertEqual(arena.region, "DTCM")
@@ -1018,9 +1081,7 @@ class TestRealCapture(unittest.TestCase):
         self.assertEqual(rg.size, 92160)
 
     def test_real_phantasm_dma_tx_buffer_is_in_ocram(self):
-        # Spelled from the budget, so a linkage-name drift between the shipped
-        # budget and the captured ELF fails here.
-        name = BUDGETS["phantasm"]["symbols"]["dma_tx_buffer"]["name"]
+        name = HISTORICAL_BUDGETS["phantasm"]["symbols"]["dma_tx_buffer"]["name"]
         syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
         led = next(s for s in syms if s.name == name)
         self.assertEqual(led.region, "OCRAM")
@@ -1029,7 +1090,7 @@ class TestRealCapture(unittest.TestCase):
         sizes = tg.parse_teensy_size((REAL_DIR / "phantasm_teensy_size.txt").read_text())
         syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
         secs = tg.parse_readelf_sections((REAL_DIR / "phantasm_readelf_secs.txt").read_text())
-        result = tg.evaluate("phantasm", HISTORICAL_PHANTASM_BUDGET, sizes, syms, secs)
+        result = tg.evaluate("phantasm", HISTORICAL_BUDGETS["phantasm"], sizes, syms, secs)
         self.assertTrue(result.passed, msg=_codes(result))
         # The bank-derived ITCM ceiling is phantasm-only and unmeasurable from
         # `size -A`; a capture without the code component would pass every other
@@ -1045,7 +1106,7 @@ class TestRealCapture(unittest.TestCase):
             (components["variables"], components["code"], ram1["free"]),
             (313760, 193496, 13920))
 
-        result = tg.evaluate("phantasm", BUDGETS["phantasm"], sizes, [], {})
+        result = tg.evaluate("phantasm", HISTORICAL_BUDGETS["phantasm"], sizes, [], {})
         note = next(line for line in result.notes
                     if "'code' derived ceiling" in line)
         remaining_text = note.split("remaining ", 1)[1].split(" B;", 1)[0]

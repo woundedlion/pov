@@ -36,6 +36,15 @@ struct StageFrame {
  *          fixed parameters and drive runtime clocks explicitly.
  */
 struct ComposedFrameWhiteBox {
+  /** @brief Reads live parameter storage.
+   * @tparam FX Composed effect type.
+   * @param effect Effect owning the parameters.
+   * @return Live parameter block. */
+  template <typename FX>
+  static const typename FX::Params &params(const FX &effect) {
+    return effect.params;
+  }
+
   template <typename FX>
   static void set_params(FX &effect, const typename FX::Params &params) {
     effect.adopt_params(params);

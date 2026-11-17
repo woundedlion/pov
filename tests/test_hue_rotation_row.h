@@ -4,7 +4,7 @@
  */
 #pragma once
 
-/** @file test_dedup.h
+/** @file test_hue_rotation_row.h
  * @brief Shared hue-knot evaluation through eager and lazy row preparation. */
 
 #include "core/color/hue_rotation_row.h"
@@ -13,7 +13,7 @@
 #include <array>
 #include <limits>
 
-namespace hs_test::dedup_tests {
+namespace hs_test::hue_rotation_row_tests {
 
 /** @brief Eager and lazy hue rows reproduce the same bound hue domain. */
 inline void test_hue_row_preparation_agrees() {
@@ -86,13 +86,13 @@ inline void test_hue_row_knots_through() {
   }
 }
 
-/** @brief Runs shared reconstruction tests.
+/** @brief Runs HueRotationRow tests.
  * @return Module failure count. */
-inline int run_dedup_tests() {
-  ModuleFixture fixture("dedup");
+inline int run_hue_rotation_row_tests() {
+  ModuleFixture fixture("hue_rotation_row");
   HS_RUN(test_hue_row_preparation_agrees);
   HS_RUN(test_hue_row_knots_through);
   return fixture.result();
 }
 
-} // namespace hs_test::dedup_tests
+} // namespace hs_test::hue_rotation_row_tests

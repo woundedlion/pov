@@ -110,7 +110,7 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
     fx.advance_display();
     HS_EXPECT_FALSE(same_mobius(previous, WB::warp(fx)));
     const math::Quaternion &q = WB::orientation(fx);
-    for (int i = 0; i < 600; i += 37) {
+    for (int i = 0; i < WB::cached_points(fx); i += 37) {
       HS_EXPECT_VEC(WB::drawn_centre(fx, i), WB::warped(fx, i), 0.0f);
       const math::Vector point = WB::cache_at(fx, i);
       const math::Vector drawn =

@@ -923,13 +923,21 @@ template <typename Model> inline void expect_warp_plane_bound() {
 
 /** @brief Warp bounds contain outputs at parameter extremes. */
 inline void test_shader_chain_warp_plane_bound() {
-  expect_warp_plane_bound<In::Op::WarpAffineV4>();
-  expect_warp_plane_bound<In::Op::WarpWaveShear>();
-  expect_warp_plane_bound<In::Op::WarpVortex>();
-  expect_warp_plane_bound<In::Op::WarpVectorNoise>();
-  expect_warp_plane_bound<In::Op::WarpMirrorTile>();
-  expect_warp_plane_bound<In::Op::WarpPolarChart>();
-  expect_warp_plane_bound<In::Op::WarpCurlFlow>();
+  size_t checked = 0;
+  [&]<typename... Models>(PB::Detail::TypeList<Models...>) {
+    (
+        [&]<typename Model>() {
+          if constexpr (std::is_same_v<typename Model::Input,
+                                       PB::PlaneSample> &&
+                        std::is_same_v<typename Model::Output,
+                                       PB::PlaneSample>) {
+            ++checked;
+            expect_warp_plane_bound<Model>();
+          }
+        }.template operator()<Models>(),
+        ...);
+  }(In::OperatorModels{});
+  HS_EXPECT_GT(checked, size_t{0});
 }
 
 } // namespace hs_test::shader_chain_tests

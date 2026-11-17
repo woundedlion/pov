@@ -47,18 +47,25 @@ inline void test_knot_walk_positions() {
 /** @brief Strided interpolation preserves grid, linear interior and periodic seams. */
 inline void test_catmull_rom_strided_properties() {
   constexpr int N = 32;
+  size_t out_of_range = 0;
+  const auto check_index = [&](int k) { out_of_range += k < 0 || k >= N; };
   for (int d : {1, 2, 4, 8}) {
-    const auto linear = [](int k) { return 2.0f * k + 3.0f; };
+    const auto linear = [&](int k) {
+      check_index(k);
+      return 2.0f * k + 3.0f;
+    };
     for (int k = 0; k < N; ++k) {
       const float actual = SDF::catmull_rom_strided(linear, d, k, N);
       if (k % d == 0 || (k >= d && k + 2 * d < N))
         HS_EXPECT_EQ(actual, linear(k));
     }
     for (int offset : {0, 8, 16}) {
-      const auto periodic = [offset](int k) {
+      const auto periodic = [&, offset](int k) {
+        check_index(k);
         return sinf((k + offset) * (2.0f * math::PI_F / N));
       };
-      const auto shifted = [offset](int k) {
+      const auto shifted = [&, offset](int k) {
+        check_index(k);
         return sinf(((k + offset + N / 2) % N) * (2.0f * math::PI_F / N));
       };
       for (int k = 0; k < N; ++k)
@@ -67,6 +74,7 @@ inline void test_catmull_rom_strided_properties() {
             SDF::catmull_rom_strided(shifted, d, k, N), 2e-6f);
     }
   }
+  HS_EXPECT_EQ(out_of_range, size_t{0});
 }
 
 // ============================================================================

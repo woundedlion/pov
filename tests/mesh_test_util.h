@@ -15,6 +15,7 @@
 #include "core/mesh/mesh.h"
 #include "core/mesh/solids.h"
 #include "tests/test_harness.h"
+#include "tests/vec_test_util.h"
 
 namespace hs_test {
 
@@ -172,6 +173,12 @@ inline constexpr float MAX_SLIVER_EDGE_RATIO = 6.0f;
  * @param m Mesh whose face edges are measured as arcs on the unit sphere.
  */
 inline void check_no_sliver_edges(const PolyMesh &m) {
+  size_t nonfinite = 0;
+  for (const auto &vertex : m.vertices)
+    nonfinite += !finite_vec(vertex);
+  HS_EXPECT_EQ(nonfinite, size_t{0});
+  if (nonfinite != 0)
+    return;
   std::vector<float> edges;
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {

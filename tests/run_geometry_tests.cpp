@@ -13,7 +13,7 @@
 #include "tests/test_partition_seam.h"
 #include "tests/test_hankin.h"
 #include "tests/test_geometry.h"
-#include "tests/test_dedup.h"
+#include "tests/test_hue_rotation_row.h"
 #include "tests/test_spherical_field.h"
 #include "tests/test_spherical_harmonics.h"
 #include "tests/test_tangent_field.h"
@@ -28,7 +28,7 @@ HS_FORWARD_MODULE(conway_tests, run_conway_tests)
 HS_FORWARD_MODULE(partition_seam_tests, run_partition_seam_tests)
 HS_FORWARD_MODULE(hankin_tests, run_hankin_tests)
 HS_FORWARD_MODULE(geometry_tests, run_geometry_tests)
-HS_FORWARD_MODULE(dedup_tests, run_dedup_tests)
+HS_FORWARD_MODULE(hue_rotation_row_tests, run_hue_rotation_row_tests)
 HS_FORWARD_MODULE(spherical_field_tests, run_spherical_field_tests)
 HS_FORWARD_MODULE(spherical_harmonics_tests, run_spherical_harmonics_tests)
 HS_FORWARD_MODULE(tangent_field_tests, run_tangent_field_tests)

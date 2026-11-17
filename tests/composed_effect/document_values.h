@@ -991,11 +991,7 @@ template <template <int, int> class E>
 inline void check_document_values(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
   using Params = typename FX::Params;
-  constexpr bool AUTHORED = [] {
-    if constexpr (requires { FX::Spec::AUTHORED_TOPOLOGY; })
-      return FX::Spec::AUTHORED_TOPOLOGY;
-    return false;
-  }();
+  constexpr bool AUTHORED = FX::AUTHORED_TOPOLOGY;
   HS_CONTEXT(name);
 
   const auto loaded = load_promoted_document<FX>();

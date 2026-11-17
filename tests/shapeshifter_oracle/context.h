@@ -276,14 +276,6 @@ struct ShapeShifterWhiteBox {
     return OracleEffect::FUNCTION_OPTIONS[index];
   }
 
-  static const char *shape_export_option(int index) {
-    return OracleEffect::SHAPE_EXPORT_OPTIONS[index];
-  }
-
-  static const char *spacing_export_option(int index) {
-    return OracleEffect::SPACING_EXPORT_OPTIONS[index];
-  }
-
   static const OracleEffect::Params &preset_params(size_t index) {
     return OracleEffect::PRESETS[index].params;
   }
