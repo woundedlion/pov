@@ -1386,6 +1386,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   ├── display_geometry.h      Display latitude profiles and pole-row mappings
 │   │   ├── pixel_mapping.h         PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap
 │   │   ├── spherical.h             Sphere generators, axes, Basis, and parallel transport
+│   │   ├── cube_projection.h       Dominant-axis cube-face projection with raw coordinates
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── ripple.h                Shared spherical wavelet, ordered group, and radial-transfer kernels
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
