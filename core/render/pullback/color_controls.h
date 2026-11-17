@@ -13,9 +13,6 @@
 #include "core/render/pullback/contract.h"
 #include "core/render/pullback/fields.h"
 #include "core/color/hue_rotation_lut.h"
-#include "core/color/palette_lab_lut.h"
-#include "core/render/pullback/modulation_temporal.h"
-#include "core/render/pullback/chamber_noise_cache.h"
 
 namespace Pullback::Color {
 
