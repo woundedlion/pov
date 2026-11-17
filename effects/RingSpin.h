@@ -109,7 +109,7 @@ public:
                                         const float *ts, int count) {
         TrailSlots trail_slots;
         int slots = 0;
-        const float PIXEL_WIDTH = math::coarse_pixel_pitch<W, H>();
+        constexpr float PIXEL_WIDTH = math::coarse_pixel_pitch<W, H>();
         constexpr float MIN_SLOT_ALPHA = 0.001f;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];

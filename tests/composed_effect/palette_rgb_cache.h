@@ -605,12 +605,12 @@ inline void test_palette_lab_cache_through_lerp() {
       const Color4 actual = Pipeline::shade(view, cached);
       const Color4 expected = Pipeline::shade(view, canonical);
       alpha_error = std::max(alpha_error, fabsf(actual.alpha - expected.alpha));
-      for (const uint32_t ERROR :
+      for (const uint32_t error :
            {uint32_t(std::abs(int(actual.color.r) - int(expected.color.r))),
             uint32_t(std::abs(int(actual.color.g) - int(expected.color.g))),
             uint32_t(std::abs(int(actual.color.b) - int(expected.color.b)))}) {
-        maximum = std::max(maximum, ERROR);
-        total += ERROR;
+        maximum = std::max(maximum, error);
+        total += error;
         ++channels;
       }
     }

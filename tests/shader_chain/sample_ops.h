@@ -443,15 +443,15 @@ inline void test_shader_chain_spiral_longitude_wrap() {
 
 /** @brief Noise and speed operators reduce restored turn clocks before adding. */
 inline void test_shader_chain_turn_clock_reduction() {
-  for (const float PHASE : {-16777216.0f, 16777216.0f}) {
+  for (const float phase : {-16777216.0f, 16777216.0f}) {
     In::Op::NoisePhaseState noise_state;
-    noise_state.phase = PHASE;
+    noise_state.phase = phase;
     In::Op::ProjectedNoiseSampleParams noise_params;
     noise_params.noise_time_rate = 0.25f;
     In::Op::SampleProjectedNoise::advance(noise_state, noise_params);
     HS_EXPECT_EQ(noise_state.phase, 0.25f);
     In::Op::WarpPhaseState speed_state;
-    speed_state.phase = PHASE;
+    speed_state.phase = phase;
     In::Op::WaveShearWarpParams speed_params;
     speed_params.speed = -0.25f;
     In::Op::WarpWaveShear::advance(speed_state, speed_params);

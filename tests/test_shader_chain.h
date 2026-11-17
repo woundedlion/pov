@@ -687,10 +687,10 @@ inline void test_shader_chain_snapshot_refusals() {
   valid_ripple.waves[0] = {12.0f, 3};
   HS_EXPECT_TRUE(In::RuntimeStateCodec<In::Op::RipplePhaseState>::restore(
       ripple_state, valid_ripple));
-  for (const float AGE :
+  for (const float age :
        {std::numeric_limits<float>::quiet_NaN(), -50.0f, 1001.0f}) {
     auto invalid_ripple = valid_ripple;
-    invalid_ripple.waves[0].age = AGE;
+    invalid_ripple.waves[0].age = age;
     HS_EXPECT_FALSE(In::RuntimeStateCodec<In::Op::RipplePhaseState>::restore(
         ripple_state, invalid_ripple));
     HS_EXPECT_EQ(ripple_state.phase, valid_ripple.phase);

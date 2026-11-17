@@ -219,11 +219,11 @@ struct CoverageProbability : ValueStateModel<ProbabilityClockState> {
    * @return Probability in [0, 1], nondecreasing in @p value. */
   static float probability(float value, const Params &params,
                            const Prepared &prepared) {
-    const float LOW = std::min(params.field_min, params.field_max);
-    const float HIGH = std::max(params.field_min, params.field_max);
-    float drive = HIGH > LOW
-                      ? std::clamp((value - LOW) / (HIGH - LOW), 0.0f, 1.0f)
-                      : float(value >= HIGH);
+    const float low = std::min(params.field_min, params.field_max);
+    const float high = std::max(params.field_min, params.field_max);
+    float drive = high > low
+                      ? std::clamp((value - low) / (high - low), 0.0f, 1.0f)
+                      : float(value >= high);
     if (params.distribution == 1)
       drive = -expm1f(-params.rate * drive);
     else if (params.distribution == 2)
@@ -231,11 +231,11 @@ struct CoverageProbability : ValueStateModel<ProbabilityClockState> {
                           prepared.normal_low) /
                              prepared.normal_span,
                          0.0f, 1.0f);
-    const float MINIMUM =
+    const float minimum =
         std::min(params.probability_min, params.probability_max);
-    const float MAXIMUM =
+    const float maximum =
         std::max(params.probability_min, params.probability_max);
-    return MINIMUM + (MAXIMUM - MINIMUM) * drive;
+    return minimum + (maximum - minimum) * drive;
   }
 
   static FieldSample run(const FieldSample &input, const FrameContext &,

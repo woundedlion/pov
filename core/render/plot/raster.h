@@ -619,7 +619,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     }
 
     // Equatorial step 2π/W: screen_step cap and balanced-threshold reference.
-    const float BASE_STEP = (2.0f * math::PI_F) / W;
+    constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
     auto adaptive_step = [&](const SamplePT &value) {
       if (!world_identity && step_axes.usable())
         return screen_step_from_axes<W, H>(value, step_axes);

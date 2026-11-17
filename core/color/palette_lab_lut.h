@@ -105,22 +105,22 @@ struct PaletteLabLutBase {
         rgb_masks
             ? rgb_masks + (rgb_midpoint ? rgb_midpoint_row : low_index + 1)
             : nullptr;
-    return {data + low_index * value_steps,
-            data + (low_index + 1) * value_steps,
-            position - low_index,
-            value_steps,
-            rgb_nodes
-                ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row : low_index) *
-                                  HueRotationLutView::SIZE
-                : nullptr,
-            rgb_nodes ? rgb_nodes +
-                            (rgb_midpoint ? rgb_midpoint_row : low_index + 1) *
-                                HueRotationLutView::SIZE
-                      : nullptr,
-            mask_low,
-            mask_high == mask_low ? nullptr : mask_high,
-            this,
-            hs::clamp(fraction, 0.0f, 1.0f)};
+    return {.low = data + low_index * value_steps,
+            .high = data + (low_index + 1) * value_steps,
+            .weight = position - low_index,
+            .value_steps = value_steps,
+            .rgb_low = rgb_nodes ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row
+                                                             : low_index) *
+                                                   HueRotationLutView::SIZE
+                                 : nullptr,
+            .rgb_high = rgb_nodes ? rgb_nodes + (rgb_midpoint ? rgb_midpoint_row
+                                                              : low_index + 1) *
+                                                    HueRotationLutView::SIZE
+                                  : nullptr,
+            .rgb_mask_low = mask_low,
+            .rgb_mask_high = mask_high == mask_low ? nullptr : mask_high,
+            .canonical_base = this,
+            .fraction = hs::clamp(fraction, 0.0f, 1.0f)};
   }
 
   /** @brief Samples neighboring palette nodes from both prepared time rows.

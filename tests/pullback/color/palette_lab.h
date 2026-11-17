@@ -374,12 +374,12 @@ inline void test_pullback_palette_lab_qualification() {
           pair.first, pair.second, frame.temporal.fraction));
       const auto actual = finish_color_sample(cached);
       HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-7f);
-      for (const uint32_t ERROR :
+      for (const uint32_t error :
            {channel_gap(actual.color.r, expected.color.r),
             channel_gap(actual.color.g, expected.color.g),
             channel_gap(actual.color.b, expected.color.b)}) {
-        maximum = std::max(maximum, ERROR);
-        total += ERROR;
+        maximum = std::max(maximum, error);
+        total += error;
         ++channels;
       }
     }

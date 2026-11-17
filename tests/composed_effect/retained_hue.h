@@ -137,14 +137,14 @@ inline void test_retained_equal_palette_hue_view() {
   uint32_t maximum = 0;
   uint64_t total = 0, channels = 0;
   size_t different = 0;
-  for (const float FRACTION : {0.17f, 0.5f, 0.83f}) {
-    const auto column = interval.at(FRACTION);
+  for (const float fraction : {0.17f, 0.5f, 0.83f}) {
+    const auto column = interval.at(fraction);
     HS_EXPECT_TRUE(column.temporal.same_palette);
     HS_EXPECT_FALSE(column.temporal.phase_compatible);
     HS_EXPECT_TRUE(column.temporal.hue_rotation == current.hue_rotation_lut);
     HS_EXPECT_TRUE(column.temporal.hue_rotation_gamut ==
                    current.hue_rotation_gamut);
-    HS_EXPECT_NEAR(column.temporal.fraction, FRACTION, 0.0f);
+    HS_EXPECT_NEAR(column.temporal.fraction, fraction, 0.0f);
     const auto palette = Palette::prepare(column);
     const auto modulation = Layer::prepare(column);
     HS_EXPECT_FALSE(modulation.ready);
@@ -152,18 +152,18 @@ inline void test_retained_equal_palette_hue_view() {
     alignas(typename Tail::PreparedTuple)
         std::byte erased[sizeof(typename Tail::PreparedTuple)];
     Tail::prepare_into(column, erased);
-    for (const auto &DIRECTION :
+    for (const auto &direction :
          {math::X_AXIS, math::Y_AXIS, math::Z_AXIS,
           math::Vector(0.3f, 0.4f, 0.5f).normalized()}) {
       const auto field = RetainedHueField::run<typename FX::Binding>(
-          {DIRECTION, 0.0f}, column, {});
+          {direction, 0.0f}, column, {});
       auto pair = Palette::apply_pair(field, column, palette);
       Color::apply_modulation_pair_in_place(pair.first, pair.second,
                                             modulation);
       const auto expected = finish_color_sample(
-          blend_color_samples(pair.first, pair.second, FRACTION));
-      const auto actual = Tail::shade(DIRECTION, typed);
-      const auto erased_value = Tail::shade_prepared(DIRECTION, column, erased);
+          blend_color_samples(pair.first, pair.second, fraction));
+      const auto actual = Tail::shade(direction, typed);
+      const auto erased_value = Tail::shade_prepared(direction, column, erased);
       HS_EXPECT_EQ(actual.color, expected.color);
       HS_EXPECT_NEAR(actual.alpha, expected.alpha, 0.0f);
       HS_EXPECT_EQ(erased_value.color, actual.color);
@@ -180,7 +180,7 @@ inline void test_retained_equal_palette_hue_view() {
         auto pair = Palette::apply_pair(field, column, palette);
         Color::apply_modulation_pair_in_place(pair.first, pair.second,
                                               modulation);
-        auto carrier = blend_color_samples(pair.first, pair.second, FRACTION);
+        auto carrier = blend_color_samples(pair.first, pair.second, fraction);
         HS_EXPECT_TRUE(carrier.hue_rotation == current.hue_rotation_lut);
         HS_EXPECT_TRUE(carrier.hue_rotation_gamut ==
                        current.hue_rotation_gamut);
@@ -198,17 +198,17 @@ inline void test_retained_equal_palette_hue_view() {
           delta -= 1.0f;
         if (delta < -0.5f)
           delta += 1.0f;
-        const float hue_turns = math::wrap_t(a + delta * FRACTION);
+        const float hue_turns = math::wrap_t(a + delta * fraction);
         auto expected = ColorModulation::apply(current.palette->get(coordinate),
                                                hue_turns, before.mechanic);
         expected.alpha *= 0.75f * 0.37f;
         HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-7f);
-        for (const uint32_t ERROR :
+        for (const uint32_t error :
              {uint32_t(std::abs(int(actual.color.r) - expected.color.r)),
               uint32_t(std::abs(int(actual.color.g) - expected.color.g)),
               uint32_t(std::abs(int(actual.color.b) - expected.color.b))}) {
-          maximum = std::max(maximum, ERROR);
-          total += ERROR;
+          maximum = std::max(maximum, error);
+          total += error;
           ++channels;
         }
       }

@@ -145,10 +145,10 @@ inline void test_palette_mapping_crossfade() {
   constexpr float PHASE = 0.2f;
   const auto LINEAR = PaletteMappingWeights::single(PaletteMapping::LINEAR);
   const auto CUP = PaletteMappingWeights::single(PaletteMapping::CUP);
-  for (const float PROGRESS : {0.0f, 1.0f}) {
-    const auto weights = PaletteMappingWeights::lerp(LINEAR, CUP, PROGRESS);
+  for (const float progress : {0.0f, 1.0f}) {
+    const auto weights = PaletteMappingWeights::lerp(LINEAR, CUP, progress);
     const auto MAPPING =
-        PROGRESS == 0.0f ? PaletteMapping::LINEAR : PaletteMapping::CUP;
+        progress == 0.0f ? PaletteMapping::LINEAR : PaletteMapping::CUP;
     HS_EXPECT_EQ(weights.exact, static_cast<uint8_t>(MAPPING));
     HS_EXPECT_EQ(palette_mapping_coordinate(PHASE, weights, 1.0f, 0.0f),
                  palette_mapping_coordinate(PHASE, MAPPING, 1.0f, 0.0f));

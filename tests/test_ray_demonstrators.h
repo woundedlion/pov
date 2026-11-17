@@ -1081,15 +1081,15 @@ inline void test_shell_shading_preserves_opacity() {
   const Raycast::Appearance appearance{0, 0, 100, &palette.view()};
   for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
                             Raycast::SamplingDomain::SLICE_4D}) {
-    for (const float OFFSET : {0.0f, .09f, .12f, .144f}) {
+    for (const float offset : {0.0f, .09f, .12f, .144f}) {
       Raycast::PreparedCamera camera;
       camera.domain = domain;
       camera.center = domain == Raycast::SamplingDomain::SPATIAL_3D
-                          ? math::Vec4{{-.5f, OFFSET, 0, 0}}
-                          : math::Vec4{{-.5f, 0, 0, OFFSET}};
+                          ? math::Vec4{{-.5f, offset, 0, 0}}
+                          : math::Vec4{{-.5f, 0, 0, offset}};
       camera.interval = {0, 1};
-      const float half_chord = sqrtf(.15f * .15f - OFFSET * OFFSET);
-      const float BRIGHTNESS = 1 - .9f * OFFSET * OFFSET / (.15f * .15f);
+      const float half_chord = sqrtf(.15f * .15f - offset * offset);
+      const float BRIGHTNESS = 1 - .9f * offset * offset / (.15f * .15f);
       const Pixel expected = appearance.color(.5f - half_chord) * BRIGHTNESS;
       const auto prepared = SDF::prepare_periodic_shells(camera, 1, .15f, {});
       SDF::ShellLayerStorage storage;

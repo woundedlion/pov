@@ -258,14 +258,14 @@ inline void test_baked_palette_constant_alpha() {
   BakedPaletteStorage storage;
   storage.bake(arena, Source{1.0f});
   const BakedPalette view = storage.view();
-  for (const float ALPHA : {0.0f, 0.5f, 1.0f}) {
-    storage.rebake(Source{ALPHA});
+  for (const float alpha : {0.0f, 0.5f, 1.0f}) {
+    storage.rebake(Source{alpha});
     const auto constant = view.constant_alpha();
     HS_EXPECT_TRUE(constant.has_value());
     HS_EXPECT_NEAR(constant.value_or(-1.0f),
-                   ALPHA == 0.5f ? 32768.0f / 65535.0f : ALPHA, 1e-7f);
-    for (const int INDEX : {0, 127, 255}) {
-      storage.rebake(Source{ALPHA, INDEX});
+                   alpha == 0.5f ? 32768.0f / 65535.0f : alpha, 1e-7f);
+    for (const int index : {0, 127, 255}) {
+      storage.rebake(Source{alpha, index});
       HS_EXPECT_TRUE(!view.constant_alpha().has_value());
     }
   }

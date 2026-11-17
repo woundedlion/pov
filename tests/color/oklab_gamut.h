@@ -638,12 +638,12 @@ inline void test_gamut_boundary_scale_cache_matches_master() {
   alignas(uint16_t) static uint8_t
       lut_buf[gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
-  for (const int DIVISOR : {1, 2}) {
+  for (const int divisor : {1, 2}) {
     release_gamut_lut();
     lut_arena.reset();
-    init_gamut_lut(lut_arena, GAMUT_LUT_ANGLE_STEPS / DIVISOR,
-                   GAMUT_LUT_L_STEPS / DIVISOR);
-    if (DIVISOR == 1)
+    init_gamut_lut(lut_arena, GAMUT_LUT_ANGLE_STEPS / divisor,
+                   GAMUT_LUT_L_STEPS / divisor);
+    if (divisor == 1)
       HS_EXPECT_EQ(std::memcmp(gamut_lut().table, GAMUT_LUT, sizeof(GAMUT_LUT)),
                    0);
     for (int lightness = 0; lightness <= 32; ++lightness)

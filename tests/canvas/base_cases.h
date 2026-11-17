@@ -974,9 +974,9 @@ inline void test_clip_content_key_is_exact() {
       &ClipRegion::h};
   HS_EXPECT_FALSE(BASE.content_key() == ClipRegion::Key<>{});
   HS_EXPECT_EQ(BASE.content_key(), ClipRegion(BASE).content_key());
-  for (const auto FIELD : FIELDS) {
+  for (const auto field : FIELDS) {
     ClipRegion changed = BASE;
-    ++(changed.*FIELD);
+    ++(changed.*field);
     HS_EXPECT_FALSE(BASE.content_key() == changed.content_key());
   }
   constexpr ClipRegion WIDE{.y_start = 2,
@@ -989,9 +989,9 @@ inline void test_clip_content_key_is_exact() {
   constexpr auto WIDE_KEY = WIDE.content_key<576, 288>();
   static_assert(WIDE_KEY.words[1] != 0);
   HS_EXPECT_NE(WIDE_KEY.words[1], uint64_t{0});
-  for (const auto FIELD : FIELDS) {
+  for (const auto field : FIELDS) {
     ClipRegion changed = WIDE;
-    --(changed.*FIELD);
+    --(changed.*field);
     HS_EXPECT_FALSE((WIDE_KEY == changed.content_key<576, 288>()));
   }
   ClipRegion wide = WIDE;

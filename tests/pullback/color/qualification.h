@@ -51,17 +51,17 @@ inline void test_pullback_modulation_lut_qualification() {
         const auto expected =
             ColorModulation::apply(base, scalar, frame.mechanic);
         HS_EXPECT_EQ(actual.alpha, expected.alpha);
-        for (const uint32_t ERROR :
+        for (const uint32_t error :
              {channel_gap(actual.color.r, expected.color.r),
               channel_gap(actual.color.g, expected.color.g),
               channel_gap(actual.color.b, expected.color.b)}) {
-          if (ERROR > maximum) {
-            maximum = ERROR;
+          if (error > maximum) {
+            maximum = error;
             worst_frame = target;
             worst_value = value;
             worst_hue = hue;
           }
-          total += ERROR;
+          total += error;
           ++channels;
         }
       }

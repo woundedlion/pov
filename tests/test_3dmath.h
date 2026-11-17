@@ -2215,10 +2215,10 @@ inline void test_tetrahedral_after_dodecahedral() {
         const float phase = angle * (2.0f * math::PI_F / 64.0f);
         const math::Vector on_wall =
             tangent * std::cos(phase) + bitangent * std::sin(phase);
-        for (const float OFFSET :
+        for (const float offset :
              {-4e-6f, -2e-6f, -1.001e-6f, -1e-6f, -0.999e-6f, -1e-7f, 0.0f,
               1e-7f, 0.999e-6f, 1e-6f, 1.001e-6f, 2e-6f, 4e-6f})
-          verify(on_wall + normal * OFFSET);
+          verify(on_wall + normal * offset);
       }
     }
     for (const math::Vector &first : roots)

@@ -772,14 +772,14 @@ inline void test_face_cull_sentinel_respects_static_margin() {
   constexpr int H = 144;
   const auto basis = math::make_basis(
       math::Quaternion(), math::Vector(.3f, .8f, -.4f).normalized());
-  for (const float RADIUS : {.03f, .3f, 1.2f}) {
-    for (const float SQUISH : {.05f, 1.0f}) {
+  for (const float radius : {.03f, .3f, 1.2f}) {
+    for (const float squish : {.05f, 1.0f}) {
       math::Vector vertices[3];
       const uint16_t INDICES[3] = {0, 1, 2};
       for (int i = 0; i < 3; ++i) {
         const float angle = math::TWO_PI_F * i / 3;
-        vertices[i] = (basis.v + RADIUS * (basis.u * cosf(angle) +
-                                           basis.w * (SQUISH * sinf(angle))))
+        vertices[i] = (basis.v + radius * (basis.u * cosf(angle) +
+                                           basis.w * (squish * sinf(angle))))
                           .normalized();
       }
       SDF::FaceScratchBuffer scratch;

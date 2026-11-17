@@ -244,18 +244,18 @@ inline void test_pattern_turn_clock_reduction() {
     return reduced < 0.0 ? reduced + 1.0 : reduced;
   };
   const float LIMIT = std::numeric_limits<float>::max();
-  for (const float PHASE : {-LIMIT, -16777216.0f, -2.75f, -0.125f, 0.0f, 0.125f,
+  for (const float phase : {-LIMIT, -16777216.0f, -2.75f, -0.125f, 0.0f, 0.125f,
                             0.75f, 1.0f, 2.75f, 16777216.0f, LIMIT}) {
-    for (const float RATE : {-LIMIT, -16777216.0f, -1.25f, -1.0f, -0.25f, 0.0f,
+    for (const float rate : {-LIMIT, -16777216.0f, -1.25f, -1.0f, -0.25f, 0.0f,
                              0.25f, 1.0f, 1.25f, 16777216.0f, LIMIT}) {
       const float sum =
-          static_cast<float>(fraction(PHASE)) +
-          static_cast<float>(std::fmod(static_cast<double>(RATE), 1.0));
+          static_cast<float>(fraction(phase)) +
+          static_cast<float>(std::fmod(static_cast<double>(rate), 1.0));
       const float expected = static_cast<float>(fraction(sum));
-      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, RATE), expected);
+      HS_EXPECT_EQ(Pattern::advance_turn_phase(phase, rate), expected);
       Pattern::NoiseSourceParams params;
-      params.noise_time_rate = RATE;
-      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), expected);
+      params.noise_time_rate = rate;
+      HS_EXPECT_EQ(Pattern::advance_noise_phase(phase, params), expected);
     }
   }
   for (uint32_t index = 1; index <= 4096; ++index) {
@@ -264,24 +264,24 @@ inline void test_pattern_turn_clock_reduction() {
       continue;
     const float fractional_rate =
         static_cast<float>(std::fmod(static_cast<double>(rate), 1.0));
-    for (const float PHASE : {0.0f, 0.375f, 0.99999994f}) {
-      const float sum = PHASE + fractional_rate;
+    for (const float phase : {0.0f, 0.375f, 0.99999994f}) {
+      const float sum = phase + fractional_rate;
       const float reduced = static_cast<float>(fraction(sum));
       const float expected = reduced >= 1.0f ? 0.0f : reduced;
-      HS_EXPECT_EQ(Pattern::advance_turn_phase(PHASE, rate), expected);
+      HS_EXPECT_EQ(Pattern::advance_turn_phase(phase, rate), expected);
       Pattern::NoiseSourceParams params;
       params.noise_time_rate = rate;
-      HS_EXPECT_EQ(Pattern::advance_noise_phase(PHASE, params), expected);
+      HS_EXPECT_EQ(Pattern::advance_noise_phase(phase, params), expected);
     }
   }
   for (int step = 0; step < 4096; ++step) {
     const float phase = static_cast<float>(step) / 4096.0f;
-    for (const float RATE :
+    for (const float rate :
          {-0.999f, -0.25f, -1.0e-7f, 0.0f, 1.0e-7f, 0.25f, 0.999f}) {
-      const float single_wrap = math::wrap_t(phase + RATE);
-      HS_EXPECT_EQ(Pattern::advance_turn_phase(phase, RATE), single_wrap);
+      const float single_wrap = math::wrap_t(phase + rate);
+      HS_EXPECT_EQ(Pattern::advance_turn_phase(phase, rate), single_wrap);
       Pattern::NoiseSourceParams params;
-      params.noise_time_rate = RATE;
+      params.noise_time_rate = rate;
       HS_EXPECT_EQ(Pattern::advance_noise_phase(phase, params), single_wrap);
     }
   }
