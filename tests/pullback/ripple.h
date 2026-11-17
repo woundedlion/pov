@@ -586,9 +586,7 @@ inline void test_pullback_radial_ripple_endpoint_reuse() {
     state.seed = 149502542u;
     uint32_t random = 0x719463a5u;
     const auto next = [&]() {
-      random ^= random << 13;
-      random ^= random >> 17;
-      random ^= random << 5;
+      xorshift32(random);
       return static_cast<float>(random & 0xffffffu) / 16777216.0f;
     };
     for (int frame = 0; frame < 600; ++frame) {

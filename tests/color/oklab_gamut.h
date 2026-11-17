@@ -847,20 +847,24 @@ inline void test_hue_rotate_full_turn_identity() {
  */
 inline void test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma() {
   const int STEPS = 32;
-  // Second entry is the interior base; the rest ride the gamut boundary.
-  const Color4 cases[] = {Color4(200, 60, 30, 1.0f), Color4(90, 150, 200, 1.0f),
-                          Color4(240, 250, 60, 1.0f), Color4(255, 0, 0, 1.0f)};
-  for (int ci = 0; ci < 4; ++ci) {
-    Color4 out = cases[ci];
+  const struct {
+    Color4 color;
+    bool interior;
+  } cases[] = {{Color4(200, 60, 30, 1.0f), false},
+               {Color4(90, 150, 200, 1.0f), true},
+               {Color4(240, 250, 60, 1.0f), false},
+               {Color4(255, 0, 0, 1.0f), false}};
+  for (const auto &entry : cases) {
+    Color4 out = entry.color;
     for (int i = 0; i < STEPS; ++i)
       out = hue_rotate(out, 1.0f / STEPS);
 
-    const OKLCH before = pixel_to_oklch(cases[ci].color);
+    const OKLCH before = pixel_to_oklch(entry.color.color);
     const OKLCH after = pixel_to_oklch(out.color);
     HS_EXPECT_NEAR(wrap_hue_delta(after.h - before.h), 0.0f, 0.09f);
     HS_EXPECT_NEAR(after.L, before.L, 1e-3f);
     HS_EXPECT_LE(after.C, before.C + 1e-4f);
-    if (ci == 1)
+    if (entry.interior)
       HS_EXPECT_NEAR(after.C, before.C, 2e-4f);
   }
 }

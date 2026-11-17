@@ -497,6 +497,8 @@ inline void test_transformer_recycled_slot_composes_in_spawn_order() {
 
   const math::Vector r = tr.transform(math::Vector(0, 0, 0));
   HS_EXPECT_NEAR(r.x, 12.0f, 1e-4f);
+  const OrderParams subs[2] = {{3}, {4}};
+  HS_EXPECT_NEAR(tr.transform(math::Vector(0, 0, 0), subs).x, 34.0f, 1e-4f);
 }
 
 // ============================================================================

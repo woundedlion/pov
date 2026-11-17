@@ -145,9 +145,7 @@ inline void test_wrap_longitude_fmod_contract() {
     check(value);
   uint32_t state = 0x8e2bd471u;
   for (int index = 0; index < 4096; ++index) {
-    state ^= state << 13;
-    state ^= state >> 17;
-    state ^= state << 5;
+    xorshift32(state);
     check(std::bit_cast<float>(state));
   }
 }

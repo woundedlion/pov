@@ -54,9 +54,7 @@ inline void test_dodecahedral_matrix_cache_lifetime() {
 inline void expect_fold_parity(uint32_t seed, auto cached_fold) {
   uint32_t random = seed;
   const auto next = [&]() {
-    random ^= random << 13;
-    random ^= random >> 17;
-    random ^= random << 5;
+    xorshift32(random);
     return float(random & 0xffffff) * (2.0f / 0xffffff) - 1.0f;
   };
   for (int sample = 0; sample < 1000000; ++sample) {

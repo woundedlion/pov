@@ -416,9 +416,7 @@ inline void test_palette_rgb_cache_any_chroma() {
 inline void test_palette_rgb_cache_q16_compatibility() {
   uint32_t random = 0x728f1ab5;
   const auto next = [&]() {
-    random ^= random << 13;
-    random ^= random >> 17;
-    random ^= random << 5;
+    xorshift32(random);
     return random;
   };
   unsigned maximum = 0;

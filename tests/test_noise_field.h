@@ -256,9 +256,7 @@ template <typename Float> inline void check_noise_rounding() {
   using Bits = std::conditional_t<sizeof(Float) == 4, uint32_t, uint64_t>;
   uint64_t state = 0x723f1185bc83d229ull;
   for (int i = 0; i < 100000; ++i) {
-    state ^= state << 13;
-    state ^= state >> 7;
-    state ^= state << 17;
+    xorshift64(state);
     check(std::bit_cast<Float>(static_cast<Bits>(state)));
   }
 #endif
@@ -286,9 +284,7 @@ inline void test_noise_gradient_residual_sign() {
     check(value);
   uint32_t bits = 41;
   for (int i = 0; i < 100000; ++i) {
-    bits ^= bits << 13;
-    bits ^= bits >> 17;
-    bits ^= bits << 5;
+    xorshift32(bits);
     check(std::bit_cast<float>(bits));
   }
 #endif
@@ -315,9 +311,7 @@ inline void test_noise_field_gradient_value_return() {
   };
   uint32_t state = 0x4a31c587;
   const auto coordinate = [&]() {
-    state ^= state << 13;
-    state ^= state >> 17;
-    state ^= state << 5;
+    xorshift32(state);
     return float(state & 0xffffff) * (64.0f / 0xffffff) - 32.0f;
   };
   for (int seed : {-991, 1, 1337})

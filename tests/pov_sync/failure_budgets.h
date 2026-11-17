@@ -44,8 +44,8 @@ inline void test_budget_spurious_epoch() {
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   const uint64_t REV = 2ull * PERIOD;
   const uint64_t boundary = (sim.g / REV + 2) * REV;
-  sim.emi.push_back({boundary + COL, 2});
-  sim.emi.push_back({boundary + 3ull * COL, 2});
+  sim.inject_emi(boundary + COL, 2);
+  sim.inject_emi(boundary + 3ull * COL, 2);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[2].live_index == 1; }, 8.0));
   HS_EXPECT_EQ(sim.boards[0].live_index, 0);
@@ -116,9 +116,7 @@ inline void test_budget_emi_accepted_seam() {
   const uint64_t h = sim.g + 104ull * COL;
   sim.boards[1].drop_from = h - COL;
   sim.boards[1].drop_to = h + 8 * COL;
-  sim.emi.push_back({h - 3 * COL, 1});
-  sim.emi_pos = 0;
-  std::sort(sim.emi.begin(), sim.emi.end());
+  sim.inject_emi(h - 3 * COL, 1);
 
   // ≥2 col clears truncation noise, proving the forged snap was accepted.
   const double seam = max_err_over(sim, 0.45);
@@ -277,9 +275,7 @@ inline void test_budget_beacon_corruption() {
   // Beacon (index 0, rev 9) is digits [0,0,1,1,0]; its 4th burst pulses at
   // train columns 16 and 17. One EMI edge between them makes that digit read 2.
   const uint64_t train = sim.g + 72ull * COL;
-  sim.emi.push_back({train + 16ull * COL + COL / 2, 1});
-  sim.emi_pos = 0;
-  std::sort(sim.emi.begin(), sim.emi.end());
+  sim.inject_emi(train + 16ull * COL + COL / 2, 1);
 
   const Telemetry before = sim.boards[1].board.telemetry_snapshot();
   const uint32_t ok_before = before.beacons_ok;
@@ -323,8 +319,8 @@ inline void test_beacon_two_edge_substitution() {
 
   // [0,0,6,1,7]: digit 3 pulses at train columns 21 and 22.
   const uint64_t train = sim.g + 32ull * COL;
-  sim.emi.push_back({train + 21ull * COL + COL / 2, 1});
-  sim.emi.push_back({train + 22ull * COL + COL / 2, 1});
+  sim.inject_emi(train + 21ull * COL + COL / 2, 1);
+  sim.inject_emi(train + 22ull * COL + COL / 2, 1);
   const Telemetry before = sim.boards[1].board.telemetry_snapshot();
   const Telemetry clean_before = sim.boards[2].board.telemetry_snapshot();
   sim.run_revs(0.5);

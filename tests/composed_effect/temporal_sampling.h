@@ -298,9 +298,9 @@ static_assert(FactoredColumnProbe::factored_columns());
 /** @brief Factored columns match the ordinary GridSpace renderer. */
 inline void test_composed_factored_columns_match_pixels() {
   constexpr int W = 96, H = 20, FRAMES = 5;
-  const auto render = []<typename FX>() {
+  const auto render = []<typename FX>(bool temporal_sampling) {
     reset_globals();
-    const ScopedTemporalSampling sampling(false);
+    const ScopedTemporalSampling sampling(temporal_sampling);
     FX effect;
     effect.init();
     std::vector<Pixel> pixels;
@@ -314,12 +314,17 @@ inline void test_composed_factored_columns_match_pixels() {
     }
     return pixels;
   };
-  const auto reference = render.template operator()<GridSpace<W, H>>();
-  const auto factored = render.template operator()<FactoredColumnProbe>();
-  HS_EXPECT_SIZE_OR_RETURN(factored, reference.size());
-  for (size_t pixel = 0; pixel < factored.size(); ++pixel) {
-    HS_CONTEXT("pixel", pixel);
-    HS_EXPECT_LE(max_channel_gap(factored[pixel], reference[pixel]), 1);
+  for (bool sampling : {false, true}) {
+    HS_CONTEXT("sampling", sampling);
+    const auto reference =
+        render.template operator()<GridSpace<W, H>>(sampling);
+    const auto factored =
+        render.template operator()<FactoredColumnProbe>(sampling);
+    HS_EXPECT_SIZE_OR_RETURN(factored, reference.size());
+    for (size_t pixel = 0; pixel < factored.size(); ++pixel) {
+      HS_CONTEXT("pixel", pixel);
+      HS_EXPECT_LE(max_channel_gap(factored[pixel], reference[pixel]), 1);
+    }
   }
 }
 

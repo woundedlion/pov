@@ -19,10 +19,11 @@ inline void mesh_topology_range_fixture(int face_index) {
   const uint16_t *topology = BACKING + 1;
   Fragment fragment;
   fragment.v2 = 0;
-  HS_EXPECT_EQ(mesh_topology_slot<4>(fragment, topology, 3), 3);
+  const int first = mesh_topology_slot<4>(fragment, topology, 3);
   fragment.v2 = 2;
-  HS_EXPECT_EQ(mesh_topology_slot<4>(fragment, topology, 3), 2);
-  death_admitted();
+  const int last = mesh_topology_slot<4>(fragment, topology, 3);
+  if (first == 3 && last == 2)
+    death_admitted();
   fragment.v2 = opaque<float>(static_cast<float>(face_index));
   volatile int slot = mesh_topology_slot<4>(fragment, topology, 3);
   (void)slot;

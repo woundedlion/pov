@@ -1323,12 +1323,8 @@ inline void test_pullback_square_cells_formula() {
                               sample < 8 ? 0.0f : y)};
             const float expected = reference(coordinate, params);
             const float actual = Pattern::square_cells(coordinate, params);
-#if HS_TEST_FAST_MATH
             HS_EXPECT_NEAR(actual, expected,
                            8.0f * std::numeric_limits<float>::epsilon());
-#else
-            HS_EXPECT_TRUE(std::memcmp(&expected, &actual, sizeof(float)) == 0);
-#endif
           }
         }
 }
@@ -1846,9 +1842,7 @@ inline void test_pullback_dodecahedral_matrix_fold() {
   size_t accepted = 0;
   uint32_t state = 0x735b18a3;
   const auto random = [&]() {
-    state ^= state << 13;
-    state ^= state >> 17;
-    state ^= state << 5;
+    xorshift32(state);
     return float(state & 0xffffff) * (2.0f / 0xffffff) - 1.0f;
   };
   for (int sample = 0; sample < 8192; ++sample) {

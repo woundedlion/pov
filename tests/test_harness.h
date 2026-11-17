@@ -21,6 +21,26 @@
 
 namespace hs_test {
 
+/** @brief Advances a deterministic xorshift32 sequence.
+ * @param state Nonzero generator state, updated in place.
+ * @return Next generator value. */
+inline uint32_t xorshift32(uint32_t &state) {
+  state ^= state << 13;
+  state ^= state >> 17;
+  state ^= state << 5;
+  return state;
+}
+
+/** @brief Advances a deterministic xorshift64 sequence.
+ * @param state Nonzero generator state, updated in place.
+ * @return Next generator value. */
+inline uint64_t xorshift64(uint64_t &state) {
+  state ^= state << 13;
+  state ^= state >> 7;
+  state ^= state << 17;
+  return state;
+}
+
 /** @brief Reads a process environment variable.
  * @param name NUL-terminated variable name.
  * @return Borrowed value, or null when unset. */

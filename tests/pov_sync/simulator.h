@@ -136,6 +136,16 @@ public:
   std::vector<std::pair<uint64_t, int>> emi; /**< (g, target), sorted. */
   size_t emi_pos = 0;
 
+  /** @brief Queues an EMI edge without replaying delivered edges.
+   * @param at Global delivery time, not earlier than the current time.
+   * @param target Board receiving the edge. */
+  void inject_emi(uint64_t at, int target) {
+    if (at < g)
+      std::abort();
+    const std::pair<uint64_t, int> edge{at, target};
+    emi.insert(std::upper_bound(emi.begin() + emi_pos, emi.end(), edge), edge);
+  }
+
   /**
    * @brief Builds @p n boards (index 0 is the master) and seeds each flywheel.
    * @param c Shared sync configuration.
@@ -948,15 +958,14 @@ inline void test_sim_emi() {
   for (int k = 8; k < 40; ++k) {
     lcg = lcg * 1664525u + 1013904223u;
     const uint64_t off = (20 + lcg % 100) * static_cast<uint64_t>(COL);
-    sim.emi.push_back({k * REV + off, 1});
+    sim.inject_emi(k * REV + off, 1);
   }
   // Two edges injected INSIDE master ZERO bursts on board 2 (count 3 → 4):
   // even count = invalid, discarded whole; the crossing flip covers it.
-  sim.emi.push_back({10 * REV + COL, 2});
-  sim.emi.push_back({14 * REV + COL, 2});
+  sim.inject_emi(10 * REV + COL, 2);
+  sim.inject_emi(14 * REV + COL, 2);
   // The nearby forged edge merges with the real HALF into an invalid count.
-  sim.emi.push_back({12 * REV + (PERIOD - 2ull * COL), 3});
-  std::sort(sim.emi.begin(), sim.emi.end());
+  sim.inject_emi(12 * REV + (PERIOD - 2ull * COL), 3);
 
   sim.run_revs(42.0);
   HS_EXPECT_TRUE(run_to_master_column(sim, 72));
@@ -1102,9 +1111,7 @@ inline void test_sim_forged_burst() {
   // An isolated valid-count (HALF) burst 30 columns past a real ZERO boundary,
   // clear of the gap-timeout window and the quiet-before guard (§5.3).
   const uint64_t b0 = (sim.g / REV + 2) * REV; // a future master ZERO
-  sim.emi.push_back({b0 + 30 * static_cast<uint64_t>(COL), 1});
-  sim.emi_pos = 0;
-  std::sort(sim.emi.begin(), sim.emi.end());
+  sim.inject_emi(b0 + 30 * static_cast<uint64_t>(COL), 1);
 
   HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   const uint64_t flips_before = sim.boards[1].flips;
