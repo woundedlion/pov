@@ -121,6 +121,7 @@ public:
   void check_stale_transfer() {
     if (transfer_complete.load(std::memory_order_relaxed))
       return;
+    // no death case: Arduino-only DMA channel; timeout predicate is host-tested.
     HS_CHECK(
         !dma::transfer_stale(transfer_start_us, micros(),
                              dma::TRANSFER_WATCHDOG_US),
