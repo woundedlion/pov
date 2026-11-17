@@ -5,14 +5,12 @@
 #pragma once
 
 /** @file
- * @brief Scan cases test cases and fixtures. */
+ * @brief Death cases for scan and radial-surface guards. */
 
 #include "tests/death/context.h"
 #include "tests/death/fixtures.h"
 
 namespace hs_test::death_tests {
-
-// Scan and radial-surface death cases.
 
 /**
  * @brief Builds an invalid scan mesh with either missing offsets or a bad index.

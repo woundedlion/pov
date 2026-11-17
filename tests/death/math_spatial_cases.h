@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Math spatial cases test cases and fixtures. */
+ * @brief Death cases for math and spatial guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Math spatial death cases.
 
 /** @brief Harmonic derivatives reject unsupported degrees. */
 inline void case_harmonic_derivative_invalid_degree() {

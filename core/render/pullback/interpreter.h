@@ -177,7 +177,8 @@ inline bool instance_id_wellformed(std::string_view id) {
 /**
  * @brief An arena-backed chain program: transactional compile into the
  *        inactive arena, per-frame advance/prepare, ping-pong evaluate.
- * @details Storage is two caller-owned fixed blocks bound once; steady-state
+ * @details Storage is two caller-owned program blocks, plus two temporal blocks
+ * when column-time sampling is bound; all are bound once. Steady-state
  * recompiles never allocate. Compilation is transactional: any refusal leaves
  * the previous program and all live instance state untouched, tearing down
  * only the candidate. No heap anywhere.

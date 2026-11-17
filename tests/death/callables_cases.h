@@ -4,15 +4,12 @@
  */
 #pragma once
 
+/** @file
+ * @brief Death cases for callable invocation guards. */
+
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-/** @file
- * @brief Callables death cases.
- */
-
-// Callables death cases.
 
 /**
  * @brief Death case: calling an empty (default-constructed) Fn must trap.

@@ -30,7 +30,8 @@
 #include <string>
 #include <utility>
 
-#include "death_guard_sites.h" // generated HS_CHECK census
+// Generated fail-fast site census: HS_CHECK, HS_AUDIT_CHECK, check_fail.
+#include "death_guard_sites.h"
 #include "tests/test_fixture.h"
 #include "tests/test_pullback.h"
 #include "tests/effects/fixture.h"

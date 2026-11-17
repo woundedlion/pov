@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Effects cases test cases and fixtures. */
+ * @brief Death cases and companion fixtures for effect guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Effects death fixtures and guard cases.
 
 inline void check_shader_chain_colorize_companion() {
   using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;

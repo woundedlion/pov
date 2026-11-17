@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Registry cases test cases and fixtures. */
+ * @brief Death cases for effect registration guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Registry death cases.
 
 /** @brief Builds a registration carrying only a name and stable ID. */
 constexpr EffectRegistration named_registration(std::string_view name,

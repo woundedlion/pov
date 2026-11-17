@@ -1,6 +1,7 @@
 # PHANTASM board projects
 
-Use **[rev 1.2](1.2/README.md)** for the current Quilter placement run.
+The built and exhibited boards are **[rev 1.1](1.1/README.md)**, the firmware default.
+Use **[rev 1.2](1.2/README.md)** for the next-revision Quilter placement run.
 The experimental **[1.3/](1.3/README.md)** project uses differential sync.
 Rev 1.2 remains the generator default; select rev 1.3 explicitly.
 Open either project in KiCad 10 with its symbol and footprint libraries.
@@ -17,10 +18,10 @@ remain physical qualification gates. See the [rev 1.3 placement contract](1.3/RE
 
 | Directory | Contents |
 |---|---|
-| [1.2/](1.2/README.md) | Current complete rev 1.2 project for Quilter |
+| [1.2/](1.2/README.md) | Next-revision complete rev 1.2 project for Quilter |
 | [1.2/routed/](1.2/routed/README.md) | Unvalidated Quilter output; not ordered |
 | [1.3/](1.3/README.md) | Experimental differential-sync project with locked placement. Mechanical review, routing, qualification and firmware remain |
-| [1.1/](1.1/README.md) | Routed rev 1.1 project, libraries, and detailed technical reference |
+| [1.1/](1.1/README.md) | Built and exhibited board; default firmware target, libraries, and technical reference |
 | `gen/` | Generators and validation tools |
 
 Regenerate the current project from the repository root, schematic first:

@@ -666,18 +666,6 @@ presets. Both forms use versioned parameter snapshots.
 
 Each editable source document lives under `patterns/*.shader.json`. The browser validates and canonicalizes a document before changing the live engine, matches its exact descriptor digest to a composed effect, and selects presets by immutable ID. Open/save preserves exhaustive chain, parameter, transition, and choreography data. Unknown or invalid semantics leave the current preview untouched. The current catalog maps each composed effect to its authoring document.
 
-The **Twist Lens** rotates around its animated axis with a fixed total winding:
-`a = Twist Distribution * 0.999` and
-`angle(height) = 0.5 * Twist Angle * atanh(a * height) / atanh(a)`.
-**Twist Angle (rad)** is the signed pole-to-pole rotation, from -96 to 96 radians;
-its default is 2π, one complete wind. **Twist Distribution** defaults to 0.85 and
-ranges from 0 to 1. Zero gives a linear height profile; increasing it redistributes
-spacing toward the poles while preserving the total winding and the endpoint
-rotations at ±half the Twist Angle. **Axis Phi (rad)** (0 to π) and **Axis
-Lambda (rad)** (-π to π) set the axis's polar and azimuth angles; **Speed** and
-**Drift** rotate the axis from there independently. A small flash lookup table and polynomial evaluate
-the profile without per-pixel logarithms or inverse hyperbolic functions.
-
 The shader is a *pullback*: it starts at a visible sphere point and walks backward through a chain of stages over four ranked carrier families — Sphere, Plane, Field, Color. A chain is any stage sequence that is non-decreasing in family rank with agreeing adjacent carriers, entering at `SphereSample` and exiting at `Color4`; each family boundary is crossed at most once. Both Shader preview and concrete effects call the same public kernels in `core/render/pullback.h`. Palette mapping is continuous preset state: a transition carries both mapping endpoints and interpolates their coordinates before the single palette sample, so changing Cup/Bell/Linear/Reverse does not require another pipeline or effect.
 
 ```
@@ -799,11 +787,19 @@ agree, and runtime snapshots retain the frame clock. Each rendered frame rerolls
 the mask, including while automatic preset cycling is paused. Insert it with
 **+** in the shader tool's Field band before Colorize.
 
-Twist Lens exposes Twist Angle (rad), Twist Distribution, Axis Phi (rad), Axis
-Lambda (rad), Speed and Drift. Axis Phi and Axis Lambda place its origin; from
-there the polar angle (phi) circles continuously at Speed while the azimuth
-(lambda) circles at Drift, both in radians per frame. Zero holds the
-corresponding angle; both at zero hold the origin at the authored axis.
+The **Twist Lens** rotates around its animated axis with a fixed total winding:
+`a = Twist Distribution * 0.999` and
+`angle(height) = 0.5 * Twist Angle * atanh(a * height) / atanh(a)`.
+**Twist Angle (rad)** is the signed pole-to-pole rotation, from -96 to 96 radians;
+its default is 2π, one complete wind. **Twist Distribution** defaults to 0.85 and
+ranges from 0 to 1. Zero gives a linear height profile; increasing it redistributes
+spacing toward the poles while preserving the total winding and the endpoint
+rotations at ±half the Twist Angle. **Axis Phi (rad)** (0 to π) and **Axis
+Lambda (rad)** (-π to π) set the axis's polar and azimuth angles; **Speed** and
+**Drift** advance its polar and azimuth angles, respectively, in radians per
+frame. Zero holds the corresponding angle; both at zero hold the authored axis.
+A small flash lookup table and polynomial evaluate the profile without per-pixel
+logarithms or inverse hyperbolic functions.
 
 Ripple emits bursts of one to four waves, staggered by 16 frames. Burst Rate
 sets how often a burst starts; zero stops new bursts after the initial burst.

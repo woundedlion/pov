@@ -4,15 +4,12 @@
  */
 #pragma once
 
+/** @file
+ * @brief Death cases for mesh topology and operator guards. */
+
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-/** @file
- * @brief Mesh death cases.
- */
-
-// Mesh death cases.
 
 /**
  * @brief Builds a PolyMesh from an explicit face-count and flat index list.

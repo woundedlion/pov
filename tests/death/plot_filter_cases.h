@@ -5,14 +5,12 @@
 #pragma once
 
 /** @file
- * @brief Plot filter cases test cases and fixtures. */
+ * @brief Death cases for plot and filter guards. */
 
 #include "tests/death/context.h"
 #include "tests/death/fixtures.h"
 
 namespace hs_test::death_tests {
-
-// Plot filter death cases.
 
 /** @brief Topology shading rejects a face outside its declared table.
  * @param face_index Invalid face index within the fixture's backing storage. */

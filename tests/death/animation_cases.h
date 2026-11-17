@@ -5,14 +5,12 @@
 #pragma once
 
 /** @file
- * @brief Animation cases test cases and fixtures. */
+ * @brief Death cases for animation lifecycle guards. */
 
 #include "tests/death/context.h"
 #include "tests/death/fixtures.h"
 
 namespace hs_test::death_tests {
-
-// Animation death cases.
 
 /** @brief Draw callback for the OpLeg construction death cases; never runs. */
 inline void death_opleg_draw(Canvas &, MeshState &,

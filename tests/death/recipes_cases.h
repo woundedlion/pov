@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Recipes cases test cases and fixtures. */
+ * @brief Death cases for Solids recipe replay guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Recipes death cases.
 
 inline void run_invalid_recipe_step(const Solids::OpStep &step) {
   static uint8_t a_buf[64 * 1024];

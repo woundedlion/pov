@@ -749,7 +749,7 @@ The [`daydream`](https://github.com/woundedlion/daydream) repo is a static web a
 ```
 Main thread                                Web Workers (segment mode only)
 ─────────────                              ──────────────────────────────
-index.html → vendor-importmap.js           segment_worker.js × N
+index.html → embedded import map          segment_worker.js × N
               ↓ (resolves three/lil-gui    each owns its own WASM instance
               ↓  to local or CDN)
             main.js (entry)                engine.setClip(x0,x1,y0,y1)
@@ -992,14 +992,17 @@ Key properties:
 
 ### 7.8 Vendor Importmap (CDN by Default / Local Opt-In)
 
-`vendor-importmap.js` is loaded as a regular (non-module) `<script>` by `index.html` and by every tool page that imports bare specifiers. `palettes.html` imports none — every module it loads is page-relative — so it carries no importmap script at all. At parse time the helper:
+Each page that imports bare specifiers embeds a static `<script type="importmap">`
+whose exact SHA-256 is pinned in its CSP `script-src`. `palettes.html` imports only
+page-relative modules and has no import map. The committed maps resolve libraries
+from jsdelivr at the versions pinned in `package.json`.
 
-1. Locates itself via `document.currentScript.src`, so it works whether called as `./vendor-importmap.js` (root) or `../vendor-importmap.js` (a tool page).
-2. Reads a build-time-baked `VENDOR` decision (per library, `'cdn'` or `'local'`).
-3. Builds a `<script type="importmap">` with local page-relative URLs for any `'local'` library, otherwise jsdelivr URLs pinned to versions from `package.json`.
-4. Injects that importmap into `<head>` before any module loads.
-
-The local-vs-CDN choice is **baked at build time**, not probed at runtime — there is no main-thread-blocking synchronous XHR and nothing 404s on the CDN-only Pages deploy. The committed default is all-CDN, which is what the deploy and a fresh checkout serve. For offline / local dev with a populated `three.js/` and `node_modules/`, run `npm run importmap:local` (detects vendored dirs and rewrites the `VENDOR` block); `npm run importmap` reverts to all-CDN. The generated `local` block must not be committed — it would break the live deploy.
+`npm run importmap` regenerates the page maps, their CSP hashes, and the offline
+`vendor-importmap.js` model used by generation and integrity tests. The model is
+not loaded by pages or published. For offline development with populated
+`three.js/` and `node_modules/` directories, `npm run importmap:local` rewrites both
+the page maps and the model to local paths. Do not commit those HTML or model
+changes; `npm run importmap` restores the all-CDN defaults.
 
 The generated integrity map covers the top-level libraries, the addons the app
 imports, and their relative static dependencies, including three.core.js.
@@ -1008,9 +1011,9 @@ is Chromium-only — Firefox and Safari ignore the key entirely, so SRI is no
 coverage at all there. A `Content-Security-Policy` meta tag, carried by
 `index.html` and each tool page, bounds this on every browser
 by origin: script loads are restricted to `'self'` plus the CDN origins that
-page actually uses. The only script use of `'unsafe-inline'` is the
-`<script type="importmap">` that `vendor-importmap.js` injects on pages that
-load it. `palettes.html` uses only relative imports. The external
+page actually uses. The embedded import maps are authorized by their exact
+hashes; `script-src` contains no `'unsafe-inline'`. `palettes.html` uses only
+relative imports. The external
 `src/shared/module_load_guard.js` script reports entry-module failures.
 The CSP enforces an origin boundary. Pages that load the WASM engine need `'wasm-unsafe-eval'`
 for the module instantiation itself, but not the far broader `'unsafe-eval'`:
@@ -1049,7 +1052,7 @@ Each tool is a standalone HTML page. All but `palettes.html`, which draws on 2D 
 | `shader.html` | Authors pullback shaders against the complete stage vocabulary with the live sphere preview. The chain is a pipeline strip of stage chips banded by carrier family, each stage tuned by parameters inline on its own chip; a band's `+` inserts the operator directly when its gap admits only one, otherwise opens a popup listing the operators the gap accepts. It opens current shader documents and is absent from the normal effect-card roster. |
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas, separate from the engine arena. |
 
-The Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` drops the `https://cdn.jsdelivr.net` origin the other pages allow, keeping `'self' 'wasm-unsafe-eval'`.
+The Three.js pages embed static import maps, resolving from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` drops the `https://cdn.jsdelivr.net` origin the other pages allow, keeping `'self' 'wasm-unsafe-eval'`.
 
 ---
 
@@ -1087,7 +1090,7 @@ npm ci                   # populates node_modules/lil-gui/
 git clone --depth 1 --branch rNNN https://github.com/mrdoob/three.js.git
 ```
 
-After populating them, run `npm run importmap:local` to point [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) at the local copies (don't commit the result); `npm run importmap` reverts to all-CDN (§7.8).
+After populating them, run `npm run importmap:local` to point the pages' embedded import maps and the offline [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) model at the local copies. Do not commit the modified HTML pages or model; `npm run importmap` restores all-CDN maps and CSP hashes (§7.8).
 
 **Live demo.** The `master` branch of daydream is published to <https://woundedlion.github.io/daydream/> via GitHub Pages. It serves the committed all-CDN import map.
 
@@ -1986,7 +1989,7 @@ for module ownership and local validation commands.
 ```
 ├── index.html                  Main simulator page
 ├── favicon.svg                 Sphere-mark favicon
-├── vendor-importmap.js         CDN-by-default import map, with local opt-in
+├── vendor-importmap.js         Offline import-map model for generation and tests
 ├── src/                        Handwritten browser modules
 │   ├── app/                    Startup, lifecycle, and application state
 │   │   ├── app_lifecycle.js    Frame-loop adapter, frame guard, key handlers, module-load deadline, and teardown
@@ -2128,7 +2131,7 @@ for module ownership and local validation commands.
 └── vendor/                     Optional ignored vendor assets
 ```
 
-[`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) resolves libraries from jsdelivr, which is the committed default the Pages deploy and a fresh checkout serve; `npm run importmap:local` switches it to the vendored copies for offline dev. See [§7.8](#78-vendor-importmap-cdn-by-default--local-opt-in).
+The pages' embedded import maps resolve libraries from jsdelivr, the committed default served by Pages and a fresh checkout. `npm run importmap:local` switches the page maps and the offline [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) model to vendored copies for offline development; do not commit either result. See [§7.8](#78-vendor-importmap-cdn-by-default--local-opt-in).
 
 ---
 

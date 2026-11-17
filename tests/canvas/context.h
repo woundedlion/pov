@@ -1,16 +1,13 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Unit tests for core/render/canvas.h and core/control/transition.h.
- *
- * A Canvas spins in its ctor while !buffer_free(), so a sequential drawing test
- * must advance_display() before the next Canvas.
  */
 #pragma once
 
 /** @file
- * @brief Shared canvas test fixtures. */
+ * @brief Shared canvas-module test fixtures.
+ * @details A Canvas spins in its constructor while !buffer_free(); sequential
+ * drawing tests must advance_display() before constructing the next Canvas. */
 
 #include <cmath>
 #include <tuple>

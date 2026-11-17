@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Fixtures test cases and fixtures. */
+ * @brief Shared effect fixtures for death cases. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Death-test effect fixture.
 
 inline constexpr math::Basis DEATH_IDENTITY_BASIS{math::X_AXIS, math::Y_AXIS,
                                                   math::Z_AXIS};

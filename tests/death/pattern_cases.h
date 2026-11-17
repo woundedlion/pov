@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Pattern cases test cases and fixtures. */
+ * @brief Death cases for pattern parameter and state guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Pattern parameter and state admission traps.
 
 inline void case_pattern_sphere_cells_invalid_prepare() {
   Pattern::SphereCells::Params params;

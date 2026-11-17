@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Memory cases test cases and fixtures. */
+ * @brief Death cases for arena and container guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Memory death cases.
 
 /**
  * @brief Recursive generator body: each level calls generate() once more.

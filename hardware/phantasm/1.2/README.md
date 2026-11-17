@@ -25,8 +25,9 @@ left edge. The outline remains **58.28 x 32 mm**, and all four mounting holes
 retain the rev 1.1 coordinates. The Teensy shifts 3.5 mm left to clear the
 terminal bodies; D_BUS is released for placement outside their keepouts.
 
-Rev 1.2 J2/J3A/J3B have no wire-access reservation. Their openings sit
-about 1.5 mm from the Teensy PCB edge; J2.1 faces a header pin that remains
+Rev 1.2 J2/J3A/J3B have no wire-access reservation. J2 and J3A openings sit
+about 1.5 mm from the Teensy PCB edge; J3B's face the R_D1/R_D2 series resistors
+about 1 mm away. J2.1 faces a header pin that remains
 in its insertion path at any socket height. Trial-fit its harness before
 fabrication. Placement and DRC do not qualify harness insertion. A connector whose pin
 legend meets a mounting reserve has its complete legend on the back; rev 1.2

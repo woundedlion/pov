@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Modulation cases test cases and fixtures. */
+ * @brief Death cases for modulation resource admission guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Modulation configuration and prepared-resource admission traps.
 
 inline void case_modulation_hue_nonfinite() {
   (void)ColorModulation::HueRotation::prepare({0.5f});

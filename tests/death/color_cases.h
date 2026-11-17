@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Color cases test cases and fixtures. */
+ * @brief Death cases for color and palette guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Color death cases.
 
 /** @brief Authored named palettes reject either out-of-range roster index. */
 inline void case_shader_palette_invalid_named_index() {

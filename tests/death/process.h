@@ -66,7 +66,7 @@ inline void load_child_output() {
  * @brief Tests whether captured child output carries one guard's breadcrumb.
  * @param out Text captured from the child.
  * @param file Repo-relative path of the guard source.
- * @param text Expected "(condition) message" tail of the breadcrumb line.
+ * @param text Expected prefix of the "(condition) message" tail.
  * @return The matched source line, or zero when no breadcrumb matches.
  */
 inline int breadcrumb_names_guard(const char *out, const char *file,
@@ -375,9 +375,9 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file,
  * @param cs The case table.
  * @param n Number of cases in it.
  * @param lines Matched source line for each successfully trapped case, or zero.
- * @details The denominator is the generated HS_CHECK census
- *          (death_guard_sites.h); the numerator is the distinct source lines
- *          observed in trapped cases. A case naming a file outside the census
+ * @details The denominator is the generated fail-fast site census
+ *          (HS_CHECK, HS_AUDIT_CHECK, check_fail in death_guard_sites.h).
+ *          The numerator is the distinct source lines observed in trapped cases. A case naming a file outside the census
  *          fails the module; the ratio and per-file gaps are not gated.
  */
 inline void report_guard_coverage(const Case *cs, int n, const int *lines) {

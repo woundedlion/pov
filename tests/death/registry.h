@@ -18,8 +18,8 @@ struct Case {
   const char *name;        /**< Case selector matched against HS_DEATH_CASE. */
   void (*fn)();            /**< The trap-triggering case body to run. */
   const char *guard_file;  /**< Repo-relative path of the guard source. */
-  const char *guard_text;  /**< Expected "(condition) message" tail of that
-                               guard's breadcrumb line. */
+  const char *guard_text;  /**< Expected prefix of the "(condition) message"
+                               tail of that guard's breadcrumb line. */
   bool debug_only = false; /**< Guard absent in NDEBUG builds. */
   const char *output_detail = nullptr; /**< Additional required child output. */
 };

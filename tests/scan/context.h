@@ -38,6 +38,12 @@
 
 namespace hs_test::scan_tests {
 
+/**
+ * @brief Fills closed knot rows with distinct low-order waves.
+ * @tparam N Number of rows.
+ * @tparam LUT_N Samples per row, excluding the repeated closing knot.
+ * @param knots Rows whose last knot repeats their first.
+ */
 template <int N, int LUT_N>
 inline void build_ring_knots(float (&knots)[N][LUT_N + 1]) {
   for (int i = 0; i < N; ++i) {
@@ -61,6 +67,7 @@ struct ScopedPoleLod {
   explicit ScopedPoleLod(float value) : saved(Render::pole_lod_aggressiveness) {
     Render::pole_lod_aggressiveness = value;
   }
+  /** @brief Restores the saved pole LOD aggressiveness. */
   ~ScopedPoleLod() { Render::pole_lod_aggressiveness = saved; }
   ScopedPoleLod(const ScopedPoleLod &) = delete;
   ScopedPoleLod &operator=(const ScopedPoleLod &) = delete;
@@ -72,16 +79,27 @@ public:
   DistortedRingArray() = default;
   DistortedRingArray(const DistortedRingArray &) = delete;
   DistortedRingArray &operator=(const DistortedRingArray &) = delete;
+  /** @brief Destroys the constructed rings. */
   ~DistortedRingArray() {
     while (count)
       data()[--count].~DistortedRing();
   }
+  /**
+   * @brief Constructs the next ring in place.
+   * @tparam Args Ring constructor argument types.
+   * @param i Index immediately after the constructed rings.
+   * @param args Ring constructor arguments.
+   */
   template <typename... Args> void emplace(size_t i, Args &&...args) {
     HS_CHECK(i == count && count < N, "ring fixture construction order");
     new (storage + i * sizeof(SDF::DistortedRing))
         SDF::DistortedRing(std::forward<Args>(args)...);
     ++count;
   }
+  /**
+   * @brief Returns the ring storage.
+   * @return Pointer to the first ring slot.
+   */
   SDF::DistortedRing *data() {
     return reinterpret_cast<SDF::DistortedRing *>(storage);
   }
@@ -113,7 +131,10 @@ inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
   return out;
 }
 
-/** @brief Applies the common partial scan clip without a margin. */
+/**
+ * @brief Applies the common partial scan clip without a margin.
+ * @param effect Effect whose clip and margin are set.
+ */
 inline void apply_partial_clip(StubEffect &effect) {
   effect.set_clip(9, 53, 17, 81);
   effect.set_margin(0);

@@ -5,14 +5,12 @@
 #pragma once
 
 /** @file
- * @brief Params canvas cases test cases and fixtures. */
+ * @brief Death cases for parameter and canvas guards. */
 
 #include "tests/death/context.h"
 #include "tests/death/fixtures.h"
 
 namespace hs_test::death_tests {
-
-// Params canvas death cases.
 
 /** @brief Rejects a margin below the filter pipeline requirement. */
 inline void case_effect_margin_below_pipeline() {

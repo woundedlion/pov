@@ -5,14 +5,12 @@
 #pragma once
 
 /** @file
- * @brief Sdf cases test cases and fixtures. */
+ * @brief Death cases for signed-distance geometry guards. */
 
 #include "tests/death/context.h"
 #include "tests/death/fixtures.h"
 
 namespace hs_test::death_tests {
-
-// SDF death cases.
 
 /**
  * @brief Death case: a polygon with fewer than three sides must trap.

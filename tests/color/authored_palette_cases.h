@@ -4,7 +4,7 @@
  */
 #pragma once
 
-/** @file authored_palette.h
+/** @file
  * @brief Authored source cache behavior. */
 
 #include "core/color/authored_palette.h"

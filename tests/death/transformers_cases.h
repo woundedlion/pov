@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Transformers cases test cases and fixtures. */
+ * @brief Death cases for transformer lifecycle guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Transformers death cases.
 
 /**
  * @brief Death case: a second TransformerPool::init_storage() must trap.

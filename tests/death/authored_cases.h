@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Authored cases test cases and fixtures. */
+ * @brief Death cases for authored pipeline policy guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Authored fixed-pipeline policy death cases.
 
 /** @brief Frame binding for one keyed authored stage.
  * @tparam Family Parameter family.

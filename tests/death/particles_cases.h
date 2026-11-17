@@ -5,14 +5,12 @@
 #pragma once
 
 /** @file
- * @brief Particles cases test cases and fixtures. */
+ * @brief Death cases for particle storage and motion guards. */
 
 #include "tests/death/context.h"
 #include "tests/death/fixtures.h"
 
 namespace hs_test::death_tests {
-
-// Particles death cases.
 
 /**
  * @brief Initializes a particle system with the requested maximum lifetime.

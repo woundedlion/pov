@@ -5,13 +5,11 @@
 #pragma once
 
 /** @file
- * @brief Pullback cases test cases and fixtures. */
+ * @brief Death cases for pullback compilation and evaluation guards. */
 
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-// Pullback death cases.
 
 inline void chain_invalid_layout(unsigned variant) {
   using namespace Pullback::Interp;
