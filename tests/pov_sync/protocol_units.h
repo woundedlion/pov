@@ -162,6 +162,13 @@ inline void test_config_timing_bounds() {
  * @details Each rejection pins the named first failing clause.
  */
 inline void test_config_validation() {
+  Config repeats = test_config();
+  repeats.epoch_repeats = BEACON_FIELD_MASK + 1;
+  expect_rejects(repeats, "epoch_repeats <= BEACON_FIELD_MASK");
+  repeats.epoch_repeats = BEACON_FIELD_MASK;
+  repeats.refractory_revs = repeats.commit_revs + BEACON_FIELD_MASK + 1;
+  repeats.revs_per_effect = 256;
+  HS_EXPECT_TRUE(repeats.valid());
   Config zero_width = test_config();
   zero_width.W = 0;
   expect_rejects(zero_width, "W > 0");
@@ -1124,6 +1131,31 @@ inline void test_epoch_same_tick_burst_fold() {
   // Every copy commits at the absolute B+r+k boundary, independent of j.
   for (uint32_t j = 0; j <= r; ++j)
     HS_EXPECT_EQ(commit_rev_for(j), rpe + r + k);
+}
+
+/** @brief Beacon-joined repeat copies commit at the primary copy's boundary. */
+inline void test_epoch_joined_repeat_commit() {
+  Config cfg = test_config();
+  cfg.revs_per_effect = 128;
+  for (uint32_t j = 0; j <= static_cast<uint32_t>(cfg.epoch_repeats); ++j) {
+    ContentTracker joined, absolute;
+    joined.identity_known = absolute.identity_known = true;
+    joined.rev_in_effect = (cfg.revs_per_effect + j) & BEACON_FIELD_MASK;
+    absolute.rev_in_effect = cfg.revs_per_effect;
+    HS_EXPECT_TRUE(absolute.on_epoch_symbol(cfg));
+    for (uint32_t rev = 0; rev < j; ++rev)
+      HS_EXPECT_FALSE(absolute.on_zero_crossing(cfg));
+    HS_EXPECT_TRUE(joined.on_epoch_symbol(cfg));
+    const uint32_t remaining = cfg.commit_revs + cfg.epoch_repeats - j;
+    HS_EXPECT_EQ(joined.commit_in_revs, remaining);
+    for (uint32_t rev = 1; rev <= remaining; ++rev) {
+      const bool a = absolute.on_zero_crossing(cfg);
+      const bool b = joined.on_zero_crossing(cfg);
+      HS_EXPECT_EQ(a, b);
+      HS_EXPECT_EQ(b, rev == remaining);
+    }
+    HS_EXPECT_EQ(joined.effect_index, absolute.effect_index);
+  }
 }
 
 /** @brief Verifies EPOCH symbols stay rejected for the full refractory window. */

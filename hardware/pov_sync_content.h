@@ -209,8 +209,8 @@ struct ContentTracker {
    * boundary (R = epoch_repeats, K = commit_revs). The copy index j
    * (0 = primary) is inferred from rev_in_effect, already incremented for the
    * symbol's boundary, so any copy counts down to the same boundary (§6.3.1).
-   * A beacon-joined board without an absolute count falls back to j = 0 and
-   * commits up to j revolutions late.
+   * The six-bit residue also identifies j for a beacon-joined board whose
+   * revolution count is congruent modulo 64.
    */
   bool on_epoch_symbol(const Config &cfg) {
     if (refractory_revs_left > 0)
@@ -218,10 +218,10 @@ struct ContentTracker {
     const uint32_t effect_revolutions =
         cfg.revolutions_for_effect(effect_index);
     uint32_t j = 0;
-    if (rev_in_effect >= effect_revolutions &&
-        rev_in_effect - effect_revolutions <=
-            static_cast<uint32_t>(cfg.epoch_repeats))
-      j = rev_in_effect - effect_revolutions;
+    const uint32_t into_train =
+        (rev_in_effect - effect_revolutions) & BEACON_FIELD_MASK;
+    if (into_train <= static_cast<uint32_t>(cfg.epoch_repeats))
+      j = into_train;
     commit_pending = true;
     commit_in_revs =
         cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats) - j;

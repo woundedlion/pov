@@ -748,14 +748,11 @@ previous one cannot:
    absolute B+R+K boundary as everyone else (`ContentTracker::
    on_epoch_symbol`). This also covers the master self-censoring its own
    primary emission (§5.2): downstream first hears the B+1 repeat and still
-   commits with the master. The one case that cannot infer j — a board that
-   beacon-joined mid-effect, whose revolution count is mod-64, lands outside
-   the train window — falls back to j = 0 and commits up to j revolutions
-   late for that one effect. The resulting counter slip would be
-   self-sustaining (the board's own commit re-zeros the counter at its own,
-   offset boundary), so the §6.4 beacon rev cross-check *resyncs* it by the
-   signed mod-64 difference within one beacon period; every epoch after the
-   first is lockstep.
+   commits with the master. A beacon-joined board also infers j from
+   `(rev_in_effect - revolutions_for_effect) & 63`: its modulo-64 count is
+   congruent to the master's, and the repeat count is limited to 63. Thus
+   joined and absolute trackers commit at the same boundary. A residue outside
+   the train window uses j = 0; beacon rev cross-checks repair counter slips.
 2. **Absolute index on the beacon (§6.4):** a board that *does* miss every
    repeat — or that booted late, or rebooted mid-show — corrects at the next
    beacon *pair* (§6.3.4), normally the rev-1/rev-2 post-commit beacons ~250 ms

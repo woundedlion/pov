@@ -78,6 +78,7 @@ inline int run_pov_sync_tests() {
   HS_RUN(test_sim_rev_resync);
   HS_RUN(test_sim_rev_wrap_within_effect);
   HS_RUN(test_epoch_same_tick_burst_fold);
+  HS_RUN(test_epoch_joined_repeat_commit);
   HS_RUN(test_epoch_refractory_window);
   HS_RUN(test_construction_window_predicates);
   HS_RUN(test_effect_output_envelope);

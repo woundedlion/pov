@@ -352,6 +352,8 @@ struct Config {
     // A negative epoch_repeats casts to a huge uint32_t.
     if (!(epoch_repeats >= 0))
       return "epoch_repeats >= 0";
+    if (!(static_cast<uint32_t>(epoch_repeats) <= BEACON_FIELD_MASK))
+      return "epoch_repeats <= BEACON_FIELD_MASK";
     if (!(refractory_revs > commit_revs + static_cast<uint32_t>(epoch_repeats)))
       return "refractory_revs > commit_revs + epoch_repeats";
     if (effect_revolutions &&
