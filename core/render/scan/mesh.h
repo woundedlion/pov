@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <optional>
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -46,6 +47,82 @@ HS_O3_BEGIN
  * selects the faces each pass draws.
  */
 struct Mesh {
+private:
+  /** @brief Binds a face index to the shader's v2 input. */
+  template <typename Shader>
+  HS_HOT_INLINE static auto face_index_shader(size_t index, Shader &shader) {
+    return [index, &shader](const math::Vector &p, Fragment &f) {
+      f.v2 = static_cast<float>(index);
+      shader(p, f);
+    };
+  }
+
+  /** @brief Draw-scoped setup for admitting and rasterizing scan faces. */
+  template <int W, int H> struct FaceScan {
+    const Scan::ColumnBasis *time;
+    float sweep;
+    float bounds_margin;
+    FaceProjectionColumn *projections;
+    FacePadTables pads;
+    const ClipRegion &clip;
+    const Spacetime::TimeWindow &window;
+    FaceClipPlanes<W, H> clip_planes;
+
+    /** @brief Reserves the basis-dependent scratch for a scan. */
+    template <typename PipelineT>
+    HS_HOT_INLINE FaceScan(PipelineT &pipeline, Canvas &canvas, Arena &arena,
+                           bool reserve_projections)
+        : time(column_basis(pipeline, canvas)),
+          sweep(time && time->azimuth ? time->sweep_arc : 0.0f),
+          bounds_margin(scan_bounds_margin<W>(sweep)),
+          projections(reserve_projections && sweep > 0.0f
+                          ? new_face_projection_columns<W>(arena)
+                          : nullptr),
+          pads(FacePadTables::prepare<W, H>(arena, time)),
+          clip(source_clip<W, H>(pipeline, canvas)),
+          window(canvas.time_window()),
+          clip_planes(clip, bounds_margin + SDF::MOVED_AXIS_SLACK) {}
+
+    /** @brief Prepares a face if its projected bounds meet the scan window.
+     * @tparam EARLY_LATITUDE Rejects out-of-band faces before pose setup.
+     * @param vertices Vertex pool.
+     * @param indices Vertex indices of the face.
+     * @param storage Reused face storage for this draw.
+     * @return Prepared face handle, or nullopt if culled. */
+    template <bool EARLY_LATITUDE>
+    HS_HOT_INLINE std::optional<SDF::Face>
+    admit(std::span<const math::Vector> vertices,
+          std::span<const uint16_t> indices, SDF::FaceStorage &storage) const {
+      const math::LatitudeGeometry latitude(H);
+      if constexpr (EARLY_LATITUDE)
+        if (SDF::PreparedFace::phi_band_rejects(vertices, indices, latitude, H,
+                                                bounds_margin, &clip))
+          return std::nullopt;
+      SDF::FaceBoundsPose pose;
+      bool culled;
+      const bool seeing =
+          face_bounds_pose<W, H>(vertices, indices, time, pose, pads.compact,
+                                 pads.wide, clip_planes, culled);
+      if (culled)
+        return std::nullopt;
+      SDF::Face face = [&]() HS_HOT_INLINE {
+        HS_PROFILE(scan_face_setup);
+        return SDF::Face(vertices, indices, storage, latitude, H, &clip,
+                         pads.full, bounds_margin, seeing ? &pose : nullptr,
+                         EARLY_LATITUDE);
+      }();
+      const SDF::PreparedFace &shape = face.prepared();
+#if HS_ENABLE_TEST_HOOKS
+      ++mesh_capture_counters.face_setups;
+#endif
+      if (shape.culled() ||
+          (window.active && !face_meets_window(shape, window, clip)))
+        return std::nullopt;
+      return face;
+    }
+  };
+
+public:
   /**
    * @brief Shades and rasterizes one constructed face.
    * @tparam W Canvas width in pixels.
@@ -75,11 +152,7 @@ struct Mesh {
     face_audit_index = i;
 #endif
     if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
-      auto wrapper = [&](const math::Vector &p, Fragment &f_in) {
-        // v2 carries the face index (decoded by mesh_face_index()).
-        f_in.v2 = static_cast<float>(i);
-        fragment_shader(p, f_in);
-      };
+      auto wrapper = face_index_shader(i, fragment_shader);
       FragmentShaderRef raster_shader = wrapper;
       {
         HS_PROFILE(scan_mesh_raster);
@@ -133,41 +206,16 @@ struct Mesh {
       math::TrigLUT<W, H>::init();
     ScratchScope scope(arena);
     SDF::FaceStorage &storage = *new_face_storage(arena);
-    const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
-    const float sweep = time && time->azimuth ? time->sweep_arc : 0.0f;
-    const float bounds_margin = scan_bounds_margin<W>(sweep);
-    const auto tables = FacePadTables::prepare<W, H>(arena, time);
-    const float *pads = tables.full;
-    const float *compact_pads = tables.compact;
-    const float *wide_pads = tables.wide;
-    const auto &cr = source_clip<W, H>(pipeline, canvas);
-    const Spacetime::TimeWindow &window = canvas.time_window();
-    SDF::FaceBoundsPose pose;
-    const FaceClipPlanes<W, H> clip_planes(cr, bounds_margin +
-                                                   SDF::MOVED_AXIS_SLACK);
-    bool culled;
-    const bool seeing = face_bounds_pose<W, H>(
-        {copy.vertices, copy.count}, {copy.indices, copy.count}, time, pose,
-        compact_pads, wide_pads, clip_planes, culled);
-    if (culled)
-      return;
-    SDF::Face face = [&]() HS_HOT_INLINE {
-      HS_PROFILE(scan_face_setup);
-      return SDF::Face({copy.vertices, copy.count}, {copy.indices, copy.count},
-                       storage, math::LatitudeGeometry(H), H, &cr, pads,
-                       bounds_margin, seeing ? &pose : nullptr);
-    }();
-    const SDF::PreparedFace &shape = face.prepared();
-#if HS_ENABLE_TEST_HOOKS
-    ++mesh_capture_counters.face_setups;
-#endif
-    if (shape.culled() ||
-        (window.active && !face_meets_window(shape, window, cr)))
+    const FaceScan<W, H> scan(pipeline, canvas, arena, false);
+    auto face = scan.template admit<false>({copy.vertices, copy.count},
+                                           {copy.indices, copy.count}, storage);
+    if (!face)
       return;
     auto *projections =
-        sweep > 0.0f ? new_face_projection_columns<W>(arena) : nullptr;
-    raster_face<W, H>(pipeline, canvas, shape, copy.face, fragment_shader,
-                      face_shader_setup, time, sweep, projections);
+        scan.sweep > 0.0f ? new_face_projection_columns<W>(arena) : nullptr;
+    raster_face<W, H>(pipeline, canvas, face->prepared(), copy.face,
+                      fragment_shader, face_shader_setup, scan.time, scan.sweep,
+                      projections);
   }
 
   /**
@@ -243,11 +291,7 @@ struct Mesh {
     const size_t near = hs::g_scan_metrics.shade_candidates;
 #endif
     if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
-      auto wrapper = [&](const math::Vector &p, Fragment &f_in) {
-        // v2 carries the face index (decoded by mesh_face_index()).
-        f_in.v2 = static_cast<float>(sweep.face);
-        fragment_shader(p, f_in);
-      };
+      auto wrapper = face_index_shader(sweep.face, fragment_shader);
       FragmentShaderRef raster_shader = wrapper;
       scan_swept_face<W, H>(pipeline, canvas, sweep, face, raster_shader,
                             face_shader_setup);
@@ -399,15 +443,7 @@ struct Mesh {
     auto *storage = new_face_storage(scratch_arena);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
-    const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
-    const float sweep = time && time->azimuth ? time->sweep_arc : 0.0f;
-    auto *projections =
-        sweep > 0.0f ? new_face_projection_columns<W>(scratch_arena) : nullptr;
-    const auto tables = FacePadTables::prepare<W, H>(scratch_arena, time);
-    const float *azimuth_pads = tables.full;
-    const float *compact_pads = tables.compact;
-    const float *wide_pads = tables.wide;
-    const float bounds_margin = scan_bounds_margin<W>(sweep);
+    const FaceScan<W, H> scan(pipeline, canvas, scratch_arena, true);
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
@@ -425,15 +461,13 @@ struct Mesh {
     HS_CHECK(!bake || bake->face_recs.size() == num_f,
              "mesh class bake face count disagrees with the mesh");
 
-    const auto &cr = source_clip<W, H>(pipeline, canvas);
-    const Spacetime::TimeWindow &window = canvas.time_window();
-    const FaceClipPlanes<W, H> clip_planes(cr, bounds_margin +
-                                                   SDF::MOVED_AXIS_SLACK);
-    const uint8_t *selected_faces = time ? time->mesh.selected_faces : nullptr;
-    const uint8_t drawn_face = window.active ? Scan::detail::FacePass::WINDOWED
-                                             : Scan::detail::FacePass::SHARED;
+    const uint8_t *selected_faces =
+        scan.time ? scan.time->mesh.selected_faces : nullptr;
+    const uint8_t drawn_face = scan.window.active
+                                   ? Scan::detail::FacePass::WINDOWED
+                                   : Scan::detail::FacePass::SHARED;
     for (size_t i = 0; i < num_f; ++i) {
-      if (time && !mesh_visible(time->mesh.visible_faces, i))
+      if (scan.time && !mesh_visible(scan.time->mesh.visible_faces, i))
         continue;
       size_t count = fc[i];
 
@@ -446,31 +480,10 @@ struct Mesh {
                                           mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
-      SDF::FaceBoundsPose pose;
-      if (SDF::PreparedFace::phi_band_rejects(
-              verts, indices, math::LatitudeGeometry(H), H, bounds_margin, &cr))
+      auto face = scan.template admit<true>(verts, indices, *storage);
+      if (!face)
         continue;
-      bool culled;
-      const bool seeing =
-          face_bounds_pose<W, H>(verts, indices, time, pose, compact_pads,
-                                 wide_pads, clip_planes, culled);
-      if (culled)
-        continue;
-      // IIFE scopes HS_PROFILE to Face construction (prvalue elided in place).
-      SDF::Face face = [&] {
-        HS_PROFILE(scan_face_setup);
-        return SDF::Face(verts, indices, *storage, math::LatitudeGeometry(H), H,
-                         &cr, azimuth_pads, bounds_margin,
-                         seeing ? &pose : nullptr, true);
-      }();
-      const SDF::PreparedFace &shape = face.prepared();
-#if HS_ENABLE_TEST_HOOKS
-      ++mesh_capture_counters.face_setups;
-#endif
-
-      if (shape.culled() ||
-          (window.active && !face_meets_window(shape, window, cr)))
-        continue;
+      const SDF::PreparedFace &shape = face->prepared();
 
       if (bake) {
         const MeshOps::FaceClassRec &rec = bake->face_recs[i];
@@ -479,13 +492,14 @@ struct Mesh {
                    "mesh class bake face record names an unknown class");
           const MeshOps::CongruenceClass &cls = bake->classes[rec.class_id];
           if (cls.lut.data && cls.n_verts == shape.vertex_count())
-            face.bind_class_lut(&cls.lut, cls.canon_xy, rec.vert_offset,
-                                rec.reflected != 0);
+            face->bind_class_lut(&cls.lut, cls.canon_xy, rec.vert_offset,
+                                 rec.reflected != 0);
         }
       }
 
       raster_face<W, H>(pipeline, canvas, shape, i, fragment_shader,
-                        face_shader_setup, time, sweep, projections);
+                        face_shader_setup, scan.time, scan.sweep,
+                        scan.projections);
     }
   }
 
