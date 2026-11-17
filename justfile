@@ -76,6 +76,7 @@ test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1" $HS_BUFFER_FREE_WATCHDOG_US
 
 # Build a dependency-local native runner and run its selected modules.
 test-target target *modules:
+    {{ python_command }} tools/build_pins.py --check-tool cmake
     cmake --preset tests
     cmake --build --preset tests --target test_{{ target }}
     cmake -E env HS_BUFFER_FREE_WATCHDOG_US=30000000 build/tests/tests/test_{{ target }}{{ if os_family() == "windows" { ".exe" } else { "" } }} {{ modules }}
