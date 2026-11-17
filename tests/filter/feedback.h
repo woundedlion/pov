@@ -141,6 +141,14 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
   HS_EXPECT_TRUE(prior.x_offsets == refilled.x_offsets);
   HS_EXPECT_TRUE(refilled.x_offsets == later.x_offsets);
 
+  int measurements = 0;
+  auto measure = [&](int16_t *rows) {
+    ++measurements;
+    rows[0] = refilled.x_offsets[0];
+  };
+  HS_EXPECT_EQ(cache.reach(measure)[0], 3);
+  HS_EXPECT_EQ(measurements, 1);
+
   int16_t scratch_x[1] = {0};
   const Cache::Buffers scratch{scratch_x, nullptr, nullptr};
   const Cache::Buffers c = cache.acquire(nullptr, scratch, fill);
@@ -149,6 +157,12 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
   HS_EXPECT_EQ(scratch_x[0], 4);
   HS_EXPECT_EQ(refilled.x_offsets[0], 3);
   HS_EXPECT_TRUE(cache.holds(moved));
+  cache.acquire(&moved, scratch, fill);
+  HS_EXPECT_EQ(cache.reach(measure)[0], 3);
+  HS_EXPECT_EQ(measurements, 1);
+  cache.acquire(&first, scratch, fill);
+  HS_EXPECT_EQ(cache.reach(measure)[0], 5);
+  HS_EXPECT_EQ(measurements, 2);
 }
 
 /** @brief Checks feedback storage including per-allocation alignment padding.

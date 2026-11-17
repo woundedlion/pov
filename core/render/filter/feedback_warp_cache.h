@@ -28,7 +28,7 @@ namespace Pixel {
  * refilled for a later noise time keeps the one before it as its prior. The
  * cache also holds the projected origin of every lattice sample of its layout,
  * filled once by init_storage(), and the per-row reach measured from the
- * cached field, which every fill invalidates.
+ * cached field, which every cached fill invalidates.
  */
 template <int W, int H> class FeedbackWarpCache {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -172,9 +172,10 @@ public:
     const Buffers buffers = key ? sets[current] : scratch;
     if (prior)
       *prior = follows ? sets[current ^ 1] : buffers;
-    if (key)
+    if (key) {
       valid = false;
-    reach_valid = false;
+      reach_valid = false;
+    }
 #if HS_ENABLE_TEST_HOOKS
     if (key)
       ++cached_fills;
