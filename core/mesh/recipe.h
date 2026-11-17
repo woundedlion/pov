@@ -223,23 +223,16 @@ expand_to_primitives(const Recipe &recipe, OpStep *out, size_t cap) {
  * @param seed simple_registry index of the base solid.
  * @param steps Primitive steps; a composite step traps.
  * @param count Number of steps.
- * @param a Output arena for even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
- * @return The rebuilt PolyMesh, backed by `a` for an odd `count` and by `b`
- *   for an even one; lowering can flip that parity against the authored chain
- *   (a one-step BEVEL lowers to two steps). A zero `count` returns the seed,
- *   in whichever arena its generator left it.
+ * @param a Arena for odd-numbered steps.
+ * @param b Arena for even-numbered steps.
+ * @return Rebuilt mesh with the arena ownership of replay_steps(). Lowering
+ *   can change parity against the authored chain (BEVEL lowers to two steps).
  */
 [[maybe_unused]] FLASHMEM static PolyMesh build_steps(uint8_t seed,
                                                       const OpStep *steps,
                                                       size_t count, Arena &a,
                                                       Arena &b) {
-  HS_CHECK(seed < std::size(simple_registry),
-           "build_steps: seed outside simple_registry");
-  SolidBuilder builder(simple_registry[seed].generate(a, b), a, b);
-  for (size_t i = 0; i < count; ++i)
-    apply_step(builder, steps[i], StepSet::PRIMITIVE_ONLY);
-  return builder.build();
+  return replay_steps(seed, steps, count, StepSet::PRIMITIVE_ONLY, a, b);
 }
 
 } // namespace Solids

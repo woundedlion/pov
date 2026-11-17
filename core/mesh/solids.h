@@ -503,24 +503,36 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
 }
 
 /**
- * @brief Replays a recipe's authored chain from its simple_registry seed.
- * @param recipe Recipe to replay; composites run through the SolidBuilder
- *   composite methods.
- * @param a Output arena for even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
- * @return The rebuilt PolyMesh, backed by `a` for an odd `recipe.count` and by
- *   `b` for an even one (each step swaps the arenas; a composite counts as one
- *   step). A zero-step recipe returns the seed, in whichever arena its
- *   generator left it.
+ * @brief Replays steps from a simple_registry seed.
+ * @param seed Index of the base solid.
+ * @param steps Steps to apply in order.
+ * @param count Number of steps.
+ * @param set Whether the steps may use composites.
+ * @param a Arena for the result of odd-numbered steps.
+ * @param b Arena for the result of even-numbered steps.
+ * @return Rebuilt mesh. With no steps, the seed remains in the arena its
+ *   generator used. Each step swaps arenas once, including composites.
  */
+[[maybe_unused]] FLASHMEM static PolyMesh
+replay_steps(uint8_t seed, const OpStep *steps, size_t count, StepSet set,
+             Arena &a, Arena &b) {
+  HS_CHECK(seed < std::size(simple_registry),
+           "replay_steps: seed outside simple_registry");
+  SolidBuilder builder(simple_registry[seed].generate(a, b), a, b);
+  for (size_t i = 0; i < count; ++i)
+    apply_step(builder, steps[i], set);
+  return builder.build();
+}
+
+/** @brief Replays an authored recipe, allowing composite steps.
+ * @param recipe Seed and steps to replay.
+ * @param a Arena for odd-numbered steps.
+ * @param b Arena for even-numbered steps.
+ * @return Rebuilt mesh with the arena ownership of replay_steps(). */
 [[maybe_unused]] FLASHMEM static PolyMesh build_recipe(const Recipe &recipe,
                                                        Arena &a, Arena &b) {
-  HS_CHECK(recipe.seed < std::size(simple_registry),
-           "build_recipe: seed outside simple_registry");
-  SolidBuilder builder(simple_registry[recipe.seed].generate(a, b), a, b);
-  for (size_t i = 0; i < recipe.count; ++i)
-    apply_step(builder, recipe.steps[i], StepSet::ALLOW_COMPOSITE);
-  return builder.build();
+  return replay_steps(recipe.seed, recipe.steps, recipe.count,
+                      StepSet::ALLOW_COMPOSITE, a, b);
 }
 
 HS_O3_BEGIN
