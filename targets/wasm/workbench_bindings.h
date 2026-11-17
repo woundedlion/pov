@@ -109,15 +109,6 @@ protected:
     return invoked;
   }
 
-  /**
-   * @brief JS `Array.isArray`.
-   * @param value Value to test.
-   * @return True if value is a JS array.
-   */
-  static bool is_array(const emscripten::val &value) {
-    return emscripten::val::global("Array").call<bool>("isArray", value);
-  }
-
 private:
   const uint64_t generation;
 };
@@ -218,7 +209,7 @@ public:
     const emscripten::val entries = clone_payload(caller_entries);
     if (!isValid())
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
-    if (!is_array(entries))
+    if (!hs_wasm::is_js_array(entries))
       return chain_result(ChainStatus::MALFORMED_PAYLOAD, -1);
     const size_t count = entries["length"].as<size_t>();
     // The length cap precedes per-entry decode, so an oversized payload is
@@ -270,7 +261,7 @@ public:
     const emscripten::val entries = clone_payload(caller_entries);
     if (!isValid())
       return ParamSetResult::NO_EFFECT;
-    if (!is_array(entries))
+    if (!hs_wasm::is_js_array(entries))
       return ParamSetResult::MALFORMED_PAYLOAD;
     const size_t count = entries["length"].as<size_t>();
     if (count > Pullback::Interp::MAX_CHAIN_PARAMS)

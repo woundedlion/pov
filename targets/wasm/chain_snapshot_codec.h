@@ -18,6 +18,7 @@
 #include <utility>
 #include <variant>
 #include "core/render/pullback/interpreter.h"
+#include "targets/wasm/payload_clone.h"
 #include "workbench/shader/chain_snapshot.h"
 
 namespace hs_wasm {
@@ -31,9 +32,6 @@ class ChainSnapshotCodec {
   using Result = ChainSnapshotRestoreResult;
   using Runtime = Pullback::Interp::RuntimeSnapshot;
 
-  static bool array_type(const Val &value) {
-    return Val::global("Array").call<bool>("isArray", value);
-  }
   static bool object(const Val &value) {
     return !value.isNull() && !value.isUndefined() &&
            value.typeOf().as<std::string>() == "object";
@@ -91,7 +89,7 @@ class ChainSnapshotCodec {
   }
   template <size_t N>
   static bool floats(const Val &value, std::array<float, N> &out) {
-    if (!array_type(value) || value["length"].as<size_t>() != N)
+    if (!is_js_array(value) || value["length"].as<size_t>() != N)
       return false;
     for (size_t index = 0; index < N; ++index) {
       if (!value[index].isNumber())
@@ -317,7 +315,7 @@ class ChainSnapshotCodec {
       if (!number(value, "phase", state.phase) ||
           !integer(value, "seed", state.seed) ||
           !integer(value, "burstCount", state.burst_count) ||
-          !integer(value, "frames", state.frames) || !array_type(waves) ||
+          !integer(value, "frames", state.frames) || !is_js_array(waves) ||
           waves["length"].as<unsigned>() != state.waves.size())
         return false;
       for (unsigned i = 0; i < state.waves.size(); ++i)
@@ -456,7 +454,7 @@ public:
       return Result::INVALID_VALUE;
     const auto chain = input["chain"];
     const auto parameters = input["parameters"];
-    if (!array_type(chain) || !array_type(parameters))
+    if (!is_js_array(chain) || !is_js_array(parameters))
       return Result::INVALID_VALUE;
     if (chain["length"].as<size_t>() > Pullback::Interp::MAX_CHAIN_OPS ||
         parameters["length"].as<size_t>() > Pullback::Interp::MAX_CHAIN_PARAMS)
@@ -478,7 +476,7 @@ public:
       out.parameters.push_back(std::move(entry));
     }
     const auto modulation = input["modulation"];
-    if (!array_type(modulation))
+    if (!is_js_array(modulation))
       return Result::INVALID_VALUE;
     if (modulation["length"].as<size_t>() > Pullback::Interp::MAX_CHAIN_OPS)
       return Result::INVALID_LENGTH;
@@ -492,7 +490,7 @@ public:
     }
     const auto runtime = input["runtime"];
     if (!runtime.isUndefined()) {
-      if (!array_type(runtime))
+      if (!is_js_array(runtime))
         return Result::INVALID_VALUE;
       if (runtime["length"].as<size_t>() > Pullback::Interp::MAX_CHAIN_OPS)
         return Result::INVALID_LENGTH;
@@ -513,7 +511,7 @@ public:
       GeneratedPaletteBank::Snapshot bank;
       if (!object(palette) || !number(palette, "chroma", bank.chroma))
         return Result::INVALID_VALUE;
-      if (!array_type(palette["hues"]) || !array_type(palette["cycles"]))
+      if (!is_js_array(palette["hues"]) || !is_js_array(palette["cycles"]))
         return Result::INVALID_VALUE;
       if (palette["hues"]["length"].as<size_t>() != 3 ||
           palette["cycles"]["length"].as<size_t>() != 3)

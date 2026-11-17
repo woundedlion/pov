@@ -40,3 +40,12 @@ inline emscripten::val clone_payload(const emscripten::val &input) {
   return emscripten::val::take_ownership(
       clone_payload_handle(input.as_handle()));
 }
+
+namespace hs_wasm {
+/** @brief Tests whether a JavaScript value is an array.
+ * @param value Value to test.
+ * @return True if Array.isArray accepts the value. */
+inline bool is_js_array(const emscripten::val &value) {
+  return emscripten::val::global("Array").call<bool>("isArray", value);
+}
+} // namespace hs_wasm
