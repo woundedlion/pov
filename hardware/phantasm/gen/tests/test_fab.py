@@ -356,8 +356,23 @@ class ZoneGeometryTests(unittest.TestCase):
                 board = sexp.parse_one(
                     f'(kicad_pcb {stack} {zone.format(layer=first)} {zone.format(layer=second)})')
                 with self.assertRaisesRegex(fab.ZoneGeometryError,
-                                            r"required plane In2\.Cu has no copper pour"):
+                                            r"required plane In2\.Cu has no GND pour"):
                     fab.validate_zone_geometry("fixture", board=board)
+
+    def test_non_ground_pour_does_not_replace_inner_ground_plane(self):
+        stack = '(layers (0 "F.Cu" signal) (2 "In1.Cu" power) (4 "In2.Cu" power) (31 "B.Cu" signal))'
+        zone = ('(zone (net {net}) (layer "{layer}") (min_thickness 0.25) '
+                '(fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5)))')
+        declarations = '(net 1 "GND") (net 2 "+5V_LOGIC")'
+        first = zone.format(net=1, layer="In1.Cu")
+
+        def board(second_net):
+            second = zone.format(net=second_net, layer="In2.Cu")
+            return sexp.parse_one(f'(kicad_pcb {stack} {declarations} {first} {second})')
+
+        self.assertEqual(fab.validate_zone_geometry("fixture", board=board(1)), 2)
+        with self.assertRaisesRegex(fab.ZoneGeometryError, r"required plane In2\.Cu has no GND pour"):
+            fab.validate_zone_geometry("fixture", board=board(2))
 
 
 class PlotOriginTests(unittest.TestCase):

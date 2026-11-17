@@ -19,6 +19,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import fab
 import release
+from kicad_common import net_name_resolver
 from kicad_env import GENERATES, GENERATES_REASON
 
 
@@ -124,7 +125,7 @@ class ReleaseTests(unittest.TestCase):
         release.preflight(project, "1.1")
         path = project / "phantasm.kicad_pcb"
         board = fab.read_board(path)
-        net_name = release.net_name_resolver(board)
+        net_name = net_name_resolver(board)
         tracks = [node for node in board if isinstance(node, list) and node
                   and node[0] in ("segment", "arc") and net_name(node) == "DATA"]
         self.assertTrue(tracks)
@@ -419,14 +420,20 @@ class ReleaseTests(unittest.TestCase):
     def test_ground_pours_without_net_name_are_accepted(self):
         board = self.fabrication_board()
         board.write_text(board.read_text(encoding="utf-8").replace('(net_name "GND")', ''), encoding="utf-8")
-        self.assertEqual(release.fabrication_options(self.project, "1.2")["copper_finish"], "ENIG")
+        self.assertEqual(fab.validate_zone_geometry(board), fab.MIN_COPPER_POURS)
 
-    def test_rejects_non_ground_pours(self):
-        board = self.fabrication_board()
-        board.write_text(board.read_text(encoding="utf-8").replace('(net_name "GND")', '(net_name "VCC")'),
+    def test_preflight_rejects_non_ground_pours_on_the_rev_1_1_board(self):
+        project = self.root / "wrong-plane-net"
+        release.snapshot(committed_project(), project)
+        release.preflight(project, "1.1", check_copper=False)
+        board = project / "phantasm.kicad_pcb"
+        source = board.read_text(encoding="utf-8")
+        ground_plane = '(net "GND")\n\t\t(layer "In2.Cu")'
+        self.assertEqual(source.count(ground_plane), 1)
+        board.write_text(source.replace(ground_plane, ground_plane.replace("GND", "+5V_LOGIC")),
                          encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "GND pours"):
-            release.fabrication_options(self.project, "1.2")
+        with self.assertRaisesRegex(ValueError, r"required plane In2\.Cu has no GND pour"):
+            release.preflight(project, "1.1", check_copper=False)
 
     def test_rejects_wrong_board_thickness(self):
         board = self.fabrication_board()

@@ -4,7 +4,8 @@ import os
 import sys
 from revision_policy import DEFAULT_OUT, RevisionLayout
 import sexp
-from constraints import (MAX_BOARD_WIDTH_MM)
+from constraints import GROUND_NET as GROUND_NET
+from constraints import MAX_BOARD_WIDTH_MM
 from kicad_common import property_value
 from kicad_common import (fmt, F)
 
@@ -107,9 +108,6 @@ TECHNICAL_LAYERS = ((9, "F.Adhes", "user"), (11, "B.Adhes", "user"),
                     (25, "Edge.Cuts", "user"), (27, "Margin", "user"),
                     (31, "F.CrtYd", "user"), (29, "B.CrtYd", "user"),
                     (35, "F.Fab", "user"), (33, "B.Fab", "user"))
-
-
-GROUND_NET = "GND"
 
 
 LAYER_NAMES = {"In1.Cu": "GND", "In2.Cu": "Ground"}

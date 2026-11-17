@@ -33,6 +33,7 @@ class ZoneFloors:
 ZONE_DEFAULTS = ZoneFloors(0.25, 0.5, 0.5)
 
 
+GROUND_NET = "GND"
 GROUND_PLANE_LAYERS = ("In1.Cu", "In2.Cu")
 
 RULE_MINIMUMS = {

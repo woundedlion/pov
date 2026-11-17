@@ -6,7 +6,7 @@ import math
 
 import sexp
 from connectivity import copper_layers, footprint_reference, zone_layers
-from constraints import (DEFAULT_CLASS_MINIMUMS, GROUND_PLANE_LAYERS,
+from constraints import (DEFAULT_CLASS_MINIMUMS, GROUND_NET, GROUND_PLANE_LAYERS,
                          MIN_SOLDER_MASK_WEB_MM, MIN_VIA_TO_VIA_COPPER_SPACING_MM,
                          RULE_MINIMUMS, ZONE_FAB_MINIMUMS, rule_checks)
 from kicad_common import F, is_copper_pour, net_name, net_name_resolver
@@ -250,7 +250,7 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
 
 def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None,
                            *, plane_layers=GROUND_PLANE_LAYERS):
-    """Gate required plane coverage, copper-pour pad connections and fill features.
+    """Gate required ground-plane coverage, copper-pour pad connections and fill features.
 
     KiCad DRC never flags these: thermal reliefs are same-net geometry. A
     sub-process gap fabricates as a solid pour, defeating the reliefs R-ASM-6
@@ -263,6 +263,7 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None,
 
     diagnostics = []
     zones = [zone for zone in F(root, "zone") if is_copper_pour(zone)]
+    resolved_net_name = net_name_resolver(root)
     if len(zones) < min_pours:
         diagnostics.append(
             f"board lists {len(zones)} copper pours, fewer than the "
@@ -270,13 +271,17 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None,
     if plane_layers:
         try:
             stack = copper_layers(root) if zones else ()
-            poured = {layer for zone in zones for layer in zone_layers(zone, stack)}
+            ground_layers = set()
+            for zone in zones:
+                layers = zone_layers(zone, stack)
+                if resolved_net_name(zone) == GROUND_NET:
+                    ground_layers.update(layers)
         except ValueError as exc:
             diagnostics.append(str(exc))
         else:
             for layer in plane_layers:
-                if layer not in poured:
-                    diagnostics.append(f"required plane {layer} has no copper pour")
+                if layer not in ground_layers:
+                    diagnostics.append(f"required plane {layer} has no GND pour")
     for index, zone in enumerate(zones, 1):
         name = sexp.val(zone, "name", [])
         label = name[0] if name else f"index {index}"
@@ -315,8 +320,6 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None,
                 diagnostics.append(
                     f"zone {label}: {key} {feature_mm:g} mm is below "
                     f"{minimum_mm:g} mm")
-
-    resolved_net_name = net_name_resolver(root)
 
     poured_nets = {resolved_net_name(zone) for zone in zones}
     for footprint in F(root, "footprint"):
