@@ -302,17 +302,13 @@ inline void test_bump_field_precomputed_y_parity() {
 
 /** @brief A bump with precomputed y stays finite and bounded near its center. */
 inline void test_bump_field_with_y_near_center_stays_bounded() {
-  const float C_LAT = 1.1f;
   Animation::BumpParams p;
-  p.center = math::Vector(std::sin(C_LAT), std::cos(C_LAT), 0.0f);
-  p.axis = math::Vector(0, 1, 0);
+  p.center = p.axis = math::Y_AXIS;
   p.radius = 0.55f;
   p.amplitude = 0.8f;
   p.envelope = 0.7f;
   p.sync();
 
-  p.center = math::Y_AXIS;
-  p.axis = math::Y_AXIS;
   for (float angle : {0.0001f, 0.0005f, 0.001f}) {
     const math::Vector point(sinf(angle), cosf(angle), 0.0f);
     const float field = bump_field_with_y(point, p, angle);

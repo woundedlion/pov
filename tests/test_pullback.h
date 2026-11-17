@@ -9,7 +9,6 @@
 
 #include "core/math/scalar_kernels.h"
 #include <array>
-#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>

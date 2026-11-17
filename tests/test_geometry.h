@@ -228,7 +228,7 @@ inline void test_fib_spiral_unit_length() {
 }
 
 /** @brief Fibonacci samples preserve the epsilon latitude offset and zero phase. */
-inline void test_fib_spiral_deterministic() {
+inline void test_fib_spiral_latitude_and_phase() {
   for (int n : {4, 17, 64, 127}) {
     for (float eps : {0.25f, 0.5f, 0.75f}) {
       for (int i = 0; i < n; ++i) {
@@ -857,7 +857,7 @@ inline int run_geometry_tests() {
   HS_RUN(pole_wrap_tests::run_pole_wrap_cases);
 
   HS_RUN(test_fib_spiral_unit_length);
-  HS_RUN(test_fib_spiral_deterministic);
+  HS_RUN(test_fib_spiral_latitude_and_phase);
   HS_RUN(test_fib_spiral_endpoints);
   HS_RUN(test_fib_spiral_golden_angle);
 

@@ -6,10 +6,7 @@
  * @brief Replays sphere cube seam and scalar-error qualification sweeps. */
 
 #define HS_PATTERN_QUALIFICATION_REPORT 1
-#include <array>
-#include <cstring>
-#include "core/pattern/noise.h"
-#include "core/pattern/sphere_lut.h"
+#include <cstdio>
 #include "tests/pattern/sphere_lut.h"
 #include "tests/test_harness.h"
 

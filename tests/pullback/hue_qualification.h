@@ -7,11 +7,8 @@
  * @brief Cached hue modulation qualification over cycling palettes.
  */
 
-#include "tests/pullback/color.h"
-#include "core/render/pullback.h"
+#include "tests/pullback/color/fixture.h"
 #include "tests/pixel_test_util.h"
-#include "tests/test_fixture.h"
-#include "tests/test_harness.h"
 
 namespace hs_test::pullback_tests {
 

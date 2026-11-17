@@ -201,15 +201,20 @@ struct Style {
   }
 
   // --- Named presets ---
-  // Params: fade, hue_shift, amplitude, frequency, speed, scale, space_fn, color_fn
 
   /**
    * @brief Branching, fast-moving distortion with pronounced hue rotation.
    * @return The ArcingLightning preset Style.
    */
   static constexpr Style ArcingLightning() {
-    return {0.5f, 0.14426951f, 3.27f,       0.09f,
-            1.5f, 50.0f,       &noise_warp, &hue_fade};
+    return {.fade = 0.5f,
+            .hue_shift = 0.14426951f,
+            .amplitude = 3.27f,
+            .frequency = 0.09f,
+            .speed = 1.5f,
+            .scale = 50.0f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -217,8 +222,14 @@ struct Style {
    * @return The SlowFire preset Style.
    */
   static constexpr Style SlowFire() {
-    return {0.8732f, 0.12316483f, 1.56f,       0.5297f,
-            0.1f,    50.0f,       &noise_warp, &hue_fade};
+    return {.fade = 0.8732f,
+            .hue_shift = 0.12316483f,
+            .amplitude = 1.56f,
+            .frequency = 0.5297f,
+            .speed = 0.1f,
+            .scale = 50.0f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -226,8 +237,14 @@ struct Style {
    * @return The EnergeticFire preset Style.
    */
   static constexpr Style EnergeticFire() {
-    return {0.8732f, 0.12316483f, 1.56f,       0.22087f,
-            0.9f,    50.0f,       &noise_warp, &hue_fade};
+    return {.fade = 0.8732f,
+            .hue_shift = 0.12316483f,
+            .amplitude = 1.56f,
+            .frequency = 0.22087f,
+            .speed = 0.9f,
+            .scale = 50.0f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -235,8 +252,14 @@ struct Style {
    * @return The Smoke preset Style.
    */
   static constexpr Style Smoke() {
-    return {0.9f,  0.09491219f, 0.51f,       0.42f,
-            0.46f, 23.0f,       &noise_warp, &hue_fade};
+    return {.fade = 0.9f,
+            .hue_shift = 0.09491219f,
+            .amplitude = 0.51f,
+            .frequency = 0.42f,
+            .speed = 0.46f,
+            .scale = 23.0f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -244,8 +267,14 @@ struct Style {
    * @return The SlowDust preset Style.
    */
   static constexpr Style SlowDust() {
-    return {0.83952f, 0.09546948f, 1.56f,       0.07237f,
-            0.6f,     50.0f,       &noise_warp, &hue_fade};
+    return {.fade = 0.83952f,
+            .hue_shift = 0.09546948f,
+            .amplitude = 1.56f,
+            .frequency = 0.07237f,
+            .speed = 0.6f,
+            .scale = 50.0f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -253,8 +282,14 @@ struct Style {
    * @return The WavyTrails preset Style.
    */
   static constexpr Style WavyTrails() {
-    return {0.7257f, 0.22518973f, 1.95f,       0.01f,
-            5.0f,    50.0f,       &noise_warp, &hue_fade};
+    return {.fade = 0.7257f,
+            .hue_shift = 0.22518973f,
+            .amplitude = 1.95f,
+            .frequency = 0.01f,
+            .speed = 5.0f,
+            .scale = 50.0f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -263,8 +298,14 @@ struct Style {
    * @return The MeltingHi preset Style.
    */
   static constexpr Style MeltingHi() {
-    return {0.59004f, 0.18955015f, 4.38f,      0.06346f,
-            0.2f,     22.3554f,    &melt_warp, &hue_fade};
+    return {.fade = 0.59004f,
+            .hue_shift = 0.18955015f,
+            .amplitude = 4.38f,
+            .frequency = 0.06346f,
+            .speed = 0.2f,
+            .scale = 22.3554f,
+            .space_fn = &melt_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -273,8 +314,14 @@ struct Style {
    * @return The MeltingLo preset Style.
    */
   static constexpr Style MeltingLo() {
-    return {0.59004f, 0.18955015f, 1.95f,      0.06346f,
-            0.2f,     22.3554f,    &melt_warp, &hue_fade};
+    return {.fade = 0.59004f,
+            .hue_shift = 0.18955015f,
+            .amplitude = 1.95f,
+            .frequency = 0.06346f,
+            .speed = 0.2f,
+            .scale = 22.3554f,
+            .space_fn = &melt_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -283,8 +330,14 @@ struct Style {
    * @return The Miasma preset Style.
    */
   static constexpr Style Miasma() {
-    return {0.80586f, 0.234f,     2.61f,       0.05059f,
-            0.725f,   26.297501f, &noise_warp, &hue_fade};
+    return {.fade = 0.80586f,
+            .hue_shift = 0.234f,
+            .amplitude = 2.61f,
+            .frequency = 0.05059f,
+            .speed = 0.725f,
+            .scale = 26.297501f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -293,8 +346,14 @@ struct Style {
    * @return The LooseWormhole preset Style.
    */
   static constexpr Style LooseWormhole() {
-    return {0.7257f, 0.22519f, 11.25f,      0.01f,
-            0.0f,    10.1798f, &noise_warp, &hue_fade};
+    return {.fade = 0.7257f,
+            .hue_shift = 0.22519f,
+            .amplitude = 11.25f,
+            .frequency = 0.01f,
+            .speed = 0.0f,
+            .scale = 10.1798f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -303,8 +362,14 @@ struct Style {
    * @return The TightWormhole preset Style.
    */
   static constexpr Style TightWormhole() {
-    return {0.7257f, 0.22519f, 6.42f,       0.01f,
-            0.0f,    7.8844f,  &noise_warp, &hue_fade};
+    return {.fade = 0.7257f,
+            .hue_shift = 0.22519f,
+            .amplitude = 6.42f,
+            .frequency = 0.01f,
+            .speed = 0.0f,
+            .scale = 7.8844f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 
   /**
@@ -313,26 +378,20 @@ struct Style {
    * @return The WigglingWormhole preset Style.
    */
   static constexpr Style WigglingWormhole() {
-    return {0.7257f, 0.22519f, 7.11f,       0.01f,
-            0.0f,    29.1917f, &noise_warp, &hue_fade};
+    return {.fade = 0.7257f,
+            .hue_shift = 0.22519f,
+            .amplitude = 7.11f,
+            .frequency = 0.01f,
+            .speed = 0.0f,
+            .scale = 29.1917f,
+            .space_fn = &noise_warp,
+            .color_fn = &hue_fade};
   }
 };
 
 static_assert(std::is_trivially_copyable_v<Style>,
               "Style must stay trivially copyable: PRESETS tables and lerp() "
               "copy it field-wise.");
-
-// Pins the positional preset initializers to Style's field order.
-static_assert(Style::Miasma().fade == 0.80586f &&
-                  Style::Miasma().hue_shift == 0.234f &&
-                  Style::Miasma().amplitude == 2.61f &&
-                  Style::Miasma().frequency == 0.05059f &&
-                  Style::Miasma().speed == 0.725f &&
-                  Style::Miasma().scale == 26.297501f &&
-                  Style::Miasma().space_fn == &noise_warp &&
-                  Style::Miasma().color_fn == &hue_fade,
-              "Style preset field order drifted from the positional brace-init "
-              "in the *() presets; update the initializers or this anchor.");
 
 // --- Deferred inline definitions (Style is now complete) ----------------------
 
