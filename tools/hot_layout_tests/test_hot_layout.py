@@ -215,7 +215,7 @@ def _program(functions, references, data=(), objects=None, startup_ranges=()):
     """Program with one input section per function, kind from its section name."""
     sections = []
     for name, address, size, section, origin in functions:
-        output = hl.ITCM_OUTPUT if address < hl.ITCM_END else hl.FLASH_OUTPUT
+        output = hl.ITCM_OUTPUT if hl.region_for_address(address) == "ITCM" else hl.FLASH_OUTPUT
         sections.append(hl.Section(output, section, origin, address, size))
     return hl.Program([hl.Function(f[0], f[1], f[2]) for f in functions],
                       sections, references, data, objects, startup_ranges)

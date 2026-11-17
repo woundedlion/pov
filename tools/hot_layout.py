@@ -41,7 +41,8 @@ from pathlib import Path
 
 from cpp_roster import (PHANTASM_PLAYLIST_SOURCE, macro_body, named_rows,
                         playlist_shows)
-from teensy_gate import parse_readelf_symbols, sibling_tool
+from teensy_gate import parse_readelf_symbols, region_for_address, sibling_tool
+from teensy_memory import MEMORY_MAP
 
 #: Instruction-cache line size in bytes.
 CACHE_LINE_BYTES = 32
@@ -77,8 +78,7 @@ LIBC_ARCHIVE = "libc_nano.a"
 #: Mangled class names of the code every effect runs.
 DRIVER_CLASSES = ("POVSegmented",)
 
-ITCM_END = 0x20000000
-FLASH_START = 0x60000000
+FLASH_START = next(lo for name, lo, _ in MEMORY_MAP if name == "FLASH")
 FLASH_OUTPUT = ".text.code"
 ITCM_OUTPUT = ".text.itcm"
 
@@ -434,7 +434,7 @@ class Program:
     def _classify(self, function: Function) -> str:
         if function.name.endswith("_veneer"):
             return VENEER
-        if function.address < ITCM_END:
+        if region_for_address(function.address) == "ITCM":
             return ITCM
         section = self.section_of[function.address]
         if section is None or section.output != FLASH_OUTPUT:

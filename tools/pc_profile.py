@@ -30,9 +30,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-ITCM_END = 0x0008_0000
-FLASH_START = 0x6000_0000
-FLASH_END = 0x8000_0000
+from teensy_memory import MEMORY_MAP
+
 TEXT_TYPES = frozenset("tTwW")
 
 HEADER_RE = re.compile(r"^pc profile: version=(\d+) (.*)$")
@@ -84,10 +83,9 @@ class Function:
 
 def region_of(address):
     """Memory region an address executes from."""
-    if address < ITCM_END:
-        return "ITCM"
-    if FLASH_START <= address < FLASH_END:
-        return "flash"
+    for name, lo, hi in MEMORY_MAP:
+        if lo <= address < hi:
+            return {"ITCM": "ITCM", "FLASH": "flash"}.get(name, "other")
     return "other"
 
 

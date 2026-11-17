@@ -13,6 +13,7 @@ TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
 import pc_profile as pc  # noqa: E402
+from teensy_memory import MEMORY_MAP  # noqa: E402
 
 HEADER = ("pc profile: version=1 hz=10000 bin_bytes=16 capacity=4096 "
           "defer_counts=48 counts_per_us=24 elapsed_ms=1000")
@@ -117,12 +118,14 @@ class Symbols(unittest.TestCase):
         self.assertEqual(functions[0x1000].aliases, 0)
 
     def test_regions_split_at_the_itcm_and_flexspi_bounds(self):
-        for address, region in ((0x0, "ITCM"), (0x7FFFF, "ITCM"),
-                                (0x80000, "other"), (0x20000000, "other"),
-                                (0x5FFFFFFF, "other"), (0x60000000, "flash"),
-                                (0x7FFFFFFF, "flash"), (0x80000000, "other")):
-            with self.subTest(address=hex(address)):
-                self.assertEqual(pc.region_of(address), region)
+        for name, lo, hi in MEMORY_MAP:
+            for address in (lo, hi - 1):
+                with self.subTest(address=hex(address)):
+                    self.assertEqual(pc.region_of(address),
+                                     {"ITCM": "ITCM", "FLASH": "flash"}.get(name, "other"))
+        for address in (-1, max(hi for _, _, hi in MEMORY_MAP)):
+            with self.subTest(address=address):
+                self.assertEqual(pc.region_of(address), "other")
 
 
 class Attribution(unittest.TestCase):
