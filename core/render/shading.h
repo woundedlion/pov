@@ -137,7 +137,7 @@ inline int mesh_face_index(const Fragment &f) { return static_cast<int>(f.v2); }
  */
 template <size_t NumPalettes>
 inline int mesh_topology_slot(const Fragment &f, const uint16_t *topology,
-                              int num_faces) {
+                              [[maybe_unused]] int num_faces) {
   int face_idx = mesh_face_index(f);
   HS_AUDIT_CHECK(face_idx >= 0 && face_idx < num_faces,
                  "mesh topology face index out of range");
