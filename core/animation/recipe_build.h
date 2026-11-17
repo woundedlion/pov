@@ -25,6 +25,12 @@ class RecipeBuild {
   Host &host() { return static_cast<Host &>(*this); }
   const Host &host() const { return static_cast<const Host &>(*this); }
 
+  /** @brief Compacts retained build storage. */
+  HS_FLASH_MEMBER void compact_build_arena() {
+    host().carousel.compact_drop_all(
+        [this](Arena &arena) { host().reclaim_persistent(arena); });
+  }
+
 protected:
   // Recipe-build leg lengths, before the Trans Speed divisor.
   /// Hankin leg length in frames.
@@ -599,8 +605,7 @@ protected:
     // dual), drop leg 1.
     {
       Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
-      host().carousel.compact_drop_all(
-          [this](Arena &arena) { host().reclaim_persistent(arena); });
+      compact_build_arena();
     }
 
     const int frames = dual_sub_frames(1);
@@ -629,13 +634,11 @@ protected:
     // Compact: keep the seed P for leg 3, drop leg 2.
     if (build_next_seed.face_counts.empty()) {
       Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
-      host().carousel.compact_drop_all(
-          [this](Arena &arena) { host().reclaim_persistent(arena); });
+      compact_build_arena();
     } else {
       Persist<PolyMesh> pn(build_next_seed, scratch_arena_b, persistent_arena);
       Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
-      host().carousel.compact_drop_all(
-          [this](Arena &arena) { host().reclaim_persistent(arena); });
+      compact_build_arena();
     }
 
     // Build the deferred leg-3 seed dual(P) into the compacted arena. Not
@@ -691,8 +694,7 @@ protected:
           bridge_preparation, scratch_arena_b, persistent_arena);
       Persist<PolyMesh> pn(build_next_seed, scratch_arena_b, persistent_arena);
       build_seed = PolyMesh();
-      host().carousel.compact_drop_all(
-          [this](Arena &arena) { host().reclaim_persistent(arena); });
+      compact_build_arena();
     }
     build_seed = std::move(build_next_seed);
 
@@ -983,8 +985,7 @@ protected:
         MeshOps::clone(build_seed, built, scratch_arena_b);
         build_next_seed = PolyMesh();
         build_seed = PolyMesh();
-        host().carousel.compact_drop_all(
-            [this](Arena &arena) { host().reclaim_persistent(arena); });
+        compact_build_arena();
         MeshOps::compile(built, slot, persistent_arena, scratch_arena_a);
       }
       slot.topology.bind(persistent_arena, landed_faces);
