@@ -55,7 +55,7 @@ struct DirectionalSine {
    * @return Wrapped phase. */
   static State advance(const State &state, const Params &params) {
     HS_CHECK(valid(params) && finite(state.phase_turns),
-             "pattern sine: invalid state");
+             "pattern sine: invalid advance inputs");
     return {advance_turn_phase(state.phase_turns, params.speed)};
   }
   /** @brief Resolves unit axis and wrapped phase.
@@ -64,7 +64,7 @@ struct DirectionalSine {
    * @return Complete immutable source inputs. */
   static Prepared prepare(const Params &params, const State &state) {
     HS_CHECK(valid(params) && finite(state.phase_turns),
-             "pattern sine: invalid parameters");
+             "pattern sine: invalid preparation inputs");
     return {SphereDirection::from(params.axis).value(), params.frequency,
             advance_turn_phase(state.phase_turns, params.offset)};
   }

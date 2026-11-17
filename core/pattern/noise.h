@@ -68,7 +68,7 @@ struct SphereNoise {
    * @return Wrapped loop phase. */
   static State advance(const State &state, const Params &params) {
     HS_CHECK(valid(params) && finite(state.phase_turns),
-             "pattern noise: invalid state");
+             "pattern noise: invalid advance inputs");
     return {advance_turn_phase(state.phase_turns, params.speed)};
   }
   /** @brief Copies the configured generator and resolves the loop offset.
@@ -79,7 +79,7 @@ struct SphereNoise {
   static Prepared prepare(const Params &params, const State &state,
                           const FastNoiseLite &noise) {
     HS_CHECK(valid(params) && finite(state.phase_turns),
-             "pattern noise: invalid parameters");
+             "pattern noise: invalid preparation inputs");
     return {noise,        math::noise_sphere_loop_offset(state.phase_turns),
             params.scale, params.contrast,
             params.basis, params.variant};
