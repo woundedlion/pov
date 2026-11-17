@@ -251,15 +251,15 @@ __attribute__((always_inline)) inline bool emit_single_owner_shell(
 }
 
 /** @brief Projects an ambient shell gradient into the view subspace.
+ * @tparam DIMENSIONS Ambient dimension count.
+ * @tparam Gradient Indexable ambient gradient.
  * @param camera Prepared embedding.
  * @param gradient Ambient gradient.
- * @return Squared projected length.
- * @tparam DIMENSIONS Ambient dimension count.
- */
-template <int DIMENSIONS>
+ * @return Squared projected length. */
+template <int DIMENSIONS, typename Gradient>
 __attribute__((always_inline)) inline float
 shell_projected_length2(const Raycast::PreparedCamera &camera,
-                        const float (&gradient)[DIMENSIONS]) {
+                        const Gradient &gradient) {
   float length2 = 0;
   for (int j = 0; j < 3; ++j) {
     float component = 0;
@@ -268,6 +268,24 @@ shell_projected_length2(const Raycast::PreparedCamera &camera,
     length2 += component * component;
   }
   return length2;
+}
+
+/** @brief Rescales shell clearance by the projected gradient length.
+ * @tparam DIMENSIONS Ambient dimension count.
+ * @tparam Gradient Indexable ambient gradient.
+ * @param camera Prepared embedding.
+ * @param gradient Ambient gradient.
+ * @param length Ambient gradient length.
+ * @param distance Ambient clearance.
+ * @return View-space clearance, or infinity for a zero projection. */
+template <int DIMENSIONS, typename Gradient>
+__attribute__((always_inline)) inline float
+projected_shell_distance(const Raycast::PreparedCamera &camera,
+                         const Gradient &gradient, float length,
+                         float distance) {
+  const float projected2 =
+      shell_projected_length2<DIMENSIONS>(camera, gradient);
+  return projected2 > 0 ? distance * length / sqrtf(projected2) : INFINITY;
 }
 
 /** @brief Enumerates lattice centers whose layer can reach the ray.
@@ -442,10 +460,8 @@ retain_shell_candidate(const PreparedPeriodicShells &prepared,
       if constexpr (DIMENSIONS == 4) {
         float point[DIMENSIONS];
         at(u, point);
-        const float projected2 =
-            shell_projected_length2<DIMENSIONS>(ray.camera, point);
-        distance =
-            projected2 > 0 ? distance * length / sqrtf(projected2) : INFINITY;
+        distance = projected_shell_distance<DIMENSIONS>(ray.camera, point,
+                                                        length, distance);
       }
       const float coverage = footprint_coverage(width, distance);
       if (coverage > 0) {
@@ -495,16 +511,8 @@ admit_shell_tangent(const PreparedPeriodicShells &prepared,
         float distance = length - prepared.geometry.shell_radius *
                                       prepared.geometry.cell_size;
         if constexpr (DIMENSIONS == 4) {
-          float projected_squared = 0;
-          for (int j = 0; j < 3; ++j) {
-            float component = 0;
-            for (int k = 0; k < DIMENSIONS; ++k)
-              component += camera.embedding.m[k][j] * gradient[k];
-            projected_squared += component * component;
-          }
-          distance = projected_squared > 0
-                         ? distance * length / sqrtf(projected_squared)
-                         : INFINITY;
+          distance = projected_shell_distance<DIMENSIONS>(camera, gradient,
+                                                          length, distance);
         }
         filtered_coverage = footprint_coverage(width, distance);
         if (filtered_coverage > 0)
