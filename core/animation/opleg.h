@@ -953,6 +953,13 @@ private:
   hoist_arrival_topology(PolyMesh &arrival, const BookendClasses &bookend,
                          Arena &arena, ArenaVector<uint16_t> &topology);
 
+  /** @brief Vertex motion associated with a swept draw. */
+  struct DrawMotion {
+    math::Vector *drawn = nullptr; ///< Previous positions, indexed by vertex.
+    int previous_frame = -1;       ///< Previous moving leg frame, or -1.
+    int current_frame = -1;        ///< Current moving leg frame, or -1.
+  };
+
   /**
    * @brief Compile the swept mesh, check its face count against the hoisted
    * classification, pre-blend ramps and pass the mesh and Shading to the callback.
@@ -962,18 +969,11 @@ private:
    * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
    * seed classification and its identity ramp table, which w == 0 leaves at the
    * departed palettes.
-   * @param drawn @p swept's vertices at the leg frame drawn last, index for
-   * index, or null when the draw does not move; they reach the draw as
-   * `Shading::previous_vertices` when compiling keeps every vertex in place.
-   * @param previous_frame The leg frame drawn last when the leg moves vertex by
-   * vertex from it, or -1; it reaches the draw through `Shading::leg` when
-   * compiling keeps every vertex in place.
-   * @param current_frame The leg frame being drawn, or -1 for a gated draw.
+   * @param motion Prior vertices and leg frames for a moving draw.
    */
-  inline HS_FLASH_MEMBER void
-  finish_frame(Canvas &canvas, const PolyMesh &swept, float w,
-               bool seed_side = false, math::Vector *drawn = nullptr,
-               int previous_frame = -1, int current_frame = -1);
+  inline HS_FLASH_MEMBER void finish_frame(Canvas &canvas,
+                                           const PolyMesh &swept, float w,
+                                           bool seed_side, DrawMotion motion);
 
   /**
    * @brief Bakes this frame's ramp per interned pair into scratch_arena_b.

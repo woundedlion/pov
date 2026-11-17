@@ -12,10 +12,10 @@
 
 namespace Animation {
 
-inline HS_FLASH_MEMBER void
-OpLeg::finish_frame(Canvas &canvas, const PolyMesh &swept, float w,
-                    bool seed_side, math::Vector *drawn, int previous_frame,
-                    int current_frame) {
+inline HS_FLASH_MEMBER void OpLeg::finish_frame(Canvas &canvas,
+                                                const PolyMesh &swept, float w,
+                                                bool seed_side,
+                                                DrawMotion motion) {
   Transients &tr = *buf;
   const ArenaVector<uint16_t> &topo = seed_side ? tr.seed_topo : tr.topo;
   const ArenaVector<uint8_t> &face_ramp =
@@ -41,11 +41,11 @@ OpLeg::finish_frame(Canvas &canvas, const PolyMesh &swept, float w,
   sh.weight = w;
   sh.previous_weight = previous_w;
   if (compiled.vertices.size() == swept.vertices.size()) {
-    sh.previous_vertices = drawn;
-    if (previous_frame >= 0) {
+    sh.previous_vertices = motion.drawn;
+    if (motion.previous_frame >= 0) {
       sh.leg = this;
-      sh.drawn_frame = static_cast<float>(previous_frame);
-      sh.frame = static_cast<float>(current_frame);
+      sh.drawn_frame = static_cast<float>(motion.previous_frame);
+      sh.frame = static_cast<float>(motion.current_frame);
     }
   }
   draw_fn(canvas, compiled, sh);

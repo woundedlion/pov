@@ -68,8 +68,10 @@ inline HS_FLASH_MEMBER void OpLeg::draw_frame(Canvas &canvas) {
   tr.drawn_frame = frame;
   tr.drawn_vertices = swept.vertices.size();
 
-  finish_frame(canvas, swept, tr.blend_fn(frame, duration), false, drawn,
-               moved && per_vertex ? previous_frame : -1, frame);
+  finish_frame(canvas, swept, tr.blend_fn(frame, duration), false,
+               {.drawn = drawn,
+                .previous_frame = moved && per_vertex ? previous_frame : -1,
+                .current_frame = frame});
 }
 
 inline HS_FLASH_MEMBER bool

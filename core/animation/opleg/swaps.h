@@ -91,7 +91,7 @@ inline HS_FLASH_MEMBER void OpLeg::step_gated(Canvas &canvas, int frame) {
   finish_frame(canvas, mesh,
                trailing_blend(frame, duration,
                               std::min(TRAILING_BLEND_FRAMES, tr.sweep_frames)),
-               seed_side);
+               seed_side, {});
 }
 
 inline HS_FLASH_MEMBER PolyMesh OpLeg::swap_at(const Transients &tr,
