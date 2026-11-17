@@ -1281,8 +1281,6 @@ inline void test_feedback_custom_color_receives_elapsed_fade() {
 /** @brief Plain and seam-wrapping feedback clips match a full warp inside their band. */
 inline void test_feedback_x_clips_match_full_frame() {
   constexpr int W = 64, H = 32;
-  static_assert(math::DisplayGeometry<H>::HAS_NORTH_POLE &&
-                math::DisplayGeometry<H>::HAS_SOUTH_POLE);
   constexpr Pixel UNTOUCHED(1234, 5678, 9012);
   struct Frame {
     std::vector<Pixel> pixels;
@@ -1314,8 +1312,8 @@ inline void test_feedback_x_clips_match_full_frame() {
     }
     effect.advance_display();
     const bool full = first == 0 && last == W;
-    const bool pole_band = y_end - y_begin == 1;
-    if (pole_band)
+    const bool single_row = y_end - y_begin == 1;
+    if (single_row)
       effect.set_margin(0);
     if (!full)
       effect.set_clip(y_begin, y_end, first, last);
@@ -1324,7 +1322,7 @@ inline void test_feedback_x_clips_match_full_frame() {
       Canvas canvas(effect);
       const auto &clip = canvas.clip();
       if (!full)
-        HS_EXPECT_EQ(clip.x_clip().wrap, first == 0 && !pole_band);
+        HS_EXPECT_EQ(clip.x_clip().wrap, first == 0 && !single_row);
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           canvas(x, y) = UNTOUCHED;
