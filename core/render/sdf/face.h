@@ -105,6 +105,7 @@ struct FaceScratchBuffer {
     uint16_t first; ///< First edge in the collinear run, wrapping at count.
     uint16_t last;  ///< Last edge in the collinear run, wrapping at count.
   };
+  static_assert(MAX_VERTS <= 64, "YWalkCache masks hold one bit per edge");
   /** @brief Sorted vertex rows and their crossing-edge masks. */
   struct YWalkCache {
     std::array<uint64_t, MAX_VERTS>
