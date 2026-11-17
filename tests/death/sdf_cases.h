@@ -406,4 +406,36 @@ inline void case_face_scratch_retargeted_by_culled_face() {
   (void)first.get_vertical_bounds<H>();
 }
 
+inline void case_lattice_shells_oob() {
+  SDF::Lattice::Settings settings;
+  settings.shells =
+      static_cast<SDF::Lattice::ShellCount>(opaque(SDF::Lattice::MAX_SHELLS));
+  (void)SDF::Lattice::prepare(settings, {}, math::Mat4::identity(), 4.0f,
+                              0.01f);
+}
+
+/** @brief Death case: zero lattice softness would divide by zero in shading. */
+inline void case_lattice_zero_softness() {
+  SDF::Lattice::Settings settings;
+  settings.softness = opaque(0.0f);
+  (void)SDF::Lattice::prepare(settings, {}, math::Mat4::identity(), 4.0f,
+                              0.01f);
+}
+
+/** @brief Death case: zero lattice cell size has no inverse transform. */
+inline void case_lattice_zero_cell_size() {
+  SDF::Lattice::Settings settings;
+  settings.cell_size = opaque(0.0f);
+  (void)SDF::Lattice::prepare(settings, {}, math::Mat4::identity(), 4.0f,
+                              0.01f);
+}
+
+/** @brief Death case: a negative AA strength gives invalid crossing widths. */
+inline void case_lattice_negative_aa() {
+  SDF::Lattice::Settings settings;
+  settings.aa_strength = opaque(-1.0f);
+  (void)SDF::Lattice::prepare(settings, {}, math::Mat4::identity(), 4.0f,
+                              0.01f);
+}
+
 } // namespace hs_test::death_tests

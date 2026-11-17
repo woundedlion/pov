@@ -28,10 +28,6 @@ constexpr int PARITY_W = 288;
 constexpr int PARITY_H = 144;
 /** @brief Frames folded into each scenario's hash. */
 constexpr int PARITY_FRAMES = 48;
-/** @brief Segments the clipped scenario's display is divided into. */
-constexpr int PARITY_SEGMENTS = 4;
-/** @brief Segment the clipped scenario renders. */
-constexpr int PARITY_SEGMENT_ID = 1;
 
 /** @brief Largest relative energy gap between temporal and frame-end runs. */
 constexpr double TEMPORAL_ENERGY_BAND = 0.3;
@@ -42,25 +38,10 @@ constexpr double TEMPORAL_CENTROID_BAND = 4.0;
  *  render may differ on: overlapping trails may stack in another order. */
 constexpr double BATCHED_REORDER_SHARE = 0.001;
 
-/** @brief Every displayed frame of one parity run. */
-struct ParityRun {
-  std::vector<Pixel> frames; /**< PARITY_FRAMES whole frames, row-major. */
-  RenderFold fold;           /**< Hash and fingerprint of the whole run. */
-  bool lit = false;     /**< Whether any displayed frame has a lit pixel. */
+/** @brief Recorded parity run and its clipping policy. */
+struct ParityRun : RenderRun {
   bool clipped = false; /**< Whether the segment clip applied. */
 };
-
-/**
- * @brief Display-segment clip the clipped run applies on frame @p f.
- * @param f Frame index.
- * @return The clip window.
- */
-inline pov::SegmentClip parity_clip(int f) {
-  constexpr int S = PARITY_H * 2;
-  const pov::SegmentMap map =
-      pov::segment_map(PARITY_SEGMENT_ID, S, PARITY_SEGMENTS);
-  return pov::segment_clip(map, (f & 1) == 0, S, PARITY_SEGMENTS, PARITY_W);
-}
 
 /**
  * @brief Renders PARITY_FRAMES frames of one effect and keeps every displayed
@@ -85,53 +66,17 @@ inline ParityRun render_run(bool temporal, bool segment_clipped) {
   run.frames.reserve(static_cast<size_t>(PARITY_FRAMES) * PARITY_W * PARITY_H);
   for (int f = 0; f < PARITY_FRAMES; ++f) {
     if (run.clipped) {
-      const pov::SegmentClip clip = parity_clip(f);
+      const ClipWindow clip = segment_window<PARITY_W, PARITY_H>(f);
       effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
     }
     pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
-    fold_displayed_frame<PARITY_W, PARITY_H>(run.fold, effect);
-    run.lit = run.lit || count_lit_region<PARITY_W, PARITY_H>(effect) != 0;
-    for (int y = 0; y < PARITY_H; ++y)
-      for (int x = 0; x < PARITY_W; ++x)
-        run.frames.push_back(effect.get_pixel(x, y));
+    record_frame<PARITY_W, PARITY_H>(run, effect);
   }
   Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
   return run;
-}
-
-/**
- * @brief Counts pixels inside each frame's displayed window where two runs
- *        differ.
- * @param full Run whose frames are whole.
- * @param clipped Run under test.
- * @param lit Set to the number of lit pixels compared.
- * @param displayed Set to the number of pixels compared.
- * @return Differing pixels.
- * @details Without a clip the whole frame is the window.
- */
-inline size_t displayed_differences(const ParityRun &full,
-                                    const ParityRun &clipped, size_t &lit,
-                                    size_t &displayed) {
-  size_t different = 0;
-  lit = 0;
-  displayed = 0;
-  for (int f = 0; f < PARITY_FRAMES; ++f) {
-    pov::SegmentClip window{0, PARITY_W, 0, PARITY_H};
-    if (clipped.clipped)
-      window = parity_clip(f);
-    const size_t base = static_cast<size_t>(f) * PARITY_W * PARITY_H;
-    for (int y = window.y0; y < window.y1; ++y)
-      for (int x = window.x0; x < window.x1; ++x) {
-        const size_t i = base + static_cast<size_t>(y) * PARITY_W + x;
-        different += full.frames[i] != clipped.frames[i];
-        lit += (full.frames[i].r | full.frames[i].g | full.frames[i].b) != 0;
-        ++displayed;
-      }
-  }
-  return different;
 }
 
 /**
@@ -155,23 +100,23 @@ inline void check_parity_properties(const char *name, bool batched = false) {
   const ParityRun temporal = render_run<E>(true, false);
   const ParityRun frame_end = render_run<E>(false, false);
   const ParityRun clipped = render_run<E>(true, true);
-  HS_EXPECT(temporal.lit && frame_end.lit && clipped.lit,
-            "every parity scenario must display a lit pixel");
-
-  size_t lit = 0;
+  expect_lit("temporal", temporal);
+  expect_lit("frame_end", frame_end);
+  expect_lit("clipped", clipped);
+  const auto window = [&](int frame) {
+    return clipped.clipped ? segment_window<PARITY_W, PARITY_H>(frame)
+                           : ClipWindow{0, PARITY_H, 0, PARITY_W};
+  };
   size_t displayed = 0;
-  const size_t different =
-      displayed_differences(temporal, clipped, lit, displayed);
-  if (different)
-    std::printf("  CLIP DRIFT %-20s %zu displayed pixels differ from the "
-                "unclipped render\n",
-                name, different);
-  const size_t allowed =
-      batched ? static_cast<size_t>(BATCHED_REORDER_SHARE *
-                                    static_cast<double>(displayed))
-              : 0;
-  HS_EXPECT_LE(different, allowed);
-  HS_EXPECT_GT(lit, size_t{0});
+  if (batched)
+    for (int frame = 0; frame < clipped.recorded; ++frame) {
+      const ClipWindow clip = window(frame);
+      displayed += static_cast<size_t>(clip.y1 - clip.y0) * (clip.x1 - clip.x0);
+    }
+  const size_t allowed = static_cast<size_t>(BATCHED_REORDER_SHARE *
+                                             static_cast<double>(displayed));
+  expect_clip_matches_full<PARITY_W, PARITY_H>(name, temporal, clipped, window,
+                                               allowed);
 
   const RenderFingerprint &t = temporal.fold.fingerprint;
   const RenderFingerprint &e = frame_end.fold.fingerprint;

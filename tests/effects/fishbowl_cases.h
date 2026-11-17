@@ -194,11 +194,7 @@ inline void test_fishbowl_preset_restores_params() {
   fx.init();
 
   const auto snapshot = fx.serialize_parameters();
-  auto value = [&](const char *name) {
-    const auto *def = required_param(fx, name);
-
-    return def ? def->get() : -1.0f;
-  };
+  auto value = [&](const char *name) { return required_param_value(fx, name); };
 
   hs_test::expect_params_in_range(fx, "Fishbowl preset");
   HS_EXPECT_EQ(fx.getPresetCount(), 1u);
@@ -222,11 +218,7 @@ inline void test_fishbowl_fire_duty_cycle() {
   WB::EffectType fx;
   fx.init();
 
-  auto value = [&](const char *name) {
-    const auto *def = required_param(fx, name);
-
-    return def ? def->get() : -1.0f;
-  };
+  auto value = [&](const char *name) { return required_param_value(fx, name); };
 
   HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.5f), ParamSetResult::APPLIED);
   const Pixel BLACK(0, 0, 0);
@@ -253,11 +245,7 @@ inline void test_fishbowl_palette_phase_compensates_fill() {
   WB::EffectType fx;
   fx.init();
 
-  auto value = [&](const char *name) {
-    const auto *def = required_param(fx, name);
-
-    return def ? def->get() : -1.0f;
-  };
+  auto value = [&](const char *name) { return required_param_value(fx, name); };
 
   HS_EXPECT_EQ(WB::palette_fill_scale(1), 1.0f / WB::EffectType::TRAIL_LENGTH);
   HS_EXPECT_EQ(WB::palette_fill_scale(WB::EffectType::TRAIL_LENGTH / 2),

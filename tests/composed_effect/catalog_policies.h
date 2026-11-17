@@ -9,6 +9,7 @@
 
 #include "core/render/pullback/composed_effect.h"
 #include "core/render/pullback/operators/table.h"
+#include "tests/composed_frame_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test::catalog_policy_tests {
@@ -56,24 +57,6 @@ void copy_numeric(To &to, const From &from) {
       if (std::string_view(target.id) == source.id)
         to.*target.member = from.*source.member;
 }
-
-/** @brief Frame binding for one independently keyed authored stage.
- * @tparam Family Parameter family.
- * @tparam Kind Resource kind.
- * @tparam Key Authored resource key. */
-template <typename Family, Pullback::ResourceKind Kind,
-          Pullback::ResourceKey Key = "probe">
-struct StageFrame {
-  /** @brief Keyed parameter resource discovered by the fixture. */
-  using Resource = Pullback::ParameterResource<Key, Family, Kind>;
-  /** @brief Parameter block exposed by the probe. */
-  using Params = Pullback::ComposedDetail::ParameterSet<
-      Pullback::ComposedDetail::ResourceList<Resource>>;
-  /** @brief Frame context containing the authored resource state. */
-  using Frame = Pullback::FrameIntervalState<Params>;
-  /** @brief Pipeline binding of the fixture frame. */
-  using Binding = Pullback::Binding<Frame>;
-};
 
 /** @brief Compares every authored warp selector against its catalog model.
  * @tparam Family Authored family.

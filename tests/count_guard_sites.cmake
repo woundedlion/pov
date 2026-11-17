@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.29)
 include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
 
-# Counts the engine's fail-fast sites (HS_CHECK, HS_AUDIT_CHECK and direct
-# check_fail calls) per repository-relative source path, so the death harness
-# can print what fraction of them a death case pins.
+# Counts the engine's fail-fast sites (HS_CHECK, HS_AUDIT_CHECK,
+# HS_ASSERT_BLOCK_ALIVE and direct check_fail calls) per source path, so the
+# death harness can print what fraction of them a death case pins.
 # Run at build time with HS_ROOT and HS_GUARD_OUTPUT set.
 # HS_GUARD_SITE_ROWS and HS_GUARD_SITE_TOTAL expand death_guard_sites.h.in.
-# Comments, string bodies and #define lines are stripped before counting.
+# Comments, string bodies and #define bodies are stripped before counting.
 #
 if(NOT DEFINED HS_GUARD_DIRS)
   file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/guard_directories.txt" HS_GUARD_DIRS)
@@ -26,9 +26,9 @@ set(HS_GUARD_SITE_TOTAL 0)
 foreach(_file IN LISTS _guard_files)
   file(READ "${_file}" _text)
   hs_strip_cxx_noise(_text)
-  string(REGEX REPLACE "#[ \t]*define[^\n]*" "" _text "${_text}")
+  string(REGEX REPLACE "#[ \t]*define([^\n]*\\\\\r?\n)*[^\n]*" "" _text "${_text}")
   file(RELATIVE_PATH _name "${HS_ROOT}" "${_file}")
-  string(REGEX MATCHALL "HS_(AUDIT_)?CHECK\\(" _hits "${_text}")
+  string(REGEX MATCHALL "(HS_(AUDIT_)?CHECK|HS_ASSERT_BLOCK_ALIVE)\\(" _hits "${_text}")
   list(LENGTH _hits _n)
   # platform.h defines the reporter; its own mentions are not sites.
   if(NOT _name STREQUAL "core/platform/platform.h")

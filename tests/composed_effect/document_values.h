@@ -108,6 +108,23 @@ inline void test_json_number_grammar() {
   }
 }
 
+/** @brief JSON strings accept standard escapes and reject raw controls. */
+inline void test_json_string_grammar() {
+  for (const char *text :
+       {R"("")", R"("plain")", R"("\"\\\/\b\f\n\r\t\u0041")"}) {
+    JsonParser parser{text};
+    const auto value = parser.parse_value();
+    HS_EXPECT_TRUE(parser.complete());
+    HS_EXPECT_EQ(value.kind, JsonValue::Kind::STRING);
+  }
+  for (const char *text : {"\"raw\tcontrol\"", "\"raw\ncontrol\"", R"("\x")",
+                           R"("\'")", R"("\a")", R"("\u000g")"}) {
+    JsonParser parser{text};
+    parser.parse_value();
+    HS_EXPECT_FALSE(parser.complete());
+  }
+}
+
 /** @brief
  * Exported catalog JSON agrees with the engine operator table and schemas.
  */

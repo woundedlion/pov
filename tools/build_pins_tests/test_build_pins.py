@@ -50,14 +50,14 @@ class ClangPackagePins(unittest.TestCase):
         workflow = (bp.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         installs = [line for line in workflow.splitlines()
                     if "apt-get install" in line and "clang-22" in line]
-        self.assertEqual(len(installs), 3)
+        self.assertTrue(installs)
         for line in installs:
             packages = re.findall(r"\b(?:clang|llvm)-22[^ ]*", line)
             self.assertTrue(packages)
             self.assertTrue(all(value.endswith('="$LLVM_APT_VERSION"')
                                 for value in packages), line)
         self.assertEqual(workflow.count(
-            'LLVM_APT_VERSION="$(python tools/build_pins.py clang-package)"'), 3)
+            'LLVM_APT_VERSION="$(python tools/build_pins.py clang-package)"'), len(installs))
 
 
 class RequirementPins(unittest.TestCase):

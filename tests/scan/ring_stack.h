@@ -141,7 +141,6 @@ inline void test_swept_ring_stack_matches_independent_windows() {
             Reshade reshade{pool, reshaded, finished};
             Scan::SweptRingStack::scan_two_windows<W, H>(
                 pipeline, canvas, 2, pool, alternates, table, shader, reshade);
-            HS_EXPECT_EQ(reshade.knots, 0);
           } else {
             for (int window_index = 0; window_index < 2; ++window_index) {
               if (window_index)

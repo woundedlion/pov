@@ -16,6 +16,7 @@
 #include "core/render/sdf/lattice_trace.h"
 #include "core/render/sdf/periodic_shells.h"
 #include "tests/test_harness.h"
+#include "tests/test_ray.h"
 #include "tests/test_fixture.h"
 #include "tests/pixel_test_util.h"
 
@@ -414,24 +415,12 @@ inline void test_torus_and_warped_volume_spherical_stage() {
   check_placed_volume_stage(warped, palette.view());
 }
 
-struct OffSliceBall {
-  Raycast::QueryCapabilities capabilities() const {
-    return {true, true, true, 0.0f};
-  }
-  Raycast::QuerySample sample(const math::Vec4 &p) const {
-    const float w = p[3] - 1.001f;
-    const float value =
-        sqrtf(p[0] * p[0] + p[1] * p[1] + p[2] * p[2] + w * w) - 1.0f;
-    return {value, fabsf(value), value == 0.0f, 0, 0};
-  }
-};
-
 /** @brief Verified filtering suppresses off-slice geometry and preserves partial-hit coverage and failure state. */
 inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
   Raycast::PreparedCamera camera;
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
   camera.interval = {0.0f, 0.1f};
-  OffSliceBall ball;
+  ray_tests::SliceBall ball;
   Raycast::DomainQuery4<decltype(ball)> query{ball, camera};
   constexpr std::array<math::Vector, 4> DIRECTIONS = {
       math::Vector{1.0f, 0.0f, 0.0f}, math::Vector{-1.0f, 0.0f, 0.0f},

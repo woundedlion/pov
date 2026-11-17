@@ -9,6 +9,7 @@
 #include <iterator>
 
 #include "core/render/filter/feedback_style.h"
+#include "tests/feedback_style_fixture.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -18,25 +19,6 @@ namespace hs_test {
 namespace styles_tests {
 
 // --- Named presets ----------------------------------------------------------
-
-struct PresetCase {
-  const char *name;
-  Feedback::Style style;
-};
-inline const PresetCase PRESETS[] = {
-    {"ArcingLightning", Feedback::Style::ArcingLightning()},
-    {"SlowFire", Feedback::Style::SlowFire()},
-    {"EnergeticFire", Feedback::Style::EnergeticFire()},
-    {"SlowDust", Feedback::Style::SlowDust()},
-    {"WavyTrails", Feedback::Style::WavyTrails()},
-    {"MeltingHi", Feedback::Style::MeltingHi()},
-    {"MeltingLo", Feedback::Style::MeltingLo()},
-    {"Miasma", Feedback::Style::Miasma()},
-    {"LooseWormhole", Feedback::Style::LooseWormhole()},
-    {"TightWormhole", Feedback::Style::TightWormhole()},
-    {"WigglingWormhole", Feedback::Style::WigglingWormhole()},
-    {"Smoke", Feedback::Style::Smoke()},
-};
 
 /**
  * @brief Verifies preset parameter domains and their space/color transforms.

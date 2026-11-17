@@ -367,6 +367,74 @@ inline void verify_warp_slot(const ParamList &params, const char *slot_name) {
   verify_family_sliders<FX, Family, Key>(params, PRESENT);
 }
 
+/** @brief Visits named members outside a family's numeric field table.
+ * @tparam Visit Member visitor.
+ * @tparam Family Parameter family.
+ * @tparam Others Additional copies of the same family.
+ * @param visit Receives a member name and corresponding values.
+ * @param family First family.
+ * @param others Additional families. */
+template <typename Visit, typename Family, typename... Others>
+inline void visit_untabled_members(Visit &&visit, const Family &family,
+                                   const Others &...others) {
+  const auto member = [&](std::string_view name, auto pointer) {
+    visit(name, family.*pointer, others.*pointer...);
+  };
+  if constexpr (std::is_base_of_v<Pullback::ColorParams, Family>)
+    member("palette-mapping", &Family::palette_mapping);
+  if constexpr (std::is_same_v<Family, Pullback::Color::AuthoredColorParams>) {
+    member("palette-mode", &Family::palette_mode);
+    member("palette-type", &Family::palette_type);
+    member("palette-harmony", &Family::palette_harmony);
+    member("palette-lightness-curve", &Family::palette_lightness_curve);
+    member("palette-name", &Family::palette_name);
+    member("palette-name-b", &Family::palette_name_b);
+    member("brightness-envelope", &Family::brightness_envelope);
+  }
+  if constexpr (requires { Family::TOPOLOGY; })
+    for (const auto &field : Family::TOPOLOGY)
+      member(field.id, field.member);
+  if constexpr (requires { family.terms; })
+    member("terms", &Family::terms);
+  if constexpr (requires { family.modulation; })
+    member("modulation", &Family::modulation);
+  if constexpr (requires { family.burst_size; }) {
+    member("burst-size", &Family::burst_size);
+    member("random-center", &Family::random_center);
+  }
+}
+
+/** @brief Compares nonnumeric fields and bitwise-compares floating values.
+ * @tparam Value Member type.
+ * @param actual Observed member.
+ * @param expected Reference member. */
+template <typename Value>
+inline void verify_member_equal(const Value &actual, const Value &expected) {
+  if constexpr (std::is_same_v<Value, float>) {
+    HS_EXPECT_EQ(bits(actual), bits(expected));
+  } else if constexpr (requires {
+                         actual.size();
+                         actual.data();
+                       }) {
+    HS_EXPECT_EQ(actual.size(), expected.size());
+    for (size_t i = 0; i < actual.size(); ++i)
+      verify_member_equal(actual[i], expected[i]);
+  } else if constexpr (requires {
+                         actual.type;
+                         actual.kind;
+                         actual.amplitude;
+                       }) {
+    HS_EXPECT_EQ(actual.type, expected.type);
+    HS_EXPECT_EQ(actual.kind, expected.kind);
+    HS_EXPECT_EQ(actual.l, expected.l);
+    HS_EXPECT_EQ(actual.m, expected.m);
+    verify_member_equal(actual.amplitude, expected.amplitude);
+    verify_member_equal(actual.phase, expected.phase);
+  } else {
+    HS_EXPECT_TRUE(actual == expected);
+  }
+}
+
 /** @brief Bitwise-compares every tabled field of one parameter family.
  * @param actual Observed parameter family.
  * @param expected Reference parameter family.
@@ -378,37 +446,12 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
     HS_CONTEXT(field.id);
     HS_EXPECT_EQ(bits(actual.*(field.member)), bits(expected.*(field.member)));
   }
-  if constexpr (requires { Family::TOPOLOGY; })
-    for (const auto &field : Family::TOPOLOGY)
-      HS_EXPECT_EQ(actual.*field.member, expected.*field.member);
-  if constexpr (requires { actual.modulation; })
-    HS_EXPECT_TRUE(actual.modulation == expected.modulation);
-  if constexpr (requires { actual.burst_size; }) {
-    HS_EXPECT_EQ(actual.burst_size, expected.burst_size);
-    HS_EXPECT_EQ(actual.random_center, expected.random_center);
-  }
-  if constexpr (requires { actual.terms; }) {
-    for (size_t i = 0; i < actual.terms.size(); ++i) {
-      const auto &a = actual.terms[i];
-      const auto &b = expected.terms[i];
-      HS_EXPECT_EQ(a.type, b.type);
-      HS_EXPECT_EQ(a.kind, b.kind);
-      HS_EXPECT_EQ(a.l, b.l);
-      HS_EXPECT_EQ(a.m, b.m);
-      HS_EXPECT_EQ(bits(a.amplitude), bits(b.amplitude));
-      HS_EXPECT_EQ(bits(a.phase), bits(b.phase));
-    }
-  }
-  if constexpr (std::is_same_v<Family, Pullback::Color::AuthoredColorParams>) {
-    HS_EXPECT_EQ(actual.palette_mode, expected.palette_mode);
-    HS_EXPECT_EQ(actual.palette_type, expected.palette_type);
-    HS_EXPECT_EQ(actual.palette_harmony, expected.palette_harmony);
-    HS_EXPECT_EQ(actual.palette_lightness_curve,
-                 expected.palette_lightness_curve);
-    HS_EXPECT_EQ(actual.palette_name, expected.palette_name);
-    HS_EXPECT_EQ(actual.palette_name_b, expected.palette_name_b);
-    HS_EXPECT_EQ(actual.brightness_envelope, expected.brightness_envelope);
-  }
+  visit_untabled_members(
+      [](std::string_view name, const auto &a, const auto &b) {
+        HS_CONTEXT(name.data());
+        verify_member_equal(a, b);
+      },
+      actual, expected);
 }
 
 /** @brief Bitwise-compares a whole parameter set, family by family.
@@ -422,9 +465,6 @@ inline void verify_params_equal(const Params &actual, const Params &expected) {
     const auto &other = expected.template get<Resource::KEY>();
     if constexpr (Pullback::HasFields<typename Resource::Family>)
       verify_family_equal(family, other);
-    if constexpr (Resource::KIND == Pullback::ResourceKind::COLOR)
-      HS_EXPECT_EQ(static_cast<int>(family.palette_mapping),
-                   static_cast<int>(other.palette_mapping));
   });
 }
 

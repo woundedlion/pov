@@ -150,6 +150,17 @@ inline const ParamDef *required_param(Effect &effect, const char *name) {
   return parameter;
 }
 
+/** @brief Reads a required parameter value, or returns -1 when absent.
+ * @tparam Effect Effect exposing parameters.
+ * @param effect Effect whose parameter is required.
+ * @param name Registered parameter name.
+ * @return Parameter value, or -1 when absent. */
+template <typename Effect>
+inline float required_param_value(Effect &effect, const char *name) {
+  const auto *def = required_param(effect, name);
+  return def ? def->get() : -1.0f;
+}
+
 /** @brief Declares a required parameter and returns from a void caller if absent. */
 #define HS_REQUIRED_PARAM(var, effect, name)                                   \
   const auto *var = hs_test::required_param((effect), (name));                 \

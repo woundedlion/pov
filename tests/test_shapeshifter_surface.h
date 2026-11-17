@@ -479,7 +479,7 @@ inline void test_surface_footprint_darkening() {
 /** @brief The maximum authored amplitude fits the production arena partition. */
 inline void test_surface_max_amplitude() {
   auto state = surface_state();
-  state.amplitude = 10;
+  state.amplitude = ShapeShifterWhiteBox::AMPLITUDE_MAX;
   state.phase = .37f;
   state.clip = {0, ORACLE_H / 2, 0, ORACLE_W / 2};
   state.orientation = math::make_rotation(math::X_AXIS, .27f);

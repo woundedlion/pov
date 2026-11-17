@@ -111,6 +111,7 @@ struct ShapeShifterWhiteBox {
   using Layout = Plot::ContourLayout<OracleEffect::MAX_SHAPES>;
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
   static constexpr float NYQUIST_PHASE_STEP = OracleEffect::NYQUIST_PHASE_STEP;
+  static constexpr float AMPLITUDE_MAX = OracleEffect::AMPLITUDE_MAX;
   static constexpr size_t SURFACE_SCRATCH_A_BYTES =
       OracleEffect::SURFACE_SCRATCH_A_BYTES;
   static constexpr size_t SURFACE_SCRATCH_B_BYTES =

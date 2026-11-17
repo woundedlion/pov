@@ -71,6 +71,10 @@ struct JsonParser {
       return result;
     while (position < source.size() && source[position] != '"') {
       char c = source[position++];
+      if (static_cast<unsigned char>(c) < 0x20) {
+        failed = true;
+        return result;
+      }
       if (c != '\\') {
         result.push_back(c);
         continue;
@@ -79,6 +83,11 @@ struct JsonParser {
         break;
       const char escape = source[position++];
       switch (escape) {
+      case '"':
+      case '\\':
+      case '/':
+        result.push_back(escape);
+        break;
       case 'b':
         result.push_back('\b');
         break;
@@ -125,8 +134,8 @@ struct JsonParser {
         break;
       }
       default:
-        result.push_back(escape);
-        break;
+        failed = true;
+        return result;
       }
     }
     if (!consume('"'))

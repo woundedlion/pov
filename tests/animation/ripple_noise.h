@@ -465,9 +465,10 @@ inline void test_bump_cover_contains_swept_footprint() {
     return float(seed >> 8) / 16777216.0f;
   };
   const auto direction = [&]() {
-    return math::Vector(2.0f * unit() - 1.0f, 2.0f * unit() - 1.0f,
-                        2.0f * unit() - 1.0f)
-        .normalized();
+    const float x = 2.0f * unit() - 1.0f;
+    const float y = 2.0f * unit() - 1.0f;
+    const float z = 2.0f * unit() - 1.0f;
+    return math::Vector(x, y, z).normalized();
   };
   for (int trial = 0; trial < 300; ++trial) {
     const auto from = direction();

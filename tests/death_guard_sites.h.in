@@ -6,8 +6,8 @@
  * tests/death_guard_sites.h.in — regenerated at build time whenever a
  * guard-bearing source changes, never edited.
  *
- * Per-source-path census of fail-fast guard sites: HS_CHECK, HS_AUDIT_CHECK
- * and direct check_fail calls.
+ * Per-source-path census of fail-fast guard sites: HS_CHECK, HS_AUDIT_CHECK,
+ * HS_ASSERT_BLOCK_ALIVE and direct check_fail calls.
  */
 #pragma once
 

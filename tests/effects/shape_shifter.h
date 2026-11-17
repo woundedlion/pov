@@ -28,10 +28,7 @@ inline void test_shapeshifter_preset_defaults() {
   SS ss;
   ss.init();
 
-  auto value = [&](const char *name) {
-    const auto *def = hs_test::required_param(ss, name);
-    return def ? def->get() : -1.0f;
-  };
+  auto value = [&](const char *name) { return required_param_value(ss, name); };
   auto preset_row = [&] {
     std::vector<float> row;
     for (const auto &def : ss.getParameters())

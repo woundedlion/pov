@@ -279,12 +279,13 @@ struct ClipWindow {
  * @param clipped Run rendered under the clips @p window_of names; no
  *        longer than @p full.
  * @param window_of Clip window of each recorded frame.
+ * @param allowed Maximum number of differing pixels.
  * @details The windows must hold a lit pixel, so two dark runs cannot agree
  *          vacuously. */
 template <int W, int H, typename WindowOf>
 inline void expect_clip_matches_full(const char *label, const RenderRun &full,
                                      const RenderRun &clipped,
-                                     WindowOf &&window_of) {
+                                     WindowOf &&window_of, size_t allowed = 0) {
   HS_CONTEXT(label);
   HS_EXPECT_LE(clipped.recorded, full.recorded);
   size_t different = 0, lit = 0;
@@ -307,8 +308,8 @@ inline void expect_clip_matches_full(const char *label, const RenderRun &full,
     std::printf("  CLIP DRIFT %s: %zu displayed pixels differ from the "
                 "unclipped render, first on recorded frame %d\n",
                 label, different, first_frame);
-  HS_EXPECT(different == 0,
-            "the clipped render must equal the full render inside the clip");
+  HS_EXPECT(different <= allowed,
+            "clipped render differences must fit the displayed-window budget");
   HS_EXPECT_GT(lit, size_t{0});
 }
 

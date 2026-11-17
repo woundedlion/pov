@@ -323,9 +323,7 @@ inline void test_raymarch_preset_and_placement_solids() {
   effect.init();
 
   auto value = [&](const char *name) {
-    const auto *def = required_param(effect, name);
-
-    return def ? def->get() : -1.0f;
+    return required_param_value(effect, name);
   };
 
   HS_EXPECT_EQ(effect.getPresetCount(), 1u);

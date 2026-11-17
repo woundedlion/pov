@@ -5,19 +5,12 @@
 #pragma once
 
 #include "tests/composed_effect/context.h"
+#include "tests/composed_frame_fixture.h"
 
 namespace hs_test::composed_effect_tests {
 
 /** @file authored_policies.h
  * @brief Authored displacement, projection and modulation bindings. */
-
-/** @brief Parameter set carrying one authored surface family.
- * @tparam Family Authored parameter family.
- */
-template <typename Family>
-using AuthoredSurfaceParams = Pullback::ComposedDetail::ParameterSet<
-    Pullback::ComposedDetail::ResourceList<Pullback::ParameterResource<
-        "surface", Family, Pullback::ResourceKind::SURFACE>>>;
 
 /** @brief Parameter interpolation preserves both alias directions and recipe topology. */
 inline void test_authored_interpolation_destination_aliases() {
@@ -73,7 +66,8 @@ inline void test_authored_interpolation_destination_aliases() {
  */
 template <typename Family>
 using AuthoredSurfaceFrame =
-    Pullback::FrameIntervalState<AuthoredSurfaceParams<Family>>;
+    typename StageFrame<Family, Pullback::ResourceKind::SURFACE,
+                        "surface">::Frame;
 
 /** @brief Animated surface provider bound to the authored frame.
  * @tparam Family Authored parameter family.

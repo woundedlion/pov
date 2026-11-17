@@ -7,23 +7,10 @@
 /** @file
  * @brief Death cases for authored pipeline policy guards. */
 
+#include "tests/composed_frame_fixture.h"
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
-
-/** @brief Frame binding for one keyed authored stage.
- * @tparam Family Parameter family.
- * @tparam Kind Resource kind.
- * @tparam Key Resource key. */
-template <typename Family, Pullback::ResourceKind Kind,
-          Pullback::ResourceKey Key = "probe">
-struct AuthoredStageFrame {
-  using Params = Pullback::ComposedDetail::ParameterSet<
-      Pullback::ComposedDetail::ResourceList<
-          Pullback::ParameterResource<Key, Family, Kind>>>;
-  using Frame = Pullback::FrameIntervalState<Params>;
-  using Binding = Pullback::Binding<Frame>;
-};
 
 /** @brief Prepares an authored warp after corrupting one topology selector.
  * @tparam Family Authored warp family.
@@ -31,7 +18,7 @@ struct AuthoredStageFrame {
  * @param corrupt Writes the invalid selector. */
 template <typename Family, typename Corrupt>
 inline void authored_warp_prepare(Corrupt corrupt) {
-  using Fixture = AuthoredStageFrame<Family, Pullback::ResourceKind::WARP>;
+  using Fixture = StageFrame<Family, Pullback::ResourceKind::WARP>;
   using Policy =
       typename Pullback::WarpPolicyFor<Family, typename Fixture::Binding,
                                        "probe", true>::Type;
@@ -46,8 +33,7 @@ inline void authored_warp_prepare(Corrupt corrupt) {
  * @param corrupt Writes the invalid selector. */
 template <typename Family, typename Corrupt>
 inline void authored_source_prepare(Corrupt corrupt) {
-  using Fixture =
-      AuthoredStageFrame<Family, Pullback::ResourceKind::SOURCE, "source">;
+  using Fixture = StageFrame<Family, Pullback::ResourceKind::SOURCE, "source">;
   using Policy =
       typename Pullback::SourcePolicyFor<Family,
                                          typename Fixture::Binding>::Type;
@@ -93,8 +79,7 @@ inline void case_authored_projected_noise_invalid_basis() {
 template <template <typename> class Policy, typename Corrupt>
 inline void authored_sample_apply(Corrupt corrupt) {
   using Family = Pullback::Source::AuthoredSpiralSampleParams;
-  using Fixture =
-      AuthoredStageFrame<Family, Pullback::ResourceKind::SOURCE, "source">;
+  using Fixture = StageFrame<Family, Pullback::ResourceKind::SOURCE, "source">;
   using Provider = Pullback::SourceProvider<typename Fixture::Binding, Family>;
   typename Fixture::Frame frame{};
   corrupt(frame.params.template get<"source">());

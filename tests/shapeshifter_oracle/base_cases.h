@@ -478,8 +478,7 @@ inline void test_preset_transition_adopts_next_params() {
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
 
     auto value = [&](const char *name) {
-      const auto *def = hs_test::required_param(effect, name);
-      return def ? def->get() : -1.0f;
+      return required_param_value(effect, name);
     };
 
     auto option_index = [](auto field) {
