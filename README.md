@@ -1494,6 +1494,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │                            shader, volume, column_basis)
 │   │   │   ├── face_raster.h      Face-specialized scan loops and swept face bounds
 │   │   │   ├── ring_stack.h       Fused ring-stack scan, pool and sweep
+│   │   │   ├── mesh_capture.h      Face visibility and deforming-vertex column-time capture
 │   │   │   ├── mesh_capture.cpp    Per-face column-time capture of deforming meshes
 │   │   │   ├── mesh_motion.h     Motion planning for meshes on model paths under ripples
 │   │   │   ├── swept_face.h      Column-time polygon sweep state and meridian crossings

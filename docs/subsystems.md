@@ -567,6 +567,8 @@ The rendering pipeline splits shape definitions from rasterization. `sdf.h` defi
 
 `scan.h` is an umbrella over `core/render/scan/`: `core/render/scan/raster.h` defines `Scan::rasterize()`, which drives the scanline loop and anti-aliasing; `core/render/scan/shapes.h`, `core/render/scan/ring_stack.h`, `core/render/scan/mesh.h`, `core/render/scan/shader.h` and `core/render/scan/volume.h` hold the convenience wrappers that pair SDF shapes with the rasterizer.
 
+`core/render/scan/mesh_capture.h` owns mesh visibility, vertex motion and column-time deformation capture; `core/render/scan/mesh_capture.cpp` implements its non-template helpers.
+
 `sdf.h` is an umbrella over six of the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `core/render/sdf/common.h`, the polygon, star, flower and line leaves in `core/render/sdf/shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `core/render/sdf/volume.h`. Including `sdf.h` pulls in all six; the lattice, trace, framework, periodic-surface and face-class headers are included directly by their consumers.
 
 The `process_pixel` function applies anti-aliasing based on shape type:

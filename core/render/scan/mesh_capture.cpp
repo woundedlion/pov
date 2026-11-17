@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-#include "core/render/scan/mesh.h"
+#include "core/render/scan/mesh_capture.h"
 
 /** @file mesh_capture.cpp
  *  @brief Per-face column-time capture of a deforming mesh scan.
