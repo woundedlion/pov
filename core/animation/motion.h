@@ -143,6 +143,39 @@ struct MotionOptions {
   Space space = Space::World; ///< Coordinate space for the applied rotations.
 };
 
+/** @brief Animation that drives one orientation history.
+ * @tparam Derived Concrete animation type.
+ * @tparam CAP Orientation sub-frame capacity. */
+template <typename Derived, int CAP>
+class OrientationDriver : public AnimationBase<Derived> {
+public:
+  /** @brief Accesses the bound Orientation.
+   * @return Reference to the bound Orientation. */
+  math::Orientation<CAP> &get_orientation() { return *orientation; }
+
+  /** @brief Reads the bound Orientation.
+   * @return Const reference to the bound Orientation. */
+  const math::Orientation<CAP> &get_orientation() const { return *orientation; }
+
+  /** @brief Collapses the bound Orientation's motion-blur history. */
+  void collapse_orientation() override { get_orientation().collapse(); }
+
+  /** @brief Identity of the bound Orientation.
+   * @return Pointer to the Orientation, or nullptr when unbound. */
+  const void *orientation_id() const override { return orientation; }
+
+protected:
+  /** @brief Sets the timeline duration and binds the orientation history.
+   * @param duration Duration in frames, or -1 for perpetual motion.
+   * @param repeat Whether to restart after a completed cycle.
+   * @param orientation History to drive, or nullptr for an unbound driver. */
+  OrientationDriver(int duration, bool repeat,
+                    math::Orientation<CAP> *orientation)
+      : AnimationBase<Derived>(duration, repeat), orientation(orientation) {}
+
+  math::Orientation<CAP> *orientation; ///< Bound orientation, if any.
+};
+
 /**
  * @brief An animation that moves an Orientation along a defined Path.
  * @tparam W The width of the LED display (used for calculating maximum rotation
@@ -150,7 +183,7 @@ struct MotionOptions {
  * @tparam CAP Orientation sub-frame capacity.
  */
 template <int W, int CAP = 4>
-class Motion : public AnimationBase<Motion<W, CAP>> {
+class Motion : public OrientationDriver<Motion<W, CAP>, CAP> {
   // Interpolates across (len-1) sub-intervals, len <= CAP.
   static_assert(CAP >= 2, "Motion requires an Orientation capacity >= 2");
 
@@ -171,8 +204,8 @@ public:
   template <typename P>
   HS_HOT_INLINE Motion(math::Orientation<CAP> &orientation, const P &path_obj,
                        int duration, const Options &options = {})
-      : AnimationBase<Motion<W, CAP>>(duration, options.repeat),
-        orientation(orientation),
+      : OrientationDriver<Motion<W, CAP>, CAP>(duration, options.repeat,
+                                               &orientation),
         path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
         space(options.space) {
     // Rejects the base's perpetual -1: step() divides by duration.
@@ -183,31 +216,6 @@ public:
             typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
   Motion(math::Orientation<CAP> &orientation, P &&path_obj, int duration,
          const Options &options = {}) = delete;
-
-  /**
-   * @brief Accesses the associated Orientation.
-   * @return Reference to the bound Orientation.
-   */
-  math::Orientation<CAP> &get_orientation() { return orientation.get(); }
-
-  /**
-   * @brief Reads the associated Orientation.
-   * @return Const reference to the bound Orientation.
-   */
-  const math::Orientation<CAP> &get_orientation() const {
-    return orientation.get();
-  }
-
-  /**
-   * @brief Collapses the bound Orientation's motion-blur history.
-   */
-  void collapse_orientation() override { get_orientation().collapse(); }
-
-  /**
-   * @brief Identity of the bound Orientation.
-   * @return Pointer identifying the bound Orientation.
-   */
-  const void *orientation_id() const override { return &get_orientation(); }
 
   /**
    * @brief Live-updates the traversal duration (frames per path loop).
@@ -255,8 +263,8 @@ public:
     float total_angle = math::angle_between(current_v, target_v);
     int num_steps = rotation_substeps(total_angle, MAX_ROTATION_STEP<W>);
 
-    orientation.get().upsample(num_steps + 1);
-    int len = orientation.get().length();
+    this->get_orientation().upsample(num_steps + 1);
+    int len = this->get_orientation().length();
 
     // Baseline = the frame Motion last drove to, carried across frames and the
     // repeat seam. The i==0 delta is identity.
@@ -273,13 +281,13 @@ public:
 
       // Relative delta from the baseline frame to this substep's frame: World
       // pre-multiplies, Local post-multiplies.
-      math::Quaternion current_q = orientation.get().at(i);
+      math::Quaternion current_q = this->get_orientation().at(i);
       if (space == Space::Local) {
         current_q = current_q * (base_inv * frame);
       } else {
         current_q = (frame * base_inv) * current_q;
       }
-      orientation.get().set_at_normalized(i, current_q);
+      this->get_orientation().set_at_normalized(i, current_q);
     }
     prev_frame = frame;
   }
@@ -315,8 +323,6 @@ public:
 private:
   /** Path-parameter step for the finite-difference travel tangent. */
   static constexpr float FRAME_TANGENT_H = 1e-3f;
-  std::reference_wrapper<math::Orientation<CAP>>
-      orientation; /**< Reference to the Orientation state. */
   Fn<math::Vector(float), 16> path_fn; /**< Function to retrieve path points. */
   Space space;                  /**< The coordinate space for rotation. */
   math::Quaternion prev_frame;  /**< Path frame Motion last drove to; the
@@ -331,7 +337,7 @@ private:
  * @tparam CAP Orientation sub-frame capacity.
  */
 template <int W, int CAP = 4>
-class Rotation : public AnimationBase<Rotation<W, CAP>> {
+class Rotation : public OrientationDriver<Rotation<W, CAP>, CAP> {
   // CAP == 1 makes step_angle = delta / (len - 1) a divide-by-zero.
   static_assert(CAP >= 2, "Rotation requires an Orientation capacity >= 2");
 
@@ -343,7 +349,7 @@ public:
    *        stepping; stepping an unbound Rotation traps).
    */
   Rotation()
-      : AnimationBase<Rotation<W, CAP>>(0, false), orientation(nullptr),
+      : OrientationDriver<Rotation<W, CAP>, CAP>(0, false, nullptr),
         axis(math::X_AXIS), total_angle(0), easing_fn(math::ease_linear),
         last_angle(0), space(Space::World) {}
 
@@ -380,37 +386,15 @@ private:
   Rotation(math::Orientation<CAP> &orientation, const math::Vector &axis,
            float angle, int duration, EasingFn easing_fn, bool repeat,
            Space space)
-      : AnimationBase<Rotation<W, CAP>>(duration, repeat),
-        orientation(&orientation), axis(axis.normalized()), total_angle(angle),
-        easing_fn(easing_fn), last_angle(0), space(space) {
+      : OrientationDriver<Rotation<W, CAP>, CAP>(duration, repeat,
+                                                 &orientation),
+        axis(axis.normalized()), total_angle(angle), easing_fn(easing_fn),
+        last_angle(0), space(space) {
     HS_CHECK(duration >= 0, "Rotation duration must be >= 0");
     HS_CHECK(std::isfinite(angle), "Rotation angle must be finite");
   }
 
 public:
-  /**
-   * @brief Accesses the associated Orientation.
-   * @return Reference to the bound Orientation.
-   */
-  math::Orientation<CAP> &get_orientation() { return *orientation; }
-
-  /**
-   * @brief Reads the associated Orientation.
-   * @return Const reference to the bound Orientation.
-   */
-  const math::Orientation<CAP> &get_orientation() const { return *orientation; }
-
-  /**
-   * @brief Collapses the bound Orientation's motion-blur history.
-   */
-  void collapse_orientation() override { get_orientation().collapse(); }
-
-  /**
-   * @brief Identity of the bound Orientation.
-   * @return Pointer identifying the bound Orientation (nullptr if unbound).
-   */
-  const void *orientation_id() const override { return orientation; }
-
   /**
    * @brief Checks if the rotation has a valid orientation bound.
    * @return True if an Orientation is bound.
@@ -485,12 +469,12 @@ private:
   static constexpr float MIN_STEP_ANGLE =
       1e-4f; /**< Angular increment below which a frame defers its rotation and
                   accumulates it into the next one. */
-  math::Orientation<CAP> *orientation; /**< Pointer to the Orientation state. */
-  math::Vector axis;                   /**< The axis of rotation. */
-  float total_angle;                   /**< The total angle to sweep. */
-  EasingFn easing_fn;                  /**< Easing curve. */
-  float last_angle; /**< The angle reached in the previous frame. */
-  Space space;      /**< The coordinate space for rotation. */
+  using OrientationDriver<Rotation<W, CAP>, CAP>::orientation;
+  math::Vector axis;  /**< The axis of rotation. */
+  float total_angle;  /**< The total angle to sweep. */
+  EasingFn easing_fn; /**< Easing curve. */
+  float last_angle;   /**< The angle reached in the previous frame. */
+  Space space;        /**< The coordinate space for rotation. */
 };
 
 namespace detail {
@@ -596,7 +580,7 @@ step_random_walk(math::Vector &position, math::Vector &direction,
  * @tparam CAP Orientation sub-frame capacity.
  */
 template <int W, int CAP = 4>
-class RandomWalk : public AnimationBase<RandomWalk<W, CAP>> {
+class RandomWalk : public OrientationDriver<RandomWalk<W, CAP>, CAP> {
 public:
   using Options = RandomWalkOptions; ///< Walk tuning parameters.
 
@@ -612,7 +596,7 @@ public:
    */
   RandomWalk(math::Orientation<CAP> &orientation, const math::Vector &v_start,
              FastNoiseLite &noise, Options options = Options(), int seed = 0)
-      : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
+      : OrientationDriver<RandomWalk<W, CAP>, CAP>(-1, false, &orientation),
         v(math::Vector(v_start).normalized()), options(options),
         noise_generator(noise) {
     HS_CHECK(std::isfinite(v_start.x) && std::isfinite(v_start.y) &&
@@ -657,31 +641,6 @@ public:
   }
 
   /**
-   * @brief Accesses the associated Orientation.
-   * @return Reference to the bound Orientation.
-   */
-  math::Orientation<CAP> &get_orientation() { return orientation.get(); }
-
-  /**
-   * @brief Reads the associated Orientation.
-   * @return Const reference to the bound Orientation.
-   */
-  const math::Orientation<CAP> &get_orientation() const {
-    return orientation.get();
-  }
-
-  /**
-   * @brief Collapses the bound Orientation's motion-blur history.
-   */
-  void collapse_orientation() override { get_orientation().collapse(); }
-
-  /**
-   * @brief Identity of the bound Orientation.
-   * @return Pointer identifying the bound Orientation.
-   */
-  const void *orientation_id() const override { return &get_orientation(); }
-
-  /**
    * @brief Steps the walk: pivots direction based on noise, then rotates the
    * view along the calculated axis.
    * @param canvas The canvas buffer (forwarded to the base step and rotation).
@@ -691,13 +650,11 @@ public:
     const RandomWalkDelta delta =
         step_random_walk(v, direction, angular_velocity, noise_generator.get(),
                          options, this->t);
-    Rotation<W, CAP>::animate(canvas, orientation, delta.axis, options.speed,
-                              math::ease_linear);
+    Rotation<W, CAP>::animate(canvas, this->get_orientation(), delta.axis,
+                              options.speed, math::ease_linear);
   }
 
 private:
-  std::reference_wrapper<math::Orientation<CAP>>
-      orientation;        /**< Reference to the Orientation state. */
   math::Vector v;         /**< Current forward direction vector. */
   math::Vector direction; /**< Current pivoting direction (orthogonal to v). */
   Options options;        /**< Configuration options. */
