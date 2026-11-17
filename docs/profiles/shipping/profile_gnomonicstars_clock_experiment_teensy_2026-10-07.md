@@ -204,4 +204,4 @@ python tools/parse_profile.py <completed-log> validate
 # python C:/work/temp/finding4-profile-20261007/build_comparison_report.py (supporting artifact removed)
 ```
 
-Only completed, successfully validated captures were analyzed. This supplement preserves the historical float-clock baseline and bounded-clock prototype at their recorded source snapshots. The [current canonical report](profile_gnomonicstars_teensy_2026-11-05.md) measures the production bounded channel phases.
+Only completed, successfully validated captures were analyzed. This supplement preserves the historical float-clock baseline and bounded-clock prototype at their recorded source snapshots. The [current canonical report](profile_gnomonicstars_teensy_2026-11-17.md) measures the production bounded channel phases.
