@@ -56,8 +56,6 @@ from fab_gates import (
     ProjectRulesError as ProjectRulesError,
     SolderMaskError as SolderMaskError,
     ViaGeometryError as ViaGeometryError,
-    ZONE_FEATURE_MINIMUMS as ZONE_FEATURE_MINIMUMS,
-    ZONE_FILL_FEATURES as ZONE_FILL_FEATURES,
     ZoneGeometryError as ZoneGeometryError,
     read_board as read_board,
     read_drc_report as read_drc_report,
