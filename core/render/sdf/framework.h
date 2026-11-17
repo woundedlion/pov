@@ -473,7 +473,7 @@ struct OctetFramework4 {
   /** @brief Exact field with interior and exterior clearance.
    * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
-    return {true, true, true, 0.0f};
+    return detail::FRAMEWORK_CAPABILITIES;
   }
 
   /** @brief Field sample with the nearest strut as feature.
