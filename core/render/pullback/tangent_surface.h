@@ -427,6 +427,29 @@ rossby_haurwitz_field(float omega, float wave, uint8_t order, float phase) {
   return PotentialField(terms, phase);
 }
 
+/** @brief Harmonic orders for non-polyhedral symmetries. */
+inline constexpr auto SYMMETRIC_ORDERS = [] {
+  using Symmetry = Lens::KaleidoscopeSymmetry;
+  std::array<uint8_t, std::size(Lens::KaleidoscopeParams::SYMMETRY_IDS)>
+      orders{};
+  orders[static_cast<size_t>(Symmetry::AZIMUTHAL)] = 6;
+  orders[static_cast<size_t>(Symmetry::TRIANGULAR_PRISM)] = 3;
+  orders[static_cast<size_t>(Symmetry::SQUARE_PRISM)] = 4;
+  orders[static_cast<size_t>(Symmetry::PENTAGONAL_PRISM)] = 5;
+  orders[static_cast<size_t>(Symmetry::HEXAGONAL_PRISM)] = 6;
+  orders[static_cast<size_t>(Symmetry::OCTAGONAL_PRISM)] = 8;
+  return orders;
+}();
+static_assert([] {
+  using Symmetry = Lens::KaleidoscopeSymmetry;
+  for (size_t i = 0; i < SYMMETRIC_ORDERS.size(); ++i)
+    if ((i < static_cast<size_t>(Symmetry::TETRAHEDRAL) ||
+         i > static_cast<size_t>(Symmetry::DODECAHEDRAL)) &&
+        SYMMETRIC_ORDERS[i] == 0)
+      return false;
+  return true;
+}());
+
 /** @brief Prepares a rotating invariant velocity field.
  * @param symmetry Kaleidoscope symmetry index.
  * @param kind Toroidal or poloidal component.
@@ -442,25 +465,13 @@ symmetric_field(uint8_t symmetry, uint8_t kind, float phase) {
                 static_cast<uint8_t>(TermType::OCTAHEDRAL));
   static_assert(static_cast<uint8_t>(Symmetry::DODECAHEDRAL) ==
                 static_cast<uint8_t>(TermType::DODECAHEDRAL));
-  constexpr auto ORDERS = [] {
-    std::array<uint8_t, std::size(Lens::KaleidoscopeParams::SYMMETRY_IDS)>
-        orders{};
-    orders[static_cast<size_t>(Symmetry::AZIMUTHAL)] = 6;
-    orders[static_cast<size_t>(Symmetry::TRIANGULAR_PRISM)] = 3;
-    orders[static_cast<size_t>(Symmetry::SQUARE_PRISM)] = 4;
-    orders[static_cast<size_t>(Symmetry::PENTAGONAL_PRISM)] = 5;
-    orders[static_cast<size_t>(Symmetry::HEXAGONAL_PRISM)] = 6;
-    orders[static_cast<size_t>(Symmetry::OCTAGONAL_PRISM)] = 8;
-    return orders;
-  }();
-  static_assert(ORDERS.size() == std::size(AUTHORED_SYMMETRY_IDS));
   std::array<PotentialTerm, 4> terms{};
   const auto type =
       symmetry >= static_cast<uint8_t>(Symmetry::TETRAHEDRAL) &&
               symmetry <= static_cast<uint8_t>(Symmetry::DODECAHEDRAL)
           ? static_cast<TermType>(symmetry)
           : TermType::MODE;
-  const uint8_t order = ORDERS[symmetry];
+  const uint8_t order = SYMMETRIC_ORDERS[symmetry];
   terms[0] = {type,  static_cast<Kind>(kind),  order,
               order, order % 2 ? -1.0f : 1.0f, 0};
   return PotentialField(terms, 0.0f, math::make_rotation(math::Y_AXIS, phase));
