@@ -12,7 +12,7 @@
 #include <concepts>
 #include <cstdint>
 
-#include "core/math/lenses.h"
+#include "core/math/reflection_group.h"
 #include "core/math/mobius.h"
 #include "core/math/spherical_harmonics.h"
 #include "core/math/tangent_field_constants.h"

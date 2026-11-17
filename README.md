@@ -1400,6 +1400,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   ├── mobius.h                Fractional-linear complex transforms and sphere mappings
 │   │   ├── projection_patterns.h   Pole attenuation and bounded pattern coordinates
 │   │   ├── lenses.h                Glitch fold, twist, kaleidoscope and polyhedral reflection-group sphere lenses
+│   │   ├── reflection_group.h       Finite reflection-group closure and canonical chamber mirror normals
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   │   ├── interpolate.h           Per-domain interpolators: scalar, positive scale, periodic angle, unit vector
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "core/math/tangent_field.h"
+#include "core/math/lenses.h"
 #include "core/math/spherical.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
