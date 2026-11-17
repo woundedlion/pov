@@ -1187,13 +1187,14 @@ private:
      * @param visible Visible-chunk mask, one bit per bake chunk.
      */
     HS_HOT_INLINE void mark_visible_knots(int lut_n, uint32_t visible) {
-      int x = 0;
-      for (int c = 0; c < BAKE_CHUNKS; ++c) {
-        const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
-        const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
-        for (; x < x_end; ++x)
-          knot_visible[x] = v;
-      }
+      Plot::for_each_chunk_span<BAKE_CHUNKS>(
+          lut_n, visible,
+          [&](int begin, int end) HS_HOT_INLINE {
+            std::fill(knot_visible + begin, knot_visible + end, uint8_t{1});
+          },
+          [&](int begin, int end) HS_HOT_INLINE {
+            std::fill(knot_visible + begin, knot_visible + end, uint8_t{0});
+          });
     }
 
     /** @brief Marks knots within the octave splines' visible support.
