@@ -55,6 +55,14 @@ class DeathPinUniqueness(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "pin identifies 0 guard sites"):
             self.check_fixture("", pin)
 
+    def test_unregistered_death_definition_is_rejected(self):
+        source = 'HS_CHECK(value > 0, "probe: positive");'
+        pin = "(value > 0) probe: positive"
+        table = '{"ordinary_case", case_ordinary_case, "core/guard.h", "' + pin + '"}'
+        self.check_fixture(source, pin, table=table + '\ninline void case_ordinary_case() {}')
+        with self.assertRaisesRegex(SystemExit, "missing from tests/death/registry.h: case_unregistered"):
+            self.check_fixture(source, pin, table=table + '\ninline void case_unregistered() {}')
+
     def test_character_literals_preserve_guard_delimiters(self):
         source = '''HS_CHECK(c != ',' && c != '"' && c != '(' && c != ')', "msg");'''
         expected = '''(c != ',' && c != '"' && c != '(' && c != ')') msg'''

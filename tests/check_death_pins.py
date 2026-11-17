@@ -248,7 +248,7 @@ def check_new_guards(repo, base, tip):
     for site in missing:
         print(f"new guard without a death case: {site}")
     if missing:
-        raise SystemExit(f"{len(missing)} new guard(s) need a death case in tests/test_death.h "
+        raise SystemExit(f"{len(missing)} new guard(s) need a death case in tests/death/registry.h "
                          "or a `// no death case: <reason>` comment")
     print("death pins: every new guard has a death case")
 
@@ -262,7 +262,13 @@ def main():
         check_new_guards(args.root, *args.new_guards)
         return
     root = args.root
-    case_pins = pins(death_registration_text(lambda path: (root / path).read_text(encoding="utf-8")))
+    registration = death_registration_text(lambda path: (root / path).read_text(encoding="utf-8"))
+    case_pins = pins(registration)
+    definitions = set(re.findall(r"^(?:inline\s+)?void\s+(case_\w+)\s*\(", registration, re.M))
+    registered = {"case_" + name for name, _, _ in case_pins}
+    unregistered = sorted(definitions - registered)
+    if unregistered:
+        raise SystemExit("death cases missing from tests/death/registry.h: " + ", ".join(unregistered))
     pinned_names = {Path(file).name for _, file, _ in case_pins}
     sources = {}
     asserts = []
