@@ -493,7 +493,7 @@ private:
   Space space;      /**< The coordinate space for rotation. */
 };
 
-namespace Detail {
+namespace detail {
 
 /**
  * @brief `math::make_rotation` behind a call boundary.
@@ -506,7 +506,7 @@ make_stable_rotation(const math::Vector &axis, float theta) {
   return math::make_rotation(axis, theta);
 }
 
-} // namespace Detail
+} // namespace detail
 
 /**
  * @brief Tunable parameters for the sphere random walk.
@@ -571,14 +571,14 @@ step_random_walk(math::Vector &position, math::Vector &direction,
                      target_pivot * (1.0f - options.smoothing);
   direction =
       math::rotate(direction,
-                   Detail::make_stable_rotation(position, angular_velocity))
+                   detail::make_stable_rotation(position, angular_velocity))
           .normalized();
   // If position and direction drift near-parallel the cross collapses to zero;
   // fall back to a deterministic perpendicular of position.
   const math::Vector walk_axis = math::normalized_or(
       math::cross(position, direction), math::perpendicular_axis(position));
   const math::Quaternion walk_q =
-      Detail::make_stable_rotation(walk_axis, options.speed);
+      detail::make_stable_rotation(walk_axis, options.speed);
   position = math::rotate(position, walk_q).normalized();
   direction = math::rotate(direction, walk_q).normalized();
   return {walk_axis, walk_q};

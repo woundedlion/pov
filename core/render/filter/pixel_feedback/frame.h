@@ -198,12 +198,17 @@ template <int W, int H>
 inline typename Feedback<W, H>::WarpCache::Key
 Feedback<W, H>::warp_cache_key(const RenderBand &band) const {
   const Animation::NoiseParams *noise = feedback_style->noise;
-  return {feedback_style->space_fn,  noise,
-          noise_config_key(noise),   feedback_style->amplitude,
-          feedback_style->frequency, feedback_style->speed,
-          feedback_style->scale,     noise ? noise->time : 0.0f,
-          band.field_y_begin,        band.field_y_end,
-          !Spacetime::flat_surface()};
+  return {.space_fn = feedback_style->space_fn,
+          .noise = noise,
+          .noise_config = noise_config_key(noise),
+          .amplitude = feedback_style->amplitude,
+          .frequency = feedback_style->frequency,
+          .speed = feedback_style->speed,
+          .scale = feedback_style->scale,
+          .time = noise ? noise->time : 0.0f,
+          .field_y_begin = band.field_y_begin,
+          .field_y_end = band.field_y_end,
+          .column_time = !Spacetime::flat_surface()};
 }
 
 template <int W, int H>

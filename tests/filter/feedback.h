@@ -91,9 +91,17 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
       });
   HS_EXPECT_TRUE(cache.ready());
 
-  const Cache::Key first{
-      &::Feedback::noise_warp, nullptr, 0u, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0,
-      FIELD.ring_count() - 1,  true};
+  const Cache::Key first{.space_fn = &::Feedback::noise_warp,
+                         .noise = nullptr,
+                         .noise_config = 0u,
+                         .amplitude = 1.0f,
+                         .frequency = 1.0f,
+                         .speed = 1.0f,
+                         .scale = 1.0f,
+                         .time = 0.0f,
+                         .field_y_begin = 0,
+                         .field_y_end = FIELD.ring_count() - 1,
+                         .column_time = true};
   Cache::Key second = first;
   second.time = 1.0f;
   HS_EXPECT_FALSE(cache.holds(first));

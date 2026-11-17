@@ -98,6 +98,13 @@ struct CoverageValueCutout : FieldEndoModel<ValueCutoutChainParams> {
   }
 };
 
+/** @brief Probability response distribution. */
+enum class ProbabilityDistribution : uint8_t {
+  UNIFORM, ///< Uniform threshold.
+  POISSON, ///< Poisson events.
+  NORMAL   ///< Normal threshold.
+};
+
 /** @brief Parameters of field.coverage.probability.v1. */
 struct ProbabilityCoverageParams {
   float field_min =
@@ -117,49 +124,52 @@ struct ProbabilityCoverageParams {
   /** @brief Distribution selector spellings. */
   static constexpr const char *DISTRIBUTIONS[] = {"uniform", "poisson",
                                                   "normal"};
-  static constexpr auto FIELDS =
-      std::to_array<Field<ProbabilityCoverageParams>>({
-          {"field-min", &ProbabilityCoverageParams::field_min, "Field Min", 0,
-           1},
-          {"field-max", &ProbabilityCoverageParams::field_max, "Field Max", 0,
-           1},
-          {"probability-min", &ProbabilityCoverageParams::probability_min,
-           "Probability Min", 0, 1},
-          {"probability-max", &ProbabilityCoverageParams::probability_max,
-           "Probability Max", 0, 1},
-          {"rate",
-           &ProbabilityCoverageParams::rate,
-           "Poisson Rate",
-           0,
-           16,
-           FieldCurve::LERP,
-           FieldGate::ALWAYS,
-           {"distribution", live_values(1)}},
-          {"mean",
-           &ProbabilityCoverageParams::mean,
-           "Normal Mean",
-           0,
-           1,
-           FieldCurve::LERP,
-           FieldGate::ALWAYS,
-           {"distribution", live_values(2)}},
-          {"deviation",
-           &ProbabilityCoverageParams::deviation,
-           "Normal Deviation",
-           0.01f,
-           1,
-           FieldCurve::LOG_POSITIVE,
-           FieldGate::ALWAYS,
-           {"distribution", live_values(2)}},
-          {"seed", &ProbabilityCoverageParams::seed, "Seed", 0, 65535,
-           FieldCurve::SNAP},
-      });
+  static constexpr auto FIELDS = std::to_array<
+      Field<ProbabilityCoverageParams>>({
+      {"field-min", &ProbabilityCoverageParams::field_min, "Field Min", 0, 1},
+      {"field-max", &ProbabilityCoverageParams::field_max, "Field Max", 0, 1},
+      {"probability-min", &ProbabilityCoverageParams::probability_min,
+       "Probability Min", 0, 1},
+      {"probability-max", &ProbabilityCoverageParams::probability_max,
+       "Probability Max", 0, 1},
+      {"rate",
+       &ProbabilityCoverageParams::rate,
+       "Poisson Rate",
+       0,
+       16,
+       FieldCurve::LERP,
+       FieldGate::ALWAYS,
+       {"distribution",
+        live_values(static_cast<uint8_t>(ProbabilityDistribution::POISSON))}},
+      {"mean",
+       &ProbabilityCoverageParams::mean,
+       "Normal Mean",
+       0,
+       1,
+       FieldCurve::LERP,
+       FieldGate::ALWAYS,
+       {"distribution",
+        live_values(static_cast<uint8_t>(ProbabilityDistribution::NORMAL))}},
+      {"deviation",
+       &ProbabilityCoverageParams::deviation,
+       "Normal Deviation",
+       0.01f,
+       1,
+       FieldCurve::LOG_POSITIVE,
+       FieldGate::ALWAYS,
+       {"distribution",
+        live_values(static_cast<uint8_t>(ProbabilityDistribution::NORMAL))}},
+      {"seed", &ProbabilityCoverageParams::seed, "Seed", 0, 65535,
+       FieldCurve::SNAP},
+  });
   static constexpr auto TOPOLOGY =
       std::to_array<TopologyField<ProbabilityCoverageParams>>({
           {"distribution", &ProbabilityCoverageParams::distribution,
            DISTRIBUTIONS, 0},
       });
 };
+static_assert(std::size(ProbabilityCoverageParams::DISTRIBUTIONS) ==
+              static_cast<size_t>(ProbabilityDistribution::NORMAL) + 1);
 static_assert(field_ids_unique<ProbabilityCoverageParams>());
 static_assert(field_defaults_in_range<ProbabilityCoverageParams>());
 
@@ -203,7 +213,8 @@ struct CoverageProbability : ValueStateModel<ProbabilityClockState> {
                           const State &state) {
     Prepared out{state.seed ^ static_cast<uint32_t>(params.seed), state.frame,
                  0, 1, 1};
-    if (params.distribution == 2) {
+    if (params.distribution ==
+        static_cast<uint8_t>(ProbabilityDistribution::NORMAL)) {
       out.normal_scale = 1.0f / (params.deviation * sqrtf(2.0f));
       out.normal_low = erff(-params.mean * out.normal_scale);
       out.normal_span =
@@ -224,9 +235,11 @@ struct CoverageProbability : ValueStateModel<ProbabilityClockState> {
     float drive = high > low
                       ? std::clamp((value - low) / (high - low), 0.0f, 1.0f)
                       : float(value >= high);
-    if (params.distribution == 1)
+    if (params.distribution ==
+        static_cast<uint8_t>(ProbabilityDistribution::POISSON))
       drive = -expm1f(-params.rate * drive);
-    else if (params.distribution == 2)
+    else if (params.distribution ==
+             static_cast<uint8_t>(ProbabilityDistribution::NORMAL))
       drive = std::clamp((erff((drive - params.mean) * prepared.normal_scale) -
                           prepared.normal_low) /
                              prepared.normal_span,

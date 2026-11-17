@@ -63,16 +63,16 @@ class CircuitPolicy:
 
 
 CIRCUIT_POLICIES = {
-    "1.2": CircuitPolicy(False, "A3", "~0.15 A", "MASTER_EN", "R_MEN", "+3V3", "GND",
-                          137.16, 167.64, ("DATA", "CLK")),
-    "1.3": CircuitPolicy(True, "A2", "0.25 A", "SYNC_DE", "R_DE", "GND", "+3V3",
-                          167.64, 137.16, ("CLK", "DATA"), True, REV13_PARTS,
-                          {"U_MCU": {"Reference": (0, -45.72), "Value": (0, 45.72)},
+    "1.2": CircuitPolicy(differential=False, paper="A3", logic_budget="~0.15 A", enable_net="MASTER_EN", enable_ref="R_MEN", enable_power="+3V3", tx_idle_power="GND",
+                          data_y=137.16, clock_y=167.64, channels=("DATA", "CLK")),
+    "1.3": CircuitPolicy(differential=True, paper="A2", logic_budget="0.25 A", enable_net="SYNC_DE", enable_ref="R_DE", enable_power="GND", tx_idle_power="+3V3",
+                          data_y=167.64, clock_y=137.16, channels=("CLK", "DATA"), compact_fields=True, part_properties=REV13_PARTS,
+                          property_offsets={"U_MCU": {"Reference": (0, -45.72), "Value": (0, 45.72)},
                            "U_SYNC": {"Reference": (-5.08, -15.24), "Value": (8.89, -15.24)},
                            "D_SYNC": {"Reference": (0, -7.62), "Value": (15.24, 5.08)},
                            "U1": {"Value": (-12.7, 5.08)},
                            "Q_REV": {"Reference": (0, -10.16)}},
-                          {("U1", 5): {"Reference": (-12.7, -2.54)},
+                          unit_property_offsets={("U1", 5): {"Reference": (-12.7, -2.54)},
                            ("U1", 3): {"Value": (-25.4, 5.08)},
                            ("U1", 4): {"Value": (-25.4, 5.08)}}),
 }
