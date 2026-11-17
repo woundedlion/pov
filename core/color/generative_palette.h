@@ -235,10 +235,9 @@ public:
     if (last < 0)
       return {};
     index = hs::clamp(index, 0, last);
-    const ControlKey key =
-        resolve_axes(keys[index], lightness_axis, chroma_axis, index, last);
-    const float h_final = key.h + hue_torsion * (key.L - 0.5f);
-    return {key.L, realized_chroma(key, h_final), h_final};
+    return resolve_key(
+        resolve_axes(keys[index], lightness_axis, chroma_axis, index, last),
+        true);
   }
 
   /**
