@@ -374,7 +374,7 @@ def move_clipped_silkscreen_to_fab(node, length):
                 continue
             other_start, other_end = (tuple(map(float, sexp.val(graphic, key)))
                                       for key in ("start", "end"))
-            if connectivity._segment_distance(start, end, other_start, other_end) == 0:
+            if connectivity.segment_distance(start, end, other_start, other_end) == 0:
                 F(graphic, "layer")[0][1] = "F.Fab"
                 moved_lines.append(graphic)
 

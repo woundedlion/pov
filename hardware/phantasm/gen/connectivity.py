@@ -56,7 +56,7 @@ def _point_segment_distance(point, start, end):
     return math.hypot(px - (ax + dx * t), py - (ay + dy * t))
 
 
-def _segment_distance(a1, a2, b1, b2):
+def segment_distance(a1, a2, b1, b2):
     """Distance between two closed segments; zero when they cross."""
     def side(p, q, r):
         return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
@@ -101,7 +101,7 @@ class Capsule:
             return False
         if isinstance(other, (Polygon, CopperUnion, Ring)):
             return other.touches(self)
-        gap = _segment_distance(self.start, self.end, other.start, other.end)
+        gap = segment_distance(self.start, self.end, other.start, other.end)
         return gap <= self.radius + other.radius + TOUCH_TOLERANCE
 
 
@@ -126,12 +126,12 @@ class Polygon:
                 return True
             # Two pours can overlap edge-on with no vertex of either inside the
             # other (a cross), which neither containment pass sees.
-            return any(_segment_distance(a, b, c, d) <= self.radius + other.radius + TOUCH_TOLERANCE
+            return any(segment_distance(a, b, c, d) <= self.radius + other.radius + TOUCH_TOLERANCE
                        for a, b in self.edges() for c, d in other.edges())
         if any(_point_in_polygon(p, self.polygon) for p in other.points()):
             return True
         reach = self.radius + other.radius + TOUCH_TOLERANCE
-        return any(_segment_distance(other.start, other.end, a, b) <= reach
+        return any(segment_distance(other.start, other.end, a, b) <= reach
                    for a, b in self.edges())
 
 
