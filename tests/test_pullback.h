@@ -2154,6 +2154,7 @@ inline int run_pullback_tests() {
   HS_RUN(pattern_tests::test_pattern_sphere_cell_admission);
   HS_RUN(pattern_tests::test_pattern_spider_web_threads);
   HS_RUN(pattern_tests::test_pattern_spider_web_sag);
+  HS_RUN(pattern_tests::test_pattern_spider_web_sag_stays_in_sector);
   HS_RUN(pattern_tests::test_pattern_spider_web_angular_width);
   HS_RUN(pattern_tests::test_pattern_spider_web_dew);
   HS_RUN(pattern_tests::test_pattern_spider_web_admission);

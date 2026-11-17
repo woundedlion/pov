@@ -900,7 +900,8 @@ the longitude wrap to retain that continuity.
 origin: straight radial **Spokes**, a capture spiral of **Turns** chords from
 **Hub Radius** (a fraction of **Web Radius**) out to Web Radius, three hub
 rings, and a taut frame just past the rim. Each capture chord runs between
-adjacent spokes and bows toward the hub by **Sag** chord lengths. **Jitter**
+adjacent spokes and bows toward the hub by **Sag** chord lengths, capped by
+spoke spacing and endpoint radii to keep the chords within their sectors. **Jitter**
 offsets spoke angles and crossing radii, and **Dew** is the fraction of
 capture-chord slots holding a drop; **Seed** selects both hash streams. Threads
 and drop cores return 1 and open space returns -1. Gnomonic projection maps

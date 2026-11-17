@@ -674,6 +674,28 @@ inline void test_pattern_spider_web_sag() {
   HS_EXPECT_EQ(Web::sample({{mid_x, mid_y}}, web), -1.0f);
 }
 
+/** @brief Bowed capture chords stay inside their spoke sector and remain lit. */
+inline void test_pattern_spider_web_sag_stays_in_sector() {
+  using Web = Pattern::PlaneSpiderWeb;
+  for (const float spokes : {3.0f, 4.0f, 5.0f, 8.0f}) {
+    auto params = regular_spider_web();
+    params.spokes = spokes;
+    params.sag = 0.5f;
+    const auto web = Web::prepare(params, {});
+    const auto a = web_point(0.4f, 0.0f).value;
+    const auto b = web_point(0.4f + web.step, math::TWO_PI_F / spokes).value;
+    const float dx = b.re - a.re, dy = b.im - a.im;
+    for (const float u : {0.01f, 0.25f, 0.5f, 0.75f, 0.99f}) {
+      const float bow = web.sag * 4.0f * u * (1.0f - u);
+      const math::Complex point{a.re + u * dx - bow * dy,
+                                a.im + u * dy + bow * dx};
+      HS_EXPECT_TRUE(point.im >= -1e-7f);
+      HS_EXPECT_TRUE(b.im * point.re - b.re * point.im >= -1e-7f);
+      HS_EXPECT_NEAR(Web::sample({point}, web), 1.0f, 1e-4f);
+    }
+  }
+}
+
 /** @brief A spoke's edge sits at one angular offset at every radius under
  *  gnomonic scaling. */
 inline void test_pattern_spider_web_angular_width() {

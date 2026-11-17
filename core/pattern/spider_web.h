@@ -113,6 +113,21 @@ struct PlaneSpiderWeb {
         params.web_radius + out.radius_jitter + FRAME_GAP * turn_spacing;
     out.hub_core = HUB_CORE * out.inner_radius;
     out.sag = params.sag;
+    for (int k = 0; k < out.spokes; ++k) {
+      const int b = k + 1 == out.spokes ? 0 : k + 1;
+      const float cosine =
+          out.dir_x[k] * out.dir_x[b] + out.dir_y[k] * out.dir_y[b];
+      const float sine =
+          out.dir_x[k] * out.dir_y[b] - out.dir_y[k] * out.dir_x[b];
+      for (int c = k; c < out.crossings; c += out.spokes) {
+        const float ra = crossing_radius(out, c);
+        const float rb = crossing_radius(out, c + 1);
+        const float near = fminf(ra, rb), far = fmaxf(ra, rb);
+        const float denominator = 4.0f * (far - near * cosine);
+        if (denominator > 0.0f)
+          out.sag = fminf(out.sag, near * sine / denominator);
+      }
+    }
     out.dew = params.dew;
     out.line_thickness = params.line_thickness;
     out.line_softness = params.line_softness;
