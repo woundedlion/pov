@@ -8,6 +8,7 @@ set(HS_OFF_ROSTER_HEADER_NAMES
   "composed_chain_fixture.h"
   "conway_test_util.h"
   "fd_capture_util.h"
+  "feedback_style_fixture.h"
   "hd107s_test_util.h"
   "json_test_util.h"
   "shader_chain_fixture.h"
