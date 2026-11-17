@@ -17,6 +17,7 @@ struct SampleMirrorFrame {
   In::Op::TwinWaveSampleParams twin_wave;
   In::Op::BandsSampleParams bands;
   In::Op::SpiralSampleParams spiral;
+  In::Op::SpiderWebSampleParams spider_web;
   In::Op::TessellationSampleParams tessellation;
   In::Op::ProjectedNoiseSampleParams projected;
   float primary = 0.0f;
@@ -61,6 +62,15 @@ struct SpiralSampleMirror {
   static const In::Op::SpiralSampleParams &
   params(const SampleMirrorFrame &frame) {
     return frame.spiral;
+  }
+};
+
+struct SpiderWebSampleMirror {
+  using Binding = SampleMirrorBinding;
+  using FrameState = SampleMirrorFrame;
+  static const In::Op::SpiderWebSampleParams &
+  params(const SampleMirrorFrame &frame) {
+    return frame.spider_web;
   }
 };
 
@@ -138,6 +148,10 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
   } else if (id == In::Op::SampleSpiralV3::ID) {
     mirror.spiral = param_as<In::Op::SpiralSampleParams>(program, source_index);
     mirror.edge_width = mirror.spiral.edge_width;
+  } else if (id == In::Op::SampleSpiderWeb::ID) {
+    mirror.spider_web =
+        param_as<In::Op::SpiderWebSampleParams>(program, source_index);
+    mirror.edge_width = mirror.spider_web.edge_width;
   } else {
     const auto &state =
         state_as<In::Op::SourceClockState>(program, source_index);
@@ -326,6 +340,17 @@ inline void test_shader_chain_bands_latitudes() {
       HS_EXPECT_EQ(actual.coverage, 1.0f);
     }
   }
+}
+
+inline void test_shader_chain_parity_sample_spider_web() {
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
+    if (!arm_sample_op_chain<In::Op::SpiderWebSampleParams>(
+            program, In::Op::SampleSpiderWeb::ID, 4, set))
+      return;
+    const In::FrameContext ctx = shared_resources().context();
+    run_sample_op_matrix<PB::Source::SpiderWeb<SpiderWebSampleMirror>>(program,
+                                                                       ctx);
+  });
 }
 
 inline void test_shader_chain_parity_sample_spiral() {

@@ -44,6 +44,8 @@ using Source::AuthoredProjectedNoiseSourceParams;
 using Source::ProjectedNoiseSourceParams;
 using Source::BandsSourceParams;
 using Source::AuthoredBandsSampleParams;
+using Source::SpiderWebSourceParams;
+using Source::AuthoredSpiderWebSampleParams;
 using Source::SpiralSourceParams;
 using Source::TwinWaveSourceParams;
 using Source::AuthoredTwinWaveSourceParams;

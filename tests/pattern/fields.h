@@ -15,6 +15,7 @@
 #include "core/pattern/sources.h"
 #include "core/pattern/noise.h"
 #include "core/pattern/sphere_cells.h"
+#include "core/pattern/spider_web.h"
 #include "tests/test_harness.h"
 
 namespace hs_test::pattern_tests {
@@ -611,6 +612,117 @@ inline void test_pattern_sphere_cell_admission() {
   params.layout = 0;
   params.output = 255;
   HS_EXPECT_TRUE(!SphereCells::valid(params));
+}
+
+/** @brief Regular unjittered web: eight spokes, four turns, no sag or dew. */
+inline Pattern::SpiderWebParams regular_spider_web() {
+  Pattern::SpiderWebParams params;
+  params.web_radius = 1.0f;
+  params.spokes = 8.0f;
+  params.turns = 4.0f;
+  params.hub_radius = 0.2f;
+  params.sag = 0.0f;
+  params.jitter = 0.0f;
+  params.dew = 0.0f;
+  params.line_thickness = 0.005f;
+  params.line_softness = 0.005f;
+  return params;
+}
+
+/** @brief Plane point at a polar radius and angle. */
+inline Pattern::PlanePosition web_point(float radius, float angle) {
+  return {{radius * std::cos(angle), radius * std::sin(angle)}};
+}
+
+/** @brief Spokes and capture chords light; gaps, the hub zone and the far
+ *  plane stay dark. */
+inline void test_pattern_spider_web_threads() {
+  using Web = Pattern::PlaneSpiderWeb;
+  const auto web = Web::prepare(regular_spider_web(), {});
+  const float quarter = 0.25f * math::PI_F;
+  for (const float radius : {0.35f, 0.55f, 0.75f})
+    HS_EXPECT_NEAR(Web::sample(web_point(radius, 2.0f * quarter), web), 1.0f,
+                   1e-4f);
+  const auto a = web_point(0.4f, 0.0f).value;
+  const auto b = web_point(0.425f, quarter).value;
+  HS_EXPECT_NEAR(
+      Web::sample({{0.5f * (a.re + b.re), 0.5f * (a.im + b.im)}}, web), 1.0f,
+      1e-4f);
+  HS_EXPECT_EQ(Web::sample(web_point(0.473f, 0.5f * quarter), web), -1.0f);
+  HS_EXPECT_EQ(Web::sample(web_point(0.14f, 0.5f * quarter), web), -1.0f);
+  HS_EXPECT_EQ(Web::sample({{3.0f, 0.0f}}, web), -1.0f);
+
+  auto hubless = regular_spider_web();
+  hubless.hub_radius = 0.0f;
+  HS_EXPECT_EQ(
+      Web::sample(web_point(0.36f, 0.5f * quarter), Web::prepare(hubless, {})),
+      -1.0f);
+}
+
+/** @brief Sag bows a capture chord's middle toward the hub. */
+inline void test_pattern_spider_web_sag() {
+  using Web = Pattern::PlaneSpiderWeb;
+  auto params = regular_spider_web();
+  params.sag = 0.3f;
+  const auto web = Web::prepare(params, {});
+  const auto a = web_point(0.4f, 0.0f).value;
+  const auto b = web_point(0.425f, 0.25f * math::PI_F).value;
+  const float dx = b.re - a.re, dy = b.im - a.im;
+  const float mid_x = 0.5f * (a.re + b.re), mid_y = 0.5f * (a.im + b.im);
+  const math::Complex bowed{mid_x - params.sag * dy, mid_y + params.sag * dx};
+  HS_EXPECT_NEAR(Web::sample({bowed}, web), 1.0f, 1e-4f);
+  HS_EXPECT_EQ(Web::sample({{mid_x, mid_y}}, web), -1.0f);
+}
+
+/** @brief A spoke's edge sits at one angular offset at every radius under
+ *  gnomonic scaling. */
+inline void test_pattern_spider_web_angular_width() {
+  using Web = Pattern::PlaneSpiderWeb;
+  const auto params = regular_spider_web();
+  const auto web = Web::prepare(params, {});
+  const float offset = params.line_thickness + 0.5f * params.line_softness;
+  for (const float radius : {0.35f, 0.75f}) {
+    const float beta =
+        std::asin(offset * std::sqrt(1.0f + radius * radius) / radius);
+    HS_EXPECT_NEAR(
+        Web::sample(web_point(radius, 0.5f * math::PI_F - beta), web), 0.0f,
+        2e-3f);
+  }
+}
+
+/** @brief Dew only adds coverage, and adds some. */
+inline void test_pattern_spider_web_dew() {
+  using Web = Pattern::PlaneSpiderWeb;
+  auto params = regular_spider_web();
+  const auto dry = Web::prepare(params, {});
+  params.dew = 1.0f;
+  const auto wet = Web::prepare(params, {});
+  float gained = 0.0f;
+  for (int i = 0; i < 64; ++i)
+    for (int j = 0; j < 64; ++j) {
+      const Pattern::PlanePosition point{
+          {-1.1f + 2.2f * i / 63.0f, -1.1f + 2.2f * j / 63.0f}};
+      const float before = Web::sample(point, dry);
+      const float after = Web::sample(point, wet);
+      HS_EXPECT_TRUE(after >= before);
+      gained += after - before;
+    }
+  HS_EXPECT_TRUE(gained > 1.0f);
+}
+
+/** @brief Preparation admits the defaults and rejects out-of-range recipes. */
+inline void test_pattern_spider_web_admission() {
+  using Web = Pattern::PlaneSpiderWeb;
+  HS_EXPECT_TRUE(Web::valid({}));
+  auto params = Pattern::SpiderWebParams{};
+  params.spokes = static_cast<float>(Web::MAX_SPOKES) + 1.0f;
+  HS_EXPECT_TRUE(!Web::valid(params));
+  params = {};
+  params.hub_radius = 0.95f;
+  HS_EXPECT_TRUE(!Web::valid(params));
+  params = {};
+  params.line_thickness = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_TRUE(!Web::valid(params));
 }
 
 } // namespace hs_test::pattern_tests

@@ -103,6 +103,13 @@ inline void case_pattern_spiral_invalid_prepare() {
   params.arms = -1.0f;
   (void)Pattern::PlaneSpiral::prepare(params, {});
 }
+inline void case_pattern_spider_web_invalid_prepare() {
+  Pattern::PlaneSpiderWeb::Params params;
+  (void)Pattern::PlaneSpiderWeb::prepare(params, {});
+  death_admitted();
+  params.spokes = 2.0f;
+  (void)Pattern::PlaneSpiderWeb::prepare(params, {});
+}
 inline void case_pattern_tessellation_invalid_prepare() {
   using Cells = Pattern::PlaneTessellation<Pattern::TessellationKind::SQUARE,
                                            Pattern::TessellationFill::CELLS>;

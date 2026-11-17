@@ -141,6 +141,12 @@ struct SourcePolicyFor<Source::SphericalCellsSourceParams, B> {
       SourceProvider<B, Source::SphericalCellsSourceParams>>;
 };
 
+/** @brief Gnomonic orb-web source. @tparam B Frame binding. */
+template <typename B> struct SourcePolicyFor<Source::SpiderWebSourceParams, B> {
+  using Type =
+      Source::SpiderWeb<SourceProvider<B, Source::SpiderWebSourceParams>>;
+};
+
 /** @brief Authored source topology. @tparam B Frame binding. */
 template <typename B>
 struct SourcePolicyFor<Source::AuthoredProjectedNoiseSourceParams, B> {
