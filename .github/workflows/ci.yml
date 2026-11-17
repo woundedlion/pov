@@ -756,7 +756,7 @@ jobs:
           . tools/ci/common.sh
           run=true
           if [ "$EVENT" = push ]; then
-            BASE="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=master&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty')" || BASE=
+            BASE="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=master&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty')" || BASE=
           fi
           if [ "$EVENT" != workflow_dispatch ] && [ -n "$BASE" ] &&
              [ "$BASE" != 0000000000000000000000000000000000000000 ] &&

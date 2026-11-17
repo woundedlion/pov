@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -52,6 +53,36 @@ class JobTable(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("table jobs absent from ci.yml: lint", done.stderr)
         self.assertNotIn("windows-tests", done.stderr)
+
+
+class PCBPushBase(unittest.TestCase):
+    def test_push_ignores_green_fork_runs_when_selecting_the_pcb_base(self):
+        bash = require_tool(self, "bash")
+        workflow = (REPO / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        step = workflow.split("- name: Detect PCB input changes", 1)[1]
+        script = textwrap.dedent(step.split("run: |\n", 1)[1].split("\n      - uses:", 1)[0])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tools = root / "tools" / "ci"
+            tools.mkdir(parents=True)
+            (tools / "common.sh").write_text("PCB_INPUTS='^hardware/phantasm/'\n", encoding="utf-8")
+            binary = root / "bin"
+            binary.mkdir()
+            stubs = {
+                "gh": 'case "$*" in *event=push*) echo green-push;; *) echo green-fork;; esac',
+                "git": 'if [ "$1" = diff ] && [ "$4" = green-push ]; then echo hardware/phantasm/changed; fi; exit 0',
+            }
+            for name, body in stubs.items():
+                path = binary / name
+                path.write_text("#!/bin/sh\n" + body + "\n", encoding="utf-8")
+                path.chmod(0o755)
+            output = root / "output"
+            env = dict(isolated_env(), EVENT="push", BASE="failed-push",
+                       GITHUB_REPOSITORY="fixture/engine", GITHUB_OUTPUT=output.as_posix())
+            done = subprocess.run([bash, "-c", 'PATH="$PWD/bin:$PATH"; export PATH\n' + script], cwd=root, env=env,
+                                  capture_output=True, text=True, check=False)
+            self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+            self.assertEqual(output.read_text(encoding="utf-8"), "run=true\n")
 
 
 class CommitJobs(unittest.TestCase):
