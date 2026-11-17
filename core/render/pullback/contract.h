@@ -1680,21 +1680,8 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                                           std::get<Index>(prepared), previous);
                   })
       Current::run_in_place(sample, ctx, std::get<Index>(prepared), previous);
-    else if constexpr (requires {
-                         Current::run_endpoint(
-                             sample, ctx, std::get<Index>(prepared), previous);
-                       }) {
-      if constexpr (requires { Current::EMISSION; }) {
-        if (!previous)
-          sample = Current::run(sample, ctx, std::get<Index>(prepared));
-        else
-          sample = Current::run_endpoint(sample, ctx, std::get<Index>(prepared),
-                                         previous);
-      } else
-        sample = Current::run_endpoint(sample, ctx, std::get<Index>(prepared),
-                                       previous);
-    } else
-      sample = Current::run(sample, ctx, std::get<Index>(prepared));
+    else
+      sample = endpoint_output<Index>(sample, ctx, prepared, previous);
     if constexpr (Index + 1 < NODE_COUNT)
       run_color_tail<Index + 1>(sample, ctx, prepared, previous);
   }
@@ -1975,6 +1962,32 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
 
   /** @brief Evaluates a node at the selected resource endpoint.
    * @tparam Index Node to evaluate.
+   * @tparam Input Input carrier type.
+   * @param input Input carrier.
+   * @param ctx Frame context.
+   * @param prepared Per-node prepared state.
+   * @param retained Selects retained resources.
+   * @return The node's output carrier. */
+  template <size_t Index, typename Input>
+  HS_HOT_INLINE static auto
+  endpoint_output(const Input &input, const FrameState &ctx,
+                  const PreparedTuple &prepared, bool retained) {
+    using CurrentNode = NodeAt<Index>;
+    if constexpr (requires { CurrentNode::EMISSION; })
+      if (!retained)
+        return CurrentNode::run(input, ctx, std::get<Index>(prepared));
+    if constexpr (requires {
+                    CurrentNode::run_endpoint(
+                        input, ctx, std::get<Index>(prepared), retained);
+                  })
+      return CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
+                                       retained);
+    else
+      return CurrentNode::run(input, ctx, std::get<Index>(prepared));
+  }
+
+  /** @brief Evaluates a node at the selected resource endpoint.
+   * @tparam Index Node to evaluate.
    * @tparam Retained Whether to use retained resources.
    * @tparam Input Input carrier type.
    * @param input Input carrier.
@@ -1985,18 +1998,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
   HS_HOT_INLINE static auto run_stage_endpoint(const Input &input,
                                                const FrameState &ctx,
                                                const PreparedTuple &prepared) {
-    using CurrentNode = NodeAt<Index>;
-    if constexpr (requires { CurrentNode::EMISSION; })
-      if constexpr (!Retained)
-        return CurrentNode::run(input, ctx, std::get<Index>(prepared));
-    if constexpr (requires {
-                    CurrentNode::run_endpoint(
-                        input, ctx, std::get<Index>(prepared), Retained);
-                  })
-      return CurrentNode::run_endpoint(input, ctx, std::get<Index>(prepared),
-                                       Retained);
-    else
-      return CurrentNode::run(input, ctx, std::get<Index>(prepared));
+    return endpoint_output<Index>(input, ctx, prepared, Retained);
   }
 
   /** @brief Evaluates a node and completes its suffix.
