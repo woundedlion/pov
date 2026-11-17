@@ -815,6 +815,12 @@ jobs:
       - name: Install Python test dependencies
         run: pip install --require-hashes -r requirements/numpy.txt -r requirements/ruff.txt -r requirements/shellcheck.txt
       - *install_pinned_cmake
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
       - name: Run all Python suites; check routed candidates and PCB metadata
         run: bash tools/ci/python_tests.sh
 
