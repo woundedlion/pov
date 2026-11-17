@@ -95,7 +95,7 @@ target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS
   "HS_PROMOTED_PATTERNS_DIR=\"${HS_ROOT}/patterns\"")
 target_link_libraries(run_tests PRIVATE hs_test_support)
 
-set(_dma_led_source "${CMAKE_CURRENT_BINARY_DIR}/dma_led_guard_check.cpp")
+set(_dma_led_source "${CMAKE_CURRENT_BINARY_DIR}/dma_led_guards_check.cpp")
 file(CONFIGURE OUTPUT "${_dma_led_source}" CONTENT [=[
 #include "core/platform/led.h"
 int main() {
@@ -106,12 +106,6 @@ int main() {
   return correction_guard_live() ? 5 : 0;
 }
 ]=])
-add_executable(dma_led_guard_check "${_dma_led_source}" ${HS_ENGINE_SOURCES})
-target_include_directories(dma_led_guard_check PRIVATE ${HS_ROOT})
-target_compile_definitions(dma_led_guard_check PRIVATE USE_DMA_LEDS)
-target_link_libraries(dma_led_guard_check PRIVATE hs_host_storage)
-_hs_warnings(dma_led_guard_check)
-add_test(NAME unit_dma_led_guards COMMAND dma_led_guard_check)
 
 set(_color_header_sources)
 file(GLOB _color_headers CONFIGURE_DEPENDS "${HS_ROOT}/core/color/*.h")
@@ -564,39 +558,7 @@ add_test(NAME unit_pov_segment_map_golden COMMAND ${CMAKE_COMMAND}
     -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/pov_segment_map.generated.json
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pov_segment_map.cmake)
 
-# Exercise the release math contract at -O3. -fno-finite-math-only keeps
-# NaN-aware clamps valid under -ffast-math.
-add_executable(fastmath_clamp_check
-  ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
-  ${HS_ENGINE_SOURCES})
-target_include_directories(fastmath_clamp_check PRIVATE ${HS_ENGINE_INCLUDES})
-target_link_libraries(fastmath_clamp_check PRIVATE hs_host_abi)
-target_compile_definitions(fastmath_clamp_check PRIVATE
-  HS_ENABLE_TEST_ORACLES=1 HS_TEST_FAST_MATH=1)
-# The WASM release math flags. -fno-finite-math-only MUST follow -ffast-math;
-# core/platform/platform.h #errors without it.
-target_compile_options(fastmath_clamp_check PRIVATE
-  -O3 -ffast-math -fno-finite-math-only)
-_hs_warnings(fastmath_clamp_check)
-_hs_sanitize(fastmath_clamp_check)
-add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
-
-# Relax-bake re-derivation gate: recompiles every bake-bearing recipe with
-# HS_RELAX_BAKE_VERIFY and asserts smoothing reproduces the committed bits in
-# core/mesh/relax_bakes_generated.h. Its own TU: VERIFY rewires
-# SolidBuilder::relax_baked() globally.
-add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
-  ${HS_ENGINE_SOURCES})
-target_compile_definitions(relax_bake_verify PRIVATE HS_RELAX_BAKE_VERIFY)
-target_link_libraries(relax_bake_verify PRIVATE hs_host_abi)
-# IEEE float semantics: the committed payload is a host-IEEE-captured constant.
-target_compile_options(relax_bake_verify PRIVATE -fno-fast-math)
-target_include_directories(relax_bake_verify PRIVATE ${HS_ENGINE_INCLUDES})
-_hs_warnings(relax_bake_verify)
-_hs_sanitize(relax_bake_verify)
-add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
-
-# The generator half of the same harness (HS_RELAX_BAKE_EXTRACT dumps the
+# The relax-bake generator (HS_RELAX_BAKE_EXTRACT dumps the
 # payloads that tools/relax_bakes.py emits into the header). To regenerate:
 #   relax_bake_gen | python tools/relax_bakes.py emit --stdin
 add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp

@@ -4,9 +4,13 @@
 # unit_<module>, which passes the module name as the executable's argument;
 # without MODULES, unit_<name minus _check> runs it with no argument.
 function(_hs_engine_check name source)
-  cmake_parse_arguments(PARSE_ARGV 2 check "" "" "LIBS;DEFINES;MODULES")
-  add_executable(${name} ${CMAKE_CURRENT_SOURCE_DIR}/${source} ${HS_ENGINE_SOURCES})
+  cmake_parse_arguments(PARSE_ARGV 2 check "" "" "LIBS;DEFINES;MODULES;OPTIONS")
+  if(NOT IS_ABSOLUTE "${source}")
+    set(source "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+  endif()
+  add_executable(${name} "${source}" ${HS_ENGINE_SOURCES})
   target_compile_definitions(${name} PRIVATE ${check_DEFINES})
+  target_compile_options(${name} PRIVATE ${check_OPTIONS})
   target_link_libraries(${name} PRIVATE ${check_LIBS})
   target_include_directories(${name} PRIVATE ${HS_ENGINE_INCLUDES})
   _hs_warnings(${name})
@@ -20,6 +24,22 @@ function(_hs_engine_check name source)
     add_test(NAME unit_${test_suffix} COMMAND ${name})
   endif()
 endfunction()
+
+_hs_engine_check(dma_led_guards_check "${_dma_led_source}"
+  LIBS hs_host_storage
+  DEFINES USE_DMA_LEDS)
+
+# NaN-aware clamps under the release math flags.
+_hs_engine_check(fastmath_clamp_check fastmath_clamp_check.cpp
+  LIBS hs_host_abi
+  DEFINES HS_ENABLE_TEST_ORACLES=1 HS_TEST_FAST_MATH=1
+  OPTIONS -O3 -ffast-math -fno-finite-math-only)
+
+# Re-derive committed relax bakes with IEEE float semantics.
+_hs_engine_check(relax_bake_verify "${HS_ROOT}/tools/relax_bake_harness.cpp"
+  LIBS hs_host_abi
+  DEFINES HS_RELAX_BAKE_VERIFY
+  OPTIONS -fno-fast-math)
 
 # Legacy offset mapping needs a separate TU: offset-3 and offset-0
 # PhiLUT/TrigLUT instantiations have incompatible definitions.
