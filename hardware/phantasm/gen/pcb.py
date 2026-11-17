@@ -254,5 +254,8 @@ def parse_args(argv=None):
 
 if __name__ == "__main__":
     ARGS = parse_args()
-    main(unplaced=ARGS.unplaced, force=ARGS.force,
-         force_teensy_library=ARGS.force_teensy_library, revision=ARGS.revision)
+    try:
+        main(unplaced=ARGS.unplaced, force=ARGS.force,
+             force_teensy_library=ARGS.force_teensy_library, revision=ARGS.revision)
+    except ValueError as error:
+        sys.exit(f"ERROR {error}")
