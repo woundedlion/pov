@@ -392,8 +392,6 @@ inline void test_sphere_noise_bake_qualification() {
       std::printf("%zu,%.9g,%.9g,%.9g,%.9g,%.9g\n", recipe, scale,
                   max_quantization, max_spatial, max_total,
                   total / (9 * SAMPLE_COUNT));
-#else
-      (void)max_spatial;
 #endif
     }
   }

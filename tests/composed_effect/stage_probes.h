@@ -785,15 +785,15 @@ public:
  * @tparam H Canvas height.
  */
 template <int W, int H>
-using NoHueProbe = NoiseSourceProbe<W, H, Pullback::ProjectedNoiseSourceParams>;
+using ProjectedNoiseProbe =
+    NoiseSourceProbe<W, H, Pullback::ProjectedNoiseSourceParams>;
 
 /**
  * @brief The noise source family reaches the derivation path.
  * @details The source family implies its noise field and lights the frame.
  */
 inline void test_composed_noise_source() {
-  using Projected =
-      NoiseSourceProbe<SMALL_W, SMALL_H, Pullback::ProjectedNoiseSourceParams>;
+  using Projected = ProjectedNoiseProbe<SMALL_W, SMALL_H>;
   static_assert(Projected::HAS_SOURCE_NOISE);
 
   size_t lit = 0;

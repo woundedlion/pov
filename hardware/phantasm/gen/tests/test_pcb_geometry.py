@@ -171,13 +171,13 @@ class IdStrapSilkscreenTests(unittest.TestCase):
 
 
 class RotationPolicyTests(unittest.TestCase):
-    """Only chip passives may be packed at 90."""
+    """Only R*/C* chip parts other than C_IN may be packed at 90."""
 
     def test_chip_passives_rotate(self):
         for ref in ("R1", "R_D1", "C_DEC1", "C_LF"):
             self.assertTrue(pcb._rotatable(ref), ref)
 
-    def test_the_radial_electrolytic_and_the_jumpers_stay_at_zero(self):
+    def test_jumpers_c_in_and_non_rc_parts_stay_at_zero(self):
         for ref in ("C_IN", "JP_ID0", "JP_SHLD", "D_BUS", "F1", "FB", "U1"):
             self.assertFalse(pcb._rotatable(ref), ref)
 

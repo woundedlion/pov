@@ -135,7 +135,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_slider_registration);
   HS_RUN(test_composed_modulation_is_device_qualified);
   HS_RUN(test_composed_noise_modulation_scale_limits);
-  HS_RUN(check_slider_registration<NoHueProbe>, "NoHueProbe");
+  HS_RUN(check_slider_registration<ProjectedNoiseProbe>, "ProjectedNoiseProbe");
   HS_RUN(test_mobius_frame_admission);
   HS_RUN(test_mobius_generator_interpolation);
   HS_RUN(test_mobius_captured_parameter_restore);
