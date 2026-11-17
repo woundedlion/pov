@@ -36,7 +36,6 @@ tests/conway_morph/seeds.h
 tests/conway_morph/walk.h
 tests/conway_test_util.h
 tests/death/animation_cases.h
-tests/death/authored_cases.h
 tests/death/color_cases.h
 tests/death/effects_cases.h
 tests/death/fixtures.h
