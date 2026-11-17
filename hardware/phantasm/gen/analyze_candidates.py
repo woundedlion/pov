@@ -274,13 +274,13 @@ def analyze(path):
 
 
 def score(r):
-    """Signal-integrity score (0-10) from fast-net copper length and vias."""
+    """Signal-integrity score: 10 minus fast-net copper and via penalties."""
     si = 10.0
     si -= r["crit_len"] / 90.0          # total fast-net copper (reflection/EMI)
     si -= r["spi_vias"] * 0.6           # SPI-bus vias hurt most (stub + plane hop)
     si -= r["sync_vias"] * 0.4
     # crit_vias_stitched is unscored: both inner planes are the same GND net.
-    return max(0.0, min(10.0, si))
+    return si
 
 
 GATE_TEXT = {
@@ -429,7 +429,7 @@ def _print_placement_distances(results):
 
 def _print_candidate_ranking(results):
     print("\n" + "=" * 76)
-    print("SIGNAL-INTEGRITY SCORE (rough, 0-10)")
+    print("SIGNAL-INTEGRITY SCORE (rough, 10 minus penalties)")
     print("=" * 76)
     print(f"{'Cand':>6} {'SignalInteg':>12}  DRC")
     ranked = []

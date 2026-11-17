@@ -220,6 +220,13 @@ class AnalyzeTests(unittest.TestCase):
 
 
 class ScoreTests(unittest.TestCase):
+    def test_heavy_candidates_keep_copper_and_via_ordering_below_zero(self):
+        base = {"crit_len": 300.0, "spi_vias": 8, "sync_vias": 5}
+        score = analyze_candidates.score(base)
+        self.assertLess(score, 0.0)
+        self.assertLess(analyze_candidates.score({**base, "crit_len": 390.0}), score)
+        self.assertLess(analyze_candidates.score({**base, "spi_vias": 9}), score)
+
     def test_fast_net_vias_reduce_score_with_spi_weighted_higher(self):
         base = {"crit_len": 90.0, "spi_vias": 0, "sync_vias": 0}
         clean = analyze_candidates.score(base)
@@ -292,6 +299,15 @@ class MainTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertIn(">> best by signal integrity: Candidate 2", output)
         self.assertNotIn("top geometric scorer", output)
+
+    def test_below_zero_candidates_recommend_shorter_copper_over_label_order(self):
+        clean = {"status": analyze_candidates.DRC_OK,
+                 "errors": 0, "real": 0, "unconnected": 0}
+        shorter = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 1000 0)")
+        longer = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 1200 0)")
+        result, output = self.rank_sources([shorter, longer], [clean, clean])
+        self.assertEqual(result, 0)
+        self.assertIn(">> best by signal integrity: Candidate 1", output)
 
     def test_clean_drc_does_not_admit_undersized_vias(self):
         clean = {"status": analyze_candidates.DRC_OK,
