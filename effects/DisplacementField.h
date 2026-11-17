@@ -236,6 +236,8 @@ private:
   }
 
   static constexpr int ALTERNATE_CAPACITY = 3840; ///< Packed alternate shifts.
+  static_assert(ALTERNATE_CAPACITY >= W,
+                "an emptied alternate buffer must hold one ring's knots");
   using Alternates = Scan::KnotAlternates<W>;
 
   /**
@@ -687,7 +689,10 @@ private:
             scan_swept_stack(canvas);
             rings.begin_frame(&swept.alternates);
             swept.alternates.begin_ring(i);
-            swept.alternates.reserve_ring(lut_n);
+            // no death case: reset empties the buffer and lut_n <= W <= capacity.
+            HS_CHECK(
+                swept.alternates.reserve_ring(lut_n),
+                "DisplacementField: ring exceeds an empty alternate buffer");
             const typename RingPool::Pending fresh = rings.next();
             slut = fresh.shift_row;
             hlut = fresh.hue_row;

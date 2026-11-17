@@ -71,6 +71,7 @@ inline void test_ring_stack_pool_lifecycle_and_bounds() {
   alternates.reset();
   HS_EXPECT_EQ(alternates.count, 0);
   HS_EXPECT_FALSE(alternates.table_ready);
+  HS_EXPECT_TRUE(alternates.reserve_ring(N));
 }
 
 /** @brief Two-window scan matches independent draws with manually installed rows. */
