@@ -817,6 +817,9 @@ inline void test_column_steady_lattice() {
 /** @brief Carried steady-edge samples match their point-route rendering. */
 inline void test_plot_steady_edge_matches_point_route() {
   constexpr int W = 288, H = 144;
+#if defined(HS_TEST_FAST_MATH)
+  constexpr int RESIDENT_CHANNEL_TOL = 1;
+#endif
   using Frame = Plot::EdgeWorldsheet;
   for (const float column : {0.4f, 71.2f, 143.4f, 215.3f}) {
     const math::Vector ends[2] = {
@@ -867,7 +870,16 @@ inline void test_plot_steady_edge_matches_point_route() {
     uint32_t energy = 0;
     for (size_t i = 0; i < reference.size(); ++i) {
       energy += reference[i].r;
+#if defined(HS_TEST_FAST_MATH)
+      HS_EXPECT_LE(abs(int(candidate[i].r) - int(resident[i].r)),
+                   RESIDENT_CHANNEL_TOL);
+      HS_EXPECT_LE(abs(int(candidate[i].g) - int(resident[i].g)),
+                   RESIDENT_CHANNEL_TOL);
+      HS_EXPECT_LE(abs(int(candidate[i].b) - int(resident[i].b)),
+                   RESIDENT_CHANNEL_TOL);
+#else
       HS_EXPECT_TRUE(candidate[i] == resident[i]);
+#endif
       HS_EXPECT_LE(abs(int(reference[i].r) - int(candidate[i].r)), 32);
     }
     HS_EXPECT_GT(energy, 1000u);

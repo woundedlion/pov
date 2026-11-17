@@ -906,7 +906,7 @@ inline void test_sim_masked_windows() {
   HS_EXPECT_GT(tm1.symbols_accepted, 20u);
   HS_EXPECT_EQ(tm1.symbols_discarded_invalid, 0u);
   HS_EXPECT_GT(tm2.symbols_discarded_invalid, 5u);
-  HS_EXPECT_LE(sim.max_phase_err(), 2);
+  HS_EXPECT_LE(sim.max_phase_err(), LOCKED_PHASE_ERROR);
   for (int i = 1; i < 4; ++i) {
     HS_EXPECT_EQ(lock(sim.boards[i].board), LockState::LOCKED);
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
@@ -923,7 +923,7 @@ inline void test_sim_masked_windows() {
   sim2.run_revs(6.0);
   const Telemetry &tm0 = sim2.boards[0].board.telemetry_snapshot();
   HS_EXPECT_GT(master_emit_losses(tm0), 0u);
-  HS_EXPECT_LE(sim2.max_phase_err(), 2);
+  HS_EXPECT_LE(sim2.max_phase_err(), LOCKED_PHASE_ERROR);
   HS_EXPECT_EQ(sim2.boards[1].board.telemetry_snapshot().symbols_rejected_gate,
                0u);
 }
