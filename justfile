@@ -219,11 +219,7 @@ reaction-graph-check:
 # Validate the generated sRGB decoder tables.
 srgb-decode-check:
     {{ python_command }} tools/build_pins.py --check-tool cmake
-    cmake --preset tests
-    cmake --build --preset tests --target srgb_decode_gen
-    cmake -E make_directory build/provenance
-    cmake -E chdir build/tests/tests ./srgb_decode_gen ../../provenance/srgb_decode_lut.h
-    cmake -E compare_files core/color/srgb_decode_lut.h build/provenance/srgb_decode_lut.h
+    bash tools/ci/srgb_decode_provenance.sh -DHS_INSTALL_GIT_HOOKS=ON
 
 # Validate promoted shader document provenance.
 patterns-check:
