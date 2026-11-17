@@ -16,7 +16,7 @@ import subprocess
 
 STRING = r'"(?:[^"\\]|\\.)*"'
 CHAR = r"'(?:[^'\\\n]|\\.)+'"
-TOKEN = re.compile(STRING + r"|//[^\n]*|/\*.*?\*/|[(),]|[^(),\"/]+|/", re.S)
+TOKEN = re.compile(CHAR + "|" + STRING + r"|//[^\n]*|/\*.*?\*/|[(),]|[^(),\"/']+|[/']", re.S)
 
 
 def literals(text):

@@ -55,6 +55,13 @@ class DeathPinUniqueness(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "pin identifies 0 guard sites"):
             self.check_fixture("", pin)
 
+    def test_character_literals_preserve_guard_delimiters(self):
+        source = '''HS_CHECK(c != ',' && c != '"' && c != '(' && c != ')', "msg");'''
+        expected = '''(c != ',' && c != '"' && c != '(' && c != ')') msg'''
+        self.assertEqual(list(checker.guard_texts(source)), [expected])
+        pin = expected.replace('"', r'\"')
+        self.assertIn("1 literal cases", self.check_fixture(source, pin))
+
     def test_formatted_guard_is_unique_for_concrete_and_prefix_pins(self):
         source = 'HS_CHECK(index < count, "index %lu outside [0, %lu)", index, count);'
         for pin in ("(index < count) index 5 outside [0, 2)", "(index < count) index "):
