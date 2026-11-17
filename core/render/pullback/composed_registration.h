@@ -413,7 +413,8 @@ private:
     return ColorParams::FIELDS[INDEX];
   }
 
-  /** @brief Registers a colour slider when its topology gate is live. */
+  /** @brief Registers a colour slider when its topology gate is live or the palette
+   * is authored. */
   template <float Color::ColorControls::*Member>
   HS_SIZE_FLASH_MEMBER void register_color_field(const char *name) {
     constexpr const auto &FIELD = color_descriptor<Member>();

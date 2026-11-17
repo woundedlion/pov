@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Sampling fixture plot/scan test declarations.
+ * @brief Module arena, mesh and libm reference samplers.
  */
 
 #include "tests/plot_scan/fixture.h"

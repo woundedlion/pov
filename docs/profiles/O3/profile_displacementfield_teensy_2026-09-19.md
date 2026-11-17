@@ -180,4 +180,7 @@ HS_PROFILE_TREE=<before-or-after-tree> HS_TEENSY_PORT=COM3 \
   bash tools/profile_one.sh DisplacementField profile_o3 70 32
 ```
 
+This comparison uses the retired same-source selective-O3 shipping capture;
+the linked current shipping report is a later capture.
+
 **Global -O3 vs selective -O3:** mean render 47.461390 → 46.815064 ms (1.0138×); exact peak 58.183 → 57.451 ms. Copy cost 139.995 → 139.662 µs/call. FLASH code grows by +25,856 B and ITCM code by +22,144 B. Global O3 crosses a 32 KiB ITCM allocation boundary here: RAM1 local-variable headroom is 110,688 B versus shipping 143,488 B.

@@ -203,8 +203,8 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
  * @details The caller resolves the face's palette and gradient scale once per
  * face. `scale` multiplies the inward edge depth `-v1`, so a caller working
  * from a face size passes the reciprocal. Writes frag.color unconditionally.
- * set_palette() must run before the first fragment; operator() debug-asserts
- * it. A column-time scan runs the form taking a sweep fraction `u`, which
+ * set_palette() must run before the first fragment; operator() audits
+ * it (HS_AUDIT_CHECK). A column-time scan runs the form taking a sweep fraction `u`, which
  * moves the face's alpha, palette crossfade and counterpart weight linearly
  * from their previous-endpoint values at `u = 0` to the current ones at
  * `u = 1`. Values never given a previous endpoint are held.

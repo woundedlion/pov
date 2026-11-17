@@ -969,7 +969,7 @@ The simulator interprets admitted chains even when they have no promoted
 firmware match. Firmware can build the 23 promoted fixed descriptors. A
 catalog choice alone does not promise a Teensy specialization.
 
-The `ComposedEffect` derivation layer in `composed_effect.h` selects source, warp, surface and lens policies from their parameter families with `SourcePolicyFor`, `WarpPolicyFor`, `SurfacePolicyFor` and `LensPolicyFor`. `tests/composed_effect/derivation_reach.h` checks at compile time that every source, warp, displacement and lens operator family derives a composed policy. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Projected Noise has a composed policy, but no shipped Spec selects it. Value Cutout is reachable and selected by Ash Cloud.
+The `ComposedEffect` derivation layer in `composed_policies.h` selects source, warp, surface and lens policies from their parameter families with `SourcePolicyFor`, `WarpPolicyFor`, `SurfacePolicyFor` and `LensPolicyFor`. `tests/composed_effect/derivation_reach.h` checks at compile time that every source, warp, displacement and lens operator family derives a composed policy. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Projected Noise has a composed policy, but no shipped Spec selects it. Value Cutout is reachable and selected by Ash Cloud.
 
 ## Legacy Effects (`effects_legacy.h`)
 

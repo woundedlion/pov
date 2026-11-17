@@ -78,7 +78,7 @@ inline bool lit_near(const hs_test::StubEffect &fx, float px, float py, int r) {
 }
 
 // ============================================================================
-// Plot::Mesh::draw — wireframe: every unique edge actually drawn
+// Plot::Mesh::draw — wireframe cull-span reuse
 // ============================================================================
 
 /** @brief Reused and rebuilt mesh cull spans produce identical pixels. */

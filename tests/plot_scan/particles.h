@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Particles plot/scan test declarations.
+ * @brief Particle trail rendering, register propagation and cull parity.
  */
 
 #include "tests/plot_scan/fixture.h"

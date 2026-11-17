@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Timed mesh plot/scan test declarations.
+ * @brief Column-time mesh geometry, coverage and material transport tests.
  */
 
 #include "tests/plot_scan/fixture.h"

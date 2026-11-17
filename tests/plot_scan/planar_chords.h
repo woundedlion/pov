@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Planar chords plot/scan test declarations.
+ * @brief Planar chord coverage and brightness against rasterized strokes.
  */
 
 #include "tests/plot_scan/fixture.h"

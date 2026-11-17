@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Star flower plot/scan test declarations.
+ * @brief Star and flower sample geometry and continuous star levels.
  */
 
 #include "tests/plot_scan/fixture.h"

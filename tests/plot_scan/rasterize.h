@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Rasterize plot/scan test declarations.
+ * @brief Stroke sampling, arc registers and transformed raster coverage.
  */
 
 #include "tests/plot_scan/fixture.h"

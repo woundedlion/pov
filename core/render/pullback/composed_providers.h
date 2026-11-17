@@ -79,8 +79,8 @@ using Warp::WaveShearParams;
 /**
  * @brief The public frame context the pipeline's stages prepare from and
  *        shade against, resolved before the scan.
- * @details Its pointers alias the runtime's persistent state and the palette
- * cycler's current bake, so a frame stays valid only until the next
+ * @details Its pointers alias the runtime's persistent state and the selected palette
+ * bake (cycling or authored), so a frame stays valid only until the next
  * draw_frame().
  * @tparam ParamsT Keyed parameter set.
  * @tparam PhaseNoise Whether frames borrow chamber noise patches.
@@ -93,7 +93,7 @@ template <typename ParamsT, bool PhaseNoise = false> struct FrameState {
   math::Quaternion projection_conjugate;
   /** Conjugate of the outer camera orientation. */
   math::Quaternion outer_conjugate;
-  const BakedPalette *palette; /**< The cycler's current bake. */
+  const BakedPalette *palette; /**< This draw's selected palette bake. */
   /** Current palette hue table. */
   const Pixel *hue_rotation_lut;
   const HueRotationGamutMask *hue_rotation_gamut =
@@ -762,7 +762,7 @@ struct ColorProvider {
   HS_HOT_INLINE static float oscillation_phase(const FrameState &frame) {
     return frame.palette_oscillation_phase;
   }
-  /** @brief The cycler's current baked palette.
+  /** @brief The selected palette bake (cycling or authored).
    *  @param frame Current frame.
    *  @return `*frame.palette`. */
   HS_HOT_INLINE static const BakedPalette &palette(const FrameState &frame) {

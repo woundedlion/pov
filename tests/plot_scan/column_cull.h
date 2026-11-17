@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Column cull plot/scan test declarations.
+ * @brief Swept edge culls conservatively retain visible column bands.
  */
 
 #include "tests/plot_scan/fixture.h"

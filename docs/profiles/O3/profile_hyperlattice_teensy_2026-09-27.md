@@ -184,6 +184,9 @@ comparison.
 Captured 2026-09-27 01:05 local time. Source, ELF hashes, flags, build logs and environment dumps are no longer
 retained in the repository.
 
+This comparison uses the retired same-source selective-O3 shipping capture;
+the linked current shipping report is a later capture.
+
 Global -O3 versus selective -O3, both frames 2–1577 on COM3: mean render
 45.106 → 44.884 ms (1.005×); peak
 55.509 → 54.817 ms. Both have zero runtime spills.

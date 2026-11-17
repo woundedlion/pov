@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Column spans plot/scan test declarations.
+ * @brief Conservative column spans and clip gates for spherical arcs.
  */
 
 #include "tests/plot_scan/fixture.h"

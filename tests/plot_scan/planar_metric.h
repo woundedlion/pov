@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Planar metric plot/scan test declarations.
+ * @brief Azimuthal projection and planar arc-length metric tests.
  */
 
 #include "tests/plot_scan/fixture.h"

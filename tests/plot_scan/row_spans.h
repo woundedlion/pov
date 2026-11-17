@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Row spans plot/scan test declarations.
+ * @brief Conservative row spans, cap clipping and chunk traversal tests.
  */
 
 #include "tests/plot_scan/fixture.h"

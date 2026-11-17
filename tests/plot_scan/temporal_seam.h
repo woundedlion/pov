@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Temporal seam plot/scan test declarations.
+ * @brief Timed projected entries bypass world stages and retain tap timing.
  */
 
 #include "tests/plot_scan/fixture.h"

@@ -114,4 +114,7 @@ not this optimized image.
 
 ## Global -O3 vs selective -O3
 
+This comparison uses the retired same-source selective-O3 shipping capture.
+It does not describe the current shipping measurements.
+
 Live peaks: 56.044 versus 56.071 ms. Global O3 changes profile FLASH code by +12,568 B and ITCM by +7,904 B; it remains a single-effect reference.

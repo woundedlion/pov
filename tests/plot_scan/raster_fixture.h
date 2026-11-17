@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Raster fixture plot/scan test declarations.
+ * @brief Capture sinks and render-band parity helpers for raster tests.
  */
 
 #include "tests/plot_scan/fixture.h"

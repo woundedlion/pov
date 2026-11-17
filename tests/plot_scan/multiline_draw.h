@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Multiline draw plot/scan test declarations.
+ * @brief Open and closed multiline strokes cover their geodesic edges.
  */
 
 #include "tests/plot_scan/fixture.h"

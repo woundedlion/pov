@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the plot, scan and sdf modules against the physical display profile.
+# Run the plot_scan and sdf modules against the physical display profile.
 #
 # usage: p1_plot_scan.sh [cmake configure args...]
 set -euo pipefail

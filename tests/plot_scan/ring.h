@@ -4,7 +4,7 @@
  */
 #pragma once
 /** @file
- * @brief Ring plot/scan test declarations.
+ * @brief Ring sample geometry and direct-sink rendering tests.
  */
 
 #include "tests/plot_scan/fixture.h"

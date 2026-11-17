@@ -131,7 +131,8 @@ inline constexpr int PROFILE_REPLAY_FRAMES = 280;
  * @details Mirrors the segmented driver on segment 0: the effect stream is
  * seeded from the effect's identity, the effect is built with its Trans
  * Speed, initialized, pinned and paused at @p preset, primed full width over
- * the segment's rows, then drawn one alternating half of them per frame.
+ * the segment's rows, then drawn over one alternating half of the columns per
+ * frame.
  * Frame and window numbers match the image's `f` lines and windows. Run with
  * HS_MESH_CAPTURE_ONLY=3 (HS_REPLAY_PRESET, HS_REPLAY_TRANS_SPEED and
  * HS_REPLAY_FRAMES override 6, 4 and PROFILE_REPLAY_FRAMES).

@@ -225,14 +225,12 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
   return least >= LINEAR_RGB_GAMUT_MIN && most <= LINEAR_RGB_GAMUT_MAX;
 }
 
-// Chroma pulled back off the refined crossing so the caller's re-conversion
-// does not round a channel past the gate.
-/// Chroma backoff from the refined gamut crossing, OKLab units.
+/** @brief Chroma backoff from the refined gamut crossing, OKLab units.
+ *  @details Keeps re-converted channels inside the gamut gate. */
 inline constexpr float GAMUT_CLIP_MARGIN = 2e-5f;
 
-// Chroma below which an OKLCH color has no usable hue angle and is treated as
-// gray.
-/// Achromatic chroma threshold, OKLab units.
+/** @brief Achromatic chroma threshold, OKLab units.
+ *  @details Colors below this threshold are gray with no usable hue angle. */
 inline constexpr float OKLCH_ACHROMATIC_C = 1e-4f;
 
 /**
@@ -372,14 +370,14 @@ inline void release_gamut_lut() { detail::gamut_lut_state = GamutLut{}; }
  */
 inline const ArenaResetHook GAMUT_LUT_RESET_HOOK{release_gamut_lut};
 
-// Equal steps the stored bracket is walked in, looking for the first exit; an
-// out-of-gamut gap shorter than one step is missed.
-/// Walk steps per stored gamut bracket.
+/** @brief Walk steps per stored gamut bracket.
+ *  @details Searches for the first exit in equal steps; out-of-gamut gaps
+ *  shorter than one step are missed. */
 inline constexpr int GAMUT_SCAN_STEPS = 4;
 
-// Bisections inside the walk step that straddles the crossing; the residual is
-// the bracket width over GAMUT_SCAN_STEPS, halved once per step.
-/// Bisections within the straddling walk step.
+/** @brief Bisections within the straddling walk step.
+ *  @details The residual is the bracket width over GAMUT_SCAN_STEPS, halved
+ *  once per bisection. */
 inline constexpr int GAMUT_BRACKET_STEPS = 3;
 /** Extra bisections over the whole-ray fallback [0, lo], on top of
  * GAMUT_BRACKET_STEPS. */
