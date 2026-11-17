@@ -846,46 +846,21 @@ inline void test_document_numeric_resource_selection() {
   HS_EXPECT_EQ(built.template get<"inner_warp">().cell_x, 2.0f);
 }
 
-/**
- * @brief Pins one effect's authored parameter values to its shader document.
- * @tparam E Composed effect class template.
- * @param name Effect name, for the failure context.
- * @details Every preset in the effect's shader document is rebuilt into a
- * Params through the engine's field tables and compared bit-exactly both
- * ways.
- */
-template <template <int, int> class E>
-inline void check_document_values(const char *name) {
-  using FX = E<SMALL_W, SMALL_H>;
-  using Params = typename FX::Params;
-  constexpr bool AUTHORED = [] {
-    if constexpr (requires { FX::Spec::AUTHORED_TOPOLOGY; })
-      return FX::Spec::AUTHORED_TOPOLOGY;
-    return false;
-  }();
-  HS_CONTEXT(name);
-
-  const auto loaded = load_promoted_document<FX>();
-  if (!loaded)
-    return;
-  const JsonValue &document = *loaded;
-
-  const JsonValue *effect_id = document.find("effect_id");
-  HS_EXPECT_TRUE(effect_id != nullptr && effect_id->text == FX::EFFECT_ID);
-
-  const JsonValue *chain = document_chain(document);
-  HS_EXPECT_TRUE(chain != nullptr);
-  if (chain == nullptr)
-    return;
+/** @brief Checks and classifies the document chain's stages.
+ * @tparam FX Composed-effect specialization.
+ * @param chain Document chain array.
+ * @return Classified slots, or an empty vector for a malformed entry. */
+template <class FX>
+inline std::vector<DocumentSlot> document_slots(const JsonValue &chain) {
   std::vector<DocumentSlot> slots;
   int warps_seen = 0;
   int surface_at = -1, lens_at = -1;
-  for (const JsonValue &entry : chain->items) {
+  for (const JsonValue &entry : chain.items) {
     const JsonValue *label = entry.find("label");
     const JsonValue *operator_id = entry.find("operator");
     HS_EXPECT_TRUE(label != nullptr && operator_id != nullptr);
     if (label == nullptr || operator_id == nullptr)
-      return;
+      return {};
     DocumentSlot slot;
     slot.label = label->text;
     if (const auto *resource = entry.find("resource_key"))
@@ -895,60 +870,15 @@ inline void check_document_values(const char *name) {
     const auto *op = In::find_operator(operator_id->text.c_str());
     HS_EXPECT(op != nullptr, "chain operator is in the catalog");
     if (op == nullptr)
-      return;
-    if constexpr (AUTHORED)
+      return {};
+    if constexpr (FX::AUTHORED_TOPOLOGY)
       if (slot.role == SlotRole::CAMERA && slot.resource_key.empty())
         slot.resource_key = slot.label;
     HS_EXPECT(slot.role != SlotRole::UNKNOWN, "chain operator classified");
     if (slot.role == SlotRole::PROJECT) {
-      const char *expected = nullptr;
-      switch (FX::Metadata::PROJECTION) {
-      case Pullback::ProjectionKind::GNOMONIC:
-        expected = "project.gnomonic.v2";
-        break;
-      case Pullback::ProjectionKind::PEIRCE:
-        expected = "project.peirce.v3";
-        break;
-      case Pullback::ProjectionKind::PEIRCE_SQUARE_FAST:
-        expected = "project.peirce-square-fast.v3";
-        break;
-      case Pullback::ProjectionKind::BONNE:
-        expected = "project.bonne.v3";
-        break;
-      case Pullback::ProjectionKind::AIROCEAN:
-        expected = "project.airocean.v3";
-        break;
-      case Pullback::ProjectionKind::NONE:
-        break;
-      case Pullback::ProjectionKind::TETRAHEDRAL:
-        expected = "project.tetrahedral.v1";
-        break;
-      case Pullback::ProjectionKind::CUBIC:
-        expected = "project.cubic.v1";
-        break;
-      case Pullback::ProjectionKind::OCTAHEDRAL:
-        expected = "project.octahedral.v1";
-        break;
-      case Pullback::ProjectionKind::DODECAHEDRAL:
-        expected = "project.dodecahedral.v1";
-        break;
-      case Pullback::ProjectionKind::ICOSAHEDRAL:
-        expected = "project.icosahedral.v1";
-        break;
-      case Pullback::ProjectionKind::STEREOGRAPHIC:
-        expected = "project.stereographic.v2";
-        break;
-      case Pullback::ProjectionKind::GNOMONIC_FOLDED:
-        expected = "project.gnomonic.v2";
-        break;
-      case Pullback::ProjectionKind::EQUIRECTANGULAR:
-        expected = "project.equirectangular.v2";
-        break;
-      case Pullback::ProjectionKind::FOLDED_SINUSOIDAL:
-        expected = "project.folded-sinusoidal.v2";
-        break;
-      }
-      HS_EXPECT_TRUE(expected != nullptr && operator_id->text == expected);
+      constexpr auto EXPECTED =
+          Pullback::projection_operator_id(FX::Metadata::PROJECTION);
+      HS_EXPECT_TRUE(!EXPECTED.empty() && operator_id->text == EXPECTED);
     }
     if (slot.role == SlotRole::WARP) {
       // Labels warp1 and warp2 retain their slot when the other slot is absent.
@@ -975,12 +905,18 @@ inline void check_document_values(const char *name) {
                      Pullback::SurfacePlacement::AFTER_LENS);
   }
 
-  const JsonValue *presets = document_presets(document);
-  HS_EXPECT_TRUE(presets != nullptr);
-  if (presets == nullptr)
-    return;
+  return slots;
+}
+
+/** @brief Checks preset order, dwell and departures.
+ * @tparam FX Composed-effect specialization.
+ * @param document Authored shader document.
+ * @param presets Preset array. */
+template <class FX>
+inline void check_preset_bank(const JsonValue &document,
+                              const JsonValue &presets) {
   const JsonValue *bank = document.find("preset_bank");
-  HS_EXPECT_EQ(presets->items.size(), FX::PRESET_IDS.size());
+  HS_EXPECT_EQ(presets.items.size(), FX::PRESET_IDS.size());
 
   const JsonValue *choreography = bank->find("choreography");
   const JsonValue *order =
@@ -1041,6 +977,48 @@ inline void check_document_values(const char *name) {
   if constexpr (FX::PRESET_IDS.size() > 1)
     for (bool seen : departures)
       HS_EXPECT_TRUE(seen);
+}
+
+/**
+ * @brief Pins one effect's authored parameter values to its shader document.
+ * @tparam E Composed effect class template.
+ * @param name Effect name, for the failure context.
+ * @details Every preset in the effect's shader document is rebuilt into a
+ * Params through the engine's field tables and compared bit-exactly both
+ * ways.
+ */
+template <template <int, int> class E>
+inline void check_document_values(const char *name) {
+  using FX = E<SMALL_W, SMALL_H>;
+  using Params = typename FX::Params;
+  constexpr bool AUTHORED = [] {
+    if constexpr (requires { FX::Spec::AUTHORED_TOPOLOGY; })
+      return FX::Spec::AUTHORED_TOPOLOGY;
+    return false;
+  }();
+  HS_CONTEXT(name);
+
+  const auto loaded = load_promoted_document<FX>();
+  if (!loaded)
+    return;
+  const JsonValue &document = *loaded;
+
+  const JsonValue *effect_id = document.find("effect_id");
+  HS_EXPECT_TRUE(effect_id != nullptr && effect_id->text == FX::EFFECT_ID);
+
+  const JsonValue *chain = document_chain(document);
+  HS_EXPECT_TRUE(chain != nullptr);
+  if (chain == nullptr)
+    return;
+  const auto slots = document_slots<FX>(*chain);
+  if (slots.size() != chain->items.size())
+    return;
+
+  const JsonValue *presets = document_presets(document);
+  HS_EXPECT_TRUE(presets != nullptr);
+  if (presets == nullptr)
+    return;
+  check_preset_bank<FX>(document, *presets);
 
   std::vector<std::pair<std::string, Pullback::AffineForm>> affine_forms;
   for (const DocumentSlot &slot : slots)
