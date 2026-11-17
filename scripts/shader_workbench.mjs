@@ -57,9 +57,7 @@ export function declarationFromCatalogField(label, field, operator) {
     storage: 'binary32',
     unit: periodic !== null ? periodic.unit
       : (operator === 'sphere.lens.twist.v2' && field.id === 'twist-angle')
-        || ['orientation-polar', 'center-polar', 'axis-phi'].includes(field.id)
-        || (operator === 'sample.spider-web.v1'
-          && ['line-thickness', 'line-softness'].includes(field.id)) ? 'radian'
+        || ['orientation-polar', 'center-polar', 'axis-phi'].includes(field.id) ? 'radian'
       : field.id === 'drift' && [
         'sphere.displace.potential.v1', 'sphere.displace.rossby-haurwitz.v1', 'sphere.lens.twist.v2',
       ].includes(operator) ? 'radian-per-frame'

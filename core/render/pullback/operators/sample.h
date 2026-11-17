@@ -339,32 +339,6 @@ struct SampleSpiralV3 : StatelessModel {
   }
 };
 
-/** @brief Parameter family of sample.spider-web.v1. */
-using SpiderWebSampleParams = Source::AuthoredSpiderWebSampleParams;
-
-/** @brief Plane-to-field crossing: an orb web centred on the plane origin,
-    with angular thread widths under a gnomonic projection. */
-struct SampleSpiderWeb : StatelessModel {
-  static constexpr const char *ID = "sample.spider-web.v1";
-  static constexpr const char *NAME = "Spider Web";
-  using Input = PlaneSample;
-  using Output = FieldSample;
-  using Params = SpiderWebSampleParams;
-  using Prepared =
-      Pattern::PlaneSpiderWeb::Prepared; ///< Spoke table and radii.
-
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &) {
-    check_sample_topology(params.weight_mode, params.coverage_mode);
-    return Pattern::PlaneSpiderWeb::prepare(params, {});
-  }
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
-    const float raw = Pattern::PlaneSpiderWeb::sample({input.coords}, prepared);
-    return finish_sample(input, raw, params, ctx);
-  }
-};
-
 /** @brief Kind topology values, in Pattern::TessellationKind order. */
 inline constexpr const char *TESSELLATION_KIND_IDS[] = {"triangular", "square",
                                                         "hexagonal"};

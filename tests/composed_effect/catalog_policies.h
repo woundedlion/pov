@@ -436,7 +436,6 @@ inline void test_authored_source_catalog_parity() {
   check_source<Pullback::TwinWaveSourceParams, Op::SampleTwinWaveV3>();
   check_source<Pullback::BandsSourceParams, Op::SampleBands>();
   check_source<Pullback::SpiralSourceParams, Op::SampleSpiralV3>();
-  check_source<Pullback::SpiderWebSourceParams, Op::SampleSpiderWeb>();
   using K = Pattern::TessellationKind;
   using F = Pattern::TessellationFill;
   using Pullback::Source::FixedTessellationParams;

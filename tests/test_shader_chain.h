@@ -860,7 +860,6 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_bands_column_angle);
   HS_RUN(test_shader_chain_bands_latitudes);
   HS_RUN(test_shader_chain_parity_sample_spiral);
-  HS_RUN(test_shader_chain_parity_sample_spider_web);
   HS_RUN(test_shader_chain_spiral_spherical_center);
   HS_RUN(test_shader_chain_spiral_longitude_wrap);
   HS_RUN(test_shader_chain_grid_lattice_symmetry);

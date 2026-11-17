@@ -51,7 +51,6 @@
 #include "core/color/modulation.h"
 #include "core/pattern/noise.h"
 #include "core/pattern/sphere_cells.h"
-#include "core/pattern/spider_web.h"
 #include "core/pattern/sphere_lut.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"

@@ -710,32 +710,6 @@ inline void catalog_assignments_sample_spiral_v3() {
   (void)params;
 }
 
-/** @brief Compiles catalog assignments for sample.spider-web.v1. */
-inline void catalog_assignments_sample_spider_web_v1() {
-  Pullback::Source::AuthoredSpiderWebSampleParams params;
-  params.web_radius = 1.2f;
-  params.spokes = 24.0f;
-  params.turns = 16.0f;
-  params.hub_radius = 0.2f;
-  params.sag = 0.1f;
-  params.jitter = 0.3f;
-  params.dew = 0.4f;
-  params.seed = 0.0f;
-  params.line_thickness = 0.006f;
-  params.line_softness = 0.01f;
-  params.edge_width = 0.1f;
-  params.weight_mode = 1;
-  params.coverage_mode = 1;
-  params.weight_mode = 0;
-  params.weight_mode = 1;
-  params.coverage_mode = 0;
-  params.coverage_mode = 1;
-  params.coverage_mode = 2;
-  params.coverage_mode = 3;
-  params.coverage_mode = 4;
-  (void)params;
-}
-
 /** @brief Compiles catalog assignments for sample.tessellation.v3. */
 inline void catalog_assignments_sample_tessellation_v3() {
   Pullback::Source::AuthoredSampleParams<Pullback::Source::TessellationSourceParams> params;

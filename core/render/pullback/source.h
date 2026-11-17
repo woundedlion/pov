@@ -8,7 +8,6 @@
 
 #include "core/pattern/noise.h"
 #include "core/pattern/sphere_cells.h"
-#include "core/pattern/spider_web.h"
 #include "core/pattern/sources.h"
 
 #include "core/math/projection_patterns.h"
@@ -266,42 +265,6 @@ struct SphericalCellsSourceParams : Pattern::SphereCellsParams {
 };
 static_assert(field_ids_unique<SphericalCellsSourceParams>());
 static_assert(field_defaults_in_range<SphericalCellsSourceParams>());
-
-/** @brief Source parameters for the gnomonic orb-web field. */
-struct SpiderWebSourceParams : Pattern::SpiderWebParams {
-  /// Numeric source controls.
-  static constexpr auto FIELDS = std::array{
-      Field<SpiderWebSourceParams>{
-          "web-radius", &SpiderWebSourceParams::web_radius, "Web Radius", 0.05f,
-          16.0f, FieldCurve::LOG_POSITIVE},
-      Field<SpiderWebSourceParams>{
-          "spokes", &SpiderWebSourceParams::spokes, "Spokes", 3.0f,
-          static_cast<float>(Pattern::PlaneSpiderWeb::MAX_SPOKES),
-          FieldCurve::SNAP},
-      Field<SpiderWebSourceParams>{
-          "turns", &SpiderWebSourceParams::turns, "Turns", 1.0f,
-          Pattern::PlaneSpiderWeb::MAX_TURNS, FieldCurve::LERP},
-      Field<SpiderWebSourceParams>{"hub-radius",
-                                   &SpiderWebSourceParams::hub_radius,
-                                   "Hub Radius", 0.0f, 0.9f, FieldCurve::LERP},
-      Field<SpiderWebSourceParams>{"sag", &SpiderWebSourceParams::sag, "Sag",
-                                   0.0f, 0.5f, FieldCurve::LERP},
-      Field<SpiderWebSourceParams>{"jitter", &SpiderWebSourceParams::jitter,
-                                   "Jitter", 0.0f, 1.0f, FieldCurve::LERP},
-      Field<SpiderWebSourceParams>{"dew", &SpiderWebSourceParams::dew, "Dew",
-                                   0.0f, 1.0f, FieldCurve::LERP},
-      Field<SpiderWebSourceParams>{"seed", &SpiderWebSourceParams::seed, "Seed",
-                                   0.0f, 65535.0f, FieldCurve::SNAP},
-      Field<SpiderWebSourceParams>{
-          "line-thickness", &SpiderWebSourceParams::line_thickness,
-          "Line Thickness", 0.0f, 0.1f, FieldCurve::LERP},
-      Field<SpiderWebSourceParams>{
-          "line-softness", &SpiderWebSourceParams::line_softness,
-          "Line Softness", 1.0f / 1024.0f, 0.1f, FieldCurve::LOG_POSITIVE},
-  };
-};
-static_assert(field_ids_unique<SpiderWebSourceParams>());
-static_assert(field_defaults_in_range<SpiderWebSourceParams>());
 
 /** @brief Fill topology gate of the cell-primitive controls. */
 inline constexpr TopologyGate TESSELLATION_CELLS_GATE{
@@ -800,42 +763,6 @@ template <typename State> struct SphericalCells : ApproximationDefaults {
     (void)frame;
     return Pattern::SphereCells::sample(
         Pattern::SphereDirection::admit(input.dir), prepared);
-  }
-};
-
-/** @brief Gnomonic orb-web source policy.
- * @tparam State Provider with Binding, FrameState and params(frame). */
-template <typename State> struct SpiderWeb : ApproximationDefaults {
-  using Binding = typename State::Binding;       ///< Bound pipeline.
-  using FrameState = typename State::FrameState; ///< Current frame.
-  using Prepared =
-      Pattern::PlaneSpiderWeb::Prepared; ///< Spoke table and radii.
-
-  /** @brief Whether the provider supplies the web recipe.
-   * @tparam CandidateBinding Binding being checked. */
-  template <typename CandidateBinding>
-  static constexpr bool PROVIDER_VALID =
-      Detail::ParamsProvider<State, CandidateBinding> &&
-      requires(const typename CandidateBinding::FrameState &frame) {
-        static_cast<const Pattern::SpiderWebParams &>(State::params(frame));
-      };
-
-  /** @brief Builds the spoke table.
-   * @param frame Current frame.
-   * @return Immutable web. */
-  static Prepared prepare(const FrameState &frame) {
-    return Pattern::PlaneSpiderWeb::prepare(State::params(frame), {});
-  }
-
-  /** @brief Samples the projected plane.
-   * @param input Plane carrier.
-   * @param frame Current frame.
-   * @param prepared Immutable web.
-   * @return Signed field value in [-1, 1]. */
-  static float sample(const PlaneSample &input, const FrameState &frame,
-                      const Prepared &prepared) {
-    (void)frame;
-    return Pattern::PlaneSpiderWeb::sample({input.coords}, prepared);
   }
 };
 

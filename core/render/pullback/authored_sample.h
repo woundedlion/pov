@@ -74,9 +74,6 @@ using AuthoredTwinWaveSampleParams =
 using AuthoredBandsSampleParams = AuthoredSampleParams<BandsSourceParams>;
 /** @brief Spiral source with runtime crossing controls. */
 using AuthoredSpiralSampleParams = AuthoredSampleParams<SpiralSourceParams>;
-/** @brief Orb-web source with runtime crossing controls. */
-using AuthoredSpiderWebSampleParams =
-    AuthoredSampleParams<SpiderWebSourceParams>;
 /** @brief Square-cell tessellation with runtime crossing controls. */
 using AuthoredSquareCellsSampleParams = AuthoredSampleParams<SquareCellsParams>;
 /** @brief Projected noise with runtime crossing controls. */

@@ -460,7 +460,7 @@ inline void test_shader_chain_schema_sample() {
   // and the weight/coverage topology pair; only projected-noise adds a basis.
   for (const char *id :
        {"sample.grid.v4", "sample.twin-wave.v3", "sample.spiral.v3",
-        "sample.bands.v1", "sample.spider-web.v1", "sample.tessellation.v3",
+        "sample.bands.v1", "sample.tessellation.v3",
         "sample.projected-noise.v2"}) {
     const auto *crossing_found = require_operator(id);
     if (!crossing_found)
@@ -1003,7 +1003,6 @@ inline void test_shader_chain_param_address_channel() {
   verify_crossing_address.template operator()<In::Op::SampleTwinWaveV3>();
   verify_crossing_address.template operator()<In::Op::SampleSpiralV3>();
   verify_crossing_address.template operator()<In::Op::SampleBands>();
-  verify_crossing_address.template operator()<In::Op::SampleSpiderWeb>();
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
   if (!arm_default_chain(program, 1, ValueSet::DEFAULTS))

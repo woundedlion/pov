@@ -767,7 +767,7 @@ geodesic subdivision.
 | **Lens** | Glitch, Twist, Mobius, Kaleidoscope | Sphere → Sphere; lens-specific controls; kaleidoscope selects azimuthal, polyhedral or prism symmetry |
 | **Projection** | Folded Sinusoidal, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Fast Square Peirce, Dymaxion / Airocean, Equirectangular, Tetrahedral / Cubic / Octahedral / Dodecahedral / Icosahedral Atlas | Sphere → Plane; coordinates, projection provenance, weight and available edge distance; instance-specific frame/layout controls |
 | **Planar warp** | Affine Warp, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Plane → Plane; independent parameters and clocks for each ordered instance |
-| **Planar source** | Bands, Twin Wave, Spiral, Spider Web, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
+| **Planar source** | Bands, Twin Wave, Spiral, Grid, Projected Noise, Tessellation | Plane → Field; source parameters, signal weighting and coverage choices |
 | **Spherical source** | Spherical Noise, Spherical Cells | Sphere → Field; noise scale, speed, contrast and basis; cell layout, count, seed, output and border controls |
 | **Value transfer** | Ridge, Iso Contour, Smooth Bands | Field → Field; reshapes the normalized value; iso and band controls belong to their operator |
 | **Coverage** | Value Cutout, Probability Coverage | Field → Field; deterministic cutout or per-frame stochastic coverage; projection-based coverage belongs to planar sources |
@@ -895,20 +895,6 @@ north-centered Spiral. Existing shaders retain Plane coordinates by default.
 Longitude wraps by a full turn before spherical sampling, so the winding
 joins across the chart seam at any center position. Plane warps must preserve
 the longitude wrap to retain that continuity.
-
-**Spider Web** (`sample.spider-web.v1`) draws an orb web centred on the plane
-origin: straight radial **Spokes**, a capture spiral of **Turns** chords from
-**Hub Radius** (a fraction of **Web Radius**) out to Web Radius, three hub
-rings, and a taut frame just past the rim. Each capture chord runs between
-adjacent spokes and bows toward the hub by **Sag** chord lengths, capped by
-spoke spacing and endpoint radii to keep the chords within their sectors. **Jitter**
-offsets spoke angles and crossing radii, and **Dew** is the fraction of
-capture-chord slots holding a drop; **Seed** selects both hash streams. Threads
-and drop cores return 1 and open space returns -1. Gnomonic projection maps
-great circles to straight lines, so under **Gnomonic** every thread is a
-geodesic and **Line Thickness** and **Line Softness** are angles in radians;
-the folded hemisphere draws the web on both hemispheres. Under other
-projections the widths follow the chart.
 
 Mirror Tile scrolls one local X cell while its Y offset remains manual.
 Polar Chart advances Angular Phase by one turn while Radial Phase remains
