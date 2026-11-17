@@ -211,11 +211,8 @@ inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
 
 /**
  * @brief Agreement budget between HueSpinShade's folded matrix and hue_rotate.
- * @details Both apply the same OKLab rotation — the spin folds it into a
- * cbrt-LMS 3x3 and cube-roots through fast_cbrt3's shared divide, hue_rotate
- * applies it in OKLab — so they differ only by float reassociation, amplified
- * on the way out through the LMS cube; the worst channel sits on a cbrt-steep
- * saturated corner.
+ * @details Sub-LSB float reassociation before gamut clipping is amplified by
+ * clipping to the measured 171-LSB worst-channel difference.
  */
 inline constexpr float HUE_SPIN_MEAN_HEADROOM = 1.5f;
 inline constexpr float HUE_SPIN_WORST_HEADROOM = 1.5f;
