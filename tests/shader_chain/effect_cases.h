@@ -57,7 +57,7 @@ inline void test_shader_chain_composed_frame_parity() {
   static_cast<PB::GridSourceParams &>(source) = params.template get<"source">();
   source.edge_width = params.template get<"value">().edge_width;
   source.coverage_mode =
-      static_cast<uint8_t>(PB::ProjectionCoverageMode::EDGE_FADE);
+      static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE);
   auto &color = ShaderChainWhiteBox::color_params(chain);
   static_cast<PB::Color::ColorControls &>(color) =
       params.template get<"color">();
@@ -190,6 +190,46 @@ inline void test_shader_chain_parameter_admission() {
 }
 
 inline void test_shader_chain_edge_distance_admission() {
+  struct UnrelatedModel {
+    struct Params {
+      float coverage_mode;
+      float envelope;
+    };
+  };
+  static_assert(In::Detail::model_requires_edge_distance<UnrelatedModel>() ==
+                nullptr);
+  []<typename... Models>(PB::Detail::TypeList<Models...>) {
+    (
+        [&] {
+          typename Models::Params params;
+          const auto predicate =
+              In::Detail::model_requires_edge_distance<Models>();
+          HS_EXPECT_TRUE(predicate != nullptr);
+          if (!predicate)
+            return;
+          if constexpr (requires { params.envelope; }) {
+            params.envelope = 0;
+            HS_EXPECT_FALSE(predicate(&params));
+            params.envelope =
+                static_cast<uint8_t>(PB::Warp::Envelope::EDGE_FADE);
+            HS_EXPECT_TRUE(predicate(&params));
+          } else {
+            params.coverage_mode =
+                static_cast<uint8_t>(In::Op::ProjectionCoverageMode::WEIGHT);
+            HS_EXPECT_FALSE(predicate(&params));
+            params.coverage_mode =
+                static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE);
+            HS_EXPECT_TRUE(predicate(&params));
+            params.coverage_mode = static_cast<uint8_t>(
+                In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED);
+            HS_EXPECT_TRUE(predicate(&params));
+          }
+        }(),
+        ...);
+  }(PB::Detail::TypeList<
+      In::Op::WarpWaveShear, In::Op::WarpVectorNoise, In::Op::SampleGridV4,
+      In::Op::SampleTwinWaveV3, In::Op::SampleBands, In::Op::SampleSpiralV3,
+      In::Op::SampleTessellation, In::Op::SampleProjectedNoise>{});
   reset_globals();
   ShaderChain<96, 20> effect;
   effect.init();

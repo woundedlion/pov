@@ -38,6 +38,13 @@ inline void check_warp_envelope(uint8_t envelope) {
            "warp operator: invalid envelope");
 }
 
+/** @brief Whether a warp envelope consumes projection edge distance.
+ * @param envelope Checked WarpEnvelope value.
+ * @return True for edge fade. */
+inline bool warp_requires_edge_distance(uint8_t envelope) {
+  return envelope == static_cast<uint8_t>(WarpEnvelope::EDGE_FADE);
+}
+
 /** @brief The envelope switch over the shared warp envelope kernel.
  *  @param envelope Checked `WarpEnvelope` value.
  *  @param provenance Projection provenance of the plane sample.
@@ -163,6 +170,13 @@ struct WarpWaveShear : PhaseClockModel<WarpPhaseState> {
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = WaveShearWarpParams;
+
+  /** @brief Whether the selected topology consumes projection edge distance.
+   * @param params Operator parameters.
+   * @return True for edge-fade topology. */
+  static bool requires_edge_distance(const Params &params) {
+    return warp_requires_edge_distance(params.envelope);
+  }
   using Prepared = PreparedWaveShear;
 
   /** @brief The factor covers the approximate sine.
@@ -241,6 +255,13 @@ struct WarpVectorNoise : PhaseClockModel<NoisePhaseState> {
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = VectorNoiseWarpParams;
+
+  /** @brief Whether the selected topology consumes projection edge distance.
+   * @param params Operator parameters.
+   * @return True for edge-fade topology. */
+  static bool requires_edge_distance(const Params &params) {
+    return warp_requires_edge_distance(params.envelope);
+  }
   using Prepared = PreparedVectorNoiseWarp;
 
   /** @brief The factor covers both noise channels with headroom.

@@ -70,6 +70,8 @@ namespace Interp {
  *   convexity contract of the admissible parameter set.
  * - `EDGE_DISTANCE_AVAILABLE` — optional, default false; a projection's plane
  *   carries edge distance downstream.
+ * - `requires_edge_distance(const Params &)` — optional bool predicate;
+ *   whether the selected topology consumes projection edge distance.
  * - `APPROXIMATE`, `ORACLE`, `METRICS`, `NON_FLOATING_FIELDS_EXACT` —
  *   optional approximation metadata; an approximate operator declares an
  *   oracle and metrics including a final framebuffer bound.

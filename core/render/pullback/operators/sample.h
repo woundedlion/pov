@@ -137,6 +137,15 @@ inline float projection_coverage(uint8_t coverage_mode,
   return ProjectionCoverage::Weight::apply(provenance, ctx);
 }
 
+/** @brief Whether sample coverage consumes projection edge distance.
+ * @param coverage_mode Checked ProjectionCoverageMode value.
+ * @return True for either edge-fade mode. */
+inline bool sample_requires_edge_distance(uint8_t coverage_mode) {
+  const auto mode = static_cast<ProjectionCoverageMode>(coverage_mode);
+  return mode == ProjectionCoverageMode::EDGE_FADE ||
+         mode == ProjectionCoverageMode::EDGE_FADE_SQUARED;
+}
+
 /** @brief The parameters every plane-to-field Sample crossing family carries:
     the edge-fade width and the weight and coverage enum8s. */
 struct SampleCrossingParams {
@@ -245,6 +254,13 @@ struct SampleGridV4 : SourceClockModel {
   using Output = FieldSample;
   using Params = GridSampleParams;
 
+  /** @brief Whether the selected topology consumes projection edge distance.
+   * @param params Operator parameters.
+   * @return True for edge-fade topology. */
+  static bool requires_edge_distance(const Params &params) {
+    return sample_requires_edge_distance(params.coverage_mode);
+  }
+
   /** @brief Translation symmetry of the grid.
    * @param params Grid controls.
    * @return The square translation lattice. */
@@ -272,6 +288,13 @@ struct SampleTwinWaveV3 : SourceClockModel {
   using Output = FieldSample;
   using Params = TwinWaveSampleParams;
 
+  /** @brief Whether the selected topology consumes projection edge distance.
+   * @param params Operator parameters.
+   * @return True for edge-fade topology. */
+  static bool requires_edge_distance(const Params &params) {
+    return sample_requires_edge_distance(params.coverage_mode);
+  }
+
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Pattern::twin_wave(
@@ -292,6 +315,13 @@ struct SampleBands : StatelessModel {
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = BandsSampleParams;
+
+  /** @brief Whether the selected topology consumes projection edge distance.
+   * @param params Operator parameters.
+   * @return True for edge-fade topology. */
+  static bool requires_edge_distance(const Params &params) {
+    return sample_requires_edge_distance(params.coverage_mode);
+  }
   using Prepared = Pattern::PlaneBands::Prepared;
 
   /** @brief Translation symmetry of the bands.
@@ -324,6 +354,13 @@ struct SampleSpiralV3 : StatelessModel {
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = SpiralSampleParams;
+
+  /** @brief Whether the selected topology consumes projection edge distance.
+   * @param params Operator parameters.
+   * @return True for edge-fade topology. */
+  static bool requires_edge_distance(const Params &params) {
+    return sample_requires_edge_distance(params.coverage_mode);
+  }
   using Prepared =
       Pattern::PlaneSpiral::Prepared; ///< Prepared winding geometry.
 
@@ -384,6 +421,13 @@ struct SampleTessellation : StatelessModel {
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = TessellationSampleParams;
+
+  /** @brief Whether the selected topology consumes projection edge distance.
+   * @param params Operator parameters.
+   * @return True for edge-fade topology. */
+  static bool requires_edge_distance(const Params &params) {
+    return sample_requires_edge_distance(params.coverage_mode);
+  }
   struct Prepared {};
 
   /** @brief Translation symmetry of the selected tessellation.
@@ -451,6 +495,13 @@ struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState> {
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = ProjectedNoiseSampleParams;
+
+  /** @brief Whether the selected topology consumes projection edge distance.
+   * @param params Operator parameters.
+   * @return True for edge-fade topology. */
+  static bool requires_edge_distance(const Params &params) {
+    return sample_requires_edge_distance(params.coverage_mode);
+  }
   using Prepared = PreparedNoiseSource;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }

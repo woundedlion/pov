@@ -738,18 +738,14 @@ template <typename Model> constexpr auto model_translation_lattice() {
 template <typename Model> constexpr auto model_requires_edge_distance() {
   using Params = typename Model::Params;
   using Predicate = bool (*)(const void *);
-  if constexpr (requires(const Params &params) { params.coverage_mode; })
+  if constexpr (requires(const Params &params) {
+                  {
+                    Model::requires_edge_distance(params)
+                  } -> std::same_as<bool>;
+                })
     return static_cast<Predicate>(+[](const void *block) {
-      const auto &params = *std::launder(static_cast<const Params *>(block));
-      const auto mode =
-          static_cast<ProjectionCoverageMode>(params.coverage_mode);
-      return mode == ProjectionCoverageMode::EDGE_FADE ||
-             mode == ProjectionCoverageMode::EDGE_FADE_SQUARED;
-    });
-  else if constexpr (requires(const Params &params) { params.envelope; })
-    return static_cast<Predicate>(+[](const void *block) {
-      const auto &params = *std::launder(static_cast<const Params *>(block));
-      return params.envelope == static_cast<uint8_t>(Warp::Envelope::EDGE_FADE);
+      return Model::requires_edge_distance(
+          *std::launder(static_cast<const Params *>(block)));
     });
   else
     return static_cast<Predicate>(nullptr);
