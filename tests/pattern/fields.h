@@ -712,6 +712,25 @@ inline void test_pattern_spider_web_angular_width() {
   }
 }
 
+/** @brief Thick threads fade to darkness before the web's outer cutoff. */
+inline void test_pattern_spider_web_outer_fade() {
+  using Web = Pattern::PlaneSpiderWeb;
+  auto params = Pattern::SpiderWebParams{};
+  params.line_thickness = params.line_softness = 0.1f;
+  params.dew = 0.0f;
+  const auto web = Web::prepare(params, {});
+  const float inside = std::nextafter(web.reach, 0.0f);
+  for (const float angle :
+       {web.angle[0], 0.5f * (web.angle[0] + web.angle[1])}) {
+    HS_EXPECT_EQ(Web::sample(web_point(inside, angle), web), -1.0f);
+    HS_EXPECT_EQ(Web::sample(web_point(web.reach * 1.01f, angle), web), -1.0f);
+  }
+  params.web_radius = 16.0f;
+  const auto horizon = Web::prepare(params, {});
+  HS_EXPECT_EQ(horizon.reach, FLT_MAX);
+  HS_EXPECT_TRUE(std::isfinite(Web::sample(web_point(100.0f, 0.0f), horizon)));
+}
+
 /** @brief Dew only adds coverage, and adds some. */
 inline void test_pattern_spider_web_dew() {
   using Web = Pattern::PlaneSpiderWeb;

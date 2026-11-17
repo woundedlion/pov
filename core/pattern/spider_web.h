@@ -11,6 +11,7 @@
 #include "core/math/scalar_kernels.h"
 #include "core/math/scalar_noise.h"
 #include <array>
+#include <cfloat>
 #include <cmath>
 
 #include "core/pattern/field.h"
@@ -131,10 +132,12 @@ struct PlaneSpiderWeb {
     out.dew = params.dew;
     out.line_thickness = params.line_thickness;
     out.line_softness = params.line_softness;
-    const float frame_scale = 1.0f + out.frame_radius * out.frame_radius;
-    out.reach = out.frame_radius + 2.0f * frame_scale *
-                                       (params.line_thickness * FRAME_WEIGHT +
-                                        params.line_softness);
+    const float cutoff =
+        2.0f * (params.line_thickness * FRAME_WEIGHT + params.line_softness);
+    out.reach =
+        cutoff * out.frame_radius < 1.0f
+            ? (out.frame_radius + cutoff) / (1.0f - cutoff * out.frame_radius)
+            : FLT_MAX;
     return out;
   }
 
@@ -149,7 +152,7 @@ struct PlaneSpiderWeb {
     if (!(rho_sq < prepared.reach * prepared.reach))
       return -1.0f;
     const float rho = sqrtf(rho_sq);
-    const Scales scales{sqrtf(1.0f + rho_sq), 1.0f + rho_sq};
+    const Scales scales{sqrtf(1.0f + rho_sq), rho};
     const int n = prepared.spokes;
 
     float phi = math::fast_atan2(y, x);
@@ -171,8 +174,8 @@ struct PlaneSpiderWeb {
 
     const float overshoot = fmaxf(rho - prepared.frame_radius, 0.0f);
     const float spoke_across = fminf(fabsf(cross_a), fabsf(cross_b));
-    float thread =
-        hypotf(spoke_across / scales.tangential, overshoot / scales.radial);
+    float thread = hypotf(spoke_across / scales.tangential,
+                          overshoot / (1.0f + rho * prepared.frame_radius));
 
     const float frame = chord(prepared, k, b, prepared.frame_radius,
                               prepared.frame_radius, 0.0f, x, y, scales)
@@ -245,7 +248,7 @@ private:
   /** @brief Gnomonic plane-to-angle divisors at the sample. */
   struct Scales {
     float tangential; ///< Plane length per radian across a spoke.
-    float radial;     ///< Plane length per radian along a spoke.
+    float radius;     ///< Sample radius in plane units.
   };
 
   /** @brief Nearest point on one sagging chord. */
@@ -304,7 +307,9 @@ private:
     const float along = qx * tx + qy * ty;
     const float u = hs::clamp(along * inv, 0.0f, 1.0f);
     const float bow = sag * length * 4.0f * u * (1.0f - u);
-    const float across = (qx * ty - qy * tx + bow) / scales.radial;
+    const float offset = qx * ty - qy * tx + bow;
+    const float across =
+        offset / (1.0f + scales.radius * (scales.radius - offset));
     const float over = (along - u * length) / scales.tangential;
     const float mid = 0.5f * (ra + rb);
     return {hypotf(across, over), u, across, length / sqrtf(1.0f + mid * mid)};
