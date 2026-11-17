@@ -696,6 +696,18 @@ inline const Case *all_cases(int &n) {
                "core/pattern/types.h",
                "(valid(vector)) pattern: invalid sphere direction"},
               // effects
+              {"composed_registration_name_bytes",
+               case_composed_registration_name_bytes,
+               "core/render/pullback/composed_registration.h",
+               "(persistent_arena.get_offset() - name_start == NAME_BYTES) "
+               "composed parameter name byte count does not match registration",
+               false, "death: admitted"},
+              {"composed_registration_parameter_count",
+               case_composed_registration_parameter_count,
+               "core/render/pullback/composed_registration.h",
+               "(effect().getParameters().size() == Traits::PARAM_CAPACITY) "
+               "composed parameter count does not match registration",
+               false, "death: admitted"},
               {"shader_chain_missing_colorize",
                case_shader_chain_missing_colorize,
                "workbench/shader/chain_host.h",

@@ -281,6 +281,7 @@ protected:
 
   /** @brief Registers every slider of the effect's parameter families. */
   HS_SIZE_FLASH_MEMBER void register_parameters() {
+    const size_t name_start = persistent_arena.get_offset();
     register_resource_kind<ResourceKind::ROTATION>();
     register_resource_kind<ResourceKind::SOURCE>();
     register_resource_kind<ResourceKind::PROJECTION>();
@@ -351,6 +352,12 @@ protected:
       if constexpr (Resource::KIND == ResourceKind::MODULATION)
         register_modulation<Resource>(family.modulation);
     });
+    constexpr size_t NAME_BYTES = ComposedDetail::parameter_name_bytes<SpecT>(
+        typename Params::ResourceTypes{});
+    HS_CHECK(persistent_arena.get_offset() - name_start == NAME_BYTES,
+             "composed parameter name byte count does not match registration");
+    HS_CHECK(effect().getParameters().size() == Traits::PARAM_CAPACITY,
+             "composed parameter count does not match registration");
   }
 
   /** @brief Refreshes the active source and variant controls after adoption. */

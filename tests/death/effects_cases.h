@@ -8,8 +8,83 @@
  * @brief Death cases and companion fixtures for effect guards. */
 
 #include "tests/death/context.h"
+#include "effects/GridSpace.h"
 
 namespace hs_test::death_tests {
+
+/** @brief Registration traits with optional surplus descriptor capacity.
+ * @tparam Extra Whether one unused descriptor is budgeted. */
+template <bool Extra>
+struct DeathRegistrationTraits : Pullback::ComposedTraits<32, GridSpaceSpec> {
+  static constexpr size_t PARAM_CAPACITY =
+      Pullback::ComposedTraits<32, GridSpaceSpec>::PARAM_CAPACITY + Extra;
+};
+
+/** @brief Registration seam with an optional extra name allocation.
+ * @tparam ExtraCapacity Whether the declared parameter count is too large. */
+template <bool ExtraCapacity>
+struct DeathRegistration
+    : ParamHost,
+      Pullback::ComposedRegistration<DeathRegistration<ExtraCapacity>,
+                                     DeathRegistrationTraits<ExtraCapacity>> {
+  using Traits = DeathRegistrationTraits<ExtraCapacity>;
+  using Registration =
+      Pullback::ComposedRegistration<DeathRegistration, Traits>;
+  using ParamHost::register_animated_param;
+  using ParamHost::register_animated_enum8_param;
+  using ParamHost::set_last_parameter_group;
+  using Registration::register_parameters;
+  typename Traits::Params params = GridSpace<32, 16>::initial_params();
+  ParamDef descriptors[Traits::PARAM_CAPACITY]{};
+  typename Registration::Storage names;
+  bool extra_name = false;
+
+  /** @brief Binds the declared descriptor capacity. */
+  DeathRegistration() {
+    use_parameter_storage(descriptors, Traits::PARAM_CAPACITY);
+  }
+  /** @brief Stores one scalar descriptor.
+   * @tparam Args Registration argument types.
+   * @param args Scalar registration arguments. */
+  template <typename... Args> void register_param(Args &&...args) {
+    if (extra_name) {
+      persistent_arena.allocate_n<char>(1);
+      extra_name = false;
+    }
+    ParamHost::register_param(std::forward<Args>(args)...);
+  }
+  /** @brief Flexible modulation name storage.
+   * @return The fixture's name table. */
+  typename Registration::Storage *modulation_control_storage() {
+    return &names;
+  }
+};
+
+/** @brief Confirms an unmodified registration before a mismatch fixture. */
+inline void admit_composed_registration() {
+  reset_globals();
+  DeathRegistration<false> valid;
+  valid.register_parameters();
+  if (valid.getParameters().size() ==
+      DeathRegistrationTraits<false>::PARAM_CAPACITY)
+    death_admitted();
+  reset_globals();
+}
+
+/** @brief Name allocations must match the composed footprint prediction. */
+inline void case_composed_registration_name_bytes() {
+  admit_composed_registration();
+  DeathRegistration<false> effect;
+  effect.extra_name = opaque(true);
+  effect.register_parameters();
+}
+
+/** @brief The declared descriptor capacity must equal the registered count. */
+inline void case_composed_registration_parameter_count() {
+  admit_composed_registration();
+  DeathRegistration<true> effect;
+  effect.register_parameters();
+}
 
 inline void check_shader_chain_colorize_companion() {
   using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
