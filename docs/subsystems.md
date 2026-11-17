@@ -317,7 +317,8 @@ is each crossed column's meridian, at that column's time.
 #### Moving mesh faces
 
 `Scan::deform_mesh` prepares a face scan from the effect's motion plan,
-start vertices and indexed vertex evaluator. `Scan::detail::scan_swept_faces`
+start vertices and indexed vertex evaluator. `Scan::VertexCapture` groups the
+active flag, seeing columns, moving-vertex flags, start columns and motion reach. `Scan::detail::scan_swept_faces`
 classifies each active face and reuses captured vertices between passes.
 Visibility and moving-face selection check the face indices against the
 vertex pool before reading vertices or writing per-vertex flags.

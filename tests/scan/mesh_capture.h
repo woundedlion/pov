@@ -358,7 +358,13 @@ inline void test_mesh_capture_reuse() {
         starts[i] = Scan::vertex_column(position(i, 0), *canvas.column_basis(),
                                         0.0f, W);
       Scan::deform_mesh<W, H>(
-          canvas, mesh, true, columns, MOVING, starts, scratch_arena_b, 0.02f,
+          canvas, mesh,
+          Scan::VertexCapture{.active = true,
+                              .columns = columns,
+                              .moving = MOVING,
+                              .start = starts,
+                              .reach = 0.02f},
+          scratch_arena_b,
           [&](size_t i, float u) {
             ++calls;
             return position(i, u);
@@ -415,8 +421,13 @@ inline void test_mesh_seam_face_copies() {
               Scan::pick_moving_faces<W>(canvas, mesh, moving, 0.03f, columns),
               size_t(1));
           Scan::deform_mesh<W, H>(
-              canvas, mesh, true, columns, moving, starts, scratch_arena_b,
-              0.02f,
+              canvas, mesh,
+              Scan::VertexCapture{.active = true,
+                                  .columns = columns,
+                                  .moving = moving,
+                                  .start = starts,
+                                  .reach = 0.02f},
+              scratch_arena_b,
               [&](size_t i, float u) {
                 ++calls;
                 return position(i, u);
@@ -473,8 +484,13 @@ inline void test_mesh_wide_face_copies() {
       starts[i] =
           Scan::vertex_column(position(i, 0), *canvas.column_basis(), 0.0f, W);
     Scan::deform_mesh<W, H>(
-        canvas, mesh, true, COLUMNS, MOVING, starts, scratch_arena_b, STEP,
-        position, [&] {
+        canvas, mesh,
+        Scan::VertexCapture{.active = true,
+                            .columns = COLUMNS,
+                            .moving = MOVING,
+                            .start = starts,
+                            .reach = STEP},
+        scratch_arena_b, position, [&] {
           const auto &window = canvas.time_window();
           const auto *copy = canvas.column_basis()->mesh.face_copy;
           HS_EXPECT_TRUE(copy != nullptr);
@@ -549,8 +565,13 @@ inline void check_deformed_shared_edges(float rotation) {
         Scan::pick_moving_faces<W>(canvas, mesh, picked.data(), .13f, columns),
         size_t(2));
     Scan::deform_mesh<W, H>(
-        canvas, mesh, true, columns, MOVING, starts, scratch_arena_b, .12f,
-        vertex, [&] {
+        canvas, mesh,
+        Scan::VertexCapture{.active = true,
+                            .columns = columns,
+                            .moving = MOVING,
+                            .start = starts,
+                            .reach = .12f},
+        scratch_arena_b, vertex, [&] {
           ++scans;
           const auto &window = canvas.time_window();
           const auto *selected = canvas.column_basis()->mesh.selected_faces;
@@ -747,9 +768,13 @@ template <typename Position> struct PolarFaceCase {
       for (size_t i = 0; i < count; ++i)
         if (moving[i])
           moving[i] = Scan::vertex_flags(reach);
-      Scan::deform_mesh<W, H>(canvas, mesh, true, columns.data(), moving.data(),
-                              starts.data(), scratch_arena_b, reach, position,
-                              [&] {
+      Scan::deform_mesh<W, H>(canvas, mesh,
+                              Scan::VertexCapture{.active = true,
+                                                  .columns = columns.data(),
+                                                  .moving = moving.data(),
+                                                  .start = starts.data(),
+                                                  .reach = reach},
+                              scratch_arena_b, position, [&] {
                                 before_scan(canvas);
                                 scan(pipeline, canvas);
                               });

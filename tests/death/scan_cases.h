@@ -234,8 +234,14 @@ inline void case_scan_deformation_without_column_time() {
   MeshState mesh;
   const uint16_t COLUMNS[2] = {0, 0};
   Scan::deform_mesh<W, H>(
-      c, mesh, true, COLUMNS, nullptr, nullptr, scratch_arena_a, 0.1f,
-      [](size_t, float) { return math::Vector(1, 0, 0); }, [] {});
+      c, mesh,
+      Scan::VertexCapture{.active = true,
+                          .columns = COLUMNS,
+                          .moving = nullptr,
+                          .start = nullptr,
+                          .reach = 0.1f},
+      scratch_arena_a, [](size_t, float) { return math::Vector(1, 0, 0); },
+      [] {});
 }
 
 /** @brief Death case: absent face offsets must trap. */
@@ -380,11 +386,21 @@ inline void case_scan_deformation_without_azimuth() {
   Scan::ColumnBasis basis;
   Scan::ColumnBasisScope scope(canvas, basis);
   const auto vertex = [](size_t, float) { return math::Vector(1, 0, 0); };
-  Scan::deform_mesh<W, H>(canvas, mesh, false, COLUMNS, nullptr, nullptr,
-                          scratch_arena_a, 0.1f, vertex, [] {});
+  Scan::deform_mesh<W, H>(canvas, mesh,
+                          Scan::VertexCapture{.active = false,
+                                              .columns = COLUMNS,
+                                              .moving = nullptr,
+                                              .start = nullptr,
+                                              .reach = 0.1f},
+                          scratch_arena_a, vertex, [] {});
   death_admitted();
-  Scan::deform_mesh<W, H>(canvas, mesh, true, COLUMNS, nullptr, nullptr,
-                          scratch_arena_a, 0.1f, vertex, [] {});
+  Scan::deform_mesh<W, H>(canvas, mesh,
+                          Scan::VertexCapture{.active = true,
+                                              .columns = COLUMNS,
+                                              .moving = nullptr,
+                                              .start = nullptr,
+                                              .reach = 0.1f},
+                          scratch_arena_a, vertex, [] {});
 }
 
 /** @brief Moving mesh planning rejects an absent column azimuth table. */

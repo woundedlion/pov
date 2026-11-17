@@ -834,6 +834,16 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &deformation);
 
 } // namespace detail
 
+/** @brief Per-frame selection and motion bounds for vertex capture. */
+struct VertexCapture {
+  bool active;             ///< Whether the mesh deforms during this frame.
+  const uint16_t *columns; ///< Per-face seeing columns; HELD_FACE_COLUMN holds.
+  const uint8_t *moving; ///< vertex_flags() for captured vertices; zero holds.
+  /// Moving vertices' vertex_column() at the frame's start.
+  const uint16_t *start;
+  float reach; ///< Bound on vertex motion, radians.
+};
+
 /**
  * @brief Scans a moving mesh with every vertex at the time its column is lit.
  * @tparam W Display width.
@@ -842,14 +852,8 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &deformation);
  * @tparam ScanFn Callable () scanning the mesh into the canvas's open window.
  * @param canvas Canvas with column-time state when deformation is active.
  * @param mesh Endpoint mesh, overwritten by the captured vertices.
- * @param active Whether the mesh deforms during this frame.
- * @param columns Per-face seeing columns; HELD_FACE_COLUMN marks held faces.
- * @param moving vertex_flags() for vertices whose paths are captured; 0 for
- *        those that hold.
- * @param start Each moving vertex's column at the frame's start, as
- *        vertex_column() gives it at u = 0 from the vertex evaluated there.
+ * @param capture Per-frame vertex selection and motion bounds.
  * @param scratch Arena for face selection and vertex placement tables.
- * @param reach Bound on vertex motion in radians.
  * @param vertex Closed-form vertex path at a frame fraction, continuing the
  *        frame's motion past either endpoint.
  * @param scan Scans the mesh with its current vertices and selected faces.
@@ -871,12 +875,10 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &deformation);
  */
 template <int W, int H, typename VertexFn, typename ScanFn>
 HS_HOT_FLASH_MEMBER void
-deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
-            const uint16_t *columns, const uint8_t *moving,
-            const uint16_t *start, Arena &scratch, float reach,
-            VertexFn &&vertex, ScanFn &&scan) {
+deform_mesh(Canvas &canvas, MeshState &mesh, const VertexCapture &capture,
+            Arena &scratch, VertexFn &&vertex, ScanFn &&scan) {
   const detail::SweptMeshCallbacks callbacks(vertex, scan);
-  if (!active) {
+  if (!capture.active) {
     callbacks.draw(callbacks.scan_context);
     return;
   }
@@ -897,8 +899,9 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   time.mesh.compact_face_pads = pads.compact;
   time.mesh.wide_face_pads = pads.wide;
   ColumnBasisScope scope(canvas, time);
-  detail::scan_swept_faces({canvas, mesh, columns, moving, start, selected,
-                            scratch, scan_row_pad<W>(sweep) + reach,
+  detail::scan_swept_faces({canvas, mesh, capture.columns, capture.moving,
+                            capture.start, selected, scratch,
+                            scan_row_pad<W>(sweep) + capture.reach,
                             clip_pieces<W>(canvas.render_x_clip()), callbacks});
 }
 

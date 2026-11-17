@@ -406,8 +406,13 @@ struct IslamicBuildProbe {
       FacePaletteShader fragment;
       int window = -1;
       Scan::deform_mesh<W, H>(
-          canvas, mesh, plan.active, plan.columns, plan.moving, plan.start,
-          scratch_arena_a, bound,
+          canvas, mesh,
+          Scan::VertexCapture{.active = plan.active,
+                              .columns = plan.columns,
+                              .moving = plan.moving,
+                              .start = plan.start,
+                              .reach = bound},
+          scratch_arena_a,
           [&](size_t i, float u) {
             return Scan::capture_position(plan, path, e.ripple_gen, camera, i,
                                           u);

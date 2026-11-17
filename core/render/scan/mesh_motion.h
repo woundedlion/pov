@@ -343,8 +343,13 @@ HS_HOT_INLINE void deform_planned(Canvas &canvas, MeshState &mesh,
                                   const EndpointCamera &camera, Arena &scratch,
                                   float reach, ScanFn &&scan) {
   deform_mesh<W, H>(
-      canvas, mesh, plan.active, plan.columns, plan.moving, plan.start, scratch,
-      reach,
+      canvas, mesh,
+      Scan::VertexCapture{.active = plan.active,
+                          .columns = plan.columns,
+                          .moving = plan.moving,
+                          .start = plan.start,
+                          .reach = reach},
+      scratch,
       [&](size_t i, float u) HS_HOT_INLINE {
         return capture_position(plan, *path, ripples, camera, i, u);
       },
