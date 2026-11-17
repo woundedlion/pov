@@ -27,29 +27,17 @@ from cpp_roster import (PHANTASM_PLAYLIST_SOURCE as _PLAYLIST_PATH, macro_body,
                         playlist_shows)
 from doc_coverage import CPP_LEXEMES, doxyfile_entries
 from git_files import git_nul_list
-from docs_check_types import Fence as Fence, Issue as Issue, VisibleLine as VisibleLine
+from docs_check_types import Fence, Issue
 from docs_check_markdown import (
-    _FENCE_RE as _FENCE_RE,
-    _REFERENCE_DEFINITION_RE as _REFERENCE_DEFINITION_RE,
-    _MARKDOWN_ESCAPE_RE as _MARKDOWN_ESCAPE_RE,
-    _ATX_HEADING_RE as _ATX_HEADING_RE,
-    _HTML_ANCHOR_RE as _HTML_ANCHOR_RE,
-    _EXPLICIT_HEADING_ID_RE as _EXPLICIT_HEADING_ID_RE,
-    _HTML_TAG_RE as _HTML_TAG_RE,
-    _INLINE_LINK_TEXT_RE as _INLINE_LINK_TEXT_RE,
-    _SLUG_DROP_RE as _SLUG_DROP_RE,
-    _DIRECTIVE_RE as _DIRECTIVE_RE,
-    _normalize_label as _normalize_label,
-    _is_escaped as _is_escaped,
-    _scan_code_spans as _scan_code_spans,
-    _is_fence_close as _is_fence_close,
-    visible_lines as visible_lines,
-    _slug as _slug,
-    _anchors as _anchors,
-    _find_closing_bracket as _find_closing_bracket,
-    _find_closing_parenthesis as _find_closing_parenthesis,
-    _destination as _destination,
-    _inline_links as _inline_links,
+    _REFERENCE_DEFINITION_RE,
+    _MARKDOWN_ESCAPE_RE,
+    _normalize_label,
+    _scan_code_spans,
+    visible_lines,
+    _slug,
+    _anchors,
+    _destination,
+    _inline_links,
 )
 
 
