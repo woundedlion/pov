@@ -41,6 +41,45 @@ enum class Op : uint8_t {
   ZIP
 };
 
+/**
+ * @brief Lowercase name of an authored Conway operator.
+ * @param op Authored operator.
+ * @return Static operator name, or "?" for an invalid value.
+ */
+constexpr const char *op_name(Op op) {
+  switch (op) {
+  case Op::TRUNCATE:
+    return "truncate";
+  case Op::EXPAND:
+    return "expand";
+  case Op::SNUB:
+    return "snub";
+  case Op::CHAMFER:
+    return "chamfer";
+  case Op::HANKIN:
+    return "hankin";
+  case Op::RELAX:
+    return "relax";
+  case Op::KIS:
+    return "kis";
+  case Op::DUAL:
+    return "dual";
+  case Op::AMBO:
+    return "ambo";
+  case Op::BEVEL:
+    return "bevel";
+  case Op::GYRO:
+    return "gyro";
+  case Op::META:
+    return "meta";
+  case Op::NEEDLE:
+    return "needle";
+  case Op::ZIP:
+    return "zip";
+  }
+  return "?";
+}
+
 /** Number of Op enumerators; ZIP is the last. */
 inline constexpr size_t OP_COUNT = static_cast<size_t>(Op::ZIP) + 1;
 

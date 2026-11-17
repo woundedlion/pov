@@ -661,37 +661,11 @@ public:
    * @return The op name matching the solids editor's vocabulary.
    */
   static const char *op_name(Solids::Op op) {
-    switch (op) {
-    case Solids::Op::TRUNCATE:
-      return "truncate";
-    case Solids::Op::EXPAND:
-      return "expand";
-    case Solids::Op::SNUB:
-      return "snub";
-    case Solids::Op::CHAMFER:
-      return "chamfer";
-    case Solids::Op::HANKIN:
-      return "hankin";
-    case Solids::Op::RELAX:
-      return "relax";
-    case Solids::Op::KIS:
-      return "kis";
-    case Solids::Op::DUAL:
-      return "dual";
-    case Solids::Op::AMBO:
-      return "ambo";
-    case Solids::Op::BEVEL:
-      return "bevel";
-    case Solids::Op::GYRO:
-      return "gyro";
-    case Solids::Op::META:
-      return "meta";
-    case Solids::Op::NEEDLE:
-      return "needle";
-    case Solids::Op::ZIP:
-      return "zip";
-    }
-    HS_CHECK(false, "unhandled Solids::Op %d in op_name", static_cast<int>(op));
+    const char *name = Solids::op_name(op);
+    if (name[0] == '?')
+      HS_CHECK(false, "unhandled Solids::Op %d in op_name",
+               static_cast<int>(op));
+    return name;
   }
 
   /**

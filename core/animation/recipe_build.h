@@ -186,28 +186,7 @@ protected:
    * @param op Lowered primitive op.
    * @return Static name string.
    */
-  static const char *leg_name(Solids::Op op) {
-    switch (op) {
-    case Solids::Op::HANKIN:
-      return "hankin";
-    case Solids::Op::AMBO:
-      return "ambo";
-    case Solids::Op::TRUNCATE:
-      return "truncate";
-    case Solids::Op::SNUB:
-      return "snub";
-    case Solids::Op::CHAMFER:
-      return "chamfer";
-    case Solids::Op::RELAX:
-      return "relax";
-    case Solids::Op::KIS:
-      return "kis";
-    case Solids::Op::DUAL:
-      return "dual";
-    default:
-      return "?";
-    }
-  }
+  static const char *leg_name(Solids::Op op) { return Solids::op_name(op); }
 
   /** @brief Lowered-chain frame allocation. */
   struct BuildTiming {
