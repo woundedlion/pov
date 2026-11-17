@@ -53,7 +53,7 @@
 //   HS_PROFILE_PRESET        zero-based fixed preset selected after init
 //   HS_PROFILE_AUTO_RESUME   resume choreography after selecting that preset
 //   HS_PROFILE_PRESET_TRANSITION begin its segue; use with HS_PROFILE_AUTO_RESUME
-//   Modulation overrides bypass effect admission; only Modulation::valid is checked.
+//   Modulation overrides skip the effect parameter path and require Modulation::admitted.
 //   HS_PROFILE_MODULATION_SOURCE selects the source; requires HS_PROFILE_MODULATION_MECHANIC
 //   HS_PROFILE_MODULATION_MECHANIC selects the color mechanic
 //   HS_PROFILE_MODULATION_EVALUATION overrides the source evaluation policy
@@ -218,8 +218,9 @@ public:
     config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
     config.noise.contrast = 8.0f;
 #endif
-    HS_CHECK(Pullback::Modulation::valid(config),
-             "invalid profile modulation recipe");
+    // no death case: Arduino-only profile harness.
+    HS_CHECK(Pullback::Modulation::admitted(config),
+             "profile modulation recipe is not device-qualified");
     hs::log(
         "modulation recipe: source=%d mechanic=%d evaluation=%d temporal=%d",
         HS_PROFILE_MODULATION_SOURCE, HS_PROFILE_MODULATION_MECHANIC,
