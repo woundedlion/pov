@@ -54,6 +54,14 @@ inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
  */
 template <int W, int H> class PlanarChords {
 public:
+  /** @brief Lifts a column to the nearest periodic copy of a reference.
+   * @param x Column coordinate.
+   * @param reference Unwrapped reference column.
+   * @return Nearest copy, with ties rounded to even. */
+  HS_HOT_INLINE static float nearest_copy_x(float x, float reference) {
+    return x + W * rintf((reference - x) / W);
+  }
+
   /** @brief Maximum rotation lever arm over a chart-straight edge.
    * @param a,b Equidistant chart endpoints in radians, within radius pi.
    * @return Maximum distance from the chart pole's axis on the unit sphere. */
@@ -522,7 +530,7 @@ public:
         const math::Vector to = chart_position(k + 1);
         math::PixelCoords end_to =
             last_interval ? pixels[edge + 1] : math::vector_to_pixel<W, H>(to);
-        end_to.x += W * rintf((end_from.x - end_to.x) * (1.0f / W));
+        end_to.x = nearest_copy_x(end_to.x, end_from.x);
         if (!band.may_reach(end_from, end_to,
                             edge_arc * inv_intervals + 2.0f * reach)) {
           Spacetime::count_geometry<
@@ -541,16 +549,16 @@ public:
           mid_world_from = middle.apply(from);
           start_from = math::vector_to_pixel<W, H>(start_world_from);
           mid_from = math::vector_to_pixel<W, H>(mid_world_from);
-          start_from.x += W * rintf((end_from.x - start_from.x) / W);
-          mid_from.x += W * rintf((end_from.x - mid_from.x) / W);
+          start_from.x = nearest_copy_x(start_from.x, end_from.x);
+          mid_from.x = nearest_copy_x(mid_from.x, end_from.x);
         }
         const math::Vector start_world_to = start.apply(to);
         const math::Vector mid_world_to = middle.apply(to);
         math::PixelCoords start_to =
             math::vector_to_pixel<W, H>(start_world_to);
         math::PixelCoords mid_to = math::vector_to_pixel<W, H>(mid_world_to);
-        start_to.x += W * rintf((end_to.x - start_to.x) / W);
-        mid_to.x += W * rintf((end_to.x - mid_to.x) / W);
+        start_to.x = nearest_copy_x(start_to.x, end_to.x);
+        mid_to.x = nearest_copy_x(mid_to.x, end_to.x);
         const float row_lo =
             fminf(fminf(end_from.y, end_to.y), fminf(start_from.y, start_to.y));
         const float row_hi =
@@ -974,7 +982,7 @@ private:
                 &Spacetime::GeometryCounters::chord_screen_samples>();
             const float u = static_cast<float>(sample) * inverse;
             float x = at_from.x + dx * u;
-            x += W * rintf((float(column) - x) / W);
+            x = nearest_copy_x(x, float(column));
             pipeline.plot_column_at(canvas, {x, at_from.y + dy * u}, column,
                                     stroke.color.color, 0.0f, alpha, t);
           }
