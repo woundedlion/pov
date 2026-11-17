@@ -154,12 +154,8 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
 
   const auto &p = ps.pool[0];
-  HS_EXPECT_NEAR(p.position.x, POS.x, 0.0f);
-  HS_EXPECT_NEAR(p.position.y, POS.y, 0.0f);
-  HS_EXPECT_NEAR(p.position.z, POS.z, 0.0f);
-  HS_EXPECT_NEAR(p.velocity.x, VEL.x, 0.0f);
-  HS_EXPECT_NEAR(p.velocity.y, VEL.y, 0.0f);
-  HS_EXPECT_NEAR(p.velocity.z, VEL.z, 0.0f);
+  HS_EXPECT_VEC(p.position, POS, 0.0f);
+  HS_EXPECT_VEC(p.velocity, VEL, 0.0f);
   HS_EXPECT_EQ(static_cast<int>(p.color_seed), 42);
   HS_EXPECT_EQ(static_cast<int>(p.life), 120); // == system max_life
   HS_EXPECT_EQ(static_cast<int>(p.history_length()), 0);

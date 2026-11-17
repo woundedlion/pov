@@ -7,11 +7,10 @@
 /** @file
  * @brief Stroke contract test cases and fixtures. */
 
+#include "core/math/scalar_kernels.h"
 #include "tests/scan/context.h"
 
 namespace hs_test::scan_tests {
-
-#include "core/math/scalar_kernels.h"
 
 // ============================================================================
 // Scan shader v2 contract, CSG stretch and stroke AA

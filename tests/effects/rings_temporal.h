@@ -188,8 +188,7 @@ struct RingTemporalOracle {
    * @param segment Segment number.
    * @return Half-open row and column bounds. */
   static pov::SegmentClip segment_bounds(int segment) {
-    const auto map = pov::segment_map(segment % 4, DEFAULT_H * 2, 4);
-    return pov::segment_clip(map, segment < 4, DEFAULT_H * 2, 4, DEFAULT_W);
+    return device_segment_clip<DEFAULT_W, DEFAULT_H>(segment);
   }
 
   /** @brief Applies the device's segment clip.

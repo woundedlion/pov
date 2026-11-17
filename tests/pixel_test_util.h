@@ -312,6 +312,17 @@ inline void expect_clip_matches_full(const char *label, const RenderRun &full,
   HS_EXPECT_GT(lit, size_t{0});
 }
 
+/** @brief Pixel bounds for segments 0-3 on the first arm and 4-7 on the second.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param segment Arm-encoded segment index.
+ * @return Half-open row and column bounds. */
+template <int W, int H>
+inline pov::SegmentClip device_segment_clip(int segment) {
+  return pov::segment_clip(pov::segment_map(segment % 4, H * 2, 4), segment < 4,
+                           H * 2, 4, W);
+}
+
 /** @brief Display window one segment of a four-segment display paints on a
  *         frame, alternating column halves frame by frame.
  * @tparam W Canvas width.

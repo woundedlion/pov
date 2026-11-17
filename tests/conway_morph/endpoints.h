@@ -111,21 +111,20 @@ inline void test_edge_endpoints_match_registry() {
     Arena sb(morph_aux_buf + AUX_HALF, AUX_HALF);
     PolyMesh seed = Solids::simple_registry[e.seed_solid].generate(sa, sb);
 
-    // from end: t = 0 emits expanded topology, so compare op(seed, T_EPS)
-    // primaries against the seed (= the from_node registry mesh); a non-zero
-    // t_from is the from_node registry chain itself, except the jitterbug
-    // icosa point, which is regular in the tetra frame, not the registry
-    // orientation.
+    // At t = 0, compare expanded primaries with the from-node mesh.
     {
       Arena oa(morph_temp_buf, TEMP_HALF);
       Arena ob(morph_temp_buf + TEMP_HALF, TEMP_HALF);
       if (e.t_from == 0.0f) {
+        Arena ra(morph_target_buf, TARGET_HALF);
+        Arena rb(morph_target_buf + TARGET_HALF, TARGET_HALF);
+        PolyMesh want = Solids::simple_registry[e.from_node].generate(ra, rb);
         PolyMesh got = run_edge_op(e, seed, oa, ob, T_EPS, e.twist_from);
         const int per_corner = e.op == ConwayGraph::MorphOp::TRUNCATE ? 2 : 1;
         const float tol = e.op == ConwayGraph::MorphOp::TRUNCATE
                               ? PRIMARY_CORNER_TOL_TRUNCATE
                               : PRIMARY_CORNER_TOL_SINGLE;
-        check_primary_faces_match_seed(seed, got, per_corner, tol);
+        check_primary_faces_match_seed(want, got, per_corner, tol);
       } else {
         Arena ra(morph_target_buf, TARGET_HALF);
         Arena rb(morph_target_buf + TARGET_HALF, TARGET_HALF);

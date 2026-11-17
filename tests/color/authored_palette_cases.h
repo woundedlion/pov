@@ -64,36 +64,59 @@ inline void test_authored_palette_inactive_fields_preserve_bake() {
         HS_EXPECT_EQ(actual.alpha, before[index].alpha);
       }
     }
-    switch (type) {
-    case Type::GENERATED:
-      params.palette_hue = 0.25f;
-      break;
-    case Type::PROCEDURAL:
-      params.palette_name = 1;
-      break;
-    case Type::GRADIENT:
-      params.gradient_start_r = 0.0f;
-      break;
-    case Type::MUTATING:
-      params.palette_mutation = 0.5f;
-      break;
-    default:
-      break;
+    const auto expect_rebake = [&](AuthoredPaletteSelection changed) {
+      const auto generation = resources.bake_generation();
+      (void)resources.prepare(persistent_arena, changed,
+                              PALETTE_DEFAULT_CHROMA);
+      HS_EXPECT_EQ(resources.bake_generation(), generation + 1);
+      (void)resources.prepare(persistent_arena, params, PALETTE_DEFAULT_CHROMA);
+      HS_EXPECT_EQ(resources.bake_generation(), generation + 2);
+    };
+    const auto check_float = [&](float AuthoredPaletteSelection::*field) {
+      auto changed = params;
+      changed.*field = params.*field < 0.5f ? 0.75f : 0.25f;
+      expect_rebake(changed);
+    };
+    const auto check_index = [&](uint8_t AuthoredPaletteSelection::*field,
+                                 size_t count) {
+      auto changed = params;
+      changed.*field = static_cast<uint8_t>((params.*field + 1) % count);
+      expect_rebake(changed);
+    };
+    if (type == Type::GENERATED) {
+      for (auto field : {&AuthoredPaletteSelection::palette_hue,
+                         &AuthoredPaletteSelection::palette_spread,
+                         &AuthoredPaletteSelection::palette_lightness,
+                         &AuthoredPaletteSelection::palette_lightness_range})
+        check_float(field);
+      check_index(&AuthoredPaletteSelection::palette_harmony,
+                  std::size(AUTHORED_PALETTE_HARMONY_IDS));
+      check_index(&AuthoredPaletteSelection::palette_lightness_curve,
+                  std::size(AUTHORED_PALETTE_LIGHTNESS_CURVE_IDS));
+    } else if (type == Type::GRADIENT) {
+      for (auto field : {&AuthoredPaletteSelection::gradient_start_r,
+                         &AuthoredPaletteSelection::gradient_start_g,
+                         &AuthoredPaletteSelection::gradient_start_b,
+                         &AuthoredPaletteSelection::gradient_middle_r,
+                         &AuthoredPaletteSelection::gradient_middle_g,
+                         &AuthoredPaletteSelection::gradient_middle_b,
+                         &AuthoredPaletteSelection::gradient_end_r,
+                         &AuthoredPaletteSelection::gradient_end_g,
+                         &AuthoredPaletteSelection::gradient_end_b})
+        check_float(field);
+    } else {
+      check_index(&AuthoredPaletteSelection::palette_name,
+                  AuthoredPaletteResources::named_palette_count());
+      if (type == Type::MUTATING) {
+        check_index(&AuthoredPaletteSelection::palette_name_b,
+                    AuthoredPaletteResources::named_palette_count());
+        check_float(&AuthoredPaletteSelection::palette_mutation);
+      }
     }
-    const auto &changed =
-        resources.prepare(persistent_arena, params, PALETTE_DEFAULT_CHROMA);
-    HS_EXPECT_EQ(resources.bake_generation(), 2u);
-    bool different = false;
-    for (size_t index = 0; index < before.size(); ++index) {
-      const Color4 actual = changed.get(float(index) / 255.0f);
-      different |= actual.color.r != before[index].color.r ||
-                   actual.color.g != before[index].color.g ||
-                   actual.color.b != before[index].color.b;
-    }
-    HS_EXPECT_TRUE(different);
+    const auto generation = resources.bake_generation();
     (void)resources.prepare(persistent_arena, params,
                             PALETTE_DEFAULT_CHROMA * 0.5f);
-    HS_EXPECT_EQ(resources.bake_generation(), 3u);
+    HS_EXPECT_EQ(resources.bake_generation(), generation + 1);
   }
 }
 

@@ -93,9 +93,7 @@ struct MobiusRingsWhiteBox {
             ? first_pose
             : math::make_rotation(math::Y_AXIS, 0.017f + direction * 0.02f);
     if (options.segment >= 0) {
-      const auto map = pov::segment_map(options.segment % 4, H * 2, 4);
-      const auto clip =
-          pov::segment_clip(map, options.segment < 4, H * 2, 4, W);
+      const auto clip = device_segment_clip<W, H>(options.segment);
       fx.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
     }
     if (timed) {
@@ -256,8 +254,7 @@ struct MobiusRingsWhiteBox {
         HS_EXPECT_LE(work.endpoint_evaluations + work.midpoint_evaluations,
                      2 * VERTICES);
       }
-      const auto map = pov::segment_map(segment % 4, 288, 4);
-      const auto clip = pov::segment_clip(map, segment < 4, 288, 4, 288);
+      const auto clip = device_segment_clip<288, 144>(segment);
       for (int y = clip.y0; y < clip.y1; ++y)
         for (int x = clip.x0; x < clip.x1; ++x)
           HS_EXPECT_NEAR(full[y * 288 + x], clipped[y * 288 + x], 1e-5f);

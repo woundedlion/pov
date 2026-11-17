@@ -32,10 +32,7 @@ inline void test_tween_orientation_skips_shared_boundary() {
   tween(orientation, [&](const math::Quaternion &q, float t) {
     ts.push_back(t);
     if (t == 1.0f) {
-      HS_EXPECT_EQ(q.r, orientation.get().r);
-      HS_EXPECT_EQ(q.v.x, orientation.get().v.x);
-      HS_EXPECT_EQ(q.v.y, orientation.get().v.y);
-      HS_EXPECT_EQ(q.v.z, orientation.get().v.z);
+      HS_EXPECT_QUAT(q, orientation.get(), 0.0f);
     }
   });
   HS_EXPECT_SIZE_OR_RETURN(ts, 1);
@@ -47,10 +44,7 @@ inline void test_tween_orientation_skips_shared_boundary() {
   tween(orientation, [&](const math::Quaternion &q, float t) {
     ts.push_back(t);
     if (t == 1.0f) {
-      HS_EXPECT_EQ(q.r, orientation.get().r);
-      HS_EXPECT_EQ(q.v.x, orientation.get().v.x);
-      HS_EXPECT_EQ(q.v.y, orientation.get().v.y);
-      HS_EXPECT_EQ(q.v.z, orientation.get().v.z);
+      HS_EXPECT_QUAT(q, orientation.get(), 0.0f);
     }
   });
   HS_EXPECT_SIZE_OR_RETURN(ts, 4);
@@ -171,10 +165,7 @@ inline void test_deep_tween_frames_groups_flat_emission() {
       trail, [&](const math::Quaternion *qs, const float *ts, int count) {
         HS_EXPECT_EQ(count, frames == 0 ? M : M - 1);
         for (int i = 0; i < count && idx < flat.size(); ++i, ++idx) {
-          HS_EXPECT_EQ(qs[i].r, flat[idx].first.r);
-          HS_EXPECT_EQ(qs[i].v.x, flat[idx].first.v.x);
-          HS_EXPECT_EQ(qs[i].v.y, flat[idx].first.v.y);
-          HS_EXPECT_EQ(qs[i].v.z, flat[idx].first.v.z);
+          HS_EXPECT_QUAT(qs[i], flat[idx].first, 0.0f);
           HS_EXPECT_EQ(ts[i], flat[idx].second);
         }
         ++frames;
@@ -238,10 +229,7 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
   deep_tween(
       trail, [&](size_t record, size_t sub, const math::Quaternion &q, float) {
         const auto expected_value = trail.get(record).at(static_cast<int>(sub));
-        HS_EXPECT_EQ(q.r, expected_value.r);
-        HS_EXPECT_EQ(q.v.x, expected_value.v.x);
-        HS_EXPECT_EQ(q.v.y, expected_value.v.y);
-        HS_EXPECT_EQ(q.v.z, expected_value.v.z);
+        HS_EXPECT_QUAT(q, expected_value, 0.0f);
         HS_EXPECT_LT(sample_index, std::size(SAMPLE_RECORDS));
         if (sample_index < std::size(SAMPLE_RECORDS)) {
           HS_EXPECT_EQ(record, SAMPLE_RECORDS[sample_index]);
@@ -296,12 +284,8 @@ inline void test_tween_vectortrail_single_sample_reaches_one() {
   });
   HS_EXPECT_SIZE_OR_RETURN(ts, 3);
   HS_EXPECT_SIZE_OR_RETURN(values, 3);
-  HS_EXPECT_EQ(values.front().x, 1.0f);
-  HS_EXPECT_EQ(values.front().y, 0.0f);
-  HS_EXPECT_EQ(values.front().z, 0.0f);
-  HS_EXPECT_EQ(values.back().x, 0.0f);
-  HS_EXPECT_EQ(values.back().y, 0.0f);
-  HS_EXPECT_EQ(values.back().z, 1.0f);
+  HS_EXPECT_VEC(values.front(), math::X_AXIS, 0.0f);
+  HS_EXPECT_VEC(values.back(), math::Z_AXIS, 0.0f);
   HS_EXPECT_NEAR(ts.front(), 0.0f, 1e-6f); // oldest = tail
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);  // newest = head
 }

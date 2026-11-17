@@ -136,18 +136,50 @@ inline void test_noise_cross_hemisphere_cap() {
 }
 
 // ============================================================================
-// Transformer<> empty-pool identity
+// NoiseParams::set_seed — the seed mirror tracks the generator it stands for
 // ============================================================================
 
 /**
- * @brief Verifies a manager with nothing spawned (all entity slots inactive)
- *        is the identity.
+ * @brief Pins NoiseParams::seed against the generator it mirrors.
+ * @details FastNoiseLite keeps its seed private, so `seed` is the readable
+ *          copy; set_seed must write both, and the defaults must agree.
  */
-inline void test_transformer_no_entities_is_identity() {
-  Timeline tl;
-  RippleTransformer<8> rt(tl);
-  math::Vector v = math::Vector(0.6f, 0.2f, 0.77f).normalized();
-  math::Vector r = rt.transform(v);
+inline void test_noise_params_seed_mirrors_generator() {
+  constexpr float SX = 0.3f, SY = 0.7f, SZ = 1.1f;
+
+  // The declared default must be the generator's own, or an unseeded
+  // NoiseParams hashes to a seed it is not using.
+  Animation::NoiseParams fresh;
+  FastNoiseLite reference;
+  reference.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  reference.SetSeed(fresh.seed);
+  HS_EXPECT_EQ(fresh.noise.GetNoise(SX, SY, SZ),
+               reference.GetNoise(SX, SY, SZ));
+
+  Animation::NoiseParams a, b;
+  a.set_seed(4242);
+  b.set_seed(4242);
+  HS_EXPECT_EQ(a.seed, 4242);
+  HS_EXPECT_EQ(a.noise.GetNoise(SX, SY, SZ), b.noise.GetNoise(SX, SY, SZ));
+
+  // A changed mirror must actually reach the generator.
+  b.set_seed(4243);
+  HS_EXPECT_EQ(b.seed, 4243);
+  HS_EXPECT_TRUE(a.noise.GetNoise(SX, SY, SZ) != b.noise.GetNoise(SX, SY, SZ));
+}
+
+// ============================================================================
+// noise_transform
+// ============================================================================
+
+/**
+ * @brief Verifies zero amplitude short-circuits the noise warp to a no-op.
+ */
+inline void test_noise_zero_amplitude_is_identity() {
+  Animation::NoiseParams p;
+  p.amplitude = 0.0f;
+  math::Vector v = math::Vector(0.2f, 0.5f, 0.84f).normalized();
+  math::Vector r = noise_transform(v, p);
   HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
   HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);

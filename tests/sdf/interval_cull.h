@@ -761,7 +761,7 @@ inline void test_face_hemisphere_clip_covers_fringe() {
   constexpr int W = 288, H = 144;
   const math::LatitudeGeometry GEOMETRY(H);
   const float PIXEL_WIDTH = math::TWO_PI_F / W;
-  const float BOUNDS_MARGIN = std::max(SDF::BOUNDS_MARGIN, PIXEL_WIDTH);
+  const float BOUNDS_MARGIN = Scan::scan_bounds_margin<W>(0.0f);
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
   int early_rejects = 0;
@@ -910,7 +910,7 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
                              SDF::BOUNDS_MARGIN);
   SDF::PreparedFace widened(vertices, INDICES, widened_scratch,
                             math::LatitudeGeometry(H), H, nullptr, nullptr,
-                            std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
+                            Scan::scan_bounds_margin<W>(0.0f));
   const auto original_bounds = original.get_vertical_bounds<H>();
   const auto widened_bounds = widened.get_vertical_bounds<H>();
   int original_misses = 0;
@@ -929,9 +929,9 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
   HS_EXPECT_GT(original_misses, 0);
 
   SDF::FaceScratchBuffer shipping_scratch;
-  SDF::PreparedFace shipping(
-      vertices, INDICES, shipping_scratch, math::LatitudeGeometry(H), H,
-      nullptr, nullptr, std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / 288));
+  SDF::PreparedFace shipping(vertices, INDICES, shipping_scratch,
+                             math::LatitudeGeometry(H), H, nullptr, nullptr,
+                             Scan::scan_bounds_margin<288>(0.0f));
   const auto shipping_bounds = shipping.get_vertical_bounds<H>();
   HS_EXPECT_EQ(shipping_bounds.y_min, original_bounds.y_min);
   HS_EXPECT_EQ(shipping_bounds.y_max, original_bounds.y_max);

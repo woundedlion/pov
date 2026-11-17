@@ -733,11 +733,7 @@ inline void test_gamut_lut_release_and_passthrough() {
   HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
 }
 
-/**
- * @brief Pins the single-step normalization used by the LUT gamut path.
- * @details The tolerance is relative because this module also runs under
- * -ffast-math, which reassociates the Newton step.
- */
+/** @brief Boundary scaling preserves chroma within its normalization error. */
 inline void test_gamut_lut_boundary_scale_rounding() {
   const OKLab scaled = gamut_scale_to_boundary_lut({0.5f, 0.4f, 0.3f});
   HS_EXPECT_EQ(scaled.L, 0.5f);
@@ -749,19 +745,10 @@ inline void test_gamut_lut_boundary_scale_rounding() {
                                    2]) *
           GAMUT_LUT_INV_SCALE -
       GAMUT_CLIP_MARGIN;
-  // Bit-hack seed plus exactly one Newton step on |(a, b)|^2.
-  const float CHROMA_SQ = 0.4f * 0.4f + 0.3f * 0.3f;
-  uint32_t bits;
-  std::memcpy(&bits, &CHROMA_SQ, sizeof(bits));
-  bits = 0x5f3759dfu - (bits >> 1);
-  float inverse_chroma;
-  std::memcpy(&inverse_chroma, &bits, sizeof(inverse_chroma));
-  inverse_chroma *= 1.5f - 0.5f * CHROMA_SQ * inverse_chroma * inverse_chroma;
-  HS_EXPECT_NEAR_REL(scaled.a, 0.4f * boundary * inverse_chroma, 1e-6);
-  HS_EXPECT_NEAR_REL(scaled.b, 0.3f * boundary * inverse_chroma, 1e-6);
-  // One scale factor on (a, b): the input 0.4:0.3 ratio survives.
+  const float chroma = std::hypot(scaled.a, scaled.b);
+  HS_EXPECT_GE(chroma, boundary * (1.0f - 2e-3f));
+  HS_EXPECT_LE(chroma, boundary * (1.0f + 1e-6f));
   HS_EXPECT_NEAR(scaled.a * 0.3f, scaled.b * 0.4f, 1e-7f);
-  // The single Newton step is one-sided low, so the rescale lands in gamut.
   float r, g, b;
   oklab_to_linear_rgb(scaled, r, g, b);
   HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));

@@ -2,6 +2,7 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0
 """Placement and inlining annotation contracts."""
 
+from bisect import bisect_right
 from pathlib import Path
 import re
 import subprocess
@@ -17,6 +18,11 @@ from doc_coverage import CPP_LEXEMES  # noqa: E402
 
 def inline_conflicts(source: str) -> list[int]:
     """Return lines combining cold placement and forced hot inlining."""
+    continuations = []
+    removed = 0
+    for match in re.finditer(r"\\\r?\n", source):
+        continuations.append(match.start() - removed)
+        removed += len(match.group())
     source = re.sub(r"\\\r?\n", "", source)
     masked = CPP_LEXEMES.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), source)
     directives = re.compile(r"(?m)^[ \t]*#[^\n]*")
@@ -28,7 +34,9 @@ def inline_conflicts(source: str) -> list[int]:
     for offset, declaration in declarations:
         tokens = list(re.finditer(r"\bHS_(?:FLASH|HOT)_INLINE\b", declaration))
         if {token.group() for token in tokens} == {"HS_FLASH_INLINE", "HS_HOT_INLINE"}:
-            conflicts.append(source.count("\n", 0, offset + tokens[0].start()) + 1)
+            position = offset + tokens[0].start()
+            conflicts.append(source.count("\n", 0, position) + 1 +
+                             bisect_right(continuations, position))
     return sorted(set(conflicts))
 
 
@@ -42,6 +50,14 @@ class InlineAttributeTests(unittest.TestCase):
         ):
             with self.subTest(source=source):
                 self.assertTrue(inline_conflicts(source))
+
+    def test_conflict_line_keeps_preceding_macro_continuations(self):
+        for newline in ("\n", "\r\n"):
+            source = newline.join([
+                "#define ROWS \\", "  first \\", "  second", "",
+                "HS_FLASH_INLINE HS_HOT_INLINE void f();"])
+            with self.subTest(newline=newline):
+                self.assertEqual(inline_conflicts(source), [5])
 
     def test_accepts_distinct_declarations(self):
         self.assertEqual(inline_conflicts(

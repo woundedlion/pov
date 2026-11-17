@@ -7,11 +7,10 @@
 /** @file
  * @brief World filters test cases and fixtures. */
 
+#include "core/math/scalar_kernels.h"
 #include "tests/filter/context.h"
 
 namespace hs_test::filter_tests {
-
-#include "core/math/scalar_kernels.h"
 
 // ============================================================================
 // World filters — taps, cull routing, Mobius parity and state binding

@@ -187,7 +187,7 @@ class ViaGeometryTests(unittest.TestCase):
     def test_rejects_board_without_vias(self):
         with self.assertRaisesRegex(
                 fab.ViaGeometryError,
-                r"board lists 0 vias, fewer than the 99"):
+                rf"board lists 0 vias, fewer than the {fab.MIN_BOARD_VIAS}"):
             self.validate_source("(kicad_pcb)",
                                  min_vias=fab.MIN_BOARD_VIAS)
 
@@ -340,7 +340,7 @@ class ZoneGeometryTests(unittest.TestCase):
             pcb.write_text("(kicad_pcb)", encoding="utf-8")
             with self.assertRaisesRegex(
                     fab.ZoneGeometryError,
-                    r"board lists 0 copper pours, fewer than the 2"):
+                    rf"board lists 0 copper pours, fewer than the {fab.MIN_COPPER_POURS}"):
                 fab.validate_zone_geometry(pcb)
 
     def test_committed_board_pours_the_reference_planes(self):

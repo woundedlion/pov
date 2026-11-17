@@ -1069,4 +1069,239 @@ inline void test_flywheel_position() {
   }
 }
 
+// ── Content protocol units: EPOCH burst + boundary fold (§6.3.1) ────────────
+
+/**
+ * @brief Verifies §6.3.1 j-inference stays correct when an EPOCH burst is
+ *        consumed in the SAME tick() its boundary is folded.
+ * @details on_epoch_symbol infers j = rev_in_effect − revs_per_effect, so it
+ *          must observe the post-fold rev. Every copy j of the train commits at
+ *          the same absolute B+R+K boundary.
+ */
+inline void test_epoch_same_tick_burst_fold() {
+  const Config cfg = test_config();
+  const uint32_t rpe = cfg.revs_per_effect;
+  const uint32_t r = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t k = cfg.commit_revs;
+
+  for (uint32_t j = 0; j <= r; ++j) {
+    HS_CONTEXT("copy j", j);
+    SyncBoard board(cfg);
+    constexpr uint32_t START = 1000u;
+    board.seed(START, false);
+    flywheel_mut(board).force_lock();
+    content_mut(board).identity_known = true;
+    content_mut(board).rev_in_effect = rpe + j - 1;
+    const uint32_t zero = START + 2u * cfg.cycles_per_half_rev;
+    const uint32_t col = cfg.cycles_per_column();
+    const BurstSnapshot burst{5, zero, zero + 4u * col};
+    board.tick(zero + 4u * col + cfg.gap_timeout_cycles(), &burst);
+    HS_EXPECT_TRUE(content(board).commit_pending);
+    HS_EXPECT_EQ(content(board).commit_in_revs, k + r - j);
+    HS_EXPECT_EQ(content(board).refractory_revs_left, cfg.refractory_revs);
+  }
+
+  // Returns the absolute rev at which a tracker hearing copy j commits
+  // (computed: on_zero_crossing zeroes rev_in_effect on commit).
+  auto commit_rev_for = [&](uint32_t j) -> uint32_t {
+    ContentTracker c;
+    c.identity_known = true;
+    c.effect_index = 0;
+    c.rev_in_effect = rpe + j;
+    const uint32_t base_rev = c.rev_in_effect;
+    HS_EXPECT_TRUE(c.on_epoch_symbol(cfg)); // opens the commit window
+    HS_EXPECT_EQ(c.commit_in_revs, k + r - j);
+    uint32_t count = 0;
+    while (count <= rpe) {
+      const bool committed = c.on_zero_crossing(cfg);
+      ++count;
+      if (committed)
+        break;
+    }
+    return base_rev + count;
+  };
+
+  // Every copy commits at the absolute B+r+k boundary, independent of j.
+  for (uint32_t j = 0; j <= r; ++j)
+    HS_EXPECT_EQ(commit_rev_for(j), rpe + r + k);
+}
+
+/** @brief Verifies EPOCH symbols stay rejected for the full refractory window. */
+inline void test_epoch_refractory_window() {
+  const Config cfg = test_config();
+  ContentTracker content;
+  content.identity_known = true;
+  content.effect_index = 0;
+  content.rev_in_effect = cfg.revs_per_effect;
+
+  HS_EXPECT_TRUE(content.on_epoch_symbol(cfg));
+  HS_EXPECT_EQ(content.refractory_revs_left, cfg.refractory_revs);
+  for (uint32_t rev = 1; rev < cfg.refractory_revs; ++rev) {
+    HS_CONTEXT("refractory rev", rev);
+    content.on_zero_crossing(cfg);
+    HS_EXPECT_FALSE(content.on_epoch_symbol(cfg));
+    HS_EXPECT_EQ(content.refractory_revs_left, cfg.refractory_revs - rev);
+  }
+  content.on_zero_crossing(cfg);
+  HS_EXPECT_EQ(content.refractory_revs_left, 0u);
+  HS_EXPECT_TRUE(content.on_epoch_symbol(cfg));
+}
+
+/**
+ * @brief Pins ContentTracker::construction_opens and ::constructing directly:
+ *        the window opens exactly once and lasts exactly K revolutions, for
+ *        every repeat copy the board may have heard.
+ * @details The window is anchored to the absolute commit boundary, so a board
+ *          that heard the last repeat (announce phase already spent) opens it
+ *          at the accept itself.
+ */
+inline void test_construction_window_predicates() {
+  const Config cfg = test_config();
+  const uint32_t rpe = cfg.revs_per_effect;
+  const uint32_t r = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t k = cfg.commit_revs;
+
+  for (uint32_t j = 0; j <= r; ++j) {
+    HS_CONTEXT("copy", static_cast<long long>(j));
+    ContentTracker c;
+    c.identity_known = true;
+    c.effect_index = 0;
+    c.rev_in_effect = rpe + j;
+
+    // Nothing scheduled: neither predicate can fire off commit_pending.
+    HS_EXPECT_FALSE(c.construction_opens(cfg));
+    HS_EXPECT_FALSE(c.constructing(cfg));
+
+    HS_EXPECT_TRUE(c.on_epoch_symbol(cfg));
+    const uint32_t announce = r - j; // crossings before the window opens
+    HS_EXPECT_EQ(c.commit_in_revs, k + announce);
+    HS_EXPECT_EQ(c.construction_opens(cfg), announce == 0);
+    HS_EXPECT_EQ(c.constructing(cfg), announce == 0);
+
+    uint32_t opens = c.construction_opens(cfg) ? 1u : 0u;
+    uint32_t dark = c.constructing(cfg) ? 1u : 0u;
+    uint32_t steps = 0;
+    bool committed = false;
+    while (!committed && steps <= k + r + 1) {
+      committed = c.on_zero_crossing(cfg);
+      ++steps;
+      // Opening is a moment inside the window, never outside it.
+      HS_EXPECT_TRUE(!c.construction_opens(cfg) || c.constructing(cfg));
+      opens += c.construction_opens(cfg) ? 1u : 0u;
+      dark += c.constructing(cfg) ? 1u : 0u;
+    }
+    HS_EXPECT_TRUE(committed);
+    HS_EXPECT_EQ(steps, k + announce);
+    HS_EXPECT_EQ(opens, 1u);
+    HS_EXPECT_EQ(dark, k);
+
+    // The commit closes the window; a board past it is lit again.
+    HS_EXPECT_FALSE(c.construction_opens(cfg));
+    HS_EXPECT_FALSE(c.constructing(cfg));
+  }
+}
+
+// ── ContentTracker / output-envelope units ────────────────────────────────
+
+/** @brief The output envelope pins ramp endpoints and monotone fade-in and fade-out. */
+inline void test_effect_output_envelope() {
+  constexpr uint32_t DURATION_REVS = 48;
+  constexpr int WIDTH = 288;
+  HS_EXPECT_EQ(effect_output_envelope(0, DURATION_REVS, 0, WIDTH), 0.0f);
+  HS_EXPECT_NEAR(effect_output_envelope(1, DURATION_REVS, 0, WIDTH), 0.5f,
+                 1e-6f);
+  HS_EXPECT_EQ(effect_output_envelope(2, DURATION_REVS, 0, WIDTH), 1.0f);
+  HS_EXPECT_EQ(effect_output_envelope(46, DURATION_REVS, 0, WIDTH), 1.0f);
+  HS_EXPECT_NEAR(effect_output_envelope(47, DURATION_REVS, 0, WIDTH), 0.5f,
+                 1e-6f);
+  HS_EXPECT_EQ(effect_output_envelope(48, DURATION_REVS, 0, WIDTH), 0.0f);
+
+  float previous_in = 0.0f;
+  float previous_out = 1.0f;
+  for (int column = 1; column < 2 * WIDTH; ++column) {
+    const uint32_t rev = static_cast<uint32_t>(column / WIDTH);
+    const int x = column % WIDTH;
+    const float fade_in = effect_output_envelope(rev, DURATION_REVS, x, WIDTH);
+    const float fade_out =
+        effect_output_envelope(46 + rev, DURATION_REVS, x, WIDTH);
+    HS_EXPECT_GE(fade_in, 0.0f);
+    HS_EXPECT_LE(fade_in, 1.0f);
+    HS_EXPECT_GE(fade_out, 0.0f);
+    HS_EXPECT_LE(fade_out, 1.0f);
+    HS_EXPECT_GE(fade_in, previous_in);
+    HS_EXPECT_LE(fade_out, previous_out);
+    previous_in = fade_in;
+    previous_out = fade_out;
+  }
+}
+
+/**
+ * @brief A board that beacon-joined mid-effect goes dark for the whole commit
+ *        window, exactly like the boards that rode the effect from its start.
+ * @details The beacon's rev field is six bits, so a board joining an effect
+ *          longer than 64 revolutions adopts a count congruent to the master's
+ *          but 64k short of it. commit_pending, set by the EPOCH the board
+ *          hears, holds it dark.
+ */
+inline void test_joined_board_dark_through_commit_window() {
+  Config cfg = test_config();
+  cfg.revs_per_effect = 128; // > 64: the beacon rev field is congruent only
+  const uint32_t rpe = cfg.revs_per_effect;
+  const uint32_t r = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t k = cfg.commit_revs;
+  constexpr int WIDTH = 288;
+  constexpr uint32_t JOIN_REV = 70;
+
+  ContentTracker synced;
+  synced.identity_known = true;
+  synced.rev_in_effect = JOIN_REV;
+  ContentTracker joined;
+  joined.identity_known = true;
+  joined.rev_in_effect = JOIN_REV & 63u; // what a beacon can carry
+  HS_EXPECT_EQ(joined.rev_in_effect, 6u);
+
+  for (uint32_t rev = JOIN_REV; rev < rpe; ++rev) {
+    HS_EXPECT_FALSE(synced.on_zero_crossing(cfg));
+    HS_EXPECT_FALSE(joined.on_zero_crossing(cfg));
+  }
+  HS_EXPECT_EQ(synced.rev_in_effect, rpe);
+  HS_EXPECT_EQ(joined.rev_in_effect, rpe - 64u);
+
+  // The counter-driven envelope is what the two disagree on: this is the state
+  // the window gate has to override.
+  HS_EXPECT_EQ(effect_output_envelope(synced.rev_in_effect, rpe, 0, WIDTH),
+               0.0f);
+  HS_EXPECT_EQ(effect_output_envelope(joined.rev_in_effect, rpe, 0, WIDTH),
+               1.0f);
+
+  HS_EXPECT_TRUE(synced.on_epoch_symbol(cfg));
+  HS_EXPECT_TRUE(joined.on_epoch_symbol(cfg));
+
+  // Announce phase included: the outgoing effect is still live through it, so
+  // the envelope is the only thing holding the strip dark.
+  bool synced_committed = false;
+  bool joined_committed = false;
+  for (uint32_t step = 0; step < r + k; ++step) {
+    HS_CONTEXT("window rev", static_cast<long long>(step));
+    for (int x = 0; x < WIDTH; x += 37) {
+      HS_CONTEXT("column", x);
+      HS_EXPECT_EQ(synced.output_envelope(cfg, x, WIDTH), 0.0f);
+      HS_EXPECT_EQ(joined.output_envelope(cfg, x, WIDTH), 0.0f);
+    }
+    synced_committed = synced.on_zero_crossing(cfg);
+    joined_committed = joined.on_zero_crossing(cfg);
+  }
+  HS_EXPECT_TRUE(synced_committed);
+  HS_EXPECT_TRUE(joined_committed);
+
+  // The commit makes both counts absolute, so the incoming fade-in matches.
+  HS_EXPECT_EQ(synced.rev_in_effect, 0u);
+  HS_EXPECT_EQ(joined.rev_in_effect, 0u);
+  for (int x = 0; x < WIDTH; x += 37) {
+    HS_CONTEXT("column", x);
+    HS_EXPECT_EQ(joined.output_envelope(cfg, x, WIDTH),
+                 synced.output_envelope(cfg, x, WIDTH));
+  }
+}
+
 } // namespace hs_test::pov_sync_tests

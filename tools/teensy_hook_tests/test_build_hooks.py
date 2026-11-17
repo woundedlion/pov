@@ -117,6 +117,20 @@ class TestOptionInterpolation(unittest.TestCase):
                     with self.subTest(environment=environment, path=path):
                         self.assertIn(path, inputs)
 
+    def test_firmware_build_inputs_cover_relink_dependencies(self):
+        _, hot_env = TestHotLayoutLink()._hook()
+        gate_env = FakeEnv(PROJECT_DIR=str(REPO))
+        load_hook("teensy_gate_extra.py", env=gate_env)
+        for env in (hot_env, gate_env):
+            dependencies = {Path(path).resolve()
+                            for _, paths in env.dependencies for path in paths}
+            tools = {path.relative_to(REPO).as_posix() for path in dependencies
+                     if path.is_relative_to(TOOLS)}
+            self.assertTrue(tools)
+            for path in tools:
+                with self.subTest(path=path):
+                    self.assertIn(path, size_trail.BUILD_INPUTS)
+
     def test_firmware_build_inputs_cover_every_extra_config(self):
         extra = _extra_configs(_pio_config())
         self.assertIn("cmake/engine_sources.ini", extra)

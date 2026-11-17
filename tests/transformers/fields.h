@@ -381,39 +381,6 @@ inline void test_bump_field_bound_is_conservative() {
 }
 
 // ============================================================================
-// NoiseParams::set_seed — the seed mirror tracks the generator it stands for
-// ============================================================================
-
-/**
- * @brief Pins NoiseParams::seed against the generator it mirrors.
- * @details FastNoiseLite keeps its seed private, so `seed` is the readable
- *          copy; set_seed must write both, and the defaults must agree.
- */
-inline void test_noise_params_seed_mirrors_generator() {
-  constexpr float SX = 0.3f, SY = 0.7f, SZ = 1.1f;
-
-  // The declared default must be the generator's own, or an unseeded
-  // NoiseParams hashes to a seed it is not using.
-  Animation::NoiseParams fresh;
-  FastNoiseLite reference;
-  reference.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  reference.SetSeed(fresh.seed);
-  HS_EXPECT_EQ(fresh.noise.GetNoise(SX, SY, SZ),
-               reference.GetNoise(SX, SY, SZ));
-
-  Animation::NoiseParams a, b;
-  a.set_seed(4242);
-  b.set_seed(4242);
-  HS_EXPECT_EQ(a.seed, 4242);
-  HS_EXPECT_EQ(a.noise.GetNoise(SX, SY, SZ), b.noise.GetNoise(SX, SY, SZ));
-
-  // A changed mirror must actually reach the generator.
-  b.set_seed(4243);
-  HS_EXPECT_EQ(b.seed, 4243);
-  HS_EXPECT_TRUE(a.noise.GetNoise(SX, SY, SZ) != b.noise.GetNoise(SX, SY, SZ));
-}
-
-// ============================================================================
 // noise_product_field — amplitude linearity and separability; short-circuit;
 // field_bound stays conservative across the parameter space
 // ============================================================================
@@ -508,11 +475,8 @@ inline void test_noise_product_field_bound_is_conservative() {
       nonfinite += !std::isfinite(f);
       over_bound += std::fabs(f) > bound;
 
-      const float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
-                                        v.z * p.scale1 + p.time);
-      const float n2 = p.noise.GetNoise(
-          v.x * p.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
-          v.y * p.scale2, v.z * p.scale2 + p.time);
+      const float n1 = p.octave1(v, p.time);
+      const float n2 = p.octave2(v, p.time);
       octave_out_of_range += std::fabs(n1) > 1.0f;
       octave_out_of_range += std::fabs(n2) > 1.0f;
       worst_octave = std::max(worst_octave, std::fabs(n1));

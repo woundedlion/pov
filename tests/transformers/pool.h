@@ -499,4 +499,22 @@ inline void test_transformer_recycled_slot_composes_in_spawn_order() {
   HS_EXPECT_NEAR(r.x, 12.0f, 1e-4f);
 }
 
+// ============================================================================
+// Transformer<> empty-pool identity
+// ============================================================================
+
+/**
+ * @brief Verifies a manager with nothing spawned (all entity slots inactive)
+ *        is the identity.
+ */
+inline void test_transformer_no_entities_is_identity() {
+  Timeline tl;
+  RippleTransformer<8> rt(tl);
+  math::Vector v = math::Vector(0.6f, 0.2f, 0.77f).normalized();
+  math::Vector r = rt.transform(v);
+  HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
+  HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
+  HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
+}
+
 } // namespace hs_test::transformers_tests

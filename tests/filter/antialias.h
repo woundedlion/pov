@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/math/scalar_kernels.h"
 #include "tests/filter/context.h"
 
 namespace hs_test::filter_tests {
@@ -11,7 +12,6 @@ namespace hs_test::filter_tests {
 /** @file
  * @brief Screen::AntiAlias bilinear weight partition tests.
  */
-#include "core/math/scalar_kernels.h"
 
 // ============================================================================
 // Screen::AntiAlias::plot — pure bilinear weight partition

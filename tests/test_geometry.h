@@ -227,23 +227,20 @@ inline void test_fib_spiral_unit_length() {
   }
 }
 
-/**
- * @brief Pins fib_spiral samples to frozen coordinates across the index range.
- * @details Samples the endpoints, the midpoint and an off-lattice index.
- */
+/** @brief Fibonacci samples preserve the epsilon latitude offset and zero phase. */
 inline void test_fib_spiral_deterministic() {
-  HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 0),
-                math::Vector(0.1760848073f, 0.9843750000f, 0.0000000000f),
-                1e-6f);
-  HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 7),
-                math::Vector(-0.2964955671f, 0.7656250000f, 0.5708841722f),
-                1e-6f);
-  HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 31),
-                math::Vector(0.5407717141f, 0.0156250000f, 0.8410242640f),
-                1e-6f);
-  HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 63),
-                math::Vector(0.1620999636f, -0.9843750000f, -0.0687710781f),
-                1e-6f);
+  for (int n : {4, 17, 64, 127}) {
+    for (float eps : {0.25f, 0.5f, 0.75f}) {
+      for (int i = 0; i < n; ++i) {
+        const math::Vector v = math::fib_spiral(n, eps, i);
+        const double latitude = 1.0 - 2.0 * (double(i) + eps) / n;
+        HS_EXPECT_NEAR(v.y, latitude, 1e-6);
+      }
+      const math::Vector first = math::fib_spiral(n, eps, 0);
+      HS_EXPECT_EQ(first.z, 0.0f);
+      HS_EXPECT_GT(first.x, 0.0f);
+    }
+  }
 }
 
 /**

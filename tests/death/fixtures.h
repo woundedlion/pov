@@ -20,14 +20,14 @@ inline constexpr math::Basis DEATH_IDENTITY_BASIS{math::X_AXIS, math::Y_AXIS,
  * @brief Concrete Effect for the canvas death cases.
  * @details Defaults to 32x16 and exposes register_param via reg.
  */
-struct DeathEffect : public Effect {
+struct DeathEffect : public hs_test::StubEffect {
   using Effect::register_param;
   /**
    * @brief Constructs the effect at the requested resolution.
    * @param width Canvas width in pixels.
    * @param height Canvas height in pixels.
    */
-  DeathEffect(int width = 32, int height = 16) : Effect(width, height) {}
+  DeathEffect(int width = 32, int height = 16) : StubEffect(width, height) {}
   /**
    * @brief Constructs the effect with construction-time flags.
    * @param width Canvas width in pixels.
@@ -35,11 +35,7 @@ struct DeathEffect : public Effect {
    * @param cfg Effect flags, as a pipeline's pipeline_config() folds them.
    */
   DeathEffect(int width, int height, EffectConfig cfg)
-      : Effect(width, height, cfg) {}
-  /**
-   * @brief Draws one frame (no-op; the death cases never render).
-   */
-  void draw_frame() override {}
+      : StubEffect(width, height, cfg) {}
   /**
    * @brief Registers a parameter over the unit range, exposing register_param.
    * @param n Parameter name.

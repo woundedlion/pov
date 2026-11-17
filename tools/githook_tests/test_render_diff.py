@@ -41,6 +41,7 @@ if [ "$stage" = configure ]; then
   while [ "$1" != -B ]; do shift; done
   mkdir -p "$2"
   touch "$2/CMakeCache.txt"
+  cksum < tests/test_render_hashes.h > "$2/source-id"
 else
   mkdir -p "$2/tests"
   cat > "$2/tests/$4" <<'RUNNER'
@@ -48,7 +49,7 @@ else
 if [ "$1" = --list ]; then
   printf '  plot_parity\\n  render_hashes\\n'
 else
-  echo 'render-hash fixture p0=1234'
+  echo "render-hash fixture p0=$(cut -d' ' -f1 "$(dirname "$0")/../source-id")"
 fi
 RUNNER
   chmod +x "$2/tests/$4"
@@ -69,6 +70,16 @@ fi
                 result = self.compare(*args)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("unchanged" if not args else "no pixel changes", result.stdout)
+
+    def test_changed_renders_fail_and_report_the_changed_preset(self):
+        (self.root / "tests" / "test_render_hashes.h").write_text("changed fixture\n")
+        result = self.compare()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("rendered pixels changed", result.stderr)
+        report = self.compare("--report")
+        self.assertEqual(report.returncode, 0, report.stdout + report.stderr)
+        self.assertIn("1 of 1 renders differ", report.stdout)
+        self.assertIn("  fixture p0", report.stdout)
 
     def test_configure_and_build_failures_print_diagnostics(self):
         for stage in ("configure", "build"):

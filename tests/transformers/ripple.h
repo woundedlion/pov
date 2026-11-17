@@ -390,17 +390,19 @@ inline void test_transforms_nonfinite_passes_through_identity() {
 }
 
 // ============================================================================
-// noise_transform
+// ripple_transform
 // ============================================================================
 
 /**
- * @brief Verifies zero amplitude short-circuits the noise warp to a no-op.
+ * @brief Verifies zero amplitude short-circuits the ripple to a no-op.
  */
-inline void test_noise_zero_amplitude_is_identity() {
-  Animation::NoiseParams p;
+inline void test_ripple_zero_amplitude_is_identity() {
+  Animation::RippleParams p;
+  p.center = math::Vector(0, 1, 0);
   p.amplitude = 0.0f;
-  math::Vector v = math::Vector(0.2f, 0.5f, 0.84f).normalized();
-  math::Vector r = noise_transform(v, p);
+  p.phase = 0.5f;
+  math::Vector v = math::Vector(1, 0, 0);
+  math::Vector r = ripple_transform(v, p);
   HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
   HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
