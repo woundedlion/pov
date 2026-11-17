@@ -280,8 +280,8 @@ inline void test_screen_trails_store_emit_decay() {
   Filter::Screen::Trails<MAXP> trails(/*lifetime=*/3);
   trails.init_storage(arena);
 
-  hs_test::StubEffect fx(W,
-                         8); // flush takes a Canvas& (unused by Screen::Trails)
+  // Screen::Trails does not use the canvas passed to flush.
+  hs_test::StubEffect fx(W, 8);
   Canvas c(fx);
 
   // age=1 (0<age<lifetime): forwarded this frame AND stored.

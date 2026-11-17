@@ -247,8 +247,8 @@ inline void test_blur_pole_row_renormalizes() {
                 if (yy < 0.0f || yy >= static_cast<float>(H))
                   all_in_bounds = false;
               });
-    HS_EXPECT_EQ(count,
-                 6); // off-pole virtual row dropped -> 2 surviving rows, 6 taps
+    // The off-pole virtual row is dropped, leaving two rows and six taps.
+    HS_EXPECT_EQ(count, 6);
     HS_EXPECT_TRUE(all_in_bounds);
     HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
   }

@@ -176,7 +176,6 @@ it is skipped when no PCB input changed.
 - **Board-revision gate:** `../gen/tests/test_revision.py` requires the bottom
   silkscreen stamp (`Phantasm Rev X`), schematic title block and board title
   block of each of `1.1/`, `1.2/` and `1.3/` to name that directory's revision.
-  A separate test pins `../gen/builder.py`'s default `REVISION` at 1.2.
   `pcb.py` rejects a source schematic from another revision, and the electrical
   and assembly gates select their exact requirements by artifact revision.
   The board title block is what KiCad writes into the Gerber X2
@@ -276,6 +275,9 @@ every step below is performed by whoever builds the card.
   skips it looks correct. Cut the trace between the `VIN` and `VUSB` pads on the
   Teensy's underside; `VIN` is then fed only from the board rail, and the Teensy
   no longer self-powers from USB.
+- **Orient the Teensy before soldering.** Point its USB connector toward the
+  `5V IN` silkscreen at the `J1` / `J4` end. Reversing the Teensy puts the
+  board's 5 V rail on Teensy pin 12.
 - **`JP_SHLD` is stuffed on the master board only** (R-ASM-4); `JP_ID0`/`JP_ID1`
   strap the segment ID, `JP_ID2` only at N = 8.
 - **`C_IN` is RTV-bonded** after soldering (R-PWR-6 / R-MECH-3).

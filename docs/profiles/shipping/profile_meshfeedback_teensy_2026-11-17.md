@@ -131,7 +131,7 @@ Wall min/avg/max = 60.356/62.543/68.169 ms. `mf_feedback_flush` averages 36.447 
 
 Held means fixed authored parameters, not motionless pixels. Exclude complete incoming parameter blends and both halves of fades; cadence buckets retain all transitions. Never substitute mixed-owner or transition windows for absent clean holds.
 
-The show-scoped data covers 12 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
+The show-scoped data covers 12 preset identities. Completing the scheduled show establishes coverage. Cadence buckets include all live frames, including in-show transitions. Qualified windows start after setup frame 1. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 
 | Preset | Qualified windows | Representative frames | Selection | V/E/F/I | Blended px/f | Draw ms/f | Render ms/f | fps | Live peak ms | Live spilled |
 |---|--:|---|---|---|--:|--:|--:|--:|--:|--:|
@@ -143,7 +143,7 @@ The show-scoped data covers 12 preset identities. Completing the scheduled show 
 | 6 · WavyTrails | 14 | 1297–1312 | held | — | — | 41.002 | 50.735 | 16 | 53.319 | 0/241 |
 | 8 · MeltingLo | 14 | 1809–1824 | held | — | — | 40.761 | 50.924 | 16 | 53.015 | 0/241 |
 | 7 · MeltingHi | 14 | 1569–1584 | held | — | — | 38.561 | 44.174 | 16 | 48.525 | 0/241 |
-| 1 · ArcingLightning | 15 | 17–32 | held | — | — | 37.214 | 46.547 | 16 | 52.668 | 0/244 |
+| 1 · ArcingLightning | 14 | 17–32 | held | — | — | 37.214 | 46.547 | 16 | 52.668 | 0/244 |
 | 10 · LooseWormhole | 14 | 2369–2384 | held | — | — | 34.900 | 42.313 | 16 | 50.662 | 0/241 |
 | 12 · WigglingWormhole | 14 | 2865–2880 | held | — | — | 34.606 | 47.563 | 16 | 55.672 | 0/241 |
 | 11 · TightWormhole | 14 | 2513–2528 | held | — | — | 34.482 | 44.665 | 16 | 52.621 | 0/241 |

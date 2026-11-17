@@ -116,7 +116,6 @@ public:
 
   /**
    * @brief Traps once a polled in-flight transfer outlives the watchdog.
-   * @details Traps once the in-flight transfer outlives the watchdog.
    */
   void check_stale_transfer() {
     if (transfer_complete.load(std::memory_order_relaxed))

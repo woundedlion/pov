@@ -177,7 +177,7 @@ Wall min/avg/max = 56.334/62.518/68.648 ms. `hk_timeline_step` averages 16.594 m
 
 Qualified windows contain one solid and one hk_update_hankin call per frame. This selects complete fixed-solid Hankin-angle sweeps and excludes Conway construction legs. Face raster counts vary with visibility, so no modal raster-call filter is applied. The angle, palette and strap handoffs remain live.
 
-The show-scoped data covers 18 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
+The show-scoped data covers 18 preset identities. Completing the scheduled show establishes coverage. Cadence buckets include all live frames, including in-show transitions. Qualified windows start after setup frame 1. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 
 | Preset | Qualified windows | Representative frames | Selection | V/E/F/I | Blended px/f | Draw ms/f | Render ms/f | fps | Live peak ms | Live spilled |
 |---|--:|---|---|---|--:|--:|--:|--:|--:|--:|
@@ -198,7 +198,7 @@ The show-scoped data covers 18 preset identities. Completing the scheduled show 
 | cuboctahedron | 4 | 833–848 | fixed-solid Hankin-angle sweep | — | — | 19.120 | 19.427 | 16 | 21.821 | 0/285 |
 | cube | 4 | 193–208 | fixed-solid Hankin-angle sweep | — | — | 18.845 | 19.143 | 16 | 23.662 | 0/213 |
 | icosahedron | 4 | 625–640 | fixed-solid Hankin-angle sweep | — | — | 18.602 | 18.926 | 16 | 23.192 | 0/177 |
-| tetrahedron | 5 | 1–16 | fixed-solid Hankin-angle sweep | — | — | 17.402 | 17.692 | 16 | 19.323 | 0/142 |
+| tetrahedron | 4 | 17–32 | fixed-solid Hankin-angle sweep | — | — | 16.145 | 16.469 | 16 | 19.323 | 0/142 |
 
 ### Per-pixel figures
 

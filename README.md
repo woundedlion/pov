@@ -940,11 +940,11 @@ appState.subscribe((key, value, old) => {
 
 The left-edge effect list is a small custom widget:
 
-- **Preset count in the label**: each button reads `Name (N)`, where N is the effect's authored preset count from the engine's `getEffectPresetCounts()` — the registry's `preset_count`, which is `PRESET_IDS.size()` when the effect names its presets and `authored_preset_count()` (the `PRESETS` table's length) otherwise. The displayed value is floored at 1, so an effect with no preset table still shows `(1)`; if the call fails the counts are dropped and every button falls back to that floor.
+- **Preset count in the label.** Each button reads `Name (N)`, where N is the effect's authored preset count from the engine's `getEffectPresetCounts()` — the registry's `preset_count`, which is `PRESET_IDS.size()` when the effect names its presets and `authored_preset_count()` (the `PRESETS` table's length) otherwise. The displayed value is floored at 1, so an effect with no preset table still shows `(1)`. If the call fails, every label omits the count.
 - **Persistent button references**: re-sorting by name or size (live `sizeof` from `getEffectSizes()`) re-appends the existing button nodes in the new order without recreating them; `setEffects()` itself rebuilds the list from scratch.
 - **Keyboard navigation**: Up/Down move the focused button one entry, wrapping at the ends; Left/Right move one column — the row count of the mobile column-flow grid, so they wrap within the row, or 1 in the desktop single-column list, where every arrow steps one entry (`navTargetIndex`, `src/ui/sidebar_logic.js`). Home and End jump to the first and last; Enter or Space selects.
 - **Mobile horizontal scroll**: when laid out as a horizontal strip, scroll arrows fade in/out based on scroll position via a `ResizeObserver` + scroll listener.
-- **Per-resolution filtering**: each resolution has its own curated effect list, shown in the sidebar. An effect that is not in the active resolution's list — including one hydrated from a `?effect=…` link — is replaced with that list's first effect, so only curated effects load at a given resolution.
+- **Per-resolution filtering.** Each resolution offers its curated list plus the registered effects absent from both curated lists, excluding the shader workbench's `ShaderChain`. If the active list omits a requested effect, including one from a `?effect=…` link, its first effect loads instead.
 
 ### 7.6 GUI Auto-Generation
 
@@ -1748,7 +1748,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   ├── fishbowl_oracle.h Fishbowl oracle cases
 │   │   ├── fixture.h Shared engine-only effect rendering fixtures
 │   │   ├── mesh_seam_oracle.h Mesh seam geometry and colour comparisons
-│   │   ├── column_time_fidelity.h Recorded fidelity modes and engagement checks
+│   │   ├── column_time_fidelity.h Column-time scan engagement checks
 │   │   ├── reaction_diffusion_gs_whitebox.h Gray-Scott accessors and reference shaders
 │   │   ├── gnomonic_stars.h Gnomonic stars cases
 │   │   ├── hopf.h Hopf cases

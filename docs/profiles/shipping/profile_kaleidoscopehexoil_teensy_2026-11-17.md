@@ -118,11 +118,11 @@ Wall min/avg/max = 60.904/62.417/63.732 ms. `fx_shader_draw` averages 33.717 ms/
 
 Held means fixed authored parameters, not motionless pixels. Exclude complete incoming parameter blends and both halves of fades; cadence buckets retain all transitions. Never substitute mixed-owner or transition windows for absent clean holds.
 
-The show-scoped data covers 2 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
+The show-scoped data covers 2 preset identities. Completing the scheduled show establishes coverage. Cadence buckets include all live frames, including in-show transitions. Qualified windows start after setup frame 1. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 
 | Preset | Qualified windows | Representative frames | Selection | V/E/F/I | Blended px/f | Draw ms/f | Render ms/f | fps | Live peak ms | Live spilled |
 |---|--:|---|---|---|--:|--:|--:|--:|--:|--:|
-| 1 · Kaleidoscope Hex Oil | 37 | 353–368 | held | — | — | 36.721 | 40.634 | 8 | 46.472 | 0/600 |
+| 1 · Kaleidoscope Hex Oil | 36 | 353–368 | held | — | — | 36.721 | 40.634 | 16 | 46.472 | 0/600 |
 | 2 · Kaleidoscope Hex Oil 2 | 36 | 1297–1312 | held | — | — | 35.664 | 38.709 | 16 | 48.354 | 0/1079 |
 
 ### Per-pixel figures

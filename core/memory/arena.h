@@ -64,9 +64,9 @@ FLASHMEM size_t arena_vector_abandon_count();
 
 /**
  * @brief Bump allocator over a fixed caller-owned buffer.
- * @details Allocation is offset advancement; individual frees are unsupported —
- * memory is reclaimed wholesale via reset() (rewind to 0) or set_offset()
- * (rewind to a saved mark). Over-allocation traps.
+ * @details Allocation advances the offset. reset() rewinds to the reset floor,
+ * which defaults to zero. set_offset() rewinds to a saved mark. Over-allocation
+ * traps.
  */
 class Arena {
   uint8_t *buffer;
@@ -609,8 +609,8 @@ private:
 };
 
 /**
- * @brief Rewinds the persistent arena to empty after dropping every cached
- *        pointer into it.
+ * @brief Drops registered cached pointers and rewinds the persistent arena
+ *        to its reset floor.
  * @details A bare `persistent_arena.reset()` leaves each registered global
  * pointing at bytes the next allocation re-issues.
  */

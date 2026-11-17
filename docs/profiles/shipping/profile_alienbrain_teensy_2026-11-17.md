@@ -76,6 +76,25 @@ frame                    62.361 ms  37.417 Mcyc 100.0%
 
 Wall min/avg/max = 54.964/62.361/69.759 ms. `fx_shader_draw` averages 28.526 ms/f; total render averages 32.474 ms/f. Display synchronization accounts for the remaining buffer-wait time.
 
+### Costliest qualified preset (frames 3521–3536)
+
+```
+frame                    62.361 ms  37.416 Mcyc 100.0%
+  pov_preserve_half      141.03 us   84.62 kcyc   0.2% x1 141 us/call
+  fx_shader_draw         27.504 ms  16.502 Mcyc  44.1%
+    fx_prepare_column    776.68 us  466.01 kcyc   1.2% x144 5 us/call
+  fx_palette_base_bake    1.040 ms  624.22 kcyc   1.7%
+    fx_palette_rgb_bake  905.68 us  543.41 kcyc   1.5% x1 906 us/call
+  fx_prepare_frame       761.66 us  456.99 kcyc   1.2% x1 762 us/call
+  fx_advance             964.79 us  578.87 kcyc   1.5%
+    palette_cycle_step   892.58 us  535.55 kcyc   1.4% x1 893 us/call
+  fx_timeline_step        99.37 us   59.62 kcyc   0.2% x1 99 us/call
+  canvas_clear            91.41 us   54.84 kcyc   0.1% x1 91 us/call
+  canvas_buffer_wait     31.606 ms  18.964 Mcyc  50.7% x1 31606 us/call
+```
+
+Wall min/avg/max = 58.738/62.360/65.926 ms. `fx_shader_draw` averages 27.504 ms/f; total render averages 30.754 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+
 ### Transition / non-hold regime (frames 897–912)
 
 ```
@@ -118,12 +137,12 @@ Wall min/avg/max = 55.736/62.445/69.006 ms. `fx_shader_draw` averages 26.324 ms/
 
 Held means fixed authored parameters, not motionless pixels. Exclude complete incoming parameter blends and both halves of fades; cadence buckets retain all transitions. Never substitute mixed-owner or transition windows for absent clean holds.
 
-The show-scoped data covers 4 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
+The show-scoped data covers 4 preset identities. Completing the scheduled show establishes coverage. Cadence buckets include all live frames, including in-show transitions. Qualified windows start after setup frame 1. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 
 | Preset | Qualified windows | Representative frames | Selection | V/E/F/I | Blended px/f | Draw ms/f | Render ms/f | fps | Live peak ms | Live spilled |
 |---|--:|---|---|---|--:|--:|--:|--:|--:|--:|
-| 1 · Alien Brain | 37 | 1–16 | held | — | — | 27.915 | 30.786 | 16 | 35.683 | 0/602 |
 | 4 · Alien Brain 4 | 36 | 3521–3536 | held | — | — | 27.504 | 30.754 | 16 | 35.404 | 0/1079 |
+| 1 · Alien Brain | 36 | 337–352 | held | — | — | 27.371 | 30.878 | 16 | 35.683 | 0/602 |
 | 2 · Alien Brain 2 | 36 | 1441–1456 | held | — | — | 27.015 | 29.817 | 16 | 36.703 | 0/1079 |
 | 3 · Alien Brain 3 | 37 | 2593–2608 | held | — | — | 26.025 | 30.236 | 16 | 37.447 | 0/1079 |
 

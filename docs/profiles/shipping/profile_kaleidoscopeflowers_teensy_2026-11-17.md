@@ -118,13 +118,13 @@ Wall min/avg/max = 60.051/62.441/65.331 ms. `fx_shader_draw` averages 30.068 ms/
 
 Held means fixed authored parameters, not motionless pixels. Exclude complete incoming parameter blends and both halves of fades; cadence buckets retain all transitions. Never substitute mixed-owner or transition windows for absent clean holds.
 
-The show-scoped data covers 3 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
+The show-scoped data covers 3 preset identities. Completing the scheduled show establishes coverage. Cadence buckets include all live frames, including in-show transitions. Qualified windows start after setup frame 1. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 
 | Preset | Qualified windows | Representative frames | Selection | V/E/F/I | Blended px/f | Draw ms/f | Render ms/f | fps | Live peak ms | Live spilled |
 |---|--:|---|---|---|--:|--:|--:|--:|--:|--:|
 | 2 · Open Grid | 36 | 1633–1648 | held | — | — | 31.951 | 35.615 | 16 | 38.595 | 0/1079 |
 | 3 · Fine Grid | 37 | 2641–2656 | held | — | — | 31.915 | 35.257 | 16 | 41.644 | 0/1079 |
-| 1 · Double Map | 37 | 193–208 | held | — | — | 31.267 | 34.943 | 16 | 38.637 | 0/609 |
+| 1 · Double Map | 36 | 193–208 | held | — | — | 31.267 | 34.943 | 16 | 38.637 | 0/609 |
 
 ### Per-pixel figures
 

@@ -626,13 +626,13 @@ inline void test_update_parameter_by_name() {
                ParamSetResult::UNKNOWN_PARAM);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
+  // Non-finite values are rejected as NON_FINITE.
   for (float value : {std::numeric_limits<float>::infinity(),
                       -std::numeric_limits<float>::infinity()}) {
     HS_EXPECT_EQ(fx.updateParameter("Speed", value),
                  ParamSetResult::NON_FINITE);
     HS_EXPECT_EQ(fx.speed, 7.25f);
   }
-  // Non-finite values are rejected as NON_FINITE.
   HS_EXPECT_EQ(
       fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()),
       ParamSetResult::NON_FINITE);

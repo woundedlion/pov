@@ -23,7 +23,7 @@ release.py calls fabricate() with an explicit project/output context for rev
 PART_BY_LCSC and KNOWN_PARITY_ITEMS are shared by both revisions.
 
 kicad-cli is found via $KICAD_CLI, else the pinned release among common install
-paths; PATH is consulted only when no install-path kicad-cli exists.
+paths. PATH is consulted only when no install path holds the pinned release.
 """
 import argparse
 import contextlib

@@ -107,7 +107,7 @@ Wall min/avg/max = 61.900/62.450/62.880 ms. `sh_rasterize` averages 11.186 ms/f;
 
 Mode:n logs the target mathematical harmonic index n=l*l+l+m. It is not the PRESET_IDS index. There is no full 16-frame static hold; all intervals are64-frame morphs. Per-owner peak telemetry describes the complete incoming morph, not an isolated harmonic.
 
-The show-scoped data covers 24 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
+The show-scoped data covers 24 preset identities. Completing the scheduled show establishes coverage. Cadence buckets include all live frames, including in-show transitions. Qualified windows start after setup frame 1. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 
 | Preset | Qualified windows | Representative frames | Selection | V/E/F/I | Blended px/f | Draw ms/f | Render ms/f | fps | Live peak ms | Live spilled |
 |---|--:|---|---|---|--:|--:|--:|--:|--:|--:|
@@ -131,7 +131,7 @@ The show-scoped data covers 24 preset identities. Completing the scheduled show 
 | 5 · l=2, m=-1 | 3 | 1441–1456 | near-target continuous-morph anchor | — | — | 11.518 | 11.790 | 16 | 11.828 | 0/64 |
 | 13 · l=3, m=1 | 3 | 417–432 | near-target continuous-morph anchor | — | — | 11.514 | 11.786 | 16 | 11.949 | 0/64 |
 | 4 · l=2, m=-2 | 3 | 1377–1392 | near-target continuous-morph anchor | — | — | 11.472 | 11.744 | 16 | 11.853 | 0/64 |
-| 7 · l=2, m=1 | 3 | 33–48 | near-target continuous-morph anchor | — | — | 11.190 | 11.453 | 16 | 11.686 | 0/63 |
+| 7 · l=2, m=1 | 2 | 33–48 | near-target continuous-morph anchor | — | — | 11.190 | 11.453 | 16 | 11.686 | 0/63 |
 | 6 · l=2, m=0 | 3 | 1505–1520 | near-target continuous-morph anchor | — | — | 11.139 | 11.410 | 16 | 11.659 | 0/64 |
 | 3 · l=1, m=1 | 3 | 1313–1328 | near-target continuous-morph anchor | — | — | 10.984 | 11.254 | 16 | 11.373 | 0/64 |
 | 2 · l=1, m=0 | 3 | 1249–1264 | near-target continuous-morph anchor | — | — | 10.958 | 11.230 | 16 | 12.023 | 0/64 |

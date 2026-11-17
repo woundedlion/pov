@@ -4,7 +4,7 @@ The built and exhibited boards are **[rev 1.1](1.1/README.md)**, the firmware de
 Use **[rev 1.2](1.2/README.md)** for the next-revision Quilter placement run.
 The experimental **[1.3/](1.3/README.md)** project uses differential sync.
 Rev 1.2 remains the generator default; select rev 1.3 explicitly.
-Open either project in KiCad 10 with its symbol and footprint libraries.
+Open any of these projects in KiCad 10 with its symbol and footprint libraries.
 
 Rev 1.3 uses a different front-only placement: J1/J2/J3A/J3B form a top-edge
 bank with north-facing, tangential entries. Every terminal, including sync

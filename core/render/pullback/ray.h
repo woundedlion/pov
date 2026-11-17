@@ -31,7 +31,8 @@ struct RayStage
   /** @brief Shades the sample's sphere direction via `Renderer::shade`.
    * @tparam Binding Pipeline binding supplying `FrameState`.
    * @tparam Prepared The renderer's prepared state type.
-   * @param input Sphere sample; only `dir` is read.
+   * @param input Sphere sample supplying `dir` for shading and `path_length`
+   * for the returned field.
    * @param frame Per-frame state.
    * @param prepared Result of `prepare` for this frame.
    * @return Shaded colour. */

@@ -215,8 +215,8 @@ def fallback_sizes_from_size_a(text: str) -> dict[str, RegionSizes]:
 
 # `readelf -s`/`-sW` symbol row, e.g.
 #    124: 20200000 248832 OBJECT  GLOBAL DEFAULT    8 _ZN6Effect8buffer_aE
-# The Value is hex (no prefix); the Size is decimal for small objects but HEX
-# (0x-prefixed) for large ones in arm-none-eabi readelf 11.3.1 — accept either.
+# readelf prints Value in hex without a prefix. Size is decimal for small
+# objects and 0x-prefixed hex for large ones.
 _READELF_SYM_RE = re.compile(
     r"^\s*(\d+):\s+([0-9a-fA-F]+)\s+(0x[0-9a-fA-F]+|\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$"
 )

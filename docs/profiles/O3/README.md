@@ -15,7 +15,7 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [ShapeShifter](profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 60.05 (9) | 🟢 0/2457 (0.00%) | 2026-09-25 07:29 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-26.md)§ | `mf_feedback_flush` | 🟢 58.32 (13) | 🟢 0/6688 (0%) | 2026-08-26 02:10 |
 | [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 57.45 | 🟢 0/1088 (0%) | 2026-09-19 22:19 |
-| [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step` | 🟢 57.095 (16) | 🟢 0/4895 (0.00%) | 2026-11-17 10:34 |
+| [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § | `is_timeline_step` | 🟢 57.095 (16) | 🟢 0/4895 (0.00%) | 2026-11-17 10:34 |
 | [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.04 | 🟢 0/1736 (0.00%) | 2026-09-20 23:07 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 54.55 | 🟢 0/1088 (0%) | 2026-08-26 02:43 |
 | [MindSplatter](profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles` | 🟢 54.539 (8) | 🟢 0/1736 (0.00%) | 2026-10-01 09:22 |
@@ -45,7 +45,7 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 
 ● Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
 
-IslamicStars refreshed on 2026-09-28 from the 2026-09-28 baseline source `0c02f3912`; setup frame 1 excluded.
+IslamicStars was captured on COM3 on 2026-11-17 from source `6ac5a4f04`. The ranking covers the 306-second authored show slot with setup frame 1 excluded.
 
 HankinSolids refreshed on 2026-09-28 from the 2026-09-28 baseline source `0c02f3912`; setup frame 1 excluded.
 
@@ -105,9 +105,5 @@ startup run as an extra entry 0. Their parenthesized entry counts are the
 authored preset count plus one, except SphericalHarmonics, whose mode markers
 start at 1 and whose entry count equals its authored preset count. Raw logs
 are no longer available to rederive these buckets.
-
-IslamicStars ● updated 2026-11-17 10:34 on COM3, using the actual 306-second show slot. Other reference rows retain their historical capture scopes.
-
-[Historical IslamicStars TS4 comparison](profile_islamicstars_historical_ts4_teensy_2026-09-28.md).
 
 [Historical IslamicStars TS4 comparison](profile_islamicstars_historical_ts4_teensy_2026-09-28.md).

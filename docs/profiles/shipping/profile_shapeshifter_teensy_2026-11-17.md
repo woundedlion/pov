@@ -102,13 +102,13 @@ Wall min/avg/max = 59.143/63.345/77.373 ms. `ss_draw_all` averages 30.085 ms/f; 
 
 Held means fixed authored parameters, not motionless pixels. Exclude complete incoming parameter blends and both halves of fades; cadence buckets retain all transitions. Never substitute mixed-owner or transition windows for absent clean holds.
 
-The show-scoped data covers 9 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
+The show-scoped data covers 9 preset identities. Completing the scheduled show establishes coverage. Cadence buckets include all live frames, including in-show transitions. Qualified windows start after setup frame 1. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 
 | Preset | Qualified windows | Representative frames | Selection | V/E/F/I | Blended px/f | Draw ms/f | Render ms/f | fps | Live peak ms | Live spilled |
 |---|--:|---|---|---|--:|--:|--:|--:|--:|--:|
 | 8 | 28 | 3553–3568 | held | — | — | 53.059 | 53.310 | 16 | 56.021 | 0/479 |
 | 7 | 28 | 3137–3152 | held | — | — | 50.269 | 50.518 | 16 | 52.882 | 0/479 |
-| 1 | 28 | 81–96 | held | — | — | 47.161 | 47.465 | 8 | 53.189 | 0/471 |
+| 1 | 27 | 81–96 | held | — | — | 47.161 | 47.465 | 16 | 53.189 | 0/471 |
 | 6 | 28 | 2721–2736 | held | — | — | 42.630 | 42.887 | 16 | 44.150 | 0/479 |
 | 4 | 28 | 1809–1824 | held | — | — | 35.211 | 35.520 | 16 | 37.006 | 0/479 |
 | 9 | 28 | 3841–3856 | held | — | — | 29.391 | 29.703 | 16 | 31.193 | 0/479 |
