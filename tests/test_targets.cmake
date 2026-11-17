@@ -61,6 +61,12 @@ set(_hs_module_targets run_tests hs_test_main)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp" ${_hs_test_group_sources})
 hs_parse_test_roster("${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp" _hs_roster_rows)
+set(_hs_test_modules)
+foreach(_row IN LISTS _hs_roster_rows)
+  string(REPLACE "|" ";" _fields "${_row}")
+  list(GET _fields 0 _name)
+  list(APPEND _hs_test_modules "${_name}")
+endforeach()
 # render_hashes renders every roster effect at every preset, the costliest
 # group to compile, and only prints hashes for tools/render_diff.sh: it stays
 # out of run_tests and the default build, and excluded_targets compiles it.

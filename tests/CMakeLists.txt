@@ -325,23 +325,6 @@ enable_testing()
 
 # One CTest test per module so CI shards (and local `ctest -R <name>`) can
 # target subsets without re-running everything.
-set(_hs_test_modules
-    3dmath concepts memory spatial scb sdf ray conway conway_morph conway_continuity
-    partition_seam
-    conway_soak opchain_probe opchain_arena_survey hankin hyper_lattice ray_events ray_demonstrators sdf_patterns geometry
-    hue_rotation_row spherical_field spherical_harmonics tangent_field
-    mesh solids
-    reaction_graph color palettes easing_waves interpolate platform profiling
-    pullback shader_chain filter
-    plot_scan plot_parity canvas
-    scan mesh_raster transformers noise noise_field projections
-    animation effects mindsplatter
-    effects_smoke effect_factory kaleidoscope_melt kaleidoscope_smooth
-    composed_effect
-    shapeshifter_oracle shapeshifter_tiles dma_core hd107s
-    dma_controller
-    pov_segmented pov_single pov_sync param_marshal wasm_predicates led
-    presets styles shading death)
 # Bound each module independently.
 set(_hs_test_timeout 600)
 if(HS_SANITIZE OR HS_TSAN)

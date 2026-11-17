@@ -1188,7 +1188,8 @@ Unit coverage spans the math, geometry and memory core, color, easing and waves,
    - Every case must reach an `HS_EXPECT*` or `static_assert` directly or through helpers. Death cases in `tests/death/*_cases.h` are checked against `tests/death/registry.h` by `tests/check_death_pins.py`; they are outside the `unit_case_calls` scan.
 
    There are no measured assertion floors or exact case-count pins to update when a test changes.
-3. Add the module name to `_hs_test_modules` in [`tests/CMakeLists.txt`](https://github.com/woundedlion/pov/blob/master/tests/CMakeLists.txt), which generates the one-CTest-test-per-module the CI shards target (`death` becomes its shards and census instead). `run_tests --check-modules` (the `unit_module_roster` test) fails if the CMake list and the roster diverge either way, so a module added to one but not the other can never run silently.
+CMake derives its per-module CTest registrations from `HS_TEST_MODULE_LIST`; `unit_module_roster` checks the parsed names against the compiled roster.
+
 
 ### 8.4 Firmware (Teensy 4.x)
 
