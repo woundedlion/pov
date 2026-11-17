@@ -611,11 +611,7 @@ public:
             block_ptr(active ^ 1, op.state_offset),
             block_ptr(active, survivor->state_offset), id);
         if (migrated != Status::OK) {
-          // The candidate arena tears down as a unit: every state compile
-          // already constructed, inits and completed migrates alike.
-          for (size_t constructed = 0; constructed < index; ++constructed)
-            candidate.ops[constructed].op->runtime.destroy(
-                block_ptr(active ^ 1, candidate.ops[constructed].state_offset));
+          destroy_states(active ^ 1, index);
           candidate.count = 0;
           candidate.used_bytes = 0;
           return {ChainStatus::MIGRATE_FAILED, static_cast<int16_t>(index)};
@@ -627,9 +623,7 @@ public:
 
     if (!initialize(std::span<const ChainOp>(candidate.ops, candidate.count),
                     blocks[active ^ 1])) {
-      for (size_t index = 0; index < candidate.count; ++index)
-        candidate.ops[index].op->runtime.destroy(
-            block_ptr(active ^ 1, candidate.ops[index].state_offset));
+      destroy_states(active ^ 1, candidate.count);
       candidate.count = 0;
       candidate.used_bytes = 0;
       return {ChainStatus::MALFORMED_PAYLOAD, -1};
@@ -638,9 +632,7 @@ public:
     clear_history();
     Side &loser = sides[active];
     if (has_program)
-      for (size_t index = 0; index < loser.count; ++index)
-        loser.ops[index].op->runtime.destroy(
-            block_ptr(active, loser.ops[index].state_offset));
+      destroy_states(active, loser.count);
     loser.count = 0;
     loser.used_bytes = 0;
     active ^= 1;
@@ -787,9 +779,7 @@ public:
     if (!has_program)
       return;
     Side &side = sides[active];
-    for (size_t index = 0; index < side.count; ++index)
-      side.ops[index].op->runtime.destroy(
-          block_ptr(active, side.ops[index].state_offset));
+    destroy_states(active, side.count);
     side.count = 0;
     side.used_bytes = 0;
     has_program = false;
@@ -802,6 +792,15 @@ private:
     size_t count = 0;
     size_t used_bytes = 0;
   };
+
+  /** @brief Destroys a side's constructed instance states.
+   * @param side Arena side.
+   * @param count Number of constructed states. */
+  void destroy_states(uint8_t side, size_t count) {
+    for (size_t index = 0; index < count; ++index)
+      sides[side].ops[index].op->runtime.destroy(
+          block_ptr(side, sides[side].ops[index].state_offset));
+  }
 
   void *block_ptr(uint8_t side, uint32_t offset) {
     return blocks[side] + offset;
