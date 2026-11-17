@@ -106,6 +106,16 @@ inline void test_walk_route_tie_break_varies() {
   HS_EXPECT_TRUE(via[OCTAHEDRON]);
 }
 
+/** @brief Reconciles the held seed and returns the arrival node. */
+inline int walk_leg(int edge, int node, int &held) {
+  using namespace ConwayGraph;
+  reconcile_seed(edge, node, held);
+  const int arrived = edge_other_end(edge, node);
+  if (adopts_seed(EDGES[edge], arrived, EDGES[edge].to_node == arrived))
+    held = arrived;
+  return arrived;
+}
+
 /**
  * @brief Simulates long routed walks over several RNG seeds: the walk stays
  *        seed-reconcilable, never sweeps a node inside the exclusion window,
@@ -140,11 +150,7 @@ inline void test_walk_policy_coverage_and_balance() {
       for (int hop = 0; node != dest && hop < NUM_NODES; ++hop) {
         const int e =
             next_edge_toward(node, dest, static_cast<uint32_t>(hs::random()()));
-        reconcile_seed(e, node, held);
-        const int next = edge_other_end(e, node);
-        if (adopts_seed(EDGES[e], next, EDGES[e].to_node == next))
-          held = next;
-        node = next;
+        node = walk_leg(e, node, held);
         ++legs;
       }
       HS_EXPECT_EQ(node, dest);

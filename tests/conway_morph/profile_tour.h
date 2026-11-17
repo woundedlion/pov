@@ -34,13 +34,7 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
     const int e = pick_next_edge_ordered(leg);
     HS_EXPECT_TRUE(edge_touches(e, node));
 
-    reconcile_seed(e, node, held);
-
-    const bool reverse = EDGES[e].to_node == node;
-    const int arrived = reverse ? EDGES[e].from_node : EDGES[e].to_node;
-    if (ConwayGraph::adopts_seed(EDGES[e], arrived, !reverse))
-      held = arrived;
-    node = arrived;
+    node = walk_leg(e, node, held);
     if (!seen[node]) {
       seen[node] = true;
       if (++seen_count == NUM_NODES)

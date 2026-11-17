@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.29)
+include("${CMAKE_CURRENT_LIST_DIR}/gate_selftest.cmake")
 
 file(READ "${SCRIPT}" baseline)
 file(MAKE_DIRECTORY "${TEST_ROOT}")
@@ -11,13 +12,11 @@ function(check_routing name source diagnostic)
       "-DPLATFORMIO_INI=${PLATFORMIO_INI}"
       -P "${CMAKE_CURRENT_LIST_DIR}/check_linker_patches.cmake"
     RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+  set(should_pass FALSE)
   if(diagnostic STREQUAL "")
-    if(NOT result EQUAL 0)
-      message(FATAL_ERROR "clean routing rejected: ${output}${error}")
-    endif()
-  elseif(result EQUAL 0 OR NOT "${output}${error}" MATCHES "${diagnostic}")
-    message(FATAL_ERROR "${name} did not refuse the expected routing: ${output}${error}")
+    set(should_pass TRUE)
   endif()
+  hs_expect_gate_verdict("${result}" "${name}: ${output}${error}" "${should_pass}" "${diagnostic}")
 endfunction()
 
 check_routing(baseline "${baseline}" "")

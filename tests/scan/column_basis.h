@@ -1297,10 +1297,7 @@ inline void test_ring_stack_honours_render_window() {
   const Scan::ColumnBasis swept =
       basis->prepare(motion.previous, motion.current);
   const auto render = [&](bool rotated, const Spacetime::TimeWindow &window) {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
+    return render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
       const Scan::ColumnBasis fixed;
       Scan::ColumnBasisScope time(canvas, rotated ? swept : fixed);
       std::optional<TimeWindowScope> scope;
@@ -1316,11 +1313,7 @@ inline void test_ring_stack_honours_render_window() {
       Scan::DistortedRingStack::draw<W, H>(pipeline, canvas, RINGS, shapes,
                                            slots, RINGS, table,
                                            basis_stack_shader);
-    }
-    fx.advance_display();
-    std::vector<Pixel> out;
-    capture_frame<W, H>(fx, out);
-    return out;
+    });
   };
   for (const bool rotated : {false, true}) {
     HS_CONTEXT("rotated", rotated);

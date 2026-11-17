@@ -34,6 +34,7 @@
 #include <cfloat>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace hs_test::scan_tests {
@@ -114,12 +115,14 @@ private:
  * @brief Renders a draw into a fresh stub frame.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
+ * @param setup Callable `(StubEffect &)` run before canvas creation.
  * @param draw Callable `(Pipeline<W, H> &, Canvas &)`.
  * @return Displayed frame.
  */
-template <int W, int H, typename DrawFn>
-inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
+template <int W, int H, typename SetupFn, typename DrawFn>
+inline std::vector<Pixel> render_stub_frame(SetupFn &&setup, DrawFn &&draw) {
   hs_test::StubEffect fx(W, H);
+  setup(fx);
   Pipeline<W, H> pipeline;
   {
     Canvas canvas(fx);
@@ -129,6 +132,13 @@ inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
   std::vector<Pixel> out;
   capture_frame<W, H>(fx, out);
   return out;
+}
+
+/** @brief Renders a draw with the default stub configuration. */
+template <int W, int H, typename DrawFn>
+inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
+  return render_stub_frame<W, H>([](StubEffect &) {},
+                                 std::forward<DrawFn>(draw));
 }
 
 /**

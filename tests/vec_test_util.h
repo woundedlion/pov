@@ -12,9 +12,18 @@
 #include <cstring>
 
 #include "core/math/3dmath.h"
+#include "core/math/lenses.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
+
+/** @brief Closed-form twist angle at a signed height. */
+inline double twist_reference_angle(double total, double distribution,
+                                    double height) {
+  const double a = distribution * lenses::TWIST_PROFILE_MAX;
+  return 0.5 * total *
+         (a == 0.0 ? height : std::atanh(a * height) / std::atanh(a));
+}
 
 /** @brief Compares floating-point representations exactly. */
 inline bool float_identical(float a, float b) {

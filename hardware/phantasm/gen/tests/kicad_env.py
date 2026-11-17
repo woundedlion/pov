@@ -93,6 +93,25 @@ def pad_position(footprint, number):
     return x + dx, y + dy
 
 
+def zone_polygon(zone):
+    points = F(F(F(zone, "polygon")[0], "pts")[0], "xy")
+    return [(float(point[1]), float(point[2])) for point in points]
+
+
+def assert_board_id_label(test, root, expected_at):
+    """Check the back silk legend and any specified position coordinates."""
+    labels = [node for node in F(root, "gr_text") if str(node[1]) == "BOARD ID: ____"]
+    test.assertEqual(len(labels), 1)
+    label = labels[0]
+    test.assertEqual(str(sexp.val(label, "layer")[0]), "B.SilkS")
+    font = F(F(label, "effects")[0], "font")[0]
+    test.assertEqual([float(value) for value in sexp.val(font, "size")], [2.0, 2.0])
+    at = sexp.val(label, "at")
+    for axis, expected in enumerate(expected_at):
+        if expected is not None:
+            test.assertEqual(float(at[axis]), expected)
+
+
 def committed_board_nets(revision=ROUTED_REVISION):
     root = read(committed_board(revision))
     nets = {}

@@ -1832,10 +1832,8 @@ inline void test_twist_lens() {
           lenses::prepare_twist_profile(total_angle, distribution);
       for (const float height :
            {-1.0f, -0.99999f, -0.5f, 0.0f, 0.5f, 0.99999f, 1.0f}) {
-        const double h = height;
-        const double a = distribution * lenses::TWIST_PROFILE_MAX;
         const double angle =
-            0.5 * total_angle * (a == 0.0 ? h : atanh(a * h) / atanh(a));
+            twist_reference_angle(total_angle, distribution, height);
         HS_EXPECT_NEAR(lenses::twist_angle(height, profile), angle, 6e-4);
         const float radius = sqrtf(std::max(0.0f, 1.0f - height * height));
         const math::Vector input(radius * 0.6f, height, radius * 0.8f);
@@ -1861,10 +1859,8 @@ inline void test_twist_lens() {
   }
   const math::Vector INPUT(0.6f, 0.5f, 0.6244998f);
   const auto output = lenses::twist_lens(INPUT);
-  const double A = static_cast<double>(lenses::TWIST_DISTRIBUTION) *
-                   lenses::TWIST_PROFILE_MAX;
-  const double angle =
-      0.5 * lenses::TWIST_ANGLE * atanh(A * INPUT.y) / atanh(A);
+  const double angle = twist_reference_angle(
+      lenses::TWIST_ANGLE, lenses::TWIST_DISTRIBUTION, INPUT.y);
   HS_EXPECT_NEAR(output.x, INPUT.x * cos(angle) - INPUT.z * sin(angle), 2e-3);
   HS_EXPECT_NEAR(output.z, INPUT.x * sin(angle) + INPUT.z * cos(angle), 2e-3);
   const auto linear = lenses::prepare_twist_profile(math::TWO_PI_F, 0.0f);
@@ -1893,9 +1889,7 @@ inline void test_twist_lens_lookup_error() {
     float previous = 0.0f;
     for (int height_step = 0; height_step <= 4096; ++height_step) {
       const float height = height_step / 4096.0f;
-      const double a = distribution * lenses::TWIST_PROFILE_MAX;
-      const double h = height;
-      const double expected = 48.0 * (a == 0.0 ? h : atanh(a * h) / atanh(a));
+      const double expected = twist_reference_angle(96.0, distribution, height);
       const float actual = lenses::twist_angle(height, profile);
       max_error = std::max(max_error, fabs(actual - expected));
       HS_EXPECT_TRUE(std::isfinite(actual));

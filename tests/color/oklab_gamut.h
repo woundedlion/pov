@@ -586,7 +586,7 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
   for (int il = 0; il <= 200; ++il) {
     const float l = il / 200.0f;
     for (int ih = 0; ih < 180; ++ih) {
-      const float h = 6.28318531f * ih / 180.0f;
+      const float h = math::TWO_PI_F * ih / 180.0f;
       for (float cin : {0.05f, 0.2f, 0.45f}) {
         OKLab mapped = gamut_clip_preserve_chroma(
             {l, cin * std::cos(h), cin * std::sin(h)});

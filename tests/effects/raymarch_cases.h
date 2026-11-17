@@ -69,6 +69,11 @@ struct RaymarchWhiteBox {
             frame.sin_u,    frame.cos_v,    frame.sin_v};
   }
 
+  template <int W, int H>
+  static void set_palette_phase(Raymarch<W, H> &fx, float phase) {
+    fx.palette_phase = phase;
+  }
+
   /**
    * @brief Draws a frame through draw_fn from given previous endpoints, with
    *        the hue noise at its current bake.
@@ -201,6 +206,7 @@ inline void test_raymarch_lighting_and_palette_at_column_time() {
   HS_EXPECT_EQ(WB::drawn_palette_phase(fx), WB::palette_phase(fx));
 
   constexpr float PALETTE_STEP = 0.04f;
+  WB::set_palette_phase(fx, 0.02f);
   const float previous_spin = WB::spin_phase(fx) - 0.03f;
   const float previous_palette =
       math::wrap_t(WB::palette_phase(fx) - PALETTE_STEP);

@@ -9,5 +9,6 @@
 
 #include "tests/pullback/color/palette_lab.h"
 #include "tests/pullback/color/qualification.h"
+#include "tests/pullback/color/hue_qualification.h"
 #include "tests/pullback/color/temporal_modulation.h"
 #include "tests/pullback/color/cached_modulation.h"

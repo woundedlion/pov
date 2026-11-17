@@ -206,10 +206,8 @@ struct ChamberNoiseEndpointFixture {
 inline void test_chamber_noise_cache_phase_and_fallback() {
   using namespace Pullback;
   using Patch = Modulation::ChamberNoisePatch;
-  using FX = AshCloud<96, 20>;
-  using Provider =
-      ModulationProvider<FX::Binding, "modulation", Pattern::SourceKind::NOISE,
-                         Pattern::Evaluation::DIRECT>;
+  using FX = ChamberNoiseEndpointFixture::FX;
+  using Provider = ChamberNoiseEndpointFixture::Provider;
   static_assert(
       std::is_same_v<Provider::Prepared, Color::ChamberPhaseModulationState>);
   using GenericFrame = FrameIntervalState<FX::Params>;

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "core/color/color.h"
+#include "core/color/baked_palette.h"
 #include "core/render/canvas.h"
 #include "core/render/spacetime.h"
 #include "hardware/pov_segment_map.h"
@@ -24,6 +25,16 @@
 #include <vector>
 
 namespace hs_test {
+
+/** @brief Owns an arena-backed bake of a palette source. */
+template <typename Source> struct PaletteFixture {
+  alignas(std::max_align_t)
+      std::array<uint8_t, BakedPalette::required_arena_bytes()> buffer;
+  Arena arena{buffer.data(), buffer.size()};
+  BakedPaletteStorage palette;
+
+  PaletteFixture() { palette.bake(arena, Source{}); }
+};
 
 /**
  * @brief Tests whether a pixel is fully black (cleared-frame / unwritten).

@@ -56,7 +56,12 @@ inline void test_feedback_split_frame_clamps_custom_backward_warp() {
           pipe.finish_frame(canvas);
         }
         effect.advance_display();
-        HS_EXPECT_GT((count_lit_region<W, H>(effect)), size_t{0});
+        std::array<int, 2> lit{};
+        for (int x = downsample / 2; x < W; x += downsample)
+          for (int y = 1; y < H - 1; ++y)
+            lit[(x / downsample) & 1] += !is_black(effect.get_pixel(x, y));
+        HS_EXPECT_GT(lit[0], 0);
+        HS_EXPECT_GT(lit[1], 0);
       }
     }
 }
@@ -395,11 +400,9 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
   feedback_frame_rotation = math::make_rotation(scene.axis, scene.omega);
 
   seed_column_basis_history<W, H>(fx, scene);
-  std::vector<Pixel> previous(W * H);
+  std::vector<Pixel> previous;
   for (int frame = 1; frame <= frames; ++frame) {
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        previous[y * W + x] = fx.get_pixel(x, y);
+    capture_frame<W, H>(fx, previous);
     {
       Canvas c(fx);
       (void)pipe.begin_split_frame(c, 1.0f);
@@ -505,10 +508,9 @@ SourcedOracleError run_sourced_oracle(const SourcedFeedbackScene<W, H> &scene,
     for (int x = 0; x < W; ++x)
       plot[y * W + x] = SourcedFeedbackScene<W, H>::pattern(
           math::pixel_to_vector<W, H>(x, y));
-  std::vector<Pixel> previous(W * H);
+  std::vector<Pixel> previous;
   for (int frame = 0; frame < frames; ++frame) {
-    for (int i = 0; i < W * H; ++i)
-      previous[i] = fx.get_pixel(i % W, i / W);
+    capture_frame<W, H>(fx, previous);
     {
       Canvas c(fx);
       auto &plotter = pipe.begin_split_frame(c, 1.0f);

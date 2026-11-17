@@ -211,36 +211,20 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
     auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(51000, 27000, 9000), 0.8f * f.v2);
     };
-    std::vector<Pixel> expected(W * H);
-    {
-      hs_test::StubEffect reference(W, H);
-      if (partial_clip) {
-        apply_partial_clip(reference);
-      }
-      Pipeline<W, H> pipeline;
-      {
-        Canvas canvas(reference);
-        Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis, 1.7f, 0.12f,
-                                        knots, LUT_N, shader);
-      }
-      reference.advance_display();
-      capture_frame<W, H>(reference, expected);
-    }
-
-    hs_test::StubEffect flat(W, H);
-    if (partial_clip) {
-      apply_partial_clip(flat);
-    }
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(flat);
-      Scan::DistortedRing::draw_flat<W, H, false>(pipeline, canvas, basis, 1.7f,
-                                                  0.12f, shader);
-    }
-    flat.advance_display();
-
-    std::vector<Pixel> actual;
-    capture_frame<W, H>(flat, actual);
+    auto setup = [partial_clip](StubEffect &fx) {
+      if (partial_clip)
+        apply_partial_clip(fx);
+    };
+    const auto expected =
+        render_stub_frame<W, H>(setup, [&](auto &pipeline, Canvas &canvas) {
+          Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis, 1.7f, 0.12f,
+                                          knots, LUT_N, shader);
+        });
+    const auto actual =
+        render_stub_frame<W, H>(setup, [&](auto &pipeline, Canvas &canvas) {
+          Scan::DistortedRing::draw_flat<W, H, false>(pipeline, canvas, basis,
+                                                      1.7f, 0.12f, shader);
+        });
     HS_EXPECT_GT(expect_frames_within("flat ring", actual, expected, 1), 0);
   };
 
@@ -281,45 +265,32 @@ inline void test_ring_group_matches_sequential() {
     if (reaches_pole)
       HS_EXPECT_EQ(shapes[0].get_vertical_bounds<H>().y_min, 0);
 
-    std::vector<Pixel> expected(W * H);
-    {
-      hs_test::StubEffect seq(W, H);
-      if (partial_clip) {
-        apply_partial_clip(seq);
-      }
-      Pipeline<W, H> pipeline;
-      {
-        Canvas canvas(seq);
-        for (int s = 0; s < N; ++s) {
-          auto shader = [&](const math::Vector &, Fragment &f) {
-            f.color = colors[s];
-          };
-          Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], shader);
-        }
-      }
-      seq.advance_display();
-      capture_frame<W, H>(seq, expected);
-    }
-
-    hs_test::StubEffect fused(W, H);
-    if (partial_clip) {
-      apply_partial_clip(fused);
-    }
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fused);
+    auto setup = [partial_clip](StubEffect &fx) {
+      if (partial_clip)
+        apply_partial_clip(fx);
+    };
+    const auto expected =
+        render_stub_frame<W, H>(setup, [&](auto &pipeline, Canvas &canvas) {
+          for (int s = 0; s < N; ++s) {
+            auto shader = [&](const math::Vector &, Fragment &f) {
+              f.color = colors[s];
+            };
+            Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], shader);
+          }
+        });
+    const auto actual = render_stub_frame<W, H>(setup, [&](auto &pipeline,
+                                                           Canvas &canvas) {
       Scan::RingGroup::draw<W, H>(pipeline, canvas, shapes, N,
                                   [&](int s, const math::Vector &,
                                       Fragment &f) { f.color = colors[s]; });
-    }
-    fused.advance_display();
+    });
 
     int diff_px = 0;
     int worst_delta = 0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         const Pixel &a = expected[y * W + x];
-        const Pixel &b = fused.get_pixel(x, y);
+        const Pixel &b = actual[y * W + x];
         if (a.r == b.r && a.g == b.g && a.b == b.b)
           continue;
         ++diff_px;
@@ -420,42 +391,29 @@ inline void test_distorted_ring_stack_matches_sequential() {
                        slot_color[s].alpha * f.v2);
     };
 
-    std::vector<Pixel> expected(W * H);
-    {
-      hs_test::StubEffect seq(W, H);
-      if (partial_clip) {
-        apply_partial_clip(seq);
+    auto setup = [partial_clip](StubEffect &fx) {
+      if (partial_clip)
+        apply_partial_clip(fx);
+    };
+    const auto expected = render_stub_frame<W, H>(setup, [&](auto &pipeline,
+                                                             Canvas &canvas) {
+      for (int i = 0; i < N_RINGS; ++i) {
+        const int s = slot_by_ring[i];
+        if (s < 0)
+          continue;
+        auto shader = [&](const math::Vector &, Fragment &f) { shade(s, f); };
+        Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis, ring_radius(i),
+                                        THS[i], knots[i], LUT_N, shader,
+                                        {.suppress_pole_fill = true});
       }
-      Pipeline<W, H> pipeline;
-      {
-        Canvas canvas(seq);
-        for (int i = 0; i < N_RINGS; ++i) {
-          const int s = slot_by_ring[i];
-          if (s < 0)
-            continue;
-          auto shader = [&](const math::Vector &, Fragment &f) { shade(s, f); };
-          Scan::DistortedRing::draw<W, H>(
-              pipeline, canvas, basis, ring_radius(i), THS[i], knots[i], LUT_N,
-              shader, {.suppress_pole_fill = true});
-        }
-      }
-      seq.advance_display();
-      capture_frame<W, H>(seq, expected);
-    }
-
-    hs_test::StubEffect fused(W, H);
-    if (partial_clip) {
-      apply_partial_clip(fused);
-    }
-    Pipeline<W, H> pipeline;
-    Scan::DistortedRingStack::CandidateTable<W, H> table;
-    {
-      Canvas canvas(fused);
-      Scan::DistortedRingStack::draw<W, H>(
-          pipeline, canvas, N_RINGS, shapes, slot_by_ring, n_slots, table,
-          [&](int s, const math::Vector &, Fragment &f) { shade(s, f); });
-    }
-    fused.advance_display();
+    });
+    const auto actual =
+        render_stub_frame<W, H>(setup, [&](auto &pipeline, Canvas &canvas) {
+          Scan::DistortedRingStack::CandidateTable<W, H> table;
+          Scan::DistortedRingStack::draw<W, H>(
+              pipeline, canvas, N_RINGS, shapes, slot_by_ring, n_slots, table,
+              [&](int s, const math::Vector &, Fragment &f) { shade(s, f); });
+        });
 
 #if defined(HS_TEST_FAST_MATH)
     constexpr int CHANNEL_TOL = N_RINGS; // one 16-bit step per composited blend
@@ -465,7 +423,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         const Pixel &a = expected[y * W + x];
-        const Pixel &b = fused.get_pixel(x, y);
+        const Pixel &b = actual[y * W + x];
         HS_EXPECT_EQ(is_black(a), is_black(b));
         HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r),
                        CHANNEL_TOL);

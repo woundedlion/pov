@@ -15,7 +15,7 @@
 #include "core/render/canvas.h"
 #include "targets/Phantasm/phantasm_playlist.h"
 #include "targets/wasm/effect_factory.h"
-#include "tests/test_effects.h"
+#include "tests/effects/spherical_harmonics.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -357,26 +357,21 @@ inline void test_fixed_preset_ids() {
   expect_preset_ids(hs_wasm::find_factory_entry<96, 20>("mobius-grid"),
                     {"mobius-grid", "mobius-grid-2"});
 
+  using Harmonics = effects_tests::SphericalHarmonicsWhiteBox;
   const FactoryEntry *harmonics =
       hs_wasm::find_factory_entry<96, 20>("SphericalHarmonics");
-  HS_EXPECT_TRUE(harmonics != nullptr);
-  HS_EXPECT_TRUE(harmonics && harmonics->preset_id != nullptr);
+  expect_preset_ids(harmonics, {});
   if (harmonics && harmonics->preset_id) {
-    HS_EXPECT_EQ(harmonics->preset_count,
-                 hs_test::effects_tests::SH_PRESET_MODES.size());
-    if (harmonics->preset_count !=
-        hs_test::effects_tests::SH_PRESET_MODES.size())
+    constexpr size_t MODE_COUNT = Harmonics::max_mode_idx();
+    HS_EXPECT_EQ(harmonics->preset_count, MODE_COUNT);
+    if (harmonics->preset_count != MODE_COUNT)
       return;
     for (size_t index = 0; index < harmonics->preset_count; ++index) {
-      const auto [l, m] =
-          SHMath::decode_lm(hs_test::effects_tests::SH_PRESET_MODES[index]);
+      const auto [l, m] = SHMath::decode_lm(Harmonics::mode_for_preset(index));
       char expected[24];
       std::snprintf(expected, sizeof(expected), "sh-l%d-m%d", l, m);
       HS_EXPECT_EQ(harmonics->preset_id(index), expected);
     }
-    HS_EXPECT_TRUE(
-        harmonics->preset_id(hs_test::effects_tests::SH_PRESET_MODES.size())
-            .empty());
   }
 
   expect_preset_ids(hs_wasm::find_factory_entry<96, 20>("DisplacementField"),

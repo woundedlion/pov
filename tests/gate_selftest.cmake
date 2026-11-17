@@ -1,4 +1,15 @@
-# Scratch-tree harness for the run_tests.cpp roster gate self-tests.
+# Scratch fixtures and verdict assertions for test gates.
+
+function(hs_expect_gate_verdict result output should_pass diagnostic)
+  if(should_pass AND NOT result STREQUAL "0")
+    message(FATAL_ERROR "valid fixture rejected: ${output}")
+  elseif(NOT should_pass AND result STREQUAL "0")
+    message(FATAL_ERROR "invalid fixture accepted; expected ${diagnostic}: ${output}")
+  endif()
+  if(NOT diagnostic STREQUAL "" AND NOT "${output}" MATCHES "${diagnostic}")
+    message(FATAL_ERROR "missing diagnostic '${diagnostic}': ${output}")
+  endif()
+endfunction()
 
 # Reset WORK to an empty tests/ and tools/ tree carrying gate's section
 # expander and an empty off-roster list.

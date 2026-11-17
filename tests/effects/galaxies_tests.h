@@ -438,15 +438,9 @@ inline void test_galaxies_emission_rate_and_capacity() {
   reset_globals();
   Galaxies<SMALL_W, SMALL_H> fx;
   fx.init();
-  bool found = false;
-  for (const auto &param : fx.getParameters()) {
-    if (std::string_view(param.name) == "Emission Rate") {
-      found = true;
-      HS_EXPECT_EQ(param.min, WB::MIN_EMISSION_RATE);
-      HS_EXPECT_EQ(param.max, WB::MAX_EMISSION_RATE);
-    }
-  }
-  HS_EXPECT(found, "Emission Rate is registered");
+  HS_REQUIRED_PARAM(rate, fx, "Emission Rate");
+  HS_EXPECT_EQ(rate->min, WB::MIN_EMISSION_RATE);
+  HS_EXPECT_EQ(rate->max, WB::MAX_EMISSION_RATE);
 
   auto &ps = WB::system(fx);
   auto &galaxy = WB::galaxy(fx, 0);

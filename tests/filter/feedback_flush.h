@@ -1080,10 +1080,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
       }
       fx.advance_display();
 
-      frames.emplace_back();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          frames.back().push_back(fx.get_pixel(x, y));
+      capture_frame<W, H>(fx, frames.emplace_back());
 
       np.time += np.speed; // mirrors Animation::Noise
     }

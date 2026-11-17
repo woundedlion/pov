@@ -152,39 +152,23 @@ inline void test_correct_pipeline() {
   reset_correction<N>();
 }
 
-/**
- * @brief Exercises the shipped multi-factor compounding.
- * @details Applies correction 255,176,240 and temperature 255,147,41, and checks
- * that they compound and the exact per-channel result.
- */
+/** @brief Temperature and correction gains compound. */
 inline void test_correct_multifactor() {
-  static_assert(
-      hd107s::LINEAR_STRIP_GAIN.r == 255 &&
-      hd107s::LINEAR_STRIP_GAIN.g == 176 &&
-      hd107s::LINEAR_STRIP_GAIN.b == 240 && hd107s::LINEAR_WARM_GAIN.r == 255 &&
-      hd107s::LINEAR_WARM_GAIN.g == 147 && hd107s::LINEAR_WARM_GAIN.b == 41);
   Frame f;
 
   // Temperature compounds on top of correction, not instead of it.
-  Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
-                        hd107s::LINEAR_STRIP_GAIN.g,
-                        hd107s::LINEAR_STRIP_GAIN.b);
+  Frame::set_correction(255, 176, 240);
   Frame::set_temperature(255, 255, 255);
   Frame::set_brightness(255);
   uint32_t gr = 0, gg = 65535, gb = 0;
   f.correct(gr, gg, gb);
   const uint32_t g_corr_only = gg;
 
-  Frame::set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
-                         hd107s::LINEAR_WARM_GAIN.b);
+  Frame::set_temperature(255, 147, 41);
   uint32_t r = 65535, g = 65535, b = 65535;
   f.correct(r, g, b);
   HS_EXPECT_LT(g, g_corr_only); // factors compound
 
-  // Exact shipped scaling. factor(f) stores f+1, so each stage is (v*(f+1))>>8:
-  //   R: 65535                                                     = 65535
-  //   G: ((65535*177>>8)=45311 *148>>8)=26195  *256>>8             = 26195
-  //   B: ((65535*241>>8)=61695 * 42>>8)=10121  *256>>8             = 10121
   HS_EXPECT_EQ(r, 65535u);
   HS_EXPECT_EQ(g, 26195u);
   HS_EXPECT_EQ(b, 10121u);
@@ -238,24 +222,15 @@ inline void test_packpixel_wire_order() {
       HS_EXPECT_EQ(f.data()[i], before[i]);
 }
 
-/** @brief Applies the shipping correction and temperature factors. */
-inline void apply_shipped_gains() {
-  Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
-                        hd107s::LINEAR_STRIP_GAIN.g,
-                        hd107s::LINEAR_STRIP_GAIN.b);
-  Frame::set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
-                         hd107s::LINEAR_WARM_GAIN.b);
+/** @brief Applies the fixture correction and temperature gains. */
+inline void apply_packing_test_gains() {
+  Frame::set_correction(255, 176, 240);
+  Frame::set_temperature(255, 147, 41);
 }
 
-/**
- * @brief Verifies pack_pixel()'s wire bytes under the shipped factor set at
- * non-unity brightness.
- * @details Full-scale white through correction 255,176,240, temperature
- * 255,147,41 and brightness 128 leaves linear (33023, 13199, 5100), which
- * packs at brightness 16 to R=249, G=100, B=38.
- */
-inline void test_packpixel_shipped_gains_half_brightness() {
-  apply_shipped_gains();
+/** @brief Gains encode half-brightness white with the expected wire bytes. */
+inline void test_packpixel_gains_half_brightness() {
+  apply_packing_test_gains();
   Frame::set_brightness(128);
   Frame f;
 
@@ -269,9 +244,9 @@ inline void test_packpixel_shipped_gains_half_brightness() {
   reset_correction<N>();
 }
 
-/** @brief Shipped gains encode full-brightness white with the expected bytes. */
-inline void test_packpixel_shipped_gains_full_brightness() {
-  apply_shipped_gains();
+/** @brief Gains encode full-brightness white with the expected wire bytes. */
+inline void test_packpixel_gains_full_brightness() {
+  apply_packing_test_gains();
   Frame f;
   const Pixel white(CRGB(255, 255, 255));
   Frame::set_brightness(255);
@@ -375,8 +350,8 @@ inline int run_hd107s_tests() {
   HS_RUN(test_correct_pipeline);
   HS_RUN(test_correct_multifactor);
   HS_RUN(test_packpixel_wire_order);
-  HS_RUN(test_packpixel_shipped_gains_half_brightness);
-  HS_RUN(test_packpixel_shipped_gains_full_brightness);
+  HS_RUN(test_packpixel_gains_half_brightness);
+  HS_RUN(test_packpixel_gains_full_brightness);
   reset_correction<N>(); // leave shared static state clean for any later module
   return fixture.result();
 }

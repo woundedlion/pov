@@ -15,6 +15,7 @@ from committed_boards import committed_board
 import tempfile
 import unittest
 import unittest.mock as mock
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -32,7 +33,10 @@ import pcb_model  # noqa: E402
 import pcb              # noqa: E402
 from rev11_placements import QUILTER_FIXED, QUILTER_FIXED_FOOTPRINTS  # noqa: E402
 import sexp             # noqa: E402
-from kicad_env import footprint_pose, pad_position, GENERATES, GENERATES_REASON, generate, read, footprints_by_ref  # noqa: E402
+from kicad_env import (  # noqa: E402
+    GENERATES, GENERATES_REASON, assert_board_id_label, footprint_pose,
+    footprints_by_ref, generate, pad_position, read, zone_polygon,
+)
 from courtyard_bounds import courtyard_box  # noqa: E402
 from kicad_common import F, export_netlist, is_copper_pour, kicad_cli, rotate_point  # noqa: E402
 
@@ -46,11 +50,6 @@ def assembly_exclusions(root):
         if "exclude_from_bom" in flags:
             excluded[ref] = sorted(flags)
     return excluded
-
-
-def zone_polygon(zone):
-    points = F(F(F(zone, "polygon")[0], "pts")[0], "xy")
-    return [(float(point[1]), float(point[2])) for point in points]
 
 
 class TerminalBodyChecks:
@@ -214,14 +213,15 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
                 [kicad_cli(), "pcb", "drc", "--refill-zones", "--save-board",
                  "-o", str(Path(directory) / "refill.rpt"), board_path],
                 capture_output=True, text=True, check=True)
-            with mock.patch.object(fab, "PCB", board_path), \
-                    mock.patch.object(fab, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
-                    mock.patch.object(fab, "KNOWN_PARITY_WARNING_COUNTS",
-                                      pcb.GENERATED_LAND_DEVIATIONS), \
-                    mock.patch.object(fab, "OPTIONAL_PARITY_WARNING_MAX",
-                                      pcb.GENERATED_OPTIONAL_DEVIATIONS):
-                self.assertEqual(fab.run_parity(str(Path(directory) / "parity.json")),
-                                 len(fab.KNOWN_PARITY_ITEMS))
+            context = replace(
+                fab.default_context(),
+                pcb=board_path,
+                sch=str(Path(directory) / "phantasm.kicad_sch"),
+                known_parity_warning_counts=pcb.GENERATED_LAND_DEVIATIONS,
+                optional_parity_warning_max=pcb.GENERATED_OPTIONAL_DEVIATIONS,
+            )
+            self.assertEqual(fab.run_parity(str(Path(directory) / "parity.json"), context=context),
+                             len(fab.KNOWN_PARITY_ITEMS))
 
     def test_refused_library_overwrite_preserves_existing_board(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -357,14 +357,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
 
     def test_board_id_has_large_legible_digits(self):
-        labels = [node for node in F(self.root, "gr_text")
-                  if str(node[1]) == "BOARD ID: ____"]
-        self.assertEqual(len(labels), 1)
-        label = labels[0]
-        self.assertEqual(str(sexp.val(label, "layer")[0]), "B.SilkS")
-        font = F(F(label, "effects")[0], "font")[0]
-        self.assertEqual([float(v) for v in sexp.val(font, "size")], [2.0, 2.0])
-        self.assertEqual(float(sexp.val(label, "at")[1]), 23.5)
+        assert_board_id_label(self, self.root, (None, 23.5))
 
     def test_reproduces_the_routed_board_assembly_exclusions(self):
         expected = assembly_exclusions(read(COMMITTED_PCB))

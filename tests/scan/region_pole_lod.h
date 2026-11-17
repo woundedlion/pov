@@ -40,43 +40,30 @@ inline void test_face_rasterize_matches_scan_region() {
     std::span<const uint16_t> ispan(idx, sides);
     const Color4 color(Pixel(60000, 20000, 40000), 0.75f);
 
-    auto draw = [&](hs_test::StubEffect &fx, bool fused) {
+    auto setup = [&](StubEffect &fx) {
       if (x0 != x1) {
         fx.set_clip(4, H - 3, x0, x1);
         fx.set_margin(margin);
       }
-      Pipeline<W, H> pipeline;
-      {
-        Canvas canvas(fx);
-        SDF::FaceScratchBuffer scratch;
-        SDF::PreparedFace face(vspan, ispan, scratch, HV, H, &canvas.clip(),
-                               nullptr, SDF::BOUNDS_MARGIN);
-        auto shader = [&](const math::Vector &, Fragment &f) {
-          f.color = color;
-        };
-        if (fused)
-          Scan::rasterize_face<W, H, Pipeline<W, H>>(pipeline, canvas, face,
-                                                     shader);
-        else
-          Scan::rasterize<W, H, false>(pipeline, canvas, face, shader);
-      }
-      fx.advance_display();
     };
-
-    // One live Effect at a time: read the generic path back before the fused
-    // fixture exists.
-    std::vector<Pixel> expected(W * H);
-    {
-      hs_test::StubEffect generic(W, H);
-      draw(generic, false);
-      capture_frame<W, H>(generic, expected);
-    }
-
-    hs_test::StubEffect fused(W, H);
-    draw(fused, true);
-
-    std::vector<Pixel> actual;
-    capture_frame<W, H>(fused, actual);
+    auto render = [&](bool fused) {
+      return render_stub_frame<W, H>(
+          setup, [&](auto &pipeline, Canvas &canvas) {
+            SDF::FaceScratchBuffer scratch;
+            SDF::PreparedFace face(vspan, ispan, scratch, HV, H, &canvas.clip(),
+                                   nullptr, SDF::BOUNDS_MARGIN);
+            auto shader = [&](const math::Vector &, Fragment &f) {
+              f.color = color;
+            };
+            if (fused)
+              Scan::rasterize_face<W, H, Pipeline<W, H>>(pipeline, canvas, face,
+                                                         shader);
+            else
+              Scan::rasterize<W, H, false>(pipeline, canvas, face, shader);
+          });
+    };
+    const auto expected = render(false);
+    const auto actual = render(true);
     HS_EXPECT_GT(expect_frames_within("face scan parity", actual, expected, 0),
                  40);
   };

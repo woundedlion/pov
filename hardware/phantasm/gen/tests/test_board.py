@@ -191,7 +191,7 @@ class DanglingPinTests(unittest.TestCase):
                          [("R1", "2", (100.0, 103.81))])
 
 
-class BypassConnectionChecks:
+class SchematicWiringChecks:
     def test_bypass_caps_are_wired_directly_to_their_parent_pins(self):
         positions = pin_positions(self.root)
         _, wires, _ = shorts.geometry(self.root)
@@ -199,8 +199,15 @@ class BypassConnectionChecks:
         for cap, parent, pin in (("C_DEC1", "U_MCU", "VIN"), ("C_DEC2", "U1", "14")):
             self.assertIn(frozenset((positions[cap, "1"], positions[parent, pin])), connections)
 
+    def test_no_two_named_nets_share_a_group(self):
+        conflicts, _ = shorts.analyze(self.root)
+        self.assertEqual(conflicts, [])
 
-class CommittedSchematicTests(BypassConnectionChecks, unittest.TestCase):
+    def test_every_placed_pin_lands_on_the_wiring(self):
+        self.assertEqual(dangling_pins(self.root), [])
+
+
+class CommittedSchematicTests(SchematicWiringChecks, unittest.TestCase):
     """Every check reads the committed schematic's own lib_symbols (plus
     pov_segmented.h for the Teensy pins), so no stock library and no kicad-cli
     is needed."""
@@ -208,13 +215,6 @@ class CommittedSchematicTests(BypassConnectionChecks, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.root = sexp.parse(Path(board.SCH).read_text(encoding="utf-8"))[0]
-
-    def test_no_two_named_nets_share_a_group(self):
-        conflicts, _ = shorts.analyze(self.root)
-        self.assertEqual(conflicts, [])
-
-    def test_every_placed_pin_lands_on_the_wiring(self):
-        self.assertEqual(dangling_pins(self.root), [])
 
     def test_teensy_control_pins_match_the_firmware(self):
         firmware = (GEN.parents[1] / "pov_segmented.h").read_text(encoding="utf-8")
@@ -245,7 +245,7 @@ class CommittedSchematicTests(BypassConnectionChecks, unittest.TestCase):
 
 @unittest.skipUnless(STOCK_SYMBOLS,
                      f"KiCad stock symbol libraries not found ({sexp.KICAD_SHARE})")
-class GeneratedSchematicTests(BypassConnectionChecks, unittest.TestCase):
+class GeneratedSchematicTests(SchematicWiringChecks, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.out = tempfile.TemporaryDirectory()
@@ -299,13 +299,6 @@ class GeneratedSchematicTests(BypassConnectionChecks, unittest.TestCase):
         for field, minimum in RULE_MINIMUMS.items():
             with self.subTest(field=field):
                 self.assertEqual(rules[field], minimum)
-
-    def test_no_two_named_nets_share_a_group(self):
-        conflicts, _ = shorts.analyze(self.root)
-        self.assertEqual(conflicts, [])
-
-    def test_every_placed_pin_lands_on_the_wiring(self):
-        self.assertEqual(dangling_pins(self.root), [])
 
     def test_places_the_whole_schematic(self):
         refs = {p[2] for inst in F(self.root, "symbol")

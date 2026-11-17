@@ -94,6 +94,13 @@ inline int run_death_tests() {
       "HS_CHECK failed: notcore/render/sdf/shapes.h:12: (false) probe\n",
       "core/render/sdf/shapes.h", "(false) probe"));
 
+  HS_EXPECT_FALSE(breadcrumb_names_guard(
+      "HS_CHECK failed: core/render/sdf/shapes.h:12: (true) other\n",
+      "core/render/sdf/shapes.h", "(false) probe"));
+  HS_EXPECT_FALSE(breadcrumb_names_guard(
+      "HS_CHECK failed: core/render/sdf/shapes.h:12: (false) pro\n",
+      "core/render/sdf/shapes.h", "(false) probe"));
+
   // The same sentinel proves the capture channel.
   if (!breadcrumb_names_guard(child_output(), "tests/death/registry.h",
                               "(false) death-harness trap-shape probe")) {

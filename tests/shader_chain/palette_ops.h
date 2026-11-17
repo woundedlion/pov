@@ -63,7 +63,7 @@ inline void test_shader_chain_palette_selection() {
   params.palette_name = 0;
   auto ctx = WB::frame_context(effect);
   HS_EXPECT_EQ(ctx.palettes[0]->get(COORDINATE).color,
-               Palettes::DARK_RAINBOW.get(COORDINATE).color);
+               sources[0]->get(COORDINATE).color);
   params.palette_type = static_cast<uint8_t>(Type::MUTATING);
   params.palette_name_b = static_cast<uint8_t>(std::size(sources) - 1);
   params.palette_mutation = .5f;

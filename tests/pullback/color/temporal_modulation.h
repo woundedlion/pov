@@ -461,15 +461,9 @@ inline void test_pullback_fused_modulation_endpoints() {
   static_assert(
       !PhaseCore::template fused_color_tail_supported<1, FieldSample>());
 
-  std::array<int8_t, Pattern::SphereLutView::SIZE> ac, bc;
-  for (size_t i = 0; i < ac.size(); ++i) {
-    ac[i] = int(i * 37 % 255) - 127;
-    bc[i] = int((i * 83 + 41) % 255) - 127;
-  }
-  Modulation::Prepared pa{}, pb{};
-  pa.cube = {ac.data(), true};
-  pb.cube = {bc.data(), true};
-  pa.evaluate = pb.evaluate = Modulation::sample_cube;
+  CubeModulationPair cubes;
+  const auto &pa = cubes.previous;
+  const auto &pb = cubes.current;
   Color::ModulationState mod{&pb, &pa, Pattern::SourceKind::NOISE, {}, true};
   frame.modulation = &pb;
   frame.previous_modulation = &pa;

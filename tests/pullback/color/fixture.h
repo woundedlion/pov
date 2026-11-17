@@ -46,6 +46,24 @@ prepare_sine_clock_pair(Pullback::Modulation::Resources<false> &previous,
   current.prepare(config, clock);
 }
 
+/** @brief Owns two cube samplers and their backing storage. */
+struct CubeModulationPair {
+  std::array<int8_t, Pattern::SphereLutView::SIZE> previous_cube, current_cube;
+  Pullback::Modulation::Prepared previous{}, current{};
+
+  CubeModulationPair() {
+    for (size_t i = 0; i < previous_cube.size(); ++i) {
+      previous_cube[i] = int(i * 37 % 255) - 127;
+      current_cube[i] = int((i * 83 + 41) % 255) - 127;
+    }
+    previous.cube = {previous_cube.data(), true};
+    current.cube = {current_cube.data(), true};
+    previous.evaluate = current.evaluate = Pullback::Modulation::sample_cube;
+  }
+  CubeModulationPair(const CubeModulationPair &) = delete;
+  CubeModulationPair &operator=(const CubeModulationPair &) = delete;
+};
+
 /** @brief Palette and modulation endpoints for color-stage tests. */
 struct PaletteFrame {
   const BakedPalette *palette = nullptr;

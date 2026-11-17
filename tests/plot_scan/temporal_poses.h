@@ -147,9 +147,9 @@ inline void test_pose_table_follows_history_path() {
     HS_CONTEXT("width", width);
     const int half = width / 2;
     ScratchScope storage(scratch_arena_a);
-    auto table = std::make_unique<Spacetime::PoseTable>();
+    Spacetime::PoseTable table;
     const size_t before = scratch_arena_a.get_offset();
-    table->bind(scratch_arena_a, width);
+    table.bind(scratch_arena_a, width);
     HS_EXPECT_LE(scratch_arena_a.get_offset() - before,
                  Spacetime::PoseTable::storage_bytes(width));
     math::Orientation<> orientation(math::make_rotation(math::X_AXIS, 0.3f));
@@ -157,28 +157,28 @@ inline void test_pose_table_follows_history_path() {
     float history_error = 0.0f, endpoint_departure = 0.0f;
     for (int frame = 0; frame < 6; ++frame) {
       advance_turning_history(orientation, frame, 0.09f);
-      table->build(orientation);
-      HS_EXPECT_EQ(table->times(), half);
-      HS_EXPECT_FALSE(table->stationary());
+      table.build(orientation);
+      HS_EXPECT_EQ(table.times(), half);
+      HS_EXPECT_FALSE(table.stationary());
       const math::SlerpArc endpoints(orientation.get(0), orientation.get());
       for (int c = 0; c < half; ++c) {
         const float t = Spacetime::surface_time(c, width);
         const math::RotationMatrix want(orientation.sample(t));
         history_error =
-            fold_worst(history_error, matrix_distance(table->at(c), want));
+            fold_worst(history_error, matrix_distance(table.at(c), want));
         endpoint_departure = fold_worst(
             endpoint_departure,
             matrix_distance(math::RotationMatrix(endpoints.sample(t)), want));
-        HS_EXPECT_TRUE(same_matrix(table->column(c), table->at(c)));
-        HS_EXPECT_TRUE(same_matrix(table->column(c + half), table->at(c)));
+        HS_EXPECT_TRUE(same_matrix(table.column(c), table.at(c)));
+        HS_EXPECT_TRUE(same_matrix(table.column(c + half), table.at(c)));
       }
       HS_EXPECT_TRUE(
-          same_pose(table->at(half), math::RotationMatrix(orientation.get())));
+          same_pose(table.at(half), math::RotationMatrix(orientation.get())));
       HS_EXPECT_TRUE(
-          same_pose(table->at(0), math::RotationMatrix(orientation.get(0))));
+          same_pose(table.at(0), math::RotationMatrix(orientation.get(0))));
       if (frame > 0)
-        HS_EXPECT_TRUE(same_matrix(table->at(0), previous_end));
-      previous_end = table->at(half);
+        HS_EXPECT_TRUE(same_matrix(table.at(0), previous_end));
+      previous_end = table.at(half);
     }
     HS_EXPECT_LT(history_error, 2e-6f);
     // The history bends away from its endpoint slerp, so an endpoint-only
@@ -191,14 +191,14 @@ inline void test_pose_table_follows_history_path() {
 inline void test_pose_table_holds_a_still_history() {
   constexpr int W = 288;
   ScratchScope storage(scratch_arena_a);
-  auto table = std::make_unique<Spacetime::PoseTable>();
-  table->bind(scratch_arena_a, W);
+  Spacetime::PoseTable table;
+  table.bind(scratch_arena_a, W);
   const math::Orientation<> still(math::make_rotation(math::Z_AXIS, 1.1f));
-  table->build(still);
-  HS_EXPECT_TRUE(table->stationary());
+  table.build(still);
+  HS_EXPECT_TRUE(table.stationary());
   const math::RotationMatrix pose(still.get());
   for (int c = 0; c <= W / 2; ++c)
-    HS_EXPECT_TRUE(same_pose(table->at(c), pose));
+    HS_EXPECT_TRUE(same_pose(table.at(c), pose));
 }
 
 /** @brief Rotation through the table selects column knots within arithmetic
@@ -208,15 +208,15 @@ inline void test_pose_table_rotates_between_column_times() {
     const int HALF = W / 2;
     HS_CONTEXT("width", W);
     ScratchScope storage(scratch_arena_a);
-    auto table = std::make_unique<Spacetime::PoseTable>();
-    table->bind(scratch_arena_a, W);
+    Spacetime::PoseTable table;
+    table.bind(scratch_arena_a, W);
     math::Orientation<> orientation;
     advance_turning_history(orientation, 2, 0.12f);
-    table->build(orientation);
+    table.build(orientation);
     const math::Vector v = math::Vector(0.3f, -0.5f, 0.81f).normalized();
     float worst = 0.0f;
     auto reference = [&](int column) {
-      const auto matrix = table->at(column);
+      const auto matrix = table.at(column);
       const double a[] = {matrix.r0.x, matrix.r0.y, matrix.r0.z};
       const double b[] = {matrix.r1.x, matrix.r1.y, matrix.r1.z};
       const double p[] = {v.x, v.y, v.z};
@@ -230,8 +230,8 @@ inline void test_pose_table_rotates_between_column_times() {
       HS_CONTEXT("column", c);
       const float t = static_cast<float>(c) / HALF;
       const auto exact = reference(c);
-      const math::Vector got = table->rotate(v, t);
-      const auto matrix = table->at(c);
+      const math::Vector got = table.rotate(v, t);
+      const auto matrix = table.at(c);
       const double U = std::numeric_limits<float>::epsilon() / 2.0;
       const double GAMMA = 8 * U / (1 - 8 * U);
       const double cross_scale = (fabs(double(matrix.r0.y) * matrix.r1.z) +
@@ -265,7 +265,7 @@ inline void test_pose_table_rotates_between_column_times() {
         const float row0[] = {matrix.r0.x, matrix.r0.y, matrix.r0.z};
         const float row1[] = {matrix.r1.x, matrix.r1.y, matrix.r1.z};
         for (const auto &unit : {math::X_AXIS, math::Y_AXIS, math::Z_AXIS}) {
-          const auto selected = table->rotate(unit, t);
+          const auto selected = table.rotate(unit, t);
           HS_EXPECT_EQ(selected.x, row0[axis]);
           HS_EXPECT_EQ(selected.y, row1[axis]);
           ++axis;
@@ -273,7 +273,7 @@ inline void test_pose_table_rotates_between_column_times() {
       }
       if (W == 288 && c < W / 2) {
         const float between = (static_cast<float>(c) + 0.37f) / (W / 2);
-        worst = fold_worst(worst, (table->rotate(v, between) -
+        worst = fold_worst(worst, (table.rotate(v, between) -
                                    math::rotate(v, orientation.sample(between)))
                                       .magnitude());
       }

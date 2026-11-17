@@ -26,15 +26,6 @@
 
 namespace hs_test::ray_demonstrator_tests {
 
-template <typename Source> struct PaletteFixture {
-  alignas(
-      Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()> buffer;
-  Arena arena{buffer.data(), buffer.size()};
-  BakedPaletteStorage palette;
-
-  PaletteFixture() { palette.bake(arena, Source{}); }
-};
-
 /** @brief Palette sampling requires the appearance to cover the ray interval. */
 inline void test_appearance_palette_interval() {
   Raycast::Appearance appearance;

@@ -379,17 +379,13 @@ inline void test_shader_clip_arc_matches_predicate() {
        }},
   };
 
-  auto render = [&](const Variant &variant, int x0, int x1, int margin,
-                    std::vector<Pixel> &out) {
-    hs_test::StubEffect fx(W, H);
-    fx.set_clip(0, H, x0, x1);
-    fx.set_margin(margin);
-    {
-      Canvas c(fx);
-      variant.draw(c);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, out);
+  auto render = [&](const Variant &variant, int x0, int x1, int margin) {
+    return render_stub_frame<W, H>(
+        [&](StubEffect &fx) {
+          fx.set_clip(0, H, x0, x1);
+          fx.set_margin(margin);
+        },
+        [&](auto &, Canvas &canvas) { variant.draw(canvas); });
   };
 
   struct Band {
@@ -400,10 +396,7 @@ inline void test_shader_clip_arc_matches_predicate() {
 
   for (const auto &variant : variants) {
     HS_CONTEXT(variant.name);
-    // One live Effect at a time: read the unclipped render back before the
-    // clipped fixture exists.
-    std::vector<Pixel> reference;
-    render(variant, 0, W, 0, reference);
+    const auto reference = render(variant, 0, W, 0);
     size_t painted = 0;
     for (const Pixel &p : reference)
       painted += p.b == 30000;
@@ -421,8 +414,7 @@ inline void test_shader_clip_arc_matches_predicate() {
       const ClipRegion::XClip xc = cr.x_clip();
       HS_EXPECT_TRUE(xc.active);
 
-      std::vector<Pixel> got;
-      render(variant, b.x0, b.x1, b.margin, got);
+      const auto got = render(variant, b.x0, b.x1, b.margin);
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           HS_CONTEXT("px", x, y);
@@ -449,38 +441,35 @@ inline void test_shader_render_x_window_matches_predicate() {
                  static_cast<uint16_t>((v.z * 0.5f + 0.5f) * 60000.0f), 30000);
   };
   auto render = [&](bool fragments, const ClipRegion &cr,
-                    const Spacetime::TimeWindow &window,
-                    std::vector<Pixel> &out) {
-    hs_test::StubEffect fx(W, H);
-    fx.set_clip(0, H, cr.x_start, cr.x_end);
-    fx.set_margin(cr.margin);
-    {
-      Canvas c(fx);
-      auto draw = [&] {
-        if (fragments)
-          Scan::Shader::draw_grid<W, H>(
-              c, [](Fragment &) {},
-              [&](Fragment &, const Scan::Shader::SsaaGrid<W, H> &grid, int x) {
-                return positional(grid.at(x, 0));
-              });
-        else
-          Scan::Shader::walk_grid<W, H>(
-              c, [&](const math::Vector &, const auto &grid, int x) {
-                return positional(grid.at(x, 0));
-              });
-      };
-      if (window.active) {
-        TimeWindowScope scope(c, window.begin, window.end);
-        HS_EXPECT_EQ(c.time_window().begin, window.begin);
-        HS_EXPECT_EQ(c.time_window().end, window.end);
-        draw();
-      } else {
-        draw();
-      }
-      HS_EXPECT_FALSE(c.time_window().active);
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, out);
+                    const Spacetime::TimeWindow &window) {
+    return render_stub_frame<W, H>(
+        [&](StubEffect &fx) {
+          fx.set_clip(0, H, cr.x_start, cr.x_end);
+          fx.set_margin(cr.margin);
+        },
+        [&](auto &, Canvas &c) {
+          auto draw = [&] {
+            if (fragments)
+              Scan::Shader::draw_grid<W, H>(
+                  c, [](Fragment &) {},
+                  [&](Fragment &, const Scan::Shader::SsaaGrid<W, H> &grid,
+                      int x) { return positional(grid.at(x, 0)); });
+            else
+              Scan::Shader::walk_grid<W, H>(
+                  c, [&](const math::Vector &, const auto &grid, int x) {
+                    return positional(grid.at(x, 0));
+                  });
+          };
+          if (window.active) {
+            TimeWindowScope scope(c, window.begin, window.end);
+            HS_EXPECT_EQ(c.time_window().begin, window.begin);
+            HS_EXPECT_EQ(c.time_window().end, window.end);
+            draw();
+          } else {
+            draw();
+          }
+          HS_EXPECT_FALSE(c.time_window().active);
+        });
   };
 
   struct Band {
@@ -493,14 +482,13 @@ inline void test_shader_render_x_window_matches_predicate() {
 
   for (bool fragments : {false, true}) {
     HS_CONTEXT("draw_grid", fragments);
-    std::vector<Pixel> reference;
     ClipRegion full;
     full.w = W;
     full.h = H;
     full.y_end = H;
     full.x_end = W;
     full.margin = 0;
-    render(fragments, full, {}, reference);
+    const auto reference = render(fragments, full, {});
     for (const Band &b : BANDS) {
       ClipRegion cr = full;
       cr.x_start = b.x0;
@@ -525,8 +513,7 @@ inline void test_shader_render_x_window_matches_predicate() {
         HS_EXPECT(walked == expected_walk,
                   "a windowed walk visits each admitted column once, in order");
 
-        std::vector<Pixel> got;
-        render(fragments, cr, window, got);
+        const auto got = render(fragments, cr, window);
         for (int y = 0; y < H; ++y)
           for (int x = 0; x < W; ++x) {
             HS_CONTEXT("px", x, y);

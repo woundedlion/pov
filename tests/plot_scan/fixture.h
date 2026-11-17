@@ -35,7 +35,6 @@
 #include <cmath>
 #include <cstring>
 #include <functional>
-#include <memory>
 #include <limits>
 #include <type_traits>
 #include <vector>

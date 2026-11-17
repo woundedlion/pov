@@ -1015,7 +1015,7 @@ constexpr int COLUMN_TOLERANCE = 16;
 template <int W, int H>
 inline void check_column_time(size_t preset, int x0, int x1) {
   using WB = HyperLatticeWhiteBox;
-  HS_CONTEXT("preset", static_cast<long long>(preset), x0);
+  HS_CONTEXT("preset, x0", static_cast<long long>(preset), x0);
   reset_globals();
   HyperLattice<W, H> effect;
   effect.init();
@@ -1100,7 +1100,7 @@ inline void test_column_time_segments_match_full_frame() {
        {Effect::CUBIC_PRESET_INDEX, Effect::OCTET_PRESET_INDEX}) {
     const auto full = column_time_band(preset, 0, 96, 0, 20);
     for (const Band &b : BANDS) {
-      HS_CONTEXT("band", b.x0, static_cast<long long>(preset));
+      HS_CONTEXT("band x0, preset", b.x0, static_cast<long long>(preset));
       const auto band = column_time_band(preset, b.x0, b.x1, b.y0, b.y1);
       size_t i = 0, different = 0;
       for (int y = b.y0; y < b.y1; ++y)

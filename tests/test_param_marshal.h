@@ -202,7 +202,7 @@ check_stability_one(const char *name, std::vector<hs_wasm::ParamView> &views,
 }
 
 /** @brief The WASM token changes for replacement and local schema rebinds. */
-inline void check_generation_tracker() {
+inline void test_param_generation_tracker() {
   hs_wasm::ParamGenerationTracker tracker;
   HS_EXPECT_EQ(tracker.generation(), uint32_t(0));
   tracker.replace(7);
@@ -218,7 +218,7 @@ inline void check_generation_tracker() {
 }
 
 /** @brief The rendered, requested, and accepted streams retain distinct values. */
-inline void check_distinct_parameter_values() {
+inline void test_distinct_parameter_values() {
   struct MirroredEffect : StubEffect {
     struct State {
       float value;
@@ -241,7 +241,8 @@ inline void check_distinct_parameter_values() {
   HS_EXPECT_EQ(views[0].accepted_value, 4.0f);
 }
 
-inline void check_schema_hook_preserves_written_parameter_identity() {
+/** @brief A schema hook preserves the identity of the parameter it writes. */
+inline void test_schema_hook_preserves_written_parameter_identity() {
   struct RebuildingHost : ParamHost {
     float original = 0.0f;
     float replacement = 0.0f;
@@ -271,7 +272,8 @@ inline void check_schema_hook_preserves_written_parameter_identity() {
   }
 }
 
-inline void check_integer_float_endpoints() {
+/** @brief Marshals integer bounds that are representable as floats. */
+inline void test_integer_float_endpoints() {
   struct IntegerHost : ParamHost {
     using ParamHost::register_int_param;
   } host;
@@ -294,7 +296,7 @@ inline void check_integer_float_endpoints() {
 }
 
 /** @brief Convenience registrations set their flags, ranges and values. */
-inline void check_convenience_registrations() {
+inline void test_convenience_registrations() {
   struct LegacyHost : ParamHost {
     using ParamHost::register_animated_param;
     using ParamHost::register_animated_param_preserving_value;
@@ -335,7 +337,7 @@ inline void check_convenience_registrations() {
 
 /** @brief The GUI bridge's default hooks report the requested value, no
  *  advisory and no warning, and a display mirror can be dropped. */
-inline void check_gui_bridge_defaults() {
+inline void test_gui_bridge_defaults() {
   struct BridgeHost : ParamHost {
     using ParamHost::mirror_parameter_display_state;
     using ParamHost::register_param;
@@ -690,12 +692,12 @@ inline int run_param_marshal_tests() {
   HS_RUN(test_authored_field_snapshot_validation);
   HS_RUN(test_mind_splatter_fields_interpolate_described_members);
   HS_RUN(test_sparse_option_metadata);
-  HS_RUN(check_generation_tracker);
-  HS_RUN(check_integer_float_endpoints);
-  HS_RUN(check_convenience_registrations);
-  HS_RUN(check_gui_bridge_defaults);
-  HS_RUN(check_distinct_parameter_values);
-  HS_RUN(check_schema_hook_preserves_written_parameter_identity);
+  HS_RUN(test_param_generation_tracker);
+  HS_RUN(test_integer_float_endpoints);
+  HS_RUN(test_convenience_registrations);
+  HS_RUN(test_gui_bridge_defaults);
+  HS_RUN(test_distinct_parameter_values);
+  HS_RUN(test_schema_hook_preserves_written_parameter_identity);
   // The by-name round-trip skips effects with no editable float param.
   int rt_covered = 0, rt_total = 0, rt_skipped = 0, rt_mismatched = 0;
   FieldCoverage coverage;

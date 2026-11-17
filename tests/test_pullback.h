@@ -26,7 +26,6 @@
 #include "tests/pullback/ripple.h"
 #include "tests/pullback/tessellation.h"
 #include "tests/pullback/color.h"
-#include "tests/pullback/hue_qualification.h"
 
 namespace hs_test {
 namespace pullback_tests {
@@ -764,15 +763,6 @@ inline void test_pullback_public_surface() {
   static_assert(Pullback::StageDescriptor<EntryStage>);
   static_assert(!Pullback::StageDescriptor<MissingContract>);
   static_assert(!Pullback::StageDescriptor<NonTuplePoliciesStage>);
-  static_assert(Pullback::Warp::MAX_POLAR_HARMONIC > 0);
-  using HueLut = Pullback::Color::HueRotationLutView;
-  static_assert(HueLut::SIZE ==
-                size_t{HueLut::VALUE_STEPS} * HueLut::HUE_STEPS);
-  using SphereLut = Pattern::SphereLutView;
-  static_assert(SphereLut::FACE_COUNT == 6);
-  static_assert(SphereLut::SIZE == size_t{SphereLut::FACE_COUNT} *
-                                       SphereLut::FACE_STEPS *
-                                       SphereLut::FACE_STEPS);
   HS_EXPECT_TRUE(std::is_empty_v<TestPipeline>);
 }
 

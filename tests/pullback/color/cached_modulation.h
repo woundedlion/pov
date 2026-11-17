@@ -318,17 +318,12 @@ inline void test_pullback_prepared_cube_pair() {
        1) /
       ALIGNMENT * ALIGNMENT;
   static_assert(sizeof(Color::ModulationState) == SIZE_THROUGH_ENABLED);
-  std::array<int8_t, Pattern::SphereLutView::SIZE> ac, bc;
+  CubeModulationPair cubes;
+  auto &a = cubes.previous;
+  auto &b = cubes.current;
   std::array<float, Pattern::SphereLutView::SIZE> linear;
-  for (size_t i = 0; i < ac.size(); ++i) {
-    ac[i] = int(i * 37 % 255) - 127;
-    bc[i] = int((i * 83 + 41) % 255) - 127;
-    linear[i] = bc[i];
-  }
-  Modulation::Prepared a{}, b{};
-  a.cube = {ac.data(), true};
-  b.cube = {bc.data(), true};
-  a.evaluate = b.evaluate = Modulation::sample_cube;
+  std::copy(cubes.current_cube.begin(), cubes.current_cube.end(),
+            linear.begin());
   TemporalPalettes<> palettes;
   palettes.bake(CoordinatePalette{0.2f},
                 ConstantPalette{Color4(Pixel(32000, 44000, 13000), 0.8f)});

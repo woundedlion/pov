@@ -168,7 +168,8 @@ inline void test_config_validation() {
   repeats.epoch_repeats = BEACON_FIELD_MASK;
   repeats.refractory_revs = repeats.commit_revs + BEACON_FIELD_MASK + 1;
   repeats.revs_per_effect = 256;
-  HS_EXPECT_TRUE(repeats.valid());
+  repeats.rejoin_budget_revs = repeats.rejoin_bound_revs();
+  HS_EXPECT_STREQ(repeats.valid(), nullptr);
   Config zero_width = test_config();
   zero_width.W = 0;
   expect_rejects(zero_width, "W > 0");

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 from types import SimpleNamespace
@@ -26,8 +27,10 @@ import shorts  # noqa: E402
 from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from pin_landing import dangling_pins  # noqa: E402
-from kicad_env import footprint_pose, pad_position, committed_board_nets, generate, footprints_by_ref  # noqa: E402
-from kicad_env import GENERATES, GENERATES_REASON  # noqa: E402
+from kicad_env import (  # noqa: E402
+    GENERATES, GENERATES_REASON, assert_board_id_label, committed_board_nets,
+    footprint_pose, footprints_by_ref, generate, pad_position, zone_polygon,
+)
 
 PROTOTYPE = GEN.parent / "1.3"
 GENERATED_PROJECT_FILES = (
@@ -181,8 +184,7 @@ class PrototypeContractTests(unittest.TestCase):
             zones = {str(sexp.val(z, "name", [""])[0]): z for z in F(footprint, "zone")}
             for pin in range(1, count + 1):
                 zone = zones[f"Terminal wire access pin {pin}"]
-                points = F(F(F(zone, "polygon")[0], "pts")[0], "xy")
-                xs, ys = zip(*[(float(p[1]), float(p[2])) for p in points])
+                xs, ys = zip(*zone_polygon(zone))
                 self.assertAlmostEqual(max(xs) - min(xs), 2.4)
                 self.assertAlmostEqual(max(ys) - min(ys), 10)
                 px, py = pad_position(footprint, str(pin))
@@ -329,14 +331,7 @@ class PrototypeContractTests(unittest.TestCase):
             analyze_candidates.analyze(str(PROTOTYPE / "phantasm.kicad_pcb"))
 
     def test_board_id_has_large_legible_digits(self):
-        root = self.board
-        labels = [node for node in F(root, "gr_text") if str(node[1]) == "BOARD ID: ____"]
-        self.assertEqual(len(labels), 1)
-        label = labels[0]
-        self.assertEqual(str(sexp.val(label, "layer")[0]), "B.SilkS")
-        font = F(F(label, "effects")[0], "font")[0]
-        self.assertEqual([float(v) for v in sexp.val(font, "size")], [2.0, 2.0])
-        self.assertEqual([float(v) for v in sexp.val(label, "at")[:2]], [20.0, 14.8])
+        assert_board_id_label(self, self.board, (20.0, 14.8))
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
@@ -381,13 +376,15 @@ class RevisionGenerationTests(unittest.TestCase):
                 [kicad_cli(), "pcb", "drc", "--refill-zones", "--save-board",
                  "-o", str(project / "refill.rpt"), str(board_path)],
                 capture_output=True, text=True, check=True)
-            with mock.patch.object(fab, "PCB", str(board_path)), \
-                    mock.patch.object(fab, "SCH", str(project / "phantasm.kicad_sch")), \
-                    mock.patch.object(fab, "KNOWN_PARITY_WARNING_COUNTS", self.PARITY_WARNINGS), \
-                    mock.patch.object(fab, "OPTIONAL_PARITY_WARNING_MAX", {}):
-                self.assertEqual(fab.run_parity(str(project / "parity.json")),
-                                 len(fab.KNOWN_PARITY_ITEMS))
-
+            context = replace(
+                fab.default_context(),
+                pcb=str(board_path),
+                sch=str(project / "phantasm.kicad_sch"),
+                known_parity_warning_counts=self.PARITY_WARNINGS,
+                optional_parity_warning_max={},
+            )
+            self.assertEqual(fab.run_parity(str(project / "parity.json"), context=context),
+                             len(fab.KNOWN_PARITY_ITEMS))
 
     def test_current_schematics_pass_real_erc(self):
         for revision in ("1.2", "1.3"):
@@ -396,8 +393,8 @@ class RevisionGenerationTests(unittest.TestCase):
                 shutil.copytree(GEN.parent / revision, project,
                                 ignore=shutil.ignore_patterns("routed", "candidates"))
                 report = str(Path(directory) / "erc.json")
-                with mock.patch.object(fab, "SCH", str(project / "phantasm.kicad_sch")):
-                    self.assertEqual(fab.run_erc(report), 0)
+                context = replace(fab.default_context(), sch=str(project / "phantasm.kicad_sch"))
+                self.assertEqual(fab.run_erc(report, context=context), 0)
 
     def test_inner_planes_pass_between_teensy_header_pads(self):
         for project in (self.rev_12, self.prototype):

@@ -11,11 +11,6 @@
 
 namespace hs_test::effects_tests {
 
-/** @brief Authored SphericalHarmonics preset mode indices. */
-inline constexpr std::array<int, 24> SH_PRESET_MODES{
-    6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
-    13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
-
 /**
  * @brief White-box accessor for SphericalHarmonics' morph chain and shader inputs.
  * @details Befriended in effects/SphericalHarmonics.h.
@@ -35,6 +30,12 @@ struct SphericalHarmonicsWhiteBox {
   static const BakedPalette &palette(const SH &fx) { return fx.baked_palette; }
   static float amplitude(const SH &fx) { return fx.params.amplitude; }
   static constexpr int max_mode_idx() { return SH::MAX_MODE_IDX; }
+  static int mode_for_preset(size_t preset) {
+    return SH::mode_index_for_preset(preset);
+  }
+  static size_t preset_for_mode(int mode) {
+    return SH::preset_index_for_mode(mode);
+  }
   static constexpr float spin_turns() { return SH::SPIN_TURNS; }
   static constexpr math::Vector spin_axis() { return SH::SPIN_AXIS; }
   static constexpr float AO_FALLOFF = SH::AO_FALLOFF;
@@ -402,10 +403,7 @@ inline void test_sh_morph_chain_rearms() {
     if (now != held) {
       ++commits;
       held = now;
-      const size_t expected_preset = static_cast<size_t>(
-          std::find(SH_PRESET_MODES.begin(), SH_PRESET_MODES.end(), now) -
-          SH_PRESET_MODES.begin());
-      HS_EXPECT_EQ(fx.getPresetIndex(), expected_preset);
+      HS_EXPECT_EQ(fx.getPresetIndex(), WB::preset_for_mode(now));
       // A committed leg rewinds the blend and schedules the next one.
       if (alpha == 0.0f)
         ++rearmed_at_zero;
@@ -454,22 +452,32 @@ inline void test_sh_cycle_covers_every_mode() {
     HS_EXPECT_EQ(visits[mode], 1);
 }
 
-/** @brief Maps every runtime preset to its stable harmonic mode. */
+/** @brief Presets cover every nonconstant mode and start at the boot mode. */
 inline void test_sh_preset_mode_mapping() {
   using WB = SphericalHarmonicsWhiteBox;
   reset_globals();
   WB::SH fx;
   fx.init();
 
+  constexpr int MAX_MODE = WB::max_mode_idx();
+  std::array<int, MAX_MODE + 1> visits{};
+  const int boot_mode = WB::current_idx(fx);
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
-  HS_EXPECT_EQ(WB::current_idx(fx), SH_PRESET_MODES[0]);
-  for (size_t preset = 0; preset < SH_PRESET_MODES.size(); ++preset) {
+  HS_EXPECT_EQ(fx.getPresetCount(), static_cast<size_t>(MAX_MODE));
+  for (size_t preset = 0; preset < fx.getPresetCount(); ++preset) {
     HS_EXPECT_TRUE(fx.selectPreset(preset));
     HS_EXPECT_EQ(fx.getPresetIndex(), preset);
-    HS_EXPECT_EQ(WB::current_idx(fx), SH_PRESET_MODES[preset]);
-    HS_EXPECT_EQ(WB::next_idx(fx), SH_PRESET_MODES[preset]);
+    const int mode = WB::current_idx(fx);
+    if (preset == 0)
+      HS_EXPECT_EQ(mode, boot_mode);
+    HS_EXPECT_EQ(WB::next_idx(fx), mode);
     HS_EXPECT_EQ(WB::morph_alpha(fx), 0.0f);
+    HS_EXPECT(mode >= 1 && mode <= MAX_MODE, "nonconstant harmonic mode");
+    if (mode >= 1 && mode <= MAX_MODE)
+      ++visits[mode];
   }
+  for (int mode = 1; mode <= MAX_MODE; ++mode)
+    HS_EXPECT_EQ(visits[mode], 1);
 }
 
 /** @brief Keeps a manual harmonic selection past the automatic leg it replaces. */
@@ -480,9 +488,7 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   WB::SH fx;
   fx.init();
 
-  HS_EXPECT_EQ(fx.getPresetCount(), SH_PRESET_MODES.size());
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
-  HS_EXPECT_EQ(WB::current_idx(fx), SH_PRESET_MODES[0]);
   for (int frame = 0; frame < 8; ++frame) {
     pin_frame_clock(frame);
     fx.draw_frame();
@@ -491,10 +497,10 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   HS_EXPECT_GT(WB::morph_alpha(fx), 0.0f);
   const int replaced_target = WB::next_idx(fx);
 
-  const size_t selected_preset = replaced_target == SH_PRESET_MODES.back()
-                                     ? SH_PRESET_MODES.size() - 2
-                                     : SH_PRESET_MODES.size() - 1;
-  const int selected_mode = SH_PRESET_MODES[selected_preset];
+  const size_t last = fx.getPresetCount() - 1;
+  const size_t selected_preset =
+      WB::mode_for_preset(last) == replaced_target ? last - 1 : last;
+  const int selected_mode = WB::mode_for_preset(selected_preset);
   HS_EXPECT_NE(selected_mode, replaced_target);
   HS_EXPECT_TRUE(fx.selectPreset(selected_preset));
   HS_EXPECT_TRUE(fx.animations_paused());
@@ -593,8 +599,7 @@ inline void test_sh_instantaneous_clips_match_full_render() {
 /** @brief Spin and morph chain of SphericalHarmonics as functions of
  *  continuous frame time, independent of the effect's sampler. */
 struct ShTimeEvaluator {
-  int seed_mode =
-      SH_PRESET_MODES[0]; ///< Mode the chain starts from at time zero.
+  int seed_mode; ///< Mode the chain starts from at time zero.
 
   /** @brief Spin at a frame time.
    * @param time Frames since init; draw k spans [k, k + 1].
@@ -767,10 +772,9 @@ inline void test_sh_manual_preset_resets_morph_history() {
     fx.draw_frame();
     fx.advance_display();
   }
-  constexpr size_t PRESET = 6;
-  const int mode = SH_PRESET_MODES[PRESET];
-  HS_EXPECT_EQ(WB::next_idx(fx), mode);
-  HS_EXPECT_TRUE(fx.selectPreset(PRESET));
+  const int mode = WB::next_idx(fx);
+  HS_EXPECT_TRUE(fx.selectPreset(WB::preset_for_mode(mode)));
+  HS_EXPECT_EQ(WB::current_idx(fx), mode);
   pin_frame_clock(20);
   fx.draw_frame();
   fx.advance_display();
@@ -809,7 +813,7 @@ inline void test_sh_fidelity_toggle_keeps_history() {
   reset_globals();
   WB::SH fx;
   fx.init();
-  const ShTimeEvaluator evaluator;
+  const ShTimeEvaluator evaluator{WB::current_idx(fx)};
   const float amplitude = WB::amplitude(fx);
   int worst = 0;
   int draw = 0;

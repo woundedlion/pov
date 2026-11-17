@@ -124,7 +124,6 @@ inline void test_column_long_polar_edge_finishes() {
 /** @brief Polar arcs cover their independently intersected meridians. */
 inline void test_column_polar_arc_coverage() {
   constexpr int W = 288, H = 144;
-  const ScopedTemporalSampling temporal_sampling(!Spacetime::flat_surface());
   using Vec = std::array<double, 3>;
   const auto cross = [](const Vec &a, const Vec &b) -> Vec {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
@@ -150,7 +149,7 @@ inline void test_column_polar_arc_coverage() {
         }};
         if (reversed)
           std::swap(mesh.vertices[0], mesh.vertices[1]);
-        Spacetime::set_flat_surface(!timed);
+        const ScopedTemporalSampling sampling(timed);
         {
           Canvas canvas(effect);
           ScratchScope a(scratch_arena_a), b(scratch_arena_b);
@@ -230,7 +229,7 @@ inline void test_trail_gate_uses_motion_region() {
  * start, and once more at its middle when its chord bound fails. */
 inline void test_timed_mesh_endpoint_cache() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   for (float second : {0.0f, 8.0f}) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
@@ -259,7 +258,7 @@ inline void test_timed_mesh_endpoint_cache() {
 inline void test_column_edge_quality() {
   constexpr int W = 288, H = 144;
   constexpr float SPAN_COLUMNS = 60.0f, SPAN_ROWS = 100.0f;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   for (int scene = 0; scene < 3; ++scene) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
@@ -364,7 +363,7 @@ inline void test_column_crossing_parameter_bound() {
 /** @brief Mesh batching rejects hidden caps and retains swept-in geometry. */
 inline void test_column_mesh_batch_cull() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   for (int scene = 0; scene < 3; ++scene) {
     const float column = scene == 0 ? 180.0f : scene == 1 ? 50.0f : 96.0f;
     const float motion = scene == 2 ? 1.2f : 0.01f;
@@ -417,7 +416,7 @@ inline void test_column_mesh_batch_cull() {
  * taps, evaluates at most its neighbor's and reruns no shader. */
 inline void test_column_single_splat_motion_gate() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   for (float motion : {0.001f, 0.8f}) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
@@ -458,7 +457,7 @@ inline void test_column_single_splat_motion_gate() {
 /** @brief Stationary timed meshes skip trajectory caches and column preparation. */
 inline void test_stationary_column_mesh_skips_geometry_cache() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   hs_test::StubEffect effect(W, H);
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
   Canvas canvas(effect);
@@ -489,7 +488,7 @@ inline void test_stationary_column_mesh_skips_geometry_cache() {
  *         still and moving. */
 inline void test_column_walk_chained_ring_plots_vertices_once() {
   constexpr int W = 288, H = 144, N = 12;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   struct Ring {
     std::array<math::Vector, N> vertices; /**< Closed ring vertices. */
   } ring;
@@ -889,7 +888,7 @@ inline void test_plot_steady_edge_matches_point_route() {
 /** @brief Rigid world poses preserve each shaded source arc coordinate. */
 inline void test_column_source_basis_transport() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   hs_test::StubEffect effect(W, H);
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
   Canvas canvas(effect);
@@ -946,7 +945,7 @@ struct ColumnAgeProbe : Filter::Is2D {
 /** @brief Edge-uniform color preserves rendered pixels and interpolated ages. */
 inline void test_column_uniform_color_preserves_age() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   auto run = []<bool CUT>() {
     std::vector<Pixel> reference;
     std::vector<ColumnAgeProbe::Sample> reference_samples;
@@ -1130,7 +1129,7 @@ inline void test_column_uniform_color_seam_registers() {
  *         walk picks each vertex's interpolant. */
 inline void test_column_capture_reads_vertex_paths() {
   constexpr int W = 288, H = 144;
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   hs_test::StubEffect effect(W, H);
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
   Canvas canvas(effect);
