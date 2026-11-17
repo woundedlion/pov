@@ -38,7 +38,7 @@ teensy-size|job_teensy_size
 teensy-warnings|job_teensy_warnings
 pcb-tests|job_pcb_tests
 docs-doxygen|job_docs_doxygen
-sanitizers|skip: the ASan and UBSan runtimes are Linux-only here
+sanitizers|skip: ASan and UBSan runtimes are Linux-only here. windows-tests covers standalone test headers
 thread-sanitizer|job_thread_sanitizer
 code-coverage|skip: the emsdk LLVM has no Windows profile runtime
 render-hash-report|skip: report only; render_diff.sh --report compares a commit with its parent

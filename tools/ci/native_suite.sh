@@ -16,6 +16,7 @@ fi
 cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON "$@"
 cmake --build --preset tests
 cmake --build --preset tests --target excluded_targets
+cmake --build --preset tests --target test_header_contracts
 HS_SMOKE_FRAMES=120 HS_EFFECTS_FULL=0 HS_REQUIRE_EFFECTS_FULL=0 HS_SKIPS_ARE_ERRORS=1 \
   HS_BUFFER_FREE_WATCHDOG_US=30000000 \
   ctest --preset tests --output-on-failure --no-tests=error "${exclude[@]}"
