@@ -537,15 +537,14 @@ template <typename State> struct Spiral : ApproximationDefaults {
 
   /**
    * @brief Whether `State` under @p CandidateBinding supplies the pattern
-   *        frequency and arm count.
+   *        spiral controls.
    * @tparam CandidateBinding Binding being checked.
    */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       Detail::ParamsProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
-        { State::params(frame).pattern_freq } -> std::convertible_to<float>;
-        { State::params(frame).arms } -> std::convertible_to<float>;
+        static_cast<const Pattern::SpiralSourceParams &>(State::params(frame));
       };
 
   using Prepared =

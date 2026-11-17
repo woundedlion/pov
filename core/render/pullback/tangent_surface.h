@@ -64,6 +64,23 @@ template <typename State> struct ConfiguredCurl : PrepareFromState<State> {
   using Binding = typename State::Binding;       ///< Pipeline binding.
   using FrameState = typename State::FrameState; ///< Bound frame.
   using Prepared = StatePrepared<State>;         ///< Noise-loop preparation.
+  /** @brief Whether the provider supplies this policy's bound inputs.
+   * @tparam CandidateBinding Pipeline binding to check. */
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ParamsProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+        { State::params(frame).basis } -> std::convertible_to<uint8_t>;
+        { State::params(frame).scale } -> std::convertible_to<float>;
+        { State::params(frame).strength } -> std::convertible_to<float>;
+        { State::params(frame).integrator } -> std::convertible_to<uint8_t>;
+        { State::params(frame).limit } -> std::convertible_to<uint8_t>;
+        {
+          State::prepare(frame).loop_offset
+        } -> std::convertible_to<math::Vector>;
+        { State::path_length_required(frame) } -> std::same_as<bool>;
+      };
   /** @brief Displaces a direction through the configured curl field.
    * @param input Unit direction.
    * @param frame Bound frame.
@@ -87,6 +104,23 @@ template <typename State> struct ConfiguredDirect : PrepareFromState<State> {
   using Binding = typename State::Binding;       ///< Pipeline binding.
   using FrameState = typename State::FrameState; ///< Bound frame.
   using Prepared = StatePrepared<State>;         ///< Noise-loop preparation.
+  /** @brief Whether the provider supplies this policy's bound inputs.
+   * @tparam CandidateBinding Pipeline binding to check. */
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ParamsProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
+        { State::params(frame).basis } -> std::convertible_to<uint8_t>;
+        { State::params(frame).scale } -> std::convertible_to<float>;
+        { State::params(frame).strength } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).loop_offset
+        } -> std::convertible_to<math::Vector>;
+        { State::prepare(frame).direction_cos } -> std::convertible_to<float>;
+        { State::prepare(frame).direction_sin } -> std::convertible_to<float>;
+        { State::path_length_required(frame) } -> std::same_as<bool>;
+      };
   /** @brief Displaces a direction through the configured noise field.
    * @param input Unit direction.
    * @param frame Bound frame.
@@ -462,6 +496,17 @@ struct TangentField : ApproximationDefaults {
   using Binding = typename State::Binding;              ///< Pipeline binding.
   using FrameState = typename State::FrameState;        ///< Bound frame.
   using Prepared = math::tangent_field::PotentialField; ///< Velocity field.
+  /** @brief Whether the provider supplies the bound field controls.
+   * @tparam CandidateBinding Pipeline binding to check. */
+  template <typename CandidateBinding>
+  static constexpr bool PROVIDER_VALID =
+      Detail::ParamsProvider<State, CandidateBinding> &&
+      requires(const typename CandidateBinding::FrameState &frame) {
+        { State::phase(frame) } -> std::same_as<float>;
+        { State::params(frame).strength } -> std::convertible_to<float>;
+        { State::params(frame).integrator } -> std::convertible_to<uint8_t>;
+        { State::path_length_required(frame) } -> std::same_as<bool>;
+      };
   /** @brief Prepares this frame's velocity field.
    * @param frame Bound frame.
    * @return Normalized field. */
