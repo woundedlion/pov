@@ -356,8 +356,9 @@ class PipelineRef {
                   })
       return static_cast<T *>(pipeline)->could_intersect_timed_clip(a, b, pb,
                                                                     pred);
-    return pipeline_could_intersect_clip(*static_cast<T *>(pipeline), a, b, pb,
-                                         pred);
+    else
+      return pipeline_could_intersect_clip(*static_cast<T *>(pipeline), a, b,
+                                           pb, pred);
   }
 
   /** @brief Adds timed entries to the ordinary plot interface. */
