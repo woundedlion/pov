@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 /** @file
- * @brief Ray, pullback, filter, plot and scan test modules.
+ * @brief Render-core test module entry points.
  */
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"

@@ -376,7 +376,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file,
  * @param n Number of cases in it.
  * @param lines Matched source line for each successfully trapped case, or zero.
  * @details The denominator is the generated fail-fast site census
- *          (HS_CHECK, HS_AUDIT_CHECK, check_fail in death_guard_sites.h).
+ *          (HS_CHECK, HS_AUDIT_CHECK, HS_ASSERT_BLOCK_ALIVE and check_fail).
  *          The numerator is the distinct source lines observed in trapped cases. A case naming a file outside the census
  *          fails the module; the ratio and per-file gaps are not gated.
  */

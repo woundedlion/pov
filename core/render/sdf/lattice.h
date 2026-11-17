@@ -382,6 +382,8 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
 /**
  * @brief Approximate plane-crossing coverage for cubic and hypercubic edges.
  * @details For SLICE_4D, contributions use feature 0 without computing an axis.
+ * @tparam SLICE_4D Whether events use a four-dimensional slice.
+ * @tparam FIXED_SHELL_COUNT Compile-time shell count, or zero for a runtime count.
  */
 template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
   static_assert(FIXED_SHELL_COUNT <= MAX_SHELLS);

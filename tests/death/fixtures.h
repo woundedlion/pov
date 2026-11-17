@@ -11,6 +11,7 @@
 
 namespace hs_test::death_tests {
 
+/** @brief Identity basis for fail-fast fixtures. */
 inline constexpr math::Basis DEATH_IDENTITY_BASIS{math::X_AXIS, math::Y_AXIS,
                                                   math::Z_AXIS};
 
@@ -40,11 +41,18 @@ struct DeathEffect : public hs_test::StubEffect {
    * @param p Pointer to the backing float storage.
    */
   void reg(const char *n, float *p) { register_param(n, p, 0.0f, 1.0f); }
+  /** @brief Registers floating options for admission checks.
+   * @param p Backing storage.
+   * @param options Option labels.
+   * @param count Number of options. */
   void reg_float_options(float *p, const char *const *options, int count) {
     register_param("options", p,
                    ParamSpec<float>{.options = options, .option_count = count});
   }
-  /** @brief Registers a typed enum with the requested option count. */
+  /** @brief Registers a typed enum with the requested option count.
+   * @tparam Enum Enum storage type.
+   * @param p Backing storage.
+   * @param count Number of options. */
   template <typename Enum> void reg_enum(Enum *p, int count) {
     static constexpr const char *OPTIONS[] = {"zero"};
     register_param("enum", p, OPTIONS, nullptr, count);

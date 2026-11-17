@@ -56,9 +56,9 @@ struct EdgeFadeEnvelope {};
 
 /** @brief Envelope shaping a warp's amplitude across the projected domain. */
 enum class Envelope : uint8_t {
-  FLAT = 0,
-  PROJECTION_WEIGHT = 1,
-  EDGE_FADE = 2
+  FLAT = 0,              ///< Unit amplitude everywhere.
+  PROJECTION_WEIGHT = 1, ///< Amplitude follows projection weight.
+  EDGE_FADE = 2          ///< Amplitude fades at the projection edge.
 };
 
 /** @brief Serialized `Envelope` ids, indexed by enumerator value. */

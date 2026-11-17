@@ -43,6 +43,7 @@ inline void case_sdf_distorted_ring_zero_knots() {
   (void)ring;
 }
 
+/** @brief Death case: sdf distorted ring one knots. */
 inline void case_sdf_distorted_ring_one_knots() {
   const float KNOTS[1] = {0.0f};
   SDF::KnotPrefilter pf;
@@ -51,6 +52,7 @@ inline void case_sdf_distorted_ring_one_knots() {
   (void)ring;
 }
 
+/** @brief Death case: sdf distorted ring two knots. */
 inline void case_sdf_distorted_ring_two_knots() {
   const float KNOTS[2] = {0.0f};
   SDF::KnotPrefilter pf;
@@ -67,6 +69,7 @@ inline void case_sdf_twist_zero_major_radius() {
   (void)tw;
 }
 
+/** @brief Death case: transformed torus invalid minor radius. */
 inline void case_transformed_torus_invalid_minor_radius() {
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
       {opaque(1.0f), opaque(0.6f)}, {2, 0.1f, 1.0f}};
@@ -205,6 +208,7 @@ inline void case_sdf_distorted_ring_null_shift() {
   (void)ring;
 }
 
+/** @brief Death case: sdf distorted ring negative distortion. */
 inline void case_sdf_distorted_ring_negative_distortion() {
   ScalarFn shift = [](float) { return 0.0f; };
   SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, opaque(0.5f), opaque(0.05f),
@@ -227,6 +231,7 @@ inline void case_sdf_angular_repeat_zero_copies() {
   (void)shape;
 }
 
+/** @brief Death case: framework invalid geometry. */
 inline void case_framework_invalid_geometry() {
   SDF::TriangularFramework geometry;
   geometry.cell_size = opaque(0.0f);
@@ -234,11 +239,13 @@ inline void case_framework_invalid_geometry() {
   (void)events.active(0);
 }
 
+/** @brief Death case: framework invalid ray. */
 inline void case_framework_invalid_ray() {
   SDF::FrameworkEvents events({}, {{0, 0, 0}, {opaque(0.0f), 0, 0}, {0, 1}});
   (void)events.active(0);
 }
 
+/** @brief Death case: octet invalid geometry. */
 inline void case_octet_invalid_geometry() {
   SDF::OctetFramework geometry;
   geometry.cell_size = opaque(0.0f);
@@ -246,12 +253,14 @@ inline void case_octet_invalid_geometry() {
   (void)events.active(0);
 }
 
+/** @brief Death case: octet invalid ray. */
 inline void case_octet_invalid_ray() {
   SDF::OctetEvents events(SDF::OctetFramework{},
                           {{0, 0, 0}, {opaque(0.0f), 0, 0}, {0, 1}});
   (void)events.active(0);
 }
 
+/** @brief Death case: octet4 invalid geometry. */
 inline void case_octet4_invalid_geometry() {
   SDF::OctetFramework4 geometry;
   geometry.wire_radius = opaque(0.0f);
@@ -259,11 +268,13 @@ inline void case_octet4_invalid_geometry() {
   (void)events.active(0);
 }
 
+/** @brief Death case: octet4 invalid interval. */
 inline void case_octet4_invalid_interval() {
   SDF::OctetEvents4 events({}, {}, {{1, 0, 0, 0}}, {opaque(2.0f), 1});
   (void)events.active(0);
 }
 
+/** @brief Death case: octet4 nonfinite ray. */
 inline void case_octet4_nonfinite_ray() {
   SDF::OctetEvents4 events(
       {}, {{opaque(std::numeric_limits<float>::infinity()), 0, 0, 0}},
@@ -271,6 +282,7 @@ inline void case_octet4_nonfinite_ray() {
   (void)events.active(0);
 }
 
+/** @brief Death case: octet4 nonunit direction. */
 inline void case_octet4_nonunit_direction() {
   SDF::OctetEvents4 events({}, {}, {{opaque(2.0f), 0, 0, 0}}, {0, 1});
   (void)events.active(0);
@@ -406,6 +418,7 @@ inline void case_face_scratch_retargeted_by_culled_face() {
   (void)first.get_vertical_bounds<H>();
 }
 
+/** @brief Death case: lattice shells oob. */
 inline void case_lattice_shells_oob() {
   SDF::Lattice::Settings settings;
   settings.shells =

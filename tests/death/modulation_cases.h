@@ -11,17 +11,20 @@
 
 namespace hs_test::death_tests {
 
+/** @brief Death case: modulation hue nonfinite. */
 inline void case_modulation_hue_nonfinite() {
   (void)ColorModulation::HueRotation::prepare({0.5f});
   death_admitted();
   (void)ColorModulation::HueRotation::prepare(
       {opaque(std::numeric_limits<float>::infinity())});
 }
+/** @brief Death case: modulation unit amount invalid. */
 inline void case_modulation_unit_amount_invalid() {
   (void)ColorModulation::Opacity::prepare({0.5f});
   death_admitted();
   (void)ColorModulation::Opacity::prepare({opaque(2.0f)});
 }
+/** @brief Death case: modulation unknown prepare. */
 inline void case_modulation_unknown_prepare() {
   ColorModulation::Params params;
   ColorModulation::validate(params);
@@ -29,6 +32,7 @@ inline void case_modulation_unknown_prepare() {
   params.kind = static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255}));
   ColorModulation::validate(params);
 }
+/** @brief Death case: modulation invalid initialization. */
 inline void case_modulation_invalid_initialization() {
   ColorModulation::Config config;
   (void)Pullback::Modulation::init(config);
@@ -37,6 +41,7 @@ inline void case_modulation_invalid_initialization() {
   config.version = opaque(uint16_t{0});
   (void)Pullback::Modulation::init(config);
 }
+/** @brief Death case: modulation invalid synchronization. */
 inline void case_modulation_invalid_synchronization() {
   ColorModulation::Config config;
   auto state = Pullback::Modulation::init(config);
@@ -45,6 +50,7 @@ inline void case_modulation_invalid_synchronization() {
   config.version = opaque(uint16_t{0});
   Pullback::Modulation::synchronize(state, config);
 }
+/** @brief Death case: modulation invalid preparation. */
 inline void case_modulation_invalid_preparation() {
   ColorModulation::Config config;
   const auto state = Pullback::Modulation::init(config);
@@ -54,6 +60,7 @@ inline void case_modulation_invalid_preparation() {
   config.version = opaque(uint16_t{0});
   (void)resources.prepare(config, state);
 }
+/** @brief Death case: modulation missing cube capacity. */
 inline void case_modulation_missing_cube_capacity() {
   ColorModulation::Config config;
   config.mechanic.amount = 0.5f;
@@ -62,6 +69,7 @@ inline void case_modulation_missing_cube_capacity() {
   (void)resources.prepare(config, state);
 }
 
+/** @brief Death case: modulation retain table size. */
 inline void case_modulation_retain_table_size() {
   static int8_t cube[Pattern::SphereLutView::SIZE] = {};
   static int8_t table[Pattern::SphereLutView::SIZE] = {};
@@ -73,6 +81,7 @@ inline void case_modulation_retain_table_size() {
   (void)Pullback::Modulation::retain(
       &source, destination, std::span<int8_t>(table, opaque(size_t{1})));
 }
+/** @brief Death case: modulation retain linear cube. */
 inline void case_modulation_retain_linear_cube() {
   static int8_t cube[Pattern::SphereLutView::SIZE] = {};
   static int8_t table[Pattern::SphereLutView::SIZE] = {};
@@ -86,10 +95,12 @@ inline void case_modulation_retain_linear_cube() {
   (void)Pullback::Modulation::retain(&source, destination, table);
 }
 
+/** @brief Death case: modulation unknown kernel. */
 inline void case_modulation_unknown_kernel() {
   (void)ColorModulation::kernel(
       static_cast<ColorModulation::Mechanic>(opaque(uint8_t{255})));
 }
+/** @brief Death case: modulation control index invalid. */
 inline void case_modulation_control_index_invalid() {
   Pullback::Interp::Op::ModulationParams params;
   (void)params.extra_address(

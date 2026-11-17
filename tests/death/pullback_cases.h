@@ -11,6 +11,8 @@
 
 namespace hs_test::death_tests {
 
+/** @brief Compiles an operator with an invalid memory layout.
+ * @param variant Layout defect to introduce. */
 inline void chain_invalid_layout(unsigned variant) {
   using namespace Pullback::Interp;
   ChainProgram program;
@@ -110,30 +112,39 @@ inline void case_chain_table_rank_decreases() {
       std::span<const Pullback::Interp::OperatorDescriptor>(&descriptor, 1));
 }
 
+/** @brief Death case: chain overlapping storage. */
 inline void case_chain_overlapping_storage() {
   Pullback::Interp::ChainProgram program;
   alignas(std::max_align_t) uint8_t block[128];
   program.bind_storage(block, block + alignof(std::max_align_t), 64);
 }
 
+/** @brief Death case: chain identical storage. */
 inline void case_chain_identical_storage() {
   Pullback::Interp::ChainProgram program;
   alignas(std::max_align_t) uint8_t block[64];
   program.bind_storage(block, block, sizeof(block));
 }
 
+/** @brief Death case: chain zero alignment. */
 inline void case_chain_zero_alignment() { chain_invalid_layout(0); }
 
+/** @brief Death case: chain non power alignment. */
 inline void case_chain_non_power_alignment() { chain_invalid_layout(1); }
 
+/** @brief Death case: chain overaligned block. */
 inline void case_chain_overaligned_block() { chain_invalid_layout(2); }
 
+/** @brief Death case: chain zero size. */
 inline void case_chain_zero_size() { chain_invalid_layout(3); }
 
+/** @brief Death case: chain misaligned size. */
 inline void case_chain_misaligned_size() { chain_invalid_layout(4); }
 
+/** @brief Death case: chain capacity overflow. */
 inline void case_chain_capacity_overflow() { chain_invalid_layout(5); }
 
+/** @brief Death case: pullback project nonunit direction. */
 inline void case_pullback_project_nonunit_direction() {
   using namespace hs_test::pullback_tests;
   using Project =
@@ -159,7 +170,10 @@ inline void case_pullback_column_nonunit_direction() {
   (void)result;
 }
 
-/** @brief Prepares an operator with an invalid enum field. */
+/** @brief Prepares an operator with an invalid enum field.
+ * @tparam Op Operator model.
+ * @tparam Field Enum member pointer.
+ * @param value Invalid enum representation. */
 template <typename Op, auto Field>
 inline void prepare_operator_with(uint8_t value = 0xff) {
   typename Op::Params params;
@@ -267,12 +281,14 @@ inline void case_pullback_operator_invalid_gnomonic_hemisphere() {
       &Pullback::Interp::Op::GnomonicChainParams::hemisphere>();
 }
 
+/** @brief Death case: pullback operator invalid airocean layout. */
 inline void case_pullback_operator_invalid_airocean_layout() {
   prepare_operator_with<
       Pullback::Interp::Op::ProjectAiroceanV3,
       &Pullback::Interp::Op::ProjectAiroceanV3::Params::layout>();
 }
 
+/** @brief Death case: pullback operator invalid peirce layout. */
 inline void case_pullback_operator_invalid_peirce_layout() {
   prepare_operator_with<Pullback::Interp::Op::ProjectPeirceV3,
                         &Pullback::Interp::Op::ProjectPeirceV3::Params::layout>(
@@ -351,6 +367,7 @@ inline void case_field_sample_coverage_outside_range() {
   Pullback::Kernel::sample(Pullback::PlaneSample{}, 0.0f, opaque(1.1f));
 }
 
+/** @brief Death case: projection invalid frame advance. */
 inline void case_projection_invalid_frame_advance() {
   using Op = Pullback::Interp::Op::ProjectStereographic;
   Op::Params params;
@@ -359,6 +376,7 @@ inline void case_projection_invalid_frame_advance() {
   Op::advance(state, params);
 }
 
+/** @brief Death case: projection invalid frame prepare. */
 inline void case_projection_invalid_frame_prepare() {
   using Op = Pullback::Interp::Op::ProjectStereographic;
   Op::Params params;
@@ -367,11 +385,13 @@ inline void case_projection_invalid_frame_prepare() {
   (void)Op::prepare(Pullback::Interp::FrameContext{}, params, state);
 }
 
+/** @brief Death case: sample plane nan. */
 inline void case_sample_plane_nan() {
   const float nan_value = opaque(std::numeric_limits<float>::quiet_NaN());
   (void)Pullback::Kernel::sample(Pullback::PlaneSample{}, nan_value, 1.0f);
 }
 
+/** @brief Death case: sample sphere nan. */
 inline void case_sample_sphere_nan() {
   const float nan_value = opaque(std::numeric_limits<float>::quiet_NaN());
   (void)Pullback::Kernel::sample(Pullback::SphereSample{}, nan_value);
@@ -536,14 +556,17 @@ template <ColumnReset Reset> inline void chain_column_rechecks_history() {
   program.prepare_column(ctx, ctx, 0.75f);
 }
 
+/** @brief Death case: chain column after advance. */
 inline void case_chain_column_after_advance() {
   chain_column_rechecks_history<ColumnReset::ADVANCE>();
 }
 
+/** @brief Death case: chain column after prepare. */
 inline void case_chain_column_after_prepare() {
   chain_column_rechecks_history<ColumnReset::PREPARE>();
 }
 
+/** @brief Death case: chain column after clear history. */
 inline void case_chain_column_after_clear_history() {
   chain_column_rechecks_history<ColumnReset::CLEAR_HISTORY>();
 }

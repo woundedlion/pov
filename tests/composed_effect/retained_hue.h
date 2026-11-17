@@ -69,6 +69,7 @@ struct RetainedHueFixture {
     reset_globals();
     return FX{};
   }
+  /** @brief Builds the retained hue fixture endpoints. */
   RetainedHueFixture() {
     using namespace Pullback;
     effect.init();

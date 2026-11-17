@@ -25,7 +25,9 @@ inline void init_particle_system_with_lifetime(float max_life) {
 
 /** @brief Pipeline stub for the particle-render lifetime death case. */
 struct DeathPlotPipeline {
+  /** @brief Accepts a spherical particle sample. */
   void plot(Canvas &, const math::Vector &, const Pixel &, float, float) {}
+  /** @brief Accepts a screen-space particle sample. */
   void plot(Canvas &, float, float, const Pixel &, float, float) {}
 };
 
@@ -51,6 +53,7 @@ inline void case_particle_lifetime_zero() {
   init_particle_system_with_lifetime(opaque(0.0f));
 }
 
+/** @brief Death case: particle friction nan. */
 inline void case_particle_friction_nan() {
   static uint8_t buf[4096];
   Arena arena(buf, sizeof(buf));
@@ -58,6 +61,7 @@ inline void case_particle_friction_nan() {
   ps.init(arena, opaque(std::numeric_limits<float>::quiet_NaN()));
 }
 
+/** @brief Death case: particle gravity nan. */
 inline void case_particle_gravity_nan() {
   static uint8_t buf[4096];
   Arena arena(buf, sizeof(buf));

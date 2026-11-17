@@ -11,7 +11,10 @@
 
 namespace hs_test::death_tests {
 
-/** @brief Builds a registration carrying only a name and stable ID. */
+/** @brief Builds a registration carrying only a name and stable ID.
+ * @param name Display name.
+ * @param stable_id Machine identity.
+ * @return Minimal registration record. */
 constexpr EffectRegistration named_registration(std::string_view name,
                                                 std::string_view stable_id) {
   EffectRegistration entry{};

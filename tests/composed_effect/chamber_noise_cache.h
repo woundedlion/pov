@@ -168,6 +168,7 @@ struct ChamberNoiseEndpointFixture {
     reset_globals();
     return FX{};
   }
+  /** @brief Builds fixture endpoints and rewrites their chart patches. */
   ChamberNoiseEndpointFixture() {
     using namespace Pullback;
     effect.init();

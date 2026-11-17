@@ -145,7 +145,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
   its effect roster inputs change, the archive structure and coverage gate
   using the pinned Node version. Every file is read as of `<tip>`. It also
   fails when the range adds an `HS_CHECK` whose text the base lacks, unless a
-  case in `tests/test_death.h` pins it or a `// no death case: <reason>`
+  case registered in `tests/death/registry.h` pins it or a `// no death case: <reason>`
   comment on its line or the line above waives it (a host-unreachable guard).
 - **`.githooks/pre-push`** — checks new guards in each pushed range the same
   way, then runs `tools/local_ci.sh --commit` on each pushed ref's tip

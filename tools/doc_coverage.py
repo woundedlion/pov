@@ -7,7 +7,8 @@ drops the exempt symbol classes below, and reports each remaining source
 location once (a template's member warns once per instantiation). Doxygen
 skips global symbols of a file with no `@file` block, so such files fail too.
 Doxygen never warns for an empty struct or a concept, so a source scan checks
-those for a preceding doc comment.
+those for a preceding doc comment. Doxygen does not warn for undocumented
+enumerators; their descriptions require source review.
 """
 
 from __future__ import annotations

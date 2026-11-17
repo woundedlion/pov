@@ -486,7 +486,9 @@ struct OctetFramework4 {
   }
 };
 
-/** @brief Monotone plane streams for periodic framework adapters. */
+/** @brief Monotone plane streams for periodic framework adapters.
+ * @tparam Count Number of plane event streams.
+ */
 template <size_t Count> struct PlaneStreams {
   static constexpr size_t STREAM_COUNT = Count; ///< Number of plane streams.
   static constexpr size_t GROUP_CAPACITY = 1; ///< One merge identity per group.

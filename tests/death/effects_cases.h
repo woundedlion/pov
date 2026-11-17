@@ -16,6 +16,7 @@ namespace hs_test::death_tests {
  * @tparam Extra Whether one unused descriptor is budgeted. */
 template <bool Extra>
 struct DeathRegistrationTraits : Pullback::ComposedTraits<32, GridSpaceSpec> {
+  /// Declared parameter capacity.
   static constexpr size_t PARAM_CAPACITY =
       Pullback::ComposedTraits<32, GridSpaceSpec>::PARAM_CAPACITY + Extra;
 };
@@ -27,16 +28,22 @@ struct DeathRegistration
     : ParamHost,
       Pullback::ComposedRegistration<DeathRegistration<ExtraCapacity>,
                                      DeathRegistrationTraits<ExtraCapacity>> {
+  /// Parameter capacity traits.
   using Traits = DeathRegistrationTraits<ExtraCapacity>;
+  /// Composed registration implementation.
   using Registration =
       Pullback::ComposedRegistration<DeathRegistration, Traits>;
   using ParamHost::register_animated_param;
   using ParamHost::register_animated_enum8_param;
   using ParamHost::set_last_parameter_group;
   using Registration::register_parameters;
+  /// Registered parameter values.
   typename Traits::Params params = GridSpace<32, 16>::initial_params();
+  /// Descriptor backing storage.
   ParamDef descriptors[Traits::PARAM_CAPACITY]{};
+  /// Qualified parameter name storage.
   typename Registration::Storage names;
+  /// Whether to add an unpredicted name allocation.
   bool extra_name = false;
 
   /** @brief Binds the declared descriptor capacity. */
@@ -86,6 +93,7 @@ inline void case_composed_registration_parameter_count() {
   effect.register_parameters();
 }
 
+/** @brief Confirms the shader-chain colorize stage before refusal probes. */
 inline void check_shader_chain_colorize_companion() {
   using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
   reset_globals();
@@ -101,6 +109,7 @@ inline void check_shader_chain_colorize_companion() {
   reset_globals();
 }
 
+/** @brief Death case: shader chain missing colorize. */
 inline void case_shader_chain_missing_colorize() {
   using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
   WB::FX effect;
@@ -155,6 +164,9 @@ inline void case_hyperlattice_cubic_trace_geometry() {
   (void)HyperLatticeDetail::trace_settings(frame, {});
 }
 
+/** @brief Creates an octet trace frame.
+ * @param effect Initialized HyperLattice effect.
+ * @return Frame with spatial octet defaults. */
 inline HyperLatticeDetail::FrameState hyperlattice_octet_frame(
     const hs_test::hyper_lattice_tests::HyperLatticeWhiteBox::Effect &effect) {
   using WB = hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
@@ -165,6 +177,7 @@ inline HyperLatticeDetail::FrameState hyperlattice_octet_frame(
   return frame;
 }
 
+/** @brief Confirms octet trace preparation accepts a valid frame. */
 inline void check_hyperlattice_trace_companion() {
   using WB = hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
   reset_globals();
@@ -177,6 +190,7 @@ inline void check_hyperlattice_trace_companion() {
   reset_globals();
 }
 
+/** @brief Death case: hyperlattice invalid trace settings. */
 inline void case_hyperlattice_invalid_trace_settings() {
   using WB = hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
   WB::Effect effect;
@@ -186,11 +200,13 @@ inline void case_hyperlattice_invalid_trace_settings() {
   (void)WB::prepare_traced(effect, frame);
 }
 
+/** @brief Death case: mindsplatter profile preset oob. */
 inline void case_mindsplatter_profile_preset_oob() {
   MindSplatter<96, 20> effect;
   effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
 }
 
+/** @brief Death case: mindsplatter profile preset uninitialized. */
 inline void case_mindsplatter_profile_preset_uninitialized() {
   MindSplatter<96, 20> effect;
   effect.profile_select_preset(opaque<size_t>(0));
@@ -285,6 +301,7 @@ inline void case_spherical_harmonics_invalid_morph_mode() {
     WB::step_timeline(effect, canvas);
 }
 
+/** @brief Death case: hankinsolids missing topology. */
 inline void case_hankinsolids_missing_topology() {
   using WB = effects_tests::HankinSolidsWhiteBox;
   hs_test::reset_globals();
@@ -293,6 +310,7 @@ inline void case_hankinsolids_missing_topology() {
   WB::draw_without_topology(effect);
 }
 
+/** @brief Death case: islamicstars build budget. */
 inline void case_islamicstars_build_budget() {
   configure_arenas_default();
   persistent_arena.allocate_n<uint8_t>(1);
@@ -300,6 +318,7 @@ inline void case_islamicstars_build_budget() {
   effects_tests::IslamicBuildProbe::check_build_budget(effect, 0);
 }
 
+/** @brief Death case: islamicstars bridge continuation. */
 inline void case_islamicstars_bridge_continuation() {
   effects_tests::IslamicBuildProbe::IS effect;
   effects_tests::IslamicBuildProbe::invalid_bridge_continuation(effect);
@@ -360,14 +379,18 @@ inline void case_hyperlattice_pattern_defaults_invalid() {
                            Effect::LatticeMode::SPATIAL_3D);
 }
 
+/** @brief Reaction lattice exposing initialization seams. */
 struct UninitializedReactionLattice
     : ReactionDiffusionBase<UninitializedReactionLattice, 32, 16> {
+  /** @brief Leaves lattice storage uninitialized. */
   void init() override {}
+  /** @brief Supplies the fixture render entry point. */
   void render(Canvas &) {}
   using ReactionDiffusionBase::orient_lattice;
   using ReactionDiffusionBase::init_lattice;
 };
 
+/** @brief Confirms a valid arena accepts reaction lattice initialization. */
 inline void check_reaction_lattice_arena_companion() {
   reset_globals();
   {
@@ -378,12 +401,14 @@ inline void check_reaction_lattice_arena_companion() {
   reset_globals();
 }
 
+/** @brief Death case: reaction lattice arena missing. */
 inline void case_reaction_lattice_arena_missing() {
   configure_arenas(0, 0, 0);
   UninitializedReactionLattice effect;
   effect.init_lattice();
 }
 
+/** @brief Death case: reaction lattice uninitialized. */
 inline void case_reaction_lattice_uninitialized() {
   UninitializedReactionLattice effect;
   auto lattice = effect.orient_lattice();

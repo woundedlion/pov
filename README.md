@@ -42,7 +42,7 @@ For local development:
    just install
    ```
 
-4. In daydream, run `npm ci`, then `python -m http.server 8000 --bind 127.0.0.1`, and open <http://localhost:8000>.
+4. In daydream, run `npm ci`, then `python -m http.server 8000 --bind 127.0.0.1`, and open <http://127.0.0.1:8000>.
 
 **Troubleshooting.** The WASM recipes load the Emscripten environment automatically; check `EMSDK` if your SDK lives outside `../emsdk`. If daydream's provenance test reports a bundle mismatch, rerun `just install` to refresh the engine and its provenance together. Documentation checks need the daydream checkout at the revision pinned in `tools/build_pins.py`.
 
@@ -1007,8 +1007,8 @@ changes; `npm run importmap` restores the all-CDN defaults.
 The generated integrity map covers the top-level libraries, the addons the app
 imports, and their relative static dependencies, including three.core.js.
 Integrity checks use each module's resolved URL. Import-map `integrity`
-is Chromium-only — Firefox and Safari ignore the key entirely, so SRI is no
-coverage at all there. A `Content-Security-Policy` meta tag, carried by
+is supported by current Chromium, Firefox and Safari. Browsers without support
+ignore the key, so SRI provides no coverage there. A `Content-Security-Policy` meta tag, carried by
 `index.html` and each tool page, bounds this on every browser
 by origin: script loads are restricted to `'self'` plus the CDN origins that
 page actually uses. The embedded import maps are authorized by their exact
@@ -1074,7 +1074,7 @@ The simulator is a static web app. Serve the daydream directory from any HTTP se
 
 ```bash
 python -m http.server 8000 --bind 127.0.0.1
-# open http://localhost:8000
+# open http://127.0.0.1:8000
 ```
 
 URL parameters control the initial state (mirrored back by `URLSync`, §7.4):
@@ -1144,11 +1144,10 @@ just test-target dynamo effects
 just test-target mobiusrings effects
 ```
 
-The native suite defaults to latitude profile 0. Configure with
-`cmake --preset tests -DHS_NATIVE_DISPLAY_PROFILE=1`, build `test_engine`, and
-run `test_engine plot_scan sdf` to exercise the physical latitude profile held
-green in CI (`tools/ci/p1_plot_scan.sh`). Other modules are qualified under
-profile 0; restore `0` for the default suite.
+The native suite defaults to latitude profile 0. Run
+`bash tools/ci/p1_plot_scan.sh` to build `test_engine` in its own
+`build/tests-p1` tree and run `plot_scan sdf` under physical latitude profile 1,
+as in CI's `thread-sanitizer` job. Other modules are qualified under profile 0.
 
 
 On Windows, the executables have an `.exe` suffix. With no module arguments, a local runner executes all its own tests; `--list` shows its modules. The per-effect white-box runners expose their portion of the existing `effects` module, including its `HS_EFFECTS_FULL` tier.
@@ -1186,7 +1185,7 @@ Unit coverage spans the math, geometry and memory core, color, easing and waves,
 
    - The scan covers column-0 void, bool, int and size_t definitions named `test_*`, `check_*`, `case_*`, `verify_*` and `expect_*` in `tests/*.h` and `tests/*.hpp`. It also covers `run_*_cases` and the named sweep drivers `smoke_one`, `determinism_one` and `clip_clear_parity_one`. Indented member definitions are outside the scan.
    - Every scanned case must be reachable from its module's `run_*_tests()` through a call chain or a file-scope reference. Off-roster headers and the named sweep drivers resolve against the shared test and tools corpus.
-   - Every case must reach an `HS_EXPECT*` or `static_assert` directly or through helpers. The death harness verifies `case_*` in `test_death.h` at runtime, so those cases only need to be reachable.
+   - Every case must reach an `HS_EXPECT*` or `static_assert` directly or through helpers. Death cases in `tests/death/*_cases.h` are checked against `tests/death/registry.h` by `tests/check_death_pins.py`; they are outside the `unit_case_calls` scan.
 
    There are no measured assertion floors or exact case-count pins to update when a test changes.
 3. Add the module name to `_hs_test_modules` in [`tests/CMakeLists.txt`](https://github.com/woundedlion/pov/blob/master/tests/CMakeLists.txt), which generates the one-CTest-test-per-module the CI shards target (`death` becomes its shards and census instead). `run_tests --check-modules` (the `unit_module_roster` test) fails if the CMake list and the roster diverge either way, so a module added to one but not the other can never run silently.

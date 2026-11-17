@@ -105,6 +105,7 @@ inline void case_transformer_pool_arena_reclaimed() {
   (void)p;
 }
 
+/** @brief Death case: transformer pinned owner order. */
 inline void case_transformer_pinned_owner_order() {
   configure_arenas_default();
   Timeline timeline;

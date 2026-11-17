@@ -198,14 +198,17 @@ composite_shell_layer(float t, float coverage, float brightness,
  * @param along Along-ray cell offset.
  * @param offset2 Squared cell offset.
  * @param a Squared ray length.
- * @param inverse_a Reciprocal ray-length estimate.
+ * @param inverse_a Reciprocal of a.
  * @param half_inverse_radius Reciprocal diameter.
  * @param radius Sphere radius in world units.
  * @param filtered Whether the footprint is filtered.
  * @param near Near ray bound.
  * @param far Far ray bound.
  * @param emit Layer sink.
- * @return Whether tracing may continue. */
+ * @return Whether tracing may continue.
+ * @tparam SHADED Whether shell incidence shades the layer.
+ * @tparam Emit Layer sink type.
+ */
 template <bool SHADED, typename Emit>
 __attribute__((always_inline)) inline bool emit_single_owner_shell(
     const PreparedPeriodicShells &prepared, float tau, float cell, float along,
@@ -250,7 +253,9 @@ __attribute__((always_inline)) inline bool emit_single_owner_shell(
 /** @brief Projects an ambient shell gradient into the view subspace.
  * @param camera Prepared embedding.
  * @param gradient Ambient gradient.
- * @return Squared projected length. */
+ * @return Squared projected length.
+ * @tparam DIMENSIONS Ambient dimension count.
+ */
 template <int DIMENSIONS>
 __attribute__((always_inline)) inline float
 shell_projected_length2(const Raycast::PreparedCamera &camera,
@@ -270,7 +275,11 @@ shell_projected_length2(const Raycast::PreparedCamera &camera,
  * @param offset Nearest-center residual.
  * @param spread Coordinate reach.
  * @param farthest Largest nearest-center residual.
- * @param candidate Candidate sink. */
+ * @param candidate Candidate sink.
+ * @tparam WIDE Whether to enumerate the full coordinate reach.
+ * @tparam AXES Transverse axis count.
+ * @tparam Candidate Candidate sink type.
+ */
 template <bool WIDE, size_t AXES, typename Candidate>
 __attribute__((always_inline)) inline void
 for_each_shell_neighbor(const float (&position)[AXES],
@@ -333,7 +342,9 @@ sort_shell_layers(ShellLayerStorage &storage, int count) {
       std::swap(storage.pending[slot - 1], storage.pending[slot]);
 }
 
-/** @brief Ray constants for one periodic-shell layer march. */
+/** @brief Ray constants for one periodic-shell layer march.
+ * @tparam DIMENSIONS Ambient dimension count.
+ */
 template <int DIMENSIONS> struct ShellMarchRay {
   const Raycast::PreparedCamera &camera; ///< Prepared view embedding.
   const float (&d_value)[DIMENSIONS];    ///< Ambient ray direction.
@@ -342,7 +353,7 @@ template <int DIMENSIONS> struct ShellMarchRay {
   int k;                                 ///< Dominant axis.
   float cell;                            ///< World cell size.
   float a;                               ///< Squared ray length.
-  float inverse_a;                       ///< Reciprocal ray-length estimate.
+  float inverse_a;                       ///< Reciprocal of a.
   float near;                            ///< Near ray bound.
   float far;                             ///< Far ray bound.
   float inverse_radius; ///< Reciprocal sphere radius for incidence.
@@ -358,7 +369,11 @@ template <int DIMENSIONS> struct ShellMarchRay {
  * @param reach2 Squared clearance bound.
  * @param storage Retained contributions.
  * @param count Number of retained contributions.
- * @param cutoff Overflow cutoff distance. */
+ * @param cutoff Overflow cutoff distance.
+ * @tparam DIMENSIONS Ambient dimension count.
+ * @tparam WIDE Whether candidates use overflow retention.
+ * @tparam SHADED Whether shell incidence shades the layer.
+ */
 template <int DIMENSIONS, bool WIDE, bool SHADED>
 __attribute__((always_inline)) inline void
 retain_shell_candidate(const PreparedPeriodicShells &prepared,
@@ -453,7 +468,9 @@ retain_shell_candidate(const PreparedPeriodicShells &prepared,
  * @param start Cell interval start.
  * @param end Cell interval end.
  * @param roots Receives an admitted tangent.
- * @return Filtered tangent coverage. */
+ * @return Filtered tangent coverage.
+ * @tparam DIMENSIONS Ambient dimension count.
+ */
 template <int DIMENSIONS>
 HS_O3_FN __attribute__((always_inline)) inline float
 admit_shell_tangent(const PreparedPeriodicShells &prepared,
@@ -514,7 +531,9 @@ admit_shell_tangent(const PreparedPeriodicShells &prepared,
  * @param end Cell interval end.
  * @param result Receives trace details and termination.
  * @param composite Accumulated color.
- * @return Whether tracing may continue. */
+ * @return Whether tracing may continue.
+ * @tparam DIMENSIONS Ambient dimension count.
+ */
 template <int DIMENSIONS>
 HS_O3_FN __attribute__((always_inline)) inline bool composite_shell_cell(
     const PreparedPeriodicShells &prepared,

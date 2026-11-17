@@ -62,7 +62,8 @@ inline constexpr ConwayGraph::EdgeSpec death_opleg_edge{
     .reseed = ConwayGraph::Reseed::NONE,
     .bridge = false};
 
-/** @brief Adds an event from a clear hook, violating the hook contract. */
+/** @brief Adds an event from a clear hook, violating the hook contract.
+ * @param ctx Timeline receiving the event. */
 inline void add_event_from_clear_hook(void *ctx) {
   static float value = 0.0f;
   static_cast<Timeline *>(ctx)->add(
@@ -157,6 +158,7 @@ inline void case_timeline_pinned_after_destroyed_predecessor() {
   tl.step(canvas);
 }
 
+/** @brief Death case: timeline pinned after cancelled perpetual. */
 inline void case_timeline_pinned_after_cancelled_perpetual() {
   Timeline tl;
   auto *predecessor = tl.add_get(
@@ -311,6 +313,7 @@ inline void case_mobiuswarp_evolving_copy_rewind_refill() {
   assigned.step(canvas);
 }
 
+/** @brief Death case: opleg rewind refill. */
 inline void case_opleg_rewind_refill() {
   static uint8_t seed_storage[64 * 1024], leg_storage[128 * 1024];
   Arena seed_arena(seed_storage, sizeof(seed_storage));
@@ -737,6 +740,7 @@ inline void case_timeline_double_construct() {
   (void)global_timeline_num_events;
 }
 
+/** @brief Death case: random walk nonfinite options. */
 inline void case_random_walk_nonfinite_options() {
   math::Orientation<> orientation;
   FastNoiseLite noise;
@@ -792,6 +796,7 @@ inline void case_bump_offset_outside_cap_distance() {
   (void)bump_field_with_y(math::Y_AXIS, params, opaque(0.25f));
 }
 
+/** @brief Death case: timeline add into live slot. */
 inline void case_timeline_add_into_live_slot() {
   Timeline timeline;
   float value = 0;

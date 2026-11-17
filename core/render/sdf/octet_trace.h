@@ -379,7 +379,9 @@ struct OctetWalk4 {
  * @param bounds Integer distance bounds.
  * @param threshold Support threshold in fixed-point units.
  * @param support2 Squared filtered support.
- * @param t Ray distance. */
+ * @param t Ray distance.
+ * @tparam CLASSES Retained crossing class count.
+ */
 template <size_t CLASSES>
 __attribute__((always_inline)) inline void
 retain_octet_crossing(const OctetWalk4 &state, float sign,
@@ -453,7 +455,9 @@ retain_octet_crossing(const OctetWalk4 &state, float sign,
  * @param flipped Flipped coordinate, or minus one for all positive.
  * @param sign Constrained coordinate sign.
  * @param pairs Owned line classes.
- * @return Whether the candidate budget was sufficient. */
+ * @return Whether the candidate budget was sufficient.
+ * @tparam CLASSES Retained crossing class count.
+ */
 template <size_t CLASSES>
 __attribute__((always_inline)) inline bool
 walk_octet_family(const OctetWalk4 &state, int flipped, float sign,

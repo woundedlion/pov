@@ -5,7 +5,9 @@
 #pragma once
 
 /** @file
- * @brief Death test-module entry point. */
+ * @brief Fail-fast traps and cross-process cold/warm effect determinism.
+ * @details Each case runs in a re-executed child. The parent requires an
+ * illegal-instruction status and a breadcrumb naming the exact guard. */
 
 #include "tests/death/process.h"
 

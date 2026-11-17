@@ -14,7 +14,9 @@
 
 namespace SDF {
 
-/** @brief Thickened cubic or hypercubic edges in ambient world units. */
+/** @brief Thickened cubic or hypercubic edges in ambient world units.
+ * @tparam Dimensions Ambient dimension count.
+ */
 template <int Dimensions> struct WireLattice {
   static_assert(Dimensions == 3 || Dimensions == 4);
   /// World-space query point: math::Vector in 3D, math::Vec4 in 4D.

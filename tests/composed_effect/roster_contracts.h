@@ -82,6 +82,7 @@ inline void test_composed_modulation_is_device_qualified() {
 #undef HS_COMPOSED_MODULATION
 }
 
+/** @brief MobiusGrid probe exposing parameters and the transition driver. */
 struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::params;
   using MobiusGrid<SMALL_W, SMALL_H>::run_transition;

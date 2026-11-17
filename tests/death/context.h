@@ -1,20 +1,11 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Death tests for the fail-fast (HS_CHECK / __builtin_trap) seams, plus
- * cross-process cold/warm effect determinism.
- *
- * Each case runs in a re-exec'd child (HS_DEATH_CHILD=harness,
- * HS_DEATH_CASE=<name>). The parent requires the illegal-instruction trap
- * status (SIGILL / STATUS_ILLEGAL_INSTRUCTION) and an HS_CHECK breadcrumb
- * naming the case's exact guard: under
- * -fsanitize-trap=undefined, UB lowers to the same instruction.
  */
 #pragma once
 
 /** @file
- * @brief Fail-fast case fixtures and definitions. */
+ * @brief Shared helpers and dependencies for fail-fast cases. */
 
 #include "core/animation/orientation.h"
 #include <array>
@@ -30,7 +21,7 @@
 #include <string>
 #include <utility>
 
-// Generated fail-fast site census: HS_CHECK, HS_AUDIT_CHECK, check_fail.
+// Generated fail-fast site census: HS_CHECK, HS_AUDIT_CHECK, HS_ASSERT_BLOCK_ALIVE, check_fail.
 #include "death_guard_sites.h"
 #include "tests/test_fixture.h"
 #include "tests/test_pullback.h"

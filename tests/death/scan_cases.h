@@ -109,6 +109,7 @@ scan_selector_index_fixture(const ScanSelectorIndexOptions &options) {
 /** @brief Radial surface family shared by the radial surface death cases. */
 using DeathRadialSurface = Scan::RadialSurface<4, 8>;
 
+/** @brief Death case: scan ring stack too many slots. */
 inline void case_scan_ring_stack_too_many_slots() {
   constexpr int W = 32, H = 16;
   const float KNOTS[4] = {0.0f, 0.01f, 0.0f, -0.01f};
@@ -124,6 +125,7 @@ inline void case_scan_ring_stack_too_many_slots() {
       [](int, const math::Vector &, Fragment &) {});
 }
 
+/** @brief Death case: scan ring stack too many rings. */
 inline void case_scan_ring_stack_too_many_rings() {
   constexpr int W = 32, H = 16;
   const float KNOTS[4] = {0.0f, 0.01f, 0.0f, -0.01f};
@@ -142,6 +144,7 @@ inline void case_scan_ring_stack_too_many_rings() {
       [](int, const math::Vector &, Fragment &) {}); // 256 > 255 -> trap
 }
 
+/** @brief Death case: scan ring stack callback ring. */
 inline void case_scan_ring_stack_callback_ring() {
   constexpr int W = 32, H = 16;
   SDF::DistortedRing ring(

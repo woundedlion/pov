@@ -11,6 +11,8 @@
 
 namespace hs_test::death_tests {
 
+/** @brief Builds one invalid recipe step.
+ * @param step Invalid operation to build. */
 inline void run_invalid_recipe_step(const Solids::OpStep &step) {
   static uint8_t a_buf[64 * 1024];
   static uint8_t b_buf[64 * 1024];
@@ -32,11 +34,13 @@ inline void case_solids_unknown_name() {
   (void)m.vertices.size();
 }
 
+/** @brief Death case: recipe bake wrong op. */
 inline void case_recipe_bake_wrong_op() {
   const MeshOps::RelaxBake BAKE{};
   run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, 0.0f, &BAKE});
 }
 
+/** @brief Death case: recipe twist wrong op. */
 inline void case_recipe_twist_wrong_op() {
   run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, opaque(0.1f)});
 }
@@ -46,6 +50,7 @@ inline void case_recipe_composite_in_primitive_steps() {
   run_invalid_recipe_step({Solids::Op::GYRO});
 }
 
+/** @brief Death case: recipe bake live iterations. */
 inline void case_recipe_bake_live_iterations() {
   const MeshOps::RelaxBake BAKE{};
   run_invalid_recipe_step({Solids::Op::RELAX, opaque(1.0f), 0.0f, &BAKE});

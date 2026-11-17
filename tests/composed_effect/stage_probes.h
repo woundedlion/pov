@@ -852,6 +852,7 @@ public:
     return p.level >= 0.0f && p.level <= 1.0f;
   }
 
+  /** @brief Constructs the fade choreography probe. */
   FadeChoreoProbe() : Choreography(W, H) {}
 
   /** @brief Starts the probe choreography. */
@@ -936,6 +937,7 @@ public:
     return p.level >= 0.0f && p.level <= 1.0f;
   }
 
+  /** @brief Constructs the lerp choreography probe. */
   LerpChoreoProbe() : Choreography(W, H) {}
 
   /** @brief Starts the probe choreography. */

@@ -127,13 +127,18 @@ inline void case_reaction_graph_node_index_out_of_range() {
 
 /** @brief Mutable copy of the generated compact graph for guard cases. */
 struct NeighborRunsFixture {
+  /// Mutable neighbor run table.
   ReactionGraph::NeighborRun runs[256];
+  /// Per-node run indices.
   uint8_t index[ReactionGraph::RD_N];
+  /** @brief Copies the generated run table and indices. */
   NeighborRunsFixture() {
     std::copy_n(ReactionGraph::neighbor_runs, ReactionGraph::NEIGHBOR_RUN_COUNT,
                 runs);
     std::copy_n(ReactionGraph::neighbor_run_index, ReactionGraph::RD_N, index);
   }
+  /** @brief Validates the mutable run table.
+   * @param count Number of runs to admit. */
   void validate(unsigned count = ReactionGraph::NEIGHBOR_RUN_COUNT) const {
     ReactionGraph::validate_neighbor_runs(runs, count, index);
   }
@@ -412,16 +417,19 @@ inline void case_spherical_field_infill_over_domain() {
   (void)layout.sample_count();
 }
 
+/** @brief Death case: latitude geometry degenerate height. */
 inline void case_latitude_geometry_degenerate_height() {
   math::LatitudeGeometry geometry(opaque(1), 0.1f, 3.0f);
   (void)geometry.row_to_phi(0);
 }
 
+/** @brief Death case: latitude geometry reversed span. */
 inline void case_latitude_geometry_reversed_span() {
   math::LatitudeGeometry geometry(16, opaque(2.0f), 1.0f);
   (void)geometry.row_to_phi(0);
 }
 
+/** @brief Death case: peirce invalid layout. */
 inline void case_peirce_invalid_layout() {
   (void)projections::peirce_projection(
       math::Vector(0, 1, 0), 0,

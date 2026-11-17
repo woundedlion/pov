@@ -40,7 +40,8 @@ inline void case_mesh_topology_end_face() { mesh_topology_range_fixture(3); }
 /** @brief Topology shading rejects a face beyond the table. */
 inline void case_mesh_topology_over_face() { mesh_topology_range_fixture(4); }
 
-/** @brief Draws valid timed edges before rejecting an out-of-range endpoint. */
+/** @brief Draws valid timed edges before rejecting an out-of-range endpoint.
+ * @param bad_start Whether the start endpoint is out of range. */
 inline void plot_column_edge_index_fixture(bool bad_start) {
   constexpr int W = 32, H = 16;
   DeathEffect fx(W, H);
@@ -90,7 +91,7 @@ struct OverCapacityMockMesh {
      * @return Always 1.
      */
     size_t size() const { return 1; }
-  } vertices;
+  } vertices;     ///< Fixed vertex view.
   uint8_t fc[1];  /**< Face-counts data: a single 2-gon face. */
   uint16_t fi[2]; /**< Face-index data; second entry is over-capacity. */
   /**
@@ -252,6 +253,7 @@ inline void case_raster_default_policy_balanced_sampling() {
                           {.balanced_sampling = opaque(true)});
 }
 
+/** @brief Death case: raster empty path null shader. */
 inline void case_raster_empty_path_null_shader() {
   ArenaVector<Fragment> points;
   points.bind(scratch_arena_a, 1);
@@ -261,6 +263,7 @@ inline void case_raster_empty_path_null_shader() {
   Plot::rasterize<32, 16>(pipe, canvas, points, FragmentShaderRef{});
 }
 
+/** @brief Death case: raster single nonfinite point. */
 inline void case_raster_single_nonfinite_point() {
   ArenaVector<Fragment> points;
   points.bind(scratch_arena_a, 1);
@@ -319,6 +322,7 @@ inline void case_feedback_downsample_indivisible() {
   pipe.begin_frame(c, 1.0f);
 }
 
+/** @brief Death case: feedback uncached scratch budget. */
 inline void case_feedback_uncached_scratch_budget() {
   DeathEffect fx;
   {
@@ -346,14 +350,19 @@ inline math::Vector death_feedback_turn(const math::Vector &v,
 
 /** @brief A lit 32x16 feedback pipeline whose frames split at column time. */
 struct DeathSplitFeedback {
+  /// Feedback terminal.
   using Terminal = Filter::Pixel::Feedback<32, 16>;
+  /// Feedback frame pipeline.
   using Frames = Pipeline<32, 16, Terminal>;
+  /// Space warp applied to feedback history.
   ::Feedback::Style style = [] {
     ::Feedback::Style s{};
     s.space_fn = &death_feedback_turn;
     return s;
   }();
+  /// Framebuffer owner.
   DeathEffect fx{32, 16, pipeline_config<Frames>()};
+  /// Prepared feedback pipeline.
   Frames pipe{Terminal(style)};
 
   /** @brief Turns on column time and lights two frames of history. */
@@ -416,6 +425,7 @@ inline void case_world_trails_plot_without_storage() {
               [](const math::Vector &, const Pixel &, float, float) {});
 }
 
+/** @brief Death case: plot open loop seam. */
 inline void case_plot_open_loop_seam() {
   constexpr int W = 32, H = 16;
   Fragment seam;
@@ -427,6 +437,7 @@ inline void case_plot_open_loop_seam() {
       {.capacity = 2, .loop_seam = &seam}, [](Fragments &) {});
 }
 
+/** @brief Death case: raster point projection pair mismatch. */
 inline void case_raster_point_projection_pair_mismatch() {
   float rows[3] = {};
   float cols[3] = {};
@@ -434,6 +445,7 @@ inline void case_raster_point_projection_pair_mismatch() {
                                        {cols, opaque<size_t>(2)});
 }
 
+/** @brief Death case: raster nonfinite point. */
 inline void case_raster_nonfinite_point() {
   constexpr int W = 32, H = 16;
   configure_arenas_default();
@@ -452,6 +464,7 @@ inline void case_raster_nonfinite_point() {
                         [](const math::Vector &, Fragment &) {});
 }
 
+/** @brief Death case: raster edge flags short. */
 inline void case_raster_edge_flags_short() {
   constexpr int W = 32, H = 16;
   configure_arenas_default();
@@ -649,6 +662,7 @@ inline void case_planar_chords_unprepared() {
   chords.draw_closed(sink, canvas, points, 2, math::Basis{}, Color4{}, shader);
 }
 
+/** @brief Death case: planar chords stale clip. */
 inline void case_planar_chords_stale_clip() {
   static uint8_t arena_buf[Plot::PlanarChords<16, 8>::storage_bytes(2)];
   Arena arena(arena_buf, sizeof(arena_buf));
@@ -772,6 +786,7 @@ inline void case_pipeline_ref_erase_not_prepared() {
   (void)erased;
 }
 
+/** @brief Death case: star mismatched chart. */
 inline void case_star_mismatched_chart() {
   using Star = Plot::Star<Plot::PlanarProjection>;
   Fragments points;
@@ -783,6 +798,7 @@ inline void case_star_mismatched_chart() {
                                wrong);
 }
 
+/** @brief Death case: star mismatched radius cache. */
 inline void case_star_mismatched_radius_cache() {
   using Star = Plot::Star<Plot::PlanarProjection>;
   Fragments points;
@@ -791,6 +807,7 @@ inline void case_star_mismatched_radius_cache() {
                          Star::step_trig(5));
 }
 
+/** @brief Death case: star mismatched step cache. */
 inline void case_star_mismatched_step_cache() {
   using Star = Plot::Star<Plot::PlanarProjection>;
   Fragments points;
@@ -799,6 +816,7 @@ inline void case_star_mismatched_step_cache() {
                          Star::step_trig(6));
 }
 
+/** @brief Death case: screen storage twice. */
 inline void case_screen_storage_twice() {
   static uint8_t storage[8192];
   Arena arena(storage, sizeof(storage));
@@ -807,6 +825,7 @@ inline void case_screen_storage_twice() {
   stage.init_storage(arena);
 }
 
+/** @brief Death case: world storage twice. */
 inline void case_world_storage_twice() {
   static uint8_t storage[8192];
   Arena arena(storage, sizeof(storage));
@@ -815,6 +834,7 @@ inline void case_world_storage_twice() {
   stage.init_storage(arena);
 }
 
+/** @brief Death case: feedback storage twice. */
 inline void case_feedback_storage_twice() {
   static uint8_t storage[8192];
   Arena arena(storage, sizeof(storage));
@@ -824,6 +844,7 @@ inline void case_feedback_storage_twice() {
   stage.init_storage(arena);
 }
 
+/** @brief Death case: direct sink wrong dimensions. */
 inline void case_direct_sink_wrong_dimensions() {
   hs_test::StubEffect effect(16, 8);
   Canvas canvas(effect);
@@ -831,6 +852,7 @@ inline void case_direct_sink_wrong_dimensions() {
   sink.prepare(canvas);
 }
 
+/** @brief Death case: direct sink unprepared plot. */
 inline void case_direct_sink_unprepared_plot() {
   hs_test::StubEffect effect(16, 8);
   Canvas canvas(effect);
@@ -838,6 +860,7 @@ inline void case_direct_sink_unprepared_plot() {
   sink.plot(canvas, 2.0f, 2.0f, Pixel(65535, 0, 0), 0, 1);
 }
 
+/** @brief Death case: direct sink unprepared integer plot. */
 inline void case_direct_sink_unprepared_integer_plot() {
   hs_test::StubEffect effect(16, 8);
   Canvas canvas(effect);
@@ -845,6 +868,7 @@ inline void case_direct_sink_unprepared_integer_plot() {
   sink.plot(canvas, 2, 2, Pixel(65535, 0, 0), 0, 1);
 }
 
+/** @brief Death case: vertex replicate short input. */
 inline void case_vertex_replicate_short_input() {
   std::array<math::Vector, 2> vertices{};
   Filter::World::VertexReplicate<3> replicate(vertices);

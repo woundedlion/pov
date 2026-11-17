@@ -601,7 +601,7 @@ public:
   }
 
   /**
-   * @brief Index of the effect's currently selected preset.
+   * @brief Displayed preset index: the outgoing preset until a fade's midpoint.
    * @return The index, or -1 when no effect is set.
    * @details Also moves with engine-driven preset advancement, without any JS
    *          call.
@@ -671,8 +671,9 @@ public:
    * @return true when the preset is the active one already or was applied;
    *         false when no effect is set, the index is malformed or out of
    *         range, or the effect refused the preset.
-   * @details Leaves choreography running. A request for the active index is a
-   *          success no-op.
+   * @details A request is a success no-op only when the index is both committed
+   *          and displayed. Otherwise it snaps to the requested preset and
+   *          cancels the transition, including during a fade.
    */
   bool synchronizePreset(double index) {
     if (!current_effect || !preset_index_accepted(index, "synchronizePreset") ||

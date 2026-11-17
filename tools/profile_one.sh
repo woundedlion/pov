@@ -27,7 +27,8 @@
 #   HS_PROFILE_DEEP=1       enable the HS_PROFILE_DEEP sub-scopes; writes _deep.log
 #   HS_PIO_JOBS=<n>         `pio run -j` for the builds (tools/fw_cache.sh)
 #   HS_PROFILE_TREE=<path>  checkout to build (default: the one holding this script)
-#   HS_PROFILE_OUT=<path>   capture log path; all per-run artifacts share its stem
+#   HS_PROFILE_OUT=<path>   capture log path; relative paths resolve against the profiled checkout
+#                           all per-run artifacts share its stem
 #   HS_PROFILE_LABEL=<name> label in the default log stem before the build tag
 #   HS_PROFILE_ARTIFACTS_KEEP=<n> artifact directories kept, including this capture's (100)
 #   HS_PROFILE_EXPECT_SHAPE=<name> require "Spawning Shape: <name>" in the capture

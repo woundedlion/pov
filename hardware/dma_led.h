@@ -115,16 +115,16 @@ public:
   }
 
   /**
-   * @brief Surfaces a permanently wedged DMA channel from the overrun-drop path.
+   * @brief Traps once a polled in-flight transfer outlives the watchdog.
    * @details Traps once the in-flight transfer outlives the watchdog.
    */
   void check_stale_transfer() {
     if (transfer_complete.load(std::memory_order_relaxed))
       return;
-    HS_CHECK(!dma::transfer_stale(transfer_start_us, micros(),
-                                  dma::TRANSFER_WATCHDOG_US),
-             "DMA channel wedged — in-flight transfer outlived the watchdog on "
-             "the overrun-drop path; completion ISR never fired");
+    HS_CHECK(
+        !dma::transfer_stale(transfer_start_us, micros(),
+                             dma::TRANSFER_WATCHDOG_US),
+        "DMA channel wedged — in-flight transfer outlived the watchdog; completion ISR never fired");
   }
 
 private:
