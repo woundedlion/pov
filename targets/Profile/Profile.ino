@@ -661,6 +661,13 @@ template <typename E> void select_profile_preset(E &effect) {
 }
 #endif
 
+#ifdef HS_PROFILE_PRESET_TRANSITION
+template <typename E> void begin_profile_preset_transition(E &effect) {
+  if constexpr (requires { effect.profile_begin_preset_transition(); })
+    effect.profile_begin_preset_transition();
+}
+#endif
+
 Effect *construct_profiled() {
   using Target = ProfiledEffect<CANVAS_W, CANVAS_H>;
   auto *e =
@@ -681,6 +688,9 @@ Effect *construct_profiled() {
 #endif
 #ifdef HS_PROFILE_MODULATION_SOURCE
   e->configure_modulation_profile();
+#endif
+#ifdef HS_PROFILE_PRESET_TRANSITION
+  begin_profile_preset_transition(*e);
 #endif
   return e;
 }

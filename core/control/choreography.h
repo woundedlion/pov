@@ -137,12 +137,14 @@ public:
     HS_CHECK(this->selectPreset(index), "profile preset selection failed");
     if constexpr (has_hook<Control::ChoreographyHook::AFTER_PROFILE_PRESET>())
       invoke_hook<Control::ChoreographyHook::AFTER_PROFILE_PRESET>();
-#ifdef HS_PROFILE_PRESET_TRANSITION
-    hold_initial_preset(0);
-#endif
     hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
             static_cast<unsigned>(authored_preset_count()));
   }
+
+#ifdef HS_PROFILE_PRESET_TRANSITION
+  /** @brief Starts the selected preset's segue on the first frame. */
+  void profile_begin_preset_transition() { hold_initial_preset(0); }
+#endif
 #endif
 
   /**
