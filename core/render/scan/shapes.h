@@ -371,8 +371,8 @@ struct RingGroup {
         const float end = origin + (side < 0 ? -inner : outer) + ANGLE_PAD;
         if (end < 0.0f || start > math::PI_F)
           continue;
-        auto rows = SDF::phi_bounds_to_rows<H>(
-            std::max(0.0f, start - 1e-5f), std::min(math::PI_F, end + 1e-5f));
+        auto rows = SDF::phi_bounds_to_rows<H>(fmaxf(0.0f, start - 1e-5f),
+                                               fminf(math::PI_F, end + 1e-5f));
         if (rows.y_max < y_lo || rows.y_min > y_hi)
           continue;
         while (rows.y_min <= rows.y_max && !inside(rows.y_min))
