@@ -98,7 +98,7 @@ class PhaseModulationStack {
            !layer.cube_current->linear_data;
   }
 
-  HS_HOT_FLASH_MEMBER static void
+  HS_HOT_ITCM_MEMBER static void
   apply_byte_cubes(ColorSample &sample, const PhaseModulationStack &stack) {
     const auto tap =
         Pattern::prepare_sphere_lut_sample_unchecked(sample.field.sphere);
@@ -153,7 +153,7 @@ public:
   /** @brief Shades a field using its shared palette base and bound phase sources.
    * @param field Pixel coordinates and coverage.
    * @return Final straight-alpha color. */
-  HS_HOT_FLASH_MEMBER Color4 shade(const FieldSample &field) const {
+  HS_HOT_ITCM_MEMBER Color4 shade(const FieldSample &field) const {
     if (cached_base) {
       ColorSample sample;
       GeneratedPaletteCore<true, true, false>::apply_shared_base_ready(
