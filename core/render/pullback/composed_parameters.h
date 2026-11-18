@@ -299,8 +299,7 @@ template <> struct OuterCameraState<true> {
   /** @brief Absorbs the walk's frame delta and rebuilds the inverse camera.
    * @tparam Spin Whether the camera spins about Y.
    * @param wander Fraction of the walk delta absorbed. */
-  template <bool Spin>
-  HS_O3_FN HS_HOT_INLINE void update_camera_frame(float wander) {
+  template <bool Spin> HS_FLASH_MEMBER void update_camera_frame(float wander) {
     outer_wander = absorb_wander_step(outer_walk.get(), outer_walk_previous,
                                       wander, outer_wander);
     if constexpr (Spin)
@@ -336,8 +335,7 @@ template <> struct ProjectionWalkState<true> {
   /** @brief Absorbs the walk's frame delta and rebuilds the inverse frame.
    * @param wander Fraction of the walk delta absorbed.
    * @param tilted Whether the frame spins on projection_frame_base(true). */
-  HS_O3_FN HS_HOT_INLINE void update_projection_frame(float wander,
-                                                      bool tilted) {
+  HS_FLASH_MEMBER void update_projection_frame(float wander, bool tilted) {
     projection_wander =
         absorb_wander_step(projection_walk.get(), projection_walk_previous,
                            wander, projection_wander);
