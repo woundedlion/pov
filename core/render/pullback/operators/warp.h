@@ -163,20 +163,26 @@ struct PreparedWaveShear {
   float phase;                     ///< Normalized loop phase.
 };
 
+/** @brief Edge-distance admission for an operator with envelope modes. */
+struct WarpEnvelopeEdgeDistance {
+  /** @brief Whether the selected envelope consumes projection edge distance.
+   * @tparam Params Operator parameter type.
+   * @param params Operator parameters.
+   * @return True for edge-fade modes. */
+  template <typename Params>
+  static bool requires_edge_distance(const Params &params) {
+    return warp_requires_edge_distance(params.envelope);
+  }
+};
+
 /** @brief PLANE endomorphism: the travelling sine shear. */
-struct WarpWaveShear : PhaseClockModel<WarpPhaseState> {
+struct WarpWaveShear : PhaseClockModel<WarpPhaseState>,
+                       WarpEnvelopeEdgeDistance {
   static constexpr const char *ID = "warp.wave-shear.v2";
   static constexpr const char *NAME = "Wave Shear";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = WaveShearWarpParams;
-
-  /** @brief Whether the selected topology consumes projection edge distance.
-   * @param params Operator parameters.
-   * @return True for edge-fade topology. */
-  static bool requires_edge_distance(const Params &params) {
-    return warp_requires_edge_distance(params.envelope);
-  }
   using Prepared = PreparedWaveShear;
 
   /** @brief The factor covers the approximate sine.
@@ -249,19 +255,13 @@ struct PreparedVectorNoiseWarp {
 };
 
 /** @brief PLANE endomorphism: the noise-vector displacement. */
-struct WarpVectorNoise : PhaseClockModel<NoisePhaseState> {
+struct WarpVectorNoise : PhaseClockModel<NoisePhaseState>,
+                         WarpEnvelopeEdgeDistance {
   static constexpr const char *ID = "warp.vector-noise.v2";
   static constexpr const char *NAME = "Vector Noise";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = VectorNoiseWarpParams;
-
-  /** @brief Whether the selected topology consumes projection edge distance.
-   * @param params Operator parameters.
-   * @return True for edge-fade topology. */
-  static bool requires_edge_distance(const Params &params) {
-    return warp_requires_edge_distance(params.envelope);
-  }
   using Prepared = PreparedVectorNoiseWarp;
 
   /** @brief The factor covers both noise channels with headroom.
