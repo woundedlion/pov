@@ -508,7 +508,7 @@ protected:
   }
 
   /** Live parameters; the registered sliders write straight into these. */
-  Params params = initial_params_of();
+  Params params = runtime_initial_params();
   Transition transition; ///< The in-flight automatic preset transition.
   Timeline timeline;     ///< Runs the effect's animations.
 
@@ -631,7 +631,7 @@ private:
 
   /** @brief Startup parameters: the `INITIAL_PARAMS` hook when bound,
       else the first preset row's parameters. */
-  HS_SIZE_FLASH_MEMBER static constexpr Params initial_params_of() {
+  static constexpr Params initial_params_of() {
     if constexpr (has_hook<Control::ChoreographyHook::INITIAL_PARAMS>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
           Control::ChoreographyHook::INITIAL_PARAMS>();
@@ -645,11 +645,21 @@ private:
       return Params{};
   }
 
+  /** @brief Materializes the authored startup values for a live effect.
+   * @return The startup parameters. */
+  HS_SIZE_FLASH_MEMBER static Params runtime_initial_params() {
+    return initial_params_of();
+  }
+
   /** @brief Parameters for the preset at @p index: the bound `PRESET_PARAMS`
       hook, else the preset row's. */
   Params preset_target(size_t index) {
     if constexpr (has_hook<Control::ChoreographyHook::PRESET_PARAMS>())
       return invoke_hook<Control::ChoreographyHook::PRESET_PARAMS>(index);
+    else if constexpr (!has_hook<Control::ChoreographyHook::PRESET_ROW>() &&
+                       !requires { Derived::PRESETS; } &&
+                       preset_count_of() == 1)
+      return runtime_initial_params();
     else
       return preset_row(index).params;
   }

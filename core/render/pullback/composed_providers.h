@@ -450,7 +450,8 @@ struct SurfaceProvider {
    * @return Transfer curves, or null for canonical evaluation. */
   HS_HOT_INLINE static const SphereAnimation::RadialTables *
   radial_tables(const FrameState &frame)
-    requires(Binding::Spec::RIPPLE_RADIAL_TABLE)
+    requires(!requires { Binding::Spec::RIPPLE_RADIAL_TABLE; } ||
+             Binding::Spec::RIPPLE_RADIAL_TABLE)
   {
     const auto &resource = frame.resources.template get<Key>();
     return resource.radial_fraction >= 0.0f ? resource.radial_tables : nullptr;

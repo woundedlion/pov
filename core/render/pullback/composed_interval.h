@@ -117,7 +117,7 @@ public:
             constant_families |= 1u << family;
           ++family;
         });
-    b.params.visit([&]<typename Resource>(const auto &) {
+    b.params.visit([&]<typename Resource>(const auto &) HS_HOT_INLINE {
       auto &delta = deltas.template get<Resource::KEY>();
       const auto &start = a.resources.template get<Resource::KEY>();
       const auto &end = b.resources.template get<Resource::KEY>();
