@@ -468,7 +468,7 @@ def main(argv=None):
     else:
         dirs = default_candidates()
     if not dirs:
-        print("no candidate folders found (pass them as args)")
+        print("no candidate folders found (pass them as args)", file=sys.stderr)
         return 1
 
     R = {}
@@ -488,7 +488,7 @@ def main(argv=None):
             source[name] = d
             R[name] = analyze(f)
         except ValueError as exc:
-            print(exc)
+            print(exc, file=sys.stderr)
             return 1
         R[name]["drc"] = run_drc(f)
 

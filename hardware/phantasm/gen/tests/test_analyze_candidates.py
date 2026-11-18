@@ -400,6 +400,7 @@ class MainTests(unittest.TestCase):
         output = self.emitted(emit)
         self.assertEqual(result, 1)
         self.assertIn("unrouted critical nets", output)
+        self.assertIs(emit.call_args.kwargs["file"], sys.stderr)
         self.assertNotIn("PAIR SKEW", output)
         self.assertNotIn("SIGNAL-INTEGRITY SCORE", output)
         run_drc.assert_not_called()
