@@ -134,7 +134,11 @@ inline std::vector<Pixel> render_stub_frame(SetupFn &&setup, DrawFn &&draw) {
   return out;
 }
 
-/** @brief Renders a draw with the default stub configuration. */
+/** @brief Renders a draw with the default stub configuration.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param draw Callable `(Pipeline<W, H> &, Canvas &)`.
+ * @return Displayed frame. */
 template <int W, int H, typename DrawFn>
 inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
   return render_stub_frame<W, H>([](StubEffect &) {},
