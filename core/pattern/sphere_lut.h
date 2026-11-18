@@ -8,6 +8,7 @@
 #include "core/math/cube_projection.h"
 #include <span>
 #include <cstdint>
+#include <cstring>
 
 /** @file sphere_lut.h
  * @brief Reusable signed scalar cube storage for sphere fields. */
@@ -68,6 +69,18 @@ struct SphereLutSample {
   int offset;       ///< Lower-left tap's offset within the table.
   float x_fraction; ///< Horizontal interpolation fraction.
   float y_fraction; ///< Vertical interpolation fraction.
+
+  /** @brief Tests the four signed-byte taps used by this bilinear sample.
+   * @param a First cube's face-major data.
+   * @param b Second cube's face-major data.
+   * @return Whether interpolation uses identical inputs. */
+  HS_HOT_INLINE bool same_byte_corners(const int8_t *a, const int8_t *b) const {
+    a += offset;
+    b += offset;
+    constexpr int stride = SphereLutView::FACE_STEPS;
+    return std::memcmp(a, b, 2) == 0 &&
+           std::memcmp(a + stride, b + stride, 2) == 0;
+  }
 
   /** @brief Interpolates four taps in a face-major table.
    * @param table Float or signed-byte cube data.
