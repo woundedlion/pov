@@ -1,12 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **41 effects in the Phantasm image**, captured on
+On-device timing for the **42 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each display window uses one 288×144 image quadrant (about 10,368 pixels).
 MeshFeedback renders the full 41,472-pixel canvas for feedback. The 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Shipping reports cover all 41 effects: 41 completed captures.
+Shipping reports cover all 42 effects with 42 completed captures.
 
 Recorded capture revisions retain their original IDs. The
 [source revision crosswalk](source_revisions.json) preserves each one-to-one
@@ -70,6 +70,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Ship board | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|---|
+| [RiverStones](shipping/profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🔴 102.670 | 120.350 | — | 🔴 304/304 (100.00%) | — | ? | — | COM3 | ship 2026-11-18 08:46 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-11-17.md) / [O3](O3/profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 57.095 (16) | 🟢 0/4895 (0.00%) | 🟢 0/4895 (0.00%) | +28,528 B | +9,456 B | COM3 | ship 2026-11-17 09:09<br>O3 2026-11-17 10:34 |
 | [GridWarp](shipping/profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | — | 🟢 0/479 (0.00%) | — | — | — | COM3 | ship 2026-11-17 09:41 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-11-17.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 56.216 | 85.379 | 🔴 79.81 | 🟢 0/959 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | COM4 | ship 2026-11-17 09:39<br>O3 2026-08-26 02:45 |
@@ -112,7 +113,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-11-17.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) ● | `pf_draw_rings` | 🟢 25.420 | 19.712 | 🟢 10.77 | 🟢 0/479 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | COM3 | ship 2026-11-17 08:50<br>O3 2026-08-26 01:32 |
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-11-17.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § ● | `sh_rasterize`<br>worst: l=4, m=4, 12.841 ms / 16 fps | 🟢 12.841 (24) | 21.305 | 🟢 11.70 (24) | 🟢 0/1535 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | COM4 | ship 2026-11-17 09:31<br>O3 2026-08-26 01:57 |
 
-● captures updated 2026-11-17.
+● captures updated 2026-11-17, 2026-11-18.
 
 Shipping results use only the authored show budget, including in-show transitions.
 Setup frame 1 remains separate. Post-show capture padding is excluded from every
