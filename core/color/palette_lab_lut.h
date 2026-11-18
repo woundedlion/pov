@@ -155,14 +155,12 @@ struct PaletteLabLutBase {
     hue_cos_sin(hue, cosine, sine);
     OKLab lab =
         rotate_chroma(PaletteLabLutBase::sample(time, value), cosine, sine);
-    LinRGB raw = oklab_to_linear_rgb(lab);
+    const LinRGB raw = oklab_to_linear_rgb(lab);
     if (PaletteLabLutBase::near_gamut_gate(raw) && time.canonical_base &&
         time.canonical_base->palette_from && time.canonical_base->palette_to) {
       return PaletteLabLutBase::canonical_hue_rgb(time, value, cosine, sine);
     }
-    if (!linear_rgb_in_gamut(raw.r, raw.g, raw.b))
-      raw = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
-    return raw;
+    return gamut_map_lut(raw, lab);
   }
 
   /** @brief Finishes a marked hue cell from its perceptual base.

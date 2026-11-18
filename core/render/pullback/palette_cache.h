@@ -82,13 +82,10 @@ HS_HOT_ITCM_MEMBER inline bool try_finish_palette_lab(OKLab lab, float hue,
     return true;
   }
   const auto lab_value = rotated_palette_lab(lab, hue, lift);
-  auto output = oklab_to_linear_rgb(lab_value);
-  if (near_palette_gamut_gate(output))
+  const auto raw = oklab_to_linear_rgb(lab_value);
+  if (near_palette_gamut_gate(raw))
     return false;
-  if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
-    HS_PROFILE_DEEP(gamut_clip);
-    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab_value));
-  }
+  auto output = gamut_map_lut(raw, lab_value);
   if (gain != 1.0f) {
     apply_brightness_gain(output, gain);
   }

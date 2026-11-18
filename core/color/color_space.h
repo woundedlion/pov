@@ -1077,18 +1077,24 @@ HS_HOT_ITCM_MEMBER inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
 }
 
 /**
- * @brief Converts OKLab to linear RGB with tabulated gamut clipping.
+ * @brief Applies tabulated gamut clipping to a converted OKLab color.
+ * @param raw Unmapped linear RGB for @p lab.
  * @param lab Source color.
  * @return Linear RGB on or inside the tabulated boundary (may sit a hair past
  *         the cube; callers still clamp).
  */
+HS_HOT_INLINE inline LinRGB gamut_map_lut(LinRGB raw, const OKLab &lab) {
+  if (linear_rgb_in_gamut(raw.r, raw.g, raw.b))
+    return raw;
+  HS_PROFILE_DEEP(gamut_clip);
+  return oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
+}
+
+/** @brief Converts OKLab to linear RGB with tabulated gamut clipping.
+ * @param lab Source color.
+ * @return Gamut-mapped linear RGB. */
 inline LinRGB oklab_to_linear_rgb_lut_gamut(OKLab lab) {
-  LinRGB output = oklab_to_linear_rgb(lab);
-  if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {
-    HS_PROFILE_DEEP(gamut_clip);
-    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
-  }
-  return output;
+  return gamut_map_lut(oklab_to_linear_rgb(lab), lab);
 }
 
 /**

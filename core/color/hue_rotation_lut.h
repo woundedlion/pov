@@ -150,12 +150,7 @@ HS_FLASH_INLINE inline Pixel rotate_hue_node(const OKLab &lab, float cosine,
                                              float sine, LinRGB &raw) {
   const auto rotated = rotate_chroma(lab, cosine, sine);
   raw = oklab_to_linear_rgb(rotated);
-  LinRGB mapped = raw;
-  if (!linear_rgb_in_gamut(raw.r, raw.g, raw.b)) {
-    HS_PROFILE_DEEP(gamut_clip);
-    mapped = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(rotated));
-  }
-  return linrgb_to_pixel(mapped);
+  return linrgb_to_pixel(gamut_map_lut(raw, rotated));
 }
 
 /**
