@@ -180,7 +180,7 @@ class OrderedModulationKernel {
     }
     const uint8_t i = source_count++;
     HS_AUDIT_CHECK(i < SOURCE_CAPACITY);
-    sources[i] = {&value, type, peer};
+    sources[i] = {{&value}, type, peer};
     uses_cube |= type != SourceKind::DIRECT;
     return i;
   }
