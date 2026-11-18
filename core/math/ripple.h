@@ -75,14 +75,19 @@ HS_HOT_INLINE inline bool contains(const Wave &wave, float cosine) {
  * @param wave Wave shape and amplitude.
  * @param distance Source distance in radians.
  * @param phase Wavefront distance in radians.
+ * @param half_width Prepared wavelet half-width.
  * @return Signed angular displacement. */
 HS_HOT_INLINE inline float angle_at_distance(const Wave &wave, float distance,
-                                             float phase) {
+                                             float phase, float half_width) {
   float dist_from_peak = distance - phase;
-  float half_width = wave.half_width();
   float t = (dist_from_peak / half_width) * 2.0f;
   return wave.amplitude * (1.0f - t * t) *
          math::fast_expf(-0.5f * t * t - wave.decay * distance);
+}
+
+HS_HOT_INLINE inline float angle_at_distance(const Wave &wave, float distance,
+                                             float phase) {
+  return angle_at_distance(wave, distance, phase, wave.half_width());
 }
 
 /** @brief Rotates around a normalized axis with the ripple angle policy.
@@ -144,22 +149,35 @@ struct RadialTransfer {
   float path = 0.0f;  ///< Absolute angular travel.
 };
 
+/** @brief Angular support and wavelet width at the current column time. */
+struct AngularSupport {
+  float near;       ///< Minimum radial distance, in radians.
+  float far;        ///< Maximum radial distance, in radians.
+  float half_width; ///< Wavelet width scale, in radians.
+
+  static AngularSupport prepare(const Wave &wave) {
+    const float half = wave.half_width();
+    return {wave.phase - 2.0f * half, wave.phase + 2.0f * half, half};
+  }
+};
+
 /** @brief Advances one angularly supported wave, rejecting pole crossings.
  * @param wave Wave shape and support.
  * @param distance Current radial distance, updated in place.
  * @param angle Accumulated signed rotation.
  * @param path Accumulated absolute angular travel.
  * @param track_path Whether to accumulate travel.
+ * @param prepared Optional precomputed angular support.
  * @return Whether the resulting distance avoids both poles. */
-HS_HOT_INLINE inline bool radial_step(const Wave &wave, float &distance,
-                                      float &angle, float &path,
-                                      bool track_path) {
-  const float half_width = wave.half_width();
-  if (wave.amplitude <= NEGLIGIBLE_AMPLITUDE ||
-      distance < wave.phase - 2.0f * half_width ||
-      distance > wave.phase + 2.0f * half_width)
+HS_HOT_INLINE inline bool
+radial_step(const Wave &wave, float &distance, float &angle, float &path,
+            bool track_path, const AngularSupport *prepared = nullptr) {
+  const auto support = prepared ? *prepared : AngularSupport::prepare(wave);
+  if (wave.amplitude <= NEGLIGIBLE_AMPLITUDE || distance < support.near ||
+      distance > support.far)
     return true;
-  const float theta = angle_at_distance(wave, distance, wave.phase);
+  const float theta =
+      angle_at_distance(wave, distance, wave.phase, support.half_width);
   if (theta == 0.0f)
     return true;
   distance += theta;
@@ -236,11 +254,11 @@ HS_HOT_INLINE inline Result sequential(const math::Vector &input,
   return result;
 }
 
-/** @brief Conservative cosine band of a sequence with one verified center. */
-struct SingleCenterSupport {
+/** @brief Conservative cosine band of consecutive waves with one center. */
+struct GroupSupport {
   float near = -2.0f; ///< Upper cosine bound, including angular error.
   float far = 2.0f;   ///< Lower cosine bound, including angular error.
-  bool valid = false; ///< All waves have the same center.
+  uint8_t end = 0;    ///< First wave index after the group.
 };
 
 /** @brief Composes consecutive same-center waves in one radial basis.
@@ -252,31 +270,39 @@ struct SingleCenterSupport {
  * @param count Number of waves.
  * @param track_path Whether to accumulate travel.
  * @param fallback Resolver used when radial composition is invalid.
- * @param support Optional prepared single-center support.
+ * @param support Optional prepared support bands, one per consecutive center.
+ * @param angular Optional prepared support and width for each wave.
  * @return Displaced direction and angular travel. */
 template <typename Result, typename WaveAt, typename Fallback>
-HS_HOT_INLINE inline Result
-grouped(const math::Vector &input, const WaveAt &wave_at, uint8_t count,
-        bool track_path, const Fallback &fallback,
-        const SingleCenterSupport *support = nullptr) {
+HS_HOT_INLINE inline Result grouped(const math::Vector &input,
+                                    const WaveAt &wave_at, uint8_t count,
+                                    bool track_path, const Fallback &fallback,
+                                    const GroupSupport *support = nullptr,
+                                    const AngularSupport *angular = nullptr) {
   Result result{input, 0.0f};
-  const bool single_center = support && support->valid;
   uint8_t index = 0;
   while (index < count) {
     const math::Vector start = result.sphere;
     const math::Vector center = wave_at(index).center;
     const float distance_cos = hs::clamp(math::dot(center, start), -1.0f, 1.0f);
-    if (single_center &&
-        (distance_cos > support->near || distance_cos < support->far))
-      return result;
+    uint8_t end = count;
+    if (support) {
+      const auto &band = *support++;
+      end = band.end;
+      if (distance_cos > band.near || distance_cos < band.far) {
+        index = end;
+        continue;
+      }
+    }
     float distance = math::fast_acos(distance_cos);
     float total_angle = 0.0f;
     do {
+      const auto *bounds = angular ? &angular[index] : nullptr;
       if (!radial_step(wave_at(index++), distance, total_angle,
-                       result.path_length, track_path))
+                       result.path_length, track_path, bounds))
         return fallback();
-    } while (index < count &&
-             (single_center || same_center(wave_at(index).center, center)));
+    } while (index < end &&
+             (support || same_center(wave_at(index).center, center)));
     if (total_angle != 0.0f &&
         !rotate_group(start, center, total_angle, result.sphere))
       return fallback();

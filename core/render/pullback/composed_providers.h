@@ -412,7 +412,7 @@ template <typename BindingT, typename Family, bool TrackPath = false,
 struct SurfaceProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
-  /// Prepare exact single-center support for untracked, table-free bursts.
+  /// Prepare exact group support for untracked, table-free bursts.
   static constexpr bool CACHE_SINGLE_CENTER =
       !TrackPath && requires { requires !Binding::Spec::RIPPLE_RADIAL_TABLE; };
   using RadialPrepareOwner = SurfaceProvider; ///< Owner of radial preparation.
@@ -523,7 +523,7 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
   static constexpr bool CACHE_SINGLE_CENTER = requires {
     requires std::is_same_v<State, typename State::RadialPrepareOwner>;
     requires State::CACHE_SINGLE_CENTER;
-  }; ///< Whether the provider caches a single-center band.
+  }; ///< Whether the provider caches group support bands.
   using Prepared = std::conditional_t<
       CACHE_SINGLE_CENTER, SphereAnimation::SupportedRipples,
       std::conditional_t<

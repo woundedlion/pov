@@ -192,36 +192,50 @@ struct PreparedRipples {
   uint8_t count = 0; ///< Active wave count.
 };
 
-/** @brief Conservative cosine band for an exact single-center wave sequence.
- * @param prepared Active kernels in launch order.
- * @return An invalid band for empty or mixed-center sequences. */
-HS_HOT_FLASH_MEMBER inline RippleKernel::SingleCenterSupport
-single_center_support(const PreparedRipples &prepared) {
-  RippleKernel::SingleCenterSupport group;
-  if (!prepared.count)
-    return group;
-  for (uint8_t i = 0; i < prepared.count; ++i) {
-    const auto &wave = prepared.waves[i].ripple;
-    if (!RippleKernel::same_center(wave.center,
-                                   prepared.waves[0].ripple.center))
-      return group;
-    if (wave.amplitude > RippleKernel::NEGLIGIBLE_AMPLITUDE)
-      RippleKernel::include_support(group.near, group.far, wave);
+/** @brief Optional cosine support for each consecutive center in launch order. */
+struct RippleGroupBands {
+  std::array<RippleKernel::GroupSupport, RIPPLE_BURST_GROUPS>
+      groups; ///< Center bands.
+  std::array<RippleKernel::AngularSupport,
+             RIPPLE_BURST_GROUPS * RIPPLE_WAVES_PER_BURST>
+      angular;       ///< Wavelet bands in launch order.
+  uint8_t count = 0; ///< Prepared groups; zero beyond capacity.
+};
+
+/** @brief Prepares exact group boundaries and conservative support. */
+HS_HOT_FLASH_MEMBER inline RippleGroupBands
+ripple_group_bands(const PreparedRipples &prepared) {
+  RippleGroupBands result;
+  uint8_t i = 0;
+  while (i < prepared.count) {
+    if (result.count == result.groups.size()) {
+      result.count = 0;
+      return result;
+    }
+    auto &group = result.groups[result.count++];
+    const auto &center = prepared.waves[i].ripple.center;
+    do {
+      const auto &wave = prepared.waves[i++].ripple;
+      result.angular[i - 1] = RippleKernel::AngularSupport::prepare(wave);
+      if (wave.amplitude > RippleKernel::NEGLIGIBLE_AMPLITUDE)
+        RippleKernel::include_support(group.near, group.far, wave);
+    } while (
+        i < prepared.count &&
+        RippleKernel::same_center(prepared.waves[i].ripple.center, center));
+    // Cosine is 1-Lipschitz. Include fast_acos error and endpoint rounding.
+    constexpr float MARGIN = static_cast<float>(math::FAST_ACOS_MAX_ERROR) +
+                             2.0f * std::numeric_limits<float>::epsilon();
+    group.near += MARGIN;
+    group.far -= MARGIN;
+    group.end = i;
   }
-  // Cosine is 1-Lipschitz. Include fast_acos error and endpoint rounding.
-  constexpr float MARGIN = static_cast<float>(math::FAST_ACOS_MAX_ERROR) +
-                           2.0f * std::numeric_limits<float>::epsilon();
-  group.near += MARGIN;
-  group.far -= MARGIN;
-  group.valid = true;
-  return group;
+  return result;
 }
 
-/** @brief Exact waves and their optional shared-center support band. */
+/** @brief Exact waves and their conservative group bounds. */
 struct SupportedRipples {
   PreparedRipples ripples; ///< Active kernels in launch order.
-  RippleKernel::SingleCenterSupport support =
-      single_center_support(ripples); ///< Conservative cosine bounds.
+  RippleGroupBands support = ripple_group_bands(ripples); ///< Prepared bands.
 };
 
 /** @brief Applies prepared waves in launch order.
@@ -244,12 +258,13 @@ sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @param input Unit direction.
  * @param prepared Prepared wave kernels in launch order.
  * @param track_path Whether to accumulate angular travel.
- * @param support Optional precomputed single-center cosine band.
+ * @param support Optional precomputed cosine band for each consecutive center.
  * @return Displaced direction and travel. */
 HS_HOT_FLASH_MEMBER inline SurfaceResult
 grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
-                bool track_path,
-                const RippleKernel::SingleCenterSupport *support = nullptr) {
+                bool track_path, const RippleGroupBands *support = nullptr) {
+  if (support && !support->count)
+    support = nullptr;
   return RippleKernel::grouped<SurfaceResult>(
       input,
       [&](uint8_t index) HS_HOT_INLINE -> const RippleKernel::Wave & {
@@ -259,7 +274,8 @@ grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
       [&]() HS_HOT_INLINE {
         return sequential_ripples(input, prepared, track_path);
       },
-      support);
+      support ? support->groups.data() : nullptr,
+      support ? support->angular.data() : nullptr);
 }
 
 /** @brief Evaluates a same-center wave sequence in radial coordinates.

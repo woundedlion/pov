@@ -95,7 +95,7 @@ inline void test_pullback_ripple_burst_centers() {
   }
 }
 
-/** @brief Cached single-center support preserves exact angular composition,
+/** @brief Cached group support preserves exact angular composition,
     including samples at the support edges. */
 inline void test_pullback_single_center_ripple_support() {
   using namespace Pullback::SphereAnimation;
@@ -115,7 +115,7 @@ inline void test_pullback_single_center_ripple_support() {
       clock.waves[0] = {78.0f, 0};
     }
     const SupportedRipples cached{prepare_ripples(params, clock)};
-    HS_EXPECT_EQ(cached.support.valid, !overlap);
+    HS_EXPECT_EQ(cached.support.count, overlap ? 2 : 1);
     const auto &exact = cached.ripples;
     const auto check = [&](const math::Vector &view) {
       const auto a = grouped_ripples(view, exact, false, &cached.support);
@@ -136,6 +136,22 @@ inline void test_pullback_single_center_ripple_support() {
             check({sqrtf(1.0f - y * y), y, 0.0f});
           }
       }
+  }
+  PreparedRipples overflow;
+  overflow.count = RIPPLE_BURST_GROUPS + 1;
+  for (uint8_t i = 0; i < overflow.count; ++i)
+    overflow.waves[i] = Pullback::Surface::prepare_ripple(
+        params, 0.5f, math::fib_spiral(overflow.count, 0.5f, i));
+  const SupportedRipples cached{overflow};
+  HS_EXPECT_EQ(cached.support.count, 0);
+  for (bool track : {false, true}) {
+    const auto a =
+        grouped_ripples(math::Y_AXIS, overflow, track, &cached.support);
+    const auto b = grouped_ripples(math::Y_AXIS, overflow, track);
+    HS_EXPECT_EQ(a.sphere.x, b.sphere.x);
+    HS_EXPECT_EQ(a.sphere.y, b.sphere.y);
+    HS_EXPECT_EQ(a.sphere.z, b.sphere.z);
+    HS_EXPECT_EQ(a.path_length, b.path_length);
   }
 }
 
