@@ -70,7 +70,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Ship board | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|---|
-| [RiverStones](shipping/profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🔴 75.015 | 91.667 | — | 🔴 381/433 (87.99%) | — | ? | — | COM4 | ship 2026-11-18 11:18 |
+| [RiverStones](shipping/profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🟢 58.260 | 69.253 | — | 🟢 0/472 (0.00%) | — | ? | — | COM4 | ship 2026-11-18 13:42 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-11-17.md) / [O3](O3/profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 57.095 (16) | 🟢 0/4895 (0.00%) | 🟢 0/4895 (0.00%) | +28,528 B | +9,456 B | COM3 | ship 2026-11-17 09:09<br>O3 2026-11-17 10:34 |
 | [GridWarp](shipping/profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | — | 🟢 0/479 (0.00%) | — | — | — | COM3 | ship 2026-11-17 09:41 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-11-17.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 56.216 | 85.379 | 🔴 79.81 | 🟢 0/959 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | COM4 | ship 2026-11-17 09:39<br>O3 2026-08-26 02:45 |

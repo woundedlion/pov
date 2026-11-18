@@ -1490,6 +1490,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── translation_lattice.h   Translation symmetry a planar source reports to the warp before it
 │   │   │   ├── spatial_walk.h          Sphere spin and random-walk state
 │   │   │   ├── sphere_animation.h      Ripple burst scheduling
+│   │   │   ├── stationary_cubic_noise.h  Stationary hue noise sampling
 │   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters
 │   │   │   ├── operators/              Operator model, table, shared state, family adapters, and snapshot codecs
 │   │   │   ├── color_controls.h  Palette control types and authored gamut contracts
