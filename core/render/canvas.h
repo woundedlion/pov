@@ -303,6 +303,13 @@ public:
    */
   void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
   /**
+   * @brief Schedules the next draw for a display frame.
+   * @param frame One-based frame index in this effect's current display epoch,
+   *        or zero for an unscheduled draw.
+   * @details Foreground only, before opening the Canvas or in its ready hook.
+   */
+  void set_scheduled_frame(uint32_t frame) { scheduled_frame = frame; }
+  /**
    * @brief Installs a callback run after drawing, while the previous buffer is
    * still stable.
    * @param hook Callback to install, or null to disable it.
@@ -435,6 +442,7 @@ private:
   BufferReadyHook buffer_ready_hook = nullptr;
   BufferCompleteHook buffer_complete_hook = nullptr;
   uint32_t frame_number = 0; /**< Number of canvases opened for this effect. */
+  uint32_t scheduled_frame = 0; /**< One-based display target, if present. */
 };
 
 /**
@@ -482,6 +490,10 @@ public:
   /** @brief Identifier of this effect's current frame.
    * @return Number of canvases opened, wrapping at the uint32_t limit. */
   uint32_t frame_number() const { return effect.frame_number; }
+
+  /** @brief Display frame targeted by this draw.
+   * @return One-based display frame, or zero for an unscheduled draw. */
+  uint32_t scheduled_frame() const { return effect.scheduled_frame; }
 
   /**
    * @brief Accesses a pixel in the current drawing buffer by 2D coordinates.

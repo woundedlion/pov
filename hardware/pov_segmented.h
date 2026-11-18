@@ -502,25 +502,10 @@ private:
     segment = pov::segment_map(segment_id, S, N);
   }
 
-  /**
-   * @brief Clip @p e to this segment's display rectangle for the upcoming window.
-   * @param e Effect to clip.
-   * @param arm_a_left True if the window this frame displays in sweeps arm-A
-   *        columns [0, CANVAS_W/2); arm B paints the opposite half.
-   * @details No-op for an effect that needs_full_frame() or persists_pixels().
-   */
-  static void clip_to_segment(Effect *e, bool arm_a_left) {
-    if (!pov::segment_clip_applies(*e))
-      return;
-    const pov::SegmentClip c =
-        pov::segment_clip(segment, arm_a_left, S, N, CANVAS_W);
-    e->set_clip(c.y0, c.y1, c.x0, c.x1);
-  }
-
-  static void prepare_segment_clip(Effect &e) {
-    // One window ahead: the frame being drawn displays in the window after the
-    // open one, which sweeps the opposite half.
-    clip_to_segment(&e, pov::upcoming_window_arm_a_left(handoff.window_left()));
+  /** @brief Sets the acquired buffer's display target and clip.
+   * @param effect Effect preparing its next draw. */
+  static void prepare_segment_clip(Effect &effect) {
+    pov::prepare_segment_frame(effect, segment, S, N, handoff.current_window());
   }
 
   // ── ISRs ────────────────────────────────────────────────────────────

@@ -178,6 +178,8 @@ concept WakeTick = requires(T t) {
   { t().join_boundary } -> std::convertible_to<bool>;
   { t().commit } -> std::convertible_to<bool>;
   { t().pulse } -> std::convertible_to<bool>;
+  { t().flip_count } -> std::convertible_to<uint32_t>;
+  { t().adoption_flip } -> std::convertible_to<uint32_t>;
 };
 
 /** @brief Reads the build generation advertised on the sync wire. */
@@ -277,12 +279,15 @@ run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
     drive_sync(true);
 
   const uint32_t generation = wire_gen();
-  const auto wake = handoff.apply_wake({.commit = actions.commit,
-                                        .join_boundary = actions.join_boundary,
-                                        .dark = actions.dark,
-                                        .flip = actions.flip,
-                                        .zero_crossing = actions.zero_crossing,
-                                        .wire_gen = generation});
+  const auto wake =
+      handoff.apply_wake({.commit = actions.commit,
+                          .join_boundary = actions.join_boundary,
+                          .dark = actions.dark,
+                          .flip = actions.flip,
+                          .zero_crossing = actions.zero_crossing,
+                          .wire_gen = generation,
+                          .flip_count = actions.flip_count,
+                          .adoption_flip = actions.adoption_flip});
   if (!wake.commit_ok) {
     // did_render=false: settle() can only defer, never end the pulse here.
     sync_pulse.settle(actions.pulse, /*did_render=*/false);

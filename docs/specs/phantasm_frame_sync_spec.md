@@ -101,8 +101,8 @@ from nominal RPM (`pov_single.h`'s IntervalTimer period; the nominal
 **Content clock — frame-counter, not wall-clock (load-bearing, good news).**
 On-device animation advances off a per-frame counter `AnimationBase::t`,
 incremented once per `step()` (`animation.h`), *not* `millis()`. So content
-sync reduces to: (a) a shared `t` origin, (b) no dropped frames, (c)
-deterministic RNG. For (c) the driver reseeds `hs::random()` at every effect
+sync depends on a shared `t` origin, a simulation step for each display window,
+and deterministic RNG. The driver reseeds `hs::random()` at every effect
 construction from the roster's per-entry seed identity:
 `targets/Phantasm/phantasm_playlist.h` fills that table with
 `hs::stable_effect_seed(hs::effect_seed_key<E>(#name))`, so the stream an effect
@@ -597,8 +597,8 @@ benign" true at Layer 3 as well as Layer 2.
 
 The gap left by synchronizing frame boundaries alone. Two divergence sources:
 
-1. **Frame-index drift** — a board that drops a render falls behind in `t`
-   permanently within an effect.
+1. **Frame-index drift** — a board that drops a render can fall behind in `t`
+   if its effect advances only on rendered frames.
 2. **Effect-transition drift** — the playlist advances on per-board `millis()`,
    so boards switch effects at different times and drift over the sequence.
 
@@ -641,16 +641,12 @@ which further EPOCH symbols are ignored — this is what makes the §6.3
 redundancy repeats idempotent. The shortest roster entry is 304 revs, so even
 there the window clears a real successor by 19×.
 
-Between epochs `t`
-increments once per synced flip (Layer 2) — paced through the `buffer_free()`
-gate, so flip count *is* `t` — and stays equal across boards **so long as each
-keeps up rendering and sees no spurious flip**. A dropped render (§6.2) or a
-spurious extra flip (§8.4) offsets that board's `t` by one until the next epoch;
-on adjacent *spatial* segments (e.g. seg 0 / seg 1, the top and bottom of one
-arm) a one-frame `t` offset is a visible junction seam on fast stateless
-effects, so the epoch reset is what bounds it, not per-flip equality alone. This
-replaces the `millis()`-gated `show<E>(120)` sequencing with epoch-counted
-sequencing.
+Between epochs `buffer_free()` paces draws through the synced flips (Layer 2).
+The boards stay in step while their draws keep pace with the display. A render
+miss (§6.2) or a spurious extra flip (§8.4) can put adjacent segments at
+different content times, leaving a visible junction seam. Epoch reconstruction
+realigns those segments. MindSplatter also corrects render misses between
+epochs using the display window index.
 
 #### 6.1.1 Fenced fade-through-clear envelope
 
@@ -707,28 +703,19 @@ beacon instead, which both verifies each advance after the fact and lets a
 late-booting board establish it without assuming "everyone started at 0
 together."
 
-### 6.2 Stateless vs. stateful (inherent regimes)
+### 6.2 Render misses and simulation recovery
 
-- **Stateless / parametric effects** (most of `animation.h`, driven directly by
-  `t`): a dropped (or spurious-extra) frame leaves `t` permanently offset by one
-  *within the effect* — the visible *hitch* clears next frame as motion resumes,
-  but the absolute phase is one frame off until the epoch reset re-zeros `t`. On
-  a single board that is imperceptible; the case that matters is two adjacent
-  *spatial* segments drifting one frame apart (§6.1, junction seam). The
-  in-principle distinction from stateful still holds — a stateless effect *would*
-  resync instantly if a correct `t` were delivered, whereas a stateful one cannot
-  be retro-synced even given `t`. But this design delivers no per-frame shared
-  `t` mid-effect, so in practice both are bounded by the epoch reset; stateless
-  just carries a far smaller (1-frame) artifact until then. The §6.4 beacon
-  carries the revolution count, so a slipped board *detects* the offset at the
-  next beacon (`beacon_rev_mismatches` telemetry, §8.6) — but it does not
-  retro-correct `t`: animation counters live inside each effect's animations
-  and there is no frame fast-forward API, so correction stays epoch-bounded
-  by design.
-- **Stateful integrators** (BZ/GS reaction-diffusion, trails, comets): cannot be
-  retro-synced mid-effect (history is unrecoverable). The time-derived flywheel
-  (Layer 1) minimizes dropped frames; the **epoch re-init bounds any stateful
-  divergence to ≤ one effect**. This is inherent, not a flaw.
+Effects that advance once per draw retain a frame offset after a missed
+display window until epoch reconstruction. The §6.4 beacon corrects
+revolution bookkeeping. Each animation owns its simulation state.
+
+The segment driver numbers display windows from effect adoption. After acquiring
+a back buffer, it derives the upcoming frame and the clip from the same window.
+MindSplatter uses that frame index to step its timeline, particles, orientation
+and warp through any missed steps, then draws once. The recovery includes the
+warp endpoint needed for column-time sampling. A completed late buffer still
+waits for its matching half. The first on-time frame after that buffer is
+released restores alignment for a board that joined at the synchronized epoch.
 
 ### 6.3 Epoch reliability (resolved — four stacked mechanisms)
 
@@ -976,7 +963,7 @@ Invariants:
 | 1 dropped boundary symbol | coasts ≤1 rev (~0.01 col); re-snaps next | crossing fallback flips | unaffected |
 | 1 spurious symbol | invalid counts or implausible snaps are rejected; a plausible isolated burst can shift phase until the next snap (§9.1) | identity dedups a repeated boundary; an accepted different boundary can flip | accepted extra flips can offset frame time until the next epoch (§8.4) |
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
-| 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless and stateful: rendered-frame time offset remains until next epoch (§6.2); same-index beacons only correct revolution bookkeeping |
+| 1 board renders slow (drops a frame) | — | retains prior pixels until a compatible buffer is ready | MindSplatter catches up on its next on-time render. Effects that advance once per draw realign at the next epoch (§6.2). |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by the second agreeing beacon (§6.3.4) — the rev-1/rev-2 post-commit pair, ~250 ms |
 | Board reboots mid-show | ACQUIRE: hard-snaps to the first isolated valid symbol after its trailing quiet window | flips resume on first accepted boundary | black until rejoin from beacon (≤25 revs, about 3.1 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
 | Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes, then clears after its fade-out (fail-dark; epoch never arrives); ACQUIRE boards stay dark |
@@ -995,8 +982,8 @@ index correction — two consecutive beacons naming the master's index, so up to
 two beacon gaps (~4 s) plus one rebuild-dark window — the same path as a
 corrupted beacon frame; the §9.1 budget carries it as its own row. Symbol-loss
 artifacts require either two coincident losses in one half-rev (self-heals) or
-a missed epoch (R repeats, then beacon-corrected within ~4 s). A dropped render can also leave a frame-time seam until the
-next epoch, as specified in §6.2. Losing the one wire is a single point of failure for all three
+a missed epoch (R repeats, then beacon-corrected within ~4 s). A dropped render can also leave a frame-time seam until simulation recovery or the next epoch (§6.2).
+Losing the one wire is a single point of failure for all three
 layers at once — the accepted cost of collapsing to one wire. It is **out of
 scope by design**; the rows
 above exist to show the degradation is a well-defined slow smear rather than
@@ -1029,7 +1016,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); boundary misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected — except the ZERO→ZERO_EPOCH case, budgeted in the spurious-EPOCH row |
 | Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
 | Mis-snap despite the gate / corrupted timebase (incl. isolated forged burst during ACQUIRE) | one board off by up to W/2 | About 780 col (340 ms), allowing `reject_fallback` rejections at half-revolution pace, the suspect window, and a new isolated boundary with trailing quiet | A forged or truncated train can leave an isolated valid count. A complete beacon train cancels its head's acquisition candidate. |
-| Dropped render (effect misses the 62.5 ms budget) | stale half until a completed frame reaches its matching window; `t` seam vs neighbors | next epoch reset (remainder of the entry); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
+| Dropped render (effect misses the 62.5 ms budget) | stale half until a completed frame reaches its matching window, with a possible `t` seam | MindSplatter recovers on its next on-time render. Other effects recover at the next epoch (§6.2). | Watched by the overrun and `ft` telemetry. |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase at the first isolated boundary after its trailing quiet window, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel wake-ups stop) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |

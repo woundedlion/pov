@@ -11,6 +11,7 @@
 #pragma once
 
 #include "core/render/canvas.h"
+#include "hardware/pov_handoff.h"
 #include "hardware/pov_segment_map.h"
 
 #include <cstring>
@@ -35,6 +36,26 @@ inline bool segment_clip_applies(const Effect &effect) {
  */
 constexpr bool upcoming_window_arm_a_left(bool window_left) {
   return !window_left;
+}
+
+/**
+ * @brief Sets the simulation target and clip for the upcoming display window.
+ * @param effect Effect with a newly acquired back buffer.
+ * @param segment Physical arm and row mapping.
+ * @param leds Total LEDs across the two arms.
+ * @param segments Number of boards.
+ * @param window Open display window.
+ */
+inline void prepare_segment_frame(Effect &effect, const SegmentMap &segment,
+                                  int leds, int segments,
+                                  DisplayWindow window) {
+  effect.set_scheduled_frame(window.index + 2);
+  if (!segment_clip_applies(effect))
+    return;
+  const SegmentClip clip =
+      segment_clip(segment, upcoming_window_arm_a_left(window.arm_a_left), leds,
+                   segments, effect.width());
+  effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
 }
 
 /**

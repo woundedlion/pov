@@ -140,12 +140,18 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 #if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_MSP_WARMUP)
-    while (profile_warmup != 0) {
-      step_state(canvas);
-      warp_history.capture(mobius.b);
-      --profile_warmup;
+    if (profile_warmup != 0) {
+      advance_undrawn_frames(canvas, profile_warmup);
+      profile_warmup = 0;
     }
 #endif
+    if (const uint32_t due = canvas.scheduled_frame();
+        due > next_display_frame) {
+      HS_PROFILE(msp_catch_up);
+      advance_undrawn_frames(canvas, due - next_display_frame);
+      next_display_frame = due;
+    }
+    ++next_display_frame;
     step_state(canvas);
     draw_particles(canvas);
     warp_history.capture(mobius.b);
@@ -208,10 +214,22 @@ public:
   }
 
 private:
+  uint32_t next_display_frame = 1; /**< One-based index of the next step. */
+
 #if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_MSP_WARMUP)
   /** @brief State-only steps remaining before the first profile render. */
   unsigned profile_warmup = HS_PROFILE_MSP_WARMUP;
 #endif
+  /** @brief Advances simulation and warp history without drawing.
+   * @param canvas Current frame context.
+   * @param frames Number of simulation steps to advance. */
+  HS_FLASH_MEMBER void advance_undrawn_frames(Canvas &canvas, uint32_t frames) {
+    for (uint32_t frame = 0; frame < frames; ++frame) {
+      step_state(canvas);
+      warp_history.capture(mobius.b);
+    }
+  }
+
   HS_HOT_INLINE void step_state(Canvas &canvas) {
     {
       HS_PROFILE(msp_timeline_step);
@@ -456,7 +474,7 @@ private:
       timed_filters{Filter::World::Orient(orientation),
                     Filter::Screen::AntiAlias<W, H>()};
   Spacetime::Retained<math::Complex>
-      warp_history; ///< Last drawn warp endpoint.
+      warp_history; ///< Previous simulation frame's warp endpoint.
   ParticleSystem particle_system;
   /**
    * @brief Per-emitter accumulated emission angle (radians, wrapped to

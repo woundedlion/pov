@@ -41,6 +41,15 @@ struct WakeInputs {
   bool flip = false;          /**< A display window opened this wake. */
   bool zero_crossing = false; /**< The opening flip crossed ZERO. */
   uint32_t wire_gen = 0;      /**< Build generation advertised by the wire. */
+  uint32_t flip_count = 1;    /**< Accepted boundaries when a flip occurs. */
+  uint32_t adoption_flip =
+      1; /**< One-based index of the commit or join flip. */
+};
+
+/** @brief The open display window relative to the live effect's adoption. */
+struct DisplayWindow {
+  uint32_t index = 0;     /**< Half-turns elapsed since adoption. */
+  bool arm_a_left = true; /**< Whether arm A sweeps the left half. */
 };
 
 /**
@@ -50,7 +59,7 @@ struct WakeInputs {
  * Single-writer per field (spec §8): live_effect is ISR-written; pending_effect
  * and pending_gen are foreground-written (published under a brief interrupts-off
  * bracket on the device); the release_req/release_ack pair is the teardown
- * handshake (foreground bumps req, ISR acks); window_sweeps_left is ISR-written,
+ * handshake (foreground bumps req, ISR acks); display_window is ISR-written,
  * foreground-read.
  */
 template <class T> class EffectHandoff {
@@ -202,15 +211,20 @@ public:
    *          previous one.
    */
   void set_window_left(bool zero_crossing) {
-    window_sweeps_left.store(zero_crossing, std::memory_order_relaxed);
+    publish_window({current_window().index, zero_crossing});
   }
 
   /**
    * @brief The half the open display window sweeps.
    * @return Whether the window sweeps arm-A columns [0,W/2).
    */
-  bool window_left() const {
-    return window_sweeps_left.load(std::memory_order_relaxed);
+  bool window_left() const { return current_window().arm_a_left; }
+
+  /** @brief Loads the window's phase and index together.
+   * @return Snapshot of the open display window. */
+  DisplayWindow current_window() const {
+    const uint32_t packed = display_window.load(std::memory_order_relaxed);
+    return {packed >> 1, (packed & 1u) != 0};
   }
 
   /**
@@ -242,8 +256,12 @@ public:
         out.adopted = true;
       }
     }
-    if (in.flip)
-      set_window_left(in.zero_crossing);
+    if (in.flip) {
+      const uint32_t index = out.adopted
+                                 ? in.flip_count - in.adoption_flip
+                                 : current_window().index + in.flip_count;
+      publish_window({index, in.zero_crossing});
+    }
     out.live = live_effect;
     out.advance = in.flip && out.live != nullptr;
     out.dark = in.dark || out.live == nullptr ||
@@ -252,6 +270,13 @@ public:
   }
 
 private:
+  /** @brief Publishes the open window before the display buffer flip.
+   * @param window The open window's index and arm phase. */
+  void publish_window(DisplayWindow window) {
+    display_window.store((window.index << 1) | uint32_t(window.arm_a_left),
+                         std::memory_order_relaxed);
+  }
+
   T *live_effect = nullptr; /**< Effect the ISR renders; ISR-owned. */
   std::atomic<T *> pending_effect{
       nullptr}; /**< Next effect; fg-written (release), ISR-read (acquire). */
@@ -263,8 +288,8 @@ private:
       0}; /**< Teardown request counter; fg-written. */
   std::atomic<uint32_t> release_ack{
       0}; /**< Teardown acknowledge counter; ISR-written. */
-  std::atomic<uint8_t> window_sweeps_left{
-      1}; /**< ISR-written: 1 when the open window sweeps arm-A [0,W/2). */
+  std::atomic<uint32_t> display_window{
+      1}; /**< ISR-written: window index above the arm-A-left bit. */
 };
 
 /**

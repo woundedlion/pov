@@ -65,6 +65,36 @@ inline void test_mindsplatter_warp_history() {
   }
 }
 
+/** @brief A skipped draw reaches the same timed image as consecutive draws. */
+inline void test_mindsplatter_skipped_draws_match() {
+  using WB = MindSplatterWhiteBox;
+  constexpr uint32_t DUE_FRAME = 40;
+  const ScopedTemporalSampling temporal(true);
+  auto render = [](bool skip) {
+    reset_globals();
+    pin_frame_clock(0);
+    MindSplatter<SMALL_W, SMALL_H> effect;
+    effect.init();
+    WB::start_warp(effect);
+    for (uint32_t frame = 1; frame <= DUE_FRAME; ++frame) {
+      if (skip && (frame == DUE_FRAME - 2 || frame == DUE_FRAME - 1))
+        continue;
+      pin_frame_clock(static_cast<int>(frame - 1));
+      effect.set_scheduled_frame(frame);
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    HS_EXPECT_EQ(Timeline::frame(), DUE_FRAME);
+    hs::clear_mock_time();
+    return std::vector<Pixel>(effect.display_buffer(),
+                              effect.display_buffer() + SMALL_W * SMALL_H);
+  };
+  const auto expected = render(false);
+  const auto recovered = render(true);
+  HS_EXPECT_GT(count_lit(expected), 0u);
+  HS_EXPECT_TRUE(expected == recovered);
+}
+
 /**
  * @brief Profile selection installs the requested preset, pauses it, and
  * prints its index.
@@ -876,6 +906,7 @@ inline int run_mindsplatter_tests() {
   ModuleFixture fixture("mindsplatter");
 
   HS_RUN(test_mindsplatter_warp_history);
+  HS_RUN(test_mindsplatter_skipped_draws_match);
   HS_RUN(test_mindsplatter_profile_selects_initialized_preset);
   HS_RUN(test_mindsplatter_base_mesh_selector);
   HS_RUN(test_mindsplatter_whitebox_geometry_replay);

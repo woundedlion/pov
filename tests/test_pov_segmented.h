@@ -305,6 +305,8 @@ struct WakeActions {
   bool flip = false;
   bool zero_crossing = false;
   int32_t render_column = -1;
+  uint32_t flip_count = 1;
+  uint32_t adoption_flip = 1;
 };
 
 struct CommitFailureExit {};
@@ -571,15 +573,29 @@ inline void test_apply_wake_sequence() {
         h.apply_wake({.flip = true, .zero_crossing = false, .wire_gen = 6});
     HS_EXPECT_TRUE(half.advance);
     HS_EXPECT_FALSE(h.window_left());
-    const auto zero =
-        h.apply_wake({.flip = true, .zero_crossing = true, .wire_gen = 6});
+    HS_EXPECT_EQ(h.current_window().index, 1u);
+    const auto zero = h.apply_wake(
+        {.flip = true, .zero_crossing = true, .wire_gen = 6, .flip_count = 3});
     HS_EXPECT_TRUE(zero.advance);
     HS_EXPECT_TRUE(h.window_left());
+    HS_EXPECT_EQ(h.current_window().index, 4u);
 
     // A wake with no flip neither advances nor republishes the window.
     const auto still = h.apply_wake({.wire_gen = 6});
     HS_EXPECT_FALSE(still.advance);
     HS_EXPECT_TRUE(h.window_left());
+    HS_EXPECT_EQ(h.current_window().index, 4u);
+
+    h.publish(&e2, 7);
+    const auto commit = h.apply_wake({.commit = true,
+                                      .flip = true,
+                                      .zero_crossing = false,
+                                      .wire_gen = 7,
+                                      .flip_count = 3,
+                                      .adoption_flip = 2});
+    HS_EXPECT_TRUE(commit.adopted);
+    HS_EXPECT_FALSE(h.window_left());
+    HS_EXPECT_EQ(h.current_window().index, 1u);
   }
 
   // live is read after the adopt: an effect taken live this wake flips this
@@ -783,8 +799,9 @@ inline void set_phase_clip(Effect &effect, bool arm_a_left) {
 }
 
 inline void prepare_phase_clip(Effect &effect) {
-  set_phase_clip(effect,
-                 pov::upcoming_window_arm_a_left(phase_handoff->window_left()));
+  const SegmentMap map = segment_map(phase_segment_id, 8, phase_segment_count);
+  pov::prepare_segment_frame(effect, map, 8, phase_segment_count,
+                             phase_handoff->current_window());
 }
 
 inline bool phase_frame_matches(const PhaseEffect &effect, uint16_t stamp,
@@ -999,7 +1016,7 @@ inline void test_segment_half_survives_missed_boundaries() {
   }
 }
 
-/** @brief Late segment frames wait for their half and refresh both halves. */
+/** @brief Late segment frames wait for their half and acquire the next window's target. */
 inline void test_late_segment_publication() {
   for (bool clipped_clear : {false, true}) {
     for (int count : {2, 4, 8}) {
@@ -1016,13 +1033,17 @@ inline void test_late_segment_publication() {
             pov::SyncPulseGate pulse;
             pov::SubmitGate submit;
             bool left = initial_left;
-            auto boundary = [&] {
+            uint32_t window_index = 0;
+            auto boundary = [&](bool initial = false) {
+              if (!initial)
+                ++window_index;
               pov::run_wake_sequence(
                   pulse, submit, handoff,
                   pov::WakeHooks{
                       .tick =
                           [&] {
-                            return WakeActions{.flip = true,
+                            return WakeActions{.commit = initial,
+                                               .flip = true,
                                                .zero_crossing = left,
                                                .render_column = -1};
                           },
@@ -1040,8 +1061,8 @@ inline void test_late_segment_publication() {
                   });
             };
             pov::prime_segment_frame(effect, band, prepare_phase_clip);
-            handoff.adopt(&effect, 1);
-            boundary();
+            handoff.publish(&effect, 1);
+            boundary(true);
             HS_EXPECT_TRUE(effect.buffer_free());
             uint16_t expected[2] = {1, 1};
             for (uint16_t stamp = 2; stamp <= 9; ++stamp) {
@@ -1049,6 +1070,7 @@ inline void test_late_segment_publication() {
               const bool pixel_left = map.arm_b ? !target_left : target_left;
               {
                 Canvas canvas(effect);
+                HS_EXPECT_EQ(canvas.scheduled_frame(), window_index + 2);
                 const ClipRegion clip = canvas.clip();
                 for (int y = clip.y_start; y < clip.y_end; ++y)
                   for (int x = clip.x_start; x < clip.x_end; ++x)

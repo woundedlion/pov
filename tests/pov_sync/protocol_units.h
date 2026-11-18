@@ -615,6 +615,7 @@ inline void test_multi_boundary_tick_window() {
   const TickActions a =
       board.tick(1000u + 3u * cfg.cycles_per_half_rev + 10u, nullptr);
   HS_EXPECT_TRUE(a.flip);
+  HS_EXPECT_EQ(a.flip_count, 3u);
   HS_EXPECT_FALSE(a.zero_crossing);
   HS_EXPECT_EQ(flywheel(board).current_boundary(), Boundary::HALF);
   HS_EXPECT_EQ(board.telemetry_snapshot().flips, 3u);
@@ -624,6 +625,7 @@ inline void test_multi_boundary_tick_window() {
   const TickActions z =
       board.tick(1000u + 4u * cfg.cycles_per_half_rev + 10u, nullptr);
   HS_EXPECT_TRUE(z.flip);
+  HS_EXPECT_EQ(z.flip_count, 1u);
   HS_EXPECT_TRUE(z.zero_crossing);
   HS_EXPECT_EQ(flywheel(board).current_boundary(), Boundary::ZERO);
   HS_EXPECT_EQ(board.telemetry_snapshot().flips, 4u);
@@ -633,10 +635,22 @@ inline void test_multi_boundary_tick_window() {
   const TickActions e =
       board.tick(1000u + 6u * cfg.cycles_per_half_rev + 10u, nullptr);
   HS_EXPECT_TRUE(e.flip);
+  HS_EXPECT_EQ(e.flip_count, 2u);
   HS_EXPECT_TRUE(e.zero_crossing);
   HS_EXPECT_EQ(flywheel(board).current_boundary(), Boundary::ZERO);
   HS_EXPECT_EQ(board.telemetry_snapshot().flips, 6u);
   HS_EXPECT_EQ(board.telemetry_snapshot().max_coast_halves, 6u);
+
+  ContentTracker &content = content_mut(board);
+  content.identity_known = true;
+  content.commit_pending = true;
+  content.commit_in_revs = 1;
+  const TickActions commit =
+      board.tick(1000u + 9u * cfg.cycles_per_half_rev + 10u, nullptr);
+  HS_EXPECT_TRUE(commit.commit);
+  HS_EXPECT_EQ(commit.flip_count, 3u);
+  HS_EXPECT_EQ(commit.adoption_flip, 2u);
+  HS_EXPECT_FALSE(commit.zero_crossing);
 }
 
 /**

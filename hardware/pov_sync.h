@@ -101,7 +101,10 @@ struct TickActions {
    * ready).
    */
   bool commit = false;
-  bool pulse = false; /**< Master: emit one sync pulse (pin-first). */
+  bool pulse = false;      /**< Master: emit one sync pulse (pin-first). */
+  uint32_t flip_count = 0; /**< Accepted display boundaries in this wake. */
+  uint32_t adoption_flip =
+      0; /**< One-based index of the commit or join flip. */
 };
 
 /**
@@ -405,6 +408,7 @@ private:
     if (!gate.try_flip(b))
       return;
     a.flip = true;
+    ++a.flip_count;
     a.zero_crossing = b == Boundary::ZERO;
     saturating_increment(telemetry_counters.flips);
     if (!a.zero_crossing)
@@ -414,17 +418,20 @@ private:
     if (content_tracker.identity_known) {
       if (content_tracker.on_zero_crossing(protocol_config)) {
         a.commit = true; // B+R+K reached; driver swaps in the pending effect
+        a.adoption_flip = a.flip_count;
         // The displayed index just changed; any half-confirmed beacon candidate
         // predates it and can no longer confirm (spec §6.3.4).
         beacon_index_candidate = -1;
       } else if (content_tracker.construction_opens(protocol_config))
         // Last K revolutions: construct the next effect now.
         publish_next_build();
-      else if (!content_tracker.commit_pending &&
+      else if (!a.commit && !content_tracker.commit_pending &&
                (content_tracker.rev_in_effect %
-                protocol_config.join_grid_revs) == 0)
+                protocol_config.join_grid_revs) == 0) {
         // Late-join point for a board with no live effect.
         a.join_boundary = true;
+        a.adoption_flip = a.flip_count;
+      }
     }
   }
 
