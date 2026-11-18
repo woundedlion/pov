@@ -90,7 +90,8 @@ public:
    */
   HS_FLASH_MEMBER MindSplatter()
       : Choreography(W, H,
-                     pipeline_config<decltype(filters)>({.strobe = true})),
+                     pipeline_config<decltype(filters)>(
+                         {.strobe = true, .can_skip_frames = true})),
         particle_system() {}
 
   /**

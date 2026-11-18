@@ -574,10 +574,7 @@ private:
                   return false;
                 },
             .advance =
-                [](Effect *e) {
-                  pov::advance_segment_display(*e, segment,
-                                               handoff.window_left());
-                },
+                [](Effect *e) { pov::publish_segment_frame(*e, handoff); },
         });
   }
 
@@ -592,6 +589,7 @@ private:
    *         dropped on a DMA overrun (caller retries via resubmit_frame()).
    */
   [[nodiscard]] HS_O3_FN static bool pack_column(Effect *e, int x) {
+    pov::publish_segment_frame(*e, handoff);
     const int w = e->width();
     const int x_col = pov::segment_x_col(segment.arm_b, x, w);
 

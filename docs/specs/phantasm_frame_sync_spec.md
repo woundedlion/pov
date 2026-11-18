@@ -31,8 +31,8 @@ and suppresses late emissions. Flywheel rebasing and 64-bit position arithmetic
 bound cycle-counter wrap, while deadline-scheduled effect commits and an index
 beacon keep content aligned across startup and rejoin.
 
-Content time advances through `buffer_free()`, so a spurious flip can offset
-content until the next epoch even when the display-buffer flip itself is benign.
+Content time follows the accepted display-window count. A spurious boundary can
+offset that count until the next epoch.
 A missing master causes graceful phase precession. The sync wire is assumed
 physically reliable; wire-dead recovery is outside this design. A rotor index
 would provide a stronger reference than this open-loop protocol (§13).
@@ -405,13 +405,15 @@ flywheel-crossing path and the sync-symbol path:
 enum Boundary { NONE, ZERO, HALF };
 static Boundary last_flipped;             // shared, see §8
 
-inline void try_flip(Boundary b) {
-  if (b != last_flipped) { effect->advance_display(); last_flipped = b; }
+inline bool try_flip(Boundary b) {
+  if (b == last_flipped) return false;
+  last_flipped = b;
+  return true;
 }
 ```
 
-`advance_display` is idempotent at `prev==next` (`canvas.h`), so a
-redundant call is harmless; `try_flip` makes the common case exact.
+`try_flip` advances the display-window count once per accepted boundary.
+Frame publication at a boundary or column wake is idempotent at `prev==next`.
 
 Flip paths per board:
 
@@ -438,15 +440,9 @@ crossed boundary and runs `try_flip` per crossing, so the flip counter and the
 epoch/join schedule stay exact — but `TickActions::flip` is one bool, so the
 driver attempts one queued-frame publication. `TickActions::zero_crossing`
 names the **final** crossing, so the published window half describes the window
-actually open. A completed segment-clipped frame publishes only when its clip
-matches that window; otherwise it stays queued until the matching half returns.
-The clip is inspected after acquiring the queued-frame publication, while the
-foreground is blocked from reusing that buffer. Full-frame and persistent
-effects, and the initial full-width priming frame, publish at either boundary.
-The same rule applies when rendering itself misses one or more boundaries:
-both halves continue receiving updates instead of repeatedly refreshing one
-half and retaining the startup image in the other. Frame-time progress can
-still trail other boards until the next epoch.
+actually open. The driver acquires the queued frame's tag and publishes
+completed frames due at this window or earlier. A future frame remains queued.
+A clipped frame carries the last completed pixels in its opposite half.
 Reaching N > 1 requires the flywheel ISR
 to miss a wake by more than a half-revolution (62.5 ms); on the shipped DMA path
 (M ≈ 0, §9.1) that is out of reach, and a board coasting on dropped *symbols*
@@ -644,9 +640,8 @@ there the window clears a real successor by 19×.
 Between epochs `buffer_free()` paces draws through the synced flips (Layer 2).
 The boards stay in step while their draws keep pace with the display. A render
 miss (§6.2) or a spurious extra flip (§8.4) can put adjacent segments at
-different content times, leaving a visible junction seam. Epoch reconstruction
-realigns those segments. MindSplatter also corrects render misses between
-epochs using the display window index.
+different content times, leaving a visible junction seam. A board can catch up
+after a render miss. Epoch reconstruction resets a mismatched window count.
 
 #### 6.1.1 Fenced fade-through-clear envelope
 
@@ -705,17 +700,20 @@ together."
 
 ### 6.2 Render misses and simulation recovery
 
-Effects that advance once per draw retain a frame offset after a missed
-display window until epoch reconstruction. The §6.4 beacon corrects
-revolution bookkeeping. Each animation owns its simulation state.
+The driver numbers display windows from effect adoption. After acquiring a back
+buffer, it targets the next logical frame and selects that frame's arm half.
+Effects that opt into simulation-only advance target the upcoming window.
+MindSplatter steps its timeline, particles, orientation and warp through skipped
+draws, retaining the warp endpoint required for column-time sampling.
 
-The segment driver numbers display windows from effect adoption. After acquiring
-a back buffer, it derives the upcoming frame and the clip from the same window.
-MindSplatter uses that frame index to step its timeline, particles, orientation
-and warp through any missed steps, then draws once. The recovery includes the
-warp endpoint needed for column-time sampling. A completed late buffer still
-waits for its matching half. The first on-time frame after that buffer is
-released restores alignment for a board that joined at the synchronized epoch.
+If a draw misses its window, the ISR can publish the completed frame at the next
+column wake. This preserves both feedback buffers across successive draws and
+lets the foreground draw several logical frames during one display window. The
+segment stays lit from the last completed buffer while drawing. Its image can
+change partway through a window while catching up. Future frames wait for their
+window, so on-time publication resumes once rendering catches up. A board
+running slower than the display can stay behind until it regains enough render
+time. The §6.4 beacon corrects revolution bookkeeping.
 
 ### 6.3 Epoch reliability (resolved — four stacked mechanisms)
 
@@ -905,18 +903,9 @@ Invariants:
 4. **Failure asymmetry honored — but only at Layer 2.** A *missed* flip (stale
    frame) is the only harmful **display** outcome; an *extra* flip is benign
    *for the display*, and the protocol biases toward flipping (two redundant
-   paths) at every layer. Caveat for Layer 3: because content `t` is paced
-   one-for-one by `advance_display` through the `buffer_free()` gate (§6.1, the
-   render loop blocks until the ISR flips, then `step()`s once), a *spurious*
-   flip that consumes an already-queued frame advances that board's `t` by one
-   relative to its peers — a persistent content offset until the next epoch, not
-   a benign no-op. `try_flip`'s identity dedup means the two *legitimate* paths
-   never double-consume, and `advance_display` is idempotent when the buffer is
-   already free, so this bites only on a genuine spurious boundary event landing
-   while a fresh frame is queued (rare, epoch-bounded). Still: "extra flip is
-   benign" is a Layer-2 statement, not a Layer-3 one — though the §5.3 gate
-   closes the gap in practice: a spurious flip now requires a forged burst that
-   is valid, plausible, *and* boundary-consistent at once.
+   paths) at every layer. A spurious accepted boundary advances the local
+   window count and can offset content time until the next epoch. The §5.3 gate
+   requires an accepted burst to be valid, plausible and boundary-consistent.
 5. **Lifecycle & effect handoff.** The flywheel and sync-wire ISRs attach
    **once per show and persist across epochs** — the flywheel *is* the
    timebase and is never detached between effects (the previous per-effect
@@ -963,7 +952,7 @@ Invariants:
 | 1 dropped boundary symbol | coasts ≤1 rev (~0.01 col); re-snaps next | crossing fallback flips | unaffected |
 | 1 spurious symbol | invalid counts or implausible snaps are rejected; a plausible isolated burst can shift phase until the next snap (§9.1) | identity dedups a repeated boundary; an accepted different boundary can flip | accepted extra flips can offset frame time until the next epoch (§8.4) |
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
-| 1 board renders slow (drops a frame) | — | retains prior pixels until a compatible buffer is ready | MindSplatter catches up on its next on-time render. Effects that advance once per draw realign at the next epoch (§6.2). |
+| 1 board renders slow (drops a frame) | — | scans the last completed buffer until a due frame is ready | publishes overdue frames at column wakes until rendering catches up (§6.2) |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by the second agreeing beacon (§6.3.4) — the rev-1/rev-2 post-commit pair, ~250 ms |
 | Board reboots mid-show | ACQUIRE: hard-snaps to the first isolated valid symbol after its trailing quiet window | flips resume on first accepted boundary | black until rejoin from beacon (≤25 revs, about 3.1 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
 | Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes, then clears after its fade-out (fail-dark; epoch never arrives); ACQUIRE boards stay dark |
@@ -1016,7 +1005,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); boundary misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected — except the ZERO→ZERO_EPOCH case, budgeted in the spurious-EPOCH row |
 | Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
 | Mis-snap despite the gate / corrupted timebase (incl. isolated forged burst during ACQUIRE) | one board off by up to W/2 | About 780 col (340 ms), allowing `reject_fallback` rejections at half-revolution pace, the suspect window, and a new isolated boundary with trailing quiet | A forged or truncated train can leave an isolated valid count. A complete beacon train cancels its head's acquisition candidate. |
-| Dropped render (effect misses the 62.5 ms budget) | stale half until a completed frame reaches its matching window, with a possible `t` seam | MindSplatter recovers on its next on-time render. Other effects recover at the next epoch (§6.2). | Watched by the overrun and `ft` telemetry. |
+| Dropped render (effect misses the 62.5 ms budget) | stale pixels or a mid-window image change | next on-time publication after catch-up (§6.2) | Watched by the overrun and `ft` telemetry. |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase at the first isolated boundary after its trailing quiet window, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel wake-ups stop) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
@@ -1158,8 +1147,8 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   the §4.5 budget between snaps, (c) phase re-acquired after a burst of glitches.
   (The shipped tests exercise the trim *hook* at ±40 ppm; estimator
   convergence tests come with §4.3 if it ever ships.)
-- **Layer-2 invariants:** `advance_display` count == 2/rev/board under arbitrary
-  column drift; no latched inversion after a single symbol glitch.
+- **Layer-2 invariants:** accepted display-window count == 2/rev/board under
+  arbitrary column drift. A single symbol glitch never latches a phase inversion.
 - **Timebase arithmetic:** run the flywheel sim past a 32-bit cycle-counter
   wrap (>7.16 s of mock time) with sparse snaps and assert the §4.1 rebase rule
   keeps `x_target` continuous across the wrap; exercise the 64-bit position

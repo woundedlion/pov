@@ -44,6 +44,8 @@ struct EffectConfig {
    *        Canvas keeps the buffer's stale pixels for that stage to read.
    */
   bool replaces_frame = false;
+  bool can_skip_frames =
+      false; /**< Advances missed steps without rasterizing. */
   /**
    * @brief Render-bound expansion the effect's filters need, in pixels
    *        (ClipRegion::margin). Raised to cover the ClipRegion default and
@@ -85,8 +87,9 @@ public:
   HS_FLASH_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
         reads_outside_band(cfg.reads_outside_band),
-        replaces_frame(cfg.replaces_frame), strobe(cfg.strobe), frame_width(W),
-        frame_height(H), required_margin(W == 1 ? 0 : cfg.required_margin) {
+        replaces_frame(cfg.replaces_frame), strobe(cfg.strobe),
+        skip_frames(cfg.can_skip_frames), frame_width(W), frame_height(H),
+        required_margin(W == 1 ? 0 : cfg.required_margin) {
     HS_CHECK(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H,
              "Effect dimensions %d x %d are outside 1..%d x 1..%d", W, H, MAX_W,
              MAX_H);
@@ -150,6 +153,10 @@ public:
    * @return True when persist_pixels is set.
    */
   [[nodiscard]] bool persists_pixels() const { return persist_pixels; }
+
+  /** @brief Whether the effect can advance skipped frames without drawing.
+   * @return True when the driver can schedule a target beyond the next frame. */
+  [[nodiscard]] bool can_skip_frames() const { return skip_frames; }
 
   /**
    * @brief The effect's current clip region (display band + render margin).
@@ -308,7 +315,13 @@ public:
    *        or zero for an unscheduled draw.
    * @details Foreground only, before opening the Canvas or in its ready hook.
    */
-  void set_scheduled_frame(uint32_t frame) { scheduled_frame = frame; }
+  void set_scheduled_frame(uint32_t frame) { scheduled_display_frame = frame; }
+  /** @brief Logical frame associated with the current draw.
+   * @return One-based display frame, or zero for an unscheduled draw.
+   * @details ISR reads require an acquired pending buffer. */
+  [[nodiscard]] uint32_t scheduled_frame() const {
+    return scheduled_display_frame;
+  }
   /**
    * @brief Installs a callback run after drawing, while the previous buffer is
    * still stable.
@@ -359,6 +372,7 @@ protected:
    * @brief POV column-strobe flag (see strobe_columns()); set at construction.
    */
   bool strobe;
+  bool skip_frames; /**< Effect can advance skipped steps without drawing. */
 
 private:
   /**
@@ -442,7 +456,8 @@ private:
   BufferReadyHook buffer_ready_hook = nullptr;
   BufferCompleteHook buffer_complete_hook = nullptr;
   uint32_t frame_number = 0; /**< Number of canvases opened for this effect. */
-  uint32_t scheduled_frame = 0; /**< One-based display target, if present. */
+  uint32_t scheduled_display_frame =
+      0; /**< One-based display target, if present. */
 };
 
 /**
@@ -493,7 +508,7 @@ public:
 
   /** @brief Display frame targeted by this draw.
    * @return One-based display frame, or zero for an unscheduled draw. */
-  uint32_t scheduled_frame() const { return effect.scheduled_frame; }
+  uint32_t scheduled_frame() const { return effect.scheduled_frame(); }
 
   /**
    * @brief Accesses a pixel in the current drawing buffer by 2D coordinates.

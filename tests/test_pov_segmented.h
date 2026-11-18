@@ -869,6 +869,7 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
   effect.advance_display();
 
   bool selected_arm = true;
+  effect.set_scheduled_frame(1);
   set_phase_clip(effect, selected_arm);
   effect.draw_frame();
   if (post_wait)
@@ -883,7 +884,7 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
                       clipped_clear);
   }
 
-  selected_arm = pov::upcoming_window_arm_a_left(handoff.window_left());
+  selected_arm = !handoff.window_left();
   if (!post_wait)
     set_phase_clip(effect, selected_arm);
   effect.draw_frame();
@@ -892,7 +893,7 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
     HS_CONTEXT("flip", static_cast<long long>(flip));
     const uint16_t queued_stamp = effect.last_stamp();
     const bool queued_arm = selected_arm;
-    selected_arm = pov::upcoming_window_arm_a_left(handoff.window_left());
+    selected_arm = !handoff.window_left();
     if (!post_wait)
       set_phase_clip(effect, selected_arm);
 
@@ -920,7 +921,8 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
     HS_EXPECT_FALSE(draw_returned.load(std::memory_order_acquire));
 
     const bool zero_crossing = (flip % 2) == 0;
-    handoff.set_window_left(zero_crossing);
+    handoff.apply_wake(
+        {.flip = true, .zero_crossing = zero_crossing, .wire_gen = 1});
     effect.advance_display();
     foreground.join();
 
@@ -1016,7 +1018,7 @@ inline void test_segment_half_survives_missed_boundaries() {
   }
 }
 
-/** @brief Late segment frames wait for their half and acquire the next window's target. */
+/** @brief Segments catch up at column wakes without publishing future or in-flight frames. */
 inline void test_late_segment_publication() {
   for (bool clipped_clear : {false, true}) {
     for (int count : {2, 4, 8}) {
@@ -1034,62 +1036,69 @@ inline void test_late_segment_publication() {
             pov::SubmitGate submit;
             bool left = initial_left;
             uint32_t window_index = 0;
-            auto boundary = [&](bool initial = false) {
-              if (!initial)
+            auto wake = [&](bool boundary, bool initial = false) {
+              if (boundary && !initial) {
                 ++window_index;
+                left = !left;
+              }
               pov::run_wake_sequence(
                   pulse, submit, handoff,
                   pov::WakeHooks{
                       .tick =
                           [&] {
                             return WakeActions{.commit = initial,
-                                               .flip = true,
+                                               .flip = boundary,
                                                .zero_crossing = left,
-                                               .render_column = -1};
+                                               .render_column = 1};
                           },
                       .wire_gen = [] { return 1u; },
                       .drive_sync = [](bool) {},
                       .commit_failure = [] {},
                       .set_envelope = [](Effect *, int32_t) {},
-                      .submit = [](SubmitAction, Effect *,
-                                   int32_t) { return false; },
+                      .submit =
+                          [&](SubmitAction action, Effect *e, int32_t) {
+                            HS_EXPECT_EQ(action, SubmitAction::COLUMN);
+                            pov::publish_segment_frame(*e, handoff);
+                            return true;
+                          },
                       .advance =
                           [&](Effect *e) {
-                            pov::advance_segment_display(*e, map,
-                                                         handoff.window_left());
+                            pov::publish_segment_frame(*e, handoff);
                           },
                   });
             };
             pov::prime_segment_frame(effect, band, prepare_phase_clip);
             handoff.publish(&effect, 1);
-            boundary(true);
+            wake(true, true);
             HS_EXPECT_TRUE(effect.buffer_free());
             uint16_t expected[2] = {1, 1};
             for (uint16_t stamp = 2; stamp <= 9; ++stamp) {
-              const bool target_left = !left;
+              const bool target_left = initial_left != ((stamp - 1) % 2 != 0);
               const bool pixel_left = map.arm_b ? !target_left : target_left;
               {
                 Canvas canvas(effect);
-                HS_EXPECT_EQ(canvas.scheduled_frame(), window_index + 2);
+                HS_EXPECT_EQ(canvas.scheduled_frame(), stamp);
                 const ClipRegion clip = canvas.clip();
+                HS_EXPECT_EQ(clip.x_start, pixel_left ? 0 : 4);
                 for (int y = clip.y_start; y < clip.y_end; ++y)
                   for (int x = clip.x_start; x < clip.x_end; ++x)
                     canvas(x, y) = Pixel(stamp, 0, 0);
-                for (int skip = 0; skip < missed; ++skip) {
-                  left = !left;
-                  boundary();
-                  HS_EXPECT_EQ(effect.get_pixel(0, band.y0).r, expected[0]);
-                  HS_EXPECT_EQ(effect.get_pixel(4, band.y0).r, expected[1]);
+                if (stamp == 2) {
+                  for (int skip = 0; skip < missed; ++skip) {
+                    wake(true);
+                    HS_EXPECT_EQ(effect.get_pixel(0, band.y0).r, expected[0]);
+                    HS_EXPECT_EQ(effect.get_pixel(4, band.y0).r, expected[1]);
+                  }
                 }
               }
-              left = !left;
-              boundary();
-              if (left != target_left) {
+              const bool due = stamp <= window_index + 1;
+              wake(false);
+              HS_EXPECT_EQ(effect.buffer_free(), due);
+              if (!due) {
                 HS_EXPECT_FALSE(effect.buffer_free());
                 HS_EXPECT_EQ(effect.get_pixel(0, band.y0).r, expected[0]);
                 HS_EXPECT_EQ(effect.get_pixel(4, band.y0).r, expected[1]);
-                left = !left;
-                boundary();
+                wake(true);
               }
               HS_EXPECT_TRUE(effect.buffer_free());
               expected[pixel_left ? 0 : 1] = stamp;
@@ -1109,23 +1118,78 @@ inline void test_late_segment_publication() {
   phase_segment_count = 4;
 }
 
-/** @brief Full-frame and persistent effects publish at either boundary. */
+/** @brief Full-frame and persistent effects publish when due on either arm half. */
 inline void test_segment_publication_exclusions() {
   for (bool full_frame : {false, true}) {
     for (bool persist : {false, true}) {
       if (!full_frame && !persist)
         continue;
-      for (bool arm_b : {false, true}) {
+      for (bool left : {false, true}) {
+        EffectHandoff<Effect> handoff;
         PhaseEffect effect(true, full_frame, persist);
         effect.set_clip(0, 4, 0, 4);
+        effect.set_scheduled_frame(2);
         effect.draw_frame();
-        pov::advance_segment_display(effect, segment_map(arm_b ? 1 : 0, 8, 2),
-                                     arm_b);
+        pov::publish_segment_frame(effect, handoff);
+        HS_EXPECT_FALSE(effect.buffer_free());
+        handoff.apply_wake({.flip = true, .zero_crossing = left});
+        pov::publish_segment_frame(effect, handoff);
         HS_EXPECT_TRUE(effect.buffer_free());
         HS_EXPECT_EQ(effect.get_pixel(0, 0).r, 1);
       }
     }
   }
+}
+
+/** @brief Catch-up preserves both feedback buffers through normal draws. */
+inline void test_segment_feedback_catch_up() {
+  class FeedbackEffect : public Effect {
+  public:
+    FeedbackEffect()
+        : Effect(8, 4, {.full_frame = true, .replaces_frame = true}) {}
+
+    void draw_frame() override {
+      Canvas canvas(*this);
+      const Pixel *previous = canvas.prev_data();
+      for (int i = 0; i < 32; ++i) {
+        const uint32_t color = 2u * previous[(i + 1) % 32].r + canvas(i).r +
+                               canvas.frame_number() + i;
+        canvas(i) = Pixel(static_cast<uint16_t>(color), 0, 0);
+      }
+    }
+  };
+
+  auto render = [](int missed) {
+    EffectHandoff<Effect> handoff;
+    phase_handoff = &handoff;
+    const SegmentMap map = segment_map(0, 8, 4);
+    FeedbackEffect effect;
+    pov::prime_segment_frame(effect, segment_clip(map, true, 8, 4, 8),
+                             prepare_phase_clip);
+    pov::publish_segment_frame(effect, handoff);
+    for (uint32_t logical = 2; logical <= 9; ++logical) {
+      effect.draw_frame();
+      HS_EXPECT_EQ(effect.scheduled_frame(), logical);
+      const auto flip = [&] {
+        handoff.apply_wake(
+            {.flip = true, .zero_crossing = !handoff.window_left()});
+      };
+      if (logical == 2)
+        for (int n = 0; n < missed; ++n)
+          flip();
+      if (logical > handoff.current_window().index + 1)
+        flip();
+      pov::publish_segment_frame(effect, handoff);
+      HS_EXPECT_TRUE(effect.buffer_free());
+    }
+    HS_EXPECT_EQ(handoff.current_window().index, 8u);
+    phase_handoff = nullptr;
+    return std::vector<Pixel>(effect.display_buffer(),
+                              effect.display_buffer() + 32);
+  };
+  const auto reference = render(0);
+  for (int missed : {1, 2, 5})
+    HS_EXPECT_TRUE(render(missed) == reference);
 }
 
 /** @brief Publication predicates run only for completed, pending frames. */
@@ -1580,6 +1644,7 @@ inline int run_pov_segmented_tests() {
   HS_RUN(test_clip_phase_after_buffer_release);
   HS_RUN(test_prime_segment_frame);
   HS_RUN(test_late_segment_publication);
+  HS_RUN(test_segment_feedback_catch_up);
   HS_RUN(test_pending_frame_publication_predicate);
   HS_RUN(test_segment_publication_exclusions);
   HS_RUN(test_segment_half_survives_missed_boundaries);

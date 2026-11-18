@@ -5,8 +5,7 @@
 
 /**
  * @file pov_segment_frame.h
- * @brief Segment-frame lifecycle: initial full-width prime, opposite-half
- *        retention, and half-matched display publication.
+ * @brief Segment-frame priming, scheduling, opposite-half retention and scanout.
  */
 #pragma once
 
@@ -30,16 +29,7 @@ inline bool segment_clip_applies(const Effect &effect) {
 }
 
 /**
- * @brief Selects the arm-A half for the window after the open one.
- * @param window_left True when the current window sweeps arm A's left half.
- * @return True when the queued frame will sweep arm A's left half.
- */
-constexpr bool upcoming_window_arm_a_left(bool window_left) {
-  return !window_left;
-}
-
-/**
- * @brief Sets the simulation target and clip for the upcoming display window.
+ * @brief Sets the next logical frame and its display clip.
  * @param effect Effect with a newly acquired back buffer.
  * @param segment Physical arm and row mapping.
  * @param leds Total LEDs across the two arms.
@@ -49,31 +39,28 @@ constexpr bool upcoming_window_arm_a_left(bool window_left) {
 inline void prepare_segment_frame(Effect &effect, const SegmentMap &segment,
                                   int leds, int segments,
                                   DisplayWindow window) {
-  effect.set_scheduled_frame(window.index + 2);
+  const uint32_t open = window.index + 1;
+  const uint32_t target =
+      effect.can_skip_frames() ? open + 1 : effect.scheduled_frame() + 1;
+  effect.set_scheduled_frame(target);
   if (!segment_clip_applies(effect))
     return;
+  const bool target_left = window.arm_a_left != ((target - open) % 2 != 0);
   const SegmentClip clip =
-      segment_clip(segment, upcoming_window_arm_a_left(window.arm_a_left), leds,
-                   segments, effect.width());
+      segment_clip(segment, target_left, leds, segments, effect.width());
   effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
 }
 
 /**
- * @brief Publishes a queued segment frame only in the half it rendered.
+ * @brief Publishes a completed segment frame when its window is due or past.
  * @param effect Live effect with a completed or in-progress frame.
- * @param segment Physical arm and row mapping.
- * @param window_left True when the open window sweeps arm A's left half.
+ * @param handoff Display window state.
  */
-inline void advance_segment_display(Effect &effect, const SegmentMap &segment,
-                                    bool window_left) {
+inline void publish_segment_frame(Effect &effect,
+                                  const EffectHandoff<Effect> &handoff) {
   effect.advance_display_if([&] {
-    if (!segment_clip_applies(effect))
-      return true;
-    const ClipRegion &clip = effect.clip();
-    if (clip.x_start == 0 && clip.x_end == effect.width())
-      return true;
-    const bool LEFT = segment_sweeps_left(segment, window_left);
-    return clip.x_start == (LEFT ? 0 : effect.width() / 2);
+    const uint32_t target = effect.scheduled_frame();
+    return target != 0 && target <= handoff.current_window().index + 1;
   });
 }
 
@@ -110,6 +97,7 @@ inline void prime_segment_frame(Effect &effect, const SegmentClip &initial_clip,
     effect.set_clip(initial_clip.y0, initial_clip.y1, initial_clip.x0,
                     initial_clip.x1);
   effect.set_clip_x(0, effect.width());
+  effect.set_scheduled_frame(1);
   effect.draw_frame();
   effect.set_buffer_ready_hook(prepare);
   if (CLIPPED)
