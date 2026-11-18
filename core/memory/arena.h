@@ -378,8 +378,8 @@ public:
   bool below_reset_floor(const void *p, size_t bytes, uint32_t birth) const {
     uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
     uintptr_t q = reinterpret_cast<uintptr_t>(p);
-    return birth == floor_generation && bytes > 0 && q >= base &&
-           (q - base) <= reset_floor && bytes <= reset_floor - (q - base);
+    return birth == floor_generation && q >= base && (q - base) < reset_floor &&
+           bytes <= reset_floor - (q - base);
   }
 
   /**

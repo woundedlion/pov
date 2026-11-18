@@ -960,6 +960,8 @@ inline void test_arena_block_stamp_reset_floor() {
   a.allocate(64);
   HS_EXPECT_TRUE(stamp.block_alive(kept, 64));
   HS_EXPECT_FALSE(stamp.block_alive(dropped, 64));
+  HS_EXPECT_FALSE(stamp.reset_past(kept, 0));
+  HS_EXPECT_TRUE(stamp.reset_past(dropped, 0));
 
   a.rebind(test_buf_a, sizeof(test_buf_a));
   a.allocate(128);
@@ -973,11 +975,15 @@ inline void test_arenavec_reset_floor() {
   ArenaVector<int> v(a, 4);
   v.push_back(42);
   ArenaSpan<int> before(v);
+  ArenaVector<int> empty(a, 4);
+  ArenaSpan<int> empty_before(empty);
   a.set_reset_floor();
   a.reset();
   HS_EXPECT_EQ(v[0], 42);
   HS_EXPECT_EQ(before[0], 42);
   HS_EXPECT_EQ(ArenaSpan<int>(v).size(), size_t(1));
+  HS_EXPECT_TRUE(empty_before.empty());
+  HS_EXPECT_TRUE(ArenaSpan<int>(empty).empty());
   v.bind(a, 4);
   v.push_back(7);
   HS_EXPECT_EQ(v[0], 7);
