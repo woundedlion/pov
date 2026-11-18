@@ -97,11 +97,49 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
       }
       Spacetime::count_geometry<
           &Spacetime::GeometryCounters::column_path_evaluations>();
+      const int meridian = Cfg.column_edge_lengths ? owner % (W / 2) : owner;
+      const float arm =
+          Cfg.column_edge_lengths && owner >= W / 2 ? -1.0f : 1.0f;
+      const float column_cosine =
+          arm * math::TrigLUT<W, H>::cos_theta(meridian);
+      const float column_sine = arm * math::TrigLUT<W, H>::sin_theta[meridian];
+      const int arc_direction = LOCAL_LATTICE
+                                    ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
+                                    : state.direction;
+      const float sine = arc_direction * state.half_sine;
+      const math::Vector normal(
+          -column_sine * state.half_cosine - column_cosine * sine, 0.0f,
+          column_cosine * state.half_cosine - column_sine * sine);
+      const math::Vector back(
+          -column_sine * state.half_cosine + column_cosine * sine, 0.0f,
+          column_cosine * state.half_cosine + column_sine * sine);
       bool lit = state.radians == 0.0f, finished = false;
       float cut = 1.0f;
       math::Vector turn;
       if (SPLIT) {
-        cut = EdgeWorldsheet::split_point(a, b, total, sampler, turn);
+        sampler = EdgeWorldsheet::basis(a, b, total);
+        if (total <= 0.5f) {
+          // tan(s) <= 1.1 s over the short arc, including any split point.
+          const float tangent_limit = 1.1f * total;
+          const auto stays_beyond = [&](const math::Vector &plane,
+                                        float sign) HS_HOT_INLINE {
+            constexpr float ROUNDING = 2e-6f;
+            const float start = sign * math::dot(sampler.v1, plane);
+            return start > ROUNDING && sign * math::dot(b, plane) > ROUNDING &&
+                   start + tangent_limit *
+                               fminf(0.0f,
+                                     sign * math::dot(sampler.v_perp, plane)) >
+                       ROUNDING;
+          };
+          if (stays_beyond(normal, float(arc_direction)) ||
+              (stays_beyond(normal, -float(arc_direction)) &&
+               stays_beyond(back, -float(arc_direction)))) {
+            if (!state.turning && (seen || column + 1 >= walk.deadline))
+              break;
+            continue;
+          }
+        }
+        cut = EdgeWorldsheet::split_point(sampler, b, turn);
         unit = true;
       }
       for (int part = 0; part < (SPLIT ? 2 : 1); ++part) {
@@ -122,24 +160,6 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         }
         if (state.radians != 0.0f || LOCAL_LATTICE) {
           const float inverse_length = length > 1e-7f ? 1.0f / length : 0.0f;
-          const int meridian =
-              Cfg.column_edge_lengths ? owner % (W / 2) : owner;
-          const float arm =
-              Cfg.column_edge_lengths && owner >= W / 2 ? -1.0f : 1.0f;
-          const float column_cosine =
-              arm * math::TrigLUT<W, H>::cos_theta(meridian);
-          const float column_sine =
-              arm * math::TrigLUT<W, H>::sin_theta[meridian];
-          const int arc_direction =
-              LOCAL_LATTICE ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
-                            : state.direction;
-          const float sine = arc_direction * state.half_sine;
-          const math::Vector normal(
-              -column_sine * state.half_cosine - column_cosine * sine, 0.0f,
-              column_cosine * state.half_cosine - column_sine * sine);
-          const math::Vector back(
-              -column_sine * state.half_cosine + column_cosine * sine, 0.0f,
-              column_cosine * state.half_cosine + column_sine * sine);
           const float end_side = math::dot(part_b, normal);
           const float back_side = math::dot(part_b, back);
           bool crossing = false;

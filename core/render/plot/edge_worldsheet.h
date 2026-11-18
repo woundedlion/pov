@@ -56,9 +56,8 @@ struct EdgeWorldsheet {
   }
 
   /** @brief Finds where an arc comes closest to a pole.
-   * @param a,b Endpoint directions.
-   * @param total Arc length, radians.
-   * @param basis Receives the arc's orthonormal basis.
+   * @param basis Orthonormal basis and length of the arc.
+   * @param b End direction.
    * @param turn Receives the arc's point at the returned fraction.
    * @return The arc fraction of its height's extreme, or one when the extreme
    * lies outside the arc.
@@ -67,10 +66,10 @@ struct EdgeWorldsheet {
    * the extreme each span less than half the longitudes. The height has an
    * extreme inside the arc exactly when its slopes at the two ends,
    * b.y - a.y (a.b) and -(a.y - b.y (a.b)), have opposite signs. */
-  HS_HOT_FLASH_MEMBER static float
-  split_point(const math::Vector &a, const math::Vector &b, float total,
-              GeodesicEdgeSampler &basis, math::Vector &turn) {
-    basis = EdgeWorldsheet::basis(a, b, total);
+  HS_HOT_FLASH_MEMBER static float split_point(const GeodesicEdgeSampler &basis,
+                                               const math::Vector &b,
+                                               math::Vector &turn) {
+    const float total = basis.total_dist;
     const math::Vector end = normalize(b);
     const float cosine_ab = math::dot(basis.v1, end);
     float cut = 1.0f;
