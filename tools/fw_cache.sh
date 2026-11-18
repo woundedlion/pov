@@ -42,7 +42,7 @@ hs_fw_cache_root() {
 # The checkout's tree hash; rc 3 when anything is uncommitted or untracked.
 hs_fw_cache_tree() {
   local status
-  status=$(git status --porcelain) || return 2
+  status=$(git status --porcelain --untracked-files=normal) || return 2
   if [ -n "$status" ]; then
     echo "fw_cache: the checkout has uncommitted changes; image not cached" >&2
     return 3

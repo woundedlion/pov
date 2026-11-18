@@ -176,6 +176,14 @@ class CacheKey(FirmwareCacheFixture):
                 else:
                     path.write_bytes(original)
 
+    def test_untracked_changes_refuse_a_key_with_status_hiding_them(self):
+        self.git("config", "status.showUntrackedFiles", "no")
+        self.key()
+        (self.repo / "new.txt").write_text("dirty\n", encoding="utf-8")
+        result = self.fw('hs_fw_cache_key profile')
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn("uncommitted changes", result.stderr)
+
 
 class CacheStore(FirmwareCacheFixture):
     def build_and_store(self, **extra):
