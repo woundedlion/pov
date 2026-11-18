@@ -255,18 +255,19 @@ struct SingleCenterSupport {
  * @param support Optional prepared single-center support.
  * @return Displaced direction and angular travel. */
 template <typename Result, typename WaveAt, typename Fallback>
-HS_HOT_INLINE inline Result grouped(const math::Vector &input,
-                                    const WaveAt &wave_at, uint8_t count,
-                                    bool track_path, const Fallback &fallback,
-                                    const SingleCenterSupport &support = {}) {
+HS_HOT_INLINE inline Result
+grouped(const math::Vector &input, const WaveAt &wave_at, uint8_t count,
+        bool track_path, const Fallback &fallback,
+        const SingleCenterSupport *support = nullptr) {
   Result result{input, 0.0f};
+  const bool single_center = support && support->valid;
   uint8_t index = 0;
   while (index < count) {
     const math::Vector start = result.sphere;
     const math::Vector center = wave_at(index).center;
     const float distance_cos = hs::clamp(math::dot(center, start), -1.0f, 1.0f);
-    if (support.valid &&
-        (distance_cos > support.near || distance_cos < support.far))
+    if (single_center &&
+        (distance_cos > support->near || distance_cos < support->far))
       return result;
     float distance = math::fast_acos(distance_cos);
     float total_angle = 0.0f;
@@ -275,7 +276,7 @@ HS_HOT_INLINE inline Result grouped(const math::Vector &input,
                        result.path_length, track_path))
         return fallback();
     } while (index < count &&
-             (support.valid || same_center(wave_at(index).center, center)));
+             (single_center || same_center(wave_at(index).center, center)));
     if (total_angle != 0.0f &&
         !rotate_group(start, center, total_angle, result.sphere))
       return fallback();

@@ -412,6 +412,9 @@ template <typename BindingT, typename Family, bool TrackPath = false,
 struct SurfaceProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /// Prepare exact single-center support for untracked, table-free bursts.
+  static constexpr bool CACHE_SINGLE_CENTER =
+      !TrackPath && requires { requires !Binding::Spec::RIPPLE_RADIAL_TABLE; };
   using RadialPrepareOwner = SurfaceProvider; ///< Owner of radial preparation.
   using GradientPrepareOwner =
       SurfaceProvider; ///< Owner of gradient qualification.
@@ -429,8 +432,7 @@ struct SurfaceProvider {
   HS_HOT_INLINE static auto prepare(const FrameState &frame) {
     if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>) {
       const auto &resource = frame.resources.template get<Key>();
-      return SphereAnimation::prepare_ripples(params(frame), resource,
-                                              !TrackPath);
+      return SphereAnimation::prepare_ripples(params(frame), resource);
     } else if constexpr (requires {
                            frame.params.template get<Key>().direction;
                          })
@@ -518,9 +520,15 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
     else
       return false;
   }(); ///< Whether table-eligible columns defer exact wave preparation.
+  static constexpr bool CACHE_SINGLE_CENTER = requires {
+    requires std::is_same_v<State, typename State::RadialPrepareOwner>;
+    requires State::CACHE_SINGLE_CENTER;
+  }; ///< Whether the provider caches a single-center band.
   using Prepared = std::conditional_t<
-      LAZY_RADIAL_PREPARE, std::optional<SphereAnimation::PreparedRipples>,
-      SphereAnimation::PreparedRipples>; ///< Optional exact wave kernels.
+      CACHE_SINGLE_CENTER, SphereAnimation::SupportedRipples,
+      std::conditional_t<
+          LAZY_RADIAL_PREPARE, std::optional<SphereAnimation::PreparedRipples>,
+          SphereAnimation::PreparedRipples>>; ///< Prepared waves.
   /** @brief Prepares exact waves unless the column has a usable radial table.
    * @param frame Current frame.
    * @return Exact kernels, or an empty optional for deferred preparation. */
@@ -530,7 +538,7 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
       if (tables && tables->enabled)
         return std::nullopt;
     }
-    return State::prepare(frame);
+    return Prepared{State::prepare(frame)};
   }
   /** @brief Prepares exact waves for a rejected radial sample.
    * @param input Original input direction.
@@ -549,7 +557,10 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
    * @return Displaced direction and accumulated path length. */
   static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
                              const Prepared &prepared) {
-    if constexpr (LAZY_RADIAL_PREPARE) {
+    if constexpr (CACHE_SINGLE_CENTER) {
+      return SphereAnimation::grouped_ripples(input, prepared.ripples, false,
+                                              &prepared.support);
+    } else if constexpr (LAZY_RADIAL_PREPARE) {
       if (prepared)
         return SphereAnimation::grouped_ripples(
             input, *prepared, State::path_length_required(frame));

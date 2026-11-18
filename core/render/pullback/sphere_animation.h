@@ -188,9 +188,40 @@ struct RadialTables {
 struct PreparedRipples {
   std::array<Surface::PreparedRipple,
              RIPPLE_BURST_GROUPS * RIPPLE_WAVES_PER_BURST>
-      waves;                                       ///< Active kernels.
-  uint8_t count = 0;                               ///< Active wave count.
-  RippleKernel::SingleCenterSupport single_center; ///< Prepared group support.
+      waves;         ///< Active kernels.
+  uint8_t count = 0; ///< Active wave count.
+};
+
+/** @brief Conservative cosine band for an exact single-center wave sequence.
+ * @param prepared Active kernels in launch order.
+ * @return An invalid band for empty or mixed-center sequences. */
+HS_HOT_FLASH_MEMBER inline RippleKernel::SingleCenterSupport
+single_center_support(const PreparedRipples &prepared) {
+  RippleKernel::SingleCenterSupport group;
+  if (!prepared.count)
+    return group;
+  for (uint8_t i = 0; i < prepared.count; ++i) {
+    const auto &wave = prepared.waves[i].ripple;
+    if (!RippleKernel::same_center(wave.center,
+                                   prepared.waves[0].ripple.center))
+      return group;
+    if (wave.amplitude > RippleKernel::NEGLIGIBLE_AMPLITUDE)
+      RippleKernel::include_support(group.near, group.far, wave);
+  }
+  // Cosine is 1-Lipschitz. Include fast_acos error and endpoint rounding.
+  constexpr float MARGIN = static_cast<float>(math::FAST_ACOS_MAX_ERROR) +
+                           2.0f * std::numeric_limits<float>::epsilon();
+  group.near += MARGIN;
+  group.far -= MARGIN;
+  group.valid = true;
+  return group;
+}
+
+/** @brief Exact waves and their optional shared-center support band. */
+struct SupportedRipples {
+  PreparedRipples ripples; ///< Active kernels in launch order.
+  RippleKernel::SingleCenterSupport support =
+      single_center_support(ripples); ///< Conservative cosine bounds.
 };
 
 /** @brief Applies prepared waves in launch order.
@@ -213,10 +244,12 @@ sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @param input Unit direction.
  * @param prepared Prepared wave kernels in launch order.
  * @param track_path Whether to accumulate angular travel.
+ * @param support Optional precomputed single-center cosine band.
  * @return Displaced direction and travel. */
 HS_HOT_FLASH_MEMBER inline SurfaceResult
 grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
-                bool track_path) {
+                bool track_path,
+                const RippleKernel::SingleCenterSupport *support = nullptr) {
   return RippleKernel::grouped<SurfaceResult>(
       input,
       [&](uint8_t index) HS_HOT_INLINE -> const RippleKernel::Wave & {
@@ -226,7 +259,7 @@ grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
       [&]() HS_HOT_INLINE {
         return sequential_ripples(input, prepared, track_path);
       },
-      prepared.single_center);
+      support);
 }
 
 /** @brief Evaluates a same-center wave sequence in radial coordinates.
@@ -475,12 +508,10 @@ radial_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @tparam Params Ripple controls.
  * @param params Current controls.
  * @param state Scheduler state.
- * @param cache_single_center Prepare a support band for same-center waves.
  * @return Active kernels in launch order. */
 template <typename Params>
 HS_HOT_FLASH_MEMBER inline PreparedRipples
-prepare_ripples(const Params &params, const RippleState &state,
-                bool cache_single_center = false) {
+prepare_ripples(const Params &params, const RippleState &state) {
   PreparedRipples result;
   for (uint32_t lag = RIPPLE_BURST_GROUPS; lag > 0; --lag) {
     const uint32_t burst = state.burst_count - lag;
@@ -498,25 +529,6 @@ prepare_ripples(const Params &params, const RippleState &state,
       result.waves[result.count++] =
           Surface::prepare_ripple(params, wave.age / params.period, center);
     }
-  }
-  if (cache_single_center && result.count) {
-    auto &group = result.single_center;
-    group.valid = true;
-    for (uint8_t i = 0; i < result.count; ++i) {
-      const auto &wave = result.waves[i].ripple;
-      if (!RippleKernel::same_center(wave.center,
-                                     result.waves[0].ripple.center)) {
-        group.valid = false;
-        break;
-      }
-      if (wave.amplitude > RippleKernel::NEGLIGIBLE_AMPLITUDE)
-        RippleKernel::include_support(group.near, group.far, wave);
-    }
-    // Cosine is 1-Lipschitz. Include fast_acos error and endpoint rounding.
-    constexpr float MARGIN = static_cast<float>(math::FAST_ACOS_MAX_ERROR) +
-                             2.0f * std::numeric_limits<float>::epsilon();
-    group.near += MARGIN;
-    group.far -= MARGIN;
   }
   return result;
 }

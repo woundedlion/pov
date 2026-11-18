@@ -114,11 +114,11 @@ inline void test_pullback_single_center_ripple_support() {
       params.random_center = 1;
       clock.waves[0] = {78.0f, 0};
     }
-    auto cached = prepare_ripples(params, clock, true);
-    HS_EXPECT_EQ(cached.single_center.valid, !overlap);
-    const auto exact = prepare_ripples(params, clock);
+    const SupportedRipples cached{prepare_ripples(params, clock)};
+    HS_EXPECT_EQ(cached.support.valid, !overlap);
+    const auto &exact = cached.ripples;
     const auto check = [&](const math::Vector &view) {
-      const auto a = grouped_ripples(view, cached, false);
+      const auto a = grouped_ripples(view, exact, false, &cached.support);
       const auto b = grouped_ripples(view, exact, false);
       HS_EXPECT_EQ(a.sphere.x, b.sphere.x);
       HS_EXPECT_EQ(a.sphere.y, b.sphere.y);
@@ -128,8 +128,8 @@ inline void test_pullback_single_center_ripple_support() {
     for (int i = 0; i < 256; ++i)
       check(math::fib_spiral(256, 0.5f, i));
     if (!overlap)
-      for (uint8_t i = 0; i < cached.count; ++i) {
-        const auto &wave = cached.waves[i].ripple;
+      for (uint8_t i = 0; i < exact.count; ++i) {
+        const auto &wave = exact.waves[i].ripple;
         for (float edge : {wave.cos_near, wave.cos_far})
           for (float delta : {-2e-4f, -5e-5f, 0.0f, 5e-5f, 2e-4f}) {
             const float y = hs::clamp(edge + delta, -1.0f, 1.0f);
@@ -897,6 +897,15 @@ inline void test_pullback_ripple_lazy_preparation() {
   using Policy = Pullback::Surface::BurstRipple<RippleTestProvider>;
   using Custom = Pullback::Surface::BurstRipple<CustomRippleTestProvider>;
   using Generic = Pullback::Surface::BurstRipple<GenericRippleTestProvider>;
+  using ExactBinding = Pullback::Binding<RippleTestFrame>;
+  using Untracked = Pullback::Surface::BurstRipple<
+      Pullback::SurfaceProvider<ExactBinding, BurstRippleParams, false>>;
+  using Tracked = Pullback::Surface::BurstRipple<
+      Pullback::SurfaceProvider<ExactBinding, BurstRippleParams, true>>;
+  static_assert(std::is_same_v<Untracked::Prepared, SupportedRipples>);
+  static_assert(std::is_same_v<Tracked::Prepared, PreparedRipples>);
+  static_assert(
+      std::is_same_v<Policy::Prepared, std::optional<PreparedRipples>>);
   static_assert(Policy::LAZY_RADIAL_PREPARE);
   static_assert(!Custom::LAZY_RADIAL_PREPARE);
   static_assert(!Generic::LAZY_RADIAL_PREPARE);
