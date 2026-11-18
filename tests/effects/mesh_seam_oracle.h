@@ -165,20 +165,24 @@ inline int record_face_copies(const Canvas &canvas, const MeshState &mesh,
   const Spacetime::TimeWindow &window = canvas.time_window();
   const Scan::ColumnBasis *time = canvas.column_basis();
   const int arm = window.arm(canvas.width());
-  if (!window.active || arm < 0 || !time || !time->mesh.selected_faces)
+  if (!window.active || arm < 0 || !time)
+    return -1;
+  if (const Scan::FaceArmCopy *own = time->mesh.face_copy) {
+    FaceCopy &copy = copies[arm][own->face];
+    copy = FaceCopy{};
+    for (size_t k = 0; k < own->count; ++k) {
+      copy.indices.push_back(own->sources[k]);
+      copy.polygon.push_back(orientation.unorient(own->vertices[k]));
+    }
+    return arm;
+  }
+  if (!time->mesh.selected_faces)
     return -1;
   for (size_t f = 0; f < mesh.num_faces(); ++f) {
     if (time->mesh.selected_faces[f] != Scan::detail::FacePass::WINDOWED)
       continue;
     FaceCopy &copy = copies[arm][f];
     copy = FaceCopy{};
-    if (const Scan::FaceArmCopy *own = time->mesh.face_copy) {
-      for (size_t k = 0; k < own->count; ++k) {
-        copy.indices.push_back(own->sources[k]);
-        copy.polygon.push_back(orientation.unorient(own->vertices[k]));
-      }
-      continue;
-    }
     const uint16_t *face =
         mesh.get_faces_data() + mesh.get_face_offsets_data()[f];
     for (size_t k = 0; k < mesh.get_face_counts_data()[f]; ++k) {
