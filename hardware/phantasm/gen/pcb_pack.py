@@ -89,7 +89,7 @@ def _rotatable(ref):
     # correctly. Rotate chip passives (R*/C*). Keep solder jumpers (JP*, custom
     # pads + clearance-outline trip DRC at 90), C_IN (a through-hole radial
     # electrolytic), diodes, fuse, bead and ICs at rot 0.
-    if ref.startswith("JP") or ref == "C_IN":
+    if ref == "C_IN":
         return False
     return ref[0] in "RC"
 

@@ -47,6 +47,37 @@ public:
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /** Stable preset identities, in automatic sequence order. */
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"noise", "balls"};
+
+  /** @brief Slider-backed parameters. */
+  struct Params {
+    float alpha = 0.3f; /**< Overall ring opacity multiplier in [0, 1]. */
+    int num_rings =
+        std::min(48, RING_SLOTS); /**< Number of evenly spaced rings. */
+    float thickness = 0.03f;      /**< Stroke half-width (radians). */
+    float ball_amp =
+        0.1f; /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
+    float noise_amp =
+        0.2f; /**< Peak polar displacement (radians) of the noise phase. */
+    float scale1 =
+        1.5f; /**< Spatial frequency of the envelope octave; its zero regions leave rings undisturbed. */
+    float scale2 =
+        3.0f; /**< Spatial frequency of the detail octave, scaled by the envelope octave. */
+    float hue_scale =
+        2.0f; /**< Hue rotation (turns) per radian of displacement magnitude. */
+    float flow_speed = 0.03f; /**< Noise-field time advance per frame. */
+    float ball_min = 0.15f;   /**< Smallest ball footprint (radians). */
+    float ball_max = 0.3f;    /**< Largest ball footprint (radians). */
+    float ball_rate =
+        20.0f; /**< Ball spawns per BALL_RATE_FPS frames (jittered ±50%). */
+    float ball_speed_min =
+        0.45f; /**< Slowest fall (pole-to-pole traversals per BALL_RATE_FPS frames). */
+    float ball_speed_max =
+        0.85f; /**< Fastest fall (pole-to-pole traversals per BALL_RATE_FPS frames). */
+  };
+
+  /** Authored parameter defaults for Noise and Balls. */
+  static constexpr std::array<Params, 2> PRESETS{Params{}, Params{}};
+
   /** @return Safe full-cycle frame budget at shipping defaults, including ball drain. */
   static consteval size_t cycle_frames() {
     constexpr auto DEFAULTS = PRESETS[BALLS_PRESET];
@@ -1729,38 +1760,6 @@ private:
    *  everywhere on the ring. */
   static constexpr float BALL_TOUCH_EPS = 1e-3f;
 
-public:
-  /** @brief Slider-backed parameters. */
-  struct Params {
-    float alpha = 0.3f; /**< Overall ring opacity multiplier in [0, 1]. */
-    int num_rings =
-        std::min(48, RING_SLOTS); /**< Number of evenly spaced rings. */
-    float thickness = 0.03f;      /**< Stroke half-width (radians). */
-    float ball_amp =
-        0.1f; /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
-    float noise_amp =
-        0.2f; /**< Peak polar displacement (radians) of the noise phase. */
-    float scale1 =
-        1.5f; /**< Spatial frequency of the envelope octave; its zero regions leave rings undisturbed. */
-    float scale2 =
-        3.0f; /**< Spatial frequency of the detail octave, scaled by the envelope octave. */
-    float hue_scale =
-        2.0f; /**< Hue rotation (turns) per radian of displacement magnitude. */
-    float flow_speed = 0.03f; /**< Noise-field time advance per frame. */
-    float ball_min = 0.15f;   /**< Smallest ball footprint (radians). */
-    float ball_max = 0.3f;    /**< Largest ball footprint (radians). */
-    float ball_rate =
-        20.0f; /**< Ball spawns per BALL_RATE_FPS frames (jittered ±50%). */
-    float ball_speed_min =
-        0.45f; /**< Slowest fall (pole-to-pole traversals per BALL_RATE_FPS frames). */
-    float ball_speed_max =
-        0.85f; /**< Fastest fall (pole-to-pole traversals per BALL_RATE_FPS frames). */
-  };
-
-  /** Authored parameter defaults for Noise and Balls. */
-  static constexpr std::array<Params, 2> PRESETS{Params{}, Params{}};
-
-private:
   Params params = PRESETS[0];
 
   /** @brief GUI parameter descriptions, in registration order.

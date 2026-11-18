@@ -68,7 +68,7 @@ template <int W, int H> inline void check_timed_shader(float lod) {
   HS_EXPECT_GT(drawn[SEAM - 1].r, drawn[SEAM].r);
 
   const std::vector<Pixel> off = [&] {
-    const ScopedTemporalSampling SAMPLING(false);
+    const ScopedTemporalSampling sampling(false);
     return render_stub_frame<W, H>(timed);
   }();
   const std::vector<Pixel> endpoint =
