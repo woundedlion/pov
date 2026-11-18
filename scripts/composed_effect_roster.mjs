@@ -23,4 +23,5 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'mermaid-skin',
   'millefiori',
   'mobius-grid',
+  'river-stones',
 ]);

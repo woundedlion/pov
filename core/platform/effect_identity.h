@@ -132,6 +132,7 @@ namespace effect_identities {
   X(Raymarch, "raymarch", "Raymarch")                                          \
   X(RingShower, "ring-shower", "RingShower")                                   \
   X(RingSpin, "ring-spin", "RingSpin")                                         \
+  X(RiverStones, "river-stones", "river-stones")                               \
   X(ShapeShifter, "shape-shifter", "ShapeShifter")                             \
   X(SphericalHarmonics, "spherical-harmonics", "SphericalHarmonics")           \
   X(Thrusters, "thrusters", "Thrusters")                                       \

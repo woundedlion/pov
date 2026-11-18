@@ -713,6 +713,7 @@ inline void check_slider_registration(const char *name) {
 
   if constexpr (FX::AUTHORED_TOPOLOGY ||
                 std::is_same_v<FX, Iridescence<SMALL_W, SMALL_H>> ||
+                std::is_same_v<FX, RiverStones<SMALL_W, SMALL_H>> ||
                 std::is_same_v<FX, GridWarp<SMALL_W, SMALL_H>> ||
                 std::is_same_v<FX, LiquidWindows<SMALL_W, SMALL_H>> ||
                 std::is_same_v<FX, Millefiori<SMALL_W, SMALL_H>> ||

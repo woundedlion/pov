@@ -27,6 +27,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [GridWarp](#gridwarp)
   - [LiquidWindows](#liquidwindows)
   - [Iridescence](#iridescence)
+  - [River Stones](#river-stones)
   - [Millefiori](#millefiori)
   - [HyperLattice](#hyperlattice)
   - [KaleidoscopeMelt](#kaleidoscopemelt)
@@ -311,6 +312,10 @@ A dodecahedral poloidal potential flow folds an equirectangular grid beneath the
 **Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Singularity Fade, Central Meridian, displace.Strength, displace.Orientation Azimuth, displace.Orientation Polar, displace.Drift, displace.integrator, `displace.term-1..4-{type,kind,l,m,amplitude,phase}`, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, modulate.Modulation Amount, modulate.Pattern Scale, modulate.Pattern Speed, modulate2.Modulation Amount, modulate2.Pattern Scale, modulate2.Pattern Speed
 
 </td></tr></table>
+
+### River Stones
+
+Spherical ripple bursts distort a hexagonal lattice of soft cells, with noise-driven hue, lightness, and opacity. Its single preset opens the Phantasm show for 30 seconds.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Millefiori" target="_blank"><img src="screenshots/Millefiori.png" alt="Millefiori" width="280"></a></td>
@@ -724,8 +729,9 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `grid-warp` | `GridWarp` | 1 |
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
+| `river-stones` | `RiverStones` | 1 |
 
-These 23 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Single-preset entries in `targets/Phantasm/phantasm_playlist.def` carry a fixed show window. The Phantasm playlist omits KaleidoscopeStainedGlass. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends.
+These 24 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Single-preset entries in `targets/Phantasm/phantasm_playlist.def` carry a fixed show window. The Phantasm playlist omits KaleidoscopeStainedGlass. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends.
 
 The [device profile archive](profiles/README.md) and its indexes contain shipping captures, global-O3 references and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. The reports identify source, frame scope, trailing exclusions and validator diagnostics. Measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
@@ -952,7 +958,7 @@ operator and palette clocks keep advancing while its authored-preset pause is
 set.
 
 The simulator interprets admitted chains even when they have no promoted
-firmware match. Firmware can build the 23 promoted fixed descriptors. A
+firmware match. Firmware can build the 24 promoted fixed descriptors. A
 catalog choice alone does not promise a Teensy specialization.
 
 The `ComposedEffect` derivation layer in `composed_policies.h` selects source, warp, surface and lens policies from their parameter families with `SourcePolicyFor`, `WarpPolicyFor`, `SurfacePolicyFor` and `LensPolicyFor`. `tests/composed_effect/derivation_reach.h` checks at compile time that every source, warp, displacement and lens operator family derives a composed policy. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Projected Noise has a composed policy, but no shipped Spec selects it. Value Cutout is reachable and selected by Ash Cloud.

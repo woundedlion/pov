@@ -23,7 +23,8 @@
     "involution": "involution.shader.json",
     "grid-warp": "grid_warp.shader.json",
     "liquid-windows": "liquid_windows.shader.json",
-    "iridescence": "iridescence.shader.json"
+    "iridescence": "iridescence.shader.json",
+    "river-stones": "river_stones.shader.json"
   },
   "product_group": {
     "id": "shader-collection",
@@ -120,6 +121,10 @@
       {
         "effect_id": "iridescence",
         "display_name": "Iridescence"
+      },
+      {
+        "effect_id": "river-stones",
+        "display_name": "River Stones"
       }
     ]
   }

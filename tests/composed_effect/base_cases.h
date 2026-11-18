@@ -225,6 +225,7 @@ inline void test_promoted_document_pipelines() {
   composed_chain_tests::verify_export<GridWarp<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<LiquidWindows<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<Iridescence<SMALL_W, SMALL_H>>(0);
+  composed_chain_tests::verify_export<RiverStones<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<CosmicEyeball<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<AlienBrain<SMALL_W, SMALL_H>>(

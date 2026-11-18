@@ -33,3 +33,4 @@
 #include "effects/MermaidSkin.h"
 #include "effects/Millefiori.h"
 #include "effects/MobiusGrid.h"
+#include "effects/RiverStones.h"

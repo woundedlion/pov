@@ -117,7 +117,7 @@ Firmware, WebAssembly and native test targets share one engine:
 
 ```text
 C++ codebase
-  effects/ (46 visual algorithms) + workbench/
+  effects/ (47 visual algorithms) + workbench/
               |
   core/                       Rendering engine
     scan / plot -> filter pipeline -> Canvas pixel buffer
@@ -727,7 +727,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 Every effect — screenshot, description and parameter list — plus the shader authoring workbench and the legacy roster is documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
-The compile-time roster and tests carry 46 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`targets/Phantasm/phantasm_playlist.def`) contains 41 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile, and KaleidoscopeStainedGlass and RingShower by product curation, as recorded by its `exclude` rows. Each entry carries its own on-air duration alongside its name in the 41-entry roster. Current shipping-segment Teensy measurements for all 41 effects, including Galaxies, are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 47 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`targets/Phantasm/phantasm_playlist.def`) contains 42 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile, and KaleidoscopeStainedGlass and RingShower by product curation, as recorded by its `exclude` rows. Each entry carries its own on-air duration alongside its name in the 42-entry roster. Current shipping-segment Teensy measurements for all 41 effects, including Galaxies, are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ### 6.7 Fenced Effect Transitions (`control/transition.h`)
 
@@ -1604,7 +1604,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    46 headers covering 46 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    47 headers covering 47 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                common/ for code two or more effects share (the
 │                                reaction-diffusion base reaction_diffusion.h and the

@@ -112,6 +112,8 @@ constexpr std::array IDENTITY_GOLDENS{
     IdentityGolden{"RingShower", "ring-shower", "RingShower",
                    0x8A0968F09B972CE9ULL},
     IdentityGolden{"RingSpin", "ring-spin", "RingSpin", 0x128AE1065F9277BBULL},
+    IdentityGolden{"RiverStones", "river-stones", "river-stones",
+                   0x3B17AAF34E2BF48EULL},
     IdentityGolden{"ShapeShifter", "shape-shifter", "ShapeShifter",
                    0xE50A50290CAC42C0ULL},
     IdentityGolden{"SphericalHarmonics", "spherical-harmonics",
