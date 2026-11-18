@@ -1713,10 +1713,40 @@ inline void test_grid_worms_sine_column_phase() {
   }
 }
 
-/** @brief RiverStones' shared layer samples preserve RGB16 and straight alpha. */
-inline void test_river_stones_color_tail() {
+/** @brief Product column shaders match the canonical stage evaluator across an interval.
+ * @tparam FX Composed effect with an eligible modulation stack.
+ * @param from Retained endpoint.
+ * @param to Current endpoint. */
+template <typename FX>
+inline void compare_modulation_columns(const typename FX::FrameState &from,
+                                       const typename FX::FrameState &to) {
+  using Pipeline = typename FX::RenderPipeline;
+  static_assert(Pipeline::MODULATION_STACK);
+  const Pullback::FrameInterval interval(from, to);
+  for (float t : {0.0f, 0.19f, 0.5f, 0.92f, 1.0f}) {
+    const auto frame = Pipeline::prepare(interval.at(t));
+    for (int x = 0; x < SMALL_W; x += 7) {
+      const auto shader = FX::column_shader(frame, x);
+      for (int y = 0; y < SMALL_H; y += 3) {
+        const auto view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, y);
+        const auto expected =
+            Pipeline::evaluate(view, frame.ctx, frame.prepared);
+        const auto actual = shader(view);
+        HS_EXPECT_EQ(actual.color, expected.color);
+        HS_EXPECT_EQ(actual.alpha, expected.alpha);
+      }
+    }
+  }
+}
+
+/** @brief Authored and edited ordered layers preserve straight-alpha colors.
+ * @tparam FX Promoted effect.
+ * @tparam First First baked source key.
+ * @tparam Second Second baked source key. */
+template <typename FX, Pullback::ResourceKey First,
+          Pullback::ResourceKey Second>
+inline void check_product_modulation_columns() {
   using namespace Pullback;
-  using FX = RiverStones<SMALL_W, SMALL_H>;
   reset_globals();
   FX effect;
   effect.init();
@@ -1724,53 +1754,231 @@ inline void test_river_stones_color_tail() {
   history.capture(effect.frame_for_test(), persistent_arena);
   effect.draw_frame();
   effect.advance_display();
-  const auto current = effect.frame_for_test();
+  auto from = history.previous;
+  auto to = effect.frame_for_test();
+  compare_modulation_columns<FX>(from, to);
+
+  Modulation::Resources<true> old_first, new_first, old_second, new_second;
+  const auto first = from.params.template get<First>().modulation;
+  const auto second = from.params.template get<Second>().modulation;
+  bind_modulation_endpoints<First>(from, to, first, old_first, new_first, 0.05f,
+                                   0.55f);
+  bind_modulation_endpoints<Second>(from, to, second, old_second, new_second,
+                                    0.33f, 0.89f);
+  HS_EXPECT_TRUE(std::memcmp(old_first.prepared.cube.data,
+                             new_first.prepared.cube.data,
+                             Pattern::SphereLutView::SIZE) != 0);
+  HS_EXPECT_TRUE(std::memcmp(new_first.prepared.cube.data,
+                             new_second.prepared.cube.data,
+                             Pattern::SphereLutView::SIZE) != 0);
   BakedPaletteStorage alternate;
   alternate.bake(persistent_arena, Palettes::RICH_SUNSET);
-  const auto compare = [](const auto &before, const auto &after,
-                          bool authored) {
-    const FrameInterval interval(before, after);
-    for (float t : {0.0f, 0.19f, 0.5f, 0.92f, 1.0f}) {
-      const auto frame = FX::RenderPipeline::prepare(interval.at(t));
-      HS_EXPECT_EQ(FX::color_column(frame).authored, authored);
-      for (int x = 0; x < SMALL_W; x += 7)
-        for (int y = 0; y < SMALL_H; y += 3) {
-          const auto view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, y);
-          const auto expected = FX::RenderPipeline::shade(view, frame);
-          const auto actual = FX::shade(view, frame);
-          HS_EXPECT_EQ(actual.color, expected.color);
-          HS_EXPECT_EQ(actual.alpha, expected.alpha);
-        }
-    }
-  };
-  compare(history.previous, current, true);
-  for (int change = 0; change < 2; ++change) {
-    auto from = history.previous;
-    auto to = current;
-    for (auto *frame : {&from, &to}) {
-      auto &color = frame->params.template get<"color">();
-      if (change == 0)
-        color.mapping_frequency = 2.0f;
-      else
-        color.opacity_low = 0.25f;
-    }
-    compare(from, to, false);
+  to.palette = &alternate.view();
+  compare_modulation_columns<FX>(from, to);
+  for (auto *state : {&from, &to}) {
+    auto &color = state->params.template get<"color">();
+    color.mapping_frequency = 2.0f;
+    color.opacity_low = 0.25f;
   }
-  auto before = history.previous;
-  auto after = current;
-  after.palette = &alternate.view();
-  after.params.template get<"modulate">().modulation.mechanic.amount = -0.8f;
-  compare(before, after, true);
-  before.params.template get<"modulate1">().modulation.mechanic.kind =
-      after.params.template get<"modulate1">().modulation.mechanic.kind =
+  compare_modulation_columns<FX>(from, to);
+  from.params.template get<First>().modulation.mechanic.kind =
+      to.params.template get<First>().modulation.mechanic.kind =
           ColorModulation::Mechanic::OPACITY;
-  before.params.template get<"modulate2">().modulation.mechanic.kind =
-      after.params.template get<"modulate2">().modulation.mechanic.kind =
+  from.params.template get<Second>().modulation.mechanic.kind =
+      to.params.template get<Second>().modulation.mechanic.kind =
           ColorModulation::Mechanic::HUE_ROTATION;
-  compare(before, after, false);
-  after.params.template get<"modulate1">().modulation.mechanic.amount = 0.0f;
-  after.params.template get<"modulate2">().modulation.enabled = false;
-  compare(before, after, false);
+  to.params.template get<Second>().modulation.mechanic.amount = -0.8f;
+  compare_modulation_columns<FX>(from, to);
+  to.params.template get<First>().modulation.mechanic.amount = 0.0f;
+  to.params.template get<Second>().modulation.enabled = false;
+  compare_modulation_columns<FX>(from, to);
+}
+
+/** @brief Coupled endpoint mechanics preserve the authored colors. */
+inline void test_river_stones_color_tail() {
+  check_product_modulation_columns<RiverStones<SMALL_W, SMALL_H>, "modulate1",
+                                   "modulate2">();
+}
+
+/** @brief Phase-ready and edited Iridescence columns preserve the authored colors. */
+inline void test_iridescence_color_tail() {
+  check_product_modulation_columns<Iridescence<SMALL_W, SMALL_H>, "modulate",
+                                   "modulate2">();
+}
+
+/** @brief Equal cube endpoints share a phase only at the same interpolation weight. */
+inline void test_iridescence_repeated_cube_phase() {
+  using namespace Pullback;
+  using FX = Iridescence<SMALL_W, SMALL_H>;
+  using Pipeline = FX::RenderPipeline;
+  reset_globals();
+  FX effect;
+  effect.init();
+  auto from = effect.frame_for_test();
+  auto to = from;
+  Modulation::Resources<true> old_cube, new_cube;
+  const auto config = from.params.template get<"modulate">().modulation;
+  bind_modulation_endpoints<"modulate">(from, to, config, old_cube, new_cube,
+                                        0.1f, 0.8f);
+  for (auto *endpoint : {&from, &to}) {
+    auto &layer = endpoint->params.template get<"modulate2">().modulation;
+    const auto mechanic = layer.mechanic;
+    layer = config;
+    layer.mechanic = mechanic;
+    endpoint->resources.template get<"modulate2">().modulation =
+        endpoint->resources.template get<"modulate">().modulation;
+  }
+  const FrameInterval interval(from, to);
+  auto frame = Pipeline::prepare(interval.at(0.37f));
+  const auto &first = std::get<Pipeline::NODE_COUNT - 2>(frame.prepared);
+  auto &second = std::get<Pipeline::NODE_COUNT - 1>(frame.prepared);
+  HS_EXPECT_TRUE(first.ready && second.ready);
+  for (float fraction : {0.37f, 0.82f}) {
+    second.cube_fraction = fraction;
+    HS_EXPECT_EQ((Color::same_modulation_phase<false, false>(first, second)),
+                 fraction == first.cube_fraction);
+    const auto stack = Pipeline::bind_modulation_stack(frame);
+    for (int x = 0; x < SMALL_W; x += 3) {
+      const auto view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, SMALL_H / 3);
+      const auto expected = Pipeline::evaluate(view, frame.ctx, frame.prepared);
+      const auto actual = Pipeline::shade(view, frame, stack);
+      HS_EXPECT_EQ(actual.color, expected.color);
+      HS_EXPECT_EQ(actual.alpha, expected.alpha);
+    }
+  }
+}
+
+/** @brief Iridescence pipeline sampled at a single instant. */
+struct StaticIridescenceSpec : IridescenceSpec {
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::off();
+};
+
+/** @brief Current-only layers bind without a temporal frame. */
+inline void test_static_modulation_columns() {
+  using namespace Pullback;
+  using Pipeline =
+      ComposedTraits<SMALL_W, StaticIridescenceSpec>::RenderPipeline;
+  static_assert(Pipeline::MODULATION_STACK);
+  reset_globals();
+  Iridescence<SMALL_W, SMALL_H> effect;
+  effect.init();
+  const auto frame = Pipeline::prepare(effect.frame_for_test());
+  const auto stack = Pipeline::bind_modulation_stack(frame);
+  for (int x = 0; x < SMALL_W; x += 3) {
+    const auto view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, SMALL_H / 3);
+    const auto expected = Pipeline::evaluate(view, frame.ctx, frame.prepared);
+    const auto actual = Pipeline::shade(view, frame, stack);
+    HS_EXPECT_EQ(actual.color, expected.color);
+    HS_EXPECT_EQ(actual.alpha, expected.alpha);
+  }
+}
+
+/** @brief Ordered mechanics share direct samples only for equivalent scalar fields. */
+inline void test_modulation_stack_direct_sample_counts() {
+  using namespace Pullback;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  const auto frame = FX::RenderPipeline::prepare(effect.frame_for_test());
+  constexpr size_t PALETTE = FX::RenderPipeline::NODE_COUNT - 4;
+  auto palette = std::get<PALETTE>(frame.prepared);
+  palette.previous = palette.current;
+  auto source = *std::get<PALETTE + 1>(frame.prepared).current;
+  static int samples;
+  source.evaluate = [](const Modulation::Prepared &field,
+                       const Pattern::SphereDirection &) {
+    ++samples;
+    return field.config.seed % 2 == 0 ? -0.8f : 0.35f;
+  };
+  const auto equivalent = source;
+  auto distinct = source;
+  ++distinct.config.seed;
+  const FieldSample field{0.47f, 0.61f, math::Z_AXIS, 0.0f};
+  Color::ModulationState hue{&source,
+                             &equivalent,
+                             Pattern::SourceKind::NOISE,
+                             {ColorModulation::Mechanic::HUE_ROTATION, 0.21f},
+                             true};
+  auto lift = hue;
+  lift.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 0.45f};
+  auto mask = hue;
+  mask.mechanic = {ColorModulation::Mechanic::OPACITY, 0.65f};
+  const std::array<const Color::ModulationState *, 3> layers{&hue, &lift,
+                                                             &mask};
+  for (int change = 0; change < 3; ++change) {
+    if (change == 1)
+      mask.current = &distinct;
+    if (change == 2)
+      mask.enabled = false;
+    for (float fraction : {0.0f, 0.37f, 1.0f}) {
+      palette.fraction = fraction;
+      auto expected = Color::apply_generated_palette(field, palette.current);
+      auto previous = Color::apply_generated_palette(field, palette.previous);
+      for (const auto *layer : layers) {
+        Color::apply_modulation_in_place(previous, *layer, true);
+        Color::apply_modulation_in_place(expected, *layer, false);
+      }
+      if (fraction <= 0.0f)
+        expected = previous;
+      else if (fraction < 1.0f)
+        blend_color_samples_in_place(previous, expected, fraction);
+      const Color4 reference = finish_color_sample(expected);
+      samples = 0;
+      const Color::ModulationStack<3> stack(palette, true, layers);
+      const auto actual = stack.shade(field);
+      HS_EXPECT_EQ(samples, change == 1 && fraction > 0.0f ? 2 : 1);
+      HS_EXPECT_EQ(actual.color, reference.color);
+      HS_EXPECT_EQ(actual.alpha, reference.alpha);
+    }
+  }
+}
+
+/** @brief Independent byte cubes can differ at any one corner of a shared tap. */
+inline void test_modulation_stack_cube_corners() {
+  using namespace Pullback;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  const auto frame = FX::RenderPipeline::prepare(effect.frame_for_test());
+  constexpr size_t PALETTE = FX::RenderPipeline::NODE_COUNT - 4;
+  auto palette = std::get<PALETTE>(frame.prepared);
+  palette.previous = palette.current;
+  palette.fraction = 0.37f;
+  auto lift = std::get<PALETTE + 2>(frame.prepared);
+  auto mask = std::get<PALETTE + 3>(frame.prepared);
+  auto retained = *mask.current;
+  auto current = retained;
+  std::array<int8_t, Pattern::SphereLutView::SIZE> first{}, second{};
+  retained.cube = {first.data(), true};
+  current.cube = {second.data(), true};
+  lift.previous = lift.current = mask.previous = &retained;
+  mask.current = &current;
+  lift.paired_cube_ready = mask.paired_cube_ready = true;
+  const std::array<const Color::ModulationState *, 2> layers{&lift, &mask};
+  const FieldSample field{0.47f, 0.61f, math::Z_AXIS, 0.0f};
+  const auto tap = Pattern::prepare_sphere_lut_sample(
+      Pattern::SphereDirection::from_unit(field.sphere));
+  constexpr int STRIDE = Pattern::SphereLutView::FACE_STEPS;
+  for (int corner : {0, 1, STRIDE, STRIDE + 1}) {
+    second.fill(0);
+    second[tap.offset + corner] = 100;
+    const auto initial = Color::apply_generated_palette(field, palette.current);
+    auto a = initial;
+    auto b = initial;
+    for (const auto *layer : layers) {
+      Color::apply_modulation_in_place(a, *layer, true);
+      Color::apply_modulation_in_place(b, *layer, false);
+    }
+    HS_EXPECT_TRUE(a.color.alpha != b.color.alpha);
+    blend_color_samples_in_place(a, b, palette.fraction);
+    const auto expected = finish_color_sample(b);
+    const Color::ModulationStack<2> stack(palette, true, layers);
+    const auto actual = stack.shade(field);
+    HS_EXPECT_EQ(actual.color, expected.color);
+    HS_EXPECT_EQ(actual.alpha, expected.alpha);
+  }
 }
 
 /** @brief Static direct noise shares a sample across the two color endpoints. */

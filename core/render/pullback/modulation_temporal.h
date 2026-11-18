@@ -39,6 +39,62 @@ HS_HOT_FLASH_MEMBER inline bool same_field(const Prepared &a,
       a.config, a.state.phase, b.config, b.state.phase,
       [](const auto &left, const auto &right) { return left == right; });
 }
+/** @brief Proves direct scalar equality for distinct immutable endpoints.
+ * @param a First endpoint.
+ * @param b Second endpoint.
+ * @return Whether the same direct evaluation can serve both endpoints. */
+HS_SIZE_FLASH_MEMBER inline bool same_direct_sample(const Prepared &a,
+                                                    const Prepared &b) {
+  if (&a == &b)
+    return true;
+  if (!a.evaluate || a.evaluate != b.evaluate ||
+      a.source.index() != b.source.index())
+    return false;
+  const size_t slot = a.source.index();
+  if (slot >= Detail::DIRECT_SAMPLERS.size() ||
+      a.evaluate != Detail::DIRECT_SAMPLERS[slot]) {
+    // Custom samplers may read any part of their prepared endpoint.
+    return std::memcmp(&a, &b, sizeof(a)) == 0;
+  }
+  if (!same_field(a, b))
+    return false;
+  if (slot == 0) {
+    const auto &x = std::get<0>(a.source);
+    const auto &y = std::get<0>(b.source);
+    return x.scale == y.scale && x.contrast == y.contrast &&
+           x.basis == y.basis && x.variant == y.variant &&
+           x.noise.same_noise_single_3d(y.noise) &&
+           std::memcmp(&x.loop_offset, &y.loop_offset, sizeof(x.loop_offset)) ==
+               0;
+  }
+  return [&]<size_t... I>(std::index_sequence<I...>) {
+    return ((slot == I + 1 &&
+             std::memcmp(&std::get<I + 1>(a.source), &std::get<I + 1>(b.source),
+                         sizeof(std::get<I + 1>(a.source))) == 0) ||
+            ...);
+  }(std::make_index_sequence<std::variant_size_v<Source> - 1>{});
+}
+
+/** @brief Checks when color interpolation can use a single prepared field.
+ * @param a Retained scalar source.
+ * @param b Current scalar source.
+ * @return Whether both endpoint samples are equal. */
+HS_SIZE_FLASH_MEMBER inline bool same_endpoint_sample(const Prepared &a,
+                                                      const Prepared &b) {
+  if (a.evaluate != sample_cube || b.evaluate != sample_cube)
+    return same_direct_sample(a, b);
+  if (!a.cube.active || !b.cube.active || !same_field(a, b))
+    return false;
+  if (a.cube.linear_data || b.cube.linear_data)
+    return a.cube.linear_data && b.cube.linear_data &&
+           (a.cube.linear_data == b.cube.linear_data ||
+            std::memcmp(a.cube.linear_data, b.cube.linear_data,
+                        Pattern::SphereLutView::SIZE * sizeof(float)) == 0);
+  return a.cube.data && b.cube.data &&
+         (a.cube.data == b.cube.data ||
+          std::memcmp(a.cube.data, b.cube.data, Pattern::SphereLutView::SIZE) ==
+              0);
+}
 /** @brief Interpolates completed straight-alpha colors with RGB16 rounding.
  * @param a Previous completed endpoint.
  * @param b Current completed endpoint.

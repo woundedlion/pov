@@ -309,18 +309,17 @@ HS_HOT_INLINE inline float sample_phase_scalar(const FieldSample &field,
         if (prepared.lazy_noise_offset)
           noise_offset = math::noise_sphere_loop_offset(prepared.noise_phase);
       const auto q = math::noise_sphere_coordinate(
-          Pattern::SphereDirection::admit(field.sphere).value(), noise.scale,
-          noise_offset);
+          scratch.admit(field.sphere).value(), noise.scale, noise_offset);
       scalar =
           Pattern::bounded_scalar(noise.noise.GetNoiseSingle(q.x, q.y, q.z));
     }
   } else {
     if constexpr (SinePhase)
       if (prepared.source == Pattern::SourceKind::DIRECTIONAL_SINE)
-        return Pattern::DirectionalSine::sample(
-            Pattern::SphereDirection::admit(field.sphere), prepared.grid.a);
-    scalar = Pattern::SphereSmoothGrid::sample(
-        Pattern::SphereDirection::admit(field.sphere), prepared.grid);
+        return Pattern::DirectionalSine::sample(scratch.admit(field.sphere),
+                                                prepared.grid.a);
+    scalar = Pattern::SphereSmoothGrid::sample(scratch.admit(field.sphere),
+                                               prepared.grid);
   }
   return scalar;
 }
@@ -418,6 +417,21 @@ apply_perceptual_scalar(ColorSample &sample, float scalar,
         accumulate_lift(sample.pending_lift, scalar, mechanic);
 }
 
+/** @brief Evaluates a bound phase source using its concrete prepared type.
+ * @tparam Phase Type of the bound phase.
+ * @tparam SinePhase Whether directional sine is supported.
+ * @param field Spatial sample.
+ * @param state Bound source phase of type Phase.
+ * @param scratch Shared spatial lookups.
+ * @return Signed scalar before color modulation. */
+template <typename Phase, bool SinePhase>
+HS_HOT_FLASH_MEMBER inline float
+sample_bound_phase(const FieldSample &field, const PhaseModulationState &state,
+                   PhaseScratch &scratch) {
+  return sample_phase_scalar<Phase, SinePhase>(
+      field, static_cast<const Phase &>(state), scratch);
+}
+
 /** @brief Applies a prepared column phase to a color carrier.
  * @tparam Phase Prepared modulation phase type.
  * @tparam SinePhase Whether directional-sine phase sampling is supported.
@@ -432,10 +446,10 @@ HS_HOT_FLASH_MEMBER inline void apply_phase_modulation(ColorSample &sample,
 {
   if (!modulation_active(prepared))
     return;
-  apply_perceptual_scalar(sample,
-                          Color::sample_phase_scalar<Phase, SinePhase>(
-                              sample.field, prepared, scratch),
-                          prepared.mechanic);
+  apply_perceptual_scalar(
+      sample,
+      sample_bound_phase<Phase, SinePhase>(sample.field, prepared, scratch),
+      prepared.mechanic);
 }
 
 /** @brief Applies one modulation mechanic to a color carrier.

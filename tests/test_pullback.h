@@ -1937,6 +1937,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_cached_gamut_gate_fallback);
   HS_RUN(test_pullback_prepared_cube_pair);
   HS_RUN(test_pullback_modulation_paired_samples);
+  HS_RUN(test_direct_modulation_sample_identity);
   HS_RUN(test_pullback_modulation_paired_colors);
   return fixture.result();
 }

@@ -1480,6 +1480,8 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── composed_interval.h     Retained endpoints and column-time sampling
 │   │   │   ├── modulation.h            Pattern state ownership and prepared sphere binding
 │   │   │   ├── modulation_temporal.h   Endpoint retention, identity and completed straight-alpha blending
+│   │   │   ├── modulation_stack.h      Column binding and shared sampling of ordered color layers
+│   │   │   ├── phase_stack.h           Shared phase sampling for ordered color layers
 │   │   │   ├── chamber_noise_cache.h    Retained direct-noise samples over the dodecahedral chamber chart
 │   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
 │   │   │   ├── authored_sample.h       Runtime signal weighting and projection coverage

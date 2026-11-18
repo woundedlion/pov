@@ -331,6 +331,22 @@ public:
     }
   }
 
+  /// <summary>Whether GetNoiseSingle(x, y, z) uses equivalent inputs.</summary>
+  bool same_noise_single_3d(const FastNoiseLite &other) const {
+    if (mSeed != other.mSeed || mFrequency != other.mFrequency ||
+        mTransformType3D != other.mTransformType3D)
+      return false;
+#ifndef FASTNOISELITE_ONLY_OPENSIMPLEX2
+    if (mNoiseType != other.mNoiseType)
+      return false;
+    if (mNoiseType == NoiseType_Cellular)
+      return mCellularDistanceFunction == other.mCellularDistanceFunction &&
+             mCellularReturnType == other.mCellularReturnType &&
+             mCellularJitterModifier == other.mCellularJitterModifier;
+#endif
+    return true;
+  }
+
   /// <summary>
   /// Generates one configured noise octave without applying fractal policy.
   /// </summary>

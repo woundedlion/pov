@@ -255,6 +255,25 @@ struct Prepared {
   float (*evaluate)(const Prepared &, const Pattern::SphereDirection &) =
       nullptr; ///< Resolved built-in sampler.
 };
+namespace Detail {
+/** @brief Samples an immutable source at its registered variant index.
+ * @tparam Sampler Built-in sphere sampler.
+ * @tparam Index Active source variant.
+ * @param prepared Prepared endpoint.
+ * @param direction Admitted sphere direction.
+ * @return The source scalar. */
+template <typename Sampler, size_t Index>
+inline float sample_direct(const Prepared &prepared,
+                           const Pattern::SphereDirection &direction) {
+  return Sampler::sample(direction, std::get<Index>(prepared.source));
+}
+/// Built-in evaluators in source variant order.
+inline constexpr std::array DIRECT_SAMPLERS = {
+    &sample_direct<Pattern::SphereNoise, 0>,
+    &sample_direct<Pattern::DirectionalSine, 1>,
+    &sample_direct<Pattern::SphereInterference, 2>,
+    &sample_direct<Pattern::SphereSmoothGrid, 3>};
+} // namespace Detail
 /** @brief Samples the prepared byte cube along an admitted direction.
  * @param prepared Endpoint source with cube storage.
  * @param direction Admitted unit coordinate.
@@ -767,40 +786,24 @@ template <bool Baked = true> struct Resources {
       init_effect_noise(noise, config.seed);
       prepared.source.emplace<NOISE>(
           Pattern::SphereNoise::prepare(config.noise, selected.phase, noise));
-      direct = [](const Prepared &value,
-                  const Pattern::SphereDirection &coordinate) {
-        return Pattern::SphereNoise::sample(coordinate,
-                                            std::get<NOISE>(value.source));
-      };
+      direct = Detail::DIRECT_SAMPLERS[NOISE];
       break;
     }
     case Pattern::SourceKind::DIRECTIONAL_SINE:
       prepared.source.emplace<SINE>(
           Pattern::DirectionalSine::prepare(config.sine, selected.phase));
-      direct = [](const Prepared &value,
-                  const Pattern::SphereDirection &coordinate) {
-        return Pattern::DirectionalSine::sample(coordinate,
-                                                std::get<SINE>(value.source));
-      };
+      direct = Detail::DIRECT_SAMPLERS[SINE];
       break;
     case Pattern::SourceKind::SPHERE_INTERFERENCE:
       prepared.source.emplace<INTERFERENCE>(
           Pattern::SphereInterference::prepare(config.interference,
                                                selected.phase));
-      direct = [](const Prepared &value,
-                  const Pattern::SphereDirection &coordinate) {
-        return Pattern::SphereInterference::sample(
-            coordinate, std::get<INTERFERENCE>(value.source));
-      };
+      direct = Detail::DIRECT_SAMPLERS[INTERFERENCE];
       break;
     case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
       prepared.source.emplace<GRID>(
           Pattern::SphereSmoothGrid::prepare(config.grid, selected.phase));
-      direct = [](const Prepared &value,
-                  const Pattern::SphereDirection &coordinate) {
-        return Pattern::SphereSmoothGrid::sample(coordinate,
-                                                 std::get<GRID>(value.source));
-      };
+      direct = Detail::DIRECT_SAMPLERS[GRID];
       break;
     }
     prepared.evaluate = config.evaluation == Pattern::Evaluation::BAKED_CUBE

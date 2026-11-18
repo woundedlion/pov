@@ -251,6 +251,16 @@ struct GeneratedPaletteCore {
   {
     return apply_palette_endpoint_impl(sample, state, value, opacity, gain);
   }
+  /** @brief Checks the cache view and temporal fraction for a shared base.
+   * @param prepared Prepared endpoints and cache view.
+   * @return Whether the cache supplies this column's palette base. */
+  static bool shared_base_ready(const Prepared &prepared) {
+    if constexpr (TEMPORAL && LAB_CACHE)
+      return prepared.lab.low &&
+             !(prepared.fraction <= 0.0f || prepared.fraction > 1.0f);
+    else
+      return false;
+  }
   /** @brief Tries one cached base without fetching either palette.
    * @param sample Shared field coordinates.
    * @param prepared Prepared endpoint controls and cache view.
@@ -261,8 +271,7 @@ struct GeneratedPaletteCore {
                                               ColorSample &output)
     requires(TEMPORAL && LAB_CACHE)
   {
-    if (!prepared.lab.low || prepared.fraction <= 0.0f ||
-        prepared.fraction > 1.0f)
+    if (!shared_base_ready(prepared))
       return false;
     apply_shared_base_ready(sample, prepared, output);
     return true;

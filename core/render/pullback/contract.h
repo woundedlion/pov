@@ -10,9 +10,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <optional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "core/color/color.h"
 #include "core/color/hue_rotation_lut.h"
@@ -157,8 +159,20 @@ struct ColorSample {
 
 /** @brief Per-pixel lookups shared by the layers of one column phase tail. */
 struct PhaseScratch {
-  Pattern::SphereLutSample cube_tap{}; ///< Cube coordinates of the sample.
-  bool cube_tap_ready = false;         ///< Whether `cube_tap` is resolved.
+  Pattern::SphereLutSample cube_tap; ///< Cube coordinates of the sample.
+  bool cube_tap_ready = false;       ///< Whether `cube_tap` is resolved.
+  std::optional<Pattern::SphereDirection>
+      direction; ///< Normalized source direction.
+
+  /** @brief Normalizes the shared sphere coordinate on first use.
+   * @param sphere Coordinate of the current field sample.
+   * @return Unit direction for its phase layers. */
+  HS_HOT_INLINE const Pattern::SphereDirection &
+  admit(const math::Vector &sphere) {
+    if (!direction)
+      direction.emplace(Pattern::SphereDirection::admit(sphere));
+    return *direction;
+  }
 };
 
 /** @brief Whether a frame fraction is an interval weight in (0, 1].
@@ -1575,6 +1589,14 @@ concept CanonicalColorTailOwners =
         typename PaletteNode::Descriptor::ColorPolicy,
         typename PaletteNode::Descriptor::ColorPolicy::SharedBaseOwner>;
 
+/** @brief An exact-owned modulation policy supporting paired endpoints.
+ * @tparam Node Bound modulation node. */
+template <typename Node>
+concept CanonicalModulationNode =
+    requires { typename Node::Descriptor::ColorPolicy::PairedOwner; } &&
+    std::same_as<typename Node::Descriptor::ColorPolicy,
+                 typename Node::Descriptor::ColorPolicy::PairedOwner>;
+
 /** @brief First type satisfying @p Predicate, or void.
  * @tparam Predicate Unary trait with a boolean `value`.
  * @tparam Ls Candidates. */
@@ -1632,6 +1654,8 @@ template <bool Valid, typename Binding, typename NodeList> struct PipelineCore {
   using PreparedTuple = std::tuple<>;          ///< Empty.
   static constexpr size_t NODE_COUNT = 0;      ///< No nodes.
   template <size_t Index> using NodeAt = void; ///< Always void.
+
+  static constexpr size_t STACK_BEGIN = 0; ///< No color stack.
 
   /** @brief Empty prepared state.
    * @return An empty tuple. */
@@ -1740,6 +1764,114 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
       return phase_tail_supported<Index + 1>();
     else
       return false;
+  }
+
+  /** @brief Tests the generated palette and every trailing layer for exact
+   * canonical ownership and stack-compatible prepared state.
+   * @tparam Index Palette crossing.
+   * @tparam Offsets Layer offsets after the palette.
+   * @return Whether the crossing admits the shared column evaluator. */
+  template <size_t Index, size_t... Offsets>
+  static consteval bool stack_supported(std::index_sequence<Offsets...>) {
+    using PaletteNode = NodeAt<Index>;
+    if constexpr ((CanonicalColorTailOwners<PaletteNode,
+                                            NodeAt<Index + 1 + Offsets>> &&
+                   ...) &&
+                  (CanonicalModulationNode<NodeAt<Index + 1 + Offsets>> &&
+                   ...)) {
+      using Palette = typename PaletteNode::Descriptor::ColorPolicy;
+      return requires(const FrameState &ctx, const PreparedTuple &prepared) {
+        Palette::bind_modulation_stack(
+            ctx, std::get<Index>(prepared),
+            std::get<Index + 1 + Offsets>(prepared)...);
+      };
+    } else
+      return false;
+  }
+
+  /** @brief Finds a canonical palette followed by multiple modulation nodes.
+   * @tparam Index First remaining node.
+   * @return Palette index or NODE_COUNT. */
+  template <size_t Index> static consteval size_t stack_begin() {
+    if constexpr (Index + 2 >= NODE_COUNT ||
+                  !std::same_as<typename Binding::Instrumentation,
+                                NoInstrumentation>)
+      return NODE_COUNT;
+    else if constexpr (std::same_as<typename NodeAt<Index>::Input,
+                                    FieldSample> &&
+                       std::same_as<typename NodeAt<Index>::Output,
+                                    ColorSample>) {
+      if constexpr (stack_supported<Index>(
+                        std::make_index_sequence<NODE_COUNT - Index - 1>{}))
+        return Index;
+      else
+        return NODE_COUNT;
+    } else
+      return stack_begin<Index + 1>();
+  }
+  /// First color node of a bindable ordered modulation stack.
+  static constexpr size_t STACK_BEGIN = stack_begin<0>();
+
+  /** @brief Binds the ordered color tail once per prepared column.
+   * @tparam Offsets Layer offsets after the palette.
+   * @param ctx Column frame.
+   * @param prepared Prepared nodes.
+   * @return Bound endpoint or phase evaluator. */
+  template <size_t... Offsets>
+  static auto bind_stack(const FrameState &ctx, const PreparedTuple &prepared,
+                         std::index_sequence<Offsets...>) {
+    using Palette = typename NodeAt<STACK_BEGIN>::Descriptor::ColorPolicy;
+    const auto bind = [&] {
+      return Palette::bind_modulation_stack(
+          ctx, std::get<STACK_BEGIN>(prepared),
+          std::get<STACK_BEGIN + 1 + Offsets>(prepared)...);
+    };
+    if constexpr (requires { ctx.temporal.fraction; } &&
+                  phase_tail_supported<STACK_BEGIN + 1>()) {
+      const auto &base = std::get<STACK_BEGIN>(prepared);
+      const bool cached = Palette::Core::shared_base_ready(base);
+      const auto bind_phase = [&] {
+        return Palette::template bind_phase_stack<typename NodeAt<
+            STACK_BEGIN + 1 + Offsets>::Descriptor::ColorPolicy...>(
+            base, ctx.temporal.fraction, cached,
+            std::get<STACK_BEGIN + 1 + Offsets>(prepared)...);
+      };
+      using Column = std::variant<decltype(bind()), decltype(bind_phase())>;
+      if (ctx.temporal.fraction > 0.0f &&
+          (ctx.temporal.fraction < 1.0f || cached) &&
+          phase_tail_ready<STACK_BEGIN + 1>(prepared))
+        return Column{std::in_place_index<1>, bind_phase()};
+      return Column{std::in_place_index<0>, bind()};
+    } else
+      return bind();
+  }
+
+  /** @brief Runs the prefix into the prebound ordered color tail.
+   * @tparam Index First node.
+   * @tparam Input Carrier entering the node.
+   * @tparam Column Bound endpoint or phase evaluator.
+   * @param input Prefix carrier.
+   * @param ctx Column frame.
+   * @param prepared Prepared nodes.
+   * @param column Bound color tail.
+   * @return Final straight-alpha color. */
+  template <size_t Index, typename Input, typename Column>
+  HS_HOT_INLINE static Color4
+  shade_stack(const Input &input, const FrameState &ctx,
+              const PreparedTuple &prepared, const Column &column) {
+    if constexpr (Index < STACK_BEGIN)
+      return shade_stack<Index + 1>(
+          run_stage_endpoint<Index, false>(input, ctx, prepared), ctx, prepared,
+          column);
+    else {
+      if constexpr (requires { ctx.temporal.fraction; } &&
+                    phase_tail_supported<STACK_BEGIN + 1>()) {
+        if (auto *phase = std::get_if<1>(&column))
+          return phase->shade(input);
+        return std::get_if<0>(&column)->shade(input);
+      } else
+        return column.shade(input);
+    }
   }
 
   /** @brief Checks a cached shared color base ahead of a phase tail.
@@ -2220,6 +2352,8 @@ public:
 
   /** Per-node prepared state, nested per placement group. */
   using PreparedTuple = typename Core::PreparedTuple;
+  /// Whether the final palette and ordered modulation layers can bind per column.
+  static constexpr bool MODULATION_STACK = Core::STACK_BEGIN < NODE_COUNT;
   /// Whether the first execution node rotates sphere directions.
   static constexpr bool ROTATION_COLUMNS =
       Detail::RotationPrefix<NodeList>::SUPPORTED;
@@ -2245,6 +2379,31 @@ public:
     Frame(const Frame &) = delete;
     Frame(Frame &&) = delete;
   };
+
+  /** @brief Binds the terminal modulation stack for the prepared frame.
+   * @param frame Prepared column or fixed frame.
+   * @return Evaluator borrowing its palette and layer states. */
+  static auto bind_modulation_stack(const Frame &frame)
+    requires(MODULATION_STACK)
+  {
+    return Core::bind_stack(
+        frame.ctx, frame.prepared,
+        std::make_index_sequence<NODE_COUNT - Core::STACK_BEGIN - 1>{});
+  }
+  /** @brief Shades a view direction through a prebound modulation stack.
+   * @tparam Column Bound evaluator type.
+   * @param view Pixel unit direction.
+   * @param frame Prepared column.
+   * @param column Bound color evaluator.
+   * @return Final straight-alpha color. */
+  template <typename Column>
+  HS_HOT_FLASH_MEMBER static Color4
+  shade(const math::Vector &view, const Frame &frame, const Column &column)
+    requires(MODULATION_STACK)
+  {
+    return Core::template shade_stack<0>(SphereSample{view, 0.0f}, frame.ctx,
+                                         frame.prepared, column);
+  }
 
   /** @brief Projection-local basis of one meridian. */
   struct ColumnBasis {
@@ -2289,15 +2448,15 @@ public:
             math::rotate(rotated.up, Policy::frame_conjugate(frame.ctx))};
   }
 
-  /** @brief Shades a latitude using the factored rotation prefix.
+  /** @brief Projects a latitude using the factored rotation prefix.
    * @param sine Sine of the polar angle.
    * @param cosine Cosine of the polar angle.
    * @param frame Prepared pipeline state.
    * @param basis Projection-local meridian basis.
-   * @return Pixel color at the sampled latitude. */
-  HS_HOT_FLASH_MEMBER static Color4 shade_column(float sine, float cosine,
-                                                 const Frame &frame,
-                                                 const ColumnBasis &basis)
+   * @return Projected carrier at the sampled latitude. */
+  HS_HOT_INLINE static PlaneSample project_column(float sine, float cosine,
+                                                  const Frame &frame,
+                                                  const ColumnBasis &basis)
     requires(LINEAR_COLUMNS)
   {
     using Prefix = Detail::ColumnPrefix<NodeList>;
@@ -2318,12 +2477,46 @@ public:
       result = Policy::project(local, frame.ctx);
     const PlaneSample plane{result.coords, result.provenance, local, 0.0f};
     Instrumentation::template span<ProfileEvent::PROJECTION>(start);
+    return plane;
+  }
+
+  /** @brief Shades a latitude using the factored rotation prefix.
+   * @param sine Sine of the polar angle.
+   * @param cosine Cosine of the polar angle.
+   * @param frame Prepared pipeline state.
+   * @param basis Projection-local meridian basis.
+   * @return Pixel color at the sampled latitude. */
+  HS_HOT_FLASH_MEMBER static Color4 shade_column(float sine, float cosine,
+                                                 const Frame &frame,
+                                                 const ColumnBasis &basis)
+    requires(LINEAR_COLUMNS)
+  {
+    const auto plane = project_column(sine, cosine, frame, basis);
     if constexpr (Core::has_fused_final_color() ||
                   Core::has_direct_final_color())
       return Core::template shade_stage<2>(plane, frame.ctx, frame.prepared);
     else
       return finish_color_sample(
           Core::template run_stage<2>(plane, frame.ctx, frame.prepared));
+  }
+
+  /** @brief Shades a factored latitude through a prebound color tail.
+   * @tparam Column Bound evaluator type.
+   * @param sine Sine of the polar angle.
+   * @param cosine Cosine of the polar angle.
+   * @param frame Prepared column.
+   * @param basis Projection-local meridian basis.
+   * @param column Bound color evaluator.
+   * @return Final straight-alpha color. */
+  template <typename Column>
+  HS_HOT_FLASH_MEMBER static Color4
+  shade_column(float sine, float cosine, const Frame &frame,
+               const ColumnBasis &basis, const Column &column)
+    requires(LINEAR_COLUMNS && MODULATION_STACK)
+  {
+    return Core::template shade_stack<2>(
+        project_column(sine, cosine, frame, basis), frame.ctx, frame.prepared,
+        column);
   }
 
   /** @brief Resolves every stage's prepared state from @p ctx.

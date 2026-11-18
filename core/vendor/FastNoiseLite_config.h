@@ -5,16 +5,17 @@
 // FastNoiseLite configuration for Holosphere. First-party: the only file in
 // core/vendor/ that is not upstream.
 //
-// PATCH RECORD — FastNoiseLite.h is upstream 1.1.1 plus six in-tree edits, and
-// this file carries a seventh. Dropping the config include, guards, HS_O3_FN
+// PATCH RECORD — FastNoiseLite.h is upstream 1.1.1 plus seven in-tree edits, and
+// this file carries an eighth. Dropping the config include, guards, HS_O3_FN
 // placement, or platform include can fail silently; dropping the raw-path
-// additions fails to compile at their callers. All seven are pinned by
+// additions fails to compile at their callers. All eight are pinned by
 // tests/check_vendor_patches.cmake (CTest: unit_vendor_patches):
 //   - the `#include "FastNoiseLite_config.h"` that pulls in this file
-//   - three FASTNOISELITE_ONLY_OPENSIMPLEX2 guards (both
-//     GenNoiseSingle overloads, vector-noise dispatch)
+//   - four FASTNOISELITE_ONLY_OPENSIMPLEX2 guards (both
+//     GenNoiseSingle overloads, vector-noise dispatch, single-octave equality)
 //   - selective-O3 code placement and mutable 3D gradient lookup storage
 //   - raw-octave paths used by first-party basis and derivative policies
+//   - semantic equality for 3D single-octave sampler inputs
 //   - a raw vector-noise path used by spherical tangent displacement
 //   - analytic raw OpenSimplex2 gradients, with value and reference APIs
 //     and selective inlining of qualified unit-default samples

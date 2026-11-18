@@ -246,19 +246,7 @@ public:
               else
                 return RenderPipeline::prepare(state->column);
             },
-            [](const Frame &frame, int x) {
-              if constexpr (requires {
-                              Derived::prepare_column_shader(frame, x);
-                            }) {
-                return Derived::prepare_column_shader(frame, x);
-              } else if constexpr (factored_columns()) {
-                return column_shader(frame, x);
-              } else {
-                return [&frame](const math::Vector &view) {
-                  return Derived::shade(view, frame);
-                };
-              }
-            });
+            [](const Frame &frame, int x) { return column_shader(frame, x); });
       } else {
         draw_current_columns(canvas, current);
       }
@@ -285,28 +273,52 @@ public:
            &Derived::shade == &ComposedEffect::shade;
   }
 
-  /** @brief Prepares the factored shader for one column.
-   * @param frame Prepared frame to shade.
+  /** @brief Whether the default shader admits a prebound modulation stack.
+   * @return True for an eligible pipeline using the default shade function. */
+  static constexpr bool stacked_columns() {
+    return RenderPipeline::MODULATION_STACK &&
+           &Derived::shade == &ComposedEffect::shade;
+  }
+
+  /** @brief Binds a shader for one column.
+   * @param frame Prepared frame.
    * @param x Column index.
-   * @return A latitude shader retaining the frame and column basis. */
+   * @return View or latitude shader borrowing the frame. */
   static HS_HOT_INLINE auto column_shader(const Frame &frame, int x) {
-    return [&frame, basis = RenderPipeline::column_basis(
-                        frame, math::TrigLUT<W, H>::cos_theta(x),
-                        math::TrigLUT<W, H>::sin_theta[x])](float sine,
-                                                            float cosine) {
-      return RenderPipeline::shade_column(sine, cosine, frame, basis);
-    };
+    if constexpr (requires { Derived::prepare_column_shader(frame, x); }) {
+      return Derived::prepare_column_shader(frame, x);
+    } else if constexpr (factored_columns()) {
+      const auto basis =
+          RenderPipeline::column_basis(frame, math::TrigLUT<W, H>::cos_theta(x),
+                                       math::TrigLUT<W, H>::sin_theta[x]);
+      if constexpr (stacked_columns()) {
+        return [&frame, basis,
+                column = RenderPipeline::bind_modulation_stack(frame)](
+                   float sine, float cosine) {
+          return RenderPipeline::shade_column(sine, cosine, frame, basis,
+                                              column);
+        };
+      } else
+        return [&frame, basis](float sine, float cosine) {
+          return RenderPipeline::shade_column(sine, cosine, frame, basis);
+        };
+    } else if constexpr (stacked_columns()) {
+      return [&frame, column = RenderPipeline::bind_modulation_stack(frame)](
+                 const math::Vector &view) {
+        return RenderPipeline::shade(view, frame, column);
+      };
+    } else
+      return [&frame](const math::Vector &view) {
+        return Derived::shade(view, frame);
+      };
   }
 
   /** @brief Draws a fixed frame using a factored prefix when available.
    * @param canvas Destination canvas.
    * @param frame Prepared frame to shade. */
   static void draw_static_columns(Canvas &canvas, const Frame &frame) {
-    if constexpr (requires { Derived::prepare_column_shader(frame, 0); }) {
-      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
-        return Derived::prepare_column_shader(frame, x);
-      });
-    } else if constexpr (factored_columns()) {
+    if constexpr (requires { Derived::prepare_column_shader(frame, 0); } ||
+                  factored_columns() || stacked_columns()) {
       Scan::Shader::draw_columns<W, H>(
           canvas, [&](int x) { return column_shader(frame, x); });
     } else {

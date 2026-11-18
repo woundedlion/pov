@@ -400,6 +400,13 @@ base, which holds through preset Lerps of mapping, brightness and opacity
 controls. Noise tables are baked once per frame. Effects without this opt-in retain the frame-wide path
 and allocate no temporal history.
 
+For a generated palette followed by two or three consecutive modulation stages,
+the composed column renderer binds the active layers in their declared order.
+Layers that read the same prepared field can apply different color operations
+to one sample. Baked fields share cube-face coordinates and interpolation
+weights. Separate tables retain their own values. With temporal endpoint sampling, each endpoint applies its
+hue, lightness and opacity operations before the renderer blends their results.
+
 Interior columns share the current hue view when palette entries, hue table
 pixels and gamut masks match. Frame endpoints retain their own views.
 

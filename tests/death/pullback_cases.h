@@ -8,6 +8,7 @@
  * @brief Death cases for pullback compilation and evaluation guards. */
 
 #include "tests/death/context.h"
+#include "core/render/pullback/modulation_stack.h"
 
 namespace hs_test::death_tests {
 
@@ -337,6 +338,29 @@ inline void case_pullback_invalid_color_mechanic() {
   death_admitted();
   mechanic.kind = static_cast<ColorModulation::Mechanic>(opaque<uint8_t>(0xff));
   Pullback::Color::apply_mechanic_scalar(sample, 0.5f, mechanic);
+}
+
+/** @brief Shading requires every ordered modulation layer to be bound. */
+inline void case_pullback_unbound_modulation_column() {
+  using namespace Pullback;
+  uint8_t storage[BakedPalette::required_arena_bytes()];
+  Arena arena(storage, sizeof(storage));
+  SolidColorPalette solid(Color4(Pixel(255, 0, 0), 1.0f));
+  BakedPaletteStorage baked;
+  baked.bake(arena, solid);
+  Color::GeneratedPaletteState palette{};
+  palette.mapping =
+      Color::PaletteMappingWeights::single(Color::PaletteMapping::LINEAR);
+  palette.mapping_frequency = 1.0f;
+  palette.palette = &baked.view();
+  const Color::ModulationState layer{};
+  const FieldSample field{0.5f, 1.0f, math::Z_AXIS, 0.0f};
+  const Color::ModulationStack<1> valid(palette, {&layer});
+  if (valid.shade(field).color != Pixel(255, 0, 0))
+    return;
+  const Color::ModulationStack<1> missing(palette, {nullptr});
+  death_admitted();
+  (void)missing.shade(field);
 }
 
 /** @brief A modulation operator rejects an unknown source. */

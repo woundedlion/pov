@@ -21,6 +21,7 @@
 
 #include "core/render/pullback/color_controls.h"
 #include "core/render/pullback/color_state.h"
+#include "core/render/pullback/phase_stack.h"
 #include "core/render/pullback/palette_cache.h"
 
 namespace Pullback::Color {
@@ -88,6 +89,46 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   using Core = GeneratedPaletteCore<TEMPORAL, LAB_CACHE,
                                     FUSED_TEMPORAL_COLOR>; ///< Sampling core.
   using Prepared = typename Core::Prepared;                ///< Endpoint state.
+  /** @brief Binds ordered modulation endpoints against this column's palette.
+   * @tparam FrameState Column frame type.
+   * @tparam Layers Prepared canonical modulation layer types.
+   * @param frame Column frame referencing current and optional retained resources.
+   * @param prepared Prepared palette.
+   * @param layers Modulation layers in authored order.
+   * @return Shared evaluator borrowing the prepared resources. */
+  template <typename FrameState, typename... Layers>
+  static auto bind_modulation_stack(const FrameState &frame,
+                                    const Prepared &prepared,
+                                    const Layers &...layers)
+    requires(sizeof...(Layers) <= MAX_ORDERED_MODULATION_LAYERS &&
+             (std::is_base_of_v<ModulationState, Layers> && ...) &&
+             (TEMPORAL == requires { frame.temporal.fraction; }) &&
+             (!TEMPORAL || requires { frame.temporal.same_palette; }))
+  {
+    const std::array<const ModulationState *, sizeof...(Layers)> sources{
+        &layers...};
+    if constexpr (TEMPORAL)
+      return ModulationStack<sizeof...(Layers)>{
+          prepared, frame.temporal.same_palette, sources};
+    else
+      return ModulationStack<sizeof...(Layers)>{prepared, sources};
+  }
+  /** @brief Binds modulation layers sampled at the interpolated column phase.
+   * @tparam Policies Canonical layer policies in authored order.
+   * @param base Prepared palette endpoints.
+   * @param fraction Current column weight.
+   * @param cached Whether the palette cache supplies the column base.
+   * @param layers Ready phase states.
+   * @return Scalar-sharing evaluator borrowing the supplied layer states. */
+  template <typename... Policies>
+  static auto bind_phase_stack(const Prepared &base, float fraction,
+                               bool cached,
+                               const typename Policies::Prepared &...layers) {
+    return PhaseModulationStack{
+        base, fraction, cached,
+        PhaseLayer<typename Policies::Prepared, Policies::SINE_PHASE>{
+            layers}...};
+  }
   /** @brief Finishes an eligible cached phase without a deferred carrier.
    * @tparam Layer Canonical phase modulation policy.
    * @param sample Shared field coordinates.

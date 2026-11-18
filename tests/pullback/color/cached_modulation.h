@@ -400,6 +400,51 @@ inline void test_pullback_prepared_cube_pair() {
   HS_EXPECT_FALSE(manual.paired_cube_ready);
 }
 
+/** @brief Direct endpoint sharing respects prepared generators and opaque samplers. */
+inline void test_direct_modulation_sample_identity() {
+  using namespace Pullback::Modulation;
+  Config config;
+  config.source = Pattern::SourceKind::NOISE;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  Resources<false> resources;
+  Prepared first = resources.prepare(config, init(config));
+  auto second = first;
+  second.config.mechanic.amount = first.config.mechanic.amount + 0.125f;
+  HS_EXPECT_TRUE(same_direct_sample(first, second));
+  auto &generator = std::get<0>(second.source).noise;
+  const auto original = generator;
+  generator.SetDomainWarpAmp(0.25f);
+  generator.SetFractalOctaves(5);
+  HS_EXPECT_TRUE(same_direct_sample(first, second));
+  generator.SetFrequency(0.5f);
+  HS_EXPECT_FALSE(same_direct_sample(first, second));
+  generator = original;
+  generator.SetRotationType3D(FastNoiseLite::RotationType3D_ImproveXYPlanes);
+  HS_EXPECT_FALSE(same_direct_sample(first, second));
+  generator = original;
+  std::get<0>(second.source).noise.SetSeed(config.seed + 1);
+  HS_EXPECT_FALSE(same_direct_sample(first, second));
+  HS_EXPECT_FALSE(same_endpoint_sample(first, second));
+  first.evaluate = [](const Prepared &source,
+                      const Pattern::SphereDirection &) {
+    return source.cube.data[0] * (1.0f / 127.0f);
+  };
+  const int8_t low = -96, high = 96;
+  first.cube.data = &low;
+  static_assert(std::is_trivially_copyable_v<Prepared>);
+  std::memcpy(&second, &first, sizeof(second));
+  HS_EXPECT_TRUE(same_direct_sample(first, second));
+  second.cube.data = &high;
+  const auto direction = Pattern::SphereDirection::from_unit(math::Y_AXIS);
+  HS_EXPECT_TRUE(sample(first, direction) < sample(second, direction));
+  HS_EXPECT_FALSE(same_direct_sample(first, second));
+  HS_EXPECT_FALSE(same_endpoint_sample(first, second));
+  CubeModulationPair cubes;
+  HS_EXPECT_FALSE(same_endpoint_sample(cubes.previous, cubes.current));
+  cubes.previous_cube = cubes.current_cube;
+  HS_EXPECT_TRUE(same_endpoint_sample(cubes.previous, cubes.current));
+}
+
 /** @brief Paired cube samples preserve individual samplers and custom dispatch. */
 inline void test_pullback_modulation_paired_samples() {
   using namespace Pullback;

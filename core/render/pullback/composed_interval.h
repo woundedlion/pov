@@ -173,13 +173,11 @@ public:
         delta.previous_modulation = Modulation::same_topology(previous, current)
                                         ? start.modulation
                                         : end.modulation;
-        if constexpr (Resource::Family::DIRECT_NOISE) {
-          if (delta.previous_modulation && end.modulation &&
-              delta.previous_modulation != end.modulation &&
-              Modulation::same_field(*delta.previous_modulation,
-                                     *end.modulation))
-            delta.previous_modulation = end.modulation;
-        }
+        if (delta.previous_modulation && end.modulation &&
+            delta.previous_modulation != end.modulation &&
+            Modulation::same_endpoint_sample(*delta.previous_modulation,
+                                             *end.modulation))
+          delta.previous_modulation = end.modulation;
       }
     });
   }
@@ -331,10 +329,7 @@ public:
         if (ColorModulation::active(family.modulation.enabled,
                                     family.modulation.mechanic) &&
             resource.modulation != resource.previous_modulation)
-          same_sources = same_sources && resource.modulation &&
-                         resource.previous_modulation &&
-                         Modulation::same_field(*resource.modulation,
-                                                *resource.previous_modulation);
+          same_sources = false;
       }
     });
     frame.temporal = {from.palette,

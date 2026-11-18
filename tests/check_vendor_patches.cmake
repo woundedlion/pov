@@ -11,7 +11,7 @@ set(VENDORED_VERSION "1.1.1")
 #   cmake -E sha256sum core/vendor/FastNoiseLite.h
 # on a checkout whose line endings are LF.
 set(VENDORED_SHA256
-    "b05f779fbcd3186980cabf3220a25b2d0dd85fea2306e787479e7bdd5722f924")
+    "4764e475e65401225100c1426864fd1a58db90566bcdb731f4c6425edbe39e20")
 
 file(READ "${HEADER}" _header)
 file(READ "${CONFIG}" _config)
@@ -38,9 +38,9 @@ endif()
 string(REGEX MATCHALL "#ifn?def FASTNOISELITE_ONLY_OPENSIMPLEX2"
   _guards "${_header}")
 list(LENGTH _guards _guard_count)
-if(NOT _guard_count EQUAL 3)
+if(NOT _guard_count EQUAL 4)
   list(APPEND _missing
-    "FastNoiseLite.h has ${_guard_count} FASTNOISELITE_ONLY_OPENSIMPLEX2 guards, expected 3")
+    "FastNoiseLite.h has ${_guard_count} FASTNOISELITE_ONLY_OPENSIMPLEX2 guards, expected 4")
 endif()
 
 if(NOT _header MATCHES "HS_O3_FN float SingleOpenSimplex2\\(")
@@ -55,6 +55,10 @@ endif()
 if(NOT _header MATCHES "float GetNoiseSingle\\(" OR
    NOT _header MATCHES "float GetNoiseSingleTransformed\\(")
   list(APPEND _missing "FastNoiseLite has lost its raw-octave sampling paths")
+endif()
+
+if(NOT _header MATCHES "bool same_noise_single_3d")
+  list(APPEND _missing "FastNoiseLite has lost its single-octave input comparison")
 endif()
 
 if(NOT _header MATCHES "HS_HOT_FLASH_MEMBER void GetVectorNoiseSingle\\(" OR
@@ -92,5 +96,5 @@ if(_missing)
 endif()
 
 message(STATUS
-  "FastNoiseLite ${VENDORED_VERSION}: body digest matches, all 7 in-tree "
+  "FastNoiseLite ${VENDORED_VERSION}: body digest matches, all 8 in-tree "
   "patches present")
