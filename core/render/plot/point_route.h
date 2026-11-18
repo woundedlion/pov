@@ -552,17 +552,37 @@ private:
       const math::Vector span = to_world - from_world;
       const math::Vector start_world = from_world;
       const float step = (finish - begin) / float(pieces);
+      constexpr float HALF = W / 2.0f;
+      constexpr float SUPPORT =
+          1.001f + COLUMN_SLACK / math::RADIANS_PER_COLUMN<W>;
+      const float low = (fminf(a.x, b.x) - SUPPORT) / HALF;
+      const float high = (fmaxf(a.x, b.x) + SUPPORT) / HALF;
+      const float arm = floorf(low);
+      const float first = low - arm;
+      const float last = high - arm;
+      // The horizontal projection of a straight chord stays in the minor arc.
+      const bool bounded = curves == 1 && pieces > 2 && high - low < 0.5f;
+      bool have_from = true;
+      auto project_knot = [&](int knot) HS_HOT_INLINE {
+        return math::vector_to_pixel<W, H>(
+            (start_world + span * (float(knot) / float(pieces))).normalized());
+      };
       for (int k = 1; k <= pieces; ++k) {
         const float t0 = begin + float(k - 1) * step;
         const float t1 = k == pieces ? finish : begin + float(k) * step;
+        if (bounded && (t1 < first || t0 > last) && t0 > last - 1.0f) {
+          have_from = false;
+          continue;
+        }
+        if (!have_from) {
+          from = project_knot(k - 1);
+          from.x = a.x + math::centered_remainder(from.x - a.x, float(W));
+          have_from = true;
+        }
         Spacetime::count_geometry<
             &Spacetime::GeometryCounters::point_piece_evaluations>();
         math::PixelCoords to =
-            curve + 1 == curves && k == pieces
-                ? b
-                : math::vector_to_pixel<W, H>(
-                      (start_world + span * (float(k) / float(pieces)))
-                          .normalized());
+            curve + 1 == curves && k == pieces ? b : project_knot(k);
         to.x = from.x + math::centered_remainder(to.x - from.x, float(W));
         const float dx = (to.x - from.x) / (t1 - t0),
                     dy = (to.y - from.y) / (t1 - t0);

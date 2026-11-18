@@ -122,6 +122,36 @@ struct EdgeWorldsheet {
     return lattice(fmaxf(start, end));
   }
 
+  /** @brief Certifies that a short edge rounds to a single lattice sample.
+   * @tparam W,H Display dimensions.
+   * @param a,b Unit endpoints.
+   * @return Whether the midpoint pitch needs only the edge's initial point.
+   * @details The midpoint is the normalized sum. Its horizontal norm and
+   * the maximum of the row and column scales bound the screen speed for
+   * any unit tangent at that latitude. */
+  template <int W, int H>
+  HS_HOT_INLINE static bool single_lattice_sample(const math::Vector &a,
+                                                  const math::Vector &b) {
+    constexpr float COLUMN_SCALE = W / (2.0f * math::PI_F);
+    constexpr float LIMIT = 1.49f;
+    const float row_scale = math::ROWS_PER_RADIAN<H>;
+    const math::Vector chord = b - a;
+    const float chord2 = math::dot(chord, chord);
+    // For chord length at most 1/4, arc length squared is within 1.006 of it.
+    const float arc2 = 1.01f * chord2;
+    constexpr float MAX_PITCH2 =
+        LIMIT * LIMIT * SCREEN_STEP_PX * SCREEN_STEP_PX;
+    if (chord2 > 0.0625f ||
+        arc2 * fmaxf(COLUMN_SCALE * COLUMN_SCALE, row_scale * row_scale) >=
+            MAX_PITCH2)
+      return false;
+    const float midpoint_norm2 = 4.0f - chord2;
+    const float sum_y = a.y + b.y;
+    const float horizontal2 = midpoint_norm2 - sum_y * sum_y - 2e-5f;
+    return arc2 * COLUMN_SCALE * COLUMN_SCALE * midpoint_norm2 <
+           MAX_PITCH2 * horizontal2;
+  }
+
   /** @brief The lattice an edge keeps over the whole frame.
    * @tparam W,H Display dimensions.
    * @param starts Unit endpoints at the frame's start.

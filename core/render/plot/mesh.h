@@ -580,6 +580,10 @@ struct Mesh {
                    bool frame_constant = false) {
     GeodesicEdgeSampler arcs[2];
     const int steady = [&]() HS_HOT_INLINE {
+      if (most > 0 && frame_constant &&
+          EdgeWorldsheet::single_lattice_sample<W, H>(ends[0], ends[1]) &&
+          EdgeWorldsheet::single_lattice_sample<W, H>(starts[0], starts[1]))
+        return 1;
       if constexpr (RESIDENT)
         return EdgeWorldsheet::steady_lattice_resident<W, H>(
             starts, ends, most, arcs, end_to_start, frame_constant);
