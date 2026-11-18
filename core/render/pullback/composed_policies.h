@@ -14,6 +14,35 @@
 
 namespace Pullback {
 
+/// Fixed spatial modulation consumes a unit direction at every endpoint.
+template <typename B, ResourceKey Key, Pattern::SourceKind Source,
+          Pattern::Evaluation Evaluation, bool Phase>
+inline constexpr bool
+    Detail::FIXED_SPATIAL_MODULATION<Stage::Modulate<Color::Modulate<
+        ModulationProvider<B, Key, Source, Evaluation, false, Phase>>>> =
+        Source != Pattern::SourceKind::DISPLACEMENT;
+
+/** @brief Affine coordinates followed by a tessellation depend only on the
+ * working plane coordinate. */
+template <typename Frame, typename SourceState, Pattern::TessellationKind Kind,
+          Pattern::TessellationFill Fill, typename Weight, typename Coverage>
+struct Detail::CoordinateOnlyWarp<
+    Stage::Warp<Warp::AffineFrame<Frame>>,
+    Stage::Sample<Source::Tessellation<SourceState, Kind, Fill>, Weight,
+                  Coverage>> {
+  using Affine = Warp::AffineFrame<Frame>; ///< Canonical affine transform.
+
+  /** @brief Advances the plane coordinate while preserving its provenance.
+   * @param input Plane carrier before the warp.
+   * @param prepared Affine frame coefficients.
+   * @return Carrier passed to the tessellation source. */
+  static HS_HOT_INLINE PlaneSample
+  apply(const PlaneSample &input, const typename Affine::Prepared &prepared) {
+    return {Warp::affine_coords<Affine::FORM>(input.coords, prepared),
+            input.provenance, input.sphere, input.path_length};
+  }
+};
+
 /** @brief Authored controls accompanying an explicit typed stage pipeline.
  * @details Derived specs supply `template <typename B> using Pipeline`.
  * `MetadataFor` exposes the stage topology. Optimizations restricted to

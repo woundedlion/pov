@@ -1597,6 +1597,13 @@ concept CanonicalModulationNode =
     std::same_as<typename Node::Descriptor::ColorPolicy,
                  typename Node::Descriptor::ColorPolicy::PairedOwner>;
 
+/// Whether a modulation stage's admitted scalar sources only use direction.
+template <typename Stage>
+inline constexpr bool FIXED_SPATIAL_MODULATION = false;
+
+/// Coordinate-only warp for an exact stage pair whose sample ignores distance.
+template <typename Warp, typename Sample> struct CoordinateOnlyWarp {};
+
 /** @brief First type satisfying @p Predicate, or void.
  * @tparam Predicate Unary trait with a boolean `value`.
  * @tparam Ls Candidates. */
@@ -1655,7 +1662,8 @@ template <bool Valid, typename Binding, typename NodeList> struct PipelineCore {
   static constexpr size_t NODE_COUNT = 0;      ///< No nodes.
   template <size_t Index> using NodeAt = void; ///< Always void.
 
-  static constexpr size_t STACK_BEGIN = 0; ///< No color stack.
+  static constexpr size_t STACK_BEGIN = 0;              ///< No color stack.
+  static constexpr bool ELIDES_FINAL_WARP_PATH = false; ///< No warp suffix.
 
   /** @brief Empty prepared state.
    * @return An empty tuple. */
@@ -1812,6 +1820,28 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
   /// First color node of a bindable ordered modulation stack.
   static constexpr size_t STACK_BEGIN = stack_begin<0>();
 
+  /// Coordinate-only warp implementation for two adjacent execution nodes.
+  template <size_t I>
+  using CoordinateWarpAt =
+      CoordinateOnlyWarp<std::tuple_element_t<I, std::tuple<Nodes...>>,
+                         std::tuple_element_t<I + 1, std::tuple<Nodes...>>>;
+
+  /// Whether the sample and color suffix leave the final warp distance unread.
+  static constexpr bool ELIDES_FINAL_WARP_PATH = [] {
+    if constexpr (STACK_BEGIN == NODE_COUNT || STACK_BEGIN < 2)
+      return false;
+    else {
+      return requires(const PlaneSample &input, const PreparedTuple &prepared) {
+        CoordinateWarpAt<STACK_BEGIN - 2>::apply(
+            input, std::get<STACK_BEGIN - 2>(prepared));
+      } && []<size_t... Offsets>(std::index_sequence<Offsets...>) {
+        return (FIXED_SPATIAL_MODULATION<
+                    typename NodeAt<STACK_BEGIN + 1 + Offsets>::Descriptor> &&
+                ...);
+      }(std::make_index_sequence<NODE_COUNT - STACK_BEGIN - 1>{});
+    }
+  }();
+
   /** @brief Binds the ordered color tail once per prepared column.
    * @tparam Offsets Layer offsets after the palette.
    * @param ctx Column frame.
@@ -1859,7 +1889,11 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
   HS_HOT_INLINE static Color4
   shade_stack(const Input &input, const FrameState &ctx,
               const PreparedTuple &prepared, const Column &column) {
-    if constexpr (Index < STACK_BEGIN)
+    if constexpr (ELIDES_FINAL_WARP_PATH && Index + 2 == STACK_BEGIN) {
+      const auto warped =
+          CoordinateWarpAt<Index>::apply(input, std::get<Index>(prepared));
+      return shade_stack<Index + 1>(warped, ctx, prepared, column);
+    } else if constexpr (Index < STACK_BEGIN)
       return shade_stack<Index + 1>(
           run_stage_endpoint<Index, false>(input, ctx, prepared), ctx, prepared,
           column);
@@ -2354,6 +2388,8 @@ public:
   using PreparedTuple = typename Core::PreparedTuple;
   /// Whether the final palette and ordered modulation layers can bind per column.
   static constexpr bool MODULATION_STACK = Core::STACK_BEGIN < NODE_COUNT;
+  /// Whether the bound scan can skip measuring its final planar warp.
+  static constexpr bool ELIDES_FINAL_WARP_PATH = Core::ELIDES_FINAL_WARP_PATH;
   /// Whether the first execution node rotates sphere directions.
   static constexpr bool ROTATION_COLUMNS =
       Detail::RotationPrefix<NodeList>::SUPPORTED;

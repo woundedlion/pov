@@ -1796,8 +1796,52 @@ inline void check_product_modulation_columns() {
 
 /** @brief Coupled endpoint mechanics preserve the authored colors. */
 inline void test_river_stones_color_tail() {
+  static_assert(
+      RiverStones<SMALL_W, SMALL_H>::RenderPipeline::ELIDES_FINAL_WARP_PATH);
   check_product_modulation_columns<RiverStones<SMALL_W, SMALL_H>, "modulate1",
                                    "modulate2">();
+}
+
+/** @brief A modulation layer with editable sources observes the affine distance. */
+inline void test_modulation_stack_observes_warp_distance() {
+  using namespace Pullback;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  using Product = FX::RenderPipeline;
+  using EditableLayer = Stage::Modulate<Color::Modulate<
+      ModulationProvider<FX::Binding, "modulate2", Pattern::SourceKind::NOISE,
+                         Pattern::Evaluation::DIRECT, true>>>;
+  using Observer = decltype([]<size_t... I>(std::index_sequence<I...>) {
+    return Pullback::Pipeline<FX::Binding, Product::StageAt<I>...,
+                              EditableLayer>{};
+  }(std::make_index_sequence<Product::STAGE_COUNT - 1>{}));
+  static_assert(Observer::MODULATION_STACK &&
+                !Observer::ELIDES_FINAL_WARP_PATH);
+  reset_globals();
+  FX effect;
+  effect.init();
+  auto state = effect.frame_for_test();
+  state.resources.template get<"outer_warp">().phase = 0.125f;
+  state.params.template get<"modulate">().modulation.enabled = false;
+  state.params.template get<"modulate1">().modulation.enabled = false;
+  auto &mask = state.params.template get<"modulate2">().modulation;
+  mask.source = Pattern::SourceKind::DISPLACEMENT;
+  mask.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
+  mask.enabled = true;
+  const auto frame = Observer::prepare(state);
+  const auto column = Observer::bind_modulation_stack(frame);
+  mask.enabled = false;
+  const auto unmasked = Observer::prepare(state);
+  bool observed_distance = false;
+  for (int x = 0; x < SMALL_W; x += 3) {
+    const auto view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, SMALL_H / 3);
+    const auto expected = Observer::evaluate(view, frame.ctx, frame.prepared);
+    const auto actual = Observer::shade(view, frame, column);
+    HS_EXPECT_EQ(actual.color, expected.color);
+    HS_EXPECT_EQ(actual.alpha, expected.alpha);
+    const auto base = Observer::evaluate(view, unmasked.ctx, unmasked.prepared);
+    observed_distance |= actual.alpha > 0.5f * base.alpha;
+  }
+  HS_EXPECT_TRUE(observed_distance);
 }
 
 /** @brief Phase-ready and edited Iridescence columns preserve the authored colors. */

@@ -63,6 +63,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_ash_cloud_noise_column_phase);
   HS_RUN(test_temporal_direct_noise_endpoint_reuse);
   HS_RUN(test_river_stones_color_tail);
+  HS_RUN(test_modulation_stack_observes_warp_distance);
   HS_RUN(test_iridescence_color_tail);
   HS_RUN(test_iridescence_repeated_cube_phase);
   HS_RUN(test_static_modulation_columns);
