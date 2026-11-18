@@ -408,12 +408,10 @@ HS_HOT_FLASH_MEMBER void scan_copy(const SweptMesh &d,
   Scan::ColumnBasis face_time = *d.canvas.column_basis();
   face_time.mesh.face_copy = &copy;
   ColumnBasisScope scope(d.canvas, face_time);
-  d.selected[copy.face] = Scan::detail::FacePass::WINDOWED;
   {
     TimeWindowScope window(d.canvas, 0, d.canvas.width() / 2, arm);
     d.callbacks.draw(d.callbacks.scan_context);
   }
-  d.selected[copy.face] = Scan::detail::FacePass::SKIPPED;
 #if HS_ENABLE_TEST_HOOKS
   ++mesh_capture_counters.scans;
   ++mesh_capture_counters.face_copies;
