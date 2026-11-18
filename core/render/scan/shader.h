@@ -136,7 +136,8 @@ private:
    * @param canvas Destination canvas.
    * @return Validated clip region. */
   template <int W, int H>
-  HS_HOT_INLINE static const ClipRegion &begin_traversal(Canvas &canvas) {
+  HS_SIZE_FLASH_MEMBER static const ClipRegion &
+  begin_traversal(Canvas &canvas) {
     check_canvas_dims<W, H>(canvas);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -239,6 +240,19 @@ private:
     }
   }
 
+  template <int W, int H, typename PrepareTime, typename Prepare>
+  HS_HOT_FLASH_MEMBER static void
+  shade_column_time(Canvas &canvas, int c, bool near, bool far,
+                    PrepareTime &prepare_time, Prepare &prepare) {
+    auto &&state = prepare_time(c);
+    for (int arm = 0; arm < 2; ++arm) {
+      if (arm ? far : near) {
+        const int x = c + arm * (W / 2);
+        shade_column<W, H>(canvas, x, prepare(state, x));
+      }
+    }
+  }
+
 public:
   /** @brief Shades columns with one prepared callable per column.
    * @tparam W Canvas width.
@@ -276,12 +290,7 @@ public:
     const auto &clip = begin_traversal<W, H>(canvas);
     walk_clip_column_times<W>(
         clip.x_clip(), [&](int c, bool near, bool far) HS_HOT_INLINE {
-          auto &&state = prepare_time(c);
-          for (int arm = 0; arm < 2; ++arm)
-            if (arm ? far : near) {
-              const int x = c + arm * (W / 2);
-              shade_column<W, H>(canvas, x, prepare(state, x));
-            }
+          shade_column_time<W, H>(canvas, c, near, far, prepare_time, prepare);
         });
   }
 
