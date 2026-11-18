@@ -88,13 +88,23 @@ struct RiverStonesSpec : Pullback::Spec {
     /** @brief Selected scalar cube for the column.
      * @param layer Baked modulation layer.
      * @return Byte cube admitting interpolation at this column time. */
-    const Pattern::SphereLutView *cube(const Layer &layer) const {
+    HS_HOT_INLINE const Pattern::SphereLutView *cube(const Layer &layer) const {
       if (!layer.paired_cube_ready || layer.previous->cube.linear_data ||
           layer.current->cube.linear_data)
         return nullptr;
       return &(retained ? layer.previous : layer.current)->cube;
     }
   };
+
+  /** @brief Samples a signed-byte modulation cube.
+   * @param tap Cube face coordinates.
+   * @param cube Prepared byte cube.
+   * @return Bounded signed scalar. */
+  HS_HOT_FLASH_MEMBER static float
+  sample_cube(const Pattern::SphereLutSample &tap,
+              const Pattern::SphereLutView &cube) {
+    return Pattern::bounded_scalar(tap.sample_data(cube.data));
+  }
 
   /** @brief Bilinear retained value, sharing the current result for equal taps.
    * @param tap Cube face coordinates.
@@ -112,7 +122,7 @@ struct RiverStonesSpec : Pullback::Spec {
     if (std::memcmp(old, now, 2) == 0 &&
         std::memcmp(old + STRIDE, now + STRIDE, 2) == 0)
       return current;
-    return Pattern::bounded_scalar(tap.sample(a));
+    return sample_cube(tap, a);
   }
 
   /** @brief Shades edited layer orders through the canonical endpoint kernels.
@@ -122,16 +132,22 @@ struct RiverStonesSpec : Pullback::Spec {
   HS_FLASH_MEMBER static Color4 shade_edited(const Pullback::FieldSample &field,
                                              const ColorColumn &column) {
     using namespace Pullback;
-    using Core = Color::GeneratedPaletteCore<true, false, true>;
+    const auto &palette = column.palette;
+    const auto &state = column.retained ? palette.previous : palette.current;
+    auto result = Color::apply_generated_palette(field, state);
     if (column.blend) {
-      auto pair = Core::apply_pair(field, column.palette);
+      auto old = result;
+      const auto &previous = palette.previous;
+      old.color = previous.palette->get(result.palette_coordinate);
+      old.color.alpha *= Color::palette_opacity(field, state);
+      old.hue_rotation =
+          previous.hue_rotation.active ? previous.hue_rotation.data : nullptr;
+      old.hue_rotation_gamut = previous.hue_rotation.gamut_mask;
       for (const auto *layer : {&column.hue, &column.lift, &column.mask})
-        Color::apply_modulation_pair_in_place(pair.first, pair.second, *layer);
-      blend_color_samples_in_place(pair.first, pair.second,
-                                   column.palette.fraction);
-      return finish_color_sample(pair.second);
+        Color::apply_modulation_pair_in_place(old, result, *layer);
+      blend_color_samples_in_place(old, result, palette.fraction);
+      return finish_color_sample(result);
     }
-    auto result = Core::apply_endpoint(field, column.palette, column.retained);
     for (const auto *layer : {&column.hue, &column.lift, &column.mask})
       Color::apply_modulation_in_place(result, *layer, column.retained);
     return finish_color_sample(result);
@@ -148,16 +164,14 @@ struct RiverStonesSpec : Pullback::Spec {
       return shade_edited(field, column);
     const auto &palette = column.palette;
     const auto &base = column.retained ? palette.previous : palette.current;
-    const auto controls = Color::palette_controls(field, base);
-    auto result = Color::apply_palette_endpoint_impl(
-        field, base, controls.value, controls.opacity, controls.gain);
+    auto result = Color::apply_generated_palette(field, base);
     const auto direction = Pattern::SphereDirection::admit(field.sphere);
     result.pending_hue = Color::accumulate_hue(
         0.0f, Modulation::sample(*column.noise, direction),
         column.hue.mechanic);
     const auto tap = Pattern::prepare_sphere_lut_sample(direction);
-    const float lift = Pattern::bounded_scalar(tap.sample(*column.lift_cube));
-    const float mask = Pattern::bounded_scalar(tap.sample(*column.mask_cube));
+    const float lift = sample_cube(tap, *column.lift_cube);
+    const float mask = sample_cube(tap, *column.mask_cube);
     result.pending_lift =
         Color::accumulate_lift(0.0f, lift, column.lift.mechanic);
     const auto opacity = [&](Color4 color, float value) HS_HOT_INLINE {
@@ -170,8 +184,8 @@ struct RiverStonesSpec : Pullback::Spec {
     if (column.blend) {
       auto old = current;
       if (!column.same_palette) {
-        old = palette.previous.palette->get(controls.value);
-        old.alpha *= controls.opacity;
+        old = palette.previous.palette->get(result.palette_coordinate);
+        old.alpha *= Color::palette_opacity(field, base);
         result.color.color =
             old.color.lerp16(current.color, frac_to_q16(palette.fraction));
       }

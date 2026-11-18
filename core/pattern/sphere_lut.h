@@ -69,28 +69,24 @@ struct SphereLutSample {
   float x_fraction; ///< Horizontal interpolation fraction.
   float y_fraction; ///< Vertical interpolation fraction.
 
+  /** @brief Interpolates four taps in a face-major table.
+   * @param table Float or signed-byte cube data.
+   * @return Scalar value in [-1, 1]. */
+  template <typename T> HS_HOT_INLINE float sample_data(const T *table) const {
+    const auto *row = table + offset;
+    const auto *next = row + SphereLutView::FACE_STEPS;
+    const float low = hs::lerp(static_cast<float>(row[0]),
+                               static_cast<float>(row[1]), x_fraction);
+    const float high = hs::lerp(static_cast<float>(next[0]),
+                                static_cast<float>(next[1]), x_fraction);
+    return hs::lerp(low, high, y_fraction) * (1.0f / 127.0f);
+  }
   /** @brief Samples a table using these cube-map coordinates.
    * @param view Prepared scalar cube LUT.
    * @return Scalar value in [-1, 1]. */
   HS_HOT_INLINE float sample(const SphereLutView &view) const {
-    float a;
-    float b;
-    float c;
-    float d;
-    if (view.linear_data) {
-      a = view.linear_data[offset];
-      b = view.linear_data[offset + 1];
-      c = view.linear_data[offset + SphereLutView::FACE_STEPS];
-      d = view.linear_data[offset + SphereLutView::FACE_STEPS + 1];
-    } else {
-      a = static_cast<float>(view.data[offset]);
-      b = static_cast<float>(view.data[offset + 1]);
-      c = static_cast<float>(view.data[offset + SphereLutView::FACE_STEPS]);
-      d = static_cast<float>(view.data[offset + SphereLutView::FACE_STEPS + 1]);
-    }
-    const float row_low = hs::lerp(a, b, x_fraction);
-    const float row_high = hs::lerp(c, d, x_fraction);
-    return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
+    return view.linear_data ? sample_data(view.linear_data)
+                            : sample_data(view.data);
   }
 };
 
