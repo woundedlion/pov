@@ -85,6 +85,20 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "project sources must not be symbolic links"):
             release.check_candidate(self.project)
 
+    def test_candidate_rejects_symbolic_link_source_directories(self):
+        self.status()
+        target = self.root / "footprints"
+        target.mkdir()
+        (target / "test.kicad_mod").touch()
+        try:
+            (self.project / "phantasm.pretty").symlink_to(target, target_is_directory=True)
+        except OSError as exc:
+            if os.name == "nt" and exc.winerror == 1314:
+                self.skipTest("requires Windows symbolic link permission")
+            raise
+        with self.assertRaisesRegex(ValueError, "project sources must not be symbolic links"):
+            release.check_candidate(self.project)
+
     def test_order_details_are_checked_before_package_verification(self):
         with mock.patch.object(release, "verify") as verify:
             with self.assertRaisesRegex(ValueError, "order details must be a JSON object"):

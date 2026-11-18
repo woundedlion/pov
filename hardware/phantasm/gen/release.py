@@ -34,13 +34,17 @@ GENERATOR_COPPER_FINISH = str(sexp.val(GENERATOR_STACKUP, "copper_finish")[0])
 def sources(project):
     required = {f"{PROJECT}{suffix}" for suffix in
                 (".kicad_pcb", ".kicad_pro", ".kicad_sch")}
-    paths = sorted(path for path in project.rglob("*")
-                   if path.is_file() and not TRANSIENT_DIRS.intersection(path.relative_to(project).parts) and
-                   (path.suffix in SOURCE_SUFFIXES or path.name in TABLES))
+    entries = (path for path in project.rglob("*")
+               if not TRANSIENT_DIRS.intersection(path.relative_to(project).parts))
+    paths = []
+    for path in entries:
+        if path.is_symlink():
+            raise ValueError("project sources must not be symbolic links")
+        if path.is_file() and (path.suffix in SOURCE_SUFFIXES or path.name in TABLES):
+            paths.append(path)
+    paths.sort()
     if not required <= {path.name for path in paths if path.parent == project}:
         raise ValueError("project requires matching phantasm PCB, schematic and project files")
-    if any(path.is_symlink() for path in paths):
-        raise ValueError("project sources must not be symbolic links")
     return {path.relative_to(project).as_posix(): fab.sha256_file(path) for path in paths}
 
 
