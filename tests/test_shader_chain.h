@@ -737,7 +737,7 @@ inline void test_shader_chain_modulation_snapshot_identity() {
       if (const auto *value =
               std::get_if<In::ModulationClockSnapshot>(&runtime.state))
         return *value;
-    HS_CHECK(false, "missing test color clock");
+    HS_CHECK(false, "missing test modulation clock");
     return std::get<In::ModulationClockSnapshot>(
         snapshot.runtime->back().state);
   };

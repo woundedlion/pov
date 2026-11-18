@@ -53,6 +53,13 @@ FIRST_PARTY = [".", "core", "effects", "hardware"]
 COMPILE_COMMANDS = {"CCCOM": "$CC -c", "CXXCOM": "$CXX -c", "ASPPCOM": "$CC -x"}
 
 
+def _hot_layout_hook(**kw):
+    kw.setdefault("BUILD_DIR", os.path.join(".pio", "build", "phantasm"))
+    env = FakeEnv(PIOENV="phantasm", PROJECT_DIR=str(REPO),
+                  LDSCRIPT_PATH="tools/phantasm.ld", **kw)
+    return load_hook("teensy_hot_layout.py", env=env), env
+
+
 def _pio_config():
     """platformio.ini merged with the files its `extra_configs` names."""
     cfg = configparser.RawConfigParser()
@@ -118,7 +125,7 @@ class TestOptionInterpolation(unittest.TestCase):
                         self.assertIn(path, inputs)
 
     def test_firmware_build_inputs_cover_relink_dependencies(self):
-        _, hot_env = TestHotLayoutLink()._hook()
+        _, hot_env = _hot_layout_hook()
         gate_env = FakeEnv(PROJECT_DIR=str(REPO))
         load_hook("teensy_gate_extra.py", env=gate_env)
         for env in (hot_env, gate_env):
@@ -455,12 +462,6 @@ class TestHotLayoutLink(unittest.TestCase):
 
     HOOK = "pre:tools/teensy_hot_layout.py"
 
-    def _hook(self, **kw):
-        kw.setdefault("BUILD_DIR", os.path.join(".pio", "build", "phantasm"))
-        env = FakeEnv(PIOENV="phantasm", PROJECT_DIR=str(REPO),
-                      LDSCRIPT_PATH="tools/phantasm.ld", **kw)
-        return load_hook("teensy_hot_layout.py", env=env), env
-
     def test_exactly_the_phantasm_script_envs_wire_the_hook(self):
         cfg = _pio_config()
         for name in _pio_envs():
@@ -470,7 +471,7 @@ class TestHotLayoutLink(unittest.TestCase):
                 self.assertEqual(wired, script == ["tools/phantasm.ld"])
 
     def test_link_runs_probe_plan_final_link_and_gate(self):
-        _, env = self._hook()
+        _, env = _hot_layout_hook()
         steps = env["LINKCOM"]
         self.assertEqual([step[0] == "action" for step in steps],
                          [True, False, True, False, True])
@@ -498,7 +499,7 @@ class TestHotLayoutLink(unittest.TestCase):
 
     def test_probe_link_reads_an_empty_fragment(self):
         with tempfile.TemporaryDirectory() as tmp:
-            _, env = self._hook(BUILD_DIR=tmp)
+            _, env = _hot_layout_hook(BUILD_DIR=tmp)
             self.assertEqual(env["LINKCOM"][0][1]([], [], env), 0)
             fragment = Path(tmp, "hot_layout", "probe", "phantasm_hot_layout.ld")
             self.assertNotIn("*(", fragment.read_text(encoding="utf-8"))
@@ -506,7 +507,7 @@ class TestHotLayoutLink(unittest.TestCase):
 
     def test_failing_gate_writes_a_report_and_returns_failure(self):
         with tempfile.TemporaryDirectory() as directory:
-            hook, env = self._hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
+            hook, env = _hot_layout_hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
             hook._write_probe_fragment([], [], env)
             with mock.patch.object(hook, "_toolchain", return_value=None), \
                     mock.patch.object(hook.hot_layout, "check", return_value=(["gate sentinel"], False)), \
@@ -516,7 +517,7 @@ class TestHotLayoutLink(unittest.TestCase):
 
     def test_layout_errors_fail_plan_and_gate(self):
         with tempfile.TemporaryDirectory() as directory:
-            hook, env = self._hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
+            hook, env = _hot_layout_hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
             for action, target in ((hook._gate, "check"), (hook._plan, "write_plan")):
                 for failure in (hook.hot_layout.LayoutError, OSError):
                     with self.subTest(action=target, failure=failure), \
@@ -527,7 +528,7 @@ class TestHotLayoutLink(unittest.TestCase):
                         self.assertIn("sentinel", output.getvalue())
 
     def test_final_map_requires_an_explicit_linker_output(self):
-        hook, env = self._hook(LINKFLAGS="-Os")
+        hook, env = _hot_layout_hook(LINKFLAGS="-Os")
         with self.assertRaisesRegex(hook.hot_layout.LayoutError, "no -Wl,-Map"):
             hook._final_map(env)
 
@@ -535,7 +536,7 @@ class TestHotLayoutLink(unittest.TestCase):
         sources = lambda sketch: [os.path.join("src", "targets", sketch, sketch + ".ino.cpp.o")]
         for target in (("HS_PROFILE_TARGET", "HopfFibration"), ["HS_PROFILE_TARGET", "HopfFibration"]):
             with self.subTest(target=target):
-                hook, env = self._hook(CPPDEFINES=["HS_PROFILE", ("HS_OTHER", "OtherEffect"),
+                hook, env = _hot_layout_hook(CPPDEFINES=["HS_PROFILE", ("HS_OTHER", "OtherEffect"),
                                                   target, ("HS_AFTER", 1)])
                 self.assertEqual(hook._expected(env, sources("Profile")), ["HopfFibration"])
         self.assertEqual(hook._expected(env, sources("Phantasm")),
@@ -548,7 +549,7 @@ class TestHotLayoutLink(unittest.TestCase):
 
     def test_successful_plan_and_gate_return_zero(self):
         with tempfile.TemporaryDirectory() as directory:
-            hook, env = self._hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map",
+            hook, env = _hot_layout_hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map",
                                    CPPDEFINES=[("HS_PROFILE_TARGET", "HopfFibration")])
             hook._write_probe_fragment([], [], env)
             toolchain = mock.sentinel.toolchain

@@ -280,6 +280,13 @@ struct ShapeShifterWhiteBox {
     return OracleEffect::PRESETS[index].params;
   }
 
+  /** @brief Reports whether the preset selects the continuous surface route.
+   * @param index Shipping preset index.
+   * @return Whether the preset's parameters admit the surface renderer. */
+  static bool preset_is_surface(size_t index) {
+    return OracleEffect::surface_params(preset_params(index));
+  }
+
   static OracleEffect::ShapeType preset_shape(size_t index) {
     return preset_params(index).shape;
   }

@@ -355,10 +355,6 @@ inline void test_hue_fade_matches_rotate_reference() {
       out = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(rotated));
     return linrgb_to_pixel(out);
   };
-  alignas(uint16_t) static uint8_t
-      lut_buf[gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)];
-  Arena lut_arena(lut_buf, sizeof(lut_buf));
-  init_gamut_lut(lut_arena, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
   const Pixel COLORS[] = {Pixel(65535, 0, 0),        Pixel(0, 65535, 0),
                           Pixel(0, 0, 65535),        Pixel(65535, 65535, 0),
                           Pixel(50000, 2000, 2000),  Pixel(300, 200, 100),
@@ -379,7 +375,6 @@ inline void test_hue_fade_matches_rotate_reference() {
         HS_EXPECT_NEAR((float)got.g, (float)ref.g, tolerance);
         HS_EXPECT_NEAR((float)got.b, (float)ref.b, tolerance);
       }
-  release_gamut_lut();
 }
 
 /**

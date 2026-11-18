@@ -341,6 +341,8 @@ struct AffineNamedSourceSpec : Pullback::Spec {
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
+      Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+          Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
       Pullback::Stage::Warp<Pullback::Warp::AffineFrame<Pullback::WarpProvider<
           B, "affine", Pullback::AffineParams, false, "cells">>>,
       Pullback::Stage::Sample<Pullback::Source::Tessellation<
@@ -379,6 +381,8 @@ struct AffineFallbackLatticeSpec : Pullback::Spec {
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
+      Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+          Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::AffineParams, B, "affine", false>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
@@ -416,6 +420,14 @@ inline void test_composed_affine_form_sliders() {
                                              AffineResource>();
   static_assert(NAMED.form == Pullback::AffineForm::GENERAL && NAMED.repeat &&
                 !NAMED.fallback_lattice);
+  static_assert(
+      Pullback::ComposedDetail::field_gate_open<AffineFallbackLatticeSpec,
+                                                AffineResource>(
+          Pullback::FieldGate::AFFINE_FALLBACK_LATTICE));
+  static_assert(
+      !Pullback::ComposedDetail::field_gate_open<AffineNamedSourceSpec,
+                                                 AffineResource>(
+          Pullback::FieldGate::AFFINE_FALLBACK_LATTICE));
 
   const std::initializer_list<const char *> TRANSLATION = {
       "Repeat Windings A", "Repeat Windings B", "Repeat Cells"};

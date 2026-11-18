@@ -403,19 +403,12 @@ inline void test_pullback_prepared_cube_pair() {
 /** @brief Paired cube samples preserve individual samplers and custom dispatch. */
 inline void test_pullback_modulation_paired_samples() {
   using namespace Pullback;
-  std::array<int8_t, Pattern::SphereLutView::SIZE> previous_cube;
-  std::array<int8_t, Pattern::SphereLutView::SIZE> current_cube;
+  CubeModulationPair cubes;
+  auto &previous = cubes.previous;
+  auto &current = cubes.current;
   std::array<float, Pattern::SphereLutView::SIZE> linear_cube;
-  for (size_t index = 0; index < previous_cube.size(); ++index) {
-    previous_cube[index] = static_cast<int8_t>((index * 37) % 255 - 127);
-    current_cube[index] = static_cast<int8_t>((index * 83 + 19) % 255 - 127);
-    linear_cube[index] = current_cube[index];
-  }
-  Modulation::Prepared previous{};
-  Modulation::Prepared current{};
-  previous.cube = {previous_cube.data(), true};
-  current.cube = {current_cube.data(), true};
-  previous.evaluate = current.evaluate = Modulation::sample_cube;
+  std::copy(cubes.current_cube.begin(), cubes.current_cube.end(),
+            linear_cube.begin());
   for (bool floats : {false, true}) {
     current.cube.linear_data = floats ? linear_cube.data() : nullptr;
     for (int x = -3; x <= 3; ++x)
@@ -451,17 +444,9 @@ inline void test_pullback_modulation_paired_samples() {
 /** @brief Paired modulation keeps canonical endpoint colors and mechanic order. */
 inline void test_pullback_modulation_paired_colors() {
   using namespace Pullback;
-  std::array<int8_t, Pattern::SphereLutView::SIZE> previous_cube;
-  std::array<int8_t, Pattern::SphereLutView::SIZE> current_cube;
-  for (size_t index = 0; index < previous_cube.size(); ++index) {
-    previous_cube[index] = static_cast<int8_t>((index * 17) % 255 - 127);
-    current_cube[index] = static_cast<int8_t>((index * 41 + 37) % 255 - 127);
-  }
-  Modulation::Prepared previous{};
-  Modulation::Prepared current{};
-  previous.cube = {previous_cube.data(), true};
-  current.cube = {current_cube.data(), true};
-  previous.evaluate = current.evaluate = Modulation::sample_cube;
+  CubeModulationPair cubes;
+  auto &previous = cubes.previous;
+  auto &current = cubes.current;
   Color::ModulationState state{
       &current, &previous, Pattern::SourceKind::NOISE, {}, true};
   for (auto mechanic : {ColorModulation::Mechanic::HUE_ROTATION,

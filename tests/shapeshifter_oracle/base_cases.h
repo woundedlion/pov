@@ -639,9 +639,13 @@ inline void test_timed_preset_five_preserves_polar_anchor() {
   HS_EXPECT_NEAR(after[pixel], before[pixel], 0.002f);
 }
 
-/** @brief Shipping presets match their frozen columns at the authored speed. */
+/** @brief Contour-route presets match their frozen columns at the authored speed. */
 inline void test_timed_presets_match_frozen_columns() {
-  for (size_t i = 1; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
+  size_t contour_presets = 0;
+  for (size_t i = 0; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
+    if (ShapeShifterWhiteBox::preset_is_surface(i))
+      continue;
+    ++contour_presets;
     OracleState state = preset_state(i);
     const float step = preset_phase_step(i);
     const std::string name = "preset " + std::to_string(i + 1);
@@ -676,6 +680,7 @@ inline void test_timed_presets_match_frozen_columns() {
                  MAX_ROOT_MEAN_SQUARED_ERROR);
     HS_EXPECT_LT(frozen_style.error.max_absolute_error, MAX_CHANNEL_ERROR);
   }
+  HS_EXPECT_GT(contour_presets, 0u);
 }
 
 /** @brief Clipping moving flowers preserves visible pixels and skips chart samples. */

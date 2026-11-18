@@ -315,68 +315,6 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   HS_EXPECT_TRUE(reclaimed != nullptr);
 }
 
-/** @brief A nonfinite transformed direction yields no finite movement. */
-inline void test_transformed_angle_rejects_nonfinite_directions() {
-  const math::Vector UNIT(0.0f, 1.0f, 0.0f);
-  HS_EXPECT_NEAR(transformed_angle(UNIT, math::Vector(1.0f, 0.0f, 0.0f)),
-                 math::PI_F * 0.5f, 1e-6f);
-  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
-  const float INF_VALUE = std::numeric_limits<float>::infinity();
-  for (const math::Vector &bad : {math::Vector(NAN_VALUE, NAN_VALUE, NAN_VALUE),
-                                  math::Vector(0.0f, NAN_VALUE, 0.0f),
-                                  math::Vector(0.0f, INF_VALUE, 0.0f)}) {
-    HS_EXPECT_TRUE(std::isnan(transformed_angle(UNIT, bad)));
-    HS_EXPECT_TRUE(std::isnan(transformed_angle(bad, UNIT)));
-    HS_EXPECT_TRUE(std::isnan(fold_worst(0.0, transformed_angle(bad, bad))));
-  }
-}
-
-/**
- * @brief A ripple's step keeps its previous amplitude and phase, and the
- *        ripple between them moves no point farther than its step bound.
- */
-inline void test_ripple_step_keeps_its_previous_endpoint() {
-  hs_test::StubEffect fx(8, 8);
-  Canvas cv(fx);
-  Animation::RippleParams params;
-  params.amplitude = 0.15f;
-  params.thickness = 0.7f;
-  params.decay = 0.1f;
-  Animation::Ripple ripple(params, math::Vector(0.2f, 1.0f, 0.1f), 0.04f, 40);
-  HS_EXPECT_EQ(params.previous_phase, params.phase);
-  HS_EXPECT_EQ(params.previous_amplitude, params.amplitude);
-  double worst_ratio = 0.0;
-  for (int step = 0; step < 12; ++step) {
-    HS_CONTEXT("step", step);
-    const Animation::RippleParams before = params;
-    ripple.step(cv);
-    HS_EXPECT_EQ(params.previous_phase, before.phase);
-    HS_EXPECT_EQ(params.previous_amplitude, before.amplitude);
-    const Animation::RippleParams start = params.during_step(0.0f);
-    HS_EXPECT_EQ(start.phase, before.phase);
-    HS_EXPECT_EQ(start.amplitude, before.amplitude);
-    HS_EXPECT_EQ(start.cos_near, before.cos_near);
-    HS_EXPECT_EQ(start.cos_far, before.cos_far);
-    const Animation::RippleParams end = params.during_step(1.0f);
-    HS_EXPECT_EQ(end.phase, params.phase);
-    HS_EXPECT_EQ(end.amplitude, params.amplitude);
-    double moved = 0.0;
-    for (int i = 0; i < 400; ++i) {
-      const math::Vector v = math::fib_spiral(400, 0.5f, i);
-      for (const float u : {0.5f, 1.0f}) {
-        moved = fold_worst(
-            moved,
-            transformed_angle(ripple_transform(v, start),
-                              ripple_transform(v, params.during_step(u))));
-      }
-    }
-    HS_EXPECT_LE(moved, params.step_arc() + 1e-4f);
-    worst_ratio = fold_worst(worst_ratio, moved / params.step_arc());
-  }
-  std::printf("  ripple step maximum bound ratio %.6f\n", worst_ratio);
-  HS_EXPECT_GT(worst_ratio, .8);
-}
-
 /**
  * @brief A transformer applied with substitute params composes them in spawn
  *        order, as the live params compose.

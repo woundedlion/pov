@@ -155,7 +155,7 @@ class ParseDump(unittest.TestCase):
 
     def test_rejects_dump_starting_mid_block(self):
         dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "outside a block"):
             relax_bakes.parse_dump(dump.split("\n", 1)[1])
 
 

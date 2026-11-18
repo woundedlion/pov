@@ -76,8 +76,10 @@ struct DreamBallsWhiteBox {
         newborn || timed ? finish : math::slerp(start, finish, fraction));
     if (!newborn)
       fx.pose_history.capture(start);
+    constexpr float DRAWN_OPACITY = 0.625f;
+    constexpr float FADED_OPACITY = DRAWN_OPACITY + 1.0f / FX::FADE_WINDOW;
     fx.drawn_phase = 0.2f;
-    fx.drawn_opacity = frozen_geometry ? 0.65625f : 0.625f;
+    fx.drawn_opacity = frozen_geometry ? FADED_OPACITY : DRAWN_OPACITY;
     fx.drawn_params = p;
     const auto &solid = fx.loaded_solids[static_cast<size_t>(p.base_mesh)];
     const BakedPalette &baked = fx.baked_palettes[fx.active_bake];
@@ -85,8 +87,9 @@ struct DreamBallsWhiteBox {
       Canvas canvas(fx);
       ScratchScope a(scratch_arena_a), b(scratch_arena_b);
       if (timed) {
-        fx.draw_scene(canvas, p, newborn ? 1.0f / FX::FADE_WINDOW : 0.65625f,
-                      solid, baked);
+        fx.draw_scene(canvas, p,
+                      newborn ? 1.0f / FX::FADE_WINDOW : FADED_OPACITY, solid,
+                      baked);
       } else {
         MeshState mesh;
         ArenaVector<math::Vector> base, tangent, offsets;
@@ -125,12 +128,11 @@ struct DreamBallsWhiteBox {
               hs_test::displace_reference_rows<DEFAULT_H>(point, displacement);
         auto shader = [&](const math::Vector &, Fragment &f) {
           auto color = baked.get(f.v0);
-          color.alpha *=
-              p.alpha *
-              (frozen_geometry
-                   ? 0.65625f
-                   : ((newborn ? 0.0f : 0.625f) + fraction / FX::FADE_WINDOW)) *
-              FX::under_gap_alpha(f.v0, p.weave_gap);
+          color.alpha *= p.alpha *
+                         (frozen_geometry ? FADED_OPACITY
+                                          : ((newborn ? 0.0f : DRAWN_OPACITY) +
+                                             fraction / FX::FADE_WINDOW)) *
+                         FX::under_gap_alpha(f.v0, p.weave_gap);
           if (woven && f.v0 == 0.0f &&
               !FX::owns_woven_start_sample(edges, owners,
                                            static_cast<size_t>(f.v2)))

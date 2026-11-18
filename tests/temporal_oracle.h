@@ -233,17 +233,26 @@ inline void test_temporal_oracle_uses_whole_frame_endpoint_budget() {
             "error above one twentieth");
   HS_EXPECT(!temporal_frame_error_within_budget(0.04f, 1.0f, 0.5f),
             "error above half of one twentieth");
-  auto render = [](bool timed, float fraction, float displacement) {
-    std::array<float, 4> pixels{};
-    if (timed)
-      pixels[0] = 0.02f;
-    else if (displacement != 0.0f)
-      pixels.fill(0.1f);
-    else if (fraction == 1.0f)
-      pixels[1] = 1.0f;
-    return pixels;
+  const auto compare = [](float timed_error, float endpoint_error,
+                          const SeamCompareOptions &options = {}) {
+    const auto render = [=](bool timed, float fraction, float displacement) {
+      std::array<float, 4> pixels{};
+      if (timed)
+        pixels[0] = timed_error;
+      else if (displacement != 0.0f)
+        pixels.fill(0.1f);
+      else if (fraction == 1.0f)
+        pixels[1] = endpoint_error;
+      return pixels;
+    };
+    seam_compare_render<4, 1>(render, "distributed endpoint budget", options);
   };
-  seam_compare_render<4, 1>(render, "distributed endpoint budget");
+  compare(0.02f, 1.0f);
+  expect_probe_failures([&] { compare(0.06f, 1.0f); }, 1, "whole-frame error");
+  expect_probe_failures([&] { compare(0.04f, 1.0f, {.share = 0.5f}); }, 1,
+                        "whole-frame error");
+  expect_probe_failures([&] { compare(0.0f, 0.0f); }, 1,
+                        "endpoint_total > 0.01f");
 }
 
 /** @brief Frozen-column oracle detects violations and honors optional budgets. */

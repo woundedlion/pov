@@ -59,21 +59,6 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
     mesh.faces.push_back(static_cast<uint16_t>(fi));
 }
 
-/** @brief Builds an icosahedron into caller-owned arenas. */
-inline void build_icosahedron_meshstate(Arena &seed_a, Arena &seed_b,
-                                        Arena &geometry, MeshState &mesh) {
-  PolyMesh base = Solids::Platonic::icosahedron(seed_a, seed_b);
-  mesh.vertices.bind(geometry, base.vertices.size());
-  for (const math::Vector &vertex : base.vertices)
-    mesh.vertices.push_back(vertex);
-  mesh.faces.bind(geometry, base.faces.size());
-  mesh.face_counts.bind(geometry, base.face_counts.size());
-  for (size_t i = 0; i < base.face_counts.size(); ++i)
-    mesh.face_counts.push_back(static_cast<uint8_t>(base.face_counts[i]));
-  for (size_t i = 0; i < base.faces.size(); ++i)
-    mesh.faces.push_back(base.faces[i]);
-}
-
 /** Step table for the ambo/relax/hk54/needle test-fixture recipe. */
 inline constexpr Solids::OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_STEPS[] = {
@@ -321,6 +306,15 @@ inline void build_meshstate(MeshState &mesh, Arena &arena,
   HS_EXPECT_EQ(offset, faces.size());
   for (const uint16_t index : faces)
     mesh.faces.push_back(index);
+}
+
+/** @brief Builds an icosahedron into caller-owned arenas. */
+inline void build_icosahedron_meshstate(Arena &seed_a, Arena &seed_b,
+                                        Arena &geometry, MeshState &mesh) {
+  const PolyMesh base = Solids::Platonic::icosahedron(seed_a, seed_b);
+  build_meshstate(mesh, geometry, {base.vertices.data(), base.vertices.size()},
+                  {base.face_counts.data(), base.face_counts.size()},
+                  {base.faces.data(), base.faces.size()});
 }
 
 /** @brief Copies a fixed solid into mutable renderer storage, optionally omitting its last face. */

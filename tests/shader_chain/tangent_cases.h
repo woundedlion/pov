@@ -118,9 +118,7 @@ inline void test_symmetric_sectoral_phase() {
       const math::Vector expected =
           (kind == 0 ? math::Y_AXIS : -azimuth) / 1.01f;
       const auto velocity = field.velocity(p);
-      HS_EXPECT_NEAR(velocity.x, expected.x, 2e-5f);
-      HS_EXPECT_NEAR(velocity.y, expected.y, 2e-5f);
-      HS_EXPECT_NEAR(velocity.z, expected.z, 2e-5f);
+      HS_EXPECT_VEC(velocity, expected, 2e-5f);
     }
   }
 }
@@ -221,9 +219,7 @@ inline void test_symmetric_gain_equivalence() {
                     Symmetric::step(p, reference_field, strength, integrator);
                 const auto actual =
                     Symmetric::run({p, 0.2f}, {}, params, field);
-                HS_EXPECT_NEAR(actual.dir.x, expected.sphere.x, 1e-3f);
-                HS_EXPECT_NEAR(actual.dir.y, expected.sphere.y, 1e-3f);
-                HS_EXPECT_NEAR(actual.dir.z, expected.sphere.z, 1e-3f);
+                HS_EXPECT_VEC(actual.dir, expected.sphere, 1e-3f);
                 HS_EXPECT_NEAR(actual.path_length, 0.2f + expected.path_length,
                                1e-3f);
               }
@@ -236,12 +232,6 @@ inline void test_symmetric_frame_rotation() {
   const auto rotate_y = [](const math::Vector &p, double angle) {
     return math::Vector(cos(angle) * p.x + sin(angle) * p.z, p.y,
                         -sin(angle) * p.x + cos(angle) * p.z);
-  };
-  const auto expect_vector = [](const math::Vector &actual,
-                                const math::Vector &expected, float tolerance) {
-    HS_EXPECT_NEAR(actual.x, expected.x, tolerance);
-    HS_EXPECT_NEAR(actual.y, expected.y, tolerance);
-    HS_EXPECT_NEAR(actual.z, expected.z, tolerance);
   };
   for (uint8_t symmetry = 0;
        symmetry < std::size(PB::Surface::AUTHORED_SYMMETRY_IDS); ++symmetry)
@@ -262,7 +252,7 @@ inline void test_symmetric_frame_rotation() {
           const auto local = rotate_y(p, -phase);
           const auto expected = rotate_y(fixed.velocity(local), phase);
           const auto actual = rotating.velocity(p);
-          expect_vector(actual, expected, 2e-5f);
+          HS_EXPECT_VEC(actual, expected, 2e-5f);
           movement += (actual - fixed.velocity(p)).length();
           for (uint8_t integrator = 0; integrator < 3; ++integrator) {
             params.integrator = integrator;
@@ -270,7 +260,7 @@ inline void test_symmetric_frame_rotation() {
                                                  params.integrator);
             const auto output =
                 Symmetric::run({p, 0.25f}, {}, params, rotating);
-            expect_vector(output.dir, rotate_y(stepped.sphere, phase), 3e-5f);
+            HS_EXPECT_VEC(output.dir, rotate_y(stepped.sphere, phase), 3e-5f);
             HS_EXPECT_NEAR(output.path_length, 0.25f + stepped.path_length,
                            1e-5f);
           }
@@ -424,9 +414,7 @@ inline void test_tangent_step_integrators() {
             INPUT, field, strength, true);
     const math::Vector expected(cosf(strength), 0, -sinf(strength));
     for (const auto &result : {a, b, c}) {
-      HS_EXPECT_NEAR(result.sphere.x, expected.x, 2e-5f);
-      HS_EXPECT_NEAR(result.sphere.y, expected.y, 2e-5f);
-      HS_EXPECT_NEAR(result.sphere.z, expected.z, 2e-5f);
+      HS_EXPECT_VEC(result.sphere, expected, 2e-5f);
       HS_EXPECT_NEAR(result.path_length, fabsf(strength), 1e-5f);
       HS_EXPECT_NEAR(result.sphere.length(), 1.0f, 2e-5f);
     }
