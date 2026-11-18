@@ -87,7 +87,7 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "b87c4365acd5bb3bf48d3f3be04288fbd1b70f405c9c4a46af28eafc4e539d6c";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "bbf9351e416a7f99b721422dff348612afb4a4b059819e1640d4dbe866e8b1bd";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "f87c415e58a01f6c93ed7f630113de5fbf7e0a92c9ec858704c8162b6329a8eb";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "vector-mirror"
@@ -128,7 +128,7 @@ public:
     value.template get<"affine">().translation_x = -5.0f;
     value.template get<"affine">().translation_y = 4.0f;
     value.template get<"projection">().camera_wander = 1.0f;
-    value.template get<"color">().brightness_bottom = 0.345f;
+    value.template get<"color">().brightness_bottom = 0.5f;
     value.template get<"color">().brightness_top = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
@@ -138,12 +138,12 @@ public:
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
-    value.template get<"modulation">().modulation.mechanic.amount = 0.721f;
+    value.template get<"modulation">().modulation.mechanic.amount = 0.9f;
     value.template get<"modulation">().modulation.enabled = true;
     value.template get<"modulation">().modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
     value.template get<"modulation">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
     value.template get<"modulation">().modulation.source = Pattern::SourceKind::NOISE;
-    value.template get<"modulation">().modulation.noise.scale = 1.0f;
+    value.template get<"modulation">().modulation.noise.scale = 4.0f;
     value.template get<"modulation">().modulation.noise.speed = 0.0f;
     value.template get<"projection">().singularity_fade = 2.311f;
     value.template get<"source">().complexity = 1.704f;
