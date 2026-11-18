@@ -1,7 +1,7 @@
 # Iridescence on-device profile — Teensy 4.0, segmented mode (2026-11-18, **selective -O3**)
 
 Point-in-time snapshot of the authored show slot. Reproduce with the scoped command in Setup.
-Raw capture: `C:\work\temp\shared-mod-evidence\iri-paired-bands.log`. Replaces `profile_iridescence_teensy_2026-11-17.md`.
+Raw capture: `C:\work\temp\river59-evidence\recover-iri3.log`. Replaces `profile_iridescence_teensy_2026-11-05.md`.
 
 ## Setup
 
@@ -10,33 +10,33 @@ Raw capture: `C:\work\temp\shared-mod-evidence\iri-paired-bands.log`. Replaces `
 | Hardware | Teensy 4.0, COM3, 600 MHz; live flywheel and DMA ISRs |
 | Image | `profile`; shipping `-Os` base, newlib-nano; selective `HS_O3`: `core/render/scan/shader.h` and the pullback runtime/palette kernels |
 | Driver | `POVSegmented<288,4,480>`, segment 0 master |
-| Effect | Iridescence 288×144, single-entry playlist, source `e2e5353c810d11b962dbaa945932da6a9af06fce` |
+| Effect | Iridescence 288×144, single-entry playlist, source `4bf24181947f354011ca64b75c00d722bc4c40d2` |
 | Method | Show scope = 30 s / 480 nominal frames at 16 fps; window 32. Raw capture 34 s; later frames excluded. Profiling epoch 3600 s; no reset in the capture. |
 | Reproduce | `HS_PROFILE_TREE=C:/work/Holosphere HS_TEENSY_PORT=COM3 bash tools/profile_one.sh Iridescence profile 34 32`; analyze only the 30 s show budget (clean checkout of the source above) |
 
-Profile image size: `FLASH: code:114816, data:157296, headers:8464; free:1751040 / RAM1: variables:314144, code:26792, padding:5976; free:177376 / RAM2: variables:520064; free:4224`.
+Profile image size: `FLASH: code:109128, data:157208, headers:9120; free:1756160 / RAM1: variables:314144, code:28200, padding:4568; free:177376 / RAM2: variables:520064; free:4224`.
 
-Shipping Phantasm image size: `FLASH: code:1172064, data:430244, headers:8436; free:420872 / RAM1: variables:313760, code:175528, padding:21080; free:13920 / RAM2: variables:520064; free:4224`.
+Shipping Phantasm image size: `FLASH: code:1092696, data:429268, headers:8900; free:500752 / RAM1: variables:313760, code:185576, padding:11032; free:13920 / RAM2: variables:520064; free:4224`.
 
-Exactness cross-check: frames 65–96 root cycles / 600 MHz = 1997418.620 us; measured wall sum 1997420 us, delta 0.69 ppm. `parse_profile.py ... validate` passes frame coverage, configuration and no-reset checks.
+Exactness cross-check: frames 257–288 root cycles / 600 MHz = 1996387.013 us; measured wall sum 1996389 us, delta 1.00 ppm. `parse_profile.py ... validate` passes frame coverage, configuration and no-reset checks.
 
-Captured 2026-11-18 11:18, America/Los_Angeles. Compiler: `GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203`. Raw SHA-256: `4e3e0172c8322c64c30825cd94383dd101eea73bd3195e8f071027098547b311`. The metrics sidecar retains verified ELF/envdump hashes and immutable artifact paths.
+Captured 2026-11-18 15:15, America/Los_Angeles. Compiler: `GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203`. Raw SHA-256: `8c0b35c32ee61895894c0c333182da882703916f7cea67c8f826fdec0d35c3cf`. The metrics sidecar retains verified ELF/envdump hashes and immutable artifact paths.
 
-## Shared modulation comparison
+## Shared phase shading
 
-On the same COM3 Teensy, the original renderer peaked at 48.106 ms. The shared renderer peaked at 47.242 ms. Both completed all 479 live frames within 62.5 ms. Setup fell from 91.760 to 88.278 ms. A 480-frame native comparison matched every output pixel (RGB16 SHA-256 `cd7cb04a2227559ed7f7b807d9028c491c415f6bc6cd7b76c8d5eb6b177a4be7`). The byte-cube evaluator prepares one set of tap coordinates per pixel for the ordered layers and reuses equal previous/current corner values.
+The previous shipping renderer peaked at 47.242 ms on COM3. Sharing more code across the show brought that peak to 48.252 ms. The phase stack now executes its pixel shader and signed-byte cube blending in Teensy instruction RAM. A separate run of this placement peaked at 45.513 ms, and this qualification peaked at 45.515 ms with zero missed live frames. The same 480 native quadrants matched the earlier RGB16 capture byte for byte.
 
 ## Frame cadence
 
-**Actual-show scope:** the playlist assigns 30 s (480 nominal frames at 16 fps). Show-frame peak render is **88.278 ms**, spilled **1/480**. Setup frame 1 is **88.278 ms** and remains separate. Live show peak is **47.242 ms**, spilled **0/479**.
+**Actual-show scope:** the playlist assigns 30 s (480 nominal frames at 16 fps). Show-frame peak render is **87.094 ms**, spilled **1/480**. Setup frame 1 is **87.094 ms** and remains separate. Live show peak is **45.515 ms**, spilled **0/479**.
 
 At 480 RPM a half revolution is 62.5 ms, giving 16 fps. This effect renders the clipped quadrant, containing 10,368 pixels. Render telemetry subtracts `canvas_buffer_wait`, the round-up idle until the next display flip; wall maxima are not render peaks.
 
 The ranked index uses only show frames 2–480. The raw log retains 520 frame records; the 40 records after the show budget are excluded from peaks, spill denominators, phase readouts and per-preset costs. All transitions inside the show budget remain included. Counter trees use complete in-scope windows.
 
-README cells: peak 🟢 47.242, spilled 🟢 0/479 (0.00%).
+README cells: peak 🟢 45.515, spilled 🟢 0/479 (0.00%).
 
-README setup frame 1: 88.278 ms.
+README setup frame 1: 87.094 ms.
 
 ## Phase-by-phase readout
 
@@ -45,56 +45,53 @@ Representative windows distinguish setup, the largest individual live-show rende
 ### Startup (frames 1–32)
 
 ```
-frame                    62.683 ms  37.610 Mcyc 100.0%
-  pov_preserve_half      133.51 us   80.10 kcyc   0.2% x0.96875 138 us/call
-  fx_shader_draw         42.474 ms  25.485 Mcyc  67.8%
-    fx_prepare_column     1.241 ms  744.65 kcyc   2.0% x144 9 us/call
-  fx_palette_base_bake    75.84 us   45.51 kcyc   0.1% x1 76 us/call
-  fx_prepare_frame        3.233 ms   1.940 Mcyc   5.2% x1 3233 us/call
-  fx_advance             987.54 us  592.52 kcyc   1.6%
-    palette_cycle_step   966.92 us  580.15 kcyc   1.5% x1 967 us/call
-  fx_timeline_step        14.36 us    8.62 kcyc   0.0% x1 14 us/call
-  canvas_clear            92.76 us   55.66 kcyc   0.1% x1 93 us/call
-  canvas_buffer_wait     15.431 ms   9.259 Mcyc  24.6% x1 15431 us/call
+frame                    62.626 ms  37.575 Mcyc 100.0%
+  pov_preserve_half      133.54 us   80.12 kcyc   0.2% x0.96875 138 us/call
+  fx_shader_draw         43.453 ms  26.072 Mcyc  69.4%
+    fx_prepare_column     1.092 ms  655.32 kcyc   1.7% x144 8 us/call
+  fx_palette_base_bake    82.02 us   49.21 kcyc   0.1% x1 82 us/call
+  fx_prepare_frame        2.465 ms   1.479 Mcyc   3.9% x1 2465 us/call
+  fx_advance              12.99 us    7.79 kcyc   0.0% x1 13 us/call
+  fx_timeline_step        15.21 us    9.12 kcyc   0.0% x1 15 us/call
+  canvas_clear            91.68 us   55.01 kcyc   0.1% x1 92 us/call
+  canvas_buffer_wait     16.172 ms   9.703 Mcyc  25.8% x1 16172 us/call
 ```
 
-Wall min/avg/max = 45.008/62.682/88.280 ms. `fx_shader_draw` averages 42.474 ms/f; total render averages 47.251 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+Wall min/avg/max = 45.084/62.625/87.098 ms. `fx_shader_draw` averages 43.453 ms/f; total render averages 46.453 ms/f. Display synchronization accounts for the remaining buffer-wait time.
 
-### Peak live show render (frames 65–96)
+### Peak live show render (frames 257–288)
 
 ```
-frame                    62.419 ms  37.452 Mcyc 100.0%
-  pov_preserve_half      137.62 us   82.57 kcyc   0.2% x1 138 us/call
-  fx_shader_draw         41.274 ms  24.765 Mcyc  66.1%
-    fx_prepare_column     1.248 ms  749.10 kcyc   2.0% x144 9 us/call
-  fx_palette_base_bake    73.35 us   44.01 kcyc   0.1% x1 73 us/call
-  fx_prepare_frame        3.059 ms   1.835 Mcyc   4.9% x1 3059 us/call
-  fx_advance             943.35 us  566.01 kcyc   1.5%
-    palette_cycle_step   923.28 us  553.97 kcyc   1.5% x1 923 us/call
-  fx_timeline_step        15.02 us    9.01 kcyc   0.0% x1 15 us/call
-  canvas_clear            87.59 us   52.55 kcyc   0.1% x1 88 us/call
-  canvas_buffer_wait     16.592 ms   9.955 Mcyc  26.6% x1 16592 us/call
+frame                    62.387 ms  37.432 Mcyc 100.0%
+  pov_preserve_half      138.86 us   83.32 kcyc   0.2% x1 139 us/call
+  fx_shader_draw         42.236 ms  25.342 Mcyc  67.7%
+    fx_prepare_column     1.086 ms  651.85 kcyc   1.7% x144 8 us/call
+  fx_palette_base_bake    81.33 us   48.80 kcyc   0.1% x1 81 us/call
+  fx_prepare_frame        2.317 ms   1.390 Mcyc   3.7% x1 2317 us/call
+  fx_advance              11.77 us    7.06 kcyc   0.0% x1 12 us/call
+  fx_timeline_step        15.35 us    9.21 kcyc   0.0% x1 15 us/call
+  canvas_clear            86.79 us   52.07 kcyc   0.1% x1 87 us/call
+  canvas_buffer_wait     17.305 ms  10.383 Mcyc  27.7% x1 17305 us/call
 ```
 
-Wall min/avg/max = 60.078/62.419/64.733 ms. `fx_shader_draw` averages 41.274 ms/f; total render averages 45.827 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+Wall min/avg/max = 61.587/62.387/63.163 ms. `fx_shader_draw` averages 42.236 ms/f; total render averages 45.082 ms/f. Display synchronization accounts for the remaining buffer-wait time.
 
 ### Show end (frames 449–480)
 
 ```
-frame                    62.422 ms  37.453 Mcyc 100.0%
-  pov_preserve_half      136.56 us   81.94 kcyc   0.2% x1 137 us/call
-  fx_shader_draw         41.198 ms  24.719 Mcyc  66.0%
-    fx_prepare_column     1.249 ms  749.23 kcyc   2.0% x144 9 us/call
-  fx_palette_base_bake    74.07 us   44.44 kcyc   0.1% x1 74 us/call
-  fx_prepare_frame        3.060 ms   1.836 Mcyc   4.9% x1 3060 us/call
-  fx_advance             813.28 us  487.97 kcyc   1.3%
-    palette_cycle_step   793.19 us  475.91 kcyc   1.3% x1 793 us/call
-  fx_timeline_step        15.12 us    9.07 kcyc   0.0% x1 15 us/call
-  canvas_clear            88.33 us   53.00 kcyc   0.1% x1 88 us/call
-  canvas_buffer_wait     16.800 ms  10.080 Mcyc  26.9% x1 16800 us/call
+frame                    62.388 ms  37.433 Mcyc 100.0%
+  pov_preserve_half      136.61 us   81.97 kcyc   0.2% x1 137 us/call
+  fx_shader_draw         42.131 ms  25.278 Mcyc  67.5%
+    fx_prepare_column     1.092 ms  655.29 kcyc   1.8% x144 8 us/call
+  fx_palette_base_bake    82.85 us   49.71 kcyc   0.1% x1 83 us/call
+  fx_prepare_frame        2.313 ms   1.388 Mcyc   3.7% x1 2313 us/call
+  fx_advance              11.62 us    6.97 kcyc   0.0% x1 12 us/call
+  fx_timeline_step        15.20 us    9.12 kcyc   0.0% x1 15 us/call
+  canvas_clear            88.02 us   52.81 kcyc   0.1% x1 88 us/call
+  canvas_buffer_wait     17.414 ms  10.448 Mcyc  27.9% x1 17414 us/call
 ```
 
-Wall min/avg/max = 60.677/62.421/64.034 ms. `fx_shader_draw` averages 41.198 ms/f; total render averages 45.621 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+Wall min/avg/max = 61.979/62.387/62.839 ms. `fx_shader_draw` averages 42.131 ms/f; total render averages 44.974 ms/f. Display synchronization accounts for the remaining buffer-wait time.
 
 ### Per-pixel figures
 
@@ -102,26 +99,26 @@ This image emits no complete blended-pixel counter for the direct render path. B
 
 ## Column-ISR / DMA marshaling cost
 
-Representative peak window, frames 65–96; CPU shares use its separately snapshotted ISR interval of 2000094 us.
+Representative peak window, frames 257–288; CPU shares use its separately snapshotted ISR interval of 2000002 us.
 
 ```
-isr_wake       1152.1/f 0.448/1.760/21.126 us 3.24%
-  isr_pack       144.0/f 6.821/7.526/10.083 us 1.73%
-  isr_dma_submit 144.0/f 0.571/0.916/9.725 us 0.21%
+isr_wake       1152.1/f 0.513/1.765/21.040 us 3.25%
+  isr_pack       144.0/f 6.828/7.520/10.050 us 1.73%
+  isr_dma_submit 144.0/f 0.631/0.915/1.313 us 0.21%
 ```
 
-- Mean pack 7.526 us/call versus submit 0.916 us/call (8.2×).
+- Mean pack 7.520 us/call versus submit 0.915 us/call (8.2×).
 - Pack and DMA submit measure CPU work; submission does not measure the asynchronous wire transfer.
 - The 72-pixel strobed composite is 600 bytes. At the configured 24 MHz SPI clock, framing gaps are included in the 230 us asynchronous transfer budget.
-- Inclusive wake share is 3.24%, corresponding to 60.475 ms foreground capacity per display window. Pack and submit nest inside wake and are not added to it. DMA-completion and other interrupts are not measured.
+- Inclusive wake share is 3.25%, corresponding to 60.469 ms foreground capacity per display window. Pack and submit nest inside wake and are not added to it. DMA-completion and other interrupts are not measured.
 
-The inclusive render-time ratio to the 62.5 ms budget is Startup: 0.756×; Peak live show render: 0.733×; Show end: 0.730×. Ratios above 1 require that speedup; ratios below 1 fit. These render measurements already include interrupts, so the wake share is not subtracted again.
+The inclusive render-time ratio to the 62.5 ms budget is Startup: 0.743×; Peak live show render: 0.721×; Show end: 0.720×. Ratios above 1 require that speedup; ratios below 1 fit. These render measurements already include interrupts, so the wake share is not subtracted again.
 
 ## Summary ranking
 
-1. `fx_shader_draw` — 66.1% of the frame, 41.274 ms/f.
-2. `fx_prepare_frame` — 4.9% of the frame, 3.059 ms/f.
-3. `fx_prepare_column` — 2.0% of the frame, 1.248 ms/f.
+1. `fx_shader_draw` — 67.7% of the frame, 42.236 ms/f.
+2. `fx_prepare_frame` — 3.7% of the frame, 2.317 ms/f.
+3. `fx_prepare_column` — 1.7% of the frame, 1.086 ms/f.
 
 ## Caveats
 

@@ -7,7 +7,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Captured |
 |---|---|--:|--:|--:|---|---|
-| [RiverStones](profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🟢 58.932 | 70.477 | 🟢 0/472 (0.00%) | COM4 | 2026-11-18 14:55 |
+| [RiverStones](profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🟢 58.922 | 70.453 | 🟢 0/472 (0.00%) | COM4 | 2026-11-18 15:16 |
 | [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 0/4895 (0.00%) | COM3 | 2026-11-17 09:09 |
 | [GridWarp](profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:41 |
 | [AshCloud](profile_ashcloud_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.216 | 85.379 | 🟢 0/959 (0.00%) | COM4 | 2026-11-17 09:39 |
@@ -24,10 +24,10 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 50.074 | 78.699 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:45 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Kaleidoscope Hex Oil 2, 48.354 ms / 16 fps | 🟢 48.354 (2) | 68.013 | 🟢 0/1679 (0.00%) | COM3 | 2026-11-17 09:26 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-11-17.md) ● | `grd_render` | 🟢 47.331 | 24.651 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:43 |
-| [Iridescence](profile_iridescence_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🟢 47.242 | 88.278 | 🟢 0/479 (0.00%) | COM3 | 2026-11-18 11:18 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 45.898 | 68.306 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:37 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Cup Hue, 45.881 ms / 16 fps | 🟢 45.881 (2) | 65.217 | 🟢 0/1679 (0.00%) | COM4 | 2026-11-17 09:25 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 45.730 | 67.214 | 🟢 0/479 (0.00%) | COM4 | 2026-11-17 09:37 |
+| [Iridescence](profile_iridescence_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🟢 45.515 | 87.094 | 🟢 0/479 (0.00%) | COM3 | 2026-11-18 15:15 |
 | [Involution](profile_involution_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 44.738 | 82.497 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:39 |
 | [DisplacementField](profile_displacementfield_teensy_2026-11-17.md) § ● | `df_timeline_step`<br>worst: noise, 44.616 ms / 16 fps | 🟢 44.616 (2) | 18.450 | 🟢 0/1935 (0.00%) | COM3 | 2026-11-17 08:38 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-11-17.md) ● | `bz_render` | 🟢 44.329 | 76.068 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:32 |
