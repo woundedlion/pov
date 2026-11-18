@@ -132,6 +132,13 @@ class UploadTests(unittest.TestCase):
             self.invoke()
         self.runner.assert_not_called()
 
+    def test_existing_non_hex_firmware_never_starts_tool(self):
+        elf = self.root / "firmware.elf"
+        elf.touch()
+        with self.assertRaisesRegex(upload.UploadError, r"firmware is not a \.hex image"):
+            upload.upload(elf, "COM4", self.claim, "fixture-owned")
+        self.runner.assert_not_called()
+
     def test_missing_or_ambiguous_device_never_uploads(self):
         for boards in ([], [BOARDS[1], BOARDS[1]]):
             with self.subTest(boards=boards):

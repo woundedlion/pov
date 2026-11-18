@@ -127,7 +127,9 @@ def upload(firmware: Path, port: str, directory: Path, token: str,
     if not re.fullmatch(r"COM[1-9][0-9]*", port, re.IGNORECASE):
         raise UploadError("device lock did not pin a COM port")
     verify_lock(directory, token, port)
-    if not firmware.is_file() or firmware.suffix.lower() != ".hex":
+    if firmware.suffix.lower() != ".hex":
+        raise UploadError(f"firmware is not a .hex image: {firmware}")
+    if not firmware.is_file():
         raise UploadError(f"firmware HEX does not exist: {firmware}")
     tool = resolve_tycmd()
     deadline = time.monotonic() + absent_seconds
