@@ -219,9 +219,11 @@ private:
   __attribute__((always_inline)) static void shade_column(Canvas &canvas, int x,
                                                           ShaderFn &&shader) {
     const auto &clip = canvas.clip();
+    Pixel *const pixels = canvas.data();
+    const int end = clip.render_y_end();
     const float cos_theta = math::TrigLUT<W, H>::cos_theta(x);
     const float sin_theta = math::TrigLUT<W, H>::sin_theta[x];
-    for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
+    for (int y = clip.render_y_start(); y < end; ++y) {
       const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
       const auto color = [&]() HS_HOT_INLINE {
         if constexpr (std::is_invocable_v<ShaderFn &, float, float>)
@@ -234,9 +236,9 @@ private:
         }
       }();
       if constexpr (std::is_same_v<std::decay_t<decltype(color)>, Pixel>)
-        canvas(x, y) = color;
+        pixels[y * W + x] = color;
       else
-        canvas(x, y) = color.color * color.alpha;
+        pixels[y * W + x] = color.color * color.alpha;
     }
   }
 
