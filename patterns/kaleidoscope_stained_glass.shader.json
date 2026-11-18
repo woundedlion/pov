@@ -913,7 +913,7 @@
           "camera.wander": 1,
           "colorize.brightness-bottom": 0,
           "colorize.brightness-envelope": "cup",
-          "colorize.brightness-top": 0.5,
+          "colorize.brightness-top": 1,
           "colorize.mapping-frequency": 1,
           "colorize.mapping-phase": 0,
           "colorize.palette-chroma": 1,

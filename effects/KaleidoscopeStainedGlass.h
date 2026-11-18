@@ -87,7 +87,7 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "b87c4365acd5bb3bf48d3f3be04288fbd1b70f405c9c4a46af28eafc4e539d6c";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "7e0eafa5f187918835a5417de5be7bfe33837c765f05fa2dd756d3d4c4e558a0";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "d1828a21ad71ce7328f4ade7669274c950bd66ca43941933cc64633053cc0458";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "vector-mirror"
@@ -129,7 +129,7 @@ public:
     value.template get<"affine">().translation_y = 4.0f;
     value.template get<"projection">().camera_wander = 1.0f;
     value.template get<"color">().brightness_bottom = 0.0f;
-    value.template get<"color">().brightness_top = 0.5f;
+    value.template get<"color">().brightness_top = 1.0f;
     value.template get<"color">().mapping_frequency = 1.0f;
     value.template get<"color">().mapping_phase = 0.0f;
     value.template get<"color">().palette_chroma = 1.0f;

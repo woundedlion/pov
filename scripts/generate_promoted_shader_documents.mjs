@@ -762,7 +762,6 @@ const effects = [
         "name": "Vector Mirror",
         "values": {
           "camera.wander": 1,
-          "colorize.brightness-top": 0.5,
           "modulation.modulation-amount": 0.9,
           "modulation.pattern-scale": 4,
           "colorize.palette-chroma": 1,
