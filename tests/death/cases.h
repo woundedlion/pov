@@ -5,7 +5,7 @@
 #pragma once
 
 /** @file
- * @brief Death test-module entry. */
+ * @brief Aggregates the death-case headers. */
 
 #include "tests/death/fixtures.h"
 #include "tests/death/animation_cases.h"

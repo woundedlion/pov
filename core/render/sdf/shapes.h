@@ -380,6 +380,7 @@ struct Star : CapBoundedLeaf<Star> {
    *        by an arc.
    * @param axis Axis the star's centre is turned onto (unit).
    * @param arc Largest arc any point of the turned star moves (radians).
+   * @pre bounding_cap() returns true.
    * @return Copy whose bounds and intervals cover the turned, swept star.
    */
   Star moved(const math::Vector &axis, float arc) const {

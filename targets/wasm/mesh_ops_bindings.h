@@ -87,7 +87,7 @@ struct ToolingOpGuard {
  * @return True once the three arenas are bound, false when the block
  *         allocation failed and none of them is usable.
  * @details A no-op once bound. Reading an unbound arena's metrics is safe and
- *          reports 0/0/0.
+ *          reports zero for every field.
  */
 static bool ensure_tooling_arenas() {
   if (tooling_arena.get_capacity() != 0)

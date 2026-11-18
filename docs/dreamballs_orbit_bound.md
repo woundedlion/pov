@@ -61,8 +61,7 @@ A (|g''| + 2 a² |h| |g'| + a |k| + 3 a³ h²)
 Frame derivatives multiply these phase bounds by `|w|` and `w²`.
 `DreamBalls::orbit_bounds` therefore supplies motion `1.025 rho |w|` and
 second derivative `1.06 rho w²`. `Spacetime::PathBound::chord_error` divides
-the second derivative by eight. The chord bound is about 7.55 to 10.67 times
-tighter than `r w²` over the supported nonzero radii.
+the second derivative by eight.
 
 Bhaskara sine is continuously differentiable across its half-period folds,
 but its second derivative jumps there. The first derivative remains

@@ -520,7 +520,7 @@ inline bool to_pre_train(Sim &sim, const Config &cfg) {
       double(cfg.revs_per_effect) + 4);
 }
 
-// ── Scenario: clean 4-board run (boot join, phase, flips, wrap) ─────────────
+// ── Scenario: clean multi-board run ─────────────────────────────────────
 
 /**
  * @brief Verifies a clean 4-board run: boards born out of phase lock, join live
@@ -600,7 +600,7 @@ inline void test_sim_eight_board_boot_and_phase() {
   }
 }
 
-// ── Scenario: epoch commit — lockstep advance, dark window, deadline ───────
+// ── Scenario: transport overruns ────────────────────────────────────────
 
 /** @brief Periodic transport overruns retry while four and eight boards stay synchronized. */
 inline void test_sim_submit_overruns_recover() {
@@ -644,6 +644,8 @@ inline void test_sim_submit_overruns_recover() {
     }
   }
 }
+
+// ── Scenario: epoch commit — lockstep advance, dark window, deadline ───────
 
 /**
  * @brief Verifies epoch commit lockstep: boards hold the outgoing effect at

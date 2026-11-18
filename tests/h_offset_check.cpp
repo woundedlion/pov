@@ -34,7 +34,7 @@ int main() {
     return 1;
   int failed = 0;
   {
-    hs_test::ModuleFixture fixture("offset3 full-resolution roster");
+    hs_test::ModuleFixture fixture("offset3 effects (96x20)");
     render_offset_effect<Comets>("Comets");
     render_offset_effect<RingSpin>("RingSpin");
     failed |= fixture.result();

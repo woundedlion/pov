@@ -84,8 +84,7 @@ inline void test_snap_gate() {
 
 /**
  * @brief Verifies the suspect-burst timeout counts a gate rejection only while
- *        LOCKED, so symbols_rejected_gate never runs ahead of the §5.3 fallback
- *        it feeds.
+ *        LOCKED.
  */
 inline void test_suspect_timeout_acquire_uncounted() {
   const Config cfg = test_config();

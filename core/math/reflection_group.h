@@ -57,7 +57,8 @@ using Matrix = std::array<std::array<float, 3>, 3>; ///< Linear group transform.
 /** @brief Finite closure of the canonical chamber mirrors. */
 struct Group {
   std::array<Matrix, 120> values{}; ///< Transforms in discovery order.
-  uint8_t count = 0;                ///< Admitted transform count.
+  /// Admitted transform count, or values.size() + 1 on overflow.
+  uint8_t count = 0;
 };
 /** @brief Unit reflection-group transform.
  * @return Identity matrix. */
@@ -95,7 +96,7 @@ constexpr bool same(const Matrix &a, const Matrix &b) {
 /** @brief Closes a mirror table under reflection.
  * @tparam N Mirror count.
  * @param mirrors Unit chamber mirror normals.
- * @return Group transforms in discovery order. */
+ * @return Transforms in discovery order, with count beyond capacity on overflow. */
 template <size_t N>
 constexpr Group make_group(const std::array<math::Vector, N> &mirrors) {
   Group result;

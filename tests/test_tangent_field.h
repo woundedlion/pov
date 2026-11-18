@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 /** @file
- * @brief Spherical tangent-field and M?bius generator test cases. */
+ * @brief Spherical tangent-field and Mobius generator test cases. */
 #pragma once
 
 #include <complex>
@@ -132,7 +132,7 @@ inline void test_mobius_generator_velocity_and_inverse() {
   HS_EXPECT_GT(negated_rotation_error, 100.0f);
 }
 
-/** @brief The M?bius exp/log round trip preserves generators and projective action. */
+/** @brief The Mobius exp/log round trip preserves generators and projective action. */
 inline void test_mobius_exp_log_projective_roundtrip() {
   for (int index = 0; index < 100; ++index) {
     const TF::ConformalGenerator generator{
@@ -358,7 +358,7 @@ inline void test_invariants_and_vector_fields_follow_fold_groups() {
   HS_EXPECT_GT(reflected_image_difference, 0.01f);
 }
 
-/** @brief Rossby?Haurwitz flow matches the spherical stream function. */
+/** @brief Rossby-Haurwitz flow matches the spherical stream function. */
 inline void test_rossby_haurwitz_matches_spherical_stream_function() {
   for (int r = 1; r <= 7; ++r) {
     double peak = 0.0;

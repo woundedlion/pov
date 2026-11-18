@@ -43,7 +43,7 @@ inline void case_sdf_distorted_ring_zero_knots() {
   (void)ring;
 }
 
-/** @brief Death case: sdf distorted ring one knots. */
+/** @brief Distorted ring knot storage requires at least three knots, rejecting one. */
 inline void case_sdf_distorted_ring_one_knots() {
   const float KNOTS[1] = {0.0f};
   SDF::KnotPrefilter pf;
@@ -52,7 +52,7 @@ inline void case_sdf_distorted_ring_one_knots() {
   (void)ring;
 }
 
-/** @brief Death case: sdf distorted ring two knots. */
+/** @brief Distorted ring knot storage requires at least three knots, rejecting two. */
 inline void case_sdf_distorted_ring_two_knots() {
   const float KNOTS[2] = {0.0f};
   SDF::KnotPrefilter pf;
@@ -69,7 +69,7 @@ inline void case_sdf_twist_zero_major_radius() {
   (void)tw;
 }
 
-/** @brief Death case: transformed torus invalid minor radius. */
+/** @brief Twisted torus tracing requires a minor radius at most half the major radius. */
 inline void case_transformed_torus_invalid_minor_radius() {
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
       {opaque(1.0f), opaque(0.6f)}, {2, 0.1f, 1.0f}};
@@ -208,7 +208,7 @@ inline void case_sdf_distorted_ring_null_shift() {
   (void)ring;
 }
 
-/** @brief Death case: sdf distorted ring negative distortion. */
+/** @brief Distorted rings reject negative maximum distortion. */
 inline void case_sdf_distorted_ring_negative_distortion() {
   ScalarFn shift = [](float) { return 0.0f; };
   SDF::DistortedRing ring(DEATH_IDENTITY_BASIS, opaque(0.5f), opaque(0.05f),
@@ -231,7 +231,7 @@ inline void case_sdf_angular_repeat_zero_copies() {
   (void)shape;
 }
 
-/** @brief Death case: framework invalid geometry. */
+/** @brief Triangular framework events require a positive cell size. */
 inline void case_framework_invalid_geometry() {
   SDF::TriangularFramework geometry;
   geometry.cell_size = opaque(0.0f);
@@ -239,13 +239,13 @@ inline void case_framework_invalid_geometry() {
   (void)events.active(0);
 }
 
-/** @brief Death case: framework invalid ray. */
+/** @brief Triangular framework events reject a zero-length ray direction. */
 inline void case_framework_invalid_ray() {
   SDF::FrameworkEvents events({}, {{0, 0, 0}, {opaque(0.0f), 0, 0}, {0, 1}});
   (void)events.active(0);
 }
 
-/** @brief Death case: octet invalid geometry. */
+/** @brief Octet events require a positive cell size. */
 inline void case_octet_invalid_geometry() {
   SDF::OctetFramework geometry;
   geometry.cell_size = opaque(0.0f);
@@ -253,14 +253,14 @@ inline void case_octet_invalid_geometry() {
   (void)events.active(0);
 }
 
-/** @brief Death case: octet invalid ray. */
+/** @brief Octet events reject a zero-length ray direction. */
 inline void case_octet_invalid_ray() {
   SDF::OctetEvents events(SDF::OctetFramework{},
                           {{0, 0, 0}, {opaque(0.0f), 0, 0}, {0, 1}});
   (void)events.active(0);
 }
 
-/** @brief Death case: octet4 invalid geometry. */
+/** @brief Four-dimensional octet events require a positive wire radius. */
 inline void case_octet4_invalid_geometry() {
   SDF::OctetFramework4 geometry;
   geometry.wire_radius = opaque(0.0f);
@@ -268,13 +268,13 @@ inline void case_octet4_invalid_geometry() {
   (void)events.active(0);
 }
 
-/** @brief Death case: octet4 invalid interval. */
+/** @brief Four-dimensional octet events reject a reversed ray interval. */
 inline void case_octet4_invalid_interval() {
   SDF::OctetEvents4 events({}, {}, {{1, 0, 0, 0}}, {opaque(2.0f), 1});
   (void)events.active(0);
 }
 
-/** @brief Death case: octet4 nonfinite ray. */
+/** @brief Four-dimensional octet events reject an infinite ray origin. */
 inline void case_octet4_nonfinite_ray() {
   SDF::OctetEvents4 events(
       {}, {{opaque(std::numeric_limits<float>::infinity()), 0, 0, 0}},
@@ -282,7 +282,7 @@ inline void case_octet4_nonfinite_ray() {
   (void)events.active(0);
 }
 
-/** @brief Death case: octet4 nonunit direction. */
+/** @brief Four-dimensional octet events require a unit ray direction. */
 inline void case_octet4_nonunit_direction() {
   SDF::OctetEvents4 events({}, {}, {{opaque(2.0f), 0, 0, 0}}, {0, 1});
   (void)events.active(0);
@@ -418,7 +418,7 @@ inline void case_face_scratch_retargeted_by_culled_face() {
   (void)first.get_vertical_bounds<H>();
 }
 
-/** @brief Death case: lattice shells oob. */
+/** @brief Lattice preparation rejects a shell count equal to MAX_SHELLS. */
 inline void case_lattice_shells_oob() {
   SDF::Lattice::Settings settings;
   settings.shells =

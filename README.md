@@ -1591,8 +1591,8 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   ├── opleg/                  Morph leg implementation parts
 │   │   │   ├── specs.h             Morph specifications, handoffs and phase types
 │   │   │   ├── build.h             Leg construction and prepared dual bridges
-│   │   │   ├── frame.h             Frame drawing and sweep sampling
-│   │   │   ├── sweep.h             Conway preparation and endpoint provenance
+│   │   │   ├── frame.h             Frame drawing, previous-frame vertices and trailing blend
+│   │   │   ├── sweep.h             Conway preparation, sweep sampling and endpoint provenance
 │   │   │   ├── swaps.h             Gated swaps and arrival classification
 │   │   │   └── ramps.h             Palette mapping, frame shading and arena lifetime
 │   │   ├── recipe_build.h          Recipe-leg scheduling and palette handoffs
