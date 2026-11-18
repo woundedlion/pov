@@ -22,10 +22,19 @@ def main() -> int:
         print("; ".join(blockers), file=sys.stderr)
         return 1
     config = Path(sys.argv[1]) / ".".join(KICAD_VERSION.split(".")[:2])
-    templates = Path(kicad_cli()).resolve().parents[1] / "share/kicad/template"
+    cli = kicad_cli()
+    bin_dir = Path(shutil.which(cli) or cli).resolve().parent
+    prefix = bin_dir.parent
+    bundled = bin_dir.name == "MacOS" and prefix.name == "Contents" and prefix.parent.suffix == ".app"
+    templates = prefix / ("SharedSupport/template" if bundled else "share/kicad/template")
+    tables = [templates / name for name in ("fp-lib-table", "sym-lib-table")]
+    for table in tables:
+        if not table.is_file():
+            print(f"KiCad library table {table.name} not found in {templates}", file=sys.stderr)
+            return 1
     config.mkdir(parents=True, exist_ok=True)
-    for table in ("fp-lib-table", "sym-lib-table"):
-        shutil.copyfile(templates / table, config / table)
+    for table in tables:
+        shutil.copyfile(table, config / table.name)
     return 0
 
 
