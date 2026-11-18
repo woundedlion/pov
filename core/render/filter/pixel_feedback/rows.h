@@ -279,6 +279,29 @@ Feedback<W, H>::filter_infill_row(const FlushContext &ctx, int y,
 }
 
 template <int W, int H>
+inline HS_HOT_INLINE bool
+Feedback<W, H>::hold_deferred_lane(const FlushContext &ctx, int y, int arm,
+                                   int x, const Lane &lane, ::Pixel &dst) {
+  if (lane.side != Side::AHEAD || !ctx.coverage.cover)
+    return false;
+  hold_lane(ctx, y, arm, x);
+  dst = ::Pixel(0, 0, 0);
+  return true;
+}
+
+template <int W, int H>
+inline HS_HOT_INLINE ::Pixel
+Feedback<W, H>::shade_lane(const FlushContext &ctx,
+                           PixelTransform transform_pixel, int arm, Lane &lane,
+                           bool column_time, bool black_skips) const {
+  const Sample s = sample_lane(ctx, arm, lane);
+  if (skip_near_black(s, black_skips))
+    return ::Pixel(0, 0, 0);
+  return transform_pixel(s.r, s.g, s.b,
+                         column_time ? FadeTable::level(lane.read.elapsed) : 0);
+}
+
+template <int W, int H>
 inline HS_HOT_FLASH_MEMBER void Feedback<W, H>::composite_polar_row(
     const FlushContext &ctx, int xs, int xe, int y, const RowGeometry &g,
     ::Pixel *output, int stride, float lane_offset, bool defer_filter,
@@ -289,9 +312,9 @@ inline HS_HOT_FLASH_MEMBER void Feedback<W, H>::composite_polar_row(
   const float inverse_downsample = 1.0f / downsample;
   const float cap_angle = cap_angle_of(y, g.north);
   const bool half_res = stride == 2;
-  const bool black_skips_color = ctx.color.black_skips;
   const auto blend = blend_alpha(ctx.color.alpha);
   const bool plain_store = ctx.color.alpha >= 1.0f || defer_filter;
+  const bool black_skips_color = ctx.color.black_skips;
   {
     int cx0 = xs / downsample;
     int sub = xs - cx0 * downsample;
@@ -313,16 +336,9 @@ inline HS_HOT_FLASH_MEMBER void Feedback<W, H>::composite_polar_row(
       Lane lane{ColumnTime::read(target, at.x, at.y), Side::WITHIN};
       if (ctx.color.column_time)
         lane = resolve_lane(target, arm, at.x, at.y);
-      if (lane.side == Side::AHEAD && ctx.coverage.cover) {
-        hold_lane(ctx, y, arm, x);
-        dst = ::Pixel(0, 0, 0);
-      } else {
-        const Sample s = sample_lane(ctx, arm, lane);
-        ::Pixel p(0, 0, 0);
-        if (!skip_near_black(s, black_skips_color))
-          p = transform_pixel(
-              s.r, s.g, s.b,
-              ctx.color.column_time ? FadeTable::level(lane.read.elapsed) : 0);
+      if (!hold_deferred_lane(ctx, y, arm, x, lane, dst)) {
+        const ::Pixel p = shade_lane(ctx, transform_pixel, arm, lane,
+                                     ctx.color.column_time, black_skips_color);
         dst = plain_store ? p : blend(dst, p);
       }
 
@@ -473,15 +489,10 @@ inline HS_HOT_FLASH_MEMBER int Feedback<W, H>::composite_resolved_cell(
     const int arm = ColumnTime::arm_start(x);
     Lane lane =
         cartesian_lane(x, y, sub, lane_offset, inverse_downsample, cell);
-    ::Pixel p(0, 0, 0);
-    if (lane.side == Side::AHEAD && ctx.coverage.cover) {
-      hold_lane(ctx, y, arm, x);
-      output[x] = p;
-    } else {
-      const Sample s = sample_lane(ctx, arm, lane);
-      if (!skip_near_black(s, ctx.color.black_skips))
-        p = transform_pixel(s.r, s.g, s.b, FadeTable::level(lane.read.elapsed));
-      ::Pixel &dst = output[x];
+    ::Pixel &dst = output[x];
+    if (!hold_deferred_lane(ctx, y, arm, x, lane, dst)) {
+      const ::Pixel p = shade_lane(ctx, transform_pixel, arm, lane, true,
+                                   ctx.color.black_skips);
       dst = plain_store ? p : dst.lerp16(p, alpha);
     }
     x += stride;

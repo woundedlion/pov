@@ -85,16 +85,9 @@ Feedback<W, H>::behind_lane(const FlushContext &ctx,
     const int x = arm + c;
     Lane lane = sweep_lane(ctx, g, y, x, row);
     ::Pixel &dst = ctx.frames.current[y * W + x];
-    if (lane.side == Side::AHEAD && ctx.coverage.cover) {
-      hold_lane(ctx, y, arm, x);
-      dst = ::Pixel(0, 0, 0);
-      continue;
-    }
-    const Sample s = sample_lane(ctx, arm, lane);
-    ::Pixel p(0, 0, 0);
-    if (!skip_near_black(s, ctx.color.black_skips))
-      p = transform_pixel(s.r, s.g, s.b, FadeTable::level(lane.read.elapsed));
-    dst = p;
+    if (!hold_deferred_lane(ctx, y, arm, x, lane, dst))
+      dst = shade_lane(ctx, transform_pixel, arm, lane, true,
+                       ctx.color.black_skips);
   }
 }
 

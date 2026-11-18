@@ -661,6 +661,30 @@ private:
   HS_HOT_FLASH_MEMBER void hold_lane(const FlushContext &ctx, int y, int arm,
                                      int x);
 
+  /** @brief Holds a lane that reads ahead in a split frame.
+   * @param ctx Split-frame coverage and sampling state.
+   * @param y Destination row.
+   * @param arm First column of the lane's arm.
+   * @param x Destination column.
+   * @param lane Resolved sample lane.
+   * @param dst Pixel to clear when holding the lane.
+   * @return True when the lane is held for the finish pass. */
+  HS_HOT_INLINE bool hold_deferred_lane(const FlushContext &ctx, int y, int arm,
+                                        int x, const Lane &lane, ::Pixel &dst);
+
+  /** @brief Samples and shades a lane ready to composite.
+   * @param ctx Frame and color state.
+   * @param transform_pixel Maps RGB and elapsed fade level to a pixel.
+   * @param arm First column of the lane's arm.
+   * @param lane Resolved sample lane.
+   * @param column_time Whether the sample uses the elapsed fade table.
+   * @param black_skips Whether near-black samples bypass the transform.
+   * @return Shaded pixel, or black below the skip threshold. */
+  HS_HOT_INLINE ::Pixel shade_lane(const FlushContext &ctx,
+                                   PixelTransform transform_pixel, int arm,
+                                   Lane &lane, bool column_time,
+                                   bool black_skips) const;
+
   /** @brief Low coverage bit: the lane's source reads the frame as plotted. */
   static constexpr uint16_t AHEAD_BIT = 1;
   /** @brief The coverage bits holding a pixel's transmittance. */
