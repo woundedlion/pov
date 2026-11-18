@@ -51,7 +51,7 @@ frame                    59.066 ms  35.440 Mcyc 100.0%
   canvas_buffer_wait     31.652 ms  18.991 Mcyc  53.6% x1 31652 us/call
 ```
 
-Wall min/avg/max = 25.615/59.066/64.327 ms. `hl_shader_draw` averages 2.777 ms/f; total render averages 27.414 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+Wall min/avg/max = 25.615/59.066/64.327 ms. `hl_shader_draw` averages 25.299 ms/f across its two rows (15 live calls and one setup-frame call). Total render averages 27.414 ms/f. Display synchronization accounts for the remaining buffer-wait time.
 
 ### Peak live show render (frames 3201–3216)
 
@@ -111,7 +111,7 @@ Wall min/avg/max = 61.464/62.473/63.486 ms. `hl_shader_draw` averages 31.439 ms/
 
 ### Per-preset table
 
-Held means fixed authored parameters, not motionless pixels. Exclude complete incoming parameter blends and both halves of fades; cadence buckets retain all transitions. Never substitute mixed-owner or transition windows for absent clean holds.
+Held windows use fixed authored parameters while the scene keeps animating. Qualified windows exclude incoming parameter blends, fade-in and fade-out, and mixed-owner windows.
 
 The show-scoped data covers 9 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 

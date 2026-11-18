@@ -273,10 +273,12 @@ protected branch's `CI green` status is the authoritative correctness gate.
   tracked tree. It only reports; `--stage` copies the images into a built
   Doxygen tree and is the sole mode that writes.
   `python tools/doc_coverage.py` (`just docs-coverage`; the ci.yml
-  docs-doxygen job) fails on any Doxygen input symbol without a doc comment,
-  any input file without an `@file` block, and any documented function
-  missing an `@param` or `@return`. It exempts only defaulted or deleted
-  members, assignment operators, container aliases, per-model
+  docs-doxygen job) requires doc comments on the symbols it checks, an
+  `@file` block for each input file, and `@param` and `@return` where applicable.
+  Doxygen leaves private members and enumerators outside its undocumented-symbol
+  warnings. The gate also scans source for undocumented empty structs and
+  concepts. Its symbol exemptions cover defaulted or deleted members,
+  assignment operators, container aliases, per-model
   `Pullback::Interp::Op` contract members, effect-spec overrides of
   `Pullback::Spec` fields, trait-specialization `Type` results, test-module
   `run_*_tests` entry points, and macros the same file `#undef`s. The same job

@@ -2,6 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Palette-cycler test cases. */
 #pragma once
 
 #include "core/color/color.h"
@@ -185,7 +187,10 @@ inline void test_standalone_palette_rotations_morph_compatible() {
   }
 }
 
-/** @brief Deterministic PaletteCycler provider walking analogous base hues. */
+/** @brief Generates analogous palettes with advancing base hues.
+ * @param context Pointer to the provider's call count.
+ * @param sequence Palette index in generation order.
+ * @param[out] out Generated palette. */
 inline void scripted_next_palette(void *context, uint32_t sequence,
                                   GenerativePalette &out) {
   ++*static_cast<int *>(context);
@@ -193,7 +198,10 @@ inline void scripted_next_palette(void *context, uint32_t sequence,
       PaletteRecipes::balanced_analogous(0.1f + 0.2f * sequence));
 }
 
-/** @brief PaletteCycler provider whose recipe carries a BELL chroma curve. */
+/** @brief Generates tonal palettes with a bell-shaped chroma curve.
+ * @param context Pointer to the provider's call count.
+ * @param sequence Palette index in generation order.
+ * @param[out] out Generated palette. */
 inline void scripted_tonal_palette(void *context, uint32_t sequence,
                                    GenerativePalette &out) {
   ++*static_cast<int *>(context);

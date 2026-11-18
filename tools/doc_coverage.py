@@ -4,8 +4,9 @@
 The published Doxyfile sets EXTRACT_ALL, which silences doxygen's
 undocumented-member warnings. This gate reruns doxygen with EXTRACT_ALL off,
 drops the exempt symbol classes below, and reports each remaining source
-location once (a template's member warns once per instantiation). Doxygen
-skips global symbols of a file with no `@file` block, so such files fail too.
+location once (a template's member warns once per instantiation). Among
+private members, Doxygen extracts documented virtual methods only. It skips
+global symbols in files with no `@file` block, so the gate checks file blocks.
 Doxygen never warns for an empty struct or a concept, so a source scan checks
 those for a preceding doc comment. Doxygen does not warn for undocumented
 enumerators; their descriptions require source review.

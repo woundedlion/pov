@@ -576,21 +576,22 @@ private:
         ++(stats->*member);
   }
 
-  int num_edges = 0;           ///< Prepared edge count.
-  int num_intervals = 0;       ///< Prepared radial interval count.
-  float inner = 0.0f;          ///< Inner-to-outer vertex radius ratio.
-  float sector = 0.0f;         ///< One edge's angular extent.
-  float inverse_sector = 0.0f; ///< Reciprocal edge sector width.
-  float determinant = 0.0f;    ///< Unit edge's signed vertex determinant.
-  float edge_length = 0.0f;    ///< Maximum prepared unit edge length.
-  Point *vertices = nullptr;   ///< Unit-star vertices.
-  Point *edges = nullptr;      ///< Unit-star edge vectors.
-  Knot *knots = nullptr;       ///< Prepared similarity multipliers.
-  float *norms = nullptr;      ///< Squared multiplier norms.
-  Piece *pieces = nullptr;     ///< Shared interval coefficients.
-  Block *blocks = nullptr;     ///< Coarse sweep rejection certificates.
-  EdgeMetrics first_edge_metrics{}, second_edge_metrics{};
-  bool increasing_radius = false;
+  int num_edges = 0;                ///< Prepared edge count.
+  int num_intervals = 0;            ///< Prepared radial interval count.
+  float inner = 0.0f;               ///< Inner-to-outer vertex radius ratio.
+  float sector = 0.0f;              ///< One edge's angular extent.
+  float inverse_sector = 0.0f;      ///< Reciprocal edge sector width.
+  float determinant = 0.0f;         ///< Unit edge's signed vertex determinant.
+  float edge_length = 0.0f;         ///< Maximum prepared unit edge length.
+  Point *vertices = nullptr;        ///< Unit-star vertices.
+  Point *edges = nullptr;           ///< Unit-star edge vectors.
+  Knot *knots = nullptr;            ///< Prepared similarity multipliers.
+  float *norms = nullptr;           ///< Squared multiplier norms.
+  Piece *pieces = nullptr;          ///< Shared interval coefficients.
+  Block *blocks = nullptr;          ///< Coarse sweep rejection certificates.
+  EdgeMetrics first_edge_metrics{}, ///< Even-edge metrics.
+      second_edge_metrics{};        ///< Odd-edge metrics.
+  bool increasing_radius = false;   ///< Strictly increasing multiplier radius.
 };
 
 } // namespace Scan

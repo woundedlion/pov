@@ -129,7 +129,7 @@ Wall min/avg/max = 61.637/62.489/63.311 ms. `df_timeline_step` averages 29.307 m
 
 ### Per-preset table
 
-Noise has a 150-frame ramp-in, 600-frame full-gain dwell, and 150-frame ramp-out. Balls spawn for900frames then drain; their population is dynamic, so no stationary/static-hold claim. Prefer a full-window ball-spawning regime for that row, label it explicitly; retain drain/phase handoffs in cadence.
+Noise has a 150-frame ramp-in, a 600-frame full-gain dwell and a 150-frame ramp-out. The noise row uses a full-gain window. The balls row uses a window from the 900-frame spawning phase, when the ball population changes. Cadence includes draining and phase handoffs.
 
 The show-scoped data covers 2 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 

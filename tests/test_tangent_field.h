@@ -2,6 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Spherical tangent-field and M?bius generator test cases. */
 #pragma once
 
 #include <complex>
@@ -17,7 +19,10 @@
 namespace hs_test::tangent_field_tests {
 namespace TF = math::tangent_field;
 
-/** @brief Deterministic sphere sample including both poles. */
+/** @brief Deterministic sphere sample including both poles.
+ * @param index Sample index in [0, count).
+ * @param count Number of samples, at least two.
+ * @return Unit sample direction. */
 inline math::Vector direction(int index, int count = 1000) {
   const double y = 1.0 - 2.0 * index / (count - 1.0);
   const double radius = std::sqrt(std::max(0.0, 1.0 - y * y));
@@ -26,7 +31,11 @@ inline math::Vector direction(int index, int count = 1000) {
           float(radius * std::sin(angle))};
 }
 
-/** @brief Independent double-precision reduced Legendre recurrence. */
+/** @brief Independent double-precision reduced Legendre recurrence.
+ * @param l Harmonic degree.
+ * @param m Harmonic order.
+ * @param y Cosine of the polar angle.
+ * @return Reduced polynomial and its derivative with respect to y. */
 inline std::pair<double, double> legendre_reference(int l, int m, double y) {
   double previous = 0, value = 1, previous_derivative = 0, derivative = 0;
   for (int degree = m; degree < l; ++degree) {
@@ -55,6 +64,7 @@ inline void test_legendre_coefficient_table() {
   }
 }
 
+/** @brief Horner values match the Legendre recurrence and phased gradients match finite differences. */
 inline void test_horner_values_and_phased_gradients() {
   for (int l = 0; l <= 8; ++l)
     for (int m = 0; m <= l; ++m)
@@ -96,6 +106,7 @@ inline void test_horner_values_and_phased_gradients() {
       }
 }
 
+/** @brief The generator decodes from its matrix and its velocity matches the flow difference. */
 inline void test_mobius_generator_velocity_and_inverse() {
   float negated_rotation_error = 0.0f;
   for (int index = 0; index < 1000; ++index) {
@@ -121,6 +132,7 @@ inline void test_mobius_generator_velocity_and_inverse() {
   HS_EXPECT_GT(negated_rotation_error, 100.0f);
 }
 
+/** @brief The M?bius exp/log round trip preserves generators and projective action. */
 inline void test_mobius_exp_log_projective_roundtrip() {
   for (int index = 0; index < 100; ++index) {
     const TF::ConformalGenerator generator{
@@ -147,6 +159,7 @@ inline void test_mobius_exp_log_projective_roundtrip() {
   }
 }
 
+/** @brief Extreme generator inputs preserve finite unit directions. */
 inline void test_mobius_exp_domain_corners_are_finite() {
   double maximum_relative_error = 0.0;
   for (unsigned corner = 0; corner < 64; ++corner) {
@@ -177,11 +190,14 @@ inline void test_mobius_exp_domain_corners_are_finite() {
   HS_EXPECT_LT(maximum_relative_error, 2e-6);
 }
 
-/** @brief Constructs a single-term prepared field. */
+/** @brief Constructs a single-term prepared field.
+ * @param term Active potential term.
+ * @return Field with the remaining terms disabled. */
 inline TF::PotentialField single_term(TF::PotentialTerm term) {
   return TF::PotentialField({term, {}, {}, {}});
 }
 
+/** @brief Constant potentials contribute zero flow and zero bounds. */
 inline void test_constant_potentials_have_zero_bounds() {
   for (auto kind : {TF::Kind::TOROIDAL, TF::Kind::POLOIDAL}) {
     const TF::PotentialTerm constant{TF::TermType::MODE, kind, 0, 0, -4.0f};
@@ -201,6 +217,7 @@ inline void test_constant_potentials_have_zero_bounds() {
   }
 }
 
+/** @brief Toroidal flow is divergence-free and poloidal flow is curl-free. */
 inline void test_potential_divergence_and_curl() {
   const TF::PotentialTerm TERMS[] = {
       {TF::TermType::MODE, TF::Kind::TOROIDAL, 8, 5, 1.0f, 0.73f},
@@ -230,14 +247,20 @@ inline void test_potential_divergence_and_curl() {
     }
 }
 
-/** @brief Exact sphere exponential. */
+/** @brief Exact sphere exponential.
+ * @param p Unit base direction.
+ * @param tangent Tangent displacement at p, with length in radians.
+ * @return Unit direction reached by the displacement. */
 inline math::Vector exponential(math::Vector p, math::Vector tangent) {
   const float length = tangent.length();
   return length > 1e-8f ? p * cosf(length) + tangent * (sinf(length) / length)
                         : p;
 }
 
-/** @brief Applies a reflection-group matrix. */
+/** @brief Applies a reflection-group matrix.
+ * @param matrix Matrix in row-major order.
+ * @param p Source vector.
+ * @return Transformed vector. */
 inline math::Vector apply(const lenses::DodecahedralTable::Matrix &matrix,
                           math::Vector p) {
   return {matrix[0][0] * p.x + matrix[0][1] * p.y + matrix[0][2] * p.z,
@@ -245,6 +268,7 @@ inline math::Vector apply(const lenses::DodecahedralTable::Matrix &matrix,
           matrix[2][0] * p.x + matrix[2][1] * p.y + matrix[2][2] * p.z};
 }
 
+/** @brief Potentials and their flows follow the fold groups. */
 inline void test_invariants_and_vector_fields_follow_fold_groups() {
   const std::array<std::array<math::Vector, 3>, 8> MIRRORS = {
       lenses::TETRAHEDRAL_MIRRORS,     lenses::OCTAHEDRAL_MIRRORS,
@@ -334,6 +358,7 @@ inline void test_invariants_and_vector_fields_follow_fold_groups() {
   HS_EXPECT_GT(reflected_image_difference, 0.01f);
 }
 
+/** @brief Rossby?Haurwitz flow matches the spherical stream function. */
 inline void test_rossby_haurwitz_matches_spherical_stream_function() {
   for (int r = 1; r <= 7; ++r) {
     double peak = 0.0;
@@ -368,6 +393,7 @@ inline void test_rossby_haurwitz_matches_spherical_stream_function() {
   }
 }
 
+/** @brief Normalized terms stay within their speed bounds and approach them. */
 inline void test_normalized_terms_have_tight_speed_bounds() {
   const auto measure = [](TF::PotentialTerm term) {
     const auto field = single_term(term);
@@ -437,6 +463,7 @@ inline void test_zonal_potential_phase_preserves_peak_speed() {
   }
 }
 
+/** @brief The fold advisory bounds strength before the sampled Jacobian loses positivity. */
 inline void test_fold_advisory_precedes_sampled_jacobian_onset() {
   std::vector<std::array<TF::PotentialTerm, 4>> configurations;
   for (int l = 1; l <= 8; ++l)
@@ -654,6 +681,8 @@ inline void test_potential_velocity_reads_prepared_term_edits() {
   }
 }
 
+/** @brief Runs the tangent-field test cases.
+ * @return The module's failure count. */
 inline int run_tangent_field_tests() {
   hs_test::ModuleFixture fixture("tangent_field");
   HS_RUN(test_legendre_coefficient_table);

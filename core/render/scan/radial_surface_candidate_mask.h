@@ -166,7 +166,14 @@ public:
 private:
   /** @brief Squared planar distance from the origin. */
   static HS_HOT_INLINE float square(Point p) { return p.x * p.x + p.y * p.y; }
-  /** @brief Marks candidate bins touched by a planar boundary segment. */
+  /** @brief Marks candidate bins touched by a padded boundary segment.
+   * @tparam COUNT Whether to count pieces and bin writes.
+   * @param a Starting point in chart coordinates.
+   * @param b Ending point in chart coordinates.
+   * @param stats Counters for this mask build.
+   * @param angles_known Whether endpoint angles are supplied.
+   * @param start_angle Unwrapped angle at the starting point, in radians.
+   * @param finish_angle Unwrapped angle at the ending point, in radians. */
   template <bool COUNT>
   HS_HOT_INLINE void mark(Point a, Point b, Stats &stats, bool angles_known,
                           float start_angle, float finish_angle) {
@@ -250,11 +257,14 @@ private:
     }
   }
 
-  Storage *rows = nullptr;
-  uint32_t source_bit = 0;
-  int group_shift = 0;
-  float padding = 0, extent2 = 0, radial_scale = 0, angular_scale = 0,
-        inverse_step = 0;
+  Storage *rows = nullptr; ///< Interval masks per radial and angular bin.
+  uint32_t source_bit = 0; ///< Interval group bit for the active candidate.
+  int group_shift = 0;     ///< Right shift from interval index to group index.
+  float padding = 0,       ///< Footprint and motion padding in chart units.
+      extent2 = 0,         ///< Squared padded maximum radius.
+      radial_scale = 0,    ///< Radial bins per squared chart unit.
+      angular_scale = 0,   ///< Angular bins per radian.
+      inverse_step = 0; ///< Reciprocal target segment length for subdivision.
 };
 
 } // namespace Scan

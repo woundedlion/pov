@@ -59,14 +59,15 @@ private:
 
   /** @brief Draw-scoped setup for admitting and rasterizing scan faces. */
   template <int W, int H> struct FaceScan {
-    const Scan::ColumnBasis *time;
-    float sweep;
-    float bounds_margin;
-    FaceProjectionColumn *projections;
-    FacePadTables pads;
-    const ClipRegion &clip;
-    const Spacetime::TimeWindow &window;
-    FaceClipPlanes<W, H> clip_planes;
+    const Scan::ColumnBasis *time;     ///< Column-time pose, if active.
+    float sweep;                       ///< Basis sweep arc in radians.
+    float bounds_margin;               ///< Angular slack for face bounds.
+    FaceProjectionColumn *projections; ///< Scratch for per-column projections.
+    FacePadTables pads;                ///< Pose-dependent edge padding tables.
+    const ClipRegion &clip;            ///< Source clip for face admission.
+    const Spacetime::TimeWindow &window; ///< Display time window.
+    FaceClipPlanes<W, H>
+        clip_planes; ///< Expanded clip planes for bounds culling.
 
     /** @brief Reserves the basis-dependent scratch for a scan. */
     template <typename PipelineT>

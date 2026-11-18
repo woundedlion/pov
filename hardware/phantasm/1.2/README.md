@@ -124,7 +124,3 @@ for all Phantasm environments. The rev 1.2 pin map transmits on D4, configures
 D3 as input with HYS, and initializes D4 LOW as an output on every board before
 enabling the master. Followers keep D4 LOW; only the master emits pulses.
 Regenerating the board does not change the firmware build flags or routed copper.
-
-Generating rev 1.2 requires regenerating the schematic before either PCB draft.
-The resulting PCB is unrouted and needs placement/routing validation before
-fabrication; changing its revision label alone does not convert rev 1.1 copper.

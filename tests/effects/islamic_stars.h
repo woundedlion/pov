@@ -14,6 +14,7 @@ namespace hs_test::effects_tests {
 // IslamicStars build chain, recipes and arena budgets.
 // ---------------------------------------------------------------------------
 
+/** @brief Ricker wavelet's steepest-slope offset in half-widths, sqrt(3 - sqrt(6)) / 2. */
 inline constexpr float RIPPLE_STEEPEST_REACH = .37f;
 
 /**

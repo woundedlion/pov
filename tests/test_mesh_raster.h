@@ -56,7 +56,7 @@ inline void white(const math::Vector &, Fragment &f) {
  * @param py Target row in pixels.
  * @param r Search radius in pixels.
  * @return True if a non-black pixel is found in the neighborhood.
- * @details Wraps in x (the canvas is a cylinder in longitude) and clamps in y.
+ * @details Wraps in x (the canvas is a cylinder in longitude) and skips rows outside the canvas.
  *          Tolerance absorbs sampling granularity, AA spread, and projection
  *          rounding.
  */

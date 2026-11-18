@@ -845,7 +845,8 @@ def plan(program: Program, hot_sets: dict[str, EffectHotSet],
     then largest gated code first: a unit whose gated code fits at the current
     address is placed there; otherwise the gap to the nearest address where it
     fits is filled with another unit that fits, sharers first, else with a hot
-    or cold flash section outside every hot set. A unit with no fitting address
+    or cold flash section outside every hot set. If the gap cannot be filled,
+    the unit is placed at the current address. A unit with no fitting address
     splits in two; a single section with none is placed where it is.
     While lines exceed the bound, the plan repeats with the units holding them
     moved ahead, up to `PLAN_ROUNDS` times; the plan with fewest such lines wins.

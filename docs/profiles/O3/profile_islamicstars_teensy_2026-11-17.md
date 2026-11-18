@@ -1,7 +1,7 @@
 # IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-11-17, **global -O3**)
 
 Point-in-time snapshot of the authored show slot. Reproduce with the scoped command in Setup.
-Raw capture: `C:\work\temp\holosphere-islamic-o3-evidence-20261117\islamicstars_o3.log`. Replaces `profile_islamicstars_historical_ts4_teensy_2026-09-28.md`.
+Raw capture: `C:\work\temp\holosphere-islamic-o3-evidence-20261117\islamicstars_o3.log`. Supersedes the [historical TS4 capture](profile_islamicstars_historical_ts4_teensy_2026-09-28.md) as the ranked O3 result.
 
 ## Setup
 
@@ -199,7 +199,7 @@ The inclusive render-time ratio to the 62.5 ms budget is Startup: 0.168×; Peak 
 
 ## Matched shipping comparison
 
-Same clean source `6ac5a4f049fd06562df1530888d9a50fcbfa9f21`, Teensy COM3 (serial 6362410), default Trans Speed, 16 recipes, 16-frame windows, and the same 306-second authored show budget (frames 2–4896 for live statistics). The shipping capture is from this morning; each configuration has one capture.
+Same clean source `6ac5a4f049fd06562df1530888d9a50fcbfa9f21`, Teensy COM3 (serial 6362410), default Trans Speed, 16 recipes, 16-frame windows, and the same 306-second authored show budget (frames 2–4896 for live statistics). The shipping capture was taken at 09:09 on the same day. Each configuration has one capture.
 
 | Metric | Shipping selective O3 | Global O3 |
 |---|--:|--:|

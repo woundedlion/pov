@@ -297,6 +297,10 @@ private:
     return false;
   }
 
+  /** @brief Dot product in the radial chart.
+   * @param a First chart vector.
+   * @param b Second chart vector.
+   * @return Scalar product. */
   static HS_HOT_INLINE float dot(Point a, Point b) {
     return a.x * b.x + a.y * b.y;
   }
@@ -570,6 +574,9 @@ private:
       best_distance = distance;
       found = true;
     }
+    /** @brief Records boundary-edge candidates at a knot.
+     * @param surface Prepared radial family.
+     * @param index Knot index. */
     HS_HOT_FLASH_MEMBER void endpoint(const Surface &surface, int index) {
       if (!active(index))
         return;
@@ -601,10 +608,18 @@ private:
                1, false, index == surface.interval_count());
       }
     }
+    /** @brief Bounds the edge predicate's variation over the footprint.
+     * @param c Knot similarity multiplier.
+     * @return Maximum absolute variation including a rounding allowance. */
     HS_HOT_INLINE float bound(Point c) const {
       const float x = fabsf(c.x), y = fabsf(c.y);
       return edge_reach * (fmaxf(x, y) + .5f * fminf(x, y)) + 32 * FLT_EPSILON;
     }
+    /** @brief Evaluates the signed edge predicate at the footprint center.
+     * @param surface Prepared radial family.
+     * @param i Knot index.
+     * @param[out] sector Unwrapped edge sector of the center.
+     * @param[out] value Signed edge predicate at the center. */
     HS_HOT_INLINE void center_predicate(const Surface &surface, int i,
                                         int &sector, float &value) const {
       if (cached_knot == i) {
@@ -619,6 +634,10 @@ private:
                                                      sector, 2 * sides)))) -
               h0 * dot(c, c);
     }
+    /** @brief Tests whether a knot's star covers the footprint.
+     * @param surface Prepared radial family.
+     * @param i Knot index.
+     * @return True when whole-footprint containment is certified. */
     HS_HOT_FLASH_MEMBER bool covered(const Surface &surface, int i) const {
       int sector;
       float value;
@@ -658,6 +677,9 @@ private:
       return surface.contains_footprint(query, dx, dy, k) ? i + t : -1;
     }
 
+    /** @brief Records outer-tip and knot-edge boundary candidates.
+     * @param surface Prepared radial family.
+     * @param i Interval index. */
     HS_HOT_INLINE void interval(const Surface &surface, int i) {
       int start_sector, end_sector;
       float start_value, end_value;

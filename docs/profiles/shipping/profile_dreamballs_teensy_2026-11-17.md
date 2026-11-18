@@ -120,7 +120,7 @@ Wall min/avg/max = 29.522/60.421/63.901 ms. `db_timeline_step` averages 31.050 m
 
 ### Per-preset table
 
-Held means fixed authored parameters, not motionless pixels. Exclude complete incoming parameter blends and both halves of fades; cadence buckets retain all transitions. Never substitute mixed-owner or transition windows for absent clean holds. Snap preset changes coexist with independent 32-frame sprite fade-in/out (life320, overlap0); trim both ends, including initial fade-in.
+Held windows use fixed authored parameters while the scene keeps animating. Qualified windows exclude incoming parameter blends, fade-in and fade-out, and mixed-owner windows. Presets change by snap. Sprites live for 320 frames with no overlap; the held windows exclude their independent 32-frame fade-in and fade-out, including the initial fade-in.
 
 The show-scoped data covers 10 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 

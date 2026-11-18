@@ -539,8 +539,8 @@ HS_O3_BEGIN
 
 /** @brief Builds the authored chain for one registry recipe.
  * @tparam R Authored recipe to replay.
- * @param a Output arena for even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a Arena for the result of odd-numbered steps, starting at step 1.
+ * @param b Arena for the result of even-numbered steps.
  * @return Rebuilt mesh with the arena ownership of build_recipe(). */
 template <const Recipe &R>
 HS_FLASH_INLINE inline PolyMesh generate_recipe(Arena &a, Arena &b) {
@@ -829,10 +829,10 @@ inline const Entry &get_entry(size_t index) {
 }
 
 /**
- * @brief Builds the solid with the given name into the geometry arena.
+ * @brief Builds a named solid and copies the result into the geometry arena.
  * @param geom Long-lived arena that backs the returned mesh.
- * @param a Output arena for even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a Arena for the result of odd-numbered steps, starting at step 1.
+ * @param b Arena for the result of even-numbered steps.
  * @param name Registry name of the solid to build; traps if unknown.
  * @return The finalized solid mesh owned by geom.
  */
@@ -846,8 +846,8 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
 /**
  * @brief Builds a registry solid's unit vertex directions plus per-vertex
  *        orientation quaternions and nearest-neighbour gaps.
- * @param scratch Arena backing the intermediate mesh; caller reclaims storage.
- * @param temp Alternate arena for odd pipeline stages; caller reclaims storage.
+ * @param scratch Arena for the result of odd-numbered steps, starting at step 1.
+ * @param temp Arena for the result of even-numbered steps.
  * @param entry Resolved registry entry for the solid.
  * @param max_points Capacity of the output arrays; traps if exceeded.
  * @param points Out: vertex directions projected onto the unit sphere.

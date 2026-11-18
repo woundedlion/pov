@@ -2,6 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Palette composition and modifier test cases. */
 #pragma once
 
 #include "core/color/color.h"
@@ -209,17 +211,18 @@ inline constexpr float ACHROMATIC_TOL = 4.0f;
  */
 inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
 
-/**
- * @brief Agreement budget between HueSpinShade's folded matrix and hue_rotate.
- * @details Sub-LSB float reassociation before gamut clipping is amplified by
- * clipping to the measured 171-LSB worst-channel difference.
- */
+/** @brief Headroom factor over the measured mean fold error. */
 inline constexpr float HUE_SPIN_MEAN_HEADROOM = 1.5f;
+/** @brief Headroom factor over the measured worst-channel fold error. */
 inline constexpr float HUE_SPIN_WORST_HEADROOM = 1.5f;
+/** @brief Measured mean channel error from folding the hue matrix, in LSBs. */
 inline constexpr float MEASURED_HUE_SPIN_MEAN_LSB = 0.083f;
+/** @brief Measured peak channel error after gamut clipping, in LSBs. */
 inline constexpr float MEASURED_HUE_SPIN_WORST_LSB = 171.0f;
+/** @brief Allowed mean channel error after folding the hue matrix, in LSBs. */
 inline constexpr float HUE_SPIN_FOLD_MEAN_TOL =
     MEASURED_HUE_SPIN_MEAN_LSB * HUE_SPIN_MEAN_HEADROOM;
+/** @brief Allowed peak channel error after folding the hue matrix, in LSBs. */
 inline constexpr float HUE_SPIN_FOLD_TOL =
     MEASURED_HUE_SPIN_WORST_LSB * HUE_SPIN_WORST_HEADROOM;
 

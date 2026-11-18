@@ -18,8 +18,6 @@ tests/color/generative_palette_cases.h
 tests/color/gradient_bake.h
 tests/color/modulation.h
 tests/color/oklab_gamut.h
-tests/color/palette_cycler_cases.h
-tests/color/palette_layer.h
 tests/composed_edge_fade_check.cpp
 tests/composed_frame_fixture.h
 tests/composed_metadata_check.cpp
@@ -199,6 +197,5 @@ tests/test_spherical_field.h
 tests/test_spherical_harmonics.h
 tests/test_static_circular_buffer.h
 tests/test_styles.h
-tests/test_tangent_field.h
 tests/vec_test_util.h
 tests/volume_reference.h

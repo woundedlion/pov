@@ -105,7 +105,7 @@ Wall min/avg/max = 61.900/62.450/62.880 ms. `sh_rasterize` averages 11.186 ms/f;
 
 ### Per-preset table
 
-Mode:n logs the target mathematical harmonic index n=l*l+l+m. It is not the PRESET_IDS index. There is no full 16-frame static hold; all intervals are64-frame morphs. Per-owner peak telemetry describes the complete incoming morph, not an isolated harmonic.
+Mode:n logs the target mathematical harmonic index n=l*l+l+m. It is not the PRESET_IDS index. There is no full 16-frame static hold; all intervals are 64-frame morphs. Per-owner peak telemetry describes the complete incoming morph, not an isolated harmonic.
 
 The show-scoped data covers 24 preset identities. Completing the scheduled show establishes coverage. Cadence buckets include all live frames, including in-show transitions. Qualified windows start after setup frame 1. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 

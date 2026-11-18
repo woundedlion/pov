@@ -22,13 +22,10 @@
 namespace hs_test {
 namespace conway_tests {
 
-/** @brief Scratch arena for the Conway operator's primary output mesh. */
-inline uint8_t
-    conway_target_buf[256 *
-                      1024]; /**< Comfortable budget for cube-scale ops. */
-/** @brief Scratch arena for the Conway operator's temporary/intermediate mesh. */
-inline uint8_t
-    conway_temp_buf[256 * 1024]; /**< Comfortable budget for cube-scale ops. */
+/** @brief Backing storage for the operator output arena. */
+inline uint8_t conway_target_buf[256 * 1024];
+/** @brief Backing storage for the operator scratch arena. */
+inline uint8_t conway_temp_buf[256 * 1024];
 
 // ---------------------------------------------------------------------------
 // Structural invariants

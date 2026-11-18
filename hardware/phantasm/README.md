@@ -6,15 +6,7 @@ The experimental **[1.3/](1.3/README.md)** project uses differential sync.
 Rev 1.2 remains the generator default; select rev 1.3 explicitly.
 Open any of these projects in KiCad 10 with its symbol and footprint libraries.
 
-Rev 1.3 uses a different front-only placement: J1/J2/J3A/J3B form a top-edge
-bank with north-facing, tangential entries. Every terminal, including sync
-GND and SHIELD, reserves a 2.4 mm-wide, 10 mm-long straight approach outside
-the board, clear of the module, other bodies and mounting reserves.
-All selected parts, nets, outline and mounting centers are retained. Complete
-pin legends for all four rev 1.3 connectors are printed together on the back.
-The cables must fan left toward the hub and be strain-relieved to the rotor;
-actual ferrules, jacket bend radius, clamp locations and swept-envelope fit
-remain physical qualification gates. See the [rev 1.3 placement contract](1.3/README.md#board-layout).
+The [rev 1.3 placement contract](1.3/README.md#board-layout) defines the front-only differential-sync layout.
 
 | Directory | Contents |
 |---|---|

@@ -59,9 +59,12 @@ Fourteen documents are authored directly in this directory: `ash_cloud`,
 `kaleidoscope_smooth`, `kaleidoscope_melt`, `jewel_melt`, `millefiori`, `grid_worms`,
 `grid_warp`, `involution`, `iridescence` and `liquid_windows`. Edit these version 2 documents here.
 
-After editing any document, run `node scripts/generate_composed_presets.mjs`
-to refresh its effect header. Documents use canonical serialization: sorted
-keys, two-space indentation and LF endings.
+After editing a hand-authored document, open it in the daydream shader
+workbench and use **Save** to export canonical JSON. Canonical serialization
+uses sorted object keys, two-space indentation and LF endings. It rounds
+scalar preset values to binary32 and sorts parameters by ID, presets by
+`preset_id` and edges by their combined `from>to` key.
+Run `node scripts/generate_composed_presets.mjs` to refresh the effect header.
 `node scripts/generate_promoted_shader_documents.mjs --check` verifies canonical
 serialization and generated-document freshness.
 

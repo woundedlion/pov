@@ -701,11 +701,13 @@ The parameter list (`ParamList`) is accessible via `getParameters()`, and `updat
 
 ### 6.3 The `EffectConfig` Flags
 
-An effect passes construction-time settings to its base as `Effect(W, H, {.strobe = ..., .persist = ...})`. `EffectConfig` (`core/render/canvas.h`) defaults `strobe` to true and the bool flags `persist`, `replaces_frame`, `full_frame` and `reads_outside_band` to false. Its integer `margin` defaults to the `ClipRegion` default of 1, not 0, and `required_margin` defaults to 0. `set_margin()` may not go below `required_margin`.
+An effect passes construction-time settings to its base as `Effect(W, H, {.strobe = ..., .persist = ...})`. `EffectConfig` (`core/render/canvas.h`) defaults `strobe` to true and the bool flags `persist`, `replaces_frame`, `full_frame`, `reads_outside_band` and `can_skip_frames` to false. Its integer `margin` defaults to the `ClipRegion` default of 1, not 0, and `required_margin` defaults to 0. `set_margin()` may not go below `required_margin`.
 
 Clip and margin setters cache an exact key for the resulting render bounds. `Plot::PointRoute` retains that key at preparation and checks it before plotting; changing the clip requires preparing the route again.
 
 With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the new write buffer before rendering, enabling trail/decay effects without explicit trail storage — each frame partially overwrites the last. When false (the default), the display band is zeroed each frame unless `.replaces_frame` declares that rendering replaces it completely; the render margin is write-only scratch. `.strobe` drives the POV column strobe (`strobe_columns()`) and `.full_frame` forces full-canvas rendering under segmented drivers (`needs_full_frame()`). `.reads_outside_band` declares that the effect samples framebuffer pixels outside the display band, so `Canvas` clears the whole buffer instead of just the display clip. `.margin` is the render-bound expansion past the display edges in pixels (`ClipRegion::margin`), raised to the `ClipRegion` default when a lower value is passed.
+
+`.can_skip_frames` lets the segmented driver schedule from the open display window. Effects that can advance missed steps without rasterizing them can use it to skip late frames.
 
 `pipeline_config<PipelineT>(base)` folds a filter pipeline's compile-time segment traits into `full_frame`, `reads_outside_band`, `margin`, and `required_margin`, and folds `PipelineT::terminal_replaces` into `replaces_frame`, so an effect stacking a filter that crosses segment boundaries, samples outside the band, or lands taps away from the plotted position need not restate those requirements at its base initializer. These fold as "at least this much": the pipeline widens them and never clears what the effect asked for.
 
@@ -1716,7 +1718,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── test_capabilities.cmake Shared feature capabilities for test and capture targets
 │   ├── wasm_cache_key.cmake     Keys the binary URL by its content hash after linking
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
-├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
+├── platformio.ini              Teensy envs: shipping images, bench test images, and compile-check and profiling profiles
 ├── tests/                      Unit tests (CMake subdirectory)
 │   ├── module_registry.h Native module registry and death-harness hook contract
 │   ├── process_setup.cpp Shared native error-dialog suppression
@@ -1884,6 +1886,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate when a budgeted env relinks
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
 │   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table
+│   ├── showlength.cpp         Nominal Phantasm show runtime for `just showlength`
 │   ├── teensy_size_trail.py    Per-commit firmware size trail: ELF section parser, recorder, regression report
 │   ├── teensy_cold_build.sh    Cold `pio run -v` over every environment, teed for the warning gate
 │   ├── profile_variants.sh     Shared profile variant names and build flags for size and cold-build gates

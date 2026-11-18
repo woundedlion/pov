@@ -350,7 +350,7 @@ protected:
    */
   void adopt_params(const Params &target) { params = target; }
 
-  /** @brief Called when a Lerp transition to @p target starts. */
+  /** @brief Receives the destination parameters when a Lerp starts. */
   void transition_armed(const Params &) {}
 
   /**
