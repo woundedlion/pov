@@ -315,7 +315,7 @@ A dodecahedral poloidal potential flow folds an equirectangular grid beneath the
 
 ### River Stones
 
-Spherical ripple bursts distort a hexagonal lattice of soft cells, with noise-driven hue, lightness, and opacity. Its single preset opens the Phantasm show for 30 seconds.
+Spherical ripple bursts distort a scrolling hexagonal lattice of soft cells, with noise-driven hue, lightness, and opacity. Its single preset opens the Phantasm show for 30 seconds.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Millefiori" target="_blank"><img src="screenshots/Millefiori.png" alt="Millefiori" width="280"></a></td>

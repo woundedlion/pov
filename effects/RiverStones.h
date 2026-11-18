@@ -27,7 +27,7 @@ struct RiverStonesSpec : Pullback::Spec {
   static constexpr auto PROJECTION_MOTION =
       Pullback::ProjectionMotion::ANIMATED;
 
-  /** @brief Camera, ripple, projected hex cells, palette and noise layers.
+  /** @brief Camera, ripple, translating hex cells, palette and noise layers.
    * @tparam B Effect binding. */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
@@ -37,6 +37,9 @@ struct RiverStonesSpec : Pullback::Spec {
           "displace1">::Type>,
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::EQUIRECTANGULAR, B>::Type>,
+      Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
+          Pullback::AffineParams, B, "outer_warp", true,
+          Pullback::AffineForm::TRANSLATES>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::FixedTessellationParams<
                                       Pattern::TessellationKind::HEXAGONAL,
@@ -240,9 +243,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "d3877f833447f1bc6e04ff8a514a15ec13bec8ca5dcde6ab8d41fc8d21235e8f";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "16da92705d798daf9c6602503e59214136e34148f5dae4e2f10a16cde25e482e";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "74c75d2cf6e63178f35d56c193d8bb9533983bb4f0a044112221f9dafdf8557e";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "75d3b9393d883a8ea2af267471084c0ad668f92a6228d2b455d8e681b00b5138";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "river-stones"
@@ -254,7 +257,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -296,7 +299,7 @@ public:
     value.template get<"color">().phase_oscillation_speed = 0.0f;
     value.template get<"color">().opacity_high = 1.0f;
     value.template get<"color">().opacity_low = 1.0f;
-    value.template get<"displace1">().burst_rate = 0.0078125f;
+    value.template get<"displace1">().burst_rate = 0.015625f;
     value.template get<"displace1">().burst_size = 3;
     value.template get<"displace1">().center_azimuth = 0.0f;
     value.template get<"displace1">().center_polar = 1.5707964f;
@@ -427,6 +430,15 @@ public:
     value.template get<"source">().cell_scale = 2.5352101f;
     value.template get<"source">().cell_shape = 0.5292398f;
     value.template get<"source">().cell_softness = 0.10124387f;
+    value.template get<"outer_warp">().lattice_period = 1.0f;
+    value.template get<"outer_warp">().repeat_cells = 1.0f;
+    value.template get<"outer_warp">().rotation_rate = 0.0f;
+    value.template get<"outer_warp">().scale_x = 1.0f;
+    value.template get<"outer_warp">().scale_y = 1.0f;
+    value.template get<"outer_warp">().shear = 0.0f;
+    value.template get<"outer_warp">().speed = 0.02f;
+    value.template get<"outer_warp">().translation_x = 0.0f;
+    value.template get<"outer_warp">().translation_y = 2.0f;
     return value;
   }
   // clang-format on
@@ -437,8 +449,8 @@ public:
    * @return Immutable color evaluation context. */
   static RiverStonesSpec::ColorColumn
   color_column(const typename Base::Frame &frame) {
-    return {std::get<4>(frame.prepared), std::get<5>(frame.prepared),
-            std::get<6>(frame.prepared), std::get<7>(frame.prepared),
+    return {std::get<5>(frame.prepared), std::get<6>(frame.prepared),
+            std::get<7>(frame.prepared), std::get<8>(frame.prepared),
             frame.ctx.temporal.same_palette};
   }
 
@@ -471,7 +483,7 @@ public:
   shade_column(const math::Vector &view, const typename Base::Frame &frame,
                const RiverStonesSpec::ColorColumn &column) {
     using Pipeline = typename Base::RenderPipeline;
-    static_assert(Pipeline::NODE_COUNT == 8);
+    static_assert(Pipeline::NODE_COUNT == 9);
     const auto run = [&]<size_t I>(const auto &input) HS_HOT_INLINE {
       return Pipeline::template NodeAt<I>::run(input, frame.ctx,
                                                std::get<I>(frame.prepared));
@@ -480,7 +492,8 @@ public:
         run.template operator()<0>(Pullback::SphereSample{view, 0.0f});
     const auto displaced = run.template operator()<1>(rotated);
     const auto projected = run.template operator()<2>(displaced);
-    const auto field = run.template operator()<3>(projected);
+    const auto warped = run.template operator()<3>(projected);
+    const auto field = run.template operator()<4>(warped);
     return RiverStonesSpec::shade_field(field, column);
   }
 

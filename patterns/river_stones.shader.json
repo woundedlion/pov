@@ -15,6 +15,10 @@
         "operator": "project.equirectangular.v2"
       },
       {
+        "label": "warp",
+        "operator": "warp.affine.v4"
+      },
+      {
         "label": "sample",
         "operator": "sample.tessellation.v3"
       },
@@ -2573,6 +2577,148 @@
         },
         "storage": "enum8",
         "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 100,
+          "minimum": 0.015625
+        },
+        "id": "warp.lattice-period",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "on",
+        "domain": {
+          "values": [
+            "off",
+            "on"
+          ]
+        },
+        "id": "warp.path-length",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 16,
+          "minimum": 1
+        },
+        "id": "warp.repeat-cells",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 25.132741928100586,
+          "minimum": -25.132741928100586
+        },
+        "id": "warp.rotation-rate",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0.015625
+        },
+        "id": "warp.scale-x",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0.015625
+        },
+        "id": "warp.scale-y",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 4,
+          "minimum": -4
+        },
+        "id": "warp.shear",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.019999999552965164,
+          "minimum": -0.019999999552965164
+        },
+        "id": "warp.speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 8,
+          "minimum": -8
+        },
+        "id": "warp.translation-x",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 8,
+          "minimum": -8
+        },
+        "id": "warp.translation-y",
+        "interpolation": {
+          "kind": "SNAP"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
       }
     ],
     "path_policies": [
@@ -2752,7 +2898,17 @@
         "sample.edge-width",
         "sample.fill",
         "sample.kind",
-        "sample.weight-mode"
+        "sample.weight-mode",
+        "warp.lattice-period",
+        "warp.path-length",
+        "warp.repeat-cells",
+        "warp.rotation-rate",
+        "warp.scale-x",
+        "warp.scale-y",
+        "warp.shear",
+        "warp.speed",
+        "warp.translation-x",
+        "warp.translation-y"
       ],
       "schema_version": 1
     }
@@ -2760,7 +2916,7 @@
   "document_id": "river-stones",
   "effect_id": "river-stones",
   "effect_metadata": {
-    "description": "Spherical ripple bursts distort a hexagonal lattice of soft cells, with noise-driven hue, lightness, and opacity.",
+    "description": "Spherical ripple bursts distort a scrolling hexagonal lattice of soft cells, with noise-driven hue, lightness, and opacity.",
     "display_name": "River Stones"
   },
   "preset_bank": {
@@ -2818,7 +2974,7 @@
           "colorize.phase-oscillation-speed": 0,
           "colorize.value-opacity-high": 1,
           "colorize.value-opacity-low": 1,
-          "displace1.burst-rate": 0.0078125,
+          "displace1.burst-rate": 0.015625,
           "displace1.burst-size": "four",
           "displace1.center-azimuth": 0,
           "displace1.center-polar": 1.5707963705062866,
@@ -2954,7 +3110,17 @@
           "sample.edge-width": 0.10000000149011612,
           "sample.fill": "cells",
           "sample.kind": "hexagonal",
-          "sample.weight-mode": "projection"
+          "sample.weight-mode": "projection",
+          "warp.lattice-period": 1,
+          "warp.path-length": "on",
+          "warp.repeat-cells": 1,
+          "warp.rotation-rate": 0,
+          "warp.scale-x": 1,
+          "warp.scale-y": 1,
+          "warp.shear": 0,
+          "warp.speed": 0.019999999552965164,
+          "warp.translation-x": 0,
+          "warp.translation-y": 2
         }
       }
     ],
