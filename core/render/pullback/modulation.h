@@ -408,93 +408,91 @@ struct Params {
 /**
  * @brief X-macro roster of the color.modulate.v1 control slots, in schema
  *        order.
- * @param F Float row: F(slot, id, member, sources, octave, min, max, def,
- *          curve).
- * @param E Selector row: E(slot, id, member, sources, octave, ids, def).
+ * @param F Float row: F(slot, id, member, sources, octave, min, max, curve).
+ * @param E Selector row: E(slot, id, member, sources, octave, ids).
  * @details `member` is the field path in `ColorModulation::Config`. `sources`
  * is a `Controls::SourceMask`; an `octave` row is live only for
  * octave-contour noise. Ids are wire format.
  */
 #define HS_MODULATION_SLOTS(F, E)                                              \
   F(MODULATION_AMOUNT, "modulation-amount", mechanic.amount, ANY_SOURCE,       \
-    false, -4.0f, 4.0f, 0.0f, LERP)                                            \
+    false, -4.0f, 4.0f, LERP)                                                  \
   F(PATTERN_SCALE, "pattern-scale", noise.scale, NOISE_SOURCE, false,          \
-    Pattern::MIN_NOISE_SCALE, Pattern::MAX_NOISE_SCALE, 1.0f, LOG_POSITIVE)    \
+    Pattern::MIN_NOISE_SCALE, Pattern::MAX_NOISE_SCALE, LOG_POSITIVE)          \
   F(PATTERN_SPEED, "pattern-speed", noise.speed, NOISE_SOURCE, false,          \
-    -Pattern::MAX_NOISE_SPEED, Pattern::MAX_NOISE_SPEED, 0.0f, LERP)           \
+    -Pattern::MAX_NOISE_SPEED, Pattern::MAX_NOISE_SPEED, LERP)                 \
   F(PATTERN_CONTRAST, "pattern-contrast", noise.contrast, NOISE_SOURCE, true,  \
-    0.0f, Pattern::MAX_NOISE_CONTRAST, 0.0f, LERP)                             \
+    0.0f, Pattern::MAX_NOISE_CONTRAST, LERP)                                   \
   F(SINE_AXIS_X, "sine-axis-x", sine.axis.x, SINE_SOURCE, false, -64.0f,       \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(SINE_AXIS_Y, "sine-axis-y", sine.axis.y, SINE_SOURCE, false, -64.0f,       \
-    64.0f, 1.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(SINE_AXIS_Z, "sine-axis-z", sine.axis.z, SINE_SOURCE, false, -64.0f,       \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(SINE_FREQUENCY, "sine-frequency", sine.frequency, SINE_SOURCE, false,      \
-    0.0f, Pattern::MAX_AXIAL_FREQUENCY, 1.0f, LERP)                            \
+    0.0f, Pattern::MAX_AXIAL_FREQUENCY, LERP)                                  \
   F(SINE_OFFSET, "sine-offset", sine.offset, SINE_SOURCE, false, -64.0f,       \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(SINE_SPEED, "sine-speed", sine.speed, SINE_SOURCE, false,                  \
-    -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED, 0.0f, LERP)     \
+    -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED, LERP)           \
   F(INTERFERENCE_AXIS_X, "interference-axis-x", interference.axis.x,           \
-    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, LERP)                           \
   F(INTERFERENCE_AXIS_Y, "interference-axis-y", interference.axis.y,           \
-    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 1.0f, LERP)                     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, LERP)                           \
   F(INTERFERENCE_AXIS_Z, "interference-axis-z", interference.axis.z,           \
-    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, LERP)                           \
   F(INTERFERENCE_FREQUENCY, "interference-frequency", interference.frequency,  \
-    INTERFERENCE_SOURCE, false, 0.0f, Pattern::MAX_AXIAL_FREQUENCY, 1.0f,      \
-    LERP)                                                                      \
+    INTERFERENCE_SOURCE, false, 0.0f, Pattern::MAX_AXIAL_FREQUENCY, LERP)      \
   F(INTERFERENCE_OFFSET, "interference-offset", interference.offset,           \
-    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, LERP)                           \
   F(INTERFERENCE_SPEED, "interference-speed", interference.speed,              \
     INTERFERENCE_SOURCE, false, -Pattern::MAX_ANALYTIC_SPEED,                  \
-    Pattern::MAX_ANALYTIC_SPEED, 0.0f, LERP)                                   \
+    Pattern::MAX_ANALYTIC_SPEED, LERP)                                         \
   F(INTERFERENCE_AXIS_B_X, "interference-axis-b-x", interference.axis_b.x,     \
-    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 1.0f, LERP)                     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, LERP)                           \
   F(INTERFERENCE_AXIS_B_Y, "interference-axis-b-y", interference.axis_b.y,     \
-    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, LERP)                           \
   F(INTERFERENCE_AXIS_B_Z, "interference-axis-b-z", interference.axis_b.z,     \
-    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, LERP)                           \
   F(INTERFERENCE_FREQUENCY_B, "interference-frequency-b",                      \
     interference.frequency_b, INTERFERENCE_SOURCE, false, 0.0f,                \
-    Pattern::MAX_AXIAL_FREQUENCY, 1.0f, LERP)                                  \
+    Pattern::MAX_AXIAL_FREQUENCY, LERP)                                        \
   F(INTERFERENCE_OFFSET_B, "interference-offset-b", interference.offset_b,     \
-    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, 0.0f, LERP)                     \
+    INTERFERENCE_SOURCE, false, -64.0f, 64.0f, LERP)                           \
   F(GRID_AXIS_X, "grid-axis-x", grid.axis.x, GRID_SOURCE, false, -64.0f,       \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(GRID_AXIS_Y, "grid-axis-y", grid.axis.y, GRID_SOURCE, false, -64.0f,       \
-    64.0f, 1.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(GRID_AXIS_Z, "grid-axis-z", grid.axis.z, GRID_SOURCE, false, -64.0f,       \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(GRID_FREQUENCY, "grid-frequency", grid.frequency, GRID_SOURCE, false,      \
-    0.0f, Pattern::MAX_AXIAL_FREQUENCY, 1.0f, LERP)                            \
+    0.0f, Pattern::MAX_AXIAL_FREQUENCY, LERP)                                  \
   F(GRID_OFFSET, "grid-offset", grid.offset, GRID_SOURCE, false, -64.0f,       \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(GRID_SPEED, "grid-speed", grid.speed, GRID_SOURCE, false,                  \
-    -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED, 0.0f, LERP)     \
+    -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED, LERP)           \
   F(GRID_AXIS_B_X, "grid-axis-b-x", grid.axis_b.x, GRID_SOURCE, false, -64.0f, \
-    64.0f, 1.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(GRID_AXIS_B_Y, "grid-axis-b-y", grid.axis_b.y, GRID_SOURCE, false, -64.0f, \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(GRID_AXIS_B_Z, "grid-axis-b-z", grid.axis_b.z, GRID_SOURCE, false, -64.0f, \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   F(GRID_FREQUENCY_B, "grid-frequency-b", grid.frequency_b, GRID_SOURCE,       \
-    false, 0.0f, Pattern::MAX_AXIAL_FREQUENCY, 1.0f, LERP)                     \
+    false, 0.0f, Pattern::MAX_AXIAL_FREQUENCY, LERP)                           \
   F(GRID_OFFSET_B, "grid-offset-b", grid.offset_b, GRID_SOURCE, false, -64.0f, \
-    64.0f, 0.0f, LERP)                                                         \
+    64.0f, LERP)                                                               \
   E(MODULATION_ENABLED, "modulation-enabled", enabled, ANY_SOURCE, false,      \
-    ENABLED_IDS, 1)                                                            \
+    ENABLED_IDS)                                                               \
   E(MODULATION_SOURCE, "modulation-source", source, ANY_SOURCE, false,         \
-    SOURCE_IDS, 0)                                                             \
+    SOURCE_IDS)                                                                \
   E(MODULATION_EVALUATION, "modulation-evaluation", evaluation, ANY_SOURCE,    \
-    false, EVALUATION_IDS, 1)                                                  \
+    false, EVALUATION_IDS)                                                     \
   E(MODULATION_MECHANIC, "modulation-mechanic", mechanic.kind, ANY_SOURCE,     \
-    false, MECHANIC_IDS, 0)                                                    \
+    false, MECHANIC_IDS)                                                       \
   E(PATTERN_NOISE_BASIS, "pattern-noise-basis", noise.basis, NOISE_SOURCE,     \
-    true, BASIS_IDS, 0)                                                        \
+    true, BASIS_IDS)                                                           \
   E(PATTERN_NOISE_VARIANT, "pattern-noise-variant", noise.variant,             \
-    NOISE_SOURCE, false, VARIANT_IDS, 0)
+    NOISE_SOURCE, false, VARIANT_IDS)
 
 /** @brief Controls of one color.modulate.v1 operator. */
 struct Controls {
@@ -531,12 +529,16 @@ private:
     return !octave || c.noise.variant == Pattern::NoiseVariant::OCTAVE_CONTOUR;
   }
 
-public:
-  ColorModulation::Config modulation = [] {
+  /// Default source and mechanic recipe.
+  static constexpr ColorModulation::Config DEFAULT_MODULATION = [] {
     ColorModulation::Config value;
     value.seed = HUE_NOISE_SEED;
     return value;
-  }(); ///< Canonical source and mechanic recipe.
+  }();
+
+public:
+  ColorModulation::Config modulation =
+      DEFAULT_MODULATION; ///< Canonical source and mechanic recipe.
   static constexpr std::array<Field<Controls>, 0>
       FIELDS{}; ///< Nested recipe controls.
   static constexpr std::array<TopologyField<Controls>, 0>
@@ -566,17 +568,33 @@ public:
   static_assert(std::size(VARIANT_IDS) ==
                 static_cast<size_t>(Pattern::NoiseVariant::OCTAVE_CONTOUR) + 1);
 #define HS_MODULATION_FLOAT_ROW(SLOT, ID, MEMBER, SOURCES, OCTAVE, MIN, MAX,   \
-                                DEF, CURVE)                                    \
-  ParamFieldInfo{ID,    nullptr, MIN, MAX,     DEF,     FieldCurve::CURVE,     \
-                 false, 0,       0,   nullptr, nullptr, 0},
-#define HS_MODULATION_ENUM_ROW(SLOT, ID, MEMBER, SOURCES, OCTAVE, IDS, DEF)    \
-  ParamFieldInfo{ID,      nullptr,                                             \
-                 0,       0,                                                   \
-                 0,       FieldCurve::SNAP,                                    \
-                 true,    static_cast<uint8_t>(std::size(IDS)),                \
-                 DEF,     IDS,                                                 \
-                 nullptr, 0},
-  /// Modulation parameter schema: source, mechanic and selector rows.
+                                CURVE)                                         \
+  ParamFieldInfo{ID,                                                           \
+                 nullptr,                                                      \
+                 MIN,                                                          \
+                 MAX,                                                          \
+                 DEFAULT_MODULATION.MEMBER,                                    \
+                 FieldCurve::CURVE,                                            \
+                 false,                                                        \
+                 0,                                                            \
+                 0,                                                            \
+                 nullptr,                                                      \
+                 nullptr,                                                      \
+                 0},
+#define HS_MODULATION_ENUM_ROW(SLOT, ID, MEMBER, SOURCES, OCTAVE, IDS)         \
+  ParamFieldInfo{ID,                                                           \
+                 nullptr,                                                      \
+                 0,                                                            \
+                 0,                                                            \
+                 0,                                                            \
+                 FieldCurve::SNAP,                                             \
+                 true,                                                         \
+                 static_cast<uint8_t>(std::size(IDS)),                         \
+                 static_cast<uint8_t>(DEFAULT_MODULATION.MEMBER),              \
+                 IDS,                                                          \
+                 nullptr,                                                      \
+                 0},
+  /// Modulation parameter schema with defaults from the canonical config.
   static constexpr std::array<ParamFieldInfo, SLOT_COUNT> EXTRA_SCHEMA{
       HS_MODULATION_SLOTS(HS_MODULATION_FLOAT_ROW, HS_MODULATION_ENUM_ROW)};
 #undef HS_MODULATION_FLOAT_ROW
