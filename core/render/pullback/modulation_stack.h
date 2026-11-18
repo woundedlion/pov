@@ -227,11 +227,7 @@ class OrderedModulationKernel {
                                           const int8_t *cube,
                                           const int8_t *peer,
                                           float peer_value) {
-    const auto *a = cube + tap.offset;
-    const auto *b = peer + tap.offset;
-    constexpr int STRIDE = Pattern::SphereLutView::FACE_STEPS;
-    if (std::memcmp(a, b, 2) == 0 &&
-        std::memcmp(a + STRIDE, b + STRIDE, 2) == 0)
+    if (tap.same_byte_corners(cube, peer))
       return peer_value;
     return sample_bytes(tap, cube);
   }
