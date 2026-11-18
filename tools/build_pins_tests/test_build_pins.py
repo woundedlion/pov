@@ -32,7 +32,7 @@ class AuthorityPresence(unittest.TestCase):
                  "grep -vE '", "grep -v -E '"),
                 (bp.check_shared_literals, 'tools/commit_checks.sh',
                  'core.whitespace=', 'core.whitespace '),
-                (bp.check_shared_literals, 'Doxyfile',
+                (bp.check_doxygen_excludes, 'Doxyfile',
                  'core/color/color_luts.h', 'core/color/other_lut.h'),
                 (bp.check_inline_pins, 'requirements/ruff.in',
                  'ruff==', 'ruff >= ')):

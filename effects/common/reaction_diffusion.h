@@ -87,8 +87,7 @@ protected:
    * @brief Q16 full-scale factor: maps the [0, 65535] state to [0.0, 1.0].
    */
   static constexpr float Q16_SCALE = 65535.0f;
-  static constexpr float Q16_INV =
-      1.0f / Q16_SCALE; /**< Reciprocal of Q16_SCALE. */
+  static constexpr float Q16_INV = Q16_TO_UNIT; /**< Reciprocal of Q16_SCALE. */
 
   /**
    * @brief Converts a Q16 fixed-point sample to a normalized float.

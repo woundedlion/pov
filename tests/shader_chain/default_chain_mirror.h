@@ -56,8 +56,8 @@ struct MirrorSource {
     return frame.sample;
   }
   static Pattern::PreparedSource prepare(const MirrorFrame &frame) {
-    return Pattern::prepare(frame.source_primary, frame.source_secondary,
-                            frame.source_angle);
+    return Pattern::prepare_phases(frame.source_primary, frame.source_secondary,
+                                   frame.source_angle);
   }
 };
 

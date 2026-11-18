@@ -657,10 +657,8 @@ struct AuthoredProjection
                                   params.coordinate_scale, prepared.cosine,
                                   prepared.sine);
     else if constexpr (is_polyhedral_atlas(Kind))
-      return Projection::from_kernel(
-          projections::polyhedral_atlas_projection(
-              projections::POLYHEDRAL_ATLAS<typename AtlasSolidFor<Kind>::Type>,
-              input, prepared.cosine, prepared.sine, params.area_correction),
+      return Projection::polyhedral_atlas<typename AtlasSolidFor<Kind>::Type>(
+          input, prepared.cosine, prepared.sine, params.area_correction,
           params.coordinate_scale);
     else
       static_assert(false, "unsupported authored projection kind");

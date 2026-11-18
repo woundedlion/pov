@@ -454,6 +454,25 @@ airocean(const math::Vector &input, bool horizontal,
                      coordinate_scale);
 }
 
+/** @brief Unfolds a polyhedral atlas with a precomputed meridian rotation.
+ * @tparam Solid Polyhedron defining the atlas.
+ * @param input Unit direction in the projection frame.
+ * @param meridian_cos Cosine of the central meridian.
+ * @param meridian_sin Sine of the central meridian.
+ * @param area_correction Strength of the per-face area correction.
+ * @param coordinate_scale Factor applied to the plane coordinates.
+ * @return Plane coordinates and face provenance. */
+template <typename Solid>
+__attribute__((always_inline)) inline ProjectionResult
+polyhedral_atlas(const math::Vector &input, float meridian_cos,
+                 float meridian_sin, float area_correction,
+                 float coordinate_scale) {
+  return from_kernel(projections::polyhedral_atlas_projection(
+                         projections::POLYHEDRAL_ATLAS<Solid>, input,
+                         meridian_cos, meridian_sin, area_correction),
+                     coordinate_scale);
+}
+
 /** @brief Bonne pseudoconical equal-area projection; `North` picks the sign of
     the standard parallel, and so the hemisphere the cone opens toward.
  * @tparam State Frame-state provider.
@@ -882,11 +901,9 @@ struct PolyhedralAtlas
   static ProjectionResult project(const math::Vector &input,
                                   const FrameState &frame,
                                   const Prepared &prepared) {
-    return from_kernel(projections::polyhedral_atlas_projection(
-                           projections::POLYHEDRAL_ATLAS<Solid>, input,
-                           prepared.cosine, prepared.sine,
-                           State::area_correction(frame)),
-                       State::coordinate_scale(frame));
+    return polyhedral_atlas<Solid>(input, prepared.cosine, prepared.sine,
+                                   State::area_correction(frame),
+                                   State::coordinate_scale(frame));
   }
 };
 

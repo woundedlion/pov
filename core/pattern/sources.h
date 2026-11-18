@@ -180,8 +180,8 @@ struct PreparedSource {
     @param secondary Secondary phase.
     @param angle Source rotation, in radians.
     @return The phases with the cosine and sine of @p angle. */
-HS_FLASH_INLINE inline PreparedSource prepare(float primary, float secondary,
-                                              float angle) {
+HS_FLASH_INLINE inline PreparedSource
+prepare_phases(float primary, float secondary, float angle) {
   return {primary, secondary, angle, cosf(angle), sinf(angle)};
 }
 
@@ -609,8 +609,8 @@ template <class Parameters> struct RadianSource {
   static Prepared prepare(const Params &params, const State &state) {
     HS_CHECK(valid(params) && valid_state(state),
              "pattern radian source: invalid preparation inputs");
-    return {params,
-            Pattern::prepare(state.primary, state.secondary, state.angle)};
+    return {params, Pattern::prepare_phases(state.primary, state.secondary,
+                                            state.angle)};
   }
   /** @brief Checks finite bounded radian clocks.
    * @param state Source clocks.

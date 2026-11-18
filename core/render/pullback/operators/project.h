@@ -530,11 +530,9 @@ struct ProjectPolyhedralAtlas
   static ProjectionResult project(const math::Vector &local,
                                   const PolyhedralAtlasChainParams &params,
                                   const MeridianProjectOrientation &prepared) {
-    return Projection::from_kernel(
-        projections::polyhedral_atlas_projection(
-            projections::POLYHEDRAL_ATLAS<Solid>, local, prepared.meridian_cos,
-            prepared.meridian_sin, params.area_correction),
-        params.coordinate_scale);
+    return Projection::polyhedral_atlas<Solid>(
+        local, prepared.meridian_cos, prepared.meridian_sin,
+        params.area_correction, params.coordinate_scale);
   }
 };
 

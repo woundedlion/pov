@@ -35,7 +35,7 @@ struct ClockedSampleMirror {
   using Binding = SampleMirrorBinding;
   using FrameState = SampleMirrorFrame;
   static Pattern::PreparedSource prepare(const FrameState &frame) {
-    return Pattern::prepare(frame.primary, frame.secondary, frame.angle);
+    return Pattern::prepare_phases(frame.primary, frame.secondary, frame.angle);
   }
 };
 
@@ -855,7 +855,7 @@ inline void test_shader_chain_grid_lattice_symmetry() {
   HS_EXPECT_EQ(lattice.a.im, 0.0f);
   HS_EXPECT_EQ(lattice.b.re, 0.0f);
   HS_EXPECT_NEAR(lattice.b.im, math::TWO_PI_F / 3.7f, 1e-7f);
-  const auto prepared = Pattern::prepare(0.9f, 0.0f, 0.0f);
+  const auto prepared = Pattern::prepare_phases(0.9f, 0.0f, 0.0f);
   const auto field = [&](math::Complex point) {
     return Pattern::grid(
         Pattern::PlanePosition{
@@ -919,7 +919,7 @@ inline void test_shader_chain_grid_motion_equivalence() {
         const float phase =
             float(steps * affine.speed - std::floor(steps * affine.speed));
         const auto prepared = PB::Warp::prepare(affine, phase, angle, lattice);
-        const auto source = Pattern::prepare(
+        const auto source = Pattern::prepare_phases(
             float(std::fmod(steps * grid.speed, 2.0 * std::numbers::pi)), 0.0f,
             0.0f);
         for (const math::Complex point :

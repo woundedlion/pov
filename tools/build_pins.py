@@ -7,7 +7,8 @@ spelling in INLINE_SCAN agrees; pip versions come from requirements/*.in.
 SHARED_LITERALS are strings build files that cannot read one another must spell
 identically. ENGINE_RANGES name a manifest floor the pin must satisfy. --check
 also asserts every file CMakeLists.txt installs into daydream has an eol=lf pin,
-requires authority files to retain their named pin spellings, and checks FlexRAM geometry.
+requires authority files to retain their named pin spellings, checks FlexRAM
+geometry, and verifies Doxyfile EXCLUDE covers every generated path.
 """
 
 from __future__ import annotations
@@ -497,6 +498,12 @@ def check_shared_literals() -> list[str]:
             errors.append(
                 f"{name} was not found in the scanned files"
             )
+    return errors
+
+
+def check_doxygen_excludes() -> list[str]:
+    """Require Doxyfile EXCLUDE to cover each generated path."""
+    errors: list[str] = []
     doxygen = read_scanned(ROOT / "Doxyfile", errors)
     if doxygen is not None:
         excluded = {path.rstrip("/") for path in doxyfile_setting(doxygen, "EXCLUDE")}
@@ -671,6 +678,7 @@ def check_install_eol(paths: list[str]) -> list[str]:
 def check_consumers() -> int:
     installed = installed_sources()
     errors: list[str] = (check_inline_pins() + check_shared_literals()
+                         + check_doxygen_excludes()
                          + check_engine_ranges() + check_flexram_geometry()
                          + check_install_eol(installed))
     for name in sorted(set(CHECK_TOOLS) - set(PINS | INLINE_PINS)):

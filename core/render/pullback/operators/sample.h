@@ -235,7 +235,7 @@ struct SourceClockModel : ValueStateModel<SourceClockState> {
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_sample_topology(params.weight_mode, params.coverage_mode);
-    return Pattern::prepare(state.primary, state.secondary, state.angle);
+    return Pattern::prepare_phases(state.primary, state.secondary, state.angle);
   }
 };
 

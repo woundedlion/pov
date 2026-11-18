@@ -174,6 +174,15 @@ struct VertexState {
 };
 static_assert(sizeof(VertexState) == 1);
 
+/** @brief Capture centre for the first (0) or second (1) half of an arm. */
+constexpr float half_centre(int half) { return half ? 0.75f : 0.25f; }
+
+/** @brief Own-arm capture centre for an endpoint in the early or late half. */
+constexpr float own_centre(bool early) { return half_centre(early ? 0 : 1); }
+
+/** @brief Capture centre across the arm boundary nearer the endpoint. */
+constexpr float across_centre(bool early) { return early ? 1.25f : -0.25f; }
+
 /// Half turns per unit of a stored vertex azimuth.
 constexpr float TURNS_SCALE = 1.0f / 32768.0f;
 
@@ -215,13 +224,13 @@ HS_O3_FN HS_HOT_INLINE bool capture_pool_matches(const SweptMesh &d,
   const float first = unwrap_capture(start, centre);
   const bool early = state.early();
   return (state.any(VertexState::POOL_OWN) &&
-          first == unwrap_capture(start, early ? 0.25f : 0.75f)) ||
+          first == unwrap_capture(start, own_centre(early))) ||
          (state.any(VertexState::POOL_ACROSS) &&
-          first == unwrap_capture(start, early ? 1.25f : -0.25f)) ||
+          first == unwrap_capture(start, across_centre(early))) ||
          (state.any(VertexState::POOL_FIRST_HALF) &&
-          first == unwrap_capture(start, 0.25f)) ||
+          first == unwrap_capture(start, half_centre(0))) ||
          (state.any(VertexState::POOL_SECOND_HALF) &&
-          first == unwrap_capture(start, 0.75f));
+          first == unwrap_capture(start, half_centre(1)));
 }
 
 /**
@@ -259,8 +268,7 @@ HS_HOT_FLASH_MEMBER void place_vertex(const SweptMesh &d,
   if (!d.moving[i] || state.any(pool | VertexState::HELD))
     return;
   const bool early = state.early();
-  const float centre =
-      across ? (early ? 1.25f : -0.25f) : (early ? 0.25f : 0.75f);
+  const float centre = across ? across_centre(early) : own_centre(early);
   if (capture_pool_matches(d, tables, i, centre)) {
     state.add(pool);
     return;
@@ -287,11 +295,12 @@ place_half(const SweptMesh &d, const FaceTables &tables, size_t i, int half) {
   if (!d.moving[i] || state.any(pool | VertexState::HELD))
     return;
   const bool own = state.early() == (half == 0);
-  if (capture_pool_matches(d, tables, i, half ? 0.75f : 0.25f)) {
+  const float centre = half_centre(half);
+  if (capture_pool_matches(d, tables, i, centre)) {
     state.add(pool | (own ? VertexState::POOL_OWN : uint8_t(0)));
     return;
   }
-  d.mesh.vertices[i] = capture_branch(d, tables, half ? 0.75f : 0.25f, i);
+  d.mesh.vertices[i] = capture_branch(d, tables, centre, i);
   state.relabel(pool | (own ? VertexState::POOL_OWN : uint8_t(0)));
 }
 
