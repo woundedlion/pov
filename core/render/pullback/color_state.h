@@ -428,6 +428,16 @@ template <typename Phase, bool SinePhase>
 HS_HOT_FLASH_MEMBER inline float
 sample_bound_phase(const FieldSample &field, const PhaseModulationState &state,
                    PhaseScratch &scratch) {
+  if constexpr (std::same_as<Phase, CubePhaseModulationState>) {
+    if (state.source != Pattern::SourceKind::NOISE ||
+        !static_cast<const CubePhaseModulationState &>(state).cube_current)
+      return sample_bound_phase<PhaseModulationState, SinePhase>(field, state,
+                                                                 scratch);
+  }
+  if constexpr (std::same_as<Phase, ChamberPhaseModulationState>)
+    if (state.source != Pattern::SourceKind::NOISE)
+      return sample_bound_phase<PhaseModulationState, SinePhase>(field, state,
+                                                                 scratch);
   return sample_phase_scalar<Phase, SinePhase>(
       field, static_cast<const Phase &>(state), scratch);
 }
