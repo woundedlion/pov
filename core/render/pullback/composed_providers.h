@@ -429,7 +429,8 @@ struct SurfaceProvider {
   HS_HOT_INLINE static auto prepare(const FrameState &frame) {
     if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>) {
       const auto &resource = frame.resources.template get<Key>();
-      return SphereAnimation::prepare_ripples(params(frame), resource);
+      return SphereAnimation::prepare_ripples(params(frame), resource,
+                                              !TrackPath);
     } else if constexpr (requires {
                            frame.params.template get<Key>().direction;
                          })

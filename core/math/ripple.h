@@ -236,6 +236,13 @@ HS_HOT_INLINE inline Result sequential(const math::Vector &input,
   return result;
 }
 
+/** @brief Conservative cosine band of a sequence with one verified center. */
+struct SingleCenterSupport {
+  float near = -2.0f; ///< Upper cosine bound, including angular error.
+  float far = 2.0f;   ///< Lower cosine bound, including angular error.
+  bool valid = false; ///< All waves have the same center.
+};
+
 /** @brief Composes consecutive same-center waves in one radial basis.
  * @tparam Result Carrier with sphere and path_length members.
  * @tparam WaveAt Inline accessor returning a wave reference.
@@ -245,24 +252,30 @@ HS_HOT_INLINE inline Result sequential(const math::Vector &input,
  * @param count Number of waves.
  * @param track_path Whether to accumulate travel.
  * @param fallback Resolver used when radial composition is invalid.
+ * @param support Optional prepared single-center support.
  * @return Displaced direction and angular travel. */
 template <typename Result, typename WaveAt, typename Fallback>
 HS_HOT_INLINE inline Result grouped(const math::Vector &input,
                                     const WaveAt &wave_at, uint8_t count,
-                                    bool track_path, const Fallback &fallback) {
+                                    bool track_path, const Fallback &fallback,
+                                    const SingleCenterSupport &support = {}) {
   Result result{input, 0.0f};
   uint8_t index = 0;
   while (index < count) {
     const math::Vector start = result.sphere;
     const math::Vector center = wave_at(index).center;
-    const float distance_cos = math::dot(center, start);
-    float distance = math::fast_acos(hs::clamp(distance_cos, -1.0f, 1.0f));
+    const float distance_cos = hs::clamp(math::dot(center, start), -1.0f, 1.0f);
+    if (support.valid &&
+        (distance_cos > support.near || distance_cos < support.far))
+      return result;
+    float distance = math::fast_acos(distance_cos);
     float total_angle = 0.0f;
     do {
       if (!radial_step(wave_at(index++), distance, total_angle,
                        result.path_length, track_path))
         return fallback();
-    } while (index < count && same_center(wave_at(index).center, center));
+    } while (index < count &&
+             (support.valid || same_center(wave_at(index).center, center)));
     if (total_angle != 0.0f &&
         !rotate_group(start, center, total_angle, result.sphere))
       return fallback();

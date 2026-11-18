@@ -95,6 +95,50 @@ inline void test_pullback_ripple_burst_centers() {
   }
 }
 
+/** @brief Cached single-center support preserves exact angular composition,
+    including samples at the support edges. */
+inline void test_pullback_single_center_ripple_support() {
+  using namespace Pullback::SphereAnimation;
+  BurstRippleParams params;
+  params.period = 97.46764f;
+  params.decay = 0.0f;
+  params.center_polar = 0.0f;
+  params.random_center = 0;
+  RippleState clock;
+  clock.burst_count = 2;
+  clock.waves[4] = {46.0f, 1};
+  clock.waves[5] = {30.0f, 1};
+  clock.waves[6] = {14.0f, 1};
+  for (bool overlap : {false, true}) {
+    if (overlap) {
+      params.random_center = 1;
+      clock.waves[0] = {78.0f, 0};
+    }
+    auto cached = prepare_ripples(params, clock, true);
+    HS_EXPECT_EQ(cached.single_center.valid, !overlap);
+    const auto exact = prepare_ripples(params, clock);
+    const auto check = [&](const math::Vector &view) {
+      const auto a = grouped_ripples(view, cached, false);
+      const auto b = grouped_ripples(view, exact, false);
+      HS_EXPECT_EQ(a.sphere.x, b.sphere.x);
+      HS_EXPECT_EQ(a.sphere.y, b.sphere.y);
+      HS_EXPECT_EQ(a.sphere.z, b.sphere.z);
+      HS_EXPECT_EQ(a.path_length, b.path_length);
+    };
+    for (int i = 0; i < 256; ++i)
+      check(math::fib_spiral(256, 0.5f, i));
+    if (!overlap)
+      for (uint8_t i = 0; i < cached.count; ++i) {
+        const auto &wave = cached.waves[i].ripple;
+        for (float edge : {wave.cos_near, wave.cos_far})
+          for (float delta : {-2e-4f, -5e-5f, 0.0f, 5e-5f, 2e-4f}) {
+            const float y = hs::clamp(edge + delta, -1.0f, 1.0f);
+            check({sqrtf(1.0f - y * y), y, 0.0f});
+          }
+      }
+  }
+}
+
 /** @brief Ripple phase repeats after its configured period. */
 inline void test_pullback_periodic_ripple() {
   Pullback::Surface::PeriodicRippleParams clock;

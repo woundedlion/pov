@@ -60,63 +60,140 @@ struct RiverStonesSpec : Pullback::Spec {
               B, "modulate2", Pattern::SourceKind::NOISE,
               Pattern::Evaluation::BAKED_CUBE>>>>;
 
-  /** @brief Shades the ordered layers at a shared spherical sample.
+  using Layer =
+      Pullback::Color::ModulationState; ///< Prepared modulation endpoints.
+  using Palette = Pullback::Color::
+      TemporalGeneratedPaletteState; ///< Prepared palette endpoints.
+
+  /** @brief Fixed source and mechanic order of the authored color tail. */
+  struct ColorColumn {
+    const Palette &palette;         ///< Ordered palette endpoints.
+    const Layer &hue, &lift, &mask; ///< Ordered modulation layers.
+    bool same_palette;              ///< RGB and alpha entries match.
+    bool blend = palette.fraction > 0.0f && palette.fraction < 1.0f;
+    bool retained = palette.fraction <= 0.0f;
+    const Pullback::Modulation::Prepared *noise =
+        retained ? hue.previous : hue.current;
+    const Pattern::SphereLutView *lift_cube = cube(lift);
+    const Pattern::SphereLutView *mask_cube = cube(mask);
+    bool authored =
+        hue.enabled && lift.enabled && mask.enabled &&
+        hue.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
+        lift.mechanic.kind ==
+            ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT &&
+        mask.mechanic.kind == ColorModulation::Mechanic::OPACITY &&
+        hue.source == Pattern::SourceKind::NOISE && noise &&
+        (!blend || hue.previous == hue.current) && lift_cube && mask_cube;
+
+    /** @brief Selected scalar cube for the column.
+     * @param layer Baked modulation layer.
+     * @return Byte cube admitting interpolation at this column time. */
+    const Pattern::SphereLutView *cube(const Layer &layer) const {
+      if (!layer.paired_cube_ready || layer.previous->cube.linear_data ||
+          layer.current->cube.linear_data)
+        return nullptr;
+      return &(retained ? layer.previous : layer.current)->cube;
+    }
+  };
+
+  /** @brief Bilinear retained value, sharing the current result for equal taps.
+   * @param tap Cube face coordinates.
+   * @param a Retained byte cube.
+   * @param b Current byte cube.
+   * @param current Current sample.
+   * @return Retained signed scalar. */
+  HS_HOT_INLINE static float
+  previous_scalar(const Pattern::SphereLutSample &tap,
+                  const Pattern::SphereLutView &a,
+                  const Pattern::SphereLutView &b, float current) {
+    const auto *old = a.data + tap.offset;
+    const auto *now = b.data + tap.offset;
+    constexpr int STRIDE = Pattern::SphereLutView::FACE_STEPS;
+    if (std::memcmp(old, now, 2) == 0 &&
+        std::memcmp(old + STRIDE, now + STRIDE, 2) == 0)
+      return current;
+    return Pattern::bounded_scalar(tap.sample(a));
+  }
+
+  /** @brief Shades edited layer orders through the canonical endpoint kernels.
+   * @param field Cell and coverage.
+   * @param column Prepared color layers.
+   * @return Straight-alpha color. */
+  HS_FLASH_MEMBER static Color4 shade_edited(const Pullback::FieldSample &field,
+                                             const ColorColumn &column) {
+    using namespace Pullback;
+    using Core = Color::GeneratedPaletteCore<true, false, true>;
+    if (column.blend) {
+      auto pair = Core::apply_pair(field, column.palette);
+      for (const auto *layer : {&column.hue, &column.lift, &column.mask})
+        Color::apply_modulation_pair_in_place(pair.first, pair.second, *layer);
+      blend_color_samples_in_place(pair.first, pair.second,
+                                   column.palette.fraction);
+      return finish_color_sample(pair.second);
+    }
+    auto result = Core::apply_endpoint(field, column.palette, column.retained);
+    for (const auto *layer : {&column.hue, &column.lift, &column.mask})
+      Color::apply_modulation_in_place(result, *layer, column.retained);
+    return finish_color_sample(result);
+  }
+
+  /** @brief Shades hue, lightness and opacity with one scalar cube address.
    * @param field Projected cell and coverage.
-   * @param palette Prepared palette endpoints.
-   * @param same_palette Whether both endpoint palettes have identical entries.
-   * @param layers Ordered modulation controls and sources.
+   * @param column Prepared color layers.
    * @return Straight-alpha color at the column time. */
   HS_HOT_FLASH_MEMBER static Color4
-  shade_field(const Pullback::FieldSample &field,
-              const Pullback::Color::TemporalGeneratedPaletteState &palette,
-              bool same_palette,
-              std::array<const Pullback::Color::ModulationState *, 3> layers) {
+  shade_field(const Pullback::FieldSample &field, const ColorColumn &column) {
     using namespace Pullback;
-    const float t = palette.fraction;
-    const bool previous_only = t <= 0.0f;
-    const bool blend = t > 0.0f && t < 1.0f;
-    const auto controls = Color::palette_controls(field, palette.current);
-    const auto endpoint = [&](const auto &state) HS_HOT_INLINE {
-      return Color::apply_palette_endpoint_impl(
-          field, state, controls.value, controls.opacity, controls.gain);
-    };
-    auto result = endpoint(previous_only ? palette.previous : palette.current);
-    ColorSample previous;
-    if (blend) {
-      previous = same_palette ? result : endpoint(palette.previous);
-      previous.hue_rotation = palette.previous.hue_rotation.active
-                                  ? palette.previous.hue_rotation.data
-                                  : nullptr;
-      previous.hue_rotation_gamut = palette.previous.hue_rotation.gamut_mask;
-    }
+    if (!column.authored)
+      return shade_edited(field, column);
+    const auto &palette = column.palette;
+    const auto &base = column.retained ? palette.previous : palette.current;
+    const auto controls = Color::palette_controls(field, base);
+    auto result = Color::apply_palette_endpoint_impl(
+        field, base, controls.value, controls.opacity, controls.gain);
     const auto direction = Pattern::SphereDirection::admit(field.sphere);
-    PhaseScratch scratch;
-    const auto scalar = [&](const Modulation::Prepared &source) HS_HOT_INLINE {
-      if (source.evaluate == Modulation::sample_cube && source.cube.active) {
-        if (!scratch.cube_tap_ready) {
-          scratch.cube_tap = Pattern::prepare_sphere_lut_sample(direction);
-          scratch.cube_tap_ready = true;
-        }
-        return Pattern::bounded_scalar(scratch.cube_tap.sample(source.cube));
-      }
-      return Modulation::sample(source, direction);
+    result.pending_hue = Color::accumulate_hue(
+        0.0f, Modulation::sample(*column.noise, direction),
+        column.hue.mechanic);
+    const auto tap = Pattern::prepare_sphere_lut_sample(direction);
+    const float lift = Pattern::bounded_scalar(tap.sample(*column.lift_cube));
+    const float mask = Pattern::bounded_scalar(tap.sample(*column.mask_cube));
+    result.pending_lift =
+        Color::accumulate_lift(0.0f, lift, column.lift.mechanic);
+    const auto opacity = [&](Color4 color, float value) HS_HOT_INLINE {
+      return ColorModulation::Opacity::apply(color, value,
+                                             {column.mask.mechanic.amount})
+          .alpha;
     };
-    for (const auto *layer : layers) {
-      if (!Color::modulation_active(*layer))
-        continue;
-      const auto *selected = previous_only ? layer->previous : layer->current;
-      const bool spatial = layer->source != Pattern::SourceKind::DISPLACEMENT;
-      const float value = spatial ? scalar(*selected) : field.path_length;
-      Color::apply_mechanic_scalar(result, value, layer->mechanic);
-      if (blend) {
-        const float retained = spatial && layer->previous != selected
-                                   ? scalar(*layer->previous)
-                                   : value;
-        Color::apply_mechanic_scalar(previous, retained, layer->mechanic);
+    const auto current = result.color;
+    result.color.alpha = opacity(current, mask);
+    if (column.blend) {
+      auto old = current;
+      if (!column.same_palette) {
+        old = palette.previous.palette->get(controls.value);
+        old.alpha *= controls.opacity;
+        result.color.color =
+            old.color.lerp16(current.color, frac_to_q16(palette.fraction));
       }
+      const auto *table = palette.previous.hue_rotation.active
+                              ? palette.previous.hue_rotation.data
+                              : nullptr;
+      if (old.color != current.color || table != result.hue_rotation ||
+          palette.previous.hue_rotation.gamut_mask !=
+              result.hue_rotation_gamut) {
+        result.hue_rotation = nullptr;
+        result.hue_rotation_gamut = nullptr;
+      }
+      const float old_lift = previous_scalar(tap, column.lift.previous->cube,
+                                             *column.lift_cube, lift);
+      const float old_mask = previous_scalar(tap, column.mask.previous->cube,
+                                             *column.mask_cube, mask);
+      result.pending_lift =
+          hs::lerp(Color::accumulate_lift(0.0f, old_lift, column.lift.mechanic),
+                   result.pending_lift, palette.fraction);
+      result.color.alpha = hs::lerp(opacity(old, old_mask), result.color.alpha,
+                                    palette.fraction);
     }
-    if (blend)
-      blend_color_samples_in_place(previous, result, t);
     return finish_color_sample(result);
   }
 };
@@ -335,12 +412,44 @@ public:
   // clang-format on
   // End generated params.
 
+  /** @brief Binds the palette and ordered layers for one column.
+   * @param frame Prepared column frame.
+   * @return Immutable color evaluation context. */
+  static RiverStonesSpec::ColorColumn
+  color_column(const typename Base::Frame &frame) {
+    return {std::get<4>(frame.prepared), std::get<5>(frame.prepared),
+            std::get<6>(frame.prepared), std::get<7>(frame.prepared),
+            frame.ctx.temporal.same_palette};
+  }
+
+  /** @brief Binds the shared color context for the latitude scan.
+   * @param frame Prepared column.
+   * @param x Column coordinate.
+   * @return Shader borrowing the frame. */
+  static auto prepare_column_shader(const typename Base::Frame &frame, int x) {
+    (void)x;
+    return [&frame, column = color_column(frame)](const math::Vector &view) {
+      return shade_column(view, frame, column);
+    };
+  }
+
   /** @brief Shades a unit view direction at the prepared column time.
    * @param view View direction.
    * @param frame Prepared column.
    * @return Straight-alpha pixel color. */
   HS_HOT_FLASH_MEMBER static Color4 shade(const math::Vector &view,
                                           const typename Base::Frame &frame) {
+    return shade_column(view, frame, color_column(frame));
+  }
+
+  /** @brief Shades a pixel with its prebound color layers.
+   * @param view View direction.
+   * @param frame Prepared geometry.
+   * @param column Prepared color layers.
+   * @return Straight-alpha pixel color. */
+  HS_HOT_FLASH_MEMBER static Color4
+  shade_column(const math::Vector &view, const typename Base::Frame &frame,
+               const RiverStonesSpec::ColorColumn &column) {
     using Pipeline = typename Base::RenderPipeline;
     static_assert(Pipeline::NODE_COUNT == 8);
     const auto run = [&]<size_t I>(const auto &input) HS_HOT_INLINE {
@@ -352,10 +461,7 @@ public:
     const auto displaced = run.template operator()<1>(rotated);
     const auto projected = run.template operator()<2>(displaced);
     const auto field = run.template operator()<3>(projected);
-    return RiverStonesSpec::shade_field(
-        field, std::get<4>(frame.prepared), frame.ctx.temporal.same_palette,
-        {&std::get<5>(frame.prepared), &std::get<6>(frame.prepared),
-         &std::get<7>(frame.prepared)});
+    return RiverStonesSpec::shade_field(field, column);
   }
 
   /** @brief Explicit choreography customization bindings.

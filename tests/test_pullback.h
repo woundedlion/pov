@@ -1889,6 +1889,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_periodic_ripple);
   HS_RUN(test_pullback_ripple_supplied_center);
   HS_RUN(test_pullback_ripple_burst_centers);
+  HS_RUN(test_pullback_single_center_ripple_support);
   HS_RUN(test_pullback_radial_ripple_endpoint_reuse);
   HS_RUN(test_pullback_radial_cell_validity);
   HS_RUN(test_pullback_radial_validity_lifetime);

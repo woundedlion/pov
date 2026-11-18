@@ -1727,10 +1727,12 @@ inline void test_river_stones_color_tail() {
   const auto current = effect.frame_for_test();
   BakedPaletteStorage alternate;
   alternate.bake(persistent_arena, Palettes::RICH_SUNSET);
-  const auto compare = [](const auto &before, const auto &after) {
+  const auto compare = [](const auto &before, const auto &after,
+                          bool authored) {
     const FrameInterval interval(before, after);
     for (float t : {0.0f, 0.19f, 0.5f, 0.92f, 1.0f}) {
       const auto frame = FX::RenderPipeline::prepare(interval.at(t));
+      HS_EXPECT_EQ(FX::color_column(frame).authored, authored);
       for (int x = 0; x < SMALL_W; x += 7)
         for (int y = 0; y < SMALL_H; y += 3) {
           const auto view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, y);
@@ -1741,21 +1743,22 @@ inline void test_river_stones_color_tail() {
         }
     }
   };
-  compare(history.previous, current);
+  compare(history.previous, current, true);
   auto before = history.previous;
   auto after = current;
   after.palette = &alternate.view();
   after.params.template get<"modulate">().modulation.mechanic.amount = -0.8f;
+  compare(before, after, true);
   before.params.template get<"modulate1">().modulation.mechanic.kind =
       after.params.template get<"modulate1">().modulation.mechanic.kind =
           ColorModulation::Mechanic::OPACITY;
   before.params.template get<"modulate2">().modulation.mechanic.kind =
       after.params.template get<"modulate2">().modulation.mechanic.kind =
           ColorModulation::Mechanic::HUE_ROTATION;
-  compare(before, after);
+  compare(before, after, false);
   after.params.template get<"modulate1">().modulation.mechanic.amount = 0.0f;
   after.params.template get<"modulate2">().modulation.enabled = false;
-  compare(before, after);
+  compare(before, after, false);
 }
 
 /** @brief Static direct noise shares a sample across the two color endpoints. */
