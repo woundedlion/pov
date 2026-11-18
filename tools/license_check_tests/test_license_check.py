@@ -238,25 +238,26 @@ class TestMain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             git_run(root, "init", "-q")
-            source = root / "sample.h"
+            source = root / "café.h"
             source.write_text("#pragma once\n", encoding="utf-8")
             (root / "other.h").write_text("#pragma once\n", encoding="utf-8")
-            git_run(root, "add", "sample.h", "other.h")
+            git_run(root, "add", source.name, "other.h")
             source.write_text(POLYFORM_HEADER, encoding="utf-8")
 
             def staged(paths):
-                with mock.patch.object(sys, "stdin", io.StringIO(paths)), \
+                with io.TextIOWrapper(io.BytesIO(paths.encode("utf-8")), encoding="cp1252") as stdin, \
+                        mock.patch.object(sys, "stdin", stdin), \
                         contextlib.redirect_stdout(io.StringIO()) as out, \
                         contextlib.redirect_stderr(io.StringIO()):
                     return lc.main(["--root", str(root), "--staged"]), out.getvalue()
 
-            result, out = staged("sample.h\nREADME.md\n")
+            result, out = staged(f"{source.name}\nREADME.md\n")
             self.assertEqual(result, 1)
-            self.assertIn("sample.h:1: no copyright notice", out)
+            self.assertIn(f"{source.name}:1: no copyright notice", out)
             self.assertNotIn("other.h", out)
-            git_run(root, "add", "sample.h")
+            git_run(root, "add", source.name)
             source.write_text("#pragma once\n", encoding="utf-8")
-            self.assertEqual(staged("sample.h\n")[0], 0)
+            self.assertEqual(staged(f"{source.name}\n")[0], 0)
             self.assertEqual(staged("")[0], 0)
 
 

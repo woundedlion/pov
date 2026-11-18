@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
-from git_files import git_nul_list, staged_blobs
+from git_files import git_nul_list, staged_blobs, staged_paths
 
 NOTICE = "Required Notice: Copyright 2025 Gabriel Levy. All rights reserved."
 POLYFORM = "Licensed under the PolyForm Noncommercial License 1.0.0"
@@ -135,12 +135,13 @@ def header_issue(path: str, head: str) -> str | None:
 
 def check_staged(root: Path) -> int:
     """Check the staged headers of the paths read from stdin; return the exit code."""
-    paths = [path for path in sys.stdin.read().splitlines()
-             if PurePosixPath(path).suffix in SOURCE_SUFFIXES]
     try:
+        paths = [path for path in staged_paths()
+                 if PurePosixPath(path).suffix in SOURCE_SUFFIXES]
         blobs = staged_blobs(root, paths)
-    except (OSError, subprocess.SubprocessError) as error:
-        print(f"[license-check] tooling error: cannot run git: {error}", file=sys.stderr)
+    except (OSError, subprocess.SubprocessError, UnicodeError) as error:
+        print(f"[license-check] tooling error: cannot read staged sources ({error})",
+              file=sys.stderr)
         return 2
     issues = [f"{path}:1: {issue}" for path, data in sorted(blobs.items())
               if (issue := header_issue(

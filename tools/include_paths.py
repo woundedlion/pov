@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 from doc_coverage import CPP_LEXEMES
-from git_files import git_nul_list, staged_blobs
+from git_files import git_nul_list, staged_blobs, staged_paths
 
 SOURCE_SUFFIXES = {".h", ".hpp", ".cpp", ".cc", ".inl", ".ino"}
 LINKER_SCRIPTS = frozenset({"tools/phantasm.ld"})
@@ -131,7 +131,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     try:
         files = git_nul_list(args.root, "ls-files", "-z", timeout=None)
-        sources = (staged_blobs(args.root, sys.stdin.read().splitlines())
+        sources = (staged_blobs(args.root, staged_paths())
                    if args.staged else None)
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         print(f"[include-paths] tooling error: cannot read tracked sources ({error})",

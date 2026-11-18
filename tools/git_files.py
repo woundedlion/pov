@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 GIT_TIMEOUT_SECONDS = 30
@@ -23,6 +24,11 @@ def git_nul_list(root: Path, *args: str,
     result = subprocess.run(git_command(root, *args), check=True,
                             stdout=subprocess.PIPE, timeout=timeout)
     return [name for name in result.stdout.decode("utf-8").split("\0") if name]
+
+
+def staged_paths() -> list[str]:
+    """Read the hook's newline-delimited UTF-8 paths from stdin."""
+    return [path.decode("utf-8") for path in sys.stdin.buffer.read().splitlines()]
 
 
 def staged_blobs(root: Path, paths: list[str]) -> dict[str, bytes]:

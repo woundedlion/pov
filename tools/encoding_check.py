@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 
-from git_files import git_nul_list, staged_blobs
+from git_files import git_nul_list, staged_blobs, staged_paths
 
 
 def mojibake_lines(text: str) -> list[int]:
@@ -48,7 +48,7 @@ def main() -> int:
     root = args.root.resolve()
     try:
         if args.staged:
-            contents = staged_blobs(root, sys.stdin.read().splitlines())
+            contents = staged_blobs(root, staged_paths())
         else:
             files = git_nul_list(root, "ls-files", "-z")
             if not files:

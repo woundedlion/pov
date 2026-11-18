@@ -100,23 +100,26 @@ class EncodingCheckTests(unittest.TestCase):
             root = Path(directory)
             git_run(root, "init", "-q")
             corrupt = "—".encode("utf-8").decode("cp1252")
-            listed, unlisted = root / "listed.txt", root / "unlisted.txt"
+            listed, unlisted = root / "caf\u00e9.txt", root / "unlisted.txt"
             listed.write_text(corrupt, encoding="utf-8")
             unlisted.write_text(corrupt, encoding="utf-8")
-            git_run(root, "add", "--", "listed.txt", "unlisted.txt")
+            git_run(root, "add", "--", listed.name, unlisted.name)
             listed.write_text("clean\n", encoding="utf-8")
 
             def staged(paths):
                 return subprocess.run([sys.executable, str(TOOL), "--root", str(root), "--staged"],
-                                      input=paths, capture_output=True, env=isolated_env())
+                                      input=paths, capture_output=True,
+                                      env=dict(isolated_env(), PYTHONIOENCODING="cp1252"))
 
-            result = staged(b"listed.txt\n")
+            changed = git_run(root, "-c", "core.quotePath=false", "diff", "--cached",
+                              "--name-only", "--", listed.name, text=False).stdout
+            result = staged(changed)
             self.assertEqual(result.returncode, 1, result.stderr)
-            self.assertIn(b"listed.txt:1:", result.stderr)
+            self.assertIn(f"{listed.name}:1:", result.stderr.decode("cp1252"))
             self.assertNotIn(b"unlisted.txt", result.stderr)
-            git_run(root, "add", "--", "listed.txt")
+            git_run(root, "add", "--", listed.name)
             listed.write_text(corrupt, encoding="utf-8")
-            self.assertEqual(staged(b"listed.txt\n").returncode, 0)
+            self.assertEqual(staged(changed).returncode, 0)
             self.assertEqual(staged(b"").returncode, 0)
 
 
