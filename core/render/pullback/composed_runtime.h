@@ -45,6 +45,27 @@ struct ComposedFrameWhiteBox;
 
 namespace Pullback {
 
+/** @brief Registers a projection or camera orientation walk for one display width.
+ * @tparam W Display width.
+ * @param timeline Receives the walk at frame zero.
+ * @param orientation Driven orientation.
+ * @param noise Mutable generator owned by the composed effect.
+ * @param seed Walk seed.
+ * @param reseed Applies the authored generator seed after constructing the walk.
+ * @param paused Optional pause flag owned by the composed effect. */
+template <int W>
+HS_SIZE_FLASH_MEMBER void
+add_composed_walk(Timeline &timeline, math::Orientation<> &orientation,
+                  FastNoiseLite &noise, int32_t seed, bool reseed,
+                  const bool *paused = nullptr) {
+  Animation::RandomWalk<W> walk(orientation, math::UP, noise,
+                                typename Animation::RandomWalk<W>::Options{},
+                                seed);
+  if (reseed)
+    noise.SetSeed(seed);
+  timeline.add_get(0, std::move(walk), Timeline::Pin::UNPINNED, paused);
+}
+
 /**
  * @brief A complete composed effect: the shared lifecycle plus a pipeline
  *        declared by a ranked stage Spec.
@@ -151,7 +172,7 @@ public:
    * effect heap-allocates nothing after init. The `AFTER_COMPOSED_INIT` hook
    * runs last, once the parameters, palette cycler and camera walks are live.
    */
-  HS_FLASH_MEMBER void init() override {
+  HS_SIZE_FLASH_MEMBER void init() override {
     static_assert(
         modulation_presets_are_supported(),
         "composed modulation presets must retain source and mechanic");
@@ -177,21 +198,16 @@ public:
                             projection_operator_id(Metadata::PROJECTION)));
         return PROJECTION_WALK_SEED;
       }();
-      auto walk = Animation::RandomWalk<W>(
-          this->projection_walk, math::UP, state->projection_walk_noise,
-          typename Animation::RandomWalk<W>::Options{}, SEED);
-      if constexpr (AUTHORED_TOPOLOGY)
-        state->projection_walk_noise.SetSeed(SEED);
+      const bool *paused = nullptr;
       if constexpr (requires { params.template get<"projection">().frame; })
-        timeline.add_pausable(0, std::move(walk), &projection_frame_paused);
-      else
-        timeline.add(0, std::move(walk));
+        paused = &projection_frame_paused;
+      add_composed_walk<W>(timeline, this->projection_walk,
+                           state->projection_walk_noise, SEED,
+                           AUTHORED_TOPOLOGY, paused);
     }
     if constexpr (Metadata::OUTER_CAMERA)
-      timeline.add(0, Animation::RandomWalk<W>(
-                          this->outer_walk, math::UP, state->outer_walk_noise,
-                          typename Animation::RandomWalk<W>::Options{},
-                          CAMERA_WALK_SEED));
+      add_composed_walk<W>(timeline, this->outer_walk, state->outer_walk_noise,
+                           CAMERA_WALK_SEED, false);
     this->register_parameters();
 #ifdef ARDUINO
     if constexpr (SpecT::CACHE_FULL_GAMUT_LUT)
