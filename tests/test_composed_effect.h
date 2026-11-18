@@ -62,6 +62,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_retained_palette_identity_rejects_changes);
   HS_RUN(test_ash_cloud_noise_column_phase);
   HS_RUN(test_temporal_direct_noise_endpoint_reuse);
+  HS_RUN(test_river_stones_color_tail);
   HS_RUN(test_baked_cube_column_phase);
   HS_RUN(test_chamber_noise_cache_bake_lifetime);
   HS_RUN(test_chamber_noise_cache_admission);

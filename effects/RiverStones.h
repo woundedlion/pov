@@ -59,6 +59,66 @@ struct RiverStonesSpec : Pullback::Spec {
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulate2", Pattern::SourceKind::NOISE,
               Pattern::Evaluation::BAKED_CUBE>>>>;
+
+  /** @brief Shades the ordered layers at a shared spherical sample.
+   * @param field Projected cell and coverage.
+   * @param palette Prepared palette endpoints.
+   * @param same_palette Whether both endpoint palettes have identical entries.
+   * @param layers Ordered modulation controls and sources.
+   * @return Straight-alpha color at the column time. */
+  HS_HOT_FLASH_MEMBER static Color4
+  shade_field(const Pullback::FieldSample &field,
+              const Pullback::Color::TemporalGeneratedPaletteState &palette,
+              bool same_palette,
+              std::array<const Pullback::Color::ModulationState *, 3> layers) {
+    using namespace Pullback;
+    const float t = palette.fraction;
+    const bool previous_only = t <= 0.0f;
+    const bool blend = t > 0.0f && t < 1.0f;
+    const auto controls = Color::palette_controls(field, palette.current);
+    const auto endpoint = [&](const auto &state) HS_HOT_INLINE {
+      return Color::apply_palette_endpoint_impl(
+          field, state, controls.value, controls.opacity, controls.gain);
+    };
+    auto result = endpoint(previous_only ? palette.previous : palette.current);
+    ColorSample previous;
+    if (blend) {
+      previous = same_palette ? result : endpoint(palette.previous);
+      previous.hue_rotation = palette.previous.hue_rotation.active
+                                  ? palette.previous.hue_rotation.data
+                                  : nullptr;
+      previous.hue_rotation_gamut = palette.previous.hue_rotation.gamut_mask;
+    }
+    const auto direction = Pattern::SphereDirection::admit(field.sphere);
+    PhaseScratch scratch;
+    const auto scalar = [&](const Modulation::Prepared &source) HS_HOT_INLINE {
+      if (source.evaluate == Modulation::sample_cube && source.cube.active) {
+        if (!scratch.cube_tap_ready) {
+          scratch.cube_tap = Pattern::prepare_sphere_lut_sample(direction);
+          scratch.cube_tap_ready = true;
+        }
+        return Pattern::bounded_scalar(scratch.cube_tap.sample(source.cube));
+      }
+      return Modulation::sample(source, direction);
+    };
+    for (const auto *layer : layers) {
+      if (!Color::modulation_active(*layer))
+        continue;
+      const auto *selected = previous_only ? layer->previous : layer->current;
+      const bool spatial = layer->source != Pattern::SourceKind::DISPLACEMENT;
+      const float value = spatial ? scalar(*selected) : field.path_length;
+      Color::apply_mechanic_scalar(result, value, layer->mechanic);
+      if (blend) {
+        const float retained = spatial && layer->previous != selected
+                                   ? scalar(*layer->previous)
+                                   : value;
+        Color::apply_mechanic_scalar(previous, retained, layer->mechanic);
+      }
+    }
+    if (blend)
+      blend_color_samples_in_place(previous, result, t);
+    return finish_color_sample(result);
+  }
 };
 /// Parameter block derived from `RiverStonesSpec`.
 using RiverStonesParams = Pullback::ParamsFor<RiverStonesSpec>;
@@ -71,6 +131,8 @@ using RiverStonesParams = Pullback::ParamsFor<RiverStonesSpec>;
 template <int W, int H>
 class RiverStones : public Pullback::ComposedEffect<W, H, RiverStones<W, H>,
                                                     RiverStonesSpec> {
+  using Base =
+      Pullback::ComposedEffect<W, H, RiverStones<W, H>, RiverStonesSpec>;
 
 public:
   using Params = RiverStonesParams; ///< Live parameter struct.
@@ -272,6 +334,29 @@ public:
   }
   // clang-format on
   // End generated params.
+
+  /** @brief Shades a unit view direction at the prepared column time.
+   * @param view View direction.
+   * @param frame Prepared column.
+   * @return Straight-alpha pixel color. */
+  HS_HOT_FLASH_MEMBER static Color4 shade(const math::Vector &view,
+                                          const typename Base::Frame &frame) {
+    using Pipeline = typename Base::RenderPipeline;
+    static_assert(Pipeline::NODE_COUNT == 8);
+    const auto run = [&]<size_t I>(const auto &input) HS_HOT_INLINE {
+      return Pipeline::template NodeAt<I>::run(input, frame.ctx,
+                                               std::get<I>(frame.prepared));
+    };
+    const auto rotated =
+        run.template operator()<0>(Pullback::SphereSample{view, 0.0f});
+    const auto displaced = run.template operator()<1>(rotated);
+    const auto projected = run.template operator()<2>(displaced);
+    const auto field = run.template operator()<3>(projected);
+    return RiverStonesSpec::shade_field(
+        field, std::get<4>(frame.prepared), frame.ctx.temporal.same_palette,
+        {&std::get<5>(frame.prepared), &std::get<6>(frame.prepared),
+         &std::get<7>(frame.prepared)});
+  }
 
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */

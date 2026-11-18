@@ -1713,6 +1713,51 @@ inline void test_grid_worms_sine_column_phase() {
   }
 }
 
+/** @brief RiverStones' shared layer samples preserve RGB16 and straight alpha. */
+inline void test_river_stones_color_tail() {
+  using namespace Pullback;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  ComposedHistory<FX> history;
+  history.capture(effect.frame_for_test(), persistent_arena);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto current = effect.frame_for_test();
+  BakedPaletteStorage alternate;
+  alternate.bake(persistent_arena, Palettes::RICH_SUNSET);
+  const auto compare = [](const auto &before, const auto &after) {
+    const FrameInterval interval(before, after);
+    for (float t : {0.0f, 0.19f, 0.5f, 0.92f, 1.0f}) {
+      const auto frame = FX::RenderPipeline::prepare(interval.at(t));
+      for (int x = 0; x < SMALL_W; x += 7)
+        for (int y = 0; y < SMALL_H; y += 3) {
+          const auto view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, y);
+          const auto expected = FX::RenderPipeline::shade(view, frame);
+          const auto actual = FX::shade(view, frame);
+          HS_EXPECT_EQ(actual.color, expected.color);
+          HS_EXPECT_EQ(actual.alpha, expected.alpha);
+        }
+    }
+  };
+  compare(history.previous, current);
+  auto before = history.previous;
+  auto after = current;
+  after.palette = &alternate.view();
+  after.params.template get<"modulate">().modulation.mechanic.amount = -0.8f;
+  before.params.template get<"modulate1">().modulation.mechanic.kind =
+      after.params.template get<"modulate1">().modulation.mechanic.kind =
+          ColorModulation::Mechanic::OPACITY;
+  before.params.template get<"modulate2">().modulation.mechanic.kind =
+      after.params.template get<"modulate2">().modulation.mechanic.kind =
+          ColorModulation::Mechanic::HUE_ROTATION;
+  compare(before, after);
+  after.params.template get<"modulate1">().modulation.mechanic.amount = 0.0f;
+  after.params.template get<"modulate2">().modulation.enabled = false;
+  compare(before, after);
+}
+
 /** @brief Static direct noise shares a sample across the two color endpoints. */
 inline void test_temporal_direct_noise_endpoint_reuse() {
   using namespace Pullback;

@@ -448,8 +448,12 @@ apply_mechanic_scalar(ColorSample &sample, float scalar,
   if (mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION ||
       mechanic.kind == ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
     apply_perceptual_scalar(sample, scalar, mechanic);
-  else
-    sample.color = ColorModulation::apply(sample.color, scalar, mechanic);
+  else {
+    HS_CHECK(mechanic.kind == ColorModulation::Mechanic::OPACITY,
+             "unknown modulation mechanic");
+    sample.color = ColorModulation::Opacity::apply(sample.color, scalar,
+                                                   {mechanic.amount});
+  }
 }
 /** @brief Applies one ordered modulation layer.
  * @param sample Color and source coordinates, updated in place.
