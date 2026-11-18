@@ -622,6 +622,23 @@ inline void test_timed_contours_match_frozen_columns() {
   }
 }
 
+/** @brief Preset 5 keeps its polar stroke anchor lit across small phase shifts. */
+inline void test_timed_preset_five_preserves_polar_anchor() {
+  constexpr size_t PRESET = 4;
+  constexpr int COLUMN = 266;
+  constexpr int ROW = 37;
+  OracleState state = preset_state(PRESET);
+  state.alpha = 1.0f;
+  state.phase = 0.002375f;
+  const TimedContourRenderOptions options{.step = preset_phase_step(PRESET)};
+  const auto before = render_timed_contours(state, options);
+  state.phase += 0.00002f;
+  const auto after = render_timed_contours(state, options);
+  const size_t pixel = ROW * ORACLE_W + COLUMN;
+  HS_EXPECT_GT(before[pixel], 0.025f);
+  HS_EXPECT_NEAR(after[pixel], before[pixel], 0.002f);
+}
+
 /** @brief Shipping presets match their frozen columns at the authored speed. */
 inline void test_timed_presets_match_frozen_columns() {
   for (size_t i = 1; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {

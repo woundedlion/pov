@@ -35,6 +35,7 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_chart_edge_rotation_radius);
   HS_RUN(test_polar_walk_matches_rotated_chart);
   HS_RUN(test_timed_contours_match_frozen_columns);
+  HS_RUN(test_timed_preset_five_preserves_polar_anchor);
   HS_RUN(test_timed_presets_match_frozen_columns);
   HS_RUN(test_timed_flower_clip_culls_anchor_intervals);
   HS_RUN(test_timed_flower_mid_arm_clip_preserves_motion);

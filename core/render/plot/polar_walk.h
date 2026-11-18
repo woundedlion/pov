@@ -93,7 +93,6 @@ template <int W, int H> struct PolarWalk {
        bool north, const Color4 &color, float step, bool balanced = true,
        float density = 1.0f) {
     const ColumnWindow window = column_window(a, b);
-    const int first = window.first, count = window.count;
     const float pole = north ? math::DisplayGeometry<H>::NORTH_POLE_ROW
                              : math::DisplayGeometry<H>::SOUTH_POLE_ROW;
     const float sign = north ? 1.0f : -1.0f;
@@ -101,7 +100,8 @@ template <int W, int H> struct PolarWalk {
         density / step *
         balanced_sample_alpha(color.alpha, step / SCREEN_STEP_PX);
     for_each_render_column<W>(
-        canvas, first, count, [&](int, int column, float t) HS_HOT_INLINE {
+        canvas, window.first, window.count,
+        [&](int, int column, float t) HS_HOT_INLINE {
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::polar_column_visits>();
           const auto from = a.at(t), to = b.at(t);
@@ -227,46 +227,63 @@ template <int W, int H> struct PolarWalk {
           const float norm = ex * ex + ey * ey;
           if (norm < 1e-12f)
             return;
-          const float foot = -(from.x * ex + from.y * ey) / norm;
+          const float inverse_norm = 1.0f / norm;
+          const float foot = -(from.x * ex + from.y * ey) * inverse_norm;
           auto radius_at = [&](float u) HS_HOT_INLINE {
             const float x = from.x + ex * u, y = from.y + ey * u;
             return sqrtf(x * x + y * y);
           };
           const float rlo = radius_at(lo), rhi = radius_at(hi);
-          const float rmin = radius_at(hs::clamp(foot, lo, hi));
           const float rmax = fmaxf(rlo, rhi);
           const float distance2 = fmaxf(
               0.0f, from.x * from.x + from.y * from.y - foot * foot * norm);
-          float radial_step = step, radial_phase = 0.0f,
-                alpha = stroke_sample_alpha(color.alpha, step / SCREEN_STEP_PX,
-                                            density, balanced);
+          const auto root_offset = [&](float r) HS_HOT_INLINE {
+            return sqrtf(fmaxf(0.0f, (r * r - distance2) * inverse_norm));
+          };
+          const auto emit_at = [&](float r, float u,
+                                   float alpha) HS_HOT_INLINE {
+            if (u < lo || u >= hi)
+              return;
+            const float forward = along + ea * u;
+            if (forward <= 0.0f)
+              return;
+            const float x =
+                float(column) + math::precise_atan2(across + ec * u, forward) /
+                                    math::RADIANS_PER_COLUMN<W>;
+            emit(r, x, alpha);
+          };
           const float first_radius = radius_at(0.0f);
-          const float last_radius = radius_at(1.0f);
-          if ((foot <= 0.0f || foot >= 1.0f) &&
-              fabsf(last_radius - first_radius) > 1e-6f) {
-            const float dr = last_radius - first_radius;
+          const float dr = radius_at(1.0f) - first_radius;
+          if ((foot <= 0.0f || foot >= 1.0f) && fabsf(dr) > 1e-6f) {
+            const float rmin = fminf(rlo, rhi);
             const auto plan = sample_plan(dr);
-            radial_step = fabsf(dr) * plan.inverse;
-            radial_phase = first_radius;
-            alpha = plan.alpha;
-          }
-          for (int row =
-                   static_cast<int>(ceilf((rmin - radial_phase) / radial_step));
-               radial_phase + row * radial_step <= rmax; ++row) {
-            const float r = radial_phase + row * radial_step;
-            const float offset = sqrtf(fmaxf(0.0f, (r * r - distance2) / norm));
-            for (int branch = 0; branch < 2; ++branch) {
-              const float u = foot + (branch ? offset : -offset);
-              if (u < lo || u >= hi || (branch && offset == 0.0f))
-                continue;
-              const float forward = along + ea * u;
-              if (forward <= 0.0f)
-                continue;
-              const float x = float(column) +
-                              math::precise_atan2(across + ec * u, forward) /
-                                  math::RADIANS_PER_COLUMN<W>;
-              emit(r, x, alpha);
+            const float spacing = fabsf(dr) * plan.inverse;
+            const bool outward = dr > 0.0f;
+            const int first =
+                static_cast<int>(ceilf((rmin - first_radius) / spacing));
+            const int begin = std::max(first, outward ? 1 : 1 - plan.samples);
+            const int end = outward ? plan.samples : 0;
+            const float root_sign = outward ? 1.0f : -1.0f;
+            // The half-open lattice owns its exact start anchor.
+            emit_at(first_radius, 0.0f, plan.alpha);
+            for (int row = begin; row < end; ++row) {
+              const float r = first_radius + row * spacing;
+              if (r > rmax)
+                break;
+              emit_at(r, foot + root_sign * root_offset(r), plan.alpha);
             }
+            return;
+          }
+          const float rmin = radius_at(hs::clamp(foot, lo, hi));
+          const float alpha = stroke_sample_alpha(
+              color.alpha, step / SCREEN_STEP_PX, density, balanced);
+          for (int row = static_cast<int>(ceilf(rmin / step));
+               row * step <= rmax; ++row) {
+            const float r = row * step;
+            const float offset = root_offset(r);
+            emit_at(r, foot - offset, alpha);
+            if (offset > 0.0f)
+              emit_at(r, foot + offset, alpha);
           }
         });
   }
