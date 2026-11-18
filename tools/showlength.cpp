@@ -24,6 +24,6 @@ int main() {
 
   const auto total_seconds =
       (total_revs + REVS_PER_SECOND / 2) / REVS_PER_SECOND;
-  std::printf("%02llu::%02llu::%02llu\n", total_seconds / 3600,
+  std::printf("%02llu:%02llu:%02llu\n", total_seconds / 3600,
               total_seconds / 60 % 60, total_seconds % 60);
 }
