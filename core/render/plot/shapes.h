@@ -1523,6 +1523,14 @@ public:
  *       rendered path.
  */
 struct Flower {
+  /** @brief Centers the planar petal chart opposite the ring.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @return Chart basis in which straight edges bow outward into petals. */
+  static math::Basis chart_basis(const math::Basis &basis, float radius) {
+    return planar_chart_basis(math::get_antipode(basis, radius).first.v);
+  }
+
   /**
    * @brief Samples a flower shape.
    * @param points Output fragment list; num_sides*2+1 fragments are appended.
@@ -1572,11 +1580,7 @@ struct Flower {
                    FragmentShaderRef fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Flower::draw: num_sides %d < 1", num_sides);
-    // Center the chart on the antipode pole, opposite the petal ring: projecting
-    // the constant-radius ring through the far-pole chart bows its straight edges
-    // outward into petals.
-    math::Basis planar_basis =
-        planar_chart_basis(math::get_antipode(basis, radius).first.v);
+    math::Basis planar_basis = chart_basis(basis, radius);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),

@@ -283,8 +283,7 @@ public:
               layout.star_step_trig(), *chart);
         } else {
           if (shape == ContourShape::FLOWER) {
-            projection_basis = planar_chart_basis(
-                math::get_antipode(world_basis, radius).first.v);
+            projection_basis = Flower::chart_basis(world_basis, radius);
             Flower::sample(ring, world_basis, radius, sides, contour_phase);
           } else {
             chart = PlanarProjection::edge_basis(world_basis, radius,

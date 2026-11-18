@@ -293,8 +293,7 @@ private:
                    });
       break;
     case ContourShape::FLOWER: {
-      math::Basis planar_basis =
-          planar_chart_basis(math::get_antipode(basis, radius).first.v);
+      math::Basis planar_basis = Flower::chart_basis(basis, radius);
       if (flower_band.x_active) {
         draw_banded_flower(sink, canvas, basis, planar_basis, radius, sides,
                            fragment_shader, shape_phase);
