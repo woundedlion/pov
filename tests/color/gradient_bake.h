@@ -253,7 +253,7 @@ inline void test_baked_palette_constant_alpha() {
     }
   };
   alignas(std::max_align_t)
-      uint8_t buffer[BakedPalette::required_arena_bytes()];
+      uint8_t buffer[3 * BakedPalette::required_arena_bytes()];
   Arena arena(buffer, sizeof(buffer));
   BakedPaletteStorage storage;
   storage.bake(arena, Source{1.0f});
@@ -271,6 +271,24 @@ inline void test_baked_palette_constant_alpha() {
   }
   storage.rebake(Source{1.0f});
   HS_EXPECT_NEAR(view.constant_alpha().value_or(-1.0f), 1.0f, 0.0f);
+
+  BakedPaletteStorage copy;
+  copy.clone_from(view, arena);
+  storage.rebake(Source{1.0f, 127});
+  HS_EXPECT_TRUE(copy.view().constant_alpha().has_value());
+  BakedPaletteStorage blend;
+  blend.bake_blend(arena, view, copy.view(), 0.5f);
+  const BakedPalette blend_view = blend.view();
+  HS_EXPECT_TRUE(!blend_view.constant_alpha().has_value());
+  blend.rebake_crossfade(view, copy.view(), 1.0f);
+  HS_EXPECT_TRUE(blend_view.constant_alpha().has_value());
+  copy.rebake_copy(view);
+  HS_EXPECT_TRUE(!copy.view().constant_alpha().has_value());
+  storage.rebake(Source{0.5f});
+  copy.rebake(Source{0.0f});
+  blend.rebake_crossfade(view, copy.view(), 0.5f);
+  HS_EXPECT_EQ(blend_view.constant_alpha().value_or(-1.0f),
+               blend_view.get_alpha(0.5f));
 }
 
 /**

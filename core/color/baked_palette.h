@@ -58,8 +58,8 @@ public:
    * @return Byte budget.
    */
   static constexpr size_t required_arena_bytes() {
-    return LUT_SIZE * (sizeof(Pixel) + sizeof(uint16_t)) + alignof(Pixel) +
-           alignof(uint16_t);
+    return LUT_SIZE * sizeof(Pixel) + ALPHA_WORDS * sizeof(uint16_t) +
+           alignof(Pixel) + alignof(uint16_t);
   }
 
   /**
@@ -114,11 +114,9 @@ public:
   std::optional<float> constant_alpha() const {
     HS_AUDIT_CHECK(alpha_q16 != nullptr,
                    "BakedPalette::constant_alpha before bake()");
-    const uint16_t alpha = alpha_q16[0];
-    for (int index = 1; index < LUT_SIZE; ++index)
-      if (alpha_q16[index] != alpha)
-        return std::nullopt;
-    return alpha * Q16_TO_UNIT;
+    if (!alpha_q16[LUT_SIZE])
+      return std::nullopt;
+    return alpha_q16[0] * Q16_TO_UNIT;
   }
 
   /**
@@ -180,6 +178,8 @@ public:
 
 private:
   friend class BakedPaletteStorage;
+  // The final word records whether all 256 alpha samples match.
+  static constexpr size_t ALPHA_WORDS = LUT_SIZE + 1;
 
   __attribute__((always_inline)) Pixel sample_color_index(float idx) const {
     if (idx <= 0.0f)
@@ -287,7 +287,7 @@ public:
   template <typename Source>
   HS_FLASH_MEMBER void bake(Arena &arena, const Source &source) {
     table.colors = arena.allocate_n<Pixel>(BakedPalette::LUT_SIZE);
-    table.alpha_q16 = arena.allocate_n<uint16_t>(BakedPalette::LUT_SIZE);
+    table.alpha_q16 = arena.allocate_n<uint16_t>(BakedPalette::ALPHA_WORDS);
     rebake(source);
   }
 
@@ -320,6 +320,7 @@ public:
           table.colors[destination] = table.colors[source_index];
           table.alpha_q16[destination] = table.alpha_q16[source_index];
         });
+    update_constant_alpha();
   }
 
   /**
@@ -339,7 +340,7 @@ public:
     HS_CHECK(&from != &table && &to != &table,
              "BakedPaletteStorage::bake_blend endpoint is the output");
     table.colors = arena.allocate_n<Pixel>(BakedPalette::LUT_SIZE);
-    table.alpha_q16 = arena.allocate_n<uint16_t>(BakedPalette::LUT_SIZE);
+    table.alpha_q16 = arena.allocate_n<uint16_t>(BakedPalette::ALPHA_WORDS);
     const float wc = hs::clamp(w, 0.0f, 1.0f);
     fill_blend(from, to, wc);
   }
@@ -357,7 +358,7 @@ public:
              "BakedPaletteStorage::rebake_copy from itself");
     memcpy(table.colors, src.colors, BakedPalette::LUT_SIZE * sizeof(Pixel));
     memcpy(table.alpha_q16, src.alpha_q16,
-           BakedPalette::LUT_SIZE * sizeof(uint16_t));
+           BakedPalette::ALPHA_WORDS * sizeof(uint16_t));
   }
 
   /**
@@ -404,14 +405,21 @@ public:
              "BakedPaletteStorage::clone_from before src bake()");
     HS_CHECK(&src != &table, "BakedPaletteStorage::clone_from from itself");
     table.colors = arena.allocate_n<Pixel>(BakedPalette::LUT_SIZE);
-    table.alpha_q16 = arena.allocate_n<uint16_t>(BakedPalette::LUT_SIZE);
+    table.alpha_q16 = arena.allocate_n<uint16_t>(BakedPalette::ALPHA_WORDS);
     memcpy(table.colors, src.colors, BakedPalette::LUT_SIZE * sizeof(Pixel));
     memcpy(table.alpha_q16, src.alpha_q16,
-           BakedPalette::LUT_SIZE * sizeof(uint16_t));
+           BakedPalette::ALPHA_WORDS * sizeof(uint16_t));
   }
 
 private:
   BakedPalette table;
+  HS_SIZE_FLASH_MEMBER void update_constant_alpha() {
+    const auto *alpha = table.alpha_q16;
+    table.alpha_q16[BakedPalette::LUT_SIZE] =
+        std::memcmp(alpha, alpha + 1,
+                    (BakedPalette::LUT_SIZE - 1) * sizeof(*alpha)) == 0;
+  }
+
   // wc must already be clamped to [0, 1].
   HS_FLASH_MEMBER void fill_blend(const BakedPalette &from,
                                   const BakedPalette &to, float wc) {
@@ -420,6 +428,7 @@ private:
       table.colors[i] = from.colors[i].lerp16(to.colors[i], weight);
       table.alpha_q16[i] = lerp_q16(from.alpha_q16[i], to.alpha_q16[i], weight);
     }
+    update_constant_alpha();
   }
 };
 
