@@ -76,8 +76,15 @@ struct RiverStonesSpec : Pullback::Spec {
         retained ? hue.previous : hue.current;
     const Pattern::SphereLutView *lift_cube = cube(lift);
     const Pattern::SphereLutView *mask_cube = cube(mask);
+    const Pullback::Color::GeneratedPaletteState &base =
+        retained ? palette.previous : palette.current;
     bool authored =
-        hue.enabled && lift.enabled && mask.enabled &&
+        base.mapping.exact ==
+            static_cast<uint8_t>(Pullback::Color::PaletteMapping::LINEAR) &&
+        base.mapping_frequency == 1.0f && base.mapping_offset == 0.0f &&
+        base.brightness_envelope == Pullback::Color::BrightnessEnvelope::NONE &&
+        base.opacity_low == 1.0f && base.opacity_high == 1.0f && hue.enabled &&
+        lift.enabled && mask.enabled &&
         hue.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
         lift.mechanic.kind ==
             ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT &&
@@ -100,9 +107,8 @@ struct RiverStonesSpec : Pullback::Spec {
    * @param tap Cube face coordinates.
    * @param cube Prepared byte cube.
    * @return Bounded signed scalar. */
-  HS_HOT_FLASH_MEMBER static float
-  sample_cube(const Pattern::SphereLutSample &tap,
-              const Pattern::SphereLutView &cube) {
+  HS_HOT_INLINE static float sample_cube(const Pattern::SphereLutSample &tap,
+                                         const Pattern::SphereLutView &cube) {
     return Pattern::bounded_scalar(tap.sample_data(cube.data));
   }
 
@@ -163,8 +169,8 @@ struct RiverStonesSpec : Pullback::Spec {
     if (!column.authored)
       return shade_edited(field, column);
     const auto &palette = column.palette;
-    const auto &base = column.retained ? palette.previous : palette.current;
-    auto result = Color::apply_generated_palette(field, base);
+    auto result = Color::apply_palette_endpoint_impl(
+        field, column.base, field.value, field.coverage, 1.0f);
     const auto direction = Pattern::SphereDirection::admit(field.sphere);
     result.pending_hue = Color::accumulate_hue(
         0.0f, Modulation::sample(*column.noise, direction),
@@ -185,7 +191,7 @@ struct RiverStonesSpec : Pullback::Spec {
       auto old = current;
       if (!column.same_palette) {
         old = palette.previous.palette->get(result.palette_coordinate);
-        old.alpha *= Color::palette_opacity(field, base);
+        old.alpha *= field.coverage;
         result.color.color =
             old.color.lerp16(current.color, frac_to_q16(palette.fraction));
       }

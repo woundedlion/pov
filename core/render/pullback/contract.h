@@ -262,8 +262,9 @@ finish_color_sample(const ColorSample &sample) {
   if (sample.brightness_gain == 0.0f)
     return Color4(Pixel(0, 0, 0), color.alpha);
   const bool guarded_hue =
-      !sample.has_cached_lab && sample.pending_hue != 0.0f &&
-      sample.hue_rotation && sample.hue_rotation_gamut &&
+      !sample.has_cached_lab && sample.pending_lift == 0.0f &&
+      sample.pending_hue != 0.0f && sample.hue_rotation &&
+      sample.hue_rotation_gamut &&
       sample.hue_rotation_gamut->requires_direct(
           HueRotationValueSample(sample.palette_coordinate).low,
           HueRotationHueSample(sample.pending_hue).low);
