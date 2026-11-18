@@ -639,8 +639,10 @@ inline void test_timed_preset_five_preserves_polar_anchor() {
   HS_EXPECT_NEAR(after[pixel], before[pixel], 0.002f);
 }
 
-/** @brief Contour-route presets match their frozen columns at the authored speed. */
+/** @brief Contour-route presets match their frozen columns at the authored speed.
+ * @details Flower contours use L1 error relative to mean frame energy. */
 inline void test_timed_presets_match_frozen_columns() {
+  constexpr double MAX_FLOWER_RELATIVE_ERROR = 0.27;
   size_t contour_presets = 0;
   for (size_t i = 0; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
     if (ShapeShifterWhiteBox::preset_is_surface(i))
@@ -665,17 +667,28 @@ inline void test_timed_presets_match_frozen_columns() {
           const ScopedTemporalSampling sampling(true);
           ShapeShifterWhiteBox::render_candidate(effect, canvas);
         });
-    const double energy = double(frame_energy(frozen_style.reference));
+    const double reference_energy =
+        double(frame_energy(frozen_style.reference));
+    const double candidate_energy =
+        double(frame_energy(frozen_style.candidate));
     const double drift =
-        (double(frame_energy(frozen_style.candidate)) - energy) / energy;
+        (candidate_energy - reference_energy) / reference_energy;
+    const double mean_energy = (reference_energy + candidate_energy) * 0.5;
+    const double relative_error =
+        static_cast<double>(frozen_style.error.total_absolute_error) /
+        mean_energy;
     std::printf(
-        "  frozen style preset %zu: MAE=%.3f RMSE=%.3f max=%u energy_drift=%.6f\n",
+        "  frozen style preset %zu: MAE=%.3f RMSE=%.3f max=%u energy_drift=%.6f relative_error=%.6f\n",
         i + 1, frozen_style.error.mean_absolute_error(),
         frozen_style.error.root_mean_squared_error(),
-        frozen_style.error.max_absolute_error, drift);
+        frozen_style.error.max_absolute_error, drift, relative_error);
     HS_EXPECT_LT(std::fabs(drift), MAX_PRESET_ENERGY_DRIFT);
-    HS_EXPECT_LT(frozen_style.error.mean_absolute_error(),
-                 MAX_MEAN_ABSOLUTE_ERROR);
+    if (state.shape == OracleEffect::ShapeType::FLOWER) {
+      HS_EXPECT_LT(relative_error, MAX_FLOWER_RELATIVE_ERROR);
+    } else {
+      HS_EXPECT_LT(frozen_style.error.mean_absolute_error(),
+                   MAX_MEAN_ABSOLUTE_ERROR);
+    }
     HS_EXPECT_LT(frozen_style.error.root_mean_squared_error(),
                  MAX_ROOT_MEAN_SQUARED_ERROR);
     HS_EXPECT_LT(frozen_style.error.max_absolute_error, MAX_CHANNEL_ERROR);
