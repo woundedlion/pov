@@ -2261,6 +2261,10 @@ inline const Case *all_cases(int &n) {
                case_authored_kaleidoscope_invalid_symmetry,
                "core/render/pullback/authored_lens.h",
                "(false) configured_kaleidoscope: invalid symmetry"},
+              {"pullback_invalid_color_mechanic",
+               case_pullback_invalid_color_mechanic,
+               "core/render/pullback/color_state.h",
+               "(mechanic.kind == ColorModulation::Mechanic::OPACITY) unknown modulation mechanic"},
               {"pullback_operator_invalid_modulation_source",
                case_pullback_operator_invalid_modulation_source,
                "core/render/pullback/modulation.h",
@@ -2327,13 +2331,11 @@ inline const Case *all_cases(int &n) {
                "core/control/registry.h",
                "(registration_names_unique(entries)) duplicate effect registration identity"},
               {"effect_registry_name_matches_stable_id",
-               case_effect_registry_name_matches_stable_id,
-               "core/control/registry.h",
-               "(registration_names_unique(entries)) duplicate effect registration identity"},
+               case_effect_registry_name_matches_stable_id, "core/control/registry.h", "(registration_names_unique(entries)) duplicate effect registration identity"},
               // sdf
-              {
-                  "lattice_shells_oob",
-                  case_lattice_shells_oob, "core/render/sdf/lattice.h", "(static_cast<uint8_t>(settings.shells) < MAX_SHELLS) lattice shell count exceeds crossing capacity"},
+              {"lattice_shells_oob", case_lattice_shells_oob,
+               "core/render/sdf/lattice.h",
+               "(static_cast<uint8_t>(settings.shells) < MAX_SHELLS) lattice shell count exceeds crossing capacity"},
               {"lattice_zero_softness", case_lattice_zero_softness,
                "core/render/sdf/lattice.h",
                "(settings.softness > 0 && settings.cell_size > 0 && "

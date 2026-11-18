@@ -328,6 +328,17 @@ inline void case_authored_kaleidoscope_invalid_symmetry() {
                                                 opaque<uint8_t>(0xff));
 }
 
+/** @brief The ordered color tail rejects an unknown modulation mechanic. */
+inline void case_pullback_invalid_color_mechanic() {
+  Pullback::ColorSample sample{};
+  ColorModulation::Params mechanic{};
+  mechanic.kind = ColorModulation::Mechanic::OPACITY;
+  Pullback::Color::apply_mechanic_scalar(sample, 0.5f, mechanic);
+  death_admitted();
+  mechanic.kind = static_cast<ColorModulation::Mechanic>(opaque<uint8_t>(0xff));
+  Pullback::Color::apply_mechanic_scalar(sample, 0.5f, mechanic);
+}
+
 /** @brief A modulation operator rejects an unknown source. */
 inline void case_pullback_operator_invalid_modulation_source() {
   Pullback::Interp::Op::ModulationParams params;
