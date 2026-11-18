@@ -194,14 +194,15 @@ def load_backend(
         if operation_code != expected_code:
             raise CaptureError(f"capture backend operation mismatch for {key}")
         mapping = specs[key]["mapping"]
-        if not (mapping.startswith("CASE_") or mapping.startswith("THROUGH_CLEAR_")
-                or mapping == "FULL_FRAME"):
-            if mapping not in expected_counts:
+        if mapping not in expected_counts:
+            if mapping.startswith(("CASE_", "THROUGH_CLEAR_")) or mapping == "FULL_FRAME":
+                expected_counts[mapping] = width * height
+            else:
                 expected_counts[mapping] = sum(
                     _selected_pixel(mapping, x, y, width, height)
                     for y in range(height) for x in range(width))
-            if selected_pixels != expected_counts[mapping]:
-                raise CaptureError(f"capture backend selected-pixel mismatch for {key}")
+        if selected_pixels != expected_counts[mapping]:
+            raise CaptureError(f"capture backend selected-pixel mismatch for {key}")
         end = offset + width * height * 6
         if end > len(data):
             raise CaptureError("capture backend stream is truncated")

@@ -473,21 +473,27 @@ class CaptureBackend(unittest.TestCase):
                     ):
                         capture.load_backend(path, programs, ORACLES)
 
-    def test_backend_rejects_drifted_spatial_selection(self):
+    def test_backend_rejects_drifted_pixel_selection(self):
         programs = _test_manifest()
+        programs["corpus"]["probe_operations"]["seam:longitude-wrap"] = "FULL_FRAME"
         specs = capture.operation_specs(programs)
         header, records, metrics = _backend_stream(programs)
-        index = next(i for i, spec in enumerate(specs)
-                     if spec["mapping"] == "OCTANT_COLUMNS")
-        count_at = 6 + len(specs[index]["name"].encode()) + 8
-        record = records[index]
-        records[index] = record[:count_at] + struct.pack("<I", 0) + record[count_at + 4:]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.bin"
             path.write_bytes(header + b"".join(records) + b"".join(metrics))
-            with self.assertRaisesRegex(capture.CaptureError,
-                                        "capture backend selected-pixel mismatch"):
-                capture.load_backend(path, programs, ORACLES)
+            resolution, _ = capture.load_backend(path, programs, ORACLES)
+            self.assertEqual(resolution, (16, 16))
+            for mapping in ("OCTANT_COLUMNS", "FULL_FRAME", "THROUGH_CLEAR_FROM", "CASE_DEFAULT"):
+                with self.subTest(mapping=mapping):
+                    index = next(i for i, spec in enumerate(specs) if spec["mapping"] == mapping)
+                    count_at = 6 + len(specs[index]["name"].encode()) + 8
+                    record = records[index]
+                    altered = records.copy()
+                    altered[index] = record[:count_at] + struct.pack("<I", 0) + record[count_at + 4:]
+                    path.write_bytes(header + b"".join(altered) + b"".join(metrics))
+                    with self.assertRaisesRegex(capture.CaptureError,
+                                                "capture backend selected-pixel mismatch"):
+                        capture.load_backend(path, programs, ORACLES)
 
 if __name__ == "__main__":
     unittest.main()
