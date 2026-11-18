@@ -1319,6 +1319,11 @@ private:
     FlushContext *held = nullptr;
     /** scratch_arena_a offset release() rewinds to. */
     size_t held_mark = 0;
+#ifndef NDEBUG
+    ArenaBlockStamp held_stamp; ///< Scratch allocation stamp for the frame.
+    const uint8_t *held_begin = nullptr; ///< First byte held in scratch.
+    size_t held_bytes = 0;               ///< Extent held in scratch.
+#endif
     /** Least held column past an arm's first in the held frame; HALF holds
      *  no column. */
     int held_floor = HALF;
@@ -1349,6 +1354,19 @@ private:
     void hold(FlushContext &ctx, size_t mark) {
       held = &ctx;
       held_mark = mark;
+#ifndef NDEBUG
+      held_bytes = scratch_arena_a.get_offset() - mark;
+      held_begin = scratch_arena_a.current_address() - held_bytes;
+      held_stamp.record(scratch_arena_a);
+#endif
+    }
+
+    /** @brief Audits the held context and its scratch allocations. */
+    void check_alive() const {
+#ifndef NDEBUG
+      HS_AUDIT_CHECK(held_stamp.block_alive(held_begin, held_bytes),
+                     "Feedback split hold use-after-free!");
+#endif
     }
 
     /** @brief Releases the held frame and its scratch. */

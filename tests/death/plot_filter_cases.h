@@ -380,6 +380,19 @@ struct DeathSplitFeedback {
   }
 };
 
+/** @brief A split frame cannot finish after its scratch bytes are reissued. */
+inline void case_feedback_split_frame_reissued() {
+  DeathSplitFeedback split;
+  Canvas canvas(split.fx);
+  const size_t mark = scratch_arena_a.get_offset();
+  scratch_arena_a.allocate_n<uint8_t>(16);
+  (void)split.pipe.begin_split_frame(canvas, 1.0f);
+  const size_t bytes = scratch_arena_a.get_offset() - mark;
+  scratch_arena_a.set_offset(mark);
+  scratch_arena_a.allocate_n<uint8_t>(bytes);
+  split.pipe.finish_frame(canvas);
+}
+
 /** @brief Death case: a frame flushed while a split frame awaits its finish
  *  must trap. */
 inline void case_feedback_split_frame_unfinished() {

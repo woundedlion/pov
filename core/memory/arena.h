@@ -216,6 +216,8 @@ public:
    * @return Bytes consumed from the buffer so far.
    */
   size_t get_offset() const { return offset; }
+  /** @return Address of the current bump position before alignment. */
+  const uint8_t *current_address() const { return buffer + offset; }
   /**
    * @brief Returns the arena's total capacity.
    * @return Capacity of the backing buffer in bytes.

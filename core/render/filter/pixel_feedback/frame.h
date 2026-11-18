@@ -112,6 +112,7 @@ template <int W, int H>
 inline HS_FLASH_MEMBER void Feedback<W, H>::finish(Canvas &) {
   if (!split_hold.held)
     return;
+  split_hold.check_alive();
   FlushContext &ctx = *split_hold.held;
   select_poles(ctx.frames.current, ctx.poles.current);
   {

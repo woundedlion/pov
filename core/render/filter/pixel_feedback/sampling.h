@@ -96,6 +96,7 @@ inline HS_HOT_FLASH_MEMBER void
 Feedback<W, H>::plot_near_arm_end(float x, int column, float y,
                                   const ::Pixel &color, float age, float alpha,
                                   PassFnT &pass) {
+  split_hold.check_alive();
   const int row = Filter::round_row<H>(y);
   const int arm = ColumnTime::arm_start(column);
   const int slot =
