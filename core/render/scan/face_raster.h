@@ -257,9 +257,8 @@ HS_HOT_INLINE inline void rasterize_face_body(
                   "arm-split");
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
-    // A one-arm window starts outside the half-turn.
-    if (window.active && handled &&
-        static_cast<unsigned>(2 * window.begin) < static_cast<unsigned>(W) &&
+    // The wrapped intervals cover windows that admit both arms.
+    if (window.active && handled && window.arm(W) < 0 &&
         !intervals_meet_window<W>(intervals, window))
       return;
 
