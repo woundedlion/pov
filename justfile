@@ -81,6 +81,12 @@ test-target target *modules:
     cmake --build --preset tests --target test_{{ target }}
     cmake -E env HS_BUFFER_FREE_WATCHDOG_US=30000000 build/tests/tests/test_{{ target }}{{ if os_family() == "windows" { ".exe" } else { "" } }} {{ modules }}
 
+# Print the nominal runtime of one Phantasm show loop.
+showlength:
+    @cmake --preset tests 1>&2
+    @cmake --build --preset tests --target showlength -- --quiet 1>&2
+    @cmake -E env build/tests/showlength{{ if os_family() == "windows" { ".exe" } else { "" } }}
+
 # Normalize CRLF working copies without changing the index or discarding edits.
 normalize-eol:
     bash tools/eol_gate.sh --fix-worktree

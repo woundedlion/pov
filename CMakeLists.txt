@@ -335,6 +335,9 @@ else()
     # Compile options follow CMAKE_CXX_FLAGS_<CONFIG>, and clang keeps the last -g.
     add_compile_options(${HS_DEBUG_INFO_FLAG})
   endif()
+  add_executable(showlength EXCLUDE_FROM_ALL tools/showlength.cpp)
+  target_include_directories(showlength PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+
   enable_testing()
   add_subdirectory(tests)
 
