@@ -538,11 +538,12 @@ private:
     std::conditional_t<AUTHORED_PALETTE, AuthoredPaletteResources,
                        std::monostate>
         authored_palette;
-    FrameState current{};
+    FrameState current = Spacetime::initial_frame_context<FrameState>();
     std::conditional_t<SpecT::PERSISTENT_PREPARED_FRAME, std::optional<Frame>,
                        std::monostate>
         prepared;
-    typename IntervalCache::Column column;
+    typename IntervalCache::Column column =
+        Spacetime::initial_frame_context<typename IntervalCache::Column>();
     typename IntervalCache::Interval interval;
   };
 

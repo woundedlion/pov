@@ -358,12 +358,17 @@ HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
   return Pullback::FrameInterval(from, to).at(fraction);
 }
 
+/** @brief Value-initializes an arena-owned frame context. */
+template <typename Frame> HS_SIZE_FLASH_MEMBER Frame initial_frame_context() {
+  return {};
+}
+
 /** @brief Owned palette and hue tables for the previous frame endpoint. */
 template <typename Frame, bool Hue>
   requires BorrowsColorResources<Frame>
 struct FrameHistory<Frame, true, Hue> : HueRotationGamutStorage<Hue> {
-  Frame previous{};            ///< Retained endpoint.
-  BakedPaletteStorage palette; ///< Owned palette entries.
+  Frame previous = initial_frame_context<Frame>(); ///< Retained endpoint.
+  BakedPaletteStorage palette;                     ///< Owned palette entries.
   std::array<Pixel, Hue ? Pullback::Color::HueRotationLutView::SIZE : 0>
       hue_rotation; ///< Retained hue table.
   Pullback::ComposedDetail::ResourceStorage<
