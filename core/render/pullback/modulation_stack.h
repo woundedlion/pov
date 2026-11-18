@@ -108,7 +108,10 @@ class OrderedModulationKernel {
   };
   enum class SourceKind : uint8_t { DIRECT, BYTE_CUBE, FLOAT_CUBE };
   struct Source {
-    const Modulation::Prepared *value;
+    union {
+      const Modulation::Prepared *value;
+      const int8_t *bytes;
+    };
     SourceKind kind;
     uint8_t peer;
   };
@@ -126,6 +129,7 @@ class OrderedModulationKernel {
   bool retained;
   bool identity_controls;
   bool same_hue_table;
+  bool simple_palette;
   uint16_t rgb_weight;
   bool valid = false;
   bool uses_cube = false;
@@ -203,26 +207,28 @@ class OrderedModulationKernel {
         lift.previous != mask.previous;
     if (!matches)
       return false;
-    const std::array endpoints = {
-        sources[hue.current].value, sources[lift.current].value,
-        sources[lift.previous].value, sources[mask.current].value,
-        sources[mask.previous].value};
-    for (size_t i = 0; i < endpoints.size(); ++i)
-      sources[i].value = endpoints[i];
+    const auto *direct_hue = sources[hue.current].value;
+    const std::array tables = {sources[lift.current].value->cube.data,
+                               sources[lift.previous].value->cube.data,
+                               sources[mask.current].value->cube.data,
+                               sources[mask.previous].value->cube.data};
+    sources[HUE].value = direct_hue;
+    for (size_t i = 0; i < tables.size(); ++i)
+      sources[LIFT + i].bytes = tables[i];
     return true;
   }
 
   static HS_HOT_INLINE float sample_bytes(const Pattern::SphereLutSample &tap,
-                                          const Pattern::SphereLutView &cube) {
-    return Pattern::bounded_scalar(tap.sample_data(cube.data));
+                                          const int8_t *cube) {
+    return Pattern::bounded_scalar(tap.sample_data(cube));
   }
 
   static HS_HOT_INLINE float paired_bytes(const Pattern::SphereLutSample &tap,
-                                          const Pattern::SphereLutView &cube,
-                                          const Pattern::SphereLutView &peer,
+                                          const int8_t *cube,
+                                          const int8_t *peer,
                                           float peer_value) {
-    const auto *a = cube.data + tap.offset;
-    const auto *b = peer.data + tap.offset;
+    const auto *a = cube + tap.offset;
+    const auto *b = peer + tap.offset;
     constexpr int STRIDE = Pattern::SphereLutView::FACE_STEPS;
     if (std::memcmp(a, b, 2) == 0 &&
         std::memcmp(a + STRIDE, b + STRIDE, 2) == 0)
@@ -267,22 +273,27 @@ class OrderedModulationKernel {
   shade_hue_lift_mask(const FieldSample &field) const {
     const auto &[hue, lift, mask] = ops;
     float old_alpha;
-    auto result = palette_base(field, old_alpha);
+    auto result = simple_palette
+                      ? apply_palette_endpoint_impl(field, base, field.value,
+                                                    field.coverage, 1.0f)
+                      : palette_base(field, old_alpha);
+    if (simple_palette)
+      old_alpha = result.color.alpha;
     const auto direction = Pattern::SphereDirection::admit(field.sphere);
     result.pending_hue = accumulate_hue(
         0.0f, Modulation::sample(*sources[HUE].value, direction), hue.mechanic);
     const auto tap = Pattern::prepare_sphere_lut_sample(direction);
-    const auto &lift_cube = sources[LIFT].value->cube;
-    const auto &mask_cube = sources[MASK].value->cube;
+    const auto *lift_cube = sources[LIFT].bytes;
+    const auto *mask_cube = sources[MASK].bytes;
     const float l = sample_bytes(tap, lift_cube);
     const float m = sample_bytes(tap, mask_cube);
     result.pending_lift = accumulate_lift(0.0f, l, lift.mechanic);
     result.color.alpha = opacity(result.color.alpha, m, mask.mechanic.amount);
     if (blend) {
       const float old_l =
-          paired_bytes(tap, sources[PREVIOUS_LIFT].value->cube, lift_cube, l);
+          paired_bytes(tap, sources[PREVIOUS_LIFT].bytes, lift_cube, l);
       const float old_m =
-          paired_bytes(tap, sources[PREVIOUS_MASK].value->cube, mask_cube, m);
+          paired_bytes(tap, sources[PREVIOUS_MASK].bytes, mask_cube, m);
       result.pending_lift =
           hs::lerp(accumulate_lift(0.0f, old_l, lift.mechanic),
                    result.pending_lift, fraction);
@@ -313,11 +324,11 @@ class OrderedModulationKernel {
         case SourceKind::BYTE_CUBE:
           if (source.peer != PATH &&
               sources[source.peer].kind == SourceKind::BYTE_CUBE)
-            values[i] =
-                paired_bytes(tap, value.cube, sources[source.peer].value->cube,
-                             values[source.peer]);
+            values[i] = paired_bytes(tap, value.cube.data,
+                                     sources[source.peer].value->cube.data,
+                                     values[source.peer]);
           else
-            values[i] = sample_bytes(tap, value.cube);
+            values[i] = sample_bytes(tap, value.cube.data);
           break;
         case SourceKind::FLOAT_CUBE:
           values[i] =
@@ -389,6 +400,8 @@ protected:
                                                : nullptr) &&
                        previous.hue_rotation.gamut_mask ==
                            current.hue_rotation.gamut_mask),
+        simple_palette(identity_controls &&
+                       (!blend || (same && same_hue_table))),
         rgb_weight(blend && !same ? frac_to_q16(t) : 0) {
     if (layers.size() > MAX_ORDERED_MODULATION_LAYERS || !base.palette ||
         (blend && !previous.palette))
