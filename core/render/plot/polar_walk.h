@@ -161,8 +161,7 @@ template <int W, int H> struct PolarWalk {
                   fminf(1.0f, SCREEN_STEP_PX * physical_rate /
                                   (screen_rate * min_pitch));
               emit(sqrtf(x * x + y * y), float(column),
-                   fminf(1.0f, gain * (SCREEN_STEP_PX / step) * screen_rate *
-                                   coverage * pitch_scale));
+                   fminf(1.0f, gain * screen_rate * coverage * pitch_scale));
             }
             return;
           }

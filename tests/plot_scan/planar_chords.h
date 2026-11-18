@@ -47,6 +47,39 @@ inline void test_polar_stroke_wraps_negative_column_window() {
   HS_EXPECT_TRUE(sink.reached_last);
 }
 
+/** @brief The closed-form and sampled polar strokes deposit equal mass. */
+inline void test_polar_stroke_mass_matches_sampled_path() {
+  constexpr int W = 288, H = 144;
+  struct Capture {
+    float mass = 0.0f;
+    void plot_column_at(Canvas &, math::PixelCoords p, int column, Pixel color,
+                        float age, float alpha, float) {
+      auto deposit = [this](float, float, const Pixel &, float, float tap) {
+        mass += tap;
+      };
+      Filter::Screen::AntiAlias<W, H>::column_taps(p.x, p.y, color, age, alpha,
+                                                   column, deposit);
+    }
+  };
+  hs_test::StubEffect effect(W, H);
+  math::TrigLUT<W, H>::init();
+  Canvas canvas(effect);
+  initialize_parity_frame<W, H>(canvas);
+  const math::PixelCoords from{12.0f, -2.0f}, to{12.0f, 2.0f};
+  const auto a = Plot::PolarAnchor::capture(from, from, from);
+  const auto b = Plot::PolarAnchor::capture(to, to, to);
+  auto stroke_mass = [&](bool balanced) {
+    Capture sink;
+    Plot::PolarWalk<W, H>::draw(sink, canvas, a, b, true,
+                                Color4(Pixel(65535, 65535, 65535), 0.8f),
+                                Plot::BALANCED_SCREEN_STEP_PX, balanced);
+    return sink.mass;
+  };
+  const float reference = stroke_mass(true);
+  HS_EXPECT_GT(reference, 0.0f);
+  HS_EXPECT_NEAR(stroke_mass(false), reference, 0.03f * reference);
+}
+
 /** @brief Stroke density cannot make polar samples exceed opaque coverage. */
 inline void test_polar_stroke_alpha_is_bounded() {
   constexpr int W = 144, H = 72;
