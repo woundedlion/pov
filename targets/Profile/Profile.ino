@@ -663,8 +663,10 @@ template <typename E> void select_profile_preset(E &effect) {
 
 #ifdef HS_PROFILE_PRESET_TRANSITION
 template <typename E> void begin_profile_preset_transition(E &effect) {
-  if constexpr (requires { effect.profile_begin_preset_transition(); })
-    effect.profile_begin_preset_transition();
+  static_assert(
+      requires(E &e) { e.profile_begin_preset_transition(); },
+      "HS_PROFILE_PRESET_TRANSITION target does not support preset transitions");
+  effect.profile_begin_preset_transition();
 }
 #endif
 
