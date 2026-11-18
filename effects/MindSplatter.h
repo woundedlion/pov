@@ -628,6 +628,19 @@ private:
     math::Complex step;  /**< Translation change over the frame. */
     bool active;         /**< Whether b is nonzero at either end. */
 
+    /** @brief Turns the head back by the remaining fraction of its step.
+     * @param vertex The source vertex.
+     * @param remaining Fraction of the step still ahead.
+     * @return The vertex's unwarped position. */
+    HS_HOT_INLINE static math::Vector source_at(const TrailVertex &vertex,
+                                                float remaining) {
+      if (vertex.turn == 0.0f)
+        return vertex.origin;
+      float sine, cosine;
+      math::poly_sincosf_0_pi(vertex.turn * remaining, sine, cosine);
+      return vertex.origin * cosine - vertex.back * sine;
+    }
+
     /** @brief A trail vertex's warped source position at a frame fraction.
      * @param vertex The vertex.
      * @param t Frame fraction.
@@ -635,12 +648,7 @@ private:
      *         translation at @p t. */
     HS_HOT_FLASH_MEMBER math::Vector at(const TrailVertex &vertex,
                                         float t) const {
-      math::Vector source = vertex.origin;
-      if (vertex.turn != 0.0f) {
-        float sine, cosine;
-        math::poly_sincosf_0_pi(vertex.turn * (1.0f - t), sine, cosine);
-        source = vertex.origin * cosine - vertex.back * sine;
-      }
+      const math::Vector source = source_at(vertex, 1.0f - t);
       if (!active)
         return source;
       math::MobiusParams warp;
@@ -709,7 +717,9 @@ private:
    * @param speed Particle angular speed.
    * @param palette Trail palette samples.
    * @param warp Retained warp endpoints.
+   * @param start_warp Fixed frame-start warp.
    * @param start_pose Frame-start orientation.
+   * @param warped Frame-end warped positions.
    * @param trail Receives shading and motion attributes.
    * @param starts Receives frame-start world positions.
    */
@@ -717,9 +727,11 @@ private:
   HS_O3_FN HS_HOT_INLINE void prepare_trail_attributes(
       const Particle &p, int points, uint32_t visible, float life,
       float cos_event_horizon, float turn, float speed, const Pixel *palette,
-      const FrameWarp &warp, const math::RotationMatrix &start_pose,
+      const FrameWarp &warp, const math::MobiusParams &start_warp,
+      const math::RotationMatrix &start_pose, const math::Vector *warped,
       TrailVertex *trail, math::Vector *starts) {
     const float denominator = static_cast<float>(points - 1);
+    const bool moving_warp = warp.step.re != 0.0f || warp.step.im != 0.0f;
     for (int j = 0; j < points; ++j) {
       if (!(visible & ((1u << j) | (2u << j))))
         continue;
@@ -736,8 +748,13 @@ private:
       trail[j].progress = static_cast<float>(j) / denominator;
       trail[j].fade = life * hole;
       trail[j].palette = palette;
-      starts[j] = Plot::EdgeWorldsheet::normalize(
-          start_pose.apply(warp.at(trail[j], 0.0f)));
+      math::Vector position = warped[j];
+      if (moving_warp || trail[j].turn != 0.0f) {
+        const auto source = FrameWarp::source_at(trail[j], 1.0f);
+        position =
+            warp.active ? math::mobius_transform(source, start_warp) : source;
+      }
+      starts[j] = Plot::EdgeWorldsheet::normalize(start_pose.apply(position));
     }
   }
 
@@ -765,6 +782,8 @@ private:
                              mobius.b.re != 0.0f || mobius.b.im != 0.0f};
     math::MobiusParams translation;
     translation.b = mobius.b;
+    math::MobiusParams start_translation;
+    start_translation.b = previous_warp;
     const float shift = warp.step.magnitude();
     const float reach = fmaxf(warp.start.magnitude(), mobius.b.magnitude());
     const float cosh_d = 1.0f + 0.5f * reach * reach;
@@ -853,8 +872,8 @@ private:
       const float life = fminf(static_cast<float>(p.life) * inv_max_life, 1.0f);
       const Pixel *palette = MINDSPLATTER_PALETTES[p.color_seed >> 8];
       prepare_trail_attributes(p, points, visible, life, cos_event_horizon,
-                               turn, speed, palette, warp, start_pose, trail,
-                               starts);
+                               turn, speed, palette, warp, start_translation,
+                               start_pose, warped, trail, starts);
       chunk.begin_chain(static_cast<size_t>(points), flush);
       chunk_motion = fmaxf(chunk_motion, motion);
       auto flush_edge = [&]() HS_HOT_INLINE {

@@ -157,6 +157,7 @@ public:
   HS_HOT_FLASH_MEMBER void
   plot(Sink &sink, Canvas &canvas, const math::Vector &end, Start &&start,
        Shade &&shade, const math::Vector &middle_offset) const {
+    check_clip(canvas);
     plot_point<Sink, Start, Shade, CURVED>(sink, canvas, end, start, shade,
                                            middle_offset);
   }
@@ -171,6 +172,7 @@ public:
   HS_HOT_ITCM_MEMBER void plot_resident(Sink &sink, Canvas &canvas,
                                         const math::Vector &end, Start &&start,
                                         Shade &&shade) const {
+    check_clip(canvas);
     plot_point<Sink, Start, Shade, false>(sink, canvas, end, start, shade, {});
   }
 
@@ -181,6 +183,7 @@ public:
   template <typename Sink, typename Samples>
   HS_HOT_ITCM_MEMBER void plot_resident_batch(Sink &sink, Canvas &canvas,
                                               Samples &&samples) const {
+    check_clip(canvas);
     samples([&](const math::Vector &end, auto &start, auto &shade)
                 HS_HOT_INLINE {
                   plot_point<Sink, std::remove_reference_t<decltype(start)>,
@@ -190,6 +193,13 @@ public:
   }
 
 private:
+  /** @brief Requires the render clip captured by prepare().
+   * @param canvas Destination of a plot or batch. */
+  HS_HOT_INLINE void check_clip(const Canvas &canvas) const {
+    HS_CHECK(clip_stamp == canvas.clip_key(),
+             "point route not prepared for this clip");
+  }
+
   /** @brief Routes a trajectory through the prepared point samples.
    * @tparam Sink,Start,Shade Destination, trajectory and shading callables.
    * @tparam CURVED Enables the midpoint departure.
@@ -202,10 +212,12 @@ private:
   HS_HOT_INLINE void
   plot_point(Sink &sink, Canvas &canvas, const math::Vector &end, Start &start,
              Shade &shade, const math::Vector &middle_offset) const {
-    HS_CHECK(clip_stamp == canvas.clip_key(),
-             "point route not prepared for this clip");
     const math::Vector offset = CURVED ? middle_offset : math::Vector{};
-    if (!reaches_clip(end))
+    if (end.y > y_max || end.y < y_min)
+      return;
+    const float low = low_x * end.z - low_z * end.x;
+    const float high = end.x * high_z - end.z * high_x;
+    if (!inside_columns(low, high, -column_reach))
       return;
     constexpr bool TIMED_SHADE = std::is_invocable_v<Shade &, float>;
     if (!timed) {
@@ -219,7 +231,8 @@ private:
       return;
     }
     const math::Vector origin = start();
-    if (!reaches_path_columns(origin, end, offset))
+    if (!inside_columns(low, high, 0.0f) &&
+        !reaches_path_columns(origin, low, high, offset))
       return;
     const bool north = origin.y > north_limit && end.y > north_limit;
     const bool south = origin.y < south_limit && end.y < south_limit;
@@ -272,11 +285,16 @@ private:
     const float norm2 = 1.0f - 0.25f * math::dot(end - origin, end - origin);
     const float offset2 = math::dot(offset, offset);
     bool chord_holds = offset2 == 0.0f && small_chord(origin, end);
+    float chord_acceleration = -1.0f;
     if (chord_holds) {
       Spacetime::count_geometry<
           &Spacetime::GeometryCounters::point_small_chords>();
     } else {
-      const float acceleration = projected_acceleration(origin, end);
+      float minimum_horizontal2 = 0.0f;
+      const float acceleration =
+          projected_acceleration(origin, end, 0.0f, &minimum_horizontal2);
+      if (minimum_horizontal2 >= projection_floor * projection_floor * norm2)
+        chord_acceleration = acceleration;
       const float remaining = BEND_PIXELS - acceleration * 0.125f;
       chord_holds =
           remaining >= 0.0f &&
@@ -292,7 +310,7 @@ private:
               ? CURVE_ERROR
               : 0.0f;
       plot_pieces(sink, canvas, origin, end, a, b, shade_once, offset,
-                  ignored_error);
+                  ignored_error, chord_acceleration);
       return;
     }
     Spacetime::count_geometry<
@@ -347,6 +365,8 @@ public:
    * @brief Bounds projected chord acceleration in physical row-pitch pixels.
    * @param origin,end Unit directions at the frame endpoints.
    * @param horizontal_floor Lower horizontal norm of the visible latitudes.
+   * @param minimum_horizontal2 Receives the squared horizontal norm at
+   *        the chord's closest approach, when requested.
    * @return Bound on either projected second derivative, with longitude
    *         scaled by the direction's horizontal norm.
    * @details For a chord q, longitude acceleration is
@@ -357,11 +377,15 @@ public:
    */
   HS_HOT_INLINE static float
   projected_acceleration(const math::Vector &origin, const math::Vector &end,
-                         float horizontal_floor = 0.0f) {
+                         float horizontal_floor = 0.0f,
+                         float *minimum_horizontal2 = nullptr) {
     const math::Vector v = end - origin;
     const float v2 = math::dot(v, v);
-    if (!(v2 > 0.0f))
+    if (!(v2 > 0.0f)) {
+      if (minimum_horizontal2)
+        *minimum_horizontal2 = origin.x * origin.x + origin.z * origin.z;
       return 0.0f;
+    }
     const float norm2 = fmaxf(0.0f, 1.0f - 0.25f * v2);
     const float horizontal_v2 = v.x * v.x + v.z * v.z;
     const float dot0 = origin.x * v.x + origin.z * v.z;
@@ -369,6 +393,8 @@ public:
                          ? hs::clamp(-dot0 / horizontal_v2, 0.0f, 1.0f)
                          : 0.0f;
     const float x = origin.x + v.x * at, z = origin.z + v.z * at;
+    if (minimum_horizontal2)
+      *minimum_horizontal2 = x * x + z * z;
     const float rho2 =
         fmaxf(x * x + z * z, horizontal_floor * horizontal_floor * norm2);
     if (!(rho2 > 0.0f && norm2 > 0.0f))
@@ -466,43 +492,32 @@ private:
   static constexpr float COLUMN_SLACK =
       2.0f * static_cast<float>(math::FAST_ATAN2_MAX_ERROR);
 
-  /**
-   * @brief Whether a point within the prepared motion of @p p may write a
-   *        tap inside the clip.
-   * @param p World position at t = 1.
-   * @return False only when no such point reaches the clip.
-   * @details A point within chord `d` of the drawn band lies within `d` of
-   * each bounding meridian halfspace that contains the band and within `d`
-   * of the band's unit-y range.
-   */
-  HS_HOT_INLINE bool reaches_clip(const math::Vector &p) const {
-    if (p.y > y_max || p.y < y_min)
-      return false;
+  /** @brief Applies the prepared band predicate to its meridian distances.
+   * @param low,high Signed distances from the band's meridians.
+   * @param limit Minimum admitted distance including motion padding.
+   * @return Whether the distances reach the band. */
+  HS_HOT_INLINE bool inside_columns(float low, float high, float limit) const {
     if (column_test == MeridianTest::NONE)
       return true;
-    const bool after_low = low_x * p.z - low_z * p.x >= -column_reach;
-    const bool before_high = p.x * high_z - p.z * high_x >= -column_reach;
+    const bool after_low = low >= limit;
+    const bool before_high = high >= limit;
     return column_test == MeridianTest::BOTH ? after_low && before_high
                                              : after_low || before_high;
   }
 
   /** @brief Whether a quadratic path can enter the prepared column band.
-   * @param start,end Unit endpoints.
+   * @param start Unit frame-start endpoint.
+   * @param low,high Frame-end meridian distances.
    * @param offset Midpoint departure from their chord.
    * @return False when a separating meridian excludes the entire path. */
-  HS_HOT_INLINE bool reaches_path_columns(const math::Vector &start,
-                                          const math::Vector &end,
+  HS_HOT_INLINE bool reaches_path_columns(const math::Vector &start, float low,
+                                          float high,
                                           const math::Vector &offset) const {
-    if (column_test == MeridianTest::NONE)
-      return true;
-    const auto after = [&](float x, float z) HS_HOT_INLINE {
-      return fmaxf(x * start.z - z * start.x, x * end.z - z * end.x) +
-                 fmaxf(0.0f, x * offset.z - z * offset.x) >=
-             0.0f;
-    };
-    const bool low = after(low_x, low_z);
-    const bool high = after(-high_x, -high_z);
-    return column_test == MeridianTest::BOTH ? low && high : low || high;
+    const float low_bound = fmaxf(low, low_x * start.z - low_z * start.x) +
+                            fmaxf(0.0f, low_x * offset.z - low_z * offset.x);
+    const float high_bound = fmaxf(high, start.x * high_z - start.z * high_x) +
+                             fmaxf(0.0f, offset.x * high_z - offset.z * high_x);
+    return inside_columns(low_bound, high_bound, 0.0f);
   }
 
   /**
@@ -514,6 +529,8 @@ private:
    * @param shade Returns the point's color and opacity at a frame fraction.
    * @param middle_offset Quadratic world departure from the endpoint chord.
    * @param ignored_error Physical error reserved for an omitted tiny departure.
+   * @param chord_acceleration Reusable projected acceleration, or -1 when
+   *        the projection floor requires measuring the chord again.
    * @details The physical curvature bound selects the number of pieces.
    * Each piece solves its arm crossing once and emits one spatial AA splat.
    */
@@ -522,7 +539,8 @@ private:
   plot_pieces(Sink &sink, Canvas &canvas, const math::Vector &origin,
               const math::Vector &end, const math::PixelCoords &a,
               const math::PixelCoords &b, Shade &shade,
-              const math::Vector &middle_offset, float ignored_error) const {
+              const math::Vector &middle_offset, float ignored_error,
+              float chord_acceleration) const {
     const float offset =
         ignored_error > 0.0f ? 0.0f : middle_offset.magnitude();
     const int curves =
@@ -544,7 +562,9 @@ private:
                  middle_offset * (4.0f * finish * (1.0f - finish)))
                     .normalized();
       const float acceleration =
-          projected_acceleration(from_world, to_world, projection_floor);
+          curves == 1 && chord_acceleration >= 0.0f
+              ? chord_acceleration
+              : projected_acceleration(from_world, to_world, projection_floor);
       const int pieces = static_cast<int>(ceilf(
           fminf(float(W),
                 fmaxf(1.0f, sqrtf(acceleration /
@@ -561,7 +581,7 @@ private:
       const float first = low - arm;
       const float last = high - arm;
       // The horizontal projection of a straight chord stays in the minor arc.
-      const bool bounded = curves == 1 && pieces > 2 && high - low < 0.5f;
+      const bool bounded = curves == 1 && pieces > 2 && high - low < 1.0f;
       bool have_from = true;
       auto project_knot = [&](int knot) HS_HOT_INLINE {
         return math::vector_to_pixel<W, H>(
