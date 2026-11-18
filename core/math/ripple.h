@@ -90,6 +90,12 @@ HS_HOT_INLINE inline float angle_at_distance(const Wave &wave, float distance,
   return angle_at_distance(wave, distance, phase, wave.half_width());
 }
 
+/** @brief Applies the full quaternion rotation for large ripple angles. */
+HS_SIZE_FLASH_MEMBER inline math::Vector
+rotate_large(const math::Vector &v, const math::Vector &axis, float theta) {
+  return math::rotate(v, math::make_rotation(axis, theta));
+}
+
 /** @brief Rotates around a normalized axis with the ripple angle policy.
  * @param v Direction to rotate.
  * @param axis Unit rotation axis.
@@ -104,8 +110,7 @@ rotate(const math::Vector &v, const math::Vector &axis, float theta) {
     float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f));
     return math::rotate(v, math::Quaternion(c, s * axis));
   }
-  math::Quaternion q = math::make_rotation(axis, theta);
-  return math::rotate(v, q);
+  return rotate_large(v, axis, theta);
 }
 
 /** @brief Applies one wave at a known distance without testing its support.
@@ -211,9 +216,9 @@ radial_transfer(float distance, const WaveAt &wave_at, uint8_t count) {
  * @param angle Net rotation in radians.
  * @param output Receives the rotated direction on success.
  * @return Whether the axis and unit-vector bounds hold. */
-HS_HOT_INLINE inline bool rotate_group(const math::Vector &start,
-                                       const math::Vector &center, float angle,
-                                       math::Vector &output) {
+HS_HOT_ITCM_MEMBER inline bool rotate_group(const math::Vector &start,
+                                            const math::Vector &center,
+                                            float angle, math::Vector &output) {
   const math::Vector cross = math::cross(center, start);
   const float cross_sq = math::dot(cross, cross);
   if (!(cross_sq >= 1e-4f) || !(fabsf(math::dot(start, start) - 1.0f) <= 1e-4f))

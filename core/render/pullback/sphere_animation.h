@@ -234,7 +234,7 @@ struct RippleGroupBands {
 };
 
 /** @brief Prepares exact group boundaries and conservative support. */
-HS_HOT_FLASH_MEMBER inline RippleGroupBands
+HS_SIZE_FLASH_MEMBER inline RippleGroupBands
 ripple_group_bands(const PreparedRipples &prepared) {
   RippleGroupBands result;
   bool ordered = true;
