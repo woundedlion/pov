@@ -551,11 +551,13 @@ private:
     clocks.advance();
     if constexpr (ANIMATED_PROJECTION)
       if (projection_frame_active())
-        this->advance_projection_spin(
+        this->projection_spin = advance_frame_spin(
+            this->projection_spin,
             this->params.template get<"projection">().spin_rate);
     if constexpr (Metadata::OUTER_CAMERA &&
                   requires { Derived::CAMERA_SPIN_RATE; })
-      this->advance_camera_spin(Derived::CAMERA_SPIN_RATE);
+      this->camera_spin =
+          advance_frame_spin(this->camera_spin, Derived::CAMERA_SPIN_RATE);
     palette.advance();
   }
 

@@ -256,6 +256,28 @@ template <> struct OuterCameraNoise<true> {
   FastNoiseLite outer_walk_noise; ///< Noise driving the camera walk.
 };
 
+/** @brief Accumulates Y spin modulo one turn.
+ * @param spin Current spin in radians.
+ * @param rate Radians per frame.
+ * @return Updated spin. */
+HS_O3_FN HS_HOT_INLINE inline float advance_frame_spin(float spin, float rate) {
+  return fmodf(spin + rate, math::TWO_PI_F);
+}
+
+/** @brief Accumulates a fraction of the current walk step.
+ * @param current Current walk orientation.
+ * @param previous Previous walk orientation, updated to @p current.
+ * @param fraction Fraction of the walk delta absorbed.
+ * @param wander Accumulated walk deltas.
+ * @return Updated wander rotation. */
+HS_O3_FN HS_HOT_INLINE inline math::Quaternion
+absorb_wander_step(const math::Quaternion &current, math::Quaternion &previous,
+                   float fraction, const math::Quaternion &wander) {
+  const math::Quaternion delta = current * previous.conjugate();
+  previous = current;
+  return math::absorb_rotation_delta(delta.normalized(), fraction, wander);
+}
+
 /** @brief Shared outer-camera clocks; empty when unused. */
 template <bool Enabled> struct OuterCameraState {
   /// Inverse outer-camera orientation.
@@ -274,23 +296,13 @@ template <> struct OuterCameraState<true> {
   /// @return Conjugate of the accumulated spin and wander.
   math::Quaternion camera_conjugate() const { return outer_conjugate; }
 
-  /** @brief Accumulates the camera's Y spin.
-   * @param rate Radians per frame. */
-  HS_O3_FN HS_HOT_INLINE void advance_camera_spin(float rate) {
-    camera_spin = fmodf(camera_spin + rate, math::TWO_PI_F);
-  }
-
   /** @brief Absorbs the walk's frame delta and rebuilds the inverse camera.
    * @tparam Spin Whether the camera spins about Y.
    * @param wander Fraction of the walk delta absorbed. */
   template <bool Spin>
   HS_O3_FN HS_HOT_INLINE void update_camera_frame(float wander) {
-    const math::Quaternion outer = outer_walk.get();
-    const math::Quaternion outer_delta =
-        outer * outer_walk_previous.conjugate();
-    outer_walk_previous = outer;
-    outer_wander = math::absorb_rotation_delta(outer_delta.normalized(), wander,
-                                               outer_wander);
+    outer_wander = absorb_wander_step(outer_walk.get(), outer_walk_previous,
+                                      wander, outer_wander);
     if constexpr (Spin)
       outer_conjugate =
           (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)
@@ -321,23 +333,14 @@ template <> struct ProjectionWalkState<true> {
       @return `projection_conjugate`. */
   math::Quaternion frame_conjugate() const { return projection_conjugate; }
 
-  /** @brief Accumulates the projection's Y spin.
-   * @param rate Radians per frame. */
-  HS_O3_FN HS_HOT_INLINE void advance_projection_spin(float rate) {
-    projection_spin = fmodf(projection_spin + rate, math::TWO_PI_F);
-  }
-
   /** @brief Absorbs the walk's frame delta and rebuilds the inverse frame.
    * @param wander Fraction of the walk delta absorbed.
    * @param tilted Whether the frame spins on projection_frame_base(true). */
   HS_O3_FN HS_HOT_INLINE void update_projection_frame(float wander,
                                                       bool tilted) {
-    const math::Quaternion projection = projection_walk.get();
-    const math::Quaternion projection_delta =
-        projection * projection_walk_previous.conjugate();
-    projection_walk_previous = projection;
-    projection_wander = math::absorb_rotation_delta(
-        projection_delta.normalized(), wander, projection_wander);
+    projection_wander =
+        absorb_wander_step(projection_walk.get(), projection_walk_previous,
+                           wander, projection_wander);
     projection_conjugate = (math::make_rotation(math::Y_AXIS, projection_spin) *
                             projection_frame_base(tilted) * projection_wander)
                                .conjugate();
