@@ -152,27 +152,17 @@ inline void test_correct_pipeline() {
   reset_correction<N>();
 }
 
-/** @brief Temperature and correction gains compound. */
-inline void test_correct_multifactor() {
+/** @brief Color correction scales the linear channels independently. */
+inline void test_correct_channel_gains() {
+  reset_correction<N>();
   Frame f;
+  Frame::set_correction(0, 127, 255);
 
-  // Temperature compounds on top of correction, not instead of it.
-  Frame::set_correction(255, 176, 240);
-  Frame::set_temperature(255, 255, 255);
-  Frame::set_brightness(255);
-  uint32_t gr = 0, gg = 65535, gb = 0;
-  f.correct(gr, gg, gb);
-  const uint32_t g_corr_only = gg;
-
-  Frame::set_temperature(255, 147, 41);
   uint32_t r = 65535, g = 65535, b = 65535;
   f.correct(r, g, b);
-  HS_EXPECT_LT(g, g_corr_only); // factors compound
-
-  HS_EXPECT_EQ(r, 65535u);
-  HS_EXPECT_EQ(g, 26195u);
-  HS_EXPECT_EQ(b, 10121u);
-  HS_EXPECT_LT(b, g);
+  HS_EXPECT_EQ(r, 0u);
+  HS_EXPECT_EQ(g, 32767u);
+  HS_EXPECT_EQ(b, 65535u);
 
   reset_correction<N>();
 }
@@ -222,11 +212,8 @@ inline void test_packpixel_wire_order() {
       HS_EXPECT_EQ(f.data()[i], before[i]);
 }
 
-/** @brief Applies the fixture correction and temperature gains. */
-inline void apply_packing_test_gains() {
-  Frame::set_correction(255, 176, 240);
-  Frame::set_temperature(255, 147, 41);
-}
+/** @brief Applies the fixture color gains. */
+inline void apply_packing_test_gains() { Frame::set_correction(255, 101, 39); }
 
 /** @brief Gains encode half-brightness white with the expected wire bytes. */
 inline void test_packpixel_gains_half_brightness() {
@@ -237,8 +224,8 @@ inline void test_packpixel_gains_half_brightness() {
   const Pixel white(CRGB(255, 255, 255));
   f.pack_pixel(3, white);
   HS_EXPECT_EQ(pixel(f, 3)[0], 0xF0);
-  HS_EXPECT_EQ(pixel(f, 3)[1], 38);
-  HS_EXPECT_EQ(pixel(f, 3)[2], 100);
+  HS_EXPECT_EQ(pixel(f, 3)[1], 39);
+  HS_EXPECT_EQ(pixel(f, 3)[2], 99);
   HS_EXPECT_EQ(pixel(f, 3)[3], 249);
 
   reset_correction<N>();
@@ -252,7 +239,7 @@ inline void test_packpixel_gains_full_brightness() {
   Frame::set_brightness(255);
   f.pack_pixel(3, white);
   HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
-  HS_EXPECT_EQ(pixel(f, 3)[1], 39);
+  HS_EXPECT_EQ(pixel(f, 3)[1], 40);
   HS_EXPECT_EQ(pixel(f, 3)[2], 102);
   HS_EXPECT_EQ(pixel(f, 3)[3], 255);
 
@@ -348,7 +335,7 @@ inline int run_hd107s_tests() {
   HS_RUN(test_layout_constants_phantasm);
   HS_RUN(test_fresh_frame_skeleton);
   HS_RUN(test_correct_pipeline);
-  HS_RUN(test_correct_multifactor);
+  HS_RUN(test_correct_channel_gains);
   HS_RUN(test_packpixel_wire_order);
   HS_RUN(test_packpixel_gains_half_brightness);
   HS_RUN(test_packpixel_gains_full_brightness);

@@ -63,7 +63,7 @@ struct NoColorCorrection {
   NoColorCorrection &operator=(const NoColorCorrection &) = delete;
 };
 /**
- * @brief Scope guard with no effect on the DMA driver's configured temperature.
+ * @brief Scope guard with no effect on the DMA driver's white balance.
  */
 struct NoTempCorrection {
   /** @brief Acquires exclusive correction guard ownership. */

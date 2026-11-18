@@ -320,15 +320,14 @@ inline void test_end_to_end_wire_bytes() {
   reset_correction<N>();
 }
 
-/** @brief Correction, temperature and brightness reach the submitted pixels. */
+/** @brief Color gains and brightness reach the submitted pixels. */
 inline void test_correction_pass_throughs() {
   reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
   const auto &capture = MockStrip::state().capture;
   MockStrip::state().complete = true;
-  DMALEDController<N, MockStrip>::set_correction(127, 255, 255);
-  DMALEDController<N, MockStrip>::set_temperature(255, 127, 255);
+  DMALEDController<N, MockStrip>::set_correction(127, 127, 255);
   DMALEDController<N, MockStrip>::set_brightness(127);
   ctl.back_frame().pack_pixel(0, Pixel(65535, 65535, 65535));
   HS_EXPECT_TRUE(ctl.submit_frame(false));
@@ -345,21 +344,13 @@ inline void test_apply_default_calibration() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
   DMALEDController<N, MockStrip>::set_correction(127, 255, 255);
-  DMALEDController<N, MockStrip>::set_temperature(255, 127, 255);
   DMALEDController<N, MockStrip>::set_brightness(127);
   DMALEDController<N, MockStrip>::apply_default_calibration();
   uint32_t r = 65535, g = 65535, b = 65535;
   ctl.back_frame().correct(r, g, b);
-  // An 8-bit factor f scales by (f + 1) / 256; 255 is unity.
-  const auto calibrated = [](uint8_t strip, uint8_t warm) {
-    return ((65535u * (strip + 1u) >> 8) * (warm + 1u)) >> 8;
-  };
-  HS_EXPECT_EQ(
-      r, calibrated(hd107s::LINEAR_STRIP_GAIN.r, hd107s::LINEAR_WARM_GAIN.r));
-  HS_EXPECT_EQ(
-      g, calibrated(hd107s::LINEAR_STRIP_GAIN.g, hd107s::LINEAR_WARM_GAIN.g));
-  HS_EXPECT_EQ(
-      b, calibrated(hd107s::LINEAR_STRIP_GAIN.b, hd107s::LINEAR_WARM_GAIN.b));
+  HS_EXPECT_EQ(r, 65535u);
+  HS_EXPECT_EQ(g, 26111u);
+  HS_EXPECT_EQ(b, 10239u);
   reset_correction<N>();
 }
 

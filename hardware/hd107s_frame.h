@@ -63,10 +63,8 @@ struct ChannelScale {
   uint8_t b; ///< Blue factor.
 };
 
-/// Strip colour-correction factors for `HD107SFrame::set_correction`.
-inline constexpr ChannelScale LINEAR_STRIP_GAIN{255, 176, 240};
-/// Warm white-balance factors for `HD107SFrame::set_temperature`.
-inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
+/// Default linear RGB gains.
+inline constexpr ChannelScale LINEAR_RGB_GAIN{255, 101, 39};
 
 } // namespace hd107s
 
@@ -86,8 +84,8 @@ inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
  *                 needs ceil(N/2) extra clocks; at 8 clocks/byte that is
  *                 ceil(N/16) bytes. Padding adds harmless extra zero clocks.
  *
- * pack_pixel() applies color gains, temperature gains and brightness scaling
- * to linear Pixel input, then selects pixel brightness at the brightest
+ * pack_pixel() applies color gains and brightness scaling to linear Pixel
+ * input, then selects pixel brightness at the brightest
  * channel's rounding boundary and rounds the rescaled channels to 8-bit.
  */
 template <int N> class HD107SFrame {
@@ -124,8 +122,7 @@ public:
   }
 
   /**
-   * @brief Applies color → temperature → brightness correction in linear 16-bit
-   *        space, in place.
+   * @brief Applies color gains and brightness in linear 16-bit space.
    * @param r In/out red channel, already-linear 16-bit (0..65535).
    * @param g In/out green channel, already-linear 16-bit (0..65535).
    * @param b In/out blue channel, already-linear 16-bit (0..65535).
@@ -137,10 +134,6 @@ public:
     g = (g * corr_g) >> 8;
     b = (b * corr_b) >> 8;
 
-    r = (r * temp_r) >> 8;
-    g = (g * temp_g) >> 8;
-    b = (b * temp_b) >> 8;
-
     r = (r * brightness_gain) >> 8;
     g = (g * brightness_gain) >> 8;
     b = (b * brightness_gain) >> 8;
@@ -151,8 +144,8 @@ public:
    * @param index LED index, must be in [0, N). Unchecked on device (an
    *              out-of-range index is UB); asserted on host builds only.
    * @param p     Linear 16-bit pixel.
-   * @details Applies color/temperature/brightness corrections in linear 16-bit
-   *          space, then packs shared 5-bit brightness and linear 8-bit PWM.
+   * @details Applies color gains and brightness in linear 16-bit space, then
+   *          packs shared 5-bit brightness and linear 8-bit PWM.
    *          Black uses brightness 31 with all channels zero.
    */
   HS_O3_FN inline void pack_pixel(int index, const Pixel &p) {
@@ -206,18 +199,6 @@ public:
   // --- Static correction configuration (shared across all frames) -----------
 
   /**
-   * @brief Sets the white-balance temperature factors (shared across frames).
-   * @param r Red temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
-   * @param g Green temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
-   * @param b Blue temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
-   */
-  static void set_temperature(uint8_t r, uint8_t g, uint8_t b) {
-    temp_r = factor(r);
-    temp_g = factor(g);
-    temp_b = factor(b);
-  }
-
-  /**
    * @brief Sets the per-channel color-correction factors (shared across frames).
    * @param r Red correction factor, 8-bit scale (255 = ×1.0, 0 = off).
    * @param g Green correction factor, 8-bit scale (255 = ×1.0, 0 = off).
@@ -258,18 +239,11 @@ private:
       "cannot grow v past 16 bits and overflow the 16-bit channel input");
 
   // Shared correction state — internal multipliers (256 = ×1.0, 0 = off).
-  static uint16_t temp_r, temp_g, temp_b;
   static uint16_t corr_r, corr_g, corr_b;
   static uint16_t brightness_gain;
 };
 
 // Static member definitions (256 = unity; see factor()).
-/// Red temperature multiplier (256 = ×1.0).
-template <int N> uint16_t HD107SFrame<N>::temp_r = 256;
-/// Green temperature multiplier (256 = ×1.0).
-template <int N> uint16_t HD107SFrame<N>::temp_g = 256;
-/// Blue temperature multiplier (256 = ×1.0).
-template <int N> uint16_t HD107SFrame<N>::temp_b = 256;
 /// Red correction multiplier (256 = ×1.0).
 template <int N> uint16_t HD107SFrame<N>::corr_r = 256;
 /// Green correction multiplier (256 = ×1.0).

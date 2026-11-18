@@ -141,16 +141,6 @@ public:
   }
 
   /**
-   * @brief Sets the white-point temperature gains applied per channel.
-   * @param r Red temperature gain in [0, 255].
-   * @param g Green temperature gain in [0, 255].
-   * @param b Blue temperature gain in [0, 255].
-   */
-  static void set_temperature(uint8_t r, uint8_t g, uint8_t b) {
-    HD107SFrame<N>::set_temperature(r, g, b);
-  }
-
-  /**
    * @brief Sets the per-channel color-correction gains applied per pixel.
    * @param r Red correction gain in [0, 255].
    * @param g Green correction gain in [0, 255].
@@ -160,12 +150,10 @@ public:
     HD107SFrame<N>::set_correction(r, g, b);
   }
 
-  /** @brief Applies the HD107S strip gains, warm white balance, and full brightness. */
+  /** @brief Applies the default HD107S color gains and full brightness. */
   static void apply_default_calibration() {
-    set_correction(hd107s::LINEAR_STRIP_GAIN.r, hd107s::LINEAR_STRIP_GAIN.g,
-                   hd107s::LINEAR_STRIP_GAIN.b);
-    set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
-                    hd107s::LINEAR_WARM_GAIN.b);
+    set_correction(hd107s::LINEAR_RGB_GAIN.r, hd107s::LINEAR_RGB_GAIN.g,
+                   hd107s::LINEAR_RGB_GAIN.b);
     set_brightness(255);
   }
 
