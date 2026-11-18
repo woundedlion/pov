@@ -3955,12 +3955,12 @@
 		(uuid "70c3c42a-a51e-5985-b42c-537fedc3b629")
 	)
 	(wire
-		(pts (xy 269.24 271.78) (xy 265.43 271.78))
+		(pts (xy 243.84 245.11) (xy 240.03 245.11))
 		(stroke (width 0) (type default))
 		(uuid "897469d8-a667-5017-a5e2-82bb774fa197")
 	)
 	(wire
-		(pts (xy 279.4 271.78) (xy 283.21 271.78))
+		(pts (xy 254 245.11) (xy 257.81 245.11))
 		(stroke (width 0) (type default))
 		(uuid "137da5ee-ed46-5a14-8514-3ddc081e84ca")
 	)
@@ -4230,12 +4230,12 @@
 		(uuid "de85ac21-9398-5f1e-a8cb-d7ebcd452c81")
 	)
 	(label "TERM_LINK"
-		(at 265.43 271.78 180)
+		(at 240.03 245.11 180)
 		(effects (font (size 1.27 1.27)) (justify right bottom))
 		(uuid "71ac6ffa-3837-5284-8aef-15deb1fbc034")
 	)
 	(label "SYNC_B"
-		(at 283.21 271.78 0)
+		(at 257.81 245.11 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "62225de5-423b-55eb-b793-06e470ee024b")
 	)
@@ -6507,7 +6507,7 @@
 	)
 	(symbol
 		(lib_id "Jumper:SolderJumper_2_Open")
-		(at 274.32 271.78 0)
+		(at 248.92 245.11 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -6515,19 +6515,19 @@
 		(dnp no)
 		(uuid "61a00a6e-81a3-5277-b3a2-e46802b4ffab")
 		(property "Reference" "JP_TERM"
-			(at 274.32 266.7 0)
+			(at 248.92 240.03 0)
 			(effects (font (size 1.27 1.27)))
 		)
 		(property "Value" "TERM endpoints only"
-			(at 274.32 281.94 0)
+			(at 248.92 255.27 0)
 			(effects (font (size 1.27 1.27)))
 		)
 		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm"
-			(at 274.32 279.4 0)
+			(at 248.92 252.73 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Datasheet" ""
-			(at 274.32 271.78 0)
+			(at 248.92 245.11 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(pin "1" (uuid "5bd89d0a-3723-5562-bb8e-654fb4fb30d3"))

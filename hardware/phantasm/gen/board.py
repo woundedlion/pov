@@ -550,7 +550,7 @@ def sync_rev13(ctx):
         to_label(connector, "1", "SYNC_A"); to_label(connector, "2", "SYNC_B")
         to_power(connector, "3", GND); to_label(connector, "4", "SHIELD")
     rterm = place("Device:R", "R_TERM", "120R 1% 0.5W", 279.4, 251.46, fp=SMD08_HAND)
-    jpterm = place("Jumper:SolderJumper_2_Open", "JP_TERM", "TERM endpoints only", 274.32, 271.78,
+    jpterm = place("Jumper:SolderJumper_2_Open", "JP_TERM", "TERM endpoints only", 248.92, 245.11,
                    fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(rterm, "1", "SYNC_A"); to_label(rterm, "2", "TERM_LINK")
     to_label(jpterm, "1", "TERM_LINK"); to_label(jpterm, "2", "SYNC_B")
