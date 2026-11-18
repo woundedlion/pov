@@ -80,6 +80,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_column_uniform_color_seam_registers);
   HS_RUN(test_column_capture_reads_vertex_paths);
   HS_RUN(test_column_plan_covers_lit_columns);
+  HS_RUN(test_column_plan_bounds_unmodelled_short_edge);
   HS_RUN(test_column_mesh_batch_cull);
   HS_RUN(test_column_single_splat_motion_gate);
   HS_RUN(test_column_basis_normalization);

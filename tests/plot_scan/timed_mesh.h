@@ -1238,7 +1238,7 @@ inline void test_column_plan_covers_lit_columns() {
           HS_EXPECT(start <= first, "the walk starts at or before the lit run");
           HS_EXPECT(first - start < walk->deadline,
                     "the walk reaches the lit run before giving up");
-          if (!bounded)
+          if (!bounded && frame.known)
             HS_EXPECT_EQ(start + walk->count, PASS);
           else {
             trimmed += start + walk->count < PASS;
@@ -1246,7 +1246,7 @@ inline void test_column_plan_covers_lit_columns() {
               if (lit[x])
                 HS_EXPECT_LT(offset(x), start + walk->count);
           }
-          if (walk->deadline < PASS) {
+          if (frame.known && walk->deadline < PASS) {
             slack += float(first - start);
             ++slack_count;
           }
@@ -1264,6 +1264,52 @@ inline void test_column_plan_covers_lit_columns() {
   HS_EXPECT_GT(slack_count, lit_passes * 3 / 4);
   HS_EXPECT_GT(skipped, empty_passes * 9 / 10);
   HS_EXPECT(mean < 2.5f, "walks start close to their lit runs");
+}
+
+/** @brief A static sector bounds a short moving edge after its track fails. */
+inline void test_column_plan_bounds_unmodelled_short_edge() {
+  constexpr int W = 288, PASS = W / 2;
+  const auto direction = [](float x, float z) {
+    return math::Vector(x, sqrtf(1.0f - x * x - z * z), z);
+  };
+  const math::Vector a0 = direction(0.088f, 0.048f);
+  const math::Vector a1 = direction(-0.049f, 0.087f);
+  const math::Vector b0 = direction(a0.x + 0.017f, a0.z + 0.022f);
+  const math::Vector b1 = direction(a1.x + 0.017f, a1.z + 0.022f);
+  Plot::EdgeWorldsheet frame;
+  frame.bases[0] = Plot::EdgeWorldsheet::arc(a0, b0);
+  frame.bases[1] = Plot::EdgeWorldsheet::arc(a1, b1);
+  frame.ends[0] = b0;
+  frame.ends[1] = b1;
+  int lit = 0;
+  for (int order : {1, -1}) {
+    Plot::detail::ColumnSegment segments[2];
+    HS_EXPECT_EQ(frame.plan<W>(order, segments), 1);
+    HS_EXPECT_FALSE(frame.known);
+    HS_EXPECT_LT(segments[0].count, PASS);
+    for (int x = 0; x < W; ++x) {
+      const float t = Spacetime::SamplingSurface<W>::time(x);
+      const auto a = math::nlerp_unit(a0, a1, t);
+      const auto b = math::nlerp_unit(b0, b1, t);
+      const float arc =
+          frame.bases[0].total_dist +
+          (frame.bases[1].total_dist - frame.bases[0].total_dist) * t;
+      const auto basis = Plot::EdgeWorldsheet::basis(a, b, arc);
+      const auto &segment = segments[0];
+      for (int k = 0; k <= 17; ++k) {
+        const math::Vector p = k == 17 ? b : basis.accurate(k / 16.0f).pos;
+        const float delta = math::centered_remainder(
+            math::vector_to_column<W>(p) - float(x), float(W));
+        if (fabsf(delta) > 1.0f)
+          continue;
+        ++lit;
+        const int into = (x - segment.start) * order;
+        HS_EXPECT_GE(into, 0);
+        HS_EXPECT_LT(into, segment.count);
+      }
+    }
+  }
+  HS_EXPECT_GT(lit, 0);
 }
 
 /** @brief Short arc lengths agree with the scale-invariant geometric angle. */

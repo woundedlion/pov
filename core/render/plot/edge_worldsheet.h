@@ -522,6 +522,76 @@ public:
     return end_step;
   }
 
+private:
+  /** @brief Bounds an unmodelled short arc by a static azimuth sector.
+   * @tparam W Display width.
+   * @param first,last Receive the inclusive unwrapped column interval.
+   * @return Whether the sector covers less than half a turn.
+   * @details The four endpoint captures enclose their chords. The split
+   * walk can extend the instantaneous arc to its interpolated endpoint
+   * length, so the bound also includes that extension. The walk tests the
+   * forward ray of each meridian. */
+  template <int W>
+  HS_HOT_FLASH_MEMBER bool fallback_sector(int &first, int &last) const {
+    if constexpr (W % 2 != 0)
+      return false;
+    constexpr int PASS = W / 2;
+    if (fmaxf(bases[0].total_dist, bases[1].total_dist) > 0.5f)
+      return false;
+    const math::Vector &a0 = bases[0].v1, &a1 = bases[1].v1;
+    const math::Vector &b0 = ends[0], &b1 = ends[1];
+    const math::Vector d0 = b0 - a0, d1 = b1 - a1;
+    const float h0 = sqrtf(math::dot(d0, d0));
+    const float h1 = sqrtf(math::dot(d1, d1));
+    const float a_pad =
+        2.0f * deviation + 0.25f * math::distance_squared(a0, a1);
+    const float b_pad =
+        2.0f * deviation + 0.25f * math::distance_squared(b0, b1);
+    const float chord_pad =
+        0.5f * sqrtf(math::distance_squared(d0, d1)) + a_pad + b_pad;
+    if (fminf(h0, h1) - chord_pad < 0.01f || fmaxf(h0, h1) + chord_pad > 0.5f)
+      return false;
+    // 2 asin(length / 2) is at most 1.04-Lipschitz for these chords.
+    constexpr float ARC_LENGTH_SLOPE = 1.04f;
+    constexpr float BASIS_ROUNDING = 0.002f;
+    const float position_pad =
+        fmaxf(a_pad, b_pad) + ARC_LENGTH_SLOPE * chord_pad + BASIS_ROUNDING;
+
+    const float origin = tracks[0].origin;
+    const float a_travel = tracks[0].travel;
+    const float b_start =
+        math::centered_remainder(tracks[1].origin - origin, float(W));
+    const float b_end =
+        math::centered_remainder(b_start + tracks[1].travel, float(W));
+    const float low = fminf(fminf(0.0f, a_travel), fminf(b_start, b_end));
+    const float high = fmaxf(fmaxf(0.0f, a_travel), fmaxf(b_start, b_end));
+    constexpr float RAD = math::RADIANS_PER_COLUMN<W>;
+    constexpr float AZIMUTH_ERROR =
+        static_cast<float>(math::FAST_ATAN2_MAX_ERROR);
+    const float angle = 0.5f * (high - low) * RAD + AZIMUTH_ERROR;
+    if (!(angle < math::PI_F * 0.5f))
+      return false;
+    const auto horizontal2 = [](const math::Vector &v) {
+      return v.x * v.x + v.z * v.z;
+    };
+    const float least2 = fminf(fminf(horizontal2(a0), horizontal2(a1)),
+                               fminf(horizontal2(b0), horizontal2(b1)));
+    const float inner = sqrtf(least2) * (1.0f - 0.5f * angle * angle);
+    if (!(inner > 2.0f * position_pad))
+      return false;
+    constexpr float COLUMN_PAD = 1.01f + AZIMUTH_ERROR / RAD;
+    const float guard = position_pad * (1.05f / RAD) / inner + COLUMN_PAD;
+    const int low_column = int(floorf(origin + low - guard));
+    const int high_column = int(ceilf(origin + high + guard));
+    const int span = high_column - low_column;
+    if (span >= PASS)
+      return false;
+    first = math::fast_wrap(low_column, W);
+    last = first + span;
+    return true;
+  }
+
+public:
   /** @brief Bounds the columns each arm pass can light.
    * @tparam W Display width.
    * @param direction Walk direction.
@@ -535,9 +605,8 @@ public:
    * shorter side between its endpoints' longitudes. A pass's lit columns
    * begin at its first column when that column lies on the arc's side and
    * otherwise at the earliest guarded crossing, and an unlit walk gives up
-   * after the latest one; a pass with neither lights nothing. Tracks the
-   * model cannot bound, and endpoints whose arc can change sides over the
-   * frame, walk the whole pass. */
+   * after the latest one; a pass with neither lights nothing. Unmodelled
+   * arcs use a static azimuth sector or walk the whole pass. */
   template <int W>
   HS_O3_FN HS_NOINLINE_NOCLONE int
   plan(int direction, detail::ColumnSegment segments[2], bool bounded = false) {
@@ -545,30 +614,41 @@ public:
     constexpr float HALF = W / 2.0f;
     float initial_arc_span = 0.0f, arc_span_delta = 0.0f;
     known = prepare_longitude_tracks<W>(initial_arc_span, arc_span_delta);
+    if (!known) {
+      int first = 0, last = W - 1;
+      fallback_sector<W>(first, last);
+      int count = 0;
+      for (int pass = 0; pass < 2; ++pass) {
+        const bool wrapped = pass == 0 && last >= W;
+        const int low = wrapped ? 0 : std::max(first, pass * PASS);
+        const int high =
+            wrapped ? last - W : std::min(last, (pass + 1) * PASS - 1);
+        if (low > high)
+          continue;
+        const int extent = high - low + 1;
+        segments[count++] = {direction > 0 ? low : high, extent, extent};
+      }
+      return count;
+    }
     float first_crossing[2] = {std::numeric_limits<float>::infinity(),
                                std::numeric_limits<float>::infinity()};
     float last_crossing[2] = {-first_crossing[0], -first_crossing[0]};
-    if (known)
-      for (const auto &track : tracks)
-        Spacetime::track_crossings<W>(
-            track, 0.0f, 1.0f, Spacetime::FrameEnds::BOTH,
-            [&](const Spacetime::Crossing &pass) HS_HOT_INLINE {
-              const int arm = pass.arm & 1;
-              const float sweep_column = pass.time * HALF;
-              const float walk_step =
-                  direction > 0 ? sweep_column : HALF - 1.0f - sweep_column;
-              first_crossing[arm] =
-                  fminf(first_crossing[arm], walk_step - track.guard);
-              last_crossing[arm] =
-                  fmaxf(last_crossing[arm], walk_step + track.guard);
-            });
+    for (const auto &track : tracks)
+      Spacetime::track_crossings<W>(
+          track, 0.0f, 1.0f, Spacetime::FrameEnds::BOTH,
+          [&](const Spacetime::Crossing &pass) HS_HOT_INLINE {
+            const int arm = pass.arm & 1;
+            const float sweep_column = pass.time * HALF;
+            const float walk_step =
+                direction > 0 ? sweep_column : HALF - 1.0f - sweep_column;
+            first_crossing[arm] =
+                fminf(first_crossing[arm], walk_step - track.guard);
+            last_crossing[arm] =
+                fmaxf(last_crossing[arm], walk_step + track.guard);
+          });
     int count = 0;
     for (int pass = 0; pass < 2; ++pass) {
       const int first_column = pass * PASS + (direction > 0 ? 0 : PASS - 1);
-      if (!known) {
-        segments[count++] = {first_column, PASS, PASS};
-        continue;
-      }
       int first_step = 0, deadline = PASS;
       if (first_crossing[pass] > 0.0f) {
         const float time = direction > 0 ? 0.0f : (HALF - 1.0f) / HALF;
