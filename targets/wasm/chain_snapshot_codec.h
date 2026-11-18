@@ -280,36 +280,50 @@ class ChainSnapshotCodec {
                                               ProbabilityClockSnapshot>) {
             out.set("seed", state.seed);
             out.set("frame", state.frame);
-          } else if constexpr (!std::is_same_v<State, std::monostate>)
+          } else if constexpr (std::is_same_v<State, PhaseClockSnapshot>) {
             out.set("phase", state.phase);
+          } else {
+            static_assert(std::is_same_v<State, std::monostate>,
+                          "unencoded RuntimeSnapshot alternative");
+          }
           return out;
         },
         snapshot);
   }
+  /** @brief Checks the wire name of a runtime state alternative.
+   * @tparam State Runtime snapshot alternative.
+   * @param kind Incoming wire name.
+   * @return Whether @p kind names @p State. */
+  template <typename State>
+  static bool is_runtime_kind(const std::string &kind) {
+    return kind == Pullback::Interp::runtime_snapshot_kind(
+                       Runtime(std::in_place_type<State>));
+  }
+
   static bool runtime_state(const std::string &kind, const Val &value,
                             Runtime &out) {
     using namespace Pullback::Interp;
     if (!object(value))
       return false;
-    if (kind == "spatial-walk-v2") {
+    if (is_runtime_kind<SpatialWalkSnapshot>(kind)) {
       SpatialWalkSnapshot state;
       if (!spatial(value, state))
         return false;
       out = state;
-    } else if (kind == "source-clock-v1") {
+    } else if (is_runtime_kind<SourceClockSnapshot>(kind)) {
       SourceClockSnapshot state;
       if (!number(value, "primary", state.primary) ||
           !number(value, "secondary", state.secondary) ||
           !number(value, "angle", state.angle))
         return false;
       out = state;
-    } else if (kind == "noise-clock-v1") {
+    } else if (is_runtime_kind<NoiseClockSnapshot>(kind)) {
       NoiseClockSnapshot state;
       if (!number(value, "phase", state.phase) ||
           !integer(value, "noiseSeed", state.noise_seed))
         return false;
       out = state;
-    } else if (kind == "ripple-burst-v1") {
+    } else if (is_runtime_kind<RippleClockSnapshot>(kind)) {
       RippleClockSnapshot state;
       const auto waves = value["waves"];
       if (!number(value, "phase", state.phase) ||
@@ -323,29 +337,29 @@ class ChainSnapshotCodec {
             !integer(waves[i], "burst", state.waves[i].burst))
           return false;
       out = state;
-    } else if (kind == "affine-clock-v1") {
+    } else if (is_runtime_kind<AffineClockSnapshot>(kind)) {
       AffineClockSnapshot state;
       if (!number(value, "phase", state.phase) ||
           !number(value, "rotation", state.rotation))
         return false;
       out = state;
-    } else if (kind == "color-clock-v3") {
+    } else if (is_runtime_kind<ColorClockSnapshot>(kind)) {
       ColorClockSnapshot state;
       if (!number(value, "oscillationPhase", state.oscillation_phase))
         return false;
       out = state;
-    } else if (kind == "modulation-clock-v1") {
+    } else if (is_runtime_kind<ModulationClockSnapshot>(kind)) {
       ModulationClockSnapshot state;
       if (!modulation_clock(value, state.modulation))
         return false;
       out = state;
-    } else if (kind == "probability-clock-v1") {
+    } else if (is_runtime_kind<ProbabilityClockSnapshot>(kind)) {
       ProbabilityClockSnapshot state;
       if (!integer(value, "seed", state.seed) ||
           !integer(value, "frame", state.frame))
         return false;
       out = state;
-    } else if (kind == "phase-clock-v1") {
+    } else if (is_runtime_kind<PhaseClockSnapshot>(kind)) {
       float phase;
       if (!number(value, "phase", phase))
         return false;
