@@ -652,9 +652,7 @@ public:
         physical_speed(dx, dy, position.y, position.y) <= allowance;
     const float fraction = position.x - floorf(position.x);
     const float lag = fmaxf(fraction, 1.0f - fraction);
-    if (fabsf(math::centered_remainder(
-            position.x, Spacetime::SamplingSurface<W>::ARM_PERIOD)) >
-            Spacetime::SamplingSurface<W>::ARM_SEAM_RADIUS &&
+    if (!Spacetime::SamplingSurface<W>::near_arm_seam(position.x) &&
         approach > 0.0f && shared && capture.time - lag / approach >= t0 &&
         capture.time + lag / approach < t1) {
       sink.plot(canvas, position.x, position.y, c.color, 0.0f, c.alpha);
