@@ -486,7 +486,8 @@ struct ResourceRippleScheduler {};
 /** @brief Persistent ripple burst scheduler.
  * @tparam Resource Ripple resource. */
 template <typename Resource> struct ResourceRippleScheduler<Resource, true> {
-  SphereAnimation::RippleState ripples; ///< Active bursts and clock.
+  SphereAnimation::BurstCenters centers; ///< Cached random burst centers.
+  SphereAnimation::RippleState ripples;  ///< Active bursts and clock.
 };
 /** @brief Optional runtime walk of a keyed rotation.
  * @tparam Resource Keyed resource.
@@ -546,6 +547,8 @@ struct ResourceRippleRadialView {};
 /** @brief Borrowed ripple curves for a column time.
  * @tparam Resource Burst-ripple resource. */
 template <typename Resource> struct ResourceRippleRadialView<Resource, true> {
+  const SphereAnimation::BurstCenters *centers =
+      nullptr; ///< Runtime-owned centers.
   const SphereAnimation::RadialTables *radial_tables =
       nullptr; ///< Runtime-owned curves.
   float radial_fraction =

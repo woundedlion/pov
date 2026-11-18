@@ -531,8 +531,12 @@ struct Project
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
 
-    const math::Vector local =
-        math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
+    const math::Vector local = [&]() HS_HOT_INLINE {
+      if constexpr (requires { ProjectionPolicyT::in_local_frame(prepared); })
+        if (ProjectionPolicyT::in_local_frame(prepared))
+          return input.dir;
+      return math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
+    }();
     ProjectionResult result;
     if constexpr (Detail::PolicyPrepares<ProjectionPolicyT,
                                          typename Binding::FrameState>) {

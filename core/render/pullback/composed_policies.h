@@ -34,12 +34,10 @@ struct Detail::CoordinateOnlyWarp<
 
   /** @brief Advances the plane coordinate while preserving its provenance.
    * @param input Plane carrier before the warp.
-   * @param prepared Affine frame coefficients.
-   * @return Carrier passed to the tessellation source. */
-  static HS_HOT_INLINE PlaneSample
-  apply(const PlaneSample &input, const typename Affine::Prepared &prepared) {
-    return {Warp::affine_coords<Affine::FORM>(input.coords, prepared),
-            input.provenance, input.sphere, input.path_length};
+   * @param prepared Affine frame coefficients. */
+  static HS_HOT_INLINE void apply(PlaneSample &input,
+                                  const typename Affine::Prepared &prepared) {
+    input.coords = Warp::affine_coords<Affine::FORM>(input.coords, prepared);
   }
 };
 
@@ -69,6 +67,8 @@ struct Spec {
   static constexpr bool FACTORED_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.
   static constexpr bool RIPPLE_RADIAL_TABLE = false;
+  /// Fits stationary direct hue noise to cubic patches on the byte-cube grid.
+  static constexpr bool CUBIC_STATIONARY_HUE = false;
   /// Keeps each prepared shading frame in the runtime arena.
   static constexpr bool PERSISTENT_PREPARED_FRAME = true;
   /// Keeps the full-resolution gamut table in device persistent storage.

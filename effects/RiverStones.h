@@ -18,9 +18,12 @@
 
 /** @brief Stage spec for `RiverStones`. */
 struct RiverStonesSpec : Pullback::Spec {
+  static constexpr bool CUBIC_STATIONARY_HUE = true;
   /// Samples animation at each column time.
   static constexpr auto TEMPORAL =
       Pullback::TemporalPolicy::fused(Pullback::PaletteCache::NONE);
+  /// Bake the authored palette before the first draw.
+  static constexpr bool PREPARE_PALETTE_ON_INIT = true;
   /// Generated palette harmony.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   /// Spin and wander projection frame.

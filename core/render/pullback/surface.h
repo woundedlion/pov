@@ -186,6 +186,28 @@ prepare_ripple_center(const PeriodicRippleParams &params) {
                                       params.center_polar);
 }
 
+/** @brief Prepares an already admitted ripple cycle around a supplied center.
+ * @param params Ripple parameters.
+ * @param progress Normalized cycle in [0,1).
+ * @param center Prepared center direction.
+ * @param sync_support Whether to compute individual cosine bounds.
+ * @return Enveloped wave at this cycle position. */
+HS_FLASH_INLINE inline PreparedRipple
+prepare_ripple_at_progress(const PeriodicRippleParams &params, float progress,
+                           const math::Vector &center, bool sync_support) {
+  Animation::RippleWave ripple;
+  ripple.center = center;
+  ripple.amplitude = params.strength;
+  ripple.decay = params.decay;
+  ripple.thickness = params.thickness;
+  ripple.phase = progress * math::PI_F;
+  const float attack = fminf(progress * 10.0f, 1.0f);
+  ripple.amplitude *= attack * attack * (1.0f - progress);
+  if (sync_support)
+    ripple.sync();
+  return {ripple};
+}
+
 /** @brief Resolves a seamless ripple cycle around a supplied center.
  *  @param params Ripple parameters.
  *  @param cycle Normalized cycle; wrapped to [0, 1).
@@ -194,17 +216,7 @@ prepare_ripple_center(const PeriodicRippleParams &params) {
 HS_FLASH_INLINE inline PreparedRipple
 prepare_ripple(const PeriodicRippleParams &params, float cycle,
                const math::Vector &center) {
-  Animation::RippleWave ripple;
-  ripple.center = center;
-  ripple.amplitude = params.strength;
-  ripple.decay = params.decay;
-  ripple.thickness = params.thickness;
-  const float progress = math::wrap_t(cycle);
-  ripple.phase = progress * math::PI_F;
-  const float attack = fminf(progress * 10.0f, 1.0f);
-  ripple.amplitude *= attack * attack * (1.0f - progress);
-  ripple.sync();
-  return {ripple};
+  return prepare_ripple_at_progress(params, math::wrap_t(cycle), center, true);
 }
 
 /** @brief Resolves a seamless ripple cycle around the configured center.

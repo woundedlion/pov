@@ -115,11 +115,21 @@ inline void test_pullback_single_center_ripple_support() {
       clock.waves[0] = {78.0f, 0};
     }
     const SupportedRipples cached{prepare_ripples(params, clock)};
+    const SupportedRipples deferred{prepare_ripples(params, clock, true)};
     HS_EXPECT_EQ(cached.support.count, overlap ? 2 : 1);
+    HS_EXPECT_TRUE(cached.support.inverse_width > 0.0);
     const auto &exact = cached.ripples;
     const auto check = [&](const math::Vector &view) {
       const auto a = grouped_ripples(view, exact, false, &cached.support);
       const auto b = grouped_ripples(view, exact, false);
+      const auto lazy = supported_ripples(view, deferred);
+      HS_EXPECT_EQ(lazy.sphere.x, b.sphere.x);
+      HS_EXPECT_EQ(lazy.sphere.y, b.sphere.y);
+      HS_EXPECT_EQ(lazy.sphere.z, b.sphere.z);
+      const auto ordered = supported_ripples(view, cached);
+      HS_EXPECT_EQ(ordered.sphere.x, b.sphere.x);
+      HS_EXPECT_EQ(ordered.sphere.y, b.sphere.y);
+      HS_EXPECT_EQ(ordered.sphere.z, b.sphere.z);
       HS_EXPECT_EQ(a.sphere.x, b.sphere.x);
       HS_EXPECT_EQ(a.sphere.y, b.sphere.y);
       HS_EXPECT_EQ(a.sphere.z, b.sphere.z);
@@ -137,6 +147,42 @@ inline void test_pullback_single_center_ripple_support() {
           }
       }
   }
+  auto merged = prepare_ripples(params, clock);
+  merged.waves[2] = merged.waves[1];
+  HS_EXPECT_EQ(ripple_group_bands(merged).inverse_width, 0.0);
+  merged = prepare_ripples(params, clock);
+  merged.waves[1].ripple.decay = 1.0f;
+  HS_EXPECT_EQ(ripple_group_bands(merged).inverse_width, 0.0);
+  const SupportedRipples edited{merged};
+  const auto a = supported_ripples(math::Z_AXIS, edited);
+  const auto b = grouped_ripples(math::Z_AXIS, merged, false);
+  HS_EXPECT_EQ(a.sphere.x, b.sphere.x);
+  HS_EXPECT_EQ(a.sphere.y, b.sphere.y);
+  HS_EXPECT_EQ(a.sphere.z, b.sphere.z);
+  PreparedRipples polar;
+  polar.count = 1;
+  auto &front = polar.waves[0].ripple;
+  front.center = math::Y_AXIS;
+  front.phase = 0.25f;
+  front.amplitude = 0.15f;
+  front.thickness = 0.7f;
+  front.decay = 0.0f;
+  front.sync();
+  const SupportedRipples guarded{polar};
+  const math::Vector pole_view{0.01f, sqrtf(1.0f - 0.0001f), 0.0f};
+  const auto safe = supported_ripples(pole_view, guarded);
+  const auto sequential = sequential_ripples(pole_view, polar, false);
+  HS_EXPECT_EQ(safe.sphere.x, sequential.sphere.x);
+  HS_EXPECT_EQ(safe.sphere.y, sequential.sphere.y);
+  HS_EXPECT_EQ(safe.sphere.z, sequential.sphere.z);
+  polar.defer_cosines = true;
+  front.cos_near = -1.0f;
+  front.cos_far = 1.0f;
+  const auto deferred_pole =
+      supported_ripples(pole_view, SupportedRipples{polar});
+  HS_EXPECT_EQ(deferred_pole.sphere.x, sequential.sphere.x);
+  HS_EXPECT_EQ(deferred_pole.sphere.y, sequential.sphere.y);
+  HS_EXPECT_EQ(deferred_pole.sphere.z, sequential.sphere.z);
   PreparedRipples overflow;
   overflow.count = RIPPLE_BURST_GROUPS + 1;
   for (uint8_t i = 0; i < overflow.count; ++i)

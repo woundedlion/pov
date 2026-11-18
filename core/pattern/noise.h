@@ -84,16 +84,45 @@ struct SphereNoise {
             params.scale, params.contrast,
             params.basis, params.variant};
   }
+  /** @brief Samples a non-default generator transform or octave contour.
+   * @param q Noise-space point before the generator transform.
+   * @param prepared Complete immutable generator and controls.
+   * @return Signed scalar. */
+  HS_HOT_FLASH_MEMBER static float sample_fallback(const math::Vector &q,
+                                                   const Prepared &prepared) {
+    if (prepared.variant == NoiseVariant::CONFIGURED_SINGLE)
+      return prepared.noise.GetNoiseSingle(q.x, q.y, q.z);
+    return noise_contour(prepared.noise, prepared.basis, q, prepared.contrast);
+  }
+  /** @brief Scales a signed unit direction and applies the loop offset. */
+  static math::Vector shift_coordinate(const math::Vector &direction,
+                                       const Prepared &prepared) {
+    return math::noise_sphere_coordinate(direction, prepared.scale,
+                                         prepared.loop_offset);
+  }
+
+  /** @brief Whether the generator uses the unit-frequency gradient transform. */
+  static bool configured_single(const Prepared &prepared) {
+    return prepared.variant == NoiseVariant::CONFIGURED_SINGLE &&
+           prepared.noise.has_default_gradient_transform();
+  }
+
+  /** @brief Evaluates a scaled, time-shifted lattice coordinate. */
+  static float sample_coordinate(const math::Vector &q,
+                                 const Prepared &prepared, bool single) {
+    if (!single)
+      return sample_fallback(q, prepared);
+    const float r = (q.x + q.y + q.z) * (2.0f / 3.0f);
+    return prepared.noise.GetNoiseSingleTransformed(r - q.x, r - q.y, r - q.z);
+  }
+
   /** @brief Samples the selected configured or octave formula.
    * @param coordinate Admitted unit direction.
    * @param prepared Complete immutable generator and controls.
    * @return Signed scalar. */
   static float sample(const Coordinate &coordinate, const Prepared &prepared) {
-    const math::Vector q = math::noise_sphere_coordinate(
-        coordinate.value(), prepared.scale, prepared.loop_offset);
-    if (prepared.variant == NoiseVariant::CONFIGURED_SINGLE)
-      return prepared.noise.GetNoiseSingle(q.x, q.y, q.z);
-    return noise_contour(prepared.noise, prepared.basis, q, prepared.contrast);
+    const auto q = shift_coordinate(coordinate.value(), prepared);
+    return sample_coordinate(q, prepared, configured_single(prepared));
   }
 };
 

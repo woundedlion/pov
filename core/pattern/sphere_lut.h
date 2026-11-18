@@ -6,6 +6,7 @@
 
 #include "core/pattern/field.h"
 #include "core/math/cube_projection.h"
+#include <array>
 #include <span>
 #include <cstdint>
 #include <cstring>
@@ -192,6 +193,32 @@ inline float sphere_face_grid_coordinate(int index) {
   return (2 * index - (SphereLutView::FACE_STEPS - 1)) * HALF_STEP;
 }
 
+/** @brief Copies shared cube edges from their first face in X, Y, Z order. */
+inline void
+copy_sphere_lut_edges(std::span<int8_t, SphereLutView::SIZE> table) {
+  constexpr int N = SphereLutView::FACE_STEPS;
+  const auto at = [&](int face, int x, int y) -> int8_t & {
+    return table[face * N * N + y * N + x];
+  };
+  for (int i = 0; i < N; ++i) {
+    const int reverse = N - 1 - i;
+    at(2, 0, i) = at(1, reverse, N - 1);
+    at(2, N - 1, i) = at(0, i, N - 1);
+    at(3, 0, i) = at(1, i, 0);
+    at(3, N - 1, i) = at(0, reverse, 0);
+    at(4, 0, i) = at(1, 0, i);
+    at(4, N - 1, i) = at(0, N - 1, i);
+    at(5, 0, i) = at(0, 0, i);
+    at(5, N - 1, i) = at(1, N - 1, i);
+  }
+  for (int i = 1; i < N - 1; ++i) {
+    at(4, i, 0) = at(3, i, 0);
+    at(4, i, N - 1) = at(2, i, N - 1);
+    at(5, i, 0) = at(3, N - 1 - i, N - 1);
+    at(5, i, N - 1) = at(2, N - 1 - i, 0);
+  }
+}
+
 /** @brief Bakes a typed source into signed-byte cube storage.
  * @tparam Source Sphere pattern source policy.
  * @param output Destination storage.
@@ -200,17 +227,64 @@ template <class Source>
 HS_FLASH_INLINE __attribute__((flatten)) inline void
 prepare_sphere_lut(std::span<int8_t, SphereLutView::SIZE> output,
                    const typename Source::Prepared &prepared) {
-  for (int face = 0; face < SphereLutView::FACE_COUNT; ++face)
-    for (int y = 0; y < SphereLutView::FACE_STEPS; ++y)
-      for (int x = 0; x < SphereLutView::FACE_STEPS; ++x) {
-        const SphereDirection d =
-            sphere_face_coordinate(face, sphere_face_grid_coordinate(x),
-                                   sphere_face_grid_coordinate(y));
-        const float sample = bounded_scalar(Source::sample(d, prepared));
-        output[face * SphereLutView::FACE_SIZE + y * SphereLutView::FACE_STEPS +
-               x] = static_cast<int8_t>(sample * 127.0f +
-                                        (sample < 0.0f ? -0.5f : 0.5f));
+  constexpr int N = SphereLutView::FACE_STEPS;
+  static_assert(N % 2 == 0);
+  std::array<std::array<math::Vector, N>, 2> row;
+  constexpr bool shifted_coordinates =
+      requires { Source::configured_single(prepared); };
+  const auto shift = [&](const math::Vector &direction) {
+    if constexpr (shifted_coordinates)
+      return Source::shift_coordinate(direction, prepared);
+    else
+      return direction;
+  };
+  const bool single = [&] {
+    if constexpr (shifted_coordinates)
+      return Source::configured_single(prepared);
+    else
+      return false;
+  }();
+  const auto evaluate = [&](const math::Vector &coordinate) {
+    if constexpr (shifted_coordinates)
+      return Source::sample_coordinate(coordinate, prepared, single);
+    else
+      return Source::sample(SphereDirection::from_unit(coordinate), prepared);
+  };
+  for (int axis = 0; axis < 3; ++axis) {
+    const int x_start = axis == 0 ? 0 : 1;
+    for (int y = axis == 2 ? 1 : 0; y < N / 2; ++y) {
+      for (int x = x_start; x < N / 2; ++x) {
+        const auto v =
+            sphere_face_coordinate(axis * 2, sphere_face_grid_coordinate(x),
+                                   sphere_face_grid_coordinate(y))
+                .value();
+        const auto pos = shift(v);
+        const auto neg = shift(-v);
+        row[0][x] = pos;
+        row[1][x] = neg;
+        row[0][N - 1 - x] = axis == 0 ? math::Vector{pos.x, pos.y, neg.z}
+                                      : math::Vector{neg.x, pos.y, pos.z};
+        row[1][N - 1 - x] = axis == 0 ? math::Vector{neg.x, neg.y, pos.z}
+                                      : math::Vector{pos.x, neg.y, neg.z};
       }
+      for (int side = 0; side < 4; ++side) {
+        const bool odd = side & 1;
+        const bool bottom = side & 2;
+        const auto &xs = row[odd && axis != 1];
+        const auto &ys = row[axis == 1 ? odd : bottom];
+        const auto &zs = row[odd != (bottom && axis == 1)];
+        const int face = axis * 2 + odd;
+        const int base = (face * N + (bottom ? N - 1 - y : y)) * N;
+        for (int x = x_start; x < N - x_start; ++x) {
+          const math::Vector q(xs[x].x, ys[x].y, zs[x].z);
+          const float sample = bounded_scalar(evaluate(q));
+          output[base + x] = static_cast<int8_t>(
+              sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
+        }
+      }
+    }
+  }
+  copy_sphere_lut_edges(output);
 }
 /** @brief Baked sphere-field adapter for a typed source policy.
  * @tparam Source Sphere pattern source policy. */

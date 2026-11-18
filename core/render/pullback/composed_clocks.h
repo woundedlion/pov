@@ -9,6 +9,7 @@
 #include "core/math/noise_field.h"
 #include "core/render/pullback/composed_descriptors.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "core/render/pullback/stationary_cubic_noise.h"
 #include "core/render/spacetime.h"
 
 /** @file composed_clocks.h
@@ -30,12 +31,19 @@ template <typename Traits> class ComposedClocks {
   using SpecT = typename Traits::Spec;
   static constexpr bool AUTHORED_TOPOLOGY = Traits::AUTHORED_TOPOLOGY;
 
+  template <typename Resource>
+  static constexpr bool CUBIC_STATIONARY_HUE =
+      SpecT::CUBIC_STATIONARY_HUE &&
+      ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>;
+
 public:
   /** @brief Owned per-resource state with optional ripple transfer curves.
    * @tparam Resource Keyed resource. */
   template <typename Resource>
   struct Owned
       : ComposedDetail::ResourceNoise<Resource>,
+        std::conditional_t<CUBIC_STATIONARY_HUE<Resource>,
+                           Modulation::StationaryCubicNoise, std::monostate>,
         ComposedDetail::ResourcePhaseNoiseCache<
             Resource, Traits::PHASE_NOISE_CACHE &&
                           ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>>,
@@ -70,6 +78,12 @@ public:
   HS_O3_FN HS_HOT_INLINE void seed(Storage &storage) {
     owned = &storage;
     params->visit([&]<typename Resource>(const auto &) {
+      if constexpr (CUBIC_STATIONARY_HUE<Resource>) {
+        auto &state = owned->template get<Resource::KEY>();
+        const auto &config = params->template get<Resource::KEY>().modulation;
+        state.modulation_resources.prepare(config, Modulation::init(config));
+        state.bind(state.modulation_resources.prepared);
+      }
       if constexpr (Resource::KIND == ResourceKind::ROTATION) {
         constexpr auto INSTANCE =
             AUTHORED_TOPOLOGY
@@ -186,6 +200,10 @@ public:
                                    SphereAnimation::BurstRippleParams>) {
         auto &state = owned->template get<Resource::KEY>();
         static_cast<SphereAnimation::RippleState &>(resource) = state.ripples;
+        if (frame.params.template get<Resource::KEY>().random_center) {
+          state.centers.prepare(state.ripples);
+          resource.centers = &state.centers;
+        }
         if constexpr (SpecT::RIPPLE_RADIAL_TABLE) {
           SphereAnimation::prepare_radial_tables(
               frame.params.template get<Resource::KEY>(), state.ripples,
@@ -204,10 +222,13 @@ public:
         resource.modulation_clock = clock;
         if constexpr (Resource::Family::DYNAMIC ||
                       Resource::Family::SOURCE !=
-                          Pattern::SourceKind::DISPLACEMENT)
+                          Pattern::SourceKind::DISPLACEMENT) {
+          auto &state = owned->template get<Resource::KEY>();
           resource.modulation =
-              &owned->template get<Resource::KEY>()
-                   .modulation_resources.prepare(config, clock);
+              &state.modulation_resources.prepare(config, clock);
+          if constexpr (CUBIC_STATIONARY_HUE<Resource>)
+            state.bind(state.modulation_resources.prepared);
+        }
         resource.previous_modulation = resource.modulation;
         if constexpr (Traits::PHASE_NOISE_CACHE &&
                       ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>) {

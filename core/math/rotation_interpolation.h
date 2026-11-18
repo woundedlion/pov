@@ -23,7 +23,8 @@ namespace math {
  * still yields a defined result: a positive x stays accurate to x ~ 88.0 and
  * saturates to +Inf above it, and a NaN returns 0.
  */
-inline float fast_expf(float x) {
+template <bool CheckExponent>
+HS_HOT_INLINE inline float fast_expf_impl(float x) {
   HS_AUDIT_CHECK(x <= 0.0f);
   float y = x * 1.442695041f; // log2(e)
   float fi = floorf(y);
@@ -33,13 +34,22 @@ inline float fast_expf(float x) {
                   f * (0.24137937f + f * (0.05203249f + f * 0.01355588f)));
   // Bounds the packed exponent on both sides so (int)fi cannot overflow; the
   // negated compare also takes the NaN branch.
-  if (!(std::fabs(fi) <= 126.0f))
-    return fi > 0.0f ? std::numeric_limits<float>::infinity() : 0.0f;
+  if constexpr (CheckExponent)
+    if (!(std::fabs(fi) <= 126.0f))
+      return fi > 0.0f ? std::numeric_limits<float>::infinity() : 0.0f;
   int i = (int)fi;
   uint32_t bits = (uint32_t)(i + 127) << 23;
   float scale;
   std::memcpy(&scale, &bits, sizeof(scale));
   return p * scale;
+}
+
+inline float fast_expf(float x) { return fast_expf_impl<true>(x); }
+
+/** @brief Evaluates the same polynomial for finite inputs in [-87, 0]. */
+HS_HOT_INLINE inline float fast_expf_normal_range(float x) {
+  HS_AUDIT_CHECK(x >= -87.0f && x <= 0.0f);
+  return fast_expf_impl<false>(x);
 }
 
 /**

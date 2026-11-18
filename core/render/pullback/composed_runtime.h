@@ -218,6 +218,8 @@ public:
                       Control::ChoreographyHook::AFTER_COMPOSED_INIT>())
       this->template invoke_hook<
           Control::ChoreographyHook::AFTER_COMPOSED_INIT>();
+    if constexpr (requires { requires SpecT::PREPARE_PALETTE_ON_INIT; })
+      palette.prepare(state->current, *state);
   }
 
   /**

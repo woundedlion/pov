@@ -623,6 +623,35 @@ struct Equirectangular : FrameConjugateFromState<State> {
     return equirectangular(input, State::central_meridian(frame),
                            State::singularity_fade(frame));
   }
+  /** @brief Whether the projection rotation leaves finite directions unchanged. */
+  struct Prepared {
+    bool identity; ///< The rotation's vector part is zero.
+  };
+
+  /** @brief Checks the rotation once per prepared frame.
+   * @param frame Projection frame.
+   * @return Local-frame admission. */
+  static Prepared prepare(const FrameState &frame) {
+    const auto &v = State::conjugate(frame).v;
+    return {v.x == 0.0f && v.y == 0.0f && v.z == 0.0f};
+  }
+
+  /** @brief Whether the incoming direction is already projection-local.
+   * @param prepared Frame admission.
+   * @return True for an identity rotation. */
+  static bool in_local_frame(const Prepared &prepared) {
+    return prepared.identity;
+  }
+
+  /** @brief Projects a direction already in the local frame.
+   * @param input Local direction.
+   * @param frame Projection controls.
+   * @param prepared Frame admission.
+   * @return Plane coordinates and provenance. */
+  static ProjectionResult project(const math::Vector &input,
+                                  const FrameState &frame, const Prepared &) {
+    return project(input, frame);
+  }
 };
 
 /** @brief Gnomonic projection about the Y axis, singular on the y = 0 great

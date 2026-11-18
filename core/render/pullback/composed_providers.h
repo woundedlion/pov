@@ -424,18 +424,31 @@ struct SurfaceProvider {
   HS_HOT_INLINE static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
+  /** @brief Prepares exact waves with the binding's optional burst-center cache. */
+  static auto prepare_ripples(const FrameState &frame, bool defer_cosines) {
+    const auto &resource = frame.resources.template get<Key>();
+    if constexpr (requires { resource.centers; })
+      return SphereAnimation::prepare_ripples(params(frame), resource,
+                                              defer_cosines, resource.centers);
+    else
+      return SphereAnimation::prepare_ripples(params(frame), resource,
+                                              defer_cosines);
+  }
+  /** @brief Prepares grouped waves with individual support deferred. */
+  static auto prepare_supported(const FrameState &frame)
+    requires(CACHE_SINGLE_CENTER)
+  {
+    return prepare_ripples(frame, true);
+  }
   /** @brief Per-frame prepared surface state.
    *  @param frame Current frame.
    *  @return `SphereAnimation::prepare_ripples` for burst ripples,
    *  `Pullback::Surface::prepare_direct` for a directed family,
    *  else `Pullback::Surface::prepare`. */
   HS_HOT_INLINE static auto prepare(const FrameState &frame) {
-    if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>) {
-      const auto &resource = frame.resources.template get<Key>();
-      return SphereAnimation::prepare_ripples(params(frame), resource);
-    } else if constexpr (requires {
-                           frame.params.template get<Key>().direction;
-                         })
+    if constexpr (std::is_same_v<Family, SphereAnimation::BurstRippleParams>)
+      return prepare_ripples(frame, false);
+    else if constexpr (requires { frame.params.template get<Key>().direction; })
       return Pullback::Surface::prepare_direct(
           frame.resources.template get<Key>().phase,
           frame.params.template get<Key>().direction);
@@ -538,6 +551,9 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
       if (tables && tables->enabled)
         return std::nullopt;
     }
+    if constexpr (CACHE_SINGLE_CENTER &&
+                  requires { State::prepare_supported(frame); })
+      return Prepared{State::prepare_supported(frame)};
     return Prepared{State::prepare(frame)};
   }
   /** @brief Prepares exact waves for a rejected radial sample.
@@ -558,8 +574,7 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
   static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
                              const Prepared &prepared) {
     if constexpr (CACHE_SINGLE_CENTER) {
-      return SphereAnimation::grouped_ripples(input, prepared.ripples, false,
-                                              &prepared.support);
+      return SphereAnimation::supported_ripples(input, prepared);
     } else if constexpr (LAZY_RADIAL_PREPARE) {
       if (prepared)
         return SphereAnimation::grouped_ripples(

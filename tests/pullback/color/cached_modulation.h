@@ -8,6 +8,7 @@
  * @brief Cached modulation test cases. */
 
 #include "tests/pullback/color/fixture.h"
+#include "core/render/pullback/stationary_cubic_noise.h"
 
 namespace hs_test::pullback_tests {
 
@@ -398,6 +399,136 @@ inline void test_pullback_prepared_cube_pair() {
   const Color::ModulationState manual{&b, &a, Pattern::SourceKind::NOISE,
                                       frame.mechanic, true};
   HS_EXPECT_FALSE(manual.paired_cube_ready);
+}
+
+/** @brief Direct unit-scale noise specializes only its phase-zero transform. */
+inline void test_direct_noise_origin_binding() {
+  using namespace Pullback::Modulation;
+  Config recipe;
+  recipe.source = Pattern::SourceKind::NOISE;
+  recipe.evaluation = Pattern::Evaluation::DIRECT;
+  Resources<false> resources;
+  for (int change = 0; change < 4; ++change) {
+    auto config = recipe;
+    if (change == 1)
+      config.noise.scale = 1.5f;
+    if (change == 2)
+      config.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+    auto state = init(config);
+    if (change == 3)
+      state.phase.phase_turns = 0.25f;
+    const auto &prepared = resources.prepare(config, state);
+    HS_EXPECT_EQ(prepared.evaluate == Detail::sample_unit_noise_origin,
+                 change == 0);
+    for (const auto &v :
+         {math::X_AXIS, -math::Y_AXIS, math::Vector{0.37f, -0.58f, 0.81f}}) {
+      const auto d = Pattern::SphereDirection::from(v);
+      const auto &noise = std::get<0>(prepared.source);
+      HS_EXPECT_EQ(
+          sample(prepared, d),
+          Pattern::bounded_scalar(Pattern::SphereNoise::sample(d, noise)));
+    }
+  }
+}
+
+/** @brief Immutable stationary tables retain identity across control edits. */
+inline void test_stationary_noise_table_identity() {
+  using namespace Pullback::Modulation;
+  Config base;
+  base.enabled = true;
+  base.source = Pattern::SourceKind::NOISE;
+  base.evaluation = Pattern::Evaluation::DIRECT;
+  base.seed = Pullback::HUE_NOISE_SEED;
+  StationaryCubicNoise cache, other_cache;
+  Resources<false> owner;
+  const auto bind = [&](const Config &config,
+                        float phase = 0.0f) -> Prepared & {
+    auto clock = init(config);
+    clock.phase.phase_turns = phase;
+    owner.prepare(config, clock);
+    cache.bind(owner.prepared);
+    return owner.prepared;
+  };
+  auto &current = bind(base);
+  HS_EXPECT_TRUE(current.evaluate == StationaryCubicNoise::sample);
+  Prepared retained;
+  retain(&current, retained, {});
+  const auto coordinate = Pattern::sphere_face_coordinate(2, 0.24f, -0.71f);
+  const float original = sample(retained, coordinate);
+  HS_EXPECT_EQ(original,
+               Pattern::bounded_scalar(retained.immutable_table->sample_tap(
+                   retained, Pattern::prepare_sphere_lut_sample(coordinate))));
+  auto amount = base;
+  amount.mechanic.amount += 0.15f;
+  bind(amount);
+  HS_EXPECT_TRUE(same_direct_sample(retained, current));
+  HS_EXPECT_TRUE(same_endpoint_sample(retained, current));
+  HS_EXPECT_EQ(sample(current, coordinate), original);
+  for (int edit = 0; edit < 7; ++edit) {
+    auto params = base;
+    if (edit == 0)
+      params.enabled = false;
+    if (edit == 1)
+      ++params.seed;
+    if (edit == 2)
+      params.noise.speed = 0.0002f;
+    if (edit == 3)
+      params.noise.scale = 1.2f;
+    if (edit == 4)
+      params.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+    if (edit == 5)
+      params.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+    bind(params, edit == 6 ? 0.25f : 0.0f);
+    HS_EXPECT_TRUE(current.immutable_table == nullptr);
+    HS_EXPECT_FALSE(same_direct_sample(retained, current));
+    HS_EXPECT_EQ(sample(current, coordinate),
+                 Pattern::bounded_scalar(Pattern::SphereNoise::sample(
+                     coordinate, std::get<0>(current.source))));
+    HS_EXPECT_EQ(sample(retained, coordinate), original);
+  }
+  bind(base);
+  HS_EXPECT_TRUE(same_direct_sample(retained, current));
+  owner.prepare(base, init(base));
+  other_cache.bind(current);
+  HS_EXPECT_FALSE(same_direct_sample(retained, current));
+  owner.prepare(base, init(base));
+  std::get<0>(current.source).noise.SetSeed(base.seed + 1);
+  cache.bind(current);
+  HS_EXPECT_TRUE(current.immutable_table == nullptr);
+  bind(base);
+  auto custom = [](const Prepared &p, const Pattern::SphereDirection &) {
+    return p.config.mechanic.amount;
+  };
+  retained.evaluate = custom;
+  current.evaluate = custom;
+  current.config.mechanic.amount += 0.1f;
+  HS_EXPECT_FALSE(same_direct_sample(retained, current));
+}
+
+/** @brief Compares cubic face interiors, edges and corners with direct hue noise. */
+inline void test_stationary_cubic_noise_accuracy() {
+  using namespace Pullback::Modulation;
+  Config config;
+  config.evaluation = Pattern::Evaluation::DIRECT;
+  config.seed = Pullback::HUE_NOISE_SEED;
+  Resources<false> owner;
+  const auto exact = owner.prepare(config, init(config));
+  StationaryCubicNoise cache;
+  cache.bind(owner.prepared);
+  double total = 0.0;
+  float maximum = 0.0f;
+  for (int face = 0; face < 6; ++face)
+    for (int y = 0; y <= 37; ++y)
+      for (int x = 0; x <= 37; ++x) {
+        const auto direction = Pattern::sphere_face_coordinate(
+            face, (2 * x - 37) / 37.0f, (2 * y - 37) / 37.0f);
+        const float error =
+            fabsf(sample(exact, direction) - sample(owner.prepared, direction));
+        total += error;
+        maximum = std::max(maximum, error);
+      }
+  HS_EXPECT_TRUE(total / (6 * 38 * 38) < 0.0002);
+  HS_EXPECT_TRUE(maximum < 0.005f);
 }
 
 /** @brief Direct endpoint sharing respects prepared generators and opaque samplers. */

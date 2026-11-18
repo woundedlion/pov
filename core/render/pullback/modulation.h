@@ -246,16 +246,39 @@ inline Config interpolate(const Config &a, const Config &b, float fraction) {
 using Source = std::variant<
     Pattern::SphereNoise::Prepared, Pattern::DirectionalSine::Prepared,
     Pattern::SphereInterference::Prepared, Pattern::SphereSmoothGrid::Prepared>;
+struct Prepared;
+using Evaluator = float (*)(const Prepared &, const Pattern::SphereDirection &);
+/** @brief Identity of an immutable table and the evaluator that consumes it. */
+struct ImmutableTable {
+  using TapEvaluator = float (*)(const Prepared &,
+                                 const Pattern::SphereLutSample &);
+  Evaluator evaluator;
+  TapEvaluator sample_tap;
+};
 /** @brief One endpoint's immutable source inputs and borrowed scalar table. */
 struct Prepared {
   Config config; ///< Endpoint recipe and controls.
   State state;   ///< Endpoint source clock.
   Source source; ///< Prepared source, including an owned noise generator.
   Pattern::SphereLutView cube{nullptr, false}; ///< Optional scalar table.
-  float (*evaluate)(const Prepared &, const Pattern::SphereDirection &) =
-      nullptr; ///< Resolved built-in sampler.
+  Evaluator evaluate = nullptr;                ///< Resolved sampler.
+  const ImmutableTable *immutable_table =
+      nullptr; ///< Borrowed for this evaluator.
 };
 namespace Detail {
+/** @brief Samples configured unit-scale noise at its phase-zero loop point.
+ * @param prepared Endpoint from the unit-frequency default noise generator.
+ * @param direction Admitted sphere direction.
+ * @return Signed noise scalar. */
+inline float
+sample_unit_noise_origin(const Prepared &prepared,
+                         const Pattern::SphereDirection &direction) {
+  const auto &v = direction.value();
+  const float x = v.x + math::NOISE_LOOP_RADIUS;
+  const float r = (x + v.y + v.z) * (2.0f / 3.0f);
+  return std::get<0>(prepared.source)
+      .noise.GetNoiseSingleTransformed(r - x, r - v.y, r - v.z);
+}
 /** @brief Samples an immutable source at its registered variant index.
  * @tparam Sampler Built-in sphere sampler.
  * @tparam Index Active source variant.
@@ -771,6 +794,7 @@ template <bool Baked = true> struct Resources {
     synchronize(selected, config);
     prepared.config = config;
     prepared.state = selected;
+    prepared.immutable_table = nullptr;
     prepared.cube = {table.data(),
                      config.enabled &&
                          config.evaluation == Pattern::Evaluation::BAKED_CUBE};
@@ -787,6 +811,9 @@ template <bool Baked = true> struct Resources {
       prepared.source.emplace<NOISE>(
           Pattern::SphereNoise::prepare(config.noise, selected.phase, noise));
       direct = Detail::DIRECT_SAMPLERS[NOISE];
+      if (config.noise.variant == Pattern::NoiseVariant::CONFIGURED_SINGLE &&
+          config.noise.scale == 1.0f && selected.phase.phase_turns == 0.0f)
+        direct = Detail::sample_unit_noise_origin;
       break;
     }
     case Pattern::SourceKind::DIRECTIONAL_SINE:

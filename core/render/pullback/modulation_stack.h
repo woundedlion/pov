@@ -131,9 +131,11 @@ class OrderedModulationKernel {
   bool same_hue_table;
   bool simple_palette;
   uint16_t rgb_weight;
+  float constant_alpha = -1.0f;
   bool valid = false;
   bool uses_cube = false;
   bool hue_lift_mask = false;
+  Modulation::ImmutableTable::TapEvaluator hue_tap = nullptr;
   uint8_t source_count = 0;
   uint8_t op_count = 0;
   std::array<Source, SOURCE_CAPACITY> sources;
@@ -208,6 +210,9 @@ class OrderedModulationKernel {
     if (!matches)
       return false;
     const auto *direct_hue = sources[hue.current].value;
+    if (direct_hue->immutable_table &&
+        direct_hue->evaluate == direct_hue->immutable_table->evaluator)
+      hue_tap = direct_hue->immutable_table->sample_tap;
     const std::array tables = {sources[lift.current].value->cube.data,
                                sources[lift.previous].value->cube.data,
                                sources[mask.current].value->cube.data,
@@ -215,6 +220,8 @@ class OrderedModulationKernel {
     sources[HUE].value = direct_hue;
     for (size_t i = 0; i < tables.size(); ++i)
       sources[LIFT + i].bytes = tables[i];
+    if (simple_palette)
+      constant_alpha = base.palette->constant_alpha().value_or(-1.0f);
     return true;
   }
 
@@ -230,6 +237,18 @@ class OrderedModulationKernel {
     if (tap.same_byte_corners(cube, peer))
       return peer_value;
     return sample_bytes(tap, cube);
+  }
+
+  /** @brief Samples the positive lobe of a signed-byte cube. */
+  static HS_HOT_INLINE float positive_bytes(const Pattern::SphereLutSample &tap,
+                                            const int8_t *cube) {
+    const auto *row = cube + tap.offset;
+    uint16_t low, high;
+    std::memcpy(&low, row, sizeof(low));
+    std::memcpy(&high, row + Pattern::SphereLutView::FACE_STEPS, sizeof(high));
+    if ((low & high & 0x8080u) == 0x8080u)
+      return 0.0f;
+    return hs::clamp(tap.sample_data(cube), 0.0f, 1.0f);
   }
 
   static HS_HOT_INLINE float opacity(float alpha, float scalar, float amount) {
@@ -265,39 +284,77 @@ class OrderedModulationKernel {
     return result;
   }
 
-  HS_HOT_FLASH_MEMBER Color4
+  HS_HOT_INLINE float mask_alpha(float current, float previous, float scalar,
+                                 float old_scalar, float amount) const {
+    const float alpha = opacity(current, scalar, amount);
+    return blend ? hs::lerp(opacity(previous, old_scalar, amount), alpha,
+                            fraction)
+                 : alpha;
+  }
+
+  HS_HOT_FLASH_MEMBER Color4 finish_blended_palette(const FieldSample &field,
+                                                    float hue, float lift,
+                                                    float mask,
+                                                    float old_mask) const {
+    float old_alpha;
+    auto sample = palette_base(field, old_alpha);
+    sample.pending_hue = hue;
+    sample.pending_lift = lift;
+    sample.color.alpha = mask_alpha(sample.color.alpha, old_alpha, mask,
+                                    old_mask, ops[2].mechanic.amount);
+    return finish_color_sample(sample);
+  }
+
+  HS_HOT_ITCM_MEMBER Color4
   shade_hue_lift_mask(const FieldSample &field) const {
     const auto &[hue, lift, mask] = ops;
-    float old_alpha;
-    auto result = simple_palette
-                      ? apply_palette_endpoint_impl(field, base, field.value,
-                                                    field.coverage, 1.0f)
-                      : palette_base(field, old_alpha);
-    if (simple_palette)
-      old_alpha = result.color.alpha;
     const auto direction = Pattern::SphereDirection::admit(field.sphere);
-    result.pending_hue = accumulate_hue(
-        0.0f, Modulation::sample(*sources[HUE].value, direction), hue.mechanic);
     const auto tap = Pattern::prepare_sphere_lut_sample(direction);
+    const auto &hue_source = *sources[HUE].value;
+    const float value = hue_tap
+                            ? Pattern::bounded_scalar(hue_tap(hue_source, tap))
+                            : Modulation::sample(hue_source, direction);
+    const float rotation = math::wrap_t(hue.mechanic.amount * value);
     const auto *lift_cube = sources[LIFT].bytes;
     const auto *mask_cube = sources[MASK].bytes;
-    const float l = sample_bytes(tap, lift_cube);
+    const float l = positive_bytes(tap, lift_cube);
     const float m = sample_bytes(tap, mask_cube);
-    result.pending_lift = accumulate_lift(0.0f, l, lift.mechanic);
-    result.color.alpha = opacity(result.color.alpha, m, mask.mechanic.amount);
+    float lightness = lift.mechanic.amount * l;
+    float old_mask = m;
     if (blend) {
+      const auto *old_cube = sources[PREVIOUS_LIFT].bytes;
       const float old_l =
-          paired_bytes(tap, sources[PREVIOUS_LIFT].bytes, lift_cube, l);
-      const float old_m =
-          paired_bytes(tap, sources[PREVIOUS_MASK].bytes, mask_cube, m);
-      result.pending_lift =
-          hs::lerp(accumulate_lift(0.0f, old_l, lift.mechanic),
-                   result.pending_lift, fraction);
-      result.color.alpha =
-          hs::lerp(opacity(old_alpha, old_m, mask.mechanic.amount),
-                   result.color.alpha, fraction);
+          old_cube == lift_cube ? l : positive_bytes(tap, old_cube);
+      const auto *old_mask_cube = sources[PREVIOUS_MASK].bytes;
+      old_mask =
+          old_mask_cube == mask_cube ? m : sample_bytes(tap, old_mask_cube);
+      lightness = hs::lerp(lift.mechanic.amount * old_l, lightness, fraction);
     }
-    return finish_color_sample(result);
+    if (!simple_palette)
+      return finish_blended_palette(field, rotation, lightness, m, old_mask);
+    const float alpha =
+        (constant_alpha >= 0.0f ? constant_alpha
+                                : base.palette->get_alpha(field.value)) *
+        field.coverage;
+    const float result_alpha =
+        mask_alpha(alpha, alpha, m, old_mask, mask.mechanic.amount);
+    if (lightness == 0.0f && rotation != 0.0f && base.hue_rotation.active &&
+        base.hue_rotation.data) {
+      const HueRotationValueSample value(field.value);
+      const HueRotationHueSample angle(rotation);
+      if (!base.hue_rotation.gamut_mask ||
+          !base.hue_rotation.gamut_mask->requires_direct(value.low, angle.low))
+        return Color4(sample_hue_rotation_lut(base.hue_rotation, value, angle),
+                      result_alpha);
+    }
+    const Pixel color = base.palette->get_color(field.value);
+    if (lightness == 0.0f && rotation == 0.0f)
+      return Color4(color, result_alpha);
+    const auto input = pixel_to_linrgb(color);
+    auto lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
+    lab.L += (1.0f - lab.L) * lightness;
+    return Color4(linrgb_to_pixel(hue_rotate_lut_gamut_rgb(lab, rotation)),
+                  result_alpha);
   }
 
   HS_HOT_FLASH_MEMBER Color4 shade_ordered(const FieldSample &field) const {

@@ -1831,7 +1831,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     if constexpr (STACK_BEGIN == NODE_COUNT || STACK_BEGIN < 2)
       return false;
     else {
-      return requires(const PlaneSample &input, const PreparedTuple &prepared) {
+      return requires(PlaneSample &input, const PreparedTuple &prepared) {
         CoordinateWarpAt<STACK_BEGIN - 2>::apply(
             input, std::get<STACK_BEGIN - 2>(prepared));
       } && []<size_t... Offsets>(std::index_sequence<Offsets...>) {
@@ -1886,13 +1886,14 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param column Bound color tail.
    * @return Final straight-alpha color. */
   template <size_t Index, typename Input, typename Column>
-  HS_HOT_INLINE static Color4
-  shade_stack(const Input &input, const FrameState &ctx,
-              const PreparedTuple &prepared, const Column &column) {
+  HS_HOT_INLINE static Color4 shade_stack(Input input, const FrameState &ctx,
+                                          const PreparedTuple &prepared,
+                                          const Column &column) {
     if constexpr (ELIDES_FINAL_WARP_PATH && Index + 2 == STACK_BEGIN) {
-      const auto warped =
-          CoordinateWarpAt<Index>::apply(input, std::get<Index>(prepared));
-      return shade_stack<Index + 1>(warped, ctx, prepared, column);
+      CoordinateWarpAt<Index>::apply(input, std::get<Index>(prepared));
+      return shade_stack<Index + 2>(
+          run_stage_endpoint<Index + 1, false>(input, ctx, prepared), ctx,
+          prepared, column);
     } else if constexpr (Index < STACK_BEGIN)
       return shade_stack<Index + 1>(
           run_stage_endpoint<Index, false>(input, ctx, prepared), ctx, prepared,

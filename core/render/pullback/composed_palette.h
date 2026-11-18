@@ -106,6 +106,13 @@ public:
   /** @brief Follows the color controls and steps the generated cycle. */
   HS_O3_FN HS_HOT_INLINE void step() {
     update_chroma();
+    if constexpr (AUTHORED_PALETTE) {
+      if (color->palette_type !=
+          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED)) {
+        cycler.advance_without_display();
+        return;
+      }
+    }
     cycler.step();
   }
 

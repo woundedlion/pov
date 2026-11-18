@@ -140,6 +140,29 @@ HS_HOT_FLASH_MEMBER inline math::Vector ripple_center(uint32_t seed,
   return {radius * cosf(azimuth), y, radius * sinf(azimuth)};
 }
 
+/** @brief Random centers shared by all column times of a burst epoch. */
+struct BurstCenters {
+  std::array<math::Vector, RIPPLE_BURST_GROUPS> centers;
+  uint32_t seed = 0;
+  uint32_t count = 0;
+  bool ready = false;
+
+  void prepare(const RippleState &state) {
+    if (matches(state))
+      return;
+    for (uint32_t lag = 1; lag <= RIPPLE_BURST_GROUPS; ++lag) {
+      const uint32_t burst = state.burst_count - lag;
+      centers[burst % RIPPLE_BURST_GROUPS] = ripple_center(state.seed, burst);
+    }
+    seed = state.seed;
+    count = state.burst_count;
+    ready = true;
+  }
+  bool matches(const RippleState &state) const {
+    return ready && count == state.burst_count && seed == state.seed;
+  }
+};
+
 /** @brief Net rotation and absolute travel along one radial ray. */
 using RadialTransfer = RippleKernel::RadialTransfer;
 
@@ -190,6 +213,8 @@ struct PreparedRipples {
              RIPPLE_BURST_GROUPS * RIPPLE_WAVES_PER_BURST>
       waves;         ///< Active kernels.
   uint8_t count = 0; ///< Active wave count.
+  bool defer_cosines =
+      false; ///< Individual cosine bands are needed only for a sequential fallback.
 };
 
 /** @brief Optional cosine support for each consecutive center in launch order. */
@@ -198,37 +223,80 @@ struct RippleGroupBands {
       groups; ///< Center bands.
   std::array<RippleKernel::AngularSupport,
              RIPPLE_BURST_GROUPS * RIPPLE_WAVES_PER_BURST>
-      angular;       ///< Wavelet bands in launch order.
-  uint8_t count = 0; ///< Prepared groups; zero beyond capacity.
+      angular; ///< Wavelet bands in launch order.
+  struct ActiveRange {
+    float pole_margin = 0.010001f; ///< Maximum travel plus the pole exclusion.
+    uint8_t first = 0, end = 0;    ///< Contiguous active waves [first, end).
+  };
+  std::array<ActiveRange, RIPPLE_BURST_GROUPS> active; ///< Active group ranges.
+  double inverse_width = 0; ///< Shared half-width reciprocal, zero on fallback.
+  uint8_t count = 0;        ///< Prepared groups; zero beyond capacity.
 };
 
 /** @brief Prepares exact group boundaries and conservative support. */
 HS_HOT_FLASH_MEMBER inline RippleGroupBands
 ripple_group_bands(const PreparedRipples &prepared) {
   RippleGroupBands result;
+  bool ordered = true;
   uint8_t i = 0;
   while (i < prepared.count) {
     if (result.count == result.groups.size()) {
       result.count = 0;
       return result;
     }
+    auto &range = result.active[result.count];
     auto &group = result.groups[result.count++];
     const auto &center = prepared.waves[i].ripple.center;
+    float preceding_travel = 0.0f;
+    float near_angle = math::PI_F, far_angle = 0.0f;
     do {
       const auto &wave = prepared.waves[i++].ripple;
-      result.angular[i - 1] = RippleKernel::AngularSupport::prepare(wave);
-      if (wave.amplitude > RippleKernel::NEGLIGIBLE_AMPLITUDE)
-        RippleKernel::include_support(group.near, group.far, wave);
+      auto &angular = result.angular[i - 1];
+      angular = RippleKernel::AngularSupport::prepare(wave);
+      if (wave.amplitude > RippleKernel::NEGLIGIBLE_AMPLITUDE) {
+        if (prepared.defer_cosines) {
+          near_angle = fminf(near_angle, angular.near);
+          far_angle = fmaxf(far_angle, angular.far);
+        } else {
+          RippleKernel::include_support(group.near, group.far, wave);
+        }
+        ordered &= wave.decay == 0 &&
+                   angular.half_width == result.angular[0].half_width &&
+                   wave.phase >= 0.0f && wave.phase <= math::PI_F &&
+                   angular.half_width <= math::PI_F;
+        if (!range.end) {
+          range.first = i - 1;
+        } else {
+          const auto &previous = result.angular[range.end - 1];
+          ordered &= range.end == i - 1 && previous.far >= angular.far &&
+                     previous.near - preceding_travel >= angular.near;
+        }
+        // Bound the wavelet peak, exponential approximation and radial addition.
+        preceding_travel = wave.amplitude * 1.00002f + 1e-6f;
+        range.pole_margin += preceding_travel;
+        range.end = i;
+      }
     } while (
         i < prepared.count &&
         RippleKernel::same_center(prepared.waves[i].ripple.center, center));
+    if (prepared.defer_cosines && range.end) {
+      group.near = near_angle <= 0.0f ? 1.0f : cosf(near_angle);
+      group.far = far_angle >= math::PI_F ? -1.0f : cosf(far_angle);
+    }
     // Cosine is 1-Lipschitz. Include fast_acos error and endpoint rounding.
     constexpr float MARGIN = static_cast<float>(math::FAST_ACOS_MAX_ERROR) +
                              2.0f * std::numeric_limits<float>::epsilon();
     group.near += MARGIN;
     group.far -= MARGIN;
+    if (group.near >= 1.0f)
+      group.near = std::numeric_limits<float>::infinity();
+    if (group.far <= -1.0f)
+      group.far = -std::numeric_limits<float>::infinity();
     group.end = i;
   }
+  if (ordered && result.count)
+    result.inverse_width =
+        1.0 / static_cast<double>(result.angular[0].half_width);
   return result;
 }
 
@@ -248,8 +316,12 @@ sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
                    bool track_path) {
   return RippleKernel::sequential<SurfaceResult>(
       input,
-      [&](uint8_t index) HS_HOT_INLINE -> const RippleKernel::Wave & {
-        return prepared.waves[index].ripple;
+      [&](uint8_t index) HS_HOT_INLINE {
+        auto wave = prepared.waves[index].ripple;
+        if (prepared.defer_cosines &&
+            wave.amplitude > RippleKernel::NEGLIGIBLE_AMPLITUDE)
+          wave.sync();
+        return wave;
       },
       prepared.count, track_path);
 }
@@ -260,7 +332,7 @@ sequential_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @param track_path Whether to accumulate angular travel.
  * @param support Optional precomputed cosine band for each consecutive center.
  * @return Displaced direction and travel. */
-HS_HOT_FLASH_MEMBER inline SurfaceResult
+HS_HOT_ITCM_MEMBER inline SurfaceResult
 grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
                 bool track_path, const RippleGroupBands *support = nullptr) {
   if (support && !support->count)
@@ -276,6 +348,53 @@ grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
       },
       support ? support->groups.data() : nullptr,
       support ? support->angular.data() : nullptr);
+}
+
+/** @brief Applies descending zero-decay waves in their original order. */
+HS_HOT_ITCM_MEMBER inline SurfaceResult
+supported_ripples(const math::Vector &input, const SupportedRipples &prepared) {
+  const auto &ripples = prepared.ripples;
+  const auto &bands = prepared.support;
+  if (!bands.inverse_width)
+    return grouped_ripples(input, ripples, false, &bands);
+  SurfaceResult result{input, 0.0f};
+  for (unsigned g = 0; g < bands.count; ++g) {
+    const auto &range = bands.active[g];
+    unsigned i = range.first;
+    if (i == range.end)
+      continue;
+    const auto &center = ripples.waves[i].ripple.center;
+    const auto &group = bands.groups[g];
+    const auto start = result.sphere;
+    const float cosine = math::dot(center, start);
+    if (cosine > group.near || cosine < group.far)
+      continue;
+    float distance = math::fast_acos(cosine);
+    const bool check_poles = distance <= range.pole_margin ||
+                             distance >= math::PI_F - range.pole_margin;
+    // The next near edge recedes farther than this wave can move the sample.
+    while (i < range.end && distance < bands.angular[i].near)
+      ++i;
+    float angle = 0.0f;
+    for (; i < range.end && distance <= bands.angular[i].far; ++i) {
+      const auto &wave = ripples.waves[i].ripple;
+      // The binary64 reciprocal product rounds to the binary32 quotient.
+      const float offset = static_cast<float>(
+          static_cast<double>(distance - wave.phase) * bands.inverse_width);
+      const float t = 2.0f * offset;
+      const float delta = wave.amplitude * (1.0f - t * t) *
+                          math::fast_expf_normal_range(-0.5f * t * t);
+      distance += delta;
+      if (check_poles && !(distance > 0.01f && distance < math::PI_F - 0.01f) &&
+          delta != 0.0f)
+        return sequential_ripples(input, ripples, false);
+      angle += delta;
+    }
+    if (angle != 0.0f &&
+        !RippleKernel::rotate_group(start, center, angle, result.sphere))
+      return sequential_ripples(input, ripples, false);
+  }
+  return result;
 }
 
 /** @brief Evaluates a same-center wave sequence in radial coordinates.
@@ -464,8 +583,7 @@ HS_HOT_ITCM_MEMBER inline bool try_radial_ripples(const math::Vector &input,
     const float distance_cos = math::dot(group.center, start);
     if (distance_cos > group.cos_near || distance_cos < group.cos_far)
       continue;
-    const float distance =
-        math::fast_acos(hs::clamp(distance_cos, -1.0f, 1.0f));
+    const float distance = math::fast_acos(distance_cos);
     RadialTransfer transfer;
     if (!RippleKernel::sample_transfer(
             group.previous, group.current, distance, fraction, track_path,
@@ -524,11 +642,18 @@ radial_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @tparam Params Ripple controls.
  * @param params Current controls.
  * @param state Scheduler state.
+ * @param defer_cosines Whether grouped support will be computed before sampling.
  * @return Active kernels in launch order. */
 template <typename Params>
 HS_HOT_FLASH_MEMBER inline PreparedRipples
-prepare_ripples(const Params &params, const RippleState &state) {
+prepare_ripples(const Params &params, const RippleState &state,
+                bool defer_cosines = false,
+                const BurstCenters *cache = nullptr) {
   PreparedRipples result;
+  const bool cached = cache && cache->matches(state);
+  result.defer_cosines = defer_cosines;
+  const double inverse_period =
+      params.period > 0.0f ? 1.0 / static_cast<double>(params.period) : 0.0;
   for (uint32_t lag = RIPPLE_BURST_GROUPS; lag > 0; --lag) {
     const uint32_t burst = state.burst_count - lag;
     math::Vector center;
@@ -538,12 +663,19 @@ prepare_ripples(const Params &params, const RippleState &state) {
       if (wave.age < 0.0f || wave.age >= params.period || wave.burst != burst)
         continue;
       if (!center_ready) {
-        center = params.random_center ? ripple_center(state.seed, burst)
-                                      : Surface::prepare_ripple_center(params);
+        if (!params.random_center)
+          center = Surface::prepare_ripple_center(params);
+        else if (cached)
+          center = cache->centers[burst % RIPPLE_BURST_GROUPS];
+        else
+          center = ripple_center(state.seed, burst);
         center_ready = true;
       }
-      result.waves[result.count++] =
-          Surface::prepare_ripple(params, wave.age / params.period, center);
+      result.waves[result.count++] = Surface::prepare_ripple_at_progress(
+          params,
+          static_cast<float>(static_cast<double>(fabsf(wave.age)) *
+                             inverse_period),
+          center, !defer_cosines);
     }
   }
   return result;

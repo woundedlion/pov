@@ -50,9 +50,14 @@ HS_SIZE_FLASH_MEMBER inline bool same_direct_sample(const Prepared &a,
   if (!a.evaluate || a.evaluate != b.evaluate ||
       a.source.index() != b.source.index())
     return false;
+  if (a.immutable_table && b.immutable_table &&
+      a.evaluate == a.immutable_table->evaluator &&
+      b.evaluate == b.immutable_table->evaluator)
+    return a.immutable_table == b.immutable_table;
   const size_t slot = a.source.index();
   if (slot >= Detail::DIRECT_SAMPLERS.size() ||
-      a.evaluate != Detail::DIRECT_SAMPLERS[slot]) {
+      (a.evaluate != Detail::DIRECT_SAMPLERS[slot] &&
+       !(slot == 0 && a.evaluate == Detail::sample_unit_noise_origin))) {
     // Custom samplers may read any part of their prepared endpoint.
     return std::memcmp(&a, &b, sizeof(a)) == 0;
   }
