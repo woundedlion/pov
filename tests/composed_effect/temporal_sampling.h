@@ -1713,6 +1713,47 @@ inline void test_grid_worms_sine_column_phase() {
   }
 }
 
+/** @brief Static direct noise shares a sample across the two color endpoints. */
+inline void test_temporal_direct_noise_endpoint_reuse() {
+  using namespace Pullback;
+  using FX = AshCloud<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  auto from = ComposedFrameWhiteBox::frame(effect);
+  auto to = from;
+  auto config = from.params.template get<"modulation">().modulation;
+  Modulation::Resources<false> previous, current;
+  const auto direction = Pattern::SphereDirection::admit(math::Z_AXIS);
+  for (int change = 0; change < 3; ++change) {
+    bind_modulation_endpoints<"modulation">(from, to, config, previous, current,
+                                            0.25f, change == 1 ? 0.5f : 0.25f);
+    if (change == 2) {
+      auto &recipe = to.params.template get<"modulation">().modulation;
+      ++recipe.seed;
+      current.prepare(recipe, previous.prepared.state);
+    }
+    const auto column = FrameInterval(from, to).at(0.5f);
+    const auto &layer = column.resources.template get<"modulation">();
+    HS_EXPECT_EQ(layer.previous_modulation == layer.modulation, change == 0);
+    const auto pair = Modulation::sample_pair(*layer.previous_modulation,
+                                              *layer.modulation, direction);
+    HS_EXPECT_EQ(pair.first, Modulation::sample(previous.prepared, direction));
+    HS_EXPECT_EQ(pair.second, Modulation::sample(current.prepared, direction));
+  }
+  static int samples;
+  samples = 0;
+  current.prepared.evaluate = [](const Modulation::Prepared &,
+                                 const Pattern::SphereDirection &) {
+    ++samples;
+    return 0.25f;
+  };
+  const auto pair =
+      Modulation::sample_pair(current.prepared, current.prepared, direction);
+  HS_EXPECT_EQ(samples, 1);
+  HS_EXPECT_EQ(pair.first, pair.second);
+}
+
 /** @brief AshCloud noise phases cross the loop seam and reject changed recipes. */
 inline void test_ash_cloud_noise_column_phase() {
   using namespace Pullback;

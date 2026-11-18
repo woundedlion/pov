@@ -170,6 +170,16 @@ public:
         const auto &current = b.params.template get<Resource::KEY>().modulation;
         phase_compatible =
             phase_compatible && Modulation::phase_compatible(previous, current);
+        delta.previous_modulation = Modulation::same_topology(previous, current)
+                                        ? start.modulation
+                                        : end.modulation;
+        if constexpr (Resource::Family::DIRECT_NOISE) {
+          if (delta.previous_modulation && end.modulation &&
+              delta.previous_modulation != end.modulation &&
+              Modulation::same_field(*delta.previous_modulation,
+                                     *end.modulation))
+            delta.previous_modulation = end.modulation;
+        }
       }
     });
   }
@@ -308,11 +318,7 @@ public:
       if constexpr (Resource::KIND == ResourceKind::MODULATION) {
         auto &resource = frame.resources.template get<Resource::KEY>();
         resource.previous_modulation =
-            Modulation::same_topology(
-                from.params.template get<Resource::KEY>().modulation,
-                family.modulation)
-                ? from.resources.template get<Resource::KEY>().modulation
-                : resource.modulation;
+            deltas.template get<Resource::KEY>().previous_modulation;
         if constexpr (requires { resource.phase_noise_current; }) {
           resource.phase_noise_previous =
               from.resources.template get<Resource::KEY>().phase_noise_current;

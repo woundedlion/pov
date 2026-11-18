@@ -282,8 +282,10 @@ HS_HOT_INLINE inline float hexagon_distance(float x, float y, float radius) {
   across += 2.0f * HALF_SQRT_3 * fold;
   along -= fold;
   const float half_edge = INV_SQRT_3 * radius;
-  across -= fminf(fmaxf(across, -half_edge), half_edge);
   along -= radius;
+  if (fabsf(across) <= half_edge)
+    return along;
+  across = fabsf(across) - half_edge;
   return copysignf(sqrtf(across * across + along * along), along);
 }
 
@@ -334,7 +336,12 @@ HS_HOT_INLINE inline float cell_primitive(float x, float y,
     return 1.0f - 2.0f * ::math::smooth_ramp(-params.cell_softness,
                                              params.cell_softness, distance);
   };
-  if (params.cell_shape == 1.0f)
+  if constexpr (Kind == TessellationKind::HEXAGONAL) {
+    // The hexagon contains its incircle, so both distances saturate here.
+    const float inner = params.cell_radius - params.cell_softness;
+    if (inner > 0.0f && x * x + y * y < inner * inner)
+      return 1.0f;
+  } else if (params.cell_shape == 1.0f)
     return evaluate(1.0f);
   return evaluate(params.cell_shape);
 }

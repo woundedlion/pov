@@ -313,10 +313,14 @@ protected:
                                 progress, parameter_fields_of());
   }
 
+  /** @brief Constructs an inactive transition endpoint.
+   * @return Default parameter state. */
+  HS_SIZE_FLASH_MEMBER static Params default_endpoint() { return {}; }
+
   /** @brief An automatic preset transition's endpoints and progress. */
   struct Transition {
-    Params from{};               /**< Parameters the transition departs from. */
-    Params to{};                 /**< Parameters it lands on. */
+    Params from = default_endpoint(); ///< Departure parameters.
+    Params to = default_endpoint();   ///< Destination parameters.
     bool active = false;         /**< False when no transition is in flight. */
     uint16_t elapsed_frames = 0; /**< Unpaused steps elapsed. */
     uint16_t frames = 0;         /**< Steps the departure spans. */
@@ -383,36 +387,39 @@ protected:
                   "effect lacks the departure's hook (blend_params for Lerp, "
                   "set_preset_opacity for Fade)");
     const Params target = preset_target(change.to);
-    const Segue::Preset::Departure departure = preset_departure(change.from);
-    const uint16_t frames = Segue::Preset::frames(departure);
-    if (change.origin == PresetChangeOrigin::AUTOMATIC && frames > 0) {
-      if (transition.active)
-        return false;
-      const auto *lerp = std::get_if<Segue::Preset::Lerp>(&departure);
-      const uint16_t transition_serial = transition.serial + 1;
-      if (timeline.add_get(0,
-                           Animation::Progress(
-                               [this, transition_serial](float progress) {
-                                 if (transition.serial == transition_serial)
-                                   run_transition(progress);
-                               },
-                               frames, lerp ? lerp->easing : math::ease_linear),
-                           Timeline::Pin::UNPINNED, &anims_paused) == nullptr) {
-        preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
-        return false;
+    if constexpr (has_timed_departures()) {
+      const Segue::Preset::Departure departure = preset_departure(change.from);
+      const uint16_t frames = Segue::Preset::frames(departure);
+      if (change.origin == PresetChangeOrigin::AUTOMATIC && frames > 0) {
+        if (transition.active)
+          return false;
+        const auto *lerp = std::get_if<Segue::Preset::Lerp>(&departure);
+        const uint16_t transition_serial = transition.serial + 1;
+        if (timeline.add_get(
+                0,
+                Animation::Progress(
+                    [this, transition_serial](float progress) {
+                      if (transition.serial == transition_serial)
+                        run_transition(progress);
+                    },
+                    frames, lerp ? lerp->easing : math::ease_linear),
+                Timeline::Pin::UNPINNED, &anims_paused) == nullptr) {
+          preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
+          return false;
+        }
+        transition = {.from = params,
+                      .to = target,
+                      .active = true,
+                      .frames = frames,
+                      .fades = lerp == nullptr,
+                      .serial = transition_serial,
+                      .from_index = change.from};
+        if (lerp) {
+          if constexpr (has_hook<Control::ChoreographyHook::TRANSITION_ARMED>())
+            invoke_hook<Control::ChoreographyHook::TRANSITION_ARMED>(target);
+        }
+        return true;
       }
-      transition = {.from = params,
-                    .to = target,
-                    .active = true,
-                    .frames = frames,
-                    .fades = lerp == nullptr,
-                    .serial = transition_serial,
-                    .from_index = change.from};
-      if (lerp) {
-        if constexpr (has_hook<Control::ChoreographyHook::TRANSITION_ARMED>())
-          invoke_hook<Control::ChoreographyHook::TRANSITION_ARMED>(target);
-      }
-      return true;
     }
     end_transition(false);
     adopt_target(target);
@@ -595,6 +602,14 @@ private:
     return true;
   }
 
+  /** @return Whether any authored departure uses a timed transition. */
+  static consteval bool has_timed_departures() {
+    for (size_t index = 0; index < preset_count_of(); ++index)
+      if (Segue::Preset::frames(preset_departure(index)) != 0)
+        return true;
+    return false;
+  }
+
   /** @brief Whether every departure fits inside the dwell and the effect takes
       each departure's hook: blend_params for a Lerp, set_preset_opacity for a
       Fade. */
@@ -616,7 +631,7 @@ private:
 
   /** @brief Startup parameters: the `INITIAL_PARAMS` hook when bound,
       else the first preset row's parameters. */
-  static constexpr Params initial_params_of() {
+  HS_SIZE_FLASH_MEMBER static constexpr Params initial_params_of() {
     if constexpr (has_hook<Control::ChoreographyHook::INITIAL_PARAMS>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
           Control::ChoreographyHook::INITIAL_PARAMS>();

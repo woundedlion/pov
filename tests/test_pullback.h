@@ -1879,6 +1879,7 @@ inline int run_pullback_tests() {
   HS_RUN(test_pullback_square_cells_formula);
   HS_RUN(test_pullback_tessellation_reference);
   HS_RUN(test_pullback_hexagonal_cells_pack_hex_lattice);
+  HS_RUN(test_pullback_hexagonal_cell_boundaries);
   HS_RUN(test_pullback_tessellation_translation_lattice);
   HS_RUN(test_pullback_custom_grid_preparation);
   HS_RUN(test_pullback_hexagonal_edges);

@@ -19,7 +19,8 @@
 /** @brief Stage spec for `RiverStones`. */
 struct RiverStonesSpec : Pullback::Spec {
   /// Samples animation at each column time.
-  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
+  static constexpr auto TEMPORAL =
+      Pullback::TemporalPolicy::fused(Pullback::PaletteCache::NONE);
   /// Generated palette harmony.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   /// Spin and wander projection frame.

@@ -250,6 +250,38 @@ inline void test_pullback_hexagonal_cells_pack_hex_lattice() {
   }
 }
 
+/** @brief The incircle saturation boundary and edge-to-corner transition
+    match the full hexagon distance at every shape blend. */
+inline void test_pullback_hexagonal_cell_boundaries() {
+  using K = Pattern::TessellationKind;
+  using F = Pattern::TessellationFill;
+  TessellationReference reference{K::HEXAGONAL, F::CELLS, {}};
+  auto &params = reference.params;
+  params.cell_scale = 1.0f;
+  for (float radius : {1.0f / 64.0f, 0.41925988f, 0.49f}) {
+    params.cell_radius = radius;
+    for (float softness : {1.0f / 1024.0f, 0.10124387f, radius, 1.0f}) {
+      params.cell_softness = softness;
+      for (float blend : {0.0f, 0.5292398f, 1.0f}) {
+        params.cell_shape = blend;
+        const auto check = [&](float x, float y) {
+          const math::Complex point(x, y);
+          const float actual =
+              Pattern::hexagonal_cells(Pattern::PlanePosition{point}, params);
+          HS_EXPECT_NEAR(actual, reference(point), 2e-4);
+        };
+        const float inner = fmaxf(radius - softness, 0.0f);
+        for (float delta : {-1e-5f, 0.0f, 1e-5f}) {
+          check(inner + delta, 0.0f);
+          check(0.0f, -inner - delta);
+          check(radius * 0.999f, radius * Pattern::INV_SQRT_3 + delta);
+          check(-radius, -radius * Pattern::INV_SQRT_3 + delta);
+        }
+      }
+    }
+  }
+}
+
 /** @brief Field of one fixed tessellation at a plane point.
  * @tparam Kind Cell geometry.
  * @tparam Fill Cell or edge fill.

@@ -280,6 +280,10 @@ inline float sample(const Prepared &prepared,
 HS_HOT_INLINE inline std::pair<float, float>
 sample_pair(const Prepared &previous, const Prepared &current,
             const Pattern::SphereDirection &direction) {
+  if (&previous == &current) {
+    const float scalar = sample(current, direction);
+    return {scalar, scalar};
+  }
   if (previous.evaluate == sample_cube && current.evaluate == sample_cube &&
       previous.cube.active && current.cube.active) {
     const auto tap = Pattern::prepare_sphere_lut_sample(direction);

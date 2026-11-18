@@ -9,6 +9,7 @@
 #include <cstring>
 #include <limits>
 #include <span>
+#include <string_view>
 #include <type_traits>
 #include "core/control/params.h"
 #include "core/memory.h"
@@ -21,6 +22,20 @@
 namespace Pullback {
 
 namespace ComposedDetail {
+
+/** @brief Copies a resource-qualified field name into the persistent arena.
+ * @param key Resource instance key.
+ * @param name Unqualified field name.
+ * @return The persistent dotted name. */
+HS_SIZE_FLASH_MEMBER inline const char *
+qualified_parameter_name(std::string_view key, const char *name) {
+  const size_t length = std::strlen(name);
+  char *qualified = persistent_arena.allocate_n<char>(key.size() + length + 2);
+  std::memcpy(qualified, key.data(), key.size());
+  qualified[key.size()] = '.';
+  std::memcpy(qualified + key.size() + 1, name, length + 1);
+  return qualified;
+}
 
 /** @brief Descriptor type retained by a parameter family's scalar field table.
  * @tparam Family Parameter family. */
@@ -113,21 +128,13 @@ protected:
    *         qualified.
    */
   template <typename Resource>
-  HS_SIZE_FLASH_MEMBER const char *resource_parameter_name(const char *name) {
-    constexpr bool QUALIFY =
-        ComposedDetail::qualified<Resource, typename Params::ResourceTypes>();
-    if constexpr (!QUALIFY)
+  HS_HOT_INLINE static const char *resource_parameter_name(const char *name) {
+    if constexpr (ComposedDetail::qualified<Resource,
+                                            typename Params::ResourceTypes>())
+      return ComposedDetail::qualified_parameter_name(Resource::KEY.view(),
+                                                      name);
+    else
       return name;
-    else {
-      constexpr auto KEY = Resource::KEY.view();
-      const size_t length = std::strlen(name);
-      char *qualified =
-          persistent_arena.allocate_n<char>(KEY.size() + length + 2);
-      std::memcpy(qualified, KEY.data(), KEY.size());
-      qualified[KEY.size()] = '.';
-      std::memcpy(qualified + KEY.size() + 1, name, length + 1);
-      return qualified;
-    }
   }
 
   /** @brief Parameter folder positions in the pipeline. */
