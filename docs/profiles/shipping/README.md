@@ -7,7 +7,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Captured |
 |---|---|--:|--:|--:|---|---|
-| [RiverStones](profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🔴 102.670 | 120.350 | 🔴 304/304 (100.00%) | COM3 | 2026-11-18 08:46 |
+| [RiverStones](profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🔴 65.479 | 89.669 | 🔴 116/471 (24.63%) | COM4 | 2026-11-18 09:41 |
 | [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 0/4895 (0.00%) | COM3 | 2026-11-17 09:09 |
 | [GridWarp](profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:41 |
 | [AshCloud](profile_ashcloud_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.216 | 85.379 | 🟢 0/959 (0.00%) | COM4 | 2026-11-17 09:39 |
