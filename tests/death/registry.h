@@ -2283,6 +2283,9 @@ inline const Case *all_cases(int &n) {
                "invalid brightness envelope",
                false, "death: admitted"},
               // recipes
+              {"recipe_seed_oob", case_recipe_seed_oob, "core/mesh/solids.h",
+               "(seed < std::size(simple_registry)) "
+               "replay_steps: seed outside simple_registry"},
               {"recipe_bake_wrong_op", case_recipe_bake_wrong_op,
                "core/mesh/solids.h",
                "(!step.bake || step.op == Op::RELAX) apply_step: only RELAX accepts a bake"},

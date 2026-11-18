@@ -34,6 +34,12 @@ inline void case_solids_unknown_name() {
   (void)m.vertices.size();
 }
 
+/** @brief A replay seed outside the simple registry must trap. */
+inline void case_recipe_seed_oob() {
+  const auto seed = opaque<uint8_t>(std::size(Solids::simple_registry));
+  (void)Solids::build_steps(seed, nullptr, 0, scratch_arena_a, scratch_arena_b);
+}
+
 /** @brief Death case: recipe bake wrong op. */
 inline void case_recipe_bake_wrong_op() {
   const MeshOps::RelaxBake BAKE{};
