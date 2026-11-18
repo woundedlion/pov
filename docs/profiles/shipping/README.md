@@ -7,7 +7,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Captured |
 |---|---|--:|--:|--:|---|---|
-| [RiverStones](profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🔴 65.479 | 89.669 | 🔴 116/471 (24.63%) | COM4 | 2026-11-18 09:41 |
+| [RiverStones](profile_riverstones_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🔴 75.015 | 91.667 | 🔴 381/433 (87.99%) | COM4 | 2026-11-18 11:18 |
 | [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 0/4895 (0.00%) | COM3 | 2026-11-17 09:09 |
 | [GridWarp](profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:41 |
 | [AshCloud](profile_ashcloud_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.216 | 85.379 | 🟢 0/959 (0.00%) | COM4 | 2026-11-17 09:39 |
@@ -23,8 +23,8 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [MindSplatter](profile_mindsplatter_teensy_2026-11-17.md) § ● | `msp_draw_particles`<br>worst: 7, 50.810 ms / 16 fps | 🟢 50.810 (8) | 0.372 | 🟢 0/1279 (0.00%) | COM3 | 2026-11-17 09:03 |
 | [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 50.074 | 78.699 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:45 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Kaleidoscope Hex Oil 2, 48.354 ms / 16 fps | 🟢 48.354 (2) | 68.013 | 🟢 0/1679 (0.00%) | COM3 | 2026-11-17 09:26 |
-| [Iridescence](profile_iridescence_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 47.685 | 90.003 | 🟢 0/479 (0.00%) | COM4 | 2026-11-17 09:43 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-11-17.md) ● | `grd_render` | 🟢 47.331 | 24.651 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:43 |
+| [Iridescence](profile_iridescence_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🟢 47.242 | 88.278 | 🟢 0/479 (0.00%) | COM3 | 2026-11-18 11:18 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 45.898 | 68.306 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:37 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Cup Hue, 45.881 ms / 16 fps | 🟢 45.881 (2) | 65.217 | 🟢 0/1679 (0.00%) | COM4 | 2026-11-17 09:25 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 45.730 | 67.214 | 🟢 0/479 (0.00%) | COM4 | 2026-11-17 09:37 |
