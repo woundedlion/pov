@@ -338,23 +338,19 @@ class OrderedModulationKernel {
         field.coverage;
     const float result_alpha =
         mask_alpha(alpha, alpha, m, old_mask, mask.mechanic.amount);
-    if (lightness == 0.0f && rotation != 0.0f && base.hue_rotation.active &&
-        base.hue_rotation.data) {
-      const HueRotationValueSample value(field.value);
-      const HueRotationHueSample angle(rotation);
-      if (!base.hue_rotation.gamut_mask ||
-          !base.hue_rotation.gamut_mask->requires_direct(value.low, angle.low))
-        return Color4(sample_hue_rotation_lut(base.hue_rotation, value, angle),
-                      result_alpha);
+    if (lightness == 0.0f && rotation != 0.0f && base.hue_rotation.active) {
+      Pixel rotated;
+      if (sample_guarded_hue_lut(base.hue_rotation.data,
+                                 base.hue_rotation.gamut_mask, field.value,
+                                 rotation, rotated))
+        return Color4(rotated, result_alpha);
     }
     const Pixel color = base.palette->get_color(field.value);
     if (lightness == 0.0f && rotation == 0.0f)
       return Color4(color, result_alpha);
-    const auto input = pixel_to_linrgb(color);
-    auto lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
-    lab.L += (1.0f - lab.L) * lightness;
-    return Color4(linrgb_to_pixel(hue_rotate_lut_gamut_rgb(lab, rotation)),
-                  result_alpha);
+    return Color4(
+        finish_hue_lift_pixel(color, nullptr, lightness, rotation, 1.0f),
+        result_alpha);
   }
 
   HS_HOT_FLASH_MEMBER Color4 shade_ordered(const FieldSample &field) const {

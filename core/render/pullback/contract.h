@@ -261,6 +261,39 @@ HS_HOT_INLINE inline void apply_brightness_gain(LinRGB &color, float gain) {
   color.b = hs::clamp(color.b, 0.0f, 1.0f) * gain;
 }
 
+/** @brief Samples an admitted hue-table cell, leaving guarded cells for direct conversion. */
+HS_HOT_ITCM_MEMBER inline bool
+sample_guarded_hue_lut(const Pixel *table, const HueRotationGamutMask *mask,
+                       float coordinate, float hue, Pixel &result) {
+  if (!table)
+    return false;
+  const HueRotationValueSample value(coordinate);
+  const HueRotationHueSample angle(hue);
+  if (mask && mask->requires_direct(value.low, angle.low))
+    return false;
+  result = sample_hue_rotation_lut({table, true}, value, angle);
+  return true;
+}
+
+/** @brief Finishes hue, lift and brightness from an RGB or cached OKLab base. */
+HS_HOT_ITCM_MEMBER inline Pixel finish_hue_lift_pixel(const Pixel &color,
+                                                      const OKLab *cached,
+                                                      float lift, float hue,
+                                                      float gain) {
+  OKLab lab;
+  if (cached) {
+    lab = *cached;
+  } else {
+    const auto input = pixel_to_linrgb(color);
+    lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
+  }
+  lab.L += (1.0f - lab.L) * lift;
+  auto output = hue_rotate_lut_gamut_rgb(lab, hue);
+  if (gain != 1.0f)
+    apply_brightness_gain(output, gain);
+  return linrgb_to_pixel(output);
+}
+
 /** @brief Completes composed perceptual adjustments and final RGB brightness.
  * @param sample Color sample to finish.
  * @return Final straight-alpha color. */
@@ -275,33 +308,22 @@ finish_color_sample(const ColorSample &sample) {
                   color.alpha);
   if (sample.brightness_gain == 0.0f)
     return Color4(Pixel(0, 0, 0), color.alpha);
-  const bool guarded_hue =
-      !sample.has_cached_lab && sample.pending_lift == 0.0f &&
-      sample.pending_hue != 0.0f && sample.hue_rotation &&
-      sample.hue_rotation_gamut &&
-      sample.hue_rotation_gamut->requires_direct(
-          HueRotationValueSample(sample.palette_coordinate).low,
-          HueRotationHueSample(sample.pending_hue).low);
   if (sample.has_cached_lab || sample.pending_lift != 0.0f ||
-      (sample.pending_hue != 0.0f && (!sample.hue_rotation || guarded_hue))) {
-    OKLab lab = sample.cached_rgb
-                    ? PaletteLabLut::sample(*sample.cached_rgb,
-                                            sample.palette_coordinate)
-                    : sample.cached_lab;
-    if (!sample.has_cached_lab) {
-      const LinRGB input = pixel_to_linrgb(color.color);
-      lab = linear_rgb_to_oklab_fast(input.r, input.g, input.b);
+      (sample.pending_hue != 0.0f &&
+       !sample_guarded_hue_lut(sample.hue_rotation, sample.hue_rotation_gamut,
+                               sample.palette_coordinate, sample.pending_hue,
+                               color.color))) {
+    OKLab sampled;
+    const OKLab *cached = sample.has_cached_lab ? &sample.cached_lab : nullptr;
+    if (cached && sample.cached_rgb) {
+      sampled =
+          PaletteLabLut::sample(*sample.cached_rgb, sample.palette_coordinate);
+      cached = &sampled;
     }
-    lab.L += (1.0f - lab.L) * sample.pending_lift;
-    LinRGB output = hue_rotate_lut_gamut_rgb(lab, sample.pending_hue);
-    if (sample.brightness_gain != 1.0f) {
-      apply_brightness_gain(output, sample.brightness_gain);
-    }
-    return Color4(linrgb_to_pixel(output), color.alpha);
-  } else if (sample.pending_hue != 0.0f) {
-    color.color =
-        sample_hue_rotation_lut({sample.hue_rotation, true},
-                                sample.palette_coordinate, sample.pending_hue);
+    return Color4(finish_hue_lift_pixel(color.color, cached,
+                                        sample.pending_lift, sample.pending_hue,
+                                        sample.brightness_gain),
+                  color.alpha);
   }
   if (sample.brightness_gain != 1.0f)
     color.color = color.color * sample.brightness_gain;
