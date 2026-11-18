@@ -438,6 +438,26 @@ inline void test_arena_reclaimed_since() {
   HS_EXPECT_EQ(a.get_rewind_floor(), SIZE_MAX);
 }
 
+/** @brief Reset preserves rewind records for retained bytes. */
+inline void test_arena_retains_floor_rewind_history() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  const uint64_t old_birth = a.get_rewind_seq();
+  const void *old = a.allocate(100, 1);
+  a.set_offset(0);
+  const uint64_t retained_birth = a.get_rewind_seq();
+  const void *retained = a.allocate(100, 1);
+  HS_EXPECT_EQ(retained, old);
+  a.set_reset_floor();
+
+  const void *temporary = a.allocate(32, 1);
+  a.set_offset(a.get_reset_floor());
+  a.reset();
+
+  HS_EXPECT_TRUE(a.reclaimed_since(old, 100, old_birth));
+  HS_EXPECT_FALSE(a.reclaimed_since(retained, 100, retained_birth));
+  HS_EXPECT_FALSE(a.reclaimed_since(temporary, 32, retained_birth));
+}
+
 /**
  * @brief Verifies repeated rewinds to one mark replace its history entry
  *        rather than accumulating past the history capacity.
@@ -1515,11 +1535,14 @@ inline int run_memory_tests() {
   HS_RUN(test_arena_generation_bumps);
   HS_RUN(test_arena_covers);
   HS_RUN(test_arena_reclaimed_since);
+  HS_RUN(test_arena_retains_floor_rewind_history);
   HS_RUN(test_arena_repeated_rewind_to_same_mark);
 #else
   skip_case("test_arena_generation_bumps", "requires debug arena tracking");
   skip_case("test_arena_covers", "requires debug arena tracking");
   skip_case("test_arena_reclaimed_since", "requires debug arena tracking");
+  skip_case("test_arena_retains_floor_rewind_history",
+            "requires debug arena tracking");
   skip_case("test_arena_repeated_rewind_to_same_mark",
             "requires debug arena tracking");
 #endif

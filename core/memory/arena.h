@@ -256,9 +256,7 @@ public:
 #ifndef NDEBUG
     if (new_offset < offset) {
       rewind_seq++;
-      while (rewind_history_size &&
-             rewind_history[rewind_history_size - 1].target >= new_offset)
-        --rewind_history_size;
+      discard_rewinds_at_or_above(new_offset);
       HS_CHECK(rewind_history_size < REWIND_HISTORY_CAPACITY,
                "Arena: debug rewind history capacity exceeded");
       rewind_history[rewind_history_size++] = {rewind_seq, new_offset};
@@ -279,7 +277,7 @@ public:
 #ifndef NDEBUG
     generation++;
     rewind_floor = SIZE_MAX;
-    rewind_history_size = 0;
+    discard_rewinds_at_or_above(reset_floor);
 #endif
   }
 
@@ -420,6 +418,13 @@ private:
                              size_t scratch_b);
 
 #ifndef NDEBUG
+  /** @brief Drops rewind records at or above @p target. */
+  void discard_rewinds_at_or_above(size_t target) {
+    while (rewind_history_size &&
+           rewind_history[rewind_history_size - 1].target >= target)
+      --rewind_history_size;
+  }
+
   /** @brief Whether an offset of @p floor leaves [start, start+bytes) above
    *         it. */
   static bool cuts_region(size_t floor, size_t start, size_t bytes) {
