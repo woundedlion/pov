@@ -38,6 +38,53 @@ HS_HOT_FLASH_MEMBER inline void sample_keyed_rotation(
           .conjugate();
 }
 
+/** @brief Selects a retained scalar source and checks continuous phase compatibility. */
+HS_HOT_FLASH_MEMBER inline const Modulation::Prepared *
+interval_modulation(const Modulation::Config &a, const Modulation::Config &b,
+                    const Modulation::Prepared *previous,
+                    const Modulation::Prepared *current,
+                    bool &phase_compatible) {
+  if (!Modulation::same_topology(a, b)) {
+    phase_compatible = false;
+    return current;
+  }
+  phase_compatible = phase_compatible && Modulation::phase_compatible(a, b);
+  if (previous && current && previous != current &&
+      Modulation::same_endpoint_sample(*previous, *current))
+    return current;
+  return previous;
+}
+
+/** @brief Prepares periodic source clocks independently of the effect's resource list. */
+HS_SIZE_FLASH_MEMBER inline void
+prepare_source_clocks(ComposedDetail::SourceClocks &delta,
+                      const ComposedDetail::SourceClocks &a,
+                      const ComposedDetail::SourceClocks &b) {
+  using Spacetime::ClockInterval;
+  delta.primary =
+      ClockInterval::prepare_delta(a.primary, b.primary, math::TWO_PI_F);
+  delta.secondary =
+      ClockInterval::prepare_delta(a.secondary, b.secondary, math::TWO_PI_F);
+  delta.angle = ClockInterval::prepare_delta(a.angle, b.angle, math::TWO_PI_F);
+  delta.noise_time =
+      ClockInterval::prepare_delta(a.noise_time, b.noise_time, 1.0f);
+}
+
+/** @brief Samples all four source clocks along their prepared periodic arcs. */
+HS_HOT_FLASH_MEMBER inline void
+sample_source_clocks(ComposedDetail::SourceClocks &out,
+                     const ComposedDetail::SourceClocks &start,
+                     const ComposedDetail::SourceClocks &delta,
+                     float fraction) {
+  using Spacetime::ClockInterval;
+  out.primary = ClockInterval::apply(start.primary, delta.primary, fraction);
+  out.secondary =
+      ClockInterval::apply(start.secondary, delta.secondary, fraction);
+  out.angle = ClockInterval::apply(start.angle, delta.angle, fraction);
+  out.noise_time =
+      ClockInterval::apply(start.noise_time, delta.noise_time, fraction);
+}
+
 /** @brief Shared preparation for column samples of one frame interval. */
 template <typename Frame> class FrameInterval {
   using Params = decltype(Frame::params);
@@ -109,27 +156,21 @@ public:
         }(static_cast<typename Params::ResourceTypes *>(nullptr)) <= 32,
         "constant_families holds one bit per parameter family");
     int family = 0;
-    b.params.visit(
-        [&]<typename Resource>(const auto &) __attribute__((always_inline)) {
-          const auto &start = a.params.template get<Resource::KEY>();
-          const auto &end = b.params.template get<Resource::KEY>();
-          if (constant_params || std::memcmp(&start, &end, sizeof(end)) == 0)
-            constant_families |= 1u << family;
-          ++family;
-        });
+    if (!constant_params)
+      b.params.visit(
+          [&]<typename Resource>(const auto &) __attribute__((always_inline)) {
+            const auto &start = a.params.template get<Resource::KEY>();
+            const auto &end = b.params.template get<Resource::KEY>();
+            if (std::memcmp(&start, &end, sizeof(end)) == 0)
+              constant_families |= 1u << family;
+            ++family;
+          });
     b.params.visit([&]<typename Resource>(const auto &) HS_HOT_INLINE {
       auto &delta = deltas.template get<Resource::KEY>();
       const auto &start = a.resources.template get<Resource::KEY>();
       const auto &end = b.resources.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-        delta.primary = Spacetime::ClockInterval::prepare_delta(
-            start.primary, end.primary, math::TWO_PI_F);
-        delta.secondary = Spacetime::ClockInterval::prepare_delta(
-            start.secondary, end.secondary, math::TWO_PI_F);
-        delta.angle = Spacetime::ClockInterval::prepare_delta(
-            start.angle, end.angle, math::TWO_PI_F);
-        delta.noise_time = Spacetime::ClockInterval::prepare_delta(
-            start.noise_time, end.noise_time, 1.0f);
+        prepare_source_clocks(delta, start, end);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
         delta.phase = Spacetime::ClockInterval::prepare_delta(start.phase,
                                                               end.phase, 1.0f);
@@ -168,16 +209,9 @@ public:
         const auto &previous =
             a.params.template get<Resource::KEY>().modulation;
         const auto &current = b.params.template get<Resource::KEY>().modulation;
-        phase_compatible =
-            phase_compatible && Modulation::phase_compatible(previous, current);
-        delta.previous_modulation = Modulation::same_topology(previous, current)
-                                        ? start.modulation
-                                        : end.modulation;
-        if (delta.previous_modulation && end.modulation &&
-            delta.previous_modulation != end.modulation &&
-            Modulation::same_endpoint_sample(*delta.previous_modulation,
-                                             *end.modulation))
-          delta.previous_modulation = end.modulation;
+        delta.previous_modulation =
+            interval_modulation(previous, current, start.modulation,
+                                end.modulation, phase_compatible);
       }
     });
   }
@@ -244,9 +278,9 @@ public:
       frame.params.visit(
           [&]<typename Resource>(auto &value) __attribute__((always_inline)) {
             if (!(constant_families & (1u << family)))
-              value = interpolate(from.params.template get<Resource::KEY>(),
-                                  to.params.template get<Resource::KEY>(),
-                                  fraction);
+              sample_parameter_family(
+                  value, from.params.template get<Resource::KEY>(),
+                  to.params.template get<Resource::KEY>(), fraction);
             ++family;
           });
     }
@@ -262,14 +296,7 @@ public:
         const auto &end = to.resources.template get<Resource::KEY>();
         sample_keyed_rotation(clock, start, end, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-        clock.primary = Spacetime::ClockInterval::apply(
-            start.primary, delta.primary, fraction);
-        clock.secondary = Spacetime::ClockInterval::apply(
-            start.secondary, delta.secondary, fraction);
-        clock.angle =
-            Spacetime::ClockInterval::apply(start.angle, delta.angle, fraction);
-        clock.noise_time = Spacetime::ClockInterval::apply(
-            start.noise_time, delta.noise_time, fraction);
+        sample_source_clocks(clock, start, delta, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
         clock.phase =
             Spacetime::ClockInterval::apply(start.phase, delta.phase, fraction);

@@ -111,7 +111,8 @@ inline State init(const Config &config) {
 /** @brief Adopts source identity without reinterpreting clocks.
  * @param state Scheduled source state.
  * @param config Current configuration. */
-inline void synchronize(State &state, const Config &config) {
+HS_SIZE_FLASH_MEMBER inline void synchronize(State &state,
+                                             const Config &config) {
   HS_CHECK(admitted(config), "invalid modulation synchronization recipe");
   if (!state.initialized || state.source != config.source ||
       state.version != config.version)

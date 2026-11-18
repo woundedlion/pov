@@ -36,9 +36,13 @@ struct TemporalRotation : math::SlerpArc {
   /** @brief Prepares the shortest arc between unit orientations.
    * @param a Previous unit orientation.
    * @param b Current unit orientation. */
-  HS_FLASH_INLINE TemporalRotation(const math::Quaternion &a,
+  HS_FLASH_MEMBER TemporalRotation(const math::Quaternion &a,
                                    const math::Quaternion &b)
       : math::SlerpArc(a, b) {}
+  /** @brief Samples the prepared shortest arc at one column time. */
+  HS_HOT_FLASH_MEMBER math::Quaternion sample(float fraction) const {
+    return math::SlerpArc::sample(fraction);
+  }
 };
 
 /** @brief Tagged construction of a pipeline with explicit-time entry points. */

@@ -14,8 +14,8 @@ namespace Pullback::Modulation {
  * @param destination Retained endpoint storage.
  * @param table Retained byte-cube storage.
  * @return Retained endpoint, or null when the source is absent. */
-inline const Prepared *retain(const Prepared *source, Prepared &destination,
-                              std::span<int8_t> table) {
+HS_SIZE_FLASH_MEMBER inline const Prepared *
+retain(const Prepared *source, Prepared &destination, std::span<int8_t> table) {
   if (source == nullptr)
     return nullptr;
   destination = *source;

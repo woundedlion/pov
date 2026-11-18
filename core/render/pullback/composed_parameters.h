@@ -44,6 +44,31 @@ inline PotentialParams interpolate(const PotentialParams &a,
   return out;
 }
 
+/** @brief Writes one interpolated parameter family, allowing either endpoint to alias the result. */
+template <HasFields Family>
+inline void sample_parameter_family(Family &result, const Family &from,
+                                    const Family &to, float progress) {
+  result = interpolate(from, to, progress);
+}
+
+/** @brief Writes a nested modulation recipe without copying its containing family. */
+HS_SIZE_FLASH_MEMBER inline void
+sample_modulation_controls(Modulation::Config &result,
+                           const Modulation::Config &from,
+                           const Modulation::Config &to, float progress) {
+  result = Modulation::interpolate(from, to, progress);
+}
+
+template <Pattern::SourceKind Source, Pattern::Evaluation Evaluation,
+          bool Dynamic>
+inline void sample_parameter_family(
+    Modulation::Params<Source, Evaluation, Dynamic> &result,
+    const Modulation::Params<Source, Evaluation, Dynamic> &from,
+    const Modulation::Params<Source, Evaluation, Dynamic> &to, float progress) {
+  sample_modulation_controls(result.modulation, from.modulation, to.modulation,
+                             progress);
+}
+
 /**
  * @brief Writes interpolated parameter families into existing storage.
  * @tparam Resources Parameter resources.
@@ -61,9 +86,9 @@ inline void interpolate_into(
     const ComposedDetail::ParameterSet<
         ComposedDetail::ResourceList<Resources...>> &to,
     float progress) {
-  ((out.template get<Resources::KEY>() =
-        interpolate(from.template get<Resources::KEY>(),
-                    to.template get<Resources::KEY>(), progress)),
+  (sample_parameter_family(out.template get<Resources::KEY>(),
+                           from.template get<Resources::KEY>(),
+                           to.template get<Resources::KEY>(), progress),
    ...);
 }
 
