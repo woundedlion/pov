@@ -40,20 +40,23 @@ struct SphereLutView {
  */
 HS_HOT_INLINE inline SphereDirection sphere_face_coordinate(int face, float u,
                                                             float v) {
-  switch (face) {
-  case 0:
-    return SphereDirection::from(math::Vector(1.0f, v, u));
-  case 1:
-    return SphereDirection::from(math::Vector(-1.0f, v, -u));
-  case 2:
-    return SphereDirection::from(math::Vector(u, 1.0f, v));
-  case 3:
-    return SphereDirection::from(math::Vector(u, -1.0f, -v));
-  case 4:
-    return SphereDirection::from(math::Vector(u, v, 1.0f));
-  default:
-    return SphereDirection::from(math::Vector(-u, v, -1.0f));
-  }
+  const auto point = [&] {
+    switch (face) {
+    case 0:
+      return math::Vector(1.0f, v, u);
+    case 1:
+      return math::Vector(-1.0f, v, -u);
+    case 2:
+      return math::Vector(u, 1.0f, v);
+    case 3:
+      return math::Vector(u, -1.0f, -v);
+    case 4:
+      return math::Vector(u, v, 1.0f);
+    default:
+      return math::Vector(-u, v, -1.0f);
+    }
+  };
+  return SphereDirection::from(point());
 }
 
 /** @brief Unit vector through a cube face sample.
@@ -224,7 +227,7 @@ copy_sphere_lut_edges(std::span<int8_t, SphereLutView::SIZE> table) {
  * @param output Destination storage.
  * @param prepared Immutable prepared source inputs. */
 template <class Source>
-HS_FLASH_INLINE __attribute__((flatten)) inline void
+HS_FLASH_INLINE inline void
 prepare_sphere_lut(std::span<int8_t, SphereLutView::SIZE> output,
                    const typename Source::Prepared &prepared) {
   constexpr int N = SphereLutView::FACE_STEPS;
@@ -232,7 +235,7 @@ prepare_sphere_lut(std::span<int8_t, SphereLutView::SIZE> output,
   std::array<std::array<math::Vector, N>, 2> row;
   constexpr bool shifted_coordinates =
       requires { Source::configured_single(prepared); };
-  const auto shift = [&](const math::Vector &direction) {
+  const auto shift = [&](const math::Vector &direction) HS_HOT_INLINE {
     if constexpr (shifted_coordinates)
       return Source::shift_coordinate(direction, prepared);
     else
