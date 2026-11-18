@@ -1744,6 +1744,18 @@ inline void test_river_stones_color_tail() {
     }
   };
   compare(history.previous, current, true);
+  for (int change = 0; change < 2; ++change) {
+    auto from = history.previous;
+    auto to = current;
+    for (auto *frame : {&from, &to}) {
+      auto &color = frame->params.template get<"color">();
+      if (change == 0)
+        color.mapping_frequency = 2.0f;
+      else
+        color.opacity_low = 0.25f;
+    }
+    compare(from, to, false);
+  }
   auto before = history.previous;
   auto after = current;
   after.palette = &alternate.view();
