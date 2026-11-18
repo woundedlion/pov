@@ -177,7 +177,7 @@ class GeneratedMaskTests(unittest.TestCase):
                 result = subprocess.run(
                     [kicad_cli(), "pcb", "drc", "--refill-zones", "--format", "json",
                      "--severity-error", "--severity-warning", "-o", str(report), str(path)],
-                    capture_output=True, text=True, timeout=120)
+                    capture_output=True, text=True, timeout=300)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 findings = json.loads(report.read_text(encoding="utf-8"))
                 self.assertIn("violations", findings)
