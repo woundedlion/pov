@@ -1095,7 +1095,6 @@ inline void test_late_segment_publication() {
               wake(false);
               HS_EXPECT_EQ(effect.buffer_free(), due);
               if (!due) {
-                HS_EXPECT_FALSE(effect.buffer_free());
                 HS_EXPECT_EQ(effect.get_pixel(0, band.y0).r, expected[0]);
                 HS_EXPECT_EQ(effect.get_pixel(4, band.y0).r, expected[1]);
                 wake(true);

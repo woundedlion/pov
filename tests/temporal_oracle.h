@@ -130,6 +130,14 @@ inline void test_reference_row_displacement_is_analytic() {
 inline constexpr float DISPLACEMENT = 0.2f;
 inline constexpr float ERROR_FLOOR = 1e-5f;
 
+/** @brief Computes the whole-frame temporal error limit.
+ * @param endpoint_error Summed endpoint-render error.
+ * @param share Fraction of the twentieth-error budget.
+ * @return The scaled limit with its absolute error floor. */
+inline float temporal_frame_error_limit(float endpoint_error, float share) {
+  return share * endpoint_error / 20.0f + ERROR_FLOOR;
+}
+
 /** @brief Tests the whole-frame temporal error against the endpoint budget.
  * @param error Summed luminance error over the frame.
  * @param endpoint_error Summed endpoint-render error over the frame.
@@ -138,7 +146,7 @@ inline constexpr float ERROR_FLOOR = 1e-5f;
 inline bool temporal_frame_error_within_budget(float error,
                                                float endpoint_error,
                                                float share = 1.0f) {
-  return error <= share * endpoint_error / 20.0f + ERROR_FLOOR;
+  return error <= temporal_frame_error_limit(endpoint_error, share);
 }
 
 /** @brief Controls frozen-column displacement and frame budgets. */
@@ -211,9 +219,12 @@ SeamCompareResult seam_compare_render(Render render, const char *name,
     }
   }
   std::printf("  frozen %s: error=%.6f endpoint=%.6f displaced=%.6f "
-              "worst_column=%.6f frame_limit=%.6f displacement_failures=%d\n",
-              name, total, endpoint_total, displaced_total, worst,
-              endpoint_total / 20.0f, displacement_failures);
+              "worst_column=%.6f",
+              name, total, endpoint_total, displaced_total, worst);
+  if (options.require_motion)
+    std::printf(" frame_limit=%.6f",
+                temporal_frame_error_limit(endpoint_total, options.share));
+  std::printf(" displacement_failures=%d\n", displacement_failures);
   if (options.require_motion) {
     HS_EXPECT_GT(endpoint_total, 0.01f);
     HS_EXPECT(temporal_frame_error_within_budget(total, endpoint_total,

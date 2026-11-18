@@ -11,6 +11,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import include_paths
+from git_test_env import git_run, isolated_env
 
 
 class IncludePathsTests(unittest.TestCase):
@@ -259,6 +260,28 @@ class TestMain(unittest.TestCase):
         result, out, _ = self.run_main(self.files)
         self.assertEqual(result, 1)
         self.assertIn('instead of "math/vector.h"', out)
+
+    def test_staged_mode_reads_the_index(self):
+        git_run(self.root, "init", "-q")
+        name = "core/math/vector.h"
+        source = self.root / name
+        forbidden = '#include "effects/sample.h"\n'
+        source.write_text(forbidden, encoding="utf-8")
+        git_run(self.root, "add", "--", *self.files)
+        source.write_text("#pragma once\n", encoding="utf-8")
+
+        def staged():
+            return subprocess.run(
+                [sys.executable, include_paths.__file__, "--root", str(self.root), "--staged"],
+                input=f"{name}\n".encode("utf-8"), capture_output=True, env=isolated_env())
+
+        result = staged()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(b'forbidden include "effects/sample.h" from core/', result.stdout)
+        git_run(self.root, "add", "--", name)
+        source.write_text(forbidden, encoding="utf-8")
+        result = staged()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_empty_or_non_source_listing_is_a_tooling_error(self):
         for files in ([], ["README.md"]):

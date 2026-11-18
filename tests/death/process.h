@@ -307,18 +307,22 @@ inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
  * @details Accepted only with a second-chance illegal-instruction debug event.
  */
 inline constexpr int TRAP_STATUS = static_cast<int>(0xC000001D);
+#elif defined(__aarch64__)
+inline constexpr int TRAP_SIGNAL = SIGTRAP; ///< AArch64 trap signal.
+#else
+inline constexpr int TRAP_SIGNAL = SIGILL; ///< Illegal-instruction trap signal.
 #endif
 
 /**
- * @brief Tests whether a child died from an observable illegal instruction.
+ * @brief Tests whether a child died from the expected trap.
  * @param rc The raw spawn_child() return value to interpret.
- * @return True iff the child died by SIGILL or an unhandled Windows trap.
+ * @return True if the child died from the native trap signal or exception.
  */
 inline bool child_trapped(int rc) {
 #if defined(_WIN32)
   return rc == TRAP_STATUS && child_unhandled_illegal_instruction();
 #else
-  return rc != -1 && WIFSIGNALED(rc) && WTERMSIG(rc) == SIGILL;
+  return rc != -1 && WIFSIGNALED(rc) && WTERMSIG(rc) == TRAP_SIGNAL;
 #endif
 }
 

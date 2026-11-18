@@ -76,7 +76,7 @@
 #include "targets/wasm/document_parameters.h"
 
 #if !defined(_WIN32)
-#include <csignal>    // SIGILL — the expected trap signal
+#include <csignal>    // SIGILL / SIGTRAP
 #include <fcntl.h>    // open / O_WRONLY for the capture file
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
 #include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn

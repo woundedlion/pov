@@ -41,12 +41,9 @@ inline void test_islamic_registry_arena_survey() {
   size_t n = 0;
 
   for (const Solids::Entry &entry : entries) {
-    const Recipe *chain = entry.recipe;
-    HS_EXPECT_TRUE(chain != nullptr);
-    if (!chain)
-      continue;
+    const Recipe &chain = *entry.recipe;
     rows[n].name = entry.name;
-    rows[n].peaks = conway_morph_tests::replay_build_chain(entry.name, *chain);
+    rows[n].peaks = conway_morph_tests::replay_build_chain(entry.name, chain);
     ++n;
   }
 
@@ -85,7 +82,6 @@ inline void test_islamic_registry_arena_survey() {
               eligible - over, eligible, worst_a,
               (size_t)ISLAMIC_SCRATCH_A_BUDGET, worst_b,
               (size_t)ISLAMIC_SCRATCH_B_BUDGET);
-  HS_EXPECT_EQ(n, entries.size());
   HS_EXPECT_GT(eligible, size_t{0});
   HS_EXPECT_EQ(over, size_t{0});
 }

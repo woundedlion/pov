@@ -995,8 +995,8 @@ inline void test_wide_shell_march_gathers_layers_behind_start() {
 /**
  * @brief The wide shell march matches a brute-force neighborhood composite in
  *        3D and in a 4D slice.
- * @details No ray may differ by more than 24 codes; budget-cut rays match
- *          a distance-ordered prefix of the neighborhood.
+ * @details Budget-cut rays with reference shells match a nonempty
+ *          distance-ordered prefix.
  */
 inline void test_wide_shell_march_matches_neighborhood() {
   PaletteFixture<GradientPalette> fixture;
@@ -1044,7 +1044,8 @@ inline void test_wide_shell_march_matches_neighborhood() {
           if (traced.status == Raycast::TraceStatus::BUDGET_EXHAUSTED) {
             truncated += !expected.second;
             bool prefix = false;
-            for (size_t count = 0; count <= found.size() && !prefix; ++count)
+            for (size_t count = found.empty() ? 0 : 1;
+                 count <= found.size() && !prefix; ++count)
               prefix = max_channel_gap(
                            traced.color,
                            composite_shells(found, count, appearance, limits)

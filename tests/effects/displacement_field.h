@@ -721,7 +721,6 @@ inline void test_displacement_field_clip_tiles_full() {
   // The shorter window still sits inside the same displacement phase.
   const int WIDEST_FRAMES = 24;
 
-  size_t lit = 0;
   auto capture_region = [&](bool clip, const Quad &q, bool widest) {
     reset_globals();
     pin_frame_clock(0);
@@ -738,14 +737,8 @@ inline void test_displacement_field_clip_tiles_full() {
       fx.draw_frame();
       fx.advance_display();
       for (int y = q.y0; y < q.y1; ++y)
-        for (int x = q.x0; x < q.x1; ++x) {
-          const Pixel p = fx.get_pixel(x, y);
-          if (!clip) {
-            if (!is_black(p))
-              ++lit;
-          }
-          pixels.push_back(p);
-        }
+        for (int x = q.x0; x < q.x1; ++x)
+          pixels.push_back(fx.get_pixel(x, y));
     }
     hs::clear_mock_time();
     return pixels;
@@ -754,18 +747,9 @@ inline void test_displacement_field_clip_tiles_full() {
   for (bool widest : {false, true})
     for (const Quad &q : QUADS) {
       HS_CONTEXT("clip pair", widest, q.x0);
-      lit = 0;
       const auto full = capture_region(false, q, widest);
       const auto clipped = capture_region(true, q, widest);
-      HS_EXPECT_GT(lit, size_t{0});
-      HS_EXPECT_EQ(full.size(), clipped.size());
-      if (full.size() != clipped.size())
-        continue;
-      int max_error = 0;
-      for (size_t i = 0; i < full.size(); ++i)
-        max_error =
-            std::max<int>(max_error, max_channel_gap(full[i], clipped[i]));
-      HS_EXPECT_LE(max_error, 1);
+      HS_EXPECT_GT(expect_frames_within("clip tiles", clipped, full, 1), 0);
     }
 }
 
@@ -1415,52 +1399,41 @@ inline void test_displacement_field_alternate_groups_match_windows() {
   }
   std::printf("  [alternate groups] scans=%d\n", flushes);
   HS_EXPECT_GT(flushes, 1);
-  int worst = 0, lit = 0;
-  for (size_t i = 0; i < images[0].size(); ++i) {
-    const Pixel &p = images[0][i], &q = images[1][i];
-    lit += !is_black(q);
-    worst = std::max<int>(worst, max_channel_gap(p, q));
-  }
-  HS_EXPECT_LE(worst, 1);
-  HS_EXPECT_GT(lit, 1000);
+  HS_EXPECT_GT(
+      expect_frames_within("alternate groups", images[0], images[1], 1), 1000);
   hs::clear_mock_time();
 }
 
 /** @brief Boundary copies cover neighboring spline and segment reads. */
 inline void test_displacement_field_boundary_stencil() {
   constexpr int W = SMALL_W, H = SMALL_H, FRAMES = 80;
-  std::vector<Pixel> primary;
+  std::vector<Pixel> primary, frame;
   primary.reserve(FRAMES * W * H);
-  int worst = 0, lit = 0;
+  FrameErrorStats stats;
   for (int mode = 0; mode < 2; ++mode) {
     reset_globals();
     pin_frame_clock(0);
     DisplacementField<W, H> effect;
     effect.init();
     DisplacementFieldWhiteBox::sweep_mode(effect, mode);
-    size_t index = 0;
     for (int f = 0; f < FRAMES; ++f) {
       DisplacementFieldWhiteBox::boundary_stencil_pose(effect);
       pin_frame_clock(f);
       effect.draw_frame();
       effect.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x) {
-          const Pixel pixel = effect.get_pixel(x, y);
-          if (mode == 0) {
-            primary.push_back(pixel);
-            lit += !is_black(pixel);
-          } else {
-            const Pixel &other = primary[index++];
-            worst = std::max<int>(worst, max_channel_gap(pixel, other));
-          }
-        }
+      capture_frame<W, H>(effect, frame);
+      if (mode == 0)
+        primary.insert(primary.end(), frame.begin(), frame.end());
+      else
+        stats = compare_buffers(
+            std::span(primary).subspan(f * frame.size(), frame.size()), frame,
+            stats);
     }
   }
-  HS_EXPECT_LE(worst, 1);
-  HS_EXPECT_GT(lit, 1000);
-  std::printf("  [boundary stencil] worst=%d channel units lit=%d\n", worst,
-              lit);
+  HS_EXPECT_LE(stats.max_absolute_error, 1u);
+  HS_EXPECT_GT(stats.lit_reference_pixels, size_t{1000});
+  std::printf("  [boundary stencil] worst=%u channel units lit=%zu\n",
+              stats.max_absolute_error, stats.lit_reference_pixels);
   hs::clear_mock_time();
 }
 

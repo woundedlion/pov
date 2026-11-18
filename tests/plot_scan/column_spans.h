@@ -156,9 +156,8 @@ inline void test_col_span_covers_arc() {
       geodesic_escapes += !contains(s, len, col_of(p));
     }
 
-    // Antipodal symmetry caps a geodesic arc's longitude sweep at half the
-    // canvas; the span may only exceed it by its own padding.
-    over_bound += len > TW / 2 + 6;
+    // Rounding a fractional start and including both endpoints add two columns.
+    over_bound += len > TW / 2 + 2 * Plot::COL_PAD + 2;
     if (len < TW / 2)
       cullable++;
     if (len > TW / 2 - 10)

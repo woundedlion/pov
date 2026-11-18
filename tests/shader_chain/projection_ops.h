@@ -180,9 +180,7 @@ inline void test_shader_chain_atlas_full_face_edge_fade() {
 inline ProjMirrorFrame project_mirror(In::ChainProgram &program) {
   ProjMirrorFrame mirror;
   const auto &state = state_as<In::Op::SpatialWalkState>(program, 1);
-  mirror.conjugate = (math::make_rotation(math::Y_AXIS, state.spin_phase) *
-                      PB::projection_frame_base(false) * state.wander)
-                         .conjugate();
+  mirror.conjugate = projection_frame_conjugate(state, false);
   const In::OperatorDescriptor &op = *program.ops()[1].op;
   const std::string_view id{op.operator_id};
   if (id == In::Op::ProjectGnomonic::ID) {
@@ -256,10 +254,7 @@ template <typename Model> inline void expect_project_frame_policy() {
   HS_EXPECT_EQ(state.walk_time, walk_time + 1);
   HS_EXPECT_NE(state.spin_phase, spin);
   program.prepare(ctx);
-  const math::Quaternion expected =
-      (math::make_rotation(math::Y_AXIS, state.spin_phase) *
-       PB::projection_frame_base(false) * state.wander)
-          .conjugate();
+  const math::Quaternion expected = projection_frame_conjugate(state, false);
   HS_EXPECT_NE(std::memcmp(&expected, &base, sizeof(math::Quaternion)), 0);
   HS_EXPECT_EQ(
       std::memcmp(&prepared.conjugate, &expected, sizeof(math::Quaternion)), 0);
@@ -268,10 +263,7 @@ template <typename Model> inline void expect_project_frame_policy() {
   program.advance();
   HS_EXPECT_EQ(state.walk_time, walk_time + 2);
   program.prepare(ctx);
-  const math::Quaternion tilted =
-      (math::make_rotation(math::Y_AXIS, state.spin_phase) *
-       PB::projection_frame_base(true) * state.wander)
-          .conjugate();
+  const math::Quaternion tilted = projection_frame_conjugate(state, true);
   HS_EXPECT_EQ(
       std::memcmp(&prepared.conjugate, &tilted, sizeof(math::Quaternion)), 0);
   const math::Vector pole =

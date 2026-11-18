@@ -754,6 +754,37 @@ inline void test_temporal_owned_resources() {
   HS_EXPECT_TRUE(history.previous.palette->get(0.4f).color == palette);
 }
 
+/**
+ * @brief Prepares and binds two modulation endpoints at specified phases.
+ * @tparam Key Modulation resource key.
+ * @tparam Baked Whether the resources can bake modulation tables.
+ * @tparam Frame Composed frame type.
+ * @param from Previous frame.
+ * @param to Current frame.
+ * @param config Modulation configuration shared by both frames.
+ * @param previous Storage borrowed by the previous frame.
+ * @param current Storage borrowed by the current frame.
+ * @param phase_from Previous phase in turns.
+ * @param phase_to Current phase in turns.
+ */
+template <Pullback::ResourceKey Key, bool Baked, typename Frame>
+inline void
+bind_modulation_endpoints(Frame &from, Frame &to,
+                          const Pullback::Modulation::Config &config,
+                          Pullback::Modulation::Resources<Baked> &previous,
+                          Pullback::Modulation::Resources<Baked> &current,
+                          float phase_from, float phase_to) {
+  auto clock = Pullback::Modulation::init(config);
+  clock.phase.phase_turns = phase_from;
+  previous.prepare(config, clock);
+  clock.phase.phase_turns = phase_to;
+  current.prepare(config, clock);
+  from.params.template get<Key>().modulation = config;
+  to.params.template get<Key>().modulation = config;
+  from.resources.template get<Key>().modulation = &previous.prepared;
+  to.resources.template get<Key>().modulation = &current.prepared;
+}
+
 /** @brief Topology intervals select the current prepared endpoint. */
 inline void test_temporal_topology_interval_selects_current_endpoint() {
   reset_globals();
@@ -771,23 +802,15 @@ inline void test_temporal_topology_interval_selects_current_endpoint() {
   config.sine.frequency = 0.0f;
   config.mechanic = {ColorModulation::Mechanic::OPACITY, 1.0f};
   Modulation::Resources<false> a, b;
-  auto clock = Modulation::init(config);
-  clock.phase.phase_turns = 0.75f;
-  a.prepare(config, clock);
-  clock.phase.phase_turns = 0.25f;
-  b.prepare(config, clock);
   auto from = current;
   auto to = current;
-  from.params.template get<"modulation">().modulation = config;
-  to.params.template get<"modulation">().modulation = config;
+  bind_modulation_endpoints<"modulation">(from, to, config, a, b, 0.75f, 0.25f);
   to.params.template get<"modulation">().modulation.source =
       Pattern::SourceKind::SPHERE_SMOOTH_GRID;
   from.params.template get<"modulation">().modulation.mechanic = {
       ColorModulation::Mechanic::OPACITY, 0.2f};
   to.params.template get<"modulation">().modulation.mechanic = {
       ColorModulation::Mechanic::OPACITY, 0.8f};
-  from.resources.template get<"modulation">().modulation = &a.prepared;
-  to.resources.template get<"modulation">().modulation = &b.prepared;
   for (float fraction : {0.0f, 0.25f, 0.5f, 1.0f}) {
     const auto column = FrameInterval(from, to).at(fraction);
     HS_EXPECT_TRUE(column.resources.template get<"modulation">().modulation ==
@@ -1566,15 +1589,8 @@ inline void test_millefiori_column_color_phase() {
   config.grid.offset = 0.0f;
   config.grid.offset_b = 0.25f;
   Modulation::Resources<false> previous, current;
-  auto clock = Modulation::init(config);
-  clock.phase.phase_turns = 0.99f;
-  previous.prepare(config, clock);
-  clock.phase.phase_turns = 0.01f;
-  current.prepare(config, clock);
-  from.params.template get<"field">().modulation = config;
-  to.params.template get<"field">().modulation = config;
-  from.resources.template get<"field">().modulation = &previous.prepared;
-  to.resources.template get<"field">().modulation = &current.prepared;
+  bind_modulation_endpoints<"field">(from, to, config, previous, current, 0.99f,
+                                     0.01f);
   for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     const auto column = FrameInterval(from, to).at(fraction);
     const auto prepared = Provider::prepare(column);
@@ -1648,15 +1664,8 @@ inline void test_grid_worms_sine_column_phase() {
   config.sine.frequency = 2.0f;
   config.sine.offset = 0.25f;
   Modulation::Resources<false> previous, current;
-  auto clock = Modulation::init(config);
-  clock.phase.phase_turns = 0.99f;
-  previous.prepare(config, clock);
-  clock.phase.phase_turns = 0.01f;
-  current.prepare(config, clock);
-  from.params.template get<"modulation">().modulation = config;
-  to.params.template get<"modulation">().modulation = config;
-  from.resources.template get<"modulation">().modulation = &previous.prepared;
-  to.resources.template get<"modulation">().modulation = &current.prepared;
+  bind_modulation_endpoints<"modulation">(from, to, config, previous, current,
+                                          0.99f, 0.01f);
   HS_EXPECT_TRUE(Modulation::phase_compatible(config, config));
   for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     const auto column = FrameInterval(from, to).at(fraction);
@@ -1725,15 +1734,8 @@ inline void test_ash_cloud_noise_column_phase() {
   config.noise.variant = Pattern::NoiseVariant::CONFIGURED_SINGLE;
   config.noise.contrast = 0.0f;
   Modulation::Resources<false> previous, current;
-  auto clock = Modulation::init(config);
-  clock.phase.phase_turns = 0.9999f;
-  previous.prepare(config, clock);
-  clock.phase.phase_turns = 0.0001f;
-  current.prepare(config, clock);
-  from.params.template get<"modulation">().modulation = config;
-  to.params.template get<"modulation">().modulation = config;
-  from.resources.template get<"modulation">().modulation = &previous.prepared;
-  to.resources.template get<"modulation">().modulation = &current.prepared;
+  bind_modulation_endpoints<"modulation">(from, to, config, previous, current,
+                                          0.9999f, 0.0001f);
   HS_EXPECT_TRUE(Modulation::phase_compatible(config, config));
   for (const float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     const auto column = FrameInterval(from, to).at(fraction);
@@ -1824,16 +1826,9 @@ inline void test_baked_cube_column_phase() {
   config.enabled = true;
   config.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.4f};
   Modulation::Resources<true> previous, current;
-  auto clock = Modulation::init(config);
-  clock.phase.phase_turns = 0.2f;
-  previous.prepare(config, clock);
-  clock.phase.phase_turns = 0.3f;
-  current.prepare(config, clock);
+  bind_modulation_endpoints<"modulate1">(from, to, config, previous, current,
+                                         0.2f, 0.3f);
   HS_EXPECT_TRUE(previous.prepared.cube.active && current.prepared.cube.active);
-  from.params.template get<"modulate1">().modulation = config;
-  to.params.template get<"modulate1">().modulation = config;
-  from.resources.template get<"modulate1">().modulation = &previous.prepared;
-  to.resources.template get<"modulate1">().modulation = &current.prepared;
   for (const float fraction : {0.25f, 0.5f, 0.75f}) {
     const auto column = FrameInterval(from, to).at(fraction);
     const auto prepared = Provider::prepare(column);

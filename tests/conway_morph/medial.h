@@ -126,19 +126,23 @@ inline void test_partial_bookend_classification() {
               leg_arena, draw, handoff, bookend);
     const auto &landing = leg.landing();
     HS_EXPECT_EQ(landing.faces, faces);
+    const size_t available_faces = std::min(faces, landing.faces);
     if (mode == 0) {
       classified_faces = OpLeg::test_classified_faces;
       classified_corners = OpLeg::test_classified_corners;
       HS_EXPECT_EQ(classified_faces, faces);
       HS_EXPECT_GT(classified_corners, faces);
-      reference_topology.assign(landing.topology, landing.topology + faces);
+      reference_topology.assign(landing.topology,
+                                landing.topology + available_faces);
       reference_palettes.clear();
-      for (size_t f = 0; f < faces; ++f)
+      for (size_t f = 0; f < available_faces; ++f)
         reference_palettes.push_back(landing.landed_palette(f));
     } else {
       HS_EXPECT_EQ(OpLeg::test_classified_faces, size_t{0});
       HS_EXPECT_EQ(OpLeg::test_classified_corners, size_t{0});
-      for (size_t f = 0; f < faces; ++f) {
+      const size_t compared =
+          std::min(available_faces, reference_topology.size());
+      for (size_t f = 0; f < compared; ++f) {
         HS_EXPECT_EQ(landing.topology[f], reference_topology[f]);
         HS_EXPECT_EQ(landing.landed_palette(f), reference_palettes[f]);
       }
@@ -192,7 +196,7 @@ inline void test_prepared_bridge() {
         to.push_back(landing.landed_palette(f));
     } else {
       HS_EXPECT_EQ(OpLeg::test_classified_faces, size_t{0});
-      HS_EXPECT_EQ(landing.faces, topology.size());
+      HS_EXPECT_SIZE_OR_RETURN(topology, landing.faces);
       for (size_t f = 0; f < landing.faces; ++f) {
         HS_EXPECT_EQ(landing.topology[f], topology[f]);
         HS_EXPECT_EQ(landing.from_palette[f], from[f]);

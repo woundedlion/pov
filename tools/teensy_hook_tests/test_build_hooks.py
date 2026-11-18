@@ -27,6 +27,8 @@ sys.path.insert(0, str(TOOLS))
 
 import teensy_gate as tg   # noqa: E402
 import teensy_size_trail as size_trail  # noqa: E402
+from git_files import git_nul_list  # noqa: E402
+from include_paths import INCLUDE, SOURCE_SUFFIXES  # noqa: E402
 from scons_hook_test_env import FakeEnv, load_hook  # noqa: E402
 
 GATE_SCRIPT = "post:tools/teensy_gate_extra.py"
@@ -145,6 +147,20 @@ class TestOptionInterpolation(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertTrue((REPO / path).is_file())
                 self.assertIn(path, size_trail.BUILD_INPUTS)
+
+    def test_firmware_build_inputs_cover_included_tool_headers(self):
+        sources = git_nul_list(REPO, "ls-files", "-z", "--", "core", "effects",
+                               "targets", ":(exclude)targets/wasm", ":(glob)hardware/*.h")
+        for source in sources:
+            path = REPO / source
+            if path.suffix not in SOURCE_SUFFIXES:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for match in INCLUDE.finditer(text):
+                header = match.group(1) or match.group(2)
+                if header.startswith("tools/"):
+                    with self.subTest(source=source, header=header):
+                        self.assertIn(header, size_trail.BUILD_INPUTS)
 
     def test_every_env_builds_every_engine_source(self):
         cfg = _pio_config()

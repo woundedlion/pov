@@ -133,10 +133,7 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
   frame.camera_conjugate =
       (math::make_rotation(math::Y_AXIS, camera.spin_phase) * camera.wander)
           .conjugate();
-  frame.projection_conjugate =
-      (math::make_rotation(math::Y_AXIS, projection.spin_phase) *
-       PB::projection_frame_base(false) * projection.wander)
-          .conjugate();
+  frame.projection_conjugate = projection_frame_conjugate(projection, false);
   frame.projection = param_as<In::Op::ProjectChainParams>(program, 1);
   frame.sample = param_as<In::Op::GridSampleParams>(program, 2);
   frame.color = param_as<In::Op::GeneratedPaletteParams>(program, 3);

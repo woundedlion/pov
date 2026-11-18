@@ -46,6 +46,25 @@ class AuthorityPresence(unittest.TestCase):
                 self.assertTrue(any('missing' in error and relative in error
                                     for error in check()))
 
+    def test_changed_shared_literal_is_rejected(self):
+        read = bp.read_scanned
+        for relative, original, replacement in (
+                ("tools/commit_checks.sh", "blank-at-eol,blank-at-eof", "blank-at-eol"),
+                ("platformio.ini", "-ffast-math -fno-finite-math-only",
+                 "-ffast-math -fno-finite-math-only -fno-math-errno")):
+            path = bp.ROOT / relative
+
+            def changed(candidate, errors):
+                text = read(candidate, errors)
+                return text.replace(original, replacement) if candidate == path else text
+
+            with self.subTest(path=relative), unittest.mock.patch.object(
+                    bp, "read_scanned", side_effect=changed):
+                errors = [error.replace("\\", "/") for error in bp.check_shared_literals()]
+                self.assertTrue(any(error.startswith(f"{relative}:")
+                                    and "differs from build_pins.py" in error
+                                    for error in errors), errors)
+
 
 class ClangPackagePins(unittest.TestCase):
     def test_native_compilers_and_coverage_tools_install_the_exact_package(self):

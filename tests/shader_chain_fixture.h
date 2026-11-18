@@ -39,6 +39,17 @@ namespace In = Pullback::Interp;
 
 // --- fixtures -------------------------------------------------------------
 
+/** @brief Computes the reference world-to-projection rotation.
+ * @param state Projection spin and wander state.
+ * @param tilted Whether to use the tilted projection frame.
+ * @return Conjugate of the spun projection frame. */
+inline math::Quaternion
+projection_frame_conjugate(const In::Op::SpatialWalkState &state, bool tilted) {
+  return (math::make_rotation(math::Y_AXIS, state.spin_phase) *
+          PB::projection_frame_base(tilted) * state.wander)
+      .conjugate();
+}
+
 /** @brief Requires an operator lookup to succeed before descriptor access. */
 inline const In::OperatorDescriptor *require_operator(std::string_view id) {
   const auto *op = In::find_operator(id);
