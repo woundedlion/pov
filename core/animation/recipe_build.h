@@ -336,6 +336,30 @@ protected:
         0, std::move(leg).then([this, next] { continue_build(next); }));
   }
 
+  /** @brief Arena bytes for a dual endpoint and its bookend classification.
+   * @param seed Mesh being dualized.
+   * @param alignment Offset of the starting address modulo arena alignment.
+   * @return Bytes added to the persistent arena. */
+  static size_t dual_preparation_bytes(const PolyMesh &seed, size_t alignment) {
+    ArenaFootprint footprint{alignment};
+    footprint.add<math::Vector>(seed.face_counts.size());
+    footprint.add<uint8_t>(seed.vertices.size());
+    footprint.add<uint16_t>(seed.faces.size());
+    footprint.add<uint16_t>(seed.vertices.size());
+    return footprint.bytes - alignment;
+  }
+
+  /** @brief Arena bytes for the topology of a truncated bridge arrival.
+   * @param seed Mesh being truncated.
+   * @param alignment Offset of the starting address modulo arena alignment.
+   * @return Bytes added to the persistent arena. */
+  static size_t bridge_preparation_bytes(const PolyMesh &seed,
+                                         size_t alignment) {
+    ArenaFootprint footprint{alignment};
+    footprint.add<uint16_t>(seed.face_counts.size() + seed.vertices.size());
+    return footprint.bytes - alignment;
+  }
+
   /** @brief Prepares immutable dual-bridge data between frame draws. */
   HS_FLASH_MEMBER void prepare_build() {
 #if HS_ENABLE_TEST_HOOKS
@@ -346,13 +370,14 @@ protected:
       return;
     if (--preparation_delay != 0)
       return;
+    const size_t offset = persistent_arena.get_offset();
+    const size_t alignment =
+        reinterpret_cast<uintptr_t>(persistent_arena.current_address()) %
+        alignof(std::max_align_t);
     if (build_continuation == BuildContinuation::DUAL_UNTRUNCATE) {
       if (build_next_seed.face_counts.empty()) {
-        const size_t bytes =
-            build_seed.face_counts.size() * sizeof(math::Vector) +
-            build_seed.vertices.size() * 3 +
-            build_seed.faces.size() * sizeof(uint16_t) + 32;
-        if (persistent_arena.get_offset() + bytes > device_persistent_budget)
+        if (offset + dual_preparation_bytes(build_seed, alignment) >
+            device_persistent_budget)
           return;
         ScratchScope a(scratch_arena_a);
         ScratchScope b(scratch_arena_b);
@@ -380,9 +405,7 @@ protected:
         build_next_seed.face_counts.empty() ||
         !bridge_preparation.topology.empty())
       return;
-    const size_t faces =
-        build_next_seed.face_counts.size() + build_next_seed.vertices.size();
-    if (persistent_arena.get_offset() + faces * sizeof(uint16_t) + 16 >
+    if (offset + bridge_preparation_bytes(build_next_seed, alignment) >
         device_persistent_budget)
       return;
     bridge_preparation =
