@@ -42,6 +42,7 @@ inline void test_grid_warp_source_morph() {
 
   pin_frame_clock(1);
   effect.draw_frame();
+  effect.advance_display();
   const auto first = ComposedFrameWhiteBox::current_frame(effect);
   const auto &first_weights = first.resources.template get<"source">().weights;
   const float first_mix = math::ease_in_out_sin(
@@ -69,6 +70,7 @@ inline void test_grid_warp_source_morph() {
   for (int index = 2; index <= frames; ++index) {
     pin_frame_clock(index);
     effect.draw_frame();
+    effect.advance_display();
     if (index + 1 == frames)
       penultimate = ComposedFrameWhiteBox::current_frame(effect);
   }
@@ -90,6 +92,7 @@ inline void test_grid_warp_source_morph() {
   HS_EXPECT_TRUE(effect.start_document_transition(0, 1));
   pin_frame_clock(frames + 1);
   effect.draw_frame();
+  effect.advance_display();
   const auto mixed = ComposedFrameWhiteBox::current_frame(effect);
   HS_EXPECT_EQ(mixed.resources.template get<"source">().weights.exact,
                Selector::PlanarWeights::MIXED);
