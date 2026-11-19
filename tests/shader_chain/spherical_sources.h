@@ -208,13 +208,31 @@ inline void test_shader_chain_spherical_tiling() {
   HS_EXPECT_EQ(face_center.coverage, 1.0f);
 
   params.line_thickness = 0.0f;
-  const auto seamless = Model::prepare({}, params, state);
-  const auto filled_seam = Model::run(seam, {}, params, seamless);
-  HS_EXPECT_NEAR(filled_seam.value, 0.0f, 2.0e-6f);
-  HS_EXPECT_EQ(filled_seam.coverage, 1.0f);
-  const auto seamless_middle =
-      Model::run(face_point(22.5f), {}, params, seamless);
-  HS_EXPECT_NEAR(seamless_middle.value, 0.5f, 2.0e-6f);
+  const auto zero_width = Model::prepare({}, params, state);
+  const auto seam_field = Model::run(seam, {}, params, zero_width);
+  HS_EXPECT_NEAR(seam_field.value, 0.0f, 2.0e-6f);
+  HS_EXPECT_NEAR(seam_field.coverage, 0.0f, 2.0e-6f);
+  const auto zero_width_middle =
+      Model::run(face_point(22.5f), {}, params, zero_width);
+  HS_EXPECT_NEAR(zero_width_middle.value, 0.5f, 2.0e-6f);
+  HS_EXPECT_EQ(zero_width_middle.coverage, 1.0f);
+
+  const auto within_fringe = face_point(1.0f);
+  const auto zero_width_fringe =
+      Model::run(within_fringe, {}, params, zero_width);
+  HS_EXPECT_NEAR(zero_width_fringe.coverage, 0.5f, 5.0e-6f);
+  params.line_softness = 4.0f;
+  const auto softer = Model::prepare({}, params, state);
+  const auto softer_fringe = Model::run(within_fringe, {}, params, softer);
+  HS_EXPECT_NEAR(softer_fringe.coverage, 0.15625f, 2.0e-6f);
+  HS_EXPECT_EQ(softer_fringe.value, zero_width_fringe.value);
+
+  params.line_softness = 2.0f;
+  params.line_thickness = 0.002f;
+  const auto thin = Model::prepare({}, params, state);
+  HS_EXPECT_NEAR(Model::run(within_fringe, {}, params, thin).coverage, 0.49925f,
+                 5.0e-6f);
+  params.line_thickness = 0.0f;
 
   const auto &geometry = *prepared.geometry;
   const uint16_t front = geometry.face_at(math::X_AXIS);
@@ -230,7 +248,7 @@ inline void test_shader_chain_spherical_tiling() {
       HS_EXPECT_TRUE(owner != Geometry::NO_FACE);
       const auto field = Model::run({direction, 0.0f}, {}, params, tiled);
       HS_EXPECT_TRUE(field.value >= 0.0f && field.value <= 1.0f);
-      HS_EXPECT_EQ(field.coverage, 1.0f);
+      HS_EXPECT_TRUE(field.coverage >= 0.0f && field.coverage <= 1.0f);
     }
   }
 }

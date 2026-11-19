@@ -80,11 +80,8 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
         std::max(math::TOLERANCE, depth.center - prepared.half_width);
     const float position =
         hs::clamp((depth.sample - prepared.half_width) / span, 0.0f, 1.0f);
-    const float alpha =
-        prepared.half_width == 0.0f
-            ? 1.0f
-            : math::smooth_ramp(prepared.half_width, prepared.fringe_end,
-                                depth.sample);
+    const float alpha = math::smooth_ramp(prepared.half_width,
+                                          prepared.fringe_end, depth.sample);
     return {position, alpha, input.dir, input.path_length};
   }
 };
