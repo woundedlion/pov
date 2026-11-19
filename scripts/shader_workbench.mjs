@@ -1393,6 +1393,44 @@ function transitionModulationMorphs(descriptor, operatorById, from, to, progress
   return morphs;
 }
 
+const PALETTE_RECIPE_FIELDS = {
+  'cycling-generated': ['palette-mode'],
+  generated: ['palette-harmony', 'palette-hue', 'palette-spread', 'palette-lightness',
+    'palette-lightness-curve', 'palette-lightness-range'],
+  procedural: ['palette-name'],
+  gradient: ['gradient-start-r', 'gradient-start-g', 'gradient-start-b',
+    'gradient-middle-r', 'gradient-middle-g', 'gradient-middle-b',
+    'gradient-end-r', 'gradient-end-g', 'gradient-end-b'],
+  mutating: ['palette-name', 'palette-name-b', 'palette-mutation'],
+};
+
+/** @typedef {ModulationMorph} PaletteMorph */
+
+/** @returns {PaletteMorph|undefined} */
+function transitionPaletteMorph(descriptor, operatorById, from, to, progressFor) {
+  const operatorId = 'colorize.generated-palette.v4';
+  const slot = descriptor.chain.find(entry => entry.operator === operatorId);
+  const operator = operatorById.get(operatorId);
+  if (!slot || !operator) return undefined;
+  const key = field => `${slot.label}.${field}`;
+  const value = (values, field) => values[key(field)] ??
+    operator.params.find(parameter => parameter.id === field)?.default;
+  const outgoing = value(from, 'palette-type');
+  const incoming = value(to, 'palette-type');
+  const fields = ['palette-type', ...new Set([
+    ...(PALETTE_RECIPE_FIELDS[outgoing] ?? []), ...(PALETTE_RECIPE_FIELDS[incoming] ?? []),
+    ...(outgoing === 'cycling-generated' && incoming === outgoing ? [] : ['palette-chroma']),
+  ])];
+  const changed = fields.find(field => value(from, field) !== value(to, field));
+  if (!changed) return undefined;
+  const endpoint = values => Object.fromEntries([
+    ...new Set([...fields, 'palette-chroma']),
+  ].map(field => [key(field), value(values, field)]));
+  const id = key(changed);
+  const group = descriptor.parameters.find(parameter => parameter.id === id)?.interpolation.group ?? id;
+  return {instance: slot.label, from: endpoint(from), to: endpoint(to), mix: progressFor(group)};
+}
+
 export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, catalog) {
   const edge = bank.edges.find((candidate) => candidate.from === fromId && candidate.to === toId);
   if (!edge)
@@ -1451,6 +1489,7 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, c
   }
   const sourceMorph = transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluation);
   const modulationMorphs = transitionModulationMorphs(descriptor, operatorById, from, to, progressFor);
+  const paletteMorph = transitionPaletteMorph(descriptor, operatorById, from, to, progressFor);
   if (raw > 0 && raw < 1 && modulationMorphs.length) {
     const layer = modulationMorphs.at(-1);
     const id = `${layer.instance}.modulation-source`;
@@ -1463,6 +1502,7 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, c
   }
   return {
     ...(modulationMorphs.length ? { modulationMorphs } : {}),
+    ...(paletteMorph ? { paletteMorph } : {}),
     evaluation, duration: edge.duration, raw_progress: raw, eased_progress: eased, values,
     ...(sourceMorph ? { sourceMorph } : {}),
   };

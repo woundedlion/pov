@@ -1121,6 +1121,32 @@ test('RiverStones preview blends the first modulation source in both directions'
   }
 });
 
+test('RiverStones preview carries both actual palette selections through a preset edge', async () => {
+  const { descriptor, preset_bank: bank } = JSON.parse(await readFile(
+    new URL('../patterns/river_stones.shader.json', import.meta.url), 'utf8'));
+  const custom = bank.presets[0].values;
+  const edge = bank.edges.find(candidate => candidate.from === bank.presets[0].preset_id);
+  const evaluate = frame => evaluateTransition(descriptor, bank, edge.from, edge.to, frame, CATALOG);
+  const middle = edge.duration / 2;
+  custom['colorize.gradient-start-r'] = .25;
+  assert.equal(evaluate(middle).paletteMorph, undefined);
+  custom['colorize.palette-name'] = 'rich-sunset';
+  for (const frame of [0, 1, middle, edge.duration - 1, edge.duration]) {
+    const result = evaluate(frame);
+    const { instance, from, to, mix } = result.paletteMorph;
+    assert.equal(instance, 'colorize');
+    assert.equal(from['colorize.palette-name'], 'rich-sunset');
+    assert.equal(to['colorize.palette-name'], bank.presets[1].values['colorize.palette-name']);
+    assert.equal(mix, result.eased_progress);
+    assert.ok(result.sourceMorph && result.modulationMorphs.length);
+  }
+  custom['colorize.palette-type'] = 'gradient';
+  const { from, to } = evaluate(middle).paletteMorph;
+  assert.equal(from['colorize.palette-type'], 'gradient');
+  assert.equal(from['colorize.gradient-start-r'], .25);
+  assert.equal(to['colorize.palette-type'], 'procedural');
+});
+
 test('fixed grid keeps interpolating its preview parameters', () => {
   const { descriptor, preset_bank: bank } = example();
   const edge = bank.edges.find(({ from, to }) => from === 'calm' && to === 'fast');

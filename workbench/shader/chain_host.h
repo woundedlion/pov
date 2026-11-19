@@ -69,6 +69,14 @@ struct ShaderChainModulationMorphWrite {
   bool snap; ///< Discard the previous temporal interval on a preview seek.
 };
 
+/** @brief Authored palette endpoints and the incoming palette weight. */
+struct ShaderChainPaletteMorphWrite {
+  std::string_view instance; ///< Colorize instance receiving the blend.
+  std::span<const ShaderChainParameterWrite> from, to; ///< Endpoint controls.
+  float mix;                                           ///< Incoming weight.
+  bool snap; ///< Discard the previous temporal interval on a preview seek.
+};
+
 /**
  * @brief Stage-program interpreter effect over the pullback operator table.
  * @tparam W Canvas width in pixels.
@@ -281,19 +289,22 @@ public:
    * @param preview Allows transient enum blends and keeps animation running.
    * @param morph Optional source endpoint values and edge evaluation.
    * @param modulations Authored spatial/displacement modulation endpoints.
+   * @param palette Authored palette endpoints and their sample weight.
    * @return APPLIED, or the first refusal with nothing committed.
    */
   ParamSetResult update_parameters(
       std::span<const ShaderChainParameterWrite> writes, bool preview = false,
       const ShaderChainSourceMorphWrite *morph = nullptr,
-      std::span<const ShaderChainModulationMorphWrite> modulations = {}) {
+      std::span<const ShaderChainModulationMorphWrite> modulations = {},
+      const ShaderChainPaletteMorphWrite *palette = nullptr) {
     if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
       return ParamSetResult::TOO_LONG;
     if (modulations.size() > MAX_MODULATION_LAYERS)
       return ParamSetResult::TOO_LONG;
-    if (!preview && !modulations.empty())
+    if (!preview && (!modulations.empty() || palette))
       return ParamSetResult::INADMISSIBLE;
     std::array<LayerMorph, MAX_MODULATION_LAYERS> staged_modulations{};
+    std::optional<PaletteMorph> staged_palette;
     const auto ops = program.ops();
     alignas(std::max_align_t) uint8_t source_from[PARAM_BYTES];
     alignas(std::max_align_t) uint8_t source_to[PARAM_BYTES];
@@ -357,6 +368,12 @@ public:
         if (result != ParamSetResult::APPLIED)
           return result;
       }
+      if (palette) {
+        const auto result =
+            stage_palette_morph(*palette, staged_palette.emplace());
+        if (result != ParamSetResult::APPLIED)
+          return result;
+      }
       if (morph != nullptr) {
         const auto from_result =
             stage_source_endpoint(source_index, source_from, morph->from);
@@ -378,6 +395,9 @@ public:
                   ops[index].op->runtime.param.size);
     interrupted |= install_modulation_morphs(
         std::span(staged_modulations).first(modulations.size()), preview);
+    interrupted |= (!preview && resources->palette_morph.has_value()) ||
+                   (palette && palette->snap);
+    resources->palette_morph = staged_palette;
     for (const auto &layer : modulations)
       interrupted |= layer.snap;
     if (morph != nullptr)
@@ -397,6 +417,8 @@ public:
   /** @brief Ends an active preview after a manual parameter write. */
   void parameter_written() override {
     bool interrupted = clear_modulation_morphs();
+    interrupted |= resources->palette_morph.has_value();
+    resources->palette_morph.reset();
     interrupted |= program.clear_source_morph();
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index)
@@ -499,6 +521,9 @@ public:
 
 private:
   using ModulationParams = Pullback::Interp::Op::ModulationParams;
+  using PaletteParams = Pullback::Interp::Op::GeneratedPaletteParams;
+  using PaletteMode = Pullback::Interp::Op::PaletteMode;
+  using PaletteType = Pullback::Interp::Op::PaletteType;
 
   static bool is_modulation(const Pullback::Interp::ChainProgram::ChainOp &op) {
     return op.op->runtime.modulation_key != nullptr;
@@ -703,9 +728,27 @@ private:
       }
       return params;
     });
-    generated_palettes.set_chroma(colorize.params->palette_chroma);
-    generated_palettes.step(static_cast<Pullback::Interp::Op::PaletteMode>(
-        colorize.params->palette_mode));
+    float chroma = colorize.params->palette_chroma;
+    auto mode = static_cast<PaletteMode>(colorize.params->palette_mode);
+    std::optional<PaletteMode> second_mode;
+    if (const auto &morph = resources->palette_morph) {
+      const bool from_cycling = morph->mix < 1.0f && uses_cycle(morph->from);
+      const bool to_cycling = morph->mix > 0.0f && uses_cycle(morph->to);
+      if (from_cycling)
+        mode = static_cast<PaletteMode>(morph->from.palette_mode);
+      if (from_cycling != to_cycling)
+        chroma = from_cycling ? morph->from.palette_chroma
+                              : morph->to.palette_chroma;
+      if (to_cycling) {
+        const auto to_mode = static_cast<PaletteMode>(morph->to.palette_mode);
+        if (from_cycling)
+          second_mode = to_mode;
+        else
+          mode = to_mode;
+      }
+    }
+    generated_palettes.set_chroma(chroma);
+    generated_palettes.step(mode, second_mode);
   }
 
   friend struct ::hs_test::shader_chain_tests::ShaderChainWhiteBox;
@@ -727,6 +770,11 @@ private:
   struct LayerMorph {
     ModulationParams spatial;
     Pullback::Interp::ModulationMorph blend;
+  };
+
+  struct PaletteMorph {
+    PaletteParams from, to;
+    float mix;
   };
 
   struct LayerResources {
@@ -752,6 +800,10 @@ private:
     Spacetime::FrameHistory<Pullback::Interp::FrameContext> context;
     std::array<BakedPaletteStorage, 3> previous_palettes;
     AuthoredPaletteResources palette_selection;
+    std::optional<PaletteMorph> palette_morph;
+    AuthoredPaletteResources palette_to;
+    BakedPaletteStorage palette_blend;
+    bool palette_blend_baked = false;
     std::array<Pixel, HueRotationLutView::SIZE> previous_hue_rotation{};
     HueRotationGamutMask previous_hue_rotation_gamut;
   };
@@ -825,6 +877,7 @@ private:
 
   void program_committed() {
     clear_modulation_morphs();
+    resources->palette_morph.reset();
     colorize = find_colorize_tap();
     rebind_chain_parameters();
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1021,6 +1074,22 @@ private:
     return ParamSetResult::APPLIED;
   }
 
+  ParamSetResult stage_palette_morph(const ShaderChainPaletteMorphWrite &write,
+                                     PaletteMorph &staged) {
+    const auto index = static_cast<size_t>(colorize.index);
+    if (program.ops()[index].instance != write.instance)
+      return ParamSetResult::UNKNOWN_PARAM;
+    if (!std::isfinite(write.mix))
+      return ParamSetResult::NON_FINITE;
+    if (write.mix < 0.0f || write.mix > 1.0f)
+      return ParamSetResult::INADMISSIBLE;
+    const auto from = stage_source_endpoint(index, &staged.from, write.from);
+    if (from != ParamSetResult::APPLIED)
+      return from;
+    staged.mix = write.mix;
+    return stage_source_endpoint(index, &staged.to, write.to);
+  }
+
   bool install_modulation_morphs(std::span<const LayerMorph> staged_modulations,
                                  bool preview) {
     const auto ops = program.ops();
@@ -1110,19 +1179,47 @@ private:
   const char *refusal_warning = nullptr;
 #endif
 
+  static bool uses_cycle(const PaletteParams &params) {
+    return params.palette_type ==
+           static_cast<uint8_t>(PaletteType::CYCLING_GENERATED);
+  }
+
+  const BakedPalette &selected_palette(const PaletteParams &params,
+                                       AuthoredPaletteResources &storage) {
+    if (uses_cycle(params))
+      return generated_palettes.palette(
+          static_cast<PaletteMode>(params.palette_mode));
+    return storage.prepare(persistent_arena, params, params.palette_chroma);
+  }
+
+  const BakedPalette &blended_palette(const PaletteMorph &morph) {
+    if (morph.mix == 0.0f)
+      return selected_palette(morph.from, resources->palette_selection);
+    if (morph.mix == 1.0f)
+      return selected_palette(morph.to, resources->palette_selection);
+    const auto &from =
+        selected_palette(morph.from, resources->palette_selection);
+    const auto &to = selected_palette(morph.to, resources->palette_to);
+    if (!resources->palette_blend_baked) {
+      resources->palette_blend.bake_blend(persistent_arena, from, to,
+                                          morph.mix);
+      resources->palette_blend_baked = true;
+    } else
+      resources->palette_blend.rebake_crossfade(from, to, morph.mix);
+    return resources->palette_blend.view();
+  }
+
   /** @brief Builds the per-frame snapshot, baking hue LUTs when active. */
   Pullback::Interp::FrameContext make_frame_context(const ColorizeTap &tap) {
     Pullback::Interp::FrameContext ctx;
-    using PaletteMode = Pullback::Interp::Op::PaletteMode;
     ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
                     &generated_palettes.palette(PaletteMode::COMPLEMENTARY),
                     &generated_palettes.palette(PaletteMode::ANALOGOUS)};
-    if (tap.params->palette_type !=
-        static_cast<uint8_t>(
-            Pullback::Interp::Op::PaletteType::CYCLING_GENERATED))
+    if (const auto &morph = resources->palette_morph)
+      ctx.palettes.fill(&blended_palette(*morph));
+    else if (!uses_cycle(*tap.params))
       ctx.palettes[tap.params->palette_mode] =
-          &resources->palette_selection.prepare(persistent_arena, *tap.params,
-                                                tap.params->palette_chroma);
+          &selected_palette(*tap.params, resources->palette_selection);
     size_t count = 0;
     size_t morph_count = 0;
     bool hue_active = false;
@@ -1188,7 +1285,7 @@ private:
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(Resources) +
       alignof(Resources) +
       4 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
-      4 * BakedPalette::required_arena_bytes() +
+      6 * BakedPalette::required_arena_bytes() +
 #if HS_ENABLE_PARAM_GUI_BRIDGE
       sizeof(ParameterCandidates) + alignof(ParameterCandidates) +
 #endif

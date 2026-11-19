@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <span>
 
 #include "core/color/generative_palette.h"
@@ -701,14 +702,20 @@ public:
   }
 
   /**
-   * @brief Advances all three cycles one frame; only @p visible rebakes.
+   * @brief Advances all three cycles one frame and rebakes the visible cycles.
    * @tparam PaletteMode Enum with TRIADIC, COMPLEMENTARY and ANALOGOUS.
    * @param visible Cycle whose display LUT is kept current.
+   * @param second Additional visible cycle during a palette transition.
    */
-  template <typename PaletteMode> void step(PaletteMode visible) {
-    step_one(triadic, visible == PaletteMode::TRIADIC);
-    step_one(complementary, visible == PaletteMode::COMPLEMENTARY);
-    step_one(analogous, visible == PaletteMode::ANALOGOUS);
+  template <typename PaletteMode>
+  void step(PaletteMode visible,
+            std::optional<PaletteMode> second = std::nullopt) {
+    step_one(triadic,
+             visible == PaletteMode::TRIADIC || second == PaletteMode::TRIADIC);
+    step_one(complementary, visible == PaletteMode::COMPLEMENTARY ||
+                                second == PaletteMode::COMPLEMENTARY);
+    step_one(analogous, visible == PaletteMode::ANALOGOUS ||
+                            second == PaletteMode::ANALOGOUS);
   }
 
   /**

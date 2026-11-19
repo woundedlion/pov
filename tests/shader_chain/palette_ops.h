@@ -151,4 +151,54 @@ inline void test_shader_chain_authored_palette_history() {
   hs::clear_mock_time();
 }
 
+/** @brief Authored palette preview samples both endpoint LUTs. */
+inline void test_shader_chain_palette_preset_morph() {
+  using WB = ShaderChainWhiteBox;
+  using Type = In::Op::PaletteType;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  const ShaderChainParameterWrite manual[] = {
+      {"colorize.palette-type", static_cast<float>(Type::PROCEDURAL)},
+      {"colorize.palette-name", 3}};
+  const ShaderChainParameterWrite original[] = {
+      {"colorize.palette-type", static_cast<float>(Type::PROCEDURAL)},
+      {"colorize.palette-name", 17}};
+  const ShaderChainParameterWrite gradient[] = {
+      {"colorize.palette-type", static_cast<float>(Type::GRADIENT)},
+      {"colorize.gradient-start-r", .25f}};
+  constexpr float COORDINATE = 73.0f / 255.0f;
+  const PB::FieldSample SAMPLE{COORDINATE, 1.0f, math::X_AXIS, 0};
+  const auto sample = [&] {
+    const auto ctx = WB::frame_context(effect);
+    WB::program(effect).prepare(ctx);
+    return run_entry<Color4>(WB::program(effect), ctx, 3, SAMPLE).color;
+  };
+  for (std::span<const ShaderChainParameterWrite> target :
+       {std::span<const ShaderChainParameterWrite>(original),
+        std::span<const ShaderChainParameterWrite>(gradient)}) {
+    HS_EXPECT_EQ(effect.update_parameters(manual), ParamSetResult::APPLIED);
+    const Pixel from = sample();
+    HS_EXPECT_EQ(effect.update_parameters(target), ParamSetResult::APPLIED);
+    const Pixel to = sample();
+    HS_EXPECT_NE(from, to);
+    for (float mix : {0.0f, .25f, .5f, .75f, 1.0f}) {
+      ShaderChainPaletteMorphWrite morph{"colorize", manual, target, mix, true};
+      HS_EXPECT_EQ(effect.update_parameters(mix < 1.0f ? manual : target, true,
+                                            nullptr, {}, &morph),
+                   ParamSetResult::APPLIED);
+      const Pixel expected = mix == 0.0f   ? from
+                             : mix == 1.0f ? to
+                                           : from.lerp16(to, frac_to_q16(mix));
+      HS_EXPECT_EQ(sample(), expected);
+      morph.mix = -1.0f;
+      HS_EXPECT_EQ(effect.update_parameters(target, true, nullptr, {}, &morph),
+                   ParamSetResult::INADMISSIBLE);
+      HS_EXPECT_EQ(sample(), expected);
+    }
+    HS_EXPECT_EQ(effect.update_parameters(manual), ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sample(), from);
+  }
+}
+
 } // namespace hs_test::shader_chain_tests

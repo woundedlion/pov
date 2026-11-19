@@ -289,6 +289,21 @@ public:
                           &caller_modulations);
   }
 
+  /** @brief Applies a preview frame with a palette crossfade.
+   * @param caller_entries Named preview writes.
+   * @param caller_morph Optional planar source transition.
+   * @param caller_modulations Modulation transitions by instance.
+   * @param caller_palette Palette transition endpoints and weight.
+   * @return Parameter admission status. */
+  ParamSetResult setShaderChainPaletteMorphParameters(
+      const TransitionParameterWritesValue &caller_entries,
+      const NullableSourceMorphPreviewValue &caller_morph,
+      const ModulationMorphsPreviewValue &caller_modulations,
+      const PaletteMorphPreviewValue &caller_palette) {
+    return set_parameters(caller_entries, true, &caller_morph,
+                          &caller_modulations, &caller_palette);
+  }
+
   /** @brief Checks effective float32 source lattices for a preset edge.
    * @param caller_program Ordered entries of the authored chain.
    * @param caller_from Outgoing preset parameters by qualified name.
@@ -461,10 +476,45 @@ private:
     return ParamSetResult::APPLIED;
   }
 
+  struct DecodedColorMorph {
+    std::string instance;
+    SourceMorphEndpoint from, to;
+  };
+
+  template <typename Write>
+  static ParamSetResult decode_color_morph(const emscripten::val &entry,
+                                           DecodedColorMorph &decoded,
+                                           Write &write) {
+    if (!object_value(entry) || !entry["instance"].isString() ||
+        !entry["mix"].isNumber())
+      return ParamSetResult::MALFORMED_PAYLOAD;
+    const auto snap = entry["snap"];
+    if (!snap.isUndefined() && snap.typeOf().as<std::string>() != "boolean")
+      return ParamSetResult::MALFORMED_PAYLOAD;
+    decoded.instance = entry["instance"].as<std::string>();
+    if (!Pullback::Interp::instance_id_wellformed(decoded.instance))
+      return ParamSetResult::UNKNOWN_PARAM;
+    const auto from = decode_source_endpoint(entry["from"], decoded.from);
+    if (from != ParamSetResult::APPLIED)
+      return from;
+    const auto to = decode_source_endpoint(entry["to"], decoded.to);
+    if (to != ParamSetResult::APPLIED)
+      return to;
+    const double mix = entry["mix"].as<double>();
+    if (!std::isfinite(mix))
+      return ParamSetResult::NON_FINITE;
+    if (mix < 0.0 || mix > 1.0)
+      return ParamSetResult::INADMISSIBLE;
+    write = {decoded.instance, decoded.from.writes, decoded.to.writes,
+             static_cast<float>(mix), !snap.isUndefined() && snap.as<bool>()};
+    return ParamSetResult::APPLIED;
+  }
+
   ParamSetResult
   set_parameters(const emscripten::val &caller_entries, bool preview,
                  const emscripten::val *caller_morph = nullptr,
-                 const emscripten::val *caller_modulations = nullptr) {
+                 const emscripten::val *caller_modulations = nullptr,
+                 const emscripten::val *caller_palette = nullptr) {
     const PayloadDecodeGuard decode_guard(&decoding);
     if (!isValid())
       return ParamSetResult::NO_EFFECT;
@@ -474,6 +524,9 @@ private:
     const auto modulations = caller_modulations == nullptr
                                  ? emscripten::val::undefined()
                                  : clone_payload(*caller_modulations);
+    const auto palette = caller_palette == nullptr
+                             ? emscripten::val::undefined()
+                             : clone_payload(*caller_palette);
     if (!isValid())
       return ParamSetResult::NO_EFFECT;
     if (!hs_wasm::is_js_array(entries))
@@ -555,11 +608,7 @@ private:
                  static_cast<uint32_t>(duration), easing == "EASE_IN_OUT_SIN",
                  !snap.isUndefined() && snap.as<bool>()}};
     }
-    struct DecodedLayer {
-      std::string instance;
-      SourceMorphEndpoint from, to;
-    };
-    std::vector<DecodedLayer> layers;
+    std::vector<DecodedColorMorph> layers;
     std::vector<ShaderChainModulationMorphWrite> layer_writes;
     if (caller_modulations != nullptr) {
       if (!hs_wasm::is_js_array(modulations))
@@ -568,39 +617,27 @@ private:
       if (length > Pullback::Interp::MAX_CHAIN_OPS)
         return ParamSetResult::TOO_LONG;
       layers.resize(length);
+      layer_writes.resize(length);
       for (size_t i = 0; i < length; ++i) {
-        const auto entry = modulations[i];
-        if (!object_value(entry) || !entry["instance"].isString() ||
-            !entry["mix"].isNumber())
-          return ParamSetResult::MALFORMED_PAYLOAD;
-        const auto snap = entry["snap"];
-        if (!snap.isUndefined() && snap.typeOf().as<std::string>() != "boolean")
-          return ParamSetResult::MALFORMED_PAYLOAD;
-        auto &layer = layers[i];
-        layer.instance = entry["instance"].as<std::string>();
-        if (!Pullback::Interp::instance_id_wellformed(layer.instance))
-          return ParamSetResult::UNKNOWN_PARAM;
-        const auto from_result =
-            decode_source_endpoint(entry["from"], layer.from);
-        if (from_result != ParamSetResult::APPLIED)
-          return from_result;
-        const auto to_result = decode_source_endpoint(entry["to"], layer.to);
-        if (to_result != ParamSetResult::APPLIED)
-          return to_result;
-        const double mix = entry["mix"].as<double>();
-        if (!std::isfinite(mix))
-          return ParamSetResult::NON_FINITE;
-        if (mix < 0.0 || mix > 1.0)
-          return ParamSetResult::INADMISSIBLE;
-        layer_writes.push_back({layer.instance, layer.from.writes,
-                                layer.to.writes, static_cast<float>(mix),
-                                !snap.isUndefined() && snap.as<bool>()});
+        const auto result =
+            decode_color_morph(modulations[i], layers[i], layer_writes[i]);
+        if (result != ParamSetResult::APPLIED)
+          return result;
       }
+    }
+    DecodedColorMorph palette_endpoints;
+    ShaderChainPaletteMorphWrite palette_write{};
+    if (caller_palette != nullptr) {
+      const auto result =
+          decode_color_morph(palette, palette_endpoints, palette_write);
+      if (result != ParamSetResult::APPLIED)
+        return result;
     }
     ParamSetResult result = ParamSetResult::NO_EFFECT;
     with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
       result = chain.update_parameters(
-          writes, preview, has_morph ? &source : nullptr, layer_writes);
+          writes, preview, has_morph ? &source : nullptr, layer_writes,
+          caller_palette ? &palette_write : nullptr);
     });
     if (result == ParamSetResult::APPLIED)
       state->paused = state->effect->animations_paused();
@@ -671,6 +708,8 @@ static void bind_workbench_adapters() {
                 &ShaderChainBindings::setShaderChainSourceMorphParameters)
       .function("setShaderChainMorphParameters",
                 &ShaderChainBindings::setShaderChainMorphParameters)
+      .function("setShaderChainPaletteMorphParameters",
+                &ShaderChainBindings::setShaderChainPaletteMorphParameters)
       .class_function("admitsPlanarSourceTransition",
                       &ShaderChainBindings::admitsPlanarSourceTransition)
       .function("getShaderChainParameterRanges",

@@ -980,6 +980,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_spherical_noise_lifecycle);
   HS_RUN(test_shader_chain_parity_colorize_variants);
   HS_RUN(test_shader_chain_palette_selection);
+  HS_RUN(test_shader_chain_palette_preset_morph);
   HS_RUN(test_shader_chain_authored_palette_history);
   HS_RUN(test_shader_chain_combined_color_modulation);
   HS_RUN(test_shader_chain_combined_color_admission);
