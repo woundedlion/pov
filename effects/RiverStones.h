@@ -24,6 +24,8 @@ struct RiverStonesSpec : Pullback::Spec {
   static constexpr bool HEX_MORPH_TABLE = true;
 #endif
   static constexpr bool RIPPLE_RADIAL_TABLE = true;
+  /// Modulation layer that controls ripple path tracking.
+  static constexpr Pullback::ResourceKey RIPPLE_PATH_MODULATION = "modulate";
   /// Samples animation at each column time.
   static constexpr auto TEMPORAL =
       Pullback::TemporalPolicy::fused(Pullback::PaletteCache::NONE);

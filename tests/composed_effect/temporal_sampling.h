@@ -1923,6 +1923,8 @@ inline void test_river_stones_modulation_morph() {
   effect.set_clip(0, 1, 0, 1);
   effect.init();
   const auto initial = effect.frame_for_test();
+  HS_EXPECT_EQ(std::get<1>(Pipeline::prepare_stages(initial)).track_path,
+               false);
   const math::Vector direction =
       Pattern::SphereDirection::admit({0.6f, -0.2f, 0.8f}).value();
   const auto noise = Modulation::sample(
@@ -1954,6 +1956,11 @@ inline void test_river_stones_modulation_morph() {
       const auto &state = ComposedFrameWhiteBox::current_frame(effect);
       const auto prepared = Pipeline::prepare_stages(state);
       const auto &layer = std::get<6>(prepared);
+      HS_EXPECT_EQ(std::get<1>(prepared).track_path,
+                   Color::modulation_active(layer) &&
+                       (layer.source == Pattern::SourceKind::DISPLACEMENT ||
+                        (layer.path_mix.active() &&
+                         layer.path_mix.path_amount != 0.0f)));
       const auto &palette = std::get<5>(prepared);
       const Color::ModulationStack<3, hue, lift, opacity> stack(
           palette, true,

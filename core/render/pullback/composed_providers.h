@@ -496,6 +496,9 @@ struct SurfaceProvider {
   /// Prepare exact group support for table-free bursts.
   static constexpr bool CACHE_SINGLE_CENTER =
       requires { requires !Binding::Spec::RIPPLE_RADIAL_TABLE; };
+  /// Whether a declared layer gates path travel.
+  static constexpr bool CONDITIONAL_PATH =
+      TrackPath && requires { Binding::Spec::RIPPLE_PATH_MODULATION; };
   using RadialPrepareOwner = SurfaceProvider; ///< Owner of radial preparation.
   using GradientPrepareOwner =
       SurfaceProvider; ///< Owner of gradient qualification.
@@ -592,9 +595,19 @@ struct SurfaceProvider {
     return frame.params.template get<Key>().strength;
   }
   /** @brief Whether the stage accumulates path length.
-   *  @return `TrackPath`. */
-  HS_HOT_INLINE static bool path_length_required(const FrameState &) {
-    return TrackPath;
+   * @param frame Current column context.
+   * @return Whether tracking is enabled and any declared layer uses the path. */
+  HS_HOT_INLINE static bool path_length_required(const FrameState &frame) {
+    if constexpr (CONDITIONAL_PATH) {
+      const auto *displacement = frame.source_morph.displacement;
+      const auto &params = displacement ? *displacement : frame.params;
+      const auto &config =
+          params.template get<Binding::Spec::RIPPLE_PATH_MODULATION>()
+              .modulation;
+      return config.source == Pattern::SourceKind::DISPLACEMENT &&
+             ColorModulation::active(config.enabled, config.mechanic);
+    } else
+      return TrackPath;
   }
 };
 
@@ -618,15 +631,24 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
     requires std::is_same_v<State, typename State::RadialPrepareOwner>;
     requires State::CACHE_SINGLE_CENTER;
   }; ///< Whether the provider caches group support bands.
-  using Prepared = std::conditional_t<
+  using Waves = std::conditional_t<
       CACHE_SINGLE_CENTER, SphereAnimation::SupportedRipples,
       std::conditional_t<
           LAZY_RADIAL_PREPARE, std::optional<SphereAnimation::PreparedRipples>,
           SphereAnimation::PreparedRipples>>; ///< Prepared waves.
+  struct TrackedWaves {
+    Waves waves;
+    bool track_path;
+  };
+  static constexpr bool CONDITIONAL_PATH =
+      requires { requires State::CONDITIONAL_PATH; };
+  using Prepared = std::conditional_t<CONDITIONAL_PATH, TrackedWaves,
+                                      Waves>; ///< Column state.
+
   /** @brief Prepares exact waves unless the column has a usable radial table.
    * @param frame Current frame.
    * @return Exact kernels, or an empty optional for deferred preparation. */
-  static Prepared prepare(const FrameState &frame) {
+  static Waves prepare_waves(const FrameState &frame) {
     if constexpr (LAZY_RADIAL_PREPARE) {
       const auto *tables = State::radial_tables(frame);
       if (tables && tables->enabled)
@@ -634,49 +656,71 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
     }
     if constexpr (CACHE_SINGLE_CENTER &&
                   requires { State::prepare_supported(frame); })
-      return Prepared{State::prepare_supported(frame)};
-    return Prepared{State::prepare(frame)};
+      return Waves{State::prepare_supported(frame)};
+    return Waves{State::prepare(frame)};
   }
+
+  /** @brief Prepares the column's waves and path tracking.
+   * @param frame Current frame.
+   * @return Prepared column state. */
+  static Prepared prepare(const FrameState &frame) {
+    if constexpr (CONDITIONAL_PATH)
+      return {prepare_waves(frame), State::path_length_required(frame)};
+    else
+      return prepare_waves(frame);
+  }
+
   /** @brief Prepares exact waves for a rejected radial sample.
    * @param input Original input direction.
    * @param frame Current column context.
+   * @param track_path Whether to report angular travel.
    * @return Exact grouped displacement and angular travel. */
   HS_HOT_FLASH_MEMBER static SurfaceResult
-  exact_fallback(const math::Vector &input, const FrameState &frame) {
+  exact_fallback(const math::Vector &input, const FrameState &frame,
+                 bool track_path) {
     const auto prepared = State::prepare(frame);
-    return SphereAnimation::grouped_ripples(input, prepared,
-                                            State::path_length_required(frame));
+    return SphereAnimation::grouped_ripples(input, prepared, track_path);
   }
   /** @brief Applies every active wave in launch order.
    * @param input Unit sphere direction.
    * @param frame Current frame.
-   * @param prepared Exact kernels, or an empty optional for radial evaluation.
+   * @param prepared Column state.
    * @return Displaced direction and accumulated path length. */
   static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
                              const Prepared &prepared) {
+    const auto &waves = [&]() -> const Waves & {
+      if constexpr (CONDITIONAL_PATH)
+        return prepared.waves;
+      else
+        return prepared;
+    }();
+    const bool track_path = [&] {
+      if constexpr (CONDITIONAL_PATH)
+        return prepared.track_path;
+      else
+        return State::path_length_required(frame);
+    }();
     if constexpr (CACHE_SINGLE_CENTER) {
-      return SphereAnimation::supported_ripples(
-          input, prepared, State::path_length_required(frame));
+      return SphereAnimation::supported_ripples(input, waves, track_path);
     } else if constexpr (LAZY_RADIAL_PREPARE) {
-      if (prepared)
-        return SphereAnimation::grouped_ripples(
-            input, *prepared, State::path_length_required(frame));
+      if (waves)
+        return SphereAnimation::grouped_ripples(input, *waves, track_path);
       return SphereAnimation::radial_ripples(
-          input, State::path_length_required(frame),
-          State::radial_tables(frame), State::radial_fraction(frame),
-          [&](const math::Vector &original)
-              HS_HOT_INLINE { return exact_fallback(original, frame); });
+          input, track_path, State::radial_tables(frame),
+          State::radial_fraction(frame),
+          [&](const math::Vector &original) HS_HOT_INLINE {
+            return exact_fallback(original, frame, track_path);
+          });
     } else if constexpr (
         requires {
           State::radial_tables(frame);
           State::radial_fraction(frame);
         } && !requires { typename State::RadialPrepareOwner; })
-      return SphereAnimation::radial_ripples(
-          input, prepared, State::path_length_required(frame),
-          State::radial_tables(frame), State::radial_fraction(frame));
+      return SphereAnimation::radial_ripples(input, waves, track_path,
+                                             State::radial_tables(frame),
+                                             State::radial_fraction(frame));
     else
-      return SphereAnimation::grouped_ripples(
-          input, prepared, State::path_length_required(frame));
+      return SphereAnimation::grouped_ripples(input, waves, track_path);
   }
 };
 } // namespace Surface
