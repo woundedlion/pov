@@ -85,7 +85,7 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "16da92705d798daf9c6602503e59214136e34148f5dae4e2f10a16cde25e482e";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "3031d643168b06733b4b7b0d2f6983850310060e7bd4d849d2f85b5589c821e3";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "ff2fc61d3325d672e71958331b7d653041037841e378d3135e3508d5c205a31c";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "river-stones",
@@ -294,7 +294,7 @@ public:
     if (index == 1) {
       value.template get<"modulate">().modulation.mechanic.amount = 2.0f;
       value.template get<"modulate">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
-      value.template get<"source">().cell_scale = 4.7136416f;
+      value.template get<"source">().cell_scale = 4.774648f;
       value.template get<"source">().cell_softness = 0.32801026f;
       value.template get<"outer_warp">().path_length = 0;
     }

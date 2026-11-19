@@ -315,7 +315,7 @@ A dodecahedral poloidal potential flow folds an equirectangular grid beneath the
 
 ### River Stones
 
-Spherical ripple bursts distort a scrolling hexagonal lattice. The first preset opens the Phantasm show for 30 seconds and uses noise to drive its hue. RiverStones2 uses a denser lattice with softer cells and rotates hue with the ripple displacement. Noise drives lightness and opacity in both presets.
+Spherical ripple bursts distort a scrolling hexagonal lattice. The first preset opens the Phantasm show for 30 seconds and uses noise to drive its hue. RiverStones2 fits 30 hex cells around the longitude wrap, softens their edges, and rotates hue with the ripple displacement. Noise drives lightness and opacity in both presets.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Millefiori" target="_blank"><img src="screenshots/Millefiori.png" alt="Millefiori" width="280"></a></td>
