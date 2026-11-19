@@ -1191,12 +1191,18 @@ private:
     return {lightness, chroma, 0.0f};
   }
 
+  float chroma_from_boundary(float control, float boundary) const {
+    return chroma_basis == ChromaBasis::LOCAL_GAMUT
+               ? __builtin_fminf(control, headroom) * boundary
+               : std::max(0.0f, control);
+  }
+
   HS_FLASH_MEMBER float realized_chroma(const ControlKey &key,
                                         float h_final) const {
-    if (chroma_basis == ChromaBasis::LOCAL_GAMUT)
-      return __builtin_fminf(key.chroma, headroom) *
-             gamut_continuous_chroma(key.L, h_final);
-    return std::max(0.0f, key.chroma);
+    const float boundary = chroma_basis == ChromaBasis::LOCAL_GAMUT
+                               ? gamut_continuous_chroma(key.L, h_final)
+                               : 0.0f;
+    return chroma_from_boundary(key.chroma, boundary);
   }
 
   HS_FLASH_MEMBER float diagnostic_q(float C, float boundary,
@@ -1246,8 +1252,7 @@ private:
     const bool relative = chroma_basis == ChromaBasis::LOCAL_GAMUT;
     const float boundary =
         (relative || diagnostics) ? gamut_continuous_chroma(L, h_final) : 0.0f;
-    const float c = relative ? __builtin_fminf(control, headroom) * boundary
-                             : std::max(0.0f, control);
+    const float c = chroma_from_boundary(control, boundary);
     return {oklch_to_oklab({L, c, h_final}),
             diagnostics ? diagnostic_q(c, boundary, control) : 0.0f, h_path,
             h_final, boundary};
