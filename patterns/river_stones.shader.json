@@ -2956,7 +2956,7 @@
     ],
     "presets": [
       {
-        "display_name": "Catalog Defaults",
+        "display_name": "River Stones",
         "preset_id": "river-stones",
         "values": {
           "camera.spin-speed": 0,
@@ -3142,7 +3142,7 @@
         }
       },
       {
-        "display_name": "RiverStones2",
+        "display_name": "River Stones 2",
         "preset_id": "river-stones-2",
         "values": {
           "camera.spin-speed": 0,

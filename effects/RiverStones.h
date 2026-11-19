@@ -94,7 +94,7 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "bac10bb82d189dfed895c1b67f4fa37694a8ac7e2b3df06a1db3cb77b371225a";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "ff2fc61d3325d672e71958331b7d653041037841e378d3135e3508d5c205a31c";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "515e3f1ec445f58c726bbb86218723abf9674aa686a75d243b1065dff890d4e2";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "river-stones",

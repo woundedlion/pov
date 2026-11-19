@@ -1803,7 +1803,7 @@ inline void test_river_stones_color_tail() {
                                    "modulate2">();
 }
 
-/** @brief RiverStones2's translating cells meet across the longitude cut. */
+/** @brief River Stones 2's translating cells meet across the longitude cut. */
 inline void test_river_stones_2_meridian() {
   using FX = RiverStones<SMALL_W, SMALL_H>;
   using Pipeline = FX::RenderPipeline;
