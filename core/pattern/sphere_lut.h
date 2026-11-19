@@ -232,7 +232,6 @@ prepare_sphere_lut(std::span<int8_t, SphereLutView::SIZE> output,
                    const typename Source::Prepared &prepared) {
   constexpr int N = SphereLutView::FACE_STEPS;
   static_assert(N % 2 == 0);
-  std::array<std::array<math::Vector, N>, 2> row;
   constexpr bool shifted_coordinates =
       requires { Source::configured_single(prepared); };
   const auto shift = [&](const math::Vector &direction) HS_HOT_INLINE {
@@ -263,27 +262,27 @@ prepare_sphere_lut(std::span<int8_t, SphereLutView::SIZE> output,
                 .value();
         const auto pos = shift(v);
         const auto neg = shift(-v);
-        row[0][x] = pos;
-        row[1][x] = neg;
-        row[0][N - 1 - x] = axis == 0 ? math::Vector{pos.x, pos.y, neg.z}
-                                      : math::Vector{neg.x, pos.y, pos.z};
-        row[1][N - 1 - x] = axis == 0 ? math::Vector{neg.x, neg.y, pos.z}
-                                      : math::Vector{pos.x, neg.y, neg.z};
-      }
-      for (int side = 0; side < 4; ++side) {
-        const bool odd = side & 1;
-        const bool bottom = side & 2;
-        const auto &xs = row[odd && axis != 1];
-        const auto &ys = row[axis == 1 ? odd : bottom];
-        const auto &zs = row[odd != (bottom && axis == 1)];
-        const int face = axis * 2 + odd;
-        const int base = (face * N + (bottom ? N - 1 - y : y)) * N;
-        for (int x = x_start; x < N - x_start; ++x) {
-          const math::Vector q(xs[x].x, ys[x].y, zs[x].z);
-          const float sample = bounded_scalar(evaluate(q));
-          output[base + x] = static_cast<int8_t>(
-              sample * 127.0f + (sample < 0.0f ? -0.5f : 0.5f));
-        }
+        const auto write = [&](int column, const math::Vector &positive,
+                               const math::Vector &negative) HS_HOT_INLINE {
+          for (int side = 0; side < 4; ++side) {
+            const bool odd = side & 1, bottom = side & 2;
+            const math::Vector q(
+                (odd && axis != 1 ? negative : positive).x,
+                ((axis == 1 ? odd : bottom) ? negative : positive).y,
+                (odd != (bottom && axis == 1) ? negative : positive).z);
+            const int face = axis * 2 + odd;
+            const int index =
+                (face * N + (bottom ? N - 1 - y : y)) * N + column;
+            const float sample = bounded_scalar(evaluate(q));
+            output[index] = static_cast<int8_t>(sample * 127.0f +
+                                                (sample < 0.0f ? -0.5f : 0.5f));
+          }
+        };
+        write(x, pos, neg);
+        if (axis == 0)
+          write(N - 1 - x, {pos.x, pos.y, neg.z}, {neg.x, neg.y, pos.z});
+        else
+          write(N - 1 - x, {neg.x, pos.y, pos.z}, {pos.x, neg.y, neg.z});
       }
     }
   }

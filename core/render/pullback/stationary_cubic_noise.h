@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/memory.h"
 #include "core/render/pullback/modulation.h"
 
 /** @file stationary_cubic_noise.h
@@ -90,8 +91,9 @@ struct StationaryCubicNoise : ImmutableTable {
   /** @brief Fills the immutable coefficients from the canonical direct generator. */
   HS_SIZE_FLASH_MEMBER void bake(const Prepared &p) {
     constexpr int intervals = 3 * (N - 1);
+    ScratchScope scratch(scratch_arena_a);
+    auto &edges = *scratch_arena_a.make_default_initialized<Edges>();
     for (int face = 0; face < 6; ++face) {
-      Edges edges;
       for (int y = 0; y < N - 1; ++y) {
         for (int row = y == 0 ? 0 : 1; row < 4; ++row) {
           const float v = float(2 * (3 * y + row) - intervals) / intervals;
