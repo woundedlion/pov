@@ -90,10 +90,16 @@ export interface ChainSpatialWalkState {
   wander: number[];
 }
 
+type SourceClockState = {primary: number; secondary: number; angle: number};
+type NoiseClockState = {phase: number; noiseSeed: number};
+
 export type ChainRuntimeState =
   | {instance: string; kind: 'spatial-walk-v2'; state: ChainSpatialWalkState}
-  | {instance: string; kind: 'source-clock-v1'; state: {primary: number; secondary: number; angle: number}}
-  | {instance: string; kind: 'noise-clock-v1'; state: {phase: number; noiseSeed: number}}
+  | {instance: string; kind: 'source-clock-v1'; state: SourceClockState}
+  | {instance: string; kind: 'noise-clock-v1'; state: NoiseClockState}
+  | {instance: string; kind: 'planar-source-clock-v1'; state: {
+      grid: SourceClockState; twinWave: SourceClockState; projectedNoise: NoiseClockState
+    }}
   | {instance: string; kind: 'phase-clock-v1'; state: {phase: number}}
   | {instance: string; kind: 'ripple-burst-v1'; state: {phase: number; seed: number; burstCount: number; frames: number; waves: {age: number; burst: number}[]}}
   | {instance: string; kind: 'affine-clock-v1'; state: {phase: number; rotation: number}}
