@@ -276,6 +276,19 @@ public:
     return set_parameters(caller_entries, true, &caller_morph);
   }
 
+  /** @brief Applies planar and ordered modulation source transitions atomically.
+   * @param caller_entries Named preview writes.
+   * @param caller_morph Optional planar source transition.
+   * @param caller_modulations Modulation transitions by instance.
+   * @return Parameter admission status. */
+  ParamSetResult setShaderChainMorphParameters(
+      const TransitionParameterWritesValue &caller_entries,
+      const NullableSourceMorphPreviewValue &caller_morph,
+      const ModulationMorphsPreviewValue &caller_modulations) {
+    return set_parameters(caller_entries, true, &caller_morph,
+                          &caller_modulations);
+  }
+
   /** @brief Checks effective float32 source lattices for a preset edge.
    * @param caller_program Ordered entries of the authored chain.
    * @param caller_from Outgoing preset parameters by qualified name.
@@ -448,15 +461,19 @@ private:
     return ParamSetResult::APPLIED;
   }
 
-  ParamSetResult set_parameters(const emscripten::val &caller_entries,
-                                bool preview,
-                                const emscripten::val *caller_morph = nullptr) {
+  ParamSetResult
+  set_parameters(const emscripten::val &caller_entries, bool preview,
+                 const emscripten::val *caller_morph = nullptr,
+                 const emscripten::val *caller_modulations = nullptr) {
     const PayloadDecodeGuard decode_guard(&decoding);
     if (!isValid())
       return ParamSetResult::NO_EFFECT;
     const emscripten::val entries = clone_payload(caller_entries);
     const auto morph = caller_morph == nullptr ? emscripten::val::undefined()
                                                : clone_payload(*caller_morph);
+    const auto modulations = caller_modulations == nullptr
+                                 ? emscripten::val::undefined()
+                                 : clone_payload(*caller_modulations);
     if (!isValid())
       return ParamSetResult::NO_EFFECT;
     if (!hs_wasm::is_js_array(entries))
@@ -502,7 +519,9 @@ private:
     std::string instance;
     SourceMorphEndpoint from, to;
     ShaderChainSourceMorphWrite source{};
-    if (caller_morph != nullptr) {
+    const bool has_morph =
+        caller_morph != nullptr && !(caller_modulations && morph.isNull());
+    if (has_morph) {
       if (!object_value(morph) || !morph["instance"].isString() ||
           !morph["evaluation"].isNumber() || !morph["duration"].isNumber() ||
           !morph["easing"].isString())
@@ -536,10 +555,52 @@ private:
                  static_cast<uint32_t>(duration), easing == "EASE_IN_OUT_SIN",
                  !snap.isUndefined() && snap.as<bool>()}};
     }
+    struct DecodedLayer {
+      std::string instance;
+      SourceMorphEndpoint from, to;
+    };
+    std::vector<DecodedLayer> layers;
+    std::vector<ShaderChainModulationMorphWrite> layer_writes;
+    if (caller_modulations != nullptr) {
+      if (!hs_wasm::is_js_array(modulations))
+        return ParamSetResult::MALFORMED_PAYLOAD;
+      const size_t length = modulations["length"].as<size_t>();
+      if (length > Pullback::Interp::MAX_CHAIN_OPS)
+        return ParamSetResult::TOO_LONG;
+      layers.resize(length);
+      for (size_t i = 0; i < length; ++i) {
+        const auto entry = modulations[i];
+        if (!object_value(entry) || !entry["instance"].isString() ||
+            !entry["mix"].isNumber())
+          return ParamSetResult::MALFORMED_PAYLOAD;
+        const auto snap = entry["snap"];
+        if (!snap.isUndefined() && snap.typeOf().as<std::string>() != "boolean")
+          return ParamSetResult::MALFORMED_PAYLOAD;
+        auto &layer = layers[i];
+        layer.instance = entry["instance"].as<std::string>();
+        if (!Pullback::Interp::instance_id_wellformed(layer.instance))
+          return ParamSetResult::UNKNOWN_PARAM;
+        const auto from_result =
+            decode_source_endpoint(entry["from"], layer.from);
+        if (from_result != ParamSetResult::APPLIED)
+          return from_result;
+        const auto to_result = decode_source_endpoint(entry["to"], layer.to);
+        if (to_result != ParamSetResult::APPLIED)
+          return to_result;
+        const double mix = entry["mix"].as<double>();
+        if (!std::isfinite(mix))
+          return ParamSetResult::NON_FINITE;
+        if (mix < 0.0 || mix > 1.0)
+          return ParamSetResult::INADMISSIBLE;
+        layer_writes.push_back({layer.instance, layer.from.writes,
+                                layer.to.writes, static_cast<float>(mix),
+                                !snap.isUndefined() && snap.as<bool>()});
+      }
+    }
     ParamSetResult result = ParamSetResult::NO_EFFECT;
     with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
       result = chain.update_parameters(
-          writes, preview, caller_morph == nullptr ? nullptr : &source);
+          writes, preview, has_morph ? &source : nullptr, layer_writes);
     });
     if (result == ParamSetResult::APPLIED)
       state->paused = state->effect->animations_paused();
@@ -608,6 +669,8 @@ static void bind_workbench_adapters() {
                 &ShaderChainBindings::setShaderChainTransitionParameters)
       .function("setShaderChainSourceMorphParameters",
                 &ShaderChainBindings::setShaderChainSourceMorphParameters)
+      .function("setShaderChainMorphParameters",
+                &ShaderChainBindings::setShaderChainMorphParameters)
       .class_function("admitsPlanarSourceTransition",
                       &ShaderChainBindings::admitsPlanarSourceTransition)
       .function("getShaderChainParameterRanges",

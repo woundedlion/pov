@@ -1367,6 +1367,32 @@ function transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluat
   return undefined;
 }
 
+/** @typedef {{instance: string, from: Record<string, number|string>, to: Record<string, number|string>, mix: number}} ModulationMorph */
+
+/** @returns {ModulationMorph[]} */
+function transitionModulationMorphs(descriptor, operatorById, from, to, progressFor) {
+  const morphs = [];
+  for (const slot of descriptor.chain) {
+    if (slot.operator !== 'color.modulate.v1') continue;
+    const operator = operatorById.get(slot.operator);
+    if (!operator) continue;
+    const source = `${slot.label}.modulation-source`;
+    const sources = [from[source], to[source]];
+    if (!sources.includes('noise') || !sources.includes('displacement')) continue;
+    const field = (id) => `${slot.label}.${id}`;
+    if (from[field('modulation-evaluation')] !== 'direct' ||
+        to[field('modulation-evaluation')] !== 'direct' ||
+        from[field('modulation-mechanic')] !== to[field('modulation-mechanic')]) continue;
+    const endpoint = (values) => Object.fromEntries(operator.params.map(parameter => {
+      const id = field(parameter.id);
+      return [id, values[id] ?? parameter.default];
+    }));
+    const group = descriptor.parameters.find(parameter => parameter.id === source)?.interpolation.group ?? source;
+    morphs.push({ instance: slot.label, from: endpoint(from), to: endpoint(to), mix: progressFor(group) });
+  }
+  return morphs;
+}
+
 export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, catalog) {
   const edge = bank.edges.find((candidate) => candidate.from === fromId && candidate.to === toId);
   if (!edge)
@@ -1424,7 +1450,9 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, c
     }
   }
   const sourceMorph = transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluation);
+  const modulationMorphs = transitionModulationMorphs(descriptor, operatorById, from, to, progressFor);
   return {
+    ...(modulationMorphs.length ? { modulationMorphs } : {}),
     evaluation, duration: edge.duration, raw_progress: raw, eased_progress: eased, values,
     ...(sourceMorph ? { sourceMorph } : {}),
   };

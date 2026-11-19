@@ -462,9 +462,10 @@ public:
           const auto *current = Modulation::find_endpoint(ctx.modulations, key);
           const auto *previous =
               Modulation::find_endpoint(previous_ctx.modulations, key);
-          if (current == nullptr || previous == nullptr ||
-              !Modulation::same_topology(current->config, previous->config) ||
-              Modulation::same_field(*current, *previous))
+          if (!previous_ctx.modulation_morph(key) &&
+              (current == nullptr || previous == nullptr ||
+               !Modulation::same_topology(current->config, previous->config) ||
+               Modulation::same_field(*current, *previous)))
             previous = current;
           selected = {key, previous};
           previous_color_ctx.modulations = std::span(&selected, 1);
@@ -675,12 +676,20 @@ public:
 
   /** @brief Steps every op's per-frame clocks; once per frame. */
   void advance() {
+    advance([](size_t, const void *params) { return params; });
+  }
+
+  /** @brief Advances each clock using its active authored recipe.
+   * @tparam Select Parameter selector callable.
+   * @param select Selects parameters for the operator at each index. */
+  template <typename Select> void advance(Select select) {
     intervals_prepared = false;
     Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
       ChainOp &op = side.ops[index];
-      op.op->runtime.advance(block_ptr(active, op.state_offset),
-                             const_block_ptr(active, op.param_offset));
+      op.op->runtime.advance(
+          block_ptr(active, op.state_offset),
+          select(index, const_block_ptr(active, op.param_offset)));
     }
   }
 

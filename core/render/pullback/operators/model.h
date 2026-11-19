@@ -109,6 +109,14 @@ struct InstanceId {
  *  @return The pair's stable hash. */
 using Pullback::instance_hash;
 
+/** @brief One ordered layer's authored spatial/displacement transition. */
+struct ModulationMorph {
+  std::string_view key;             ///< Modulation instance.
+  ColorModulation::Params from, to; ///< Authored mechanic strengths.
+  float mix = 0.0f;                 ///< Incoming endpoint weight.
+  bool from_spatial = false; ///< Outgoing endpoint uses the prepared source.
+};
+
 /**
  * @brief The interpreter's per-frame snapshot: shared engine-owned resources
  *        and transforms the operators read.
@@ -123,6 +131,17 @@ struct FrameContext {
       nullptr; ///< Hue table cell flags.
   std::span<const Modulation::Endpoint>
       modulations; ///< Keyed immutable sources.
+  std::span<const ModulationMorph> modulation_morphs{}; ///< Authored blends.
+
+  /** @brief Finds the authored modulation blend.
+   * @param key Layer instance.
+   * @return The matching blend, or null outside a source transition. */
+  const ModulationMorph *modulation_morph(std::string_view key) const {
+    for (const auto &morph : modulation_morphs)
+      if (morph.key == key)
+        return &morph;
+    return nullptr;
+  }
 };
 
 using Pullback::TopologyField;

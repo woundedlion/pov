@@ -46,6 +46,8 @@ HS_TS_PAYLOAD(ParameterWritesValue)
 HS_TS_PAYLOAD(TransitionParameterWritesValue)
 HS_TS_PAYLOAD(TransitionEndpointValue)
 HS_TS_PAYLOAD(SourceMorphPreviewValue)
+HS_TS_PAYLOAD(NullableSourceMorphPreviewValue)
+HS_TS_PAYLOAD(ModulationMorphsPreviewValue)
 HS_TS_PAYLOAD(ChainResultValue)
 HS_TS_PAYLOAD(XYZValue)
 HS_TS_PAYLOAD(RGBValue)
@@ -119,6 +121,11 @@ inline void bind_ts_types() {
   emscripten::register_type<SourceMorphPreviewValue>(
       "SourceMorphPreviewValue",
       R"({instance: string; from: Record<string, number>; to: Record<string, number>; evaluation: number; duration: number; easing: 'LINEAR' | 'EASE_IN_OUT_SIN'; snap?: boolean})");
+  emscripten::register_type<NullableSourceMorphPreviewValue>(
+      "NullableSourceMorphPreviewValue", R"(SourceMorphPreviewValue | null)");
+  emscripten::register_type<ModulationMorphsPreviewValue>(
+      "ModulationMorphsPreviewValue",
+      R"({instance: string; from: Record<string, number>; to: Record<string, number>; mix: number; snap?: boolean}[])");
   emscripten::register_type<ParameterRangesValue>(
       "ParameterRangesValue", R"({name: string; min: number; max: number}[])");
   emscripten::register_type<ChainResultValue>(

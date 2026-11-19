@@ -305,7 +305,13 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
   using Input = ColorSample;
   using Output = ColorSample;
   using Params = ModulationParams;
-  using Prepared = Color::ModulationState;
+  struct Prepared {
+    const Modulation::Prepared *current; ///< Spatial source for this endpoint.
+    const ModulationMorph *morph;        ///< Authored source transition.
+    Pattern::SourceKind source;          ///< Selected live source.
+    ColorModulation::Params mechanic;    ///< Live color mechanic.
+    bool enabled;                        ///< Enables the live layer.
+  };
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
@@ -356,12 +362,35 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
                  !params.modulation.enabled ||
                  params.modulation.mechanic.amount == 0.0f,
              "missing modulation source endpoint");
-    return {source, source, params.modulation.source,
+    return {source, ctx.modulation_morph(state.key), params.modulation.source,
             params.modulation.mechanic, params.modulation.enabled};
   }
   static ColorSample run(const ColorSample &input, const FrameContext &,
                          const Params &, const Prepared &prepared) {
-    return Color::apply_modulation(input, prepared);
+    if (!prepared.morph)
+      return Color::apply_modulation(input, {prepared.current, prepared.current,
+                                             prepared.source, prepared.mechanic,
+                                             prepared.enabled});
+    const auto &morph = *prepared.morph;
+    const auto &spatial = morph.from_spatial ? morph.from : morph.to;
+    const auto &path = morph.from_spatial ? morph.to : morph.from;
+    auto result = input;
+    if (morph.mix == (morph.from_spatial ? 1.0f : 0.0f)) {
+      Color::apply_mechanic_scalar(result, input.field.path_length, path);
+      return result;
+    }
+    const float noise = Modulation::sample(
+        *prepared.current, Pattern::SphereDirection::admit(input.field.sphere));
+    if (morph.mix == (morph.from_spatial ? 0.0f : 1.0f)) {
+      Color::apply_mechanic_scalar(result, noise, spatial);
+      return result;
+    }
+    const float scalar = Color::blend_modulation_scalar(
+        morph.from.kind, morph.from_spatial ? noise : input.field.path_length,
+        morph.from.amount, morph.from_spatial ? input.field.path_length : noise,
+        morph.to.amount, morph.mix);
+    Color::apply_mechanic_scalar(result, scalar, {morph.from.kind, 1.0f});
+    return result;
   }
 };
 

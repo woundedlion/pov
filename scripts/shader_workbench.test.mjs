@@ -1097,6 +1097,27 @@ test('same-kind tessellation keeps separate endpoint field settings for preview'
   assert.equal(evaluate(frame).sourceMorph, undefined);
 });
 
+test('RiverStones preview blends the first modulation source in both directions', async () => {
+  const { descriptor, preset_bank: bank } = JSON.parse(await readFile(
+    new URL('../patterns/river_stones.shader.json', import.meta.url), 'utf8'));
+  for (const edge of bank.edges) {
+    const from = bank.presets.find(row => row.preset_id === edge.from);
+    const to = bank.presets.find(row => row.preset_id === edge.to);
+    for (const frame of [0, edge.duration / 2, edge.duration]) {
+      const sample = evaluateTransition(descriptor, bank, edge.from, edge.to, frame, CATALOG);
+      assert.ok(sample.sourceMorph);
+      assert.equal(sample.modulationMorphs.length, 1);
+      const [layer] = sample.modulationMorphs;
+      assert.equal(layer.instance, 'modulate');
+      assert.equal(layer.mix, sample.eased_progress);
+      for (const id of ['modulate.modulation-source', 'modulate.modulation-amount', 'modulate.pattern-speed']) {
+        assert.equal(layer.from[id], from.values[id]);
+        assert.equal(layer.to[id], to.values[id]);
+      }
+    }
+  }
+});
+
 test('fixed grid keeps interpolating its preview parameters', () => {
   const { descriptor, preset_bank: bank } = example();
   const edge = bank.edges.find(({ from, to }) => from === 'calm' && to === 'fast');

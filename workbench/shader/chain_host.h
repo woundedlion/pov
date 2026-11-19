@@ -61,6 +61,14 @@ struct ShaderChainSourceMorphWrite {
   Pullback::Interp::SourceMorphTime time; ///< Edge timing and evaluation.
 };
 
+/** @brief Endpoint parameters for one modulation source transition. */
+struct ShaderChainModulationMorphWrite {
+  std::string_view instance; ///< Ordered modulation instance.
+  std::span<const ShaderChainParameterWrite> from, to; ///< Endpoint controls.
+  float mix;                                           ///< Incoming weight.
+  bool snap; ///< Discard the previous temporal interval on a preview seek.
+};
+
 /**
  * @brief Stage-program interpreter effect over the pullback operator table.
  * @tparam W Canvas width in pixels.
@@ -272,14 +280,20 @@ public:
    * @param writes Named parameter writes.
    * @param preview Allows transient enum blends and keeps animation running.
    * @param morph Optional source endpoint values and edge evaluation.
+   * @param modulations Authored spatial/displacement modulation endpoints.
    * @return APPLIED, or the first refusal with nothing committed.
    */
-  ParamSetResult
-  update_parameters(std::span<const ShaderChainParameterWrite> writes,
-                    bool preview = false,
-                    const ShaderChainSourceMorphWrite *morph = nullptr) {
+  ParamSetResult update_parameters(
+      std::span<const ShaderChainParameterWrite> writes, bool preview = false,
+      const ShaderChainSourceMorphWrite *morph = nullptr,
+      std::span<const ShaderChainModulationMorphWrite> modulations = {}) {
     if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
       return ParamSetResult::TOO_LONG;
+    if (modulations.size() > MAX_MODULATION_LAYERS)
+      return ParamSetResult::TOO_LONG;
+    if (!preview && !modulations.empty())
+      return ParamSetResult::INADMISSIBLE;
+    std::array<LayerMorph, MAX_MODULATION_LAYERS> staged_modulations{};
     const auto ops = program.ops();
     alignas(std::max_align_t) uint8_t source_from[PARAM_BYTES];
     alignas(std::max_align_t) uint8_t source_to[PARAM_BYTES];
@@ -337,6 +351,12 @@ public:
         }
         animated |= parameter->animated;
       }
+      if (!modulations.empty()) {
+        const auto result =
+            stage_modulation_morphs(modulations, staged_modulations);
+        if (result != ParamSetResult::APPLIED)
+          return result;
+      }
       if (morph != nullptr) {
         const auto from_result =
             stage_source_endpoint(source_index, source_from, morph->from);
@@ -356,6 +376,10 @@ public:
     for (size_t index = 0; index < ops.size(); ++index)
       std::memcpy(program.param_block(index), candidates[index],
                   ops[index].op->runtime.param.size);
+    interrupted |= install_modulation_morphs(
+        std::span(staged_modulations).first(modulations.size()), preview);
+    for (const auto &layer : modulations)
+      interrupted |= layer.snap;
     if (morph != nullptr)
       program.set_source_morph(source_index, source_from, source_to,
                                morph->time);
@@ -372,7 +396,8 @@ public:
 
   /** @brief Ends an active preview after a manual parameter write. */
   void parameter_written() override {
-    bool interrupted = program.clear_source_morph();
+    bool interrupted = clear_modulation_morphs();
+    interrupted |= program.clear_source_morph();
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index)
       if (const auto set = ops[index].op->runtime.set_enum_blend)
@@ -661,11 +686,23 @@ private:
     }
     previous.modulations =
         std::span(resources->previous_endpoints).first(ctx.modulations.size());
+    std::copy(ctx.modulation_morphs.begin(), ctx.modulation_morphs.end(),
+              resources->previous_morphs.begin());
+    previous.modulation_morphs = std::span(resources->previous_morphs)
+                                     .first(ctx.modulation_morphs.size());
     resources->context.capture(previous);
   }
 
   void advance_clocks() {
-    program.advance();
+    program.advance([&](size_t index, const void *params) -> const void * {
+      const auto &op = program.ops()[index];
+      if (is_modulation(op)) {
+        const auto &layer = modulation_resources(op.instance);
+        if (layer.morph)
+          return &layer.morph->spatial;
+      }
+      return params;
+    });
     generated_palettes.set_chroma(colorize.params->palette_chroma);
     generated_palettes.step(static_cast<Pullback::Interp::Op::PaletteMode>(
         colorize.params->palette_mode));
@@ -687,7 +724,13 @@ private:
       Pullback::Interp::MAX_CHAIN_PARAMS /
       Pullback::Interp::Op::ModulationParams::EXTRA_SCHEMA.size();
 
+  struct LayerMorph {
+    ModulationParams spatial;
+    Pullback::Interp::ModulationMorph blend;
+  };
+
   struct LayerResources {
+    std::optional<LayerMorph> morph;
     std::array<char, Pullback::Interp::MAX_INSTANCE_ID + 1> name{};
     std::string_view key;
     bool used = false;
@@ -701,6 +744,8 @@ private:
     std::array<Pixel, HueRotationLutView::SIZE> hue_rotation_lut{};
     HueRotationGamutMask hue_rotation_gamut;
     std::array<LayerResources, MAX_MODULATION_LAYERS> layers;
+    std::array<Pullback::Interp::ModulationMorph, MAX_MODULATION_LAYERS> morphs,
+        previous_morphs;
     std::array<Pullback::Modulation::Endpoint, MAX_MODULATION_LAYERS> endpoints;
     std::array<Pullback::Modulation::Endpoint, MAX_MODULATION_LAYERS>
         previous_endpoints;
@@ -769,7 +814,17 @@ private:
    * the compile that produced the program reset the loser arena holding the
    * previously registered names.
    */
+  bool clear_modulation_morphs() {
+    bool cleared = false;
+    for (auto &layer : resources->layers) {
+      cleared |= layer.morph.has_value();
+      layer.morph.reset();
+    }
+    return cleared;
+  }
+
   void program_committed() {
+    clear_modulation_morphs();
     colorize = find_colorize_tap();
     rebind_chain_parameters();
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -916,6 +971,76 @@ private:
                : ParamSetResult::INADMISSIBLE;
   }
 
+  ParamSetResult stage_modulation_morphs(
+      std::span<const ShaderChainModulationMorphWrite> modulations,
+      std::span<LayerMorph> staged_modulations) {
+    const auto ops = program.ops();
+    alignas(std::max_align_t) uint8_t source_from[PARAM_BYTES],
+        source_to[PARAM_BYTES];
+    for (size_t n = 0; n < modulations.size(); ++n) {
+      const auto &write = modulations[n];
+      size_t index = 0;
+      while (index < ops.size() && write.instance != ops[index].instance)
+        ++index;
+      if (index == ops.size())
+        return ParamSetResult::UNKNOWN_PARAM;
+      if (!std::isfinite(write.mix))
+        return ParamSetResult::NON_FINITE;
+      if (!is_modulation(ops[index]) || write.mix < 0.0f || write.mix > 1.0f)
+        return ParamSetResult::INADMISSIBLE;
+      for (size_t prior = 0; prior < n; ++prior)
+        if (modulations[prior].instance == write.instance)
+          return ParamSetResult::INADMISSIBLE;
+      for (const bool incoming : {false, true}) {
+        const auto result =
+            stage_source_endpoint(index, incoming ? source_to : source_from,
+                                  incoming ? write.to : write.from);
+        if (result != ParamSetResult::APPLIED)
+          return result;
+      }
+      const auto &from = modulation_params(source_from).modulation;
+      const auto &to = modulation_params(source_to).modulation;
+      using K = Pattern::SourceKind;
+      const bool from_spatial = from.source == K::NOISE;
+      const bool direct_path_pair =
+          (from_spatial && to.source == K::DISPLACEMENT) ||
+          (from.source == K::DISPLACEMENT && to.source == K::NOISE);
+      if (!direct_path_pair || from.evaluation != Pattern::Evaluation::DIRECT ||
+          to.evaluation != Pattern::Evaluation::DIRECT ||
+          from.mechanic.kind != to.mechanic.kind)
+        return ParamSetResult::INADMISSIBLE;
+      auto &entry = staged_modulations[n];
+      entry.spatial.modulation = from_spatial ? from : to;
+      entry.blend = {ops[index].instance, from.mechanic, to.mechanic, write.mix,
+                     from_spatial};
+      if (!from.enabled)
+        entry.blend.from.amount = 0.0f;
+      if (!to.enabled)
+        entry.blend.to.amount = 0.0f;
+    }
+    return ParamSetResult::APPLIED;
+  }
+
+  bool install_modulation_morphs(std::span<const LayerMorph> staged_modulations,
+                                 bool preview) {
+    const auto ops = program.ops();
+    bool interrupted = false;
+    for (size_t index = 0; index < ops.size(); ++index) {
+      if (!is_modulation(ops[index]))
+        continue;
+      auto &layer = modulation_resources(ops[index].instance);
+      interrupted |= !preview && layer.morph.has_value();
+      layer.morph.reset();
+      for (const auto &staged : staged_modulations)
+        if (staged.blend.key == layer.key) {
+          layer.morph = staged;
+          layer.morph->blend.key = layer.key;
+          break;
+        }
+    }
+    return interrupted;
+  }
+
   struct CandidateRefusal {
     ParamSetResult result = ParamSetResult::APPLIED;
     const char *warning = nullptr;
@@ -999,6 +1124,7 @@ private:
           &resources->palette_selection.prepare(persistent_arena, *tap.params,
                                                 tap.params->palette_chroma);
     size_t count = 0;
+    size_t morph_count = 0;
     bool hue_active = false;
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index) {
@@ -1008,21 +1134,30 @@ private:
       const auto &params = modulation_params(index);
       auto &clock = *static_cast<Pullback::Interp::Op::ModulationClockState *>(
           program.state_block(index));
-      Pullback::Modulation::synchronize(clock.modulation, params.modulation);
+      auto &layer = modulation_resources(key(&clock));
+      const auto &recipe =
+          layer.morph ? layer.morph->spatial.modulation : params.modulation;
+      Pullback::Modulation::synchronize(clock.modulation, recipe);
       HS_CHECK(count < MAX_MODULATION_LAYERS,
                "ShaderChain: modulation endpoint capacity exceeded");
       const Pullback::Modulation::Prepared *prepared = nullptr;
-      auto &layer = modulation_resources(key(&clock));
-      if (params.modulation.source != Pattern::SourceKind::DISPLACEMENT)
-        prepared =
-            &layer.modulation.prepare(params.modulation, clock.modulation);
+      if (recipe.source != Pattern::SourceKind::DISPLACEMENT)
+        prepared = &layer.modulation.prepare(recipe, clock.modulation);
       resources->endpoints[count++] = {layer.key, prepared};
+      if (layer.morph) {
+        const auto &blend = layer.morph->blend;
+        resources->morphs[morph_count++] = blend;
+        hue_active |=
+            blend.from.kind == ColorModulation::Mechanic::HUE_ROTATION &&
+            (blend.from.amount != 0.0f || blend.to.amount != 0.0f);
+      }
       hue_active |= params.modulation.enabled &&
                     params.modulation.mechanic.kind ==
                         ColorModulation::Mechanic::HUE_ROTATION &&
                     params.modulation.mechanic.amount != 0.0f;
     }
     ctx.modulations = std::span(resources->endpoints).first(count);
+    ctx.modulation_morphs = std::span(resources->morphs).first(morph_count);
     if (hue_active) {
       const size_t palette_index = tap.params->palette_mode;
       prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(

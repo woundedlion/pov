@@ -270,6 +270,102 @@ inline void test_shader_chain_modulation_temporal_endpoints() {
   }
 }
 
+/** @brief Authored source changes blend each layer's resolved mechanic. */
+inline void test_shader_chain_modulation_preset_morph() {
+  using WB = ShaderChainWhiteBox;
+  using Op = In::Op::ModulateColorV1;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  WB::ensure_modulation(effect);
+  const ShaderChainParameterWrite noise[] = {
+      {"modulation.modulation-source", 0},
+      {"modulation.modulation-amount", .7f},
+      {"modulation.modulation-evaluation", 0},
+      {"modulation.pattern-speed", .0005f}};
+  const ShaderChainParameterWrite path[] = {
+      {"modulation.modulation-source", 4},
+      {"modulation.modulation-amount", .2f},
+      {"modulation.modulation-evaluation", 0}};
+  const std::span<const ShaderChainParameterWrite> a = noise, b = path;
+  PB::ColorSample input{};
+  input.field = {.3f, 1.0f, math::X_AXIS, 4.7f};
+  input.color.alpha = .8f;
+  for (bool reverse : {false, true}) {
+    auto &live = WB::modulation_params(effect);
+    for (auto kind : {ColorModulation::Mechanic::HUE_ROTATION,
+                      ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                      ColorModulation::Mechanic::OPACITY}) {
+      live.modulation.mechanic.kind = kind;
+      for (float mix : {0.0f, .25f, .5f, .75f, 1.0f}) {
+        const ShaderChainModulationMorphWrite morph{
+            "modulation", reverse ? b : a, reverse ? a : b, mix, false};
+        HS_EXPECT_EQ(effect.update_parameters(reverse ? b : a, true, nullptr,
+                                              std::span(&morph, 1)),
+                     ParamSetResult::APPLIED);
+        WB::advance_without_render(effect);
+        const auto ctx = WB::frame_context(effect);
+        const auto &clock = WB::modulation_clocks(effect);
+        HS_EXPECT_EQ(clock.modulation.source, Pattern::SourceKind::NOISE);
+        const auto *spatial =
+            PB::Modulation::find_endpoint(ctx.modulations, clock.key);
+        HS_EXPECT_TRUE(spatial != nullptr);
+        if (!spatial)
+          return;
+        const float value = PB::Modulation::sample(
+            *spatial, Pattern::SphereDirection::admit(input.field.sphere));
+        auto noise_sample = input, path_sample = input;
+        PB::Color::apply_mechanic_scalar(noise_sample, value, {kind, .7f});
+        PB::Color::apply_mechanic_scalar(path_sample, input.field.path_length,
+                                         {kind, .2f});
+        auto expected =
+            PB::blend_color_samples(reverse ? path_sample : noise_sample,
+                                    reverse ? noise_sample : path_sample, mix);
+        if (kind == ColorModulation::Mechanic::HUE_ROTATION) {
+          const float noise_turns = .7f * value;
+          const float path_turns = .2f * input.field.path_length;
+          expected.pending_hue =
+              math::wrap_t(hs::lerp(reverse ? path_turns : noise_turns,
+                                    reverse ? noise_turns : path_turns, mix));
+        }
+        const auto sample =
+            Op::run(input, ctx, live, Op::prepare(ctx, live, clock));
+        HS_EXPECT_NEAR(sample.pending_hue, expected.pending_hue, 1e-6f);
+        HS_EXPECT_NEAR(sample.pending_lift, expected.pending_lift, 1e-6f);
+        HS_EXPECT_NEAR(sample.color.alpha, expected.color.alpha, 1e-6f);
+      }
+    }
+  }
+  const ShaderChainModulationMorphWrite quarter{"modulation", b, a, .25f,
+                                                false};
+  HS_EXPECT_EQ(
+      effect.update_parameters(b, true, nullptr, std::span(&quarter, 1)),
+      ParamSetResult::APPLIED);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto previous = WB::previous_context(effect);
+  const auto &before = WB::modulation_clocks(effect).modulation;
+  const float old_phase = before.phase.phase_turns;
+  const ShaderChainModulationMorphWrite halfway{"modulation", b, a, .5f, false};
+  HS_EXPECT_EQ(
+      effect.update_parameters(b, true, nullptr, std::span(&halfway, 1)),
+      ParamSetResult::APPLIED);
+  WB::advance_without_render(effect);
+  const auto current = WB::frame_context(effect);
+  HS_EXPECT_NEAR(previous.modulation_morphs.front().mix, .25f, 0);
+  HS_EXPECT_NEAR(current.modulation_morphs.front().mix, .5f, 0);
+  HS_EXPECT_NEAR(WB::modulation_clocks(effect).modulation.phase.phase_turns,
+                 math::wrap_t(old_phase + .0005f), 1e-6f);
+  ShaderChainModulationMorphWrite bad{"modulation", b, a, 1.1f, false};
+  HS_EXPECT_EQ(effect.update_parameters({}, true, nullptr, std::span(&bad, 1)),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_EQ(WB::frame_context(effect).modulation_morphs.size(), 1u);
+  HS_EXPECT_EQ(effect.update_parameters(b), ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(WB::frame_context(effect).modulation_morphs.empty());
+  HS_EXPECT_EQ(WB::modulation_clocks(effect).modulation.source,
+               Pattern::SourceKind::DISPLACEMENT);
+}
+
 /** @brief Each modulation resolves its own endpoint regardless of view order. */
 inline void test_shader_chain_modulation_endpoint_identity() {
   auto fixture = std::make_unique<ProgramFixture>();
@@ -920,6 +1016,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_modulation_combinations);
   HS_RUN(test_shader_chain_modulation_temporal_endpoints);
   HS_RUN(test_shader_chain_modulation_endpoint_identity);
+  HS_RUN(test_shader_chain_modulation_preset_morph);
   HS_RUN(test_shader_chain_status_names);
   HS_RUN(test_shader_chain_modulation_accessor_keeps_parameters);
   HS_RUN(test_shader_chain_snapshot_roundtrip);
