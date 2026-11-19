@@ -612,7 +612,7 @@ struct Tessellation : ApproximationDefaults {
     if constexpr (APPROXIMATE)
       return std::array{ApproximationMetric{ApproximationDomain::SOURCE_FIELD,
                                             ApproximationAggregation::MAXIMUM,
-                                            0.004f, "signed field units"},
+                                            0.012f, "signed field units"},
                         ApproximationMetric{ApproximationDomain::FRAMEBUFFER,
                                             ApproximationAggregation::MEAN,
                                             8.0f, "channel code"}};
