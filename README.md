@@ -1486,6 +1486,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
 │   │   │   ├── authored_sample.h       Runtime signal weighting and projection coverage
 │   │   │   ├── authored_source.h       Source policies with authored topology
+│   │   │   ├── planar_source.h         Planar source kind ids and parameter families
 │   │   │   ├── authored_warp.h         Warp policies with authored topology
 │   │   │   ├── translation_lattice.h   Translation symmetry a planar source reports to the warp before it
 │   │   │   ├── spatial_walk.h          Sphere spin and random-walk state
