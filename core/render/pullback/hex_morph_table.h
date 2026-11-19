@@ -11,61 +11,63 @@
  */
 namespace Pullback::Source {
 
-/** @brief A triangular interpolation grid on a hex cell's 30-degree sector. */
+/** @brief Periodic triangular samples in coordinates normal to hex cell faces. */
 struct HexMorphTable {
-  static constexpr int STEPS = 60; ///< Intervals along each sector axis.
-  uint16_t values[STEPS + 1][STEPS + 1]{};
-  float radius = -1.0f;
-  float softness = 0.0f;
-  float shape = 0.0f;
+  static constexpr int STEPS = 32;
+  uint16_t values[3][STEPS + 1][STEPS + 1]{};
+  float radius = -1.0f, softness = 0.0f, shape = 0.0f;
 
-  /// Scale is applied at sampling time. The other three controls define the grid.
   bool matches(const Pattern::TessellationCellParams &p) const {
     return p.cell_radius == radius && p.cell_softness == softness &&
            p.cell_shape == shape;
   }
 
-  /// Samples the analytic hex primitive at each sector grid vertex.
   HS_SIZE_FLASH_MEMBER void bake(const Pattern::TessellationCellParams &p) {
     radius = p.cell_radius;
     softness = p.cell_softness;
     shape = p.cell_shape;
-    for (int i = 0; i <= STEPS; ++i)
-      for (int j = 0; j <= STEPS; ++j) {
-        const float x = (0.5f / STEPS) * i;
-        const float y = (0.5f * Pattern::INV_SQRT_3 / STEPS) * j;
-        const float value =
-            Pattern::cell_primitive<Pattern::TessellationKind::HEXAGONAL>(x, y,
-                                                                          p);
-        values[i][j] = static_cast<uint16_t>((1.0f + value) * 32767.5f + 0.5f);
-      }
+    auto sample_params = p;
+    sample_params.cell_scale = 1.0f;
+    for (int tile = 0; tile < 3; ++tile)
+      for (int i = 0; i <= STEPS; ++i)
+        for (int j = 0; j <= STEPS; ++j) {
+          const float a = tile + static_cast<float>(i) / STEPS;
+          const float b = static_cast<float>(j) / STEPS;
+          const Pattern::PlanePosition position{
+              {0.5f * (a + b), 0.5f * Pattern::INV_SQRT_3 * (a - b)}};
+          const float field = Pattern::hexagonal_cells(position, sample_params);
+          values[tile][i][j] =
+              static_cast<uint16_t>((1.0f + field) * 32767.5f + 0.5f);
+        }
   }
 
-  /// Interpolates the field encoded on [0, 65535] at a point on the working plane.
+  static HS_HOT_INLINE int fixed_coordinate(float x) {
+    constexpr float factor = 256.0f * STEPS;
+    if (fabsf(x) >= 2147483648.0f / factor)
+      x = fmodf(x, 3.0f);
+    return static_cast<int>(floorf(x * factor));
+  }
+
   HS_HOT_INLINE float sample(math::Complex coord, float scale) const {
-    const float u = coord.re * scale;
-    const float r = (coord.im * scale) * Pattern::INV_SQRT_3;
-    float x = fabsf(u - nearbyintf(u));
-    float row = fabsf(r - nearbyintf(r));
-    if (x + 3.0f * row > 1.0f) {
-      x = 0.5f - x;
-      row = 0.5f - row;
+    const float y = Pattern::SQRT_3 * coord.im;
+    const int a = fixed_coordinate((coord.re + y) * scale);
+    const int b = fixed_coordinate((coord.re - y) * scale);
+    const unsigned tile = (2147483646u + (a >> 13) - (b >> 13)) % 3u;
+    const unsigned i = (a >> 8) & (STEPS - 1);
+    const unsigned j = (b >> 8) & (STEPS - 1);
+    const int da = a & 255, db = b & 255;
+    const auto &grid = values[tile];
+    const int x = grid[i + 1][j], edge_y = grid[i][j + 1];
+    int value;
+    if (da + db <= 256) {
+      const int base = grid[i][j];
+      value = 256 * base + da * (x - base) + db * (edge_y - base);
+    } else {
+      const int base = grid[i + 1][j + 1];
+      value =
+          256 * base + (256 - da) * (edge_y - base) + (256 - db) * (x - base);
     }
-    const float y = Pattern::SQRT_3 * row;
-    const float fold = fminf(0.5f * x - Pattern::HALF_SQRT_3 * y, 0.0f);
-    const float s = (2.0f * STEPS) * (x - fold);
-    const float t =
-        (2.0f * Pattern::SQRT_3 * STEPS) * fabsf(y + Pattern::SQRT_3 * fold);
-    const int i = std::min(static_cast<int>(s), STEPS - 1);
-    const int j = std::min(static_cast<int>(t), STEPS - 1);
-    const float a = values[i][j], b = values[i + 1][j + 1];
-    const float ds = s - i, dt = t - j;
-    if (ds >= dt) {
-      const float mid = values[i + 1][j];
-      return a + ds * (mid - a) + dt * (b - mid);
-    }
-    const float mid = values[i][j + 1];
-    return a + dt * (mid - a) + ds * (b - mid);
+    return static_cast<float>(value) / 256.0f;
   }
 };
 
