@@ -1836,20 +1836,27 @@ inline void test_river_stones_2_meridian() {
   }
 }
 
-/** @brief Both RiverStones departures blend the sampled endpoint fields at the same plane position. */
+/** @brief Both automatic RiverStones morphs translate each endpoint field on its own repeat lattice. */
 inline void test_river_stones_source_morph() {
   using FX = RiverStones<SMALL_W, SMALL_H>;
-  using Sample = FX::RenderPipeline::StageAt<4>;
-  constexpr std::array points{math::Complex{0.17f, 0.23f},
-                              math::Complex{-0.39f, 0.11f},
-                              math::Complex{0.62f, -0.48f}};
-  const auto sample = [&](const FX::FrameState &frame) {
-    const auto prepared = Sample::prepare<FX::Binding>(frame);
-    std::array<float, points.size()> values{};
-    for (size_t i = 0; i < points.size(); ++i) {
-      Pullback::PlaneSample plane{points[i], {}, math::Y_AXIS, 0.0f};
-      plane.provenance.value_weight = 1.0f;
-      values[i] = Sample::run<FX::Binding>(plane, frame, prepared).value;
+  using Pipeline = FX::RenderPipeline;
+  using Warp = Pipeline::NodeAt<3>;
+  using Source = Pipeline::NodeAt<4>;
+  const auto sample = [](const FX::FrameState &frame) {
+    const auto prepared = Pipeline::prepare_stages(frame);
+    std::array<float, 45> values;
+    for (int y = 0; y < 5; ++y) {
+      for (int x = 0; x < 9; ++x) {
+        Pullback::PlaneSample plane{
+            {0.117f + 0.431f * (x - 4), 0.283f + 0.327f * (y - 2)},
+            {},
+            math::Y_AXIS,
+            0.0f};
+        plane.provenance.value_weight = 1.0f;
+        const auto warped = Warp::run(plane, frame, std::get<3>(prepared));
+        values[y * 9 + x] =
+            Source::run(warped, frame, std::get<4>(prepared)).value;
+      }
     }
     return values;
   };
@@ -1859,12 +1866,6 @@ inline void test_river_stones_source_morph() {
   FX effect;
   effect.set_clip(0, 1, 0, 1);
   effect.init();
-  const auto first = sample(effect.frame_for_test());
-  HS_EXPECT_TRUE(effect.synchronizePreset(1));
-  const auto second = sample(effect.frame_for_test());
-  HS_EXPECT_TRUE(first != second);
-  HS_EXPECT_TRUE(effect.synchronizePreset(0));
-
   int clock = 0;
   const auto draw = [&] {
     pin_frame_clock(++clock);
@@ -1873,8 +1874,6 @@ inline void test_river_stones_source_morph() {
   };
   for (size_t from : {0u, 1u}) {
     HS_CONTEXT("departing preset", static_cast<int>(from));
-    const auto &start = from == 0 ? first : second;
-    const auto &end = from == 0 ? second : first;
     const auto segue =
         std::get<Segue::Preset::Lerp>(FX::preset_departure(from));
     for (int dwell = 0;
@@ -1884,15 +1883,24 @@ inline void test_river_stones_source_morph() {
     HS_EXPECT_EQ(effect.getPresetIndex(), 1 - from);
     for (unsigned tick = 1; tick <= segue.frames; ++tick) {
       draw();
-      if (tick != segue.frames / 4 && tick != segue.frames / 2 &&
-          tick != 3u * segue.frames / 4 && tick != segue.frames)
-        continue;
       HS_CONTEXT("transition tick", static_cast<int>(tick));
-      const auto values = sample(ComposedFrameWhiteBox::current_frame(effect));
+      const auto &frame = ComposedFrameWhiteBox::current_frame(effect);
+      const auto actual = sample(frame);
+      auto endpoint = frame;
+      endpoint.source_morph = {};
+      endpoint.params.template get<"source">() =
+          FX::preset(from).params.template get<"source">();
+      const auto outgoing = sample(endpoint);
+      endpoint.params.template get<"source">() =
+          FX::preset(1 - from).params.template get<"source">();
+      const auto incoming = sample(endpoint);
       const float progress =
           segue.easing(static_cast<float>(tick) / segue.frames);
-      for (size_t i = 0; i < points.size(); ++i)
-        HS_EXPECT_NEAR(values[i], hs::lerp(start[i], end[i], progress), 1e-5f);
+      if (tick == 1)
+        HS_EXPECT_TRUE(outgoing != incoming);
+      for (size_t i = 0; i < actual.size(); ++i)
+        HS_EXPECT_NEAR(actual[i], hs::lerp(outgoing[i], incoming[i], progress),
+                       1e-5f);
     }
   }
 }
