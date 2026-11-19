@@ -578,12 +578,13 @@ template <ColumnReset Reset> inline void chain_column_rechecks_history() {
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size() && !changed; ++index) {
       const auto &op = ops[index];
+      auto *params = program.param_block(index);
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
         if (op.op->schema[field].enum_count > 1 &&
             (op.op->runtime.temporal_hold_field == nullptr ||
-             !op.op->runtime.temporal_hold_field(field))) {
+             !op.op->runtime.temporal_hold_field(field, params, params))) {
           auto *value = static_cast<uint8_t *>(
-              op.op->runtime.param_address(program.param_block(index), field));
+              op.op->runtime.param_address(params, field));
           *value = static_cast<uint8_t>((*value + 1) %
                                         op.op->schema[field].enum_count);
           changed = true;
