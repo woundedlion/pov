@@ -441,15 +441,15 @@ inline void test_stationary_noise_table_identity() {
   base.seed = Pullback::HUE_NOISE_SEED;
   StationaryCubicNoise cache, other_cache;
   Resources<false> owner;
-  const auto bind = [&](const Config &config,
+  const auto bind = [&](const Config &config, const Prepared *retained,
                         float phase = 0.0f) -> Prepared & {
     auto clock = init(config);
     clock.phase.phase_turns = phase;
     owner.prepare(config, clock);
-    cache.bind(owner.prepared);
+    cache.bind(owner.prepared, retained);
     return owner.prepared;
   };
-  auto &current = bind(base);
+  auto &current = bind(base, nullptr);
   HS_EXPECT_TRUE(current.evaluate == StationaryCubicNoise::sample);
   Prepared retained;
   retain(&current, retained, {});
@@ -458,44 +458,61 @@ inline void test_stationary_noise_table_identity() {
   HS_EXPECT_EQ(original,
                Pattern::bounded_scalar(retained.immutable_table->sample_tap(
                    retained, Pattern::prepare_sphere_lut_sample(coordinate))));
-  auto amount = base;
-  amount.mechanic.amount += 0.15f;
-  bind(amount);
+  auto edit = base;
+  edit.mechanic.amount += 0.15f;
+  edit.mechanic.kind = ColorModulation::Mechanic::OPACITY;
+  bind(edit, &retained);
   HS_EXPECT_TRUE(same_direct_sample(retained, current));
-  HS_EXPECT_TRUE(same_endpoint_sample(retained, current));
   HS_EXPECT_EQ(sample(current, coordinate), original);
-  for (int edit = 0; edit < 7; ++edit) {
-    auto params = base;
-    if (edit == 0)
-      params.enabled = false;
-    if (edit == 1)
-      ++params.seed;
-    if (edit == 2)
-      params.noise.speed = 0.0002f;
-    if (edit == 3)
-      params.noise.scale = 1.2f;
-    if (edit == 4)
-      params.mechanic.kind = ColorModulation::Mechanic::OPACITY;
-    if (edit == 5)
-      params.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
-    bind(params, edit == 6 ? 0.25f : 0.0f);
+
+  ++edit.seed;
+  edit.noise.scale = 1.01f;
+  for (int frame = 0; frame < 4; ++frame) {
+    bind(edit, &retained, 0.25f);
     HS_EXPECT_TRUE(current.immutable_table == nullptr);
+    HS_EXPECT_EQ(sample(retained, coordinate), original);
     HS_EXPECT_FALSE(same_direct_sample(retained, current));
+  }
+  for (int frame = 0; frame < 6; ++frame) {
+    bind(frame % 2 ? edit : base, nullptr, 0.25f);
+    HS_EXPECT_TRUE(current.immutable_table == nullptr);
+  }
+  bind(edit, nullptr, 0.25f);
+  HS_EXPECT_TRUE(current.immutable_table == &cache);
+  const float rebaked = sample(current, coordinate);
+  HS_EXPECT_NEAR(
+      rebaked,
+      Pattern::SphereNoise::sample(coordinate, std::get<0>(current.source)),
+      0.005f);
+  HS_EXPECT_TRUE(rebaked != original);
+  retain(&current, retained, {});
+  for (int change = 0; change < 4; ++change) {
+    auto params = edit;
+    if (change == 0)
+      params.enabled = false;
+    if (change == 1)
+      params.noise.speed = 0.0002f;
+    if (change == 2)
+      params.noise.scale = 8.0f;
+    if (change == 3)
+      params.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+    bind(params, &retained, 0.25f);
+    HS_EXPECT_TRUE(current.immutable_table == nullptr);
     HS_EXPECT_EQ(sample(current, coordinate),
                  Pattern::bounded_scalar(Pattern::SphereNoise::sample(
                      coordinate, std::get<0>(current.source))));
-    HS_EXPECT_EQ(sample(retained, coordinate), original);
+    HS_EXPECT_EQ(sample(retained, coordinate), rebaked);
   }
-  bind(base);
+  bind(edit, &retained, 0.25f);
   HS_EXPECT_TRUE(same_direct_sample(retained, current));
   owner.prepare(base, init(base));
-  other_cache.bind(current);
+  other_cache.bind(current, nullptr);
   HS_EXPECT_FALSE(same_direct_sample(retained, current));
   owner.prepare(base, init(base));
   std::get<0>(current.source).noise.SetSeed(base.seed + 1);
-  cache.bind(current);
+  cache.bind(current, &retained);
   HS_EXPECT_TRUE(current.immutable_table == nullptr);
-  bind(base);
+  bind(base, nullptr);
   auto custom = [](const Prepared &p, const Pattern::SphereDirection &) {
     return p.config.mechanic.amount;
   };
@@ -512,23 +529,38 @@ inline void test_stationary_cubic_noise_accuracy() {
   config.evaluation = Pattern::Evaluation::DIRECT;
   config.seed = Pullback::HUE_NOISE_SEED;
   Resources<false> owner;
-  const auto exact = owner.prepare(config, init(config));
   StationaryCubicNoise cache;
-  cache.bind(owner.prepared);
-  double total = 0.0;
-  float maximum = 0.0f;
-  for (int face = 0; face < 6; ++face)
-    for (int y = 0; y <= 37; ++y)
-      for (int x = 0; x <= 37; ++x) {
-        const auto direction = Pattern::sphere_face_coordinate(
-            face, (2 * x - 37) / 37.0f, (2 * y - 37) / 37.0f);
-        const float error =
-            fabsf(sample(exact, direction) - sample(owner.prepared, direction));
-        total += error;
-        maximum = std::max(maximum, error);
-      }
-  HS_EXPECT_TRUE(total / (6 * 38 * 38) < 0.0002);
-  HS_EXPECT_TRUE(maximum < 0.005f);
+  for (int variant = 0; variant < 4; ++variant) {
+    auto clock = init(config);
+    if (variant == 1)
+      ++config.seed;
+    if (variant == 2)
+      config.noise.scale = StationaryCubicNoise::MAX_SCALE;
+    if (variant == 3)
+      clock.phase.phase_turns = 0.19f;
+    const auto exact = owner.prepare(config, clock);
+    cache.bind(owner.prepared, nullptr);
+    if (variant != 0) {
+      HS_EXPECT_TRUE(owner.prepared.immutable_table == nullptr);
+      owner.prepare(config, clock);
+      cache.bind(owner.prepared, nullptr);
+    }
+    HS_EXPECT_TRUE(owner.prepared.immutable_table == &cache);
+    double total = 0.0;
+    float maximum = 0.0f;
+    for (int face = 0; face < 6; ++face)
+      for (int y = 0; y <= 37; ++y)
+        for (int x = 0; x <= 37; ++x) {
+          const auto direction = Pattern::sphere_face_coordinate(
+              face, (2 * x - 37) / 37.0f, (2 * y - 37) / 37.0f);
+          const float error = fabsf(sample(exact, direction) -
+                                    sample(owner.prepared, direction));
+          total += error;
+          maximum = std::max(maximum, error);
+        }
+    HS_EXPECT_TRUE(total / (6 * 38 * 38) < 0.0002);
+    HS_EXPECT_TRUE(maximum < (variant == 0 ? 0.005f : 0.008f));
+  }
 }
 
 /** @brief Direct endpoint sharing respects prepared generators and opaque samplers. */

@@ -82,7 +82,7 @@ public:
         auto &state = owned->template get<Resource::KEY>();
         const auto &config = params->template get<Resource::KEY>().modulation;
         state.modulation_resources.prepare(config, Modulation::init(config));
-        state.bind(state.modulation_resources.prepared);
+        state.bind(state.modulation_resources.prepared, nullptr);
       }
       if constexpr (Resource::KIND == ResourceKind::ROTATION) {
         constexpr auto INSTANCE =
@@ -193,7 +193,8 @@ public:
    * @param frame Frame whose `params`, `resources` and
    *        `projection_conjugate` are already set.
    */
-  HS_O3_FN HS_HOT_INLINE void prepare_views(FrameState &frame) {
+  HS_O3_FN HS_HOT_INLINE void prepare_views(FrameState &frame,
+                                            const FrameState *retained) {
     params->visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       if constexpr (std::is_same_v<typename Resource::Family,
@@ -227,7 +228,11 @@ public:
           resource.modulation =
               &state.modulation_resources.prepare(config, clock);
           if constexpr (CUBIC_STATIONARY_HUE<Resource>)
-            state.bind(state.modulation_resources.prepared);
+            state.bind(state.modulation_resources.prepared,
+                       retained
+                           ? retained->resources.template get<Resource::KEY>()
+                                 .modulation
+                           : nullptr);
         }
         resource.previous_modulation = resource.modulation;
         if constexpr (Traits::PHASE_NOISE_CACHE &&

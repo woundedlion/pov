@@ -7,7 +7,7 @@
 #include "core/render/pullback/modulation.h"
 
 /** @file stationary_cubic_noise.h
- * @brief Cubic patches over the byte-cube grid for stationary hue noise. */
+ * @brief Cubic patches over the byte-cube grid for stationary direct noise. */
 
 namespace Pullback::Modulation {
 
@@ -17,7 +17,15 @@ struct StationaryCubicNoise : ImmutableTable {
   using Cell = std::array<int16_t, 10>;
   using Edges = std::array<std::array<float, 3 * N - 2>, 4>;
   std::array<Cell, Pattern::SphereLutView::SIZE> cells;
-  bool ready = false;
+  /// Highest spatial frequency resolved by the 23-cell cubic face.
+  static constexpr float MAX_SCALE = 1.25f;
+  struct Key {
+    int32_t seed;
+    float scale;
+    float x, y, z;
+    bool operator==(const Key &) const = default;
+  };
+  std::optional<Key> resident, pending;
 
   StationaryCubicNoise() : ImmutableTable{sample, sample_byte_tap} {}
 
@@ -71,18 +79,12 @@ struct StationaryCubicNoise : ImmutableTable {
           roundf(hs::clamp(coefficients[i], -1.f, 1.f) * 32767.f));
   }
 
-  /** @brief Whether the endpoint uses the stationary configured hue generator. */
-  static bool supports(const Prepared &endpoint) {
-    if (!endpoint.config.enabled ||
-        endpoint.config.mechanic.kind !=
-            ColorModulation::Mechanic::HUE_ROTATION ||
-        endpoint.evaluate != Detail::sample_unit_noise_origin ||
-        endpoint.config.noise.speed != 0.0f ||
-        endpoint.config.seed != HUE_NOISE_SEED)
-      return false;
-    FastNoiseLite generator;
-    init_effect_noise(generator, HUE_NOISE_SEED);
-    return std::get<0>(endpoint.source).noise.same_noise_single_3d(generator);
+  /** @brief Admits stationary single-octave simplex at the cubic cell resolution. */
+  static constexpr bool supports(const Config &config) {
+    return config.enabled && config.source == Pattern::SourceKind::NOISE &&
+           config.evaluation == Pattern::Evaluation::DIRECT &&
+           config.noise.variant == Pattern::NoiseVariant::CONFIGURED_SINGLE &&
+           config.noise.speed == 0.0f && config.noise.scale <= MAX_SCALE;
   }
 
   /** @brief Fills the immutable coefficients from the canonical direct generator. */
@@ -96,8 +98,9 @@ struct StationaryCubicNoise : ImmutableTable {
           const int step = row == 1 || row == 2 ? 3 : 1;
           for (int x = 0; x <= intervals; x += step) {
             const float u = float(2 * x - intervals) / intervals;
-            edges[row][x] = Detail::sample_unit_noise_origin(
-                p, Pattern::sphere_face_coordinate(face, u, v));
+            edges[row][x] = Pattern::SphereNoise::sample(
+                Pattern::sphere_face_coordinate(face, u, v),
+                std::get<0>(p.source));
           }
         }
         for (int x = 0; x < N - 1; ++x)
@@ -105,15 +108,37 @@ struct StationaryCubicNoise : ImmutableTable {
         edges[0] = edges[3];
       }
     }
-    ready = true;
   }
 
-  /** @brief Binds stationary cubic evaluation for the matching live recipe. */
-  HS_HOT_FLASH_MEMBER void bind(Prepared &p) {
-    if (!supports(p))
+  /** @brief Binds a stable generator once its previous bake is no longer borrowed.
+   * @param p Freshly prepared canonical endpoint.
+   * @param retained Endpoint still in use by the retained frame, if any. */
+  HS_HOT_FLASH_MEMBER void bind(Prepared &p, const Prepared *retained) {
+    if (!supports(p.config) || p.source.index() != 0 ||
+        (p.evaluate != Detail::DIRECT_SAMPLERS[0] &&
+         p.evaluate != Detail::sample_unit_noise_origin)) {
+      pending.reset();
       return;
-    if (!ready)
+    }
+    const auto &noise = std::get<0>(p.source);
+    FastNoiseLite generator;
+    init_effect_noise(generator, p.config.seed);
+    if (!noise.noise.same_noise_single_3d(generator)) {
+      pending.reset();
+      return;
+    }
+    const Key key{p.config.seed, noise.scale, noise.loop_offset.x,
+                  noise.loop_offset.y, noise.loop_offset.z};
+    if (resident != key) {
+      if (resident &&
+          (pending != key || (retained && retained->immutable_table == this))) {
+        pending = key;
+        return;
+      }
       bake(p);
+      resident = key;
+    }
+    pending.reset();
     p.immutable_table = this;
     p.evaluate = sample;
   }

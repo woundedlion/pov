@@ -645,7 +645,11 @@ private:
       frame.dodecahedral_faces = nullptr;
     frame.params = params;
     frame.resources = {};
-    clocks.prepare_views(frame);
+    const FrameState *retained = nullptr;
+    if constexpr (TEMPORAL_SAMPLING)
+      if (state->initialized)
+        retained = &state->previous;
+    clocks.prepare_views(frame, retained);
     if constexpr (TEMPORAL_SAMPLING) {
       frame.temporal = {frame.palette, frame.hue_rotation_lut, 1.0f};
       frame.temporal.hue_rotation_gamut = frame.hue_rotation_gamut;
