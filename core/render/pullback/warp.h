@@ -498,6 +498,21 @@ affine_turn_translation(const AffineParams &warp,
       windings_a * (repeat * basis.a.im) + windings_b * (repeat * basis.b.im)};
 }
 
+/** @brief Offset from the live warped plane to one source endpoint's plane.
+ * @param warp Live affine controls.
+ * @param phase Column phase in turns.
+ * @param live Prepared live affine.
+ * @param endpoint Source endpoint's translation lattice. */
+HS_FLASH_INLINE inline math::Complex
+endpoint_translation_offset(const AffineParams &warp, float phase,
+                            const PreparedAffineSlot &live,
+                            const TranslationLattice &endpoint) {
+  const auto turn = affine_turn_translation(warp, affine_basis(warp, endpoint));
+  const float t = math::wrap_t(phase);
+  return {live.affine.translation_x - t * turn.re,
+          live.affine.translation_y - t * turn.im};
+}
+
 /** @brief Reduces the repeat lattice an affine path length is measured
     modulo, with Lagrange reduction.
     @param a First repeat basis vector.
