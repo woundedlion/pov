@@ -12,23 +12,13 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "core/math/periodic.h"
 #include "core/platform/platform.h"
 
 namespace pov {
 namespace sync {
 
 // ── Small integer helpers (signed-correct division/modulo) ─────────────────
-
-/**
- * @brief Non-negative modulo.
- * @param a Value to reduce.
- * @param m Modulus (positive).
- * @return a mod m in [0, m).
- */
-constexpr int32_t floor_mod(int32_t a, int32_t m) {
-  const int32_t r = a % m;
-  return r < 0 ? r + m : r;
-}
 
 /**
  * @brief Circular distance between two columns on a ring.
@@ -38,10 +28,7 @@ constexpr int32_t floor_mod(int32_t a, int32_t m) {
  * @return Shortest distance around the ring, in columns, in [0, w/2].
  */
 constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
-  // (a-b)%w lands in (-w, w) for any a, b, so one conditional add normalizes.
-  int32_t d = (a - b) % w;
-  if (d < 0)
-    d += w;
+  const int32_t d = math::wrap_positive(a - b, w);
   return d > w / 2 ? w - d : d;
 }
 

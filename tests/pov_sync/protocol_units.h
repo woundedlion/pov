@@ -21,8 +21,6 @@ inline void expect_rejects(const Config &config, const char *clause) {
  * @brief Pins protocol position helpers and default timing constants.
  */
 inline void test_helpers() {
-  HS_EXPECT_EQ(floor_mod(-1, 288), 287);
-  HS_EXPECT_EQ(floor_mod(288, 288), 0);
   HS_EXPECT_EQ(circ_dist(287, 0, 288), 1);
   HS_EXPECT_EQ(circ_dist(0, 144, 288), 144);
   HS_EXPECT_EQ(circ_dist(10, 280, 288), 18);

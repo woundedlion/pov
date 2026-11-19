@@ -101,7 +101,7 @@ public:
     if (U * HALF_W - q * period >= period)
       ++q;
     const int32_t cols = static_cast<int32_t>(q - MIN_SAFE_HALF_REVS * HALF_W);
-    return floor_mod(boundary_column(boundary, w) + cols, w);
+    return math::wrap_positive(boundary_column(boundary, w) + cols, w);
   }
 
   /**

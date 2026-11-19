@@ -60,7 +60,7 @@ __attribute__((always_inline)) inline T wrap_positive_closed(T value,
  * @param period Positive period.
  * @return `value` modulo `period`, in [0, period).
  */
-template <typename T> inline T wrap_positive(T value, T period) {
+template <typename T> constexpr T wrap_positive(T value, T period) {
   if constexpr (std::is_floating_point_v<T>) {
     const T result = wrap_positive_closed(value, period);
     return result >= period ? T{0} : result;

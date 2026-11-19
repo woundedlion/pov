@@ -151,7 +151,7 @@ inline void test_budget_corrupted_timebase() {
 
   // Corrupt board 2's flywheel phase by W/4 — far beyond the gate.
   SimBoard &b2 = sim.boards[2];
-  const int32_t bogus = floor_mod(sim.board_pos(2) + 72, cfg.W);
+  const int32_t bogus = math::wrap_positive(sim.board_pos(2) + 72, cfg.W);
   const uint64_t corrupt_g = sim.g;
   const uint32_t transitions_before =
       b2.board.telemetry_snapshot().lock_transitions;
