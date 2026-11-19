@@ -1141,7 +1141,12 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
   return null;
 }
 
-/** Updates superseded field declarations while preserving authored values.
+const TILING_OPERATOR = 'sample.spherical-tiling.v1';
+const TILING_OUTPUT_MIGRATION = new Map([
+  ['borders', 'edges'], ['face-type', 'faces'], ['tile-value', 'faces'],
+]);
+
+/** Updates superseded field declarations and selections.
  * @param {Object} document Decoded shader document.
  * @param {Object} catalog Current operator catalog.
  * @returns {Object} Document with current field declarations. */
@@ -1157,7 +1162,7 @@ export function migrateLegacyShaderDocument(document, catalog) {
     const label = parameter.id.slice(0, separator);
     const id = parameter.id.slice(separator + 1);
     if (id !== 'coverage-mode' && id !== 'axis-lambda' && id !== 'frame' &&
-        id !== 'hemisphere') continue;
+        id !== 'hemisphere' && id !== 'output') continue;
     const slot = document.descriptor.chain.find((entry) => entry?.label === label);
     const operator = catalog.operators.find((entry) => entry && entry.id === slot?.operator);
     if (!Array.isArray(operator?.params)) continue;
@@ -1177,6 +1182,11 @@ export function migrateLegacyShaderDocument(document, catalog) {
         JSON.stringify(parameter.domain?.values) === JSON.stringify(['folded', 'front', 'back']) &&
         JSON.stringify(field?.values) === JSON.stringify(['folded', 'front', 'back', 'mirrored']))
       updates.push({ index, domain: { ...parameter.domain, values: [...field.values] } });
+    if (id === 'output' && operator.id === TILING_OPERATOR &&
+        JSON.stringify(parameter.domain?.values) === JSON.stringify([...TILING_OUTPUT_MIGRATION.keys()]) &&
+        JSON.stringify(field?.values) === JSON.stringify(['edges', 'faces']))
+      updates.push({ index, domain: { ...parameter.domain, values: [...field.values] },
+        selections: TILING_OUTPUT_MIGRATION });
     if (id === 'axis-lambda' && operator?.id === 'sphere.lens.twist.v2' &&
         field?.curve === 'shortest-periodic' && parameter.interpolation?.kind === 'LINEAR' &&
         !('period' in parameter.interpolation)) {
@@ -1186,9 +1196,33 @@ export function migrateLegacyShaderDocument(document, catalog) {
   }
   if (!updates.length) return document;
   const result = structuredClone(document);
-  for (const { index, ...replacement } of updates)
-    Object.assign(result.descriptor.parameters[index], replacement);
+  for (const { index, selections, ...replacement } of updates) {
+    const parameter = result.descriptor.parameters[index];
+    Object.assign(parameter, replacement);
+    if (!selections) continue;
+    if (selections.has(parameter.default)) parameter.default = selections.get(parameter.default);
+    if (!Array.isArray(result.preset_bank?.presets)) continue;
+    for (const preset of result.preset_bank.presets) {
+      const value = preset?.values?.[parameter.id];
+      if (selections.has(value)) preset.values[parameter.id] = selections.get(value);
+    }
+  }
   return result;
+}
+
+/** Updates the legacy Tiling tile-value ordinal in a runtime snapshot.
+ * @param {Object} snapshot Decoded chain snapshot.
+ * @returns {Object} Snapshot with current Tiling ordinals. */
+export function migrateLegacyShaderSnapshot(snapshot) {
+  if (!Array.isArray(snapshot?.chain) || !Array.isArray(snapshot?.parameters)) return snapshot;
+  const outputs = new Set(snapshot.chain.filter((entry) => entry?.operator === TILING_OPERATOR)
+    .map((entry) => `${entry.instance}.output`));
+  if (outputs.size === 0) return snapshot;
+  return {
+    ...snapshot,
+    parameters: snapshot.parameters.map((entry) => entry?.value === 2 && outputs.has(entry.name)
+      ? { ...entry, value: 1 } : entry),
+  };
 }
 
 export function compileShaderDocument(source, options = {}) {

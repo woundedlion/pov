@@ -575,15 +575,19 @@ private:
             continue;
           if (is_modulation(op))
             return false;
-          if (!field_in_schema(info, write.value))
+          float value = write.value;
+          if (value == 2.0f && std::string_view(info.id) == "output" &&
+              std::string_view(op.op->operator_id) ==
+                  Op::SampleSphericalTiling::ID)
+            value = static_cast<uint8_t>(Pullback::Source::TilingOutput::FACES);
+          if (!field_in_schema(info, value))
             return false;
           void *address =
               op.op->runtime.param_address(base + op.param_offset, field);
           if (info.enum_count > 0) {
-            *static_cast<uint8_t *>(address) =
-                static_cast<uint8_t>(write.value);
+            *static_cast<uint8_t *>(address) = static_cast<uint8_t>(value);
           } else {
-            *static_cast<float *>(address) = write.value;
+            *static_cast<float *>(address) = value;
           }
           found = true;
         }

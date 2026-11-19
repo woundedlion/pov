@@ -26,6 +26,18 @@ class SphereTilingGeometry {
 public:
   static constexpr uint16_t NO_FACE = UINT16_MAX; ///< Uncovered direction.
 
+  /** @brief Nearest seam sample. */
+  struct EdgeSample {
+    float distance; ///< Angular distance in radians.
+    float position; ///< Arc fraction from the lower vertex index.
+  };
+
+  /** @brief Inward angular distances from a face boundary. */
+  struct FaceDepth {
+    float sample; ///< Distance at the sampled direction, in radians.
+    float center; ///< Distance at the face center, in radians.
+  };
+
   /** @brief Builds the geometry and index for a registry solid.
    * @param registry_index Index into the solids registry. */
   explicit SphereTilingGeometry(size_t registry_index) {
@@ -51,23 +63,35 @@ public:
     return owner;
   }
 
-  /** @brief Returns the side count of a face.
-   * @param face Face ID returned by face_at(), or NO_FACE.
-   * @return Number of polygon sides, or zero for NO_FACE. */
-  uint16_t face_type(uint16_t face) const {
-    return face == NO_FACE ? 0 : faces[face].count;
+  /** @brief Measures inward depth within a projected face.
+   * @param face Face ID returned by face_at(), excluding NO_FACE.
+   * @param unit_direction Unit direction in that face.
+   * @return Distances to the boundary at the sample and the face center. */
+  FaceDepth face_depth(uint16_t face,
+                       const math::Vector &unit_direction) const {
+    const Face &polygon = faces[face];
+    return {boundary_distance(polygon, unit_direction), polygon.center_depth};
   }
 
-  /** @brief Measures angular distance to the nearest finite seam arc.
+  /** @brief Samples the nearest finite seam arc within the distance limit.
    * @param unit_direction Unit direction in the solid's frame.
    * @param max_distance_radians Maximum reported distance in [0, pi].
-   * @return Seam distance in radians, saturated at max_distance_radians. */
-  float border_distance(const math::Vector &unit_direction,
-                        float max_distance_radians) const {
+   * @return Distance and arc fraction, or the distance limit and zero. */
+  EdgeSample edge_at(const math::Vector &unit_direction,
+                     float max_distance_radians) const {
     float best = chord_squared(max_distance_radians);
-    for (uint16_t id : edge_index.candidates(cell_at(unit_direction)))
-      best = std::min(best, edge_chord_squared(edges[id], unit_direction));
-    return std::min(max_distance_radians, chord_angle(best));
+    const Edge *nearest = nullptr;
+    for (uint16_t id : edge_index.candidates(cell_at(unit_direction))) {
+      const float distance = edge_chord_squared(edges[id], unit_direction);
+      if (distance < best) {
+        best = distance;
+        nearest = &edges[id];
+      }
+    }
+    if (!nearest)
+      return {max_distance_radians, 0.0f};
+    const float distance = std::min(max_distance_radians, chord_angle(best));
+    return {distance, edge_position(*nearest, unit_direction)};
   }
 
 private:
@@ -89,6 +113,7 @@ private:
   struct Point {
     float x;
     float y;
+    uint16_t edge;
   };
 
   struct Face {
@@ -97,6 +122,7 @@ private:
     math::Vector v;
     math::Vector selector;
     float radius;
+    float center_depth;
     size_t first;
     uint16_t count;
   };
@@ -107,7 +133,10 @@ private:
     math::Vector normal;
     math::Vector from_a;
     math::Vector from_b;
+    float inv_length;
   };
+
+  using EdgeIds = std::pair<uint16_t, uint16_t>;
 
   std::vector<math::Vector> vertices;
   std::vector<Face> faces;
@@ -164,7 +193,7 @@ private:
 
   float edge_chord_squared(const Edge &edge,
                            const math::Vector &direction) const {
-    if (math::dot(edge.from_a, direction) >= 0.0f &&
+    if (edge.inv_length > 0.0f && math::dot(edge.from_a, direction) >= 0.0f &&
         math::dot(edge.from_b, direction) >= 0.0f) {
       const float sine = math::dot(edge.normal, direction);
       const float sine_sq = std::min(1.0f, sine * sine);
@@ -174,7 +203,32 @@ private:
                     math::distance_squared(direction, vertices[edge.b]));
   }
 
-  Face build_face(const PolyMesh &mesh, std::span<const uint16_t> ids) {
+  float edge_position(const Edge &edge, const math::Vector &direction) const {
+    if (edge.inv_length == 0.0f)
+      return 0.0f;
+    const float from_start = math::dot(edge.from_a, direction);
+    if (from_start > 0.0f && math::dot(edge.from_b, direction) > 0.0f) {
+      const float angle =
+          atan2f(from_start, math::dot(vertices[edge.a], direction));
+      return hs::clamp(angle * edge.inv_length, 0.0f, 1.0f);
+    }
+    return math::dot(vertices[edge.a], direction) >=
+                   math::dot(vertices[edge.b], direction)
+               ? 0.0f
+               : 1.0f;
+  }
+
+  float boundary_distance(const Face &face,
+                          const math::Vector &direction) const {
+    float best = 4.0f;
+    for (size_t i = face.first; i < face.first + face.count; ++i)
+      best =
+          std::min(best, edge_chord_squared(edges[corners[i].edge], direction));
+    return chord_angle(best);
+  }
+
+  Face build_face(const PolyMesh &mesh, std::span<const uint16_t> ids,
+                  std::span<const EdgeIds> edge_ids) {
     math::Vector center{};
     math::Vector axis{};
     math::Vector normal{};
@@ -207,7 +261,7 @@ private:
     }
 
     const auto count = static_cast<uint16_t>(ids.size());
-    Face face{axis, {}, {}, {}, -1.0f, corners.size(), count};
+    Face face{axis, {}, {}, {}, -1.0f, 0.0f, corners.size(), count};
     if (depth <= CHART_EPSILON)
       return face;
 
@@ -218,12 +272,19 @@ private:
     face.u = math::tangent_axis(axis);
     face.v = math::cross(axis, face.u);
     face.radius = acosf(std::min(1.0f, depth));
+    uint16_t previous_id = ids.back();
     for (uint16_t id : ids) {
       Point point;
       SDF::gnomonic_project(vertices[id], axis, face.u, face.v, point.x,
                             point.y);
+      const EdgeIds key{std::min(previous_id, id), std::max(previous_id, id)};
+      const auto edge = std::lower_bound(edge_ids.begin(), edge_ids.end(), key);
+      point.edge = static_cast<uint16_t>(edge - edge_ids.begin());
       corners.push_back(point);
+      previous_id = id;
     }
+    const auto center_direction = math::normalized_or(center, axis);
+    face.center_depth = boundary_distance(face, center_direction);
     return face;
   }
 
@@ -241,14 +302,13 @@ private:
     for (const auto &vertex : mesh.vertices)
       vertices.push_back(vertex.normalized());
 
-    std::vector<std::pair<uint16_t, uint16_t>> edge_ids;
+    std::vector<EdgeIds> edge_ids;
     edge_ids.reserve(mesh.faces.size());
     const std::span<const uint16_t> indices(mesh.faces.data(),
                                             mesh.faces.size());
     size_t offset = 0;
     for (uint8_t count : mesh.face_counts) {
       const auto ids = indices.subspan(offset, count);
-      faces.push_back(build_face(mesh, ids));
       uint16_t previous = ids.back();
       for (uint16_t id : ids) {
         edge_ids.emplace_back(std::min(previous, id), std::max(previous, id));
@@ -269,9 +329,19 @@ private:
       const float length = cross.length();
       if (length > 0.0f) {
         const auto normal = cross / length;
+        const float arc = atan2f(length, math::dot(from, to));
         edges.push_back({first, last, normal, math::cross(normal, from),
-                         math::cross(to, normal)});
+                         math::cross(to, normal), 1.0f / arc});
+      } else {
+        edges.push_back({first, last, {}, {}, {}, 0.0f});
       }
+    }
+
+    offset = 0;
+    for (uint8_t count : mesh.face_counts) {
+      faces.push_back(
+          build_face(mesh, indices.subspan(offset, count), edge_ids));
+      offset += count;
     }
   }
 

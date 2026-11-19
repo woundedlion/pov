@@ -13,7 +13,7 @@
 namespace Pullback::Source {
 
 /** @brief Scalar output of a spherical tiling. */
-enum class TilingOutput : uint8_t { BORDERS, FACE_TYPE, TILE_VALUE };
+enum class TilingOutput : uint8_t { EDGES, FACES };
 
 namespace detail {
 
@@ -64,32 +64,24 @@ struct SphericalTilingSourceParams {
   static constexpr uint8_t DEFAULT_SOLID =
       Solids::SEED_TRUNCATED_ICOSAHEDRON; ///< Default registry entry.
 
-  float line_thickness = 1.0f;   ///< Border half-width in degrees.
-  float line_softness = 0.5f;    ///< Border fade width in degrees.
+  float line_thickness = 1.0f;   ///< Full edge width in degrees.
+  float line_softness = 0.5f;    ///< Width of the opacity fringe in degrees.
   uint8_t solid = DEFAULT_SOLID; ///< Registry entry ordinal.
-  uint8_t output =
-      static_cast<uint8_t>(TilingOutput::BORDERS); ///< Scalar mode.
+  uint8_t output = static_cast<uint8_t>(TilingOutput::EDGES); ///< Scalar mode.
 
   /// Scalar output choices.
-  static constexpr const char *OUTPUT_IDS[] = {"borders", "face-type",
-                                               "tile-value"};
+  static constexpr const char *OUTPUT_IDS[] = {"edges", "faces"};
   static_assert(std::size(OUTPUT_IDS) ==
-                static_cast<size_t>(TilingOutput::TILE_VALUE) + 1);
-
-  /// Activation of border controls.
-  static constexpr TopologyGate BORDER_GATE{"output",
-                                            live_values(TilingOutput::BORDERS)};
+                static_cast<size_t>(TilingOutput::FACES) + 1);
 
   /// Width and softness controls.
   static constexpr auto FIELDS = std::array{
       Field<SphericalTilingSourceParams>{
           "line-thickness", &SphericalTilingSourceParams::line_thickness,
-          "Border Half-Width (deg)", 0.0f, 10.0f, FieldCurve::LERP,
-          FieldGate::ALWAYS, BORDER_GATE},
+          "Edge Thickness (deg)", 0.0f, 10.0f, FieldCurve::LERP},
       Field<SphericalTilingSourceParams>{
           "line-softness", &SphericalTilingSourceParams::line_softness,
-          "Border Softness (deg)", 0.05f, 10.0f, FieldCurve::LOG_POSITIVE,
-          FieldGate::ALWAYS, BORDER_GATE}};
+          "Edge Softness (deg)", 0.05f, 10.0f, FieldCurve::LOG_POSITIVE}};
 
   /// Registry solid and scalar output selectors.
   static constexpr auto TOPOLOGY =
@@ -98,7 +90,7 @@ struct SphericalTilingSourceParams {
                      detail::TILING_SOLID_IDS.ids, DEFAULT_SOLID},
                  TopologyField<SphericalTilingSourceParams>{
                      "output", &SphericalTilingSourceParams::output, OUTPUT_IDS,
-                     static_cast<uint8_t>(TilingOutput::BORDERS)}};
+                     static_cast<uint8_t>(TilingOutput::EDGES)}};
 };
 
 } // namespace Pullback::Source

@@ -149,34 +149,76 @@ inline void test_shader_chain_spherical_cells_policy() {
   }
 }
 
-/** @brief Registry tiling preserves cube seams and covers complex solids. */
+/** @brief Tiling maps palette position and coverage along cube edges and faces. */
 inline void test_shader_chain_spherical_tiling() {
   using Model = In::Op::SampleSphericalTiling;
   using Geometry = PB::Source::SphereTilingGeometry;
+  using Output = PB::Source::TilingOutput;
+  constexpr float DEG = math::PI_F / 180.0f;
+  const auto face_point = [](float depth) {
+    const float angle = (45.0f - depth) * DEG;
+    return PB::SphereSample{{std::cos(angle), std::sin(angle), 0.0f}, 0.25f};
+  };
   Model::Params params;
   params.solid = static_cast<uint8_t>(Solids::BaseMesh::CUBE);
+  params.line_thickness = 2.0f;
+  params.line_softness = 2.0f;
   Model::State state;
   const auto prepared = Model::prepare({}, params, state);
-  const PB::SphereSample CENTER{math::X_AXIS, 0.25f};
-  const PB::SphereSample seam{math::Vector(1.0f, 1.0f, 0.0f).normalized(),
-                              CENTER.path_length};
-  const auto center_field = Model::run(CENTER, {}, params, prepared);
-  const auto seam_field = Model::run(seam, {}, params, prepared);
-  HS_EXPECT_EQ(center_field.value, 0.0f);
-  HS_EXPECT_EQ(seam_field.value, 1.0f);
-  HS_EXPECT_EQ(seam_field.path_length, CENTER.path_length);
+  const auto seam = face_point(0.0f);
+  const auto center = face_point(45.0f);
+  const auto edge_field = Model::run(seam, {}, params, prepared);
+  HS_EXPECT_NEAR(edge_field.value, 0.5f, 2.0e-6f);
+  HS_EXPECT_EQ(edge_field.coverage, 1.0f);
+  HS_EXPECT_EQ(edge_field.path_length, seam.path_length);
+  const float half_arc = std::atan(std::sqrt(0.5f));
+  for (float position : {0.25f, 0.75f}) {
+    const float arc = (2.0f * position - 1.0f) * half_arc;
+    const auto quarter =
+        std::cos(arc) * seam.dir + std::sin(arc) * math::Z_AXIS;
+    const auto inside = Model::run({quarter, 0.0f}, {}, params, prepared);
+    HS_EXPECT_NEAR(inside.value, position, 2.0e-6f);
+    for (float side : {-1.0f, 1.0f}) {
+      const auto across = math::Vector(side, -side, 0.0f).normalized();
+      const auto fringe_point =
+          std::cos(2.0f * DEG) * quarter + std::sin(2.0f * DEG) * across;
+      const auto fringe =
+          Model::run({fringe_point, 0.0f}, {}, params, prepared);
+      HS_EXPECT_NEAR(fringe.value, position, 2.0e-6f);
+      HS_EXPECT_NEAR(fringe.coverage, 0.5f, 2.0e-6f);
+    }
+  }
+  HS_EXPECT_EQ(Model::run(face_point(4.0f), {}, params, prepared).coverage,
+               0.0f);
 
-  params.line_thickness = 2.0f;
-  const auto thicker = Model::prepare({}, params, state);
-  HS_EXPECT_TRUE(thicker.geometry == prepared.geometry);
+  params.output = static_cast<uint8_t>(Output::FACES);
+  const auto faces = Model::prepare({}, params, state);
+  HS_EXPECT_TRUE(faces.geometry == prepared.geometry);
+  const auto cutout = Model::run(seam, {}, params, faces);
+  HS_EXPECT_EQ(cutout.value, 0.0f);
+  HS_EXPECT_EQ(cutout.coverage, 0.0f);
+  const auto fringe = Model::run(face_point(2.0f), {}, params, faces);
+  HS_EXPECT_NEAR(fringe.value, 1.0f / 44.0f, 2.0e-6f);
+  HS_EXPECT_NEAR(fringe.coverage, 0.5f, 2.0e-6f);
+  const auto middle = Model::run(face_point(23.0f), {}, params, faces);
+  HS_EXPECT_NEAR(middle.value, 0.5f, 2.0e-6f);
+  HS_EXPECT_EQ(middle.coverage, 1.0f);
+  const auto face_center = Model::run(center, {}, params, faces);
+  HS_EXPECT_NEAR(face_center.value, 1.0f, 2.0e-6f);
+  HS_EXPECT_EQ(face_center.coverage, 1.0f);
+
+  params.line_thickness = 0.0f;
+  const auto seamless = Model::prepare({}, params, state);
+  const auto filled_seam = Model::run(seam, {}, params, seamless);
+  HS_EXPECT_NEAR(filled_seam.value, 0.0f, 2.0e-6f);
+  HS_EXPECT_EQ(filled_seam.coverage, 1.0f);
+  const auto seamless_middle =
+      Model::run(face_point(22.5f), {}, params, seamless);
+  HS_EXPECT_NEAR(seamless_middle.value, 0.5f, 2.0e-6f);
 
   const auto &geometry = *prepared.geometry;
-  const float angle = math::PI_F / 4.0f - 0.1f;
-  const math::Vector near_seam(std::cos(angle), std::sin(angle), 0.0f);
-  HS_EXPECT_NEAR(geometry.border_distance(near_seam, 0.2f), 0.1f, 2.0e-6f);
   const uint16_t front = geometry.face_at(math::X_AXIS);
   HS_EXPECT_TRUE(front != Geometry::NO_FACE);
-  HS_EXPECT_EQ(geometry.face_type(front), 4u);
   HS_EXPECT_TRUE(geometry.face_at(math::Y_AXIS) != front);
 
   for (uint8_t solid = 0; solid < Solids::NUM_ENTRIES; ++solid) {
@@ -186,7 +228,9 @@ inline void test_shader_chain_spherical_tiling() {
       const auto direction = math::fib_spiral(192, 0.5f, sample);
       const uint16_t owner = tiled.geometry->face_at(direction);
       HS_EXPECT_TRUE(owner != Geometry::NO_FACE);
-      HS_EXPECT_TRUE(tiled.geometry->face_type(owner) >= 3u);
+      const auto field = Model::run({direction, 0.0f}, {}, params, tiled);
+      HS_EXPECT_TRUE(field.value >= 0.0f && field.value <= 1.0f);
+      HS_EXPECT_EQ(field.coverage, 1.0f);
     }
   }
 }

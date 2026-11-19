@@ -14,7 +14,6 @@
 #include <memory>
 
 #include "core/math/scalar_kernels.h"
-#include "core/math/scalar_noise.h"
 #include "core/pattern/field.h"
 #include "core/render/pullback/operators/common.h"
 #include "core/render/pullback/sphere_tiling.h"
@@ -41,8 +40,8 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
   /** @brief Frame controls and a view owned by the operator state. */
   struct Prepared {
     const Source::SphereTilingGeometry *geometry; ///< Selected solid index.
-    float border_start; ///< Border half-width in radians.
-    float border_end;   ///< Outer fade limit in radians.
+    float half_width; ///< Edge half-width in radians.
+    float fringe_end; ///< Outer limit of the opacity fringe in radians.
   };
 
   static void advance(State &, const Params &) {}
@@ -55,9 +54,9 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
       state.solid = params.solid;
     }
     constexpr float DEGREES_TO_RADIANS = math::PI_F / 180.0f;
-    return {state.geometry.get(), params.line_thickness * DEGREES_TO_RADIANS,
-            (params.line_thickness + params.line_softness) *
-                DEGREES_TO_RADIANS};
+    const float half_width = 0.5f * params.line_thickness;
+    return {state.geometry.get(), half_width * DEGREES_TO_RADIANS,
+            (half_width + params.line_softness) * DEGREES_TO_RADIANS};
   }
 
   static FieldSample run(const SphereSample &input, const FrameContext &,
@@ -65,20 +64,28 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
     const auto direction = Pattern::SphereDirection::admit(input.dir);
     const auto &geometry = *prepared.geometry;
     const auto output = static_cast<Source::TilingOutput>(params.output);
-    if (output == Source::TilingOutput::BORDERS) {
-      const float distance =
-          geometry.border_distance(direction.value(), prepared.border_end);
-      const float shade = math::smooth_ramp(prepared.border_start,
-                                            prepared.border_end, distance);
-      return Kernel::sample(input, 1.0f - 2.0f * shade);
+    if (output == Source::TilingOutput::EDGES) {
+      const auto edge =
+          geometry.edge_at(direction.value(), prepared.fringe_end);
+      const float alpha =
+          1.0f - math::smooth_ramp(prepared.half_width, prepared.fringe_end,
+                                   edge.distance);
+      return {edge.position, alpha, input.dir, input.path_length};
     }
     const uint16_t face = geometry.face_at(direction.value());
     if (face == Source::SphereTilingGeometry::NO_FACE)
-      return Kernel::sample(input, -1.0f);
-    const uint16_t value = output == Source::TilingOutput::FACE_TYPE
-                               ? geometry.face_type(face)
-                               : face;
-    return Kernel::sample(input, 2.0f * math::hash01(value, 0u) - 1.0f);
+      return {0.0f, 0.0f, input.dir, input.path_length};
+    const auto depth = geometry.face_depth(face, direction.value());
+    const float span =
+        std::max(math::TOLERANCE, depth.center - prepared.half_width);
+    const float position =
+        hs::clamp((depth.sample - prepared.half_width) / span, 0.0f, 1.0f);
+    const float alpha =
+        prepared.half_width == 0.0f
+            ? 1.0f
+            : math::smooth_ramp(prepared.half_width, prepared.fringe_end,
+                                depth.sample);
+    return {position, alpha, input.dir, input.path_length};
   }
 };
 

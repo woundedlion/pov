@@ -22,6 +22,7 @@ import {
   fixedDerivedBinding,
   interpolateNormalizedGroup,
   interpolateValue,
+  migrateLegacyShaderSnapshot,
   parseShaderDocument,
   promotedControlNames,
   promotionDiagnostics,
@@ -450,7 +451,34 @@ test('spherical source documents compile and round-trip without a planar stage',
     const diagnostics = promotionDiagnostics(restored.document, { catalog: CATALOG, authoredTopology: true });
     assert.equal(diagnostics.some((issue) => issue.code === 'WORKBENCH_ONLY_SOURCE'),
       source === 'sample.spherical-tiling.v1');
+    if (source === 'sample.spherical-tiling.v1') {
+      for (const [previous, current] of [['borders', 'edges'], ['face-type', 'faces'], ['tile-value', 'faces']]) {
+        const legacy = structuredClone(document);
+        const output = legacy.descriptor.parameters.find((parameter) => parameter.id === 'source.output');
+        output.domain.values = ['borders', 'face-type', 'tile-value'];
+        output.default = previous;
+        for (const preset of legacy.preset_bank.presets) preset.values[output.id] = previous;
+        const migrated = compile(legacy);
+        assert.equal(migrated.status, 'VALID', JSON.stringify(migrated.diagnostics));
+        const upgraded = migrated.document.descriptor.parameters.find((parameter) => parameter.id === output.id);
+        assert.deepEqual(upgraded.domain.values, ['edges', 'faces']);
+        assert.equal(upgraded.default, current);
+        for (const preset of migrated.document.preset_bank.presets) assert.equal(preset.values[output.id], current);
+      }
+    }
   }
+});
+
+test('legacy snapshot ordinals migrate only for the Tiling output', () => {
+  const snapshot = {
+    chain: [{ instance: 'sample', operator: 'sample.spherical-tiling.v1' },
+      { instance: 'other', operator: 'sample.spherical-cells.v1' }],
+    parameters: [{ name: 'sample.output', value: 2 }, { name: 'sample.solid', value: 2 },
+      { name: 'other.output', value: 2 }],
+  };
+  const migrated = migrateLegacyShaderSnapshot(snapshot);
+  assert.deepEqual(migrated.parameters.map(({ value }) => value), [1, 2, 2]);
+  assert.equal(snapshot.parameters[0].value, 2);
 });
 
 test('every promoted shader document matches its compiled effect identity', async () => {

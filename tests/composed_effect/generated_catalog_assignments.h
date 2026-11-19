@@ -852,7 +852,6 @@ inline void catalog_assignments_sample_spherical_tiling_v1() {
   params.solid = 54;
   params.output = 0;
   params.output = 1;
-  params.output = 2;
   (void)params;
 }
 
