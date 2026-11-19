@@ -543,9 +543,10 @@ protected:
             Choreography::preset_departure(transition.from_index);
         const auto &lerp = std::get<Segue::Preset::Lerp>(departure);
         if constexpr (SpecT::HEX_MORPH_TABLE)
-          state->active =
-              state->select(transition.from.template get<"source">(),
-                            target.template get<"source">());
+          if (morph.fields_differ)
+            state->active =
+                state->select(transition.from.template get<"source">(),
+                              target.template get<"source">());
         morph.from = &transition.from;
         morph.to = &transition.to;
         morph.ease = lerp.easing;
@@ -594,6 +595,8 @@ protected:
     const bool snapped = morph.snapped || (morph.from && morph.linear < 1.0f);
     morph = {};
     morph.snapped = snapped;
+    if constexpr (SpecT::HEX_MORPH_TABLE)
+      state->active = {};
   }
 
   /** @brief Replaces the current planar blend with the live selector. */
