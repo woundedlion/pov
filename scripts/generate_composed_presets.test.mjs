@@ -4,7 +4,7 @@ import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { SHADER_DOCUMENT_EFFECTS } from './composed_effect_roster.mjs';
+import { SHADER_DOCUMENT_EFFECTS, SHADER_DOCUMENT_PROMOTION_OPTIONS } from './composed_effect_roster.mjs';
 import { departureLiteral, floatLiteral, generate, generatedSections, presetAssignments, topologySelections, updateHeader } from './generate_composed_presets.mjs';
 import { PLANAR_SOURCE_OPERATOR, compileShaderDocument, declarationFromCatalogField } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
@@ -45,6 +45,13 @@ test('composed preset headers reproduce their document values and digests', asyn
       /EFFECT_IDENTITY\s*=\s*hs::effect_identities::(\w+)/u.exec(source)[1]).id).sort();
   assert.deepEqual(SHADER_DOCUMENT_EFFECTS, ids);
   assert.ok(Object.isFrozen(SHADER_DOCUMENT_EFFECTS));
+});
+
+test('the composed roster publishes promotion options for authored policies', () => {
+  assert.deepEqual(SHADER_DOCUMENT_PROMOTION_OPTIONS['involution'],
+    { authoredTopology: true, authoredPalette: true });
+  assert.deepEqual(SHADER_DOCUMENT_PROMOTION_OPTIONS['river-stones'], { authoredPalette: true });
+  assert.equal(SHADER_DOCUMENT_PROMOTION_OPTIONS['grid-warp'], undefined);
 });
 
 async function fixture(t) {

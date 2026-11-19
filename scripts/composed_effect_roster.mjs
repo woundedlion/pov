@@ -25,3 +25,9 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'mobius-grid',
   'river-stones',
 ]);
+
+export const SHADER_DOCUMENT_PROMOTION_OPTIONS = Object.freeze({
+  'involution': Object.freeze({ authoredTopology: true, authoredPalette: true }),
+  'iridescence': Object.freeze({ authoredPalette: true }),
+  'river-stones': Object.freeze({ authoredPalette: true }),
+});

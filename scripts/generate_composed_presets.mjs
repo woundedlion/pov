@@ -261,10 +261,13 @@ export function generatedSections(compiled, metadata,
   return { identity, params: params.join('\n') };
 }
 
+const promotionOptions = source => ({
+  ...(/AUTHORED_TOPOLOGY\s*=\s*true/u.test(source) ? { authoredTopology: true } : {}),
+  ...(/AuthoredColorProvider/u.test(source) ? { authoredPalette: true } : {}),
+});
+
 export function updateHeader(source, compiled, metadata) {
-  const authoredTopology = /AUTHORED_TOPOLOGY\s*=\s*true/u.test(source);
-  const authoredPalette = /AuthoredColorProvider/u.test(source);
-  const sections = generatedSections(compiled, metadata, { authoredTopology, authoredPalette });
+  const sections = generatedSections(compiled, metadata, promotionOptions(source));
   for (const section of SECTIONS) {
     const begin = `  // Generated ${section}: scripts/generate_composed_presets.mjs\n  // clang-format off\n`;
     const end = `  // clang-format on\n  // End generated ${section}.`;
@@ -280,6 +283,7 @@ export async function generate({ check = false, root = ROOT } = {}) {
   const metadata = await loadEffectIdentities(root);
   const composed = [];
   const ids = new Set();
+  const optionsByEffect = new Map();
   const stale = [];
   const emit = async (file, output) => {
     const path = resolve(root, file);
@@ -310,6 +314,8 @@ export async function generate({ check = false, root = ROOT } = {}) {
       throw new Error(`patterns/${id.replaceAll('-', '_')}.shader.json: ${JSON.stringify(compiled.diagnostics)}`);
     if (compiled.document.effect_id !== id)
       throw new Error(`patterns/${id.replaceAll('-', '_')}.shader.json names effect "${compiled.document.effect_id}", expected "${id}"`);
+    const options = Object.entries(promotionOptions(source));
+    if (options.length) optionsByEffect.set(id, options);
     const output = updateHeader(source, compiled, record);
     await emit(`effects/${file}`, output);
     composed.push(file);
@@ -333,6 +339,12 @@ export async function generate({ check = false, root = ROOT } = {}) {
     'export const SHADER_DOCUMENT_EFFECTS = Object.freeze([',
     ...[...ids].sort().map(id => `  '${id}',`),
     ']);', '',
+    'export const SHADER_DOCUMENT_PROMOTION_OPTIONS = Object.freeze({',
+    ...[...optionsByEffect.keys()].sort().map(id => {
+      const options = optionsByEffect.get(id).map(([key, value]) => `${key}: ${value}`).join(', ');
+      return `  '${id}': Object.freeze({ ${options} }),`;
+    }),
+    '});', '',
   ].join('\n'));
   if (stale.length) throw new Error(`Stale composed artifacts:\n${stale.join('\n')}\nRegenerate with: node scripts/generate_composed_presets.mjs`);
   return composed.length;
