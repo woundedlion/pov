@@ -761,7 +761,9 @@ Choosing a different planar source for a preset upgrades the stage to
 `sample.planar.v1`. Its source kind varies per preset, and a timed edge blends
 the two signed fields before weighting, coverage and colorization. Each
 endpoint samples the working plane at its own preset controls. Same-kind
-edges also blend samples when their source controls differ.
+edges also blend samples when their source controls differ. When a translating affine
+feeds River Stones, each hex pattern scrolls in its own cell spacing so both
+patterns repeat continuously as the shared clock wraps.
 Composed effects with fixed tessellation can enable this through
 `Spec::SOURCE_MORPH` with their existing parameter layout.
 An affine that translates or tracks path length admits the edge when the
