@@ -7,6 +7,7 @@
 /** @file
  * @brief Authored palette source and cycling harmony contracts. */
 
+#include "effects/RiverStones.h"
 #include "tests/composed_effect/context.h"
 
 namespace hs_test::composed_effect_tests {
@@ -179,6 +180,74 @@ inline void test_composed_authored_palette_harmony_clock() {
     }
   }
 }
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+/** @brief RiverStones blends a manual palette selection into the next preset. */
+inline void test_riverstones_manual_palette_crossfade() {
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  const int dwell = FX::PRESET_DWELL_FRAMES;
+  const int duration = Segue::Preset::frames(FX::preset_departure(0));
+  for (const auto type :
+       {AuthoredPaletteType::PROCEDURAL, AuthoredPaletteType::GRADIENT}) {
+    reset_globals();
+    FX effect;
+    effect.init();
+    HS_EXPECT_EQ(effect.updateParameter("Palette Type", uint8_t(type)),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter("Palette Name", 23.0f),
+                 ParamSetResult::APPLIED);
+    effect.setAnimationsPaused(false);
+    const auto start = effect.frame_for_test();
+    const auto target = FX::test_preset_params(1);
+    const auto &color = target.template get<"color">();
+    BakedPaletteStorage from;
+    from.clone_from(*start.palette, persistent_arena);
+    AuthoredPaletteResources reference;
+    const auto &to =
+        reference.prepare(persistent_arena, color, color.palette_chroma);
+    HS_EXPECT_FALSE(from.view().same_entries(to));
+
+    int frame = 0;
+    const auto draw_to = [&](int end) {
+      while (frame < end) {
+        pin_frame_clock(++frame);
+        effect.draw_frame();
+        effect.advance_display();
+      }
+      return ComposedFrameWhiteBox::current_frame(effect).palette;
+    };
+    HS_EXPECT_TRUE(draw_to(dwell)->same_entries(from.view()));
+    HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+    BakedPaletteStorage expected;
+    const auto before = persistent_arena.get_offset();
+    const auto *middle = draw_to(dwell + duration / 2);
+    const auto after = persistent_arena.get_offset();
+    expected.bake_blend(persistent_arena, from.view(), to, 0.5f);
+    HS_EXPECT_TRUE(middle->same_entries(expected.view()));
+    HS_EXPECT_FALSE(middle->same_entries(from.view()));
+    HS_EXPECT_FALSE(middle->same_entries(to));
+    HS_EXPECT_TRUE(after > before);
+    const auto stable = persistent_arena.get_offset();
+    HS_EXPECT_TRUE(draw_to(dwell + duration)->same_entries(to));
+    HS_EXPECT_EQ(persistent_arena.get_offset(), stable);
+  }
+
+  reset_globals();
+  FX effect;
+  effect.init();
+  pin_frame_clock(1);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto before = persistent_arena.get_offset();
+  for (int frame = 2; frame <= dwell + duration; ++frame) {
+    pin_frame_clock(frame);
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_EQ(persistent_arena.get_offset(), before);
+}
+#endif
 
 /** @brief Authored palettes admit each selector's last ordinal and reject the
  *  next one. */

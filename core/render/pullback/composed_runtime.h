@@ -259,6 +259,8 @@ public:
     {
       HS_PROFILE(fx_advance);
       step_choreography();
+      if (!transition.active)
+        palette.clear_source_fade();
       advance_runtime();
       update_spatial_frames();
       palette.step();
@@ -513,7 +515,8 @@ protected:
   /** @brief Captures the palette-mapping endpoints of an arming crossfade.
    *  @param target Crossfade's destination parameters. */
   HS_FLASH_MEMBER void transition_armed(const Params &target) {
-    palette.arm(target.template get<"color">());
+    palette.arm(transition.from.template get<"color">(),
+                transition.to.template get<"color">());
     if constexpr (Traits::SOURCE_MORPH) {
       auto &morph = state->source_morph;
       morph.fields_differ =
