@@ -20,7 +20,8 @@
       },
       {
         "label": "sample",
-        "operator": "sample.tessellation.v3"
+        "operator": "sample.tessellation.v3",
+        "source_morph": true
       },
       {
         "label": "colorize",

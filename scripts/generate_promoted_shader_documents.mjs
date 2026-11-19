@@ -6,7 +6,10 @@ import {
   compilePatternDocuments,
   loadOperatorCatalog,
 } from './pattern_documents.mjs';
+import { loadEffectIdentities } from './effect_roster.mjs';
+import { hasFixedSourceMorph } from './generate_composed_presets.mjs';
 import {
+  FIXED_TESSELLATION_OPERATOR,
   compileShaderDocument,
   declarationFromCatalogField,
   exportShaderDocumentJson,
@@ -1291,7 +1294,7 @@ const effects = [
   }
 ];
 
-const documentFor = (spec, catalog) => {
+const documentFor = (spec, catalog, sourceMorph) => {
   const operators = new Map(catalog.operators.map((operator) => [operator.id, operator]));
   const slots = new Map(spec.chain.map((slot) => [slot.label, operators.get(slot.operator)]));
   const parameters = Object.entries(spec.values).map(([id, value]) => {
@@ -1316,7 +1319,8 @@ const documentFor = (spec, catalog) => {
     document_id: spec.id,
     effect_id: spec.id,
     descriptor: {
-      chain: spec.chain,
+      chain: spec.chain.map(slot => slot.operator === FIXED_TESSELLATION_OPERATOR && sourceMorph
+        ? { ...slot, source_morph: true } : slot),
       parameters,
       path_policies: [{ id: 'parallel', kind: 'PARALLEL' }],
       serialization: { schema_version: 1, fields: parameters.map((parameter) => parameter.id) },
@@ -1345,9 +1349,17 @@ const documentFor = (spec, catalog) => {
 };
 
 const catalog = await loadOperatorCatalog();
+const identities = await loadEffectIdentities();
 const stale = [];
 for (const spec of effects) {
-  const document = documentFor(spec, catalog);
+  let sourceMorph = false;
+  if (spec.chain.some(slot => slot.operator === FIXED_TESSELLATION_OPERATOR)) {
+    const effect = identities.find(row => row.id === spec.id);
+    if (!effect) throw new Error('Unregistered composed effect: ' + spec.id);
+    const source = await readFile(resolve(ROOT, 'effects', effect.name + '.h'), 'utf8');
+    sourceMorph = hasFixedSourceMorph(source);
+  }
+  const document = documentFor(spec, catalog, sourceMorph);
   const compiled = compileShaderDocument(document, { catalog });
   if (compiled.status !== 'VALID') {
     console.error(`${spec.id}:`, JSON.stringify(compiled.diagnostics, null, 2));

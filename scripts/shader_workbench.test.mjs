@@ -1068,7 +1068,7 @@ const planarTransitionFixture = () => {
   return { document, catalog: { operators: [operator] }, from, to, edge };
 };
 
-test('same-kind tessellation keeps separate endpoint field settings for preview', () => {
+test('fixed tessellation morphs endpoint fields only when its policy opts in', () => {
   const { document, from, to, edge } = planarTransitionFixture();
   const { descriptor, preset_bank: bank } = document;
   const operator = {
@@ -1081,7 +1081,8 @@ test('same-kind tessellation keeps separate endpoint field settings for preview'
     ],
   };
   const catalog = { operators: [operator] };
-  descriptor.chain.find(slot => slot.label === 'sample').operator = operator.id;
+  const slot = descriptor.chain.find(slot => slot.label === 'sample');
+  slot.operator = operator.id;
   descriptor.parameters = operator.params.map(field =>
     declarationFromCatalogField('sample', field, operator.id));
   from.values = { 'sample.kind': 'hexagonal', 'sample.cell-scale': 2,
@@ -1090,6 +1091,8 @@ test('same-kind tessellation keeps separate endpoint field settings for preview'
     'sample.cell-softness': 0.5, 'sample.edge-width': 3 };
   const frame = edge.duration / 2;
   const evaluate = value => evaluateTransition(descriptor, bank, from.preset_id, to.preset_id, value, catalog);
+  assert.equal(evaluate(frame).sourceMorph, undefined);
+  slot.source_morph = true;
   const middle = evaluate(frame);
   assert.equal(middle.values['sample.cell-scale'], 4);
   assert.equal(middle.values['sample.cell-softness'], 0.25);
@@ -1122,6 +1125,25 @@ test('RiverStones preview blends the first modulation source in both directions'
         assert.equal(layer.to[id], to.values[id]);
       }
     }
+  }
+});
+
+test('preview blends directional sine and displacement in both directions', async () => {
+  const { descriptor, preset_bank: bank } = JSON.parse(await readFile(
+    new URL('../patterns/river_stones.shader.json', import.meta.url), 'utf8'));
+  const sine = bank.presets.find(row => row.values['modulate.modulation-source'] === 'noise');
+  sine.values['modulate.modulation-source'] = 'directional-sine';
+  for (const { from, to, duration } of bank.edges) {
+    const evaluate = () => evaluateTransition(descriptor, bank, from, to, duration / 2, CATALOG);
+    const [morph] = evaluate().modulationMorphs;
+    assert.equal(morph.instance, 'modulate');
+    assert.equal(morph.from['modulate.modulation-source'],
+      from === sine.preset_id ? 'directional-sine' : 'displacement');
+    assert.equal(morph.to['modulate.modulation-source'],
+      to === sine.preset_id ? 'directional-sine' : 'displacement');
+    sine.values['modulate.modulation-evaluation'] = 'baked-cube';
+    assert.equal(evaluate().modulationMorphs, undefined);
+    sine.values['modulate.modulation-evaluation'] = 'direct';
   }
 });
 

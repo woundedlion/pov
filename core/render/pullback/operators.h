@@ -379,15 +379,17 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
       Color::apply_mechanic_scalar(result, input.field.path_length, path);
       return result;
     }
-    const float noise = Modulation::sample(
+    const float spatial_sample = Modulation::sample(
         *prepared.current, Pattern::SphereDirection::admit(input.field.sphere));
     if (morph.mix == (morph.from_spatial ? 0.0f : 1.0f)) {
-      Color::apply_mechanic_scalar(result, noise, spatial);
+      Color::apply_mechanic_scalar(result, spatial_sample, spatial);
       return result;
     }
     const float scalar = Color::blend_modulation_scalar(
-        morph.from.kind, morph.from_spatial ? noise : input.field.path_length,
-        morph.from.amount, morph.from_spatial ? input.field.path_length : noise,
+        morph.from.kind,
+        morph.from_spatial ? spatial_sample : input.field.path_length,
+        morph.from.amount,
+        morph.from_spatial ? input.field.path_length : spatial_sample,
         morph.to.amount, morph.mix);
     Color::apply_mechanic_scalar(result, scalar, {morph.from.kind, 1.0f});
     return result;

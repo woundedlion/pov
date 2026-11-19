@@ -364,6 +364,43 @@ inline void test_shader_chain_modulation_preset_morph() {
   HS_EXPECT_TRUE(WB::frame_context(effect).modulation_morphs.empty());
   HS_EXPECT_EQ(WB::modulation_clocks(effect).modulation.source,
                Pattern::SourceKind::DISPLACEMENT);
+
+  const ShaderChainParameterWrite sine[] = {
+      {"modulation.modulation-source",
+       static_cast<float>(Pattern::SourceKind::DIRECTIONAL_SINE)},
+      {"modulation.modulation-evaluation", 0},
+      {"modulation.modulation-amount", .7f},
+      {"modulation.sine-axis-x", 1.0f},
+      {"modulation.sine-frequency", .25f}};
+  for (bool reverse : {false, true}) {
+    const std::span<const ShaderChainParameterWrite> spatial = sine;
+    const ShaderChainModulationMorphWrite morph{
+        "modulation", reverse ? b : spatial, reverse ? spatial : b, .5f, false};
+    HS_EXPECT_EQ(
+        effect.update_parameters(b, true, nullptr, std::span(&morph, 1)),
+        ParamSetResult::APPLIED);
+    WB::advance_without_render(effect);
+    const auto ctx = WB::frame_context(effect);
+    const auto &clock = WB::modulation_clocks(effect);
+    HS_EXPECT_EQ(clock.modulation.source,
+                 Pattern::SourceKind::DIRECTIONAL_SINE);
+    auto &live = WB::modulation_params(effect);
+    const auto prepared = Op::prepare(ctx, live, clock);
+    HS_EXPECT_TRUE(prepared.current != nullptr);
+    if (!prepared.current)
+      return;
+    const float scalar = PB::Modulation::sample(
+        *prepared.current, Pattern::SphereDirection::admit(input.field.sphere));
+    auto spatial_color = input, path_color = input;
+    PB::Color::apply_mechanic_scalar(spatial_color, scalar,
+                                     {live.modulation.mechanic.kind, .7f});
+    PB::Color::apply_mechanic_scalar(path_color, input.field.path_length,
+                                     {live.modulation.mechanic.kind, .2f});
+    const auto expected =
+        PB::blend_color_samples(spatial_color, path_color, .5f);
+    const auto sample = Op::run(input, ctx, live, prepared);
+    HS_EXPECT_NEAR(sample.color.alpha, expected.color.alpha, 1e-6f);
+  }
 }
 
 /** @brief Each modulation resolves its own endpoint regardless of view order. */

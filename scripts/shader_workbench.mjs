@@ -8,6 +8,7 @@ import { sha256Hex } from './sha256.mjs';
 export const SHADER_DOCUMENT_SCHEMA_VERSION = 2;
 export const OPERATOR_CATALOG_VERSION = 2;
 export const PLANAR_SOURCE_OPERATOR = 'sample.planar.v1';
+export const FIXED_TESSELLATION_OPERATOR = 'sample.tessellation.v3';
 
 const PLANAR_FAMILIES = ['projected-noise', 'tessellation', 'twin-wave', 'spiral', 'bands', 'grid'];
 
@@ -499,7 +500,9 @@ const validateChain = (chain, catalog, report, guard) => {
   chain.forEach((entry, index) => {
     const path = `$.descriptor.chain[${index}]`;
     guard(() => {
-      exactKeys(entry, ['label', 'operator'], ['label', 'operator'], path);
+      exactKeys(entry, ['label', 'operator', 'source_morph'], ['label', 'operator'], path);
+      if ('source_morph' in entry && typeof entry.source_morph !== 'boolean')
+        fail('schema', 'INVALID_SOURCE_MORPH', `${path}.source_morph`, 'Expected a boolean.');
       label(entry.label, `${path}.label`);
       id(entry.operator, `${path}.operator`);
       if (entry.label.length > budgets.max_instance_id_length)
@@ -1017,7 +1020,9 @@ const quantizeParameter = (parameter) => {
 export function canonicalDescriptor(document) {
   const source = document.descriptor;
   const descriptor = {
-    chain: source.chain.map((entry) => ({ label: entry.label, operator: entry.operator })),
+    chain: source.chain.map(({ label, operator, source_morph }) => ({ label, operator,
+      ...(operator === FIXED_TESSELLATION_OPERATOR && source_morph ? { source_morph } : {}),
+    })),
     parameters: source.parameters.map(quantizeParameter)
       .sort((a, b) => codePointCompare(a.id, b.id)),
     path_policies: [...source.path_policies].sort((a, b) => codePointCompare(a.id, b.id)),
@@ -1341,7 +1346,8 @@ export function interpolateNormalizedGroup(parameters, from, to, progress, epsil
 
 function transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluation) {
   for (const slot of descriptor.chain) {
-    if (slot.operator !== PLANAR_SOURCE_OPERATOR && slot.operator !== 'sample.tessellation.v3')
+    if (slot.operator !== PLANAR_SOURCE_OPERATOR &&
+        !(slot.operator === FIXED_TESSELLATION_OPERATOR && slot.source_morph))
       continue;
     const operator = operatorById.get(slot.operator);
     if (!operator) continue;
@@ -1376,13 +1382,16 @@ function transitionModulationMorphs(descriptor, operatorById, from, to, progress
     if (slot.operator !== 'color.modulate.v1') continue;
     const operator = operatorById.get(slot.operator);
     if (!operator) continue;
-    const source = `${slot.label}.modulation-source`;
-    const sources = [from[source], to[source]];
-    if (!sources.includes('noise') || !sources.includes('displacement')) continue;
     const field = (id) => `${slot.label}.${id}`;
-    if (from[field('modulation-evaluation')] !== 'direct' ||
-        to[field('modulation-evaluation')] !== 'direct' ||
-        from[field('modulation-mechanic')] !== to[field('modulation-mechanic')]) continue;
+    const read = (values, id) => values[field(id)] ??
+      operator.params.find(parameter => parameter.id === id)?.default;
+    const fromPath = read(from, 'modulation-source') === 'displacement';
+    const toPath = read(to, 'modulation-source') === 'displacement';
+    if (fromPath === toPath ||
+        read(from, 'modulation-evaluation') !== 'direct' ||
+        read(to, 'modulation-evaluation') !== 'direct' ||
+        read(from, 'modulation-mechanic') !== read(to, 'modulation-mechanic')) continue;
+    const source = field('modulation-source');
     const endpoint = (values) => Object.fromEntries(operator.params.map(parameter => {
       const id = field(parameter.id);
       return [id, values[id] ?? parameter.default];

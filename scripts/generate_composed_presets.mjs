@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { exitAfterStderr, isMain } from './exit.mjs';
 import { resolve } from 'node:path';
 import {
-  LIVE_TOPOLOGY_FIELD, PLANAR_SOURCE_OPERATOR, compileShaderDocument, fixedDerivedBinding,
+  FIXED_TESSELLATION_OPERATOR, LIVE_TOPOLOGY_FIELD, PLANAR_SOURCE_OPERATOR,
+  compileShaderDocument, fixedDerivedBinding,
   hasLiveComposedTopology, isUnusedPlanarParameter, planarSourceField, promotionDepartureDiagnostics,
   promotionDiagnostics,
 } from './shader_workbench.mjs';
@@ -266,7 +267,14 @@ const promotionOptions = source => ({
   ...(/AuthoredColorProvider/u.test(source) ? { authoredPalette: true } : {}),
 });
 
+/** Whether the C++ spec opts into fixed tessellation endpoint morphing. */
+export const hasFixedSourceMorph = source => /\bSOURCE_MORPH\s*=\s*true\b/u.test(source);
+
 export function updateHeader(source, compiled, metadata) {
+  const tessellation = compiled.document?.descriptor.chain.find(slot =>
+    slot.operator === FIXED_TESSELLATION_OPERATOR);
+  if (tessellation && Boolean(tessellation.source_morph) !== hasFixedSourceMorph(source))
+    throw new Error('Tessellation source_morph must match SOURCE_MORPH in the compiled spec');
   const authoredAffineKeys = new Set(Array.from(source.matchAll(
     /WarpPolicyFor\s*<\s*(?:\w+::)*AuthoredAffineParams\s*,\s*\w+\s*,\s*"([^"]+)"/gu), match => match[1]));
   const hasAuthoredAffine = slot => authoredAffineKeys.has(groupFor(slot));

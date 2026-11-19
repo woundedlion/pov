@@ -1053,12 +1053,11 @@ private:
       }
       const auto &from = modulation_params(source_from).modulation;
       const auto &to = modulation_params(source_to).modulation;
-      using K = Pattern::SourceKind;
-      const bool from_spatial = from.source == K::NOISE;
-      const bool direct_path_pair =
-          (from_spatial && to.source == K::DISPLACEMENT) ||
-          (from.source == K::DISPLACEMENT && to.source == K::NOISE);
-      if (!direct_path_pair || from.evaluation != Pattern::Evaluation::DIRECT ||
+      const bool from_spatial =
+          from.source != Pattern::SourceKind::DISPLACEMENT;
+      const bool to_spatial = to.source != Pattern::SourceKind::DISPLACEMENT;
+      if (from_spatial == to_spatial ||
+          from.evaluation != Pattern::Evaluation::DIRECT ||
           to.evaluation != Pattern::Evaluation::DIRECT ||
           from.mechanic.kind != to.mechanic.kind)
         return ParamSetResult::INADMISSIBLE;

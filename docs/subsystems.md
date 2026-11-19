@@ -1578,6 +1578,7 @@ Automatic transitions follow the departing preset's policy — `Segue::Preset::L
 `control/preset_host.h` holds the controller the choreography drives: the committed index, the vetoable `apply_preset()` hook, and the manual `selectPreset`/`nextPreset`/`previousPreset` surface the WASM bridge calls. `control/presets.h` holds the table vocabulary: `PresetEntry<Params>` (the row type) and the free `constexpr` helper `all_presets_in_ranges(entries, in_ranges)`, which folds a slider-range predicate over an entry table so an effect can `static_assert` its whole preset table against its registered parameter ranges — a loop rather than an unrolled conjunction, so appended entries are covered automatically.
 
 Promoted composed effects also have authored shader documents under `patterns/`. `scripts/promoted_digests.test.mjs` checks the header/document/product-group roster; `scripts/generate_composed_presets.test.mjs` pins descriptor and preset-bank digests against effect headers; the runtime uses `ChoreographedEffect` to play the resulting presets.
+A promoted fixed tessellation slot records `source_morph: true` when the compiled spec enables `SOURCE_MORPH`. The ShaderChain preview uses this setting to blend endpoint fields. Without it, fixed tessellation preview interpolates the parameters.
 
 ## Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
 
