@@ -10,6 +10,7 @@
 #include <type_traits>
 #include "core/math/noise_field.h"
 #include "core/render/pullback/composed_descriptors.h"
+#include "core/render/pullback/composed_planar.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/render/pullback/stationary_cubic_noise.h"
 #include "core/render/spacetime.h"
@@ -32,6 +33,8 @@ template <typename Traits, typename Runtime> class ComposedClocks {
   using Params = typename Traits::Params;
   using FrameState = typename Traits::FrameState;
   using SpecT = typename Traits::Spec;
+  using ProjectedNoiseBinding = Source::PlanarDetail::FamilyBinding<
+      Source::PlanarFamily::PROJECTED_NOISE>;
   static constexpr bool AUTHORED_TOPOLOGY = Traits::AUTHORED_TOPOLOGY;
 
   template <typename Resource> static consteval size_t resource_index() {
@@ -161,7 +164,7 @@ public:
                 Effect::authored_instance_label(Resource::KEY.view()),
                 OPERATOR));
           } else if constexpr (Resource::KEY.view() ==
-                               "source_projected_noise") {
+                               ProjectedNoiseBinding::KEY.view()) {
             return SEED;
           } else if constexpr (ComposedDetail::fixed_noise_qualified<Resource>(
                                    typename Params::ResourceTypes{})) {

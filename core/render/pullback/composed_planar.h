@@ -6,6 +6,7 @@
 
 #include <bit>
 #include <optional>
+#include <utility>
 #include "core/render/pullback/composed_parameters.h"
 #include "core/render/pullback/planar_source.h"
 
@@ -139,21 +140,14 @@ HS_FLASH_INLINE TranslationLattice lattice_for(const Params &params) {
 
 /// @return Mask of planar kinds using this parameter resource, or zero.
 template <typename Resource> consteval uint16_t family_mask() {
-  if constexpr (Resource::KEY.view() == "source_grid")
-    return live_values(PlanarKind::GRID);
-  else if constexpr (Resource::KEY.view() == "source_twin_wave")
-    return live_values(PlanarKind::TWIN_WAVE);
-  else if constexpr (Resource::KEY.view() == "source_bands")
-    return live_values(PlanarKind::BANDS);
-  else if constexpr (Resource::KEY.view() == "source_spiral")
-    return live_values(PlanarKind::SPIRAL);
-  else if constexpr (Resource::KEY.view() == "source_tessellation")
-    return PLANAR_TESSELLATION_CELLS | PLANAR_TESSELLATION_EDGES;
-  else if constexpr (Resource::KEY.view() == "source_projected_noise")
-    return PLANAR_FAMILY_MASKS[static_cast<size_t>(
-        PlanarFamily::PROJECTED_NOISE)];
-  else
-    return 0;
+  return []<size_t... I>(std::index_sequence<I...>) {
+    return static_cast<uint16_t>(
+        (0U | ... |
+         (Resource::KEY.view() ==
+                  FamilyBinding<static_cast<PlanarFamily>(I)>::KEY.view()
+              ? PLANAR_FAMILY_MASKS[I]
+              : 0U)));
+  }(std::make_index_sequence<std::size(PLANAR_FAMILY_MASKS)>{});
 }
 
 } // namespace PlanarDetail
