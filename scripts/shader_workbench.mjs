@@ -1339,6 +1339,33 @@ export function interpolateNormalizedGroup(parameters, from, to, progress, epsil
     [parameter.id, Math.fround(values[index] / norm)]));
 }
 
+function transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluation) {
+  for (const slot of descriptor.chain) {
+    const operator = operatorById.get(slot.operator);
+    if (operator?.input !== 'plane' || operator.output !== 'field' ||
+        !slot.operator.startsWith('sample.')) continue;
+    const sourceFrom = {};
+    const sourceTo = {};
+    let distinct = false;
+    for (const field of operator.params) {
+      const id = `${slot.label}.${field.id}`;
+      const a = from[id] ?? field.default;
+      const b = to[id] ?? field.default;
+      sourceFrom[id] = a;
+      sourceTo[id] = b;
+      if (field.id !== 'edge-width' && field.id !== 'weight-mode' &&
+          field.id !== 'coverage-mode' && a !== b &&
+          (isCatalogFieldLive(slot, field, from) || isCatalogFieldLive(slot, field, to)))
+        distinct = true;
+    }
+    if (distinct) return {
+      instance: slot.label, from: sourceFrom, to: sourceTo,
+      evaluation, duration: edge.duration, easing: edge.easing,
+    };
+  }
+  return undefined;
+}
+
 export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, catalog) {
   const edge = bank.edges.find((candidate) => candidate.from === fromId && candidate.to === toId);
   if (!edge)
@@ -1395,7 +1422,11 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, c
       }
     }
   }
-  return { evaluation, duration: edge.duration, raw_progress: raw, eased_progress: eased, values };
+  const sourceMorph = transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluation);
+  return {
+    evaluation, duration: edge.duration, raw_progress: raw, eased_progress: eased, values,
+    ...(sourceMorph ? { sourceMorph } : {}),
+  };
 }
 
 const LIVE_SURFACE_OPERATORS = new Set(['sphere.displace.symmetric.v2', 'sphere.displace.rossby-haurwitz.v1',

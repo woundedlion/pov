@@ -149,6 +149,14 @@ struct ChainEntryRequest {
   std::string_view operator_id; ///< Operator table id to resolve.
 };
 
+/** @brief Preview position in an authored source morph. */
+struct SourceMorphTime {
+  uint32_t evaluation; ///< Frame index within the edge.
+  uint32_t duration;   ///< Frames in the edge.
+  bool sine;           ///< Applies sine easing to the raw frame progress.
+  bool snap;           ///< Samples the requested frame without an interval.
+};
+
 /** @brief Whether @p id matches [a-z][a-z0-9]*(-[a-z0-9]+)* within the length
     cap: one kebab segment, no dots.
     @param id Candidate instance id.
@@ -351,6 +359,15 @@ public:
                "ChainProgram::capture_history: state clone failed");
     }
     history_live = true;
+    previous_source_morph.index = source_morph.index;
+    if (source_morph.index != MAX_CHAIN_OPS) {
+      const size_t size = side.ops[source_morph.index].op->runtime.param.size;
+      previous_source_morph.time = source_morph.time;
+      std::memcpy(previous_source_morph.from.data(), source_morph.from.data(),
+                  size);
+      std::memcpy(previous_source_morph.to.data(), source_morph.to.data(),
+                  size);
+    }
   }
 
   /**
@@ -360,7 +377,7 @@ public:
    *         field differs, except fields admitted by `temporal_hold_field`.
    */
   bool history_continuous() const {
-    if (!history_live)
+    if (!history_live || !source_morph_continuous())
       return false;
     const Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
@@ -374,7 +391,8 @@ public:
         return false;
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
         const ParamFieldInfo &info = op.op->schema[field];
-        if (info.enum_count == 0 && info.curve != FieldCurve::SNAP)
+        if ((info.enum_count == 0 && info.curve != FieldCurve::SNAP) ||
+            (source_morph.index == index && !crossing_field(info.id)))
           continue;
         const size_t bytes = info.enum_count > 0 ? 1 : sizeof(float);
         if (std::memcmp(op.op->runtime.param_address(current_params, field),
@@ -404,6 +422,7 @@ public:
                       float fraction) {
     HS_CHECK(intervals_prepared || history_continuous(),
              "ChainProgram::prepare_column without continuous history");
+    set_prepared_source_progress(fraction);
     const Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
       const ChainOp &op = side.ops[index];
@@ -432,10 +451,9 @@ public:
                              history + op.prepared_offset);
         state = column + op.state_offset;
       }
-      runtime.prepare(
-          ctx, params, state,
-          static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)),
-          downstream);
+      prepare_op(index, ctx, params, state,
+                 static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)),
+                 downstream);
       if (op.op->output == CarrierId::COLOR) {
         FrameContext previous_color_ctx = previous_ctx;
         Modulation::Endpoint selected{};
@@ -482,9 +500,9 @@ public:
     size_t color_begin = 0;
     while (color_begin < side.count &&
            side.ops[color_begin].op->output != CarrierId::COLOR) {
-      const ChainOp &op = side.ops[color_begin++];
-      op.op->runtime.run(in, out, ctx, column + op.param_offset,
-                         const_block_ptr(active, op.prepared_offset));
+      const ChainOp &op = side.ops[color_begin];
+      run_op(color_begin++, in, out, ctx, column + op.param_offset,
+             const_block_ptr(active, op.prepared_offset));
       std::swap(in, out);
     }
     std::memcpy(prefix, in, SLOT_SIZE);
@@ -527,6 +545,7 @@ public:
     }
     column_states_live = false;
     history_live = false;
+    previous_source_morph.index = MAX_CHAIN_OPS;
   }
 
   /**
@@ -649,6 +668,7 @@ public:
     loser.used_bytes = 0;
     active ^= 1;
     has_program = true;
+    clear_source_morph();
     needs_prepare = true;
     return {ChainStatus::OK, -1};
   }
@@ -668,6 +688,7 @@ public:
    *  @param ctx Frame context. */
   void prepare(const FrameContext &ctx) {
     intervals_prepared = false;
+    set_prepared_source_progress(1.0f);
     Side &side = sides[active];
     const std::span<const ChainOp> ops(side.ops, side.count);
     const auto current_params = [&](size_t index) {
@@ -675,11 +696,10 @@ public:
     };
     for (size_t index = 0; index < side.count; ++index) {
       ChainOp &op = side.ops[index];
-      op.op->runtime.prepare(
-          ctx, const_block_ptr(active, op.param_offset),
-          block_ptr(active, op.state_offset),
-          static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)),
-          downstream_lattice(ops, index, current_params));
+      prepare_op(index, ctx, const_block_ptr(active, op.param_offset),
+                 block_ptr(active, op.state_offset),
+                 static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)),
+                 downstream_lattice(ops, index, current_params));
     }
     needs_prepare = false;
   }
@@ -706,12 +726,34 @@ public:
     const Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
       const ChainOp &op = side.ops[index];
-      op.op->runtime.run(in, out, ctx, const_block_ptr(active, op.param_offset),
-                         const_block_ptr(active, op.prepared_offset));
+      run_op(index, in, out, ctx, const_block_ptr(active, op.param_offset),
+             const_block_ptr(active, op.prepared_offset));
       std::swap(in, out);
     }
     return finish_color_sample(
         *std::launder(reinterpret_cast<const ColorSample *>(in)));
+  }
+
+  /** @brief Stores a validated planar preview's endpoint parameters.
+   * @param index Index of the planar sample operator.
+   * @param from Authored outgoing parameter block.
+   * @param to Authored incoming parameter block.
+   * @param time Evaluation frame and edge timing. */
+  void set_source_morph(size_t index, const void *from, const void *to,
+                        SourceMorphTime time) {
+    source_morph.index = index;
+    source_morph.time = time;
+    const auto &op = sides[active].ops[index];
+    std::memcpy(source_morph.from.data(), from, op.op->runtime.param.size);
+    std::memcpy(source_morph.to.data(), to, op.op->runtime.param.size);
+    source_morph.distinct = !same_source_fields(op, from, to);
+  }
+
+  /** @brief Clears the transient planar preview.
+   * @return Whether a source morph was active. */
+  bool clear_source_morph() {
+    source_prepared = false;
+    return std::exchange(source_morph.index, MAX_CHAIN_OPS) != MAX_CHAIN_OPS;
   }
 
   /** @brief The committed program's entries, in chain order.
@@ -795,6 +837,7 @@ public:
     side.count = 0;
     side.used_bytes = 0;
     has_program = false;
+    clear_source_morph();
     needs_prepare = false;
   }
 
@@ -804,6 +847,153 @@ private:
     size_t count = 0;
     size_t used_bytes = 0;
   };
+
+  static constexpr size_t SOURCE_PARAM_BYTES = [] {
+    size_t largest = 0;
+    for (const auto &op : OPERATOR_TABLE)
+      if (op.runtime.sample_source)
+        largest = std::max(largest, static_cast<size_t>(op.runtime.param.size));
+    return largest;
+  }();
+
+  static constexpr size_t SOURCE_PREPARED_BYTES = [] {
+    size_t largest = 0;
+    for (const auto &op : OPERATOR_TABLE)
+      if (op.runtime.sample_source)
+        largest =
+            std::max(largest, static_cast<size_t>(op.runtime.prepared.size));
+    return largest;
+  }();
+
+  struct SourceMorph {
+    alignas(std::max_align_t) std::array<uint8_t, SOURCE_PARAM_BYTES> from{};
+    alignas(std::max_align_t) std::array<uint8_t, SOURCE_PARAM_BYTES> to{};
+    SourceMorphTime time{};
+    size_t index = MAX_CHAIN_OPS;
+    bool distinct = false;
+  };
+
+  static bool crossing_field(std::string_view id) {
+    return id == "weight-mode" || id == "coverage-mode" || id == "edge-width";
+  }
+
+  static bool same_source_fields(const ChainOp &op, const void *from,
+                                 const void *to) {
+    const auto &runtime = op.op->runtime;
+    const auto param = [&](const void *block, uint16_t field) {
+      return static_cast<const uint8_t *>(
+          runtime.param_address(const_cast<void *>(block), field));
+    };
+    const auto choice = [&](const void *block, std::string_view id) {
+      for (uint16_t index = 0; index < op.op->schema_count; ++index)
+        if (op.op->schema[index].id == id)
+          return *param(block, index);
+      return uint8_t{0};
+    };
+    const auto live = [&](const ParamFieldInfo &info, const void *block) {
+      const uint16_t family = Source::planar_field_sources(info.id);
+      if (family != 0 && (family & (1U << choice(block, "source"))) == 0)
+        return false;
+      return info.gated_by == nullptr ||
+             (info.gate_values & (1U << choice(block, info.gated_by))) != 0;
+    };
+    for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+      const auto &info = op.op->schema[field];
+      if (crossing_field(info.id) || (!live(info, from) && !live(info, to)))
+        continue;
+      const auto *a = param(from, field);
+      const auto *b = param(to, field);
+      if (info.enum_count != 0 ? *a != *b
+                               : *reinterpret_cast<const float *>(a) !=
+                                     *reinterpret_cast<const float *>(b))
+        return false;
+    }
+    return true;
+  }
+
+  bool source_morph_continuous() const {
+    if (source_morph.index == MAX_CHAIN_OPS)
+      return previous_source_morph.index == MAX_CHAIN_OPS ||
+             previous_source_morph.time.evaluation ==
+                 previous_source_morph.time.duration;
+    if (source_morph.time.snap)
+      return false;
+    const auto &op = sides[active].ops[source_morph.index];
+    if (previous_source_morph.index == MAX_CHAIN_OPS)
+      return source_morph.time.evaluation <= 1 &&
+             same_source_fields(op, history + op.param_offset,
+                                source_morph.from.data());
+    return source_morph.index == previous_source_morph.index &&
+           source_morph.time.duration == previous_source_morph.time.duration &&
+           source_morph.time.sine == previous_source_morph.time.sine &&
+           (source_morph.time.evaluation ==
+                previous_source_morph.time.evaluation ||
+            source_morph.time.evaluation - 1 ==
+                previous_source_morph.time.evaluation) &&
+           same_source_fields(op, source_morph.from.data(),
+                              previous_source_morph.from.data()) &&
+           same_source_fields(op, source_morph.to.data(),
+                              previous_source_morph.to.data());
+  }
+
+  void set_prepared_source_progress(float fraction) {
+    source_prepared = source_morph.index != MAX_CHAIN_OPS;
+    if (!source_prepared)
+      return;
+    const auto &time = source_morph.time;
+    const float previous =
+        previous_source_morph.index == MAX_CHAIN_OPS
+            ? 0.0f
+            : static_cast<float>(previous_source_morph.time.evaluation);
+    const float progress =
+        hs::lerp(previous, static_cast<float>(time.evaluation), fraction) /
+        static_cast<float>(time.duration);
+    source_progress = time.sine && progress > 0.0f && progress < 1.0f
+                          ? math::ease_in_out_sin(progress)
+                          : progress;
+  }
+
+  const void *source_primary_params() const {
+    return source_progress >= 1.0f ? source_morph.to.data()
+                                   : source_morph.from.data();
+  }
+
+  bool sample_both_sources() const {
+    return source_morph.distinct && source_progress > 0.0f &&
+           source_progress < 1.0f;
+  }
+
+  void prepare_op(size_t index, const FrameContext &ctx, const void *params,
+                  const void *state, uint8_t *prepared,
+                  const TranslationLattice &downstream) {
+    const auto &runtime = sides[active].ops[index].op->runtime;
+    if (source_prepared && index == source_morph.index) {
+      runtime.prepare(ctx, source_primary_params(), state, prepared,
+                      downstream);
+      if (sample_both_sources())
+        runtime.prepare(ctx, source_morph.to.data(), state,
+                        source_prepared_to.data(), downstream);
+      return;
+    }
+    runtime.prepare(ctx, params, state, prepared, downstream);
+  }
+
+  void run_op(size_t index, const void *in, void *out, const FrameContext &ctx,
+              const void *params, const uint8_t *prepared) const {
+    const auto &runtime = sides[active].ops[index].op->runtime;
+    if (!source_prepared || index != source_morph.index) {
+      runtime.run(in, out, ctx, params, prepared);
+      return;
+    }
+    const auto &input = *std::launder(static_cast<const PlaneSample *>(in));
+    float raw = runtime.sample_source(input, source_primary_params(), prepared);
+    if (sample_both_sources())
+      raw = hs::lerp(raw,
+                     runtime.sample_source(input, source_morph.to.data(),
+                                           source_prepared_to.data()),
+                     source_progress);
+    ::new (out) FieldSample(runtime.finish_source(input, raw, params, ctx));
+  }
 
   static void migrate_planar_clock(std::string_view to_id, void *to,
                                    std::string_view from_id, const void *from) {
@@ -911,6 +1101,12 @@ private:
     return cursor;
   }
 
+  SourceMorph source_morph{};
+  SourceMorph previous_source_morph{};
+  alignas(std::max_align_t)
+      std::array<uint8_t, SOURCE_PREPARED_BYTES> source_prepared_to{};
+  float source_progress = 0.0f;
+  bool source_prepared = false;
   Side sides[2];
   uint8_t *blocks[2] = {nullptr, nullptr};
   uint8_t *history = nullptr;

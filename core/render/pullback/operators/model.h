@@ -254,6 +254,13 @@ struct OperatorRuntime {
   TranslationLattice (*translation_lattice)(const void *params) = nullptr;
   /** Whether the selected parameters need projection edge distance. */
   bool (*requires_edge_distance)(const void *params) = nullptr;
+  /** Samples an unweighted planar source, or is null for other operators. */
+  float (*sample_source)(const PlaneSample &input, const void *params,
+                         const uint8_t *prepared) = nullptr;
+  /** Applies the current crossing's weighting and coverage to a raw field. */
+  FieldSample (*finish_source)(const PlaneSample &input, float raw,
+                               const void *params,
+                               const FrameContext &ctx) = nullptr;
 };
 
 /**
@@ -600,6 +607,20 @@ template <typename Model> struct ErasedAdapter {
         *std::launder(static_cast<const Input *>(in)), ctx,
         *std::launder(static_cast<const Params *>(params)),
         *std::launder(reinterpret_cast<const Prepared *>(prepared)))};
+  }
+
+  static float sample_source(const PlaneSample &input, const void *params,
+                             const uint8_t *prepared) {
+    return Model::sample(
+        input, *std::launder(static_cast<const Params *>(params)),
+        *std::launder(reinterpret_cast<const Prepared *>(prepared)));
+  }
+
+  static FieldSample finish_source(const PlaneSample &input, float raw,
+                                   const void *params,
+                                   const FrameContext &ctx) {
+    return Model::finish_source(
+        input, raw, *std::launder(static_cast<const Params *>(params)), ctx);
   }
 
   /**
@@ -1042,6 +1063,12 @@ constexpr OperatorDescriptor make_operator_descriptor() {
       "operator declares an oracle, exact non-floating fields, and metrics "
       "including a final framebuffer bound; an exact one declares none");
   using Adapter = Detail::ErasedAdapter<Model>;
+  constexpr bool HAS_SOURCE_SAMPLING =
+      requires(const PlaneSample &input, const Params &params,
+               const Prepared &prepared, const FrameContext &ctx) {
+        Model::sample(input, params, prepared);
+        Model::finish_source(input, 0.0f, params, ctx);
+      };
   return OperatorDescriptor{
       Model::ID,
       Model::NAME,
@@ -1076,6 +1103,18 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           &Adapter::fold_strength,
           Detail::model_translation_lattice<Model>(),
           Detail::model_requires_edge_distance<Model>(),
+          [] {
+            if constexpr (HAS_SOURCE_SAMPLING)
+              return &Adapter::sample_source;
+            else
+              return nullptr;
+          }(),
+          [] {
+            if constexpr (HAS_SOURCE_SAMPLING)
+              return &Adapter::finish_source;
+            else
+              return nullptr;
+          }(),
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),

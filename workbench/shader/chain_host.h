@@ -53,6 +53,14 @@ struct ShaderChainParameterWrite {
   ///< Explicit transition blend for a blended enum.
 };
 
+/** @brief Endpoint parameters and timing for a planar source preview. */
+struct ShaderChainSourceMorphWrite {
+  std::string_view instance; ///< The planar source instance.
+  std::span<const ShaderChainParameterWrite> from; ///< Outgoing source values.
+  std::span<const ShaderChainParameterWrite> to;   ///< Incoming source values.
+  Pullback::Interp::SourceMorphTime time; ///< Edge timing and evaluation.
+};
+
 /**
  * @brief Stage-program interpreter effect over the pullback operator table.
  * @tparam W Canvas width in pixels.
@@ -263,14 +271,31 @@ public:
    * @brief Validates the final parameter state, then commits every write.
    * @param writes Named parameter writes.
    * @param preview Allows transient enum blends and keeps animation running.
+   * @param morph Optional source endpoint values and edge evaluation.
    * @return APPLIED, or the first refusal with nothing committed.
    */
   ParamSetResult
   update_parameters(std::span<const ShaderChainParameterWrite> writes,
-                    bool preview = false) {
+                    bool preview = false,
+                    const ShaderChainSourceMorphWrite *morph = nullptr) {
     if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
       return ParamSetResult::TOO_LONG;
     const auto ops = program.ops();
+    alignas(std::max_align_t) uint8_t source_from[PARAM_BYTES];
+    alignas(std::max_align_t) uint8_t source_to[PARAM_BYTES];
+    size_t source_index = 0;
+    if (morph != nullptr) {
+      if (!preview || morph->time.duration == 0 ||
+          morph->time.evaluation > morph->time.duration)
+        return ParamSetResult::INADMISSIBLE;
+      while (source_index < ops.size() &&
+             morph->instance != ops[source_index].instance)
+        ++source_index;
+      if (source_index == ops.size())
+        return ParamSetResult::UNKNOWN_PARAM;
+      if (ops[source_index].op->runtime.sample_source == nullptr)
+        return ParamSetResult::INADMISSIBLE;
+    }
     bool animated = false;
     bool interrupted = false;
     const auto refusal = stage_candidates(0, ops.size(), [&] {
@@ -312,6 +337,13 @@ public:
         }
         animated |= parameter->animated;
       }
+      if (morph != nullptr) {
+        const auto from_result =
+            stage_source_endpoint(source_index, source_from, morph->from);
+        if (from_result != ParamSetResult::APPLIED)
+          return from_result;
+        return stage_source_endpoint(source_index, source_to, morph->to);
+      }
       return ParamSetResult::APPLIED;
     });
     if (refusal.result != ParamSetResult::APPLIED) {
@@ -324,6 +356,11 @@ public:
     for (size_t index = 0; index < ops.size(); ++index)
       std::memcpy(program.param_block(index), candidates[index],
                   ops[index].op->runtime.param.size);
+    if (morph != nullptr)
+      program.set_source_morph(source_index, source_from, source_to,
+                               morph->time);
+    else
+      interrupted |= program.clear_source_morph() && !preview;
     refused_name = nullptr;
     refusal_warning = nullptr;
     if (interrupted)
@@ -335,7 +372,7 @@ public:
 
   /** @brief Ends an active preview after a manual parameter write. */
   void parameter_written() override {
-    bool interrupted = false;
+    bool interrupted = program.clear_source_morph();
     const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index)
       if (const auto set = ops[index].op->runtime.set_enum_blend)
@@ -842,6 +879,42 @@ private:
     uint8_t blocks[Pullback::Interp::MAX_CHAIN_OPS][PARAM_BYTES];
   };
   uint8_t (*candidates)[PARAM_BYTES] = nullptr;
+
+  ParamSetResult
+  stage_source_endpoint(size_t index, void *endpoint,
+                        std::span<const ShaderChainParameterWrite> writes) {
+    const auto ops = program.ops();
+    const auto &runtime = ops[index].op->runtime;
+    runtime.construct_params(endpoint);
+    std::memcpy(endpoint, candidates[index], runtime.param.size);
+    if (runtime.set_enum_blend)
+      runtime.set_enum_blend(endpoint, std::nullopt);
+    for (const auto &write : writes) {
+      if (write.name == nullptr || write.blend)
+        return ParamSetResult::MALFORMED_PAYLOAD;
+      const auto named = find_named_field(write.name);
+      if (!named || named->index != index)
+        return ParamSetResult::UNKNOWN_PARAM;
+      const auto &field = ops[index].op->schema[named->field];
+      const float value = write.value;
+      if (!std::isfinite(value))
+        return ParamSetResult::NON_FINITE;
+      void *address = runtime.param_address(endpoint, named->field);
+      if (field.enum_count != 0) {
+        if (value < 0.0f || value >= field.enum_count ||
+            value != std::floor(value))
+          return ParamSetResult::INADMISSIBLE;
+        *static_cast<uint8_t *>(address) = static_cast<uint8_t>(value);
+      } else {
+        if (value < field.min || value > field.max)
+          return ParamSetResult::INADMISSIBLE;
+        *static_cast<float *>(address) = value;
+      }
+    }
+    return admission_refusal(ops, index, endpoint) == nullptr
+               ? ParamSetResult::APPLIED
+               : ParamSetResult::INADMISSIBLE;
+  }
 
   struct CandidateRefusal {
     ParamSetResult result = ParamSetResult::APPLIED;

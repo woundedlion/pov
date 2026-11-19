@@ -1139,6 +1139,117 @@ inline void test_shader_chain_planar_column_weights_and_fields() {
   HS_EXPECT_NEAR(fill.tessellation.cell_radius, .3f, 1e-6f);
 }
 
+template <typename Source> void check_tessellation_endpoint_fields() {
+  namespace Op = In::Op;
+  using Kind = Pattern::TessellationKind;
+  using Fill = Pattern::TessellationFill;
+  static int samples = 0;
+  auto operators = In::OPERATOR_TABLE;
+  for (auto &entry : operators)
+    if (std::string_view(entry.operator_id) == Source::ID)
+      entry.runtime.sample_source = [](const PB::PlaneSample &input,
+                                       const void *params,
+                                       const uint8_t *prepared) {
+        ++samples;
+        return Source::sample(
+            input, *static_cast<const typename Source::Params *>(params),
+            *reinterpret_cast<const typename Source::Prepared *>(prepared));
+      };
+  const auto fixture =
+      std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, operators);
+  const auto temporal = std::make_unique<TemporalBlocks>();
+  auto &program = fixture->program;
+  program.bind_temporal_storage(temporal->history, temporal->column);
+  const In::ChainEntryRequest chain[] = {
+      {"project", Op::ProjectEquirectangular::ID},
+      {"sample", Source::ID},
+      {"color", Op::ColorizeGeneratedPaletteV4::ID},
+  };
+  if (!expect_compiled(program.compile(chain)))
+    return;
+  const auto ctx = shared_resources().context();
+  auto &current = param_as<typename Source::Params>(program, 1);
+  const auto cells = [](auto &params) -> auto & {
+    if constexpr (std::is_same_v<Source, Op::SamplePlanar>) {
+      params.source = static_cast<uint8_t>(
+          PB::Source::PlanarKind::TESSELLATION_HEXAGONAL_CELLS);
+      return params.tessellation;
+    } else {
+      params.kind = static_cast<uint8_t>(Kind::HEXAGONAL);
+      params.fill = static_cast<uint8_t>(Fill::CELLS);
+      return params;
+    }
+  };
+  auto from = current;
+  auto to = current;
+  cells(from).cell_scale = 2.5352101f;
+  cells(from).cell_softness = .10124387f;
+  cells(to).cell_scale = 4.774648f;
+  cells(to).cell_softness = .32801026f;
+  current = from;
+  program.prepare(ctx);
+  program.capture_history();
+
+  current = PB::Fields::interpolate(from, to, .2f);
+  program.set_source_morph(1, &from, &to, {1, 4, true, false});
+  HS_EXPECT_TRUE(program.history_continuous());
+  program.prepare(ctx);
+  program.capture_history();
+  current = PB::Fields::interpolate(from, to, .5f);
+  program.set_source_morph(1, &from, &to, {2, 4, true, false});
+  HS_EXPECT_TRUE(program.history_continuous());
+  constexpr float COLUMN = .5f;
+  const float mix = math::ease_in_out_sin(.375f);
+  program.prepare_column(ctx, ctx, COLUMN);
+
+  bool distinct = false;
+  for (const auto &view : sweep_views()) {
+    const auto plane = run_entry<PB::PlaneSample>(program, ctx, 0,
+                                                  PB::SphereSample{view, 0.0f});
+    const auto sample = [&](auto &params) {
+      return Pattern::tessellation<Kind::HEXAGONAL, Fill::CELLS>(
+          Pattern::PlanePosition{plane.coords},
+          static_cast<const Pattern::TessellationCellParams &>(cells(params)));
+    };
+    const float raw = hs::lerp(sample(from), sample(to), mix);
+    distinct |= std::abs(sample(current) - raw) > .1f;
+    const auto field = Op::finish_sample(plane, raw, current, ctx);
+    const auto expected = PB::finish_color_sample(
+        run_entry<PB::ColorSample>(program, ctx, 2, field));
+    samples = 0;
+    const auto actual = program.evaluate_column(view, ctx, ctx, COLUMN);
+    HS_EXPECT_EQ(samples, 2);
+    HS_EXPECT_EQ(actual.color, expected.color);
+    HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
+  }
+  HS_EXPECT_TRUE(distinct);
+
+  program.prepare(ctx);
+  program.capture_history();
+  program.set_source_morph(1, &from, &to, {4, 4, true, false});
+  HS_EXPECT_FALSE(program.history_continuous());
+  program.set_source_morph(1, &from, &to, {3, 4, true, true});
+  HS_EXPECT_FALSE(program.history_continuous());
+
+  program.set_source_morph(1, &from, &from, {2, 4, true, false});
+  program.prepare(ctx);
+  samples = 0;
+  program.evaluate(math::UP, ctx);
+  HS_EXPECT_EQ(samples, 1);
+
+  program.set_source_morph(1, &from, &to, {4, 4, true, false});
+  program.prepare(ctx);
+  samples = 0;
+  program.evaluate(math::UP, ctx);
+  HS_EXPECT_EQ(samples, 1);
+}
+
+/** @brief Both tessellation operators sample authored controls at column time. */
+inline void test_shader_chain_same_kind_endpoint_fields() {
+  check_tessellation_endpoint_fields<In::Op::SampleTessellation>();
+  check_tessellation_endpoint_fields<In::Op::SamplePlanar>();
+}
+
 /** @brief Planar preview admission checks translating and path-tracking affines. */
 inline void test_shader_chain_planar_lattice_admission() {
   namespace Op = In::Op;

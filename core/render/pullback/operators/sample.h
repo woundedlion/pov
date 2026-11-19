@@ -220,6 +220,23 @@ finish_sample(const PlaneSample &input, float raw, const Params &params,
                           params.edge_width, ctx));
 }
 
+/** @brief Shared weighting and coverage for planar endpoint samples. */
+struct PlanarFieldFinish {
+  /** @brief Applies the Sample crossing to a raw field.
+   * @tparam Params Planar operator parameter type.
+   * @param input Projected sample point.
+   * @param raw Signed field value.
+   * @param params Weight and coverage controls.
+   * @param ctx Frame context.
+   * @return Weighted field and coverage. */
+  template <typename Params>
+  static FieldSample finish_source(const PlaneSample &input, float raw,
+                                   const Params &params,
+                                   const FrameContext &ctx) {
+    return finish_sample(input, raw, params, ctx);
+  }
+};
+
 /** @brief Base of the Sample crossings driven by the shared phase clocks:
     the crossing's topology check plus the clock block they all prepare. */
 struct SourceClockModel : ValueStateModel<SourceClockState> {
@@ -257,7 +274,9 @@ struct SampleCoverageEdgeDistance {
 
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
-struct SampleGridV4 : SourceClockModel, SampleCoverageEdgeDistance {
+struct SampleGridV4 : SourceClockModel,
+                      PlanarFieldFinish,
+                      SampleCoverageEdgeDistance {
   static constexpr const char *ID = "sample.grid.v4";
   static constexpr const char *NAME = "Grid";
   using Input = PlaneSample;
@@ -270,13 +289,16 @@ struct SampleGridV4 : SourceClockModel, SampleCoverageEdgeDistance {
   static TranslationLattice translation_lattice(const Params &params) {
     return Source::translation_lattice(params);
   }
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
-    const float raw = Pattern::grid(
+  static float sample(const PlaneSample &input, const Params &params,
+                      const Prepared &prepared) {
+    return Pattern::grid(
         Pattern::PlanePosition{projections::stereo_pattern_args(
             input.coords, params.pattern_freq)},
         static_cast<const Source::GridSourceParams &>(params), prepared);
-    return finish_sample(input, raw, params, ctx);
+  }
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    return finish_sample(input, sample(input, params, prepared), params, ctx);
   }
 };
 
@@ -284,20 +306,25 @@ struct SampleGridV4 : SourceClockModel, SampleCoverageEdgeDistance {
 using TwinWaveSampleParams = Source::AuthoredTwinWaveSampleParams;
 
 /** @brief PLANE→FIELD crossing: the two-wave interference source. */
-struct SampleTwinWaveV3 : SourceClockModel, SampleCoverageEdgeDistance {
+struct SampleTwinWaveV3 : SourceClockModel,
+                          PlanarFieldFinish,
+                          SampleCoverageEdgeDistance {
   static constexpr const char *ID = "sample.twin-wave.v3";
   static constexpr const char *NAME = "Twin Wave Extended Drift";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = TwinWaveSampleParams;
 
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
-    const float raw = Pattern::twin_wave(
+  static float sample(const PlaneSample &input, const Params &params,
+                      const Prepared &prepared) {
+    return Pattern::twin_wave(
         Pattern::PlanePosition{projections::stereo_pattern_args(
             input.coords, params.pattern_freq)},
         prepared);
-    return finish_sample(input, raw, params, ctx);
+  }
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    return finish_sample(input, sample(input, params, prepared), params, ctx);
   }
 };
 
@@ -305,7 +332,9 @@ struct SampleTwinWaveV3 : SourceClockModel, SampleCoverageEdgeDistance {
 using BandsSampleParams = Source::AuthoredBandsSampleParams;
 
 /** @brief Plane-to-field crossing: parallel sine bands in the projection plane. */
-struct SampleBands : StatelessModel, SampleCoverageEdgeDistance {
+struct SampleBands : StatelessModel,
+                     PlanarFieldFinish,
+                     SampleCoverageEdgeDistance {
   static constexpr const char *ID = "sample.bands.v1";
   static constexpr const char *NAME = "Bands";
   using Input = PlaneSample;
@@ -325,10 +354,13 @@ struct SampleBands : StatelessModel, SampleCoverageEdgeDistance {
     check_sample_topology(params.weight_mode, params.coverage_mode);
     return Pattern::PlaneBands::prepare(params, {});
   }
+  static float sample(const PlaneSample &input, const Params &,
+                      const Prepared &prepared) {
+    return Pattern::PlaneBands::sample({input.coords}, prepared);
+  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Pattern::PlaneBands::sample({input.coords}, prepared);
-    return finish_sample(input, raw, params, ctx);
+    return finish_sample(input, sample(input, params, prepared), params, ctx);
   }
 };
 
@@ -337,7 +369,9 @@ using SpiralSampleParams = Source::AuthoredSpiralSampleParams;
 
 /** @brief PLANE→FIELD crossing: the stationary spiral source; zero arms draw
     concentric rings. */
-struct SampleSpiralV3 : StatelessModel, SampleCoverageEdgeDistance {
+struct SampleSpiralV3 : StatelessModel,
+                        PlanarFieldFinish,
+                        SampleCoverageEdgeDistance {
   static constexpr const char *ID = "sample.spiral.v3";
   static constexpr const char *NAME = "Spiral";
   using Input = PlaneSample;
@@ -351,10 +385,13 @@ struct SampleSpiralV3 : StatelessModel, SampleCoverageEdgeDistance {
     check_sample_topology(params.weight_mode, params.coverage_mode);
     return Pattern::PlaneSpiral::prepare(params, {});
   }
+  static float sample(const PlaneSample &input, const Params &,
+                      const Prepared &prepared) {
+    return Pattern::PlaneSpiral::sample({input.coords}, prepared);
+  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
-    const float raw = Pattern::PlaneSpiral::sample({input.coords}, prepared);
-    return finish_sample(input, raw, params, ctx);
+    return finish_sample(input, sample(input, params, prepared), params, ctx);
   }
 };
 
@@ -397,7 +434,9 @@ static_assert(sample_crossing_defaults_match<TessellationSampleParams>());
 
 /** @brief PLANE to FIELD crossing: static square, hexagonal or triangular cell
     primitives or edge bands. */
-struct SampleTessellation : StatelessModel, SampleCoverageEdgeDistance {
+struct SampleTessellation : StatelessModel,
+                            PlanarFieldFinish,
+                            SampleCoverageEdgeDistance {
   static constexpr const char *ID = "sample.tessellation.v3";
   static constexpr const char *NAME = "Tessellation";
   using Input = PlaneSample;
@@ -423,14 +462,17 @@ struct SampleTessellation : StatelessModel, SampleCoverageEdgeDistance {
              "sample.tessellation: invalid fill");
     return {};
   }
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &) {
-    const float raw = Pattern::tessellation(
+  static float sample(const PlaneSample &input, const Params &params,
+                      const Prepared &) {
+    return Pattern::tessellation(
         Pattern::PlanePosition{input.coords},
         static_cast<const Source::TessellationSourceParams &>(params),
         static_cast<Pattern::TessellationKind>(params.kind),
         static_cast<Pattern::TessellationFill>(params.fill));
-    return finish_sample(input, raw, params, ctx);
+  }
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    return finish_sample(input, sample(input, params, prepared), params, ctx);
   }
 };
 
@@ -465,6 +507,7 @@ struct PreparedNoiseSource {
 
 /** @brief PLANE→FIELD crossing: the projected-plane noise contour source. */
 struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState>,
+                              PlanarFieldFinish,
                               SampleCoverageEdgeDistance {
   static constexpr const char *ID = "sample.projected-noise.v2";
   static constexpr const char *NAME = "Projected Noise";
@@ -480,16 +523,19 @@ struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState>,
     check_noise_basis(params.basis);
     return {&state.noise, math::noise_projected_loop_offset(state.phase)};
   }
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
+  static float sample(const PlaneSample &input, const Params &params,
+                      const Prepared &prepared) {
     if (!math::noise_plane_in_domain(input.coords))
-      return finish_sample(input, 0.0f, params, ctx);
-    const float raw = Pattern::noise_contour(
+      return 0.0f;
+    return Pattern::noise_contour(
         *prepared.noise, static_cast<math::NoiseBasis>(params.basis),
         math::noise_projected_coordinate(input.coords, params.noise_scale,
                                          prepared.loop_offset),
         params.noise_contrast);
-    return finish_sample(input, raw, params, ctx);
+  }
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    return finish_sample(input, sample(input, params, prepared), params, ctx);
   }
 };
 

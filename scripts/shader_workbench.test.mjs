@@ -1064,6 +1064,39 @@ const planarTransitionFixture = () => {
   return { document, catalog: { operators: [operator] }, from, to, edge };
 };
 
+test('same-kind tessellation keeps separate endpoint field settings for preview', () => {
+  const { document, from, to, edge } = planarTransitionFixture();
+  const { descriptor, preset_bank: bank } = document;
+  const operator = {
+    id: 'sample.tessellation.v3', input: 'plane', output: 'field',
+    params: [
+      { id: 'kind', topology: true, values: ['hexagonal'], default: 'hexagonal' },
+      { id: 'cell-scale', min: 0.125, max: 8, default: 1, curve: 'log-positive' },
+      { id: 'cell-softness', min: 0.001, max: 1, default: 0.05, curve: 'log-positive' },
+      { id: 'edge-width', min: 0, max: 16, default: 0.1, curve: 'lerp' },
+    ],
+  };
+  const catalog = { operators: [operator] };
+  descriptor.chain.find(slot => slot.label === 'sample').operator = operator.id;
+  descriptor.parameters = operator.params.map(field =>
+    declarationFromCatalogField('sample', field, operator.id));
+  from.values = { 'sample.kind': 'hexagonal', 'sample.cell-scale': 2,
+    'sample.cell-softness': 0.125, 'sample.edge-width': 1 };
+  to.values = { 'sample.kind': 'hexagonal', 'sample.cell-scale': 8,
+    'sample.cell-softness': 0.5, 'sample.edge-width': 3 };
+  const frame = edge.duration / 2;
+  const evaluate = value => evaluateTransition(descriptor, bank, from.preset_id, to.preset_id, value, catalog);
+  const middle = evaluate(frame);
+  assert.equal(middle.values['sample.cell-scale'], 4);
+  assert.equal(middle.values['sample.cell-softness'], 0.25);
+  assert.deepEqual(middle.sourceMorph, { instance: 'sample', from: from.values, to: to.values,
+    evaluation: frame, duration: edge.duration, easing: edge.easing });
+  assert.equal(evaluate(edge.duration).sourceMorph.evaluation, edge.duration);
+  to.values['sample.cell-scale'] = from.values['sample.cell-scale'];
+  to.values['sample.cell-softness'] = from.values['sample.cell-softness'];
+  assert.equal(evaluate(frame).sourceMorph, undefined);
+});
+
 test('planar morphs hold fields at their live endpoint and interpolate shared fields', () => {
   const { document, catalog, from, to, edge } = planarTransitionFixture();
   const { descriptor, preset_bank: bank } = document;

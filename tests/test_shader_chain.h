@@ -874,6 +874,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_parity_sample_projected_noise);
   HS_RUN(test_shader_chain_planar_legacy_endpoints);
   HS_RUN(test_shader_chain_planar_column_weights_and_fields);
+  HS_RUN(test_shader_chain_same_kind_endpoint_fields);
   HS_RUN(test_shader_chain_planar_lattice_admission);
   HS_RUN(test_shader_chain_planar_preview_writes_and_clock_migration);
   HS_RUN(test_shader_chain_spherical_noise_policy);

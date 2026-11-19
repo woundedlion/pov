@@ -310,6 +310,7 @@ inline void temporal_sample(PlanarSourceState &out,
 
 /** @brief Plane to field crossing over an authored blend of planar kinds. */
 struct SamplePlanar : ValueStateModel<PlanarSourceState>,
+                      PlanarFieldFinish,
                       SampleCoverageEdgeDistance {
   static constexpr const char *ID = "sample.planar.v1";
   static constexpr const char *NAME = "Planar Source";
@@ -407,15 +408,20 @@ struct SamplePlanar : ValueStateModel<PlanarSourceState>,
     return result;
   }
 
-  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const Params &params, const Prepared &prepared) {
+  static float sample(const PlaneSample &input, const Params &params,
+                      const Prepared &prepared) {
     const auto &a = prepared.arms[0];
     float raw = sample(input, params, a);
     if (prepared.count == 2) {
       const auto &b = prepared.arms[1];
       raw = a.weight * raw + b.weight * sample(input, params, b);
     }
-    return finish_sample(input, raw, params, ctx);
+    return raw;
+  }
+
+  static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
+                         const Params &params, const Prepared &prepared) {
+    return finish_sample(input, sample(input, params, prepared), params, ctx);
   }
 
 private:

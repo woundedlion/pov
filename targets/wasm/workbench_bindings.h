@@ -266,6 +266,16 @@ public:
     return set_parameters(caller_entries, true);
   }
 
+  /** @brief Applies an authored planar morph frame without pausing animation.
+   * @param caller_entries Named preview parameter writes.
+   * @param caller_morph Source endpoint values and the authored edge frame.
+   * @return APPLIED or the first refusal, with no partial writes. */
+  ParamSetResult setShaderChainSourceMorphParameters(
+      const TransitionParameterWritesValue &caller_entries,
+      const SourceMorphPreviewValue &caller_morph) {
+    return set_parameters(caller_entries, true, &caller_morph);
+  }
+
   /** @brief Checks effective float32 source lattices for a preset edge.
    * @param caller_program Ordered entries of the authored chain.
    * @param caller_from Outgoing preset parameters by qualified name.
@@ -409,12 +419,44 @@ private:
     return true;
   }
 
+  struct SourceMorphEndpoint {
+    std::vector<std::string> names;
+    std::vector<ShaderChainParameterWrite> writes;
+  };
+
+  static ParamSetResult decode_source_endpoint(const emscripten::val &value,
+                                               SourceMorphEndpoint &endpoint) {
+    if (!object_value(value) || hs_wasm::is_js_array(value))
+      return ParamSetResult::MALFORMED_PAYLOAD;
+    const auto keys =
+        emscripten::val::global("Object").call<emscripten::val>("keys", value);
+    const size_t count = keys["length"].as<size_t>();
+    if (count > Pullback::Interp::MAX_CHAIN_PARAMS)
+      return ParamSetResult::TOO_LONG;
+    endpoint.names.resize(count);
+    endpoint.writes.resize(count);
+    for (size_t index = 0; index < count; ++index) {
+      auto &name = endpoint.names[index];
+      name = keys[index].as<std::string>();
+      if (name.find('\0') != std::string::npos)
+        return ParamSetResult::UNKNOWN_PARAM;
+      const auto scalar = value[name];
+      if (!scalar.isNumber())
+        return ParamSetResult::MALFORMED_PAYLOAD;
+      endpoint.writes[index] = {name.c_str(), scalar.as<float>()};
+    }
+    return ParamSetResult::APPLIED;
+  }
+
   ParamSetResult set_parameters(const emscripten::val &caller_entries,
-                                bool preview) {
+                                bool preview,
+                                const emscripten::val *caller_morph = nullptr) {
     const PayloadDecodeGuard decode_guard(&decoding);
     if (!isValid())
       return ParamSetResult::NO_EFFECT;
     const emscripten::val entries = clone_payload(caller_entries);
+    const auto morph = caller_morph == nullptr ? emscripten::val::undefined()
+                                               : clone_payload(*caller_morph);
     if (!isValid())
       return ParamSetResult::NO_EFFECT;
     if (!hs_wasm::is_js_array(entries))
@@ -457,9 +499,47 @@ private:
                                                   static_cast<float>(mix)};
       }
     }
+    std::string instance;
+    SourceMorphEndpoint from, to;
+    ShaderChainSourceMorphWrite source{};
+    if (caller_morph != nullptr) {
+      if (!object_value(morph) || !morph["instance"].isString() ||
+          !morph["evaluation"].isNumber() || !morph["duration"].isNumber() ||
+          !morph["easing"].isString())
+        return ParamSetResult::MALFORMED_PAYLOAD;
+      const auto snap = morph["snap"];
+      if (!snap.isUndefined() && snap.typeOf().as<std::string>() != "boolean")
+        return ParamSetResult::MALFORMED_PAYLOAD;
+      const double evaluation = morph["evaluation"].as<double>();
+      const double duration = morph["duration"].as<double>();
+      if (!std::isfinite(evaluation) || !std::isfinite(duration))
+        return ParamSetResult::NON_FINITE;
+      const std::string easing = morph["easing"].as<std::string>();
+      if (duration < 1.0 || duration > UINT32_MAX || evaluation < 0.0 ||
+          evaluation > duration || evaluation != std::floor(evaluation) ||
+          duration != std::floor(duration) ||
+          (easing != "LINEAR" && easing != "EASE_IN_OUT_SIN"))
+        return ParamSetResult::INADMISSIBLE;
+      instance = morph["instance"].as<std::string>();
+      if (!Pullback::Interp::instance_id_wellformed(instance))
+        return ParamSetResult::UNKNOWN_PARAM;
+      const auto from_result = decode_source_endpoint(morph["from"], from);
+      if (from_result != ParamSetResult::APPLIED)
+        return from_result;
+      const auto to_result = decode_source_endpoint(morph["to"], to);
+      if (to_result != ParamSetResult::APPLIED)
+        return to_result;
+      source = {instance,
+                from.writes,
+                to.writes,
+                {static_cast<uint32_t>(evaluation),
+                 static_cast<uint32_t>(duration), easing == "EASE_IN_OUT_SIN",
+                 !snap.isUndefined() && snap.as<bool>()}};
+    }
     ParamSetResult result = ParamSetResult::NO_EFFECT;
     with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
-      result = chain.update_parameters(writes, preview);
+      result = chain.update_parameters(
+          writes, preview, caller_morph == nullptr ? nullptr : &source);
     });
     if (result == ParamSetResult::APPLIED)
       state->paused = state->effect->animations_paused();
@@ -526,6 +606,8 @@ static void bind_workbench_adapters() {
                 &ShaderChainBindings::setShaderChainParameters)
       .function("setShaderChainTransitionParameters",
                 &ShaderChainBindings::setShaderChainTransitionParameters)
+      .function("setShaderChainSourceMorphParameters",
+                &ShaderChainBindings::setShaderChainSourceMorphParameters)
       .class_function("admitsPlanarSourceTransition",
                       &ShaderChainBindings::admitsPlanarSourceTransition)
       .function("getShaderChainParameterRanges",
