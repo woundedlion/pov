@@ -67,8 +67,6 @@ struct Spec {
   static constexpr bool FACTORED_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.
   static constexpr bool RIPPLE_RADIAL_TABLE = false;
-  /// Fits stationary direct hue noise to cubic patches on the byte-cube grid.
-  static constexpr bool CUBIC_STATIONARY_HUE = false;
   /// Keeps each prepared shading frame in the runtime arena.
   static constexpr bool PERSISTENT_PREPARED_FRAME = true;
   /// Keeps the full-resolution gamut table in device persistent storage.

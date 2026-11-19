@@ -960,6 +960,16 @@ private:
                                                 const FrameState &frame) {
     if (!phase_endpoints_ready(resource))
       return;
+    const auto &current = *resource.modulation;
+    const auto &previous = *resource.previous_modulation;
+    if (current.immutable_table &&
+        current.immutable_table == previous.immutable_table &&
+        current.evaluate == current.immutable_table->evaluator &&
+        current.evaluate == previous.evaluate &&
+        current.state.phase == previous.state.phase) {
+      result.ready = current.immutable_table->sample_tap != nullptr;
+      return;
+    }
     result.noise = &std::get<0>(resource.modulation->source);
     if constexpr (CACHED_NOISE) {
       const auto &a = resource.phase_noise_previous;

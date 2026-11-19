@@ -40,6 +40,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_authored_dynamic_modulation_storage);
   HS_RUN(test_authored_projection_bindings_match_operators);
   HS_RUN(test_authored_dynamic_modulation_controls);
+  HS_RUN(test_stationary_noise_arena_budget);
   HS_RUN(test_authored_potential_nested_controls);
   HS_RUN(test_authored_noise_seed_identity);
   HS_RUN(test_millefiori_radial_table_interval);

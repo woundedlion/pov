@@ -113,7 +113,8 @@ class ComposedEffect
                          ComposedEffect, Derived>>;
   using Registration = ComposedRegistration<ComposedEffect, Traits>;
   using IntervalCache = ComposedIntervalCache<Traits>;
-  using Clocks = ComposedClocks<Traits>;
+  using Clocks = ComposedClocks<Traits, ComposedEffect>;
+  friend Clocks;
   friend Choreography;
   friend Registration;
   friend ComposedAdmission<ComposedEffect>;
@@ -174,6 +175,10 @@ public:
    */
   HS_SIZE_FLASH_MEMBER void init() override {
     static_assert(
+        FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+        "Pullback::ComposedEffect persistent footprint exceeds the default "
+        "partition");
+    static_assert(
         modulation_presets_are_supported(),
         "composed modulation presets must retain source and mechanic");
     this->begin_choreography();
@@ -218,8 +223,7 @@ public:
                       Control::ChoreographyHook::AFTER_COMPOSED_INIT>())
       this->template invoke_hook<
           Control::ChoreographyHook::AFTER_COMPOSED_INIT>();
-    if constexpr (requires { requires SpecT::PREPARE_PALETTE_ON_INIT; })
-      palette.prepare(state->current, *state);
+    palette.prepare(state->current, *state);
   }
 
   /**
@@ -529,6 +533,24 @@ public:
   }
 
 private:
+  /** @brief Checks whether an authored endpoint can use a stationary cubic table.
+   * Fixed chamber noise already has its own phase cache. */
+  template <typename Resource>
+  static consteval bool authored_stationary_noise() {
+    if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+      if constexpr ((Resource::Family::DIRECT_NOISE &&
+                     !Traits::PHASE_NOISE_CACHE) ||
+                    Resource::Family::DYNAMIC)
+        for (size_t i = 0; i < Choreography::authored_preset_count(); ++i)
+          if (Modulation::StationaryCubicNoise::supports(
+                  Choreography::preset_row(i)
+                      .params.template get<Resource::KEY>()
+                      .modulation))
+            return true;
+    }
+    return false;
+  }
+
   static consteval bool modulation_presets_are_supported() {
     bool supported = true;
     Choreography::preset_row(0).params.visit(
@@ -548,7 +570,8 @@ private:
     return supported;
   }
 
-  struct State
+  template <typename OwnedResources>
+  struct StateLayout
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
         OuterCameraNoise<Metadata::OUTER_CAMERA>,
         OptionalHueRotationLut<HUE_ROTATION_LUT>,
@@ -558,7 +581,7 @@ private:
         IntervalCache::RgbLuts,
         IntervalCache::History,
         Registration::Storage {
-    typename Clocks::Storage resources;
+    OwnedResources resources;
     std::conditional_t<AUTHORED_PALETTE, AuthoredPaletteResources,
                        std::monostate>
         authored_palette;
@@ -571,13 +594,23 @@ private:
     typename IntervalCache::Interval interval;
   };
 
+  /** @brief Admits the first eligible resources whose complete layout fits the arena. */
+  template <typename Resource>
+  static consteval bool stationary_noise_resource() {
+    if constexpr (authored_stationary_noise<Resource>()) {
+      using Candidate =
+          StateLayout<typename Clocks::template Through<Resource>::Storage>;
+      return Traits::template footprint_bytes<Candidate>() <=
+             DEVICE_PERSISTENT_BUDGET;
+    }
+    return false;
+  }
+
+  using State = StateLayout<typename Clocks::Storage>;
+
   /// Persistent-arena bytes one instance claims.
   static constexpr size_t FOOTPRINT_BYTES =
       Traits::template footprint_bytes<State>();
-  static_assert(
-      FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
-      "Pullback::ComposedEffect persistent footprint exceeds the default "
-      "partition");
 
   /** @brief Registered flexible-modulation names.
    * @return Arena-owned names, or null before init(). */

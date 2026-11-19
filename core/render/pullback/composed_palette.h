@@ -125,7 +125,7 @@ public:
    * @param storage Arena-owned palette storage.
    */
   template <typename Storage>
-  HS_O3_FN HS_HOT_INLINE void prepare(FrameState &frame, Storage &storage) {
+  HS_SIZE_FLASH_MEMBER void prepare(FrameState &frame, Storage &storage) {
     const BakedPalette &palette = selected_palette(storage);
     uint32_t palette_generation = cycler.bake_generation() << 1;
     if constexpr (AUTHORED_PALETTE)
@@ -134,13 +134,7 @@ public:
         palette_generation =
             (storage.authored_palette.bake_generation() << 1) | 1U;
     if constexpr (HUE_ROTATION_LUT)
-      if (storage.hue_rotation_lut_bake != palette_generation) {
-        Color::prepare_hue_rotation_lut(
-            std::span<Pixel, Color::HueRotationLutView::SIZE>(
-                storage.hue_rotation_lut),
-            palette, &storage.hue_rotation_gamut);
-        storage.hue_rotation_lut_bake = palette_generation;
-      }
+      storage.refresh_hue_rotation_lut(palette, palette_generation);
     frame.palette = &palette;
     if constexpr (HUE_ROTATION_LUT) {
       frame.hue_rotation_lut = storage.hue_rotation_lut.data();

@@ -517,12 +517,17 @@ struct DynamicModulationControlsProbe
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   /** @brief Authored parameter blocks and transitions of the probe presets. */
   static constexpr auto PRESETS = [] {
-    std::array<PresetEntry<Params>, 2> rows{};
+    std::array<PresetEntry<Params>, 3> rows{};
     rows[0].params.template get<"modulation">().modulation.mechanic.amount =
         0.5f;
     auto &config = rows[1].params.template get<"modulation">().modulation;
     config.source = Pattern::SourceKind::DIRECTIONAL_SINE;
     config.evaluation = Pattern::Evaluation::DIRECT;
+    auto &stationary = rows[2].params.template get<"modulation">().modulation;
+    stationary.evaluation = Pattern::Evaluation::DIRECT;
+    stationary.mechanic.kind =
+        ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
+    stationary.noise.scale = 1.01f;
     return rows;
   }();
   /** @brief Live recipe controls.
@@ -538,6 +543,48 @@ inline void test_authored_dynamic_modulation_controls() {
   hs_test::reset_globals();
   DynamicModulationControlsProbe effect;
   effect.init();
+  HS_EXPECT_TRUE(ComposedFrameWhiteBox::current_frame(effect).palette !=
+                 nullptr);
+  HS_EXPECT_TRUE(effect.selectPreset(2));
+  auto frame = effect.frame_for_test();
+  const auto *endpoint =
+      frame.resources.template get<"modulation">().modulation;
+  HS_EXPECT_TRUE(endpoint && endpoint->immutable_table);
+  FrameIntervalState<DynamicModulationControlsProbe::Params> interval{};
+  interval.params = frame.params;
+  interval.resources = frame.resources;
+  using Phase = ModulationProvider<Binding<decltype(interval)>, "modulation",
+                                   Pattern::SourceKind::NOISE,
+                                   Pattern::Evaluation::BAKED_CUBE, true, true>;
+  interval.temporal.phase_compatible = true;
+  interval.temporal.fraction = 0.35f;
+  const auto phase = Phase::prepare(interval);
+  HS_EXPECT_TRUE(phase.ready && !phase.noise);
+  FieldSample field;
+  field.sphere = math::Vector(0.3f, 0.8f, -0.6f);
+  PhaseScratch scratch;
+  HS_EXPECT_EQ(Color::sample_phase_scalar(field, phase, scratch),
+               Pattern::bounded_scalar(endpoint->immutable_table->sample_tap(
+                   *endpoint, Pattern::prepare_sphere_lut_sample_unchecked(
+                                  field.sphere))));
+  HS_EXPECT_TRUE(scratch.cube_tap_ready);
+  Modulation::Prepared untapped = *endpoint;
+  const Modulation::ImmutableTable no_tap{untapped.evaluate, nullptr};
+  untapped.immutable_table = &no_tap;
+  auto &resource = interval.resources.template get<"modulation">();
+  resource.previous_modulation = resource.modulation = &untapped;
+  HS_EXPECT_FALSE(Phase::prepare(interval).ready);
+  Modulation::Prepared different_clock = *endpoint;
+  different_clock.state.phase.phase_turns = 0.125f;
+  resource.previous_modulation = &different_clock;
+  resource.modulation = endpoint;
+  const auto continuous = Phase::prepare(interval);
+  HS_EXPECT_TRUE(continuous.ready && continuous.noise != nullptr);
+
+  HS_EXPECT_TRUE(effect.selectPreset(0));
+  frame = effect.frame_for_test();
+  HS_EXPECT_TRUE(frame.resources.template get<"modulation">()
+                     .modulation->immutable_table == nullptr);
   const auto readonly = [&](const char *id) {
     const auto *parameter = effect.getParameters().find(id);
     HS_EXPECT(parameter != nullptr, id);
@@ -610,6 +657,71 @@ inline void test_authored_dynamic_modulation_controls() {
         return ParamSetResult::APPLIED;
       }) == ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(readonly("interference-frequency-b"));
+}
+
+/** @brief Three stationary direct fields competing for the device arena. */
+struct StationaryNoiseBudgetSpec : DynamicModulationControlsSpec {
+  template <typename B, Pullback::ResourceKey Key>
+  using Layer = Pullback::Stage::Modulate<
+      Pullback::Color::Modulate<Pullback::ModulationProvider<
+          B, Key, Pattern::SourceKind::NOISE, Pattern::Evaluation::DIRECT>>>;
+
+  template <typename B, typename... Stages>
+  static auto add_layers(Pullback::Pipeline<B, Stages...> *)
+      -> Pullback::Pipeline<B, Stages..., Layer<B, "second">,
+                            Layer<B, "third">>;
+
+  template <typename B>
+  using Pipeline = decltype(add_layers(
+      static_cast<DynamicModulationControlsSpec::Pipeline<B> *>(nullptr)));
+};
+
+struct StationaryNoiseBudgetProbe
+    : Pullback::ComposedEffect<8, 8, StationaryNoiseBudgetProbe,
+                               StationaryNoiseBudgetSpec,
+                               Control::HookOwnership::INHERITED> {
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr auto PRESETS = [] {
+    std::array<PresetEntry<Params>, 1> rows{};
+    auto &params = rows[0].params;
+    params.template get<"modulation">().modulation.evaluation =
+        Pattern::Evaluation::DIRECT;
+    params.template get<"second">().modulation.seed = 17;
+    params.template get<"third">().modulation.seed = 29;
+    return rows;
+  }();
+};
+
+/** @brief Layers whose cubic table does not fit retain their direct generator. */
+inline void test_stationary_noise_arena_budget() {
+  hs_test::reset_globals();
+  StationaryNoiseBudgetProbe effect;
+  effect.init();
+  const auto frame = effect.frame_for_test();
+  const std::array layers{
+      frame.resources.template get<"modulation">().modulation,
+      frame.resources.template get<"second">().modulation,
+      frame.resources.template get<"third">().modulation};
+  size_t cached = 0;
+  const auto direction = Pattern::sphere_face_coordinate(1, 0.31f, -0.56f);
+  for (const auto *layer : layers) {
+    HS_EXPECT_TRUE(layer != nullptr);
+    if (!layer)
+      return;
+    const float direct =
+        Pattern::SphereNoise::sample(direction, std::get<0>(layer->source));
+    const float actual = Pullback::Modulation::sample(*layer, direction);
+    if (layer->immutable_table) {
+      ++cached;
+      HS_EXPECT_NEAR(actual, direct, 0.005f);
+    } else {
+      HS_EXPECT_EQ(actual, direct);
+    }
+  }
+  HS_EXPECT_TRUE(layers.front()->immutable_table != nullptr);
+  HS_EXPECT_TRUE(layers.back()->immutable_table == nullptr);
+  HS_EXPECT_TRUE(cached > 0 && cached < layers.size());
 }
 
 /** @brief Composed fixture for nested polynomial controls. */

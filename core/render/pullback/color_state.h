@@ -241,7 +241,7 @@ struct PhaseModulationState : ModulationState {
   /// Interpolated axial phases; a directional sine uses the first wave.
   Pattern::SphereSmoothGrid::Prepared grid{};
   const Pattern::SphereNoise::Prepared *noise =
-      nullptr;                 ///< Retained generator.
+      nullptr; ///< Direct generator; stationary tables borrow current->immutable_table.
   math::Vector noise_offset{}; ///< Noise loop at the column phase.
   bool ready = false;          ///< Whether one shared color tail is admitted.
 };
@@ -285,17 +285,16 @@ HS_HOT_INLINE inline float sample_phase_scalar(const FieldSample &field,
   else if (prepared.source == Pattern::SourceKind::NOISE) {
     if constexpr (std::is_same_v<Phase, CubePhaseModulationState>)
       if (prepared.cube_current) {
-        if (!scratch.cube_tap_ready) {
-          scratch.cube_tap =
-              Pattern::prepare_sphere_lut_sample_unchecked(field.sphere);
-          scratch.cube_tap_ready = true;
-        }
-        const auto &tap = scratch.cube_tap;
+        const auto &cube = scratch.tap(field.sphere);
         return hs::lerp(
-            Pattern::bounded_scalar(tap.sample(*prepared.cube_previous)),
-            Pattern::bounded_scalar(tap.sample(*prepared.cube_current)),
+            Pattern::bounded_scalar(cube.sample(*prepared.cube_previous)),
+            Pattern::bounded_scalar(cube.sample(*prepared.cube_current)),
             prepared.cube_fraction);
       }
+    if (!prepared.noise)
+      return Pattern::bounded_scalar(
+          prepared.current->immutable_table->sample_tap(
+              *prepared.current, scratch.tap(field.sphere)));
     bool cached = false;
     if constexpr (std::is_same_v<Phase, ChamberPhaseModulationState>)
       if (prepared.noise_previous && prepared.noise_current)

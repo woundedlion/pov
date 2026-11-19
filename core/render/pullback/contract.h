@@ -164,6 +164,16 @@ struct PhaseScratch {
   std::optional<Pattern::SphereDirection>
       direction; ///< Normalized source direction.
 
+  /** @brief Resolves one cube lookup for every sampler sharing this pixel. */
+  HS_HOT_FLASH_MEMBER const Pattern::SphereLutSample &
+  tap(const math::Vector &sphere) {
+    if (!cube_tap_ready) {
+      cube_tap = Pattern::prepare_sphere_lut_sample_unchecked(sphere);
+      cube_tap_ready = true;
+    }
+    return cube_tap;
+  }
+
   /** @brief Normalizes the shared sphere coordinate on first use.
    * @param sphere Coordinate of the current field sample.
    * @return Unit direction for its phase layers. */

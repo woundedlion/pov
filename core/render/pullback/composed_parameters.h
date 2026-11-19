@@ -265,6 +265,17 @@ template <> struct OptionalHueRotationLut<true> {
       forcing the first build. */
   uint32_t hue_rotation_lut_bake = 0;
   HueRotationGamutMask hue_rotation_gamut; ///< Resident hue table cell flags.
+
+  /** @brief Rebakes the hue table when its palette generation changes. */
+  HS_SIZE_FLASH_MEMBER void
+  refresh_hue_rotation_lut(const BakedPalette &palette, uint32_t generation) {
+    if (hue_rotation_lut_bake != generation) {
+      Color::prepare_hue_rotation_lut(
+          std::span<Pixel, Color::HueRotationLutView::SIZE>(hue_rotation_lut),
+          palette, &hue_rotation_gamut);
+      hue_rotation_lut_bake = generation;
+    }
+  }
 };
 
 /** @brief Projection-walk noise storage; empty when disabled. */

@@ -90,6 +90,19 @@ admission. A topology change adopts the incoming source instead of sampling
 incompatible retained endpoints. Fixed modulation families continue to reject
 changes outside their declared source and storage strategy.
 
+Consecutive color modulations bind their selected palettes and scalar sources
+once per column time. Both visible arms borrow that binding. Layers that use the
+same prepared source share its sample, including a cube lookup used by different
+mechanics. Each arm still supplies its own field direction, path length and coverage.
+
+A composed preset with stationary, single-octave direct simplex noise can use
+a cubic table for any color mechanic at scales up to 1.25. The table key consists
+of seed, scale and loop offset. When a key changes, the retained frame keeps its
+table and the incoming frame uses its direct generator until the new key is
+stable and the table is free. The effect admits tables in layer order against
+its complete arena footprint. Higher frequencies and layers beyond the budget
+use direct sampling. Palette lookup tables are prepared during initialization.
+
 The canonical modulation control schema lives in `Modulation::Controls`, shared
 by the interpreter and flexible composed resources. Flexible native effects
 register every schema control. Inactive source and noise-variant controls are

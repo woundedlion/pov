@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <type_traits>
 #include "core/math/noise_field.h"
@@ -24,26 +26,30 @@ namespace Pullback {
  * @details Clocks live in this object; the arena-owned per-resource state is
  * `Storage`, held by the runtime State and bound by seed().
  * @tparam Traits The effect's `ComposedTraits`.
+ * @tparam Runtime Effect providing the authored stationary-noise resources.
  */
-template <typename Traits> class ComposedClocks {
+template <typename Traits, typename Runtime> class ComposedClocks {
   using Params = typename Traits::Params;
   using FrameState = typename Traits::FrameState;
   using SpecT = typename Traits::Spec;
   static constexpr bool AUTHORED_TOPOLOGY = Traits::AUTHORED_TOPOLOGY;
 
-  template <typename Resource>
-  static constexpr bool CUBIC_STATIONARY_HUE =
-      SpecT::CUBIC_STATIONARY_HUE &&
-      ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>;
+  template <typename Resource> static consteval size_t resource_index() {
+    constexpr auto keys =
+        []<typename... R>(ComposedDetail::ResourceList<R...>) {
+          return std::array{R::KEY.view()...};
+        }(typename Params::ResourceTypes{});
+    return std::find(keys.begin(), keys.end(), Resource::KEY.view()) -
+           keys.begin();
+  }
 
 public:
-  /** @brief Owned per-resource state with optional ripple transfer curves.
-   * @tparam Resource Keyed resource. */
-  template <typename Resource>
-  struct Owned
+  /** @brief Resource state, including the selected persistent tables. */
+  template <typename Resource, bool Cubic>
+  struct ResourceState
       : ComposedDetail::ResourceNoise<Resource>,
-        std::conditional_t<CUBIC_STATIONARY_HUE<Resource>,
-                           Modulation::StationaryCubicNoise, std::monostate>,
+        std::conditional_t<Cubic, Modulation::StationaryCubicNoise,
+                           std::monostate>,
         ComposedDetail::ResourcePhaseNoiseCache<
             Resource, Traits::PHASE_NOISE_CACHE &&
                           ComposedDetail::RESOURCE_DIRECT_NOISE<Resource>>,
@@ -52,9 +58,25 @@ public:
                           std::is_same_v<typename Resource::Family,
                                          SphereAnimation::BurstRippleParams>> {
   };
+
+  template <typename Resource>
+  using Owned =
+      ResourceState<Resource,
+                    Runtime::template stationary_noise_resource<Resource>()>;
   /// Arena-owned per-resource state.
   using Storage =
       ComposedDetail::ResourceStorage<Owned, typename Params::ResourceTypes>;
+
+  /** @brief Candidate layout with every eligible table through one resource. */
+  template <typename Last> struct Through {
+    template <typename Resource>
+    using Layer =
+        ResourceState<Resource,
+                      Runtime::template authored_stationary_noise<Resource>() &&
+                          resource_index<Resource>() <= resource_index<Last>()>;
+    using Storage =
+        ComposedDetail::ResourceStorage<Layer, typename Params::ResourceTypes>;
+  };
 
   /** @brief Binds the effect's live parameters.
    * @param params Parameter set the clocks read for their lifetime. */
@@ -78,11 +100,13 @@ public:
   HS_O3_FN HS_HOT_INLINE void seed(Storage &storage) {
     owned = &storage;
     params->visit([&]<typename Resource>(const auto &) {
-      if constexpr (CUBIC_STATIONARY_HUE<Resource>) {
+      if constexpr (Runtime::template stationary_noise_resource<Resource>()) {
         auto &state = owned->template get<Resource::KEY>();
         const auto &config = params->template get<Resource::KEY>().modulation;
-        state.modulation_resources.prepare(config, Modulation::init(config));
-        state.bind(state.modulation_resources.prepared, nullptr);
+        if (Modulation::StationaryCubicNoise::supports(config)) {
+          state.modulation_resources.prepare(config, Modulation::init(config));
+          state.bind(state.modulation_resources.prepared, nullptr);
+        }
       }
       if constexpr (Resource::KIND == ResourceKind::ROTATION) {
         constexpr auto INSTANCE =
@@ -227,7 +251,7 @@ public:
           auto &state = owned->template get<Resource::KEY>();
           resource.modulation =
               &state.modulation_resources.prepare(config, clock);
-          if constexpr (CUBIC_STATIONARY_HUE<Resource>)
+          if constexpr (Runtime::template stationary_noise_resource<Resource>())
             state.bind(state.modulation_resources.prepared,
                        retained
                            ? retained->resources.template get<Resource::KEY>()

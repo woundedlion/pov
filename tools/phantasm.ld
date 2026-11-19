@@ -118,9 +118,9 @@ SECTIONS
 		*(.text._ZN3SDF4FaceC1E*)
 		*(.text._ZN3SDF4FaceC2E*)
 		/* Composed-effect arena state and temporal history initialization. */
-		*(.text._ZN5Arena4makeIN8Pullback14ComposedEffectI*5StateE*)
-		*(.text._ZN8Pullback14ComposedEffectI*5StateC1Ev)
-		*(.text._ZN8Pullback14ComposedEffectI*5StateC2Ev)
+		*(.text._ZN5Arena4makeIN8Pullback14ComposedEffectI*11StateLayoutI*)
+		*(.text._ZN8Pullback14ComposedEffectI*11StateLayoutI*C1Ev)
+		*(.text._ZN8Pullback14ComposedEffectI*11StateLayoutI*C2Ev)
 		*(.text._ZN9Spacetime12FrameHistoryI*C1Ev)
 		*(.text._ZN9Spacetime12FrameHistoryI*C2Ev)
 		*(.text._ZN8Pullback18FrameIntervalStateI*C[12]Ev)
