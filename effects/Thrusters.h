@@ -114,6 +114,8 @@ public:
 private:
   /// Warp waves per ring turn.
   static constexpr int WARP_SPATIAL_CYCLES = 2;
+  static_assert(WARP_SPATIAL_CYCLES % 2 == 0,
+                "timed ring vertices fold antipodes onto one shift");
   /// Warp waves per WARP_PERIOD_FRAMES.
   static constexpr int WARP_TEMPORAL_CYCLES = 3;
   /// Period of the warp's frame counter.
