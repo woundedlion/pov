@@ -34,7 +34,7 @@ Transform {
       appearance Appearance {
         material Material { diffuseColor 0.08 0.08 0.08 }
       }
-      geometry Box { size 13.000 0.980 1.000 }
+      geometry Box { size 14.000 0.980 1.000 }
     }
   ]
 }
@@ -46,7 +46,7 @@ Transform {
       appearance Appearance {
         material Material { diffuseColor 0.08 0.08 0.08 }
       }
-      geometry Box { size 13.000 0.980 1.000 }
+      geometry Box { size 14.000 0.980 1.000 }
     }
   ]
 }
