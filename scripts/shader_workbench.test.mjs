@@ -1085,6 +1085,34 @@ test('planar morphs hold fields at their live endpoint and interpolate shared fi
   assert.deepEqual(promotedControlNames('sample.source', descriptor, catalog), []);
 });
 
+test('tessellation morphs hold fill-specific fields and interpolate shared scale', () => {
+  const { document, catalog, from, to, edge } = planarTransitionFixture();
+  const { descriptor, preset_bank: bank } = document;
+  const [operator] = catalog.operators;
+  const cells = 'tessellation-square-cells';
+  const edges = 'tessellation-square-edges';
+  const source = operator.params.find(field => field.id === 'source');
+  source.values.push(cells, edges);
+  descriptor.parameters.find(parameter => parameter.id === 'sample.source').domain.values.push(cells, edges);
+  const add = (id, fromValue, toValue, gate) => {
+    const field = { id, min: 0, max: 16, default: 1, curve: 'lerp', sources: [cells, edges],
+      ...(gate ? { gated_by: { field: 'source', values: [gate] } } : {}) };
+    operator.params.push(field);
+    descriptor.parameters.push(declarationFromCatalogField('sample', field, operator.id));
+    from.values[`sample.${id}`] = fromValue;
+    to.values[`sample.${id}`] = toValue;
+  };
+  from.values['sample.source'] = cells;
+  to.values['sample.source'] = edges;
+  add('tessellation-cell-radius', 0.75, 0.25, cells);
+  add('tessellation-line-thickness', 0.125, 0.5, edges);
+  add('tessellation-cell-scale', 2, 6);
+  const { values } = evaluateTransition(descriptor, bank, from.preset_id, to.preset_id, edge.duration / 2, catalog);
+  assert.equal(values['sample.tessellation-cell-radius'], 0.75);
+  assert.equal(values['sample.tessellation-line-thickness'], 0.5);
+  assert.equal(values['sample.tessellation-cell-scale'], 4);
+});
+
 test('promotion reports uniformity, departures and the native lattice verdict', () => {
   const { document, catalog, from, to, edge } = planarTransitionFixture();
   const { preset_bank: bank } = document;
