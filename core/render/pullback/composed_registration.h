@@ -479,7 +479,8 @@ private:
       refresh_modulation_controls();
       return;
     }
-    for (const auto &field : Modulation::control_fields(config)) {
+    for (const auto &field :
+         Modulation::control_fields(config, Resource::Family::SOURCE)) {
       if (!field.value)
         continue;
       effect().register_animated_param(

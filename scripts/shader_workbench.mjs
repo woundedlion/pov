@@ -1434,8 +1434,9 @@ const LIVE_SURFACE_OPERATORS = new Set(['sphere.displace.symmetric.v2', 'sphere.
   'sphere.displace.ripple.v2', 'sphere.displace.potential.v1']);
 
 /** Whether the compiled policy stores an enum instead of baking the choice. */
-export function hasLiveComposedTopology(slot, field, catalog, { authoredTopology = false, authoredPalette = false } = {}) {
+export function hasLiveComposedTopology(slot, field, catalog, { authoredTopology = false, authoredPalette = false, hasAuthoredAffine } = {}) {
   if (field === LIVE_TOPOLOGY_FIELD || slot.operator === 'color.modulate.v1') return true;
+  if (slot.operator === 'warp.affine.v4' && field === 'path-length') return hasAuthoredAffine?.(slot) ?? false;
   if (slot.operator === PLANAR_SOURCE_OPERATOR)
     return ['source', 'spiral-coordinate-system'].includes(field);
   if (slot.operator === 'sample.spiral.v3' && field === 'coordinate-system') return true;
@@ -1476,7 +1477,7 @@ export function promotionDepartureDiagnostics(bank, presetId, policies) {
 
 /** Issues that prevent a valid workbench document from becoming a composed effect. */
 export function promotionDiagnostics(document, { catalog, authoredTopology = false,
-  authoredPalette = false, latticeAllowsEdge } = {}) {
+  authoredPalette = false, hasAuthoredAffine, latticeAllowsEdge } = {}) {
   const { descriptor, preset_bank: bank } = document;
   const diagnostics = [];
   const dwell = Object.values(bank.choreography.dwell ?? {});
@@ -1497,7 +1498,7 @@ export function promotionDiagnostics(document, { catalog, authoredTopology = fal
     if (parameter.storage !== 'enum8' || !varies(parameter.id)) continue;
     const [label, field] = parameter.id.split('.');
     const slot = descriptor.chain.find(slot => slot.label === label);
-    if (!hasLiveComposedTopology(slot, field, catalog, { authoredTopology, authoredPalette }))
+    if (!hasLiveComposedTopology(slot, field, catalog, { authoredTopology, authoredPalette, hasAuthoredAffine }))
       diagnostics.push({ code: 'NON_UNIFORM_TOPOLOGY', parameter_id: parameter.id,
         message: `Composed topology must be uniform: ${parameter.id}` });
   }

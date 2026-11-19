@@ -420,14 +420,42 @@ inline const Prepared *find_endpoint(std::span<const Endpoint> endpoints,
 /** @brief Source controls of one authored modulation stage.
  * @tparam SourceV Source capability.
  * @tparam EvaluationV Spatial evaluation strategy.
- * @tparam DynamicV Whether presets may change source topology. */
+ * @tparam DynamicV Whether presets may change source topology.
+ * @tparam AllowDisplacement Whether presets may select path length instead. */
 template <Pattern::SourceKind SourceV, Pattern::Evaluation EvaluationV,
-          bool DynamicV = false>
+          bool DynamicV = false, bool AllowDisplacement = false>
 struct Params {
   static constexpr auto SOURCE = SourceV;         ///< Source capability.
   static constexpr auto EVALUATION = EvaluationV; ///< Storage strategy.
   static constexpr bool DYNAMIC =
       DynamicV; ///< Whether presets may change topology.
+  static_assert(!AllowDisplacement ||
+                (!DynamicV && EvaluationV == Pattern::Evaluation::DIRECT &&
+                 SourceV != Pattern::SourceKind::DISPLACEMENT));
+  /// Whether the source can be selected with this family's storage.
+  static constexpr bool supports_source(Pattern::SourceKind source) {
+    return DynamicV || source == SourceV ||
+           (AllowDisplacement && source == Pattern::SourceKind::DISPLACEMENT);
+  }
+  /// Whether two bank rows share a supported source and mechanic layout.
+  static constexpr bool supports_preset(const Config &initial,
+                                        const Config &row) {
+    if constexpr (AllowDisplacement)
+      return supports_source(row.source) && row.evaluation == EvaluationV &&
+             row.mechanic.kind == initial.mechanic.kind;
+    return row.source == initial.source &&
+           row.mechanic.kind == initial.mechanic.kind;
+  }
+  /// Whether a document edit preserves this family's topology.
+  static bool accepts_edit(const Config &from, const Config &to) {
+    if constexpr (DynamicV)
+      return true;
+    if constexpr (AllowDisplacement)
+      return supports_source(to.source) && from.enabled == to.enabled &&
+             from.version == to.version && from.evaluation == to.evaluation &&
+             from.mechanic.kind == to.mechanic.kind;
+    return same_topology(from, to);
+  }
   /// Whether the fixed source is directly evaluated noise.
   static constexpr bool DIRECT_NOISE =
       !DynamicV && SourceV == Pattern::SourceKind::NOISE &&
@@ -730,16 +758,17 @@ constexpr const char *source_scale_label(Pattern::SourceKind source) {
 }
 /** @brief Enumerates the amount and selected source controls.
  * @param config Live source recipe.
+ * @param source Spatial source whose controls the provider exposes.
  * @return Control descriptors; null addresses mark unused entries. */
 HS_FLASH_MEMBER inline std::array<ControlField, 3>
-control_fields(Config &config) {
+control_fields(Config &config, Pattern::SourceKind source) {
   const bool unit = ColorModulation::unit_mechanic(config.mechanic.kind);
   std::array<ControlField, 3> fields{};
   fields[0] = {AMOUNT_LABEL, &config.mechanic.amount, unit ? 0.0f : -4.0f,
                unit ? 1.0f : 4.0f};
-  switch (config.source) {
+  switch (source) {
   case Pattern::SourceKind::NOISE:
-    fields[1] = {source_scale_label(config.source), &config.noise.scale,
+    fields[1] = {source_scale_label(source), &config.noise.scale,
                  Pattern::MIN_NOISE_SCALE,
                  config.evaluation == Pattern::Evaluation::BAKED_CUBE
                      ? Pattern::MAX_BAKED_NOISE_SCALE
@@ -748,21 +777,20 @@ control_fields(Config &config) {
                  Pattern::MAX_NOISE_SPEED};
     break;
   case Pattern::SourceKind::DIRECTIONAL_SINE:
-    fields[1] = {source_scale_label(config.source), &config.sine.frequency,
-                 0.0f, Pattern::MAX_AXIAL_FREQUENCY};
+    fields[1] = {source_scale_label(source), &config.sine.frequency, 0.0f,
+                 Pattern::MAX_AXIAL_FREQUENCY};
     fields[2] = {SPEED_LABEL, &config.sine.speed, -Pattern::MAX_ANALYTIC_SPEED,
                  Pattern::MAX_ANALYTIC_SPEED};
     break;
   case Pattern::SourceKind::SPHERE_INTERFERENCE:
-    fields[1] = {source_scale_label(config.source),
-                 &config.interference.frequency, 0.0f,
-                 Pattern::MAX_AXIAL_FREQUENCY};
+    fields[1] = {source_scale_label(source), &config.interference.frequency,
+                 0.0f, Pattern::MAX_AXIAL_FREQUENCY};
     fields[2] = {SPEED_LABEL, &config.interference.speed,
                  -Pattern::MAX_ANALYTIC_SPEED, Pattern::MAX_ANALYTIC_SPEED};
     break;
   case Pattern::SourceKind::SPHERE_SMOOTH_GRID:
-    fields[1] = {source_scale_label(config.source), &config.grid.frequency,
-                 0.0f, Pattern::MAX_AXIAL_FREQUENCY};
+    fields[1] = {source_scale_label(source), &config.grid.frequency, 0.0f,
+                 Pattern::MAX_AXIAL_FREQUENCY};
     fields[2] = {SPEED_LABEL, &config.grid.speed, -Pattern::MAX_ANALYTIC_SPEED,
                  Pattern::MAX_ANALYTIC_SPEED};
     break;
@@ -770,6 +798,11 @@ control_fields(Config &config) {
     break;
   }
   return fields;
+}
+
+/// Controls for the currently selected source.
+inline std::array<ControlField, 3> control_fields(Config &config) {
+  return control_fields(config, config.source);
 }
 
 /** @brief Owned prepared endpoint and optional scalar cube. */

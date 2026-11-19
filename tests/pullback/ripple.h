@@ -119,7 +119,14 @@ inline void test_pullback_single_center_ripple_support() {
     HS_EXPECT_EQ(cached.support.count, overlap ? 2 : 1);
     HS_EXPECT_TRUE(cached.support.inverse_width > 0.0);
     const auto &exact = cached.ripples;
+    bool saw_travel = false;
     const auto check = [&](const math::Vector &view) {
+      const auto tracked = grouped_ripples(view, exact, true);
+      saw_travel |= tracked.path_length > 0.0f;
+      HS_EXPECT_EQ(supported_ripples(view, deferred, true).path_length,
+                   tracked.path_length);
+      HS_EXPECT_EQ(supported_ripples(view, cached, true).path_length,
+                   tracked.path_length);
       const auto a = grouped_ripples(view, exact, false, &cached.support);
       const auto b = grouped_ripples(view, exact, false);
       const auto lazy = supported_ripples(view, deferred);
@@ -137,6 +144,7 @@ inline void test_pullback_single_center_ripple_support() {
     };
     for (int i = 0; i < 256; ++i)
       check(math::fib_spiral(256, 0.5f, i));
+    HS_EXPECT_TRUE(saw_travel);
     if (!overlap)
       for (uint8_t i = 0; i < exact.count; ++i) {
         const auto &wave = exact.waves[i].ripple;
@@ -154,6 +162,8 @@ inline void test_pullback_single_center_ripple_support() {
   merged.waves[1].ripple.decay = 1.0f;
   HS_EXPECT_EQ(ripple_group_bands(merged).inverse_width, 0.0);
   const SupportedRipples edited{merged};
+  HS_EXPECT_EQ(supported_ripples(math::Z_AXIS, edited, true).path_length,
+               grouped_ripples(math::Z_AXIS, merged, true).path_length);
   const auto a = supported_ripples(math::Z_AXIS, edited);
   const auto b = grouped_ripples(math::Z_AXIS, merged, false);
   HS_EXPECT_EQ(a.sphere.x, b.sphere.x);
@@ -171,6 +181,8 @@ inline void test_pullback_single_center_ripple_support() {
   const SupportedRipples guarded{polar};
   const math::Vector pole_view{0.01f, sqrtf(1.0f - 0.0001f), 0.0f};
   const auto safe = supported_ripples(pole_view, guarded);
+  HS_EXPECT_EQ(supported_ripples(pole_view, guarded, true).path_length,
+               sequential_ripples(pole_view, polar, true).path_length);
   const auto sequential = sequential_ripples(pole_view, polar, false);
   HS_EXPECT_EQ(safe.sphere.x, sequential.sphere.x);
   HS_EXPECT_EQ(safe.sphere.y, sequential.sphere.y);
@@ -965,7 +977,7 @@ inline void test_pullback_ripple_lazy_preparation() {
   using Tracked = Pullback::Surface::BurstRipple<
       Pullback::SurfaceProvider<ExactBinding, BurstRippleParams, true>>;
   static_assert(std::is_same_v<Untracked::Prepared, SupportedRipples>);
-  static_assert(std::is_same_v<Tracked::Prepared, PreparedRipples>);
+  static_assert(std::is_same_v<Tracked::Prepared, SupportedRipples>);
   static_assert(
       std::is_same_v<Policy::Prepared, std::optional<PreparedRipples>>);
   static_assert(Policy::LAZY_RADIAL_PREPARE);

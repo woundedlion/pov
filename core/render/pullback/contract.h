@@ -1935,8 +1935,29 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
   HS_HOT_INLINE static Color4 shade_stack(Input input, const FrameState &ctx,
                                           const PreparedTuple &prepared,
                                           const Column &column) {
-    if constexpr (ELIDES_FINAL_WARP_PATH && Index + 2 == STACK_BEGIN) {
-      CoordinateWarpAt<Index>::apply(input, std::get<Index>(prepared));
+    if constexpr (Index + 2 == STACK_BEGIN && requires {
+                    CoordinateWarpAt<Index>::apply(input,
+                                                   std::get<Index>(prepared));
+                  } && (ELIDES_FINAL_WARP_PATH || requires {
+                    column.reads_path_length();
+                  })) {
+      const bool measure = [&] {
+        if constexpr (ELIDES_FINAL_WARP_PATH)
+          return false;
+        else
+          return column.reads_path_length();
+      }();
+      if (measure) {
+        if constexpr (requires {
+                        CoordinateWarpAt<Index>::apply_tracked(
+                            input, ctx, std::get<Index>(prepared), column);
+                      })
+          CoordinateWarpAt<Index>::apply_tracked(
+              input, ctx, std::get<Index>(prepared), column);
+        else
+          input = run_stage_endpoint<Index, false>(input, ctx, prepared);
+      } else
+        CoordinateWarpAt<Index>::apply(input, std::get<Index>(prepared));
       return shade_stack<Index + 2>(
           run_stage_endpoint<Index + 1, false>(input, ctx, prepared), ctx,
           prepared, column);
@@ -2459,6 +2480,14 @@ public:
      * @param source Frame context. */
     explicit Frame(const FrameState &source)
         : ctx(source), prepared(Core::prepare_stages(ctx)) {}
+
+    /** @brief Samples a column into the context its stages prepare from.
+     * @tparam Interval Frame-interval sampler.
+     * @param interval Prepared frame endpoints.
+     * @param fraction Column time within the interval. */
+    template <typename Interval>
+    Frame(const Interval &interval, float fraction)
+        : ctx(interval.at(fraction)), prepared(Core::prepare_stages(ctx)) {}
     Frame(const Frame &) = delete;
     Frame(Frame &&) = delete;
   };
@@ -2474,6 +2503,21 @@ public:
         frame.ctx, frame.prepared,
         std::make_index_sequence<NODE_COUNT - Core::STACK_BEGIN - 1>{});
   }
+  /** @brief Binds any translation-distance cache to one scan column's evaluator. */
+  template <typename Evaluator>
+  static auto scan_evaluator(Evaluator evaluator) {
+    if constexpr (MODULATION_STACK && Core::STACK_BEGIN >= 2 &&
+                  !ELIDES_FINAL_WARP_PATH) {
+      using Warp =
+          typename Core::template CoordinateWarpAt<Core::STACK_BEGIN - 2>;
+      if constexpr (requires { Warp::scan_evaluator(std::move(evaluator)); })
+        return Warp::scan_evaluator(std::move(evaluator));
+      else
+        return evaluator;
+    } else
+      return evaluator;
+  }
+
   /** @brief Shades a view direction through a prebound modulation stack.
    * @tparam Column Bound evaluator type.
    * @param view Pixel unit direction.

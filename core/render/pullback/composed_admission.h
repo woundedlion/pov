@@ -53,8 +53,7 @@ public:
         result = editor(candidate);
         if (result != ParamSetResult::APPLIED)
           return;
-        if ((!Resource::Family::DYNAMIC &&
-             !Modulation::same_topology(family.modulation, candidate)) ||
+        if (!Resource::Family::accepts_edit(family.modulation, candidate) ||
             !Modulation::admitted(candidate)) {
           result = ParamSetResult::INADMISSIBLE;
           return;

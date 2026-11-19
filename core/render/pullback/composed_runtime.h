@@ -186,7 +186,7 @@ public:
         "partition");
     static_assert(
         modulation_presets_are_supported(),
-        "composed modulation presets must retain source and mechanic");
+        "composed modulation preset exceeds its source or mechanic capability");
     static_assert(planar_presets_use_compiled_kinds(),
                   "composed planar kinds must match the preset bank");
     this->begin_choreography();
@@ -271,12 +271,11 @@ public:
             canvas,
             [&](int c) -> decltype(auto) {
               HS_PROFILE(fx_prepare_column);
-              sampler.at_into(state->column,
-                              Spacetime::SamplingSurface<W>::time(c));
+              const float fraction = Spacetime::SamplingSurface<W>::time(c);
               if constexpr (SpecT::PERSISTENT_PREPARED_FRAME)
-                return prepare_persistent_frame(state->column);
+                return state->prepared.emplace(sampler, fraction);
               else
-                return RenderPipeline::prepare(state->column);
+                return Frame(sampler, fraction);
             },
             [](const Frame &frame) { return bind_column_shaders(frame); });
       } else {
@@ -357,7 +356,9 @@ public:
               column = RenderPipeline::template bind_modulation_stack<Derived>(
                   frame)](int x) {
         return stacked_column_shader(
-            frame, x, [&column]() -> const auto & { return column; });
+            frame, x,
+            RenderPipeline::scan_evaluator(
+                [&column]() -> const auto & { return column; }));
       };
     else
       return [&frame](int x) { return column_shader(frame, x); };
@@ -685,14 +686,13 @@ private:
         [&]<typename Resource>(const auto &family) {
           if constexpr (Resource::KIND == ResourceKind::MODULATION)
             if constexpr (!Resource::Family::DYNAMIC)
-              for (size_t index = 1;
+              for (size_t index = 0;
                    index < Choreography::authored_preset_count(); ++index) {
                 const auto config = Choreography::preset_row(index)
                                         .params.template get<Resource::KEY>()
                                         .modulation;
-                supported =
-                    supported && config.source == family.modulation.source &&
-                    config.mechanic.kind == family.modulation.mechanic.kind;
+                supported = supported && Resource::Family::supports_preset(
+                                             family.modulation, config);
               }
         });
     return supported;
@@ -727,8 +727,6 @@ private:
     std::conditional_t<SpecT::PERSISTENT_PREPARED_FRAME, std::optional<Frame>,
                        std::monostate>
         prepared;
-    typename IntervalCache::Column column =
-        Spacetime::initial_frame_context<typename IntervalCache::Column>();
     typename IntervalCache::Interval interval;
   };
 

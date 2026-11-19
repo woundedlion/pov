@@ -267,7 +267,7 @@ constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"GridWarp", 3, 480, 6265964079350224296ULL},
     {"LiquidWindows", 2, 296, 8838112055952055764ULL},
     {"Iridescence", 2, 516, 4473797754982781858ULL},
-    {"RiverStones", 2, 668, 7241475773858249476ULL},
+    {"RiverStones", 3, 672, 1116303410911910063ULL},
     {"KaleidoscopeMelt", 4, 240, 12469853473749147524ULL},
     {"ChromaticLichen", 5, 240, 2714246693381544909ULL},
     {"MermaidSkin", 5, 240, 2714246693381544909ULL},

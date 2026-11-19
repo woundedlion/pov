@@ -18,6 +18,7 @@
 
 /** @brief Stage spec for `RiverStones`. */
 struct RiverStonesSpec : Pullback::Spec {
+  static constexpr bool RIPPLE_RADIAL_TABLE = true;
   /// Samples animation at each column time.
   static constexpr auto TEMPORAL =
       Pullback::TemporalPolicy::fused(Pullback::PaletteCache::NONE);
@@ -33,12 +34,12 @@ struct RiverStonesSpec : Pullback::Spec {
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
-          Pullback::SphereAnimation::BurstRippleParams, B, false,
+          Pullback::SphereAnimation::BurstRippleParams, B, true,
           "displace1">::Type>,
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::EQUIRECTANGULAR, B>::Type>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::AffineParams, B, "outer_warp", true,
+          Pullback::Warp::AuthoredAffineParams, B, "outer_warp", true,
           Pullback::AffineForm::TRANSLATES>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::FixedTessellationParams<
@@ -51,9 +52,8 @@ struct RiverStonesSpec : Pullback::Spec {
           Pullback::Color::GeneratedPalette<Pullback::AuthoredColorProvider<
               B, Pullback::Color::BrightnessEnvelope::NONE>>>,
       Pullback::Stage::Modulate<
-          Pullback::Color::Modulate<Pullback::ModulationProvider<
-              B, "modulate", Pattern::SourceKind::NOISE,
-              Pattern::Evaluation::DIRECT>>>,
+          Pullback::Color::Modulate<Pullback::DirectOrDisplacementProvider<
+              B, "modulate", Pattern::SourceKind::NOISE>>>,
       Pullback::Stage::Modulate<
           Pullback::Color::Modulate<Pullback::ModulationProvider<
               B, "modulate1", Pattern::SourceKind::NOISE,
@@ -85,10 +85,11 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "16da92705d798daf9c6602503e59214136e34148f5dae4e2f10a16cde25e482e";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "75d3b9393d883a8ea2af267471084c0ad668f92a6228d2b455d8e681b00b5138";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "3031d643168b06733b4b7b0d2f6983850310060e7bd4d849d2f85b5589c821e3";
   /// Preset identities, indexed by preset number.
-  static constexpr std::array<std::string_view, 1> PRESET_IDS{
-      "river-stones"
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{
+      "river-stones",
+      "river-stones-2"
   };
   /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -97,7 +98,7 @@ public:
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -271,6 +272,7 @@ public:
     value.template get<"source">().cell_shape = 0.5292398f;
     value.template get<"source">().cell_softness = 0.10124387f;
     value.template get<"outer_warp">().lattice_period = 1.0f;
+    value.template get<"outer_warp">().path_length = 1;
     value.template get<"outer_warp">().repeat_cells = 1.0f;
     value.template get<"outer_warp">().rotation_rate = 0.0f;
     value.template get<"outer_warp">().scale_x = 1.0f;
@@ -280,6 +282,23 @@ public:
     value.template get<"outer_warp">().translation_x = 0.0f;
     value.template get<"outer_warp">().translation_y = 2.0f;
     return value;
+  }
+
+  /**
+   * @brief The preset at index in PRESET_IDS and how it departs.
+   * @param index Preset number; an index past the last yields preset 0.
+   * @return The preset's parameters and departure segue.
+   */
+  HS_FLASH_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
+    Params value = initial_params();
+    if (index == 1) {
+      value.template get<"modulate">().modulation.mechanic.amount = 2.0f;
+      value.template get<"modulate">().modulation.source = Pattern::SourceKind::DISPLACEMENT;
+      value.template get<"source">().cell_scale = 4.7136416f;
+      value.template get<"source">().cell_softness = 0.32801026f;
+      value.template get<"outer_warp">().path_length = 0;
+    }
+    return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }
   // clang-format on
   // End generated params.
@@ -292,6 +311,8 @@ public:
         .template extend<
             RiverStones,
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
-                                 &RiverStones::initial_params>>();
+                                 &RiverStones::initial_params>,
+            Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                                 &RiverStones::preset>>();
   }
 };

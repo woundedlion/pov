@@ -1798,7 +1798,7 @@ inline void check_product_modulation_columns() {
 /** @brief Coupled endpoint mechanics preserve the authored colors. */
 inline void test_river_stones_color_tail() {
   static_assert(
-      RiverStones<SMALL_W, SMALL_H>::RenderPipeline::ELIDES_FINAL_WARP_PATH);
+      !RiverStones<SMALL_W, SMALL_H>::RenderPipeline::ELIDES_FINAL_WARP_PATH);
   check_product_modulation_columns<RiverStones<SMALL_W, SMALL_H>, "modulate1",
                                    "modulate2">();
 }
@@ -1830,6 +1830,8 @@ inline void test_modulation_stack_observes_warp_distance() {
   mask.enabled = true;
   const auto frame = Observer::prepare(state);
   const auto column = Observer::bind_modulation_stack(frame);
+  const auto scan =
+      Observer::scan_evaluator([&]() -> const auto & { return column; });
   mask.enabled = false;
   const auto unmasked = Observer::prepare(state);
   bool observed_distance = false;
@@ -1839,6 +1841,11 @@ inline void test_modulation_stack_observes_warp_distance() {
     const auto actual = Observer::shade(view, frame, column);
     HS_EXPECT_EQ(actual.color, expected.color);
     HS_EXPECT_EQ(actual.alpha, expected.alpha);
+    for (int repeat = 0; repeat < 2; ++repeat) {
+      const auto cached = Observer::shade(view, frame, scan());
+      HS_EXPECT_EQ(cached.color, expected.color);
+      HS_EXPECT_EQ(cached.alpha, expected.alpha);
+    }
     const auto base = Observer::evaluate(view, unmasked.ctx, unmasked.prepared);
     observed_distance |= actual.alpha > 0.5f * base.alpha;
   }
@@ -2158,6 +2165,65 @@ inline void test_modulation_stack_cube_corners() {
   compare_repeated.template
   operator()<ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT>();
   compare_repeated.template operator()<ColorModulation::Mechanic::OPACITY>();
+}
+
+/** @brief Direct and displacement layouts match the ordered kernel at both endpoints. */
+inline void test_modulation_stack_direct_or_path() {
+  using namespace Pullback;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  using M = ColorModulation::Mechanic;
+  reset_globals();
+  FX effect;
+  effect.init();
+  const auto frame = FX::RenderPipeline::prepare(effect.frame_for_test());
+  constexpr size_t PALETTE = FX::RenderPipeline::NODE_COUNT - 4;
+  auto palette = std::get<PALETTE>(frame.prepared);
+  palette.previous = palette.current;
+  auto direct = std::get<PALETTE + 1>(frame.prepared);
+  auto cube = std::get<PALETTE + 2>(frame.prepared);
+  auto previous = *cube.current;
+  auto current = previous;
+  std::array<int8_t, Pattern::SphereLutView::SIZE> a{}, b{};
+  a.fill(-95);
+  b.fill(61);
+  previous.cube = {a.data(), true};
+  current.cube = {b.data(), true};
+  cube.previous = &previous;
+  cube.current = &current;
+  auto compare = [&]<M First, M Second, bool PathFirst>() {
+    constexpr Color::LayerLayout mixed{Color::LayerSampling::DIRECT_OR_PATH,
+                                       First};
+    constexpr Color::LayerLayout baked{Color::LayerSampling::BYTE_CUBE, Second};
+    const std::array<const Color::ModulationState *, 2> layers =
+        PathFirst
+            ? std::array<const Color::ModulationState *, 2>{&direct, &cube}
+            : std::array<const Color::ModulationState *, 2>{&cube, &direct};
+    direct.mechanic = {First, First == M::HUE_ROTATION ? 2.0f : 0.75f};
+    cube.mechanic = {Second, 0.63f};
+    for (const auto source :
+         {Pattern::SourceKind::NOISE, Pattern::SourceKind::DISPLACEMENT}) {
+      direct.source = source;
+      for (float fraction : {0.0f, 0.43f, 1.0f}) {
+        palette.fraction = fraction;
+        const Color::ModulationStack<2, PathFirst ? mixed : baked,
+                                     PathFirst ? baked : mixed>
+            typed(palette, true, layers);
+        const Color::ModulationStack<2> ordered(palette, true, layers);
+        for (float path : {0.0f, 0.25f, 1.0f, 2.8f}) {
+          const FieldSample field{0.47f, 0.61f, math::Z_AXIS, path};
+          const auto expected = ordered.shade(field);
+          const auto actual = typed.shade(field);
+          HS_EXPECT_EQ(actual.color, expected.color);
+          HS_EXPECT_EQ(actual.alpha, expected.alpha);
+        }
+      }
+    }
+  };
+  compare
+      .template operator()<M::HUE_ROTATION, M::POSITIVE_LIGHTNESS_LIFT, true>();
+  compare.template
+  operator()<M::POSITIVE_LIGHTNESS_LIFT, M::POSITIVE_LIGHTNESS_LIFT, false>();
+  compare.template operator()<M::OPACITY, M::OPACITY, true>();
 }
 
 /** @brief Static direct noise shares a sample across the two color endpoints. */

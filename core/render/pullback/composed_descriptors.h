@@ -309,10 +309,10 @@ struct IsModulationStage<Stage::Modulate<P>> : std::true_type {};
 /** @brief Whether a color layer reads accumulated displacement. @tparam T Stage descriptor. */
 template <typename T> struct IsDisplacementStage : std::false_type {};
 template <typename B, ResourceKey Key, Pattern::SourceKind Source,
-          Pattern::Evaluation Evaluation, bool Dynamic, bool Phase>
+          Pattern::Evaluation Evaluation, bool Dynamic, bool Phase, bool Path>
 struct IsDisplacementStage<Stage::Modulate<Color::Modulate<
-    ModulationProvider<B, Key, Source, Evaluation, Dynamic, Phase>>>>
-    : std::bool_constant<Dynamic ||
+    ModulationProvider<B, Key, Source, Evaluation, Dynamic, Phase, Path>>>>
+    : std::bool_constant<Dynamic || Path ||
                          Source == Pattern::SourceKind::DISPLACEMENT> {};
 
 /** @brief Whether a stage reads the shared outer camera. */
@@ -573,12 +573,12 @@ struct PolicyResources<AuthoredColorProvider<B, Brightness, LabCache, Fused>> {
  * @tparam Dynamic Whether presets select the source and evaluation.
  * @tparam Phase Whether phases are sampled once per column. */
 template <typename B, ResourceKey Key, Pattern::SourceKind Source,
-          Pattern::Evaluation Evaluation, bool Dynamic, bool Phase>
+          Pattern::Evaluation Evaluation, bool Dynamic, bool Phase, bool Path>
 struct PolicyResources<
-    ModulationProvider<B, Key, Source, Evaluation, Dynamic, Phase>> {
-  using Type = ResourceList<
-      ParameterResource<Key, Modulation::Params<Source, Evaluation, Dynamic>,
-                        ResourceKind::MODULATION>>;
+    ModulationProvider<B, Key, Source, Evaluation, Dynamic, Phase, Path>> {
+  using Type = ResourceList<ParameterResource<
+      Key, Modulation::Params<Source, Evaluation, Dynamic, Path>,
+      ResourceKind::MODULATION>>;
 };
 
 template <typename Provider, Projection::GnomonicHemisphere Hemisphere>

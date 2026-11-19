@@ -352,11 +352,12 @@ grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
 
 /** @brief Applies descending zero-decay waves in their original order. */
 HS_HOT_ITCM_MEMBER inline SurfaceResult
-supported_ripples(const math::Vector &input, const SupportedRipples &prepared) {
+supported_ripples(const math::Vector &input, const SupportedRipples &prepared,
+                  bool track_path = false) {
   const auto &ripples = prepared.ripples;
   const auto &bands = prepared.support;
   if (!bands.inverse_width)
-    return grouped_ripples(input, ripples, false, &bands);
+    return grouped_ripples(input, ripples, track_path, &bands);
   SurfaceResult result{input, 0.0f};
   for (unsigned g = 0; g < bands.count; ++g) {
     const auto &range = bands.active[g];
@@ -387,13 +388,16 @@ supported_ripples(const math::Vector &input, const SupportedRipples &prepared) {
       distance += delta;
       if (check_poles && !(distance > 0.01f && distance < math::PI_F - 0.01f) &&
           delta != 0.0f)
-        return sequential_ripples(input, ripples, false);
+        return sequential_ripples(input, ripples, track_path);
       angle += delta;
+      result.path_length += fabsf(delta);
     }
     if (angle != 0.0f &&
         !RippleKernel::rotate_group(start, center, angle, result.sphere))
-      return sequential_ripples(input, ripples, false);
+      return sequential_ripples(input, ripples, track_path);
   }
+  if (!track_path)
+    result.path_length = 0.0f;
   return result;
 }
 

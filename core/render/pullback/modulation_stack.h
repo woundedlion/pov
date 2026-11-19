@@ -20,7 +20,12 @@ namespace Pullback::Color {
 inline constexpr size_t MAX_ORDERED_MODULATION_LAYERS = 3;
 
 /// Scalar storage expected by a concrete source provider.
-enum class LayerSampling : uint8_t { DYNAMIC, DIRECT, BYTE_CUBE };
+enum class LayerSampling : uint8_t {
+  DYNAMIC,
+  DIRECT,
+  DIRECT_OR_PATH,
+  BYTE_CUBE
+};
 
 /// Source storage and mechanic in a generated preset.
 struct LayerLayout {
@@ -145,6 +150,7 @@ class OrderedModulationKernel {
   uint16_t rgb_weight;
   float constant_alpha = -1.0f;
   bool uses_cube = false;
+  bool uses_path = false;
   bool varying_hue = false;
   bool varying_lift = false;
   bool varying_alpha = false;
@@ -161,18 +167,25 @@ class OrderedModulationKernel {
            state.opacity_low == 1.0f && state.opacity_high == 1.0f;
   }
 
-  /** @brief Keeps unit directions unchanged when binary32 normalization divides by one. */
+  /** @brief Normalizes a sphere direction, including binary32 values close to unit length. */
   static HS_HOT_INLINE Pattern::SphereDirection
   sample_direction(const math::Vector &v) {
     const float squared = v.x * v.x + v.y * v.y + v.z * v.z;
-    // sqrt rounds to one at 1 and its immediate binary32 successor.
-    if (squared >= 1.0f &&
-        squared <= 1.0f + std::numeric_limits<float>::epsilon())
+    constexpr uint32_t ONE = std::bit_cast<uint32_t>(1.0f);
+    constexpr uint32_t RANGE = 32;
+    const uint32_t bits = std::bit_cast<uint32_t>(squared);
+    const uint32_t slot = bits - (ONE - RANGE);
+    if (slot >= 2 * RANGE)
+      return Pattern::SphereDirection::admit(v);
+    // In this range the negative quadratic term in sqrt(1+d) selects
+    // the lower midpoint on odd bit offsets and leaves even offsets exact
+    // after rounding.
+    const uint32_t root_bits = (bits >> 1) + (ONE >> 1);
+    if (root_bits == ONE)
       return Pattern::SphereDirection::from_unit(v);
-    if (squared < 1.0f &&
-        squared >= 1.0f - std::numeric_limits<float>::epsilon()) {
-      // Dividing a normal binary32 by the predecessor of one increments its
-      // magnitude by exactly one representable step. Subnormals round unchanged.
+    if (root_bits == ONE - 1) {
+      // Dividing a normal binary32 by this root increments its magnitude
+      // by one representable step. Subnormals round unchanged.
       const auto divide = [](float component) HS_HOT_INLINE {
         const auto bits = std::bit_cast<uint32_t>(component);
         return std::bit_cast<float>(bits + ((bits & 0x7f800000u) != 0));
@@ -180,7 +193,21 @@ class OrderedModulationKernel {
       return Pattern::SphereDirection::from_unit(
           {divide(v.x), divide(v.y), divide(v.z)});
     }
-    return Pattern::SphereDirection::admit(v);
+#if defined(__arm__) && defined(__RECIPROCAL_MATH__)
+    static constexpr auto scale = [] {
+      std::array<float, RANGE> result{};
+      for (uint32_t i = 0; i < RANGE; ++i)
+        result[i] = 1.0f / std::bit_cast<float>(ONE - RANGE / 2 + i);
+      return result;
+    }();
+    const float inverse = scale[slot >> 1];
+    return Pattern::SphereDirection::from_unit(
+        {v.x * inverse, v.y * inverse, v.z * inverse});
+#else
+    const float root = std::bit_cast<float>(root_bits);
+    return Pattern::SphereDirection::from_unit(
+        {v.x / root, v.y / root, v.z / root});
+#endif
   }
 
   static SourceKind kind(const Modulation::Prepared &endpoint) {
@@ -419,7 +446,8 @@ class OrderedModulationKernel {
         previous = blend && layer->previous != selected
                        ? bind_source(*layer->previous, current)
                        : current;
-      }
+      } else
+        uses_path = true;
       using Mechanic = ColorModulation::Mechanic;
       const auto mechanic = layer->mechanic.kind;
       if (current != PATH && mechanic != Mechanic::POSITIVE_LIGHTNESS_LIFT) {
@@ -435,6 +463,10 @@ class OrderedModulationKernel {
     }
     return true;
   }
+
+public:
+  /// Whether an active layer samples displacement.
+  bool reads_path_length() const { return uses_path; }
 
 protected:
   /** @brief Binds active layers in authored order and interns distinct sources.
@@ -474,17 +506,21 @@ protected:
   /** @brief Tests whether each declared source can be sampled at its own layer. */
   HS_SIZE_FLASH_MEMBER bool
   bind_independent_sources(std::span<const LayerLayout> layout) {
-    if (!simple_palette || layout.size() != op_count)
+    if (!simple_palette || !source_count || layout.size() != op_count)
       return false;
     unsigned seen = 0;
     for (size_t i = 0; i < layout.size(); ++i) {
       const auto &op = ops[i];
-      if (op.mechanic.kind != layout[i].mechanic || op.current == PATH ||
-          op.previous == PATH)
+      if (op.mechanic.kind != layout[i].mechanic)
         return false;
+      if (op.current == PATH) {
+        if (layout[i].source != LayerSampling::DIRECT_OR_PATH)
+          return false;
+        continue;
+      }
       const auto compatible = [&](uint8_t source) {
         const auto k = sources[source].kind;
-        return layout[i].source == LayerSampling::DIRECT
+        return layout[i].source != LayerSampling::BYTE_CUBE
                    ? k == SourceKind::DIRECT || k == SourceKind::TABLE_TAP
                    : k == SourceKind::BYTE_CUBE ||
                          k == SourceKind::POSITIVE_CUBE;
@@ -498,6 +534,10 @@ protected:
     // Independent sources are interned in layer order. Expand pairs backwards.
     for (size_t i = op_count; i > 0; --i) {
       const auto &op = ops[i - 1];
+      if (op.current == PATH) {
+        sources[2 * i - 2] = {{nullptr}, SourceKind::DIRECT, PATH, false};
+        continue;
+      }
       const auto current = sources[op.current];
       sources[2 * i - 1] = sources[op.previous];
       sources[2 * i - 2] = current;
@@ -512,16 +552,20 @@ protected:
   template <LayerLayout Layout, bool Unique, size_t I>
   HS_HOT_INLINE void
   apply_source(const Operation &op, const Pattern::SphereDirection &direction,
-               const Pattern::SphereLutSample &tap, Adjustments &current,
-               Adjustments &previous) const {
+               const Pattern::SphereLutSample &tap, float path_length,
+               Adjustments &current, Adjustments &previous) const {
     const auto read = [&](uint8_t index) HS_HOT_INLINE {
       const auto &source = sources[index];
-      if constexpr (Layout.source == LayerSampling::DIRECT) {
-        const auto &prepared = *source.value;
-        return source.kind == SourceKind::TABLE_TAP
-                   ? Pattern::bounded_scalar(
-                         prepared.immutable_table->sample_tap(prepared, tap))
-                   : Modulation::sample(prepared, direction);
+      if constexpr (Layout.source != LayerSampling::BYTE_CUBE) {
+        if (source.kind == SourceKind::TABLE_TAP) {
+          const auto &prepared = *source.value;
+          return Pattern::bounded_scalar(
+              prepared.immutable_table->sample_tap(prepared, tap));
+        }
+        if constexpr (Layout.source == LayerSampling::DIRECT_OR_PATH)
+          if (!source.value)
+            return path_length;
+        return Modulation::sample(*source.value, direction);
       } else {
         if constexpr (Layout.mechanic ==
                       ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
@@ -544,7 +588,9 @@ protected:
         if constexpr (Unique)
           return lift;
         return prior + (1.0f - prior) * lift;
-      } else
+      } else if constexpr (Layout.source == LayerSampling::DIRECT_OR_PATH)
+        return opacity(prior, scalar, op.mechanic.amount);
+      else
         return prior *
                hs::lerp(1.0f, 0.5f * (scalar + 1.0f), op.mechanic.amount);
     };
@@ -595,7 +641,7 @@ protected:
         field.coverage;
     Adjustments current{0.0f, 0.0f, alpha}, previous = current;
     (apply_source<Layout, uses<Layout.mechanic, Layout...> == 1, I>(
-         ops[I], direction, tap, current, previous),
+         ops[I], direction, tap, field.path_length, current, previous),
      ...);
     if constexpr (uses<ColorModulation::Mechanic::HUE_ROTATION, Layout...> > 1)
       if (varying_hue)

@@ -11,6 +11,20 @@
 
 namespace Pullback::Warp {
 
+/** @brief Affine controls with a per-preset path-length selector. */
+struct AuthoredAffineParams : AffineParams {
+  uint8_t path_length = 1; ///< Whether the step contributes path length.
+
+  /// Catalog values of the path-length selector.
+  static constexpr const char *PATH_LENGTH_IDS[] = {"off", "on"};
+  /// Authored topology selector.
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<AuthoredAffineParams>{"path-length",
+                                          &AuthoredAffineParams::path_length,
+                                          PATH_LENGTH_IDS, 1},
+  };
+};
+
 /** @brief Wave-shear controls with a runtime envelope. */
 struct AuthoredWaveShearParams : WaveShearParams {
   uint8_t envelope = 0; ///< Envelope catalog index.

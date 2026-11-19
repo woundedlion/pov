@@ -9,6 +9,7 @@
 #include "core/render/pullback/composed_spec_policies.h"
 #include "core/render/pullback.h"
 #include "core/render/pullback/authored_lens.h"
+#include "core/render/pullback/authored_warp.h"
 #include "core/render/pullback/tangent_surface.h"
 
 /** @file composed_providers.h
@@ -352,7 +353,7 @@ struct WarpProvider {
    *  `Pullback::NoPrepared` for a polar warp. */
   HS_HOT_INLINE static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
-    if constexpr (std::is_same_v<WarpT, AffineParams>) {
+    if constexpr (std::is_base_of_v<AffineParams, WarpT>) {
       return Pullback::Warp::prepare<Form, TrackPath>(
           params(frame), phase(frame),
           frame.resources.template get<Key>().rotation,
@@ -420,10 +421,16 @@ struct WarpProvider {
   HS_HOT_INLINE static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
-  /** @brief Whether the stage accumulates path length.
-   *  @return `TrackPath`. */
-  HS_HOT_INLINE static bool path_length_required(const FrameState &) {
-    return TrackPath;
+  /** @brief Whether this frame's warp contributes path length.
+   *  @param frame Current frame.
+   *  @return The authored selector or the stage's fixed tracking policy. */
+  HS_HOT_INLINE static bool path_length_required(const FrameState &frame) {
+    if constexpr (std::is_base_of_v<Warp::AuthoredAffineParams, Family>) {
+      static_assert(TrackPath,
+                    "authored path length requires a tracking stage");
+      return params(frame).path_length != 0;
+    } else
+      return TrackPath;
   }
 };
 
@@ -440,9 +447,9 @@ template <typename BindingT, typename Family, bool TrackPath = false,
 struct SurfaceProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
-  /// Prepare exact group support for untracked, table-free bursts.
+  /// Prepare exact group support for table-free bursts.
   static constexpr bool CACHE_SINGLE_CENTER =
-      !TrackPath && requires { requires !Binding::Spec::RIPPLE_RADIAL_TABLE; };
+      requires { requires !Binding::Spec::RIPPLE_RADIAL_TABLE; };
   using RadialPrepareOwner = SurfaceProvider; ///< Owner of radial preparation.
   using GradientPrepareOwner =
       SurfaceProvider; ///< Owner of gradient qualification.
@@ -602,7 +609,8 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
   static SurfaceResult apply(const math::Vector &input, const FrameState &frame,
                              const Prepared &prepared) {
     if constexpr (CACHE_SINGLE_CENTER) {
-      return SphereAnimation::supported_ripples(input, prepared);
+      return SphereAnimation::supported_ripples(
+          input, prepared, State::path_length_required(frame));
     } else if constexpr (LAZY_RADIAL_PREPARE) {
       if (prepared)
         return SphereAnimation::grouped_ripples(
@@ -894,16 +902,19 @@ struct ColorProvider {
  * @tparam SourceV Source capability.
  * @tparam EvaluationV Source storage strategy.
  * @tparam DynamicV Whether presets select the source and evaluation.
- * @tparam PhaseV Whether eligible sources share column-phase evaluation. */
+ * @tparam PhaseV Whether eligible sources share column-phase evaluation.
+ * @tparam AllowDisplacement Whether presets may select path length instead. */
 template <typename BindingT, ResourceKey Key, Pattern::SourceKind SourceV,
           Pattern::Evaluation EvaluationV = Pattern::Evaluation::BAKED_CUBE,
           bool DynamicV = false,
-          bool PhaseV = ComposedDetail::COLOR_PHASE<typename BindingT::Spec>>
+          bool PhaseV = ComposedDetail::COLOR_PHASE<typename BindingT::Spec>,
+          bool AllowDisplacement = false>
 struct ModulationProvider {
   using Binding = BindingT;                        ///< Pipeline binding.
   using FrameState = typename Binding::FrameState; ///< Frame context.
-  using SourceParams = Modulation::Params<SourceV, EvaluationV,
-                                          DynamicV>; ///< Source family.
+  using SourceParams =
+      Modulation::Params<SourceV, EvaluationV, DynamicV,
+                         AllowDisplacement>; ///< Source family.
   static constexpr bool CACHED_NOISE = [] {
     if constexpr (requires { FrameState::PHASE_NOISE_CACHE; })
       return FrameState::PHASE_NOISE_CACHE && SourceParams::DIRECT_NOISE;
@@ -921,6 +932,7 @@ struct ModulationProvider {
                   })
       return {
           SourceParams::CUBE_NOISE ? Color::LayerSampling::BYTE_CUBE
+          : AllowDisplacement      ? Color::LayerSampling::DIRECT_OR_PATH
                                    : Color::LayerSampling::DIRECT,
           Owner::initial_params().template get<Key>().modulation.mechanic.kind};
     return {};
@@ -953,14 +965,15 @@ struct ModulationProvider {
       if constexpr (requires { frame.temporal.phase_compatible; }) {
         if (!frame.temporal.phase_compatible)
           return result;
-        if (!DynamicV &&
-            (config.source != SourceV || config.evaluation != EvaluationV))
+        if (!DynamicV && (!SourceParams::supports_source(config.source) ||
+                          config.evaluation != EvaluationV))
           return result;
         if (config.mechanic.kind != ColorModulation::Mechanic::HUE_ROTATION &&
             config.mechanic.kind !=
                 ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
           return result;
-        const auto source = DynamicV ? config.source : SourceV;
+        const auto source =
+            DynamicV || AllowDisplacement ? config.source : SourceV;
         const bool direct = (DynamicV ? config.evaluation : EvaluationV) ==
                             Pattern::Evaluation::DIRECT;
         if (source == Pattern::SourceKind::DISPLACEMENT)
@@ -1136,5 +1149,12 @@ struct AuthoredColorProvider : ColorProvider<B, Brightness, LabCache, Fused> {
     return frame.params.template get<"color">().brightness_envelope;
   }
 };
+
+/// Direct spatial source or accumulated displacement, selected by the preset.
+template <typename Binding, ResourceKey Key, Pattern::SourceKind Source>
+using DirectOrDisplacementProvider =
+    ModulationProvider<Binding, Key, Source, Pattern::Evaluation::DIRECT, false,
+                       ComposedDetail::COLOR_PHASE<typename Binding::Spec>,
+                       true>;
 
 } // namespace Pullback

@@ -60,11 +60,12 @@ sample_modulation_controls(Modulation::Config &result,
 }
 
 template <Pattern::SourceKind Source, Pattern::Evaluation Evaluation,
-          bool Dynamic>
+          bool Dynamic, bool Path>
 inline void sample_parameter_family(
-    Modulation::Params<Source, Evaluation, Dynamic> &result,
-    const Modulation::Params<Source, Evaluation, Dynamic> &from,
-    const Modulation::Params<Source, Evaluation, Dynamic> &to, float progress) {
+    Modulation::Params<Source, Evaluation, Dynamic, Path> &result,
+    const Modulation::Params<Source, Evaluation, Dynamic, Path> &from,
+    const Modulation::Params<Source, Evaluation, Dynamic, Path> &to,
+    float progress) {
   sample_modulation_controls(result.modulation, from.modulation, to.modulation,
                              progress);
 }
@@ -121,8 +122,8 @@ interpolate(const ComposedDetail::ParameterSet<
 template <Pullback::HasFields T> inline bool valid(const T &value) {
   if constexpr (requires { value.modulation; })
     return Modulation::admitted(value.modulation) &&
-           (T::DYNAMIC || (value.modulation.source == T::SOURCE &&
-                           value.modulation.evaluation == T::EVALUATION));
+           T::supports_source(value.modulation.source) &&
+           (T::DYNAMIC || value.modulation.evaluation == T::EVALUATION);
   else
     return Pullback::Fields::valid(value);
 }

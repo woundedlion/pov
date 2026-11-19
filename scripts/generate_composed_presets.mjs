@@ -91,7 +91,7 @@ export function topologySelections(document, values, catalog = engineCatalog) {
 }
 
 export function presetAssignments(document, values,
-  { authoredTopology = false, authoredPalette = false, catalog = engineCatalog } = {}) {
+  { authoredTopology = false, authoredPalette = false, hasAuthoredAffine, catalog = engineCatalog } = {}) {
   const assignments = new Map();
   const slots = new Map(document.descriptor.chain.map(slot => [slot.label, slot]));
   for (const [id, value] of Object.entries(values)) {
@@ -132,7 +132,7 @@ export function presetAssignments(document, values,
     }
     if (definition.topology && field !== LIVE_TOPOLOGY_FIELD) {
       if (!definition.values.includes(value)) throw new Error(`Invalid topology selector: ${id}`);
-      if (hasLiveComposedTopology(slot, field, catalog, { authoredTopology, authoredPalette })) {
+      if (hasLiveComposedTopology(slot, field, catalog, { authoredTopology, authoredPalette, hasAuthoredAffine })) {
         const member = field === 'brightness-envelope' ? 'brightness_envelope' : scalarMember(slot, field);
         const literal = field === 'brightness-envelope'
           ? `Pullback::Color::BrightnessEnvelope::${value.replaceAll('-', '_').toUpperCase()}`
@@ -174,13 +174,13 @@ export function departureLiteral(bank, presetId, policies = []) {
 }
 
 export function generatedSections(compiled, metadata,
-  { authoredTopology = false, authoredPalette = false, catalog = engineCatalog } = {}) {
+  { authoredTopology = false, authoredPalette = false, hasAuthoredAffine, catalog = engineCatalog } = {}) {
   if (compiled.status !== 'VALID') throw new Error(JSON.stringify(compiled.diagnostics));
   const document = compiled.document;
   const bank = document.preset_bank;
   const order = bank.choreography.generated_order;
   const presets = order.map((id) => bank.presets.find((preset) => preset.preset_id === id));
-  const [diagnostic] = promotionDiagnostics(document, { catalog, authoredTopology, authoredPalette });
+  const [diagnostic] = promotionDiagnostics(document, { catalog, authoredTopology, authoredPalette, hasAuthoredAffine });
   if (diagnostic) throw new Error(diagnostic.message);
   const dwell = order.map((id) => bank.choreography.dwell[id]);
   const camera = document.descriptor.chain.find(slot => slot.operator === 'sphere.rotate.v2');
@@ -225,7 +225,7 @@ export function generatedSections(compiled, metadata,
       `  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`,
     ]),
   ].join('\n');
-  const options = { authoredTopology, authoredPalette, catalog };
+  const options = { authoredTopology, authoredPalette, hasAuthoredAffine, catalog };
   const initial = presetAssignments(document, presets[0].values, options);
   const assignment = ([member, literal]) => {
     const [key, ...path] = member.split('.');
@@ -267,7 +267,10 @@ const promotionOptions = source => ({
 });
 
 export function updateHeader(source, compiled, metadata) {
-  const sections = generatedSections(compiled, metadata, promotionOptions(source));
+  const authoredAffineKeys = new Set(Array.from(source.matchAll(
+    /WarpPolicyFor\s*<\s*(?:\w+::)*AuthoredAffineParams\s*,\s*\w+\s*,\s*"([^"]+)"/gu), match => match[1]));
+  const hasAuthoredAffine = slot => authoredAffineKeys.has(groupFor(slot));
+  const sections = generatedSections(compiled, metadata, { ...promotionOptions(source), hasAuthoredAffine });
   for (const section of SECTIONS) {
     const begin = `  // Generated ${section}: scripts/generate_composed_presets.mjs\n  // clang-format off\n`;
     const end = `  // clang-format on\n  // End generated ${section}.`;

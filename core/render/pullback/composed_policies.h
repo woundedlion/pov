@@ -32,6 +32,52 @@ struct Detail::CoordinateOnlyWarp<
                   Coverage>> {
   using Affine = Warp::AffineFrame<Frame>; ///< Canonical affine transform.
 
+  /// Scan-local evaluator and the last rounded displacement of its translation.
+  template <typename Evaluator> struct TranslationColumn {
+    Evaluator evaluator;
+    mutable math::Complex delta{};
+    mutable float distance = 0.0f;
+
+    const TranslationColumn &operator()() const { return *this; }
+    bool reads_path_length() const { return evaluator().reads_path_length(); }
+    Color4 shade(const FieldSample &field) const {
+      return evaluator().shade(field);
+    }
+  };
+
+  /** @brief Gives a scan column its own last-delta cache for a translating lattice. */
+  template <typename Evaluator>
+  static auto scan_evaluator(Evaluator evaluator)
+    requires(Affine::FORM == Warp::AffineForm::TRANSLATES &&
+             requires {
+               requires Frame::repeat_reduction() ==
+                            Warp::RepeatReduction::GENERAL;
+               evaluator().reads_path_length();
+             })
+  {
+    return TranslationColumn<Evaluator>{std::move(evaluator)};
+  }
+
+  /** @brief Adds the distance of the actual rounded translation to the plane. */
+  template <typename Evaluator>
+  static HS_HOT_INLINE void
+  apply_tracked(PlaneSample &input, const typename Frame::FrameState &frame,
+                const typename Affine::Prepared &prepared,
+                const TranslationColumn<Evaluator> &column) {
+    const auto before = input.coords;
+    apply(input, prepared);
+    if (Frame::path_length_required(frame)) {
+      const auto delta = input.coords - before;
+      if (delta != column.delta) {
+        column.delta = delta;
+        column.distance =
+            Affine::apply(before, input.provenance, frame, prepared)
+                .path_length;
+      }
+      input.path_length += column.distance;
+    }
+  }
+
   /** @brief Advances the plane coordinate while preserving its provenance.
    * @param input Plane carrier before the warp.
    * @param prepared Affine frame coefficients. */
@@ -267,15 +313,18 @@ struct WarpPolicyFor<VectorNoiseParams, B, K, T> {
 };
 /**
  * @brief Affine-frame warp.
+ * @tparam Family Affine parameter family.
  * @tparam B Frame binding.
  * @tparam K Parameter resource key.
  * @tparam T Whether path length is tracked.
  * @tparam F Parts the warp evaluates.
  */
-template <typename B, ResourceKey K, bool T, Warp::AffineForm F>
-struct WarpPolicyFor<AffineParams, B, K, T, F> {
-  using Type = Pullback::Warp::AffineFrame<
-      WarpProvider<B, K, AffineParams, T, "source", F>>;
+template <typename Family, typename B, ResourceKey K, bool T,
+          Warp::AffineForm F>
+  requires std::is_base_of_v<AffineParams, Family>
+struct WarpPolicyFor<Family, B, K, T, F> {
+  using Type =
+      Pullback::Warp::AffineFrame<WarpProvider<B, K, Family, T, "source", F>>;
 };
 /** @brief Orbiting vortex warp.
  * @tparam B Frame binding.

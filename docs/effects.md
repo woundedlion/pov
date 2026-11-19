@@ -315,7 +315,7 @@ A dodecahedral poloidal potential flow folds an equirectangular grid beneath the
 
 ### River Stones
 
-Spherical ripple bursts distort a scrolling hexagonal lattice of soft cells, with noise-driven hue, lightness, and opacity. Its single preset opens the Phantasm show for 30 seconds.
+Spherical ripple bursts distort a scrolling hexagonal lattice. The first preset opens the Phantasm show for 30 seconds and uses noise to drive its hue. RiverStones2 uses a denser lattice with softer cells and rotates hue with the ripple displacement. Noise drives lightness and opacity in both presets.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Millefiori" target="_blank"><img src="screenshots/Millefiori.png" alt="Millefiori" width="280"></a></td>
@@ -729,10 +729,10 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `grid-warp` | `GridWarp` | 3 |
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
-| `river-stones` | `RiverStones` | 1 |
+| `river-stones` | `RiverStones` | 2 |
 
 These 24 effects form the product-only `shader-collection` group. The Phantasm
-playlist defines fixed show windows for single-preset effects and GridWarp.
+playlist defines fixed show windows for single-preset effects, GridWarp and the 30-second River Stones opener.
 GridWarp cycles through Coupled Grid, Spiral Bloom and Band Drift with
 84-frame dwells and 52-frame source morphs inside its 30-second window.
 The remaining multi-preset effects derive their show windows from the full

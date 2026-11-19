@@ -175,6 +175,21 @@ test('missing departure edges require automatic snap fallback', () => {
 });
 
 
+test('affine path length varies only for a warp with an authored selector', async () => {
+  const edited = structuredClone(document);
+  edited.preset_bank.presets[0].values['affine.path-length'] = 'on';
+  edited.preset_bank.presets[1].values['affine.path-length'] = 'off';
+  const compiled = compileShaderDocument(edited, { catalog });
+  assert.equal(compiled.status, 'VALID');
+  const header = await readFile(new URL('../effects/KaleidoscopeSmooth.h', import.meta.url), 'utf8');
+  assert.throws(() => updateHeader(header, compiled), /topology must be uniform: affine.path-length/);
+  const authored = header.replace('Pullback::AffineParams, B, "affine"',
+    'Pullback::Warp::AuthoredAffineParams, B, "affine"');
+  const generated = updateHeader(authored, compiled);
+  assert.match(generated, /get<"affine">\(\)\.path_length = 1;/);
+  assert.match(generated, /get<"affine">\(\)\.path_length = 0;/);
+});
+
 test('composed topology cannot vary between presets', () => {
   const edited = structuredClone(document);
   assert.ok(edited.preset_bank.presets.length >= 2);

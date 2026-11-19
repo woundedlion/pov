@@ -316,7 +316,7 @@ HS_HOT_INLINE inline float triangle_distance(float x, float y, float radius) {
  * @param params Shape blend, radius and softness.
  * @return 1 inside the primitive, -1 outside, ramped across the edge. */
 template <TessellationKind Kind, typename Params>
-HS_HOT_INLINE inline float cell_primitive(float x, float y,
+HS_HOT_INLINE inline float cell_primitive(float x, float y, float squared,
                                           const Params &params) {
   const auto polygon = [](float px, float py, float radius) HS_HOT_INLINE {
     if constexpr (Kind == TessellationKind::SQUARE)
@@ -327,7 +327,7 @@ HS_HOT_INLINE inline float cell_primitive(float x, float y,
       return triangle_distance(px, py, radius);
   };
   const auto evaluate = [&](float blend) HS_HOT_INLINE {
-    const float circle = sqrtf(x * x + y * y) - params.cell_radius;
+    const float circle = sqrtf(squared) - params.cell_radius;
     if (blend == 0.0f)
       return 1.0f - 2.0f * ::math::smooth_ramp(-params.cell_softness,
                                                params.cell_softness, circle);
@@ -339,11 +339,17 @@ HS_HOT_INLINE inline float cell_primitive(float x, float y,
   if constexpr (Kind == TessellationKind::HEXAGONAL) {
     // The hexagon contains its incircle, so both distances saturate here.
     const float inner = params.cell_radius - params.cell_softness;
-    if (inner > 0.0f && x * x + y * y < inner * inner)
+    if (inner > 0.0f && squared < inner * inner)
       return 1.0f;
   } else if (params.cell_shape == 1.0f)
     return evaluate(1.0f);
   return evaluate(params.cell_shape);
+}
+
+template <TessellationKind Kind, typename Params>
+HS_HOT_INLINE inline float cell_primitive(float x, float y,
+                                          const Params &params) {
+  return cell_primitive<Kind>(x, y, x * x + y * y, params);
 }
 
 /** @brief Offset from the nearest point of the hexagonal lattice with basis
@@ -352,16 +358,18 @@ HS_HOT_INLINE inline float cell_primitive(float x, float y,
  * @param v Plane y in lattice periods.
  * @param x Receives the offset's x, in periods.
  * @param y Receives the offset's y, in periods. */
-HS_HOT_INLINE inline void nearest_hexagonal_offset(float u, float v, float &x,
-                                                   float &y) {
+HS_HOT_INLINE inline float nearest_hexagonal_offset(float u, float v, float &x,
+                                                    float &y) {
   const float row = v * INV_SQRT_3;
   const float ax = math::wrap_t(u + 0.5f) - 0.5f;
   const float ay = SQRT_3 * (math::wrap_t(row + 0.5f) - 0.5f);
   const float bx = math::wrap_t(u) - 0.5f;
   const float by = SQRT_3 * (math::wrap_t(row) - 0.5f);
-  const bool first = ax * ax + ay * ay <= bx * bx + by * by;
+  const float a_squared = ax * ax + ay * ay, b_squared = bx * bx + by * by;
+  const bool first = a_squared <= b_squared;
   x = first ? ax : bx;
   y = first ? ay : by;
+  return first ? a_squared : b_squared;
 }
 
 /** @brief Offset from the centroid of the triangle containing a point, in
@@ -411,9 +419,10 @@ template <typename Params>
 HS_HOT_ITCM_MEMBER inline float hexagonal_cells(const PlanePosition &coordinate,
                                                 const Params &params) {
   float x, y;
-  nearest_hexagonal_offset(params.cell_scale * coordinate.value.re,
-                           params.cell_scale * coordinate.value.im, x, y);
-  return cell_primitive<TessellationKind::HEXAGONAL>(x, y, params);
+  const float squared =
+      nearest_hexagonal_offset(params.cell_scale * coordinate.value.re,
+                               params.cell_scale * coordinate.value.im, x, y);
+  return cell_primitive<TessellationKind::HEXAGONAL>(x, y, squared, params);
 }
 
 /**

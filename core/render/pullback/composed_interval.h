@@ -374,11 +374,11 @@ public:
           const uint32_t delta_value = end.frames - start.frames;
           SphereAnimation::rewind_wave_ages(clock.waves, delta_value, fraction);
           clock.radial_fraction = delta_value == 1 ? fraction : 1.0f;
-          if (delta_value > 1 ||
-              std::memcmp(&family, &to.params.template get<Resource::KEY>(),
-                          sizeof(family)) != 0 ||
-              std::memcmp(&family, &from.params.template get<Resource::KEY>(),
-                          sizeof(family)) != 0)
+          if (clock.radial_tables &&
+              (delta_value > 1 ||
+               std::memcmp(&from.params.template get<Resource::KEY>(),
+                           &to.params.template get<Resource::KEY>(),
+                           sizeof(family)) != 0))
             clock.radial_tables = nullptr;
         } else if constexpr (std::is_same_v<typename Resource::Family,
                                             PeriodicRippleParams>)
@@ -536,9 +536,6 @@ public:
   /// Ping-pong final hue tables over the interval bases.
   using RgbLuts = OptionalPaletteRgbLut<PALETTE_RGB_CACHE,
                                         Traits::PALETTE_RGB_MIDPOINT_ONLY>;
-  /// Column context the sampler writes.
-  using Column =
-      std::conditional_t<TEMPORAL_SAMPLING, FrameState, std::monostate>;
   /// Interval sampler between the retained and current endpoints.
   using Interval = std::conditional_t<TEMPORAL_SAMPLING,
                                       std::optional<FrameInterval<FrameState>>,

@@ -60,21 +60,8 @@ inline float warp_envelope(uint8_t envelope,
 /** @brief Phase clock of the single-clock warp operators. */
 struct WarpPhaseState : PeriodicPhase<1.0f> {};
 
-/** @brief Path-length topology values: off, on. */
-inline constexpr const char *AFFINE_PATH_LENGTH_IDS[] = {"off", "on"};
-
-/** @brief Parameter family of warp.affine.v4: the affine controls plus whether
-    the step contributes path length. */
-struct AffineWarpParams : Warp::AffineParams {
-  /** 1 measures the step's path length; 0 reports none. */
-  uint8_t path_length = 1;
-
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<AffineWarpParams>{"path-length",
-                                      &AffineWarpParams::path_length,
-                                      AFFINE_PATH_LENGTH_IDS, 1},
-  };
-};
+/** @brief Affine controls and the authored path-length selector. */
+using AffineWarpParams = Warp::AuthoredAffineParams;
 static_assert(
     appended_block_size_matches<AffineWarpParams, Warp::AffineParams, 1>(),
     "appended parameter block must have the expected rounded size");
