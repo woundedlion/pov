@@ -9,7 +9,7 @@
 #include "core/color/color.h"
 #include "core/render/canvas.h"
 #include "core/engine/concepts.h"
-#include "core/memory.h"
+#include "core/render/filter/trail_store.h"
 
 /**
  * @file world_trails.h
@@ -42,7 +42,8 @@ public:
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
   /** @brief Persistent bytes init_storage() reserves. */
-  static constexpr size_t STORAGE_BYTES = Capacity * sizeof(Item);
+  static constexpr size_t STORAGE_BYTES =
+      Detail::TrailStore<Item, Capacity>::STORAGE_BYTES;
 
   /**
    * @brief Constructs a world trail buffer with the given fade lifetime.
@@ -64,10 +65,9 @@ public:
     HS_CHECK(new_lifetime > 0 && new_lifetime <= 255,
              "World::Trails: lifetime %d outside [1, 255]", new_lifetime);
     if (new_lifetime < lifetime && items) {
-      check_storage_alive();
-      for (size_t i = 0; i < count; ++i)
-        items[i].ttl =
-            static_cast<uint8_t>(std::min<int>(items[i].ttl, new_lifetime));
+      items.check_storage_alive("World::Trails");
+      for (Item &item : items.live())
+        item.ttl = static_cast<uint8_t>(std::min<int>(item.ttl, new_lifetime));
     }
     lifetime = new_lifetime;
   }
@@ -79,16 +79,8 @@ public:
    * aren't ready yet).
    */
   void init_storage(Arena &arena) {
-#ifndef NDEBUG
-    HS_CHECK(!items || !stamp.block_alive(items, STORAGE_BYTES),
-             "world filter: storage already initialized");
-#endif
-    items = arena.allocate_n<Item>(Capacity);
-    count = 0;
+    items.init_storage(arena, "world");
     recorded_samples = 0;
-#ifndef NDEBUG
-    stamp.record(arena);
-#endif
   }
 
   /**
@@ -167,42 +159,27 @@ public:
   void flush_per_copy(const WorldTrailRef &trailFn, float alpha, int copies,
                       PassFnT &&pass) {
     HS_CHECK(items, "World::Trails::flush: storage missing");
-    check_storage_alive();
-    for (size_t i = 0; i < count; ++i) {
-      const auto &item = items[i];
-      math::Vector v = decode(item);
-      float t = hs::clamp(
-          1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime)),
-          0.0f, 1.0f);
+    items.check_storage_alive("World::Trails");
+    for (const Item &item : items.live()) {
+      const math::Vector v = decode(item);
+      const float t = Detail::trail_progress(item.ttl, lifetime);
       Color4 c = trailFn(v, t);
 
       if (c.alpha > MIN_TRAIL_ALPHA) {
-        int age = lifetime - static_cast<int>(item.ttl);
-        if (age < 0)
-          age = 0;
+        const int age = Detail::trail_age(static_cast<int>(item.ttl), lifetime);
         for (int copy = 0; copy < copies; ++copy)
           pass(v, c.color, static_cast<float>(age), c.alpha * alpha, copy);
       }
     }
 
-    for (size_t i = 0; i < count;) {
-      Item &item = items[i];
-      if (item.ttl > 0)
-        item.ttl--;
-      if (item.ttl == 0) {
-        item = items[count - 1];
-        count--;
-      } else {
-        ++i;
-      }
-    }
+    items.age_and_compact();
   }
 
   /**
    * @brief Returns the number of live trail points currently buffered.
    * @return Count of buffered Item entries.
    */
-  size_t size() const { return count; }
+  size_t size() const { return items.size(); }
 
   /** @brief Source samples submitted since storage initialization.
    * @return Monotonic count modulo the uint32 range, including expired
@@ -222,8 +199,8 @@ private:
     int ttl = lifetime - static_cast<int>(age + 0.5f);
     if (ttl > 0) {
       HS_CHECK(items, "World::Trails::plot: storage missing");
-      check_storage_alive();
-      push_back(encode(v, static_cast<uint8_t>(ttl)));
+      items.check_storage_alive("World::Trails");
+      items.append(encode(v, static_cast<uint8_t>(ttl)));
     }
   }
 
@@ -235,25 +212,11 @@ private:
    */
   static constexpr float MIN_TRAIL_ALPHA = TRAIL_EMIT_ALPHA_FLOOR;
 
-  Item *items = nullptr; /**< Flat storage (arena-owned). */
-  size_t count = 0;      /**< Live item count. */
+  Detail::TrailStore<Item, Capacity> items;
   uint32_t recorded_samples =
       0; /**< Source submissions, including expired seeds and replacements. */
   int selected_copy = 0; /**< Spatial copy allowed to record when zero. */
   int lifetime;          /**< Per-frame fade divisor in frames. */
-#ifndef NDEBUG
-  ArenaBlockStamp stamp; /**< Arena state when items was allocated. */
-#endif
-
-  /**
-   * @brief Debug-only use-after-free check on the arena-owned buffer.
-   * @details A persistent-arena reset without a fresh init_storage() leaves
-   * items dangling.
-   */
-  void check_storage_alive() const {
-    HS_ASSERT_BLOCK_ALIVE(stamp, items, STORAGE_BYTES, "World::Trails");
-  }
-
   /**
    * @brief Encodes a unit vector and ttl into a quantized Item.
    * @param v World-space point; each component is clamped to [-1, 1] before scaling.
@@ -272,16 +235,6 @@ private:
    */
   static math::Vector decode(const Item &item) {
     return item.direction.decode();
-  }
-
-  /**
-   * @brief Appends an item, replacing the last occupied slot at capacity.
-   * @param item Encoded trail sample to push.
-   */
-  void push_back(const Item &item) {
-    if (count == Capacity)
-      --count;
-    items[count++] = item;
   }
 };
 

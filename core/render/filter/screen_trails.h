@@ -8,7 +8,7 @@
 #include "core/color/color.h"
 #include "core/render/canvas.h"
 #include "core/engine/concepts.h"
-#include "core/memory.h"
+#include "core/render/filter/trail_store.h"
 
 /**
  * @file screen_trails.h
@@ -46,9 +46,9 @@ public:
     HS_CHECK(new_lifetime > 0, "Screen::Trails: lifetime %d must be positive",
              new_lifetime);
     if (new_lifetime < lifetime && points) {
-      check_storage_alive();
-      for (int i = 0; i < num_pixels; ++i)
-        points[i].ttl = fminf(points[i].ttl, static_cast<float>(new_lifetime));
+      points.check_storage_alive("Screen::Trails");
+      for (DecayPixel &point : points.live())
+        point.ttl = fminf(point.ttl, static_cast<float>(new_lifetime));
     }
     lifetime = new_lifetime;
   }
@@ -61,23 +61,14 @@ public:
   };
 
   /** @brief Persistent bytes init_storage() reserves. */
-  static constexpr size_t STORAGE_BYTES = MAX_PIXELS * sizeof(DecayPixel);
+  static constexpr size_t STORAGE_BYTES =
+      Detail::TrailStore<DecayPixel, MAX_PIXELS>::STORAGE_BYTES;
 
   /**
    * @brief Allocates the decay-pixel storage from the persistent arena.
    * @param arena Persistent arena supplying MAX_PIXELS DecayPixel slots.
    */
-  void init_storage(Arena &arena) {
-#ifndef NDEBUG
-    HS_CHECK(!points || !stamp.block_alive(points, STORAGE_BYTES),
-             "screen filter: storage already initialized");
-#endif
-    points = arena.allocate_n<DecayPixel>(MAX_PIXELS);
-    num_pixels = 0;
-#ifndef NDEBUG
-    stamp.record(arena);
-#endif
-  }
+  void init_storage(Arena &arena) { points.init_storage(arena, "screen"); }
 
   /**
    * @brief Forwards the current sample and seeds a fading screen trail point.
@@ -105,10 +96,8 @@ public:
     float ttl = static_cast<float>(lifetime) - age;
     if (ttl > 0.0f) {
       HS_CHECK(points, "Screen::Trails::plot: storage missing");
-      check_storage_alive();
-      if (num_pixels == MAX_PIXELS)
-        --num_pixels;
-      points[num_pixels++] = {x, y, ttl};
+      points.check_storage_alive("Screen::Trails");
+      points.append({x, y, ttl});
     }
   }
 
@@ -119,63 +108,34 @@ public:
    * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 2D callback.
    * @details The unused Canvas parameter satisfies the 2D flush signature; ages
-   * all points one frame via decay() after emission.
+   * all points one frame after emission.
    */
   template <typename PassFnT>
   void flush(Canvas &, const ScreenTrailRef &trailFn, float alpha,
              PassFnT &&pass) {
     HS_CHECK(points, "Screen::Trails::flush: storage missing");
-    check_storage_alive();
-    for (int i = 0; i < num_pixels; ++i) {
-      float t = hs::clamp(1.0f - (points[i].ttl / lifetime), 0.0f, 1.0f);
-      Color4 color = trailFn(points[i].x, points[i].y, t);
+    points.check_storage_alive("Screen::Trails");
+    for (const DecayPixel &point : points.live()) {
+      const float t = Detail::trail_progress(point.ttl, lifetime);
+      const Color4 color = trailFn(point.x, point.y, t);
       if (color.alpha > MIN_TRAIL_ALPHA) {
-        float age = lifetime - points[i].ttl;
-        if (age < 0.0f)
-          age = 0.0f;
-        pass(points[i].x, points[i].y, color.color, age, alpha * color.alpha);
+        const float age =
+            Detail::trail_age(point.ttl, static_cast<float>(lifetime));
+        pass(point.x, point.y, color.color, age, alpha * color.alpha);
       }
     }
-    decay();
+    points.age_and_compact();
   }
 
 private:
-  /**
-   * @brief Ages every point one frame and swap-removes dead slots.
-   * @details Unordered compaction: a dead slot is overwritten by the last live
-   * point. ttl decrements by 1 per frame (whole-frame model), so a point
-   * survives ceil(ttl) frames.
-   */
-  void decay() {
-    for (int i = 0; i < num_pixels; ++i) {
-      if (--points[i].ttl <= 0.0f) {
-        points[i] = points[--num_pixels];
-        i--;
-      }
-    }
-  }
-
   /**
    * @brief Trail alpha at or below which a sample seeds nothing and a buffered point
    * emits nothing.
    */
   static constexpr float MIN_TRAIL_ALPHA = TRAIL_EMIT_ALPHA_FLOOR;
 
-  int lifetime;                 /**< Per-frame fade divisor in frames. */
-  DecayPixel *points = nullptr; /**< Arena-owned array of live trail points. */
-  int num_pixels = 0;           /**< Number of live points in points. */
-#ifndef NDEBUG
-  ArenaBlockStamp stamp; /**< Arena state when points was allocated. */
-#endif
-
-  /**
-   * @brief Debug-only use-after-free check on the arena-owned point array.
-   * @details A persistent-arena reset without a fresh init_storage() leaves
-   * points dangling.
-   */
-  void check_storage_alive() const {
-    HS_ASSERT_BLOCK_ALIVE(stamp, points, STORAGE_BYTES, "Screen::Trails");
-  }
+  int lifetime;
+  Detail::TrailStore<DecayPixel, MAX_PIXELS> points;
 };
 
 } // namespace Screen

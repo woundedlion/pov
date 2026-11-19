@@ -1551,6 +1551,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │                            world_trails, screen_anti_alias,
 │   │   │                            screen_direct_aa_sink, screen_trails, screen_blur,
 │   │   │                            pixel_chromatic_shift, pixel_feedback)
+│   │   │   ├── trail_store.h             Shared trail storage and frame decay
 │   │   │   ├── feedback_column_time.h      Elapsed column time, fade tables and held-lane records
 │   │   │   ├── pixel_feedback.h            Feedback interface and storage bounds; umbrella over pixel_feedback/
 │   │   │   └── pixel_feedback/             Feedback implementation by rendering phase
