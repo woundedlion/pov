@@ -1250,6 +1250,89 @@ inline void test_shader_chain_same_kind_endpoint_fields() {
   check_tessellation_endpoint_fields<In::Op::SamplePlanar>();
 }
 
+/** @brief The two source fields close their own affine repeats across a phase wrap. */
+inline void test_shader_chain_affine_morph_phase_wrap() {
+  namespace Op = In::Op;
+  using Source = Op::SampleTessellation;
+  static std::array<PB::PlaneSample, 2> sampled;
+  static size_t count;
+  auto operators = In::OPERATOR_TABLE;
+  for (auto &entry : operators)
+    if (std::string_view(entry.operator_id) == Source::ID)
+      entry.runtime.sample_source = [](const PB::PlaneSample &input,
+                                       const void *params,
+                                       const uint8_t *prepared) {
+        sampled.at(count++) = input;
+        return Source::sample(
+            input, *static_cast<const Source::Params *>(params),
+            *reinterpret_cast<const Source::Prepared *>(prepared));
+      };
+  const auto fixture =
+      std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, operators);
+  const auto blocks = std::make_unique<TemporalBlocks>();
+  auto &program = fixture->program;
+  program.bind_temporal_storage(blocks->history, blocks->column);
+  const In::ChainEntryRequest chain[] = {
+      {"project", Op::ProjectEquirectangular::ID},
+      {"warp", Op::WarpAffineV4::ID},
+      {"source", Source::ID},
+      {"color", Op::ColorizeGeneratedPaletteV4::ID}};
+  if (!expect_compiled(program.compile(chain)))
+    return;
+  const auto ctx = shared_resources().context();
+  auto &warp = param_as<Op::AffineWarpParams>(program, 1);
+  warp.translation_x = 2.0f;
+  warp.translation_y = -1.0f;
+  warp.scale_x = 1.3f;
+  warp.shear = .2f;
+  warp.path_length = 1;
+  auto &live_source = param_as<Source::Params>(program, 2);
+  live_source.kind = static_cast<uint8_t>(Pattern::TessellationKind::HEXAGONAL);
+  auto from = live_source, to = live_source;
+  from.cell_scale = 2.5352101f;
+  to.cell_scale = 4.774648f;
+  live_source = PB::Fields::interpolate(from, to, .5f);
+  program.set_source_morph(2, &from, &to, {2, 4, true, false});
+  auto &clock = state_as<Op::AffineClockState>(program, 1);
+  constexpr float before = .99998f, after = .00002f;
+  clock = {before, .37f};
+  program.prepare(ctx);
+  program.capture_history();
+  clock.phase = after;
+  const auto interval = Op::temporal_interval({before, clock.rotation}, clock);
+  const auto view = math::Vector(.3f, .7f, .4f).normalized();
+  const auto plane =
+      run_entry<PB::PlaneSample>(program, ctx, 0, PB::SphereSample{view, .0f});
+  const auto check = [&](float phase) {
+    const Op::AffineClockState at{phase, clock.rotation};
+    const auto warped = [&](const Source::Params &source) {
+      return Op::WarpAffineV4::run(
+          plane, ctx, warp,
+          Op::WarpAffineV4::prepare(ctx, warp, at,
+                                    Source::translation_lattice(source)));
+    };
+    const auto live = warped(live_source);
+    HS_EXPECT_EQ(count, size_t{2});
+    for (size_t i = 0; i < 2; ++i) {
+      const auto expected = warped(i == 0 ? from : to);
+      HS_EXPECT_NEAR(sampled[i].coords.re, expected.coords.re, 2e-6f);
+      HS_EXPECT_NEAR(sampled[i].coords.im, expected.coords.im, 2e-6f);
+      HS_EXPECT_NEAR(sampled[i].path_length, live.path_length, 2e-6f);
+    }
+  };
+  for (const float t : {0.0f, .25f, .75f, 1.0f}) {
+    program.prepare_column(ctx, ctx, t);
+    count = 0;
+    program.evaluate_column(view, ctx, ctx, t);
+    check(interval.phase.sample(t));
+  }
+  clock.phase = before;
+  program.prepare(ctx);
+  count = 0;
+  program.evaluate(view, ctx);
+  check(before);
+}
+
 /** @brief Planar preview admission checks translating and path-tracking affines. */
 inline void test_shader_chain_planar_lattice_admission() {
   namespace Op = In::Op;

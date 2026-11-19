@@ -937,6 +937,7 @@ private:
   }
 
   void set_prepared_source_progress(float fraction) {
+    source_offsets = {};
     source_prepared = source_morph.index != MAX_CHAIN_OPS;
     if (!source_prepared)
       return;
@@ -976,6 +977,24 @@ private:
       return;
     }
     runtime.prepare(ctx, params, state, prepared, downstream);
+    if (source_prepared && index + 1 == source_morph.index &&
+        std::string_view(sides[active].ops[index].op->operator_id) ==
+            Op::WarpAffineV4::ID) {
+      const auto lattice =
+          sides[active].ops[index + 1].op->runtime.translation_lattice;
+      if (lattice) {
+        const auto &warp = *static_cast<const Op::AffineWarpParams *>(params);
+        const auto &live = *std::launder(
+            reinterpret_cast<const Warp::PreparedAffineSlot *>(prepared));
+        const float phase =
+            static_cast<const Op::AffineClockState *>(state)->phase;
+        source_offsets[0] = Warp::endpoint_translation_offset(
+            warp, phase, live, lattice(source_primary_params()));
+        if (sample_both_sources())
+          source_offsets[1] = Warp::endpoint_translation_offset(
+              warp, phase, live, lattice(source_morph.to.data()));
+      }
+    }
   }
 
   void run_op(size_t index, const void *in, void *out, const FrameContext &ctx,
@@ -986,12 +1005,20 @@ private:
       return;
     }
     const auto &input = *std::launder(static_cast<const PlaneSample *>(in));
-    float raw = runtime.sample_source(input, source_primary_params(), prepared);
+    const auto sample = [&](size_t endpoint, const void *source_params,
+                            const uint8_t *source_prepared) {
+      const auto offset = source_offsets[endpoint];
+      if (offset.re == 0.0f && offset.im == 0.0f)
+        return runtime.sample_source(input, source_params, source_prepared);
+      PlaneSample adjusted = input;
+      adjusted.coords = input.coords + offset;
+      return runtime.sample_source(adjusted, source_params, source_prepared);
+    };
+    float raw = sample(0, source_primary_params(), prepared);
     if (sample_both_sources())
-      raw = hs::lerp(raw,
-                     runtime.sample_source(input, source_morph.to.data(),
-                                           source_prepared_to.data()),
-                     source_progress);
+      raw = hs::lerp(
+          raw, sample(1, source_morph.to.data(), source_prepared_to.data()),
+          source_progress);
     ::new (out) FieldSample(runtime.finish_source(input, raw, params, ctx));
   }
 
@@ -1105,6 +1132,8 @@ private:
   SourceMorph previous_source_morph{};
   alignas(std::max_align_t)
       std::array<uint8_t, SOURCE_PREPARED_BYTES> source_prepared_to{};
+  std::array<math::Complex, 2>
+      source_offsets{}; ///< Raw sample translations relative to the live affine.
   float source_progress = 0.0f;
   bool source_prepared = false;
   Side sides[2];
