@@ -130,13 +130,9 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
         float vx = poly_xy[2 * i], vy = poly_xy[2 * i + 1];
         int i2 = (i + 1 == count) ? 0 : i + 1;
         float ex = poly_xy[2 * i2] - vx, ey = poly_xy[2 * i2 + 1] - vy;
-        float len_sq = ex * ex + ey * ey;
-        float wx = qx - vx, wy = qy - vy;
-        float t = len_sq > 1e-12f
-                      ? hs::clamp((wx * ex + wy * ey) / len_sq, 0.0f, 1.0f)
-                      : 0.0f;
-        float bx = wx - ex * t, by = wy - ey * t;
-        float dsq = bx * bx + by * by;
+        const float inv_len_sq = inverse_segment_length_sq(ex * ex + ey * ey);
+        const float dsq =
+            clamped_segment_dsq(vx, vy, ex, ey, inv_len_sq, qx, qy);
         if (dsq < d_sq)
           d_sq = dsq;
         if ((vy > qy) != (poly_xy[2 * i2 + 1] > qy)) {

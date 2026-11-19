@@ -55,6 +55,32 @@ inline constexpr float LINEAR_FACE_SIZE = 0.2f;
 inline constexpr float FAR_SENTINEL = 100.0f;
 
 /**
+ * @brief Prepares an edge's inverse squared length.
+ * @param length_sq Squared length of the edge.
+ * @return Its reciprocal, or zero for a degenerate edge.
+ */
+HS_HOT_INLINE inline float inverse_segment_length_sq(float length_sq) {
+  return length_sq > 1e-12f ? 1.0f / length_sq : 0.0f;
+}
+
+/**
+ * @brief Squared distance from a point to a clamped segment.
+ * @param vx,vy Segment start.
+ * @param ex,ey Displacement from the start to the end.
+ * @param inv_length_sq Prepared reciprocal from inverse_segment_length_sq().
+ * @param px,py Query point.
+ * @return Squared distance to the nearest point on the segment.
+ */
+HS_HOT_INLINE inline float clamped_segment_dsq(float vx, float vy, float ex,
+                                               float ey, float inv_length_sq,
+                                               float px, float py) {
+  const float wx = px - vx, wy = py - vy;
+  const float t = hs::clamp((wx * ex + wy * ey) * inv_length_sq, 0.0f, 1.0f);
+  const float bx = wx - ex * t, by = wy - ey * t;
+  return bx * bx + by * by;
+}
+
+/**
  * @brief Folds an angle into the centered interval for one sector.
  * @param angle Angle in radians.
  * @param sector Sector width in radians.

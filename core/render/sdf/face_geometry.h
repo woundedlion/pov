@@ -87,8 +87,7 @@ PreparedFace::compute_edges(FaceScratchBuffer &scratch) {
     scratch.edge_vectors[i] = edge;
     float edge_len_sq = math::dot(edge, edge);
     scratch.edge_lengths_sq[i] = edge_len_sq;
-    scratch.inv_edge_lengths_sq[i] =
-        (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
+    scratch.inv_edge_lengths_sq[i] = inverse_segment_length_sq(edge_len_sq);
     scratch.inv_edge_j[i] =
         (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
   }
@@ -671,10 +670,7 @@ inline HS_HOT_INLINE float PreparedFace::segment_dsq(float vx, float vy,
                                                      float ex, float ey,
                                                      float inv_length2,
                                                      float px, float py) {
-  const float wx = px - vx, wy = py - vy;
-  const float t = hs::clamp((wx * ex + wy * ey) * inv_length2, 0.0f, 1.0f);
-  const float bx = wx - ex * t, by = wy - ey * t;
-  return bx * bx + by * by;
+  return clamped_segment_dsq(vx, vy, ex, ey, inv_length2, px, py);
 }
 
 inline HS_O3_FN float
