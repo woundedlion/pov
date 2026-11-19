@@ -182,6 +182,58 @@ inline void test_composed_authored_palette_harmony_clock() {
 }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+/** @brief Cycling harmony changes crossfade palettes on the same clock. */
+inline void test_composed_cycling_harmony_crossfade() {
+  using Traits = Pullback::ComposedTraits<SMALL_W, AuthoredPaletteSpec>;
+  using Palette = Pullback::ComposedPalette<Traits>;
+  reset_globals();
+  typename Traits::ColorFamily from, to;
+  to.palette_mode = 1;
+  auto live = from;
+  Palette outgoing(from), incoming(to), transitioning(live);
+  struct Storage {
+    AuthoredPaletteResources authored_palette;
+  } storage;
+  outgoing.init();
+  incoming.init();
+  transitioning.init();
+  const auto step = [&] {
+    outgoing.step();
+    incoming.step();
+    transitioning.step();
+  };
+  for (int frame = 0; frame < 597; ++frame)
+    step();
+
+  transitioning.arm(to);
+  transitioning.arm_source(from, to);
+  live = to;
+  transitioning.blend(0.5f);
+  BakedPaletteStorage expected;
+  typename Traits::FrameState frame{};
+  for (int tick = 0; tick < 8; ++tick) {
+    step();
+    if (tick == 0)
+      expected.bake_blend(persistent_arena, outgoing.selected_palette(storage),
+                          incoming.selected_palette(storage), 0.5f);
+    else
+      expected.rebake_crossfade(outgoing.selected_palette(storage),
+                                incoming.selected_palette(storage), 0.5f);
+    transitioning.prepare(frame, storage);
+    HS_EXPECT_TRUE(frame.palette->same_entries(expected.view()));
+    HS_EXPECT_FALSE(
+        frame.palette->same_entries(outgoing.selected_palette(storage)));
+    HS_EXPECT_FALSE(
+        frame.palette->same_entries(incoming.selected_palette(storage)));
+  }
+
+  transitioning.adopt(to);
+  step();
+  transitioning.prepare(frame, storage);
+  HS_EXPECT_TRUE(
+      frame.palette->same_entries(incoming.selected_palette(storage)));
+}
+
 /** @brief RiverStones blends a manual palette selection into the next preset. */
 inline void test_riverstones_manual_palette_crossfade() {
   using FX = RiverStones<SMALL_W, SMALL_H>;

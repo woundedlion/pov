@@ -121,6 +121,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_composed_authored_palette_sources);
   HS_RUN(test_composed_authored_palette_harmony_clock);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+  HS_RUN(test_composed_cycling_harmony_crossfade);
   HS_RUN(test_riverstones_manual_palette_crossfade);
 #endif
   HS_RUN(test_composed_authored_palette_admission);

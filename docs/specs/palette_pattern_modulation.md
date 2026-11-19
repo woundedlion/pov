@@ -1148,8 +1148,10 @@ cache adds no geometric approximation.
 `Pullback::Color::AuthoredColorParams` resource. Legacy `ColorParams` layouts
 remain available to fixed palettes. Authored color resources retain every
 palette source selector and recipe control, the cycling harmony, palette
-mapping and brightness envelope in preset snapshots. Selector changes snap;
-recipe scalars follow the preset interpolation.
+mapping and brightness envelope in preset snapshots. Recipe scalars follow
+preset interpolation. The GUI-bridge renderer and ShaderChain preset preview
+crossfade baked palettes when a source type or its discrete selector changes.
+Cycling harmony changes use two palettes on the same cycle clock.
 
 The interpreted and fixed pipelines bake generated, named procedural,
 three-stop gradient and mutating sources through `AuthoredPaletteResources`.

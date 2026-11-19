@@ -1404,6 +1404,13 @@ const PALETTE_RECIPE_FIELDS = {
   mutating: ['palette-name', 'palette-name-b', 'palette-mutation'],
 };
 
+const PALETTE_SELECTION_FIELDS = {
+  'cycling-generated': ['palette-mode'],
+  generated: ['palette-harmony', 'palette-lightness-curve'],
+  procedural: ['palette-name'],
+  mutating: ['palette-name', 'palette-name-b'],
+};
+
 /** @typedef {ModulationMorph} PaletteMorph */
 
 /** @returns {PaletteMorph|undefined} */
@@ -1417,15 +1424,15 @@ function transitionPaletteMorph(descriptor, operatorById, from, to, progressFor)
     operator.params.find(parameter => parameter.id === field)?.default;
   const outgoing = value(from, 'palette-type');
   const incoming = value(to, 'palette-type');
-  const fields = ['palette-type', ...new Set([
-    ...(PALETTE_RECIPE_FIELDS[outgoing] ?? []), ...(PALETTE_RECIPE_FIELDS[incoming] ?? []),
-    ...(outgoing === 'cycling-generated' && incoming === outgoing ? [] : ['palette-chroma']),
-  ])];
-  const changed = fields.find(field => value(from, field) !== value(to, field));
+  const changed = outgoing !== incoming ? 'palette-type' :
+    PALETTE_SELECTION_FIELDS[outgoing]?.find(field => value(from, field) !== value(to, field));
   if (!changed) return undefined;
-  const endpoint = values => Object.fromEntries([
-    ...new Set([...fields, 'palette-chroma']),
-  ].map(field => [key(field), value(values, field)]));
+  const fields = new Set([
+    'palette-type', 'palette-chroma',
+    ...(PALETTE_RECIPE_FIELDS[outgoing] ?? []), ...(PALETTE_RECIPE_FIELDS[incoming] ?? []),
+  ]);
+  const endpoint = values => Object.fromEntries(
+    [...fields].map(field => [key(field), value(values, field)]));
   const id = key(changed);
   const group = descriptor.parameters.find(parameter => parameter.id === id)?.interpolation.group ?? id;
   return {instance: slot.label, from: endpoint(from), to: endpoint(to), mix: progressFor(group)};

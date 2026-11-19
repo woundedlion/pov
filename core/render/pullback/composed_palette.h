@@ -48,6 +48,9 @@ template <typename Traits> class ComposedPalette {
   struct SourceFade {
     AuthoredPaletteResources target;
     BakedPaletteStorage mixed;
+    PaletteCycler target_cycle;
+    uint32_t target_hue = 0;
+    float target_chroma = -1.0f;
     const ColorFamily *from = nullptr;
     const ColorFamily *to = nullptr;
     float progress = 0.0f;
@@ -112,6 +115,8 @@ public:
         source_fade->from = &from;
         source_fade->to = &target;
         source_fade->progress = 0.0f;
+        if (cycling(from) && cycling(target))
+          arm_target_cycle();
       }
     }
   }
@@ -139,7 +144,7 @@ public:
   /** @brief Follows the chroma and authored cycling harmony controls. */
   HS_FLASH_MEMBER void update_chroma() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    const float chroma = cycling_controls().palette_chroma;
+    const float chroma = cycling_chroma();
 #else
     const float chroma = color->palette_chroma;
 #endif
@@ -172,6 +177,17 @@ public:
       }
     }
     cycler.step();
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    if constexpr (PALETTE_SOURCE_FADE)
+      if (cycling_harmony_fade()) {
+        auto &fade = *source_fade;
+        if (fade.target_chroma != chroma) {
+          fade.target_chroma = chroma;
+          fade.target_cycle.defer_generated_chroma(chroma);
+        }
+        fade.target_cycle.step();
+      }
+#endif
   }
 
   /**
@@ -240,6 +256,8 @@ private:
       return true;
     using Type = AuthoredPaletteType;
     switch (static_cast<Type>(from.palette_type)) {
+    case Type::CYCLING_GENERATED:
+      return from.palette_mode != to.palette_mode;
     case Type::GENERATED:
       return from.palette_harmony != to.palette_harmony ||
              from.palette_lightness_curve != to.palette_lightness_curve;
@@ -253,6 +271,14 @@ private:
     }
   }
 
+  /** @brief Whether both retained endpoints use different cycling harmonies. */
+  bool cycling_harmony_fade() const {
+    if constexpr (PALETTE_SOURCE_FADE)
+      return source_fade && source_fade->from && cycling(*source_fade->from) &&
+             cycling(*source_fade->to);
+    return false;
+  }
+
   /** @brief Reads the controls of the cycling endpoint, if it contributes. */
   const ColorFamily &cycling_controls() const {
     if constexpr (PALETTE_SOURCE_FADE)
@@ -263,6 +289,40 @@ private:
           return *source_fade->to;
       }
     return *color;
+  }
+
+  /** @brief Chroma shared by the generated cycles. */
+  float cycling_chroma() const {
+    return cycling_harmony_fade() ? color->palette_chroma
+                                  : cycling_controls().palette_chroma;
+  }
+
+  /** @brief Starts or resynchronizes the target harmony at the current clock. */
+  HS_FLASH_MEMBER void arm_target_cycle() {
+    auto &fade = *source_fade;
+    const bool initialized = fade.target_chroma >= 0.0f;
+    fade.target_chroma = cycling_chroma();
+    if (!initialized)
+      fade.target_cycle.init_generated(
+          persistent_arena, {.next = next_target_palette,
+                             .context = this,
+                             .dwell_frames = GeneratedPaletteBank::DWELL_FRAMES,
+                             .fade_frames = GeneratedPaletteBank::FADE_FRAMES,
+                             .easing = math::ease_in_out_sin,
+                             .display_interval_frames = 2});
+    fade.target_hue = hue;
+    GeneratedPaletteBank::restore_cycler(
+        fade.target_cycle, cycler.generated_clock(), fade.target_hue,
+        harmony_for_mode(fade.to->palette_mode), fade.target_chroma);
+  }
+
+  /** @brief Generates a palette for the incoming harmony. */
+  static void next_target_palette(void *context, uint32_t sequence,
+                                  GenerativePalette &out) {
+    auto &fade = *static_cast<ComposedPalette *>(context)->source_fade;
+    GeneratedPaletteBank::next_palette(fade.target_hue, sequence,
+                                       harmony_for_mode(fade.to->palette_mode),
+                                       fade.target_chroma, out);
   }
 
   /** @brief Resolves one authored endpoint against the shared cycle clock. */
@@ -282,7 +342,9 @@ private:
       auto *fade = source_fade;
       if (fade && fade->from && fade->progress > 0.0f) {
         const auto &from = resolve(storage.authored_palette, *fade->from);
-        const auto &to = resolve(fade->target, *fade->to);
+        const auto &to = cycling_harmony_fade()
+                             ? fade->target_cycle.palette()
+                             : resolve(fade->target, *fade->to);
         if (fade->initialized)
           fade->mixed.rebake_crossfade(from, to, fade->progress);
         else {
@@ -302,19 +364,26 @@ private:
     return {&cycler.palette(), cycler.bake_generation() << TAG_BITS};
   }
 
+  /** @brief Resolves a palette mode to its generated harmony. */
+  HS_FLASH_MEMBER static PaletteHarmony harmony_for_mode(uint8_t mode) {
+    constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
+    HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
+    return HARMONIES[mode];
+  }
+
 #endif
 
   /** @brief Current generated-cycle harmony. @return Selected hue relationship. */
   HS_FLASH_MEMBER PaletteHarmony cycling_harmony() const {
     if constexpr (AUTHORED_PALETTE) {
-      constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-      const auto mode = cycling_controls().palette_mode;
+      return harmony_for_mode(cycling_controls().palette_mode);
 #else
+      constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
       const auto mode = color->palette_mode;
-#endif
       HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
       return HARMONIES[mode];
+#endif
     } else
       return SpecT::HARMONY;
   }
@@ -331,9 +400,9 @@ private:
                            GenerativePalette &out) {
     ComposedPalette &palette = *static_cast<ComposedPalette *>(context);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    GeneratedPaletteBank::next_palette(
-        palette.hue, sequence, palette.cycling_harmony(),
-        palette.cycling_controls().palette_chroma, out);
+    GeneratedPaletteBank::next_palette(palette.hue, sequence,
+                                       palette.cycling_harmony(),
+                                       palette.cycling_chroma(), out);
 #else
     GeneratedPaletteBank::next_palette(palette.hue, sequence,
                                        palette.cycling_harmony(),

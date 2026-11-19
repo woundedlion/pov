@@ -1151,6 +1151,34 @@ test('RiverStones preview carries both actual palette selections through a prese
   assert.equal(to['colorize.palette-type'], 'procedural');
 });
 
+test('palette preview crossfades selectors and interpolates recipe controls', async () => {
+  const { descriptor, preset_bank: bank } = JSON.parse(await readFile(
+    new URL('../patterns/river_stones.shader.json', import.meta.url), 'utf8'));
+  const edge = bank.edges[0];
+  const from = bank.presets.find(row => row.preset_id === edge.from).values;
+  const to = bank.presets.find(row => row.preset_id === edge.to).values;
+  const evaluate = () => evaluateTransition(
+    descriptor, bank, edge.from, edge.to, edge.duration / 2, CATALOG);
+  for (const [type, field] of [
+    ['generated', 'palette-hue'], ['gradient', 'gradient-start-r'],
+    ['mutating', 'palette-mutation'], ['cycling-generated', 'palette-chroma'],
+  ]) {
+    from['colorize.palette-type'] = to['colorize.palette-type'] = type;
+    const id = 'colorize.' + field;
+    from[id] = 0.125;
+    to[id] = 0.375;
+    const { values, paletteMorph } = evaluate();
+    assert.equal(paletteMorph, undefined);
+    assert.equal(values[id], 0.25);
+  }
+  from['colorize.palette-mode'] = 'triadic';
+  to['colorize.palette-mode'] = 'analogous';
+  const { paletteMorph } = evaluate();
+  assert.equal(paletteMorph.mix, 0.5);
+  assert.equal(paletteMorph.from['colorize.palette-mode'], 'triadic');
+  assert.equal(paletteMorph.to['colorize.palette-mode'], 'analogous');
+});
+
 test('fixed grid keeps interpolating its preview parameters', () => {
   const { descriptor, preset_bank: bank } = example();
   const edge = bank.edges.find(({ from, to }) => from === 'calm' && to === 'fast');
