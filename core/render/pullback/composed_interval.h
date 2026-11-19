@@ -253,8 +253,9 @@ public:
    * @param fraction Frame progress in [0, 1].
    * @return Interpolated context borrowing the endpoints and interval. */
   HS_FLASH_INLINE Frame at(float fraction) const & {
-    Frame frame;
-    at_into(frame, fraction);
+    fraction = sample_fraction(fraction);
+    Frame frame = fraction <= 0.0f ? from : to;
+    apply_sample(frame, fraction);
     return frame;
   }
 
@@ -275,14 +276,24 @@ public:
    * @param frame Receives the context borrowing the endpoint resources.
    * @param fraction Frame progress in [0, 1]. */
   HS_FLASH_INLINE void at_into(Frame &frame, float fraction) const {
+    fraction = sample_fraction(fraction);
+    frame = fraction <= 0.0f ? from : to;
+    apply_sample(frame, fraction);
+  }
+
+private:
+  HS_HOT_INLINE float sample_fraction(float fraction) const {
     if constexpr (requires { to.source_morph; })
       if (to.source_morph.snapped)
-        fraction = 1.0f;
+        return 1.0f;
     if constexpr (HAS_PLANAR)
       if (to.resources.template get<"source">().snapped)
-        fraction = 1.0f;
+        return 1.0f;
+    return fraction;
+  }
+
+  HS_FLASH_INLINE void apply_sample(Frame &frame, float fraction) const {
     if (fraction <= 0.0f) {
-      frame = from;
       to.params.visit([&]<typename Resource>(const auto &family) {
         if constexpr (Resource::KIND == ResourceKind::MODULATION) {
           if (!Modulation::same_topology(
@@ -300,7 +311,6 @@ public:
       bind_mobius_intervals(frame);
       return;
     }
-    frame = to;
     if (fraction >= 1.0f) {
       frame.params.visit([&]<typename Resource>(const auto &) {
         if constexpr (std::is_same_v<typename Resource::Family,
