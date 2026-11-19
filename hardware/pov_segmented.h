@@ -332,7 +332,9 @@ public:
       }
       poll_prev_cycles = poll_cycles;
 
-      if (cur && handoff.consumed(built_gen)) {
+      // The flip that frees this buffer can also request a new show entry.
+      if (cur && handoff.consumed(built_gen) && cur->buffer_free() &&
+          sync.build_word() == bw) {
         const unsigned long f0 = micros();
         cur->draw_frame();
         if (hs::debug) {
