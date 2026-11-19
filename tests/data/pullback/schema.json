@@ -114,7 +114,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["domain", "aggregation", "measured_baseline", "accepted_limit", "unit", "limit_provenance", "measurement_provenance"],
       "properties": {
-        "domain": { "enum": ["PROJECTED_COORDINATE", "PROJECTED_EDGE_DISTANCE", "COLOR_CHANNEL", "FRAMEBUFFER"] },
+        "domain": { "enum": ["PROJECTED_COORDINATE", "PROJECTED_EDGE_DISTANCE", "COLOR_CHANNEL", "FRAMEBUFFER", "SOURCE_FIELD"] },
         "aggregation": { "enum": ["MAXIMUM", "MEAN"] },
         "measured_baseline": { "type": "number", "minimum": 0 },
         "accepted_limit": { "type": "number", "minimum": 0 },
