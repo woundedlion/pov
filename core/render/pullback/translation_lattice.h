@@ -33,6 +33,23 @@ constexpr TranslationLattice square_lattice(float period) {
   return {{period, 0.0f}, {0.0f, period}};
 }
 
+/** @brief Whether two source bases admit the same affine repeat.
+ * @param from Outgoing source lattice, possibly absent.
+ * @param from_period Outgoing affine fallback lattice period.
+ * @param to Incoming source lattice, possibly absent.
+ * @param to_period Incoming affine fallback lattice period.
+ * @return True when the effective bases have equal float components. */
+constexpr bool same_effective_lattice(TranslationLattice from,
+                                      float from_period, TranslationLattice to,
+                                      float to_period) {
+  if (!from.present())
+    from = square_lattice(from_period);
+  if (!to.present())
+    to = square_lattice(to_period);
+  return from.a.re == to.a.re && from.a.im == to.a.im && from.b.re == to.b.re &&
+         from.b.im == to.b.im;
+}
+
 /** @brief Hexagonal lattice with one basis vector on the x axis.
     @param period Basis vector length, in plane units.
     @return Basis (period, 0), (period / 2, period * sqrt(3) / 2). */
