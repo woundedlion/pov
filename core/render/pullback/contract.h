@@ -984,6 +984,7 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
  * the children inline; current endpoints use the selected emission.
  */
 template <CodeEmission EmissionV, typename... Stages> struct Placed {
+  using Children = std::tuple<Stages...>; ///< Nested execution nodes.
   /// How the group is emitted.
   static constexpr CodeEmission EMISSION = EmissionV;
 };
@@ -1151,6 +1152,36 @@ template <typename Node, typename Binding> struct BindNode {
   using Type = typename Node::template Bind<Binding>; ///< Bound node type.
 };
 
+/// Optional preparation shared by two adjacent semantic stages.
+template <typename Previous, typename Next> struct PrepareAdjacent {};
+
+template <typename A, typename B, typename Frame, typename Left, typename Right>
+HS_FLASH_INLINE void prepare_neighbor(const Frame &frame, const Left &left,
+                                      Right &right) {
+  if constexpr (requires { typename A::Children; }) {
+    constexpr size_t last = std::tuple_size_v<typename A::Children> - 1;
+    prepare_neighbor<std::tuple_element_t<last, typename A::Children>, B>(
+        frame, std::get<last>(left), right);
+  } else if constexpr (requires { typename B::Children; }) {
+    prepare_neighbor<A, std::tuple_element_t<0, typename B::Children>>(
+        frame, left, std::get<0>(right));
+  } else if constexpr (requires {
+                         PrepareAdjacent<A, B>::bind(frame, left, right);
+                       })
+    PrepareAdjacent<A, B>::bind(frame, left, right);
+}
+
+template <typename... Nodes, typename Frame, typename Prepared>
+HS_FLASH_INLINE void prepare_neighbors(const Frame &frame, Prepared &prepared) {
+  using Descriptors = std::tuple<Nodes...>;
+  [&]<size_t... I>(std::index_sequence<I...>) {
+    (prepare_neighbor<std::tuple_element_t<I, Descriptors>,
+                      std::tuple_element_t<I + 1, Descriptors>>(
+         frame, std::get<I>(prepared), std::get<I + 1>(prepared)),
+     ...);
+  }(std::make_index_sequence<(sizeof...(Nodes) ? sizeof...(Nodes) - 1 : 0)>{});
+}
+
 /** @brief Child types, carriers and prepare of a bound placement node.
  * @tparam EmissionV Code emission.
  * @tparam Binding Pipeline binding.
@@ -1177,7 +1208,9 @@ struct BoundPlacedBase {
    * @param frame Per-frame state.
    * @return Children's prepared states, in order. */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return Prepared{BindNode<Children, Binding>::Type::prepare(frame)...};
+    Prepared prepared{BindNode<Children, Binding>::Type::prepare(frame)...};
+    prepare_neighbors<Children...>(frame, prepared);
+    return prepared;
   }
 
 protected:
@@ -1636,9 +1669,6 @@ inline constexpr bool FIXED_SPATIAL_MODULATION = false;
 /// Coordinate-only warp for an exact stage pair whose sample ignores distance.
 template <typename Warp, typename Sample> struct CoordinateOnlyWarp {};
 
-/// Optional preparation shared by two adjacent nodes.
-template <typename Previous, typename Next> struct PrepareAdjacent {};
-
 /** @brief First type satisfying @p Predicate, or void.
  * @tparam Predicate Unary trait with a boolean `value`.
  * @tparam Ls Candidates. */
@@ -1730,23 +1760,8 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @return Per-node prepared state. */
   HS_FLASH_MEMBER static PreparedTuple prepare_stages(const FrameState &ctx) {
     PreparedTuple prepared{BindNode<Nodes, Binding>::Type::prepare(ctx)...};
-    [&]<size_t... I>(std::index_sequence<I...>) {
-      (prepare_adjacent<I>(ctx, prepared), ...);
-    }(std::make_index_sequence<(NODE_COUNT ? NODE_COUNT - 1 : 0)>{});
+    prepare_neighbors<Nodes...>(ctx, prepared);
     return prepared;
-  }
-
-  template <size_t I>
-  HS_FLASH_INLINE static void prepare_adjacent(const FrameState &ctx,
-                                               PreparedTuple &prepared) {
-    using Descriptors = std::tuple<Nodes...>;
-    using Pair = PrepareAdjacent<std::tuple_element_t<I, Descriptors>,
-                                 std::tuple_element_t<I + 1, Descriptors>>;
-    if constexpr (requires {
-                    Pair::bind(ctx, std::get<I>(prepared),
-                               std::get<I + 1>(prepared));
-                  })
-      Pair::bind(ctx, std::get<I>(prepared), std::get<I + 1>(prepared));
   }
 
   /** @brief Updates a deferred color through the remaining nodes.
