@@ -48,10 +48,11 @@ enum class CodeEmission : uint8_t {
 
 /** @brief Exact reference an approximate policy is measured against. */
 enum class ApproximationOracleId : uint8_t {
-  NONE,                        ///< Exact; no oracle.
-  PEIRCE_FAST_SQUARE,          ///< Fast square-layout Peirce projection.
-  HUE_ROTATION_AND_NOISE_LUTS, ///< LUT hue rotation and sphere modulation.
-  PALETTE_RGB_BLEND_TO_LAB_LUT ///< RGB-first temporal palette conversion.
+  NONE,                         ///< Exact; no oracle.
+  PEIRCE_FAST_SQUARE,           ///< Fast square-layout Peirce projection.
+  HUE_ROTATION_AND_NOISE_LUTS,  ///< LUT hue rotation and sphere modulation.
+  PALETTE_RGB_BLEND_TO_LAB_LUT, ///< RGB-first temporal palette conversion.
+  HEX_CELL_ENDPOINTS ///< Analytic fixed hex-cell source sampled at both endpoints.
 };
 
 /** @brief Quantity an approximation metric bounds. */
@@ -59,7 +60,8 @@ enum class ApproximationDomain : uint8_t {
   PROJECTED_COORDINATE,    ///< Planar projection output.
   PROJECTED_EDGE_DISTANCE, ///< `ProjectionProvenance::fade_edge_distance`.
   COLOR_CHANNEL,           ///< One colour channel.
-  FRAMEBUFFER              ///< One final framebuffer channel.
+  FRAMEBUFFER,             ///< One final framebuffer channel.
+  SOURCE_FIELD ///< Signed scalar source value before material weighting.
 };
 
 /** @brief Reduction of a metric's per-sample errors. */

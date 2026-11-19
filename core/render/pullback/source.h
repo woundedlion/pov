@@ -601,6 +601,25 @@ struct Tessellation : ApproximationDefaults {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  static constexpr bool APPROXIMATE =
+      KindV == Pattern::TessellationKind::HEXAGONAL &&
+      FillV == Pattern::TessellationFill::CELLS &&
+      requires(const FrameState &frame) { frame.hex_tables; };
+  static constexpr auto ORACLE = APPROXIMATE
+                                     ? ApproximationOracleId::HEX_CELL_ENDPOINTS
+                                     : ApproximationOracleId::NONE;
+  static constexpr auto METRICS = [] {
+    if constexpr (APPROXIMATE)
+      return std::array{ApproximationMetric{ApproximationDomain::SOURCE_FIELD,
+                                            ApproximationAggregation::MAXIMUM,
+                                            0.004f, "signed field units"},
+                        ApproximationMetric{ApproximationDomain::FRAMEBUFFER,
+                                            ApproximationAggregation::MEAN,
+                                            8.0f, "channel code"}};
+    else
+      return ApproximationDefaults::METRICS;
+  }();
+
   /**
    * @brief Whether `State` under @p CandidateBinding supplies the controls
    *        `FillV` reads.

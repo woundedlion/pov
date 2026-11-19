@@ -19,7 +19,8 @@
 /** @brief Stage spec for `RiverStones`. */
 struct RiverStonesSpec : Pullback::Spec {
   static constexpr bool SOURCE_MORPH = true;
-#if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
+#if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) ||                  \
+    (HS_ENABLE_TEST_HOOKS && defined(HS_TEST_RIVER_STONES_HEX_TABLE))
   static constexpr bool HEX_MORPH_TABLE = true;
 #endif
   static constexpr bool RIPPLE_RADIAL_TABLE = true;

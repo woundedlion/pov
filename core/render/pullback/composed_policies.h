@@ -136,7 +136,8 @@ struct Spec {
   static constexpr bool FACTORED_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.
   static constexpr bool RIPPLE_RADIAL_TABLE = false;
-  /// Prewarms two fixed hex-cell profiles for triangular interpolation during morphs.
+  /// Prewarms the first two fixed hex-cell profiles. Their authored shapes must
+  /// meet the source field error budget against the analytic kernel.
   static constexpr bool HEX_MORPH_TABLE = false;
   /// Keeps each prepared shading frame in the runtime arena.
   static constexpr bool PERSISTENT_PREPARED_FRAME = true;

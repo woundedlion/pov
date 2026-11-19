@@ -184,6 +184,78 @@ inline void test_fixed_hex_source_morph() {
   }
 }
 
+/** @brief Exercises the Teensy approximation on the native test target. */
+struct TableHexSpec : RiverStonesSpec {
+  static constexpr bool HEX_MORPH_TABLE = true;
+};
+
+inline void test_hex_morph_table() {
+  using namespace Pullback;
+  using Traits = ComposedTraits<SMALL_W, TableHexSpec>;
+  using Policy =
+      SourcePolicyFor<typename Traits::Params::template Family<"source">,
+                      Traits::Binding>::Type;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  static_assert(Policy::ORACLE == ApproximationOracleId::HEX_CELL_ENDPOINTS);
+  const auto a = FX::preset(0).params, b = FX::preset(1).params;
+  Source::HexMorphTables tables;
+  tables.prewarm(a.template get<"source">(), b.template get<"source">());
+
+  const auto check = [&](const auto &from, const auto &to, bool cached) {
+    const auto &f = from.template get<"source">();
+    const auto &t = to.template get<"source">();
+    Traits::FrameState frame{};
+    frame.hex_tables = tables.select(f, t);
+    HS_EXPECT_EQ(frame.hex_tables.from != nullptr, cached);
+    HS_EXPECT_EQ(frame.hex_tables.to != nullptr, cached);
+    float worst = 0.0f;
+    bool exact_endpoints = true;
+    for (const float mix : {0.0f, 0.125f, 0.5f, 0.875f, 1.0f}) {
+      frame.source_morph = {&from, &to, math::ease_linear, mix, mix};
+      frame.params = mix == 1.0f ? to : from;
+      for (int y = -24; y <= 24; ++y) {
+        for (int x = -32; x <= 32; ++x) {
+          const Pattern::PlanePosition coord{{x * 0.067f, y * 0.083f}};
+          PlaneSample plane{};
+          plane.coords = coord.value;
+          const auto analytic = [&](const auto &source) {
+            return Pattern::hexagonal_cells(
+                coord,
+                static_cast<const Pattern::TessellationCellParams &>(source));
+          };
+          const float ca = analytic(f), cb = analytic(t);
+          const float actual = Policy::sample(plane, frame);
+          if (mix == 0.0f || mix == 1.0f)
+            exact_endpoints &= actual == (mix == 0.0f ? ca : cb);
+          else
+            worst = std::max(worst, fabsf(actual - hs::lerp(ca, cb, mix)));
+        }
+      }
+    }
+    HS_EXPECT_TRUE(exact_endpoints);
+    if (cached) {
+      HS_EXPECT_TRUE(worst > 0.0f);
+      HS_EXPECT_TRUE(worst <= Policy::METRICS.front().limit);
+    } else {
+      HS_EXPECT_EQ(worst, 0.0f);
+    }
+  };
+
+  check(a, b, true);
+  check(b, a, true);
+  auto edit = a;
+  edit.template get<"source">().cell_scale += 0.75f;
+  check(edit, b, true);
+  for (auto field : {&Pattern::TessellationCellParams::cell_radius,
+                     &Pattern::TessellationCellParams::cell_softness,
+                     &Pattern::TessellationCellParams::cell_shape}) {
+    edit = a;
+    edit.template get<"source">().*field += 0.01f;
+    check(edit, b, false);
+    check(b, edit, false);
+  }
+}
+
 /** @brief Every GridWarp departure is admitted and fits its show slot. */
 inline void test_grid_warp_planar_admission() {
   using FX = GridWarp<SMALL_W, SMALL_H>;
