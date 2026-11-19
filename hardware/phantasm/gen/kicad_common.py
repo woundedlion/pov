@@ -179,45 +179,35 @@ def arc_points(start, mid, end, *, collinear_error=None):
     return [start, mid, end, *arc_extrema(start, mid, end, collinear_error)]
 
 
-def arc_extrema(start, mid, end, collinear_error=None):
-    """Axis-aligned extreme points of the arc through three (x, y) floats.
+def circle_arc(start, mid, end):
+    """Center, radius, sample angles and sweep direction, or None for collinear points."""
+    bx, by = mid[0] - start[0], mid[1] - start[1]
+    cx, cy = end[0] - start[0], end[1] - start[1]
+    determinant = 2 * (bx * cy - by * cx)
+    if abs(determinant) < 1e-12:
+        return None
+    b_sq, c_sq = bx * bx + by * by, cx * cx + cy * cy
+    ux = (cy * b_sq - by * c_sq) / determinant
+    uy = (bx * c_sq - cx * b_sq) / determinant
+    centre = (start[0] + ux, start[1] + uy)
+    radius = math.hypot(ux, uy)
+    angles = tuple(math.atan2(y - centre[1], x - centre[0]) for x, y in (start, mid, end))
+    return centre, radius, angles, 1 if determinant > 0 else -1
 
-    Solves the circumcircle, then keeps whichever axis crossings (0, 90, 180,
-    270 degrees) lie on the start->mid->end sweep. Collinear inputs have no
-    circumcircle: raise `collinear_error` if given, else return no extrema.
-    """
-    x1, y1 = start
-    x2, y2 = mid
-    x3, y3 = end
-    denominator = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
-    if abs(denominator) < 1e-12:
+
+def arc_extrema(start, mid, end, collinear_error=None):
+    """Axis-aligned extrema along the arc through three points."""
+    arc = circle_arc(start, mid, end)
+    if arc is None:
         if collinear_error is not None:
             raise collinear_error
         return []
 
-    center_x = (
-        (x1 * x1 + y1 * y1) * (y2 - y3)
-        + (x2 * x2 + y2 * y2) * (y3 - y1)
-        + (x3 * x3 + y3 * y3) * (y1 - y2)
-    ) / denominator
-    center_y = (
-        (x1 * x1 + y1 * y1) * (x3 - x2)
-        + (x2 * x2 + y2 * y2) * (x1 - x3)
-        + (x3 * x3 + y3 * y3) * (x2 - x1)
-    ) / denominator
-    radius = math.hypot(x1 - center_x, y1 - center_y)
-    angles = tuple(math.atan2(y - center_y, x - center_x) for x, y in (start, mid, end))
-
-    def ccw_between(angle, first, last):
-        return (angle - first) % math.tau <= (last - first) % math.tau + 1e-12
-
-    first, middle, last = angles
-    counterclockwise = ccw_between(middle, first, last)
+    (center_x, center_y), radius, (first, _, last), direction = arc
+    sweep = ((last - first) * direction) % math.tau
     points = []
     for angle in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
-        on_arc = ccw_between(angle, first, last) if counterclockwise else \
-            ccw_between(angle, last, first)
-        if on_arc:
+        if ((angle - first) * direction) % math.tau <= sweep + 1e-12:
             points.append((center_x + radius * math.cos(angle),
                            center_y + radius * math.sin(angle)))
     return points

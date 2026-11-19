@@ -15,7 +15,7 @@ import sys
 
 import sexp
 from constraints import ROUTED_REVISION
-from kicad_common import F, is_copper_pour, net_name, property_value, rotate_point
+from kicad_common import F, circle_arc, is_copper_pour, net_name, property_value, rotate_point
 
 # Copper that lands this close counts as touching. KiCad snaps track ends to
 # pad and via anchors, so the slack absorbs export rounding, not a real gap.
@@ -181,19 +181,10 @@ class Ring:
 
 def arc_polyline(start, mid, end):
     """Preserve declared arc points and bound each chord's radial error."""
-    bx, by = mid[0] - start[0], mid[1] - start[1]
-    cx, cy = end[0] - start[0], end[1] - start[1]
-    determinant = 2 * (bx * cy - by * cx)
-    if abs(determinant) < 1e-12:
+    arc = circle_arc(start, mid, end)
+    if arc is None:
         return [start, mid, end]
-    b_sq, c_sq = bx * bx + by * by, cx * cx + cy * cy
-    ux = (cy * b_sq - by * c_sq) / determinant
-    uy = (bx * c_sq - cx * b_sq) / determinant
-    centre = (start[0] + ux, start[1] + uy)
-    radius = math.hypot(ux, uy)
-    angles = [math.atan2(y - centre[1], x - centre[0]) for x, y in (start, mid, end)]
-    first, middle, last = angles
-    direction = 1 if (middle - first) % math.tau <= (last - first) % math.tau else -1
+    centre, radius, (first, middle, last), direction = arc
     max_step = min(math.pi, 4 * math.asin(math.sqrt(min(1, TOUCH_TOLERANCE / (2 * radius)))))
     points = [start]
     for a, b, finish in ((first, middle, mid), (middle, last, end)):
