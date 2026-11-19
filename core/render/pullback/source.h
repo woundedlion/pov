@@ -27,7 +27,7 @@ namespace Source {
 
 /** @brief A triangular interpolation grid on a hex cell's 30-degree sector. */
 struct HexMorphTable {
-  static constexpr int STEPS = 64;
+  static constexpr int STEPS = 60;
   uint16_t values[STEPS + 1][STEPS + 1]{};
   float radius = -1.0f, softness = 0.0f, shape = 0.0f;
 
