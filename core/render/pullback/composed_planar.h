@@ -290,7 +290,7 @@ HS_FLASH_MEMBER bool different_endpoint_fields(const Params &from,
       constexpr uint16_t MASK = PlanarDetail::family_mask<Resource>();
       if constexpr (MASK != 0)
         if (kind & MASK)
-          different = PlanarDetail::different_fields(
+          different |= PlanarDetail::different_fields(
               family, to.template get<Resource::KEY>(), kind);
     });
     return different;
