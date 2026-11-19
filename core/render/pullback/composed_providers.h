@@ -370,11 +370,14 @@ struct WarpProvider {
    *  declares none or no `SourceKey` resource exists. */
   HS_HOT_INLINE static TranslationLattice
   downstream_lattice(const FrameState &frame) {
-    using Params = std::remove_cvref_t<decltype(frame.params)>;
+    return lattice_for(frame.params);
+  }
+  template <typename Params>
+  HS_FLASH_INLINE static TranslationLattice lattice_for(const Params &params) {
     if constexpr (Params::template HAS<SourceKey>) {
-      const auto &source = frame.params.template get<SourceKey>();
-      if constexpr (requires { source.lattice(frame.params); })
-        return source.lattice(frame.params);
+      const auto &source = params.template get<SourceKey>();
+      if constexpr (requires { source.lattice(params); })
+        return source.lattice(params);
       else if constexpr (requires { translation_lattice(source); })
         return translation_lattice(source);
       else
@@ -382,6 +385,22 @@ struct WarpProvider {
     } else {
       return {};
     }
+  }
+  static Source::EndpointOffsets
+  endpoint_offsets(const FrameState &frame,
+                   const Warp::PreparedAffineSlot &live)
+    requires(SourceKey.view() == "source" &&
+             Warp::includes(Form, Warp::AffineForm::TRANSLATES) &&
+             requires { frame.source_morph; })
+  {
+    const auto &morph = frame.source_morph;
+    if (!morph.mixed())
+      return {};
+    const auto offset = [&](const auto &endpoint) {
+      return Warp::endpoint_translation_offset(params(frame), phase(frame),
+                                               live, lattice_for(endpoint));
+    };
+    return {offset(*morph.from), offset(*morph.to)};
   }
   /** @brief Path-length reduction the `SourceKey` family's lattice takes.
    *  @return RECTANGULAR for a family that declares
@@ -698,19 +717,20 @@ struct SourceProvider {
    * @return Interpolated signed scalar field. */
   template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill>
   static HS_HOT_FLASH_MEMBER float
-  sample_source_endpoints(const PlaneSample &input, const FrameState &frame)
+  sample_source_endpoints(const PlaneSample &input, const FrameState &frame,
+                          const Source::EndpointOffsets &offsets)
     requires(requires { Binding::Spec::SOURCE_MORPH; } &&
              Binding::Spec::SOURCE_MORPH && Key.view() == "source")
   {
     const auto &morph = frame.source_morph;
-    const Pattern::PlanePosition position{input.coords};
-    const auto sample = [&](const auto &params) {
+    const auto sample = [&](const auto &params, math::Complex offset) {
       return Pattern::tessellation<Kind, Fill>(
-          position,
+          Pattern::PlanePosition{input.coords + offset},
           Source::source_kernel_params<Source::TessellationControls<Fill>>(
               params.template get<Key>()));
     };
-    return hs::lerp(sample(*morph.from), sample(*morph.to), morph.mix);
+    return hs::lerp(sample(*morph.from, offsets.from),
+                    sample(*morph.to, offsets.to), morph.mix);
   }
 };
 

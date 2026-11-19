@@ -1636,6 +1636,9 @@ inline constexpr bool FIXED_SPATIAL_MODULATION = false;
 /// Coordinate-only warp for an exact stage pair whose sample ignores distance.
 template <typename Warp, typename Sample> struct CoordinateOnlyWarp {};
 
+/// Optional preparation shared by two adjacent nodes.
+template <typename Previous, typename Next> struct PrepareAdjacent {};
+
 /** @brief First type satisfying @p Predicate, or void.
  * @tparam Predicate Unary trait with a boolean `value`.
  * @tparam Ls Candidates. */
@@ -1726,7 +1729,24 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param ctx Per-frame state.
    * @return Per-node prepared state. */
   HS_FLASH_MEMBER static PreparedTuple prepare_stages(const FrameState &ctx) {
-    return PreparedTuple{BindNode<Nodes, Binding>::Type::prepare(ctx)...};
+    PreparedTuple prepared{BindNode<Nodes, Binding>::Type::prepare(ctx)...};
+    [&]<size_t... I>(std::index_sequence<I...>) {
+      (prepare_adjacent<I>(ctx, prepared), ...);
+    }(std::make_index_sequence<(NODE_COUNT ? NODE_COUNT - 1 : 0)>{});
+    return prepared;
+  }
+
+  template <size_t I>
+  HS_FLASH_INLINE static void prepare_adjacent(const FrameState &ctx,
+                                               PreparedTuple &prepared) {
+    using Descriptors = std::tuple<Nodes...>;
+    using Pair = PrepareAdjacent<std::tuple_element_t<I, Descriptors>,
+                                 std::tuple_element_t<I + 1, Descriptors>>;
+    if constexpr (requires {
+                    Pair::bind(ctx, std::get<I>(prepared),
+                               std::get<I + 1>(prepared));
+                  })
+      Pair::bind(ctx, std::get<I>(prepared), std::get<I + 1>(prepared));
   }
 
   /** @brief Updates a deferred color through the remaining nodes.

@@ -357,6 +357,7 @@ struct Planar
     Kernels first;                 ///< Current or outgoing inputs.
     std::optional<Kernels> second; ///< Incoming inputs during a morph.
     uint8_t exact;                 ///< Selected index for a single field.
+    EndpointOffsets endpoint_offsets{};
   };
 
   /** @brief Prepares kernels that have positive weight.
@@ -437,11 +438,14 @@ private:
                                               const Prepared &prepared) {
     using PlanarDetail::Endpoint;
     const auto &morph = frame.source_morph;
+    auto plane = input;
+    plane.coords = input.coords + prepared.endpoint_offsets.from;
     const float from = sample_endpoint<Endpoint::FROM>(
-        input, frame, prepared.first,
+        plane, frame, prepared.first,
         morph.from->template get<"source">().source);
+    plane.coords = input.coords + prepared.endpoint_offsets.to;
     const float to = sample_endpoint<Endpoint::TO>(
-        input, frame, *prepared.second,
+        plane, frame, *prepared.second,
         morph.to->template get<"source">().source);
     return hs::lerp(from, to, morph.mix);
   }

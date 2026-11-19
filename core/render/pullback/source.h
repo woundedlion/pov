@@ -25,6 +25,12 @@ namespace Pullback {
 
 namespace Source {
 
+/// Translations from the live plane to each source endpoint's repeat lattice.
+struct EndpointOffsets {
+  math::Complex from{};
+  math::Complex to{};
+};
+
 /** @brief Borrows canonical controls for a shared source kernel.
  * @tparam Base Canonical source controls.
  * @tparam Params Provider controls.
@@ -615,21 +621,30 @@ struct Tessellation : ApproximationDefaults {
         { State::params(frame).line_softness } -> std::convertible_to<float>;
       });
 
-  /**
-   * @brief Samples the signed field.
-   * @param input Plane carrier; its coords are sampled.
-   * @param frame Frame state.
-   * @return Field value in [-1, 1].
-   */
-  __attribute__((always_inline)) static float sample(const PlaneSample &input,
-                                                     const FrameState &frame) {
-    if constexpr (requires {
-                    State::template sample_source_endpoints<KindV, FillV>(
-                        input, frame);
-                  })
+  struct Prepared {
+    EndpointOffsets endpoint_offsets{};
+  };
+
+  static constexpr bool MORPHS =
+      requires(const PlaneSample &input, const FrameState &frame) {
+        State::template sample_source_endpoints<KindV, FillV>(
+            input, frame, EndpointOffsets{});
+      };
+
+  static Prepared prepare(const FrameState &)
+    requires MORPHS
+  {
+    return {};
+  }
+
+  /** @brief Samples the signed field at the projected plane coordinate. */
+  HS_HOT_INLINE static float sample(const PlaneSample &input,
+                                    const FrameState &frame,
+                                    const Prepared &prepared = {}) {
+    if constexpr (MORPHS)
       if (frame.source_morph.mixed())
-        return State::template sample_source_endpoints<KindV, FillV>(input,
-                                                                     frame);
+        return State::template sample_source_endpoints<KindV, FillV>(
+            input, frame, prepared.endpoint_offsets);
     return Pattern::tessellation<KindV, FillV>(
         Pattern::PlanePosition{input.coords},
         source_kernel_params<TessellationControls<FillV>>(

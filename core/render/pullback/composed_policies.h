@@ -22,6 +22,27 @@ inline constexpr bool
         ModulationProvider<B, Key, Source, Evaluation, false, Phase>>>> =
         Source != Pattern::SourceKind::DISPLACEMENT;
 
+/// A translating affine advances each morphed field in its own repeat lattice.
+template <typename W, typename S, typename Weight, typename Coverage>
+struct Detail::PrepareAdjacent<Stage::Warp<Warp::AffineFrame<W>>,
+                               Stage::Sample<S, Weight, Coverage>> {
+  using Sample = Stage::Sample<S, Weight, Coverage>;
+  template <typename Frame, typename WarpState, typename SampleState>
+  static void bind(const Frame &frame, const WarpState &warp,
+                   SampleState &sample)
+    requires requires { W::endpoint_offsets(frame, warp); }
+  {
+    auto &source = [&]() -> auto & {
+      if constexpr (Sample::template MATERIAL_PREPARES<typename W::Binding>)
+        return std::get<0>(sample);
+      else
+        return sample;
+    }();
+    if constexpr (requires { source.endpoint_offsets; })
+      source.endpoint_offsets = W::endpoint_offsets(frame, warp);
+  }
+};
+
 /** @brief Affine coordinates followed by a tessellation depend only on the
  * working plane coordinate. */
 template <typename Frame, typename SourceState, Pattern::TessellationKind Kind,
