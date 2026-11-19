@@ -65,14 +65,17 @@ inline void test_pullback_ripple_burst_centers() {
     params.random_center = random;
     const auto actual = prepare_ripples(params, state);
     PreparedRipples reference;
+    // Fast-math can narrow division of two promoted floats.
+    const volatile double oracle_period = params.period;
     for (uint32_t lag = 4; lag > 0; --lag) {
       const uint32_t burst = state.burst_count - lag;
       for (size_t i = 0; i < 4; ++i) {
         const auto &wave = state.waves[(burst % 4) * 4 + i];
         if (wave.age < 0.0f || wave.age >= params.period || wave.burst != burst)
           continue;
-        auto prepared =
-            Pullback::Surface::prepare_ripple(params, wave.age / params.period);
+        const float progress =
+            static_cast<float>(static_cast<double>(wave.age) / oracle_period);
+        auto prepared = Pullback::Surface::prepare_ripple(params, progress);
         if (random)
           prepared.ripple.center = ripple_center(state.seed, burst);
         reference.waves[reference.count++] = prepared;
