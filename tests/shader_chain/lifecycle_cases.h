@@ -591,10 +591,9 @@ inline void test_shader_chain_operator_states_sample_clocks() {
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_CONTEXT(op.operator_id);
     HS_EXPECT_TRUE(op.runtime.sample_params != nullptr);
-    HS_EXPECT_TRUE(op.runtime.state.size == sizeof(In::EmptyState) ||
-                   op.runtime.sample_state != nullptr ||
-                   std::string_view(op.operator_id) ==
-                       In::Op::ModulateColorV1::ID);
+    HS_EXPECT_TRUE(
+        !expects_clock_state(op) || op.runtime.sample_state != nullptr ||
+        std::string_view(op.operator_id) == In::Op::ModulateColorV1::ID);
   }
   const float TWO_PI = math::TWO_PI_F;
   In::Op::SpatialWalkState walk_from, walk_to, walk;

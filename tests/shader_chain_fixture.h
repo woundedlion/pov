@@ -376,6 +376,14 @@ inline std::vector<std::max_align_t> erased_block(size_t bytes) {
                                        sizeof(std::max_align_t));
 }
 
+/** @brief Whether the operator's state includes a persistent runtime clock.
+ * @param op Operator descriptor.
+ * @return Whether a snapshot is required. */
+inline bool expects_clock_state(const In::OperatorDescriptor &op) {
+  return op.runtime.state.size != sizeof(In::EmptyState) &&
+         std::string_view(op.operator_id) != In::Op::SampleSphericalTiling::ID;
+}
+
 /** @brief Every field of a runtime snapshot as raw 32-bit words, led by the
  *  alternative index. */
 inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {

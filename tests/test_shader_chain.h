@@ -976,6 +976,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_planar_preview_writes_and_clock_migration);
   HS_RUN(test_shader_chain_spherical_noise_policy);
   HS_RUN(test_shader_chain_spherical_cells_policy);
+  HS_RUN(test_shader_chain_spherical_tiling);
   HS_RUN(test_shader_chain_spherical_source_pipeline);
   HS_RUN(test_shader_chain_spherical_noise_lifecycle);
   HS_RUN(test_shader_chain_parity_colorize_variants);

@@ -1558,6 +1558,9 @@ export function promotionDiagnostics(document, { catalog, authoredTopology = fal
   authoredPalette = false, hasAuthoredAffine, latticeAllowsEdge } = {}) {
   const { descriptor, preset_bank: bank } = document;
   const diagnostics = [];
+  const tiling = descriptor.chain.find(slot => slot.operator === 'sample.spherical-tiling.v1');
+  if (tiling)
+    diagnostics.push({ code: 'WORKBENCH_ONLY_SOURCE', message: 'Tiling requires the shader workbench interpreter' });
   const dwell = Object.values(bank.choreography.dwell ?? {});
   if (dwell.length === 0) {
     diagnostics.push({ code: 'MISSING_DWELL', message: 'Composed documents must declare choreography.dwell' });
@@ -1576,6 +1579,7 @@ export function promotionDiagnostics(document, { catalog, authoredTopology = fal
     if (parameter.storage !== 'enum8' || !varies(parameter.id)) continue;
     const [label, field] = parameter.id.split('.');
     const slot = descriptor.chain.find(slot => slot.label === label);
+    if (slot === tiling) continue;
     if (!hasLiveComposedTopology(slot, field, catalog, { authoredTopology, authoredPalette, hasAuthoredAffine }))
       diagnostics.push({ code: 'NON_UNIFORM_TOPOLOGY', parameter_id: parameter.id,
         message: `Composed topology must be uniform: ${parameter.id}` });

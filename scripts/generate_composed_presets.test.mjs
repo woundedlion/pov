@@ -355,7 +355,7 @@ test('operator bindings preserve authored resource keys and native member names'
   ]);
 });
 
-test('authored topology emits each runtime catalog choice as its stored selector', () => {
+test('authored topology emits each composed catalog choice as its stored selector', () => {
   let checked = 0;
   for (const operator of catalog.operators) {
     if (['color.modulate.v1', PLANAR_SOURCE_OPERATOR].includes(operator.id)) continue;
@@ -364,6 +364,10 @@ test('authored topology emits each runtime catalog choice as its stored selector
       if (field.id === 'palette-mapping') continue;
       for (const [index, choice] of field.values.entries()) {
         const result = [...presetAssignments(authored, { [`node.${field.id}`]: choice }, { authoredTopology: true })];
+        if (operator.id === 'sample.spherical-tiling.v1') {
+          assert.equal(result.length, 0, `${operator.id}/${field.id}/${choice} is workbench-only`);
+          continue;
+        }
         if (operator.id === 'sample.tessellation.v3' && ['kind', 'fill'].includes(field.id)) {
           assert.equal(result.length, 0, `${operator.id}/${field.id}/${choice} is pinned by the source family`);
           continue;

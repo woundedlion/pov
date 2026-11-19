@@ -10,6 +10,7 @@
 
 #include "core/render/pullback/operators.h"
 #include "core/render/pullback/operators/snapshot.h"
+#include "core/render/pullback/operators/spherical_tiling.h"
 
 /**
  * @file table.h
@@ -34,10 +35,10 @@ using OperatorModels = ::Pullback::Detail::TypeList<
     Op::WarpPolarChart, Op::WarpCurlFlow, Op::SampleGridV4,
     Op::SampleTwinWaveV3, Op::SampleBands, Op::SampleSpiralV3,
     Op::SampleTessellation, Op::SampleProjectedNoise, Op::SampleSphericalNoise,
-    Op::SampleSphericalCells, Op::SamplePlanar, Op::TransferRidge,
-    Op::TransferIsoContour, Op::TransferSmoothBands, Op::CoverageValueCutout,
-    Op::CoverageProbability, Op::ColorizeGeneratedPaletteV4,
-    Op::ModulateColorV1>;
+    Op::SampleSphericalCells, Op::SampleSphericalTiling, Op::SamplePlanar,
+    Op::TransferRidge, Op::TransferIsoContour, Op::TransferSmoothBands,
+    Op::CoverageValueCutout, Op::CoverageProbability,
+    Op::ColorizeGeneratedPaletteV4, Op::ModulateColorV1>;
 
 /** @brief One descriptor per model of @p Models.
  *  @tparam Models Operator models.

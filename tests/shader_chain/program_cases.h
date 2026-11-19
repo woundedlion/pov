@@ -88,7 +88,7 @@ inline void test_shader_chain_table_behavior() {
 inline void test_shader_chain_state_restore_values() {
   constexpr int FRAMES = 37;
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
-    if (op.runtime.state.size == sizeof(In::EmptyState))
+    if (!expects_clock_state(op))
       continue;
     HS_CONTEXT(op.operator_id);
     auto params = erased_block(op.runtime.param.size);
@@ -152,7 +152,7 @@ inline void test_shader_chain_table_integrity() {
     op.runtime.init(state.data(), {"snapshot", op.operator_id, 1337});
     const auto captured = op.runtime.capture_state(state.data());
     HS_EXPECT_EQ(std::holds_alternative<std::monostate>(captured),
-                 op.runtime.state.size == sizeof(In::EmptyState));
+                 !expects_clock_state(op));
     HS_EXPECT_TRUE(op.runtime.restore_state(state.data(), captured));
     op.runtime.destroy(state.data());
     for (uint16_t index = 0; index < op.schema_count; ++index) {

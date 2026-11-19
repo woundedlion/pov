@@ -418,7 +418,8 @@ test('the catalog exposes the complete workbench warp and source vocabulary', ()
     ['euler-1', 'midpoint-2', 'midpoint-4'],
   );
   assert.ok(operators.has('sample.tessellation.v3'));
-  for (const id of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1']) {
+  assert.equal(operators.get('sample.spherical-tiling.v1')?.name, 'Tiling');
+  for (const id of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1', 'sample.spherical-tiling.v1']) {
     assert.equal(operators.get(id)?.input, 'sphere');
     assert.equal(operators.get(id)?.output, 'field');
     assert.ok(!operators.get(id).params.some((field) => field.id === 'coverage-mode'));
@@ -427,7 +428,7 @@ test('the catalog exposes the complete workbench warp and source vocabulary', ()
 });
 
 test('spherical source documents compile and round-trip without a planar stage', () => {
-  for (const source of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1']) {
+  for (const source of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1', 'sample.spherical-tiling.v1']) {
     const document = example();
     const chain = [
       { label: 'source', operator: source },
@@ -446,6 +447,9 @@ test('spherical source documents compile and round-trip without a planar stage',
     assert.equal(restored.status, 'VALID', JSON.stringify(restored.diagnostics));
     assert.equal(restored.descriptor_digest, compiled.descriptor_digest);
     assert.deepEqual(restored.document.descriptor.chain, chain);
+    const diagnostics = promotionDiagnostics(restored.document, { catalog: CATALOG, authoredTopology: true });
+    assert.equal(diagnostics.some((issue) => issue.code === 'WORKBENCH_ONLY_SOURCE'),
+      source === 'sample.spherical-tiling.v1');
   }
 });
 

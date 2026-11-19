@@ -790,6 +790,72 @@ inline void catalog_assignments_sample_spherical_cells_v1() {
   (void)params;
 }
 
+/** @brief Compiles catalog assignments for sample.spherical-tiling.v1. */
+inline void catalog_assignments_sample_spherical_tiling_v1() {
+  Pullback::Source::SphericalTilingSourceParams params;
+  params.line_thickness = 1.0f;
+  params.line_softness = 0.5f;
+  params.solid = 0;
+  params.solid = 1;
+  params.solid = 2;
+  params.solid = 3;
+  params.solid = 4;
+  params.solid = 5;
+  params.solid = 6;
+  params.solid = 7;
+  params.solid = 8;
+  params.solid = 9;
+  params.solid = 10;
+  params.solid = 11;
+  params.solid = 12;
+  params.solid = 13;
+  params.solid = 14;
+  params.solid = 15;
+  params.solid = 16;
+  params.solid = 17;
+  params.solid = 18;
+  params.solid = 19;
+  params.solid = 20;
+  params.solid = 21;
+  params.solid = 22;
+  params.solid = 23;
+  params.solid = 24;
+  params.solid = 25;
+  params.solid = 26;
+  params.solid = 27;
+  params.solid = 28;
+  params.solid = 29;
+  params.solid = 30;
+  params.solid = 31;
+  params.solid = 32;
+  params.solid = 33;
+  params.solid = 34;
+  params.solid = 35;
+  params.solid = 36;
+  params.solid = 37;
+  params.solid = 38;
+  params.solid = 39;
+  params.solid = 40;
+  params.solid = 41;
+  params.solid = 42;
+  params.solid = 43;
+  params.solid = 44;
+  params.solid = 45;
+  params.solid = 46;
+  params.solid = 47;
+  params.solid = 48;
+  params.solid = 49;
+  params.solid = 50;
+  params.solid = 51;
+  params.solid = 52;
+  params.solid = 53;
+  params.solid = 54;
+  params.output = 0;
+  params.output = 1;
+  params.output = 2;
+  (void)params;
+}
+
 /** @brief Compiles catalog assignments for sample.planar.v1. */
 inline void catalog_assignments_sample_planar_v1() {
   Pullback::Source::PlanarSelectorParams<Pullback::Source::PlanarKind::GRID, Pullback::Source::PlanarKind::TWIN_WAVE, Pullback::Source::PlanarKind::BANDS, Pullback::Source::PlanarKind::SPIRAL, Pullback::Source::PlanarKind::TESSELLATION_TRIANGULAR_CELLS, Pullback::Source::PlanarKind::TESSELLATION_TRIANGULAR_EDGES, Pullback::Source::PlanarKind::TESSELLATION_SQUARE_CELLS, Pullback::Source::PlanarKind::TESSELLATION_SQUARE_EDGES, Pullback::Source::PlanarKind::TESSELLATION_HEXAGONAL_CELLS, Pullback::Source::PlanarKind::TESSELLATION_HEXAGONAL_EDGES, Pullback::Source::PlanarKind::PROJECTED_NOISE_SIMPLEX, Pullback::Source::PlanarKind::PROJECTED_NOISE_FBM3, Pullback::Source::PlanarKind::PROJECTED_NOISE_RIDGED3> source;

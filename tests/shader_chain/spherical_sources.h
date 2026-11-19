@@ -149,6 +149,48 @@ inline void test_shader_chain_spherical_cells_policy() {
   }
 }
 
+/** @brief Registry tiling preserves cube seams and covers complex solids. */
+inline void test_shader_chain_spherical_tiling() {
+  using Model = In::Op::SampleSphericalTiling;
+  using Geometry = PB::Source::SphereTilingGeometry;
+  Model::Params params;
+  params.solid = static_cast<uint8_t>(Solids::BaseMesh::CUBE);
+  Model::State state;
+  const auto prepared = Model::prepare({}, params, state);
+  const PB::SphereSample CENTER{math::X_AXIS, 0.25f};
+  const PB::SphereSample seam{math::Vector(1.0f, 1.0f, 0.0f).normalized(),
+                              CENTER.path_length};
+  const auto center_field = Model::run(CENTER, {}, params, prepared);
+  const auto seam_field = Model::run(seam, {}, params, prepared);
+  HS_EXPECT_EQ(center_field.value, 0.0f);
+  HS_EXPECT_EQ(seam_field.value, 1.0f);
+  HS_EXPECT_EQ(seam_field.path_length, CENTER.path_length);
+
+  params.line_thickness = 2.0f;
+  const auto thicker = Model::prepare({}, params, state);
+  HS_EXPECT_TRUE(thicker.geometry == prepared.geometry);
+
+  const auto &geometry = *prepared.geometry;
+  const float angle = math::PI_F / 4.0f - 0.1f;
+  const math::Vector near_seam(std::cos(angle), std::sin(angle), 0.0f);
+  HS_EXPECT_NEAR(geometry.border_distance(near_seam, 0.2f), 0.1f, 2.0e-6f);
+  const uint16_t front = geometry.face_at(math::X_AXIS);
+  HS_EXPECT_TRUE(front != Geometry::NO_FACE);
+  HS_EXPECT_EQ(geometry.face_type(front), 4u);
+  HS_EXPECT_TRUE(geometry.face_at(math::Y_AXIS) != front);
+
+  for (uint8_t solid = 0; solid < Solids::NUM_ENTRIES; ++solid) {
+    params.solid = solid;
+    const auto tiled = Model::prepare({}, params, state);
+    for (int sample = 0; sample < 192; ++sample) {
+      const auto direction = math::fib_spiral(192, 0.5f, sample);
+      const uint16_t owner = tiled.geometry->face_at(direction);
+      HS_EXPECT_TRUE(owner != Geometry::NO_FACE);
+      HS_EXPECT_TRUE(tiled.geometry->face_type(owner) >= 3u);
+    }
+  }
+}
+
 /** @brief A spherical source reaches cutout and palette without a projection. */
 inline void test_shader_chain_spherical_source_pipeline() {
   auto fixture = std::make_unique<ProgramFixture>();
