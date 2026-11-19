@@ -233,6 +233,7 @@ private:
     Arena a(storage.get(), ARENA_BYTES);
     Arena b(storage.get() + ARENA_BYTES, ARENA_BYTES);
     const PolyMesh mesh = entry.generate(a, b);
+    // no death case: the tiling test builds every solid in the fixed registry.
     HS_CHECK(mesh.num_faces() < NO_FACE, "sphere tiling: too many faces");
     vertices.reserve(mesh.vertices.size());
     faces.reserve(mesh.num_faces());
@@ -258,6 +259,7 @@ private:
     std::sort(edge_ids.begin(), edge_ids.end());
     edge_ids.erase(std::unique(edge_ids.begin(), edge_ids.end()),
                    edge_ids.end());
+    // no death case: the tiling test indexes edges for every fixed registry solid.
     HS_CHECK(edge_ids.size() <= UINT16_MAX, "sphere tiling: too many edges");
     edges.reserve(edge_ids.size());
     for (auto [first, last] : edge_ids) {
