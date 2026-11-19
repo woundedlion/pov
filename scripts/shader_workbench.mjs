@@ -1451,6 +1451,16 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, c
   }
   const sourceMorph = transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluation);
   const modulationMorphs = transitionModulationMorphs(descriptor, operatorById, from, to, progressFor);
+  if (raw > 0 && raw < 1 && modulationMorphs.length) {
+    const layer = modulationMorphs.at(-1);
+    const id = `${layer.instance}.modulation-source`;
+    const path = layer.from[id] === 'displacement' ? from : to;
+    for (const slot of descriptor.chain) {
+      const gate = `${slot.label}.path-length`;
+      if (slot.operator === 'warp.affine.v4' && Object.hasOwn(path, gate))
+        values[gate] = path[gate];
+    }
+  }
   return {
     ...(modulationMorphs.length ? { modulationMorphs } : {}),
     evaluation, duration: edge.duration, raw_progress: raw, eased_progress: eased, values,

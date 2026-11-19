@@ -1110,6 +1110,9 @@ test('RiverStones preview blends the first modulation source in both directions'
       const [layer] = sample.modulationMorphs;
       assert.equal(layer.instance, 'modulate');
       assert.equal(layer.mix, sample.eased_progress);
+      const pathRow = from.values['modulate.modulation-source'] === 'displacement' ? from : to;
+      const gateRow = frame === 0 ? from : frame === edge.duration ? to : pathRow;
+      assert.equal(sample.values['warp.path-length'], gateRow.values['warp.path-length']);
       for (const id of ['modulate.modulation-source', 'modulate.modulation-amount', 'modulate.pattern-speed']) {
         assert.equal(layer.from[id], from.values[id]);
         assert.equal(layer.to[id], to.values[id]);
