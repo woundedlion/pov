@@ -340,7 +340,7 @@ inline void case_pullback_invalid_color_mechanic() {
   Pullback::Color::apply_mechanic_scalar(sample, 0.5f, mechanic);
 }
 
-/** @brief Shading requires every ordered modulation layer to be bound. */
+/** @brief A column binds every ordered modulation layer before shading. */
 inline void case_pullback_unbound_modulation_column() {
   using namespace Pullback;
   uint8_t storage[BakedPalette::required_arena_bytes()];
@@ -358,9 +358,8 @@ inline void case_pullback_unbound_modulation_column() {
   const Color::ModulationStack<1> valid(palette, {&layer});
   if (valid.shade(field).color != Pixel(255, 0, 0))
     return;
-  const Color::ModulationStack<1> missing(palette, {nullptr});
   death_admitted();
-  (void)missing.shade(field);
+  const Color::ModulationStack<1> missing(palette, {nullptr});
 }
 
 /** @brief A modulation operator rejects an unknown source. */

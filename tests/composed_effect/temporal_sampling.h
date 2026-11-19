@@ -1978,6 +1978,75 @@ inline void test_modulation_stack_direct_sample_counts() {
   }
 }
 
+/** @brief Only endpoints read by an active spatial mechanic require a source. */
+inline void test_modulation_stack_required_endpoints() {
+  using namespace Pullback;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  const auto frame = FX::RenderPipeline::prepare(effect.frame_for_test());
+  constexpr size_t PALETTE = FX::RenderPipeline::NODE_COUNT - 4;
+  const auto base = std::get<PALETTE>(frame.prepared).current;
+
+  std::array<float, Pattern::SphereLutView::SIZE> linear;
+  linear.fill(32.0f);
+  Modulation::Prepared cube{}, direct{};
+  cube.cube = {nullptr, true, linear.data()};
+  cube.evaluate = Modulation::sample_cube;
+  direct.evaluate = [](const Modulation::Prepared &,
+                       const Pattern::SphereDirection &) { return -0.5f; };
+  const Color::ModulationState disabled{
+      nullptr,
+      nullptr,
+      Pattern::SourceKind::NOISE,
+      {ColorModulation::Mechanic::HUE_ROTATION, 0.5f},
+      false};
+  const Color::ModulationState path{
+      nullptr,
+      nullptr,
+      Pattern::SourceKind::DISPLACEMENT,
+      {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT, 0.2f},
+      true};
+  const FieldSample field{0.47f, 0.61f, math::Z_AXIS, 0.3f};
+
+  for (float fraction : {0.0f, 0.37f, 1.0f}) {
+    Color::TemporalGeneratedPaletteState palette{base, base, fraction};
+    Color::ModulationState layer{&direct,
+                                 &cube,
+                                 Pattern::SourceKind::NOISE,
+                                 {ColorModulation::Mechanic::OPACITY, 0.65f},
+                                 true};
+    if (fraction == 0.0f) {
+      palette.current.palette = nullptr;
+      layer.current = nullptr;
+    }
+    if (fraction == 1.0f) {
+      palette.previous.palette = nullptr;
+      layer.previous = nullptr;
+    }
+    const std::array<const Color::ModulationState *, 3> layers{&disabled, &path,
+                                                               &layer};
+    const auto endpoint = [&](bool previous) {
+      auto sample = Color::apply_generated_palette(
+          field, previous ? palette.previous : palette.current);
+      for (const auto *op : layers)
+        Color::apply_modulation_in_place(sample, *op, previous);
+      return sample;
+    };
+    auto expected = endpoint(fraction == 0.0f);
+    if (fraction > 0.0f && fraction < 1.0f) {
+      auto previous = endpoint(true);
+      blend_color_samples_in_place(previous, expected, fraction);
+    }
+    const auto reference = finish_color_sample(expected);
+    const auto actual =
+        Color::ModulationStack<3>(palette, true, layers).shade(field);
+    HS_EXPECT_EQ(actual.color, reference.color);
+    HS_EXPECT_EQ(actual.alpha, reference.alpha);
+  }
+}
+
 /** @brief Independent byte cubes can differ at any one corner of a shared tap. */
 inline void test_modulation_stack_cube_corners() {
   using namespace Pullback;

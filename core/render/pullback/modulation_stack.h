@@ -132,7 +132,6 @@ class OrderedModulationKernel {
   bool simple_palette;
   uint16_t rgb_weight;
   float constant_alpha = -1.0f;
-  bool valid = false;
   bool uses_cube = false;
   bool hue_lift_mask = false;
   Modulation::ImmutableTable::TapEvaluator hue_tap = nullptr;
@@ -426,13 +425,42 @@ class OrderedModulationKernel {
     return finish_color_sample(result);
   }
 
+  HS_HOT_INLINE bool
+  bind_layers(std::span<const ModulationState *const> layers) {
+    if (layers.size() > MAX_ORDERED_MODULATION_LAYERS || !base.palette ||
+        (blend && !previous_palette.palette))
+      return false;
+    for (const auto *layer : layers) {
+      if (!layer)
+        return false;
+      if (!modulation_active(*layer))
+        continue;
+      if (layer->mechanic.kind > ColorModulation::Mechanic::OPACITY ||
+          layer->source > Pattern::SourceKind::DISPLACEMENT)
+        return false;
+      uint8_t current = PATH, previous = PATH;
+      if (layer->source != Pattern::SourceKind::DISPLACEMENT) {
+        const auto *selected = retained ? layer->previous : layer->current;
+        if (!can_sample(selected) || (blend && !can_sample(layer->previous)))
+          return false;
+        current = bind_source(*selected);
+        previous = blend && layer->previous != selected
+                       ? bind_source(*layer->previous, current)
+                       : current;
+      }
+      ops[op_count++] = {layer->mechanic, current, previous};
+    }
+    return true;
+  }
+
 protected:
   /** @brief Binds active layers in authored order and interns distinct sources.
    * @param current Current palette.
    * @param previous Retained palette.
    * @param t Current endpoint weight.
    * @param same Whether both palette endpoints have equal entries.
-   * @param layers Consecutive canonical modulation stages. */
+   * @param layers Consecutive canonical modulation stages.
+   * @pre Every selected palette and active spatial source is prepared. */
   HS_SIZE_FLASH_MEMBER
   OrderedModulationKernel(const GeneratedPaletteState &current,
                           const GeneratedPaletteState &previous, float t,
@@ -452,50 +480,22 @@ protected:
         simple_palette(identity_controls &&
                        (!blend || (same && same_hue_table))),
         rgb_weight(blend && !same ? frac_to_q16(t) : 0) {
-    if (layers.size() > MAX_ORDERED_MODULATION_LAYERS || !base.palette ||
-        (blend && !previous.palette))
-      return;
-    for (const auto *layer : layers) {
-      if (!layer)
-        return;
-      if (!modulation_active(*layer))
-        continue;
-      if (layer->mechanic.kind > ColorModulation::Mechanic::OPACITY ||
-          layer->source > Pattern::SourceKind::DISPLACEMENT)
-        return;
-      uint8_t current = PATH, previous = PATH;
-      if (layer->source != Pattern::SourceKind::DISPLACEMENT) {
-        const auto *selected = retained ? layer->previous : layer->current;
-        if (!can_sample(selected) || (blend && !can_sample(layer->previous)))
-          return;
-        current = bind_source(*selected);
-        previous = blend && layer->previous != selected
-                       ? bind_source(*layer->previous, current)
-                       : current;
-      }
-      ops[op_count++] = {layer->mechanic, current, previous};
-    }
-    valid = true;
+    const bool bound = bind_layers(layers);
+    HS_CHECK(bound, "invalid ordered modulation column");
   }
 
   template <size_t N> void bind_specialization() {
     if constexpr (N == 3)
-      hue_lift_mask = valid && bind_hue_lift_mask();
+      hue_lift_mask = bind_hue_lift_mask();
   }
 
   template <size_t N>
   HS_HOT_INLINE Color4 shade_bound(const FieldSample &field) const {
-    HS_CHECK(ready(), "invalid ordered modulation column");
     if constexpr (N == 3)
       if (hue_lift_mask)
         return shade_hue_lift_mask(field);
     return shade_ordered(field);
   }
-
-public:
-  /** @brief Whether all active layers were bound.
-   * @return False when the canonical pipeline must handle the column. */
-  bool ready() const { return valid; }
 };
 
 /** @brief Column binding for a typed sequence of modulation stages.

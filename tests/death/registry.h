@@ -2268,7 +2268,7 @@ inline const Case *all_cases(int &n) {
               {"pullback_unbound_modulation_column",
                case_pullback_unbound_modulation_column,
                "core/render/pullback/modulation_stack.h",
-               "(ready()) invalid ordered modulation column", false,
+               "(bound) invalid ordered modulation column", false,
                "death: admitted"},
               {"pullback_operator_invalid_modulation_source",
                case_pullback_operator_invalid_modulation_source,
