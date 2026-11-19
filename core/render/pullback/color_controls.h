@@ -261,21 +261,24 @@ HS_FLASH_INLINE constexpr bool same_palette_controls(const Controls &a,
   return shared == b;
 }
 
-/** @brief Blend weights over the PaletteMapping curves. */
-struct PaletteMappingWeights {
-  std::array<float, 4> values{}; ///< Weight per PaletteMapping, by value.
-  /// PaletteMapping value when exactly one curve is selected, else 0xff.
-  uint8_t exact = 0xff;
+/** @brief Blend weights over a compact enum.
+ * @tparam N Number of enum values. */
+template <size_t N> struct EnumWeights {
+  static_assert(N > 0 && N < 256);
+  static constexpr uint8_t MIXED = 0xff; ///< No exact value.
+  std::array<float, N> values{};         ///< Weight per enum value.
+  uint8_t exact = MIXED;                 ///< Selected index, when exact.
 
   /**
-   * @brief Weights selecting exactly one curve.
-   * @param mapping Curve to select.
-   * @return Unit weight on `mapping`, with `exact` set.
+   * @brief Weights selecting exactly one value.
+   * @tparam Value Enum or index type.
+   * @param value Value to select.
+   * @return Unit weight on the selected index.
    */
-  static constexpr PaletteMappingWeights single(PaletteMapping mapping) {
-    PaletteMappingWeights result;
-    result.values[static_cast<size_t>(mapping)] = 1.0f;
-    result.exact = static_cast<uint8_t>(mapping);
+  template <typename Value> static constexpr EnumWeights single(Value value) {
+    EnumWeights result;
+    result.values[static_cast<size_t>(value)] = 1.0f;
+    result.exact = static_cast<uint8_t>(value);
     return result;
   }
 
@@ -283,26 +286,39 @@ struct PaletteMappingWeights {
    * @brief Interpolates two weight sets.
    * @param a Weights at progress 0.
    * @param b Weights at progress 1.
-   * @param progress Blend amount; clamped to the endpoints.
-   * @return `a` when both select the same exact curve; otherwise the
-   * per-curve linear blend, inexact unless progress hits an endpoint.
+   * @param progress Blend amount.
+   * @return Component-wise blend with exact endpoint fast paths.
    */
-  static constexpr PaletteMappingWeights lerp(const PaletteMappingWeights &a,
-                                              const PaletteMappingWeights &b,
-                                              float progress) {
+  static HS_FLASH_INLINE constexpr EnumWeights
+  lerp_components(const EnumWeights &a, const EnumWeights &b, float progress) {
     if (a.exact == b.exact && a.exact < a.values.size())
       return a;
     if (progress <= 0.0f)
       return a;
     if (progress >= 1.0f)
       return b;
-    PaletteMappingWeights result;
+    EnumWeights result;
     for (size_t index = 0; index < result.values.size(); ++index)
       result.values[index] =
           a.values[index] + (b.values[index] - a.values[index]) * progress;
     return result;
   }
+
+  /**
+   * @brief Interpolates two weight sets with the shared palette placement.
+   * @param a Weights at progress 0.
+   * @param b Weights at progress 1.
+   * @param progress Blend amount.
+   * @return Interpolated weights.
+   */
+  static constexpr EnumWeights lerp(const EnumWeights &a, const EnumWeights &b,
+                                    float progress) {
+    return lerp_components(a, b, progress);
+  }
 };
+
+/** @brief Blend weights over the palette-mapping curves. */
+using PaletteMappingWeights = EnumWeights<4>;
 
 using ::HueRotationLutView;
 using ::UNIT_OPEN_MAX;
