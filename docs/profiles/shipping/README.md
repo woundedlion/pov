@@ -7,13 +7,13 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Captured |
 |---|---|--:|--:|--:|---|---|
+| [RiverStones](profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | 🟢 0/1667 (0.00%) | COM3 | 2026-11-18 23:32 |
 | [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 0/4895 (0.00%) | COM3 | 2026-11-17 09:09 |
 | [GridWarp](profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:41 |
 | [AshCloud](profile_ashcloud_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.216 | 85.379 | 🟢 0/959 (0.00%) | COM4 | 2026-11-17 09:39 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-11-17.md) § ● | `ss_draw_all`<br>worst: 8, 56.021 ms / 16 fps | 🟢 56.021 (9) | 76.786 | 🟢 0/4303 (0.00%) | COM3 | 2026-11-17 09:00 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-11-17.md) § ● | `mf_feedback_flush`<br>worst: WigglingWormhole, 55.672 ms / 16 fps | 🟢 55.672 (12) | 6.470 | 🟢 0/2895 (0.00%) | COM3 | 2026-11-17 09:23 |
 | [HopfFibration](profile_hopffibration_teensy_2026-11-17.md) ● | `hf_render_trails` | 🟢 55.635 | 0.672 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:45 |
-| [RiverStones](profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones, 55.151 ms / 16 fps | 🟢 55.151 (1) | 70.523 | 🟢 0/472 (0.00%) | COM3 | 2026-11-18 22:37 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-11-17.md) § ● | `hl_shader_draw`<br>worst: octet-4d-flight, 53.311 ms / 16 fps | 🟢 53.311 (9) | 45.039 | 🟢 0/4799 (0.00%) | COM4 | 2026-11-17 09:08 |
 | [Millefiori](profile_millefiori_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 52.832 | 79.856 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:35 |
 | [Raymarch](profile_raymarch_teensy_2026-11-17.md) ● | `rm_shader_draw` | 🟢 52.759 | 94.040 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:52 |

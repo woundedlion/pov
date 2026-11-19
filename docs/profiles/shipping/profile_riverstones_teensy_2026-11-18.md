@@ -1,7 +1,7 @@
 # RiverStones on-device profile — Teensy 4.0, segmented mode (2026-11-18, **selective -O3**)
 
-The ranked results cover the 30-second show slot. The extended capture also covers both preset transitions.
-Raw capture: `C:\work\temp\rsjerk-20261118\production-com3.log`.
+Point-in-time snapshot of the authored show slot. Reproduce with the scoped command in Setup.
+Raw capture: `C:\work\temp\rsjerk-20261118\qualified-color-com3.log`.
 
 ## Setup
 
@@ -10,78 +10,61 @@ Raw capture: `C:\work\temp\rsjerk-20261118\production-com3.log`.
 | Hardware | Teensy 4.0, COM3, 600 MHz; live flywheel and DMA ISRs |
 | Image | `profile`; shipping `-Os` base, newlib-nano; selective `HS_O3`: `core/render/scan/shader.h` and the pullback runtime/palette kernels |
 | Driver | `POVSegmented<288,4,480>`, segment 0 master |
-| Effect | RiverStones 288×144, single-entry playlist, source `a6ae35c5e45070518210a6ebb725309a7827a7cd` |
-| Method | Show scope = 30 s from profile instance construction. Captured frames 1 through 473 within scope. Counter window 32. Raw capture 142 s; later frames appear in the extended cycle measurements. Profiling epoch 3600 s; no reset in the capture. |
-| Reproduce | `HS_PROFILE_TREE=C:/work/Holosphere HS_TEENSY_PORT=COM3 bash tools/profile_one.sh RiverStones profile 34 32`; analyze only the 30 s show budget (clean checkout of the source above) |
+| Effect | RiverStones 288×144, single-entry playlist, source `1049347f77b3afa286ab3be6ad28edd0ed1ee884` |
+| Method | Show scope = 105 s from profile instance construction. Captured frames 1 through 1668 within scope. Counter window 32. Raw capture 142 s; later frames excluded. Profiling epoch 3600 s; no reset in the capture. |
+| Reproduce | `HS_PROFILE_TREE=C:/work/Holosphere HS_TEENSY_PORT=COM3 bash tools/profile_one.sh RiverStones profile 109 32`; analyze only the 105 s show budget (clean checkout of the source above) |
 
-Profile image size: `FLASH: code:124624, data:156732, headers:8436; free:1741824 / RAM1: variables:314080, code:34392, padding:31144; free:144672 / RAM2: variables:520064; free:4224`.
+Profile image size: `FLASH: code:125576, data:156732, headers:8508; free:1740800 / RAM1: variables:314080, code:34856, padding:30680; free:144672 / RAM2: variables:520064; free:4224`.
 
-Shipping Phantasm image size: `FLASH: code:1099248, data:430372, headers:8404; free:493592 / RAM1: variables:313760, code:190408, padding:6200; free:13920 / RAM2: variables:520064; free:4224`.
+Shipping Phantasm image size: `FLASH: code:1101816, data:430372, headers:8932; free:490496 / RAM1: variables:313760, code:191512, padding:5096; free:13920 / RAM2: variables:520064; free:4224`.
 
-Exactness cross-check: frames 193–224 root cycles / 600 MHz = 1996515.615 us; measured wall sum 1996522 us, delta 3.20 ppm. `parse_profile.py ... validate` passes frame coverage, configuration and no-reset checks.
+Exactness cross-check: frames 961–992 root cycles / 600 MHz = 1815445.138 us; measured wall sum 1815444 us, delta 0.63 ppm. `parse_profile.py ... validate` passes frame coverage, configuration and no-reset checks.
 
-Captured 2026-11-18 22:37, America/Los_Angeles. Compiler: `GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203`. Raw SHA-256: `1b117734ceb784b1cbb4a69316edb0c621f5510098eacba2c98531f7c88d0fa4`. The metrics sidecar retains verified ELF/envdump hashes and immutable artifact paths.
+Captured 2026-11-18 23:32, America/Los_Angeles. Compiler: `GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203`. Raw SHA-256: `3f3fed2e4c54db98e9823e9a55a7625971f4048d8e0a5c8099cdf13630eaaa42`. The metrics sidecar retains verified ELF/envdump hashes and immutable artifact paths.
 
-## Two-preset motion and timing
+## Both preset transitions
 
-The 30-second opener contains only preset 1. Each 142-second capture continued into both 480-frame transitions. The peak across all captured live frames on both boards was **58.721 ms**. Frame 1 is setup. The show ranking uses only its 30-second slot.
+The 105-second opener covers both 600-frame dwells and the 480-frame forward morph. The reverse morph runs in continuous playback. The table uses both complete 142-second captures. Frame 1 is setup.
 
-| Board | Phase | Live frames | Mean (ms) | p99 (ms) | Peak (ms) | At or above 59 ms | Above 62.5 ms |
-|---|---|---:|---:|---:|---:|---:|---:|
-| COM3 | Preset 1 | 598 | 49.189 | 54.384 | 55.151 | 0 | 0 |
-| COM3 | 1 to 2 | 480 | 52.035 | 56.124 | 56.652 | 0 | 0 |
-| COM3 | Preset 2 | 599 | 48.304 | 54.056 | 55.923 | 0 | 0 |
-| COM3 | 2 to 1 | 480 | 54.119 | 58.310 | 58.721 | 0 | 0 |
-| COM3 | Entire capture after setup | 2247 | 50.668 | 57.413 | 58.721 | 0 | 0 |
-| COM4 | Preset 1 | 598 | 49.188 | 54.241 | 55.287 | 0 | 0 |
-| COM4 | 1 to 2 | 480 | 52.039 | 56.117 | 56.636 | 0 | 0 |
-| COM4 | Preset 2 | 599 | 48.307 | 54.075 | 56.021 | 0 | 0 |
-| COM4 | 2 to 1 | 480 | 54.120 | 58.267 | 58.673 | 0 | 0 |
-| COM4 | Entire capture after setup | 2247 | 50.669 | 57.377 | 58.673 | 0 | 0 |
-
-The in-show capture on COM3 includes frames 2 through 473. Setup took 70.523 ms on COM3 and 70.426 ms on COM4. The first destination marker precedes frame 600 and the return marker precedes frame 1679. The table assigns the next 480 frames to each blend, then resumes the destination dwell.
-
-### Before the correction
-
-The previous source-value morph used one affine offset for two different hex-cell sizes. When the scroll clock wrapped every 50 frames, one partially visible field moved by a fraction of a cell. Both fields now use the same column clock with offsets expressed in their own lattice periods. Their scalar values are blended with the authored easing before color modulation.
-
-| Build | Board | Preset 1 peak | Forward peak | Preset 2 peak | Reverse peak | Transition frames above 62.5 ms |
+| Board | Phase | Frames | Mean (ms) | p99 (ms) | Peak (ms) | Frames at or above 59 ms |
 |---|---|---:|---:|---:|---:|---:|
-| Installed before the fix | COM4 | 59.090 ms | 63.837 ms | 60.157 ms | 65.445 ms | 94 |
-| Corrected motion, analytic Teensy kernel | COM3 | 62.509 ms | 66.996 ms | 62.687 ms | 68.448 ms | 564 |
-| Shipping correction | COM3 | 55.151 ms | 56.652 ms | 55.923 ms | 58.721 ms | 0 |
-| Shipping correction | COM4 | 55.287 ms | 56.636 ms | 56.021 ms | 58.673 ms | 0 |
+| COM3 | Preset 1 | 598 | 48.985 | 54.059 | 54.758 | 0 |
+| COM3 | 1 to 2 | 480 | 54.218 | 57.851 | 58.167 | 0 |
+| COM3 | Preset 2 | 599 | 48.328 | 54.106 | 56.041 | 0 |
+| COM3 | 2 to 1 | 480 | 54.256 | 58.231 | 58.811 | 0 |
+| COM3 | All live frames | 2247 | 51.106 | 57.799 | 58.811 | 0 |
+| COM4 | Preset 1 | 598 | 48.987 | 54.030 | 54.847 | 0 |
+| COM4 | 1 to 2 | 480 | 54.215 | 57.863 | 58.180 | 0 |
+| COM4 | Preset 2 | 599 | 48.327 | 54.039 | 56.087 | 0 |
+| COM4 | 2 to 1 | 480 | 54.250 | 58.153 | 58.805 | 0 |
+| COM4 | All live frames | 2247 | 51.104 | 57.833 | 58.805 | 0 |
 
-Across a 2,162-frame Daydream render at 96 by 20, the largest RGB16 step at a wrap relative to the median step in its eight neighboring frames fell from 2.52 to 0.98 forward and from 3.81 to 1.18 in reverse. Both settled presets matched their previous RGB16 frames. The native coordinate test also covered all 19 clock wraps in both directions.
+Both boards kept all live frames below 59 ms. The shipping-image check on COM4 ran for 113 seconds and crossed the first handoff with no epoch trap. All runs used PJRC Teensy Loader CLI 2.3.
 
-### Device rendering and memory
-
-Daydream uses the analytic hex field. Teensy precomputes two 61 by 61 tables at startup and uses triangular interpolation only while both authored profiles are visible. Both dwell endpoints use the analytic sampler. A changed radius, shape or softness also selects the analytic sampler. Scale is applied at sample time. The tables occupy 14,884 bytes of grid data in the existing arena. The device effect uses 269,186 of 272,384 persistent bytes, including its stationary noise atlas.
-
-In the native comparison of the device sampling path, the settled images matched. Across 288 by 144 quadrant renders sampled every fifth frame plus boundaries, forward and reverse RGB16 channel RMS errors were 4.97 and 4.62 on a 65,535 scale. The 99th-percentile absolute differences were 19 and 20 counts. The maxima were 1,442 and 582 counts.
-
-Compared with the previously installed two-preset renderer, shipping FLASH code rose by 568 bytes and FLASH data fell by 928 bytes. RAM1 code fell by 144 bytes and RAM1 variables stayed at 313,760 bytes. In the same-board 35-second Iridescence check, peak render went from 45.154 to 45.326 ms. Both runs had zero display misses.
-
-Both boards used PJRC Teensy Loader CLI 2.3. The COM4 capture used the same profile ELF as COM3. The original logs and measured firmware hashes are retained under `C:/work/temp/rsjerk-20261118`.
-
-| Board | Raw log | SHA-256 |
+| Board | Extended capture | SHA-256 |
 |---|---|---|
-| COM3 | `production-com3.log` | `1b117734ceb784b1cbb4a69316edb0c621f5510098eacba2c98531f7c88d0fa4` |
-| COM4 | `production-com4.log` | `ca76395bd714ac1466d04d81ff5cbec50b5f81906f6b48b29c347aeb5749ff54` |
+| COM3 | `qualified-color-com3.log` | `3f3fed2e4c54db98e9823e9a55a7625971f4048d8e0a5c8099cdf13630eaaa42` |
+| COM4 | `periodic-color-com4.log` | `4bb265476584f1d082b6ab71452c064aa14e2ccc8d411b21c5dcb6e1b76d7abd` |
 
-The earlier 58.703 ms COM4 result covered 472 live frames of the one-preset opener. The earlier 58.512 ms two-preset result used parameter interpolation. This capture exercises the source-value blend.
+### Recipe changes and fidelity
+
+Both hex fields follow the same clock using their respective lattice periods. During the source morph, the hue layer evaluates the direct noise and the displacement using their authored strengths. It interpolates the unwrapped hue turns before the hue, lightness, and opacity finish. Daydream samples the hex field analytically.
+
+On Teensy, the two hex fields use precomputed periodic triangles during an authored blend. The grid data occupy 13,068 bytes. Settled presets matched the exact RGB16 comparison. Across 97 sampled frames per direction at 288 by 144 in the quadrant renderer, the periodic sampler differed from the analytic renderer by 12.41 and 14.23 RGB16 RMS codes. The corresponding 99th-percentile absolute differences were 54 and 65 out of 65,535. Independent source tests measured maximum absolute errors of 0.01013 and 0.00366 in signed field units.
+
+The two-preset scroll correction before the hue change peaked at 58.721 ms. With the hue blend and the earlier sector lookup, the peak was 59.963 ms. The earlier 58.703 ms result covered the one-preset, 30-second opener.
 
 ## Frame cadence
 
-The playlist assigns **30 s**. Show-frame peak render is **70.523 ms**, spilled **1/473**. Setup frame 1 is **70.523 ms** and remains separate. Live show peak is **55.151 ms**, spilled **0/472**.
+The playlist assigns **105 s**. Show-frame peak render is **70.027 ms**, spilled **1/1668**. Setup frame 1 is **70.027 ms** and remains separate. Live show peak is **58.167 ms**, spilled **0/1667**.
 
 At 480 RPM a half revolution is 62.5 ms, giving 16 fps. This effect renders the clipped quadrant, containing 10,368 pixels. Render telemetry subtracts `canvas_buffer_wait`, the round-up idle until the next display flip; wall maxima are not render peaks.
 
-The ranked index uses only show frames 2–473. The raw log retains 2248 frame records; the 1775 records after the show budget are excluded from peaks, spill denominators, phase readouts and per-preset costs. All transitions inside the show budget remain included. Counter trees use complete in-scope windows.
+The ranked index uses only show frames 2–1668. The raw log retains 2248 frame records; the 580 records after the show budget are excluded from peaks, spill denominators, phase readouts and per-preset costs. All transitions inside the show budget remain included. Counter trees use complete in-scope windows.
 
-README cells: peak 🟢 55.151 (1), spilled 🟢 0/472 (0.00%).
+README cells: peak 🟢 58.167 (2), spilled 🟢 0/1667 (0.00%).
 
-README setup frame 1: 70.523 ms.
+README setup frame 1: 70.027 ms.
 
 ## Phase-by-phase readout
 
@@ -90,60 +73,93 @@ Representative windows distinguish setup, the largest individual live-show rende
 ### Startup (frames 1–32)
 
 ```
-frame                    62.097 ms  37.258 Mcyc 100.0%
-  pov_preserve_half      136.13 us   81.68 kcyc   0.2% x0.96875 141 us/call
-  fx_shader_draw         37.919 ms  22.751 Mcyc  61.1%
-    fx_prepare_column     1.452 ms  870.97 kcyc   2.3% x144 10 us/call
-  fx_prepare_frame        5.085 ms   3.051 Mcyc   8.2% x1 5085 us/call
-  fx_advance              59.43 us   35.66 kcyc   0.1% x1 59 us/call
-  fx_timeline_step        79.58 us   47.75 kcyc   0.1% x1 80 us/call
-  canvas_clear            92.32 us   55.39 kcyc   0.1% x1 92 us/call
-  canvas_buffer_wait     18.525 ms  11.115 Mcyc  29.8% x1 18525 us/call
+frame                    43.239 ms  25.944 Mcyc 100.0%
+  pov_preserve_half      134.91 us   80.95 kcyc   0.3% x0.96875 139 us/call
+  fx_shader_draw         37.551 ms  22.530 Mcyc  86.8%
+    fx_prepare_column     1.271 ms  762.76 kcyc   2.9% x144 9 us/call
+  fx_prepare_frame        5.133 ms   3.080 Mcyc  11.9% x1 5133 us/call
+  fx_advance              64.37 us   38.62 kcyc   0.1% x1 64 us/call
+  fx_timeline_step        73.07 us   43.84 kcyc   0.2% x1 73 us/call
+  canvas_clear            95.04 us   57.03 kcyc   0.2% x1 95 us/call
+  canvas_buffer_wait       1.34 us    0.80 kcyc   0.0% x1 1 us/call
 ```
 
-Wall min/avg/max = 40.880/62.097/70.528 ms. `fx_shader_draw` averages 37.919 ms/f; total render averages 43.573 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+Wall min/avg/max = 40.433/43.239/70.027 ms. `fx_shader_draw` averages 37.551 ms/f; total render averages 43.238 ms/f. Display synchronization accounts for the remaining buffer-wait time.
 
-### Peak live show render (frames 193–224)
-
-```
-frame                    62.391 ms  37.435 Mcyc 100.0%
-  pov_preserve_half      135.50 us   81.30 kcyc   0.2% x1 135 us/call
-  fx_shader_draw         47.240 ms  28.344 Mcyc  75.7%
-    fx_prepare_column     1.510 ms  905.95 kcyc   2.4% x144 10 us/call
-  fx_prepare_frame        5.359 ms   3.215 Mcyc   8.6% x1 5359 us/call
-  fx_advance              56.40 us   33.84 kcyc   0.1% x1 56 us/call
-  fx_timeline_step       100.61 us   60.36 kcyc   0.2% x1 101 us/call
-  canvas_clear            88.80 us   53.28 kcyc   0.1% x1 89 us/call
-  canvas_buffer_wait      9.207 ms   5.524 Mcyc  14.8% x1 9207 us/call
-```
-
-Wall min/avg/max = 59.431/62.391/65.252 ms. `fx_shader_draw` averages 47.240 ms/f; total render averages 53.185 ms/f. Display synchronization accounts for the remaining buffer-wait time.
-
-### Show end (frames 417–448)
+### Peak live show render (frames 961–992)
 
 ```
-frame                    62.317 ms  37.390 Mcyc 100.0%
-  pov_preserve_half      135.96 us   81.58 kcyc   0.2% x1 136 us/call
-  fx_shader_draw         44.963 ms  26.978 Mcyc  72.2%
-    fx_prepare_column     1.478 ms  886.53 kcyc   2.4% x144 10 us/call
-  fx_prepare_frame        5.359 ms   3.215 Mcyc   8.6% x1 5359 us/call
-  fx_advance              60.93 us   36.56 kcyc   0.1% x1 61 us/call
-  fx_timeline_step        92.16 us   55.30 kcyc   0.1% x1 92 us/call
-  canvas_clear            89.20 us   53.52 kcyc   0.1% x1 89 us/call
-  canvas_buffer_wait     11.409 ms   6.845 Mcyc  18.3% x1 11409 us/call
+frame                    56.733 ms  34.040 Mcyc 100.0%
+  pov_preserve_half      136.22 us   81.73 kcyc   0.2% x1 136 us/call
+  fx_shader_draw         50.554 ms  30.332 Mcyc  89.1%
+    fx_prepare_column     2.204 ms   1.322 Mcyc   3.9% x144 15 us/call
+  fx_prepare_frame        5.410 ms   3.246 Mcyc   9.5% x1 5410 us/call
+  fx_advance              82.13 us   49.28 kcyc   0.1% x1 82 us/call
+  fx_timeline_step       242.80 us  145.68 kcyc   0.4% x1 243 us/call
+  canvas_clear            93.50 us   56.10 kcyc   0.2% x1 93 us/call
+  canvas_buffer_wait       1.49 us    0.89 kcyc   0.0% x1 1 us/call
 ```
 
-Wall min/avg/max = 60.448/62.316/63.873 ms. `fx_shader_draw` averages 44.963 ms/f; total render averages 50.908 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+Wall min/avg/max = 55.812/56.732/58.168 ms. `fx_shader_draw` averages 50.554 ms/f; total render averages 56.731 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+
+### Costliest qualified preset (frames 193–224)
+
+```
+frame                    52.986 ms  31.792 Mcyc 100.0%
+  pov_preserve_half      136.28 us   81.77 kcyc   0.3% x1 136 us/call
+  fx_shader_draw         47.025 ms  28.215 Mcyc  88.7%
+    fx_prepare_column     1.355 ms  813.15 kcyc   2.6% x144 9 us/call
+  fx_prepare_frame        5.395 ms   3.237 Mcyc  10.2% x1 5395 us/call
+  fx_advance              65.67 us   39.40 kcyc   0.1% x1 66 us/call
+  fx_timeline_step        79.30 us   47.58 kcyc   0.1% x1 79 us/call
+  canvas_clear            91.33 us   54.80 kcyc   0.2% x1 91 us/call
+  canvas_buffer_wait       1.33 us    0.80 kcyc   0.0% x1 1 us/call
+```
+
+Wall min/avg/max = 51.176/52.986/54.759 ms. `fx_shader_draw` averages 47.025 ms/f; total render averages 52.985 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+
+### Transition / non-hold regime (frames 993–1024)
+
+```
+frame                    57.088 ms  34.253 Mcyc 100.0%
+  pov_preserve_half      136.48 us   81.89 kcyc   0.2% x1 136 us/call
+  fx_shader_draw         50.923 ms  30.554 Mcyc  89.2%
+    fx_prepare_column     2.219 ms   1.332 Mcyc   3.9% x144 15 us/call
+  fx_prepare_frame        5.398 ms   3.239 Mcyc   9.5% x1 5398 us/call
+  fx_advance              81.66 us   49.00 kcyc   0.1% x1 82 us/call
+  fx_timeline_step       242.63 us  145.58 kcyc   0.4% x1 243 us/call
+  canvas_clear            91.03 us   54.62 kcyc   0.2% x1 91 us/call
+  canvas_buffer_wait       1.48 us    0.89 kcyc   0.0% x1 1 us/call
+```
+
+Wall min/avg/max = 55.137/57.087/58.105 ms. `fx_shader_draw` averages 50.923 ms/f; total render averages 57.086 ms/f. Display synchronization accounts for the remaining buffer-wait time.
+
+### Show end (frames 1633–1664)
+
+```
+frame                    47.307 ms  28.384 Mcyc 100.0%
+  pov_preserve_half      137.63 us   82.58 kcyc   0.3% x1 138 us/call
+  fx_shader_draw         41.360 ms  24.816 Mcyc  87.4%
+    fx_prepare_column     1.327 ms  796.32 kcyc   2.8% x144 9 us/call
+  fx_prepare_frame        5.385 ms   3.231 Mcyc  11.4% x1 5385 us/call
+  fx_advance              59.77 us   35.86 kcyc   0.1% x1 60 us/call
+  fx_timeline_step        75.40 us   45.24 kcyc   0.2% x1 75 us/call
+  canvas_clear            90.91 us   54.55 kcyc   0.2% x1 91 us/call
+  canvas_buffer_wait       1.56 us    0.94 kcyc   0.0% x1 2 us/call
+```
+
+Wall min/avg/max = 46.209/47.306/50.419 ms. `fx_shader_draw` averages 41.360 ms/f; total render averages 47.305 ms/f. Display synchronization accounts for the remaining buffer-wait time.
 
 ### Per-preset table
 
-Only the first preset plays during the 30-second opener. The extended capture below follows both preset holds and both transitions.
+The 105-second opener includes both dwells and the forward morph. The extended capture also covers the reverse morph in continuous playback.
 
-The show-scoped data covers 1 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
+The show-scoped data covers 2 preset identities. Completing the scheduled show is the coverage criterion; an additional wrap is not required. Cadence buckets include in-show transitions; qualified windows and live peaks are restricted to the same show scope. The fps column is the worst individual-frame cadence across each preset's qualified show windows.
 
 | Preset | Qualified windows | Representative frames | Selection | V/E/F/I | Blended px/f | Draw ms/f | Render ms/f | fps | Live peak ms | Live spilled |
 |---|--:|---|---|---|--:|--:|--:|--:|--:|--:|
-| 1 · RiverStones | 14 | 193–224 | held | — | — | 47.240 | 53.185 | 8 | 55.151 | 0/472 |
+| 1 · RiverStones | 18 | 193–224 | held | — | — | 47.025 | 52.985 | 8 | 54.758 | 0/598 |
+| 2 · RiverStones 2 | 18 | 1153–1184 | held | — | — | 45.392 | 51.339 | 16 | 58.167 | 0/1069 |
 
 ### Per-pixel figures
 
@@ -151,26 +167,26 @@ This image emits no complete blended-pixel counter for the direct render path. B
 
 ## Column-ISR / DMA marshaling cost
 
-Representative peak window, frames 193–224; CPU shares use its separately snapshotted ISR interval of 2000050 us.
+Representative peak window, frames 961–992; CPU shares use its separately snapshotted ISR interval of 2003391 us.
 
 ```
-isr_wake       1152.1/f 0.471/1.740/22.133 us 3.20%
-  isr_pack       144.0/f 6.526/7.400/9.995 us 1.70%
-  isr_dma_submit 144.0/f 0.583/0.911/8.538 us 0.21%
+isr_wake       1154.0/f 0.471/1.781/28.713 us 3.28%
+  isr_pack       144.2/f 6.453/7.570/10.371 us 1.74%
+  isr_dma_submit 144.2/f 0.620/0.910/4.060 us 0.20%
 ```
 
-- Mean pack 7.400 us/call versus submit 0.911 us/call (8.1×).
+- Mean pack 7.570 us/call versus submit 0.910 us/call (8.3×).
 - Pack and DMA submit measure CPU work; submission does not measure the asynchronous wire transfer.
 - The 72-pixel strobed composite is 600 bytes. At the configured 24 MHz SPI clock, framing gaps are included in the 230 us asynchronous transfer budget.
-- Inclusive wake share is 3.20%, corresponding to 60.500 ms foreground capacity per display window. Pack and submit nest inside wake and are not added to it. DMA-completion and other interrupts are not measured.
+- Inclusive wake share is 3.28%, corresponding to 60.450 ms foreground capacity per display window. Pack and submit nest inside wake and are not added to it. DMA-completion and other interrupts are not measured.
 
-The inclusive render-time ratio to the 62.5 ms budget is Startup: 0.697×; Peak live show render: 0.851×; Show end: 0.815×. Ratios above 1 require that speedup; ratios below 1 fit. These render measurements already include interrupts, so the wake share is not subtracted again.
+The inclusive render-time ratio to the 62.5 ms budget is Startup: 0.692×; Peak live show render: 0.908×; Costliest qualified preset: 0.848×; Transition / non-hold regime: 0.913×; Show end: 0.757×. Ratios above 1 require that speedup; ratios below 1 fit. These render measurements already include interrupts, so the wake share is not subtracted again.
 
 ## Summary ranking
 
-1. `fx_shader_draw` — 75.7% of the frame, 47.240 ms/f.
-2. `fx_prepare_frame` — 8.6% of the frame, 5.359 ms/f.
-3. `fx_prepare_column` — 2.4% of the frame, 1.510 ms/f.
+1. `fx_shader_draw` — 89.1% of the frame, 50.554 ms/f.
+2. `fx_prepare_frame` — 9.5% of the frame, 5.410 ms/f.
+3. `fx_prepare_column` — 3.9% of the frame, 2.204 ms/f.
 
 ## Caveats
 
@@ -179,7 +195,7 @@ The inclusive render-time ratio to the 62.5 ms budget is Startup: 0.697×; Peak 
 - Existing instrumentation overhead remains included; no per-pixel scopes, PC sampling, replay, or count-only overrides were added for timing.
 - Shipping selective-O3 regions active on this path: `core/render/scan/shader.h` and the pullback runtime/palette kernels. This is the shipping `-Os` configuration.
 - Full cycle means the effect's authored show slot. Authored preset speed and transitions are unchanged; capture padding and later repetitions are excluded from every reported show cost.
-- The show cutoff uses the first elapsed counter window, subsequent ISR snapshot intervals, and per-frame wall times in the boundary window. Frame 473 completed by 29.984595 s from profile instance construction. The full-playlist handoff is unmeasured.
+- The show cutoff uses the first elapsed counter window, subsequent ISR snapshot intervals, and per-frame wall times in the boundary window. Frame 1668 completed by 104.981267 s from profile instance construction. The full-playlist handoff is unmeasured.
 - The measured source tree was clean. Source/compiler/ELF/envdump attestations identify the exact images; board provenance is recorded in Setup.
 
 ## Historical single-preset qualification
