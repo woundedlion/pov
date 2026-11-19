@@ -36,7 +36,7 @@ root="$(git rev-parse --show-toplevel)"
 tip_build="$(cd "$root" && realpath -m "$build_arg")"
 common="$(git rev-parse --path-format=absolute --git-common-dir)"
 main="$(dirname "$common")"
-dir="${HS_RENDER_DIFF_DIR:-$(dirname "$main")/temp/$(basename "$main")-render-diff}"
+dir="$(realpath -m "${HS_RENDER_DIFF_DIR:-$(dirname "$main")/temp/$(basename "$main")-render-diff}")"
 
 if [ "$report" = 1 ]; then
   target=test_render_hashes
@@ -88,13 +88,51 @@ run_hashes() {
 }
 
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch"' EXIT
+lock="$dir.lock"
+token="${scratch##*/}"
+locked=0
+
+release_base() {
+  if [ "$locked" = 1 ]; then
+    "$python" "$root/tools/device_lock_guard.py" break "$lock" "$token" || return
+    locked=0
+  fi
+}
+
+cleanup() {
+  release_base || echo "render_diff: could not release $lock" >&2
+  rm -rf "$scratch"
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+claim_base() {
+  local status=0
+  printf 'token=%s\n' "$token" |
+    "$python" "$root/tools/device_lock_guard.py" claim "$lock" || status=$?
+  if [ "$status" = 0 ]; then
+    locked=1
+  elif [ "$status" = 1 ]; then
+    echo "render_diff: base checkout is in use ($lock)" >&2
+  fi
+  return "$status"
+}
+
+# shellcheck source=tools/find_python.sh
+. "$root/tools/find_python.sh"
+python="$(hs_find_python)" || { echo "render_diff: Python is required" >&2; exit 3; }
+mkdir -p "$(dirname "$dir")"
 
 if [ "$report" = 1 ]; then
   for side in base tip; do
     if [ "$side" = base ]; then
       src="$dir" build="$dir/build/tests" label="$base"
-      checkout_base || { echo "render_diff: checking out $base failed; no report."; exit 0; }
+      if ! claim_base || ! checkout_base; then
+        echo "render_diff: checking out $base failed; no report."
+        exit 0
+      fi
     else
       src="$root" build="$tip_build" label="the working tree"
     fi
@@ -104,6 +142,7 @@ if [ "$report" = 1 ]; then
       echo "render_diff: building or running $label failed; no report."
       exit 0
     fi
+    if [ "$side" = base ]; then release_base || exit 3; fi
     # "<effect> <preset> <hash>" rows.
     sed -E 's/^render-hash ([^ ]+) p([0-9]+)=([0-9a-f]+)$/\1 \2 \3/' "$scratch/$side" |
       sort -k1,1 -k2,2n > "$scratch/$side.rows"
@@ -150,11 +189,13 @@ if [ "$report" = 1 ]; then
   exit 0
 fi
 
-checkout_base
+claim_base || exit 3
+checkout_base || exit 3
 echo "render_diff: building $base ($sha) in $dir"
 build_tree "$dir" "$dir/build/tests" || exit 3
 "$dir/build/tests/tests/run_tests" --list > "$scratch/modules"
 run_hashes "$dir/build/tests" "$scratch/modules" > "$scratch/base"
+release_base || exit 3
 if [ ! -s "$scratch/base" ]; then
   echo "render_diff: $base prints no render hashes; pick a newer base." >&2
   exit 2
