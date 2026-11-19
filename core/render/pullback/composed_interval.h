@@ -38,6 +38,21 @@ HS_HOT_FLASH_MEMBER inline void sample_keyed_rotation(
           .conjugate();
 }
 
+/** @brief Tests palette entries, hue rotation pixels and gamut masks across endpoints. */
+HS_SIZE_FLASH_MEMBER inline bool
+same_interval_palette(const BakedPalette *a, const BakedPalette *b,
+                      const Pixel *a_hue, const Pixel *b_hue,
+                      const HueRotationGamutMask *a_gamut,
+                      const HueRotationGamutMask *b_gamut) {
+  return a && b && a->same_entries(*b) &&
+         (a_hue == b_hue || (a_hue && b_hue &&
+                             std::memcmp(a_hue, b_hue,
+                                         Color::HueRotationLutView::SIZE *
+                                             sizeof(Pixel)) == 0)) &&
+         (a_gamut == b_gamut ||
+          (a_gamut && b_gamut && a_gamut->bits == b_gamut->bits));
+}
+
 /** @brief Selects a retained scalar source and checks continuous phase compatibility. */
 HS_HOT_FLASH_MEMBER inline const Modulation::Prepared *
 interval_modulation(const Modulation::Config &a, const Modulation::Config &b,
@@ -85,6 +100,26 @@ sample_source_clocks(ComposedDetail::SourceClocks &out,
       ClockInterval::apply(start.noise_time, delta.noise_time, fraction);
 }
 
+/** @brief Per-resource data retained between column samples. */
+template <typename Resource> struct IntervalDelta {};
+
+template <typename Resource>
+  requires(Resource::KIND == ResourceKind::SOURCE ||
+           Resource::KIND == ResourceKind::WARP ||
+           Resource::KIND == ResourceKind::TWIST ||
+           std::is_same_v<typename Resource::Family, MobiusGeneratorParams> ||
+           (Resource::KIND == ResourceKind::SURFACE &&
+            !std::is_same_v<typename Resource::Family, PeriodicRippleParams> &&
+            !std::is_same_v<typename Resource::Family,
+                            SphereAnimation::BurstRippleParams>))
+struct IntervalDelta<Resource> : ComposedDetail::ResourceClock<Resource> {};
+
+template <typename Resource>
+  requires(Resource::KIND == ResourceKind::MODULATION)
+struct IntervalDelta<Resource> {
+  const Modulation::Prepared *previous_modulation;
+};
+
 /** @brief Shared preparation for column samples of one frame interval. */
 template <typename Frame> class FrameInterval {
   using Params = decltype(Frame::params);
@@ -92,7 +127,8 @@ template <typename Frame> class FrameInterval {
   const Frame &to;
   Spacetime::TemporalRotation projection;
   Spacetime::TemporalRotation outer;
-  decltype(Frame::resources) deltas{};
+  ComposedDetail::ResourceStorage<IntervalDelta, typename Params::ResourceTypes>
+      deltas;
   ComposedDetail::ResourceStorage<ComposedDetail::ResourceMobiusInterval,
                                   typename Params::ResourceTypes>
       mobius_intervals;
@@ -131,23 +167,16 @@ public:
   /** @brief Prepares parameter and color-resource identities and clock deltas.
    * @param a Previous frame endpoint.
    * @param b Current frame endpoint. */
-  HS_FLASH_INLINE FrameInterval(const Frame &a, const Frame &b)
+  HS_SIZE_FLASH_MEMBER FrameInterval(const Frame &a, const Frame &b)
       : from(a), to(b),
         projection(a.projection_conjugate, b.projection_conjugate),
         outer(a.outer_conjugate, b.outer_conjugate),
         constant_params(std::memcmp(&a.params, &b.params, sizeof(Params)) == 0),
         oscillation_delta(Spacetime::ClockInterval::prepare_delta(
             a.palette_oscillation_phase, b.palette_oscillation_phase, 1.0f)),
-        same_palette(
-            a.palette && b.palette && a.palette->same_entries(*b.palette) &&
-            (a.hue_rotation_lut == b.hue_rotation_lut ||
-             (a.hue_rotation_lut && b.hue_rotation_lut &&
-              std::memcmp(a.hue_rotation_lut, b.hue_rotation_lut,
-                          Color::HueRotationLutView::SIZE * sizeof(Pixel)) ==
-                  0)) &&
-            (a.hue_rotation_gamut == b.hue_rotation_gamut ||
-             (a.hue_rotation_gamut && b.hue_rotation_gamut &&
-              a.hue_rotation_gamut->bits == b.hue_rotation_gamut->bits))) {
+        same_palette(same_interval_palette(
+            a.palette, b.palette, a.hue_rotation_lut, b.hue_rotation_lut,
+            a.hue_rotation_gamut, b.hue_rotation_gamut)) {
     static_assert(std::is_trivially_copyable_v<Params>);
     static_assert(
         []<typename... Resources>(

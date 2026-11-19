@@ -145,7 +145,8 @@ inline void advance(State &state, const Config &config) {
  * @param a Previous recipe.
  * @param b Current recipe.
  * @return Whether both endpoints have identical topology. */
-inline bool same_topology(const Config &a, const Config &b) {
+HS_SIZE_FLASH_MEMBER inline bool same_topology(const Config &a,
+                                               const Config &b) {
   return a.enabled == b.enabled && a.source == b.source &&
          a.version == b.version && a.evaluation == b.evaluation &&
          a.mechanic.kind == b.mechanic.kind;
