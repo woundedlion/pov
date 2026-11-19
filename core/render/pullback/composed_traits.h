@@ -90,11 +90,18 @@ template <int W, typename SpecT> struct ComposedTraits {
                 "cached cube classifiers require a dodecahedral lens");
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
                 "Column-time sampling requires an even two-arm canvas width");
-  /// Frame context, including retained color resources when sampling time.
-  using FrameState =
+  using SourceFamily = typename Params::template Family<"source">;
+  /// Whether the source policy blends authored endpoint fields.
+  static constexpr bool SOURCE_MORPH =
+      SpecT::SOURCE_MORPH || requires { typename SourceFamily::PlanarWeights; };
+  using SpatialFrame =
       std::conditional_t<TEMPORAL_SAMPLING,
                          FrameIntervalState<Params, PHASE_NOISE_CACHE>,
                          Pullback::FrameState<Params, PHASE_NOISE_CACHE>>;
+  /// Frame context, including retained color resources when sampling time.
+  using FrameState =
+      std::conditional_t<SOURCE_MORPH, Source::EndpointMorphFrame<SpatialFrame>,
+                         SpatialFrame>;
   using Binding = Pullback::Binding<FrameState, SpecT>; ///< Pipeline binding.
   /// Whether projection controls are present.
   static constexpr bool HAS_FRAME_PARAMS = Params::template HAS<"projection">;

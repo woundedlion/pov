@@ -62,8 +62,10 @@ inline void test_grid_warp_source_morph() {
   plane.coords = {0.12f, -0.38f};
   const float a = Grid::sample(plane, column, Grid::prepare(column));
   const float b = Spiral::sample(plane, column, Spiral::prepare(column));
+  const float column_mix = math::ease_in_out_sin(
+      0.5f / Segue::Preset::frames(FX::preset_departure(0)));
   HS_EXPECT_NEAR(Planar::sample(plane, column, Planar::prepare(column)),
-                 a * (1.0f - first_mix * 0.5f) + b * first_mix * 0.5f, 1e-6f);
+                 hs::lerp(a, b, column_mix), 1e-6f);
 
   const auto frames = Segue::Preset::frames(FX::preset_departure(0));
   auto penultimate = first;
@@ -103,6 +105,41 @@ inline void test_grid_warp_source_morph() {
                BANDS);
   HS_EXPECT_EQ(snapped_column.params.template get<"source">().source,
                Source::PlanarKind::BANDS);
+}
+
+/** @brief Grid fields with different frequencies blend at eased column time. */
+inline void test_same_kind_source_morph() {
+  using namespace Pullback;
+  using FX = GridWarp<SMALL_W, SMALL_H>;
+  using Grid = Source::Grid<
+      SourceProvider<FX::Binding, GridSourceParams, "source_grid">>;
+  using Planar =
+      Source::Planar<FX::Binding, Source::PlanarKind::GRID,
+                     Source::PlanarKind::SPIRAL, Source::PlanarKind::BANDS>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  auto from = effect.frame_for_test();
+  auto to = from;
+  to.params.template get<"source_spiral">().arms = 7.0f;
+  HS_EXPECT_FALSE(Source::different_endpoint_fields(from.params, to.params));
+  to.params.template get<"source_grid">().pattern_freq = 9.0f;
+  HS_EXPECT_TRUE(Source::different_endpoint_fields(from.params, to.params));
+  const auto a_params = from.params;
+  const auto b_params = to.params;
+  from.source_morph = {&a_params, &b_params, math::ease_in_out_sin, 0.25f,
+                       math::ease_in_out_sin(0.25f)};
+  to.source_morph = {&a_params, &b_params, math::ease_in_out_sin, 0.75f,
+                     math::ease_in_out_sin(0.75f)};
+  const auto column = FrameInterval(from, to).at(0.25f);
+  const float mix = math::ease_in_out_sin(0.375f);
+  HS_EXPECT_NEAR(column.source_morph.mix, mix, 1e-6f);
+  PlaneSample plane{};
+  plane.coords = {0.23f, -0.39f};
+  const float a = Grid::sample(plane, from, Grid::prepare(from));
+  const float b = Grid::sample(plane, to, Grid::prepare(to));
+  HS_EXPECT_NEAR(Planar::sample(plane, column, Planar::prepare(column)),
+                 hs::lerp(a, b, mix), 1e-6f);
 }
 
 /** @brief Every GridWarp departure is admitted and fits its show slot. */

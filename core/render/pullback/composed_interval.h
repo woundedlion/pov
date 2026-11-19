@@ -275,6 +275,9 @@ public:
    * @param frame Receives the context borrowing the endpoint resources.
    * @param fraction Frame progress in [0, 1]. */
   HS_FLASH_INLINE void at_into(Frame &frame, float fraction) const {
+    if constexpr (requires { to.source_morph; })
+      if (to.source_morph.snapped)
+        fraction = 1.0f;
     if constexpr (HAS_PLANAR)
       if (to.resources.template get<"source">().snapped)
         fraction = 1.0f;
@@ -306,6 +309,18 @@ public:
       });
       bind_mobius_intervals(frame);
       return;
+    }
+    if constexpr (requires { frame.source_morph; }) {
+      const auto &a = from.source_morph;
+      const auto &b = to.source_morph;
+      const auto &edge = b.from ? b : a;
+      if (edge.from) {
+        auto &morph = frame.source_morph;
+        morph = edge;
+        morph.linear = hs::lerp(a.from ? a.linear : 0.0f,
+                                b.from ? b.linear : 1.0f, fraction);
+        morph.mix = hs::clamp(morph.ease(morph.linear), 0.0f, 1.0f);
+      }
     }
     frame.projection_conjugate = projection.sample(fraction);
     frame.outer_conjugate = outer.sample(fraction);

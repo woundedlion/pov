@@ -121,6 +121,30 @@ struct FrameIntervalState : FrameState<ParamsT, PhaseNoise> {
   Color::TemporalPaletteResources temporal; ///< Previous color resources.
 };
 
+namespace Source {
+
+/** @brief A column's authored source endpoints and transition progress.
+ * @tparam Params Composed parameter set. */
+template <typename Params> struct EndpointMorph {
+  const Params *from = nullptr; ///< Outgoing authored controls.
+  const Params *to = nullptr;   ///< Incoming authored controls.
+  EasingFn ease = nullptr;      ///< Authored edge easing.
+  float linear = 0.0f;          ///< Normalized elapsed edge time.
+  float mix = 0.0f;             ///< Eased edge position.
+  bool snapped = false;         ///< Discards the retained morph on this frame.
+
+  /** @brief Whether the column uses both source endpoints. */
+  HS_HOT_INLINE bool mixed() const { return from && mix > 0.0f && mix < 1.0f; }
+};
+
+/** @brief Frame context with a borrowed pair of source endpoints.
+ * @tparam Frame Composed frame type. */
+template <typename Frame> struct EndpointMorphFrame : Frame {
+  EndpointMorph<decltype(Frame::params)> source_morph; ///< Column field blend.
+};
+
+} // namespace Source
+
 namespace ComposedDetail {
 /** @brief Whether a spec's eligible color modulations sample one phase per
  * column after palette interpolation.

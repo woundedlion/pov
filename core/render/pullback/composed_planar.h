@@ -5,6 +5,7 @@
 #pragma once
 
 #include <bit>
+#include <optional>
 #include "core/render/pullback/composed_parameters.h"
 #include "core/render/pullback/planar_source.h"
 
@@ -199,9 +200,31 @@ template <typename B, PlanarKind Kind>
 using ProviderFor = SourceProvider<B, typename KindBinding<Kind>::Params,
                                    KindBinding<Kind>::KEY>;
 
-template <typename B, PlanarKind Kind>
-using PolicyFor =
-    typename KindBinding<Kind>::template Policy<ProviderFor<B, Kind>>;
+enum class Endpoint { CURRENT, FROM, TO };
+
+template <typename B, PlanarKind Kind, Endpoint Side>
+struct EndpointProvider : ProviderFor<B, Kind> {
+  using FrameState = typename B::FrameState;
+
+  static HS_HOT_INLINE const auto &params(const FrameState &frame) {
+    const auto *endpoint = Side == Endpoint::FROM ? frame.source_morph.from
+                                                  : frame.source_morph.to;
+    return endpoint->template get<KindBinding<Kind>::KEY>();
+  }
+
+  static HS_HOT_INLINE float noise_scale(const FrameState &frame) {
+    return params(frame).noise_scale;
+  }
+
+  static HS_HOT_INLINE float noise_contrast(const FrameState &frame) {
+    return params(frame).noise_contrast;
+  }
+};
+
+template <typename B, PlanarKind Kind, Endpoint Side = Endpoint::CURRENT>
+using PolicyFor = typename KindBinding<Kind>::template Policy<
+    std::conditional_t<Side == Endpoint::CURRENT, ProviderFor<B, Kind>,
+                       EndpointProvider<B, Kind, Side>>>;
 
 template <typename Selector>
 HS_FLASH_INLINE bool live(const typename Selector::PlanarWeights &weights,
@@ -230,7 +253,50 @@ HS_FLASH_INLINE uint16_t gated_mask(const Field<Family> &field,
   return mask;
 }
 
+template <typename Family>
+constexpr bool different_fields(const Family &a, const Family &b,
+                                uint16_t mask) {
+  if constexpr (requires { Family::TOPOLOGY; })
+    for (const auto &field : Family::TOPOLOGY)
+      if (a.*field.member != b.*field.member)
+        return true;
+  for (const auto &field : Family::FIELDS)
+    if ((mask == 0 || gated_mask(field, a, mask)) &&
+        a.*field.member != b.*field.member)
+      return true;
+  return false;
+}
+
 } // namespace PlanarDetail
+
+/** @brief Tests whether the source endpoints describe different scalar fields.
+ * @tparam Params Composed parameter set.
+ * @param from Outgoing parameters.
+ * @param to Incoming parameters.
+ * @return True when the kind or a live source control differs. */
+template <typename Params>
+HS_FLASH_MEMBER bool different_endpoint_fields(const Params &from,
+                                               const Params &to) {
+  const auto &a = from.template get<"source">();
+  const auto &b = to.template get<"source">();
+  if constexpr (requires {
+                  typename std::remove_cvref_t<decltype(a)>::PlanarWeights;
+                }) {
+    if (a.source != b.source)
+      return true;
+    const uint16_t kind = 1u << static_cast<unsigned>(a.source);
+    bool different = false;
+    from.visit([&]<typename Resource>(const auto &family) {
+      constexpr uint16_t MASK = PlanarDetail::family_mask<Resource>();
+      if constexpr (MASK != 0)
+        if (kind & MASK)
+          different = PlanarDetail::different_fields(
+              family, to.template get<Resource::KEY>(), kind);
+    });
+    return different;
+  } else
+    return PlanarDetail::different_fields(a, b, 0);
+}
 
 /** @brief Samples a family, holding controls live at only one endpoint.
  * @tparam Resource Keyed parameter resource.
@@ -283,20 +349,34 @@ struct Planar
     : Detail::CombinedApproximation<PlanarDetail::PolicyFor<B, Kinds>...> {
   using FrameState = typename B::FrameState;       ///< Effect frame state.
   using Selector = PlanarSelectorParams<Kinds...>; ///< Keyed source selector.
-  /// Prepared state indexed in the selector's weight order.
-  using Prepared = std::tuple<
+  /// Kernel inputs indexed in the selector's weight order.
+  using Kernels = std::tuple<
       Detail::PolicyPrepared<PlanarDetail::PolicyFor<B, Kinds>, FrameState>...>;
+  /** @brief Prepared kernel inputs for the active endpoint or morph pair. */
+  struct Prepared {
+    Kernels first;                 ///< Current or outgoing inputs.
+    std::optional<Kernels> second; ///< Incoming inputs during a morph.
+  };
 
   /** @brief Prepares kernels that have positive weight.
    * @param frame Column frame.
    * @return Prepared inputs to the selected kernels. */
   static HS_HOT_FLASH_MEMBER Prepared prepare(const FrameState &frame) {
+    using PlanarDetail::Endpoint;
+    const auto &morph = frame.source_morph;
+    if (morph.mixed())
+      return {prepare_endpoint<Endpoint::FROM>(
+                  frame, morph.from->template get<"source">().source),
+              prepare_endpoint<Endpoint::TO>(
+                  frame, morph.to->template get<"source">().source)};
     const auto &weights = frame.resources.template get<"source">().weights;
-    return {
-        (weights.values[Selector::index(Kinds)] > 0.0f
-             ? Detail::prepare_policy<PlanarDetail::PolicyFor<B, Kinds>>(frame)
-             : Detail::PolicyPrepared<PlanarDetail::PolicyFor<B, Kinds>,
-                                      FrameState>{})...};
+    return {Kernels{(
+                weights.values[Selector::index(Kinds)] > 0.0f
+                    ? Detail::prepare_policy<PlanarDetail::PolicyFor<B, Kinds>>(
+                          frame)
+                    : Detail::PolicyPrepared<PlanarDetail::PolicyFor<B, Kinds>,
+                                             FrameState>{})...},
+            std::nullopt};
   }
 
   /** @brief Samples the weighted signed field.
@@ -307,18 +387,32 @@ struct Planar
   static HS_HOT_INLINE float sample(const PlaneSample &input,
                                     const FrameState &frame,
                                     const Prepared &prepared) {
+    if (prepared.second)
+      return sample_endpoints(input, frame, prepared);
     if (frame.resources.template get<"source">().weights.exact == 0)
       return sample_kind<Selector::COMPILED_KINDS.front()>(input, frame,
-                                                           prepared);
-    return sample_weighted(input, frame, prepared);
+                                                           prepared.first);
+    return sample_weighted(input, frame, prepared.first);
   }
 
 private:
-  template <PlanarKind Kind>
+  template <PlanarDetail::Endpoint Side>
+  static HS_FLASH_INLINE Kernels prepare_endpoint(const FrameState &frame,
+                                                  PlanarKind kind) {
+    return {
+        (kind == Kinds
+             ? Detail::prepare_policy<PlanarDetail::PolicyFor<B, Kinds, Side>>(
+                   frame)
+             : Detail::PolicyPrepared<PlanarDetail::PolicyFor<B, Kinds, Side>,
+                                      FrameState>{})...};
+  }
+
+  template <PlanarKind Kind,
+            PlanarDetail::Endpoint Side = PlanarDetail::Endpoint::CURRENT>
   static HS_HOT_INLINE float sample_kind(const PlaneSample &input,
                                          const FrameState &frame,
-                                         const Prepared &prepared) {
-    using Policy = PlanarDetail::PolicyFor<B, Kind>;
+                                         const Kernels &prepared) {
+    using Policy = PlanarDetail::PolicyFor<B, Kind, Side>;
     if constexpr (Detail::PolicyPrepares<Policy, FrameState>)
       return Policy::sample(input, frame,
                             std::get<Selector::index(Kind)>(prepared));
@@ -326,9 +420,35 @@ private:
       return Policy::sample(input, frame);
   }
 
+  template <PlanarDetail::Endpoint Side>
+  static HS_HOT_INLINE float
+  sample_endpoint(const PlaneSample &input, const FrameState &frame,
+                  const Kernels &prepared, PlanarKind kind) {
+    float value = 0.0f;
+    ((kind == Kinds
+          ? void(value = sample_kind<Kinds, Side>(input, frame, prepared))
+          : void()),
+     ...);
+    return value;
+  }
+
+  static HS_HOT_FLASH_MEMBER float sample_endpoints(const PlaneSample &input,
+                                                    const FrameState &frame,
+                                                    const Prepared &prepared) {
+    using PlanarDetail::Endpoint;
+    const auto &morph = frame.source_morph;
+    const float from = sample_endpoint<Endpoint::FROM>(
+        input, frame, prepared.first,
+        morph.from->template get<"source">().source);
+    const float to = sample_endpoint<Endpoint::TO>(
+        input, frame, *prepared.second,
+        morph.to->template get<"source">().source);
+    return hs::lerp(from, to, morph.mix);
+  }
+
   static HS_HOT_FLASH_MEMBER float sample_weighted(const PlaneSample &input,
                                                    const FrameState &frame,
-                                                   const Prepared &prepared) {
+                                                   const Kernels &prepared) {
     const auto &weights = frame.resources.template get<"source">().weights;
     float value = 0.0f;
     const auto add = [&]<PlanarKind Kind>() HS_HOT_INLINE {
@@ -347,9 +467,49 @@ private:
   }
 };
 
+/** @brief Fixed tessellation whose preset edges blend sampled fields.
+ * @tparam State Source provider.
+ * @tparam Kind Cell shape.
+ * @tparam Fill Cell primitives or edge band. */
+template <typename State, Pattern::TessellationKind Kind,
+          Pattern::TessellationFill Fill>
+struct EndpointTessellation : Tessellation<State, Kind, Fill> {
+  using FrameState = typename State::FrameState; ///< Effect frame state.
+
+  /** @brief Samples the live field or its two preset endpoints.
+   * @param input Working plane coordinate.
+   * @param frame Column frame.
+   * @return Signed scalar field value. */
+  static HS_HOT_INLINE float sample(const PlaneSample &input,
+                                    const FrameState &frame) {
+    if (frame.source_morph.mixed())
+      return sample_endpoints(input, frame);
+    return Tessellation<State, Kind, Fill>::sample(input, frame);
+  }
+
+private:
+  static HS_HOT_FLASH_MEMBER float sample_endpoints(const PlaneSample &input,
+                                                    const FrameState &frame) {
+    const auto &morph = frame.source_morph;
+    const Pattern::PlanePosition position{input.coords};
+    const auto sample = [&](const auto &params) {
+      return Pattern::tessellation<Kind, Fill>(
+          position, source_kernel_params<TessellationControls<Fill>>(
+                        params.template get<"source">()));
+    };
+    return hs::lerp(sample(*morph.from), sample(*morph.to), morph.mix);
+  }
+};
+
 } // namespace Pullback::Source
 
 namespace Pullback::ComposedDetail {
+
+/** @brief Keeps the fixed tessellation provider's existing resource key. */
+template <typename Provider, Pattern::TessellationKind Kind,
+          Pattern::TessellationFill Fill>
+struct PolicyResources<Source::EndpointTessellation<Provider, Kind, Fill>>
+    : PolicyResources<Provider> {};
 
 /** @brief Collects a selector and one keyed resource per compiled family.
  * @tparam B Frame binding.

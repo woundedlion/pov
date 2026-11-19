@@ -759,7 +759,11 @@ planar warps.
 The workbench preset rail edits the show order, dwell and timed edges.
 Choosing a different planar source for a preset upgrades the stage to
 `sample.planar.v1`. Its source kind varies per preset, and a timed edge blends
-the two signed fields before weighting, coverage and colorization.
+the two signed fields before weighting, coverage and colorization. Each
+endpoint samples the working plane at its own preset controls. Same-kind
+edges also blend samples when their source controls differ.
+Composed effects with fixed tessellation can enable this through
+`Spec::SOURCE_MORPH` with their existing parameter layout.
 An affine that translates or tracks path length admits the edge when the
 endpoint lattice bases match. A fallback period supplies a basis for a source
 without a lattice. Nonperiodic sources can still shift at an affine phase

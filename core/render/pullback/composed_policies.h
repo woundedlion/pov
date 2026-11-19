@@ -48,6 +48,8 @@ struct Detail::CoordinateOnlyWarp<
 struct Spec {
   static constexpr bool AUTHORED_TOPOLOGY =
       false; ///< Uses canonical authored node identities.
+  static constexpr bool SOURCE_MORPH =
+      false; ///< Blends endpoint fields for a fixed tessellation.
   /// Hue harmony of generated palettes.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   /// Motion of the projection frame.
@@ -145,8 +147,11 @@ template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
 template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill,
           typename B>
 struct SourcePolicyFor<FixedTessellationParams<Kind, Fill>, B> {
-  using Type = Pullback::Source::Tessellation<
-      SourceProvider<B, FixedTessellationParams<Kind, Fill>>, Kind, Fill>;
+  using Provider = SourceProvider<B, FixedTessellationParams<Kind, Fill>>;
+  using Type =
+      std::conditional_t<B::Spec::SOURCE_MORPH,
+                         Source::EndpointTessellation<Provider, Kind, Fill>,
+                         Source::Tessellation<Provider, Kind, Fill>>;
 };
 /** @brief Planar simplex-noise source. @tparam B Frame binding. */
 template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {

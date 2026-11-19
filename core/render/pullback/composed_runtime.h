@@ -486,6 +486,8 @@ protected:
     params = target;
     if constexpr (HAS_PLANAR)
       adopt_source();
+    if constexpr (Traits::SOURCE_MORPH)
+      clear_source_morph();
     palette.adopt(target.template get<"color">());
     this->refresh_modulation_controls();
   }
@@ -495,6 +497,8 @@ protected:
     Choreography::parameter_written();
     if constexpr (HAS_PLANAR)
       adopt_source();
+    if constexpr (Traits::SOURCE_MORPH)
+      clear_source_morph();
     palette.adopt(this->params.template get<"color">());
     this->refresh_modulation_controls();
   }
@@ -503,6 +507,18 @@ protected:
    *  @param target Crossfade's destination parameters. */
   HS_FLASH_MEMBER void transition_armed(const Params &target) {
     palette.arm(target.template get<"color">());
+    if constexpr (Traits::SOURCE_MORPH) {
+      auto &morph = state->source_morph;
+      if (Source::different_endpoint_fields(transition.from, target)) {
+        const auto departure =
+            Choreography::preset_departure(transition.from_index);
+        const auto &lerp = std::get<Segue::Preset::Lerp>(departure);
+        morph.from = &transition.from;
+        morph.to = &transition.to;
+        morph.ease = lerp.easing;
+        morph.linear = morph.mix = 0.0f;
+      }
+    }
   }
 
   /**
@@ -523,8 +539,28 @@ protected:
     } else
       Pullback::interpolate_into(params, transition.from, transition.to,
                                  progress);
+    if constexpr (Traits::SOURCE_MORPH) {
+      auto &morph = state->source_morph;
+      if (morph.from) {
+        morph.linear =
+            static_cast<float>(transition.elapsed_frames) / transition.frames;
+        morph.mix = progress;
+      }
+    }
     palette.blend(progress);
     this->refresh_modulation_controls();
+  }
+
+  /** @brief Ends an endpoint blend and marks an interrupted edge. */
+  HS_FLASH_MEMBER void clear_source_morph()
+    requires Traits::SOURCE_MORPH
+  {
+    if (!state)
+      return;
+    auto &morph = state->source_morph;
+    const bool snapped = morph.snapped || (morph.from && morph.linear < 1.0f);
+    morph = {};
+    morph.snapped = snapped;
   }
 
   /** @brief Replaces the current planar blend with the live selector. */
@@ -662,6 +698,14 @@ private:
     return supported;
   }
 
+  struct EmptySourceMorph {};
+  template <typename Parameters> struct SourceMorphStorage {
+    Source::EndpointMorph<Parameters> source_morph;
+  };
+  using MorphStorage =
+      std::conditional_t<Traits::SOURCE_MORPH, SourceMorphStorage<Params>,
+                         EmptySourceMorph>;
+
   template <typename OwnedResources>
   struct StateLayout
       : ProjectionWalkNoise<ANIMATED_PROJECTION>,
@@ -673,7 +717,8 @@ private:
         IntervalCache::RgbLuts,
         IntervalCache::History,
         Registration::Storage,
-        ComposedDetail::ResourcePlanarWeights<SourceResource> {
+        ComposedDetail::ResourcePlanarWeights<SourceResource>,
+        MorphStorage {
     OwnedResources resources;
     std::conditional_t<AUTHORED_PALETTE, AuthoredPaletteResources,
                        std::monostate>
@@ -807,6 +852,12 @@ private:
       if (state->initialized)
         retained = &state->previous;
     clocks.prepare_views(frame, retained);
+    if constexpr (Traits::SOURCE_MORPH) {
+      if (!transition.active && state->source_morph.from)
+        clear_source_morph();
+      frame.source_morph = state->source_morph;
+      state->source_morph.snapped = false;
+    }
     if constexpr (HAS_PLANAR) {
       auto &source = frame.resources.template get<"source">();
       source.weights = source_state().weights;
