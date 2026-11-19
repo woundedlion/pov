@@ -6,7 +6,9 @@
 
 #include "core/render/pullback/color_state.h"
 #include <array>
+#include <bit>
 #include <cstring>
+#include <limits>
 #include <span>
 
 /** @file modulation_stack.h
@@ -146,6 +148,28 @@ class OrderedModulationKernel {
            state.mapping_frequency == 1.0f && state.mapping_offset == 0.0f &&
            state.brightness_envelope == BrightnessEnvelope::NONE &&
            state.opacity_low == 1.0f && state.opacity_high == 1.0f;
+  }
+
+  /** @brief Keeps unit directions unchanged when binary32 normalization divides by one. */
+  static HS_HOT_INLINE Pattern::SphereDirection
+  sample_direction(const math::Vector &v) {
+    const float squared = v.x * v.x + v.y * v.y + v.z * v.z;
+    // sqrt rounds to one at 1 and its immediate binary32 successor.
+    if (squared >= 1.0f &&
+        squared <= 1.0f + std::numeric_limits<float>::epsilon())
+      return Pattern::SphereDirection::from_unit(v);
+    if (squared < 1.0f &&
+        squared >= 1.0f - std::numeric_limits<float>::epsilon()) {
+      // Dividing a normal binary32 by the predecessor of one increments its
+      // magnitude by exactly one representable step. Subnormals round unchanged.
+      const auto divide = [](float component) HS_HOT_INLINE {
+        const auto bits = std::bit_cast<uint32_t>(component);
+        return std::bit_cast<float>(bits + ((bits & 0x7f800000u) != 0));
+      };
+      return Pattern::SphereDirection::from_unit(
+          {divide(v.x), divide(v.y), divide(v.z)});
+    }
+    return Pattern::SphereDirection::admit(v);
   }
 
   static SourceKind kind(const Modulation::Prepared &endpoint) {
@@ -307,7 +331,7 @@ class OrderedModulationKernel {
   HS_HOT_ITCM_MEMBER Color4
   shade_hue_lift_mask(const FieldSample &field) const {
     const auto &[hue, lift, mask] = ops;
-    const auto direction = Pattern::SphereDirection::admit(field.sphere);
+    const auto direction = sample_direction(field.sphere);
     const auto tap = Pattern::prepare_sphere_lut_sample(direction);
     const auto &hue_source = *sources[HUE].value;
     const float value = hue_tap
@@ -358,7 +382,7 @@ class OrderedModulationKernel {
     std::array<float, SOURCE_CAPACITY + 1> values;
     values[PATH] = field.path_length;
     if (source_count) {
-      const auto direction = Pattern::SphereDirection::admit(field.sphere);
+      const auto direction = sample_direction(field.sphere);
       Pattern::SphereLutSample tap{};
       if (uses_cube)
         tap = Pattern::prepare_sphere_lut_sample(direction);
