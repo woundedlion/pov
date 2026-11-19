@@ -201,7 +201,7 @@ struct ModulationState {
   bool enabled = false;             ///< Whether this layer contributes.
   bool paired_cube_ready =
       false; ///< Immutable endpoints admit shared cube taps.
-  PathModulationMix path_mix;
+  PathModulationMix path_mix{};
   HS_HOT_INLINE float scalar(float spatial, float path) const {
     return path_mix.active() ? path_mix.sample(mechanic.kind, spatial, path)
                              : spatial;

@@ -518,15 +518,16 @@ protected:
       auto &morph = state->source_morph;
       morph.fields_differ =
           Source::different_endpoint_fields(transition.from, target);
-      transition.from.visit([&]<typename Resource>(const auto &family) {
+      auto &edge = this->transition;
+      edge.from.visit([&]<typename Resource>(const auto &family) {
         if constexpr (Resource::KIND == ResourceKind::MODULATION)
           if constexpr (Resource::Family::SPATIAL_OR_PATH) {
             const auto &next = target.template get<Resource::KEY>().modulation;
             if (family.modulation.source != next.source)
               morph.displacement =
                   family.modulation.source == Pattern::SourceKind::DISPLACEMENT
-                      ? &transition.from
-                      : &transition.to;
+                      ? &edge.from
+                      : &edge.to;
           }
       });
       if (morph.fields_differ || morph.displacement) {

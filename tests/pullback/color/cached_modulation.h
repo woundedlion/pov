@@ -314,11 +314,11 @@ inline void test_pullback_prepared_cube_pair() {
   using Layer = Color::Modulate<PaletteLayerProvider>;
   using Policy = Color::GeneratedPalette<TemporalPaletteProvider>;
   constexpr size_t ALIGNMENT = alignof(Color::ModulationState);
-  constexpr size_t SIZE_THROUGH_ENABLED =
-      (offsetof(Color::ModulationState, enabled) + sizeof(bool) + ALIGNMENT -
-       1) /
+  constexpr size_t SIZE_THROUGH_MIX =
+      (offsetof(Color::ModulationState, path_mix) +
+       sizeof(Color::PathModulationMix) + ALIGNMENT - 1) /
       ALIGNMENT * ALIGNMENT;
-  static_assert(sizeof(Color::ModulationState) == SIZE_THROUGH_ENABLED);
+  static_assert(sizeof(Color::ModulationState) == SIZE_THROUGH_MIX);
   CubeModulationPair cubes;
   auto &a = cubes.previous;
   auto &b = cubes.current;
