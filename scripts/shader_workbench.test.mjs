@@ -1097,6 +1097,15 @@ test('same-kind tessellation keeps separate endpoint field settings for preview'
   assert.equal(evaluate(frame).sourceMorph, undefined);
 });
 
+test('fixed grid keeps interpolating its preview parameters', () => {
+  const { descriptor, preset_bank: bank } = example();
+  const edge = bank.edges.find(({ from, to }) => from === 'calm' && to === 'fast');
+  const { values, sourceMorph } =
+    evaluateTransition(descriptor, bank, edge.from, edge.to, edge.duration / 2, CATALOG);
+  assert.ok(values['sample.pattern-freq'] > 1 && values['sample.pattern-freq'] < 4);
+  assert.equal(sourceMorph, undefined);
+});
+
 test('planar morphs hold fields at their live endpoint and interpolate shared fields', () => {
   const { document, catalog, from, to, edge } = planarTransitionFixture();
   const { descriptor, preset_bank: bank } = document;

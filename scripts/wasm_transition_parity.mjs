@@ -24,6 +24,16 @@ function transitionWrite({ id: name, storage, domain }, value) {
 const transitionWrites = (descriptor, values) =>
   descriptor.parameters.map(parameter => transitionWrite(parameter, values[parameter.id]));
 
+function numericSourceMorph(descriptor, { from, to, ...morph }) {
+  const endpoint = values => Object.fromEntries(descriptor.parameters
+    .filter(({ id }) => Object.hasOwn(values, id))
+    .map(parameter => {
+      const { name, value } = transitionWrite(parameter, values[parameter.id]);
+      return [name, value];
+    }));
+  return { ...morph, from: endpoint(from), to: endpoint(to) };
+}
+
 function checkLatticeBinding(bindings, require) {
   const admits = (program, from, to) => bindings.admitsPlanarSourceTransition(program, from, to);
   const source = { instance: 'sample', operator: PLANAR_SOURCE_OPERATOR };
@@ -106,7 +116,9 @@ export function verifyWasmPresetTransition(compiledModule, interpreterModule, co
     let peakCameraDifference = 0;
     for (let frame = 1; frame <= edge.duration; ++frame) {
       const sample = evaluateTransition(descriptor, bank, from, to, frame, catalog);
-      require(bindings.setShaderChainTransitionParameters(transitionWrites(descriptor, sample.values)) ===
+      require(sample.sourceMorph, `Chain source endpoints unavailable at frame ${frame}`);
+      require(bindings.setShaderChainSourceMorphParameters(transitionWrites(descriptor, sample.values),
+        numericSourceMorph(descriptor, sample.sourceMorph)) ===
         interpreterModule.ParamSetResult.APPLIED, `Chain refused transition frame ${frame}`);
       require(!interpreter.getAnimationsPaused(), `Transition write paused animations at frame ${frame}`);
       active.drawFrame();

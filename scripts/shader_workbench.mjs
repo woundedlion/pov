@@ -1341,9 +1341,10 @@ export function interpolateNormalizedGroup(parameters, from, to, progress, epsil
 
 function transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluation) {
   for (const slot of descriptor.chain) {
+    if (slot.operator !== PLANAR_SOURCE_OPERATOR && slot.operator !== 'sample.tessellation.v3')
+      continue;
     const operator = operatorById.get(slot.operator);
-    if (operator?.input !== 'plane' || operator.output !== 'field' ||
-        !slot.operator.startsWith('sample.')) continue;
+    if (!operator) continue;
     const sourceFrom = {};
     const sourceTo = {};
     let distinct = false;
