@@ -237,7 +237,6 @@ inline void test_noise_field_tetrahedral_gradient() {
 }
 
 template <typename Float> inline void check_noise_rounding() {
-#if HS_ENABLE_TEST_ORACLES
   const auto check = [](Float value) {
     if (!std::isfinite(value) || std::fabs(value) > Float(1000000000))
       return;
@@ -259,7 +258,6 @@ template <typename Float> inline void check_noise_rounding() {
     xorshift64(state);
     check(std::bit_cast<Float>(static_cast<Bits>(state)));
   }
-#endif
 }
 
 /** @brief Noise rounding retains add-half truncation at ties and neighboring floats. */
@@ -270,7 +268,6 @@ inline void test_noise_rounding_contract() {
 
 /** @brief Gradient residual signs retain rounded subtract-one truncation. */
 inline void test_noise_gradient_residual_sign() {
-#if HS_ENABLE_TEST_ORACLES
   const auto check = [](float value) {
     if (!std::isfinite(value) || std::fabs(value) > 1.0f)
       return;
@@ -287,7 +284,6 @@ inline void test_noise_gradient_residual_sign() {
     xorshift32(bits);
     check(std::bit_cast<float>(bits));
   }
-#endif
 }
 
 /** @brief Gradient APIs agree exactly in strict mode and within fast-math roundoff. */

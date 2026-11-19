@@ -362,6 +362,18 @@ class MainTests(unittest.TestCase):
         self.assertIn("refill-fixable (zone)", output)
         self.assertIn(">> best by signal integrity: Candidate 1", output)
 
+    def test_candidate_with_real_drc_fault_is_ineligible(self):
+        clean = {"status": analyze_candidates.DRC_OK,
+                 "errors": 0, "real": 0, "unconnected": 0}
+        fault = {"status": analyze_candidates.DRC_OK,
+                 "errors": 1, "real": 1, "unconnected": 0}
+        shorter = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 2 0)")
+        result, output = self.rank_sources([SYNTHETIC_BOARD, shorter], [clean, fault])
+        self.assertEqual(result, 0)
+        self.assertRegex(output, r"(?m)^ +2 +[0-9. ]+  REAL FAULTS$")
+        self.assertIn(">> best by signal integrity: Candidate 1", output)
+        self.assertIn("top geometric scorer Candidate 2 was ineligible: REAL -- skipped", output)
+
     def test_unconnected_candidate_is_ineligible(self):
         open_net = {"status": analyze_candidates.DRC_OK,
                     "errors": 0, "real": 0, "unconnected": 1}

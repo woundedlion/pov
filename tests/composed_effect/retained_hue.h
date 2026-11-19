@@ -135,8 +135,7 @@ inline void test_retained_equal_palette_hue_view() {
                  previous.hue_rotation_gamut);
   HS_EXPECT_TRUE(end.hue_rotation_lut == current.hue_rotation_lut);
   HS_EXPECT_TRUE(end.hue_rotation_gamut == current.hue_rotation_gamut);
-  uint32_t maximum = 0;
-  uint64_t total = 0, channels = 0;
+  FrameErrorStats stats;
   size_t different = 0;
   for (const float fraction : {0.17f, 0.5f, 0.83f}) {
     const auto column = interval.at(fraction);
@@ -204,22 +203,17 @@ inline void test_retained_equal_palette_hue_view() {
                                                hue_turns, before.mechanic);
         expected.alpha *= 0.75f * 0.37f;
         HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-7f);
-        for (const uint32_t error :
-             {uint32_t(std::abs(int(actual.color.r) - expected.color.r)),
-              uint32_t(std::abs(int(actual.color.g) - expected.color.g)),
-              uint32_t(std::abs(int(actual.color.b) - expected.color.b))}) {
-          maximum = std::max(maximum, error);
-          total += error;
-          ++channels;
-        }
+        stats = compare_buffers(std::span(&expected.color, 1),
+                                std::span(&actual.color, 1), stats);
       }
     }
   }
   HS_EXPECT_GT(different, size_t{0});
-  HS_EXPECT_LE(float(maximum), Layer::METRICS[0].limit);
-  HS_EXPECT_LE(double(total) / channels, Layer::METRICS[1].limit);
-  std::printf("  retained hue max=%u mean=%.6f changed=%zu\n", maximum,
-              double(total) / channels, different);
+  HS_EXPECT_LE(static_cast<float>(stats.max_absolute_error),
+               Layer::METRICS[0].limit);
+  HS_EXPECT_LE(stats.mean_absolute_error(), Layer::METRICS[1].limit);
+  std::printf("  retained hue max=%u mean=%.6f changed=%zu\n",
+              stats.max_absolute_error, stats.mean_absolute_error(), different);
 }
 
 /** @brief Palette identity rejects altered tables, masks and live palette state. */

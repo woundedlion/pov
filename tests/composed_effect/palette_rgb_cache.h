@@ -588,9 +588,7 @@ inline void test_palette_lab_cache_through_lerp() {
   HS_EXPECT_TRUE(
       history.previous.params.template get<"color">().mapping_frequency !=
       current_value.params.template get<"color">().mapping_frequency);
-  uint32_t maximum = 0;
-  uint64_t total = 0;
-  size_t channels = 0;
+  FrameErrorStats stats;
   float alpha_error = 0.0f;
   for (int x = 0; x < SMALL_W; ++x) {
     const auto cached_state =
@@ -605,22 +603,16 @@ inline void test_palette_lab_cache_through_lerp() {
       const Color4 actual = Pipeline::shade(view, cached);
       const Color4 expected = Pipeline::shade(view, canonical);
       alpha_error = std::max(alpha_error, fabsf(actual.alpha - expected.alpha));
-      for (const uint32_t error :
-           {uint32_t(std::abs(int(actual.color.r) - int(expected.color.r))),
-            uint32_t(std::abs(int(actual.color.g) - int(expected.color.g))),
-            uint32_t(std::abs(int(actual.color.b) - int(expected.color.b)))}) {
-        maximum = std::max(maximum, error);
-        total += error;
-        ++channels;
-      }
+      stats = compare_buffers(std::span(&expected.color, 1),
+                              std::span(&actual.color, 1), stats);
     }
   }
-  const double mean = static_cast<double>(total) / channels;
-  std::printf("  lerp palette cache max=%u mean=%.3f channel codes\n", maximum,
-              mean);
-  HS_EXPECT_GT(maximum, 0u);
-  HS_EXPECT_LE(static_cast<float>(maximum), Policy::METRICS[0].limit);
-  HS_EXPECT_LE(mean, Policy::METRICS[1].limit);
+  std::printf("  lerp palette cache max=%u mean=%.3f channel codes\n",
+              stats.max_absolute_error, stats.mean_absolute_error());
+  HS_EXPECT_GT(stats.max_absolute_error, 0u);
+  HS_EXPECT_LE(static_cast<float>(stats.max_absolute_error),
+               Policy::METRICS[0].limit);
+  HS_EXPECT_LE(stats.mean_absolute_error(), Policy::METRICS[1].limit);
   HS_EXPECT_LE(alpha_error, 1e-6f);
 }
 

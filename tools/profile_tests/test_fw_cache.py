@@ -3,7 +3,6 @@
 
 import hashlib
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from git_test_env import git_run, isolated_env
+from test_profile_one import shell_function
 
 REPO = Path(__file__).resolve().parents[2]
 FW_CACHE = REPO / "tools" / "fw_cache.sh"
@@ -316,10 +316,8 @@ class CacheStore(FirmwareCacheFixture):
 
 class ProfileOneCache(FirmwareCacheFixture):
     def test_retry_replaces_the_cached_firmware_image(self):
-        source = PROFILE_ONE.read_text(encoding="utf-8")
         functions = "\n".join(
-            re.search(rf"(?ms)^{name}\(\) \{{\n.*?^\}}\n", source).group(0)
-            for name in ("build_image", "envdump", "obtain_image"))
+            shell_function(name) for name in ("build_image", "envdump", "obtain_image"))
         script = (
             f'. "{(REPO / "tools" / "device_lock.sh").as_posix()}"\n'
             + functions

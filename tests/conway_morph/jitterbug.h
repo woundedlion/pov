@@ -118,18 +118,10 @@ inline void test_jitterbug_sweep_holds_topology() {
     check_all_unit_vertices(out, 1e-3f);
     conway_tests::check_euler_characteristic_two(out);
 
-    // The clamp keeps the shortest edge above the sliver threshold.
     float min_edge = 1e9f;
-    size_t off = 0;
-    for (size_t fi = 0; fi < out.face_counts.size(); ++fi) {
-      const int c = out.face_counts[fi];
-      for (int j = 0; j < c; ++j)
-        min_edge = std::min(
-            min_edge,
-            math::distance_between(out.vertices[out.faces[off + j]],
-                                   out.vertices[out.faces[off + (j + 1) % c]]));
-      off += c;
-    }
+    for_each_face_edge(out, [&](const math::Vector &a, const math::Vector &b) {
+      min_edge = std::min(min_edge, math::distance_between(a, b));
+    });
     HS_EXPECT_GE(min_edge, 0.019f);
   }
 }

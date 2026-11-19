@@ -25,6 +25,8 @@ constexpr std::string_view domain_name(Pullback::ApproximationDomain domain) {
     return "COLOR_CHANNEL";
   case Pullback::ApproximationDomain::FRAMEBUFFER:
     return "FRAMEBUFFER";
+  case Pullback::ApproximationDomain::SOURCE_FIELD:
+    return "SOURCE_FIELD";
   }
   return {};
 }

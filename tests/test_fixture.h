@@ -10,6 +10,7 @@
 #include "core/animation/animation.h"
 #include "core/control/choreography_hooks.h"
 #include "core/memory.h"
+#include "core/platform/build_features.h"
 #include "core/platform/platform.h"
 #include "core/platform/rng.h"
 #include "core/render/canvas.h"
@@ -27,6 +28,13 @@
 #include <string>
 
 namespace hs_test {
+
+/** @brief Render capabilities match the production firmware. */
+inline constexpr bool PRODUCTION_RENDER_CAPABILITIES =
+    !(HS_ENABLE_TEST_HOOKS || HS_ENABLE_TEST_ORACLES ||
+      HS_ENABLE_STRUCTURAL_AUDITS || HS_ENABLE_PARAM_GUI_BRIDGE ||
+      HS_ENABLE_EFFECT_REGISTRY || HS_ENABLE_EFFECT_CONTROL_API ||
+      HS_ENABLE_CHAIN_INTERPRETER);
 
 /**
  * @brief Parses a shard selector of the form "k/N".

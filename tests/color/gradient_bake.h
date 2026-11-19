@@ -536,7 +536,7 @@ inline void test_dot_keyed_bake_round_trips_through_dot_key() {
     const float d = -1.0f + 2.0f * (static_cast<float>(i) / STEPS);
     const int got = baked.get(dot_key(d)).color.r;
     if (i < STEPS)
-      HS_EXPECT_TRUE(got >= previous);
+      HS_EXPECT_GE(got, previous);
     previous = got;
   }
 

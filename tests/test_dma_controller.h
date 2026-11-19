@@ -348,9 +348,10 @@ inline void test_apply_default_calibration() {
   DMALEDController<N, MockStrip>::apply_default_calibration();
   uint32_t r = 65535, g = 65535, b = 65535;
   ctl.back_frame().correct(r, g, b);
-  HS_EXPECT_EQ(r, 65535u);
-  HS_EXPECT_EQ(g, 26111u);
-  HS_EXPECT_EQ(b, 10239u);
+  const auto full = [](uint8_t gain) { return (65535u * (gain + 1u)) >> 8; };
+  HS_EXPECT_EQ(r, full(hd107s::LINEAR_RGB_GAIN.r));
+  HS_EXPECT_EQ(g, full(hd107s::LINEAR_RGB_GAIN.g));
+  HS_EXPECT_EQ(b, full(hd107s::LINEAR_RGB_GAIN.b));
   reset_correction<N>();
 }
 

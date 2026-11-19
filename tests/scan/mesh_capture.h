@@ -109,7 +109,7 @@ inline void test_capture_window_faces() {
  * @brief Vertex arc bounds cover an independent angular reference, and a
  *        vertex that only rescales measures as held.
  */
-inline void test_vertex_arc_and_reach_flags() {
+inline void test_vertex_arc_bounds_and_held_rescale() {
   const double U = std::numeric_limits<float>::epsilon() / 2.0;
   // Dot/norm roundoff and one Newton-refined reciprocal square root.
   const double COSINE_ROUNDING = 16 * U / (1 - 16 * U);

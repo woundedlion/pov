@@ -25,32 +25,11 @@ namespace hs_test::conway_morph_tests {
  * @return max_e |len(e) - mean_len|.
  */
 inline float max_edge_length_deviation(const PolyMesh &m) {
-  double sum = 0.0;
-  int n = 0;
-  size_t off = 0;
-  for (size_t fi = 0; fi < m.face_counts.size(); ++fi) {
-    const int c = m.face_counts[fi];
-    for (int k = 0; k < c; ++k) {
-      sum += math::distance_between(m.vertices[m.faces[off + k]],
-                                    m.vertices[m.faces[off + (k + 1) % c]]);
-      ++n;
-    }
-    off += c;
-  }
-  const float mean = static_cast<float>(sum / n);
+  const float mean = edge_length_mean(m);
   float worst = 0.0f;
-  off = 0;
-  for (size_t fi = 0; fi < m.face_counts.size(); ++fi) {
-    const int c = m.face_counts[fi];
-    for (int k = 0; k < c; ++k) {
-      const float d =
-          math::distance_between(m.vertices[m.faces[off + k]],
-                                 m.vertices[m.faces[off + (k + 1) % c]]) -
-          mean;
-      worst = fold_worst(worst, std::abs(d));
-    }
-    off += c;
-  }
+  for_each_face_edge(m, [&](const math::Vector &a, const math::Vector &b) {
+    worst = fold_worst(worst, std::abs(math::distance_between(a, b) - mean));
+  });
   return worst;
 }
 

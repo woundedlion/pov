@@ -203,8 +203,7 @@ inline void test_lerp16_full_range_correct() {
         Pixel pa(av, 0, 0), pb(bv, 0, 0);
         uint16_t got = pa.lerp16(pb, static_cast<uint16_t>(f)).r;
         uint16_t ref = lerp16_reference(av, bv, static_cast<uint16_t>(f));
-        HS_EXPECT_TRUE(
-            std::abs(static_cast<int>(got) - static_cast<int>(ref)) <= 1);
+        HS_EXPECT_NEAR(got, ref, 1);
       }
 }
 

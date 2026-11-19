@@ -17,8 +17,8 @@ namespace hs_test::death_tests {
 inline void case_uncompiled_planar_source() {
   using namespace Pullback::Source;
   PlanarSelectorParams<PlanarKind::GRID, PlanarKind::BANDS> selector;
-  HS_EXPECT_EQ(selector.weights().exact, 0);
-  hs::log("death: admitted");
+  if (selector.weights().exact == 0)
+    death_admitted();
   selector.source = PlanarKind::SPIRAL;
   (void)selector.weights();
 }

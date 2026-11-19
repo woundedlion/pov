@@ -1381,7 +1381,7 @@ inline void test_shader_chain_planar_preview_writes_and_clock_migration() {
   const auto &planar = state_as<Op::PlanarSourceState>(program, 2);
   HS_EXPECT_EQ(planar.grid.primary, .875f);
   const auto capture = effect.snapshot();
-  HS_EXPECT_EQ(capture.schema_version, 6u);
+  HS_EXPECT_EQ(capture.schema_version, ChainSnapshot::SCHEMA_VERSION);
   HS_EXPECT_EQ(effect.restore_snapshot(capture),
                ChainSnapshotRestoreResult::APPLIED);
   HS_EXPECT_EQ(state_as<Op::PlanarSourceState>(program, 2).grid.primary, .875f);

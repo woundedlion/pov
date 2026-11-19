@@ -423,6 +423,7 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           put(v.phase);
           put(v.noise_seed);
         } else if constexpr (std::is_same_v<T, In::PlanarSourceClockSnapshot>) {
+          static_assert(sizeof(T) == 8 * sizeof(uint32_t));
           for (const auto clock : {v.grid, v.twin_wave}) {
             put(clock.primary);
             put(clock.secondary);

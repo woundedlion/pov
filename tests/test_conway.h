@@ -426,40 +426,14 @@ inline void test_relax_preserves_topology() {
  * @details Sums every per-face edge; each shared edge of a closed mesh is
  *          counted exactly twice, which leaves the variance unchanged.
  */
-template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
-  const auto *fc = m.get_face_counts_data();
-  const auto *faces = m.get_faces_data();
-  const size_t f_value = m.get_face_counts_size();
-
-  double sum = 0.0;
-  int n = 0;
-  size_t idx = 0;
-  for (size_t f = 0; f < f_value; ++f) {
-    const int c = fc[f];
-    for (int k = 0; k < c; ++k) {
-      const int a = faces[idx + k];
-      const int b = faces[idx + (k + 1) % c];
-      sum += math::distance_between(m.vertices[a], m.vertices[b]);
-      ++n;
-    }
-    idx += c;
-  }
-  const float mean = static_cast<float>(sum / n);
-
-  double var = 0.0;
-  idx = 0;
-  for (size_t f = 0; f < f_value; ++f) {
-    const int c = fc[f];
-    for (int k = 0; k < c; ++k) {
-      const int a = faces[idx + k];
-      const int b = faces[idx + (k + 1) % c];
-      const float d =
-          math::distance_between(m.vertices[a], m.vertices[b]) - mean;
-      var += static_cast<double>(d) * d;
-    }
-    idx += c;
-  }
-  return static_cast<float>(var / n);
+inline float edge_length_variance(const PolyMesh &m) {
+  const float mean = edge_length_mean(m);
+  double sum_squared = 0.0;
+  for_each_face_edge(m, [&](const math::Vector &a, const math::Vector &b) {
+    const float delta = math::distance_between(a, b) - mean;
+    sum_squared += static_cast<double>(delta) * delta;
+  });
+  return static_cast<float>(sum_squared / m.faces.size());
 }
 
 /**

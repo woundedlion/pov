@@ -24,10 +24,11 @@ EFFECTS = REPO / "effects"
 
 class ProfileSweepTests(unittest.TestCase):
     def test_capture_budget_covers_boot_and_a_complete_trailing_window(self):
-        source = (REPO / "tools" / "profile_sweep.sh").read_text(encoding="utf-8")
+        sweep = REPO / "tools" / "profile_sweep.sh"
+        source = sweep.read_text(encoding="utf-8")
         constants = "\n".join(re.findall(
             r"(?m)^(?:CAPTURE_BOOT_MARGIN_S|SHOW_FRAMES_PER_S)=\d+$", source))
-        run = re.search(r"(?ms)^run\(\) \{\n.*?^\}\n", source).group(0)
+        run = shell_function("run", sweep)
         script = ("set -euo pipefail\n" + constants + "\n" + run
                   + '\nP=profile_one.sh; FAILED=(); bash() { printf "%s\\n" "$@"; }; run "$@"\n')
         for seconds, window, expected in ((121, 32, 125), (300, 16, 303),
@@ -90,11 +91,11 @@ class ProfileSweepTests(unittest.TestCase):
                 self.assertNotIn("effect(s) match", result.stdout)
 
 
-def shell_function(name):
-    source = PROFILE_ONE.read_text(encoding="utf-8")
-    match = re.search(rf"(?ms)^{name}\(\) \{{\n.*?^\}}\n", source)
+def shell_function(name, path=PROFILE_ONE):
+    source = path.read_text(encoding="utf-8")
+    match = re.search(rf"(?ms)^{re.escape(name)}\(\) \{{\n.*?^\}}\n", source)
     if not match:
-        raise AssertionError(f"missing shell function: {name}")
+        raise AssertionError(f"missing shell function {name} in {path}")
     return match.group(0)
 
 
@@ -401,8 +402,7 @@ class ArtifactPaths(unittest.TestCase):
 
 def native_path(path, *, prelude=None):
     """device_lock.sh's hs_native_path; a prelude replaces command search with its own functions."""
-    source = (REPO / "tools" / "device_lock.sh").read_text(encoding="utf-8")
-    function = re.search(r"(?ms)^hs_native_path\(\) \{\n.*?^\}\n", source).group(0)
+    function = shell_function("hs_native_path", REPO / "tools" / "device_lock.sh")
     script = function + 'hs_native_path "$1"'
     if prelude is not None:
         script = "PATH=$PWD\n" + prelude + script

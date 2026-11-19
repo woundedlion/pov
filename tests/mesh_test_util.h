@@ -148,6 +148,35 @@ inline void check_indices_in_range(const PolyMesh &m) {
   HS_EXPECT_LT(max_index, v);
 }
 
+/**
+ * @brief Visits each directed edge in packed face-loop order.
+ * @param m Mesh supplying the face loops.
+ * @param visit Callback receiving the edge's endpoint vertices.
+ */
+template <typename Fn>
+inline void for_each_face_edge(const PolyMesh &m, Fn visit) {
+  size_t offset = 0;
+  for (const int count : m.face_counts) {
+    for (int index = 0; index < count; ++index)
+      visit(m.vertices[m.faces[offset + index]],
+            m.vertices[m.faces[offset + (index + 1) % count]]);
+    offset += count;
+  }
+}
+
+/**
+ * @brief Averages chord lengths across the mesh's face loops.
+ * @param m Mesh with nonempty face loops.
+ * @return Mean chord length including one occurrence per incident face.
+ */
+inline float edge_length_mean(const PolyMesh &m) {
+  double total = 0.0;
+  for_each_face_edge(m, [&](const math::Vector &a, const math::Vector &b) {
+    total += math::distance_between(a, b);
+  });
+  return static_cast<float>(total / m.faces.size());
+}
+
 /** Longest geodesic edge a healthy solid reaches, as a multiple of its median
  * edge. */
 inline constexpr float MAX_SLIVER_EDGE_RATIO = 6.0f;
@@ -165,18 +194,12 @@ inline void check_no_sliver_edges(const PolyMesh &m) {
   if (nonfinite != 0)
     return;
   std::vector<float> edges;
-  size_t off = 0;
-  for (size_t f = 0; f < m.face_counts.size(); ++f) {
-    const int n = m.face_counts[f];
-    for (int i = 0; i < n; ++i) {
-      const math::Vector u = m.vertices[m.faces[off + i]].normalized();
-      const math::Vector v =
-          m.vertices[m.faces[off + (i + 1) % n]].normalized();
-      edges.push_back(
-          std::acos(std::max(-1.0f, std::min(1.0f, math::dot(u, v)))));
-    }
-    off += n;
-  }
+  for_each_face_edge(m, [&](const math::Vector &a, const math::Vector &b) {
+    const math::Vector u = a.normalized();
+    const math::Vector v = b.normalized();
+    edges.push_back(
+        std::acos(std::max(-1.0f, std::min(1.0f, math::dot(u, v)))));
+  });
   HS_EXPECT_TRUE(!edges.empty());
   if (edges.empty())
     return;

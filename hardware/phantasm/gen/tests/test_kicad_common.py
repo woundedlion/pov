@@ -1,5 +1,4 @@
 import contextlib
-import importlib.util
 import io
 import os
 import stat
@@ -128,17 +127,14 @@ class KicadCliTests(unittest.TestCase):
             self.assertEqual(kicad_common.kicad_cli(), "kicad-cli")
         find.assert_called_once_with()
 
-    def load_fresh(self, name):
-        """Execute a gate module into a throwaway namespace."""
-        spec = importlib.util.spec_from_file_location(name, GEN / f"{name}.py")
-        spec.loader.exec_module(importlib.util.module_from_spec(spec))
-
     def test_importing_a_gate_module_resolves_nothing(self):
-        with mock.patch.object(kicad_common, "find_kicad_cli",
-                               side_effect=SystemExit):
-            for name in ("analyze_candidates", "check", "fab", "pcb"):
-                with self.subTest(module=name):
-                    self.load_fresh(name)
+        code = (f"import sys;sys.path.insert(0,{str(GEN)!r});"
+                "import analyze_candidates,check,fab,pcb")
+        with tempfile.TemporaryDirectory() as directory:
+            env = {**os.environ, "KICAD_CLI": str(Path(directory) / "missing-kicad-cli")}
+            result = subprocess.run([sys.executable, "-c", code], cwd=directory,
+                                    env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class ExportNetlistTests(unittest.TestCase):

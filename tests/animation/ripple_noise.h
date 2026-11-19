@@ -459,27 +459,23 @@ inline void test_bump_path_endpoints_and_inactive_outputs() {
 
 /** @brief Swept bump covers contain intermediate centres and footprint boundaries. */
 inline void test_bump_cover_contains_swept_footprint() {
-  uint32_t seed = 0x82f7a12u;
-  const auto unit = [&]() {
-    seed = seed * 1664525u + 1013904223u;
-    return float(seed >> 8) / 16777216.0f;
-  };
+  hs::Pcg32 rng(0x82f7a12u);
   const auto direction = [&]() {
-    const float x = 2.0f * unit() - 1.0f;
-    const float y = 2.0f * unit() - 1.0f;
-    const float z = 2.0f * unit() - 1.0f;
+    const float x = rand_uniform(rng, -1.0f, 1.0f);
+    const float y = rand_uniform(rng, -1.0f, 1.0f);
+    const float z = rand_uniform(rng, -1.0f, 1.0f);
     return math::Vector(x, y, z).normalized();
   };
   for (int trial = 0; trial < 300; ++trial) {
     const auto from = direction();
     auto tangent = math::cross(from, direction()).normalized();
-    float separation = math::PI_F * unit();
+    float separation = rand_uniform(rng, 0.0f, math::PI_F);
     if (trial < 8)
       separation = trial == 0 ? 0.0f : math::PI_F - powf(10.0f, -float(trial));
     Animation::BumpParams params;
-    params.radius = 0.05f + 1.5f * unit();
-    params.previous_envelope = unit();
-    params.envelope = unit();
+    params.radius = rand_uniform(rng, 0.05f, 1.55f);
+    params.previous_envelope = rand_uniform(rng, 0.0f, 1.0f);
+    params.envelope = rand_uniform(rng, 0.0f, 1.0f);
     params.previous_center = from;
     params.center =
         (from * cosf(separation) + tangent * sinf(separation)).normalized();

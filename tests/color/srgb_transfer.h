@@ -91,17 +91,18 @@ inline void test_srgb_to_linear_interp_recovers_subpixel_precision() {
   for (int s = 0; s <= 255; ++s) {
     int interp = srgb_to_linear_interp(s / 255.0f);
     int lut = srgb_to_linear(static_cast<uint8_t>(s));
-    HS_EXPECT_TRUE(std::abs(interp - lut) <= 2);
+    HS_EXPECT_NEAR(interp, lut, 2);
   }
 
   // Two sRGB values in the SAME 8-bit bucket (200) but at different fractions
   // must map to DIFFERENT, ordered 16-bit linear values.
   uint16_t a = srgb_to_linear_interp(200.2f / 255.0f);
   uint16_t b = srgb_to_linear_interp(200.8f / 255.0f);
-  HS_EXPECT_TRUE(b > a);
+  HS_EXPECT_GT(b, a);
   // ...and both lie between the two LUT entries being interpolated.
   uint16_t e200 = srgb_to_linear(200), e201 = srgb_to_linear(201);
-  HS_EXPECT_TRUE(a >= e200 && a <= e201);
+  HS_EXPECT_GE(a, e200);
+  HS_EXPECT_LE(a, e201);
   HS_EXPECT_TRUE(b >= e200 && b <= e201);
 
   // Monotonic non-decreasing across the full range.
@@ -109,7 +110,7 @@ inline void test_srgb_to_linear_interp_recovers_subpixel_precision() {
   for (int k = 0; k <= 1000; ++k) {
     uint16_t v = srgb_to_linear_interp(k / 1000.0f);
     if (k > 0)
-      HS_EXPECT_TRUE(v >= prev);
+      HS_EXPECT_GE(v, prev);
     prev = v;
   }
 }
