@@ -121,9 +121,14 @@ export function verifyWasmPresetTransition(compiledModule, interpreterModule, co
     require(bindings.restoreSnapshot(snapshot) === interpreterModule.ChainSnapshotRestoreResult.APPLIED,
       'Could not align the chain camera clock');
     interpreter.setAnimationsPaused(false);
+    active.setTemporalSampling(false);
+    interpreter.setTemporalSampling(false);
     active.drawFrame();
     interpreter.drawFrame();
     const originDifference = peakChannelDifference(active.getPixels(), interpreter.getPixels());
+    require(originDifference <= DOCUMENT_CHANNEL_TOLERANCE,
+      `GridWarp origin RGB16 peak ${originDifference} exceeds ${DOCUMENT_CHANNEL_TOLERANCE}`);
+    interpreter.setTemporalSampling(true);
     for (let frame = 1; frame <= edge.duration; ++frame) {
       const sample = evaluateTransition(descriptor, bank, from, to, frame, catalog);
       require(sample.sourceMorph, `Chain source endpoints unavailable at frame ${frame}`);

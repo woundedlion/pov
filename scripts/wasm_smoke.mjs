@@ -180,7 +180,7 @@ async function main(probe) {
         ]);
         const result = verifyWasmPresetTransition(compiled, interpreter, document, EXPECTED_OPERATOR_CATALOG);
         console.log(`  preset-transition: one GridWarp preset, ${result.frames} ShaderChain morph frames`);
-        console.log(`  GridWarp origin RGB16 diagnostic peak ${result.originDifference}`);
+        console.log(`  GridWarp instantaneous origin RGB16 peak ${result.originDifference}`);
       } catch (error) {
         fail(`preset-transition: ${error.message}`);
       }
