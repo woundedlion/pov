@@ -11,6 +11,24 @@
 
 namespace Pullback::Warp {
 
+namespace Detail {
+
+/** @brief Labels the warp envelope width in an authored field array.
+ * @tparam Owner Authored parameter class.
+ * @tparam Base Parameter class defining the fields.
+ * @return Fields with the warp envelope width label. */
+template <typename Owner, typename Base>
+consteval auto warp_edge_width_fields() {
+  auto fields =
+      concat_fields<Owner>(Base::FIELDS, std::array<Field<Owner>, 0>{});
+  for (auto &field : fields)
+    if (std::string_view(field.id) == "edge-width")
+      field.name = "Warp Edge Width";
+  return fields;
+}
+
+} // namespace Detail
+
 /** @brief Affine controls with a per-preset path-length selector. */
 struct AuthoredAffineParams : AffineParams {
   uint8_t path_length = 1; ///< Whether the step contributes path length.
@@ -29,15 +47,9 @@ struct AuthoredAffineParams : AffineParams {
 struct AuthoredWaveShearParams : WaveShearParams {
   uint8_t envelope = 0; ///< Envelope catalog index.
   /// Numeric controls, including runtime envelope width.
-  static constexpr auto FIELDS = [] {
-    auto fields = concat_fields<AuthoredWaveShearParams>(
-        WaveShearParams::FIELDS,
-        std::array<Field<AuthoredWaveShearParams>, 0>{});
-    for (auto &field : fields)
-      if (std::string_view(field.id) == "edge-width")
-        field.name = "Warp Edge Width";
-    return fields;
-  }();
+  static constexpr auto FIELDS =
+      Detail::warp_edge_width_fields<AuthoredWaveShearParams,
+                                     WaveShearParams>();
   /// Catalog values of the envelope selector.
   static constexpr auto &ENVELOPE_IDS = Warp::ENVELOPE_IDS;
   /// Authored topology selectors.
@@ -51,15 +63,9 @@ struct AuthoredVectorNoiseParams : VectorNoiseParams {
   uint8_t basis = 0;    ///< Noise-basis catalog index.
   uint8_t envelope = 0; ///< Envelope catalog index.
   /// Numeric controls, including runtime envelope width.
-  static constexpr auto FIELDS = [] {
-    auto fields = concat_fields<AuthoredVectorNoiseParams>(
-        VectorNoiseParams::FIELDS,
-        std::array<Field<AuthoredVectorNoiseParams>, 0>{});
-    for (auto &field : fields)
-      if (std::string_view(field.id) == "edge-width")
-        field.name = "Warp Edge Width";
-    return fields;
-  }();
+  static constexpr auto FIELDS =
+      Detail::warp_edge_width_fields<AuthoredVectorNoiseParams,
+                                     VectorNoiseParams>();
   /// Catalog values of the basis selector.
   static constexpr auto &BASIS_IDS = math::NOISE_BASIS_IDS;
   /// Catalog values of the envelope selector.
