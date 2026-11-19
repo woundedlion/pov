@@ -1844,6 +1844,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── engine_bindings_contract.test.mjs Node contract tests for WASM engine binding invariants
 │   ├── engine_payload_types.mjs / engine_payload_types.test.mjs  Checks every engine payload against engine_types.d.ts and the emitted aliases (CI); checker tests
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
+│   ├── wasm_transition_parity.mjs  Runtime preset playback and framebuffer diagnostics
 │   ├── wasm_smoke_predicates.mjs Module-free WASM smoke predicates
 │   ├── wasm_smoke_predicates.test.mjs Node unit tests for the WASM smoke predicates
 │   ├── wasm_module_halt.test.mjs Node tests for the Emscripten abort observer
