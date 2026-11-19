@@ -1275,36 +1275,22 @@ private:
   HS_FLASH_MEMBER PathEvaluation evaluate_path(float t, Detail detail) const {
     const Segment segment = select_segment(t);
     const ControlKey envelope = segment.envelope;
-    const float progress = segment.progress;
+    const float progress = complementary_harmony
+                               ? apply_easing(segment.relationship_position)
+                               : segment.progress;
+    const float left_h = complementary_harmony ? keys[0].h : segment.left.h;
+    const float right_h =
+        complementary_harmony ? keys[key_count - 1].h : segment.right.h;
     const float visibility = segment.visibility;
     const float l = envelope.L * visibility;
     const float control = envelope.chroma * visibility;
     const bool chromatic = is_chromatic(control);
-
-    PathEvaluation path;
-    if (complementary_harmony) {
-      const float relationship_position =
-          apply_easing(segment.relationship_position);
-
-      if (color_path == ColorPath::OKLAB_CARTESIAN) {
-        const ControlKey first{l, control, keys[0].h};
-        const ControlKey opposite{l, control, keys[key_count - 1].h};
-        path = evaluate_cartesian_path(first, opposite, chromatic,
-                                       relationship_position, control, detail);
-      } else {
-        path = evaluate_arc_path(l, control, keys[0].h, keys[key_count - 1].h,
-                                 chromatic, relationship_position, detail);
-      }
-    } else if (color_path == ColorPath::OKLAB_CARTESIAN) {
-      const ControlKey left_key{l, control, segment.left.h};
-      const ControlKey right_key{l, control, segment.right.h};
-      path = evaluate_cartesian_path(left_key, right_key, chromatic, progress,
+    if (color_path == ColorPath::OKLAB_CARTESIAN)
+      return evaluate_cartesian_path({l, control, left_h},
+                                     {l, control, right_h}, chromatic, progress,
                                      control, detail);
-    } else {
-      path = evaluate_arc_path(l, control, segment.left.h, segment.right.h,
-                               chromatic, progress, detail);
-    }
-    return path;
+    return evaluate_arc_path(l, control, left_h, right_h, chromatic, progress,
+                             detail);
   }
 
   std::array<ControlKey, PALETTE_MAX_KEYS> keys{};
