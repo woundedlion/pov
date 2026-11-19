@@ -317,8 +317,8 @@ public:
     const auto program = clone_payload(caller_program);
     const auto from = clone_payload(caller_from);
     const auto to = clone_payload(caller_to);
-    if (!hs_wasm::is_js_array(program) || !object_value(from) ||
-        !object_value(to))
+    if (!hs_wasm::is_js_array(program) || !hs_wasm::is_js_object(from) ||
+        !hs_wasm::is_js_object(to))
       return false;
     const size_t count = program["length"].as<size_t>();
     if (count > Pullback::Interp::MAX_CHAIN_OPS)
@@ -327,7 +327,7 @@ public:
     std::vector<std::string> affines;
     for (size_t index = 0; index < count; ++index) {
       const auto entry = program[index];
-      if (!object_value(entry) || !entry["instance"].isString() ||
+      if (!hs_wasm::is_js_object(entry) || !entry["instance"].isString() ||
           !entry["operator"].isString())
         return false;
       const std::string instance = entry["instance"].as<std::string>();
@@ -410,11 +410,6 @@ public:
   }
 
 private:
-  static bool object_value(const emscripten::val &value) {
-    return !value.isNull() && !value.isUndefined() &&
-           value.typeOf().as<std::string>() == "object";
-  }
-
   template <typename Model>
   static bool read_endpoint(const emscripten::val &values,
                             const std::string &instance,
@@ -454,7 +449,7 @@ private:
 
   static ParamSetResult decode_source_endpoint(const emscripten::val &value,
                                                SourceMorphEndpoint &endpoint) {
-    if (!object_value(value) || hs_wasm::is_js_array(value))
+    if (!hs_wasm::is_js_object(value) || hs_wasm::is_js_array(value))
       return ParamSetResult::MALFORMED_PAYLOAD;
     const auto keys =
         emscripten::val::global("Object").call<emscripten::val>("keys", value);
@@ -485,7 +480,7 @@ private:
   static ParamSetResult decode_color_morph(const emscripten::val &entry,
                                            DecodedColorMorph &decoded,
                                            Write &write) {
-    if (!object_value(entry) || !entry["instance"].isString() ||
+    if (!hs_wasm::is_js_object(entry) || !entry["instance"].isString() ||
         !entry["mix"].isNumber())
       return ParamSetResult::MALFORMED_PAYLOAD;
     const auto snap = entry["snap"];
@@ -552,8 +547,9 @@ private:
       if (value.isNumber()) {
         write.value = value.as<float>();
       } else {
-        if (!preview || !object_value(value) || !value["from"].isNumber() ||
-            !value["to"].isNumber() || !value["mix"].isNumber())
+        if (!preview || !hs_wasm::is_js_object(value) ||
+            !value["from"].isNumber() || !value["to"].isNumber() ||
+            !value["mix"].isNumber())
           return ParamSetResult::MALFORMED_PAYLOAD;
         const double from = value["from"].as<double>();
         const double to = value["to"].as<double>();
@@ -575,7 +571,7 @@ private:
     const bool has_morph =
         caller_morph != nullptr && !(caller_modulations && morph.isNull());
     if (has_morph) {
-      if (!object_value(morph) || !morph["instance"].isString() ||
+      if (!hs_wasm::is_js_object(morph) || !morph["instance"].isString() ||
           !morph["evaluation"].isNumber() || !morph["duration"].isNumber() ||
           !morph["easing"].isString())
         return ParamSetResult::MALFORMED_PAYLOAD;

@@ -32,10 +32,6 @@ class ChainSnapshotCodec {
   using Result = ChainSnapshotRestoreResult;
   using Runtime = Pullback::Interp::RuntimeSnapshot;
 
-  static bool object(const Val &value) {
-    return !value.isNull() && !value.isUndefined() &&
-           value.typeOf().as<std::string>() == "object";
-  }
   static bool number(const Val &object, const char *key, float &out) {
     const auto value = object[key];
     if (!value.isNumber())
@@ -127,7 +123,8 @@ class ChainSnapshotCodec {
   }
   static bool spatial(const Val &value,
                       Pullback::Interp::SpatialWalkSnapshot &state) {
-    return object(value) && integer(value, "noiseSeed", state.noise_seed) &&
+    return is_js_object(value) &&
+           integer(value, "noiseSeed", state.noise_seed) &&
            integer(value, "walkTime", state.walk_time) &&
            vector(value["position"], state.position) &&
            vector(value["direction"], state.direction) &&
@@ -144,7 +141,7 @@ class ChainSnapshotCodec {
     return out;
   }
   static bool sine(const Val &value, Pattern::SineParams &params) {
-    return object(value) && vector(value["axis"], params.axis) &&
+    return is_js_object(value) && vector(value["axis"], params.axis) &&
            number(value, "frequency", params.frequency) &&
            number(value, "offset", params.offset) &&
            number(value, "speed", params.speed);
@@ -187,7 +184,7 @@ class ChainSnapshotCodec {
   }
   static bool recipe(const Val &value, ColorModulation::Config &config) {
     uint8_t source, evaluation, basis, variant, mechanic;
-    if (!object(value) || !boolean(value, "enabled", config.enabled) ||
+    if (!is_js_object(value) || !boolean(value, "enabled", config.enabled) ||
         !integer(value, "source", source) ||
         !integer(value, "version", config.version) ||
         config.version != ColorModulation::RECIPE_VERSION ||
@@ -196,7 +193,7 @@ class ChainSnapshotCodec {
       return false;
     const auto noise = value["noise"];
     const auto operation = value["mechanic"];
-    if (!object(noise) || !number(noise, "scale", config.noise.scale) ||
+    if (!is_js_object(noise) || !number(noise, "scale", config.noise.scale) ||
         !number(noise, "speed", config.noise.speed) ||
         !number(noise, "contrast", config.noise.contrast) ||
         !integer(noise, "basis", basis) ||
@@ -205,7 +202,7 @@ class ChainSnapshotCodec {
         variant > static_cast<uint8_t>(Pattern::NoiseVariant::OCTAVE_CONTOUR) ||
         !sine(value["sine"], config.sine) ||
         !interference(value["interference"], config.interference) ||
-        !interference(value["grid"], config.grid) || !object(operation) ||
+        !interference(value["grid"], config.grid) || !is_js_object(operation) ||
         !integer(operation, "kind", mechanic) ||
         !number(operation, "amount", config.mechanic.amount))
       return false;
@@ -228,7 +225,7 @@ class ChainSnapshotCodec {
   static bool modulation_clock(const Val &value,
                                Pullback::Modulation::State &state) {
     uint8_t source;
-    if (!object(value) || !integer(value, "source", source) ||
+    if (!is_js_object(value) || !integer(value, "source", source) ||
         source > static_cast<uint8_t>(Pattern::SourceKind::DISPLACEMENT) ||
         !integer(value, "version", state.version) ||
         state.version != ColorModulation::RECIPE_VERSION ||
@@ -308,7 +305,7 @@ class ChainSnapshotCodec {
   static bool runtime_state(const std::string &kind, const Val &value,
                             Runtime &out) {
     using namespace Pullback::Interp;
-    if (!object(value))
+    if (!is_js_object(value))
       return false;
     if (is_runtime_kind<SpatialWalkSnapshot>(kind)) {
       SpatialWalkSnapshot state;
@@ -349,7 +346,8 @@ class ChainSnapshotCodec {
           waves["length"].as<unsigned>() != state.waves.size())
         return false;
       for (unsigned i = 0; i < state.waves.size(); ++i)
-        if (!object(waves[i]) || !number(waves[i], "age", state.waves[i].age) ||
+        if (!is_js_object(waves[i]) ||
+            !number(waves[i], "age", state.waves[i].age) ||
             !integer(waves[i], "burst", state.waves[i].burst))
           return false;
       out = state;
@@ -476,7 +474,8 @@ public:
    *         arrays not of length 3.
    */
   static Result decode(const Val &input, ChainSnapshot &out) {
-    if (!object(input) || !integer(input, "schemaVersion", out.schema_version))
+    if (!is_js_object(input) ||
+        !integer(input, "schemaVersion", out.schema_version))
       return Result::INVALID_VALUE;
     if (!ChainSnapshot::supports(out.schema_version))
       return Result::UNSUPPORTED_VERSION;
@@ -491,7 +490,7 @@ public:
       return Result::INVALID_LENGTH;
     for (size_t index = 0; index < chain["length"].as<size_t>(); ++index) {
       ChainSnapshot::Entry entry;
-      if (!object(chain[index]) ||
+      if (!is_js_object(chain[index]) ||
           !text(chain[index], "instance", entry.instance) ||
           !text(chain[index], "operator", entry.operator_id))
         return Result::INVALID_VALUE;
@@ -499,7 +498,7 @@ public:
     }
     for (size_t index = 0; index < parameters["length"].as<size_t>(); ++index) {
       ChainSnapshot::Parameter entry;
-      if (!object(parameters[index]) ||
+      if (!is_js_object(parameters[index]) ||
           !text(parameters[index], "name", entry.name) ||
           !number(parameters[index], "value", entry.value))
         return Result::INVALID_VALUE;
@@ -512,7 +511,7 @@ public:
       return Result::INVALID_LENGTH;
     for (size_t index = 0; index < modulation["length"].as<size_t>(); ++index) {
       ChainSnapshot::ModulationRecipe entry;
-      if (!object(modulation[index]) ||
+      if (!is_js_object(modulation[index]) ||
           !text(modulation[index], "instance", entry.instance) ||
           !recipe(modulation[index]["recipe"], entry.recipe))
         return Result::INVALID_VALUE;
@@ -528,7 +527,7 @@ public:
       for (size_t index = 0; index < runtime["length"].as<size_t>(); ++index) {
         ChainSnapshot::Runtime entry;
         std::string kind;
-        if (!object(runtime[index]) ||
+        if (!is_js_object(runtime[index]) ||
             !text(runtime[index], "instance", entry.instance) ||
             !text(runtime[index], "kind", kind) ||
             !runtime_state(kind, runtime[index]["state"], entry.state))
@@ -539,7 +538,7 @@ public:
     const auto palette = input["paletteBank"];
     if (!palette.isUndefined()) {
       GeneratedPaletteBank::Snapshot bank;
-      if (!object(palette) || !number(palette, "chroma", bank.chroma))
+      if (!is_js_object(palette) || !number(palette, "chroma", bank.chroma))
         return Result::INVALID_VALUE;
       if (!is_js_array(palette["hues"]) || !is_js_array(palette["cycles"]))
         return Result::INVALID_VALUE;
@@ -550,7 +549,7 @@ public:
         auto &clock = bank.cycles[index];
         const auto cycle = palette["cycles"][index];
         if (!integer(palette["hues"][index], bank.hues[index]) ||
-            !object(cycle) || !integer(cycle, "frame", clock.frame) ||
+            !is_js_object(cycle) || !integer(cycle, "frame", clock.frame) ||
             !integer(cycle, "nextSequence", clock.next_sequence) ||
             !boolean(cycle, "fadeActive", clock.fade_active) ||
             !boolean(cycle, "displayDirty", clock.display_dirty))

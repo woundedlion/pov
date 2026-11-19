@@ -11,6 +11,7 @@
 
 #include <emscripten.h>
 #include <emscripten/val.h>
+#include <string>
 
 /**
  * @brief structuredClone of a JS value; a clone failure yields a null handle.
@@ -42,6 +43,14 @@ inline emscripten::val clone_payload(const emscripten::val &input) {
 }
 
 namespace hs_wasm {
+/** @brief Tests the JavaScript object type, including arrays.
+ * @param value Value to test.
+ * @return True when typeof reports object and the value is non-null. */
+inline bool is_js_object(const emscripten::val &value) {
+  return !value.isNull() && !value.isUndefined() &&
+         value.typeOf().as<std::string>() == "object";
+}
+
 /** @brief Tests whether a JavaScript value is an array.
  * @param value Value to test.
  * @return True if Array.isArray accepts the value. */
