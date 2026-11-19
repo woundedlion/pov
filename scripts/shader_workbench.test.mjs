@@ -23,6 +23,8 @@ import {
   interpolateNormalizedGroup,
   interpolateValue,
   parseShaderDocument,
+  promotedControlNames,
+  promotionDiagnostics,
   stableStringify,
   validateShaderDocument,
 } from './shader_workbench.mjs';
@@ -1015,14 +1017,102 @@ test('linear and log interpolation preserve exact stored endpoints', () => {
   assert.equal(interpolateValue(log, 1, 4, 0.5), Math.fround(2));
 });
 
-test('mixed enum parameters expose blend state between distinct endpoints', () => {
+test('enum parameters hold unless their catalog field blends', () => {
   const mapping = example().descriptor.parameters
     .find((parameter) => parameter.id === 'sample.coverage-mode');
-  assert.deepEqual(interpolateValue(mapping, 'none', 'weight', 0.25),
+  assert.equal(interpolateValue(mapping, 'none', 'weight', 0.25), 'none');
+  assert.deepEqual(interpolateValue(mapping, 'none', 'weight', 0.25, true),
     { from: 'none', to: 'weight', mix: Math.fround(0.25) });
   assert.equal(interpolateValue(mapping, 'none', 'weight', 0), 'none');
   assert.equal(interpolateValue(mapping, 'none', 'weight', 1), 'weight');
-  assert.equal(interpolateValue(mapping, 'edge-fade', 'edge-fade', 0.5), 'edge-fade');
+  assert.equal(interpolateValue(mapping, 'edge-fade', 'edge-fade', 0.5, true), 'edge-fade');
+});
+
+const planarTransitionFixture = () => {
+  const document = example();
+  const operator = {
+    id: 'sample.planar.v1',
+    params: [
+      { id: 'source', topology: true, blend: true, values: ['grid', 'spiral'], default: 'grid' },
+      { id: 'grid-pattern-freq', name: 'Pattern Freq', min: 0.01, max: 64, default: 1,
+        curve: 'lerp', sources: ['grid'] },
+      { id: 'spiral-arms', min: 0, max: 12, default: 3, curve: 'snap', sources: ['spiral'] },
+      { id: 'spiral-coordinate-system', topology: true, values: ['plane', 'equirectangular'],
+        default: 'plane', sources: ['spiral'] },
+      { id: 'spiral-center-polar', min: 0, max: Math.PI, default: 0,
+        curve: 'lerp', sources: ['spiral'],
+        gated_by: { field: 'spiral-coordinate-system', values: ['equirectangular'] } },
+      { id: 'coverage-mode', topology: true, values: ['none', 'weight'], default: 'none' },
+    ],
+  };
+  document.descriptor.chain.find(slot => slot.label === 'sample').operator = operator.id;
+  document.descriptor.parameters = operator.params.map(field =>
+    declarationFromCatalogField('sample', field, operator.id));
+  const [from, to] = document.preset_bank.presets;
+  from.values = {
+    'sample.source': 'grid', 'sample.grid-pattern-freq': 2,
+    'sample.spiral-arms': 1, 'sample.spiral-coordinate-system': 'plane',
+    'sample.spiral-center-polar': 0.5, 'sample.coverage-mode': 'none',
+  };
+  to.values = {
+    'sample.source': 'spiral', 'sample.grid-pattern-freq': 10,
+    'sample.spiral-arms': 7, 'sample.spiral-coordinate-system': 'equirectangular',
+    'sample.spiral-center-polar': 2.5, 'sample.coverage-mode': 'weight',
+  };
+  const edge = document.preset_bank.edges.find(edge => edge.from === from.preset_id);
+  edge.easing = 'LINEAR';
+  return { document, catalog: { operators: [operator] }, from, to, edge };
+};
+
+test('planar morphs hold fields at their live endpoint and interpolate shared fields', () => {
+  const { document, catalog, from, to, edge } = planarTransitionFixture();
+  const { descriptor, preset_bank: bank } = document;
+  const sample = frame => evaluateTransition(descriptor, bank, from.preset_id, to.preset_id, frame, catalog).values;
+  assert.deepEqual(sample(0), from.values);
+  assert.deepEqual(sample(edge.duration / 2), {
+    'sample.source': { from: 'grid', to: 'spiral', mix: 0.5 }, 'sample.grid-pattern-freq': 2,
+    'sample.spiral-arms': 7, 'sample.spiral-coordinate-system': 'equirectangular',
+    'sample.spiral-center-polar': 2.5, 'sample.coverage-mode': 'none',
+  });
+  assert.deepEqual(sample(edge.duration), to.values);
+
+  to.values['sample.source'] = 'grid';
+  assert.equal(sample(edge.duration / 2)['sample.source'], 'grid');
+  assert.equal(sample(edge.duration / 2)['sample.grid-pattern-freq'], 6);
+  assert.equal(descriptor.parameters.find(({ id }) => id === 'sample.spiral-center-polar').unit, 'radian');
+  assert.deepEqual(promotedControlNames('sample.grid-pattern-freq', descriptor, catalog),
+    ['source_grid.Pattern Freq', 'source_grid.pattern-freq']);
+  assert.deepEqual(promotedControlNames('sample.source', descriptor, catalog), []);
+});
+
+test('promotion reports uniformity, departures and the native lattice verdict', () => {
+  const { document, catalog, from, to, edge } = planarTransitionFixture();
+  const { preset_bank: bank } = document;
+  const dwell = bank.choreography.dwell = {
+    [from.preset_id]: edge.duration, [to.preset_id]: edge.duration + 1,
+  };
+  const seen = [];
+  const scan = () => promotionDiagnostics(document, { catalog,
+    latticeAllowsEdge: (candidate, a, b) => {
+      assert.equal(candidate.from, a.preset_id);
+      assert.equal(candidate.to, b.preset_id);
+      seen.push(candidate);
+      return candidate !== edge;
+    } });
+  const issues = scan();
+  assert.ok(issues.some(issue => issue.code === 'NON_UNIFORM_DWELL'));
+  assert.ok(issues.some(issue => issue.code === 'NON_UNIFORM_TOPOLOGY' && issue.parameter_id === 'sample.coverage-mode'));
+  assert.ok(issues.some(issue => issue.code === 'DEPARTURE_OUTLASTS_DWELL' && issue.from === edge.from));
+  assert.ok(issues.some(issue => issue.code === 'INCOMPATIBLE_SOURCE_LATTICE' && issue.to === edge.to));
+  assert.ok(!issues.some(issue => issue.parameter_id === 'sample.source'));
+  assert.ok(seen.includes(edge));
+
+  to.values['sample.source'] = 'grid';
+  to.values['sample.coverage-mode'] = 'none';
+  dwell[from.preset_id] = dwell[to.preset_id] = Math.max(...bank.edges.map(item => item.duration)) + 1;
+  seen.length = 0;
+  assert.deepEqual(scan(), []);
+  assert.deepEqual(seen, []);
 });
 
 test('periodic interpolation uses the negative half-period tie', () => {

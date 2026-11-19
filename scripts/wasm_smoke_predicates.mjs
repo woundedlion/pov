@@ -1,6 +1,7 @@
 // Pure validation predicates for the headless WASM smoke test.
 
-import { BAKED_CONSTANT_IDS, documentModulationBinding, fixedDerivedBinding, promotedControlNames } from './shader_workbench.mjs';
+import { BAKED_CONSTANT_IDS, documentModulationBinding, fixedDerivedBinding,
+  isUnusedPlanarParameter, promotedControlNames } from './shader_workbench.mjs';
 export { BAKED_CONSTANT_IDS, bakedTopologyFields, LIVE_TOPOLOGY_FIELD, engineControlNames, promotedControlNames } from './shader_workbench.mjs';
 
 /** Fraction of a sub-ceiling stack capacity treated as the creep budget. */
@@ -169,6 +170,7 @@ export function promotedBindingProblems({ documents, controls, bakedFields,
       continue;
     }
     for (const parameterId of parameterIds) {
+      if (isUnusedPlanarParameter(descriptor, presets, parameterId)) continue;
       if (BAKED_CONSTANT_IDS.has(parameterId)) seenConstants.add(parameterId);
       const authored = presets.filter((preset) =>
         Object.hasOwn(preset.values ?? {}, parameterId));

@@ -203,6 +203,25 @@ test('a topology field and a baked constant need no control', () => {
   assert.deepEqual(promotedBindingProblems(bindings()), []);
 });
 
+test('planar binding checks require controls for compiled families only', () => {
+  const run = bindings({
+    documents: [{
+      document: 'patterns/grid_warp.shader.json', effect: 'grid-warp',
+      descriptor: { chain: [{ label: 'sample', operator: 'sample.planar.v1' }] },
+      parameterIds: [CONSTANT_ID, 'sample.source', 'sample.grid-pattern-freq', 'sample.spiral-arms'],
+      presets: [{ preset_id: 'grid', values: { 'sample.source': 'grid' } }],
+    }],
+    controls: new Map([['grid-warp', new Set(['source_grid.Pattern Freq'])]]),
+    bakedFields: new Set(['source']),
+  });
+  assert.deepEqual(promotedBindingProblems(run), []);
+
+  run.documents[0].presets.push({ preset_id: 'spiral', values: { 'sample.source': 'spiral' } });
+  const problems = promotedBindingProblems(run);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /"sample.spiral-arms" names no control/);
+});
+
 test('an id that names no control is reported with what it tried', () => {
   const problems = promotedBindingProblems(bindings({
     documents: [{

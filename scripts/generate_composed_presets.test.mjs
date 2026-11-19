@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SHADER_DOCUMENT_EFFECTS } from './composed_effect_roster.mjs';
 import { departureLiteral, floatLiteral, generate, generatedSections, presetAssignments, topologySelections, updateHeader } from './generate_composed_presets.mjs';
-import { compileShaderDocument, declarationFromCatalogField } from './shader_workbench.mjs';
+import { PLANAR_SOURCE_OPERATOR, compileShaderDocument, declarationFromCatalogField } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 import { loadEffectIdentities } from './effect_roster.mjs';
 
@@ -179,6 +179,50 @@ test('composed topology cannot vary between presets', () => {
   assert.equal(compiled.status, 'VALID');
   assert.throws(() => generatedSections(compiled), /topology must be uniform: colorize.brightness-envelope/);
 });
+
+test('generated planar presets assign their selectors and every compiled family', () => {
+  const edited = structuredClone(document);
+  const sample = edited.descriptor.chain.find(slot => slot.label === 'sample');
+  sample.operator = PLANAR_SOURCE_OPERATOR;
+  const planar = {
+    id: sample.operator, input: 'plane', output: 'field',
+    params: [
+      { id: 'source', topology: true, blend: true, values: ['grid', 'spiral', 'twin-wave'], default: 'grid' },
+      { id: 'grid-pattern-freq', min: 0, max: 64, default: 1, curve: 'lerp' },
+      { id: 'spiral-arms', min: 0, max: 12, default: 3, curve: 'snap' },
+      { id: 'spiral-coordinate-system', topology: true, values: ['plane', 'equirectangular'], default: 'plane' },
+      { id: 'twin-wave-angle-speed', min: 0, max: 1, default: 0, curve: 'lerp' },
+    ],
+  };
+  const planarCatalog = { ...catalog, operators: [
+    ...catalog.operators.filter(operator => operator.id !== sample.operator), planar,
+  ] };
+  edited.descriptor.parameters = [
+    ...edited.descriptor.parameters.filter(({ id }) => !id.startsWith('sample.')),
+    ...planar.params.map(field => declarationFromCatalogField('sample', field, sample.operator)),
+  ];
+  edited.descriptor.serialization.fields = edited.descriptor.parameters.map(({ id }) => id);
+  for (const [index, preset] of edited.preset_bank.presets.entries()) {
+    preset.values = Object.fromEntries(Object.entries(preset.values).filter(([id]) => !id.startsWith('sample.')));
+    Object.assign(preset.values, {
+      'sample.source': index === 1 ? 'spiral' : 'grid',
+      'sample.grid-pattern-freq': 3 + index,
+      'sample.spiral-arms': index === 1 ? 6 : 4,
+      'sample.spiral-coordinate-system': index === 1 ? 'equirectangular' : 'plane',
+      'sample.twin-wave-angle-speed': 0.5,
+    });
+  }
+  const compiled = compileShaderDocument(edited, { catalog: planarCatalog });
+  assert.equal(compiled.status, 'VALID', JSON.stringify(compiled.diagnostics));
+  const { params } = generatedSections(compiled, undefined, { catalog: planarCatalog });
+  assert.match(params, /get<"source">\(\)\.source = Pullback::Source::PlanarKind::GRID;/);
+  assert.match(params, /get<"source">\(\)\.source = Pullback::Source::PlanarKind::SPIRAL;/);
+  assert.match(params, /get<"source_grid">\(\)\.pattern_freq = 4\.0f;/);
+  assert.match(params, /get<"source_spiral">\(\)\.arms = 6\.0f;/);
+  assert.match(params, /get<"source_spiral">\(\)\.coordinate_system = 1;/);
+  assert.doesNotMatch(params, /source_twin_wave/);
+});
+
 test('a mismatched document identity cannot rewrite its composed header', async (t) => {
   const root = await fixture(t);
   const path = join(root, 'patterns/alien_brain.shader.json');
@@ -292,7 +336,7 @@ test('operator bindings preserve authored resource keys and native member names'
 test('authored topology emits each runtime catalog choice as its stored selector', () => {
   let checked = 0;
   for (const operator of catalog.operators) {
-    if (operator.id === 'color.modulate.v1') continue;
+    if (['color.modulate.v1', PLANAR_SOURCE_OPERATOR].includes(operator.id)) continue;
     const authored = { descriptor: { chain: [{ label: 'node', operator: operator.id, resource_key: 'native' }] } };
     for (const field of operator.params.filter(field => field.topology)) {
       if (field.id === 'palette-mapping') continue;

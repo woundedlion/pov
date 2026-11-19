@@ -2,7 +2,11 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { exitAfterStderr, isMain } from './exit.mjs';
 import { resolve } from 'node:path';
-import { LIVE_TOPOLOGY_FIELD, compileShaderDocument, fixedDerivedBinding } from './shader_workbench.mjs';
+import {
+  LIVE_TOPOLOGY_FIELD, PLANAR_SOURCE_OPERATOR, compileShaderDocument, fixedDerivedBinding,
+  hasLiveComposedTopology, isUnusedPlanarParameter, planarSourceField, promotionDepartureDiagnostics,
+  promotionDiagnostics,
+} from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 import { loadEffectIdentities } from './effect_roster.mjs';
 
@@ -23,31 +27,8 @@ const MODULATION_ENUMS = {
   'pattern-noise-basis': ['noise.basis', 'Pattern::NoiseBasis'],
   'pattern-noise-variant': ['noise.variant', 'Pattern::NoiseVariant'],
 };
-const catalog = await loadOperatorCatalog();
+const engineCatalog = await loadOperatorCatalog();
 const identities = await loadEffectIdentities();
-
-const LIVE_SURFACE_OPERATORS = new Set(['sphere.displace.symmetric.v2', 'sphere.displace.rossby-haurwitz.v1', 'sphere.displace.ripple.v2', 'sphere.displace.potential.v1']);
-
-const liveTopology = (document, id) => {
-  const [label, field] = id.split('.');
-  const slot = document.descriptor.chain.find(slot => slot.label === label);
-  if (slot?.operator === 'sample.spiral.v3' && field === 'coordinate-system') return true;
-  return LIVE_SURFACE_OPERATORS.has(slot?.operator) &&
-    catalog.operators.find(operator => operator.id === slot.operator).params
-      .find(parameter => parameter.id === field)?.topology;
-};
-
-const authoredLiveTopology = (slot, field) => {
-  if (slot.operator === 'sample.spherical-noise.v1' || slot.operator === 'sample.spherical-cells.v1') return true;
-  if (slot.operator.startsWith('sample.')) return ['basis', 'weight-mode', 'coverage-mode'].includes(field);
-  if (slot.operator === 'warp.affine.v4') return field !== 'path-length';
-  return slot.operator !== 'sphere.rotate.v2';
-};
-
-const topologyIds = (document) => new Set(document.descriptor.chain.flatMap((slot) =>
-  catalog.operators.find((operator) => operator.id === slot.operator).params
-    .filter((field) => field.topology && field.id !== LIVE_TOPOLOGY_FIELD)
-    .map((field) => `${slot.label}.${field.id}`)));
 
 export function floatLiteral(value) {
   const rounded = Math.fround(value);
@@ -61,7 +42,11 @@ export function floatLiteral(value) {
   return `${/[.e]/.test(text) ? text : `${text}.0`}f`;
 }
 
-const groupFor = (slot, authoredTopology = false) => {
+const groupFor = (slot, authoredTopology = false, field) => {
+  if (slot.operator === PLANAR_SOURCE_OPERATOR) {
+    const familyField = field && planarSourceField(field);
+    return familyField ? `source_${familyField.family.replaceAll('-', '_')}` : 'source';
+  }
   if (slot.resource_key) return slot.resource_key;
   if (slot.operator === 'sphere.rotate.v2' && authoredTopology) return slot.label;
   if (slot.operator.startsWith('sample.')) return 'source';
@@ -76,7 +61,8 @@ const scalarMember = (slot, field, authoredTopology = false) => {
   if (slot.operator.startsWith('sample.')) {
     const sourceNames = { 'angle-speed': 'angle_rate', drift: 'secondary_rate',
       'noise-speed': 'noise_time_rate' };
-    return sourceNames[field] ?? field.replaceAll('-', '_');
+    const local = (slot.operator === PLANAR_SOURCE_OPERATOR ? planarSourceField(field)?.field : null) ?? field;
+    return sourceNames[local] ?? local.replaceAll('-', '_');
   }
   if (slot.operator.startsWith('project.'))
     return ({ 'projection-spin-speed': 'spin_rate', 'projection-wander': 'wander' })[field] ?? field.replaceAll('-', '_');
@@ -89,7 +75,7 @@ const scalarMember = (slot, field, authoredTopology = false) => {
 };
 
 /** @brief Catalog choices pinned by a concrete pipeline's policy types. */
-export function topologySelections(document, values) {
+export function topologySelections(document, values, catalog = engineCatalog) {
   const selections = new Map();
   for (const slot of document.descriptor.chain) {
     const operator = catalog.operators.find(operator => operator.id === slot.operator);
@@ -104,9 +90,9 @@ export function topologySelections(document, values) {
   return selections;
 }
 
-export function presetAssignments(document, values, { authoredTopology = false, authoredPalette = false } = {}) {
+export function presetAssignments(document, values,
+  { authoredTopology = false, authoredPalette = false, catalog = engineCatalog } = {}) {
   const assignments = new Map();
-  const topology = topologyIds(document);
   const slots = new Map(document.descriptor.chain.map(slot => [slot.label, slot]));
   for (const [id, value] of Object.entries(values)) {
     const [label, field] = id.split('.');
@@ -114,7 +100,8 @@ export function presetAssignments(document, values, { authoredTopology = false, 
     const definition = catalog.operators.find(operator => operator.id === slot?.operator)?.params
       .find(parameter => parameter.id === field);
     if (!slot || !definition) throw new Error(`Unmapped composed parameter: ${id}`);
-    const group = groupFor(slot, authoredTopology);
+    if (document.preset_bank && isUnusedPlanarParameter(document.descriptor, document.preset_bank.presets, id)) continue;
+    const group = groupFor(slot, authoredTopology, field);
     if (slot.operator === 'color.modulate.v1') {
       if (field === 'modulation-enabled') {
         if (!['disabled', 'enabled'].includes(value)) throw new Error(`Invalid modulation state: ${value}`);
@@ -138,10 +125,14 @@ export function presetAssignments(document, values, { authoredTopology = false, 
         continue;
       }
     }
-    if (topology.has(id)) {
+    if (slot.operator === PLANAR_SOURCE_OPERATOR && field === 'source') {
       if (!definition.values.includes(value)) throw new Error(`Invalid topology selector: ${id}`);
-      if (liveTopology(document, id) || (authoredTopology && authoredLiveTopology(slot, field)) ||
-        (authoredPalette && slot.operator.startsWith('colorize.'))) {
+      assignments.set(`${group}.source`, `Pullback::Source::PlanarKind::${value.replaceAll('-', '_').toUpperCase()}`);
+      continue;
+    }
+    if (definition.topology && field !== LIVE_TOPOLOGY_FIELD) {
+      if (!definition.values.includes(value)) throw new Error(`Invalid topology selector: ${id}`);
+      if (hasLiveComposedTopology(slot, field, catalog, { authoredTopology, authoredPalette })) {
         const member = field === 'brightness-envelope' ? 'brightness_envelope' : scalarMember(slot, field);
         const literal = field === 'brightness-envelope'
           ? `Pullback::Color::BrightnessEnvelope::${value.replaceAll('-', '_').toUpperCase()}`
@@ -175,50 +166,25 @@ export function presetAssignments(document, values, { authoredTopology = false, 
 const EASINGS = { LINEAR: 'math::ease_linear', EASE_IN_OUT_SIN: 'math::ease_in_out_sin' };
 
 /** The C++ departure of a preset: the document edge leaving it, or a snap. */
-export function departureLiteral(bank, presetId, policies) {
-  const edges = bank.edges.filter((edge) => edge.from === presetId);
-  if (edges.length === 0) {
-    if (bank.absent_edge_fallback.automatic !== 'SNAP')
-      throw new Error('Absent automatic edge must fall back to SNAP');
-    return 'Segue::Preset::Snap{}';
-  }
-  if (edges.length > 1) throw new Error(`Preset ${presetId} departs by several edges`);
-  const [edge] = edges;
-  const order = bank.choreography.generated_order;
-  const index = order.indexOf(presetId);
-  if (index < 0 || edge.to !== order[(index + 1) % order.length])
-    throw new Error(`Preset ${presetId} edge does not target its successor`);
-  if (policies.find(policy => policy.id === edge.path_policy)?.kind !== 'PARALLEL')
-    throw new Error(`Unmapped path policy kind: ${edge.path_policy}`);
-  const easing = EASINGS[edge.easing];
-  if (!easing) throw new Error(`Unmapped easing: ${edge.easing}`);
-  return `Segue::Preset::Lerp{${edge.duration}, ${easing}}`;
+export function departureLiteral(bank, presetId, policies = []) {
+  const [diagnostic] = promotionDepartureDiagnostics(bank, presetId, policies);
+  if (diagnostic) throw new Error(diagnostic.message);
+  const edge = bank.edges.find(candidate => candidate.from === presetId);
+  return edge ? `Segue::Preset::Lerp{${edge.duration}, ${EASINGS[edge.easing]}}` : 'Segue::Preset::Snap{}';
 }
 
-export function generatedSections(compiled, metadata, { authoredTopology = false, authoredPalette = false } = {}) {
+export function generatedSections(compiled, metadata,
+  { authoredTopology = false, authoredPalette = false, catalog = engineCatalog } = {}) {
   if (compiled.status !== 'VALID') throw new Error(JSON.stringify(compiled.diagnostics));
   const document = compiled.document;
   const bank = document.preset_bank;
   const order = bank.choreography.generated_order;
   const presets = order.map((id) => bank.presets.find((preset) => preset.preset_id === id));
-  if (!bank.choreography.dwell)
-    throw new Error('Composed documents must declare choreography.dwell');
+  const [diagnostic] = promotionDiagnostics(document, { catalog, authoredTopology, authoredPalette });
+  if (diagnostic) throw new Error(diagnostic.message);
   const dwell = order.map((id) => bank.choreography.dwell[id]);
-  if (!dwell.every((value) => value === dwell[0])) throw new Error('Composed dwell must be uniform');
   const camera = document.descriptor.chain.find(slot => slot.operator === 'sphere.rotate.v2');
   const spin = presets.map(preset => camera ? preset.values[`${camera.label}.spin-speed`] : undefined);
-  if (!authoredTopology && !spin.every((value) => value === spin[0])) throw new Error('Composed camera spin must be uniform');
-  for (const parameter of document.descriptor.parameters) {
-    const [label, field] = parameter.id.split('.');
-    const slot = document.descriptor.chain.find(slot => slot.label === label);
-    if (parameter.storage !== 'enum8' || field === LIVE_TOPOLOGY_FIELD ||
-      liveTopology(document, parameter.id) || slot.operator === 'color.modulate.v1' ||
-      (authoredTopology && authoredLiveTopology(slot, field)) ||
-      (authoredPalette && slot.operator.startsWith('colorize.'))) continue;
-    const values = presets.map((preset) => preset.values[parameter.id]);
-    if (!values.every((value) => value === values[0]))
-      throw new Error(`Composed topology must be uniform: ${parameter.id}`);
-  }
   metadata ??= identities.find(row => row.id === document.effect_id);
   if (!metadata) throw new Error(`Unregistered composed effect ID: ${document.effect_id}`);
   const resources = new Map();
@@ -259,7 +225,8 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
       `  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`,
     ]),
   ].join('\n');
-  const initial = presetAssignments(document, presets[0].values, { authoredTopology, authoredPalette });
+  const options = { authoredTopology, authoredPalette, catalog };
+  const initial = presetAssignments(document, presets[0].values, options);
   const assignment = ([member, literal]) => {
     const [key, ...path] = member.split('.');
     return `    value.template get<"${key}">().${path.join('.')} = ${literal};`;
@@ -284,7 +251,7 @@ export function generatedSections(compiled, metadata, { authoredTopology = false
     if (!uniform) params.push(`    Segue::Preset::Departure segue = ${departures[0]};`);
     for (let i = 1; i < presets.length; ++i) {
       params.push(`    if (index == ${i}) {`);
-      for (const entry of presetAssignments(document, presets[i].values, { authoredTopology, authoredPalette }))
+      for (const entry of presetAssignments(document, presets[i].values, options))
         if (initial.get(entry[0]) !== entry[1]) params.push(`  ${assignment(entry)}`);
       if (!uniform && departures[i] !== departures[0]) params.push(`      segue = ${departures[i]};`);
       params.push('    }');
@@ -338,7 +305,7 @@ export async function generate({ check = false, root = ROOT } = {}) {
     if (ids.has(id)) throw new Error(`Duplicate composed effect ID: ${id}`);
     ids.add(id);
     const input = await readFile(resolve(root, 'patterns', `${id.replaceAll('-', '_')}.shader.json`), 'utf8');
-    const compiled = compileShaderDocument(input, { catalog });
+    const compiled = compileShaderDocument(input, { catalog: engineCatalog });
     if (compiled.status !== 'VALID')
       throw new Error(`patterns/${id.replaceAll('-', '_')}.shader.json: ${JSON.stringify(compiled.diagnostics)}`);
     if (compiled.document.effect_id !== id)

@@ -7,6 +7,42 @@ import { sha256Hex } from './sha256.mjs';
 
 export const SHADER_DOCUMENT_SCHEMA_VERSION = 2;
 export const OPERATOR_CATALOG_VERSION = 2;
+export const PLANAR_SOURCE_OPERATOR = 'sample.planar.v1';
+
+const PLANAR_FAMILIES = ['projected-noise', 'tessellation', 'twin-wave', 'spiral', 'bands', 'grid'];
+
+/** Returns the declared family of a planar kind. */
+export function planarSourceFamily(kind) {
+  if (typeof kind !== 'string') return null;
+  return PLANAR_FAMILIES.find(family => kind === family || kind.startsWith(family + '-')) ?? null;
+}
+
+/** Resolves a namespaced planar field to its family and local field id. */
+export function planarSourceField(fieldId) {
+  const family = PLANAR_FAMILIES.find(prefix => fieldId.startsWith(prefix + '-'));
+  return family ? { family, field: fieldId.slice(family.length + 1) } : null;
+}
+
+/** Whether a catalog field is visible at the stored or evaluated values. */
+export function isCatalogFieldLive(slot, field, values) {
+  const value = id => values[`${slot.label}.${id}`];
+  const includes = (selected, choices) => selected && typeof selected === 'object'
+    ? (selected.mix < 1 && choices.includes(selected.from)) ||
+      (selected.mix > 0 && choices.includes(selected.to))
+    : choices.includes(selected);
+  return (!field.sources || includes(value('source'), field.sources)) &&
+    (!field.gated_by || includes(value(field.gated_by.field), field.gated_by.values));
+}
+
+/** Whether a planar field belongs to a family unused by the compiled bank. */
+export function isUnusedPlanarParameter(descriptor, presets, parameterId) {
+  const [label, fieldId] = parameterId.split('.');
+  const slot = descriptor?.chain?.find(entry => entry.label === label);
+  if (slot?.operator !== PLANAR_SOURCE_OPERATOR) return false;
+  const familyField = planarSourceField(fieldId);
+  return familyField !== null && presets.length > 0 && !presets.some(preset =>
+    planarSourceFamily(preset.values[`${label}.source`]) === familyField.family);
+}
 
 export const DEFAULT_LIMITS = Object.freeze({
   bytes: 1024 * 1024,
@@ -33,6 +69,7 @@ export function declarationFromCatalogField(label, field, operator) {
   }
   // Catalog curves are lowercase kebab; document interpolation kinds keep
   // their own uppercase vocabulary.
+  const fieldId = (operator === PLANAR_SOURCE_OPERATOR ? planarSourceField(field.id)?.field : null) ?? field.id;
   const minimum = Math.fround(field.min);
   const maximum = Math.fround(field.max);
   let periodic = null;
@@ -56,17 +93,17 @@ export function declarationFromCatalogField(label, field, operator) {
     classification: 'preset',
     storage: 'binary32',
     unit: periodic !== null ? periodic.unit
-      : (operator === 'sphere.lens.twist.v2' && field.id === 'twist-angle')
-        || ['orientation-polar', 'center-polar', 'axis-phi'].includes(field.id) ? 'radian'
-      : field.id === 'drift' && [
+      : (operator === 'sphere.lens.twist.v2' && fieldId === 'twist-angle')
+        || ['orientation-polar', 'center-polar', 'axis-phi'].includes(fieldId) ? 'radian'
+      : fieldId === 'drift' && [
         'sphere.displace.potential.v1', 'sphere.displace.rossby-haurwitz.v1', 'sphere.lens.twist.v2',
       ].includes(operator) ? 'radian-per-frame'
-      : operator === 'sphere.displace.ripple.v2' && field.id === 'period' ? 'frame'
-      : operator === 'sphere.displace.ripple.v2' && field.id === 'burst-rate' ? 'per-frame'
-      : field.id.endsWith('speed')
-        ? ((operator.startsWith('sample.') && ['speed', 'angle-speed'].includes(field.id))
-          || (operator === 'sphere.displace.symmetric.v2' && field.id === 'speed')
-          || field.id === 'projection-spin-speed' || field.id === 'spin-speed'
+      : operator === 'sphere.displace.ripple.v2' && fieldId === 'period' ? 'frame'
+      : operator === 'sphere.displace.ripple.v2' && fieldId === 'burst-rate' ? 'per-frame'
+      : fieldId.endsWith('speed')
+        ? ((operator.startsWith('sample.') && ['speed', 'angle-speed'].includes(fieldId))
+          || (operator === 'sphere.displace.symmetric.v2' && fieldId === 'speed')
+          || fieldId === 'projection-spin-speed' || fieldId === 'spin-speed'
           ? 'radian-per-frame' : 'turn-per-frame') : 'ratio',
     domain: { minimum, maximum },
     interpolation: periodic !== null
@@ -1244,14 +1281,14 @@ export function applyEasing(kind, progress) {
   return Math.fround((1 - Math.cos(Math.PI * t)) * 0.5);
 }
 
-export function interpolateValue(parameter, from, to, progress) {
+export function interpolateValue(parameter, from, to, progress, blend = false) {
   const a = validateStoredValue(parameter, from, `from.${parameter.id}`);
   const b = validateStoredValue(parameter, to, `to.${parameter.id}`);
   const t = Math.fround(progress);
   if (t <= 0) return a;
   if (t >= 1) return b;
   if (parameter.interpolation.kind === 'MIXED_ENUM')
-    return a === b ? a : { from: a, to: b, mix: t };
+    return blend && a !== b ? { from: a, to: b, mix: t } : a;
   switch (parameter.interpolation.kind) {
   case 'LINEAR':
     return Math.fround(a + Math.fround(Math.fround(b - a) * t));
@@ -1302,7 +1339,7 @@ export function interpolateNormalizedGroup(parameters, from, to, progress, epsil
     [parameter.id, Math.fround(values[index] / norm)]));
 }
 
-export function evaluateTransition(descriptor, bank, fromId, toId, evaluation) {
+export function evaluateTransition(descriptor, bank, fromId, toId, evaluation, catalog) {
   const edge = bank.edges.find((candidate) => candidate.from === fromId && candidate.to === toId);
   if (!edge)
     fail('transition', 'ABSENT_EDGE', '$.preset_bank.edges', `No transition edge exists from "${fromId}" to "${toId}".`);
@@ -1319,6 +1356,8 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation) {
   const policy = descriptor.path_policies.find((candidate) => candidate.id === edge.path_policy);
   if (!policy)
     fail('transition', 'UNKNOWN_EDGE_PATH', '$.descriptor.path_policies', 'A transition edge names a missing path policy.');
+  const operatorById = new Map(catalog?.operators.map(operator => [operator.id, operator]));
+  const slots = new Map(descriptor.chain.map(slot => [slot.label, slot]));
   const parameterGroups = new Map();
   for (const parameter of descriptor.parameters) {
     const group = parameter.interpolation.group ?? parameter.id;
@@ -1339,11 +1378,116 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation) {
     const progress = progressFor(group);
     if (parameters[0].interpolation.kind === 'NORMALIZED_LINEAR')
       Object.assign(values, interpolateNormalizedGroup(parameters, from, to, progress));
-    else
-      for (const parameter of parameters)
-        values[parameter.id] = interpolateValue(parameter, from[parameter.id], to[parameter.id], progress);
+    else {
+      for (const parameter of parameters) {
+        const [label, fieldId] = parameter.id.split('.');
+        const slot = slots.get(label);
+        const definition = operatorById.get(slot?.operator)?.params.find(field => field.id === fieldId);
+        const a = from[parameter.id];
+        const b = to[parameter.id];
+        let mix = progress;
+        if (definition && slot.operator === PLANAR_SOURCE_OPERATOR && raw > 0 && raw < 1) {
+          const liveFrom = isCatalogFieldLive(slot, definition, from);
+          const liveTo = isCatalogFieldLive(slot, definition, to);
+          if (liveFrom !== liveTo) mix = liveTo ? 1 : 0;
+        }
+        values[parameter.id] = interpolateValue(parameter, a, b, mix, definition?.blend === true);
+      }
+    }
   }
   return { evaluation, duration: edge.duration, raw_progress: raw, eased_progress: eased, values };
+}
+
+const LIVE_SURFACE_OPERATORS = new Set(['sphere.displace.symmetric.v2', 'sphere.displace.rossby-haurwitz.v1',
+  'sphere.displace.ripple.v2', 'sphere.displace.potential.v1']);
+
+/** Whether the compiled policy stores an enum instead of baking the choice. */
+export function hasLiveComposedTopology(slot, field, catalog, { authoredTopology = false, authoredPalette = false } = {}) {
+  if (field === LIVE_TOPOLOGY_FIELD || slot.operator === 'color.modulate.v1') return true;
+  if (slot.operator === PLANAR_SOURCE_OPERATOR)
+    return ['source', 'spiral-coordinate-system'].includes(field);
+  if (slot.operator === 'sample.spiral.v3' && field === 'coordinate-system') return true;
+  if (LIVE_SURFACE_OPERATORS.has(slot.operator) && catalog?.operators
+    .find(operator => operator.id === slot.operator)?.params
+    .some(parameter => parameter.id === field && parameter.topology)) return true;
+  if (authoredPalette && slot.operator.startsWith('colorize.')) return true;
+  if (!authoredTopology) return false;
+  if (['sample.spherical-noise.v1', 'sample.spherical-cells.v1'].includes(slot.operator)) return true;
+  if (slot.operator.startsWith('sample.')) return ['basis', 'weight-mode', 'coverage-mode'].includes(field);
+  if (slot.operator === 'warp.affine.v4') return field !== 'path-length';
+  return slot.operator !== 'sphere.rotate.v2';
+}
+
+/** Promotion issues on the automatic departure of a preset. */
+export function promotionDepartureDiagnostics(bank, presetId, policies) {
+  const edges = bank.edges.filter(edge => edge.from === presetId);
+  if (edges.length === 0 && bank.absent_edge_fallback.automatic !== 'SNAP')
+    return [{ code: 'ABSENT_AUTOMATIC_EDGE', preset_id: presetId, message: 'Absent automatic edge must fall back to SNAP' }];
+  const diagnostics = [];
+  if (edges.length > 1)
+    diagnostics.push({ code: 'MULTIPLE_DEPARTURES', preset_id: presetId, message: `Preset ${presetId} departs by several edges` });
+  const order = bank.choreography.generated_order;
+  const index = order.indexOf(presetId);
+  for (const edge of edges) {
+    const add = (code, message) => diagnostics.push({ code, message, from: edge.from, to: edge.to });
+    if (index < 0 || edge.to !== order[(index + 1) % order.length])
+      add('NON_SUCCESSOR_EDGE', `Preset ${presetId} edge does not target its successor`);
+    if (policies.find(policy => policy.id === edge.path_policy)?.kind !== 'PARALLEL')
+      add('NON_PARALLEL_PATH', `Unmapped path policy kind: ${edge.path_policy}`);
+    if (!EASING_KINDS.has(edge.easing))
+      add('UNMAPPED_EASING', `Unmapped easing: ${edge.easing}`);
+    if (edge.duration >= bank.choreography.dwell?.[presetId])
+      add('DEPARTURE_OUTLASTS_DWELL', `Preset ${presetId}'s departure must be shorter than its dwell`);
+  }
+  return diagnostics;
+}
+
+/** Issues that prevent a valid workbench document from becoming a composed effect. */
+export function promotionDiagnostics(document, { catalog, authoredTopology = false,
+  authoredPalette = false, latticeAllowsEdge } = {}) {
+  const { descriptor, preset_bank: bank } = document;
+  const diagnostics = [];
+  const dwell = Object.values(bank.choreography.dwell ?? {});
+  if (dwell.length === 0) {
+    diagnostics.push({ code: 'MISSING_DWELL', message: 'Composed documents must declare choreography.dwell' });
+  } else if (dwell.some(value => value !== dwell[0])) {
+    diagnostics.push({ code: 'NON_UNIFORM_DWELL', message: 'Composed dwell must be uniform' });
+  }
+  const presets = new Map(bank.presets.map(preset => [preset.preset_id, preset]));
+  const order = bank.choreography.generated_order;
+  const varies = id => order.some(presetId =>
+    presets.get(presetId).values[id] !== presets.get(order[0]).values[id]);
+  const camera = descriptor.chain.find(slot => slot.operator === 'sphere.rotate.v2');
+  if (camera && !authoredTopology && varies(`${camera.label}.spin-speed`))
+    diagnostics.push({ code: 'NON_UNIFORM_CAMERA_SPIN', parameter_id: `${camera.label}.spin-speed`,
+      message: 'Composed camera spin must be uniform' });
+  for (const parameter of descriptor.parameters) {
+    if (parameter.storage !== 'enum8' || !varies(parameter.id)) continue;
+    const [label, field] = parameter.id.split('.');
+    const slot = descriptor.chain.find(slot => slot.label === label);
+    if (!hasLiveComposedTopology(slot, field, catalog, { authoredTopology, authoredPalette }))
+      diagnostics.push({ code: 'NON_UNIFORM_TOPOLOGY', parameter_id: parameter.id,
+        message: `Composed topology must be uniform: ${parameter.id}` });
+  }
+  if (order.length > 1) {
+    for (const presetId of order)
+      diagnostics.push(...promotionDepartureDiagnostics(bank, presetId, descriptor.path_policies));
+  }
+  const planar = descriptor.chain.find(slot => slot.operator === PLANAR_SOURCE_OPERATOR);
+  if (planar && authoredTopology)
+    diagnostics.push({ code: 'AUTHORED_PLANAR_TOPOLOGY', parameter_id: `${planar.label}.source`,
+      message: 'Planar source morphs require a compiled source policy' });
+  if (planar && latticeAllowsEdge) {
+    const selector = `${planar.label}.source`;
+    for (const edge of bank.edges) {
+      const from = presets.get(edge.from);
+      const to = presets.get(edge.to);
+      if (from.values[selector] !== to.values[selector] && !latticeAllowsEdge(edge, from, to))
+        diagnostics.push({ code: 'INCOMPATIBLE_SOURCE_LATTICE', from: edge.from, to: edge.to,
+          message: 'Source kinds use different translation lattices' });
+    }
+  }
+  return diagnostics;
 }
 
 /** @param {string} value */
@@ -1369,6 +1513,15 @@ export function engineControlNames(parameterId, descriptor) {
   const field = parameterId.slice(dot + 1);
   const words = titleWords(field);
   const slot = descriptor?.chain?.find((entry) => entry.label === label);
+  if (slot?.operator === PLANAR_SOURCE_OPERATOR) {
+    if (field === 'source') return [];
+    const familyField = planarSourceField(field);
+    if (familyField) {
+      const key = `source_${familyField.family.replaceAll('-', '_')}`;
+      const name = familyField.field === 'angle-speed' ? 'Source Angle Speed' : titleWords(familyField.field);
+      return [`${key}.${familyField.field}`, `${key}.${name}`];
+    }
+  }
   if (slot?.operator === 'color.modulate.v1' &&
       /^(sine|interference|grid)-(frequency|speed)$/.test(field)) {
     const resource = slot.resource_key ?? label;
@@ -1429,6 +1582,14 @@ export function promotedControlNames(parameterId, descriptor, catalog = null) {
   const slot = descriptor?.chain?.find((entry) => entry.label === label);
   const operator = catalog?.operators?.find((entry) => entry.id === slot?.operator);
   const schema = operator?.params?.find((entry) => entry.id === field);
+  if (slot?.operator === PLANAR_SOURCE_OPERATOR) {
+    const names = engineControlNames(parameterId, descriptor);
+    if (field === 'source' || planarSourceField(field)) {
+      if (!schema?.name || names.length === 0) return names;
+      const key = names[0].slice(0, names[0].indexOf('.'));
+      return [...new Set([`${key}.${schema.name}`, ...names])];
+    }
+  }
   const key = slot?.resource_key ?? (slot?.operator?.startsWith('sample.') ? 'source'
     : slot?.operator?.startsWith('project.') ? 'projection'
       : slot?.operator?.startsWith('colorize.') ? 'color'

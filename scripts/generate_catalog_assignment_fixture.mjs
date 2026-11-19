@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { exitAfterStderr, isMain } from './exit.mjs';
 import { presetAssignments } from './generate_composed_presets.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
+import { PLANAR_SOURCE_OPERATOR } from './shader_workbench.mjs';
 
 const OUTPUT = new URL('../tests/composed_effect/generated_catalog_assignments.h', import.meta.url);
 const FAMILIES = {
@@ -53,10 +54,38 @@ const FAMILIES = {
   'color.modulate.v1': 'Pullback::Modulation::Params<Pattern::SourceKind::NOISE, Pattern::Evaluation::BAKED_CUBE, true>',
 };
 
+const PLANAR_FAMILIES = {
+  source_grid: 'GridSourceParams',
+  source_twin_wave: 'TwinWaveSourceParams',
+  source_bands: 'BandsSourceParams',
+  source_spiral: 'SpiralSourceParams',
+  source_tessellation: 'TessellationSourceParams',
+  source_projected_noise: 'ProjectedNoiseSourceParams',
+};
+
+function planarAssignments(operator, catalog) {
+  const document = { descriptor: { chain: [{ label: 'sample', operator: operator.id }] } };
+  const values = Object.fromEntries(operator.params.map(field => [`sample.${field.id}`, field.default]));
+  const selector = operator.params.find(field => field.id === 'source');
+  const choices = selector.values.map(source =>
+    presetAssignments(document, { 'sample.source': source }, { catalog }).get('source.source'));
+  const families = [
+    ['source', `Pullback::Source::PlanarSelectorParams<${choices.join(', ')}>`],
+    ...Object.entries(PLANAR_FAMILIES).map(([key, type]) => [key, `Pullback::Source::${type}`]),
+  ];
+  const declarations = families.map(([key, type]) => `  ${type} ${key};`);
+  const emit = ([member, literal]) => `  ${member} = ${literal};`;
+  return ['', `/** @brief Compiles catalog assignments for ${operator.id}. */`,
+    'inline void catalog_assignments_sample_planar_v1() {', ...declarations,
+    ...[...presetAssignments(document, values, { catalog })].map(emit),
+    ...choices.map(choice => emit(['source.source', choice])),
+    ...families.map(([key]) => `  (void)${key};`), '}'];
+}
+
 /** Emits non-template setters whose bodies typecheck every catalog assignment. */
 export function catalogAssignmentFixture(catalog) {
   const names = catalog.operators.map(operator => operator.id);
-  if (new Set(names).size !== names.length || names.some(id => !FAMILIES[id]) ||
+  if (new Set(names).size !== names.length || names.some(id => id !== PLANAR_SOURCE_OPERATOR && !FAMILIES[id]) ||
       Object.keys(FAMILIES).some(id => !names.includes(id)))
     throw new Error('The native assignment fixture and operator catalog differ');
   const lines = [
@@ -73,6 +102,10 @@ export function catalogAssignmentFixture(catalog) {
     '// clang-format off',
   ];
   for (const operator of catalog.operators) {
+    if (operator.id === PLANAR_SOURCE_OPERATOR) {
+      lines.push(...planarAssignments(operator, catalog));
+      continue;
+    }
     const document = { descriptor: { chain: [
       { label: 'authored', resource_key: 'native', operator: operator.id },
     ] } };
