@@ -9,7 +9,7 @@
 // Every roster effect except ShaderChain appears exactly once, in a show or
 // an exclude row. Expanded through phantasm_playlist_rows.h.
 
-show(RiverStones, 30)
+show(RiverStones)
 show(LiquidWindows, 30)
 show(Iridescence, 30)
 show(GridWarp, 30)
