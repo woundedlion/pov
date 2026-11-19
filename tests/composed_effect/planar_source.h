@@ -13,10 +13,99 @@
 
 namespace hs_test::composed_effect_tests {
 
+/** @brief Rebinds the grid sample to the planar selector. */
+template <typename Pipeline> struct PlanarMorphPipeline;
+
+template <typename B, typename Rotate, typename Displace, typename Project,
+          typename Sample, typename... Tail>
+struct PlanarMorphPipeline<
+    Pullback::Pipeline<B, Rotate, Displace, Project, Sample, Tail...>> {
+  using Type = Pullback::Pipeline<
+      B, Rotate, Displace, Project,
+      Pullback::Stage::Sample<
+          Pullback::Source::Planar<B, Pullback::Source::PlanarKind::GRID,
+                                   Pullback::Source::PlanarKind::SPIRAL,
+                                   Pullback::Source::PlanarKind::BANDS>,
+          typename Sample::WeightPolicy, typename Sample::CoveragePolicy>,
+      Tail...>;
+};
+
+/** @brief GridWarp pipeline with the planar source selector. */
+struct PlanarMorphSpec : GridWarpSpec {
+  /** @brief Pipeline for the planar selector probe.
+   * @tparam B Effect binding. */
+  template <typename B>
+  using Pipeline =
+      typename PlanarMorphPipeline<GridWarpSpec::Pipeline<B>>::Type;
+};
+
+/** @brief Test choreography with a grid, a spiral and bands. */
+class PlanarMorphProbe
+    : public Pullback::ComposedEffect<SMALL_W, SMALL_H, PlanarMorphProbe,
+                                      PlanarMorphSpec> {
+  using Base = Pullback::ComposedEffect<SMALL_W, SMALL_H, PlanarMorphProbe,
+                                        PlanarMorphSpec>;
+  using Product = GridWarp<SMALL_W, SMALL_H>;
+
+public:
+  using Params =
+      Pullback::ParamsFor<PlanarMorphSpec>; ///< Probe parameter block.
+  using Base::transition_admitted;
+
+  static constexpr auto EFFECT_ID = Product::EFFECT_ID; ///< Probe identity.
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 84;   ///< Hold between edges.
+  static constexpr std::array<std::string_view, 3> PRESET_IDS{
+      "grid", "spiral", "bands"}; ///< Probe preset IDs.
+
+  /** @brief Supplies the grid endpoint.
+   * @return Initial grid parameters. */
+  static constexpr Params initial_params() {
+    const auto grid = Product::initial_params();
+    Params params;
+    params.template get<"projection">() = grid.template get<"projection">();
+    params.template get<"displace">() = grid.template get<"displace">();
+    params.template get<"source_grid">() = grid.template get<"source">();
+    params.template get<"color">() = grid.template get<"color">();
+    params.template get<"modulate">() = grid.template get<"modulate">();
+    params.template get<"modulate1">() = grid.template get<"modulate1">();
+    return params;
+  }
+
+  /** @brief Returns a probe endpoint and its timed departure.
+   * @param index Probe preset index.
+   * @return The endpoint row. */
+  static constexpr PresetEntry<Params> preset(size_t index) {
+    using Pullback::Source::PlanarKind;
+    Params params = initial_params();
+    if (index == 1) {
+      params.template get<"source">().source = PlanarKind::SPIRAL;
+      params.template get<"source_spiral">().arms = 4.0f;
+      params.template get<"source_spiral">().pattern_freq = 3.4f;
+    } else if (index == 2) {
+      params.template get<"source">().source = PlanarKind::BANDS;
+      params.template get<"source_bands">().angle = 0.7f;
+      params.template get<"source_bands">().pattern_freq = 4.2f;
+    }
+    return {params, Segue::Preset::Lerp{52, math::ease_in_out_sin}};
+  }
+
+  /** @brief Binds the probe's choreography.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Base::choreography_hooks()
+        .template extend<
+            PlanarMorphProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &PlanarMorphProbe::initial_params>,
+            Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                                 &PlanarMorphProbe::preset>>();
+  }
+};
+
 /** @brief The first and last morph frames sample the live endpoints. */
-inline void test_grid_warp_source_morph() {
+inline void test_cross_kind_source_morph() {
   using namespace Pullback;
-  using FX = GridWarp<SMALL_W, SMALL_H>;
+  using FX = PlanarMorphProbe;
   using Selector = FX::Params::Family<"source">;
   using Planar =
       Source::Planar<FX::Binding, Source::PlanarKind::GRID,
@@ -110,7 +199,7 @@ inline void test_grid_warp_source_morph() {
 /** @brief Grid fields with different frequencies blend at eased column time. */
 inline void test_same_kind_source_morph() {
   using namespace Pullback;
-  using FX = GridWarp<SMALL_W, SMALL_H>;
+  using FX = PlanarMorphProbe;
   using Grid = Source::Grid<
       SourceProvider<FX::Binding, GridSourceParams, "source_grid">>;
   using Planar =
@@ -256,22 +345,14 @@ inline void test_hex_morph_table() {
   }
 }
 
-/** @brief Every GridWarp departure is admitted and fits its show slot. */
-inline void test_grid_warp_planar_admission() {
-  using FX = GridWarp<SMALL_W, SMALL_H>;
-  struct Probe : FX {
-    using FX::transition_admitted;
-  };
+/** @brief The planar selector admits its supported departures. */
+inline void test_planar_transition_admission() {
+  using FX = PlanarMorphProbe;
   constexpr size_t COUNT = FX::authored_preset_count();
-  size_t frames = 0;
-  for (size_t index = 0; index < COUNT; ++index) {
-    HS_EXPECT_TRUE(Probe::transition_admitted(
-        FX::test_preset_params(index),
-        FX::test_preset_params((index + 1) % COUNT)));
-    frames += FX::PRESET_DWELL_FRAMES +
-              Segue::Preset::frames(FX::preset_departure(index));
-  }
-  HS_EXPECT_TRUE(frames <= 30 * 16);
+  for (size_t index = 0; index < COUNT; ++index)
+    HS_EXPECT_TRUE(
+        FX::transition_admitted(FX::test_preset_params(index),
+                                FX::test_preset_params((index + 1) % COUNT)));
   auto invalid = FX::test_preset_params(0);
   invalid.template get<"source">().source =
       Pullback::Source::PlanarKind::TWIN_WAVE;

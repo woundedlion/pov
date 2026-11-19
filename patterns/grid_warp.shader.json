@@ -16,7 +16,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.planar.v1"
+        "operator": "sample.grid.v4"
       },
       {
         "label": "colorize",
@@ -1889,25 +1889,10 @@
         "classification": "preset",
         "default": 0,
         "domain": {
-          "maximum": 6.2831854820251465,
+          "maximum": 3,
           "minimum": 0
         },
-        "id": "sample.bands-angle",
-        "interpolation": {
-          "kind": "SHORTEST_PERIODIC",
-          "period": 6.2831854820251465
-        },
-        "storage": "binary32",
-        "unit": "radian"
-      },
-      {
-        "classification": "preset",
-        "default": 1,
-        "domain": {
-          "maximum": 64,
-          "minimum": 0.009999999776482582
-        },
-        "id": "sample.bands-pattern-freq",
+        "id": "sample.complexity",
         "interpolation": {
           "kind": "LINEAR"
         },
@@ -1949,26 +1934,12 @@
       },
       {
         "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 3,
-          "minimum": 0
-        },
-        "id": "sample.grid-complexity",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
         "default": 1,
         "domain": {
           "maximum": 64,
           "minimum": 0.009999999776482582
         },
-        "id": "sample.grid-pattern-freq",
+        "id": "sample.pattern-freq",
         "interpolation": {
           "kind": "LINEAR"
         },
@@ -1982,7 +1953,7 @@
           "maximum": 1,
           "minimum": 0
         },
-        "id": "sample.grid-pattern-mix",
+        "id": "sample.pattern-mix",
         "interpolation": {
           "kind": "LINEAR"
         },
@@ -1996,289 +1967,7 @@
           "maximum": 0.5,
           "minimum": 0
         },
-        "id": "sample.grid-speed",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "radian-per-frame"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 8,
-          "minimum": 0
-        },
-        "id": "sample.projected-noise-noise-contrast",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 1,
-        "domain": {
-          "maximum": 64,
-          "minimum": 0.015625
-        },
-        "id": "sample.projected-noise-noise-scale",
-        "interpolation": {
-          "kind": "LOG_POSITIVE"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 0.015625,
-          "minimum": -0.015625
-        },
-        "id": "sample.projected-noise-noise-speed",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "turn-per-frame"
-      },
-      {
-        "classification": "preset",
-        "default": "grid",
-        "domain": {
-          "values": [
-            "grid",
-            "twin-wave",
-            "bands",
-            "spiral",
-            "tessellation-triangular-cells",
-            "tessellation-triangular-edges",
-            "tessellation-square-cells",
-            "tessellation-square-edges",
-            "tessellation-hexagonal-cells",
-            "tessellation-hexagonal-edges",
-            "projected-noise-simplex",
-            "projected-noise-fbm3",
-            "projected-noise-ridged3"
-          ]
-        },
-        "id": "sample.source",
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "storage": "enum8",
-        "unit": "mode"
-      },
-      {
-        "classification": "preset",
-        "default": 3,
-        "domain": {
-          "maximum": 12,
-          "minimum": 0
-        },
-        "id": "sample.spiral-arms",
-        "interpolation": {
-          "kind": "SNAP"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 6.2831854820251465,
-          "minimum": 0
-        },
-        "id": "sample.spiral-center-azimuth",
-        "interpolation": {
-          "kind": "SHORTEST_PERIODIC",
-          "period": 6.2831854820251465
-        },
-        "storage": "binary32",
-        "unit": "radian"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 3.1415927410125732,
-          "minimum": 0
-        },
-        "id": "sample.spiral-center-polar",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "radian"
-      },
-      {
-        "classification": "preset",
-        "default": "plane",
-        "domain": {
-          "values": [
-            "plane",
-            "equirectangular"
-          ]
-        },
-        "id": "sample.spiral-coordinate-system",
-        "interpolation": {
-          "kind": "MIXED_ENUM"
-        },
-        "storage": "enum8",
-        "unit": "mode"
-      },
-      {
-        "classification": "preset",
-        "default": 1,
-        "domain": {
-          "maximum": 20,
-          "minimum": 0.10000000149011612
-        },
-        "id": "sample.spiral-pattern-freq",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0.25,
-        "domain": {
-          "maximum": 0.49000000953674316,
-          "minimum": 0.015625
-        },
-        "id": "sample.tessellation-cell-radius",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 1,
-        "domain": {
-          "maximum": 8,
-          "minimum": 0.015625
-        },
-        "id": "sample.tessellation-cell-scale",
-        "interpolation": {
-          "kind": "LOG_POSITIVE"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 1,
-          "minimum": 0
-        },
-        "id": "sample.tessellation-cell-shape",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0.05000000074505806,
-        "domain": {
-          "maximum": 1,
-          "minimum": 0.0009765625
-        },
-        "id": "sample.tessellation-cell-softness",
-        "interpolation": {
-          "kind": "LOG_POSITIVE"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0.019999999552965164,
-        "domain": {
-          "maximum": 0.25,
-          "minimum": 0.0009765625
-        },
-        "id": "sample.tessellation-line-softness",
-        "interpolation": {
-          "kind": "LOG_POSITIVE"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0.03999999910593033,
-        "domain": {
-          "maximum": 0.25,
-          "minimum": 0.0009765625
-        },
-        "id": "sample.tessellation-line-thickness",
-        "interpolation": {
-          "kind": "LOG_POSITIVE"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 0.05000000074505806,
-          "minimum": 0
-        },
-        "id": "sample.twin-wave-angle-speed",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "radian-per-frame"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 2,
-          "minimum": 0
-        },
-        "id": "sample.twin-wave-drift",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 1,
-        "domain": {
-          "maximum": 20,
-          "minimum": 0.10000000149011612
-        },
-        "id": "sample.twin-wave-pattern-freq",
-        "interpolation": {
-          "kind": "LINEAR"
-        },
-        "storage": "binary32",
-        "unit": "ratio"
-      },
-      {
-        "classification": "preset",
-        "default": 0,
-        "domain": {
-          "maximum": 0.5,
-          "minimum": 0
-        },
-        "id": "sample.twin-wave-speed",
+        "id": "sample.speed",
         "interpolation": {
           "kind": "LINEAR"
         },
@@ -2431,33 +2120,12 @@
         "project.central-meridian",
         "project.frame",
         "project.singularity-fade",
-        "sample.bands-angle",
-        "sample.bands-pattern-freq",
+        "sample.complexity",
         "sample.coverage-mode",
         "sample.edge-width",
-        "sample.grid-complexity",
-        "sample.grid-pattern-freq",
-        "sample.grid-pattern-mix",
-        "sample.grid-speed",
-        "sample.projected-noise-noise-contrast",
-        "sample.projected-noise-noise-scale",
-        "sample.projected-noise-noise-speed",
-        "sample.source",
-        "sample.spiral-arms",
-        "sample.spiral-center-azimuth",
-        "sample.spiral-center-polar",
-        "sample.spiral-coordinate-system",
-        "sample.spiral-pattern-freq",
-        "sample.tessellation-cell-radius",
-        "sample.tessellation-cell-scale",
-        "sample.tessellation-cell-shape",
-        "sample.tessellation-cell-softness",
-        "sample.tessellation-line-softness",
-        "sample.tessellation-line-thickness",
-        "sample.twin-wave-angle-speed",
-        "sample.twin-wave-drift",
-        "sample.twin-wave-pattern-freq",
-        "sample.twin-wave-speed",
+        "sample.pattern-freq",
+        "sample.pattern-mix",
+        "sample.speed",
         "sample.weight-mode"
       ],
       "schema_version": 1
@@ -2479,42 +2147,16 @@
     },
     "choreography": {
       "dwell": {
-        "grid-warp": 84,
-        "grid-warp-bands": 84,
-        "grid-warp-spiral": 84
+        "grid-warp": 600
       },
       "generated_order": [
-        "grid-warp",
-        "grid-warp-spiral",
-        "grid-warp-bands"
+        "grid-warp"
       ]
     },
-    "edges": [
-      {
-        "duration": 52,
-        "easing": "EASE_IN_OUT_SIN",
-        "from": "grid-warp-bands",
-        "path_policy": "parallel",
-        "to": "grid-warp"
-      },
-      {
-        "duration": 52,
-        "easing": "EASE_IN_OUT_SIN",
-        "from": "grid-warp-spiral",
-        "path_policy": "parallel",
-        "to": "grid-warp-bands"
-      },
-      {
-        "duration": 52,
-        "easing": "EASE_IN_OUT_SIN",
-        "from": "grid-warp",
-        "path_policy": "parallel",
-        "to": "grid-warp-spiral"
-      }
-    ],
+    "edges": [],
     "presets": [
       {
-        "display_name": "Coupled Grid",
+        "display_name": "Grid Warp",
         "preset_id": "grid-warp",
         "values": {
           "camera.spin-speed": 0,
@@ -2638,343 +2280,12 @@
           "project.central-meridian": 0,
           "project.frame": "identity",
           "project.singularity-fade": 20,
-          "sample.bands-angle": 0,
-          "sample.bands-pattern-freq": 1,
+          "sample.complexity": 0,
           "sample.coverage-mode": "weight",
           "sample.edge-width": 0.10000000149011612,
-          "sample.grid-complexity": 0,
-          "sample.grid-pattern-freq": 5.4360527992248535,
-          "sample.grid-pattern-mix": 0,
-          "sample.grid-speed": 0,
-          "sample.projected-noise-noise-contrast": 0,
-          "sample.projected-noise-noise-scale": 1,
-          "sample.projected-noise-noise-speed": 0,
-          "sample.source": "grid",
-          "sample.spiral-arms": 3,
-          "sample.spiral-center-azimuth": 0,
-          "sample.spiral-center-polar": 0,
-          "sample.spiral-coordinate-system": "plane",
-          "sample.spiral-pattern-freq": 1,
-          "sample.tessellation-cell-radius": 0.25,
-          "sample.tessellation-cell-scale": 1,
-          "sample.tessellation-cell-shape": 0,
-          "sample.tessellation-cell-softness": 0.05000000074505806,
-          "sample.tessellation-line-softness": 0.019999999552965164,
-          "sample.tessellation-line-thickness": 0.03999999910593033,
-          "sample.twin-wave-angle-speed": 0,
-          "sample.twin-wave-drift": 0,
-          "sample.twin-wave-pattern-freq": 1,
-          "sample.twin-wave-speed": 0,
-          "sample.weight-mode": "projection"
-        }
-      },
-      {
-        "display_name": "Band Drift",
-        "preset_id": "grid-warp-bands",
-        "values": {
-          "camera.spin-speed": 0,
-          "camera.wander": 0.41999998688697815,
-          "colorize.brightness-envelope": "none",
-          "colorize.mapping-frequency": 1.149999976158142,
-          "colorize.mapping-phase": -0.8500000238418579,
-          "colorize.palette-chroma": 1,
-          "colorize.palette-mapping": "linear",
-          "colorize.palette-mode": "analogous",
-          "colorize.palette-type": "cycling-generated",
-          "colorize.phase-oscillation-depth": 0,
-          "colorize.phase-oscillation-speed": 0,
-          "colorize.value-opacity-high": 1,
-          "colorize.value-opacity-low": 1,
-          "displace.drift": 0.047647058963775635,
-          "displace.integrator": "euler",
-          "displace.orientation-azimuth": 0,
-          "displace.orientation-polar": 0,
-          "displace.strength": 1.0163975954055786,
-          "displace.term-1-amplitude": 0.4000000059604645,
-          "displace.term-1-kind": "toroidal",
-          "displace.term-1-l": "eight",
-          "displace.term-1-m": "four",
-          "displace.term-1-phase": 0.942477822303772,
-          "displace.term-1-type": "mode",
-          "displace.term-2-amplitude": 0,
-          "displace.term-2-kind": "toroidal",
-          "displace.term-2-l": "one",
-          "displace.term-2-m": "zero",
-          "displace.term-2-phase": 0,
-          "displace.term-2-type": "mode",
-          "displace.term-3-amplitude": 0,
-          "displace.term-3-kind": "toroidal",
-          "displace.term-3-l": "one",
-          "displace.term-3-m": "zero",
-          "displace.term-3-phase": 0,
-          "displace.term-3-type": "mode",
-          "displace.term-4-amplitude": 0,
-          "displace.term-4-kind": "toroidal",
-          "displace.term-4-l": "one",
-          "displace.term-4-m": "zero",
-          "displace.term-4-phase": 0,
-          "displace.term-4-type": "mode",
-          "modulate.grid-axis-b-x": 1,
-          "modulate.grid-axis-b-y": 0,
-          "modulate.grid-axis-b-z": 0,
-          "modulate.grid-axis-x": 0,
-          "modulate.grid-axis-y": 1,
-          "modulate.grid-axis-z": 0,
-          "modulate.grid-frequency": 1,
-          "modulate.grid-frequency-b": 1,
-          "modulate.grid-offset": 0,
-          "modulate.grid-offset-b": 0,
-          "modulate.grid-speed": 0,
-          "modulate.interference-axis-b-x": 1,
-          "modulate.interference-axis-b-y": 0,
-          "modulate.interference-axis-b-z": 0,
-          "modulate.interference-axis-x": 0,
-          "modulate.interference-axis-y": 1,
-          "modulate.interference-axis-z": 0,
-          "modulate.interference-frequency": 1,
-          "modulate.interference-frequency-b": 1,
-          "modulate.interference-offset": 0,
-          "modulate.interference-offset-b": 0,
-          "modulate.interference-speed": 0,
-          "modulate.modulation-amount": 1.2941176891326904,
-          "modulate.modulation-enabled": "enabled",
-          "modulate.modulation-evaluation": "direct",
-          "modulate.modulation-mechanic": "hue-rotation",
-          "modulate.modulation-source": "displacement",
-          "modulate.pattern-contrast": 0,
-          "modulate.pattern-noise-basis": "simplex",
-          "modulate.pattern-noise-variant": "configured-single",
-          "modulate.pattern-scale": 3.608593702316284,
-          "modulate.pattern-speed": 0.00015882353181950748,
-          "modulate.sine-axis-x": 0,
-          "modulate.sine-axis-y": 30.682353973388672,
-          "modulate.sine-axis-z": 0,
-          "modulate.sine-frequency": 0.1882352977991104,
-          "modulate.sine-offset": 0,
-          "modulate.sine-speed": 0,
-          "modulate1.grid-axis-b-x": 1,
-          "modulate1.grid-axis-b-y": 0,
-          "modulate1.grid-axis-b-z": 0,
-          "modulate1.grid-axis-x": 0,
-          "modulate1.grid-axis-y": 1,
-          "modulate1.grid-axis-z": 0,
-          "modulate1.grid-frequency": 1,
-          "modulate1.grid-frequency-b": 1,
-          "modulate1.grid-offset": 0,
-          "modulate1.grid-offset-b": 0,
-          "modulate1.grid-speed": 0,
-          "modulate1.interference-axis-b-x": 1,
-          "modulate1.interference-axis-b-y": 0,
-          "modulate1.interference-axis-b-z": 0,
-          "modulate1.interference-axis-x": 0,
-          "modulate1.interference-axis-y": 1,
-          "modulate1.interference-axis-z": 0,
-          "modulate1.interference-frequency": 1,
-          "modulate1.interference-frequency-b": 1,
-          "modulate1.interference-offset": 0,
-          "modulate1.interference-offset-b": 0,
-          "modulate1.interference-speed": 0,
-          "modulate1.modulation-amount": 0.30588236451148987,
-          "modulate1.modulation-enabled": "enabled",
-          "modulate1.modulation-evaluation": "baked-cube",
-          "modulate1.modulation-mechanic": "hue-rotation",
-          "modulate1.modulation-source": "noise",
-          "modulate1.pattern-contrast": 0,
-          "modulate1.pattern-noise-basis": "simplex",
-          "modulate1.pattern-noise-variant": "configured-single",
-          "modulate1.pattern-scale": 1.6359834671020508,
-          "modulate1.pattern-speed": 0.0004294117970857769,
-          "modulate1.sine-axis-x": 0,
-          "modulate1.sine-axis-y": 1,
-          "modulate1.sine-axis-z": 0,
-          "modulate1.sine-frequency": 1,
-          "modulate1.sine-offset": 0,
-          "modulate1.sine-speed": 0,
-          "project.central-meridian": 0,
-          "project.frame": "identity",
-          "project.singularity-fade": 20,
-          "sample.bands-angle": 0.699999988079071,
-          "sample.bands-pattern-freq": 4.199999809265137,
-          "sample.coverage-mode": "weight",
-          "sample.edge-width": 0.10000000149011612,
-          "sample.grid-complexity": 0,
-          "sample.grid-pattern-freq": 5.4360527992248535,
-          "sample.grid-pattern-mix": 0,
-          "sample.grid-speed": 0,
-          "sample.projected-noise-noise-contrast": 0,
-          "sample.projected-noise-noise-scale": 1,
-          "sample.projected-noise-noise-speed": 0,
-          "sample.source": "bands",
-          "sample.spiral-arms": 3,
-          "sample.spiral-center-azimuth": 0,
-          "sample.spiral-center-polar": 0,
-          "sample.spiral-coordinate-system": "plane",
-          "sample.spiral-pattern-freq": 1,
-          "sample.tessellation-cell-radius": 0.25,
-          "sample.tessellation-cell-scale": 1,
-          "sample.tessellation-cell-shape": 0,
-          "sample.tessellation-cell-softness": 0.05000000074505806,
-          "sample.tessellation-line-softness": 0.019999999552965164,
-          "sample.tessellation-line-thickness": 0.03999999910593033,
-          "sample.twin-wave-angle-speed": 0,
-          "sample.twin-wave-drift": 0,
-          "sample.twin-wave-pattern-freq": 1,
-          "sample.twin-wave-speed": 0,
-          "sample.weight-mode": "projection"
-        }
-      },
-      {
-        "display_name": "Spiral Bloom",
-        "preset_id": "grid-warp-spiral",
-        "values": {
-          "camera.spin-speed": 0,
-          "camera.wander": 0.2199999988079071,
-          "colorize.brightness-envelope": "none",
-          "colorize.mapping-frequency": 1.350000023841858,
-          "colorize.mapping-phase": -0.7799999713897705,
-          "colorize.palette-chroma": 1,
-          "colorize.palette-mapping": "bell",
-          "colorize.palette-mode": "analogous",
-          "colorize.palette-type": "cycling-generated",
-          "colorize.phase-oscillation-depth": 0,
-          "colorize.phase-oscillation-speed": 0,
-          "colorize.value-opacity-high": 1,
-          "colorize.value-opacity-low": 1,
-          "displace.drift": 0.047647058963775635,
-          "displace.integrator": "euler",
-          "displace.orientation-azimuth": 0,
-          "displace.orientation-polar": 0,
-          "displace.strength": 1.0163975954055786,
-          "displace.term-1-amplitude": 0.4000000059604645,
-          "displace.term-1-kind": "toroidal",
-          "displace.term-1-l": "eight",
-          "displace.term-1-m": "four",
-          "displace.term-1-phase": 0.942477822303772,
-          "displace.term-1-type": "mode",
-          "displace.term-2-amplitude": 0,
-          "displace.term-2-kind": "toroidal",
-          "displace.term-2-l": "one",
-          "displace.term-2-m": "zero",
-          "displace.term-2-phase": 0,
-          "displace.term-2-type": "mode",
-          "displace.term-3-amplitude": 0,
-          "displace.term-3-kind": "toroidal",
-          "displace.term-3-l": "one",
-          "displace.term-3-m": "zero",
-          "displace.term-3-phase": 0,
-          "displace.term-3-type": "mode",
-          "displace.term-4-amplitude": 0,
-          "displace.term-4-kind": "toroidal",
-          "displace.term-4-l": "one",
-          "displace.term-4-m": "zero",
-          "displace.term-4-phase": 0,
-          "displace.term-4-type": "mode",
-          "modulate.grid-axis-b-x": 1,
-          "modulate.grid-axis-b-y": 0,
-          "modulate.grid-axis-b-z": 0,
-          "modulate.grid-axis-x": 0,
-          "modulate.grid-axis-y": 1,
-          "modulate.grid-axis-z": 0,
-          "modulate.grid-frequency": 1,
-          "modulate.grid-frequency-b": 1,
-          "modulate.grid-offset": 0,
-          "modulate.grid-offset-b": 0,
-          "modulate.grid-speed": 0,
-          "modulate.interference-axis-b-x": 1,
-          "modulate.interference-axis-b-y": 0,
-          "modulate.interference-axis-b-z": 0,
-          "modulate.interference-axis-x": 0,
-          "modulate.interference-axis-y": 1,
-          "modulate.interference-axis-z": 0,
-          "modulate.interference-frequency": 1,
-          "modulate.interference-frequency-b": 1,
-          "modulate.interference-offset": 0,
-          "modulate.interference-offset-b": 0,
-          "modulate.interference-speed": 0,
-          "modulate.modulation-amount": 1.2941176891326904,
-          "modulate.modulation-enabled": "enabled",
-          "modulate.modulation-evaluation": "direct",
-          "modulate.modulation-mechanic": "hue-rotation",
-          "modulate.modulation-source": "displacement",
-          "modulate.pattern-contrast": 0,
-          "modulate.pattern-noise-basis": "simplex",
-          "modulate.pattern-noise-variant": "configured-single",
-          "modulate.pattern-scale": 3.608593702316284,
-          "modulate.pattern-speed": 0.00015882353181950748,
-          "modulate.sine-axis-x": 0,
-          "modulate.sine-axis-y": 30.682353973388672,
-          "modulate.sine-axis-z": 0,
-          "modulate.sine-frequency": 0.1882352977991104,
-          "modulate.sine-offset": 0,
-          "modulate.sine-speed": 0,
-          "modulate1.grid-axis-b-x": 1,
-          "modulate1.grid-axis-b-y": 0,
-          "modulate1.grid-axis-b-z": 0,
-          "modulate1.grid-axis-x": 0,
-          "modulate1.grid-axis-y": 1,
-          "modulate1.grid-axis-z": 0,
-          "modulate1.grid-frequency": 1,
-          "modulate1.grid-frequency-b": 1,
-          "modulate1.grid-offset": 0,
-          "modulate1.grid-offset-b": 0,
-          "modulate1.grid-speed": 0,
-          "modulate1.interference-axis-b-x": 1,
-          "modulate1.interference-axis-b-y": 0,
-          "modulate1.interference-axis-b-z": 0,
-          "modulate1.interference-axis-x": 0,
-          "modulate1.interference-axis-y": 1,
-          "modulate1.interference-axis-z": 0,
-          "modulate1.interference-frequency": 1,
-          "modulate1.interference-frequency-b": 1,
-          "modulate1.interference-offset": 0,
-          "modulate1.interference-offset-b": 0,
-          "modulate1.interference-speed": 0,
-          "modulate1.modulation-amount": 0.30588236451148987,
-          "modulate1.modulation-enabled": "enabled",
-          "modulate1.modulation-evaluation": "baked-cube",
-          "modulate1.modulation-mechanic": "hue-rotation",
-          "modulate1.modulation-source": "noise",
-          "modulate1.pattern-contrast": 0,
-          "modulate1.pattern-noise-basis": "simplex",
-          "modulate1.pattern-noise-variant": "configured-single",
-          "modulate1.pattern-scale": 1.6359834671020508,
-          "modulate1.pattern-speed": 0.0004294117970857769,
-          "modulate1.sine-axis-x": 0,
-          "modulate1.sine-axis-y": 1,
-          "modulate1.sine-axis-z": 0,
-          "modulate1.sine-frequency": 1,
-          "modulate1.sine-offset": 0,
-          "modulate1.sine-speed": 0,
-          "project.central-meridian": 0,
-          "project.frame": "identity",
-          "project.singularity-fade": 20,
-          "sample.bands-angle": 0,
-          "sample.bands-pattern-freq": 1,
-          "sample.coverage-mode": "weight",
-          "sample.edge-width": 0.10000000149011612,
-          "sample.grid-complexity": 0,
-          "sample.grid-pattern-freq": 5.4360527992248535,
-          "sample.grid-pattern-mix": 0,
-          "sample.grid-speed": 0,
-          "sample.projected-noise-noise-contrast": 0,
-          "sample.projected-noise-noise-scale": 1,
-          "sample.projected-noise-noise-speed": 0,
-          "sample.source": "spiral",
-          "sample.spiral-arms": 4,
-          "sample.spiral-center-azimuth": 0,
-          "sample.spiral-center-polar": 0,
-          "sample.spiral-coordinate-system": "plane",
-          "sample.spiral-pattern-freq": 3.4000000953674316,
-          "sample.tessellation-cell-radius": 0.25,
-          "sample.tessellation-cell-scale": 1,
-          "sample.tessellation-cell-shape": 0,
-          "sample.tessellation-cell-softness": 0.05000000074505806,
-          "sample.tessellation-line-softness": 0.019999999552965164,
-          "sample.tessellation-line-thickness": 0.03999999910593033,
-          "sample.twin-wave-angle-speed": 0,
-          "sample.twin-wave-drift": 0,
-          "sample.twin-wave-pattern-freq": 1,
-          "sample.twin-wave-speed": 0,
+          "sample.pattern-freq": 5.4360527992248535,
+          "sample.pattern-mix": 0,
+          "sample.speed": 0,
           "sample.weight-mode": "projection"
         }
       }

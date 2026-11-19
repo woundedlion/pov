@@ -726,15 +726,14 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `cosmic-eyeball` | `CosmicEyeball` | 1 |
 | `mobius-grid` | `MobiusGrid` | 2 |
 | `involution` | `Involution` | 1 |
-| `grid-warp` | `GridWarp` | 3 |
+| `grid-warp` | `GridWarp` | 1 |
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
 | `river-stones` | `RiverStones` | 2 |
 
 These 24 effects form the product-only `shader-collection` group. The Phantasm
-playlist defines fixed show windows for single-preset effects, GridWarp and the 30-second River Stones opener.
-GridWarp cycles through Coupled Grid, Spiral Bloom and Band Drift with
-84-frame dwells and 52-frame source morphs inside its 30-second window.
+playlist defines fixed show windows for single-preset effects and the
+30-second River Stones opener.
 The remaining multi-preset effects derive their show windows from the full
 preset cycle with 600-frame dwells and 480-frame segues. Frame budgets convert
 to show seconds at the nominal 16 fps. A slower render cadence can leave a

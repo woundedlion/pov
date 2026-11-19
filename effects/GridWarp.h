@@ -8,7 +8,7 @@
 /**
  * @file GridWarp.h
  * @brief Composed pullback effect:
- *        a toroidal harmonic flow warping morphing planar sources.
+ *        a toroidal harmonic flow warping a wandering grid.
  */
 
 #include "core/platform/effect_identity.h"
@@ -25,7 +25,7 @@ struct GridWarpSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   /// Identity projection frame.
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
-  /** @brief Camera, potential flow, equirectangular sources, palette,
+  /** @brief Camera, potential flow, equirectangular grid, palette,
    *         displacement hue and noise hue.
    * @tparam B Effect binding. */
   template <typename B>
@@ -36,9 +36,8 @@ struct GridWarpSpec : Pullback::Spec {
       Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
           Pullback::ProjectionKind::EQUIRECTANGULAR, B>::Type>,
       Pullback::Stage::Sample<
-          Pullback::Source::Planar<B, Pullback::Source::PlanarKind::GRID,
-                                   Pullback::Source::PlanarKind::SPIRAL,
-                                   Pullback::Source::PlanarKind::BANDS>,
+          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
+                                             B>::Type,
           Pullback::Weight::Projection,
           typename Pullback::CoveragePolicyFor<
               Pullback::ProjectionCoverageMode::WEIGHT, B, void>::Type>,
@@ -75,23 +74,21 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "51a5622e3e77fc262d6fa2716f0d0a4280f9e7366b1037db549d3646c0217b79";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "8a7765bc89fabf2ab42b073f2acce89db7179304b862565fea14d8f59631a8bb";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "eb30c6e01c1ee106c5d7bef1cecb70794504c9970a7bcdfbfee57f743f3213d5";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "f3300511d875be224bd49886c699416faf11c696fa31d9ce8a6dc5d743c6e25e";
   /// Preset identities, indexed by preset number.
-  static constexpr std::array<std::string_view, 3> PRESET_IDS{
-      "grid-warp",
-      "grid-warp-spiral",
-      "grid-warp-bands"
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{
+      "grid-warp"
   };
   /// Frames each preset holds before advancing.
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 84;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   /// Outer camera spin about +Y, in radians per frame.
   static constexpr float CAMERA_SPIN_RATE = 0.0f;
   // clang-format on
   // End generated identity.
   /// Params layout version; snapshots tagged with another are rejected.
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 3;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 4;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -217,47 +214,11 @@ public:
     value.template get<"modulate1">().modulation.sine.speed = 0.0f;
     value.template get<"projection">().central_meridian = 0.0f;
     value.template get<"projection">().singularity_fade = 20.0f;
-    value.template get<"source_bands">().angle = 0.0f;
-    value.template get<"source_bands">().pattern_freq = 1.0f;
-    value.template get<"source_grid">().complexity = 0.0f;
-    value.template get<"source_grid">().pattern_freq = 5.436053f;
-    value.template get<"source_grid">().pattern_mix = 0.0f;
-    value.template get<"source_grid">().speed = 0.0f;
-    value.template get<"source">().source = Pullback::Source::PlanarKind::GRID;
-    value.template get<"source_spiral">().arms = 3.0f;
-    value.template get<"source_spiral">().center_azimuth = 0.0f;
-    value.template get<"source_spiral">().center_polar = 0.0f;
-    value.template get<"source_spiral">().coordinate_system = 0;
-    value.template get<"source_spiral">().pattern_freq = 1.0f;
+    value.template get<"source">().complexity = 0.0f;
+    value.template get<"source">().pattern_freq = 5.436053f;
+    value.template get<"source">().pattern_mix = 0.0f;
+    value.template get<"source">().speed = 0.0f;
     return value;
-  }
-
-  /**
-   * @brief The preset at index in PRESET_IDS and how it departs.
-   * @param index Preset number; an index past the last yields preset 0.
-   * @return The preset's parameters and departure segue.
-   */
-  HS_FLASH_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
-    Params value = initial_params();
-    if (index == 1) {
-      value.template get<"projection">().camera_wander = 0.22f;
-      value.template get<"color">().mapping_frequency = 1.35f;
-      value.template get<"color">().mapping_phase = -0.78f;
-      value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::BELL;
-      value.template get<"source">().source = Pullback::Source::PlanarKind::SPIRAL;
-      value.template get<"source_spiral">().arms = 4.0f;
-      value.template get<"source_spiral">().pattern_freq = 3.4f;
-    }
-    if (index == 2) {
-      value.template get<"projection">().camera_wander = 0.42f;
-      value.template get<"color">().mapping_frequency = 1.15f;
-      value.template get<"color">().mapping_phase = -0.85f;
-      value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
-      value.template get<"source_bands">().angle = 0.7f;
-      value.template get<"source_bands">().pattern_freq = 4.2f;
-      value.template get<"source">().source = Pullback::Source::PlanarKind::BANDS;
-    }
-    return {value, Segue::Preset::Lerp{52, math::ease_in_out_sin}};
   }
   // clang-format on
   // End generated params.
@@ -270,8 +231,6 @@ public:
         .template extend<
             GridWarp,
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
-                                 &GridWarp::initial_params>,
-            Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
-                                 &GridWarp::preset>>();
+                                 &GridWarp::initial_params>>();
   }
 };

@@ -1,4 +1,4 @@
-import { PLANAR_SOURCE_OPERATOR, evaluateTransition } from './shader_workbench.mjs';
+import { PLANAR_SOURCE_OPERATOR, declarationFromCatalogField, evaluateTransition } from './shader_workbench.mjs';
 
 const CAMERA_WALK_SEED = 1337;
 const DOCUMENT_CHANNEL_TOLERANCE = 2;
@@ -50,12 +50,38 @@ function checkLatticeBinding(bindings, require) {
   }
 }
 
-/** Drives an authored GridWarp edge and measures the two runtimes frame by frame. */
+/** Checks GridWarp preset identity and renders an edited ShaderChain transition. */
 export function verifyWasmPresetTransition(compiledModule, interpreterModule, compiled, catalog) {
   const { document, preset_bank_digest: bankDigest } = compiled;
-  const { descriptor, effect_id: effectId, preset_bank: bank } = document;
-  const [from, to] = bank.choreography.generated_order;
-  const edge = bank.edges.find(item => item.from === from && item.to === to);
+  const { descriptor: fixed, effect_id: effectId, preset_bank: authored } = document;
+  const [origin] = authored.presets;
+  const from = origin.preset_id;
+  const to = 'preview-spiral';
+  const sample = fixed.chain.find(slot => slot.operator === 'sample.grid.v4');
+  const prefix = sample.label + '.';
+  const sourceId = prefix + 'source';
+  const mappingId = 'colorize.palette-mapping';
+  const planar = catalog.operators.find(op => op.id === PLANAR_SOURCE_OPERATOR);
+  const parameters = planar.params.filter(field => field.id === 'source' ||
+    field.id.startsWith('grid-') || field.id.startsWith('spiral-'))
+    .map(field => declarationFromCatalogField(sample.label, field, planar.id));
+  const replaced = new Set(parameters.filter(({ id }) => id.startsWith(prefix + 'grid-'))
+    .map(({ id }) => prefix + id.slice(prefix.length + 5)));
+  const descriptor = { ...fixed,
+    chain: fixed.chain.map(slot => slot === sample ? { ...slot, operator: planar.id } : slot),
+    parameters: [...fixed.parameters.filter(({ id }) => !replaced.has(id)), ...parameters],
+  };
+  const values = Object.fromEntries(Object.entries(origin.values).filter(([id]) => !replaced.has(id)));
+  for (const { id, default: value } of parameters) {
+    const legacyId = prefix + id.slice(prefix.length + 5);
+    values[id] = id.startsWith(prefix + 'grid-') ? origin.values[legacyId] : value;
+  }
+  values[sourceId] = 'grid';
+  const target = { ...origin, preset_id: to, values: {
+    ...values, [sourceId]: 'spiral', [mappingId]: 'bell',
+  } };
+  const edge = { from, to, duration: 8, easing: 'EASE_IN_OUT_SIN', path_policy: 'parallel' };
+  const bank = { ...authored, presets: [{ ...origin, values }, target], edges: [edge] };
   const active = new compiledModule.HolosphereEngine();
   const interpreter = new interpreterModule.HolosphereEngine();
   let bindings;
@@ -73,27 +99,16 @@ export function verifyWasmPresetTransition(compiledModule, interpreterModule, co
     }
     require(active.getPresetBankDigestForEffect(effectId) === bankDigest &&
       active.getPresetBankDigest() === bankDigest, 'Wasm preset bank differs from the document');
-    require(JSON.stringify(active.getPresetIds()) === JSON.stringify(bank.choreography.generated_order),
-      'Wasm preset IDs differ from generated order');
-    require(!active.startPresetTransition(0, 2), 'Compiled effect accepted a non-successor edge');
-    require(edge && edge.duration > 1, 'The pilot needs a timed departure');
-    const cameraIndex = active.getParameterDefinitions().findIndex(({ name }) => name === 'Camera Wander');
-    require(cameraIndex >= 0, 'Compiled camera control unavailable');
+    require(JSON.stringify(active.getPresetIds()) === JSON.stringify(['grid-warp']) &&
+      authored.presets.length === 1 && authored.edges.length === 0,
+      'GridWarp must ship with one preset and no edges');
+    require(!active.startPresetTransition(0, 1), 'GridWarp accepted an extra preset');
 
     bindings = interpreter.getShaderChainBindings();
     require(bindings, 'ShaderChain bindings unavailable');
     checkLatticeBinding(interpreterModule.ShaderChainBindings, require);
     const program = descriptor.chain.map(({ label: instance, operator }) => ({ instance, operator }));
     require(bindings.setShaderChain(program).code === 'APPLIED', 'Could not install the authored chain');
-    const { values } = bank.presets.find(item => item.preset_id === from);
-    const source = descriptor.chain.find(slot => slot.operator === PLANAR_SOURCE_OPERATOR);
-    const target = bank.presets.find(item => item.preset_id === to);
-    const sourceId = source && `${source.label}.source`;
-    require(sourceId && values[sourceId] !== target.values[sourceId],
-      'The pilot departure must cross source kinds');
-    const mappingId = Object.keys(values).find(id => id.endsWith('.palette-mapping'));
-    require(mappingId && values[mappingId] !== target.values[mappingId],
-      'The pilot departure must cross palette mappings');
     require(bindings.setShaderChainParameters(transitionWrites(descriptor, values)) ===
       interpreterModule.ParamSetResult.APPLIED, 'Could not apply the chain origin');
 
@@ -109,11 +124,6 @@ export function verifyWasmPresetTransition(compiledModule, interpreterModule, co
     active.drawFrame();
     interpreter.drawFrame();
     const originDifference = peakChannelDifference(active.getPixels(), interpreter.getPixels());
-    require(active.startPresetTransition(0, 1), 'Could not arm the compiled departure');
-
-    let peak = originDifference, peakFrame = 0;
-    let firstMismatch = originDifference > DOCUMENT_CHANNEL_TOLERANCE ? 0 : null;
-    let peakCameraDifference = 0;
     for (let frame = 1; frame <= edge.duration; ++frame) {
       const sample = evaluateTransition(descriptor, bank, from, to, frame, catalog);
       require(sample.sourceMorph, `Chain source endpoints unavailable at frame ${frame}`);
@@ -121,16 +131,7 @@ export function verifyWasmPresetTransition(compiledModule, interpreterModule, co
         numericSourceMorph(descriptor, sample.sourceMorph)) ===
         interpreterModule.ParamSetResult.APPLIED, `Chain refused transition frame ${frame}`);
       require(!interpreter.getAnimationsPaused(), `Transition write paused animations at frame ${frame}`);
-      active.drawFrame();
       interpreter.drawFrame();
-      peakCameraDifference = Math.max(peakCameraDifference,
-        Math.abs(active.getParamValues()[cameraIndex] - sample.values['camera.wander']));
-      const difference = peakChannelDifference(active.getPixels(), interpreter.getPixels());
-      if (difference > peak) {
-        peak = difference;
-        peakFrame = frame;
-      }
-      if (firstMismatch === null && difference > DOCUMENT_CHANNEL_TOLERANCE) firstMismatch = frame;
     }
     interpreter.setTemporalSampling(false);
     const midpoint = evaluateTransition(descriptor, bank, from, to, Math.floor(edge.duration / 2), catalog).values;
@@ -151,8 +152,7 @@ export function verifyWasmPresetTransition(compiledModule, interpreterModule, co
         peakChannelDifference(blended, incoming) > DOCUMENT_CHANNEL_TOLERANCE,
         `${id} blend rendered as a held endpoint`);
     }
-    return { frames: edge.duration, peak, peakFrame, firstMismatch, peakCameraDifference,
-      tolerance: DOCUMENT_CHANNEL_TOLERANCE };
+    return { frames: edge.duration, originDifference };
   } finally {
     bindings?.delete();
     interpreter.delete();

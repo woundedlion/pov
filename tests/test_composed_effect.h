@@ -47,11 +47,11 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
   HS_RUN(test_promoted_document_pipelines);
-  HS_RUN(test_grid_warp_source_morph);
+  HS_RUN(test_cross_kind_source_morph);
   HS_RUN(test_same_kind_source_morph);
   HS_RUN(test_fixed_hex_source_morph);
   HS_RUN(test_hex_morph_table);
-  HS_RUN(test_grid_warp_planar_admission);
+  HS_RUN(test_planar_transition_admission);
   HS_RUN(test_grid_worms_twist_clocks);
   HS_RUN(test_grid_worms_document_pipeline);
   HS_RUN(test_ash_cloud_document_pipeline);
