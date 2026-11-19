@@ -87,6 +87,7 @@ run_hashes() {
   done
 }
 
+tools_dir="$(dirname "$(realpath "${BASH_SOURCE[0]//\\//}")")"
 scratch="$(mktemp -d)"
 lock="$dir.lock"
 token="${scratch##*/}"
@@ -94,7 +95,7 @@ locked=0
 
 release_base() {
   if [ "$locked" = 1 ]; then
-    "$python" "$root/tools/device_lock_guard.py" break "$lock" "$token" || return
+    "$python" "$tools_dir/device_lock_guard.py" break "$lock" "$token" || return
     locked=0
   fi
 }
@@ -111,7 +112,7 @@ trap 'exit 143' TERM
 claim_base() {
   local status=0
   printf 'token=%s\n' "$token" |
-    "$python" "$root/tools/device_lock_guard.py" claim "$lock" || status=$?
+    "$python" "$tools_dir/device_lock_guard.py" claim "$lock" || status=$?
   if [ "$status" = 0 ]; then
     locked=1
   elif [ "$status" = 1 ]; then
@@ -121,7 +122,7 @@ claim_base() {
 }
 
 # shellcheck source=tools/find_python.sh
-. "$root/tools/find_python.sh"
+. "$tools_dir/find_python.sh"
 python="$(hs_find_python)" || { echo "render_diff: Python is required" >&2; exit 3; }
 mkdir -p "$(dirname "$dir")"
 
