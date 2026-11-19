@@ -247,10 +247,16 @@ private:
   shade_column_time(Canvas &canvas, int c, bool near, bool far,
                     PrepareTime &prepare_time, Prepare &prepare) {
     auto &&state = prepare_time(c);
+    auto column_for = [&] {
+      if constexpr (requires { prepare(state); })
+        return prepare(state);
+      else
+        return [&](int x) { return prepare(state, x); };
+    }();
     for (int arm = 0; arm < 2; ++arm) {
       if (arm ? far : near) {
         const int x = c + arm * (W / 2);
-        shade_column<W, H>(canvas, x, prepare(state, x));
+        shade_column<W, H>(canvas, x, column_for(x));
       }
     }
   }
@@ -278,8 +284,8 @@ public:
    * @tparam H Canvas height.
    * @tparam PrepareTime Callable taking a first-arm column `c` and returning
    * state at `Spacetime::SamplingSurface<W>::time(c)`.
-   * @tparam Prepare Callable taking that state and an absolute column and
-   * returning its shader.
+   * @tparam Prepare Callable binding the state to a column shader factory, or
+   * taking the state and an absolute column to produce its shader.
    * @param canvas Destination canvas.
    * @param prepare_time Prepares the state columns `c` and `c + W / 2` share,
    * once for whichever of them the clip admits.

@@ -352,6 +352,7 @@ inline void test_shader_clip_arc_matches_predicate() {
       {"column times",
        [&](Canvas &c) {
          std::array<int, W / 2> prepared{};
+         std::array<int, W / 2> bound{};
          std::array<int, W> shaded{};
          Scan::Shader::draw_column_times<W, H>(
              c,
@@ -359,23 +360,28 @@ inline void test_shader_clip_arc_matches_predicate() {
                ++prepared[t];
                return t;
              },
-             [&](int t, int x) {
-               HS_EXPECT_EQ(t, x % (W / 2));
-               return [&, x, row = 0](const math::Vector &v) mutable {
-                 const auto expected = math::pixel_to_vector<W, H>(x, row++);
-                 HS_EXPECT_NEAR(v.x, expected.x, 1e-6f);
-                 HS_EXPECT_NEAR(v.y, expected.y, 1e-6f);
-                 HS_EXPECT_NEAR(v.z, expected.z, 1e-6f);
-                 ++shaded[x];
-                 return positional(v);
+             [&](int t) {
+               ++bound[t];
+               return [&, t](int x) {
+                 HS_EXPECT_EQ(t, x % (W / 2));
+                 return [&, x, row = 0](const math::Vector &v) mutable {
+                   const auto expected = math::pixel_to_vector<W, H>(x, row++);
+                   HS_EXPECT_NEAR(v.x, expected.x, 1e-6f);
+                   HS_EXPECT_NEAR(v.y, expected.y, 1e-6f);
+                   HS_EXPECT_NEAR(v.z, expected.z, 1e-6f);
+                   ++shaded[x];
+                   return positional(v);
+                 };
                };
              });
          const auto xc = c.clip().x_clip();
          for (int x = 0; x < W; ++x)
            HS_EXPECT_EQ(shaded[x], xc.clipped(x) ? 0 : H);
-         for (int t = 0; t < W / 2; ++t)
+         for (int t = 0; t < W / 2; ++t) {
            HS_EXPECT_EQ(prepared[t],
                         xc.clipped(t) && xc.clipped(t + W / 2) ? 0 : 1);
+           HS_EXPECT_EQ(bound[t], prepared[t]);
+         }
        }},
   };
 
