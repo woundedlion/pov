@@ -25,6 +25,10 @@ inline void test_sphere_bakes_match_reference() {
   static std::array<int8_t, Pattern::SphereLutView::SIZE> actual, reference;
 #if defined(HS_TEST_FAST_MATH)
   static std::array<float, Pattern::SphereLutView::SIZE> reference_samples;
+  // Asymmetric phases separate competing OpenSimplex2 axial neighbors.
+  constexpr std::array PHASES{13.0f / 97.0f, 47.0f / 97.0f, 71.0f / 97.0f};
+#else
+  constexpr std::array PHASES{0.0f, 0.25f, 0.625f};
 #endif
   const auto check_bake = [&] {
 #if defined(HS_TEST_FAST_MATH)
@@ -48,7 +52,7 @@ inline void test_sphere_bakes_match_reference() {
     if (variant == 3)
       noise.SetRotationType3D(FastNoiseLite::RotationType3D_ImproveXYPlanes);
     for (float scale : {0.0625f, 2.0f, 5.0f}) {
-      for (float phase : {0.0f, 0.25f, 0.625f}) {
+      for (float phase : PHASES) {
         const math::Vector offset = math::noise_sphere_loop_offset(phase);
         constexpr int N = Pattern::SphereLutView::FACE_STEPS;
         constexpr float HALF_STEP = 1.0f / (N - 1);
