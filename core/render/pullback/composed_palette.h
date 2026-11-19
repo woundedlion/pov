@@ -42,8 +42,7 @@ template <typename Traits> class ComposedPalette {
   static constexpr bool AUTHORED_PALETTE = Traits::AUTHORED_PALETTE;
   static constexpr bool HUE_ROTATION_LUT = Traits::HUE_ROTATION_LUT;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  static constexpr bool PALETTE_SOURCE_FADE =
-      AUTHORED_PALETTE && HS_ENABLE_PARAM_GUI_BRIDGE;
+  static constexpr bool PALETTE_SOURCE_FADE = AUTHORED_PALETTE;
 
   struct SourceFade {
     AuthoredPaletteResources target;
@@ -183,8 +182,7 @@ public:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
       if (!cycling(cycling_controls())) {
 #else
-      if (color->palette_type !=
-          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED)) {
+      if (!cycling(*color)) {
 #endif
         cycler.advance_without_display();
         return;
@@ -221,8 +219,7 @@ public:
     const BakedPalette &palette = selected_palette(storage);
     uint32_t palette_generation = cycler.bake_generation() << 1;
     if constexpr (AUTHORED_PALETTE)
-      if (color->palette_type !=
-          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED))
+      if (!cycling(*color))
         palette_generation =
             (storage.authored_palette.bake_generation() << 1) | 1U;
 #endif
@@ -247,8 +244,7 @@ public:
   template <typename Storage>
   const BakedPalette &selected_palette(Storage &storage) {
     if constexpr (AUTHORED_PALETTE) {
-      if (color->palette_type !=
-          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED))
+      if (!cycling(*color))
         return storage.authored_palette.prepare(persistent_arena, *color,
                                                 color->palette_chroma);
     }
@@ -256,13 +252,20 @@ public:
   }
 
 private:
-#if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Identifies the cycling palette source. */
   static bool cycling(const ColorFamily &controls) {
     return controls.palette_type ==
            static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED);
   }
 
+  /** @brief Resolves a palette mode to its generated harmony. */
+  HS_O3_FN HS_HOT_INLINE static PaletteHarmony harmony_for_mode(uint8_t mode) {
+    constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
+    HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
+    return HARMONIES[mode];
+  }
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Checks whether a discrete authored control changes the source. */
   static bool different_selections(const ColorFamily &from,
                                    const ColorFamily &to) {
@@ -378,13 +381,6 @@ private:
     return {&cycler.palette(), cycler.bake_generation() << TAG_BITS};
   }
 
-  /** @brief Resolves a palette mode to its generated harmony. */
-  HS_FLASH_MEMBER static PaletteHarmony harmony_for_mode(uint8_t mode) {
-    constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
-    HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
-    return HARMONIES[mode];
-  }
-
 #endif
 
   /** @brief Current generated-cycle harmony. @return Selected hue relationship. */
@@ -393,10 +389,7 @@ private:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
       return harmony_for_mode(cycling_controls().palette_mode);
 #else
-      constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
-      const auto mode = color->palette_mode;
-      HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
-      return HARMONIES[mode];
+      return harmony_for_mode(color->palette_mode);
 #endif
     } else
       return SpecT::HARMONY;
