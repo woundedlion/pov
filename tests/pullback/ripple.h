@@ -8,6 +8,7 @@
  */
 
 #include "core/render/pullback.h"
+#include "core/render/pullback/composed_policies.h"
 #include "core/render/pullback/composed_providers.h"
 #include "core/render/pullback/sphere_animation.h"
 #include "tests/pixel_test_util.h"

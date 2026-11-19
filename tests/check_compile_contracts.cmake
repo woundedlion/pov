@@ -100,10 +100,10 @@ elseif(GROUP STREQUAL "metadata")
   check_metadata("projection stage is required" -DHS_METADATA_MISSING_PROJECT)
   check_metadata("displacement modulation requires pipeline path tracking"
     -DHS_METADATA_UNTRACKED_DISPLACEMENT)
-  check_metadata("composed modulation presets must retain source and mechanic"
-    -DHS_METADATA_MODULATION_SOURCE_CHANGE)
-  check_metadata("composed modulation presets must retain source and mechanic"
-    -DHS_METADATA_MODULATION_MECHANIC_CHANGE)
+  set(modulation_refusal
+    "composed modulation preset exceeds its source or mechanic capability")
+  check_metadata("${modulation_refusal}" -DHS_METADATA_MODULATION_SOURCE_CHANGE)
+  check_metadata("${modulation_refusal}" -DHS_METADATA_MODULATION_MECHANIC_CHANGE)
   message(STATUS "composed metadata contracts passed")
 elseif(GROUP STREQUAL "ring-columns")
   hs_check_compile_fixture(${RING} ring_columns
