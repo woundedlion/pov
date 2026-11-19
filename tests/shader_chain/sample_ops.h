@@ -973,4 +973,248 @@ inline void test_shader_chain_spiral_zero_arms_rings() {
   HS_EXPECT_EQ(In::Op::SampleSpiralV3::prepare({}, params, {}).arms, 0.0f);
 }
 
+/** @brief Every planar source kind matches its legacy single-kind field. */
+inline void test_shader_chain_planar_legacy_endpoints() {
+  namespace Op = In::Op;
+  using Kind = PB::Source::PlanarKind;
+  using Planar = Op::SamplePlanar;
+  Planar::Params planar;
+  Planar::State state;
+  Planar::init(state,
+               {"sample", Planar::ID, In::instance_hash("sample", Planar::ID)});
+  const In::FrameContext ctx;
+  planar.grid.pattern_freq = 3.0f;
+  planar.twin_wave.speed = .25f;
+  planar.bands.angle = .75f;
+  planar.spiral.coordinate_system = 1;
+  planar.noise.noise_time_rate = .025f;
+  planar.noise.noise_contrast = .4f;
+  for (int frame = 0; frame < 5; ++frame)
+    Planar::advance(state, planar);
+
+  const auto compare = [&]<typename Legacy>(Kind kind,
+                                            const typename Legacy::Params &p,
+                                            const typename Legacy::State &old) {
+    planar.source = static_cast<uint8_t>(kind);
+    const auto a = Planar::prepare(ctx, planar, state);
+    const auto b = Legacy::prepare(ctx, p, old);
+    HS_EXPECT_EQ(a.count, 1u);
+    for (const math::Complex xy : {math::Complex{-.25f, .5f},
+                                   {.375f, .87f},
+                                   {-.92f, -.1f},
+                                   {.75f, -.6f}}) {
+      PB::PlaneSample input{xy, {}, math::UP, .3f};
+      input.provenance.value_weight = .75f;
+      const auto actual = Planar::run(input, ctx, planar, a);
+      const auto expected = Legacy::run(input, ctx, p, b);
+      HS_EXPECT_EQ(actual.value, expected.value);
+      HS_EXPECT_EQ(actual.coverage, expected.coverage);
+      HS_EXPECT_EQ(actual.path_length, expected.path_length);
+    }
+  };
+  Op::GridSampleParams grid;
+  static_cast<PB::Source::GridSourceParams &>(grid) = planar.grid;
+  compare.template operator()<Op::SampleGridV4>(Kind::GRID, grid, state.grid);
+  Op::TwinWaveSampleParams twin_wave;
+  static_cast<PB::Source::AuthoredTwinWaveSourceParams &>(twin_wave) =
+      planar.twin_wave;
+  compare.template operator()<Op::SampleTwinWaveV3>(Kind::TWIN_WAVE, twin_wave,
+                                                    state.twin_wave);
+  Op::BandsSampleParams bands;
+  static_cast<PB::Source::BandsSourceParams &>(bands) = planar.bands;
+  compare.template operator()<Op::SampleBands>(Kind::BANDS, bands, {});
+  Op::SpiralSampleParams spiral;
+  static_cast<PB::Source::SpiralSourceParams &>(spiral) = planar.spiral;
+  compare.template operator()<Op::SampleSpiralV3>(Kind::SPIRAL, spiral, {});
+  Op::TessellationSampleParams tessellation;
+  static_cast<PB::Source::TessellationSourceParams &>(tessellation) =
+      planar.tessellation;
+  uint8_t option = static_cast<uint8_t>(Kind::TESSELLATION_TRIANGULAR_CELLS);
+  for (uint8_t shape = 0; shape < 3; ++shape)
+    for (uint8_t fill = 0; fill < 2; ++fill) {
+      tessellation.kind = shape;
+      tessellation.fill = fill;
+      compare.template operator()<Op::SampleTessellation>(
+          static_cast<Kind>(option++), tessellation, {});
+    }
+
+  Op::ProjectedNoiseSampleParams noise;
+  static_cast<PB::Source::NoiseSourceParams &>(noise) = planar.noise;
+  Op::SampleProjectedNoise::State legacy_noise;
+  Op::SampleProjectedNoise::init(
+      legacy_noise,
+      {"sample", Op::SampleProjectedNoise::ID,
+       In::instance_hash("sample", Op::SampleProjectedNoise::ID)});
+  for (int frame = 0; frame < 5; ++frame)
+    Op::SampleProjectedNoise::advance(legacy_noise, noise);
+  HS_EXPECT_EQ(state.noise.noise_seed, legacy_noise.noise_seed);
+  for (uint8_t basis = 0; basis < 3; ++basis) {
+    noise.basis = basis;
+    compare.template operator()<Op::SampleProjectedNoise>(
+        static_cast<Kind>(option++), noise, legacy_noise);
+  }
+}
+
+/** @brief New and departing source fields use their live endpoint values. */
+inline void test_shader_chain_planar_column_weights_and_fields() {
+  namespace Op = In::Op;
+  using Kind = PB::Source::PlanarKind;
+  using Planar = Op::SamplePlanar;
+  constexpr uint8_t SPIRAL = static_cast<uint8_t>(Kind::SPIRAL);
+  constexpr uint8_t CELLS =
+      static_cast<uint8_t>(Kind::TESSELLATION_SQUARE_CELLS);
+  constexpr uint8_t EDGES =
+      static_cast<uint8_t>(Kind::TESSELLATION_SQUARE_EDGES);
+
+  const auto fixture = std::make_unique<ProgramFixture>();
+  const auto temporal = std::make_unique<TemporalBlocks>();
+  auto &program = fixture->program;
+  program.bind_temporal_storage(temporal->history, temporal->column);
+  const In::ChainEntryRequest CHAIN[] = {
+      {"project", Op::ProjectStereographic::ID},
+      {"sample", Planar::ID},
+      {"color", Op::ColorizeGeneratedPaletteV4::ID},
+  };
+  if (!expect_compiled(program.compile(CHAIN)))
+    return;
+  const auto ctx = shared_resources().context();
+  auto &current = param_as<Planar::Params>(program, 1);
+  current.source = SPIRAL;
+  current.spiral.arms = 3.0f;
+  current.spiral.coordinate_system = 1;
+  current.tessellation.cell_radius = .15f;
+  program.prepare(ctx);
+  program.capture_history();
+
+  const auto from = current;
+  current.set_enum_blend(In::EnumBlend{SPIRAL, CELLS, .4f});
+  current.tessellation.cell_radius = .4f;
+  HS_EXPECT_TRUE(program.history_continuous());
+  PB::PlaneSample input{{.375f, .87f}, {}, math::UP, 0.0f};
+  input.provenance.value_weight = 1.0f;
+  const auto &state = state_as<Planar::State>(program, 1);
+  const auto endpoint = [&](const auto &params) {
+    return Planar::run(input, ctx, params, Planar::prepare(ctx, params, state))
+        .value;
+  };
+  auto cells = current;
+  cells.source = CELLS;
+  cells.set_enum_blend(std::nullopt);
+  const auto evaluate_column = [&](const auto &a, const auto &b,
+                                   float fraction) {
+    alignas(Planar::Params) uint8_t column[sizeof(Planar::Params)];
+    program.ops()[1].op->runtime.sample_params(column, &a, &b, fraction);
+    return *std::launder(reinterpret_cast<const Planar::Params *>(column));
+  };
+  const auto first = evaluate_column(from, current, .5f);
+  HS_EXPECT_EQ(first.tessellation.cell_radius, .4f);
+  HS_EXPECT_EQ(first.weights().values[SPIRAL], .8f);
+  HS_EXPECT_EQ(first.weights().values[CELLS], .2f);
+  HS_EXPECT_EQ(Planar::prepare(ctx, first, state).count, 2u);
+  HS_EXPECT_NEAR(endpoint(first), .8f * endpoint(from) + .2f * endpoint(cells),
+                 1e-6f);
+
+  program.prepare(ctx);
+  program.capture_history();
+  const auto previous = current;
+  current = cells;
+  current.spiral.arms = 9.0f;
+  current.spiral.coordinate_system = 0;
+  HS_EXPECT_TRUE(program.history_continuous());
+  const auto last = evaluate_column(previous, current, .5f);
+  HS_EXPECT_EQ(last.spiral.arms, 3.0f);
+  HS_EXPECT_EQ(last.spiral.coordinate_system, 1u);
+  HS_EXPECT_NEAR(last.weights().values[SPIRAL], .3f, 1e-6f);
+  HS_EXPECT_NEAR(last.weights().values[CELLS], .7f, 1e-6f);
+
+  current.source = EDGES;
+  HS_EXPECT_FALSE(program.history_continuous());
+  auto fill_to = current;
+  fill_to.source = CELLS;
+  fill_to.set_enum_blend(In::EnumBlend{CELLS, EDGES, .5f});
+  fill_to.tessellation.cell_radius = .2f;
+  fill_to.tessellation.line_thickness = .125f;
+  const auto fill = evaluate_column(cells, fill_to, .5f);
+  HS_EXPECT_EQ(fill.tessellation.line_thickness, .125f);
+  HS_EXPECT_NEAR(fill.tessellation.cell_radius, .3f, 1e-6f);
+}
+
+/** @brief Planar preview admission checks translating and path-tracking affines. */
+inline void test_shader_chain_planar_lattice_admission() {
+  namespace Op = In::Op;
+  using Kind = PB::Source::PlanarKind;
+  Op::PlanarSampleParams from, to;
+  to.source = static_cast<uint8_t>(Kind::BANDS);
+  Op::AffineWarpParams affine;
+  affine.path_length = 0;
+  auto &bands = to.bands;
+  bands.pattern_freq = 2.0f;
+  HS_EXPECT_TRUE(Op::admits_planar_transition(from, to, affine, affine));
+  affine.path_length = 1;
+  HS_EXPECT_FALSE(Op::admits_planar_transition(from, to, affine, affine));
+  affine.path_length = 0;
+  affine.translation_x = 1.0f;
+  HS_EXPECT_FALSE(Op::admits_planar_transition(from, to, affine, affine));
+  bands.pattern_freq = 1.0f;
+  HS_EXPECT_TRUE(Op::admits_planar_transition(from, to, affine, affine));
+  bands.angle = math::PI_F / 2;
+  HS_EXPECT_FALSE(Op::admits_planar_transition(from, to, affine, affine));
+  to.source = static_cast<uint8_t>(Kind::SPIRAL);
+  affine.lattice_period = math::TWO_PI_F;
+  HS_EXPECT_TRUE(Op::admits_planar_transition(from, to, affine, affine));
+}
+
+/** @brief Non-pausing preview writes preserve clocks and normal writes snap. */
+inline void test_shader_chain_planar_preview_writes_and_clock_migration() {
+  namespace Op = In::Op;
+  using WB = ShaderChainWhiteBox;
+  using Kind = PB::Source::PlanarKind;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  effect.setAnimationsPaused(false);
+  auto &program = WB::program(effect);
+  auto &grid = state_as<Op::SourceClockState>(program, 2);
+  grid.primary = .875f;
+  const In::ChainEntryRequest CHAIN[] = {
+      {"camera", Op::Rotate::ID},
+      {"project", Op::ProjectStereographic::ID},
+      {"sample", Op::SamplePlanar::ID},
+      {"colorize", Op::ColorizeGeneratedPaletteV4::ID},
+  };
+  if (!expect_compiled(effect.set_chain(CHAIN)))
+    return;
+  const auto &planar = state_as<Op::PlanarSourceState>(program, 2);
+  HS_EXPECT_EQ(planar.grid.primary, .875f);
+  const auto capture = effect.snapshot();
+  HS_EXPECT_EQ(capture.schema_version, 6u);
+  HS_EXPECT_EQ(effect.restore_snapshot(capture),
+               ChainSnapshotRestoreResult::APPLIED);
+  HS_EXPECT_EQ(state_as<Op::PlanarSourceState>(program, 2).grid.primary, .875f);
+
+  constexpr uint8_t GRID = static_cast<uint8_t>(Kind::GRID);
+  constexpr uint8_t SPIRAL = static_cast<uint8_t>(Kind::SPIRAL);
+  const ShaderChainParameterWrite morph[]{
+      {"sample.source", 0, In::EnumBlend{GRID, SPIRAL, .5f}},
+      {"colorize.palette-mapping", 0, In::EnumBlend{0, 2, .25f}},
+  };
+  HS_EXPECT_EQ(effect.update_parameters(morph, true), ParamSetResult::APPLIED);
+  HS_EXPECT_FALSE(effect.animations_paused());
+  const auto &source = param_as<Op::PlanarSampleParams>(program, 2);
+  HS_EXPECT_EQ(source.weights().values[SPIRAL], .5f);
+  HS_EXPECT_EQ(WB::color_params(effect).mapping_blend.weights.values[2], .25f);
+
+  program.prepare(shared_resources().context());
+  program.capture_history();
+  const ShaderChainParameterWrite snap[]{
+      {"sample.source", static_cast<float>(Kind::BANDS)},
+  };
+  HS_EXPECT_EQ(effect.update_parameters(snap), ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(effect.animations_paused());
+  HS_EXPECT_FALSE(program.history_continuous());
+  HS_EXPECT_FALSE(source.source_blend.active);
+  HS_EXPECT_FALSE(WB::color_params(effect).mapping_blend.active);
+  HS_EXPECT_EQ(source.weights().exact, static_cast<uint8_t>(Kind::BANDS));
+}
+
 } // namespace hs_test::shader_chain_tests

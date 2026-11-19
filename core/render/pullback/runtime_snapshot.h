@@ -39,6 +39,12 @@ struct NoiseClockSnapshot {
   float phase = 0;        ///< Loop phase in [0, 1).
   int32_t noise_seed = 0; ///< Seed the noise field is rebuilt from.
 };
+/** @brief Captured phase clocks of all animated planar source families. */
+struct PlanarSourceClockSnapshot {
+  SourceClockSnapshot grid;      ///< Grid phase.
+  SourceClockSnapshot twin_wave; ///< Twin-wave phases.
+  NoiseClockSnapshot noise;      ///< Projected-noise phase and seed.
+};
 /** @brief Captured warp phase clock. */
 struct PhaseClockSnapshot {
   float phase = 0; ///< Loop phase in [0, 1).
@@ -73,7 +79,8 @@ using RuntimeSnapshot =
     std::variant<std::monostate, SpatialWalkSnapshot, SourceClockSnapshot,
                  NoiseClockSnapshot, PhaseClockSnapshot, RippleClockSnapshot,
                  AffineClockSnapshot, ColorClockSnapshot,
-                 ModulationClockSnapshot, ProbabilityClockSnapshot>;
+                 ModulationClockSnapshot, ProbabilityClockSnapshot,
+                 PlanarSourceClockSnapshot>;
 
 /**
  * @brief Versioned wire name of the snapshot's alternative.
@@ -90,7 +97,8 @@ inline const char *runtime_snapshot_kind(const RuntimeSnapshot &snapshot) {
                                    "affine-clock-v1",
                                    "color-clock-v3",
                                    "modulation-clock-v1",
-                                   "probability-clock-v1"};
+                                   "probability-clock-v1",
+                                   "planar-source-clock-v1"};
   static_assert(std::size(KINDS) == std::variant_size_v<RuntimeSnapshot>);
   return KINDS[snapshot.index()];
 }

@@ -32,6 +32,7 @@ template <typename Owner> struct TopologyField {
   const char *const *value_ids; /**< Kebab-case value spellings. */
   uint8_t value_count;          /**< Entries in `value_ids`. */
   uint8_t def;                  /**< Default value index. */
+  bool blend;                   /**< Whether this selector blends at preview. */
 
   /**
    * @brief Binds an enum8 member to its value spellings.
@@ -40,11 +41,14 @@ template <typename Owner> struct TopologyField {
    * @param member The enum8 member of @p Owner.
    * @param value_ids Kebab-case value spellings, one per value.
    * @param def Default value index.
+   * @param blend Whether this selector blends at preview.
    */
   template <size_t N>
   constexpr TopologyField(const char *id, uint8_t Owner::*member,
-                          const char *const (&value_ids)[N], uint8_t def)
-      : id(id), member(member), value_ids(value_ids), value_count(N), def(def) {
+                          const char *const (&value_ids)[N], uint8_t def,
+                          bool blend = false)
+      : id(id), member(member), value_ids(value_ids), value_count(N), def(def),
+        blend(blend) {
     static_assert(N > 0 && N <= UINT8_MAX);
   }
 
@@ -55,7 +59,7 @@ template <typename Owner> struct TopologyField {
     requires std::is_convertible_v<uint8_t Base::*, uint8_t Owner::*>
   constexpr explicit TopologyField(const TopologyField<Base> &field)
       : id(field.id), member(field.member), value_ids(field.value_ids),
-        value_count(field.value_count), def(field.def) {}
+        value_count(field.value_count), def(field.def), blend(field.blend) {}
 };
 
 /** @brief Interpolation curves shared with described controls. */
@@ -80,6 +84,8 @@ struct ParamFieldInfo {
       reads it. */
   const char *gated_by;
   uint16_t gate_values; /**< Bit per live gating value index. */
+  bool blend = false;   /**< Whether the enum blends in preview. */
+  uint16_t sources = 0; /**< Bit per planar source kind using the field. */
 };
 
 /** @brief When a field's slider is registered. */

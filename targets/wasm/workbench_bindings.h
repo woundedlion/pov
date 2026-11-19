@@ -255,44 +255,70 @@ public:
    */
   ParamSetResult
   setShaderChainParameters(const ParameterWritesValue &caller_entries) {
-    const PayloadDecodeGuard decode_guard(&decoding);
-    if (!isValid())
-      return ParamSetResult::NO_EFFECT;
-    const emscripten::val entries = clone_payload(caller_entries);
-    if (!isValid())
-      return ParamSetResult::NO_EFFECT;
-    if (!hs_wasm::is_js_array(entries))
-      return ParamSetResult::MALFORMED_PAYLOAD;
-    const size_t count = entries["length"].as<size_t>();
-    if (count > Pullback::Interp::MAX_CHAIN_PARAMS)
-      return ParamSetResult::TOO_LONG;
-    std::vector<std::string> names(count);
-    std::vector<float> values(count);
+    return set_parameters(caller_entries, false);
+  }
+
+  /** @brief Applies a frame of preview values with animation still running.
+   * @param caller_entries Named writes with numeric values or explicit blends.
+   * @return APPLIED or the first refusal, with no partial writes. */
+  ParamSetResult setShaderChainTransitionParameters(
+      const TransitionParameterWritesValue &caller_entries) {
+    return set_parameters(caller_entries, true);
+  }
+
+  /** @brief Checks effective float32 source lattices for a preset edge.
+   * @param caller_program Ordered entries of the authored chain.
+   * @param caller_from Outgoing preset parameters by qualified name.
+   * @param caller_to Incoming preset parameters by qualified name.
+   * @return True when the edge is compatible with every upstream affine. */
+  static bool
+  admitsPlanarSourceTransition(const ChainEntriesValue &caller_program,
+                               const TransitionEndpointValue &caller_from,
+                               const TransitionEndpointValue &caller_to) {
+    const PayloadDecodeGuard decode_guard;
+    const auto program = clone_payload(caller_program);
+    const auto from = clone_payload(caller_from);
+    const auto to = clone_payload(caller_to);
+    if (!hs_wasm::is_js_array(program) || !object_value(from) ||
+        !object_value(to))
+      return false;
+    const size_t count = program["length"].as<size_t>();
+    if (count > Pullback::Interp::MAX_CHAIN_OPS)
+      return false;
+    namespace Op = Pullback::Interp::Op;
+    std::vector<std::string> affines;
     for (size_t index = 0; index < count; ++index) {
-      const emscripten::val entry = entries[index];
-      if (entry.isNull() || entry.isUndefined())
-        return ParamSetResult::MALFORMED_PAYLOAD;
-      const emscripten::val name = entry["name"];
-      const emscripten::val value = entry["value"];
-      if (!name.isString())
-        return ParamSetResult::MALFORMED_PAYLOAD;
-      if (!value.isNumber())
-        return ParamSetResult::MALFORMED_PAYLOAD;
-      names[index] = name.as<std::string>();
-      if (names[index].find('\0') != std::string::npos)
-        return ParamSetResult::UNKNOWN_PARAM;
-      values[index] = value.as<float>();
+      const auto entry = program[index];
+      if (!object_value(entry) || !entry["instance"].isString() ||
+          !entry["operator"].isString())
+        return false;
+      const std::string instance = entry["instance"].as<std::string>();
+      const std::string op = entry["operator"].as<std::string>();
+      if (!Pullback::Interp::instance_id_wellformed(instance))
+        return false;
+      if (op == Op::WarpAffineV4::ID) {
+        affines.push_back(instance);
+        continue;
+      }
+      if (op != Op::SamplePlanar::ID)
+        continue;
+      Op::PlanarSampleParams source_from, source_to;
+      if (!read_endpoint<Op::SamplePlanar>(from, instance, source_from) ||
+          !read_endpoint<Op::SamplePlanar>(to, instance, source_to))
+        return false;
+      if (source_from.source == source_to.source)
+        continue;
+      for (const std::string &affine : affines) {
+        Op::AffineWarpParams affine_from, affine_to;
+        if (!read_endpoint<Op::WarpAffineV4>(from, affine, affine_from) ||
+            !read_endpoint<Op::WarpAffineV4>(to, affine, affine_to))
+          return false;
+        if (!Op::admits_planar_transition(source_from, source_to, affine_from,
+                                          affine_to))
+          return false;
+      }
     }
-    std::vector<ShaderChainParameterWrite> writes(count);
-    for (size_t index = 0; index < count; ++index)
-      writes[index] = {names[index].c_str(), values[index]};
-    ParamSetResult result = ParamSetResult::NO_EFFECT;
-    with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
-      result = chain.update_parameters(writes);
-    });
-    if (result == ParamSetResult::APPLIED)
-      state->paused = state->effect->animations_paused();
-    return result;
+    return true;
   }
 
   /**
@@ -346,6 +372,100 @@ public:
   }
 
 private:
+  static bool object_value(const emscripten::val &value) {
+    return !value.isNull() && !value.isUndefined() &&
+           value.typeOf().as<std::string>() == "object";
+  }
+
+  template <typename Model>
+  static bool read_endpoint(const emscripten::val &values,
+                            const std::string &instance,
+                            typename Model::Params &params) {
+    using namespace Pullback::Interp;
+    for (uint16_t field = 0; field < SCHEMA<Model>.size(); ++field) {
+      const auto &info = SCHEMA<Model>[field];
+      const emscripten::val value = values[instance + "." + info.id];
+      if (value.isUndefined())
+        continue;
+      if (!value.isNumber())
+        return false;
+      const double number = value.as<double>();
+      if (!std::isfinite(number))
+        return false;
+      void *address =
+          Detail::ErasedAdapter<Model>::param_address(&params, field);
+      if (info.enum_count != 0) {
+        if (number < 0.0 || number >= info.enum_count ||
+            number != std::floor(number))
+          return false;
+        *static_cast<uint8_t *>(address) = static_cast<uint8_t>(number);
+      } else {
+        const float scalar = static_cast<float>(number);
+        if (!(scalar >= info.min && scalar <= info.max))
+          return false;
+        *static_cast<float *>(address) = scalar;
+      }
+    }
+    return true;
+  }
+
+  ParamSetResult set_parameters(const emscripten::val &caller_entries,
+                                bool preview) {
+    const PayloadDecodeGuard decode_guard(&decoding);
+    if (!isValid())
+      return ParamSetResult::NO_EFFECT;
+    const emscripten::val entries = clone_payload(caller_entries);
+    if (!isValid())
+      return ParamSetResult::NO_EFFECT;
+    if (!hs_wasm::is_js_array(entries))
+      return ParamSetResult::MALFORMED_PAYLOAD;
+    const size_t count = entries["length"].as<size_t>();
+    if (count > Pullback::Interp::MAX_CHAIN_PARAMS)
+      return ParamSetResult::TOO_LONG;
+    std::vector<std::string> names(count);
+    std::vector<ShaderChainParameterWrite> writes(count);
+    for (size_t index = 0; index < count; ++index) {
+      const emscripten::val entry = entries[index];
+      if (entry.isNull() || entry.isUndefined())
+        return ParamSetResult::MALFORMED_PAYLOAD;
+      const emscripten::val name = entry["name"];
+      const emscripten::val value = entry["value"];
+      if (!name.isString())
+        return ParamSetResult::MALFORMED_PAYLOAD;
+      names[index] = name.as<std::string>();
+      if (names[index].find('\0') != std::string::npos)
+        return ParamSetResult::UNKNOWN_PARAM;
+      auto &write = writes[index];
+      write.name = names[index].c_str();
+      if (value.isNumber()) {
+        write.value = value.as<float>();
+      } else {
+        if (!preview || !object_value(value) || !value["from"].isNumber() ||
+            !value["to"].isNumber() || !value["mix"].isNumber())
+          return ParamSetResult::MALFORMED_PAYLOAD;
+        const double from = value["from"].as<double>();
+        const double to = value["to"].as<double>();
+        const double mix = value["mix"].as<double>();
+        if (!std::isfinite(from) || !std::isfinite(to) || !std::isfinite(mix))
+          return ParamSetResult::NON_FINITE;
+        if (from < 0.0 || to < 0.0 || from > UINT8_MAX || to > UINT8_MAX ||
+            from != std::floor(from) || to != std::floor(to) || mix < 0.0 ||
+            mix > 1.0)
+          return ParamSetResult::INADMISSIBLE;
+        write.blend = Pullback::Interp::EnumBlend{static_cast<uint8_t>(from),
+                                                  static_cast<uint8_t>(to),
+                                                  static_cast<float>(mix)};
+      }
+    }
+    ParamSetResult result = ParamSetResult::NO_EFFECT;
+    with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
+      result = chain.update_parameters(writes, preview);
+    });
+    if (result == ParamSetResult::APPLIED)
+      state->paused = state->effect->animations_paused();
+    return result;
+  }
+
   bool decoding = false;
   /** @brief Builds the JavaScript result for a chain operation.
    * @param code Engine operation status.
@@ -404,6 +524,10 @@ static void bind_workbench_adapters() {
       .function("setShaderChain", &ShaderChainBindings::setShaderChain)
       .function("setShaderChainParameters",
                 &ShaderChainBindings::setShaderChainParameters)
+      .function("setShaderChainTransitionParameters",
+                &ShaderChainBindings::setShaderChainTransitionParameters)
+      .class_function("admitsPlanarSourceTransition",
+                      &ShaderChainBindings::admitsPlanarSourceTransition)
       .function("getShaderChainParameterRanges",
                 &ShaderChainBindings::getShaderChainParameterRanges)
       .function("getProgram", &ShaderChainBindings::getProgram)

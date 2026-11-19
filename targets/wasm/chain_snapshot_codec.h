@@ -256,6 +256,11 @@ class ChainSnapshotCodec {
           } else if constexpr (std::is_same_v<State, NoiseClockSnapshot>) {
             out.set("phase", state.phase);
             out.set("noiseSeed", state.noise_seed);
+          } else if constexpr (std::is_same_v<State,
+                                              PlanarSourceClockSnapshot>) {
+            out.set("grid", runtime_state(state.grid));
+            out.set("twinWave", runtime_state(state.twin_wave));
+            out.set("projectedNoise", runtime_state(state.noise));
           } else if constexpr (std::is_same_v<State, AffineClockSnapshot>) {
             out.set("phase", state.phase);
             out.set("rotation", state.rotation);
@@ -323,6 +328,17 @@ class ChainSnapshotCodec {
           !integer(value, "noiseSeed", state.noise_seed))
         return false;
       out = state;
+    } else if (is_runtime_kind<PlanarSourceClockSnapshot>(kind)) {
+      Runtime grid, twin_wave, noise;
+      const auto source_kind = runtime_snapshot_kind(SourceClockSnapshot{});
+      const auto noise_kind = runtime_snapshot_kind(NoiseClockSnapshot{});
+      if (!runtime_state(source_kind, value["grid"], grid) ||
+          !runtime_state(source_kind, value["twinWave"], twin_wave) ||
+          !runtime_state(noise_kind, value["projectedNoise"], noise))
+        return false;
+      out = PlanarSourceClockSnapshot{std::get<SourceClockSnapshot>(grid),
+                                      std::get<SourceClockSnapshot>(twin_wave),
+                                      std::get<NoiseClockSnapshot>(noise)};
     } else if (is_runtime_kind<RippleClockSnapshot>(kind)) {
       RippleClockSnapshot state;
       const auto waves = value["waves"];
@@ -454,15 +470,15 @@ public:
    * @return `APPLIED` when every field decodes (nothing is applied here);
    *         `INVALID_VALUE` for a missing or mistyped field, including a
    *         missing or non-array `modulation`;
-   *         `UNSUPPORTED_VERSION` for a `schemaVersion` other than
-   *         `ChainSnapshot::SCHEMA_VERSION`; `INVALID_LENGTH` for an over-cap
+   *         `UNSUPPORTED_VERSION` for an unsupported schemaVersion;
+   *         `INVALID_LENGTH` for an over-cap
    *         `chain`, `parameters`, `modulation` or `runtime` array, or `hues`/`cycles`
    *         arrays not of length 3.
    */
   static Result decode(const Val &input, ChainSnapshot &out) {
     if (!object(input) || !integer(input, "schemaVersion", out.schema_version))
       return Result::INVALID_VALUE;
-    if (out.schema_version != ChainSnapshot::SCHEMA_VERSION)
+    if (!ChainSnapshot::supports(out.schema_version))
       return Result::UNSUPPORTED_VERSION;
     if (!boolean(input, "animationsPaused", out.animations_paused))
       return Result::INVALID_VALUE;

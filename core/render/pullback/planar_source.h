@@ -7,6 +7,7 @@
 /** @file planar_source.h
  * @brief Planar source selector and kind families. */
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -76,17 +77,18 @@ inline constexpr std::string_view PLANAR_COMMON_IDS[] = {
 /** @brief Whether family prefixes and common ids are unambiguous.
  * @return True when none of the labels prefixes another. */
 consteval bool planar_prefixes_unambiguous() {
-  for (const auto family : PLANAR_FAMILY_IDS) {
-    for (const auto other : PLANAR_FAMILY_IDS)
-      if (family != other && family.starts_with(other))
-        return false;
-    for (const auto common : PLANAR_COMMON_IDS)
-      if (family.starts_with(common) || common.starts_with(family))
-        return false;
-  }
+  std::array<std::string_view,
+             std::size(PLANAR_FAMILY_IDS) + std::size(PLANAR_COMMON_IDS)>
+      labels{};
+  size_t next = 0;
+  for (const auto family : PLANAR_FAMILY_IDS)
+    labels[next++] = family;
   for (const auto common : PLANAR_COMMON_IDS)
-    for (const auto other : PLANAR_COMMON_IDS)
-      if (common != other && common.starts_with(other))
+    labels[next++] = common;
+  for (size_t first = 0; first < labels.size(); ++first)
+    for (size_t second = first + 1; second < labels.size(); ++second)
+      if (labels[first].starts_with(labels[second]) ||
+          labels[second].starts_with(labels[first]))
         return false;
   return true;
 }

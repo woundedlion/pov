@@ -368,17 +368,21 @@ public:
       uint8_t *const current_params =
           const_cast<uint8_t *>(const_block_ptr(active, op.param_offset));
       uint8_t *const previous_params = history + op.param_offset;
+      const auto &runtime = op.op->runtime;
+      if (runtime.history_continuous != nullptr &&
+          !runtime.history_continuous(previous_params, current_params))
+        return false;
       for (uint16_t field = 0; field < op.op->schema_count; ++field) {
         const ParamFieldInfo &info = op.op->schema[field];
-        if (op.op->runtime.temporal_hold_field != nullptr &&
-            op.op->runtime.temporal_hold_field(field))
-          continue;
         if (info.enum_count == 0 && info.curve != FieldCurve::SNAP)
           continue;
         const size_t bytes = info.enum_count > 0 ? 1 : sizeof(float);
         if (std::memcmp(op.op->runtime.param_address(current_params, field),
                         op.op->runtime.param_address(previous_params, field),
-                        bytes) != 0)
+                        bytes) != 0 &&
+            (runtime.temporal_hold_field == nullptr ||
+             !runtime.temporal_hold_field(field, previous_params,
+                                          current_params)))
           return false;
       }
     }
@@ -597,14 +601,17 @@ public:
       ChainOp &op = candidate.ops[index];
       const InstanceId id{op.instance, op.op->operator_id, op.stable_hash};
       const ChainOp *survivor = nullptr;
+      const ChainOp *replaced = nullptr;
       if (has_program && migrate_existing)
         for (size_t existing = 0; existing < current.count; ++existing) {
           const ChainOp &live = current.ops[existing];
-          if (std::string_view(live.instance) == op.instance &&
-              std::string_view(live.op->operator_id) == op.op->operator_id) {
+          if (std::string_view(live.instance) != op.instance)
+            continue;
+          if (std::string_view(live.op->operator_id) == op.op->operator_id)
             survivor = &live;
-            break;
-          }
+          else
+            replaced = &live;
+          break;
         }
       if (survivor != nullptr) {
         const Status migrated = op.op->runtime.migrate(
@@ -617,7 +624,12 @@ public:
           return {ChainStatus::MIGRATE_FAILED, static_cast<int16_t>(index)};
         }
       } else {
-        op.op->runtime.init(block_ptr(active ^ 1, op.state_offset), id);
+        void *state = block_ptr(active ^ 1, op.state_offset);
+        op.op->runtime.init(state, id);
+        if (replaced != nullptr)
+          migrate_planar_clock(op.op->operator_id, state,
+                               replaced->op->operator_id,
+                               const_block_ptr(active, replaced->state_offset));
       }
     }
 
@@ -792,6 +804,28 @@ private:
     size_t count = 0;
     size_t used_bytes = 0;
   };
+
+  static void migrate_planar_clock(std::string_view to_id, void *to,
+                                   std::string_view from_id, const void *from) {
+    using namespace Op;
+    if (to_id == SamplePlanar::ID) {
+      auto &state = *static_cast<PlanarSourceState *>(to);
+      if (from_id == SampleGridV4::ID)
+        state.grid = *static_cast<const SourceClockState *>(from);
+      else if (from_id == SampleTwinWaveV3::ID)
+        state.twin_wave = *static_cast<const SourceClockState *>(from);
+      else if (from_id == SampleProjectedNoise::ID)
+        state.noise = *static_cast<const NoisePhaseState *>(from);
+    } else if (from_id == SamplePlanar::ID) {
+      const auto &state = *static_cast<const PlanarSourceState *>(from);
+      if (to_id == SampleGridV4::ID)
+        *static_cast<SourceClockState *>(to) = state.grid;
+      else if (to_id == SampleTwinWaveV3::ID)
+        *static_cast<SourceClockState *>(to) = state.twin_wave;
+      else if (to_id == SampleProjectedNoise::ID)
+        *static_cast<NoisePhaseState *>(to) = state.noise;
+    }
+  }
 
   /** @brief Destroys a side's constructed instance states.
    * @param side Arena side.

@@ -14,6 +14,7 @@
 #include <string_view>
 
 #include "core/render/pullback/interpreter.h"
+#include "core/render/pullback/planar_source.h"
 
 /**
  * @file catalog_export.h
@@ -154,6 +155,21 @@ inline void append_param_json(std::string &out, const ParamFieldInfo &field,
   }
   if (field.gated_by != nullptr)
     append_gate_json(out, field, schema);
+  if (field.blend)
+    out += ",\"blend\":true";
+  if (field.sources != 0) {
+    out += ",\"sources\":[";
+    bool first = true;
+    for (size_t index = 0; index < Source::PLANAR_KIND_COUNT; ++index) {
+      if ((field.sources & (uint16_t{1} << index)) == 0)
+        continue;
+      if (!first)
+        out += ',';
+      first = false;
+      append_json_string(out, Source::PLANAR_KIND_IDS[index]);
+    }
+    out += ']';
+  }
   out += '}';
 }
 

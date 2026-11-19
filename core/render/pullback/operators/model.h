@@ -11,6 +11,7 @@
 #include <array>
 #include <cstdint>
 #include <new>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -128,6 +129,50 @@ using Pullback::TopologyField;
 
 using Pullback::ParamFieldInfo;
 
+/** @brief Requested blend between two enum options. */
+struct EnumBlend {
+  uint8_t from; ///< Outgoing option.
+  uint8_t to;   ///< Incoming option.
+  float mix;    ///< Incoming weight in [0, 1].
+};
+
+/** @brief Transient preview weights with an authored selector fallback.
+ * @tparam N Number of selector options. */
+template <size_t N> struct PreviewEnumWeights {
+  using Weights = Color::EnumWeights<N>; ///< Evaluated option weights.
+
+  Weights weights{};   ///< Authored preview or sampled column weights.
+  bool active = false; ///< The weights override the authored enum byte.
+
+  /** @brief Resolves the current weights.
+   * @param value Authored option index.
+   * @return Preview weights when present; otherwise unit weights on value. */
+  Weights get(uint8_t value) const {
+    return active ? weights : Weights::single(value);
+  }
+
+  /** @brief Sets or clears the preview override.
+   * @param blend Requested option blend, or empty for the authored option.
+   * @return Whether a preview override was present. */
+  bool set(const std::optional<EnumBlend> &blend) {
+    const bool was_active = active;
+    active = blend.has_value();
+    if (blend)
+      weights = Weights::lerp_components(
+          Weights::single(blend->from), Weights::single(blend->to), blend->mix);
+    return was_active;
+  }
+
+  /** @brief Samples option weights between consecutive frame endpoints.
+   * @param from Outgoing weights.
+   * @param to Incoming weights.
+   * @param fraction Column frame fraction. */
+  void sample(const Weights &from, const Weights &to, float fraction) {
+    active = true;
+    weights = Weights::lerp_components(from, to, fraction);
+  }
+};
+
 /** @brief Size and alignment of one arena-allocated block. */
 struct BlockLayout {
   uint32_t size;  ///< Bytes.
@@ -195,7 +240,13 @@ struct OperatorRuntime {
   /** Exact modulation instance label, or null for other operator kinds. */
   std::string_view (*modulation_key)(const void *state) = nullptr;
   /** Whether a schema field may change without snapping the column interval. */
-  bool (*temporal_hold_field)(uint16_t field) = nullptr;
+  bool (*temporal_hold_field)(uint16_t field, const void *from,
+                              const void *to) = nullptr;
+  /** Whether the endpoints are compatible for column-time sampling. */
+  bool (*history_continuous)(const void *from, const void *to) = nullptr;
+  /** Sets the preview blend; empty clears it. Returns true on a change. */
+  bool (*set_enum_blend)(void *params,
+                         const std::optional<EnumBlend> &blend) = nullptr;
   /** Conservative fold advisory for a field operator, or infinity. */
   float (*fold_strength)(const void *params) = nullptr;
   /** Translation symmetry the output reports to the previous entry; null for
@@ -295,13 +346,17 @@ template <typename Model> consteval auto make_schema() {
   for (size_t index = 0; index < TOPOLOGY.size(); ++index) {
     const auto &topo = TOPOLOGY[index];
     out[FIELD_COUNT + index] =
-        ParamFieldInfo{topo.id,  nullptr,          0.0f,    0.0f,
-                       0.0f,     FieldCurve::SNAP, true,    topo.value_count,
-                       topo.def, topo.value_ids,   nullptr, 0};
+        ParamFieldInfo{topo.id,   nullptr,          0.0f,    0.0f,
+                       0.0f,      FieldCurve::SNAP, true,    topo.value_count,
+                       topo.def,  topo.value_ids,   nullptr, 0,
+                       topo.blend};
   }
   if constexpr (EXTRA_COUNT > 0)
     for (size_t index = 0; index < EXTRA_COUNT; ++index)
       out[FIELD_COUNT + TOPOLOGY.size() + index] = Params::EXTRA_SCHEMA[index];
+  if constexpr (requires { Params::field_sources(std::string_view{}); })
+    for (auto &field : out)
+      field.sources = Params::field_sources(field.id);
   return out;
 }
 
@@ -755,11 +810,61 @@ template <typename Model> constexpr auto model_requires_edge_distance() {
  * @tparam Model Operator model.
  * @return Field policy or null. */
 template <typename Model> constexpr auto model_temporal_hold_field() {
-  using Policy = bool (*)(uint16_t);
-  if constexpr (requires { Model::temporal_hold_field; })
-    return static_cast<Policy>(&Model::temporal_hold_field);
+  using Params = typename Model::Params;
+  using Policy = bool (*)(uint16_t, const void *, const void *);
+  if constexpr (requires(uint16_t field, const Params &p) {
+                  Model::temporal_hold_field(field, p, p);
+                })
+    return static_cast<Policy>(
+        +[](uint16_t field, const void *from, const void *to) {
+          return Model::temporal_hold_field(
+              field, *std::launder(static_cast<const Params *>(from)),
+              *std::launder(static_cast<const Params *>(to)));
+        });
+  else if constexpr (requires(uint16_t field) {
+                       Model::temporal_hold_field(field);
+                     })
+    return static_cast<Policy>(+[](uint16_t field, const void *, const void *) {
+      return Model::temporal_hold_field(field);
+    });
   else
     return static_cast<Policy>(nullptr);
+}
+
+/** @brief Optional continuity check across an operator's parameter endpoints.
+ * @tparam Model Operator model.
+ * @return Erased continuity callback or null. */
+template <typename Model> constexpr auto model_history_continuous() {
+  using Params = typename Model::Params;
+  using History = bool (*)(const void *, const void *);
+  if constexpr (requires(const Params &params) {
+                  Model::history_continuous(params, params);
+                })
+    return static_cast<History>(+[](const void *from, const void *to) {
+      return Model::history_continuous(
+          *std::launder(static_cast<const Params *>(from)),
+          *std::launder(static_cast<const Params *>(to)));
+    });
+  else
+    return static_cast<History>(nullptr);
+}
+
+/** @brief Optional setter for an operator's blended preview selector.
+ * @tparam Model Operator model.
+ * @return Erased setter or null. */
+template <typename Model> constexpr auto model_set_enum_blend() {
+  using Params = typename Model::Params;
+  using Setter = bool (*)(void *, const std::optional<EnumBlend> &);
+  if constexpr (requires(Params &params,
+                         const std::optional<EnumBlend> &blend) {
+                  params.set_enum_blend(blend);
+                })
+    return static_cast<Setter>(+[](void *params,
+                                   const std::optional<EnumBlend> &blend) {
+      return std::launder(static_cast<Params *>(params))->set_enum_blend(blend);
+    });
+  else
+    return static_cast<Setter>(nullptr);
 }
 
 /**
@@ -966,6 +1071,8 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           Detail::model_interval_layout<Model>(),
           Detail::model_modulation_key<Model>(),
           Detail::model_temporal_hold_field<Model>(),
+          Detail::model_history_continuous<Model>(),
+          Detail::model_set_enum_blend<Model>(),
           &Adapter::fold_strength,
           Detail::model_translation_lattice<Model>(),
           Detail::model_requires_edge_distance<Model>(),

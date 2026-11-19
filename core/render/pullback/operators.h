@@ -12,6 +12,7 @@
 #include "core/render/pullback/operators/common.h"
 #include "core/render/pullback/operators/field.h"
 #include "core/render/pullback/operators/project.h"
+#include "core/render/pullback/operators/planar.h"
 #include "core/render/pullback/operators/sample.h"
 #include "core/render/pullback/operators/sphere.h"
 #include "core/render/pullback/operators/tangent.h"
@@ -31,6 +32,28 @@ namespace Pullback {
 namespace Interp {
 
 namespace Op {
+
+/** @brief Whether a source morph shares the affine's effective lattice.
+ * @param from Outgoing source parameters.
+ * @param to Incoming source parameters.
+ * @param affine_from Outgoing affine parameters.
+ * @param affine_to Incoming affine parameters.
+ * @return True for one kind, an unused lattice, or equal effective lattices. */
+inline bool admits_planar_transition(const PlanarSampleParams &from,
+                                     const PlanarSampleParams &to,
+                                     const AffineWarpParams &affine_from,
+                                     const AffineWarpParams &affine_to) {
+  const auto consumes_lattice = [](const AffineWarpParams &affine) {
+    return affine.path_length != 0 || std::round(affine.translation_x) != 0 ||
+           std::round(affine.translation_y) != 0;
+  };
+  return from.source == to.source ||
+         (!consumes_lattice(affine_from) && !consumes_lattice(affine_to)) ||
+         same_effective_lattice(SamplePlanar::translation_lattice(from),
+                                affine_from.lattice_period,
+                                SamplePlanar::translation_lattice(to),
+                                affine_to.lattice_period);
+}
 
 /** @brief Parameter family of sphere.rotate.v2. */
 using RotateChainParams = SphereAnimation::RotationParams;
@@ -126,7 +149,7 @@ struct GeneratedPaletteParams : Color::ColorControls, PaletteSelection {
           PALETTE_MODE_IDS, 0},
       TopologyField<GeneratedPaletteParams>{
           "palette-mapping", &GeneratedPaletteParams::mapping_mode,
-          PALETTE_MAPPING_IDS, 2},
+          PALETTE_MAPPING_IDS, 2, true},
       TopologyField<GeneratedPaletteParams>{
           "brightness-envelope", &GeneratedPaletteParams::envelope_mode,
           BRIGHTNESS_ENVELOPE_IDS, 0},
@@ -147,6 +170,28 @@ struct GeneratedPaletteParams : Color::ColorControls, PaletteSelection {
           "palette-name-b", &GeneratedPaletteParams::palette_name_b,
           PALETTE_NAME_IDS, 19},
   }; ///< Structural controls.
+
+  PreviewEnumWeights<std::size(PALETTE_MAPPING_IDS)> mapping_blend;
+  ///< Transient palette-mapping weights.
+
+  /** @brief Overrides or clears the preview's palette-mapping blend.
+   * @param blend Option blend, or empty for the authored mapping.
+   * @return True if an override was present. */
+  bool set_enum_blend(const std::optional<EnumBlend> &blend) {
+    return mapping_blend.set(blend);
+  }
+
+  /** @brief Samples the mapping weights at a column time.
+   * @param value Sampled column parameters.
+   * @param from Outgoing frame parameters.
+   * @param to Incoming frame parameters.
+   * @param fraction Column frame fraction. */
+  static void sample_extra(GeneratedPaletteParams &value,
+                           const GeneratedPaletteParams &from,
+                           const GeneratedPaletteParams &to, float fraction) {
+    value.mapping_blend.sample(from.mapping_blend.get(from.mapping_mode),
+                               to.mapping_blend.get(to.mapping_mode), fraction);
+  }
 };
 static_assert(field_ids_unique<GeneratedPaletteParams>());
 static_assert(field_defaults_in_range<GeneratedPaletteParams>());
@@ -200,8 +245,7 @@ prepare_generated_palette(const FrameContext &ctx,
            "invalid brightness envelope");
   HS_CHECK(ctx.palettes[params.palette_mode] != nullptr,
            "missing palette endpoint");
-  return {Color::PaletteMappingWeights::single(
-              static_cast<Color::PaletteMapping>(params.mapping_mode)),
+  return {params.mapping_blend.get(params.mapping_mode),
           params.mapping_frequency,
           Color::oscillated_mapping_offset(params.mapping_phase,
                                            params.phase_oscillation_depth,
@@ -227,6 +271,16 @@ struct ColorizeGeneratedPaletteV4 : ValueStateModel<ColorClockState> {
   static void advance(State &state, const Params &params) {
     state.oscillation_phase =
         math::wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
+  }
+  /** @brief Allows preview changes in palette mapping to sample by column.
+   * @param field Schema field index.
+   * @param from Outgoing frame parameters.
+   * @param to Incoming frame parameters.
+   * @return True for an explicitly blended palette mapping. */
+  static bool temporal_hold_field(uint16_t field, const Params &from,
+                                  const Params &to) {
+    return SCHEMA<ColorizeGeneratedPaletteV4>[field].blend &&
+           (from.mapping_blend.active || to.mapping_blend.active);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {

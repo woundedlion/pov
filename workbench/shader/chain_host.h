@@ -47,8 +47,10 @@ inline constexpr Pullback::Interp::ChainEntryRequest
 
 /** @brief One named value in an atomic chain parameter update. */
 struct ShaderChainParameterWrite {
-  const char *name; ///< Registered "{instance}.{field-id}" parameter name.
-  float value;      ///< Requested value; enum fields take the option index.
+  const char *name;   ///< Registered "{instance}.{field-id}" parameter name.
+  float value = 0.0f; ///< Requested value; enum fields take the option index.
+  std::optional<Pullback::Interp::EnumBlend> blend{};
+  ///< Explicit transition blend for a blended enum.
 };
 
 /**
@@ -177,7 +179,7 @@ public:
   ChainSnapshotRestoreResult restore_snapshot(const ChainSnapshot &snapshot) {
     using Result = ChainSnapshotRestoreResult;
     using namespace Pullback::Interp;
-    if (snapshot.schema_version != ChainSnapshot::SCHEMA_VERSION)
+    if (!ChainSnapshot::supports(snapshot.schema_version))
       return Result::UNSUPPORTED_VERSION;
     if (snapshot.chain.empty() || snapshot.chain.size() > MAX_CHAIN_OPS ||
         snapshot.parameters.size() > MAX_CHAIN_PARAMS ||
@@ -260,15 +262,22 @@ public:
   /**
    * @brief Validates the final parameter state, then commits every write.
    * @param writes Named parameter writes.
+   * @param preview Allows transient enum blends and keeps animation running.
    * @return APPLIED, or the first refusal with nothing committed.
    */
   ParamSetResult
-  update_parameters(std::span<const ShaderChainParameterWrite> writes) {
+  update_parameters(std::span<const ShaderChainParameterWrite> writes,
+                    bool preview = false) {
     if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
       return ParamSetResult::TOO_LONG;
     const auto ops = program.ops();
     bool animated = false;
+    bool interrupted = false;
     const auto refusal = stage_candidates(0, ops.size(), [&] {
+      if (!preview)
+        for (size_t index = 0; index < ops.size(); ++index)
+          if (const auto set = ops[index].op->runtime.set_enum_blend)
+            interrupted |= set(candidates[index], std::nullopt);
       for (const auto &write : writes) {
         if (write.name == nullptr)
           return ParamSetResult::MALFORMED_PAYLOAD;
@@ -279,8 +288,28 @@ public:
         const ParamSetResult result = parameter->normalize(value);
         if (result != ParamSetResult::APPLIED)
           return result;
-        if (const auto field = find_named_field(write.name))
+        const auto field = find_named_field(write.name);
+        if (field) {
+          const auto &op = *ops[field->index].op;
+          if (write.blend) {
+            if (!preview || !op.schema[field->field].blend ||
+                op.runtime.set_enum_blend == nullptr)
+              return ParamSetResult::INADMISSIBLE;
+            const auto &blend = *write.blend;
+            if (!std::isfinite(blend.mix))
+              return ParamSetResult::NON_FINITE;
+            if (blend.mix < 0.0f || blend.mix > 1.0f ||
+                blend.from >= op.schema[field->field].enum_count ||
+                blend.to >= op.schema[field->field].enum_count)
+              return ParamSetResult::INADMISSIBLE;
+            value = blend.mix < 1.0f ? blend.from : blend.to;
+          }
+          if (op.schema[field->field].blend && op.runtime.set_enum_blend)
+            op.runtime.set_enum_blend(candidates[field->index], write.blend);
           write_candidate(*parameter, field->index, field->field, value);
+        } else if (write.blend) {
+          return ParamSetResult::INADMISSIBLE;
+        }
         animated |= parameter->animated;
       }
       return ParamSetResult::APPLIED;
@@ -297,10 +326,22 @@ public:
                   ops[index].op->runtime.param.size);
     refused_name = nullptr;
     refusal_warning = nullptr;
-    if (animated)
+    if (interrupted)
+      program.clear_history();
+    if (animated && !preview)
       setAnimationsPaused(true);
-    parameter_written();
     return ParamSetResult::APPLIED;
+  }
+
+  /** @brief Ends an active preview after a manual parameter write. */
+  void parameter_written() override {
+    bool interrupted = false;
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index)
+      if (const auto set = ops[index].op->runtime.set_enum_blend)
+        interrupted |= set(program.param_block(index), std::nullopt);
+    if (interrupted)
+      program.clear_history();
   }
 
   /** @brief Reads admitted scalar and topology index bounds with other parameters fixed.

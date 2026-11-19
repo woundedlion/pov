@@ -223,6 +223,41 @@ template <> struct RuntimeStateCodec<Op::NoisePhaseState> {
   }
 };
 
+/** @brief Captures and restores the planar source families' clocks. */
+template <> struct RuntimeStateCodec<Op::PlanarSourceState> {
+  /** @brief Captures the active and inactive families' clocks.
+   * @param state State to capture.
+   * @return The planar source runtime snapshot. */
+  static RuntimeSnapshot capture(const Op::PlanarSourceState &state) {
+    using ClockCodec = RuntimeStateCodec<Op::SourceClockState>;
+    using NoiseCodec = RuntimeStateCodec<Op::NoisePhaseState>;
+    return PlanarSourceClockSnapshot{
+        std::get<SourceClockSnapshot>(ClockCodec::capture(state.grid)),
+        std::get<SourceClockSnapshot>(ClockCodec::capture(state.twin_wave)),
+        std::get<NoiseClockSnapshot>(NoiseCodec::capture(state.noise))};
+  }
+
+  /** @brief Restores each family clock atomically.
+   * @param state State to restore.
+   * @param snapshot Runtime snapshot.
+   * @return True on a valid planar source snapshot. */
+  static bool restore(Op::PlanarSourceState &state,
+                      const RuntimeSnapshot &snapshot) {
+    const auto *value = std::get_if<PlanarSourceClockSnapshot>(&snapshot);
+    if (value == nullptr)
+      return false;
+    auto proposed = state;
+    using ClockCodec = RuntimeStateCodec<Op::SourceClockState>;
+    using NoiseCodec = RuntimeStateCodec<Op::NoisePhaseState>;
+    if (!ClockCodec::restore(proposed.grid, value->grid) ||
+        !ClockCodec::restore(proposed.twin_wave, value->twin_wave) ||
+        !NoiseCodec::restore(proposed.noise, value->noise))
+      return false;
+    state = proposed;
+    return true;
+  }
+};
+
 /** @brief Snapshot codec of Op::WarpPhaseState. */
 template <> struct RuntimeStateCodec<Op::WarpPhaseState> {
   /**

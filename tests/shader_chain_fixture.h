@@ -414,6 +414,14 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
           static_assert(sizeof(T) == 2 * sizeof(uint32_t));
           put(v.phase);
           put(v.noise_seed);
+        } else if constexpr (std::is_same_v<T, In::PlanarSourceClockSnapshot>) {
+          for (const auto clock : {v.grid, v.twin_wave}) {
+            put(clock.primary);
+            put(clock.secondary);
+            put(clock.angle);
+          }
+          put(v.noise.phase);
+          put(v.noise.noise_seed);
         } else if constexpr (std::is_same_v<T, In::ProbabilityClockSnapshot>) {
           static_assert(sizeof(T) == 2 * sizeof(uint32_t));
           put(v.seed);

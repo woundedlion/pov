@@ -43,6 +43,8 @@ HS_TS_PAYLOAD(SnapshotInputValue)
 HS_TS_PAYLOAD(ChainEntriesValue)
 HS_TS_PAYLOAD(ProgramValue)
 HS_TS_PAYLOAD(ParameterWritesValue)
+HS_TS_PAYLOAD(TransitionParameterWritesValue)
+HS_TS_PAYLOAD(TransitionEndpointValue)
 HS_TS_PAYLOAD(ChainResultValue)
 HS_TS_PAYLOAD(XYZValue)
 HS_TS_PAYLOAD(RGBValue)
@@ -108,6 +110,11 @@ inline void bind_ts_types() {
       "ProgramValue", R"({instance: string; operator: string}[] | null)");
   emscripten::register_type<ParameterWritesValue>(
       "ParameterWritesValue", R"({name: string; value: number}[])");
+  emscripten::register_type<TransitionParameterWritesValue>(
+      "TransitionParameterWritesValue",
+      R"({name: string; value: number | {from: number; to: number; mix: number}}[])");
+  emscripten::register_type<TransitionEndpointValue>(
+      "TransitionEndpointValue", R"(Record<string, number>)");
   emscripten::register_type<ParameterRangesValue>(
       "ParameterRangesValue", R"({name: string; min: number; max: number}[])");
   emscripten::register_type<ChainResultValue>(

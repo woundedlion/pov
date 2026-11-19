@@ -48,8 +48,14 @@ struct ChainSnapshot {
     std::string instance;           ///< Owning instance name.
     ColorModulation::Config recipe; ///< Serializable configuration.
   };
-  static constexpr uint32_t SCHEMA_VERSION = 5; ///< Current snapshot schema.
-  uint32_t schema_version = SCHEMA_VERSION;     ///< Schema this snapshot uses.
+  static constexpr uint32_t SCHEMA_VERSION = 6; ///< Current snapshot schema.
+  /** @brief Checks the supported snapshot versions.
+   * @param version Authored snapshot version.
+   * @return True for the current format or its legacy subset. */
+  static constexpr bool supports(uint32_t version) {
+    return version == SCHEMA_VERSION || version == 5;
+  }
+  uint32_t schema_version = SCHEMA_VERSION; ///< Schema this snapshot uses.
   std::vector<Entry> chain;          ///< Program entries, in chain order.
   std::vector<Parameter> parameters; ///< Values to restore, unique names.
   std::vector<ModulationRecipe> modulation; ///< Modulation recipes.
