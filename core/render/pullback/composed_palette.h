@@ -41,6 +41,7 @@ template <typename Traits> class ComposedPalette {
   using SpecT = typename Traits::Spec;
   static constexpr bool AUTHORED_PALETTE = Traits::AUTHORED_PALETTE;
   static constexpr bool HUE_ROTATION_LUT = Traits::HUE_ROTATION_LUT;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   static constexpr bool PALETTE_SOURCE_FADE =
       AUTHORED_PALETTE && HS_ENABLE_PARAM_GUI_BRIDGE;
 
@@ -53,6 +54,7 @@ template <typename Traits> class ComposedPalette {
     uint32_t generation = 0;
     bool initialized = false;
   };
+#endif
 #if HS_ENABLE_TEST_HOOKS
   friend struct hs_test::ComposedFrameWhiteBox;
 #endif
@@ -79,9 +81,19 @@ public:
    * @param target Adopted color controls. */
   HS_O3_FN HS_HOT_INLINE void adopt(const ColorFamily &target) {
     mapping = Color::PaletteMappingWeights::single(target.palette_mapping);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     clear_source_fade();
+#endif
   }
 
+  /** @brief Captures the mapping endpoints of an arming crossfade.
+   * @param target Crossfade's destination color controls. */
+  HS_O3_FN HS_HOT_INLINE void arm(const ColorFamily &target) {
+    mapping_from = mapping;
+    mapping_to = Color::PaletteMappingWeights::single(target.palette_mapping);
+  }
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Drops any armed palette-source endpoints. */
   HS_O3_FN HS_HOT_INLINE void clear_source_fade() {
     if constexpr (PALETTE_SOURCE_FADE)
@@ -90,10 +102,8 @@ public:
   }
 
   /** @brief Retains the controls of the active preset edge. */
-  HS_O3_FN HS_HOT_INLINE void arm(const ColorFamily &from,
-                                  const ColorFamily &target) {
-    mapping_from = mapping;
-    mapping_to = Color::PaletteMappingWeights::single(target.palette_mapping);
+  HS_O3_FN HS_HOT_INLINE void arm_source(const ColorFamily &from,
+                                         const ColorFamily &target) {
     if constexpr (PALETTE_SOURCE_FADE) {
       clear_source_fade();
       if (different_selections(from, target)) {
@@ -106,14 +116,18 @@ public:
     }
   }
 
+#endif
+
   /** @brief Interpolates the mapping weights of an in-flight crossfade.
    * @param progress Eased transition progress, 0 to 1. */
   HS_O3_FN HS_HOT_INLINE void blend(float progress) {
     mapping =
         Color::PaletteMappingWeights::lerp(mapping_from, mapping_to, progress);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     if constexpr (PALETTE_SOURCE_FADE)
       if (source_fade && source_fade->from)
         source_fade->progress = progress;
+#endif
   }
 
   /** @brief Steps the palette mapping wobble phase. */
@@ -124,7 +138,11 @@ public:
 
   /** @brief Follows the chroma and authored cycling harmony controls. */
   HS_FLASH_MEMBER void update_chroma() {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     const float chroma = cycling_controls().palette_chroma;
+#else
+    const float chroma = color->palette_chroma;
+#endif
     if constexpr (AUTHORED_PALETTE) {
       const auto harmony = cycling_harmony();
       if (this->harmony != harmony) {
@@ -143,7 +161,12 @@ public:
   HS_O3_FN HS_HOT_INLINE void step() {
     update_chroma();
     if constexpr (AUTHORED_PALETTE) {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
       if (!cycling(cycling_controls())) {
+#else
+      if (color->palette_type !=
+          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED)) {
+#endif
         cycler.advance_without_display();
         return;
       }
@@ -161,10 +184,21 @@ public:
    */
   template <typename Storage>
   HS_SIZE_FLASH_MEMBER void prepare(FrameState &frame, Storage &storage) {
-    const auto [palette, palette_generation] = prepared_palette(storage);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    const auto [palette_ptr, palette_generation] = prepared_palette(storage);
+    const BakedPalette &palette = *palette_ptr;
+#else
+    const BakedPalette &palette = selected_palette(storage);
+    uint32_t palette_generation = cycler.bake_generation() << 1;
+    if constexpr (AUTHORED_PALETTE)
+      if (color->palette_type !=
+          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED))
+        palette_generation =
+            (storage.authored_palette.bake_generation() << 1) | 1U;
+#endif
     if constexpr (HUE_ROTATION_LUT)
-      storage.refresh_hue_rotation_lut(*palette, palette_generation);
-    frame.palette = palette;
+      storage.refresh_hue_rotation_lut(palette, palette_generation);
+    frame.palette = &palette;
     if constexpr (HUE_ROTATION_LUT) {
       frame.hue_rotation_lut = storage.hue_rotation_lut.data();
       frame.hue_rotation_gamut = &storage.hue_rotation_gamut;
@@ -176,7 +210,23 @@ public:
     frame.palette_oscillation_phase = oscillation_phase;
   }
 
+  /** @brief Resolves the current authored or cycling source.
+   * @tparam Storage Runtime State holding `authored_palette`.
+   * @param storage Arena-owned palette storage.
+   * @return Palette table. */
+  template <typename Storage>
+  const BakedPalette &selected_palette(Storage &storage) {
+    if constexpr (AUTHORED_PALETTE) {
+      if (color->palette_type !=
+          static_cast<uint8_t>(AuthoredPaletteType::CYCLING_GENERATED))
+        return storage.authored_palette.prepare(persistent_arena, *color,
+                                                color->palette_chroma);
+    }
+    return cycler.palette();
+  }
+
 private:
+#if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Identifies the cycling palette source. */
   static bool cycling(const ColorFamily &controls) {
     return controls.palette_type ==
@@ -252,11 +302,17 @@ private:
     return {&cycler.palette(), cycler.bake_generation() << TAG_BITS};
   }
 
+#endif
+
   /** @brief Current generated-cycle harmony. @return Selected hue relationship. */
   HS_FLASH_MEMBER PaletteHarmony cycling_harmony() const {
     if constexpr (AUTHORED_PALETTE) {
       constexpr auto &HARMONIES = Color::PALETTE_MODE_HARMONIES;
+#if HS_ENABLE_PARAM_GUI_BRIDGE
       const auto mode = cycling_controls().palette_mode;
+#else
+      const auto mode = color->palette_mode;
+#endif
       HS_CHECK(mode < std::size(HARMONIES), "invalid cycling palette mode");
       return HARMONIES[mode];
     } else
@@ -274,9 +330,15 @@ private:
   static void next_palette(void *context, uint32_t sequence,
                            GenerativePalette &out) {
     ComposedPalette &palette = *static_cast<ComposedPalette *>(context);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
     GeneratedPaletteBank::next_palette(
         palette.hue, sequence, palette.cycling_harmony(),
         palette.cycling_controls().palette_chroma, out);
+#else
+    GeneratedPaletteBank::next_palette(palette.hue, sequence,
+                                       palette.cycling_harmony(),
+                                       palette.color->palette_chroma, out);
+#endif
   }
 
   const ColorFamily *color;                  ///< Live color controls.
@@ -288,6 +350,7 @@ private:
   uint32_t hue = 0;                          ///< Generated-cycle hue clock.
   PaletteHarmony harmony = SpecT::HARMONY;   ///< Generated-cycle harmony.
   PaletteCycler cycler;                      ///< Generated palette cycle.
+#if HS_ENABLE_PARAM_GUI_BRIDGE
 #if defined(_MSC_VER)
   [[msvc::no_unique_address]]
 #else
@@ -295,6 +358,7 @@ private:
 #endif
   std::conditional_t<PALETTE_SOURCE_FADE, SourceFade *, std::monostate>
       source_fade{};
+#endif
 };
 
 } // namespace Pullback
