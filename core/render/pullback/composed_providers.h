@@ -681,6 +681,29 @@ struct SourceProvider {
   HS_HOT_INLINE static float noise_contrast(const FrameState &frame) {
     return frame.params.template get<Key>().noise_contrast;
   }
+
+  /** @brief Samples both fixed tessellation preset fields.
+   * @tparam Kind Cell shape.
+   * @tparam Fill Cell primitives or edge band.
+   * @param input Working plane coordinate.
+   * @param frame Column frame.
+   * @return Interpolated signed scalar field. */
+  template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill>
+  static HS_HOT_FLASH_MEMBER float
+  sample_source_endpoints(const PlaneSample &input, const FrameState &frame)
+    requires(requires { Binding::Spec::SOURCE_MORPH; } &&
+             Binding::Spec::SOURCE_MORPH && Key.view() == "source")
+  {
+    const auto &morph = frame.source_morph;
+    const Pattern::PlanePosition position{input.coords};
+    const auto sample = [&](const auto &params) {
+      return Pattern::tessellation<Kind, Fill>(
+          position,
+          Source::source_kernel_params<Source::TessellationControls<Fill>>(
+              params.template get<Key>()));
+    };
+    return hs::lerp(sample(*morph.from), sample(*morph.to), morph.mix);
+  }
 };
 
 /**

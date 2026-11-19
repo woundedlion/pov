@@ -467,49 +467,9 @@ private:
   }
 };
 
-/** @brief Fixed tessellation whose preset edges blend sampled fields.
- * @tparam State Source provider.
- * @tparam Kind Cell shape.
- * @tparam Fill Cell primitives or edge band. */
-template <typename State, Pattern::TessellationKind Kind,
-          Pattern::TessellationFill Fill>
-struct EndpointTessellation : Tessellation<State, Kind, Fill> {
-  using FrameState = typename State::FrameState; ///< Effect frame state.
-
-  /** @brief Samples the live field or its two preset endpoints.
-   * @param input Working plane coordinate.
-   * @param frame Column frame.
-   * @return Signed scalar field value. */
-  static HS_HOT_INLINE float sample(const PlaneSample &input,
-                                    const FrameState &frame) {
-    if (frame.source_morph.mixed())
-      return sample_endpoints(input, frame);
-    return Tessellation<State, Kind, Fill>::sample(input, frame);
-  }
-
-private:
-  static HS_HOT_FLASH_MEMBER float sample_endpoints(const PlaneSample &input,
-                                                    const FrameState &frame) {
-    const auto &morph = frame.source_morph;
-    const Pattern::PlanePosition position{input.coords};
-    const auto sample = [&](const auto &params) {
-      return Pattern::tessellation<Kind, Fill>(
-          position, source_kernel_params<TessellationControls<Fill>>(
-                        params.template get<"source">()));
-    };
-    return hs::lerp(sample(*morph.from), sample(*morph.to), morph.mix);
-  }
-};
-
 } // namespace Pullback::Source
 
 namespace Pullback::ComposedDetail {
-
-/** @brief Keeps the fixed tessellation provider's existing resource key. */
-template <typename Provider, Pattern::TessellationKind Kind,
-          Pattern::TessellationFill Fill>
-struct PolicyResources<Source::EndpointTessellation<Provider, Kind, Fill>>
-    : PolicyResources<Provider> {};
 
 /** @brief Collects a selector and one keyed resource per compiled family.
  * @tparam B Frame binding.

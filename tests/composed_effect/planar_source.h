@@ -142,6 +142,48 @@ inline void test_same_kind_source_morph() {
                  hs::lerp(a, b, mix), 1e-6f);
 }
 
+/** @brief Enables endpoint sampling on the fixed hex-cells policy. */
+struct EndpointHexSpec : RiverStonesSpec {
+  static constexpr bool SOURCE_MORPH = true;
+};
+
+/** @brief Fixed hex cells blend the two preset scales and softness samples. */
+inline void test_fixed_hex_source_morph() {
+  using namespace Pullback;
+  using Traits = ComposedTraits<SMALL_W, EndpointHexSpec>;
+  constexpr auto KIND = Pattern::TessellationKind::HEXAGONAL;
+  constexpr auto FILL = Pattern::TessellationFill::CELLS;
+  using Policy = SourcePolicyFor<FixedTessellationParams<KIND, FILL>,
+                                 Traits::Binding>::Type;
+  Traits::Params from;
+  Traits::Params to = from;
+  auto &a = from.template get<"source">();
+  auto &b = to.template get<"source">();
+  a.cell_scale = 2.5352101f;
+  a.cell_softness = 0.10124387f;
+  b.cell_scale = 4.774648f;
+  b.cell_softness = 0.32801026f;
+  HS_EXPECT_TRUE(Source::different_endpoint_fields(from, to));
+  HS_EXPECT_FALSE(Source::different_endpoint_fields(from, from));
+
+  Traits::FrameState frame{};
+  frame.params = Pullback::interpolate(from, to, 0.25f);
+  frame.source_morph = {&from, &to, math::ease_linear, 0.25f, 0.25f};
+  for (const auto point :
+       {math::Complex{0.17f, 0.23f}, math::Complex{-0.39f, 0.11f},
+        math::Complex{0.62f, -0.48f}}) {
+    PlaneSample plane{};
+    plane.coords = point;
+    const Pattern::PlanePosition position{point};
+    const float outgoing = Pattern::tessellation<KIND, FILL>(
+        position, static_cast<const Pattern::TessellationCellParams &>(a));
+    const float incoming = Pattern::tessellation<KIND, FILL>(
+        position, static_cast<const Pattern::TessellationCellParams &>(b));
+    HS_EXPECT_NEAR(Policy::sample(plane, frame),
+                   hs::lerp(outgoing, incoming, 0.25f), 1e-6f);
+  }
+}
+
 /** @brief Every GridWarp departure is admitted and fits its show slot. */
 inline void test_grid_warp_planar_admission() {
   using FX = GridWarp<SMALL_W, SMALL_H>;

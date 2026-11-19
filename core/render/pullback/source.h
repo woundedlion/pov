@@ -623,6 +623,13 @@ struct Tessellation : ApproximationDefaults {
    */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame) {
+    if constexpr (requires {
+                    State::template sample_source_endpoints<KindV, FillV>(
+                        input, frame);
+                  })
+      if (frame.source_morph.mixed())
+        return State::template sample_source_endpoints<KindV, FillV>(input,
+                                                                     frame);
     return Pattern::tessellation<KindV, FillV>(
         Pattern::PlanePosition{input.coords},
         source_kernel_params<TessellationControls<FillV>>(

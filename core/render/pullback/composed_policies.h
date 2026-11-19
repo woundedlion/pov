@@ -147,11 +147,8 @@ template <typename B> struct SourcePolicyFor<SpiralSourceParams, B> {
 template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill,
           typename B>
 struct SourcePolicyFor<FixedTessellationParams<Kind, Fill>, B> {
-  using Provider = SourceProvider<B, FixedTessellationParams<Kind, Fill>>;
-  using Type =
-      std::conditional_t<B::Spec::SOURCE_MORPH,
-                         Source::EndpointTessellation<Provider, Kind, Fill>,
-                         Source::Tessellation<Provider, Kind, Fill>>;
+  using Type = Pullback::Source::Tessellation<
+      SourceProvider<B, FixedTessellationParams<Kind, Fill>>, Kind, Fill>;
 };
 /** @brief Planar simplex-noise source. @tparam B Frame binding. */
 template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
