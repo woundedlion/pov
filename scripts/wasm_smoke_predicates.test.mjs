@@ -4,6 +4,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { peakChannelDifference } from './wasm_transition_parity.mjs';
 
 import {
   BAKED_CONSTANT_IDS,
@@ -17,6 +18,15 @@ import {
   promotedControlNames,
   stackCreepBudget,
 } from './wasm_smoke_predicates.mjs';
+
+test('transition parity measures the largest unsigned RGB16 channel error', () => {
+  const a = Uint16Array.of(120, 500, 65535, 13);
+  const b = Uint16Array.of(121, 500, 65530, 22);
+  assert.equal(peakChannelDifference(a, b), 9);
+  assert.equal(peakChannelDifference(b, a), 9);
+  assert.equal(peakChannelDifference(a, a), 0);
+  assert.throws(() => peakChannelDifference(a, b.subarray(1)), /same nonzero length/);
+});
 
 test('every dark pass fails at every window length', () => {
   const keys = ['RingShower@288x144', 'RingShower@96x20', 'SphericalHarmonics@288x144'];

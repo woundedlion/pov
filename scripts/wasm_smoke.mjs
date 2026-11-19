@@ -9,12 +9,13 @@
 import { SHADER_DOCUMENT_EFFECTS } from './composed_effect_roster.mjs';
 import { pathToFileURL } from 'node:url';
 import { join, isAbsolute } from 'node:path';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import {
   compilePatternDocuments,
   loadOperatorCatalog,
 } from './pattern_documents.mjs';
-import { documentModulationBinding } from './shader_workbench.mjs';
+import { compileShaderDocument, documentModulationBinding } from './shader_workbench.mjs';
+import { verifyWasmPresetTransition } from './wasm_transition_parity.mjs';
 import {
   bakedTopologyFields,
   darknessProblems,
@@ -163,6 +164,31 @@ async function main(probe) {
     print: (s) => console.log(`[wasm] ${s}`),
     printErr: (s) => console.error(`[wasm:err] ${s}`),
   });
+
+  {
+    const source = await readFile(new URL('../patterns/grid_warp.shader.json', import.meta.url), 'utf8');
+    const header = await readFile(new URL('../effects/GridWarp.h', import.meta.url), 'utf8');
+    const document = compileShaderDocument(source, { catalog: EXPECTED_OPERATOR_CATALOG });
+    const descriptorDigest = /DESCRIPTOR_DIGEST\s*=\s*"([a-f0-9]{64})"/.exec(header)?.[1];
+    if (document.status !== 'VALID' || document.descriptor_digest !== descriptorDigest) {
+      fail('preset-transition: GridWarp descriptor differs from its compiled policy');
+    } else {
+      try {
+        const quiet = () => ({ print: () => {}, printErr: () => {} });
+        const [compiled, interpreter] = await Promise.all([
+          createHolosphereModule(quiet()), createHolosphereModule(quiet()),
+        ]);
+        const result = verifyWasmPresetTransition(compiled, interpreter, document, EXPECTED_OPERATOR_CATALOG);
+        if (!(result.peakCameraDifference <= 1e-6))
+          fail(`preset-transition: compiled progression differs from evaluation by ${result.peakCameraDifference}`);
+        console.log(`  preset-transition: ${result.frames} authored frames, both enum blends rendered without pausing`);
+        console.log(`  preset-transition: RGB16 diagnostic peak ${result.peak} at frame ${result.peakFrame} ` +
+          `(tolerance ${result.tolerance}, first mismatch ${result.firstMismatch ?? 'none'})`);
+      } catch (error) {
+        fail(`preset-transition: ${error.message}`);
+      }
+    }
+  }
 
   {
     const temporalEffects = [
