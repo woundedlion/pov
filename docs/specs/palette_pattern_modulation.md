@@ -586,6 +586,27 @@ independent scalar shared-color path, with bitwise alpha parity and at most one
 RGB16 code of rounding under fast math. These are finite default-control
 qualification bounds. Unsupported color columns call the canonical pipeline.
 
+### Authored modulation source transitions
+
+During a RiverStones preset transition, the hue layer evaluates its direct
+noise and displacement sources at the same column time. Each source keeps its
+own authored amount and enabled state. The displacement value uses the travel
+enabled by its own endpoint. Each pixel therefore has two signed hue rotations
+in turns. At eased progress `t`, apply `from + t * (to - from)` to the
+unwrapped rotations and wrap the result once. This also preserves motion when
+an authored rotation exceeds half a turn. Progress zero and one select the
+corresponding endpoint exactly. The following lightness and opacity layers
+retain their order and the renderer finishes the color once.
+
+The workbench carries both endpoint recipes on the same frame write as the
+planar source morph. A scrub uses the requested evaluation of the edge.
+This transition applies to direct noise and displacement in either order
+with the same mechanic. A disabled endpoint contributes that mechanic's
+identity. Other source topologies and changes of mechanic kind retain the
+single-frame policy below.
+
+### Single-frame topology changes
+
 A source kind/custom recipe version, evaluation strategy, mechanic kind or
 enabled-state change is a topology change for that layer. Hold that layer
 against its **entire current modulation**:
