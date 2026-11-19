@@ -11,6 +11,7 @@
 #include "core/render/pullback/authored_lens.h"
 #include "core/render/pullback/authored_warp.h"
 #include "core/render/pullback/tangent_surface.h"
+#include "core/render/pullback/hex_morph_table.h"
 
 /** @file composed_providers.h
  * @brief Providers binding pullback stages to a composed effect's
@@ -145,7 +146,7 @@ template <typename Frame> struct EndpointMorphFrame : Frame {
 };
 
 template <typename Frame> struct HexMorphFrame : EndpointMorphFrame<Frame> {
-  const HexMorphTables *hex_tables = nullptr;
+  HexMorphPair hex_tables{}; ///< Authored endpoint grids for this column.
 };
 
 } // namespace Source
@@ -728,13 +729,13 @@ struct SourceProvider {
   {
     const auto &morph = frame.source_morph;
     if constexpr (requires { frame.hex_tables; }) {
-      if (const auto *tables = frame.hex_tables) {
-        const float from = tables->tables[tables->first].sample(
-            input.coords + offsets.from,
-            morph.from->template get<Key>().cell_scale);
-        const float to = tables->tables[1 - tables->first].sample(
-            input.coords + offsets.to,
-            morph.to->template get<Key>().cell_scale);
+      if (const auto &tables = frame.hex_tables; tables.from) {
+        const float from =
+            tables.from->sample(input.coords + offsets.from,
+                                morph.from->template get<Key>().cell_scale);
+        const float to =
+            tables.to->sample(input.coords + offsets.to,
+                              morph.to->template get<Key>().cell_scale);
         return hs::lerp(from, to, morph.mix) * (2.0f / 65535.0f) - 1.0f;
       }
     }

@@ -327,6 +327,8 @@ private:
       if (edge.from) {
         auto &morph = frame.source_morph;
         morph = edge;
+        if constexpr (requires { frame.hex_tables; })
+          frame.hex_tables = b.from ? to.hex_tables : from.hex_tables;
         morph.linear = hs::lerp(a.from ? a.linear : 0.0f,
                                 b.from ? b.linear : 1.0f, fraction);
         morph.mix = hs::clamp(morph.ease(morph.linear), 0.0f, 1.0f);

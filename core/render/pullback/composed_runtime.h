@@ -195,7 +195,7 @@ public:
       source_state().weights = params.template get<"source">().weights();
     if constexpr (SpecT::HEX_MORPH_TABLE) {
       if (Choreography::authored_preset_count() > 1)
-        state->Source::HexMorphTables::prepare(
+        state->prewarm(
             Choreography::preset_row(0).params.template get<"source">(),
             Choreography::preset_row(1).params.template get<"source">());
     }
@@ -521,9 +521,9 @@ protected:
             Choreography::preset_departure(transition.from_index);
         const auto &lerp = std::get<Segue::Preset::Lerp>(departure);
         if constexpr (SpecT::HEX_MORPH_TABLE)
-          state->Source::HexMorphTables::prepare(
-              transition.from.template get<"source">(),
-              target.template get<"source">());
+          state->active =
+              state->select(transition.from.template get<"source">(),
+                            target.template get<"source">());
         morph.from = &transition.from;
         morph.to = &transition.to;
         morph.ease = lerp.easing;
@@ -867,7 +867,7 @@ private:
         clear_source_morph();
       frame.source_morph = state->source_morph;
       if constexpr (SpecT::HEX_MORPH_TABLE)
-        frame.hex_tables = state;
+        frame.hex_tables = state->active;
       state->source_morph.snapped = false;
     }
     if constexpr (HAS_PLANAR) {
