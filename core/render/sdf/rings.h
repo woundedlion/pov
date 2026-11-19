@@ -528,8 +528,9 @@ public:
    * @brief Computes signed distance to the distorted ring, writing into res.
    * @tparam ComputeUVs When true, also computes the azimuthal t parameter.
    * @param p Point on sphere (normalized).
-   * @param res Output result; dist = signed distance minus thickness, raw_dist
-   * = unsigned centerline distance, t = azimuth in [0,1) when ComputeUVs.
+   * @param res Output result; dist = signed stroke distance (raw_dist minus
+   * thickness), raw_dist = unsigned centerline distance, t = azimuth in [0,1)
+   * when ComputeUVs.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {

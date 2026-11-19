@@ -85,12 +85,21 @@ HS_HOT_INLINE inline float angle_at_distance(const Wave &wave, float distance,
          math::fast_expf(-0.5f * t * t - wave.decay * distance);
 }
 
+/** @brief Evaluates the wavelet using its authored half-width.
+ * @param wave Wave kernel controls.
+ * @param distance Angular distance from the center.
+ * @param phase Wave front angle.
+ * @return Signed rotation angle in radians. */
 HS_HOT_INLINE inline float angle_at_distance(const Wave &wave, float distance,
                                              float phase) {
   return angle_at_distance(wave, distance, phase, wave.half_width());
 }
 
-/** @brief Applies the full quaternion rotation for large ripple angles. */
+/** @brief Applies the full quaternion rotation for large ripple angles.
+ * @param v Direction to rotate.
+ * @param axis Unit rotation axis.
+ * @param theta Rotation angle in radians.
+ * @return Rotated direction. */
 HS_SIZE_FLASH_MEMBER inline math::Vector
 rotate_large(const math::Vector &v, const math::Vector &axis, float theta) {
   return math::rotate(v, math::make_rotation(axis, theta));
@@ -160,6 +169,9 @@ struct AngularSupport {
   float far;        ///< Maximum radial distance, in radians.
   float half_width; ///< Wavelet width scale, in radians.
 
+  /** @brief Computes the angular band that can contain the wavelet.
+   * @param wave Wave kernel controls.
+   * @return Support endpoints and half-width, in radians. */
   static AngularSupport prepare(const Wave &wave) {
     const float half = wave.half_width();
     return {wave.phase - 2.0f * half, wave.phase + 2.0f * half, half};

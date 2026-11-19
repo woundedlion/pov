@@ -17,6 +17,7 @@ enum class TilingOutput : uint8_t { BORDERS, FACE_TYPE, TILE_VALUE };
 
 namespace detail {
 
+/// Display names in flattened solid registry order.
 inline constexpr auto TILING_SOLID_NAMES = [] {
   constexpr size_t LONGEST = [] {
     size_t length = 0;
@@ -43,6 +44,7 @@ inline constexpr auto TILING_SOLID_NAMES = [] {
   return names;
 }();
 
+/// Stable solid ids in flattened registry order.
 inline constexpr auto TILING_SOLID_IDS = [] {
   struct Values {
     const char *ids[Solids::NUM_ENTRIES];

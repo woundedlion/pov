@@ -153,7 +153,7 @@ inline bool temporal_frame_error_within_budget(float error,
 struct SeamCompareOptions {
   float share = 1.0f;         ///< Share of the frame error budget.
   bool bidirectional = false; ///< Compare both displacement directions.
-  /// Requires nonzero endpoint error and applies the whole-frame budget.
+  /// Requires endpoint error above 0.01 and applies the whole-frame budget.
   bool require_motion = true;
   /// Optional wider budget for (column, fraction, frozen luminance, budget).
   std::function<float(int, float, std::span<const float>, float)>

@@ -142,11 +142,17 @@ HS_HOT_FLASH_MEMBER inline math::Vector ripple_center(uint32_t seed,
 
 /** @brief Random centers shared by all column times of a burst epoch. */
 struct BurstCenters {
+  /// Deterministic random centers in descending burst order.
   std::array<math::Vector, RIPPLE_BURST_GROUPS> centers;
+  /// Seed of the cached burst sequence.
   uint32_t seed = 0;
+  /// Burst counter of the cached epoch.
   uint32_t count = 0;
+  /// Whether the cache has been populated.
   bool ready = false;
 
+  /** @brief Refreshes the random centers for the scheduler's burst epoch.
+   * @param state Ripple scheduler state. */
   void prepare(const RippleState &state) {
     if (matches(state))
       return;
@@ -158,6 +164,9 @@ struct BurstCenters {
     count = state.burst_count;
     ready = true;
   }
+  /** @brief Tests whether the scheduler can reuse the cached centers.
+   * @param state Ripple scheduler state.
+   * @return Whether the seed and burst count still match. */
   bool matches(const RippleState &state) const {
     return ready && count == state.burst_count && seed == state.seed;
   }
@@ -224,16 +233,20 @@ struct RippleGroupBands {
   std::array<RippleKernel::AngularSupport,
              RIPPLE_BURST_GROUPS * RIPPLE_WAVES_PER_BURST>
       angular; ///< Wavelet bands in launch order.
+  /// Contiguous live wave interval for a burst group.
   struct ActiveRange {
     float pole_margin = 0.010001f; ///< Maximum travel plus the pole exclusion.
-    uint8_t first = 0, end = 0;    ///< Contiguous active waves [first, end).
+    /// First active wave index in the group.
+    uint8_t first = 0, end = 0; ///< Contiguous active waves [first, end).
   };
   std::array<ActiveRange, RIPPLE_BURST_GROUPS> active; ///< Active group ranges.
   double inverse_width = 0; ///< Shared half-width reciprocal, zero on fallback.
   uint8_t count = 0;        ///< Prepared groups; zero beyond capacity.
 };
 
-/** @brief Prepares exact group boundaries and conservative support. */
+/** @brief Prepares exact group boundaries and conservative support.
+ * @param prepared Wave kernels in launch order.
+ * @return Groups with support and pole margins. */
 HS_SIZE_FLASH_MEMBER inline RippleGroupBands
 ripple_group_bands(const PreparedRipples &prepared) {
   RippleGroupBands result;
@@ -350,7 +363,11 @@ grouped_ripples(const math::Vector &input, const PreparedRipples &prepared,
       support ? support->angular.data() : nullptr);
 }
 
-/** @brief Applies descending zero-decay waves in their original order. */
+/** @brief Applies descending zero-decay waves in their original order.
+ * @param input Unit sphere direction.
+ * @param prepared Waves and their grouped bounds.
+ * @param track_path Whether to accumulate displacement path length.
+ * @return Displaced direction and any measured path length. */
 HS_HOT_ITCM_MEMBER inline SurfaceResult
 supported_ripples(const math::Vector &input, const SupportedRipples &prepared,
                   bool track_path = false) {
@@ -647,7 +664,8 @@ radial_ripples(const math::Vector &input, const PreparedRipples &prepared,
  * @param params Current controls.
  * @param state Scheduler state.
  * @param defer_cosines Whether grouped support will be computed before sampling.
- * @return Active kernels in launch order. */
+ * @return Active kernels in launch order.
+ * @param cache Optional cache of random burst centers. */
 template <typename Params>
 HS_HOT_FLASH_MEMBER inline PreparedRipples
 prepare_ripples(const Params &params, const RippleState &state,

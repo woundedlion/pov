@@ -31,6 +31,9 @@ the current document schema and operator identities, plus four legacy
 declarations migrated before validation: four-value `*.coverage-mode` domains,
 two-value `*.frame` domains, three-value gnomonic `*.hemisphere` domains, and
 LINEAR twist-lens `axis-lambda` interpolation.
+A `sample.tessellation.v3` entry may carry the optional boolean
+`source_morph`. It contributes to the descriptor digest and enables preset
+edges to blend the endpoint source fields. Other operators ignore the flag.
 
 The descriptor is a semantic identity over the chain, not a complete
 reproduction of the effect. It describes `chain`, `parameters`,
@@ -54,10 +57,11 @@ scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
 `alien_brain` and `kaleidoscope_stained_glass` from the effect specs the script holds, so a
 hand edit to those files is lost on the next run — change the spec instead. The specs use current chain IDs and named parameter values.
 
-Fourteen documents are authored directly in this directory: `ash_cloud`,
+Fifteen documents are authored directly in this directory: `ash_cloud`,
 `chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
 `kaleidoscope_smooth`, `kaleidoscope_melt`, `jewel_melt`, `millefiori`, `grid_worms`,
-`grid_warp`, `involution`, `iridescence` and `liquid_windows`. Edit these version 2 documents here.
+`grid_warp`, `involution`, `iridescence`, `liquid_windows` and `river_stones`.
+Edit these version 2 documents here.
 
 After editing a hand-authored document, open it in the daydream shader
 workbench and use **Save** to export canonical JSON. Canonical serialization
@@ -131,6 +135,7 @@ Every document except `example.shader.json` backs a
 | `grid_warp` | `GridWarp` |
 | `involution` | `Involution` |
 | `iridescence` | `Iridescence` |
+| `river_stones` | `RiverStones` |
 | `liquid_windows` | `LiquidWindows` |
 | `grid_worms` | `GridWorms` |
 | `millefiori` | `Millefiori` |

@@ -646,7 +646,6 @@ struct Equirectangular : FrameConjugateFromState<State> {
   /** @brief Projects a direction already in the local frame.
    * @param input Local direction.
    * @param frame Projection controls.
-   * @param prepared Frame admission.
    * @return Plane coordinates and provenance. */
   static ProjectionResult project(const math::Vector &input,
                                   const FrameState &frame, const Prepared &) {

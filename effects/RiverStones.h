@@ -18,11 +18,13 @@
 
 /** @brief Stage spec for `RiverStones`. */
 struct RiverStonesSpec : Pullback::Spec {
+  /// Samples the authored tessellation endpoints during a preset edge.
   static constexpr bool SOURCE_MORPH = true;
 #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) ||                  \
     (HS_ENABLE_TEST_HOOKS && defined(HS_TEST_RIVER_STONES_HEX_TABLE))
   static constexpr bool HEX_MORPH_TABLE = true;
 #endif
+  /// Uses the radial lookup for coincident ripple waves.
   static constexpr bool RIPPLE_RADIAL_TABLE = true;
   /// Modulation layer that controls ripple path tracking.
   static constexpr Pullback::ResourceKey RIPPLE_PATH_MODULATION = "modulate";

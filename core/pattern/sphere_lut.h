@@ -205,7 +205,8 @@ inline float sphere_face_grid_coordinate(int index) {
   return (2 * index - (SphereLutView::FACE_STEPS - 1)) * HALF_STEP;
 }
 
-/** @brief Copies shared cube edges from their first face in X, Y, Z order. */
+/** @brief Copies shared cube edges from their first face in X, Y, Z order.
+ * @param table Cube faces in lookup-table order. */
 inline void
 copy_sphere_lut_edges(std::span<int8_t, SphereLutView::SIZE> table) {
   constexpr int N = SphereLutView::FACE_STEPS;

@@ -27,7 +27,9 @@ namespace Source {
 
 /// Translations from the live plane to each source endpoint's repeat lattice.
 struct EndpointOffsets {
+  /// Offset into the outgoing source lattice.
   math::Complex from{};
+  /// Offset into the incoming source lattice.
   math::Complex to{};
 };
 
@@ -601,13 +603,16 @@ struct Tessellation : ApproximationDefaults {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /// Whether this policy can sample a baked hex field.
   static constexpr bool APPROXIMATE =
       KindV == Pattern::TessellationKind::HEXAGONAL &&
       FillV == Pattern::TessellationFill::CELLS &&
       requires(const FrameState &frame) { frame.hex_tables; };
+  /// Oracle for the baked hex-cell field, when enabled.
   static constexpr auto ORACLE = APPROXIMATE
                                      ? ApproximationOracleId::HEX_CELL_ENDPOINTS
                                      : ApproximationOracleId::NONE;
+  /// Error metrics of the optional baked field.
   static constexpr auto METRICS = [] {
     if constexpr (APPROXIMATE)
       return std::array{ApproximationMetric{ApproximationDomain::SOURCE_FIELD,
@@ -640,23 +645,32 @@ struct Tessellation : ApproximationDefaults {
         { State::params(frame).line_softness } -> std::convertible_to<float>;
       });
 
+  /// Affine translation adjustments for a source morph.
   struct Prepared {
+    /// Translations into the two endpoint lattices.
     EndpointOffsets endpoint_offsets{};
   };
 
+  /// Whether the provider supports fixed-tessellation endpoint sampling.
   static constexpr bool MORPHS =
       requires(const PlaneSample &input, const FrameState &frame) {
         State::template sample_source_endpoints<KindV, FillV>(
             input, frame, EndpointOffsets{});
       };
 
+  /** @brief Initializes endpoint offsets before binding the neighboring warp.
+   * @return Prepared source with zero offsets. */
   static Prepared prepare(const FrameState &)
     requires MORPHS
   {
     return {};
   }
 
-  /** @brief Samples the signed field at the projected plane coordinate. */
+  /** @brief Samples the signed field at the projected plane coordinate.
+   * @param input Projected plane sample.
+   * @param frame Column frame.
+   * @param prepared Endpoint translation offsets, if available.
+   * @return Signed field value. */
   HS_HOT_INLINE static float sample(const PlaneSample &input,
                                     const FrameState &frame,
                                     const Prepared &prepared = {}) {

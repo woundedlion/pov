@@ -312,7 +312,7 @@ inline constexpr int SEAM_CHECK_COLUMNS = 3;
  * @param tolerance Per-vertex gap bound.
  * @param setup Shades each face as its effect does.
  * @return The number of faces with interior colour samples compared.
- * @details Checks vertex gaps for all matching faces. A face's edge
+ * @details Checks vertex gaps for faces recorded by both frames that reach the seam. A face's edge
  * depth and inradius move by at most twice its largest vertex gap, the
  * gnomonic stretch of a face within a quarter turn of its centre. Colours
  * are compared on the boundary columns' pixels a pixel clear of every edge.
@@ -460,7 +460,7 @@ expect_seam_copies_match(EffectT &effect, const char *label, int seam,
  * @param tolerance Per-vertex gap bound.
  * @param setup Shades each face as its effect does.
  * @return Faces with colour-compared interior pixels, over both boundaries.
- * @details Vertex-gap checks cover every recorded face.
+ * @details Vertex-gap checks cover recorded faces that reach either seam.
  */
 template <int W, int H, typename EffectT, typename ToleranceFn,
           typename SetupFn>

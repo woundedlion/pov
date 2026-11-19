@@ -44,9 +44,14 @@ HS_HOT_INLINE inline float fast_expf_impl(float x) {
   return p * scale;
 }
 
+/** @brief Approximates exp for non-positive arguments.
+ * @param x Exponential argument.
+ * @return Approximation of exp(x). */
 inline float fast_expf(float x) { return fast_expf_impl<true>(x); }
 
-/** @brief Evaluates the same polynomial for finite inputs in [-87, 0]. */
+/** @brief Evaluates the same polynomial for finite inputs in [-87, 0].
+ * @param x Finite argument in [-87, 0].
+ * @return Approximation of exp(x). */
 HS_HOT_INLINE inline float fast_expf_normal_range(float x) {
   HS_AUDIT_CHECK(x >= -87.0f && x <= 0.0f);
   return fast_expf_impl<false>(x);

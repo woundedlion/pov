@@ -203,7 +203,7 @@ were local to the qualifying machine and are not kept in the repository.
 The restoration-removal negative companion fails two assertions. Focused Release
 WASM draw peaks are 432/812/432 bytes for AlienBrain/AshCloud/JewelMelt at both
 supported resolutions over 120 frames each; initialization peaks at 1120 bytes.
-All stay below the unchanged 2048-byte budget. Canonical CI passed on `de2fed2a5`.
+All stay below the unchanged 2048-byte budget.
 
 ## Rejected mixed-cell admission screens
 

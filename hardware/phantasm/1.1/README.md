@@ -7,9 +7,9 @@ from the repository root.
 
 **Rev 1.1 is the built and exhibited revision.** Rev 1.2
 separates sync transmit from the filtered receive node; see
-[Revision 1.2](../1.2/README.md). The routed candidate includes corrected drill
-spacing, thermal reliefs, an 8 V TVS, and J2 pin order **DATA / GND / CLK**.
-Earlier boards use DATA / CLK / GND. The repository has no pinout record
+[Revision 1.2](../1.2/README.md). The routed rev 1.1 board in this directory has corrected
+drill spacing, thermal reliefs, an 8 V TVS, and J2 pin order **DATA / GND / CLK**.
+Boards built before those corrections may use DATA / CLK / GND. The repository has no pinout record
 for the exhibited boards. Before fitting a harness, disconnect power and
 check J2 pin 2 for continuity to board ground. Continuity identifies the
 DATA / GND / CLK pinout. Retain the ordered package and its original digests.

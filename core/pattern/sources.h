@@ -314,7 +314,8 @@ HS_HOT_INLINE inline float triangle_distance(float x, float y, float radius) {
  * @param x Cell-local x, in cell units.
  * @param y Cell-local y, in cell units.
  * @param params Shape blend, radius and softness.
- * @return 1 inside the primitive, -1 outside, ramped across the edge. */
+ * @return 1 inside the primitive, -1 outside, ramped across the edge.
+ * @param squared Squared cell-local radius. */
 template <TessellationKind Kind, typename Params>
 HS_HOT_INLINE inline float cell_primitive(float x, float y, float squared,
                                           const Params &params) {
@@ -346,6 +347,11 @@ HS_HOT_INLINE inline float cell_primitive(float x, float y, float squared,
   return evaluate(params.cell_shape);
 }
 
+/** @brief Samples a cell primitive from its local coordinates.
+ * @param x Cell-local x, in cell units.
+ * @param y Cell-local y, in cell units.
+ * @param params Shape blend, radius and softness.
+ * @return Signed field value. */
 template <TessellationKind Kind, typename Params>
 HS_HOT_INLINE inline float cell_primitive(float x, float y,
                                           const Params &params) {
@@ -357,7 +363,8 @@ HS_HOT_INLINE inline float cell_primitive(float x, float y,
  * @param u Plane x in lattice periods.
  * @param v Plane y in lattice periods.
  * @param x Receives the offset's x, in periods.
- * @param y Receives the offset's y, in periods. */
+ * @param y Receives the offset's y, in periods.
+ * @return Squared distance to the nearest lattice point, in squared periods. */
 template <bool Reflected = false>
 HS_HOT_INLINE inline float nearest_hexagonal_offset(float u, float v, float &x,
                                                     float &y) {

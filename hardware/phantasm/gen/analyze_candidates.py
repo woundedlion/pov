@@ -442,7 +442,7 @@ def _print_candidate_ranking(results):
     for si, k in sorted(ranked, reverse=True):
         print(f"{k:>6} {si:>12.1f}  {drc_tag(k)}")
     if ranked:
-        # A candidate must pass both the via and DRC gates.
+        # A candidate must pass the placement, via and DRC gates.
         eligible = [t for t in ranked if drc_tag(t[1]) in ("ok", "refill")]
         if eligible:
             best = max(eligible)[1]

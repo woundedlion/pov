@@ -321,7 +321,11 @@ public:
            &Derived::shade == &ComposedEffect::shade;
   }
 
-  /** @brief Shades one column using its owned or borrowed evaluator. */
+  /** @brief Shades one column using its owned or borrowed evaluator.
+   * @param frame Prepared effect frame.
+   * @param x Canvas column.
+   * @param evaluator Column color evaluator.
+   * @return Shader callable bound to the column's state. */
   template <typename Evaluator>
   static HS_HOT_INLINE auto stacked_column_shader(const Frame &frame, int x,
                                                   Evaluator evaluator) {
@@ -338,7 +342,10 @@ public:
           };
   }
 
-  /** @brief Binds an independently usable shader for one column. */
+  /** @brief Binds an independently usable shader for one column.
+   * @param frame Prepared effect frame.
+   * @param x Canvas column.
+   * @return Shader callable for that column. */
   static HS_HOT_INLINE auto column_shader(const Frame &frame, int x) {
     if constexpr (requires { Derived::prepare_column_shader(frame, x); })
       return Derived::prepare_column_shader(frame, x);
@@ -358,7 +365,9 @@ public:
       };
   }
 
-  /** @brief Binds the frame's color evaluator for every visible column at its time. */
+  /** @brief Binds the frame's color evaluator for every visible column at its time.
+   * @param frame Prepared effect frame.
+   * @return Factory mapping a visible column to its bound shader. */
   static HS_HOT_INLINE auto bind_column_shaders(const Frame &frame) {
     if constexpr (stacked_columns() &&
                   !requires { Derived::prepare_column_shader(frame, 0); })
@@ -374,6 +383,10 @@ public:
       return [&frame](int x) { return column_shader(frame, x); };
   }
 
+  /** @brief Prepares the factored spatial basis at one column's azimuth.
+   * @param frame Prepared effect frame.
+   * @param x Canvas column.
+   * @return Column basis for the render pipeline. */
   static HS_HOT_INLINE auto column_basis(const Frame &frame, int x)
     requires(factored_columns())
   {
@@ -733,6 +746,7 @@ private:
     return supported;
   }
 
+  /// Empty frame extension for effects without source morphs.
   struct EmptySourceMorph {};
   template <typename Parameters> struct SourceMorphStorage {
     Source::EndpointMorph<Parameters> source_morph;

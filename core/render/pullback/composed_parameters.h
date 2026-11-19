@@ -44,14 +44,22 @@ inline PotentialParams interpolate(const PotentialParams &a,
   return out;
 }
 
-/** @brief Writes one interpolated parameter family, allowing either endpoint to alias the result. */
+/** @brief Writes one interpolated parameter family, allowing either endpoint to alias the result.
+ * @param result Destination parameter family.
+ * @param from Outgoing parameters.
+ * @param to Incoming parameters.
+ * @param progress Incoming endpoint weight. */
 template <HasFields Family>
 inline void sample_parameter_family(Family &result, const Family &from,
                                     const Family &to, float progress) {
   result = interpolate(from, to, progress);
 }
 
-/** @brief Writes a nested modulation recipe without copying its containing family. */
+/** @brief Writes a nested modulation recipe without copying its containing family.
+ * @param result Destination modulation recipe.
+ * @param from Outgoing recipe.
+ * @param to Incoming recipe.
+ * @param progress Incoming endpoint weight. */
 HS_SIZE_FLASH_MEMBER inline void
 sample_modulation_controls(Modulation::Config &result,
                            const Modulation::Config &from,
@@ -59,6 +67,11 @@ sample_modulation_controls(Modulation::Config &result,
   result = Modulation::interpolate(from, to, progress);
 }
 
+/** @brief Samples the controls inside a typed modulation family.
+ * @param result Destination modulation family.
+ * @param from Outgoing family.
+ * @param to Incoming family.
+ * @param progress Incoming endpoint weight. */
 template <Pattern::SourceKind Source, Pattern::Evaluation Evaluation,
           bool Dynamic, bool Path>
 inline void sample_parameter_family(
@@ -267,7 +280,9 @@ template <> struct OptionalHueRotationLut<true> {
   uint32_t hue_rotation_lut_bake = 0;
   HueRotationGamutMask hue_rotation_gamut; ///< Resident hue table cell flags.
 
-  /** @brief Rebakes the hue table when its palette generation changes. */
+  /** @brief Rebakes the hue table when its palette generation changes.
+   * @param palette Base palette for the hue table.
+   * @param generation Identity of the palette bake. */
   HS_SIZE_FLASH_MEMBER void
   refresh_hue_rotation_lut(const BakedPalette &palette, uint32_t generation) {
     if (hue_rotation_lut_bake != generation) {

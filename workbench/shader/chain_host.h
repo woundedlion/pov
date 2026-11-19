@@ -64,6 +64,7 @@ struct ShaderChainSourceMorphWrite {
 /** @brief Endpoint parameters for one modulation source transition. */
 struct ShaderChainModulationMorphWrite {
   std::string_view instance; ///< Ordered modulation instance.
+  /// Outgoing modulation controls.
   std::span<const ShaderChainParameterWrite> from, to; ///< Endpoint controls.
   float mix;                                           ///< Incoming weight.
   bool snap; ///< Discard the previous temporal interval on a preview seek.
@@ -72,6 +73,7 @@ struct ShaderChainModulationMorphWrite {
 /** @brief Authored palette endpoints and the incoming palette weight. */
 struct ShaderChainPaletteMorphWrite {
   std::string_view instance; ///< Colorize instance receiving the blend.
+  /// Outgoing palette controls.
   std::span<const ShaderChainParameterWrite> from, to; ///< Endpoint controls.
   float mix;                                           ///< Incoming weight.
   bool snap; ///< Discard the previous temporal interval on a preview seek.
@@ -858,14 +860,8 @@ private:
     return {};
   }
 
-  /**
-   * @brief Rebuilds the registered parameter definitions from the committed
-   *        program.
-   * @details Name strings live in the winning arena (ChainProgram::
-   * param_name), so this must run immediately after every successful compile:
-   * the compile that produced the program reset the loser arena holding the
-   * previously registered names.
-   */
+  /** @brief Clears all layer preview morphs.
+   * @return Whether a morph was active. */
   bool clear_modulation_morphs() {
     bool cleared = false;
     for (auto &layer : resources->layers) {
@@ -886,6 +882,9 @@ private:
 #endif
   }
 
+  /** @brief Registers the committed program's parameter definitions.
+   * @details Run after each successful compile, which resets the arena that
+   * held the previous definitions' names. */
   void rebind_chain_parameters() {
     reset_parameters();
     const auto ops = program.ops();

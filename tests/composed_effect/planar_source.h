@@ -16,6 +16,7 @@ namespace hs_test::composed_effect_tests {
 /** @brief Rebinds the grid sample to the planar selector. */
 template <typename Pipeline> struct PlanarMorphPipeline;
 
+/// Substitutes the planar selector while preserving the original crossing policies.
 template <typename B, typename Rotate, typename Displace, typename Project,
           typename Sample, typename... Tail>
 struct PlanarMorphPipeline<
@@ -233,6 +234,7 @@ inline void test_same_kind_source_morph() {
 
 /** @brief Enables endpoint sampling on the fixed hex-cells policy. */
 struct EndpointHexSpec : RiverStonesSpec {
+  /// Samples the hex field at both authored endpoints.
   static constexpr bool SOURCE_MORPH = true;
 };
 
@@ -275,9 +277,11 @@ inline void test_fixed_hex_source_morph() {
 
 /** @brief Exercises the Teensy approximation on the native test target. */
 struct TableHexSpec : RiverStonesSpec {
+  /// Enables the pre-baked endpoint hex fields.
   static constexpr bool HEX_MORPH_TABLE = true;
 };
 
+/// Checks that table-backed endpoint fields agree with the analytic source.
 inline void test_hex_morph_table() {
   using namespace Pullback;
   using Traits = ComposedTraits<SMALL_W, TableHexSpec>;

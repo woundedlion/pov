@@ -18,62 +18,94 @@ namespace Pullback::Source {
 namespace PlanarDetail {
 
 template <PlanarFamily Family> struct FamilyBinding;
+/// Resource binding shared by planar grid kernels.
 template <> struct FamilyBinding<PlanarFamily::GRID> {
+  /// Grid parameter family.
   using Params = GridSourceParams;
+  /// Grid parameter resource key.
   static constexpr ResourceKey KEY = "source_grid";
+  /// Grid sampling policy.
   template <typename Provider> using Policy = Grid<Provider>;
 };
+/// Resource binding shared by twin-wave kernels.
 template <> struct FamilyBinding<PlanarFamily::TWIN_WAVE> {
+  /// Twin-wave parameter family.
   using Params = TwinWaveSourceParams;
+  /// Twin-wave parameter resource key.
   static constexpr ResourceKey KEY = "source_twin_wave";
+  /// Twin-wave sampling policy.
   template <typename Provider> using Policy = TwinWave<Provider>;
 };
+/// Resource binding shared by planar band kernels.
 template <> struct FamilyBinding<PlanarFamily::BANDS> {
+  /// Band parameter family.
   using Params = BandsSourceParams;
+  /// Band parameter resource key.
   static constexpr ResourceKey KEY = "source_bands";
+  /// Band sampling policy.
   template <typename Provider> using Policy = Bands<Provider>;
 };
+/// Resource binding shared by planar spiral kernels.
 template <> struct FamilyBinding<PlanarFamily::SPIRAL> {
+  /// Spiral parameter family.
   using Params = SpiralSourceParams;
+  /// Spiral parameter resource key.
   static constexpr ResourceKey KEY = "source_spiral";
+  /// Spiral sampling policy.
   template <typename Provider> using Policy = Spiral<Provider>;
 };
+/// Resource binding shared by tessellation shapes and fills.
 template <> struct FamilyBinding<PlanarFamily::TESSELLATION> {
+  /// Tessellation parameter family.
   using Params = TessellationSourceParams;
+  /// Tessellation parameter resource key.
   static constexpr ResourceKey KEY = "source_tessellation";
 };
+/// Resource binding shared by projected-noise bases.
 template <> struct FamilyBinding<PlanarFamily::PROJECTED_NOISE> {
+  /// Projected-noise parameter family.
   using Params = ProjectedNoiseSourceParams;
+  /// Projected-noise parameter resource key.
   static constexpr ResourceKey KEY = "source_projected_noise";
 };
 
+/// Binds a planar kind to its family's parameters and sampling policy.
 template <PlanarKind Kind>
 struct KindBinding : FamilyBinding<planar_family(Kind)> {};
 
+/// Binds a tessellation kind to its fixed shape and fill.
 template <PlanarKind Kind>
   requires(planar_family(Kind) == PlanarFamily::TESSELLATION)
 struct KindBinding<Kind> : FamilyBinding<PlanarFamily::TESSELLATION> {
+  /// Index in the contiguous tessellation kinds.
   static constexpr auto INDEX =
       static_cast<unsigned>(Kind) -
       static_cast<unsigned>(PlanarKind::TESSELLATION_TRIANGULAR_CELLS);
+  /// Cell shape of this kind.
   static constexpr auto SHAPE =
       static_cast<Pattern::TessellationKind>(INDEX / 2);
+  /// Cell primitive or edge fill of this kind.
   static constexpr auto FILL =
       static_cast<Pattern::TessellationFill>(INDEX % 2);
 
+  /// Tessellation sampling policy for the fixed shape and fill.
   template <typename Provider>
   using Policy = Tessellation<Provider, SHAPE, FILL>;
 };
 
+/// Binds a projected-noise kind to its fixed noise basis.
 template <PlanarKind Kind>
   requires(planar_family(Kind) == PlanarFamily::PROJECTED_NOISE)
 struct KindBinding<Kind> : FamilyBinding<PlanarFamily::PROJECTED_NOISE> {
+  /// Noise basis of this kind.
   static constexpr auto BASIS = static_cast<math::NoiseBasis>(
       static_cast<unsigned>(Kind) -
       static_cast<unsigned>(PlanarKind::PROJECTED_NOISE_SIMPLEX));
+  /// Projected-noise sampling policy for the fixed basis.
   template <typename Provider> using Policy = ProjectedNoise<Provider, BASIS>;
 };
 
+/// @return Whether the kind's policy can report a translation lattice.
 template <PlanarKind Kind> consteval bool has_lattice() {
   using Row = KindBinding<Kind>;
   return requires { Row::SHAPE; } ||
@@ -82,12 +114,16 @@ template <PlanarKind Kind> consteval bool has_lattice() {
          };
 }
 
+/// @return Whether the kind's repeat lattice is rectangular.
 template <PlanarKind Kind> consteval bool rectangular_lattice() {
   if constexpr (requires { KindBinding<Kind>::SHAPE; })
     return KindBinding<Kind>::SHAPE == Pattern::TessellationKind::SQUARE;
   return Kind == PlanarKind::GRID;
 }
 
+/** @brief Resolves the kind's lattice from an authored parameter set.
+ * @param params Bundle containing the source's parameter family.
+ * @return Translation lattice, or an empty lattice for nonrepeating kinds. */
 template <PlanarKind Kind, typename Params>
 HS_FLASH_INLINE TranslationLattice lattice_for(const Params &params) {
   using Row = KindBinding<Kind>;
@@ -101,6 +137,7 @@ HS_FLASH_INLINE TranslationLattice lattice_for(const Params &params) {
   return {};
 }
 
+/// @return Mask of planar kinds using this parameter resource, or zero.
 template <typename Resource> consteval uint16_t family_mask() {
   if constexpr (Resource::KEY.view() == "source_grid")
     return live_values(PlanarKind::GRID);
@@ -196,36 +233,54 @@ constexpr bool valid(const PlanarSelectorParams<Kinds...> &selector) {
 
 namespace PlanarDetail {
 
+/// Provider for the selected planar kind's live parameters.
 template <typename B, PlanarKind Kind>
 using ProviderFor = SourceProvider<B, typename KindBinding<Kind>::Params,
                                    KindBinding<Kind>::KEY>;
 
+/// Parameter set used to sample a planar field.
 enum class Endpoint { CURRENT, FROM, TO };
 
+/// Provider reading controls from an authored source endpoint.
 template <typename B, PlanarKind Kind, Endpoint Side>
 struct EndpointProvider : ProviderFor<B, Kind> {
+  /// Column frame carrying the endpoint controls.
   using FrameState = typename B::FrameState;
 
+  /** @brief Selects the endpoint's parameter family.
+   * @param frame Column frame with an active source morph.
+   * @return The chosen endpoint's family controls. */
   static HS_HOT_INLINE const auto &params(const FrameState &frame) {
     const auto *endpoint = Side == Endpoint::FROM ? frame.source_morph.from
                                                   : frame.source_morph.to;
     return endpoint->template get<KindBinding<Kind>::KEY>();
   }
 
+  /** @brief Reads noise scale from the selected endpoint.
+   * @param frame Column frame with an active source morph.
+   * @return Authored noise scale. */
   static HS_HOT_INLINE float noise_scale(const FrameState &frame) {
     return params(frame).noise_scale;
   }
 
+  /** @brief Reads noise contrast from the selected endpoint.
+   * @param frame Column frame with an active source morph.
+   * @return Authored noise contrast. */
   static HS_HOT_INLINE float noise_contrast(const FrameState &frame) {
     return params(frame).noise_contrast;
   }
 };
 
+/// Planar sampling policy bound to the live or an endpoint provider.
 template <typename B, PlanarKind Kind, Endpoint Side = Endpoint::CURRENT>
 using PolicyFor = typename KindBinding<Kind>::template Policy<
     std::conditional_t<Side == Endpoint::CURRENT, ProviderFor<B, Kind>,
                        EndpointProvider<B, Kind, Side>>>;
 
+/** @brief Tests whether any selected kind belongs to the mask.
+ * @param weights Weights indexed by the compiled kinds.
+ * @param mask Planar-kind bits to test.
+ * @return Whether a masked kind has positive weight. */
 template <typename Selector>
 HS_FLASH_INLINE bool live(const typename Selector::PlanarWeights &weights,
                           uint16_t mask) {
@@ -236,6 +291,11 @@ HS_FLASH_INLINE bool live(const typename Selector::PlanarWeights &weights,
   return false;
 }
 
+/** @brief Restricts a field's source mask by its topology gate.
+ * @param field Authored parameter field.
+ * @param params Family values used to check the gate.
+ * @param mask Candidate planar kinds.
+ * @return Kinds for which the field is live. */
 template <typename Family>
 HS_FLASH_INLINE uint16_t gated_mask(const Field<Family> &field,
                                     const Family &params, uint16_t mask) {
@@ -253,6 +313,11 @@ HS_FLASH_INLINE uint16_t gated_mask(const Field<Family> &field,
   return mask;
 }
 
+/** @brief Compares topology and live fields between two endpoint families.
+ * @param a Outgoing family controls.
+ * @param b Incoming family controls.
+ * @param mask The planar kinds used by the endpoints.
+ * @return Whether a relevant field differs. */
 template <typename Family>
 constexpr bool different_fields(const Family &a, const Family &b,
                                 uint16_t mask) {
@@ -357,6 +422,7 @@ struct Planar
     Kernels first;                 ///< Current or outgoing inputs.
     std::optional<Kernels> second; ///< Incoming inputs during a morph.
     uint8_t exact;                 ///< Selected index for a single field.
+    /// Translation from the live plane into each endpoint's lattice.
     EndpointOffsets endpoint_offsets{};
   };
 
@@ -482,6 +548,7 @@ namespace Pullback::ComposedDetail {
  * @tparam Kinds Planar source kernels compiled into the effect. */
 template <typename B, Source::PlanarKind... Kinds>
 struct PolicyResources<Source::Planar<B, Kinds...>> {
+  /// Binding of one compiled planar kind.
   template <Source::PlanarKind Kind>
   using Row = Source::PlanarDetail::KindBinding<Kind>;
   using Type = typename MergeAll<

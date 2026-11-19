@@ -585,6 +585,7 @@ template <typename Resource> struct ResourceMobiusInterval<Resource, true> {
 /** @brief Optional planar selector state for a sampled frame.
  * @tparam Resource Keyed parameter resource. */
 template <typename Resource> struct ResourcePlanarWeights {};
+/// Sampled source weights for a parameter family with a planar selector.
 template <typename Resource>
   requires requires { typename Resource::Family::PlanarWeights; }
 struct ResourcePlanarWeights<Resource> {

@@ -194,8 +194,8 @@ public:
     const uint8_t *ramp_from = nullptr; /**< Per-pair from palette. */
     const uint8_t *ramp_to = nullptr;   /**< Per-pair to palette. */
     float weight = 0.0f;                /**< Crossfade weight `ramps` carry. */
-    float previous_weight = 0.0f; /**< Crossfade weight the leg drew a frame
-                                     ago, or `weight` after a reset. */
+    /// Crossfade weight last drawn, or `weight` on the first draw.
+    float previous_weight = 0.0f;
     /** The drawn mesh's vertices at the leg frame drawn last, index for
      * index, or null when the leg drew no other frame before this one or
      * moves through `leg`; the draw may overwrite them. */

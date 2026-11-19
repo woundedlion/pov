@@ -38,7 +38,14 @@ HS_HOT_FLASH_MEMBER inline void sample_keyed_rotation(
           .conjugate();
 }
 
-/** @brief Tests palette entries, hue rotation pixels and gamut masks across endpoints. */
+/** @brief Tests palette entries, hue rotation pixels and gamut masks across endpoints.
+ * @param a Outgoing palette, or null.
+ * @param b Incoming palette, or null.
+ * @param a_hue Outgoing hue pixels, or null.
+ * @param b_hue Incoming hue pixels, or null.
+ * @param a_gamut Outgoing hue gamut mask, or null.
+ * @param b_gamut Incoming hue gamut mask, or null.
+ * @return Whether the two endpoints have equivalent palette data. */
 HS_SIZE_FLASH_MEMBER inline bool
 same_interval_palette(const BakedPalette *a, const BakedPalette *b,
                       const Pixel *a_hue, const Pixel *b_hue,
@@ -53,7 +60,13 @@ same_interval_palette(const BakedPalette *a, const BakedPalette *b,
           (a_gamut && b_gamut && a_gamut->bits == b_gamut->bits));
 }
 
-/** @brief Selects a retained scalar source and checks continuous phase compatibility. */
+/** @brief Selects a retained scalar source and checks continuous phase compatibility.
+ * @param a Outgoing source configuration.
+ * @param b Incoming source configuration.
+ * @param previous Outgoing prepared source, or null.
+ * @param current Incoming prepared source, or null.
+ * @param phase_compatible Accumulated phase compatibility across layers.
+ * @return Source to use for the outgoing side of the interval. */
 HS_HOT_FLASH_MEMBER inline const Modulation::Prepared *
 interval_modulation(const Modulation::Config &a, const Modulation::Config &b,
                     const Modulation::Prepared *previous,
@@ -70,7 +83,10 @@ interval_modulation(const Modulation::Config &a, const Modulation::Config &b,
   return previous;
 }
 
-/** @brief Prepares periodic source clocks independently of the effect's resource list. */
+/** @brief Prepares periodic source clocks independently of the effect's resource list.
+ * @param delta Receives the signed clock steps.
+ * @param a Outgoing source clocks.
+ * @param b Incoming source clocks. */
 HS_SIZE_FLASH_MEMBER inline void
 prepare_source_clocks(ComposedDetail::SourceClocks &delta,
                       const ComposedDetail::SourceClocks &a,
@@ -85,7 +101,11 @@ prepare_source_clocks(ComposedDetail::SourceClocks &delta,
       ClockInterval::prepare_delta(a.noise_time, b.noise_time, 1.0f);
 }
 
-/** @brief Samples all four source clocks along their prepared periodic arcs. */
+/** @brief Samples all four source clocks along their prepared periodic arcs.
+ * @param out Receives sampled clocks.
+ * @param start Outgoing source clocks.
+ * @param delta Prepared clock steps.
+ * @param fraction Position within the frame interval. */
 HS_HOT_FLASH_MEMBER inline void
 sample_source_clocks(ComposedDetail::SourceClocks &out,
                      const ComposedDetail::SourceClocks &start,
@@ -105,6 +125,7 @@ template <typename Resource> struct IntervalDelta {};
 
 template <typename Resource>
   requires(Resource::KIND == ResourceKind::SOURCE ||
+           /// Clock storage retained for an interpolated resource.
            Resource::KIND == ResourceKind::WARP ||
            Resource::KIND == ResourceKind::TWIST ||
            std::is_same_v<typename Resource::Family, MobiusGeneratorParams> ||
@@ -114,9 +135,11 @@ template <typename Resource>
                             SphereAnimation::BurstRippleParams>))
 struct IntervalDelta<Resource> : ComposedDetail::ResourceClock<Resource> {};
 
+/// Prepared scalar source retained for a modulation interval.
 template <typename Resource>
   requires(Resource::KIND == ResourceKind::MODULATION)
 struct IntervalDelta<Resource> {
+  /// Outgoing source, or null when absent.
   const Modulation::Prepared *previous_modulation;
 };
 
@@ -460,7 +483,8 @@ HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
   return Pullback::FrameInterval(from, to).at(fraction);
 }
 
-/** @brief Value-initializes an arena-owned frame context. */
+/** @brief Value-initializes an arena-owned frame context.
+ * @return Value-initialized frame context. */
 template <typename Frame> HS_SIZE_FLASH_MEMBER Frame initial_frame_context() {
   return {};
 }

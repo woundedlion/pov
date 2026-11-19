@@ -289,6 +289,11 @@ struct SampleGridV4 : SourceClockModel,
   static TranslationLattice translation_lattice(const Params &params) {
     return Source::translation_lattice(params);
   }
+  /** @brief Samples the animated grid before crossing weights are applied.
+   * @param input Projected sample.
+   * @param params Grid controls at the sample time.
+   * @param prepared Prepared grid clocks.
+   * @return Raw grid field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &prepared) {
     return Pattern::grid(
@@ -315,6 +320,11 @@ struct SampleTwinWaveV3 : SourceClockModel,
   using Output = FieldSample;
   using Params = TwinWaveSampleParams;
 
+  /** @brief Samples the twin wave before crossing weights are applied.
+   * @param input Projected sample.
+   * @param params Wave controls at the sample time.
+   * @param prepared Prepared twin-wave clocks.
+   * @return Raw twin-wave field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &prepared) {
     return Pattern::twin_wave(
@@ -354,6 +364,10 @@ struct SampleBands : StatelessModel,
     check_sample_topology(params.weight_mode, params.coverage_mode);
     return Pattern::PlaneBands::prepare(params, {});
   }
+  /** @brief Samples the bands before crossing weights are applied.
+   * @param input Projected sample.
+   * @param prepared Prepared band field.
+   * @return Raw band field. */
   static float sample(const PlaneSample &input, const Params &,
                       const Prepared &prepared) {
     return Pattern::PlaneBands::sample({input.coords}, prepared);
@@ -385,6 +399,10 @@ struct SampleSpiralV3 : StatelessModel,
     check_sample_topology(params.weight_mode, params.coverage_mode);
     return Pattern::PlaneSpiral::prepare(params, {});
   }
+  /** @brief Samples the spiral before crossing weights are applied.
+   * @param input Projected sample.
+   * @param prepared Prepared spiral field.
+   * @return Raw spiral field. */
   static float sample(const PlaneSample &input, const Params &,
                       const Prepared &prepared) {
     return Pattern::PlaneSpiral::sample({input.coords}, prepared);
@@ -462,6 +480,10 @@ struct SampleTessellation : StatelessModel,
              "sample.tessellation: invalid fill");
     return {};
   }
+  /** @brief Samples the selected tessellation before crossing weights are applied.
+   * @param input Projected sample.
+   * @param params Cell and fill controls.
+   * @return Raw tessellation field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &) {
     return Pattern::tessellation(
@@ -523,6 +545,11 @@ struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState>,
     check_noise_basis(params.basis);
     return {&state.noise, math::noise_projected_loop_offset(state.phase)};
   }
+  /** @brief Samples projected noise before crossing weights are applied.
+   * @param input Projected sample.
+   * @param params Noise scale, contrast and basis.
+   * @param prepared Prepared noise generator and loop offset.
+   * @return Raw projected-noise field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &prepared) {
     if (!math::noise_plane_in_domain(input.coords))

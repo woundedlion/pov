@@ -166,7 +166,9 @@ struct PhaseScratch {
   std::optional<Pattern::SphereDirection>
       direction; ///< Normalized source direction.
 
-  /** @brief Resolves one cube lookup for every sampler sharing this pixel. */
+  /** @brief Resolves one cube lookup for every sampler sharing this pixel.
+   * @param sphere Sample direction.
+   * @return Shared interpolation tap for this pixel. */
   HS_HOT_FLASH_MEMBER const Pattern::SphereLutSample &
   tap(const math::Vector &sphere) {
     if (!cube_tap_ready) {
@@ -273,7 +275,13 @@ HS_HOT_INLINE inline void apply_brightness_gain(LinRGB &color, float gain) {
   color.b = hs::clamp(color.b, 0.0f, 1.0f) * gain;
 }
 
-/** @brief Samples an admitted hue-table cell, leaving guarded cells for direct conversion. */
+/** @brief Samples an admitted hue-table cell, leaving guarded cells for direct conversion.
+ * @param table Baked hue rotation pixels, or null.
+ * @param mask Gamut guard bits, or null.
+ * @param coordinate Base palette coordinate.
+ * @param hue Hue rotation in turns.
+ * @param result Destination on a table hit.
+ * @return Whether the result was read from the table. */
 HS_HOT_ITCM_MEMBER inline bool
 sample_guarded_hue_lut(const Pixel *table, const HueRotationGamutMask *mask,
                        float coordinate, float hue, Pixel &result) {
@@ -287,7 +295,13 @@ sample_guarded_hue_lut(const Pixel *table, const HueRotationGamutMask *mask,
   return true;
 }
 
-/** @brief Finishes hue, lift and brightness from an RGB or cached OKLab base. */
+/** @brief Finishes hue, lift and brightness from an RGB or cached OKLab base.
+ * @param color Base pixel.
+ * @param cached Base in OKLab, or null to convert the base pixel.
+ * @param lift Linear lightness lift parameter.
+ * @param hue Hue rotation in turns.
+ * @param gain Brightness multiplier.
+ * @return Adjusted and brightness-scaled pixel. */
 HS_HOT_ITCM_MEMBER inline Pixel finish_hue_lift_pixel(const Pixel &color,
                                                       const OKLab *cached,
                                                       float lift, float hue,
@@ -1157,6 +1171,10 @@ template <typename Node, typename Binding> struct BindNode {
 /// Optional preparation shared by two adjacent semantic stages.
 template <typename Previous, typename Next> struct PrepareAdjacent {};
 
+/** @brief Binds the prepared states of two neighboring stages.
+ * @param frame Column frame context.
+ * @param left Prepared left stage.
+ * @param right Prepared right stage to bind. */
 template <typename A, typename B, typename Frame, typename Left, typename Right>
 HS_FLASH_INLINE void prepare_neighbor(const Frame &frame, const Left &left,
                                       Right &right) {
@@ -1173,6 +1191,9 @@ HS_FLASH_INLINE void prepare_neighbor(const Frame &frame, const Left &left,
     PrepareAdjacent<A, B>::bind(frame, left, right);
 }
 
+/** @brief Binds the neighbor contracts of a prepared stage sequence.
+ * @param frame Column frame context.
+ * @param prepared Tuple of prepared stage states. */
 template <typename... Nodes, typename Frame, typename Prepared>
 HS_FLASH_INLINE void prepare_neighbors(const Frame &frame, Prepared &prepared) {
   using Descriptors = std::tuple<Nodes...>;
@@ -2544,7 +2565,9 @@ public:
         frame.ctx, frame.prepared,
         std::make_index_sequence<NODE_COUNT - Core::STACK_BEGIN - 1>{});
   }
-  /** @brief Binds any translation-distance cache to one scan column's evaluator. */
+  /** @brief Binds any translation-distance cache to one scan column's evaluator.
+   * @param evaluator Bound color evaluator.
+   * @return Evaluator with any required scan-local cache. */
   template <typename Evaluator>
   static auto scan_evaluator(Evaluator evaluator) {
     if constexpr (MODULATION_STACK && Core::STACK_BEGIN >= 2 &&

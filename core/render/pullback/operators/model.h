@@ -111,7 +111,8 @@ using Pullback::instance_hash;
 
 /** @brief One ordered layer's authored spatial/displacement transition. */
 struct ModulationMorph {
-  std::string_view key;             ///< Modulation instance.
+  std::string_view key; ///< Modulation instance.
+  /// Controls of the outgoing endpoint.
   ColorModulation::Params from, to; ///< Authored mechanic strengths.
   float mix = 0.0f;                 ///< Incoming endpoint weight.
   bool from_spatial = false; ///< Outgoing endpoint uses the prepared source.
@@ -628,6 +629,11 @@ template <typename Model> struct ErasedAdapter {
         *std::launder(reinterpret_cast<const Prepared *>(prepared)))};
   }
 
+  /** @brief Dispatches the model's raw planar sampling hook.
+   * @param input Projected sample.
+   * @param params Erased live parameter block.
+   * @param prepared Erased prepared frame state.
+   * @return Raw source field. */
   static float sample_source(const PlaneSample &input, const void *params,
                              const uint8_t *prepared) {
     return Model::sample(
@@ -635,6 +641,12 @@ template <typename Model> struct ErasedAdapter {
         *std::launder(reinterpret_cast<const Prepared *>(prepared)));
   }
 
+  /** @brief Dispatches weighting and coverage for an already sampled source.
+   * @param input Projected sample.
+   * @param raw Raw source field.
+   * @param params Erased live parameter block.
+   * @param ctx Frame context.
+   * @return Weighted field sample with provenance. */
   static FieldSample finish_source(const PlaneSample &input, float raw,
                                    const void *params,
                                    const FrameContext &ctx) {

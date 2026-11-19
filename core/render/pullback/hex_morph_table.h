@@ -13,15 +13,27 @@ namespace Pullback::Source {
 
 /** @brief Periodic triangular samples in coordinates normal to hex cell faces. */
 struct HexMorphTable {
+  /// Intervals per lattice coordinate.
   static constexpr int STEPS = 32;
+  /// Quantized field samples indexed by tile and lattice coordinates.
   uint16_t values[3][STEPS + 1][STEPS + 1]{};
+  /** @var HexMorphTable::softness
+   * @brief Cell softness of the resident profile. */
+  /** @var HexMorphTable::shape
+   * @brief Cell shape blend of the resident profile. */
+  /// Cell radius of the resident profile, or negative before baking.
   float radius = -1.0f, softness = 0.0f, shape = 0.0f;
 
+  /** @brief Tests whether the shape controls match the resident profile.
+   * @param p Requested tessellation profile.
+   * @return Whether the pre-baked field can serve the profile. */
   bool matches(const Pattern::TessellationCellParams &p) const {
     return p.cell_radius == radius && p.cell_softness == softness &&
            p.cell_shape == shape;
   }
 
+  /** @brief Bakes periodic field samples for the authored cell shape.
+   * @param p Tessellation profile to sample. */
   HS_SIZE_FLASH_MEMBER void bake(const Pattern::TessellationCellParams &p) {
     radius = p.cell_radius;
     softness = p.cell_softness;
@@ -41,6 +53,9 @@ struct HexMorphTable {
         }
   }
 
+  /** @brief Quantizes a lattice coordinate, reducing large coordinates periodically.
+   * @param x Lattice coordinate in periods.
+   * @return Signed fixed-point table coordinate. */
   static HS_HOT_INLINE int fixed_coordinate(float x) {
     constexpr float factor = 256.0f * STEPS;
     if (fabsf(x) >= 2147483648.0f / factor)
@@ -48,6 +63,10 @@ struct HexMorphTable {
     return static_cast<int>(floorf(x * factor));
   }
 
+  /** @brief Interpolates the wrapped field in the triangular sample grid.
+   * @param coord Projected coordinate.
+   * @param scale Cell frequency in the projected plane.
+   * @return Interpolated signed field value. */
   HS_HOT_INLINE float sample(math::Complex coord, float scale) const {
     const float y = Pattern::SQRT_3 * coord.im;
     const int a = fixed_coordinate((coord.re + y) * scale);
@@ -73,15 +92,22 @@ struct HexMorphTable {
 
 /// Immutable source tables borrowed by one transition, in departure order.
 struct HexMorphPair {
+  /// Table at the outgoing endpoint.
   const HexMorphTable *from = nullptr;
+  /// Table at the incoming endpoint.
   const HexMorphTable *to = nullptr;
 };
 
 /// Two authored cell profiles baked at effect initialization.
 struct HexMorphTables {
+  /// Storage for the two supported profiles.
   HexMorphTable tables[2];
+  /// Tables selected for the active transition.
   HexMorphPair active{};
 
+  /** @brief Fills the owned tables at effect initialization.
+   * @param a First authored profile.
+   * @param b Second authored profile. */
   void prewarm(const Pattern::TessellationCellParams &a,
                const Pattern::TessellationCellParams &b) {
     tables[0].bake(a);
@@ -89,6 +115,9 @@ struct HexMorphTables {
   }
 
   /// Returns an empty pair when either endpoint needs the analytic source.
+  /// @param a Outgoing tessellation profile.
+  /// @param b Incoming tessellation profile.
+  /// @return Borrowed tables in endpoint order, or an empty pair.
   HS_SIZE_FLASH_MEMBER HexMorphPair
   select(const Pattern::TessellationCellParams &a,
          const Pattern::TessellationCellParams &b) const {

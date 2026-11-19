@@ -305,6 +305,7 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
   using Input = ColorSample;
   using Output = ColorSample;
   using Params = ModulationParams;
+  /// Frame-bound source and mechanic for one ordered modulation layer.
   struct Prepared {
     const Modulation::Prepared *current; ///< Spatial source for this endpoint.
     const ModulationMorph *morph;        ///< Authored source transition.

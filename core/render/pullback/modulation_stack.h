@@ -29,18 +29,25 @@ enum class LayerSampling : uint8_t {
 
 /// Source storage and mechanic in a generated preset.
 struct LayerLayout {
+  /// Sampling strategy of the compiled layer.
   LayerSampling source = LayerSampling::DYNAMIC;
+  /// Color operation of the compiled layer.
   ColorModulation::Mechanic mechanic = ColorModulation::Mechanic::HUE_ROTATION;
 };
 
 namespace StackDetail {
-/** @brief Identifies the effective interpolation data of two borrowed cubes. */
+/** @brief Identifies the effective interpolation data of two borrowed cubes.
+ * @param a First cube view.
+ * @param b Second cube view.
+ * @return Whether the cubes share the same interpolation data. */
 inline bool same_cube(const Pattern::SphereLutView &a,
                       const Pattern::SphereLutView &b) {
   return a.linear_data == b.linear_data && (a.linear_data || a.data == b.data);
 }
 
-/** @brief Obtains the additional state of an exact phase representation. */
+/** @brief Obtains the additional state of an exact phase representation.
+ * @param phase Held phase representation.
+ * @return Pointer to the expected phase type, or null. */
 template <typename T, typename Phase>
 constexpr const T *phase_as(const Phase &phase) {
   if constexpr (std::is_same_v<T, Phase>)
@@ -475,6 +482,7 @@ class OrderedModulationKernel {
 
 public:
   /// Whether an active layer samples displacement.
+  /// @return Whether any layer consumes displacement path length.
   bool reads_path_length() const { return uses_path; }
 
 protected:
@@ -512,7 +520,9 @@ protected:
     finish_sources();
   }
 
-  /** @brief Tests whether each declared source can be sampled at its own layer. */
+  /** @brief Tests whether each declared source can be sampled at its own layer.
+   * @param layout Compiled source and mechanic declarations in layer order.
+   * @return Whether independent per-layer sampling is compatible. */
   HS_SIZE_FLASH_MEMBER bool
   bind_independent_sources(std::span<const LayerLayout> layout) {
     if (!simple_palette || !source_count || layout.size() != op_count)
@@ -554,10 +564,23 @@ protected:
     return true;
   }
 
+  /// Accumulated color adjustments for a time endpoint.
   struct Adjustments {
+    /** @var Adjustments::lift
+     * @brief Accumulated lightness lift. */
+    /** @var Adjustments::alpha
+     * @brief Accumulated opacity. */
+    /// Hue rotation in turns.
     float hue = 0.0f, lift = 0.0f, alpha;
   };
 
+  /** @brief Accumulates the selected layer at the two time endpoints.
+   * @param op Bound modulation operation.
+   * @param direction Normalized source direction.
+   * @param tap Shared cube interpolation tap.
+   * @param path_length Accumulated displacement path length.
+   * @param current Incoming endpoint adjustments.
+   * @param previous Outgoing endpoint adjustments. */
   template <LayerLayout Layout, bool Unique, size_t I>
   HS_HOT_INLINE void
   apply_source(const Operation &op, const Pattern::SphereDirection &direction,
@@ -634,11 +657,14 @@ protected:
     }
   }
 
+  /// Counts the compiled layers that use the selected mechanic.
   template <ColorModulation::Mechanic Mechanic, LayerLayout... Layout>
   static constexpr size_t uses =
       (size_t{0} + ... + size_t(Layout.mechanic == Mechanic));
 
-  /** @brief Samples each independent source using its provider's storage layout. */
+  /** @brief Samples each independent source using its provider's storage layout.
+   * @param field Scalar field and sample provenance.
+   * @return Color from independently sampled layers. */
   template <LayerLayout... Layout, size_t... I>
   HS_HOT_ITCM_MEMBER Color4 shade_independent(const FieldSample &field,
                                               std::index_sequence<I...>) const {
@@ -669,6 +695,9 @@ protected:
     return finish_simple(field, current.hue, current.lift, current.alpha);
   }
 
+  /** @brief Shades with the ordered layers bound for this frame.
+   * @param field Scalar field and sample provenance.
+   * @return Color after modulation and brightness. */
   HS_HOT_INLINE Color4 shade_bound(const FieldSample &field) const {
     return shade_ordered(field);
   }

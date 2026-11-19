@@ -249,12 +249,16 @@ using Source = std::variant<
     Pattern::SphereNoise::Prepared, Pattern::DirectionalSine::Prepared,
     Pattern::SphereInterference::Prepared, Pattern::SphereSmoothGrid::Prepared>;
 struct Prepared;
+/// Prepared source callback accepting a normalized sphere direction.
 using Evaluator = float (*)(const Prepared &, const Pattern::SphereDirection &);
 /** @brief Identity of an immutable table and the evaluator that consumes it. */
 struct ImmutableTable {
+  /// Prepared source callback accepting a shared cube lookup tap.
   using TapEvaluator = float (*)(const Prepared &,
                                  const Pattern::SphereLutSample &);
+  /// Direction-based evaluator.
   Evaluator evaluator;
+  /// Evaluator reusing the caller's interpolation tap.
   TapEvaluator sample_tap;
 };
 /** @brief One endpoint's immutable source inputs and borrowed scalar table. */
@@ -427,6 +431,7 @@ template <Pattern::SourceKind SourceV, Pattern::Evaluation EvaluationV,
 struct Params {
   static constexpr auto SOURCE = SourceV;         ///< Source capability.
   static constexpr auto EVALUATION = EvaluationV; ///< Storage strategy.
+  /// Whether the family can switch between its spatial source and displacement.
   static constexpr bool SPATIAL_OR_PATH = AllowDisplacement;
   static constexpr bool DYNAMIC =
       DynamicV; ///< Whether presets may change topology.
@@ -434,11 +439,16 @@ struct Params {
                 (!DynamicV && EvaluationV == Pattern::Evaluation::DIRECT &&
                  SourceV != Pattern::SourceKind::DISPLACEMENT));
   /// Whether the source can be selected with this family's storage.
+  /// @param source Requested source kind.
+  /// @return Whether the family can represent that source.
   static constexpr bool supports_source(Pattern::SourceKind source) {
     return DynamicV || source == SourceV ||
            (AllowDisplacement && source == Pattern::SourceKind::DISPLACEMENT);
   }
   /// Whether two bank rows share a supported source and mechanic layout.
+  /// @param initial Initial preset's recipe.
+  /// @param row Candidate preset recipe.
+  /// @return Whether the candidate fits the compiled layer.
   static constexpr bool supports_preset(const Config &initial,
                                         const Config &row) {
     if constexpr (AllowDisplacement)
@@ -448,6 +458,9 @@ struct Params {
            row.mechanic.kind == initial.mechanic.kind;
   }
   /// Whether a document edit preserves this family's topology.
+  /// @param from Current recipe.
+  /// @param to Edited recipe.
+  /// @return Whether the edit fits the compiled layer.
   static bool accepts_edit(const Config &from, const Config &to) {
     if constexpr (DynamicV)
       return true;
@@ -802,6 +815,8 @@ control_fields(Config &config, Pattern::SourceKind source) {
 }
 
 /// Controls for the currently selected source.
+/// @param config Live source recipe.
+/// @return Addresses and metadata of its editable controls.
 inline std::array<ControlField, 3> control_fields(Config &config) {
   return control_fields(config, config.source);
 }

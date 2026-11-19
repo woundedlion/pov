@@ -39,7 +39,9 @@ struct TemporalRotation : math::SlerpArc {
   HS_FLASH_MEMBER TemporalRotation(const math::Quaternion &a,
                                    const math::Quaternion &b)
       : math::SlerpArc(a, b) {}
-  /** @brief Samples the prepared shortest arc at one column time. */
+  /** @brief Samples the prepared shortest arc at one column time.
+   * @param fraction Position within the frame interval.
+   * @return Interpolated rotation. */
   HS_HOT_FLASH_MEMBER math::Quaternion sample(float fraction) const {
     return math::SlerpArc::sample(fraction);
   }

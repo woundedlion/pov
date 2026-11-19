@@ -1724,7 +1724,7 @@ x = ( x_boundary + (now − epoch) · (W/2) / cycles_per_half_rev )  mod W
 
 | Signal | Master (seg 0) | Downstream (segments 1–N−1) | Electrical | Direction |
 |---|---|---|---|---|
-| `SYNC` (rev 1.1) | pin 3 (GPIO out) | pin 3 (ext. interrupt in) | 3.3 V CMOS, active-high pulses, idle LOW | master → all |
+| `SYNC` (rev 1.1) | pin 3 (TX through U1 ch C) | pin 3 (ext. interrupt in) | 3.3 V GPIO / 5 V bus, active-high pulses, idle LOW | master → all |
 | `SYNC` (rev 1.2) | pin 4 (TX through U1), pin 3 (RX) | pin 3 (ext. interrupt in), pin 4 held LOW | 3.3 V GPIO / 5 V bus, active-high pulses, idle LOW | master → all |
 | `MASTER_EN` | pin 5 (drive LOW) | pin 5 (drive HIGH) | 3.3 V CMOS, gates the external sync-out buffer | per-board strap out |
 | `ID` straps | pins 21–23 (ID0–ID2 as required) | pins 21–23 (ID0–ID2 as required) | active-low, internal pull-ups; `ID_STRAPS = log2(N)` read | strap (board identity) |

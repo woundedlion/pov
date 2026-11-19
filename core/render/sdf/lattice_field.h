@@ -149,6 +149,9 @@ template <int Dimensions> struct WireLattice {
   }
 
 private:
+  /** @brief Euclidean length of the active offset components.
+   * @param offset Lattice-space offset.
+   * @return Offset length in cells. */
   static float offset_length(const math::Vec4 &offset) {
     float sum = 0.0f;
     for (int i = 0; i < Dimensions; ++i)

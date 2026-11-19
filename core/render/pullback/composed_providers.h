@@ -139,6 +139,9 @@ template <typename Params> struct EndpointMorph {
       nullptr;               ///< Endpoint supplying authored path tracking.
   bool fields_differ = true; ///< Whether the tessellation fields also change.
 
+  /** @brief Selects the spatial endpoint's recipe during displacement morphs.
+   * @param live Sampled modulation recipe.
+   * @return Spatial endpoint recipe, or the live recipe when unmixed. */
   template <typename Resource>
   const Modulation::Config &
   spatial_config(const Modulation::Config &live) const {
@@ -152,7 +155,8 @@ template <typename Params> struct EndpointMorph {
     return live;
   }
 
-  /** @brief Whether the column uses both source endpoints. */
+  /** @brief Whether the column uses both source endpoints.
+   * @return Whether both authored endpoints contribute to this column. */
   HS_HOT_INLINE bool mixed() const {
     return from && fields_differ && mix > 0.0f && mix < 1.0f;
   }
@@ -164,6 +168,7 @@ template <typename Frame> struct EndpointMorphFrame : Frame {
   EndpointMorph<decltype(Frame::params)> source_morph; ///< Column field blend.
 };
 
+/// Source morph context carrying optional pre-baked hex fields.
 template <typename Frame> struct HexMorphFrame : EndpointMorphFrame<Frame> {
   HexMorphPair hex_tables{}; ///< Authored endpoint grids for this column.
 };
@@ -396,6 +401,9 @@ struct WarpProvider {
   downstream_lattice(const FrameState &frame) {
     return lattice_for(frame.params);
   }
+  /** @brief Finds the downstream source's translation lattice.
+   * @param params Bundle containing the source controls.
+   * @return Source lattice, or no lattice if the source does not repeat. */
   template <typename Params>
   HS_FLASH_INLINE static TranslationLattice lattice_for(const Params &params) {
     if constexpr (Params::template HAS<SourceKey>) {
@@ -410,6 +418,10 @@ struct WarpProvider {
       return {};
     }
   }
+  /** @brief Resolves the affine translation separately for the two source lattices.
+   * @param frame Column frame carrying the morph state.
+   * @param live Prepared affine transform in the live lattice.
+   * @return Offsets relative to the live plane, or zero offsets when unmixed. */
   static Source::EndpointOffsets
   endpoint_offsets(const FrameState &frame,
                    const Warp::PreparedAffineSlot &live)
@@ -508,7 +520,10 @@ struct SurfaceProvider {
   HS_HOT_INLINE static const FastNoiseLite &noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
-  /** @brief Prepares exact waves with the binding's optional burst-center cache. */
+  /** @brief Prepares exact waves with the binding's optional burst-center cache.
+   * @param frame Column frame.
+   * @param defer_cosines Whether grouped support will supply cosine bounds.
+   * @return Prepared ripple waves. */
   static auto prepare_ripples(const FrameState &frame, bool defer_cosines) {
     const auto &resource = frame.resources.template get<Key>();
     if constexpr (requires { resource.centers; })
@@ -518,7 +533,9 @@ struct SurfaceProvider {
       return SphereAnimation::prepare_ripples(params(frame), resource,
                                               defer_cosines);
   }
-  /** @brief Prepares grouped waves with individual support deferred. */
+  /** @brief Prepares grouped waves with individual support deferred.
+   * @param frame Column frame.
+   * @return Waves with deferred support. */
   static auto prepare_supported(const FrameState &frame)
     requires(CACHE_SINGLE_CENTER)
   {
@@ -636,10 +653,14 @@ template <typename State> struct BurstRipple : ApproximationDefaults {
       std::conditional_t<
           LAZY_RADIAL_PREPARE, std::optional<SphereAnimation::PreparedRipples>,
           SphereAnimation::PreparedRipples>>; ///< Prepared waves.
+  /// Prepared waves and their column's displacement tracking selection.
   struct TrackedWaves {
+    /// Wave kernels or radial lookup view.
     Waves waves;
+    /// Whether to accumulate displacement path length.
     bool track_path;
   };
+  /// Whether the active modulation determines path tracking per column.
   static constexpr bool CONDITIONAL_PATH =
       requires { requires State::CONDITIONAL_PATH; };
   using Prepared = std::conditional_t<CONDITIONAL_PATH, TrackedWaves,
@@ -785,7 +806,8 @@ struct SourceProvider {
    * @tparam Fill Cell primitives or edge band.
    * @param input Working plane coordinate.
    * @param frame Column frame.
-   * @return Interpolated signed scalar field. */
+   * @return Interpolated signed scalar field.
+   * @param offsets Adjustments from the live plane to the two endpoint lattices. */
   template <Pattern::TessellationKind Kind, Pattern::TessellationFill Fill>
   static HS_HOT_FLASH_MEMBER float
   sample_source_endpoints(const PlaneSample &input, const FrameState &frame,
@@ -1023,6 +1045,7 @@ struct ModulationProvider {
     return false;
   }(); ///< Whether this source borrows chamber patches.
   /// Source and mechanic declared by this effect's initial preset.
+  /// @return Static layer layout, or the dynamic layout for runtime-selected sources.
   template <typename Owner>
   static consteval Color::LayerLayout source_layout() {
     if constexpr (!SourceParams::DYNAMIC && requires {

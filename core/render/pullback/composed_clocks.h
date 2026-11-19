@@ -73,6 +73,7 @@ public:
                                          SphereAnimation::BurstRippleParams>> {
   };
 
+  /// Resource state with its selected stationary-noise storage.
   template <typename Resource>
   using Owned =
       ResourceState<Resource,
@@ -83,11 +84,13 @@ public:
 
   /** @brief Candidate layout with every eligible table through one resource. */
   template <typename Last> struct Through {
+    /// Resource state in the candidate layout ending at Last.
     template <typename Resource>
     using Layer =
         ResourceState<Resource,
                       Runtime::template authored_stationary_noise<Resource>() &&
                           resource_index<Resource>() <= resource_index<Last>()>;
+    /// Arena layout of the candidate resource states.
     using Storage =
         ComposedDetail::ResourceStorage<Layer, typename Params::ResourceTypes>;
   };
@@ -178,6 +181,7 @@ public:
    * @brief Steps every phase clock the effect's parameter families define.
    * @details Each clock is compiled in only when its field exists. Affine
    * rotations accumulate independently for each affine warp.
+   * @param morph Active source transition, or null.
    */
   HS_O3_FN HS_HOT_INLINE void
   advance(const Source::EndpointMorph<Params> *morph = nullptr) {
@@ -237,6 +241,7 @@ public:
    *        tables, noise generators, modulation sources and chamber noise.
    * @param frame Frame whose `params`, `resources` and
    *        `projection_conjugate` are already set.
+   * @param retained Previous frame whose immutable views may be reused, or null.
    */
   HS_O3_FN HS_HOT_INLINE void prepare_views(FrameState &frame,
                                             const FrameState *retained) {

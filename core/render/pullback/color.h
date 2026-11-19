@@ -298,6 +298,8 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
 /** @brief Ordered color modulation policy.
  * @tparam State Layer resource provider. */
 template <typename State> struct Modulate : ApproximationDefaults {
+  /** @brief Returns the layer layout declared by the provider.
+   * @return Static source and mechanic, or the dynamic layout by default. */
   template <typename Owner> static consteval LayerLayout source_layout() {
     if constexpr (requires { State::template source_layout<Owner>(); })
       return State::template source_layout<Owner>();

@@ -40,6 +40,9 @@ namespace Interp {
  *   optional `TOPOLOGY` (`TopologyField<Params>` array) its structural enum8s.
  * - `EXTRA_SCHEMA`, `extra_address`, `sample_extra`: optional Params hooks for
  *   additional schema fields, erased addresses and parameter interpolation.
+ * - `set_enum_blend(const std::optional<EnumBlend> &)` and
+ *   `field_sources(std::string_view)`: optional Params hooks for preview
+ *   selector blends and the planar-kind mask of a field id.
  * - `temporal_hold_field`: optional fields that may change without snapping
  *   the column interval; parameter sampling still applies.
  * - `State` — default-constructible instance state; usually inherited from
@@ -59,6 +62,12 @@ namespace Interp {
  *   it with a trailing `const TranslationLattice &` instead.
  * - `run(const Input &, const FrameContext &, const Params &,
  *   const Prepared &)` — returns the per-sample `Output`.
+ * - `history_continuous(const Params &, const Params &)` — optional endpoint
+ *   compatibility check for column-time sampling.
+ * - `sample(const PlaneSample &, const Params &, const Prepared &)` and
+ *   `finish_source(const PlaneSample &, float, const Params &, const FrameContext &)`
+ *   — optional pair for raw planar sampling followed by weighting and
+ *   coverage. Source-morph preview requires both hooks.
  * - `plane_bound(const Params &, float input_bound)` — required when `Output`
  *   is PlaneSample: output magnitude bound given the input's; optionally with
  *   a trailing `const TranslationLattice &` of the next stage.

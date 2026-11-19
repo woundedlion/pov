@@ -313,7 +313,8 @@ public:
    * @brief Schedules the next draw for a display frame.
    * @param frame One-based frame index in this effect's current display epoch,
    *        or zero for an unscheduled draw.
-   * @details Foreground only, before opening the Canvas or in its ready hook.
+   * @details Foreground only, while buffer_free() holds. Write in the ready
+   * hook or before opening the Canvas with no pending frame.
    */
   void set_scheduled_frame(uint32_t frame) { scheduled_display_frame = frame; }
   /** @brief Logical frame associated with the current draw.

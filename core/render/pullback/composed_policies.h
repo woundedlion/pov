@@ -26,7 +26,12 @@ inline constexpr bool
 template <typename W, typename S, typename Weight, typename Coverage>
 struct Detail::PrepareAdjacent<Stage::Warp<Warp::AffineFrame<W>>,
                                Stage::Sample<S, Weight, Coverage>> {
+  /// Sampling stage whose endpoint offsets are updated.
   using Sample = Stage::Sample<S, Weight, Coverage>;
+  /** @brief Binds the affine repeat offsets to the adjacent source.
+   * @param frame Column frame.
+   * @param warp Prepared affine transform.
+   * @param sample Prepared sampling stage. */
   template <typename Frame, typename WarpState, typename SampleState>
   static void bind(const Frame &frame, const WarpState &warp,
                    SampleState &sample)
@@ -55,18 +60,28 @@ struct Detail::CoordinateOnlyWarp<
 
   /// Scan-local evaluator and the last rounded displacement of its translation.
   template <typename Evaluator> struct TranslationColumn {
+    /// Evaluator for the current column.
     Evaluator evaluator;
+    /// Last rounded plane displacement.
     mutable math::Complex delta{};
+    /// Path length of the cached displacement.
     mutable float distance = 0.0f;
 
+    /// @return The column wrapper for shading.
     const TranslationColumn &operator()() const { return *this; }
+    /// @return Whether the bound evaluator samples displacement.
     bool reads_path_length() const { return evaluator().reads_path_length(); }
+    /** @brief Shades the sampled field with the bound evaluator.
+     * @param field Field and its provenance.
+     * @return Shaded color. */
     Color4 shade(const FieldSample &field) const {
       return evaluator().shade(field);
     }
   };
 
-  /** @brief Gives a scan column its own last-delta cache for a translating lattice. */
+  /** @brief Gives a scan column its own last-delta cache for a translating lattice.
+   * @param evaluator Shader bound to the column.
+   * @return Evaluator with independent translation cache. */
   template <typename Evaluator>
   static auto scan_evaluator(Evaluator evaluator)
     requires(Affine::FORM == Warp::AffineForm::TRANSLATES &&
@@ -79,7 +94,11 @@ struct Detail::CoordinateOnlyWarp<
     return TranslationColumn<Evaluator>{std::move(evaluator)};
   }
 
-  /** @brief Adds the distance of the actual rounded translation to the plane. */
+  /** @brief Adds the distance of the actual rounded translation to the plane.
+   * @param input Plane coordinate and accumulated path length.
+   * @param frame Column frame.
+   * @param prepared Prepared affine transform.
+   * @param column Column evaluator and its translation cache. */
   template <typename Evaluator>
   static HS_HOT_INLINE void
   apply_tracked(PlaneSample &input, const typename Frame::FrameState &frame,

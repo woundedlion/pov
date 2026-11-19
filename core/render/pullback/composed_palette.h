@@ -116,7 +116,9 @@ public:
         source_fade->from = nullptr;
   }
 
-  /** @brief Retains the controls of the active preset edge. */
+  /** @brief Retains the controls of the active preset edge.
+   * @param from Outgoing palette controls.
+   * @param target Incoming palette controls. */
   HS_O3_FN HS_HOT_INLINE void arm_source(const ColorFamily &from,
                                          const ColorFamily &target) {
     if constexpr (PALETTE_SOURCE_FADE) {

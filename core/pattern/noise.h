@@ -94,20 +94,29 @@ struct SphereNoise {
       return prepared.noise.GetNoiseSingle(q.x, q.y, q.z);
     return noise_contour(prepared.noise, prepared.basis, q, prepared.contrast);
   }
-  /** @brief Scales a signed unit direction and applies the loop offset. */
+  /** @brief Scales a signed unit direction and applies the loop offset.
+   * @param direction Signed unit direction.
+   * @param prepared Spatial scale and loop offset.
+   * @return Coordinate in the noise lattice. */
   static math::Vector shift_coordinate(const math::Vector &direction,
                                        const Prepared &prepared) {
     return math::noise_sphere_coordinate(direction, prepared.scale,
                                          prepared.loop_offset);
   }
 
-  /** @brief Whether the generator uses the unit-frequency gradient transform. */
+  /** @brief Whether the generator uses the unit-frequency gradient transform.
+   * @param prepared Prepared generator and noise variant.
+   * @return Whether the configured-single shortcut is available. */
   static bool configured_single(const Prepared &prepared) {
     return prepared.variant == NoiseVariant::CONFIGURED_SINGLE &&
            prepared.noise.has_default_gradient_transform();
   }
 
-  /** @brief Evaluates a scaled, time-shifted lattice coordinate. */
+  /** @brief Evaluates a scaled, time-shifted lattice coordinate.
+   * @param q Scaled and shifted lattice coordinate.
+   * @param prepared Prepared generator and source controls.
+   * @param single Whether the generator supports direct single-octave evaluation.
+   * @return Scalar noise after contrast mapping. */
   static float sample_coordinate(const math::Vector &q,
                                  const Prepared &prepared, bool single) {
     if (!single)

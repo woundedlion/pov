@@ -661,27 +661,35 @@ inline void test_authored_dynamic_modulation_controls() {
 
 /** @brief Three stationary direct fields competing for the device arena. */
 struct StationaryNoiseBudgetSpec : DynamicModulationControlsSpec {
+  /// Stationary direct-noise test layer at the given resource key.
   template <typename B, Pullback::ResourceKey Key>
   using Layer = Pullback::Stage::Modulate<
       Pullback::Color::Modulate<Pullback::ModulationProvider<
           B, Key, Pattern::SourceKind::NOISE, Pattern::Evaluation::DIRECT>>>;
 
+  /** @brief Appends two direct-noise layers to the probe pipeline.
+   * @return Pipeline type with all three noise layers. */
   template <typename B, typename... Stages>
   static auto add_layers(Pullback::Pipeline<B, Stages...> *)
       -> Pullback::Pipeline<B, Stages..., Layer<B, "second">,
                             Layer<B, "third">>;
 
+  /// Three-layer pipeline used for the storage budget probe.
   template <typename B>
   using Pipeline = decltype(add_layers(
       static_cast<DynamicModulationControlsSpec::Pipeline<B> *>(nullptr)));
 };
 
+/// Effect fixture for stationary noise table admission.
 struct StationaryNoiseBudgetProbe
     : Pullback::ComposedEffect<8, 8, StationaryNoiseBudgetProbe,
                                StationaryNoiseBudgetSpec,
                                Control::HookOwnership::INHERITED> {
+  /// Snapshot layout version of the probe.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /// Frames the probe holds its authored preset.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  /// Preset with independent stationary generator seeds.
   static constexpr auto PRESETS = [] {
     std::array<PresetEntry<Params>, 1> rows{};
     auto &params = rows[0].params;

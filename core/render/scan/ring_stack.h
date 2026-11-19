@@ -212,7 +212,7 @@ struct DistortedRingStack {
    * output matches rasterizing the rings one by one under suppress_pole_fill,
    * to float rounding, when each plot writes one destination pixel.
    * Does not read canvas.debug(). Honours the canvas's column-time basis and
-   * render-x window and ignores its birth fraction.
+   * render-x window and ignores its birth fraction and drift.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT,
             typename ShapeRange>

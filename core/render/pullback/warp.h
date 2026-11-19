@@ -502,7 +502,8 @@ affine_turn_translation(const AffineParams &warp,
  * @param warp Live affine controls.
  * @param phase Column phase in turns.
  * @param live Prepared live affine.
- * @param endpoint Source endpoint's translation lattice. */
+ * @param endpoint Source endpoint's translation lattice.
+ * @return Endpoint translation minus the live translation. */
 HS_FLASH_INLINE inline math::Complex
 endpoint_translation_offset(const AffineParams &warp, float phase,
                             const PreparedAffineSlot &live,

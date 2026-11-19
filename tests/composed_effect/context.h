@@ -1,9 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Base-contract sweep over every Pullback::ComposedEffect specialization in
- * HS_SHADER_PRODUCT_GROUP.
  */
 #pragma once
 

@@ -21,6 +21,10 @@ namespace Pullback::Interp::Op {
 
 namespace PlanarDetail {
 
+/** @brief Stores prefixed parameter ids in fixed-size strings.
+ * @param prefix Planar family prefix.
+ * @param fields Source field descriptors.
+ * @return Null-terminated ids for the unified operator schema. */
 template <typename FieldT, size_t N>
 consteval auto prefixed_ids(std::string_view prefix,
                             const std::array<FieldT, N> &fields) {
@@ -34,10 +38,14 @@ consteval auto prefixed_ids(std::string_view prefix,
   return ids;
 }
 
+/// Static storage for a parameter family's prefixed ids.
 template <Source::PlanarFamily Family, typename Params>
 inline constexpr auto FIELD_IDS = prefixed_ids(
     Source::PLANAR_FAMILY_IDS[static_cast<size_t>(Family)], Params::FIELDS);
 
+/** @brief Concatenates the per-family schema tables.
+ * @param families Field tables in catalog order.
+ * @return Unified operator schema. */
 template <size_t... N>
 consteval auto join_schema(const std::array<ParamFieldInfo, N> &...families) {
   std::array<ParamFieldInfo, (N + ...)> out{};
@@ -46,9 +54,12 @@ consteval auto join_schema(const std::array<ParamFieldInfo, N> &...families) {
   return out;
 }
 
+/// Stable id of the spiral topology selector.
 inline constexpr const char SPIRAL_COORDINATE_SYSTEM[] =
     "spiral-coordinate-system";
 
+/** @brief Exports one parameter family into the unified schema.
+ * @return Fields and defaults for the selected family. */
 template <Source::PlanarFamily Family, typename Params>
 consteval auto family_schema() {
   constexpr Params DEFAULTS{};
@@ -82,20 +93,32 @@ consteval auto family_schema() {
   return out;
 }
 
+/** @brief Maps a tessellation source to its zero-based kind index.
+ * @param kind Tessellation source kind.
+ * @return Index encoding shape and fill. */
 constexpr auto tessellation_index(Source::PlanarKind kind) {
   return static_cast<uint8_t>(kind) -
          static_cast<uint8_t>(
              Source::PlanarKind::TESSELLATION_TRIANGULAR_CELLS);
 }
 
+/** @brief Decodes a tessellation source's shape.
+ * @param kind Tessellation source kind.
+ * @return Cell shape. */
 constexpr Pattern::TessellationKind tessellation_kind(Source::PlanarKind kind) {
   return static_cast<Pattern::TessellationKind>(tessellation_index(kind) / 2);
 }
 
+/** @brief Decodes a tessellation source's fill.
+ * @param kind Tessellation source kind.
+ * @return Cell or edge fill. */
 constexpr Pattern::TessellationFill tessellation_fill(Source::PlanarKind kind) {
   return static_cast<Pattern::TessellationFill>(tessellation_index(kind) % 2);
 }
 
+/** @brief Decodes a projected-noise source's basis.
+ * @param kind Projected-noise source kind.
+ * @return Noise generator basis. */
 constexpr math::NoiseBasis noise_basis(Source::PlanarKind kind) {
   return static_cast<math::NoiseBasis>(
       static_cast<uint8_t>(kind) -
@@ -317,7 +340,9 @@ struct SamplePlanar : ValueStateModel<PlanarSourceState>,
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = PlanarSampleParams;
+  /// Concrete planar source kernel.
   using Kind = Source::PlanarKind;
+  /// Parameter family grouping related kernels.
   using Family = Source::PlanarFamily;
 
   /** @brief One kind's column preparation and field contribution. */
@@ -408,6 +433,11 @@ struct SamplePlanar : ValueStateModel<PlanarSourceState>,
     return result;
   }
 
+  /** @brief Blends the selected source arms before crossing weights are applied.
+   * @param input Projected sample.
+   * @param params Live family parameters.
+   * @param prepared Prepared source arms.
+   * @return Raw planar field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &prepared) {
     const auto &a = prepared.arms[0];

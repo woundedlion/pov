@@ -151,7 +151,13 @@ inline Color4 finish(const ColorSample &sample) {
   return finish_color_sample(sample);
 }
 
-/** @brief Blends two authored mechanic contributions into one unit-strength scalar. */
+/** @brief Blends two authored mechanic contributions into one unit-strength scalar.
+ * @param from_scalar Outgoing endpoint's signal.
+ * @param from_amount Outgoing mechanic strength.
+ * @param to_scalar Incoming endpoint's signal.
+ * @param to_amount Incoming mechanic strength.
+ * @param fraction Incoming endpoint weight.
+ * @return Equivalent signal for a unit-strength mechanic. */
 template <ColorModulation::Mechanic Kind>
 HS_HOT_INLINE inline float
 blend_modulation_scalar(float from_scalar, float from_amount, float to_scalar,
@@ -176,7 +182,14 @@ blend_modulation_scalar(float from_scalar, float from_amount, float to_scalar,
   }
 }
 
-/** @brief Blends contributions for a runtime mechanic. */
+/** @brief Blends contributions for a runtime mechanic.
+ * @param kind Color transformation.
+ * @param from_scalar Outgoing endpoint's signal.
+ * @param from_amount Outgoing mechanic strength.
+ * @param to_scalar Incoming endpoint's signal.
+ * @param to_amount Incoming mechanic strength.
+ * @param fraction Incoming endpoint weight.
+ * @return Equivalent signal for a unit-strength mechanic. */
 HS_HOT_FLASH_MEMBER inline float
 blend_modulation_scalar(ColorModulation::Mechanic kind, float from_scalar,
                         float from_amount, float to_scalar, float to_amount,
@@ -194,18 +207,32 @@ blend_modulation_scalar(ColorModulation::Mechanic kind, float from_scalar,
 
 /** @brief Authored spatial and displacement signals for one changing layer. */
 struct PathModulationMix {
+  /// Mechanic strength of the spatial endpoint.
   float spatial_amount = 0.0f;
+  /// Mechanic strength of the displacement endpoint.
   float path_amount = 0.0f;
+  /// Incoming endpoint weight, or negative when inactive.
   float fraction = -1.0f;
+  /// Whether the displacement endpoint is outgoing.
   bool path_first = false;
 
+  /// @return Whether the layer carries a source transition.
   bool active() const { return fraction >= 0.0f; }
 
+  /** @brief Blends source signals for a statically selected mechanic.
+   * @param spatial Spatial source signal.
+   * @param path Displacement path length.
+   * @return Equivalent signal for a unit-strength mechanic. */
   template <ColorModulation::Mechanic Kind>
   HS_HOT_INLINE float sample(float spatial, float path) const {
     return sample_with(blend_modulation_scalar<Kind>, spatial, path);
   }
 
+  /** @brief Blends source signals for a runtime mechanic.
+   * @param kind Color transformation.
+   * @param spatial Spatial source signal.
+   * @param path Displacement path length.
+   * @return Equivalent signal for a unit-strength mechanic. */
   HS_HOT_INLINE float sample(ColorModulation::Mechanic kind, float spatial,
                              float path) const {
     return sample_with(
@@ -234,7 +261,12 @@ struct ModulationState {
   bool enabled = false;             ///< Whether this layer contributes.
   bool paired_cube_ready =
       false; ///< Immutable endpoints admit shared cube taps.
+  /// Transition between a spatial and a displacement signal.
   PathModulationMix path_mix{};
+  /** @brief Selects or blends the signal this layer consumes.
+   * @param spatial Spatial source signal.
+   * @param path Displacement path length.
+   * @return Signal after any enabled source transition. */
   template <bool MixPath = true>
   HS_HOT_INLINE float scalar(float spatial, float path) const {
     if constexpr (MixPath)
