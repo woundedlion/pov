@@ -1466,6 +1466,8 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │                            (composed_effect)
 │   │   │   ├── authored_lens.h         Keyed glitch and kaleidoscope controls
 │   │   │   ├── tangent_surface.h       Polynomial tangent-field and configurable noise displacements
+│   │   │   ├── sphere_tiling.h          Radially projected solid faces and edge queries
+│   │   │   ├── spherical_tiling_source.h  ShaderChain tiling parameters and scalar field
 │   │   │   ├── composed_providers.h    Composed-effect provider bindings
 │   │   │   ├── composed_parameters.h   Composed-effect parameter interpolation and validation, runtime storage mixins and Spec kind enums
 │   │   │   ├── composed_planar.h       Composed planar source selection and morphing
