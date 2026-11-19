@@ -180,14 +180,19 @@ def _cited(allowlist: str, entry: str) -> str:
     return f"{allowlist}:{entry}"
 
 
-def _untracked_allowance(candidate: str, used: set[str] | None) -> bool:
-    """Reports whether an UNTRACKED_ALLOWED prefix exempts candidate, recording it."""
-    for prefix in UNTRACKED_ALLOWED:
+def _prefix_allowance(candidate: str, prefixes: tuple[str, ...], namespace: str,
+                      used: set[str] | None) -> bool:
+    for prefix in prefixes:
         if candidate == prefix.rstrip("/") or candidate.startswith(prefix):
             if used is not None:
-                used.add(_cited(_UNTRACKED_LIST, prefix))
+                used.add(_cited(namespace, prefix))
             return True
     return False
+
+
+def _untracked_allowance(candidate: str, used: set[str] | None) -> bool:
+    """Reports whether an UNTRACKED_ALLOWED prefix exempts candidate, recording it."""
+    return _prefix_allowance(candidate, UNTRACKED_ALLOWED, _UNTRACKED_LIST, used)
 
 
 def _stale_allowances(entries: set[PurePosixPath], used: set[str],
@@ -439,12 +444,7 @@ _REQUIRED_TREES = frozenset({
 def _checkout_allowance(candidate: str, checkout: str,
                         prefixes: tuple[str, ...],
                         used: set[str] | None = None) -> bool:
-    for prefix in prefixes:
-        if candidate == prefix.rstrip("/") or candidate.startswith(prefix):
-            if used is not None:
-                used.add(_cited(checkout, prefix))
-            return True
-    return False
+    return _prefix_allowance(candidate, prefixes, checkout, used)
 
 
 def tree_scope(directive: TreeDirective, entries: set[PurePosixPath],
@@ -556,12 +556,7 @@ def _tree_omissions(source: PurePosixPath, fence: Fence,
 
 def tree_unmapped(candidate: str, prefixes: tuple[str, ...],
                    used: set[str] | None = None) -> bool:
-    for prefix in prefixes:
-        if candidate == prefix or candidate.startswith(prefix):
-            if used is not None:
-                used.add(_cited(_TREE_UNMAPPED_LIST, prefix))
-            return True
-    return False
+    return _prefix_allowance(candidate, prefixes, _TREE_UNMAPPED_LIST, used)
 
 
 def _tree_issues(source: PurePosixPath, fences: list[Fence],
