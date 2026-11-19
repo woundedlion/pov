@@ -1046,11 +1046,7 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       cols[k] = math::vector_to_column<W>(trail[k].pos);
       // A geodesic edge sweeps at most W/2 columns, so the short-way delta
       // covers it except near exactly W/2, where its sign is float noise.
-      float d = cols[k] - cols[k - 1];
-      if (d > W * 0.5f)
-        d -= W;
-      else if (d < -W * 0.5f)
-        d += W;
+      const float d = shift_column_near<W>(cols[k] - cols[k - 1], 0.0f);
       if (std::abs(d) >= W * 0.5f - 3.0f)
         walk_safe = false;
       // Endpoint columns do not bound an edge with a near-horizontal axis.

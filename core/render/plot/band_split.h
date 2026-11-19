@@ -80,11 +80,7 @@ template <int W, int H> struct ClipBand {
       return true;
     const float sin_min =
         fminf(math::fast_sinf(phi_lo), math::fast_sinf(phi_hi));
-    float span_x = pb.x - pa.x;
-    if (span_x > W * 0.5f)
-      span_x -= W;
-    else if (span_x < -W * 0.5f)
-      span_x += W;
+    const float span_x = shift_column_near<W>(pb.x - pa.x, 0.0f);
     // 0.98 absorbs fast_sinf's error.
     const float half_cols =
         0.5f * arc * (W / (2.0f * math::PI_F)) / (0.98f * sin_min);

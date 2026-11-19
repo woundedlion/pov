@@ -175,6 +175,24 @@ template <int W> static HS_HOT_INLINE inline float wrap_one_period(float d) {
 }
 
 /**
+ * @brief Shifts a column at most one period toward a reference.
+ * @tparam W Rasterization width (pixel grid).
+ * @param column Column to shift.
+ * @param reference Column to shift toward.
+ * @return Shifted column, retaining the original at a half-period tie.
+ */
+template <int W>
+static HS_HOT_INLINE inline float shift_column_near(float column,
+                                                    float reference) {
+  const float delta = column - reference;
+  if (delta > W * 0.5f)
+    return column - W;
+  if (delta < -W * 0.5f)
+    return column + W;
+  return column;
+}
+
+/**
  * @brief Geodesic screen-column arc from precomputed endpoint columns.
  * @tparam W Rasterization width (pixel grid).
  * @param ca Precomputed vector_to_column<W>(a).
@@ -594,11 +612,7 @@ planar_col_span(const math::Vector &a, const math::Basis &planar_basis,
   float prev = ca;
   auto step = [&](const math::Vector &s) {
     float c = math::vector_to_column<W>(s);
-    float d = c - prev;
-    if (d > W * 0.5f)
-      d -= W;
-    else if (d < -W * 0.5f)
-      d += W;
+    const float d = shift_column_near<W>(c - prev, 0.0f);
     cum += d;
     cum_lo = fminf(cum_lo, cum);
     cum_hi = fmaxf(cum_hi, cum);

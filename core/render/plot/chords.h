@@ -330,11 +330,7 @@ public:
                          ? pb
                          : math::vector_to_pixel<W, H>(chart_position(
                                static_cast<float>(k) * inv_intervals));
-        const float delta = anchors[k].x - anchors[k - 1].x;
-        if (delta > W * 0.5f)
-          anchors[k].x -= W;
-        else if (delta < -W * 0.5f)
-          anchors[k].x += W;
+        anchors[k].x = shift_column_near<W>(anchors[k].x, anchors[k - 1].x);
         anchor_row_lo = fminf(anchor_row_lo, anchors[k].y);
         anchor_row_hi = fmaxf(anchor_row_hi, anchors[k].y);
       }
