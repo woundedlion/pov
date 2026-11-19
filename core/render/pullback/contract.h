@@ -2054,6 +2054,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                       Palette::FUSED_TEMPORAL_COLOR;
                       typename Modulation::PairedOwner;
                       Modulation::FUSED_ENDPOINTS;
+                      Modulation::PATH_MORPH;
                     })
       return Palette::FUSED_TEMPORAL_COLOR &&
              std::same_as<Modulation, typename Modulation::PairedOwner> &&
@@ -2061,12 +2062,12 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
                requires(const Input &input, const FrameState &ctx,
                         const PreparedTuple &prepared)
       {
-        Palette::apply_fused_modulation(input, ctx, std::get<Index>(prepared),
-                                        std::get<Index + 1>(prepared),
-                                        ctx.temporal.fraction);
-        Palette::shade_fused_modulation(input, ctx, std::get<Index>(prepared),
-                                        std::get<Index + 1>(prepared),
-                                        ctx.temporal.fraction);
+        Palette::template apply_fused_modulation<Modulation::PATH_MORPH>(
+            input, ctx, std::get<Index>(prepared),
+            std::get<Index + 1>(prepared), ctx.temporal.fraction);
+        Palette::template shade_fused_modulation<Modulation::PATH_MORPH>(
+            input, ctx, std::get<Index>(prepared),
+            std::get<Index + 1>(prepared), ctx.temporal.fraction);
       };
       else return false;
     } else
@@ -2166,11 +2167,13 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
     if constexpr (fused_color_tail_supported<Index, Input>()) {
       if (interval_fraction(ctx.temporal.fraction)) {
         using Palette = typename CurrentNode::Descriptor::ColorPolicy;
+        using Layer = typename NodeAt<Index + 1>::Descriptor::ColorPolicy;
         using Instrumentation = typename Binding::Instrumentation;
         const auto start = Instrumentation::mark();
-        auto result = Palette::shade_fused_modulation(
-            input, ctx, std::get<Index>(prepared),
-            std::get<Index + 1>(prepared), ctx.temporal.fraction);
+        auto result =
+            Palette::template shade_fused_modulation<Layer::PATH_MORPH>(
+                input, ctx, std::get<Index>(prepared),
+                std::get<Index + 1>(prepared), ctx.temporal.fraction);
         Instrumentation::template span<ProfileEvent::COLOR>(start);
         return result;
       }
@@ -2315,9 +2318,10 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
       return run_stage_suffix<Index, true>(input, ctx, prepared);
     if constexpr (fused_color_tail_supported<Index, Input>()) {
       using Palette = typename CurrentNode::Descriptor::ColorPolicy;
+      using Layer = typename NodeAt<Index + 1>::Descriptor::ColorPolicy;
       using Instrumentation = typename Binding::Instrumentation;
       const auto start = Instrumentation::mark();
-      auto result = Palette::apply_fused_modulation(
+      auto result = Palette::template apply_fused_modulation<Layer::PATH_MORPH>(
           input, ctx, std::get<Index>(prepared), std::get<Index + 1>(prepared),
           fraction);
       Instrumentation::template span<ProfileEvent::COLOR>(start);

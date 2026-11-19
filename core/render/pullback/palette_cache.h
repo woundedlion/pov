@@ -147,6 +147,7 @@ static_assert(HueRotationGamutMask::MAX_CHANNEL_SPAN ==
  * @param sample Shared field coordinates.
  * @param modulation Prepared modulation endpoints.
  * @return Previous and current endpoint scalars. */
+template <bool MixPath = true>
 HS_HOT_ITCM_MEMBER inline std::pair<float, float>
 sample_fused_scalars(const FieldSample &sample,
                      const ModulationState &modulation) {
@@ -161,8 +162,11 @@ sample_fused_scalars(const FieldSample &sample,
   }
   const auto pair = Modulation::sample_pair(*modulation.previous,
                                             *modulation.current, direction);
-  return {modulation.scalar(pair.first, sample.path_length),
-          modulation.scalar(pair.second, sample.path_length)};
+  if constexpr (MixPath)
+    return {modulation.scalar<MixPath>(pair.first, sample.path_length),
+            modulation.scalar<MixPath>(pair.second, sample.path_length)};
+  else
+    return pair;
 }
 
 /** @brief Restores the canonical RGB-first palette base.
@@ -344,6 +348,7 @@ private:
    * @param prepared Prepared palette endpoints.
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight. */
+  template <bool MixPath>
   HS_HOT_INLINE static void
   prepare_fused_modulation(ColorSample &result, const FieldSample &sample,
                            const Prepared &prepared,
@@ -352,7 +357,7 @@ private:
   {
     if (fraction <= 0.0f || fraction >= 1.0f) {
       result = apply_endpoint(sample, prepared, fraction <= 0.0f);
-      apply_modulation_in_place(result, modulation, fraction <= 0.0f);
+      apply_modulation_in_place<MixPath>(result, modulation, fraction <= 0.0f);
       return;
     }
     const bool cached = [&] {
@@ -392,7 +397,7 @@ private:
     float previous_lift = 0.0f;
     float current_lift = 0.0f;
     if (modulation_active(modulation)) {
-      const auto scalars = sample_fused_scalars(sample, modulation);
+      const auto scalars = sample_fused_scalars<MixPath>(sample, modulation);
       const auto apply = [&](Color4 &color, float &hue, float &lift,
                              float scalar) {
         if (modulation.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION)
@@ -434,13 +439,15 @@ public:
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight.
    * @return Deferred color after canonical endpoint blending. */
+  template <bool MixPath = true>
   HS_HOT_ITCM_MEMBER static ColorSample
   apply_fused_modulation(const FieldSample &sample, const Prepared &prepared,
                          const ModulationState &modulation, float fraction)
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
     ColorSample result;
-    prepare_fused_modulation(result, sample, prepared, modulation, fraction);
+    prepare_fused_modulation<MixPath>(result, sample, prepared, modulation,
+                                      fraction);
     if constexpr (LAB_CACHE)
       restore_cached_palette_base_near_gamut_gate(result, [&] {
         restore_fused_palette_base(result, prepared, fraction);
@@ -454,6 +461,7 @@ public:
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight.
    * @return Final straight-alpha color. */
+  template <bool MixPath = true>
   HS_HOT_FLASH_MEMBER static Color4
   shade_fused_modulation(const FieldSample &sample, const Prepared &prepared,
                          const ModulationState &modulation, float fraction)
@@ -476,7 +484,9 @@ public:
                 *modulation.current,
                 Pattern::SphereDirection::admit(sample.sphere));
           }();
-          return fused_endpoint_hue(scalar, modulation.mechanic.amount);
+          return fused_endpoint_hue(
+              modulation.scalar<MixPath>(scalar, sample.path_length),
+              modulation.mechanic.amount);
         }();
         return finish_palette_lab(
             PaletteLabLut::sample(prepared.lab, value), hue, 0.0f, 1.0f,
@@ -492,7 +502,7 @@ public:
             });
       }
       case CachedColorPath::LAB_HUE_INTERVAL: {
-        const auto scalars = sample_fused_scalars(sample, modulation);
+        const auto scalars = sample_fused_scalars<MixPath>(sample, modulation);
         const auto &state = prepared.current;
         const float value = palette_value(sample, state);
         const float opacity = palette_opacity(sample, state);
@@ -513,7 +523,8 @@ public:
         break;
       }
     ColorSample result;
-    prepare_fused_modulation(result, sample, prepared, modulation, fraction);
+    prepare_fused_modulation<MixPath>(result, sample, prepared, modulation,
+                                      fraction);
     if constexpr (LAB_CACHE)
       return finish_fused_color(result, [&] {
         restore_fused_palette_base(result, prepared, fraction);

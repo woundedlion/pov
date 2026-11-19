@@ -152,25 +152,44 @@ inline Color4 finish(const ColorSample &sample) {
 }
 
 /** @brief Blends two authored mechanic contributions into one unit-strength scalar. */
+template <ColorModulation::Mechanic Kind>
+HS_HOT_INLINE inline float
+blend_modulation_scalar(float from_scalar, float from_amount, float to_scalar,
+                        float to_amount, float fraction) {
+  using M = ColorModulation::Mechanic;
+  if constexpr (Kind == M::HUE_ROTATION)
+    return math::wrap_t(
+        hs::lerp(from_amount * from_scalar, to_amount * to_scalar, fraction));
+  else if constexpr (Kind == M::POSITIVE_LIGHTNESS_LIFT)
+    return hs::lerp(from_amount * hs::clamp(from_scalar, 0.0f, 1.0f),
+                    to_amount * hs::clamp(to_scalar, 0.0f, 1.0f), fraction);
+  else {
+    static_assert(Kind == M::OPACITY);
+    const auto opacity = [](float scalar, float amount) {
+      return ColorModulation::Opacity::apply(Color4(Pixel(0, 0, 0), 1.0f),
+                                             scalar, {amount})
+          .alpha;
+    };
+    return 2.0f * hs::lerp(opacity(from_scalar, from_amount),
+                           opacity(to_scalar, to_amount), fraction) -
+           1.0f;
+  }
+}
+
+/** @brief Blends contributions for a runtime mechanic. */
 HS_HOT_FLASH_MEMBER inline float
 blend_modulation_scalar(ColorModulation::Mechanic kind, float from_scalar,
                         float from_amount, float to_scalar, float to_amount,
                         float fraction) {
   using M = ColorModulation::Mechanic;
   if (kind == M::HUE_ROTATION)
-    return math::wrap_t(
-        hs::lerp(from_amount * from_scalar, to_amount * to_scalar, fraction));
+    return blend_modulation_scalar<M::HUE_ROTATION>(
+        from_scalar, from_amount, to_scalar, to_amount, fraction);
   if (kind == M::POSITIVE_LIGHTNESS_LIFT)
-    return hs::lerp(from_amount * hs::clamp(from_scalar, 0.0f, 1.0f),
-                    to_amount * hs::clamp(to_scalar, 0.0f, 1.0f), fraction);
-  const auto opacity = [](float scalar, float amount) {
-    return ColorModulation::Opacity::apply(Color4(Pixel(0, 0, 0), 1.0f), scalar,
-                                           {amount})
-        .alpha;
-  };
-  return 2.0f * hs::lerp(opacity(from_scalar, from_amount),
-                         opacity(to_scalar, to_amount), fraction) -
-         1.0f;
+    return blend_modulation_scalar<M::POSITIVE_LIGHTNESS_LIFT>(
+        from_scalar, from_amount, to_scalar, to_amount, fraction);
+  return blend_modulation_scalar<M::OPACITY>(from_scalar, from_amount,
+                                             to_scalar, to_amount, fraction);
 }
 
 /** @brief Authored spatial and displacement signals for one changing layer. */
@@ -182,13 +201,27 @@ struct PathModulationMix {
 
   bool active() const { return fraction >= 0.0f; }
 
+  template <ColorModulation::Mechanic Kind>
+  HS_HOT_INLINE float sample(float spatial, float path) const {
+    return sample_with(blend_modulation_scalar<Kind>, spatial, path);
+  }
+
   HS_HOT_INLINE float sample(ColorModulation::Mechanic kind, float spatial,
                              float path) const {
+    return sample_with(
+        [kind](float a, float amount_a, float b, float amount_b, float t) {
+          return blend_modulation_scalar(kind, a, amount_a, b, amount_b, t);
+        },
+        spatial, path);
+  }
+
+private:
+  template <typename Blend>
+  HS_HOT_INLINE float sample_with(Blend blend, float spatial,
+                                  float path) const {
     if (path_first)
-      return blend_modulation_scalar(kind, path, path_amount, spatial,
-                                     spatial_amount, fraction);
-    return blend_modulation_scalar(kind, spatial, spatial_amount, path,
-                                   path_amount, fraction);
+      return blend(path, path_amount, spatial, spatial_amount, fraction);
+    return blend(spatial, spatial_amount, path, path_amount, fraction);
   }
 };
 
@@ -202,9 +235,12 @@ struct ModulationState {
   bool paired_cube_ready =
       false; ///< Immutable endpoints admit shared cube taps.
   PathModulationMix path_mix{};
+  template <bool MixPath = true>
   HS_HOT_INLINE float scalar(float spatial, float path) const {
-    return path_mix.active() ? path_mix.sample(mechanic.kind, spatial, path)
-                             : spatial;
+    if constexpr (MixPath)
+      if (path_mix.active())
+        return path_mix.sample(mechanic.kind, spatial, path);
+    return spatial;
   }
 };
 
@@ -528,7 +564,9 @@ apply_mechanic_scalar(ColorSample &sample, float scalar,
  * @param sample Color and source coordinates, updated in place.
  * @param state Layer controls and endpoint sources.
  * @param previous Whether to sample the retained endpoint.
+ * @tparam MixPath Whether the layer can blend path and spatial signals.
  */
+template <bool MixPath = true>
 HS_HOT_ITCM_MEMBER inline void
 apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
                           bool previous = false) {
@@ -543,14 +581,17 @@ apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
     scalar = Modulation::sample(
         *source, Pattern::SphereDirection::admit(sample.field.sphere));
   }
-  apply_mechanic_scalar(sample, state.scalar(scalar, sample.field.path_length),
+  apply_mechanic_scalar(sample,
+                        state.scalar<MixPath>(scalar, sample.field.path_length),
                         state.mechanic);
 }
 
 /** @brief Applies one layer to retained and current color endpoints.
+ * @tparam MixPath Whether the layer can blend path and spatial signals.
  * @param previous Retained color carrier.
  * @param current Current color carrier.
  * @param state Layer controls and immutable sources. */
+template <bool MixPath = true>
 HS_HOT_ITCM_MEMBER inline void
 apply_modulation_pair_in_place(ColorSample &previous, ColorSample &current,
                                const ModulationState &state) {
@@ -558,32 +599,35 @@ apply_modulation_pair_in_place(ColorSample &previous, ColorSample &current,
     return;
   if (state.source == Pattern::SourceKind::DISPLACEMENT ||
       previous.field.sphere != current.field.sphere) {
-    apply_modulation_in_place(previous, state, true);
-    apply_modulation_in_place(current, state, false);
+    apply_modulation_in_place<MixPath>(previous, state, true);
+    apply_modulation_in_place<MixPath>(current, state, false);
     return;
   }
   HS_AUDIT_CHECK(state.previous && state.current);
   const auto direction = Pattern::SphereDirection::admit(current.field.sphere);
   const auto scalars =
       Modulation::sample_pair(*state.previous, *state.current, direction);
-  apply_mechanic_scalar(previous,
-                        state.scalar(scalars.first, previous.field.path_length),
-                        state.mechanic);
-  apply_mechanic_scalar(current,
-                        state.scalar(scalars.second, current.field.path_length),
-                        state.mechanic);
+  apply_mechanic_scalar(
+      previous,
+      state.scalar<MixPath>(scalars.first, previous.field.path_length),
+      state.mechanic);
+  apply_mechanic_scalar(
+      current, state.scalar<MixPath>(scalars.second, current.field.path_length),
+      state.mechanic);
 }
 
 /** @brief Applies one ordered modulation layer to a copy.
+ * @tparam MixPath Whether the layer can blend path and spatial signals.
  * @param input Color and source coordinates.
  * @param state Layer controls and endpoint sources.
  * @param previous Whether to sample the retained endpoint.
  * @return Modulated color carrier. */
+template <bool MixPath = true>
 inline ColorSample apply_modulation(const ColorSample &input,
                                     const ModulationState &state,
                                     bool previous = false) {
   ColorSample output = input;
-  apply_modulation_in_place(output, state, previous);
+  apply_modulation_in_place<MixPath>(output, state, previous);
   return output;
 }
 

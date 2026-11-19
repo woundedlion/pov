@@ -1984,7 +1984,8 @@ inline void test_river_stones_modulation_morph() {
                               : hs::lerp(direct, displaced, progress));
         ColorSample carrier{};
         carrier.field = field;
-        Color::apply_modulation_in_place(carrier, layer);
+        using Layer = typename Pipeline::NodeAt<6>::Descriptor::ColorPolicy;
+        Layer::apply_endpoint_in_place(carrier, state, layer, false);
         HS_EXPECT_NEAR(carrier.pending_hue, expected, 1e-5f);
         auto ref_field = field;
         ref_field.path_length = expected;

@@ -577,7 +577,7 @@ protected:
                 : Modulation::sample(prepared, direction);
         if constexpr (Layout.source == LayerSampling::DIRECT_OR_PATH)
           if (op.path_mix)
-            return op.path_mix->sample(Layout.mechanic, spatial, path_length);
+            return op.path_mix->sample<Layout.mechanic>(spatial, path_length);
         return spatial;
       } else {
         if constexpr (Layout.mechanic ==

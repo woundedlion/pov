@@ -368,9 +368,9 @@ struct ModulateColorV1 : ValueStateModel<ModulationClockState> {
   static ColorSample run(const ColorSample &input, const FrameContext &,
                          const Params &, const Prepared &prepared) {
     if (!prepared.morph)
-      return Color::apply_modulation(input, {prepared.current, prepared.current,
-                                             prepared.source, prepared.mechanic,
-                                             prepared.enabled});
+      return Color::apply_modulation<false>(
+          input, {prepared.current, prepared.current, prepared.source,
+                  prepared.mechanic, prepared.enabled});
     const auto &morph = *prepared.morph;
     const auto &spatial = morph.from_spatial ? morph.from : morph.to;
     const auto &path = morph.from_spatial ? morph.to : morph.from;

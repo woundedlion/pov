@@ -1047,6 +1047,10 @@ struct ModulationProvider {
                          Color::PhaseModulationState>>; ///< Column phase state.
   using Prepared = std::conditional_t<PhaseV, PhasePrepared,
                                       Color::ModulationState>; ///< Layer state.
+  /// Whether an authored edge can blend path and spatial signals.
+  static constexpr bool PATH_MORPH =
+      AllowDisplacement &&
+      requires(const FrameState &frame) { frame.source_morph; };
   /// Whether a directional sine may share the column color tail.
   static constexpr bool SINE_PHASE =
       PhaseV && (DynamicV || SourceV == Pattern::SourceKind::DIRECTIONAL_SINE);
@@ -1059,7 +1063,7 @@ struct ModulationProvider {
     Color::ModulationState base{resource.modulation,
                                 resource.previous_modulation, config.source,
                                 config.mechanic, config.enabled};
-    if constexpr (AllowDisplacement && requires { frame.source_morph; }) {
+    if constexpr (PATH_MORPH) {
       const auto &morph = frame.source_morph;
       if (morph.displacement) {
         const auto &a = morph.from->template get<Key>().modulation;
@@ -1086,7 +1090,7 @@ struct ModulationProvider {
     else {
       PhasePrepared result;
       static_cast<Color::ModulationState &>(result) = base;
-      if constexpr (AllowDisplacement)
+      if constexpr (PATH_MORPH)
         if (base.path_mix.active())
           return result;
       if constexpr (requires { frame.temporal.phase_compatible; }) {

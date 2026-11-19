@@ -250,7 +250,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight.
    * @return Deferred color after canonical endpoint blending. */
-  template <typename FrameState>
+  template <bool MixPath = true, typename FrameState>
   HS_HOT_INLINE static ColorSample
   apply_fused_modulation(const FieldSample &sample, const FrameState &frame,
                          const Prepared &prepared,
@@ -258,7 +258,8 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
     (void)frame;
-    return Core::apply_fused_modulation(sample, prepared, modulation, fraction);
+    return Core::template apply_fused_modulation<MixPath>(sample, prepared,
+                                                          modulation, fraction);
   }
   /** @brief Shades fused endpoints without returning a deferred carrier.
    * @tparam FrameState Frame context.
@@ -268,7 +269,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
    * @param modulation Prepared modulation endpoints.
    * @param fraction Current endpoint weight.
    * @return Final straight-alpha color. */
-  template <typename FrameState>
+  template <bool MixPath = true, typename FrameState>
   HS_HOT_INLINE static Color4
   shade_fused_modulation(const FieldSample &sample, const FrameState &frame,
                          const Prepared &prepared,
@@ -276,7 +277,8 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     requires(TEMPORAL && FUSED_TEMPORAL_COLOR)
   {
     (void)frame;
-    return Core::shade_fused_modulation(sample, prepared, modulation, fraction);
+    return Core::template shade_fused_modulation<MixPath>(sample, prepared,
+                                                          modulation, fraction);
   }
   /** @brief Produces the current color endpoint.
    * @tparam FrameState Frame context.
@@ -316,6 +318,9 @@ template <typename State> struct Modulate : ApproximationDefaults {
       std::is_same_v<Prepared, ChamberPhaseModulationState>;
   static constexpr bool FUSED_ENDPOINTS =
       std::same_as<Prepared, ModulationState>; ///< Canonical endpoint mode.
+  static constexpr bool PATH_MORPH = requires {
+    requires State::PATH_MORPH;
+  }; ///< Whether a preset edge can blend path and spatial signals.
   static constexpr bool SINE_PHASE = [] {
     if constexpr (requires { State::SINE_PHASE; })
       return State::SINE_PHASE;
@@ -420,7 +425,7 @@ template <typename State> struct Modulate : ApproximationDefaults {
                                     const FrameState &frame,
                                     const Prepared &prepared, bool previous) {
     (void)frame;
-    return apply_modulation(input, prepared, previous);
+    return apply_modulation<PATH_MORPH>(input, prepared, previous);
   }
   /** @brief Modulates one endpoint without copying its carrier.
    * @tparam FrameState Frame context.
@@ -433,7 +438,7 @@ template <typename State> struct Modulate : ApproximationDefaults {
                                       const FrameState &frame,
                                       const Prepared &prepared, bool previous) {
     (void)frame;
-    apply_modulation_in_place(sample, prepared, previous);
+    apply_modulation_in_place<PATH_MORPH>(sample, prepared, previous);
   }
 
   /** @brief Updates both endpoints through one prepared layer.
@@ -447,7 +452,7 @@ template <typename State> struct Modulate : ApproximationDefaults {
   apply_endpoints_in_place(ColorSample &previous, ColorSample &current,
                            const FrameState &frame, const Prepared &prepared) {
     (void)frame;
-    apply_modulation_pair_in_place(previous, current, prepared);
+    apply_modulation_pair_in_place<PATH_MORPH>(previous, current, prepared);
   }
   /** @brief Modulates the current endpoint.
    * @tparam FrameState Frame context.
