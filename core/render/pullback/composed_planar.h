@@ -356,6 +356,7 @@ struct Planar
   struct Prepared {
     Kernels first;                 ///< Current or outgoing inputs.
     std::optional<Kernels> second; ///< Incoming inputs during a morph.
+    uint8_t exact;                 ///< Selected index for a single field.
   };
 
   /** @brief Prepares kernels that have positive weight.
@@ -368,7 +369,8 @@ struct Planar
       return {prepare_endpoint<Endpoint::FROM>(
                   frame, morph.from->template get<"source">().source),
               prepare_endpoint<Endpoint::TO>(
-                  frame, morph.to->template get<"source">().source)};
+                  frame, morph.to->template get<"source">().source),
+              Selector::PlanarWeights::MIXED};
     const auto &weights = frame.resources.template get<"source">().weights;
     return {Kernels{(
                 weights.values[Selector::index(Kinds)] > 0.0f
@@ -376,7 +378,7 @@ struct Planar
                           frame)
                     : Detail::PolicyPrepared<PlanarDetail::PolicyFor<B, Kinds>,
                                              FrameState>{})...},
-            std::nullopt};
+            std::nullopt, weights.exact};
   }
 
   /** @brief Samples the weighted signed field.
@@ -387,12 +389,10 @@ struct Planar
   static HS_HOT_INLINE float sample(const PlaneSample &input,
                                     const FrameState &frame,
                                     const Prepared &prepared) {
-    if (prepared.second)
-      return sample_endpoints(input, frame, prepared);
-    if (frame.resources.template get<"source">().weights.exact == 0)
+    if (prepared.exact == 0)
       return sample_kind<Selector::COMPILED_KINDS.front()>(input, frame,
                                                            prepared.first);
-    return sample_weighted(input, frame, prepared.first);
+    return sample_weighted(input, frame, prepared);
   }
 
 private:
@@ -432,9 +432,9 @@ private:
     return value;
   }
 
-  static HS_HOT_FLASH_MEMBER float sample_endpoints(const PlaneSample &input,
-                                                    const FrameState &frame,
-                                                    const Prepared &prepared) {
+  static HS_HOT_INLINE float sample_endpoints(const PlaneSample &input,
+                                              const FrameState &frame,
+                                              const Prepared &prepared) {
     using PlanarDetail::Endpoint;
     const auto &morph = frame.source_morph;
     const float from = sample_endpoint<Endpoint::FROM>(
@@ -448,14 +448,16 @@ private:
 
   static HS_HOT_FLASH_MEMBER float sample_weighted(const PlaneSample &input,
                                                    const FrameState &frame,
-                                                   const Kernels &prepared) {
+                                                   const Prepared &prepared) {
+    if (prepared.second)
+      return sample_endpoints(input, frame, prepared);
     const auto &weights = frame.resources.template get<"source">().weights;
     float value = 0.0f;
     const auto add = [&]<PlanarKind Kind>() HS_HOT_INLINE {
       constexpr size_t INDEX = Selector::index(Kind);
       const float weight = weights.values[INDEX];
       if (weight > 0.0f) {
-        const float field = sample_kind<Kind>(input, frame, prepared);
+        const float field = sample_kind<Kind>(input, frame, prepared.first);
         if (weights.exact == INDEX)
           value = field;
         else
