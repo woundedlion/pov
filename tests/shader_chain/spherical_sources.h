@@ -196,7 +196,7 @@ inline void test_shader_chain_spherical_tiling() {
   HS_EXPECT_TRUE(faces.geometry == prepared.geometry);
   const auto cutout = Model::run(seam, {}, params, faces);
   HS_EXPECT_EQ(cutout.value, 0.0f);
-  HS_EXPECT_EQ(cutout.coverage, 0.0f);
+  HS_EXPECT_NEAR(cutout.coverage, 0.0f, 2.0e-6f);
   const auto fringe = Model::run(face_point(2.0f), {}, params, faces);
   HS_EXPECT_NEAR(fringe.value, 1.0f / 44.0f, 2.0e-6f);
   HS_EXPECT_NEAR(fringe.coverage, 0.5f, 2.0e-6f);
@@ -211,27 +211,32 @@ inline void test_shader_chain_spherical_tiling() {
   const auto zero_width = Model::prepare({}, params, state);
   const auto seam_field = Model::run(seam, {}, params, zero_width);
   HS_EXPECT_NEAR(seam_field.value, 0.0f, 2.0e-6f);
-  HS_EXPECT_NEAR(seam_field.coverage, 0.0f, 2.0e-6f);
+  HS_EXPECT_EQ(seam_field.coverage, 1.0f);
   const auto zero_width_middle =
       Model::run(face_point(22.5f), {}, params, zero_width);
   HS_EXPECT_NEAR(zero_width_middle.value, 0.5f, 2.0e-6f);
   HS_EXPECT_EQ(zero_width_middle.coverage, 1.0f);
 
-  const auto within_fringe = face_point(1.0f);
+  const auto within_fringe = face_point(1.25f);
   const auto zero_width_fringe =
       Model::run(within_fringe, {}, params, zero_width);
-  HS_EXPECT_NEAR(zero_width_fringe.coverage, 0.5f, 5.0e-6f);
+  HS_EXPECT_EQ(zero_width_fringe.coverage, 1.0f);
+
+  params.line_thickness = 0.002f;
+  const auto near_zero = Model::prepare({}, params, state);
+  HS_EXPECT_NEAR(Model::run(seam, {}, params, near_zero).coverage, 0.999f,
+                 2.0e-6f);
+
+  params.line_thickness = 0.5f;
+  const auto thin = Model::prepare({}, params, state);
+  HS_EXPECT_NEAR(Model::run(seam, {}, params, thin).coverage, 0.75f, 2.0e-6f);
+  const auto thin_fringe = Model::run(within_fringe, {}, params, thin);
+  HS_EXPECT_NEAR(thin_fringe.coverage, 0.875f, 5.0e-6f);
   params.line_softness = 4.0f;
   const auto softer = Model::prepare({}, params, state);
   const auto softer_fringe = Model::run(within_fringe, {}, params, softer);
-  HS_EXPECT_NEAR(softer_fringe.coverage, 0.15625f, 2.0e-6f);
-  HS_EXPECT_EQ(softer_fringe.value, zero_width_fringe.value);
-
-  params.line_softness = 2.0f;
-  params.line_thickness = 0.002f;
-  const auto thin = Model::prepare({}, params, state);
-  HS_EXPECT_NEAR(Model::run(within_fringe, {}, params, thin).coverage, 0.49925f,
-                 5.0e-6f);
+  HS_EXPECT_NEAR(softer_fringe.coverage, 0.89453125f, 5.0e-6f);
+  HS_EXPECT_EQ(softer_fringe.value, thin_fringe.value);
   params.line_thickness = 0.0f;
 
   const auto &geometry = *prepared.geometry;
@@ -248,7 +253,7 @@ inline void test_shader_chain_spherical_tiling() {
       HS_EXPECT_TRUE(owner != Geometry::NO_FACE);
       const auto field = Model::run({direction, 0.0f}, {}, params, tiled);
       HS_EXPECT_TRUE(field.value >= 0.0f && field.value <= 1.0f);
-      HS_EXPECT_TRUE(field.coverage >= 0.0f && field.coverage <= 1.0f);
+      HS_EXPECT_EQ(field.coverage, 1.0f);
     }
   }
 }
