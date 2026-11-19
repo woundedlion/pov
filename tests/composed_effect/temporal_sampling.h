@@ -1836,6 +1836,67 @@ inline void test_river_stones_2_meridian() {
   }
 }
 
+/** @brief Both RiverStones departures blend the sampled endpoint fields at the same plane position. */
+inline void test_river_stones_source_morph() {
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  using Sample = FX::RenderPipeline::StageAt<4>;
+  constexpr std::array points{math::Complex{0.17f, 0.23f},
+                              math::Complex{-0.39f, 0.11f},
+                              math::Complex{0.62f, -0.48f}};
+  const auto sample = [&](const FX::FrameState &frame) {
+    const auto prepared = Sample::prepare<FX::Binding>(frame);
+    std::array<float, points.size()> values{};
+    for (size_t i = 0; i < points.size(); ++i) {
+      Pullback::PlaneSample plane{points[i], {}, math::Y_AXIS, 0.0f};
+      plane.provenance.value_weight = 1.0f;
+      values[i] = Sample::run<FX::Binding>(plane, frame, prepared).value;
+    }
+    return values;
+  };
+
+  reset_globals();
+  pin_frame_clock(0);
+  FX effect;
+  effect.set_clip(0, 1, 0, 1);
+  effect.init();
+  const auto first = sample(effect.frame_for_test());
+  HS_EXPECT_TRUE(effect.synchronizePreset(1));
+  const auto second = sample(effect.frame_for_test());
+  HS_EXPECT_TRUE(first != second);
+  HS_EXPECT_TRUE(effect.synchronizePreset(0));
+
+  int clock = 0;
+  const auto draw = [&] {
+    pin_frame_clock(++clock);
+    effect.draw_frame();
+    effect.advance_display();
+  };
+  for (size_t from : {0u, 1u}) {
+    HS_CONTEXT("departing preset", static_cast<int>(from));
+    const auto &start = from == 0 ? first : second;
+    const auto &end = from == 0 ? second : first;
+    const auto segue =
+        std::get<Segue::Preset::Lerp>(FX::preset_departure(from));
+    for (int dwell = 0;
+         dwell < FX::PRESET_DWELL_FRAMES && effect.getPresetIndex() == from;
+         ++dwell)
+      draw();
+    HS_EXPECT_EQ(effect.getPresetIndex(), 1 - from);
+    for (unsigned tick = 1; tick <= segue.frames; ++tick) {
+      draw();
+      if (tick != segue.frames / 4 && tick != segue.frames / 2 &&
+          tick != 3u * segue.frames / 4 && tick != segue.frames)
+        continue;
+      HS_CONTEXT("transition tick", static_cast<int>(tick));
+      const auto values = sample(ComposedFrameWhiteBox::current_frame(effect));
+      const float progress =
+          segue.easing(static_cast<float>(tick) / segue.frames);
+      for (size_t i = 0; i < points.size(); ++i)
+        HS_EXPECT_NEAR(values[i], hs::lerp(start[i], end[i], progress), 1e-5f);
+    }
+  }
+}
+
 /** @brief A modulation layer with editable sources observes the affine distance. */
 inline void test_modulation_stack_observes_warp_distance() {
   using namespace Pullback;
