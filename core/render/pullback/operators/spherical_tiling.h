@@ -59,7 +59,7 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
             (half_width + params.line_softness) * DEGREES_TO_RADIANS};
   }
 
-  static FieldSample run(const SphereSample &input, const FrameContext &,
+  static FieldSample run(const SphereSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const auto direction = Pattern::SphereDirection::admit(input.dir);
     const auto &geometry = *prepared.geometry;
@@ -80,14 +80,37 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
         std::max(math::TOLERANCE, depth.center - prepared.half_width);
     const float position =
         hs::clamp((depth.sample - prepared.half_width) / span, 0.0f, 1.0f);
-    const float inv_softness =
-        1.0f / (prepared.fringe_end - prepared.half_width);
-    const float seam_strength =
-        std::min(1.0f, 2.0f * prepared.half_width * inv_softness);
-    const float fade =
-        math::cubic_kernel((depth.sample - prepared.half_width) * inv_softness);
-    const float alpha = hs::lerp(1.0f, fade, seam_strength);
+    const float alpha =
+        face_coverage(depth.sample, ctx.angular_sample_radius, prepared);
     return {position, alpha, input.dir, input.path_length};
+  }
+
+private:
+  static float integrated_fade(float depth, float softness) {
+    const float t = hs::clamp(depth / softness, 0.0f, 1.0f);
+    return softness * t * t * t * (1.0f - 0.5f * t) +
+           std::max(0.0f, depth - softness);
+  }
+
+  static float face_coverage(float distance, float radius,
+                             const Prepared &prepared) {
+    const float inner = distance - radius;
+    const float outer = distance + radius;
+    if (outer <= prepared.half_width)
+      return 0.0f;
+    if (inner >= prepared.fringe_end)
+      return 1.0f;
+    if (radius == 0.0f)
+      return math::smooth_ramp(prepared.half_width, prepared.fringe_end,
+                               distance);
+    const float softness = prepared.fringe_end - prepared.half_width;
+    const float outer_area =
+        integrated_fade(outer - prepared.half_width, softness);
+    const float inner_area =
+        integrated_fade(fabsf(inner) - prepared.half_width, softness);
+    // The footprint can include the inward fade on both sides of the seam.
+    const float area = outer_area - copysignf(inner_area, inner);
+    return hs::clamp(area / (2.0f * radius), 0.0f, 1.0f);
   }
 };
 

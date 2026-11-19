@@ -1214,6 +1214,8 @@ private:
   /** @brief Builds the per-frame snapshot, baking hue LUTs when active. */
   Pullback::Interp::FrameContext make_frame_context(const ColorizeTap &tap) {
     Pullback::Interp::FrameContext ctx;
+    ctx.angular_sample_radius = 0.125f * std::min(math::RADIANS_PER_COLUMN<W>,
+                                                  math::RADIANS_PER_ROW<H>);
     ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
                     &generated_palettes.palette(PaletteMode::COMPLEMENTARY),
                     &generated_palettes.palette(PaletteMode::ANALOGOUS)};

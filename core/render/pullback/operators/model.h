@@ -133,6 +133,7 @@ struct FrameContext {
   std::span<const Modulation::Endpoint>
       modulations; ///< Keyed immutable sources.
   std::span<const ModulationMorph> modulation_morphs{}; ///< Authored blends.
+  float angular_sample_radius = 0.0f; ///< Sample filter radius, in radians.
 
   /** @brief Finds the authored modulation blend.
    * @param key Layer instance.
