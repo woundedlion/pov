@@ -28,8 +28,11 @@ template <int W, int H> void check_geometry(float north, float south) {
   using Field = hs::SphericalFieldLayout<W, H>;
   math::init_geometry_luts<W, H>();
   const math::LatitudeGeometry latitude(H);
-  for (int y = 0; y < H; ++y)
-    HS_EXPECT_EQ(latitude.row_to_phi(y), Geometry::row_to_phi(y));
+  for (int y = 0; y < H; ++y) {
+    const float phi = Geometry::row_to_phi(y);
+    HS_EXPECT_EQ(latitude.row_to_phi(y), phi);
+    HS_EXPECT_EQ(latitude.phi_to_row(phi), Geometry::phi_to_row(phi));
+  }
   HS_EXPECT_NEAR(math::y_to_phi<H>(0), north, 1e-6f);
   HS_EXPECT_NEAR(math::y_to_phi<H>(H - 1), south, 1e-6f);
   HS_EXPECT_NEAR(math::RADIANS_PER_ROW<H>, (south - north) / (H - 1), 1e-6f);

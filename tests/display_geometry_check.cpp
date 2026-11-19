@@ -23,8 +23,11 @@ using Geometry = math::DisplayGeometry<H>;
 void test_coordinates() {
   HS_CONTEXT("resolution", W, H);
   const math::LatitudeGeometry latitude(H);
-  for (int y = 0; y < H; ++y)
-    HS_EXPECT_EQ(latitude.row_to_phi(y), Geometry::row_to_phi(y));
+  for (int y = 0; y < H; ++y) {
+    const float phi = Geometry::row_to_phi(y);
+    HS_EXPECT_EQ(latitude.row_to_phi(y), phi);
+    HS_EXPECT_EQ(latitude.phi_to_row(phi), Geometry::phi_to_row(phi));
+  }
   static_assert(!Geometry::HAS_NORTH_POLE && !Geometry::HAS_SOUTH_POLE);
   HS_EXPECT_GT(Geometry::NORTH_PHI, 0.0f);
   HS_EXPECT_LT(Geometry::SOUTH_PHI, math::PI_F);
