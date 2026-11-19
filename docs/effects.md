@@ -760,6 +760,10 @@ The workbench preset rail edits the show order, dwell and timed edges.
 Choosing a different planar source for a preset upgrades the stage to
 `sample.planar.v1`. Its source kind varies per preset, and a timed edge blends
 the two signed fields before weighting, coverage and colorization.
+An affine that translates or tracks path length admits the edge when the
+endpoint lattice bases match. A fallback period supplies a basis for a source
+without a lattice. Nonperiodic sources can still shift at an affine phase
+wrap.
 
 A spherical source consumes Sphere directly. Selecting Spherical Noise or
 Spherical Cells in the workbench replaces projection, planar warps and the planar
