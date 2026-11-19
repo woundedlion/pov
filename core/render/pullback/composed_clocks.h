@@ -43,6 +43,20 @@ template <typename Traits, typename Runtime> class ComposedClocks {
            keys.begin();
   }
 
+  template <typename Resource>
+  static const Modulation::Config &
+  modulation_recipe(const Modulation::Config &live, const FrameState &frame,
+                    const FrameState *retained) {
+    if constexpr (Resource::Family::SPATIAL_OR_PATH &&
+                  requires { frame.source_morph; }) {
+      const auto &morph = frame.source_morph;
+      if (!morph.from && !morph.snapped && retained)
+        return retained->source_morph.template spatial_config<Resource>(live);
+      return morph.template spatial_config<Resource>(live);
+    }
+    return live;
+  }
+
 public:
   /** @brief Resource state, including the selected persistent tables. */
   template <typename Resource, bool Cubic>
@@ -165,7 +179,8 @@ public:
    * @details Each clock is compiled in only when its field exists. Affine
    * rotations accumulate independently for each affine warp.
    */
-  HS_O3_FN HS_HOT_INLINE void advance() {
+  HS_O3_FN HS_HOT_INLINE void
+  advance(const Source::EndpointMorph<Params> *morph = nullptr) {
     params->visit([&]<typename Resource>(const auto &family) HS_HOT_INLINE {
       auto &clock = clocks.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::ROTATION) {
@@ -204,7 +219,10 @@ public:
       } else if constexpr (Resource::KIND == ResourceKind::TWIST) {
         Lens::advance_twist(clock, family);
       } else if constexpr (Resource::KIND == ResourceKind::MODULATION) {
-        Modulation::advance(clock.modulation_clock, family.modulation);
+        const auto &config =
+            morph ? morph->template spatial_config<Resource>(family.modulation)
+                  : family.modulation;
+        Modulation::advance(clock.modulation_clock, config);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
         if constexpr (std::is_base_of_v<AffineParams,
                                         typename Resource::Family>)
@@ -244,7 +262,8 @@ public:
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>)
         resource.noise = &owned->template get<Resource::KEY>().noise;
       if constexpr (Resource::KIND == ResourceKind::MODULATION) {
-        const auto &config = params->template get<Resource::KEY>().modulation;
+        const auto &live = params->template get<Resource::KEY>().modulation;
+        const auto &config = modulation_recipe<Resource>(live, frame, retained);
         auto &clock = clocks.template get<Resource::KEY>().modulation_clock;
         Modulation::synchronize(clock, config);
         resource.modulation_clock = clock;

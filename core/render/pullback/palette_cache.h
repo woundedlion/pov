@@ -159,8 +159,10 @@ sample_fused_scalars(const FieldSample &sample,
     return {Pattern::bounded_scalar(tap.sample(modulation.previous->cube)),
             Pattern::bounded_scalar(tap.sample(modulation.current->cube))};
   }
-  return Modulation::sample_pair(*modulation.previous, *modulation.current,
-                                 direction);
+  const auto pair = Modulation::sample_pair(*modulation.previous,
+                                            *modulation.current, direction);
+  return {modulation.scalar(pair.first, sample.path_length),
+          modulation.scalar(pair.second, sample.path_length)};
 }
 
 /** @brief Restores the canonical RGB-first palette base.

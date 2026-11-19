@@ -136,6 +136,7 @@ class OrderedModulationKernel {
     ColorModulation::Params mechanic;
     uint8_t current;
     uint8_t previous;
+    const PathModulationMix *path_mix;
   };
 
   const GeneratedPaletteState &previous_palette;
@@ -384,28 +385,34 @@ class OrderedModulationKernel {
     float previous_lift = 0.0f;
     for (uint8_t i = 0; i < op_count; ++i) {
       const auto &op = ops[i];
-      const float scalar = values[op.current];
+      const auto read = [&](uint8_t index) {
+        return op.path_mix
+                   ? op.path_mix->sample(op.mechanic.kind, values[index],
+                                         field.path_length)
+                   : values[index];
+      };
+      const float scalar = read(op.current);
       switch (op.mechanic.kind) {
       case ColorModulation::Mechanic::HUE_ROTATION:
         result.pending_hue =
             accumulate_hue(result.pending_hue, scalar, op.mechanic);
         if (varying_hue)
           previous_hue =
-              accumulate_hue(previous_hue, values[op.previous], op.mechanic);
+              accumulate_hue(previous_hue, read(op.previous), op.mechanic);
         break;
       case ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT:
         result.pending_lift =
             accumulate_lift(result.pending_lift, scalar, op.mechanic);
         if (varying_lift)
           previous_lift =
-              accumulate_lift(previous_lift, values[op.previous], op.mechanic);
+              accumulate_lift(previous_lift, read(op.previous), op.mechanic);
         break;
       case ColorModulation::Mechanic::OPACITY:
         result.color.alpha =
             opacity(result.color.alpha, scalar, op.mechanic.amount);
         if (varying_alpha)
           previous_alpha =
-              opacity(previous_alpha, values[op.previous], op.mechanic.amount);
+              opacity(previous_alpha, read(op.previous), op.mechanic.amount);
         break;
       }
     }
@@ -459,7 +466,9 @@ class OrderedModulationKernel {
         varying_lift |= mechanic == Mechanic::POSITIVE_LIGHTNESS_LIFT;
         varying_alpha |= mechanic == Mechanic::OPACITY;
       }
-      ops[op_count++] = {layer->mechanic, current, previous};
+      uses_path |= layer->path_mix.active();
+      ops[op_count++] = {layer->mechanic, current, previous,
+                         layer->path_mix.active() ? &layer->path_mix : nullptr};
     }
     return true;
   }
@@ -557,15 +566,19 @@ protected:
     const auto read = [&](uint8_t index) HS_HOT_INLINE {
       const auto &source = sources[index];
       if constexpr (Layout.source != LayerSampling::BYTE_CUBE) {
-        if (source.kind == SourceKind::TABLE_TAP) {
-          const auto &prepared = *source.value;
-          return Pattern::bounded_scalar(
-              prepared.immutable_table->sample_tap(prepared, tap));
-        }
         if constexpr (Layout.source == LayerSampling::DIRECT_OR_PATH)
           if (!source.value)
             return path_length;
-        return Modulation::sample(*source.value, direction);
+        const auto &prepared = *source.value;
+        const float spatial =
+            source.kind == SourceKind::TABLE_TAP
+                ? Pattern::bounded_scalar(
+                      prepared.immutable_table->sample_tap(prepared, tap))
+                : Modulation::sample(prepared, direction);
+        if constexpr (Layout.source == LayerSampling::DIRECT_OR_PATH)
+          if (op.path_mix)
+            return op.path_mix->sample(Layout.mechanic, spatial, path_length);
+        return spatial;
       } else {
         if constexpr (Layout.mechanic ==
                       ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)

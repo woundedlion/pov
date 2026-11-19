@@ -516,7 +516,20 @@ protected:
     palette.arm(target.template get<"color">());
     if constexpr (Traits::SOURCE_MORPH) {
       auto &morph = state->source_morph;
-      if (Source::different_endpoint_fields(transition.from, target)) {
+      morph.fields_differ =
+          Source::different_endpoint_fields(transition.from, target);
+      transition.from.visit([&]<typename Resource>(const auto &family) {
+        if constexpr (Resource::KIND == ResourceKind::MODULATION)
+          if constexpr (Resource::Family::SPATIAL_OR_PATH) {
+            const auto &next = target.template get<Resource::KEY>().modulation;
+            if (family.modulation.source != next.source)
+              morph.displacement =
+                  family.modulation.source == Pattern::SourceKind::DISPLACEMENT
+                      ? &transition.from
+                      : &transition.to;
+          }
+      });
+      if (morph.fields_differ || morph.displacement) {
         const auto departure =
             Choreography::preset_departure(transition.from_index);
         const auto &lerp = std::get<Segue::Preset::Lerp>(departure);
@@ -791,7 +804,10 @@ private:
   /** @brief Steps the resource clocks, the projection and camera spins and
       the palette wobble. */
   HS_FLASH_MEMBER void advance_runtime() {
-    clocks.advance();
+    if constexpr (Traits::SOURCE_MORPH)
+      clocks.advance(&state->source_morph);
+    else
+      clocks.advance();
     if constexpr (ANIMATED_PROJECTION)
       if (projection_frame_active())
         this->projection_spin = advance_frame_spin(
@@ -861,7 +877,6 @@ private:
     if constexpr (TEMPORAL_SAMPLING)
       if (state->initialized)
         retained = &state->previous;
-    clocks.prepare_views(frame, retained);
     if constexpr (Traits::SOURCE_MORPH) {
       if (!transition.active && state->source_morph.from)
         clear_source_morph();
@@ -870,6 +885,7 @@ private:
         frame.hex_tables = state->active;
       state->source_morph.snapped = false;
     }
+    clocks.prepare_views(frame, retained);
     if constexpr (HAS_PLANAR) {
       auto &source = frame.resources.template get<"source">();
       source.weights = source_state().weights;

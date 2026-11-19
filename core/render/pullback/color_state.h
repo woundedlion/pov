@@ -151,6 +151,47 @@ inline Color4 finish(const ColorSample &sample) {
   return finish_color_sample(sample);
 }
 
+/** @brief Blends two authored mechanic contributions into one unit-strength scalar. */
+HS_HOT_FLASH_MEMBER inline float
+blend_modulation_scalar(ColorModulation::Mechanic kind, float from_scalar,
+                        float from_amount, float to_scalar, float to_amount,
+                        float fraction) {
+  using M = ColorModulation::Mechanic;
+  if (kind == M::HUE_ROTATION)
+    return math::wrap_t(
+        hs::lerp(from_amount * from_scalar, to_amount * to_scalar, fraction));
+  if (kind == M::POSITIVE_LIGHTNESS_LIFT)
+    return hs::lerp(from_amount * hs::clamp(from_scalar, 0.0f, 1.0f),
+                    to_amount * hs::clamp(to_scalar, 0.0f, 1.0f), fraction);
+  const auto opacity = [](float scalar, float amount) {
+    return ColorModulation::Opacity::apply(Color4(Pixel(0, 0, 0), 1.0f), scalar,
+                                           {amount})
+        .alpha;
+  };
+  return 2.0f * hs::lerp(opacity(from_scalar, from_amount),
+                         opacity(to_scalar, to_amount), fraction) -
+         1.0f;
+}
+
+/** @brief Authored spatial and displacement signals for one changing layer. */
+struct PathModulationMix {
+  float spatial_amount = 0.0f;
+  float path_amount = 0.0f;
+  float fraction = -1.0f;
+  bool path_first = false;
+
+  bool active() const { return fraction >= 0.0f; }
+
+  HS_HOT_INLINE float sample(ColorModulation::Mechanic kind, float spatial,
+                             float path) const {
+    if (path_first)
+      return blend_modulation_scalar(kind, path, path_amount, spatial,
+                                     spatial_amount, fraction);
+    return blend_modulation_scalar(kind, spatial, spatial_amount, path,
+                                   path_amount, fraction);
+  }
+};
+
 /** @brief One color modulation's prepared endpoint pair. */
 struct ModulationState {
   const Modulation::Prepared *current = nullptr;  ///< Current spatial source.
@@ -160,6 +201,11 @@ struct ModulationState {
   bool enabled = false;             ///< Whether this layer contributes.
   bool paired_cube_ready =
       false; ///< Immutable endpoints admit shared cube taps.
+  PathModulationMix path_mix;
+  HS_HOT_INLINE float scalar(float spatial, float path) const {
+    return path_mix.active() ? path_mix.sample(mechanic.kind, spatial, path)
+                             : spatial;
+  }
 };
 
 /** @brief Interval-base cache tier of a borrowed palette view. */
@@ -497,7 +543,8 @@ apply_modulation_in_place(ColorSample &sample, const ModulationState &state,
     scalar = Modulation::sample(
         *source, Pattern::SphereDirection::admit(sample.field.sphere));
   }
-  apply_mechanic_scalar(sample, scalar, state.mechanic);
+  apply_mechanic_scalar(sample, state.scalar(scalar, sample.field.path_length),
+                        state.mechanic);
 }
 
 /** @brief Applies one layer to retained and current color endpoints.
@@ -519,8 +566,12 @@ apply_modulation_pair_in_place(ColorSample &previous, ColorSample &current,
   const auto direction = Pattern::SphereDirection::admit(current.field.sphere);
   const auto scalars =
       Modulation::sample_pair(*state.previous, *state.current, direction);
-  apply_mechanic_scalar(previous, scalars.first, state.mechanic);
-  apply_mechanic_scalar(current, scalars.second, state.mechanic);
+  apply_mechanic_scalar(previous,
+                        state.scalar(scalars.first, previous.field.path_length),
+                        state.mechanic);
+  apply_mechanic_scalar(current,
+                        state.scalar(scalars.second, current.field.path_length),
+                        state.mechanic);
 }
 
 /** @brief Applies one ordered modulation layer to a copy.

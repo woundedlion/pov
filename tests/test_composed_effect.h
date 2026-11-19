@@ -72,6 +72,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_river_stones_color_tail);
   HS_RUN(test_river_stones_2_meridian);
   HS_RUN(test_river_stones_source_morph);
+  HS_RUN(test_river_stones_modulation_morph);
   HS_RUN(test_modulation_stack_observes_warp_distance);
   HS_RUN(test_iridescence_color_tail);
   HS_RUN(test_iridescence_repeated_cube_phase);

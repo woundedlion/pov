@@ -427,6 +427,7 @@ template <Pattern::SourceKind SourceV, Pattern::Evaluation EvaluationV,
 struct Params {
   static constexpr auto SOURCE = SourceV;         ///< Source capability.
   static constexpr auto EVALUATION = EvaluationV; ///< Storage strategy.
+  static constexpr bool SPATIAL_OR_PATH = AllowDisplacement;
   static constexpr bool DYNAMIC =
       DynamicV; ///< Whether presets may change topology.
   static_assert(!AllowDisplacement ||

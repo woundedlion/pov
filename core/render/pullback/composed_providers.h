@@ -135,8 +135,27 @@ template <typename Params> struct EndpointMorph {
   float mix = 0.0f;             ///< Eased edge position.
   bool snapped = false;         ///< Discards the retained morph on this frame.
 
+  const Params *displacement =
+      nullptr;               ///< Endpoint supplying authored path tracking.
+  bool fields_differ = true; ///< Whether the tessellation fields also change.
+
+  template <typename Resource>
+  const Modulation::Config &
+  spatial_config(const Modulation::Config &live) const {
+    if constexpr (Resource::Family::SPATIAL_OR_PATH)
+      if (displacement) {
+        const auto &a = from->template get<Resource::KEY>().modulation;
+        const auto &b = to->template get<Resource::KEY>().modulation;
+        if (a.source != b.source)
+          return a.source == Pattern::SourceKind::DISPLACEMENT ? b : a;
+      }
+    return live;
+  }
+
   /** @brief Whether the column uses both source endpoints. */
-  HS_HOT_INLINE bool mixed() const { return from && mix > 0.0f && mix < 1.0f; }
+  HS_HOT_INLINE bool mixed() const {
+    return from && fields_differ && mix > 0.0f && mix < 1.0f;
+  }
 };
 
 /** @brief Frame context with a borrowed pair of source endpoints.
@@ -452,6 +471,9 @@ struct WarpProvider {
     if constexpr (std::is_base_of_v<Warp::AuthoredAffineParams, Family>) {
       static_assert(TrackPath,
                     "authored path length requires a tracking stage");
+      if constexpr (requires { frame.source_morph.displacement; })
+        if (const auto *path = frame.source_morph.displacement)
+          return path->template get<Key>().path_length != 0;
       return params(frame).path_length != 0;
     } else
       return TrackPath;
@@ -990,14 +1012,39 @@ struct ModulationProvider {
   static Prepared prepare(const FrameState &frame) {
     const auto &config = frame.params.template get<Key>().modulation;
     const auto &resource = frame.resources.template get<Key>();
-    const Color::ModulationState base{
-        resource.modulation, resource.previous_modulation, config.source,
-        config.mechanic, config.enabled};
+    Color::ModulationState base{resource.modulation,
+                                resource.previous_modulation, config.source,
+                                config.mechanic, config.enabled};
+    if constexpr (AllowDisplacement && requires { frame.source_morph; }) {
+      const auto &morph = frame.source_morph;
+      if (morph.displacement) {
+        const auto &a = morph.from->template get<Key>().modulation;
+        const auto &b = morph.to->template get<Key>().modulation;
+        if (a.source != b.source) {
+          const bool path_first = a.source == Pattern::SourceKind::DISPLACEMENT;
+          const auto &spatial = path_first ? b : a;
+          const auto &path = path_first ? a : b;
+          if (!base.previous || !base.previous->evaluate)
+            base.previous = base.current;
+          if (!base.current || !base.current->evaluate)
+            base.current = base.previous;
+          base.source = spatial.source;
+          base.mechanic = {spatial.mechanic.kind, 1.0f};
+          base.enabled = spatial.enabled || path.enabled;
+          base.path_mix = {spatial.enabled ? spatial.mechanic.amount : 0.0f,
+                           path.enabled ? path.mechanic.amount : 0.0f,
+                           morph.mix, path_first};
+        }
+      }
+    }
     if constexpr (!PhaseV)
       return base;
     else {
       PhasePrepared result;
       static_cast<Color::ModulationState &>(result) = base;
+      if constexpr (AllowDisplacement)
+        if (base.path_mix.active())
+          return result;
       if constexpr (requires { frame.temporal.phase_compatible; }) {
         if (!frame.temporal.phase_compatible)
           return result;

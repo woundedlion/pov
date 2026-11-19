@@ -1905,6 +1905,96 @@ inline void test_river_stones_source_morph() {
   }
 }
 
+/** @brief Both scheduled departures blend the authored noise and displacement hue contributions. */
+inline void test_river_stones_modulation_morph() {
+  using namespace Pullback;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  using Pipeline = FX::RenderPipeline;
+  using M = ColorModulation::Mechanic;
+  constexpr Color::LayerLayout hue{Color::LayerSampling::DIRECT_OR_PATH,
+                                   M::HUE_ROTATION};
+  constexpr Color::LayerLayout lift{Color::LayerSampling::BYTE_CUBE,
+                                    M::POSITIVE_LIGHTNESS_LIFT};
+  constexpr Color::LayerLayout opacity{Color::LayerSampling::BYTE_CUBE,
+                                       M::OPACITY};
+  reset_globals();
+  pin_frame_clock(0);
+  FX effect;
+  effect.set_clip(0, 1, 0, 1);
+  effect.init();
+  const auto initial = effect.frame_for_test();
+  const math::Vector direction =
+      Pattern::SphereDirection::admit({0.6f, -0.2f, 0.8f}).value();
+  const auto noise = Modulation::sample(
+      *initial.resources.template get<"modulate">().modulation,
+      Pattern::SphereDirection::admit(direction));
+  const float noise_amount = FX::preset(0)
+                                 .params.template get<"modulate">()
+                                 .modulation.mechanic.amount;
+  const float path_amount = FX::preset(1)
+                                .params.template get<"modulate">()
+                                .modulation.mechanic.amount;
+  int clock = 0;
+  const auto draw = [&] {
+    pin_frame_clock(++clock);
+    effect.draw_frame();
+    effect.advance_display();
+  };
+  for (size_t from : {0u, 1u}) {
+    HS_CONTEXT("departing preset", static_cast<int>(from));
+    while (effect.getPresetIndex() == from && clock < 2400)
+      draw();
+    const auto edge = std::get<Segue::Preset::Lerp>(FX::preset_departure(from));
+    for (unsigned tick = 0; tick <= edge.frames; ++tick) {
+      if (tick)
+        draw();
+      if (tick > 1 && tick < edge.frames - 1 && tick % 60)
+        continue;
+      HS_CONTEXT("transition tick", static_cast<int>(tick));
+      const auto &state = ComposedFrameWhiteBox::current_frame(effect);
+      const auto prepared = Pipeline::prepare_stages(state);
+      const auto &layer = std::get<6>(prepared);
+      const auto &palette = std::get<5>(prepared);
+      const Color::ModulationStack<3, hue, lift, opacity> stack(
+          palette, true,
+          {&layer, &std::get<7>(prepared), &std::get<8>(prepared)});
+      const Color::ModulationState unit_hue{nullptr,
+                                            nullptr,
+                                            Pattern::SourceKind::DISPLACEMENT,
+                                            {M::HUE_ROTATION, 1.0f},
+                                            true};
+      const Color::ModulationStack<3> reference(
+          palette, true,
+          {&unit_hue, &std::get<7>(prepared), &std::get<8>(prepared)});
+      const float progress =
+          edge.easing(static_cast<float>(tick) / edge.frames);
+      for (float path : {0.0f, 0.09f, 0.42f, 0.97f}) {
+        const FieldSample field{0.38f, 0.9f, direction, path};
+        const float direct = noise * noise_amount;
+        const float displaced = path * path_amount;
+        const float expected =
+            math::wrap_t(from ? hs::lerp(displaced, direct, progress)
+                              : hs::lerp(direct, displaced, progress));
+        ColorSample carrier{};
+        carrier.field = field;
+        Color::apply_modulation_in_place(carrier, layer);
+        HS_EXPECT_NEAR(carrier.pending_hue, expected, 1e-5f);
+        auto ref_field = field;
+        ref_field.path_length = expected;
+        const auto a = stack.shade(field), b = reference.shade(ref_field);
+        HS_EXPECT_EQ(a.color, b.color);
+        HS_EXPECT_NEAR(a.alpha, b.alpha, 1e-6f);
+      }
+      if (tick && tick < edge.frames) {
+        PlaneSample plane{{0.15f, 0.17f}, {}, direction, 0.12f};
+        const auto warped =
+            Pipeline::NodeAt<3>::run(plane, state, std::get<3>(prepared));
+        HS_EXPECT_EQ(warped.path_length, plane.path_length);
+      }
+    }
+  }
+}
+
 /** @brief A modulation layer with editable sources observes the affine distance. */
 inline void test_modulation_stack_observes_warp_distance() {
   using namespace Pullback;
