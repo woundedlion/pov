@@ -697,13 +697,21 @@ consteval AffineReads affine_reads() {
     constexpr bool LATTICE = [] {
       if constexpr (std::is_void_v<Source>)
         return false;
+      else if constexpr (requires { Source::HAS_LATTICE; })
+        return Source::HAS_LATTICE;
       else
         return ReportsTranslationLattice<Source>;
+    }();
+    constexpr bool FALLBACK = [] {
+      if constexpr (requires { Source::FALLBACK_LATTICE; })
+        return Source::FALLBACK_LATTICE;
+      else
+        return !LATTICE;
     }();
     constexpr bool TRANSLATES =
         Warp::includes(Affine::FORM, Warp::AffineForm::TRANSLATES);
     return {Affine::FORM, TRANSLATES || (Affine::TRACK && LATTICE),
-            TRANSLATES && !LATTICE};
+            TRANSLATES && FALLBACK};
   }
 }
 

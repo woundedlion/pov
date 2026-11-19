@@ -320,6 +320,77 @@ inline bool assign_mobius(Params &params, std::string_view id, float value) {
 
 namespace ChainOp = Pullback::Interp::Op;
 
+/** @brief Maps a planar document value onto the compiled source families.
+ * @tparam Params Composed parameter set.
+ * @param built Receives the compiled value.
+ * @param id Catalog field id.
+ * @param value Authored preset value.
+ * @return Whether the field and its kind are admitted. */
+template <typename Params>
+bool apply_planar_document_value(Params &built, std::string_view id,
+                                 const JsonValue &value) {
+  namespace Source = Pullback::Source;
+  using Selector = typename Params::template Family<"source">;
+  if (id == "source") {
+    if (value.kind != JsonValue::Kind::STRING)
+      return false;
+    for (const auto kind : Selector::COMPILED_KINDS)
+      if (value.text == Source::PLANAR_KIND_IDS[static_cast<size_t>(kind)]) {
+        built.template get<"source">().source = kind;
+        return true;
+      }
+    return false;
+  }
+  const uint16_t mask = Source::planar_field_sources(id);
+  const auto *op = Pullback::Interp::find_operator("sample.planar.v1");
+  if (op == nullptr)
+    return false;
+  const auto fields = std::span(op->schema, op->schema_count);
+  const auto field =
+      std::find_if(fields.begin(), fields.end(),
+                   [&](const auto &field) { return id == field.id; });
+  if (field == fields.end())
+    return false;
+  uint8_t enum_value = 0;
+  if (field->enum_count) {
+    while (enum_value < field->enum_count &&
+           value.text != field->enum_ids[enum_value])
+      ++enum_value;
+    if (value.kind != JsonValue::Kind::STRING ||
+        enum_value == field->enum_count)
+      return false;
+  } else if (value.kind != JsonValue::Kind::NUMBER)
+    return false;
+  if ((mask & Selector::KIND_MASK) == 0)
+    return true;
+
+  for (size_t family = 0; family < std::size(Source::PLANAR_FAMILY_IDS);
+       ++family)
+    if (Source::PLANAR_FAMILY_MASKS[family] == mask) {
+      id.remove_prefix(Source::PLANAR_FAMILY_IDS[family].size() + 1);
+      break;
+    }
+
+  bool assigned = false;
+  built.visit([&]<typename Resource>(auto &family) {
+    using Family = typename Resource::Family;
+    constexpr uint16_t MASK = Source::PlanarDetail::family_mask<Resource>();
+    if constexpr (MASK != 0) {
+      if (mask != MASK)
+        return;
+      if (value.kind == JsonValue::Kind::NUMBER)
+        assigned = assign_field(family, id, static_cast<float>(value.number));
+      else if constexpr (requires { Family::TOPOLOGY; })
+        for (const auto &topology : Family::TOPOLOGY)
+          if (id == topology.id) {
+            family.*topology.member = enum_value;
+            assigned = true;
+          }
+    }
+  });
+  return assigned;
+}
+
 /** @brief Affine parts one preset's values move away from identity.
  * @param values The preset's `values` object.
  * @param label Label of the affine chain instance.
@@ -793,6 +864,12 @@ template <typename FX>
 inline bool
 apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
                      std::string_view field_id, const JsonValue &value) {
+  using SourceSelector = typename FX::Params::template Family<"source">;
+  if constexpr (requires { typename SourceSelector::PlanarWeights; })
+    if (slot.operator_id == "sample.planar.v1" &&
+        (field_id == "source" ||
+         Pullback::Source::planar_field_sources(field_id)))
+      return apply_planar_document_value(built, field_id, value);
   if (value.kind == JsonValue::Kind::NUMBER)
     return apply_document_number<FX>(built, slot, field_id,
                                      static_cast<float>(value.number));

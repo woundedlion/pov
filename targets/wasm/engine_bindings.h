@@ -626,6 +626,39 @@ public:
     return ids;
   }
 
+  /** @brief Reads the loaded effect's compiled preset bank digest.
+   * @return The digest, or an empty string. */
+  std::string getPresetBankDigest() const {
+    return current_factory_entry
+               ? std::string(current_factory_entry->preset_bank_digest)
+               : std::string{};
+  }
+
+  /** @brief Reads a registered effect's compiled bank digest.
+   * @param effect_id Canonical effect id.
+   * @return The digest, or an empty string. */
+  std::string getPresetBankDigestForEffect(const std::string &effect_id) const {
+    const auto *entry =
+        hs_wasm::find_factory_entry<HS_REG_IDENTITY_RESOLUTION>(effect_id);
+    return entry ? std::string(entry->preset_bank_digest) : std::string{};
+  }
+
+  /** @brief Arms a compiled preset edge for frame-by-frame preview.
+   * @param from Origin preset index.
+   * @param to Destination preset index.
+   * @return True when the authored timed edge starts. */
+  bool startPresetTransition(double from, double to) {
+    if (!current_effect || !current_factory_entry ||
+        !current_factory_entry->start_document_transition ||
+        !preset_index_accepted(from, "startPresetTransition") ||
+        !preset_index_accepted(to, "startPresetTransition"))
+      return false;
+    const bool started = current_factory_entry->start_document_transition(
+        *current_effect, static_cast<size_t>(from), static_cast<size_t>(to));
+    binding_state->paused = current_effect->animations_paused();
+    return started;
+  }
+
   /**
    * @brief Selects a preset through its persisted identity.
    * @param preset_id Persisted preset identity.
@@ -1177,6 +1210,11 @@ static void bind_engine() {
       .function("getPresetCount", &HolosphereEngine::getPresetCount)
       .function("getPresetIndex", &HolosphereEngine::getPresetIndex)
       .function("getPresetIds", &HolosphereEngine::getPresetIds)
+      .function("getPresetBankDigest", &HolosphereEngine::getPresetBankDigest)
+      .function("getPresetBankDigestForEffect",
+                &HolosphereEngine::getPresetBankDigestForEffect)
+      .function("startPresetTransition",
+                &HolosphereEngine::startPresetTransition)
       .function("selectPreset", &HolosphereEngine::selectPreset)
       .function("selectPresetById", &HolosphereEngine::selectPresetById)
       .function("synchronizePreset", &HolosphereEngine::synchronizePreset)

@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "core/render/pullback/composed_parameters.h"
+#include "core/render/pullback/composed_planar.h"
 #include "core/render/pullback/composed_spec_policies.h"
 
 /** @file composed_policies.h

@@ -790,6 +790,62 @@ inline void catalog_assignments_sample_spherical_cells_v1() {
   (void)params;
 }
 
+/** @brief Compiles catalog assignments for sample.planar.v1. */
+inline void catalog_assignments_sample_planar_v1() {
+  Pullback::Source::PlanarSelectorParams<Pullback::Source::PlanarKind::GRID, Pullback::Source::PlanarKind::TWIN_WAVE, Pullback::Source::PlanarKind::BANDS, Pullback::Source::PlanarKind::SPIRAL, Pullback::Source::PlanarKind::TESSELLATION_TRIANGULAR_CELLS, Pullback::Source::PlanarKind::TESSELLATION_TRIANGULAR_EDGES, Pullback::Source::PlanarKind::TESSELLATION_SQUARE_CELLS, Pullback::Source::PlanarKind::TESSELLATION_SQUARE_EDGES, Pullback::Source::PlanarKind::TESSELLATION_HEXAGONAL_CELLS, Pullback::Source::PlanarKind::TESSELLATION_HEXAGONAL_EDGES, Pullback::Source::PlanarKind::PROJECTED_NOISE_SIMPLEX, Pullback::Source::PlanarKind::PROJECTED_NOISE_FBM3, Pullback::Source::PlanarKind::PROJECTED_NOISE_RIDGED3> source;
+  Pullback::Source::GridSourceParams source_grid;
+  Pullback::Source::TwinWaveSourceParams source_twin_wave;
+  Pullback::Source::BandsSourceParams source_bands;
+  Pullback::Source::SpiralSourceParams source_spiral;
+  Pullback::Source::TessellationSourceParams source_tessellation;
+  Pullback::Source::ProjectedNoiseSourceParams source_projected_noise;
+  source.source = Pullback::Source::PlanarKind::GRID;
+  source_grid.pattern_freq = 1.0f;
+  source_grid.speed = 0.0f;
+  source_grid.complexity = 0.0f;
+  source_grid.pattern_mix = 0.0f;
+  source_twin_wave.pattern_freq = 1.0f;
+  source_twin_wave.speed = 0.0f;
+  source_twin_wave.secondary_rate = 0.0f;
+  source_twin_wave.angle_rate = 0.0f;
+  source_bands.pattern_freq = 1.0f;
+  source_bands.angle = 0.0f;
+  source_spiral.pattern_freq = 1.0f;
+  source_spiral.arms = 3.0f;
+  source_spiral.center_azimuth = 0.0f;
+  source_spiral.center_polar = 0.0f;
+  source_tessellation.cell_scale = 1.0f;
+  source_tessellation.cell_shape = 0.0f;
+  source_tessellation.cell_softness = 0.05f;
+  source_tessellation.cell_radius = 0.25f;
+  source_tessellation.line_thickness = 0.04f;
+  source_tessellation.line_softness = 0.02f;
+  source_projected_noise.noise_scale = 1.0f;
+  source_projected_noise.noise_contrast = 0.0f;
+  source_projected_noise.noise_time_rate = 0.0f;
+  source_spiral.coordinate_system = 0;
+  source.source = Pullback::Source::PlanarKind::GRID;
+  source.source = Pullback::Source::PlanarKind::TWIN_WAVE;
+  source.source = Pullback::Source::PlanarKind::BANDS;
+  source.source = Pullback::Source::PlanarKind::SPIRAL;
+  source.source = Pullback::Source::PlanarKind::TESSELLATION_TRIANGULAR_CELLS;
+  source.source = Pullback::Source::PlanarKind::TESSELLATION_TRIANGULAR_EDGES;
+  source.source = Pullback::Source::PlanarKind::TESSELLATION_SQUARE_CELLS;
+  source.source = Pullback::Source::PlanarKind::TESSELLATION_SQUARE_EDGES;
+  source.source = Pullback::Source::PlanarKind::TESSELLATION_HEXAGONAL_CELLS;
+  source.source = Pullback::Source::PlanarKind::TESSELLATION_HEXAGONAL_EDGES;
+  source.source = Pullback::Source::PlanarKind::PROJECTED_NOISE_SIMPLEX;
+  source.source = Pullback::Source::PlanarKind::PROJECTED_NOISE_FBM3;
+  source.source = Pullback::Source::PlanarKind::PROJECTED_NOISE_RIDGED3;
+  (void)source;
+  (void)source_grid;
+  (void)source_twin_wave;
+  (void)source_bands;
+  (void)source_spiral;
+  (void)source_tessellation;
+  (void)source_projected_noise;
+}
+
 /** @brief Compiles catalog assignments for field.transfer.ridge.v2. */
 inline void catalog_assignments_field_transfer_ridge_v2() {
   Pullback::Lens::NoLensParams params;

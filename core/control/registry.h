@@ -65,6 +65,9 @@ struct FactoryEntry {
   PresetIdFn preset_id =
       nullptr; /**< Stable ID of a preset by index; null without PRESET_IDS. */
 #if defined(__EMSCRIPTEN__)
+  std::string_view preset_bank_digest; ///< Canonical authored bank digest.
+  /// Arms the compiled departure whose endpoints the preview requests.
+  bool (*start_document_transition)(Effect &, size_t, size_t) = nullptr;
   /// Synchronous visitor of one current typed modulation resource.
   using ModulationVisitor = void (*)(void *, std::string_view,
                                      const ColorModulation::Config &);
@@ -196,6 +199,13 @@ void fill_registration(FactoryEntry &entry) {
   entry.size = sizeof(ClassName<W, H>);
 #if defined(__EMSCRIPTEN__)
   using FX = ClassName<W, H>;
+  if constexpr (requires { FX::PRESET_BANK_DIGEST; }) {
+    entry.preset_bank_digest = FX::PRESET_BANK_DIGEST;
+    entry.start_document_transition = [](Effect &effect, size_t from,
+                                         size_t to) {
+      return static_cast<FX &>(effect).start_document_transition(from, to);
+    };
+  }
   if constexpr (requires(const FX &effect) {
                   effect.visit_document_modulations(
                       [](std::string_view, const ColorModulation::Config &) {});

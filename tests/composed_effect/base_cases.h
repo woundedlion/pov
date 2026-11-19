@@ -222,7 +222,10 @@ inline void test_promoted_document_pipelines() {
   composed_chain_tests::verify_export<AlienCore<SMALL_W, SMALL_H>>(
       0, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<Involution<SMALL_W, SMALL_H>>(0);
-  composed_chain_tests::verify_export<GridWarp<SMALL_W, SMALL_H>>(0);
+  for (size_t index = 0;
+       index < GridWarp<SMALL_W, SMALL_H>::authored_preset_count(); ++index)
+    composed_chain_tests::verify_export<GridWarp<SMALL_W, SMALL_H>>(
+        index, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<LiquidWindows<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<Iridescence<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<RiverStones<SMALL_W, SMALL_H>>(0);

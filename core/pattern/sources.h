@@ -705,7 +705,8 @@ struct PlaneSpiral : StationarySource<SpiralSourceParams> {
    * @param params Source controls.
    * @param state Empty source state.
    * @return Immutable source inputs. */
-  static Prepared prepare(const Params &params, const State &state) {
+  HS_HOT_FLASH_MEMBER static Prepared prepare(const Params &params,
+                                              const State &state) {
     (void)state;
     HS_CHECK(valid(params), "pattern spiral: invalid parameters");
     return {params.pattern_freq, std::round(params.arms),
@@ -720,7 +721,8 @@ struct PlaneSpiral : StationarySource<SpiralSourceParams> {
    * @param coordinate Plane coordinate.
    * @param prepared Immutable controls.
    * @return Signed field value. */
-  static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+  HS_HOT_FLASH_MEMBER static float sample(const Coordinate &coordinate,
+                                          const Prepared &prepared) {
     if (prepared.equirectangular) {
       const float longitude =
           math::wrap_positive(coordinate.value.re, math::TWO_PI_F);

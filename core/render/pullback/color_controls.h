@@ -269,6 +269,8 @@ template <size_t N> struct EnumWeights {
   std::array<float, N> values{};         ///< Weight per enum value.
   uint8_t exact = MIXED;                 ///< Selected index, when exact.
 
+  HS_HOT_INLINE constexpr EnumWeights() = default;
+
   /**
    * @brief Weights selecting exactly one value.
    * @tparam Value Enum or index type.
@@ -291,6 +293,24 @@ template <size_t N> struct EnumWeights {
    */
   static HS_FLASH_INLINE constexpr EnumWeights
   lerp_components(const EnumWeights &a, const EnumWeights &b, float progress) {
+    return interpolate(a, b, progress);
+  }
+
+  /**
+   * @brief Interpolates two weight sets with the shared palette placement.
+   * @param a Weights at progress 0.
+   * @param b Weights at progress 1.
+   * @param progress Blend amount.
+   * @return Interpolated weights.
+   */
+  static HS_ITCM_MEMBER constexpr EnumWeights
+  lerp(const EnumWeights &a, const EnumWeights &b, float progress) {
+    return interpolate(a, b, progress);
+  }
+
+private:
+  static HS_HOT_INLINE constexpr EnumWeights
+  interpolate(const EnumWeights &a, const EnumWeights &b, float progress) {
     if (a.exact == b.exact && a.exact < a.values.size())
       return a;
     if (progress <= 0.0f)
@@ -302,18 +322,6 @@ template <size_t N> struct EnumWeights {
       result.values[index] =
           a.values[index] + (b.values[index] - a.values[index]) * progress;
     return result;
-  }
-
-  /**
-   * @brief Interpolates two weight sets with the shared palette placement.
-   * @param a Weights at progress 0.
-   * @param b Weights at progress 1.
-   * @param progress Blend amount.
-   * @return Interpolated weights.
-   */
-  static constexpr EnumWeights lerp(const EnumWeights &a, const EnumWeights &b,
-                                    float progress) {
-    return lerp_components(a, b, progress);
   }
 };
 

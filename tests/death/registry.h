@@ -42,6 +42,7 @@ inline bool case_enabled(const Case &entry) {
  * @return Pointer to the static case array.
  */
 inline const Case *all_cases(int &n) {
+  // clang-format off
   static const Case
       cases[] =
           {
@@ -2015,6 +2016,10 @@ inline const Case *all_cases(int &n) {
                "alternate outside the reserved ring",
                false, "death: admitted"},
               // pullback
+              {"uncompiled_planar_source", case_uncompiled_planar_source,
+               "core/render/pullback/composed_planar.h",
+               "(selected < COMPILED_KINDS.size()) planar source kind is not compiled",
+               false, "death: admitted"},
               {"catalog_curve_midpoint", case_catalog_curve_midpoint,
                "core/render/pullback/catalog_export.h",
                "(false) unsupported registered field curve"},
@@ -2527,6 +2532,7 @@ inline const Case *all_cases(int &n) {
                "(global_timeline_live) TransformerPool outlived its Timeline: declare "
                "the Timeline before the pools that schedule on it"},
           };
+  // clang-format on
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
 }

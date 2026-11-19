@@ -76,8 +76,12 @@ void verify_export(size_t preset, int channel_tolerance, float alpha_tolerance,
   reset_globals();
   FX effect;
   effect.init();
-  ComposedFrameWhiteBox::set_params(effect,
-                                    effects_tests::preset_params<FX>(preset));
+  using Selector = typename FX::Params::template Family<"source">;
+  if constexpr (requires { typename Selector::PlanarWeights; })
+    HS_EXPECT_TRUE(effect.selectPreset(preset));
+  else
+    ComposedFrameWhiteBox::set_params(effect,
+                                      effects_tests::preset_params<FX>(preset));
   for (int frame = 0; frame < 3; ++frame)
     ComposedFrameWhiteBox::advance(effect);
   auto own = ComposedFrameWhiteBox::frame(effect);
@@ -184,11 +188,30 @@ void verify_export(size_t preset, int channel_tolerance, float alpha_tolerance,
         state.phase = resource.phase;
         state.noise = *resource.noise;
       }
-    } else if (id == "sample.grid.v4" || id == "sample.twin-wave.v3") {
-      auto &state = shader_chain_tests::state_as<In::Op::SourceClockState>(
+    } else if (id == "sample.planar.v1") {
+      auto &state = shader_chain_tests::state_as<In::Op::PlanarSourceState>(
           program, index);
+      if constexpr (FX::Params::template HAS<"source_grid">) {
+        const auto &grid = own.resources.template get<"source_grid">();
+        state.grid = {grid.primary, grid.secondary, grid.angle};
+      }
+      if constexpr (FX::Params::template HAS<"source_twin_wave">) {
+        const auto &wave = own.resources.template get<"source_twin_wave">();
+        state.twin_wave = {wave.primary, wave.secondary, wave.angle};
+      }
+      if constexpr (FX::Params::template HAS<"source_projected_noise">) {
+        const auto &noise =
+            own.resources.template get<"source_projected_noise">();
+        state.noise.phase = noise.noise_time;
+        state.noise.noise = *noise.noise;
+      }
+    } else if (id == "sample.grid.v4" || id == "sample.twin-wave.v3") {
       const auto &resource = own.resources.template get<"source">();
-      state = {resource.primary, resource.secondary, resource.angle};
+      if constexpr (requires { resource.primary; }) {
+        auto &state = shader_chain_tests::state_as<In::Op::SourceClockState>(
+            program, index);
+        state = {resource.primary, resource.secondary, resource.angle};
+      }
     } else if (id == "colorize.generated-palette.v4") {
       shader_chain_tests::state_as<In::Op::ColorClockState>(program, index)
           .oscillation_phase = own.palette_oscillation_phase;

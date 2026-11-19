@@ -8,9 +8,20 @@
  * @brief Death cases for pullback compilation and evaluation guards. */
 
 #include "tests/death/context.h"
+#include "core/render/pullback/composed_planar.h"
 #include "core/render/pullback/modulation_stack.h"
 
 namespace hs_test::death_tests {
+
+/** @brief Selecting an uncompiled planar kind traps. */
+inline void case_uncompiled_planar_source() {
+  using namespace Pullback::Source;
+  PlanarSelectorParams<PlanarKind::GRID, PlanarKind::BANDS> selector;
+  HS_EXPECT_EQ(selector.weights().exact, 0);
+  hs::log("death: admitted");
+  selector.source = PlanarKind::SPIRAL;
+  (void)selector.weights();
+}
 
 /** @brief Compiles an operator with an invalid memory layout.
  * @param variant Layout defect to introduce. */

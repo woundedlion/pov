@@ -394,6 +394,8 @@ inline void visit_untabled_members(Visit &&visit, const Family &family,
   if constexpr (requires { Family::TOPOLOGY; })
     for (const auto &field : Family::TOPOLOGY)
       member(field.id, field.member);
+  if constexpr (requires { typename Family::PlanarWeights; })
+    member("source", &Family::source);
   if constexpr (requires { family.terms; })
     member("terms", &Family::terms);
   if constexpr (requires { family.modulation; })

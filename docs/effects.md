@@ -726,12 +726,20 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `cosmic-eyeball` | `CosmicEyeball` | 1 |
 | `mobius-grid` | `MobiusGrid` | 2 |
 | `involution` | `Involution` | 1 |
-| `grid-warp` | `GridWarp` | 1 |
+| `grid-warp` | `GridWarp` | 3 |
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
 | `river-stones` | `RiverStones` | 1 |
 
-These 24 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Single-preset entries in `targets/Phantasm/phantasm_playlist.def` carry a fixed show window. The Phantasm playlist omits KaleidoscopeStainedGlass. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends.
+These 24 effects form the product-only `shader-collection` group. The Phantasm
+playlist defines fixed show windows for single-preset effects and GridWarp.
+GridWarp cycles through Coupled Grid, Spiral Bloom and Band Drift with
+84-frame dwells and 52-frame source morphs inside its 30-second window.
+The remaining multi-preset effects derive their show windows from the full
+preset cycle with 600-frame dwells and 480-frame segues. Frame budgets convert
+to show seconds at the nominal 16 fps. A slower render cadence can leave a
+cycle unfinished when its window ends. The playlist omits
+KaleidoscopeStainedGlass.
 
 The [device profile archive](profiles/README.md) and its indexes contain shipping captures, global-O3 references and supplemental variant reports. The shipping sweep reports steady render telemetry (`frame` minus buffer wait) from frame 2 through the last complete counter window under the shipping segment clip; setup frame 1 is separate, and subsequent transitions remain included. The reports identify source, frame scope, trailing exclusions and validator diagnostics. Measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
@@ -747,6 +755,11 @@ There is no universal camera parameter or pair of warp slots.
 
 A planar source consumes Plane, so it follows a projection and any selected
 planar warps.
+
+The workbench preset rail edits the show order, dwell and timed edges.
+Choosing a different planar source for a preset upgrades the stage to
+`sample.planar.v1`. Its source kind varies per preset, and a timed edge blends
+the two signed fields before weighting, coverage and colorization.
 
 A spherical source consumes Sphere directly. Selecting Spherical Noise or
 Spherical Cells in the workbench replaces projection, planar warps and the planar

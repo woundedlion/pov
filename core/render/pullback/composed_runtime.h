@@ -114,6 +114,12 @@ class ComposedEffect
   using Registration = ComposedRegistration<ComposedEffect, Traits>;
   using IntervalCache = ComposedIntervalCache<Traits>;
   using Clocks = ComposedClocks<Traits, ComposedEffect>;
+  using SourceResource = typename ComposedDetail::FindResource<
+      "source", typename ParamsT::ResourceTypes>::Type;
+  using SourceSelector =
+      typename ComposedDetail::FamilyOf<SourceResource>::Type;
+  static constexpr bool HAS_PLANAR =
+      requires { typename SourceSelector::PlanarWeights; };
   friend Clocks;
   friend Choreography;
   friend Registration;
@@ -181,8 +187,12 @@ public:
     static_assert(
         modulation_presets_are_supported(),
         "composed modulation presets must retain source and mechanic");
+    static_assert(planar_presets_use_compiled_kinds(),
+                  "composed planar kinds must match the preset bank");
     this->begin_choreography();
     state = persistent_arena.make<State>();
+    if constexpr (HAS_PLANAR)
+      source_state().weights = params.template get<"source">().weights();
     if constexpr (Traits::CACHE_DODECAHEDRAL_MATRICES)
       std::memcpy(state->dodecahedral_matrices.data(),
                   lenses::DodecahedralTable::GROUP.values.data(),
@@ -474,6 +484,8 @@ protected:
    *  @param target Parameters to adopt. */
   HS_FLASH_MEMBER void adopt_params(const Params &target) {
     params = target;
+    if constexpr (HAS_PLANAR)
+      adopt_source();
     palette.adopt(target.template get<"color">());
     this->refresh_modulation_controls();
   }
@@ -481,6 +493,8 @@ protected:
   /** @brief Re-derives the palette mapping weights after a slider write. */
   HS_FLASH_MEMBER void parameter_written() override {
     Choreography::parameter_written();
+    if constexpr (HAS_PLANAR)
+      adopt_source();
     palette.adopt(this->params.template get<"color">());
     this->refresh_modulation_controls();
   }
@@ -496,10 +510,69 @@ protected:
    * @param progress Eased transition progress, 0 to 1.
    */
   HS_FLASH_MEMBER void blend_params(float progress) {
-    Pullback::interpolate_into(params, transition.from, transition.to,
-                               progress);
+    if constexpr (HAS_PLANAR) {
+      const auto a = transition.from.template get<"source">().weights();
+      const auto b = transition.to.template get<"source">().weights();
+      source_state().weights =
+          SourceSelector::PlanarWeights::lerp_components(a, b, progress);
+      params.visit([&]<typename Resource>(auto &family) {
+        Source::sample_planar_family<Resource, SourceSelector>(
+            family, transition.from.template get<Resource::KEY>(),
+            transition.to.template get<Resource::KEY>(), progress, a, b);
+      });
+    } else
+      Pullback::interpolate_into(params, transition.from, transition.to,
+                                 progress);
     palette.blend(progress);
     this->refresh_modulation_controls();
+  }
+
+  /** @brief Replaces the current planar blend with the live selector. */
+  HS_FLASH_MEMBER void adopt_source()
+    requires HAS_PLANAR
+  {
+    const auto weights = params.template get<"source">().weights();
+    auto &source = source_state();
+    source.snapped |= source.weights.exact != weights.exact;
+    source.weights = weights;
+  }
+
+  /** @brief Admits a planar transition against every affine that uses its lattice.
+   * @param from Outgoing source and warp parameters.
+   * @param to Incoming source and warp parameters.
+   * @return True when the selected bases remain compatible. */
+  static HS_FLASH_MEMBER bool transition_admitted(const Params &from,
+                                                  const Params &to)
+    requires HAS_PLANAR
+  {
+    const auto &a = from.template get<"source">();
+    const auto &b = to.template get<"source">();
+    if (a.source == b.source)
+      return true;
+    bool admitted = true;
+    using Leaves =
+        ComposedDetail::PipelineLeaves<typename SpecT::template Pipeline<
+            ComposedDetail::SpecDiscoveryBinding<SpecT>>>;
+    from.visit([&]<typename Resource>(const auto &warp) {
+      if constexpr (std::is_base_of_v<Warp::AffineParams,
+                                      typename Resource::Family>) {
+        constexpr size_t INDEX = ComposedDetail::stage_index<
+            Leaves,
+            ComposedDetail::AffineStageKeyed<Resource::KEY>::template Match>();
+        if constexpr (INDEX < Leaves::STAGE_COUNT) {
+          using Affine = ComposedDetail::AffineStageOf<
+              typename Leaves::template StageAt<INDEX>>;
+          if constexpr (Affine::SOURCE_KEY.view() == "source" &&
+                        (Affine::TRACK ||
+                         Warp::includes(Affine::FORM,
+                                        Warp::AffineForm::TRANSLATES)))
+            admitted &= same_effective_lattice(
+                a.lattice(from), warp.lattice_period, b.lattice(to),
+                to.template get<Resource::KEY>().lattice_period);
+        }
+      }
+    });
+    return admitted;
   }
 
   /** @brief Starts the lens's repeating phase clock.
@@ -552,6 +625,24 @@ private:
     return false;
   }
 
+  static consteval bool planar_presets_use_compiled_kinds() {
+    if constexpr (!HAS_PLANAR)
+      return true;
+    else {
+      uint16_t used = 0;
+      for (size_t index = 0; index < Choreography::authored_preset_count();
+           ++index) {
+        const auto selector =
+            Choreography::preset_row(index).params.template get<"source">();
+        if (!Source::valid(selector))
+          return false;
+        used |=
+            static_cast<uint16_t>(1U << static_cast<unsigned>(selector.source));
+      }
+      return used == SourceSelector::KIND_MASK;
+    }
+  }
+
   static consteval bool modulation_presets_are_supported() {
     bool supported = true;
     Choreography::preset_row(0).params.visit(
@@ -581,7 +672,8 @@ private:
         OptionalDodecahedralFaces<Traits::CACHE_DODECAHEDRAL_FACES>,
         IntervalCache::RgbLuts,
         IntervalCache::History,
-        Registration::Storage {
+        Registration::Storage,
+        ComposedDetail::ResourcePlanarWeights<SourceResource> {
     OwnedResources resources;
     std::conditional_t<AUTHORED_PALETTE, AuthoredPaletteResources,
                        std::monostate>
@@ -608,6 +700,13 @@ private:
   }
 
   using State = StateLayout<typename Clocks::Storage>;
+
+  HS_FLASH_INLINE auto &source_state()
+    requires HAS_PLANAR
+  {
+    return static_cast<ComposedDetail::ResourcePlanarWeights<SourceResource> &>(
+        *state);
+  }
 
   /// Persistent-arena bytes one instance claims.
   static constexpr size_t FOOTPRINT_BYTES =
@@ -708,6 +807,12 @@ private:
       if (state->initialized)
         retained = &state->previous;
     clocks.prepare_views(frame, retained);
+    if constexpr (HAS_PLANAR) {
+      auto &source = frame.resources.template get<"source">();
+      source.weights = source_state().weights;
+      source.snapped = source_state().snapped;
+      source_state().snapped = false;
+    }
     if constexpr (TEMPORAL_SAMPLING) {
       frame.temporal = {frame.palette, frame.hue_rotation_lut, 1.0f};
       frame.temporal.hue_rotation_gamut = frame.hue_rotation_gamut;

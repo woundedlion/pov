@@ -85,6 +85,17 @@ consteval bool tessellations_derivable(std::index_sequence<Kinds...>) {
           ...);
 }
 
+/** @brief Checks that all catalog planar kinds compose as one source.
+ * @tparam Kinds Catalog kind indices.
+ * @return Whether the policy declares its keyed families. */
+template <size_t... Kinds>
+consteval bool planar_source_derivable(std::index_sequence<Kinds...>) {
+  using Policy = Pullback::Source::Planar<
+      ReachBinding, static_cast<Pullback::Source::PlanarKind>(Kinds)...>;
+  using Resources = Pullback::ComposedDetail::PolicyResources<Policy>;
+  return requires { typename Resources::Type; };
+}
+
 /** @brief Whether every fixed kaleidoscope symmetry and fold derives a lens.
  * @tparam Symmetries Symmetry values.
  * @return True when each symmetry and each specialized fold derives. */
@@ -113,6 +124,9 @@ template <typename Model> consteval bool family_derivable() {
   if constexpr (std::is_same_v<Model, In::Op::SampleTessellation>)
     return tessellations_derivable(
         std::make_index_sequence<std::size(In::Op::TESSELLATION_KIND_IDS)>{});
+  else if constexpr (std::is_same_v<Model, In::Op::SamplePlanar>)
+    return planar_source_derivable(
+        std::make_index_sequence<Pullback::Source::PLANAR_KIND_COUNT>{});
   else if constexpr (std::is_same_v<Model, In::Op::LensKaleidoscope>)
     return DerivableLens<Family> &&
            kaleidoscopes_derivable(std::make_index_sequence<std::size(

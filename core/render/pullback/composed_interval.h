@@ -123,6 +123,10 @@ struct IntervalDelta<Resource> {
 /** @brief Shared preparation for column samples of one frame interval. */
 template <typename Frame> class FrameInterval {
   using Params = decltype(Frame::params);
+  using SourceSelector = typename Params::template Family<"source">;
+  static constexpr bool HAS_PLANAR =
+      requires { typename SourceSelector::PlanarWeights; };
+
   const Frame &from;
   const Frame &to;
   Spacetime::TemporalRotation projection;
@@ -271,6 +275,9 @@ public:
    * @param frame Receives the context borrowing the endpoint resources.
    * @param fraction Frame progress in [0, 1]. */
   HS_FLASH_INLINE void at_into(Frame &frame, float fraction) const {
+    if constexpr (HAS_PLANAR)
+      if (to.resources.template get<"source">().snapped)
+        fraction = 1.0f;
     if (fraction <= 0.0f) {
       frame = from;
       to.params.visit([&]<typename Resource>(const auto &family) {
@@ -306,13 +313,25 @@ public:
       int family = 0;
       frame.params.visit(
           [&]<typename Resource>(auto &value) __attribute__((always_inline)) {
-            if (!(constant_families & (1u << family)))
-              sample_parameter_family(
-                  value, from.params.template get<Resource::KEY>(),
-                  to.params.template get<Resource::KEY>(), fraction);
+            if (!(constant_families & (1u << family))) {
+              const auto &a = from.params.template get<Resource::KEY>();
+              const auto &b = to.params.template get<Resource::KEY>();
+              if constexpr (HAS_PLANAR)
+                Source::sample_planar_family<Resource, SourceSelector>(
+                    value, a, b, fraction,
+                    from.resources.template get<"source">().weights,
+                    to.resources.template get<"source">().weights);
+              else
+                sample_parameter_family(value, a, b, fraction);
+            }
             ++family;
           });
     }
+    if constexpr (HAS_PLANAR)
+      frame.resources.template get<"source">().weights =
+          SourceSelector::PlanarWeights::lerp_components(
+              from.resources.template get<"source">().weights,
+              to.resources.template get<"source">().weights, fraction);
     frame.palette_mapping = Color::PaletteMappingWeights::lerp(
         from.palette_mapping, to.palette_mapping, fraction);
     frame.palette_oscillation_phase = Spacetime::ClockInterval::apply(

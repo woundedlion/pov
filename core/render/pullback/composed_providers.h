@@ -348,7 +348,9 @@ struct WarpProvider {
     using Params = std::remove_cvref_t<decltype(frame.params)>;
     if constexpr (Params::template HAS<SourceKey>) {
       const auto &source = frame.params.template get<SourceKey>();
-      if constexpr (requires { translation_lattice(source); })
+      if constexpr (requires { source.lattice(frame.params); })
+        return source.lattice(frame.params);
+      else if constexpr (requires { translation_lattice(source); })
         return translation_lattice(source);
       else
         return {};
@@ -366,6 +368,8 @@ struct WarpProvider {
     using Source = typename Params::template Family<SourceKey>;
     if constexpr (std::is_void_v<Source>)
       return Warp::RepeatReduction::UNWRAPPED;
+    else if constexpr (requires { Source::REPEAT_REDUCTION; })
+      return Source::REPEAT_REDUCTION;
     else if constexpr (!requires(const Source &source) {
                          translation_lattice(source);
                        })

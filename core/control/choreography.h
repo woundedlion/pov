@@ -181,6 +181,23 @@ public:
     return frames;
   }
 
+#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_HOOKS
+  /** @brief Arms an authored edge before its first draw.
+   * @param from Origin preset index.
+   * @param to Destination preset index.
+   * @return True when the authored timed edge is armed. */
+  bool start_document_transition(size_t from, size_t to) {
+    if (authored_preset_count() < 2 || from >= authored_preset_count() ||
+        to != (from + 1) % authored_preset_count() ||
+        Segue::Preset::frames(preset_departure(from)) == 0)
+      return false;
+    if (!this->selectPreset(from) || !advance_preset())
+      return false;
+    this->setAnimationsPaused(false);
+    return true;
+  }
+#endif
+
 #if HS_ENABLE_TEST_HOOKS
   /** @brief Resolves the production preset row parameters.
    * @param index Preset index.
@@ -393,6 +410,11 @@ protected:
       if (change.origin == PresetChangeOrigin::AUTOMATIC && frames > 0) {
         if (transition.active)
           return false;
+        if constexpr (requires {
+                        Derived::transition_admitted(params, target);
+                      })
+          if (!Derived::transition_admitted(params, target))
+            return false;
         const auto *lerp = std::get_if<Segue::Preset::Lerp>(&departure);
         const uint16_t transition_serial = transition.serial + 1;
         if (timeline.add_get(

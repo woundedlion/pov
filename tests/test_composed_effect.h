@@ -23,6 +23,7 @@
 #include "tests/composed_effect/grid_worms.h"
 #include "tests/composed_effect/authored_policies.h"
 #include "tests/composed_effect/base_cases.h"
+#include "tests/composed_effect/planar_source.h"
 
 namespace hs_test::composed_effect_tests {
 
@@ -46,6 +47,8 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_millefiori_radial_table_interval);
   HS_RUN(test_millefiori_document_pipeline);
   HS_RUN(test_promoted_document_pipelines);
+  HS_RUN(test_grid_warp_source_morph);
+  HS_RUN(test_grid_warp_planar_admission);
   HS_RUN(test_grid_worms_twist_clocks);
   HS_RUN(test_grid_worms_document_pipeline);
   HS_RUN(test_ash_cloud_document_pipeline);

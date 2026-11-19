@@ -143,6 +143,9 @@ public:
             return static_cast<int32_t>(instance_hash(
                 Effect::authored_instance_label(Resource::KEY.view()),
                 OPERATOR));
+          } else if constexpr (Resource::KEY.view() ==
+                               "source_projected_noise") {
+            return SEED;
           } else if constexpr (ComposedDetail::fixed_noise_qualified<Resource>(
                                    typename Params::ResourceTypes{})) {
             constexpr uint32_t HASH = fnv1a(Resource::KEY.view());

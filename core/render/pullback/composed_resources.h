@@ -582,6 +582,16 @@ template <typename Resource> struct ResourceMobiusInterval<Resource, true> {
   bool active = false;     ///< Controls and horizontal magnitude match.
 };
 
+/** @brief Optional planar selector state for a sampled frame.
+ * @tparam Resource Keyed parameter resource. */
+template <typename Resource> struct ResourcePlanarWeights {};
+template <typename Resource>
+  requires requires { typename Resource::Family::PlanarWeights; }
+struct ResourcePlanarWeights<Resource> {
+  typename Resource::Family::PlanarWeights weights; ///< Sampled source mix.
+  bool snapped = false; ///< Render at the current endpoint for this frame.
+};
+
 /** @brief Frame snapshot of one resource: its clocks and noise view.
  * @tparam Resource Keyed resource.
  * @tparam PhaseNoise Whether frames borrow chamber noise patches. */
@@ -592,6 +602,7 @@ struct ResourceFrame
       ResourceMobiusView<Resource>,
       ResourceRippleRadialView<Resource>,
       ResourceModulationView<Resource>,
+      ResourcePlanarWeights<Resource>,
       ResourcePhaseNoiseView<Resource,
                              PhaseNoise && RESOURCE_DIRECT_NOISE<Resource>> {};
 

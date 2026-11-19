@@ -67,6 +67,8 @@ struct ParameterLayoutHash {
       text("int32");
     } else if constexpr (std::is_same_v<Member, Pattern::SourceKind>) {
       text("pattern-source-enum8");
+    } else if constexpr (std::is_same_v<Member, Pullback::Source::PlanarKind>) {
+      text("planar-source-enum8");
     } else if constexpr (std::is_same_v<Member, Pattern::Evaluation>) {
       text("pattern-evaluation-enum8");
     } else if constexpr (std::is_same_v<Member, Pattern::NoiseBasis>) {
@@ -262,7 +264,7 @@ constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"Millefiori", 2, 436, 4151912069677071222ULL},
     {"GridSpace", 6, 272, 9211873771733847186ULL},
     {"GridWorms", 3, 252, 11193120348943479710ULL},
-    {"GridWarp", 2, 448, 9783361750688766096ULL},
+    {"GridWarp", 3, 480, 6265964079350224296ULL},
     {"LiquidWindows", 2, 296, 8838112055952055764ULL},
     {"Iridescence", 2, 516, 4473797754982781858ULL},
     {"RiverStones", 2, 668, 7241475773858249476ULL},
